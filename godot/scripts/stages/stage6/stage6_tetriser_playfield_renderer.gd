@@ -34,6 +34,9 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_
 	if canvas == null:
 		return
 	var cell_size: float = float(context.get("stage6_tetriser_cell_size", 20.0))
+	var cube: Dictionary = context.get("stage6_tetriser_cube", {})
+	if not cube.is_empty():
+		_draw_cube(canvas, cube, shake_offset)
 	for tetro in context.get("stage6_tetriser_tetrominoes", []):
 		_draw_tetromino(canvas, tetro, cell_size, shake_offset)
 	for guard in context.get("stage6_tetriser_guard_blocks", []):
@@ -85,6 +88,35 @@ func _draw_guard_block(canvas: CanvasItem, block: Dictionary, cell_size: float, 
 		canvas.draw_rect(rect, fill)
 		canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
 		canvas.draw_rect(rect, BORDER_COLOR, false, 2.0)
+
+
+func _draw_cube(canvas: CanvasItem, cube: Dictionary, shake_offset: Vector2) -> void:
+	var center: Vector2 = _as_vector2(cube.get("center", Vector2.ZERO)) + shake_offset
+	var radius: float = float(cube.get("radius", 90.0))
+	var rebuild: bool = bool(cube.get("rebuild", false))
+	var ring_alpha: float = 0.25 if rebuild else 0.5
+	canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(0.5, 0.7, 0.95, ring_alpha), 2.0, true)
+
+	var grid: Array = cube.get("grid", [])
+	var n: int = int(cube.get("grid_size", 3))
+	if n > 0 and grid.size() >= n * n:
+		var side: float = radius * 1.25
+		var cell: float = side / float(n)
+		var top_left: Vector2 = center - Vector2(side, side) * 0.5
+		var cell_alpha: float = 0.35 if rebuild else 1.0
+		for r in range(n):
+			for c in range(n):
+				var col: Color = grid[r * n + c]
+				col.a = cell_alpha
+				var rect := Rect2(top_left + Vector2(float(c) * cell, float(r) * cell) + Vector2(1.0, 1.0), Vector2(cell - 2.0, cell - 2.0))
+				canvas.draw_rect(rect, col)
+
+	if bool(cube.get("solve_pending", false)):
+		var prog: float = float(cube.get("solve_progress", 0.0))
+		canvas.draw_arc(center, radius + 4.0, 0.0, TAU, 48, Color(1.0, 0.9, 0.4, 0.3 + 0.5 * prog), 3.0, true)
+	elif rebuild:
+		var rp: float = float(cube.get("rebuild_progress", 0)) / maxf(1.0, float(cube.get("rebuild_needed", 5)))
+		canvas.draw_arc(center, radius + 4.0, -PI * 0.5, -PI * 0.5 + TAU * rp, 48, Color(0.4, 0.9, 0.6, 0.7), 3.0, true)
 
 
 func _draw_wall_cell(canvas: CanvasItem, wall_cell: Dictionary, cell_vec: Vector2, shake_offset: Vector2) -> void:

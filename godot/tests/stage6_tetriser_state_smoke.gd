@@ -44,6 +44,8 @@ func _init() -> void:
 	_test_smoke_and_explosion_destroy_obstacles()
 	_test_super_activation_and_drain()
 	_test_super_scale_and_tetromino()
+	_test_cube_solve_clears_field()
+	_test_cube_rebuild_reactivates()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -294,6 +296,39 @@ func _test_super_scale_and_tetromino() -> void:
 		if bool(t.get("super", false)) and float(t.get("cell_size", 20.0)) > 30.0:
 			found_big_super = true
 	_expect(found_big_super, "tetromino spawned during super is super + 1.7x cell (34px)")
+
+
+func _test_cube_solve_clears_field() -> void:
+	var state: Object = Stage6TetriserState.new()
+	_expect(state.debug_is_cube_active(), "cube starts active")
+	state.debug_spawn_tetromino_at(Vector2(300.0, 400.0), "O", false)
+	state.debug_force_spawn_wall()
+	_expect(state.debug_get_tetromino_count() + state.debug_get_wall_cell_count() > 0, "precondition: field has obstacles")
+	state.debug_force_cube_solve_pending()
+	for _i in range(25):   # 1.25s > solve delay 1.0s → 폭발
+		state.update(0.05, _active_context())
+	_expect(state.debug_get_tetromino_count() == 0, "cube explosion clears tetrominoes")
+	_expect(state.debug_get_wall_cell_count() == 0, "cube explosion clears walls")
+	_expect(state.debug_is_cube_rebuild() and not state.debug_is_cube_active(), "cube enters rebuild mode after explosion")
+
+
+func _test_cube_rebuild_reactivates() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_cube_solve_pending()
+	for _i in range(25):
+		state.update(0.05, _active_context())
+	_expect(state.debug_is_cube_rebuild(), "precondition: cube in rebuild")
+	# 재조립 중 테트로미노 5개를 대시로 파괴 → 새 활성 큐브.
+	var dash_ctx := {
+		"current_stage": 6, "ball_active": true, "waiting_for_serve": false,
+		"dash_snapshot": {"active": true},
+		"player_pos": Vector2(295.0, 695.0),
+		"player_paddle_size": Vector2(60.0, 30.0),
+	}
+	for _i in range(5):
+		state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+		state.update(0.05, dash_ctx)
+	_expect(state.debug_is_cube_active(), "cube re-activates after 5 tetromino kills during rebuild")
 
 
 func _test_wrong_stage_resets() -> void:

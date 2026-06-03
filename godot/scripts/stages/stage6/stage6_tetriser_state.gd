@@ -80,6 +80,22 @@ const SUPER_SCALE_LERP_PER_SEC := 4.0
 const SUPER_INTRO_SEC := 0.6             # 포효 포즈(제자리)
 const SUPER_TETRO_CELL_SCALE := 1.7      # super 테트로 셀 20→34 (STAGE7_TETRO_SUPER_SCALE)
 
+# === 중앙 큐브 (원본 stage7_center_cube_state, 2D 논리 큐브) ===
+# 화면 중앙 원형 존. 공이 진입할 때마다 3×3 그리드 셔플, passes_to_solve(10~14)
+# 도달 시 단색 정답 → 1초 후 폭발 → 맵 테트로/벽 정리. 이후 재조립 모드:
+# 플레이어가 테트로 5개 파괴 시 새 큐브 활성. (광선 melt는 4c, EMP는 4c.)
+const CUBE_CENTER := Vector2(380.0, 375.0)   # WIDTH/2, HEIGHT/2
+const CUBE_RADIUS := 90.0                    # STAGE7_CUBE_RADIUS
+const CUBE_GRID := 3
+const CUBE_SOLVE_DELAY_SEC := 1.0            # STAGE7_CUBE_SOLVE_DELAY_MS=1000
+const CUBE_REBUILD_NEEDED := 5
+const CUBE_PASS_MIN := 10
+const CUBE_PASS_MAX := 14
+const CUBE_PALETTE := [
+	Color(1.0, 0.31, 0.31), Color(0.31, 0.70, 1.0), Color(1.0, 0.78, 0.24),
+	Color(0.31, 0.90, 0.47), Color(1.0, 0.59, 0.0), Color(0.94, 0.94, 0.94),
+]
+
 # 표준 7종 테트로미노 셀 오프셋 (원본 game_logic/_tetro_wall_shapes 동일).
 const TETRO_SHAPES := {
 	"I": [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)],
@@ -115,6 +131,7 @@ var _super_active: bool = false
 var _super_intro_timer: float = 0.0
 var _super_scale: float = 1.0
 var _super_target_scale: float = 1.0
+var _cube: Dictionary = {}
 var _shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
 
@@ -124,6 +141,7 @@ func _init() -> void:
 	_arm_spawn_timer()
 	_arm_guard_timer()
 	_arm_wall_timer()
+	_init_cube()
 
 
 # ============================================================================
@@ -161,6 +179,7 @@ func _clear_combat_state() -> void:
 	_arm_spawn_timer()
 	_arm_guard_timer()
 	_arm_wall_timer()
+	_init_cube()
 
 
 # ============================================================================
@@ -193,6 +212,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	_update_guard_blocks(clamped_delta)
 	_update_wall_lifetime(clamped_delta)
 	_apply_player_attack_destruction(context, deps)
+	_update_cube(clamped_delta, context)
 	_update_debris(clamped_delta)
 	return _build_result()
 
@@ -584,11 +604,14 @@ func _choose_reflection_axis(prev_rect: Rect2, cur_rect: Rect2, block: Rect2) ->
 	return "h" if overlap_x < overlap_y else "v"
 
 
-# 블록 그룹 전체 파괴(테트로/가드) + 파편 플래시.
+# 블록 그룹 전체 파괴(테트로/가드/벽 단일셀) + 파편 플래시.
 func _destroy_block_group(blocks: Array, block: Dictionary, color: Color) -> void:
 	_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), color, float(block.get("cell_size", TETRO_CELL_SIZE)))
+	var is_tetromino: bool = not block.has("kind")   # 가드/벽은 "kind" 보유, 테트로미노는 없음
 	blocks.erase(block)
-	# TODO(폴리시): tetrisbreak.wav 사운드 + 중앙 큐브 재조립 notify(step 4b).
+	if is_tetromino:
+		_on_tetromino_destroyed()   # 큐브 재조립 진행(rebuild 모드일 때만)
+	# TODO(폴리시): tetrisbreak.wav 사운드.
 
 
 func _emit_debris(origin: Vector2, cells: Array, color: Color, cell_size: float) -> void:
@@ -702,6 +725,125 @@ func _update_debris(delta: float) -> void:
 	_debris = alive
 
 
+# ============================================================================
+# 중앙 큐브 (2D 논리 큐브)
+# ============================================================================
+
+func _init_cube() -> void:
+	_cube = {
+		"active": true,
+		"rebuild": false,
+		"rebuild_progress": 0,
+		"grid": _random_cube_grid(),
+		"passes": 0,
+		"passes_to_solve": _rng.randi_range(CUBE_PASS_MIN, CUBE_PASS_MAX),
+		"ball_inside": false,
+		"solve_pending": false,
+		"solve_timer": 0.0,
+	}
+
+
+func _random_cube_grid() -> Array:
+	var grid: Array = []
+	for _i in range(CUBE_GRID * CUBE_GRID):
+		grid.append(CUBE_PALETTE[_rng.randi_range(0, CUBE_PALETTE.size() - 1)])
+	if _grid_uniform(grid):   # 우연한 단색 방지
+		grid[_rng.randi_range(0, grid.size() - 1)] = CUBE_PALETTE[(CUBE_PALETTE.find(grid[0]) + 1) % CUBE_PALETTE.size()]
+	return grid
+
+
+func _uniform_grid() -> Array:
+	var color: Color = CUBE_PALETTE[_rng.randi_range(0, CUBE_PALETTE.size() - 1)]
+	var grid: Array = []
+	for _i in range(CUBE_GRID * CUBE_GRID):
+		grid.append(color)
+	return grid
+
+
+func _grid_uniform(grid: Array) -> bool:
+	if grid.is_empty():
+		return false
+	for c in grid:
+		if c != grid[0]:
+			return false
+	return true
+
+
+func _update_cube(delta: float, context: Dictionary) -> void:
+	if _cube.is_empty():
+		_init_cube()
+	if bool(_cube.get("solve_pending", false)):
+		_cube["solve_timer"] = float(_cube["solve_timer"]) - delta
+		if float(_cube["solve_timer"]) <= 0.0:
+			_explode_cube()
+		return
+	if not bool(_cube.get("active", false)):
+		return   # 재조립 모드: 테트로 파괴를 기다림(수동).
+	var ball_pos: Vector2 = context.get("ball_pos", Vector2(-9999.0, -9999.0))
+	var inside: bool = ball_pos.distance_to(CUBE_CENTER) <= CUBE_RADIUS
+	if inside and not bool(_cube.get("ball_inside", false)):
+		_on_ball_enter_cube()
+	_cube["ball_inside"] = inside
+
+
+func _on_ball_enter_cube() -> void:
+	_cube["passes"] = int(_cube["passes"]) + 1
+	if int(_cube["passes"]) >= int(_cube["passes_to_solve"]):
+		_cube["grid"] = _uniform_grid()        # 정답(단색)
+		_cube["solve_pending"] = true
+		_cube["solve_timer"] = CUBE_SOLVE_DELAY_SEC
+	else:
+		_cube["grid"] = _random_cube_grid()    # 셔플
+
+
+# 폭발: 맵 테트로/벽 정리(원본 stage7_tetrominoes 증발) 후 재조립 모드 진입.
+func _explode_cube() -> void:
+	_clear_blocks_with_debris(_tetrominoes)
+	_clear_blocks_with_debris(_wall_blocks)
+	# 큐브 폭발 플래시(단일 큰 셀 2*radius). 파편 시스템이 확장/페이드 처리.
+	_emit_debris(CUBE_CENTER - Vector2(CUBE_RADIUS, CUBE_RADIUS), [Vector2.ZERO], Color(1.0, 0.85, 0.4), CUBE_RADIUS * 2.0)
+	_cube["active"] = false
+	_cube["rebuild"] = true
+	_cube["rebuild_progress"] = 0
+	_cube["solve_pending"] = false
+	_cube["solve_timer"] = 0.0
+	# TODO(4c/폴리시): grenade-style 폭발 VFX, EMP 파문, 스타포인트 스폰.
+
+
+func _clear_blocks_with_debris(blocks: Array) -> void:
+	for block in blocks:
+		_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), _block_color(block), float(block.get("cell_size", TETRO_CELL_SIZE)))
+	blocks.clear()
+
+
+func _on_tetromino_destroyed() -> void:
+	if not bool(_cube.get("rebuild", false)):
+		return
+	_cube["rebuild_progress"] = int(_cube["rebuild_progress"]) + 1
+	if int(_cube["rebuild_progress"]) >= CUBE_REBUILD_NEEDED:
+		_init_cube()   # 재조립 완성 → 새 활성 큐브
+
+
+func _build_cube_draw_data() -> Dictionary:
+	if _cube.is_empty():
+		return {}
+	var solve_progress: float = 0.0
+	if bool(_cube.get("solve_pending", false)):
+		solve_progress = clampf(1.0 - float(_cube.get("solve_timer", 0.0)) / CUBE_SOLVE_DELAY_SEC, 0.0, 1.0)
+	return {
+		"center": CUBE_CENTER,
+		"radius": CUBE_RADIUS,
+		"grid": (_cube.get("grid", []) as Array).duplicate(),
+		"grid_size": CUBE_GRID,
+		"active": bool(_cube.get("active", false)),
+		"rebuild": bool(_cube.get("rebuild", false)),
+		"rebuild_progress": int(_cube.get("rebuild_progress", 0)),
+		"rebuild_needed": CUBE_REBUILD_NEEDED,
+		"solve_pending": bool(_cube.get("solve_pending", false)),
+		"solve_progress": solve_progress,
+	}
+
+
 # 원본 game_logic/stage7_tetriser._rotate_cells 포트: (x,y) -> (-y,x) 후 비음수 정규화.
 func _rotate_cells(cells: Array, times: int) -> Array:
 	var pts: Array = cells.duplicate()
@@ -757,6 +899,7 @@ func get_actor_draw_context() -> Dictionary:
 		"stage6_tetriser_super_active": _super_active,
 		"stage6_tetriser_super_scale": _super_scale,
 		"stage6_tetriser_super_intro": _super_intro_timer > 0.0,
+		"stage6_tetriser_cube": _build_cube_draw_data(),
 	}
 
 
@@ -919,6 +1062,29 @@ func debug_is_super_active() -> bool:
 
 func debug_get_super_scale() -> float:
 	return _super_scale
+
+
+func debug_is_cube_active() -> bool:
+	return bool(_cube.get("active", false))
+
+
+func debug_get_cube_rebuild_progress() -> int:
+	return int(_cube.get("rebuild_progress", 0))
+
+
+func debug_is_cube_rebuild() -> bool:
+	return bool(_cube.get("rebuild", false))
+
+
+# 결정론적 테스트용: 공 1회 큐브 통과 시뮬레이션.
+func debug_pass_ball_through_cube() -> void:
+	_on_ball_enter_cube()
+
+
+# 결정론적 테스트용: 솔브 대기까지 강제로 패스 누적 후, delta로 솔브 타이머 진행.
+func debug_force_cube_solve_pending() -> void:
+	_cube["passes"] = int(_cube.get("passes_to_solve", 10))
+	_on_ball_enter_cube()
 
 
 func debug_get_tetromino_count() -> int:
