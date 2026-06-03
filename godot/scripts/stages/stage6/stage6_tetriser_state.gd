@@ -1063,7 +1063,7 @@ func get_boss_ai_context() -> Dictionary:
 
 
 func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}) -> Dictionary:
-	# 보스 카드 HUD(step 5)에서 소비 예정. 현재는 게이지 상태만 노출.
+	# 보스 스킬 카드 HUD(달지식)가 소비. 게이지 + 4스킬(낙하/가드/벽/초인) 카드.
 	return {
 		"stage6_boss_skill_hud_active": true,
 		"stage6_boss_skill_hud_boss_name": BOSS_NAME,
@@ -1071,6 +1071,43 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage6_boss_skill_hud_gauge": boss_gauge,
 		"stage6_boss_skill_hud_gauge_max": GAUGE_MAX,
 		"stage6_boss_skill_hud_super_active": _super_active,
+		"stage6_boss_skill_hud_skills": _build_hud_skills(),
+	}
+
+
+func _build_hud_skills() -> Array:
+	return [
+		_hud_cost_skill("stage6_tetro_drop", "낙하 테트로", Color(0.45, 0.70, 1.0), TETRO_GAUGE_COST),
+		_hud_cost_skill("stage6_guard", "가드 블록", GUARD_COLOR, GUARD_COST_SINGLE),
+		_hud_cost_skill("stage6_wall", "테트로 벽", Color(0.74, 0.62, 0.48), WALL_COST),
+		_hud_super_skill(),
+	]
+
+
+func _hud_cost_skill(id: String, skill_name: String, color: Color, cost: float) -> Dictionary:
+	var ready: bool = boss_gauge >= cost and not _super_active
+	return {
+		"id": id,
+		"name": skill_name,
+		"color": color,
+		"cost": cost,
+		"progress": clampf(boss_gauge / maxf(1.0, cost), 0.0, 1.0),
+		"ready": ready,
+		"active": false,
+		"status": "ready" if ready else ("paused" if _super_active else "charging"),
+	}
+
+
+func _hud_super_skill() -> Dictionary:
+	var ready: bool = boss_gauge >= SUPER_ACTIVATE_GAUGE and not _super_active
+	return {
+		"id": "stage6_super",
+		"name": "초인테트리서",
+		"color": Color(1.0, 0.45, 0.18),
+		"progress": clampf(boss_gauge / SUPER_ACTIVATE_GAUGE, 0.0, 1.0),
+		"ready": ready,
+		"active": _super_active,
+		"status": "casting" if _super_active else ("ready" if ready else "charging"),
 	}
 
 

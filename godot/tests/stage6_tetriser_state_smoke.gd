@@ -4,6 +4,7 @@ extends SceneTree
 # (스폰/조립→낙하→정착) + actor draw context 노출 검증.
 
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
+const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
 
 var _failures: Array[String] = []
 
@@ -47,6 +48,7 @@ func _init() -> void:
 	_test_cube_solve_clears_field()
 	_test_cube_rebuild_reactivates()
 	_test_super_laser_melts_cube()
+	_test_boss_skill_hud()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -343,6 +345,37 @@ func _test_super_laser_melts_cube() -> void:
 	_expect(state.debug_get_tetromino_count() == 0, "laser melt clears tetrominoes")
 	_expect(state.debug_get_laser_state() == "firing", "laser is firing after charge (state=%s)" % state.debug_get_laser_state())
 	_expect(state.debug_get_emp_count() > 0, "EMP ripple emitted on laser melt")
+
+
+func _test_boss_skill_hud() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_set_gauge(40.0)   # tetro_drop(30) 가능, guard/wall(50) 불가
+	var hud: Dictionary = state.get_hud_context()
+	var skills: Array = hud.get("stage6_boss_skill_hud_skills", [])
+	_expect(skills.size() == 4, "HUD exposes 4 boss skills")
+	var by_id := {}
+	for s in skills:
+		by_id[str(s.get("id", ""))] = s
+	_expect(bool(by_id.get("stage6_tetro_drop", {}).get("ready", false)), "tetro drop card ready at gauge>=30")
+	_expect(not bool(by_id.get("stage6_guard", {}).get("ready", false)), "guard card not ready at gauge<50")
+
+	var renderer: Object = Stage6TetriserBossSkillHudRenderer.new()
+	var ctx: Dictionary = hud.duplicate(true)
+	ctx["view_size"] = Vector2(920.0, 750.0)
+	ctx["game_offset"] = Vector2(80.0, 0.0)
+	ctx["game_size"] = Vector2(760.0, 750.0)
+	ctx["current_stage"] = 6
+	var layout: Dictionary = renderer.build_card_layout(ctx)
+	_expect((layout.get("entries", []) as Array).size() == 4, "HUD layout builds 4 cards")
+	_expect((layout.get("rects", []) as Array).size() == 4, "HUD layout builds 4 card rects")
+
+	state.debug_set_gauge(500.0)
+	state.update(0.05, _active_context())
+	var found_super_active := false
+	for s2 in state.get_hud_context().get("stage6_boss_skill_hud_skills", []):
+		if str(s2.get("id", "")) == "stage6_super" and bool(s2.get("active", false)):
+			found_super_active = true
+	_expect(found_super_active, "super skill card shows active during 초인테트리서")
 
 
 func _test_wrong_stage_resets() -> void:

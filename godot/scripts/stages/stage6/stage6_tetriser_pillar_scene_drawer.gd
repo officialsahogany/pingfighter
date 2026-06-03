@@ -27,8 +27,18 @@ func draw_pillar_background_overlay(_canvas: CanvasItem, _context: Dictionary, _
 	pass
 
 
-func draw_post_playfield_hud(_canvas: CanvasItem, _context: Dictionary, _registry: Object) -> void:
-	pass
+func draw_post_playfield_hud(canvas: CanvasItem, context: Dictionary, registry: Object) -> void:
+	if canvas == null or registry == null:
+		return
+	var renderer: Object = registry.get_instance("stage6_tetriser_boss_skill_hud_renderer")
+	if renderer == null or not renderer.has_method("draw"):
+		return
+	var state: Object = registry.get_instance("stage6_tetriser_state")
+	if state == null or not state.has_method("get_hud_context"):
+		return
+	var hud_context: Dictionary = context.duplicate(true)
+	hud_context.merge(state.get_hud_context(null, context), true)
+	renderer.draw(canvas, hud_context)
 
 
 func get_asset_status() -> Dictionary:
