@@ -31,6 +31,14 @@ const STAGE_MODULES := {
 		"playfield_renderer": "stage5_hongryun_playfield_renderer",
 		"boss_skill_hud_renderer": "stage5_hongryun_boss_skill_hud_renderer",
 	},
+	6: {
+		"actor_renderer": "stage6_tetriser_actor_renderer",
+		"boss_actor_renderer": "stage6_tetriser_boss_actor_renderer",
+		"pillar_scene_drawer": "stage6_tetriser_pillar_scene_drawer",
+		"stage_background": "stage6_tetriser_pillar_background",
+		"playfield_renderer": "stage6_tetriser_playfield_renderer",
+		"boss_skill_hud_renderer": "stage6_tetriser_boss_skill_hud_renderer",
+	},
 }
 
 

@@ -8,7 +8,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 # Engine code-stage id where the demo sequence stops advancing automatically.
 # Keep this as a code-stage boundary; public stage numbering can differ from
 # the internal stage id mapping documented in AGENTS.md.
-const DEMO_STAGE_SEQUENCE_END := 5
+const DEMO_STAGE_SEQUENCE_END := 6
 const STAGE_TRANSITION_LOADING_MIN_SECONDS := 2.20
 const STAGE_TRANSITION_LOADING_START_PROGRESS := 0.0
 const STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS := 0.92

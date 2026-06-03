@@ -30,6 +30,7 @@ const JUNIOR_BOSS_MOVEMENT_MULTIPLIER: float = 0.90
 const MYTHIC_BOSS_MOVEMENT_MULTIPLIER: float = 1.10
 const DEFAULT_BOSS_DASH_MAX_TOKENS: int = 1
 const MYTHIC_BOSS_DASH_MAX_TOKENS: int = 2
+const MYTHIC_STAGE5_BOSS_DASH_MAX_TOKENS: int = 3
 const BOSS_STAGE_SPEED_RATE: float = 0.03
 const BOSS_STAGE_SPEED_CAP: float = 0.50
 const BOSS_DASH_DISTANCE_STAGE_RATE: float = 0.05
@@ -69,11 +70,13 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_movement_decel": boss_movement_profile["boss_movement_decel"],
 		"boss_movement_max_speed": boss_movement_profile["boss_movement_max_speed"],
 		"boss_dash_enabled": _is_boss_dash_enabled(current_stage),
-		"boss_dash_max_tokens": _get_boss_dash_max_tokens(ai_mode),
+		"boss_dash_max_tokens": _get_boss_dash_max_tokens(ai_mode, current_stage),
 		"boss_dash_stage_distance_multiplier": boss_dash_profile["boss_dash_stage_distance_multiplier"],
 		"boss_dash_stage_cooldown_multiplier": boss_dash_profile["boss_dash_stage_cooldown_multiplier"],
 		"boss_dash_max_distance": boss_dash_profile["boss_dash_max_distance"],
 		"boss_dash_trigger_chance": 0.30,
+		"boss_dash_chain_enabled": _is_boss_dash_chain_enabled(ai_mode, current_stage),
+		"boss_dash_chain_trigger_chance": 0.30,
 		"boss_dash_cooldown_min_seconds": boss_dash_profile["boss_dash_cooldown_min_seconds"],
 		"boss_dash_cooldown_max_seconds": boss_dash_profile["boss_dash_cooldown_max_seconds"],
 		"boss_dash_stun_seconds": 0.60,
@@ -127,6 +130,11 @@ func _merge_stage_context(context: Dictionary, registry: Object, current_stage: 
 		var stage5_hongryun_state: Object = _get_instance(registry, "stage5_hongryun_state")
 		if stage5_hongryun_state != null and stage5_hongryun_state.has_method("get_boss_ai_context"):
 			context.merge(stage5_hongryun_state.get_boss_ai_context(), true)
+		return
+	if current_stage == 6:
+		var stage6_tetriser_state: Object = _get_instance(registry, "stage6_tetriser_state")
+		if stage6_tetriser_state != null and stage6_tetriser_state.has_method("get_boss_ai_context"):
+			context.merge(stage6_tetriser_state.get_boss_ai_context(), true)
 		return
 	if current_stage != 2:
 		return
@@ -198,10 +206,16 @@ func _get_boss_league_movement_multiplier(ai_mode: String) -> float:
 	return 1.0
 
 
-func _get_boss_dash_max_tokens(ai_mode: String) -> int:
+func _get_boss_dash_max_tokens(ai_mode: String, current_stage: int) -> int:
 	if _normalize_league_mode(ai_mode) == "mythic":
+		if current_stage >= 5:
+			return MYTHIC_STAGE5_BOSS_DASH_MAX_TOKENS
 		return MYTHIC_BOSS_DASH_MAX_TOKENS
 	return DEFAULT_BOSS_DASH_MAX_TOKENS
+
+
+func _is_boss_dash_chain_enabled(ai_mode: String, current_stage: int) -> bool:
+	return _get_boss_dash_max_tokens(ai_mode, current_stage) > 1
 
 
 func _normalize_league_mode(ai_mode: String) -> String:

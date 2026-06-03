@@ -333,6 +333,34 @@ const MODULES := {
 		"path": "res://scripts/stages/stage4/stage4_ponk_gauge_hud_renderer.gd",
 		"label": "stage4 Ponk gauge HUD renderer",
 	},
+	"stage6_tetriser_state": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_state.gd",
+		"label": "stage6 Tetriser boss state",
+	},
+	"stage6_tetriser_actor_renderer": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_actor_renderer.gd",
+		"label": "stage6 Tetriser actor renderer",
+	},
+	"stage6_tetriser_boss_actor_renderer": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_boss_actor_renderer.gd",
+		"label": "stage6 Tetriser boss actor renderer",
+	},
+	"stage6_tetriser_playfield_renderer": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_playfield_renderer.gd",
+		"label": "stage6 Tetriser playfield renderer",
+	},
+	"stage6_tetriser_pillar_background": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_pillar_background.gd",
+		"label": "stage6 Tetriser pillar background",
+	},
+	"stage6_tetriser_pillar_scene_drawer": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd",
+		"label": "stage6 Tetriser pillar scene drawer",
+	},
+	"stage6_tetriser_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd",
+		"label": "stage6 Tetriser boss skill HUD renderer",
+	},
 }
 
 

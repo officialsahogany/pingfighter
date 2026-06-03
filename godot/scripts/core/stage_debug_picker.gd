@@ -8,7 +8,7 @@ const STAGE_OPTIONS := [
 	{"id": 3, "name": "스테이지 3", "desc": "멘헤라"},
 	{"id": 4, "name": "스테이지 4", "desc": "소림사"},
 	{"id": 5, "name": "스테이지 5", "desc": "홍련"},
-	{"id": 7, "name": "스테이지 7", "desc": "테트리서"},
+	{"id": 6, "name": "스테이지 6", "desc": "테트리서"},
 	{"id": 8, "name": "스테이지 8", "desc": "아카무 리고"},
 	{"id": 9, "name": "스테이지 9", "desc": "미노타우로스"},
 	{"id": 10, "name": "스테이지 10", "desc": "최종 관문"},
@@ -46,6 +46,11 @@ const STAGE_RESET_MODULE_KEYS := [
 	"stage5_hongryun_state",
 	"stage5_hongryun_fire_machine_event",
 	"stage5_hongryun_boss_skill_hud_renderer",
+	"stage6_tetriser_pillar_background",
+	"stage6_tetriser_actor_renderer",
+	"stage6_tetriser_pillar_scene_drawer",
+	"stage6_tetriser_state",
+	"stage6_tetriser_boss_skill_hud_renderer",
 	"stage1_dalji_whip_skill_state",
 	"stage1_dalji_spinning_top_skill_state",
 	"stage1_dalji_boss_skill_cooldown_state",
@@ -156,13 +161,13 @@ func draw(canvas: CanvasItem, owner: Object, view_size: Vector2) -> void:
 	for index in range(STAGE_OPTIONS.size()):
 		_draw_card(canvas, font, _get_card_rect(index, panel_rect), STAGE_OPTIONS[index], index == selected_index, current_stage)
 
-	var foot := "스테이지 5는 홍련 포팅 슬롯입니다. 6번은 현재 비활성화되어 있습니다."
+	var foot := "스테이지 5는 홍련, 6번은 테트리서 포팅 슬롯입니다(스캐폴드 단계)."
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, panel_rect.size.y - 18.0), foot, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 12, Color(0.58, 0.66, 0.74))
 
 
 func _draw_card(canvas: CanvasItem, font: Font, rect: Rect2, option: Dictionary, selected: bool, current_stage: int) -> void:
 	var stage_id: int = int(option.get("id", 1))
-	var implemented: bool = stage_id <= 5
+	var implemented: bool = stage_id <= 6
 	var base := Color(0.10, 0.13, 0.18, 0.96)
 	var border := Color(0.24, 0.34, 0.46, 0.82)
 	if implemented:
@@ -282,6 +287,9 @@ func _prewarm_selected_stage_modules(owner: Object, registry: Object, stage_id: 
 	if stage_id == 5:
 		_prewarm_stage5_selected_modules(owner, registry)
 		return
+	if stage_id == 6:
+		_prewarm_stage6_selected_modules(owner, registry)
+		return
 	if stage_id != 2:
 		return
 	for key in [
@@ -333,6 +341,22 @@ func _prewarm_stage5_selected_modules(owner: Object, registry: Object) -> void:
 	if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets") and module_getter.is_valid():
 		pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner))
 	var skill_hud: Object = _get_instance(registry, "stage5_hongryun_boss_skill_hud_renderer")
+	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+		skill_hud.prewarm_assets()
+
+
+func _prewarm_stage6_selected_modules(owner: Object, registry: Object) -> void:
+	var stage_background: Object = _get_instance(registry, "stage6_tetriser_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+	var module_getter := Callable(registry, "get_instance") if registry != null and registry.has_method("get_instance") else Callable()
+	var actor_renderer: Object = _get_instance(registry, "stage6_tetriser_actor_renderer")
+	if actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
+		actor_renderer.prewarm_assets()
+	var pillar_scene_drawer: Object = _get_instance(registry, "stage6_tetriser_pillar_scene_drawer")
+	if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets") and module_getter.is_valid():
+		pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner))
+	var skill_hud: Object = _get_instance(registry, "stage6_tetriser_boss_skill_hud_renderer")
 	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
 		skill_hud.prewarm_assets()
 

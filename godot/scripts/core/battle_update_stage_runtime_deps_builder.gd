@@ -13,6 +13,7 @@ func build_deps(registry: Object, current_stage: int = 1, include_all_stages: bo
 		_append_stage3_deps(deps, registry)
 		_append_stage4_deps(deps, registry)
 		_append_stage5_deps(deps, registry)
+		_append_stage6_deps(deps, registry)
 	else:
 		_append_current_stage_deps(deps, registry, current_stage)
 	return deps
@@ -30,6 +31,8 @@ func _append_current_stage_deps(deps: Dictionary, registry: Object, current_stag
 			_append_stage4_deps(deps, registry)
 		5:
 			_append_stage5_deps(deps, registry)
+		6:
+			_append_stage6_deps(deps, registry)
 
 
 func _append_stage1_deps(deps: Dictionary, registry: Object) -> void:
@@ -60,6 +63,10 @@ func _append_stage4_deps(deps: Dictionary, registry: Object) -> void:
 func _append_stage5_deps(deps: Dictionary, registry: Object) -> void:
 	deps["stage5_hongryun_state"] = _get_instance(registry, "stage5_hongryun_state")
 	deps["stage5_hongryun_fire_machine_event"] = _get_instance(registry, "stage5_hongryun_fire_machine_event")
+
+
+func _append_stage6_deps(deps: Dictionary, registry: Object) -> void:
+	deps["stage6_tetriser_state"] = _get_instance(registry, "stage6_tetriser_state")
 
 
 func _get_stage_instance(registry: Object, current_stage: int, role: String, fallback_key: String) -> Object:
