@@ -9,6 +9,7 @@ on:
       - "godot/**"
   push:
     branches:
+      - feature/refactor-ui
       - main
       - master
     paths:
