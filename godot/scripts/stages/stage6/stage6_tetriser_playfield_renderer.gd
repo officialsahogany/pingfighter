@@ -32,12 +32,11 @@ func clear_transient_canvas_items() -> void:
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_logger: Object = null) -> void:
 	if canvas == null:
 		return
-	var tetrominoes: Array = context.get("stage6_tetriser_tetrominoes", [])
-	if tetrominoes.is_empty():
-		return
 	var cell_size: float = float(context.get("stage6_tetriser_cell_size", 20.0))
-	for tetro in tetrominoes:
+	for tetro in context.get("stage6_tetriser_tetrominoes", []):
 		_draw_tetromino(canvas, tetro, cell_size, shake_offset)
+	for guard in context.get("stage6_tetriser_guard_blocks", []):
+		_draw_guard_block(canvas, guard, cell_size, shake_offset)
 	for debris in context.get("stage6_tetriser_debris", []):
 		_draw_debris(canvas, debris, shake_offset)
 
@@ -60,6 +59,23 @@ func _draw_tetromino(canvas: CanvasItem, tetro: Dictionary, cell_size: float, sh
 		if not assembling:
 			canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
 		canvas.draw_rect(rect, border, false, 2.0)
+
+
+func _draw_guard_block(canvas: CanvasItem, block: Dictionary, cell_size: float, shake_offset: Vector2) -> void:
+	var cells: Array = block.get("cells", [])
+	if cells.is_empty():
+		return
+	var origin: Vector2 = _as_vector2(block.get("origin", Vector2.ZERO)) + shake_offset
+	var sliding: bool = String(block.get("state", "")) == "sliding"
+	var fill: Color = block.get("color", Color(0.58, 0.66, 0.78))
+	if sliding:
+		fill.a = 0.6
+	var cell_vec := Vector2(cell_size, cell_size)
+	for cell in cells:
+		var rect := Rect2(origin + _as_vector2(cell) * cell_size, cell_vec)
+		canvas.draw_rect(rect, fill)
+		canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
+		canvas.draw_rect(rect, BORDER_COLOR, false, 2.0)
 
 
 func _draw_debris(canvas: CanvasItem, debris: Dictionary, shake_offset: Vector2) -> void:

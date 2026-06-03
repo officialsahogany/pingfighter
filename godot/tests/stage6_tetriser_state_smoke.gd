@@ -20,6 +20,8 @@ func _init() -> void:
 	_test_actor_draw_context()
 	_test_ball_reflects_and_destroys()
 	_test_super_tetromino_immune_to_ball()
+	_test_guard_scheduler_spawns()
+	_test_guard_ball_collision()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -135,6 +137,33 @@ func _test_super_tetromino_immune_to_ball() -> void:
 	_expect(hit, "ball still bounces off a super tetromino")
 	_expect(scene["ball_vel"].y < 0.0, "ball reflects off super tetromino too")
 	_expect(state.debug_get_tetromino_count() == 1, "super tetromino is NOT destroyed by a normal ball hit (codex review §2.5)")
+
+
+func _test_guard_scheduler_spawns() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.boss_gauge = 200.0   # 가드 전개에 충분한 게이지 시드
+	for _i in range(220):      # ~22초 → 가드 타이머(7~15초) 적어도 1회 발동
+		state.update(0.1, _active_context())
+	var gc: int = state.debug_get_guard_count()
+	_expect(gc >= 1 and gc <= 4, "guard scheduler spawns 1..4 guard blocks over time (got %d)" % gc)
+
+
+func _test_guard_ball_collision() -> void:
+	var state: Object = Stage6TetriserState.new()
+	# 가드 바 (300,100): 4셀 가로 → x 300..380, y 100..120.
+	state.debug_spawn_guard_at(Vector2(300.0, 100.0), "left")
+	_expect(state.debug_get_guard_count() == 1, "precondition: one guard block")
+	# 공이 아래에서 위로 가드에 진입.
+	var scene := {
+		"ball_pos": Vector2(310.0, 115.0),
+		"previous_ball_pos": Vector2(310.0, 140.0),
+		"ball_vel": Vector2(1.0, -8.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0}
+	var hit: bool = state.resolve_ball_collision(scene, ctx, {})
+	_expect(hit, "ball hits guard block")
+	_expect(scene["ball_vel"].y > 0.0, "ball reflects downward after hitting guard from below (vy=%f)" % scene["ball_vel"].y)
+	_expect(state.debug_get_guard_count() == 0, "guard block destroyed by ball")
 
 
 func _test_wrong_stage_resets() -> void:
