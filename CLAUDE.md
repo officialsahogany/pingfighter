@@ -1345,8 +1345,13 @@ Current Godot rule:
 - `current_stage == 5` is **Stage 5 Honglyeon / 홍련**.
 - Original Nemesis / ocean / battleship content is excluded from the
   current stage sequence unless the user explicitly reopens it.
-- Do not add a new Stage 6 Honglyeon route in Godot. Stage 6 stays absent
-  / unselectable until a future stage-order decision is made.
+- Do not add a new Stage 6 **Honglyeon** route in Godot (Honglyeon stays at
+  Stage 5). The stage-order decision for slot 6 has now been made
+  (2026-06-03): **Godot Stage 6 = 테트리서 / Tetriser**, a port of Python
+  Stage 7 (`current_stage == 7`, `stage7_*`, `AnimatedBackgroundStage7`).
+  See `docs/stage6_tetriser_port_plan.md`. This **supersedes** the earlier
+  "Stage 6 stays absent / unselectable" rule — Stage 6 is now an active
+  Tetriser slot, not an empty one.
 - When copying legacy Honglyeon assets into Godot, rename them to
   `stage5_hongryun_*` (for example under `godot/assets/...`). Do not keep
   Python `stage6_hongryeon_*` filenames as live Godot asset names. Leave
@@ -1358,6 +1363,10 @@ Frozen Python reference mapping:
 |---|---|---|---|
 | `STAGE_HONGLYEON_FIRE = 5` | `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket` | Honglyeon / Chinese fire | Port to user-facing Godot Stage 5 |
 | `STAGE_NEMESIS_OCEAN = 6` | `stage6`, `animated_bg_stage6`, `AnimatedBackgroundStage6` | Nemesis / ocean / battleship | Excluded / reference-only |
+| Python `current_stage == 7` | `stage7_*`, `STAGE7_*`, `AnimatedBackgroundStage7` | 테트리서 / Tetriser | **Port to user-facing Godot Stage 6** (`docs/stage6_tetriser_port_plan.md`) |
+
+Note: Godot slot ≠ Python slot for both rows — Python 6 (Nemesis) is excluded,
+while Python 7 (Tetriser) becomes Godot Stage 6.
 
 Historical Python docs or UI may still say "Stage 5 = Nemesis" and
 "Stage 6 = Honglyeon". Treat that wording as legacy-only. For current

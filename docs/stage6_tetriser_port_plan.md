@@ -381,9 +381,10 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 - `docs/stage5_hongryun_godot_port_plan.md` line 10 / 53 / 106 — "Stage 6 비워 둠/선택 불가"
   → "Stage 6=테트리서, 별도 기획에서 다룸"으로 교정 (line 17 "홍련 중복 라우팅 금지"는 유효해 유지).
 - `docs/refactor_status_brief.md` — "Stage 6 stays absent" 행 → "Stage 6 테트리서 Planning started"로 교정.
+- `CLAUDE.md` "Legacy Stage Order Reference + Current Godot Decision" 섹션 — 차단성 문구
+  "Stage 6 stays absent / unselectable" 제거, Godot 6=Python 7(테트리서) 매핑 행 추가.
 
 **⬜ 남은 (Stage 6 구현 착수 시)**
-- `CLAUDE.md` 스테이지 번호 섹션에 Godot 6=Python 7 매핑 보강(현재 5=홍련 매핑만 명시).
 - `docs/godot_module_ownership_ledger.md` — stage6 모듈 7종 + §4 접점 owner 등록.
 
 **유지(충돌 아님)**
