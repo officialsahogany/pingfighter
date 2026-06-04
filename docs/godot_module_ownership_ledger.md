@@ -1406,6 +1406,8 @@ This section is intentionally long; use search to find the nearest owner.
   `stage_clear_result_scroll_draw_helper.gd`;
   opened-scroll header / summary strip / reward section / button draw
   sequencing is delegated to `stage_clear_result_scroll_content_draw_helper.gd`;
+  result-box FX host pooling, prewarm cursor, and per-box FX host sync are
+  delegated to `stage_clear_result_fx_host_pool.gd`;
   result scroll button chrome,
   hover colors, and next / exit button text drawing are delegated to
   `stage_clear_result_scroll_button_draw_helper.gd`;
@@ -1494,6 +1496,11 @@ This section is intentionally long; use search to find the nearest owner.
   The scene still owns scroll visibility phase, live score / reward state,
   perk catalog / icon-renderer instances, and storing the returned button
   rects for input.
+- `scripts/ui/stage_clear_result_fx_host_pool.gd`
+  Owns result-box open FX host pooling for the stage-clear result scene:
+  host allocation, prewarm cursor advancement, active / inactive sync state,
+  and teardown. The scene still owns box state mutation, scroll phase/timer,
+  layout scale, and when to advance / sync the pool.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button
   layout rects, button hover / visible-click hit classification, opened /

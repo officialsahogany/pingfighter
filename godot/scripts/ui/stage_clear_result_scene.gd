@@ -1,6 +1,5 @@
 extends Control
 
-const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_host.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
@@ -21,6 +20,7 @@ const StageClearResultSheetDrawHelper := preload("res://scripts/ui/stage_clear_r
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
@@ -227,8 +227,7 @@ var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
 var _stage2_boss_defeat_click_transition_base_frame: int = 0
 var _stage3_boss_defeat_click_transition_base_frame: int = 0
-var _fx_hosts: Array = []
-var _fx_prewarm_next_index: int = 0
+var _fx_host_pool := StageClearResultFxHostPool.new()
 var _lid_open_counter: int = 0
 var _starpoint_choice_gate_active: bool = false
 var _starpoint_choice_gate_box_index: int = -1
@@ -356,10 +355,10 @@ func configure(
 	_treasure_hunt_runtime = _as_object(data.get("treasure_hunt_runtime", null))
 	_game_audio = _as_object(data.get("game_audio", null))
 	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
-	_fx_prewarm_next_index = 0
+	_fx_host_pool.reset_prewarm()
 	_lid_open_counter = 0
 	set_starpoint_choice_gate_active(false, -1)
-	_deactivate_all_fx_hosts()
+	_fx_host_pool.deactivate_all()
 	_hovered_box_index = -1
 	_hovered_button = "none"
 	_next_stage_button_rect = Rect2()
@@ -393,7 +392,7 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
-	_tear_down_fx_hosts()
+	_fx_host_pool.tear_down()
 
 
 func update_result_scene(delta: float) -> void:
@@ -430,8 +429,18 @@ func update_result_scene(delta: float) -> void:
 	_update_boxes(safe_delta)
 	_update_scroll(safe_delta)
 	_sync_viewport_size()
-	_prewarm_fx_hosts_step()
-	_sync_fx_hosts()
+	_fx_host_pool.prewarm_step(self, _boxes)
+	_fx_host_pool.sync(
+		self,
+		_boxes,
+		_get_layout_scale(size),
+		timer,
+		_scroll_phase,
+		_scroll_timer,
+		SCROLL_UNFURL_DURATION,
+		BOX_FLOAT_AMPLITUDE,
+		BOX_FLOAT_SPEED
+	)
 	queue_redraw()
 
 
@@ -1094,97 +1103,6 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		stored_reward["immediate_granted"] = true
 		box["reward"] = stored_reward
 	_boxes[index] = box
-
-
-func _sync_fx_hosts() -> void:
-	if _boxes.is_empty():
-		_deactivate_all_fx_hosts()
-		return
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(size)
-	var global_alpha: float = StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
-	for i in range(_boxes.size()):
-		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		var state: String = str(box.get("state", "idle"))
-		if state != "opening" and state != "opened":
-			_set_fx_host_active(i, false)
-			continue
-		var host: Node2D = _ensure_fx_host(i)
-		if host == null:
-			continue
-		var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
-			box,
-			scale,
-			timer,
-			BOX_FLOAT_AMPLITUDE,
-			BOX_FLOAT_SPEED
-		)
-		var open_progress: float = float(box.get("open_progress", 0.0))
-		var reward_emerge: float = float(box.get("reward_emerge", 0.0))
-		var is_mythic: bool = StageClearResultBoxData.is_mythic_visual_box_kind(str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL)))
-		var lid_open_id: int = int(box.get("lid_open_id", -1))
-		var fx_state := {
-			"position": draw_center,
-			"scale": scale,
-			"phase": state,
-			"open_progress": open_progress,
-			"reward_emerge": reward_emerge,
-			"alpha": global_alpha,
-			"is_mythic": is_mythic,
-			"lid_open_id": lid_open_id,
-		}
-		host.sync_state(fx_state, global_alpha > 0.02)
-
-
-func _prewarm_fx_hosts_step() -> void:
-	if _fx_prewarm_next_index < 0 or _fx_prewarm_next_index >= _boxes.size():
-		return
-	var host: Node2D = _ensure_fx_host(_fx_prewarm_next_index)
-	if host != null:
-		_set_fx_host_active(_fx_prewarm_next_index, false)
-	_fx_prewarm_next_index += 1
-
-
-func _ensure_fx_host(index: int) -> Node2D:
-	if index < 0:
-		return null
-	while _fx_hosts.size() <= index:
-		_fx_hosts.append(null)
-	var existing: Variant = _fx_hosts[index]
-	if existing is Node2D and is_instance_valid(existing):
-		return existing
-	var host: Node2D = ResultBoxOpenFxHost.new()
-	host.name = "ResultBoxOpenFxHost_%d" % index
-	host.visible = false
-	add_child(host)
-	_fx_hosts[index] = host
-	return host
-
-
-func _set_fx_host_active(index: int, active: bool) -> void:
-	if index < 0 or index >= _fx_hosts.size():
-		return
-	var host: Variant = _fx_hosts[index]
-	if host == null or not (host is Node) or not is_instance_valid(host):
-		return
-	if host.has_method("set_active"):
-		host.set_active(active)
-
-
-func _deactivate_all_fx_hosts() -> void:
-	for i in range(_fx_hosts.size()):
-		_set_fx_host_active(i, false)
-
-
-func _tear_down_fx_hosts() -> void:
-	for host_variant in _fx_hosts:
-		if host_variant is Node and is_instance_valid(host_variant):
-			if host_variant.has_method("tear_down"):
-				host_variant.tear_down(true)
-			else:
-				host_variant.queue_free()
-	_fx_hosts.clear()
-	_fx_prewarm_next_index = 0
 
 
 func _update_scroll(delta: float) -> void:
