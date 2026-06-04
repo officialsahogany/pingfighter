@@ -3,7 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 
-const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball.png"
+const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball_runtime_128.png"
 const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v1.png"
 const DASH_TOKEN_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_frame_imagegen_v2.png"
 const SKILL_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/skill_orb_frame_imagegen_v1.png"
