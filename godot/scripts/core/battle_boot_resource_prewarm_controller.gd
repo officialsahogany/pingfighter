@@ -293,11 +293,12 @@ func prewarm_stage_intro_resources_step(owner: Object, module_getter: Callable) 
 
 
 func prewarm_stage_runtime_resources(owner: Object, module_getter: Callable) -> void:
-	while not prewarm_stage_runtime_resources_step(owner, module_getter):
+	while not prewarm_stage_runtime_resources_step(owner, module_getter, false):
 		pass
+	_attach_battle_pso_prewarmer(owner)
 
 
-func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable) -> bool:
+func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable, wait_for_frame_gated_pso: bool = true) -> bool:
 	var current_stage: int = _get_current_stage(owner)
 	if stage_runtime_resources_prewarmed_for_stage == current_stage:
 		return true
@@ -307,7 +308,7 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 	var total_steps := (
 		STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
 		+ _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
-		+ 1
+		+ (1 if wait_for_frame_gated_pso else 0)
 	)
 	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
 	var prewarm_step_index := stage_runtime_prewarm_step_index

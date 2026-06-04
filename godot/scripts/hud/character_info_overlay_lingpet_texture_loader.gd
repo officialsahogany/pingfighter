@@ -11,7 +11,7 @@ static func get_art_texture(pet_id: String, cache: Dictionary) -> Texture2D:
 		path = LingpetCatalog.get_visual_path(normalized_pet_id, "cutin_art")
 	if path == "":
 		path = LingpetCatalog.get_visual_path(LingpetCatalog.get_default_pet_id(), "cutin_art")
-	if path == "" or not FileAccess.file_exists(path):
+	if path == "":
 		return null
 	if cache.has(path):
 		var cached_texture: Variant = cache[path]
@@ -50,6 +50,7 @@ static func get_skill_icon_texture(texture_id: String, cache: Dictionary) -> Tex
 
 static func prewarm_skill_icon_assets(cache: Dictionary) -> void:
 	for pet_id in LingpetCatalog.get_pet_ids():
+		_touch_texture(get_art_texture(pet_id, cache))
 		for skill in LingpetCatalog.get_active_skill_pool(pet_id):
 			if not bool(skill.get("enabled", true)):
 				continue
