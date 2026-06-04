@@ -68,6 +68,8 @@ func _has_player_hit_sprite(textures: Dictionary, character_type: String) -> boo
 		return _has_texture(textures, "viper_player_hit_left_strip_texture") or _has_texture(textures, "viper_player_hit_right_strip_texture")
 	if character_type == "soldier":
 		return _has_texture(textures, "commando_player_walk_left_sheet") or _has_texture(textures, "commando_player_walk_right_sheet")
+	if character_type == "blacksmith":
+		return _has_texture(textures, "blacksmith_player_attack_left_sheet") or _has_texture(textures, "blacksmith_player_attack_right_sheet")
 	return (
 		_has_texture(textures, "player_attack_left_sheet")
 		or _has_texture(textures, "player_attack_right_sheet")

@@ -25,6 +25,7 @@ const PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
 const PLAYER_IDLE_FRAME_COUNT := 8
 const PLAYER_IDLE_GRID_COLS := 4
 const PLAYER_IDLE_GRID_ROWS := 2
+const BLACKSMITH_PLAYER_DRAW_SIZE := Vector2(128.0, 128.0)
 const COMMANDO_IDLE_FRAME_COUNT := 8
 const COMMANDO_IDLE_GRID_COLS := 4
 const COMMANDO_IDLE_GRID_ROWS := 2
@@ -278,8 +279,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var player_hit_sprite_texture: Variant = _get_value(textures, "player_hit_sprite_texture") if use_smasher_textures else null
 	var player_hit_left_strip_texture: Variant = _get_value(textures, "player_hit_left_strip_texture") if use_smasher_textures else (_get_value(textures, "viper_player_hit_left_strip_texture") if is_viper else null)
 	var player_hit_right_strip_texture: Variant = _get_value(textures, "player_hit_right_strip_texture") if use_smasher_textures else (_get_value(textures, "viper_player_hit_right_strip_texture") if is_viper else null)
-	var player_attack_left_sheet: Variant = _get_value(textures, "player_attack_left_sheet") if use_smasher_textures else (_get_value(textures, "viper_player_attack_left_sheet") if is_viper else (_get_value(textures, "optimus_player_attack_left_sheet") if is_optimus else null))
-	var player_attack_right_sheet: Variant = _get_value(textures, "player_attack_right_sheet") if use_smasher_textures else (_get_value(textures, "viper_player_attack_right_sheet") if is_viper else (_get_value(textures, "optimus_player_attack_right_sheet") if is_optimus else null))
+	var player_attack_left_sheet: Variant = _get_value(textures, "player_attack_left_sheet") if use_smasher_textures else (_get_value(textures, "viper_player_attack_left_sheet") if is_viper else (_get_value(textures, "optimus_player_attack_left_sheet") if is_optimus else (_get_value(textures, "blacksmith_player_attack_left_sheet") if is_blacksmith else null)))
+	var player_attack_right_sheet: Variant = _get_value(textures, "player_attack_right_sheet") if use_smasher_textures else (_get_value(textures, "viper_player_attack_right_sheet") if is_viper else (_get_value(textures, "optimus_player_attack_right_sheet") if is_optimus else (_get_value(textures, "blacksmith_player_attack_right_sheet") if is_blacksmith else null)))
 	var player_attack_sheet: Variant = _get_value(textures, "player_attack_sheet") if use_smasher_textures else null
 	var viper_wall_cling_left_sheet: Variant = _get_value(textures, "viper_player_wall_cling_left_sheet") if is_viper else null
 	var viper_wall_cling_right_sheet: Variant = _get_value(textures, "viper_player_wall_cling_right_sheet") if is_viper else null
@@ -316,12 +317,12 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	_perf_end(perf_logger, "context.actor.textures", actor_sample_start)
 
 	actor_sample_start = _perf_begin(perf_logger)
-	var has_player_directional_attack_sheet: bool = (use_smasher_textures or is_viper or is_optimus) and (
+	var has_player_directional_attack_sheet: bool = (use_smasher_textures or is_viper or is_optimus or is_blacksmith) and (
 		player_attack_left_sheet is Texture2D
 		or player_attack_right_sheet is Texture2D
 	)
-	var player_directional_attack_frame_count: int = 8 if (is_viper or is_optimus) else 16
-	var player_directional_attack_grid_rows: int = 2 if (is_viper or is_optimus) else 4
+	var player_directional_attack_frame_count: int = 8 if (is_viper or is_optimus or is_blacksmith) else 16
+	var player_directional_attack_grid_rows: int = 2 if (is_viper or is_optimus or is_blacksmith) else 4
 	var has_player_legacy_attack_sheet: bool = use_smasher_textures and textures.get("player_attack_sheet", null) is Texture2D
 	var _has_player_attack_sheet: bool = has_player_directional_attack_sheet or has_player_legacy_attack_sheet
 	var player_speed: float = float(context.get("player_speed", 0.0))
@@ -389,6 +390,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		player_customization_overlay_textures,
 		character_type
 	)
+	var player_default_draw_size := Vector2(160.0, 160.0)
+	var player_runtime_draw_size: Vector2 = BLACKSMITH_PLAYER_DRAW_SIZE if is_blacksmith else player_default_draw_size
 	_perf_end(perf_logger, "context.actor.customization", actor_sample_start)
 
 	actor_sample_start = _perf_begin(perf_logger)
@@ -447,6 +450,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_directional_attack_grid_rows": player_directional_attack_grid_rows,
 		"player_directional_attack_cell_width": 160.0,
 		"player_directional_attack_cell_height": 160.0,
+		"player_directional_attack_draw_size": player_runtime_draw_size,
 		"player_hit_anim_duration": player_base_hit_duration,
 		"player_hit_effective_anim_duration": player_effective_hit_duration,
 		"player_idle_frame": animation_context.get("player_idle_frame", 0),
@@ -455,7 +459,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_idle_grid_rows": (COMMANDO_IDLE_GRID_ROWS if is_commando else PLAYER_IDLE_GRID_ROWS) if has_player_idle_sheet else 1,
 		"player_idle_cell_width": 160.0 if has_player_idle_sheet else 250.0,
 		"player_idle_cell_height": 160.0 if has_player_idle_sheet else 120.0,
-		"player_idle_draw_size": Vector2(160.0, 160.0),
+		"player_idle_draw_size": player_runtime_draw_size,
 		"player_victory_active": bool(boss_result_context.get("player_victory_active", false)) and has_player_victory_sheet,
 		"player_victory_frame": int(boss_result_context.get("player_victory_frame", 0)),
 		"player_victory_sheet": player_victory_sheet,
@@ -485,7 +489,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_directional_walk_cell_height": 160.0,
 		"player_directional_walk_frame_count": PLAYER_DIRECTIONAL_WALK_FRAME_COUNT if has_player_directional_walk_sheet else 8,
 		"player_directional_walk_grid_cols": PLAYER_DIRECTIONAL_WALK_GRID_COLS if has_player_directional_walk_sheet else 4,
-		"player_directional_walk_draw_size": Vector2(160.0, 160.0),
+		"player_directional_walk_draw_size": player_runtime_draw_size,
 		# Smasher contact-animation state ported from pingfighter.py
 		# (`smasher_swing_intensity`, `smasher_shield_raise_timer`,
 		# `smasher_left_raise_timer`). Renderers can read intensity to scale

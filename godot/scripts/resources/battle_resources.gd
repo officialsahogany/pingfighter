@@ -127,8 +127,10 @@ const COMMANDO_CHARACTER_TYPE := "soldier"
 const OPTIMUS_CHARACTER_TYPE := "optimus"
 const BLACKSMITH_CHARACTER_TYPE := "blacksmith"
 const BLACKSMITH_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_idle_back_autosprite_v3_custom_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_walk_left_25deg_autosprite_v1_mirror_from_right_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_walk_right_25deg_autosprite_v1_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_sprint_dash_left_25deg_custom_v3_selected_mirror_from_right_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_sprint_dash_right_25deg_custom_v3_selected_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_left_shield_bash_autosprite_v1_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_right_hammer_smash_autosprite_v3_rear_only_4x2_160_clean.png"
 
 # Smasher directional attack sheets: 4x4 grids, 16 frames, cell 160x160.
 # Authored from the current subculture left/right walk sprites so colors,
@@ -862,6 +864,8 @@ func _get_blacksmith_player_texture_specs(clear_generic_player_fallbacks: bool) 
 		_texture_spec(["blacksmith_player_idle_sheet"], BLACKSMITH_PLAYER_IDLE_SHEET_PATH),
 		_texture_spec(["blacksmith_player_walk_left_sheet"], BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH),
 		_texture_spec(["blacksmith_player_walk_right_sheet"], BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH),
+		_texture_spec(["blacksmith_player_attack_left_sheet"], BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH),
+		_texture_spec(["blacksmith_player_attack_right_sheet"], BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH),
 	]
 	if clear_generic_player_fallbacks:
 		specs.append(_clear_smasher_player_fallback_spec())
@@ -973,6 +977,8 @@ func _load_blacksmith_player_textures(clear_generic_player_fallbacks: bool) -> v
 	_resource_cache["blacksmith_player_idle_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_IDLE_SHEET_PATH)
 	_resource_cache["blacksmith_player_walk_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH)
 	_resource_cache["blacksmith_player_walk_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH)
+	_resource_cache["blacksmith_player_attack_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH)
+	_resource_cache["blacksmith_player_attack_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH)
 	if clear_generic_player_fallbacks:
 		_clear_smasher_player_fallback_textures()
 

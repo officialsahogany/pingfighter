@@ -19,8 +19,9 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 	var is_viper: bool = normalized_character == "viper"
 	var is_commando: bool = normalized_character == "soldier"
 	var is_blacksmith: bool = normalized_character == "blacksmith"
-	var has_directional_attack_sheet: bool = not is_commando and not is_blacksmith and (
+	var has_directional_attack_sheet: bool = not is_commando and (
 		(is_viper and (_has_texture(textures, "viper_player_attack_left_sheet") or _has_texture(textures, "viper_player_attack_right_sheet")))
+		or (is_blacksmith and (_has_texture(textures, "blacksmith_player_attack_left_sheet") or _has_texture(textures, "blacksmith_player_attack_right_sheet")))
 		or (not is_viper and (_has_texture(textures, "player_attack_left_sheet") or _has_texture(textures, "player_attack_right_sheet")))
 	)
 	var has_legacy_attack_sheet: bool = not is_viper and not is_commando and not is_blacksmith and _has_texture(textures, "player_attack_sheet")
@@ -79,7 +80,7 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		"player_idle_frame_count": COMMANDO_IDLE_FRAME_COUNT if has_commando_idle_sheet else (SMASHER_IDLE_FRAME_COUNT if has_smasher_idle_sheet or has_blacksmith_idle_sheet else 8),
 		"player_idle_animation_speed": 0.13 if is_viper else 0.15,
 		"player_has_attack_sheet": has_attack_sheet,
-		"player_hit_frame_count": (8 if is_viper else 16) if has_directional_attack_sheet else (8 if has_legacy_attack_sheet else (8 if has_commando_attack_sheet else 4)),
+		"player_hit_frame_count": (8 if is_viper or is_blacksmith else 16) if has_directional_attack_sheet else (8 if has_legacy_attack_sheet else (8 if has_commando_attack_sheet else 4)),
 		"player_hit_linear_frames": has_directional_attack_sheet,
 		"player_hit_anim_duration": (
 			PLAYER_LEGACY_ATTACK_ANIM_DURATION
