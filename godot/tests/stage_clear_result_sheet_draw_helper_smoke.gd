@@ -27,6 +27,7 @@ func _verify_null_guards() -> void:
 func _verify_scene_delegates_sheet_draws() -> void:
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_sheet_draw_helper.gd")
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var actor_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
 	_expect(
 		helper_source.find("StageClearResultLayoutHelper.sheet_source_rect") >= 0
 			and helper_source.find("draw_texture_rect_region") >= 0,
@@ -39,8 +40,8 @@ func _verify_scene_delegates_sheet_draws() -> void:
 		"sheet draw helper should own result actor reaction blend drawing"
 	)
 	_expect(
-		scene_source.find("StageClearResultSheetDrawHelper.draw_reaction_sheet") >= 0,
-		"result scene should delegate actor reaction-blend drawing"
+		actor_helper_source.find("StageClearResultSheetDrawHelper.draw_reaction_sheet") >= 0,
+		"result actor draw helper should delegate actor reaction-blend drawing"
 	)
 	for removed_wrapper in [
 		"func _draw_player_victory_sheet_frame",

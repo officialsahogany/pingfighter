@@ -1387,7 +1387,9 @@ This section is intentionally long; use search to find the nearest owner.
   content rects, and cinematic-local coordinate conversion are delegated to
   `stage_clear_result_layout_helper.gd`; result-box plan materialization,
   kind normalization, and display-label assembly are delegated to
-  `stage_clear_result_box_data.gd`; result reward pickup / Live2D
+  `stage_clear_result_box_data.gd`; Dalji / Stage 2 / Stage 3 defeated
+  result actor drawing and player-victory Live2D sheet drawing are delegated
+  to `stage_clear_result_actor_draw_helper.gd`; result reward pickup / Live2D
   target position pairing for mythic acquisition cinematics is delegated to
   `stage_clear_result_cinematic_position_helper.gd`; centered text
   baseline, word wrapping, and font-size fitting helpers are delegated to
@@ -1418,6 +1420,13 @@ This section is intentionally long; use search to find the nearest owner.
   sheets, Dalji click voice, and result-box FX prewarm. The scene still
   owns the loaded texture / stream fields and decides when to load or
   prewarm.
+- `scripts/ui/stage_clear_result_actor_draw_helper.gd`
+  Owns stage-clear result actor sheet drawing for the defeated Dalji, Stage 2
+  boss, Stage 3 boss, and player-victory Live2D result actors. It resolves
+  actor / click rects through the layout helper and delegates base /
+  click-reaction blending to the sheet draw helper. The scene still owns which
+  current stage to draw, live reaction-state dictionaries, texture fields, and
+  stored click rects for input.
 - `scripts/ui/stage_clear_result_layout_helper.gd`
   Owns stateless stage-clear result layout and frame policy helpers:
   floating chest anchor layouts, result-box safe-frame selection, reward
