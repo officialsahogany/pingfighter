@@ -116,8 +116,11 @@ This section is intentionally long; use search to find the nearest owner.
   hits, baseline companion stats, active-skill / passive-skill pool metadata,
   loadout skill-id normalization, and effect text.
   As of 2026-06-04, passive-skill metadata is a shared Ringpet-wide pool
-  (`COMMON_PASSIVE_SKILL_POOL`) with Lv.1-Lv.5 values; pet-specific legacy
-  passive ids normalize into the shared passive ids for save compatibility.
+  (`COMMON_PASSIVE_SKILL_POOL`) with Lv.1-Lv.5 values. Temporary scaffold
+  passives were removed; the current pool intentionally keeps only the
+  completed `lingpet_afterglow_leak` / 잔광 유출 passive, and pet-specific
+  legacy passive ids normalize into that current real passive for save
+  compatibility.
   `lingpet_egg_runtime.gd`, character-info UI, save reset code, and
   rail-card helpers should read future Ringpet identity data from this
   catalog instead of adding new hardcoded pet ids locally.
@@ -2343,7 +2346,10 @@ This section is intentionally long; use search to find the nearest owner.
     preserves `super_scale` growth + aura.
   - `stage6_tetriser_actor_renderer.gd` — orchestrates playfield + shared Stage1
     player/commando renderers + boss renderer (main draw entry).
-  - `stage6_tetriser_pillar_background.gd` — solid blue placeholder backdrop.
+  - `stage6_tetriser_pillar_background.gd` — atmospheric arena backdrop
+    (faithful procedural port of Python `AnimatedBackgroundStage7`): pulsing
+    torch glows, sweeping light band, drifting motes, blue-purple border
+    frame. Central cube is NOT drawn here (owned by the playfield renderer).
   - `stage6_tetriser_pillar_scene_drawer.gd` — drives the boss skill-card HUD in
     `draw_post_playfield_hud` (merges state `get_hud_context`).
   - `stage6_tetriser_boss_skill_hud_renderer.gd` — 달지식 boss skill-card HUD

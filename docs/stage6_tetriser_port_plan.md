@@ -333,6 +333,11 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
      `godot/assets/sprites/bosses/stage6_tetriser/`에 커밋, `stage6_tetriser_boss_actor_renderer.gd`를
      placeholder 패들 → 우선순위 상태머신(§17.6: defeat>victory>stun>dash>attack>walk>idle)으로 교체.
      초인 super_scale/aura 유지. 격리 warning scan/상태 smoke/headless load/런타임 7종 로드 검증 통과.
+   - ✅ **배경/맵 (2026-06-04, `b74449a51`):** `stage6_tetriser_pillar_background.gd`를
+     단색 placeholder → Python `AnimatedBackgroundStage7` 절차적 충실 포팅으로 교체
+     (토치 글로우 4 + 스윕 라이트 밴드 + 광점 12 + 청보라 아레나 테두리). 중앙 큐브는
+     playfield_renderer가 게임플레이로 그리므로 배경에서는 제외(중복 방지). 좌표는
+     stage5 형제 컨벤션, LOD 포함. 격리 warning scan/상태 smoke/headless load 통과.
    - ⏳ **후속:** 로딩/결과 화면 이미지, 테트리서 스킬카드 텍스처(현재 절차적)는 placeholder/후속 유지.
 
 > ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
