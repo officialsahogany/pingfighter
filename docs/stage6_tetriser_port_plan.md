@@ -350,6 +350,11 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 
 > ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
 > Stage 6 smoke 9종, perf smoke, 직접 Stage 6 런타임 캡처/serve 확인 통과.
+>
+> ✅ **최신 HEAD 재검증 (2026-06-05, `a046c8f7c`):** dragon-breath/molotov FX 재사용(`aaa1ccd65`)과
+> Stage 6 필러 중복 cabinet 제거(`a046c8f7c`) 이후 Stage 6/라우팅/prewarm/perf smoke 12종,
+> F5 direct-switch smoke, `run_warning_scan.ps1`, `run_headless_load_check.ps1`,
+> Windows Release export 및 exported exe `--headless --quit-after 3` 통과.
 
 ---
 
