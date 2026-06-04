@@ -2,18 +2,18 @@ extends RefCounted
 
 const CrystalShieldState := preload("res://scripts/stages/stage6/stage6_tetriser_crystal_shield_state.gd")
 
-# Stage 6 테트리서 boss state.
+# Stage 6 Tetriser boss state.
 #
-# 기획: docs/stage6_tetriser_port_plan.md
-# 원본 참조: pingfighter.py `stage7_*` / `STAGE7_*`,
-#   game_logic/stage7_tetriser.py (순수 불변식).
+# Planning: docs/stage6_tetriser_port_plan.md
+# Source reference: legacy Python stage7 Tetriser / game_logic/stage7_tetriser.py.
 #
-# 2단계(손맛 코어, 2a 범위):
-#   - 보스 게이지 (max 500, 25/초 자동 충전, 라운드 간 persist).
-#   - 낙하 테트로미노 (5~10초 간격, 게이지 30 소모, 1초 조립 → 낙하 →
-#     낙하 중 드리프트/회전 → 바닥/기존 블록 위 정착).
-# 아직 미구현(후속): 공 충돌/반사/파괴(2b), 가드 블록/벽(3), 초인테트리서/
-#   광선/중앙 큐브(4), 보스 카드 HUD(5), 사운드.
+# Runtime owner summary:
+#   - boss gauge (max 500, 25/sec, round-persistent)
+#   - falling/settled tetrominoes, guard bars, edge tetro walls
+#   - super Tetriser transform, central cube, laser melt, EMP, debris, SFX flags
+#   - ball collision/reflection and dash/smoke/explosion destruction
+#   - boss AI / actor draw / boss skill-card HUD context
+#   - Crystal Shield is delegated to stage6_tetriser_crystal_shield_state.gd.
 #
 # 단일 cleanup 경로 규율 (홍련 패턴 / CLAUDE.md 보스 이벤트 누수 규칙):
 # round / result / stage-leave 모두 `_clear_combat_state()`를 통과한다.

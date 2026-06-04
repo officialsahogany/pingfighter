@@ -1,15 +1,11 @@
 extends RefCounted
 
-# Stage 6 테트리서 actor renderer (SCAFFOLD).
+# Stage 6 Tetriser actor renderer.
 #
-# 기획: docs/stage6_tetriser_port_plan.md §3
-# Stage 5 홍련 actor renderer 구조를 미러링한다. 플레이어와 코만도 화기는
-# 공유 Stage1 렌더러로 그대로 그리고, 테트리서 전투 VFX(playfield)와 보스
-# 스프라이트는 stage6 전용 모듈로 위임한다(현재 placeholder).
-#
-# 이 모듈이 stage6의 메인 draw 엔트리다(battle_playfield_effects_drawer가
-# actor_renderer.draw를 가드 없이 호출). no-op로 두면 플레이어가 사라지므로
-# 공유 렌더러 위임을 유지한다.
+# Planning: docs/stage6_tetriser_port_plan.md
+# Main Stage 6 draw entry. It keeps the shared Stage 1 player/Commando firearm
+# renderers in the actor pass, then delegates Tetriser playfield mechanics and
+# the real Stage 6 boss sprite sheets to dedicated Stage 6 modules.
 
 const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
 const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")

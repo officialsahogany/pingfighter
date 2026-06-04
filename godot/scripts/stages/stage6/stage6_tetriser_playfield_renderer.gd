@@ -1,11 +1,11 @@
 extends RefCounted
 
-# Stage 6 테트리서 playfield renderer.
+# Stage 6 Tetriser playfield renderer.
 #
-# 기획: docs/stage6_tetriser_port_plan.md §3
-# 2단계(2a): 낙하/정착 테트로미노 블록을 그린다(데이터는 actor draw context의
-#   `stage6_tetriser_tetrominoes`, stage6_tetriser_state.get_actor_draw_context()).
-# 후속: 가드 블록/벽(3), 파편/EMP/광선/중앙 큐브(4) VFX.
+# Planning: docs/stage6_tetriser_port_plan.md
+# Draws the procedural Stage 6 battle-layer state from actor draw context:
+# tetrominoes, guard bars, edge walls, debris, central cube, laser, EMP, and
+# Crystal Shield blocks.
 
 const ASSEMBLING_ALPHA := 0.5
 const BORDER_COLOR := Color(1.0, 1.0, 1.0, 0.22)
