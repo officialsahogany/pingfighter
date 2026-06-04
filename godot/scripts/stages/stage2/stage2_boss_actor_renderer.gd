@@ -2,6 +2,8 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
+const ElectricStunVisual := preload("res://scripts/status/boss_electric_stun_visual.gd")
+const ElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 const SPEED_DEFENSE_TEXTURE_PATH := "res://assets/sprites/stage2/boss_stage2_speed_imagegen_v4.png"
 const WALK_LEFT_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_run_left_angled_autosprite_v1_16f.png"
@@ -107,7 +109,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		boss_pos.y + boss_hitbox_height * 0.5 + 31.0 + shake_offset.y
 	)
 	center.y += float(context.get("stage2_boss_rage_offset_y", 0.0))
-	center += _get_emp_status_jitter(context)
+	center += _get_emp_status_jitter(context) + ElectricStunVisual.body_jitter(context)
+	ElectrocutionFieldHost.drive_from_context(canvas, center, context)
 	var facing: float = -1.0 if int(context.get("boss_facing", 1)) < 0 else 1.0
 	var hit_active: bool = bool(context.get("boss_hit_active", false))
 	var rage_tint: float = clamp(float(context.get("stage2_boss_rage_tint", 0.0)), 0.0, 1.0)
@@ -254,7 +257,7 @@ func _draw_walk_sheet(canvas: CanvasItem, center: Vector2, context: Dictionary, 
 		center + WALK_CENTER_OFFSET - WALK_DRAW_SIZE * 0.5,
 		WALK_DRAW_SIZE
 	)
-	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, Color.WHITE, false, true)
+	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, ElectricStunVisual.body_modulate(context), false, true)
 	return true
 
 
@@ -310,7 +313,7 @@ func _draw_attack_sheet(canvas: CanvasItem, center: Vector2, context: Dictionary
 		center + ATTACK_CENTER_OFFSET - ATTACK_DRAW_SIZE * 0.5,
 		ATTACK_DRAW_SIZE
 	)
-	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, Color.WHITE, false, true)
+	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, ElectricStunVisual.body_modulate(context), false, true)
 	return true
 
 
@@ -351,7 +354,7 @@ func _draw_idle_sheet(canvas: CanvasItem, center: Vector2, context: Dictionary) 
 		center + IDLE_CENTER_OFFSET - IDLE_DRAW_SIZE * 0.5,
 		IDLE_DRAW_SIZE
 	)
-	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, Color.WHITE, false, true)
+	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, ElectricStunVisual.body_modulate(context), false, true)
 	return true
 
 

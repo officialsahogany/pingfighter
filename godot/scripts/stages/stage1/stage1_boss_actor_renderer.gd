@@ -3,6 +3,8 @@ extends RefCounted
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const BossHealthBarRenderer := preload("res://scripts/status/boss_health_bar_renderer.gd")
 const PaddleHologramGlitchRenderer := preload("res://scripts/effects/paddle_hologram_glitch_renderer.gd")
+const ElectricStunVisual := preload("res://scripts/status/boss_electric_stun_visual.gd")
+const ElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 # Stage 1 Dalji boss render contract:
 # - Walk: separate left/right run sheets, 1376x1536, 4x4 grid, cell 344x384, 16 frames each.
@@ -68,8 +70,13 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var boss_pos: Vector2 = _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
 	var boss_paddle_size: Vector2 = _as_vector2(context.get("boss_paddle_size", Vector2(110.0, 18.0)), Vector2(110.0, 18.0))
 	var boss_hitbox_height: float = float(context.get("boss_hitbox_height", boss_paddle_size.y))
-	var emp_offset: Vector2 = _get_emp_status_jitter(context)
-	var emp_modulate: Color = _get_emp_status_modulate(context)
+	var emp_offset: Vector2 = _get_emp_status_jitter(context) + ElectricStunVisual.body_jitter(context)
+	var emp_modulate: Color = _get_emp_status_modulate(context) * ElectricStunVisual.body_modulate(context)
+	var electro_center := Vector2(
+		boss_pos.x + boss_paddle_size.x * 0.5,
+		boss_pos.y + boss_hitbox_height * 0.5 + float(context.get("boss_visual_center_y_offset", DEFAULT_BOSS_VISUAL_CENTER_Y_OFFSET))
+	) + shake_offset
+	ElectrocutionFieldHost.drive_from_context(canvas, electro_center, context)
 
 	var sheet_selection: Dictionary = _select_sheet(context)
 	var sheet: Variant = sheet_selection.get("texture", null)
