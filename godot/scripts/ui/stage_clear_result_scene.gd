@@ -11,15 +11,12 @@ const StageClearResultStaticDrawHelper := preload("res://scripts/ui/stage_clear_
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
-const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
-const StageClearResultScrollButtonDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_button_draw_helper.gd")
+const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
-const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
 const StageClearResultSheetDrawHelper := preload("res://scripts/ui/stage_clear_result_sheet_draw_helper.gd")
-const StageClearResultSummaryDrawHelper := preload("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
@@ -1310,87 +1307,20 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: float) -> void:
-	if alpha <= 0.02:
-		return
-	var accent := Color(0.05, 0.54, 0.68, alpha)
-	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
-
-	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 58.0 * scale))
-	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.format_stage_result_label(current_stage), header_rect, int(round(42.0 * scale)), accent)
-	var divider_y: float = rect.position.y + 68.0 * scale
-	draw_line(
-		Vector2(rect.position.x + 34.0 * scale, divider_y),
-		Vector2(rect.position.x + rect.size.x - 34.0 * scale, divider_y),
-		Color(0.03, 0.82, 0.96, alpha * 0.46),
-		max(1.0, 1.4 * scale)
-	)
-
-	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
-		stage_reward_snapshot,
-		_boxes,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		RESULT_REWARD_SOURCE_LABELS
-	)
-
-	var strip_rect := Rect2(
-		rect.position + Vector2(34.0 * scale, 86.0 * scale),
-		Vector2(rect.size.x - 68.0 * scale, 80.0 * scale)
-	)
-	var display_gold: int = StageClearResultSummaryBuilder.resolve_display_gold(_runtime_perk_state, PLACEHOLDER_GOLD)
-	var rating: int = StageClearResultSummaryBuilder.calculate_score_rating(player_score, boss_score)
-	StageClearResultSummaryDrawHelper.draw_result_summary_strip(
+	var button_layout: Dictionary = StageClearResultScrollContentDrawHelper.draw_scroll_contents(
 		self,
 		font,
-		strip_rect,
+		rect,
 		scale,
 		alpha,
-		display_gold,
-		player_score,
-		boss_score,
-		rating,
-		LanguageSettings.translate_text("획득 골드"),
-		LanguageSettings.translate_text("최종 스코어"),
-		LanguageSettings.translate_text("평가")
-	)
-
-	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
-	var item_rewards_value: Variant = reward_summary_state.get("item_rewards", [])
-	var perks: Array = perks_value if perks_value is Array else []
-	var item_rewards: Array = item_rewards_value if item_rewards_value is Array else []
-
-	# Split acquired items by type so the scroll lists active / passive / mythic
-	# under their own labelled bands instead of one mixed "획득 아이템" grid.
-	var item_groups: Dictionary = StageClearResultSummaryBuilder.split_item_rewards_by_type(item_rewards)
-	var active_items_value: Variant = item_groups.get("active_items", [])
-	var passive_items_value: Variant = item_groups.get("passive_items", [])
-	var mythic_items_value: Variant = item_groups.get("mythic_items", [])
-	var active_items: Array = active_items_value if active_items_value is Array else []
-	var passive_items: Array = passive_items_value if passive_items_value is Array else []
-	var mythic_items: Array = mythic_items_value if mythic_items_value is Array else []
-
-	var sections: Array = []
-	if not perks.is_empty():
-		sections.append({"title": LanguageSettings.translate_text("획득 퍽"), "rewards": perks})
-	if not active_items.is_empty():
-		sections.append({"title": LanguageSettings.translate_text("액티브 아이템"), "rewards": active_items})
-	if not passive_items.is_empty():
-		sections.append({"title": LanguageSettings.translate_text("패시브 아이템"), "rewards": passive_items})
-	if not mythic_items.is_empty():
-		sections.append({"title": LanguageSettings.translate_text("신화 아이템"), "rewards": mythic_items})
-
-	var section_top: float = rect.position.y + 188.0 * scale
-	var button_top: float = rect.position.y + rect.size.y - 90.0 * scale
-	var section_bottom: float = button_top - 22.0 * scale
-	var body_rect := Rect2(
-		Vector2(rect.position.x + 34.0 * scale, section_top),
-		Vector2(rect.size.x - 68.0 * scale, max(150.0 * scale, section_bottom - section_top))
-	)
-	StageClearResultScrollDrawHelper.draw_section_group_panel(self, body_rect, scale, alpha)
-	if sections.is_empty():
-		StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
-	else:
-		var card_draw_context := {
+		{
+			"current_stage": current_stage,
+			"stage_reward_snapshot": stage_reward_snapshot,
+			"boxes": _boxes,
+			"runtime_perk_state": _runtime_perk_state,
+			"placeholder_gold": PLACEHOLDER_GOLD,
+			"player_score": player_score,
+			"boss_score": boss_score,
 			"timer": timer,
 			"perk_catalog": _perk_catalog,
 			"perk_icon_renderer": _perk_icon_renderer,
@@ -1400,20 +1330,12 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 			"result_reward_source_labels": RESULT_REWARD_SOURCE_LABELS,
 			"reward_detail_fallback_text": REWARD_DETAIL_FALLBACK_TEXT,
 			"reward_starpoint_title_prefix": REWARD_STARPOINT_TITLE_PREFIX,
+			"scroll_phase": _scroll_phase,
+			"hovered_button": _hovered_button,
 		}
-		StageClearResultRewardCardDrawHelper.draw_reward_section_stack(self, font, sections, body_rect, scale, alpha, Callable(), card_draw_context)
-
-	var button_layout: Dictionary = StageClearResultScrollButtonDrawHelper.draw_scroll_buttons(
-		self,
-		font,
-		rect,
-		scale,
-		alpha,
-		_scroll_phase,
-		_hovered_button,
-		LanguageSettings.translate_text("다음 스테이지"),
-		LanguageSettings.translate_text("나가기")
 	)
+	if button_layout.is_empty():
+		return
 	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
 	_exit_button_rect = button_layout.get("exit_rect", Rect2())
 

@@ -1404,6 +1404,8 @@ This section is intentionally long; use search to find the nearest owner.
   drawing, fallback panel, rod drawing, and reward section group panel chrome
   are delegated to
   `stage_clear_result_scroll_draw_helper.gd`;
+  opened-scroll header / summary strip / reward section / button draw
+  sequencing is delegated to `stage_clear_result_scroll_content_draw_helper.gd`;
   result scroll button chrome,
   hover colors, and next / exit button text drawing are delegated to
   `stage_clear_result_scroll_button_draw_helper.gd`;
@@ -1481,8 +1483,15 @@ This section is intentionally long; use search to find the nearest owner.
   scene state: authored cyber-scroll texture-region drawing, the fallback
   panel and top / bottom rod chrome used when the authored scroll texture is
   unavailable, plus the reward section group panel chrome inside the opened
-  scroll. The scene still owns scroll texture selection, scroll content
-  sequencing, and button rect storage.
+  scroll. The scene still owns scroll texture selection and high-level
+  visibility phase / rect storage.
+- `scripts/ui/stage_clear_result_scroll_content_draw_helper.gd`
+  Owns opened stage-clear scroll content draw sequencing: header text,
+  divider, summary strip metrics, reward section grouping / empty-state
+  drawing, reward-card stack draw context, and next / exit button draw calls.
+  The scene still owns scroll visibility phase, live score / reward state,
+  perk catalog / icon-renderer instances, and storing the returned button
+  rects for input.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button
   layout rects, button hover / visible-click hit classification, opened /

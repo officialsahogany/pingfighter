@@ -51,11 +51,14 @@ func _verify_centered_baseline() -> void:
 
 func _verify_scene_uses_text_layout_helper() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
+	helper_source += "\n" + FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
+	helper_source += "\n" + FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0
-		and source.find("StageClearResultTextLayoutHelper.draw_text") >= 0
-		and source.find("StageClearResultTextLayoutHelper.draw_centered_text") >= 0,
-		"result scene should call text layout/draw helpers directly"
+		helper_source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0
+		and helper_source.find("StageClearResultTextLayoutHelper.draw_text") >= 0
+		and helper_source.find("StageClearResultTextLayoutHelper.draw_centered_text") >= 0,
+		"result draw helpers should call text layout/draw helpers directly"
 	)
 	for removed_wrapper in [
 		"func _wrap_words_to_width(",

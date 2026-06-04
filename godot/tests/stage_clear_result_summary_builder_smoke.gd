@@ -222,28 +222,34 @@ func _verify_russian_perk_info_summary() -> void:
 
 func _verify_scene_delegates_summary_builder_directly() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultSummaryBuilder.build_result_summary_state") >= 0,
-		"stage-clear result scene should use the aggregate summary state helper"
+		source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0,
+		"stage-clear result scene should delegate opened-scroll summary drawing"
 	)
 	_expect(
-		source.find("reward_summary_state.get(\"item_rewards\"") >= 0,
-		"stage-clear result scene should render the item column from item-only rewards"
+		content_source.find("StageClearResultSummaryBuilder.build_result_summary_state") >= 0,
+		"scroll content helper should use the aggregate summary state helper"
 	)
 	_expect(
-		source.find("StageClearResultSummaryBuilder.split_item_rewards_by_type") >= 0
+		content_source.find("reward_summary_state") >= 0
+			and content_source.find("\"item_rewards\"") >= 0,
+		"scroll content helper should render the item column from item-only rewards"
+	)
+	_expect(
+		content_source.find("StageClearResultSummaryBuilder.split_item_rewards_by_type") >= 0
 			and source.find("match str(item_dict.get(\"type\", \"\"))") < 0,
 		"stage-clear result scene should delegate active/passive/mythic item grouping"
 	)
 	_expect(
-		source.find("StageClearResultSummaryBuilder.resolve_display_gold") >= 0
-			and source.find("StageClearResultSummaryBuilder.calculate_score_rating") >= 0,
-		"stage-clear result scene should delegate summary-strip metric calculations"
+		content_source.find("StageClearResultSummaryBuilder.resolve_display_gold") >= 0
+			and content_source.find("StageClearResultSummaryBuilder.calculate_score_rating") >= 0,
+		"scroll content helper should delegate summary-strip metric calculations"
 	)
 	for item_section_label in ["\"액티브 아이템\"", "\"패시브 아이템\"", "\"신화 아이템\""]:
 		_expect(
-			source.find(item_section_label) >= 0,
-			"stage-clear result scene should label the split item reward bands (%s)" % item_section_label
+			content_source.find(item_section_label) >= 0,
+			"scroll content helper should label the split item reward bands (%s)" % item_section_label
 		)
 	for removed_wrapper in [
 		"func _calculate_starpoint_total",
