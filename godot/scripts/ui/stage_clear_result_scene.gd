@@ -1096,22 +1096,11 @@ func _handle_box_click(mouse_position: Vector2) -> bool:
 		return false
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(size)
-	for i in range(_boxes.size() - 1, -1, -1):
-		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		if str(box.get("state", "idle")) != "idle":
-			continue
-		if StageClearResultLayoutHelper.get_box_aabb(
-			box,
-			scale,
-			timer,
-			BOX_BASE_SIZE,
-			BOX_HOVER_GROW,
-			BOX_FLOAT_AMPLITUDE,
-			BOX_FLOAT_SPEED
-		).has_point(mouse_position):
-			_start_opening_box(i)
-			return true
-	return false
+	var clicked_index: int = StageClearResultInteractionState.get_clicked_idle_box_index(_boxes, mouse_position, scale, timer, BOX_BASE_SIZE, BOX_HOVER_GROW, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
+	if clicked_index < 0:
+		return false
+	_start_opening_box(clicked_index)
+	return true
 
 
 func _start_opening_box(index: int) -> void:
@@ -1552,21 +1541,7 @@ func _update_hovered_box(mouse_position: Vector2) -> void:
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(size)
 	var previous: int = _hovered_box_index
-	var found: int = -1
-	for i in range(_boxes.size() - 1, -1, -1):
-		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		if StageClearResultLayoutHelper.get_box_aabb(
-			box,
-			scale,
-			timer,
-			BOX_BASE_SIZE,
-			BOX_HOVER_GROW,
-			BOX_FLOAT_AMPLITUDE,
-			BOX_FLOAT_SPEED
-		).has_point(mouse_position):
-			found = i
-			break
-	_hovered_box_index = found
+	_hovered_box_index = StageClearResultInteractionState.get_hovered_box_index(_boxes, mouse_position, scale, timer, BOX_BASE_SIZE, BOX_HOVER_GROW, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
 	if previous != _hovered_box_index:
 		queue_redraw()
 

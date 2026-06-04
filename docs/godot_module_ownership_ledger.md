@@ -1480,7 +1480,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button
   layout rects, button hover / visible-click hit classification, opened /
-  opening box counts, and all-boxes-open checks. The scene still owns
+  opening box counts, all-boxes-open checks, and floating box hover / idle
+  click hit-tests. The scene still owns
   actual input consumption, callback dispatch, hover redraw requests, live
   box mutation, and drawing.
 - `scripts/ui/stage_clear_result_scroll_button_draw_helper.gd`

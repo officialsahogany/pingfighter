@@ -1,5 +1,7 @@
 extends RefCounted
 
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
+
 const BUTTON_NONE := "none"
 const BUTTON_NEXT_STAGE := "next_stage"
 const BUTTON_EXIT := "exit"
@@ -37,6 +39,32 @@ static func get_clicked_button(
 	return get_hovered_button(mouse_position, next_stage_rect, exit_rect)
 
 
+static func get_hovered_box_index(
+	boxes: Array,
+	mouse_position: Vector2,
+	draw_scale: float,
+	timer: float,
+	base_size: Vector2,
+	hover_grow: float,
+	default_amplitude: float,
+	default_speed: float
+) -> int:
+	return _get_box_index_at_mouse(boxes, mouse_position, draw_scale, timer, base_size, hover_grow, default_amplitude, default_speed, false)
+
+
+static func get_clicked_idle_box_index(
+	boxes: Array,
+	mouse_position: Vector2,
+	draw_scale: float,
+	timer: float,
+	base_size: Vector2,
+	hover_grow: float,
+	default_amplitude: float,
+	default_speed: float
+) -> int:
+	return _get_box_index_at_mouse(boxes, mouse_position, draw_scale, timer, base_size, hover_grow, default_amplitude, default_speed, true)
+
+
 static func get_box_state_counts(boxes: Array) -> Dictionary:
 	var opened_count: int = 0
 	var opening_count: int = 0
@@ -65,6 +93,34 @@ static func all_boxes_opened(boxes: Array) -> bool:
 		if str(box.get("state", "idle")) != "opened":
 			return false
 	return true
+
+
+static func _get_box_index_at_mouse(
+	boxes: Array,
+	mouse_position: Vector2,
+	draw_scale: float,
+	timer: float,
+	base_size: Vector2,
+	hover_grow: float,
+	default_amplitude: float,
+	default_speed: float,
+	idle_only: bool
+) -> int:
+	for i in range(boxes.size() - 1, -1, -1):
+		var box: Dictionary = boxes[i] if boxes[i] is Dictionary else {}
+		if idle_only and str(box.get("state", "idle")) != "idle":
+			continue
+		if StageClearResultLayoutHelper.get_box_aabb(
+			box,
+			draw_scale,
+			timer,
+			base_size,
+			hover_grow,
+			default_amplitude,
+			default_speed
+		).has_point(mouse_position):
+			return i
+	return -1
 
 
 static func _rect_contains_mouse(rect: Rect2, mouse_position: Vector2) -> bool:

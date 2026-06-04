@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_scroll_button_layout()
 	_verify_button_hit_state()
+	_verify_box_hit_state()
 	_verify_box_state_counts()
 	_verify_scene_delegates_interaction_state()
 
@@ -64,6 +65,32 @@ func _verify_button_hit_state() -> void:
 	)
 
 
+func _verify_box_hit_state() -> void:
+	var boxes := [
+		{"state": "idle", "base_pos": Vector2(100.0, 100.0), "amplitude": 0.0, "speed": 0.0},
+		{"state": "opened", "base_pos": Vector2(160.0, 100.0), "amplitude": 0.0, "speed": 0.0},
+		{"state": "idle", "base_pos": Vector2(220.0, 100.0), "amplitude": 0.0, "speed": 0.0},
+	]
+	_expect(
+		StageClearResultInteractionState.get_hovered_box_index(
+			boxes, Vector2(220.0, 100.0), 1.0, 0.0, StageClearResultScene.BOX_BASE_SIZE, StageClearResultScene.BOX_HOVER_GROW, 0.0, 0.0
+		) == 2,
+		"hovered box hit-test should prefer the topmost matching box"
+	)
+	_expect(
+		StageClearResultInteractionState.get_clicked_idle_box_index(
+			boxes, Vector2(160.0, 100.0), 1.0, 0.0, StageClearResultScene.BOX_BASE_SIZE, StageClearResultScene.BOX_HOVER_GROW, 0.0, 0.0
+		) == -1,
+		"clicked idle box hit-test should ignore opened boxes"
+	)
+	_expect(
+		StageClearResultInteractionState.get_clicked_idle_box_index(
+			boxes, Vector2(100.0, 100.0), 1.0, 0.0, StageClearResultScene.BOX_BASE_SIZE, StageClearResultScene.BOX_HOVER_GROW, 0.0, 0.0
+		) == 0,
+		"clicked idle box hit-test should report idle box hits"
+	)
+
+
 func _verify_box_state_counts() -> void:
 	var boxes := [
 		{"state": "opened"},
@@ -99,6 +126,11 @@ func _verify_scene_delegates_interaction_state() -> void:
 	_expect(
 		source.find("StageClearResultInteractionState.all_boxes_opened") >= 0,
 		"result scene should call all-boxes-open helper directly"
+	)
+	_expect(
+		source.find("StageClearResultInteractionState.get_hovered_box_index") >= 0
+			and source.find("StageClearResultInteractionState.get_clicked_idle_box_index") >= 0,
+		"result scene should delegate box hover and click hit-tests"
 	)
 	_expect(
 		source.find("func _all_boxes_opened") < 0,
