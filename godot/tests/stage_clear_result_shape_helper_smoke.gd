@@ -75,10 +75,14 @@ func _verify_box_hover_effects() -> void:
 
 func _verify_scene_delegates_shape_points() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultShapeHelper.ellipse_polygon_points") >= 0, "result scene should delegate filled ellipse point generation")
-	_expect(source.find("StageClearResultShapeHelper.ellipse_polyline_points") >= 0, "result scene should delegate ellipse polyline point generation")
 	_expect(source.find("StageClearResultShapeHelper.radial_polygon_points") >= 0, "result scene should delegate radial burst point generation")
-	_expect(source.find("StageClearResultShapeHelper.star_polygon_points") >= 0, "result scene should delegate star point generation")
+	_expect(source.find("StageClearResultShapeHelper.draw_filled_ellipse") >= 0, "result scene should delegate filled ellipse drawing")
+	_expect(source.find("StageClearResultShapeHelper.draw_ellipse_polyline") >= 0, "result scene should delegate ellipse polyline drawing")
+	_expect(source.find("StageClearResultShapeHelper.draw_star_polygon") >= 0, "result scene should delegate star polygon drawing")
+	_expect(source.find("func _draw_shadow_ellipse") < 0, "result scene should not keep shadow ellipse drawing wrappers")
+	_expect(source.find("func _draw_filled_ellipse") < 0, "result scene should not keep filled ellipse drawing wrappers")
+	_expect(source.find("func _draw_ellipse_polyline") < 0, "result scene should not keep ellipse polyline drawing wrappers")
+	_expect(source.find("func _draw_star_polygon") < 0, "result scene should not keep star polygon drawing wrappers")
 	_expect(source.find("func _draw_box_corner_braces") < 0, "result scene should not keep unused corner-brace drawing helpers")
 	_expect(source.find("func _draw_box_lock") < 0, "result scene should not keep unused box-lock drawing helpers")
 	_expect(source.find("StageClearResultShapeHelper.box_hover_glow_layers") >= 0, "result scene should delegate hover glow layer generation")

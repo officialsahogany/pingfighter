@@ -1231,11 +1231,13 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 	var hx: float = frame_draw_size * 0.5
 	var hy: float = frame_draw_size * 0.5
 
-	_draw_shadow_ellipse(
+	StageClearResultShapeHelper.draw_filled_ellipse(
+		self,
 		Vector2(draw_center.x, draw_center.y + body_hy + BOX_SHADOW_OFFSET_Y * scale),
 		body_hx * 0.95,
 		body_hy * 0.20,
-		0.40 * global_alpha
+		Color(0.0, 0.0, 0.0, 0.40 * global_alpha),
+		24
 	)
 
 	if hover_active:
@@ -1315,13 +1317,6 @@ func _draw_result_box_fallback(
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alpha: float) -> void:
-	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polygon_points(center, radius_x, radius_y, 24)
-	if pts.is_empty():
-		return
-	draw_colored_polygon(pts, Color(0.0, 0.0, 0.0, alpha))
-
-
 @warning_ignore("shadowed_variable_base_class")
 func _draw_box_hover_glow(draw_center: Vector2, hx: float, hy: float, scale: float, is_mythic: bool, global_alpha: float, pulse: float) -> void:
 	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
@@ -1329,7 +1324,8 @@ func _draw_box_hover_glow(draw_center: Vector2, hx: float, hy: float, scale: flo
 		var layer: Dictionary = layer_value if layer_value is Dictionary else {}
 		var c: Color = base_color
 		c.a = float(layer.get("alpha", 0.0))
-		_draw_filled_ellipse(
+		StageClearResultShapeHelper.draw_filled_ellipse(
+			self,
 			draw_center,
 			float(layer.get("radius_x", 0.0)),
 			float(layer.get("radius_y", 0.0)),
@@ -1339,27 +1335,14 @@ func _draw_box_hover_glow(draw_center: Vector2, hx: float, hy: float, scale: flo
 	var ring: Dictionary = StageClearResultShapeHelper.box_hover_glow_ring(hx, hy, scale, global_alpha, pulse)
 	var ring_color: Color = base_color
 	ring_color.a = float(ring.get("alpha", 0.0))
-	_draw_ellipse_polyline(
+	StageClearResultShapeHelper.draw_ellipse_polyline(
+		self,
 		draw_center,
 		float(ring.get("radius_x", 0.0)),
 		float(ring.get("radius_y", 0.0)),
 		ring_color,
 		float(ring.get("width", max(1.5, 2.2 * scale)))
 	)
-
-
-func _draw_filled_ellipse(center: Vector2, radius_x: float, radius_y: float, color: Color) -> void:
-	if radius_x <= 0.0 or radius_y <= 0.0 or color.a <= 0.001:
-		return
-	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polygon_points(center, radius_x, radius_y, 40)
-	draw_colored_polygon(pts, color)
-
-
-func _draw_ellipse_polyline(center: Vector2, radius_x: float, radius_y: float, color: Color, width: float) -> void:
-	if radius_x <= 0.0 or radius_y <= 0.0 or color.a <= 0.001 or width <= 0.0:
-		return
-	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polyline_points(center, radius_x, radius_y, 56)
-	draw_polyline(pts, color, width, true)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1497,7 +1480,8 @@ func _draw_ingame_starpoint_visual(visual_state: Dictionary, draw_amount: bool) 
 		if radius > 0.0 and color.a > 0.001:
 			draw_circle(star_center, radius, color)
 
-	_draw_star_polygon_scaled(
+	StageClearResultShapeHelper.draw_star_polygon(
+		self,
 		star_center,
 		star_radius,
 		float(visual_state.get("inner_radius", star_radius * 0.5)),
@@ -1551,31 +1535,6 @@ func _draw_starpoint_sparkle_rays(star_center: Vector2, visual_state: Dictionary
 		if color.a <= 0.001:
 			continue
 		draw_line(star_center - direction * length, star_center + direction * length, color, width, true)
-
-
-func _draw_star_polygon(center: Vector2, outer_radius: float, inner_radius: float, fill: Color, outline: Color, outline_width: float) -> void:
-	_draw_star_polygon_scaled(center, outer_radius, inner_radius, 1.0, fill, outline, outline_width)
-
-
-func _draw_star_polygon_scaled(
-	center: Vector2,
-	outer_radius: float,
-	inner_radius: float,
-	x_scale: float,
-	fill: Color,
-	outline: Color,
-	outline_width: float
-) -> void:
-	var pts: PackedVector2Array = StageClearResultShapeHelper.star_polygon_points(
-		center,
-		outer_radius,
-		inner_radius,
-		x_scale
-	)
-	draw_colored_polygon(pts, fill)
-	if outline.a > 0.001 and outline_width > 0.0:
-		var closed: PackedVector2Array = StageClearResultShapeHelper.closed_polyline_points(pts)
-		draw_polyline(closed, outline, outline_width, true)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
@@ -1867,11 +1826,13 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 	var current_height: float = full_rect.size.y * unfurl
 	var visible_rect := Rect2(full_rect.position, Vector2(full_rect.size.x, current_height))
 
-	_draw_shadow_ellipse(
+	StageClearResultShapeHelper.draw_filled_ellipse(
+		self,
 		Vector2(full_rect.get_center().x, visible_rect.end.y + 22.0 * scale),
 		full_rect.size.x * 0.45,
 		16.0 * scale,
-		0.22 + 0.14 * unfurl
+		Color(0.0, 0.0, 0.0, 0.22 + 0.14 * unfurl),
+		24
 	)
 
 	if _scroll_texture != null:
@@ -2047,9 +2008,27 @@ func _draw_rating_tile(font: Font, rect: Rect2, title: String, stars_filled: int
 	for i in range(3):
 		var center := Vector2(start_x + float(i) * star_gap, star_y)
 		if i < stars_filled:
-			_draw_star_polygon(center, star_outer, star_inner, fill_color, fill_outline, outline_width)
+			StageClearResultShapeHelper.draw_star_polygon(
+				self,
+				center,
+				star_outer,
+				star_inner,
+				1.0,
+				fill_color,
+				fill_outline,
+				outline_width
+			)
 		else:
-			_draw_star_polygon(center, star_outer, star_inner, empty_fill, empty_outline, outline_width)
+			StageClearResultShapeHelper.draw_star_polygon(
+				self,
+				center,
+				star_outer,
+				star_inner,
+				1.0,
+				empty_fill,
+				empty_outline,
+				outline_width
+			)
 
 
 @warning_ignore("shadowed_variable_base_class")

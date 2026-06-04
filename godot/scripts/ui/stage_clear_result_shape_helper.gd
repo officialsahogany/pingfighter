@@ -59,6 +59,59 @@ static func closed_polyline_points(points: PackedVector2Array) -> PackedVector2A
 	return closed
 
 
+static func draw_filled_ellipse(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	color: Color,
+	segments: int = 40
+) -> void:
+	if canvas == null or radius_x <= 0.0 or radius_y <= 0.0 or color.a <= 0.001:
+		return
+	var pts: PackedVector2Array = ellipse_polygon_points(center, radius_x, radius_y, segments)
+	if pts.is_empty():
+		return
+	canvas.draw_colored_polygon(pts, color)
+
+
+static func draw_ellipse_polyline(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	color: Color,
+	width: float,
+	segments: int = 56
+) -> void:
+	if canvas == null or radius_x <= 0.0 or radius_y <= 0.0 or color.a <= 0.001 or width <= 0.0:
+		return
+	var pts: PackedVector2Array = ellipse_polyline_points(center, radius_x, radius_y, segments)
+	if pts.is_empty():
+		return
+	canvas.draw_polyline(pts, color, width, true)
+
+
+static func draw_star_polygon(
+	canvas: CanvasItem,
+	center: Vector2,
+	outer_radius: float,
+	inner_radius: float,
+	x_scale: float,
+	fill: Color,
+	outline: Color,
+	outline_width: float
+) -> void:
+	if canvas == null or fill.a <= 0.001:
+		return
+	var pts: PackedVector2Array = star_polygon_points(center, outer_radius, inner_radius, x_scale)
+	if pts.is_empty():
+		return
+	canvas.draw_colored_polygon(pts, fill)
+	if outline.a > 0.001 and outline_width > 0.0:
+		canvas.draw_polyline(closed_polyline_points(pts), outline, outline_width, true)
+
+
 static func box_hover_glow_layers(radius_x: float, radius_y: float, global_alpha: float, pulse: float, layer_count: int = 4) -> Array:
 	var layers: Array = []
 	var safe_layer_count: int = max(1, layer_count)
@@ -110,4 +163,3 @@ static func box_hover_sparkles(
 			"alpha": sparkle_alpha,
 		})
 	return sparkles
-

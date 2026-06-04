@@ -1444,11 +1444,12 @@ This section is intentionally long; use search to find the nearest owner.
   actual input consumption, callback dispatch, hover redraw requests, live
   box mutation, and drawing.
 - `scripts/ui/stage_clear_result_shape_helper.gd`
-  Owns stateless result-scene shape point generation: ellipse fill
-  polygons, ellipse polylines, radial burst polygons, star polygons, and
-  closed polyline conversion, plus result-box hover glow / sparkle
-  geometry. The scene still owns actual draw calls, colors, alpha gates,
-  and animation timing.
+  Owns stateless result-scene shape point generation and low-level
+  CanvasItem draw helpers: ellipse fill polygons, ellipse polylines,
+  radial burst polygons, star polygons, closed polyline conversion,
+  filled ellipse / ellipse-outline / star drawing, plus result-box hover
+  glow / sparkle geometry. The scene still owns high-level draw
+  sequencing, color selection, alpha gates, and animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the
   player victory and Dalji result sheets: base frame selection, reaction
