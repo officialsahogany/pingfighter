@@ -1395,8 +1395,9 @@ This section is intentionally long; use search to find the nearest owner.
   progression, unfurl progress, and background box alpha are delegated to
   `stage_clear_result_scroll_state.gd`; result button layout / hit state
   and box opened / opening counts are delegated to
-  `stage_clear_result_interaction_state.gd`; result scroll fallback panel
-  and rod drawing are delegated to `stage_clear_result_scroll_draw_helper.gd`;
+  `stage_clear_result_interaction_state.gd`; result scroll fallback panel,
+  rod drawing, and reward section group panel chrome are delegated to
+  `stage_clear_result_scroll_draw_helper.gd`;
   result scroll button chrome,
   hover colors, and next / exit button text drawing are delegated to
   `stage_clear_result_scroll_button_draw_helper.gd`; reusable ellipse / radial /
@@ -1451,8 +1452,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_scroll_draw_helper.gd`
   Owns stage-clear result scroll drawing helpers that are independent of
   scene state: the cyber-scroll fallback panel and top / bottom rod chrome
-  used when the authored scroll texture is unavailable. The scene still
-  owns scroll texture selection, unfurl source-rect drawing, scroll content
+  used when the authored scroll texture is unavailable, plus the reward
+  section group panel chrome inside the opened scroll. The scene still owns
+  scroll texture selection, unfurl source-rect drawing, scroll content
   sequencing, and button rect storage.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button

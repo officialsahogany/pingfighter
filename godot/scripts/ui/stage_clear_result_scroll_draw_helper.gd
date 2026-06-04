@@ -32,3 +32,21 @@ static func draw_cyber_scroll_fallback(
 		max(1.0, 1.5 * scale),
 		13.0 * scale
 	)
+
+
+static func draw_section_group_panel(
+	canvas: CanvasItem,
+	rect: Rect2,
+	scale: float,
+	alpha: float
+) -> void:
+	if canvas == null:
+		return
+	StageClearResultShapeHelper.draw_panel(
+		canvas,
+		rect,
+		Color(0.92, 0.98, 1.0, 0.16 * alpha),
+		Color(0.05, 0.66, 0.84, 0.20 * alpha),
+		max(1.0, 1.0 * scale),
+		16.0 * scale
+	)

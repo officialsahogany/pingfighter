@@ -1848,7 +1848,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		Vector2(rect.position.x + 34.0 * scale, section_top),
 		Vector2(rect.size.x - 68.0 * scale, max(150.0 * scale, section_bottom - section_top))
 	)
-	_draw_section_group_panel(body_rect, scale, alpha)
+	StageClearResultScrollDrawHelper.draw_section_group_panel(self, body_rect, scale, alpha)
 	if sections.is_empty():
 		StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
 	else:
@@ -1905,18 +1905,6 @@ func _get_ui_font(draw_scale: float) -> Font:
 		_ui_font_base = base
 		_ui_font_spacing = spacing
 	return _ui_font
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_section_group_panel(rect: Rect2, scale: float, alpha: float) -> void:
-	StageClearResultShapeHelper.draw_panel(
-		self,
-		rect,
-		Color(0.92, 0.98, 1.0, 0.16 * alpha),
-		Color(0.05, 0.66, 0.84, 0.20 * alpha),
-		max(1.0, 1.0 * scale),
-		16.0 * scale
-	)
 
 
 @warning_ignore("shadowed_variable_base_class")
