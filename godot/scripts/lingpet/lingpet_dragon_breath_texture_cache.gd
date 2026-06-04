@@ -47,9 +47,10 @@ static func get_ember_texture() -> ImageTexture:
 	return _ember_texture
 
 
-# Directional flame lick: pointed soft tip at the top (v=0), fat rounded belly
-# around 65% down, tapering back to a soft base. Drawn rotated so the tip leads
-# the travel direction.
+# Soft, rounded flame lick: a ROUNDED (not sharp) narrowing tip at the top
+# (v=0), a fat soft belly, and a wide feathered base. Deliberately low contrast
+# and heavily feathered so overlapping draws read as billowing fire rather than
+# sharp thorns/blades. Drawn rotated so the tip leads the lick direction.
 static func _build_flame_tongue_texture() -> ImageTexture:
 	var data := PackedByteArray()
 	data.resize(FLAME_TONGUE_SIZE * FLAME_TONGUE_SIZE * 4)
@@ -57,18 +58,22 @@ static func _build_flame_tongue_texture() -> ImageTexture:
 	var offset := 0
 	for y in range(FLAME_TONGUE_SIZE):
 		var ny: float = float(y) / float(FLAME_TONGUE_SIZE - 1)  # 0 top (tip) .. 1 base
-		# Half-width envelope: ~0 at the tip, swelling to a belly skewed toward
-		# the base, then tapering so the base reads rounded rather than chopped.
-		var half_w: float = pow(clamp(ny + 0.02, 0.0, 1.0), 0.55) * pow(clamp(1.05 - ny * 0.65, 0.0, 1.0), 1.25)
-		half_w = max(0.015, half_w)
-		# Soft vertical fade so the tip and the very base both feather out.
-		var vert: float = pow(clamp(ny + 0.06, 0.0, 1.0), 0.42) * pow(clamp(1.08 - ny, 0.0, 1.0), 0.7)
+		# Half-width envelope: a rounded narrow tip (min ~0.20, never a hard
+		# point) swelling to a wide soft base -- much fatter than a blade.
+		var half_w: float = 0.20 + 0.46 * pow(clamp(ny, 0.0, 1.0), 0.62)
+		# Vertical envelope: soft feather in from the tip, keep body at the base.
+		var v_top: float = smoothstep(0.0, 0.26, ny)
+		var v_bot: float = smoothstep(0.0, 0.18, 1.0 - ny)
+		var vert: float = v_top * (0.45 + 0.55 * v_bot)
 		for x in range(FLAME_TONGUE_SIZE):
 			var nx: float = (float(x) - center_x) / center_x  # -1 .. 1
 			var edge: float = clamp(1.0 - abs(nx) / half_w, 0.0, 1.0)
-			var cross: float = pow(edge, 1.7)
-			var core: float = pow(edge, 4.5) * clamp(ny * 1.3, 0.0, 1.0)
-			var alpha: float = clamp(cross * vert * 0.85 + core * 0.45, 0.0, 1.0)
+			# Soft feathered cross-section (low exponent) so edges melt instead
+			# of reading as a crisp spike outline.
+			var cross: float = pow(edge, 1.25)
+			# Gentle warm core down the lower centerline.
+			var core: float = pow(edge, 3.0) * smoothstep(0.0, 0.5, ny) * 0.5
+			var alpha: float = clamp(cross * vert * 0.82 + core * 0.35, 0.0, 1.0)
 			_write_pixel(data, offset, 255, 255, 255, _alpha_to_byte(alpha))
 			offset += 4
 	return _create_texture(FLAME_TONGUE_SIZE, FLAME_TONGUE_SIZE, data)

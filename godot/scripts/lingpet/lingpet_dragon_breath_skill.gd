@@ -287,6 +287,7 @@ func _add_breath_particle(initial: bool, index_ratio: float = 0.0) -> void:
 		"size": size,
 		"max_size": size,
 		"phase": randf(),
+		"wob": randf(),
 		"delay": delay,
 		"zone_reported": false,
 	})
@@ -668,11 +669,13 @@ func _draw_zone_flames_textured(canvas: CanvasItem, zone: Dictionary, shake_offs
 		var phase := float(flame.get("phase", 0.0))
 		var heat := clampf(0.30 + 0.70 * life_ratio, 0.0, 1.0)
 		var a := env * (0.35 + 0.55 * life_ratio)
-		_draw_centered_tex(canvas, ember, pos, size * 2.0, _tint(heat * 0.75, a * 0.45))
-		var sway := sin(phase * 5.0) * 0.2
-		var lick := (up + Vector2(-up.y, up.x) * sway).normalized()
-		_draw_flame_tongue(canvas, tongue, pos - up * size * 0.4, lick, size * 0.6, size * 1.5, _tint(heat, a))
-		_draw_centered_tex(canvas, ember, pos, size * 0.7, Color(1.0, 0.94, 0.78, a * 0.5))
+		_draw_centered_tex(canvas, ember, pos, size * 2.2, _tint(heat * 0.75, a * 0.5))
+		# Rounder, softer ground flame (lower aspect + per-flame tilt) so the
+		# patch reads as a soft burning floor, not standing spikes.
+		var sway: float = sin(phase * 3.7) * 0.35 + sin(phase * 9.0) * 0.12
+		var lick: Vector2 = up.rotated(sway)
+		_draw_flame_tongue(canvas, tongue, pos - up * size * 0.3, lick, size * 0.85, size * 1.25, _tint(heat, a * 0.9))
+		_draw_centered_tex(canvas, ember, pos, size * 0.85, Color(1.0, 0.9, 0.66, a * 0.45))
 
 
 func _draw_breath_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vector2) -> void:
@@ -688,35 +691,30 @@ func _draw_breath_particle(canvas: CanvasItem, particle: Dictionary, shake_offse
 	if life_ratio <= 0.02:
 		return
 	var phase := float(particle.get("phase", 0.0))
-	var vel: Vector2 = particle.get("vel", Vector2.ZERO)
-	var up := vel.normalized() if vel.length() > 1.0 else Vector2(0.0, _direction)
 	# Birth-pop tween: quick scale-up over the first 14% of the particle's life.
 	var age := 1.0 - clampf(life / max_life, 0.0, 1.0)
 	var pop := _ease_out(clampf(age / 0.14, 0.0, 1.0))
 	var draw_size := size * lerpf(0.5, 1.0, pop)
 	var heat := clampf(0.30 + 0.70 * life_ratio, 0.0, 1.0)
-	var tongue: Texture2D = DragonBreathTextureCache.get_flame_tongue_texture()
 	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
-	# Trailing streak (③) behind fast, large embers.
-	if size > 6.0 and vel.length() > 120.0:
-		var trail_len := minf(44.0, vel.length() * 0.07)
-		_draw_flame_tongue(canvas, tongue, pos - up * trail_len * 0.5, up, draw_size * 0.55, trail_len * 0.5, _tint(heat * 0.8, 0.20 * life_ratio))
-	# Two stacked soft warm glows (②): a wide low-alpha aura fills the gaps
-	# between fast particles into a continuous billowing fire mass, then a
-	# tighter mid glow gives volume. This is what stops the embers reading as
-	# sparkler sparks.
-	_draw_centered_tex(canvas, ember, pos, draw_size * 4.4, _tint(heat * 0.62, 0.22 * life_ratio))
-	_draw_centered_tex(canvas, ember, pos, draw_size * 2.5, _tint(heat * 0.85, 0.42 * life_ratio))
-	# Flame body (②) licking toward travel with a slight sway -- kept in the
-	# orange family (heat capped) so it does not wash out to white.
-	var sway := sin(phase * 9.0) * 0.16
-	var lick := (up + Vector2(-up.y, up.x) * sway).normalized()
-	_draw_flame_tongue(canvas, tongue, pos, lick, draw_size * 1.05, draw_size * 2.0, _tint(minf(heat, 0.82), 0.62 * life_ratio))
-	# Warm (not pure-white) core so the throat glows hot without going sparkly.
-	_draw_centered_tex(canvas, ember, pos + up * draw_size * 0.15, draw_size * 0.95, Color(1.0, 0.86, 0.56, 0.5 * life_ratio))
-	# Occasional small white-hot mote, kept sparse.
-	if randf() < 0.08 * life_ratio:
-		_draw_centered_tex(canvas, ember, pos + Vector2(randf_range(-size, size), randf_range(-size, size)), randf_range(2.0, 4.0), Color(1.0, 0.98, 0.84, 0.8))
+	# Soft round billowing glow dominates the read so the mass looks like fire,
+	# not a field of parallel spikes. Two stacked auras (wide soft + tighter mid)
+	# fill the gaps between fast particles into a continuous burning cloud.
+	_draw_centered_tex(canvas, ember, pos, draw_size * 4.6, _tint(heat * 0.60, 0.20 * life_ratio))
+	_draw_centered_tex(canvas, ember, pos, draw_size * 2.7, _tint(heat * 0.85, 0.40 * life_ratio))
+	# Soft flame tongue as a HIGHLIGHT on the glow (rounder ~1.25:1 aspect, lower
+	# alpha). Each flame licks upward with a persistent per-particle tilt + slow
+	# sway so they fan out turbulently instead of aligning into parallel thorns.
+	var wob: float = float(particle.get("wob", 0.5))
+	var lick_angle: float = (wob - 0.5) * 0.95 + sin(phase * 2.3 + wob * TAU) * 0.22
+	var lick: Vector2 = Vector2(0.0, _direction).rotated(lick_angle)
+	var tongue: Texture2D = DragonBreathTextureCache.get_flame_tongue_texture()
+	_draw_flame_tongue(canvas, tongue, pos, lick, draw_size * 1.2, draw_size * 1.5, _tint(minf(heat, 0.80), 0.46 * life_ratio))
+	# Warm round core (not a sharp white spark).
+	_draw_centered_tex(canvas, ember, pos, draw_size * 1.05, Color(1.0, 0.82, 0.50, 0.42 * life_ratio))
+	# Rare soft warm mote (no harsh white -- avoids the sparkler read).
+	if randf() < 0.05 * life_ratio:
+		_draw_centered_tex(canvas, ember, pos + Vector2(randf_range(-size, size), randf_range(-size, size)), randf_range(2.5, 4.0), Color(1.0, 0.86, 0.56, 0.6))
 
 
 func _draw_hit_flash(canvas: CanvasItem, center: Vector2, ratio: float) -> void:
