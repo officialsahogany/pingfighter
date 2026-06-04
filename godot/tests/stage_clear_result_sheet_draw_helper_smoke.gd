@@ -21,6 +21,7 @@ func _init() -> void:
 func _verify_null_guards() -> void:
 	StageClearResultSheetDrawHelper.draw_sheet_frame(null, null, 0, 1, Vector2.ONE, Rect2(), 1.0)
 	StageClearResultSheetDrawHelper.draw_sheet_frame(null, GradientTexture1D.new(), 0, 1, Vector2.ONE, Rect2(), 0.0)
+	StageClearResultSheetDrawHelper.draw_reaction_sheet(null, null, null, {}, 1, Vector2.ONE, Rect2(), 1.0)
 
 
 func _verify_scene_delegates_sheet_draws() -> void:
@@ -32,8 +33,14 @@ func _verify_scene_delegates_sheet_draws() -> void:
 		"sheet draw helper should own source-rect calculation and texture-region drawing"
 	)
 	_expect(
-		scene_source.find("StageClearResultSheetDrawHelper.draw_sheet_frame") >= 0,
-		"result scene should delegate sheet-frame drawing"
+		helper_source.find("static func draw_reaction_sheet") >= 0
+			and helper_source.find("\"transition_base_frame\"") >= 0
+			and helper_source.find("\"reaction_frame\"") >= 0,
+		"sheet draw helper should own result actor reaction blend drawing"
+	)
+	_expect(
+		scene_source.find("StageClearResultSheetDrawHelper.draw_reaction_sheet") >= 0,
+		"result scene should delegate actor reaction-blend drawing"
 	)
 	for removed_wrapper in [
 		"func _draw_player_victory_sheet_frame",

@@ -1431,8 +1431,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stateless stage-clear result sheet-frame drawing: source-rect
   calculation through the layout helper, null / alpha guards, and
   `draw_texture_rect_region` for Dalji, player-victory, and boss result
-  sheets. The scene still owns which sheet, frame, grid, cell size, rect,
-  and alpha to draw.
+  sheets, plus base / click-reaction sheet alpha-blend drawing. The scene
+  still owns which sheet pair, reaction-state dictionary, grid, cell size,
+  rect, and overall alpha to draw.
 - `scripts/ui/stage_clear_result_box_data.gd`
   Owns stateless stage-clear result-box data assembly: reward-plan box
   materialization, legacy mythic box-kind normalization, box display labels,

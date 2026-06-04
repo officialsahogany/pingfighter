@@ -979,17 +979,7 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	@warning_ignore("shadowed_variable_base_class")
 	var draw_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 	_dalji_click_rect = draw_rect
-	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
-	if not bool(dalji_reaction_state.get("reaction_active", false)) or _dalji_click_reaction_sheet == null:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _dalji_defeat_sheet, int(dalji_reaction_state.get("base_frame", 0)), DALJI_GRID_COLS, DALJI_CELL_SIZE, draw_rect, 0.98)
-		return
-
-	var reaction_alpha: float = float(dalji_reaction_state.get("reaction_alpha", 0.0))
-	var base_alpha: float = 1.0 - reaction_alpha
-	if base_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _dalji_defeat_sheet, int(dalji_reaction_state.get("transition_base_frame", 0)), DALJI_GRID_COLS, DALJI_CELL_SIZE, draw_rect, 0.98 * base_alpha)
-	if reaction_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _dalji_click_reaction_sheet, int(dalji_reaction_state.get("reaction_frame", 0)), DALJI_GRID_COLS, DALJI_CELL_SIZE, draw_rect, 0.98 * reaction_alpha)
+	StageClearResultSheetDrawHelper.draw_reaction_sheet(self, _dalji_defeat_sheet, _dalji_click_reaction_sheet, _dalji_reaction_state(), DALJI_GRID_COLS, DALJI_CELL_SIZE, draw_rect, 0.98)
 
 
 func _is_stage2_result_boss() -> bool:
@@ -1005,17 +995,7 @@ func _draw_stage2_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if _stage2_boss_defeat_live2d_sheet == null:
 		return
 	var boss_draw_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
-	var reaction_state: Dictionary = _stage2_boss_defeat_reaction_state()
-	if not bool(reaction_state.get("reaction_active", false)) or _stage2_boss_defeat_click_reaction_sheet == null:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _stage2_boss_defeat_live2d_sheet, int(reaction_state.get("base_frame", 0)), STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98)
-		return
-
-	var reaction_alpha: float = float(reaction_state.get("reaction_alpha", 0.0))
-	var base_alpha: float = 1.0 - reaction_alpha
-	if base_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _stage2_boss_defeat_live2d_sheet, int(reaction_state.get("transition_base_frame", 0)), STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98 * base_alpha)
-	if reaction_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _stage2_boss_defeat_click_reaction_sheet, int(reaction_state.get("reaction_frame", 0)), STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98 * reaction_alpha)
+	StageClearResultSheetDrawHelper.draw_reaction_sheet(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, _stage2_boss_defeat_reaction_state(), STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1023,17 +1003,7 @@ func _draw_stage3_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if _stage3_boss_defeat_live2d_sheet == null:
 		return
 	var boss_draw_rect: Rect2 = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
-	var reaction_state: Dictionary = _stage3_boss_defeat_reaction_state()
-	if not bool(reaction_state.get("reaction_active", false)) or _stage3_boss_defeat_click_reaction_sheet == null:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _stage3_boss_defeat_live2d_sheet, int(reaction_state.get("base_frame", 0)), STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98)
-		return
-
-	var reaction_alpha: float = float(reaction_state.get("reaction_alpha", 0.0))
-	var base_alpha: float = 1.0 - reaction_alpha
-	if base_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _stage3_boss_defeat_live2d_sheet, int(reaction_state.get("transition_base_frame", 0)), STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98 * base_alpha)
-	if reaction_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _stage3_boss_defeat_click_reaction_sheet, int(reaction_state.get("reaction_frame", 0)), STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98 * reaction_alpha)
+	StageClearResultSheetDrawHelper.draw_reaction_sheet(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, _stage3_boss_defeat_reaction_state(), STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE, boss_draw_rect, 0.98)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1059,17 +1029,7 @@ func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> boo
 		layout_ratio,
 		PLAYER_VICTORY_CELL_SIZE
 	)
-	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
-	if not bool(player_victory_reaction_state.get("reaction_active", false)) or _player_victory_click_reaction_sheet == null:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _player_victory_sheet, int(player_victory_reaction_state.get("base_frame", 0)), PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE, actor_rect, 1.0)
-		return true
-
-	var reaction_alpha: float = float(player_victory_reaction_state.get("reaction_alpha", 0.0))
-	var base_alpha: float = 1.0 - reaction_alpha
-	if base_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _player_victory_sheet, int(player_victory_reaction_state.get("transition_base_frame", 0)), PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE, actor_rect, base_alpha)
-	if reaction_alpha > 0.001:
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _player_victory_click_reaction_sheet, int(player_victory_reaction_state.get("reaction_frame", 0)), PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE, actor_rect, reaction_alpha)
+	StageClearResultSheetDrawHelper.draw_reaction_sheet(self, _player_victory_sheet, _player_victory_click_reaction_sheet, _player_victory_reaction_state(), PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE, actor_rect, 1.0)
 	return true
 
 
