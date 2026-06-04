@@ -34,6 +34,20 @@ class FakeMovementState:
 		return true
 
 
+class FakeStatusEffectState:
+	var calls: Array[Dictionary] = []
+
+	func apply_status(target: String, status_id: String, duration_frames: float, data: Dictionary = {}, source: String = "") -> Dictionary:
+		calls.append({
+			"target": target,
+			"status_id": status_id,
+			"duration_frames": duration_frames,
+			"data": data.duplicate(true),
+			"source": source,
+		})
+		return {}
+
+
 class FakeDashState:
 	var snapshot := {
 		"active": false,
@@ -77,6 +91,7 @@ class FakeWarpGateState:
 
 class FakeRegistry:
 	var movement_state := FakeMovementState.new()
+	var status_effect_state := FakeStatusEffectState.new()
 	var dash_state := FakeDashState.new()
 	var warp_gate_state: Object = null
 	var requested_keys: Array[String] = []
@@ -86,6 +101,8 @@ class FakeRegistry:
 		match key:
 			"player_movement_state":
 				return movement_state
+			"status_effect_state":
+				return status_effect_state
 			"smasher_dash_state":
 				return dash_state
 			"smasher_warp_gate_state":
@@ -245,6 +262,12 @@ func _init() -> void:
 	weather.update(owner, registry, 1.0 / 60.0)
 	_expect(registry.movement_state.knockback_count == 1, "hail should knock the player back on collision")
 	_expect(is_equal_approx(registry.movement_state.last_frames, 6.0), "hail stun window should be about 0.1 seconds")
+	_expect(registry.status_effect_state.calls.size() == 1, "hail should also apply shared player stun for stun-star overlay")
+	if not registry.status_effect_state.calls.is_empty():
+		var hail_status: Dictionary = registry.status_effect_state.calls[0]
+		_expect(str(hail_status.get("target", "")) == "player", "hail shared stun should target the player")
+		_expect(str(hail_status.get("status_id", "")) == "stun", "hail shared status should be stun")
+		_expect(is_equal_approx(float(hail_status.get("duration_frames", 0.0)), 6.0), "hail shared stun duration should match the knockback stun window")
 	var hail_hit_particles: Array = weather.harvest_particles("hail")
 	_expect(_count_particles_by_kind(hail_hit_particles, "hail_burst") >= 1, "hail hit should spawn a visible shatter burst")
 	_expect(_count_particles_by_kind(hail_hit_particles, "hail_shard") >= 8, "hail hit should spawn readable ice shards")

@@ -2,6 +2,8 @@ extends RefCounted
 
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
+var _method_accepts_argument_count_cache: Dictionary = {}
+
 
 func update_weather(owner: Object, registry: Object, delta: float) -> void:
 	var weather: Object = _get_weather(registry)
@@ -148,6 +150,9 @@ func _has_explicit_weather_draw_context(draw_context: Dictionary) -> bool:
 func _method_accepts_argument_count(target: Object, method_name: String, arg_count: int) -> bool:
 	if target == null:
 		return false
+	var cache_key := _get_method_acceptance_cache_key(target, method_name, arg_count)
+	if _method_accepts_argument_count_cache.has(cache_key):
+		return bool(_method_accepts_argument_count_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -162,5 +167,12 @@ func _method_accepts_argument_count(target: Object, method_name: String, arg_cou
 		if default_value is Array:
 			default_count = default_value.size()
 		var required_count: int = maxi(0, args_count - default_count)
-		return arg_count >= required_count and arg_count <= args_count
+		var accepts := arg_count >= required_count and arg_count <= args_count
+		_method_accepts_argument_count_cache[cache_key] = accepts
+		return accepts
+	_method_accepts_argument_count_cache[cache_key] = false
 	return false
+
+
+func _get_method_acceptance_cache_key(target: Object, method_name: String, arg_count: int) -> String:
+	return "%d:%s:%d" % [target.get_instance_id(), method_name, arg_count]

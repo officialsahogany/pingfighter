@@ -271,6 +271,11 @@ func _verify_draw_context_route() -> void:
 		"blank owner weather context should skip residual weather renderer work"
 	)
 	_expect(
+		driver_source.find("_method_accepts_argument_count_cache") >= 0
+		and driver_source.find("_get_method_acceptance_cache_key") >= 0,
+		"weather update driver should cache renderer method signature checks during active weather draw"
+	)
+	_expect(
 		prewarm_controller_source.find("weather_renderer.has_method(\"prewarm_assets_step\")") >= 0,
 		"stage-transition runtime prewarm should spread generated weather textures across loading ticks"
 	)

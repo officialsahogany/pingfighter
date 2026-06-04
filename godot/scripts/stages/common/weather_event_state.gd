@@ -1175,6 +1175,15 @@ func _apply_hail_player_hit(owner: Object, registry: Object) -> void:
 		var width: float = max(1.0, float(_safe_owner_get(owner, "player_paddle_width", 155.0)))
 		pos.x = clamp(pos.x + direction * HAIL_PLAYER_KNOCKBACK_SPEED, 0.0, FIELD_WIDTH - width)
 		owner.set("player_pos", pos)
+	var status_state: Object = _get_instance(registry, "status_effect_state")
+	if status_state != null and status_state.has_method("apply_status"):
+		status_state.apply_status(
+			"player",
+			"stun",
+			HAIL_PLAYER_STUN_FRAMES,
+			{"cleansable": true, "visual": "weather_hail"},
+			"weather_hail"
+		)
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null and audio.has_method("play_wall_hit"):
 		audio.play_wall_hit(HAIL_PLAYER_KNOCKBACK_SPEED)
