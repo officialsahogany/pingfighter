@@ -1,5 +1,8 @@
 extends RefCounted
 
+const KEY_LABEL_SINGLE_Y_OFFSET := 0.32
+const KEY_LABEL_COMBO_Y_OFFSET := 0.36
+
 
 func draw(
 	canvas: CanvasItem,
@@ -70,16 +73,16 @@ func _draw_horn_strawberry_symbol(
 	match skill_name:
 		"horn_strawberry_horn_charge":
 			_draw_horn_charge_icon(canvas, center, icon_radius, color, accent_color)
-			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * 0.42), "W", icon_radius, accent_color)
+			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * KEY_LABEL_SINGLE_Y_OFFSET), "W", icon_radius, accent_color)
 		"horn_strawberry_field":
 			_draw_field_icon(canvas, center, icon_radius, berry_color, leaf_color)
-			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * 0.42), "S", icon_radius, accent_color)
+			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * KEY_LABEL_SINGLE_Y_OFFSET), "S", icon_radius, accent_color)
 		"horn_strawberry_eat":
 			_draw_eat_icon(canvas, center, icon_radius, berry_color, leaf_color, accent_color)
-			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * 0.46), "SP", icon_radius, accent_color)
+			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * KEY_LABEL_COMBO_Y_OFFSET), "SP", icon_radius, accent_color)
 		"horn_strawberry_bomb":
 			_draw_bomb_icon(canvas, center, icon_radius, berry_color, accent_color)
-			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * 0.46), "A+D", icon_radius, accent_color)
+			_draw_key_label(canvas, center + Vector2(0.0, icon_radius * KEY_LABEL_COMBO_Y_OFFSET), "A+D", icon_radius, accent_color)
 		_:
 			canvas.draw_circle(center, icon_radius * 0.34, berry_color)
 

@@ -26,6 +26,7 @@ func _init() -> void:
 	_verify_catalog_registration()
 	_verify_context_and_ready_state()
 	_verify_tooltip_data_and_hover()
+	_verify_orb_key_label_layout()
 	_verify_commando_panel_hidden_while_transformed()
 
 	if _failures.is_empty():
@@ -103,6 +104,13 @@ func _verify_tooltip_data_and_hover() -> void:
 	_expect(not bomb_rows.is_empty(), "horn strawberry bomb tooltip should use a keycap control row")
 	_expect(str(bomb_rows[0][0][1]) == "A", "bomb tooltip should start with A keycap")
 	_expect(str(bomb_rows[0][2][1]) == "D", "bomb tooltip should include D keycap")
+
+
+func _verify_orb_key_label_layout() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/hud/smasher_skill_orb_symbol_renderer.gd")
+	_expect(source.find("const KEY_LABEL_SINGLE_Y_OFFSET := 0.32") >= 0, "single-key orb labels should use the raised in-orb y offset")
+	_expect(source.find("const KEY_LABEL_COMBO_Y_OFFSET := 0.36") >= 0, "combo orb labels should use the raised in-orb y offset")
+	_expect(source.find("icon_radius * 0.46") < 0, "orb key labels should not use the old lower y offset that can overflow")
 
 
 func _verify_commando_panel_hidden_while_transformed() -> void:
