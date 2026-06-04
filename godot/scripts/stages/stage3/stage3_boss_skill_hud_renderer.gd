@@ -13,6 +13,8 @@ const SKILLCARD_ID_TO_INDEX := {
 const SKILLCARD_ATLAS_COLUMNS := 4
 
 var _skillcard_atlas: Texture2D = null
+var _metrics_cache_pillar_width := -1.0
+var _metrics_cache: Dictionary = {}
 
 
 func prewarm_assets() -> void:
@@ -36,12 +38,12 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
 	if game_offset.x <= 0.0 or game_size.y <= 0.0:
 		return
-	var entries := _skill_entries(skills)
+	var entries := skills
 	if entries.is_empty():
 		return
 	entries.sort_custom(Callable(self, "_sort_entries"))
 	var pillar_w: float = max(0.0, game_offset.x)
-	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(pillar_w)
+	var metrics: Dictionary = _get_card_metrics(pillar_w)
 	var scale_factor: float = float(metrics.get("scale_factor", 1.0))
 	var card_size: Vector2 = _as_vector2(metrics.get("card_size", Vector2(34.0, 10.0)), Vector2(34.0, 10.0))
 	var card_w: float = card_size.x
@@ -225,12 +227,12 @@ func _get_tooltip_info(value: Variant) -> Dictionary:
 	return {}
 
 
-func _skill_entries(skills: Array) -> Array:
-	var entries := []
-	for value in skills:
-		if value is Dictionary:
-			entries.append(value)
-	return entries
+func _get_card_metrics(pillar_width: float) -> Dictionary:
+	if is_equal_approx(_metrics_cache_pillar_width, pillar_width) and not _metrics_cache.is_empty():
+		return _metrics_cache
+	_metrics_cache_pillar_width = pillar_width
+	_metrics_cache = BossSkillCardHudSpec.get_card_metrics(pillar_width)
+	return _metrics_cache
 
 
 func _sort_entries(a: Dictionary, b: Dictionary) -> bool:

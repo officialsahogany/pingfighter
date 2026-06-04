@@ -70,33 +70,17 @@ func _verify_render_budgets() -> void:
 		is_equal_approx(capped_quality_scale, BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
 		"Stage 2 pillar quality should follow the global 72 FPS-cap render LOD"
 	)
-	var capped_hud_context: Dictionary = pillar_drawer._with_stage2_hud_lod_context({"selected_character_type": "smasher"}, capped_quality_scale)
 	_expect(
-		bool(capped_hud_context.get("pillar_hud_static_lod", false)),
+		bool(pillar_drawer._should_stage2_hud_static_lod(capped_quality_scale)),
 		"Stage 2 FPS-cap HUD should trim ornamental pillar orb layers even without Viper airborne flags"
 	)
-	var air_strike_hud_context: Dictionary = pillar_drawer._with_stage2_hud_lod_context(
-		{
-			"selected_character_type": "viper",
-			"viper_jetpack_airborne": true,
-			"viper_jetpack_active": true,
-			"viper_air_strike_flash_timer": 3.0,
-		},
-		ViperAirborneLod.LOD_EFFECT_SCALE
-	)
 	_expect(
-		bool(air_strike_hud_context.get("pillar_hud_static_lod", false)),
+		bool(pillar_drawer._should_stage2_hud_static_lod(ViperAirborneLod.LOD_EFFECT_SCALE)),
 		"Stage 2 Viper Air Strike should trim ornamental pillar HUD layers while keeping readable HUD content"
 	)
 	Engine.set("max_fps", 144)
-	var high_refresh_hud_context: Dictionary = pillar_drawer._with_stage2_hud_lod_context(
-		{
-			"selected_character_type": "viper",
-		},
-		BattleRenderQuality.HIGH_REFRESH_EFFECT_SCALE
-	)
 	_expect(
-		bool(high_refresh_hud_context.get("pillar_hud_static_lod", false)),
+		bool(pillar_drawer._should_stage2_hud_static_lod(BattleRenderQuality.HIGH_REFRESH_EFFECT_SCALE)),
 		"144 Hz Stage 2 should trim ornamental pillar HUD layers without hiding readable HUD content"
 	)
 	Engine.set("max_fps", previous_max_fps)
@@ -180,6 +164,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var warning_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_warning_visual_renderer.gd")
 	var counter_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_perf_counter_recorder.gd")
 	var pillar_scene_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_scene_drawer.gd")
+	var boss_hud_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd")
 	var scene_drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
 	var warmup_plan_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_plan.gd")
 	var pillar_ui_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_ui_renderer.gd")
@@ -197,6 +182,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(warning_source != "", "Stage 2 warning renderer source should be readable")
 	_expect(counter_source != "", "Stage 2 perf counter recorder source should be readable")
 	_expect(pillar_scene_source != "", "Stage 2 pillar scene drawer source should be readable")
+	_expect(boss_hud_source != "", "Stage 2 boss skill HUD source should be readable")
 	_expect(scene_drawer_source != "", "Battle playfield scene drawer source should be readable")
 	_expect(warmup_plan_source != "", "Battle boot warmup plan source should be readable")
 	_expect(pillar_ui_source != "", "shared pillar UI renderer source should be readable")
@@ -233,9 +219,14 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Stage 2 pillar scene should forward render quality to the pillar background"
 	)
 	_expect(
-		pillar_scene_source.find("_with_stage2_hud_lod_context") >= 0
+		pillar_scene_source.find("_draw_stage2_shared_pillar_hud") >= 0
 			and pillar_scene_source.find("stage2_pillar_hud_static_lod") >= 0,
 		"Stage 2 pillar scene should still support static HUD rendering for severe render quality"
+	)
+	_expect(
+		_function_body(pillar_scene_source, "func _draw_stage2_shared_pillar_hud").find("context.duplicate()") < 0
+			and _function_body(pillar_scene_source, "func _draw_stage2_shared_pillar_hud").find("context.erase(\"pillar_hud_static_lod\")") >= 0,
+		"Stage 2 pillar HUD LOD should avoid per-frame full context copies and restore temporary flags"
 	)
 	_expect(
 		pillar_ui_source.find("if skill_orb_renderer != null and not static_hud_lod:") < 0
@@ -372,6 +363,12 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(
 		_function_body(pillar_scene_source, "func _draw_stage2_boss_skill_hud").find("context.duplicate()") < 0,
 		"Stage 2 boss skill HUD should build a compact draw context instead of copying the full battle context"
+	)
+	_expect(
+		boss_hud_source.find("_metrics_cache_pillar_width") >= 0
+			and _function_body(boss_hud_source, "func draw(").find("var entries := skills") >= 0
+			and boss_hud_source.find("func _skill_entries") < 0,
+		"Stage 2 boss skill HUD should reuse metrics and avoid copying the skill array every draw"
 	)
 	_expect(
 		_function_body(background_source, "func draw_playfield_obstacles").find("ROCK_FRAGMENT_RENDER_LIMIT_SEVERE_LOD") >= 0,

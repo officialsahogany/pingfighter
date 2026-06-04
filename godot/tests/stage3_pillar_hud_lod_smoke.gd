@@ -28,16 +28,8 @@ func _verify_stage3_pillar_hud_lod_context() -> void:
 
 	var previous_max_fps: int = int(Engine.get("max_fps"))
 	Engine.set("max_fps", 90)
-	var airborne_hud_context: Dictionary = drawer._with_stage3_hud_lod_context(
-		{
-			"selected_character_type": "viper",
-			"viper_jetpack_airborne": true,
-			"viper_jetpack_active": true,
-		},
-		ViperAirborneLod.AIRBORNE_EFFECT_SCALE
-	)
 	_expect(
-		not bool(airborne_hud_context.get("pillar_hud_static_lod", false)),
+		not bool(drawer._should_stage3_hud_static_lod(ViperAirborneLod.AIRBORNE_EFFECT_SCALE)),
 		"Stage 3 normal airborne Viper HUD should keep ornamental pillar orb layers"
 	)
 	Engine.set("max_fps", 60)
@@ -46,35 +38,52 @@ func _verify_stage3_pillar_hud_lod_context() -> void:
 		is_equal_approx(capped_quality_scale, BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
 		"Stage 3 pillar quality should follow the global 72 FPS-cap render LOD"
 	)
-	var capped_hud_context: Dictionary = drawer._with_stage3_hud_lod_context({"selected_character_type": "smasher"}, capped_quality_scale)
 	_expect(
-		bool(capped_hud_context.get("pillar_hud_static_lod", false)),
+		bool(drawer._should_stage3_hud_static_lod(capped_quality_scale)),
 		"Stage 3 FPS-cap HUD should trim ornamental pillar orb layers even without Viper airborne flags"
 	)
-	var glide_hud_context: Dictionary = drawer._with_stage3_hud_lod_context(
-		{
-			"selected_character_type": "viper",
-			"viper_jetpack_airborne": true,
-			"viper_jetpack_active": false,
-		},
-		ViperAirborneLod.GLIDE_EFFECT_SCALE
-	)
 	_expect(
-		bool(glide_hud_context.get("pillar_hud_static_lod", false)),
+		bool(drawer._should_stage3_hud_static_lod(ViperAirborneLod.GLIDE_EFFECT_SCALE)),
 		"Stage 3 Viper glide / FPS-cap HUD should trim ornamental pillar orb layers"
 	)
 
 	Engine.set("max_fps", 144)
-	var high_refresh_hud_context: Dictionary = drawer._with_stage3_hud_lod_context({"selected_character_type": "smasher"}, 1.0)
 	_expect(
-		bool(high_refresh_hud_context.get("pillar_hud_static_lod", false)),
+		bool(drawer._should_stage3_hud_static_lod(1.0)),
 		"Stage 3 high-refresh HUD should trim ornamental pillar orb layers"
 	)
 	Engine.set("max_fps", previous_max_fps)
 
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_pillar_scene_drawer.gd")
-	_expect(source.find("_with_stage3_hud_lod_context(context, quality_scale)") >= 0, "Stage 3 pillar draw should route HUD context through the LOD helper")
+	var boss_hud_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd")
+	_expect(source.find("_draw_stage3_shared_pillar_hud") >= 0, "Stage 3 pillar draw should route HUD through the shared LOD helper")
 	_expect(source.find("stage3_pillar_hud_static_lod") >= 0, "Stage 3 pillar HUD should expose its static LOD marker")
+	_expect(
+		_function_body(source, "func _draw_stage3_shared_pillar_hud").find("context.duplicate()") < 0
+			and _function_body(source, "func _draw_stage3_shared_pillar_hud").find("context.erase(\"pillar_hud_static_lod\")") >= 0,
+		"Stage 3 pillar HUD LOD should avoid per-frame full context copies and restore temporary flags"
+	)
+	_expect(
+		_function_body(source, "func _draw_stage3_boss_skill_hud").find("context.duplicate()") < 0
+			and source.find("hud_context[\"current_stage\"] = 3") >= 0,
+		"Stage 3 boss skill HUD should build a compact draw context instead of copying the full battle context"
+	)
+	_expect(
+		boss_hud_source.find("_metrics_cache_pillar_width") >= 0
+			and _function_body(boss_hud_source, "func draw(").find("var entries := skills") >= 0
+			and boss_hud_source.find("func _skill_entries") < 0,
+		"Stage 3 boss skill HUD should reuse metrics and avoid copying the skill array every draw"
+	)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
 
 
 func _expect(condition: bool, message: String) -> void:

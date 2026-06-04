@@ -210,7 +210,7 @@ func draw_moon_fragments(canvas: CanvasItem, context: Dictionary, shake_offset: 
 	var quality_scale: float = _get_playfield_quality_scale(context)
 	var fragment_render_limit: int = _get_lod_count(MAX_RENDERED_MOON_FRAGMENTS, MAX_RENDERED_MOON_FRAGMENTS_LOD, quality_scale)
 	var trail_point_limit: int = _get_lod_count(MOON_FRAGMENT_TRAIL_POINT_LIMIT, MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD, quality_scale)
-	for fragment_index in range(_recent_start(fragments, fragment_render_limit), fragments.size()):
+	for fragment_index in _get_moon_fragment_render_indices(fragments, fragment_render_limit):
 		var fragment_value: Variant = fragments[fragment_index]
 		if fragment_value is Dictionary:
 			_draw_moon_fragment(canvas, fragment_value as Dictionary, scale, shake_offset, trail_point_limit)
@@ -1119,6 +1119,42 @@ func _recent_start(source: Array, render_limit: int) -> int:
 	if render_limit <= 0:
 		return source.size()
 	return max(0, source.size() - render_limit)
+
+
+func _get_moon_fragment_render_indices(fragments: Array, render_limit: int) -> Array[int]:
+	var result: Array[int] = []
+	if render_limit <= 0 or fragments.is_empty():
+		return result
+	for index in range(fragments.size() - 1, -1, -1):
+		if result.size() >= render_limit:
+			break
+		var fragment_value: Variant = fragments[index]
+		if fragment_value is Dictionary and _is_moon_fragment_visible_for_budget(fragment_value as Dictionary):
+			result.push_front(index)
+	if result.size() < render_limit:
+		for index in range(_recent_start(fragments, render_limit), fragments.size()):
+			if result.size() >= render_limit:
+				break
+			if result.has(index) or not (fragments[index] is Dictionary):
+				continue
+			result.append(index)
+	result.sort()
+	return result
+
+
+func _is_moon_fragment_visible_for_budget(fragment: Dictionary) -> bool:
+	var pos := Vector2(float(fragment.get("x", 0.0)), float(fragment.get("y", 0.0)))
+	var size: float = maxf(3.0, float(fragment.get("size", 10.0)))
+	var visual_radius: float = size * _get_moon_fragment_visual_scale(fragment) * 0.5
+	if bool(fragment.get("impact", false)):
+		visual_radius = maxf(visual_radius, float(fragment.get("shockwave_radius", 0.0)))
+	var margin: float = maxf(12.0, visual_radius)
+	return (
+		pos.x >= -margin
+		and pos.x <= LOGICAL_SIZE.x + margin
+		and pos.y >= -margin
+		and pos.y <= LOGICAL_SIZE.y + margin
+	)
 
 
 func _get_playfield_quality_scale(context: Dictionary) -> float:

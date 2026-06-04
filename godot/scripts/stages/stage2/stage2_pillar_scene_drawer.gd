@@ -79,15 +79,16 @@ func draw(canvas: CanvasItem, context: Dictionary, registry, states: Dictionary)
 	_perf_end(perf_logger, "stage2.pillar.monkey", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	hud_scene_drawer.draw(
+	_draw_stage2_shared_pillar_hud(
 		canvas,
-		_with_stage2_hud_lod_context(context, quality_scale),
+		context,
 		registry,
 		states,
 		view_size,
 		game_offset,
 		game_size,
-		time_seconds
+		time_seconds,
+		quality_scale
 	)
 	_perf_end(perf_logger, "stage2.pillar.hud", sample_start)
 
@@ -99,15 +100,16 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry, 
 	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
-	hud_scene_drawer.draw(
+	_draw_stage2_shared_pillar_hud(
 		canvas,
-		_with_stage2_hud_lod_context(context, BattleRenderQuality.effect_scale(context)),
+		context,
 		registry,
 		states,
 		view_size,
 		game_offset,
 		game_size,
-		time_seconds
+		time_seconds,
+		BattleRenderQuality.effect_scale(context)
 	)
 
 
@@ -172,14 +174,52 @@ func _draw_stage2_boss_skill_hud(
 	renderer.draw(canvas, hud_context)
 
 
-func _with_stage2_hud_lod_context(context: Dictionary, quality_scale: float) -> Dictionary:
-	var high_refresh_lod_active := BattleRenderQuality.is_high_refresh_lod_active()
-	if quality_scale > STAGE2_STATIC_HUD_LOD_SCALE and not high_refresh_lod_active:
-		return context
-	var hud_context: Dictionary = context.duplicate()
-	hud_context["stage2_pillar_hud_static_lod"] = true
-	hud_context["pillar_hud_static_lod"] = true
-	return hud_context
+func _draw_stage2_shared_pillar_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	states: Dictionary,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	time_seconds: float,
+	quality_scale: float
+) -> void:
+	var use_static_lod := _should_stage2_hud_static_lod(quality_scale)
+	var had_stage2_lod := false
+	var had_shared_lod := false
+	var previous_stage2_lod: Variant = null
+	var previous_shared_lod: Variant = null
+	if use_static_lod:
+		had_stage2_lod = context.has("stage2_pillar_hud_static_lod")
+		had_shared_lod = context.has("pillar_hud_static_lod")
+		previous_stage2_lod = context.get("stage2_pillar_hud_static_lod", null)
+		previous_shared_lod = context.get("pillar_hud_static_lod", null)
+		context["stage2_pillar_hud_static_lod"] = true
+		context["pillar_hud_static_lod"] = true
+	hud_scene_drawer.draw(
+		canvas,
+		context,
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
+	if use_static_lod:
+		if had_stage2_lod:
+			context["stage2_pillar_hud_static_lod"] = previous_stage2_lod
+		else:
+			context.erase("stage2_pillar_hud_static_lod")
+		if had_shared_lod:
+			context["pillar_hud_static_lod"] = previous_shared_lod
+		else:
+			context.erase("pillar_hud_static_lod")
+
+
+func _should_stage2_hud_static_lod(quality_scale: float) -> bool:
+	return quality_scale <= STAGE2_STATIC_HUD_LOD_SCALE or BattleRenderQuality.is_high_refresh_lod_active()
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

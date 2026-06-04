@@ -17,6 +17,7 @@ const DEFAULT_PREWARM_STEP_COUNT := 7
 const MAX_CHECKER_TEXTURE_CACHE_ENTRIES := 9
 const MAX_BORDER_TEXTURE_CACHE_ENTRIES := 9
 const MAX_ELLIPSE_POINTS_CACHE_ENTRIES := 128
+const MAX_ELLIPSE_OUTLINE_POINTS_CACHE_ENTRIES := 128
 const STADIUM_CIRCLE_SEGMENTS := 16
 const STADIUM_CIRCLE_SEGMENTS_LOD := 12
 const STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD := 16
@@ -101,6 +102,7 @@ var checker_texture_cache: Dictionary = {}
 var border_texture_cache: Dictionary = {}
 var ellipse_unit_point_cache: Dictionary = {}
 var ellipse_points_cache: Dictionary = {}
+var ellipse_outline_points_cache: Dictionary = {}
 var _prewarm_assets_done: bool = false
 var _prewarm_step_index: int = 0
 var _active_quality_scale: float = 1.0
@@ -244,6 +246,7 @@ func get_performance_snapshot() -> Dictionary:
 		"checker_texture_cache_count": checker_texture_cache.size(),
 		"border_texture_cache_count": border_texture_cache.size(),
 		"ellipse_points_cache_count": ellipse_points_cache.size(),
+		"ellipse_outline_points_cache_count": ellipse_outline_points_cache.size(),
 		"heart_particle_limit": HEART_PARTICLE_LIMIT,
 		"stadium_circle_segments": STADIUM_CIRCLE_SEGMENTS,
 		"stadium_inner_segments": STADIUM_INNER_SEGMENTS,
@@ -287,6 +290,7 @@ func _prewarm_stadium_geometry(width: float, height: float) -> void:
 	var head_size: float = 60.0 * 0.6
 	var face_rect := Rect2(center.x - head_size, center.y - head_size + 8.0, head_size * 2.0, head_size * 1.9)
 	_ellipse_points(face_rect, 18)
+	_ellipse_outline_points(face_rect, 18)
 	_ellipse_points(face_rect.grow(-2.0), 18)
 	_ellipse_points(face_rect.grow(-3.0), 18)
 	for idx in range(5):
@@ -302,6 +306,7 @@ func _prewarm_stadium_geometry(width: float, height: float) -> void:
 	for side in [-1.0, 1.0]:
 		var eye_rect := Rect2(center.x + side * eye_spacing - eye_width * 0.5, eye_y - eye_height * 0.5, eye_width, eye_height)
 		_ellipse_points(eye_rect, 18)
+		_ellipse_outline_points(eye_rect, 18)
 		_ellipse_points(eye_rect.grow(-2.0), 20)
 		_ellipse_points(eye_rect.grow(-3.0), 18)
 		var pupil_rect := Rect2(center.x + side * eye_spacing - pupil_width * 0.5, eye_y - pupil_height * 0.5 + 2.0, pupil_width, pupil_height)
@@ -1201,11 +1206,9 @@ func _draw_ellipse(canvas: CanvasItem, rect: Rect2, color: Color, segments: int 
 func _draw_ellipse_outline(canvas: CanvasItem, rect: Rect2, color: Color, width: float, segments: int = 14) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
-	var points: PackedVector2Array = _ellipse_points(rect, _get_lod_segment_count(segments))
+	var points: PackedVector2Array = _ellipse_outline_points(rect, _get_lod_segment_count(segments))
 	if points.size() > 0:
-		var closed_points: PackedVector2Array = points.duplicate()
-		closed_points.append(points[0])
-		canvas.draw_polyline(closed_points, color, width, true)
+		canvas.draw_polyline(points, color, width, true)
 
 
 func _draw_ellipse_arc(canvas: CanvasItem, rect: Rect2, start_angle: float, end_angle: float, color: Color, width: float, segments: int = 10) -> void:
@@ -1244,6 +1247,29 @@ func _ellipse_points(rect: Rect2, segments: int) -> PackedVector2Array:
 		ellipse_points_cache.clear()
 	ellipse_points_cache[cache_key] = points
 	return points
+
+
+func _ellipse_outline_points(rect: Rect2, segments: int) -> PackedVector2Array:
+	var count: int = maxi(8, segments)
+	var cache_key: String = "%d:%d:%d:%d:%d" % [
+		int(round(rect.position.x * 10.0)),
+		int(round(rect.position.y * 10.0)),
+		int(round(rect.size.x * 10.0)),
+		int(round(rect.size.y * 10.0)),
+		count,
+	]
+	var cached: Variant = ellipse_outline_points_cache.get(cache_key, null)
+	if cached is PackedVector2Array:
+		return cached
+	var points: PackedVector2Array = _ellipse_points(rect, count)
+	if points.is_empty():
+		return PackedVector2Array()
+	var closed_points: PackedVector2Array = points.duplicate()
+	closed_points.append(points[0])
+	if ellipse_outline_points_cache.size() >= MAX_ELLIPSE_OUTLINE_POINTS_CACHE_ENTRIES:
+		ellipse_outline_points_cache.clear()
+	ellipse_outline_points_cache[cache_key] = closed_points
+	return closed_points
 
 
 func _get_ellipse_unit_points(segments: int) -> PackedVector2Array:

@@ -64,6 +64,27 @@ func _verify_stage3_sources_use_shared_lod() -> void:
 	]:
 		var source := FileAccess.get_file_as_string(path)
 		_expect(source.find("BattleRenderQuality.effect_scale(context)") >= 0, "%s should use shared render-quality LOD" % path)
+	var playfield_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_playfield_renderer.gd")
+	_expect(
+		playfield_source.find("MAX_ELLIPSE_OUTLINE_POINTS_CACHE_ENTRIES") >= 0
+			and playfield_source.find("ellipse_outline_points_cache") >= 0,
+		"Stage 3 playfield should cache closed ellipse outline point arrays"
+	)
+	_expect(
+		_function_body(playfield_source, "func _draw_ellipse_outline(").find("_ellipse_outline_points") >= 0
+			and _function_body(playfield_source, "func _draw_ellipse_outline(").find("points.duplicate()") < 0,
+		"Stage 3 ellipse outline draw should not duplicate PackedVector2Array data every frame"
+	)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
 
 
 func _expect(condition: bool, message: String) -> void:

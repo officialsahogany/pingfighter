@@ -12,6 +12,7 @@ func _init() -> void:
 	_verify_viper_airborne_lod_budget()
 	_verify_shared_fps_cap_lod_budget()
 	_verify_recent_start_helper()
+	_verify_moon_fragment_visibility_budget()
 	_verify_draw_paths_use_render_caps()
 
 	if _failures.is_empty():
@@ -53,6 +54,7 @@ func _verify_render_budgets() -> void:
 	var status: Dictionary = renderer.get_imagegen_asset_status()
 	_expect(bool(status.get("viper_airborne_lod_supported", false)), "asset status should expose Viper airborne LOD support")
 	_expect(bool(status.get("shared_render_quality_lod_supported", false)), "asset status should expose shared render-quality LOD support")
+	_expect(bool(status.get("red_moon_fragment_atlas", false)), "Stage 4 playfield renderer should load the accepted red-moon fragment atlas art")
 	_expect(int(status.get("collapse_debris_render_limit", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_COLLAPSE_DEBRIS, "asset status should expose the collapse-debris render cap")
 	_expect(int(status.get("collapse_debris_render_limit_lod", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_COLLAPSE_DEBRIS_LOD, "asset status should expose the collapse-debris LOD cap")
 	_expect(int(status.get("destruction_wave_energy_ring_render_limit", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_ENERGY_RINGS, "asset status should expose the wave energy-ring render cap")
@@ -154,6 +156,25 @@ func _verify_recent_start_helper() -> void:
 	_expect(renderer._recent_start(values, 0) == values.size(), "zero render budget should draw nothing")
 
 
+func _verify_moon_fragment_visibility_budget() -> void:
+	var renderer := Stage4PlayfieldRenderer.new()
+	var fragments: Array = []
+	for index in range(40):
+		var offscreen := index >= 24
+		fragments.append({
+			"x": 980.0 if offscreen else 120.0 + float(index) * 10.0,
+			"y": 180.0 + float(index % 5) * 42.0,
+			"size": 10.0,
+			"visual_scale": 3.0,
+			"impact": false,
+		})
+	var indices: Array[int] = renderer._get_moon_fragment_render_indices(fragments, Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS_LOD)
+	_expect(indices.size() == Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS_LOD, "red moon fragment LOD selection should keep the requested visible budget")
+	_expect(indices[0] == 8 and indices[indices.size() - 1] == 23, "red moon fragment LOD selection should prefer visible in-field shards over newer offscreen spawns")
+	for index in indices:
+		_expect(index < 24, "red moon fragment LOD selection should not spend the entire imagegen draw budget on offscreen fresh spawns")
+
+
 func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_playfield_renderer.gd")
 	_expect(source != "", "Stage 4 playfield renderer source should be readable")
@@ -195,7 +216,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 	)
 	_expect(
 		_function_body(source, "func draw_moon_fragments").find("_get_playfield_quality_scale(context)") >= 0
-		and _function_body(source, "func draw_moon_fragments").find("MAX_RENDERED_MOON_FRAGMENTS_LOD") >= 0,
+		and _function_body(source, "func draw_moon_fragments").find("MAX_RENDERED_MOON_FRAGMENTS_LOD") >= 0
+		and _function_body(source, "func draw_moon_fragments").find("_get_moon_fragment_render_indices") >= 0,
 		"red moon fragment draw should use shared render-quality LOD caps"
 	)
 	_expect(
