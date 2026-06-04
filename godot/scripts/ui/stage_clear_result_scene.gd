@@ -134,14 +134,6 @@ const PLACEHOLDER_GOLD := 1240
 const RESULT_BOX_SHEET_COMMON_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_COMMON_PATH
 const RESULT_BOX_SHEET_MYTHIC_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_MYTHIC_PATH
 const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH
-const RESULT_BOX_SHEET_FRAME_COUNT := 16
-const RESULT_BOX_SHEET_GRID_COLS := 4
-const RESULT_BOX_SHEET_GRID_ROWS := 4
-const RESULT_BOX_SHEET_CELL_SIZE := Vector2(256.0, 256.0)
-const RESULT_BOX_COMMON_SAFE_LAST_FRAME := 12
-const RESULT_BOX_MYTHIC_SAFE_LAST_FRAME := RESULT_BOX_SHEET_FRAME_COUNT - 1
-const RESULT_BOX_FRAME_ASSET_GUARD_SCALE := 0.90
-const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
 const BOX_KIND_NORMAL := StageClearResultBoxData.BOX_KIND_NORMAL
@@ -880,14 +872,6 @@ func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> boo
 	return bool(result.get("drawn", true))
 
 
-func _get_result_box_sheet_texture(kind: String) -> Texture2D:
-	if StageClearResultBoxData.is_guaranteed_mythic_box_kind(kind):
-		return _result_box_sheet_guaranteed_mythic
-	if StageClearResultBoxData.is_advanced_box_kind(kind):
-		return _result_box_sheet_mythic
-	return _result_box_sheet_common
-
-
 @warning_ignore("shadowed_variable_base_class")
 func _draw_floating_boxes(_view_size: Vector2, scale: float) -> void:
 	if _boxes.is_empty():
@@ -900,33 +884,29 @@ func _draw_floating_boxes(_view_size: Vector2, scale: float) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
-	var kind: String = str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))
 	StageClearResultBoxDrawHelper.draw_floating_result_box(
 		self,
 		box,
-		{
-			"hovered": hovered,
-			"scale": scale,
-			"timer": timer,
-			"scroll_phase": _scroll_phase,
-			"scroll_timer": _scroll_timer,
-			"scroll_unfurl_duration": SCROLL_UNFURL_DURATION,
-			"float_amplitude": BOX_FLOAT_AMPLITUDE,
-			"float_speed": BOX_FLOAT_SPEED,
-			"opening_shake_amplitude": BOX_OPENING_SHAKE_AMPLITUDE,
-			"shadow_offset_y": BOX_SHADOW_OFFSET_Y,
-			"hover_grow": BOX_HOVER_GROW,
-			"box_base_size": BOX_BASE_SIZE,
-			"frame_draw_size": RESULT_BOX_FRAME_DRAW_SIZE,
-			"frame_count": RESULT_BOX_SHEET_FRAME_COUNT,
-			"common_safe_last_frame": RESULT_BOX_COMMON_SAFE_LAST_FRAME,
-			"mythic_safe_last_frame": RESULT_BOX_MYTHIC_SAFE_LAST_FRAME,
-			"sheet_grid_cols": RESULT_BOX_SHEET_GRID_COLS,
-			"sheet_cell_size": RESULT_BOX_SHEET_CELL_SIZE,
-			"reward_hover_offset": BOX_REWARD_HOVER_OFFSET,
-			"texture": _get_result_box_sheet_texture(kind),
-			"reward_icon_cache": _reward_icon_cache,
-		}
+		StageClearResultBoxDrawHelper.build_floating_result_box_draw_context(
+			box,
+			hovered,
+			scale,
+			timer,
+			_scroll_phase,
+			_scroll_timer,
+			SCROLL_UNFURL_DURATION,
+			BOX_FLOAT_AMPLITUDE,
+			BOX_FLOAT_SPEED,
+			BOX_OPENING_SHAKE_AMPLITUDE,
+			BOX_SHADOW_OFFSET_Y,
+			BOX_HOVER_GROW,
+			BOX_BASE_SIZE,
+			BOX_REWARD_HOVER_OFFSET,
+			_result_box_sheet_common,
+			_result_box_sheet_mythic,
+			_result_box_sheet_guaranteed_mythic,
+			_reward_icon_cache
+		)
 	)
 
 

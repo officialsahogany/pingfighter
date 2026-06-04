@@ -20,6 +20,9 @@ func _init() -> void:
 
 func _verify_helper_source() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
+	_expect(source.find("const RESULT_BOX_SHEET_FRAME_COUNT") >= 0, "box draw helper should own result-box sheet draw constants")
+	_expect(source.find("static func build_floating_result_box_draw_context") >= 0, "box draw helper should own floating result-box draw context assembly")
+	_expect(source.find("static func get_result_box_sheet_texture_for_kind") >= 0, "box draw helper should own result-box sheet texture selection")
 	_expect(source.find("static func draw_floating_result_box") >= 0, "box draw helper should own complete floating result-box drawing")
 	_expect(source.find("StageClearResultRewardFloatDrawHelper.draw_reward_label") >= 0, "box draw helper should own opened reward label sequencing")
 	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_glow") >= 0, "box draw helper should own floating box hover glow drawing")
@@ -65,7 +68,10 @@ func _verify_helper_source() -> void:
 func _verify_scene_delegates_box_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") >= 0, "result scene should delegate floating result-box drawing")
+	_expect(source.find("StageClearResultBoxDrawHelper.build_floating_result_box_draw_context") >= 0, "result scene should delegate floating result-box draw context assembly")
 	_expect(source.find("StageClearResultBoxDrawHelper.draw_result_box_sheet_frame") < 0, "result scene should not directly own result-box sheet frame drawing")
+	_expect(source.find("func _get_result_box_sheet_texture") < 0, "result scene should not keep result-box sheet texture selection")
+	_expect(source.find("const RESULT_BOX_SHEET_FRAME_COUNT") < 0, "result scene should not keep result-box sheet draw constants")
 	_expect(source.find("StageClearResultRewardFloatDrawHelper") < 0, "result scene should not directly own floating reward-label draw sequencing")
 	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_glow") < 0, "result scene should not directly draw floating box hover glow")
 	_expect(source.find("var col: int = frame_index % RESULT_BOX_SHEET_GRID_COLS") < 0, "result scene should not keep result-box sheet column math")

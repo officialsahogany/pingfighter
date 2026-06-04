@@ -1483,8 +1483,9 @@ This section is intentionally long; use search to find the nearest owner.
   drawing, fallback drawing used when the authored chest sheet texture is
   unavailable, opened reward-label sequencing, source rect selection from the
   frame grid, fallback body / lid rects, open-lid easing, rim highlights, and
-  canvas transform reset. The scene still owns sheet texture selection and
-  FX-host sync.
+  canvas transform reset. It also owns result-box sheet draw constants, default
+  floating-box draw context assembly, and box-kind-to-sheet texture selection.
+  The scene still owns loaded sheet texture storage and FX-host sync.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update

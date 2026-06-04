@@ -7,6 +7,73 @@ const StageClearResultRewardFloatDrawHelper := preload("res://scripts/ui/stage_c
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 
+const RESULT_BOX_SHEET_FRAME_COUNT := 16
+const RESULT_BOX_SHEET_GRID_COLS := 4
+const RESULT_BOX_SHEET_CELL_SIZE := Vector2(256.0, 256.0)
+const RESULT_BOX_COMMON_SAFE_LAST_FRAME := 12
+const RESULT_BOX_MYTHIC_SAFE_LAST_FRAME := RESULT_BOX_SHEET_FRAME_COUNT - 1
+const RESULT_BOX_FRAME_ASSET_GUARD_SCALE := 0.90
+const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
+
+
+static func get_result_box_sheet_texture_for_kind(
+	kind: String,
+	common_sheet: Texture2D,
+	mythic_sheet: Texture2D,
+	guaranteed_mythic_sheet: Texture2D
+) -> Texture2D:
+	if StageClearResultBoxData.is_guaranteed_mythic_box_kind(kind):
+		return guaranteed_mythic_sheet
+	if StageClearResultBoxData.is_advanced_box_kind(kind):
+		return mythic_sheet
+	return common_sheet
+
+
+static func build_floating_result_box_draw_context(
+	box: Dictionary,
+	hovered: bool,
+	scale: float,
+	timer_value: float,
+	scroll_phase: String,
+	scroll_timer: float,
+	scroll_unfurl_duration: float,
+	float_amplitude: float,
+	float_speed: float,
+	opening_shake_amplitude: float,
+	shadow_offset_y: float,
+	hover_grow: float,
+	box_base_size: Vector2,
+	reward_hover_offset: float,
+	common_sheet: Texture2D,
+	mythic_sheet: Texture2D,
+	guaranteed_mythic_sheet: Texture2D,
+	reward_icon_cache: Dictionary
+) -> Dictionary:
+	var kind: String = str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))
+	return {
+		"hovered": hovered,
+		"scale": scale,
+		"timer": timer_value,
+		"scroll_phase": scroll_phase,
+		"scroll_timer": scroll_timer,
+		"scroll_unfurl_duration": scroll_unfurl_duration,
+		"float_amplitude": float_amplitude,
+		"float_speed": float_speed,
+		"opening_shake_amplitude": opening_shake_amplitude,
+		"shadow_offset_y": shadow_offset_y,
+		"hover_grow": hover_grow,
+		"box_base_size": box_base_size,
+		"frame_draw_size": RESULT_BOX_FRAME_DRAW_SIZE,
+		"frame_count": RESULT_BOX_SHEET_FRAME_COUNT,
+		"common_safe_last_frame": RESULT_BOX_COMMON_SAFE_LAST_FRAME,
+		"mythic_safe_last_frame": RESULT_BOX_MYTHIC_SAFE_LAST_FRAME,
+		"sheet_grid_cols": RESULT_BOX_SHEET_GRID_COLS,
+		"sheet_cell_size": RESULT_BOX_SHEET_CELL_SIZE,
+		"reward_hover_offset": reward_hover_offset,
+		"texture": get_result_box_sheet_texture_for_kind(kind, common_sheet, mythic_sheet, guaranteed_mythic_sheet),
+		"reward_icon_cache": reward_icon_cache,
+	}
+
 
 static func draw_floating_result_box(
 	canvas: CanvasItem,
