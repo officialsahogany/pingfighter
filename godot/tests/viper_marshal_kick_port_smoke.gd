@@ -259,7 +259,7 @@ func _init() -> void:
 	_expect(not bool(snap.get("shadow_starburst_is_double", true)), "first marshal starburst should be the normal variant")
 	_expect(bool(snap.get("dark_blade_window", false)), "marshal hit should open the Dark Blade combo window when equipped")
 	_expect(stage_background.absorbed > 0, "marshal hit should destroy nearby stage objects through the impact hook")
-	_expect(int(snap.get("kick_guard_speed_reduction_pending_pct", 0)) == 20, "normal marshal hit should arm boss-guard ball speed reduction")
+	_expect(int(snap.get("kick_guard_speed_reduction_pending_pct", 0)) == 30, "normal marshal hit should arm boss-guard ball speed reduction")
 
 	input.snapshot["down_pressed"] = false
 	for _i in range(48):
@@ -432,7 +432,7 @@ func _test_phantom_kick_speed_limit_lifecycle() -> void:
 
 func _test_kick_guard_speed_reduction_lifecycle() -> void:
 	var runtime: Object = ViperSkillRuntime.new()
-	runtime.kick_guard_speed_reduction_pending_pct = 20
+	runtime.kick_guard_speed_reduction_pending_pct = 30
 	var update_context := {
 		"selected_character_type": "viper",
 		"ai_mode": "champion",
@@ -468,15 +468,15 @@ func _test_kick_guard_speed_reduction_lifecycle() -> void:
 	var ball_result: Dictionary = BallUpdateController.new().update(1.0 / 60.0, update_context, deps)
 	var snapshot: Dictionary = ball_result.get("snapshot", {})
 	_expect(int(runtime.get_snapshot().get("kick_guard_speed_reduction_pending_pct", -1)) == 0, "boss guard should consume the Viper kick speed reduction")
-	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 20.81, "boss-guarded Viper kick ball should lose 20 percent speed after the champion cap")
+	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 18.21, "boss-guarded Viper kick ball should lose 30 percent speed after the champion cap")
 
 
 func _test_kick_guard_speed_tooltip_copy() -> void:
 	var skill_config: Object = ViperSkillConfig.new()
 	var shadow_data: Dictionary = skill_config.get_skill_data("shadow_step")
 	var marshal_data: Dictionary = skill_config.get_skill_data("marshal_kick")
-	_expect(str(shadow_data.get("description", "")).find("20%") >= 0, "Shadow Backstep tooltip should mention the guard speed reduction")
-	_expect(str(marshal_data.get("description", "")).find("20%") >= 0, "Martial Kick tooltip should mention the guard speed reduction")
+	_expect(str(shadow_data.get("description", "")).find("30%") >= 0, "Shadow Backstep tooltip should mention the guard speed reduction")
+	_expect(str(marshal_data.get("description", "")).find("30%") >= 0, "Martial Kick tooltip should mention the guard speed reduction")
 
 
 func _test_shadow_chain_marshal_prep_retime() -> void:

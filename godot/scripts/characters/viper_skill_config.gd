@@ -250,9 +250,9 @@ func get_skill_data(skill_name: String) -> Dictionary:
 func _append_guard_speed_reduction_description(data: Dictionary, skill_name: String) -> void:
 	if skill_name != "shadow_step" and skill_name != "marshal_kick":
 		return
-	var line: String = "상대가 가드하면 돌아오는 공속이 20% 감소합니다."
+	var line: String = "상대가 가드하면 돌아오는 공속이 30% 감소합니다."
 	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
-		line = "If the opponent guards it, the returned ball loses 20% speed."
+		line = "If the opponent guards it, the returned ball loses 30% speed."
 	var description: String = str(data.get("description", ""))
 	if description.find(line) >= 0:
 		return

@@ -229,7 +229,7 @@ static func mark_kick_skill_knockback_pending(runtime: Object, deps: Dictionary,
 
 
 static func mark_kick_guard_speed_reduction_pending(runtime: Object, constants: Dictionary) -> void:
-	runtime.kick_guard_speed_reduction_pending_pct = max(0, int(constants.get("kick_guard_speed_reduction_pct", 20)))
+	runtime.kick_guard_speed_reduction_pending_pct = max(0, int(constants.get("kick_guard_speed_reduction_pct", 30)))
 
 
 static func update_charge_phase(runtime: Object, config: Dictionary, deps: Dictionary, result: Dictionary, constants: Dictionary) -> Vector2:
