@@ -1433,6 +1433,11 @@ This section is intentionally long; use search to find the nearest owner.
   path config assembly, and result asset path selection. The scene still owns
   the loaded texture / stream fields, path constant compatibility aliases, and
   decides when to load or prewarm.
+- `scripts/ui/stage_clear_result_voice_player.gd`
+  Owns stage-clear one-shot voice player lifecycle for result-scene click
+  voices: AudioStreamPlayer creation / parent attachment, stream and volume
+  assignment, immediate vs deferred playback, and stopping. The scene still
+  owns when the Dalji click voice should play and its loaded stream field.
 - `scripts/ui/stage_clear_result_font_cache.gd`
   Owns the stage-clear result UI font variation cache: it wraps the fallback
   font with scaled glyph spacing for compact Korean result-scroll labels and

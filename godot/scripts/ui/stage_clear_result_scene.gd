@@ -21,6 +21,7 @@ const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultFontCache := preload("res://scripts/ui/stage_clear_result_font_cache.gd")
 const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
+const StageClearResultVoicePlayer := preload("res://scripts/ui/stage_clear_result_voice_player.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
@@ -1229,33 +1230,22 @@ func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 
 func _play_dalji_click_voice() -> void:
 	_load_audio()
-	if _dalji_click_voice_stream == null:
-		return
-	if _dalji_click_voice_player == null:
-		_dalji_click_voice_player = AudioStreamPlayer.new()
-		_dalji_click_voice_player.name = "DaljiClickCryVoice"
-		add_child(_dalji_click_voice_player)
-	_dalji_click_voice_player.stream = _dalji_click_voice_stream
-	_dalji_click_voice_player.volume_db = DALJI_CLICK_VOICE_VOLUME_DB
-	_dalji_click_voice_player.stop()
-	if not is_inside_tree() or not _dalji_click_voice_player.is_inside_tree():
-		call_deferred("_play_dalji_click_voice_deferred")
-		return
-	_dalji_click_voice_player.play()
+	_dalji_click_voice_player = StageClearResultVoicePlayer.play_voice(
+		self,
+		_dalji_click_voice_player,
+		_dalji_click_voice_stream,
+		DALJI_CLICK_VOICE_VOLUME_DB,
+		"DaljiClickCryVoice",
+		&"_play_dalji_click_voice_deferred"
+	)
 
 
 func _play_dalji_click_voice_deferred() -> void:
-	if _dalji_click_voice_player == null or _dalji_click_voice_player.stream == null:
-		return
-	if not _dalji_click_voice_player.is_inside_tree():
-		return
-	_dalji_click_voice_player.stop()
-	_dalji_click_voice_player.play()
+	StageClearResultVoicePlayer.play_deferred(_dalji_click_voice_player)
 
 
 func _stop_dalji_click_voice() -> void:
-	if _dalji_click_voice_player != null and _dalji_click_voice_player.playing:
-		_dalji_click_voice_player.stop()
+	StageClearResultVoicePlayer.stop_voice(_dalji_click_voice_player)
 
 
 func _player_victory_reaction_state() -> Dictionary:
