@@ -168,6 +168,7 @@ func _verify_supply_drop_snapshot_round_trip() -> void:
 			{"type": "field_item", "item_id": "ammo_box"},
 		],
 		"commando_supply_drop_aircraft_arrival_delay": 0.0,
+		"commando_supply_drop_payload_delays": [1.15, 0.28],
 		"current_stage": 3,
 	}
 
@@ -195,7 +196,7 @@ func _verify_supply_drop_snapshot_round_trip() -> void:
 	_expect(_get_vector2(restored_snapshot.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).distance_to(_get_vector2(snapshot.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO)) < 0.01, "aircraft position should survive save/load")
 
 	deps["audio"] = restored_audio
-	var first_result: Dictionary = restored.update(float(snapshot.get("timer", 0.0)) + 0.01, deps)
+	var first_result: Dictionary = restored.update(3.85, deps)
 	_expect(bool(first_result.get("drop_resolved", false)), "restored supply drop should continue resolving payloads")
 	_expect(str(first_result.get("drop", {}).get("weapon_id", "")) == "net_gun", "restored first payload should preserve its weapon id")
 	_expect(_get_array(restored.get_snapshot().get("collectible_drops", [])).size() == 1, "resolved restored payload should become collectible")

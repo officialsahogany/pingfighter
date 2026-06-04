@@ -153,6 +153,7 @@ func _verify_runtime_profile_constants() -> void:
 
 func _verify_removed_runtime_profile_bridges() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var fire_spawn_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	for bridge_name in [
 		"_get_weapon_profile",
 		"_get_hit_feedback_profile",
@@ -164,8 +165,12 @@ func _verify_removed_runtime_profile_bridges() -> void:
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep profile bridge %s" % bridge_name)
 	_expect(
-		runtime_source.find("CommandoFirearmProfileResolver.build_spawn_profile_state") >= 0,
-		"runtime should delegate spawn profile preparation to the profile resolver"
+		runtime_source.find("CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect") >= 0,
+		"runtime should delegate firearm spawning to the fire-spawn owner"
+	)
+	_expect(
+		fire_spawn_source.find("CommandoFirearmProfileResolver.build_spawn_profile_state") >= 0,
+		"fire-spawn owner should delegate spawn profile preparation to the profile resolver"
 	)
 
 

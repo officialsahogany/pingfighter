@@ -87,6 +87,12 @@ func update(
 func _is_player_skill_input_locked(deps: Dictionary) -> bool:
 	if bool(deps.get("player_skill_input_locked", false)):
 		return true
+	var status_effect_state: Object = deps.get("status_effect_state", null)
+	if status_effect_state != null:
+		if status_effect_state.has_method("is_player_stun_active") and bool(status_effect_state.is_player_stun_active()):
+			return true
+		if status_effect_state.has_method("has_status") and bool(status_effect_state.has_status("player", "stun")):
+			return true
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if (
 		mythic_item_runtime != null

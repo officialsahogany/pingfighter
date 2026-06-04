@@ -2,6 +2,7 @@ extends SceneTree
 
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 
 var _failures: Array[String] = []
 
@@ -208,7 +209,7 @@ func _verify_direct_projectile_impact_state() -> void:
 	_expect(runtime_impact_flashes.size() == 1, "runtime impact dispatcher should append impact flash")
 	_expect(bool(wall_result.get("commando_firearm_environment_impact", false)), "runtime impact dispatcher should return wall impact result")
 	_expect(wall_impact_effects.particles.size() == 1, "runtime impact dispatcher should route wall particles")
-	_expect(wall_feedback.calls.size() == 1, "runtime impact dispatcher should route wall feedback")
+	_expect(wall_feedback.calls.size() >= 2 and _has_bazooka_explosion_shake(wall_feedback.calls), "runtime impact dispatcher should route wall hit feedback plus bazooka explosion shake")
 	_expect(wall_audio.impact_calls == ["bazooka"], "runtime impact dispatcher should route wall audio")
 	CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
 		runtime_impact_flashes,
@@ -386,7 +387,21 @@ func _verify_fire_support_impact_screen_shake() -> void:
 		24.0,
 		4
 	)
-	_expect(bazooka_feedback.calls.size() == 1, "non-fire-support impacts should still receive only the per-hit feedback shake, not the dedicated airstrike shake")
+	_expect(bazooka_feedback.calls.size() >= 2, "bazooka wall impact should trigger both the per-hit feedback and a dedicated explosion screen shake")
+	_expect(_has_bazooka_explosion_shake(bazooka_feedback.calls), "bazooka explosion screen shake should keep grenade duration with 50 percent intensity")
+
+
+func _has_bazooka_explosion_shake(calls: Array) -> bool:
+	var expected_bazooka_amount: float = ActiveItemThrowController.GRENADE_SCREEN_SHAKE_AMOUNT
+	var expected_bazooka_intensity: float = ActiveItemThrowController.GRENADE_SCREEN_SHAKE_INTENSITY * 0.5
+	for entry_value in calls:
+		var entry: Dictionary = entry_value
+		if (
+			is_equal_approx(float(entry.get("amount", 0.0)), expected_bazooka_amount)
+			and is_equal_approx(float(entry.get("intensity", 0.0)), expected_bazooka_intensity)
+		):
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

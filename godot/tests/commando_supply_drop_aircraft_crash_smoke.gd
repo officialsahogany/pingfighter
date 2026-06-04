@@ -92,6 +92,9 @@ func _verify_supply_aircraft_can_be_shot_down_by_player_ball() -> void:
 	_expect(bool(snapshot.get("aircraft_crashing", false)), "shootdown should enter the aircraft crash state")
 	_expect(_get_array(snapshot.get("pending_drops", [])).is_empty(), "shootdown should clear pending payloads")
 	_expect(audio.aircraft_stop_calls == 1, "shootdown should stop the aircraft loop immediately")
+	var sprite_status: Dictionary = supply_state.build_aircraft_sprite_status()
+	_expect(bool(sprite_status.get("crash_active_loaded", false)), "shootdown should load the burning aircraft crash sheet")
+	_expect(int(sprite_status.get("crash_frame_count", 0)) == 16, "burning aircraft crash sheet should expose 16 frames")
 
 	var crash_result: Dictionary = supply_state.update(0.9, deps)
 	_expect(bool(crash_result.get("aircraft_exploded", false)), "crash update should finish in an explosion")

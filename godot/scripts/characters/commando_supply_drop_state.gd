@@ -46,6 +46,13 @@ const AIRCRAFT_TILT_GRID_COLS := 4
 const AIRCRAFT_TILT_GRID_ROWS := 4
 const AIRCRAFT_TILT_FRAME_INTERVAL := 0.06
 const AIRCRAFT_TILT_DRAW_SIZE := Vector2(148.0, 148.0)
+const AIRCRAFT_CRASH_SHEET_LEFT_PATH := "res://assets/sprites/effects/commando_supply_aircraft/commando_supply_aircraft_crash_sheet_autosprite_v1_left.png"
+const AIRCRAFT_CRASH_SHEET_RIGHT_PATH := "res://assets/sprites/effects/commando_supply_aircraft/commando_supply_aircraft_crash_sheet_autosprite_v1_right.png"
+const AIRCRAFT_CRASH_FRAME_COUNT := 16
+const AIRCRAFT_CRASH_GRID_COLS := 4
+const AIRCRAFT_CRASH_GRID_ROWS := 4
+const AIRCRAFT_CRASH_FRAME_INTERVAL := 0.05125
+const AIRCRAFT_CRASH_DRAW_SIZE := Vector2(148.0, 148.0)
 const AIRCRAFT_INVULNERABLE_SECONDS := 0.25
 const AIRCRAFT_CRASH_SECONDS := 0.82
 const AIRCRAFT_CRASH_GROUND_Y := 660.0
@@ -98,10 +105,13 @@ const SAVE_SNAPSHOT_VERSION := 1
 
 static var _aircraft_tilt_sheet_cache: Dictionary = {}
 static var _aircraft_tilt_sheet_checked: Dictionary = {}
+static var _aircraft_crash_sheet_cache: Dictionary = {}
+static var _aircraft_crash_sheet_checked: Dictionary = {}
 static var _supply_payload_texture: Texture2D = null
 static var _supply_payload_texture_checked := false
 
 var hold_time := 0.0
+var pending_hold_time := 0.0
 var active := false
 var timer := 0.0
 var radio_motion := false
@@ -138,6 +148,7 @@ var fx_host_add_pending := false
 
 func reset() -> void:
 	hold_time = 0.0
+	pending_hold_time = 0.0
 	active = false
 	timer = 0.0
 	radio_motion = false
@@ -178,6 +189,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 
 func cancel_transient(deps: Dictionary = {}) -> void:
 	hold_time = 0.0
+	pending_hold_time = 0.0
 	radio_motion = false
 	radio_timer = 0.0
 	_stop_hold_radio_audio(deps)
@@ -203,13 +215,16 @@ func update(delta: float, deps: Dictionary = {}) -> Dictionary:
 				return _merge_update_results(arrival_result, _resolve_collectible_pickups(deps))
 			flight_delta = max(0.0, float(arrival_result.get("remaining_delta_after_aircraft_spawn", 0.0)))
 			lifecycle_result = arrival_result
+		var previous_flight_elapsed: float = flight_elapsed
 		flight_elapsed += flight_delta
-		timer = max(0.0, timer - flight_delta)
 		_update_aircraft_visual()
 		var obstacle_result: Dictionary = _resolve_aircraft_obstacle_collision_from_deps(deps)
 		if not obstacle_result.is_empty():
 			return _merge_update_results(obstacle_result, _resolve_collectible_pickups(deps))
-		if timer <= 0.0 and not pending_drops.is_empty():
+		var payload_timer_delta: float = _get_payload_drop_timer_delta(previous_flight_elapsed, flight_elapsed, deps)
+		if payload_timer_delta > 0.0:
+			timer -= payload_timer_delta
+		if (payload_timer_delta > 0.0 or _is_aircraft_over_payload_drop_zone(deps)) and timer <= 0.0 and not pending_drops.is_empty():
 			lifecycle_result = _merge_update_results(lifecycle_result, _resolve_ready_drops(deps))
 		if active and aircraft_spawned and _is_aircraft_offscreen():
 			_complete_aircraft_flight(deps)
@@ -225,10 +240,16 @@ func update_input(input_snapshot: Dictionary, delta: float, special_gauge: float
 	if not holding:
 		cancel_transient(deps)
 		return update(delta, deps)
-	if not _can_hold_for_activation(special_gauge, skill_config, skill_state, deps, current_msec):
+	if not _can_accept_supply_hold(deps, current_msec):
 		cancel_transient(deps)
 		return update(delta, deps)
+	if not _is_supply_drop_activation_ready(special_gauge, skill_config, skill_state, deps, current_msec):
+		_accumulate_pending_hold(delta, deps)
+		return update(delta, deps)
 	_cache_hold_gauge_anchor(deps)
+	if pending_hold_time > 0.0:
+		hold_time = max(hold_time, pending_hold_time)
+		pending_hold_time = 0.0
 	hold_time += delta
 	if hold_time < HOLD_REQUIRED_SECONDS:
 		_sync_hold_feedback(deps)
@@ -238,6 +259,7 @@ func update_input(input_snapshot: Dictionary, delta: float, special_gauge: float
 		return update(delta, deps)
 	_stop_hold_radio_audio(deps)
 	hold_time = 0.0
+	pending_hold_time = 0.0
 	active = true
 	aircraft_spawned = false
 	aircraft_arrival_delay = _get_aircraft_arrival_delay(deps)
@@ -273,6 +295,7 @@ func update_input(input_snapshot: Dictionary, delta: float, special_gauge: float
 func get_snapshot() -> Dictionary:
 	return {
 		"hold_time": hold_time,
+		"pending_hold_time": pending_hold_time,
 		"active": active,
 		"timer": timer,
 		"radio_motion": radio_motion,
@@ -329,6 +352,7 @@ func apply_save_snapshot(snapshot: Dictionary, deps: Dictionary = {}) -> Diction
 		}
 
 	hold_time = max(0.0, float(snapshot.get("hold_time", 0.0)))
+	pending_hold_time = max(0.0, float(snapshot.get("pending_hold_time", 0.0)))
 	active = bool(snapshot.get("active", false))
 	timer = max(0.0, float(snapshot.get("timer", 0.0)))
 	radio_motion = bool(snapshot.get("radio_motion", false))
@@ -404,6 +428,10 @@ func build_aircraft_sprite_status() -> Dictionary:
 	var active_sheet: Texture2D = _get_aircraft_tilt_sheet(aircraft_direction)
 	var left_sheet: Texture2D = _get_aircraft_tilt_sheet("right_to_left")
 	var right_sheet: Texture2D = _get_aircraft_tilt_sheet("left_to_right")
+	var crash_active_path: String = AIRCRAFT_CRASH_SHEET_LEFT_PATH if aircraft_direction == "right_to_left" else AIRCRAFT_CRASH_SHEET_RIGHT_PATH
+	var crash_active_sheet: Texture2D = _get_aircraft_crash_sheet(aircraft_direction)
+	var crash_left_sheet: Texture2D = _get_aircraft_crash_sheet("right_to_left")
+	var crash_right_sheet: Texture2D = _get_aircraft_crash_sheet("left_to_right")
 	return {
 		"sheet_pipeline": true,
 		"active_path": active_path,
@@ -416,6 +444,17 @@ func build_aircraft_sprite_status() -> Dictionary:
 		"grid_rows": AIRCRAFT_TILT_GRID_ROWS,
 		"frame_interval": AIRCRAFT_TILT_FRAME_INTERVAL,
 		"draw_size": AIRCRAFT_TILT_DRAW_SIZE,
+		"crash_sheet_pipeline": true,
+		"crash_active_path": crash_active_path,
+		"crash_active_loaded": crash_active_sheet != null,
+		"crash_left_loaded": crash_left_sheet != null,
+		"crash_right_loaded": crash_right_sheet != null,
+		"crash_frame": _get_aircraft_crash_frame(),
+		"crash_frame_count": AIRCRAFT_CRASH_FRAME_COUNT,
+		"crash_grid_cols": AIRCRAFT_CRASH_GRID_COLS,
+		"crash_grid_rows": AIRCRAFT_CRASH_GRID_ROWS,
+		"crash_frame_interval": AIRCRAFT_CRASH_FRAME_INTERVAL,
+		"crash_draw_size": AIRCRAFT_CRASH_DRAW_SIZE,
 		"speed_pixels_per_second": AIRCRAFT_SPEED_PIXELS_PER_SECOND,
 		"travel_duration": _get_aircraft_travel_duration(),
 	}
@@ -455,9 +494,9 @@ func draw(
 	for effect in explosion_effects:
 		_draw_explosion_effect(canvas, effect, shake_offset)
 	if active and aircraft_spawned:
-		_draw_aircraft(canvas, aircraft_pos + shake_offset, aircraft_direction, 0.0)
+		_draw_aircraft(canvas, aircraft_pos + shake_offset, aircraft_direction, 0.0, false)
 	elif aircraft_crashing:
-		_draw_aircraft(canvas, aircraft_pos + shake_offset, aircraft_direction, aircraft_crash_rotation)
+		_draw_aircraft(canvas, aircraft_pos + shake_offset, aircraft_direction, aircraft_crash_rotation, true)
 	for effect in drop_effects:
 		_draw_drop_effect(canvas, effect, shake_offset)
 	for drop in collectible_drops:
@@ -470,12 +509,15 @@ static func prewarm_vfx_assets() -> void:
 	CommandoSupplyDropFxHost.prewarm_assets()
 	_get_aircraft_tilt_sheet("left_to_right")
 	_get_aircraft_tilt_sheet("right_to_left")
+	_get_aircraft_crash_sheet("left_to_right")
+	_get_aircraft_crash_sheet("right_to_left")
 	_get_supply_payload_texture()
 
 
 func build_vfx_remaster_plan() -> Dictionary:
 	prewarm_vfx_assets()
 	var host_status: Dictionary = CommandoSupplyDropFxHost.build_pipeline_status()
+	var aircraft_sprite_status: Dictionary = build_aircraft_sprite_status()
 	var explosion_layer_count: int = min(explosion_effects.size(), 24)
 	var visible_effect_count: int = drop_effects.size() + collectible_drops.size() + explosion_effects.size()
 	if active and aircraft_spawned:
@@ -490,8 +532,11 @@ func build_vfx_remaster_plan() -> Dictionary:
 		"tween_pipeline": true,
 		"direct_draw_fallback": true,
 		"aircraft_sprite_sheet_pipeline": true,
-		"aircraft_sprite_sheet_loaded": bool(build_aircraft_sprite_status().get("active_loaded", false)),
+		"aircraft_sprite_sheet_loaded": bool(aircraft_sprite_status.get("active_loaded", false)),
 		"aircraft_sprite_frame_count": AIRCRAFT_TILT_FRAME_COUNT,
+		"aircraft_crash_sprite_sheet_pipeline": true,
+		"aircraft_crash_sprite_sheet_loaded": bool(aircraft_sprite_status.get("crash_active_loaded", false)),
+		"aircraft_crash_sprite_frame_count": AIRCRAFT_CRASH_FRAME_COUNT,
 		"aircraft_speed_pixels_per_second": AIRCRAFT_SPEED_PIXELS_PER_SECOND,
 		"collectible_payload_sprite_pipeline": true,
 		"collectible_payload_sprite_loaded": bool(build_payload_sprite_status().get("active_loaded", false)),
@@ -599,6 +644,13 @@ func _can_hold_for_activation(
 	deps: Dictionary,
 	current_msec: int
 ) -> bool:
+	return (
+		_can_accept_supply_hold(deps, current_msec)
+		and _is_supply_drop_activation_ready(special_gauge, skill_config, skill_state, deps, current_msec)
+	)
+
+
+func _can_accept_supply_hold(deps: Dictionary, current_msec: int) -> bool:
 	if not _is_commando_selected(deps):
 		return false
 	if _is_original_skill_blocked(deps):
@@ -607,9 +659,25 @@ func _can_hold_for_activation(
 		return false
 	if _is_emergency_supply_suppressing(deps, current_msec):
 		return false
+	return true
+
+
+func _is_supply_drop_activation_ready(
+	special_gauge: float,
+	skill_config: Object,
+	skill_state: Object,
+	deps: Dictionary,
+	current_msec: int
+) -> bool:
 	if not _is_round_state_allowing_supply_drop(deps, current_msec):
 		return false
 	return _can_activate(special_gauge, skill_config, skill_state, current_msec)
+
+
+func _accumulate_pending_hold(delta: float, deps: Dictionary) -> void:
+	pending_hold_time = min(HOLD_REQUIRED_SECONDS, max(pending_hold_time, hold_time) + max(0.0, delta))
+	hold_time = 0.0
+	_stop_hold_radio_audio(deps)
 
 
 func _can_activate(special_gauge: float, skill_config: Object, skill_state: Object, current_msec: int) -> bool:
@@ -849,8 +917,6 @@ func _build_python_drop_delay_schedule(timing_pattern: String, payload_count: in
 				next_drop_frames = randi_range(PYTHON_DELAYED_DROP_MIN_FRAMES, PYTHON_DELAYED_DROP_MAX_FRAMES)
 			else:
 				next_drop_frames = _get_python_normal_next_drop_frames()
-		if payload_index == 0:
-			delay_frames += PYTHON_SPAWN_DELAY_FRAMES
 		result.append(float(delay_frames) * FRAME_SECONDS)
 	return result
 
@@ -1402,6 +1468,48 @@ func _is_aircraft_offscreen() -> bool:
 	return flight_elapsed >= _get_aircraft_travel_duration()
 
 
+func _is_aircraft_over_payload_drop_zone(deps: Dictionary = {}) -> bool:
+	var bounds: Vector2 = _get_payload_drop_gate_bounds(deps)
+	var payload_x: float = aircraft_pos.x + PAYLOAD_SPAWN_OFFSET.x
+	return payload_x >= bounds.x and payload_x <= bounds.y
+
+
+func _get_payload_drop_timer_delta(previous_elapsed: float, current_elapsed: float, deps: Dictionary = {}) -> float:
+	var window: Vector2 = _get_payload_drop_zone_elapsed_window(deps)
+	var start_elapsed: float = max(previous_elapsed, window.x)
+	var end_elapsed: float = min(current_elapsed, window.y)
+	return max(0.0, end_elapsed - start_elapsed)
+
+
+func _get_payload_drop_zone_elapsed_window(deps: Dictionary = {}) -> Vector2:
+	var bounds: Vector2 = _get_payload_drop_gate_bounds(deps)
+	var enter_elapsed := 0.0
+	var exit_elapsed := 0.0
+	var speed: float = max(1.0, AIRCRAFT_SPEED_PIXELS_PER_SECOND)
+	if aircraft_direction == "right_to_left":
+		enter_elapsed = (AIRCRAFT_END_X - (bounds.y - PAYLOAD_SPAWN_OFFSET.x)) / speed
+		exit_elapsed = (AIRCRAFT_END_X - (bounds.x - PAYLOAD_SPAWN_OFFSET.x)) / speed
+	else:
+		enter_elapsed = ((bounds.x - PAYLOAD_SPAWN_OFFSET.x) - AIRCRAFT_START_X) / speed
+		exit_elapsed = ((bounds.y - PAYLOAD_SPAWN_OFFSET.x) - AIRCRAFT_START_X) / speed
+	var travel_duration: float = _get_aircraft_travel_duration()
+	enter_elapsed = clamp(enter_elapsed, 0.0, travel_duration)
+	exit_elapsed = clamp(exit_elapsed, 0.0, travel_duration)
+	if exit_elapsed < enter_elapsed:
+		return Vector2(enter_elapsed, enter_elapsed)
+	return Vector2(enter_elapsed, exit_elapsed)
+
+
+func _get_payload_drop_gate_bounds(deps: Dictionary = {}) -> Vector2:
+	var play_width: float = max(1.0, float(deps.get("play_width", deps.get("width", DEFAULT_PLAY_WIDTH))))
+	var min_x: float = clamp(float(deps.get("commando_supply_drop_aircraft_center_min_x", 0.0)), 0.0, play_width)
+	var max_x: float = clamp(float(deps.get("commando_supply_drop_aircraft_center_max_x", play_width)), 0.0, play_width)
+	if max_x < min_x:
+		var center_x: float = play_width * 0.5
+		return Vector2(center_x, center_x)
+	return Vector2(min_x, max_x)
+
+
 func _complete_aircraft_flight(deps: Dictionary) -> void:
 	active = false
 	timer = 0.0
@@ -1864,7 +1972,14 @@ func _draw_explosion_texture_layer(canvas: CanvasItem, effect: Dictionary, shake
 	ImpactShockwaveTextureCache.draw_full_ring(canvas, pos, radius * 3.2, Color(1.0, 0.88, 0.32, 1.0), alpha * 0.12)
 
 
-func _draw_aircraft_sprite(canvas: CanvasItem, pos: Vector2, direction: String, rotation: float) -> bool:
+func _draw_aircraft_sprite(canvas: CanvasItem, pos: Vector2, direction: String, rotation: float, crashing: bool) -> bool:
+	if crashing:
+		var crash_sheet: Texture2D = _get_aircraft_crash_sheet(direction)
+		if crash_sheet == null:
+			return false
+		var crash_source_rect: Rect2 = _get_aircraft_crash_source_rect(crash_sheet, _get_aircraft_crash_frame())
+		_draw_texture_region_rotated(canvas, crash_sheet, crash_source_rect, pos, AIRCRAFT_CRASH_DRAW_SIZE, rotation, Color.WHITE)
+		return true
 	if absf(rotation) > 0.001:
 		return false
 	var sheet: Texture2D = _get_aircraft_tilt_sheet(direction)
@@ -1879,6 +1994,11 @@ func _draw_aircraft_sprite(canvas: CanvasItem, pos: Vector2, direction: String, 
 func _get_aircraft_tilt_frame() -> int:
 	var frame: int = int(floor(max(0.0, flight_elapsed) / AIRCRAFT_TILT_FRAME_INTERVAL))
 	return frame % AIRCRAFT_TILT_FRAME_COUNT
+
+
+func _get_aircraft_crash_frame() -> int:
+	var frame: int = int(floor(max(0.0, aircraft_crash_elapsed) / AIRCRAFT_CRASH_FRAME_INTERVAL))
+	return clampi(frame, 0, AIRCRAFT_CRASH_FRAME_COUNT - 1)
 
 
 static func _get_aircraft_tilt_sheet(direction: String) -> Texture2D:
@@ -1898,6 +2018,23 @@ static func _get_aircraft_tilt_sheet_path(direction: String) -> String:
 	return AIRCRAFT_TILT_SHEET_LEFT_PATH if direction == "right_to_left" else AIRCRAFT_TILT_SHEET_RIGHT_PATH
 
 
+static func _get_aircraft_crash_sheet(direction: String) -> Texture2D:
+	var path: String = _get_aircraft_crash_sheet_path(direction)
+	if bool(_aircraft_crash_sheet_checked.get(path, false)):
+		var cached: Variant = _aircraft_crash_sheet_cache.get(path, null)
+		if cached is Texture2D:
+			return cached
+		return null
+	_aircraft_crash_sheet_checked[path] = true
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path, "", "")
+	_aircraft_crash_sheet_cache[path] = texture
+	return texture
+
+
+static func _get_aircraft_crash_sheet_path(direction: String) -> String:
+	return AIRCRAFT_CRASH_SHEET_LEFT_PATH if direction == "right_to_left" else AIRCRAFT_CRASH_SHEET_RIGHT_PATH
+
+
 static func _get_aircraft_tilt_source_rect(sheet: Texture2D, frame: int) -> Rect2:
 	var frame_index: int = clampi(frame, 0, AIRCRAFT_TILT_FRAME_COUNT - 1)
 	var texture_size: Vector2 = sheet.get_size()
@@ -1909,6 +2046,17 @@ static func _get_aircraft_tilt_source_rect(sheet: Texture2D, frame: int) -> Rect
 	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 
+static func _get_aircraft_crash_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, AIRCRAFT_CRASH_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(AIRCRAFT_CRASH_GRID_COLS)
+	var cell_h: float = texture_size.y / float(AIRCRAFT_CRASH_GRID_ROWS)
+	var col: int = frame_index % AIRCRAFT_CRASH_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / AIRCRAFT_CRASH_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
 static func _get_supply_payload_texture() -> Texture2D:
 	if _supply_payload_texture_checked:
 		return _supply_payload_texture
@@ -1917,8 +2065,38 @@ static func _get_supply_payload_texture() -> Texture2D:
 	return _supply_payload_texture
 
 
-func _draw_aircraft(canvas: CanvasItem, pos: Vector2, direction: String, rotation: float = 0.0) -> void:
-	if _draw_aircraft_sprite(canvas, pos, direction, rotation):
+static func _draw_texture_region_rotated(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source: Rect2,
+	center: Vector2,
+	size: Vector2,
+	rotation: float,
+	color: Color
+) -> void:
+	if texture == null or size.x <= 0.0 or size.y <= 0.0:
+		return
+	var half := size * 0.5
+	var corners := [
+		Vector2(-half.x, -half.y),
+		Vector2(half.x, -half.y),
+		Vector2(half.x, half.y),
+		Vector2(-half.x, half.y),
+	]
+	var points := PackedVector2Array()
+	for corner in corners:
+		points.append(center + corner.rotated(rotation))
+	var uvs := PackedVector2Array([
+		Vector2(source.position.x, source.position.y),
+		Vector2(source.position.x + source.size.x, source.position.y),
+		Vector2(source.position.x + source.size.x, source.position.y + source.size.y),
+		Vector2(source.position.x, source.position.y + source.size.y),
+	])
+	canvas.draw_polygon(points, PackedColorArray([color, color, color, color]), uvs, texture)
+
+
+func _draw_aircraft(canvas: CanvasItem, pos: Vector2, direction: String, rotation: float = 0.0, crashing: bool = false) -> void:
+	if _draw_aircraft_sprite(canvas, pos, direction, rotation, crashing):
 		return
 	var nose_sign := 1.0 if direction != "right_to_left" else -1.0
 	var body_color := Color(0.47, 0.50, 0.38, 0.92)

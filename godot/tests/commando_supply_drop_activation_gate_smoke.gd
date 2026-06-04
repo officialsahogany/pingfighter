@@ -61,6 +61,7 @@ func _init() -> void:
 	_verify_activation_stops_hold_feedback_loop()
 	_verify_round_reset_stops_hold_feedback_loop()
 	_verify_round_gates_match_python_reference()
+	_verify_hold_buffer_survives_post_serve_gate()
 	_verify_emergency_supply_suppresses_supply_hold()
 	_verify_original_skill_block_flags_clear_hold()
 
@@ -210,6 +211,50 @@ func _verify_round_gates_match_python_reference() -> void:
 	_expect(bool(settled_serve_result.get("activated", false)), "post-serve lock should expire after 3 seconds")
 
 
+func _verify_hold_buffer_survives_post_serve_gate() -> void:
+	var supply_state: Object = CommandoSupplyDropState.new()
+	var skill_config: Object = CommandoSkillConfig.new()
+	var skill_state: Object = CommandoSkillState.new()
+	var fresh_serve := FakeRoundState.new()
+	fresh_serve.waiting_for_serve = false
+	fresh_serve.round_start_time_msec = 10000
+	var deps := {
+		"round_state": fresh_serve,
+		"current_msec": 12_900,
+	}
+	var blocked_result: Dictionary = supply_state.update_input(
+		_supply_input(),
+		0.7,
+		500.0,
+		skill_config,
+		skill_state,
+		deps
+	)
+	_expect_not_activated(blocked_result, "post-serve lock should not activate before it expires")
+	_expect(
+		is_equal_approx(float(supply_state.get_snapshot().get("pending_hold_time", 0.0)), 0.7),
+		"held supply input during post-serve lock should be buffered"
+	)
+	_expect(
+		not bool(supply_state.build_hold_gauge_status().get("visible", false)),
+		"blocked supply hold buffer should not show the visible hold gauge"
+	)
+
+	deps["current_msec"] = 13_000
+	var activated_result: Dictionary = supply_state.update_input(
+		_supply_input(),
+		0.3,
+		500.0,
+		skill_config,
+		skill_state,
+		deps
+	)
+	_expect(
+		bool(activated_result.get("activated", false)),
+		"held supply input should activate without a second key attempt once the post-serve lock expires"
+	)
+
+
 func _verify_emergency_supply_suppresses_supply_hold() -> void:
 	var emergency_state: Object = CommandoEmergencySupplyState.new()
 	var skill_config: Object = CommandoSkillConfig.new()
@@ -241,6 +286,28 @@ func _verify_emergency_supply_suppresses_supply_hold() -> void:
 		350.0
 	)
 	_expect(bool(expired_result.get("activated", false)), "supply-drop hold should recover after emergency suppress window")
+
+	var suppressed_state: Object = CommandoSupplyDropState.new()
+	suppressed_state.update_input(
+		_supply_input(),
+		0.5,
+		350.0,
+		skill_config,
+		skill_state,
+		{"commando_emergency_supply_state": emergency_state, "current_msec": 1250}
+	)
+	var after_suppress_result: Dictionary = suppressed_state.update_input(
+		_supply_input(),
+		0.5,
+		350.0,
+		skill_config,
+		skill_state,
+		{"commando_emergency_supply_state": emergency_state, "current_msec": 1500}
+	)
+	_expect_not_activated(
+		after_suppress_result,
+		"emergency-supply suppress window should not buffer the same down press into supply drop"
+	)
 
 
 func _verify_original_skill_block_flags_clear_hold() -> void:

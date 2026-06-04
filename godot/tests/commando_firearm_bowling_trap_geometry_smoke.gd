@@ -100,6 +100,8 @@ func _init() -> void:
 
 
 func _verify_direct_bowling_trap_geometry() -> void:
+	var guard_knockback_power: float = CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER
+	var guard_stun_frames: float = CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES
 	_expect(
 		CommandoFirearmBowlingTrapGeometry.get_install_pos({}, 760.0, 750.0, 60.0, 20.0, 0.6) == Vector2(457.5, 735.0),
 		"bowling-trap default install position should preserve legacy fallback geometry"
@@ -144,15 +146,24 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	)
 
 	_expect(
-		is_equal_approx(CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(Vector2(200.0, 0.0), {}, 760.0, 22.0), 22.0),
+		is_equal_approx(
+			CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(Vector2(200.0, 0.0), {}, 760.0, guard_knockback_power),
+			guard_knockback_power
+		),
 		"left-side boss guard hit should knock right"
 	)
 	_expect(
-		is_equal_approx(CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(Vector2(500.0, 0.0), {}, 760.0, 22.0), -22.0),
+		is_equal_approx(
+			CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(Vector2(500.0, 0.0), {}, 760.0, guard_knockback_power),
+			-guard_knockback_power
+		),
 		"right-side boss guard hit should knock left"
 	)
 	_expect(
-		is_equal_approx(CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(Vector2(380.0, 0.0), {"boss_vel": -3.0}, 760.0, 22.0), -22.0),
+		is_equal_approx(
+			CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(Vector2(380.0, 0.0), {"boss_vel": -3.0}, 760.0, guard_knockback_power),
+			-guard_knockback_power
+		),
 		"center boss guard hit should follow current boss velocity when available"
 	)
 	_expect(CommandoFirearmBowlingTrapGeometry.get_launch_direction(5) == -1, "shot id modulo 5 == 0 should launch left")
@@ -253,7 +264,7 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	_expect(is_equal_approx(float(release_motion["launch_speed"]), 24.0), "release motion should multiply original ball speed")
 	_expect(is_equal_approx((release_motion["launch_vel"] as Vector2).length(), 24.0), "release motion velocity should match launch speed")
 	_expect(
-		is_equal_approx(float(CommandoFirearmBowlingTrapGeometry.build_release_result(release_motion, "guard", 22.0, 60.0, 0.7)["commando_bowling_trap_guard_restore_speed"]), 4.2),
+		is_equal_approx(float(CommandoFirearmBowlingTrapGeometry.build_release_result(release_motion, "guard", guard_knockback_power, guard_stun_frames, 0.7)["commando_bowling_trap_guard_restore_speed"]), 4.2),
 		"release result should expose reduced guard restore speed"
 	)
 	var release_payload: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_payload(
@@ -263,8 +274,8 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		4.0,
 		PI / 8.0,
 		0.7,
-		22.0,
-		60.0
+		guard_knockback_power,
+		guard_stun_frames
 	)
 	_expect(str(_get_dict(release_payload.get("release_result", {})).get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "release payload should build the guard source")
 	_expect(str(_get_dict(release_payload.get("pseudo_projectile", {})).get("weapon_id", "")) == "bowling_trap", "release payload should build the pseudo projectile")
@@ -327,8 +338,8 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		4.0,
 		PI / 8.0,
 		0.7,
-		22.0,
-		60.0
+		guard_knockback_power,
+		guard_stun_frames
 	)
 	_expect(str(_get_dict(runtime_capture_traps[0]).get("state", "")) == "capturing", "runtime trap owner should enter capture state")
 	_expect(bool(_get_dict(runtime_capture_update.get("result", {})).get("commando_bowling_trap_captured", false)), "runtime trap owner should emit capture result")
@@ -348,8 +359,8 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		4.0,
 		PI / 8.0,
 		0.7,
-		22.0,
-		60.0
+		guard_knockback_power,
+		guard_stun_frames
 	)
 	_expect(runtime_release_traps.is_empty(), "runtime trap owner should remove completed capture traps")
 	_expect(bool(_get_dict(runtime_release_update.get("result", {})).get("commando_bowling_trap_released", false)), "runtime trap owner should emit release result")
@@ -388,7 +399,7 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	var immune_result: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(Vector2(0.0, 4.0))
 	_expect(bool(immune_result.get("boss_status_immune", false)), "guard immune result should expose boss immunity")
 	_expect(not bool(immune_result.get("commando_bowling_trap_guard_hit", true)), "guard immune result should not mark a guard hit")
-	var hit_result: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_hit_result(Vector2(0.0, 4.0), 22.0, "guard", 60.0, 4.2)
+	var hit_result: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_hit_result(Vector2(0.0, 4.0), guard_knockback_power, "guard", guard_stun_frames, 4.2)
 	_expect(bool(hit_result.get("commando_bowling_trap_guard_hit", false)), "guard hit result should mark a guard hit")
 	_expect(is_equal_approx(float(hit_result.get("commando_bowling_trap_guard_consumed_restore_speed", 0.0)), 4.2), "guard hit result should preserve restore speed")
 

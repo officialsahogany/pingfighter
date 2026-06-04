@@ -54,7 +54,7 @@ func _verify_supply_drop_resolves_multiple_payloads_in_sequence() -> void:
 	_expect(_drop_weapon_id(pending_drops, 1) == "fire_support", "second payload should reserve the next available rental")
 	_expect(_drop_weapon_id(pending_drops, 2) == "bowling_trap", "third payload should reserve a distinct rental")
 
-	var first_result: Dictionary = supply_state.update(1.2, deps)
+	var first_result: Dictionary = supply_state.update(4.2, deps)
 	_expect(bool(first_result.get("drop_resolved", false)), "first payload should resolve after aircraft delay")
 	_expect(_get_array(first_result.get("drops", [])).size() == 1, "first update should resolve one payload")
 	_expect(str(first_result.get("drop", {}).get("weapon_id", "")) == "net_gun", "first resolved payload should be net gun")

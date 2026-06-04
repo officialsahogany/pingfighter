@@ -116,7 +116,7 @@ func _verify_supply_drop_audio_lifecycle() -> void:
 	_expect(bool(supply_state.is_aircraft_audio_active()), "spawned aircraft should expose active aircraft audio")
 	_expect(bool(supply_state.has_visible_effects()), "spawned supply aircraft should be visible")
 
-	var resolve_result: Dictionary = supply_state.update(1.2, deps)
+	var resolve_result: Dictionary = supply_state.update(4.2, deps)
 	_expect(bool(resolve_result.get("drop_resolved", false)), "supply drop should resolve after the aircraft delay")
 	_expect(audio.aircraft_stop_calls == 0, "payload resolution should not stop the slower Python-speed aircraft loop")
 	_expect(audio.drop_calls == 1, "resolution should play the supply drop cue")
@@ -172,7 +172,7 @@ func _verify_round_cleanup_preserves_supply_drop_payloads() -> void:
 		deps
 	)
 	_expect(bool(supply_state.is_aircraft_audio_active()), "cleanup setup should have an active aircraft loop")
-	var first_result: Dictionary = supply_state.update(1.2, deps)
+	var first_result: Dictionary = supply_state.update(4.2, deps)
 	_expect(bool(first_result.get("drop_resolved", false)), "cleanup setup should resolve the first payload before round reset")
 	_expect(str(first_result.get("drop", {}).get("weapon_id", "")) == "net_gun", "cleanup setup should resolve the first forced payload")
 

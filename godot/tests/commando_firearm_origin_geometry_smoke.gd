@@ -113,6 +113,7 @@ func _verify_direct_origin_geometry() -> void:
 
 func _verify_removed_runtime_origin_geometry_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var fire_spawn_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	for bridge_name in [
 		"_get_player_muzzle_pos",
 		"_get_firearm_origin",
@@ -130,8 +131,12 @@ func _verify_removed_runtime_origin_geometry_bridges() -> void:
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep origin geometry bridge %s" % bridge_name)
 	_expect(
-		source.find("CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state") >= 0,
-		"runtime should delegate spawn geometry state construction to origin geometry"
+		source.find("CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect") >= 0,
+		"runtime should delegate firearm effect spawning to the fire-spawn owner"
+	)
+	_expect(
+		fire_spawn_source.find("CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state") >= 0,
+		"fire-spawn owner should delegate spawn geometry state construction to origin geometry"
 	)
 	_expect(
 		source.find("CommandoFirearmOriginGeometry.get_firearm_origin") < 0,

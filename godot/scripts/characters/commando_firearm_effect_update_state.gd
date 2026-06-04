@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
@@ -83,7 +84,7 @@ static func advance_runtime_effects(
 		float(options.get("trap_launch_speed_multiplier", 4.0)),
 		float(options.get("trap_launch_angle_step", 0.0)),
 		float(options.get("bowling_trap_guard_speed_reduction", 0.7)),
-		float(options.get("bowling_trap_guard_knockback_power", 22.0)),
+		float(options.get("bowling_trap_guard_knockback_power", ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_POWER)),
 		float(options.get("bowling_trap_guard_stun_frames", 60.0))
 	)
 	runtime_owner.set("bowling_traps", bowling_traps)

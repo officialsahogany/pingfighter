@@ -1,6 +1,8 @@
 extends SceneTree
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
+const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -122,14 +124,14 @@ func _verify_character_info_uses_commando_runtime() -> void:
 		"runtime_perk_state": runtime_state,
 	}
 
-	_expect(str(overlay._get_character_type(owner)) == "soldier", "TAB overlay should keep soldier as Commando, not Smasher fallback")
-	_expect(str(overlay._get_character_display_name(owner, "soldier")) == "코만도", "TAB overlay should display Korean Commando name")
-	_expect(overlay._get_skill_config(registry, "soldier") == skill_config, "TAB overlay should read Commando skill config")
+	_expect(str(CharacterInfoOverlayOwnerState.character_type_from_owner(owner, overlay._character_runtime)) == "soldier", "TAB overlay should keep soldier as Commando, not Smasher fallback")
+	_expect(str(CharacterInfoOverlayOwnerState.character_display_name_from_owner(owner, "soldier")) == "코만도", "TAB overlay should display Korean Commando name")
+	_expect(CharacterInfoOverlayOwnerState.skill_config(registry, "soldier", overlay._character_runtime) == skill_config, "TAB overlay should read Commando skill config")
 	var acquired: Array = overlay._build_acquired_perks(runtime_state.runtime_skill_levels, catalog)
 	var bazooka: Dictionary = _first_dict(acquired)
 	_expect(str(bazooka.get("name", "")) == "바주카포", "TAB perk grid should use the Korean unlock name")
 	_expect(str(bazooka.get("description", "")).contains("바주카포 해금"), "TAB perk tooltip should use Korean unlock description")
-	_expect(str(overlay._perk_level_text(bazooka)) == "해금", "TAB perk grid should label single-level Commando unlocks in Korean")
+	_expect(str(CharacterInfoOverlayFormatter.perk_level_text(bazooka)) == "해금", "TAB perk grid should label single-level Commando unlocks in Korean")
 
 	var stats: Array = overlay._build_stats(owner, registry)
 	_expect(_find_stat(stats, "장착 스킬").is_empty(), "TAB stats should leave skill counts to the dedicated equipped-skill panel")

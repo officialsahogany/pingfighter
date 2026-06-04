@@ -30,6 +30,7 @@ class FakeFeedback:
 	var shake_calls := 0
 	var last_amount := 0.0
 	var last_intensity := 0.0
+	var shake_entries: Array = []
 	var gauge_flash_calls := 0
 
 	func update(_delta: float, _dash_token_max: int) -> void:
@@ -39,6 +40,7 @@ class FakeFeedback:
 		shake_calls += 1
 		last_amount = amount
 		last_intensity = intensity
+		shake_entries.append({"amount": amount, "intensity": intensity})
 
 	func trigger_gauge_flash() -> void:
 		gauge_flash_calls += 1
@@ -358,7 +360,7 @@ func _verify_successful_fire_spawns_visible_runtime() -> void:
 	var ball_effects: Object = setup.get("ball_effects", null)
 	var animation_state: Object = setup.get("animation_state", null)
 	var status_effect_state: Object = setup.get("status_effect_state", null)
-	_expect(feedback.shake_calls == 1 and feedback.last_amount > 0.0, "target impact should trigger screen shake feedback")
+	_expect(feedback.shake_calls >= 2 and _has_bazooka_explosion_shake(feedback), "target bazooka explosion should trigger per-hit feedback and a visible half-strength grenade screen shake")
 	_expect(_get_array(impact_effects.hits).size() == 1, "target impact should spawn shared impact particles")
 	_expect(_get_array(ball_effects.pulses).size() == 1 and str(_get_dict(ball_effects.pulses[0]).get("kind", "")) == "commando_bazooka", "target impact should register a ball hit pulse")
 	_expect(animation_state.boss_hit_calls == 1 and bool(animation_state.last_has_hit_texture), "target impact should trigger boss hit animation")
@@ -410,7 +412,7 @@ func _verify_bazooka_wall_impact_detonates_without_boss_contact() -> void:
 	var status_effect_state: Object = setup.get("status_effect_state", null)
 	_expect(_get_array(audio.impact_calls) == ["bazooka"], "bazooka wall detonation should play the impact/explosion cue")
 	_expect(_get_array(impact_effects.hits).size() == 1, "bazooka wall detonation should spawn shared explosion particles")
-	_expect(feedback.shake_calls == 1, "bazooka wall detonation should still shake the screen")
+	_expect(feedback.shake_calls >= 2 and _has_bazooka_explosion_shake(feedback), "bazooka wall detonation should trigger per-hit feedback and a visible half-strength grenade screen shake")
 	_expect(animation_state.boss_hit_calls == 0, "bazooka wall detonation outside radius should not trigger boss hit animation")
 	_expect(_get_array(status_effect_state.get_calls_for_source("commando_firearm_bazooka")).is_empty(), "bazooka wall detonation outside radius should not apply boss stun")
 	_expect(_get_array(runtime.get_recent_hit_events()).is_empty(), "bazooka wall detonation outside radius should not record a boss hit event")
@@ -734,8 +736,26 @@ func _verify_weapon_hit_status_profiles() -> void:
 	var ak_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_ak47"))
 	_expect(ak_calls.size() == 1, "AK-47 hit should apply one shared boss status")
 	_expect(str(_get_dict(ak_calls[0]).get("status_id", "")) == "stun", "AK-47 hit should apply short boss stun")
-	_expect(is_equal_approx(float(_get_dict(ak_calls[0]).get("duration_frames", 0.0)), 6.0), "AK-47 stun should match Python 0.1s duration")
-	_expect(float(_get_dict(_get_dict(ak_calls[0]).get("data", {})).get("knockback_vel", 0.0)) > 10.0, "AK-47 knockback should include bullet velocity scaling")
+	_expect(is_equal_approx(float(_get_dict(ak_calls[0]).get("duration_frames", 0.0)), 12.0), "AK-47 stun should match the 0.2s tuning")
+	var ak_status_data: Dictionary = _get_dict(_get_dict(ak_calls[0]).get("data", {}))
+	var expected_ak_knockback: float = CommandoFirearmRuntime.AK47_BOSS_KNOCKBACK_POWER + 24.0 * CommandoFirearmRuntime.AK47_BOSS_KNOCKBACK_VELOCITY_SCALE
+	_expect(is_equal_approx(float(ak_status_data.get("knockback_vel", 0.0)), expected_ak_knockback), "AK-47 hit should apply a small natural boss knockback")
+	_expect(bool(ak_status_data.get("knockback_active", false)), "AK-47 stun should expose a short moving knockback channel")
+	_expect(is_equal_approx(float(ak_status_data.get("knockback_frames", 0.0)), CommandoFirearmRuntime.AK47_BOSS_KNOCKBACK_FRAMES), "AK-47 knockback should end before the full stun duration")
+	_expect(is_equal_approx(float(ak_status_data.get("knockback_decay_per_frame", 0.0)), CommandoFirearmRuntime.AK47_BOSS_KNOCKBACK_DECAY_PER_FRAME), "AK-47 knockback should decay quickly for a natural bullet nudge")
+	var ak_real_status := StatusEffectState.new()
+	var ak_motion_runtime := CommandoFirearmRuntime.new()
+	ak_motion_runtime._register_projectile_hit(_direct_projectile("ak47", Vector2(320.0, 82.0), Vector2(24.0, -8.0)), config, {"status_effect_state": ak_real_status})
+	var ak_ai_context: Dictionary = ak_real_status.get_boss_ai_context()
+	var ak_stunned_motion: Dictionary = BossAiState.new().update(1.0 / 60.0, Vector2(328.0, 62.0), -2.5, ak_ai_context)
+	_expect(is_equal_approx(float(ak_stunned_motion.get("boss_vel", 999.0)), expected_ak_knockback), "AK-47 stun should replace previous boss movement with a short bullet nudge")
+	_expect(is_equal_approx(_get_vector2(ak_stunned_motion.get("boss_pos", Vector2.ZERO), Vector2.ZERO).x, 328.0 + expected_ak_knockback), "AK-47 stun should nudge boss x position on the first knockback frame")
+	for _ak_i in range(int(CommandoFirearmRuntime.AK47_BOSS_KNOCKBACK_FRAMES)):
+		ak_real_status.update(1.0)
+	var ak_settled_context: Dictionary = ak_real_status.get_boss_ai_context()
+	var ak_settled_motion: Dictionary = BossAiState.new().update(1.0 / 60.0, Vector2(328.0, 62.0), -2.5, ak_settled_context)
+	_expect(is_equal_approx(float(ak_settled_motion.get("boss_vel", 999.0)), 0.0), "AK-47 stun should stop the bullet nudge before the stun expires")
+	_expect(is_equal_approx(_get_vector2(ak_settled_motion.get("boss_pos", Vector2.ZERO), Vector2.ZERO).x, 328.0), "AK-47 stun should hold position after the short knockback window")
 
 	runtime._register_projectile_hit(_direct_projectile("net_gun", Vector2(350.0, 82.0), Vector2(0.0, -10.0)), config, deps)
 	var net_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_net_gun"))
@@ -1563,8 +1583,8 @@ func _verify_bowling_trap_capture_launch_lifecycle() -> void:
 	_expect(not bool(release_result.get("skip_ball_motion_step", true)), "bowling trap release should clear the held-ball motion skip")
 	_expect(bool(release_result.get("commando_bowling_trap_guard_armed", false)), "bowling trap release should arm the next boss-guard collision")
 	_expect(str(release_result.get("commando_bowling_trap_guard_source", "")).begins_with("commando_bowling_trap_guard_"), "bowling trap release should expose a stable guard status source")
-	_expect(is_equal_approx(float(release_result.get("commando_bowling_trap_guard_knockback_power", 0.0)), 22.0), "bowling trap release should expose the Python guard knockback metadata")
-	_expect(is_equal_approx(float(release_result.get("commando_bowling_trap_guard_stun_frames", 0.0)), 60.0), "bowling trap release should expose the Python guard stun metadata")
+	_expect(is_equal_approx(float(release_result.get("commando_bowling_trap_guard_knockback_power", 0.0)), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER), "bowling trap release should expose dynamite-grade guard knockback metadata")
+	_expect(is_equal_approx(float(release_result.get("commando_bowling_trap_guard_stun_frames", 0.0)), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES), "bowling trap release should expose the guard stun metadata")
 	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_bowling_traps", [])).is_empty(), "released bowling trap should remove the used trap body")
 	_expect(not _get_array(runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", [])).is_empty(), "bowling trap launch should leave a clamp burst effect")
 	_expect(_get_array(audio.impact_calls).count("bowling_trap") == 1, "bowling trap release should not replay the pre-launch snap cue")
@@ -1597,8 +1617,8 @@ func _verify_bowling_trap_guard_handoff(release_result: Dictionary, runtime: Obj
 	var applier := BattleSceneEffectsUpdateResultApplier.new()
 	applier.apply_effects_result(owner, release_result)
 	_expect(owner.commando_bowling_trap_guard_armed, "effects result applier should persist armed bowling-trap guard state")
-	_expect(is_equal_approx(owner.commando_bowling_trap_guard_knockback_power, 22.0), "effects result applier should persist bowling-trap guard knockback")
-	_expect(is_equal_approx(owner.commando_bowling_trap_guard_stun_frames, 60.0), "effects result applier should persist bowling-trap guard stun duration")
+	_expect(is_equal_approx(owner.commando_bowling_trap_guard_knockback_power, CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER), "effects result applier should persist bowling-trap guard knockback")
+	_expect(is_equal_approx(owner.commando_bowling_trap_guard_stun_frames, CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES), "effects result applier should persist bowling-trap guard stun duration")
 
 	var status_effect_state := FakeStatusEffectState.new()
 	var ai_state := FakeAiState.new()
@@ -1631,7 +1651,7 @@ func _verify_bowling_trap_guard_handoff(release_result: Dictionary, runtime: Obj
 	_expect(bool(guard_result.get("commando_bowling_trap_guard_hit", false)), "boss post-hit handler should consume armed bowling-trap guard state")
 	_expect(not bool(guard_result.get("commando_bowling_trap_guard_armed", true)), "boss post-hit handler should clear bowling-trap guard state after one hit")
 	_expect(not bool(runtime.is_bowling_trap_guard_armed()), "runtime should consume bowling-trap guard state after the boss guard hit")
-	_expect(is_equal_approx(abs(float(guard_result.get("boss_vel", 0.0))), 22.0), "bowling-trap boss guard should apply the Python knockback power")
+	_expect(is_equal_approx(abs(float(guard_result.get("boss_vel", 0.0))), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER), "bowling-trap boss guard should apply dynamite-grade knockback power")
 	_expect(is_equal_approx(_get_vector2(guard_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO).length(), restored_speed), "bowling-trap boss guard should restore the ball to the reduced original speed")
 	if audio != null:
 		_expect(_get_array(audio.impact_calls).count("bowling_trap") == trap_audio_count_before_guard, "bowling-trap boss guard should not replay the capture/launch audio sequence")
@@ -1640,11 +1660,11 @@ func _verify_bowling_trap_guard_handoff(release_result: Dictionary, runtime: Obj
 	_expect(status_calls.size() == 1, "bowling-trap boss guard should apply one shared boss status")
 	_expect(str(_get_dict(status_calls[0]).get("target", "")) == "boss", "bowling-trap guard status should target the boss")
 	_expect(str(_get_dict(status_calls[0]).get("status_id", "")) == "stun", "bowling-trap guard status should be a stun")
-	_expect(is_equal_approx(float(_get_dict(status_calls[0]).get("duration_frames", 0.0)), 60.0), "bowling-trap guard stun should match the Python 1s duration")
+	_expect(is_equal_approx(float(_get_dict(status_calls[0]).get("duration_frames", 0.0)), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES), "bowling-trap guard stun should keep the 1s duration")
 	var status_data: Dictionary = _get_dict(_get_dict(status_calls[0]).get("data", {}))
-	_expect(is_equal_approx(abs(float(status_data.get("knockback_vel", 0.0))), 22.0), "bowling-trap guard status should carry knockback velocity")
-	_expect(is_equal_approx(float(status_data.get("knockback_frames", 0.0)), 36.0), "bowling-trap guard status should use the fire-event knockback motion window")
-	_expect(is_equal_approx(float(status_data.get("knockback_decay_per_frame", 0.0)), 0.85), "bowling-trap guard status should decay through the shared boss knockback feel")
+	_expect(is_equal_approx(abs(float(status_data.get("knockback_vel", 0.0))), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER), "bowling-trap guard status should carry dynamite-grade knockback velocity")
+	_expect(is_equal_approx(float(status_data.get("knockback_frames", 0.0)), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES), "bowling-trap guard status should use the dynamite knockback motion window")
+	_expect(is_equal_approx(float(status_data.get("knockback_decay_per_frame", 0.0)), CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_DECAY), "bowling-trap guard status should decay through the active-item knockback feel")
 
 
 func _verify_bowling_trap_round_carryover() -> void:
@@ -2214,6 +2234,21 @@ func _find_impact_flash(runtime: Object, weapon_id: String) -> Dictionary:
 func _has_lingering_effect_for_weapon(runtime: Object, weapon_id: String) -> bool:
 	for value in _get_array(runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", [])):
 		if str(_get_dict(value).get("weapon_id", "")) == weapon_id:
+			return true
+	return false
+
+
+func _has_bazooka_explosion_shake(feedback: Object) -> bool:
+	if feedback == null:
+		return false
+	var expected_amount: float = ActiveItemThrowController.GRENADE_SCREEN_SHAKE_AMOUNT
+	var expected_intensity: float = ActiveItemThrowController.GRENADE_SCREEN_SHAKE_INTENSITY * 0.5
+	for value in _get_array(feedback.get("shake_entries")):
+		var entry: Dictionary = _get_dict(value)
+		if (
+			is_equal_approx(float(entry.get("amount", 0.0)), expected_amount)
+			and is_equal_approx(float(entry.get("intensity", 0.0)), expected_intensity)
+		):
 			return true
 	return false
 

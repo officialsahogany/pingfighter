@@ -159,6 +159,10 @@ func _verify_doping_potion_enhances_commando_pistol() -> void:
 	_expect(bool(context.get("active", false)), "doping context should become active")
 	_expect(is_equal_approx(float(context.get("timer_frames", 0.0)), 480.0), "doping timer should start at Python 480 frames")
 	_expect(is_equal_approx(float(context.get("head_leg_multiplier", 0.0)), 2.0), "doping should double head/leg chances")
+	var draw_context: Dictionary = active_runtime.effect_controller.get_field_effect_draw_context()
+	var timer_context: Dictionary = _get_context_dictionary(draw_context, "doping_potion_timer_context")
+	_expect(bool(timer_context.get("active", false)), "doping timer context should be available for the right-bottom HUD gauge")
+	_expect(is_equal_approx(float(timer_context.get("initial_timer_frames", 0.0)), 480.0), "doping HUD timer should preserve the full initial duration")
 
 	var firearm_runtime: Object = CommandoFirearmRuntime.new()
 	var fire_result: Dictionary = firearm_runtime.update_input(
@@ -274,6 +278,13 @@ func _candidate_ids(candidates: Array) -> Array:
 		var candidate: Dictionary = candidate_value if candidate_value is Dictionary else {}
 		ids.append(str(candidate.get("item_id", "")))
 	return ids
+
+
+func _get_context_dictionary(context: Dictionary, key: String) -> Dictionary:
+	var value: Variant = context.get(key, {})
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _fire_config() -> Dictionary:

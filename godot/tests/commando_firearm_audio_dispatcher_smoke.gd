@@ -176,6 +176,7 @@ func _verify_missing_audio_is_noop() -> void:
 
 func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var fire_spawn_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	var support_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
 	for bridge_name in [
 		"_play_weapon_audio_method",
@@ -198,12 +199,16 @@ func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 		"support projectile resolver should delegate support aircraft audio event dispatch to the audio dispatcher"
 	)
 	_expect(
-		source.find("CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio") >= 0,
-		"runtime should delegate support call start audio dispatch to the audio dispatcher"
+		fire_spawn_source.find("CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio") >= 0,
+		"fire spawn state should delegate support call start audio dispatch to the audio dispatcher"
 	)
 	_expect(
 		source.find("play_commando_fire_support_radio") < 0,
 		"runtime should not keep the fire-support radio cue list inline"
+	)
+	_expect(
+		fire_spawn_source.find("play_commando_fire_support_radio") < 0,
+		"fire spawn state should not keep the fire-support radio cue list inline"
 	)
 
 

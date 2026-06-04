@@ -45,7 +45,7 @@ func _verify_python_drop_timing_patterns() -> void:
 	})
 	var burst_delays: Array = _get_array(burst_state.get_snapshot().get("pending_drop_delays", []))
 	_expect(burst_delays.size() == 3, "burst timing should build one delay per payload")
-	_expect(is_equal_approx(float(burst_delays[0]), 58.0 / 60.0), "burst first drop should use Python spawn delay plus 10-frame burst interval")
+	_expect(is_equal_approx(float(burst_delays[0]), 10.0 / 60.0), "burst first drop should use the Python 10-frame burst interval after the Godot center-entry gate")
 	_expect(is_equal_approx(float(burst_delays[1]), 10.0 / 60.0), "burst second drop should use the Python 10-frame burst interval")
 	_expect(_is_between(float(burst_delays[2]), 90.0 / 60.0, 180.0 / 60.0), "burst cooldown should use Python 90-180 frame range")
 
@@ -57,7 +57,7 @@ func _verify_python_drop_timing_patterns() -> void:
 	})
 	var delayed_delays: Array = _get_array(delayed_state.get_snapshot().get("pending_drop_delays", []))
 	_expect(delayed_delays.size() == 2, "delayed timing should build one delay per payload")
-	_expect(_is_between(float(delayed_delays[0]), 60.0 / 60.0, 198.0 / 60.0), "delayed first drop should include Python spawn delay and initial 12-150 frame wait")
+	_expect(_is_between(float(delayed_delays[0]), 12.0 / 60.0, 150.0 / 60.0), "delayed first drop should use the initial 12-150 frame wait after the Godot center-entry gate")
 	_expect(_is_between(float(delayed_delays[1]), 120.0 / 60.0, 210.0 / 60.0), "delayed follow-up drop should use Python 120-210 frame range")
 
 

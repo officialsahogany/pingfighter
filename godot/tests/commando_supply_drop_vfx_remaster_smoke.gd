@@ -82,7 +82,11 @@ func _run() -> void:
 	await process_frame
 	_verify_aircraft_vfx_pipeline()
 	_verify_aircraft_movement_speed_matches_python_reference()
-	var resolve_result: Dictionary = _supply_state.update(1.2, _deps)
+	var early_result: Dictionary = _supply_state.update(1.2, _deps)
+	_expect(not bool(early_result.get("drop_resolved", false)), "supply payload should not resolve while the aircraft is still outside the center background")
+	var early_aircraft_x: float = _get_vector2(_supply_state.get_snapshot().get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).x
+	_expect(early_aircraft_x < 0.0, "test setup should still have the aircraft in the pillar/background margin before payload release")
+	var resolve_result: Dictionary = _supply_state.update(2.8, _deps)
 	_expect(bool(resolve_result.get("drop_resolved", false)), "supply drop should resolve before parachute VFX verification")
 	_verify_payload_stays_inside_center_background(resolve_result)
 	_probe.queue_redraw()
@@ -149,11 +153,17 @@ func _verify_aircraft_vfx_pipeline() -> void:
 	_expect(bool(plan.get("aircraft_sprite_sheet_pipeline", false)), "active aircraft should use the AutoSprite sheet pipeline")
 	_expect(bool(plan.get("aircraft_sprite_sheet_loaded", false)), "active aircraft AutoSprite sheet should load before drawing")
 	_expect(int(plan.get("aircraft_sprite_frame_count", 0)) == 16, "active aircraft AutoSprite sheet should expose 16 frames")
+	_expect(bool(plan.get("aircraft_crash_sprite_sheet_pipeline", false)), "shot-down aircraft should expose an AutoSprite crash sheet pipeline")
+	_expect(bool(plan.get("aircraft_crash_sprite_sheet_loaded", false)), "shot-down aircraft AutoSprite crash sheet should load before drawing")
+	_expect(int(plan.get("aircraft_crash_sprite_frame_count", 0)) == 16, "shot-down aircraft AutoSprite crash sheet should expose 16 frames")
 	_expect(bool(plan.get("collectible_payload_sprite_pipeline", false)), "supply payload should expose the PNG sprite pipeline")
 	var sprite_status: Dictionary = _supply_state.build_aircraft_sprite_status()
 	_expect(bool(sprite_status.get("left_loaded", false)), "right-to-left supply aircraft sheet should load")
 	_expect(bool(sprite_status.get("right_loaded", false)), "left-to-right mirrored supply aircraft sheet should load")
 	_expect(str(sprite_status.get("active_path", "")).ends_with("_right.png"), "default left-to-right flight should use the right-facing mirrored sheet")
+	_expect(bool(sprite_status.get("crash_left_loaded", false)), "right-to-left supply aircraft crash sheet should load")
+	_expect(bool(sprite_status.get("crash_right_loaded", false)), "left-to-right mirrored supply aircraft crash sheet should load")
+	_expect(str(sprite_status.get("crash_active_path", "")).ends_with("_crash_sheet_autosprite_v1_right.png"), "default left-to-right crash should use the right-facing mirrored crash sheet")
 	var snapshot: Dictionary = _supply_state.get_snapshot()
 	_expect(is_equal_approx(_get_vector2(snapshot.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).x, -360.0), "left-to-right supply aircraft should spawn from the same off-canvas edge lane as fire support")
 	_expect(is_equal_approx(float(sprite_status.get("speed_pixels_per_second", 0.0)), 120.0), "active aircraft should expose Python 2px/frame movement speed")
@@ -188,12 +198,15 @@ func _verify_payload_stays_inside_center_background(resolve_result: Dictionary) 
 	var drop: Dictionary = resolve_result.get("drop", {}) if resolve_result.get("drop", {}) is Dictionary else {}
 	var drop_position: Vector2 = _get_vector2(drop.get("drop_position", Vector2.ZERO), Vector2.ZERO)
 	var aircraft_x: float = _get_vector2(_supply_state.get_snapshot().get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).x
-	_expect(aircraft_x < 0.0, "test setup should still have the aircraft entering from the screen edge when the first payload resolves")
+	_expect(aircraft_x >= 32.0 and aircraft_x <= 728.0, "first supply payload should resolve only after the aircraft enters the center background")
 	_expect(drop_position.x >= 32.0 and drop_position.x <= 728.0, "supply payload should stay inside the center background while the aircraft starts from the screen edge")
 
 
 func _verify_crash_vfx_pipeline() -> void:
 	var plan: Dictionary = _supply_state.build_vfx_remaster_plan()
+	_expect(bool(plan.get("aircraft_crash_sprite_sheet_pipeline", false)), "shot-down supply aircraft should keep the AutoSprite crash sheet pipeline active")
+	_expect(bool(plan.get("aircraft_crash_sprite_sheet_loaded", false)), "shot-down supply aircraft crash sheet should be loaded")
+	_expect(int(plan.get("aircraft_crash_sprite_frame_count", 0)) == 16, "shot-down supply aircraft crash sheet should expose 16 frames")
 	_expect(int(plan.get("crash_texture_layers", 0)) > 0, "shot-down supply aircraft should expose crash texture layers")
 	_expect(int(plan.get("visible_effect_count", 0)) > 0, "shot-down supply aircraft should keep crash VFX visible")
 	_verify_host_status("explosion")

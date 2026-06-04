@@ -390,7 +390,7 @@ func _verify_supply_drop_grants_one_rental_weapon() -> void:
 
 	var activate_result: Dictionary = supply.update_input({"down_pressed": true, "action_pressed": false}, 1.0, 500.0, config, state, deps)
 	_expect(bool(activate_result.get("activated", false)), "holding down should activate supply drop without action input")
-	var resolve_result: Dictionary = supply.update(1.2, deps)
+	var resolve_result: Dictionary = supply.update(4.2, deps)
 	_expect(bool(resolve_result.get("drop_resolved", false)), "supply drop should resolve after delay")
 	_expect(controller.get_weapons().size() == 1, "resolved supply should wait for direct pickup before granting a rental")
 	var collectible: Dictionary = _get_first_collectible(supply)

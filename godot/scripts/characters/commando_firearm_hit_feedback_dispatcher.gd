@@ -1,9 +1,12 @@
 extends RefCounted
 
+const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 
 const FIRE_SUPPORT_EXPLOSION_SHAKE_AMOUNT := 1.6
 const FIRE_SUPPORT_EXPLOSION_SHAKE_INTENSITY := 10.0
+const BAZOOKA_EXPLOSION_SHAKE_AMOUNT := ActiveItemThrowController.GRENADE_SCREEN_SHAKE_AMOUNT
+const BAZOOKA_EXPLOSION_SHAKE_INTENSITY := ActiveItemThrowController.GRENADE_SCREEN_SHAKE_INTENSITY * 0.5
 
 
 static func spawn_shared_impact_particles(
@@ -32,15 +35,23 @@ static func trigger_hit_feedback(feedback_profile: Dictionary, deps: Dictionary)
 
 
 static func trigger_explosion_screen_shake(weapon_id: String, deps: Dictionary) -> void:
-	if weapon_id != "fire_support":
+	var shake_amount := 0.0
+	var shake_intensity := 0.0
+	if weapon_id == "fire_support":
+		shake_amount = FIRE_SUPPORT_EXPLOSION_SHAKE_AMOUNT
+		shake_intensity = FIRE_SUPPORT_EXPLOSION_SHAKE_INTENSITY
+	elif weapon_id == "bazooka":
+		shake_amount = BAZOOKA_EXPLOSION_SHAKE_AMOUNT
+		shake_intensity = BAZOOKA_EXPLOSION_SHAKE_INTENSITY
+	else:
 		return
 	var feedback: Object = deps.get("feedback", null)
 	if feedback == null:
 		return
 	if feedback.has_method("max_screen_shake"):
-		feedback.max_screen_shake(FIRE_SUPPORT_EXPLOSION_SHAKE_AMOUNT, FIRE_SUPPORT_EXPLOSION_SHAKE_INTENSITY)
+		feedback.max_screen_shake(shake_amount, shake_intensity)
 	elif feedback.has_method("set_screen_shake"):
-		feedback.set_screen_shake(FIRE_SUPPORT_EXPLOSION_SHAKE_AMOUNT, FIRE_SUPPORT_EXPLOSION_SHAKE_INTENSITY)
+		feedback.set_screen_shake(shake_amount, shake_intensity)
 
 
 static func trigger_boss_hit_animation(context: Dictionary, deps: Dictionary) -> void:

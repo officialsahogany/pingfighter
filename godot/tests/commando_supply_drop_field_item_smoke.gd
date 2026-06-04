@@ -82,7 +82,7 @@ func _verify_supply_drop_routes_field_item_pickup_through_active_item_runtime() 
 	_expect(str(pending.get("type", "")) == "field_item", "supply drop should fall back to a field item when no rentals are eligible")
 	_expect(str(pending.get("item_id", "")) == "grenade", "field item fallback should use the configured field item id")
 
-	var resolve_result: Dictionary = supply_state.update(1.2, deps)
+	var resolve_result: Dictionary = supply_state.update(4.2, deps)
 	_expect(bool(resolve_result.get("drop_resolved", false)), "field item supply drop should resolve after delay")
 	var drop: Dictionary = resolve_result.get("drop", {})
 	_expect(str(drop.get("type", "")) == "field_item", "resolved drop should keep field item type")
@@ -145,7 +145,7 @@ func _verify_supply_drop_keeps_field_item_when_pickup_rejects() -> void:
 		skill_state,
 		deps
 	)
-	supply_state.update(1.2, deps)
+	supply_state.update(4.2, deps)
 	var collectible: Dictionary = _get_first_collectible(supply_state)
 	var pickup_pos: Vector2 = collectible.get("pos", collectible.get("drop_position", Vector2.ZERO))
 	deps["commando_supply_drop_collision_context"] = {
