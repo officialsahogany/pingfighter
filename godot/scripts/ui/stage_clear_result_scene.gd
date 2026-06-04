@@ -16,6 +16,7 @@ const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
@@ -135,13 +136,13 @@ const RESULT_BOX_FRAME_ASSET_GUARD_SCALE := 0.90
 const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
-const BOX_KIND_NORMAL := "normal"
-const BOX_KIND_ADVANCED := "advanced"
-const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
-const LEGACY_BOX_KIND_MYTHIC := "mythic"
-const BOX_LABEL_NORMAL := "일반상자"
-const BOX_LABEL_ADVANCED := "고급상자"
-const BOX_LABEL_GUARANTEED_MYTHIC := "신화 확정상자"
+const BOX_KIND_NORMAL := StageClearResultBoxData.BOX_KIND_NORMAL
+const BOX_KIND_ADVANCED := StageClearResultBoxData.BOX_KIND_ADVANCED
+const BOX_KIND_GUARANTEED_MYTHIC := StageClearResultBoxData.BOX_KIND_GUARANTEED_MYTHIC
+const LEGACY_BOX_KIND_MYTHIC := StageClearResultBoxData.LEGACY_BOX_KIND_MYTHIC
+const BOX_LABEL_NORMAL := StageClearResultBoxData.BOX_LABEL_NORMAL
+const BOX_LABEL_ADVANCED := StageClearResultBoxData.BOX_LABEL_ADVANCED
+const BOX_LABEL_GUARANTEED_MYTHIC := StageClearResultBoxData.BOX_LABEL_GUARANTEED_MYTHIC
 const RESULT_REWARD_SOURCE_LABELS := {
 	"stage": "인게임",
 	"box": "상자 보상",
@@ -334,7 +335,7 @@ func _ready() -> void:
 	set_process(not _driven_by_controller)
 	_apply_standalone_preview_defaults()
 	if _boxes.is_empty() and not reward_plan.is_empty():
-		_boxes = _build_boxes_from_plan(reward_plan)
+		_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
 	_sync_viewport_size()
 	_load_textures()
 	_load_audio()
@@ -372,7 +373,7 @@ func configure(
 	_mythic_item_runtime = _as_object(data.get("mythic_item_runtime", null))
 	_treasure_hunt_runtime = _as_object(data.get("treasure_hunt_runtime", null))
 	_game_audio = _as_object(data.get("game_audio", null))
-	_boxes = _build_boxes_from_plan(reward_plan)
+	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
 	_fx_prewarm_next_index = 0
 	_lid_open_counter = 0
 	set_starpoint_choice_gate_active(false, -1)
@@ -832,7 +833,7 @@ func get_interaction_status() -> Dictionary:
 		"item_reward_source_counts": reward_summary_state.get("item_reward_source_counts", {}),
 		"perk_reward_source_counts": reward_summary_state.get("perk_reward_source_counts", {}),
 		"visible_reward_source_counts": reward_summary_state.get("visible_reward_source_counts", {}),
-		"box_display_labels": _get_box_display_labels(),
+		"box_display_labels": StageClearResultBoxData.get_box_display_labels(_boxes),
 		"perk_info": _build_perk_info_summary(reward_summary_state),
 		"starpoint_total": int(reward_summary_state.get("starpoint_total", 0)),
 		"hovered_box_index": _hovered_box_index,
@@ -1177,81 +1178,10 @@ func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> boo
 	return true
 
 
-func _build_boxes_from_plan(plan: Dictionary) -> Array:
-	var box_list: Array = []
-	var boxes_value: Variant = plan.get("boxes", [])
-	var src: Array = boxes_value if boxes_value is Array else []
-	if src.is_empty():
-		return box_list
-	var layout: Array = StageClearResultLayoutHelper.get_box_layout(src.size())
-	if layout.is_empty():
-		return box_list
-	var count: int = min(src.size(), layout.size())
-	for i in range(count):
-		var src_box: Dictionary = src[i] if src[i] is Dictionary else {}
-		var slot: Dictionary = layout[i]
-		var original_kind: String = str(src_box.get("kind", BOX_KIND_NORMAL))
-		var kind: String = _normalize_box_kind(original_kind)
-		box_list.append({
-			"kind": kind,
-			"roll_kind": original_kind,
-			"label": str(src_box.get("label", _get_box_display_label(kind))),
-			"base_pos": Vector2(slot.get("pos", Vector2.ZERO)),
-			"rotation_base": float(slot.get("rot", 0.0)),
-			"rotation_jitter": float(slot.get("jitter", 0.05)),
-			"phase": float(slot.get("phase", 0.0)),
-			"amplitude": float(slot.get("amp", BOX_FLOAT_AMPLITUDE)),
-			"speed": float(slot.get("speed", BOX_FLOAT_SPEED)),
-			"state": "idle",
-			"open_progress": 0.0,
-			"reward": {},
-			"reward_emerge": 0.0,
-	})
-	return box_list
-
-
-func _normalize_box_kind(kind: String) -> String:
-	if kind == BOX_KIND_GUARANTEED_MYTHIC:
-		return BOX_KIND_GUARANTEED_MYTHIC
-	if kind == LEGACY_BOX_KIND_MYTHIC:
-		return BOX_KIND_ADVANCED
-	if kind == BOX_KIND_ADVANCED:
-		return BOX_KIND_ADVANCED
-	return BOX_KIND_NORMAL
-
-
-func _is_advanced_box_kind(kind: String) -> bool:
-	return kind == BOX_KIND_ADVANCED or kind == LEGACY_BOX_KIND_MYTHIC
-
-
-func _is_guaranteed_mythic_box_kind(kind: String) -> bool:
-	return kind == BOX_KIND_GUARANTEED_MYTHIC
-
-
-func _is_mythic_visual_box_kind(kind: String) -> bool:
-	return _is_advanced_box_kind(kind) or _is_guaranteed_mythic_box_kind(kind)
-
-
-func _get_box_display_label(kind: String) -> String:
-	if _is_guaranteed_mythic_box_kind(kind):
-		return LanguageSettings.translate_text(BOX_LABEL_GUARANTEED_MYTHIC)
-	return LanguageSettings.translate_text(BOX_LABEL_ADVANCED if _is_advanced_box_kind(kind) else BOX_LABEL_NORMAL)
-
-
-func _get_box_display_labels() -> Array:
-	var labels: Array = []
-	for box_value in _boxes:
-		if not (box_value is Dictionary):
-			continue
-		var box: Dictionary = box_value
-		labels.append(str(box.get("label", _get_box_display_label(str(box.get("kind", BOX_KIND_NORMAL))))))
-	return labels
-
-
 func _get_result_box_sheet_texture(kind: String) -> Texture2D:
-	if _is_guaranteed_mythic_box_kind(kind):
+	if StageClearResultBoxData.is_guaranteed_mythic_box_kind(kind):
 		return _result_box_sheet_guaranteed_mythic
-	if _is_advanced_box_kind(kind):
+	if StageClearResultBoxData.is_advanced_box_kind(kind):
 		return _result_box_sheet_mythic
 	return _result_box_sheet_common
 
@@ -1272,8 +1202,8 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 	if global_alpha <= 0.02:
 		return
 
-	var kind: String = str(box.get("kind", BOX_KIND_NORMAL))
-	var is_mythic: bool = _is_mythic_visual_box_kind(kind)
+	var kind: String = str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))
+	var is_mythic: bool = StageClearResultBoxData.is_mythic_visual_box_kind(kind)
 	var state: String = str(box.get("state", "idle"))
 	var open_progress: float = float(box.get("open_progress", 0.0))
 
@@ -1698,7 +1628,7 @@ func _start_opening_box(index: int) -> void:
 	box["state"] = "opening"
 	box["open_progress"] = 0.0
 	box["reward_emerge"] = 0.0
-	box["reward"] = _roll_reward(str(box.get("roll_kind", box.get("kind", BOX_KIND_NORMAL))))
+	box["reward"] = _roll_reward(str(box.get("roll_kind", box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))))
 	box["lid_open_fired"] = false
 	box["lid_open_id"] = -1
 	_boxes[index] = box
@@ -1720,7 +1650,7 @@ func _roll_reward(kind: String) -> Dictionary:
 			var rolled: Dictionary = rolled_value
 			if not rolled.is_empty():
 				return rolled
-	if _is_guaranteed_mythic_box_kind(kind) or _is_advanced_box_kind(kind):
+	if StageClearResultBoxData.is_guaranteed_mythic_box_kind(kind) or StageClearResultBoxData.is_advanced_box_kind(kind):
 		return {"type": "mythic", "label": LanguageSettings.translate_text("신화 아이템")}
 	var roll: float = randf()
 	if roll < 0.60:
@@ -1828,7 +1758,7 @@ func _sync_fx_hosts() -> void:
 		)
 		var open_progress: float = float(box.get("open_progress", 0.0))
 		var reward_emerge: float = float(box.get("reward_emerge", 0.0))
-		var is_mythic: bool = _is_mythic_visual_box_kind(str(box.get("kind", BOX_KIND_NORMAL)))
+		var is_mythic: bool = StageClearResultBoxData.is_mythic_visual_box_kind(str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL)))
 		var lid_open_id: int = int(box.get("lid_open_id", -1))
 		var fx_state := {
 			"position": draw_center,
