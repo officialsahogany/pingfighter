@@ -46,12 +46,14 @@ const SKILL_FX_POWER := "power_smashing"
 const SKILL_FX_GHOST := "ghost_shot"
 const SEVERE_LOD_PARTICLE_DRAW_MIN_SCALE := 0.50
 const PREWARM_LOCAL_STEP_COUNT := 7
+const RUNTIME_NODE_PREWARM_SCREEN_POS := Vector2(-100000.0, -100000.0)
 
 var particle_renderer: Object = EnergyBallParticleRenderer.new()
 var orbit_renderer: Object = EnergyBallOrbitRenderer.new()
 var fx_host: Node = null
 var fx_host_add_pending := false
 var _prewarm_assets_step_index := 0
+var _prewarm_runtime_nodes_step_index := 0
 
 
 func _init() -> void:
@@ -86,6 +88,41 @@ func prewarm_assets_step() -> bool:
 		return false
 	_prewarm_assets_step_index += 1
 	return true
+
+
+func prewarm_runtime_nodes(owner: Object = null) -> void:
+	while not prewarm_runtime_nodes_step(owner):
+		pass
+
+
+func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
+	if not _ensure_fx_host(owner):
+		_prewarm_runtime_nodes_step_index = 0
+		return true
+	if _prewarm_runtime_nodes_step_index == 0:
+		_sync_runtime_node_prewarm()
+		_prewarm_runtime_nodes_step_index = 1
+		return false
+	_deactivate_fx_host()
+	_prewarm_runtime_nodes_step_index = 0
+	return true
+
+
+func _ensure_fx_host(owner: Object = null) -> bool:
+	if _is_valid_fx_host():
+		return true
+	if not (owner is Node):
+		return false
+	var parent := owner as Node
+	var existing: Node = parent.get_node_or_null("EnergyBallFxHost")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		fx_host = existing
+	else:
+		fx_host = EnergyBallFxHost.new()
+		fx_host.name = "EnergyBallFxHost"
+		parent.add_child(fx_host)
+	fx_host_add_pending = false
+	return _is_valid_fx_host()
 
 
 func clear() -> void:
@@ -321,6 +358,30 @@ func _get_or_create_fx_host(canvas: CanvasItem) -> Node:
 
 func _is_valid_fx_host() -> bool:
 	return fx_host != null and is_instance_valid(fx_host) and not fx_host.is_queued_for_deletion()
+
+
+func _sync_runtime_node_prewarm() -> void:
+	if not _is_valid_fx_host() or not fx_host.has_method("sync_state"):
+		return
+	fx_host.sync_state(
+		RUNTIME_NODE_PREWARM_SCREEN_POS,
+		1.0,
+		Vector2(18.0, -10.0),
+		false,
+		true,
+		{},
+		SKILL_FX_NONE,
+		0.55
+	)
+
+
+func _deactivate_fx_host() -> void:
+	if not _is_valid_fx_host():
+		return
+	if fx_host.has_method("set_active"):
+		fx_host.set_active(false)
+	elif fx_host is CanvasItem:
+		(fx_host as CanvasItem).visible = false
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:

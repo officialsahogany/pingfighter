@@ -11,9 +11,21 @@ static var _right_wall_ring_texture: ImageTexture = null
 
 
 static func prewarm() -> void:
-	get_full_ring_texture()
-	get_wall_ring_texture("left")
-	get_wall_ring_texture("right")
+	while not prewarm_step():
+		pass
+
+
+static func prewarm_step() -> bool:
+	if _full_ring_texture == null:
+		get_full_ring_texture()
+		return false
+	if _left_wall_ring_texture == null:
+		get_wall_ring_texture("left")
+		return false
+	if _right_wall_ring_texture == null:
+		get_wall_ring_texture("right")
+		return false
+	return true
 
 
 static func get_full_ring_texture() -> ImageTexture:

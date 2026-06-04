@@ -30,6 +30,18 @@ func prewarm_assets_step() -> bool:
 	return true
 
 
+func prewarm_runtime_nodes(owner: Object = null) -> void:
+	if energy_renderer != null and energy_renderer.has_method("prewarm_runtime_nodes"):
+		energy_renderer.prewarm_runtime_nodes(owner)
+
+
+func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
+	if energy_renderer != null and energy_renderer.has_method("prewarm_runtime_nodes_step"):
+		return bool(energy_renderer.prewarm_runtime_nodes_step(owner))
+	prewarm_runtime_nodes(owner)
+	return true
+
+
 func clear() -> void:
 	energy_renderer.clear()
 	pingpong_renderer.clear()

@@ -51,6 +51,16 @@ func _verify_air_strike_lod_budget() -> void:
 		_function_body(renderer_source, "func draw").find("particle_renderer.clear()") >= 0,
 		"EnergyBallRenderer should clear procedural particles instead of drawing them in severe LOD"
 	)
+	var runtime_prewarm_body := _function_body(renderer_source, "func prewarm_runtime_nodes_step")
+	_expect(
+		runtime_prewarm_body.find("_sync_runtime_node_prewarm()") >= 0
+			and runtime_prewarm_body.find("return false") >= 0,
+		"EnergyBallRenderer should stage one offscreen active FX-host frame before the first visible ball draw"
+	)
+	_expect(
+		_function_body(renderer_source, "func _sync_runtime_node_prewarm").find("sync_state") >= 0,
+		"EnergyBallRenderer runtime-node prewarm should exercise the FX host sync_state path off-screen"
+	)
 
 
 func _verify_ball_effect_lod_budget() -> void:

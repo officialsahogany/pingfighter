@@ -11,9 +11,21 @@ static var _sparkle_texture: ImageTexture = null
 
 
 static func prewarm() -> void:
-	get_glow_texture()
-	get_burst_texture()
-	get_sparkle_texture()
+	while not prewarm_step():
+		pass
+
+
+static func prewarm_step() -> bool:
+	if _glow_texture == null:
+		get_glow_texture()
+		return false
+	if _burst_texture == null:
+		get_burst_texture()
+		return false
+	if _sparkle_texture == null:
+		get_sparkle_texture()
+		return false
+	return true
 
 
 static func get_glow_texture() -> ImageTexture:
