@@ -40,6 +40,16 @@ const SLOW_MULTIPLIER := 0.50
 const SLOW_REFRESH_FRAMES := 4.0
 const STATUS_SOURCE := "red_dragon_dragon_breath_fire"
 
+# Red Dragon flies in with the sortie motion (off-screen -> ingress -> loiter in
+# the center background). The breath may only arm once it has actually reached
+# the center stage; otherwise it fires during ingress and pours from the screen
+# edge before the dragon is on-stage. Band matches the sortie loiter region so
+# the breath starts as the dragon enters the center and traces its loiter path.
+const ARM_CENTER_MIN_X := 150.0
+const ARM_CENTER_MAX_X := FIELD_WIDTH - 150.0
+const ARM_CENTER_MIN_Y := 110.0
+const ARM_CENTER_MAX_Y := FIELD_HEIGHT - 220.0
+
 var _breath_active := false
 var _spawn_phase_ended := false
 var _elapsed := 0.0
@@ -183,6 +193,26 @@ func has_visible_effects() -> bool:
 
 func is_active() -> bool:
 	return _breath_active or not _particles.is_empty() or not _fire_zones.is_empty()
+
+
+# Arming gate: only let the breath start once the dragon is visible AND has flown
+# into the center background. Prevents the sortie-ingress "fires from the screen
+# edge" bug. The launch happens ~1s later (windup), but the dragon arms the first
+# frame it enters the center, so the launch still lands on-stage.
+func can_arm(params: Dictionary) -> bool:
+	if not bool(params.get("companion_visible", false)):
+		return false
+	var companion_pos: Variant = params.get("companion_pos", Vector2.ZERO)
+	if not (companion_pos is Vector2):
+		return false
+	var pos: Vector2 = companion_pos as Vector2
+	if pos == Vector2.ZERO:
+		return false
+	if pos.x < ARM_CENTER_MIN_X or pos.x > ARM_CENTER_MAX_X:
+		return false
+	if pos.y < ARM_CENTER_MIN_Y or pos.y > ARM_CENTER_MAX_Y:
+		return false
+	return true
 
 
 func get_ball_hit_count_for_tests() -> int:

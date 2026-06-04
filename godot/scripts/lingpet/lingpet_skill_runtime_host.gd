@@ -120,6 +120,8 @@ func can_arm(skill_id: String, params: Dictionary) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			return bool(_get_headbutt_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			return bool(_get_dragon_breath_skill().can_arm(params))
 		_:
 			return true
 

@@ -111,6 +111,7 @@ class FakeRegistry:
 func _init() -> void:
 	seed(123456)
 	_verify_dispatcher_and_catalog()
+	_verify_center_arm_gate()
 	_verify_runtime_ball_boost_and_fire_zone()
 	_verify_reset_clears_fire_slow()
 
@@ -137,6 +138,18 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(str(LingpetCatalog.build_default_loadout("red_dragon").get("active_skill_id", "")) == SKILL_ID, "Red Dragon default loadout should choose Dragon Breath")
 	_expect(LingpetRailCard.is_lingpet_skill({"id": SKILL_ID}), "shared rail-card helper should recognize Dragon Breath as a lingpet skill")
 	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "live lingpet catalog should validate after wiring Dragon Breath")
+
+
+func _verify_center_arm_gate() -> void:
+	# Red Dragon uses the sortie motion; the breath must only arm once it has
+	# entered the center background, never during ingress at the screen edge.
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var center := {"companion_visible": true, "companion_pos": Vector2(380.0, 300.0)}
+	_expect(host.can_arm(SKILL_ID, center), "Dragon Breath should arm when the dragon is inside the center background")
+	_expect(not host.can_arm(SKILL_ID, {"companion_visible": true, "companion_pos": Vector2(30.0, 300.0)}), "Dragon Breath must NOT arm at the left screen edge during ingress")
+	_expect(not host.can_arm(SKILL_ID, {"companion_visible": true, "companion_pos": Vector2(735.0, 300.0)}), "Dragon Breath must NOT arm at the right screen edge during ingress")
+	_expect(not host.can_arm(SKILL_ID, {"companion_visible": true, "companion_pos": Vector2(-190.0, 300.0)}), "Dragon Breath must NOT arm off-screen")
+	_expect(not host.can_arm(SKILL_ID, {"companion_visible": false, "companion_pos": Vector2(380.0, 300.0)}), "Dragon Breath must NOT arm while the dragon is hidden")
 
 
 func _verify_runtime_ball_boost_and_fire_zone() -> void:
