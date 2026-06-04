@@ -6,6 +6,7 @@ const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_re
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const StageClearResultBoxDrawHelper := preload("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
+const StageClearResultStaticDrawHelper := preload("res://scripts/ui/stage_clear_result_static_draw_helper.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
@@ -890,14 +891,14 @@ func _draw() -> void:
 	var scale: float = _get_layout_scale(view_size)
 	var font: Font = _get_ui_font(scale)
 
-	_draw_background(view_size)
+	StageClearResultStaticDrawHelper.draw_background(self, _background_texture, view_size)
 	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.03, 0.04, 0.10, 0.22))
 	_draw_defeated_boss(view_size, scale)
 	_draw_floating_boxes(view_size, scale)
 	_draw_scroll(view_size, scale, font)
 	_draw_player_victory(view_size, scale, font)
-	_draw_dalji_click_dialogue(view_size, scale, font)
-	_draw_footer(view_size, scale, font)
+	StageClearResultStaticDrawHelper.draw_dalji_click_dialogue(self, font, view_size, scale, _dalji_dialogue_timer, DALJI_CLICK_DIALOGUE_FADE_DURATION, DALJI_CLICK_DIALOGUE)
+	StageClearResultStaticDrawHelper.draw_footer(self, font, view_size, scale, current_stage)
 	_draw_runtime_perk_overlay(view_size)
 
 
@@ -963,18 +964,6 @@ func _is_runtime_perk_choice_active() -> bool:
 		and _runtime_perk_state.has_method("is_choice_active")
 		and bool(_runtime_perk_state.is_choice_active())
 	)
-
-
-func _draw_background(view_size: Vector2) -> void:
-	if _background_texture == null:
-		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.05, 0.07, 0.12, 1.0))
-		return
-	var texture_size: Vector2 = _background_texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.05, 0.07, 0.12, 1.0))
-		return
-	var source: Rect2 = StageClearResultLayoutHelper.cover_source_rect(texture_size, view_size)
-	draw_texture_rect_region(_background_texture, Rect2(Vector2.ZERO, view_size), source, Color.WHITE, false, true)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1048,62 +1037,15 @@ func _draw_stage3_defeated_boss(view_size: Vector2, scale: float) -> void:
 
 
 @warning_ignore("shadowed_variable_base_class")
-func _draw_dalji_click_dialogue(view_size: Vector2, scale: float, font: Font) -> void:
-	if _dalji_dialogue_timer <= 0.0:
-		return
-	var alpha: float = clamp(_dalji_dialogue_timer / DALJI_CLICK_DIALOGUE_FADE_DURATION, 0.0, 1.0)
-	var boss_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
-	var bubble_size := Vector2(210.0, 58.0) * scale
-	var bubble_position := Vector2(
-		max(18.0 * scale, boss_rect.position.x + 132.0 * scale),
-		max(52.0 * scale, boss_rect.position.y - 42.0 * scale)
-	)
-	var bubble := Rect2(bubble_position, bubble_size)
-	StageClearResultShapeHelper.draw_panel(self, bubble, Color(1.0, 0.96, 0.98, 0.90 * alpha), Color(1.0, 0.72, 0.82, 0.95 * alpha), 2.0 * scale, 17.0 * scale)
-	var tail := PackedVector2Array([
-		Vector2(bubble.position.x + 44.0 * scale, bubble.position.y + bubble.size.y - 2.0 * scale),
-		Vector2(bubble.position.x + 72.0 * scale, bubble.position.y + bubble.size.y - 2.0 * scale),
-		Vector2(bubble.position.x + 54.0 * scale, bubble.position.y + bubble.size.y + 22.0 * scale),
-	])
-	draw_colored_polygon(tail, Color(1.0, 0.96, 0.98, 0.90 * alpha))
-	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text(DALJI_CLICK_DIALOGUE), bubble, int(round(26.0 * scale)), Color(0.34, 0.12, 0.18, 0.98 * alpha))
-
-
-@warning_ignore("shadowed_variable_base_class")
 func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 	if _draw_player_victory_live2d(view_size, scale):
 		return
-	var panel: Rect2 = StageClearResultLayoutHelper.get_player_victory_panel_rect(view_size, scale)
-	StageClearResultShapeHelper.draw_panel(self, panel, Color(0.03, 0.75, 0.78, 0.74), Color(0.76, 1.0, 1.0, 0.92), 2.0 * scale, 22.0 * scale)
-
-	if _player_victory_sheet != null:
-		var frame: int = int(floor(timer / PLAYER_VICTORY_FRAME_INTERVAL)) % PLAYER_VICTORY_FRAME_COUNT
-		var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale)
-		StageClearResultSheetDrawHelper.draw_sheet_frame(self, _player_victory_sheet, frame, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE, actor_rect, 1.0)
-
-	StageClearResultTextLayoutHelper.draw_text(
+	StageClearResultStaticDrawHelper.draw_player_victory_fallback(
 		self,
 		font,
-		"플레이어 승리",
-		Vector2(panel.position.x + 34.0 * scale, panel.position.y + panel.size.y - 325.0 * scale),
-		int(round(25.0 * scale)),
-		Color(0.96, 1.0, 1.0, 0.97)
-	)
-	StageClearResultTextLayoutHelper.draw_text(
-		self,
-		font,
-		"Live2D 포즈",
-		Vector2(panel.position.x + 34.0 * scale, panel.position.y + panel.size.y - 278.0 * scale),
-		int(round(34.0 * scale)),
-		Color(1.0, 1.0, 1.0, 0.96)
-	)
-	StageClearResultTextLayoutHelper.draw_text(
-		self,
-		font,
-		"승리 연출 테스트",
-		Vector2(panel.position.x + 34.0 * scale, panel.position.y + panel.size.y - 225.0 * scale),
-		int(round(23.0 * scale)),
-		Color(0.83, 0.98, 1.0, 0.92)
+		view_size, scale, timer, _player_victory_sheet,
+		PLAYER_VICTORY_FRAME_INTERVAL, PLAYER_VICTORY_FRAME_COUNT, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE,
+		"플레이어 승리", "Live2D 포즈", "승리 연출 테스트"
 	)
 
 
@@ -1714,18 +1656,6 @@ func _get_ui_font(draw_scale: float) -> Font:
 		_ui_font_base = base
 		_ui_font_spacing = spacing
 	return _ui_font
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_footer(view_size: Vector2, scale: float, font: Font) -> void:
-	StageClearResultTextLayoutHelper.draw_text(
-		self,
-		font,
-		LanguageSettings.translate_text("스테이지 %d 결과 화면" % current_stage),
-		Vector2(34.0, view_size.y - 26.0 * scale),
-		int(round(24.0 * scale)),
-		Color(0.86, 0.88, 1.0, 0.82)
-	)
 
 
 func _update_hovered_box(mouse_position: Vector2) -> void:

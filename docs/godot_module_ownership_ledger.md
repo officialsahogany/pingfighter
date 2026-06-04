@@ -1400,7 +1400,10 @@ This section is intentionally long; use search to find the nearest owner.
   `stage_clear_result_scroll_draw_helper.gd`;
   result scroll button chrome,
   hover colors, and next / exit button text drawing are delegated to
-  `stage_clear_result_scroll_button_draw_helper.gd`; reusable ellipse / radial /
+  `stage_clear_result_scroll_button_draw_helper.gd`;
+  static result-scene surfaces (background fallback / cover blit, Dalji click
+  dialogue bubble, player-victory fallback panel, and footer text) are
+  delegated to `stage_clear_result_static_draw_helper.gd`; reusable ellipse / radial /
   star polygon point generation plus result-box ornament / hover geometry
   is delegated to `stage_clear_result_shape_helper.gd`; result sheet-frame
   source rect and texture-region drawing are delegated to
@@ -1474,6 +1477,11 @@ This section is intentionally long; use search to find the nearest owner.
   centered button label rendering. The scene still owns scroll phase /
   hovered-button state, localized labels, button rect storage, and action
   dispatch.
+- `scripts/ui/stage_clear_result_static_draw_helper.gd`
+  Owns stage-clear result static draw surfaces: result background fallback /
+  cover blit, Dalji click dialogue bubble / tail / text, player-victory
+  fallback panel / text / sheet frame, and footer text. The scene still owns
+  texture fields, timers, reaction state, stage number, and draw sequencing.
 - `scripts/ui/stage_clear_result_shape_helper.gd`
   Owns stateless result-scene shape point generation and low-level
   CanvasItem draw helpers: ellipse fill polygons, ellipse polylines,
