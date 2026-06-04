@@ -1,19 +1,13 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const GripStyleSelectionOverlayRenderer := preload("res://scripts/hud/grip_style_selection_overlay_renderer.gd")
 
 const WASD_MOUSE_TEXTURE_PATH := "res://assets/ui/tutorial/grip_wasd_mouse.png"
 const SPACE_ARROWS_TEXTURE_PATH := "res://assets/ui/tutorial/grip_space_arrows.png"
 const GAMEPAD_TEXTURE_PATH := "res://assets/ui/tutorial/grip_gamepad_white.png"
 
 const FADE_SECONDS := 0.18
-const CARD_GAP := 22.0
-const CARD_RADIUS := 8.0
-const TITLE_FONT_SIZE := 28
-const CARD_TITLE_FONT_SIZE := 18
-const CARD_DESC_FONT_SIZE := 13
-const HINT_FONT_SIZE := 14
-const CARD_ASPECT := 16.0 / 9.0
 const CLICK_CONFIRM_DELAY := 0.12
 const GAMEPAD_AXIS_SELECT_THRESHOLD := 0.90
 const GAMEPAD_AXIS_RELEASE_THRESHOLD := 0.42
@@ -70,7 +64,7 @@ func prewarm_assets_step() -> bool:
 	if _prewarm_step_index >= CARD_SPECS.size():
 		_prewarm_step_index = 0
 		return true
-	_load_texture_at(_prewarm_step_index)
+	GripStyleSelectionOverlayRenderer.load_texture_at(_prewarm_step_index, textures, CARD_SPECS)
 	_prewarm_step_index += 1
 	return false
 
@@ -101,33 +95,21 @@ func update(delta: float, owner: Object, registry: Object, module_getter: Callab
 func draw(canvas: CanvasItem, _owner: Object, view_size: Vector2) -> void:
 	if canvas == null or not active:
 		return
-	_ensure_textures()
-	var draw_alpha: float = clampf(alpha, 0.0, 1.0)
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.52 * draw_alpha))
-	var panel_rect: Rect2 = _get_panel_rect(view_size)
-	_draw_round_rect(canvas, panel_rect, CARD_RADIUS, Color(0.96, 0.97, 0.98, 0.98 * draw_alpha))
-	_draw_round_rect_outline(canvas, panel_rect, CARD_RADIUS, Color(0.16, 0.20, 0.26, 0.28 * draw_alpha), 2.0)
-
-	var title_y: float = panel_rect.position.y + 42.0
-	_draw_centered_text(canvas, _tr("tutorial.grip.title", "파지법 선택"), Vector2(panel_rect.get_center().x, title_y), TITLE_FONT_SIZE, Color(0.08, 0.10, 0.13, draw_alpha))
-	_draw_centered_text(
+	var text_snapshot := get_text_snapshot()
+	GripStyleSelectionOverlayRenderer.draw_overlay(
 		canvas,
-		_tr("tutorial.grip.subtitle", "원하는 조작 자세를 고르면 경기가 시작됩니다"),
-		Vector2(panel_rect.get_center().x, title_y + 34.0),
-		HINT_FONT_SIZE,
-		Color(0.24, 0.28, 0.34, 0.84 * draw_alpha)
-	)
-
-	var card_rects: Array[Rect2] = get_card_rects(view_size)
-	for i in range(card_rects.size()):
-		_draw_card(canvas, i, card_rects[i], draw_alpha)
-
-	_draw_centered_text(
-		canvas,
-		_tr("tutorial.grip.footer", "← / → 선택   Enter / Space 확정"),
-		Vector2(panel_rect.get_center().x, panel_rect.end.y - 28.0),
-		HINT_FONT_SIZE,
-		Color(0.30, 0.34, 0.40, 0.80 * draw_alpha)
+		view_size,
+		alpha,
+		selected_index,
+		hovered_index,
+		pressed_index,
+		_pending_confirm,
+		textures,
+		CARD_SPECS,
+		str(text_snapshot.get("title", "")),
+		str(text_snapshot.get("subtitle", "")),
+		str(text_snapshot.get("footer", "")),
+		_text_size_cache
 	)
 
 
@@ -171,27 +153,7 @@ func get_selected_style() -> String:
 
 
 func get_card_rects(view_size: Vector2) -> Array[Rect2]:
-	var panel_rect: Rect2 = _get_panel_rect(view_size)
-	var inner_margin := 38.0
-	var available_width: float = max(1.0, panel_rect.size.x - inner_margin * 2.0)
-	var cards_top: float = panel_rect.position.y + 106.0
-	var bottom_reserved := 64.0
-	if view_size.x < 900.0:
-		var vertical_card_width: float = min(360.0, available_width)
-		var vertical_card_height: float = min(170.0, (panel_rect.end.y - cards_top - bottom_reserved - CARD_GAP * 2.0) / 3.0)
-		var result: Array[Rect2] = []
-		var vertical_start_x: float = panel_rect.get_center().x - vertical_card_width * 0.5
-		for i in range(CARD_SPECS.size()):
-			result.append(Rect2(Vector2(vertical_start_x, cards_top + float(i) * (vertical_card_height + CARD_GAP)), Vector2(vertical_card_width, vertical_card_height)))
-		return result
-	var card_width: float = min(320.0, (available_width - CARD_GAP * 2.0) / 3.0)
-	var card_height: float = min(270.0, panel_rect.end.y - cards_top - bottom_reserved)
-	var total_width: float = card_width * 3.0 + CARD_GAP * 2.0
-	var start_x: float = panel_rect.get_center().x - total_width * 0.5
-	var horizontal_result: Array[Rect2] = []
-	for i in range(CARD_SPECS.size()):
-		horizontal_result.append(Rect2(Vector2(start_x + float(i) * (card_width + CARD_GAP), cards_top), Vector2(card_width, card_height)))
-	return horizontal_result
+	return GripStyleSelectionOverlayRenderer.get_card_rects(view_size)
 
 
 func _get_card_index_at_position(position: Vector2, view_size: Vector2) -> int:
@@ -221,8 +183,8 @@ func get_text_snapshot() -> Dictionary:
 	for i in range(CARD_SPECS.size()):
 		cards.append({
 			"id": str(_get_card_spec(i).get("id", "")),
-			"title": _get_card_title(i),
-			"desc": _get_card_desc(i),
+			"title": GripStyleSelectionOverlayRenderer.get_card_title(CARD_SPECS, i),
+			"desc": GripStyleSelectionOverlayRenderer.get_card_desc(CARD_SPECS, i),
 		})
 	return {
 		"title": _tr("tutorial.grip.title", "파지법 선택"),
@@ -242,7 +204,7 @@ func _open() -> void:
 	_pending_confirm = false
 	_confirm_timer = 0.0
 	_gamepad_horizontal_latch = 0
-	_ensure_textures()
+	GripStyleSelectionOverlayRenderer.ensure_textures(textures, CARD_SPECS)
 
 
 func _begin_confirm_selection() -> void:
@@ -414,145 +376,8 @@ func _select_relative(delta: int) -> void:
 	hovered_index = -1
 	pressed_index = -1
 
-
-func _draw_card(canvas: CanvasItem, index: int, card_rect: Rect2, draw_alpha: float) -> void:
-	var selected: bool = index == selected_index
-	var hovered: bool = index == hovered_index
-	var pressed: bool = index == pressed_index or (_pending_confirm and selected)
-	var visual_rect: Rect2 = card_rect
-	if pressed:
-		visual_rect.position.y += 2.0
-	elif hovered:
-		visual_rect.position.y -= 4.0
-		visual_rect = visual_rect.grow(3.0)
-	var shadow_alpha: float = 0.20 if (hovered or selected or pressed) else 0.08
-	var shadow_offset := Vector2(0.0, 7.0 if (hovered or pressed) else 4.0)
-	_draw_round_rect(canvas, Rect2(visual_rect.position + shadow_offset, visual_rect.size), CARD_RADIUS, Color(0.0, 0.0, 0.0, shadow_alpha * draw_alpha))
-	var card_color := Color(1.0, 1.0, 1.0, 0.98 * draw_alpha)
-	if hovered:
-		card_color = Color(0.96, 0.99, 1.0, 1.0 * draw_alpha)
-	if pressed:
-		card_color = Color(0.88, 0.96, 1.0, 1.0 * draw_alpha)
-	var border_color := Color(0.12, 0.55, 0.94, 0.95 * draw_alpha) if selected else Color(0.18, 0.22, 0.28, 0.18 * draw_alpha)
-	var border_width := 3.0 if selected else 1.4
-	if hovered:
-		border_color = Color(0.09, 0.66, 1.0, 1.0 * draw_alpha)
-		border_width = 3.6
-	if pressed:
-		border_color = Color(0.02, 0.42, 0.98, 1.0 * draw_alpha)
-		border_width = 4.2
-	_draw_round_rect(canvas, visual_rect, CARD_RADIUS, card_color)
-	_draw_round_rect_outline(canvas, visual_rect, CARD_RADIUS, border_color, border_width)
-	var image_margin := 12.0
-	var image_rect := Rect2(
-		visual_rect.position + Vector2(image_margin, image_margin),
-		Vector2(visual_rect.size.x - image_margin * 2.0, (visual_rect.size.x - image_margin * 2.0) / CARD_ASPECT)
-	)
-	image_rect.size.y = min(image_rect.size.y, visual_rect.size.y - 92.0)
-	var texture: Texture2D = _get_texture(index)
-	if texture != null:
-		canvas.draw_texture_rect(texture, image_rect, false, Color(1.0, 1.0, 1.0, draw_alpha))
-	else:
-		canvas.draw_rect(image_rect, Color(0.90, 0.92, 0.95, draw_alpha))
-	_draw_centered_text(canvas, _get_card_title(index), Vector2(visual_rect.get_center().x, image_rect.end.y + 26.0), CARD_TITLE_FONT_SIZE, Color(0.08, 0.10, 0.14, draw_alpha))
-	_draw_centered_text(canvas, _get_card_desc(index), Vector2(visual_rect.get_center().x, image_rect.end.y + 49.0), CARD_DESC_FONT_SIZE, Color(0.32, 0.36, 0.42, 0.86 * draw_alpha))
-
-
-func _draw_round_rect(canvas: CanvasItem, rect: Rect2, radius: float, color: Color) -> void:
-	canvas.draw_rect(Rect2(rect.position + Vector2(radius, 0.0), Vector2(rect.size.x - radius * 2.0, rect.size.y)), color)
-	canvas.draw_rect(Rect2(rect.position + Vector2(0.0, radius), Vector2(rect.size.x, rect.size.y - radius * 2.0)), color)
-	canvas.draw_circle(rect.position + Vector2(radius, radius), radius, color)
-	canvas.draw_circle(rect.position + Vector2(rect.size.x - radius, radius), radius, color)
-	canvas.draw_circle(rect.position + Vector2(radius, rect.size.y - radius), radius, color)
-	canvas.draw_circle(rect.position + rect.size - Vector2(radius, radius), radius, color)
-
-
-func _draw_round_rect_outline(canvas: CanvasItem, rect: Rect2, radius: float, color: Color, width: float) -> void:
-	canvas.draw_arc(rect.position + Vector2(radius, radius), radius, PI, PI * 1.5, 10, color, width)
-	canvas.draw_arc(rect.position + Vector2(rect.size.x - radius, radius), radius, PI * 1.5, TAU, 10, color, width)
-	canvas.draw_arc(rect.position + Vector2(rect.size.x - radius, rect.size.y - radius), radius, 0.0, PI * 0.5, 10, color, width)
-	canvas.draw_arc(rect.position + Vector2(radius, rect.size.y - radius), radius, PI * 0.5, PI, 10, color, width)
-	canvas.draw_line(rect.position + Vector2(radius, 0.0), rect.position + Vector2(rect.size.x - radius, 0.0), color, width)
-	canvas.draw_line(rect.position + Vector2(rect.size.x, radius), rect.position + Vector2(rect.size.x, rect.size.y - radius), color, width)
-	canvas.draw_line(rect.position + Vector2(radius, rect.size.y), rect.position + Vector2(rect.size.x - radius, rect.size.y), color, width)
-	canvas.draw_line(rect.position + Vector2(0.0, radius), rect.position + Vector2(0.0, rect.size.y - radius), color, width)
-
-
-func _draw_centered_text(canvas: CanvasItem, text: String, baseline_center: Vector2, font_size: int, color: Color) -> void:
-	if text == "":
-		return
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	var text_size: Vector2 = _get_text_size(font, text, font_size)
-	var pos := Vector2(baseline_center.x - text_size.x * 0.5, baseline_center.y)
-	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 1.0, 1.0, min(color.a, 0.80)))
-	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
-
-
-func _get_panel_rect(view_size: Vector2) -> Rect2:
-	var panel_width: float = min(view_size.x - 64.0, 1120.0)
-	var panel_height: float = min(view_size.y - 64.0, 472.0)
-	if view_size.x < 900.0:
-		panel_width = min(view_size.x - 32.0, 430.0)
-		panel_height = min(view_size.y - 32.0, 690.0)
-	return Rect2((view_size - Vector2(panel_width, panel_height)) * 0.5, Vector2(panel_width, panel_height))
-
-
 func _get_card_spec(index: int) -> Dictionary:
-	if index < 0 or index >= CARD_SPECS.size():
-		return {}
-	var value: Variant = CARD_SPECS[index]
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_card_title(index: int) -> String:
-	var spec: Dictionary = _get_card_spec(index)
-	return _tr(str(spec.get("title_key", "")), str(spec.get("title_fallback", "")))
-
-
-func _get_card_desc(index: int) -> String:
-	var spec: Dictionary = _get_card_spec(index)
-	return _tr(str(spec.get("desc_key", "")), str(spec.get("desc_fallback", "")))
-
-
-func _ensure_textures() -> void:
-	while textures.size() < CARD_SPECS.size():
-		textures.append(null)
-	for i in range(CARD_SPECS.size()):
-		_load_texture_at(i)
-
-
-func _load_texture_at(index: int) -> void:
-	while textures.size() < CARD_SPECS.size():
-		textures.append(null)
-	if textures[index] != null:
-		return
-	var texture_path: String = str(_get_card_spec(index).get("texture_path", ""))
-	if texture_path == "" or not ResourceLoader.exists(texture_path):
-		return
-	var loaded: Resource = ResourceLoader.load(texture_path)
-	if loaded is Texture2D:
-		textures[index] = loaded as Texture2D
-
-
-func _get_texture(index: int) -> Texture2D:
-	if index < 0 or index >= textures.size():
-		return null
-	return textures[index]
-
-
-func _get_text_size(font: Font, text: String, font_size: int) -> Vector2:
-	var cache_key := "%d:%s" % [font_size, text]
-	if _text_size_cache.has(cache_key):
-		var cached_size: Variant = _text_size_cache[cache_key]
-		if cached_size is Vector2:
-			return cached_size
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-	_text_size_cache[cache_key] = text_size
-	return text_size
+	return GripStyleSelectionOverlayRenderer.get_card_spec(CARD_SPECS, index)
 
 
 func _sync_serve_input(registry: Object) -> void:

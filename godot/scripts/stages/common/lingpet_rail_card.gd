@@ -22,23 +22,88 @@ const TEXTURE_PATH := "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcar
 const ACCENT := Color(0.333, 0.855, 1.0)
 const COOLDOWN_SECONDS := 40.0
 const SIDE_STRIP_BASE := 2.0
+const PREWARM_TEXTURE_FALLBACK_MSEC := 8
+const PREWARM_TEXTURE_FALLBACK_POLLS := 4
 
 # Decoded card art, shared (loaded once) across all five stage renderers.
 static var _texture: Texture2D = null
 static var _texture_loaded := false
 static var _texture_cache: Dictionary = {}
+static var _prewarm_paths: Array[String] = []
+static var _prewarm_paths_ready := false
+static var _prewarm_path_index := 0
+static var _prewarm_complete := false
 
 
 static func prewarm() -> void:
-	_texture_loaded = true
-	_texture = _load_texture(TEXTURE_PATH)
+	while not prewarm_step():
+		pass
+
+
+static func prewarm_step() -> bool:
+	if _prewarm_complete:
+		return true
+	if not _prewarm_paths_ready:
+		_build_prewarm_paths()
+		_prewarm_paths_ready = true
+		return false
+	if _prewarm_path_index >= _prewarm_paths.size():
+		_prewarm_complete = true
+		_prewarm_path_index = 0
+		return true
+	var card_path := str(_prewarm_paths[_prewarm_path_index])
+	if not _prewarm_texture_path_step(card_path):
+		return false
+	_prewarm_path_index += 1
+	if _prewarm_path_index >= _prewarm_paths.size():
+		_prewarm_complete = true
+		_prewarm_path_index = 0
+		return true
+	return false
+
+
+static func _build_prewarm_paths() -> void:
+	_prewarm_paths.clear()
+	var seen := {}
+	_append_prewarm_path(TEXTURE_PATH, seen)
 	for pet_id in LingpetCatalog.get_pet_ids(true):
 		for active_skill in LingpetCatalog.get_active_skill_pool(str(pet_id)):
 			if not bool(active_skill.get("enabled", true)):
 				continue
 			var card_path := str(active_skill.get("card_texture_path", "")).strip_edges()
-			if card_path != "":
-				_load_texture(card_path)
+			_append_prewarm_path(card_path, seen)
+
+
+static func _append_prewarm_path(path: String, seen: Dictionary) -> void:
+	var resolved_path := path.strip_edges()
+	if resolved_path == "":
+		return
+	if seen.has(resolved_path):
+		return
+	seen[resolved_path] = true
+	_prewarm_paths.append(resolved_path)
+
+
+static func _prewarm_texture_path_step(path: String) -> bool:
+	var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		"[LingpetRailCard] missing skillcard texture: %s",
+		"[LingpetRailCard] failed to load skillcard texture: %s",
+		PREWARM_TEXTURE_FALLBACK_MSEC,
+		PREWARM_TEXTURE_FALLBACK_POLLS,
+		false,
+		true
+	)
+	if not bool(result.get("done", false)):
+		return false
+	var texture_value: Variant = result.get("texture", null)
+	if texture_value is Texture2D:
+		var loaded_texture: Texture2D = texture_value
+		_texture_cache[path] = loaded_texture
+		if path == TEXTURE_PATH:
+			_texture = loaded_texture
+			_texture_loaded = true
+	return true
 
 
 static func texture(path: String = TEXTURE_PATH) -> Texture2D:
@@ -113,6 +178,11 @@ static func build_entry(registry: Object) -> Dictionary:
 		or bool(snapshot.get("headbutt_repeat_wait_active", false))
 		or bool(snapshot.get("moon_orbit_projectile_active", false))
 		or bool(snapshot.get("moon_orbit_field_active", false))
+		or bool(snapshot.get("bubble_trap_projectile_active", false))
+		or bool(snapshot.get("bubble_trap_capture_active", false))
+		or bool(snapshot.get("thunder_orb_projectile_active", false))
+		or bool(snapshot.get("thunder_orb_explosion_active", false))
+		or bool(snapshot.get("thunder_orb_electric_stun_active", false))
 		or bool(snapshot.get("companion_skill_winding_up", false))
 	)
 	var status: String = "casting" if casting else ("ready" if ready else "charging")

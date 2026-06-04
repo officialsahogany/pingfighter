@@ -2,6 +2,9 @@ extends SceneTree
 
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
+const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
@@ -93,11 +96,11 @@ func _init() -> void:
 		"TAB move speed buffs should be highlighted as a buff color"
 	)
 	_expect(
-		abs(_stat_seconds(stats, "아이템쿨타임") - 6.09) < 0.02,
+		abs(_stat_seconds(stats, "아이템 재충전") - 6.09) < 0.02,
 		"TAB active-item cooldown should include runtime perk reductions"
 	)
 	_expect(
-		_is_buff_color(_stat_color(stats, "아이템쿨타임")),
+		_is_buff_color(_stat_color(stats, "아이템 재충전")),
 		"TAB active-item cooldown reductions should be highlighted as a buff color"
 	)
 
@@ -105,11 +108,11 @@ func _init() -> void:
 	active_runtime.effect_controller.long_boost_scale = 1.5
 	stats = overlay._build_stats(owner, registry)
 	_expect(
-		_stat_pixels(stats, "몸집크기") >= 246.0,
+		_stat_pixels(stats, "몸집 크기") >= 246.0,
 		"TAB body size should read live perk and active-item paddle scale, not only the cached owner width"
 	)
 	_expect(
-		_is_buff_color(_stat_color(stats, "몸집크기")),
+		_is_buff_color(_stat_color(stats, "몸집 크기")),
 		"TAB body size increases should be highlighted as a buff color"
 	)
 
@@ -134,7 +137,7 @@ func _init() -> void:
 	var debuff_registry := FakeRegistry.new(RuntimePerkState.new(), debuff_active_runtime, CooldownPenaltyRuntime.new())
 	var debuff_stats: Array = overlay._build_stats(owner, debuff_registry)
 	_expect(
-		_is_debuff_color(_stat_color(debuff_stats, "아이템쿨타임")),
+		_is_debuff_color(_stat_color(debuff_stats, "아이템 재충전")),
 		"TAB active-item cooldown increases should be highlighted as a debuff color"
 	)
 
@@ -153,25 +156,33 @@ func _init() -> void:
 	var defense_stat: Dictionary = _find_stat(lingpet_stats, "방어율")
 	_expect(str(defense_stat.get("value", "")) == "30%", "Maribo defense rate should be visible in lingpet stats")
 	_expect(
-		str(defense_stat.get("tooltip_body", "")).find("공을 적극적으로 막으러 이동할 확률") >= 0,
+		str(defense_stat.get("tooltip_body", "")).find("공을 안정적으로 막을 확률") >= 0,
 		"Maribo defense rate should explain the actual intercept behavior in a tooltip"
 	)
-	var maribo_panel_snapshot: Dictionary = overlay._get_lingpet_panel_snapshot(lingpet_owner)
-	var maribo_skill_specs: Array = overlay._get_lingpet_skill_specs(maribo_panel_snapshot)
+	var maribo_panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(lingpet_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var maribo_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(maribo_panel_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
 	_expect(maribo_skill_specs.size() == 2, "Maribo character-info panel should show one active skill and one real passive icon")
 	_expect(str((maribo_skill_specs[0] as Dictionary).get("id", "")) == "maribo_hydro_sphere", "Maribo active icon should use the catalog skill id")
 	_expect(str((maribo_skill_specs[0] as Dictionary).get("card_texture_path", "")).find("maribo_hydro_sphere") >= 0, "Maribo active icon should use the catalog skill-card texture")
-	_expect(str((maribo_skill_specs[1] as Dictionary).get("id", "")) == "resonance_boost", "Maribo gauge bonus should remain as the one passive skill icon")
+	_expect(str((maribo_skill_specs[1] as Dictionary).get("id", "")) == "maribo_resonance_boost", "Maribo gauge bonus should remain as the one passive skill icon")
 	_expect(str((maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus"), "Maribo passive icon should resolve through the lingpet catalog")
+	var legacy_maribo_snapshot: Dictionary = maribo_panel_snapshot.duplicate(true)
+	legacy_maribo_snapshot["companion_passive_skill_id"] = ""
+	legacy_maribo_snapshot["companion_passive_skill_name"] = ""
+	legacy_maribo_snapshot["companion_passive_skill_description"] = ""
+	legacy_maribo_snapshot["companion_passive_skill_icon_path"] = ""
+	var legacy_maribo_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(legacy_maribo_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
+	_expect(str((legacy_maribo_skill_specs[1] as Dictionary).get("id", "")) == "maribo_resonance_boost", "legacy Maribo snapshot should still resolve the catalog passive id")
+	_expect(str((legacy_maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus"), "legacy Maribo snapshot should keep the catalog passive icon")
 
 	var lunabi_owner := FakeOwner.new({
 		"lingpet_id": "lunabi",
 		"lingpet_state": "companion",
 	})
-	var lunabi_panel_snapshot: Dictionary = overlay._get_lingpet_panel_snapshot(lunabi_owner)
-	var lunabi_skill_specs: Array = overlay._get_lingpet_skill_specs(lunabi_panel_snapshot)
+	var lunabi_panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(lunabi_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var lunabi_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(lunabi_panel_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
 	var lunabi_stats: Array = overlay._build_lingpet_stats(lunabi_owner)
-	var lunabi_art_texture: Texture2D = overlay._get_lingpet_art_texture("lunabi")
+	var lunabi_art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_art_texture("lunabi", {})
 	_expect(str(lunabi_panel_snapshot.get("pet_id", "")) == "lunabi", "Lunabi panel snapshot should preserve its catalog pet id")
 	_expect(lunabi_skill_specs.size() == 1, "Lunabi character-info panel should show its shipped active skill icon")
 	_expect(str((lunabi_skill_specs[0] as Dictionary).get("id", "")) == "lunabi_headbutt", "Lunabi active icon should use the Headbutt catalog skill id")

@@ -165,31 +165,72 @@ func _verify_character_info_hover_signature_is_section_gated() -> void:
 	overlay._set_passive_grid_hover_layout(Vector2(10.0, 110.0), 20.0, 26.0, 1, 1)
 	overlay.set("_last_perk_grid_rect", Rect2(Vector2(200.0, 100.0), Vector2(160.0, 100.0)))
 	overlay._set_perk_grid_hover_layout(Vector2(210.0, 110.0), 20.0, 26.0, 1, 1)
-	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
-	_expect(source.find("_get_cached_grid_hover_signature(") >= 0, "character info hover should use cached grid metrics before rect scans")
-	_expect(source.find("_get_cached_linear_hover_signature(") >= 0, "character info slot hover should use cached linear metrics before rect scans")
-	_expect(_function_body(source, "func _get_cached_grid_hover_signature(").find("% [prefix, index]") < 0, "grid hover signature should avoid format arrays")
-	_expect(_function_body(source, "func _get_cached_linear_hover_signature(").find("% [prefix, index]") < 0, "linear hover signature should avoid format arrays")
-	_expect(_function_body(source, "func _get_rect_map_hover_signature(").find("% [prefix, str(key_value)]") < 0, "rect-map hover fallback should avoid format arrays")
-	_expect(source.find("_set_skill_slot_hover_layout(Vector2(start_x, slot_y), slot_size, skill_slot_step, max_slots)") >= 0, "skill slot hover metrics should be cached during draw")
-	_expect(source.find("_set_active_slot_hover_layout(Vector2(active_slot_start_x, y), slot_size, active_slot_step, max_slots)") >= 0, "active-item slot hover metrics should be cached during draw")
+	var source := _character_info_overlay_source()
+	var hover_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_hover_geometry.gd")
+	var value_utils_source := _character_info_value_utils_contract_source()
+	var skill_slot_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_skill_slot_presenter.gd")
+	var active_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
+	var passive_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
+	var perk_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_perk_presenter.gd")
+	var equipment_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_equipment_drawer.gd")
+	var skill_layout_body := _function_body(value_utils_source, "static func refresh_skill_slot_layout_arrays(")
+	var active_layout_body := _function_body(value_utils_source, "static func refresh_active_slot_layout_arrays(")
+	var skill_overlay_layout_body := _function_body(skill_slot_presenter_source, "static func update_overlay_layout(")
+	var active_overlay_layout_body := _function_body(active_item_presenter_source, "static func update_overlay_slot_layout(")
+	var passive_grid_layout_body := _function_body(value_utils_source, "static func refresh_passive_inventory_grid_layout_arrays(")
+	var perk_grid_layout_body := _function_body(value_utils_source, "static func refresh_perk_grid_layout_arrays(")
+	var passive_overlay_grid_body := _function_body(passive_item_presenter_source, "static func update_overlay_grid_layout(")
+	var perk_overlay_grid_body := _function_body(perk_presenter_source, "static func update_overlay_grid_layout(")
+	_expect(_function_body(hover_source, "static func overlay_hover_signature(").find("get_cached_grid_hover_signature(") >= 0, "character info hover should use cached grid metrics before rect scans")
+	_expect(_function_body(hover_source, "static func overlay_hover_signature(").find("get_cached_linear_hover_signature(") >= 0, "character info slot hover should use cached linear metrics before rect scans")
+	_expect(source.find("func _get_cached_grid_hover_signature(") < 0, "character info hover should not keep overlay grid hover wrapper")
+	_expect(source.find("func _get_cached_linear_hover_signature(") < 0, "character info hover should not keep overlay linear hover wrapper")
+	_expect(_function_body(hover_source, "static func get_cached_grid_hover_signature(").find("% [prefix, index]") < 0, "grid hover signature should avoid format arrays")
+	_expect(_function_body(hover_source, "static func get_cached_linear_hover_signature(").find("% [prefix, index]") < 0, "linear hover signature should avoid format arrays")
+	_expect(_function_body(hover_source, "static func get_rect_map_hover_signature(").find("% [prefix, str(key_value)]") < 0, "rect-map hover fallback should avoid format arrays")
+	_expect(
+		skill_overlay_layout_body.find("target.set(\"_last_skill_slot_start\", layout_state.get(\"start\", Vector2.ZERO))") >= 0
+		and skill_overlay_layout_body.find("target.set(\"_last_skill_slot_count\", max_slots)") >= 0
+		and skill_layout_body.find("\"start\": Vector2(start_x, slot_y)") >= 0,
+		"skill slot hover metrics should be cached during draw"
+	)
+	_expect(
+		active_overlay_layout_body.find("target.set(\"_last_active_slot_start\", layout_state.get(\"start\", Vector2.ZERO))") >= 0
+		and active_overlay_layout_body.find("target.set(\"_last_active_slot_count\", max_slots)") >= 0
+		and active_layout_body.find("\"start\": Vector2(active_slot_start_x, y)") >= 0,
+		"active-item slot hover metrics should be cached during draw"
+	)
 	_expect(source.find("_last_skill_slot_rects") < 0, "skill slot draw should not keep rect dictionaries after linear hover metrics are cached")
 	_expect(source.find("_last_active_item_slot_rects") < 0, "active-item slot draw should not keep rect dictionaries after linear hover metrics are cached")
 	_expect(source.find("func _get_equipment_hover_signature(mouse_pos: Vector2) -> String:") >= 0, "equipment hover signature should use an indexed helper before dictionary fallback")
 	_expect(source.find("func _equipment_signature_contains_mouse(key_text: String, mouse_pos: Vector2) -> bool:") >= 0, "equipment hover reuse should use indexed slot rects before dictionary fallback")
 	_expect(source.find("var _equipment_hover_uses_indexed_layout := false") >= 0, "equipment hover should track when indexed slot layout is the active source")
 	_expect(source.find("func _has_indexed_equipment_hover_layout() -> bool:") >= 0, "equipment hover should gate stale rect-map fallback behind indexed layout state")
-	_expect(_function_body(source, "func _get_hover_signature(").find("var equipment_signature: String = _get_equipment_hover_signature(mouse_pos)") >= 0, "equipment hover should avoid scanning the slot rect dictionary on the hot path")
-	_expect(_function_body(source, "func _hover_signature_contains_mouse(").find("return _equipment_signature_contains_mouse(key_text, mouse_pos)") >= 0, "equipment hover reuse should avoid dictionary lookup on the hot path")
+	_expect(_function_body(source, "func _get_hover_signature(").find("CharacterInfoOverlayHoverGeometry.overlay_hover_signature(") >= 0, "equipment hover should avoid scanning the slot rect dictionary on the hot path")
+	_expect(_function_body(hover_source, "static func overlay_hover_signature(").find("var equipment_signature: String = str(equipment_signature_callable.call(mouse_pos))") >= 0, "equipment hover should delegate equipment signature resolution through the cached helper")
+	_expect(_function_body(source, "func _hover_signature_contains_mouse(").find("CharacterInfoOverlayHoverGeometry.overlay_signature_contains_mouse(") >= 0, "equipment hover reuse should avoid dictionary lookup on the hot path")
+	_expect(_function_body(hover_source, "static func overlay_signature_contains_mouse(").find("equipment_contains_callable.call(key_text, mouse_pos)") >= 0, "equipment hover reuse should delegate equipment checks through the cached helper")
 	_expect(_function_body(source, "func _get_equipment_hover_signature(").find("var slot_index: int = _find_hovered_equipment_slot_index(mouse_pos)") >= 0, "equipment hover signature should resolve the cached slot index first")
-	_expect(_function_body(source, "func _get_equipment_hover_signature(").find("if _has_indexed_equipment_hover_layout():\n\t\treturn \"\"") >= 0, "equipment hover signature should skip rect-map fallback after indexed misses")
-	_expect(_function_body(source, "func _equipment_signature_contains_mouse(").find("_equipment_slot_index_cache.get(key_text, -1)") >= 0, "equipment hover reuse should map slot keys through the cached index table")
-	_expect(_function_body(source, "func _equipment_signature_contains_mouse(").find("if _has_indexed_equipment_hover_layout():\n\t\treturn false") >= 0, "equipment hover reuse should skip stale rect-map checks after indexed misses")
-	_expect(_function_body(source, "func _get_equipment_slot_key_at_mouse(").find("if _has_indexed_equipment_hover_layout():\n\t\treturn \"\"") >= 0, "equipment context lookup should skip rect-map fallback after indexed misses")
+	_expect(_function_body(source, "func _get_equipment_hover_signature(").find("CharacterInfoOverlayHoverGeometry.equipment_hover_signature(") >= 0, "equipment hover signature should delegate indexed fallback gating to hover geometry")
+	_expect(_function_body(hover_source, "static func equipment_hover_signature(").find("if has_indexed_layout:\n\t\treturn \"\"") >= 0, "equipment hover signature should skip rect-map fallback after indexed misses")
+	_expect(_function_body(source, "func _equipment_signature_contains_mouse(").find("CharacterInfoOverlayHoverGeometry.equipment_signature_contains_mouse(") >= 0, "equipment hover reuse should delegate indexed rect checks to hover geometry")
+	_expect(_function_body(hover_source, "static func equipment_signature_contains_mouse(").find("index_cache.get(key_text, -1)") >= 0, "equipment hover reuse should map slot keys through the cached index table")
+	_expect(_function_body(hover_source, "static func equipment_signature_contains_mouse(").find("if has_indexed_layout:\n\t\treturn false") >= 0, "equipment hover reuse should skip stale rect-map checks after indexed misses")
+	_expect(_function_body(equipment_drawer_source, "static func slot_key_at_index_or_mouse(").find("if has_indexed_layout:\n\t\treturn \"\"") >= 0, "equipment context lookup should skip rect-map fallback after indexed misses")
 	_expect(source.find("_update_passive_inventory_grid_layout(grid_rect, cell_size, stride, columns, inventory_items.size(), passive_inventory_scroll)") >= 0, "passive inventory hover metrics should be cached during draw")
-	_expect(source.find("_set_passive_grid_hover_layout(Vector2(start_x, start_y), cell_size, stride, columns, item_count)") >= 0, "passive inventory layout helper should publish cached hover metrics")
+	_expect(
+		passive_overlay_grid_body.find("target.set(\"_last_passive_grid_start\", layout_state.get(\"start\", Vector2.ZERO))") >= 0
+		and passive_overlay_grid_body.find("target.set(\"_last_passive_grid_item_count\", item_count)") >= 0
+		and passive_grid_layout_body.find("\"start\": Vector2(start_x, start_y)") >= 0,
+		"passive inventory layout helper should publish cached hover metrics"
+	)
 	_expect(source.find("_update_perk_grid_layout(grid_rect, cell_size, stride, columns, acquired.size(), perk_scroll)") >= 0, "perk grid hover metrics should be cached during draw")
-	_expect(source.find("_set_perk_grid_hover_layout(Vector2(start_x, start_y), cell_size, stride, columns, item_count)") >= 0, "perk grid layout helper should publish cached hover metrics")
+	_expect(
+		perk_overlay_grid_body.find("target.set(\"_last_perk_grid_start\", layout_state.get(\"start\", Vector2.ZERO))") >= 0
+		and perk_overlay_grid_body.find("target.set(\"_last_perk_grid_item_count\", item_count)") >= 0
+		and perk_grid_layout_body.find("\"start\": Vector2(start_x, start_y)") >= 0,
+		"perk grid layout helper should publish cached hover metrics"
+	)
 	_expect(source.find("_last_passive_inventory_item_rects") < 0, "passive inventory draw should not keep rect dictionaries after grid hover metrics are cached")
 	_expect(source.find("_last_perk_item_rects") < 0, "perk grid draw should not keep rect dictionaries after grid hover metrics are cached")
 
@@ -217,8 +258,8 @@ func _verify_character_info_hover_signature_is_section_gated() -> void:
 
 func _verify_character_info_open_animation_consumes_pending_redraw() -> void:
 	var overlay := CharacterInfoOverlay.new()
-	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
-	_expect(_function_body(source, "func update(").find("if animation_time >= OPEN_ANIMATION_DURATION:\n\t\t\t_redraw_requested = false") >= 0, "character info open animation should consume the pending open redraw on its final frame")
+	var lifecycle_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lifecycle.gd")
+	_expect(_function_body(lifecycle_source, "static func update(").find("if next_animation_time >= open_animation_duration:\n\t\t\ttarget.set(\"_redraw_requested\", false)") >= 0, "character info open animation should consume the pending open redraw on its final frame")
 	overlay.open()
 	_expect(overlay.update(1.0), "character info open animation should request its final redraw")
 	_expect(not overlay.update(0.016), "settled character info overlay should not queue one extra redraw after the open animation")
@@ -318,11 +359,23 @@ func _get_module(key: String) -> Object:
 	return null
 
 
+func _character_info_overlay_source() -> String:
+	return FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_state.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_support.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_core.gd")
+
+
+func _character_info_value_utils_contract_source() -> String:
+	return FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_layout_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_text_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_slot_cache_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_misc_value_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_prewarm_text_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_value_utils.gd")
+
+
 func _function_body(source: String, marker: String) -> String:
 	var start: int = source.find(marker)
 	if start < 0:
 		return ""
-	var next: int = source.find("\nfunc ", start + marker.length())
+	var next_func: int = source.find("\nfunc ", start + marker.length())
+	var next_static_func: int = source.find("\nstatic func ", start + marker.length())
+	var next: int = next_func
+	if next < 0 or (next_static_func >= 0 and next_static_func < next):
+		next = next_static_func
 	if next < 0:
 		return source.substr(start)
 	return source.substr(start, next - start)

@@ -272,7 +272,10 @@ func prewarm_stage_intro_resources_step(owner: Object, module_getter: Callable) 
 		0:
 			var current_stage: int = _get_current_stage(owner)
 			var landing_intro: Object = _get_module(module_getter, "stage_landing_intro")
-			if landing_intro != null and landing_intro.has_method("prewarm_assets"):
+			if landing_intro != null and landing_intro.has_method("prewarm_assets_step"):
+				if not bool(landing_intro.prewarm_assets_step(current_stage)):
+					return false
+			elif landing_intro != null and landing_intro.has_method("prewarm_assets"):
 				landing_intro.prewarm_assets(current_stage)
 		1:
 			var ball_spawn_intro: Object = _get_module(module_getter, "stage_ball_spawn_intro")
@@ -360,14 +363,14 @@ func _run_stage_runtime_prewarm_step(
 			# Lingpet rail card art (the hatched companion's skill card rides every
 			# stage's boss skill rail, so warm it once here rather than lazy-loading
 			# in any stage's HUD draw hot path).
-			LingpetRailCard.prewarm()
+			return bool(LingpetRailCard.prewarm_step())
 		_:
 			var stage_step := step_index - STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
 			var stage_step_count := _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
 			if stage_step < stage_step_count:
 				return _run_stage_specific_runtime_prewarm_step(owner, module_getter, current_stage, stage_step)
 			else:
-				_attach_battle_pso_prewarmer(owner)
+				return _run_battle_pso_prewarmer_step(owner)
 	return true
 
 
@@ -597,6 +600,21 @@ func _attach_battle_pso_prewarmer(owner: Object) -> void:
 	var prewarmer := BattlePsoPrewarmer.new()
 	prewarmer.name = "BattlePsoPrewarmer"
 	(owner as Node).add_child(prewarmer)
+
+
+func _run_battle_pso_prewarmer_step(owner: Object) -> bool:
+	var stage_id: int = max(1, _get_current_stage(owner))
+	if owner == null or not (owner is Node) or not (owner as Node).is_inside_tree():
+		return true
+	var owner_node := owner as Node
+	var existing := owner_node.get_node_or_null("BattlePsoPrewarmer")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		return false
+	if bool(battle_pso_prewarmer_stage_ids.get(stage_id, false)):
+		return true
+	_attach_battle_pso_prewarmer(owner)
+	existing = owner_node.get_node_or_null("BattlePsoPrewarmer")
+	return existing == null or not is_instance_valid(existing) or existing.is_queued_for_deletion()
 
 
 func prewarm_stage2_runtime_resources(module_getter: Callable) -> void:
@@ -870,16 +888,26 @@ func prewarm_selected_character_runtime_resources_step(owner: Object, module_get
 		return true
 	var module_key := module_keys[selected_character_runtime_prewarm_step_index]
 	var module: Object = _get_module(module_getter, module_key)
-	if not _prewarm_module_assets_step(module):
+	if not _prewarm_selected_character_module_assets_step(module, character_type):
 		return false
-	if module_key == "viper_skill_runtime":
-		if not _prewarm_selected_character_runtime_nodes_step(owner, module):
-			return false
+	if not _prewarm_selected_character_runtime_nodes_step(owner, module):
+		return false
 	selected_character_runtime_prewarm_step_index += 1
 	if selected_character_runtime_prewarm_step_index >= module_keys.size():
 		_mark_selected_character_runtime_prewarmed(character_type)
 		return true
 	return false
+
+
+func _prewarm_selected_character_module_assets_step(module: Object, character_type: String) -> bool:
+	if module == null:
+		return true
+	if module.has_method("prewarm_assets_for_character_step"):
+		return bool(module.prewarm_assets_for_character_step(character_type))
+	if module.has_method("prewarm_assets_for_character"):
+		module.prewarm_assets_for_character(character_type)
+		return true
+	return _prewarm_module_assets_step(module)
 
 
 func _prewarm_selected_character_runtime_nodes_step(owner: Object, module: Object) -> bool:
@@ -944,6 +972,7 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 			keys.append_array([
 				"viper_input_reader",
 				"viper_skill_runtime",
+				"skill_cutin_overlay_host",
 				"viper_skill_state",
 				"viper_skill_config",
 				"viper_jetpack_state",
@@ -958,6 +987,11 @@ func prewarm_ball_update_runtime_resources_step(owner: Object, module_getter: Ca
 			return false
 	elif ball_renderer != null and ball_renderer.has_method("prewarm_assets"):
 		ball_renderer.prewarm_assets()
+	if ball_renderer != null and ball_renderer.has_method("prewarm_runtime_nodes_step"):
+		if not bool(ball_renderer.prewarm_runtime_nodes_step(owner)):
+			return false
+	elif ball_renderer != null and ball_renderer.has_method("prewarm_runtime_nodes"):
+		ball_renderer.prewarm_runtime_nodes(owner)
 	var prewarm_driver: Object = _get_module(module_getter, "battle_scene_update_prewarm_driver")
 	if prewarm_driver == null:
 		return true

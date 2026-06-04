@@ -45,6 +45,7 @@ func _init() -> void:
 	_verify_append_entry_noop_when_inactive()
 	_verify_tooltip_info()
 	_verify_all_stage_rails_wire_shared_helper()
+	_verify_staged_prewarm()
 	_verify_prewarm_registered()
 
 	if _failures.is_empty():
@@ -249,7 +250,17 @@ func _verify_all_stage_rails_wire_shared_helper() -> void:
 
 func _verify_prewarm_registered() -> void:
 	var controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
-	_expect(controller_source.find("LingpetRailCard.prewarm()") >= 0, "boot prewarm controller should warm the lingpet rail card texture once (no hot-path lazy load on any stage)")
+	_expect(controller_source.find("LingpetRailCard.prewarm_step()") >= 0, "boot prewarm controller should stage the lingpet rail card texture load (no hot-path lazy load on any stage)")
+
+
+func _verify_staged_prewarm() -> void:
+	_expect(not bool(LingpetRailCard.prewarm_step()), "first lingpet rail card prewarm step should only build the path list")
+	var guard := 0
+	while not bool(LingpetRailCard.prewarm_step()) and guard < 80:
+		guard += 1
+	_expect(guard < 80, "lingpet rail card staged prewarm should complete within a bounded number of steps")
+	var source: String = FileAccess.get_file_as_string("res://scripts/stages/common/lingpet_rail_card.gd")
+	_expect(source.find("prewarm_texture_threaded_step") >= 0, "lingpet rail card prewarm should use the threaded texture path")
 
 
 func _expect(condition: bool, message: String) -> void:

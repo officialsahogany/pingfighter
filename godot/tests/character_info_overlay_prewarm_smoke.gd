@@ -1,6 +1,10 @@
 extends SceneTree
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const CharacterInfoOverlayHoverGeometry := preload("res://scripts/hud/character_info_overlay_hover_geometry.gd")
+const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const CharacterInfoOverlayPassiveItemPresenter := preload("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
+const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 
@@ -172,7 +176,7 @@ func _init() -> void:
 		layout_overlay._layout_lingpet_rect.size.y - 48.0
 	)
 	var lingpet_skill_row_h: float = clamp(lingpet_content_rect.size.y * 0.22, 58.0, 78.0)
-	var lingpet_art_rect: Rect2 = layout_overlay._get_lingpet_companion_art_rect(lingpet_content_rect, lingpet_skill_row_h)
+	var lingpet_art_rect: Rect2 = CharacterInfoOverlayLingpetPresenter.companion_art_rect(lingpet_content_rect, lingpet_skill_row_h)
 	_expect(lingpet_art_rect.size.y >= 120.0, "720p lingpet panel should reserve enough height for the Maribo full-body art")
 	var maribo_passive_icon_path: String = LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus")
 	_expect(FileAccess.file_exists(maribo_passive_icon_path), "maribo gauge-gain passive icon asset should exist through the catalog")
@@ -189,7 +193,7 @@ func _init() -> void:
 	var long_word_wrapped: Array = overlay._wrap_text_to_width(font, "SupercalifragilisticexpialidociousSupercalifragilistic", 13, 90.0, 8)
 	_expect(long_word_wrapped.size() > 1, "character info tooltip wrapping should split long unbroken words")
 	_assert_wrapped_lines_fit(overlay, font, long_word_wrapped, 13, 90.0, "long unbroken character info tooltip words should fit the box")
-	var narrow_tooltip_width: float = overlay._get_tooltip_width(font, "シャドウバックステップ", "", str(japanese_wrapped[0]), Vector2(360.0, 240.0))
+	var narrow_tooltip_width: float = CharacterInfoOverlayValueUtils.tooltip_width(font, "シャドウバックステップ", "", str(japanese_wrapped[0]), Vector2(360.0, 240.0), Callable(overlay, "_text_size"))
 	_expect(narrow_tooltip_width >= 280.0 and narrow_tooltip_width <= 344.0, "character info tooltip width should stay inside the owning view")
 	var tooltip_entries: Array = [{"text": "alpha beta gamma delta", "color": Color.WHITE}]
 	var entry_lines_once: Array = overlay._build_tooltip_entry_lines(font, tooltip_entries, 13, 70.0, 3)
@@ -214,12 +218,12 @@ func _init() -> void:
 	_expect(passive_body_once == passive_body_twice, "cached passive item tooltip body should preserve repeated output")
 	passive_body_item["_equipped_slot"] = "shoes"
 	_expect(overlay._build_passive_item_body(passive_body_item) != passive_body_once, "passive item tooltip body cache should rebuild when equipped slot changes")
-	_expect(overlay._get_string_fallback({"desc": "fallback body"}, "description", "desc") == "fallback body", "lazy string fallback should read the secondary key only when needed")
-	_expect(overlay._get_array_fallback({"options": [1, 2]}, "roll_options", "options").size() == 2, "lazy array fallback should read the secondary key only when needed")
-	_expect(is_equal_approx(overlay._get_number_fallback({"cooldown_ms": 2500}, "cooldown_msec", "cooldown_ms"), 2500.0), "lazy number fallback should read the secondary key only when needed")
-	_expect(is_equal_approx(overlay._get_roll_option_value({"default": 2.0}, {"speed": 3.0}, "speed"), 3.0), "roll option values should prefer live rolled values before option defaults")
-	var passive_frame_color_once: Color = overlay._passive_item_frame_color({"name": "alpha", "rarity": "legendary"})
-	var passive_frame_color_twice: Color = overlay._passive_item_frame_color({"name": "alpha", "rarity": "legendary"})
+	_expect(CharacterInfoOverlayValueUtils.get_string_fallback({"desc": "fallback body"}, "description", "desc") == "fallback body", "lazy string fallback should read the secondary key only when needed")
+	_expect(is_equal_approx(CharacterInfoOverlayValueUtils.get_number_fallback({"cooldown_ms": 2500}, "cooldown_msec", "cooldown_ms"), 2500.0), "lazy number fallback should read the secondary key only when needed")
+	_expect(is_equal_approx(CharacterInfoOverlayPassiveItemPresenter.roll_option_value({"default": 2.0}, {"speed": 3.0}, "speed"), 3.0), "roll option values should prefer live rolled values before option defaults")
+	var passive_frame_color_cache := {}
+	var passive_frame_color_once: Color = CharacterInfoOverlayPassiveItemPresenter.cached_frame_color({"name": "alpha", "rarity": "legendary"}, passive_frame_color_cache, CharacterInfoOverlay.PASSIVE_FRAME_COLOR_CACHE_LIMIT)
+	var passive_frame_color_twice: Color = CharacterInfoOverlayPassiveItemPresenter.cached_frame_color({"name": "alpha", "rarity": "legendary"}, passive_frame_color_cache, CharacterInfoOverlay.PASSIVE_FRAME_COLOR_CACHE_LIMIT)
 	_expect(passive_frame_color_once == passive_frame_color_twice, "cached passive inventory frame colors should preserve repeated output")
 	var display_item := {"name": "speedboots", "display_name": "Speed Boots", "name_prefix": "Fast", "quality_tier": "high"}
 	var display_once: String = overlay._equipment_item_display_name(display_item)
@@ -228,10 +232,10 @@ func _init() -> void:
 	var quality_once: Color = overlay._get_item_quality_color(display_item, Color.WHITE)
 	var quality_twice: Color = overlay._get_item_quality_color(display_item, Color.WHITE)
 	_expect(quality_once == quality_twice, "cached item quality colors should preserve repeated output")
-	_expect(overlay._get_hovered_linear_slot_index(Vector2(14.0, 12.0), 10.0, 10.0, 12.0, 18.0, 3) == 0, "linear hover index should resolve the first slot")
-	_expect(overlay._get_hovered_linear_slot_index(Vector2(25.0, 12.0), 10.0, 10.0, 12.0, 18.0, 3) == -1, "linear hover index should reject slot gaps")
-	_expect(overlay._get_hovered_grid_index(Vector2(35.0, 35.0), 10.0, 10.0, 12.0, 18.0, 3, 9) == 4, "grid hover index should resolve row and column")
-	_expect(overlay._get_hovered_grid_index(Vector2(71.0, 38.0), 10.0, 10.0, 12.0, 18.0, 3, 5) == -1, "grid hover index should reject out-of-range items")
+	_expect(CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(Vector2(14.0, 12.0), 10.0, 10.0, 12.0, 18.0, 3) == 0, "linear hover index should resolve the first slot")
+	_expect(CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(Vector2(25.0, 12.0), 10.0, 10.0, 12.0, 18.0, 3) == -1, "linear hover index should reject slot gaps")
+	_expect(CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(Vector2(35.0, 35.0), 10.0, 10.0, 12.0, 18.0, 3, 9) == 4, "grid hover index should resolve row and column")
+	_expect(CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(Vector2(71.0, 38.0), 10.0, 10.0, 12.0, 18.0, 3, 5) == -1, "grid hover index should reject out-of-range items")
 	_expect(overlay._text_size_cache.size() >= text_cache_size, "character info text cache should remain populated")
 	_expect(overlay._wrap_text_cache.size() >= wrap_cache_size, "character info wrap cache should remain populated")
 
@@ -306,87 +310,81 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	var visible_unlocks: Array = unlock_overlay._build_acquired_perks_cached(unlock_levels, unlock_catalog, null, {}, [])
 	_expect(visible_unlocks.size() == 2, "unequipped unlock-skill perks should remain visible in the acquired perk grid")
 
-	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
+	var source := _character_info_overlay_source()
+	var perk_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_perk_presenter.gd")
+	var text_width_cache_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_text_width_cache.gd")
+	var acquired_cache_hash_body := _function_body(perk_presenter_source, "static func acquired_perk_cache_hash(")
+	var acquired_runtime_hash_body := _function_body(perk_presenter_source, "static func acquired_perk_runtime_cache_hash(")
+	var build_acquired_body := _function_body(perk_presenter_source, "static func build_acquired_perks(")
+	var overlay_acquired_body := _function_body(perk_presenter_source, "static func build_overlay_acquired_perks_cached(")
+	var perk_grid_draw_body := _function_body(perk_presenter_source, "static func draw_grid_cells(")
+	var overlay_indexed_size_body := _function_body(text_width_cache_source, "static func get_overlay_indexed_size(")
+	var overlay_text_size_body := _function_body(text_width_cache_source, "static func get_overlay_text_size(")
 	_expect(source.find("parts.sort()") < 0, "acquired perk cache signature should not sort every frame")
 	_expect(source.find("var _acquired_perk_cache_hash := 0") >= 0, "acquired perk cache should keep a numeric hash guard")
 	_expect(source.find("var _acquired_perk_cache_ready := false") >= 0, "acquired perk cache should guard the initial hash state")
 	_expect(source.find("var _acquired_perk_signature_parts: Array[String] = []") < 0, "acquired perk cache should not keep string signature parts")
 	_expect(source.find("var _perk_level_text_size_cache_values: Array[Vector2] = []") >= 0, "perk grid level text should keep a typed size cache")
-	_expect(source.find("var effective_levels: Dictionary = _get_effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)") >= 0, "acquired perk cache should compute snapshot effective levels once")
-	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("has_snapshot_effective_levels") >= 0, "acquired perk cache hash should only use the fast snapshot hash when effective levels are present")
-	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash])") >= 0, "snapshot-backed acquired perk cache should use compact dictionary hashes")
-	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("for skill_id_value in levels") < 0, "snapshot-backed acquired perk cache hash should not iterate every perk level")
-	_expect(_function_body(source, "func _get_acquired_perk_runtime_cache_hash(").find("var result: int = hash(catalog_id)") >= 0, "direct acquired perk runtime cache should accumulate a numeric hash")
-	_expect(_function_body(source, "func _get_acquired_perk_runtime_cache_hash(").find("for skill_id_value in levels.keys():") < 0, "direct acquired perk runtime cache should not allocate dictionary key arrays")
-	_expect(_function_body(source, "func _get_acquired_perk_runtime_cache_hash(").find("for skill_id_value in levels:") >= 0, "direct acquired perk runtime cache should iterate levels directly")
-	_expect(_function_body(source, "func _get_acquired_perk_runtime_cache_hash(").find("result = hash([result, skill_id, base_level, effective_level])") >= 0, "direct acquired perk runtime cache should avoid joined string signatures")
-	_expect(_function_body(source, "func _build_acquired_perks(").find("for skill_id_value in levels.keys():") < 0, "acquired perk cache rebuild should not allocate dictionary key arrays")
-	_expect(source.find("data[\"_level_text\"] = _perk_level_text(data)") >= 0, "acquired perk cache should precompute perk level text")
-	_expect(source.find("data[\"_level_color\"] = _perk_level_color(data)") >= 0, "acquired perk cache should precompute perk level color")
-	_expect(source.find("var draw_color: Color = _get_color(data.get(\"icon_color\", ACCENT_BLUE))") >= 0, "acquired perk cache should compute perk draw color once")
-	_expect(source.find("data[\"_draw_color\"] = draw_color") >= 0, "acquired perk cache should precompute perk draw color")
-	_expect(source.find("data[\"_draw_id\"] = skill_id") >= 0, "acquired perk cache should precompute perk draw id")
-	_expect(source.find("func _should_hide_equipped_unlock_perk(perk_data: Dictionary, equipped_skill_lookup: Dictionary) -> bool:") >= 0, "acquired perk grid should hide equipped active-skill unlock duplicates")
+	_expect(overlay_acquired_body.find("var effective_levels: Dictionary = effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)") >= 0, "acquired perk cache should compute snapshot effective levels once")
+	_expect(acquired_cache_hash_body.find("has_snapshot_effective_levels") >= 0, "acquired perk cache hash should only use the fast snapshot hash when effective levels are present")
+	_expect(acquired_cache_hash_body.find("return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash])") >= 0, "snapshot-backed acquired perk cache should use compact dictionary hashes")
+	_expect(acquired_cache_hash_body.find("for skill_id_value in levels") < 0, "snapshot-backed acquired perk cache hash should not iterate every perk level")
+	_expect(acquired_runtime_hash_body.find("var result: int = hash(catalog_id)") >= 0, "direct acquired perk runtime cache should accumulate a numeric hash")
+	_expect(acquired_runtime_hash_body.find("for skill_id_value in levels.keys():") < 0, "direct acquired perk runtime cache should not allocate dictionary key arrays")
+	_expect(acquired_runtime_hash_body.find("for skill_id_value in levels:") >= 0, "direct acquired perk runtime cache should iterate levels directly")
+	_expect(acquired_runtime_hash_body.find("result = hash([result, skill_id, base_level, effective_level])") >= 0, "direct acquired perk runtime cache should avoid joined string signatures")
+	_expect(build_acquired_body.find("for skill_id_value in levels.keys():") < 0, "acquired perk cache rebuild should not allocate dictionary key arrays")
+	_expect(build_acquired_body.find("data[\"_level_text\"] = CharacterInfoOverlayFormatter.perk_level_text(data)") >= 0, "acquired perk cache should precompute perk level text")
+	_expect(build_acquired_body.find("data[\"_level_color\"] = CharacterInfoOverlayFormatter.perk_level_color(data, accent_gold)") >= 0, "acquired perk cache should precompute perk level color")
+	_expect(build_acquired_body.find("var draw_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get(\"icon_color\", accent_blue))") >= 0, "acquired perk cache should compute perk draw color once through value utils")
+	_expect(build_acquired_body.find("data[\"_draw_color\"] = draw_color") >= 0, "acquired perk cache should precompute perk draw color")
+	_expect(build_acquired_body.find("data[\"_draw_id\"] = skill_id") >= 0, "acquired perk cache should precompute perk draw id")
+	_expect(source.find("func _should_hide_equipped_unlock_perk(") < 0, "acquired perk grid should not keep the unused equipped-unlock wrapper")
+	_expect(build_acquired_body.find("acquired_perk_data(skill_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)") >= 0, "acquired perk grid should delegate equipped unlock filtering to the presenter")
 	_expect(source.find("var _acquired_perk_draw_id_cache: Array[String] = []") >= 0, "acquired perk draw should keep typed id caches")
 	_expect(source.find("var _acquired_perk_draw_color_cache: Array[Color] = []") >= 0, "acquired perk draw should keep typed color caches")
 	_expect(source.find("var _acquired_perk_hover_title_cache: Array[String] = []") >= 0, "acquired perk draw should keep typed hover title caches")
-	_expect(source.find("_acquired_perk_hover_title_cache[i] = _get_string_fallback(perk, \"name\", \"id\")") >= 0, "acquired perk rebuild should cache hover titles")
-	_expect(source.find("_acquired_perk_hover_body_cache[i] = _get_string_fallback(perk, \"description\", \"detail\")") >= 0, "acquired perk rebuild should cache hover bodies")
-	_expect(source.find("func _refresh_acquired_perk_draw_arrays(acquired: Array) -> void:") >= 0, "acquired perk rebuild should refresh typed draw arrays")
-	_expect(source.find("_refresh_acquired_perk_draw_arrays(result)") >= 0, "acquired perk cache rebuild should refresh typed draw arrays after sorting")
-	_expect(source.find("var level_text: String = _acquired_perk_level_text_cache[i]") >= 0, "perk grid draw should reuse cached level text")
+	_expect(perk_presenter_source.find("hover_title_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, \"name\", \"id\")") >= 0, "acquired perk rebuild should cache hover titles through value utils")
+	_expect(perk_presenter_source.find("hover_body_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, \"description\", \"detail\")") >= 0, "acquired perk rebuild should cache hover bodies through value utils")
+	_expect(perk_presenter_source.find("static func build_overlay_acquired_perks_cached(") >= 0, "acquired perk rebuild should refresh typed draw arrays")
+	_expect(overlay_acquired_body.find("refresh_draw_arrays(acquired,") >= 0, "acquired perk cache rebuild should refresh typed draw arrays after sorting")
+	_expect(perk_grid_draw_body.find("var level_text: String = level_text_cache[i]") >= 0, "perk grid draw should reuse cached level text")
 	_expect(source.find("func _get_perk_level_text_size(font: Font, text: String, size: int) -> Vector2:") >= 0, "perk grid draw should use a dedicated level text size cache")
 	_expect(source.find("var _centered_text_size_cache_values: Array[Vector2] = []") >= 0, "centered text draw should keep a typed size cache")
 	_expect(source.find("func _get_centered_text_size(font: Font, text: String, size: int) -> Vector2:") >= 0, "centered text draw should use a dedicated size cache")
 	_expect(source.find("var _perk_level_text_size_fast_value := Vector2.ZERO") >= 0, "perk grid level text should keep a one-slot size fast cache")
 	_expect(source.find("var _centered_text_size_fast_value := Vector2.ZERO") >= 0, "centered text should keep a one-slot size fast cache")
-	_expect(_function_body(source, "func _get_perk_level_text_size(").find("return _perk_level_text_size_fast_value") >= 0, "perk grid level text should check the fast size cache before scanning arrays")
-	_expect(_function_body(source, "func _get_centered_text_size(").find("return _centered_text_size_fast_value") >= 0, "centered text should check the fast size cache before scanning arrays")
+	_expect(overlay_indexed_size_body.find("return fast_value") >= 0, "perk grid level text should check the fast size cache before scanning arrays")
+	_expect(overlay_indexed_size_body.find("return fast_value") >= 0, "centered text should check the fast size cache before scanning arrays")
 	_expect(source.find("var _text_size_fast_value := Vector2.ZERO") >= 0, "generic text size cache should keep a one-slot fast value")
-	_expect(_function_body(source, "func _text_size(").find("if text == _text_size_fast_text and ui_size == _text_size_fast_ui_size:") >= 0, "generic text size cache should check the one-slot fast path before building string keys")
-	_expect(_function_body(source, "func _text_size(").find("_text_size_fast_value = measured_size") >= 0, "generic text size cache should update the fast value after measuring")
-	_expect(_function_body(source, "func _draw_text_centered(").find("_draw_text_centered_xy(canvas, font, text, center.x, center.y, size, color)") >= 0, "centered text draw should delegate to the scalar center helper")
+	_expect(overlay_text_size_body.find("if text == fast_text and ui_size == fast_ui_size:") >= 0, "generic text size cache should check the one-slot fast path before building string keys")
+	_expect(overlay_text_size_body.find("target.set(\"_text_size_fast_value\", measured_size)") >= 0, "generic text size cache should update the fast value after measuring")
+	_expect(source.find("func _draw_text_centered(") < 0, "character info should remove the unused Vector2 centered text wrapper")
 	_expect(_function_body(source, "func _draw_text_centered_xy(").find("var text_size: Vector2 = _get_centered_text_size(font, visible_text, size)") >= 0, "centered text draw should read cached centered text sizes")
 	_expect(_function_body(source, "func _draw_text_centered_xy(").find("var text_size: Vector2 = _text_size(font, text, size)") < 0, "centered text draw should avoid the generic string-key size cache")
-	_expect(source.find("func _draw_text_centered_with_size(canvas: CanvasItem, font: Font, text: String, center: Vector2, size: int, color: Color, text_size: Vector2) -> void:") >= 0, "character info centered text should support already-measured text")
+	_expect(source.find("func _draw_text_centered_with_size(") < 0, "character info should remove the unused Vector2 measured centered text wrapper")
 	_expect(source.find("func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline_x: float, baseline_y: float, size: int, color: Color) -> void:") >= 0, "character info left-aligned text should support scalar baseline coordinates")
-	_expect(_function_body(source, "func _draw_text(").find("_draw_text_xy(canvas, font, text, baseline.x, baseline.y, size, color)") >= 0, "character info legacy text helper should delegate to the scalar baseline helper")
+	_expect(source.find("func _draw_text(") < 0, "character info should remove the unused Vector2 baseline text wrapper")
 	_expect(source.find("_draw_text(canvas, font,") < 0, "character info draw paths should call the scalar baseline helper directly")
 	_expect(source.find("func _draw_text_centered_xy(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color) -> void:") >= 0, "character info centered text should support scalar center coordinates")
 	_expect(source.find("func _draw_text_centered_with_size_xy(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color, text_size: Vector2) -> void:") >= 0, "character info measured centered text should support scalar center coordinates")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("var level_text_size: Vector2 = _get_perk_level_text_size(font, level_text, 9)") >= 0, "perk grid draw should read cached level text sizes")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("_draw_text_centered(canvas, font, level_text") < 0, "perk grid draw should not call the generic centered text measurement path for perk levels")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("_draw_text_centered_with_size_xy(canvas, font, level_text") >= 0, "perk grid draw should pass scalar center coordinates for level text")
-	_expect(source.find("var perk_id: String = _acquired_perk_draw_id_cache[i]") >= 0, "perk grid draw should reuse cached perk id")
+	_expect(perk_grid_draw_body.find("var level_text_size: Vector2 = get_level_text_size_callable.call(font, level_text, 9)") >= 0, "perk grid draw should read cached level text sizes")
+	_expect(perk_grid_draw_body.find("_draw_text_centered(canvas, font, level_text") < 0, "perk grid draw should not call the generic centered text measurement path for perk levels")
+	_expect(perk_grid_draw_body.find("draw_text_centered_with_size_xy_callable.call(canvas, font, level_text") >= 0, "perk grid draw should pass scalar center coordinates for level text")
+	_expect(perk_grid_draw_body.find("var perk_id: String = draw_id_cache[i]") >= 0, "perk grid draw should reuse cached perk id")
 	_expect(source.find("var _perk_grid_center_x_cache: Array[float] = []") >= 0, "perk grid draw should cache cell centers for level text")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("_draw_text_centered_with_size_xy(canvas, font, level_text, _perk_grid_center_x_cache[i], _perk_grid_level_y_cache[i], 9, level_color, level_text_size)") >= 0, "perk grid draw should reuse cached level text coordinates")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("perk.get(\"_draw_color\"") < 0, "perk grid draw should not read cached colors back through perk dictionaries")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("perk.get(\"_level_color\"") < 0, "perk grid draw should not read cached level colors back through perk dictionaries")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("var perk: Dictionary = acquired[i]") < 0, "perk grid draw should not open acquired perk dictionaries per visible cell")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("_get_string_fallback(perk") < 0, "perk grid hover should read cached title and body text")
-	_expect(_function_body(source, "func _draw_perk_grid(").find("_acquired_perk_hover_title_cache[i]") >= 0, "perk grid hover should read cached title text")
+	_expect(perk_grid_draw_body.find("draw_text_centered_with_size_xy_callable.call(canvas, font, level_text, center_x_cache[i], level_y_cache[i], 9, level_color, level_text_size)") >= 0, "perk grid draw should reuse cached level text coordinates")
+	_expect(perk_grid_draw_body.find("perk.get(\"_draw_color\"") < 0, "perk grid draw should not read cached colors back through perk dictionaries")
+	_expect(perk_grid_draw_body.find("perk.get(\"_level_color\"") < 0, "perk grid draw should not read cached level colors back through perk dictionaries")
+	_expect(perk_grid_draw_body.find("var perk: Dictionary = acquired[i]") < 0, "perk grid draw should not open acquired perk dictionaries per visible cell")
+	_expect(perk_grid_draw_body.find("_get_string_fallback(perk") < 0, "perk grid hover should read cached title and body text")
+	_expect(perk_grid_draw_body.find("hover_title_cache[i]") >= 0, "perk grid hover should read cached title text")
 	_expect(source.find("_last_perk_item_rects") < 0, "perk grid hover should not keep an empty rect-map fallback")
 	_expect(_function_body(source, "func _get_hover_signature(").find("_get_rect_map_hover_signature(_last_perk_item_rects") < 0, "perk grid hover signature should not scan an empty rect map")
 	_expect(_function_body(source, "func _hover_signature_contains_mouse(").find("_rect_map_key_contains_mouse(_last_perk_item_rects") < 0, "perk grid hover reuse should rely on cached grid geometry")
 
 
 func _verify_passive_inventory_summary_cache_tracks_equipped_state() -> void:
-	var overlay := CharacterInfoOverlay.new()
-	var items: Array = [
-		{"name": "alpha"},
-		{"name": "beta", "equipped": true},
-		{"name": "gamma", "_equipped_slot": "head"},
-	]
-	var first: Dictionary = overlay._get_passive_inventory_summary(items)
-	var second: Dictionary = overlay._get_passive_inventory_summary(items)
-	_expect(int(first.get("count", 0)) == 3, "passive inventory summary should count inventory items")
-	_expect(int(first.get("equipped", 0)) == 2, "passive inventory summary should count equipped items")
-	_expect(first == second, "unchanged passive inventory summary should be reusable")
-
-	var alpha: Dictionary = items[0]
-	alpha["equipped"] = true
-	var third: Dictionary = overlay._get_passive_inventory_summary(items)
-	_expect(int(third.get("equipped", 0)) == 3, "passive inventory summary should rebuild when equipped state changes")
 	var draw_cache_overlay := CharacterInfoOverlay.new()
 	var draw_cache_items: Array = [
 		{"name": "alpha", "rarity": "passive"},
@@ -397,20 +395,25 @@ func _verify_passive_inventory_summary_cache_tracks_equipped_state() -> void:
 	var draw_cache_second: Dictionary = draw_cache_overlay._prepare_passive_inventory_draw_cache(draw_cache_items)
 	_expect(draw_cache_first == draw_cache_second, "passive inventory draw cache should preserve the prepared summary on repeat")
 	_expect(draw_cache_overlay._passive_inventory_draw_cache_items_hash == draw_cache_first_hash, "passive inventory draw cache should store the post-prepare item hash for immediate reuse")
-	var icon_hash_overlay := CharacterInfoOverlay.new()
 	var icon_hash_items: Array = [
 		{"name": "alpha", "icon_path": "res://alpha.png"},
 		{"name": "beta", "icon_sheet_path": "res://beta_sheet.png"},
 	]
-	var icon_hash_first: int = icon_hash_overlay._get_passive_inventory_icon_hash(icon_hash_items)
+	var icon_hash_first: int = CharacterInfoOverlayPassiveItemPresenter.passive_inventory_icon_hash(icon_hash_items)
 	var icon_hash_item: Dictionary = icon_hash_items[0]
 	icon_hash_item["_draw_color"] = Color.RED
-	var icon_hash_second: int = icon_hash_overlay._get_passive_inventory_icon_hash(icon_hash_items)
+	var icon_hash_second: int = CharacterInfoOverlayPassiveItemPresenter.passive_inventory_icon_hash(icon_hash_items)
 	_expect(icon_hash_first == icon_hash_second, "passive inventory icon prewarm hash should ignore draw-cache fields")
 	icon_hash_item["icon_path"] = "res://alpha_v2.png"
-	var icon_hash_third: int = icon_hash_overlay._get_passive_inventory_icon_hash(icon_hash_items)
+	var icon_hash_third: int = CharacterInfoOverlayPassiveItemPresenter.passive_inventory_icon_hash(icon_hash_items)
 	_expect(icon_hash_third != icon_hash_first, "passive inventory icon prewarm hash should change when icon identity changes")
-	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
+	var source := _character_info_overlay_source()
+	var passive_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
+	var passive_inventory_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_inventory_drawer.gd")
+	var passive_overlay_prepare_body := _function_body(passive_item_presenter_source, "static func prepare_overlay_inventory_draw_cache(")
+	var passive_summary_body := _function_body(passive_item_presenter_source, "static func set_inventory_summary(")
+	var passive_draw_arrays_body := _function_body(passive_item_presenter_source, "static func prepare_inventory_draw_arrays(")
+	var passive_inventory_draw_body := _function_body(passive_inventory_drawer_source, "static func draw_inventory_cells(")
 	_expect(source.find("_passive_inventory_summary_count") >= 0, "passive inventory summary should cache by visible count")
 	_expect(source.find("_passive_inventory_summary_equipped") >= 0, "passive inventory summary should cache by equipped count")
 	_expect(source.find("\"count_text\": \"보유 0 / 장착 0\"") >= 0, "passive inventory summary should keep reusable header count text")
@@ -418,31 +421,31 @@ func _verify_passive_inventory_summary_cache_tracks_equipped_state() -> void:
 	_expect(_function_body(source, "func _draw_passive_inventory(").find("var count_text: String = str(summary.get(\"count_text\", \"\"))") >= 0, "passive inventory draw should read cached count text")
 	_expect(_function_body(source, "func _draw_passive_inventory(").find("_text_size(font, count_text, 11)") < 0, "passive inventory draw should not measure count text directly every frame")
 	_expect(source.find("_get_passive_inventory_summary_state(inventory_items)") < 0, "passive inventory summary should avoid per-frame string signatures")
-	_expect(_function_body(source, "func _set_passive_inventory_summary(").find("% [item_count, equipped_count]") < 0, "passive inventory summary count text should avoid format arrays")
+	_expect(passive_summary_body.find("% [item_count, equipped_count]") < 0, "passive inventory summary count text should avoid format arrays")
 	_expect(source.find("var _passive_inventory_item_cache: Array[Dictionary] = []") >= 0, "passive inventory draw should keep typed item dictionary caches")
 	_expect(source.find("var _passive_inventory_draw_cache_items_hash := 0") >= 0, "passive inventory draw cache should keep the item hash as a scalar")
-	_expect(source.find("func _passive_inventory_draw_cache_matches(items_hash: int, item_count: int) -> bool:") >= 0, "passive inventory draw cache should compare scalar cache keys")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("var items_hash: int = hash(inventory_items)") >= 0, "passive inventory prep should hash the item array once")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("if _passive_inventory_draw_cache_matches(items_hash, item_count):") >= 0, "passive inventory prep should reuse cached draw metadata when items are unchanged")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("_passive_inventory_draw_cache_items_hash = hash(inventory_items)") >= 0, "passive inventory prep should store the post-prepare item hash")
+	_expect(source.find("func _passive_inventory_draw_cache_matches(") < 0, "passive inventory draw cache should not keep a separate one-line match wrapper")
+	_expect(passive_overlay_prepare_body.find("var items_hash: int = hash(inventory_items)") >= 0, "passive inventory prep should hash the item array once")
+	_expect(passive_overlay_prepare_body.find("items_hash == current_items_hash and item_count == current_item_count") >= 0, "passive inventory prep should reuse cached draw metadata when items are unchanged")
+	_expect(passive_overlay_prepare_body.find("target.set(\"_passive_inventory_draw_cache_items_hash\", hash(inventory_items))") >= 0, "passive inventory prep should store the post-prepare item hash")
 	_expect(source.find("func _passive_inventory_draw_cache_signature_for_items(") < 0, "passive inventory draw cache should not keep a string-signature helper")
 	_expect(source.find("var _passive_inventory_icon_prewarm_items_hash := 0") >= 0, "passive inventory icon prewarm should keep an item hash scalar")
 	_expect(source.find("var _passive_inventory_icon_prewarm_item_count := -1") >= 0, "passive inventory icon prewarm should keep an item-count scalar")
-	_expect(source.find("func _get_passive_inventory_icon_hash(inventory_items: Array) -> int:") >= 0, "passive inventory icon prewarm should use a compact hash helper")
+	_expect(source.find("func _get_passive_inventory_icon_hash(") < 0, "passive inventory icon prewarm should not keep the overlay hash wrapper")
 	_expect(source.find("func _get_passive_inventory_icon_signature(") < 0, "passive inventory icon prewarm should not build joined string signatures")
-	_expect(_function_body(source, "func _prewarm_passive_inventory_assets(").find("var items_hash: int = _get_passive_inventory_icon_hash(inventory_items)") >= 0, "passive inventory icon prewarm should hash icon identity once")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("return _passive_inventory_summary") >= 0, "passive inventory prep should return the cached summary on a signature hit")
+	_expect(_function_body(passive_item_presenter_source, "static func prewarm_overlay_inventory_assets(").find("var items_hash: int = passive_inventory_icon_hash(inventory_items)") >= 0, "passive inventory icon prewarm should hash icon identity once")
+	_expect(passive_overlay_prepare_body.find("return summary") >= 0, "passive inventory prep should return the cached summary on a signature hit")
 	_expect(source.find("var _passive_inventory_draw_color_cache: Array[Color] = []") >= 0, "passive inventory draw should keep typed item color caches")
-	_expect(source.find("func _ensure_passive_inventory_draw_cache_size(item_count: int) -> void:") >= 0, "passive inventory draw cache should resize typed arrays together")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("_passive_inventory_item_cache[i] = item_data") >= 0, "passive inventory prep should cache item dictionaries by item index")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("_passive_inventory_draw_color_cache[i] = color") >= 0, "passive inventory prep should cache draw colors by item index")
-	_expect(_function_body(source, "func _prepare_passive_inventory_draw_cache(").find("_passive_inventory_equipped_cache[i] = equipped") >= 0, "passive inventory prep should cache equipped flags by item index")
-	_expect(_function_body(source, "func _draw_passive_inventory(").find("var item_data: Dictionary = _passive_inventory_item_cache[i]") >= 0, "passive inventory draw should read cached item dictionaries")
-	_expect(_function_body(source, "func _draw_passive_inventory(").find("var color: Color = _passive_inventory_draw_color_cache[i]") >= 0, "passive inventory draw should read typed draw colors")
-	_expect(_function_body(source, "func _draw_passive_inventory(").find("var equipped: bool = _passive_inventory_equipped_cache[i]") >= 0, "passive inventory draw should read typed equipped flags")
-	_expect(_function_body(source, "func _draw_passive_inventory(").find("_get_dict(inventory_items[i])") < 0, "passive inventory draw should not normalize visible item dictionaries per cell")
-	_expect(_function_body(source, "func _draw_passive_inventory(").find("item_data.get(\"_draw_color\"") < 0, "passive inventory draw should not read cached colors back through item dictionaries")
-	_expect(_function_body(source, "func _draw_passive_inventory(").find("item_data.get(\"_draw_active_border_color\"") < 0, "passive inventory draw should not resolve border colors through item dictionaries")
+	_expect(passive_overlay_prepare_body.find("CharacterInfoOverlayValueUtils.resize_arrays([item_cache, draw_color_cache, border_color_cache, active_border_color_cache, equipped_cache], item_count)") >= 0, "passive inventory draw cache should resize typed arrays together")
+	_expect(passive_draw_arrays_body.find("_passive_inventory_item_cache[i] = item_data") >= 0, "passive inventory prep should cache item dictionaries by item index")
+	_expect(passive_draw_arrays_body.find("_passive_inventory_draw_color_cache[i] = color") >= 0, "passive inventory prep should cache draw colors by item index")
+	_expect(passive_draw_arrays_body.find("_passive_inventory_equipped_cache[i] = equipped") >= 0, "passive inventory prep should cache equipped flags by item index")
+	_expect(passive_inventory_draw_body.find("var item_data: Dictionary = item_cache[i]") >= 0, "passive inventory draw should read cached item dictionaries")
+	_expect(passive_inventory_draw_body.find("var color: Color = draw_color_cache[i]") >= 0, "passive inventory draw should read typed draw colors")
+	_expect(passive_inventory_draw_body.find("var equipped: bool = equipped_cache[i]") >= 0, "passive inventory draw should read typed equipped flags")
+	_expect(passive_inventory_draw_body.find("_get_dict(inventory_items[i])") < 0, "passive inventory draw should not normalize visible item dictionaries per cell")
+	_expect(passive_inventory_draw_body.find("item_data.get(\"_draw_color\"") < 0, "passive inventory draw should not read cached colors back through item dictionaries")
+	_expect(passive_inventory_draw_body.find("item_data.get(\"_draw_active_border_color\"") < 0, "passive inventory draw should not resolve border colors through item dictionaries")
 	_expect(source.find("_last_passive_inventory_item_rects") < 0, "passive inventory hover should not keep an empty rect-map fallback")
 	_expect(_function_body(source, "func _get_hover_signature(").find("_get_rect_map_hover_signature(_last_passive_inventory_item_rects") < 0, "passive inventory hover signature should not scan an empty rect map")
 	_expect(_function_body(source, "func _hover_signature_contains_mouse(").find("_rect_map_key_contains_mouse(_last_passive_inventory_item_rects") < 0, "passive inventory hover reuse should rely on cached grid geometry")
@@ -450,53 +453,95 @@ func _verify_passive_inventory_summary_cache_tracks_equipped_state() -> void:
 
 
 func _verify_active_item_label_cache_reuses_catalog_rows() -> void:
-	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
+	var source := _character_info_overlay_source()
+	var value_utils_source := _character_info_value_utils_contract_source()
+	var label_cache_body := _function_body(value_utils_source, "static func refresh_active_item_label_cache(")
 	_expect(source.find("_refresh_active_item_label_cache(slots)") >= 0, "active item draw should refresh cached label rows once")
 	_expect(source.find("func _refresh_active_item_label_cache(slots: Array) -> void:") >= 0, "active item label cache helper should remain wired")
-	_expect(source.find("func _ensure_active_item_label_cache_size(slot_count: int) -> void:") >= 0, "active item label cache should resize arrays without clearing stable rows")
-	_expect(source.find("func _active_item_label_cache_matches(slots: Array) -> bool:") >= 0, "active item label cache should compare slots without string signatures")
+	_expect(value_utils_source.find("static func refresh_active_item_label_cache(") >= 0, "active item label cache should resize arrays without clearing stable rows")
+	_expect(source.find("func _active_item_label_cache_matches(slots: Array) -> bool:") < 0, "active item label cache should not keep the unused pre-scan wrapper")
 	_expect(source.find("_get_active_item_label_signature") < 0, "active item label cache should avoid per-frame joined signatures")
 	_expect(source.find("_active_item_label_cache_names: Array[String]") >= 0, "active item label cache should track item names in an indexed array")
 	_expect(source.find("_active_item_label_cache_raw_display_names: Array[String]") >= 0, "active item label cache should track raw display names in an indexed array")
 	_expect(source.find("_active_item_display_name_cache: Array[String]") >= 0, "active item label cache should store display labels in an indexed array")
 	_expect(source.find("_active_item_trimmed_label_cache: Array[String]") >= 0, "active item label cache should store trimmed labels in an indexed array")
-	_expect(source.find("_active_item_trimmed_label_cache[i] = _trim_label(display_name, 10)") >= 0, "active item label cache should precompute trimmed labels")
-	_expect(_function_body(source, "func _refresh_active_item_label_cache(").find("_active_item_label_cache_matches(slots)") < 0, "active item refresh should not pre-scan slots before updating changed rows")
-	_expect(_function_body(source, "func _refresh_active_item_label_cache(").find("continue") >= 0, "active item refresh should skip unchanged cached rows")
+	_expect(source.find("Callable(CharacterInfoOverlayFormatter, \"trim_label\")") >= 0, "active item label cache should pass the shared formatter")
+	_expect(label_cache_body.find("trimmed_label_cache[i] = str(trim_label_callable.call(display_name, 10))") >= 0, "active item label cache should precompute trimmed labels through the shared formatter")
+	_expect(source.find("func _trim_label(") < 0, "active item label cache should not keep the overlay trim wrapper")
+	_expect(label_cache_body.find("_active_item_label_cache_matches(slots)") < 0, "active item refresh should not pre-scan slots before updating changed rows")
+	_expect(label_cache_body.find("continue") >= 0, "active item refresh should skip unchanged cached rows")
 
 
 func _verify_compact_stats_reuse_frame_sources() -> void:
-	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
+	var source := _character_info_overlay_source()
+	var hover_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_hover_geometry.gd")
+	var frame_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_frame_presenter.gd")
+	var layout_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_layout.gd")
+	var lingpet_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+	var stats_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_stats_presenter.gd")
+	var header_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_header_presenter.gd")
+	var prewarm_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_prewarm_presenter.gd")
+	var texture_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_texture_drawer.gd")
+	var equipment_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_equipment_drawer.gd")
+	var active_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
+	var skill_slot_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_skill_slot_presenter.gd")
+	var tooltip_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_tooltip_presenter.gd")
+	var passive_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
+	var passive_inventory_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_inventory_drawer.gd")
+	var owner_state_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_owner_state.gd")
+	var value_utils_source := _character_info_value_utils_contract_source()
+	var perk_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_perk_presenter.gd")
+	var skill_layout_body := _function_body(value_utils_source, "static func refresh_skill_slot_layout_arrays(")
+	var active_layout_body := _function_body(value_utils_source, "static func refresh_active_slot_layout_arrays(")
+	var tooltip_anchor_body := _function_body(value_utils_source, "static func tooltip_anchor_rect(")
+	var fallback_symbol_body := _function_body(value_utils_source, "static func fallback_symbol_letter(")
+	var fallback_symbol_draw_body := _function_body(texture_drawer_source, "static func draw_fallback_symbol(")
+	var equipment_draw_slots_body := _function_body(equipment_drawer_source, "static func draw_slots(")
+	var active_slot_draw_body := _function_body(active_item_presenter_source, "static func draw_slots(")
+	var skill_slot_draw_body := _function_body(skill_slot_presenter_source, "static func draw_slots(")
+	var skill_overlay_cache_body := _function_body(skill_slot_presenter_source, "static func refresh_overlay_draw_cache(")
+	var active_overlay_cache_body := _function_body(active_item_presenter_source, "static func refresh_overlay_draw_cache(")
+	var hover_data_body := _function_body(value_utils_source, "static func set_hover_data(")
+	var wrap_text_body := _function_body(value_utils_source, "static func wrap_text_to_width_cached(")
+	var tooltip_draw_body := _function_body(tooltip_presenter_source, "static func draw_tooltip(")
+	var dual_tooltip_draw_body := _function_body(tooltip_presenter_source, "static func draw_dual_item_tooltip(")
+	var skill_cache_body := _function_body(value_utils_source, "static func refresh_skill_slot_draw_cache(")
+	var tooltip_entry_body := _function_body(value_utils_source, "static func refresh_tooltip_entry_lines(")
+	var build_acquired_body := _function_body(perk_presenter_source, "static func build_acquired_perks(")
+	var perk_grid_draw_body := _function_body(perk_presenter_source, "static func draw_grid_cells(")
+	var passive_roll_body := _function_body(passive_item_presenter_source, "static func build_cached_roll_entries(")
+	var stats_build_body := _function_body(stats_presenter_source, "static func build_player_stat_rows(")
+	var stats_apply_body := _function_body(stats_presenter_source, "static func refresh_player_stat_cache(")
 	_expect(
-		source.find("var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)") >= 0,
+		frame_presenter_source.find("var active_item_slot_capacity: int = CharacterInfoOverlayOwnerState.active_item_slot_capacity(runtime_state, mythic_item_runtime, base_active_item_slot_count)") >= 0,
 		"character info active-item panel should reuse active item slot capacity sources"
 	)
 	_expect(
-		source.find("var active_item_hud_visuals: Object = _get_instance(registry, \"active_item_hud_visuals\")") >= 0,
+		frame_presenter_source.find("var active_item_hud_visuals: Object = CharacterInfoOverlayOwnerState.get_instance(registry, \"active_item_hud_visuals\")") >= 0,
 		"character info draw should fetch active item HUD visuals once per frame"
 	)
 	_expect(
-		source.find("var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method(\"get_snapshot\") else {}") >= 0,
+		frame_presenter_source.find("var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method(\"get_snapshot\") else {}") >= 0,
 		"character info draw should fetch runtime perk snapshot once per frame"
 	)
 	_expect(
-		source.find("if not snapshot.has(\"pending_skill_choices\"):") >= 0,
+		header_presenter_source.find("if not snapshot.has(\"pending_skill_choices\"):") >= 0,
 		"character info header should only read owner pending choices when the snapshot lacks the value"
 	)
 	_expect(
-		source.find("if not snapshot.has(\"gold_from_perks\"):") >= 0,
+		header_presenter_source.find("if not snapshot.has(\"gold_from_perks\"):") >= 0,
 		"character info header should only read owner perk gold when the snapshot lacks the value"
 	)
 	_expect(
-		source.find("var runtime_perk_icon_renderer: Object = _get_instance(registry, \"runtime_perk_icon_renderer\")") >= 0,
+		frame_presenter_source.find("var runtime_perk_icon_renderer: Object = CharacterInfoOverlayOwnerState.get_instance(registry, \"runtime_perk_icon_renderer\")") >= 0,
 		"character info draw should fetch runtime perk icon renderer once per frame"
 	)
 	_expect(
-		source.find("var runtime_perk_catalog: Object = _get_instance(registry, \"runtime_perk_catalog\")") >= 0,
+		frame_presenter_source.find("var runtime_perk_catalog: Object = CharacterInfoOverlayOwnerState.get_instance(registry, \"runtime_perk_catalog\")") >= 0,
 		"character info draw should fetch runtime perk catalog once per frame"
 	)
 	_expect(
-		source.find("var viewport: Viewport = canvas.get_viewport()") >= 0,
+		frame_presenter_source.find("var viewport: Viewport = canvas.get_viewport()") >= 0,
 		"character info draw should resolve the viewport once when reading the mouse position"
 	)
 	_expect(
@@ -504,47 +549,43 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info draw should not fetch dash-token snapshots for the compact stat panel"
 	)
 	_expect(
-		source.find("func _get_smasher_dash_snapshot(registry: Object, character_type: String) -> Dictionary:") >= 0,
-		"character info draw should use a gated smasher dash snapshot helper"
+		source.find("func _get_smasher_dash_snapshot(") < 0,
+		"character info should remove the unused smasher dash snapshot helper"
 	)
 	_expect(
-		_function_body(source, "func _get_smasher_dash_snapshot(").find("if character_type != \"smasher\":\n\t\treturn {}") >= 0,
-		"character info dash snapshot helper should skip non-smasher characters"
-	)
-	_expect(
-		source.find("var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method(\"get_snapshot\") else {}") >= 0,
+		frame_presenter_source.find("var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method(\"get_snapshot\") else {}") >= 0,
 		"character info draw should fetch skill snapshot once per frame"
 	)
 	_expect(
-		source.find("_draw_header(canvas, owner, panel_rect, font, registry, runtime_state, runtime_snapshot, character_type)") >= 0,
+		frame_presenter_source.find("CharacterInfoOverlayHeaderPresenter.draw_header(canvas, owner, panel_rect, font, registry, runtime_state, runtime_snapshot, character_type") >= 0,
 		"character info header should reuse the frame-level runtime perk state, snapshot, and character type"
 	)
 	_expect(
-		source.find("func _get_header_status_width(font: Font, status_text: String, size: int) -> float:") >= 0,
-		"character info header should cache the status text width"
+		header_presenter_source.find("static func cached_status_width(font: Font, status: String, size: int, cache: Dictionary, text_size_callable: Callable) -> Dictionary:") >= 0,
+		"character info header presenter should cache the status text width"
 	)
 	_expect(
-		source.find("var _header_subtitle_text := \"\"") >= 0,
-		"character info header should cache stable subtitle text"
+		source.find("var _header_subtitle_cache: Dictionary = {}") >= 0,
+		"character info header should keep stable subtitle cache state"
 	)
 	_expect(
-		source.find("func _get_header_subtitle(display_name: String, character_type: String) -> String:") >= 0,
-		"character info header should use a subtitle cache helper"
+		header_presenter_source.find("static func cached_subtitle(display_name: String, character_type: String, cache: Dictionary) -> String:") >= 0,
+		"character info header presenter should own subtitle cache helper"
 	)
 	_expect(
-		source.find("func _get_header_status_text(pending: int, gold: int) -> String:") >= 0,
-		"character info header should use a status text cache helper"
+		header_presenter_source.find("static func cached_status_text(pending: int, gold: int, cache: Dictionary) -> String:") >= 0,
+		"character info header presenter should own status text cache helper"
 	)
 	_expect(
-		_function_body(source, "func prewarm_assets(").find("_prewarm_draw_caches(font, owner, registry, module_getter)") >= 0,
+		_function_body(source, "func prewarm_assets(").find("CharacterInfoOverlayPrewarmPresenter.prewarm_draw_caches(self, font, owner, registry, module_getter, BASE_ACTIVE_ITEM_SLOT_COUNT)") >= 0,
 		"character info prewarm should prepare first-draw caches after layout"
 	)
 	_expect(
-		source.find("func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_getter: Callable) -> void:") >= 0,
+		prewarm_presenter_source.find("static func prewarm_stats_layout(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, base_active_item_slot_count: int) -> void:") >= 0,
 		"character info prewarm should include a stats layout cache helper"
 	)
 	_expect(
-		_function_body(source, "func _prewarm_stats_layout(").find("_text_size(font, str(row.get(\"value\", \"\")), 13)") >= 0,
+		_function_body(prewarm_presenter_source, "static func prewarm_stats_layout(").find("target.call(\"_text_size\", font, str(row.get(\"value\", \"\")), 13)") >= 0,
 		"character info stats prewarm should populate compact stat text caches"
 	)
 	_expect(
@@ -552,35 +593,35 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info prewarm should warm visible equipment and inventory icons"
 	)
 	_expect(
-		_function_body(source, "func _get_header_subtitle(").find("% [display_name") < 0,
+		_function_body(header_presenter_source, "static func cached_subtitle(").find("% [display_name") < 0,
 		"character info header subtitle should avoid format arrays after cache misses"
 	)
 	_expect(
-		_function_body(source, "func _get_header_status_text(").find("% [pending, gold]") < 0,
+		_function_body(header_presenter_source, "static func cached_status_text(").find("% [pending, gold]") < 0,
 		"character info header status should avoid format arrays after cache misses"
 	)
 	_expect(
-		_function_body(source, "func _draw_header(").find("var title_x: float = panel_rect.position.x + 26.0") >= 0,
+		_function_body(header_presenter_source, "static func draw_header(").find("var title_x: float = panel_rect.position.x + 26.0") >= 0,
 		"character info header should use scalar title coordinates"
 	)
 	_expect(
-		_function_body(source, "func _draw_header(").find("title_pos") < 0,
+		_function_body(header_presenter_source, "static func draw_header(").find("title_pos") < 0,
 		"character info header should avoid a temporary title Vector2"
 	)
 	_expect(
-		_function_body(source, "func _draw_header(").find("var subtitle: String = _get_header_subtitle(display_name, character_type)") >= 0,
+		_function_body(header_presenter_source, "static func draw_header(").find("var subtitle_text: String = cached_subtitle(display_name, character_type, subtitle_cache)") >= 0,
 		"character info header should read subtitle text from cache"
 	)
 	_expect(
-		_function_body(source, "func _draw_header(").find("var status: String = _get_header_status_text(pending, gold)") >= 0,
+		_function_body(header_presenter_source, "static func draw_header(").find("var status: String = cached_status_text(pending, gold, status_text_cache)") >= 0,
 		"character info header should read status text from cache"
 	)
 	_expect(
-		_function_body(source, "func _draw_header(").find("var status_width: float = _get_header_status_width(font, status, 14)") >= 0,
+		_function_body(header_presenter_source, "static func draw_header(").find("var status_width: float = float(width_state.get(\"width\", 0.0))") >= 0,
 		"character info header should read cached status text width"
 	)
 	_expect(
-		_function_body(source, "func _draw_header(").find("_text_size(font, status, 14)") < 0,
+		_function_body(header_presenter_source, "static func draw_header(").find("_text_size(font, status, 14)") < 0,
 		"character info header should not measure status text directly every frame"
 	)
 	_expect(
@@ -588,27 +629,27 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info draw should reuse cached layout rects while the view size is stable"
 	)
 	_expect(
-		source.find("if _layout_panel_rect.size != Vector2.ZERO and _layout_view_size.is_equal_approx(view_size):") >= 0,
+		layout_source.find("if current_panel_rect.size != Vector2.ZERO and current_view_size.is_equal_approx(view_size):") >= 0,
 		"character info layout cache should be keyed by view size"
 	)
 	_expect(
-		source.find("_layout_equipment_rect = _section_rect(left_rect, 0.0, 0.58)") >= 0,
+		layout_source.find("target.set(\"_layout_equipment_rect\", section_rect(left_rect, 0.0, 0.58))") >= 0,
 		"character info layout should keep the equipment panel rect alive beside the lingpet layout"
 	)
 	_expect(
-		source.find("_layout_inventory_rect = Rect2(") >= 0,
+		layout_source.find("target.set(\"_layout_inventory_rect\", Rect2(") >= 0,
 		"character info layout should keep the passive inventory panel rect alive"
 	)
 	_expect(
-		source.find("var left_rect := Rect2(") >= 0 and source.find("var right_rect := Rect2(") >= 0,
+		layout_source.find("var left_rect := Rect2(") >= 0 and layout_source.find("var right_rect := Rect2(") >= 0,
 		"character info layout should build explicit player and lingpet columns"
 	)
 	_expect(
-		source.find("return Rect2(column_rect.position.x, y, column_rect.size.x, max(64.0, height))") >= 0,
+		layout_source.find("return Rect2(column_rect.position.x, y, column_rect.size.x, max(64.0, height))") >= 0,
 		"character info section rects should use scalar Rect2 construction"
 	)
 	_expect(
-		source.find("hover_data = _draw_perk_grid(canvas, owner, registry, _layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog, _get_array(skill_snapshot.get(\"equipped_skills\", [])))") >= 0,
+		frame_presenter_source.find("hover_data = target.call(\"_draw_perk_grid\", canvas, owner, registry, layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog, CharacterInfoOverlayValueUtils.get_array(skill_snapshot.get(\"equipped_skills\", [])))") >= 0,
 		"character info perk grid should reuse the frame-level runtime perk state, icon renderer, snapshot, and catalog"
 	)
 	_expect(
@@ -624,7 +665,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info perk grid should build its grid rect without temporary Vector2 allocations"
 	)
 	_expect(
-		source.find("hover_data = _draw_skill_slots(canvas, owner, registry, _layout_skill_rect, font, mouse_pos, hover_data, character_type, skill_snapshot, runtime_perk_icon_renderer)") >= 0,
+		frame_presenter_source.find("hover_data = target.call(\"_draw_skill_slots\", canvas, owner, registry, skill_rect, font, mouse_pos, hover_data, character_type, skill_snapshot, runtime_perk_icon_renderer)") >= 0,
 		"character info skill slots should reuse the frame-level skill snapshot and icon renderer"
 	)
 	_expect(
@@ -632,7 +673,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill slots should resolve hovered slot once"
 	)
 	_expect(
-		source.find("hovered_skill_slot = _get_hovered_linear_slot_index(mouse_pos, _last_skill_slot_start.x, _last_skill_slot_start.y, _last_skill_slot_size, _last_skill_slot_stride, max_slots)") >= 0,
+		source.find("hovered_skill_slot = CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(mouse_pos, _last_skill_slot_start.x, _last_skill_slot_start.y, _last_skill_slot_size, _last_skill_slot_stride, max_slots)") >= 0,
 		"character info skill hover should use cached linear slot math"
 	)
 	_expect(
@@ -648,7 +689,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill hover reuse should rely on cached linear slot geometry"
 	)
 	_expect(
-		source.find("var hovered_empty: bool = i == hovered_skill_slot") >= 0,
+		skill_slot_draw_body.find("var hovered_empty: bool = i == hovered_skill_slot") >= 0,
 		"character info empty skill slot detail should reuse the hovered slot"
 	)
 	_expect(
@@ -680,55 +721,55 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill draw should refresh slot layout once before iteration"
 	)
 	_expect(
-		_function_body(source, "func _update_skill_slot_layout(").find("var slot_x: float = start_x + float(i) * skill_slot_step") >= 0,
+		skill_layout_body.find("var slot_x: float = start_x + float(i) * skill_slot_step") >= 0,
 		"character info skill slot x should be computed only when the layout changes"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var slot_x: float = start_x + float(i) * skill_slot_step") < 0,
-		"character info skill draw loop should not recompute slot x every frame"
+		skill_slot_draw_body.find("var slot_x: float = start_x + float(i) * skill_slot_step") < 0,
+		"character info skill presenter draw loop should not recompute slot x every frame"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var slot_rect: Rect2 = _skill_slot_rect_cache[i]") >= 0,
-		"character info skill slots should read cached slot rects in the draw loop"
+		skill_slot_draw_body.find("var slot_rect: Rect2 = slot_rect_cache[i]") >= 0,
+		"character info skill presenter should read cached slot rects in the draw loop"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var slot_rect := Rect2(slot_x, slot_y, slot_size, slot_size)") < 0,
-		"character info skill slots should avoid Rect2 construction inside the draw loop"
+		skill_slot_draw_body.find("var slot_rect := Rect2(slot_x, slot_y, slot_size, slot_size)") < 0,
+		"character info skill presenter should avoid Rect2 construction inside the draw loop"
 	)
 	_expect(
-		source.find("var fallback_skill_color: Color = _skill_fallback_color(character_type)") >= 0,
+		source.find("var fallback_skill_color: Color = CharacterInfoOverlayFormatter.skill_fallback_color(character_type, ACCENT_BLUE)") >= 0,
 		"character info skill slots should reuse the character fallback color"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var skill_icon_rect := Rect2(slot_x + 5.0, slot_y + 5.0, slot_size - 10.0, slot_size - 10.0)") < 0,
-		"character info skill slots should not rebuild icon rects inside the draw loop"
+		skill_slot_draw_body.find("var skill_icon_rect := Rect2(slot_x + 5.0, slot_y + 5.0, slot_size - 10.0, slot_size - 10.0)") < 0,
+		"character info skill presenter should not rebuild icon rects inside the draw loop"
 	)
 	_expect(
-		source.find("icon_renderer.draw_icon(canvas, skill_id, _skill_slot_icon_rect_cache[i], 1.0, true)") >= 0,
-		"character info skill icons should reuse cached icon rects"
+		skill_slot_draw_body.find("icon_renderer.draw_icon(canvas, skill_id, icon_rect_cache[i], 1.0, true)") >= 0,
+		"character info skill presenter should reuse cached icon rects"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var fallback_rect := Rect2(slot_x + 9.0, slot_y + 9.0, slot_size - 18.0, slot_size - 18.0)") < 0,
-		"character info skill fallback rects should not be rebuilt inside the draw loop"
+		skill_slot_draw_body.find("var fallback_rect := Rect2(slot_x + 9.0, slot_y + 9.0, slot_size - 18.0, slot_size - 18.0)") < 0,
+		"character info skill presenter fallback rects should not be rebuilt inside the draw loop"
 	)
 	_expect(
-		source.find("_draw_fallback_symbol(canvas, _skill_slot_fallback_rect_cache[i], color, skill_id)") >= 0,
-		"character info skill fallback symbols should reuse cached fallback rects"
+		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, fallback_rect_cache[i], color, skill_id") >= 0,
+		"character info skill presenter fallback symbols should reuse cached fallback rects"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("slot_rect.grow(") < 0,
-		"character info skill slots should not allocate grown rects per visible slot"
+		skill_slot_draw_body.find("slot_rect.grow(") < 0,
+		"character info skill presenter should not allocate grown rects per visible slot"
 	)
 	_expect(
 		source.find("var can_draw_skill_icon: bool = icon_renderer != null and icon_renderer.has_method(\"draw_icon\")") >= 0,
 		"character info skill slots should check icon renderer capability once before slot iteration"
 	)
 	_expect(
-		source.find("if not can_draw_skill_icon or not bool(icon_renderer.draw_icon(canvas, skill_id, _skill_slot_icon_rect_cache[i], 1.0, true)):") >= 0,
-		"character info skill slot loop should reuse the cached icon renderer capability"
+		skill_slot_draw_body.find("if not can_draw_skill_icon or not bool(icon_renderer.draw_icon(canvas, skill_id, icon_rect_cache[i], 1.0, true)):") >= 0,
+		"character info skill presenter loop should reuse the cached icon renderer capability"
 	)
 	_expect(
-		source.find("var has_skill_slot: bool = i < equipped.size()") >= 0,
+		skill_slot_draw_body.find("var has_skill_slot: bool = i < equipped_count") >= 0,
 		"character info filled skill slots should skip the empty-slot base draw path"
 	)
 	_expect(
@@ -744,24 +785,40 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info empty skill hover fill should be a shared constant"
 	)
 	_expect(
-		source.find("canvas.draw_rect(slot_rect, OVERLAY_SLOT_FILL)") >= 0,
-		"character info skill slots should reuse the fixed slot fill constant"
+		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, slot_fill)") >= 0,
+		"character info skill presenter should reuse the fixed slot fill constant"
 	)
 	_expect(
-		source.find("canvas.draw_rect(slot_rect, OVERLAY_SLOT_BORDER, false, 1.5)") >= 0,
-		"character info skill slots should reuse the fixed slot border constant"
+		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, slot_border, false, 1.5)") >= 0,
+		"character info skill presenter should reuse the fixed slot border constant"
 	)
 	_expect(
-		source.find("OVERLAY_SLOT_FILL.r * 0.88 + color.r * 0.12") >= 0,
+		skill_cache_body.find("slot_fill_color.r * 0.88 + color.r * 0.12") >= 0,
 		"character info filled skill slot tint should reuse the fixed slot fill constant"
 	)
 	_expect(
-		source.find("canvas.draw_circle(_skill_slot_center_cache[i], slot_size * 0.22, OVERLAY_SKILL_EMPTY_HOVER_FILL)") >= 0,
-		"character info empty skill hover detail should reuse cached center and fixed hover color"
+		skill_slot_draw_body.find("canvas.draw_circle(center_cache[i], slot_size * 0.22, empty_hover_fill)") >= 0,
+		"character info skill presenter empty-slot hover detail should reuse cached center and fixed hover color"
 	)
 	_expect(
-		source.find("_draw_text_centered_xy(canvas, font, label, _skill_slot_center_x_cache[i], _skill_slot_label_y, 10, TEXT_DIM)") >= 0,
-		"character info skill labels should reuse cached center x and label y"
+		skill_slot_draw_body.find("draw_text_centered_xy_callable.call(canvas, font, label, center_x_cache[i], label_y, 10, text_dim)") >= 0,
+		"character info skill presenter labels should reuse cached center x and label y"
+	)
+	_expect(
+		skill_layout_body.find("\"label_y\": slot_y + slot_size - 11.0") >= 0,
+		"character info skill labels should stay inside the skill slot bottom edge"
+	)
+	_expect(
+		skill_layout_body.find("slot_size - 20.0") >= 0,
+		"character info skill icons should reserve lower in-slot space for the label glyph"
+	)
+	_expect(
+		skill_layout_body.find("\"label_y\": slot_y + slot_size +") < 0,
+		"character info skill labels should not be positioned below the slot box"
+	)
+	_expect(
+		_function_body(lingpet_presenter_source, "static func _draw_skill_symbol(").find("maribo_resonance_boost") >= 0,
+		"character info lingpet passive fallback symbol should recognize Maribo's catalog passive id"
 	)
 	_expect(
 		source.find("var _skill_slot_fill_color_cache: Array[Color] = []") >= 0,
@@ -776,36 +833,36 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill slots should refresh draw caches before slot iteration"
 	)
 	_expect(
-		source.find("OVERLAY_SLOT_FILL.r * 0.88 + color.r * 0.12") >= 0,
+		skill_cache_body.find("slot_fill_color.r * 0.88 + color.r * 0.12") >= 0,
 		"character info filled skill slot tint should reuse the fixed slot fill constant"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var skill_slot_fill := Color(") < 0,
-		"character info skill slot draw loop should not rebuild tinted fill colors"
+		skill_slot_draw_body.find("var skill_slot_fill := Color(") < 0,
+		"character info skill presenter draw loop should not rebuild tinted fill colors"
 	)
 	_expect(
-		source.find("canvas.draw_rect(slot_rect, _skill_slot_fill_color_cache[i])") >= 0,
-		"character info filled skill slots should draw cached tinted fills"
+		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, fill_color_cache[i])") >= 0,
+		"character info skill presenter should draw cached tinted fills"
 	)
 	_expect(
-		source.find("canvas.draw_rect(slot_rect, _skill_slot_border_color_cache[i], false, 2.0)") >= 0,
-		"character info filled skill slots should draw cached border colors"
+		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, border_color_cache[i], false, 2.0)") >= 0,
+		"character info skill presenter should draw cached border colors"
 	)
 	_expect(
-		source.find("var skill_id: String = _skill_slot_id_cache[i]") >= 0,
-		"character info filled skill slots should reuse cached skill ids"
+		skill_slot_draw_body.find("var skill_id: String = id_cache[i]") >= 0,
+		"character info skill presenter should reuse cached skill ids"
 	)
 	_expect(
-		source.find("var data: Dictionary = _skill_slot_data_cache[i]") >= 0,
-		"character info filled skill slots should reuse cached skill data"
+		skill_slot_draw_body.find("var data: Dictionary = data_cache[i]") >= 0,
+		"character info skill presenter should reuse cached skill data"
 	)
 	_expect(
-		source.find("var color: Color = _skill_slot_color_cache[i]") >= 0,
-		"character info filled skill slots should reuse cached skill colors"
+		skill_slot_draw_body.find("var color: Color = color_cache[i]") >= 0,
+		"character info skill presenter should reuse cached skill colors"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("Color(color.r, color.g, color.b, 0.72)") < 0,
-		"character info skill slot draw loop should not rebuild border colors"
+		skill_slot_draw_body.find("Color(color.r, color.g, color.b, 0.72)") < 0,
+		"character info skill presenter draw loop should not rebuild border colors"
 	)
 	_expect(
 		source.find("var _skill_slot_draw_cache_equipped_hash := 0") >= 0,
@@ -816,31 +873,31 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill slot labels should be cached with draw data"
 	)
 	_expect(
-		_function_body(source, "func _refresh_skill_slot_draw_cache(").find("_skill_slot_label_cache[i] = _short_skill_name(data, skill_id)") >= 0,
+		skill_cache_body.find("label_cache[i] = str(short_skill_name_callable.call(data, skill_id))") >= 0,
 		"character info skill slot cache should precompute trimmed labels"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("var label: String = _skill_slot_label_cache[i]") >= 0,
-		"character info skill slot draw loop should read cached labels"
+		skill_slot_draw_body.find("var label: String = label_cache[i]") >= 0,
+		"character info skill presenter draw loop should read cached labels"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("_short_skill_name(data, skill_id)") < 0,
-		"character info skill slot draw loop should not trim labels per visible slot"
+		skill_slot_draw_body.find("CharacterInfoOverlayFormatter.short_skill_name(data, skill_id)") < 0,
+		"character info skill presenter draw loop should not trim labels per visible slot"
 	)
 	_expect(
-		source.find("func _skill_slot_draw_cache_matches(equipped_hash: int, skill_data_hash: int, fallback_skill_color: Color, equipped_count: int) -> bool:") >= 0,
-		"character info skill slot cache should compare scalar cache keys without a string signature"
+		source.find("func _skill_slot_draw_cache_matches(") < 0,
+		"character info skill slot cache should not keep a separate one-line match wrapper"
 	)
 	_expect(
-		_function_body(source, "func _refresh_skill_slot_draw_cache(").find("for value in equipped:") < 0,
+		skill_overlay_cache_body.find("for value in equipped:") < 0,
 		"character info skill slot cache should not build signatures through per-skill string loops"
 	)
 	_expect(
-		_function_body(source, "func _refresh_skill_slot_draw_cache(").find("var equipped_hash: int = hash(equipped)") >= 0,
+		skill_overlay_cache_body.find("var equipped_hash: int = hash(equipped)") >= 0,
 		"character info skill slot cache should include the equipped skill array hash"
 	)
 	_expect(
-		_function_body(source, "func _refresh_skill_slot_draw_cache(").find("_skill_slot_draw_cache_matches(equipped_hash, skill_data_hash, fallback_skill_color, equipped.size())") >= 0,
+		skill_overlay_cache_body.find("equipped_hash == current_equipped_hash and skill_data_hash == current_skill_data_hash") >= 0,
 		"character info skill slot cache should avoid formatting string signatures on stable frames"
 	)
 	_expect(
@@ -848,15 +905,27 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill slot cache should not keep a string-signature helper"
 	)
 	_expect(
-		source.find("func _get_hovered_linear_slot_index(") >= 0,
-		"character info linear slot hover helper should remain wired"
+		source.find("func _get_hovered_linear_slot_index(") < 0,
+		"character info should not keep the overlay linear hover index wrapper"
 	)
 	_expect(
-		source.find("func _format_int_pair(current: int, maximum: int) -> String:") >= 0,
-		"character info stat pair labels should use a scalar helper instead of format arrays"
+		source.find("func _format_int_pair(") < 0,
+		"character info stat pair labels should use the shared formatter directly"
 	)
 	_expect(
-		source.find("hover_data = _draw_active_items(canvas, owner, registry, _layout_active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)") >= 0,
+		source.find("func _apply_stat_chain(") < 0 and (source.find("Callable(CharacterInfoOverlayOwnerState, \"apply_stat_chain\")") >= 0 or active_item_presenter_source.find("Callable(CharacterInfoOverlayOwnerState, \"apply_stat_chain\")") >= 0 or stats_presenter_source.find("Callable(CharacterInfoOverlayOwnerState, \"apply_stat_chain\")") >= 0),
+		"character info stat math should call the owner-state stat-chain helper directly"
+	)
+	_expect(
+		source.find("func _call_numeric_multiplier(") < 0 and stats_presenter_source.find("Callable(CharacterInfoOverlayOwnerState, \"call_numeric_multiplier\")") >= 0,
+		"character info stat multipliers should call the owner-state multiplier helper directly"
+	)
+	_expect(
+		source.find("func _sort_perks(") < 0 and perk_presenter_source.find("static func sort_perks(") >= 0 and build_acquired_body.find("return sort_perks(a, b)") >= 0,
+		"character info acquired perk sorting should call the perk presenter directly"
+	)
+	_expect(
+		frame_presenter_source.find("hover_data = target.call(\"_draw_active_items\", canvas, owner, registry, active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)") >= 0,
 		"character info active-item panel should receive the cached slot capacity and active slots"
 	)
 	_expect(
@@ -868,23 +937,23 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info overlay should keep a reusable frame-level stat source array"
 	)
 	_expect(
-		source.find("_frame_stat_sources.clear()") >= 0,
+		frame_presenter_source.find("stat_sources.clear()") >= 0,
 		"character info draw should reuse the frame-level stat source array"
 	)
 	_expect(
-		source.find("var stat_sources: Array = _frame_stat_sources") >= 0,
+		source.find("_layout_inventory_rect, _frame_stat_sources, _frame_hover_data") >= 0,
 		"character info draw should pass the reused frame-level stat sources"
 	)
 	_expect(
-		source.find("_frame_stat_sources.append(lingpet_runtime)") >= 0,
+		frame_presenter_source.find("stat_sources.append(lingpet_runtime)") >= 0,
 		"character info draw should include lingpet stat bonuses in the reused frame-level stat sources"
 	)
 	_expect(
-		source.find("var active_item_slots: Array = _get_array(_safe_owner_get(owner, \"active_item_slots\", []))") >= 0,
+		frame_presenter_source.find("var active_item_slots: Array = CharacterInfoOverlayValueUtils.get_array(CharacterInfoOverlayValueUtils.safe_owner_get(owner, \"active_item_slots\", []))") >= 0,
 		"character info draw should fetch active item slots once per frame"
 	)
 	_expect(
-		source.find("hover_data = _draw_active_items(canvas, owner, registry, _layout_active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)") >= 0,
+		frame_presenter_source.find("hover_data = target.call(\"_draw_active_items\", canvas, owner, registry, active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)") >= 0,
 		"character info active item draw should reuse the frame-level slot capacity, stat sources, and active slots"
 	)
 	_expect(
@@ -892,7 +961,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info active item slots should resolve hovered slot once"
 	)
 	_expect(
-		source.find("hovered_active_slot = _get_hovered_linear_slot_index(mouse_pos, _last_active_slot_start.x, _last_active_slot_start.y, _last_active_slot_size, _last_active_slot_stride, max_slots)") >= 0,
+		source.find("hovered_active_slot = CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(mouse_pos, _last_active_slot_start.x, _last_active_slot_start.y, _last_active_slot_size, _last_active_slot_stride, max_slots)") >= 0,
 		"character info active item hover should use cached linear slot math"
 	)
 	_expect(
@@ -908,8 +977,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info active item hover reuse should rely on cached linear slot geometry"
 	)
 	_expect(
-		source.find("var empty_slot_hovered: bool = i == hovered_active_slot") >= 0,
-		"character info empty active item slot marker should reuse the hovered slot"
+		active_slot_draw_body.find("var empty_slot_hovered: bool = i == hovered_active_slot") >= 0,
+		"character info active item presenter empty-slot marker should reuse the hovered slot"
 	)
 	_expect(
 		source.find("var active_slot_extent := Vector2(slot_size, slot_size)") < 0,
@@ -948,19 +1017,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info active item slots should refresh draw data through a helper"
 	)
 	_expect(
-		source.find("func _active_slot_draw_cache_matches(slots_hash: int, max_slots: int, visuals_id: int, should_cache_colors: bool) -> bool:") >= 0,
-		"character info active item slot cache should compare scalar cache keys without a string signature"
+		source.find("func _active_slot_draw_cache_matches(") < 0,
+		"character info active item slot cache should not keep a separate one-line match wrapper"
 	)
 	_expect(
-		_function_body(source, "func _refresh_active_slot_draw_cache(").find("_active_slot_draw_signature_parts.clear()") < 0,
+		active_overlay_cache_body.find("_active_slot_draw_signature_parts.clear()") < 0,
 		"character info active item cache should not build signatures through reusable string append loops"
 	)
 	_expect(
-		_function_body(source, "func _refresh_active_slot_draw_cache(").find("var slots_hash: int = hash(slots)") >= 0,
+		active_overlay_cache_body.find("var slots_hash: int = hash(slots)") >= 0,
 		"character info active item cache should include the active slot array hash"
 	)
 	_expect(
-		_function_body(source, "func _refresh_active_slot_draw_cache(").find("_active_slot_draw_cache_matches(slots_hash, max_slots, visuals_id, should_cache_colors)") >= 0,
+		active_overlay_cache_body.find("slots_hash == current_slots_hash and max_slots == current_max_slots") >= 0,
 		"character info active item cache should avoid formatting string signatures on stable frames"
 	)
 	_expect(
@@ -980,107 +1049,107 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info active item draw should refresh slot draw cache once before iteration"
 	)
 	_expect(
-		_function_body(source, "func _update_active_slot_layout(").find("var slot_x: float = active_slot_start_x + float(i) * active_slot_step") >= 0,
+		active_layout_body.find("var slot_x: float = active_slot_start_x + float(i) * active_slot_step") >= 0,
 		"character info active item slot x should be computed only when the layout changes"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("var slot_x: float = active_slot_start_x + float(i) * active_slot_step") < 0,
-		"character info active item draw loop should not recompute slot x every frame"
+		active_slot_draw_body.find("var slot_x: float = active_slot_start_x + float(i) * active_slot_step") < 0,
+		"character info active item presenter draw loop should not recompute slot x every frame"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("var slot_rect: Rect2 = _active_slot_rect_cache[i]") >= 0,
-		"character info active item slots should read cached slot rects in the draw loop"
+		active_slot_draw_body.find("var slot_rect: Rect2 = slot_rect_cache[i]") >= 0,
+		"character info active item presenter should read cached slot rects in the draw loop"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("var slot_rect := Rect2(slot_x, y, slot_size, slot_size)") < 0,
-		"character info active item slots should avoid Rect2 construction inside the draw loop"
+		active_slot_draw_body.find("var slot_rect := Rect2(slot_x, y, slot_size, slot_size)") < 0,
+		"character info active item presenter should avoid Rect2 construction inside the draw loop"
 	)
 	_expect(
 		source.find("const OVERLAY_ACTIVE_EMPTY_TEXT := Color(95.0 / 255.0, 100.0 / 255.0, 120.0 / 255.0)") >= 0,
 		"character info empty active item marker color should be a shared constant"
 	)
 	_expect(
-		source.find("_draw_text_centered_xy(canvas, font, \"-\", _active_slot_center_x_cache[i], _active_slot_empty_marker_y, 20, OVERLAY_ACTIVE_EMPTY_TEXT)") >= 0,
-		"character info active item empty marker should reuse cached center and marker y"
+		active_slot_draw_body.find("draw_text_centered_xy_callable.call(canvas, font, \"-\", center_x_cache[i], empty_marker_y, 20, empty_text_color)") >= 0,
+		"character info active item presenter empty marker should reuse cached center and marker y"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("var fallback_rect := Rect2(slot_x + 10.0, y + 10.0, slot_size - 20.0, slot_size - 20.0)") < 0,
-		"character info active item fallback rects should not be rebuilt inside the draw loop"
+		active_slot_draw_body.find("var fallback_rect := Rect2(slot_x + 10.0, y + 10.0, slot_size - 20.0, slot_size - 20.0)") < 0,
+		"character info active item presenter fallback rects should not be rebuilt inside the draw loop"
 	)
 	_expect(
-		source.find("_draw_fallback_symbol(canvas, _active_slot_fallback_rect_cache[i], active_item_color, str(item_data.get(\"name\", \"\")))") >= 0,
-		"character info active item fallback symbols should reuse cached fallback rects"
+		active_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, fallback_rect_cache[i], active_item_color, str(item_data.get(\"name\", \"\"))") >= 0,
+		"character info active item presenter fallback symbols should reuse cached fallback rects"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("slot_rect.grow(") < 0,
-		"character info active item slots should not allocate grown rects per visible slot"
+		active_slot_draw_body.find("slot_rect.grow(") < 0,
+		"character info active item presenter should not allocate grown rects per visible slot"
 	)
 	_expect(
 		source.find("var can_draw_active_item_icon: bool = _active_item_icon_renderer != null and _active_item_icon_renderer.has_method(\"draw_icon\")") >= 0,
 		"character info active item slots should check icon renderer capability once before slot iteration"
 	)
 	_expect(
-		source.find("if can_draw_active_item_icon:") >= 0,
-		"character info active item slot loop should reuse the cached icon renderer capability"
+		active_slot_draw_body.find("if can_draw_active_item_icon:") >= 0,
+		"character info active item presenter loop should reuse the cached icon renderer capability"
 	)
 	_expect(
-		source.find("var has_active_slot: bool = _active_slot_has_item_cache[i]") >= 0,
-		"character info active item slots should read cached slot presence in the draw loop"
+		active_slot_draw_body.find("var has_active_slot: bool = slot_has_item_cache[i]") >= 0,
+		"character info active item presenter should read cached slot presence in the draw loop"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("slots[i] is Dictionary") < 0,
-		"character info active item draw loop should not repeat slot dictionary checks"
+		active_slot_draw_body.find("slots[i] is Dictionary") < 0,
+		"character info active item presenter draw loop should not repeat slot dictionary checks"
 	)
 	_expect(
-		source.find("var item_data: Dictionary = _active_slot_item_cache[i]") >= 0,
-		"character info active item slots should read cached item data in the draw loop"
+		active_slot_draw_body.find("var item_data: Dictionary = slot_item_cache[i]") >= 0,
+		"character info active item presenter should read cached item data in the draw loop"
 	)
 	_expect(
-		source.find("var active_item_color: Color = _active_slot_fallback_color_cache[i]") >= 0,
-		"character info active item slots should read cached fallback colors in the draw loop"
+		active_slot_draw_body.find("var active_item_color: Color = fallback_color_cache[i]") >= 0,
+		"character info active item presenter should read cached fallback colors in the draw loop"
 	)
 	_expect(
-		source.find("var has_active_item_color: bool = _active_slot_has_fallback_color_cache[i]") >= 0,
-		"character info active item hover should know whether fallback color is already cached"
+		active_slot_draw_body.find("var has_active_item_color: bool = has_fallback_color_cache[i]") >= 0,
+		"character info active item presenter hover should know whether fallback color is already cached"
 	)
 	_expect(
-		source.find("var active_item_hovered: bool = i == hovered_active_slot") >= 0,
-		"character info active item hover should reuse the hovered slot"
+		active_slot_draw_body.find("var active_item_hovered: bool = i == hovered_active_slot") >= 0,
+		"character info active item presenter hover should reuse the hovered slot"
 	)
 	_expect(
-		source.find("var active_slot_center_x: float = slot_x + slot_size * 0.5") < 0,
-		"character info active item labels should not recompute slot center x in the draw loop"
+		active_slot_draw_body.find("var active_slot_center_x: float = slot_x + slot_size * 0.5") < 0,
+		"character info active item presenter labels should not recompute slot center x in the draw loop"
 	)
 	_expect(
-		source.find("_draw_text_centered_xy(canvas, font, trimmed_label, _active_slot_center_x_cache[i], _active_slot_label_y, 10, TEXT_DIM)") >= 0,
-		"character info active item labels should reuse cached center x and label y"
+		active_slot_draw_body.find("draw_text_centered_xy_callable.call(canvas, font, trimmed_label, center_x_cache[i], label_y, 10, text_dim)") >= 0,
+		"character info active item presenter labels should reuse cached center x and label y"
 	)
 	_expect(
-		source.find("var trimmed_label: String = _active_item_trimmed_label_cache[i]") >= 0,
-		"character info active item labels should read precomputed trimmed labels directly by index"
+		active_slot_draw_body.find("var trimmed_label: String = trimmed_label_cache[i]") >= 0,
+		"character info active item presenter labels should read precomputed trimmed labels directly by index"
 	)
 	_expect(
-		source.find("var display_name: String = _active_item_display_name_cache[i]") >= 0,
-		"character info active item labels should read precomputed display names directly by index"
+		active_slot_draw_body.find("var display_name: String = display_name_cache[i]") >= 0,
+		"character info active item presenter labels should read precomputed display names directly by index"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("i < _active_item_trimmed_label_cache.size()") < 0,
-		"character info active item draw should not bounds-check stable label caches per filled slot"
+		active_slot_draw_body.find("i < trimmed_label_cache.size()") < 0,
+		"character info active item presenter should not bounds-check stable label caches per filled slot"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("_trim_label(display_name, 10)") < 0,
-		"character info active item draw should not trim labels after the label cache refresh"
+		active_slot_draw_body.find("_trim_label(display_name, 10)") < 0,
+		"character info active item presenter should not trim labels after the label cache refresh"
 	)
 	_expect(
-		source.find("if not has_active_item_color:") >= 0,
-		"character info active item hover should reuse fallback item color when available"
+		active_slot_draw_body.find("if not has_active_item_color:") >= 0,
+		"character info active item presenter hover should reuse fallback item color when available"
 	)
 	_expect(
-		source.find("hover_data = _draw_passive_inventory(canvas, owner, registry, _layout_inventory_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)") >= 0,
+		frame_presenter_source.find("hover_data = target.call(\"_draw_passive_inventory\", canvas, owner, registry, inventory_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)") >= 0,
 		"character info passive inventory draw should reuse frame-level active item HUD visuals, mythic runtime, and runtime perk state"
 	)
 	_expect(
-		source.find("hover_data = _draw_equipment_slots(canvas, owner, registry, _layout_equipment_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)") >= 0,
+		frame_presenter_source.find("hover_data = target.call(\"_draw_equipment_slots\", canvas, owner, registry, equipment_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)") >= 0,
 		"character info equipment draw should reuse frame-level mythic runtime and runtime perk state for roll tooltips"
 	)
 	_expect(
@@ -1088,12 +1157,12 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info equipment draw should build its content rect without temporary Vector2 allocations"
 	)
 	_expect(
-		source.find("hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)") >= 0,
+		frame_presenter_source.find("hover_data = target.call(\"_draw_stats_panel\", canvas, owner, registry, layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)") >= 0,
 		"character info stats draw should reuse frame-level runtime sources, compact stat sources, active-item slots, capacity, and hover state"
 	)
 	_expect(
-		source.find("var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]") >= 0,
-		"character info stats builder should reuse frame-level stat sources when provided"
+		stats_build_body.find("var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]") >= 0,
+		"character info stats presenter should reuse frame-level stat sources when provided"
 	)
 	_expect(
 		source.find("write_row_cache: bool = true") >= 0,
@@ -1124,47 +1193,23 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats panel should not allocate a returned stats array binding during draw"
 	)
 	_expect(
-		_function_body(source, "func _draw_stat_rows(").find("tooltip_body") >= 0,
-		"lingpet stat rows should support focused hover tooltip bodies"
+		_function_body(stats_presenter_source, "static func draw_lingpet_stat_rows(").find("tooltip_body") >= 0,
+		"lingpet stat rows should support focused hover tooltip bodies from the stats presenter"
 	)
 	_expect(
-		source.find("공을 적극적으로 막으러 이동할 확률입니다") >= 0,
+		source.find("공을 안정적으로 막을 확률입니다") >= 0,
 		"Maribo defense-rate stat should explain its intercept behavior"
 	)
 	_expect(
-		source.find("_stats_row_count = STAT_ROW_COUNT") >= 0,
+		stats_presenter_source.find("target.set(\"_stats_row_count\", row_count)") >= 0,
 		"character info stats builder should refresh the reusable stats row count"
 	)
 	_expect(
-		source.find("func _update_stats_layout(rect: Rect2, stats_count: int) -> void:") >= 0,
-		"character info stats panel should cache stable row layout geometry"
+		source.find("func _update_stats_layout(") < 0 and source.find("_stats_layout_") < 0,
+		"character info stats panel should remove the unused legacy layout cache"
 	)
 	_expect(
-		source.find("if stats_count == _stats_layout_count and _stats_layout_rect.is_equal_approx(rect):") >= 0,
-		"character info stats layout cache should be keyed by stat count and rect"
-	)
-	_expect(
-		source.find("var _stats_layout_label_x: Array[float] = []") >= 0,
-		"character info stats layout should cache label x values in a typed array"
-	)
-	_expect(
-		source.find("var _stats_layout_baseline_y: Array[float] = []") >= 0,
-		"character info stats layout should cache baseline y values in a typed array"
-	)
-	_expect(
-		source.find("_stats_layout_label_x.append(x)") >= 0,
-		"character info stats layout should cache row label x values"
-	)
-	_expect(
-		source.find("_stats_layout_baseline_y.append(y)") >= 0,
-		"character info stats layout should cache row baseline y values"
-	)
-	_expect(
-		source.find("_stats_layout_value_right_x.append(x + column_w)") >= 0,
-		"character info stats layout should cache value right edges"
-	)
-	_expect(
-		source.find("_ensure_stats_row_cache(STAT_ROW_COUNT)") >= 0,
+		stats_presenter_source.find("refresh_player_stat_cache(rows, row_count") >= 0,
 		"character info stats builder should reuse stat row dictionaries"
 	)
 	_expect(
@@ -1172,12 +1217,12 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats row writers should overwrite cached rows without clearing dictionaries each frame"
 	)
 	_expect(
-		_function_body(source, "func _write_simple_stat_row(").find("if write_row_cache:") >= 0,
-		"character info simple stat writer should skip row dictionaries during draw"
+		stats_apply_body.find("if write_row_cache:") >= 0,
+		"character info stat cache applier should skip row dictionaries during draw"
 	)
 	_expect(
-		_function_body(source, "func _write_delta_stat_row(").find("if write_row_cache:") >= 0,
-		"character info delta stat writer should skip row dictionaries during draw"
+		stats_apply_body.find("row.erase(\"base\")") >= 0,
+		"character info stat cache applier should clear stale delta metadata from simple rows"
 	)
 	_expect(
 		source.find("var _stats_label_cache: Array[String] = []") >= 0,
@@ -1200,19 +1245,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats value width cache should track value text"
 	)
 	_expect(
-		source.find("func _get_stats_value_width(font: Font, index: int, value_text: String, size: int) -> float:") >= 0,
-		"character info stats draw should use a value width cache helper"
+		stats_presenter_source.find("static func _get_cached_value_width(font: Font, index: int, value_text: String, size: int") >= 0,
+		"character info stats draw should use a presenter-owned value width cache helper"
 	)
 	_expect(
 		source.find("var stat: Dictionary = _get_dict(stat_value)") < 0,
 		"character info stats draw should not unpack row dictionaries during the draw loop"
 	)
 	_expect(
-		source.find("_draw_text_xy(canvas, font, _stats_label_cache[i], label_x, baseline_y, row_size, TEXT_DIM)") >= 0,
+		stats_presenter_source.find("_draw_text_xy(canvas, font, str(label_cache[i]), label_x, baseline_y, row_size, text_dim, ui_text_scale)") >= 0,
 		"character info stats draw should read labels from typed scalar caches"
 	)
 	_expect(
-		source.find("_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color)") >= 0,
+		stats_presenter_source.find("_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color, ui_text_scale)") >= 0,
 		"character info stats values should draw through the scalar baseline helper"
 	)
 	_expect(
@@ -1224,31 +1269,39 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats draw should not recalculate value text sizes every frame"
 	)
 	_expect(
-		source.find("var value_width: float = _get_stats_value_width(font, i, value_text, row_size)") >= 0,
+		stats_presenter_source.find("var value_width: float = _get_cached_value_width(font, i, value_text, row_size") >= 0,
 		"character info stats draw should read value widths from cache"
 	)
 	_expect(
-		source.find("var item_cooldown_seconds: float = float(_get_effective_default_active_item_cooldown_msec(registry, stat_sources)) / 1000.0") >= 0,
-		"character info stats should compute default active-item cooldown without allocating a temporary item dictionary"
+		stats_presenter_source.find("var item_cooldown_seconds: float = float(CharacterInfoOverlayOwnerState.active_item_cooldown_from_base(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC, stat_sources, Callable(CharacterInfoOverlayOwnerState, \"apply_stat_chain\"))) / 1000.0") >= 0,
+		"character info stats should compute default active-item cooldown through the shared scalar base path"
 	)
 	_expect(
 		source.find("{\"cooldown_msec\": ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC}") < 0,
 		"character info stats should not allocate a default cooldown dictionary per draw"
 	)
 	_expect(
-		source.find("func _get_effective_active_item_cooldown_from_base(base_cooldown_msec: int, registry: Object, stat_sources: Array = []) -> int:") >= 0,
-		"character info active-item cooldown helpers should share the scalar base path"
+		source.find("func _get_effective_active_item_cooldown_from_base(") < 0,
+		"character info should not keep the overlay active-item cooldown wrapper"
 	)
 	_expect(
-		source.find("var color: Color = _stat_delta_color(base_value, current_value, higher_is_better)") >= 0,
-		"character info stats delta writer should compute color once for row and draw caches"
+		source.find("func _stats_row_font_size(") < 0,
+		"character info stats row size should not keep a one-line overlay wrapper"
 	)
 	_expect(
-		source.find("_ensure_stats_row_index(index)") >= 0,
-		"character info stats row lookup should avoid shrinking the reusable cache per row"
+		source.find("func _stat_delta_color(") < 0,
+		"character info stats delta color should not keep a one-line overlay wrapper"
 	)
 	_expect(
-		source.find("return _stats_row_cache") >= 0,
+		stats_presenter_source.find("stat_delta_color(base_value, current_value, higher_is_better, buff_color, debuff_color)") >= 0,
+		"character info stats delta rows should compute color once inside the shared presenter"
+	)
+	_expect(
+		stats_apply_body.find("var row: Dictionary = row_cache[i]") >= 0,
+		"character info stats row lookup should reuse indexed row dictionaries without resizing per row"
+	)
+	_expect(
+		_function_body(stats_presenter_source, "static func build_overlay_player_stat_rows(").find("return row_cache") >= 0,
 		"character info stats builder should return the reusable stat row cache"
 	)
 	_expect(
@@ -1260,15 +1313,11 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info panels should skip decorative glint lines in the overlay draw budget"
 	)
 	_expect(
-		source.find("var column_stride: float = column_w + column_gap") >= 0,
-		"character info stats layout should reuse the column stride while rebuilding row positions"
-	)
-	_expect(
-		source.find("var value_right_x: float = rect.end.x - 2.0") >= 0,
+		stats_presenter_source.find("var value_right_x: float = rect.end.x - 2.0") >= 0,
 		"character info stats panel should use a stable scalar value-right edge during row draw"
 	)
 	_expect(
-		source.find("_write_simple_stat_row(8, \"액티브 아이템 슬롯\", _format_int_pair(active_item_slot_count, active_item_slot_capacity), active_item_slot_color, write_row_cache)") >= 0,
+		stats_presenter_source.find("simple_stat_row(\"액티브 아이템 슬롯\", CharacterInfoOverlayFormatter.format_int_pair(active_item_slot_count, active_item_slot_capacity), active_item_slot_color)") >= 0,
 		"character info stats should show active item slot count and capacity"
 	)
 	_expect(
@@ -1276,11 +1325,11 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info passive item roll entries should keep a numeric item hash cache guard"
 	)
 	_expect(
-		_function_body(source, "func _build_passive_item_roll_entries(").find("item_hash == _passive_item_roll_entries_cache_item_hash") >= 0,
+		passive_roll_body.find("item_hash == cache_item_hash") >= 0,
 		"character info passive item roll entries should hit the cache before rebuilding string signatures"
 	)
 	_expect(
-		_function_body(source, "func _build_passive_item_roll_entries(").find("_passive_item_roll_entries_signature(") < 0,
+		passive_roll_body.find("_passive_item_roll_entries_signature(") < 0,
 		"character info passive item roll entries should avoid the old roll signature builder on hover draws"
 	)
 	_expect(
@@ -1288,7 +1337,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info passive item roll entries should not keep an unused string cache signature"
 	)
 	_expect(
-		source.find("var fixed_options: Array = _get_array(item_data.get(\"fixed_options\", []))") >= 0,
+		passive_roll_body.find("var fixed_options: Array = CharacterInfoOverlayValueUtils.get_array(item_data.get(\"fixed_options\", []))") >= 0,
 		"character info passive item roll entries should reuse fixed options"
 	)
 	_expect(
@@ -1296,19 +1345,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info tooltips should keep a reusable empty roll-entry array"
 	)
 	_expect(
-		source.find("var roll_entries: Array = _get_tooltip_roll_entries(data)") >= 0,
-		"character info tooltips should use the tooltip-specific roll-entry fast path"
-	)
-	_expect(
-		_function_body(source, "func _get_tooltip_roll_entries(").find("if data.has(\"roll_options\")") >= 0,
+		tooltip_draw_body.find("var roll_entries: Array = CharacterInfoOverlayValueUtils.get_array(data.get(\"roll_options\")) if data.has(\"roll_options\") else CharacterInfoOverlayValueUtils.get_array(data.get(\"options\")) if data.has(\"options\") else empty_roll_entries") >= 0,
 		"character info tooltip roll entries should read roll options only when present"
 	)
 	_expect(
-		_function_body(source, "func _get_tooltip_roll_entries(").find("if data.has(\"options\")") >= 0,
+		source.find("func _get_tooltip_roll_entries(") < 0,
+		"character info tooltips should not keep the overlay roll-entry wrapper"
+	)
+	_expect(
+		tooltip_draw_body.find("data.has(\"options\")") >= 0,
 		"character info tooltip roll entries should read fallback options only when present"
 	)
 	_expect(
-		_function_body(source, "func _get_tooltip_roll_entries(").find("return _empty_tooltip_roll_entries") >= 0,
+		_function_body(source, "func _draw_tooltip(").find("_empty_tooltip_roll_entries") >= 0,
 		"character info tooltip roll entries should avoid allocating an empty array for ordinary hovers"
 	)
 	_expect(
@@ -1352,11 +1401,11 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info fallback symbols should keep the tightened ring segment budget"
 	)
 	_expect(
-		_function_body(source, "func _draw_fallback_symbol(").find("center + Vector2(0.0, 3.0)") < 0,
+		fallback_symbol_draw_body.find("center + Vector2(0.0, 3.0)") < 0,
 		"character info fallback symbols should avoid a temporary centered-text offset vector"
 	)
 	_expect(
-		_function_body(source, "func _draw_fallback_symbol(").find("_draw_text_centered_xy(canvas, ThemeDB.fallback_font, letter, center.x, center.y + 3.0") >= 0,
+		fallback_symbol_draw_body.find("draw_text_centered_xy_callable.call(canvas, ThemeDB.fallback_font, letter, center.x, center.y + 3.0") >= 0,
 		"character info fallback symbols should draw text through the scalar center helper"
 	)
 	_expect(
@@ -1368,19 +1417,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info fallback symbols should keep a reusable letter cache"
 	)
 	_expect(
-		_function_body(source, "func _draw_fallback_symbol(").find("var letter: String = _fallback_symbol_letter(id_text)") >= 0,
+		fallback_symbol_draw_body.find("var letter: String = CharacterInfoOverlayValueUtils.fallback_symbol_letter(id_text, letter_cache, letter_cache_limit)") >= 0,
 		"character info fallback symbol draw should use the cached letter helper"
 	)
 	_expect(
-		_function_body(source, "func _draw_fallback_symbol(").find("substr(0, 1).to_upper()") < 0,
+		fallback_symbol_draw_body.find("substr(0, 1).to_upper()") < 0,
 		"character info fallback symbol draw should not rebuild uppercase letters per draw"
 	)
 	_expect(
-		_function_body(source, "func _fallback_symbol_letter(").find("id_text.substr(0, 1).to_upper()") >= 0,
+		fallback_symbol_body.find("id_text.substr(0, 1).to_upper()") >= 0,
 		"character info fallback symbol letter helper should own the uppercase conversion"
 	)
 	_expect(
-		source.find("var rect := Rect2(pos_x, pos_y, width, height)") >= 0,
+		tooltip_draw_body.find("var rect := Rect2(pos_x, pos_y, width, height)") >= 0,
 		"character info tooltip rect should avoid temporary Vector2 position/size values"
 	)
 	_expect(
@@ -1392,67 +1441,59 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info tooltip subtitle colors should use a cache helper"
 	)
 	_expect(
-		_function_body(source, "func _draw_tooltip(").find("var text_x: float = pos_x + 14.0") >= 0,
+		tooltip_draw_body.find("var text_x: float = pos_x + 14.0") >= 0,
 		"character info tooltip text should reuse a scalar baseline x"
 	)
 	_expect(
-		_function_body(source, "func _draw_tooltip(").find("rect.position.x + 14.0") < 0,
+		tooltip_draw_body.find("rect.position.x + 14.0") < 0,
 		"character info tooltip text should avoid repeated rect position lookups"
 	)
 	_expect(
-		_function_body(source, "func _draw_tooltip(").find("var subtitle_color: Color = _tooltip_subtitle_color(color)") >= 0,
+		tooltip_draw_body.find("var subtitle_color: Color = _call_color(tooltip_subtitle_color_callable, color)") >= 0,
 		"character info tooltip subtitle should reuse cached subtitle color"
 	)
 	_expect(
-		_function_body(source, "func _draw_character_card(").find("var bar_rect := Rect2(rect.position.x + 22.0, rect.end.y - 64.0, rect.size.x - 44.0, 12.0)") >= 0,
-		"character info character-card meter rect should avoid temporary Vector2 values"
+		source.find("func _draw_character_card(") < 0,
+		"character info should remove the unused legacy character card helper"
 	)
 	_expect(
-		_function_body(source, "func _draw_character_card(").find("Rect2(center.x - radius * 0.52, center.y - radius * 0.22, radius * 1.04, radius * 0.44)") >= 0,
-		"character info character-card body rect should use scalar Rect2 construction"
+		source.find("func _draw_meter(") < 0,
+		"character info should remove the unused legacy meter helper"
 	)
 	_expect(
-		_function_body(source, "func _draw_meter(").find("var fill_rect := Rect2(rect.position.x, rect.position.y, rect.size.x * clamp(ratio, 0.0, 1.0), rect.size.y)") >= 0,
-		"character info meter fill rect should avoid temporary Vector2 values"
-	)
-	_expect(
-		_function_body(source, "func _draw_meter(").find("_draw_text_xy(canvas, font, label, rect.position.x, rect.position.y - 8.0") >= 0,
-		"character info meter labels should draw through the scalar baseline helper"
-	)
-	_expect(
-		source.find("var desc_rect := Rect2(pos_x, pos_y, desc_width, desc_height)") >= 0,
+		dual_tooltip_draw_body.find("var desc_rect := Rect2(pos_x, pos_y, desc_width, desc_height)") >= 0,
 		"character info dual tooltip description rect should avoid temporary Vector2 position/size values"
 	)
 	_expect(
-		source.find("var roll_rect := Rect2(pos_x + desc_width + gap, pos_y, roll_width, roll_height)") >= 0,
+		dual_tooltip_draw_body.find("var roll_rect := Rect2(pos_x + desc_width + gap, pos_y, roll_width, roll_height)") >= 0,
 		"character info dual tooltip roll rect should avoid temporary position and size Vector2 values"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("var desc_text_x: float = pos_x + 14.0") >= 0,
+		dual_tooltip_draw_body.find("var desc_text_x: float = pos_x + 14.0") >= 0,
 		"character info dual tooltip description text should reuse a scalar baseline x"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("var roll_text_x: float = pos_x + desc_width + gap + 12.0") >= 0,
+		dual_tooltip_draw_body.find("var roll_text_x: float = pos_x + desc_width + gap + 12.0") >= 0,
 		"character info dual tooltip roll text should reuse a scalar baseline x"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("desc_rect.position.x + 14.0") < 0,
+		dual_tooltip_draw_body.find("desc_rect.position.x + 14.0") < 0,
 		"character info dual tooltip description text should avoid repeated rect position lookups"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("roll_rect.position.x + 12.0") < 0,
+		dual_tooltip_draw_body.find("roll_rect.position.x + 12.0") < 0,
 		"character info dual tooltip roll text should avoid repeated rect position lookups"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("var subtitle_color: Color = _tooltip_subtitle_color(color)") >= 0,
+		dual_tooltip_draw_body.find("var subtitle_color: Color = _call_color(tooltip_subtitle_color_callable, color)") >= 0,
 		"character info dual tooltip subtitle should reuse cached subtitle color"
 	)
 	_expect(
-		_function_body(source, "func _draw_tooltip(").find("Color(color.r, color.g, color.b, 0.95)") < 0,
+		tooltip_draw_body.find("Color(color.r, color.g, color.b, 0.95)") < 0,
 		"character info tooltip draw should not rebuild subtitle colors directly"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("Color(color.r, color.g, color.b, 0.95)") < 0,
+		dual_tooltip_draw_body.find("Color(color.r, color.g, color.b, 0.95)") < 0,
 		"character info dual tooltip draw should not rebuild subtitle colors directly"
 	)
 	_expect(
@@ -1460,11 +1501,11 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info tooltip placement should avoid a temporary mouse-offset Vector2"
 	)
 	_expect(
-		_function_body(source, "func _get_tooltip_anchor_rect(").find("return Rect2(mouse_pos.x, mouse_pos.y, 0.0, 0.0)") >= 0,
+		tooltip_anchor_body.find("return Rect2(mouse_pos.x, mouse_pos.y, 0.0, 0.0)") >= 0,
 		"character info tooltip fallback anchor should use scalar Rect2 construction"
 	)
 	_expect(
-		_function_body(source, "func _get_tooltip_anchor_rect(").find("Rect2(mouse_pos, Vector2.ZERO)") < 0,
+		tooltip_anchor_body.find("Rect2(mouse_pos, Vector2.ZERO)") < 0,
 		"character info tooltip fallback anchor should avoid temporary Vector2 size values"
 	)
 	_expect(
@@ -1484,11 +1525,11 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info dual tooltip should reuse the cached roll border"
 	)
 	_expect(
-		source.find("_get_roll_option_value(option, rolls, key)") >= 0,
+		passive_item_presenter_source.find("roll_option_value(option, rolls, key)") >= 0,
 		"character info passive item roll entries should avoid eager value/default fallback evaluation"
 	)
 	_expect(
-		source.find("_get_number_fallback(item_data, \"cooldown_msec\", \"cooldown_ms\")") >= 0,
+		active_item_presenter_source.find("CharacterInfoOverlayValueUtils.get_number_fallback(item_data, \"cooldown_msec\", \"cooldown_ms\")") >= 0,
 		"character info active item cooldowns should avoid eager cooldown fallback evaluation"
 	)
 	_expect(
@@ -1496,19 +1537,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats should not keep the old per-row allocation helper"
 	)
 	_expect(
-		source.find("if fixed_options.is_empty() and option_source.is_empty():") >= 0,
+		passive_roll_body.find("if fixed_options.is_empty() and option_source.is_empty():") >= 0,
 		"character info passive item roll entries should skip empty roll tooltips before runtime lookup"
 	)
 	_expect(
-		source.find("var polish_multiplier: float = _get_passive_item_roll_polish_multiplier(registry, runtime_state)") >= 0,
+		passive_roll_body.find("var polish_multiplier: float = CharacterInfoOverlayOwnerState.passive_item_roll_polish_multiplier(registry, runtime_state)") >= 0,
 		"character info passive item roll entries should use the frame-level runtime state in the numeric cache guard"
 	)
 	_expect(
-		source.find("func _get_passive_item_roll_polish_multiplier(registry: Object, runtime_state_override: Object) -> float:") >= 0,
-		"character info passive item roll cache should keep polish multiplier lookup in a helper"
+		source.find("func _get_passive_item_roll_polish_multiplier(") < 0,
+		"character info passive item roll cache should use the owner-state polish helper directly"
 	)
 	_expect(
-		_function_body(source, "func _get_passive_item_roll_polish_multiplier(").find("if runtime_state == null:\n\t\truntime_state = _get_instance(registry, \"runtime_perk_state\")") >= 0,
+		_function_body(owner_state_source, "static func passive_item_roll_polish_multiplier(").find("if runtime_state == null:\n\t\truntime_state = get_instance(registry, \"runtime_perk_state\")") >= 0,
 		"character info passive item roll cache should only fall back to registry lookup for direct calls"
 	)
 	_expect(
@@ -1516,19 +1557,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info tooltip entry lines should keep a numeric entries hash guard"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("var entries_hash: int = hash(entries)") >= 0,
+		tooltip_entry_body.find("var entries_hash: int = hash(entries)") >= 0,
 		"character info tooltip entry lines should hash entries before cache lookup"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("entries_hash == _tooltip_entry_lines_cache_entries_hash") >= 0,
+		tooltip_entry_body.find("entries_hash == current_entries_hash") >= 0,
 		"character info tooltip entry line cache should hit without rebuilding string signatures"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_line_text_cache.size() == _tooltip_entry_lines_cache.size()") >= 0,
+		tooltip_entry_body.find("text_cache.size() == line_cache.size()") >= 0,
 		"character info tooltip entry line cache guard should validate text cache size"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_line_color_cache.size() == _tooltip_entry_lines_cache.size()") >= 0,
+		tooltip_entry_body.find("color_cache.size() == line_cache.size()") >= 0,
 		"character info tooltip entry line cache guard should validate color cache size"
 	)
 	_expect(
@@ -1564,11 +1605,11 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info passive roll entries should not keep an unused roll signature helper"
 	)
 	_expect(
-		_function_body(source, "func _build_passive_item_roll_entries(").find("str(fixed_options)") < 0,
+		passive_roll_body.find("str(fixed_options)") < 0,
 		"character info passive roll draw path should not stringify fixed option arrays wholesale"
 	)
 	_expect(
-		_function_body(source, "func _build_passive_item_roll_entries(").find("str(option_source)") < 0,
+		passive_roll_body.find("str(option_source)") < 0,
 		"character info passive roll draw path should not stringify roll option arrays wholesale"
 	)
 	_expect(
@@ -1576,7 +1617,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info draw should keep a reusable frame hover dictionary"
 	)
 	_expect(
-		source.find("_frame_hover_data.clear()\n\tvar hover_data: Dictionary = _frame_hover_data") >= 0,
+		frame_presenter_source.find("hover_data.clear()") >= 0,
 		"character info draw should reuse the frame hover dictionary instead of allocating an empty dictionary"
 	)
 	_expect(
@@ -1584,7 +1625,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info hover data should use a shared fill helper"
 	)
 	_expect(
-		_function_body(source, "func _set_hover_data(").find("data.clear()") >= 0,
+		hover_data_body.find("data.clear()") >= 0,
 		"character info hover data helper should refill the reusable dictionary"
 	)
 	_expect(
@@ -1592,28 +1633,28 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info hover paths should avoid per-hover dictionary literals"
 	)
 	_expect(
-		_function_body(source, "func _draw_equipment_slots(").find("hover_data = _set_hover_data(") >= 0,
+		equipment_draw_slots_body.find("hover_data = set_hover_data_callable.call(") >= 0,
 		"character info equipped-item hover should reuse the frame hover dictionary"
 	)
 	_expect(
-		_function_body(source, "func _draw_equipment_slots_grid(").find("hover_data = _set_hover_data(") >= 0,
-		"character info equipment grid item hover should reuse the frame hover dictionary"
+		source.find("func _draw_equipment_slots_grid(") < 0,
+		"character info should remove the unused fallback equipment grid helper"
 	)
 	_expect(
-		_function_body(source, "func _draw_passive_inventory(").find("hover_data = _set_hover_data(") >= 0,
-		"character info passive inventory hover should reuse the frame hover dictionary"
+		_function_body(passive_inventory_drawer_source, "static func draw_inventory_cells(").find("hover_data = set_hover_data_callable.call(") >= 0,
+		"character info passive inventory presenter hover should reuse the frame hover dictionary"
 	)
 	_expect(
-		_function_body(source, "func _draw_perk_grid(").find("hover_data = _set_hover_data(") >= 0,
-		"character info perk hover should reuse the frame hover dictionary"
+		perk_grid_draw_body.find("hover_data = set_hover_data_callable.call(") >= 0,
+		"character info perk presenter hover should reuse the frame hover dictionary"
 	)
 	_expect(
-		_function_body(source, "func _draw_skill_slots(").find("hover_data = _set_hover_data(") >= 0,
-		"character info skill hover should reuse the frame hover dictionary"
+		skill_slot_draw_body.find("hover_data = set_hover_data_callable.call(") >= 0,
+		"character info skill presenter hover should reuse the frame hover dictionary"
 	)
 	_expect(
-		_function_body(source, "func _draw_active_items(").find("hover_data = _set_hover_data(") >= 0,
-		"character info active item hover should reuse the frame hover dictionary"
+		active_slot_draw_body.find("hover_data = set_hover_data_callable.call(") >= 0,
+		"character info active item presenter hover should reuse the frame hover dictionary"
 	)
 	_expect(
 		source.find("var _last_lingpet_skill_icon_rects: Array[Rect2] = []") >= 0,
@@ -1624,67 +1665,67 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"lingpet stat row hover rects should be cached for redraw tracking"
 	)
 	_expect(
-		_function_body(source, "func _get_hover_signature(").find("_get_lingpet_skill_hover_signature(mouse_pos)") >= 0,
+		_function_body(hover_source, "static func overlay_hover_signature(").find("get_rect_list_hover_signature(lingpet_skill_rects, mouse_pos, \"lingpet_skill\")") >= 0,
 		"lingpet skill icons should participate in mouse-motion hover redraws"
 	)
 	_expect(
-		_function_body(source, "func _get_hover_signature(").find("_get_lingpet_stat_hover_signature(mouse_pos)") >= 0,
+		_function_body(hover_source, "static func overlay_hover_signature(").find("get_rect_list_hover_signature(lingpet_stat_rects, mouse_pos, \"lingpet_stat\")") >= 0,
 		"lingpet stat rows should participate in mouse-motion hover redraws"
 	)
 	_expect(
-		_function_body(source, "func _draw_lingpet_skill_icon(").find("hover_data = _set_hover_data(") >= 0,
-		"lingpet skill hover should reuse the frame hover dictionary"
+		_function_body(lingpet_presenter_source, "static func draw_skill_icon(").find("_fill_hover_data(hover_data") >= 0,
+		"lingpet skill hover should reuse the frame hover dictionary through the presenter"
 	)
 	_expect(
 		source.find("return _tooltip_entry_lines_cache.duplicate(true)") < 0,
 		"character info tooltip entry cache should avoid per-hover deep copies"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_lines_cache.clear()") >= 0,
+		tooltip_entry_body.find("line_cache.clear()") >= 0,
 		"character info tooltip entry builder should reuse the cached result array"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_line_text_cache.clear()") >= 0,
+		tooltip_entry_body.find("text_cache.clear()") >= 0,
 		"character info tooltip entry builder should clear cached line text before refill"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_line_color_cache.clear()") >= 0,
+		tooltip_entry_body.find("color_cache.clear()") >= 0,
 		"character info tooltip entry builder should clear cached line colors before refill"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("var result: Array = _tooltip_entry_lines_cache") >= 0,
+		tooltip_entry_body.find("var result: Array = line_cache") >= 0,
 		"character info tooltip entry builder should reuse the cached result array"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("result.append({\"text\"") < 0,
+		tooltip_entry_body.find("result.append({\"text\"") < 0,
 		"character info tooltip entry builder should avoid per-line dictionary literals"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_line_text_cache.append(line_text)") >= 0,
+		tooltip_entry_body.find("text_cache.append(line_text)") >= 0,
 		"character info tooltip entry builder should fill cached line text"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_line_color_cache.append(color)") >= 0,
+		tooltip_entry_body.find("color_cache.append(color)") >= 0,
 		"character info tooltip entry builder should fill cached line colors"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("_tooltip_entry_line_text_cache[i]") >= 0,
+		_function_body(source, "func _draw_dual_item_tooltip(").find("_tooltip_entry_line_text_cache") >= 0 and dual_tooltip_draw_body.find("tooltip_entry_line_text_cache[i]") >= 0,
 		"character info roll tooltip draw should read cached line text"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("_tooltip_entry_line_color_cache[i]") >= 0,
+		_function_body(source, "func _draw_dual_item_tooltip(").find("_tooltip_entry_line_color_cache") >= 0 and dual_tooltip_draw_body.find("tooltip_entry_line_color_cache[i]") >= 0,
 		"character info roll tooltip draw should read cached line colors"
 	)
 	_expect(
-		_function_body(source, "func _draw_dual_item_tooltip(").find("var entry_dict: Dictionary = _get_dict(entry)") < 0,
+		dual_tooltip_draw_body.find("var entry_dict: Dictionary = _get_dict(entry)") < 0,
 		"character info roll tooltip draw should not unpack line dictionaries"
 	)
 	_expect(
-		source.find("func _get_tooltip_entry_line_dict(index: int) -> Dictionary:") >= 0,
+		value_utils_source.find("static func tooltip_entry_line_dict(line_dict_cache: Array, index: int) -> Dictionary:") >= 0,
 		"character info tooltip entry builder should reuse line dictionaries by index"
 	)
 	_expect(
-		_function_body(source, "func _get_tooltip_entry_line_dict(").find("data.clear()") >= 0,
+		_function_body(value_utils_source, "static func tooltip_entry_line_dict(").find("data.clear()") >= 0,
 		"character info tooltip entry line cache should clear dictionaries before refill"
 	)
 	_expect(
@@ -1696,19 +1737,19 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info passive roll entries should keep an indexed dictionary cache"
 	)
 	_expect(
-		_function_body(source, "func _build_passive_item_roll_entries(").find("_passive_item_roll_entries_cache.clear()\n\tvar result: Array = _passive_item_roll_entries_cache") >= 0,
+		passive_roll_body.find("roll_entries_cache.clear()\n\tvar result: Array = roll_entries_cache") >= 0,
 		"character info passive roll entry builder should reuse the cached result array"
 	)
 	_expect(
-		_function_body(source, "func _build_passive_item_roll_entries(").find("result.append({") < 0,
+		passive_roll_body.find("result.append({") < 0,
 		"character info passive roll entry builder should avoid per-entry dictionary literals"
 	)
 	_expect(
-		source.find("func _get_passive_item_roll_entry_dict(index: int) -> Dictionary:") >= 0,
+		passive_item_presenter_source.find("static func roll_entry_dict(roll_entry_dict_cache: Array, index: int) -> Dictionary:") >= 0,
 		"character info passive roll entries should reuse dictionaries by index"
 	)
 	_expect(
-		_function_body(source, "func _get_passive_item_roll_entry_dict(").find("data.clear()") >= 0,
+		_function_body(passive_item_presenter_source, "static func roll_entry_dict(").find("data.clear()") >= 0,
 		"character info passive roll entry cache should clear dictionaries before refill"
 	)
 	_expect(
@@ -1720,23 +1761,23 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info wrapped text should keep a one-slot fast cache"
 	)
 	_expect(
-		_function_body(source, "func _wrap_text_to_width(").find("return _wrap_text_fast_lines") >= 0,
+		wrap_text_body.find("_wrapped_text_state(fast_lines") >= 0,
 		"character info wrapped text should hit the fast cache before building string keys"
 	)
 	_expect(
-		source.find("func _store_wrapped_text_lines(cache_key: String, text: String, size_key: int, max_width_key: int, max_lines: int, lines: Array) -> Array:") >= 0,
+		value_utils_source.find("static func store_wrapped_text_lines(cache_key: String, text: String, size_key: int, max_width_key: int, max_lines: int, lines: Array, cache: Dictionary, cache_limit: int) -> Dictionary:") >= 0,
 		"character info wrapped text should update dictionary and fast caches through one helper"
 	)
 	_expect(
-		_function_body(source, "func _wrap_text_to_width(").find(".slice(") < 0,
+		wrap_text_body.find(".slice(") < 0,
 		"character info wrapped text should trim cached lines in-place instead of allocating slices"
 	)
 	_expect(
-		_function_body(source, "func _wrap_text_to_width(").find("while lines.size() > max_lines:") >= 0,
+		wrap_text_body.find("while lines.size() > max_lines:") >= 0,
 		"character info wrapped text should clamp cached line arrays without slice allocations"
 	)
 	_expect(
-		_function_body(source, "func _build_tooltip_entry_lines(").find("_tooltip_entry_lines_signature(entries, size, max_width, max_lines)") < 0,
+		tooltip_entry_body.find("_tooltip_entry_lines_signature(entries, size, max_width, max_lines)") < 0,
 		"character info tooltip entry lines should avoid the old string signature builder on hover draws"
 	)
 	_expect(
@@ -1765,14 +1806,26 @@ func _verify_stats_do_not_read_dash_token_snapshot() -> void:
 	_expect(dash_state.snapshot_calls == 0, "compact character info stats should not read dash-token state")
 
 
+func _character_info_overlay_source() -> String:
+	return FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_state.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_support.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_core.gd")
+
+
+func _character_info_value_utils_contract_source() -> String:
+	return FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_layout_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_text_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_slot_cache_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_misc_value_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_prewarm_text_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_value_utils.gd")
+
+
 func _function_body(source: String, signature: String) -> String:
 	var start: int = source.find(signature)
 	if start < 0:
 		return ""
 	var next_func: int = source.find("\nfunc ", start + signature.length())
-	if next_func < 0:
+	var next_static_func: int = source.find("\nstatic func ", start + signature.length())
+	var next_boundary := next_func
+	if next_boundary < 0 or (next_static_func >= 0 and next_static_func < next_boundary):
+		next_boundary = next_static_func
+	if next_boundary < 0:
 		return source.substr(start)
-	return source.substr(start, next_func - start)
+	return source.substr(start, next_boundary - start)
 
 
 func _assert_wrapped_lines_fit(overlay: Object, font: Font, lines: Array, size: int, max_width: float, message: String) -> void:

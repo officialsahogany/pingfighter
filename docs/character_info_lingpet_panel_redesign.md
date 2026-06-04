@@ -13,6 +13,12 @@
 향후 링펫당 액티브 2개 + 패시브 2개를 채우면, 획득 순간 풀에서 1개씩 배정하는
 방식으로 확장한다.
 
+2026-06-02 추가: 마리보 액티브 후보에 `maribo_bubble_trap` / `물방울트랩`을 추가했다.
+부화/획득 시에는 액티브 풀에서 하이드로 스피어 또는 물방울트랩 중 하나가 선택될 수 있고,
+기존 보유/legacy 기본 로드아웃은 계속 첫 후보인 하이드로 스피어를 사용한다.
+전용 스킬카드 / 스킬아이콘은 `maribo_bubble_trap_skillcard_imagegen_v1.png` /
+`maribo_bubble_trap_skill_icon_imagegen_v1.png`로 연결했다.
+
 ## 1. 목적
 
 현재 링펫 정보는 우측 상단에 짧은 텍스트 패널(`_draw_lingpet_panel`)로만 있어
@@ -60,9 +66,10 @@
 - **패시브 — 공명 증폭**
   - 플레이어가 공을 받아칠 때 **게이지 획득량 +10%**.
 
-아이콘 소스: 액티브는 레일 스킬카드(`maribo_hydro_sphere_skillcard_imagegen_v2.png`)
-재활용. 패시브 1종은 imagegen 투명 PNG(`maribo_resonance_boost_passive_icon_imagegen_v1.png`)
-로 연결 완료.
+아이콘 소스: 하이드로 스피어는 레일 스킬카드(`maribo_hydro_sphere_skillcard_imagegen_v2.png`),
+물방울트랩은 전용 스킬카드(`maribo_bubble_trap_skillcard_imagegen_v1.png`)와 전용 스킬아이콘
+(`maribo_bubble_trap_skill_icon_imagegen_v1.png`)으로 연결 완료. 패시브 1종은 imagegen 투명 PNG
+(`maribo_resonance_boost_passive_icon_imagegen_v1.png`)로 연결 완료.
 전신 라투디는 컷인 원화(`maribo_cutin_art.png` / v003 nukki) 재활용 가능.
 
 마리보가 직접 공을 튕겼을 때의 **게이지 +40**은 별도 패시브 스킬이 아니라 링펫 공통
