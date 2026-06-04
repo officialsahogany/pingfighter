@@ -4,6 +4,7 @@ const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_h
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const StageClearResultBoxDrawHelper := preload("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
@@ -1238,7 +1239,7 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
-		_draw_result_box_fallback(draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
+		StageClearResultBoxDrawHelper.draw_result_box_fallback(self, draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
 
 	if hover_active:
 		StageClearResultShapeHelper.draw_box_hover_sparkles(self, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase, timer)
@@ -1255,42 +1256,6 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 			BOX_REWARD_HOVER_OFFSET,
 			_reward_icon_cache
 		)
-
-
-func _draw_result_box_fallback(
-	draw_center: Vector2,
-	hx: float,
-	hy: float,
-	box_rotation: float,
-	draw_scale: float,
-	is_mythic: bool,
-	global_alpha: float,
-	state: String,
-	open_progress: float
-) -> void:
-	var base_color := Color(0.90, 0.44, 1.0, global_alpha) if is_mythic else Color(0.32, 0.82, 1.0, global_alpha)
-	var body_fill := Color(base_color.r * 0.45, base_color.g * 0.45, base_color.b * 0.55, 0.78 * global_alpha)
-	var lid_fill := Color(base_color.r, base_color.g, base_color.b, 0.66 * global_alpha)
-	var rim_color := Color(1.0, 0.90, 0.45, 0.92 * global_alpha) if is_mythic else Color(0.75, 1.0, 1.0, 0.86 * global_alpha)
-	var open_lift: float = 0.0
-	if state == "opening" or state == "opened":
-		open_lift = StageClearResultClickReactionState.smooth01(open_progress) * hy * 0.42
-	draw_set_transform(draw_center, box_rotation, Vector2.ONE)
-	var body_rect := Rect2(Vector2(-hx * 0.68, -hy * 0.05), Vector2(hx * 1.36, hy * 1.02))
-	var lid_rect := Rect2(Vector2(-hx * 0.76, -hy * 0.58 - open_lift), Vector2(hx * 1.52, hy * 0.46))
-	draw_rect(body_rect, body_fill)
-	draw_rect(body_rect, rim_color, false, max(1.5, 2.3 * draw_scale))
-	draw_rect(lid_rect, lid_fill)
-	draw_rect(lid_rect, rim_color, false, max(1.5, 2.2 * draw_scale))
-	draw_line(
-		Vector2(-hx * 0.56, body_rect.position.y + body_rect.size.y * 0.35),
-		Vector2(hx * 0.56, body_rect.position.y + body_rect.size.y * 0.35),
-		Color(1.0, 1.0, 1.0, 0.18 * global_alpha),
-		max(1.0, 1.5 * draw_scale)
-	)
-	draw_circle(Vector2.ZERO, max(3.0, 6.0 * draw_scale), rim_color)
-	draw_circle(Vector2.ZERO, max(1.4, 2.8 * draw_scale), Color(1.0, 1.0, 1.0, 0.78 * global_alpha))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
