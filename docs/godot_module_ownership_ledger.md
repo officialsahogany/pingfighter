@@ -1458,11 +1458,12 @@ This section is intentionally long; use search to find the nearest owner.
   clamping. The scene still owns live size / scale lookup, reward mutation,
   and the immediate-grant callback.
 - `scripts/ui/stage_clear_result_box_draw_helper.gd`
-  Owns stage-clear result-box fallback drawing used when the authored chest
-  sheet texture is unavailable: fallback body / lid rects, open-lid easing,
-  rim highlights, and canvas transform reset. The scene still owns sheet
-  texture selection, result-box frame index selection, hover effects, reward
-  draw sequencing, and FX-host sync.
+  Owns stage-clear result-box sheet-frame texture-region drawing and fallback
+  drawing used when the authored chest sheet texture is unavailable: source
+  rect selection from the frame grid, fallback body / lid rects, open-lid
+  easing, rim highlights, and canvas transform reset. The scene still owns
+  sheet texture selection, result-box frame index selection, hover effects,
+  reward draw sequencing, and FX-host sync.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update

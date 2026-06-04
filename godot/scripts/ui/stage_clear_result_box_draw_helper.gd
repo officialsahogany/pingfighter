@@ -3,6 +3,44 @@ extends RefCounted
 const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
 
 
+static func draw_result_box_sheet_frame(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	draw_center: Vector2,
+	frame_index: int,
+	grid_cols: int,
+	cell_size: Vector2,
+	frame_draw_size: float,
+	box_rotation: float,
+	global_alpha: float
+) -> bool:
+	if canvas == null or texture == null:
+		return false
+	if grid_cols <= 0 or cell_size.x <= 0.0 or cell_size.y <= 0.0:
+		return false
+	if frame_draw_size <= 0.0 or global_alpha <= 0.001:
+		return false
+	var col: int = frame_index % grid_cols
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / grid_cols)
+	var half_size: float = frame_draw_size * 0.5
+	var source_rect := Rect2(
+		Vector2(float(col) * cell_size.x, float(row) * cell_size.y),
+		cell_size
+	)
+	canvas.draw_set_transform(draw_center, box_rotation, Vector2.ONE)
+	canvas.draw_texture_rect_region(
+		texture,
+		Rect2(Vector2(-half_size, -half_size), Vector2(frame_draw_size, frame_draw_size)),
+		source_rect,
+		Color(1.0, 1.0, 1.0, global_alpha),
+		false,
+		true
+	)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	return true
+
+
 static func draw_result_box_fallback(
 	canvas: CanvasItem,
 	draw_center: Vector2,

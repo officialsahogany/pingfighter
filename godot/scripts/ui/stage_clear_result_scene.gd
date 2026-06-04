@@ -1049,25 +1049,17 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 	)
 
 	var texture: Texture2D = _get_result_box_sheet_texture(kind)
-	if texture != null:
-		var col: int = frame_index % RESULT_BOX_SHEET_GRID_COLS
-		@warning_ignore("integer_division")
-		var row: int = int(frame_index / RESULT_BOX_SHEET_GRID_COLS)
-		var source_rect := Rect2(
-			Vector2(float(col) * RESULT_BOX_SHEET_CELL_SIZE.x, float(row) * RESULT_BOX_SHEET_CELL_SIZE.y),
-			RESULT_BOX_SHEET_CELL_SIZE
-		)
-		draw_set_transform(draw_center, box_rotation, Vector2.ONE)
-		draw_texture_rect_region(
-			texture,
-			Rect2(Vector2(-hx, -hy), Vector2(frame_draw_size, frame_draw_size)),
-			source_rect,
-			Color(1.0, 1.0, 1.0, global_alpha),
-			false,
-			true
-		)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	else:
+	if not StageClearResultBoxDrawHelper.draw_result_box_sheet_frame(
+		self,
+		texture,
+		draw_center,
+		frame_index,
+		RESULT_BOX_SHEET_GRID_COLS,
+		RESULT_BOX_SHEET_CELL_SIZE,
+		frame_draw_size,
+		box_rotation,
+		global_alpha
+	):
 		StageClearResultBoxDrawHelper.draw_result_box_fallback(self, draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
 
 	if hover_active:

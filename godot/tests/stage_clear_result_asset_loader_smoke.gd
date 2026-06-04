@@ -137,8 +137,9 @@ func _verify_result_box_texture_region_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var box_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	_expect(
-		source.find("draw_set_transform(draw_center, box_rotation, Vector2.ONE)") >= 0
-		and source.find("draw_texture_rect_region(") >= 0
+		source.find("StageClearResultBoxDrawHelper.draw_result_box_sheet_frame") >= 0
+		and box_helper_source.find("draw_set_transform(draw_center, box_rotation, Vector2.ONE)") >= 0
+		and box_helper_source.find("draw_texture_rect_region(") >= 0
 		and source.find("StageClearResultBoxDrawHelper.draw_result_box_fallback") >= 0
 		and box_helper_source.find("static func draw_result_box_fallback") >= 0,
 		"result box sheet draw should use texture-region drawing with an export-safe fallback"
