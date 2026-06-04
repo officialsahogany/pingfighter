@@ -5,8 +5,8 @@ extends SceneTree
 
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
 const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
+const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
 const STAGE6_PILLAR_SCENE_DRAWER_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd"
-const BATTLE_EFFECTS_UPDATE_CONTROLLER_PATH := "res://scripts/effects/battle_effects_update_controller.gd"
 
 var _failures: Array[String] = []
 
@@ -35,6 +35,22 @@ class FakeAudio:
 		calls.append("wall")
 	func play_stage6_tetriser_super() -> void:
 		calls.append("super")
+
+
+class FakeScoreState:
+	extends RefCounted
+	var player_score := 0
+	var boss_score := 0
+	var player_in_danger := false
+
+	func get_snapshot() -> Dictionary:
+		return {
+			"player_score": player_score,
+			"boss_score": boss_score,
+		}
+
+	func is_player_in_danger() -> bool:
+		return player_in_danger
 
 
 func _active_context() -> Dictionary:
@@ -428,15 +444,36 @@ func _test_crystal_shield_collision_and_reset() -> void:
 
 
 func _test_stage6_score_context_reaches_crystal_shield() -> void:
-	var source := FileAccess.get_file_as_string(BATTLE_EFFECTS_UPDATE_CONTROLLER_PATH)
-	var update_marker := "stage6_tetriser_result = stage6_tetriser_state.update"
-	var update_index: int = source.find(update_marker)
-	_expect(update_index >= 0, "effects update controller should call Stage 6 Tetriser state")
-	if update_index < 0:
-		return
-	var nearby_start: int = maxi(0, update_index - 260)
-	var nearby: String = source.substr(nearby_start, update_index - nearby_start)
-	_expect(nearby.find("_merge_score_context(context, deps.get(\"score_state\", null))") >= 0, "Stage 6 Tetriser update should receive player_score for crystal shield trigger")
+	var controller: Object = BattleEffectsUpdateController.new()
+	var state: Object = Stage6TetriserState.new()
+	var score_state := FakeScoreState.new()
+	score_state.player_score = 4
+
+	var deps := {
+		"score_state": score_state,
+		"stage6_tetriser_state": state,
+	}
+	var active_ctx := _active_context()
+	active_ctx["player_score"] = 0
+	active_ctx["boss_pos"] = Vector2(330.0, 45.0)
+	active_ctx["boss_paddle_size"] = Vector2(100.0, 40.0)
+	controller.update(0.05, active_ctx, deps)
+	_expect(int(active_ctx.get("player_score", 0)) == 4, "effects controller should merge score_state before Stage 6 update")
+	_expect(state.debug_is_crystal_shield_pending(), "effects controller score merge should schedule crystal shield at player score 4")
+
+	var waiting_ctx := active_ctx.duplicate(true)
+	waiting_ctx["ball_active"] = false
+	waiting_ctx["waiting_for_serve"] = true
+	controller.update(0.05, waiting_ctx, deps)
+	_expect(state.debug_is_crystal_shield_freeze_active(), "effects controller should let pending shield start on serve wait")
+	_expect(
+		bool(waiting_ctx.get("stage6_tetriser_crystal_shield_freeze_active", false)),
+		"effects controller should merge Stage 6 crystal shield update result into context"
+	)
+	_expect(
+		not bool(waiting_ctx.get("skip_ball_motion_step", true)),
+		"effects controller crystal shield path must not request ball-motion skip"
+	)
 
 
 func _test_boss_skill_hud() -> void:
