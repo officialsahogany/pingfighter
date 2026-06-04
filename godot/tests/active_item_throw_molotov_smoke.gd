@@ -184,7 +184,12 @@ func _verify_fire_zone_clamps_away_from_pillars() -> void:
 
 func _verify_renderer_ellipse_preserves_playfield_transform() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_molotov_renderer.gd")
+	var prewarm_body := _function_body(source, "func prewarm_assets")
 	var body := _function_body(source, "func _draw_filled_ellipse")
+	_expect(
+		prewarm_body.find("ImpactFlareTextureCache.prewarm()") >= 0,
+		"molotov renderer prewarm should build additive flame glow textures before draw-time fire zones"
+	)
 	_expect(
 		body.find("draw_set_transform") < 0,
 		"molotov fire-zone ellipse helper should not override the transformed playfield canvas"

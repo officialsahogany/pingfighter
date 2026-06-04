@@ -611,9 +611,28 @@ func _build_molotov_zone_payload() -> Array:
 			"duration_frames": timer * 60.0,
 			"max_duration_frames": max_timer * 60.0,
 			"age_frames": (max_timer - timer) * 60.0,
-			"flames": [],
+			"flames": _convert_zone_flames(zone.get("flames", [])),
 		})
 	return payload
+
+
+# Convert the breath's per-zone flame sim into the molotov renderer's flame
+# schema so the lingpet fire patches get the same busy multi-layer flickering
+# flames as the molotov item (not just the shader host).
+func _convert_zone_flames(flames: Array) -> Array:
+	var out: Array = []
+	for flame_value in flames:
+		if not (flame_value is Dictionary):
+			continue
+		var flame: Dictionary = flame_value as Dictionary
+		out.append({
+			"position": flame.get("pos", Vector2.ZERO),
+			"size": float(flame.get("size", 8.0)),
+			"lifetime_frames": float(flame.get("life", 0.0)) * 60.0,
+			"max_lifetime_frames": maxf(1.0, float(flame.get("max_life", 0.66)) * 60.0),
+			"color_phase": float(flame.get("phase", 0.0)),
+		})
+	return out
 
 
 func _draw_breath_jet(canvas: CanvasItem, shake_offset: Vector2, time_sec: float) -> void:

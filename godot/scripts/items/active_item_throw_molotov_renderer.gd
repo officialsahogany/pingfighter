@@ -4,6 +4,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MolotovFxHost := preload("res://scripts/items/active_item_molotov_fx_host.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 
 const MOLOTOV_ICON_PATH := ActiveItemCatalog.MOLOTOV_ICON_PATH
 const MOLOTOV_DRAW_SIZE := 36.0
@@ -32,6 +33,7 @@ var _molotov_view_layout: Object = null
 var _molotov_view_cached_viewport_size: Vector2 = Vector2.ZERO
 var _molotov_view_cached_game_offset: Vector2 = Vector2.ZERO
 var _molotov_view_cached_render_scale: float = 1.0
+var _flame_additive_material: CanvasItemMaterial = null
 
 # Host-node name prefix. Configurable so other fire-zone owners (e.g. the Red
 # Dragon lingpet breath) can reuse this exact molotov fire-zone effect with a
@@ -53,6 +55,7 @@ func deactivate_all_hosts() -> void:
 
 func prewarm_assets() -> void:
 	MolotovFxHost.prewarm_assets()
+	ImpactFlareTextureCache.prewarm()
 	_touch_texture(get_molotov_icon_texture())
 	_get_filled_ellipse_mesh()
 
@@ -130,11 +133,17 @@ func draw_molotov_fire_zones(canvas: CanvasItem, fire_zones: Array, shake_offset
 				)
 
 		var flames: Array = zone.get("flames", [])
-		var flame_alpha_scale: float = 0.55 if has_host else 1.0
-		for flame_value in flames:
-			if not (flame_value is Dictionary):
-				continue
-			_draw_molotov_flame(canvas, flame_value, shake_offset, life_ratio * flame_alpha_scale)
+		if not flames.is_empty():
+			# Busy multi-layer flickering flames (ported from the original
+			# pingfighter "고퀄리티 드래곤 브레스" effect) draw additively so they stack
+			# as bright living fire over the shader floor/dome host.
+			var flame_alpha_scale: float = 0.72 if has_host else 1.0
+			var prev_flame_material: Material = canvas.material
+			canvas.material = _get_flame_additive_material()
+			for flame_value in flames:
+				if flame_value is Dictionary:
+					_draw_molotov_flame(canvas, flame_value, shake_offset, life_ratio * flame_alpha_scale)
+			canvas.material = prev_flame_material
 
 
 func draw_molotov_fallback(canvas: CanvasItem, center: Vector2, angle_degrees: float, scale: float) -> void:
@@ -353,23 +362,68 @@ func _get_molotov_playfield_layout(canvas: CanvasItem) -> Dictionary:
 	}
 
 
+func _get_flame_additive_material() -> CanvasItemMaterial:
+	if _flame_additive_material == null:
+		_flame_additive_material = CanvasItemMaterial.new()
+		_flame_additive_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	return _flame_additive_material
+
+
+# Single flickering flame tongue: four soft additive layers (dark-red smoke ->
+# red/orange -> orange/yellow -> yellow-white core) plus a rising trail and the
+# occasional spark -- the original pingfighter multi-layer flame look. Drawn with
+# the additive material already bound by the caller.
 func _draw_molotov_flame(canvas: CanvasItem, flame: Dictionary, shake_offset: Vector2, zone_life: float) -> void:
 	var center: Vector2 = _get_vector2(flame, "position", Vector2.ZERO) + shake_offset
 	var size: float = max(2.0, float(flame.get("size", 8.0)))
 	var lifetime: float = max(0.0, float(flame.get("lifetime_frames", 20.0)))
 	var max_lifetime: float = max(1.0, float(flame.get("max_lifetime_frames", 40.0)))
-	var life: float = clamp(lifetime / max_lifetime, 0.0, 1.0) * zone_life
-	if life <= MOLOTOV_FIRE_ALPHA_CUTOFF:
+	var fl_ratio: float = clamp(lifetime / max_lifetime, 0.0, 1.0)
+	var draw_life: float = fl_ratio * zone_life
+	if draw_life <= MOLOTOV_FIRE_ALPHA_CUTOFF:
 		return
-	for layer in range(2):
-		var layer_ratio: float = float(layer)
-		var layer_size: float = max(2.0, size * (1.0 - layer_ratio * 0.5))
-		var color: Color
-		if layer == 0:
-			color = Color(160.0 / 255.0, 25.0 / 255.0, 5.0 / 255.0, 0.34 * life)
-		else:
-			color = Color(1.0, 245.0 / 255.0, 160.0 / 255.0, 0.70 * life)
-		canvas.draw_circle(center + Vector2(0.0, -layer_ratio * size * 0.25), layer_size, color)
+	var cp: float = float(flame.get("color_phase", 0.0))
+	var glow: Texture2D = ImpactFlareTextureCache.get_glow_texture()
+	if glow == null:
+		return
+	for layer in range(4):
+		var lr: float = float(layer) / 3.0
+		var layer_size: float = max(2.0, size * (1.0 - lr * 0.45))
+		var col: Color = _flame_layer_color(layer, cp, draw_life)
+		var wobble := Vector2(
+			sin(cp * 8.0 + float(layer)) * (1.5 + float(layer) * 0.5),
+			cos(cp * 6.0 + float(layer) * 0.5) * (1.0 + float(layer) * 0.3) - float(layer) * 2.0
+		)
+		_draw_flame_glow(canvas, glow, center + wobble, layer_size * 2.3, col)
+	# Rising trail above larger, younger flames.
+	if fl_ratio > 0.4 and size > 8.0:
+		for t in range(2):
+			var trail_size: float = max(2.0, size * 0.28 * (1.0 - float(t) * 0.3))
+			var trail_alpha: float = 0.22 * draw_life * (1.0 - float(t) * 0.4)
+			_draw_flame_glow(canvas, glow, center + Vector2(0.0, -size - float(t) * 6.0), trail_size * 2.4, Color(1.0, 0.70, 0.31, trail_alpha))
+	# Occasional bright spark.
+	if randf() < 0.10 * fl_ratio:
+		var spark_off := Vector2(randf_range(-size, size), randf_range(-size * 1.5, size * 0.5))
+		_draw_flame_glow(canvas, glow, center + spark_off, randf_range(3.0, 5.0), Color(1.0, 0.98, 0.86, 0.85 * draw_life))
+
+
+func _flame_layer_color(layer: int, cp: float, life: float) -> Color:
+	match layer:
+		0:
+			return Color(clampf((120.0 + 40.0 * sin(cp * 3.0)) / 255.0, 0.0, 1.0), 30.0 / 255.0, 10.0 / 255.0, clampf(0.31 * life, 0.0, 1.0))
+		1:
+			return Color(clampf((220.0 + 35.0 * sin(cp * 4.0)) / 255.0, 0.0, 1.0), clampf((60.0 + 40.0 * sin(cp * 5.0)) / 255.0, 0.0, 1.0), 10.0 / 255.0, clampf(0.55 * life, 0.0, 1.0))
+		2:
+			return Color(1.0, clampf((150.0 + 60.0 * sin(cp * 4.0)) / 255.0, 0.0, 1.0), clampf((30.0 + 30.0 * sin(cp * 6.0)) / 255.0, 0.0, 1.0), clampf(0.70 * life, 0.0, 1.0))
+		_:
+			return Color(1.0, clampf((230.0 + 25.0 * sin(cp * 3.0)) / 255.0, 0.0, 1.0), clampf((150.0 + 80.0 * sin(cp * 5.0)) / 255.0, 0.0, 1.0), clampf(0.78 * life, 0.0, 1.0))
+
+
+func _draw_flame_glow(canvas: CanvasItem, glow: Texture2D, center: Vector2, size_px: float, color: Color) -> void:
+	if size_px <= 0.0 or color.a <= 0.0:
+		return
+	var s := Vector2(size_px, size_px)
+	canvas.draw_texture_rect(glow, Rect2(center - s * 0.5, s), false, color)
 
 
 func _draw_projectile_trail_with_hot_core(
