@@ -822,21 +822,10 @@ func set_starpoint_choice_gate_active(active: bool, box_index: int = -1) -> void
 
 
 func append_box_resolved_perk_reward(box_index: int, perk_reward: Dictionary) -> void:
-	if box_index < 0 or box_index >= _boxes.size() or perk_reward.is_empty():
+	var result: Dictionary = StageClearResultBoxData.append_resolved_perk_reward(_boxes, box_index, perk_reward)
+	if not bool(result.get("updated", false)):
 		return
-	var box: Dictionary = _boxes[box_index] if _boxes[box_index] is Dictionary else {}
-	var reward: Dictionary = box.get("reward", {}) if box.get("reward", {}) is Dictionary else {}
-	if reward.is_empty() or str(reward.get("type", "")) != "starpoint":
-		return
-	var resolved_value: Variant = reward.get("resolved_perk_rewards", [])
-	var resolved: Array = resolved_value if resolved_value is Array else []
-	var reward_copy: Dictionary = perk_reward.duplicate(true)
-	reward_copy["source"] = "box_starpoint_choice"
-	resolved.append(reward_copy)
-	reward["resolved_perk_rewards"] = resolved
-	reward["resolved_perk_count"] = resolved.size()
-	box["reward"] = reward
-	_boxes[box_index] = box
+	_boxes = result.get("boxes", _boxes)
 	queue_redraw()
 
 

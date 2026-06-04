@@ -1466,7 +1466,8 @@ This section is intentionally long; use search to find the nearest owner.
   materialization, legacy mythic box-kind normalization, box display labels,
   display-label extraction for interaction status, and resolved reward-copy
   extraction from opened boxes. It also owns reward-roll fallback selection and
-  box opening / reward-emerge state transitions. The scene still owns reward
+  box opening / reward-emerge state transitions, plus appending selected
+  starpoint perk rewards back into box reward data. The scene still owns reward
   callback wiring, audio side effects, immediate reward grants, drawing, hover /
   click input, and the public result-scene box constants kept as compatibility
   aliases.

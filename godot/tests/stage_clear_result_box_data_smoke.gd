@@ -8,6 +8,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_resolved_rewards()
 	_verify_box_opening_state()
+	_verify_resolved_perk_append()
 	_verify_scene_delegates_box_data()
 
 	if _failures.is_empty():
@@ -88,6 +89,23 @@ func _roll_callback(_kind: String, reward: Dictionary) -> Dictionary:
 	return reward
 
 
+func _verify_resolved_perk_append() -> void:
+	var boxes: Array = [
+		{"kind": "normal", "state": "opened", "reward": {"type": "starpoint", "amount": 2}},
+		{"kind": "normal", "state": "opened", "reward": {"type": "active", "id": "drive"}},
+	]
+	var result: Dictionary = StageClearResultBoxData.append_resolved_perk_reward(boxes, 0, {"perk_id": "dash"})
+	_expect(bool(result.get("updated", false)), "box data should append resolved perk rewards to starpoint boxes")
+	var updated_boxes: Array = result.get("boxes", [])
+	var reward: Dictionary = (updated_boxes[0] as Dictionary).get("reward", {}) as Dictionary
+	var resolved: Array = reward.get("resolved_perk_rewards", []) as Array
+	_expect(resolved.size() == 1, "box data should add one resolved perk reward")
+	_expect(str((resolved[0] as Dictionary).get("source", "")) == "box_starpoint_choice", "box data should tag box starpoint choices")
+	_expect(int(reward.get("resolved_perk_count", 0)) == 1, "box data should maintain resolved perk count")
+	_expect(not bool(StageClearResultBoxData.append_resolved_perk_reward(boxes, 1, {"perk_id": "dash"}).get("updated", true)), "box data should ignore non-starpoint rewards")
+	_expect(not bool(StageClearResultBoxData.append_resolved_perk_reward(boxes, 0, {}).get("updated", true)), "box data should ignore empty resolved perk rewards")
+
+
 func _verify_scene_delegates_box_data() -> void:
 	var box_data_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_data.gd")
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
@@ -95,6 +113,7 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(scene_source.find("StageClearResultBoxData.get_resolved_rewards") >= 0, "result scene should delegate resolved reward extraction")
 	_expect(scene_source.find("StageClearResultBoxData.start_opening_box") >= 0, "result scene should delegate opening box setup")
 	_expect(scene_source.find("StageClearResultBoxData.update_box_opening_state") >= 0, "result scene should delegate box opening animation state")
+	_expect(scene_source.find("StageClearResultBoxData.append_resolved_perk_reward") >= 0, "result scene should delegate box resolved perk appends")
 	_expect(scene_source.find("func _roll_reward") < 0, "result scene should not keep local reward rolling")
 	_expect(scene_source.find("reward_copy[\"box_kind\"]") < 0, "result scene should not keep resolved reward copy assembly")
 

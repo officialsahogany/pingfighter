@@ -177,6 +177,31 @@ static func update_box_opening_state(
 	}
 
 
+static func append_resolved_perk_reward(boxes: Array, index: int, perk_reward: Dictionary) -> Dictionary:
+	if index < 0 or index >= boxes.size() or perk_reward.is_empty():
+		return {"updated": false, "boxes": boxes}
+	var box: Dictionary = boxes[index] if boxes[index] is Dictionary else {}
+	var reward_value: Variant = box.get("reward", {})
+	if not (reward_value is Dictionary):
+		return {"updated": false, "boxes": boxes}
+	var reward: Dictionary = reward_value
+	if reward.is_empty() or str(reward.get("type", "")) != "starpoint":
+		return {"updated": false, "boxes": boxes}
+	var updated_boxes: Array = boxes.duplicate(false)
+	var updated_box: Dictionary = box.duplicate(true)
+	var updated_reward: Dictionary = updated_box.get("reward", {}) if updated_box.get("reward", {}) is Dictionary else {}
+	var resolved_value: Variant = updated_reward.get("resolved_perk_rewards", [])
+	var resolved: Array = resolved_value.duplicate(false) if resolved_value is Array else []
+	var reward_copy: Dictionary = perk_reward.duplicate(true)
+	reward_copy["source"] = "box_starpoint_choice"
+	resolved.append(reward_copy)
+	updated_reward["resolved_perk_rewards"] = resolved
+	updated_reward["resolved_perk_count"] = resolved.size()
+	updated_box["reward"] = updated_reward
+	updated_boxes[index] = updated_box
+	return {"updated": true, "boxes": updated_boxes}
+
+
 static func get_resolved_rewards(boxes: Array) -> Array:
 	var rewards: Array = []
 	for box_value in boxes:
