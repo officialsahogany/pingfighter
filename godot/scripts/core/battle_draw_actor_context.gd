@@ -45,6 +45,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var is_commando: bool = character_type == "soldier"
 	var is_smasher: bool = character_type == "smasher"
 	var is_optimus: bool = character_type == "optimus"
+	var is_blacksmith: bool = character_type == "blacksmith"
 	var animation_state = deps.get("animation_state", null)
 	var animation_context: Dictionary = animation_state.get_draw_context() if animation_state != null else {}
 	var boss_ai_state = deps.get("boss_ai_state", null)
@@ -175,9 +176,24 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		player_sprite_texture = _get_value(textures, "viper_player_sprite_texture")
 	elif is_commando:
 		player_sprite_texture = _get_value(textures, "commando_player_walk_back_sheet")
-	var player_walk_left_texture: Variant = _get_value(textures, "player_walk_left_texture") if use_smasher_textures else (_get_value(textures, "commando_player_walk_left_sheet") if is_commando else (_get_value(textures, "viper_player_walk_left_sheet") if is_viper else (_get_value(textures, "optimus_player_walk_left_sheet") if is_optimus else null)))
-	var player_walk_right_texture: Variant = _get_value(textures, "player_walk_right_texture") if use_smasher_textures else (_get_value(textures, "commando_player_walk_right_sheet") if is_commando else (_get_value(textures, "viper_player_walk_right_sheet") if is_viper else (_get_value(textures, "optimus_player_walk_right_sheet") if is_optimus else null)))
-	var has_player_directional_walk_sheet: bool = (use_smasher_textures or is_commando or is_viper or is_optimus) and (
+	elif is_blacksmith:
+		player_sprite_texture = _get_value(textures, "blacksmith_player_idle_sheet")
+	var player_walk_left_texture: Variant = _get_value(textures, "player_walk_left_texture") if use_smasher_textures else null
+	var player_walk_right_texture: Variant = _get_value(textures, "player_walk_right_texture") if use_smasher_textures else null
+	if not use_smasher_textures:
+		if is_commando:
+			player_walk_left_texture = _get_value(textures, "commando_player_walk_left_sheet")
+			player_walk_right_texture = _get_value(textures, "commando_player_walk_right_sheet")
+		elif is_viper:
+			player_walk_left_texture = _get_value(textures, "viper_player_walk_left_sheet")
+			player_walk_right_texture = _get_value(textures, "viper_player_walk_right_sheet")
+		elif is_optimus:
+			player_walk_left_texture = _get_value(textures, "optimus_player_walk_left_sheet")
+			player_walk_right_texture = _get_value(textures, "optimus_player_walk_right_sheet")
+		elif is_blacksmith:
+			player_walk_left_texture = _get_value(textures, "blacksmith_player_walk_left_sheet")
+			player_walk_right_texture = _get_value(textures, "blacksmith_player_walk_right_sheet")
+	var has_player_directional_walk_sheet: bool = (use_smasher_textures or is_commando or is_viper or is_optimus or is_blacksmith) and (
 		player_walk_left_texture is Texture2D
 		or player_walk_right_texture is Texture2D
 	)
@@ -236,7 +252,16 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 			commando_pistol_fire_frame = clamp(4 + int(post_progress * 4.0), 4, 7)
 	_perf_end(perf_logger, "context.actor.textures.commando", texture_sample_start)
 	texture_sample_start = _perf_begin(perf_logger)
-	var player_idle_sheet: Variant = _get_value(textures, "player_idle_back_sheet") if use_smasher_textures else (_get_value(textures, "commando_player_idle_sheet") if is_commando else (_get_value(textures, "viper_player_idle_sheet") if is_viper else (_get_value(textures, "optimus_player_idle_sheet") if is_optimus else null)))
+	var player_idle_sheet: Variant = _get_value(textures, "player_idle_back_sheet") if use_smasher_textures else null
+	if not use_smasher_textures:
+		if is_commando:
+			player_idle_sheet = _get_value(textures, "commando_player_idle_sheet")
+		elif is_viper:
+			player_idle_sheet = _get_value(textures, "viper_player_idle_sheet")
+		elif is_optimus:
+			player_idle_sheet = _get_value(textures, "optimus_player_idle_sheet")
+		elif is_blacksmith:
+			player_idle_sheet = _get_value(textures, "blacksmith_player_idle_sheet")
 	var has_player_idle_sheet: bool = player_idle_sheet is Texture2D
 	var player_victory_sheet: Variant = _get_value(textures, "player_victory_sheet") if use_smasher_textures or is_viper else null
 	var has_player_victory_sheet: bool = player_victory_sheet is Texture2D

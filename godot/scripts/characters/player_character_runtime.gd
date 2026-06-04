@@ -187,7 +187,7 @@ func get_player_render_context(character_type: Variant) -> Dictionary:
 		}
 	if is_blacksmith(character_type):
 		return {
-			"use_smasher_sprite_textures": true,
+			"use_smasher_sprite_textures": false,
 			"texture_prefix": "blacksmith",
 			"player_color": Color(0.72, 0.48, 0.18),
 			"player_color_light": Color(1.0, 0.78, 0.36),

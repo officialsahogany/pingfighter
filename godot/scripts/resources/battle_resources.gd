@@ -125,6 +125,10 @@ const DEFAULT_CHARACTER_TYPE := "smasher"
 const VIPER_CHARACTER_TYPE := "viper"
 const COMMANDO_CHARACTER_TYPE := "soldier"
 const OPTIMUS_CHARACTER_TYPE := "optimus"
+const BLACKSMITH_CHARACTER_TYPE := "blacksmith"
+const BLACKSMITH_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_idle_back_autosprite_v3_custom_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_walk_left_25deg_autosprite_v1_mirror_from_right_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_walk_right_25deg_autosprite_v1_4x2_160_clean.png"
 
 # Smasher directional attack sheets: 4x4 grids, 16 frames, cell 160x160.
 # Authored from the current subculture left/right walk sprites so colors,
@@ -706,6 +710,8 @@ func _load_player_textures(character_type: String, include_all_characters: bool,
 		_load_commando_player_textures()
 	if include_all_characters or character_type == OPTIMUS_CHARACTER_TYPE:
 		_load_optimus_player_textures(character_type == OPTIMUS_CHARACTER_TYPE)
+	if include_all_characters or character_type == BLACKSMITH_CHARACTER_TYPE:
+		_load_blacksmith_player_textures(character_type == BLACKSMITH_CHARACTER_TYPE)
 
 
 func _get_player_texture_step_count(character_type: String, include_result_sheets: bool) -> int:
@@ -736,6 +742,8 @@ func _get_player_texture_specs(character_type: String, include_result_sheets: bo
 			return _get_commando_player_texture_specs()
 		OPTIMUS_CHARACTER_TYPE:
 			return _get_optimus_player_texture_specs(true)
+		BLACKSMITH_CHARACTER_TYPE:
+			return _get_blacksmith_player_texture_specs(true)
 	return _get_smasher_player_texture_specs(include_result_sheets)
 
 
@@ -849,6 +857,17 @@ func _get_optimus_player_texture_specs(clear_generic_player_fallbacks: bool) -> 
 	return specs
 
 
+func _get_blacksmith_player_texture_specs(clear_generic_player_fallbacks: bool) -> Array:
+	var specs := [
+		_texture_spec(["blacksmith_player_idle_sheet"], BLACKSMITH_PLAYER_IDLE_SHEET_PATH),
+		_texture_spec(["blacksmith_player_walk_left_sheet"], BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH),
+		_texture_spec(["blacksmith_player_walk_right_sheet"], BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH),
+	]
+	if clear_generic_player_fallbacks:
+		specs.append(_clear_smasher_player_fallback_spec())
+	return specs
+
+
 func _load_smasher_player_textures(include_result_sheets: bool) -> void:
 	_resource_cache["player_sprite_texture"] = _load_texture_resource(PLAYER_SPRITE_PATH)
 	_resource_cache["player_walk_left_texture"] = _load_texture_resource(PLAYER_WALK_LEFT_SPRITE_PATH)
@@ -946,6 +965,14 @@ func _load_optimus_player_textures(clear_generic_player_fallbacks: bool) -> void
 	_resource_cache["optimus_overlay_back"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_BACK_PATH)
 	_resource_cache["optimus_overlay_accessory"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_ACCESSORY_PATH)
 	_resource_cache["optimus_overlay_outfit_accent"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH)
+	if clear_generic_player_fallbacks:
+		_clear_smasher_player_fallback_textures()
+
+
+func _load_blacksmith_player_textures(clear_generic_player_fallbacks: bool) -> void:
+	_resource_cache["blacksmith_player_idle_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_IDLE_SHEET_PATH)
+	_resource_cache["blacksmith_player_walk_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH)
+	_resource_cache["blacksmith_player_walk_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH)
 	if clear_generic_player_fallbacks:
 		_clear_smasher_player_fallback_textures()
 
@@ -1364,6 +1391,8 @@ func _normalize_character_type(value: Variant) -> String:
 		return COMMANDO_CHARACTER_TYPE
 	if normalized == OPTIMUS_CHARACTER_TYPE or normalized == "io":
 		return OPTIMUS_CHARACTER_TYPE
+	if normalized == BLACKSMITH_CHARACTER_TYPE or normalized == "baltor" or normalized == "kohaku":
+		return BLACKSMITH_CHARACTER_TYPE
 	if normalized == VIPER_CHARACTER_TYPE:
 		return VIPER_CHARACTER_TYPE
 	return DEFAULT_CHARACTER_TYPE

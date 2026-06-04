@@ -18,16 +18,19 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 	var normalized_character: String = _normalize_character_type(character_type)
 	var is_viper: bool = normalized_character == "viper"
 	var is_commando: bool = normalized_character == "soldier"
-	var has_directional_attack_sheet: bool = not is_commando and (
+	var is_blacksmith: bool = normalized_character == "blacksmith"
+	var has_directional_attack_sheet: bool = not is_commando and not is_blacksmith and (
 		(is_viper and (_has_texture(textures, "viper_player_attack_left_sheet") or _has_texture(textures, "viper_player_attack_right_sheet")))
 		or (not is_viper and (_has_texture(textures, "player_attack_left_sheet") or _has_texture(textures, "player_attack_right_sheet")))
 	)
-	var has_legacy_attack_sheet: bool = not is_viper and not is_commando and _has_texture(textures, "player_attack_sheet")
+	var has_legacy_attack_sheet: bool = not is_viper and not is_commando and not is_blacksmith and _has_texture(textures, "player_attack_sheet")
 	var has_commando_attack_sheet: bool = is_commando and _has_texture(textures, "commando_player_attack_sheet")
 	var has_attack_sheet: bool = has_directional_attack_sheet or has_legacy_attack_sheet or has_commando_attack_sheet
 	var has_directional_walk_sheet := false
 	if is_commando:
 		has_directional_walk_sheet = _has_texture(textures, "commando_player_walk_left_sheet") or _has_texture(textures, "commando_player_walk_right_sheet")
+	elif is_blacksmith:
+		has_directional_walk_sheet = _has_texture(textures, "blacksmith_player_walk_left_sheet") or _has_texture(textures, "blacksmith_player_walk_right_sheet")
 	elif is_viper:
 		has_directional_walk_sheet = _has_texture(textures, "viper_player_walk_left_sheet") or _has_texture(textures, "viper_player_walk_right_sheet")
 	else:
@@ -37,15 +40,19 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		has_player_sprite = _has_texture(textures, "viper_player_sprite_texture")
 	elif is_commando:
 		has_player_sprite = _has_texture(textures, "commando_player_walk_back_sheet") or has_directional_walk_sheet
+	elif is_blacksmith:
+		has_player_sprite = _has_texture(textures, "blacksmith_player_idle_sheet") or has_directional_walk_sheet
 	else:
 		has_player_sprite = _has_texture(textures, "player_sprite_texture") or has_directional_walk_sheet
-	var has_smasher_idle_sheet: bool = not is_viper and not is_commando and _has_texture(textures, "player_idle_back_sheet")
+	var has_smasher_idle_sheet: bool = not is_viper and not is_commando and not is_blacksmith and _has_texture(textures, "player_idle_back_sheet")
 	var has_commando_idle_sheet: bool = is_commando and _has_texture(textures, "commando_player_idle_sheet")
 	var has_viper_idle_sheet: bool = is_viper and _has_texture(textures, "viper_player_idle_sheet")
+	var has_blacksmith_idle_sheet: bool = is_blacksmith and _has_texture(textures, "blacksmith_player_idle_sheet")
 	var has_idle_sprite: bool = (has_viper_idle_sheet or _has_texture(textures, "viper_player_idle_sprite_texture")) if is_viper else (
 		has_commando_idle_sheet if is_commando else (
+		has_blacksmith_idle_sheet if is_blacksmith else (
 		has_smasher_idle_sheet or _has_texture(textures, "player_idle_sprite_texture")
-	))
+	)))
 	var has_dalji_walk_sheet: bool = (
 		_has_texture(textures, "boss_walk_left_sheet")
 		or _has_texture(textures, "boss_walk_right_sheet")
@@ -69,7 +76,7 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		"player_has_idle_sprite": has_idle_sprite,
 		"player_sprite_frame_count": sprite_frame_count,
 		"player_sprite_animation_speed": sprite_frame_speed,
-		"player_idle_frame_count": COMMANDO_IDLE_FRAME_COUNT if has_commando_idle_sheet else (SMASHER_IDLE_FRAME_COUNT if has_smasher_idle_sheet else 8),
+		"player_idle_frame_count": COMMANDO_IDLE_FRAME_COUNT if has_commando_idle_sheet else (SMASHER_IDLE_FRAME_COUNT if has_smasher_idle_sheet or has_blacksmith_idle_sheet else 8),
 		"player_idle_animation_speed": 0.13 if is_viper else 0.15,
 		"player_has_attack_sheet": has_attack_sheet,
 		"player_hit_frame_count": (8 if is_viper else 16) if has_directional_attack_sheet else (8 if has_legacy_attack_sheet else (8 if has_commando_attack_sheet else 4)),
