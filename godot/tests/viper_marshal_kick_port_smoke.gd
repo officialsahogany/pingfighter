@@ -179,6 +179,7 @@ func _init() -> void:
 	_test_phantom_kick_unlock_catalog_wiring()
 	_test_phantom_kick_speed_limit_lifecycle()
 	_test_shadow_chain_marshal_prep_retime()
+	_test_phantom_chain_marshal_prep_retime()
 
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
@@ -437,6 +438,18 @@ func _test_shadow_chain_marshal_prep_retime() -> void:
 	_expect(normal_runtime != null and int(normal_runtime.marshal_phase) == 0, "non-shadow marshal wall-flight prep should keep the original longer timing")
 
 
+func _test_phantom_chain_marshal_prep_retime() -> void:
+	var phantom_setup: Dictionary = _start_phantom_prep_case(false)
+	_advance_marshal_prep_frames(phantom_setup, 16)
+	var phantom_runtime: Object = phantom_setup.get("runtime", null)
+	_expect(phantom_runtime != null and int(phantom_runtime.marshal_phase) == 1, "phantom chained marshal wall-flight prep should finish in 16 frames after the extra 20 percent cut")
+
+	var normal_setup: Dictionary = _start_marshal_prep_case(false)
+	_advance_marshal_prep_frames(normal_setup, 16)
+	var normal_runtime: Object = normal_setup.get("runtime", null)
+	_expect(normal_runtime != null and int(normal_runtime.marshal_phase) == 0, "normal marshal wall-flight prep should stay slower than the phantom chain")
+
+
 func _start_marshal_prep_case(from_shadow_step_chain: bool) -> Dictionary:
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
@@ -481,6 +494,58 @@ func _start_marshal_prep_case(from_shadow_step_chain: bool) -> Dictionary:
 	input.snapshot["down_pressed"] = false
 	_expect(bool(result.get("activated", false)), "marshal prep retime setup should activate marshal kick")
 	_expect(bool(runtime.marshal_from_shadow_step_chain) == from_shadow_step_chain, "marshal prep retime setup should preserve the shadow-chain source flag")
+	return {
+		"runtime": runtime,
+		"input": input,
+		"deps": deps,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
+
+
+func _start_phantom_prep_case(from_shadow_step_chain: bool) -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var feedback := FakeFeedback.new()
+	var orb := FakeOrbHud.new()
+	var perk_state := FakePerkState.new()
+	var deps := {
+		"input_reader": input,
+		"skill_config": skill_config,
+		"skill_state": skill_state,
+		"audio": audio,
+		"feedback": feedback,
+		"orb_hud_state": orb,
+		"runtime_perk_state": perk_state,
+	}
+	var config := {
+		"selected_character_type": "viper",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_floor_y": 680.0,
+		"ball_size": 28.6,
+		"boss_pos": Vector2(380.0, 45.0),
+		"boss_paddle_width": 100.0,
+		"ball_pos": Vector2(640.0, 350.0),
+		"ball_vel": Vector2(0.0, -8.0),
+		"ball_impact_boost": 1.0,
+	}
+	var player_pos := Vector2(302.5, 680.0)
+	var gauge := 200.0
+	runtime.shadow_was_airborne = true
+	runtime.marshal_from_shadow_step_chain = from_shadow_step_chain
+	var result: Dictionary = runtime._start_marshal_kick("phantom_kick", player_pos, gauge, config, deps)
+	_expect(bool(result.get("activated", false)), "phantom prep retime setup should activate phantom kick")
+	_expect(bool(runtime.marshal_is_double), "phantom prep retime setup should start the double marshal runtime")
 	return {
 		"runtime": runtime,
 		"input": input,

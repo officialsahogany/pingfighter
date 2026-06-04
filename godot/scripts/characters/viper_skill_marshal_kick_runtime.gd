@@ -208,7 +208,12 @@ static func get_duration_frames(runtime: Object, base_frames: float, deps: Dicti
 
 
 static func get_prep_duration_frames(runtime: Object, base_frames: float, deps: Dictionary, double_fast: bool, constants: Dictionary) -> float:
-	return max(1.0, get_duration_frames(runtime, base_frames, deps, double_fast, constants) * (float(constants.get("shadow_chain_prep_mult", 0.8)) if runtime.marshal_from_shadow_step_chain else 1.0))
+	var chain_mult := 1.0
+	if runtime.marshal_from_shadow_step_chain:
+		chain_mult *= float(constants.get("shadow_chain_prep_mult", 0.8))
+	if runtime.marshal_is_double:
+		chain_mult *= float(constants.get("phantom_chain_prep_mult", 0.8))
+	return max(1.0, get_duration_frames(runtime, base_frames, deps, double_fast, constants) * chain_mult)
 
 
 static func get_prep_duration_mult(runtime: Object, deps: Dictionary, constants: Dictionary) -> float:
