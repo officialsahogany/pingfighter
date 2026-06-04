@@ -1203,9 +1203,23 @@ func _update_kuromi(delta: float, context: Dictionary, deps: Dictionary, result:
 	var ball_rect := Rect2(ball_pos - Vector2(ball_size * 0.5, ball_size * 0.5), Vector2(ball_size, ball_size))
 	var ball_in_area: bool = kuromi_rect.intersects(ball_rect)
 	if ball_in_area and not kuromi_ball_entered and rng.randf() < KUROMI_EAT_CHANCE:
+		if _should_defer_kuromi_eating_for_ball_owner(context, result, deps):
+			kuromi_ball_entered = ball_in_area
+			return
 		_start_kuromi_eating(ball_pos, deps)
 		result["stage3_kuromi_ball_hidden"] = true
 	kuromi_ball_entered = ball_in_area
+
+
+func _should_defer_kuromi_eating_for_ball_owner(context: Dictionary, result: Dictionary, deps: Dictionary) -> bool:
+	if bool(result.get("skip_ball_motion_step", context.get("skip_ball_motion_step", false))):
+		return true
+	var viper_skill_runtime: Object = deps.get("viper_skill_runtime", null)
+	if viper_skill_runtime == null or not viper_skill_runtime.has_method("get_snapshot"):
+		return false
+	var viper_snapshot: Dictionary = viper_skill_runtime.get_snapshot()
+	var chaos_state: String = str(viper_snapshot.get("chaos_state", "idle"))
+	return chaos_state != "" and chaos_state != "idle"
 
 
 func _start_kuromi_eating(ball_pos: Vector2, deps: Dictionary) -> void:
@@ -1291,10 +1305,10 @@ func _update_kuromi_eating(delta: float, deps: Dictionary, result: Dictionary) -
 		if rng.randf() < min(1.0, 0.9 * fps_scale):
 			_spawn_kuromi_mouth_particle(Vector2(WIDTH * 0.5, HEIGHT * 0.5), true)
 	else:
-		_finish_kuromi_eating(result)
+		_finish_kuromi_eating(result, deps)
 
 
-func _finish_kuromi_eating(result: Dictionary) -> void:
+func _finish_kuromi_eating(result: Dictionary, deps: Dictionary = {}) -> void:
 	var center := Vector2(WIDTH * 0.5, HEIGHT * 0.5)
 	kuromi_eating_active = false
 	kuromi_eating_timer = 0.0
@@ -1306,7 +1320,9 @@ func _finish_kuromi_eating(result: Dictionary) -> void:
 	result["stage3_kuromi_ball_hidden"] = false
 	result["ball_pos"] = center
 	result["ball_vel"] = _get_kuromi_spit_velocity()
+	result["skip_ball_motion_step"] = false
 	result["ball_impact_boost"] = 1.0
+	_release_external_ball_owner_for_kuromi_spit(result, deps)
 	kuromi_spit_trail.clear()
 	kuromi_spit_trail_phase = 0.0
 	kuromi_spit_trail_frame = 0.0
@@ -1314,6 +1330,18 @@ func _finish_kuromi_eating(result: Dictionary) -> void:
 	for _idx in range(25):
 		_spawn_kuromi_mouth_particle(center, true)
 	_create_prism_burst(center)
+
+
+func _release_external_ball_owner_for_kuromi_spit(result: Dictionary, deps: Dictionary) -> void:
+	var viper_skill_runtime: Object = deps.get("viper_skill_runtime", null)
+	if viper_skill_runtime == null or not viper_skill_runtime.has_method("release_chaos_blackhole_from_hit"):
+		return
+	var release_context := {
+		"ball_pos": _as_vector2(result.get("ball_pos", Vector2(WIDTH * 0.5, HEIGHT * 0.5)), Vector2(WIDTH * 0.5, HEIGHT * 0.5)),
+		"ball_vel": _as_vector2(result.get("ball_vel", Vector2.ZERO), Vector2.ZERO),
+	}
+	if bool(viper_skill_runtime.release_chaos_blackhole_from_hit(deps, release_context)):
+		result["skip_ball_motion_step"] = false
 
 
 func _ease_out_elastic(t: float) -> float:

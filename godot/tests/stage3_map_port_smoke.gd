@@ -66,6 +66,16 @@ class FakeOwner:
 		redraw_count += 1
 
 
+class FakeChaosRuntime:
+	var release_count := 0
+	var last_release_context := {}
+
+	func release_chaos_blackhole_from_hit(_deps: Dictionary = {}, context: Dictionary = {}) -> bool:
+		release_count += 1
+		last_release_context = context.duplicate(true)
+		return true
+
+
 class Stage3DrawProbe:
 	extends Node2D
 
@@ -427,12 +437,18 @@ func _init() -> void:
 	eating_state.set("kuromi_eating_timer", 189.0)
 	eating_state.set("kuromi_has_spit_angle", true)
 	eating_state.set("kuromi_spit_angle", -PI / 4.0)
-	eating_result = eating_state.update(1.0 / 60.0, skill_context, {})
+	var chaos_runtime := FakeChaosRuntime.new()
+	var eating_release_context: Dictionary = skill_context.duplicate(true)
+	eating_release_context["skip_ball_motion_step"] = true
+	eating_result = eating_state.update(1.0 / 60.0, eating_release_context, {"viper_skill_runtime": chaos_runtime})
 	_expect(not bool(eating_result.get("stage3_kuromi_ball_hidden", true)), "Stage 3 Kuromi should reveal the ball after the 190-frame eat sequence")
 	_expect(_as_vector2(eating_result.get("ball_pos", Vector2.ZERO), Vector2.ZERO).distance_to(Vector2(380.0, 375.0)) <= 0.001, "Stage 3 Kuromi should spit the ball from the original center point")
 	var spit_velocity: Vector2 = _as_vector2(eating_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 	_expect(spit_velocity.length() >= 24.0 and spit_velocity.length() <= 36.0, "Stage 3 Kuromi spit velocity should use the original 8-12 speed tripled range")
 	_expect(absf(spit_velocity.angle()) >= PI * 0.083, "Stage 3 Kuromi spit angle should keep the original horizontal exclusion")
+	_expect(not bool(eating_result.get("skip_ball_motion_step", true)), "Stage 3 Kuromi spit should clear stale held-ball motion skip")
+	_expect(chaos_runtime.release_count == 1, "Stage 3 Kuromi spit should release overlapping Chaos Spear ball ownership")
+	_expect(_as_vector2(chaos_runtime.last_release_context.get("ball_vel", Vector2.ZERO), Vector2.ZERO).length() > 0.0, "Stage 3 Kuromi should pass the spit velocity to the Chaos Spear release hook")
 	_expect(float(eating_result.get("ball_impact_boost", 0.0)) == 1.0, "Stage 3 Kuromi spit should reset impact boost like the original ball release")
 	var hidden_ball_draw: Dictionary = BattleDrawBallContext.new().build_draw({
 		"ball_active": true,
