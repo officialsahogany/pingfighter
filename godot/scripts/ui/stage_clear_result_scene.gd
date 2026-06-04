@@ -11,6 +11,7 @@ const StageClearResultStaticDrawHelper := preload("res://scripts/ui/stage_clear_
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+const StageClearResultStatusBuilder := preload("res://scripts/ui/stage_clear_result_status_builder.gd")
 const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
@@ -698,15 +699,8 @@ func get_interaction_status() -> Dictionary:
 	var view_size: Vector2 = size
 	if view_size == Vector2.ZERO:
 		view_size = _get_view_size()
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(view_size)
+	var layout_scale: float = _get_layout_scale(view_size)
 	var box_counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(_boxes)
-	var opened_count: int = int(box_counts.get("opened_count", 0))
-	var opening_count: int = int(box_counts.get("opening_count", 0))
-	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
-	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
-	var stage2_boss_reaction_state: Dictionary = _stage2_boss_defeat_reaction_state()
-	var stage3_boss_reaction_state: Dictionary = _stage3_boss_defeat_reaction_state()
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
 		_boxes,
@@ -714,18 +708,23 @@ func get_interaction_status() -> Dictionary:
 		RESULT_REWARD_SOURCE_BOX,
 		RESULT_REWARD_SOURCE_LABELS
 	)
-	return {
-		"dalji_click_reaction_active": bool(dalji_reaction_state.get("reaction_active", false)),
-		"dalji_click_return_blend_active": bool(dalji_reaction_state.get("return_blend_active", false)),
+	return StageClearResultStatusBuilder.build_interaction_status({
+		"view_size": view_size,
+		"layout_scale": layout_scale,
+		"boxes": _boxes,
+		"box_counts": box_counts,
+		"reward_summary_state": reward_summary_state,
+		"perk_info": _build_perk_info_summary(reward_summary_state),
+		"dalji_reaction_state": _dalji_reaction_state(),
+		"player_victory_reaction_state": _player_victory_reaction_state(),
+		"stage2_boss_reaction_state": _stage2_boss_defeat_reaction_state(),
+		"stage3_boss_reaction_state": _stage3_boss_defeat_reaction_state(),
 		"dalji_click_reaction_timer": _dalji_click_reaction_timer,
 		"dalji_click_reaction_duration": DALJI_CLICK_REACTION_DURATION,
 		"dalji_click_total_duration": DALJI_CLICK_TOTAL_DURATION,
 		"dalji_click_transition_base_frame": _dalji_click_transition_base_frame,
-		"dalji_base_frame": int(dalji_reaction_state.get("base_frame", 0)),
 		"dalji_base_timer": _dalji_base_timer,
-		"dalji_reaction_alpha": float(dalji_reaction_state.get("reaction_alpha", 0.0)),
 		"dalji_dialogue_timer": _dalji_dialogue_timer,
-		"dalji_click_rect": StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale),
 		"dalji_dialogue": DALJI_CLICK_DIALOGUE,
 		"dalji_click_voice_path": DALJI_CLICK_VOICE_PATH,
 		"dalji_click_voice_loaded": _dalji_click_voice_stream != null,
@@ -734,87 +733,48 @@ func get_interaction_status() -> Dictionary:
 		"selected_character_type": selected_character_type,
 		"player_victory_sheet_path": _get_player_victory_sheet_path_for_character(selected_character_type),
 		"player_victory_click_reaction_sheet_path": _get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
-		"stage2_boss_defeat_live2d_sheet_path": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
-		"stage2_boss_defeat_click_reaction_sheet_path": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
-		"stage2_boss_defeat_live2d_active": current_stage == 2,
-		"stage2_boss_defeat_live2d_frame_count": STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage2_boss_defeat_live2d_grid_cols": STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage2_boss_defeat_live2d_cell_size": STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
-		"stage2_boss_defeat_live2d_base_frame": int(stage2_boss_reaction_state.get("base_frame", 0)),
-		"stage2_boss_defeat_live2d_draw_rect": StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale),
-		"stage2_boss_defeat_click_rect": StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale),
-		"stage2_boss_defeat_click_reaction_active": bool(stage2_boss_reaction_state.get("reaction_active", false)),
-		"stage2_boss_defeat_click_return_blend_active": bool(stage2_boss_reaction_state.get("return_blend_active", false)),
-		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
-		"stage2_boss_defeat_click_reaction_duration": STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage2_boss_defeat_click_total_duration": STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
-		"stage2_boss_defeat_reaction_alpha": float(stage2_boss_reaction_state.get("reaction_alpha", 0.0)),
-		"stage3_boss_defeat_live2d_sheet_path": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
-		"stage3_boss_defeat_click_reaction_sheet_path": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
-		"stage3_boss_defeat_live2d_active": current_stage == 3,
-		"stage3_boss_defeat_live2d_frame_count": STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage3_boss_defeat_live2d_grid_cols": STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage3_boss_defeat_live2d_cell_size": STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
-		"stage3_boss_defeat_live2d_base_frame": int(stage3_boss_reaction_state.get("base_frame", 0)),
-		"stage3_boss_defeat_live2d_draw_rect": StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale),
-		"stage3_boss_defeat_click_rect": StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale),
-		"stage3_boss_defeat_click_reaction_active": bool(stage3_boss_reaction_state.get("reaction_active", false)),
-		"stage3_boss_defeat_click_return_blend_active": bool(stage3_boss_reaction_state.get("return_blend_active", false)),
-		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
-		"stage3_boss_defeat_click_reaction_duration": STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage3_boss_defeat_click_total_duration": STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-		"stage3_boss_defeat_click_transition_base_frame": _stage3_boss_defeat_click_transition_base_frame,
-		"stage3_boss_defeat_reaction_alpha": float(stage3_boss_reaction_state.get("reaction_alpha", 0.0)),
 		"player_victory_sheet_loaded": _player_victory_sheet != null,
 		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
 		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
 		"player_victory_grid_cols": PLAYER_VICTORY_GRID_COLS,
 		"player_victory_cell_size": PLAYER_VICTORY_CELL_SIZE,
-		"player_victory_base_frame": int(player_victory_reaction_state.get("base_frame", 0)),
-		"player_victory_click_reaction_active": bool(player_victory_reaction_state.get("reaction_active", false)),
-		"player_victory_click_return_blend_active": bool(player_victory_reaction_state.get("return_blend_active", false)),
 		"player_victory_click_reaction_timer": _player_victory_click_reaction_timer,
 		"player_victory_click_reaction_duration": PLAYER_VICTORY_CLICK_REACTION_DURATION,
 		"player_victory_click_total_duration": PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		"player_victory_click_transition_base_frame": _player_victory_click_transition_base_frame,
-		"player_victory_reaction_alpha": float(player_victory_reaction_state.get("reaction_alpha", 0.0)),
-		"player_victory_draw_rect": StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale),
-		"player_victory_click_rect": StageClearResultLayoutHelper.get_player_victory_click_rect(
-			view_size,
-			scale,
-			PLAYER_VICTORY_CELL_SIZE
-		),
-		"box_count": _boxes.size(),
-		"opened_count": opened_count,
-		"opening_count": opening_count,
-		"item_reward_count": int(reward_summary_state.get("item_reward_count", 0)),
-		"perk_reward_count": int(reward_summary_state.get("perk_reward_count", 0)),
-		"stage_active_item_count": int(reward_summary_state.get("stage_active_item_count", 0)),
-		"stage_passive_item_count": int(reward_summary_state.get("stage_passive_item_count", 0)),
-		"stage_perk_count": int(reward_summary_state.get("stage_perk_count", 0)),
-		"item_reward_source_counts": reward_summary_state.get("item_reward_source_counts", {}),
-		"perk_reward_source_counts": reward_summary_state.get("perk_reward_source_counts", {}),
-		"visible_reward_source_counts": reward_summary_state.get("visible_reward_source_counts", {}),
-		"box_display_labels": StageClearResultBoxData.get_box_display_labels(_boxes),
-		"perk_info": _build_perk_info_summary(reward_summary_state),
-		"starpoint_total": int(reward_summary_state.get("starpoint_total", 0)),
+		"stage2_boss_defeat_live2d_sheet_path": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
+		"stage2_boss_defeat_click_reaction_sheet_path": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
+		"stage2_boss_defeat_live2d_frame_count": STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage2_boss_defeat_live2d_grid_cols": STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage2_boss_defeat_live2d_cell_size": STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
+		"stage2_boss_defeat_click_reaction_duration": STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage2_boss_defeat_click_total_duration": STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
+		"stage3_boss_defeat_live2d_sheet_path": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
+		"stage3_boss_defeat_click_reaction_sheet_path": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
+		"stage3_boss_defeat_live2d_frame_count": STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage3_boss_defeat_live2d_grid_cols": STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage3_boss_defeat_live2d_cell_size": STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
+		"stage3_boss_defeat_click_reaction_duration": STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage3_boss_defeat_click_total_duration": STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage3_boss_defeat_click_transition_base_frame": _stage3_boss_defeat_click_transition_base_frame,
+		"current_stage": current_stage,
 		"hovered_box_index": _hovered_box_index,
-		"all_boxes_opened": _boxes.size() > 0 and opened_count == _boxes.size(),
 		"scroll_phase": _scroll_phase,
-		"scroll_unfurl_progress": StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION),
-		"scroll_visible": _scroll_phase == "unfurling" or _scroll_phase == "visible",
+		"scroll_timer": _scroll_timer,
+		"scroll_unfurl_duration": SCROLL_UNFURL_DURATION,
 		"scroll_texture_loaded": _scroll_texture != null,
-		"scroll_rect": _get_scroll_full_rect(scale),
+		"scroll_rect": _get_scroll_full_rect(layout_scale),
 		"scroll_position_offset": _scroll_position_offset,
 		"scroll_dragging": _scroll_dragging,
 		"next_stage_button_rect": _next_stage_button_rect,
 		"exit_button_rect": _exit_button_rect,
-		"buttons_clickable": _scroll_phase == "visible",
 		"hovered_button": _hovered_button,
 		"scene_timer": timer,
 		"exit_callback_bound": exit_to_menu_callback.is_valid(),
@@ -823,7 +783,7 @@ func get_interaction_status() -> Dictionary:
 		"runtime_perk_choice_active": _is_runtime_perk_choice_active(),
 		"treasure_hunt_effect_active": _is_treasure_hunt_effect_active(),
 		"box_open_audio_ready": _game_audio != null and _game_audio.has_method("play_result_box_open"),
-	}
+	})
 
 
 func get_resolved_rewards() -> Array:

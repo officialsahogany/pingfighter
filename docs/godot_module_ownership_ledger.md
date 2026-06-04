@@ -1415,7 +1415,9 @@ This section is intentionally long; use search to find the nearest owner.
   star polygon point generation plus result-box ornament / hover geometry
   is delegated to `stage_clear_result_shape_helper.gd`; result sheet-frame
   source rect and texture-region drawing are delegated to
-  `stage_clear_result_sheet_draw_helper.gd`; player-victory and Dalji
+  `stage_clear_result_sheet_draw_helper.gd`; public QA / smoke-test
+  interaction status dictionary assembly is delegated to
+  `stage_clear_result_status_builder.gd`; player-victory and Dalji
   click-reaction frame / transition / alpha math is delegated to
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
@@ -1505,6 +1507,11 @@ This section is intentionally long; use search to find the nearest owner.
   centered button label rendering. The scene still owns scroll phase /
   hovered-button state, localized labels, button rect storage, and action
   dispatch.
+- `scripts/ui/stage_clear_result_status_builder.gd`
+  Owns read-only result-scene `get_interaction_status()` dictionary assembly
+  for smoke tests and QA probes. It accepts scene-prepared state snapshots and
+  constants, derives layout/status fields, and must not mutate boxes, timers,
+  click-reaction state, or reward snapshots.
 - `scripts/ui/stage_clear_result_static_draw_helper.gd`
   Owns stage-clear result static draw surfaces: result background fallback /
   cover blit, Dalji click dialogue bubble / tail / text, player-victory
