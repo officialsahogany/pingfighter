@@ -321,19 +321,17 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 2. ✅ **손맛 코어:** 게이지 + 낙하 테트로미노(2a) + 공 충돌/반사축/파괴(2b). (`616e60fdd` `686045b9c`)
 3. ✅ **구조물:** 가드 블록(3a) + 테트로 벽(3b) + 대시/연막/폭발 파괴 API(3c). (`e6db8206f` `3815acc31` `30f563952`)
 4. ✅ **궁극기/큐브:** 초인테트리서 드레인 모델(4a) + 중앙 큐브 3×3/10~14패스/재조립5(4b) + 광선·EMP(4c). (`c7caec816` `009876e3c` `0627dfb34`)
-5. **마감 (진행 중):**
+5. **마감 (완료):**
    - ✅ 보스 스킬 카드 HUD (5a, 게이지+4스킬, 공유 `BossSkillCardHudSpec`, 절차적 카드). (`9cad7db7a`)
    - ✅ 오디오 (5b): **BGM** `stage7bgm.wav → stage6_tetriser_bgm.ogg`(ffmpeg) + game_audio 배선(`ff05afa7f`);
      **효과음 3종** `stage6_tetriser_{break,wall,super_roar}.wav` + 이벤트 배선(파괴=break/벽=wall/초인=cry);
      **prewarm 키** `STAGE6_RUNTIME_PREWARM_KEYS` 등록. (`2c7910bbf`)
-   - ⏸ **5c (대기):** 크로스라운드 reset 인게임 확인, 성능 스모크(`battle_perf_logger`), 인게임 체감 QA(직접 F5 플레이).
-     보스 스프라이트(AutoSprite)·로딩/결과 화면·테트리서 스킬카드 텍스처는 placeholder 유지(후속).
+   - ✅ **5c 완료:** `character_info_overlay.gd` 리팩터 컴파일 복구 후 전체 warning scan/headless load,
+     Stage 6/perf smoke, 그리고 Stage 6 직접 런타임 QA까지 통과. 보스 스프라이트(AutoSprite),
+     로딩/결과 화면, 테트리서 스킬카드 텍스처는 placeholder/후속 작업으로 유지.
 
-> ⚠ **전체 게이트 보류 사유:** 5a까지 warning scan/headless load 전부 통과했으나, 5b 시점에
-> 병렬 진행 중인 `scripts/hud/character_info_overlay.gd` 대규모 추출 리팩터가 parse error
-> (line ~2398) 중간 상태라 **프로젝트 전체 warning scan / headless load가 일시 보류**다. 5b는
-> 깨진 파일을 안 거치는 focused 스모크(stage6_tetriser_state / stage2_bgm / boot_flow_bgm_toggle)로
-> 검증했다. 그 리팩터가 컴파일되면 전체 warning/headless/perf 재실행 + 인게임 QA 후 5c를 완료 처리한다.
+> ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
+> Stage 6 smoke 9종, perf smoke, 직접 Stage 6 런타임 캡처/serve 확인 통과.
 
 ---
 
@@ -394,7 +392,7 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 - `CLAUDE.md` "Legacy Stage Order Reference + Current Godot Decision" 섹션 — 차단성 문구
   "Stage 6 stays absent / unselectable" 제거, Godot 6=Python 7(테트리서) 매핑 행 추가.
 - (2026-06-04) `docs/godot_module_ownership_ledger.md` — stage6_tetriser_* 모듈 7종 + 접점
-  owner 등록, 상태 "implemented through 5b / 5c QA pending".
+  owner 등록, 상태 "Stage 6 complete through 5c / follow-up assets pending".
 
 **유지(충돌 아님)**
 - `docs/stage5_hongryun_asset_manifest.md`의 `stage6_*` 항목 = 레거시 Python(stage6=홍련) 소스

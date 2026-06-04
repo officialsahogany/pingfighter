@@ -2313,7 +2313,7 @@ This section is intentionally long; use search to find the nearest owner.
   Hongryun boss skill-card HUD in the post-playfield HUD pass.
 - `scripts/stages/stage6/` — Stage 6 테트리서 / Tetriser cluster (port of Python
   Stage 7; Godot slot 6, see `docs/stage6_tetriser_port_plan.md`). Status:
-  **implemented through step 5b / 5c QA pending**. Owners (7 modules):
+  **complete through step 5c; follow-up visual assets pending**. Owners (7 modules):
   - `stage6_tetriser_state.gd` — single owner of boss gauge (max 500, 25/sec
     charge, round-persist via reset_round vs full reset), falling tetrominoes
     (assembly→fall→drift/rotate→settle), guard blocks (slide→active), edge tetro
@@ -2344,7 +2344,10 @@ This section is intentionally long; use search to find the nearest owner.
     (inactive-transient stage list incl. 6), `battle_scene_match_event_driver`
     (`DEMO_STAGE_SEQUENCE_END = 6`), `game_audio` (stage6 BGM ogg + break/wall/
     roar SFX), `battle_scene_update_prewarm_driver` (`STAGE6_RUNTIME_PREWARM_KEYS`).
-  - Regression guard: `tests/stage6_tetriser_state_smoke.gd`.
+  - Regression guard: `tests/stage6_tetriser_state_smoke.gd`,
+    `tests/battle_scene_stage_transition_loading_smoke.gd`,
+    `tests/battle_perf_logger_smoke.gd`, full warning/headless gate, and direct
+    Stage 6 runtime serve capture.
 - `scripts/stages/stage4/stage4_bird_event.gd` and
   `scripts/stages/stage4/stage4_brazier_monk_event.gd`
   Own the first Stage 4 event runtime slice. `stage4_bird_event` handles
