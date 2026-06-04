@@ -1,0 +1,28 @@
+{
+  "asset_id": "milkring_futuristic_milk_blaster_concept_imagegen_v5",
+  "pet_id": "milkring",
+  "display_name": "밀크링",
+  "source_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5_magenta_source.png",
+  "alpha_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5.png",
+  "tool": "built-in image_gen",
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fb02f8",
+    "canonical_source_background": "#ff00ff",
+    "note": "Generated on magenta chroma background. After alpha extraction, the canonical source PNG was recomposited onto exact opaque #ff00ff so repo source corners are stable."
+  },
+  "design_notes": {
+    "subject": "Milkring, a bipedal Holstein dairy-cow Lingpet with a milk-blast skill identity.",
+    "goggles": "Large dark smoked-cyan battle goggles cover both eyes completely.",
+    "equipment": "Minimal futuristic equipment only: ring collar, one small milk tank, wrist nozzle gauntlets.",
+    "udder": "Small wholesome mascot-style cow udder, not eroticized.",
+    "avoid": "No full armor suit, bulky shoulder pads, many tanks, many tubes, huge cannons, or visible eyes."
+  },
+  "validation": {
+    "alpha_size": "1254x1254",
+    "source_corner_rgba": ["#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255"],
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [95, 85, 1177, 1140]
+  }
+}

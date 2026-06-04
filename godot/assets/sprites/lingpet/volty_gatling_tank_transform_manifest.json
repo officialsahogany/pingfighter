@@ -1,0 +1,39 @@
+{
+  "asset_name": "volty_gatling_tank_transform",
+  "usage": "Volty Gatling Burst mount sheet; dismount reuses the same frames in reverse.",
+  "runtime_path": "res://assets/sprites/lingpet/volty_gatling_tank_transform.png",
+  "atlas_path": "res://assets/sprites/lingpet/volty_gatling_tank_transform_atlas.json",
+  "grid": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_w": 128,
+    "cell_h": 128,
+    "sheet_w": 640,
+    "sheet_h": 640
+  },
+  "source": {
+    "tool": "AutoSprite MCP",
+    "asset_id": "cmpwzyrvp00642ozrp1ktjbxf",
+    "asset_name": "Volty Companion Back Idle Base 20260603",
+    "job_id": "wf_e04884b3-6fe1-409e-9d6d-97c736b51892",
+    "spritesheet_id": "cmpyi1zo8000u5ysouj1sum9x",
+    "credit_cost": 5,
+    "quality": "standard",
+    "remove_bg": "ultra",
+    "frame_size": 128,
+    "max_frames": 25,
+    "prompt": "Volty folds into a compact gatling tank, treads deploy, rotating barrel aims upward, cyan reactor glow, centered 16-bit pixel art, transparent background."
+  },
+  "integration": {
+    "mount_duration_seconds": 1.0,
+    "fire_duration_seconds": 3.0,
+    "dismount_duration_seconds": 1.0,
+    "cooldown_seconds": 50.0,
+    "runtime_draw_size_px": 96.0,
+    "source_draw_size_before_size_match_px": 118.0,
+    "size_match_reference": "Volty companion walk/cast draw size is 104px, but tank frame 11 has a taller alpha bbox than Volty's SD frames; runtime uses 96px so the transformed tank reads as the same visual size class.",
+    "runtime_script": "res://scripts/lingpet/lingpet_gatling_burst_skill.gd",
+    "runtime_frame_policy": "Frames 0-11 are used as the Volty-to-tank chassis transform. Frames 12-24 contain an AutoSprite-baked barrel and are intentionally not selected at runtime, because the live skill draws exactly one aimable barrel aligned to bullet direction."
+  }
+}

@@ -154,6 +154,24 @@ func activate_long_boost(
 	)
 
 
+func activate_milk_bottle(
+	target: Object,
+	item_data: Dictionary,
+	owner: Object,
+	registry: Object,
+	paddle_sync: Object,
+	effect_feedback: Object
+) -> bool:
+	target.set("milk_bottle_active", true)
+	target.set("milk_bottle_scale", maxf(0.1, float(item_data.get("paddle_scale_multiplier", 1.20))))
+	if paddle_sync != null and target.has_method("get_player_paddle_scale"):
+		paddle_sync.sync_owner_state(owner, float(target.get_player_paddle_scale()))
+	if effect_feedback != null:
+		effect_feedback.play_first_audio(registry, ["play_active_item"])
+		effect_feedback.trigger_registry_feedback(registry, false, false, 2.0, 0.10)
+	return true
+
+
 func activate_aipill(target: Object, registry: Object, state_applier: Object, effect_feedback: Object) -> bool:
 	return _aipill_actions.activate(target, registry, state_applier, effect_feedback)
 

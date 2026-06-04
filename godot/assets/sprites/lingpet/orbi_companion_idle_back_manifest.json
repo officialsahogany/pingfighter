@@ -1,0 +1,205 @@
+{
+  "asset_id": "orbi_companion_idle_back",
+  "pet_id": "orbi",
+  "display_name": "???",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_companion_idle_back_breathing_sheet",
+  "source_art": {
+    "magenta_source": "res://assets/sprites/lingpet/orbi_companion_idle_back_base_magenta_source.png",
+    "transparent_base": "res://assets/sprites/lingpet/orbi_companion_idle_back_base.png",
+    "generator": "built_in_imagegen",
+    "prompt_summary": "Orbi rear 3/4 SD companion base, Maribo-style mostly back view, flat magenta chroma-key background."
+  },
+  "source_autosprite": {
+    "asset_id": "cmpwzxo0c004u2ozr4dn3ek5q",
+    "asset_name": "Orbi Companion Back Idle Base 20260603",
+    "spritesheet_id": "cmpwzzfww006j2ozrf0tth9jt",
+    "job_id": "wf_ac54216b-b707-48d3-b75f-7b5cdf9e73ab",
+    "raw_sheet_local_path": ".tmp/orbi_companion_idle_back/orbi_companion_idle_back_raw_25f.png",
+    "raw_atlas_local_path": ".tmp/orbi_companion_idle_back/orbi_companion_idle_back_raw_25f_atlas.json",
+    "raw_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Back-view idle loop: gentle breathing, tiny ear twitch, tail sway, cyan back-core pulse, full body stable, no front turn, no props.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orbi_companion_idle_back.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "frame_interval": "looped; compatible with lingpet_companion_sprite_animator.gd 5x5 companion walk/idle frame math",
+    "source_scale_repack": 0.92,
+    "sha256": "5525c8ca06945bf974faebd90fef92dde296279db9a6d1f16aac5d25754a12da",
+    "bytes": 910838
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic alpha-safe repack",
+    "operation": "AutoSprite 512px cells were alpha-bled, downscaled into 256px runtime cells with 0.92 content scale, alpha<=12 clipped, and reassembled as a 5x5 25-frame sheet."
+  },
+  "qa": {
+    "raw_frame_count": 25,
+    "final_frame_count": 25,
+    "raw_edge_alpha_count": 0,
+    "final_whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "cell_fill_w_pct": 55.1,
+    "cell_fill_h_pct": 69.9,
+    "center_drift_px": [
+      4.5,
+      2.0
+    ],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          76,
+          35,
+          206,
+          211
+        ],
+        "margin_ltrb": [
+          76,
+          35,
+          50,
+          45
+        ],
+        "size": [
+          130,
+          176
+        ]
+      },
+      {
+        "frame": 4,
+        "bbox": [
+          73,
+          36,
+          207,
+          211
+        ],
+        "margin_ltrb": [
+          73,
+          36,
+          49,
+          45
+        ],
+        "size": [
+          134,
+          175
+        ]
+      },
+      {
+        "frame": 8,
+        "bbox": [
+          71,
+          35,
+          210,
+          211
+        ],
+        "margin_ltrb": [
+          71,
+          35,
+          46,
+          45
+        ],
+        "size": [
+          139,
+          176
+        ]
+      },
+      {
+        "frame": 12,
+        "bbox": [
+          72,
+          34,
+          213,
+          211
+        ],
+        "margin_ltrb": [
+          72,
+          34,
+          43,
+          45
+        ],
+        "size": [
+          141,
+          177
+        ]
+      },
+      {
+        "frame": 16,
+        "bbox": [
+          75,
+          33,
+          214,
+          211
+        ],
+        "margin_ltrb": [
+          75,
+          33,
+          42,
+          45
+        ],
+        "size": [
+          139,
+          178
+        ]
+      },
+      {
+        "frame": 20,
+        "bbox": [
+          77,
+          32,
+          209,
+          211
+        ],
+        "margin_ltrb": [
+          77,
+          32,
+          47,
+          45
+        ],
+        "size": [
+          132,
+          179
+        ]
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          76,
+          34,
+          206,
+          211
+        ],
+        "margin_ltrb": [
+          76,
+          34,
+          50,
+          45
+        ],
+        "size": [
+          130,
+          177
+        ]
+      }
+    ]
+  }
+}

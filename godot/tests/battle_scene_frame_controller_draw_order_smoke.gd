@@ -140,6 +140,7 @@ class FakeScoreboardState:
 	extends RefCounted
 
 	var active := false
+	var timer := 0.0
 	var player_points := 0
 	var boss_points := 0
 	var win_goal := 5
@@ -147,6 +148,9 @@ class FakeScoreboardState:
 
 	func is_active() -> bool:
 		return active
+
+	func get_timer() -> float:
+		return timer
 
 	func get_player_points() -> int:
 		return player_points
@@ -185,6 +189,20 @@ class FakeResultPrewarmController:
 		last_owner = owner
 		has_work = false
 		return true
+
+
+class FakeBattleResources:
+	extends RefCounted
+
+	var update_calls := 0
+	var has_work := true
+
+	func has_result_texture_prewarm_work() -> bool:
+		return has_work
+
+	func update_result_texture_prewarm() -> bool:
+		update_calls += 1
+		return false
 
 
 class FakePerfLogger:
@@ -237,6 +255,7 @@ func _init() -> void:
 	_verify_pillar_overlay_can_skip_background_for_detached_host()
 	_verify_inactive_runtime_perk_overlay_skips_draw()
 	_verify_draw_perf_logging_lives_outside_frame_controller_sample()
+	_verify_result_texture_prewarm_waits_for_visible_scoreboard()
 	_verify_stage_clear_result_prewarm_waits_for_stage_clear_scoreboard()
 
 	if _failures.is_empty():
@@ -570,6 +589,7 @@ func _verify_stage_clear_result_prewarm_waits_for_stage_clear_scoreboard() -> vo
 	)
 
 	scoreboard.active = true
+	scoreboard.timer = BattleSceneFrameController.RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER
 	scoreboard.player_points = 1
 	controller.process_idle(
 		0.016,
@@ -625,6 +645,59 @@ func _verify_stage_clear_result_prewarm_waits_for_stage_clear_scoreboard() -> vo
 	_expect(
 		perf_logger.labels.has("process.frame.stage_clear_result_prewarm"),
 		"stage-clear scoreboard should sample background stage-clear result prewarm work"
+	)
+
+
+func _verify_result_texture_prewarm_waits_for_visible_scoreboard() -> void:
+	var controller: Object = BattleSceneFrameController.new()
+	var owner := FakeOwner.new()
+	var scoreboard := FakeScoreboardState.new()
+	var resources := FakeBattleResources.new()
+	var perf_logger := FakePerfLogger.new()
+	var update_driver := FakeUpdateDriver.new()
+	scoreboard.active = true
+	scoreboard.timer = 0.0
+	_modules = {
+		"battle_perf_logger": perf_logger,
+		"battle_scene_readiness_controller": FakeReadiness.new(),
+		"battle_scene_update_driver": update_driver,
+		"scoreboard_state": scoreboard,
+		"battle_resources": resources,
+	}
+
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+
+	_expect(resources.update_calls == 0, "round-result texture prewarm should not start before the first visible scoreboard frame")
+	_expect(
+		not perf_logger.labels.has("process.frame.result_texture_prewarm"),
+		"hidden scoreboard frame should not sample round-result texture prewarm work"
+	)
+
+	scoreboard.timer = BattleSceneFrameController.RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+
+	_expect(resources.update_calls == 1, "round-result texture prewarm should resume once the scoreboard is visible")
+	_expect(
+		perf_logger.labels.has("process.frame.result_texture_prewarm"),
+		"visible scoreboard frame should sample round-result texture prewarm work"
 	)
 
 

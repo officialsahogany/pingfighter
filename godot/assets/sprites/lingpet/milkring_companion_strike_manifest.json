@@ -1,0 +1,179 @@
+{
+  "asset_id": "milkring_companion_strike_v1",
+  "display_name": "\ubc00\ud06c\ub9c1",
+  "pet_id": "milkring",
+  "runtime_usage": "lingpet_companion_strike_candidate",
+  "status": "Accepted candidate: AutoSprite rear-view ball-hit strike, remapped so Godot runtime impact frame 22 lands on the source hit peak.",
+  "output_sheet": "res://assets/sprites/lingpet/milkring_companion_strike.png",
+  "grid": {
+    "columns": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": 192,
+    "sheet_size": [
+      960,
+      960
+    ]
+  },
+  "runtime_notes": {
+    "intended_slot": "companion_strike",
+    "godot_strike_start_frame": 18,
+    "godot_strike_impact_frame": 22,
+    "godot_strike_draw_size": [
+      104.0,
+      104.0
+    ],
+    "motion_shape": "frames 18-21 anticipation/twist, frame 22 ball-hit peak, frame 23 follow-through, frame 24 recovery hold"
+  },
+  "source_autosprite": {
+    "character_id": "cmpx19e5a008bv9niihfruk9e",
+    "character_name": "Milkring Companion Back v1",
+    "job_id": "wf_e93102c7-ec69-4454-93d3-faf619e5b1de",
+    "spritesheet_id": "cmpx1wiw8005ffb8431sey8s6",
+    "source_video_id": "cmpx1v19z002j5cwbxq754wmp",
+    "kind": "attack",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "source_frame_size": [
+      512,
+      512
+    ],
+    "source_frame_count": 25,
+    "prompt": "One-shot ball-hit strike for an in-game SD companion, rear three-quarter back view. Keep Milkring facing away; no visible eyes, goggles stay strap/side visor. Frames begin calm, then clear anticipation: crouch and twist back, tail/ears tense, wrist milk nozzle readies. Impact near the end: quick forward body check/arm swat toward the unseen ball at front-right. No drawn ball, no milk beam, no front turn, no extra gear. End with brief follow-through."
+  },
+  "postprocess": {
+    "tool": "Pillow premultiplied-alpha resize/repack and runtime frame remap",
+    "source_sheet": ".tmp/milkring_companion_strike_v1/milkring_companion_strike_raw_25f.png",
+    "target_cell_size": [
+      192,
+      192
+    ],
+    "alpha_clip_threshold": 15,
+    "frame_map": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      8,
+      9,
+      10,
+      12,
+      14,
+      17,
+      24
+    ],
+    "impact_frame": 22,
+    "impact_source_frame": 14,
+    "reason": "LingpetCompanionSpriteAnimator plays strike frames 18..24 and uses 22 as contact; remap preserves AutoSprite frames while aligning anticipation and hit timing.",
+    "edge_alpha_pixels": 0,
+    "transparent_corners": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "qa": {
+    "accepted": true,
+    "notes": [
+      "Includes visible anticipation before the runtime hit frame.",
+      "No drawn ball; strike is meant to contact the real gameplay ball.",
+      "Maintains rear three-quarter identity; side visor covers eyes during the turn.",
+      "No milk beam and no extra bulky gear added.",
+      "All sheet edges are transparent after repack."
+    ],
+    "sample_frame_bboxes": {
+      "0": [
+        44,
+        16,
+        144,
+        173
+      ],
+      "8": [
+        49,
+        22,
+        139,
+        172
+      ],
+      "12": [
+        38,
+        14,
+        147,
+        167
+      ],
+      "18": [
+        49,
+        22,
+        139,
+        172
+      ],
+      "20": [
+        46,
+        12,
+        135,
+        172
+      ],
+      "22": [
+        50,
+        28,
+        157,
+        173
+      ],
+      "23": [
+        52,
+        34,
+        172,
+        173
+      ],
+      "24": [
+        50,
+        17,
+        145,
+        173
+      ]
+    },
+    "preview_paths": [
+      ".tmp/milkring_companion_strike_v1/milkring_companion_strike_dark_preview.png",
+      ".tmp/milkring_companion_strike_v1/milkring_companion_strike_runtime_contact_preview.png"
+    ]
+  },
+  "hashes": {
+    "output_sha256": "3e4c998fd52581d8670e775fdacba2e815e9d28955fea97f49225fe81c3303fe",
+    "raw_autosprite_sha256": "52f4e5f22207a12350afb7b8404a854e3d1aca10a68e3ce0b41b70315e274899"
+  },
+  "created_at": "2026-06-02T19:53:12Z"
+}

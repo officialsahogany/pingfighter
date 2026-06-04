@@ -18,9 +18,10 @@ func can_store_item(target: Object, item_name: String) -> bool:
 
 
 func get_player_paddle_scale(target: Object) -> float:
+	var persistent_scale: float = _get_float_property(target, "milk_bottle_scale", 1.0)
 	return _paddle_sync.get_player_paddle_scale(
-		float(target.get("long_boost_scale")),
-		float(target.get("strange_vial_scale"))
+		_get_float_property(target, "long_boost_scale", 1.0) * persistent_scale,
+		_get_float_property(target, "strange_vial_scale", 1.0)
 	)
 
 
@@ -90,6 +91,7 @@ func get_field_effect_draw_context(target: Object) -> Dictionary:
 		"long_boost_timer_context": get_long_boost_timer_context(target) if bool(target.get("long_boost_active")) else {},
 		"vitamin_pill_timer_context": get_vitamin_pill_timer_context(target) if bool(target.get("vitamin_pill_active")) else {},
 		"strange_vial_timer_context": get_strange_vial_timer_context(target) if bool(target.get("strange_vial_active")) else {},
+		"doping_potion_timer_context": get_doping_potion_context(target) if bool(target.get("doping_potion_active")) else {},
 		"dash_boost_context": get_dash_boost_context(target) if bool(target.get("dash_boost_active")) else {},
 		"dash_boost_particles": dash_boost_particles,
 	}
@@ -298,6 +300,7 @@ func _build_active_status_flags(target: Object) -> Dictionary:
 	return {
 		"aipill_active": bool(target.get("aipill_active")),
 		"long_boost_active": bool(target.get("long_boost_active")),
+		"milk_bottle_active": bool(target.get("milk_bottle_active")),
 		"vitamin_pill_active": bool(target.get("vitamin_pill_active")),
 		"strange_vial_active": bool(target.get("strange_vial_active")),
 		"doping_potion_active": bool(target.get("doping_potion_active")),
@@ -343,3 +346,10 @@ func _get_vector2_property(target: Object, key: String) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _get_float_property(target: Object, key: String, fallback: float) -> float:
+	var value: Variant = target.get(key)
+	if value == null:
+		return fallback
+	return float(value)

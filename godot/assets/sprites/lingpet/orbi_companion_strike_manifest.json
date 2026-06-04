@@ -1,0 +1,345 @@
+{
+  "asset_id": "orbi_companion_strike",
+  "pet_id": "orbi",
+  "display_name": "???",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_companion_strike_with_anticipation_sheet",
+  "source_art": {
+    "transparent_base": "res://assets/sprites/lingpet/orbi_companion_idle_back_base.png",
+    "base_manifest": "res://assets/sprites/lingpet/orbi_companion_idle_back_base_manifest.json",
+    "note": "Reused the Orbi rear 3/4 SD base to keep the battle companion direction consistent with walk/idle."
+  },
+  "source_autosprite": {
+    "asset_id": "cmpwzxo0c004u2ozr4dn3ek5q",
+    "asset_name": "Orbi Companion Back Idle Base 20260603",
+    "spritesheet_id": "cmpx1e0ow001qidpvis5d2whf",
+    "job_id": "wf_a9faa481-0134-4a54-a381-9332f59ca855",
+    "raw_sheet_local_path": ".tmp/orbi_companion_strike/orbi_companion_strike_raw_25f.png",
+    "raw_atlas_local_path": ".tmp/orbi_companion_strike/orbi_companion_strike_raw_25f_atlas.json",
+    "raw_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Back 3/4 ball strike: crouch anticipation, coil tail and paw, lunge to slap ball, bright cyan impact, recoil settle, no front turn.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orbi_companion_strike.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      192,
+      192
+    ],
+    "sheet_size": [
+      960,
+      960
+    ],
+    "frame_interval": "one-shot strike; compatible with lingpet_companion_sprite_animator.gd 5x5 frame math",
+    "source_scale_repack": 0.84,
+    "sha256": "69f9618d99c409b47c1e54cb3430aa1daaae792ff5ed95f7cd9ca0f95fdc527e",
+    "bytes": 445233
+  },
+  "strike_timing": {
+    "runtime_start_frame": 18,
+    "runtime_impact_frame": 22,
+    "runtime_follow_frame": 24,
+    "frame_map": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      13,
+      14,
+      15,
+      16,
+      19,
+      23,
+      24
+    ],
+    "impact_source_frame": 19,
+    "reason": "LingpetCompanionSpriteAnimator plays strike frames 18..24 and treats frame 22 as contact; remap places crouch/coil anticipation before the cyan impact frame."
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic alpha-safe repack and frame remap",
+    "operation": "AutoSprite 512px cells were alpha-bled, resized into 192px runtime cells at 0.84 content scale, alpha<=12 clipped, and reassembled as a 5x5 25-frame strike sheet with runtime impact remapping."
+  },
+  "qa": {
+    "raw_frame_count": 25,
+    "final_frame_count": 25,
+    "raw_edge_alpha_count": 27523,
+    "final_whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "cell_fill_w_pct": 69.8,
+    "cell_fill_h_pct": 62.5,
+    "center_drift_px": [
+      44.5,
+      10.5
+    ],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "source_frame": 0,
+        "bbox": [
+          60,
+          32,
+          149,
+          152
+        ],
+        "margin_ltrb": [
+          60,
+          32,
+          43,
+          40
+        ],
+        "size": [
+          89,
+          120
+        ]
+      },
+      {
+        "frame": 4,
+        "source_frame": 4,
+        "bbox": [
+          62,
+          31,
+          151,
+          150
+        ],
+        "margin_ltrb": [
+          62,
+          31,
+          41,
+          42
+        ],
+        "size": [
+          89,
+          119
+        ]
+      },
+      {
+        "frame": 8,
+        "source_frame": 8,
+        "bbox": [
+          59,
+          41,
+          151,
+          152
+        ],
+        "margin_ltrb": [
+          59,
+          41,
+          41,
+          40
+        ],
+        "size": [
+          92,
+          111
+        ]
+      },
+      {
+        "frame": 12,
+        "source_frame": 12,
+        "bbox": [
+          56,
+          42,
+          155,
+          152
+        ],
+        "margin_ltrb": [
+          56,
+          42,
+          37,
+          40
+        ],
+        "size": [
+          99,
+          110
+        ]
+      },
+      {
+        "frame": 16,
+        "source_frame": 16,
+        "bbox": [
+          29,
+          51,
+          132,
+          137
+        ],
+        "margin_ltrb": [
+          29,
+          51,
+          60,
+          55
+        ],
+        "size": [
+          103,
+          86
+        ]
+      },
+      {
+        "frame": 18,
+        "source_frame": 13,
+        "bbox": [
+          57,
+          43,
+          159,
+          152
+        ],
+        "margin_ltrb": [
+          57,
+          43,
+          33,
+          40
+        ],
+        "size": [
+          102,
+          109
+        ]
+      },
+      {
+        "frame": 19,
+        "source_frame": 14,
+        "bbox": [
+          50,
+          42,
+          151,
+          157
+        ],
+        "margin_ltrb": [
+          50,
+          42,
+          41,
+          35
+        ],
+        "size": [
+          101,
+          115
+        ]
+      },
+      {
+        "frame": 20,
+        "source_frame": 15,
+        "bbox": [
+          39,
+          43,
+          134,
+          148
+        ],
+        "margin_ltrb": [
+          39,
+          43,
+          58,
+          44
+        ],
+        "size": [
+          95,
+          105
+        ]
+      },
+      {
+        "frame": 21,
+        "source_frame": 16,
+        "bbox": [
+          29,
+          51,
+          132,
+          137
+        ],
+        "margin_ltrb": [
+          29,
+          51,
+          60,
+          55
+        ],
+        "size": [
+          103,
+          86
+        ]
+      },
+      {
+        "frame": 22,
+        "source_frame": 19,
+        "bbox": [
+          15,
+          48,
+          115,
+          140
+        ],
+        "margin_ltrb": [
+          15,
+          48,
+          77,
+          52
+        ],
+        "size": [
+          100,
+          92
+        ]
+      },
+      {
+        "frame": 23,
+        "source_frame": 23,
+        "bbox": [
+          15,
+          37,
+          149,
+          152
+        ],
+        "margin_ltrb": [
+          15,
+          37,
+          43,
+          40
+        ],
+        "size": [
+          134,
+          115
+        ]
+      },
+      {
+        "frame": 24,
+        "source_frame": 24,
+        "bbox": [
+          63,
+          37,
+          156,
+          152
+        ],
+        "margin_ltrb": [
+          63,
+          37,
+          36,
+          40
+        ],
+        "size": [
+          93,
+          115
+        ]
+      }
+    ]
+  }
+}

@@ -30,6 +30,9 @@ func _verify_direct_query_facade() -> void:
 	controller.strange_vial_active = true
 	controller.strange_vial_timer_frames = 40.0
 	controller.strange_vial_speed_multiplier = 2.0
+	controller.doping_potion_active = true
+	controller.doping_potion_timer_frames = 240.0
+	controller.doping_potion_initial_timer_frames = 480.0
 	controller.pickup_effect = {"timer": 1.0}
 	controller.pickup_particles.append({"life": 1.0})
 	controller.holy_barrier_active = true
@@ -44,6 +47,8 @@ func _verify_direct_query_facade() -> void:
 
 	var vitamin: Dictionary = query.get_vitamin_pill_timer_context(controller)
 	_expect(vitamin.get("player_center", Vector2.ZERO) == Vector2(320.0, 700.0), "query should build vitamin context")
+	var doping: Dictionary = query.get_doping_potion_context(controller)
+	_expect(is_equal_approx(float(doping.get("timer_frames", 0.0)), 240.0), "query should build doping context")
 
 	var holy_collision: Dictionary = query.get_holy_barrier_collision_context(controller)
 	_expect(bool(holy_collision.get("holy_barrier_active", false)), "query should build holy barrier collision context")
@@ -55,6 +60,7 @@ func _verify_direct_query_facade() -> void:
 	var draw_context: Dictionary = query.get_field_effect_draw_context(controller)
 	_expect(_array_size(draw_context, "pickup_particles") == 1, "query should bundle pickup particles for rendering")
 	_expect(not _get_context_dictionary(draw_context, "vitamin_pill_timer_context").is_empty(), "query should bundle active vitamin context for rendering")
+	_expect(not _get_context_dictionary(draw_context, "doping_potion_timer_context").is_empty(), "query should bundle active doping context for rendering")
 	_expect(not _get_context_dictionary(draw_context, "holy_barrier_context").is_empty(), "query should bundle active holy barrier context for rendering")
 	_expect(not _get_context_dictionary(draw_context, "stopwatch_context").is_empty(), "query should bundle active stopwatch context for rendering")
 	_expect(_get_context_dictionary(draw_context, "magnet_field_context").is_empty(), "query should skip inactive magnet render context")

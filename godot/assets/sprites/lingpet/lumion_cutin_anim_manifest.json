@@ -1,0 +1,450 @@
+{
+  "asset_id": "lumion_acquisition_cutin_anim",
+  "character": "lumion",
+  "display_name": "루미온",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "static_art": {
+    "path": "godot/assets/sprites/lingpet/lumion_cutin_art.png",
+    "size": [
+      1536,
+      1536
+    ],
+    "sha256": "35f5d186b279cbdb108ef933ec1867f07ce054c55bbbaefc3d31b3c7af26627a",
+    "bytes": 987112
+  },
+  "magenta_source": {
+    "path": "godot/assets/sprites/lingpet/lumion_cutin_art_magenta_source.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "3de4a35c6453324ba8f299149c6030ba62a3e62e11a9308efe38262c26a7f23a",
+    "bytes": 1523486
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/lumion_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2.0,
+    "target_reference": "res://assets/sprites/lingpet/maribo_cutin_anim.png",
+    "sha256": "86c3baaca6f1648279e7033f5de4f65b6a7b89b0edc8426e1b6899730a4f529d",
+    "bytes": 30197362
+  },
+  "dismiss_sheet": {
+    "path": "res://assets/sprites/lingpet/lumion_cutin_dismiss_anim.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      5120,
+      5120
+    ],
+    "source_scale_repack": 0.84,
+    "sha256": "060f7558be7ef6f5022aee530760d0fe53e3df494a7e8f92bccef486b00c42f3",
+    "bytes": 15714678
+  },
+  "postprocess": {
+    "main_operation": "Lumion 1024 acquisition cells were resized to 84 percent, centered back into 1024 cells, RGB-upscaled per cell with Real-ESRGAN x2, then recombined with the separately upscaled source alpha into 2048 cells. Final 8192x8192 / 2048px cells match Maribo acquisition Live2D size.",
+    "dismiss_operation": "AutoSprite 1024 dismiss cells were resized to 84 percent and centered back into each 1024 cell for safe margins.",
+    "static_operation": "Built-in imagegen magenta source was chroma-keyed with border auto-key, soft matte, edge feather, and despill; final fallback art was padded to 1536x1536 transparent canvas.",
+    "tool": "Pillow per-cell deterministic repack plus Real-ESRGAN alpha-preserved upscale",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "source": ".tmp/lumion_l2d_realesrgan_match_lunabi/originals/lumion_cutin_anim.png original 1024-cell sheet",
+      "rgb_input_dir": ".tmp/lumion_l2d_realesrgan_match_lunabi/cutin_rgb_in",
+      "rgb_output_dir": ".tmp/lumion_l2d_realesrgan_match_lunabi/cutin_rgb_x2",
+      "alpha_policy": "source alpha repacked to 84 percent, upscaled separately with Lanczos, and recombined after RGB upscale",
+      "target_reference": "res://assets/sprites/lingpet/maribo_cutin_anim.png",
+      "preview": ".tmp/lumion_l2d_realesrgan_match_lunabi/lumion_cutin_anim_realesrgan_x2_contact_preview.png"
+    }
+  },
+  "qa": {
+    "static": {
+      "alpha_bbox": [
+        141,
+        234,
+        1395,
+        1395
+      ],
+      "edge_alpha_count": 0
+    },
+    "main": {
+      "sheet_size": [
+        8192,
+        8192
+      ],
+      "cell_size": [
+        2048,
+        2048
+      ],
+      "edge_alpha_count": 0,
+      "raw_repacked_sample_margins_ltrb": [
+        [
+          0,
+          196,
+          145,
+          170,
+          158
+        ],
+        [
+          2,
+          196,
+          152,
+          168,
+          157
+        ],
+        [
+          4,
+          193,
+          145,
+          145,
+          158
+        ],
+        [
+          6,
+          192,
+          140,
+          127,
+          161
+        ],
+        [
+          8,
+          190,
+          140,
+          125,
+          167
+        ],
+        [
+          10,
+          192,
+          142,
+          138,
+          168
+        ],
+        [
+          12,
+          195,
+          134,
+          161,
+          167
+        ],
+        [
+          14,
+          196,
+          135,
+          169,
+          162
+        ],
+        [
+          15,
+          196,
+          141,
+          169,
+          159
+        ]
+      ],
+      "final_sample_margins_ltrb": [
+        [
+          0,
+          392,
+          289,
+          340,
+          316
+        ],
+        [
+          2,
+          389,
+          303,
+          335,
+          313
+        ],
+        [
+          4,
+          386,
+          289,
+          289,
+          316
+        ],
+        [
+          6,
+          384,
+          279,
+          252,
+          322
+        ],
+        [
+          8,
+          380,
+          279,
+          249,
+          332
+        ],
+        [
+          10,
+          384,
+          284,
+          276,
+          335
+        ],
+        [
+          12,
+          388,
+          268,
+          322,
+          333
+        ],
+        [
+          14,
+          392,
+          271,
+          338,
+          325
+        ],
+        [
+          15,
+          392,
+          279,
+          338,
+          319
+        ]
+      ],
+      "preview": ".tmp/lumion_l2d_realesrgan_match_lunabi/lumion_cutin_anim_realesrgan_x2_contact_preview.png"
+    },
+    "dismiss": {
+      "sheet_size": [
+        5120,
+        5120
+      ],
+      "cell_size": [
+        1024,
+        1024
+      ],
+      "edge_alpha_count": 0,
+      "min_margins_ltrb": [
+        192,
+        82,
+        87,
+        131
+      ],
+      "sample_margins_ltrb": [
+        [
+          0,
+          192,
+          143,
+          115,
+          156
+        ],
+        [
+          3,
+          196,
+          122,
+          108,
+          183
+        ],
+        [
+          6,
+          210,
+          82,
+          101,
+          208
+        ],
+        [
+          9,
+          226,
+          82,
+          87,
+          207
+        ],
+        [
+          12,
+          221,
+          82,
+          96,
+          190
+        ],
+        [
+          15,
+          202,
+          113,
+          113,
+          144
+        ],
+        [
+          18,
+          196,
+          151,
+          122,
+          131
+        ],
+        [
+          21,
+          209,
+          169,
+          136,
+          131
+        ],
+        [
+          24,
+          219,
+          151,
+          139,
+          132
+        ]
+      ]
+    }
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.102,
+    "alpha_bbox": [
+      0.1318,
+      0.0713,
+      0.7666,
+      0.8398
+    ],
+    "note": "Per-cell frame-0 alpha occupancy + tight bbox for the digital reconstruction; empty cells skip shard/bevel/flash so only Lumion's silhouette assembles.",
+    "occupancy": [
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "source_autosprite": {
+    "character_id": "cmpwxr3mt001av4z39hvsh681",
+    "character_name": "Lumion Lingpet Acquire Cutin 20260603",
+    "base_upload_source": "godot/assets/sprites/lingpet/lumion_cutin_art.png before 1536px static fallback padding",
+    "main_spritesheet_id": "cmpwxu1au003dpidepppcmmvo",
+    "main_spritesheet_job_id": "wf_73639945-2c52-49c3-8b68-e718da4eb613",
+    "main_video_id": "cmpwxrd3x0085sdfhene3tsnp",
+    "main_raw_sheet_local_path": ".tmp/lumion_cutin/lumion_acquire_cutin_raw_1024_16f.png",
+    "main_raw_atlas_local_path": ".tmp/lumion_cutin/lumion_acquire_cutin_raw_1024_16f_atlas.json",
+    "main_prompt": "16-frame seamless acquisition cut-in loop for Lumion the fox Ringpet. Preserve identity and pose. Subtle Live2D motion only: gentle breathing, tiny ear twitch, raised paw bob, tail-feather sway, orange jewel/circuit glow pulse. Transparent background, generous safe margins, no text, no UI, no crop.",
+    "dismiss_spritesheet_id": "cmpwxxtn60070rxkl2skp9md8",
+    "dismiss_spritesheet_job_id": "wf_12c681b6-5360-4939-8dab-c1336325bd59",
+    "dismiss_video_id": "cmpwxt8bo0051rxkln0zddu7c",
+    "dismiss_raw_sheet_local_path": ".tmp/lumion_cutin/lumion_acquire_dismiss_raw_1024_25f.png",
+    "dismiss_raw_atlas_local_path": ".tmp/lumion_cutin/lumion_acquire_dismiss_raw_1024_25f_atlas.json",
+    "dismiss_prompt": "25-frame click-triggered acquisition cut-in exit action for Lumion the fox Ringpet. Lumion hops lightly, raises one paw, tail feathers sweep, orange jewel/circuit glow flares, then warm golden sparkles disperse. Preserve identity and full-body scale. Transparent background, generous safe margins, no text, no UI, no crop.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "status": "Lumion acquisition Live2D loop matches Maribo 8192x8192 size with alpha-preserved Real-ESRGAN x2."
+}

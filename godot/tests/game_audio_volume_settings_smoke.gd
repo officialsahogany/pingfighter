@@ -2,6 +2,7 @@ extends SceneTree
 
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var host: Node = null
 var audio: Object = null
@@ -16,13 +17,28 @@ func _run() -> void:
 	host = Node.new()
 	get_root().add_child(host)
 	await process_frame
+	await _verify_setup_step_completes_from_cold_cache()
+	_verify_setup_uses_sync_audio_prewarm()
 	audio = GameAudio.new()
 	audio.owner_node = host
 	audio._setup_core_ball_sfx()
+	audio._setup_item_command_sfx()
 	audio._setup_bgm_players()
 
 	_expect(is_equal_approx(float(audio.get_bgm_volume()), 0.4), "BGM volume should use the Godot runtime default")
 	_expect(is_equal_approx(float(audio.get_sfx_volume()), 0.7), "SFX volume should use the Python runtime default")
+	_expect(audio.lingpet_acquire_cutin_sfx != null and audio.lingpet_acquire_cutin_sfx.stream != null, "lingpet acquisition cut-in SFX player should load its WAV stream")
+	_expect(audio.lingpet_volty_click_voice_sfx != null and audio.lingpet_volty_click_voice_sfx.stream != null, "Volty click-reaction voice player should load its MP3 stream")
+	_expect(audio.lingpet_milkring_click_voice_sfx != null and audio.lingpet_milkring_click_voice_sfx.stream != null, "Milkring click-reaction voice player should load its MP3 stream")
+	audio.play_lingpet_acquire_cutin()
+	_expect(audio.lingpet_acquire_cutin_sfx.playing, "lingpet acquisition cut-in SFX should enter playback when requested")
+	audio.lingpet_acquire_cutin_sfx.stop()
+	audio.play_lingpet_click_reaction("volty")
+	_expect(audio.lingpet_volty_click_voice_sfx.playing, "Volty click-reaction voice should enter playback when requested")
+	audio.lingpet_volty_click_voice_sfx.stop()
+	audio.play_lingpet_click_reaction("milkring")
+	_expect(audio.lingpet_milkring_click_voice_sfx.playing, "Milkring click-reaction voice should enter playback when requested")
+	audio.lingpet_milkring_click_voice_sfx.stop()
 	_expect(is_equal_approx(float(audio.set_bgm_volume(0.25)), 0.25), "BGM setter should clamp and return the stored value")
 	_expect(is_equal_approx(float(audio.set_sfx_volume(0.85)), 0.85), "SFX setter should clamp and return the stored value")
 	_expect(AudioServer.get_bus_index("BGM") >= 0, "BGM bus should exist for option sliders")
@@ -87,6 +103,47 @@ func _cleanup_player(player: AudioStreamPlayer) -> void:
 	if player.playing:
 		player.stop()
 	player.stream = null
+
+
+func _verify_setup_step_completes_from_cold_cache() -> void:
+	ProjectResourceLoader.clear_caches()
+	var boot_audio := GameAudio.new()
+	var frames := 0
+	var previous_progress := -0.001
+	while not bool(boot_audio.setup_step(host)):
+		frames += 1
+		var progress := float(boot_audio.get_setup_progress())
+		_expect(progress + 0.001 >= previous_progress, "GameAudio setup progress should not move backward during boot prewarm")
+		previous_progress = progress
+		_expect(frames <= 320, "GameAudio setup_step should not hold the loading screen at 38 percent")
+		await process_frame
+	_expect(is_equal_approx(float(boot_audio.get_setup_progress()), 1.0), "GameAudio setup progress should finish at 100 percent")
+	_expect(boot_audio.stage1_bgm != null, "GameAudio setup_step should create the required stage BGM player")
+	await _cleanup_host_audio_players()
+	ProjectResourceLoader.clear_caches()
+
+
+func _verify_setup_uses_sync_audio_prewarm() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
+	var prewarm_body := _function_body(source, "func _prewarm_audio_setup_streams_step()")
+	_expect(
+		prewarm_body.find("ProjectResourceLoader.load_audio_stream(path)") >= 0,
+		"GameAudio boot setup should cache one audio stream per frame through the synchronous loader"
+	)
+	_expect(
+		prewarm_body.find("prewarm_audio_stream_threaded_step") < 0,
+		"GameAudio boot setup should not wait on threaded audio prewarm during the visible 38 percent loading step"
+	)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
 
 
 func _expect(condition: bool, message: String) -> void:

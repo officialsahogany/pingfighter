@@ -1,0 +1,17 @@
+{
+  "asset": "milkring_milk_production_autosprite_25f.png",
+  "pet_id": "milkring",
+  "runtime_skill_id": "milkring_milk_production",
+  "runtime_kind": "milk_production",
+  "source": "AutoSprite MCP",
+  "character_id": "cmpwxpxiv000cv4z33pe2xx6k",
+  "job_id": "wf_0b68a1ee-35d4-4813-b25b-0f895e7ede4b",
+  "spritesheet_id": "cmpxmv3px000hxtawt10j5ujp",
+  "frame_count": 25,
+  "cols": 5,
+  "rows": 5,
+  "frame_width": 512,
+  "frame_height": 512,
+  "created_date": "2026-06-03",
+  "usage": "Milkring milk-production cast/windup sheet for the lingpet active skill that spawns the milk_bottle active item."
+}

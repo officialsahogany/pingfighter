@@ -1,64 +1,117 @@
 extends RefCounted
 
-const LingpetHydroSphereSkill := preload("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
-const LingpetHeadbuttSkill := preload("res://scripts/lingpet/lingpet_headbutt_skill.gd")
-const LingpetMoonOrbitSkill := preload("res://scripts/lingpet/lingpet_moon_orbit_skill.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 
-var _hydro_sphere_skill: Object = LingpetHydroSphereSkill.new()
-var _headbutt_skill: Object = LingpetHeadbuttSkill.new()
-var _moon_orbit_skill: Object = LingpetMoonOrbitSkill.new()
+const HYDRO_SPHERE_SKILL_PATH := "res://scripts/lingpet/lingpet_hydro_sphere_skill.gd"
+const HEADBUTT_SKILL_PATH := "res://scripts/lingpet/lingpet_headbutt_skill.gd"
+const MOON_ORBIT_SKILL_PATH := "res://scripts/lingpet/lingpet_moon_orbit_skill.gd"
+const BUBBLE_TRAP_SKILL_PATH := "res://scripts/lingpet/lingpet_bubble_trap_skill.gd"
+const MILK_PRODUCTION_SKILL_PATH := "res://scripts/lingpet/lingpet_milk_production_skill.gd"
+const THUNDER_ORB_SKILL_PATH := "res://scripts/lingpet/lingpet_thunder_orb_skill.gd"
+const BOMB_SURPRISE_SKILL_PATH := "res://scripts/lingpet/lingpet_bomb_surprise_skill.gd"
+const GATLING_BURST_SKILL_PATH := "res://scripts/lingpet/lingpet_gatling_burst_skill.gd"
+const DRAGON_BREATH_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_breath_skill.gd"
+
+var _hydro_sphere_skill: Object = null
+var _headbutt_skill: Object = null
+var _moon_orbit_skill: Object = null
+var _bubble_trap_skill: Object = null
+var _milk_production_skill: Object = null
+var _thunder_orb_skill: Object = null
+var _bomb_surprise_skill: Object = null
+var _gatling_burst_skill: Object = null
+var _dragon_breath_skill: Object = null
 
 
 func reset() -> void:
-	_hydro_sphere_skill.reset()
-	_headbutt_skill.reset()
-	_moon_orbit_skill.reset()
+	_reset_skill(_hydro_sphere_skill)
+	_reset_skill(_headbutt_skill)
+	_reset_skill(_moon_orbit_skill)
+	_reset_skill(_bubble_trap_skill)
+	_reset_skill(_milk_production_skill)
+	_reset_skill(_thunder_orb_skill)
+	_reset_skill(_bomb_surprise_skill)
+	_reset_skill(_gatling_burst_skill)
+	_reset_skill(_dragon_breath_skill)
 
 
-func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "") -> void:
+func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
 	var safe_delta := maxf(0.0, delta)
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			_hydro_sphere_skill.update(safe_delta, owner, registry)
+			_get_hydro_sphere_skill().update(safe_delta, owner, registry)
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			_headbutt_skill.update(safe_delta, owner, registry)
+			_get_headbutt_skill().update(safe_delta, owner, registry)
 		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
-			_moon_orbit_skill.update(safe_delta, owner, registry)
+			_get_moon_orbit_skill().update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			_get_bubble_trap_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			_get_milk_production_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			_get_thunder_orb_skill().update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			_get_bomb_surprise_skill().update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			_get_gatling_burst_skill().update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			_get_dragon_breath_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	_hydro_sphere_skill.draw(canvas, shake_offset)
-	_headbutt_skill.draw(canvas, shake_offset)
-	_moon_orbit_skill.draw(canvas, shake_offset)
+	_draw_skill(_hydro_sphere_skill, canvas, shake_offset)
+	_draw_skill(_headbutt_skill, canvas, shake_offset)
+	_draw_skill(_moon_orbit_skill, canvas, shake_offset)
+	_draw_skill(_bubble_trap_skill, canvas, shake_offset)
+	_draw_skill(_milk_production_skill, canvas, shake_offset)
+	_draw_skill(_thunder_orb_skill, canvas, shake_offset)
+	_draw_skill(_bomb_surprise_skill, canvas, shake_offset)
+	_draw_skill(_gatling_burst_skill, canvas, shake_offset)
+	_draw_skill(_dragon_breath_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
-	return _hydro_sphere_skill.has_visible_effects() or _headbutt_skill.has_visible_effects() or _moon_orbit_skill.has_visible_effects()
+	return (
+		_skill_has_visible_effects(_hydro_sphere_skill)
+		or _skill_has_visible_effects(_headbutt_skill)
+		or _skill_has_visible_effects(_moon_orbit_skill)
+		or _skill_has_visible_effects(_bubble_trap_skill)
+		or _skill_has_visible_effects(_milk_production_skill)
+		or _skill_has_visible_effects(_thunder_orb_skill)
+		or _skill_has_visible_effects(_bomb_surprise_skill)
+		or _skill_has_visible_effects(_gatling_burst_skill)
+		or _skill_has_visible_effects(_dragon_breath_skill)
+	)
 
 
 func prewarm(skill_id: String) -> void:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			_hydro_sphere_skill.prewarm()
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			_headbutt_skill.prewarm()
-		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
-			_moon_orbit_skill.prewarm()
-		_:
-			pass
+	var skill: Object = _get_skill_for_kind(LingpetSkillDispatcher.get_skill_kind(skill_id))
+	if skill != null and skill.has_method("prewarm"):
+		skill.prewarm()
 
 
 func is_launch_blocked(skill_id: String) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			return _hydro_sphere_skill.is_projectile_active()
+			return _hydro_sphere_skill != null and bool(_hydro_sphere_skill.is_projectile_active())
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.is_active()
+			return _headbutt_skill != null and bool(_headbutt_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
-			return _moon_orbit_skill.is_projectile_active() or _moon_orbit_skill.is_orbit_field_active()
+			return _moon_orbit_skill != null and (bool(_moon_orbit_skill.is_projectile_active()) or bool(_moon_orbit_skill.is_orbit_field_active()))
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return _bubble_trap_skill != null and (bool(_bubble_trap_skill.is_projectile_active()) or bool(_bubble_trap_skill.is_capture_active()) or bool(_bubble_trap_skill.is_shot_sequence_active()))
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return _milk_production_skill != null and bool(_milk_production_skill.is_producing())
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return _thunder_orb_skill != null and bool(_thunder_orb_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _gatling_burst_skill != null and bool(_gatling_burst_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			return _dragon_breath_skill != null and bool(_dragon_breath_skill.is_active())
 		_:
 			return false
 
@@ -66,20 +119,35 @@ func is_launch_blocked(skill_id: String) -> bool:
 func can_arm(skill_id: String, params: Dictionary) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.can_arm(params)
+			return bool(_get_headbutt_skill().can_arm(params))
 		_:
 			return true
 
 
-func launch(skill_id: String, origin: Vector2, owner: Object = null) -> bool:
+func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_context: Dictionary = {}) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			_hydro_sphere_skill.launch(origin)
+			_get_hydro_sphere_skill().launch(origin)
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.launch(origin, owner)
+			return bool(_get_headbutt_skill().launch(origin, owner))
 		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
-			_moon_orbit_skill.launch(origin)
+			_get_moon_orbit_skill().launch(origin)
+			return true
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			_get_bubble_trap_skill().launch(origin, owner, launch_context)
+			return true
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return bool(_get_milk_production_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			_get_thunder_orb_skill().launch(origin, owner)
+			return true
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return bool(_get_bomb_surprise_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return bool(_get_gatling_burst_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			_get_dragon_breath_skill().launch(origin, owner)
 			return true
 		_:
 			return false
@@ -93,6 +161,18 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
 		_:
 			return companion_pos
 
@@ -100,7 +180,11 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 func has_companion_position_override(skill_id: String) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.has_companion_position_override()
+			return _headbutt_skill != null and bool(_headbutt_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _gatling_burst_skill != null and bool(_gatling_burst_skill.has_companion_position_override())
 		_:
 			return false
 
@@ -108,15 +192,37 @@ func has_companion_position_override(skill_id: String) -> bool:
 func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vector2:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.get_companion_position_override(fallback)
+			return _headbutt_skill.get_companion_position_override(fallback) if _headbutt_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _bomb_surprise_skill.get_companion_position_override(fallback) if _bomb_surprise_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _gatling_burst_skill.get_companion_position_override(fallback) if _gatling_burst_skill != null else fallback
 		_:
 			return fallback
+
+
+func suppresses_companion_body_hit(skill_id: String) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.suppresses_companion_body_hit())
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _gatling_burst_skill != null and bool(_gatling_burst_skill.suppresses_companion_body_hit())
+		_:
+			return false
+
+
+func suppresses_companion_body_draw(skill_id: String) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _gatling_burst_skill != null and _gatling_burst_skill.has_method("suppresses_companion_body_draw") and bool(_gatling_burst_skill.suppresses_companion_body_draw())
+		_:
+			return false
 
 
 func consume_companion_strike_request(skill_id: String) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.consume_companion_strike_request()
+			return _headbutt_skill != null and bool(_headbutt_skill.consume_companion_strike_request())
 		_:
 			return false
 
@@ -131,31 +237,194 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_hydro_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			pass
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			_play_hydro_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			_play_active_item_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			_play_thunder_orb_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			_play_bomb_surprise_attach_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			pass
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			_play_dragon_breath_feedback(registry)
 		_:
 			pass
 
 
 func get_snapshot() -> Dictionary:
-	var snapshot: Dictionary = _hydro_sphere_skill.get_snapshot()
-	snapshot.merge(_headbutt_skill.get_snapshot(), true)
-	snapshot.merge(_moon_orbit_skill.get_snapshot(), true)
+	var snapshot: Dictionary = {}
+	_merge_skill_snapshot(snapshot, _hydro_sphere_skill)
+	_merge_skill_snapshot(snapshot, _headbutt_skill)
+	_merge_skill_snapshot(snapshot, _moon_orbit_skill)
+	_merge_skill_snapshot(snapshot, _bubble_trap_skill)
+	_merge_skill_snapshot(snapshot, _milk_production_skill)
+	_merge_skill_snapshot(snapshot, _thunder_orb_skill)
+	_merge_skill_snapshot(snapshot, _bomb_surprise_skill)
+	_merge_skill_snapshot(snapshot, _gatling_burst_skill)
+	_merge_skill_snapshot(snapshot, _dragon_breath_skill)
 	return snapshot
 
 
 func get_hydro_puddle_particle_count_for_tests() -> int:
-	return _hydro_sphere_skill.get_particle_count_for_tests()
+	return int(_get_hydro_sphere_skill().get_particle_count_for_tests())
 
 
 func get_headbutt_hit_count_for_tests() -> int:
-	return _headbutt_skill.get_hit_count_for_tests()
+	return int(_get_headbutt_skill().get_hit_count_for_tests())
 
 
 func get_headbutt_miss_count_for_tests() -> int:
-	return _headbutt_skill.get_miss_count_for_tests()
+	return int(_get_headbutt_skill().get_miss_count_for_tests())
 
 
 func get_moon_orbit_particle_count_for_tests() -> int:
-	return _moon_orbit_skill.get_particle_count_for_tests()
+	return int(_get_moon_orbit_skill().get_particle_count_for_tests())
+
+
+func get_bubble_trap_capture_count_for_tests() -> int:
+	return int(_get_bubble_trap_skill().get_capture_count_for_tests())
+
+
+func get_bubble_trap_pop_count_for_tests() -> int:
+	return int(_get_bubble_trap_skill().get_pop_count_for_tests())
+
+
+func get_milk_production_spawn_count_for_tests() -> int:
+	return int(_get_milk_production_skill().get_spawn_count_for_tests())
+
+
+func get_thunder_orb_shock_count_for_tests() -> int:
+	return int(_get_thunder_orb_skill().get_shock_applied_count_for_tests())
+
+
+func get_bomb_surprise_explosion_count_for_tests() -> int:
+	return int(_get_bomb_surprise_skill().get_explosion_count_for_tests())
+
+
+func get_gatling_burst_hit_count_for_tests() -> int:
+	return int(_get_gatling_burst_skill().get_hit_count_for_tests())
+
+
+func get_gatling_burst_shot_count_for_tests() -> int:
+	return int(_get_gatling_burst_skill().get_shot_count_for_tests())
+
+
+func get_dragon_breath_ball_hit_count_for_tests() -> int:
+	return int(_get_dragon_breath_skill().get_ball_hit_count_for_tests())
+
+
+func get_dragon_breath_fire_zone_spawn_count_for_tests() -> int:
+	return int(_get_dragon_breath_skill().get_fire_zone_spawn_count_for_tests())
+
+
+func _get_skill_for_kind(skill_kind: String) -> Object:
+	match skill_kind:
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return _get_hydro_sphere_skill()
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _get_headbutt_skill()
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return _get_moon_orbit_skill()
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return _get_bubble_trap_skill()
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return _get_milk_production_skill()
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return _get_thunder_orb_skill()
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _get_bomb_surprise_skill()
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _get_gatling_burst_skill()
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			return _get_dragon_breath_skill()
+		_:
+			return null
+
+
+func _get_hydro_sphere_skill() -> Object:
+	if _hydro_sphere_skill == null:
+		_hydro_sphere_skill = _new_skill(HYDRO_SPHERE_SKILL_PATH)
+	return _hydro_sphere_skill
+
+
+func _get_headbutt_skill() -> Object:
+	if _headbutt_skill == null:
+		_headbutt_skill = _new_skill(HEADBUTT_SKILL_PATH)
+	return _headbutt_skill
+
+
+func _get_moon_orbit_skill() -> Object:
+	if _moon_orbit_skill == null:
+		_moon_orbit_skill = _new_skill(MOON_ORBIT_SKILL_PATH)
+	return _moon_orbit_skill
+
+
+func _get_bubble_trap_skill() -> Object:
+	if _bubble_trap_skill == null:
+		_bubble_trap_skill = _new_skill(BUBBLE_TRAP_SKILL_PATH)
+	return _bubble_trap_skill
+
+
+func _get_milk_production_skill() -> Object:
+	if _milk_production_skill == null:
+		_milk_production_skill = _new_skill(MILK_PRODUCTION_SKILL_PATH)
+	return _milk_production_skill
+
+
+func _get_thunder_orb_skill() -> Object:
+	if _thunder_orb_skill == null:
+		_thunder_orb_skill = _new_skill(THUNDER_ORB_SKILL_PATH)
+	return _thunder_orb_skill
+
+
+func _get_bomb_surprise_skill() -> Object:
+	if _bomb_surprise_skill == null:
+		_bomb_surprise_skill = _new_skill(BOMB_SURPRISE_SKILL_PATH)
+	return _bomb_surprise_skill
+
+
+func _get_gatling_burst_skill() -> Object:
+	if _gatling_burst_skill == null:
+		_gatling_burst_skill = _new_skill(GATLING_BURST_SKILL_PATH)
+	return _gatling_burst_skill
+
+
+func _get_dragon_breath_skill() -> Object:
+	if _dragon_breath_skill == null:
+		_dragon_breath_skill = _new_skill(DRAGON_BREATH_SKILL_PATH)
+	return _dragon_breath_skill
+
+
+func _new_skill(path: String) -> Object:
+	var script_resource: Variant = load(path)
+	if script_resource == null:
+		push_warning("Failed to load lingpet skill script: %s" % path)
+		return null
+	return script_resource.new()
+
+
+func _reset_skill(skill: Object) -> void:
+	if skill != null and skill.has_method("reset"):
+		skill.reset()
+
+
+func _draw_skill(skill: Object, canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if skill != null and skill.has_method("draw"):
+		skill.draw(canvas, shake_offset)
+
+
+func _skill_has_visible_effects(skill: Object) -> bool:
+	return skill != null and skill.has_method("has_visible_effects") and bool(skill.has_visible_effects())
+
+
+func _merge_skill_snapshot(snapshot: Dictionary, skill: Object) -> void:
+	if skill == null or not skill.has_method("get_snapshot"):
+		return
+	var skill_snapshot: Variant = skill.get_snapshot()
+	if skill_snapshot is Dictionary:
+		snapshot.merge(skill_snapshot as Dictionary, true)
 
 
 func _play_hydro_feedback(registry: Object) -> void:
@@ -164,6 +433,54 @@ func _play_hydro_feedback(registry: Object) -> void:
 	var audio: Object = _get_registry_instance(registry, "game_audio")
 	if audio != null and audio.has_method("play_stage2_hydro"):
 		audio.play_stage2_hydro()
+
+
+func _play_active_item_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_thunder_orb_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_thunder_orb_shot"):
+		audio.play_thunder_orb_shot()
+	elif audio.has_method("play_ragnarok_shot"):
+		audio.play_ragnarok_shot()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_bomb_surprise_attach_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_bomb_surprise_attach"):
+		audio.play_bomb_surprise_attach()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_dragon_breath_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_dragon_breath_fire"):
+		audio.play_dragon_breath_fire(false)
+	elif audio.has_method("play_molotov_explosion"):
+		audio.play_molotov_explosion()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:

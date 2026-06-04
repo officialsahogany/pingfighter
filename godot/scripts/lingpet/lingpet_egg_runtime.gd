@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
+const LingpetAfterglowLeakState := preload("res://scripts/lingpet/lingpet_afterglow_leak_state.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
@@ -66,7 +67,10 @@ const COMPANION_SKILL_WINDUP_SECONDS := 1.0
 const COMPANION_SKILL_BURST_PARTICLES := 8
 const COMPANION_SWITCH_TRANSITION_SECONDS := 0.62
 const COMPANION_SWITCH_TRANSITION_PARTICLES := 12
-# Click-reaction popup timing, hit zone, draw math, and prewarm keys live in
+const COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO := 0.12
+const CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC := 1800
+const CLICK_REACTION_TEXTURE_PREWARM_MAX_POLLS := 240
+# Click-reaction timing, hit zone, draw math, and prewarm keys live in
 # LingpetCompanionClickReactionState. The runtime only exposes the public
 # battle-input API and feeds the current pet texture into the state renderer.
 # Fullscreen acquisition cut-in state lives in LingpetAcquireCutinState. The
@@ -86,6 +90,7 @@ var _companion_pos := Vector2.ZERO
 var _companion_facing_left := false
 var _companion_motion_state: Object = LingpetCompanionMotionState.new()
 var _hatch_flash_timer := 0.0
+var _afterglow_leak_state: Object = LingpetAfterglowLeakState.new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
@@ -104,6 +109,10 @@ var _companion_click_reaction_state: Object = LingpetCompanionClickReactionState
 var _loadout_state: Object = LingpetLoadoutState.new()
 var _companion_skill_state_by_pet_id: Dictionary = {}
 var _has_synced_none := false
+var _click_reaction_visual_prewarm_pet_id := ""
+var _click_reaction_visual_prewarm_done_for := ""
+var _applied_loadout_key := ""
+var _synced_owner_loadout_key := ""
 
 
 func update(delta: float, owner: Object, registry: Object = null) -> bool:
@@ -134,17 +143,25 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 
 	if _state == STATE_EGG:
 		_egg_state.update_player_contact(delta, owner)
-		var changed: bool = _resolve_ball_hit(owner)
+		var changed: bool = _resolve_ball_hit(owner, registry)
 		_sync_owner(owner)
 		return changed
 
 	if _state == STATE_COMPANION:
+		_prewarm_click_reaction_visual_step()
 		_update_companion_motion(delta, owner)
 		_maybe_arm_companion_strike(owner)
 		_resolve_companion_ball_hit(owner, registry)
+		_afterglow_leak_state.advance(delta, owner, registry, _get_current_passive_skill(), _state == STATE_COMPANION)
 		_update_companion_skill_effects(delta, owner, registry)
 		_sync_owner(owner)
 	return false
+
+
+func prewarm_assets() -> void:
+	_afterglow_leak_state.prewarm()
+	if _companion_renderer != null and _companion_renderer.has_method("prewarm_assets"):
+		_companion_renderer.prewarm_assets()
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_context: Dictionary = {}) -> void:
@@ -154,12 +171,25 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 		_draw_egg(canvas, _egg_state.pos + shake_offset)
 	elif _state == STATE_COMPANION:
 		_skill_runtime_host.draw(canvas, shake_offset)
-		_draw_companion(canvas, _companion_pos + shake_offset)
+		_afterglow_leak_state.draw(canvas, shake_offset)
+		var companion_body_draw_suppressed := _is_companion_body_draw_suppressed(_get_current_skill_id())
+		var click_reaction_texture: Texture2D = null
 		if _companion_click_reaction_state.is_active():
+			click_reaction_texture = _get_current_cached_visual_texture(
+				LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY,
+				null
+			)
+		var click_reaction_visible: bool = bool(_companion_click_reaction_state.is_active()) and click_reaction_texture != null
+		if companion_body_draw_suppressed:
+			pass
+		elif not click_reaction_visible:
+			_draw_companion(canvas, _companion_pos + shake_offset)
+		else:
 			_companion_click_reaction_state.draw(
 				canvas,
 				_companion_pos + shake_offset,
-				_get_current_visual_texture("click_reaction_anim", null)
+				click_reaction_texture,
+				_get_companion_click_reaction_draw_size()
 			)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
@@ -171,6 +201,7 @@ func has_visible_effects() -> bool:
 		or _state == STATE_COMPANION
 		or _hatch_flash_timer > 0.0
 		or _acquire_cutin_state.active
+		or _afterglow_leak_state.has_visible_effects()
 		or _skill_runtime_host.has_visible_effects()
 	)
 
@@ -199,8 +230,11 @@ func is_acquire_cutin_awaiting_dismiss() -> bool:
 
 # Begin the animated exit action (does NOT close immediately). The cut-in stays
 # active (gameplay paused) until advance_acquire_cutin finishes the action+fade.
-func begin_acquire_cutin_dismiss() -> bool:
-	return _acquire_cutin_state.begin_dismiss()
+func begin_acquire_cutin_dismiss(registry: Object = null) -> bool:
+	if not _acquire_cutin_state.begin_dismiss():
+		return false
+	_play_click_reaction_audio(registry)
+	return true
 
 
 func is_acquire_cutin_dismissing() -> bool:
@@ -226,14 +260,26 @@ func is_companion_active(pet_id: String = "") -> bool:
 	return _state == STATE_COMPANION and (normalized_pet_id == "" or _pet_id == normalized_pet_id)
 
 
-func debug_grant_and_activate_pet(pet_id: String, owner: Object = null, show_acquire_cutin: bool = false) -> bool:
+func debug_grant_and_activate_pet(
+	pet_id: String,
+	owner: Object = null,
+	show_acquire_cutin: bool = false,
+	active_skill_id: String = "",
+	passive_skill_id: String = "",
+	registry: Object = null,
+	active_skill_level: int = 1,
+	passive_skill_level: int = 1
+) -> bool:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return false
 	_save_current_companion_skill_state()
 	_state = STATE_COMPANION
 	_set_current_pet_id(normalized_pet_id)
-	_apply_current_loadout(owner, true)
+	if active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != "":
+		_loadout_state.set_pet_loadout(owner, normalized_pet_id, active_skill_id, passive_skill_id, active_skill_level, passive_skill_level)
+		_invalidate_current_loadout_cache()
+	_apply_current_loadout(owner, true, true)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_reset_companion_runtime_state()
@@ -259,7 +305,7 @@ func debug_grant_and_activate_pet(pet_id: String, owner: Object = null, show_acq
 			_collection_state.set_active_slot_index(active_slot_index)
 	_initialize_companion_patrol(owner, true)
 	if show_acquire_cutin:
-		_acquire_cutin_state.start()
+		_start_acquire_cutin(registry)
 	_sync_owner(owner)
 	return true
 
@@ -273,7 +319,10 @@ func get_active_lingpet_slot_index() -> int:
 
 
 func _set_current_pet_id(value: String) -> void:
+	var previous_pet_id := _pet_id
 	_pet_id = _current_profile.set_pet_id(value, PET_ID)
+	if _pet_id != previous_pet_id:
+		_invalidate_current_loadout_cache()
 
 
 func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
@@ -289,7 +338,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 		return true
 	_switch_transition_state.begin(_pet_id, next_pet_id, COMPANION_SWITCH_TRANSITION_SECONDS)
 	_set_current_pet_id(next_pet_id)
-	_apply_current_loadout(owner, true)
+	_apply_current_loadout(owner, true, false)
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	_reset_companion_runtime_state()
@@ -328,6 +377,10 @@ func get_hydro_puddle_particle_count_for_tests() -> int:
 	return _skill_runtime_host.get_hydro_puddle_particle_count_for_tests()
 
 
+func get_afterglow_leak_residue_count_for_tests() -> int:
+	return _afterglow_leak_state.get_residue_count_for_tests()
+
+
 func get_headbutt_hit_count_for_tests() -> int:
 	return _skill_runtime_host.get_headbutt_hit_count_for_tests()
 
@@ -347,6 +400,15 @@ func get_gauge_gain_per_hit(base_gain: float) -> float:
 	if _state != STATE_COMPANION or bonus_pct <= 0.0:
 		return gain
 	return floor(gain * (1.0 + bonus_pct / 100.0))
+
+
+func get_player_speed_multiplier() -> float:
+	if _state != STATE_COMPANION:
+		return 1.0
+	var bonus_pct := _get_current_player_speed_bonus_pct()
+	if bonus_pct <= 0.0:
+		return 1.0
+	return 1.0 + bonus_pct / 100.0
 
 
 func get_snapshot() -> Dictionary:
@@ -381,6 +443,7 @@ func get_snapshot() -> Dictionary:
 		_get_current_passive_skill_pool()
 	)
 	snapshot.merge(_switch_transition_state.get_snapshot(COMPANION_SWITCH_TRANSITION_SECONDS), true)
+	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
 	return snapshot
 
 
@@ -426,7 +489,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 	var target_state := str(restore_plan.get("target_state", STATE_NONE))
 	if target_state == STATE_COMPANION:
 		_state = STATE_COMPANION
-		_apply_current_loadout(owner, true)
+		_apply_current_loadout(owner, true, false)
 		_egg_state.set_hatched(_get_current_required_hits())
 		var companion_fallback := Vector2.ZERO
 		_companion_pos = _get_vector2_from_variant(snapshot.get("companion_pos", companion_fallback), companion_fallback)
@@ -457,6 +520,7 @@ func restore_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictio
 func reset_for_tests() -> void:
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
+	_invalidate_current_loadout_cache()
 	_egg_state.reset_all()
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
@@ -476,6 +540,7 @@ func reset_round(_deps: Dictionary = {}) -> void:
 	_switch_transition_state.reset()
 	_companion_skill_state.reset_round_transients()
 	_companion_body_hit_state.reset_round_transients()
+	_afterglow_leak_state.reset_round_transients()
 
 
 func _reset_skill_runtime_transients() -> void:
@@ -486,14 +551,17 @@ func _reset_skill_runtime_transients() -> void:
 func _clear_lingpet_field_state() -> void:
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
+	_invalidate_current_loadout_cache()
 	_egg_state.reset_all()
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
+	_afterglow_leak_state.reset_all()
 
 
 func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
 	_companion_sprite_animator.reset_all()
 	_companion_body_hit_state.reset_all()
+	_afterglow_leak_state.reset_all()
 	_companion_skill_state.reset_all()
 	if reset_defense:
 		_reset_companion_defense()
@@ -515,32 +583,48 @@ func _spawn_egg(owner: Object) -> void:
 	_sync_owner(owner)
 
 
-func _resolve_ball_hit(owner: Object) -> bool:
+func _resolve_ball_hit(owner: Object, registry: Object = null) -> bool:
 	var hit_result: Dictionary = _egg_state.resolve_ball_hit(owner, _get_current_required_hits())
 	if not bool(hit_result.get("changed", false)):
 		return false
 
 	if bool(hit_result.get("hatched", false)):
 		_state = STATE_COMPANION
-		_apply_current_loadout(owner, true)
+		_apply_current_loadout(owner, true, true)
 		_companion_pos = _egg_state.pos
 		_initialize_companion_patrol(owner, false)
 		_egg_state.reset_contact_motion()
 		_reset_companion_runtime_state(false)
 		_switch_transition_state.reset()
 		_hatch_flash_timer = LingpetEggFieldRenderer.HATCH_FLASH_SECONDS
-		_acquire_cutin_state.start()
+		_start_acquire_cutin(registry)
 		_prewarm_current_visuals()
 		_mark_current_pet_owned(owner)
 		_select_current_pet_slot(owner)
 	return true
 
 
+func _start_acquire_cutin(registry: Object = null) -> void:
+	_acquire_cutin_state.start()
+	_play_acquire_cutin_audio(registry)
+
+
+func _play_acquire_cutin_audio(registry: Object = null) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var audio: Object = registry.get_instance("game_audio")
+	if audio != null and audio.has_method("play_lingpet_acquire_cutin"):
+		audio.play_lingpet_acquire_cutin()
+
+
 func _sync_owner(owner: Object) -> void:
 	if _state == STATE_COMPANION:
-		_apply_current_loadout(owner, true)
+		if _applied_loadout_key == "":
+			_apply_current_loadout(owner, true, false)
 	else:
 		_loadout_state.sync_owner(owner, "")
+	var should_sync_loadouts := _state != STATE_COMPANION or _synced_owner_loadout_key != _applied_loadout_key
+	var loadouts_snapshot: Dictionary = _loadout_state.get_loadouts() if should_sync_loadouts else {}
 	_snapshot_builder.sync_owner(
 		owner,
 		_pet_id,
@@ -564,15 +648,18 @@ func _sync_owner(owner: Object) -> void:
 		_companion_skill_state,
 		_get_current_gauge_gain_bonus_pct(),
 		_get_effect_text(),
-		_loadout_state.get_loadouts(),
-		_get_current_passive_skill()
+		loadouts_snapshot,
+		_get_current_passive_skill(),
+		should_sync_loadouts
 	)
+	if should_sync_loadouts:
+		_synced_owner_loadout_key = _applied_loadout_key
 
 
 func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_state = STATE_COMPANION
 	_set_current_pet_id(pet_id)
-	_apply_current_loadout(owner, true)
+	_apply_current_loadout(owner, true, false)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_initialize_companion_patrol(owner, true)
@@ -698,6 +785,10 @@ func _get_current_gauge_gain_bonus_pct() -> float:
 	return _current_profile.get_gauge_gain_bonus_pct(0.0)
 
 
+func _get_current_player_speed_bonus_pct() -> float:
+	return _current_profile.get_player_speed_bonus_pct(0.0)
+
+
 func _get_current_hit_gauge_gain() -> float:
 	return _current_profile.get_hit_gauge_gain(COMPANION_HIT_GAUGE_GAIN)
 
@@ -718,15 +809,40 @@ func _normalize_pet_id(value: String) -> String:
 	return _current_profile.normalize_pet_id(value)
 
 
-func _apply_current_loadout(owner: Object, ensure: bool) -> void:
+func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool = false) -> void:
 	if _pet_id == "":
-		_current_profile.set_loadout("", "")
+		if _applied_loadout_key != "":
+			_current_profile.set_loadout("", "")
+			_invalidate_current_loadout_cache()
 		return
-	var loadout: Dictionary = _loadout_state.ensure_pet_loadout(owner, _pet_id) if ensure else _loadout_state.get_loadout(_pet_id)
+	if not randomize_missing and _applied_loadout_key != "":
+		return
+	var loadout: Dictionary = _loadout_state.ensure_pet_loadout(owner, _pet_id, null, randomize_missing) if ensure else _loadout_state.get_loadout(_pet_id)
+	var loadout_key := _build_loadout_key(_pet_id, loadout)
+	if not randomize_missing and loadout_key == _applied_loadout_key:
+		return
 	_current_profile.set_loadout(
 		str(loadout.get("active_skill_id", "")),
-		str(loadout.get("passive_skill_id", ""))
+		str(loadout.get("passive_skill_id", "")),
+		int(loadout.get("active_skill_level", 1)),
+		int(loadout.get("passive_skill_level", 1))
 	)
+	_applied_loadout_key = loadout_key
+
+
+func _invalidate_current_loadout_cache() -> void:
+	_applied_loadout_key = ""
+	_synced_owner_loadout_key = ""
+
+
+func _build_loadout_key(pet_id: String, loadout: Dictionary) -> String:
+	return "%s|%s|%d|%s|%d" % [
+		pet_id,
+		str(loadout.get("active_skill_id", "")),
+		int(loadout.get("active_skill_level", 1)),
+		str(loadout.get("passive_skill_id", "")),
+		int(loadout.get("passive_skill_level", 1)),
+	]
 
 
 func _prewarm_current_visuals() -> void:
@@ -734,11 +850,54 @@ func _prewarm_current_visuals() -> void:
 	if _companion_renderer != null and _companion_renderer.has_method("prewarm_assets"):
 		_companion_renderer.prewarm_assets()
 	if _state == STATE_COMPANION:
-		_current_profile.prewarm_visual_keys(LingpetCompanionClickReactionState.PREWARM_VISUAL_KEYS)
+		_queue_click_reaction_visual_prewarm()
 
 
 func _get_current_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:
 	return _current_profile.get_visual_texture(visual_key, fallback)
+
+
+func _get_current_cached_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:
+	return _current_profile.get_cached_visual_texture(visual_key, fallback)
+
+
+func _get_companion_click_reaction_draw_size() -> Vector2:
+	var fallback_size: float = float(LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x)
+	var click_draw_size: float = _current_profile.get_visual_layout_value("click_reaction_draw_size", 0.0)
+	if click_draw_size > 0.0:
+		return Vector2(click_draw_size, click_draw_size)
+	var draw_size: float = _current_profile.get_visual_layout_value("companion_walk_draw_size", fallback_size)
+	if draw_size <= 0.0:
+		draw_size = fallback_size
+	return Vector2(draw_size, draw_size)
+
+
+func _queue_click_reaction_visual_prewarm() -> void:
+	if _state != STATE_COMPANION:
+		return
+	if _click_reaction_visual_prewarm_done_for == _pet_id:
+		return
+	_click_reaction_visual_prewarm_pet_id = _pet_id
+
+
+func _prewarm_click_reaction_visual_step() -> bool:
+	if _state != STATE_COMPANION:
+		return true
+	if _click_reaction_visual_prewarm_done_for == _pet_id:
+		return true
+	if _click_reaction_visual_prewarm_pet_id != _pet_id:
+		_click_reaction_visual_prewarm_pet_id = _pet_id
+	for visual_key in LingpetCompanionClickReactionState.PREWARM_VISUAL_KEYS:
+		var done: bool = bool(_current_profile.prewarm_visual_key_threaded_step(
+			str(visual_key),
+			CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC,
+			CLICK_REACTION_TEXTURE_PREWARM_MAX_POLLS
+		))
+		if not done:
+			return false
+	_click_reaction_visual_prewarm_done_for = _pet_id
+	_click_reaction_visual_prewarm_pet_id = ""
+	return true
 
 
 func _normalize_lingpet_state(value: String) -> String:
@@ -837,6 +996,9 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 	if not bool(_get_owner_value(owner, "ball_active", false)):
 		_companion_body_hit_state.ball_was_inside = false
 		return false
+	if _is_companion_body_hit_suppressed(_get_current_skill_id()):
+		_companion_body_hit_state.ball_was_inside = false
+		return false
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 
@@ -859,6 +1021,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 	# strike entering at the thrust apex so the spear still snaps on contact.
 	if bool(hit_result.get("should_begin_strike", false)):
 		_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_IMPACT_FRAME)
+	_afterglow_leak_state.spawn_from_hit(_companion_body_hit_state.last_contact_pos, _get_current_passive_skill(), _state == STATE_COMPANION)
 	# Guard against a boss skill that owns the ball each frame (e.g. Dalji's
 	# 상모돌리기 whip forces the ball downward via update_ball_motion). Notify it
 	# like a player-paddle guard so it stops controlling the ball; otherwise the
@@ -881,6 +1044,7 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 		"switch_transition_active": _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0,
 		"companion_visible": _companion_motion_state.motion_visible,
 		"companion_pos": _companion_pos,
+		"companion_radius": COMPANION_RADIUS,
 	})
 	match str(decision.get("action", LingpetCompanionSkillController.ACTION_NONE)):
 		LingpetCompanionSkillController.ACTION_ARM:
@@ -912,7 +1076,12 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 		float(_get_current_active_skill().get("cooldown", COMPANION_SKILL_COOLDOWN_SECONDS)),
 		COMPANION_SKILL_FLASH_SECONDS,
 		registry,
-		owner
+		owner,
+		{
+			"companion_pos": _companion_pos,
+			"companion_radius": COMPANION_RADIUS,
+			"registry": registry,
+		}
 	)
 	if launched and _skill_runtime_host.has_companion_position_override(skill_id):
 		_apply_companion_skill_position_override(skill_id)
@@ -930,6 +1099,18 @@ func _apply_companion_skill_position_override(skill_id: String) -> void:
 		return
 	_companion_pos = _skill_runtime_host.get_companion_position_override(skill_id, _companion_pos)
 	_companion_motion_state.pos = _companion_pos
+
+
+func _is_companion_body_hit_suppressed(skill_id: String) -> bool:
+	if not _skill_runtime_host.has_method("suppresses_companion_body_hit"):
+		return false
+	return bool(_skill_runtime_host.suppresses_companion_body_hit(skill_id))
+
+
+func _is_companion_body_draw_suppressed(skill_id: String) -> bool:
+	if not _skill_runtime_host.has_method("suppresses_companion_body_draw"):
+		return false
+	return bool(_skill_runtime_host.suppresses_companion_body_draw(skill_id))
 
 
 func _draw_egg(canvas: CanvasItem, center: Vector2) -> void:
@@ -954,6 +1135,16 @@ func _get_egg_texture_for_hits() -> Texture2D:
 			return _get_current_visual_texture("egg", null)
 
 
+func _get_companion_draw_motion_speed_ratio() -> float:
+	if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()):
+		return 1.0
+	if _get_current_motion_style() != "sortie_flight":
+		return 0.0
+	if not _companion_motion_state.motion_visible:
+		return 0.0
+	return maxf(COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO, _companion_motion_state.motion_speed_ratio)
+
+
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
 		"companion_active": _state == STATE_COMPANION,
@@ -971,28 +1162,39 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"face_left": _companion_facing_left,
-		"motion_speed_ratio": 1.0 if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()) else (_companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0),
+		"motion_speed_ratio": _get_companion_draw_motion_speed_ratio(),
 		"companion_visible": _companion_motion_state.motion_visible or _skill_runtime_host.has_companion_position_override(_get_current_skill_id()),
 		"windup_seconds": _get_current_skill_windup_seconds(),
 	}))
 
 
-# Begin the in-battle click-reaction popup if the click landed on the patrolling
-# companion. Battle is NOT paused -- the reaction plays as a large popup above
-# the SD companion and fades out on its own. playfield_pos is in game/playfield
+# Begin the in-battle click-reaction playback if the click landed on the
+# patrolling companion. Battle is NOT paused -- the reaction temporarily replaces
+# the small SD companion at the same in-field size and fades out on its own.
+# playfield_pos is in game/playfield
 # coordinates (caller converts the viewport click via the layout render_scale /
 # game_offset). Returns true when the click was consumed by the companion.
-func try_begin_companion_click_reaction(playfield_pos: Vector2) -> bool:
+func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object = null) -> bool:
 	if _state != STATE_COMPANION:
 		return false
 	if _companion_pos == Vector2.ZERO:
 		return false
-	if _companion_click_reaction_state.is_active():
-		return true
 	if not _companion_click_reaction_state.can_start_at(playfield_pos, _companion_pos):
 		return false
+	if _companion_click_reaction_state.is_active():
+		_play_click_reaction_audio(registry)
+		return true
 	_companion_click_reaction_state.start()
+	_play_click_reaction_audio(registry)
 	return true
+
+
+func _play_click_reaction_audio(registry: Object = null) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var audio: Object = registry.get_instance("game_audio")
+	if audio != null and audio.has_method("play_lingpet_click_reaction"):
+		audio.play_lingpet_click_reaction(_pet_id)
 
 
 func is_companion_click_reaction_active() -> bool:
@@ -1000,6 +1202,9 @@ func is_companion_click_reaction_active() -> bool:
 
 
 func _maybe_arm_companion_strike(owner: Object) -> void:
+	if _is_companion_body_hit_suppressed(_get_current_skill_id()):
+		_companion_sprite_animator.reset_latch()
+		return
 	_companion_strike_anticipator.maybe_arm(
 		owner,
 		_companion_pos,

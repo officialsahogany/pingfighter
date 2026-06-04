@@ -41,8 +41,13 @@ func build_runtime_snapshot(
 	var skill_name := str(active_skill.get("name", ""))
 	var skill_description := str(active_skill.get("description", ""))
 	var skill_cooldown := float(active_skill.get("cooldown", 0.0))
+	var skill_level := int(active_skill.get("level", 1))
+	var skill_max_level := int(active_skill.get("max_level", 5))
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
+	var passive_level := int(passive_skill.get("level", 1)) if passive_enabled else 0
+	var passive_max_level := int(passive_skill.get("max_level", 5)) if passive_enabled else 0
+	var player_speed_bonus_pct := maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if passive_enabled else 0.0
 	var snapshot := {
 		"pet_id": pet_id,
 		"state": state,
@@ -55,11 +60,15 @@ func build_runtime_snapshot(
 		"companion_skill_description": skill_description if skill_active else "",
 		"companion_skill_card_path": str(active_skill.get("card_texture_path", "")) if skill_active else "",
 		"companion_skill_icon_path": str(active_skill.get("icon_texture_path", "")) if skill_active else "",
+		"companion_skill_level": skill_level if skill_active else 0,
+		"companion_skill_max_level": skill_max_level if skill_active else 0,
 		"companion_active_skill_pool_ids": _get_skill_ids(active_skill_pool) if companion_active else [],
 		"companion_passive_skill_id": passive_id,
 		"companion_passive_skill_name": str(passive_skill.get("name", "")) if passive_enabled else "",
 		"companion_passive_skill_description": str(passive_skill.get("description", "")) if passive_enabled else "",
 		"companion_passive_skill_icon_path": str(passive_skill.get("icon_texture_path", "")) if passive_enabled else "",
+		"companion_passive_skill_level": passive_level,
+		"companion_passive_skill_max_level": passive_max_level,
 		"companion_passive_skill_pool_ids": _get_skill_ids(passive_skill_pool) if companion_active else [],
 		"hatch_flash_timer": hatch_flash_timer,
 		"owned_pet_ids": owned_pet_ids.duplicate(),
@@ -70,7 +79,10 @@ func build_runtime_snapshot(
 		"active_slot_index": active_slot_index,
 		"active_pet_id": pet_id if companion_active else "",
 		"active_skill_id": skill_id if skill_active else "",
+		"active_skill_level": skill_level if skill_active else 0,
 		"passive_skill_id": passive_id,
+		"passive_skill_level": passive_level,
+		"companion_player_speed_bonus_pct": player_speed_bonus_pct,
 		"gauge_gain_bonus_pct": gauge_gain_bonus_pct if companion_active else 0.0,
 	}
 	if egg_state != null:
@@ -153,7 +165,8 @@ func sync_owner(
 	gauge_gain_bonus_pct: float,
 	effect_text: String,
 	loadouts_by_pet_id: Dictionary = {},
-	passive_skill: Dictionary = {}
+	passive_skill: Dictionary = {},
+	sync_loadouts: bool = true
 ) -> void:
 	if owner == null:
 		return
@@ -164,6 +177,8 @@ func sync_owner(
 	var skill_id := str(active_skill.get("id", "")) if skill_active else ""
 	var skill_name := str(active_skill.get("name", "")) if skill_active else ""
 	var skill_cooldown := float(active_skill.get("cooldown", 0.0)) if skill_active else 0.0
+	var skill_level := int(active_skill.get("level", 1)) if skill_active else 0
+	var skill_max_level := int(active_skill.get("max_level", 5)) if skill_active else 0
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
 	owner.set("lingpet_id", public_pet_id)
@@ -171,7 +186,8 @@ func sync_owner(
 	owner.set("current_lingpet_id", public_pet_id)
 	_set_pair(owner, "lingpet_slots", "ringpet_slots", battle_slot_pet_ids.duplicate())
 	_set_pair(owner, "lingpet_slot_pet_ids", "ringpet_slot_pet_ids", battle_slot_pet_ids.duplicate())
-	_set_pair(owner, "lingpet_loadouts", "ringpet_loadouts", loadouts_by_pet_id.duplicate(true))
+	if sync_loadouts:
+		_set_pair(owner, "lingpet_loadouts", "ringpet_loadouts", loadouts_by_pet_id.duplicate(true))
 	_set_pair(owner, "lingpet_active_slot_index", "ringpet_active_slot_index", active_slot_index)
 	_set_pair(owner, "lingpet_state", "ringpet_state", state)
 	_set_pair(owner, "lingpet_hatch_hits", "ringpet_hatch_hits", hatch_hits)
@@ -186,9 +202,10 @@ func sync_owner(
 	_set_pair(owner, "lingpet_companion_defense_rate", "ringpet_companion_defense_rate", defense_rate if companion_active else 0.0)
 	_sync_motion_owner(owner, motion_state)
 	_sync_body_hit_owner(owner, body_hit_state, hit_gauge_gain if companion_active else 0.0)
-	_sync_skill_owner(owner, skill_state, skill_id, skill_name, skill_cooldown, skill_active)
+	_sync_skill_owner(owner, skill_state, skill_id, skill_name, skill_cooldown, skill_active, skill_level, skill_max_level)
 	_sync_passive_owner(owner, passive_id, passive_skill, passive_enabled)
 	_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
+	_set_pair(owner, "lingpet_player_speed_bonus_pct", "ringpet_player_speed_bonus_pct", maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if companion_active else 0.0)
 	owner.set("lingpet_effect_text", effect_text)
 
 
@@ -224,7 +241,9 @@ func _sync_skill_owner(
 	skill_id: String,
 	skill_name: String,
 	skill_cooldown_duration: float,
-	companion_active: bool
+	companion_active: bool,
+	skill_level: int,
+	skill_max_level: int
 ) -> void:
 	var cooldown := 0.0
 	var ready := false
@@ -236,6 +255,9 @@ func _sync_skill_owner(
 		last_gain = skill_state.last_gain
 		trigger_count = skill_state.trigger_count
 	_set_pair(owner, "lingpet_skill_id", "ringpet_skill_id", skill_id)
+	_set_pair(owner, "lingpet_active_skill_id", "ringpet_active_skill_id", skill_id)
+	_set_pair(owner, "lingpet_active_skill_level", "ringpet_active_skill_level", skill_level if companion_active else 0)
+	_set_pair(owner, "lingpet_active_skill_max_level", "ringpet_active_skill_max_level", skill_max_level if companion_active else 0)
 	_set_pair(owner, "lingpet_skill_name", "ringpet_skill_name", skill_name)
 	_set_pair(owner, "lingpet_skill_cooldown", "ringpet_skill_cooldown", cooldown)
 	_set_pair(owner, "lingpet_skill_cooldown_duration", "ringpet_skill_cooldown_duration", skill_cooldown_duration)
@@ -245,8 +267,9 @@ func _sync_skill_owner(
 
 
 func _sync_passive_owner(owner: Object, passive_id: String, passive_skill: Dictionary, companion_active: bool) -> void:
-	_set_pair(owner, "lingpet_active_skill_id", "ringpet_active_skill_id", str(owner.get("lingpet_skill_id")))
 	_set_pair(owner, "lingpet_passive_skill_id", "ringpet_passive_skill_id", passive_id)
+	_set_pair(owner, "lingpet_passive_skill_level", "ringpet_passive_skill_level", int(passive_skill.get("level", 1)) if companion_active else 0)
+	_set_pair(owner, "lingpet_passive_skill_max_level", "ringpet_passive_skill_max_level", int(passive_skill.get("max_level", 5)) if companion_active else 0)
 	_set_pair(owner, "lingpet_passive_skill_name", "ringpet_passive_skill_name", str(passive_skill.get("name", "")) if companion_active else "")
 	_set_pair(owner, "lingpet_passive_skill_description", "ringpet_passive_skill_description", str(passive_skill.get("description", "")) if companion_active else "")
 	_set_pair(owner, "lingpet_passive_skill_icon_path", "ringpet_passive_skill_icon_path", str(passive_skill.get("icon_texture_path", "")) if companion_active else "")

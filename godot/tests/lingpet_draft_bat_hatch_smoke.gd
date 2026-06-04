@@ -1,6 +1,8 @@
 extends SceneTree
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 
@@ -80,8 +82,22 @@ class FakeOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_passive_skill_id := ""
+	var ringpet_passive_skill_id := ""
+	var lingpet_passive_skill_level := 0
+	var ringpet_passive_skill_level := 0
+	var lingpet_passive_skill_max_level := 0
+	var ringpet_passive_skill_max_level := 0
+	var lingpet_passive_skill_name := ""
+	var ringpet_passive_skill_name := ""
+	var lingpet_passive_skill_description := ""
+	var ringpet_passive_skill_description := ""
+	var lingpet_passive_skill_icon_path := ""
+	var ringpet_passive_skill_icon_path := ""
 	var lingpet_gauge_gain_bonus_pct := 0.0
 	var ringpet_gauge_gain_bonus_pct := 0.0
+	var lingpet_player_speed_bonus_pct := 0.0
+	var ringpet_player_speed_bonus_pct := 0.0
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -115,7 +131,7 @@ func _verify_draft_bat_hatches_as_remaining_slot_candidate() -> void:
 	_seed_existing_lingpets(owner)
 	var context := {"league_mode": "junior", "character_type": "smasher"}
 	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates(context, owner.lingpet_owned_pet_ids)
-	_expect(candidates.size() == 1 and candidates.has("draft_bat"), "draft_bat should be the only hatch candidate after Maribo and Lunabi are owned")
+	_expect(candidates.size() == 1 and candidates.has("draft_bat"), "draft_bat should be the only hatch candidate after every other live lingpet is owned")
 
 	var runtime: Object = LingpetEggRuntime.new()
 	var collection_state: Object = runtime.get("_collection_state")
@@ -154,31 +170,43 @@ func _verify_draft_bat_hatches_as_remaining_slot_candidate() -> void:
 	_expect(is_equal_approx(float(snapshot.get("companion_catch_height", 0.0)), 52.0), "draft_bat should use its catalog body/catch height")
 	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", 0.0)), 0.10), "draft_bat should use its catalog defense rate")
 	_expect(is_equal_approx(float(snapshot.get("companion_hit_gauge_gain", 0.0)), 40.0), "draft_bat should keep the shared 40 gauge gain on body hit")
-	_expect(is_equal_approx(float(snapshot.get("gauge_gain_bonus_pct", -1.0)), 0.0), "draft_bat should not expose a separate gauge-gain passive bonus")
+	var passive_id := str(snapshot.get("companion_passive_skill_id", ""))
+	_expect(_shared_passive_ids().has(passive_id), "draft_bat should receive one of the shared lingpet passives")
+	var expected_gauge_bonus := 4.0 if passive_id == "lingpet_resonance_boost" else 0.0
+	_expect(is_equal_approx(float(snapshot.get("gauge_gain_bonus_pct", -1.0)), expected_gauge_bonus), "draft_bat gauge bonus should match its selected shared passive")
+	var expected_player_speed_bonus := 4.0 if passive_id == "lingpet_tailwind_steps" else 0.0
+	_expect(is_equal_approx(float(snapshot.get("companion_player_speed_bonus_pct", -1.0)), expected_player_speed_bonus), "draft_bat player speed bonus should match its selected shared passive")
 
 	var overlay := CharacterInfoOverlay.new()
-	var panel: Dictionary = overlay._get_lingpet_panel_snapshot(owner)
+	var panel: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(str(panel.get("pet_id", "")) == "draft_bat", "character info panel should read the hatched draft_bat pet id")
 	_expect(str(panel.get("title", "")) == LingpetCatalog.get_display_name("draft_bat"), "character info panel should reveal draft_bat's catalog display name")
 	_expect(str(panel.get("companion_skill_id", "")) == "draft_bat_moon_orbit", "character info panel should expose draft_bat's active skill id")
 	_expect(str(panel.get("companion_skill_icon_path", "")).ends_with("draft_bat_moon_orbit_skill_icon_imagegen_v1.png"), "character info panel should resolve draft_bat's skill icon path through the catalog fallback")
-	var skill_specs: Array = overlay._get_lingpet_skill_specs(panel)
-	_expect(skill_specs.size() == 1, "draft_bat should show only its active skill icon when it has no separate passive bonus")
-	if not skill_specs.is_empty():
-		var skill_spec: Dictionary = skill_specs[0]
-		_expect(str(skill_spec.get("id", "")) == "draft_bat_moon_orbit", "draft_bat skill icon should use the Moon Orbit id")
-		_expect(str(skill_spec.get("title", "")) != "" and str(skill_spec.get("body", "")) != "", "draft_bat skill icon should carry tooltip title and body text")
+	_expect(str(panel.get("companion_passive_skill_id", "")) == passive_id, "character info panel should expose draft_bat's selected shared passive skill id")
+	var skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(panel, CharacterInfoOverlay.STAT_BUFF_COLOR)
+	_expect(skill_specs.size() == 2, "draft_bat should show its active skill and shared passive skill icons")
+	_expect(_skill_specs_have_id(skill_specs, "draft_bat_moon_orbit"), "draft_bat skill icons should include Moon Orbit")
+	_expect(_skill_specs_have_id(skill_specs, passive_id), "draft_bat skill icons should include the selected shared passive")
+	for raw_spec in skill_specs:
+		var skill_spec: Dictionary = raw_spec as Dictionary
+		_expect(str(skill_spec.get("title", "")) != "" and str(skill_spec.get("body", "")) != "", "draft_bat skill icons should carry tooltip title and body text")
 	var stat_rows: Array = overlay._build_lingpet_stats(owner)
 	_expect(_rows_contain_value(stat_rows, "3.60"), "draft_bat panel speed should display as 3.60, not the player's 6.00 speed")
 	_expect(not _rows_contain_value(stat_rows, "6.00"), "draft_bat panel stats should not leak the player movement speed value")
 
 
 func _seed_existing_lingpets(owner: FakeOwner) -> void:
-	var owned := ["maribo", "lunabi"]
+	var owned: Array[String] = []
+	for pet_id in LingpetCatalog.get_pet_ids():
+		if pet_id != "draft_bat":
+			owned.append(pet_id)
 	owner.lingpet_owned_pet_ids = owned.duplicate()
 	owner.owned_lingpet_ids = owned.duplicate()
 	owner.owned_ringpet_ids = owned.duplicate()
-	owner.lingpet_collection = {"maribo": true, "lunabi": true}
+	owner.lingpet_collection = {}
+	for pet_id in owned:
+		owner.lingpet_collection[pet_id] = true
 	owner.ringpet_collection = owner.lingpet_collection.duplicate()
 	owner.owned_lingpets = owner.lingpet_collection.duplicate()
 	owner.owned_ringpets = owner.lingpet_collection.duplicate()
@@ -203,6 +231,18 @@ func _rows_contain_value(rows: Array, expected_value: String) -> bool:
 	for row_value in rows:
 		var row: Dictionary = row_value as Dictionary
 		if str(row.get("value", "")) == expected_value:
+			return true
+	return false
+
+
+func _shared_passive_ids() -> Array[String]:
+	return ["lingpet_resonance_boost", "lingpet_afterglow_leak", "lingpet_tailwind_steps"]
+
+
+func _skill_specs_have_id(skill_specs: Array, expected_id: String) -> bool:
+	for raw_spec in skill_specs:
+		var skill_spec: Dictionary = raw_spec as Dictionary
+		if str(skill_spec.get("id", "")) == expected_id:
 			return true
 	return false
 

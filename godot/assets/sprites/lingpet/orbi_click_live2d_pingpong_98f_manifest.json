@@ -1,0 +1,360 @@
+{
+  "asset_id": "orbi_click_live2d_pingpong_98f",
+  "pet_id": "orbi",
+  "display_name": "오르비",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/orbi_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "asset_id": "cmpwy9k5k000nkav91p9e9sko",
+    "asset_name": "Orbi Acquire Cutin Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/orbi_cutin_art.png",
+    "spritesheet_id": "cmpwzd7820057gvn94xaj3umm",
+    "spritesheet_job_id": "wf_6a2215bb-9152-4822-9106-9f7de582bcf1",
+    "raw_sheet_local_path": ".tmp/orbi_click_live2d/orbi_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/orbi_click_live2d/orbi_click_live2d_raw_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click reaction one-shot: surprised bounce, blink/wink, paw wave, ears perk, tail swish, cyan core pulse sparkle, happy settle, stable full body.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      14336,
+      7168
+    ],
+    "frame_interval": "runtime 98f one-shot; deterministic coherent-subsequence expansion from AutoSprite frames 0..16",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2.0,
+    "sha256": "7aaba6ac92e11b386f52263b9992a71c88cdc886dd0eb08897094ea0516612a9",
+    "bytes": 17013018
+  },
+  "postprocess": {
+    "tool": "AutoSprite-derived per-cell Real-ESRGAN animev3 x2 RGB/alpha split + 0.84 safe-margin pingpong repack",
+    "operation": "AutoSprite 512 cells were scaled to 84 percent and centered. RGB cells were alpha-bled then upscaled with Real-ESRGAN x2; source alpha was resized separately, alpha<=15 clipped, then forward+reverse 98f pingpong reassembled.",
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "rgb_source": ".tmp/orbi_click_live2d/rgb_cells_s84",
+      "rgb_upscale": ".tmp/orbi_click_live2d/rgb_cells_s84_x2",
+      "alpha_source": ".tmp/orbi_click_live2d/alpha_cells_s84",
+      "target_cell_size": [
+        1024,
+        1024
+      ],
+      "content_scale": 0.84
+    },
+    "unsharp_mask": {
+      "tool": "PIL ImageFilter.UnsharpMask",
+      "params": {
+        "radius": 1.0,
+        "percent": 55,
+        "threshold": 3
+      }
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "Pixels with alpha <= 15 set fully transparent after alpha resize."
+    },
+    "scatter_fix": {
+      "tool": "PIL deterministic frame remap",
+      "operation": "Removed the side-facing cast branch by retaining only coherent front-facing AutoSprite-derived frames 0..16, expanding them to a 49-frame click peak with eased holds, then appending a reversed 49-frame settle for the runtime 98-frame sheet.",
+      "stable_source_frames": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "forward_frame_map": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        4,
+        4,
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,
+        7,
+        7,
+        8,
+        8,
+        8,
+        9,
+        9,
+        10,
+        10,
+        10,
+        11,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        13,
+        14,
+        14,
+        14,
+        15,
+        15,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ],
+      "full_frame_map_length": 98,
+      "backup_png": ".tmp/orbi_click_fix/orbi_click_live2d_pingpong_98f_before_scatter_fix.png",
+      "backup_manifest": ".tmp/orbi_click_fix/orbi_click_live2d_pingpong_98f_manifest_before_scatter_fix.json",
+      "preview_gif": ".tmp/orbi_click_fix/orbi_click_v2_coherent_preview.gif",
+      "contact_sheet": ".tmp/orbi_click_fix/orbi_click_v2_coherent_contact_14x7.jpg"
+    }
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "raw_edge_alpha_count": 0,
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "pingpong_loop_closure": true,
+    "cell_fill_w_pct": 56.8,
+    "cell_fill_h_pct": 80.5,
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "source_frame": 0,
+        "bbox": [
+          264,
+          108,
+          763,
+          900
+        ],
+        "size": [
+          499,
+          792
+        ]
+      },
+      {
+        "frame": 8,
+        "source_frame": 3,
+        "bbox": [
+          257,
+          125,
+          782,
+          882
+        ],
+        "size": [
+          525,
+          757
+        ]
+      },
+      {
+        "frame": 16,
+        "source_frame": 6,
+        "bbox": [
+          252,
+          106,
+          802,
+          851
+        ],
+        "size": [
+          550,
+          745
+        ]
+      },
+      {
+        "frame": 24,
+        "source_frame": 9,
+        "bbox": [
+          251,
+          82,
+          809,
+          815
+        ],
+        "size": [
+          558,
+          733
+        ]
+      },
+      {
+        "frame": 32,
+        "source_frame": 12,
+        "bbox": [
+          251,
+          81,
+          822,
+          795
+        ],
+        "size": [
+          571,
+          714
+        ]
+      },
+      {
+        "frame": 40,
+        "source_frame": 15,
+        "bbox": [
+          253,
+          81,
+          832,
+          781
+        ],
+        "size": [
+          579,
+          700
+        ]
+      },
+      {
+        "frame": 48,
+        "source_frame": 16,
+        "bbox": [
+          254,
+          81,
+          835,
+          778
+        ],
+        "size": [
+          581,
+          697
+        ]
+      },
+      {
+        "frame": 49,
+        "source_frame": 16,
+        "bbox": [
+          254,
+          81,
+          835,
+          778
+        ],
+        "size": [
+          581,
+          697
+        ]
+      },
+      {
+        "frame": 64,
+        "source_frame": 12,
+        "bbox": [
+          251,
+          81,
+          822,
+          795
+        ],
+        "size": [
+          571,
+          714
+        ]
+      },
+      {
+        "frame": 80,
+        "source_frame": 6,
+        "bbox": [
+          252,
+          106,
+          802,
+          851
+        ],
+        "size": [
+          550,
+          745
+        ]
+      },
+      {
+        "frame": 96,
+        "source_frame": 0,
+        "bbox": [
+          264,
+          108,
+          763,
+          900
+        ],
+        "size": [
+          499,
+          792
+        ]
+      },
+      {
+        "frame": 97,
+        "source_frame": 0,
+        "bbox": [
+          264,
+          108,
+          763,
+          900
+        ],
+        "size": [
+          499,
+          792
+        ]
+      }
+    ],
+    "coherent_click_branch_source_frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "scatter_branch_removed": true
+  },
+  "updated_at": "2026-06-03"
+}

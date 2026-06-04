@@ -1,0 +1,15 @@
+{
+  "asset_name": "volty_gatling_burst_skill_icon",
+  "runtime_path": "res://assets/sprites/lingpet/volty_gatling_burst_skill_icon.png",
+  "source_sheet": "res://assets/sprites/lingpet/volty_gatling_tank_transform.png",
+  "source_manifest": "res://assets/sprites/lingpet/volty_gatling_tank_transform_manifest.json",
+  "source_frame": {
+    "index": 24,
+    "x": 512,
+    "y": 512,
+    "w": 128,
+    "h": 128
+  },
+  "operation": "Cropped the final AutoSprite tank-transform frame for the Gatling Burst skill card/icon.",
+  "tool": "System.Drawing crop"
+}

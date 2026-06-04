@@ -9,6 +9,7 @@ func _init() -> void:
 	_verify_stage_transition_resets_global_anchor()
 	_verify_stage_transition_clears_per_item_last_use()
 	_verify_stage_transition_preserves_slot_data()
+	_verify_stage_transition_normalizes_item_id_alias()
 	_verify_stage_transition_handles_non_dictionary_entries()
 
 	if _failures.is_empty():
@@ -76,6 +77,27 @@ func _verify_stage_transition_preserves_slot_data() -> void:
 	_expect(
 		int(slots[0].get("last_use_msec", 0)) == 5000,
 		"input array should not be mutated in place"
+	)
+
+
+func _verify_stage_transition_normalizes_item_id_alias() -> void:
+	var controller: Object = ActiveItemSlotController.new()
+	var slots: Array = [
+		{"item_id": "long_boost", "last_use_msec": 5000},
+	]
+	var cleaned: Array = controller.reset_cooldowns_for_stage_transition(slots)
+	_expect(cleaned.size() == 1, "item_id-only slot should survive stage-transition cleanup")
+	_expect(
+		str(cleaned[0].get("name", "")) == "long_boost",
+		"item_id-only slot should be normalized to the runtime name key"
+	)
+	_expect(
+		str(cleaned[0].get("item_id", "")) == "long_boost",
+		"item_id alias should be preserved for callers that still read it"
+	)
+	_expect(
+		int(cleaned[0].get("last_use_msec", 0)) == -1,
+		"item_id-only slot cooldown should still be cleared"
 	)
 
 

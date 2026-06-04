@@ -1,0 +1,122 @@
+{
+  "asset_id": "milkring_companion_idle_back_v1",
+  "display_name": "\ubc00\ud06c\ub9c1",
+  "pet_id": "milkring",
+  "runtime_usage": "lingpet_companion_idle_back_candidate",
+  "output_sheet": "res://assets/sprites/lingpet/milkring_companion_idle_back.png",
+  "grid": {
+    "columns": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": 256
+  },
+  "runtime_notes": {
+    "intended_slot": "companion_walk_or_idle_back",
+    "godot_animator_idle_frame": 12,
+    "phase_shift_applied": 13,
+    "phase_shift_reason": "Place neutral source frame 0 at output frame 12 because LingpetCompanionSpriteAnimator uses frame 12 while stationary.",
+    "draw_size_reference": "Existing lingpet companion renderer draws sheets around 82-104 px."
+  },
+  "concept_source": {
+    "alpha_png": "res://assets/sprites/lingpet/milkring_companion_idle_back_concept_imagegen_v1.png",
+    "magenta_source_png": "res://assets/sprites/lingpet/milkring_companion_idle_back_concept_imagegen_v1_magenta_source.png",
+    "prompt_summary": "Rear three-quarter SD biped cow lingpet Milkring; goggles strap/side visor, no visible eyes, minimal future milk tank gear, #ff00ff source background."
+  },
+  "autosprite": {
+    "character_id": "cmpx19e5a008bv9niihfruk9e",
+    "character_name": "Milkring Companion Back v1",
+    "job_id": "wf_26403d0e-280a-45cb-8f0d-a65c171f8690",
+    "spritesheet_id": "cmpx1bzl80015qe8rd0177yfs",
+    "source_video_id": "cmpx19xh2008se1azotk5hlhj",
+    "kind": "idle",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "source_frame_size": 512,
+    "source_frame_count": 25,
+    "prompt": "Create a seamless idle breathing loop for an in-game SD companion. Keep Milkring in the same rear three-quarter back view every frame; do not turn to front or side. No visible eyes; goggles are only a rear strap and side blue visor. Gentle belly/chest breathing, ears and tail subtle bob, tiny cyan ring-core pulse, small back milk tank bob. Feet planted, no walking, no milk firing, no extra gear. Stable scale/center, generous transparent margins."
+  },
+  "postprocess": {
+    "tool": "Pillow premultiplied-alpha resize/repack",
+    "source_sheet": ".tmp/milkring_companion_idle_back_v1/milkring_companion_idle_back_raw_25f.png",
+    "target_cell_size": 256,
+    "alpha_clip_threshold": 15,
+    "edge_alpha_pixels": 0,
+    "transparent_corners": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "qa": {
+    "accepted": true,
+    "notes": [
+      "Maintains rear three-quarter back view across the sheet.",
+      "No visible eyes; goggles remain side/rear visor/strap only.",
+      "No walking or milk firing; motion reads as idle breathing/body bob at runtime scale.",
+      "Frame 12 is neutral after loop phase rotation for current Godot stationary frame behavior.",
+      "All sheet edges are transparent after repack."
+    ],
+    "sample_frame_bboxes": {
+      "0": [
+        65,
+        57,
+        224,
+        231
+      ],
+      "6": [
+        62,
+        22,
+        194,
+        231
+      ],
+      "12": [
+        59,
+        21,
+        192,
+        231
+      ],
+      "18": [
+        61,
+        39,
+        209,
+        231
+      ],
+      "24": [
+        66,
+        62,
+        227,
+        231
+      ]
+    },
+    "preview_paths": [
+      ".tmp/milkring_companion_idle_back_v1/milkring_companion_idle_back_dark_preview.png",
+      ".tmp/milkring_companion_idle_back_v1/milkring_companion_idle_back_contact_preview.png"
+    ]
+  },
+  "hashes": {
+    "output_sha256": "60719d52d761b2b9b10add15015f723c0cc6c894f403da13b6c270adf930853c",
+    "raw_autosprite_sha256": "6ab44edaa9ee276f2239c3c00b17ac675e80d71de7cbf858f9c277c27b414fc1"
+  },
+  "created_at": "2026-06-02T19:35:45Z"
+}

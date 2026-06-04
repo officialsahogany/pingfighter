@@ -1,0 +1,64 @@
+{
+  "asset_id": "dragon_lingpet_firebreath_companion_source_imagegen_v3",
+  "asset_type": "lingpet_companion_sd_source_concept",
+  "runtime_usage": "Ringpet / Lingpet companion source art candidate; not wired into lingpet_catalog.gd and not a final runtime animation sheet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019e8ef1-83f1-74c2-8b6f-d4971f5f62bf/ig_09898804d4afb5f1016a208137f5f08191a337464d8145f9ed.png",
+  "outputs": {
+    "transparent_art": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_companion_source_imagegen_v3.png",
+    "magenta_source": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_companion_source_imagegen_v3_magenta_source.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "prompt_summary": "Tiny red-fire baby dragon Ringpet, Maribo-style rear/rear-three-quarter SD companion source art, with cyan-gold resonance ring collar and back ring-core, breathing a short crimson flame plume on a flat magenta chroma-key background."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "Ringpet / Lingpet in-game companion source concept for DiskHearts - Ringpia",
+    "primary_request": "redraw the red-fire baby dragon Ringpet according to Ringpet rules, on a flat magenta background",
+    "subject": "one tiny SD chibi baby dragon Ringpet companion, compact mascot body, mostly rear / rear-three-quarter back view like Maribo-style in-battle companion sprites; body faces diagonally away and slightly right, with only a small side slice of the snout visible as it breathes a short contained red/crimson flame plume sideways",
+    "ringpet_identity": "glowing resonance ring/core motif, cyan-gold ring collar or halo ring behind the shoulders, tiny back ring-core gem, subtle circular resonance glow accents, egg-hatched magical companion read",
+    "style": "polished 2D Korean anime game asset concept, clean cel-shaded SD companion, crisp silhouette, readable at small runtime scale",
+    "composition": "full body visible, centered, generous safe padding on all sides, flame plume contained inside the canvas, single pose source art for possible later AutoSprite sheet generation",
+    "background": "perfectly flat solid #ff00ff magenta chroma-key background only",
+    "constraints": "no front-facing cut-in composition, no large portrait head, no oversized visible eyes, no text, no watermark, no UI frame, no extra characters, no smoke covering silhouette, no edge-touching flame"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fa03f6",
+    "canonical_source_background": "#ff00ff",
+    "note": "Transparent art was extracted from the generated near-magenta source. The magenta source was then recomposited from the transparent PNG onto exact opaque #ff00ff."
+  },
+  "ringpet_rule_audit": {
+    "accepted_for_source_concept": true,
+    "accepted_for_runtime_companion_sheet": false,
+    "reason": "This is a source concept, not an AutoSprite-derived 5x5/25-frame runtime sheet. It now follows the companion identity direction: rear/rear-three-quarter SD body, small side flame, visible resonance ring collar, and back ring-core motif.",
+    "next_runtime_step": "Use this transparent source as an identity anchor for AutoSprite idle/walk/strike/cast sheet generation before adding a pet_id to lingpet_catalog.gd."
+  },
+  "validation": {
+    "size": "1254x1254",
+    "transparent_corner_rgba": [
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0"
+    ],
+    "magenta_source_corner_rgba": [
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255"
+    ],
+    "transparent_alpha_bbox": [
+      193,
+      142,
+      1162,
+      1030
+    ],
+    "transparent_edge_alpha_count": 0,
+    "sha256": {
+      "transparent_art": "0ddadf5e0ce7b41f0446fbe3fb0582e54e07af0cf60fc9391744105aaa864f5c",
+      "magenta_source": "6e12557bf1a440e10d8f6f46346623b1369b79c4ecdf27e58c97341425fa22cc"
+    }
+  }
+}

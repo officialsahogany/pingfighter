@@ -1,0 +1,140 @@
+{
+  "asset_id": "red_dragon_acquisition_cutin_dismiss_anim_v2_click_realesrgan_x2",
+  "asset_type": "lingpet_acquisition_cutin_asset",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin_dismiss",
+  "character": "red_dragon",
+  "display_name": "아기 홍룡",
+  "generated_at": "2026-06-04",
+  "output_sheet": "res://assets/sprites/lingpet/red_dragon_cutin_dismiss_anim.png",
+  "source_autosprite": {
+    "asset_id": "cmpyhpzp600jcjuuzhz5ggkcw",
+    "asset_name": "Red Dragon Ringpet Live2D Front v6 20260604",
+    "spritesheet_id": "cmpynlsum007ipmzkveedbbd5",
+    "spritesheet_job_id": "wf_4a0c5209-184a-457f-a0cc-311d0f6d764d",
+    "raw_sheet_local_path": ".tmp/red_dragon_motion_refresh/red_dragon_click_reaction_raw_512_49f.png",
+    "raw_atlas_local_path": ".tmp/red_dragon_motion_refresh/red_dragon_click_reaction_raw_512_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click reaction: excited quick hop, big smile, paw wave to camera, wings flutter twice, tail-ring swish, blink, cyan core flash. Front-facing, no turn, no spin, no fire, no props.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "credits_used": 5
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      5120,
+      5120
+    ],
+    "sha256": "f282bd44b02e11c82490a14665db10d4ca3d6c2432198a7373855ca1f6b53511",
+    "bytes": 19287918
+  },
+  "postprocess": {
+    "tool": ".tmp/red_dragon_motion_refresh/upscale_red_dragon_l2d_realesrgan.py",
+    "operation": "AutoSprite click-reaction raw 512px frames sampled to 25 dismiss frames, rebuilt as an alpha-preserved Real-ESRGAN animev3 x2 1024px-cell runtime sheet.",
+    "alpha_threshold": 14,
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "command": "realesrgan-ncnn-vulkan.exe -i <rgb_alpha_bleed_512> -o <rgb_realesrgan_animev3_x2> -m tools/realesrgan/models -n realesr-animevideov3 -s 2 -f png -t 256 -j 2:2:2",
+      "rgb_source": "D:/main/bosspong/.tmp/red_dragon_motion_refresh/realesrgan_l2d_x2/click/rgb_alpha_bleed_512",
+      "rgb_upscaled": "D:/main/bosspong/.tmp/red_dragon_motion_refresh/realesrgan_l2d_x2/click/rgb_realesrgan_animev3_x2",
+      "alpha_source": "D:/main/bosspong/.tmp/red_dragon_motion_refresh/realesrgan_l2d_x2/click/alpha_source_512",
+      "alpha_policy": "Raw 512px AutoSprite RGBA cells were split into alpha-bleed RGB and source alpha. RGB was upscaled with Real-ESRGAN animev3 x2; source alpha was resized separately with Lanczos, clipped, recombined per cell, and reassembled into the original runtime grid."
+    }
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_alpha": [],
+    "bbox_width_range": [
+      666,
+      951
+    ],
+    "bbox_height_range": [
+      790,
+      856
+    ],
+    "center_x_range": 37.0,
+    "center_y_range": 104.5,
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          91,
+          85,
+          930,
+          922
+        ]
+      },
+      {
+        "frame": 4,
+        "bbox": [
+          94,
+          130,
+          913,
+          921
+        ]
+      },
+      {
+        "frame": 8,
+        "bbox": [
+          76,
+          12,
+          984,
+          853
+        ]
+      },
+      {
+        "frame": 12,
+        "bbox": [
+          37,
+          81,
+          988,
+          923
+        ]
+      },
+      {
+        "frame": 16,
+        "bbox": [
+          201,
+          111,
+          871,
+          922
+        ]
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          130,
+          80,
+          903,
+          922
+        ]
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          130,
+          80,
+          903,
+          922
+        ]
+      }
+    ]
+  }
+}

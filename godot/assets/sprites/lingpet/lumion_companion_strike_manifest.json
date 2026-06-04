@@ -1,0 +1,450 @@
+{
+  "asset_id": "lumion_companion_strike_v1",
+  "character": "lumion",
+  "display_name": "루미온",
+  "generated_at": "2026-06-03",
+  "generated_at_kst": "2026-06-03T05:04:02+09:00",
+  "runtime_usage": "lingpet_companion_strike_with_anticipation_candidate",
+  "notes": [
+    "Ball-contact strike sheet for Lumion companion, with anticipation placed in the runtime-played strike window.",
+    "Selected the first AutoSprite branch because it preserved the rear/Maribo-like silhouette best; rejected late prop-like source frames are excluded by frame remap.",
+    "Frame 22 receives a small deterministic orange contact spark so it reads as ball impact without drawing a duplicate ball asset."
+  ],
+  "source_identity": {
+    "base_manifest": "res://assets/sprites/lingpet/lumion_companion_idle_manifest.json",
+    "base_autosprite_character_id": "cmpx04bwe000eabwnufhwa4wy",
+    "base_autosprite_upload_source": "res://assets/sprites/lingpet/lumion_companion_idle_source_autosprite.png"
+  },
+  "source_autosprite": {
+    "selected": {
+      "character_id": "cmpx04bwe000eabwnufhwa4wy",
+      "character_name": "Lumion Companion Rear SD Idle 20260603",
+      "job_id": "wf_24ec8925-0e10-416a-97ad-f3e169f58cc6",
+      "video_id": "cmpx1wiw8005dfb84en5raff5",
+      "spritesheet_id": "cmpx1y1gs000cmqp2xhd1oiuv",
+      "kind": "custom",
+      "reported_direction": "right",
+      "quality": "legendary",
+      "remove_bg": "ultra",
+      "with_sound": false,
+      "credits_used": 5,
+      "spritesheet_request": {
+        "frame_count": 25,
+        "frame_size": 512,
+        "loop": false
+      },
+      "prompt": "Back/right 3/4 Lumion SD ball strike one-shot. Frames 0-17 ready/idle hold. Frames 18-21 crouch anticipation: coil tail, lower ears, pull paw/shoulder back. Frame 22 impact: lunge and slap the ball with orange gem/circuit burst, small hit spark only. Frames 23-24 recoil and settle. Keep cape-back and tail silhouette, tiny face slice/one amber eye, no front turn, no weapon, no text, transparent background, generous margins.",
+      "raw_sheet": {
+        "path": ".tmp/lumion_companion_strike_v1/lumion_companion_strike_raw_512_25f.png",
+        "bytes": 1137690,
+        "sha256": "3411483d40b1f9b0ddb68e70d5a108dc768490718c950325c607046bc9692133",
+        "size": [
+          2560,
+          2560
+        ]
+      },
+      "raw_atlas": {
+        "path": ".tmp/lumion_companion_strike_v1/lumion_companion_strike_raw_512_25f.json",
+        "bytes": 2796,
+        "sha256": "0f38dccf3a1af41eecbe08808d91f9c62726151863cce58c49169a06cb64564e"
+      }
+    },
+    "rejected_candidates": [
+      {
+        "job_id": "wf_62766bcb-f055-4163-bea1-6ef29755b2d8",
+        "video_id": "cmpx21bfc005ih9on9oi1f9av",
+        "spritesheet_id": "cmpx22nuj001fmqp2dn3mxrht",
+        "raw_sheet": {
+          "path": ".tmp/lumion_companion_strike_v1/lumion_companion_strike_v2_raw_512_25f.png",
+          "bytes": 1000347,
+          "sha256": "7740a44ed25d67594f48480d17512f55533b4a375ef6ced11790e205f01fe4b5",
+          "size": [
+            2560,
+            2560
+          ]
+        },
+        "reason": "Removed prop issue but rotated too far into a front-facing character and drew an unwanted ball/object."
+      },
+      {
+        "job_id": "wf_b2c81927-9012-4fc9-92d1-68342056ffe2",
+        "video_id": "cmpx24quv001xrs6i2y1x3jiz",
+        "spritesheet_id": "cmpx25zk4007ih9on2rh3e099",
+        "raw_sheet": {
+          "path": ".tmp/lumion_companion_strike_v1/lumion_companion_strike_v3_raw_512_25f.png",
+          "bytes": 993228,
+          "sha256": "0925c3d87075c6f44d1a7e0d59b6b4deecb1005cb5ff9ace80237c1e705865f8",
+          "size": [
+            2560,
+            2560
+          ]
+        },
+        "reason": "No prop, but too much front-facing rotation and weak impact read for the requested ball-hit sheet."
+      }
+    ]
+  },
+  "strike_timing": {
+    "runtime_start_frame": 18,
+    "runtime_impact_frame": 22,
+    "runtime_follow_frame": 24,
+    "frame_map": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      0,
+      1,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      0
+    ],
+    "impact_source_frame": 14,
+    "follow_source_frame": 15,
+    "reason": "LingpetCompanionSpriteAnimator plays strike frames 18..24 and treats frame 22 as contact; remap places crouch/coil anticipation before the orange impact spark."
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic alpha-safe repack and frame remap",
+    "source_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "runtime_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        192,
+        192
+      ],
+      "sheet_size": [
+        960,
+        960
+      ]
+    },
+    "source_scale_repack": 0.84,
+    "operation": "Selected AutoSprite 512px cells were alpha-safe resized into 192px runtime cells at 0.84 whole-cell scale, remapped to avoid rejected prop-like late frames, and frame 22/23 received a small in-cell orange contact spark.",
+    "preview_gif": {
+      "path": ".tmp/lumion_companion_strike_v1/lumion_companion_strike_preview.gif",
+      "bytes": 298804,
+      "sha256": "85302a93d21eb112424b6290d4c88304cb476e7b42d5ea8c4a826db817481866",
+      "size": [
+        384,
+        384
+      ]
+    }
+  },
+  "outputs": {
+    "runtime_sheet": {
+      "path": "godot/assets/sprites/lingpet/lumion_companion_strike.png",
+      "bytes": 445916,
+      "sha256": "c675e9c2bf00387a531bbbacea4c9cfef15a9de5fbd7dc4fb67d168a32a8e96c",
+      "size": [
+        960,
+        960
+      ],
+      "res_path": "res://assets/sprites/lingpet/lumion_companion_strike.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        192,
+        192
+      ],
+      "sheet_size": [
+        960,
+        960
+      ]
+    }
+  },
+  "qa": {
+    "path": "godot\\assets\\sprites\\lingpet\\lumion_companion_strike.png",
+    "sha256": "c675e9c2bf00387a531bbbacea4c9cfef15a9de5fbd7dc4fb67d168a32a8e96c",
+    "bytes": 445916,
+    "sheet_size": [
+      960,
+      960
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      192,
+      192
+    ],
+    "edge_alpha_count": 0,
+    "cells_with_edge_touch": [],
+    "min_margins_ltrb": [
+      30,
+      30,
+      16,
+      29
+    ],
+    "bbox_width_range": [
+      87,
+      135
+    ],
+    "bbox_height_range": [
+      88,
+      125
+    ],
+    "center_range_xy": [
+      35.5,
+      24.5
+    ],
+    "visible_alpha_pixels_range": [
+      4819,
+      6316
+    ],
+    "mean_sequential_frame_diff_range": [
+      0.0,
+      0.15574347469022332
+    ],
+    "runtime_strike_frames": [
+      {
+        "frame": 18,
+        "bbox": [
+          30,
+          58,
+          151,
+          163
+        ],
+        "margins_ltrb": [
+          30,
+          58,
+          41,
+          29
+        ],
+        "center": [
+          90.5,
+          110.5
+        ],
+        "bbox_size": [
+          121,
+          105
+        ],
+        "visible_alpha_pixels": 5172,
+        "edge_touch": false
+      },
+      {
+        "frame": 19,
+        "bbox": [
+          30,
+          61,
+          156,
+          161
+        ],
+        "margins_ltrb": [
+          30,
+          61,
+          36,
+          31
+        ],
+        "center": [
+          93.0,
+          111.0
+        ],
+        "bbox_size": [
+          126,
+          100
+        ],
+        "visible_alpha_pixels": 4993,
+        "edge_touch": false
+      },
+      {
+        "frame": 20,
+        "bbox": [
+          35,
+          67,
+          160,
+          158
+        ],
+        "margins_ltrb": [
+          35,
+          67,
+          32,
+          34
+        ],
+        "center": [
+          97.5,
+          112.5
+        ],
+        "bbox_size": [
+          125,
+          91
+        ],
+        "visible_alpha_pixels": 4819,
+        "edge_touch": false
+      },
+      {
+        "frame": 21,
+        "bbox": [
+          38,
+          68,
+          163,
+          158
+        ],
+        "margins_ltrb": [
+          38,
+          68,
+          29,
+          34
+        ],
+        "center": [
+          100.5,
+          113.0
+        ],
+        "bbox_size": [
+          125,
+          90
+        ],
+        "visible_alpha_pixels": 4882,
+        "edge_touch": false
+      },
+      {
+        "frame": 22,
+        "bbox": [
+          41,
+          72,
+          176,
+          160
+        ],
+        "margins_ltrb": [
+          41,
+          72,
+          16,
+          32
+        ],
+        "center": [
+          108.5,
+          116.0
+        ],
+        "bbox_size": [
+          135,
+          88
+        ],
+        "visible_alpha_pixels": 5424,
+        "edge_touch": false
+      },
+      {
+        "frame": 23,
+        "bbox": [
+          56,
+          72,
+          176,
+          162
+        ],
+        "margins_ltrb": [
+          56,
+          72,
+          16,
+          30
+        ],
+        "center": [
+          116.0,
+          117.0
+        ],
+        "bbox_size": [
+          120,
+          90
+        ],
+        "visible_alpha_pixels": 5416,
+        "edge_touch": false
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          36,
+          30,
+          125,
+          155
+        ],
+        "margins_ltrb": [
+          36,
+          30,
+          67,
+          37
+        ],
+        "center": [
+          80.5,
+          92.5
+        ],
+        "bbox_size": [
+          89,
+          125
+        ],
+        "visible_alpha_pixels": 6193,
+        "edge_touch": false
+      }
+    ],
+    "impact_frame": {
+      "frame": 22,
+      "bbox": [
+        41,
+        72,
+        176,
+        160
+      ],
+      "margins_ltrb": [
+        41,
+        72,
+        16,
+        32
+      ],
+      "center": [
+        108.5,
+        116.0
+      ],
+      "bbox_size": [
+        135,
+        88
+      ],
+      "visible_alpha_pixels": 5424,
+      "edge_touch": false
+    },
+    "follow_frame": {
+      "frame": 24,
+      "bbox": [
+        36,
+        30,
+        125,
+        155
+      ],
+      "margins_ltrb": [
+        36,
+        30,
+        67,
+        37
+      ],
+      "center": [
+        80.5,
+        92.5
+      ],
+      "bbox_size": [
+        89,
+        125
+      ],
+      "visible_alpha_pixels": 6193,
+      "edge_touch": false
+    }
+  }
+}

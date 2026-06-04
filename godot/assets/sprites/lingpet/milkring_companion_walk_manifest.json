@@ -1,0 +1,276 @@
+{
+  "asset_id": "milkring_companion_walk_high_step_v3_frame_reversed_horizontal_flipped",
+  "output_path": "res://assets/sprites/lingpet/milkring_companion_walk.png",
+  "grid": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": 256
+  },
+  "source_autosprite": {
+    "character_id": "cmpx19e5a008bv9niihfruk9e",
+    "character_name": "Milkring Companion Back v1",
+    "job_id": "wf_e3acb469-5722-4bb1-9a44-6d918239e55c",
+    "spritesheet_id": "cmpxpzdjj00cnv73okvlfiqsj",
+    "source_video_id": "cmpxpx9vg004er9wdcnwp32n9",
+    "kind": "iso_walk_northeast",
+    "direction": "right",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "frame_count": 25,
+    "frame_size": 512,
+    "with_sound": false,
+    "prompt": "Rear 3/4 rightward high-step walk loop for Milkring, cute SD biped cow lingpet. Same identity: black-white spots, horns, opaque cyan goggles hiding eyes, ring collar core, small milk/wrist nozzle gear. EXAGGERATED TRUE LEG WALK: clear alternating left/right hoof lift, one hoof visibly off the floor while the other supports, wide stride, knees bend, heel-to-toe plant, hoof positions swap. Body upright with only small step bounce. NO bowing waist idle, NO both feet planted, NO squat pump. Back view, stable scale, transparent seamless loop."
+  },
+  "postprocess": {
+    "source_sheet": ".tmp/milkring_companion_walk_high_step_v2/milkring_companion_walk_autosprite_512.png",
+    "source_atlas": ".tmp/milkring_companion_walk_high_step_v2/milkring_companion_walk_autosprite_atlas.json",
+    "resize": "cell_by_cell_lanczos_512_to_256",
+    "runtime_contract": "5x5_25_frames_matches_lingpet_companion_sprite_animator",
+    "frame_order_fix": {
+      "reason": "Runtime played the accepted AutoSprite walk as a backpedal/moonwalk; reversing the 25-cell order makes 0->24 read as forward travel while preserving the AutoSprite-derived frames.",
+      "source_runtime_sheet_before_reverse": ".tmp/milkring_companion_walk_frame_reverse_v3/milkring_companion_walk_before_reverse.png",
+      "operation": "reverse_25_runtime_cells_24_to_0"
+    },
+    "horizontal_orientation_fix": {
+      "reason": "Runtime treats companion walk sheets as rightward 3/4-back source art and mirrors only for left travel. The accepted sheet was visually left-facing after frame-order reversal, so rightward movement still read as backwards walking.",
+      "operation": "flip_entire_5x5_runtime_sheet_left_to_right",
+      "source_sha256_before_flip": "C302C8702B3E782E183C627B757FF0D06C6445467D6C6C17D6187EB71FE43000"
+    }
+  },
+  "qa": {
+    "rejected_old_runtime_source": "milkring_companion_idle_back.png was an idle/back breathing sheet with feet planted and caused the waist-bending-only walk report.",
+    "rejected_candidate": "milkring_companion_walk_true_leg_v1 had leg motion but read less strongly at runtime scale.",
+    "accepted_motion_read": "high_step_true_leg_walk_frame_reversed: same accepted leg motion, but 0->24 playback now matches forward travel instead of backpedaling.",
+    "transparent_corners": true,
+    "edge_alpha_pixels": 0,
+    "frame_alpha_bboxes": [
+      {
+        "frame": 0,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 1,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 2,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 3,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 4,
+        "alpha_bbox": [
+          56,
+          23,
+          201,
+          236
+        ]
+      },
+      {
+        "frame": 5,
+        "alpha_bbox": [
+          56,
+          25,
+          201,
+          235
+        ]
+      },
+      {
+        "frame": 6,
+        "alpha_bbox": [
+          55,
+          26,
+          202,
+          234
+        ]
+      },
+      {
+        "frame": 7,
+        "alpha_bbox": [
+          54,
+          23,
+          203,
+          233
+        ]
+      },
+      {
+        "frame": 8,
+        "alpha_bbox": [
+          50,
+          23,
+          204,
+          233
+        ]
+      },
+      {
+        "frame": 9,
+        "alpha_bbox": [
+          45,
+          26,
+          203,
+          234
+        ]
+      },
+      {
+        "frame": 10,
+        "alpha_bbox": [
+          41,
+          29,
+          203,
+          236
+        ]
+      },
+      {
+        "frame": 11,
+        "alpha_bbox": [
+          38,
+          31,
+          202,
+          237
+        ]
+      },
+      {
+        "frame": 12,
+        "alpha_bbox": [
+          38,
+          32,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 13,
+        "alpha_bbox": [
+          39,
+          31,
+          200,
+          237
+        ]
+      },
+      {
+        "frame": 14,
+        "alpha_bbox": [
+          41,
+          30,
+          200,
+          237
+        ]
+      },
+      {
+        "frame": 15,
+        "alpha_bbox": [
+          43,
+          28,
+          200,
+          237
+        ]
+      },
+      {
+        "frame": 16,
+        "alpha_bbox": [
+          46,
+          25,
+          200,
+          237
+        ]
+      },
+      {
+        "frame": 17,
+        "alpha_bbox": [
+          49,
+          23,
+          200,
+          237
+        ]
+      },
+      {
+        "frame": 18,
+        "alpha_bbox": [
+          52,
+          22,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 19,
+        "alpha_bbox": [
+          53,
+          21,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 20,
+        "alpha_bbox": [
+          54,
+          21,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 21,
+        "alpha_bbox": [
+          55,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 22,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 23,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      },
+      {
+        "frame": 24,
+        "alpha_bbox": [
+          57,
+          20,
+          201,
+          237
+        ]
+      }
+    ],
+    "backpedal_fix": "2026-06-03 user QA reported the leg motion existed but the sheet played as backwards walking; runtime sheet frame order was reversed from 24 to 0, then horizontally flipped so the runtime rightward-source / leftward-mirror contract matches visible travel."
+  }
+}

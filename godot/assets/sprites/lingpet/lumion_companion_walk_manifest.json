@@ -1,0 +1,302 @@
+{
+  "asset_id": "lumion_companion_walk_v1",
+  "character": "lumion",
+  "display_name": "루미온",
+  "generated_at": "2026-06-03",
+  "generated_at_kst": "2026-06-03T04:26:30+09:00",
+  "runtime_usage": "lingpet_companion_walk_candidate",
+  "direction_policy": {
+    "source_direction": "rightward rear-side movement",
+    "leftward_runtime": "Use existing lingpet companion renderer face_left mirror path, matching Maribo companion_walk policy.",
+    "reference": "godot/scripts/lingpet/lingpet_companion_draw_context_builder.gd documents Maribo as rightward 3/4-back sheet mirrored for leftward travel."
+  },
+  "notes": [
+    "Left/right movement companion sheet for Lumion.",
+    "Maribo-like rear three-quarter patrol angle; middle frames reveal a small right-side face/amber eye while the cape-back and tail remain the main silhouette.",
+    "Not wired into lingpet_catalog.gd yet; intended to pair with lumion_companion_idle.png before full companion set promotion."
+  ],
+  "source_autosprite": {
+    "character_id": "cmpx04bwe000eabwnufhwa4wy",
+    "character_name": "Lumion Companion Rear SD Idle 20260603",
+    "job_id": "wf_ebf55e8f-77d8-4167-9a9b-46fbc738f8f3",
+    "video_id": "cmpx0vxh4005d14046nkdmrxb",
+    "spritesheet_id": "cmpx0xa18006l1404f9m82qgh",
+    "kind": "custom",
+    "reported_direction": "right",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "credits_used": 5,
+    "spritesheet_request": {
+      "frame_count": 25,
+      "frame_size": 512,
+      "loop": true
+    },
+    "prompt": "25-frame seamless rightward patrol loop for Lumion SD companion. Maribo-like mostly rear 3/4 angle, rotated slightly right so a small face slice and one amber eye show. Keep back cape armor and feather tail as main silhouette. Light chibi side-step/floating movement in place: body bob, tail sway, ear bounce, cape flutter, orange circuitry glow pulse. Keep centered in every frame. No front view, no attack, no weapon, no text, transparent background, generous margins."
+  },
+  "source_identity": {
+    "base_manifest": "res://assets/sprites/lingpet/lumion_companion_idle_manifest.json",
+    "base_autosprite_upload_source": "res://assets/sprites/lingpet/lumion_companion_idle_source_autosprite.png"
+  },
+  "postprocess": {
+    "raw_sheet": {
+      "path": ".tmp/lumion_companion_walk_v1/lumion_companion_walk_raw_512_25f.png",
+      "bytes": 994235,
+      "sha256": "591f9f7712c1602ce3bb0204c3a17e8ac1176bcbdd7c934a0c9c7ceaf7143b99",
+      "size": [
+        2560,
+        2560
+      ]
+    },
+    "raw_atlas": {
+      "path": ".tmp/lumion_companion_walk_v1/lumion_companion_walk_raw_512_25f.json",
+      "bytes": 2796,
+      "sha256": "0f38dccf3a1af41eecbe08808d91f9c62726151863cce58c49169a06cb64564e"
+    },
+    "source_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "runtime_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ]
+    },
+    "resize": "premultiplied-alpha Lanczos resize per cell from 512 to 128; transparent RGB cleared to avoid green matte bleed",
+    "preview_gif": {
+      "path": ".tmp/lumion_companion_walk_v1/lumion_companion_walk_preview.gif",
+      "bytes": 326613,
+      "sha256": "9a173b2e53cdfbdf9e218715b9be43229d2769de67ebeaa0f3906027faaf1922",
+      "size": [
+        384,
+        384
+      ]
+    }
+  },
+  "outputs": {
+    "runtime_sheet": {
+      "path": "godot/assets/sprites/lingpet/lumion_companion_walk.png",
+      "bytes": 277545,
+      "sha256": "60b01fd74914ab94b2c25e1c84906a92521b28d7d43b501b4719a1d31fddf336",
+      "size": [
+        640,
+        640
+      ],
+      "res_path": "res://assets/sprites/lingpet/lumion_companion_walk.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ]
+    }
+  },
+  "qa": {
+    "path": "godot\\assets\\sprites\\lingpet\\lumion_companion_walk.png",
+    "sha256": "60b01fd74914ab94b2c25e1c84906a92521b28d7d43b501b4719a1d31fddf336",
+    "bytes": 277545,
+    "sheet_size": [
+      640,
+      640
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      128,
+      128
+    ],
+    "edge_alpha_count": 0,
+    "min_margins_ltrb": [
+      17,
+      10,
+      39,
+      16
+    ],
+    "bbox_width_range": [
+      54,
+      72
+    ],
+    "bbox_height_range": [
+      98,
+      102
+    ],
+    "center_range_xy": [
+      6.5,
+      2.0
+    ],
+    "visible_alpha_pixels_range": [
+      2958,
+      3911
+    ],
+    "mean_sequential_frame_diff_range": [
+      0.0016802619485294119,
+      0.055251117781096815
+    ],
+    "loop_seam_mean_abs_diff": 0.008235916436887255,
+    "sample_frames": [
+      {
+        "frame": 0,
+        "bbox": [
+          18,
+          12,
+          89,
+          110
+        ],
+        "margins_ltrb": [
+          18,
+          12,
+          39,
+          18
+        ],
+        "center": [
+          53.5,
+          61.0
+        ],
+        "bbox_size": [
+          71,
+          98
+        ],
+        "visible_alpha_pixels": 3901
+      },
+      {
+        "frame": 1,
+        "bbox": [
+          18,
+          12,
+          89,
+          110
+        ],
+        "margins_ltrb": [
+          18,
+          12,
+          39,
+          18
+        ],
+        "center": [
+          53.5,
+          61.0
+        ],
+        "bbox_size": [
+          71,
+          98
+        ],
+        "visible_alpha_pixels": 3903
+      },
+      {
+        "frame": 6,
+        "bbox": [
+          20,
+          10,
+          87,
+          112
+        ],
+        "margins_ltrb": [
+          20,
+          10,
+          41,
+          16
+        ],
+        "center": [
+          53.5,
+          61.0
+        ],
+        "bbox_size": [
+          67,
+          102
+        ],
+        "visible_alpha_pixels": 3126
+      },
+      {
+        "frame": 12,
+        "bbox": [
+          29,
+          12,
+          86,
+          112
+        ],
+        "margins_ltrb": [
+          29,
+          12,
+          42,
+          16
+        ],
+        "center": [
+          57.5,
+          62.0
+        ],
+        "bbox_size": [
+          57,
+          100
+        ],
+        "visible_alpha_pixels": 2961
+      },
+      {
+        "frame": 18,
+        "bbox": [
+          17,
+          10,
+          86,
+          110
+        ],
+        "margins_ltrb": [
+          17,
+          10,
+          42,
+          18
+        ],
+        "center": [
+          51.5,
+          60.0
+        ],
+        "bbox_size": [
+          69,
+          100
+        ],
+        "visible_alpha_pixels": 3549
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          18,
+          11,
+          89,
+          110
+        ],
+        "margins_ltrb": [
+          18,
+          11,
+          39,
+          18
+        ],
+        "center": [
+          53.5,
+          60.5
+        ],
+        "bbox_size": [
+          71,
+          99
+        ],
+        "visible_alpha_pixels": 3910
+      }
+    ]
+  }
+}

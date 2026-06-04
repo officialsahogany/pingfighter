@@ -68,6 +68,9 @@ func _expect_reset_clean(controller: Object, default_center: Vector2) -> void:
 	_expect(is_equal_approx(controller.long_boost_initial_timer_frames, 0.0), "reset should clear long boost initial timer")
 	_expect(is_equal_approx(controller.long_boost_scale, 1.0), "reset should clear long boost scale")
 
+	_expect(not controller.milk_bottle_active, "reset should clear milk bottle active state")
+	_expect(is_equal_approx(controller.milk_bottle_scale, 1.0), "reset should clear milk bottle scale")
+
 	_expect(not controller.vitamin_pill_active, "reset should clear vitamin pill active state")
 	_expect(is_equal_approx(controller.vitamin_pill_timer_frames, 0.0), "reset should clear vitamin pill timer")
 	_expect(is_equal_approx(controller.vitamin_pill_initial_timer_frames, 0.0), "reset should clear vitamin pill initial timer")
@@ -128,6 +131,9 @@ func _dirty_every_effect_bucket(controller: Object) -> void:
 	controller.long_boost_timer_frames = 123.0
 	controller.long_boost_initial_timer_frames = 480.0
 	controller.long_boost_scale = 1.4
+
+	controller.milk_bottle_active = true
+	controller.milk_bottle_scale = 1.2
 
 	controller.vitamin_pill_active = true
 	controller.vitamin_pill_timer_frames = 234.0

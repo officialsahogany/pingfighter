@@ -129,7 +129,10 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 			elif render_facade != null and render_facade.has_method("prewarm_assets"):
 				render_facade.prewarm_assets(active_item_hud_visuals)
 		2:
-			if field_spawn_controller != null and field_spawn_controller.has_method("prewarm_spawn_candidate_templates"):
+			if field_spawn_controller != null and field_spawn_controller.has_method("prewarm_spawn_candidate_templates_step"):
+				if not bool(field_spawn_controller.prewarm_spawn_candidate_templates_step()):
+					return false
+			elif field_spawn_controller != null and field_spawn_controller.has_method("prewarm_spawn_candidate_templates"):
 				field_spawn_controller.prewarm_spawn_candidate_templates()
 		_:
 			_asset_prewarm_step_index = 0

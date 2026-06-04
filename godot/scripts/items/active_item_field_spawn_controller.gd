@@ -7,7 +7,13 @@ const ActiveItemFieldSpawnPortals := preload("res://scripts/items/active_item_fi
 const ActiveItemFieldSpawnQueue := preload("res://scripts/items/active_item_field_spawn_queue.gd")
 const ActiveItemFieldSpawnScheduler := preload("res://scripts/items/active_item_field_spawn_scheduler.gd")
 
+const MILK_BOTTLE_BREAK_EFFECT_DURATION_SEC := 0.56
+const MILK_BOTTLE_BREAK_SHARD_COUNT := 9
+const MILK_BOTTLE_BREAK_DROPLET_COUNT := 8
+const MILK_BOTTLE_BREAK_RENDER_LIMIT := 6
+
 var spawned_items: Array[Dictionary] = []
+var field_item_break_effects: Array[Dictionary] = []
 var field_pickup_flow: Object = ActiveItemFieldPickupFlow.new()
 var field_item_motion: Object = ActiveItemFieldItemMotion.new()
 var spawn_pool: Object = ActiveItemFieldSpawnPool.new()
@@ -19,13 +25,25 @@ var _method_argument_count_cache: Dictionary = {}
 
 func reset() -> void:
 	spawned_items.clear()
+	field_item_break_effects.clear()
 	spawn_portals.reset()
 	spawn_scheduler.reset()
 
 
 func prewarm_spawn_candidate_templates(perf_logger: Object = null) -> void:
+	if spawn_pool != null and spawn_pool.has_method("prewarm_spawn_candidate_templates_step"):
+		while not bool(spawn_pool.prewarm_spawn_candidate_templates_step(perf_logger)):
+			pass
+	elif spawn_pool != null and spawn_pool.has_method("prewarm_spawn_candidate_templates"):
+		spawn_pool.prewarm_spawn_candidate_templates(perf_logger)
+
+
+func prewarm_spawn_candidate_templates_step(perf_logger: Object = null) -> bool:
+	if spawn_pool != null and spawn_pool.has_method("prewarm_spawn_candidate_templates_step"):
+		return bool(spawn_pool.prewarm_spawn_candidate_templates_step(perf_logger))
 	if spawn_pool != null and spawn_pool.has_method("prewarm_spawn_candidate_templates"):
 		spawn_pool.prewarm_spawn_candidate_templates(perf_logger)
+	return true
 
 
 func get_spawn_candidate_cache_status() -> Dictionary:
@@ -59,6 +77,9 @@ func update(
 	sample_start = _perf_begin(detail_perf_logger)
 	_update_item_spawn_portals()
 	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.portal_update", sample_start)
+	sample_start = _perf_begin(detail_perf_logger)
+	_update_field_item_break_effects(delta)
+	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.break_effects", sample_start)
 	_record_counter(perf_logger, "active_item.field_items.released", float(spawned_items.size()))
 	sample_start = _perf_begin(detail_perf_logger)
 	_update_field_items(owner, registry, delta, store_item_callback, pickup_callback, detail_perf_logger)
@@ -114,12 +135,20 @@ func get_item_spawn_portals() -> Array[Dictionary]:
 	return spawn_portals.get_item_spawn_portals()
 
 
+func get_field_item_break_effects() -> Array[Dictionary]:
+	return field_item_break_effects
+
+
 func get_pending_spawn_items() -> Array[Dictionary]:
 	return spawn_portals.get_pending_spawn_items()
 
 
 func has_visible_field_items() -> bool:
-	return not spawned_items.is_empty() or spawn_portals.has_visible_portals()
+	return not spawned_items.is_empty() or not field_item_break_effects.is_empty() or spawn_portals.has_visible_portals()
+
+
+func get_field_item_break_effect_count_for_tests() -> int:
+	return field_item_break_effects.size()
 
 
 func get_field_spawn_candidate_names() -> Dictionary:
@@ -175,7 +204,19 @@ func _update_field_items(
 	pickup_callback: Callable,
 	perf_logger: Object = null
 ) -> void:
-	if _get_method_argument_count(field_pickup_flow, "update_field_items") >= 8:
+	if _get_method_argument_count(field_pickup_flow, "update_field_items") >= 9:
+		spawned_items = field_pickup_flow.update_field_items(
+			owner,
+			registry,
+			spawned_items,
+			field_item_motion,
+			delta,
+			store_item_callback,
+			pickup_callback,
+			perf_logger,
+			Callable(self, "_trigger_dash_destroy_effect")
+		)
+	elif _get_method_argument_count(field_pickup_flow, "update_field_items") >= 8:
 		spawned_items = field_pickup_flow.update_field_items(
 			owner,
 			registry,
@@ -272,6 +313,102 @@ func _update_item_spawn_portals() -> void:
 	spawn_portals.update_item_spawn_portals()
 
 
+func _update_field_item_break_effects(delta: float) -> void:
+	if field_item_break_effects.is_empty():
+		return
+	var write_index := 0
+	for read_index in range(field_item_break_effects.size()):
+		var effect: Dictionary = field_item_break_effects[read_index]
+		var age: float = float(effect.get("age", 0.0)) + delta
+		var duration: float = max(0.001, float(effect.get("duration", MILK_BOTTLE_BREAK_EFFECT_DURATION_SEC)))
+		if age >= duration:
+			continue
+		effect["age"] = age
+		field_item_break_effects[write_index] = effect
+		write_index += 1
+	if write_index < field_item_break_effects.size():
+		field_item_break_effects.resize(write_index)
+
+
+func _trigger_dash_destroy_effect(field_item: Dictionary, registry: Object) -> void:
+	var item_data: Dictionary = _get_dictionary(field_item, "item_data")
+	var item_name: String = str(item_data.get("name", ""))
+	var center: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO)
+	var effect_seed: int = _stable_effect_seed(item_name, center)
+	field_item_break_effects.append({
+		"kind": "milk_bottle_break" if item_name == "milk_bottle" else "field_item_dash_break",
+		"item_name": item_name,
+		"position": _clamp_break_effect_center(center),
+		"age": 0.0,
+		"duration": MILK_BOTTLE_BREAK_EFFECT_DURATION_SEC,
+		"effect_seed": effect_seed,
+		"shards": _build_break_shards(effect_seed),
+		"droplets": _build_milk_droplets(effect_seed),
+	})
+	if field_item_break_effects.size() > MILK_BOTTLE_BREAK_RENDER_LIMIT:
+		while field_item_break_effects.size() > MILK_BOTTLE_BREAK_RENDER_LIMIT:
+			field_item_break_effects.remove_at(0)
+	_play_dash_destroy_audio(registry)
+
+
+func _build_break_shards(effect_seed: int) -> Array[Dictionary]:
+	var shards: Array[Dictionary] = []
+	for index in range(MILK_BOTTLE_BREAK_SHARD_COUNT):
+		var ratio: float = _hash_unit(effect_seed, index * 11 + 3)
+		var angle: float = -PI * 0.92 + ratio * PI * 1.84
+		var speed: float = 82.0 + _hash_unit(effect_seed, index * 13 + 7) * 118.0
+		var lift: float = 36.0 + _hash_unit(effect_seed, index * 17 + 5) * 104.0
+		shards.append({
+			"velocity": Vector2(cos(angle) * speed, sin(angle) * speed - lift),
+			"size": 3.2 + _hash_unit(effect_seed, index * 19 + 9) * 4.8,
+			"spin": -3.2 + _hash_unit(effect_seed, index * 23 + 1) * 6.4,
+			"tint": index % 3,
+		})
+	return shards
+
+
+func _build_milk_droplets(effect_seed: int) -> Array[Dictionary]:
+	var droplets: Array[Dictionary] = []
+	for index in range(MILK_BOTTLE_BREAK_DROPLET_COUNT):
+		var angle: float = -PI + _hash_unit(effect_seed, index * 29 + 4) * PI
+		var speed: float = 42.0 + _hash_unit(effect_seed, index * 31 + 8) * 72.0
+		droplets.append({
+			"velocity": Vector2(cos(angle) * speed, -abs(sin(angle)) * speed - 18.0),
+			"radius": 2.0 + _hash_unit(effect_seed, index * 37 + 6) * 3.0,
+		})
+	return droplets
+
+
+func _play_dash_destroy_audio(registry: Object) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_boomerang_break"):
+		audio.play_boomerang_break()
+	elif audio.has_method("play_boomerang_hit"):
+		audio.play_boomerang_hit()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _stable_effect_seed(item_name: String, center: Vector2) -> int:
+	var raw_seed: int = int(abs(center.x) * 92821.0 + abs(center.y) * 68917.0) ^ item_name.hash()
+	return max(1, abs(raw_seed))
+
+
+func _hash_unit(effect_seed: int, salt: int) -> float:
+	var value: int = int(abs(sin(float(effect_seed + salt * 1013)) * 100000.0)) % 10000
+	return float(value) / 9999.0
+
+
+func _clamp_break_effect_center(center: Vector2) -> Vector2:
+	const VISUAL_MARGIN := 34.0
+	return Vector2(
+		clamp(center.x, VISUAL_MARGIN, ActiveItemFieldItemMotion.FIELD_WIDTH - VISUAL_MARGIN),
+		clamp(center.y, VISUAL_MARGIN, ActiveItemFieldItemMotion.FIELD_HEIGHT - VISUAL_MARGIN)
+	)
+
+
 func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]:
 	var value: Variant = source.get(key, [])
 	var items: Array[Dictionary] = []
@@ -280,6 +417,34 @@ func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]
 			if item_value is Dictionary:
 				items.append(item_value)
 	return items
+
+
+func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
+	var value: Variant = source.get(key, {})
+	if value is Dictionary:
+		return value
+	return {}
+
+
+func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback
+
+
+func _get_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	if registry.has_method("get_cached_instance"):
+		var cached: Variant = registry.get_cached_instance(key)
+		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+			return cached as Object
+	if registry.has_method("get_instance"):
+		var value: Variant = registry.get_instance(key)
+		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+			return value as Object
+	return null
 
 
 func _get_method_argument_count(target: Object, method_name: String) -> int:

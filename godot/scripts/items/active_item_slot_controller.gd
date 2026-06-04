@@ -30,6 +30,9 @@ func reset_cooldowns_for_stage_transition(active_item_slots: Array) -> Array:
 		if not (slot is Dictionary):
 			continue
 		var item: Dictionary = slot
+		var item_identity: String = _get_item_identity(item)
+		if str(item.get("name", "")) == "" and item_identity != "":
+			item["name"] = item_identity
 		if item.has("last_use_msec"):
 			item["last_use_msec"] = -1
 		if item.has("last_use"):
@@ -378,25 +381,32 @@ func _is_stored_active_item_value(item_value: Variant) -> bool:
 	if not (item_value is Dictionary):
 		return false
 	var item_data: Dictionary = item_value
-	return (
-		str(item_data.get("name", "")) != ""
-		or str(item_data.get("effect", "")) != ""
-		or str(item_data.get("item_name", "")) != ""
-	)
+	return _get_item_identity(item_data) != ""
 
 
 func _slot_matches_item(item_value: Variant, item_name: String) -> bool:
 	if not (item_value is Dictionary):
 		return false
 	var item_data: Dictionary = item_value
-	return str(item_data.get("name", "")) == item_name or str(item_data.get("effect", "")) == item_name
+	return _get_item_identity(item_data) == item_name or str(item_data.get("effect", "")) == item_name
 
 
 func _build_item_label(item_data: Dictionary) -> String:
-	var raw_label: String = str(item_data.get("name", item_data.get("effect", "unknown")))
+	var raw_label: String = _get_item_identity(item_data)
 	if raw_label == "":
 		raw_label = "unknown"
 	return raw_label.strip_edges().to_lower().replace(" ", "_").replace("-", "_")
+
+
+func _get_item_identity(item_data: Dictionary) -> String:
+	for key in ["name", "effect", "item_name", "item_id"]:
+		var raw_value: Variant = item_data.get(str(key), "")
+		if raw_value == null:
+			continue
+		var value: String = str(raw_value)
+		if value != "":
+			return value
+	return ""
 
 
 func _sync_slot_input_states() -> void:
@@ -486,7 +496,7 @@ func _apply_active_item_use_gauge_bonus(owner: Object, registry: Object) -> void
 
 
 func _apply_item_runtime_visual_overrides(item_data: Dictionary, registry: Object) -> Dictionary:
-	var item_name: String = str(item_data.get("name", item_data.get("effect", "")))
+	var item_name: String = _get_item_identity(item_data)
 	var effect_name: String = str(item_data.get("effect", ""))
 	if item_name != "boomerang" and effect_name != "boomerang":
 		return item_data

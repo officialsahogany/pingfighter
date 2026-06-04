@@ -1,0 +1,545 @@
+{
+  "asset_id": "volty_acquisition_cutin_anim",
+  "pet_id": "volty",
+  "display_name": "볼티",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "static_art": {
+    "path": "godot/assets/sprites/lingpet/volty_cutin_art.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "29c7ccc997d248e732301b6af862a891f969ea4484864ba109dab2cdcd4b3f0f",
+    "bytes": 908821
+  },
+  "magenta_source": {
+    "path": "godot/assets/sprites/lingpet/volty_cutin_art_magenta_source.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "5a05283c41acb54aa977a756f89774f2a777d3d69642227b2647d33d611041c9",
+    "bytes": 1512986
+  },
+  "source_autosprite": {
+    "asset_id": "cmpwyw1cz000skm4cc1u8w0lo",
+    "asset_name": "Volty Acquire Cutin Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/volty_cutin_art.png",
+    "acquire_job_id": "wf_78ea8fa0-035d-4360-991e-dd4d2c26f685",
+    "acquire_spritesheet_id": "cmpwyxhum001akm4cqsc8rokx",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "animation_prompt": "Floating acquisition reveal loop: spherical electric robot hovers, LED eyes blink, blue core pulses, yellow lightning flickers, clamp arms and minigun pod subtly bob, stable full body."
+  },
+  "autosprite_raw": {
+    "path": ".tmp/volty_cutin/volty_acquire_autosprite_raw.png",
+    "size": [
+      2048,
+      2048
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "sha256": "4b5b7bba0e94d90ec4ff774e6e8abfaa446d71f7424e6f7eeed42cc52feac243",
+    "bytes": 920177
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/volty_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 4.0,
+    "sha256": "5976001a236965aca3f09ebfd1a9aa714e000cd81d421bf4b76f8862d22d09ae",
+    "bytes": 31036238
+  },
+  "postprocess": {
+    "tool": "AutoSprite MCP + Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale",
+    "operation": "AutoSprite 512 cells alpha-cleaned, scaled to 84 percent and centered; RGB alpha-bled cells were Real-ESRGAN x4 upscaled and recombined with source alpha Lanczos x4.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4.0,
+      "rgb_source": ".tmp/volty_cutin/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/volty_cutin/rgb_cells_s84_x4",
+      "alpha_source": ".tmp/volty_cutin/alpha_cells_s84"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "alpha <= 15 set transparent before and after alpha resize"
+    }
+  },
+  "qa": {
+    "raw": {
+      "whole_sheet_edge_alpha": 0,
+      "cells_with_edge_touch": [],
+      "visible_magenta_pixels": 0,
+      "min_margins_ltrb": [
+        39,
+        35,
+        48,
+        47
+      ],
+      "area_range_pct": [
+        66.48,
+        69.39
+      ],
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            40,
+            35,
+            463,
+            449
+          ],
+          "margin_ltrb": [
+            40,
+            35,
+            49,
+            63
+          ],
+          "size": [
+            423,
+            414
+          ]
+        },
+        {
+          "frame": 2,
+          "bbox": [
+            40,
+            35,
+            463,
+            465
+          ],
+          "margin_ltrb": [
+            40,
+            35,
+            49,
+            47
+          ],
+          "size": [
+            423,
+            430
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            41,
+            35,
+            463,
+            455
+          ],
+          "margin_ltrb": [
+            41,
+            35,
+            49,
+            57
+          ],
+          "size": [
+            422,
+            420
+          ]
+        },
+        {
+          "frame": 6,
+          "bbox": [
+            39,
+            35,
+            464,
+            457
+          ],
+          "margin_ltrb": [
+            39,
+            35,
+            48,
+            55
+          ],
+          "size": [
+            425,
+            422
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            39,
+            35,
+            464,
+            454
+          ],
+          "margin_ltrb": [
+            39,
+            35,
+            48,
+            58
+          ],
+          "size": [
+            425,
+            419
+          ]
+        },
+        {
+          "frame": 10,
+          "bbox": [
+            39,
+            35,
+            464,
+            447
+          ],
+          "margin_ltrb": [
+            39,
+            35,
+            48,
+            65
+          ],
+          "size": [
+            425,
+            412
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            39,
+            35,
+            463,
+            447
+          ],
+          "margin_ltrb": [
+            39,
+            35,
+            49,
+            65
+          ],
+          "size": [
+            424,
+            412
+          ]
+        },
+        {
+          "frame": 15,
+          "bbox": [
+            40,
+            35,
+            463,
+            449
+          ],
+          "margin_ltrb": [
+            40,
+            35,
+            49,
+            63
+          ],
+          "size": [
+            423,
+            414
+          ]
+        }
+      ]
+    },
+    "runtime": {
+      "whole_sheet_edge_alpha": 0,
+      "cells_with_edge_touch": [],
+      "visible_magenta_pixels": 38032,
+      "min_margins_ltrb": [
+        301,
+        289,
+        333,
+        324
+      ],
+      "area_range_pct": [
+        45.79,
+        48.07
+      ],
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            307,
+            290,
+            1713,
+            1670
+          ],
+          "margin_ltrb": [
+            307,
+            290,
+            335,
+            378
+          ],
+          "size": [
+            1406,
+            1380
+          ]
+        },
+        {
+          "frame": 2,
+          "bbox": [
+            307,
+            289,
+            1712,
+            1724
+          ],
+          "margin_ltrb": [
+            307,
+            289,
+            336,
+            324
+          ],
+          "size": [
+            1405,
+            1435
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            307,
+            289,
+            1713,
+            1686
+          ],
+          "margin_ltrb": [
+            307,
+            289,
+            335,
+            362
+          ],
+          "size": [
+            1406,
+            1397
+          ]
+        },
+        {
+          "frame": 6,
+          "bbox": [
+            304,
+            289,
+            1714,
+            1690
+          ],
+          "margin_ltrb": [
+            304,
+            289,
+            334,
+            358
+          ],
+          "size": [
+            1410,
+            1401
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            301,
+            289,
+            1714,
+            1682
+          ],
+          "margin_ltrb": [
+            301,
+            289,
+            334,
+            366
+          ],
+          "size": [
+            1413,
+            1393
+          ]
+        },
+        {
+          "frame": 10,
+          "bbox": [
+            302,
+            290,
+            1714,
+            1658
+          ],
+          "margin_ltrb": [
+            302,
+            290,
+            334,
+            390
+          ],
+          "size": [
+            1412,
+            1368
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            304,
+            290,
+            1714,
+            1661
+          ],
+          "margin_ltrb": [
+            304,
+            290,
+            334,
+            387
+          ],
+          "size": [
+            1410,
+            1371
+          ]
+        },
+        {
+          "frame": 15,
+          "bbox": [
+            307,
+            290,
+            1713,
+            1666
+          ],
+          "margin_ltrb": [
+            307,
+            290,
+            335,
+            382
+          ],
+          "size": [
+            1406,
+            1376
+          ]
+        }
+      ]
+    },
+    "preview_gif": ".tmp/volty_cutin/volty_cutin_anim_preview.gif",
+    "contact_preview": ".tmp/volty_cutin/volty_cutin_anim_contact_preview.png"
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.102,
+    "alpha_bbox": [
+      0.1499,
+      0.1416,
+      0.8364,
+      0.8154
+    ],
+    "note": "Frame-0 alpha occupancy for the acquisition reconstruction shards; generated for Volty cutin_anim.",
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "status": "Accepted acquisition loop candidate: AutoSprite 16f hover Live2D-style loop, safe-margin repack, Real-ESRGAN x4, no edge alpha touches."
+}

@@ -1,0 +1,49 @@
+{
+  "asset_id": "maribo_bubble_trap_skillcard_imagegen_v1",
+  "character": "maribo",
+  "skill_id": "maribo_bubble_trap",
+  "skill_name": "Bubble Trap",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_active_skill_rail_card",
+  "source_imagegen": {
+    "tool": "built-in image_gen",
+    "generated_path": "C:\\Users\\woduq\\.codex\\generated_images\\019e8808-5c40-72d1-98cd-7a46eaf70e2e\\ig_0ef2214855270c90016a1eef6925808191a9bcc58d63fa77a9.png",
+    "prompt_summary": "Wide Maribo-matched skill-card art: pink aquatic sea-knight lingpet casting a transparent water bubble trap with an opponent paddle inside; no text.",
+    "generated_size": [
+      2167,
+      725
+    ]
+  },
+  "reference_assets": [
+    "res://assets/sprites/lingpet/maribo_cutin_art.png",
+    "res://assets/sprites/lingpet/maribo_companion_hydro_cast.png",
+    "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png"
+  ],
+  "postprocess": {
+    "tool": "Pillow deterministic crop/resize + Maribo rail-card gold frame overlay",
+    "crop_box": [
+      0,
+      20,
+      2167,
+      702
+    ],
+    "target_size": [
+      1720,
+      541
+    ],
+    "frame_source": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+    "frame_mask": "gold/bronze frame pixels plus adjacent dark outlines only; cyan water strokes excluded",
+    "reason": "The generated art matched Maribo's current identity and was close to the existing wide rail-card ratio. The final card keeps the accepted Maribo rail-card frame language while replacing the interior art."
+  },
+  "output": {
+    "path": "D:\\main\\bosspong\\godot\\assets\\sprites\\lingpet\\maribo_bubble_trap_skillcard_imagegen_v1.png",
+    "res_path": "res://assets/sprites/lingpet/maribo_bubble_trap_skillcard_imagegen_v1.png",
+    "size": [
+      1720,
+      541
+    ],
+    "sha256": "86a85f8a8933c7ddb408a947b3158effbcbe6bbac15de182dad024f00fd489c2",
+    "bytes": 1605632
+  },
+  "status": "Accepted Maribo Bubble Trap skill card. Text-free, Maribo-matched, wide rail-card ratio."
+}

@@ -1,0 +1,65 @@
+{
+  "asset_id": "dragon_lingpet_firebreath_live2d_front_imagegen_v4",
+  "asset_type": "lingpet_live2d_front_source_concept",
+  "runtime_usage": "front-facing Live2D / click-reaction / cut-in source concept; not a final layered Live2D PSD and not a rear-view in-battle companion sheet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019e8ef1-83f1-74c2-8b6f-d4971f5f62bf/ig_09898804d4afb5f1016a20830cf66c8191a39df2307c0c0df8.png",
+  "outputs": {
+    "transparent_art": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_live2d_front_imagegen_v4.png",
+    "magenta_source": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_live2d_front_imagegen_v4_magenta_source.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "identity_reference": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_companion_source_imagegen_v3_magenta_source.png",
+    "prompt_summary": "Front-facing Live2D-ready red baby dragon Ringpet, preserving red scales, gold horns, cream belly, small wings, curled tail, cyan-gold resonance ring collar, and glowing chest ring-core; small flame held near one paw on a flat magenta background."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "front-facing Live2D source concept for a Ringpet / Lingpet companion in DiskHearts - Ringpia",
+    "primary_request": "Create a front-facing Live2D-ready source drawing of the red fire baby dragon Ringpet on a flat magenta background.",
+    "subject": "one tiny SD chibi baby dragon Ringpet, full-body front view, mostly symmetrical rig-friendly pose; head faces forward, eyes visible and cute, small snout, small open mouth prepared for fire-breathing expressions; arms slightly away from torso, wings open behind without hiding the body, legs and feet visible, curled tail visible around the lower body without covering the belly",
+    "ringpet_identity": "prominent glowing cyan-gold resonance ring collar around the neck/shoulders, clear circular ring-core gem on the chest, small circular resonance accents, egg-hatched magical companion read",
+    "fire_motif": "tiny contained red/crimson flame wisp near one side of the mouth or held near one paw, not covering the face, mouth, chest core, arms, or wings",
+    "style": "polished 2D Korean anime game mascot art, clean cel-shaded SD creature, crisp readable silhouette, high-quality front model sheet feeling",
+    "background": "perfectly flat solid #ff00ff magenta chroma-key background only",
+    "constraints": "no rear view, no side view, no giant portrait crop, no complex overlapping effects, no flame covering the mouth or eyes, no extra characters, no UI frame, no text, no watermark"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fa03f9",
+    "canonical_source_background": "#ff00ff",
+    "note": "Transparent art was extracted from the generated near-magenta source. The magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff."
+  },
+  "ringpet_rule_audit": {
+    "accepted_for_live2d_front_source": true,
+    "accepted_for_runtime_companion_sheet": false,
+    "reason": "Live2D / click-reaction source art intentionally uses a front-facing expression-readable pose. This differs from Maribo-style rear/rear-three-quarter in-battle companion sheets, which still require AutoSprite-derived 5x5/25-frame runtime sheets before catalog wiring.",
+    "next_runtime_step": "If promoted to runtime, split/animate through the Live2D-style pingpong sheet pipeline or use as an identity anchor for separate companion walk/strike/cast AutoSprite sheets."
+  },
+  "validation": {
+    "size": "1254x1254",
+    "transparent_corner_rgba": [
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0"
+    ],
+    "magenta_source_corner_rgba": [
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255"
+    ],
+    "transparent_alpha_bbox": [
+      154,
+      80,
+      1088,
+      1128
+    ],
+    "transparent_edge_alpha_count": 0,
+    "sha256": {
+      "transparent_art": "0d7731e982dc9f78426846329a3604bf5d13387c577077946d84551d772f29de",
+      "magenta_source": "f232b3995f1969c7febf93ac3fbfaa44239e3195684e7e29677dd6886474b899"
+    }
+  }
+}

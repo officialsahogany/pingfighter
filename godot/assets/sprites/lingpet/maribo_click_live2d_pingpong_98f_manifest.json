@@ -2,7 +2,7 @@
   "asset_id": "maribo_click_live2d_pingpong_98f",
   "character": "maribo",
   "display_name": "마리보",
-  "generated_at": "2026-06-02",
+  "generated_at": "2026-06-03",
   "runtime_usage": "lingpet_click_live2d_reaction_asset",
   "output_sheet": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
   "source_autosprite": {
@@ -12,11 +12,11 @@
     "base_provenance": "v003 magenta source despilled to a flat transparent base, tight-reframed to ~74% width / ~65% height fill (matches lunabi base_padded footprint), then uploaded as a NEW character to avoid the dirty-magenta fringe of the original maribo character.",
     "pose_id": "cmpvvwkus00etpb8wo2znzhqp",
     "pose_name": "Click React",
-    "spritesheet_id": "cmpvw345q00rbpf2w68l3bdb2",
-    "spritesheet_job_id": "wf_0c0e0992-f621-44cc-a712-0e5b91f4f3ea",
-    "video_id": "cmpvw0qw9003szakbkn3u6m07",
-    "raw_sheet_local_path": ".tmp/maribo_click_v1/maribo_click_raw_49f.png",
-    "raw_atlas_local_path": ".tmp/maribo_click_v1/maribo_click_raw_49f_atlas.json",
+    "spritesheet_id": "cmpwq4e4z004ldre3i2kx7vw9",
+    "spritesheet_job_id": "wf_edb6801b-a131-4fd4-947c-d59bc825cfc1",
+    "video_id": "cmpwp9qyr000udre30zu04o71",
+    "raw_sheet_local_path": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_raw_49f_atlas.json",
     "raw_grid": {
       "cols": 7,
       "rows": 7,
@@ -26,7 +26,7 @@
         1024
       ]
     },
-    "prompt": "49-frame click-reaction Live2D one-shot for Maribo the chibi pink dolphin Ringpet. Start neutral, then a surprised bounce: eyes widen then settle into a cheerful smile, fins flick, the cyan trident spear lifts and tips slightly with a small cyan water-droplet splash sparkle, one brief playful sway/half-spin, teal shell armor shimmer, then settle. Keep identity, the full trident spear, and shell armor stable and fully inside frame at all times. Transparent background, generous safe margins, no text, no UI, no extra characters, no crop.",
+    "prompt": "49-frame click-reaction Live2D one-shot for Maribo, a chibi pink dolphin Ringpet. Start from the click pose, then surprised cheerful bounce: eyes widen, smile opens, fins flick, single cyan trident lifts and tips, small water splash under feet, then settle back. High readability at 200px UI size: large clear face, bold clean outline, crisp eyes, simple teal shell armor, sharp trident silhouette, no noisy tiny details, no blur/haze/glow wash. Keep pink skin, purple eyes, teal armor, clam chest shell, full body and full trident inside frame. Transparent, no text/UI/crop.",
     "quality": "legendary",
     "remove_bg": "ultra",
     "with_sound": false
@@ -44,14 +44,29 @@
       8064
     ],
     "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
-    "source_scale_repack": 0.92,
-    "sha256": "e4f418fd4b3adb7e5a083191ad6b7f2ba8330cd4194978837df29f19df652c9b",
-    "bytes": 66901009
+    "source_scale_repack": 0.84,
+    "sha256": "6427b4173d21a537ce4a5280c3d9b4d6b48fcc32b13ca2aa1b9acfe5c684b0b4",
+    "bytes": 56482603
   },
   "postprocess": {
-    "tool": "AutoSprite-derived per-cell Real-ESRGAN animev3 x2 RGB/alpha split + 0.92 safe-margin pingpong repack",
-    "operation": "AutoSprite 49f source cells were alpha-bleed RGB upscaled through Real-ESRGAN animev3 x2, recombined with separately resized source alpha, safe-margin repacked at 0.92 into 1152px cells, then deterministic forward+reverse 98f pingpong reassembly.",
+    "tool": "AutoSprite-derived per-cell Real-ESRGAN animev3 x2 RGB/alpha split + 0.84 safe-margin pingpong repack",
+    "operation": "New HQ-readable AutoSprite 49f source cells were alpha-bleed RGB upscaled through Real-ESRGAN animev3 x2, recombined with separately resized source alpha, safe-margin repacked at 0.84 into 1152px cells, then deterministic forward+reverse 98f pingpong reassembly.",
     "script": ".tmp/maribo_click_hq/rebuild_maribo_click_sheet.py",
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "source_raw": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_raw_49f.png",
+      "rgb_alpha_split": true,
+      "rgb_upscale": "per-cell alpha-bleed RGB through Real-ESRGAN",
+      "alpha_recombine": "source alpha resized separately, alpha<=15 clipped after recombine",
+      "target_cell_size": [
+        1152,
+        1152
+      ],
+      "content_scale": 0.84,
+      "qc_path": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_realesrgan_animev3_hq1152_safe084.qc.json"
+    },
     "unsharp_mask": {
       "tool": "PIL ImageFilter.UnsharpMask",
       "params": {
@@ -65,21 +80,6 @@
       "operation": "Post-upscale alpha cleanup: source alpha resized separately and pixels with alpha <= 15 set fully transparent after recombine.",
       "threshold": 15,
       "a1_15_after": 0
-    },
-    "realesrgan_upscale": {
-      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
-      "model": "realesr-animevideov3",
-      "scale": 2,
-      "source_raw": ".tmp/maribo_click_v1/maribo_click_raw_49f.png",
-      "rgb_alpha_split": true,
-      "rgb_upscale": "per-cell alpha-bleed RGB through Real-ESRGAN",
-      "alpha_recombine": "source alpha resized separately, alpha<=15 clipped after recombine",
-      "target_cell_size": [
-        1152,
-        1152
-      ],
-      "content_scale": 0.92,
-      "qc_path": ".tmp/maribo_click_hq/maribo_click_current_raw_realesrgan_animev3_hq1152_safe.qc.json"
     }
   },
   "qa": {
@@ -90,102 +90,104 @@
     "final_whole_sheet_edge_alpha": 0,
     "final_cells_with_edge_touch": 0,
     "pingpong_loop_closure": "frame0.bbox == frame97.bbox and frame48.bbox == frame49.bbox (verified)",
-    "fringe_check": "HQ1152 dark preview inspected at .tmp/maribo_click_hq/maribo_click_current_raw_realesrgan_animev3_hq1152_safe_dark_preview.png; same-size comparison inspected at .tmp/maribo_click_hq/compare_current_vs_hq1152_safe_dark.png.",
+    "fringe_check": "HQ-readable dark preview inspected at .tmp/maribo_lunabi_grade/maribo_click_hq_readable_realesrgan_animev3_hq1152_safe084_dark_preview.png; Lunabi comparison inspected at .tmp/maribo_lunabi_grade/maribo_current_readable_safe_lunabi_200px_dark.png.",
     "dark_contact_preview": ".tmp/maribo_click_v1/packed_contact_dark.png",
     "white_contact_preview": ".tmp/maribo_click_v1/packed_contact_white.png",
     "final_cell_size": [
       1152,
       1152
     ],
-    "realesrgan_qc_path": ".tmp/maribo_click_hq/maribo_click_current_raw_realesrgan_animev3_hq1152_safe.qc.json",
+    "realesrgan_qc_path": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_realesrgan_animev3_hq1152_safe084.qc.json",
     "sample_bboxes": {
       "0": [
-        153,
-        175,
-        924,
-        981
+        189,
+        209,
+        894,
+        945
       ],
       "6": [
-        175,
-        189,
-        917,
-        1010
+        191,
+        209,
+        896,
+        942
       ],
       "12": [
-        184,
-        237,
-        921,
-        1027
+        182,
+        242,
+        900,
+        946
       ],
       "18": [
-        46,
-        307,
-        878,
-        1034
+        92,
+        358,
+        891,
+        992
       ],
       "24": [
-        46,
-        125,
-        1022,
-        1064
+        124,
+        178,
+        885,
+        1015
       ],
       "30": [
-        133,
-        46,
-        1106,
-        1074
+        143,
+        92,
+        1040,
+        1050
       ],
       "36": [
-        164,
-        46,
-        1106,
-        1090
+        96,
+        92,
+        1060,
+        1060
       ],
       "42": [
-        170,
-        85,
-        1103,
-        1102
+        92,
+        200,
+        1060,
+        1060
       ],
       "48": [
-        98,
-        234,
-        1106,
-        1099
+        92,
+        213,
+        1060,
+        1056
       ],
       "49": [
-        98,
-        234,
-        1106,
-        1099
+        92,
+        213,
+        1060,
+        1056
       ],
       "60": [
-        163,
-        46,
-        1106,
-        1093
+        92,
+        92,
+        1060,
+        1060
       ],
       "72": [
-        52,
-        115,
-        1014,
-        1071
+        218,
+        97,
+        931,
+        1029
       ],
       "84": [
-        174,
-        253,
-        916,
-        1032
+        176,
+        263,
+        900,
+        949
       ],
       "97": [
-        153,
-        175,
-        924,
-        981
+        189,
+        209,
+        894,
+        945
       ]
-    }
+    },
+    "lunabi_comparison_preview": ".tmp/maribo_lunabi_grade/maribo_current_readable_safe_lunabi_200px_dark.png",
+    "candidate_reject_note": "Compact no-platform candidate cmpwryl8l00282lxhm7i0qlp5 was rejected for intermittent crop/edge-touch and weaker mid-motion face read before postprocess."
   },
   "root_cause_note": "Maribo previously read lower-quality than Lunabi because (1) the v003 magenta source was NOT a flat #ff00ff chroma key (corners ranged R218-235, G10-36, B185-209), so chroma removal could never be clean; and (2) maribo's body is pink, which is close in hue to magenta, so AutoSprite removeBg left magenta/pink edge fringe. Per the CLAUDE.md chroma-key rule, a pink character should use a green (#00ff00) key, not magenta. Lunabi's dark-purple body + perfectly flat #ff00ff source avoided both problems. This asset fixes (1)+(2) by despilling to a clean transparent base before upload.",
-  "status": "Accepted runtime asset: existing AutoSprite 49f click reaction, Real-ESRGAN animev3 x2 per-cell RGB/alpha split, 1152px safe-margin repack, deterministic 98f pingpong return to frame 0. Applied to the Godot lingpet click-reaction path.",
-  "sharpen_status": "Replaced previous 1024 unsharp-only runtime sheet with HQ1152 Real-ESRGAN animev3 x2 + mild unsharp + alpha<=15 cleanup. Edge-touch QA: 0 cells."
+  "status": "Accepted runtime asset: new HQ-readable AutoSprite 49f click reaction, Real-ESRGAN animev3 x2 per-cell RGB/alpha split, 1152px safe-margin repack at 0.84, deterministic 98f pingpong return to frame 0. Applied to the Godot lingpet click-reaction path for Lunabi-level small-size readability.",
+  "sharpen_status": "Replaced previous HQ1152 upscale of the older motion with a new HQ-readable AutoSprite reshoot plus mild unsharp and alpha<=15 cleanup. Edge-touch QA: 0 cells."
 }

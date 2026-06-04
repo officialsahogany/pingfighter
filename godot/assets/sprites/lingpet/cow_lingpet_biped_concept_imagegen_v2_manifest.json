@@ -1,0 +1,28 @@
+{
+  "asset_id": "cow_lingpet_biped_concept_imagegen_v2",
+  "source_path": "res://assets/sprites/lingpet/cow_lingpet_biped_concept_imagegen_v2_magenta_source.png",
+  "alpha_path": "res://assets/sprites/lingpet/cow_lingpet_biped_concept_imagegen_v2.png",
+  "tool": "built-in image_gen",
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fb03fa",
+    "canonical_source_background": "#ff00ff",
+    "note": "The image was generated on a magenta chroma background. After alpha extraction, the canonical source PNG was recomposited onto exact opaque #ff00ff so repo source corners are stable."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "game asset concept art for a Lingpet companion in the Godot project DiskHearts - Ringpia",
+    "primary_request": "a cute bipedal dairy-cow Lingpet companion character, standing on two legs",
+    "subject": "a small adorable fantasy battle companion inspired by a Holstein dairy cow, black-and-white patches, tiny rounded horns, soft cow ears, small tail, compact mascot body, expressive friendly face, short arms and sturdy little legs, wearing subtle Ringpia-style charm details such as a small glowing ring collar or tiny gem bell",
+    "style": "polished Korean mobile-game mascot concept art, clean painterly anime/SD creature design, readable at small in-game size",
+    "background": "perfectly flat solid #ff00ff magenta chroma-key background for repo source handoff",
+    "constraints": "full-body centered front three-quarter pose, generous padding, no text, no watermark, no extra characters, do not use pure magenta on the subject"
+  },
+  "validation": {
+    "alpha_size": "1254x1254",
+    "source_corner_rgba": ["#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255"],
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [284, 97, 991, 1139]
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "asset_id": "volty_companion_walk_v1",
+  "character": "volty",
+  "display_name": "볼티",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_companion_walk_rightward_canonical_mirrored_for_left",
+  "status": "Accepted candidate: fixed-angle 3/4 hover movement loop from AutoSprite, runtime-sized 128px cells.",
+  "source_autosprite": {
+    "asset_id": "cmpwzyrvp00642ozrp1ktjbxf",
+    "asset_name": "Volty Companion Back Idle Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/volty_companion_idle_back_base.png",
+    "spritesheet_id": "cmpx14xt6006de1azy2ieqqnr",
+    "spritesheet_job_id": "wf_db9c782f-b8c0-4ada-bfa8-db09cfe9cb42",
+    "raw_sheet_local_path": ".tmp/volty_companion_walk/volty_companion_walk_autosprite_raw_25f_v3.png",
+    "raw_atlas_local_path": ".tmp/volty_companion_walk/volty_companion_walk_autosprite_raw_25f_v3_atlas.json",
+    "prompt": "Fixed 3/4 rear-right hover strafe loop like Maribo. Only a tiny front cyan lens visible, mostly back/side. Same angle every frame, no spin, bob, thruster.",
+    "raw_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "rejected_autosprite_candidates": [
+    {
+      "spritesheet_id": "cmpx0y0gy007d14046324bb1d",
+      "spritesheet_job_id": "wf_11c0bb4a-5768-4390-8bc2-7de14a79c33c",
+      "reason": "Rejected for runtime walk use because the body angle rotates through side/back/front instead of keeping a stable movement facing.",
+      "raw_sheet_local_path": ".tmp/volty_companion_walk/volty_companion_walk_autosprite_raw_25f.png"
+    },
+    {
+      "spritesheet_id": "cmpx11bjn008f1404trhu496n",
+      "spritesheet_job_id": "wf_ebc1f025-11f8-4af7-970d-37650c26a1c7",
+      "reason": "Superseded by v3 prompt that more explicitly targeted Maribo-style rear/side movement angle.",
+      "raw_sheet_local_path": ".tmp/volty_companion_walk/volty_companion_walk_autosprite_raw_25f_v2.png"
+    }
+  ],
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic runtime repack",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "target_cell_size": [
+      128,
+      128
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "source_scale_repack": 0.88,
+    "direction_policy": "Rightward canonical sheet; Godot companion renderer mirrors this sheet when face_left is true, matching Maribo runtime behavior."
+  },
+  "outputs": {
+    "walk": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/volty_companion_walk.png",
+      "res_path": "res://assets/sprites/lingpet/volty_companion_walk.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ],
+      "sha256": "d8c0616c4b98e42554dc3b0f95d0b55ddd7d8218fd98f52925df58d19c7fd346",
+      "bytes": 252760,
+      "qa": {
+        "whole_sheet_edge_alpha": 0,
+        "cells_with_edge_touch": [],
+        "visible_magenta_pixels": 0,
+        "min_margins_ltrb": [
+          24,
+          23,
+          23,
+          24
+        ],
+        "area_range_pct": [
+          35.64,
+          37.11
+        ],
+        "sample_bboxes": [
+          {
+            "frame": 0,
+            "bbox": [
+              26,
+              28,
+              104,
+              104
+            ],
+            "margin_ltrb": [
+              26,
+              28,
+              24,
+              24
+            ],
+            "size": [
+              78,
+              76
+            ]
+          },
+          {
+            "frame": 4,
+            "bbox": [
+              26,
+              28,
+              104,
+              104
+            ],
+            "margin_ltrb": [
+              26,
+              28,
+              24,
+              24
+            ],
+            "size": [
+              78,
+              76
+            ]
+          },
+          {
+            "frame": 8,
+            "bbox": [
+              25,
+              25,
+              105,
+              101
+            ],
+            "margin_ltrb": [
+              25,
+              25,
+              23,
+              27
+            ],
+            "size": [
+              80,
+              76
+            ]
+          },
+          {
+            "frame": 12,
+            "bbox": [
+              25,
+              24,
+              105,
+              99
+            ],
+            "margin_ltrb": [
+              25,
+              24,
+              23,
+              29
+            ],
+            "size": [
+              80,
+              75
+            ]
+          },
+          {
+            "frame": 16,
+            "bbox": [
+              25,
+              24,
+              105,
+              99
+            ],
+            "margin_ltrb": [
+              25,
+              24,
+              23,
+              29
+            ],
+            "size": [
+              80,
+              75
+            ]
+          },
+          {
+            "frame": 20,
+            "bbox": [
+              25,
+              28,
+              105,
+              101
+            ],
+            "margin_ltrb": [
+              25,
+              28,
+              23,
+              27
+            ],
+            "size": [
+              80,
+              73
+            ]
+          },
+          {
+            "frame": 24,
+            "bbox": [
+              26,
+              28,
+              104,
+              103
+            ],
+            "margin_ltrb": [
+              26,
+              28,
+              24,
+              25
+            ],
+            "size": [
+              78,
+              75
+            ]
+          }
+        ]
+      },
+      "dark_contact_preview": ".tmp/volty_companion_walk/volty_companion_walk_contact_preview.png",
+      "left_mirror_preview": ".tmp/volty_companion_walk/volty_companion_walk_left_mirror_preview.png",
+      "preview_gif": ".tmp/volty_companion_walk/volty_companion_walk_preview.gif"
+    }
+  }
+}

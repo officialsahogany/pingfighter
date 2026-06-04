@@ -1,5 +1,13 @@
 extends RefCounted
 
+const DriveCutinFxHost := preload("res://scripts/hud/drive_cutin_fx_host.gd")
+const DRIVE_CUTIN_FX_HOST_NAME := "SmasherDriveCutinFxHost"
+const RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER := 15.0 / 60.0
+
+var _drive_cutin_fx_host: Node = null
+var _drive_cutin_fx_host_add_pending := false
+
+
 func process_idle(
 	delta: float,
 	owner: Object,
@@ -271,6 +279,7 @@ func draw(
 			var result_start: int = _perf_begin(perf_logger)
 			result_screen.draw(canvas, owner, registry, view_size)
 			_perf_end(perf_logger, "draw.frame.result_screen", result_start)
+		_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
 		_perf_end(perf_logger, "draw.frame.total", total_start)
 		return
 
@@ -341,6 +350,7 @@ func draw(
 		_perf_end(perf_logger, "draw.frame.active_item_use_tutorial", active_item_hint_start)
 
 	_draw_skill_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
+	_draw_drive_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
 	_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
 
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
@@ -401,10 +411,8 @@ func _draw_skill_cutin_if_active(
 ) -> void:
 	if registry == null or not registry.has_method("get_cached_instance"):
 		return
-	var power_state: Variant = registry.get_cached_instance("smasher_power_smash_state")
-	if typeof(power_state) != TYPE_OBJECT or power_state == null:
-		return
-	if not power_state.has_method("is_cutin_active") or not bool(power_state.is_cutin_active()):
+	var cutin_state: Object = _get_active_skill_cutin_state(registry)
+	if cutin_state == null:
 		return
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
 	if overlay_frame != null and overlay_frame.has_method("has_blocking_activity"):
@@ -414,8 +422,101 @@ func _draw_skill_cutin_if_active(
 	if typeof(cutin_host) != TYPE_OBJECT or cutin_host == null:
 		return
 	var cutin_start: int = _perf_begin(perf_logger)
-	cutin_host.draw(canvas, power_state.cutin_state, view_size)
+	cutin_host.draw(canvas, cutin_state, view_size)
 	_perf_end(perf_logger, "draw.frame.skill_cutin", cutin_start)
+
+
+func _get_active_skill_cutin_state(registry: Object) -> Object:
+	for module_key in ["smasher_power_smash_state", "viper_skill_runtime"]:
+		var module: Variant = registry.get_cached_instance(module_key)
+		if typeof(module) != TYPE_OBJECT or module == null:
+			continue
+		if not module.has_method("is_cutin_active") or not bool(module.is_cutin_active()):
+			continue
+		var state: Variant = module.get("cutin_state")
+		if typeof(state) == TYPE_OBJECT and state != null:
+			return state
+	return null
+
+
+func _draw_drive_cutin_if_active(
+	canvas: CanvasItem,
+	registry: Object,
+	module_getter: Callable,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return
+	var power_state: Variant = registry.get_cached_instance("smasher_power_smash_state")
+	if typeof(power_state) != TYPE_OBJECT or power_state == null:
+		return
+	var active: bool = power_state.has_method("is_drive_cutin_active") and bool(power_state.is_drive_cutin_active())
+	var blocking: bool = false
+	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
+	if overlay_frame != null and overlay_frame.has_method("has_blocking_activity"):
+		blocking = bool(overlay_frame.has_blocking_activity(module_getter))
+	var draw_now: bool = active and not blocking
+
+	var cutin_host: Variant = registry.get_cached_instance("skill_cutin_overlay_host")
+	var has_cutin_host: bool = typeof(cutin_host) == TYPE_OBJECT and cutin_host != null
+
+	# Immediate-mode pieces (backplate + arc behind, portrait + title) drawn in the
+	# shell's _draw so the ADD-light backplate/arc layer correctly behind the
+	# MIX-blend portrait.
+	if draw_now and has_cutin_host and cutin_host.has_method("draw_drive_cutin"):
+		var drive_start: int = _perf_begin(perf_logger)
+		cutin_host.draw_drive_cutin(canvas, power_state.drive_cutin_state, view_size)
+		_perf_end(perf_logger, "draw.frame.drive_cutin", drive_start)
+
+	# Particle layer node (piece 3), rendered IN FRONT of the portrait. Sync every
+	# reachable frame so it hides (single cleanup) the moment the cut-in ends or a
+	# blocking overlay opens; the host also self-times-out if sync stops. slide_px
+	# is shared with the immediate-mode pieces so the whole cut-in slides as one
+	# (enter from the left, exit back to the left).
+	var fx_host: Node = _get_or_create_drive_cutin_fx_host(canvas, draw_now)
+	if fx_host != null and fx_host.has_method("sync_state"):
+		var ds: Object = power_state.drive_cutin_state
+		var progress: float = ds.get_progress() if ds != null and ds.has_method("get_progress") else 0.0
+		var slide_px: float = 0.0
+		if has_cutin_host and cutin_host.has_method("compute_drive_slide_px"):
+			slide_px = float(cutin_host.compute_drive_slide_px(progress, view_size.x))
+		# Combo-charged drive => enraged particle tint (brighter cyan-white). The
+		# immediate-mode backplate/arc read the same flag straight off drive_cutin_state.
+		var enraged: bool = power_state.has_method("is_drive_cutin_enraged") and bool(power_state.is_drive_cutin_enraged())
+		var fx_start: int = _perf_begin(perf_logger)
+		fx_host.sync_state({
+			"view_size": view_size,
+			"progress": progress,
+			"slide_px": slide_px,
+			"enraged": enraged,
+			"quality_scale": 1.0,
+		}, draw_now)
+		_perf_end(perf_logger, "draw.frame.drive_cutin_fx_sync", fx_start)
+
+
+func _get_or_create_drive_cutin_fx_host(canvas: CanvasItem, allow_create: bool) -> Node:
+	if _is_valid_drive_cutin_fx_host(_drive_cutin_fx_host):
+		return _drive_cutin_fx_host
+	if not allow_create or not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null(DRIVE_CUTIN_FX_HOST_NAME)
+	if _is_valid_drive_cutin_fx_host(existing):
+		_drive_cutin_fx_host = existing
+		_drive_cutin_fx_host_add_pending = false
+		return _drive_cutin_fx_host
+	_drive_cutin_fx_host = DriveCutinFxHost.new()
+	_drive_cutin_fx_host.name = DRIVE_CUTIN_FX_HOST_NAME
+	_drive_cutin_fx_host.visible = false
+	if not _drive_cutin_fx_host_add_pending:
+		_drive_cutin_fx_host_add_pending = true
+		parent.call_deferred("add_child", _drive_cutin_fx_host)
+	return _drive_cutin_fx_host
+
+
+func _is_valid_drive_cutin_fx_host(node: Node) -> bool:
+	return node != null and is_instance_valid(node) and not node.is_queued_for_deletion()
 
 
 func _draw_lingpet_acquire_cutin_if_active(
@@ -424,16 +525,25 @@ func _draw_lingpet_acquire_cutin_if_active(
 	view_size: Vector2,
 	perf_logger: Object
 ) -> void:
-	if registry == null or not registry.has_method("get_cached_instance"):
+	if registry == null:
 		return
 	# The lingpet runtime is instantiated + cached earlier this frame by the
-	# playfield scene drawer, so a cached lookup is enough here (no lazy init).
-	var runtime: Variant = registry.get_cached_instance("lingpet_egg_runtime")
+	# playfield scene drawer in normal battle draws. Result-screen and freshly
+	# opened F7 debug paths may skip that drawer, so fall back to get_instance().
+	var runtime: Variant = null
+	if registry.has_method("get_cached_instance"):
+		runtime = registry.get_cached_instance("lingpet_egg_runtime")
+	if (typeof(runtime) != TYPE_OBJECT or runtime == null) and registry.has_method("get_instance"):
+		runtime = registry.get_instance("lingpet_egg_runtime")
 	if typeof(runtime) != TYPE_OBJECT or runtime == null:
 		return
 	if not runtime.has_method("is_acquire_cutin_active") or not bool(runtime.is_acquire_cutin_active()):
 		return
-	var host: Variant = registry.get_cached_instance("lingpet_acquire_cutin_overlay_host")
+	var host: Variant = null
+	if registry.has_method("get_cached_instance"):
+		host = registry.get_cached_instance("lingpet_acquire_cutin_overlay_host")
+	if (typeof(host) != TYPE_OBJECT or host == null) and registry.has_method("get_instance"):
+		host = registry.get_instance("lingpet_acquire_cutin_overlay_host")
 	if typeof(host) != TYPE_OBJECT or host == null:
 		return
 	var start: int = _perf_begin(perf_logger)
@@ -472,12 +582,21 @@ func _is_runtime_perk_choice_active(module_getter: Callable) -> bool:
 func _is_safe_result_prewarm_window(module_getter: Callable) -> bool:
 	# Result sheets can finish a threaded load with a large one-frame upload;
 	# keep that work inside the score pause, away from live rallies and serve input.
+	# The first scoreboard frame must appear before fallback round-result prewarm
+	# starts, otherwise first-use texture work can look like a pre-scoreboard hitch.
 	var scoreboard_state: Object = _get_module(module_getter, "scoreboard_state")
 	return (
 		scoreboard_state != null
 		and scoreboard_state.has_method("is_active")
 		and bool(scoreboard_state.is_active())
+		and _has_visible_scoreboard_frame(scoreboard_state)
 	)
+
+
+func _has_visible_scoreboard_frame(scoreboard_state: Object) -> bool:
+	if scoreboard_state == null or not scoreboard_state.has_method("get_timer"):
+		return true
+	return float(scoreboard_state.get_timer()) >= RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER
 
 
 func _is_stage_clear_result_prewarm_window(module_getter: Callable) -> bool:

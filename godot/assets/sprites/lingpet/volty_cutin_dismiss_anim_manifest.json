@@ -1,0 +1,333 @@
+{
+  "asset_id": "volty_cutin_dismiss_anim_v2",
+  "character": "volty",
+  "display_name": "??",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_acquire_cutin_click_dismiss_action",
+  "status": "Accepted: regenerated acquisition click Live2D/dismiss action, front-facing and cleaned for large cut-in playback.",
+  "source_autosprite": {
+    "asset_id": "cmpwyw1cz000skm4cc1u8w0lo",
+    "asset_name": "Volty Acquire Cutin Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/volty_cutin_art.png",
+    "spritesheet_id": "cmpxlrnvz000odkay1prztbnr",
+    "spritesheet_job_id": "wf_c18a3582-5d77-4a6b-b4ba-b76655746724",
+    "raw_sheet_local_path": ".tmp/volty_cutin_dismiss_redo_b/volty_cutin_dismiss_redo_b_raw_25f.png",
+    "raw_atlas_local_path": ".tmp/volty_cutin_dismiss_redo_b/volty_cutin_dismiss_redo_b_raw_25f_atlas.json",
+    "prompt": "Acquisition tap reaction: Volty stays front-facing in place, eyes blink, arms wave, minigun twitches, thruster flares once, then idle pose. No spin, no turn, no debris, no tiny sparks.",
+    "raw_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "rejected_candidate": {
+    "spritesheet_id": "cmpxllfzr00lgulvv5nyiyn9b",
+    "spritesheet_job_id": "wf_68261b45-9a06-42a0-906d-96a947c29ed9",
+    "reason": "Readable but turned too far around for acquisition click-dismiss playback; candidate B stayed front-facing better.",
+    "raw_sheet_local_path": ".tmp/volty_cutin_dismiss_redo/volty_cutin_dismiss_redo_raw_25f.png"
+  },
+  "postprocess": {
+    "tool": "AutoSprite MCP + Real-ESRGAN animev3 x2 RGB/alpha split + deterministic 5x5 repack",
+    "operation": "Raw 512 cells were alpha-cleaned, RGB alpha-bleed filled, RGB-upscaled x2 with Real-ESRGAN, recombined with separately resized alpha, lightly sharpened, cleaned for isolated alpha islands, then assembled into the runtime 5x5 1024-cell sheet.",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "target_cell_size": [
+      1024,
+      1024
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "rgb_source": ".tmp/volty_cutin_dismiss_redo_b/rebuild/rgb_cells_bleed_x2_input",
+      "rgb_upscaled": ".tmp/volty_cutin_dismiss_redo_b/rebuild/rgb_cells_bleed_x2",
+      "alpha_source": ".tmp/volty_cutin_dismiss_redo_b/rebuild/alpha_cells_source"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "alpha <= 15 set transparent before RGB prep and after alpha x2 resize"
+    },
+    "noise_component_cleanup": {
+      "pre_upscale_threshold_connected_alpha_area_le": 20,
+      "pre_upscale_removed_components": 21,
+      "pre_upscale_removed_pixels": 99,
+      "post_upscale_threshold_connected_alpha_area_le": 80,
+      "post_upscale_removed_components": 7,
+      "post_upscale_removed_pixels": 47
+    },
+    "matte_pixel_cleanup": {
+      "removed_pixels": 6,
+      "operation": "Removed exact residual green matte pixels near RGB 71,112,76 after final assembly."
+    },
+    "unsharp_mask": {
+      "tool": "PIL ImageFilter.UnsharpMask",
+      "params": {
+        "radius": 0.9,
+        "percent": 45,
+        "threshold": 3
+      }
+    },
+    "large_screen_speck_cleanup": {
+      "threshold_connected_alpha_area_le": 240,
+      "removed_components": 6,
+      "removed_pixels": 817,
+      "removed_components_detail": [
+        {
+          "frame": 3,
+          "area": 149,
+          "bbox": [
+            715,
+            133,
+            732,
+            146
+          ]
+        },
+        {
+          "frame": 7,
+          "area": 113,
+          "bbox": [
+            723,
+            135,
+            740,
+            150
+          ]
+        },
+        {
+          "frame": 9,
+          "area": 103,
+          "bbox": [
+            739,
+            166,
+            751,
+            178
+          ]
+        },
+        {
+          "frame": 10,
+          "area": 160,
+          "bbox": [
+            346,
+            713,
+            359,
+            729
+          ]
+        },
+        {
+          "frame": 20,
+          "area": 152,
+          "bbox": [
+            566,
+            41,
+            580,
+            58
+          ]
+        },
+        {
+          "frame": 21,
+          "area": 140,
+          "bbox": [
+            633,
+            77,
+            647,
+            94
+          ]
+        }
+      ],
+      "operation": "Final pass for acquisition cut-in scale: removed remaining tiny disconnected alpha islands that can read as defective pixels when the 1024 cell is drawn large."
+    }
+  },
+  "outputs": {
+    "dismiss": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/volty_cutin_dismiss_anim.png",
+      "res_path": "res://assets/sprites/lingpet/volty_cutin_dismiss_anim.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        1024,
+        1024
+      ],
+      "sheet_size": [
+        5120,
+        5120
+      ],
+      "sha256": "f93d22713c5eb5fb7dd03fbeca7035d65565d3b404f044a1a02317ca12678000",
+      "bytes": 18036428,
+      "qa": {
+        "whole_sheet_edge_alpha": 0,
+        "cells_with_edge_touch": [],
+        "matte_rgb_71_112_76_visible_pixels": 0,
+        "small_components_remaining_le20": 0,
+        "small_components_remaining_le80": 0,
+        "small_components_remaining_le240": 0,
+        "min_margins_ltrb": [
+          66,
+          48,
+          76,
+          56
+        ],
+        "area_range_pct": [
+          27.05,
+          28.94
+        ],
+        "center_range_xy": [
+          [
+            488.0,
+            580.0
+          ],
+          [
+            484.0,
+            520.5
+          ]
+        ],
+        "sample_bboxes": [
+          {
+            "frame": 0,
+            "bbox": [
+              85,
+              75,
+              922,
+              897
+            ],
+            "margin_ltrb": [
+              85,
+              75,
+              102,
+              127
+            ],
+            "size": [
+              837,
+              822
+            ]
+          },
+          {
+            "frame": 4,
+            "bbox": [
+              84,
+              92,
+              919,
+              922
+            ],
+            "margin_ltrb": [
+              84,
+              92,
+              105,
+              102
+            ],
+            "size": [
+              835,
+              830
+            ]
+          },
+          {
+            "frame": 8,
+            "bbox": [
+              75,
+              120,
+              925,
+              871
+            ],
+            "margin_ltrb": [
+              75,
+              120,
+              99,
+              153
+            ],
+            "size": [
+              850,
+              751
+            ]
+          },
+          {
+            "frame": 12,
+            "bbox": [
+              66,
+              107,
+              913,
+              875
+            ],
+            "margin_ltrb": [
+              66,
+              107,
+              111,
+              149
+            ],
+            "size": [
+              847,
+              768
+            ]
+          },
+          {
+            "frame": 16,
+            "bbox": [
+              209,
+              73,
+              926,
+              957
+            ],
+            "margin_ltrb": [
+              209,
+              73,
+              98,
+              67
+            ],
+            "size": [
+              717,
+              884
+            ]
+          },
+          {
+            "frame": 20,
+            "bbox": [
+              191,
+              79,
+              927,
+              923
+            ],
+            "margin_ltrb": [
+              191,
+              79,
+              97,
+              101
+            ],
+            "size": [
+              736,
+              844
+            ]
+          },
+          {
+            "frame": 24,
+            "bbox": [
+              82,
+              130,
+              948,
+              879
+            ],
+            "margin_ltrb": [
+              82,
+              130,
+              76,
+              145
+            ],
+            "size": [
+              866,
+              749
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

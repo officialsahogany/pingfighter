@@ -21,6 +21,9 @@ class FakeAudio:
 	func stop_stage5_hongryun_shoot() -> void:
 		calls.append("stop_stage5_hongryun_shoot")
 
+	func stop_lingpet_gatling_loop() -> void:
+		calls.append("stop_lingpet_gatling_loop")
+
 var _failures: Array[String] = []
 
 
@@ -34,12 +37,14 @@ func _init() -> void:
 		"stop_stage5_hongryun_fireball",
 		"stop_stage5_hongryun_charge",
 		"stop_stage5_hongryun_shoot",
+		"stop_lingpet_gatling_loop",
 	]:
 		_expect(audio.calls.has(method), "gameplay loop cleanup should call %s" % method)
 
 	var game_audio := GameAudio.new()
 	_expect(game_audio.has_method("stop_shield_kiting_wind_up"), "GameAudio should expose shield wind-up cleanup")
 	_expect(game_audio.has_method("is_shield_kiting_wind_up_playing"), "GameAudio should expose shield wind-up playing query")
+	_expect(game_audio.has_method("stop_lingpet_gatling_loop"), "GameAudio should expose Volty Gatling loop cleanup")
 
 	GameplayLoopAudioCleanup.stop_all(null)
 

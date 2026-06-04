@@ -28,7 +28,8 @@ func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
 func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 	match _asset_prewarm_step_index:
 		0:
-			_call_prewarm_assets(field_renderer)
+			if not _call_prewarm_assets_step(field_renderer):
+				return false
 		1:
 			if not _call_prewarm_assets_step(throw_renderer):
 				return false
@@ -60,6 +61,12 @@ func draw_field_items(
 			canvas,
 			field_spawn_controller.get_item_spawn_portals(),
 			field_spawn_controller.get_spawned_items(),
+			shake_offset,
+			perf_logger
+		)
+		_call_field_renderer_break_effects_draw(
+			canvas,
+			_get_array_method(field_spawn_controller, "get_field_item_break_effects"),
 			shake_offset,
 			perf_logger
 		)
@@ -122,11 +129,13 @@ func _has_field_effects(effect_controller: Object) -> bool:
 		return false
 	if effect_controller.has_method("has_field_effects"):
 		return bool(effect_controller.has_field_effects())
+	var doping_potion_context: Dictionary = _get_dictionary_method(effect_controller, "get_doping_potion_context")
 	return (
 		not _get_array_method(effect_controller, "get_pickup_particles").is_empty()
 		or not _get_array_method(effect_controller, "get_regeneration_potion_rings").is_empty()
 		or not _get_array_method(effect_controller, "get_regeneration_potion_particles").is_empty()
 		or not _get_dictionary_method(effect_controller, "get_long_boost_timer_context").is_empty()
+		or bool(doping_potion_context.get("active", false))
 	)
 
 
@@ -148,6 +157,20 @@ func _call_field_renderer_draw(
 		field_renderer.draw(canvas, portals, field_items, shake_offset, perf_logger)
 		return
 	field_renderer.draw(canvas, portals, field_items, shake_offset)
+
+
+func _call_field_renderer_break_effects_draw(
+	canvas: CanvasItem,
+	break_effects: Array,
+	shake_offset: Vector2,
+	perf_logger: Object
+) -> void:
+	if break_effects.is_empty() or field_renderer == null or not field_renderer.has_method("draw_field_item_break_effects"):
+		return
+	if _get_method_argument_count(field_renderer, "draw_field_item_break_effects") >= 4:
+		field_renderer.draw_field_item_break_effects(canvas, break_effects, shake_offset, perf_logger)
+		return
+	field_renderer.draw_field_item_break_effects(canvas, break_effects, shake_offset)
 
 
 func _call_throw_renderer_draw(
@@ -243,6 +266,7 @@ func _call_effect_renderer_draw_field_effects(
 	var context_start: int = _perf_begin(detail_perf_logger)
 	var draw_context: Dictionary = _get_field_effect_draw_context(effect_controller)
 	_perf_end(detail_perf_logger, "active_item.field.context", context_start)
+	var doping_potion_context: Dictionary = _get_context_dictionary(draw_context, "doping_potion_timer_context")
 	if argument_count <= 6:
 		effect_renderer.draw_field_effects(
 			canvas,
@@ -254,6 +278,29 @@ func _call_effect_renderer_draw_field_effects(
 		)
 		return
 	if _cached_effect_accepts_perf_logger:
+		if argument_count >= 19:
+			effect_renderer.draw_field_effects(
+				canvas,
+				_get_context_array(draw_context, "pickup_particles"),
+				_get_context_array(draw_context, "regeneration_potion_rings"),
+				_get_context_array(draw_context, "regeneration_potion_particles"),
+				_get_context_dictionary(draw_context, "stopwatch_context"),
+				_get_context_dictionary(draw_context, "magnet_field_context"),
+				_get_context_array(draw_context, "magnet_field_particles"),
+				_get_context_dictionary(draw_context, "holy_barrier_context"),
+				_get_context_array(draw_context, "holy_barrier_particles"),
+				_get_context_dictionary(draw_context, "brick_wall_context"),
+				_get_context_dictionary(draw_context, "long_boost_timer_context"),
+				_get_context_dictionary(draw_context, "vitamin_pill_timer_context"),
+				_get_context_dictionary(draw_context, "strange_vial_timer_context"),
+				_get_context_dictionary(draw_context, "dash_boost_context"),
+				_get_context_array(draw_context, "dash_boost_particles"),
+				shake_offset,
+				_get_instance(registry, "horizontal_timer_gauge_stack"),
+				perf_logger,
+				doping_potion_context
+			)
+			return
 		effect_renderer.draw_field_effects(
 			canvas,
 			_get_context_array(draw_context, "pickup_particles"),
@@ -273,6 +320,29 @@ func _call_effect_renderer_draw_field_effects(
 			shake_offset,
 			_get_instance(registry, "horizontal_timer_gauge_stack"),
 			perf_logger
+		)
+		return
+	if argument_count >= 19:
+		effect_renderer.draw_field_effects(
+			canvas,
+			_get_context_array(draw_context, "pickup_particles"),
+			_get_context_array(draw_context, "regeneration_potion_rings"),
+			_get_context_array(draw_context, "regeneration_potion_particles"),
+			_get_context_dictionary(draw_context, "stopwatch_context"),
+			_get_context_dictionary(draw_context, "magnet_field_context"),
+			_get_context_array(draw_context, "magnet_field_particles"),
+			_get_context_dictionary(draw_context, "holy_barrier_context"),
+			_get_context_array(draw_context, "holy_barrier_particles"),
+			_get_context_dictionary(draw_context, "brick_wall_context"),
+			_get_context_dictionary(draw_context, "long_boost_timer_context"),
+			_get_context_dictionary(draw_context, "vitamin_pill_timer_context"),
+			_get_context_dictionary(draw_context, "strange_vial_timer_context"),
+			_get_context_dictionary(draw_context, "dash_boost_context"),
+			_get_context_array(draw_context, "dash_boost_particles"),
+			shake_offset,
+			_get_instance(registry, "horizontal_timer_gauge_stack"),
+			null,
+			doping_potion_context
 		)
 		return
 	effect_renderer.draw_field_effects(
@@ -356,6 +426,7 @@ func _get_field_effect_draw_context(effect_controller: Object) -> Dictionary:
 		"long_boost_timer_context": _get_dictionary_method(effect_controller, "get_long_boost_timer_context"),
 		"vitamin_pill_timer_context": _get_dictionary_method(effect_controller, "get_vitamin_pill_timer_context"),
 		"strange_vial_timer_context": _get_dictionary_method(effect_controller, "get_strange_vial_timer_context"),
+		"doping_potion_timer_context": _get_dictionary_method(effect_controller, "get_doping_potion_context"),
 		"dash_boost_context": _get_dictionary_method(effect_controller, "get_dash_boost_context"),
 		"dash_boost_particles": _get_array_method(effect_controller, "get_dash_boost_particles"),
 	}

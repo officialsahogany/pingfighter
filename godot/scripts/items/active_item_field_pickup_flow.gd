@@ -12,7 +12,8 @@ func update_field_items(
 	delta: float,
 	store_item_callback: Callable,
 	pickup_callback: Callable,
-	perf_logger: Object = null
+	perf_logger: Object = null,
+	dash_destroy_callback: Callable = Callable()
 ) -> Array[Dictionary]:
 	if spawned_items.is_empty() or field_item_motion == null:
 		return spawned_items
@@ -39,6 +40,11 @@ func update_field_items(
 		var should_try_pickup: bool = item_rect.intersects(player_rect)
 		var did_store_item := false
 		if should_try_pickup:
+			if _should_destroy_on_dash_collision(advanced_item, owner, registry):
+				advanced_item["destroyed_by_dash"] = true
+				if dash_destroy_callback.is_valid():
+					dash_destroy_callback.call(advanced_item, registry)
+				continue
 			sample_start = _perf_begin(detail_perf_logger)
 			did_store_item = _try_store_field_item(advanced_item, active_item_slots, registry, owner, store_item_callback)
 			_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.field_items.store", sample_start)
@@ -86,11 +92,57 @@ func _try_store_field_item(
 	return bool(store_item_callback.call(field_item, active_item_slots, registry, owner))
 
 
+func _should_destroy_on_dash_collision(field_item: Dictionary, owner: Object, registry: Object) -> bool:
+	if not _is_dash_destroyable(field_item):
+		return false
+	return _is_player_dashing(owner, registry)
+
+
+func _is_dash_destroyable(field_item: Dictionary) -> bool:
+	if bool(field_item.get("dash_destroy_on_player_contact", false)):
+		return true
+	var item_data: Dictionary = _get_dict(field_item, "item_data")
+	return bool(item_data.get("dash_destroy_on_player_contact", false))
+
+
+func _is_player_dashing(owner: Object, registry: Object) -> bool:
+	var dash_state: Object = _get_instance(registry, "smasher_dash_state")
+	if dash_state != null:
+		if dash_state.has_method("is_active") and bool(dash_state.is_active()):
+			return true
+		if dash_state.has_method("get_snapshot"):
+			var snapshot_value: Variant = dash_state.get_snapshot()
+			if snapshot_value is Dictionary:
+				var snapshot: Dictionary = snapshot_value
+				if bool(snapshot.get("active", false)):
+					return true
+	if owner != null:
+		for key in ["dash_active", "player_dash_active", "soul_burst_dash_active"]:
+			var value: Variant = owner.get(str(key))
+			if value != null and bool(value):
+				return true
+	return false
+
+
 func _get_dict(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = source.get(key, {})
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _get_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	if registry.has_method("get_cached_instance"):
+		var cached: Variant = registry.get_cached_instance(key)
+		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+			return cached as Object
+	if registry.has_method("get_instance"):
+		var value: Variant = registry.get_instance(key)
+		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+			return value as Object
+	return null
 
 
 func _get_rect2(source: Dictionary, key: String, fallback: Rect2) -> Rect2:

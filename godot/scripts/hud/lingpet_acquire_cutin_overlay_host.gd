@@ -28,6 +28,18 @@ const CUTIN_ANIM_COLS := 4
 const CUTIN_ANIM_ROWS := 4
 const CUTIN_ANIM_FRAMES := 16
 const CUTIN_ANIM_FPS := 16.0
+const CUTIN_ANIM_COLS_OVERRIDES := {
+	"red_dragon": 8,
+}
+const CUTIN_ANIM_ROWS_OVERRIDES := {
+	"red_dragon": 4,
+}
+const CUTIN_ANIM_FRAMES_OVERRIDES := {
+	"red_dragon": 32,
+}
+const CUTIN_ANIM_FPS_OVERRIDES := {
+	"red_dragon": 16.0,
+}
 const USE_ANIMATED_CUTIN := true
 # Click-triggered EXIT ACTION sheet: the current pet plays its catalog dismiss
 # animation, then the overlay fades out and resumes gameplay. Driven by
@@ -174,7 +186,18 @@ func prewarm_pet_assets_step(pet_id: String = DEFAULT_PET_ID) -> bool:
 		var visual_key: String = str(CUTIN_PREWARM_VISUAL_KEYS[_pet_texture_prewarm_index])
 		var path: String = LingpetCatalog.get_visual_path(normalized, visual_key)
 		if path != "":
-			var texture_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(path)
+			# prefer_imported_fallback=true: if the threaded slot times out, resolve
+			# via the size_limit'd import (load_imported_texture), never the raw 8192px
+			# source PNG. Keeps the streamed sheet small even on the fallback path.
+			var texture_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+				path,
+				"",
+				"",
+				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+				false,
+				true
+			)
 			if not bool(texture_result.get("done", true)):
 				return false
 		_pet_texture_prewarm_index += 1
@@ -284,7 +307,13 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 		return
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return
-	_sync_assets_for_pet(_get_runtime_pet_id(runtime))
+	var pet_id: String = _get_runtime_pet_id(runtime)
+	# Stream the heavy 8192/5120 anim + dismiss sheets on a background thread across
+	# the cut-in's intro frames (dim + portal + static art) instead of sync-loading
+	# them on the first reveal draw (the ~1141ms freeze). _sync pulls them from cache
+	# once ready; until then _draw_art falls back to the small static art.
+	prewarm_pet_assets_step(pet_id)
+	_sync_assets_for_pet(pet_id)
 
 	# Click-triggered exit action takes over the whole overlay: spear-raise +
 	# water-spray, then fade out (gameplay resumes when the runtime clears active).
@@ -313,18 +342,42 @@ func _sync_assets_for_pet(pet_id: String) -> void:
 	if normalized == "" or not LingpetCatalog.has_pet(normalized):
 		normalized = DEFAULT_PET_ID
 	if normalized == _asset_pet_id:
+		_refresh_deferred_cutin_sheets(normalized)
 		return
 	_asset_pet_id = normalized
 	_title_text = LingpetCatalog.get_display_name(normalized)
-	_cutin_art = _load_catalog_texture(normalized, "cutin_art")
-	_cutin_anim_sheet = _load_catalog_texture(normalized, "cutin_anim")
-	_cutin_dismiss_sheet = _load_catalog_texture(normalized, "cutin_dismiss_anim")
+	# Static, anim, and dismiss textures are all pulled from the threaded prewarm
+	# cache. If a texture is not ready yet, the early portal/data restore frames
+	# keep animating instead of forcing a synchronous PNG decode on the draw path.
+	_cutin_art = _get_cached_cutin_texture(normalized, "cutin_art")
+	_cutin_anim_sheet = _get_cached_cutin_texture(normalized, "cutin_anim")
+	_cutin_dismiss_sheet = _get_cached_cutin_texture(normalized, "cutin_dismiss_anim")
 	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
 	_cutin_anim_manifest = _manifest_path_from_anim_path(anim_path)
 	if _cutin_anim_manifest == "" or not FileAccess.file_exists(_cutin_anim_manifest):
 		_cutin_anim_manifest = FALLBACK_CUTIN_ANIM_MANIFEST
 	_reset_reconstruction_mask()
 	_load_reconstruction_mask()
+
+
+func _refresh_deferred_cutin_sheets(pet_id: String) -> void:
+	# Pull the streamed anim/dismiss sheets from cache once prewarm_pet_assets_step
+	# has them; before that they stay null so _draw_art uses the static art.
+	if _cutin_art == null:
+		_cutin_art = _get_cached_cutin_texture(pet_id, "cutin_art")
+	if _cutin_anim_sheet == null:
+		_cutin_anim_sheet = _get_cached_cutin_texture(pet_id, "cutin_anim")
+	if _cutin_dismiss_sheet == null:
+		_cutin_dismiss_sheet = _get_cached_cutin_texture(pet_id, "cutin_dismiss_anim")
+
+
+func _get_cached_cutin_texture(pet_id: String, visual_key: String) -> Texture2D:
+	# Cache key matches prewarm_pet_assets_step's (the catalog visual path); returns
+	# null until the threaded prewarm has stored the imported (size_limit'd) sheet.
+	var path := LingpetCatalog.get_visual_path(pet_id, visual_key)
+	if path == "":
+		return null
+	return ProjectResourceLoader.get_cached_texture(path)
 
 
 func _get_runtime_pet_id(runtime: Object) -> String:
@@ -345,12 +398,15 @@ func _load_catalog_texture(pet_id: String, visual_key: String, fallback: Texture
 		path = _get_fallback_visual_path(visual_key)
 	if path == "":
 		return fallback
-	var texture := ProjectResourceLoader.load_texture(path, "", "")
+	# Use the IMPORTED (size_limit'd) texture, not load_texture() which decodes the
+	# raw source PNG first and bypasses process/size_limit -- that raw 8192px decode
+	# + VRAM upload was the ~1141ms first-draw freeze.
+	var texture := ProjectResourceLoader.load_imported_texture(path, "", "")
 	if texture != null:
 		return texture
 	var fallback_path := _get_fallback_visual_path(visual_key)
 	if fallback_path != "" and fallback_path != path:
-		texture = ProjectResourceLoader.load_texture(fallback_path, "", "")
+		texture = ProjectResourceLoader.load_imported_texture(fallback_path, "", "")
 		if texture != null:
 			return texture
 	return fallback
@@ -524,8 +580,8 @@ func _draw_art_animated(
 	# spear-bob, so we only frame-step the loop and apply the entrance punch +
 	# aura chrome. No squash/stretch here (the frames already deform the art).
 	var sheet: Texture2D = _cutin_anim_sheet
-	var cols: int = maxi(1, CUTIN_ANIM_COLS)
-	var rows: int = maxi(1, CUTIN_ANIM_ROWS)
+	var cols: int = _get_cutin_anim_cols()
+	var rows: int = _get_cutin_anim_rows()
 	var cw: float = float(sheet.get_width()) / float(cols)
 	var ch: float = float(sheet.get_height()) / float(rows)
 	if cw <= 1.0 or ch <= 1.0:
@@ -536,14 +592,14 @@ func _draw_art_animated(
 	# loop only starts once the art has locked solid (>= RESTORE_SOLID_START).
 	var frame: int = 0
 	if restore_progress >= RESTORE_SOLID_START:
-		frame = int(t * CUTIN_ANIM_FPS) % maxi(1, CUTIN_ANIM_FRAMES)
+		frame = int(t * _get_cutin_anim_fps()) % maxi(1, _get_cutin_anim_frame_count())
 	var col: int = frame % cols
 	var row: int = int(floor(float(frame) / float(cols)))
 	var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
 
 	# The cell carries transparent padding (~1.4x) around the character, so size
 	# the whole cell generously; the character then reads at roughly hero scale.
-	var target_h: float = view_size.y * ANIM_CELL_VIEW_H_RATIO * entrance
+	var target_h: float = view_size.y * _get_cutin_anim_view_h_ratio() * entrance
 	var scale: float = target_h / ch
 	var max_w: float = view_size.x * 0.98
 	if cw * scale > max_w:
@@ -559,6 +615,31 @@ func _draw_art_animated(
 	_draw_art_aura(canvas, center, char_radius * 1.18, t, alpha, rise_raw)
 	canvas.draw_circle(center, char_radius, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.20 * alpha))
 	_draw_restoring_texture(canvas, sheet, src, Rect2(pos, Vector2(dw, dh)), t, alpha, restore_progress)
+
+
+func _get_cutin_anim_fps() -> float:
+	return maxf(1.0, float(CUTIN_ANIM_FPS_OVERRIDES.get(_asset_pet_id, CUTIN_ANIM_FPS)))
+
+
+func _get_cutin_anim_cols() -> int:
+	return maxi(1, int(CUTIN_ANIM_COLS_OVERRIDES.get(_asset_pet_id, CUTIN_ANIM_COLS)))
+
+
+func _get_cutin_anim_rows() -> int:
+	return maxi(1, int(CUTIN_ANIM_ROWS_OVERRIDES.get(_asset_pet_id, CUTIN_ANIM_ROWS)))
+
+
+func _get_cutin_anim_frame_count() -> int:
+	return maxi(1, int(CUTIN_ANIM_FRAMES_OVERRIDES.get(_asset_pet_id, CUTIN_ANIM_FRAMES)))
+
+
+func _get_cutin_anim_view_h_ratio() -> float:
+	return maxf(0.01, LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_anim_view_h_ratio", ANIM_CELL_VIEW_H_RATIO))
+
+
+func _get_cutin_dismiss_view_h_ratio() -> float:
+	var anim_ratio: float = _get_cutin_anim_view_h_ratio()
+	return maxf(0.01, LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_dismiss_view_h_ratio", anim_ratio))
 
 
 func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progress: float) -> void:
@@ -593,7 +674,7 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 			var col: int = frame % cols
 			var row: int = int(floor(float(frame) / float(cols)))
 			var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
-			var target_h: float = view_size.y * ANIM_CELL_VIEW_H_RATIO
+			var target_h: float = view_size.y * _get_cutin_dismiss_view_h_ratio()
 			var scale: float = target_h / ch
 			var max_w: float = view_size.x * 0.98
 			if cw * scale > max_w:

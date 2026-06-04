@@ -99,11 +99,19 @@ const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
 const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
 const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
+const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
+const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
+const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
+const LINGPET_GATLING_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
 const LEGENDARY_AFTER_SOUND_PATH := "res://assets/sounds/legendafter.wav"
 const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
 const LINGPET_ACQUIRE_CUTIN_GAIN_DB := 0.0
 const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
+const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
+const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
+const LINGPET_GATLING_HIT_GAIN_DB := -13.9794
 const RAGNAROK_SHOT_SOUND_PATH := "res://assets/sounds/ragnarokshot.wav"
 const RAGNAROK_BOOM_SOUND_PATH := "res://assets/sounds/ragnarokboom.wav"
 const RAGNAROK_SHOCK_SOUND_PATH := "res://assets/sounds/ragnarokshock.wav"
@@ -324,6 +332,10 @@ var result_box_open_sfx: AudioStreamPlayer
 var lingpet_acquire_cutin_sfx: AudioStreamPlayer
 var lingpet_volty_click_voice_sfx: AudioStreamPlayer
 var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
+var lingpet_gatling_transform_sfx: AudioStreamPlayer
+var lingpet_gatling_loop_sfx: AudioStreamPlayer
+var lingpet_gatling_fire_sfx: AudioStreamPlayer
+var lingpet_gatling_hit_sfx: AudioStreamPlayer
 var legendary_after_sfx: AudioStreamPlayer
 var legendary_ending_sfx: AudioStreamPlayer
 var ragnarok_shot_sfx: AudioStreamPlayer
@@ -635,7 +647,12 @@ func _setup_projectile_item_sfx() -> void:
 	bomb_surprise_urgent_tick_sfx = player_factory.create(owner_node, "BombSurpriseUrgentTickSfx", BOMB_SURPRISE_URGENT_TICK_SOUND_PATH, BOMB_SURPRISE_URGENT_TICK_GAIN_DB)
 	bomb_surprise_explosion_sfx = player_factory.create(owner_node, "BombSurpriseExplosionSfx", GRENADE_SOUND_PATH, BOMB_SURPRISE_EXPLOSION_GAIN_DB)
 	bomb_surprise_self_explosion_sfx = player_factory.create(owner_node, "BombSurpriseSelfExplosionSfx", STAGE3_CURSE_EXPLODE_SOUND_PATH, BOMB_SURPRISE_EXPLOSION_GAIN_DB)
+	lingpet_gatling_transform_sfx = player_factory.create(owner_node, "LingpetGatlingTransformSfx", LINGPET_GATLING_TRANSFORM_SOUND_PATH, LINGPET_GATLING_TRANSFORM_GAIN_DB)
+	lingpet_gatling_loop_sfx = player_factory.create(owner_node, "LingpetGatlingLoopSfx", LINGPET_GATLING_LOOP_SOUND_PATH, LINGPET_GATLING_LOOP_GAIN_DB)
+	lingpet_gatling_fire_sfx = player_factory.create(owner_node, "LingpetGatlingFireSfx", LINGPET_GATLING_FIRE_SOUND_PATH, LINGPET_GATLING_FIRE_GAIN_DB)
+	lingpet_gatling_hit_sfx = player_factory.create(owner_node, "LingpetGatlingHitSfx", LINGPET_GATLING_HIT_SOUND_PATH, LINGPET_GATLING_HIT_GAIN_DB)
 	_enable_loop(spider_mine_walk_sfx)
+	_enable_loop(lingpet_gatling_loop_sfx)
 
 
 func _setup_stage_feedback_sfx() -> void:
@@ -1860,6 +1877,10 @@ func play_molotov_explosion() -> void:
 	_play_with_pitch(firebomb_sfx, randf_range(0.95, 1.04))
 
 
+func play_dragon_breath_fire(_low_volume: bool = false) -> void:
+	_play_with_pitch(firebomb_sfx, randf_range(0.92, 1.08))
+
+
 func play_flashbomb() -> void:
 	_play_with_pitch(flashbomb_sfx, randf_range(0.98, 1.02))
 
@@ -1984,6 +2005,41 @@ func play_bomb_surprise_explosion(self_explosion: bool) -> void:
 			_play_with_pitch(stage3_curse_explode_sfx, 1.0)
 		else:
 			_play_with_pitch(grenade_sfx, 1.0)
+
+
+func play_lingpet_gatling_transform() -> void:
+	if not _play_with_pitch(lingpet_gatling_transform_sfx, 1.0):
+		play_active_item()
+
+
+func play_lingpet_gatling_fire() -> void:
+	_play_with_pitch(lingpet_gatling_fire_sfx, randf_range(0.98, 1.02))
+
+
+func play_lingpet_gatling_hit() -> void:
+	if not _play_with_pitch(lingpet_gatling_hit_sfx, randf_range(0.98, 1.02)):
+		play_paddle_hit()
+
+
+func play_lingpet_gatling_loop() -> void:
+	if lingpet_gatling_loop_sfx == null or lingpet_gatling_loop_sfx.stream == null:
+		return
+	if lingpet_gatling_loop_sfx.playing:
+		return
+	lingpet_gatling_loop_sfx.pitch_scale = 1.0
+	lingpet_gatling_loop_sfx.play()
+
+
+func stop_lingpet_gatling_loop() -> void:
+	if lingpet_gatling_loop_sfx != null and lingpet_gatling_loop_sfx.playing:
+		lingpet_gatling_loop_sfx.stop()
+
+
+func sync_lingpet_gatling_loop(active: bool) -> void:
+	if active:
+		play_lingpet_gatling_loop()
+	else:
+		stop_lingpet_gatling_loop()
 
 
 func play_power_smash() -> void:
@@ -2811,6 +2867,10 @@ func _get_sfx_players() -> Array:
 		lingpet_acquire_cutin_sfx,
 		lingpet_volty_click_voice_sfx,
 		lingpet_milkring_click_voice_sfx,
+		lingpet_gatling_transform_sfx,
+		lingpet_gatling_loop_sfx,
+		lingpet_gatling_fire_sfx,
+		lingpet_gatling_hit_sfx,
 		legendary_after_sfx,
 		legendary_ending_sfx,
 		ragnarok_shot_sfx,

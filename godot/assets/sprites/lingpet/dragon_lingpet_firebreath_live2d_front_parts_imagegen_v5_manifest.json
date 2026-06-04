@@ -1,0 +1,76 @@
+{
+  "asset_id": "dragon_lingpet_firebreath_live2d_front_parts_imagegen_v5",
+  "asset_type": "lingpet_live2d_front_parts_source_concept",
+  "runtime_usage": "front-facing Live2D / click-reaction / cut-in source concept with richer visible part candidates; not a final layered Live2D PSD and not a rear-view in-battle companion sheet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019e8ef1-83f1-74c2-8b6f-d4971f5f62bf/ig_09898804d4afb5f1016a2083cfcc8881918ffc5d854bc5b682.png",
+  "outputs": {
+    "transparent_art": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_live2d_front_parts_imagegen_v5.png",
+    "magenta_source": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_live2d_front_parts_imagegen_v5_magenta_source.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "identity_reference": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_live2d_front_imagegen_v4.png",
+    "prompt_summary": "Front-facing red baby dragon Ringpet Live2D source with no flame prop, more visible separable parts, cyan-gold segmented resonance collar, chest ring-core, horns, fins, wings, claws, belly plates, tail segments, and gold ornaments."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "front-facing Live2D source concept for a Ringpet / Lingpet companion in DiskHearts - Ringpia",
+    "primary_request": "Create a front-facing Live2D-ready base drawing of the red fire baby dragon Ringpet on a flat magenta background. No flame effect and no held fire prop.",
+    "subject": "one tiny SD chibi baby dragon Ringpet, full-body front view, mostly symmetrical rig-friendly pose; head faces forward, eyes visible and cute, small snout, neutral happy mouth; arms slightly away from torso with open little claws; wings spread behind but separated from the body silhouette; legs and feet visible; curled tail visible around the lower body without covering the belly",
+    "live2d_part_richness": "distinct left and right horns, brow plates, cheek swirl marks, eyelids and eye highlights, small ears or side fins, separate jaw and mouth area, neck ring collar made of several cyan-gold segments, central chest ring-core gem, belly scale plates, shoulder and arm plates, individual claw tips, wing bones and wing membranes, tail segments, tail tip ornament, small back or side gold spines",
+    "ringpet_identity": "prominent glowing cyan-gold resonance ring collar around the neck/shoulders, clear circular ring-core gem on the chest, small circular resonance accents on cheeks/body, egg-hatched magical companion read",
+    "style": "polished 2D Korean anime game mascot art, clean cel-shaded SD creature, crisp readable silhouette, high-quality front model sheet feeling",
+    "background": "perfectly flat solid #ff00ff magenta chroma-key background only",
+    "constraints": "no flame, no fireball, no held fire, no rear view, no side view, no giant portrait crop, no complex overlapping effects, no extra characters, no UI frame, no text, no watermark"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#f504ee",
+    "canonical_source_background": "#ff00ff",
+    "note": "Transparent art was extracted from the generated near-magenta source. The magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff."
+  },
+  "ringpet_rule_audit": {
+    "accepted_for_live2d_front_source": true,
+    "accepted_for_runtime_companion_sheet": false,
+    "reason": "Live2D / click-reaction source art intentionally uses a front-facing expression-readable pose. This version removes the flame prop and emphasizes separable visual parts for later rigging or Live2D-style pingpong sheet work.",
+    "next_runtime_step": "If promoted to runtime, split or animate through the Live2D-style pingpong sheet pipeline. For in-battle companion movement, create separate AutoSprite-derived rear/rear-three-quarter 5x5/25-frame walk, strike, and cast sheets."
+  },
+  "part_candidate_notes": [
+    "left/right horns and forehead gold plates",
+    "eyes, eyelids, eye highlights, cheeks, mouth, and jaw",
+    "side fins/ears and cheek resonance marks",
+    "segmented cyan-gold neck resonance collar",
+    "central chest ring-core and surrounding glow accents",
+    "belly scale plates",
+    "left/right arms, wrist bands, individual claws",
+    "left/right wings with distinct bones and membranes",
+    "legs, feet, toe claws, tail segments, and tail-tip ornament"
+  ],
+  "validation": {
+    "size": "1254x1254",
+    "transparent_corner_rgba": [
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0"
+    ],
+    "magenta_source_corner_rgba": [
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255"
+    ],
+    "transparent_alpha_bbox": [
+      45,
+      31,
+      1202,
+      1209
+    ],
+    "transparent_edge_alpha_count": 0,
+    "sha256": {
+      "transparent_art": "65f2b4a92d7349c9097ac006f8e51035fe340de01cbbd5e949e09ecd3301fb56",
+      "magenta_source": "a21945355c51cae0153097ed8f4052b955216360c4ca1d5c0144c63d49e94edb"
+    }
+  }
+}

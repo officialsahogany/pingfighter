@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
+const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 
 # Soft ambient aura tuning. The persistent companion glow (Lunabi / Maribo) is a
 # cached radial-falloff texture blitted as a few fully-overlapping low-alpha
@@ -10,8 +11,6 @@ const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_c
 # driven by a two-rate organic breathing ease. The flash/burst glows below stay
 # sharp on purpose -- those are gameplay feedback, not the ambient aura.
 const _SOFT_GLOW_TEX_SIZE := 64
-
-static var _soft_glow_texture: Texture2D = null
 
 
 func prewarm_assets() -> void:
@@ -65,19 +64,23 @@ func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms:
 	var breath_slow: float = 0.5 + 0.5 * sin(now_ms * 0.00082)
 	var breath_fast: float = 0.5 + 0.5 * sin(now_ms * 0.0021 + 1.3)
 	var breath: float = lerpf(breath_slow, breath_fast, 0.32)
-	# Three concentric, fully overlapping low-alpha layers form ONE smooth, even
-	# fluorescent halo (no discrete dots / bubbles): a wide faint rim, a mid body,
-	# and a slightly whiter core. Stacking keeps the falloff continuous so it
-	# reads as a single soft glow wrapping the SD body, not separate rings.
-	var outer_r: float = radius + lerpf(25.0, 32.0, breath)
-	var outer_a: float = lerpf(0.040, 0.058, breath)
-	var mid_r: float = radius + lerpf(16.0, 21.0, breath)
-	var mid_a: float = lerpf(0.050, 0.072, breath)
-	var core_r: float = radius + lerpf(9.0, 13.0, breath)
-	var core_a: float = lerpf(0.060, 0.084, breath)
-	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.20, 1.0, 0.74, outer_a))
-	_blit_soft_glow(canvas, tex, center, mid_r, Color(0.34, 1.0, 0.82, mid_a))
-	_blit_soft_glow(canvas, tex, center, core_r, Color(0.70, 1.0, 0.92, core_a))
+	# The companion sprite renders at ~82 px (WALK_DRAW_SIZE), far larger than the
+	# 16 px gameplay hit radius, so the glow must be sized off the VISIBLE body
+	# extent (body_r) -- sizing it off `radius` blooms the whole halo behind the
+	# sprite and reads as nothing. Three concentric, fully overlapping layers form
+	# ONE smooth fluorescent halo (no discrete dots / bubbles): a wide faint rim,
+	# a mid body, and a slightly whiter core, brightest hugging the body and
+	# fading out well past its silhouette.
+	var body_r: float = radius + 14.0
+	var core_r: float = body_r + lerpf(13.0, 17.0, breath)
+	var core_a: float = lerpf(0.17, 0.22, breath)
+	var mid_r: float = body_r + lerpf(24.0, 30.0, breath)
+	var mid_a: float = lerpf(0.115, 0.150, breath)
+	var outer_r: float = body_r + lerpf(37.0, 45.0, breath)
+	var outer_a: float = lerpf(0.060, 0.085, breath)
+	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.20, 1.0, 0.72, outer_a))
+	_blit_soft_glow(canvas, tex, center, mid_r, Color(0.34, 1.0, 0.80, mid_a))
+	_blit_soft_glow(canvas, tex, center, core_r, Color(0.66, 1.0, 0.92, core_a))
 
 
 func _blit_soft_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:
@@ -85,30 +88,13 @@ func _blit_soft_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_r
 	canvas.draw_texture_rect(tex, Rect2(center - Vector2(r, r), Vector2(r * 2.0, r * 2.0)), false, color)
 
 
-# Cached soft radial-falloff glow sprite (white RGB, feathered alpha) built once
-# and shared by every companion. Matches the project's halo-texture convention in
-# common_starpoint_visual_host.gd (cos^2 falloff via Image.create + set_pixel),
-# squared once more here for an even gentler rim. One-time ~64x64 CPU build; the
-# static cache keeps it off the per-frame hot path after first use.
+# Cached soft radial-falloff glow sprite, shared with player_state_glow_renderer
+# through the common SoftGlowTexture util (cos^2 feathered alpha, project halo
+# convention). One-time small CPU build, cached by size off the per-frame hot
+# path. cos^2 stays gentle at the rim but keeps real alpha through the mid-radius
+# so the glow has visible substance OUTSIDE the sprite silhouette.
 static func _get_or_create_soft_glow_texture() -> Texture2D:
-	if _soft_glow_texture != null:
-		return _soft_glow_texture
-	var size: int = _SOFT_GLOW_TEX_SIZE
-	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	var half: float = float(size) * 0.5
-	for y in range(size):
-		for x in range(size):
-			var dx: float = (float(x) + 0.5) - half
-			var dy: float = (float(y) + 0.5) - half
-			var d: float = sqrt(dx * dx + dy * dy) / half
-			var a: float = 0.0
-			if d < 1.0:
-				var c: float = cos(d * PI * 0.5)
-				var base: float = c * c
-				a = base * base
-			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
-	_soft_glow_texture = ImageTexture.create_from_image(img)
-	return _soft_glow_texture
+	return SoftGlowTexture.get_texture(_SOFT_GLOW_TEX_SIZE)
 
 
 func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Dictionary, alpha: float = 1.0) -> void:

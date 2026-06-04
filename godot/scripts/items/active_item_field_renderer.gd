@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ActiveItemFieldItemMotion := preload("res://scripts/items/active_item_field_item_motion.gd")
 
 const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
 const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
@@ -27,6 +28,9 @@ const LUCKY_COIN_BONUS_SPARK_COUNT := 3
 const FIELD_ITEM_DETAIL_LOD_THRESHOLD := 12
 const FIELD_ITEM_DECORATIVE_GLOW_RENDER_LIMIT := 12
 const FIELD_ITEM_LUCKY_GLOW_RENDER_LIMIT := 4
+const FIELD_ITEM_BREAK_EFFECT_RENDER_LIMIT := 6
+const MILK_BOTTLE_BREAK_GRAVITY := 260.0
+const MILK_BOTTLE_BREAK_ARC_POINT_COUNT := 24
 const DIMENSION_GATE_RAINBOW_COLORS := [
 	Color(1.0, 0.0, 0.0),
 	Color(1.0, 127.0 / 255.0, 0.0),
@@ -40,12 +44,28 @@ const DIMENSION_GATE_RAINBOW_COLORS := [
 var portal_sheet_texture: Texture2D
 var unknown_item_sheet_texture: Texture2D
 var unknown_item_fallback_texture: Texture2D
+var field_icon_textures: Dictionary = {}
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_touch_texture(_get_portal_sheet_texture())
-	_touch_texture(_get_unknown_item_sheet_texture())
-	_touch_texture(_get_unknown_item_fallback_texture())
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			_touch_texture(_get_portal_sheet_texture())
+		1:
+			_touch_texture(_get_unknown_item_sheet_texture())
+		2:
+			_touch_texture(_get_unknown_item_fallback_texture())
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func draw(
@@ -87,6 +107,24 @@ func draw(
 	_perf_end(detail_perf_logger, "active_item.field_items.items", sample_start)
 
 
+func draw_field_item_break_effects(
+	canvas: CanvasItem,
+	break_effects: Array,
+	shake_offset: Vector2 = Vector2.ZERO,
+	perf_logger: Object = null
+) -> void:
+	if canvas == null or break_effects.is_empty():
+		return
+	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "active_item.field_items.break") else null
+	var sample_start: int = _perf_begin(detail_perf_logger)
+	var start_index: int = _recent_start(break_effects, FIELD_ITEM_BREAK_EFFECT_RENDER_LIMIT)
+	for effect_index in range(start_index, break_effects.size()):
+		var effect_value: Variant = break_effects[effect_index]
+		if effect_value is Dictionary:
+			_draw_field_item_break_effect(canvas, effect_value, shake_offset)
+	_perf_end(detail_perf_logger, "active_item.field_items.break_effects", sample_start)
+
+
 func _draw_field_item(
 	canvas: CanvasItem,
 	field_item: Dictionary,
@@ -106,7 +144,106 @@ func _draw_field_item(
 	if draw_lucky_glow and bool(field_item.get("lucky_bonus", false)):
 		_draw_lucky_coin_bonus_glow(canvas, center, t)
 	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * 0.31, Color(0.08, 0.10, 0.18, 0.48))
+	if _draw_field_icon_texture(canvas, item_data, center, now_msec):
+		return
 	_draw_unknown_item_icon(canvas, center, float(field_item.get("angle_degrees", 0.0)), now_msec)
+
+
+func _draw_field_item_break_effect(canvas: CanvasItem, effect: Dictionary, shake_offset: Vector2) -> void:
+	var age: float = max(0.0, float(effect.get("age", 0.0)))
+	var duration: float = max(0.001, float(effect.get("duration", 0.56)))
+	var progress: float = clamp(age / duration, 0.0, 1.0)
+	var fade: float = pow(1.0 - progress, 0.72)
+	if fade <= 0.01:
+		return
+	var center: Vector2 = _clamp_break_effect_center(_get_vector2(effect, "position", Vector2.ZERO)) + shake_offset
+	_draw_milk_bottle_break_splash(canvas, center, progress, fade)
+	_draw_milk_bottle_break_droplets(canvas, effect, center, age, fade)
+	_draw_milk_bottle_break_shards(canvas, effect, center, age, fade)
+
+
+func _draw_milk_bottle_break_splash(canvas: CanvasItem, center: Vector2, progress: float, fade: float) -> void:
+	var ring_radius: float = 14.0 + 32.0 * progress
+	canvas.draw_arc(
+		center,
+		ring_radius,
+		-PI * 0.08,
+		PI * 1.08,
+		MILK_BOTTLE_BREAK_ARC_POINT_COUNT,
+		Color(0.72, 0.96, 1.0, 0.58 * fade),
+		2.5
+	)
+	canvas.draw_arc(
+		center + Vector2(0.0, 4.0),
+		10.0 + 24.0 * progress,
+		PI * 0.12,
+		PI * 0.88,
+		18,
+		Color(1.0, 1.0, 0.92, 0.56 * fade),
+		2.0
+	)
+	var puddle_center: Vector2 = center + Vector2(0.0, 13.0 + 4.0 * progress)
+	canvas.draw_circle(puddle_center + Vector2(-7.0, 0.0), 9.0 + 7.0 * progress, Color(0.94, 1.0, 0.93, 0.32 * fade))
+	canvas.draw_circle(puddle_center + Vector2(8.0, 1.0), 7.0 + 5.0 * progress, Color(0.82, 0.96, 1.0, 0.24 * fade))
+	canvas.draw_circle(center, 11.0 * (1.0 - progress * 0.25), Color(1.0, 1.0, 1.0, 0.20 * fade))
+
+
+func _draw_milk_bottle_break_droplets(canvas: CanvasItem, effect: Dictionary, center: Vector2, age: float, fade: float) -> void:
+	var droplets: Array = _get_array(effect, "droplets")
+	for droplet_value in droplets:
+		if not (droplet_value is Dictionary):
+			continue
+		var droplet: Dictionary = droplet_value
+		var velocity: Vector2 = _get_vector2(droplet, "velocity", Vector2.ZERO)
+		var pos: Vector2 = center + velocity * age + Vector2(0.0, MILK_BOTTLE_BREAK_GRAVITY * 0.38 * age * age)
+		pos = _clamp_break_effect_point(pos, 4.0)
+		var radius: float = max(0.5, float(droplet.get("radius", 2.5)) * (0.75 + 0.25 * fade))
+		canvas.draw_circle(pos, radius, Color(0.94, 1.0, 0.94, 0.70 * fade))
+		canvas.draw_circle(pos + Vector2(-radius * 0.25, -radius * 0.25), max(0.5, radius * 0.38), Color(1.0, 1.0, 1.0, 0.58 * fade))
+
+
+func _draw_milk_bottle_break_shards(canvas: CanvasItem, effect: Dictionary, center: Vector2, age: float, fade: float) -> void:
+	var shards: Array = _get_array(effect, "shards")
+	for shard_value in shards:
+		if not (shard_value is Dictionary):
+			continue
+		var shard: Dictionary = shard_value
+		var velocity: Vector2 = _get_vector2(shard, "velocity", Vector2.ZERO)
+		var pos: Vector2 = center + velocity * age + Vector2(0.0, MILK_BOTTLE_BREAK_GRAVITY * age * age)
+		pos = _clamp_break_effect_point(pos, 5.0)
+		var size: float = max(1.0, float(shard.get("size", 4.0)) * (0.9 + 0.18 * sin(age * 18.0 + float(shard.get("spin", 0.0)))))
+		var angle: float = float(shard.get("spin", 0.0)) * age
+		var dir := Vector2(cos(angle), sin(angle))
+		var side := Vector2(-dir.y, dir.x)
+		var points := PackedVector2Array([
+			pos + dir * size * 1.25,
+			pos - dir * size * 0.75 + side * size * 0.54,
+			pos - dir * size * 0.42 - side * size * 0.62,
+		])
+		var color: Color = _get_break_shard_color(int(shard.get("tint", 0)), fade)
+		canvas.draw_colored_polygon(points, color)
+
+
+func _get_break_shard_color(tint: int, fade: float) -> Color:
+	match tint:
+		1:
+			return Color(0.70, 0.96, 1.0, 0.62 * fade)
+		2:
+			return Color(0.90, 1.0, 1.0, 0.72 * fade)
+		_:
+			return Color(1.0, 1.0, 1.0, 0.66 * fade)
+
+
+func _draw_field_icon_texture(canvas: CanvasItem, item_data: Dictionary, center: Vector2, _now_msec: int) -> bool:
+	var field_icon_path: String = str(item_data.get("field_icon_path", "")).strip_edges()
+	if field_icon_path == "":
+		return false
+	var texture: Texture2D = _get_field_icon_texture(field_icon_path)
+	if texture == null:
+		return false
+	var icon_size := Vector2(FIELD_ITEM_DRAW_SIZE, FIELD_ITEM_DRAW_SIZE)
+	_draw_rotated_texture_region(canvas, texture, Rect2(Vector2.ZERO, texture.get_size()), center, icon_size, 0.0)
+	return true
 
 
 func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees: float, now_msec: int) -> void:
@@ -385,6 +522,24 @@ func _get_unknown_item_fallback_texture() -> Texture2D:
 	return unknown_item_fallback_texture
 
 
+func _get_field_icon_texture(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if field_icon_textures.has(path):
+		var cached: Variant = field_icon_textures[path]
+		if cached is Texture2D:
+			return cached as Texture2D
+		field_icon_textures.erase(path)
+	var texture: Texture2D = ProjectResourceLoader.load_texture(
+		path,
+		"Missing active field item icon at %s",
+		"Failed to load active field item icon at %s"
+	)
+	if texture != null:
+		field_icon_textures[path] = texture
+	return texture
+
+
 func _touch_texture(texture: Texture2D) -> void:
 	if texture != null:
 		texture.get_size()
@@ -418,11 +573,33 @@ func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	return {}
 
 
+func _get_array(source: Dictionary, key: String) -> Array:
+	var value: Variant = source.get(key, [])
+	if value is Array:
+		return value
+	return []
+
+
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	var value: Variant = source.get(key, fallback)
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _clamp_break_effect_center(center: Vector2) -> Vector2:
+	const VISUAL_MARGIN := 34.0
+	return Vector2(
+		clamp(center.x, VISUAL_MARGIN, ActiveItemFieldItemMotion.FIELD_WIDTH - VISUAL_MARGIN),
+		clamp(center.y, VISUAL_MARGIN, ActiveItemFieldItemMotion.FIELD_HEIGHT - VISUAL_MARGIN)
+	)
+
+
+func _clamp_break_effect_point(point: Vector2, margin: float) -> Vector2:
+	return Vector2(
+		clamp(point.x, margin, ActiveItemFieldItemMotion.FIELD_WIDTH - margin),
+		clamp(point.y, margin, ActiveItemFieldItemMotion.FIELD_HEIGHT - margin)
+	)
 
 
 func _perf_begin(perf_logger: Object) -> int:

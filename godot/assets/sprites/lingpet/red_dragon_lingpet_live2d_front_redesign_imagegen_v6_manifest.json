@@ -1,0 +1,76 @@
+{
+  "asset_id": "red_dragon_lingpet_live2d_front_redesign_imagegen_v6",
+  "asset_type": "lingpet_live2d_front_redesign_source_concept",
+  "runtime_usage": "front-facing Live2D / click-reaction / cut-in source concept redesigned to read more like a Ringpet; not a final layered Live2D PSD and not a rear-view in-battle companion sheet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019e8ef1-83f1-74c2-8b6f-d4971f5f62bf/ig_09898804d4afb5f1016a2085b0b6bc819190d2ba700d091dd4.png",
+  "outputs": {
+    "transparent_art": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+    "magenta_source": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6_magenta_source.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "identity_reference": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_live2d_front_parts_imagegen_v5.png",
+    "prompt_summary": "More Ringpet-like front-facing red baby dragon redesign: rounder mascot body, reduced fantasy dragon feel, small rounded horns, circular side ear rings, segmented cyan-gold resonance collar, large chest ring-core, circular cheek/hip/wing/tail nodes, and tail ring-disk."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "front-facing Live2D source concept redesign for a Ringpet / Lingpet companion in DiskHearts - Ringpia",
+    "primary_request": "Redesign the red baby dragon so it feels much more like a Ringpet, not a generic fantasy dragon. Keep it front-facing for Live2D source work. No flame effect and no held fire prop.",
+    "core_direction": "reduce fantasy dragon / armored dragon feeling; make the creature feel like an egg-hatched magical disk-ring companion: rounder, softer, more mascot-like, with integrated circular resonance organs and ring-shaped body motifs",
+    "subject": "one small SD chibi red baby dragon Ringpet, full-body front view, mostly symmetrical rig-friendly pose; big expressive eyes, small rounded snout, friendly neutral mouth, arms slightly away from torso, compact rounded body, short legs, tiny wings, curled tail",
+    "ringpet_specific_silhouette": "small rounded gold horns instead of huge tall horns, ring-shaped ear fins or circular side ear ornaments, segmented cyan-gold resonance collar, large circular chest ring-core embedded in cream belly, glowing circular nodes on cheeks/shoulders/hips/wing joints/tail tip, subtle egg-shell crescent plates on forehead and belly, tail tip shaped like a golden ring-disk with cyan core",
+    "live2d_part_richness": "clear separable left/right parts: horns, ring ear fins, eyelids, eye highlights, cheek marks, mouth/jaw, collar segments, chest core layers, belly plates, shoulder plates, arms, wrists, claws, wing bones, wing membranes, tail segments, tail disk, hip nodes",
+    "style": "vivid red body, warm cream belly, gold/cyan ring technology accents, polished 2D Korean anime game mascot style, clean cel-shaded, crisp silhouette, cute companion toy-like finish",
+    "background": "perfectly flat solid #ff00ff magenta chroma-key background only",
+    "constraints": "no flame, no fireball, no held fire, no giant horns, no aggressive monster face, no heavy armor, no crown-like overdecorated head, no generic dragon-only design, no rear view, no side view, no portrait crop, no complex overlapping effects, no extra characters, no UI frame, no text, no watermark"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#f203f3",
+    "canonical_source_background": "#ff00ff",
+    "note": "Transparent art was extracted from the generated near-magenta source. The magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff."
+  },
+  "ringpet_rule_audit": {
+    "accepted_for_live2d_front_source": true,
+    "accepted_for_runtime_companion_sheet": false,
+    "reason": "This redesign shifts the read from generic SD dragon toward Ringpet by making circular resonance hardware and egg-hatched companion language the dominant silhouette: ring ears, segmented collar, chest ring-core, cheek/hip/wing nodes, and tail ring-disk. It intentionally remains front-facing for Live2D / click-reaction use.",
+    "next_runtime_step": "If promoted to runtime, split or animate through the Live2D-style pingpong sheet pipeline. For in-battle companion movement, create separate AutoSprite-derived rear/rear-three-quarter 5x5/25-frame walk, strike, and cast sheets."
+  },
+  "part_candidate_notes": [
+    "left/right rounded horns and forehead egg-shell plate",
+    "ring ear fins / circular side ornaments",
+    "eyes, eyelids, eye highlights, cheeks, mouth, and jaw",
+    "segmented cyan-gold neck resonance collar",
+    "central chest ring-core and belly crescent plate",
+    "left/right arms, wrists, claws, and shoulder nodes",
+    "left/right wings with ring nodes, bones, and membranes",
+    "legs, feet, toe claws, hip nodes, tail segments, and tail ring-disk"
+  ],
+  "validation": {
+    "size": "1254x1254",
+    "transparent_corner_rgba": [
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0",
+      "#000000/a0"
+    ],
+    "magenta_source_corner_rgba": [
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255",
+      "#ff00ff/a255"
+    ],
+    "transparent_alpha_bbox": [
+      112,
+      103,
+      1138,
+      1128
+    ],
+    "transparent_edge_alpha_count": 0,
+    "sha256": {
+      "transparent_art": "d961619dd47f1feadbcfbc20ce2be9b5bfd353a7843faa0eabed9239e57b033f",
+      "magenta_source": "00e81852e0c119270f23541947ad225e0467c140a4f848abecaa5894b2922457"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "asset_id": "orbi_cutin_art",
+  "pet_id": "orbi",
+  "display_name": "Orbi",
+  "asset_type": "lingpet_acquire_cutin_art",
+  "generator": {
+    "mode": "built_in_imagegen",
+    "source_image": "C:/Users/woduq/.codex/generated_images/019e8975-7829-7cc3-8ac7-d9a272f4fa11/ig_000c12d50a4bba41016a1f196f34f48191ad11e6d49f09b3d7.png",
+    "prompt_summary": "Standalone Orbi general-pool Ringpet acquisition Live2D-style full-body cut-in, 3/4 front floating greeting pose, white/navy mechanical fox-cat mascot with cyan emissive accents, flat magenta chroma-key background."
+  },
+  "outputs": {
+    "magenta_source": "res://assets/sprites/lingpet/orbi_cutin_art_magenta_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/orbi_cutin_art.png"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_mode": "auto-key border",
+    "key_color": "#f803eb",
+    "soft_matte": true,
+    "despill": true
+  },
+  "qa": {
+    "size": "1448x1086",
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [308, 41, 1144, 1026],
+    "visible_magenta_pixels": 0
+  }
+}

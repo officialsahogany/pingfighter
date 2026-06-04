@@ -1,0 +1,36 @@
+{
+  "asset_id": "dragon_lingpet_firebreath_concept_imagegen_v2",
+  "asset_type": "lingpet_concept_art",
+  "runtime_usage": "front-facing baby-dragon concept source only; not wired into lingpet_catalog.gd and not a canonical in-battle Ringpet companion sprite",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019e8ef1-83f1-74c2-8b6f-d4971f5f62bf/ig_09898804d4afb5f1016a207f8a69a08191820910f480b65ec3.png",
+  "outputs": {
+    "magenta_source": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_concept_imagegen_v2_magenta_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_concept_imagegen_v2.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "prompt_summary": "Cute chibi baby dragon Ringpet / Lingpet companion breathing vivid red and crimson flames on a flat solid #ff00ff magenta background."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "game companion concept art for DiskHearts - Ringpia, Ringpet / Lingpet creature concept",
+    "primary_request": "A cute baby dragon Ringpet breathing vivid red flames, on a flat solid magenta background.",
+    "subject": "small chibi baby dragon companion, rounded proportions, expressive bright eyes, tiny horns, small wings, curled tail, playful but powerful; breathing a compact plume of red and crimson fire from its mouth",
+    "style": "polished 2D game asset concept art, clean readable silhouette, Korean fantasy arcade game feeling, semi-cute creature mascot design, crisp edges, saturated colors, high detail without clutter",
+    "composition": "full body visible, centered, 3/4 view, generous padding on all sides, flame plume contained inside the canvas, no cropping",
+    "background": "perfectly flat solid #ff00ff magenta background only, no gradients, no texture, no shadow, no floor plane",
+    "constraints": "no text, no watermark, no logo, no UI frame, no extra characters, no smoke covering the silhouette, no photorealism, no dark muddy colors"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fa02f9",
+    "canonical_source_background": "#ff00ff",
+    "note": "The generated image used a near-magenta background. After alpha extraction, the project magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff."
+  },
+  "ringpet_rule_audit": {
+    "accepted_for_runtime_companion": false,
+    "reason": "This version reads as front-facing cut-in/concept art. A runtime companion candidate should be regenerated as a Maribo-style rear/rear-three-quarter SD Ringpet with clearer resonance ring/core motif, stable small-body silhouette, safe transparent margins, and 5x5/25-frame sheet planning before catalog wiring.",
+    "usable_as": "loose dragon Ringpet concept reference or cut-in mood reference"
+  }
+}

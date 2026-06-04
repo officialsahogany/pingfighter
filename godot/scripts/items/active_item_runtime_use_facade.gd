@@ -79,7 +79,7 @@ func is_dimension_gate_active(runtime: Object) -> bool:
 
 
 func apply_item_effect(runtime: Object, item_data: Dictionary, owner: Object, registry: Object) -> bool:
-	var item_name: String = str(item_data.get("name", ""))
+	var item_name: String = _get_item_identity(item_data)
 	var effect_name: String = str(item_data.get("effect", item_name))
 	if item_name == "pandora_box" or effect_name == "pandora_box":
 		return activate_dimension_gate(runtime, registry)
@@ -114,6 +114,17 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_item_identity(item_data: Dictionary) -> String:
+	for key in ["name", "effect", "item_name", "item_id"]:
+		var raw_value: Variant = item_data.get(str(key), "")
+		if raw_value == null:
+			continue
+		var value: String = str(raw_value)
+		if value != "":
+			return value
+	return ""
 
 
 func _is_active_item_use_locked(registry: Object) -> bool:

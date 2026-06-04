@@ -8,12 +8,12 @@ const ITEM_MANAGEMENT_DEBUG_KEY := KEY_F3
 const PERK_PICKER_DEBUG_KEY := KEY_F4
 const STAGE_DEBUG_KEY := KEY_F5
 const WEATHER_DEBUG_KEY := KEY_F6
-# KEY_F7 is owned by `ExhibitionResetHandler` (autoload) as the booth reset
-# hotkey. Do not rebind F7 here -- the autoload handles the event in `_input`
-# before unhandled-input reaches this controller.
+const LINGPET_DEBUG_KEY := KEY_F7
 const RUNTIME_PERK_DEBUG_KEY := KEY_F8
 const BALL_SPEED_DEBUG_KEY := KEY_F9
-const LINGPET_DEBUG_KEY := KEY_F10
+# KEY_F10 is owned by `ExhibitionResetHandler` (autoload) as the booth reset
+# hotkey. Do not rebind F10 here -- the autoload handles the event in `_input`
+# before unhandled-input reaches this controller.
 const CHARACTER_INFO_KEY := KEY_TAB
 const PAUSE_MENU_KEY := KEY_ESCAPE
 const DEBUG_MENU_CHARACTER_PICKER := "character_picker"
@@ -56,7 +56,7 @@ func handle_input(
 		):
 			# Click does NOT close instantly -- it starts the spear-raise + water-spray
 			# exit action, which then fades out and resumes gameplay on its own.
-			if lingpet_runtime.has_method("begin_acquire_cutin_dismiss") and bool(lingpet_runtime.begin_acquire_cutin_dismiss()):
+			if lingpet_runtime.has_method("begin_acquire_cutin_dismiss") and bool(lingpet_runtime.begin_acquire_cutin_dismiss(registry)):
 				_queue_redraw(owner)
 				_mark_handled(owner)
 		return true

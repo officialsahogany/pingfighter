@@ -249,8 +249,8 @@ func _sync_paddle_owner_state(
 	if _paddle_sync == null:
 		return
 	var active_item_scale: float = _paddle_sync.get_player_paddle_scale(
-		float(target.get("long_boost_scale")),
-		float(target.get("strange_vial_scale"))
+		_get_float_property(target, "long_boost_scale", 1.0) * _get_float_property(target, "milk_bottle_scale", 1.0),
+		_get_float_property(target, "strange_vial_scale", 1.0)
 	)
 	if not _should_sync_paddle_owner_state(target, owner, active_item_scale):
 		return
@@ -278,10 +278,12 @@ func _has_paddle_scale_runtime_work(target: Object) -> bool:
 	return (
 		bool(target.get("long_boost_active"))
 		or float(target.get("long_boost_timer_frames")) > 0.0
-		or not is_equal_approx(float(target.get("long_boost_scale")), 1.0)
+		or not is_equal_approx(_get_float_property(target, "long_boost_scale", 1.0), 1.0)
+		or bool(target.get("milk_bottle_active"))
+		or not is_equal_approx(_get_float_property(target, "milk_bottle_scale", 1.0), 1.0)
 		or bool(target.get("strange_vial_active"))
 		or float(target.get("strange_vial_timer_frames")) > 0.0
-		or not is_equal_approx(float(target.get("strange_vial_scale")), 1.0)
+		or not is_equal_approx(_get_float_property(target, "strange_vial_scale", 1.0), 1.0)
 	)
 
 
@@ -363,6 +365,13 @@ func _get_vector2_property(target: Object, key: String) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _get_float_property(target: Object, key: String, fallback: float) -> float:
+	var value: Variant = target.get(key)
+	if value == null:
+		return fallback
+	return float(value)
 
 
 func _perf_begin(perf_logger: Object) -> int:

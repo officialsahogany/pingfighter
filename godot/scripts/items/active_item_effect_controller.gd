@@ -48,6 +48,8 @@ var long_boost_active: bool = false
 var long_boost_timer_frames: float = 0.0
 var long_boost_initial_timer_frames: float = 0.0
 var long_boost_scale: float = 1.0
+var milk_bottle_active: bool = false
+var milk_bottle_scale: float = 1.0
 var vitamin_pill_active: bool = false
 var vitamin_pill_timer_frames: float = 0.0
 var vitamin_pill_initial_timer_frames: float = 0.0
@@ -250,6 +252,17 @@ func activate_long_boost(owner: Object, registry: Object) -> bool:
 		owner,
 		registry,
 		_state_applier,
+		_paddle_sync,
+		_effect_feedback
+	)
+
+
+func activate_milk_bottle(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_milk_bottle(
+		self,
+		item_data,
+		owner,
+		registry,
 		_paddle_sync,
 		_effect_feedback
 	)
@@ -483,6 +496,10 @@ func is_holy_barrier_active() -> bool:
 
 func is_dash_boost_active() -> bool:
 	return _effect_query.is_dash_boost_active(self)
+
+
+func is_milk_bottle_active() -> bool:
+	return bool(milk_bottle_active)
 
 
 func get_dash_cost_multiplier() -> float:

@@ -145,6 +145,8 @@ class FakeUseFacade:
 
 func _init() -> void:
 	_verify_use_facade_owns_pandora_slot_use()
+	_verify_use_facade_routes_milk_bottle_slot_use()
+	_verify_use_facade_accepts_item_id_only_slot()
 	_verify_use_facade_blocks_serve_wait_slot_use()
 	_verify_use_facade_blocks_intro_auto_use()
 	_verify_use_facade_routes_pending_throw_backup()
@@ -172,6 +174,38 @@ func _verify_use_facade_owns_pandora_slot_use() -> void:
 	_expect(owner.active_item_slots.is_empty(), "Pandora use should consume the active slot")
 	_expect(runtime.field_spawn_controller.is_dimension_gate_active(), "Pandora use should activate Dimension Gate")
 	_expect(registry.audio.calls == ["play_pandora"], "Pandora use should play the Pandora audio cue")
+
+
+func _verify_use_facade_routes_milk_bottle_slot_use() -> void:
+	var facade: Object = ActiveItemRuntimeUseFacade.new()
+	var runtime: Object = ActiveItemRuntime.new()
+	_finish_runtime_initialization(runtime)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	owner.active_item_slots = [runtime.item_catalog.build_item_by_name("milk_bottle")]
+
+	_expect(facade.use_slot(runtime, 0, owner, registry), "use facade should route milk bottle from an active slot")
+	_expect(owner.active_item_slots.is_empty(), "milk bottle slot use should consume the active item")
+	_expect(runtime.effect_controller.is_milk_bottle_active(), "milk bottle slot use should activate the milk bottle effect")
+	_expect(is_equal_approx(runtime.effect_controller.get_player_paddle_scale(), 1.20), "milk bottle slot use should report a 1.2 active item paddle scale")
+	_expect(is_equal_approx(owner.player_paddle_width, 186.0), "milk bottle slot use should enlarge the owner paddle width by 20 percent")
+
+
+func _verify_use_facade_accepts_item_id_only_slot() -> void:
+	var facade: Object = ActiveItemRuntimeUseFacade.new()
+	var runtime: Object = ActiveItemRuntime.new()
+	_finish_runtime_initialization(runtime)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	owner.active_item_slots = [{
+		"item_id": "gauge_charge",
+		"consumable": true,
+		"last_use_msec": -1,
+	}]
+
+	_expect(facade.use_slot(runtime, 0, owner, registry), "item_id-only active item slot should be usable")
+	_expect(owner.active_item_slots.is_empty(), "item_id-only consumable active item should be consumed")
+	_expect(owner.special_gauge > 0.0, "item_id-only gauge charge should apply its runtime effect")
 
 
 func _verify_use_facade_blocks_serve_wait_slot_use() -> void:

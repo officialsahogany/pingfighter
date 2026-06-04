@@ -1,0 +1,283 @@
+{
+  "asset_id": "milkring_cutin_dismiss_anim",
+  "character": "milkring",
+  "display_name": "???",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_acquisition_click_dismiss_action",
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/milkring_cutin_dismiss_anim.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      5120,
+      5120
+    ],
+    "frame_interval": "played once by lingpet acquire cut-in dismiss at 25 frames",
+    "sha256": "318c3391f4380870abf0fe9dae33f3669cde851842f9aa8c5731824607552daa",
+    "bytes": 10627228,
+    "size_match_repack_scale": 0.871,
+    "cell_fill_w_pct": 69.09,
+    "cell_fill_h_pct": 59.988
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite-derived frame reduction/repack",
+    "operation": "Selected every 4th frame from the accepted 14x7/98f Milkring click Live2D pingpong sheet and repacked the connected-body click reaction into the 5x5/25f dismiss grid required by the acquisition cut-in host.",
+    "source_sheet": "res://assets/sprites/lingpet/milkring_click_live2d_pingpong_98f.png",
+    "source_grid": {
+      "cols": 14,
+      "rows": 7,
+      "frame_count": 98,
+      "cell_size": [
+        1024,
+        1024
+      ]
+    },
+    "selected_source_frame_indices": [
+      0,
+      4,
+      8,
+      12,
+      16,
+      20,
+      24,
+      28,
+      32,
+      36,
+      40,
+      44,
+      48,
+      52,
+      56,
+      60,
+      64,
+      68,
+      72,
+      76,
+      80,
+      84,
+      88,
+      92,
+      96
+    ],
+    "autosprite_status_note": "A dedicated Cutin Dismiss AutoSprite job wf_e0836c68-5c9f-4b44-8f13-4bd8738aef10 was queued, but status/list calls timed out; this production-safe sheet remains AutoSprite-derived from the already accepted click Live2D reaction.",
+    "size_match_repack": {
+      "operation": "Shrank the click-derived 25 selected frames in the 5x5 dismiss grid so the acquisition Live2D remains slightly larger than the click/dismiss Live2D.",
+      "scale": 0.871,
+      "target_relation": "click-dismiss avg visible height 59.988%, acquisition avg visible height 61.951%",
+      "backup": ".tmp/milkring_size_match/milkring_cutin_dismiss_anim_before_size_match.png"
+    }
+  },
+  "source_autosprite": {
+    "character_id": "cmpwxpxiv000cv4z33pe2xx6k",
+    "character_name": "Milkring Lingpet v5",
+    "spritesheet_id": "cmpwzmvs3001n2ozrugrl77tp",
+    "spritesheet_job_id": "wf_da6d515b-4d6f-4c57-91fb-0840e0fa92e8",
+    "video_id": "cmpwzkkqh008s7ddbznpjp3sv",
+    "raw_sheet_local_path": ".tmp/milkring_click_live2d_v2/milkring_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/milkring_click_live2d_v2/milkring_click_live2d_raw_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        1024,
+        1024
+      ]
+    },
+    "prompt": "49f click reaction one-shot for Milkring. CRITICAL: dark smoked-cyan visor/goggles stay opaque over both eyes in every frame; no visible eyes, pupils, eyebrows, lashes; goggles never lift, open, or become transparent/green. Minimal gear: ring collar, one milk tank, wrist nozzles. On click: cute surprised bounce, ears perk, tail wiggle, cyan ring flash, tiny short milk puffs/droplets close to wrist nozzles only, then settle. Full body 3/4 front, safe margins, transparent bg, no long milk streams, no crop/text/UI.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "qa": {
+    "final_edge_alpha_count": 0,
+    "final_frame_margins_ltrb": [
+      [
+        0,
+        206,
+        194,
+        187,
+        213
+      ],
+      [
+        1,
+        163,
+        196,
+        145,
+        213
+      ],
+      [
+        2,
+        148,
+        224,
+        146,
+        208
+      ],
+      [
+        3,
+        146,
+        282,
+        146,
+        195
+      ],
+      [
+        4,
+        196,
+        259,
+        143,
+        195
+      ],
+      [
+        5,
+        186,
+        162,
+        143,
+        197
+      ],
+      [
+        6,
+        178,
+        143,
+        144,
+        195
+      ],
+      [
+        7,
+        146,
+        199,
+        146,
+        190
+      ],
+      [
+        8,
+        146,
+        269,
+        146,
+        185
+      ],
+      [
+        9,
+        146,
+        226,
+        146,
+        188
+      ],
+      [
+        10,
+        175,
+        194,
+        144,
+        190
+      ],
+      [
+        11,
+        174,
+        206,
+        144,
+        189
+      ],
+      [
+        12,
+        174,
+        229,
+        144,
+        188
+      ],
+      [
+        13,
+        174,
+        210,
+        144,
+        189
+      ],
+      [
+        14,
+        175,
+        194,
+        144,
+        191
+      ],
+      [
+        15,
+        146,
+        213,
+        146,
+        189
+      ],
+      [
+        16,
+        146,
+        266,
+        146,
+        186
+      ],
+      [
+        17,
+        146,
+        222,
+        146,
+        188
+      ],
+      [
+        18,
+        178,
+        148,
+        144,
+        195
+      ],
+      [
+        19,
+        182,
+        151,
+        144,
+        195
+      ],
+      [
+        20,
+        193,
+        233,
+        143,
+        196
+      ],
+      [
+        21,
+        146,
+        291,
+        146,
+        196
+      ],
+      [
+        22,
+        146,
+        239,
+        146,
+        204
+      ],
+      [
+        23,
+        184,
+        198,
+        147,
+        213
+      ],
+      [
+        24,
+        206,
+        194,
+        187,
+        213
+      ]
+    ],
+    "preview": ".tmp/milkring_click_dismiss_25f_preview_magenta.png",
+    "grid_contract": "Matches CUTIN_DISMISS_COLS=5, CUTIN_DISMISS_ROWS=5, CUTIN_DISMISS_FRAMES=25 so the host no longer slices a 4x4 acquisition sheet as 5x5.",
+    "identity_check": "Milkring remains one connected full-body cow mascot with opaque goggles; milk-puff action stays within the cell margins.",
+    "size_match_avg_fill_w_pct": 69.09,
+    "size_match_avg_fill_h_pct": 59.988
+  },
+  "status": "Size-matched: 5x5 click-dismiss sheet reduced below the acquisition Live2D footprint."
+}

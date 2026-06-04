@@ -1,0 +1,216 @@
+{
+  "asset_id": "volty_click_live2d_pingpong_98f_v2",
+  "character": "volty",
+  "display_name": "??",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/volty_click_live2d_pingpong_98f.png",
+  "status": "Accepted: regenerated click Live2D reaction with stable single-body motion and no debris-style pixel islands.",
+  "source_autosprite": {
+    "asset_id": "cmpwyw1cz000skm4cc1u8w0lo",
+    "asset_name": "Volty Acquire Cutin Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/volty_cutin_art.png",
+    "spritesheet_id": "cmpxka2hs0027l8t9vnzjridq",
+    "spritesheet_job_id": "wf_5e64722e-a3d5-47ca-bec7-77c09a95c6b9",
+    "raw_sheet_local_path": ".tmp/volty_click_redo/volty_click_live2d_redo_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/volty_click_redo/volty_click_live2d_redo_raw_49f_atlas.json",
+    "prompt": "Click reaction: single intact Volty floating orb robot gets tapped, startled squash-bounce, LED eyes widen then wink, clamp arms wiggle, side barrels spin, thruster pulse, settles centered. No debris.",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1152,
+      1152
+    ],
+    "sheet_size": [
+      16128,
+      8064
+    ],
+    "frame_interval": "runtime 0.036s one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "upscale_scale": 2.0,
+    "content_padding_px": 64,
+    "sha256": "faad2401b490aa10c65a887eab1204457c93596ae3375d941aecc392ea33c12d",
+    "bytes": 66744344
+  },
+  "postprocess": {
+    "tool": "AutoSprite MCP + Real-ESRGAN animev3 x2 RGB/alpha split + 1152px padded pingpong repack",
+    "operation": "Raw 512 cells were alpha-cleaned, RGB alpha-bleed filled, RGB-upscaled x2 with Real-ESRGAN, recombined with separately resized alpha, lightly sharpened, padded into 1152px cells preserving original per-frame motion, then assembled as forward 0..48 + reverse 48..0.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "rgb_source": ".tmp/volty_click_redo/rebuild/rgb_cells_bleed_s2_input",
+      "rgb_upscaled": ".tmp/volty_click_redo/rebuild/rgb_cells_bleed_s2_x2",
+      "alpha_source": ".tmp/volty_click_redo/rebuild/alpha_cells_source"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "alpha <= 15 set transparent before RGB upscale prep and after alpha x2 resize"
+    },
+    "noise_component_cleanup": {
+      "threshold_connected_alpha_area_le": 20,
+      "pre_upscale_removed_components": 15,
+      "pre_upscale_removed_pixels": 80,
+      "post_upscale_removed_components": 6,
+      "post_upscale_removed_pixels": 26
+    },
+    "unsharp_mask": {
+      "tool": "PIL ImageFilter.UnsharpMask",
+      "params": {
+        "radius": 1.0,
+        "percent": 55,
+        "threshold": 3
+      }
+    },
+    "matte_pixel_cleanup": {
+      "operation": "Removed exact residual transparent-background matte pixels near RGB 71,112,76 after final assembly.",
+      "removed_pixels": 12
+    }
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "raw_grid_rows": 7,
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": [],
+    "final_cell_size": [
+      1152,
+      1152
+    ],
+    "final_sheet_size": [
+      16128,
+      8064
+    ],
+    "padding_from_upscaled_cell_px": 64,
+    "alpha_threshold": 15,
+    "noise_component_threshold_le": 20,
+    "post_upscale_removed_components": 6,
+    "post_upscale_removed_pixels": 26,
+    "small_components_remaining_le20": 0,
+    "small_components_remaining_le80": 0,
+    "matte_rgb_71_112_76_visible_pixels": 0,
+    "min_margins_ltrb": [
+      147,
+      106,
+      75,
+      64
+    ],
+    "area_range_pct": [
+      20.57,
+      23.0
+    ],
+    "center_range_xy": [
+      [
+        564.5,
+        685.0
+      ],
+      [
+        405.5,
+        689.0
+      ]
+    ],
+    "pingpong_loop_closure": "frame0 == frame97 and frame48 == frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [
+        149,
+        139,
+        986,
+        961
+      ],
+      "6": [
+        147,
+        251,
+        982,
+        1081
+      ],
+      "12": [
+        172,
+        159,
+        1032,
+        830
+      ],
+      "18": [
+        277,
+        107,
+        1073,
+        704
+      ],
+      "24": [
+        269,
+        158,
+        1075,
+        780
+      ],
+      "30": [
+        174,
+        290,
+        1045,
+        1088
+      ],
+      "36": [
+        202,
+        243,
+        1049,
+        1017
+      ],
+      "42": [
+        177,
+        237,
+        1054,
+        1039
+      ],
+      "48": [
+        174,
+        236,
+        1057,
+        1011
+      ],
+      "49": [
+        174,
+        236,
+        1057,
+        1011
+      ],
+      "55": [
+        177,
+        237,
+        1054,
+        1039
+      ],
+      "69": [
+        175,
+        283,
+        1063,
+        1031
+      ],
+      "83": [
+        199,
+        119,
+        1058,
+        717
+      ],
+      "97": [
+        149,
+        139,
+        986,
+        961
+      ]
+    },
+    "matte_pixel_cleanup_removed": 12
+  }
+}

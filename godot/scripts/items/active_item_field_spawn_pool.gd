@@ -29,6 +29,9 @@ var _active_spawn_template_source: Object = null
 var _passive_mythic_spawn_template_source: Object = null
 var _active_spawn_template_cache_ready := false
 var _passive_mythic_spawn_template_cache_ready := false
+var _spawn_template_prewarm_phase := 0
+var _active_spawn_template_prewarm_index := 0
+var _passive_mythic_spawn_template_prewarm_index := 0
 
 
 func clear_spawn_candidate_cache() -> void:
@@ -38,11 +41,37 @@ func clear_spawn_candidate_cache() -> void:
 	_passive_mythic_spawn_template_source = null
 	_active_spawn_template_cache_ready = false
 	_passive_mythic_spawn_template_cache_ready = false
+	_spawn_template_prewarm_phase = 0
+	_active_spawn_template_prewarm_index = 0
+	_passive_mythic_spawn_template_prewarm_index = 0
 
 
 func prewarm_spawn_candidate_templates(perf_logger: Object = null) -> void:
-	_get_active_spawn_candidate_templates()
-	_get_passive_mythic_spawn_candidate_templates(perf_logger)
+	while not prewarm_spawn_candidate_templates_step(perf_logger):
+		pass
+
+
+func prewarm_spawn_candidate_templates_step(perf_logger: Object = null) -> bool:
+	if (
+		_active_spawn_template_cache_ready
+		and _active_spawn_template_source == item_catalog
+		and _passive_mythic_spawn_template_cache_ready
+		and _passive_mythic_spawn_template_source == passive_mythic_catalog
+	):
+		_spawn_template_prewarm_phase = 0
+		return true
+	match _spawn_template_prewarm_phase:
+		0:
+			if not _prewarm_active_spawn_candidate_templates_step():
+				return false
+		1:
+			if not _prewarm_passive_mythic_spawn_candidate_templates_step(perf_logger):
+				return false
+		_:
+			_spawn_template_prewarm_phase = 0
+			return true
+	_spawn_template_prewarm_phase += 1
+	return false
 
 
 func get_spawn_candidate_cache_status() -> Dictionary:
@@ -291,6 +320,35 @@ func _get_active_spawn_candidate_templates() -> Array[Dictionary]:
 	return _active_spawn_template_cache
 
 
+func _prewarm_active_spawn_candidate_templates_step() -> bool:
+	if _active_spawn_template_cache_ready and _active_spawn_template_source == item_catalog:
+		_active_spawn_template_prewarm_index = 0
+		return true
+	if _active_spawn_template_source != item_catalog:
+		_active_spawn_template_cache.clear()
+		_active_spawn_template_source = item_catalog
+		_active_spawn_template_cache_ready = false
+		_active_spawn_template_prewarm_index = 0
+	if item_catalog == null or not item_catalog.has_method("build_item_by_name"):
+		_active_spawn_template_cache_ready = true
+		_active_spawn_template_prewarm_index = 0
+		return true
+	if _active_spawn_template_prewarm_index >= ActiveItemCatalog.FIELD_SPAWN_ORDER.size():
+		_active_spawn_template_cache_ready = true
+		_active_spawn_template_prewarm_index = 0
+		return true
+	var item_name := str(ActiveItemCatalog.FIELD_SPAWN_ORDER[_active_spawn_template_prewarm_index])
+	var item_data: Dictionary = item_catalog.build_item_by_name(item_name)
+	if not item_data.is_empty():
+		_active_spawn_template_cache.append(item_data.duplicate(true))
+	_active_spawn_template_prewarm_index += 1
+	if _active_spawn_template_prewarm_index >= ActiveItemCatalog.FIELD_SPAWN_ORDER.size():
+		_active_spawn_template_cache_ready = true
+		_active_spawn_template_prewarm_index = 0
+		return true
+	return false
+
+
 func _get_passive_mythic_spawn_candidate_templates(perf_logger: Object = null) -> Array[Dictionary]:
 	if (
 		_passive_mythic_spawn_template_cache_ready
@@ -317,6 +375,52 @@ func _get_passive_mythic_spawn_candidate_templates(perf_logger: Object = null) -
 				_passive_mythic_spawn_template_cache.append(item_data.duplicate(true))
 	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic.source", sample_start)
 	return _passive_mythic_spawn_template_cache
+
+
+func _prewarm_passive_mythic_spawn_candidate_templates_step(perf_logger: Object = null) -> bool:
+	if (
+		_passive_mythic_spawn_template_cache_ready
+		and _passive_mythic_spawn_template_source == passive_mythic_catalog
+	):
+		_passive_mythic_spawn_template_prewarm_index = 0
+		return true
+	if _passive_mythic_spawn_template_source != passive_mythic_catalog:
+		_passive_mythic_spawn_template_cache.clear()
+		_passive_mythic_spawn_template_source = passive_mythic_catalog
+		_passive_mythic_spawn_template_cache_ready = false
+		_passive_mythic_spawn_template_prewarm_index = 0
+	if passive_mythic_catalog == null:
+		_passive_mythic_spawn_template_cache_ready = true
+		_passive_mythic_spawn_template_prewarm_index = 0
+		return true
+	var sample_start: int = _perf_begin(perf_logger)
+	if passive_mythic_catalog.has_method("build_item_by_name"):
+		if _passive_mythic_spawn_template_prewarm_index >= MythicItemCatalog.FIELD_SPAWN_ORDER.size():
+			_passive_mythic_spawn_template_cache_ready = true
+			_passive_mythic_spawn_template_prewarm_index = 0
+			_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic.source", sample_start)
+			return true
+		var item_name := str(MythicItemCatalog.FIELD_SPAWN_ORDER[_passive_mythic_spawn_template_prewarm_index])
+		var item_data: Dictionary = passive_mythic_catalog.build_item_by_name(item_name)
+		if not item_data.is_empty():
+			_passive_mythic_spawn_template_cache.append(_prepare_passive_mythic_template(item_data))
+		_passive_mythic_spawn_template_prewarm_index += 1
+		if _passive_mythic_spawn_template_prewarm_index >= MythicItemCatalog.FIELD_SPAWN_ORDER.size():
+			_passive_mythic_spawn_template_cache_ready = true
+			_passive_mythic_spawn_template_prewarm_index = 0
+			_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic.source", sample_start)
+			return true
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic.source", sample_start)
+		return false
+	if passive_mythic_catalog.has_method("get_field_spawn_items"):
+		for item_value in passive_mythic_catalog.get_field_spawn_items():
+			var item_data: Dictionary = _get_dict(item_value)
+			if not item_data.is_empty():
+				_passive_mythic_spawn_template_cache.append(item_data.duplicate(true))
+	_passive_mythic_spawn_template_cache_ready = true
+	_passive_mythic_spawn_template_prewarm_index = 0
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic.source", sample_start)
+	return true
 
 
 func _prepare_passive_mythic_template(item_data: Dictionary) -> Dictionary:

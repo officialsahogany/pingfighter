@@ -13,6 +13,7 @@ const ACTIVE_ITEM_EXTRAS := [
 	"ammo_box",
 	"doping_potion",
 	"elixir_of_mastery",
+	"milk_bottle",
 ]
 
 var _failures: Array[String] = []

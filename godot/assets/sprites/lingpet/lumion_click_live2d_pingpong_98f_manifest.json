@@ -1,0 +1,318 @@
+{
+  "asset_id": "lumion_click_live2d_pingpong_98f",
+  "character": "lumion",
+  "display_name": "루미온",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/lumion_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "character_id": "cmpwxr3mt001av4z39hvsh681",
+    "character_name": "Lumion Lingpet Acquire Cutin 20260603",
+    "spritesheet_id": "cmpwzh0mr006dgvn9zuyyh6c7",
+    "spritesheet_job_id": "wf_a00787b2-4296-47f2-9a30-80390015c028",
+    "video_id": "cmpwzeddk005z7ddb630vsj4b",
+    "raw_sheet_local_path": ".tmp/lumion_click_live2d_v1/lumion_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/lumion_click_live2d_v1/lumion_click_live2d_raw_49f_atlas.json",
+    "prompt": "49-frame click reaction Live2D one-shot for Lumion the fox Ringpet. Surprised happy bounce, ears perk, raised paw waves, bright amber eyes blink then wink, small fang smile, tail feathers swish, orange forehead jewel and circuit lines sparkle warmly. Preserve identity, full-body scale, and clean chibi anime style. Transparent background, generous safe margins, no text, no UI, no crop.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1152,
+      1152
+    ],
+    "sheet_size": [
+      16128,
+      8064
+    ],
+    "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.84,
+    "upscale_intermediate_scale": 2.0,
+    "target_reference": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
+    "sha256": "7e26cdc5727dc9b0a791b2fb8c13d839ca9fabcac0aec1f14f497e5a469c7576",
+    "bytes": 54791723
+  },
+  "postprocess": {
+    "main_operation": "Lumion click sheet was rebuilt to match Maribo dimensions: 14x7 / 98f, 1152px cells, 16128x8064 sheet. The previous 0.92 1024px source was center-repacked to Maribo's 0.84 safe content scale, RGB-upscaled with Real-ESRGAN x2, downsampled to 1152 target cells, lightly sharpened, and recombined with separately resized source alpha.",
+    "tool": "Pillow per-cell safe-margin repack + Real-ESRGAN x2 intermediate upscale",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "source": ".tmp/lumion_l2d_realesrgan_match_lunabi/originals/lumion_click_live2d_pingpong_98f.png",
+      "rgb_input_dir": ".tmp/lumion_l2d_match_maribo/click_rgb_in_safe084",
+      "rgb_output_dir": ".tmp/lumion_l2d_match_maribo/click_rgb_x2_safe084",
+      "alpha_policy": "source alpha center-repacked from 0.92 to Maribo 0.84 content scale, resized separately to 1152, alpha<=15 clipped, then recombined",
+      "target_reference": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
+      "preview": ".tmp/lumion_l2d_match_maribo/lumion_click_live2d_maribo_size_contact_preview.png"
+    }
+  },
+  "qa": {
+    "final_frame_count": 98,
+    "final_edge_alpha_count": 0,
+    "raw_safe084_sample_margins_ltrb": [
+      [
+        0,
+        191,
+        143,
+        172,
+        159
+      ],
+      [
+        4,
+        190,
+        148,
+        168,
+        143
+      ],
+      [
+        8,
+        194,
+        191,
+        161,
+        92
+      ],
+      [
+        12,
+        174,
+        240,
+        125,
+        111
+      ],
+      [
+        16,
+        187,
+        135,
+        188,
+        202
+      ],
+      [
+        20,
+        146,
+        93,
+        289,
+        254
+      ],
+      [
+        24,
+        129,
+        138,
+        270,
+        203
+      ],
+      [
+        28,
+        163,
+        193,
+        249,
+        105
+      ],
+      [
+        32,
+        140,
+        202,
+        215,
+        150
+      ],
+      [
+        36,
+        112,
+        119,
+        213,
+        226
+      ],
+      [
+        40,
+        96,
+        91,
+        240,
+        235
+      ],
+      [
+        44,
+        109,
+        127,
+        243,
+        186
+      ],
+      [
+        48,
+        141,
+        182,
+        231,
+        116
+      ],
+      [
+        49,
+        141,
+        182,
+        231,
+        116
+      ],
+      [
+        60,
+        111,
+        104,
+        219,
+        231
+      ],
+      [
+        76,
+        135,
+        97,
+        286,
+        249
+      ],
+      [
+        92,
+        191,
+        154,
+        168,
+        132
+      ],
+      [
+        97,
+        191,
+        143,
+        172,
+        159
+      ]
+    ],
+    "final_sample_margins_ltrb": [
+      [
+        0,
+        218,
+        163,
+        196,
+        181
+      ],
+      [
+        4,
+        216,
+        169,
+        192,
+        163
+      ],
+      [
+        8,
+        221,
+        218,
+        183,
+        105
+      ],
+      [
+        12,
+        198,
+        272,
+        143,
+        127
+      ],
+      [
+        16,
+        213,
+        154,
+        215,
+        229
+      ],
+      [
+        20,
+        165,
+        108,
+        328,
+        288
+      ],
+      [
+        24,
+        148,
+        157,
+        307,
+        231
+      ],
+      [
+        28,
+        185,
+        219,
+        282,
+        121
+      ],
+      [
+        32,
+        160,
+        230,
+        262,
+        172
+      ],
+      [
+        36,
+        129,
+        135,
+        242,
+        254
+      ],
+      [
+        40,
+        110,
+        104,
+        272,
+        267
+      ],
+      [
+        44,
+        125,
+        144,
+        276,
+        211
+      ],
+      [
+        48,
+        162,
+        206,
+        262,
+        133
+      ],
+      [
+        49,
+        162,
+        206,
+        262,
+        133
+      ],
+      [
+        60,
+        126,
+        119,
+        249,
+        262
+      ],
+      [
+        76,
+        154,
+        112,
+        324,
+        281
+      ],
+      [
+        92,
+        218,
+        175,
+        191,
+        151
+      ],
+      [
+        97,
+        218,
+        163,
+        196,
+        181
+      ]
+    ],
+    "preview": ".tmp/lumion_l2d_match_maribo/lumion_click_live2d_maribo_size_contact_preview.png",
+    "size_note": "Final sheet intentionally matches Maribo click Live2D at 16128x8064 / 1152px cells."
+  },
+  "status": "Lumion click Live2D pingpong sheet matched to Maribo 1152px-cell final size with alpha-preserved Real-ESRGAN x2 processing."
+}

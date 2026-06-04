@@ -21,6 +21,8 @@ const STOP_METHODS := [
 	"stop_commando_suicide_drone_loop",
 	"stop_ragnarok_shock_loop",
 	"stop_electric_shock_loop",
+	"stop_lingpet_gatling_loop",
+	"stop_bomb_surprise_urgent_tick",
 	"stop_stage2_quake_loop",
 	"stop_stage3_psychoball_loop",
 	"stop_stage4_magnetic_loop",

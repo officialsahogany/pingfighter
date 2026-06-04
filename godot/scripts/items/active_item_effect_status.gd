@@ -8,6 +8,8 @@ func can_store_item(item_name: String, active_flags: Dictionary) -> bool:
 		return false
 	if item_name == "long_boost" and bool(active_flags.get("long_boost_active", false)):
 		return false
+	if item_name == "milk_bottle" and bool(active_flags.get("milk_bottle_active", false)):
+		return false
 	if item_name == "vitamin_pill" and bool(active_flags.get("vitamin_pill_active", false)):
 		return false
 	if item_name == "strange_vial" and bool(active_flags.get("strange_vial_active", false)):

@@ -41,15 +41,17 @@ func roll_lucky_coin_bonus_position(anchor_position: Vector2 = Vector2.ZERO, use
 
 
 func build_field_item(item_data: Dictionary, position: Vector2) -> Dictionary:
+	var stationary := bool(item_data.get("stationary_field_item", false))
 	return {
 		"item_data": item_data,
 		"position": position,
-		"velocity": Vector2(_roll_spawn_velocity_component(), _roll_spawn_velocity_component()),
+		"velocity": Vector2.ZERO if stationary else Vector2(_roll_spawn_velocity_component(), _roll_spawn_velocity_component()),
 		"angle_degrees": 0.0,
 		"bounce_count": 0,
-		"max_bounces": randi_range(6, 9),
+		"max_bounces": 2147483647 if stationary else randi_range(6, 9),
 		"spawn_spark_timer": SPAWN_SPARK_DURATION_SEC,
 		"spawn_skip_update_once": true,
+		"stationary_field_item": stationary,
 	}
 
 
@@ -111,6 +113,12 @@ func advance_field_item_in_place(field_item: Dictionary, player_rect: Rect2, dow
 	if bool(field_item.get("spawn_skip_update_once", false)):
 		field_item["spawn_skip_update_once"] = false
 		return ADVANCE_SKIPPED_ALIVE
+
+	if _is_stationary_field_item(field_item):
+		field_item["velocity"] = Vector2.ZERO
+		field_item["angle_degrees"] = 0.0
+		field_item["spawn_spark_timer"] = max(0.0, float(field_item.get("spawn_spark_timer", 0.0)) - delta)
+		return ADVANCE_ALIVE
 
 	var fps_scale: float = delta * 60.0
 	var item_pos: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO)
@@ -182,6 +190,15 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _is_stationary_field_item(field_item: Dictionary) -> bool:
+	if bool(field_item.get("stationary_field_item", false)):
+		return true
+	var item_data_value: Variant = field_item.get("item_data", {})
+	if item_data_value is Dictionary:
+		return bool((item_data_value as Dictionary).get("stationary_field_item", false))
+	return false
 
 
 func _get_instance(registry: Object, key: String) -> Object:

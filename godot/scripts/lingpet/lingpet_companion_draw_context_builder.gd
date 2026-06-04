@@ -47,7 +47,7 @@ func build_config(params: Dictionary) -> Dictionary:
 		"walk_draw_size": _get_visual_layout_value(current_profile, "companion_walk_draw_size"),
 		"strike_draw_size": _get_visual_layout_value(current_profile, "companion_strike_draw_size"),
 		"cast_draw_size": _get_visual_layout_value(current_profile, "companion_cast_draw_size"),
-		"motion_speed_ratio": clampf(_get_float(params.get("motion_speed_ratio", 0.0)), 0.0, 1.0),
+		"motion_speed_ratio": _resolve_motion_speed_ratio(current_profile, params.get("motion_speed_ratio", 0.0)),
 	}
 
 
@@ -91,6 +91,14 @@ func _get_visual_layout_value(current_profile: Object, layout_key: String) -> fl
 	if current_profile == null or not current_profile.has_method("get_visual_layout_value"):
 		return 0.0
 	return maxf(0.0, float(current_profile.get_visual_layout_value(layout_key, 0.0)))
+
+
+func _resolve_motion_speed_ratio(current_profile: Object, value: Variant) -> float:
+	var ratio := clampf(_get_float(value), 0.0, 1.0)
+	var max_ratio := _get_visual_layout_value(current_profile, "companion_wing_flap_max_speed_ratio")
+	if max_ratio > 0.0:
+		ratio = minf(ratio, clampf(max_ratio, 0.0, 1.0))
+	return ratio
 
 
 func _get_display_name(current_profile: Object) -> String:

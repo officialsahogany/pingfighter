@@ -18,7 +18,7 @@ func update(delta: float, params: Dictionary) -> Dictionary:
 		skill_state.cancel_windup()
 		return _make_action(ACTION_NONE)
 	if skill_runtime_host != null:
-		skill_runtime_host.update(safe_delta, params.get("owner", null) as Object, params.get("registry", null) as Object, skill_id)
+		skill_runtime_host.update(safe_delta, params.get("owner", null) as Object, params.get("registry", null) as Object, skill_id, params)
 	if bool(skill_state.advance_windup(safe_delta, maxf(0.0, float(params.get("windup_seconds", 0.0))))):
 		return _make_action(ACTION_LAUNCH)
 	if _should_arm(skill_id, skill_state, skill_runtime_host, params):
@@ -43,11 +43,12 @@ func complete_launch(
 	cooldown_seconds: float,
 	flash_seconds: float,
 	registry: Object,
-	owner: Object = null
+	owner: Object = null,
+	launch_context: Dictionary = {}
 ) -> bool:
 	if skill_state == null or skill_runtime_host == null:
 		return false
-	if not skill_runtime_host.launch(skill_id, origin, owner):
+	if not skill_runtime_host.launch(skill_id, origin, owner, launch_context):
 		skill_state.cancel_windup()
 		return false
 	skill_state.complete_launch(origin, cooldown_seconds, flash_seconds)

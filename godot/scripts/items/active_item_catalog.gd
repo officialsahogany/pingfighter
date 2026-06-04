@@ -32,6 +32,8 @@ const BANANA_ICON_PATH := "res://assets/sprites/items/banana.png"
 const SOAP_ICON_PATH := "res://assets/sprites/items/soap.png"
 const SPIDER_MINE_ICON_PATH := "res://assets/sprites/items/spider_mine.png"
 const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery.png"
+const MILK_BOTTLE_ICON_PATH := "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png"
+const MILK_BOTTLE_FIELD_ICON_PATH := "res://assets/sprites/items/milk_bottle_field_imagegen_v1.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
@@ -112,6 +114,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_spider_mine()
 		"elixir_of_mastery":
 			item_data = _build_elixir_of_mastery()
+		"milk_bottle":
+			item_data = _build_milk_bottle()
 	if item_data.is_empty():
 		return {}
 	return LanguageSettings.localize_item_data(item_data)
@@ -541,4 +545,26 @@ func _build_elixir_of_mastery() -> Dictionary:
 		"color": Color(0.47, 0.2, 0.78),
 		"consumable": true,
 		"mythic_active": true,
+	}
+
+
+func _build_milk_bottle() -> Dictionary:
+	return {
+		"name": "milk_bottle",
+		"display_name": "우유병",
+		"type": "active",
+		"effect": "milk_bottle",
+		"chance": 0.0,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": MILK_BOTTLE_ICON_PATH,
+		"field_icon_path": MILK_BOTTLE_FIELD_ICON_PATH,
+		"color": Color(0.58, 1.0, 0.95),
+		"consumable": true,
+		"stationary_field_item": true,
+		"dash_destroy_on_player_contact": true,
+		"paddle_scale_multiplier": 1.20,
+		"stage_persistent": true,
+		"lingpet_generated_only": true,
+		"description": "사용 시 스테이지 종료까지 플레이어 패들과 이미지 크기가 20% 증가합니다.",
 	}

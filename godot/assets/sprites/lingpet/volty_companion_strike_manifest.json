@@ -1,0 +1,488 @@
+{
+  "asset_id": "volty_companion_strike_v1",
+  "character": "volty",
+  "display_name": "볼티",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_companion_strike_ball_hit_with_anticipation",
+  "status": "Accepted candidate: compact AutoSprite electric claw strike remapped so runtime frame 22 is impact.",
+  "runtime_contract": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "runtime_start_frame": 18,
+    "runtime_impact_frame": 22,
+    "note": "The actual ball is drawn by gameplay runtime; this sheet intentionally contains no ball sprite, only Volty and strike spark."
+  },
+  "source_autosprite": {
+    "asset_id": "cmpwzyrvp00642ozrp1ktjbxf",
+    "asset_name": "Volty Companion Back Idle Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/volty_companion_idle_back_base.png",
+    "spritesheet_id": "cmpx20dtn000srs6iuu0hbwaz",
+    "spritesheet_job_id": "wf_df405d65-3f6c-4452-90ad-9607aac35181",
+    "raw_sheet_local_path": ".tmp/volty_companion_strike/volty_companion_strike_autosprite_raw_25f_v2.png",
+    "raw_atlas_local_path": ".tmp/volty_companion_strike/volty_companion_strike_autosprite_raw_25f_v2_atlas.json",
+    "prompt": "Compact rear 3/4 ball-strike one-shot. Pull back, charge, lunge with short electric claw spark at F22, recoil. stay centered, no long beam, no ball.",
+    "raw_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "rejected_autosprite_candidates": [
+    {
+      "spritesheet_id": "cmpx1xbji006kqe8rmhu5ynlf",
+      "spritesheet_job_id": "wf_6c693a4b-8e73-4905-bda4-9c344490454a",
+      "reason": "Rejected because the long golden beam clipped against the source cell edge and the hit peak landed before runtime frame 22.",
+      "raw_sheet_local_path": ".tmp/volty_companion_strike/volty_companion_strike_autosprite_raw_25f.png"
+    }
+  ],
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic runtime repack and AutoSprite-frame remap",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "target_cell_size": [
+      128,
+      128
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "source_scale_repack": 0.84,
+    "frame_map_runtime_to_autosprite": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      8,
+      9,
+      10,
+      10,
+      11,
+      11,
+      12,
+      12,
+      10,
+      11,
+      12,
+      13,
+      16,
+      19,
+      20
+    ],
+    "reason": "Align visible anticipation and impact with LingpetCompanionSpriteAnimator STRIKE_START_FRAME=18 and STRIKE_IMPACT_FRAME=22."
+  },
+  "outputs": {
+    "strike": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/volty_companion_strike.png",
+      "res_path": "res://assets/sprites/lingpet/volty_companion_strike.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ],
+      "sha256": "638e404fddb9a7a38583a8d9df46e96ce5e590f2f4712708215fad85cbeee1a7",
+      "bytes": 223077,
+      "qa": {
+        "whole_sheet_edge_alpha": 0,
+        "cells_with_edge_touch": [],
+        "visible_magenta_pixels": 0,
+        "min_margins_ltrb": [
+          11,
+          17,
+          13,
+          24
+        ],
+        "area_range_pct": [
+          32.07,
+          47.61
+        ],
+        "runtime_strike_frames": {
+          "start_frame": 18,
+          "impact_frame": 22,
+          "follow_frames": [
+            23,
+            24
+          ],
+          "source_mapping": [
+            {
+              "runtime_frame": 18,
+              "source_frame": 10
+            },
+            {
+              "runtime_frame": 19,
+              "source_frame": 11
+            },
+            {
+              "runtime_frame": 20,
+              "source_frame": 12
+            },
+            {
+              "runtime_frame": 21,
+              "source_frame": 13
+            },
+            {
+              "runtime_frame": 22,
+              "source_frame": 16
+            },
+            {
+              "runtime_frame": 23,
+              "source_frame": 19
+            },
+            {
+              "runtime_frame": 24,
+              "source_frame": 20
+            }
+          ],
+          "sample_bboxes": [
+            {
+              "frame": 18,
+              "bbox": [
+                24,
+                17,
+                103,
+                91
+              ],
+              "margin_ltrb": [
+                24,
+                17,
+                25,
+                37
+              ],
+              "size": [
+                79,
+                74
+              ],
+              "source_frame": 10
+            },
+            {
+              "frame": 19,
+              "bbox": [
+                21,
+                17,
+                104,
+                92
+              ],
+              "margin_ltrb": [
+                21,
+                17,
+                24,
+                36
+              ],
+              "size": [
+                83,
+                75
+              ],
+              "source_frame": 11
+            },
+            {
+              "frame": 20,
+              "bbox": [
+                18,
+                20,
+                109,
+                93
+              ],
+              "margin_ltrb": [
+                18,
+                20,
+                19,
+                35
+              ],
+              "size": [
+                91,
+                73
+              ],
+              "source_frame": 12
+            },
+            {
+              "frame": 21,
+              "bbox": [
+                18,
+                20,
+                112,
+                94
+              ],
+              "margin_ltrb": [
+                18,
+                20,
+                16,
+                34
+              ],
+              "size": [
+                94,
+                74
+              ],
+              "source_frame": 13
+            },
+            {
+              "frame": 22,
+              "bbox": [
+                11,
+                26,
+                115,
+                101
+              ],
+              "margin_ltrb": [
+                11,
+                26,
+                13,
+                27
+              ],
+              "size": [
+                104,
+                75
+              ],
+              "source_frame": 16
+            },
+            {
+              "frame": 23,
+              "bbox": [
+                18,
+                31,
+                113,
+                103
+              ],
+              "margin_ltrb": [
+                18,
+                31,
+                15,
+                25
+              ],
+              "size": [
+                95,
+                72
+              ],
+              "source_frame": 19
+            },
+            {
+              "frame": 24,
+              "bbox": [
+                18,
+                32,
+                112,
+                104
+              ],
+              "margin_ltrb": [
+                18,
+                32,
+                16,
+                24
+              ],
+              "size": [
+                94,
+                72
+              ],
+              "source_frame": 20
+            }
+          ]
+        },
+        "sample_bboxes": [
+          {
+            "frame": 0,
+            "bbox": [
+              28,
+              30,
+              102,
+              103
+            ],
+            "margin_ltrb": [
+              28,
+              30,
+              26,
+              25
+            ],
+            "size": [
+              74,
+              73
+            ],
+            "source_frame": 0
+          },
+          {
+            "frame": 4,
+            "bbox": [
+              30,
+              24,
+              102,
+              97
+            ],
+            "margin_ltrb": [
+              30,
+              24,
+              26,
+              31
+            ],
+            "size": [
+              72,
+              73
+            ],
+            "source_frame": 4
+          },
+          {
+            "frame": 8,
+            "bbox": [
+              29,
+              17,
+              102,
+              92
+            ],
+            "margin_ltrb": [
+              29,
+              17,
+              26,
+              36
+            ],
+            "size": [
+              73,
+              75
+            ],
+            "source_frame": 8
+          },
+          {
+            "frame": 12,
+            "bbox": [
+              24,
+              17,
+              103,
+              91
+            ],
+            "margin_ltrb": [
+              24,
+              17,
+              25,
+              37
+            ],
+            "size": [
+              79,
+              74
+            ],
+            "source_frame": 10
+          },
+          {
+            "frame": 16,
+            "bbox": [
+              18,
+              20,
+              109,
+              93
+            ],
+            "margin_ltrb": [
+              18,
+              20,
+              19,
+              35
+            ],
+            "size": [
+              91,
+              73
+            ],
+            "source_frame": 12
+          },
+          {
+            "frame": 18,
+            "bbox": [
+              24,
+              17,
+              103,
+              91
+            ],
+            "margin_ltrb": [
+              24,
+              17,
+              25,
+              37
+            ],
+            "size": [
+              79,
+              74
+            ],
+            "source_frame": 10
+          },
+          {
+            "frame": 20,
+            "bbox": [
+              18,
+              20,
+              109,
+              93
+            ],
+            "margin_ltrb": [
+              18,
+              20,
+              19,
+              35
+            ],
+            "size": [
+              91,
+              73
+            ],
+            "source_frame": 12
+          },
+          {
+            "frame": 22,
+            "bbox": [
+              11,
+              26,
+              115,
+              101
+            ],
+            "margin_ltrb": [
+              11,
+              26,
+              13,
+              27
+            ],
+            "size": [
+              104,
+              75
+            ],
+            "source_frame": 16
+          },
+          {
+            "frame": 24,
+            "bbox": [
+              18,
+              32,
+              112,
+              104
+            ],
+            "margin_ltrb": [
+              18,
+              32,
+              16,
+              24
+            ],
+            "size": [
+              94,
+              72
+            ],
+            "source_frame": 20
+          }
+        ]
+      },
+      "dark_contact_preview": ".tmp/volty_companion_strike/volty_companion_strike_contact_preview.png",
+      "runtime_frames_preview": ".tmp/volty_companion_strike/volty_companion_strike_runtime_frames_18_24.png",
+      "preview_gif": ".tmp/volty_companion_strike/volty_companion_strike_preview.gif"
+    }
+  }
+}

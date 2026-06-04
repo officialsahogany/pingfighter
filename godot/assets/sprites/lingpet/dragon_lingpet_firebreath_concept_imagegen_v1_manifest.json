@@ -1,0 +1,38 @@
+{
+  "asset_id": "dragon_lingpet_firebreath_concept_imagegen_v1",
+  "asset_type": "lingpet_cutin_concept_art",
+  "runtime_usage": "candidate Ringpet / Lingpet concept and cut-in source art; not wired into lingpet_catalog.gd yet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019e89d3-4ebd-7273-98cb-ee080d32ed86/ig_0bb2b3d181b648ab016a1f30265e508191979f215fa7fe657b.png",
+  "outputs": {
+    "magenta_source": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_concept_imagegen_v1_magenta_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/dragon_lingpet_firebreath_concept_imagegen_v1.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "prompt_summary": "Fire-breathing chibi dragon Ringpet / Lingpet companion, full-body 3/4 front cut-in concept art with small horns, tiny wings, bright eyes, a magical ring collar, and a contained orange fire plume on a flat magenta chroma-key background."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "game asset concept and cut-in source for a Ringpet / Lingpet companion in DiskHearts - Ringpia",
+    "primary_request": "a fire-breathing dragon style Ringpet",
+    "subject": "one cute chibi baby dragon companion, full body, compact mascot proportions, small horns, tiny wings, expressive bright eyes, subtle magical ring collar / halo motif, breathing a small controlled plume of orange fire from its mouth",
+    "style": "polished Korean anime game mascot illustration, clean cel-shaded fantasy creature design, crisp silhouette, high-quality cut-in art",
+    "composition": "centered full-body 3/4 front view with generous padding; fire plume stays inside the image bounds",
+    "background": "perfectly flat solid #ff00ff chroma-key background for background removal",
+    "constraints": "no text, no UI, no watermark, no logo, no extra characters, no border, no cast shadow, no contact shadow, no reflection, no #ff00ff in the subject"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fb03f9",
+    "canonical_source_background": "#ff00ff",
+    "note": "The generated image used a near-magenta background. After alpha extraction, the project magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff so repo source corners are stable."
+  },
+  "validation": {
+    "alpha_size": "1254x1254",
+    "source_corner_rgba": ["#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255"],
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [47, 147, 1203, 1112],
+    "visible_magenta_pixels": 0
+  }
+}

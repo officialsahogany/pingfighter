@@ -195,6 +195,7 @@ func configure_player_character(owner: Object, registry: Object, character_type:
 				"registry": registry,
 				"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 				"preserve_ignition_aura": false,
+				"preserve_dual_glitch": false,
 			})
 		elif viper_skill_runtime != null and viper_skill_runtime.has_method("reset"):
 			viper_skill_runtime.reset()

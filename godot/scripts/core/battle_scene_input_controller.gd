@@ -43,7 +43,11 @@ func handle_unhandled_input(
 		if bool(intro_input.handle_input(event, owner, registry, module_getter, context)):
 			return
 
+	if _handle_lingpet_acquire_cutin_input(event, owner, registry, module_getter):
+		return
 	if _handle_stage_clear_result_input(event, owner, registry, module_getter):
+		return
+	if _handle_runtime_perk_choice_input(event, owner, registry, module_getter):
 		return
 	if _handle_mythic_acquisition_input(event, owner, registry, module_getter):
 		return
@@ -155,9 +159,24 @@ func _handle_lingpet_companion_click(event: InputEvent, owner: Object, registry:
 	if not game_rect.has_point(mouse_event.position):
 		return false
 	var playfield_pos: Vector2 = (mouse_event.position - game_offset) / render_scale
-	if not bool(runtime.try_begin_companion_click_reaction(playfield_pos)):
+	if not bool(runtime.try_begin_companion_click_reaction(playfield_pos, registry)):
 		return false
 	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_lingpet_acquire_cutin_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+	if runtime == null:
+		runtime = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("is_acquire_cutin_active"):
+		return false
+	if not bool(runtime.is_acquire_cutin_active()):
+		return false
+	var overlay_input: Object = _get_overlay_input_controller(module_getter)
+	if overlay_input != null and overlay_input.has_method("handle_input"):
+		overlay_input.handle_input(event, owner, registry, module_getter, {})
 	_mark_handled(owner)
 	return true
 
@@ -186,6 +205,17 @@ func _handle_stage_clear_result_input(event: InputEvent, owner: Object, registry
 		return true
 	if result_screen.has_method("handle_input"):
 		result_screen.handle_input(event, owner, registry, _get_view_size(owner))
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_runtime_perk_choice_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	if not _is_runtime_perk_choice_active(module_getter):
+		return false
+	var overlay_input: Object = _get_overlay_input_controller(module_getter)
+	if overlay_input != null and overlay_input.has_method("handle_input"):
+		overlay_input.handle_input(event, owner, registry, module_getter, {})
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true

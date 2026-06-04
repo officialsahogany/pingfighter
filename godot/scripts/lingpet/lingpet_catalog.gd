@@ -37,6 +37,60 @@ const REQUIRED_PASSIVE_SKILL_KEYS := [
 	"description",
 ]
 
+const SKILL_LEVEL_MIN := 1
+const SKILL_LEVEL_MAX := 5
+const DEFAULT_ACTIVE_SKILL_LEVEL := 1
+const DEFAULT_PASSIVE_SKILL_LEVEL := 1
+const DEFAULT_PASSIVE_SLOT_COUNT := 1
+const MAX_PASSIVE_SLOT_COUNT := 2
+const ACTIVE_COOLDOWN_REDUCTION_PCT_BY_LEVEL := [0.0, 3.0, 6.0, 9.0, 12.0]
+const ACTIVE_WINDUP_REDUCTION_PCT_BY_LEVEL := [0.0, 2.0, 4.0, 6.0, 8.0]
+const LEGACY_PASSIVE_ID_ALIASES := {
+	"gauge_gain_bonus": "lingpet_resonance_boost",
+	"maribo_resonance_boost": "lingpet_resonance_boost",
+	"milkring_lactose_charge": "lingpet_resonance_boost",
+	"lumion_circuit_resonance": "lingpet_resonance_boost",
+	"red_dragon_core_resonance": "lingpet_resonance_boost",
+	"lingpet_guard_instinct": "lingpet_afterglow_leak",
+	"lingpet_direct_charge": "lingpet_afterglow_leak",
+	"lingpet_swift_patrol": "lingpet_afterglow_leak",
+	"lingpet_broad_guard": "lingpet_afterglow_leak",
+	"lingpet_quick_cycle": "lingpet_afterglow_leak",
+	"lingpet_fast_cast": "lingpet_afterglow_leak",
+	"lingpet_focus_link": "lingpet_afterglow_leak",
+	"lingpet_steady_body": "lingpet_afterglow_leak",
+	"lingpet_intercept_rhythm": "lingpet_afterglow_leak",
+}
+const COMMON_PASSIVE_SKILL_POOL := [
+	{
+		"id": "lingpet_resonance_boost",
+		"name": "공명 증폭",
+		"description": "플레이어가 공을 받아칠 때 링펫 게이지 획득량이 증가합니다.",
+		"icon_texture_path": "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png",
+		"category": "게이지 증폭",
+		"gauge_gain_bonus_pct_by_level": [4.0, 7.0, 10.0, 13.0, 16.0],
+	},
+	{
+		"id": "lingpet_afterglow_leak",
+		"name": "잔광 유출",
+		"description": "링펫이 공을 받아칠 때 빛나는 공명 유체를 흘립니다. 플레이어 패들이 가까이 가면 유체를 흡수해 게이지를 빠르게 얻고, 시간이 지나면 바닥으로 스며들어 사라집니다.",
+		"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+		"category": "게이지 회수 / 필드 잔류물",
+		"afterglow_total_gauge_by_level": [20.0, 40.0, 60.0, 80.0, 100.0],
+		"afterglow_duration_seconds_by_level": [2.4, 2.6, 2.8, 3.0, 3.2],
+		"afterglow_absorb_radius_by_level": [52.0, 56.0, 60.0, 64.0, 68.0],
+		"afterglow_tick_count": 6,
+	},
+	{
+		"id": "lingpet_tailwind_steps",
+		"name": "순풍 발산",
+		"description": "링펫이 순풍의 기운을 발산해 플레이어의 이동 속도가 증가합니다.",
+		"icon_texture_path": "res://assets/sprites/perks/common_swiftness_perk_icon.png",
+		"category": "이동 속도",
+		"player_speed_bonus_pct_by_level": [4.0, 7.0, 10.0, 13.0, 16.0],
+	},
+]
+
 const PETS := {
 	"maribo": {
 		"id": "maribo",
@@ -55,7 +109,7 @@ const PETS := {
 			"catch_height": 44.0,
 			"defense_rate": 0.30,
 			"hit_gauge_gain": 40.0,
-			"gauge_gain_bonus_pct": 10.0,
+			"gauge_gain_bonus_pct": 0.0,
 		},
 		"visuals": {
 			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
@@ -68,6 +122,7 @@ const PETS := {
 			"cutin_anim": "res://assets/sprites/lingpet/maribo_cutin_anim.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png",
 			"click_reaction_anim": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/maribo_companion_click_reaction_98f.png",
 		},
 		"visual_layout": {
 			"companion_walk_draw_size": 104.0,
@@ -81,19 +136,28 @@ const PETS := {
 			"windup_seconds": 1.0,
 			"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
 		},
-		"passive_icons": {
-			"gauge_gain_bonus": "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png",
-		},
-		"passive_skill_pool": [
+		"active_skill_pool": [
 			{
-				"id": "maribo_resonance_boost",
-				"name": "공명 증폭",
-				"description": "플레이어가 공을 받아칠 때 게이지 획득량이 증가합니다.",
-				"icon_texture_path": "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png",
-				"gauge_gain_bonus_pct": 10.0,
+				"id": "maribo_hydro_sphere",
+				"runtime_kind": "hydro_sphere",
+				"name": "하이드로 스피어",
+				"description": "물의 기운이 담긴 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 물장판을 만듭니다.",
+				"cooldown": 40.0,
+				"windup_seconds": 1.0,
+				"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+			},
+			{
+				"id": "maribo_bubble_trap",
+				"runtime_kind": "bubble_trap",
+				"name": "물방울트랩",
+				"description": "천천히 앞으로 전진하는 물방울을 발사합니다. 상대 패들이 닿으면 2.5~3초 동안 물방울에 갇혀 움직일 수 없고, 물방울은 좌우로 떠다닙니다. 공에 닿으면 즉시 터집니다.",
+				"cooldown": 25.0,
+				"windup_seconds": 0.75,
+				"card_texture_path": "res://assets/sprites/lingpet/maribo_bubble_trap_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/maribo_bubble_trap_skill_icon_imagegen_v1.png",
 			},
 		],
-		"effect_text": "공을 받아칠 때 게이지 획득량 +10% / 링펫이 공을 직접 튕기면 게이지 +40 / 하이드로 스피어: 40초마다 물창을 던져 상대 진영에 5초 둔화 장판을 만듭니다.",
+		"effect_text": "링펫이 공을 직접 튕기면 게이지 +40 / 하이드로 스피어 또는 물방울트랩 중 획득 시 선택된 액티브를 자동 사용합니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 	},
 	"lunabi": {
 		"id": "lunabi",
@@ -126,6 +190,7 @@ const PETS := {
 			"cutin_anim": "res://assets/sprites/lingpet/lunabi_cutin_anim.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
 			"click_reaction_anim": "res://assets/sprites/lingpet/lunabi_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/lunabi_companion_click_reaction_98f.png",
 		},
 		"active_skill": {
 			"id": "lunabi_headbutt",
@@ -170,6 +235,7 @@ const PETS := {
 			"cutin_anim": "res://assets/sprites/lingpet/draft_bat_cutin_anim.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/draft_bat_cutin_dismiss_anim.png",
 			"click_reaction_anim": "res://assets/sprites/lingpet/draft_bat_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/draft_bat_companion_click_reaction_98f.png",
 		},
 		"active_skill": {
 			"id": "draft_bat_moon_orbit",
@@ -186,6 +252,311 @@ const PETS := {
 		"concept_chromakey_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_chromakey.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_magenta_source.png",
 		"note": "Draft runtime candidate; disabled until final hatch-pool QA and balance approval.",
+	},
+	"milkring": {
+		"id": "milkring",
+		"display_name": "밀크링",
+		"enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 124.0,
+			"patrol_speed_min": 76.0,
+			"patrol_speed_max": 144.0,
+			"catch_width": 98.0,
+			"catch_height": 48.0,
+			"defense_rate": 0.24,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/milkring_companion_walk.png",
+			"companion_strike": "res://assets/sprites/lingpet/milkring_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/milkring_milk_production_autosprite_25f.png",
+			"cutin_art": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5.png",
+			"cutin_anim": "res://assets/sprites/lingpet/milkring_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/milkring_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/milkring_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/milkring_companion_click_reaction_98f.png",
+		},
+		"visual_layout": {
+			"companion_walk_draw_size": 104.0,
+			"companion_strike_draw_size": 104.0,
+			"companion_cast_draw_size": 104.0,
+		},
+		"active_skill": {
+			"id": "milkring_milk_production",
+			"runtime_kind": "milk_production",
+			"name": "우유생산",
+			"description": "밀크링이 3초 동안 우유병을 제조합니다. 완성된 우유병은 바닥에 세워지며, 플레이어가 닿으면 액티브 아이템 슬롯에 들어갑니다. 대쉬로 부딪히면 우유병이 파괴됩니다.",
+			"cooldown": 50.0,
+			"windup_seconds": 3.0,
+			"card_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+		},
+		"active_skill_pool": [
+			{
+				"id": "milkring_milk_production",
+				"runtime_kind": "milk_production",
+				"name": "우유생산",
+				"description": "밀크링이 3초 동안 우유병을 제조합니다. 완성된 우유병은 바닥에 세워지며, 플레이어가 닿으면 액티브 아이템 슬롯에 들어갑니다. 대쉬로 부딪히면 우유병이 파괴됩니다.",
+				"cooldown": 50.0,
+				"windup_seconds": 3.0,
+				"card_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+			},
+		],
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 우유생산은 50초마다 3초 동안 우유병을 제조해 바닥에 생성합니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
+		"concept_art_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5_magenta_source.png",
+		"note": "Milkring Milk Production uses the dedicated milk_production runtime and AutoSprite production cast sheet.",
+	},
+	"volty": {
+		"id": "volty",
+		"display_name": "볼티",
+		"enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 162.0,
+			"patrol_speed_min": 108.0,
+			"patrol_speed_max": 216.0,
+			"catch_width": 94.0,
+			"catch_height": 48.0,
+			"defense_rate": 0.16,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/volty_companion_walk.png",
+			"companion_strike": "res://assets/sprites/lingpet/volty_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/volty_companion_strike.png",
+			"cutin_art": "res://assets/sprites/lingpet/volty_cutin_art.png",
+			"cutin_anim": "res://assets/sprites/lingpet/volty_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/volty_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/volty_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/volty_companion_click_reaction_98f.png",
+		},
+		"visual_layout": {
+			"companion_walk_draw_size": 104.0,
+			"companion_strike_draw_size": 104.0,
+			"companion_cast_draw_size": 104.0,
+		},
+		"active_skill": {
+			"id": "volty_bomb_surprise",
+			"runtime_kind": "bomb_surprise",
+			"name": "폭탄 서프라이즈",
+			"description": "볼티가 시한폭탄을 공에 부착합니다. 폭탄은 공과 패들 사이를 오가다가 폭발하며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.",
+			"cooldown": 60.0,
+			"windup_seconds": 0.45,
+			"card_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+		},
+		"active_skill_pool": [
+			{
+				"id": "volty_bomb_surprise",
+				"runtime_kind": "bomb_surprise",
+				"name": "폭탄 서프라이즈",
+				"description": "볼티가 시한 폭탄을 공에 부착합니다. 폭탄은 공과 양쪽 패들 사이를 오가며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.",
+				"cooldown": 60.0,
+				"windup_seconds": 0.45,
+				"card_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+			},
+			{
+				"id": "volty_gatling_burst",
+				"runtime_kind": "gatling_burst",
+				"name": "개틀링 버스트",
+				"description": "볼티가 개틀링 탱크로 변신해 1초 동안 전개한 뒤 3초 동안 상대를 향해 난사합니다. 맞은 대상은 코만도 AK-47과 같은 짧은 스턴과 넉백을 받습니다.",
+				"cooldown": 50.0,
+				"windup_seconds": 0.0,
+				"card_texture_path": "res://assets/sprites/lingpet/volty_gatling_burst_skill_icon.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/volty_gatling_burst_skill_icon.png",
+			},
+		],
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 폭탄 서프라이즈는 60초마다 공에 시한폭탄을 붙여 상대 쪽 폭발 시 강한 스턴+넉백, 플레이어 쪽 폭발 시 약한 스턴+넉백을 일으킵니다.",
+		"concept_art_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/volty_cutin_art_magenta_source.png",
+		"note": "Volty Bomb Surprise ports the original Android bomb-surprise ball attachment and side-based weak/strong stun plus knockback behavior to the lingpet runtime.",
+	},
+	"lumion": {
+		"id": "lumion",
+		"display_name": "루미온",
+		"enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 132.0,
+			"patrol_speed_min": 82.0,
+			"patrol_speed_max": 156.0,
+			"catch_width": 96.0,
+			"catch_height": 48.0,
+			"defense_rate": 0.26,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/lumion_companion_walk.png",
+			"companion_strike": "res://assets/sprites/lingpet/lumion_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/lumion_companion_strike.png",
+			"cutin_art": "res://assets/sprites/lingpet/lumion_cutin_art.png",
+			"cutin_anim": "res://assets/sprites/lingpet/lumion_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/lumion_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/lumion_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/lumion_companion_click_reaction_98f.png",
+		},
+		"visual_layout": {
+			"companion_walk_draw_size": 104.0,
+			"companion_strike_draw_size": 104.0,
+			"companion_cast_draw_size": 104.0,
+		},
+		"active_skill": {
+			"id": "lumion_thunder_orb",
+			"runtime_kind": "thunder_orb",
+			"name": "천둥 뇌구",
+			"description": "루미온이 일직선 번개 구체를 발사합니다. 뇌구는 처음 빠르게 날아간 뒤 점점 느려지고, 상대 진영에서 폭발해 전기 스파크에 닿은 보스를 감전시킵니다.",
+			"cooldown": 25.0,
+			"windup_seconds": 0.55,
+			"card_texture_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
+		},
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 천둥 뇌구는 25초마다 일직선으로 발사되어 상대 진영에서 폭발하고 닿은 보스를 2초 감전시킵니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
+		"concept_art_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/lumion_cutin_art_magenta_source.png",
+		"note": "Lumion companion visuals are live. Dedicated egg and skill-card art are pending, but the Thunder Orb active-skill runtime is wired with Horus-style straight-line deceleration, explosion, and electric stun.",
+	},
+	"orbi": {
+		"id": "orbi",
+		"display_name": "오르비",
+		"enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 176.0,
+			"patrol_speed_min": 118.0,
+			"patrol_speed_max": 228.0,
+			"catch_width": 88.0,
+			"catch_height": 50.0,
+			"defense_rate": 0.14,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/orbi_companion_walk.png",
+			"companion_strike": "res://assets/sprites/lingpet/orbi_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/orbi_companion_strike.png",
+			"cutin_art": "res://assets/sprites/lingpet/orbi_cutin_art.png",
+			"cutin_anim": "res://assets/sprites/lingpet/orbi_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/orbi_cutin_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/orbi_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/orbi_companion_click_reaction_98f.png",
+		},
+		"visual_layout": {
+			"companion_walk_draw_size": 104.0,
+			"companion_strike_draw_size": 104.0,
+			"companion_cast_draw_size": 104.0,
+		},
+		"active_skill": {
+			"id": "orbi_ring_orbit",
+			"runtime_kind": "moon_orbit",
+			"name": "링 오비트",
+			"description": "오르비가 푸른 링 궤도를 전개합니다. 상대 진영 벽에 닿으면 4초 동안 가로로 넓은 둔화장을 만듭니다.",
+			"cooldown": 36.0,
+			"windup_seconds": 0.8,
+			"card_texture_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
+		},
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 링 오비트는 36초마다 푸른 링 궤도를 쏘아 상대 진영에 4초 둔화장을 만듭니다.",
+		"concept_art_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/orbi_cutin_art_magenta_source.png",
+		"note": "Orbi companion/cut-in/click visuals are live. Dedicated egg, cast sheet, dismiss sheet, skill card, and custom skill runtime are pending; catalog temporarily reuses the shared egg, strike art for cast, cut-in animation for dismiss, and the supported moon_orbit runtime.",
+	},
+	"red_dragon": {
+		"id": "red_dragon",
+		"display_name": "아기 홍룡",
+		"motion_style": "sortie_flight",
+		"enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 168.0,
+			"patrol_speed_min": 112.0,
+			"patrol_speed_max": 224.0,
+			"catch_width": 92.0,
+			"catch_height": 50.0,
+			"defense_rate": 0.12,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/red_dragon_companion_wing_flap.png",
+			"companion_strike": "res://assets/sprites/lingpet/red_dragon_companion_wing_flap.png",
+			"companion_cast": "res://assets/sprites/lingpet/red_dragon_companion_wing_flap.png",
+			"cutin_art": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+			"cutin_anim": "res://assets/sprites/lingpet/red_dragon_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/red_dragon_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/red_dragon_lingpet_click_live2d_pingpong_98f.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/red_dragon_companion_click_reaction_98f.png",
+		},
+		"visual_layout": {
+			"companion_walk_draw_size": 83.2,
+			"companion_strike_draw_size": 83.2,
+			"companion_cast_draw_size": 83.2,
+			"companion_wing_flap_max_speed_ratio": 0.55,
+			"cutin_anim_view_h_ratio": 0.568,
+			"cutin_dismiss_view_h_ratio": 0.568,
+			"click_reaction_draw_size": 64.0,
+		},
+		"active_skill": {
+			"id": "red_dragon_dragon_breath",
+			"runtime_kind": "dragon_breath",
+			"name": "드래곤 브레스",
+			"description": "아기 홍룡이 용의 화염을 뿜어 공을 타격하고 가속시킵니다. 사라진 불꽃은 짧은 화염 지대를 남겨 보스를 둔화시키고 바깥으로 밀어냅니다.",
+			"cooldown": 40.0,
+			"windup_seconds": 0.65,
+			"card_texture_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+		},
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 드래곤 브레스는 40초마다 용의 화염으로 공을 가속하고 짧은 화염 지대로 보스를 둔화시킵니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
+		"concept_art_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6_magenta_source.png",
+		"companion_sd_source_path": "res://assets/sprites/lingpet/red_dragon_companion_sd_back.png",
+		"note": "Red Dragon has a dedicated rear-three-quarter SD wing-flap sheet for sortie_flight movement, acquisition cut-in/dismiss sheets, a dedicated click_reaction_anim, and a Dragon Breath active runtime ported from the original Ignis hero skill.",
 	},
 }
 
@@ -218,48 +589,77 @@ static func is_pet_enabled_from_entries(entries: Dictionary, pet_id: String) -> 
 
 
 static func get_entry(pet_id: String) -> Dictionary:
+	# Public, mutation-safe entry accessor: returns a deep copy so external
+	# callers can store / mutate freely. Hot read-only getters must NOT use this
+	# -- they go through _get_entry_ref() to avoid a full PETS-entry deep copy on
+	# every per-frame draw/update call (see the perf note on _get_entry_ref).
+	return _get_entry_ref(pet_id).duplicate(true)
+
+
+# Read-only, non-copying entry accessor for per-frame hot paths. The companion
+# draw/update loop resolves visuals, layout, stats, display name, and the active
+# skill pool every frame; routing those through the deep-copying get_entry()
+# duplicated the (large, multi-skill) PETS entry dozens of times per frame.
+# Callers here only READ from the returned dict (or duplicate downstream via
+# _normalize_skill_pool / _apply_skill_level_values), so sharing the const ref
+# is safe. Do NOT mutate the returned dictionary.
+static func _get_entry_ref(pet_id: String) -> Dictionary:
 	var normalized := _normalize_pet_id(pet_id)
 	if PETS.has(normalized):
-		return (PETS[normalized] as Dictionary).duplicate(true)
-	return (PETS[DEFAULT_PET_ID] as Dictionary).duplicate(true)
+		return PETS[normalized] as Dictionary
+	return PETS[DEFAULT_PET_ID] as Dictionary
 
 
 static func get_display_name(pet_id: String) -> String:
-	return str(get_entry(pet_id).get("display_name", _normalize_pet_id(pet_id)))
+	return str(_get_entry_ref(pet_id).get("display_name", _normalize_pet_id(pet_id)))
 
 
 static func get_required_hits(pet_id: String, fallback: int = 1) -> int:
-	return max(1, int(get_entry(pet_id).get("required_hits", fallback)))
+	return max(1, int(_get_entry_ref(pet_id).get("required_hits", fallback)))
 
 
 static func get_stat(pet_id: String, stat_name: String, fallback: float = 0.0) -> float:
-	var stats: Variant = get_entry(pet_id).get("stats", {})
+	var stats: Variant = _get_entry_ref(pet_id).get("stats", {})
 	if stats is Dictionary:
 		return float((stats as Dictionary).get(stat_name, fallback))
 	return fallback
 
 
 static func get_visual_layout_value(pet_id: String, layout_key: String, fallback: float = 0.0) -> float:
-	var visual_layout: Variant = get_entry(pet_id).get("visual_layout", {})
+	var visual_layout: Variant = _get_entry_ref(pet_id).get("visual_layout", {})
 	if visual_layout is Dictionary:
 		return float((visual_layout as Dictionary).get(layout_key, fallback))
 	return fallback
 
 
-static func get_active_skill(pet_id: String, skill_id: String = "") -> Dictionary:
+static func clamp_skill_level(level: int) -> int:
+	return clampi(level, SKILL_LEVEL_MIN, SKILL_LEVEL_MAX)
+
+
+static func get_skill_level_value(skill_data: Dictionary, effect_key: String, level: int, fallback: float = 0.0) -> float:
+	var normalized_level := clamp_skill_level(level)
+	var level_values_key := effect_key + "_by_level"
+	var level_values: Variant = skill_data.get(level_values_key, [])
+	if level_values is Array and not (level_values as Array).is_empty():
+		var index := clampi(normalized_level - 1, 0, (level_values as Array).size() - 1)
+		return float((level_values as Array)[index])
+	return float(skill_data.get(effect_key, fallback))
+
+
+static func get_active_skill(pet_id: String, skill_id: String = "", level: int = DEFAULT_ACTIVE_SKILL_LEVEL) -> Dictionary:
 	var active_pool := get_active_skill_pool(pet_id)
 	var normalized_skill_id := _normalize_skill_id(skill_id)
 	if normalized_skill_id != "":
 		for skill in active_pool:
 			if _normalize_skill_id(str(skill.get("id", ""))) == normalized_skill_id:
-				return skill.duplicate(true)
+				return _apply_active_skill_level(skill, level)
 	if not active_pool.is_empty():
-		return active_pool[0].duplicate(true)
+		return _apply_active_skill_level(active_pool[0], level)
 	return {}
 
 
 static func get_active_skill_pool(pet_id: String) -> Array[Dictionary]:
-	return _get_active_skill_pool_from_entry(get_entry(pet_id), true)
+	return _get_active_skill_pool_from_entry(_get_entry_ref(pet_id), true)
 
 
 static func get_active_skill_entry(skill_id: String) -> Dictionary:
@@ -290,14 +690,14 @@ static func get_active_skill_runtime_kind_from_entries(entries: Dictionary, skil
 
 
 static func get_visual_path(pet_id: String, visual_key: String) -> String:
-	var visuals: Variant = get_entry(pet_id).get("visuals", {})
+	var visuals: Variant = _get_entry_ref(pet_id).get("visuals", {})
 	if visuals is Dictionary:
 		return str((visuals as Dictionary).get(visual_key, ""))
 	return ""
 
 
 static func get_passive_icon_path(pet_id: String, passive_id: String) -> String:
-	var passive_icons: Variant = get_entry(pet_id).get("passive_icons", {})
+	var passive_icons: Variant = _get_entry_ref(pet_id).get("passive_icons", {})
 	if passive_icons is Dictionary:
 		var icon_path := str((passive_icons as Dictionary).get(passive_id, ""))
 		if icon_path != "":
@@ -306,33 +706,37 @@ static func get_passive_icon_path(pet_id: String, passive_id: String) -> String:
 	return str(passive.get("icon_texture_path", ""))
 
 
-static func get_passive_skill(pet_id: String, passive_id: String = "") -> Dictionary:
-	var passive_pool := get_passive_skill_pool(pet_id)
-	var normalized_passive_id := _normalize_skill_id(passive_id)
+static func get_passive_skill(_pet_id: String, passive_id: String = "", level: int = DEFAULT_PASSIVE_SKILL_LEVEL) -> Dictionary:
+	# Resolve a single passive against the common pool. This used to build the
+	# WHOLE level-applied pool (one deep copy per passive) just to pick one entry,
+	# then re-apply the level a second time -- and get_active_skill() /
+	# current_profile call it several times per frame for cooldown/windup/stat
+	# scaling, so the discarded copies dominated the companion hot path. Match the
+	# raw const pool directly and apply the level exactly once.
+	var normalized_passive_id := _normalize_passive_skill_id_alias(passive_id)
 	if normalized_passive_id != "":
-		for passive in passive_pool:
-			if _normalize_skill_id(str(passive.get("id", ""))) == normalized_passive_id:
-				return passive.duplicate(true)
-	if not passive_pool.is_empty():
-		return passive_pool[0].duplicate(true)
+		for passive in COMMON_PASSIVE_SKILL_POOL:
+			if _normalize_skill_id(str((passive as Dictionary).get("id", ""))) == normalized_passive_id:
+				return _apply_skill_level_values(passive as Dictionary, level)
+	if not COMMON_PASSIVE_SKILL_POOL.is_empty():
+		return _apply_skill_level_values(COMMON_PASSIVE_SKILL_POOL[0] as Dictionary, level)
 	return {}
 
 
-static func get_passive_skill_pool(pet_id: String) -> Array[Dictionary]:
-	return _get_passive_skill_pool_from_entry(get_entry(pet_id))
+static func get_passive_skill_pool(_pet_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for passive in COMMON_PASSIVE_SKILL_POOL:
+		result.append(_apply_skill_level_values(passive, DEFAULT_PASSIVE_SKILL_LEVEL))
+	return result
 
 
 static func get_passive_skill_entry(passive_id: String) -> Dictionary:
-	var normalized := _normalize_skill_id(passive_id)
+	var normalized := _normalize_passive_skill_id_alias(passive_id)
 	if normalized == "":
 		return {}
-	for raw_pet_id in PETS.keys():
-		var entry: Variant = PETS.get(raw_pet_id, {})
-		if not (entry is Dictionary):
-			continue
-		for passive in _get_passive_skill_pool_from_entry(entry as Dictionary):
-			if _normalize_skill_id(str(passive.get("id", ""))) == normalized:
-				return passive.duplicate(true)
+	for passive in get_passive_skill_pool(DEFAULT_PET_ID):
+		if _normalize_skill_id(str(passive.get("id", ""))) == normalized:
+			return passive.duplicate(true)
 	return {}
 
 
@@ -341,18 +745,30 @@ static func pick_skill_loadout(pet_id: String, rng: RandomNumberGenerator = null
 	var passive_pool := get_passive_skill_pool(pet_id)
 	var active_skill := _pick_skill_from_pool(active_pool, rng)
 	var passive_skill := _pick_skill_from_pool(passive_pool, rng)
+	var passive_id := str(passive_skill.get("id", ""))
 	return {
 		"active_skill_id": str(active_skill.get("id", "")),
-		"passive_skill_id": str(passive_skill.get("id", "")),
+		"active_skill_level": DEFAULT_ACTIVE_SKILL_LEVEL,
+		"passive_skill_id": passive_id,
+		"passive_skill_level": DEFAULT_PASSIVE_SKILL_LEVEL,
+		"passive_slot_count": DEFAULT_PASSIVE_SLOT_COUNT,
+		"passive_skill_ids": [passive_id] if passive_id != "" else [],
+		"passive_skill_levels": {passive_id: DEFAULT_PASSIVE_SKILL_LEVEL} if passive_id != "" else {},
 	}
 
 
 static func build_default_loadout(pet_id: String) -> Dictionary:
 	var active_skill := get_active_skill(pet_id)
 	var passive_skill := get_passive_skill(pet_id)
+	var passive_id := str(passive_skill.get("id", ""))
 	return {
 		"active_skill_id": str(active_skill.get("id", "")),
-		"passive_skill_id": str(passive_skill.get("id", "")),
+		"active_skill_level": DEFAULT_ACTIVE_SKILL_LEVEL,
+		"passive_skill_id": passive_id,
+		"passive_skill_level": DEFAULT_PASSIVE_SKILL_LEVEL,
+		"passive_slot_count": DEFAULT_PASSIVE_SLOT_COUNT,
+		"passive_skill_ids": [passive_id] if passive_id != "" else [],
+		"passive_skill_levels": {passive_id: DEFAULT_PASSIVE_SKILL_LEVEL} if passive_id != "" else {},
 	}
 
 
@@ -367,7 +783,7 @@ static func normalize_active_skill_id(pet_id: String, skill_id: String) -> Strin
 
 
 static func normalize_passive_skill_id(pet_id: String, passive_id: String) -> String:
-	var normalized := _normalize_skill_id(passive_id)
+	var normalized := _normalize_passive_skill_id_alias(passive_id)
 	if normalized == "":
 		return ""
 	for passive in get_passive_skill_pool(pet_id):
@@ -377,11 +793,11 @@ static func normalize_passive_skill_id(pet_id: String, passive_id: String) -> St
 
 
 static func get_effect_text(pet_id: String) -> String:
-	return str(get_entry(pet_id).get("effect_text", ""))
+	return str(_get_entry_ref(pet_id).get("effect_text", ""))
 
 
 static func get_motion_style(pet_id: String) -> String:
-	return str(get_entry(pet_id).get("motion_style", "patrol")).strip_edges().to_lower()
+	return str(_get_entry_ref(pet_id).get("motion_style", "patrol")).strip_edges().to_lower()
 
 
 static func validate_catalog(require_existing_files: bool = false) -> Array[String]:
@@ -391,6 +807,7 @@ static func validate_catalog(require_existing_files: bool = false) -> Array[Stri
 static func validate_entries(entries: Dictionary, require_existing_files: bool = false) -> Array[String]:
 	var issues: Array[String] = []
 	var seen_ids := {}
+	_validate_passive_skill_pool("common_passive_skill_pool", get_passive_skill_pool(DEFAULT_PET_ID), issues, require_existing_files)
 	for raw_pet_id in entries.keys():
 		var pet_id := _normalize_pet_id(str(raw_pet_id))
 		var entry: Variant = entries.get(raw_pet_id, {})
@@ -495,6 +912,9 @@ static func _validate_active_skill_data(pet_id: String, label: String, skill_dat
 	var card_path := str(skill_data.get("card_texture_path", "")).strip_edges()
 	if card_path != "" and require_existing_files and not FileAccess.file_exists(card_path):
 		issues.append("%s: missing skill-card file %s" % [pet_id, card_path])
+	var icon_path := str(skill_data.get("icon_texture_path", "")).strip_edges()
+	if icon_path != "" and require_existing_files and not FileAccess.file_exists(icon_path):
+		issues.append("%s: missing active skill icon file %s" % [pet_id, icon_path])
 
 
 static func _validate_passive_icons(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
@@ -517,22 +937,30 @@ static func _validate_passive_icons(pet_id: String, entry: Dictionary, issues: A
 
 static func _validate_passive_skills(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
 	var passive_pool := _get_passive_skill_pool_from_entry(entry)
+	if passive_pool.is_empty():
+		return
+	_validate_passive_skill_pool("%s.passive_skill_pool" % pet_id, passive_pool, issues, require_existing_files)
+
+
+static func _validate_passive_skill_pool(label: String, passive_pool: Array[Dictionary], issues: Array[String], require_existing_files: bool) -> void:
 	var seen_ids := {}
 	for i in range(passive_pool.size()):
 		var passive := passive_pool[i]
 		var passive_id := _normalize_skill_id(str(passive.get("id", "")))
 		for key in REQUIRED_PASSIVE_SKILL_KEYS:
 			if str(passive.get(key, "")).strip_edges() == "":
-				issues.append("%s: missing passive_skill_pool[%d].%s" % [pet_id, i, str(key)])
+				issues.append("%s: missing [%d].%s" % [label, i, str(key)])
 		if passive_id != "":
 			if bool(seen_ids.get(passive_id, false)):
-				issues.append("%s: duplicate passive skill id %s" % [pet_id, passive_id])
+				issues.append("%s: duplicate passive skill id %s" % [label, passive_id])
 			seen_ids[passive_id] = true
 		var icon_path := str(passive.get("icon_texture_path", "")).strip_edges()
 		if icon_path != "" and require_existing_files and not FileAccess.file_exists(icon_path):
-			issues.append("%s: missing passive skill icon file %s" % [pet_id, icon_path])
+			issues.append("%s: missing passive skill icon file %s" % [label, icon_path])
 		if passive.has("gauge_gain_bonus_pct") and float(passive.get("gauge_gain_bonus_pct", 0.0)) < 0.0:
-			issues.append("%s: passive_skill_pool[%d].gauge_gain_bonus_pct must be >= 0" % [pet_id, i])
+			issues.append("%s[%d].gauge_gain_bonus_pct must be >= 0" % [label, i])
+		if passive.has("player_speed_bonus_pct") and float(passive.get("player_speed_bonus_pct", 0.0)) < 0.0:
+			issues.append("%s[%d].player_speed_bonus_pct must be >= 0" % [label, i])
 
 
 static func get_hatch_candidates(context: Dictionary, owned_pet_ids: Array) -> Array[String]:
@@ -619,6 +1047,53 @@ static func _get_configured_active_skill_pool_from_entry(entry: Dictionary) -> A
 
 static func _get_passive_skill_pool_from_entry(entry: Dictionary) -> Array[Dictionary]:
 	return _normalize_skill_pool(entry.get("passive_skill_pool", entry.get("passive_skills", [])))
+
+
+static func _apply_active_skill_level(skill_data: Dictionary, level: int) -> Dictionary:
+	var result := _apply_skill_level_values(skill_data, level)
+	var normalized_level := clamp_skill_level(level)
+	var base_cooldown := float(result.get("cooldown", 0.0))
+	var level_cooldown_reduction_pct := _get_array_level_value(ACTIVE_COOLDOWN_REDUCTION_PCT_BY_LEVEL, normalized_level, 0.0)
+	result["active_skill_level_cooldown_reduction_pct"] = level_cooldown_reduction_pct
+	if base_cooldown > 0.0 and level_cooldown_reduction_pct > 0.0:
+		result["base_cooldown"] = base_cooldown
+		result["cooldown"] = base_cooldown * maxf(0.10, 1.0 - level_cooldown_reduction_pct / 100.0)
+	var base_windup := float(result.get("windup_seconds", 0.0))
+	var level_windup_reduction_pct := _get_array_level_value(ACTIVE_WINDUP_REDUCTION_PCT_BY_LEVEL, normalized_level, 0.0)
+	result["active_skill_level_windup_reduction_pct"] = level_windup_reduction_pct
+	if base_windup > 0.0 and level_windup_reduction_pct > 0.0:
+		result["base_windup_seconds"] = base_windup
+		result["windup_seconds"] = base_windup * maxf(0.10, 1.0 - level_windup_reduction_pct / 100.0)
+	return result
+
+
+static func _apply_skill_level_values(skill_data: Dictionary, level: int) -> Dictionary:
+	var result := skill_data.duplicate(true)
+	var normalized_level := clamp_skill_level(level)
+	result["level"] = normalized_level
+	result["max_level"] = SKILL_LEVEL_MAX
+	result["level_label"] = "Lv.%d" % normalized_level
+	for raw_key in skill_data.keys():
+		var key_text := str(raw_key)
+		if not key_text.ends_with("_by_level"):
+			continue
+		var base_key := key_text.substr(0, key_text.length() - String("_by_level").length())
+		result[base_key] = get_skill_level_value(skill_data, base_key, normalized_level, float(result.get(base_key, 0.0)))
+	return result
+
+
+static func _get_array_level_value(values: Array, level: int, fallback: float = 0.0) -> float:
+	if values.is_empty():
+		return fallback
+	var index := clampi(clamp_skill_level(level) - 1, 0, values.size() - 1)
+	return float(values[index])
+
+
+static func _normalize_passive_skill_id_alias(passive_id: String) -> String:
+	var normalized := _normalize_skill_id(passive_id)
+	if normalized == "":
+		return ""
+	return str(LEGACY_PASSIVE_ID_ALIASES.get(normalized, normalized))
 
 
 static func _normalize_skill_pool(value: Variant) -> Array[Dictionary]:

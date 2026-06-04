@@ -22,6 +22,8 @@ func apply(
 
 	state_applier.apply_aipill_state(target, aipill_runtime.clear_state())
 	state_applier.apply_long_boost_state(target, timed_paddle_effects.clear_long_boost())
+	target.set("milk_bottle_active", false)
+	target.set("milk_bottle_scale", 1.0)
 	state_applier.apply_vitamin_pill_state(target, timed_paddle_effects.clear_vitamin_pill())
 	state_applier.apply_strange_vial_state(target, timed_paddle_effects.clear_strange_vial())
 	state_applier.apply_doping_potion_state(target, commando_supply_actions.clear_doping_potion(

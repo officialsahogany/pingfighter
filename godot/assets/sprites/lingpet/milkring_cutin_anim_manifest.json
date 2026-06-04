@@ -1,0 +1,554 @@
+{
+  "asset_id": "milkring_acquisition_cutin_anim",
+  "character": "milkring",
+  "display_name": "???",
+  "generated_at": "2026-06-03",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "static_art": {
+    "path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5.png",
+    "source_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5_magenta_source.png"
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/milkring_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
+    "frame_interval": "looped at 16 fps",
+    "upscale_scale": 2.0,
+    "sha256": "35416b5ac1cd5b841ed21465ca8d9f662c6e1cac30bc42424bcdec99d5ba4466",
+    "bytes": 23017142,
+    "size_match_repack_scale": 0.736,
+    "cell_fill_w_pct": 62.503,
+    "cell_fill_h_pct": 61.951
+  },
+  "postprocess": {
+    "operation": "AutoSprite 1024-cell 4x4/16f acquisition loop. RGB alpha-bled, Real-ESRGAN x2, source alpha Lanczos x2, recombined; alpha <= 15 clipped for clean dark-background compositing.",
+    "tool": "Pillow deterministic alpha-preserved recombine + Real-ESRGAN",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "rgb_input": ".tmp/milkring_acquire_cutin/postprocess_x2/milkring_acquire_cutin_rgb_bleed_1024_16f.png",
+      "rgb_output": ".tmp/milkring_acquire_cutin/postprocess_x2/milkring_acquire_cutin_rgb_bleed_realesrgan_x2.png",
+      "alpha_output": ".tmp/milkring_acquire_cutin/postprocess_x2/milkring_acquire_cutin_alpha_lanczos_x2.png"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "a1_15_before": 825081,
+      "a1_15_after": 0
+    },
+    "size_match_repack": {
+      "operation": "Shrank each AutoSprite-derived 2048-cell frame in place to match Maribo acquisition Live2D apparent scale while keeping the same 4x4 runtime grid.",
+      "scale": 0.736,
+      "target_relation": "Milkring acquisition Live2D remains slightly larger than the click/dismiss Live2D after repack.",
+      "backup": ".tmp/milkring_size_match/milkring_cutin_anim_before_size_match.png"
+    }
+  },
+  "qa": {
+    "raw_edge_alpha_count": 0,
+    "final_edge_alpha_count": 0,
+    "raw_frame_margins_ltrb": [
+      [
+        0,
+        85,
+        69,
+        60,
+        93
+      ],
+      [
+        1,
+        77,
+        65,
+        48,
+        93
+      ],
+      [
+        2,
+        66,
+        63,
+        37,
+        93
+      ],
+      [
+        3,
+        106,
+        65,
+        75,
+        93
+      ],
+      [
+        4,
+        105,
+        69,
+        73,
+        93
+      ],
+      [
+        5,
+        103,
+        73,
+        76,
+        93
+      ],
+      [
+        6,
+        96,
+        75,
+        75,
+        93
+      ],
+      [
+        7,
+        89,
+        73,
+        65,
+        93
+      ],
+      [
+        8,
+        84,
+        68,
+        59,
+        93
+      ],
+      [
+        9,
+        76,
+        63,
+        47,
+        93
+      ],
+      [
+        10,
+        68,
+        62,
+        37,
+        93
+      ],
+      [
+        11,
+        107,
+        65,
+        75,
+        93
+      ],
+      [
+        12,
+        105,
+        69,
+        71,
+        93
+      ],
+      [
+        13,
+        103,
+        74,
+        76,
+        93
+      ],
+      [
+        14,
+        97,
+        75,
+        74,
+        93
+      ],
+      [
+        15,
+        90,
+        73,
+        64,
+        93
+      ]
+    ],
+    "final_frame_margins_ltrb": [
+      [
+        0,
+        170,
+        138,
+        120,
+        186
+      ],
+      [
+        1,
+        154,
+        130,
+        96,
+        186
+      ],
+      [
+        2,
+        134,
+        126,
+        75,
+        186
+      ],
+      [
+        3,
+        212,
+        130,
+        149,
+        186
+      ],
+      [
+        4,
+        210,
+        139,
+        145,
+        186
+      ],
+      [
+        5,
+        206,
+        147,
+        152,
+        186
+      ],
+      [
+        6,
+        192,
+        151,
+        149,
+        186
+      ],
+      [
+        7,
+        179,
+        146,
+        130,
+        186
+      ],
+      [
+        8,
+        168,
+        137,
+        118,
+        186
+      ],
+      [
+        9,
+        152,
+        127,
+        94,
+        186
+      ],
+      [
+        10,
+        136,
+        124,
+        75,
+        187
+      ],
+      [
+        11,
+        213,
+        130,
+        149,
+        186
+      ],
+      [
+        12,
+        210,
+        139,
+        143,
+        186
+      ],
+      [
+        13,
+        207,
+        147,
+        152,
+        186
+      ],
+      [
+        14,
+        194,
+        151,
+        149,
+        186
+      ],
+      [
+        15,
+        180,
+        146,
+        128,
+        186
+      ]
+    ],
+    "fringe_preview": ".tmp/milkring_acquire_cutin/milkring_cutin_anim_dark_preview.png",
+    "identity_check": "Goggles fully cover both eyes; equipment remains minimal; milk-blast tank/nozzles are visible; wholesome mascot udder remains visible.",
+    "size_match_avg_fill_w_pct": 62.503,
+    "size_match_avg_fill_h_pct": 61.951,
+    "size_match_frame_margins_ltrb": [
+      [
+        0,
+        402,
+        366,
+        352,
+        413
+      ],
+      [
+        1,
+        392,
+        358,
+        333,
+        415
+      ],
+      [
+        2,
+        377,
+        355,
+        318,
+        415
+      ],
+      [
+        3,
+        434,
+        358,
+        372,
+        415
+      ],
+      [
+        4,
+        434,
+        366,
+        368,
+        414
+      ],
+      [
+        5,
+        429,
+        374,
+        375,
+        412
+      ],
+      [
+        6,
+        418,
+        377,
+        374,
+        412
+      ],
+      [
+        7,
+        408,
+        372,
+        360,
+        413
+      ],
+      [
+        8,
+        400,
+        364,
+        351,
+        414
+      ],
+      [
+        9,
+        390,
+        356,
+        332,
+        415
+      ],
+      [
+        10,
+        378,
+        355,
+        318,
+        416
+      ],
+      [
+        11,
+        436,
+        358,
+        371,
+        415
+      ],
+      [
+        12,
+        434,
+        366,
+        366,
+        414
+      ],
+      [
+        13,
+        430,
+        374,
+        375,
+        412
+      ],
+      [
+        14,
+        419,
+        377,
+        374,
+        412
+      ],
+      [
+        15,
+        410,
+        372,
+        357,
+        413
+      ]
+    ],
+    "size_match_edge_alpha_count": 0
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.102,
+    "alpha_bbox": [
+      0.1963,
+      0.1787,
+      0.6318,
+      0.6196
+    ],
+    "note": "Recalculated after Milkring size-match repack against Maribo scale.",
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "source_autosprite": {
+    "character_id": "cmpwxpxiv000cv4z33pe2xx6k",
+    "character_name": "Milkring Lingpet v5",
+    "spritesheet_id": "cmpwxsuc10013kmkhd8dt4y4v",
+    "spritesheet_kind": "custom / Acquire Cutin Loop",
+    "spritesheet_job_id": "wf_93d3c445-3c5a-4237-88ba-259e6b848c9e",
+    "video_id": "cmpwxr1rh0016v4z3xwj0bddo",
+    "frame_count": 16,
+    "frame_width": 1024,
+    "frame_height": 1024,
+    "columns": 4,
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "prompt": "16f seamless acquisition cut-in loop for Milkring, cute bipedal Holstein cow Lingpet. Keep identity: dark smoked-cyan goggles fully cover both eyes, no visible eyes/pupils; minimal gear only: ring collar, one small milk tank, wrist milk nozzles; tan nose ears udder, black-white cow body visible. Subtle Live2D motion: breathing, ear/tail twitch, cyan ring pulse, milk tank bubbles, tiny nozzle bounce. Full-body 3/4 front, safe margins, transparent bg, no text/UI/extra/crop. Frame16 loops to 1."
+  },
+  "status": "Size-matched to Maribo: acquisition Live2D reduced to a Maribo-like footprint and kept slightly larger than click/dismiss Live2D.",
+  "dismiss_sheet": {
+    "path": "res://assets/sprites/lingpet/milkring_cutin_dismiss_anim.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      5120,
+      5120
+    ],
+    "source_manifest": "res://assets/sprites/lingpet/milkring_cutin_dismiss_anim_manifest.json",
+    "size_relation": "Acquisition cut-in avg visible height 61.951%; click-dismiss avg visible height 59.988%."
+  }
+}

@@ -8,7 +8,7 @@ func apply_item_effect(
 	effect_controller: Object,
 	throw_controller: Object
 ) -> bool:
-	var item_name: String = str(item_data.get("name", ""))
+	var item_name: String = _get_item_identity(item_data)
 	var effect_name: String = str(item_data.get("effect", item_name))
 	if _matches(item_name, effect_name, "gauge_charge"):
 		return _call_bool(effect_controller, "apply_gauge_charge", [item_data, owner, registry])
@@ -48,6 +48,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_magnet_field", [owner, registry])
 	if _matches(item_name, effect_name, "long_boost"):
 		return _call_bool(effect_controller, "activate_long_boost", [owner, registry])
+	if _matches(item_name, effect_name, "milk_bottle"):
+		return _call_bool(effect_controller, "activate_milk_bottle", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "regeneration_potion"):
 		return _call_bool(effect_controller, "apply_regeneration_potion", [owner, registry])
 	if _matches(item_name, effect_name, "holy_barrier"):
@@ -69,3 +71,14 @@ func _call_bool(target: Object, method_name: String, args: Array) -> bool:
 	if target == null or not target.has_method(method_name):
 		return false
 	return bool(target.callv(method_name, args))
+
+
+func _get_item_identity(item_data: Dictionary) -> String:
+	for key in ["name", "effect", "item_name", "item_id"]:
+		var raw_value: Variant = item_data.get(str(key), "")
+		if raw_value == null:
+			continue
+		var value: String = str(raw_value)
+		if value != "":
+			return value
+	return ""

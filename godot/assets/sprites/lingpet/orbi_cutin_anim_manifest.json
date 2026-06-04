@@ -1,0 +1,348 @@
+{
+  "asset_id": "orbi_acquisition_cutin_anim",
+  "pet_id": "orbi",
+  "display_name": "???",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "source_autosprite": {
+    "asset_id": "cmpwy9k5k000nkav91p9e9sko",
+    "asset_name": "Orbi Acquire Cutin Base 20260603",
+    "base_source_path": "godot/assets/sprites/lingpet/orbi_cutin_art.png",
+    "acquire_job_id": "wf_ba34009e-c7a0-4de5-9bc4-2d01d5cb091c",
+    "acquire_spritesheet_id": "cmpwybckk0034a3qc5eulmckm",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "animation_prompt": "Gentle floating acquisition reveal: paw wave, ears and tail bob, cyan core pulse, cute breathing, stable full body, seamless loop."
+  },
+  "autosprite_raw": {
+    "path": ".tmp/orbi_cutin/orbi_acquire_autosprite_raw.png",
+    "size": [
+      2048,
+      2048
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "sha256": "25d0db03f6314461332edba44aad27b022dac3e2c4a942e95748f92ad0756482",
+    "bytes": 837704
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orbi_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 4.0,
+    "sha256": "18b8af007e5c4aa2d17b53b46d53c91693693580ce9718b499020e10091a2ace",
+    "bytes": 24556190
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale",
+    "operation": "AutoSprite 512 cells scaled to 84 percent and centered; RGB alpha-bled cells were Real-ESRGAN x4 upscaled and recombined with source alpha Lanczos x4.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4.0,
+      "rgb_source": ".tmp/orbi_cutin/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/orbi_cutin/rgb_cells_s84_x4",
+      "alpha_source": ".tmp/orbi_cutin/alpha_cells_s84"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "alpha <= 15 set to transparent after alpha resize"
+    }
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "cell_fill_w_pct": 56.3,
+    "cell_fill_h_pct": 77.5,
+    "area_range_pct": [
+      36.66,
+      41.68
+    ],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          527,
+          215,
+          1525,
+          1801
+        ],
+        "margin_ltrb": [
+          527,
+          215,
+          523,
+          247
+        ],
+        "size": [
+          998,
+          1586
+        ]
+      },
+      {
+        "frame": 2,
+        "bbox": [
+          547,
+          210,
+          1574,
+          1797
+        ],
+        "margin_ltrb": [
+          547,
+          210,
+          474,
+          251
+        ],
+        "size": [
+          1027,
+          1587
+        ]
+      },
+      {
+        "frame": 4,
+        "bbox": [
+          587,
+          223,
+          1637,
+          1794
+        ],
+        "margin_ltrb": [
+          587,
+          223,
+          411,
+          254
+        ],
+        "size": [
+          1050,
+          1571
+        ]
+      },
+      {
+        "frame": 6,
+        "bbox": [
+          584,
+          257,
+          1670,
+          1793
+        ],
+        "margin_ltrb": [
+          584,
+          257,
+          378,
+          255
+        ],
+        "size": [
+          1086,
+          1536
+        ]
+      },
+      {
+        "frame": 8,
+        "bbox": [
+          577,
+          280,
+          1712,
+          1793
+        ],
+        "margin_ltrb": [
+          577,
+          280,
+          336,
+          255
+        ],
+        "size": [
+          1135,
+          1513
+        ]
+      },
+      {
+        "frame": 10,
+        "bbox": [
+          571,
+          279,
+          1725,
+          1794
+        ],
+        "margin_ltrb": [
+          571,
+          279,
+          323,
+          254
+        ],
+        "size": [
+          1154,
+          1515
+        ]
+      },
+      {
+        "frame": 12,
+        "bbox": [
+          567,
+          254,
+          1650,
+          1796
+        ],
+        "margin_ltrb": [
+          567,
+          254,
+          398,
+          252
+        ],
+        "size": [
+          1083,
+          1542
+        ]
+      },
+      {
+        "frame": 15,
+        "bbox": [
+          538,
+          222,
+          1513,
+          1799
+        ],
+        "margin_ltrb": [
+          538,
+          222,
+          535,
+          249
+        ],
+        "size": [
+          975,
+          1577
+        ]
+      }
+    ]
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.1,
+    "alpha_bbox": [
+      0.2573,
+      0.105,
+      0.7446,
+      0.8794
+    ],
+    "note": "Frame-0 alpha occupancy for the acquisition reconstruction shards; generated for Orbi cutin_anim.",
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+}

@@ -148,7 +148,7 @@ func _init() -> void:
 	var input := BattleSceneOverlayInputController.new()
 	var owner := FakeOwner.new()
 
-	_expect(not _press(input, owner, KEY_F7), "F7 should be reserved for ExhibitionResetHandler and ignored by battle debug input")
+	_expect(not _press(input, owner, KEY_F10), "F10 should be reserved for ExhibitionResetHandler and ignored by battle debug input")
 	_expect(_press(input, owner, KEY_F2), "F2 should open item spawn debug")
 	_expect(registry.active_item_runtime.open, "item spawn debug should be open")
 
@@ -174,7 +174,7 @@ func _init() -> void:
 	_expect(not registry.ball_speed.active, "switching to weather debug should close ball-speed debug")
 	_expect(registry.weather_picker.open, "weather debug should be open")
 
-	_expect(_press(input, owner, KEY_F10), "F10 should switch directly to lingpet debug")
+	_expect(_press(input, owner, KEY_F7), "F7 should switch directly to lingpet debug")
 	_expect(not registry.weather_picker.open, "switching to lingpet debug should close weather debug")
 	_expect(registry.lingpet_picker.open, "lingpet debug should be open")
 

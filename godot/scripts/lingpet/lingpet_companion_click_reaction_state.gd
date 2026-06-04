@@ -3,12 +3,14 @@ extends RefCounted
 # One-shot click-reaction Live2D playback for the in-battle companion.
 #
 # Unlike the acquisition cut-in (which pauses battle via the modal gate), this
-# reaction does NOT pause gameplay -- the companion keeps patrolling underneath
-# while the reaction sheet plays as a large popup above it, then fades out.
+# reaction does NOT pause gameplay. It temporarily replaces the small SD
+# companion at the same in-field size, then fades out.
 #
-# The reaction sheet is the 98-frame pingpong click-reaction asset
-# (click_reaction_anim, 14 cols x 7 rows, 1024px cells), the same sheet family
-# as the stage-clear-result click reaction. Frame/alpha math mirrors
+# The reaction sheet is the 98-frame pingpong companion click-reaction asset
+# (companion_click_reaction_anim, 14 cols x 7 rows, 128px cells), downscaled
+# from the full cut-in/result sheet so live battle never has to load the giant
+# 1024px/1152px-cell source just to draw an 80-104px companion replacement.
+# Frame/alpha math mirrors
 # StageClearResultClickReactionState but is kept local so lingpet has no
 # dependency on the ui/ stage-clear modules and the smoke stays self-contained.
 
@@ -22,11 +24,12 @@ const RETURN_FADE := 0.26
 # One full forward+reverse pingpong play, then a short hold and fade-out.
 const REACTION_DURATION := float(FRAME_COUNT) * FRAME_INTERVAL
 const TOTAL_DURATION := REACTION_DURATION + RETURN_HOLD + RETURN_FADE
-const VIEW_HEIGHT := 200.0
-const CENTER_OFFSET_Y := -70.0
+const DEFAULT_VIEW_HEIGHT := 82.0
+const CENTER_OFFSET_Y := -6.0
 const CLICK_ZONE_HALF_WIDTH := 70.0
 const CLICK_ZONE_HALF_HEIGHT := 60.0
-const PREWARM_VISUAL_KEYS := ["click_reaction_anim"]
+const RUNTIME_VISUAL_KEY := "companion_click_reaction_anim"
+const PREWARM_VISUAL_KEYS := [RUNTIME_VISUAL_KEY]
 
 var active := false
 var timer := 0.0
@@ -83,7 +86,7 @@ func can_start_at(playfield_pos: Vector2, companion_pos: Vector2) -> bool:
 	)
 
 
-func draw(canvas: CanvasItem, center: Vector2, texture: Texture2D) -> void:
+func draw(canvas: CanvasItem, center: Vector2, texture: Texture2D, draw_size: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null or texture == null or texture.get_width() <= 1 or texture.get_height() <= 1:
 		return
 	var alpha: float = get_alpha()
@@ -97,11 +100,17 @@ func draw(canvas: CanvasItem, center: Vector2, texture: Texture2D) -> void:
 	var col: int = frame % COLS
 	var row: int = int(float(frame) / float(COLS))
 	var src := Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
-	var disp_h: float = VIEW_HEIGHT
-	var disp_w: float = disp_h * (cell_w / cell_h)
+	var target_size: Vector2 = _resolve_draw_size(draw_size, cell_w, cell_h)
 	var dest_center := center + Vector2(0.0, CENTER_OFFSET_Y)
-	var dest := Rect2(dest_center.x - disp_w * 0.5, dest_center.y - disp_h * 0.5, disp_w, disp_h)
+	var dest := Rect2(dest_center.x - target_size.x * 0.5, dest_center.y - target_size.y * 0.5, target_size.x, target_size.y)
 	canvas.draw_texture_rect_region(texture, dest, src, Color(1.0, 1.0, 1.0, alpha))
+
+
+static func _resolve_draw_size(draw_size: Vector2, cell_w: float, cell_h: float) -> Vector2:
+	if draw_size.x > 0.0 and draw_size.y > 0.0:
+		return draw_size
+	var aspect: float = cell_w / maxf(0.001, cell_h)
+	return Vector2(DEFAULT_VIEW_HEIGHT * aspect, DEFAULT_VIEW_HEIGHT)
 
 
 static func _smooth01(value: float) -> float:

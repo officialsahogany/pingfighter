@@ -1,0 +1,298 @@
+{
+  "asset_id": "lumion_companion_idle_v1",
+  "character": "lumion",
+  "display_name": "루미온",
+  "generated_at": "2026-06-03",
+  "generated_at_kst": "2026-06-03T04:06:03+09:00",
+  "runtime_usage": "lingpet_companion_idle_candidate",
+  "notes": [
+    "First in-game SD companion sheet for Lumion.",
+    "Rear/rear-three-quarter view intentionally locked to match Maribo-style companion read.",
+    "Not wired into lingpet_catalog.gd yet; intended as idle/breathing candidate before full companion set promotion."
+  ],
+  "source_imagegen": {
+    "magenta_source": {
+      "path": "godot/assets/sprites/lingpet/lumion_companion_idle_source_magenta.png",
+      "bytes": 1411433,
+      "sha256": "ed502057762b17d559a4fede3bbc6e3921d61367cc4132e06bb68d1a602cde97",
+      "size": [
+        1254,
+        1254
+      ]
+    },
+    "transparent_source": {
+      "path": "godot/assets/sprites/lingpet/lumion_companion_idle_source.png",
+      "bytes": 745502,
+      "sha256": "3fe7d902a25b387331bf09df826370577d919c62995135912e012c0878a775c5",
+      "size": [
+        1254,
+        1254
+      ]
+    },
+    "autosprite_upload_source": {
+      "path": "godot/assets/sprites/lingpet/lumion_companion_idle_source_autosprite.png",
+      "bytes": 739387,
+      "sha256": "b3646b697264d9c0cda2ba53e8423d07af671b5a3fceb5e93dac4af24bd27123",
+      "size": [
+        1254,
+        1254
+      ]
+    },
+    "prompt_summary": "Create a tiny in-game SD chibi Lumion companion, mostly rear/rear-three-quarter back view like Maribo, cream fox-like Ringpet with huge ears, dark cape armor, orange gems/circuit glow, feathered tail, centered full body on solid #ff00ff magenta background, no grid or text.",
+    "cleanup": {
+      "tool": "remove_chroma_key.py",
+      "auto_key": "border",
+      "transparent_threshold": 10,
+      "opaque_threshold": 72,
+      "edge_feather": 1,
+      "despill": true,
+      "low_alpha_cleanup_for_upload": "alpha <= 16 set to 0 on autosprite upload source",
+      "upload_source_edge_alpha_count": 0,
+      "upload_source_bbox": [
+        178,
+        131,
+        832,
+        1071
+      ],
+      "upload_source_margins_ltrb": [
+        178,
+        131,
+        422,
+        183
+      ]
+    }
+  },
+  "source_autosprite": {
+    "character_id": "cmpx04bwe000eabwnufhwa4wy",
+    "character_name": "Lumion Companion Rear SD Idle 20260603",
+    "upload_key": "mcp-uploads/cmo3mea88002fp0c2puewo7t4/1780426712835-7319ea79-de32-413a-8bda-c48780dfe995.png",
+    "job_id": "wf_d0c00663-fa47-4198-bf7c-3780b1216ce2",
+    "video_id": "cmpx04ncu000rpbtbfcu0spuc",
+    "spritesheet_id": "cmpx062vg001rpbtbaiqo9tvz",
+    "kind": "custom",
+    "reported_direction": "right",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "credits_used": 5,
+    "spritesheet_request": {
+      "frame_count": 25,
+      "frame_size": 512,
+      "loop": true
+    },
+    "prompt": "25-frame seamless idle breathing loop for Lumion rear-view SD in-game companion. Keep the same rear three-quarter back view like Maribo companion sprites. Character stays in place with only a tiny breathing bob, subtle shoulder/cape rise, gentle ear twitch, feather tail sway, and soft orange circuitry glow pulse. Do not turn to the front, do not show a front-facing face, do not walk, do not attack, do not rotate camera, no zoom, no text, transparent background, generous safe margins, preserve exact cream fur, huge ears, dark cape armor, orange gem/circuit details."
+  },
+  "postprocess": {
+    "raw_sheet": {
+      "path": ".tmp/lumion_companion_idle_v1/lumion_companion_idle_raw_512_25f.png",
+      "bytes": 1099104,
+      "sha256": "06cdc75dab34642a2088d8d38fc9f0b0f5b8d498d3cc65b406b8cd73210791af",
+      "size": [
+        2560,
+        2560
+      ]
+    },
+    "raw_atlas": {
+      "path": ".tmp/lumion_companion_idle_v1/lumion_companion_idle_raw_512_25f.json",
+      "bytes": 2796,
+      "sha256": "0f38dccf3a1af41eecbe08808d91f9c62726151863cce58c49169a06cb64564e"
+    },
+    "source_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "runtime_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ]
+    },
+    "resize": "premultiplied-alpha Lanczos resize per cell from 512 to 128; transparent RGB cleared to avoid green matte bleed",
+    "preview_gif": {
+      "path": ".tmp/lumion_companion_idle_v1/lumion_companion_idle_preview.gif",
+      "bytes": 353110,
+      "sha256": "942cebb6dcbe2d365886d1766e17033e6d859a09788d87f1bbe170804d3b227b",
+      "size": [
+        384,
+        384
+      ]
+    }
+  },
+  "outputs": {
+    "runtime_sheet": {
+      "path": "godot/assets/sprites/lingpet/lumion_companion_idle.png",
+      "bytes": 310636,
+      "sha256": "9f4d9bd70d7dfb7dc7967cf59d80530d7f641918bd8a2e6fd89a6c2b8a9dea0a",
+      "size": [
+        640,
+        640
+      ],
+      "res_path": "res://assets/sprites/lingpet/lumion_companion_idle.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ]
+    }
+  },
+  "qa": {
+    "path": "godot\\assets\\sprites\\lingpet\\lumion_companion_idle.png",
+    "sha256": "9f4d9bd70d7dfb7dc7967cf59d80530d7f641918bd8a2e6fd89a6c2b8a9dea0a",
+    "bytes": 310636,
+    "sheet_size": [
+      640,
+      640
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      128,
+      128
+    ],
+    "edge_alpha_count": 0,
+    "min_margins_ltrb": [
+      22,
+      11,
+      28,
+      17
+    ],
+    "bbox_width_range": [
+      69,
+      77
+    ],
+    "bbox_height_range": [
+      92,
+      98
+    ],
+    "center_range_xy": [
+      4.0,
+      5.0
+    ],
+    "visible_alpha_pixels_range": [
+      3737,
+      3951
+    ],
+    "mean_sequential_frame_diff_range": [
+      0.0013181200214460785,
+      0.036940870098039216
+    ],
+    "loop_seam_mean_abs_diff": 0.013397994695925244,
+    "sample_frames": [
+      {
+        "frame": 0,
+        "bbox": [
+          23,
+          13,
+          94,
+          109
+        ],
+        "margins_ltrb": [
+          23,
+          13,
+          34,
+          19
+        ],
+        "center": [
+          58.5,
+          61.0
+        ],
+        "bbox_size": [
+          71,
+          96
+        ],
+        "visible_alpha_pixels": 3924
+      },
+      {
+        "frame": 1,
+        "bbox": [
+          23,
+          13,
+          94,
+          109
+        ],
+        "margins_ltrb": [
+          23,
+          13,
+          34,
+          19
+        ],
+        "center": [
+          58.5,
+          61.0
+        ],
+        "bbox_size": [
+          71,
+          96
+        ],
+        "visible_alpha_pixels": 3913
+      },
+      {
+        "frame": 12,
+        "bbox": [
+          26,
+          15,
+          99,
+          107
+        ],
+        "margins_ltrb": [
+          26,
+          15,
+          29,
+          21
+        ],
+        "center": [
+          62.5,
+          61.0
+        ],
+        "bbox_size": [
+          73,
+          92
+        ],
+        "visible_alpha_pixels": 3793
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          23,
+          12,
+          94,
+          109
+        ],
+        "margins_ltrb": [
+          23,
+          12,
+          34,
+          19
+        ],
+        "center": [
+          58.5,
+          60.5
+        ],
+        "bbox_size": [
+          71,
+          97
+        ],
+        "visible_alpha_pixels": 3944
+      }
+    ]
+  }
+}

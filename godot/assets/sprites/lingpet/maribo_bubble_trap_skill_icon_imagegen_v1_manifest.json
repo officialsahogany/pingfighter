@@ -1,0 +1,40 @@
+{
+  "asset_id": "maribo_bubble_trap_skill_icon_imagegen_v1",
+  "character": "maribo",
+  "skill_id": "maribo_bubble_trap",
+  "skill_name": "Bubble Trap",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_active_skill_info_panel_icon",
+  "source_imagegen": {
+    "tool": "built-in image_gen",
+    "generated_path": "C:\\Users\\woduq\\.codex\\generated_images\\019e8808-5c40-72d1-98cd-7a46eaf70e2e\\ig_0ef2214855270c90016a1eefc0f17c8191a920ec35e99eb760.png",
+    "prompt_summary": "Square Maribo-matched Bubble Trap icon: transparent water bubble containing a trapped opponent paddle, with Maribo face and trident readable; no text.",
+    "generated_size": [
+      1254,
+      1254
+    ]
+  },
+  "reference_assets": [
+    "res://assets/sprites/lingpet/maribo_cutin_art.png",
+    "res://assets/sprites/lingpet/maribo_companion_hydro_cast.png"
+  ],
+  "postprocess": {
+    "tool": "Pillow RGB normalize + PNG optimize",
+    "target_size": [
+      1254,
+      1254
+    ],
+    "reason": "The generated square icon already matched the current Maribo identity and kept the bubble-trap motif readable at small HUD size."
+  },
+  "output": {
+    "path": "D:\\main\\bosspong\\godot\\assets\\sprites\\lingpet\\maribo_bubble_trap_skill_icon_imagegen_v1.png",
+    "res_path": "res://assets/sprites/lingpet/maribo_bubble_trap_skill_icon_imagegen_v1.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "074daeb183bea4a2809a1771eacac5206ad1b1df4d41f5c13d12d423580d9516",
+    "bytes": 2443324
+  },
+  "status": "Accepted Maribo Bubble Trap square skill icon. Text-free, readable bubble plus trapped paddle motif."
+}

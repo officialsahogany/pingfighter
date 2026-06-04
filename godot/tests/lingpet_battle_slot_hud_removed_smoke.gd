@@ -35,7 +35,7 @@ class FakeRuntime:
 		cycled_directions.append(direction)
 		return cycle_result
 
-	func try_begin_companion_click_reaction(playfield_pos: Vector2) -> bool:
+	func try_begin_companion_click_reaction(playfield_pos: Vector2, _registry: Object = null) -> bool:
 		companion_click_positions.append(playfield_pos)
 		return companion_click_result
 
