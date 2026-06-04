@@ -407,7 +407,7 @@ func _reload_battle_textures(owner: Object, registry: Object, stage_id: int) -> 
 	var context := {
 		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"current_stage": stage_id,
-		"include_result_sheets": false,
+		"include_result_sheets": true,
 		"include_all_characters": false,
 		"include_all_stages": false,
 	}

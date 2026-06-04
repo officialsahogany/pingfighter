@@ -97,6 +97,20 @@ class FakeRouterMovementState:
 
 
 func _init() -> void:
+	var cleanse_source := FileAccess.get_file_as_string("res://scripts/characters/smasher_cleanse_state.gd")
+	var flare_cache_source := FileAccess.get_file_as_string("res://scripts/effects/impact_flare_texture_cache.gd")
+	var shockwave_cache_source := FileAccess.get_file_as_string("res://scripts/effects/impact_shockwave_texture_cache.gd")
+	_expect(cleanse_source.find("func _init()") < 0, "cleanse state should not hard-prewarm procedural textures from _init")
+	_expect(cleanse_source.find("func prewarm_assets_step()") >= 0, "cleanse state should expose staged asset prewarm")
+	_expect(flare_cache_source.find("static func prewarm_step()") >= 0, "impact flare cache should expose one-texture-at-a-time prewarm")
+	_expect(shockwave_cache_source.find("static func prewarm_step()") >= 0, "impact shockwave cache should expose one-texture-at-a-time prewarm")
+	var staged_cleanse: Object = CleanseState.new()
+	var staged_guard := 0
+	while not bool(staged_cleanse.prewarm_assets_step()) and staged_guard < 16:
+		staged_guard += 1
+	_expect(staged_guard < 16, "cleanse staged asset prewarm should complete within its texture chunk count")
+	_expect(bool(staged_cleanse.prewarm_assets_step()), "completed cleanse staged asset prewarm should remain idempotent")
+
 	var hit_recoil_movement: Object = MovementState.new()
 	hit_recoil_movement.start_knockback(9.0, 36.0, 0.85, true, false)
 	_expect(not hit_recoil_movement.has_status_effect(), "paddle-hit recoil should not count as a cleanse status")

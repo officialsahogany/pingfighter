@@ -284,6 +284,9 @@ func _init() -> void:
 	_expect(not registry.audio.stopped.has("bgm"), "stage transition audio should wait until staged prewarm completes")
 
 	driver.update_stage_transition_loading(0.05, owner, registry)
+	_expect(not registry.audio.stopped.has("dash_delay") and not registry.audio.stopped.has("bgm"), "stage transition audio should wait until stage-clear result prewarm completes")
+
+	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.audio.stopped.has("dash_delay") and not registry.audio.stopped.has("bgm"), "stage transition should stop gameplay loops before old BGM")
 	_expect(registry.audio.played_stage == 0, "stage transition should wait to start BGM until cleanup chunks finish")
 
