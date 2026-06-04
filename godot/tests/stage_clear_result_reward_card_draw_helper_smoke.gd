@@ -1,0 +1,39 @@
+extends SceneTree
+
+const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_verify_helper_source()
+	_verify_scene_delegates_reward_card_draw()
+
+	if _failures.is_empty():
+		print("stage_clear_result_reward_card_draw_helper_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_helper_source() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+	_expect(source.find("static func draw_reward_source_chip") >= 0, "reward card draw helper should own source-chip drawing")
+	_expect(source.find("StageClearResultRewardVisualResolver.get_result_reward_source_label") >= 0, "source-chip drawing should resolve missing source labels")
+	_expect(source.find("StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state") >= 0, "source-chip drawing should use the visual resolver")
+	_expect(source.find("StageClearResultShapeHelper.draw_panel") >= 0, "source-chip drawing should delegate panel drawing")
+	_expect(source.find("StageClearResultTextLayoutHelper.draw_centered_text") >= 0, "source-chip drawing should delegate text drawing")
+	_expect(StageClearResultRewardCardDrawHelper != null, "reward card draw helper preload should resolve")
+
+
+func _verify_scene_delegates_reward_card_draw() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_source_chip") >= 0, "result scene should delegate reward source-chip drawing")
+	_expect(source.find("func _draw_reward_source_chip") < 0, "result scene should not keep source-chip drawing wrappers")
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

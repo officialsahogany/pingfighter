@@ -216,10 +216,11 @@ func _verify_source_colors() -> void:
 
 func _verify_scene_delegates_visual_resolver() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 	_expect(
 		source.find("StageClearResultRewardVisualResolver.get_reward_badge") >= 0
-		and source.find("StageClearResultRewardVisualResolver.get_result_reward_source_label") >= 0,
-		"result scene should call visual resolver helpers directly"
+		and helper_source.find("StageClearResultRewardVisualResolver.get_result_reward_source_label") >= 0,
+		"result scene and reward-card draw helper should call visual resolver helpers directly"
 	)
 	for removed_wrapper in [
 		"func _get_reward_color(",

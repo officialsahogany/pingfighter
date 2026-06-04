@@ -10,6 +10,7 @@ const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clear_result_reward_icon_resolver.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
+const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
@@ -2062,7 +2063,17 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		int(visual_state.get("badge_font_size", round(10.0 * scale))),
 		visual_state.get("badge_text_color", Color(0.86, 1.0, 1.0, alpha))
 	)
-	_draw_reward_source_chip(font, reward, rect, scale, alpha)
+	StageClearResultRewardCardDrawHelper.draw_reward_source_chip(
+		self,
+		font,
+		reward,
+		rect,
+		scale,
+		alpha,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
 	_draw_reward_card_icon(reward, visual_state.get("icon_rect", Rect2()), scale, alpha)
 	var label_rect: Rect2 = visual_state.get("label_rect", Rect2())
 	StageClearResultShapeHelper.draw_panel(
@@ -2091,49 +2102,6 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		int(visual_state.get("label_font_min_size", round(9.0 * scale)))
 	)
 	StageClearResultTextLayoutHelper.draw_centered_text(self, font, label, label_rect, label_size, visual_state.get("label_text_color", Color(0.04, 0.08, 0.10, alpha)), 0.0)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
-	var source_key: String = str(reward.get("_result_reward_source", ""))
-	var source_label: String = str(reward.get("_result_reward_source_label", ""))
-	if source_label == "":
-		source_label = StageClearResultRewardVisualResolver.get_result_reward_source_label(
-			source_key,
-			RESULT_REWARD_SOURCE_STAGE,
-			RESULT_REWARD_SOURCE_BOX,
-			str(RESULT_REWARD_SOURCE_LABELS.get(RESULT_REWARD_SOURCE_STAGE, "")),
-			str(RESULT_REWARD_SOURCE_LABELS.get(RESULT_REWARD_SOURCE_BOX, ""))
-		)
-	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state(
-		source_key,
-		source_label,
-		rect,
-		scale,
-		alpha,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX
-	)
-	if visual_state.is_empty():
-		return
-	var chip_rect: Rect2 = visual_state.get("rect", Rect2())
-	StageClearResultShapeHelper.draw_panel(
-		self,
-		chip_rect,
-		visual_state.get("fill", Color(0.18, 0.24, 0.28, 0.72 * alpha)),
-		visual_state.get("border", Color(0.86, 1.0, 1.0, 0.76 * alpha)),
-		float(visual_state.get("border_width", max(1.0, 1.0 * scale))),
-		float(visual_state.get("corner_radius", 6.0 * scale))
-	)
-	var font_size: int = StageClearResultTextLayoutHelper.fit_font_size(
-		font,
-		source_label,
-		chip_rect.size.x - 6.0 * scale,
-		int(visual_state.get("font_preferred_size", round(10.0 * scale))),
-		int(visual_state.get("font_min_size", round(7.0 * scale)))
-	)
-	StageClearResultTextLayoutHelper.draw_centered_text(self, font, source_label, chip_rect, font_size, visual_state.get("text_color", Color(0.92, 1.0, 1.0, alpha)), 0.0)
-
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_reward_card_icon(reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
