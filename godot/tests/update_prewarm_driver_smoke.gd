@@ -63,11 +63,23 @@ class FakeBallDriver:
 		prewarm_calls += 1
 
 
+class FakeStagedCleanseState:
+	extends RefCounted
+
+	var prewarm_calls := 0
+	var complete_after := 3
+
+	func prewarm_assets_step() -> bool:
+		prewarm_calls += 1
+		return prewarm_calls >= complete_after
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var context_builder: Object
 	var ball_driver: Object
+	var cleanse_state := FakeStagedCleanseState.new()
 	var requested_keys: Array[String] = []
 
 	func _init(context: Object, ball: Object) -> void:
@@ -81,6 +93,8 @@ class FakeRegistry:
 				return context_builder
 			"battle_scene_ball_update_driver":
 				return ball_driver
+			"smasher_cleanse_state":
+				return cleanse_state
 			_:
 				return RefCounted.new()
 
@@ -121,6 +135,19 @@ func _init() -> void:
 
 	driver.prewarm_ball_update(owner, registry)
 	_expect(ball_driver.prewarm_calls == 1, "ball prewarm should be forwarded to ball update driver")
+
+	var smasher_driver: Object = UpdatePrewarmDriver.new()
+	var smasher_owner := FakeOwner.new()
+	smasher_owner.current_stage = 1
+	smasher_owner.selected_character_type = "smasher"
+	var smasher_context := FakeContextBuilder.new()
+	var smasher_ball_driver := FakeBallDriver.new()
+	var smasher_registry := FakeRegistry.new(smasher_context, smasher_ball_driver)
+	smasher_driver.prewarm_update(smasher_owner, smasher_registry)
+	_expect(
+		smasher_registry.cleanse_state.prewarm_calls >= smasher_registry.cleanse_state.complete_after,
+		"prewarm should wait for staged smasher cleanse assets before advancing the dependency key"
+	)
 
 	if _failures.is_empty():
 		print("update_prewarm_driver_smoke: ok")

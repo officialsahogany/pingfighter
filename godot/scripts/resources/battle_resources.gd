@@ -206,6 +206,7 @@ var _resource_cache: Dictionary = {}
 var _transition_texture_prewarm_key: String = ""
 var _transition_texture_prewarm_step_index: int = 0
 var _transition_skill_icon_map_cache: Dictionary = {}
+var _transition_skill_icon_temp_keys: Array[String] = []
 var _transition_texture_prewarm_current: Dictionary = {}
 var _transition_texture_prewarm_path: String = ""
 var _transition_texture_prewarm_active: bool = false
@@ -279,6 +280,7 @@ func reset_transition_texture_prewarm() -> void:
 	_transition_texture_prewarm_key = ""
 	_transition_texture_prewarm_step_index = 0
 	_transition_skill_icon_map_cache.clear()
+	_clear_transition_skill_icon_temp_keys()
 	_clear_transition_texture_prewarm_thread()
 
 
@@ -298,6 +300,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		_transition_texture_prewarm_key = prewarm_key
 		_transition_texture_prewarm_step_index = 0
 		_transition_skill_icon_map_cache.clear()
+		_clear_transition_skill_icon_temp_keys()
 		_clear_transition_texture_prewarm_thread()
 
 	var core_step_count := _get_core_texture_step_count()
@@ -318,7 +321,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 			step_index - core_step_count - player_step_count
 		)
 	elif step_index < total_step_count:
-		_load_selected_skill_icon_texture_step(
+		step_done = _prewarm_selected_skill_icon_texture_step(
 			character_type,
 			step_index - core_step_count - player_step_count - boss_step_count
 		)
@@ -1255,30 +1258,59 @@ func _get_selected_skill_icon_texture_step_count(character_type: String) -> int:
 	return max(1, _get_selected_skill_icon_paths(character_type).size())
 
 
-func _load_selected_skill_icon_texture_step(character_type: String, step_index: int) -> void:
+func _prewarm_selected_skill_icon_texture_step(character_type: String, step_index: int) -> bool:
 	_ensure_inactive_skill_icon_maps(character_type)
 	var paths := _get_selected_skill_icon_paths(character_type)
 	var cache_key := _get_selected_skill_icon_cache_key(character_type)
 	if cache_key == "":
-		return
+		return true
 	if not _transition_skill_icon_map_cache.has(cache_key):
 		var existing_icons: Variant = _resource_cache.get(cache_key, {})
 		_transition_skill_icon_map_cache[cache_key] = existing_icons if existing_icons is Dictionary else {}
 	var skill_names := paths.keys()
 	if step_index < 0 or step_index >= skill_names.size():
 		_resource_cache[cache_key] = _transition_skill_icon_map_cache[cache_key]
-		return
+		return true
 	var skill_id := str(skill_names[step_index])
 	var skill_icons: Dictionary = {}
 	var cached_icons: Variant = _transition_skill_icon_map_cache.get(cache_key, {})
 	if cached_icons is Dictionary:
 		skill_icons = cached_icons
+	if skill_icons.get(skill_id, null) is Texture2D:
+		_transition_skill_icon_map_cache[cache_key] = skill_icons
+		_resource_cache[cache_key] = skill_icons
+		return true
+	var temp_key := _get_transition_skill_icon_temp_key(cache_key, skill_id)
+	var spec := _texture_spec([temp_key], str(paths[skill_id]))
+	if not _prewarm_texture_spec_step(spec):
+		return false
+	var texture: Variant = _resource_cache.get(temp_key, null)
+	_resource_cache.erase(temp_key)
+	_transition_skill_icon_temp_keys.erase(temp_key)
+	if not (texture is Texture2D):
+		_transition_skill_icon_map_cache[cache_key] = skill_icons
+		_resource_cache[cache_key] = skill_icons
+		return true
 	skill_icons[skill_id] = SkillOrbTextureNormalizer.normalize(
 		skill_id,
-		_load_texture_resource(str(paths[skill_id]))
+		texture as Texture2D
 	)
 	_transition_skill_icon_map_cache[cache_key] = skill_icons
 	_resource_cache[cache_key] = skill_icons
+	return true
+
+
+func _get_transition_skill_icon_temp_key(cache_key: String, skill_id: String) -> String:
+	var temp_key := "__transition_skill_icon_texture.%s.%s" % [cache_key, skill_id]
+	if not _transition_skill_icon_temp_keys.has(temp_key):
+		_transition_skill_icon_temp_keys.append(temp_key)
+	return temp_key
+
+
+func _clear_transition_skill_icon_temp_keys() -> void:
+	for key in _transition_skill_icon_temp_keys:
+		_resource_cache.erase(key)
+	_transition_skill_icon_temp_keys.clear()
 
 
 func _get_selected_skill_icon_paths(character_type: String) -> Dictionary:

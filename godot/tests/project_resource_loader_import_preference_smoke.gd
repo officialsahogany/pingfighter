@@ -25,6 +25,7 @@ func _init() -> void:
 	var texture_body := _function_body(source, "static func load_texture(")
 	var threaded_prewarm_body := _function_body(source, "static func prewarm_texture_threaded_step(")
 	var audio_body := _function_body(source, "static func load_audio_stream(")
+	var threaded_audio_prewarm_body := _function_body(source, "static func prewarm_audio_stream_threaded_step(")
 	_expect(
 		texture_body.find("Image.load_from_file") < texture_body.find("_can_load_imported_resource"),
 		"texture loader should prefer raw PNG decoding before imported fallback"
@@ -47,6 +48,15 @@ func _init() -> void:
 	_expect(
 		audio_body.find("load_from_file") < audio_body.find("_can_load_imported_resource"),
 		"audio loader should prefer raw audio decoding before imported fallback"
+	)
+	_expect(
+		audio_body.find("load_from_file") < audio_body.find("_get_resource_loader_audio_stream"),
+		"audio loader should prefer raw audio decoding before cached ResourceLoader audio"
+	)
+	_expect(
+		threaded_audio_prewarm_body.find("ResourceLoader.load_threaded_request(path, \"AudioStream\", true)") >= 0
+			and threaded_audio_prewarm_body.find("store_audio_stream(path, stream)") >= 0,
+		"threaded audio prewarm helper should load imported AudioStreams off the main thread and cache them for normal playback"
 	)
 
 	if _failed:

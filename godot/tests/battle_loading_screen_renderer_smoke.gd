@@ -62,6 +62,15 @@ class FakeReadiness:
 		return warmup_finished
 
 
+class FakeAudio:
+	extends RefCounted
+
+	var setup_progress := 0.0
+
+	func get_setup_progress() -> float:
+		return setup_progress
+
+
 class FakeLoadingRenderer:
 	extends RefCounted
 
@@ -287,6 +296,21 @@ func _verify_warmup_progress_contract() -> void:
 	_expect(
 		is_equal_approx(float(warmup.get_progress()), 10.0 / float(warmup.get_total_steps())),
 		"warmup progress should scale by total steps"
+	)
+	var audio := FakeAudio.new()
+	audio.setup_progress = 0.5
+	warmup.set("boot_warmup_step", 8)
+	_modules = {
+		"battle_boot_warmup_controller": warmup,
+		"game_audio": audio,
+	}
+	var nested_progress := float(warmup.get_progress(Callable(self, "_get_module")))
+	_expect(nested_progress > 8.0 / float(warmup.get_total_steps()), "audio setup progress should advance past the fixed 38 percent step")
+	_expect(nested_progress < 9.0 / float(warmup.get_total_steps()), "audio setup progress should stay inside the current boot step")
+	var renderer := BattleLoadingScreenRenderer.new()
+	_expect(
+		is_equal_approx(float(renderer._get_warmup_progress(Callable(self, "_get_module"))), nested_progress),
+		"loading renderer should pass the module getter so warmup can expose audio substep progress"
 	)
 	warmup.set("boot_warmup_step", 18)
 	_expect(str(warmup.get_status_text()).contains("결과 화면"), "warmup should expose the stage-clear result prewarm status")

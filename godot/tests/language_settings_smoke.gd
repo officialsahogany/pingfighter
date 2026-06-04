@@ -33,6 +33,11 @@ func _init() -> void:
 	var lightweight: Dictionary = perk_catalog.get_perk_data("dash_lightweight")
 	_expect(str(lightweight.get("name", "")) == "Lightweight", "runtime perk names should localize")
 	_expect(str(lightweight.get("description", "")).find("Dash cooldown") >= 0, "runtime perk descriptions should localize")
+	var ghost_unlock: Dictionary = perk_catalog.get_perk_data("unlock_ghost_shot")
+	_expect(str(ghost_unlock.get("name", "")) == str(LanguageSettings.PERK_NAME_EN["smasher_unlock_ghost_shot"]), "Ghost Smashing unlock perk name should localize to English")
+	_expect(str(ghost_unlock.get("description", "")) == str(LanguageSettings.PERK_SUMMARY_EN["smasher_unlock_ghost_shot"]), "Ghost Smashing unlock perk summary should localize to English")
+	var smasher_skill_config_en := SmasherSkillConfig.new()
+	_expect(str(smasher_skill_config_en.get_skill_data("ghost_shot").get("korean", "")) == "Ghost Smashing", "Ghost Shot runtime id should display as Ghost Smashing in English")
 
 	var characters: Array = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
 	_expect(not characters.is_empty(), "character select data should be available")
@@ -76,6 +81,7 @@ func _init() -> void:
 	_expect(stats_zh.has("速度"), "character select stat labels should localize to Chinese")
 
 	var smasher_skill_config := SmasherSkillConfig.new()
+	_expect(str(smasher_skill_config.get_skill_data("ghost_shot").get("korean", "")) == str(LanguageSettings.SKILL_DATA_ZH["ghost_shot"]["korean"]), "Ghost Smashing skill data should localize to Chinese")
 	_expect(str(smasher_skill_config.get_skill_data("plasma").get("korean", "")) == "等离子", "Smasher skill data should localize to Chinese")
 	var commando_skill_config := CommandoSkillConfig.new()
 	_expect(str(commando_skill_config.get_skill_data("commando_pistol").get("korean", "")) == "贝雷塔", "Commando skill data should localize to Chinese")
@@ -83,6 +89,7 @@ func _init() -> void:
 	_expect(str(viper_skill_config.get_skill_data("ignition_aura").get("korean", "")) == "点火光环", "Viper skill data should localize to Chinese")
 
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	_expect(str(smasher_skill_config.get_skill_data("ghost_shot").get("korean", "")) == str(LanguageSettings.SKILL_DATA_JA["ghost_shot"]["korean"]), "Ghost Smashing skill data should localize to Japanese")
 	_expect(LanguageSettings.get_language_options().has(LanguageSettings.LANGUAGE_JAPANESE), "language options should include Japanese")
 	_expect(LanguageSettings.normalize_language("ja-JP") == LanguageSettings.LANGUAGE_JAPANESE, "Japanese locale aliases should normalize")
 	_expect(LanguageSettings.get_native_language_name(LanguageSettings.LANGUAGE_JAPANESE) == "日本語", "Japanese native language name should localize")
@@ -114,6 +121,7 @@ func _init() -> void:
 	_expect(str(viper_skill_config.get_skill_data("ignition_aura").get("korean", "")) == "イグニッションオーラ", "Viper skill data should localize to Japanese")
 
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(str(smasher_skill_config.get_skill_data("ghost_shot").get("korean", "")) == str(LanguageSettings.SKILL_DATA_ES["ghost_shot"]["korean"]), "Ghost Smashing skill data should localize to Spanish")
 	_expect(LanguageSettings.get_language_options().has(LanguageSettings.LANGUAGE_SPANISH), "language options should include Spanish")
 	_expect(LanguageSettings.normalize_language("es-ES") == LanguageSettings.LANGUAGE_SPANISH, "Spanish locale aliases should normalize")
 	_expect(LanguageSettings.get_native_language_name(LanguageSettings.LANGUAGE_SPANISH) == "Español", "Spanish native language name should localize")
@@ -145,6 +153,7 @@ func _init() -> void:
 	_expect(str(viper_skill_config.get_skill_data("ignition_aura").get("korean", "")) == "Aura de ignición", "Viper skill data should localize to Spanish")
 
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	_expect(str(smasher_skill_config.get_skill_data("ghost_shot").get("korean", "")) == str(LanguageSettings.SKILL_DATA_PT_BR["ghost_shot"]["korean"]), "Ghost Smashing skill data should localize to Brazilian Portuguese")
 	_expect(LanguageSettings.get_language_options().has(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL), "language options should include Brazilian Portuguese")
 	_expect(LanguageSettings.normalize_language("pt-BR") == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL, "Brazilian Portuguese locale aliases should normalize")
 	_expect(LanguageSettings.get_native_language_name(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL) == "Português (Brasil)", "Brazilian Portuguese native language name should localize")
@@ -176,6 +185,7 @@ func _init() -> void:
 	_expect(str(viper_skill_config.get_skill_data("ignition_aura").get("korean", "")) == "Aura de Ignição", "Viper skill data should localize to Brazilian Portuguese")
 
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	_expect(str(smasher_skill_config.get_skill_data("ghost_shot").get("korean", "")) == str(LanguageSettings.SKILL_DATA_RU["ghost_shot"]["korean"]), "Ghost Smashing skill data should localize to Russian")
 	_expect(LanguageSettings.get_language_options().has(LanguageSettings.LANGUAGE_RUSSIAN), "language options should include Russian")
 	_expect(LanguageSettings.normalize_language("ru-RU") == LanguageSettings.LANGUAGE_RUSSIAN, "Russian locale aliases should normalize")
 	_expect(LanguageSettings.get_native_language_name(LanguageSettings.LANGUAGE_RUSSIAN) == str(LanguageSettings.LANGUAGE_NATIVE_NAMES[LanguageSettings.LANGUAGE_RUSSIAN]), "Russian native language name should localize")

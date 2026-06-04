@@ -417,7 +417,7 @@ func _resolve_status_text(
 func _get_warmup_progress(module_getter: Callable) -> float:
 	var warmup: Object = _get_module(module_getter, "battle_boot_warmup_controller")
 	if warmup != null and warmup.has_method("get_progress"):
-		return float(warmup.get_progress())
+		return float(warmup.get_progress(module_getter))
 	if _is_warmup_finished(module_getter):
 		return 1.0
 	return 0.12

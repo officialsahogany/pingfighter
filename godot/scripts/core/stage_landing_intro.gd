@@ -17,6 +17,8 @@ const CAMERA_ZOOM_EXTRA := 1.8
 const ARENA_START_SCALE := 0.12
 const ARENA_HOLD_RATIO := 0.15
 const ENCOUNTER_REVEAL_BANDS := 18
+const PREWARM_TEXTURE_FALLBACK_MSEC := 8
+const PREWARM_TEXTURE_FALLBACK_POLLS := 8
 
 const STAGE_BACKGROUND_PATHS := {
 	1: "res://assets/sprites/hud/stage1_landing_zoom_background_cyber_joseon_imagegen_v2_realesrgan_animev3_2x.png",
@@ -65,7 +67,27 @@ var cached_game_rect := Rect2()
 
 
 func prewarm_assets(stage: int = 1) -> void:
-	_load_stage_background(stage)
+	while not prewarm_assets_step(stage):
+		pass
+
+
+func prewarm_assets_step(stage: int = 1) -> bool:
+	var path: String = str(STAGE_BACKGROUND_PATHS.get(stage, ""))
+	if path == "":
+		return true
+	var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		"",
+		"",
+		PREWARM_TEXTURE_FALLBACK_MSEC,
+		PREWARM_TEXTURE_FALLBACK_POLLS
+	)
+	if not bool(result.get("done", false)):
+		return false
+	var texture_value: Variant = result.get("texture", null)
+	if texture_value is Texture2D:
+		background_texture = texture_value
+	return true
 
 
 func begin(owner: Object, registry: Object) -> bool:

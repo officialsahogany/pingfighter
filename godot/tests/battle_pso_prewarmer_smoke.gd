@@ -22,6 +22,7 @@ func _run() -> void:
 	_verify_second_pass_warmup_scope()
 	_verify_prewarmer_uses_imported_texture_resources()
 	_verify_attach_helper_idempotence()
+	await _verify_stage_step_waits_for_draw_warmup()
 	await _verify_prewarmer_self_destructs()
 
 	if _failures.is_empty():
@@ -78,6 +79,7 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_skill_icon_textures"), "prewarmer should cover real skill icon texture draws")
 	_expect(prewarmer.has_method("_prewarm_timer_stack_primitives"), "prewarmer should cover timer-stack first-use primitives")
 	_expect(prewarmer.has_method("_prewarm_weather_primitives"), "prewarmer should cover weather draw primitives")
+	_expect(prewarmer.has_method("_prewarm_energy_ball_textures"), "prewarmer should cover energy-ball core and ring texture PSOs")
 	_expect(prewarmer.has_method("_prewarm_playfield_primitives"), "prewarmer should cover Stage 1 playfield texture and primitive PSOs")
 	_expect(prewarmer.has_method("_prewarm_stage2_center_primitives"), "prewarmer should cover Stage 2 center playfield primitives")
 	_expect(prewarmer.has_method("_prewarm_stage2_leaf_primitives"), "prewarmer should cover Stage 2 falling-leaf polygon PSOs")
@@ -94,6 +96,11 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(source.find("compact_fallback_frame") >= 0, "prewarmer should exercise the compact boss-dash fallback frame")
 	_expect(source.find("VIPER_SKILL_ICON_PATHS") >= 0, "prewarmer should draw selected-character skill icon texture families")
 	_expect(source.find("draw_mesh") >= 0 and source.find("ActiveItemThrowMolotovRenderer._get_filled_ellipse_mesh") >= 0, "prewarmer should exercise the active-item molotov filled ellipse mesh path")
+	_expect(
+		source.find("EnergyBallTextureCache.draw_core") >= 0
+			and source.find("EnergyBallTextureCache.draw_saturn_ring") >= 0,
+		"prewarmer should issue energy-ball core and saturn-ring draws before the first live ball frame"
+	)
 	# The three live dash-orb boost shader paths must each be exercised so the
 	# GPU compiles every branch of dash_token_boost_ring.gdshader before the
 	# first real boost event lands in gameplay.
@@ -175,6 +182,25 @@ func _verify_attach_helper_idempotence() -> void:
 		if child is BattlePsoPrewarmer:
 			prewarmer_children += 1
 	_expect(prewarmer_children == 2, "attach helper should re-arm the PSO prewarmer once for a newly entered stage")
+	owner.queue_free()
+
+
+func _verify_stage_step_waits_for_draw_warmup() -> void:
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	get_root().add_child(owner)
+	_expect(
+		not controller._run_battle_pso_prewarmer_step(owner),
+		"PSO prewarmer stage step should hold the loading warmup while offscreen draw passes are still running"
+	)
+	var prewarmer := owner.get_node_or_null("BattlePsoPrewarmer")
+	_expect(prewarmer != null, "PSO prewarmer stage step should attach the prewarmer node on its first call")
+	for _i in range(BattlePsoPrewarmer.LIFETIME_FRAMES + 2):
+		await process_frame
+	_expect(
+		controller._run_battle_pso_prewarmer_step(owner),
+		"PSO prewarmer stage step should finish after the staged draw warmup node self-destructs"
+	)
 	owner.queue_free()
 
 

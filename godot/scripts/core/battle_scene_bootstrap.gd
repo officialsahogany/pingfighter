@@ -18,6 +18,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var player_paddle_visual_scale_override: float = -1.0
 	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
 	var selected_character_type: String = str(context.get("selected_character_type", "smasher")).strip_edges().to_lower()
+	var current_stage: int = int(context.get("current_stage", 1))
 	var special_gauge := 0.0
 	var special_gauge_max := 500.0
 	var boss_start_pos := Vector2(width * 0.5 - boss_paddle_width * 0.5, boss_y)
@@ -27,7 +28,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	if audio != null:
 		audio.setup(owner)
 		if bool(context.get("play_stage_bgm_on_initialize", true)) and audio.has_method("play_stage_bgm"):
-			audio.play_stage_bgm(int(context.get("current_stage", 1)))
+			audio.play_stage_bgm(current_stage)
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.audio", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
@@ -35,8 +36,8 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var resources = registry.get_instance("battle_resources")
 	if resources != null:
 		var resource_context := {
-			"selected_character_type": str(context.get("selected_character_type", "smasher")),
-			"current_stage": int(context.get("current_stage", 1)),
+			"selected_character_type": selected_character_type,
+			"current_stage": current_stage,
 			"include_result_sheets": false,
 			"include_all_characters": false,
 			"include_all_stages": false,
@@ -45,7 +46,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 			var cached_textures: Variant = resources.get_resource_cache()
 			if cached_textures is Dictionary and not (cached_textures as Dictionary).is_empty():
 				battle_textures = cached_textures
-		if battle_textures.is_empty() and resources.has_method("load_all"):
+		if resources.has_method("load_all") and battle_textures.is_empty():
 			battle_textures = resources.load_all(resource_context)
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.resources", sample_start)
 
@@ -85,7 +86,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var ball_physics = registry.get_instance("ball_physics")
 	if ball_physics != null:
 		ball_physics.configure_context(
-			int(context.get("current_stage", 1)),
+			current_stage,
 			str(context.get("ai_mode", "champion")),
 			bool(context.get("arena_mode_enabled", false)),
 			str(context.get("weather_type", ""))
@@ -123,7 +124,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.character_state", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	var boss_health_snapshot: Dictionary = _build_boss_health_snapshot(registry, int(context.get("current_stage", 1)))
+	var boss_health_snapshot: Dictionary = _build_boss_health_snapshot(registry, current_stage)
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.boss_health", sample_start)
 
 	sample_start = _perf_begin(perf_logger)

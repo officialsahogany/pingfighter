@@ -7,6 +7,9 @@ static var _threaded_texture_prewarm_path: String = ""
 static var _threaded_texture_prewarm_started_msec: int = 0
 static var _threaded_texture_prewarm_poll_count: int = 0
 static var _threaded_texture_prewarm_stale_warning_sent: bool = false
+static var _threaded_audio_prewarm_path: String = ""
+static var _threaded_audio_prewarm_started_msec: int = 0
+static var _threaded_audio_prewarm_poll_count: int = 0
 
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
@@ -30,6 +33,8 @@ const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
 # plateaus. See AGENTS.md "Bounded threaded texture prewarm".
 const THREADED_TEXTURE_PREWARM_MAX_MSEC := 1800
 const THREADED_TEXTURE_PREWARM_MAX_POLLS := 240
+const THREADED_AUDIO_PREWARM_MAX_MSEC := 1800
+const THREADED_AUDIO_PREWARM_MAX_POLLS := 240
 
 
 static func load_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
@@ -218,6 +223,11 @@ static func load_audio_stream(path: String, missing_warning: String = "", failed
 					_audio_cache[path] = ogg_stream
 					return ogg_stream
 
+	var cached_resource: AudioStream = _get_resource_loader_audio_stream(path)
+	if cached_resource != null:
+		_audio_cache[path] = cached_resource
+		return cached_resource
+
 	var imported_exists: bool = _can_load_imported_resource(path)
 	if imported_exists:
 		var stream_resource: Resource = ResourceLoader.load(path)
@@ -246,6 +256,55 @@ static func store_audio_stream(path: String, stream: AudioStream) -> void:
 	if path == "" or stream == null:
 		return
 	_audio_cache[path] = stream
+
+
+static func prewarm_audio_stream_threaded_step(path: String, missing_warning: String = "", failed_warning: String = "") -> Dictionary:
+	if path == "":
+		return {"done": true, "stream": null}
+	var cached_stream: AudioStream = get_cached_audio_stream(path)
+	if cached_stream != null:
+		return {"done": true, "stream": cached_stream}
+	var cached_resource: AudioStream = _get_resource_loader_audio_stream(path)
+	if cached_resource != null:
+		_audio_cache[path] = cached_resource
+		return {"done": true, "stream": cached_resource}
+	if not _is_thread_loadable_audio_path(path):
+		return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
+
+	if _threaded_audio_prewarm_path == "":
+		var request_error := ResourceLoader.load_threaded_request(path, "AudioStream", true)
+		if request_error != OK and request_error != ERR_BUSY:
+			return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
+		_threaded_audio_prewarm_path = path
+		_threaded_audio_prewarm_started_msec = Time.get_ticks_msec()
+		_threaded_audio_prewarm_poll_count = 0
+		return {"done": false, "stream": null}
+	if _threaded_audio_prewarm_path != path:
+		_threaded_audio_prewarm_poll_count += 1
+		if _is_threaded_audio_prewarm_expired():
+			_clear_threaded_audio_prewarm()
+			return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
+		return {"done": false, "stream": null}
+
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	match status:
+		ResourceLoader.THREAD_LOAD_LOADED:
+			_clear_threaded_audio_prewarm()
+			var resource: Resource = ResourceLoader.load_threaded_get(path)
+			if resource is AudioStream:
+				var stream: AudioStream = resource
+				store_audio_stream(path, stream)
+				return {"done": true, "stream": stream}
+			return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			_clear_threaded_audio_prewarm()
+			return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
+	_threaded_audio_prewarm_poll_count += 1
+	if _is_threaded_audio_prewarm_expired():
+		_clear_threaded_audio_prewarm()
+		return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
+	return {"done": false, "stream": null}
 
 
 static func load_font(path: String, missing_warning: String = "", failed_warning: String = "") -> Font:
@@ -324,8 +383,21 @@ static func _get_resource_loader_texture(path: String) -> Texture2D:
 	return null
 
 
+static func _get_resource_loader_audio_stream(path: String) -> AudioStream:
+	if not ResourceLoader.has_cached(path):
+		return null
+	var cached_resource: Resource = ResourceLoader.load(path)
+	if cached_resource is AudioStream:
+		return cached_resource
+	return null
+
+
 static func _is_thread_loadable_texture_path(path: String) -> bool:
 	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+
+
+static func _is_thread_loadable_audio_path(path: String) -> bool:
+	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "AudioStream")
 
 
 static func _is_threaded_texture_prewarm_stale() -> bool:
@@ -361,8 +433,24 @@ static func _clear_threaded_texture_prewarm() -> void:
 	_threaded_texture_prewarm_stale_warning_sent = false
 
 
+static func _is_threaded_audio_prewarm_expired() -> bool:
+	if _threaded_audio_prewarm_path == "":
+		return false
+	if _threaded_audio_prewarm_poll_count >= THREADED_AUDIO_PREWARM_MAX_POLLS:
+		return true
+	var elapsed_msec := Time.get_ticks_msec() - _threaded_audio_prewarm_started_msec
+	return elapsed_msec >= THREADED_AUDIO_PREWARM_MAX_MSEC
+
+
+static func _clear_threaded_audio_prewarm() -> void:
+	_threaded_audio_prewarm_path = ""
+	_threaded_audio_prewarm_started_msec = 0
+	_threaded_audio_prewarm_poll_count = 0
+
+
 static func clear_caches() -> void:
 	_texture_cache.clear()
 	_audio_cache.clear()
 	_font_cache.clear()
 	_clear_threaded_texture_prewarm()
+	_clear_threaded_audio_prewarm()
