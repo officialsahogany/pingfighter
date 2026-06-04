@@ -187,6 +187,14 @@ Unless the user explicitly overrides them, use these defaults:
   event, scoreboard-active frames, serve wait, round restart, and game
   reset cannot leave the loop playing or immediately re-arm it from
   `battle_effects_update_controller.gd`.
+- Apply the same cleanup rule to Lingpet / RefCounted skills and to any
+  sustained or stop-capable urgent SFX channel, even if the stream is not
+  flagged as a Godot loop. If the sound can still be playing when score,
+  serve wait, round restart, stage transition, or game reset interrupts
+  the effect, register its `stop_*` method in
+  `scripts/audio/gameplay_loop_audio_cleanup.gd`; do not rely on
+  `reset()` only clearing local flags, because lingpet host reset paths can
+  run without audio / registry deps.
 - By default, **cooldown-state reset and runtime-state reset are separate
   responsibilities**. A helper that clears cooldowns should not also
   terminate or preserve active runtime state unless that behavior is
@@ -198,6 +206,10 @@ Unless the user explicitly overrides them, use these defaults:
 - Commando `bowling_trap` is an explicit carryover exception: round reset
   preserves placed traps by normalizing them to `waiting`, while full
   reset / character-switch cleanup clears them.
+- Viper `dual_glitch` is an explicit carryover exception: active clone
+  presence survives normal round reset, serve-wait frames pause its remaining
+  duration, and full reset / character-switch cleanup clears it through
+  `preserve_dual_glitch = false`.
 - In the Godot port, the orb-tooltip hover pause/resume exception is
   routed through `scripts/core/battle_scene_skill_tooltip_driver.gd`.
   Keep tooltip-driven cooldown pause/resume separate from character
@@ -988,6 +1000,11 @@ Godot-first note:
 - [ ] If the modal opens on top of another dialog, verify the background
       snapshot is taken after the launcher dialog is gone so old text
       does not remain as a ghosted layer.
+- [ ] If a runtime perk choice can open during an item acquisition
+      cinematic, treasure effect, or other blocking reward reveal, verify
+      the perk modal has input priority while it is visible. The older
+      reveal may be paused by the modal gate, so letting it consume click /
+      confirm first can deadlock both flows.
 - [ ] For panel / modal grid hover tooltips, position from the hovered
       cell / rect and audit panel-aware clamping. Top-row entries must
       be able to open below, and edge entries must stay fully visible.
@@ -1130,9 +1147,10 @@ Current Godot-first rule:
       different gameplay identity.
 - [ ] Start and end the cooldown in the same character-specific system
       as the existing skills.
-- [ ] If the skill starts or syncs looped audio, wire both the ordinary
-      lifecycle stop and the Godot round-boundary stop. The loop must stop
-      on effect expiry / cancel / reset, and its `stop_*` method must be
+- [ ] If the skill starts or syncs looped audio, or starts a sustained /
+      stop-capable urgent SFX channel, wire both the ordinary lifecycle
+      stop and the Godot round-boundary stop. The sound must stop on
+      effect expiry / cancel / reset, and its `stop_*` method must be
       registered in `scripts/audio/gameplay_loop_audio_cleanup.gd` so
       scoreboards, serve wait, round restart, and game reset cannot leave
       stale sound alive.
@@ -1525,9 +1543,10 @@ Godot-first note:
 28. Cross a round boundary and confirm runtime active state follows the
     intended policy: default = ends on round transition, exception =
     explicitly documented carryover / pause-resume only.
-    If the skill owns looped audio, force the score while the loop is
-    active and confirm it stays silent through scoreboard, serve wait,
-    round restart, and game reset.
+    If the skill owns looped audio or a sustained / stop-capable urgent
+    SFX channel, force the score while the sound is active and confirm it
+    stays silent through scoreboard, serve wait, round restart, and game
+    reset.
 29. If the skill uses runtime clones / afterimages / damaged-state
     sprite copies, check the weakest / faded / critical state in live
     gameplay and verify transparent margins stay invisible. No full

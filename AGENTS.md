@@ -363,6 +363,16 @@ renderer, check this section before deciding where to attach the draw call.
 - Godot warning scan: from `godot/`, run `.\tools\run_warning_scan.ps1`.
 - Focused Godot smoke tests: prefer the repo-local wrappers under
   `godot/tools/` when available.
+- Before making a Windows export that touches loading, runtime texture
+  loading, Live2D-style sheets, lingpet cut-ins / click reactions, or
+  stage-clear result visuals, run the focused export-regression smokes:
+  `project_resource_loader_import_preference_smoke`,
+  `lingpet_egg_runtime_smoke`, `battle_boot_resource_prewarm_smoke`,
+  `stage_clear_result_asset_loader_smoke`,
+  `stage_clear_result_scene_click_reaction_smoke`,
+  `stage_clear_result_screen_smoke`, and `result_box_open_fx_host_smoke`.
+  Then run the exported exe itself at least once with the repo's short
+  headless smoke (`--headless --quit-after 3`) before handing off the build.
 - Do not use legacy Python run / pytest / compile / PyInstaller commands as
   sign-off for Godot work. They are reference-only workflows.
 
@@ -373,6 +383,25 @@ renderer, check this section before deciding where to attach the draw call.
 - For Godot UI, verify font and texture resources through the live scene path.
   Keep visible fallbacks for missing assets instead of silently swallowing load
   failures.
+- Export-build texture invariant: never gate runtime PNG / texture loads only
+  with `FileAccess.file_exists(path)`. In exported builds, raw source PNG files
+  and `.import` metadata may not be visible in the same way as the editor, while
+  `ResourceLoader` can still resolve the packed resource. Route runtime visual
+  loads through `ProjectResourceLoader.load_texture()` /
+  `load_imported_texture()` / `prewarm_texture_threaded_step()` and make those
+  helpers fall back through `ResourceLoader.exists/load` for packed resources.
+  Optional source-file checks are acceptable for editor-only validation or JSON
+  sidecars, but they must not decide that an exported texture is missing.
+- Export-build UI rendering invariant: user-visible reward boxes, Live2D-style
+  sheets, cut-ins, click reactions, and result-screen visuals must have a
+  visible fallback if their texture is unexpectedly null. For result-screen box
+  bodies, prefer `draw_texture_rect_region()` with an explicit source rect and
+  transform over bespoke polygon UV drawing unless a focused export smoke pins
+  the exact polygon behavior. The June 2026 regressions were: lingpet cut-in /
+  click art disappeared because exported textures were rejected by raw
+  `FileAccess.file_exists(path)` checks, and stage-clear result boxes
+  disappeared in builds until their sheets were import-preferred and the draw
+  path moved to texture-region rendering with fallback.
 - Treat modal-open flags and menu-request flags as one-shot signals; mouse and
   keyboard paths must both clear them consistently after consume / cancel.
 - For tooltip wrapping, reuse the current Godot tooltip/layout helper for that
@@ -826,6 +855,26 @@ boss sprite classes.
   one-time caching over repeated reconstruction.
 - Cache common source rects, animation frame metadata, scaled textures, and
   material variants when reused.
+- **Never `.duplicate(true)` a large `const` catalog/data dict inside a
+  per-frame read-only getter.** GDScript `Dictionary.duplicate(true)` is not
+  free, and a companion/boss draw+update loop hits these getters dozens of
+  times per frame, so cost = entry size × call frequency multiply into a real
+  hitch as the data grows (the 2026-06 lingpet frame-drop regression:
+  `LingpetCatalog.get_entry()` deep-copied the `PETS` entry on every
+  `get_visual_path` / `get_visual_layout_value` / `get_stat` /
+  `get_display_name` / `get_active_skill_pool` call, and `get_active_skill()`
+  rebuilt the whole common passive pool twice per call — invisible until the
+  catalog doubled to 8 multi-skill pets). Keep the PUBLIC accessor deep-copying
+  for mutating external callers, but route non-mutating hot getters through a
+  shared non-copying `_get_entry_ref()`; when only one pool entry is needed,
+  look it up in the `const` directly and apply level once instead of building +
+  discarding the whole pool. Safe because Godot 4 locks `const` containers
+  read-only (an accidental mutate throws instead of silently corrupting) and
+  hot getters return scalars or already-`.duplicate()`d skill dicts. Verify with
+  warning-scan + headless-load + a DETERMINISTIC smoke (ref vs deep-copy must
+  yield identical values). This is a DIFFERENT class from the hot-path
+  lazy-init trap (that one is first-call construction; this one is steady-state
+  per-frame copying).
 - **Bounded threaded texture prewarm — keep the DEFAULT hard bound short.**
   `ProjectResourceLoader.prewarm_texture_threaded_step()` shares ONE threaded
   load slot and is polled once per frame by a caller that blocks its visible
@@ -871,6 +920,30 @@ boss sprite classes.
   display size. Trap when verifying: the open editor caches `.import` in memory
   and re-reverts headless reimports of changed sheets, so chain `--import` +
   the texture-loading smoke (or restart the editor) to read a consistent state.
+- **`size_limit` is BYPASSED by `ProjectResourceLoader.load_texture()` — it
+  decodes the RAW source PNG first.** `load_texture()` (project_resource_loader.gd)
+  tries the in-memory `_texture_cache`, then `Image.load_from_file(raw_png)`
+  BEFORE the imported `.ctex`, so a caller that `load_texture()`s a big sheet on
+  a cache miss decodes the full-size source and ignores `process/size_limit`
+  entirely. The stage-clear result `size_limit` fix only worked because the
+  transition prewarm (`prewarm_texture_threaded_step`, which uses the IMPORTED
+  threaded path) populated the cache first, so the later `load_texture()` hit the
+  cache. With NO prewarm, the first draw decodes raw and the freeze stays — this
+  was the lingpet acquire cut-in 1141ms freeze (8192×8192 `maribo_cutin_anim`
+  loaded by `load_texture` on the first reveal draw). Fix for a `load_texture`
+  caller of a big sheet: (1) `process/size_limit` on the `.import`; (2) switch
+  the load to `ProjectResourceLoader.load_imported_texture()` so it reads the
+  size-limited `.ctex`, not the raw source; (3) for the heaviest sheets, DON'T
+  sync-load on the first visible draw — stream them via a per-frame threaded
+  prewarm (`prewarm_texture_threaded_step(..., prefer_imported_fallback=true)`)
+  during an intro/loading window and draw a small fallback (e.g. a static art) of
+  the same subject until the streamed sheet lands in cache. The cut-in
+  (`lingpet_acquire_cutin_overlay_host.gd`) does all three: 13 cut-in sheets
+  capped to 768px cells, `load_imported_texture`, and `prewarm_pet_assets_step`
+  stepped each `draw()` frame while the static `cutin_art` covers the ~0.1s.
+  Sibling still open: the companion click-reaction sheets
+  (`*_click_live2d_pingpong_98f.png`, 14336×7168 / 16128×8064, `size_limit=0`)
+  are the same class and will freeze on first click until given the same fix.
 - Particle/effect cost is multiplicative: particle count x lifetime x layer
   count x translucent radius. Small-looking increases across multiple axes can
   still add visible frame cost.
@@ -923,6 +996,55 @@ boss sprite classes.
   particular, `boss_hit_sprite_sheet`-style legacy names must be audited so
   ball-contact paths select attack sheets and real stun/electrocution paths
   select stun sheets.
+- Electrocution/shock is a SHARED, source-agnostic symptom with TWO shared
+  layers — do not hand-roll bespoke arcs per skill. The original sold "감전"
+  through the boss body convulsing + flashing cyan-white; rich arc/spark
+  overlays around a still, full-colour boss read as decoration, not
+  electrocution. The two shared layers, both driven per-frame by every stage
+  boss actor renderer (`stage1`–`stage5`):
+  1. BODY layer — `scripts/status/boss_electric_stun_visual.gd`: high-frequency
+     sprite tremble + cyan-white tint applied to the boss sprite.
+  2. FIELD layer — `scripts/effects/boss_electrocution_field_fx_host.gd`: a
+     BODY-CONFORMING electrocution host — a BOX-emission hot spark shower over
+     the body box + procedural discrete-tick crackle bolts jumping across the
+     body + white-hot contact flashes + a faint underglow + Tween envelope, all
+     additive. Deliberately NOT a centred energy ring / concentric-halo / orbiting
+     arc — that composition reads as "magic", not "sparks searing the body" (user
+     feedback 2026-06-04). Driven by the static
+     `drive_from_context(canvas, boss_center, context)` one-call driver. CRITICAL:
+     the host parents to the boss renderer's canvas, whose playfield mapping is
+     applied via `draw_set_transform()` inside `_draw()` — which child NODES do
+     NOT inherit. So the host BAKES `game_offset + (playfield_center) * render_scale`
+     with `scale = render_scale` itself (read from `context`), then renders its
+     own `_draw()` + children in local space. Do NOT feed raw playfield coords
+     assuming inheritance (the `CommonStarpointVisualHost` "canvas coords" pattern
+     is NOT a safe template here) — skipping the bake detaches the field to the
+     top-left letterbox corner (this exact regression has recurred;
+     `boss_electrocution_field_fx_host_smoke.gd` pins
+     `host.position == game_offset + center * render_scale` to seal it).
+  Any new electric/shock stun must light up BOTH layers by setting
+  `ragnarok_hammer_electric_stun_active`, or by applying a central stun status
+  with `electric_stun: true` (which `status_effect_state` propagates to
+  `boss_electric_stun_active`) — drawing your own arcs is an incomplete,
+  off-identity electrocution. Keep `suppress_stun_stars: true` on electric
+  stuns so the generic spinning stun-stars do not double up with the field.
+  The legacy immediate-draw arcs (`draw_ragnarok_electric_stun_overlay`,
+  Lumion `_draw_boss_electric_stun`) are retired/uncalled but kept as fallback
+  references.
+- When porting a projectile-blast skill (Lumion thunder orb is the reference),
+  match the original's CC PHASE and GEOMETRY, not just its radius/duration: the
+  Horus thunder orb judges the stun ONLY after the 0.2s explosion animation
+  finishes (not at explosion start, not per-frame) and uses pure boss-CENTER
+  distance <= radius (NOT a circle-vs-rect overlap — a boss merely clipping the
+  blast edge must not be stunned; see the radial-CC geometry rule). Pin both
+  with smoke (`lingpet_thunder_orb_skill_smoke.gd`: no-stun-during-explosion +
+  edge-only-center-outside).
+- A lingpet/RefCounted skill that owns a looping sound or a shared status source
+  must clean BOTH up on its `reset()`, not only lower an internal flag. The host
+  reset path (`lingpet_skill_runtime_host.reset()` → `skill.reset()`) is
+  registry-LESS, so cache the last registry from `update()` and, when `reset()`
+  runs mid-effect, call `sync_*_loop(false)` + `clear_status(...)` through it —
+  otherwise a round / pet transition leaks the audio loop and the status source.
 - For projectile-casting bosses, also verify the projectile-launch event triggers the matching cast / attack animation (not just ball-hit); cast timing and attack timing are checked as separate integration paths
 - If an anticipatory attack trigger is used, verify the ball-hit fallback does not double-fire, repeated approaches reset cleanly, and the chosen lead window still preserves the intended front-to-impact read
 - If an anticipatory attack trigger is used, verify the lead window is conservative enough that the visible downswing / chop does not complete before contact. "Prep becomes visible" is good; "attack whiffs early in empty air" is a fail

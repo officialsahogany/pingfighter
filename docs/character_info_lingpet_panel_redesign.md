@@ -13,6 +13,38 @@
 향후 링펫당 액티브 2개 + 패시브 2개를 채우면, 획득 순간 풀에서 1개씩 배정하는
 방식으로 확장한다.
 
+2026-06-04 결정: **패시브 스킬은 모든 링펫 공용 풀**로 간다. 링펫 개성은 링펫별
+고유 액티브 스킬 풀에서 만들고, 패시브는 제작 완료된 공용 패시브 풀에서 획득 시 1개를 랜덤 배정한다.
+액티브/패시브는 모두 `Lv.1`~`Lv.5` 성장값을 가진다. 현재 런타임 1차 구현은
+기존 전투 흐름을 깨지 않기 위해 선택 액티브 1개 + 선택 패시브 1개를 적용하고,
+로드아웃에는 `active_skill_level` / `passive_skill_level`, `passive_slot_count`,
+`passive_skill_ids`, `passive_skill_levels`를 함께 저장한다. 2번째 패시브 슬롯은
+성장/각성/친밀도 같은 후속 해금 시스템에서 `passive_slot_count`를 2로 올리는 방식으로
+열 수 있게 둔다.
+
+현재 공용 패시브 풀에는 임시 스캐폴드 패시브를 제거하고, 정식 패시브 `공명 증폭`,
+`잔광 유출`, `순풍 발산` 3종만 남겨둔다.
+2026-06-04 구현: `lingpet_afterglow_leak` / **잔광 유출**은 링펫이 공을 맞출 때
+바닥에 빛나는 공명 유체를 남기는 게이지 회수형 필드 잔류물 패시브다. 링펫 직접
+히트 빈도가 낮은 점을 감안해 Lv.1 총 20pt, Lv.5 총 100pt 게이지를 빠른 흡수
+틱으로 지급하고, 미흡수 잔류물은 일정 시간 뒤 바닥으로 스며들어 사라진다.
+`lingpet_tailwind_steps` / **순풍 발산**은 링펫이 순풍의 기운을 발산해
+플레이어 이동 속도를 Lv.1 +4%, Lv.5 +16%까지 올리는 이동형 패시브다.
+레거시 `maribo_resonance_boost` / `milkring_lactose_charge` /
+`lumion_circuit_resonance` / `red_dragon_core_resonance` 저장값은
+게이지 증폭 계열인 `lingpet_resonance_boost`로 정규화한다.
+
+2026-06-04 적용: 링펫 패널 전신 라투디는 **루나비부터** 시작한다. 정보창 링펫
+슬롯에서 루나비가 동행 중이면 기존 정적 `cutin_art` 대신
+`lunabi_click_live2d_pingpong_98f.png` 14x7/98프레임 시트를 16fps로 반복 재생한다.
+다른 링펫은 패널 비용을 늘리지 않기 위해 기존 정적 컷인 아트를 유지한다.
+
+카탈로그 정본 주의: `get_active_skill()` / `get_active_skill_entry()`는
+`active_skill_pool`을 먼저 읽는다. 같은 `id`가 기본 `active_skill` 블록과
+풀에 동시에 있으면 풀의 이름 / 메타데이터가 런타임 표시를 이기므로, 중복 ID를
+둘 곳이면 이름, 쿨타임, 아이콘, 카드 경로를 동기화하거나 풀 항목을 단일 정본으로
+관리한다.
+
 2026-06-02 추가: 마리보 액티브 후보에 `maribo_bubble_trap` / `물방울트랩`을 추가했다.
 부화/획득 시에는 액티브 풀에서 하이드로 스피어 또는 물방울트랩 중 하나가 선택될 수 있고,
 기존 보유/legacy 기본 로드아웃은 계속 첫 후보인 하이드로 스피어를 사용한다.
@@ -64,12 +96,21 @@
   - 물의 창을 던져 상대 진영 벽에 닿으면 5초간 **가로로 넓은 둔화 물장판** 생성.
   - 쿨타임 40초. (발사 전 ~1초 창 던지기 준비동작.)
 - **패시브 — 공명 증폭**
-  - 플레이어가 공을 받아칠 때 **게이지 획득량 +10%**.
+  - 플레이어가 공을 받아칠 때 **게이지 획득량 증가**.
+  - 공용 패시브 기준: Lv.1 +4% / Lv.3 +10% / Lv.5 +16%.
+- **패시브 — 잔광 유출**
+  - 링펫이 공을 받아칠 때 바닥에 빛나는 공명 유체를 남긴다.
+  - 플레이어 패들이 가까이 가면 유체를 흡수해 게이지를 얻는다.
+  - 공용 패시브 기준: Lv.1 총 20pt / Lv.5 총 100pt.
+- **패시브 — 순풍 발산**
+  - 플레이어의 이동 속도가 증가한다.
+  - 공용 패시브 기준: Lv.1 +4% / Lv.3 +10% / Lv.5 +16%.
 
 아이콘 소스: 하이드로 스피어는 레일 스킬카드(`maribo_hydro_sphere_skillcard_imagegen_v2.png`),
 물방울트랩은 전용 스킬카드(`maribo_bubble_trap_skillcard_imagegen_v1.png`)와 전용 스킬아이콘
-(`maribo_bubble_trap_skill_icon_imagegen_v1.png`)으로 연결 완료. 패시브 1종은 imagegen 투명 PNG
-(`maribo_resonance_boost_passive_icon_imagegen_v1.png`)로 연결 완료.
+(`maribo_bubble_trap_skill_icon_imagegen_v1.png`)으로 연결 완료. 공명 증폭은 imagegen 투명 PNG
+(`maribo_resonance_boost_passive_icon_imagegen_v1.png`)로 연결했고, 순풍 발산은 임시로
+`common_swiftness_perk_icon.png`를 재사용한다.
 전신 라투디는 컷인 원화(`maribo_cutin_art.png` / v003 nukki) 재활용 가능.
 
 마리보가 직접 공을 튕겼을 때의 **게이지 +40**은 별도 패시브 스킬이 아니라 링펫 공통
@@ -148,7 +189,7 @@
 해결됨(보정 반영):
 - ✅ 방어율 = **2차에 실제 AI와 함께** 도입(표시용 아님). 대시 토큰/쿨타임 = **보류**.
 - ✅ 이동 속도 = **2.00 단일값** 표기. 몸집 = **100×44px** 표기.
-- ✅ 패시브 1종(공명 증폭) 아이콘 = imagegen 기반 투명 PNG 생성 및 런타임 연결.
+- ✅ 현재 패시브 3종(공명 증폭, 잔광 유출, 순풍 발산) 런타임 연결.
   - `res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png`
 - ✅ "공명 충전" 패시브/6초 쿨타임 제거. 직접 튕김 +40은 링펫 공통 기본 능력치로 표시.
 

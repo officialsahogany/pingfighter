@@ -46,6 +46,31 @@ Gemini, FLUX, local interpolation, or ordinary resize as the final upscale
 unless the user explicitly approves that exception after Real-ESRGAN is
 blocked.
 
+Model / order refinement for tight STILL anime art (close-ups, cut-in
+busts, icons) — distinct from animated VFX frames:
+
+- **Never Lanczos-upscale the crop BEFORE Real-ESRGAN.** If a close-up
+  magnifies a small native region (e.g. a face cropped out of a 1024
+  full-body sprite cell), pre-scaling it up with Lanczos softens it and
+  Real-ESRGAN can no longer recover crisp lines. Crop the NATIVE region,
+  run Real-ESRGAN on the native pixels, then DOWNSCALE into the final
+  cell. The only enlargement should be the ESRGAN pass; everything after
+  is a sharp downscale.
+- **For still anime art prefer `realesrgan-x4plus-anime -s 4` over the
+  `realesr-animevideov3` default.** The animevideo model is tuned for
+  video frames and visibly smooths still line art; the x4plus-anime model
+  keeps eyes / hair / outlines crisp. (The `-s 2` animevideo default
+  stays correct for animated VFX / motion sheets.) The Viper phantom-kick
+  face close-up v6->v7 is the reference: v6 (Lanczos pre + animevideo x2)
+  read soft/"구려"; v7 (native crop -> x4plus-anime x4 -> downscale) was
+  visibly sharper at the same framing. Record the model + order in the
+  manifest.
+- **Detail is still capped by native source resolution.** A tight
+  close-up only has the source region's real pixels; the sharp model
+  improves lines but cannot invent face detail. If maximum crispness
+  matters more than tightness, widen the framing (more native pixels per
+  displayed area) or regenerate the source at higher native detail.
+
 ---
 
 ## 0.4. Character Live2D source-art chroma-key gate

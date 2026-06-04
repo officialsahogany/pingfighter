@@ -243,9 +243,16 @@ Default path:
 1. Generate on flat `#00ff00` or another safe chroma key.
 2. Copy the selected source into `images/ui/hud/` with a versioned
    `_source.png` suffix.
-3. Run the local chroma-key removal helper with `--auto-key border`,
-   `--soft-matte`, `--despill`, and retry once with `--edge-contract 1`
-   if a green fringe remains.
+3. Run the chroma-key remover
+   `py .claude/skills/sprite-generation/chroma_key.py <src> <dst.png>`
+   (auto-detects `#00ff00` green or `#ff00ff` magenta; border-seeded
+   flood-fill + 2-ring halo kill + edge despill + alpha-bbox crop).
+   **Do NOT use `remove_bg.py` for a chroma source** — it only keys
+   WHITISH / neutral-gray-checker backgrounds and leaves a green/magenta
+   source FULLY OPAQUE (every corner stays alpha 255, no error). `green`
+   is the tested path (result-scroll v2); pass `--key magenta` for
+   magenta sources. Cyan neon edges survive green keying because
+   dominance is `g - max(r, b)`.
 4. Save the alpha-prepped output with a versioned `_alpha.png` suffix.
 5. Crop to the alpha bbox with a small padding and save the runtime PNG
    with the clean versioned name.

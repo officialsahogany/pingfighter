@@ -196,6 +196,50 @@ modes. In handoffs and code reviews, also call this pattern
 uniform presets**. Treat one-off procedural drawing as the fallback, not
 the visual design center, once this pattern can cover the effect.
 
+### 3-Piece Quick Recipe (canonical starting template)
+
+When a skill / boss / item effect has no special reason to differ, default to a
+**3-piece modular set** plus engine-driven motion. The detailed layer contract
+below can grow past three layers, but three is the canonical baseline that keeps
+every effect on the same quality bar:
+
+| Piece | Role | Character | Runtime host |
+|---|---|---|---|
+| Backplate | mood / depth / presence | large, slow | `TextureRect` / `Sprite2D` |
+| Particle texture | dynamic detail / life | small, many | `GPUParticles2D` |
+| Arc / trail segment | rhythm / accent | mid, repeating | `Sprite2D` |
+
+- These three are **static PNGs**; all motion comes from shader + particles +
+  tween, never from baked frames. Because they are still textures (not animated
+  sheets), they may be produced with Gemini / built-in imagegen -- the
+  AutoSprite sprite-sheet requirement does not apply to a single still piece.
+  Animated 16-frame skill-effect sheets still follow the AutoSprite rule.
+- **Blend-mode intent split:** additive (`blend_add`) for light / glow / energy
+  (backplate glow, ember pulses); mix for solid matter (lotus leaf, talisman,
+  cracks body). Mixing both reads with depth; all-additive washes out white.
+- Margin / nukki: alpha margin + radial mask so corners never keep a square box
+  under rotation / scale, and keep the alpha bbox off the canvas edge.
+
+**Reference shader -- "writhing-ember"** (works on any bright + alpha texture,
+reused by uniform tuning only). Five stacked techniques: (1) noise UV
+displacement (organic writhing), (2) hot<->ember noise flicker, (3)
+center->outward energy flow pulse, (4) chromatic aberration (heat haze), (5)
+breath alpha. Reuse across skills by swapping color / speed uniforms only:
+
+| Uniform | Normal | Enraged | Effect |
+|---|---|---|---|
+| `distort_strength` | 0.014 | 0.022 | writhe amplitude |
+| `flow_speed` | 1.0 | 1.5 | energy flow rate |
+| `pulse_speed` | 1.6 | 2.4 | color flicker rate |
+| `breath_amp` | 0.18 | 0.28 | whole-field breath |
+| `intensity` | 1.0 | 1.3 | overall brightness |
+
+Same shader, retuned per effect: meditation mandala (`flow_speed=0.4`,
+`pulse_speed=0.6`, gold-amethyst), magnetic lattice (`flow_speed=1.5`,
+`pulse_speed=2.0`, cyan-violet), one-shot collapse burst (`flow_speed=2.5`,
+`breath_amp=0.0`). The reference implementations are the meditation / magnetic
+field / chaos-spear cracks effects.
+
 Default layer contract:
 
 - [ ] Preserve original phase timing first: windup, active / release,

@@ -21,6 +21,15 @@ Read this as a ledger, not a rulebook:
 
 This section is intentionally long; use search to find the nearest owner.
 
+- `scripts/characters/blacksmith_thor_shield_state.gd`
+  Owns Kohaku / Baltor's first Godot combat slice for Thor Shield:
+  shield open / retract timers, swing timing, movement slowdown, shield
+  durability, shield ball-collision context, shield-hit gauge reward, and
+  procedural shield draw fallback. `blacksmith_player_controller.gd` wraps
+  the shared paddle movement controller and routes blacksmith input through
+  this state; `blacksmith_input_reader.gd`, `blacksmith_skill_state.gd`, and
+  `blacksmith_skill_config.gd` provide the runtime ID and compatibility
+  surface until the redesigned construction skill kit is implemented.
 - `scripts/core/match_score_state.gd`
   Owns match score rules: player/boss score, deuce state, deuce target
   progression, normal win-goal checks, score-result snapshots for the
@@ -118,8 +127,9 @@ This section is intentionally long; use search to find the nearest owner.
   As of 2026-06-04, passive-skill metadata is a shared Ringpet-wide pool
   (`COMMON_PASSIVE_SKILL_POOL`) with Lv.1-Lv.5 values. Temporary scaffold
   passives were removed; the current pool intentionally keeps only the
-  approved `lingpet_resonance_boost` / 공명 증폭 and
-  `lingpet_afterglow_leak` / 잔광 유출 passives. Pet-specific legacy
+  approved `lingpet_resonance_boost` / 공명 증폭,
+  `lingpet_afterglow_leak` / 잔광 유출, and
+  `lingpet_tailwind_steps` / 순풍 발산 passives. Pet-specific legacy
   gauge-bonus passive ids normalize into Resonance Boost for save
   compatibility.
   `lingpet_egg_runtime.gd`, character-info UI, save reset code, and

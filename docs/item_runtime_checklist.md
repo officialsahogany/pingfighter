@@ -1281,6 +1281,11 @@ Godot-first note:
 - If the item is resolved from `unknown_item`, call the same function
   after the resolve so the animation looks identical to a direct
   pickup.
+- If an item acquisition cinematic can overlap with a runtime perk choice
+  or starpoint pickup, verify modal input priority. A paused acquisition
+  cinematic must not consume click / confirm events before the visible
+  perk-choice modal receives them, or both systems can remain active while
+  neither can progress. Lock the overlap with a focused Godot smoke.
 
 ---
 

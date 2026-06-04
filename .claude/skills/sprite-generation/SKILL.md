@@ -232,6 +232,96 @@ QA before handoff:
   style (normal alpha vs additive), and any desired softness / opacity
   tuning so runtime can cache and render it correctly.
 
+### 2.3.1. Character skill cut-in finishing parity (inward edge feather)
+
+Character skill cut-in sheets (the per-skill 4x4 anime cut-in sheets
+under `godot/assets/ui/skill_cutin/`, e.g. power-smash, ghost-smash) are
+AutoSprite character sheets, not the looping VFX sheets above, but they
+share the same edge-clip failure mode and MUST get the same finishing.
+
+After the deterministic safe-margin repack (each AutoSprite cell scaled
+to ~84% and re-centered), the auras, smoke, speed trails, and the final
+foreground impact / racket disk usually still end on a **hard alpha
+edge** inside the margin. That hard edge reads in-game as "the artwork is
+clipped by an invisible square," even though no cell-edge alpha touch
+exists and the standard `transparent_edge_alpha_count` QA passes.
+
+Required finishing for every cut-in sheet:
+
+- Apply a per-cell **inward smootherstep alpha feather** so the boundary
+  fades to transparent instead of cutting hard. The shipped reference
+  recipe (power-smash + ghost-smash) is `inner_source_bounds
+  [82,82,941,941]`, `feather_px 130` on a 1024 source cell, applied
+  BEFORE any Real-ESRGAN upscale. Replicate it, do not re-invent.
+- This is AutoSprite-derived deterministic postprocess (allowed). Record
+  it in the sheet manifest `postprocess.edge_feather` block with the new
+  runtime sha256 and a pre-feather backup path.
+
+QA gate (do NOT trust the editor's white background):
+
+- Measure the **hard-perimeter metric**: percent of each frame's content
+  bbox perimeter still strongly opaque (alpha > 180). The accepted
+  reference sheet measures **0.0** mean/max; a sheet that skips the
+  feather measures double digits (the ghost-smash v1 regression was
+  21.4% mean / 33.4% max across 12 of 16 cells before the feather was
+  added). Anything materially above 0 means the edges will read clipped.
+- A passing `transparent_edge_alpha_count` / corner check is NOT enough —
+  it only catches true cell-edge touches, not the inside-the-margin hard
+  cut that produces the clipped look.
+- If a new cut-in is generated WITHOUT this feather (the ghost-smash v1
+  mistake), it will look visibly "cut off at the outline" next to a
+  feathered sibling cut-in. Apply the feather before promotion.
+
+### 2.3.2. Character skill cut-in anti-jitter + bust bottom-fade
+
+Two failure modes that are separate from the §2.3.1 edge feather and were
+NOT covered by it. Both shipped on the Viper phantom-kick cut-in v2 (the
+sheet "jittered / vibrated and looked weird" in-game) and had to be
+regenerated. Apply these whenever a cut-in is built by reframing an
+AutoSprite source into a 4x4 sheet.
+
+**1. One fixed transform across ALL cells — never per-cell re-center.**
+
+The cut-in's per-cell crop/scale/placement must be a SINGLE fixed
+transform computed once (e.g. from the union bbox of all 16 frames) and
+applied identically to every cell. Do NOT crop each cell to its own alpha
+bbox / re-center each cell independently — even a 1-8px per-frame
+difference in the crop window reads in-game as high-frequency vibration.
+The v2 regression alternated the left crop edge 80/88px and crept the
+bottom bbox frame-to-frame, which is exactly what produced the shake. The
+character's own subtle internal motion still plays under a fixed
+transform; what you are removing is the recenter/scale snap.
+
+**2. Never use a back-and-forth / sawtooth source frame sequence.**
+
+If you pick a subset of source frames, keep the order monotonic
+(forward, or a clean ease-with-holds). A sequence like
+`[7,8,9,10,11,8,9,10,11,9,10,11,...]` that jumps back (11->8, 11->9)
+makes the body snap backward repeatedly = jitter. Best practice for a
+HELD dramatic cut-in (brace / charge / wind-up that should not travel
+out of frame): generate the AutoSprite animation with the SAME pose on
+`first_frame_pose_id` AND `last_frame_pose_id` so the source itself holds
+the pose with near-zero drift (the Viper v3 fix measured cx span ~6px /
+cy span ~15px with no snapping). Then the fixed-transform reframe above
+is trivially smooth.
+
+**3. Upper-body / bust crops need a bottom-fade.**
+
+When the user wants an upper-body / "상반신 위주" cut-in and you crop the
+legs, the waist crop leaves a hard horizontal edge in the middle of the
+cell. The §2.3.1 cell-edge inward feather does NOT touch it (it only
+fades near the cell border), so the hard-perimeter metric stays high
+(~9% in the Viper case) and the bust reads as "clipped by an invisible
+box" at the bottom. Add a smootherstep BOTTOM-FADE that dissolves the
+lower ~200-230px (on a 1024 cell) of the placed content to transparent,
+the way anime busts fade out at the bottom. With it, hard-perimeter
+returns to 0.0.
+
+QA: keep the same hard-perimeter-0.0 gate from §2.3.1, AND verify
+per-frame bbox drift on the SOURCE (cx/cy span small, no back-and-forth)
+before reframing. Record the fixed-transform values, frame order, and
+bottom-fade px in the sheet manifest.
+
 ### 2.4. Character Live2D source-art background rule
 
 For character Live2D source illustrations / 원화 / full-body anchors that will
