@@ -16,6 +16,7 @@ const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clea
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
+const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
 const StageClearResultSheetDrawHelper := preload("res://scripts/ui/stage_clear_result_sheet_draw_helper.gd")
 const StageClearResultSummaryDrawHelper := preload("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
@@ -1751,7 +1752,7 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 		var source := Rect2(Vector2.ZERO, Vector2(texture_size.x, source_height))
 		draw_texture_rect_region(_scroll_texture, visible_rect, source, Color.WHITE, false, true)
 	else:
-		_draw_cyber_scroll_fallback(visible_rect, scale, unfurl)
+		StageClearResultScrollDrawHelper.draw_cyber_scroll_fallback(self, visible_rect, scale, unfurl)
 
 	if unfurl <= 0.58:
 		_next_stage_button_rect = Rect2()
@@ -1760,17 +1761,6 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 
 	var content_alpha: float = StageClearResultClickReactionState.smooth01((unfurl - 0.58) / 0.42)
 	_draw_cyber_scroll_contents(StageClearResultLayoutHelper.get_scroll_content_rect(full_rect, scale, SCROLL_CONTENT_MARGIN), scale, font, content_alpha)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_cyber_scroll_fallback(rect: Rect2, scale: float, alpha: float) -> void:
-	var fill := Color(0.86, 0.98, 1.0, 0.76 * alpha)
-	var border := Color(0.20, 0.92, 1.0, 0.88 * alpha)
-	StageClearResultShapeHelper.draw_panel(self, rect, fill, border, max(2.0, 2.5 * scale), 18.0 * scale)
-	var rod_height: float = 26.0 * scale
-	var rod_color := Color(0.04, 0.08, 0.11, 0.94 * alpha)
-	StageClearResultShapeHelper.draw_panel(self, Rect2(rect.position + Vector2(-18.0 * scale, -rod_height * 0.45), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
-	StageClearResultShapeHelper.draw_panel(self, Rect2(Vector2(rect.position.x - 18.0 * scale, rect.end.y - rod_height * 0.55), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
 
 
 @warning_ignore("shadowed_variable_base_class")
