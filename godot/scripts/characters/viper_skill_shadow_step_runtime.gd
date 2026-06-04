@@ -105,6 +105,7 @@ static func apply_hit(runtime: Object, hit_center: Vector2, hit_size: Vector2, c
 		var energy_scale: float = float(constants.get("energy_scale_base", 0.48)) + center_t * float(constants.get("energy_scale_center_bonus", 0.22))
 		runtime._spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(0.72, 0.0, 1.0, 1.0), particle_intensity, energy_scale, energy_intensity)
 	runtime._mark_kick_skill_knockback_pending(deps)
+	runtime._mark_kick_guard_speed_reduction_pending()
 	runtime.shadow_starburst_active = true
 	runtime.shadow_starburst_pos = ball_pos
 	runtime.shadow_starburst_frame = 0

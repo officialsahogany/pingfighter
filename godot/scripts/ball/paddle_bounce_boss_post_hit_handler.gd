@@ -104,6 +104,13 @@ func apply(
 		if kick_knockback_result.has("boss_vel"):
 			boss_vel_override = float(kick_knockback_result.get("boss_vel", boss_vel_override))
 		kick_skill_knockback_consumed = bool(kick_knockback_result.get("kick_skill_knockback_consumed", false))
+	if viper_skill_runtime != null and viper_skill_runtime.has_method("consume_kick_guard_speed_reduction"):
+		var kick_speed_result: Dictionary = viper_skill_runtime.consume_kick_guard_speed_reduction(
+			next_ball_vel,
+			context,
+			deps
+		)
+		next_ball_vel = _get_vector2(kick_speed_result, "ball_vel", next_ball_vel)
 
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("consume_venom_mist_ball_poison"):

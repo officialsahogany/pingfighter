@@ -56,6 +56,25 @@ static func consume_kick_skill_knockback(runtime: Object, ball_pos: Vector2, bos
 	return {"boss_vel": knockback_vel, "viper_knockback_overlay_active": false, "kick_skill_knockback_consumed": true}
 
 
+static func consume_kick_guard_speed_reduction(runtime: Object, ball_vel: Vector2, context: Dictionary, deps: Dictionary, _constants: Dictionary) -> Dictionary:
+	var reduction_pct: int = clampi(int(runtime.kick_guard_speed_reduction_pending_pct), 0, 95)
+	runtime.kick_guard_speed_reduction_pending_pct = 0
+	if reduction_pct <= 0 or _normalize_league_mode(str(context.get("ai_mode", "champion"))) == "junior":
+		return {}
+	var speed: float = ball_vel.length()
+	if speed <= 0.01:
+		return {}
+	var next_vel: Vector2 = ball_vel.normalized() * (speed * (1.0 - float(reduction_pct) / 100.0))
+	var ball_physics: Object = deps.get("ball_physics", null)
+	if ball_physics != null and ball_physics.has_method("enforce_minimum_rally_speed"):
+		next_vel = ball_physics.enforce_minimum_rally_speed(next_vel)
+	return {
+		"ball_vel": next_vel,
+		"viper_guard_speed_reduction_consumed": true,
+		"viper_guard_speed_reduction_pct": reduction_pct,
+	}
+
+
 static func apply_shadow_step_paddle_hit(runtime: Object, ball_vel: Vector2, context: Dictionary, deps: Dictionary, constants: Dictionary) -> Dictionary:
 	if not bool(runtime.shadow_kick_ready) or bool(runtime.shadow_hit_consumed):
 		return {}
@@ -75,3 +94,12 @@ static func apply_shadow_step_paddle_hit(runtime: Object, ball_vel: Vector2, con
 
 static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	return value if value is Vector2 else fallback
+
+
+static func _normalize_league_mode(ai_mode: String) -> String:
+	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	if normalized == "mythic" or normalized == "mythicleague":
+		return "mythic"
+	return "champion"

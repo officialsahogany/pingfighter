@@ -119,6 +119,7 @@ func build(runtime: Object) -> Dictionary:
 		"phantom_kick_knockback_pending": runtime.phantom_kick_knockback_pending,
 		"phantom_kick_speed_limit_disabled": runtime.phantom_kick_speed_limit_disabled,
 		"kick_skill_knockback_pending_pct": runtime.kick_skill_knockback_pending_pct,
+		"kick_guard_speed_reduction_pending_pct": runtime.kick_guard_speed_reduction_pending_pct,
 		"viper_knockback_overlay_active": runtime.is_kick_skill_knockback_ball_active(),
 		"cutin_active": runtime.is_cutin_active(),
 		"cutin_progress": runtime.get_cutin_progress(),

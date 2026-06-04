@@ -178,6 +178,8 @@ func _init() -> void:
 	_test_phantom_kick_cutin_host_prewarms_sheet()
 	_test_phantom_kick_unlock_catalog_wiring()
 	_test_phantom_kick_speed_limit_lifecycle()
+	_test_kick_guard_speed_reduction_lifecycle()
+	_test_kick_guard_speed_tooltip_copy()
 	_test_shadow_chain_marshal_prep_retime()
 	_test_phantom_chain_marshal_prep_retime()
 
@@ -257,6 +259,7 @@ func _init() -> void:
 	_expect(not bool(snap.get("shadow_starburst_is_double", true)), "first marshal starburst should be the normal variant")
 	_expect(bool(snap.get("dark_blade_window", false)), "marshal hit should open the Dark Blade combo window when equipped")
 	_expect(stage_background.absorbed > 0, "marshal hit should destroy nearby stage objects through the impact hook")
+	_expect(int(snap.get("kick_guard_speed_reduction_pending_pct", 0)) == 20, "normal marshal hit should arm boss-guard ball speed reduction")
 
 	input.snapshot["down_pressed"] = false
 	for _i in range(48):
@@ -311,6 +314,7 @@ func _init() -> void:
 	_expect(bool(snap.get("dark_blade_window", false)), "phantom kick hit should refresh the Dark Blade combo window when equipped")
 	_expect(bool(snap.get("phantom_kick_knockback_pending", false)), "phantom hit should arm boss-paddle knockback")
 	_expect(bool(snap.get("phantom_kick_speed_limit_disabled", false)), "phantom hit should remove the ball speed cap until the boss guards")
+	_expect(int(snap.get("kick_guard_speed_reduction_pending_pct", -1)) == 0, "phantom hit should not inherit the normal marshal guard speed reduction")
 	var phantom_collision_context: Dictionary = runtime.get_ball_collision_context()
 	_expect(bool(phantom_collision_context.get("speed_limit_disabled", false)), "phantom hit should expose the uncapped speed context to ball physics")
 	var phantom_particles: Array = snap.get("phantom_hit_particles", []) as Array
@@ -424,6 +428,55 @@ func _test_phantom_kick_speed_limit_lifecycle() -> void:
 	_expect(not bool(runtime.is_phantom_kick_speed_limit_disabled()), "boss guard should clear Phantom Kick's uncapped speed state")
 	_expect(not bool(snapshot.get("speed_limit_disabled", true)), "boss guard frame should publish restored speed-limit state")
 	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 26.01, "boss-guarded Phantom Kick ball should be capped again immediately")
+
+
+func _test_kick_guard_speed_reduction_lifecycle() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	runtime.kick_guard_speed_reduction_pending_pct = 20
+	var update_context := {
+		"selected_character_type": "viper",
+		"ai_mode": "champion",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"ball_size": 28.6,
+		"ball_pos": Vector2(380.0, 58.0),
+		"ball_vel": Vector2(80.0, 0.0),
+		"ball_impact_boost": 1.0,
+		"player_pos": Vector2(302.5, 680.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"boss_paddle_width": 100.0,
+		"boss_y": 25.0,
+		"boss_hitbox_height": 40.0,
+		"player_collision_cooldown": 0.0,
+		"boss_collision_cooldown": 0.0,
+		"min_ball_speed": 3.0,
+		"max_ball_speed": 26.0,
+		"impact_boost_max_ball_speed": 26.0,
+		"max_bounce_angle": 60.0,
+		"rally_speed_cap_increase_per_hit": 0.0,
+	}
+	var deps := {
+		"viper_skill_runtime": runtime,
+		"ball_physics": BallPhysics.new(),
+		"paddle_bounce_controller": PaddleBounceController.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"motion_stepper": FakeBossGuardMotionStepper.new(),
+	}
+	var ball_result: Dictionary = BallUpdateController.new().update(1.0 / 60.0, update_context, deps)
+	var snapshot: Dictionary = ball_result.get("snapshot", {})
+	_expect(int(runtime.get_snapshot().get("kick_guard_speed_reduction_pending_pct", -1)) == 0, "boss guard should consume the Viper kick speed reduction")
+	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 20.81, "boss-guarded Viper kick ball should lose 20 percent speed after the champion cap")
+
+
+func _test_kick_guard_speed_tooltip_copy() -> void:
+	var skill_config: Object = ViperSkillConfig.new()
+	var shadow_data: Dictionary = skill_config.get_skill_data("shadow_step")
+	var marshal_data: Dictionary = skill_config.get_skill_data("marshal_kick")
+	_expect(str(shadow_data.get("description", "")).find("20%") >= 0, "Shadow Backstep tooltip should mention the guard speed reduction")
+	_expect(str(marshal_data.get("description", "")).find("20%") >= 0, "Martial Kick tooltip should mention the guard speed reduction")
 
 
 func _test_shadow_chain_marshal_prep_retime() -> void:

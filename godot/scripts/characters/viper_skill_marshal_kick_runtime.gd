@@ -228,6 +228,10 @@ static func mark_kick_skill_knockback_pending(runtime: Object, deps: Dictionary,
 	runtime.kick_skill_knockback_pending_pct = int(constants.get("knockback_fixed_pct", 150)) if chance_pct > 0 and randf() * 100.0 < float(chance_pct) else 0
 
 
+static func mark_kick_guard_speed_reduction_pending(runtime: Object, constants: Dictionary) -> void:
+	runtime.kick_guard_speed_reduction_pending_pct = max(0, int(constants.get("kick_guard_speed_reduction_pct", 20)))
+
+
 static func update_charge_phase(runtime: Object, config: Dictionary, deps: Dictionary, result: Dictionary, constants: Dictionary) -> Vector2:
 	return _update_charge_phase(runtime, config, deps, result, constants)
 
@@ -283,12 +287,14 @@ static func _apply_charge_hit(runtime: Object, next_pos: Vector2, ball_pos: Vect
 		spawn_motion_particle(runtime, ball_pos + Vector2(randf_range(-spread, spread), randf_range(-spread, spread)), str(constants.get("hit_motion_kind", "impact")), float(constants.get("hit_motion_chance", 1.0)), randf_range(float(constants.get("hit_motion_life_min", 18.0)), float(constants.get("hit_motion_life_max", 34.0))), constants)
 	destroy_impact_objects(ball_pos, deps, constants)
 	if runtime.marshal_is_double:
+		runtime.kick_guard_speed_reduction_pending_pct = 0
 		runtime.phantom_kick_knockback_pending = true
 		runtime.phantom_kick_speed_limit_disabled = true
 		runtime.particle_drawer.spawn_phantom_hit_particles(runtime.phantom_hit_particles, ball_pos, int(constants.get("phantom_hit_particle_count", 85)), int(constants.get("phantom_hit_particle_max_count", 90)))
 		runtime.audio_router.play_phantom_hit_sound(deps)
 		runtime._clear_phantom_kick_chain_window()
 	else:
+		mark_kick_guard_speed_reduction_pending(runtime, constants)
 		var skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
 		if runtime.shadow_was_airborne and runtime.marshal_phantom_allowed and runtime.visibility_query.get_runtime_skill_level(deps, str(constants.get("double_marshal_kick", "double_marshal_kick"))) > 0 and runtime.visibility_query.is_skill_equipped(skill_config, str(constants.get("phantom_kick", "phantom_kick"))):
 			runtime.marshal_first_hit_pending = true

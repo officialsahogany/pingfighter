@@ -14,7 +14,7 @@ static func reset_round(runtime: Object, deps: Dictionary, constants: Dictionary
 	runtime.marshal_phantom_allowed = false
 	runtime._clear_double_marshal_ready_window()
 	runtime._clear_marshal_first_hit_pending()
-	runtime.marshal_from_shadow_step_chain = false; runtime.phantom_kick_knockback_pending = false; runtime.phantom_kick_speed_limit_disabled = false; runtime.kick_skill_knockback_pending_pct = 0
+	runtime.marshal_from_shadow_step_chain = false; runtime.phantom_kick_knockback_pending = false; runtime.phantom_kick_speed_limit_disabled = false; runtime.kick_skill_knockback_pending_pct = 0; runtime.kick_guard_speed_reduction_pending_pct = 0
 	if runtime.cutin_state != null and runtime.cutin_state.has_method("reset"):
 		runtime.cutin_state.reset()
 	runtime._clear_dmk_presentation_state()
