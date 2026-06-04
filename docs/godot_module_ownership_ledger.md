@@ -1395,7 +1395,9 @@ This section is intentionally long; use search to find the nearest owner.
   progression, unfurl progress, and background box alpha are delegated to
   `stage_clear_result_scroll_state.gd`; result button layout / hit state
   and box opened / opening counts are delegated to
-  `stage_clear_result_interaction_state.gd`; reusable ellipse / radial /
+  `stage_clear_result_interaction_state.gd`; result scroll button chrome,
+  hover colors, and next / exit button text drawing are delegated to
+  `stage_clear_result_scroll_button_draw_helper.gd`; reusable ellipse / radial /
   star polygon point generation plus result-box ornament / hover geometry
   is delegated to `stage_clear_result_shape_helper.gd`; result sheet-frame
   source rect and texture-region drawing are delegated to
@@ -1450,6 +1452,12 @@ This section is intentionally long; use search to find the nearest owner.
   opening box counts, and all-boxes-open checks. The scene still owns
   actual input consumption, callback dispatch, hover redraw requests, live
   box mutation, and drawing.
+- `scripts/ui/stage_clear_result_scroll_button_draw_helper.gd`
+  Owns stage-clear scroll button drawing: shared next-stage / exit button
+  layout lookup, visible-phase hover coloring, button panel chrome, and
+  centered button label rendering. The scene still owns scroll phase /
+  hovered-button state, localized labels, button rect storage, and action
+  dispatch.
 - `scripts/ui/stage_clear_result_shape_helper.gd`
   Owns stateless result-scene shape point generation and low-level
   CanvasItem draw helpers: ellipse fill polygons, ellipse polylines,

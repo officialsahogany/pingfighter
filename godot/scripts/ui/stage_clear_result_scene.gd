@@ -11,6 +11,7 @@ const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_re
 const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clear_result_reward_icon_resolver.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+const StageClearResultScrollButtonDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_button_draw_helper.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
@@ -1848,7 +1849,19 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	else:
 		StageClearResultRewardCardDrawHelper.draw_reward_section_stack(self, font, sections, body_rect, scale, alpha, Callable(self, "_draw_reward_card"))
 
-	_draw_scroll_buttons(rect, scale, font, alpha)
+	var button_layout: Dictionary = StageClearResultScrollButtonDrawHelper.draw_scroll_buttons(
+		self,
+		font,
+		rect,
+		scale,
+		alpha,
+		_scroll_phase,
+		_hovered_button,
+		LanguageSettings.translate_text("다음 스테이지"),
+		LanguageSettings.translate_text("나가기")
+	)
+	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
+	_exit_button_rect = button_layout.get("exit_rect", Rect2())
 
 
 # The project fallback font packs Korean syllable blocks tightly, so at the
@@ -1957,37 +1970,6 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		scale,
 		alpha
 	)
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -> void:
-	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(rect, scale)
-	var next_rect: Rect2 = button_layout.get("next_stage_rect", Rect2())
-	var exit_rect: Rect2 = button_layout.get("exit_rect", Rect2())
-	_next_stage_button_rect = next_rect
-	_exit_button_rect = exit_rect
-
-	var clickable: bool = _scroll_phase == "visible"
-
-	var next_hovered: bool = clickable and _hovered_button == "next_stage"
-	var next_fill := Color(0.02, 0.78, 0.88, alpha * 0.86)
-	var next_border := Color(0.72, 1.0, 1.0, alpha * 0.95)
-	if next_hovered:
-		next_fill = next_fill.lerp(Color(1.0, 1.0, 1.0, alpha), 0.20)
-		next_border = Color(0.92, 1.0, 1.0, alpha)
-	StageClearResultShapeHelper.draw_panel(self, next_rect, next_fill, next_border, max(1.5, 2.4 * scale), 14.0 * scale)
-	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("다음 스테이지"), next_rect, int(round(26.0 * scale)), Color(0.02, 0.06, 0.08, alpha))
-
-	var exit_hovered: bool = clickable and _hovered_button == "exit"
-	var exit_fill := Color(0.06, 0.07, 0.12, alpha * 0.92)
-	var exit_border := Color(0.82, 0.28, 0.86, alpha * 0.82)
-	var exit_text_color := Color(0.88, 0.98, 1.0, alpha)
-	if exit_hovered:
-		exit_fill = exit_fill.lerp(Color(0.22, 0.08, 0.28, alpha), 0.32)
-		exit_border = Color(1.0, 0.48, 0.96, alpha)
-		exit_text_color = Color(1.0, 0.96, 1.0, alpha)
-	StageClearResultShapeHelper.draw_panel(self, exit_rect, exit_fill, exit_border, max(1.5, 2.0 * scale), 14.0 * scale)
-	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("나가기"), exit_rect, int(round(26.0 * scale)), exit_text_color)
-
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_footer(view_size: Vector2, scale: float, font: Font) -> void:
