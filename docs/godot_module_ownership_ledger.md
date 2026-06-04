@@ -1397,8 +1397,9 @@ This section is intentionally long; use search to find the nearest owner.
   and box opened / opening counts are delegated to
   `stage_clear_result_interaction_state.gd`; reusable ellipse / radial /
   star polygon point generation plus result-box ornament / hover geometry
-  is delegated to `stage_clear_result_shape_helper.gd`; player-victory
-  and Dalji
+  is delegated to `stage_clear_result_shape_helper.gd`; result sheet-frame
+  source rect and texture-region drawing are delegated to
+  `stage_clear_result_sheet_draw_helper.gd`; player-victory and Dalji
   click-reaction frame / transition / alpha math is delegated to
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
@@ -1418,6 +1419,12 @@ This section is intentionally long; use search to find the nearest owner.
   rects, scroll-content margins, and cinematic-local coordinate conversion.
   The scene still owns live timers, hover / click state, drawing, texture
   loading, reward rolling, and callbacks.
+- `scripts/ui/stage_clear_result_sheet_draw_helper.gd`
+  Owns stateless stage-clear result sheet-frame drawing: source-rect
+  calculation through the layout helper, null / alpha guards, and
+  `draw_texture_rect_region` for Dalji, player-victory, and boss result
+  sheets. The scene still owns which sheet, frame, grid, cell size, rect,
+  and alpha to draw.
 - `scripts/ui/stage_clear_result_box_data.gd`
   Owns stateless stage-clear result-box data assembly: reward-plan box
   materialization, legacy mythic box-kind normalization, box display labels,
