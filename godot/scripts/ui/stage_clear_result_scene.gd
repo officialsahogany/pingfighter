@@ -236,63 +236,37 @@ var _lid_open_counter: int = 0
 var _starpoint_choice_gate_active: bool = false
 var _starpoint_choice_gate_box_index: int = -1
 
-static var _prewarm_asset_step_index: int = 0
-static var _prewarm_asset_status: Dictionary = {}
-static var _prewarm_asset_character_type: String = "smasher"
-static var _prewarm_asset_stage_id: int = 1
-
-
 static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
-	while not prewarm_assets_step(character_type, stage_id):
-		pass
-	return _prewarm_asset_status.duplicate()
+	return StageClearResultAssetLoader.prewarm_result_assets(
+		_result_asset_paths(character_type, stage_id),
+		_normalize_player_victory_character_type(character_type),
+		stage_id
+	)
 
 
 static func prewarm_assets_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
-	return _prewarm_assets_step_impl(false, character_type, stage_id)
+	return StageClearResultAssetLoader.prewarm_result_assets_step(
+		_result_asset_paths(character_type, stage_id),
+		_normalize_player_victory_character_type(character_type),
+		stage_id
+	)
 
 
 static func prewarm_assets_threaded_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
-	return _prewarm_assets_step_impl(true, character_type, stage_id)
-
-
-static func _prewarm_assets_step_impl(
-	use_threaded_texture_loads: bool,
-	character_type: String = "smasher",
-	stage_id: int = 1
-) -> bool:
-	var normalized_character: String = _normalize_player_victory_character_type(character_type)
-	var normalized_stage_id: int = max(1, stage_id)
-	if _prewarm_asset_character_type != normalized_character or _prewarm_asset_stage_id != normalized_stage_id:
-		_prewarm_asset_step_index = 0
-		_prewarm_asset_status.clear()
-		_prewarm_asset_character_type = normalized_character
-		_prewarm_asset_stage_id = normalized_stage_id
-	_prewarm_asset_status["selected_character_type"] = normalized_character
-	_prewarm_asset_status["current_stage"] = normalized_stage_id
-	if not StageClearResultAssetLoader.prewarm_assets_step(
-		_prewarm_asset_step_index,
-		_prewarm_asset_status,
-		_result_asset_paths(normalized_character, normalized_stage_id),
-		use_threaded_texture_loads
-	):
-		return false
-	_prewarm_asset_step_index += 1
-	if _prewarm_asset_step_index >= PREWARM_ASSET_STEP_COUNT:
-		_prewarm_asset_step_index = 0
-		return true
-	return false
+	return StageClearResultAssetLoader.prewarm_result_assets_step(
+		_result_asset_paths(character_type, stage_id),
+		_normalize_player_victory_character_type(character_type),
+		stage_id,
+		true
+	)
 
 
 static func reset_prewarm_assets_for_test() -> void:
-	_prewarm_asset_step_index = 0
-	_prewarm_asset_status.clear()
-	_prewarm_asset_character_type = "smasher"
-	_prewarm_asset_stage_id = 1
+	StageClearResultAssetLoader.reset_result_prewarm_assets_for_test()
 
 
 static func get_prewarm_asset_status() -> Dictionary:
-	return _prewarm_asset_status.duplicate()
+	return StageClearResultAssetLoader.get_result_prewarm_asset_status()
 
 
 static func _result_asset_paths(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:

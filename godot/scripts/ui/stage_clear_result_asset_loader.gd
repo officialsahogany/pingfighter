@@ -50,6 +50,11 @@ const TEXTURE_MESSAGES := {
 	"result_box_sheet_guaranteed_mythic": ["Missing guaranteed mythic result box sheet at %s", "Failed to load guaranteed mythic result box sheet at %s"],
 }
 
+static var _prewarm_result_asset_step_index: int = 0
+static var _prewarm_result_asset_status: Dictionary = {}
+static var _prewarm_result_asset_character_type: String = "smasher"
+static var _prewarm_result_asset_stage_id: int = 1
+
 
 static func load_textures(current: Dictionary, paths: Dictionary) -> Dictionary:
 	var loaded: Dictionary = current.duplicate()
@@ -74,6 +79,54 @@ static func load_dalji_click_voice(current: AudioStream, path: String) -> AudioS
 		"Missing Dalji result click cry voice at %s",
 		"Failed to load Dalji result click cry voice at %s"
 	)
+
+
+static func prewarm_result_assets(paths: Dictionary, character_type: String, stage_id: int) -> Dictionary:
+	while not prewarm_result_assets_step(paths, character_type, stage_id):
+		pass
+	return _prewarm_result_asset_status.duplicate()
+
+
+static func prewarm_result_assets_step(
+	paths: Dictionary,
+	character_type: String,
+	stage_id: int,
+	use_threaded_texture_loads: bool = false
+) -> bool:
+	var normalized_stage_id: int = max(1, stage_id)
+	if (
+		_prewarm_result_asset_character_type != character_type
+		or _prewarm_result_asset_stage_id != normalized_stage_id
+	):
+		_prewarm_result_asset_step_index = 0
+		_prewarm_result_asset_status.clear()
+		_prewarm_result_asset_character_type = character_type
+		_prewarm_result_asset_stage_id = normalized_stage_id
+	_prewarm_result_asset_status["selected_character_type"] = character_type
+	_prewarm_result_asset_status["current_stage"] = normalized_stage_id
+	if not prewarm_assets_step(
+		_prewarm_result_asset_step_index,
+		_prewarm_result_asset_status,
+		paths,
+		use_threaded_texture_loads
+	):
+		return false
+	_prewarm_result_asset_step_index += 1
+	if _prewarm_result_asset_step_index >= PREWARM_ASSET_STEP_COUNT:
+		_prewarm_result_asset_step_index = 0
+		return true
+	return false
+
+
+static func reset_result_prewarm_assets_for_test() -> void:
+	_prewarm_result_asset_step_index = 0
+	_prewarm_result_asset_status.clear()
+	_prewarm_result_asset_character_type = "smasher"
+	_prewarm_result_asset_stage_id = 1
+
+
+static func get_result_prewarm_asset_status() -> Dictionary:
+	return _prewarm_result_asset_status.duplicate()
 
 
 static func prewarm_assets_step(

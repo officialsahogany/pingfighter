@@ -34,6 +34,15 @@ func _verify_prewarm_steps() -> void:
 	_expect(bool(status.get("scroll_texture", false)), "asset loader prewarm should load the result scroll texture")
 	_expect(bool(status.get("dalji_click_voice", false)), "asset loader prewarm should load the Dalji click voice")
 	_expect(bool(status.get("result_box_fx", false)), "asset loader prewarm should cover result box FX")
+	StageClearResultAssetLoader.reset_result_prewarm_assets_for_test()
+	var calls := 0
+	while not StageClearResultAssetLoader.prewarm_result_assets_step(_asset_paths(), "smasher", 1):
+		calls += 1
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT, "asset loader result prewarm should complete within the declared budget")
+	var result_status: Dictionary = StageClearResultAssetLoader.get_result_prewarm_asset_status()
+	_expect(str(result_status.get("selected_character_type", "")) == "smasher", "asset loader should own selected-character prewarm state")
+	_expect(int(result_status.get("current_stage", 0)) == 1, "asset loader should own stage prewarm state")
+	_expect(bool(result_status.get("background_texture", false)), "asset loader stateful prewarm should load the result background")
 
 
 func _verify_texture_bundle_load() -> void:
@@ -83,13 +92,18 @@ func _verify_scene_delegates_asset_loading() -> void:
 	_expect(
 		source.find("StageClearResultAssetLoader.load_textures") >= 0
 		and source.find("StageClearResultAssetLoader.load_dalji_click_voice") >= 0
-		and source.find("StageClearResultAssetLoader.prewarm_assets_step") >= 0,
+		and source.find("StageClearResultAssetLoader.prewarm_result_assets_step") >= 0,
 		"result scene should delegate asset loading and staged prewarm to the asset loader"
 	)
 	_expect(
 		source.find("ProjectResourceLoader.load_texture") < 0
 		and source.find("ProjectResourceLoader.load_audio_stream") < 0,
 		"result scene should not keep direct project resource loader calls"
+	)
+	_expect(
+		source.find("static var _prewarm_asset") < 0
+			and source.find("static func _prewarm_assets_step_impl") < 0,
+		"result scene should not keep stateful prewarm implementation details"
 	)
 
 
@@ -121,10 +135,12 @@ func _verify_result_box_export_safe_texture_path() -> void:
 
 func _verify_result_box_texture_region_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var box_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	_expect(
 		source.find("draw_set_transform(draw_center, box_rotation, Vector2.ONE)") >= 0
 		and source.find("draw_texture_rect_region(") >= 0
-		and source.find("_draw_result_box_fallback") >= 0,
+		and source.find("StageClearResultBoxDrawHelper.draw_result_box_fallback") >= 0
+		and box_helper_source.find("static func draw_result_box_fallback") >= 0,
 		"result box sheet draw should use texture-region drawing with an export-safe fallback"
 	)
 
