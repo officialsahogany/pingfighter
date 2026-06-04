@@ -1397,7 +1397,9 @@ This section is intentionally long; use search to find the nearest owner.
   progression, unfurl progress, and background box alpha are delegated to
   `stage_clear_result_scroll_state.gd`; result button layout / hit state
   and box opened / opening counts are delegated to
-  `stage_clear_result_interaction_state.gd`; result scroll texture-region
+  `stage_clear_result_interaction_state.gd`; floating result-box animation /
+  hover / reward-label drawing is delegated to
+  `stage_clear_result_box_draw_helper.gd`; result scroll texture-region
   drawing, fallback panel, rod drawing, and reward section group panel chrome
   are delegated to
   `stage_clear_result_scroll_draw_helper.gd`;
@@ -1459,12 +1461,13 @@ This section is intentionally long; use search to find the nearest owner.
   clamping. The scene still owns live size / scale lookup, reward mutation,
   and the immediate-grant callback.
 - `scripts/ui/stage_clear_result_box_draw_helper.gd`
-  Owns stage-clear result-box sheet-frame texture-region drawing and fallback
-  drawing used when the authored chest sheet texture is unavailable: source
-  rect selection from the frame grid, fallback body / lid rects, open-lid
-  easing, rim highlights, and canvas transform reset. The scene still owns
-  sheet texture selection, result-box frame index selection, hover effects,
-  reward draw sequencing, and FX-host sync.
+  Owns stage-clear floating result-box drawing: global scroll fade, bob /
+  shake / hover growth, shadow and hover FX, sheet-frame texture-region
+  drawing, fallback drawing used when the authored chest sheet texture is
+  unavailable, opened reward-label sequencing, source rect selection from the
+  frame grid, fallback body / lid rects, open-lid easing, rim highlights, and
+  canvas transform reset. The scene still owns sheet texture selection and
+  FX-host sync.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update

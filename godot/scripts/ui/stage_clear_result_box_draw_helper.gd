@@ -1,6 +1,127 @@
 extends RefCounted
 
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
+const StageClearResultRewardFloatDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_float_draw_helper.gd")
+const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
+const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
+
+
+static func draw_floating_result_box(
+	canvas: CanvasItem,
+	box: Dictionary,
+	draw_context: Dictionary
+) -> void:
+	if canvas == null:
+		return
+	var scale: float = float(draw_context.get("scale", 1.0))
+	var timer_value: float = float(draw_context.get("timer", 0.0))
+	var global_alpha: float = StageClearResultScrollState.get_box_global_alpha(
+		str(draw_context.get("scroll_phase", "hidden")),
+		float(draw_context.get("scroll_timer", 0.0)),
+		float(draw_context.get("scroll_unfurl_duration", 1.0))
+	)
+	if global_alpha <= 0.02:
+		return
+
+	var kind: String = str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))
+	var is_mythic: bool = StageClearResultBoxData.is_mythic_visual_box_kind(kind)
+	var state: String = str(box.get("state", "idle"))
+	var open_progress: float = float(box.get("open_progress", 0.0))
+
+	var rotation_base: float = float(box.get("rotation_base", 0.0))
+	var rotation_jitter: float = float(box.get("rotation_jitter", 0.05))
+	var phase: float = float(box.get("phase", 0.0))
+	var box_rotation: float = rotation_base + sin(timer_value * 0.9 + phase * 0.7) * rotation_jitter
+
+	var shake_offset := Vector2.ZERO
+	if state == "opening" and open_progress < 0.55:
+		var shake_intensity: float = 1.0 - open_progress / 0.55
+		var shake_t: float = timer_value * 30.0
+		shake_offset = Vector2(
+			sin(shake_t) * float(draw_context.get("opening_shake_amplitude", 0.0)) * shake_intensity * scale,
+			cos(shake_t * 1.3) * 1.2 * shake_intensity * scale
+		)
+
+	var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
+		box,
+		scale,
+		timer_value,
+		float(draw_context.get("float_amplitude", 0.0)),
+		float(draw_context.get("float_speed", 0.0))
+	) + shake_offset
+
+	var hovered: bool = draw_context.get("hovered", false) == true
+	var hover_active: bool = hovered and state == "idle"
+	var hover_pulse: float = 0.0
+	if hover_active:
+		hover_pulse = sin(timer_value * 4.0 + phase) * 0.5 + 0.5
+
+	var hover_grow: float = float(draw_context.get("hover_grow", 1.0))
+	var grow: float = 1.0
+	if hover_active:
+		grow = hover_grow + hover_pulse * 0.022
+
+	var box_base_size: Vector2 = draw_context.get("box_base_size", Vector2(120.0, 84.0))
+	var body_hx: float = box_base_size.x * scale * grow * 0.5
+	var body_hy: float = box_base_size.y * scale * grow * 0.5
+	var frame_draw_size: float = float(draw_context.get("frame_draw_size", 160.0)) * scale * grow
+	var hx: float = frame_draw_size * 0.5
+	var hy: float = frame_draw_size * 0.5
+
+	StageClearResultShapeHelper.draw_filled_ellipse(
+		canvas,
+		Vector2(draw_center.x, draw_center.y + body_hy + float(draw_context.get("shadow_offset_y", 0.0)) * scale),
+		body_hx * 0.95,
+		body_hy * 0.20,
+		Color(0.0, 0.0, 0.0, 0.40 * global_alpha),
+		24
+	)
+
+	if hover_active:
+		StageClearResultShapeHelper.draw_box_hover_glow(canvas, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
+
+	var frame_index: int = StageClearResultLayoutHelper.get_result_box_frame_index(
+		state,
+		open_progress,
+		is_mythic,
+		int(draw_context.get("frame_count", 1)),
+		int(draw_context.get("common_safe_last_frame", 0)),
+		int(draw_context.get("mythic_safe_last_frame", 0))
+	)
+
+	var texture: Texture2D = draw_context.get("texture", null) as Texture2D
+	if not draw_result_box_sheet_frame(
+		canvas,
+		texture,
+		draw_center,
+		frame_index,
+		int(draw_context.get("sheet_grid_cols", 1)),
+		draw_context.get("sheet_cell_size", Vector2.ONE),
+		frame_draw_size,
+		box_rotation,
+		global_alpha
+	):
+		draw_result_box_fallback(canvas, draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
+
+	if hover_active:
+		StageClearResultShapeHelper.draw_box_hover_sparkles(canvas, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase, timer_value)
+
+	if state == "opened":
+		var reward_icon_cache_value: Variant = draw_context.get("reward_icon_cache", {})
+		var reward_icon_cache: Dictionary = reward_icon_cache_value if reward_icon_cache_value is Dictionary else {}
+		StageClearResultRewardFloatDrawHelper.draw_reward_label(
+			canvas,
+			box,
+			draw_center,
+			body_hy,
+			scale,
+			global_alpha,
+			timer_value,
+			float(draw_context.get("reward_hover_offset", 0.0)),
+			reward_icon_cache
+		)
 
 
 static func draw_result_box_sheet_frame(

@@ -12,7 +12,6 @@ const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_resu
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
-const StageClearResultRewardFloatDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_float_draw_helper.gd")
 const StageClearResultScrollButtonDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_button_draw_helper.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
@@ -980,103 +979,34 @@ func _draw_floating_boxes(_view_size: Vector2, scale: float) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
-	var global_alpha: float = StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
-	if global_alpha <= 0.02:
-		return
-
 	var kind: String = str(box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))
-	var is_mythic: bool = StageClearResultBoxData.is_mythic_visual_box_kind(kind)
-	var state: String = str(box.get("state", "idle"))
-	var open_progress: float = float(box.get("open_progress", 0.0))
-
-	var rotation_base: float = float(box.get("rotation_base", 0.0))
-	var rotation_jitter: float = float(box.get("rotation_jitter", 0.05))
-	var phase: float = float(box.get("phase", 0.0))
-	var box_rotation: float = rotation_base + sin(timer * 0.9 + phase * 0.7) * rotation_jitter
-
-	var shake_offset := Vector2.ZERO
-	if state == "opening" and open_progress < 0.55:
-		var shake_intensity: float = 1.0 - open_progress / 0.55
-		var shake_t: float = timer * 30.0
-		shake_offset = Vector2(
-			sin(shake_t) * BOX_OPENING_SHAKE_AMPLITUDE * shake_intensity * scale,
-			cos(shake_t * 1.3) * 1.2 * shake_intensity * scale
-		)
-
-	var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
+	StageClearResultBoxDrawHelper.draw_floating_result_box(
+		self,
 		box,
-		scale,
-		timer,
-		BOX_FLOAT_AMPLITUDE,
-		BOX_FLOAT_SPEED
-	) + shake_offset
-
-	var hover_active: bool = hovered and state == "idle"
-	var hover_pulse: float = 0.0
-	if hover_active:
-		hover_pulse = sin(timer * 4.0 + phase) * 0.5 + 0.5
-
-	var grow: float = 1.0
-	if hover_active:
-		grow = BOX_HOVER_GROW + hover_pulse * 0.022
-
-	var body_hx: float = BOX_BASE_SIZE.x * scale * grow * 0.5
-	var body_hy: float = BOX_BASE_SIZE.y * scale * grow * 0.5
-
-	var frame_draw_size: float = RESULT_BOX_FRAME_DRAW_SIZE * scale * grow
-	var hx: float = frame_draw_size * 0.5
-	var hy: float = frame_draw_size * 0.5
-
-	StageClearResultShapeHelper.draw_filled_ellipse(
-		self,
-		Vector2(draw_center.x, draw_center.y + body_hy + BOX_SHADOW_OFFSET_Y * scale),
-		body_hx * 0.95,
-		body_hy * 0.20,
-		Color(0.0, 0.0, 0.0, 0.40 * global_alpha),
-		24
+		{
+			"hovered": hovered,
+			"scale": scale,
+			"timer": timer,
+			"scroll_phase": _scroll_phase,
+			"scroll_timer": _scroll_timer,
+			"scroll_unfurl_duration": SCROLL_UNFURL_DURATION,
+			"float_amplitude": BOX_FLOAT_AMPLITUDE,
+			"float_speed": BOX_FLOAT_SPEED,
+			"opening_shake_amplitude": BOX_OPENING_SHAKE_AMPLITUDE,
+			"shadow_offset_y": BOX_SHADOW_OFFSET_Y,
+			"hover_grow": BOX_HOVER_GROW,
+			"box_base_size": BOX_BASE_SIZE,
+			"frame_draw_size": RESULT_BOX_FRAME_DRAW_SIZE,
+			"frame_count": RESULT_BOX_SHEET_FRAME_COUNT,
+			"common_safe_last_frame": RESULT_BOX_COMMON_SAFE_LAST_FRAME,
+			"mythic_safe_last_frame": RESULT_BOX_MYTHIC_SAFE_LAST_FRAME,
+			"sheet_grid_cols": RESULT_BOX_SHEET_GRID_COLS,
+			"sheet_cell_size": RESULT_BOX_SHEET_CELL_SIZE,
+			"reward_hover_offset": BOX_REWARD_HOVER_OFFSET,
+			"texture": _get_result_box_sheet_texture(kind),
+			"reward_icon_cache": _reward_icon_cache,
+		}
 	)
-
-	if hover_active:
-		StageClearResultShapeHelper.draw_box_hover_glow(self, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
-
-	var frame_index: int = StageClearResultLayoutHelper.get_result_box_frame_index(
-		state,
-		open_progress,
-		is_mythic,
-		RESULT_BOX_SHEET_FRAME_COUNT,
-		RESULT_BOX_COMMON_SAFE_LAST_FRAME,
-		RESULT_BOX_MYTHIC_SAFE_LAST_FRAME
-	)
-
-	var texture: Texture2D = _get_result_box_sheet_texture(kind)
-	if not StageClearResultBoxDrawHelper.draw_result_box_sheet_frame(
-		self,
-		texture,
-		draw_center,
-		frame_index,
-		RESULT_BOX_SHEET_GRID_COLS,
-		RESULT_BOX_SHEET_CELL_SIZE,
-		frame_draw_size,
-		box_rotation,
-		global_alpha
-	):
-		StageClearResultBoxDrawHelper.draw_result_box_fallback(self, draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
-
-	if hover_active:
-		StageClearResultShapeHelper.draw_box_hover_sparkles(self, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase, timer)
-
-	if state == "opened":
-		StageClearResultRewardFloatDrawHelper.draw_reward_label(
-			self,
-			box,
-			draw_center,
-			body_hy,
-			scale,
-			global_alpha,
-			timer,
-			BOX_REWARD_HOVER_OFFSET,
-			_reward_icon_cache
-		)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
