@@ -6,6 +6,8 @@ const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_inf
 static func open(target: Object, owner: Object = null, registry: Object = null, pause_active: bool = false, pause_owner: Object = null, pause_registry: Object = null) -> Dictionary:
 	target.set("active", true)
 	target.set("animation_time", 0.0)
+	target.set("lingpet_panel_live2d_time", 0.0)
+	target.set("_lingpet_panel_live2d_redraw_active", false)
 	target.set("perk_scroll", 0.0)
 	target.set("passive_inventory_scroll", 0.0)
 	var next_pause_active := pause_active
@@ -32,6 +34,7 @@ static func close(target: Object, from_input: bool = false, pause_active: bool =
 		if skill_tooltip_driver != null and skill_tooltip_driver.has_method("resume_skill_cooldowns"):
 			skill_tooltip_driver.resume_skill_cooldowns(pause_owner, pause_registry)
 	target.set("active", false)
+	target.set("_lingpet_panel_live2d_redraw_active", false)
 	target.call("_reset_hover_and_request_redraw", from_input)
 	return {
 		"active": false,
@@ -43,6 +46,9 @@ static func close(target: Object, from_input: bool = false, pause_active: bool =
 static func update(target: Object, delta: float, open_animation_duration: float) -> bool:
 	if not bool(target.get("active")):
 		return false
+	var live2d_redraw_active: bool = bool(target.get("_lingpet_panel_live2d_redraw_active"))
+	if live2d_redraw_active:
+		target.set("lingpet_panel_live2d_time", float(target.get("lingpet_panel_live2d_time")) + delta)
 	var animation_time: float = float(target.get("animation_time"))
 	var was_animating: bool = animation_time < open_animation_duration
 	var next_animation_time: float = min(open_animation_duration, animation_time + delta)
@@ -53,4 +59,4 @@ static func update(target: Object, delta: float, open_animation_duration: float)
 		return true
 	var should_redraw: bool = bool(target.get("_redraw_requested"))
 	target.set("_redraw_requested", false)
-	return should_redraw
+	return should_redraw or live2d_redraw_active

@@ -69,6 +69,19 @@ static func draw_contained(canvas: CanvasItem, texture: Texture2D, rect: Rect2, 
 	canvas.draw_texture_rect(texture, dest, false, modulate)
 
 
+static func draw_contained_region(canvas: CanvasItem, texture: Texture2D, rect: Rect2, source: Rect2, modulate: Color = Color.WHITE) -> void:
+	if texture == null:
+		return
+	if source.size.x <= 0.0 or source.size.y <= 0.0:
+		return
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var scale: float = min(rect.size.x / source.size.x, rect.size.y / source.size.y)
+	var dest_size: Vector2 = source.size * scale
+	var dest := Rect2(rect.get_center() - dest_size * 0.5, dest_size)
+	canvas.draw_texture_rect_region(texture, dest, source, modulate, false, true)
+
+
 static func draw_cover(canvas: CanvasItem, texture: Texture2D, rect: Rect2, modulate: Color = Color.WHITE) -> void:
 	if texture == null:
 		return

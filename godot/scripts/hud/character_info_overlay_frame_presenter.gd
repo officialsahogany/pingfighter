@@ -115,7 +115,9 @@ static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, re
 
 	sample_start = _perf_begin(perf_logger)
 	var lingpet_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), lingpet_hatch_required_hits)
-	hover_data = CharacterInfoOverlayLingpetPresenter.draw_panel(canvas, font, layout_lingpet_rect, lingpet_snapshot, mouse_pos, hover_data, lingpet_skill_icon_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale, Callable(target, "_wrap_text_to_width"), lingpet_hatch_required_hits)
+	var lingpet_panel_live2d_active: bool = CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(lingpet_snapshot)
+	target.set("_lingpet_panel_live2d_redraw_active", lingpet_panel_live2d_active)
+	hover_data = CharacterInfoOverlayLingpetPresenter.draw_panel(canvas, font, layout_lingpet_rect, lingpet_snapshot, mouse_pos, hover_data, lingpet_skill_icon_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale, Callable(target, "_wrap_text_to_width"), lingpet_hatch_required_hits, float(target.get("lingpet_panel_live2d_time")))
 	_perf_end(perf_logger, "character_info.lingpet", sample_start)
 
 	sample_start = _perf_begin(perf_logger)

@@ -3,6 +3,7 @@ extends SceneTree
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const CharacterInfoOverlayHoverGeometry := preload("res://scripts/hud/character_info_overlay_hover_geometry.gd")
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const CharacterInfoOverlayPassiveItemPresenter := preload("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
@@ -185,6 +186,10 @@ func _init() -> void:
 	_expect(maribo_art_path != "", "maribo cutin art should be reachable through the catalog")
 	_expect(layout_overlay._lingpet_art_texture_cache.has(maribo_art_path), "character info prewarm should cache lingpet cutin art in the draw-time art cache")
 	_expect(not layout_overlay._lingpet_skill_icon_texture_cache.has(maribo_art_path), "character info prewarm should keep lingpet art out of the skill icon cache")
+	var lunabi_panel_art_path: String = CharacterInfoOverlayLingpetTextureLoader.get_panel_art_path("lunabi")
+	_expect(lunabi_panel_art_path.ends_with("lunabi_click_live2d_pingpong_98f.png"), "Lunabi character info panel should use the 98-frame panel Live2D sheet path")
+	_expect(layout_overlay._lingpet_art_texture_cache.has(lunabi_panel_art_path), "character info prewarm should cache Lunabi's panel Live2D sheet")
+	_expect(not layout_overlay._lingpet_skill_icon_texture_cache.has(lunabi_panel_art_path), "character info prewarm should keep Lunabi panel Live2D out of the skill icon cache")
 	var loader_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 	_expect(loader_source.find("FileAccess.file_exists") < 0, "lingpet texture loader should delegate export-safe existence checks to ProjectResourceLoader")
 

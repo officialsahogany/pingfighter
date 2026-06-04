@@ -7,6 +7,19 @@ const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
+const PANEL_LIVE2D_COLS_BY_PET_ID := {
+	"lunabi": 14,
+}
+const PANEL_LIVE2D_ROWS_BY_PET_ID := {
+	"lunabi": 7,
+}
+const PANEL_LIVE2D_FRAME_COUNT_BY_PET_ID := {
+	"lunabi": 98,
+}
+const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
+	"lunabi": 1.0 / 16.0,
+}
+
 static func draw_panel(
 	canvas: CanvasItem,
 	font: Font,
@@ -29,7 +42,8 @@ static func draw_panel(
 	ring_segments: int,
 	ui_text_scale: float,
 	wrap_text_callable: Callable,
-	hatch_required_hits: int
+	hatch_required_hits: int,
+	panel_animation_time: float = 0.0
 ) -> Dictionary:
 	skill_icon_rects.clear()
 	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, section_color, section_border, 2.0)
@@ -38,7 +52,7 @@ static func draw_panel(
 	canvas.draw_rect(content_rect, grid_fill)
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "companion":
-		return draw_companion_panel(canvas, font, content_rect, snapshot, mouse_pos, hover_data, skill_icon_rects, art_texture_cache, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
+		return draw_companion_panel(canvas, font, content_rect, snapshot, mouse_pos, hover_data, skill_icon_rects, art_texture_cache, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale, panel_animation_time)
 	draw_non_companion_panel(canvas, font, content_rect, snapshot, hatch_required_hits, stat_buff_color, empty_text_color, accent_gold, text_soft, ring_segments, ui_text_scale, wrap_text_callable)
 	return hover_data
 
@@ -146,10 +160,12 @@ static func draw_companion_panel(
 	accent_blue: Color,
 	slot_fill: Color,
 	ring_segments: int,
-	ui_text_scale: float
+	ui_text_scale: float,
+	panel_animation_time: float = 0.0
 ) -> Dictionary:
 	var title: String = str(snapshot.get("title", "링펫"))
 	var subtitle: String = str(snapshot.get("subtitle", "동행 중"))
+	var pet_id := str(snapshot.get("pet_id", "")).strip_edges().to_lower()
 	var skill_specs: Array = get_skill_specs(snapshot, stat_buff_color)
 	var skill_row_h: float = clamp(content_rect.size.y * 0.22, 58.0, 78.0)
 	var title_y: float = content_rect.position.y + 26.0
@@ -164,7 +180,10 @@ static func draw_companion_panel(
 		canvas.draw_circle(art_glow_center, art_glow_radius + float(glow_index) * 11.0, Color(0.0, 205.0 / 255.0, 1.0, 0.018 * float(glow_index)))
 	var art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_art_texture(str(snapshot.get("pet_id", "")), art_texture_cache)
 	if art_texture != null:
-		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, art_texture, art_rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
+		if CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art(pet_id):
+			draw_panel_live2d_art(canvas, art_texture, art_rect.grow(-4.0), pet_id, panel_animation_time)
+		else:
+			CharacterInfoOverlayTextureDrawer.draw_contained(canvas, art_texture, art_rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
 	else:
 		draw_egg_icon(canvas, Rect2(art_rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
 
@@ -184,6 +203,36 @@ static func draw_companion_panel(
 
 static func companion_art_rect(content_rect: Rect2, skill_row_h: float) -> Rect2:
 	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0))
+
+
+static func should_redraw_panel_live2d(snapshot: Dictionary) -> bool:
+	if str(snapshot.get("state", "")) != "companion":
+		return false
+	return CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art(str(snapshot.get("pet_id", "")))
+
+
+static func draw_panel_live2d_art(canvas: CanvasItem, texture: Texture2D, rect: Rect2, pet_id: String, panel_animation_time: float) -> void:
+	var source := panel_live2d_source_rect(pet_id, texture.get_size(), panel_animation_time)
+	if source.size.x <= 0.0 or source.size.y <= 0.0:
+		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, texture, rect, Color(1.0, 1.0, 1.0, 0.96))
+		return
+	CharacterInfoOverlayTextureDrawer.draw_contained_region(canvas, texture, rect, source, Color(1.0, 1.0, 1.0, 0.96))
+
+
+static func panel_live2d_source_rect(pet_id: String, texture_size: Vector2, panel_animation_time: float) -> Rect2:
+	if texture_size.x <= 1.0 or texture_size.y <= 1.0:
+		return Rect2()
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	var cols: int = max(1, int(PANEL_LIVE2D_COLS_BY_PET_ID.get(normalized_pet_id, 1)))
+	var rows: int = max(1, int(PANEL_LIVE2D_ROWS_BY_PET_ID.get(normalized_pet_id, 1)))
+	var max_frames: int = cols * rows
+	var frame_count: int = clampi(int(PANEL_LIVE2D_FRAME_COUNT_BY_PET_ID.get(normalized_pet_id, max_frames)), 1, max_frames)
+	var frame_interval: float = maxf(0.016, float(PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID.get(normalized_pet_id, 0.0625)))
+	var frame_index: int = int(floor(maxf(0.0, panel_animation_time) / frame_interval)) % frame_count
+	var col: int = frame_index % cols
+	var row: int = int(floor(float(frame_index) / float(cols)))
+	var cell_size := Vector2(texture_size.x / float(cols), texture_size.y / float(rows))
+	return Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
 
 
 static func draw_skill_icon(

@@ -3,14 +3,13 @@ extends RefCounted
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
+const PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID := {
+	"lunabi": "click_reaction_anim",
+}
+
 
 static func get_art_texture(pet_id: String, cache: Dictionary) -> Texture2D:
-	var path := ""
-	var normalized_pet_id := pet_id.strip_edges().to_lower()
-	if LingpetCatalog.has_pet(normalized_pet_id):
-		path = LingpetCatalog.get_visual_path(normalized_pet_id, "cutin_art")
-	if path == "":
-		path = LingpetCatalog.get_visual_path(LingpetCatalog.get_default_pet_id(), "cutin_art")
+	var path := get_panel_art_path(pet_id)
 	if path == "":
 		return null
 	if cache.has(path):
@@ -27,6 +26,33 @@ static func get_art_texture(pet_id: String, cache: Dictionary) -> Texture2D:
 		cache[path] = texture
 		return texture
 	return null
+
+
+static func get_panel_art_path(pet_id: String) -> String:
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	var path := ""
+	if LingpetCatalog.has_pet(normalized_pet_id):
+		var panel_live2d_key := get_panel_live2d_visual_key(normalized_pet_id)
+		if panel_live2d_key != "":
+			path = LingpetCatalog.get_visual_path(normalized_pet_id, panel_live2d_key)
+		if path == "":
+			path = LingpetCatalog.get_visual_path(normalized_pet_id, "cutin_art")
+	if path == "":
+		path = LingpetCatalog.get_visual_path(LingpetCatalog.get_default_pet_id(), "cutin_art")
+	return path
+
+
+static func get_panel_live2d_visual_key(pet_id: String) -> String:
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	return str(PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID.get(normalized_pet_id, ""))
+
+
+static func uses_panel_live2d_art(pet_id: String) -> bool:
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	if normalized_pet_id == "":
+		return false
+	var visual_key := get_panel_live2d_visual_key(normalized_pet_id)
+	return visual_key != "" and LingpetCatalog.get_visual_path(normalized_pet_id, visual_key) != ""
 
 
 static func get_skill_icon_texture(texture_id: String, cache: Dictionary) -> Texture2D:

@@ -263,6 +263,12 @@ func _verify_character_info_open_animation_consumes_pending_redraw() -> void:
 	overlay.open()
 	_expect(overlay.update(1.0), "character info open animation should request its final redraw")
 	_expect(not overlay.update(0.016), "settled character info overlay should not queue one extra redraw after the open animation")
+	overlay.set("_lingpet_panel_live2d_redraw_active", true)
+	var live2d_time_before: float = float(overlay.get("lingpet_panel_live2d_time"))
+	_expect(overlay.update(0.125), "settled character info overlay should redraw while a lingpet panel Live2D is visible")
+	_expect(float(overlay.get("lingpet_panel_live2d_time")) > live2d_time_before, "lingpet panel Live2D timer should advance only through the overlay lifecycle")
+	overlay.close()
+	_expect(not bool(overlay.get("_lingpet_panel_live2d_redraw_active")), "closing character info should stop lingpet panel Live2D redraws")
 
 
 func _verify_character_info_context_click_queues_single_redraw() -> void:
