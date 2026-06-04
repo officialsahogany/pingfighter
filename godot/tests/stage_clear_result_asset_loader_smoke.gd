@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_prewarm_steps()
 	_verify_texture_bundle_load()
+	_verify_asset_path_resolution()
 	_verify_audio_load()
 	_verify_scene_delegates_asset_loading()
 	_verify_threaded_prewarm_uses_short_default_guard()
@@ -81,6 +82,24 @@ func _verify_texture_bundle_load() -> void:
 	)
 
 
+func _verify_asset_path_resolution() -> void:
+	var path_config: Dictionary = StageClearResultScene._result_asset_path_config()
+	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("commando") == "soldier", "asset loader should normalize Commando result character ids")
+	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("unknown") == "smasher", "asset loader should default unknown result character ids to Smasher")
+	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("commando", 1, path_config)
+	_expect(
+		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
+		"asset loader should route Commando player victories to the Commando result Live2D base sheet"
+	)
+	_expect(
+		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
+		"asset loader should route Commando player victory clicks to the Commando result Live2D reaction sheet"
+	)
+	var stage2_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("smasher", 2, path_config)
+	_expect(stage2_paths.has("stage2_boss_defeat_live2d_sheet"), "asset loader should include Stage 2 defeated boss sheets for Stage 2")
+	_expect(not stage2_paths.has("dalji_defeat_sheet"), "asset loader should omit Dalji sheets outside Stage 1 result paths")
+
+
 func _verify_audio_load() -> void:
 	var stream: AudioStream = StageClearResultAssetLoader.load_dalji_click_voice(null, StageClearResultScene.DALJI_CLICK_VOICE_PATH)
 	_expect(stream != null, "asset loader should load Dalji click voice stream")
@@ -92,7 +111,8 @@ func _verify_scene_delegates_asset_loading() -> void:
 	_expect(
 		source.find("StageClearResultAssetLoader.load_textures") >= 0
 		and source.find("StageClearResultAssetLoader.load_dalji_click_voice") >= 0
-		and source.find("StageClearResultAssetLoader.prewarm_result_assets_step") >= 0,
+		and source.find("StageClearResultAssetLoader.prewarm_result_assets_step") >= 0
+		and source.find("StageClearResultAssetLoader.get_result_asset_paths") >= 0,
 		"result scene should delegate asset loading and staged prewarm to the asset loader"
 	)
 	_expect(
@@ -104,6 +124,12 @@ func _verify_scene_delegates_asset_loading() -> void:
 		source.find("static var _prewarm_asset") < 0
 			and source.find("static func _prewarm_assets_step_impl") < 0,
 		"result scene should not keep stateful prewarm implementation details"
+	)
+	_expect(
+		source.find("static func _normalize_player_victory_character_type") < 0
+			and source.find("static func _get_player_victory_sheet_path_for_character") < 0
+			and source.find("static func _get_player_victory_click_reaction_sheet_path_for_character") < 0,
+		"result scene should not keep asset path resolution helpers"
 	)
 
 

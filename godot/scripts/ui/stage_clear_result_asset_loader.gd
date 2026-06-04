@@ -56,6 +56,50 @@ static var _prewarm_result_asset_character_type: String = "smasher"
 static var _prewarm_result_asset_stage_id: int = 1
 
 
+static func get_result_asset_paths(character_type: String, stage_id: int, path_config: Dictionary) -> Dictionary:
+	var normalized_character: String = normalize_player_victory_character_type(character_type)
+	var normalized_stage_id: int = max(1, stage_id)
+	var paths := {
+		"background_texture": str(path_config.get("background_texture", "")),
+		"player_victory_sheet": get_player_victory_sheet_path_for_character(normalized_character, path_config),
+		"player_victory_click_reaction_sheet": get_player_victory_click_reaction_sheet_path_for_character(normalized_character, path_config),
+		"scroll_texture": str(path_config.get("scroll_texture", "")),
+		"result_box_sheet_common": str(path_config.get("result_box_sheet_common", "")),
+		"result_box_sheet_mythic": str(path_config.get("result_box_sheet_mythic", "")),
+		"result_box_sheet_guaranteed_mythic": str(path_config.get("result_box_sheet_guaranteed_mythic", "")),
+	}
+	if normalized_stage_id == 2:
+		paths["stage2_boss_defeat_live2d_sheet"] = str(path_config.get("stage2_boss_defeat_live2d_sheet", ""))
+		paths["stage2_boss_defeat_click_reaction_sheet"] = str(path_config.get("stage2_boss_defeat_click_reaction_sheet", ""))
+	elif normalized_stage_id == 3:
+		paths["stage3_boss_defeat_live2d_sheet"] = str(path_config.get("stage3_boss_defeat_live2d_sheet", ""))
+		paths["stage3_boss_defeat_click_reaction_sheet"] = str(path_config.get("stage3_boss_defeat_click_reaction_sheet", ""))
+	else:
+		paths["dalji_defeat_sheet"] = str(path_config.get("dalji_defeat_sheet", ""))
+		paths["dalji_click_reaction_sheet"] = str(path_config.get("dalji_click_reaction_sheet", ""))
+		paths["dalji_click_voice"] = str(path_config.get("dalji_click_voice", ""))
+	return paths
+
+
+static func normalize_player_victory_character_type(character_type: String) -> String:
+	var normalized: String = str(character_type).strip_edges().to_lower()
+	if normalized == "soldier" or normalized == "commando":
+		return "soldier"
+	return "smasher"
+
+
+static func get_player_victory_sheet_path_for_character(character_type: String, path_config: Dictionary) -> String:
+	if normalize_player_victory_character_type(character_type) == "soldier":
+		return str(path_config.get("commando_victory_sheet", ""))
+	return str(path_config.get("smasher_victory_sheet", ""))
+
+
+static func get_player_victory_click_reaction_sheet_path_for_character(character_type: String, path_config: Dictionary) -> String:
+	if normalize_player_victory_character_type(character_type) == "soldier":
+		return str(path_config.get("commando_click_reaction_sheet", ""))
+	return str(path_config.get("smasher_click_reaction_sheet", ""))
+
+
 static func load_textures(current: Dictionary, paths: Dictionary) -> Dictionary:
 	var loaded: Dictionary = current.duplicate()
 	for key_value in TEXTURE_KEYS:

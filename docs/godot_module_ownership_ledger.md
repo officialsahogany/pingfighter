@@ -1428,9 +1428,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stage-clear result asset loading and staged prewarm dispatch:
   result background / scroll / chest sheets, Dalji and player-victory
   sheets, Dalji click voice, result-box FX prewarm, and the stateful
-  result-asset prewarm step cursor / status map used by the screen shell.
-  The scene still owns the loaded texture / stream fields, asset path
-  selection facade, and decides when to load or prewarm.
+  result-asset prewarm step cursor / status map used by the screen shell. It
+  also owns player-victory character id normalization and result asset path
+  selection from the scene's path config. The scene still owns the loaded
+  texture / stream fields, path constants / compatibility facade, and decides
+  when to load or prewarm.
 - `scripts/ui/stage_clear_result_actor_draw_helper.gd`
   Owns stage-clear result actor sheet drawing for the defeated Dalji, Stage 2
   boss, Stage 3 boss, and player-victory Live2D result actors. It resolves

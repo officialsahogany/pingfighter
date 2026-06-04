@@ -235,7 +235,7 @@ var _starpoint_choice_gate_box_index: int = -1
 static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
 	return StageClearResultAssetLoader.prewarm_result_assets(
 		_result_asset_paths(character_type, stage_id),
-		_normalize_player_victory_character_type(character_type),
+		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
 		stage_id
 	)
 
@@ -243,7 +243,7 @@ static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1
 static func prewarm_assets_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
 	return StageClearResultAssetLoader.prewarm_result_assets_step(
 		_result_asset_paths(character_type, stage_id),
-		_normalize_player_victory_character_type(character_type),
+		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
 		stage_id
 	)
 
@@ -251,7 +251,7 @@ static func prewarm_assets_step(character_type: String = "smasher", stage_id: in
 static func prewarm_assets_threaded_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
 	return StageClearResultAssetLoader.prewarm_result_assets_step(
 		_result_asset_paths(character_type, stage_id),
-		_normalize_player_victory_character_type(character_type),
+		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
 		stage_id,
 		true
 	)
@@ -266,47 +266,28 @@ static func get_prewarm_asset_status() -> Dictionary:
 
 
 static func _result_asset_paths(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
-	var normalized_character: String = _normalize_player_victory_character_type(character_type)
-	var normalized_stage_id: int = max(1, stage_id)
-	var paths := {
+	return StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id, _result_asset_path_config())
+
+
+static func _result_asset_path_config() -> Dictionary:
+	return {
 		"background_texture": STAGE1_BACKGROUND_PATH,
-		"player_victory_sheet": _get_player_victory_sheet_path_for_character(normalized_character),
-		"player_victory_click_reaction_sheet": _get_player_victory_click_reaction_sheet_path_for_character(normalized_character),
+		"smasher_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
+		"smasher_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
+		"commando_victory_sheet": COMMANDO_VICTORY_SHEET_PATH,
+		"commando_click_reaction_sheet": COMMANDO_CLICK_REACTION_SHEET_PATH,
 		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
 		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
 		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
 		"result_box_sheet_guaranteed_mythic": RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
+		"stage2_boss_defeat_live2d_sheet": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
+		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
+		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
 	}
-	if normalized_stage_id == 2:
-		paths["stage2_boss_defeat_live2d_sheet"] = STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH
-		paths["stage2_boss_defeat_click_reaction_sheet"] = STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
-	elif normalized_stage_id == 3:
-		paths["stage3_boss_defeat_live2d_sheet"] = STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH
-		paths["stage3_boss_defeat_click_reaction_sheet"] = STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
-	else:
-		paths["dalji_defeat_sheet"] = DALJI_DEFEAT_SHEET_PATH
-		paths["dalji_click_reaction_sheet"] = DALJI_CLICK_REACTION_SHEET_PATH
-		paths["dalji_click_voice"] = DALJI_CLICK_VOICE_PATH
-	return paths
-
-
-static func _normalize_player_victory_character_type(character_type: String) -> String:
-	var normalized: String = str(character_type).strip_edges().to_lower()
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	return "smasher"
-
-
-static func _get_player_victory_sheet_path_for_character(character_type: String) -> String:
-	if _normalize_player_victory_character_type(character_type) == "soldier":
-		return COMMANDO_VICTORY_SHEET_PATH
-	return SMASHER_VICTORY_SHEET_PATH
-
-
-static func _get_player_victory_click_reaction_sheet_path_for_character(character_type: String) -> String:
-	if _normalize_player_victory_character_type(character_type) == "soldier":
-		return COMMANDO_CLICK_REACTION_SHEET_PATH
-	return SMASHER_CLICK_REACTION_SHEET_PATH
 
 
 func _ready() -> void:
@@ -336,7 +317,7 @@ func configure(
 	boss_score = int(data.get("boss_score", 0))
 	current_stage = int(data.get("current_stage", 1))
 	var previous_character_type: String = selected_character_type
-	selected_character_type = _normalize_player_victory_character_type(str(data.get("selected_character_type", selected_character_type)))
+	selected_character_type = StageClearResultAssetLoader.normalize_player_victory_character_type(str(data.get("selected_character_type", selected_character_type)))
 	if selected_character_type != previous_character_type:
 		_player_victory_sheet = null
 		_player_victory_click_reaction_sheet = null
@@ -717,6 +698,7 @@ func get_interaction_status() -> Dictionary:
 		RESULT_REWARD_SOURCE_BOX,
 		RESULT_REWARD_SOURCE_LABELS
 	)
+	var asset_path_config: Dictionary = _result_asset_path_config()
 	return StageClearResultStatusBuilder.build_interaction_status({
 		"view_size": view_size,
 		"layout_scale": layout_scale,
@@ -740,8 +722,8 @@ func get_interaction_status() -> Dictionary:
 		"dalji_click_voice_player_ready": _dalji_click_voice_player != null,
 		"dalji_click_voice_playing": _dalji_click_voice_player != null and _dalji_click_voice_player.playing,
 		"selected_character_type": selected_character_type,
-		"player_victory_sheet_path": _get_player_victory_sheet_path_for_character(selected_character_type),
-		"player_victory_click_reaction_sheet_path": _get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
+		"player_victory_sheet_path": StageClearResultAssetLoader.get_player_victory_sheet_path_for_character(selected_character_type, asset_path_config),
+		"player_victory_click_reaction_sheet_path": StageClearResultAssetLoader.get_player_victory_click_reaction_sheet_path_for_character(selected_character_type, asset_path_config),
 		"player_victory_sheet_loaded": _player_victory_sheet != null,
 		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
 		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
