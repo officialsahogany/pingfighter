@@ -8,10 +8,12 @@ extends RefCounted
 
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const Stage6PillarTetris := preload("res://scripts/stages/stage6/stage6_tetriser_pillar_tetris.gd")
 
 const STAGE6_STATIC_HUD_LOD_SCALE := BattleRenderQuality.FPS_CAP_EFFECT_SCALE
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
+var pillar_tetris: Object = Stage6PillarTetris.new()
 var _prewarm_step_index := 0
 var _prewarm_character_type := ""
 var _prewarm_finished_for := ""
@@ -85,6 +87,12 @@ func draw(canvas: CanvasItem, context: Dictionary, registry: Object, states: Dic
 		if fallback_renderer != null and fallback_renderer.has_method("draw"):
 			fallback_renderer.draw(canvas, view_size, game_offset, game_size, height, time_seconds)
 	_perf_end(perf_logger, "stage6.pillar.background", sample_start)
+
+	# Self-playing Tetris wells in the letterbox margins (backdrop behind the HUD).
+	sample_start = _perf_begin(perf_logger)
+	if pillar_tetris != null and pillar_tetris.has_method("draw"):
+		pillar_tetris.draw(canvas, view_size, game_offset, game_size, quality_scale)
+	_perf_end(perf_logger, "stage6.pillar.tetris", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	hud_scene_drawer.draw(
