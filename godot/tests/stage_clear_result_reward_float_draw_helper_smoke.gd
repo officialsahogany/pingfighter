@@ -26,7 +26,7 @@ func _verify_helper_source() -> void:
 	_expect(source.find("StageClearResultRewardVisualResolver.get_reward_label_visual_state") >= 0, "floating label drawing should use the visual resolver")
 	_expect(source.find("StageClearResultRewardIconResolver.get_reward_icon_texture") >= 0, "floating icon drawing should resolve reward icon textures")
 	_expect(source.find("StageClearResultRewardTextResolver.get_reward_type_fallback_label") >= 0, "floating icon drawing should use reward fallback labels")
-	_expect(source.find("starpoint_draw_callback.call") >= 0, "floating starpoint drawing should delegate the primitive star draw")
+	_expect(source.find("StageClearResultStarpointDrawHelper.draw_ingame_starpoint_visual") >= 0, "floating starpoint drawing should delegate the primitive star draw")
 	_expect(StageClearResultRewardFloatDrawHelper != null, "reward float draw helper preload should resolve")
 
 	StageClearResultRewardFloatDrawHelper.draw_reward_label(
@@ -38,8 +38,7 @@ func _verify_helper_source() -> void:
 		1.0,
 		0.0,
 		72.0,
-		{},
-		Callable()
+		{}
 	)
 
 

@@ -1506,14 +1506,20 @@ This section is intentionally long; use search to find the nearest owner.
   source-chip rendering, reward title plate / icon drawing, and card text
   resolution through the reward-text resolver. The scene still owns reward
   icon cache / perk icon renderer access, perk catalog instance, starpoint
-  animation state, and the context values passed into card drawing.
+  animation state, and the context values passed into card drawing. Starpoint
+  primitive drawing is delegated further to
+  `stage_clear_result_starpoint_draw_helper.gd`.
 - `scripts/ui/stage_clear_result_reward_float_draw_helper.gd`
   Owns opened result-box floating reward draw routing: reward label visual
   state lookup, active / passive / mythic item icon disc drawing, reward icon
   texture fallback text, and starpoint visual-state dispatch through the
-  scene-provided primitive star draw callback. The scene still owns opened-box
-  timing, reward icon cache storage, starpoint primitive drawing, and box draw
-  sequencing.
+  shared starpoint draw helper. The scene still owns opened-box timing,
+  reward icon cache storage, and box draw sequencing.
+- `scripts/ui/stage_clear_result_starpoint_draw_helper.gd`
+  Owns reusable stage-clear result starpoint primitive drawing: glow layers,
+  star polygon body, sparkle rays, center dot, and optional amount label.
+  Reward-card and floating reward helpers provide visual-state dictionaries;
+  this helper owns only the CanvasItem draw primitives.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
   colors / rects, reward label visual state, reward item icon visual state /

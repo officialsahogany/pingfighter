@@ -6,6 +6,7 @@ const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_re
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
+const StageClearResultStarpointDrawHelper := preload("res://scripts/ui/stage_clear_result_starpoint_draw_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 
@@ -125,10 +126,6 @@ static func draw_reward_card(
 	var reward_icon_cache_value: Variant = card_context.get("reward_icon_cache", {})
 	if reward_icon_cache_value is Dictionary:
 		reward_icon_cache = reward_icon_cache_value
-	var starpoint_draw_callback := Callable()
-	var starpoint_draw_callback_value: Variant = card_context.get("starpoint_draw_callback", Callable())
-	if starpoint_draw_callback_value is Callable:
-		starpoint_draw_callback = starpoint_draw_callback_value
 	draw_reward_card_shell(canvas, font, reward, rect, scale, alpha, visual_state)
 	draw_reward_source_chip(
 		canvas,
@@ -149,8 +146,7 @@ static func draw_reward_card(
 		alpha,
 		float(card_context.get("timer", 0.0)),
 		card_context.get("perk_icon_renderer", null),
-		reward_icon_cache,
-		starpoint_draw_callback
+		reward_icon_cache
 	)
 
 	var perk_catalog: Object = null
@@ -315,8 +311,7 @@ static func draw_reward_card_icon(
 	alpha: float,
 	timer: float,
 	perk_icon_renderer: Variant,
-	reward_icon_cache: Dictionary,
-	starpoint_draw_callback: Callable
+	reward_icon_cache: Dictionary
 ) -> void:
 	if canvas == null:
 		return
@@ -335,7 +330,7 @@ static func draw_reward_card_icon(
 		card_visual_state["star_center"] = rect.get_center()
 		card_visual_state["star_radius"] = star_radius
 		card_visual_state["inner_radius"] = star_radius * 0.5
-		starpoint_draw_callback.call(card_visual_state, false)
+		StageClearResultStarpointDrawHelper.draw_ingame_starpoint_visual(canvas, card_visual_state, false)
 		return
 	if StageClearResultSummaryBuilder.is_perk_reward(reward):
 		var perk_id: String = StageClearResultSummaryBuilder.get_reward_perk_id(reward)

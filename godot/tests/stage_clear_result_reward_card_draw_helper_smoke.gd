@@ -35,7 +35,7 @@ func _verify_helper_source() -> void:
 	_expect(source.find("StageClearResultRewardIconResolver.get_reward_icon_texture") >= 0, "card icon drawing should use the reward icon resolver")
 	_expect(source.find("StageClearResultSummaryBuilder.is_perk_reward") >= 0, "card icon drawing should route perk rewards through the perk icon renderer")
 	_expect(source.find("StageClearResultRewardTextResolver.get_reward_text_state") >= 0, "complete card drawing should resolve card text in the helper")
-	_expect(source.find("starpoint_draw_callback.call") >= 0, "card icon drawing should delegate starpoint drawing through a callback")
+	_expect(source.find("StageClearResultStarpointDrawHelper.draw_ingame_starpoint_visual") >= 0, "card icon drawing should delegate starpoint drawing through the starpoint helper")
 	_expect(source.find("StageClearResultShapeHelper.draw_panel") >= 0, "source-chip drawing should delegate panel drawing")
 	_expect(source.find("StageClearResultTextLayoutHelper.draw_centered_text") >= 0, "source-chip drawing should delegate text drawing")
 	_expect(source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0, "card label drawing should fit long reward names")

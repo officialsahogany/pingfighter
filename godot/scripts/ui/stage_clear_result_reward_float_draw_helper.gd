@@ -4,6 +4,7 @@ const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clea
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
+const StageClearResultStarpointDrawHelper := preload("res://scripts/ui/stage_clear_result_starpoint_draw_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 
@@ -16,8 +17,7 @@ static func draw_reward_label(
 	global_alpha: float,
 	timer: float,
 	reward_hover_offset: float,
-	reward_icon_cache: Dictionary,
-	starpoint_draw_callback: Callable
+	reward_icon_cache: Dictionary
 ) -> void:
 	if canvas == null:
 		return
@@ -40,7 +40,7 @@ static func draw_reward_label(
 	var phase: float = float(visual_state.get("phase", 0.0))
 
 	if reward_type == "starpoint":
-		draw_reward_starpoint(reward, anchor, scale, combined_alpha, emerge_eased, phase, timer, starpoint_draw_callback)
+		draw_reward_starpoint(canvas, reward, anchor, scale, combined_alpha, emerge_eased, phase, timer)
 	else:
 		draw_reward_item_icon(canvas, reward, anchor, scale, combined_alpha, reward_icon_cache)
 
@@ -106,16 +106,16 @@ static func draw_reward_item_icon(
 
 
 static func draw_reward_starpoint(
+	canvas: CanvasItem,
 	reward: Dictionary,
 	anchor: Vector2,
 	scale: float,
 	alpha: float,
 	emerge_progress: float,
 	phase: float,
-	timer: float,
-	starpoint_draw_callback: Callable
+	timer: float
 ) -> void:
-	if not starpoint_draw_callback.is_valid():
+	if canvas == null:
 		return
 	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_starpoint_visual_state(
 		int(reward.get("amount", 1)),
@@ -126,4 +126,4 @@ static func draw_reward_starpoint(
 		timer,
 		phase
 	)
-	starpoint_draw_callback.call(visual_state, true)
+	StageClearResultStarpointDrawHelper.draw_ingame_starpoint_visual(canvas, visual_state, true)
