@@ -21,34 +21,34 @@ func update(
 	var warp_gate_state: Object = deps.get("smasher_warp_gate_state", null)
 
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
-	if active_item_runtime != null and active_item_runtime.has_method("is_player_control_locked"):
-		if bool(active_item_runtime.is_player_control_locked()):
-			var drive_lock_state: Object = deps.get("drive_input_state", null)
-			if drive_lock_state != null and drive_lock_state.has_method("update_cooldowns"):
-				drive_lock_state.update_cooldowns(fps_scale)
-			var lock_motion_config: Dictionary = _build_warp_motion_config(config, warp_gate_state)
-			var lock_movement_state: Object = deps.get("movement_state", null)
-			if lock_movement_state != null:
-				var lock_movement: Dictionary = lock_movement_state.update_horizontal(
-					delta,
-					next_pos,
-					0.0,
-					0.0,
-					float(lock_motion_config.get("play_left", 0.0)),
-					float(lock_motion_config.get("play_right", 0.0)),
-					float(lock_motion_config.get("paddle_width", 0.0)),
-					lock_motion_config
-				)
-				var locked_pos: Variant = lock_movement.get("player_pos", next_pos)
-				if locked_pos is Vector2:
-					next_pos = locked_pos
-			var locked_final: Dictionary = _finalize_warp_gate_position(next_pos, next_special_gauge, config, deps)
-			return {
-				"frame_counter": next_frame_counter,
-				"player_pos": locked_final.get("player_pos", next_pos),
-				"player_speed": 0.0,
-				"special_gauge": float(locked_final.get("special_gauge", next_special_gauge)),
-			}
+	var player_control_locked: bool = _is_active_item_control_locked(active_item_runtime) or _is_shared_player_stun_active(deps)
+	if player_control_locked:
+		var drive_lock_state: Object = deps.get("drive_input_state", null)
+		if drive_lock_state != null and drive_lock_state.has_method("update_cooldowns"):
+			drive_lock_state.update_cooldowns(fps_scale)
+		var lock_motion_config: Dictionary = _build_warp_motion_config(config, warp_gate_state)
+		var lock_movement_state: Object = deps.get("movement_state", null)
+		if lock_movement_state != null:
+			var lock_movement: Dictionary = lock_movement_state.update_horizontal(
+				delta,
+				next_pos,
+				0.0,
+				0.0,
+				float(lock_motion_config.get("play_left", 0.0)),
+				float(lock_motion_config.get("play_right", 0.0)),
+				float(lock_motion_config.get("paddle_width", 0.0)),
+				lock_motion_config
+			)
+			var locked_pos: Variant = lock_movement.get("player_pos", next_pos)
+			if locked_pos is Vector2:
+				next_pos = locked_pos
+		var locked_final: Dictionary = _finalize_warp_gate_position(next_pos, next_special_gauge, config, deps)
+		return {
+			"frame_counter": next_frame_counter,
+			"player_pos": locked_final.get("player_pos", next_pos),
+			"player_speed": 0.0,
+			"special_gauge": float(locked_final.get("special_gauge", next_special_gauge)),
+		}
 
 	if active_item_runtime != null and active_item_runtime.has_method("is_aipill_active") and bool(active_item_runtime.is_aipill_active()):
 		var drive_aipill_state: Object = deps.get("drive_input_state", null)
@@ -336,6 +336,29 @@ func _try_sensor_auto_dash(
 		"player_speed": 0.0,
 		"special_gauge": _get_owner_special_gauge(deps, float(config.get("special_gauge", 0.0))),
 	}
+
+
+func _is_active_item_control_locked(active_item_runtime: Object) -> bool:
+	return (
+		active_item_runtime != null
+		and active_item_runtime.has_method("is_player_control_locked")
+		and bool(active_item_runtime.is_player_control_locked())
+	)
+
+
+func _is_shared_player_stun_active(deps: Dictionary) -> bool:
+	var status_effect_state: Object = deps.get("status_effect_state", null)
+	if status_effect_state == null:
+		return false
+	if status_effect_state.has_method("is_player_stun_active") and bool(status_effect_state.is_player_stun_active()):
+		return true
+	if status_effect_state.has_method("has_status") and bool(status_effect_state.has_status("player", "stun")):
+		return true
+	if status_effect_state.has_method("get_player_control_context"):
+		var context: Variant = status_effect_state.get_player_control_context()
+		if context is Dictionary:
+			return bool(context.get("player_stun_active", false)) or float(context.get("player_stun_ratio", 0.0)) > 0.0
+	return false
 
 
 func _get_mythic_item_runtime(deps: Dictionary) -> Object:

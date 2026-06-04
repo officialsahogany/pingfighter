@@ -301,6 +301,97 @@ const PRESETS := {
 		"ember_color": Color(1.00, 0.62, 0.18, 1.0),
 		"amethyst_color": Color(0.62, 0.08, 0.05, 1.0),
 	},
+	# Red Dragon lingpet "Dragon Breath" exhaled fire jet (the pour at the
+	# dragon's mouth + the leading breath cone). Warmer / more golden than the
+	# boss Hongryun inferno so the friendly companion's flame reads distinct:
+	# orange hot core, golden ember licks, deep-red shadow. Lively forward flow.
+	"red_dragon_breath_jet": {
+		"distort_strength": 0.052,
+		"lateral_strength": 0.042,
+		"jitter_strength": 0.016,
+		"bolt_flow_speed": 3.4,
+		"flicker_speed": 9.5,
+		"pulse_speed": 1.9,
+		"breath_amp": 0.18,
+		"hot_color": Color(1.00, 0.55, 0.12, 1.0),
+		"ember_color": Color(1.00, 0.82, 0.32, 1.0),
+		"amethyst_color": Color(0.70, 0.16, 0.04, 1.0),
+	},
+	# Lingering ground fire patch left where the breath embers die. Calmer,
+	# embery, slower writhe so it reads as a sustained burning floor rather than
+	# an active jet. Same shader, only uniforms differ.
+	"red_dragon_breath_zone": {
+		"distort_strength": 0.038,
+		"lateral_strength": 0.030,
+		"jitter_strength": 0.012,
+		"bolt_flow_speed": 2.0,
+		"flicker_speed": 6.5,
+		"pulse_speed": 1.2,
+		"breath_amp": 0.24,
+		"hot_color": Color(1.00, 0.46, 0.10, 1.0),
+		"ember_color": Color(1.00, 0.76, 0.28, 1.0),
+		"amethyst_color": Color(0.55, 0.10, 0.04, 1.0),
+	},
+	# Smasher Drive cut-in: cyan/teal drive energy with a warm gold rim (only
+	# color/speed uniforms differ from the shared writhe-ember shader). The cut-in
+	# is a non-freezing left-corner portrait, so motion is calmer than the inferno
+	# presets.
+	"drive_cutin": {
+		"distort_strength": 0.042,
+		"lateral_strength": 0.034,
+		"jitter_strength": 0.012,
+		"bolt_flow_speed": 2.6,
+		"flicker_speed": 8.0,
+		"pulse_speed": 1.6,
+		"breath_amp": 0.20,
+		"hot_color": Color(0.58, 1.00, 0.96, 1.0),
+		"ember_color": Color(0.04, 0.86, 1.00, 1.0),
+		"amethyst_color": Color(1.00, 0.88, 0.36, 1.0),
+	},
+	# Enraged drive tuning table (perfect / combo-charged drive): punchier flow,
+	# faster flicker, hotter core. Same shader, only uniforms change.
+	"drive_cutin_enraged": {
+		"distort_strength": 0.064,
+		"lateral_strength": 0.052,
+		"jitter_strength": 0.018,
+		"bolt_flow_speed": 3.7,
+		"flicker_speed": 11.0,
+		"pulse_speed": 2.3,
+		"breath_amp": 0.28,
+		"hot_color": Color(0.76, 1.00, 0.98, 1.0),
+		"ember_color": Color(0.00, 0.74, 1.00, 1.0),
+		"amethyst_color": Color(1.00, 0.74, 0.22, 1.0),
+	},
+	# Shared boss electrocution field (source-agnostic "감전" symptom: Ragnarok
+	# Hammer, Lumion thunder orb, and any future electric stun all reuse this).
+	# Cyan-white high-voltage identity: high jitter + fast flicker give the buzzy
+	# convulsing read; only color/speed uniforms differ from the shared shader.
+	"electrocution_field": {
+		"distort_strength": 0.050,
+		"lateral_strength": 0.042,
+		"jitter_strength": 0.022,
+		"bolt_flow_speed": 3.2,
+		"flicker_speed": 13.0,
+		"pulse_speed": 2.2,
+		"breath_amp": 0.20,
+		"hot_color": Color(0.58, 0.95, 1.00, 1.0),
+		"ember_color": Color(0.86, 0.98, 1.00, 1.0),
+		"amethyst_color": Color(0.42, 0.66, 1.00, 1.0),
+	},
+	# Peak / high-intensity tuning (strong sources, enraged bosses): punchier
+	# distort, faster flicker, hotter near-white core. Same shader, uniforms only.
+	"electrocution_field_peak": {
+		"distort_strength": 0.072,
+		"lateral_strength": 0.060,
+		"jitter_strength": 0.028,
+		"bolt_flow_speed": 4.6,
+		"flicker_speed": 16.0,
+		"pulse_speed": 3.0,
+		"breath_amp": 0.30,
+		"hot_color": Color(0.80, 1.00, 1.00, 1.0),
+		"ember_color": Color(1.00, 1.00, 1.00, 1.0),
+		"amethyst_color": Color(0.50, 0.80, 1.00, 1.0),
+	},
 }
 
 static var _shader: Shader = null

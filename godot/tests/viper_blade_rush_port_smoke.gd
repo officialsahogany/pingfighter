@@ -8,6 +8,8 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
+const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
 
 
 class FakeInput:
@@ -23,13 +25,23 @@ class FakeInput:
 		return snapshot
 
 
+class CapturingMotionStepper:
+	var captured_context := {}
+
+	func step(ball_pos: Vector2, _effective_move: Vector2, _ball_vel: Vector2, context: Dictionary) -> Dictionary:
+		captured_context = context.duplicate(true)
+		return {"event": "none", "ball_pos": ball_pos}
+
+
 class FakeSkillConfig:
 	func is_skill_equipped(skill_name: String) -> bool:
 		return skill_name in ["blade_rush", "dark_blade", "marshal_kick"]
 
 	func get_skill_cost(skill_name: String) -> float:
-		if skill_name in ["blade_rush", "dark_blade"]:
+		if skill_name == "blade_rush":
 			return 200.0
+		if skill_name == "dark_blade":
+			return 150.0
 		if skill_name == "marshal_kick":
 			return 80.0
 		return 0.0
@@ -155,6 +167,7 @@ func _init() -> void:
 	_test_marshal_hit_dark_blade_window_and_handoff()
 	_test_air_blade_activation_hit_and_dark_combo()
 	_test_blade_prep_movement_fall_and_launch_jump()
+	_test_dark_blade_rising_body_contact_accepts_upward_ball()
 	_test_blade_prep_actor_spin_context()
 	_test_blade_amp_cost_homing_and_followup()
 	_test_air_blade_dash_after_launch_delay()
@@ -180,6 +193,8 @@ func _test_dark_blade_unlock_catalog_wiring() -> void:
 	_expect(perk_state.apply_choice(unlock_data, owner, registry), "selecting dark_blade should apply cleanly")
 	_expect(perk_state.get_runtime_skill_level("dark_blade") == 1, "Dark Blade unlock should set the runtime perk level gate")
 	_expect(skill_config.is_skill_equipped("dark_blade"), "Dark Blade unlock should equip the runtime dark_blade skill")
+	_expect(abs(skill_config.get_skill_cost("dark_blade") - 150.0) < 0.01, "Dark Blade gauge cost should be 150")
+	_expect(abs(float(skill_config.get_skill_data("dark_blade").get("cost", 0.0)) - 150.0) < 0.01, "Dark Blade tooltip cost should be 150")
 
 
 func _test_blade_touch_ball_sound_route_removed() -> void:
@@ -311,14 +326,14 @@ func _test_air_blade_activation_hit_and_dark_combo() -> void:
 	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 300.0, config, deps)
 	_expect(bool(result.get("activated", false)), "air blade phase 2 W should chain into dark blade when equipped")
 	_expect(str(result.get("skill_name", "")) == "dark_blade", "air blade follow-up should activate dark_blade")
-	_expect(abs(float(result.get("special_gauge", 0.0)) - 100.0) < 0.01, "dark blade follow-up should spend the shared blade cost")
+	_expect(abs(float(result.get("special_gauge", 0.0)) - 150.0) < 0.01, "dark blade follow-up should spend 150 gauge")
 	_expect(skill_state.triggered.back() == "dark_blade", "dark blade follow-up should trigger dark_blade cooldown")
 	_expect(audio.blade_spin == 2, "dark blade follow-up should replay the spin sound")
 	_expect(not bool(runtime.get_snapshot().get("blade_projectile_active", true)), "dark blade follow-up should clear the previous air blade projectile")
 	input.snapshot["up_pressed"] = false
 	player_pos = _get_vector2(result, "player_pos", player_pos)
 	for _i in range(90):
-		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 100.0)), config, deps)
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 150.0)), config, deps)
 		player_pos = _get_vector2(result, "player_pos", player_pos)
 	snap = runtime.get_snapshot()
 	_expect(bool(snap.get("blade_projectile_active", false)), "dark blade should fire its projectile after the dark prep")
@@ -390,6 +405,69 @@ func _test_blade_prep_movement_fall_and_launch_jump() -> void:
 	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 300.0, config, deps)
 	_expect(str(result.get("skill_name", "")) == "dark_blade", "air blade follow-up should still be available after mobile prep")
 	_expect(_get_vector2(result, "player_pos", player_pos).y <= _get_blade_floor_y(config) - 120.0, "blade follow-up should add the original upward re-cast pop")
+
+
+func _test_dark_blade_rising_body_contact_accepts_upward_ball() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var jetpack := FakeJetpack.new()
+	var perk_state := FakePerkState.new()
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, jetpack, perk_state)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 560.0)
+	var result: Dictionary = runtime._start_blade_motion(player_pos, 500.0, config, deps, true, Time.get_ticks_msec())
+	player_pos = _get_vector2(result, "player_pos", player_pos)
+
+	for _i in range(90):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 300.0)), config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		var snap: Dictionary = runtime.get_snapshot()
+		if int(snap.get("blade_motion_phase", -1)) == 2 and float(snap.get("blade_motion_frames", 0.0)) > 1.0:
+			break
+
+	var collision_context: Dictionary = config.duplicate(true)
+	collision_context["player_pos"] = player_pos
+	collision_context.merge(runtime.get_ball_collision_context(), true)
+	_expect(bool(collision_context.get("viper_dark_blade_rising_contact_active", false)), "dark blade launch rise should expose a body-contact collision flag")
+	var actor_draw_context: Dictionary = config.duplicate(true)
+	actor_draw_context["selected_character_type"] = "viper"
+	actor_draw_context["player_pos"] = player_pos
+	actor_draw_context["player_paddle_size"] = _get_vector2(collision_context, "player_paddle_size", Vector2(155.0, 50.0))
+	var actor_context: Dictionary = BattleDrawActorContext.new().build(actor_draw_context, {"viper_skill_runtime": runtime})
+	_expect(_same_vector2(_get_vector2(actor_context, "player_pos", Vector2.INF), _get_vector2(collision_context, "player_pos", Vector2.ZERO)), "dark blade rising draw position should match the ball-hit position")
+	_expect(_same_vector2(_get_vector2(actor_context, "player_paddle_size", Vector2.ZERO), _get_vector2(collision_context, "player_paddle_size", Vector2.INF)), "dark blade rising draw size should match the ball-hit size")
+
+	var processor := BallMotionEventProcessor.new()
+	var capturing_stepper := CapturingMotionStepper.new()
+	var scene := {
+		"ball_pos": player_pos + Vector2(77.5, 25.0),
+		"ball_vel": Vector2(0.0, -12.0),
+		"player_collision_cooldown": 0.0,
+	}
+	processor.step_motion(scene, 1.0, collision_context, {"motion_stepper": capturing_stepper}, {})
+	_expect(bool(capturing_stepper.captured_context.get("viper_dark_blade_rising_contact_active", false)), "ball event processor should preserve the dark-blade rise contact flag for collision")
+	var test_ball_pos: Vector2 = _get_vector2(scene, "ball_pos", Vector2.ZERO)
+	var test_ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var step_result: Dictionary = BallMotionStepper.new().step(
+		test_ball_pos,
+		Vector2.ZERO,
+		test_ball_vel,
+		capturing_stepper.captured_context
+	)
+	_expect(str(step_result.get("event", "")) == "player_paddle", "dark blade rising body should count as a player hit even when the ball is moving upward")
+
+	for _i in range(30):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 300.0)), config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+	collision_context = config.duplicate(true)
+	collision_context["player_pos"] = player_pos
+	collision_context.merge(runtime.get_ball_collision_context(), true)
+	_expect(not bool(collision_context.get("viper_dark_blade_rising_contact_active", false)), "dark blade body-contact extension should close after the upward pop")
 
 
 func _test_blade_prep_actor_spin_context() -> void:
@@ -599,3 +677,7 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 
 func _get_blade_floor_y(config: Dictionary) -> float:
 	return float(config.get("player_floor_y", 680.0))
+
+
+func _same_vector2(left: Vector2, right: Vector2, epsilon: float = 0.01) -> bool:
+	return left.distance_to(right) <= epsilon

@@ -1,35 +1,141 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const WritheEmber := preload("res://scripts/effects/writhe_ember_material.gd")
+const DriveCutinFxHost := preload("res://scripts/hud/drive_cutin_fx_host.gd")
+const SkillCutinDriveRenderer := preload("res://scripts/hud/skill_cutin_drive_renderer.gd")
+const SkillCutinStandardRenderer := preload("res://scripts/hud/skill_cutin_standard_renderer.gd")
+const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
+const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 
-const CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+const POWER_SMASHING_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+const GHOST_SMASHING_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
+const VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png"
 const CUTIN_FRAME_COUNT := 16
 const CUTIN_AUTOSPRITE_COLUMNS := 3
 const CUTIN_STANDARD_COLUMNS := 4
+const SKILL_DRIVE := "drive"
+const SKILL_POWER_SMASHING := "power_smashing"
+const SKILL_GHOST_SHOT := "ghost_shot"
+const SKILL_PHANTOM_KICK := "phantom_kick"
 
 const POWER_SMASHING_COLOR := Color(1.0, 100.0 / 255.0, 50.0 / 255.0)
+const GHOST_SMASHING_COLOR := Color(170.0 / 255.0, 80.0 / 255.0, 1.0)
+const PHANTOM_KICK_COLOR := Color(0.84, 0.22, 1.0)
 const WIPE_COLOR := Color(1.0, 100.0 / 255.0, 50.0 / 255.0, 0.85)
+const GHOST_WIPE_COLOR := Color(82.0 / 255.0, 22.0 / 255.0, 128.0 / 255.0, 0.88)
+const PHANTOM_WIPE_COLOR := Color(0.17, 0.0, 0.28, 0.90)
 const FLASH_COLOR := Color(1.0, 0.88, 0.7, 1.0)
+const GHOST_FLASH_COLOR := Color(0.74, 0.58, 1.0, 1.0)
+const PHANTOM_FLASH_COLOR := Color(0.82, 0.48, 1.0, 1.0)
 const CHARGE_CORE_COLOR := Color(1.0, 0.12, 0.05, 1.0)
 const CHARGE_HOT_COLOR := Color(1.0, 0.55, 0.16, 1.0)
-const DIM_ALPHA_MAX := 0.6
-const SPEED_LINE_COUNT := 24
-const SPEED_LINE_ALPHA := 0.2
+const GHOST_CHARGE_CORE_COLOR := Color(0.44, 0.10, 1.0, 1.0)
+const GHOST_CHARGE_HOT_COLOR := Color(0.95, 0.48, 1.0, 1.0)
+const PHANTOM_CHARGE_CORE_COLOR := Color(0.45, 0.03, 0.84, 1.0)
+const PHANTOM_CHARGE_HOT_COLOR := Color(0.96, 0.38, 1.0, 1.0)
+
+# --- Drive partial-screen still cut-in -------------------------------------
+# Reuses the prewarmed Mika power-smash sheet (one fixed frame as a still) and
+# slides it in from the LEFT as a non-freezing, non-dimming hero portrait while
+# the rally keeps playing. Tunables are grouped so the pose/size/placement can be
+# retuned from one spot after an in-game look.
+const DRIVE_TITLE_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
+const DRIVE_TITLE_TEXT := "드라이브"
+const DRIVE_COLOR := Color(0.22, 0.95, 1.0)
+const DRIVE_ACCENT_HOT := Color(1.0, 0.78, 0.24)
+# Dedicated AutoSprite "Drive Strike" pose (Mika, cyan curve-energy), nukki'd to
+# transparent. Replaces the reused power-smash sheet frame as the portrait.
+const DRIVE_CHARACTER_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_character.png"
+const DRIVE_CUTIN_FX_HOST_NAME := "SmasherDriveCutinFxHost"
+const DRIVE_PORTRAIT_HEIGHT_RATIO := 0.30    # upper-body pose draw height vs view height
+const DRIVE_PORTRAIT_CENTER_X_RATIO := 0.075 # face anchor screen x (0..1) — keep the whole cut-in in the left corner
+const DRIVE_PORTRAIT_CENTER_Y_RATIO := 0.135 # face anchor screen y (0..1)
+const DRIVE_PORTRAIT_CHAR_CENTER := Vector2(0.30, 0.26)  # face anchor point within the upper-body texture
+const DRIVE_VFX_CENTER_X_RATIO := 0.17       # backplate/arc center x (behind the character mass, NOT the far-left face)
+
+# 3-piece modular VFX (light=ADD via writhe-ember shader). Backplate + arc are
+# immediate-mode textured draws BEHIND the portrait (correct layering needs them
+# in the same _draw pass before the portrait, so they cannot be child nodes); the
+# writhe-ember shader is applied via the documented canvas.material set/restore
+# pass (NOT draw_set_transform). The particle layer is a GPUParticles2D node
+# (drive_cutin_fx_host.gd) rendered in front. Cyan/teal drive energy with warm
+# gold accents so the VFX reads as one unit with Mika's racket trail.
+const DRIVE_BACKPLATE_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_backplate.png"
+const DRIVE_ARC_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_arc.png"
+const DRIVE_TRIANGLE_TOP_LEFT := Vector2(0.000, -0.045)
+const DRIVE_TRIANGLE_TOP_RIGHT := Vector2(0.360, -0.030)
+const DRIVE_TRIANGLE_BOTTOM_LEFT := Vector2(0.000, 0.485)
+const DRIVE_BACKPLATE_SIZE_RATIO := 0.34      # backplate square size vs view height
+const DRIVE_BACKPLATE_CENTER_Y_RATIO := 0.15  # backplate center-y on screen
+const DRIVE_ARC_SIZE_RATIO := 0.30            # arc square size vs view height
+const DRIVE_ARC_CENTER_Y_RATIO := 0.14        # arc center-y on screen
+const DRIVE_ARC_SPIN_SPEED := 0.55            # radians/sec slow spin
+const DRIVE_WRITHE_PRESET := "drive_cutin"
+const DRIVE_WRITHE_PRESET_ENRAGED := "drive_cutin_enraged"
+const DRIVE_SLIDE_DISTANCE_RATIO := 0.55      # horizontal slide travel vs view width
 
 var _prewarmed: bool = false
-var _cutin_sheet_texture: Texture2D = null
-var _cutin_sheet_columns: int = CUTIN_AUTOSPRITE_COLUMNS
-var _cutin_sheet_rows: int = 3
+var _cutin_sheet_textures: Dictionary = {}
+var _cutin_sheet_grids: Dictionary = {}
+var _drive_textures: Dictionary = {}
+var _drive_writhe_material: ShaderMaterial = null
+var _drive_writhe_material_enraged: ShaderMaterial = null
+var _smasher_title_skill_config: Object = null
+var _viper_title_skill_config: Object = null
 
 
 func prewarm_assets() -> void:
+	prewarm_assets_for_character("")
+
+
+func prewarm_assets_for_character(character_type: String = "") -> void:
+	var normalized_character: String = character_type.strip_edges().to_lower()
 	_prewarmed = true
-	_cutin_sheet_texture = _load_cutin_sheet_texture()
-	_refresh_sheet_grid()
+	if normalized_character.is_empty() or normalized_character == "smasher":
+		_prewarm_cutin_sheet_texture(POWER_SMASHING_CUTIN_SHEET_PATH, "Smasher power-smashing")
+		_prewarm_cutin_sheet_texture(GHOST_SMASHING_CUTIN_SHEET_PATH, "Smasher ghost-smashing")
+	if normalized_character.is_empty() or normalized_character == "viper":
+		_prewarm_cutin_sheet_texture(VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH, "Viper phantom-kick")
+	# Drive cut-in 3-piece VFX: warm the 2 immediate-mode textures + the writhe-ember
+	# materials so the first drive never sync-loads art / compiles a shader on the
+	# draw hot path. The particle layer node prewarms itself (DriveCutinFxHost).
+	if normalized_character.is_empty() or normalized_character == "smasher":
+		_get_drive_texture(DRIVE_BACKPLATE_PATH)
+		_get_drive_texture(DRIVE_ARC_PATH)
+		_get_drive_texture(DRIVE_CHARACTER_PATH)
+		_get_drive_writhe_material(false)
+		_get_drive_writhe_material(true)
+		DriveCutinFxHost.prewarm_assets()
 
 
 func prewarm_runtime_nodes(_owner: Object = null) -> void:
-	prewarm_assets()
+	var normalized_character: String = _get_owner_character_type(_owner)
+	prewarm_assets_for_character(normalized_character)
+	if not normalized_character.is_empty() and normalized_character != "smasher":
+		return
+	if not (_owner is Node):
+		return
+	var parent: Node = _owner as Node
+	var existing: Node = parent.get_node_or_null(DRIVE_CUTIN_FX_HOST_NAME)
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		if existing.has_method("set_active"):
+			existing.set_active(false)
+		return
+	var fx_host := DriveCutinFxHost.new()
+	fx_host.name = DRIVE_CUTIN_FX_HOST_NAME
+	fx_host.visible = false
+	parent.add_child(fx_host)
+	fx_host.set_active(false)
+
+
+func _get_owner_character_type(owner: Object) -> String:
+	if owner == null:
+		return ""
+	var selected: Variant = owner.get("selected_character_type")
+	if selected == null:
+		return ""
+	return str(selected).strip_edges().to_lower()
 
 
 func draw(canvas: CanvasItem, cutin_state: Object, view_size: Vector2) -> void:
@@ -40,264 +146,243 @@ func draw(canvas: CanvasItem, cutin_state: Object, view_size: Vector2) -> void:
 
 	var progress: float = cutin_state.get_progress()
 	var phase: String = cutin_state.get_phase()
+	var profile: Dictionary = _get_cutin_profile(_get_cutin_skill_name(cutin_state))
+	SkillCutinStandardRenderer.draw(
+		canvas,
+		view_size,
+		progress,
+		phase,
+		profile,
+		Callable(self, "_get_cutin_sheet_texture"),
+		Callable(self, "_get_sheet_grid"),
+		Callable(self, "_get_profile_title"),
+		Callable(self, "_fit_title_font_size")
+	)
 
-	_draw_dim(canvas, view_size, progress, phase)
-	_draw_wipe(canvas, view_size, progress, phase)
-	_draw_speed_lines(canvas, view_size, progress, phase)
-	_draw_cutin_sheet(canvas, view_size, progress, phase)
-	_draw_title_text(canvas, view_size, progress, phase)
-	_draw_flash(canvas, view_size, progress, phase)
+
+func _prewarm_cutin_sheet_texture(path: String, label: String) -> void:
+	var texture: Texture2D = _load_cutin_sheet_texture(path, label)
+	_cutin_sheet_textures[path] = texture
+	_refresh_sheet_grid(path, texture)
 
 
-func _load_cutin_sheet_texture() -> Texture2D:
-	if not FileAccess.file_exists(CUTIN_SHEET_PATH) and not FileAccess.file_exists("%s.import" % CUTIN_SHEET_PATH):
+func _load_cutin_sheet_texture(path: String, label: String) -> Texture2D:
+	if (
+		not FileAccess.file_exists(path)
+		and not FileAccess.file_exists("%s.import" % path)
+		and not ResourceLoader.exists(path)
+	):
 		return null
 	return ProjectResourceLoader.load_texture(
-		CUTIN_SHEET_PATH,
+		path,
 		"",
-		"Failed to load Smasher power-smashing cut-in sheet: %s"
+		"Failed to load %s cut-in sheet: %%s" % label
 	)
 
 
-func _refresh_sheet_grid() -> void:
-	_cutin_sheet_columns = CUTIN_AUTOSPRITE_COLUMNS
-	_cutin_sheet_rows = 3
-	if _cutin_sheet_texture == null:
+func _refresh_sheet_grid(path: String, texture: Texture2D) -> void:
+	var columns := CUTIN_AUTOSPRITE_COLUMNS
+	var rows := 3
+	if texture == null:
+		_cutin_sheet_grids[path] = Vector2i(columns, rows)
 		return
-	var texture_size: Vector2 = _cutin_sheet_texture.get_size()
+	var texture_size: Vector2 = texture.get_size()
 	if texture_size.x <= 1.0 or texture_size.y <= 1.0:
+		_cutin_sheet_grids[path] = Vector2i(columns, rows)
 		return
 	if texture_size.x >= texture_size.y * 1.7:
-		_cutin_sheet_columns = CUTIN_STANDARD_COLUMNS
-		_cutin_sheet_rows = int(ceil(float(CUTIN_FRAME_COUNT) / float(_cutin_sheet_columns)))
+		columns = CUTIN_STANDARD_COLUMNS
+		rows = int(ceil(float(CUTIN_FRAME_COUNT) / float(columns)))
 	elif absf(texture_size.x - texture_size.y) <= maxf(texture_size.x, texture_size.y) * 0.05:
-		_cutin_sheet_columns = CUTIN_STANDARD_COLUMNS
-		_cutin_sheet_rows = CUTIN_STANDARD_COLUMNS
+		columns = CUTIN_STANDARD_COLUMNS
+		rows = CUTIN_STANDARD_COLUMNS
 	else:
-		_cutin_sheet_columns = CUTIN_AUTOSPRITE_COLUMNS
-		_cutin_sheet_rows = int(ceil(float(CUTIN_FRAME_COUNT) / float(_cutin_sheet_columns)))
+		columns = CUTIN_AUTOSPRITE_COLUMNS
+		rows = int(ceil(float(CUTIN_FRAME_COUNT) / float(columns)))
+	_cutin_sheet_grids[path] = Vector2i(columns, rows)
 
 
-func _draw_dim(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
-	var alpha: float = 0.0
-	if phase == "wipe":
-		alpha = lerpf(0.0, DIM_ALPHA_MAX, progress / 0.11)
-	elif phase in ["main", "text"]:
-		alpha = DIM_ALPHA_MAX
-	elif phase == "flash":
-		var flash_local: float = (progress - 0.82) / 0.18
-		alpha = lerpf(DIM_ALPHA_MAX, 0.0, flash_local)
-	if alpha <= 0.0:
-		return
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, alpha))
+func _get_cutin_skill_name(cutin_state: Object) -> String:
+	if cutin_state != null and cutin_state.has_method("get_skill_name"):
+		return str(cutin_state.get_skill_name())
+	return SKILL_POWER_SMASHING
 
 
-func _draw_wipe(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
-	if phase != "wipe":
-		return
-	var wipe_progress: float = clampf(progress / 0.11, 0.0, 1.0)
-	var width: float = view_size.x * 0.12
-	var sweep_x: float = lerpf(-width, view_size.x + width, wipe_progress)
-
-	var points: PackedVector2Array = PackedVector2Array([
-		Vector2(sweep_x - width, 0.0),
-		Vector2(sweep_x, 0.0),
-		Vector2(sweep_x - width * 0.3, view_size.y),
-		Vector2(sweep_x - width * 1.3, view_size.y),
-	])
-	canvas.draw_colored_polygon(points, WIPE_COLOR)
-
-
-func _draw_speed_lines(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
-	if phase not in ["main", "text"]:
-		return
-	var center: Vector2 = view_size * 0.5
-	var max_radius: float = view_size.length() * 0.55
-	var phase_local: float = (progress - 0.11) / 0.62
-	var alpha: float = SPEED_LINE_ALPHA * clampf(phase_local * 3.0, 0.0, 1.0)
-
-	for i in SPEED_LINE_COUNT:
-		var angle: float = (float(i) / float(SPEED_LINE_COUNT)) * TAU
-		var inner_r: float = max_radius * 0.35
-		var outer_r: float = max_radius * (0.7 + 0.3 * sin(angle * 3.0 + progress * 20.0))
-		var p_inner: Vector2 = center + Vector2(cos(angle), sin(angle)) * inner_r
-		var p_outer: Vector2 = center + Vector2(cos(angle), sin(angle)) * outer_r
-		canvas.draw_line(p_inner, p_outer, Color(1.0, 1.0, 1.0, alpha), 1.5)
-
-
-func _draw_cutin_sheet(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
-	if _cutin_sheet_texture == null:
-		return
-	if phase not in ["main", "text", "flash"]:
-		return
-	var source: Rect2 = _cutin_source_rect(progress)
-	if source.size.x <= 1.0 or source.size.y <= 1.0:
-		return
-	var target_bounds := Rect2(
-		Vector2(view_size.x * 0.05, view_size.y * 0.02),
-		Vector2(view_size.x * 0.90, view_size.y * 0.74)
-	)
-	var draw_rect: Rect2 = _fit_region_rect(source.size, target_bounds)
-	var main_local: float = clampf((progress - 0.11) / 0.16, 0.0, 1.0)
-	var ease_in: float = 1.0 - pow(1.0 - main_local, 3.0)
-	draw_rect.position.x += lerpf(view_size.x * 0.08, 0.0, ease_in)
-	draw_rect.position.y += sin(progress * TAU * 2.0) * view_size.y * 0.004
-	var alpha: float = clampf(main_local * 1.4, 0.0, 1.0)
-	if phase == "flash":
-		var flash_local: float = clampf((progress - 0.82) / 0.18, 0.0, 1.0)
-		alpha = lerpf(1.0, 0.0, flash_local)
-	canvas.draw_texture_rect_region(
-		_cutin_sheet_texture,
-		draw_rect,
-		source,
-		Color(1.0, 1.0, 1.0, alpha),
-		false,
-		true
-	)
-	_draw_red_charge_aura(canvas, draw_rect, progress, phase, alpha)
+func _get_cutin_profile(skill_name: String) -> Dictionary:
+	if skill_name == SKILL_GHOST_SHOT:
+		return {
+			"skill_name": SKILL_GHOST_SHOT,
+			"title": "고스트스매싱",
+			"sheet_path": GHOST_SMASHING_CUTIN_SHEET_PATH,
+			"title_color": GHOST_SMASHING_COLOR,
+			"wipe_color": GHOST_WIPE_COLOR,
+			"flash_color": GHOST_FLASH_COLOR,
+			"charge_core_color": GHOST_CHARGE_CORE_COLOR,
+			"charge_hot_color": GHOST_CHARGE_HOT_COLOR,
+			"sheet_modulate": Color.WHITE,
+			"speed_line_color": Color(0.80, 0.64, 1.0, 1.0),
+			"ghost_wisps": true,
+		}
+	if skill_name == SKILL_PHANTOM_KICK:
+		return {
+			"skill_name": SKILL_PHANTOM_KICK,
+			"title": "팬텀 킥",
+			"sheet_path": VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH,
+			"title_color": PHANTOM_KICK_COLOR,
+			"wipe_color": PHANTOM_WIPE_COLOR,
+			"flash_color": PHANTOM_FLASH_COLOR,
+			"charge_core_color": PHANTOM_CHARGE_CORE_COLOR,
+			"charge_hot_color": PHANTOM_CHARGE_HOT_COLOR,
+			"sheet_modulate": Color.WHITE,
+			"speed_line_color": Color(0.86, 0.44, 1.0, 1.0),
+			"ghost_wisps": true,
+			"charge_points": [
+				Vector2(0.31, 0.55),
+				Vector2(0.34, 0.54),
+				Vector2(0.37, 0.53),
+				Vector2(0.40, 0.52),
+				Vector2(0.43, 0.51),
+				Vector2(0.46, 0.50),
+				Vector2(0.49, 0.49),
+				Vector2(0.52, 0.48),
+				Vector2(0.57, 0.49),
+				Vector2(0.62, 0.50),
+				Vector2(0.67, 0.51),
+				Vector2(0.71, 0.52),
+				Vector2(0.74, 0.53),
+				Vector2(0.76, 0.54),
+				Vector2(0.78, 0.55),
+				Vector2(0.80, 0.56),
+			],
+		}
+	return {
+		"skill_name": SKILL_POWER_SMASHING,
+		"title": "파워스매싱",
+		"sheet_path": POWER_SMASHING_CUTIN_SHEET_PATH,
+		"title_color": POWER_SMASHING_COLOR,
+		"wipe_color": WIPE_COLOR,
+		"flash_color": FLASH_COLOR,
+		"charge_core_color": CHARGE_CORE_COLOR,
+		"charge_hot_color": CHARGE_HOT_COLOR,
+		"sheet_modulate": Color.WHITE,
+		"speed_line_color": Color.WHITE,
+		"ghost_wisps": false,
+	}
 
 
-func _cutin_source_rect(progress: float) -> Rect2:
-	if _cutin_sheet_texture == null:
-		return Rect2()
-	var texture_size: Vector2 = _cutin_sheet_texture.get_size()
-	var columns: int = max(1, _cutin_sheet_columns)
-	var rows: int = max(1, _cutin_sheet_rows)
-	var cell_size := Vector2(texture_size.x / float(columns), texture_size.y / float(rows))
-	if cell_size.x <= 1.0 or cell_size.y <= 1.0:
-		return Rect2()
-	var frame_index: int = _cutin_frame_index(progress)
-	var col: int = frame_index % columns
-	var row: int = int(floor(float(frame_index) / float(columns)))
-	return Rect2(Vector2(cell_size.x * float(col), cell_size.y * float(row)), cell_size)
+func _get_profile_title(profile: Dictionary) -> String:
+	var fallback_title: String = str(profile.get("title", "파워스매싱"))
+	return _get_localized_skill_title(str(profile.get("skill_name", "")), fallback_title)
 
 
-func _cutin_frame_index(progress: float) -> int:
-	var local: float = clampf((progress - 0.11) / 0.71, 0.0, 0.999)
-	return clampi(int(floor(local * float(CUTIN_FRAME_COUNT))), 0, CUTIN_FRAME_COUNT - 1)
+func _get_localized_skill_title(skill_name: String, fallback_title: String) -> String:
+	if skill_name.is_empty():
+		return fallback_title
+	var skill_config: Object = _get_title_skill_config(skill_name)
+	if skill_config != null and skill_config.has_method("get_skill_data"):
+		var skill_data: Dictionary = skill_config.get_skill_data(skill_name)
+		var title: String = str(skill_data.get("korean", ""))
+		if not title.is_empty():
+			return title
+	return fallback_title
 
 
-func _draw_red_charge_aura(
-	canvas: CanvasItem,
-	draw_rect: Rect2,
-	progress: float,
-	phase: String,
-	base_alpha: float
-) -> void:
-	if phase not in ["main", "text", "flash"]:
-		return
-	var frame_index: int = _cutin_frame_index(progress)
-	var center: Vector2 = draw_rect.position + draw_rect.size * _charge_point_ratio(frame_index)
-	var charge: float = clampf((progress - 0.13) / 0.58, 0.0, 1.0)
-	var release: float = clampf((progress - 0.72) / 0.16, 0.0, 1.0)
-	var flash_fade: float = 1.0
-	if phase == "flash":
-		flash_fade = 1.0 - clampf((progress - 0.82) / 0.18, 0.0, 1.0)
-	var alpha: float = base_alpha * flash_fade * (0.30 + charge * 0.70)
-	if alpha <= 0.01:
-		return
-	var base_radius: float = maxf(18.0, minf(draw_rect.size.x, draw_rect.size.y) * 0.040)
-	var pulse: float = sin(progress * TAU * 7.0)
-	var radius_boost: float = 1.0 + release * 0.85
-	for ring_index in 3:
-		var ring_t: float = float(ring_index) / 2.0
-		var radius: float = base_radius * (1.0 + ring_t * 0.72 + pulse * 0.08) * radius_boost
-		var width: float = maxf(2.0, base_radius * (0.10 + ring_t * 0.04))
-		var ring_alpha: float = alpha * (0.46 - ring_t * 0.10)
-		var offset: float = progress * TAU * (1.7 + ring_t)
-		var color: Color = CHARGE_CORE_COLOR.lerp(CHARGE_HOT_COLOR, ring_t)
-		canvas.draw_arc(center, radius, offset, offset + TAU * 0.72, 48, Color(color.r, color.g, color.b, ring_alpha), width, true)
-		canvas.draw_arc(center, radius * 0.72, -offset * 0.8, -offset * 0.8 + TAU * 0.52, 40, Color(1.0, 0.85, 0.45, ring_alpha * 0.65), maxf(1.0, width * 0.55), true)
-	for spark_index in 14:
-		var spark_t: float = float(spark_index) / 14.0
-		var angle: float = spark_t * TAU + progress * TAU * (2.2 + float(spark_index % 3) * 0.18)
-		var outer: float = base_radius * lerpf(3.1, 1.45, charge) * (1.0 + 0.18 * sin(progress * 19.0 + float(spark_index)))
-		var inner: float = base_radius * (0.48 + 0.14 * sin(progress * 11.0 + float(spark_index)))
-		var from_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * outer
-		var to_pos: Vector2 = center + Vector2(cos(angle + 0.25), sin(angle + 0.25)) * inner
-		var spark_alpha: float = alpha * (0.25 + 0.35 * sin(spark_t * PI))
-		canvas.draw_line(from_pos, to_pos, Color(1.0, 0.23, 0.08, spark_alpha), maxf(1.0, base_radius * 0.05), true)
-	canvas.draw_circle(center, base_radius * (0.42 + release * 0.25), Color(1.0, 0.20, 0.06, alpha * 0.38))
-	canvas.draw_circle(center, base_radius * (0.20 + release * 0.22), Color(1.0, 0.90, 0.62, alpha * 0.48))
+func _get_title_skill_config(skill_name: String) -> Object:
+	if skill_name == SKILL_PHANTOM_KICK:
+		if _viper_title_skill_config == null:
+			_viper_title_skill_config = ViperSkillConfig.new()
+		return _viper_title_skill_config
+	if _smasher_title_skill_config == null:
+		_smasher_title_skill_config = SmasherSkillConfig.new()
+	return _smasher_title_skill_config
 
 
-func _charge_point_ratio(frame_index: int) -> Vector2:
-	match clampi(frame_index, 0, CUTIN_FRAME_COUNT - 1):
-		0:
-			return Vector2(0.39, 0.51)
-		1:
-			return Vector2(0.40, 0.51)
-		2:
-			return Vector2(0.40, 0.50)
-		3:
-			return Vector2(0.40, 0.50)
-		4:
-			return Vector2(0.41, 0.50)
-		5:
-			return Vector2(0.41, 0.50)
-		6:
-			return Vector2(0.41, 0.49)
-		7:
-			return Vector2(0.41, 0.45)
-		8:
-			return Vector2(0.53, 0.48)
-		9:
-			return Vector2(0.55, 0.54)
-		10:
-			return Vector2(0.48, 0.60)
-		11:
-			return Vector2(0.46, 0.63)
-		12:
-			return Vector2(0.47, 0.63)
-		13:
-			return Vector2(0.47, 0.63)
-		14:
-			return Vector2(0.47, 0.63)
-	return Vector2(0.48, 0.63)
+func _fit_title_font_size(font: Font, text: String, target_size: int, max_width: float) -> int:
+	var size_px: int = max(12, target_size)
+	if font == null or max_width <= 1.0:
+		return size_px
+	while size_px > 12 and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x > max_width:
+		size_px -= 1
+	return size_px
 
 
-func _draw_title_text(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
-	if phase not in ["text", "flash"]:
-		return
-	var text_alpha: float = 1.0
-	if phase == "text":
-		var text_local: float = (progress - 0.73) / 0.09
-		text_alpha = clampf(text_local, 0.0, 1.0)
-	elif phase == "flash":
-		var flash_local: float = (progress - 0.82) / 0.18
-		text_alpha = lerpf(1.0, 0.0, flash_local)
-	if text_alpha <= 0.0:
-		return
+func _get_cutin_sheet_texture(path: String) -> Texture2D:
+	if not _cutin_sheet_textures.has(path):
+		_prewarm_cutin_sheet_texture(path, "Smasher skill")
+	var texture: Variant = _cutin_sheet_textures.get(path, null)
+	if texture is Texture2D:
+		return texture
+	return null
 
-	var font: Font = ThemeDB.fallback_font
-	var font_size: int = int(view_size.y * 0.065)
-	var text: String = "파워스매싱"
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
-	var text_pos: Vector2 = Vector2(
-		(view_size.x - text_size.x) * 0.5,
-		view_size.y * 0.78
+
+func _get_sheet_grid(path: String) -> Vector2i:
+	var grid: Variant = _cutin_sheet_grids.get(path, Vector2i(CUTIN_AUTOSPRITE_COLUMNS, 3))
+	if grid is Vector2i:
+		return grid
+	return Vector2i(CUTIN_AUTOSPRITE_COLUMNS, 3)
+
+
+# --- Drive partial-screen still cut-in --------------------------------------
+
+func draw_drive_cutin(canvas: CanvasItem, drive_cutin_state: Object, view_size: Vector2) -> void:
+	SkillCutinDriveRenderer.draw_drive_cutin(
+		canvas,
+		drive_cutin_state,
+		view_size,
+		Callable(self, "_get_drive_texture"),
+		Callable(self, "_get_drive_writhe_material"),
+		Callable(self, "_get_localized_skill_title"),
+		Callable(self, "_fit_title_font_size")
 	)
 
-	var shadow_color := Color(0.0, 0.0, 0.0, 0.5 * text_alpha)
-	canvas.draw_string(font, text_pos + Vector2(2, 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, shadow_color)
 
-	var text_color := Color(POWER_SMASHING_COLOR.r, POWER_SMASHING_COLOR.g, POWER_SMASHING_COLOR.b, text_alpha)
-	canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
-
-
-func _draw_flash(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
-	if phase != "flash":
-		return
-	var flash_local: float = (progress - 0.82) / 0.18
-	var flash_alpha: float = lerpf(0.7, 0.0, flash_local)
-	if flash_alpha <= 0.0:
-		return
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(FLASH_COLOR, flash_alpha))
+func compute_drive_slide_px(progress: float, view_width: float) -> float:
+	# Single source of the horizontal slide so the immediate-mode pieces and the
+	# particle node move together: enter from the left, hold at rest, exit left.
+	return SkillCutinDriveRenderer.compute_drive_slide_px(progress, view_width)
 
 
-func _fit_region_rect(source_size: Vector2, target: Rect2) -> Rect2:
-	if source_size.x <= 1.0 or source_size.y <= 1.0 or target.size.x <= 1.0 or target.size.y <= 1.0:
-		return Rect2(target.position, Vector2.ZERO)
-	var scale_factor: float = minf(target.size.x / source_size.x, target.size.y / source_size.y)
-	var draw_size: Vector2 = source_size * scale_factor
-	return Rect2(target.position + (target.size - draw_size) * 0.5, draw_size)
+func _drive_slide_ratio(progress: float) -> float:
+	return SkillCutinDriveRenderer.drive_slide_ratio(progress)
+
+
+func _drive_alpha(progress: float) -> float:
+	return SkillCutinDriveRenderer.drive_alpha(progress)
+
+
+func _drive_impact_punch(progress: float) -> float:
+	return SkillCutinDriveRenderer.drive_impact_punch(progress)
+
+
+func _drive_triangle_points(view_size: Vector2, slide_px: float) -> PackedVector2Array:
+	return SkillCutinDriveRenderer.drive_triangle_points(view_size, slide_px)
+
+
+func _expanded_drive_polygon(points: PackedVector2Array, amount: float) -> PackedVector2Array:
+	return SkillCutinDriveRenderer.expanded_drive_polygon(points, amount)
+
+
+func _should_draw_drive_edge_flames(from_point: Vector2, to_point: Vector2) -> bool:
+	# The left screen wall is the triangle's solid hinge. Keep its seam, but do not
+	# push flame offsets outward into the letterbox / outside-screen area.
+	return SkillCutinDriveRenderer.should_draw_drive_edge_flames(from_point, to_point)
+
+
+func _get_drive_texture(path: String) -> Texture2D:
+	if _drive_textures.has(path):
+		var cached: Variant = _drive_textures[path]
+		if cached is Texture2D:
+			return cached
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path, "", "Failed to load drive cut-in VFX texture: %s")
+	_drive_textures[path] = texture
+	return texture
+
+
+func _get_drive_writhe_material(enraged: bool) -> ShaderMaterial:
+	if enraged:
+		if _drive_writhe_material_enraged == null:
+			_drive_writhe_material_enraged = WritheEmber.build_material(DRIVE_WRITHE_PRESET_ENRAGED)
+		return _drive_writhe_material_enraged
+	if _drive_writhe_material == null:
+		_drive_writhe_material = WritheEmber.build_material(DRIVE_WRITHE_PRESET)
+	return _drive_writhe_material

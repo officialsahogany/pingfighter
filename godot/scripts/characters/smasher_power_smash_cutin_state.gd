@@ -1,14 +1,18 @@
 extends RefCounted
 
+const SKILL_POWER_SMASHING := "power_smashing"
+
 var _active: bool = false
 var _elapsed: float = 0.0
 var _duration: float = 0.0
+var _skill_name: String = SKILL_POWER_SMASHING
 
 
-func begin(freeze_duration: float) -> void:
+func begin(freeze_duration: float, skill_name: String = SKILL_POWER_SMASHING) -> void:
 	_active = true
 	_elapsed = 0.0
 	_duration = max(0.1, freeze_duration)
+	_skill_name = skill_name if skill_name != "" else SKILL_POWER_SMASHING
 
 
 func update(delta: float) -> void:
@@ -23,6 +27,7 @@ func reset() -> void:
 	_active = false
 	_elapsed = 0.0
 	_duration = 0.0
+	_skill_name = SKILL_POWER_SMASHING
 
 
 func is_active() -> bool:
@@ -54,3 +59,7 @@ func get_elapsed() -> float:
 
 func get_duration() -> float:
 	return _duration
+
+
+func get_skill_name() -> String:
+	return _skill_name

@@ -9,6 +9,12 @@ const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
 const PaddleBounceController := preload("res://scripts/ball/paddle_bounce_controller.gd")
 const PaddleBounceState := preload("res://scripts/ball/paddle_bounce_state.gd")
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
+const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ViperPhantomKickCutinState := preload("res://scripts/characters/viper_phantom_kick_cutin_state.gd")
+
+const PHANTOM_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png"
+const PHANTOM_CUTIN_SHEET_SIZE := 8192
 
 
 class FakeInput:
@@ -34,7 +40,7 @@ class FakeSkillConfig:
 		if skill_name == "marshal_kick":
 			return 80.0
 		if skill_name == "dark_blade":
-			return 200.0
+			return 150.0
 		if skill_name == "shadow_step":
 			return 100.0
 		return 0.0
@@ -168,8 +174,11 @@ class RealViperRegistry:
 
 
 func _init() -> void:
+	_test_phantom_kick_cutin_state()
+	_test_phantom_kick_cutin_host_prewarms_sheet()
 	_test_phantom_kick_unlock_catalog_wiring()
 	_test_phantom_kick_speed_limit_lifecycle()
+	_test_shadow_chain_marshal_prep_retime()
 
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
@@ -273,11 +282,17 @@ func _init() -> void:
 	gauge = float(result.get("special_gauge", gauge))
 	var phantom_hit_result: Dictionary = {}
 	var phantom_freeze_checked := false
-	for _i in range(150):
+	# Budget must cover the phantom wall-brace freeze (now 99f = 1.65s to match
+	# the power-smash cut-in length) + phantom delay + charge + travel-to-ball.
+	# Loop breaks on the hit, so a generous cap is safe.
+	for _i in range(230):
 		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
 		player_pos = _get_vector2(result, "player_pos", player_pos)
 		runtime.update_effects(1.0, Time.get_ticks_msec(), _context_with_gauge(config, gauge), deps)
 		if audio.phantom_show == 1 and not phantom_freeze_checked:
+			_expect(runtime.is_cutin_active(), "phantom kick freeze entry should start the full-screen cut-in")
+			_expect(runtime.cutin_state.get_skill_name() == "phantom_kick", "phantom kick cut-in should keep the Viper profile")
+			_expect(bool(runtime.get_snapshot().get("cutin_active", false)), "phantom kick snapshot should expose the active cut-in")
 			_expect_phantom_show_freezes_ball_and_boss(runtime, config)
 			phantom_freeze_checked = true
 		if result.has("ball_vel"):
@@ -286,6 +301,7 @@ func _init() -> void:
 	_expect(audio.phantom_show == 1, "phantom kick should play the original show sound at freeze entry")
 	_expect(phantom_freeze_checked, "phantom kick show text should expose the freeze window before charge")
 	_expect(phantom_hit_result.has("ball_vel"), "phantom kick should charge after the freeze and hit the ball")
+	_expect(not runtime.is_cutin_active(), "phantom kick cut-in should finish by the live kick hit")
 	_expect(_get_vector2(phantom_hit_result, "ball_vel", Vector2.ZERO).length() >= 22.3, "phantom kick should use the original 2.8x speed path")
 	_expect(audio.phantom_hit == 1, "phantom kick ball hit should play the original hit sound")
 	_expect(perk_state.gold == 120, "airborne phantom chain should add the original 75 gold")
@@ -315,6 +331,33 @@ func _init() -> void:
 
 	print("viper_marshal_kick_port_smoke: ok")
 	quit(0)
+
+
+func _test_phantom_kick_cutin_state() -> void:
+	var cutin := ViperPhantomKickCutinState.new()
+	_expect(not cutin.is_active(), "phantom kick cut-in should start inactive")
+	cutin.begin(1.0)
+	_expect(cutin.is_active(), "phantom kick cut-in begin should activate")
+	_expect(cutin.get_skill_name() == "phantom_kick", "phantom kick cut-in should default to phantom_kick")
+	cutin.update(0.5)
+	_expect(absf(cutin.get_progress() - 0.5) < 0.01, "phantom kick cut-in progress should track elapsed time")
+	cutin.update(0.6)
+	_expect(not cutin.is_active(), "phantom kick cut-in should auto-end")
+	cutin.begin(1.0)
+	cutin.reset()
+	_expect(not cutin.is_active(), "phantom kick cut-in reset should clear active")
+
+
+func _test_phantom_kick_cutin_host_prewarms_sheet() -> void:
+	var host := SkillCutinOverlayHost.new()
+	host.prewarm_assets()
+	var texture := ProjectResourceLoader.get_cached_texture(PHANTOM_CUTIN_SHEET_PATH)
+	_expect(texture != null, "Viper Phantom Kick cut-in sheet should prewarm into ProjectResourceLoader cache")
+	if texture != null:
+		_expect(texture.get_width() == PHANTOM_CUTIN_SHEET_SIZE, "Viper Phantom Kick cut-in sheet width should be %d" % PHANTOM_CUTIN_SHEET_SIZE)
+		_expect(texture.get_height() == PHANTOM_CUTIN_SHEET_SIZE, "Viper Phantom Kick cut-in sheet height should be %d" % PHANTOM_CUTIN_SHEET_SIZE)
+	var profile: Dictionary = host._get_cutin_profile("phantom_kick")
+	_expect(str(profile.get("sheet_path", "")) == PHANTOM_CUTIN_SHEET_PATH, "phantom_kick cut-in profile should use the Viper sheet")
 
 
 func _test_phantom_kick_unlock_catalog_wiring() -> void:
@@ -380,6 +423,89 @@ func _test_phantom_kick_speed_limit_lifecycle() -> void:
 	_expect(not bool(runtime.is_phantom_kick_speed_limit_disabled()), "boss guard should clear Phantom Kick's uncapped speed state")
 	_expect(not bool(snapshot.get("speed_limit_disabled", true)), "boss guard frame should publish restored speed-limit state")
 	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 26.01, "boss-guarded Phantom Kick ball should be capped again immediately")
+
+
+func _test_shadow_chain_marshal_prep_retime() -> void:
+	var shadow_setup: Dictionary = _start_marshal_prep_case(true)
+	_advance_marshal_prep_frames(shadow_setup, 20)
+	var shadow_runtime: Object = shadow_setup.get("runtime", null)
+	_expect(shadow_runtime != null and int(shadow_runtime.marshal_phase) == 1, "shadow-step chained marshal wall-flight prep should finish in 20 frames after the 20 percent cut")
+
+	var normal_setup: Dictionary = _start_marshal_prep_case(false)
+	_advance_marshal_prep_frames(normal_setup, 20)
+	var normal_runtime: Object = normal_setup.get("runtime", null)
+	_expect(normal_runtime != null and int(normal_runtime.marshal_phase) == 0, "non-shadow marshal wall-flight prep should keep the original longer timing")
+
+
+func _start_marshal_prep_case(from_shadow_step_chain: bool) -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var feedback := FakeFeedback.new()
+	var orb := FakeOrbHud.new()
+	var perk_state := FakePerkState.new()
+	var deps := {
+		"input_reader": input,
+		"skill_config": skill_config,
+		"skill_state": skill_state,
+		"audio": audio,
+		"feedback": feedback,
+		"orb_hud_state": orb,
+		"runtime_perk_state": perk_state,
+	}
+	var config := {
+		"selected_character_type": "viper",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_floor_y": 680.0,
+		"ball_size": 28.6,
+		"boss_pos": Vector2(380.0, 45.0),
+		"boss_paddle_width": 100.0,
+		"ball_pos": Vector2(640.0, 350.0),
+		"ball_vel": Vector2(0.0, -8.0),
+		"ball_impact_boost": 1.0,
+	}
+	var player_pos := Vector2(302.5, 680.0)
+	var gauge := 200.0
+	runtime.shadow_was_airborne = true
+	runtime.open_marshal_kick_window(from_shadow_step_chain)
+	input.snapshot["down_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+	input.snapshot["down_pressed"] = false
+	_expect(bool(result.get("activated", false)), "marshal prep retime setup should activate marshal kick")
+	_expect(bool(runtime.marshal_from_shadow_step_chain) == from_shadow_step_chain, "marshal prep retime setup should preserve the shadow-chain source flag")
+	return {
+		"runtime": runtime,
+		"input": input,
+		"deps": deps,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
+
+
+func _advance_marshal_prep_frames(setup: Dictionary, frames: int) -> void:
+	var runtime: Object = setup.get("runtime", null)
+	var input: Object = setup.get("input", null)
+	var deps: Dictionary = setup.get("deps", {})
+	var config: Dictionary = setup.get("config", {})
+	var player_pos: Vector2 = _get_vector2(setup, "player_pos", Vector2.ZERO)
+	var gauge: float = float(setup.get("gauge", 0.0))
+	_expect(runtime != null and input != null, "marshal prep retime setup should include runtime and input")
+	input.snapshot["down_pressed"] = false
+	for _i in range(frames):
+		var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		gauge = float(result.get("special_gauge", gauge))
+	setup["player_pos"] = player_pos
+	setup["gauge"] = gauge
 
 
 func _expect_phantom_show_freezes_ball_and_boss(runtime: Object, config: Dictionary) -> void:

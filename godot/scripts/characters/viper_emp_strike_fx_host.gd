@@ -18,6 +18,8 @@ static var _cached_jet_particle_material: ParticleProcessMaterial = null
 static var _cached_shockwave_particle_material: ParticleProcessMaterial = null
 static var _cached_hit_particle_material: ParticleProcessMaterial = null
 static var _cached_additive_material: CanvasItemMaterial = null
+static var _prewarmed := false
+static var _prewarm_step_index := 0
 
 var pulse_value := 0.0
 var breath_value := 0.0
@@ -46,16 +48,40 @@ var _last_shock_spawn_msec := 0
 
 
 static func prewarm_assets() -> void:
-	ImpactFlareTextureCache.prewarm()
-	ImpactShockwaveTextureCache.prewarm()
-	_build_prep_material()
-	_build_jet_material()
-	_build_shockwave_material()
-	_build_charge_particle_material()
-	_build_jet_particle_material()
-	_build_shockwave_particle_material()
-	_build_hit_particle_material()
-	_make_additive_material()
+	while not prewarm_assets_step():
+		pass
+
+
+static func prewarm_assets_step() -> bool:
+	if _prewarmed:
+		return true
+	match _prewarm_step_index:
+		0:
+			ImpactFlareTextureCache.prewarm()
+		1:
+			ImpactShockwaveTextureCache.prewarm()
+		2:
+			_build_prep_material()
+		3:
+			_build_jet_material()
+		4:
+			_build_shockwave_material()
+		5:
+			_build_charge_particle_material()
+		6:
+			_build_jet_particle_material()
+		7:
+			_build_shockwave_particle_material()
+		8:
+			_build_hit_particle_material()
+		9:
+			_make_additive_material()
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func _ready() -> void:
@@ -91,6 +117,7 @@ func set_active(active: bool) -> void:
 	visible = active
 	set_process(false)
 	if active:
+		process_mode = Node.PROCESS_MODE_INHERIT
 		_start_loop_tweens()
 		return
 	if not active:
@@ -109,6 +136,7 @@ func set_active(active: bool) -> void:
 		breath_value = 0.0
 		_kill_loop_tweens()
 		_kill_one_shot_tweens()
+		process_mode = Node.PROCESS_MODE_DISABLED
 
 
 func tear_down(free_self: bool = false) -> void:
@@ -141,19 +169,12 @@ func get_debug_status() -> Dictionary:
 		"loop_tween_active": _pulse_tween != null and _pulse_tween.is_valid(),
 		"active": visible,
 		"processing": is_processing(),
+		"process_mode": process_mode,
 		"charge_emitting": _charge_particles != null and _charge_particles.emitting,
 		"jet_emitting": _jet_particles != null and _jet_particles.emitting,
 		"shockwave_emitting": _shockwave_particles != null and _shockwave_particles.emitting,
 		"hit_emitting": _hit_particles != null and _hit_particles.emitting,
 	}
-
-
-func _process(delta: float) -> void:
-	if not visible:
-		return
-	elapsed_sec += delta
-	_apply_state()
-	queue_redraw()
 
 
 func _draw() -> void:

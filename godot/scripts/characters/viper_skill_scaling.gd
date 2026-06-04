@@ -72,7 +72,8 @@ func get_dual_glitch_clone_hp(four_poisons_level: int, values: Array, cap: int) 
 
 func get_blade_skill_cost(base_cost: float, blade_amp_level: int, skill_name: String, blade_rush_name: String, dark_blade_name: String) -> float:
 	if skill_name == blade_rush_name or skill_name == dark_blade_name:
-		base_cost = 200.0 if base_cost <= 0.0 else base_cost
+		if base_cost <= 0.0:
+			base_cost = 150.0 if skill_name == dark_blade_name else 200.0
 		return max(100.0, base_cost - float(min(max(0, blade_amp_level) * 10, 100)))
 	return base_cost
 

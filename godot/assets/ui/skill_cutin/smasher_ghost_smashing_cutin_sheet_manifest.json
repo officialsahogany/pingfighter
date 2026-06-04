@@ -1,0 +1,102 @@
+{
+  "asset_id": "smasher_ghost_smashing_cutin_sheet",
+  "character": "smasher",
+  "character_name": "Mika",
+  "runtime_usage": "smasher_ghost_smashing_skill_cutin",
+  "status": "dedicated ghost-smashing cut-in AutoSprite v1 + inward edge feather + Real-ESRGAN x2",
+  "generated_at": "2026-06-03",
+  "runtime_sheet": {
+    "path": "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [2048, 2048],
+    "sheet_size": [8192, 8192],
+    "frame_interval": "freeze-synced",
+    "freeze_duration_seconds": 1.65,
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2,
+    "blend_style": "Real-ESRGAN x2 alpha-preserved sheet (inward-feathered before upscale) with runtime ghost-smashing title, purple charge aura, and light ghost-wisp overlay"
+  },
+  "source_autosprite": {
+    "character_id": "cmpsfz62u0086111qzio43tv7",
+    "character_name": "Mika Power Smash Cutin Anchor v1",
+    "start_pose_id": "cmpxi005g00bhzt3ae27gs8rm",
+    "start_pose_name": "Ghost Channel",
+    "impact_pose_id": "cmpxi07co00blzt3abyvfvvs4",
+    "impact_pose_name": "Ghost Burn",
+    "workflow_id": "wf_fe194896-225d-4b35-8a69-0eb9077b34e6",
+    "video_id": "cmpxi1voo00cdzt3avcek72wi",
+    "spritesheet_id": "cmpxi47w800dazt3ahkaumw4h",
+    "raw_sheet_local_path": ".tmp/smasher_ghost_smashing_cutin_autosprite_v1/autosprite_ghost_smashing_cutin_raw_sheet.png",
+    "raw_atlas_local_path": ".tmp/smasher_ghost_smashing_cutin_autosprite_v1/autosprite_ghost_smashing_cutin_raw_atlas.json",
+    "frame_width": 1024,
+    "frame_height": 1024,
+    "frame_count": 16,
+    "columns": 4,
+    "remove_bg": "ultra",
+    "quality": "legendary",
+    "with_sound": false,
+    "prompt": "16-frame anime skill cut-in for Mika Ghost Smashing. Start with racket near chest as dark violet ghost energy erupts. Mika's eyes glow vivid purple, with small purple flames around the eyelids. Twist shoulders through black-violet spectral smoke, then lunge toward viewer into a down-forward smash. Final frames: huge cyan racket disk releases black-violet ghost aura and purple flame burst. Keep black twin-tails and white/black bionic suit. No pet, helmet, text, UI. Transparent background, safe margins."
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic per-cell safe-margin repack + inward smootherstep alpha feather",
+    "operation": "Each AutoSprite 1024 cell was resized to 84 percent and centered back into a 1024 cell to prevent edge-touching ghost aura and foreground racket cuts. The repacked source boundary was then feathered inward so the ghost aura/smoke/racket disk fade to transparent instead of reading as clipped by an invisible square.",
+    "allowed_by_policy": "AutoSprite-derived deterministic postprocess only; no non-AutoSprite redraw or interpolation.",
+    "source_scale_repack": 0.84,
+    "edge_feather": {
+      "tool": "Pillow/NumPy smootherstep alpha mask",
+      "reason": "Match the power-smash cut-in finishing: prevent purple ghost aura/smoke and the foreground cyan disk from reading as clipped by an invisible square after the safe-margin repack (measured hard-perimeter alpha dropped from 21.4 percent avg / 33.4 percent max to 0).",
+      "inner_source_bounds": [82, 82, 941, 941],
+      "feather_px": 130,
+      "applied_at": "2026-06-03",
+      "backup_before_feather": ".tmp/smasher_ghost_cutin_feather_v1/previous_runtime_smasher_ghost_smashing_cutin_sheet_v1_nofeather.png",
+      "backup_sha256": "d2586e6e6e5edb69e4db9b3ca019bbb905a5b625a9985669dfa3cf221c3c0da1",
+      "preview": ".tmp/smasher_ghost_cutin_feather_v1/ghost_cutin_feathered_preview.jpg"
+    },
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "applied_at": "2026-06-03",
+      "reason": "Bring the ghost-smash cut-in to full parity with the power-smash sheet (4096 -> 8192, AI sharpened) so it does not read softer at gameplay/high-res scale.",
+      "source_runtime_before_upscale": ".tmp/smasher_ghost_cutin_realesrgan_v1/pre_realesrgan_runtime_smasher_ghost_smashing_cutin_sheet_4096.png",
+      "source_runtime_before_upscale_sha256": "b036c1c503a7f10fd114873d3ff4d26f84ebea75f5f151e2e574b7804d2eb0fd",
+      "alpha_preservation": "Split each 1024 feathered cell into alpha-bleed RGB + source alpha. Upscaled RGB with realesr-animevideov3 -s 2, resized the feathered source alpha to 2048 per cell (LANCZOS), recombined RGBA, then reassembled the 4x4 grid to 8192x8192.",
+      "preview": ".tmp/smasher_ghost_cutin_realesrgan_v1/ghost_cutin_realesrgan_x2_preview.jpg"
+    },
+    "runtime_output_sha256": "d43504245f7c8150d670ae5c805dadbbdf59ad0fdc8b9e031ed18c27d9979753",
+    "raw_source_sha256": "3f86096187ac0a9f22cc47939ec91e9ac4d07628af7ba4ebb4ea8004989fb514",
+    "preview": ".tmp/smasher_ghost_cutin_realesrgan_v1/ghost_cutin_realesrgan_x2_preview.jpg"
+  },
+  "identity_lock": {
+    "anchor_paths": [
+      "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png previous AutoSprite Mika cut-in anchor",
+      "res://assets/ui/character_live2d/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png",
+      "res://assets/ui/character_live2d/smasher_select_confirm_swing_bada_loop98_autosprite_v2_stable_realesrgan_animev3_hq1152_safe.png"
+    ],
+    "required_traits": [
+      "female Mika",
+      "black twin-tail hair",
+      "white and black bionic suit",
+      "cyan circular energy racket",
+      "vivid purple possessed eyes",
+      "purple flames around eyes",
+      "black-violet ghost aura and spectral smoke",
+      "down-forward foreground smash release"
+    ]
+  },
+  "qa": {
+    "transparent_edge_alpha_count": 0,
+    "transparent_corner_errors": 0,
+    "union_alpha_bbox": [82, 134, 4014, 4014],
+    "union_alpha_bbox_space": "pre-upscale 4096 coordinates (multiply by 2 for the final 8192 sheet)",
+    "final_sheet_edge_alpha_cells": 0,
+    "final_sheet_corner_errors": 0,
+    "hard_perimeter_pct_before_feather": {"mean": 21.4, "max": 33.4, "cells_over_15pct": 12},
+    "hard_perimeter_pct_after_feather": {"mean": 0.0, "max": 0.0, "cells_over_15pct": 0},
+    "hard_perimeter_pct_after_upscale": {"mean": 0.0, "max": 0.0},
+    "hard_perimeter_metric": "Percent of each frame content-bbox perimeter still strongly opaque (alpha > 180); high value = hard alpha cut that reads as clipped. Power-smash reference sheet measures 0.0.",
+    "accepted_preview": ".tmp/smasher_ghost_cutin_realesrgan_v1/ghost_cutin_realesrgan_x2_preview.jpg"
+  }
+}

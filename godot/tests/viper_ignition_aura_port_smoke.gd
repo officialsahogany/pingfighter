@@ -391,7 +391,12 @@ func _test_runtime_asset_prewarm_contract() -> void:
 	runtime.ignition_aura_effect_texture = null
 	runtime.ignition_aura_effect_load_attempted = false
 	_expect(runtime.has_method("prewarm_assets_step"), "Viper runtime should expose staged runtime asset prewarm")
-	_expect(bool(runtime.prewarm_assets_step()), "Viper runtime prewarm should finish after the Ignition Aura sheet step")
+	var asset_prewarm_done := false
+	for _i in range(64):
+		asset_prewarm_done = bool(runtime.prewarm_assets_step())
+		if asset_prewarm_done:
+			break
+	_expect(asset_prewarm_done, "Viper runtime staged asset prewarm should complete within the expected step budget")
 	_expect(bool(runtime.ignition_aura_effect_load_attempted), "Ignition Aura sheet load gate should be satisfied by prewarm")
 	_expect(runtime.ignition_aura_effect_texture != null, "Ignition Aura effect sheet should be loaded before first draw")
 	_expect(runtime.has_method("prewarm_runtime_nodes_step"), "Viper runtime should expose staged FX host node prewarm")

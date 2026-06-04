@@ -5,15 +5,25 @@ const EmpStrikeFxHost := preload("res://scripts/characters/viper_emp_strike_fx_h
 
 
 func prewarm_viper_fx_hosts(runtime: Object, owner: Object) -> bool:
-	ChaosSpearFxHost.prewarm_assets()
-	EmpStrikeFxHost.prewarm_assets()
-	if not (owner is Node):
-		return true
-	var parent: Node = owner as Node
-	var chaos_host: Node = _get_or_create_chaos_fx_host_for_prewarm(runtime, parent)
-	_prewarm_host_runtime_nodes(chaos_host)
-	var emp_host: Node = _get_or_create_emp_fx_host_for_prewarm(runtime, parent)
-	_prewarm_host_runtime_nodes(emp_host)
+	prewarm_viper_fx_host_step(runtime, owner, 0)
+	prewarm_viper_fx_host_step(runtime, owner, 1)
+	return true
+
+
+func prewarm_viper_fx_host_step(runtime: Object, owner: Object, step_index: int) -> bool:
+	match step_index:
+		0:
+			ChaosSpearFxHost.prewarm_assets()
+			if owner is Node:
+				var chaos_parent: Node = owner as Node
+				var chaos_host: Node = _get_or_create_chaos_fx_host_for_prewarm(runtime, chaos_parent)
+				_prewarm_host_runtime_nodes(chaos_host)
+		1:
+			EmpStrikeFxHost.prewarm_assets()
+			if owner is Node:
+				var emp_parent: Node = owner as Node
+				var emp_host: Node = _get_or_create_emp_fx_host_for_prewarm(runtime, emp_parent)
+				_prewarm_host_runtime_nodes(emp_host)
 	return true
 
 

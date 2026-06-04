@@ -208,6 +208,11 @@ func _init() -> void:
 
 
 func _verify_chaos_spear_fx_pipeline() -> void:
+	var host_source: String = FileAccess.get_file_as_string("res://scripts/characters/viper_chaos_spear_fx_host.gd")
+	_expect(host_source.find("static func prewarm_assets_step()") >= 0, "Chaos Spear FX host should expose staged asset prewarm")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/viper_skill_runtime.gd")
+	_expect(runtime_source.find("func _init() -> void:\n\tpass") >= 0, "Viper skill runtime constructor should avoid monolithic FX prewarm")
+	_expect(runtime_source.find("ChaosSpearFxHost.prewarm_assets_step()") >= 0, "Viper skill runtime staged prewarm should advance Chaos Spear assets through the step API")
 	var status: Dictionary = ChaosSpearFxHost.build_pipeline_status()
 	_expect(bool(status.get("chaos_spear_shader_host_pipeline", false)), "Chaos Spear FX host should expose the shader pipeline")
 	_expect(bool(status.get("chaos_spear_texture_pieces_ready", false)), "Chaos Spear FX host should load all five imagegen texture pieces")

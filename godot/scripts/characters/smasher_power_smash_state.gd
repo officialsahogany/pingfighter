@@ -5,12 +5,23 @@ const SmasherGhostShotState := preload("res://scripts/characters/smasher_ghost_s
 const PowerSmashRuntimeState := preload("res://scripts/characters/smasher_power_smash_runtime_state.gd")
 const PowerSmashVelocityFacade := preload("res://scripts/characters/smasher_power_smash_velocity_facade.gd")
 const PowerSmashCutinState := preload("res://scripts/characters/smasher_power_smash_cutin_state.gd")
+const SmasherDriveCutinState := preload("res://scripts/characters/smasher_drive_cutin_state.gd")
+const SmasherGhostPossessionState := preload("res://scripts/characters/smasher_ghost_possession_state.gd")
 
 var runtime_state: Object = PowerSmashRuntimeState.new()
 var effects_state: Object = PowerSmashEffectsState.new()
 var ghost_state: Object = SmasherGhostShotState.new()
 var velocity_facade: Object = PowerSmashVelocityFacade.new()
 var cutin_state: Object = PowerSmashCutinState.new()
+# Non-freezing partial-screen Drive cut-in (Mika portrait slide-in). Hosted here
+# so it shares the per-frame update / draw / reset lifecycle that already exists
+# for the power-smash cut-in, but it never pauses the rally.
+var drive_cutin_state: Object = SmasherDriveCutinState.new()
+# Ghost-smashing possession presentation: hides the player paddle while Mika is
+# "inside" the ball, then flies her home when the returned ball reaches the
+# player paddle. Separate lifecycle from ghost_state -- see
+# smasher_ghost_possession_state.gd.
+var ghost_possession_state: Object = SmasherGhostPossessionState.new()
 
 
 func reset(clear_text: bool = true) -> void:
@@ -18,6 +29,8 @@ func reset(clear_text: bool = true) -> void:
 	clear_effects()
 	ghost_state.reset()
 	cutin_state.reset()
+	drive_cutin_state.reset()
+	ghost_possession_state.reset()
 
 
 func can_activate(
@@ -51,11 +64,16 @@ func begin_activation(
 	clear_effects()
 	if ghost_shot:
 		ghost_state.begin(current_msec if current_msec > 0 else Time.get_ticks_msec())
-		cutin_state.reset()
+		# Mika is sucked into the ball: hide the field paddle until the boss
+		# returns the ball. The freeze cut-in covers the dramatic suck-in beat.
+		ghost_possession_state.begin()
 	else:
 		ghost_state.reset()
-		if freeze_duration > 0.0:
-			cutin_state.begin(freeze_duration)
+		ghost_possession_state.reset()
+	if freeze_duration > 0.0:
+		cutin_state.begin(freeze_duration, "ghost_shot" if ghost_shot else "power_smashing")
+	else:
+		cutin_state.reset()
 
 
 func lock_freeze_pose(pos: Vector2) -> void:
@@ -108,6 +126,9 @@ func apply_ghost_shot_motion(scene: Dictionary, fps_scale: float, context: Dicti
 	)
 	if bool(result.get("finish_power_motion", false)):
 		runtime_state.finish_motion()
+		# The ghost ball has been fired at the boss. Possession stays hidden
+		# through the boss return, then pops on the player-side counter.
+		ghost_possession_state.notify_ball_fired()
 	return result
 
 
@@ -122,6 +143,9 @@ func finish_after_boss_counter(origin: Vector2 = Vector2.ZERO) -> void:
 		ghost_state.scatter_from(scatter_origin)
 	else:
 		ghost_state.reset()
+	# The ghost shot is being cancelled by the boss counter -- fly Mika home from
+	# the scatter origin so the paddle is never left hidden.
+	ghost_possession_state.release_with_fly_back(scatter_origin)
 
 
 func clear_effects() -> void:
@@ -141,7 +165,13 @@ func spawn_initial_burst(pos: Vector2) -> void:
 	effects_state.spawn_initial_burst(pos)
 
 
-func update_effects(fps_scale: float, ball_pos: Vector2, ball_active: bool, ball_size: float) -> void:
+func update_effects(
+	fps_scale: float,
+	ball_pos: Vector2,
+	ball_active: bool,
+	ball_size: float,
+	context: Dictionary = {}
+) -> void:
 	var ghost_motion_active: bool = is_ghost_shot_motion_active()
 	effects_state.update(
 		fps_scale,
@@ -153,8 +183,20 @@ func update_effects(fps_scale: float, ball_pos: Vector2, ball_active: bool, ball
 		get_combo_consumed()
 	)
 	ghost_state.update_effects(fps_scale, ball_pos, ball_active, ball_size)
+	if ghost_possession_state.is_active():
+		ghost_possession_state.maybe_trigger_player_zone_return(
+			ball_pos,
+			_get_context_vector2(context, "ball_vel", Vector2.ZERO),
+			ball_active,
+			ball_size,
+			_get_context_vector2(context, "player_pos", Vector2.ZERO),
+			_get_context_vector2(context, "player_paddle_size", Vector2.ZERO)
+		)
+		ghost_possession_state.update(fps_scale / 60.0, ball_pos)
 	if cutin_state.is_active():
 		cutin_state.update(fps_scale / 60.0)
+	if drive_cutin_state.is_active():
+		drive_cutin_state.update(fps_scale / 60.0)
 
 
 func update_text_timer(fps_scale: float) -> void:
@@ -195,6 +237,36 @@ func has_ghost_shot_pending_teleport() -> bool:
 
 func scatter_ghost_shot_from_boss(origin: Vector2) -> void:
 	ghost_state.scatter_from(origin)
+
+
+# --- Ghost-smashing possession (paddle hide + fly-back) delegation ---
+
+func is_ghost_possession_active() -> bool:
+	return ghost_possession_state.is_active()
+
+
+func is_ghost_possession_paddle_hidden() -> bool:
+	return ghost_possession_state.is_paddle_hidden()
+
+
+func get_ghost_possession_player_override() -> Dictionary:
+	return ghost_possession_state.get_player_visual_override()
+
+
+func notify_ghost_possession_boss_returned() -> bool:
+	return ghost_possession_state.notify_boss_returned()
+
+
+func has_ghost_possession_boss_returned() -> bool:
+	return ghost_possession_state.has_boss_returned()
+
+
+func trigger_ghost_possession_fly_back(from_pos: Vector2) -> bool:
+	return ghost_possession_state.trigger_fly_back(from_pos)
+
+
+func force_release_ghost_possession() -> void:
+	ghost_possession_state.force_release()
 
 
 func get_original_speed() -> float:
@@ -251,3 +323,26 @@ func get_cutin_progress() -> float:
 
 func get_cutin_phase() -> String:
 	return cutin_state.get_phase()
+
+
+func begin_drive_cutin(enraged: bool = false) -> void:
+	drive_cutin_state.begin(SmasherDriveCutinState.DEFAULT_DURATION, enraged)
+
+
+func is_drive_cutin_active() -> bool:
+	return drive_cutin_state.is_active()
+
+
+func is_drive_cutin_enraged() -> bool:
+	return drive_cutin_state.is_enraged()
+
+
+func get_drive_cutin_progress() -> float:
+	return drive_cutin_state.get_progress()
+
+
+func _get_context_vector2(context: Dictionary, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = context.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback

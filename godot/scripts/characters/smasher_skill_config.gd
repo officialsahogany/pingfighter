@@ -121,7 +121,7 @@ const SKILL_DATA := {
 	},
 	"ghost_shot": {
 		"name": "ghost_shot",
-		"korean": "고스트샷",
+		"korean": "고스트스매싱",
 		"cost": 420.0,
 		"color": Color(120.0 / 255.0, 50.0 / 255.0, 180.0 / 255.0),
 		"cooldown": 85.0,
@@ -277,7 +277,7 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["how_to_use"] = "Press Left+Right together"
 			data["motion_hint"] = "Pull the ball to the paddle with magnetism"
 		"ghost_shot":
-			data["korean"] = "Ghost Shot"
+			data["korean"] = "Ghost Smashing"
 			data["description"] = "The ball snakes around while a ghost follows it. At 420+ gauge, replaces Power Smashing."
 			data["how_to_use"] = "At 420+ gauge, hold Left/Right + left-click"
 			data["motion_hint"] = "Snaking ball with ghost pursuit"

@@ -8,8 +8,11 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
 
 const CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+const GHOST_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
 const CUTIN_VOICE_PATH := "res://assets/sounds/mika_powersmashing.mp3"
+const GHOST_CUTIN_VOICE_PATH := "res://assets/sounds/mika_ghostsmashing.mp3"
 const CUTIN_SHEET_SIZE := 8192
+const GHOST_CUTIN_SHEET_SIZE := 8192
 const FREEZE_DURATION := 1.65
 
 var _failures: Array[String] = []
@@ -37,6 +40,7 @@ class FakePowerSmashAudio:
 
 	var power_smash_count := 0
 	var cutin_voice_count := 0
+	var ghost_cutin_voice_count := 0
 
 	func play_power_smash() -> void:
 		power_smash_count += 1
@@ -44,11 +48,27 @@ class FakePowerSmashAudio:
 	func play_power_smashing_cutin_voice() -> void:
 		cutin_voice_count += 1
 
+	func play_ghost_smashing_cutin_voice() -> void:
+		ghost_cutin_voice_count += 1
+
+
+class FakeGhostShotSkillConfig:
+	extends RefCounted
+
+	func is_skill_equipped(skill_name: String) -> bool:
+		return skill_name == "ghost_shot"
+
+	func get_skill_cost(skill_name: String) -> float:
+		if skill_name == "ghost_shot":
+			return 420.0
+		return 300.0
+
 
 func _init() -> void:
 	_test_power_smashing_starts_cutin()
 	_test_power_smashing_activation_plays_cutin_voice()
-	_test_ghost_shot_skips_cutin()
+	_test_ghost_shot_starts_cutin()
+	_test_ghost_shot_activation_starts_cutin_without_power_voice()
 	_test_cutin_ends_after_duration()
 	_test_cutin_progress_tracks_freeze()
 	_test_cutin_phases()
@@ -56,7 +76,9 @@ func _init() -> void:
 	_test_clear_effects_preserves_cutin()
 	_test_cutin_host_draw_guards()
 	_test_cutin_host_prewarms_sheet()
+	_test_ghost_cutin_host_prewarms_sheet()
 	_test_cutin_voice_asset_loads()
+	_test_ghost_cutin_voice_asset_loads()
 	_test_power_smash_freeze_config_is_extended()
 	_test_zero_freeze_duration_skips_cutin()
 
@@ -74,6 +96,7 @@ func _test_power_smashing_starts_cutin() -> void:
 	state.begin_activation(1, 0.5, 0, 48.0, false, 1000, FREEZE_DURATION)
 	_expect(state.is_cutin_active(), "power_smashing should start cutin")
 	_expect(state.get_cutin_progress() == 0.0, "cutin progress should start at 0")
+	_expect(state.cutin_state.get_skill_name() == "power_smashing", "power_smashing cutin should keep power profile")
 
 
 func _test_power_smashing_activation_plays_cutin_voice() -> void:
@@ -106,10 +129,45 @@ func _test_power_smashing_activation_plays_cutin_voice() -> void:
 	_expect(audio.power_smash_count == 1, "power_smashing activation should still play base power smash SFX")
 
 
-func _test_ghost_shot_skips_cutin() -> void:
+func _test_ghost_shot_starts_cutin() -> void:
 	var state := SmasherPowerSmashState.new()
 	state.begin_activation(1, 0.5, 0, 48.0, true, 1000, FREEZE_DURATION)
-	_expect(not state.is_cutin_active(), "ghost_shot should NOT start cutin")
+	_expect(state.is_cutin_active(), "ghost_shot should start cutin")
+	_expect(state.cutin_state.get_skill_name() == "ghost_shot", "ghost_shot cutin should keep ghost profile")
+
+
+func _test_ghost_shot_activation_starts_cutin_without_power_voice() -> void:
+	var controller := SmasherPowerSmashActivationController.new()
+	var state := SmasherPowerSmashState.new()
+	var audio := FakePowerSmashAudio.new()
+	var result: Dictionary = controller.try_activate(
+		{
+			"ball_active": true,
+			"special_gauge": 500.0,
+			"gauge_cost": 300.0,
+			"text_duration_frames": 48.0,
+			"perfect_cooldown_frames": 0.0,
+			"global_cooldown_frames": 0.0,
+			"combo_min_count": 2,
+			"current_msec": 1000,
+			"power_smash_freeze_duration": FREEZE_DURATION,
+		},
+		{
+			"input_reader": FakePowerSmashInputReader.new(),
+			"power_state": state,
+			"round_state": FakeActiveRoundState.new(),
+			"skill_config": FakeGhostShotSkillConfig.new(),
+			"audio": audio,
+		},
+		{}
+	)
+	_expect(bool(result.get("activated", false)), "ghost_shot activation should succeed")
+	_expect(str(result.get("activated_skill", "")) == "ghost_shot", "ghost_shot should keep priority over power_smashing")
+	_expect(state.is_cutin_active(), "ghost_shot activation should start cutin")
+	_expect(state.cutin_state.get_skill_name() == "ghost_shot", "ghost_shot activation should use ghost cutin profile")
+	_expect(audio.cutin_voice_count == 0, "ghost_shot should not play the power_smashing voice line")
+	_expect(audio.ghost_cutin_voice_count == 1, "ghost_shot activation should play the ghost-smashing voice line once")
+	_expect(audio.power_smash_count == 1, "ghost_shot activation should still play base power smash SFX")
 
 
 func _test_cutin_ends_after_duration() -> void:
@@ -184,12 +242,33 @@ func _test_cutin_host_prewarms_sheet() -> void:
 		_expect(texture.get_height() == CUTIN_SHEET_SIZE, "cutin sheet height should be %d" % CUTIN_SHEET_SIZE)
 
 
+func _test_ghost_cutin_host_prewarms_sheet() -> void:
+	var host := SkillCutinOverlayHost.new()
+	host.prewarm_assets()
+	var texture := ProjectResourceLoader.get_cached_texture(GHOST_CUTIN_SHEET_PATH)
+	_expect(texture != null, "ghost cutin sheet should prewarm into ProjectResourceLoader cache")
+	if texture != null:
+		_expect(texture.get_width() == GHOST_CUTIN_SHEET_SIZE, "ghost cutin sheet width should be %d" % GHOST_CUTIN_SHEET_SIZE)
+		_expect(texture.get_height() == GHOST_CUTIN_SHEET_SIZE, "ghost cutin sheet height should be %d" % GHOST_CUTIN_SHEET_SIZE)
+
+
 func _test_cutin_voice_asset_loads() -> void:
 	var stream: AudioStream = ProjectResourceLoader.load_audio_stream(CUTIN_VOICE_PATH)
 	_expect(stream != null, "Mika power-smashing cutin voice should load")
 	if stream != null:
 		_expect(stream.get_length() > 0.0, "Mika power-smashing cutin voice should have duration")
 		_expect(stream.get_length() <= FREEZE_DURATION + 0.05, "Mika power-smashing cutin voice should finish within cutin freeze")
+
+
+func _test_ghost_cutin_voice_asset_loads() -> void:
+	var stream: AudioStream = ProjectResourceLoader.load_audio_stream(GHOST_CUTIN_VOICE_PATH)
+	_expect(stream != null, "Mika ghost-smashing cutin voice should load")
+	if stream != null:
+		_expect(stream.get_length() > 0.0, "Mika ghost-smashing cutin voice should have duration")
+		# The ghost line (~1.88s) intentionally tails slightly past the 1.65s freeze,
+		# unlike the power line which is tuned to finish inside the freeze. Bound it
+		# loosely so a wrong/oversized asset is still caught.
+		_expect(stream.get_length() <= 2.5, "Mika ghost-smashing cutin voice should stay under 2.5s")
 
 
 func _test_power_smash_freeze_config_is_extended() -> void:

@@ -64,25 +64,51 @@ static var _impact_burst_texture: Texture2D = null
 static var _cracks_texture: Texture2D = null
 static var _texture_layer_shader: Shader = null
 static var _prewarmed := false
+static var _prewarm_step_index := 0
 
 static func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+static func prewarm_assets_step() -> bool:
 	if _prewarmed:
-		return
-	ImpactFlareTextureCache.prewarm()
-	_get_glyph_texture()
-	_get_spear_texture()
-	_get_trail_texture()
-	_get_impact_burst_texture()
-	_get_cracks_texture()
-	_get_texture_layer_shader()
-	WritheEmber.prewarm()
-	_build_disk_material()
-	_build_inflow_particle_material()
-	_build_orbit_particle_material()
-	_build_storm_particle_material()
-	_build_ember_particle_material()
-	_build_charge_particle_material()
-	_prewarmed = true
+		return true
+	match _prewarm_step_index:
+		0:
+			ImpactFlareTextureCache.prewarm()
+		1:
+			_get_glyph_texture()
+		2:
+			_get_spear_texture()
+		3:
+			_get_trail_texture()
+		4:
+			_get_impact_burst_texture()
+		5:
+			_get_cracks_texture()
+		6:
+			_get_texture_layer_shader()
+		7:
+			WritheEmber.prewarm()
+		8:
+			_build_disk_material()
+		9:
+			_build_inflow_particle_material()
+		10:
+			_build_orbit_particle_material()
+		11:
+			_build_storm_particle_material()
+		12:
+			_build_ember_particle_material()
+		13:
+			_build_charge_particle_material()
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 static func build_pipeline_status() -> Dictionary:

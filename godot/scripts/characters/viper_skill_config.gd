@@ -11,7 +11,7 @@ const SKILL_COSTS := {
 	"dive_strike": 150.0,
 	"marshal_kick": 80.0,
 	"phantom_kick": 60.0,
-	"dark_blade": 200.0,
+	"dark_blade": 150.0,
 	"chaos_spear": 150.0,
 	"core_flip": 120.0,
 	"dual_glitch": 220.0,
@@ -113,7 +113,7 @@ const SKILL_DATA := {
 	"dark_blade": {
 		"name": "dark_blade",
 		"korean": "다크 블레이드",
-		"cost": 200.0,
+		"cost": 150.0,
 		"color": Color(120.0 / 255.0, 0.0, 30.0 / 255.0),
 		"cooldown": 45.0,
 		"description": "공을 타격한 뒤 3초 안에 공중에서 강화 검기를 쏩니다.\n검기 적중 시 마샬 킥 윈도우가 열립니다.\n검붉은 강화 검기에 맞은 공은 난이도와 관계없이 공속 상한 50을 적용합니다.",

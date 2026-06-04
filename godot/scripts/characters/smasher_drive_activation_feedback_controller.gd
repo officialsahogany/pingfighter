@@ -34,6 +34,14 @@ func apply_feedback(
 	if audio != null:
 		audio.play_drive()
 
+	# Non-freezing partial-screen Mika portrait cut-in (hosted on power_state so it
+	# shares that module's per-frame update / draw / reset lifecycle). A
+	# combo-charged drive (consume_combo) plays the enraged cut-in preset, matching
+	# the already-amplified combo drive (more particles, doubled text duration).
+	var power_state: Object = deps.get("power_state", null)
+	if power_state != null and power_state.has_method("begin_drive_cutin"):
+		power_state.begin_drive_cutin(bool(drive_result.get("consume_combo", false)))
+
 
 func _get_particle_pos(context: Dictionary) -> Vector2:
 	var context_ball_pos: Variant = context.get("ball_pos", Vector2.ZERO)

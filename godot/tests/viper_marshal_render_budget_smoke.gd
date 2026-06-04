@@ -44,11 +44,11 @@ func _verify_marshal_stack_forwards_lod() -> void:
 
 
 func _verify_runtime_passes_draw_lod() -> void:
-	var source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_runtime.gd")
+	var source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_draw_runtime.gd")
 	var start := source.find("kick_effect_renderer.draw_marshal_effect_stack(")
 	var end := source.find("_perf_end(perf_logger, \"viper.skill.marshal\"", start)
 	var marshal_call_source := source.substr(start, end - start) if start >= 0 and end > start else ""
-	_expect(marshal_call_source.find("clamped_lod_scale") >= 0, "Viper runtime should pass the current draw LOD into marshal rendering")
+	_expect(marshal_call_source.find("clamped_lod_scale") >= 0, "Viper draw runtime should pass the current draw LOD into marshal rendering")
 
 
 func _function_body(source: String, signature: String) -> String:

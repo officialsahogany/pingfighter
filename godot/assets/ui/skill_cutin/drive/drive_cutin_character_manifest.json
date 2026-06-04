@@ -1,0 +1,35 @@
+{
+  "asset_id": "drive_cutin_character",
+  "character": "smasher",
+  "character_name": "Mika",
+  "runtime_usage": "smasher_drive_skill_cutin_portrait",
+  "status": "dedicated AutoSprite Drive Hit pose, black-bg nukki + upper-body crop + bottom feather + horizontal flip (inverted-triangle top-left cut-in)",
+  "generated_at": "2026-06-03",
+  "runtime_asset": {
+    "path": "res://assets/ui/skill_cutin/drive/drive_cutin_character.png",
+    "size": [968, 594],
+    "format": "RGBA8 transparent, upper-body crop (waist-up) + inward edge feather on all sides",
+    "blend_style": "MIX (substance) — drawn in front of the ADD-light backplate/arc by skill_cutin_overlay_host._draw_drive_portrait"
+  },
+  "source_autosprite": {
+    "character_id": "cmpsfz62u0086111qzio43tv7",
+    "character_name": "Mika Power Smash Cutin Anchor v1",
+    "pose_id": "cmpxq20dm00dlv73o37gehftl",
+    "pose_label": "Drive Hit",
+    "pose_job_id": "cf_94985243-1aa2-463c-a61a-1d5712c4f57e",
+    "source_type": "generate_pose (5 credits)",
+    "raw_source_path": "res://assets/ui/skill_cutin/drive/drive_cutin_character_source.png",
+    "raw_source_background": "pure opaque black, full body",
+    "prompt": "Forehand drive strike at the exact moment of impact: lunging forward and swinging the glowing cyan energy racket forward to smack an incoming ball in front of her, racket arm fully extended out making contact with the ball, shoulders and torso driving hard into the hit, free arm pulled back for power, intense focused determined expression with eyes locked forward on the ball, bright cyan curve-energy bursting and trailing from the racket contact. Upper-body action emphasis, waist-up dynamic framing, arms and racket spread WIDE across the top, body tapering downward, facing slightly toward the viewer.",
+    "superseded_pose": "Drive Strike (cmpxozvfx006sf18feeu7f3iw) — full-body swing stance, replaced because the user wanted an upper-body ball-striking pose in an inverted-triangle structure"
+  },
+  "postprocess": {
+    "nukki": "black-bg border flood-fill (connectivity, max(rgb)<=0.10) so the character's dark interior survives; smoothstep luminance feather (0.03->0.15) on the flooded region softens the cyan energy glow tail to transparent",
+    "crop": "upper-body crop at ~0.66 of the alpha-bbox height (head -> waist), legs removed",
+    "feather": "bottom feather over ~0.16 of bbox height (smoothstep alpha->0) so the waist cut tapers softly instead of a hard line (inverted-triangle bottom)",
+    "edge_feather": "inward smootherstep alpha feather (105px, all sides) per sprite-generation skill §2.3.1 — the cyan energy was cut HARD at the source-generation frame on the right edge (35% edge coverage), reading as a rectangular box; the feather fades it softly so the cut-in no longer looks trapped in a box",
+    "flip": "horizontal flip so Mika strikes toward the screen (face top-left, action + cyan energy extending right) — matches the reference inverted-triangle composition",
+    "identity_lock": "same Mika as the power-smash cut-in (same AutoSprite character base): black side-tail hair, teal/cyan eyes, white+black tech bodysuit, cyan energy racket"
+  },
+  "identity_anchor_note": "Non-anchor auxiliary cut-in pose. The walk/power-smash sheets remain the identity anchors; this is a runtime-only dedicated drive cut-in still."
+}

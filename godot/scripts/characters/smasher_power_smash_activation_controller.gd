@@ -58,7 +58,7 @@ func try_activate(context: Dictionary, deps: Dictionary, callbacks: Dictionary) 
 		current_msec,
 		float(context.get("power_smash_freeze_duration", 0.0))
 	)
-	_play_power_smashing_cutin_voice(activated_skill, context, deps)
+	_play_skill_cutin_voice(activated_skill, context, deps)
 
 	var combo_bonus_count: int = combo_consumed if combo_consumed >= combo_min_count else 0
 	feedback_controller.apply_post_activation_feedback(context, deps, power_state, combo_bonus_count)
@@ -131,11 +131,16 @@ func _get_skill_cost(skill_name: String, context: Dictionary, deps: Dictionary) 
 	return float(context.get("gauge_cost", 0.0))
 
 
-func _play_power_smashing_cutin_voice(skill_name: String, context: Dictionary, deps: Dictionary) -> void:
-	if skill_name != "power_smashing":
-		return
+func _play_skill_cutin_voice(skill_name: String, context: Dictionary, deps: Dictionary) -> void:
+	# Only the freezing cut-in carries a Mika voice line; mirror power-smash for ghost-smash.
 	if float(context.get("power_smash_freeze_duration", 0.0)) <= 0.0:
 		return
 	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_power_smashing_cutin_voice"):
-		audio.play_power_smashing_cutin_voice()
+	if audio == null:
+		return
+	if skill_name == "ghost_shot":
+		if audio.has_method("play_ghost_smashing_cutin_voice"):
+			audio.play_ghost_smashing_cutin_voice()
+	elif skill_name == "power_smashing":
+		if audio.has_method("play_power_smashing_cutin_voice"):
+			audio.play_power_smashing_cutin_voice()

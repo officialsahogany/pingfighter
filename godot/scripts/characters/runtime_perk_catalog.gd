@@ -335,9 +335,9 @@ const SMASHER_PERKS := {
 		"unlocks_skill": "shield_kiting",
 	},
 	"unlock_ghost_shot": {
-		"name": "고스트샷 해금",
+		"name": "고스트스매싱 해금",
 		"max_level": 1,
-		"descriptions": {1: "고스트샷 스킬 해금"},
+		"descriptions": {1: "고스트스매싱 스킬 해금"},
 		"detail": "게이지 420 이상에서 파워스매싱 입력으로 공을 기괴하게 난무시키고 보스 쪽으로 재발사하는 스킬을 해금합니다.",
 		"icon_color": Color(120.0 / 255.0, 50.0 / 255.0, 180.0 / 255.0),
 		"tree": "smasher_unlock",

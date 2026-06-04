@@ -32,7 +32,7 @@ class FakeSkillConfig:
 			"blade_rush":
 				return 200.0
 			"dark_blade":
-				return 200.0
+				return 150.0
 		return 0.0
 
 	func get_cooldown_seconds(skill_name: String) -> float:

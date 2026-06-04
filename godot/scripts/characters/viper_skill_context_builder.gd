@@ -110,6 +110,11 @@ func build_ball_collision_context(runtime: Object) -> Dictionary:
 		context["viper_jetpack_airborne"] = true
 		context["viper_jetpack_offset_y"] = min(0.0, runtime.dive_player_pos.y - runtime.dive_floor_y)
 		context["viper_jetpack_floor_y"] = runtime.dive_floor_y
+	if runtime.has_method("is_dark_blade_rising_contact_active") and bool(runtime.is_dark_blade_rising_contact_active()):
+		context["player_pos"] = runtime.blade_motion_pos
+		context["player_y"] = runtime.blade_motion_pos.y
+		context["player_paddle_size"] = runtime.blade_paddle_size
+		context["viper_dark_blade_rising_contact_active"] = true
 	return context
 
 

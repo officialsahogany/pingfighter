@@ -1,0 +1,90 @@
+{
+  "asset_id": "viper_phantom_kick_cutin_sheet",
+  "character": "viper",
+  "character_name": "Serin Viper",
+  "runtime_usage": "viper_phantom_kick_skill_cutin",
+  "version": "v5-wallbrace-charge-gravitas",
+  "status": "Grave killing-intent wall-brace Phantom Kick cut-in. Pose-anchored AutoSprite source (new 'Wall Charge Peak' erupting pose on BOTH first/last frame = held charge) + single fixed-crop deterministic reframe + inward smootherstep feather + bottom-fade + Real-ESRGAN x2.",
+  "generated_at": "2026-06-04",
+  "supersedes": {
+    "v3_status": "jitter-free upper-body wall-brace (calm 'Wall Cling' hold, subtle energy)",
+    "regenerate_reason": "User wanted more 비장미 (grave heroic gravitas) — after bracing on the wall she should look like she is about to unleash a one-hit-kill at any moment. The v3 calm hold lacked that tension.",
+    "fix": "Generated a new AutoSprite pose 'Wall Charge Peak' (cmpzbwvt3003298ttbmenc42h): still braced on the wall, body coiled like an overdrawn bowstring, dense dark-violet phantom energy erupting, fierce killing glare, no gun. Anchored it on BOTH first and last frame so the 1.65s cut-in HOLDS the erupting charge (does not launch the kick out of frame). Energy bursts at the start then holds a steady intense glow; the runtime violet wipe / charge aura / speed lines layer a progress-driven build on top.",
+    "discarded_v4": "A first attempt anchored first=Wall Cling, last=Wall Charge Peak (loop=false build-up) rendered the body uncoiling into a kick-extension with the energy fading out (already launching, not 'about to'). Discarded; held-peak hold reads better. Raw kept at .tmp/viper_phantom_kick_cutin_buildup_v4/."
+  },
+  "runtime_sheet": {
+    "path": "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [2048, 2048],
+    "sheet_size": [8192, 8192],
+    "frame_interval": "phantom-kick-freeze-synced; 16 frames play once across cut-in progress 0.11..0.82 (skill_cutin_standard_renderer._cutin_frame_index), so the energy burst lands early in 'main' and the held coil simmers through 'flash'.",
+    "freeze_duration_seconds": "runtime.dmk_freeze_frames / 60.0 = 99 / 60 = 1.65s (matches Smasher power-smash POWER_SMASH_FREEZE_DURATION).",
+    "blend_style": "Runtime procedural violet wipe, speed lines, ghost wisps, and charge aura over the alpha-preserved erupting wall-brace sheet. Dimensions unchanged so no runtime profile/host change.",
+    "upscale_scale": 2,
+    "sha256": "1f4e719a8c7cc010cdb35a4885201b5a37d4763e47e3c57ae8975e97a6e450ee",
+    "file_size_bytes": 66159229
+  },
+  "source_autosprite": {
+    "character_id": "cmp3c535h00daf30y5vml5ly6",
+    "character_name": "Serin Viper Fullbody Closed Suit 20260513 v1",
+    "spritesheet_id": "cmpzczebt0007yqjculznoc1j",
+    "workflow_job_id": "wf_f7366c9a-2539-40aa-8c4b-6020bbae03a5",
+    "animation_kind": "custom (phantom_kick_wallbrace_charge_v5)",
+    "first_frame_pose_id": "cmpzbwvt3003298ttbmenc42h",
+    "last_frame_pose_id": "cmpzbwvt3003298ttbmenc42h",
+    "pose_label": "Wall Charge Peak (both first and last frame -> holds the erupting coiled wall-brace, never launches the kick)",
+    "new_pose_generation": {
+      "pose_id": "cmpzbwvt3003298ttbmenc42h",
+      "pose_job_id": "cf_3408a44a-3ad0-4342-9ea7-6985d30da0df",
+      "intent": "grave killing resolve, coiled on wall, erupting violet phantom energy, about to unleash a one-hit-kill, no gun"
+    },
+    "loop": true,
+    "remove_bg": "ultra (transparent RGBA)",
+    "raw_frame_width": 1024,
+    "raw_frame_height": 1024,
+    "raw_frame_count": 16,
+    "columns": 4,
+    "with_sound": false,
+    "raw_sheet_local_path": ".tmp/viper_phantom_kick_cutin_buildup_v4/autosprite_charge_v5_raw_sheet.png",
+    "raw_atlas_local_path": ".tmp/viper_phantom_kick_cutin_buildup_v4/autosprite_charge_v5_raw_atlas.json",
+    "per_frame_violet_energy": [43404, 72013, 84522, 81961, 75876, 62891, 55301, 49024, 46176, 45270, 46188, 44725, 43040, 43053, 42676, 42361],
+    "per_frame_bbox_drift": {"cx_span_px": 11.5, "cy_span_px": 45.5, "note": "Smooth coil bob, no back-and-forth snapping. Pose-held so the fixed-transform reframe is trivially jitter-free."}
+  },
+  "postprocess": {
+    "tool": "Pillow + numpy single-fixed-transform reframe, inward feather, bottom-fade, then Real-ESRGAN x2 RGB upscale",
+    "allowed_by_policy": "Final runtime sheet remains AutoSprite-derived. Local work only applies one fixed crop/scale/placement, an inward alpha feather, a bottom dissolve, alpha-preserving upscale; it does not redraw the character.",
+    "build_script": ".tmp/build_viper_cutin_v3.py (args: raw_sheet workdir upper_frac fill)",
+    "recombine_script": ".tmp/recombine_viper_cutin_v3.py",
+    "fixed_transform_all_frames": {
+      "crop_source_coords": [165, 36, 887, 753],
+      "upper_frac": 0.74,
+      "fill": 0.90,
+      "uniform_scale": 1.2764542936288088,
+      "dst_size": [922, 915],
+      "placement_offset": [51, 51],
+      "out_cell_pre_upscale": 1024,
+      "note": "Same crop window, scale, and placement applied to every cell (anti-jitter). Framing is upper-body-weighted but keeps the coiled-spring read (head, bracing arm, torso, dense erupting energy, coil down to ~knee) so the 'about to unleash' drama survives; 0.62 was too tight and buried the face in the high-energy frames."
+    },
+    "edge_feather": {"style": "per-cell inward smootherstep (power-smash §2.3.1 recipe)", "inner_source_bounds": [82, 82, 941, 941], "feather_px": 130, "applied_before_upscale": true},
+    "bottom_fade": {"bottom_fade_px": 230, "reason": "Dissolve the upper-body crop's lower edge so the bust does not end on a hard horizontal clipped line (hard-perimeter 0.0)."},
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "alpha_preservation": "Split each feathered 1024 cell into alpha-bled RGB + feathered source alpha; upscaled RGB x2, resized alpha to 2048 Lanczos, recombined RGBA, rebuilt the 4x4 / 2048-cell / 8192 grid.",
+      "recombined_output": ".tmp/viper_phantom_kick_cutin_charge_v5/viper_phantom_kick_cutin_sheet_final_8192_v5.png"
+    },
+    "pre_replace_backup": ".tmp/viper_phantom_kick_cutin_charge_v5/prev_v3_sheet_backup.png"
+  },
+  "qa": {
+    "transparent_corners": true,
+    "edge_alpha_touch_total": 0,
+    "hard_perimeter_metric_pct": {"mean": 0.0, "max": 0.0},
+    "jitter": "Resolved (single fixed transform + pose-held low-drift source).",
+    "gun_removed": true,
+    "framing": "upper-body-weighted erupting coiled wall-brace, dense violet phantom energy, readable killing-intent face",
+    "gravitas": "Grave heroic 비장미 / about-to-unleash tension added per user request."
+  }
+}

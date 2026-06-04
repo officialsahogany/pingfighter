@@ -49,7 +49,7 @@ class FakeSkillConfig:
 		if skill_name == "marshal_kick":
 			return 80.0
 		if skill_name == "dark_blade":
-			return 200.0
+			return 150.0
 		return 0.0
 
 

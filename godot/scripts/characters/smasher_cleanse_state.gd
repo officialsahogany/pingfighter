@@ -34,11 +34,26 @@ var wave_rings: Array[Dictionary] = []
 var particles: Array[Dictionary] = []
 var _last_player_pos := Vector2(760.0 * 0.5, 700.0)
 var _last_player_size := DEFAULT_PLAYER_SIZE
+var _prewarm_assets_step_index := 0
 
 
-func _init() -> void:
-	ImpactFlareTextureCache.prewarm()
-	ImpactShockwaveTextureCache.prewarm()
+func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_assets_step_index == 0:
+		if not bool(ImpactFlareTextureCache.prewarm_step()):
+			return false
+		_prewarm_assets_step_index = 1
+	if _prewarm_assets_step_index == 1:
+		if not bool(ImpactShockwaveTextureCache.prewarm_step()):
+			return false
+		_prewarm_assets_step_index = 0
+		return true
+	_prewarm_assets_step_index = 0
+	return true
 
 
 func reset() -> void:

@@ -163,6 +163,7 @@ func _init() -> void:
 	_test_catalog_unlock_wiring()
 	_test_command_activation_clone_collision_and_hp()
 	_test_actor_context_and_sprite_clone_geometry()
+	_test_round_boundary_preserves_active_dual_glitch()
 	_test_startup_cancel_and_four_poisons_super_armor()
 	_test_four_poisons_duration_cooldown_and_replication()
 	_test_four_poisons_emp_clone_replication()
@@ -281,6 +282,44 @@ func _test_actor_context_and_sprite_clone_geometry() -> void:
 	_expect(abs(first_visual_rect.position.x - (first_rect.position.x - 2.5)) < 0.01, "clone sprite should preserve the player sprite offset from the paddle rect")
 	var main_modulate: Color = first_draw.get("main_modulate", Color.WHITE)
 	_expect(main_modulate.a < 1.0, "clone sprite pass should render as a ghosted copied sprite")
+
+
+func _test_round_boundary_preserves_active_dual_glitch() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var perk_state := FakePerkState.new()
+	var deps := _deps(input, skill_config, skill_state, perk_state, FakeOrbHud.new(), FakeFeedback.new(), FakeAudio.new())
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 680.0)
+	_activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
+	_advance_dual(runtime, config, deps, player_pos, 49)
+	_advance_dual(runtime, config, deps, player_pos, 24)
+	var remaining_before_reset: float = float(runtime.get_snapshot().get("dual_glitch_remaining_frames", 0.0))
+	runtime.reset_round(deps)
+	var snap: Dictionary = runtime.get_snapshot()
+	_expect(str(snap.get("dual_glitch_state", "")) == "active", "round reset should preserve active Dual Glitch for the next round")
+	_expect((snap.get("dual_glitch_clones", []) as Array).size() == 2, "round reset should preserve living Dual Glitch clones")
+	_expect(abs(float(snap.get("dual_glitch_remaining_frames", 0.0)) - remaining_before_reset) < 0.01, "round reset should preserve Dual Glitch's remaining duration")
+
+	var waiting_context := _base_config()
+	waiting_context["ball_active"] = false
+	waiting_context["waiting_for_serve"] = true
+	waiting_context["player_pos"] = Vector2(380.0, 680.0)
+	waiting_context["player_paddle_size"] = Vector2(155.0, 50.0)
+	runtime.update_effects(120.0, Time.get_ticks_msec(), waiting_context, deps)
+	snap = runtime.get_snapshot()
+	_expect(str(snap.get("dual_glitch_state", "")) == "active", "serve-wait frames should pause, not cancel, cross-round Dual Glitch")
+	_expect(abs(float(snap.get("dual_glitch_remaining_frames", 0.0)) - remaining_before_reset) < 0.01, "serve-wait frames should not consume Dual Glitch's remaining duration")
+	_expect(abs(_get_vector2(snap, "dual_glitch_base_pos", Vector2.ZERO).x - 380.0) < 0.01, "serve-wait frames should re-anchor carried Dual Glitch clones to the reset paddle")
+
+	runtime.update_effects(10.0, Time.get_ticks_msec(), config, deps)
+	_expect(float(runtime.get_snapshot().get("dual_glitch_remaining_frames", 0.0)) < remaining_before_reset, "next live round should resume Dual Glitch's countdown")
+	var hard_reset_deps := deps.duplicate()
+	hard_reset_deps["preserve_dual_glitch"] = false
+	runtime.reset_round(hard_reset_deps)
+	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "idle", "explicit hard reset should still clear Dual Glitch")
 
 
 func _test_startup_cancel_and_four_poisons_super_armor() -> void:

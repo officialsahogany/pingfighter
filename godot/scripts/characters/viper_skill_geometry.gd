@@ -662,6 +662,13 @@ static func clamp_player_pos(pos: Vector2, play_left: float, play_right: float, 
 	return Vector2(clamp(pos.x, min_x, max_x), pos.y)
 
 
+static func locked_startup_player_pos(player_pos: Vector2, locked_x_valid: bool, locked_x: float, config: Dictionary) -> Vector2:
+	if not locked_x_valid:
+		return player_pos
+	var play_left: float = float(config.get("play_left", 0.0))
+	return Vector2(clamp(locked_x, play_left, max(play_left, float(config.get("play_right", 760.0)) - get_paddle_size(config).x)), player_pos.y)
+
+
 static func core_flip_velocity_to_target(
 	speed: float,
 	kick_dir: int,

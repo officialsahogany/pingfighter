@@ -3,6 +3,7 @@ extends SceneTree
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const BattlePerfProcessNodeReporter := preload("res://scripts/core/battle_perf_process_node_reporter.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
 const Stage2BossActorRenderer := preload("res://scripts/stages/stage2/stage2_boss_actor_renderer.gd")
@@ -174,6 +175,10 @@ func _test_emp_audio_does_not_fall_back_to_kicks() -> void:
 
 
 func _test_emp_fx_host_remaster_stack() -> void:
+	var host_source: String = FileAccess.get_file_as_string("res://scripts/characters/viper_emp_strike_fx_host.gd")
+	_expect(host_source.find("static func prewarm_assets_step()") >= 0, "EMP FX host should expose staged asset prewarm")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/viper_skill_runtime.gd")
+	_expect(runtime_source.find("EmpStrikeFxHost.prewarm_assets_step()") >= 0, "Viper skill runtime staged prewarm should advance EMP assets through the step API")
 	ViperEmpStrikeFxHost.prewarm_assets()
 	var host := ViperEmpStrikeFxHost.new()
 	_expect(host.has_method("prewarm_runtime_nodes"), "EMP FX host should expose runtime node prewarm")
@@ -181,7 +186,9 @@ func _test_emp_fx_host_remaster_stack() -> void:
 	var warm_debug: Dictionary = host.get_debug_status()
 	_expect(bool(warm_debug.get("texture_pieces_ready", false)), "EMP runtime node prewarm should keep reusable texture pieces ready")
 	_expect(not bool(warm_debug.get("active", true)), "EMP runtime node prewarm should leave the hidden host inactive")
+	_expect(int(warm_debug.get("process_mode", Node.PROCESS_MODE_INHERIT)) == Node.PROCESS_MODE_DISABLED, "EMP runtime node prewarm should disable the hidden host process subtree")
 	root.add_child(host)
+	_expect(not _process_report_mentions_emp_host(host), "prewarmed inactive EMP FX host should not register a process callback in BattlePerf scan")
 	host.sync_state({
 		"render_scale": 1.0,
 		"phase": 2,
@@ -207,6 +214,8 @@ func _test_emp_fx_host_remaster_stack() -> void:
 	_expect(int(debug.get("gpu_particle_layers", 0)) >= 4, "EMP FX host should provide GPU particle layers")
 	_expect(bool(debug.get("texture_pieces_ready", false)), "EMP FX host should prewarm reusable texture pieces")
 	_expect(not bool(debug.get("processing", true)), "EMP FX host should be draw-sync driven without an outside-shell process callback")
+	_expect(int(debug.get("process_mode", Node.PROCESS_MODE_DISABLED)) == Node.PROCESS_MODE_INHERIT, "active EMP FX host should re-enable its child process subtree for particles and tweens")
+	_expect(not _process_report_mentions_emp_host(host), "active EMP FX host should stay out of BattlePerf process callback scans")
 	host.tear_down(true)
 
 
@@ -238,10 +247,13 @@ func _test_emp_fx_host_reset_hides_detached_runtime() -> void:
 	var active_debug: Dictionary = host.get_debug_status()
 	_expect(bool(active_debug.get("active", false)), "EMP FX host should be active before reset")
 	_expect(not bool(active_debug.get("processing", true)), "active EMP FX host should not register a script process callback")
+	_expect(not _process_report_mentions_emp_host(host), "active EMP FX host should not appear in BattlePerf process callback scans")
 	runtime.reset_round()
 	var reset_debug: Dictionary = host.get_debug_status()
 	_expect(not bool(reset_debug.get("active", true)), "round reset should hide the detached EMP FX host")
 	_expect(not bool(reset_debug.get("processing", true)), "round reset should keep the EMP FX host out of process callbacks")
+	_expect(int(reset_debug.get("process_mode", Node.PROCESS_MODE_INHERIT)) == Node.PROCESS_MODE_DISABLED, "round reset should disable the hidden EMP FX host process subtree")
+	_expect(not _process_report_mentions_emp_host(host), "round reset should remove the EMP FX host from BattlePerf process callback scans")
 	_expect(not bool(reset_debug.get("charge_emitting", true)), "round reset should stop EMP charge particles")
 	_expect(not bool(reset_debug.get("jet_emitting", true)), "round reset should stop EMP jet particles")
 	_expect(not bool(reset_debug.get("shockwave_emitting", true)), "round reset should stop EMP shockwave particles")
@@ -466,6 +478,11 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	push_error(message)
 	quit(1)
+
+
+func _process_report_mentions_emp_host(host: Node) -> bool:
+	var report: String = BattlePerfProcessNodeReporter.new().build(host)
+	return report.find("ViperEmpStrikeFxHost<viper_emp_strike_fx_host.gd>") >= 0
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
