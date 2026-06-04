@@ -175,13 +175,18 @@ static func get_stage3_boss_result_draw_rect(view_size: Vector2, draw_scale: flo
 	return Rect2(position, draw_size)
 
 
-static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float) -> Dictionary:
+static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float, header_reserve: float = -1.0) -> Dictionary:
+	# header_reserve = vertical space taken by a top label row before the cards.
+	# Default (-1) preserves the legacy top-header section (42px); the left-label
+	# band stack passes a small value so the card can use the full band height.
+	if header_reserve < 0.0:
+		header_reserve = 42.0 * ui_scale
 	var gap: float = 16.0 * ui_scale
 	var card_scale: float = ui_scale
 	var card_size := Vector2(148.0, 112.0) * card_scale
 	var columns: int = get_reward_section_columns(rect.size.x, card_size.x, gap, 4)
 	var rows: int = int(ceil(float(max(1, reward_count)) / float(columns)))
-	var available_height: float = max(1.0, rect.size.y - 42.0 * ui_scale)
+	var available_height: float = max(1.0, rect.size.y - header_reserve)
 	var required_height: float = float(rows) * card_size.y + float(max(0, rows - 1)) * gap
 	if required_height > available_height:
 		var fitted_height: float = max(64.0 * ui_scale, (available_height - float(max(0, rows - 1)) * gap) / float(rows))
@@ -201,6 +206,58 @@ static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_s
 		"cards_top": 38.0 * ui_scale,
 		"available_height": available_height,
 		"required_height": required_height,
+	}
+
+
+# Layout for the stacked reward bands (one per category: perks / active /
+# passive / mythic). Each band is a left label column plus a single card row,
+# so dropping the per-band top header lets the cards use the full band height
+# and read much larger than an equal-split top-header grid. Every band shares
+# one uniform card size (sized for the busiest band) for cross-band consistency.
+static func calculate_reward_band_stack_layout(item_counts: Array, rect: Rect2, ui_scale: float) -> Dictionary:
+	var count: int = item_counts.size()
+	var label_col_w: float = 240.0 * ui_scale
+	var band_gap: float = 10.0 * ui_scale
+	var band_vpad: float = 8.0 * ui_scale
+	var max_band_h: float = 156.0 * ui_scale
+	var card_area_w: float = max(1.0, rect.size.x - label_col_w - 8.0 * ui_scale)
+	if count <= 0:
+		return {
+			"count": 0,
+			"label_col_w": label_col_w,
+			"band_gap": band_gap,
+			"band_height": 0.0,
+			"card_size": Vector2.ZERO,
+			"card_scale": ui_scale,
+			"card_gap": 16.0 * ui_scale,
+			"columns": 1,
+			"card_area_x": rect.position.x + label_col_w,
+			"card_area_width": card_area_w,
+			"start_y": rect.position.y,
+			"max_items": 0,
+		}
+	var max_items: int = 1
+	for count_value in item_counts:
+		max_items = max(max_items, int(count_value))
+	var band_h: float = (rect.size.y - band_gap * float(max(0, count - 1))) / float(count)
+	band_h = clamp(band_h, 64.0 * ui_scale, max_band_h)
+	var card_area_rect := Rect2(Vector2.ZERO, Vector2(card_area_w, band_h))
+	var section_layout: Dictionary = calculate_reward_section_layout(max_items, card_area_rect, ui_scale, band_vpad)
+	var total_h: float = band_h * float(count) + band_gap * float(max(0, count - 1))
+	var start_y: float = rect.position.y + max(0.0, (rect.size.y - total_h) * 0.5)
+	return {
+		"count": count,
+		"label_col_w": label_col_w,
+		"band_gap": band_gap,
+		"band_height": band_h,
+		"card_size": section_layout.get("card_size", Vector2(148.0, 112.0) * ui_scale),
+		"card_scale": float(section_layout.get("card_scale", ui_scale)),
+		"card_gap": float(section_layout.get("gap", 16.0 * ui_scale)),
+		"columns": max(1, int(section_layout.get("columns", max_items))),
+		"card_area_x": rect.position.x + label_col_w,
+		"card_area_width": card_area_w,
+		"start_y": start_y,
+		"max_items": max_items,
 	}
 
 

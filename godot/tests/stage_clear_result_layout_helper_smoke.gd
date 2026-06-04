@@ -130,6 +130,32 @@ func _verify_reward_section_layout() -> void:
 		"reward column calculation should preserve the fitted base count"
 	)
 
+	# header_reserve = 0 lets the card use the whole band height (left-label bands).
+	var no_header_layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(
+		1, Rect2(Vector2.ZERO, Vector2(760.0, 112.0)), 1.0, 0.0
+	)
+	var default_header_layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(
+		1, Rect2(Vector2.ZERO, Vector2(760.0, 112.0)), 1.0
+	)
+	_expect(
+		float(no_header_layout.get("card_scale", 0.0)) > float(default_header_layout.get("card_scale", 0.0)),
+		"dropping the header reserve should let the card grow taller in the same rect"
+	)
+
+	# Four stacked bands in the result body keep one uniform, readable card size.
+	var body_rect := Rect2(Vector2(34.0, 188.0), Vector2(1032.0, 438.0))
+	var stack: Dictionary = StageClearResultLayoutHelper.calculate_reward_band_stack_layout([2, 1, 1, 1], body_rect, 1.0)
+	_expect(int(stack.get("count", 0)) == 4, "band stack should expose one band per non-empty category")
+	var stack_card: Vector2 = stack.get("card_size", Vector2.ZERO)
+	_expect(stack_card.y >= 80.0, "four stacked bands should still leave the cards larger than the old top-header grid (~63px)")
+	_expect(stack_card.y <= 112.0 + 0.5, "stacked card height should never exceed the full base card size")
+	var total_band_span: float = float(stack.get("band_height", 0.0)) * 4.0 + float(stack.get("band_gap", 0.0)) * 3.0
+	_expect(total_band_span <= body_rect.size.y + 0.5, "four bands plus gaps must fit inside the result body")
+	# A single category keeps full-size cards rather than ballooning.
+	var single_stack: Dictionary = StageClearResultLayoutHelper.calculate_reward_band_stack_layout([1], body_rect, 1.0)
+	_expect(Vector2(single_stack.get("card_size", Vector2.ZERO)).y <= 112.0 + 0.5, "single-band card should stay at the full base size, not oversize")
+	_expect(StageClearResultLayoutHelper.calculate_reward_band_stack_layout([], body_rect, 1.0).get("count", -1) == 0, "empty stack should report zero bands")
+
 
 func _verify_source_rects() -> void:
 	var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(15, 4, Vector2(256.0, 256.0))
@@ -185,7 +211,7 @@ func _verify_scene_wrappers() -> void:
 	)
 	_expect(
 		source.find("StageClearResultLayoutHelper.get_scroll_content_rect") >= 0
-		and source.find("StageClearResultLayoutHelper.calculate_reward_section_layout") >= 0
+		and source.find("StageClearResultLayoutHelper.calculate_reward_band_stack_layout") >= 0
 		and source.find("StageClearResultLayoutHelper.sheet_source_rect") >= 0
 		and source.find("StageClearResultLayoutHelper.cover_source_rect") >= 0,
 		"stage-clear result scene should call residual layout helpers directly"
