@@ -151,6 +151,18 @@ func _init() -> void:
 	_expect(bool(controller_cache_status.get("passive_mythic_ready", false)), "field spawn controller prewarm should prepare passive/mythic templates")
 	_expect(int(controller_cache_status.get("active_count", 0)) > 0, "field spawn controller prewarm should cache active item templates")
 	_expect(int(controller_cache_status.get("passive_mythic_count", 0)) > 0, "field spawn controller prewarm should cache passive/mythic item templates")
+	var staged_controller_prewarm := ActiveItemFieldSpawnController.new()
+	_expect(
+		not bool(staged_controller_prewarm.prewarm_spawn_candidate_templates_step()),
+		"first staged field-spawn prewarm call should not build every item template"
+	)
+	var staged_guard := 0
+	while not bool(staged_controller_prewarm.prewarm_spawn_candidate_templates_step()) and staged_guard < 160:
+		staged_guard += 1
+	_expect(staged_guard < 160, "staged field-spawn prewarm should complete within a bounded number of steps")
+	var staged_controller_cache_status: Dictionary = staged_controller_prewarm.get_spawn_candidate_cache_status()
+	_expect(bool(staged_controller_cache_status.get("active_ready", false)), "staged field-spawn prewarm should prepare active item templates")
+	_expect(bool(staged_controller_cache_status.get("passive_mythic_ready", false)), "staged field-spawn prewarm should prepare passive/mythic templates")
 	_expect(
 		field_spawn_controller.debug_spawn_item("dowsing_pendulum"),
 		"field spawn controller should debug-spawn passive items by name"

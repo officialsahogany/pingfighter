@@ -1,5 +1,8 @@
 extends RefCounted
 
+const ElectricStunVisual := preload("res://scripts/status/boss_electric_stun_visual.gd")
+const ElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
+
 const SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_idle_sheet_imagegen_v1.png"
 const SHEET_COLS := 4
 const SHEET_ROWS := 2
@@ -49,11 +52,13 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var red: float = clampf(float(context.get("stage4_moon_red_intensity", 0.0)), 0.0, 1.0)
 	var bob: float = sin(float(Time.get_ticks_msec()) * 0.0038) * (4.0 if meditation_active else 2.2)
 	center.y += bob
+	center += ElectricStunVisual.body_jitter(context)
+	ElectrocutionFieldHost.drive_from_context(canvas, center, context)
 	_draw_shadow(canvas, center + Vector2(0.0, 46.0), 58.0 + abs(bob) * 2.0)
 	_draw_chi_orbit(canvas, center, red, meditation_active)
 	var has_sprite_sheet := _sheet != null and _cell_size_px != Vector2.ZERO
 	if has_sprite_sheet:
-		_draw_body_sheet(canvas, center, hit_active, red)
+		_draw_body_sheet(canvas, center, hit_active, red, ElectricStunVisual.body_modulate(context))
 	else:
 		_draw_robes_fallback(canvas, center, hit_active, red)
 		_draw_head_fallback(canvas, center, hit_active, red)
@@ -92,7 +97,7 @@ func _draw_chi_orbit(canvas: CanvasItem, center: Vector2, red: float, meditation
 		canvas.draw_circle(orb_pos, 2.2, Color(1.0, 0.92, 0.55, 0.80))
 
 
-func _draw_body_sheet(canvas: CanvasItem, center: Vector2, hit_active: bool, red: float) -> void:
+func _draw_body_sheet(canvas: CanvasItem, center: Vector2, hit_active: bool, red: float, electric_modulate: Color = Color.WHITE) -> void:
 	@warning_ignore("integer_division")
 	var frame_idx := int(Time.get_ticks_msec() / FRAME_DURATION_MS) % FRAME_COUNT
 	var col := frame_idx % SHEET_COLS
@@ -111,7 +116,7 @@ func _draw_body_sheet(canvas: CanvasItem, center: Vector2, hit_active: bool, red
 	if hit_active or red > 0.5:
 		var tint: float = 1.0 if hit_active else red
 		modulate = Color(1.0, 1.0 - 0.35 * tint, 1.0 - 0.45 * tint, 1.0)
-	canvas.draw_texture_rect_region(_sheet, dest_rect, src_rect, modulate)
+	canvas.draw_texture_rect_region(_sheet, dest_rect, src_rect, modulate * electric_modulate)
 
 
 func _draw_paddle(canvas: CanvasItem, boss_pos: Vector2, boss_size: Vector2, shake_offset: Vector2, red: float) -> void:

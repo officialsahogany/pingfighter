@@ -107,7 +107,7 @@ func apply_boss_hit(
 
 	runtime.ragnarok_stun_ball_active = false
 	runtime.ragnarok_stun_attempted_this_rally = false
-	var next_ball_vel: Vector2 = soften_counter_ball(runtime, ball_vel)
+	var next_ball_vel: Vector2 = soften_counter_ball(runtime, ball_vel, context, constants)
 	if runtime.stage_immunity.is_stage2_speed_defense_context_immune(runtime, context, deps):
 		return {
 			"ball_vel": next_ball_vel,
@@ -220,25 +220,96 @@ func clear_rally_state(runtime: Object) -> void:
 	runtime.ragnarok_ball_started_msec = -1000000
 
 
-func soften_counter_ball(runtime: Object, ball_vel: Vector2) -> Vector2:
+func soften_counter_ball(
+	runtime: Object,
+	ball_vel: Vector2,
+	context: Dictionary,
+	constants: Dictionary
+) -> Vector2:
 	var speed: float = ball_vel.length()
 	if speed <= 0.01:
 		return ball_vel
-	var anchor_speed: float = max(runtime.ragnarok_original_speed, runtime.ragnarok_first_shot_speed * 0.80)
-	if anchor_speed <= 0.01:
-		anchor_speed = speed * 0.82
-	var target_speed: float = max(7.0, anchor_speed)
-	var next_ball_vel: Vector2 = ball_vel
-	if speed > target_speed:
-		next_ball_vel = next_ball_vel.normalized() * target_speed
-	var next_speed: float = next_ball_vel.length()
-	if next_speed > 0.01:
-		next_ball_vel.x = clamp(next_ball_vel.x, -next_speed * 0.55, next_speed * 0.55)
-		next_ball_vel.y = min(next_ball_vel.y, next_speed * 0.85)
-		if next_ball_vel.length() > target_speed:
-			next_ball_vel = next_ball_vel.normalized() * target_speed
+	var reference_speed: float = max(runtime.ragnarok_original_speed, runtime.ragnarok_first_shot_speed)
+	if reference_speed <= 0.01:
+		reference_speed = speed
+	var retention: float = clampf(float(constants.get("counter_speed_retention", 0.58)), 0.05, 1.0)
+	var min_speed: float = max(0.0, float(constants.get("counter_min_speed", 7.0)))
+	var max_speed: float = max(min_speed, float(constants.get("counter_max_speed", 20.0)))
+	var target_speed: float = clampf(reference_speed * retention, min_speed, max_speed)
+	target_speed = minf(speed, target_speed)
+	var next_ball_vel: Vector2 = ball_vel.normalized() * target_speed
+	next_ball_vel = shape_counter_ball_toward_player(runtime, next_ball_vel, context, constants)
 	clear_rally_state(runtime)
 	return next_ball_vel
+
+
+func shape_counter_ball_toward_player(
+	runtime: Object,
+	ball_vel: Vector2,
+	context: Dictionary,
+	constants: Dictionary
+) -> Vector2:
+	var speed: float = ball_vel.length()
+	if speed <= 0.01:
+		return ball_vel
+	var max_x_ratio: float = clampf(
+		float(constants.get("counter_max_horizontal_ratio", 0.42)),
+		0.0,
+		0.95
+	)
+	var player_direction: Vector2 = get_counter_player_direction(runtime, context, max_x_ratio)
+	if player_direction != Vector2.ZERO:
+		return player_direction * speed
+	var min_y_ratio: float = clampf(
+		float(constants.get("counter_min_downward_ratio", 0.82)),
+		0.05,
+		1.0
+	)
+	var shaped_direction := Vector2(
+		clampf(ball_vel.x / speed, -max_x_ratio, max_x_ratio),
+		maxf(abs(ball_vel.y) / speed, min_y_ratio)
+	)
+	if shaped_direction.length() <= 0.01:
+		shaped_direction = Vector2.DOWN
+	return shaped_direction.normalized() * speed
+
+
+func get_counter_player_direction(runtime: Object, context: Dictionary, max_x_ratio: float) -> Vector2:
+	if not context.has("player_pos"):
+		return Vector2.ZERO
+	var player_pos: Vector2 = runtime._get_vector2(context.get("player_pos", Vector2.ZERO))
+	var player_size: Vector2 = runtime._get_vector2(
+		context.get(
+			"player_paddle_size",
+			Vector2(
+				float(context.get("paddle_width", 155.0)),
+				float(context.get("paddle_height", 50.0))
+			)
+		)
+	)
+	if player_size == Vector2.ZERO:
+		player_size = Vector2(
+			float(context.get("paddle_width", 155.0)),
+			float(context.get("paddle_height", 50.0))
+		)
+	if player_size.x <= 0.0 or player_size.y <= 0.0:
+		return Vector2.ZERO
+	var source_pos: Vector2 = runtime._get_vector2(context.get("ball_pos", Vector2.ZERO))
+	if source_pos == Vector2.ZERO:
+		var boss_pos: Vector2 = runtime._get_vector2(context.get("boss_pos", Vector2.ZERO))
+		var boss_size: Vector2 = runtime._get_vector2(context.get("boss_paddle_size", Vector2(100.0, 40.0)))
+		if boss_size == Vector2.ZERO:
+			boss_size = Vector2(
+				float(context.get("boss_paddle_width", 100.0)),
+				float(context.get("boss_hitbox_height", 40.0))
+			)
+		source_pos = boss_pos + boss_size * 0.5
+	var player_center: Vector2 = player_pos + player_size * 0.5
+	var vertical_distance: float = maxf(1.0, player_center.y - source_pos.y)
+	if vertical_distance <= 1.0:
+		return Vector2.ZERO
+	var x_ratio: float = clampf((player_center.x - source_pos.x) / vertical_distance, -max_x_ratio, max_x_ratio)
+	return Vector2(x_ratio, 1.0).normalized()
 
 
 func compute_knockback_power(ball_speed: float, constants: Dictionary) -> float:

@@ -35,6 +35,20 @@ const ARC_LENGTH := 720.0
 const ARC_THICKNESS := 96.0
 const PROCEDURAL_TEXTURE_PREWARM_ROWS_PER_STEP := 48
 
+# --- Impact "punch" (타격감) tuning -------------------------------------------
+# These drive the original-style hit feel: accelerating buildup pre-shocks, a
+# sharp white flash + screen shake at ignite, a chroma split tied to the shake,
+# and a paddle-slam burst with cross light rays. The cinematic already runs
+# while the game is paused, so the "hitstop" beat is expressed through a held
+# bright flash + held shake envelope rather than freezing the phase timeline
+# (the locked phase-lifecycle smoke test depends on the timeline staying intact).
+const SHAKE_MAX_OFFSET := 30.0
+const SHAKE_DECAY := 3.2
+const EXTRA_FLASH_DECAY := 4.5
+const WHITE_OUT_DECAY := 3.0
+const BUILDUP_TICK_TIMES: Array[float] = [0.40, 0.66, 0.86, 1.02, 1.13]
+const BEAM_GOLDEN_ANGLE := 2.39996323
+
 var active := false
 var phase := PHASE_BUILDUP
 var phase_timer := 0.0
@@ -82,6 +96,13 @@ var _white_flash_texture: Texture2D = null
 var _vignette_alpha := 0.0
 var _vignette_texture: Texture2D = null
 var _paddle_glow_intensity := 0.0
+var _shake_trauma := 0.0
+var _shake_offset := Vector2.ZERO
+var _extra_flash := 0.0
+var _white_out_alpha := 0.0
+var _buildup_tick_index := 0
+var _light_beams: Array = []
+var _beam_angle_cursor := 0.0
 
 static var _assets_prewarmed := false
 static var _prewarm_assets_step_index := 0
@@ -330,8 +351,8 @@ func _build_ambient_particles() -> GPUParticles2D:
 
 func _build_burst_particles() -> GPUParticles2D:
 	var gp := GPUParticles2D.new()
-	gp.amount = 120
-	gp.lifetime = 0.62
+	gp.amount = 200
+	gp.lifetime = 0.7
 	gp.one_shot = true
 	gp.explosiveness = 1.0
 	gp.randomness = 0.4
@@ -342,12 +363,12 @@ func _build_burst_particles() -> GPUParticles2D:
 	pm.direction = Vector3(0.0, 0.0, 0.0)
 	pm.spread = 180.0
 	pm.gravity = Vector3(0.0, 80.0, 0.0)
-	pm.initial_velocity_min = 280.0
-	pm.initial_velocity_max = 520.0
-	pm.damping_min = 80.0
-	pm.damping_max = 180.0
-	pm.scale_min = 0.016
-	pm.scale_max = 0.040
+	pm.initial_velocity_min = 360.0
+	pm.initial_velocity_max = 680.0
+	pm.damping_min = 90.0
+	pm.damping_max = 190.0
+	pm.scale_min = 0.018
+	pm.scale_max = 0.048
 	pm.angle_min = 0.0
 	pm.angle_max = 360.0
 	pm.angular_velocity_min = -240.0
@@ -668,6 +689,13 @@ func trigger(acquired_item_data: Dictionary, pickup_position: Vector2, target_pl
 	_icon_scale = 0.0
 	_icon_float_offset = 0.0
 	_paddle_glow_intensity = 0.0
+	_shake_trauma = 0.0
+	_shake_offset = Vector2.ZERO
+	_extra_flash = 0.0
+	_white_out_alpha = 0.0
+	_buildup_tick_index = 0
+	_light_beams.clear()
+	_beam_angle_cursor = rng.randf() * TAU
 	_white_flash_alpha = 0.0
 	_vignette_alpha = 1.0
 	position = Vector2.ZERO
@@ -710,6 +738,13 @@ func reset(registry: Object = null) -> void:
 	_icon_alpha = 0.0
 	_icon_scale = 0.0
 	_paddle_glow_intensity = 0.0
+	_shake_trauma = 0.0
+	_shake_offset = Vector2.ZERO
+	_extra_flash = 0.0
+	_white_out_alpha = 0.0
+	_buildup_tick_index = 0
+	_light_beams.clear()
+	_beam_angle_cursor = 0.0
 	_white_flash_alpha = 0.0
 	_vignette_alpha = 0.0
 	position = Vector2.ZERO
@@ -762,6 +797,10 @@ func update(delta: float, registry: Object = null) -> void:
 	elapsed += dt
 	phase_timer += dt
 	_update_legend_after_stop(dt, registry)
+	_update_shake(dt)
+	_update_light_beams(dt)
+	_extra_flash = max(0.0, _extra_flash - dt * EXTRA_FLASH_DECAY)
+	_white_out_alpha = max(0.0, _white_out_alpha - dt * WHITE_OUT_DECAY)
 
 	match phase:
 		PHASE_BUILDUP:
@@ -798,18 +837,26 @@ func draw(_canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	# stacks on top.
 	if not active:
 		return
+	var total_shake: Vector2 = shake_offset + _shake_offset
 	var viewport: Viewport = get_viewport()
 	if viewport != null:
 		var vp_size: Vector2 = viewport.get_visible_rect().size
 		if vp_size.x > 0.0 and vp_size.y > 0.0:
-			set_global_position((vp_size - Vector2(FIELD_WIDTH, FIELD_HEIGHT)) * 0.5 + shake_offset)
+			set_global_position((vp_size - Vector2(FIELD_WIDTH, FIELD_HEIGHT)) * 0.5 + total_shake)
 			return
-	position = shake_offset
+	position = total_shake
 
 
 func _draw() -> void:
 	if not active:
 		return
+	# Overscan the full-screen overlays by the shake amplitude so the screen
+	# shake never reveals an un-darkened / un-flashed sliver at a screen edge.
+	var overscan: float = SHAKE_MAX_OFFSET + 8.0
+	var overlay_rect := Rect2(
+		Vector2(-overscan, -overscan),
+		Vector2(FIELD_WIDTH + overscan * 2.0, FIELD_HEIGHT + overscan * 2.0)
+	)
 	# Soft vignette behind everything. A hard rect reads as a visible box once
 	# this detached host is centered in viewport space.
 	if _vignette_alpha > 0.001:
@@ -817,10 +864,14 @@ func _draw() -> void:
 			_vignette_texture = _build_soft_vignette_texture()
 		draw_texture_rect(
 			_vignette_texture,
-			Rect2(Vector2.ZERO, Vector2(FIELD_WIDTH, FIELD_HEIGHT)),
+			overlay_rect,
 			false,
 			Color(1.0, 1.0, 1.0, clamp(_vignette_alpha, 0.0, 1.0))
 		)
+	# Buildup light-leak beams — sharp strands that shoot out one at a time during
+	# the rising tension. Drawn over the dim vignette but behind the central glow
+	# so they read as light leaking out from the core.
+	_draw_light_beams()
 	# Soft white flash overlay. A field-sized draw_rect leaves a visible square
 	# during the brightest phase.
 	if _white_flash_alpha > 0.001:
@@ -828,18 +879,87 @@ func _draw() -> void:
 			_white_flash_texture = _build_soft_white_flash_texture()
 		draw_texture_rect(
 			_white_flash_texture,
-			Rect2(Vector2.ZERO, Vector2(FIELD_WIDTH, FIELD_HEIGHT)),
+			overlay_rect,
 			false,
 			Color(1.0, 1.0, 1.0, clamp(_white_flash_alpha, 0.0, 1.0))
 		)
-	# Paddle glow halo (additive feel via warm color over the dim vignette)
+	# Full-screen flat white-out punch. This cinematic is the topmost layer
+	# (z_index 100, top_level, and the project uses no CanvasLayers), so a huge
+	# rect centered on the field center blankets the ENTIRE monitor — beyond the
+	# central game canvas into the pillar / letterbox margins. The viewport clips
+	# the overdraw, so the oversize is free.
+	if _white_out_alpha > 0.001:
+		var white_out_reach: float = 5000.0
+		var white_out_rect := Rect2(
+			Vector2(FIELD_WIDTH * 0.5 - white_out_reach, FIELD_HEIGHT * 0.5 - white_out_reach),
+			Vector2(white_out_reach * 2.0, white_out_reach * 2.0)
+		)
+		draw_rect(white_out_rect, Color(1.0, 1.0, 1.0, clamp(_white_out_alpha, 0.0, 1.0)), true)
+	# Paddle glow halo + slam cross-rays (additive feel via warm color over the
+	# dim vignette). The cross rays sell the paddle "slam" impact landing.
 	if _paddle_glow_intensity > 0.001:
-		var pulse: float = 1.0 + (1.0 - _paddle_glow_intensity) * 0.6
+		var glow_i: float = clamp(_paddle_glow_intensity, 0.0, 1.0)
+		var pulse: float = 1.0 + (1.0 - glow_i) * 0.6
 		var radius: float = 90.0 * pulse
-		var glow_color := Color(1.0, 0.85, 0.4, _paddle_glow_intensity * 0.55)
+		var glow_color := Color(1.0, 0.85, 0.4, glow_i * 0.55)
 		draw_circle(player_center, radius, glow_color)
-		draw_circle(player_center, radius * 0.6, Color(1.0, 1.0, 0.92, _paddle_glow_intensity * 0.35))
-		draw_circle(player_center, radius * 0.3, Color(1.0, 1.0, 1.0, _paddle_glow_intensity * 0.5))
+		draw_circle(player_center, radius * 0.6, Color(1.0, 1.0, 0.92, glow_i * 0.35))
+		draw_circle(player_center, radius * 0.3, Color(1.0, 1.0, 1.0, glow_i * 0.5))
+		_draw_paddle_slam_rays(player_center, glow_i)
+
+
+func _draw_paddle_slam_rays(center: Vector2, intensity: float) -> void:
+	var reach: float = 250.0 * (0.45 + intensity * 0.85)
+	var warm := Color(1.0, 0.92, 0.6, intensity * 0.5)
+	var core := Color(1.0, 1.0, 0.95, intensity * 0.85)
+	# Horizontal beam (widest), with a bright thin core for an additive look.
+	var h := Vector2(reach, 0.0)
+	draw_line(center - h, center + h, warm, 9.0)
+	draw_line(center - h, center + h, core, 2.5)
+	# Vertical beam — shorter downward since the paddle hugs the bottom.
+	var v_up := Vector2(0.0, reach * 0.62)
+	var v_dn := Vector2(0.0, reach * 0.26)
+	draw_line(center - v_up, center + v_dn, warm, 7.0)
+	draw_line(center - v_up, center + v_dn, core, 2.0)
+	# Diagonal X beams.
+	var diag: float = reach * 0.6 * 0.7071
+	var d1 := Vector2(diag, diag)
+	var d2 := Vector2(diag, -diag)
+	draw_line(center - d1, center + d1, warm, 4.5)
+	draw_line(center - d2, center + d2, warm, 4.5)
+
+
+func _draw_light_beams() -> void:
+	if _light_beams.is_empty():
+		return
+	var center := Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
+	for beam in _light_beams:
+		var age: float = float(beam.get("age", 0.0))
+		var life: float = float(beam.get("life", 0.5))
+		if life <= 0.0:
+			continue
+		var ext: float = clamp(age / max(0.01, float(beam.get("extend_time", 0.12))), 0.0, 1.0)
+		var ext_eased: float = 1.0 - pow(1.0 - ext, 3.0)
+		var head: float = float(beam.get("max_len", 600.0)) * ext_eased
+		var inner: float = 16.0
+		if head <= inner:
+			continue
+		var ang: float = float(beam.get("angle", 0.0))
+		var dir := Vector2(cos(ang), sin(ang))
+		var p0 := center + dir * inner
+		var p1 := center + dir * head
+		var fade_in: float = clamp(age / 0.07, 0.0, 1.0)
+		var fade_out: float = clamp((life - age) / max(0.01, life * 0.5), 0.0, 1.0)
+		var alpha: float = fade_in * fade_out
+		if alpha <= 0.001:
+			continue
+		var base_col: Color = beam.get("color", Color(1.0, 0.85, 0.45))
+		var w: float = float(beam.get("width", 4.0))
+		# Soft warm glow line + bright thin core + a hot head point to sell the
+		# "streak shooting out" read.
+		draw_line(p0, p1, Color(base_col.r, base_col.g, base_col.b, alpha * 0.45), w)
+		draw_line(p0, p1, Color(1.0, 1.0, 0.96, alpha * 0.9), max(1.5, w * 0.32))
+		draw_circle(p1, clamp(w * 0.6, 2.0, 14.0), Color(1.0, 1.0, 0.95, alpha * 0.85))
 
 
 func get_snapshot() -> Dictionary:
@@ -855,6 +975,7 @@ func get_snapshot() -> Dictionary:
 		"absorb_started": absorb_started,
 		"icon_alpha": _icon_alpha,
 		"backplate_intensity": _backplate_intensity,
+		"shake_trauma": _shake_trauma,
 	}
 
 
@@ -869,6 +990,9 @@ func _set_phase(next_phase: String) -> void:
 
 func _start_ignite(registry: Object) -> void:
 	_set_phase(PHASE_IGNITE)
+	_add_shake(1.0)
+	_white_out_alpha = 1.0
+	_light_beams.clear()
 	if _burst_particles != null:
 		_burst_particles.restart()
 		_burst_particles.emitting = true
@@ -881,6 +1005,7 @@ func _start_absorb(registry: Object) -> void:
 		return
 	absorb_started = true
 	_set_phase(PHASE_ABSORB)
+	_add_shake(0.35)
 	if legend_after_played:
 		legend_after_stop_timer = LEGEND_AFTER_STOP_DELAY
 	if _absorb_particles != null:
@@ -891,6 +1016,7 @@ func _start_absorb(registry: Object) -> void:
 
 func _start_impact(_registry: Object) -> void:
 	_set_phase(PHASE_IMPACT)
+	_add_shake(0.72)
 	if _ambient_particles != null:
 		_ambient_particles.emitting = false
 	if _absorb_particles != null:
@@ -898,36 +1024,104 @@ func _start_impact(_registry: Object) -> void:
 	_paddle_glow_intensity = 1.0
 
 
+func _add_shake(amount: float) -> void:
+	_shake_trauma = clamp(_shake_trauma + amount, 0.0, 1.0)
+
+
+func _update_shake(dt: float) -> void:
+	if _shake_trauma <= 0.0:
+		_shake_offset = Vector2.ZERO
+		return
+	_shake_trauma = max(0.0, _shake_trauma - dt * SHAKE_DECAY)
+	# Trauma^2 falloff so the shake hits hard, then drops away cleanly.
+	var power: float = _shake_trauma * _shake_trauma
+	var mag: float = power * SHAKE_MAX_OFFSET
+	_shake_offset = Vector2(
+		rng.randf_range(-1.0, 1.0) * mag,
+		rng.randf_range(-1.0, 1.0) * mag
+	)
+
+
+func _spawn_buildup_beam(idx: int) -> void:
+	# Light strands "leak out" from the center per buildup tick, escalating in
+	# count + thickness as the tension rises. Widths are randomized wide and the
+	# lengths overshoot the central glow so a tick momentarily sweeps the whole
+	# screen (the original chest-crack beat the player loved).
+	var count: int = 2 + int(round(float(idx) * 1.6)) + rng.randi_range(0, 2)
+	var palette: Array = [
+		Color(1.0, 0.84, 0.45),
+		Color(1.0, 1.0, 0.95),
+		Color(0.62, 0.66, 1.0),
+	]
+	for _n in range(count):
+		_beam_angle_cursor += BEAM_GOLDEN_ANGLE + rng.randf_range(-0.22, 0.22)
+		_light_beams.append({
+			"angle": _beam_angle_cursor,
+			"age": 0.0,
+			"life": 0.7 + rng.randf() * 0.5,
+			"extend_time": 0.07 + rng.randf() * 0.05,
+			"max_len": 900.0 + rng.randf() * 560.0,
+			"width": (rng.randf_range(14.0, 22.0) + float(idx) * rng.randf_range(3.0, 6.0)) * rng.randf_range(1.2, 1.8),
+			"color": palette[rng.randi() % palette.size()],
+		})
+
+
+func _update_light_beams(dt: float) -> void:
+	if _light_beams.is_empty():
+		return
+	var i: int = _light_beams.size() - 1
+	while i >= 0:
+		var beam: Dictionary = _light_beams[i]
+		beam["age"] = float(beam.get("age", 0.0)) + dt
+		if float(beam["age"]) >= float(beam.get("life", 0.5)):
+			_light_beams.remove_at(i)
+		i -= 1
+
+
 func _update_buildup() -> void:
 	var t: float = clamp(phase_timer / BUILDUP_DURATION, 0.0, 1.0)
 	var eased: float = ease(t, 0.4)
+	# Accelerating pre-shock "cracks": fire escalating shake + flash + backplate
+	# flare blips at the tick times so the buildup reads as rising tension that
+	# is about to burst (the original light-crack beats).
+	while _buildup_tick_index < BUILDUP_TICK_TIMES.size() and phase_timer >= BUILDUP_TICK_TIMES[_buildup_tick_index]:
+		var idx: int = _buildup_tick_index
+		_add_shake(0.14 + float(idx) * 0.06)
+		_extra_flash = max(_extra_flash, 0.26 + float(idx) * 0.11)
+		_spawn_buildup_beam(idx)
+		_buildup_tick_index += 1
 	_backplate_alpha = eased
-	_backplate_intensity = lerp(0.4, 1.0, eased)
-	_backplate_scale = lerp(0.55, 1.0, eased)
+	_backplate_intensity = lerp(0.4, 1.0, eased) + _extra_flash * 1.3
+	_backplate_scale = lerp(0.55, 1.0, eased) + _extra_flash * 0.04
 	_arc_alpha = 0.0
 	_arc_extension = 0.0
 	_icon_backdrop_alpha = 0.0
 	_icon_alpha = 0.0
 	_icon_scale = 0.0
-	_white_flash_alpha = 0.0
+	_white_flash_alpha = _extra_flash
 
 
 func _update_ignite() -> void:
 	var t: float = clamp(phase_timer / IGNITE_DURATION, 0.0, 1.0)
 	var eased: float = ease(t, 0.3)
-	_backplate_intensity = lerp(1.4, 1.1, eased)
+	# Brightness + scale OVERSHOOT punch on the explosion frame, settling fast.
+	var punch: float = ease(t, 0.25)
+	_backplate_intensity = lerp(1.9, 1.1, punch)
 	_backplate_alpha = 1.0
-	_backplate_scale = lerp(1.05, 1.12, eased)
+	_backplate_scale = lerp(1.30, 1.12, punch)
 	_arc_alpha = lerp(1.0, 0.7, eased)
 	_arc_extension = eased
 	_icon_backdrop_alpha = 0.0
-	_white_flash_alpha = 0.0
+	# Sharp white flash that HOLDS near full for the first third of ignite then
+	# falls off — the held bright frame substitutes for a hitstop pause.
+	_white_flash_alpha = max(_extra_flash, clamp((1.0 - t) * 1.5, 0.0, 1.0))
 
 
 func _update_white_fade() -> void:
 	var t: float = clamp(phase_timer / WHITE_FADE_DURATION, 0.0, 1.0)
 	var fade: float = 1.0 - t
-	_white_flash_alpha = 0.85 * fade
+	# Gentle settle glow only — the hard flash already fired during ignite.
+	_white_flash_alpha = 0.4 * fade
 	_backplate_intensity = lerp(1.1, 0.9, t)
 	_backplate_alpha = 1.0
 	_arc_alpha = lerp(0.7, 0.35, t)
@@ -973,6 +1167,8 @@ func _update_absorb() -> void:
 func _update_impact() -> void:
 	var t: float = clamp(phase_timer / IMPACT_DURATION, 0.0, 1.0)
 	_paddle_glow_intensity = (1.0 - t)
+	# Quick white pop on the paddle-slam landing frame.
+	_white_flash_alpha = clamp(1.0 - t * 2.4, 0.0, 1.0) * 0.6
 	_icon_alpha = 0.0
 	_icon_backdrop_alpha = 0.0
 	_backplate_alpha = 0.0
@@ -994,6 +1190,9 @@ func _apply_visual_state() -> void:
 		_backplate_mat.set_shader_parameter("elapsed", elapsed)
 		_backplate_mat.set_shader_parameter("intensity", _backplate_intensity)
 		_backplate_mat.set_shader_parameter("core_dim_strength", _get_backplate_core_dim_strength())
+		# Chroma split scales with shake trauma so the color aberration spikes on
+		# the same frames the screen punches (ignite / paddle slam).
+		_backplate_mat.set_shader_parameter("chroma_strength", clamp(0.003 + _shake_trauma * 0.024, 0.0, 0.03))
 		_backplate.modulate = Color(1.0, 1.0, 1.0, clamp(_backplate_alpha, 0.0, 1.0))
 		var base_unit: float = float(_backplate.get_meta("base_unit", 1.0))
 		var s: float = base_unit * _backplate_scale

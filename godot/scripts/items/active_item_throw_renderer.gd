@@ -97,7 +97,8 @@ func prewarm_assets_step() -> bool:
 			_touch_texture(_get_boomerang_icon_texture())
 			_touch_texture(_get_boomerang_icon_texture(true))
 		6:
-			_spider_mine_renderer.prewarm_assets()
+			if not bool(_spider_mine_renderer.prewarm_assets_step()):
+				return false
 			_sync_spider_mine_texture_aliases()
 		7:
 			_slip_renderer.prewarm_assets()
@@ -408,6 +409,10 @@ func _get_spider_mine_sheet_angle_degrees(mine: Dictionary, state: String) -> fl
 
 func _get_spider_mine_sheet_source_rect(texture: Texture2D, frame_index: int) -> Rect2:
 	return _spider_mine_renderer.get_spider_mine_sheet_source_rect(texture, frame_index)
+
+
+func _get_spider_mine_render_center(center: Vector2, mine: Dictionary, state: String) -> Vector2:
+	return _spider_mine_renderer._get_spider_mine_render_center(center, mine, state)
 
 
 func _sync_spider_mine_texture_aliases() -> void:

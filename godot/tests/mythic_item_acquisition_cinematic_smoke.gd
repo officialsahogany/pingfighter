@@ -115,6 +115,7 @@ func _verify_cinematic_phase_lifecycle() -> void:
 	var ignite_snapshot: Dictionary = runtime.get_acquisition_cinematic_snapshot()
 	_expect(str(ignite_snapshot.get("phase", "")) == "ignite", "build phase should advance into the ignite phase")
 	_expect(audio.calls.has("play_legendary_after"), "ignite follow-up should play the original after cue")
+	_expect(float(ignite_snapshot.get("shake_trauma", 0.0)) > 0.0, "ignite should kick screen-shake trauma for the original-style impact punch")
 
 	runtime.acquisition_cinematic.update(0.41, registry)
 	runtime.acquisition_cinematic.update(0.51, registry)

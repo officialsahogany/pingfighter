@@ -112,8 +112,8 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 	ponk_skill_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage4.ponk_skill", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_boss_cooldown_pause_marker(canvas, context, shake_offset)
-	_perf_end(perf_logger, "actors.stage4.cooldown_pause_marker", sample_start)
+	_draw_boss_status_overlays(canvas, context, shake_offset)
+	_perf_end(perf_logger, "actors.stage4.status_overlays", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	bird_event_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage4.bird_event", sample_start)
@@ -249,18 +249,30 @@ func _draw_player_burn_overlay(canvas: CanvasItem, context: Dictionary, shake_of
 		canvas.draw_colored_polygon(points, Color(1.0, 0.26 + flicker * 0.20, 0.04, alpha * 0.78))
 
 
-func _draw_boss_cooldown_pause_marker(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+func _draw_boss_status_overlays(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
 	if status_overlay_renderer == null:
 		return
 	var boss_pos: Vector2 = _as_vector2(context.get("boss_pos", Vector2(330.0, 25.0)), Vector2(330.0, 25.0))
 	var boss_size: Vector2 = _as_vector2(context.get("boss_paddle_size", Vector2(100.0, 18.0)), Vector2(100.0, 18.0))
 	var boss_hitbox_height: float = float(context.get("boss_hitbox_height", 40.0))
-	status_overlay_renderer.draw_boss_cooldown_pause_marker(
-		canvas,
-		context,
-		boss_pos,
-		boss_size,
-		boss_hitbox_height,
-		shake_offset,
-		{"cooldown_pause_center_y_offset": -30.0}
-	)
+	var options := {"cooldown_pause_center_y_offset": -30.0}
+	if status_overlay_renderer.has_method("draw_boss_status_overlays"):
+		status_overlay_renderer.draw_boss_status_overlays(
+			canvas,
+			context,
+			boss_pos,
+			boss_size,
+			boss_hitbox_height,
+			shake_offset,
+			options
+		)
+	elif status_overlay_renderer.has_method("draw_boss_cooldown_pause_marker"):
+		status_overlay_renderer.draw_boss_cooldown_pause_marker(
+			canvas,
+			context,
+			boss_pos,
+			boss_size,
+			boss_hitbox_height,
+			shake_offset,
+			options
+		)

@@ -3,6 +3,8 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const ElectricStunVisual := preload("res://scripts/status/boss_electric_stun_visual.gd")
+const ElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 const WALK_TEXTURE_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_sheet.png"
 const ATTACK_TEXTURE_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_attack.png"
@@ -113,6 +115,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var pose := _select_pose(context)
 	var draw_size := _get_pose_draw_size(pose)
 	center.y += _get_turn_hop_offset(draw_size.y)
+	center += ElectricStunVisual.body_jitter(context)
+	ElectrocutionFieldHost.drive_from_context(canvas, center, context)
 	var inferno_active := bool(context.get("stage5_hongryun_inferno_active", false))
 	var inferno_phase := int(context.get("stage5_hongryun_inferno_phase", 0))
 	var hit_active := bool(context.get("boss_hit_active", false))
@@ -128,7 +132,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	# 공을 잡고 응축하는 시점)에만 inferno aura/dragon_head 오버레이를 그림.
 	if inferno_active and inferno_phase == 1:
 		_draw_inferno_aura(canvas, center, inferno_phase)
-	var drawn := _draw_pose(canvas, context, pose, center, draw_size, Color.WHITE)
+	var drawn := _draw_pose(canvas, context, pose, center, draw_size, ElectricStunVisual.body_modulate(context))
 	if drawn and (hit_active or bool(context.get("stage5_hongryun_boss_throwing", false))):
 		_draw_pose(canvas, context, pose, center, draw_size, Color(1.0, 0.24, 0.12, 0.28))
 	if not drawn:

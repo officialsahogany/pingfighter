@@ -171,6 +171,13 @@ class FakeEffectController:
 	func get_strange_vial_timer_context() -> Dictionary:
 		return {}
 
+	func get_doping_potion_context() -> Dictionary:
+		return {
+			"active": true,
+			"timer_frames": 240.0,
+			"initial_timer_frames": 480.0,
+		}
+
 	func get_dash_boost_context() -> Dictionary:
 		return {}
 
@@ -192,6 +199,7 @@ class FakeEffectController:
 			"long_boost_timer_context": get_long_boost_timer_context(),
 			"vitamin_pill_timer_context": get_vitamin_pill_timer_context(),
 			"strange_vial_timer_context": get_strange_vial_timer_context(),
+			"doping_potion_timer_context": get_doping_potion_context(),
 			"dash_boost_context": get_dash_boost_context(),
 			"dash_boost_particles": get_dash_boost_particles(),
 		}
@@ -214,6 +222,21 @@ class FakeFieldRenderer:
 		last_portals = portals
 		last_items = field_items
 		last_shake_offset = shake_offset
+
+
+class FakeStagedFieldRenderer:
+	extends RefCounted
+
+	var step_calls := 0
+	var prewarm_count := 0
+	var complete_after := 3
+
+	func prewarm_assets_step() -> bool:
+		step_calls += 1
+		return step_calls >= complete_after
+
+	func prewarm_assets() -> void:
+		prewarm_count += 1
 
 
 class FakeThrowRenderer:
@@ -269,6 +292,7 @@ class FakeEffectRenderer:
 	var last_timer_stack: Object
 	var last_pickup_effect: Dictionary = {}
 	var last_shake_offset := Vector2.ZERO
+	var last_doping_potion_context: Dictionary = {}
 
 	func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
 		prewarm_count += 1
@@ -291,11 +315,14 @@ class FakeEffectRenderer:
 		_dash_boost_context: Dictionary = {},
 		_dash_boost_particles: Array = [],
 		shake_offset: Vector2 = Vector2.ZERO,
-		timer_stack: Object = null
+		timer_stack: Object = null,
+		_perf_logger: Object = null,
+		doping_potion_context: Dictionary = {}
 	) -> void:
 		field_draw_count += 1
 		last_shake_offset = shake_offset
 		last_timer_stack = timer_stack
+		last_doping_potion_context = doping_potion_context
 
 	func draw_pickup_effect(_canvas: CanvasItem, _registry: Object, pickup_effect: Dictionary) -> void:
 		pickup_draw_count += 1
@@ -407,6 +434,7 @@ class FakePerfEffectRenderer:
 
 	var field_draw_count := 0
 	var last_perf_logger: Object
+	var last_doping_potion_context: Dictionary = {}
 
 	func draw_field_effects(
 		_canvas: CanvasItem,
@@ -426,10 +454,12 @@ class FakePerfEffectRenderer:
 		_dash_boost_particles: Array = [],
 		_shake_offset: Vector2 = Vector2.ZERO,
 		_timer_stack: Object = null,
-		perf_logger: Object = null
+		perf_logger: Object = null,
+		doping_potion_context: Dictionary = {}
 	) -> void:
 		field_draw_count += 1
 		last_perf_logger = perf_logger
+		last_doping_potion_context = doping_potion_context
 
 	func draw_pickup_effect(_canvas: CanvasItem, _registry: Object, _pickup_effect: Dictionary) -> void:
 		pass
@@ -456,7 +486,7 @@ func _init() -> void:
 
 func _verify_facade_prewarm_dispatch() -> void:
 	var facade: Object = ActiveItemRuntimeRenderFacade.new()
-	var field_renderer := FakeFieldRenderer.new()
+	var field_renderer := FakeStagedFieldRenderer.new()
 	var throw_renderer := FakeThrowRenderer.new()
 	var effect_renderer := FakeEffectRenderer.new()
 	var visuals := RefCounted.new()
@@ -465,7 +495,8 @@ func _verify_facade_prewarm_dispatch() -> void:
 	facade.effect_renderer = effect_renderer
 
 	facade.prewarm_assets(visuals)
-	_expect(field_renderer.prewarm_count == 1, "render facade should prewarm field renderer")
+	_expect(field_renderer.step_calls == field_renderer.complete_after, "render facade should stage field renderer prewarm chunks")
+	_expect(field_renderer.prewarm_count == 0, "render facade should not use monolithic field renderer prewarm when step API exists")
 	_expect(throw_renderer.prewarm_count == 1, "render facade should prewarm throw renderer")
 	_expect(effect_renderer.prewarm_count == 1, "render facade should prewarm effect renderer")
 	_expect(effect_renderer.last_prewarm_visuals == visuals, "effect renderer prewarm should receive HUD visuals")
@@ -495,6 +526,7 @@ func _verify_facade_draw_dispatch() -> void:
 	_expect(effect_controller.field_context_build_count == 1, "render facade should build field-effect draw context once")
 	_expect(effect_renderer.last_timer_stack == registry.timer_stack, "render facade should pass shared timer stack")
 	_expect(effect_renderer.last_shake_offset == shake_offset, "render facade should preserve shake offset")
+	_expect(bool(effect_renderer.last_doping_potion_context.get("active", false)), "render facade should pass doping timer context")
 
 	field_spawn.visible = false
 	throw_controller.visible = false
@@ -548,6 +580,7 @@ func _verify_facade_perf_renderer_dispatch() -> void:
 	_expect(perf_throw_renderer.last_perf_logger == perf_logger, "perf-aware throw renderer should receive perf logger")
 	_expect(perf_effect_renderer.field_draw_count == 1, "perf-aware effect renderer should draw through full signature")
 	_expect(perf_effect_renderer.last_perf_logger == perf_logger, "perf-aware effect renderer should receive perf logger")
+	_expect(bool(perf_effect_renderer.last_doping_potion_context.get("active", false)), "perf-aware effect renderer should receive doping timer context")
 	_expect(perf_logger.labels.has("active_item.throw_effects"), "facade should time throw effects")
 	_expect(perf_logger.labels.has("active_item.field.context"), "facade should time field-effect context prep")
 	_expect(perf_logger.labels.has("active_item.field_effects"), "facade should time field effects")

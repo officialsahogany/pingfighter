@@ -205,8 +205,11 @@ func _process_brick_wall(step_result: Dictionary, scene: Dictionary, context: Di
 		)
 
 	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_wall_hit"):
-		audio.play_wall_hit(abs(ball_vel.y))
+	if audio != null:
+		if bool(hit_result.get("destroyed", false)) and audio.has_method("play_brick_wall_destroy"):
+			audio.play_brick_wall_destroy()
+		elif audio.has_method("play_wall_hit"):
+			audio.play_wall_hit(abs(ball_vel.y))
 
 	if bool(hit_result.get("destroyed", false)):
 		var feedback: Object = deps.get("feedback", null)

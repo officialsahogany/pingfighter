@@ -60,24 +60,27 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 			if ResourceLoader.exists(TimerGaugeRenderer.STRANGE_VIAL_ICON_PATH):
 				_touch_texture(_get_strange_vial_icon_texture())
 		3:
+			if ResourceLoader.exists(TimerGaugeRenderer.DOPING_POTION_ICON_PATH):
+				_touch_texture(_get_doping_potion_icon_texture())
+		4:
 			if ResourceLoader.exists(TimerGaugeRenderer.MAGNET_FIELD_ICON_PATH):
 				_touch_texture(_get_magnet_field_icon_texture())
-		4:
+		5:
 			if ResourceLoader.exists(TimerGaugeRenderer.HOLY_BARRIER_ICON_PATH):
 				_touch_texture(_get_holy_barrier_icon_texture())
-		5:
+		6:
 			if ResourceLoader.exists(TimerGaugeRenderer.DASH_BOOST_ICON_PATH):
 				_touch_texture(_get_dash_boost_icon_texture())
-		6:
+		7:
 			_brick_wall_renderer.prewarm_assets()
 			brick_wall_variant_sheet_texture = _brick_wall_renderer.brick_wall_variant_sheet_texture
-		7:
+		8:
 			if active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons_step"):
 				if not bool(active_item_hud_visuals.prewarm_catalog_icons_step()):
 					return false
 			elif active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
 				active_item_hud_visuals.prewarm_catalog_icons()
-		8:
+		9:
 			_prewarm_pickup_text()
 		_:
 			_prewarm_step_index = 0
@@ -104,7 +107,8 @@ func draw_field_effects(
 	dash_boost_particles: Array = [],
 	shake_offset: Vector2 = Vector2.ZERO,
 	timer_stack: Object = null,
-	perf_logger: Object = null
+	perf_logger: Object = null,
+	doping_potion_context: Dictionary = {}
 ) -> void:
 	if canvas == null:
 		return
@@ -165,6 +169,14 @@ func draw_field_effects(
 		sample_start = _perf_begin(detail_perf_logger)
 		_timer_gauge_renderer.draw_strange_vial_timer_gauge(canvas, strange_vial_timer_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_strange_vial", sample_start)
+		if not has_shared_timer_stack:
+			timer_stack_index += 1
+	if bool(doping_potion_context.get("active", false)):
+		if has_shared_timer_stack:
+			timer_stack_index = int(timer_stack.claim("doping_potion", true))
+		sample_start = _perf_begin(detail_perf_logger)
+		_timer_gauge_renderer.draw_doping_potion_timer_gauge(canvas, doping_potion_context, timer_stack_index)
+		_perf_end(detail_perf_logger, "active_item.field.timer_doping_potion", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
 	if bool(long_boost_timer_context.get("active", false)):
@@ -686,6 +698,10 @@ func _get_pickup_notice_text(pickup_effect: Dictionary) -> String:
 func _get_long_boost_icon_texture() -> Texture2D:
 	long_boost_icon_texture = _timer_gauge_renderer.get_long_boost_icon_texture()
 	return long_boost_icon_texture
+
+
+func _get_doping_potion_icon_texture() -> Texture2D:
+	return _timer_gauge_renderer.get_doping_potion_icon_texture()
 
 
 func _get_vitamin_pill_icon_texture() -> Texture2D:

@@ -3,6 +3,8 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const ElectricStunVisual := preload("res://scripts/status/boss_electric_stun_visual.gd")
+const ElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 const WALK_TEXTURE_PATH := "res://assets/sprites/stage3/menhera_boss_sheet.png"
 const ATTACK_TEXTURE_PATH := "res://assets/sprites/stage3/menhera_boss_attack.png"
@@ -198,6 +200,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var pose: Dictionary = _select_pose(context)
 	var draw_size: Vector2 = _as_vector2(context.get("stage3_menhera_boss_draw_size", DEFAULT_DRAW_SIZE), DEFAULT_DRAW_SIZE)
 	center.y += _get_turn_hop_offset(draw_size.y)
+	center += ElectricStunVisual.body_jitter(context)
+	ElectrocutionFieldHost.drive_from_context(canvas, center, context)
 	var red_ratio: float = clamp(float(context.get("stage3_boss_red_ratio", 0.0)), 0.0, 1.0)
 	var ready_glow: bool = bool(context.get("stage3_boss_special_ready", false))
 	var overdrive_active: bool = bool(context.get("stage3_emotional_overdrive_active", false))
@@ -207,7 +211,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	if ready_glow or overdrive_active:
 		_draw_ready_aura(canvas, center, draw_size, overdrive_active)
 
-	var drawn: bool = _draw_pose(canvas, pose, center, draw_size, false, Color.WHITE)
+	var drawn: bool = _draw_pose(canvas, pose, center, draw_size, false, ElectricStunVisual.body_modulate(context))
 	if drawn and red_ratio > 0.0:
 		_draw_pose(canvas, pose, center, draw_size, false, Color(1.0, 0.08, 0.16, 0.12 + red_ratio * 0.45))
 	if not drawn:

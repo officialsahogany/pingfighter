@@ -171,6 +171,13 @@ class FakeEffectController:
 	func get_strange_vial_timer_context() -> Dictionary:
 		return {}
 
+	func get_doping_potion_context() -> Dictionary:
+		return {
+			"active": true,
+			"timer_frames": 240.0,
+			"initial_timer_frames": 480.0,
+		}
+
 	func get_dash_boost_context() -> Dictionary:
 		return {}
 
@@ -240,6 +247,7 @@ class FakeEffectRenderer:
 	var last_timer_stack: Object
 	var last_pickup_effect: Dictionary = {}
 	var last_shake_offset := Vector2.ZERO
+	var last_doping_potion_context: Dictionary = {}
 
 	func draw_field_effects(
 		_canvas: CanvasItem,
@@ -258,11 +266,14 @@ class FakeEffectRenderer:
 		_dash_boost_context: Dictionary = {},
 		_dash_boost_particles: Array = [],
 		shake_offset: Vector2 = Vector2.ZERO,
-		timer_stack: Object = null
+		timer_stack: Object = null,
+		_perf_logger: Object = null,
+		doping_potion_context: Dictionary = {}
 	) -> void:
 		field_draw_count += 1
 		last_shake_offset = shake_offset
 		last_timer_stack = timer_stack
+		last_doping_potion_context = doping_potion_context
 
 	func draw_pickup_effect(_canvas: CanvasItem, _registry: Object, pickup_effect: Dictionary) -> void:
 		pickup_draw_count += 1
@@ -335,6 +346,7 @@ func _verify_facade_draw_dispatch() -> void:
 	_expect(effect_renderer.field_draw_count == 1, "render facade should draw visible field effects")
 	_expect(effect_renderer.last_timer_stack == registry.timer_stack, "render facade should pass shared timer stack")
 	_expect(effect_renderer.last_shake_offset == shake_offset, "render facade should preserve shake offset")
+	_expect(bool(effect_renderer.last_doping_potion_context.get("active", false)), "render facade should pass doping timer context")
 
 	field_spawn.visible = false
 	throw_controller.visible = false

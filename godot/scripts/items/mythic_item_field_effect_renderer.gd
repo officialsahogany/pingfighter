@@ -62,7 +62,7 @@ func draw_field_effects(
 	canvas: CanvasItem,
 	shake_offset: Vector2,
 	ragnarok_impact_effect_duration: float,
-	ragnarok_electric_stun_intensity: float,
+	_ragnarok_electric_stun_intensity: float,
 	perf_logger: Object = null,
 	timer_stack: Object = null,
 	constants: Dictionary = {},
@@ -336,16 +336,13 @@ func draw_field_effects(
 			RAGNAROK_IMPACT_RING_SEGMENTS
 		)
 		_perf_end(detail_perf_logger, "mythic.ragnarok_impact", impact_sample_start)
-	if stun_active:
-		var stun_sample_start: int = _perf_begin(detail_perf_logger)
-		_ragnarok_field_renderer.draw_ragnarok_electric_stun_overlay(
-			canvas,
-			center,
-			runtime.ragnarok_stun_target_size,
-			ragnarok_electric_stun_intensity,
-			RAGNAROK_ELECTRIC_ELLIPSE_SEGMENTS
-		)
-		_perf_end(detail_perf_logger, "mythic.ragnarok_stun", stun_sample_start)
+	# Ragnarok's on-boss electric arcs are now drawn by the shared, source-agnostic
+	# BossElectrocutionFieldHost (driven from the boss actor renderer via the
+	# `ragnarok_hammer_electric_stun_active` flag), so the "감전" symptom matches
+	# every other electric stun. Only the ragnarok-specific impact rings + sparks
+	# stay here; `draw_ragnarok_electric_stun_overlay` (and the now-unused
+	# `_ragnarok_electric_stun_intensity` arg) are intentionally retired but kept
+	# as an immediate-draw fallback reference in the field renderer.
 	if not runtime.ragnarok_sparks.is_empty():
 		var sparks_sample_start: int = _perf_begin(detail_perf_logger)
 		_ragnarok_field_renderer.draw_ragnarok_sparks(

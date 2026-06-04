@@ -2,14 +2,57 @@ extends SceneTree
 
 const ActiveItemBrickWallHitRuntime := preload("res://scripts/items/active_item_brick_wall_hit_runtime.gd")
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
+const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
+const GameAudio := preload("res://scripts/audio/game_audio.gd")
 
 var _failures: Array[String] = []
+
+
+class FakeBrickMotionStepper:
+	extends RefCounted
+
+	var response: Dictionary = {}
+
+	func _init(p_response: Dictionary) -> void:
+		response = p_response
+
+	func step(_ball_pos: Vector2, _step_vel: Vector2, _ball_vel: Vector2, _context: Dictionary) -> Dictionary:
+		return response.duplicate(true)
+
+
+class FakeBrickActiveItemRuntime:
+	extends RefCounted
+
+	var hit_result: Dictionary = {}
+
+	func _init(p_hit_result: Dictionary) -> void:
+		hit_result = p_hit_result
+
+	func get_ball_collision_context() -> Dictionary:
+		return {}
+
+	func notify_brick_wall_hit(_wall_index: int, _impact_pos: Vector2) -> Dictionary:
+		return hit_result.duplicate(true)
+
+
+class FakeBrickAudio:
+	extends RefCounted
+
+	var wall_hit_count := 0
+	var brick_destroy_count := 0
+
+	func play_wall_hit(_impact_speed: float) -> void:
+		wall_hit_count += 1
+
+	func play_brick_wall_destroy() -> void:
+		brick_destroy_count += 1
 
 
 func _init() -> void:
 	_verify_direct_hit_runtime()
 	_verify_invalid_hit_keeps_state()
 	_verify_controller_delegates_hit_runtime()
+	_verify_brick_wall_audio_routing()
 
 	if _failures.is_empty():
 		print("active_item_brick_wall_hit_runtime_smoke: ok")
@@ -75,6 +118,44 @@ func _verify_controller_delegates_hit_runtime() -> void:
 	_expect(controller.brick_walls.is_empty(), "controller second runtime hit should remove wall")
 	_expect(controller.brick_particles.size() > 12, "controller second runtime hit should spawn destruction particles")
 	_expect(_has_particle_kind(controller.brick_particles, "brick"), "controller second runtime hit should include brick fragments")
+
+
+func _verify_brick_wall_audio_routing() -> void:
+	_expect(GameAudio.BRICK_WALL_DESTROY_SOUND_PATH == "res://assets/sounds/stonebreak2.wav", "Brick Wall destroy should use the legacy BRICK_DESTROY stonebreak2 cue")
+	var first_hit_audio: Object = _run_brick_wall_motion_event({"destroyed": false, "hit_count": 1})
+	_expect(first_hit_audio.wall_hit_count == 1, "first Brick Wall hit should keep the wall-hit cue")
+	_expect(first_hit_audio.brick_destroy_count == 0, "first Brick Wall hit should not play destroy cue")
+
+	var destroyed_hit_audio: Object = _run_brick_wall_motion_event({"destroyed": true, "hit_count": 2})
+	_expect(destroyed_hit_audio.wall_hit_count == 0, "destroyed Brick Wall hit should not fall back to wall-hit cue")
+	_expect(destroyed_hit_audio.brick_destroy_count == 1, "destroyed Brick Wall hit should play the dedicated destroy cue")
+
+
+func _run_brick_wall_motion_event(hit_result: Dictionary) -> Object:
+	var processor: Object = BallMotionEventProcessor.new()
+	var audio: Object = FakeBrickAudio.new()
+	var scene: Dictionary = {
+		"ball_pos": Vector2(120.0, 710.0),
+		"ball_vel": Vector2(4.0, 12.0),
+		"ball_impact_boost": 1.0,
+	}
+	var context: Dictionary = {
+		"width": 760.0,
+		"height": 750.0,
+		"ball_size": 28.6,
+	}
+	var deps: Dictionary = {
+		"motion_stepper": FakeBrickMotionStepper.new({
+			"event": "brick_wall",
+			"wall_index": 0,
+			"impact_pos": Vector2(120.0, 710.0),
+			"ball_pos": Vector2(120.0, 706.0),
+		}),
+		"active_item_runtime": FakeBrickActiveItemRuntime.new(hit_result),
+		"audio": audio,
+	}
+	processor.step_motion(scene, 1.0, context, deps, {})
+	return audio
 
 
 func _build_wall() -> Dictionary:

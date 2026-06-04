@@ -190,6 +190,8 @@ func _init() -> void:
 		{
 			"boss_pos": Vector2(330.0, 25.0),
 			"boss_paddle_size": Vector2(100.0, 40.0),
+			"player_pos": Vector2(302.5, 680.0),
+			"player_paddle_size": Vector2(155.0, 50.0),
 			"width": 760.0,
 			"boss_vel": 3.0,
 		},
@@ -197,6 +199,10 @@ func _init() -> void:
 	)
 	_expect(bool(boss_result.get("applied", false)), "boss counter should consume the charged Ragnarok ball")
 	_expect(not bool(boss_result.get("speed_limit_disabled", true)), "Ragnarok boss guard should restore the ball speed cap")
+	var guarded_ball_vel: Vector2 = _get_vec(boss_result, "ball_vel")
+	_expect(guarded_ball_vel.length() <= 20.01, "Ragnarok boss guard should slow the counter ball below the normal speed cap")
+	_expect(guarded_ball_vel.y > 0.0, "Ragnarok boss guard should reflect the counter ball back toward the player side")
+	_expect(abs(guarded_ball_vel.x) <= guarded_ball_vel.length() * 0.43, "Ragnarok boss guard should limit sharp horizontal counter angles")
 	_expect(not bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "consumed Ragnarok stun ball should stop exposing uncapped physics")
 	var capped_scene := {
 		"ball_vel": Vector2(90.0, 0.0),
@@ -314,7 +320,9 @@ func _verify_speed_limit_lifecycle_through_ball_update() -> void:
 	var snapshot: Dictionary = ball_result.get("snapshot", {})
 	_expect(not bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "boss guard should clear Ragnarok's uncapped state")
 	_expect(not bool(snapshot.get("speed_limit_disabled", true)), "boss guard frame should publish the restored speed-limit state")
-	_expect(_get_vec(snapshot, "ball_vel").length() <= 26.01, "boss-guarded Ragnarok ball should be capped again immediately")
+	var guarded_snapshot_vel: Vector2 = _get_vec(snapshot, "ball_vel")
+	_expect(guarded_snapshot_vel.length() <= 20.01, "boss-guarded Ragnarok ball should be slowed below the normal cap immediately")
+	_expect(guarded_snapshot_vel.y > 0.0, "boss-guarded Ragnarok ball should travel back toward the player immediately")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 
 func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
@@ -176,6 +177,10 @@ func reset_stage_state(deps: Dictionary) -> void:
 		"stage_background",
 	]:
 		_call_reset(deps.get(key, null))
+	# The shared boss electrocution field is a canvas-parented node host driven
+	# per-frame by the boss renderer; force-hide any live host on round / stage
+	# reset so a stun caught mid-transition cannot linger across the boundary.
+	BossElectrocutionFieldHost.hide_all_existing_hosts()
 
 
 func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dictionary:

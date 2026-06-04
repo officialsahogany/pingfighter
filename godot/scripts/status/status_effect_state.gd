@@ -217,6 +217,8 @@ func get_actor_draw_context() -> Dictionary:
 		context["active_item_boss_stun_frame"] = _get_boss_stun_frame()
 		if bool(boss_stun.get("suppress_stun_stars", false)):
 			context["active_item_boss_stun_stars_suppressed"] = true
+		if bool(boss_stun.get("electric_stun", false)):
+			context["boss_electric_stun_active"] = true
 
 	var boss_confusion: Dictionary = get_status(TARGET_BOSS, STATUS_CONFUSION)
 	if not boss_confusion.is_empty():

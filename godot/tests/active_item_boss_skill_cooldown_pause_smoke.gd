@@ -3,6 +3,7 @@ extends SceneTree
 const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
 const Stage2BossSkillState := preload("res://scripts/stages/stage2/stage2_boss_skill_state.gd")
 const Stage3BossSkillState := preload("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+const Stage4ActorRenderer := preload("res://scripts/stages/stage4/stage4_actor_renderer.gd")
 const Stage4MapState := preload("res://scripts/stages/stage4/stage4_map_state.gd")
 const Stage4PonkSkillState := preload("res://scripts/stages/stage4/stage4_ponk_skill_state.gd")
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
@@ -51,11 +52,58 @@ class FakeStage2Background:
 		return true
 
 
+class FakeCanvas:
+	extends Node2D
+
+
+class FakeDrawModule:
+	extends RefCounted
+
+	var draw_calls := 0
+
+	func draw(_canvas: CanvasItem, _context: Dictionary, _shake_offset: Vector2, _perf_logger: Object = null) -> void:
+		draw_calls += 1
+
+
+class FakeStatusOverlay:
+	extends RefCounted
+
+	var full_overlay_calls := 0
+	var pause_marker_calls := 0
+	var last_context: Dictionary = {}
+	var last_options: Dictionary = {}
+
+	func draw_boss_status_overlays(
+		_canvas: CanvasItem,
+		context: Dictionary,
+		_boss_pos: Vector2,
+		_boss_paddle_size: Vector2,
+		_boss_hitbox_height: float,
+		_shake_offset: Vector2,
+		options: Dictionary = {}
+	) -> void:
+		full_overlay_calls += 1
+		last_context = context.duplicate(true)
+		last_options = options.duplicate(true)
+
+	func draw_boss_cooldown_pause_marker(
+		_canvas: CanvasItem,
+		_context: Dictionary,
+		_boss_pos: Vector2,
+		_boss_paddle_size: Vector2,
+		_boss_hitbox_height: float,
+		_shake_offset: Vector2,
+		_options: Dictionary = {}
+	) -> void:
+		pause_marker_calls += 1
+
+
 func _init() -> void:
 	_verify_stage2_effect_update_uses_tear_gas_pause()
 	_verify_stage3_effect_update_uses_tear_gas_pause()
 	_verify_stage4_effect_update_uses_tear_gas_pause()
 	_verify_pause_marker_draw_context_aliases()
+	_verify_stage4_actor_renderer_draws_full_status_overlay()
 
 	if _failures.is_empty():
 		print("active_item_boss_skill_cooldown_pause_smoke: ok")
@@ -185,9 +233,35 @@ func _verify_pause_marker_draw_context_aliases() -> void:
 	)
 	var stage4_renderer_source := FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_actor_renderer.gd")
 	_expect(
-		stage4_renderer_source.find("draw_boss_cooldown_pause_marker") >= 0,
-		"Stage 4 actor renderer should draw the shared tear-gas pause marker after boss skill FX"
+		stage4_renderer_source.find("draw_boss_status_overlays") >= 0,
+		"Stage 4 actor renderer should draw the shared boss status overlay stack after boss skill FX"
 	)
+
+
+func _verify_stage4_actor_renderer_draws_full_status_overlay() -> void:
+	var renderer: Object = Stage4ActorRenderer.new()
+	renderer.playfield_renderer = FakeDrawModule.new()
+	renderer.player_renderer = FakeDrawModule.new()
+	renderer.boss_renderer = FakeDrawModule.new()
+	renderer.bird_event_renderer = FakeDrawModule.new()
+	renderer.monk_event_renderer = FakeDrawModule.new()
+	renderer.ponk_skill_renderer = FakeDrawModule.new()
+	renderer.commando_firearm_renderer = FakeDrawModule.new()
+	var overlay := FakeStatusOverlay.new()
+	renderer.status_overlay_renderer = overlay
+
+	var context := _base_context(4)
+	context["active_item_boss_stun_active"] = true
+	context["active_item_boss_stun_frame"] = 2
+	context["active_item_boss_skill_cooldown_paused"] = true
+	var canvas := FakeCanvas.new()
+	renderer.draw(canvas, context)
+	canvas.free()
+
+	_expect(overlay.full_overlay_calls == 1, "Stage 4 actor renderer should call the full shared boss status overlay stack")
+	_expect(overlay.pause_marker_calls == 0, "Stage 4 actor renderer should not bypass stun stars with the marker-only path")
+	_expect(bool(overlay.last_context.get("active_item_boss_stun_active", false)), "Stage 4 status overlay should receive boss stun context for star animation")
+	_expect(is_equal_approx(float(overlay.last_options.get("cooldown_pause_center_y_offset", 0.0)), -30.0), "Stage 4 should preserve the existing pause-marker vertical offset")
 
 
 func _base_context(stage_id: int) -> Dictionary:
