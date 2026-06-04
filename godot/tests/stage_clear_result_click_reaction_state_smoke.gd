@@ -45,6 +45,14 @@ func _verify_direct_alpha() -> void:
 	_expect(StageClearResultClickReactionState.get_reaction_alpha(3.73, 3.5, 0.16, 0.18, 0.05, 3.73) == 0.0, "reaction alpha should be zero once inactive")
 	_expect(StageClearResultClickReactionState.is_reaction_active(3.72, 3.73), "reaction should stay active before total duration")
 	_expect(not StageClearResultClickReactionState.is_reaction_active(3.73, 3.73), "reaction should stop at total duration")
+	_expect(
+		is_equal_approx(StageClearResultClickReactionState.advance_reaction_timer(3.70, 3.73, 0.10), 3.73),
+		"reaction timer advance should clamp to the total duration"
+	)
+	_expect(
+		is_equal_approx(StageClearResultClickReactionState.advance_reaction_timer(3.73, 3.73, 0.10), 3.73),
+		"reaction timer advance should keep inactive timers unchanged"
+	)
 	_expect(StageClearResultClickReactionState.is_return_blend_active(3.5, 3.5, 3.73), "return blend should start at reaction duration")
 
 
@@ -180,6 +188,10 @@ func _verify_scene_constant_wiring() -> void:
 		source.find("StageClearResultClickReactionState.get_reaction_state") >= 0
 		and source.find("StageClearResultClickReactionState.get_click_reaction_attempt") >= 0,
 		"scene should call click reaction state helpers directly"
+	)
+	_expect(
+		source.find("StageClearResultClickReactionState.advance_reaction_timer") >= 0,
+		"scene should delegate click reaction timer advancement"
 	)
 	_expect(
 		source.find("func _get_player_victory_base_frame") < 0

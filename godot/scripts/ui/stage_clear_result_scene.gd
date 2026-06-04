@@ -344,32 +344,10 @@ func update_result_scene(delta: float) -> void:
 	var safe_delta: float = max(0.0, delta)
 	timer += safe_delta
 	_dalji_base_timer += safe_delta
-	if StageClearResultClickReactionState.is_reaction_active(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION):
-		_dalji_click_reaction_timer = min(DALJI_CLICK_TOTAL_DURATION, _dalji_click_reaction_timer + safe_delta)
-	if StageClearResultClickReactionState.is_reaction_active(
-		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	):
-		_player_victory_click_reaction_timer = min(
-			PLAYER_VICTORY_CLICK_TOTAL_DURATION,
-			_player_victory_click_reaction_timer + safe_delta
-		)
-	if StageClearResultClickReactionState.is_reaction_active(
-		_stage2_boss_defeat_click_reaction_timer,
-		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	):
-		_stage2_boss_defeat_click_reaction_timer = min(
-			STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-			_stage2_boss_defeat_click_reaction_timer + safe_delta
-		)
-	if StageClearResultClickReactionState.is_reaction_active(
-		_stage3_boss_defeat_click_reaction_timer,
-		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	):
-		_stage3_boss_defeat_click_reaction_timer = min(
-			STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-			_stage3_boss_defeat_click_reaction_timer + safe_delta
-		)
+	_dalji_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION, safe_delta)
+	_player_victory_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_player_victory_click_reaction_timer, PLAYER_VICTORY_CLICK_TOTAL_DURATION, safe_delta)
+	_stage2_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage2_boss_defeat_click_reaction_timer, STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
+	_stage3_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage3_boss_defeat_click_reaction_timer, STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
 	_dalji_dialogue_timer = max(0.0, _dalji_dialogue_timer - safe_delta)
 	_update_boxes(safe_delta)
 	_update_scroll(safe_delta)

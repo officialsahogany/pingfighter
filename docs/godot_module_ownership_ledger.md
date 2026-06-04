@@ -1420,7 +1420,7 @@ This section is intentionally long; use search to find the nearest owner.
   `stage_clear_result_sheet_draw_helper.gd`; public QA / smoke-test
   interaction status dictionary assembly is delegated to
   `stage_clear_result_status_builder.gd`; player-victory and Dalji
-  click-reaction frame / transition / alpha math is delegated to
+  click-reaction frame / transition / alpha math and timer advancement are delegated to
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
   to the battle shell; do not put grant logic back in this UI scene.

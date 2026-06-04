@@ -59,6 +59,12 @@ static func is_reaction_active(reaction_timer: float, total_duration: float) -> 
 	return reaction_timer < total_duration
 
 
+static func advance_reaction_timer(reaction_timer: float, total_duration: float, delta: float) -> float:
+	if not is_reaction_active(reaction_timer, total_duration):
+		return reaction_timer
+	return min(total_duration, reaction_timer + max(0.0, delta))
+
+
 static func is_return_blend_active(reaction_timer: float, reaction_duration: float, total_duration: float) -> bool:
 	return reaction_timer >= reaction_duration and reaction_timer < total_duration
 
