@@ -63,6 +63,38 @@ static func is_return_blend_active(reaction_timer: float, reaction_duration: flo
 	return reaction_timer >= reaction_duration and reaction_timer < total_duration
 
 
+static func get_click_reaction_attempt(
+	mouse_position: Vector2,
+	click_rect: Rect2,
+	reaction_timer: float,
+	total_duration: float,
+	base_timer: float,
+	base_frame_interval: float,
+	frame_count: int
+) -> Dictionary:
+	if not click_rect.has_point(mouse_position):
+		return {
+			"handled": false,
+			"started": false,
+			"click_rect": click_rect,
+		}
+
+	if is_reaction_active(reaction_timer, total_duration):
+		return {
+			"handled": true,
+			"started": false,
+			"click_rect": click_rect,
+		}
+
+	return {
+		"handled": true,
+		"started": true,
+		"click_rect": click_rect,
+		"transition_base_frame": get_base_frame(base_timer, base_frame_interval, frame_count),
+		"reaction_timer": 0.0,
+	}
+
+
 static func get_reaction_state(
 	base_timer: float,
 	base_frame_interval: float,

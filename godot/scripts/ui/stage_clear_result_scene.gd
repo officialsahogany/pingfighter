@@ -1350,20 +1350,20 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 		PLAYER_VICTORY_CELL_SIZE
 	)
 	_player_victory_click_rect = click_rect
-	if not click_rect.has_point(mouse_position):
-		return false
-	if StageClearResultClickReactionState.is_reaction_active(
+	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		mouse_position,
+		click_rect,
 		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	):
-		queue_redraw()
-		return true
-	_player_victory_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		timer,
 		PLAYER_VICTORY_FRAME_INTERVAL,
 		PLAYER_VICTORY_FRAME_COUNT
 	)
-	_player_victory_click_reaction_timer = 0.0
+	if not bool(attempt.get("handled", false)):
+		return false
+	if bool(attempt.get("started", false)):
+		_player_victory_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
+		_player_victory_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
 	queue_redraw()
 	return true
 
@@ -1378,19 +1378,20 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 	_dalji_click_rect = click_rect
-	if not click_rect.has_point(mouse_position):
-		return false
-	if StageClearResultClickReactionState.is_reaction_active(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION):
-		_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
-		_play_dalji_click_voice()
-		queue_redraw()
-		return true
-	_dalji_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		mouse_position,
+		click_rect,
+		_dalji_click_reaction_timer,
+		DALJI_CLICK_TOTAL_DURATION,
 		_dalji_base_timer,
 		DALJI_FRAME_INTERVAL,
 		DALJI_FRAME_COUNT
 	)
-	_dalji_click_reaction_timer = 0.0
+	if not bool(attempt.get("handled", false)):
+		return false
+	if bool(attempt.get("started", false)):
+		_dalji_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
+		_dalji_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
 	_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
 	_play_dalji_click_voice()
 	queue_redraw()
@@ -1406,20 +1407,20 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
-	if not click_rect.has_point(mouse_position):
-		return false
-	if StageClearResultClickReactionState.is_reaction_active(
+	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		mouse_position,
+		click_rect,
 		_stage2_boss_defeat_click_reaction_timer,
-		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	):
-		queue_redraw()
-		return true
-	_stage2_boss_defeat_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		timer,
 		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
 		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
-	_stage2_boss_defeat_click_reaction_timer = 0.0
+	if not bool(attempt.get("handled", false)):
+		return false
+	if bool(attempt.get("started", false)):
+		_stage2_boss_defeat_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
+		_stage2_boss_defeat_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
 	queue_redraw()
 	return true
 
@@ -1433,20 +1434,20 @@ func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
-	if not click_rect.has_point(mouse_position):
-		return false
-	if StageClearResultClickReactionState.is_reaction_active(
+	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		mouse_position,
+		click_rect,
 		_stage3_boss_defeat_click_reaction_timer,
-		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	):
-		queue_redraw()
-		return true
-	_stage3_boss_defeat_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		timer,
 		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
 		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
-	_stage3_boss_defeat_click_reaction_timer = 0.0
+	if not bool(attempt.get("handled", false)):
+		return false
+	if bool(attempt.get("started", false)):
+		_stage3_boss_defeat_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
+		_stage3_boss_defeat_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
 	queue_redraw()
 	return true
 

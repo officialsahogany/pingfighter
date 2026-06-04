@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_frames()
 	_verify_direct_alpha()
+	_verify_click_attempt_state()
 	_verify_reaction_state_snapshot()
 	_verify_scene_constant_wiring()
 
@@ -45,6 +46,47 @@ func _verify_direct_alpha() -> void:
 	_expect(StageClearResultClickReactionState.is_reaction_active(3.72, 3.73), "reaction should stay active before total duration")
 	_expect(not StageClearResultClickReactionState.is_reaction_active(3.73, 3.73), "reaction should stop at total duration")
 	_expect(StageClearResultClickReactionState.is_return_blend_active(3.5, 3.5, 3.73), "return blend should start at reaction duration")
+
+
+func _verify_click_attempt_state() -> void:
+	var click_rect := Rect2(Vector2(10.0, 20.0), Vector2(100.0, 120.0))
+	var miss: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		Vector2(0.0, 0.0),
+		click_rect,
+		4.0,
+		3.73,
+		0.11,
+		0.055,
+		98
+	)
+	_expect(not bool(miss.get("handled", true)), "click attempt should ignore misses")
+	_expect(not bool(miss.get("started", true)), "click attempt miss should not start reactions")
+
+	var already_active: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		click_rect.get_center(),
+		click_rect,
+		0.25,
+		3.73,
+		0.11,
+		0.055,
+		98
+	)
+	_expect(bool(already_active.get("handled", false)), "click attempt should consume hits during active reactions")
+	_expect(not bool(already_active.get("started", true)), "click attempt should not restart active reactions")
+
+	var start: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+		click_rect.get_center(),
+		click_rect,
+		3.73,
+		3.73,
+		0.11,
+		0.055,
+		98
+	)
+	_expect(bool(start.get("handled", false)), "click attempt should consume valid hits")
+	_expect(bool(start.get("started", false)), "click attempt should start inactive reactions")
+	_expect(int(start.get("transition_base_frame", -1)) == 2, "click attempt should capture the current base frame")
+	_expect(_is_close(float(start.get("reaction_timer", -1.0)), 0.0), "click attempt should reset the reaction timer")
 
 
 func _verify_reaction_state_snapshot() -> void:
@@ -136,7 +178,7 @@ func _verify_scene_constant_wiring() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
 		source.find("StageClearResultClickReactionState.get_reaction_state") >= 0
-		and source.find("StageClearResultClickReactionState.is_reaction_active") >= 0,
+		and source.find("StageClearResultClickReactionState.get_click_reaction_attempt") >= 0,
 		"scene should call click reaction state helpers directly"
 	)
 	_expect(

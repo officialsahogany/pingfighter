@@ -1531,8 +1531,9 @@ This section is intentionally long; use search to find the nearest owner.
   player victory and Dalji result sheets: base frame selection, reaction
   frame selection, captured-base transition frame selection, reaction
   alpha including return hold / fade, active checks, and return-blend
-  checks. The scene still owns click input, timers, captured transition
-  frames, voice playback, sheet textures, and actual drawing.
+  checks, plus shared click-attempt hit / restart classification. The scene
+  still owns click input dispatch, timers, captured transition frames, voice
+  playback, sheet textures, and actual drawing.
 - `scripts/ui/stage_clear_result_summary_builder.gd`
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
