@@ -5,6 +5,7 @@ extends SceneTree
 
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
 const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
+const STAGE6_PILLAR_SCENE_DRAWER_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd"
 
 var _failures: Array[String] = []
 
@@ -60,6 +61,7 @@ func _init() -> void:
 	_test_cube_rebuild_reactivates()
 	_test_super_laser_melts_cube()
 	_test_boss_skill_hud()
+	_test_pillar_scene_drawer_routes_background()
 	_test_sound_events()
 	_test_wrong_stage_resets()
 
@@ -388,6 +390,15 @@ func _test_boss_skill_hud() -> void:
 		if str(s2.get("id", "")) == "stage6_super" and bool(s2.get("active", false)):
 			found_super_active = true
 	_expect(found_super_active, "super skill card shows active during 초인테트리서")
+
+
+func _test_pillar_scene_drawer_routes_background() -> void:
+	var source := FileAccess.get_file_as_string(STAGE6_PILLAR_SCENE_DRAWER_PATH)
+	_expect(source.find("func draw(_canvas") < 0, "Stage 6 pillar draw must not remain scaffold no-op")
+	_expect(source.find("states.get(\"stage_background\"") >= 0, "Stage 6 pillar draw reads routed stage background")
+	_expect(source.find("_draw_stage_background") >= 0, "Stage 6 pillar draw delegates stage background draw")
+	_expect(source.find("stage_background.draw(") >= 0, "Stage 6 pillar draw invokes background renderer")
+	_expect(source.find("stage6.pillar.background") >= 0, "Stage 6 background draw has a perf sample")
 
 
 func _test_sound_events() -> void:
