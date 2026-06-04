@@ -119,6 +119,10 @@ const SCROLL_REGION_TOP := 96.0
 const SCROLL_REGION_BOTTOM := 1000.0
 const SCROLL_REGION_LEFT := 340.0
 const SCROLL_REGION_RIGHT := 1580.0
+const SCROLL_REGION_RECT := Rect2(
+	Vector2(SCROLL_REGION_LEFT, SCROLL_REGION_TOP),
+	Vector2(SCROLL_REGION_RIGHT - SCROLL_REGION_LEFT, SCROLL_REGION_BOTTOM - SCROLL_REGION_TOP)
+)
 const SCROLL_CONTENT_MARGIN := Vector4(70.0, 90.0, 70.0, 76.0)
 const SCROLL_DRAG_VIEW_MARGIN := 72.0
 
@@ -689,35 +693,21 @@ func _refresh_scroll_button_rects() -> void:
 
 
 func _get_scroll_base_rect(draw_scale: float) -> Rect2:
-	var left: float = SCROLL_REGION_LEFT * draw_scale
-	var right: float = SCROLL_REGION_RIGHT * draw_scale
-	var top: float = SCROLL_REGION_TOP * draw_scale
-	var full_height: float = (SCROLL_REGION_BOTTOM - SCROLL_REGION_TOP) * draw_scale
-	return Rect2(Vector2(left, top), Vector2(right - left, full_height))
+	return StageClearResultScrollState.get_base_rect(draw_scale, SCROLL_REGION_RECT)
 
 
 func _get_scroll_full_rect(draw_scale: float) -> Rect2:
-	var base_rect: Rect2 = _get_scroll_base_rect(draw_scale)
-	return Rect2(base_rect.position + _scroll_position_offset, base_rect.size)
+	return StageClearResultScrollState.get_full_rect(draw_scale, _scroll_position_offset, SCROLL_REGION_RECT)
 
 
 func _clamp_scroll_offset(candidate_offset: Vector2, draw_scale: float, view_size: Vector2) -> Vector2:
-	var base_rect: Rect2 = _get_scroll_base_rect(draw_scale)
-	var keep_visible_margin: float = SCROLL_DRAG_VIEW_MARGIN * draw_scale
-	var min_x: float = keep_visible_margin - base_rect.end.x
-	var max_x: float = view_size.x - keep_visible_margin - base_rect.position.x
-	var min_y: float = keep_visible_margin - base_rect.end.y
-	var max_y: float = view_size.y - keep_visible_margin - base_rect.position.y
-	return Vector2(
-		_clamp_scroll_axis(candidate_offset.x, min_x, max_x),
-		_clamp_scroll_axis(candidate_offset.y, min_y, max_y)
+	return StageClearResultScrollState.clamp_offset(
+		candidate_offset,
+		draw_scale,
+		view_size,
+		SCROLL_DRAG_VIEW_MARGIN,
+		SCROLL_REGION_RECT
 	)
-
-
-func _clamp_scroll_axis(value: float, min_value: float, max_value: float) -> float:
-	if min_value > max_value:
-		return (min_value + max_value) * 0.5
-	return clampf(value, min_value, max_value)
 
 
 func _get_current_view_size() -> Vector2:

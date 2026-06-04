@@ -1433,8 +1433,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update
-  blocking, smooth unfurl progress, and fading the floating boxes behind
-  the opened scroll. The scene still owns the live box array, perk-choice
+  blocking, smooth unfurl progress, fading the floating boxes behind
+  the opened scroll, and scroll rect / drag-offset clamping geometry.
+  The scene still owns the live box array, perk-choice
   and starpoint-choice gates, input, drawing, and confirmation callbacks.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button

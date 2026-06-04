@@ -80,6 +80,47 @@ static func get_box_global_alpha(phase: String, timer: float, unfurl_duration: f
 	return 1.0
 
 
+static func get_base_rect(
+	draw_scale: float,
+	source_rect: Rect2
+) -> Rect2:
+	return Rect2(source_rect.position * draw_scale, source_rect.size * draw_scale)
+
+
+static func get_full_rect(
+	draw_scale: float,
+	position_offset: Vector2,
+	source_rect: Rect2
+) -> Rect2:
+	var base_rect: Rect2 = get_base_rect(draw_scale, source_rect)
+	return Rect2(base_rect.position + position_offset, base_rect.size)
+
+
+static func clamp_offset(
+	candidate_offset: Vector2,
+	draw_scale: float,
+	view_size: Vector2,
+	keep_visible_margin: float,
+	source_rect: Rect2
+) -> Vector2:
+	var base_rect: Rect2 = get_base_rect(draw_scale, source_rect)
+	var scaled_margin: float = keep_visible_margin * draw_scale
+	var min_x: float = scaled_margin - base_rect.end.x
+	var max_x: float = view_size.x - scaled_margin - base_rect.position.x
+	var min_y: float = scaled_margin - base_rect.end.y
+	var max_y: float = view_size.y - scaled_margin - base_rect.position.y
+	return Vector2(
+		clamp_axis(candidate_offset.x, min_x, max_x),
+		clamp_axis(candidate_offset.y, min_y, max_y)
+	)
+
+
+static func clamp_axis(value: float, min_value: float, max_value: float) -> float:
+	if min_value > max_value:
+		return (min_value + max_value) * 0.5
+	return clampf(value, min_value, max_value)
+
+
 static func smooth01(value: float) -> float:
 	var t: float = clamp(value, 0.0, 1.0)
 	return t * t * (3.0 - 2.0 * t)

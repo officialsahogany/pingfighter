@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_scroll_phase()
 	_verify_direct_visual_values()
+	_verify_direct_scroll_geometry()
 	_verify_scene_scroll_delegates()
 	_verify_scene_scroll_drag()
 
@@ -52,6 +53,29 @@ func _verify_direct_visual_values() -> void:
 	_expect(StageClearResultScrollState.get_box_global_alpha("unfurling", 0.475, 0.95) < 1.0, "unfurling boxes should fade out")
 
 
+func _verify_direct_scroll_geometry() -> void:
+	var base_rect := StageClearResultScrollState.get_base_rect(
+		1.0,
+		StageClearResultScene.SCROLL_REGION_RECT
+	)
+	_expect(base_rect.position == Vector2(340.0, 96.0), "scroll geometry helper should build the authored base position")
+	_expect(base_rect.size == Vector2(1240.0, 904.0), "scroll geometry helper should build the authored scroll size")
+	var full_rect := StageClearResultScrollState.get_full_rect(
+		1.0,
+		Vector2(80.0, -40.0),
+		StageClearResultScene.SCROLL_REGION_RECT
+	)
+	_expect(full_rect.position == base_rect.position + Vector2(80.0, -40.0), "scroll full rect should add the live drag offset")
+	var clamped := StageClearResultScrollState.clamp_offset(
+		Vector2(2000.0, -2000.0),
+		1.0,
+		Vector2(1920.0, 1080.0),
+		StageClearResultScene.SCROLL_DRAG_VIEW_MARGIN,
+		StageClearResultScene.SCROLL_REGION_RECT
+	)
+	_expect(clamped.x < 2000.0 and clamped.y > -2000.0, "scroll offset helper should clamp drags to the visible margin")
+
+
 func _verify_scene_scroll_delegates() -> void:
 	var scene := StageClearResultScene.new()
 	scene._boxes = [
@@ -91,7 +115,11 @@ func _verify_scene_scroll_drag() -> void:
 	scene._scroll_phase = "visible"
 	scene._scroll_timer = StageClearResultScene.SCROLL_UNFURL_DURATION
 	scene._boxes = [{"state": "opened"}]
-	var base_rect: Rect2 = scene._get_scroll_full_rect(1.0)
+	var base_rect: Rect2 = StageClearResultScrollState.get_full_rect(
+		1.0,
+		Vector2.ZERO,
+		StageClearResultScene.SCROLL_REGION_RECT
+	)
 	var grab_point: Vector2 = base_rect.position + Vector2(120.0, 120.0)
 	_expect(scene._start_scroll_drag(grab_point), "visible scroll body should start drag")
 	_expect(bool(scene.get_interaction_status().get("scroll_dragging", false)), "scroll status should expose active drag")
