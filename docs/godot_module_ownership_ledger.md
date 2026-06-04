@@ -118,8 +118,9 @@ This section is intentionally long; use search to find the nearest owner.
   As of 2026-06-04, passive-skill metadata is a shared Ringpet-wide pool
   (`COMMON_PASSIVE_SKILL_POOL`) with Lv.1-Lv.5 values. Temporary scaffold
   passives were removed; the current pool intentionally keeps only the
-  completed `lingpet_afterglow_leak` / 잔광 유출 passive, and pet-specific
-  legacy passive ids normalize into that current real passive for save
+  approved `lingpet_resonance_boost` / 공명 증폭 and
+  `lingpet_afterglow_leak` / 잔광 유출 passives. Pet-specific legacy
+  gauge-bonus passive ids normalize into Resonance Boost for save
   compatibility.
   `lingpet_egg_runtime.gd`, character-info UI, save reset code, and
   rail-card helpers should read future Ringpet identity data from this
@@ -208,10 +209,20 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_afterglow_leak_state.gd`
   Owns the shared Ringpet passive `lingpet_afterglow_leak` / 잔광 유출:
   companion-hit residue spawning, residue lifetime / seep-away cleanup,
-  player-paddle proximity absorption, fast gauge tick grants, procedural
-  glowing-liquid draw accents, gauge feedback calls, and debug / UI snapshot
-  fields. `lingpet_egg_runtime.gd` should only call spawn / advance / draw /
-  reset and should not inline residue math.
+  player-paddle proximity absorption, fast gauge tick grants, the modular
+  resonance-fluid VFX (bottle-burst at the hit point -> running-down cascade
+  rivulets -> spreading luminous floor pool -> absorb wisps -> seep), its CPU
+  droplet particle sim, gauge feedback calls, and debug / UI snapshot fields.
+  The visual envelope is decorative only and never gates the absorb gameplay.
+  `lingpet_egg_runtime.gd` should only call spawn / advance / draw / reset and
+  should not inline residue math.
+- `scripts/effects/afterglow_fluid_texture_cache.gd`
+  Static lazy luminance-texture cache for the 잔광 유출 fluid VFX (glow / body /
+  caustic / rim / droplet / vertical-rivulet streak), white-baked with alpha
+  luminance and tinted to the green-gold "공명 유체" palette at draw time. Same
+  immediate-draw, no-fragment-shader pattern as `hydro_puddle_texture_cache.gd`
+  (the shared battle shell draws in one painter-order `_draw()`, so flowing
+  light is faked via caustic-scroll + layered blits, not a GPU shader pass).
 - `scripts/lingpet/lingpet_companion_switch_state.gd`
   Owns Ringpet companion switch-transition state: transition timer, source /
   target pet ids, trigger count, ratio calculation, reset, and snapshot fields
@@ -2327,7 +2338,8 @@ This section is intentionally long; use search to find the nearest owner.
   Hongryun boss skill-card HUD in the post-playfield HUD pass.
 - `scripts/stages/stage6/` — Stage 6 테트리서 / Tetriser cluster (port of Python
   Stage 7; Godot slot 6, see `docs/stage6_tetriser_port_plan.md`). Status:
-  **complete through step 5c; follow-up visual assets pending**. Owners (7 modules):
+  **complete through step 5c + boss sprite + background + pillar Tetris deco;
+  crystal-shield boss skill and loading/result art pending**. Owners (8 modules):
   - `stage6_tetriser_state.gd` — single owner of boss gauge (max 500, 25/sec
     charge, round-persist via reset_round vs full reset), falling tetrominoes
     (assembly→fall→drift/rotate→settle), guard blocks (slide→active), edge tetro
@@ -2350,8 +2362,16 @@ This section is intentionally long; use search to find the nearest owner.
     (faithful procedural port of Python `AnimatedBackgroundStage7`): pulsing
     torch glows, sweeping light band, drifting motes, blue-purple border
     frame. Central cube is NOT drawn here (owned by the playfield renderer).
-  - `stage6_tetriser_pillar_scene_drawer.gd` — drives the boss skill-card HUD in
-    `draw_post_playfield_hud` (merges state `get_hud_context`).
+  - `stage6_tetriser_pillar_scene_drawer.gd` — background fanout + shared Stage 1
+    pillar HUD chrome; draws the pillar Tetris deco between background and HUD;
+    drives the boss skill-card HUD in `draw_post_playfield_hud` (merges state
+    `get_hud_context`).
+  - `stage6_tetriser_pillar_tetris.gd` — two self-playing Tetris wells in the
+    screen letterbox margins (behavior port of Python `TetrisGame` /
+    `TetriserPillarBackground`: auto-play, line clears, rainbow, NEXT preview).
+    Visual deco only; the `CrystalShieldSystem` boss skill from the same Python
+    file (pulls pillar blocks into a 24-block orbiting shield, ball collision,
+    screen freeze) is NOT yet ported — deferred follow-up.
   - `stage6_tetriser_boss_skill_hud_renderer.gd` — 달지식 boss skill-card HUD
     (gauge + 낙하/가드/벽/초인 cards) via shared `BossSkillCardHudSpec`
     (procedural cards; tetriser skillcard textures pending).

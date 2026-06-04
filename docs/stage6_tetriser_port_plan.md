@@ -338,7 +338,15 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
      (토치 글로우 4 + 스윕 라이트 밴드 + 광점 12 + 청보라 아레나 테두리). 중앙 큐브는
      playfield_renderer가 게임플레이로 그리므로 배경에서는 제외(중복 방지). 좌표는
      stage5 형제 컨벤션, LOD 포함. 격리 warning scan/상태 smoke/headless load 통과.
-   - ⏳ **후속:** 로딩/결과 화면 이미지, 테트리서 스킬카드 텍스처(현재 절차적)는 placeholder/후속 유지.
+   - ✅ **필러 테트리스 데코 (2026-06-04, `f7ce4cb35`):** `stage6_tetriser_pillar_tetris.gd`로
+     좌/우 레터박스 여백에 자동 플레이 테트리스 2판(낙하/회전/라인클리어/무지개/NEXT 프리뷰).
+     Python `TetrisGame`/`TetriserPillarBackground` 동작 포팅. 원본은 화면 내 80px 필러였지만
+     Godot 풀-캔버스 규칙상 레터박스 여백에 배치(HUD 크롬 뒤 백드롭). 격리 scan/로직 기능검증/
+     상태 smoke/headless load 통과.
+   - ⏳ **후속:** (1) **크리스탈 실드 보스 스킬** — `pillar_tetriser.py`의 `CrystalShieldSystem`
+     (필러 블록을 보스 주변 24개 궤도 실드로 형성→공 충돌 파괴→화면 프리즈). 게임플레이 메커닉이라
+     별도 작업으로 분리(공 충돌/라운드·리셋 경계/프리즈 필요). (2) 로딩/결과 화면 이미지,
+     테트리서 스킬카드 텍스처(현재 절차적)는 placeholder 유지.
 
 > ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
 > Stage 6 smoke 9종, perf smoke, 직접 Stage 6 런타임 캡처/serve 확인 통과.
