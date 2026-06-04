@@ -1929,7 +1929,17 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		RESULT_REWARD_SOURCE_BOX,
 		RESULT_REWARD_SOURCE_LABELS
 	)
-	_draw_reward_card_icon(reward, visual_state.get("icon_rect", Rect2()), scale, alpha)
+	StageClearResultRewardCardDrawHelper.draw_reward_card_icon(
+		self,
+		reward,
+		visual_state.get("icon_rect", Rect2()),
+		scale,
+		alpha,
+		timer,
+		_perk_icon_renderer,
+		_reward_icon_cache,
+		Callable(self, "_draw_ingame_starpoint_visual")
+	)
 	var reward_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
 		reward,
 		_perk_catalog,
@@ -1947,37 +1957,6 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		scale,
 		alpha
 	)
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_reward_card_icon(reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
-	var reward_type: String = str(reward.get("type", ""))
-	if reward_type == "starpoint":
-		var star_radius: float = max(8.0 * scale, min(rect.size.x, rect.size.y) * 0.22)
-		var card_visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_starpoint_visual_state(
-			int(reward.get("amount", 1)),
-			rect.get_center(),
-			star_radius / 34.0,
-			alpha,
-			1.0,
-			timer,
-			0.0
-		)
-		card_visual_state["star_center"] = rect.get_center()
-		card_visual_state["star_radius"] = star_radius
-		card_visual_state["inner_radius"] = star_radius * 0.5
-		_draw_ingame_starpoint_visual(card_visual_state, false)
-		return
-	if StageClearResultSummaryBuilder.is_perk_reward(reward):
-		var perk_id: String = StageClearResultSummaryBuilder.get_reward_perk_id(reward)
-		if _perk_icon_renderer != null and _perk_icon_renderer.has_method("draw_icon") and bool(_perk_icon_renderer.draw_icon(self, perk_id, rect, alpha, true)):
-			return
-	var texture: Texture2D = StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
-	if texture != null:
-		StageClearResultShapeHelper.draw_fitted_texture(self, texture, rect, alpha)
-	else:
-		var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_fallback_reward_icon_visual_state(reward_type, rect, alpha)
-		StageClearResultShapeHelper.draw_fallback_reward_icon(self, visual_state)
-
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -> void:

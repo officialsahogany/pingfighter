@@ -1,6 +1,8 @@
 extends RefCounted
 
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
+const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clear_result_reward_icon_resolver.gd")
+const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
@@ -234,3 +236,45 @@ static func draw_reward_card_label(
 		visual_state.get("label_text_color", Color(0.04, 0.08, 0.10, alpha)),
 		0.0
 	)
+
+
+static func draw_reward_card_icon(
+	canvas: CanvasItem,
+	reward: Dictionary,
+	rect: Rect2,
+	scale: float,
+	alpha: float,
+	timer: float,
+	perk_icon_renderer: Variant,
+	reward_icon_cache: Dictionary,
+	starpoint_draw_callback: Callable
+) -> void:
+	if canvas == null:
+		return
+	var reward_type: String = str(reward.get("type", ""))
+	if reward_type == "starpoint":
+		var star_radius: float = max(8.0 * scale, min(rect.size.x, rect.size.y) * 0.22)
+		var card_visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_starpoint_visual_state(
+			int(reward.get("amount", 1)),
+			rect.get_center(),
+			star_radius / 34.0,
+			alpha,
+			1.0,
+			timer,
+			0.0
+		)
+		card_visual_state["star_center"] = rect.get_center()
+		card_visual_state["star_radius"] = star_radius
+		card_visual_state["inner_radius"] = star_radius * 0.5
+		starpoint_draw_callback.call(card_visual_state, false)
+		return
+	if StageClearResultSummaryBuilder.is_perk_reward(reward):
+		var perk_id: String = StageClearResultSummaryBuilder.get_reward_perk_id(reward)
+		if perk_icon_renderer != null and perk_icon_renderer.has_method("draw_icon") and bool(perk_icon_renderer.draw_icon(canvas, perk_id, rect, alpha, true)):
+			return
+	var texture: Texture2D = StageClearResultRewardIconResolver.get_reward_icon_texture(reward, reward_icon_cache)
+	if texture != null:
+		StageClearResultShapeHelper.draw_fitted_texture(canvas, texture, rect, alpha)
+	else:
+		var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_fallback_reward_icon_visual_state(reward_type, rect, alpha)
+		StageClearResultShapeHelper.draw_fallback_reward_icon(canvas, visual_state)
