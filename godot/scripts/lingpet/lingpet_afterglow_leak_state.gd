@@ -16,22 +16,32 @@ const SEEP_FADE_SECONDS := 0.45
 const ABSORB_FLASH_SECONDS := 0.26
 
 # --- Visual envelope (decorative only; never gates the absorb gameplay) -------
-const BURST_SECONDS := 0.26
-const POUR_SECONDS := 0.40
-const SPREAD_SECONDS := 0.55
-const POOL_APPEAR_SECONDS := 0.14
+const POOL_APPEAR_SECONDS := 0.12
+const FILL_SECONDS := 0.66       # the pool grows as the sprayed liquid lands
+const EMIT_FLASH_SECONDS := 0.18
 
-# --- CPU particle sim ---------------------------------------------------------
-const PARTICLE_MAX := 48
-const PARTICLE_GRAVITY := 540.0
-const BURST_CROWN_COUNT := 7
-const BURST_GUSH_COUNT := 4
-const BURST_SHARD_COUNT := 2
-const AMBIENT_INTERVAL := 0.24
+# --- Noita-style ballistic liquid spray --------------------------------------
+const PARTICLE_MAX := 48          # bounded lightweight budget (jets are removed on landing)
+const JET_GRAVITY := 950.0       # px/s^2 pulling the spray back to the floor (fast settle)
+const JET_EMIT_SECONDS := 0.20   # liquid is emitted as a brief stream, not 1 pop
+const JET_EMIT_INTERVAL := 0.012 # one stream droplet every ~12ms while emitting
+const JET_INITIAL_BURST := 4
+const JET_SPEED_MIN := 360.0
+const JET_SPEED_MAX := 500.0
+const JET_SPREAD_RAD := 0.28     # half fan-angle around the upward launch dir
+const JET_LIFE := 1.8
+const SPLASH_GRAVITY := 520.0
+const AMBIENT_INTERVAL := 0.22
 const ABSORB_WISP_COUNT := 2
-const KIND_BURST := 0
-const KIND_AMBIENT := 1
-const KIND_WISP := 2
+const KIND_JET := 0
+const KIND_SPLASH := 1
+const KIND_AMBIENT := 2
+const KIND_WISP := 3
+
+# --- Persistent floor splatter (the landed liquid that stays "뿌려진" on the
+#     ground until the residue is absorbed or seeps away) ----------------------
+const MAX_SPLATS := 16
+const SPLAT_FADE_IN := 0.12
 
 # --- "공명 유체" green-gold luminance palette (textures are white-baked) -------
 const COLOR_GLOW := Color(0.20, 1.0, 0.62)
@@ -44,6 +54,7 @@ const COLOR_DROPLET_COOL := Color(0.50, 1.0, 0.70)
 
 var _residues: Array[Dictionary] = []
 var _particles: Array = []
+var _next_residue_id := 0
 var _ambient_timer := 0.0
 var _last_gain := 0.0
 var _trigger_count := 0
@@ -65,8 +76,8 @@ func advance(delta: float, owner: Object, registry: Object, passive_skill: Dicti
 		var active_delta: float = minf(safe_delta, previous_timer)
 		residue["timer"] = maxf(0.0, previous_timer - safe_delta)
 		residue["age"] = float(residue.get("age", 0.0)) + active_delta
-		residue["pulse"] = float(residue.get("pulse", 0.0)) + safe_delta
 		residue["absorb_flash"] = maxf(0.0, float(residue.get("absorb_flash", 0.0)) - safe_delta)
+		_emit_jet(residue, safe_delta)
 		if active_delta > 0.0 and _is_player_in_absorb_range(owner, residue):
 			_try_absorb_residue(owner, registry, residue, active_delta)
 		if float(residue.get("timer", 0.0)) <= 0.0 or float(residue.get("remaining_gauge", 0.0)) <= 0.0:
@@ -85,19 +96,23 @@ func spawn_from_hit(contact_pos: Vector2, passive_skill: Dictionary, companion_a
 	var tick_count: int = max(1, int(passive_skill.get("afterglow_tick_count", DEFAULT_TICK_COUNT)))
 	var duration: float = maxf(0.35, float(passive_skill.get("afterglow_duration_seconds", DEFAULT_DURATION_SECONDS)))
 	var floor_pos: Vector2 = _get_floor_pos(contact_pos)
-	# Lift the burst origin so there is always a readable cascade down to the
-	# floor pool: the smack flings the fluid up, then it pours back down. The
-	# companion patrols the floor lane, so without this the "흘러내림" would be
-	# only a few pixels tall.
-	var origin_y: float = clampf(minf(contact_pos.y, floor_pos.y - 54.0), 40.0, floor_pos.y - 10.0)
-	var origin: Vector2 = Vector2(clampf(contact_pos.x, 18.0, FIELD_WIDTH - 18.0), origin_y)
+	# The hit point is where the liquid is flung from; the pool collects on the
+	# floor below. The spray arcs UP from here then rains back down to floor_pos.
+	var origin: Vector2 = Vector2(
+		clampf(contact_pos.x, 18.0, FIELD_WIDTH - 18.0),
+		clampf(contact_pos.y, 32.0, floor_pos.y)
+	)
 	var residue := {
+		"id": _next_residue_id,
 		"pos": floor_pos,
 		"origin": origin,
 		"timer": duration,
 		"duration": duration,
 		"age": 0.0,
-		"pulse": 0.0,
+		"emit_timer": JET_EMIT_SECONDS,
+		"emit_accum": 0.0,
+		"lean": randf_range(-0.12, 0.12),
+		"splats": [],
 		"remaining_gauge": total_gauge,
 		"total_gauge": total_gauge,
 		"tick_gain": total_gauge / float(tick_count),
@@ -106,10 +121,13 @@ func spawn_from_hit(contact_pos: Vector2, passive_skill: Dictionary, companion_a
 		"seed": _stable_seed(contact_pos),
 		"absorb_flash": ABSORB_FLASH_SECONDS,
 	}
+	_next_residue_id += 1
 	_residues.append(residue)
 	while _residues.size() > MAX_RESIDUES:
 		_residues.remove_at(0)
-	_spawn_burst(origin, floor_pos)
+	# An immediate spit of liquid so the spray reads on the very first frame.
+	for _i in range(JET_INITIAL_BURST):
+		_emit_jet_droplet(residue)
 	return true
 
 
@@ -117,6 +135,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
 	var now_msec: int = Time.get_ticks_msec()
+	# Floor pools first, then the falling spray on top of them.
 	for residue in _residues:
 		_draw_residue(canvas, residue, shake_offset, now_msec)
 	_draw_particles(canvas, shake_offset)
@@ -240,49 +259,84 @@ func _get_player_rect(owner: Object) -> Rect2:
 
 # --- Particle simulation ------------------------------------------------------
 
-func _spawn_burst(origin: Vector2, floor_pos: Vector2) -> void:
-	# Bottle-shatter crown: liquid bursts up-and-out then rains back via gravity.
-	for i in range(BURST_CROWN_COUNT):
-		var crown_angle: float = -PI * 0.5 + (randf() - 0.5) * PI * 1.32
-		var crown_speed: float = randf_range(150.0, 350.0)
+func _emit_jet(residue: Dictionary, delta: float) -> void:
+	var emit_timer: float = float(residue.get("emit_timer", 0.0))
+	if emit_timer <= 0.0 or delta <= 0.0:
+		return
+	residue["emit_timer"] = maxf(0.0, emit_timer - delta)
+	var accum: float = float(residue.get("emit_accum", 0.0)) + delta
+	while accum >= JET_EMIT_INTERVAL:
+		accum -= JET_EMIT_INTERVAL
+		_emit_jet_droplet(residue)
+	residue["emit_accum"] = accum
+
+
+func _emit_jet_droplet(residue: Dictionary) -> void:
+	var origin: Vector2 = _as_vector2(residue.get("origin", Vector2.ZERO), Vector2.ZERO)
+	var floor_y: float = _as_vector2(residue.get("pos", Vector2.ZERO), Vector2.ZERO).y
+	var lean: float = float(residue.get("lean", 0.0))
+	var theta: float = lean + randf_range(-JET_SPREAD_RAD, JET_SPREAD_RAD)
+	var speed: float = randf_range(JET_SPEED_MIN, JET_SPEED_MAX)
+	# Launch UP (y is down), fanned by theta -> a fountain arc that gravity pulls
+	# back down to the floor pool.
+	var vel := Vector2(sin(theta) * speed, -cos(theta) * speed)
+	_add_particle(
+		origin + Vector2(randf_range(-3.0, 3.0), randf_range(-3.0, 3.0)),
+		vel,
+		JET_LIFE,
+		randf_range(2.6, 4.4),
+		KIND_JET,
+		{
+			"floor_y": floor_y,
+			"pool_id": int(residue.get("id", -1)),
+		}
+	)
+
+
+func _spawn_landing_splash(at: Vector2) -> void:
+	for _i in range(2):
 		_add_particle(
-			origin + Vector2(randf_range(-7.0, 7.0), randf_range(-4.0, 4.0)),
-			Vector2(cos(crown_angle), sin(crown_angle)) * crown_speed,
-			randf_range(0.30, 0.58),
-			randf_range(3.2, 6.8),
-			KIND_BURST
+			at + Vector2(randf_range(-3.0, 3.0), 0.0),
+			Vector2(randf_range(-34.0, 34.0), randf_range(-78.0, -34.0)),
+			randf_range(0.16, 0.32),
+			randf_range(1.8, 3.0),
+			KIND_SPLASH
 		)
-	# Low gush: fast, near-horizontal spray that slaps outward along the floor.
-	for j in range(BURST_GUSH_COUNT):
-		var side: float = -1.0 if (j % 2 == 0) else 1.0
-		var tilt_down: float = randf_range(0.0, 0.34)  # small downward lean (y is down)
-		var gush_speed: float = randf_range(170.0, 280.0)
-		_add_particle(
-			origin + Vector2(randf_range(-5.0, 5.0), randf_range(0.0, 8.0)),
-			Vector2(side * cos(tilt_down) * gush_speed, sin(tilt_down) * gush_speed * 0.6),
-			randf_range(0.26, 0.46),
-			randf_range(2.6, 5.0),
-			KIND_BURST
-		)
-	# A few bright, larger shards to sell the shatter snap.
-	for k in range(BURST_SHARD_COUNT):
-		var shard_angle: float = -PI * 0.5 + (randf() - 0.5) * PI * 0.9
-		_add_particle(
-			origin,
-			Vector2(cos(shard_angle), sin(shard_angle)) * randf_range(260.0, 400.0),
-			randf_range(0.22, 0.36),
-			randf_range(5.0, 8.0),
-			KIND_BURST
-		)
-	# Seed a couple of motes at the floor pool so it reads as filling instantly.
-	for _m in range(2):
-		_add_particle(
-			floor_pos + Vector2(randf_range(-12.0, 12.0), randf_range(-3.0, 3.0)),
-			Vector2(randf_range(-10.0, 10.0), randf_range(-22.0, -8.0)),
-			randf_range(0.4, 0.7),
-			randf_range(2.4, 3.8),
-			KIND_AMBIENT
-		)
+
+
+func _deposit_splat(pool_id: int, landing_x: float, floor_y: float) -> void:
+	if pool_id < 0:
+		return
+	for residue in _residues:
+		if int(residue.get("id", -1)) != pool_id:
+			continue
+		var splats: Array = residue.get("splats", [])
+		var born: float = float(residue.get("age", 0.0))
+		# Merge into a nearby existing splat once the band is full so the floor
+		# keeps reading as accumulating liquid rather than spawning forever.
+		if splats.size() >= MAX_SPLATS:
+			var nearest_index: int = -1
+			var nearest_dist: float = 1.0e9
+			for i in range(splats.size()):
+				var d: float = absf(float(splats[i].get("x", 0.0)) - landing_x)
+				if d < nearest_dist:
+					nearest_dist = d
+					nearest_index = i
+			if nearest_index >= 0:
+				var grown: Dictionary = splats[nearest_index]
+				grown["size"] = minf(18.0, float(grown.get("size", 6.0)) + 1.4)
+				grown["x"] = lerpf(float(grown.get("x", landing_x)), landing_x, 0.3)
+				splats[nearest_index] = grown
+			return
+		splats.append({
+			"x": landing_x,
+			"y": floor_y,
+			"born": born,
+			"size": randf_range(6.0, 12.0),
+			"seed": fmod(absf(landing_x * 0.13 + born * 7.0), TAU),
+		})
+		residue["splats"] = splats
+		return
 
 
 func _spawn_absorb_wisps(owner: Object, residue: Dictionary) -> void:
@@ -298,11 +352,11 @@ func _spawn_absorb_wisps(owner: Object, residue: Dictionary) -> void:
 			randf_range(0.22, 0.40),
 			randf_range(2.6, 4.6),
 			KIND_WISP,
-			target
+			{"target": target}
 		)
 
 
-func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int, target: Vector2 = Vector2.ZERO) -> void:
+func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int, params: Dictionary = {}) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
 	_particles.append({
@@ -312,7 +366,9 @@ func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: i
 		"max_life": maxf(0.01, life),
 		"size": size,
 		"kind": kind,
-		"target": target,
+		"target": _as_vector2(params.get("target", Vector2.ZERO), Vector2.ZERO),
+		"floor_y": float(params.get("floor_y", 0.0)),
+		"pool_id": int(params.get("pool_id", -1)),
 	})
 
 
@@ -327,8 +383,24 @@ func _update_particles(delta: float) -> void:
 			continue
 		var vel: Vector2 = particle["vel"]
 		var kind: int = int(particle["kind"])
-		if kind == KIND_BURST:
-			vel.y += PARTICLE_GRAVITY * delta
+		if kind == KIND_JET:
+			vel.y += JET_GRAVITY * delta
+			var next_pos: Vector2 = (particle["pos"] as Vector2) + vel * delta
+			var floor_y: float = float(particle["floor_y"])
+			if vel.y > 0.0 and next_pos.y >= floor_y:
+				# The sprayed liquid reaches the floor: splash, then deposit a
+				# persistent splat that stays "뿌려진" on the ground.
+				_spawn_landing_splash(Vector2(next_pos.x, floor_y))
+				_deposit_splat(int(particle["pool_id"]), next_pos.x, floor_y)
+				_particles.remove_at(index)
+				continue
+			particle["vel"] = vel
+			particle["pos"] = next_pos
+			particle["life"] = life
+			_particles[index] = particle
+			continue
+		if kind == KIND_SPLASH:
+			vel.y += SPLASH_GRAVITY * delta
 		elif kind == KIND_AMBIENT:
 			vel.y -= 24.0 * delta
 			vel *= 0.90
@@ -354,12 +426,12 @@ func _emit_ambient(delta: float) -> void:
 		return
 	_ambient_timer = AMBIENT_INTERVAL
 	var residue: Dictionary = _residues[_residues.size() - 1]
-	if float(residue.get("age", 0.0)) < BURST_SECONDS:
+	if float(residue.get("age", 0.0)) < 0.12:
 		return
 	var pool: Vector2 = _as_vector2(residue.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var radius: float = maxf(8.0, float(residue.get("absorb_radius", DEFAULT_ABSORB_RADIUS))) * 0.6
 	_add_particle(
-		pool + Vector2(randf_range(-radius, radius), randf_range(-radius * 0.4, radius * 0.4)),
+		pool + Vector2(randf_range(-radius, radius), randf_range(-radius * 0.35, radius * 0.35)),
 		Vector2(randf_range(-12.0, 12.0), randf_range(-26.0, -12.0)),
 		randf_range(0.45, 0.85),
 		randf_range(2.2, 3.6),
@@ -379,117 +451,92 @@ func _draw_residue(canvas: CanvasItem, residue: Dictionary, shake_offset: Vector
 	var seep_ratio: float = clampf(timer / SEEP_FADE_SECONDS, 0.0, 1.0)
 	var remaining_ratio: float = clampf(float(residue.get("remaining_gauge", 0.0)) / maxf(0.01, float(residue.get("total_gauge", 1.0))), 0.0, 1.0)
 	var alpha: float = minf(life_ratio, seep_ratio) * (0.42 + 0.58 * remaining_ratio)
-	if alpha <= 0.01:
-		return
 
 	var time_seconds: float = float(now_msec) / 1000.0
 	var phase_seed: float = float(residue.get("seed", 0.0))
+
+	# Emission flash at the hit point on the very first frames.
+	var emit_flash: float = 1.0 - clampf(age / EMIT_FLASH_SECONDS, 0.0, 1.0)
+	if emit_flash > 0.0:
+		var fr: float = lerpf(10.0, 30.0, 1.0 - emit_flash)
+		_blit(canvas, AfterglowFluidTextureCache.get_glow_texture(), origin, fr, fr, COLOR_DROPLET_HOT, 0.55 * emit_flash)
+		canvas.draw_arc(origin, fr * 0.7, 0.0, TAU, 26, Color(0.92, 1.0, 0.76, 0.5 * emit_flash), 2.0, true)
+
+	if alpha <= 0.01:
+		return
+
 	var absorb_ratio: float = clampf(float(residue.get("absorb_flash", 0.0)) / ABSORB_FLASH_SECONDS, 0.0, 1.0)
 	var appear: float = clampf(age / POOL_APPEAR_SECONDS, 0.0, 1.0)
-	var spread: float = 0.5 + 0.5 * _ease_out_back(clampf(age / SPREAD_SECONDS, 0.0, 1.0))
+	# The pool grows as the sprayed liquid accumulates ("모임").
+	var fill: float = _ease_out_quad(clampf(age / FILL_SECONDS, 0.0, 1.0))
+	var grow: float = 0.30 + 0.70 * fill
 	var breathe: float = 0.94 + 0.06 * sin(time_seconds * 2.4 + phase_seed)
 
 	var radius: float = maxf(8.0, float(residue.get("absorb_radius", DEFAULT_ABSORB_RADIUS)))
-	var rx: float = radius * 0.80 * spread * breathe
+	var rx: float = radius * 0.82 * grow * breathe
 	var ry: float = rx * 0.34  # flat, ground-hugging puddle (not a round disc)
 	var pool_a: float = alpha * appear
 
-	# 1) Liquid column pouring down from the burst point into the floor pool.
-	_draw_pour(canvas, residue, origin, pool, age, alpha, time_seconds)
-
-	# 2) Ambient bloom halo (the "발광" luminance bed under the fluid).
+	# 1) Ambient bloom halo (the "발광" luminance bed under the fluid).
 	_blit(canvas, AfterglowFluidTextureCache.get_glow_texture(), pool, rx * 1.55, ry * 2.6, COLOR_GLOW, pool_a * (0.30 + 0.14 * absorb_ratio))
 
-	# 3) Creeping tongues so the fluid spreads/flows sideways along the floor
-	#    instead of reading as one clean disc.
-	_draw_tongues(canvas, pool, rx, ry, spread, phase_seed, time_seconds, pool_a)
+	# 2) Persistent floor splatter: every landed droplet left a luminous mark
+	#    scattered across the floor band -> the liquid stays "뿌려진" on the ground.
+	_draw_splats(canvas, residue, shake_offset, age, pool_a, time_seconds)
 
-	# 4) FILLED luminous body. The glow profile fills the whole ellipse so the
-	#    pool reads as a solid pour of light, NOT a hollow ring.
+	# 3) Creeping tongues so the fluid spreads sideways along the floor.
+	_draw_tongues(canvas, pool, rx, ry, fill, phase_seed, time_seconds, pool_a)
+
+	# 3) FILLED luminous body (glow profile fills the ellipse -> not a hollow ring).
 	_blit(canvas, AfterglowFluidTextureCache.get_glow_texture(), pool, rx, ry, COLOR_BODY, pool_a * 0.64)
 	_blit(canvas, AfterglowFluidTextureCache.get_body_texture(), pool, rx * 0.92, ry * 0.92, COLOR_BODY, pool_a * 0.5)
 	_blit(canvas, AfterglowFluidTextureCache.get_body_texture(), pool, rx * 0.46, ry * 0.52, COLOR_CORE, pool_a * (0.44 + 0.18 * absorb_ratio))
 
-	# 5) Flowing caustic veins (two opposite scrolls -> moving, living light).
+	# 4) Flowing caustic veins (two opposite scrolls -> moving, living light).
 	var caustic_breathe: float = 1.0 + 0.08 * sin(time_seconds * 1.5 + phase_seed)
 	_blit(canvas, AfterglowFluidTextureCache.get_caustic_texture(), pool + Vector2(sin(time_seconds * 1.1 + phase_seed) * 4.0, 0.0), rx * 0.9 * caustic_breathe, ry * 0.9 * caustic_breathe, COLOR_CAUSTIC, pool_a * 0.52)
 	_blit(canvas, AfterglowFluidTextureCache.get_caustic_texture(), pool + Vector2(-sin(time_seconds * 0.8 + phase_seed) * 4.0, 0.0), rx * 0.64, ry * 0.64, Color(0.95, 1.0, 0.88), pool_a * 0.36)
 
-	# 6) Subtle bright front lip only (a flat highlight, never a full rim ring).
+	# 5) Subtle bright front lip only (a flat highlight, never a full rim ring).
 	_blit(canvas, AfterglowFluidTextureCache.get_body_texture(), pool + Vector2(0.0, ry * 0.46), rx * 0.72, ry * 0.30, COLOR_RIM, pool_a * 0.30)
 
-	# 7) Early burst flash crown at the origin (bottle shatter snap).
-	if age < BURST_SECONDS:
-		var burst_t: float = 1.0 - clampf(age / BURST_SECONDS, 0.0, 1.0)
-		var burst_r: float = lerpf(14.0, 54.0, 1.0 - burst_t)
-		_blit(canvas, AfterglowFluidTextureCache.get_glow_texture(), origin, burst_r, burst_r, COLOR_DROPLET_HOT, 0.5 * burst_t)
-		canvas.draw_arc(origin, burst_r * 0.7, 0.0, TAU, 30, Color(0.92, 1.0, 0.76, 0.6 * burst_t), 2.0, true)
 
-
-func _draw_pour(canvas: CanvasItem, residue: Dictionary, origin: Vector2, pool: Vector2, age: float, alpha: float, time_seconds: float) -> void:
-	var span: float = pool.y - origin.y
-	if span <= 4.0:
+func _draw_splats(canvas: CanvasItem, residue: Dictionary, shake_offset: Vector2, age: float, pool_a: float, time_seconds: float) -> void:
+	if pool_a <= 0.02:
 		return
-	var pour_t: float = clampf(age / POUR_SECONDS, 0.0, 1.0)
-	var residue_seed: float = float(residue.get("seed", 0.0))
-	var y_top: float = origin.y
-	var y_bot: float = lerpf(origin.y, pool.y, _ease_out_quad(pour_t)) if pour_t < 1.0 else pool.y
-	if y_bot - y_top <= 3.0:
+	var splats: Array = residue.get("splats", [])
+	if splats.is_empty():
 		return
-	# After the head lands the column thins into a faint sustained trickle.
-	var sustain: float = lerpf(1.0, 0.34, pour_t)
-	var w_top: float = lerpf(4.0, 2.0, pour_t)
-	var w_bot: float = lerpf(8.0, 3.0, pour_t)
-
-	# Soft luminous glow behind the falling sheet.
-	var streak: Texture2D = AfterglowFluidTextureCache.get_streak_texture()
-	if streak != null:
-		var gw: float = maxf(w_bot, w_top) + 5.0
-		var gx: float = lerpf(origin.x, pool.x, 0.5)
-		canvas.draw_texture_rect(
-			streak,
-			Rect2(Vector2(gx - gw, y_top), Vector2(gw * 2.0, y_bot - y_top)),
-			false,
-			Color(COLOR_BODY.r, COLOR_BODY.g, COLOR_BODY.b, alpha * 0.46 * sustain)
-		)
-
-	# Wobbling, tapered liquid ribbon (a coherent stream, not thin hairs).
-	var seg: int = 6
-	var left_edge: PackedVector2Array = PackedVector2Array()
-	var right_edge: PackedVector2Array = PackedVector2Array()
-	for s in range(seg + 1):
-		var t: float = float(s) / float(seg)
-		var y: float = lerpf(y_top, y_bot, t)
-		var cx: float = lerpf(origin.x, pool.x, t) + sin(time_seconds * 5.0 + residue_seed + t * 6.0) * 2.6 * (1.0 - t)
-		var w: float = lerpf(w_top, w_bot, t)
-		left_edge.append(Vector2(cx - w, y))
-		right_edge.append(Vector2(cx + w, y))
-	var ribbon: PackedVector2Array = PackedVector2Array()
-	for p in left_edge:
-		ribbon.append(p)
-	for s in range(right_edge.size() - 1, -1, -1):
-		ribbon.append(right_edge[s])
-	canvas.draw_colored_polygon(ribbon, Color(COLOR_CORE.r, COLOR_CORE.g, COLOR_CORE.b, alpha * 0.78 * sustain))
-
-	# Bright falling head bead while still pouring.
-	if pour_t < 1.0:
-		var head: Vector2 = Vector2(pool.x, y_bot)
-		_blit(canvas, AfterglowFluidTextureCache.get_droplet_texture(), head, w_bot + 3.0, w_bot + 3.0, COLOR_DROPLET_HOT, alpha * 0.95)
+	var body: Texture2D = AfterglowFluidTextureCache.get_body_texture()
+	var glow: Texture2D = AfterglowFluidTextureCache.get_glow_texture()
+	for splat in splats:
+		var s_age: float = age - float(splat.get("born", 0.0))
+		var s_in: float = clampf(s_age / SPLAT_FADE_IN, 0.0, 1.0)
+		if s_in <= 0.0:
+			continue
+		var splat_seed: float = float(splat.get("seed", 0.0))
+		var wob: float = 0.92 + 0.08 * sin(time_seconds * 2.0 + splat_seed)
+		var sw: float = float(splat.get("size", 8.0)) * (0.6 + 0.4 * s_in) * wob
+		var sh: float = sw * 0.42
+		var pos: Vector2 = Vector2(float(splat.get("x", 0.0)), float(splat.get("y", 0.0))) + shake_offset
+		_blit(canvas, glow, pos, sw * 1.4, sh * 1.6, COLOR_GLOW, pool_a * 0.20 * s_in)
+		_blit(canvas, body, pos, sw, sh, COLOR_BODY, pool_a * 0.50 * s_in)
+		_blit(canvas, body, pos, sw * 0.5, sh * 0.55, COLOR_CORE, pool_a * 0.30 * s_in)
 
 
-func _draw_tongues(canvas: CanvasItem, pool: Vector2, rx: float, ry: float, spread: float, residue_seed: float, time_seconds: float, pool_a: float) -> void:
+func _draw_tongues(canvas: CanvasItem, pool: Vector2, rx: float, ry: float, fill: float, residue_seed: float, time_seconds: float, pool_a: float) -> void:
 	if pool_a <= 0.02:
 		return
 	var body: Texture2D = AfterglowFluidTextureCache.get_body_texture()
 	if body == null:
 		return
 	# Two long side tongues + two shorter offset lobes, all flat (no rotation),
-	# wobbling and growing with the spread so the puddle creeps outward.
+	# wobbling and growing with the fill so the puddle creeps outward.
 	for k in range(4):
 		var side: float = -1.0 if (k % 2 == 0) else 1.0
 		var lane: float = 1.0 if k < 2 else 0.55
 		var wob: float = 0.7 + 0.3 * sin(time_seconds * 1.6 + residue_seed + float(k) * 1.3)
-		var reach: float = rx * (0.55 + 0.7 * spread) * lane * wob
+		var reach: float = rx * (0.55 + 0.7 * fill) * lane * wob
 		if reach <= 2.0:
 			continue
 		var lobe_cx: float = pool.x + side * reach * 0.6
@@ -502,26 +549,41 @@ func _draw_tongues(canvas: CanvasItem, pool: Vector2, rx: float, ry: float, spre
 func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if _particles.is_empty():
 		return
-	var tex: Texture2D = AfterglowFluidTextureCache.get_droplet_texture()
-	if tex == null:
+	var droplet: Texture2D = AfterglowFluidTextureCache.get_droplet_texture()
+	if droplet == null:
 		return
 	for particle in _particles:
 		var max_life: float = maxf(0.01, float(particle["max_life"]))
 		var life_t: float = clampf(float(particle["life"]) / max_life, 0.0, 1.0)
 		var kind: int = int(particle["kind"])
-		var alpha: float = clampf(life_t * 1.4, 0.0, 1.0) if kind == KIND_BURST else life_t
-		if alpha <= 0.02:
-			continue
-		var size: float = float(particle["size"]) * (0.65 + 0.35 * life_t)
 		var pos: Vector2 = (particle["pos"] as Vector2) + shake_offset
+		var size: float = float(particle["size"])
+		if kind == KIND_JET:
+			# Elongated falling streak (the Noita-style liquid "dash").
+			var alpha: float = clampf(life_t * 2.0, 0.0, 1.0)
+			if alpha <= 0.02:
+				continue
+			var v: Vector2 = particle["vel"]
+			var spd: float = v.length()
+			var vdir: Vector2 = v / spd if spd > 1.0 else Vector2(0.0, 1.0)
+			var streak_len: float = clampf(spd * 0.05, 5.0, 22.0)
+			var tail: Vector2 = pos - vdir * streak_len
+			canvas.draw_line(tail, pos, Color(COLOR_BODY.r, COLOR_BODY.g, COLOR_BODY.b, alpha * 0.42), size * 2.0, true)
+			canvas.draw_line(tail, pos, Color(COLOR_CORE.r, COLOR_CORE.g, COLOR_CORE.b, alpha * 0.95), maxf(1.0, size * 0.9), true)
+			_blit(canvas, droplet, pos, size * 0.95, size * 0.95, COLOR_DROPLET_HOT, alpha)
+			continue
+		var part_alpha: float = clampf(life_t * 1.3, 0.0, 1.0) if kind == KIND_SPLASH else life_t
+		if part_alpha <= 0.02:
+			continue
+		var draw_size: float = size * (0.65 + 0.35 * life_t)
 		var color: Color
-		if kind == KIND_BURST:
-			color = Color(COLOR_DROPLET_HOT.r, COLOR_DROPLET_HOT.g, COLOR_DROPLET_HOT.b, alpha * 0.92)
+		if kind == KIND_SPLASH:
+			color = Color(COLOR_DROPLET_HOT.r, COLOR_DROPLET_HOT.g, COLOR_DROPLET_HOT.b, part_alpha * 0.9)
 		elif kind == KIND_WISP:
-			color = Color(0.78, 1.0, 0.72, alpha * 0.9)
+			color = Color(0.78, 1.0, 0.72, part_alpha * 0.9)
 		else:
-			color = Color(COLOR_DROPLET_COOL.r, COLOR_DROPLET_COOL.g, COLOR_DROPLET_COOL.b, alpha * 0.55)
-		canvas.draw_texture_rect(tex, Rect2(pos - Vector2(size, size), Vector2(size * 2.0, size * 2.0)), false, color)
+			color = Color(COLOR_DROPLET_COOL.r, COLOR_DROPLET_COOL.g, COLOR_DROPLET_COOL.b, part_alpha * 0.55)
+		canvas.draw_texture_rect(droplet, Rect2(pos - Vector2(draw_size, draw_size), Vector2(draw_size * 2.0, draw_size * 2.0)), false, color)
 
 
 func _blit(canvas: CanvasItem, tex: Texture2D, center: Vector2, rx: float, ry: float, color: Color, blit_alpha: float) -> void:
@@ -533,13 +595,6 @@ func _blit(canvas: CanvasItem, tex: Texture2D, center: Vector2, rx: float, ry: f
 		false,
 		Color(color.r, color.g, color.b, clampf(blit_alpha, 0.0, 1.0))
 	)
-
-
-func _ease_out_back(x: float) -> float:
-	var clamped: float = clampf(x, 0.0, 1.0)
-	var s := 1.70158
-	var u: float = clamped - 1.0
-	return 1.0 + (s + 1.0) * pow(u, 3.0) + s * pow(u, 2.0)
 
 
 func _ease_out_quad(x: float) -> float:
@@ -555,8 +610,11 @@ func _ensure_prewarmed() -> void:
 
 
 func _get_floor_pos(contact_pos: Vector2) -> Vector2:
+	# The pool collects on the floor band near the player/companion lane, not at
+	# the mid-air hit point, so the sprayed liquid always falls down to the ground.
+	var ground_y: float = FIELD_HEIGHT - 38.0
 	var x: float = clampf(contact_pos.x, 22.0, FIELD_WIDTH - 22.0)
-	var y: float = clampf(contact_pos.y + 24.0, 80.0, FIELD_HEIGHT - 34.0)
+	var y: float = clampf(maxf(contact_pos.y + 16.0, ground_y), 80.0, FIELD_HEIGHT - 26.0)
 	return Vector2(x, y)
 
 

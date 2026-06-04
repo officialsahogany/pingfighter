@@ -72,6 +72,7 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	_apply_speed_multiplier(config, weather)
 	_apply_speed_multiplier(config, _get_instance(registry, "status_effect_state"))
 	_apply_speed_multiplier(config, _get_instance(registry, "active_item_runtime"))
+	_apply_speed_multiplier(config, _get_instance(registry, "lingpet_egg_runtime"))
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	_apply_speed_multiplier(config, mythic_item_runtime)
 	_apply_turn_decel_multiplier(config, mythic_item_runtime)

@@ -45,7 +45,7 @@ static func build_player_stat_rows(
 	var base_dash_cooldown_seconds_value: float = frames_to_seconds(SmasherDashState.DASH_BASE_RECHARGE_FRAMES)
 	var base_item_cooldown_seconds_value: float = float(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC) / 1000.0
 	var max_gauge: float = effective_max_gauge(max(1.0, float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "special_gauge_max", special_gauge_max))), stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
-	var move_speed: float = effective_move_speed(character_type, character_runtime, runtime_state, smasher_recovery_state, active_item_runtime, mythic_item_runtime, Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier"))
+	var move_speed: float = effective_move_speed(character_type, character_runtime, runtime_state, smasher_recovery_state, active_item_runtime, mythic_item_runtime, lingpet_runtime, Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier"))
 	var owner_width: float = float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "player_paddle_width", 0.0))
 	var runtime_scale_fallback: float = float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "runtime_paddle_scale", 1.0))
 	var paddle_width: float = effective_player_paddle_width(owner_width, runtime_scale_fallback, runtime_state, active_item_runtime, mythic_item_runtime, Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier"), player_base_paddle_width)
@@ -363,6 +363,7 @@ static func effective_move_speed(
 	smasher_recovery_state: Object,
 	active_item_runtime: Object,
 	mythic_item_runtime: Object,
+	lingpet_runtime: Object,
 	call_numeric_multiplier: Callable
 ) -> float:
 	return base_move_speed(character_type, character_runtime) * effective_move_speed_multiplier(
@@ -371,6 +372,7 @@ static func effective_move_speed(
 		smasher_recovery_state,
 		active_item_runtime,
 		mythic_item_runtime,
+		lingpet_runtime,
 		call_numeric_multiplier
 	)
 
@@ -389,6 +391,7 @@ static func effective_move_speed_multiplier(
 	smasher_recovery_state: Object,
 	active_item_runtime: Object,
 	mythic_item_runtime: Object,
+	lingpet_runtime: Object,
 	call_numeric_multiplier: Callable
 ) -> float:
 	var multiplier: float = 1.0
@@ -397,6 +400,7 @@ static func effective_move_speed_multiplier(
 		multiplier *= float(call_numeric_multiplier.call(smasher_recovery_state, "get_player_speed_multiplier"))
 	multiplier *= float(call_numeric_multiplier.call(active_item_runtime, "get_player_speed_multiplier"))
 	multiplier *= float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_speed_multiplier"))
+	multiplier *= float(call_numeric_multiplier.call(lingpet_runtime, "get_player_speed_multiplier"))
 	return max(0.0, multiplier)
 
 

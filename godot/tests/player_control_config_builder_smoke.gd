@@ -156,6 +156,7 @@ func _verify_direct_config_builder() -> void:
 		"runtime_perk_state": FakeMultiplier.new(1.5),
 		"smasher_recovery_state": FakeMultiplier.new(1.2),
 		"active_item_runtime": FakeMultiplier.new(2.0),
+		"lingpet_egg_runtime": FakeMultiplier.new(1.1),
 		"mythic_item_runtime": FakeMultiplier.new(0.5),
 	}
 	var context_builder := FakeContextBuilder.new()
@@ -178,11 +179,11 @@ func _verify_direct_config_builder() -> void:
 	_expect_close(float(config.get("boss_hitbox_height", 0.0)), 40.0, "config builder should expose boss hitbox height")
 	_expect_close(float(config.get("boss_visual_center_y_offset", 0.0)), 25.0, "config builder should expose Stage 1 boss visual center offset")
 	_expect(float(config.get("width", 0.0)) == 760.0 and float(config.get("height", 0.0)) == 750.0, "config builder should set playfield dimensions")
-	_expect_close(float(config.get("paddle_speed", 0.0)), 10.8, "Smasher speed should include runtime, recovery, active, and mythic multipliers")
-	_expect_close(float(config.get("paddle_max_speed", 0.0)), 18.0, "Smasher max speed should include all speed multipliers")
-	_expect_close(float(config.get("paddle_accel", 0.0)), 3.6, "Smasher acceleration should include all speed multipliers")
-	_expect_close(float(config.get("paddle_decel", 0.0)), 5.4, "Smasher deceleration should include all speed multipliers")
-	_expect_close(float(config.get("paddle_turn_decel", 0.0)), 7.2, "Smasher turn deceleration should include all speed multipliers")
+	_expect_close(float(config.get("paddle_speed", 0.0)), 11.88, "Smasher speed should include runtime, recovery, active, lingpet, and mythic multipliers")
+	_expect_close(float(config.get("paddle_max_speed", 0.0)), 19.8, "Smasher max speed should include all speed multipliers")
+	_expect_close(float(config.get("paddle_accel", 0.0)), 3.96, "Smasher acceleration should include all speed multipliers")
+	_expect_close(float(config.get("paddle_decel", 0.0)), 5.94, "Smasher deceleration should include all speed multipliers")
+	_expect_close(float(config.get("paddle_turn_decel", 0.0)), 7.92, "Smasher turn deceleration should include all speed multipliers")
 
 
 func _verify_optimus_config_prepares_energy() -> void:
