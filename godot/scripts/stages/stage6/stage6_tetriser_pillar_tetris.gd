@@ -397,11 +397,12 @@ func _draw_next_preview(canvas: CanvasItem, game: PillarTetrisGame, margin_x: fl
 		max_y = maxi(max_y, cell.y)
 	var preview_w := float(max_x - min_x + 1) * mini_size
 	var start_x := margin_x + (margin_w - preview_w) * 0.5
-	var start_y := maxf(8.0, well_rect.position.y - 45.0)
+	var label_y := maxf(22.0, well_rect.position.y - 43.0)
+	var start_y := label_y + 9.0
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
 		var label_color: Color = Color(1.0, 0.10, 0.16, 0.96) if margin_x <= 0.0 else Color(0.72, 0.66, 1.0, 0.96)
-		canvas.draw_string(font, Vector2(margin_x + maxf(4.0, margin_w * 0.08), start_y - 9.0), "NEXT", HORIZONTAL_ALIGNMENT_LEFT, margin_w, 16, label_color)
+		canvas.draw_string(font, Vector2(margin_x + maxf(4.0, margin_w * 0.08), label_y), "NEXT", HORIZONTAL_ALIGNMENT_LEFT, margin_w, 16, label_color)
 	for cell in shape:
 		var px := start_x + float(cell.x - min_x) * mini_size
 		var py := start_y + float(cell.y - min_y) * mini_size
