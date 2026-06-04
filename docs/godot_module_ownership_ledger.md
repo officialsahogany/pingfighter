@@ -1496,7 +1496,8 @@ This section is intentionally long; use search to find the nearest owner.
   delay / unfurling / visible phase transitions, gate-aware update
   blocking, smooth unfurl progress, fading the floating boxes behind
   the opened scroll, authored scroll region / content / drag-margin
-  constants, and scroll rect / drag-offset clamping geometry.
+  constants, region rect helpers, and scroll rect / drag-offset clamping
+  geometry.
   The scene still owns the live box array, perk-choice
   and starpoint-choice gates, input, drawing, and confirmation callbacks.
 - `scripts/ui/stage_clear_result_scroll_draw_helper.gd`

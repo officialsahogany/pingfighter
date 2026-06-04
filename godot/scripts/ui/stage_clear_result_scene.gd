@@ -562,7 +562,7 @@ func _start_scroll_drag(mouse_position: Vector2) -> bool:
 		return false
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	var scroll_rect: Rect2 = _get_scroll_full_rect(layout_scale)
+	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset)
 	if not scroll_rect.has_point(mouse_position):
 		return false
 	_refresh_scroll_button_rects()
@@ -582,9 +582,12 @@ func _start_scroll_drag(mouse_position: Vector2) -> bool:
 func _update_scroll_drag(mouse_position: Vector2) -> void:
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	var base_rect: Rect2 = _get_scroll_base_rect(layout_scale)
-	var candidate_offset: Vector2 = mouse_position - _scroll_drag_grab_offset - base_rect.position
-	_scroll_position_offset = _clamp_scroll_offset(candidate_offset, layout_scale, view_size)
+	_scroll_position_offset = StageClearResultScrollState.get_region_drag_offset(
+		mouse_position,
+		_scroll_drag_grab_offset,
+		layout_scale,
+		view_size
+	)
 	_refresh_scroll_button_rects()
 	queue_redraw()
 
@@ -614,7 +617,7 @@ func _refresh_scroll_button_rects() -> void:
 	var layout_scale: float = _get_layout_scale(view_size)
 	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
 		StageClearResultLayoutHelper.get_scroll_content_rect(
-			_get_scroll_full_rect(layout_scale),
+			StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset),
 			layout_scale,
 			SCROLL_CONTENT_MARGIN
 		),
@@ -622,24 +625,6 @@ func _refresh_scroll_button_rects() -> void:
 	)
 	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
 	_exit_button_rect = button_layout.get("exit_rect", Rect2())
-
-
-func _get_scroll_base_rect(draw_scale: float) -> Rect2:
-	return StageClearResultScrollState.get_base_rect(draw_scale, SCROLL_REGION_RECT)
-
-
-func _get_scroll_full_rect(draw_scale: float) -> Rect2:
-	return StageClearResultScrollState.get_full_rect(draw_scale, _scroll_position_offset, SCROLL_REGION_RECT)
-
-
-func _clamp_scroll_offset(candidate_offset: Vector2, draw_scale: float, view_size: Vector2) -> Vector2:
-	return StageClearResultScrollState.clamp_offset(
-		candidate_offset,
-		draw_scale,
-		view_size,
-		SCROLL_DRAG_VIEW_MARGIN,
-		SCROLL_REGION_RECT
-	)
 
 
 func _get_current_view_size() -> Vector2:
@@ -729,7 +714,7 @@ func get_interaction_status() -> Dictionary:
 		"scroll_timer": _scroll_timer,
 		"scroll_unfurl_duration": SCROLL_UNFURL_DURATION,
 		"scroll_texture_loaded": _scroll_texture != null,
-		"scroll_rect": _get_scroll_full_rect(layout_scale),
+		"scroll_rect": StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset),
 		"scroll_position_offset": _scroll_position_offset,
 		"scroll_dragging": _scroll_dragging,
 		"next_stage_button_rect": _next_stage_button_rect,
@@ -1024,7 +1009,7 @@ func _update_scroll(delta: float) -> void:
 func _draw_scroll(view_size: Vector2, scale: float, font: Font) -> void:
 	if _scroll_phase == "hidden":
 		return
-	_scroll_position_offset = _clamp_scroll_offset(_scroll_position_offset, scale, view_size)
+	_scroll_position_offset = StageClearResultScrollState.clamp_region_offset(_scroll_position_offset, scale, view_size)
 	var unfurl: float = StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 	if unfurl <= 0.0:
 		return
@@ -1033,7 +1018,7 @@ func _draw_scroll(view_size: Vector2, scale: float, font: Font) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
-	var full_rect: Rect2 = _get_scroll_full_rect(scale)
+	var full_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(scale, _scroll_position_offset)
 	var current_height: float = full_rect.size.y * unfurl
 	var visible_rect := Rect2(full_rect.position, Vector2(full_rect.size.x, current_height))
 

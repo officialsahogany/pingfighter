@@ -102,6 +102,24 @@ static func get_full_rect(
 	return Rect2(base_rect.position + position_offset, base_rect.size)
 
 
+static func get_region_full_rect(draw_scale: float, position_offset: Vector2) -> Rect2:
+	return get_full_rect(draw_scale, position_offset, SCROLL_REGION_RECT)
+
+
+static func clamp_region_offset(candidate_offset: Vector2, draw_scale: float, view_size: Vector2) -> Vector2:
+	return clamp_offset(candidate_offset, draw_scale, view_size, SCROLL_DRAG_VIEW_MARGIN, SCROLL_REGION_RECT)
+
+
+static func get_region_drag_offset(
+	mouse_position: Vector2,
+	grab_offset: Vector2,
+	draw_scale: float,
+	view_size: Vector2
+) -> Vector2:
+	var base_rect: Rect2 = get_base_rect(draw_scale, SCROLL_REGION_RECT)
+	return clamp_region_offset(mouse_position - grab_offset - base_rect.position, draw_scale, view_size)
+
+
 static func clamp_offset(
 	candidate_offset: Vector2,
 	draw_scale: float,

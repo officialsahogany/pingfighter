@@ -78,6 +78,10 @@ func _verify_direct_scroll_geometry() -> void:
 		StageClearResultScene.SCROLL_REGION_RECT
 	)
 	_expect(full_rect.position == base_rect.position + Vector2(80.0, -40.0), "scroll full rect should add the live drag offset")
+	_expect(
+		StageClearResultScrollState.get_region_full_rect(1.0, Vector2(80.0, -40.0)) == full_rect,
+		"scroll state region full rect helper should use the authored result scroll region"
+	)
 	var clamped := StageClearResultScrollState.clamp_offset(
 		Vector2(2000.0, -2000.0),
 		1.0,
@@ -86,6 +90,19 @@ func _verify_direct_scroll_geometry() -> void:
 		StageClearResultScene.SCROLL_REGION_RECT
 	)
 	_expect(clamped.x < 2000.0 and clamped.y > -2000.0, "scroll offset helper should clamp drags to the visible margin")
+	_expect(
+		StageClearResultScrollState.clamp_region_offset(Vector2(2000.0, -2000.0), 1.0, Vector2(1920.0, 1080.0)) == clamped,
+		"scroll state region clamp helper should use the authored drag margin"
+	)
+	_expect(
+		StageClearResultScrollState.get_region_drag_offset(
+			base_rect.position + Vector2(120.0, 120.0) + Vector2(80.0, -40.0),
+			Vector2(120.0, 120.0),
+			1.0,
+			Vector2(1920.0, 1080.0)
+		) == Vector2(80.0, -40.0),
+		"scroll state should derive region drag offsets from mouse and grab positions"
+	)
 
 
 func _verify_scene_scroll_delegates() -> void:
@@ -121,6 +138,14 @@ func _verify_scene_scroll_delegates() -> void:
 			and helper_source.find("const SCROLL_CONTENT_MARGIN") >= 0
 			and helper_source.find("const SCROLL_DRAG_VIEW_MARGIN") >= 0,
 		"scroll state should own authored scroll geometry constants"
+	)
+	_expect(
+		source.find("func _get_scroll_base_rect") < 0
+			and source.find("func _get_scroll_full_rect") < 0
+			and source.find("func _clamp_scroll_offset") < 0
+			and source.find("StageClearResultScrollState.get_region_full_rect") >= 0
+			and source.find("StageClearResultScrollState.clamp_region_offset") >= 0,
+		"result scene should not keep scroll geometry pass-through wrappers"
 	)
 	_expect(
 		source.find("func _get_scroll_unfurl_progress") < 0
