@@ -1006,10 +1006,6 @@ func _is_stage3_result_boss() -> bool:
 	return current_stage == 3
 
 
-func _get_stage3_boss_defeat_base_frame() -> int:
-	return int(floor(timer / STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL)) % STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
-
-
 @warning_ignore("shadowed_variable_base_class")
 func _draw_stage2_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if _stage2_boss_defeat_live2d_sheet == null:
@@ -1300,7 +1296,7 @@ func _draw_result_box_fallback(
 	var rim_color := Color(1.0, 0.90, 0.45, 0.92 * global_alpha) if is_mythic else Color(0.75, 1.0, 1.0, 0.86 * global_alpha)
 	var open_lift: float = 0.0
 	if state == "opening" or state == "opened":
-		open_lift = _smooth01(open_progress) * hy * 0.42
+		open_lift = StageClearResultClickReactionState.smooth01(open_progress) * hy * 0.42
 	draw_set_transform(draw_center, box_rotation, Vector2.ONE)
 	var body_rect := Rect2(Vector2(-hx * 0.68, -hy * 0.05), Vector2(hx * 1.36, hy * 1.02))
 	var lid_rect := Rect2(Vector2(-hx * 0.76, -hy * 0.58 - open_lift), Vector2(hx * 1.52, hy * 0.46))
@@ -1891,7 +1887,7 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 		_exit_button_rect = Rect2()
 		return
 
-	var content_alpha: float = _smooth01((unfurl - 0.58) / 0.42)
+	var content_alpha: float = StageClearResultClickReactionState.smooth01((unfurl - 0.58) / 0.42)
 	_draw_cyber_scroll_contents(StageClearResultLayoutHelper.get_scroll_content_rect(full_rect, scale, SCROLL_CONTENT_MARGIN), scale, font, content_alpha)
 
 
@@ -2608,11 +2604,6 @@ func _dalji_reaction_state() -> Dictionary:
 		DALJI_CLICK_RETURN_FADE_DURATION,
 		DALJI_CLICK_TOTAL_DURATION
 	)
-
-
-func _smooth01(value: float) -> float:
-	var t: float = clamp(value, 0.0, 1.0)
-	return t * t * (3.0 - 2.0 * t)
 
 
 func _confirm() -> void:

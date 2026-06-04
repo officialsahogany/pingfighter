@@ -151,7 +151,9 @@ func _verify_scene_constant_wiring() -> void:
 		and source.find("func _get_dalji_transition_base_frame") < 0
 		and source.find("func _get_dalji_reaction_alpha") < 0
 		and source.find("func _is_dalji_click_reaction_active") < 0
-		and source.find("func _is_dalji_click_return_blend_active") < 0,
+		and source.find("func _is_dalji_click_return_blend_active") < 0
+		and source.find("func _smooth01") < 0
+		and source.find("func _get_stage3_boss_defeat_base_frame") < 0,
 		"scene should not keep click reaction pass-through wrappers"
 	)
 	scene.free()
