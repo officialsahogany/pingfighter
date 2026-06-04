@@ -2,6 +2,7 @@ extends SceneTree
 
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
+const BattleBootWarmupPlan := preload("res://scripts/core/battle_boot_warmup_plan.gd")
 
 
 class FakeOwner:
@@ -18,6 +19,34 @@ class FakePrewarmModule:
 
 	func prewarm_assets() -> void:
 		prewarm_count += 1
+
+
+class FakeRuntimeNodePrewarmModule:
+	var prewarm_count := 0
+	var runtime_node_calls := 0
+	var last_runtime_owner: Object = null
+
+	func prewarm_assets() -> void:
+		prewarm_count += 1
+
+	func prewarm_runtime_nodes(owner: Object = null) -> void:
+		runtime_node_calls += 1
+		last_runtime_owner = owner
+
+
+class FakeBallRenderer:
+	var step_calls := 0
+	var runtime_step_calls := 0
+	var last_runtime_owner: Object = null
+
+	func prewarm_assets_step() -> bool:
+		step_calls += 1
+		return true
+
+	func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
+		runtime_step_calls += 1
+		last_runtime_owner = owner
+		return true
 
 
 class FakeActiveItemRuntime:
@@ -109,6 +138,24 @@ class FakeStagedResultScreen:
 	func prewarm_assets(owner: Object = null, _registry: Object = null) -> void:
 		prewarm_count += 1
 		last_owner = owner
+
+
+class FakeGameAudio:
+	var setup_calls := 0
+	var setup_complete_after := 6
+	var prime_calls := 0
+	var last_prime_stage := 0
+
+	func setup_step(_owner: Object = null) -> bool:
+		setup_calls += 1
+		return setup_calls >= setup_complete_after
+
+	func get_setup_progress() -> float:
+		return clampf(float(setup_calls) / float(setup_complete_after), 0.0, 1.0)
+
+	func prime_stage_bgm(stage: int) -> void:
+		prime_calls += 1
+		last_prime_stage = stage
 
 
 class FakeBattleResources:
@@ -205,8 +252,11 @@ class FakeCharacterInfo:
 
 
 class FakeRegistry:
+	var warmup_plan := BattleBootWarmupPlan.new()
 	var resource_prewarm := BattleBootResourcePrewarmController.new()
 	var battle_resources := FakeBattleResources.new()
+	var ball_renderer := FakeBallRenderer.new()
+	var game_audio := FakeGameAudio.new()
 	var weather := FakePrewarmModule.new()
 	var active_item_runtime := FakeActiveItemRuntime.new()
 	var mythic_item_runtime := FakeMythicItemRuntime.new()
@@ -225,6 +275,7 @@ class FakeRegistry:
 	var stage1_skill_hud := FakeStagedPrewarmModule.new()
 	var stage1_actor_renderer := FakePrewarmModule.new()
 	var commando_firearm_selector := FakeStagedPrewarmModule.new()
+	var skill_cutin_overlay_host := FakeRuntimeNodePrewarmModule.new()
 	var smasher_plasma_state := FakeStagedPrewarmModule.new()
 	var smasher_recovery_state := FakeStagedPrewarmModule.new()
 	var smasher_warp_gate_state := FakePrewarmModule.new()
@@ -260,8 +311,14 @@ class FakeRegistry:
 		match key:
 			"battle_boot_resource_prewarm_controller":
 				return resource_prewarm
+			"battle_boot_warmup_plan":
+				return warmup_plan
 			"battle_resources":
 				return battle_resources
+			"ball_renderer":
+				return ball_renderer
+			"game_audio":
+				return game_audio
 			"weather_event_renderer":
 				return weather
 			"active_item_runtime":
@@ -298,6 +355,8 @@ class FakeRegistry:
 				return stage1_actor_renderer
 			"commando_firearm_selector_renderer":
 				return commando_firearm_selector
+			"skill_cutin_overlay_host":
+				return skill_cutin_overlay_host
 			"smasher_plasma_state":
 				return smasher_plasma_state
 			"smasher_recovery_state":
@@ -363,6 +422,8 @@ class FakeRegistry:
 
 var _failures: Array[String] = []
 var _registry := FakeRegistry.new()
+var _boot_initialize_calls := 0
+var _boot_redraw_calls := 0
 
 
 func _init() -> void:
@@ -391,6 +452,12 @@ func _init() -> void:
 	_expect(_registry.monkey_blessing_delivery_state.monolithic_calls == 0, "Monkey Blessing delivery prewarm should avoid monolithic loading when staged")
 	_expect(_registry.commando_reload_delivery_state.step_calls == 3, "stage runtime prewarm should stage Commando reload delivery assets before the first visible draw")
 	_expect(_registry.commando_reload_delivery_state.monolithic_calls == 0, "Commando reload delivery prewarm should avoid monolithic loading when staged")
+	_expect(_registry.ball_renderer.step_calls == 1, "stage runtime prewarm should warm ball renderer assets before the first visible draw")
+	_expect(_registry.ball_renderer.runtime_step_calls == 1, "stage runtime prewarm should pre-create ball renderer runtime FX nodes")
+	_expect(_registry.ball_renderer.last_runtime_owner == owner, "ball renderer runtime node prewarm should receive the battle owner")
+	_expect(_registry.skill_cutin_overlay_host.prewarm_count == 1, "stage runtime prewarm should warm Smasher cut-in assets once")
+	_expect(_registry.skill_cutin_overlay_host.runtime_node_calls == 1, "stage runtime prewarm should pre-create the Smasher cut-in FX host")
+	_expect(_registry.skill_cutin_overlay_host.last_runtime_owner == owner, "Smasher cut-in FX host prewarm should receive the battle owner")
 	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
 	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
 	_expect(_registry.smasher_plasma_state.step_calls == 3, "stage runtime prewarm should stage Smasher plasma textures")
@@ -410,6 +477,7 @@ func _init() -> void:
 	_verify_viper_runtime_node_prewarm()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
 	_verify_boot_warmup_result_step_uses_result_prewarm_signature()
+	_verify_full_boot_warmup_finishes_without_stalling()
 
 	if _failures.is_empty():
 		print("battle_boot_resource_prewarm_smoke: ok")
@@ -422,6 +490,14 @@ func _init() -> void:
 
 func _get_module(key: String) -> Object:
 	return _registry.get_instance(key)
+
+
+func _mark_boot_initialized(_play_stage_bgm: bool = true) -> void:
+	_boot_initialize_calls += 1
+
+
+func _mark_boot_redraw_requested() -> void:
+	_boot_redraw_calls += 1
 
 
 func _verify_full_stage_clear_result_prewarm_remains_staged() -> void:
@@ -679,8 +755,8 @@ func _verify_battle_texture_prewarm_is_staged() -> void:
 	_expect(controller.battle_boss_resources_prewarmed, "staged texture prewarm should satisfy the old boss flag")
 	_expect(_registry.battle_resources.load_all_calls == 0, "staged texture prewarm should use the cached transition path without load_all")
 	_expect(
-		bool(_registry.battle_resources.last_context.get("include_result_sheets", false)),
-		"first battle texture prewarm should include round-result sheets before the first score event"
+		not bool(_registry.battle_resources.last_context.get("include_result_sheets", true)),
+		"first battle texture prewarm should defer result sheets to the dedicated result prewarm path"
 	)
 	_expect(int(owner.battle_textures.get("loaded_stage", 0)) == 1, "owner should receive the battle texture cache")
 	_expect(owner.smasher_skill_icon_textures.has("wheel"), "owner should receive the selected character skill icon cache")
@@ -702,17 +778,59 @@ func _verify_viper_runtime_node_prewarm() -> void:
 	_expect(_registry.viper_skill_runtime.monolithic_calls == 0, "Viper skill runtime prewarm should stay staged")
 	_expect(_registry.viper_skill_runtime.runtime_step_calls == 1, "Viper skill runtime should prewarm FX host nodes once")
 	_expect(_registry.viper_skill_runtime.last_runtime_owner == owner, "Viper FX host node prewarm should receive the battle owner")
+	_expect(_registry.skill_cutin_overlay_host.prewarm_count == 1, "Viper runtime prewarm should warm the shared skill cut-in assets once")
+	_expect(_registry.skill_cutin_overlay_host.runtime_node_calls == 1, "Viper runtime prewarm should run shared skill cut-in runtime node prewarm once")
+	_expect(_registry.skill_cutin_overlay_host.last_runtime_owner == owner, "Viper skill cut-in runtime node prewarm should receive the battle owner")
 
 
 func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
+	var resource_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+	var landing_source := FileAccess.get_file_as_string("res://scripts/core/stage_landing_intro.gd")
+	var label_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_sample_labels.gd")
 	_expect(
 		source.find("\"prewarm_battle_texture_resources_step\"") >= 0,
 		"boot warmup should advance battle texture resource prewarm one chunk per frame"
 	)
 	_expect(
+		resource_source.find("landing_intro.prewarm_assets_step(current_stage)") >= 0,
+		"boot resource prewarm should stage landing intro background loading"
+	)
+	_expect(
 		source.find("\"prewarm_stage_runtime_resources_step\"") >= 0,
 		"boot warmup should advance stage runtime resource prewarm one chunk per frame"
+	)
+	_expect(
+		resource_source.find("LingpetRailCard.prewarm_step()") >= 0,
+		"boot resource prewarm should stage lingpet rail-card loading"
+	)
+	_expect(
+		resource_source.find("\"lingpet_runtime\"") >= 0 and resource_source.find("lingpet_runtime.prewarm_assets()") >= 0,
+		"boot resource prewarm should warm lingpet runtime passive VFX assets before the first passive hit"
+	)
+	_expect(
+		label_source.find("\"09_lingpet_runtime\"") >= 0 and label_source.find("\"10_lingpet_rail_card\"") >= 0,
+		"boot warmup sample labels should name lingpet runtime and rail-card prewarm steps"
+	)
+	_expect(
+		resource_source.find("prewarm_runtime_nodes_step(owner)") >= 0,
+		"boot resource prewarm should create ball runtime FX nodes before the first visible battle draw"
+	)
+	_expect(
+		resource_source.find("return _run_battle_pso_prewarmer_step(owner)") >= 0,
+		"boot resource prewarm should wait for the PSO prewarmer draw passes before the first visible battle draw"
+	)
+	_expect(
+		resource_source.find("prewarm_stage_runtime_resources_step(owner, module_getter, false)") >= 0,
+		"monolithic stage runtime prewarm should skip frame-gated PSO waits"
+	)
+	_expect(
+		resource_source.find("while not prewarm_stage_runtime_resources_step(owner, module_getter):") < 0,
+		"monolithic stage runtime prewarm should not busy-loop a frame-gated PSO step"
+	)
+	_expect(
+		landing_source.find("prewarm_texture_threaded_step") >= 0,
+		"stage landing intro prewarm should use the threaded texture path"
 	)
 	_expect(
 		source.find("\"prewarm_stage_clear_result_resources_step\"") >= 0,
@@ -743,6 +861,55 @@ func _verify_boot_warmup_result_step_uses_result_prewarm_signature() -> void:
 	_expect(int(warmup.get("boot_warmup_step")) == 19, "boot result warmup should finish without swapping result prewarm arguments")
 	_expect(_registry.result_screen.threaded_step_calls == 4, "boot result warmup should advance the threaded result asset path")
 	_expect(_registry.result_screen.last_owner == owner, "boot result warmup should pass the owner as the result prewarm owner argument")
+
+
+func _verify_full_boot_warmup_finishes_without_stalling() -> void:
+	_registry = FakeRegistry.new()
+	_boot_initialize_calls = 0
+	_boot_redraw_calls = 0
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 1
+	owner.selected_character_type = "smasher"
+	var frame_count := 0
+	var same_step_frames := 0
+	var last_step := int(warmup.get("boot_warmup_step"))
+	var previous_progress := -0.001
+	const MAX_BOOT_WARMUP_FRAMES := 220
+	const MAX_SAME_BOOT_STEP_FRAMES := 80
+
+	while not bool(warmup.is_finished()) and frame_count < MAX_BOOT_WARMUP_FRAMES:
+		warmup.run_boot_warmup_step(
+			owner,
+			Callable(self, "_get_module"),
+			Callable(self, "_mark_boot_initialized"),
+			Callable(self, "_mark_boot_redraw_requested")
+		)
+		var current_step := int(warmup.get("boot_warmup_step"))
+		if current_step == last_step:
+			same_step_frames += 1
+		else:
+			last_step = current_step
+			same_step_frames = 0
+		var progress := float(warmup.get_progress(Callable(self, "_get_module")))
+		_expect(
+			progress + 0.001 >= previous_progress,
+			"boot warmup progress should be monotonic while staged work is running"
+		)
+		_expect(
+			same_step_frames <= MAX_SAME_BOOT_STEP_FRAMES,
+			"boot warmup step %d should not hold the loading screen indefinitely" % current_step
+		)
+		previous_progress = maxf(previous_progress, progress)
+		frame_count += 1
+
+	_expect(bool(warmup.is_finished()), "full boot warmup should finish before the no-stall frame guard")
+	_expect(frame_count < MAX_BOOT_WARMUP_FRAMES, "full boot warmup should stay inside the boot loading frame budget")
+	_expect(_registry.game_audio.setup_calls == _registry.game_audio.setup_complete_after, "full boot warmup should finish staged audio setup exactly once")
+	_expect(_registry.game_audio.prime_calls == 1, "full boot warmup should prime BGM once after audio setup")
+	_expect(_registry.game_audio.last_prime_stage == 1, "full boot warmup should prime the selected stage BGM")
+	_expect(_boot_initialize_calls == 1, "full boot warmup should initialize battle exactly once")
+	_expect(_boot_redraw_calls == 1, "full boot warmup should request the first redraw exactly once")
 
 
 func _expect(condition: bool, message: String) -> void:

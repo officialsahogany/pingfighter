@@ -231,7 +231,22 @@ static func _draw_skill_symbol(canvas: CanvasItem, font: Font, rect: Rect2, id: 
 	canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, 0.26))
 	canvas.draw_arc(center, radius, 0.0, TAU, ring_segments, color, 2.0)
 	match id:
-		"resonance_boost", "maribo_resonance_boost":
+		"lingpet_afterglow_leak":
+			canvas.draw_circle(center + Vector2(-radius * 0.18, radius * 0.10), radius * 0.42, Color(0.40, 1.0, 0.82, 0.42))
+			canvas.draw_circle(center + Vector2(radius * 0.18, -radius * 0.08), radius * 0.30, Color(0.86, 1.0, 0.64, 0.34))
+			canvas.draw_arc(center, radius * 0.66, -0.15, PI * 1.2, ring_segments, Color(1.0, 1.0, 0.82, 0.52), 1.4, true)
+			canvas.draw_circle(center, radius * 0.16, Color(1.0, 1.0, 0.86, 0.88))
+		"lingpet_tailwind_steps":
+			var trail_color := Color(0.60, 1.0, 0.88, 0.58)
+			for i in range(3):
+				var y_offset: float = (float(i) - 1.0) * radius * 0.22
+				canvas.draw_arc(center + Vector2(-radius * 0.08, y_offset), radius * (0.34 + float(i) * 0.10), PI * 0.06, PI * 0.86, ring_segments, trail_color, 1.3)
+			var arrow_start := center + Vector2(-radius * 0.46, radius * 0.18)
+			var arrow_end := center + Vector2(radius * 0.44, -radius * 0.18)
+			canvas.draw_line(arrow_start, arrow_end, Color.WHITE, 2.0)
+			canvas.draw_line(arrow_end, arrow_end + Vector2(-radius * 0.20, -radius * 0.02), Color.WHITE, 2.0)
+			canvas.draw_line(arrow_end, arrow_end + Vector2(-radius * 0.08, radius * 0.18), Color.WHITE, 2.0)
+		"resonance_boost", "maribo_resonance_boost", "lingpet_resonance_boost":
 			for i in range(3):
 				var arc_radius: float = radius * (0.55 + float(i) * 0.18)
 				canvas.draw_arc(center, arc_radius, -0.2 + float(i) * 0.42, PI + float(i) * 0.34, ring_segments, Color(1.0, 1.0, 1.0, 0.36), 1.2)
@@ -313,10 +328,12 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		if skill_description == "":
 			skill_description = "링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다."
 		var icon_texture_id := str(snapshot.get("companion_skill_icon_path", "")).strip_edges()
+		var skill_level: int = int(snapshot.get("companion_skill_level", 0))
+		var active_level_label := "Lv.%d · " % skill_level if skill_level > 0 else ""
 		specs.append({
 			"id": skill_id,
 			"title": skill_name,
-			"subtitle": "액티브 · 쿨타임 " + CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown),
+			"subtitle": "액티브 · " + active_level_label + "쿨타임 " + CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown),
 			"body": skill_description,
 			"color": Color(80.0 / 255.0, 220.0 / 255.0, 1.0),
 			"badge": "A",
@@ -325,6 +342,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			"card_texture_path": str(snapshot.get("companion_skill_card_path", "")),
 		})
 	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 0.0))
+	var player_speed_bonus_pct: float = float(snapshot.get("companion_player_speed_bonus_pct", 0.0))
 	var passive_id: String = str(snapshot.get("companion_passive_skill_id", "")).strip_edges()
 	if passive_id != "":
 		var passive_name: String = str(snapshot.get("companion_passive_skill_name", "")).strip_edges()
@@ -334,8 +352,13 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		if passive_description == "":
 			passive_description = "링펫에게 배정된 패시브 스킬입니다."
 		var passive_subtitle := "패시브"
+		var passive_level: int = int(snapshot.get("companion_passive_skill_level", 0))
+		if passive_level > 0:
+			passive_subtitle += " · Lv.%d" % passive_level
 		if gauge_bonus_pct > 0.0:
 			passive_subtitle += " · 받아치기 +" + CharacterInfoOverlayFormatter.format_percent_text(gauge_bonus_pct)
+		if player_speed_bonus_pct > 0.0:
+			passive_subtitle += " · 이동 +" + CharacterInfoOverlayFormatter.format_percent_text(player_speed_bonus_pct)
 		specs.append({
 			"id": passive_id,
 			"title": passive_name,
@@ -354,7 +377,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		if fallback_icon_texture_id == "":
 			fallback_icon_texture_id = str(fallback_passive.get("icon_texture_path", "")).strip_edges()
 		if fallback_passive_id == "":
-			fallback_passive_id = "resonance_boost"
+			fallback_passive_id = "lingpet_resonance_boost"
 		if fallback_passive_title == "":
 			fallback_passive_title = "공명 증폭"
 		if fallback_passive_description == "":

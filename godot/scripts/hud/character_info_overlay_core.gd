@@ -116,7 +116,7 @@ func prewarm_assets(owner: Object = null, registry: Object = null, module_getter
 		PASSIVE_INVENTORY_COLUMN_TARGET
 	)
 	CharacterInfoOverlayPrewarmPresenter.prewarm_draw_caches(self, font, owner, registry, module_getter, BASE_ACTIVE_ITEM_SLOT_COUNT)
-	CharacterInfoOverlayPrewarmPresenter.prewarm_shared_assets_and_text(self, font, owner, registry, module_getter, include_shared_icon_assets, _lingpet_skill_icon_texture_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed)
+	CharacterInfoOverlayPrewarmPresenter.prewarm_shared_assets_and_text(self, font, owner, registry, module_getter, include_shared_icon_assets, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed)
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, _view_size: Vector2) -> bool:
 	return CharacterInfoOverlayInputHandler.handle_input(self, event, owner, registry)

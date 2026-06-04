@@ -181,6 +181,12 @@ func _init() -> void:
 	var maribo_passive_icon_path: String = LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus")
 	_expect(FileAccess.file_exists(maribo_passive_icon_path), "maribo gauge-gain passive icon asset should exist through the catalog")
 	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(maribo_passive_icon_path), "character info prewarm should cache the catalog passive icon")
+	var maribo_art_path: String = LingpetCatalog.get_visual_path("maribo", "cutin_art")
+	_expect(maribo_art_path != "", "maribo cutin art should be reachable through the catalog")
+	_expect(layout_overlay._lingpet_art_texture_cache.has(maribo_art_path), "character info prewarm should cache lingpet cutin art in the draw-time art cache")
+	_expect(not layout_overlay._lingpet_skill_icon_texture_cache.has(maribo_art_path), "character info prewarm should keep lingpet art out of the skill icon cache")
+	var loader_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
+	_expect(loader_source.find("FileAccess.file_exists") < 0, "lingpet texture loader should delegate export-safe existence checks to ProjectResourceLoader")
 
 	var text_cache_size: int = overlay._text_size_cache.size()
 	var wrap_cache_size: int = overlay._wrap_text_cache.size()

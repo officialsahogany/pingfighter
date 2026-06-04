@@ -3,7 +3,7 @@ extends RefCounted
 const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
-const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 10
+const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 11
 const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"weather",
 	"active_item",
@@ -14,6 +14,7 @@ const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"selected_character",
 	"ball_update",
 	"result_shell_deferred",
+	"lingpet_runtime",
 	"lingpet_rail_card",
 ]
 const STAGE2_RUNTIME_PREWARM_LABELS := [
@@ -175,7 +176,7 @@ func finalize_battle_resource_cache(owner: Object, module_getter: Callable) -> v
 	battle_resource_cache_finalized = true
 	var resources: Object = _get_module(module_getter, "battle_resources")
 	if resources != null and resources.has_method("load_all"):
-		var textures: Variant = resources.load_all(_build_resource_context(owner))
+		var textures: Variant = resources.load_all(_build_boot_transition_texture_context(owner))
 		if textures is Dictionary:
 			_sync_owner_battle_texture_cache(owner, textures)
 	_mark_battle_texture_resources_prewarmed()
@@ -189,16 +190,17 @@ func prewarm_battle_texture_resources_step(owner: Object, module_getter: Callabl
 		_mark_battle_texture_resources_prewarmed()
 		return true
 
+	var context := _build_boot_transition_texture_context(owner)
 	var textures: Variant = {}
 	if resources.has_method("prewarm_transition_textures_step"):
-		if not bool(resources.prewarm_transition_textures_step(_build_resource_context(owner))):
+		if not bool(resources.prewarm_transition_textures_step(context)):
 			return false
 		if resources.has_method("get_resource_cache"):
 			textures = resources.get_resource_cache()
 		elif resources.has_method("load_all"):
-			textures = resources.load_all(_build_resource_context(owner))
+			textures = resources.load_all(context)
 	elif resources.has_method("load_all"):
-		textures = resources.load_all(_build_resource_context(owner))
+		textures = resources.load_all(context)
 
 	if textures is Dictionary:
 		_sync_owner_battle_texture_cache(owner, textures)
@@ -361,6 +363,10 @@ func _run_stage_runtime_prewarm_step(
 		8:
 			mark_stage_clear_result_shell_deferred()
 		9:
+			var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+			if lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets"):
+				lingpet_runtime.prewarm_assets()
+		10:
 			# Lingpet rail card art (the hatched companion's skill card rides every
 			# stage's boss skill rail, so warm it once here rather than lazy-loading
 			# in any stage's HUD draw hot path).
@@ -1208,3 +1214,9 @@ func _build_resource_context(owner: Object) -> Dictionary:
 		"include_all_characters": false,
 		"include_all_stages": false,
 	}
+
+
+func _build_boot_transition_texture_context(owner: Object) -> Dictionary:
+	var context := _build_resource_context(owner)
+	context["include_result_sheets"] = false
+	return context

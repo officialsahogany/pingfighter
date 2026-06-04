@@ -4,6 +4,8 @@ const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
+const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
+const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
@@ -58,6 +60,28 @@ class CooldownPenaltyRuntime:
 		return float(base_cooldown_msec) * 1.25
 
 
+class SpeedMultiplierRuntime:
+	extends RefCounted
+
+	var multiplier := 1.0
+
+	func _init(next_multiplier: float) -> void:
+		multiplier = next_multiplier
+
+	func get_player_speed_multiplier() -> float:
+		return multiplier
+
+
+class FakeCharacterRuntime:
+	extends RefCounted
+
+	func get_base_movement_config(_character_type: String) -> Dictionary:
+		return {
+			"paddle_speed": 6.0,
+			"paddle_max_speed": 6.0,
+		}
+
+
 func _init() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var overlay: Object = CharacterInfoOverlay.new()
@@ -102,6 +126,21 @@ func _init() -> void:
 	_expect(
 		_is_buff_color(_stat_color(stats, "아이템 재충전")),
 		"TAB active-item cooldown reductions should be highlighted as a buff color"
+	)
+
+	var lingpet_boosted_speed: float = CharacterInfoOverlayStatsPresenter.effective_move_speed(
+		"mika",
+		FakeCharacterRuntime.new(),
+		null,
+		null,
+		null,
+		null,
+		SpeedMultiplierRuntime.new(1.10),
+		Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier")
+	)
+	_expect(
+		abs(lingpet_boosted_speed - 6.6) < 0.02,
+		"TAB move speed calculation should include lingpet player-speed multipliers"
 	)
 
 	active_runtime.effect_controller.long_boost_active = true
@@ -164,16 +203,16 @@ func _init() -> void:
 	_expect(maribo_skill_specs.size() == 2, "Maribo character-info panel should show one active skill and one real passive icon")
 	_expect(str((maribo_skill_specs[0] as Dictionary).get("id", "")) == "maribo_hydro_sphere", "Maribo active icon should use the catalog skill id")
 	_expect(str((maribo_skill_specs[0] as Dictionary).get("card_texture_path", "")).find("maribo_hydro_sphere") >= 0, "Maribo active icon should use the catalog skill-card texture")
-	_expect(str((maribo_skill_specs[1] as Dictionary).get("id", "")) == "maribo_resonance_boost", "Maribo gauge bonus should remain as the one passive skill icon")
-	_expect(str((maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus"), "Maribo passive icon should resolve through the lingpet catalog")
+	_expect(str((maribo_skill_specs[1] as Dictionary).get("id", "")) == "lingpet_resonance_boost", "Maribo passive icon should use the Resonance Boost skill id")
+	_expect(str((maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "lingpet_resonance_boost"), "Maribo passive icon should resolve through the lingpet catalog")
 	var legacy_maribo_snapshot: Dictionary = maribo_panel_snapshot.duplicate(true)
 	legacy_maribo_snapshot["companion_passive_skill_id"] = ""
 	legacy_maribo_snapshot["companion_passive_skill_name"] = ""
 	legacy_maribo_snapshot["companion_passive_skill_description"] = ""
 	legacy_maribo_snapshot["companion_passive_skill_icon_path"] = ""
 	var legacy_maribo_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(legacy_maribo_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
-	_expect(str((legacy_maribo_skill_specs[1] as Dictionary).get("id", "")) == "maribo_resonance_boost", "legacy Maribo snapshot should still resolve the catalog passive id")
-	_expect(str((legacy_maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus"), "legacy Maribo snapshot should keep the catalog passive icon")
+	_expect(str((legacy_maribo_skill_specs[1] as Dictionary).get("id", "")) == "lingpet_resonance_boost", "legacy Maribo snapshot should resolve Resonance Boost")
+	_expect(str((legacy_maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "lingpet_resonance_boost"), "legacy Maribo snapshot should keep the current passive icon")
 
 	var lunabi_owner := FakeOwner.new({
 		"lingpet_id": "lunabi",
@@ -184,9 +223,10 @@ func _init() -> void:
 	var lunabi_stats: Array = overlay._build_lingpet_stats(lunabi_owner)
 	var lunabi_art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_art_texture("lunabi", {})
 	_expect(str(lunabi_panel_snapshot.get("pet_id", "")) == "lunabi", "Lunabi panel snapshot should preserve its catalog pet id")
-	_expect(lunabi_skill_specs.size() == 1, "Lunabi character-info panel should show its shipped active skill icon")
+	_expect(lunabi_skill_specs.size() == 2, "Lunabi character-info panel should show its shipped active skill plus the shared passive icon")
 	_expect(str((lunabi_skill_specs[0] as Dictionary).get("id", "")) == "lunabi_headbutt", "Lunabi active icon should use the Headbutt catalog skill id")
 	_expect(str((lunabi_skill_specs[0] as Dictionary).get("icon_texture_id", "")).ends_with("lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi active icon should use the imagegen skill icon instead of Maribo's card")
+	_expect(str((lunabi_skill_specs[1] as Dictionary).get("id", "")) == "lingpet_resonance_boost", "Lunabi fallback passive icon should come from the default shared passive pool")
 	_expect(str(_find_stat(lunabi_stats, "액티브 쿨타임").get("value", "")) == "30초", "Lunabi should show the Headbutt active cooldown stat")
 	_expect(str(_find_stat(lunabi_stats, "이동 속도").get("value", "")) == "4.75", "Lunabi character-info speed should use its own sortie-flight catalog stat, not Maribo's")
 	_expect(lunabi_art_texture != null and str(lunabi_art_texture.resource_path).ends_with("lunabi_cutin_art.png"), "Lunabi character-info art should resolve through the catalog cutin_art path")

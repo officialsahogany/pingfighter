@@ -9,6 +9,7 @@ extends Node2D
 # Warmup scope:
 #   - ImpactFlare (burst/glow/sparkle) - air strike + ball pulse paths
 #   - ImpactShockwave (full ring) - air strike post-hit
+#   - EnergyBall core/highlight/saturn-ring texture draw paths
 #   - Viper hover sheet (left/right) - viper airborne pose
 #   - Pillar HUD / overlay primitives, frame textures, orb liquid, and text
 #   - Stage 1 playfield texture+primitive combos
@@ -22,6 +23,7 @@ extends Node2D
 #   - Stage-specific boss skill VFX (each stage handles its own assets)
 
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
+const EnergyBallTextureCache := preload("res://scripts/ball/energy_ball_texture_cache.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -44,12 +46,13 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 14
+const WARMUP_DRAW_STEPS := 15
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
+const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 var _frames_remaining: int = LIFETIME_FRAMES
 var _warmup_step_index: int = 0
@@ -118,6 +121,11 @@ func _ready() -> void:
 	# slot-pool build path doesn't race the texture cache.
 	DashTokenBoostFxHost.prewarm_assets()
 	CommonStarpointVisualHost.prewarm_assets()
+	# Shared boss electrocution field: load the 3 VFX textures + writhe-ember
+	# electric material at boot. The writhe-ember shader and additive GPUParticles
+	# PSOs are already warmed by the inferno / EMP hosts, so a resource prewarm
+	# (no extra offscreen draw pass) is enough to avoid a first-shock hitch.
+	BossElectrocutionFieldHost.prewarm_assets()
 	_boost_fx_host = DashTokenBoostFxHost.new()
 	_boost_fx_host.name = "BoostFxHost_pso"
 	add_child(_boost_fx_host)
@@ -152,30 +160,32 @@ func _prewarm_draw_step(step_index: int) -> void:
 		0:
 			_prewarm_impact_textures()
 		1:
-			_prewarm_viper_hover_sheet()
+			_prewarm_energy_ball_textures()
 		2:
-			_prewarm_pillar_overlay_primitives()
+			_prewarm_viper_hover_sheet()
 		3:
-			_prewarm_skill_icon_textures()
+			_prewarm_pillar_overlay_primitives()
 		4:
-			_prewarm_timer_stack_primitives()
+			_prewarm_skill_icon_textures()
 		5:
-			_prewarm_weather_primitives()
+			_prewarm_timer_stack_primitives()
 		6:
-			_prewarm_playfield_primitives()
+			_prewarm_weather_primitives()
 		7:
-			_prewarm_stage2_center_primitives()
+			_prewarm_playfield_primitives()
 		8:
-			_prewarm_stage2_leaf_primitives()
+			_prewarm_stage2_center_primitives()
 		9:
-			_prewarm_common_starpoint_drop_shader()
+			_prewarm_stage2_leaf_primitives()
 		10:
-			_prewarm_stage2_pillar_background_textures()
+			_prewarm_common_starpoint_drop_shader()
 		11:
-			_prewarm_stage3_pillar_background_textures()
+			_prewarm_stage2_pillar_background_textures()
 		12:
-			_prewarm_character_topdown_rim_shader()
+			_prewarm_stage3_pillar_background_textures()
 		13:
+			_prewarm_character_topdown_rim_shader()
+		14:
 			_prewarm_stage1_result_pose_textures()
 
 
@@ -187,6 +197,35 @@ func _prewarm_impact_textures() -> void:
 	ImpactFlareTextureCache.draw_glow(self, Vector2.ZERO, 30.0, Color.WHITE, 0.5)
 	ImpactFlareTextureCache.draw_sparkle(self, Vector2.ZERO, 25.0, Color.WHITE, 0.5)
 	ImpactShockwaveTextureCache.draw_full_ring(self, Vector2.ZERO, 30.0, Color.WHITE, 0.5)
+
+
+func _prewarm_energy_ball_textures() -> void:
+	var center := Vector2(96.0, 48.0)
+	ImpactFlareTextureCache.draw_glow(self, center + Vector2(-48.0, 0.0), 30.0, Color(0.60, 0.90, 1.0, 1.0), 0.24)
+	EnergyBallTextureCache.draw_core(self, center, 28.0, Color(0.76, 0.96, 1.0, 1.0), 0.72)
+	EnergyBallTextureCache.draw_core(self, center + Vector2(72.0, 0.0), 18.0, Color.WHITE, 0.65)
+	EnergyBallTextureCache.draw_highlight(self, center + Vector2(132.0, -8.0), 12.0, Color.WHITE, 0.55)
+	EnergyBallTextureCache.draw_saturn_ring(
+		self,
+		center + Vector2(200.0, 0.0),
+		34.0,
+		deg_to_rad(18.0),
+		0.90,
+		Color(0.70, 0.92, 1.0, 1.0),
+		0.34,
+		false
+	)
+	EnergyBallTextureCache.draw_saturn_ring(
+		self,
+		center + Vector2(290.0, 0.0),
+		38.0,
+		deg_to_rad(-28.0),
+		1.05,
+		Color(0.94, 0.72, 1.0, 1.0),
+		0.42,
+		true
+	)
+	ImpactFlareTextureCache.draw_sparkle(self, center + Vector2(380.0, 0.0), 14.0, Color.WHITE, 0.40)
 
 
 # Mirror the runtime hover-sheet draw: `draw_texture_rect_region` with the

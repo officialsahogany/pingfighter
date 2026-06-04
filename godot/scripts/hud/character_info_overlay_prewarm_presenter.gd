@@ -42,7 +42,8 @@ static func prewarm_draw_caches(target: Object, font: Font, owner: Object, regis
 	prewarm_stats_layout(target, font, owner, registry, module_getter, base_active_item_slot_count)
 
 
-static func prewarm_shared_assets_and_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, include_shared_icon_assets: bool, lingpet_skill_icon_texture_cache: Dictionary, shared_icon_assets_prewarmed: bool, static_text_prewarmed: bool, active_item_text_prewarmed: bool, runtime_perk_text_prewarmed: bool, skill_text_prewarmed: bool) -> void:
+static func prewarm_shared_assets_and_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, include_shared_icon_assets: bool, lingpet_art_texture_cache: Dictionary, lingpet_skill_icon_texture_cache: Dictionary, shared_icon_assets_prewarmed: bool, static_text_prewarmed: bool, active_item_text_prewarmed: bool, runtime_perk_text_prewarmed: bool, skill_text_prewarmed: bool) -> void:
+	CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets(lingpet_art_texture_cache)
 	CharacterInfoOverlayLingpetTextureLoader.prewarm_skill_icon_assets(lingpet_skill_icon_texture_cache)
 	if include_shared_icon_assets and not shared_icon_assets_prewarmed:
 		target.set("_shared_icon_assets_prewarmed", _prewarm_shared_icon_assets(registry, module_getter))

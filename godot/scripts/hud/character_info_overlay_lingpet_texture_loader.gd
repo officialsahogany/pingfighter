@@ -48,9 +48,13 @@ static func get_skill_icon_texture(texture_id: String, cache: Dictionary) -> Tex
 	return texture
 
 
-static func prewarm_skill_icon_assets(cache: Dictionary) -> void:
+static func prewarm_art_assets(cache: Dictionary) -> void:
 	for pet_id in LingpetCatalog.get_pet_ids():
 		_touch_texture(get_art_texture(pet_id, cache))
+
+
+static func prewarm_skill_icon_assets(cache: Dictionary) -> void:
+	for pet_id in LingpetCatalog.get_pet_ids():
 		for skill in LingpetCatalog.get_active_skill_pool(pet_id):
 			if not bool(skill.get("enabled", true)):
 				continue
