@@ -1852,7 +1852,19 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	if sections.is_empty():
 		StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
 	else:
-		StageClearResultRewardCardDrawHelper.draw_reward_section_stack(self, font, sections, body_rect, scale, alpha, Callable(self, "_draw_reward_card"))
+		var card_draw_context := {
+			"timer": timer,
+			"perk_catalog": _perk_catalog,
+			"perk_icon_renderer": _perk_icon_renderer,
+			"reward_icon_cache": _reward_icon_cache,
+			"starpoint_draw_callback": Callable(self, "_draw_ingame_starpoint_visual"),
+			"result_reward_source_stage": RESULT_REWARD_SOURCE_STAGE,
+			"result_reward_source_box": RESULT_REWARD_SOURCE_BOX,
+			"result_reward_source_labels": RESULT_REWARD_SOURCE_LABELS,
+			"reward_detail_fallback_text": REWARD_DETAIL_FALLBACK_TEXT,
+			"reward_starpoint_title_prefix": REWARD_STARPOINT_TITLE_PREFIX,
+		}
+		StageClearResultRewardCardDrawHelper.draw_reward_section_stack(self, font, sections, body_rect, scale, alpha, Callable(), card_draw_context)
 
 	var button_layout: Dictionary = StageClearResultScrollButtonDrawHelper.draw_scroll_buttons(
 		self,
@@ -1906,58 +1918,6 @@ func _draw_section_group_panel(rect: Rect2, scale: float, alpha: float) -> void:
 		16.0 * scale
 	)
 
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
-	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_card_visual_state(reward, rect, scale, alpha)
-	StageClearResultRewardCardDrawHelper.draw_reward_card_shell(
-		self,
-		font,
-		reward,
-		rect,
-		scale,
-		alpha,
-		visual_state
-	)
-	StageClearResultRewardCardDrawHelper.draw_reward_source_chip(
-		self,
-		font,
-		reward,
-		rect,
-		scale,
-		alpha,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		RESULT_REWARD_SOURCE_LABELS
-	)
-	StageClearResultRewardCardDrawHelper.draw_reward_card_icon(
-		self,
-		reward,
-		visual_state.get("icon_rect", Rect2()),
-		scale,
-		alpha,
-		timer,
-		_perk_icon_renderer,
-		_reward_icon_cache,
-		Callable(self, "_draw_ingame_starpoint_visual")
-	)
-	var reward_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
-		reward,
-		_perk_catalog,
-		StageClearResultSummaryBuilder.get_reward_perk_id(reward),
-		StageClearResultSummaryBuilder.is_perk_reward(reward),
-		StageClearResultRewardTextResolver.get_reward_type_fallback_label(str(reward.get("type", ""))),
-		REWARD_DETAIL_FALLBACK_TEXT,
-		REWARD_STARPOINT_TITLE_PREFIX
-	)
-	StageClearResultRewardCardDrawHelper.draw_reward_card_label(
-		self,
-		font,
-		visual_state,
-		reward_text_state,
-		scale,
-		alpha
-	)
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_footer(view_size: Vector2, scale: float, font: Font) -> void:

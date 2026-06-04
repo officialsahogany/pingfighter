@@ -3,6 +3,7 @@ extends RefCounted
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clear_result_reward_icon_resolver.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
@@ -15,7 +16,8 @@ static func draw_reward_section_stack(
 	rect: Rect2,
 	scale: float,
 	alpha: float,
-	card_draw_callback: Callable
+	card_draw_callback: Callable,
+	card_context: Dictionary = {}
 ) -> void:
 	if canvas == null or font == null:
 		return
@@ -97,7 +99,74 @@ static func draw_reward_section_stack(
 				),
 				card_size
 			)
-			card_draw_callback.call(font, reward_value, card_rect, card_scale, alpha)
+			if card_draw_callback.is_valid():
+				card_draw_callback.call(font, reward_value, card_rect, card_scale, alpha)
+			else:
+				draw_reward_card(canvas, font, reward_value, card_rect, card_scale, alpha, card_context)
+
+
+static func draw_reward_card(
+	canvas: CanvasItem,
+	font: Font,
+	reward: Dictionary,
+	rect: Rect2,
+	scale: float,
+	alpha: float,
+	card_context: Dictionary
+) -> void:
+	if canvas == null or font == null:
+		return
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_card_visual_state(reward, rect, scale, alpha)
+	var result_reward_source_labels: Dictionary = {}
+	var result_reward_source_labels_value: Variant = card_context.get("result_reward_source_labels", {})
+	if result_reward_source_labels_value is Dictionary:
+		result_reward_source_labels = result_reward_source_labels_value
+	var reward_icon_cache: Dictionary = {}
+	var reward_icon_cache_value: Variant = card_context.get("reward_icon_cache", {})
+	if reward_icon_cache_value is Dictionary:
+		reward_icon_cache = reward_icon_cache_value
+	var starpoint_draw_callback := Callable()
+	var starpoint_draw_callback_value: Variant = card_context.get("starpoint_draw_callback", Callable())
+	if starpoint_draw_callback_value is Callable:
+		starpoint_draw_callback = starpoint_draw_callback_value
+	draw_reward_card_shell(canvas, font, reward, rect, scale, alpha, visual_state)
+	draw_reward_source_chip(
+		canvas,
+		font,
+		reward,
+		rect,
+		scale,
+		alpha,
+		str(card_context.get("result_reward_source_stage", "")),
+		str(card_context.get("result_reward_source_box", "")),
+		result_reward_source_labels
+	)
+	draw_reward_card_icon(
+		canvas,
+		reward,
+		visual_state.get("icon_rect", Rect2()),
+		scale,
+		alpha,
+		float(card_context.get("timer", 0.0)),
+		card_context.get("perk_icon_renderer", null),
+		reward_icon_cache,
+		starpoint_draw_callback
+	)
+
+	var perk_catalog: Object = null
+	var perk_catalog_value: Variant = card_context.get("perk_catalog", null)
+	if perk_catalog_value is Object:
+		perk_catalog = perk_catalog_value
+	var reward_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+		reward,
+		perk_catalog,
+		StageClearResultSummaryBuilder.get_reward_perk_id(reward),
+		StageClearResultSummaryBuilder.is_perk_reward(reward),
+		StageClearResultRewardTextResolver.get_reward_type_fallback_label(str(reward.get("type", ""))),
+		str(card_context.get("reward_detail_fallback_text", "")),
+		str(card_context.get("reward_starpoint_title_prefix", ""))
+	)
+	draw_reward_card_label(canvas, font, visual_state, reward_text_state, scale, alpha)
 
 
 static func draw_reward_card_shell(

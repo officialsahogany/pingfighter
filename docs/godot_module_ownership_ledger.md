@@ -1499,11 +1499,12 @@ This section is intentionally long; use search to find the nearest owner.
   calculation inputs.
 - `scripts/ui/stage_clear_result_reward_card_draw_helper.gd`
   Owns stage-clear reward card draw helpers that are independent of scene
-  state: reward section-stack band / grid drawing, reward-card base shell /
-  badge rendering, stage-vs-box reward source-chip rendering, and reward title
-  plate / icon drawing. The scene still owns reward icon cache / perk icon
-  renderer access, perk catalog lookups, starpoint animation state, and card
-  body content callbacks.
+  state: reward section-stack band / grid drawing, complete reward-card body
+  assembly, reward-card base shell / badge rendering, stage-vs-box reward
+  source-chip rendering, reward title plate / icon drawing, and card text
+  resolution through the reward-text resolver. The scene still owns reward
+  icon cache / perk icon renderer access, perk catalog instance, starpoint
+  animation state, and the context values passed into card drawing.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
   colors / rects, reward label visual state, reward item icon visual state /
