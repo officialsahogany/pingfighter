@@ -4,6 +4,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const Stage1DaljiBossSkillHudUtils := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_utils.gd")
 
 const WHIP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_whip_skillcard_imagegen_v1.png"
 const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_spinning_top_skillcard_imagegen_v1.png"
@@ -47,13 +48,13 @@ func get_debug_card_metrics(pillar_width: float) -> Dictionary:
 func build_card_layout(context: Dictionary) -> Dictionary:
 	if not bool(context.get("stage1_dalji_boss_skill_hud_active", false)):
 		return {}
-	var skills: Array = _get_array(context.get("stage1_dalji_boss_skill_hud_skills", []))
+	var skills: Array = Stage1DaljiBossSkillHudUtils.get_array(context.get("stage1_dalji_boss_skill_hud_skills", []))
 	if skills.is_empty():
 		return {}
 
-	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
-	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
-	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
+	var view_size: Vector2 = Stage1DaljiBossSkillHudUtils.as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
+	var game_offset: Vector2 = Stage1DaljiBossSkillHudUtils.as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var game_size: Vector2 = Stage1DaljiBossSkillHudUtils.as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
 	if view_size.x <= 0.0 or view_size.y <= 0.0 or game_size.y <= 0.0:
 		return {}
 
@@ -69,7 +70,7 @@ func build_card_layout(context: Dictionary) -> Dictionary:
 
 	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(pillar_w)
 	var scale_factor: float = float(metrics.get("scale_factor", 1.0))
-	var card_size: Vector2 = _as_vector2(metrics.get("card_size", Vector2(34.0, 10.0)), Vector2(34.0, 10.0))
+	var card_size: Vector2 = Stage1DaljiBossSkillHudUtils.as_vector2(metrics.get("card_size", Vector2(34.0, 10.0)), Vector2(34.0, 10.0))
 	var card_w: float = card_size.x
 	var card_h: float = card_size.y
 	var card_gap: float = float(metrics.get("card_gap", 2.0))
@@ -77,7 +78,7 @@ func build_card_layout(context: Dictionary) -> Dictionary:
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(entries.size()) * (card_h + card_gap) - card_gap
 	var card_x: float = max(1.0, pillar_w - card_w - margin_x)
-	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
+	var avoid_rect: Rect2 = Stage1DaljiBossSkillHudUtils.as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
 	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
 		game_offset,
 		pillar_h,
@@ -97,7 +98,7 @@ func build_card_layout(context: Dictionary) -> Dictionary:
 	return {
 		"entries": entries,
 		"rects": rects,
-		"stack_rect": _union_rects(rects),
+		"stack_rect": Stage1DaljiBossSkillHudUtils.union_rects(rects),
 		"scale_factor": scale_factor,
 	}
 
@@ -108,13 +109,13 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var layout: Dictionary = build_card_layout(context)
 	if layout.is_empty():
 		return
-	var entries: Array = _get_array(layout.get("entries", []))
-	var rects: Array = _get_array(layout.get("rects", []))
+	var entries: Array = Stage1DaljiBossSkillHudUtils.get_array(layout.get("entries", []))
+	var rects: Array = Stage1DaljiBossSkillHudUtils.get_array(layout.get("rects", []))
 	if entries.is_empty() or rects.size() < entries.size():
 		return
 	var scale_factor: float = float(layout.get("scale_factor", 1.0))
-	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
-	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var view_size: Vector2 = Stage1DaljiBossSkillHudUtils.as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
+	var game_offset: Vector2 = Stage1DaljiBossSkillHudUtils.as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
 	var pillar_w: float = max(0.0, game_offset.x)
 	var time_seconds: float = float(context.get("time_seconds", Time.get_ticks_msec() / 1000.0))
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
@@ -123,7 +124,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 
 	for i in range(entries.size()):
 		var entry: Dictionary = entries[i]
-		var target_rect: Rect2 = _as_rect2(rects[i], Rect2())
+		var target_rect: Rect2 = Stage1DaljiBossSkillHudUtils.as_rect2(rects[i], Rect2())
 		var target_y: float = target_rect.position.y
 		var key: String = str(entry.get("id", "skill_%d" % i))
 		var current_y: float = float(_queue_positions.get(key, target_y))
@@ -145,23 +146,6 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		_draw_skill_tooltip(canvas, hovered_skill, hovered_rect, view_size, pillar_w, _get_tooltip_scale(scale_factor))
 
 
-func _union_rects(rects: Array) -> Rect2:
-	if rects.is_empty():
-		return Rect2()
-	var first: Rect2 = _as_rect2(rects[0], Rect2())
-	var min_x: float = first.position.x
-	var min_y: float = first.position.y
-	var max_x: float = first.end.x
-	var max_y: float = first.end.y
-	for i in range(1, rects.size()):
-		var rect: Rect2 = _as_rect2(rects[i], Rect2())
-		min_x = min(min_x, rect.position.x)
-		min_y = min(min_y, rect.position.y)
-		max_x = max(max_x, rect.end.x)
-		max_y = max(max_y, rect.end.y)
-	return Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y))
-
-
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float) -> void:
 	if LingpetRailCard.is_lingpet_skill(skill):
 		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
@@ -172,7 +156,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var used: bool = status == "used" or bool(skill.get("used", false))
 	var progress: float = clamp(float(skill.get("progress", 0.0)), 0.0, 1.0)
 	var flash: float = clamp(float(skill.get("flash", 0.0)), 0.0, 1.0)
-	var skill_color: Color = _as_color(
+	var skill_color: Color = Stage1DaljiBossSkillHudUtils.as_color(
 		skill.get("color", Color(1.0, 0.74, 0.22, 1.0)),
 		Color(1.0, 0.74, 0.22, 1.0)
 	)
@@ -283,7 +267,7 @@ func _draw_skill_tooltip(
 	pos.y = clamp(pos.y, 6.0, max(6.0, view_size.y - height - 6.0))
 	var rect := Rect2(pos, Vector2(width, height))
 
-	var skill_color: Color = _as_color(skill.get("color", Color(1.0, 0.76, 0.18, 1.0)), Color(1.0, 0.76, 0.18, 1.0))
+	var skill_color: Color = Stage1DaljiBossSkillHudUtils.as_color(skill.get("color", Color(1.0, 0.76, 0.18, 1.0)), Color(1.0, 0.76, 0.18, 1.0))
 	canvas.draw_rect(rect, Color(0.055, 0.045, 0.065, 0.94))
 	canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), Color(0.14, 0.10, 0.12, 0.54), false, max(1.0, round(1.0 * tooltip_scale)))
 	canvas.draw_rect(rect, Color(skill_color.r, skill_color.g, skill_color.b, 0.78), false, max(1.0, round(1.5 * tooltip_scale)))
@@ -475,27 +459,3 @@ func _get_mouse_position(canvas: CanvasItem) -> Vector2:
 	if viewport == null:
 		return Vector2(-100000.0, -100000.0)
 	return viewport.get_mouse_position()
-
-
-func _get_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []
-
-
-func _as_color(value: Variant, fallback: Color) -> Color:
-	if value is Color:
-		return value
-	return fallback
-
-
-func _as_rect2(value: Variant, fallback: Rect2) -> Rect2:
-	if value is Rect2:
-		return value
-	return fallback
-
-
-func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
