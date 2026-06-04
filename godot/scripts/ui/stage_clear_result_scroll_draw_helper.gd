@@ -3,6 +3,23 @@ extends RefCounted
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 
 
+static func draw_cyber_scroll_texture(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	visible_rect: Rect2,
+	unfurl: float
+) -> bool:
+	if canvas == null or texture == null:
+		return false
+	if visible_rect.size.x <= 0.0 or visible_rect.size.y <= 0.0 or unfurl <= 0.0:
+		return false
+	var texture_size: Vector2 = texture.get_size()
+	var source_height: float = max(1.0, texture_size.y * unfurl)
+	var source := Rect2(Vector2.ZERO, Vector2(texture_size.x, source_height))
+	canvas.draw_texture_rect_region(texture, visible_rect, source, Color.WHITE, false, true)
+	return true
+
+
 static func draw_cyber_scroll_fallback(
 	canvas: CanvasItem,
 	rect: Rect2,

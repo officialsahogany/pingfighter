@@ -1366,12 +1366,7 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 		24
 	)
 
-	if _scroll_texture != null:
-		var texture_size: Vector2 = _scroll_texture.get_size()
-		var source_height: float = max(1.0, texture_size.y * unfurl)
-		var source := Rect2(Vector2.ZERO, Vector2(texture_size.x, source_height))
-		draw_texture_rect_region(_scroll_texture, visible_rect, source, Color.WHITE, false, true)
-	else:
+	if not StageClearResultScrollDrawHelper.draw_cyber_scroll_texture(self, _scroll_texture, visible_rect, unfurl):
 		StageClearResultScrollDrawHelper.draw_cyber_scroll_fallback(self, visible_rect, scale, unfurl)
 
 	if unfurl <= 0.58:
