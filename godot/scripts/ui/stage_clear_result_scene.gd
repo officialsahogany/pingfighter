@@ -19,6 +19,7 @@ const StageClearResultSheetDrawHelper := preload("res://scripts/ui/stage_clear_r
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultFontCache := preload("res://scripts/ui/stage_clear_result_font_cache.gd")
 const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -226,6 +227,7 @@ var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
 var _stage2_boss_defeat_click_transition_base_frame: int = 0
 var _stage3_boss_defeat_click_transition_base_frame: int = 0
+var _font_cache := StageClearResultFontCache.new()
 var _fx_host_pool := StageClearResultFxHostPool.new()
 var _lid_open_counter: int = 0
 var _starpoint_choice_gate_active: bool = false
@@ -800,7 +802,7 @@ func _draw() -> void:
 	_load_textures()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var font: Font = _get_ui_font(scale)
+	var font: Font = _font_cache.get_font(scale)
 
 	StageClearResultStaticDrawHelper.draw_background(self, _background_texture, view_size)
 	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.03, 0.04, 0.10, 0.22))
@@ -1150,32 +1152,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		return
 	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
 	_exit_button_rect = button_layout.get("exit_rect", Rect2())
-
-
-# The project fallback font packs Korean syllable blocks tightly, so at the
-# small label sizes used on this scroll (header / metric-tile / chip text) the
-# glyphs read as touching/overlapping. Wrap it in a FontVariation that adds a
-# small per-glyph spacing (scaled with the layout) to separate the syllables.
-# Rebuilt only when the base font or spacing actually changes.
-var _ui_font: FontVariation = null
-var _ui_font_base: Font = null
-var _ui_font_spacing: int = -1
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _get_ui_font(draw_scale: float) -> Font:
-	var base: Font = ThemeDB.fallback_font
-	if base == null:
-		return base
-	var spacing: int = max(1, int(round(2.0 * draw_scale)))
-	if _ui_font == null or _ui_font_base != base or _ui_font_spacing != spacing:
-		var variation := FontVariation.new()
-		variation.base_font = base
-		variation.set_spacing(TextServer.SPACING_GLYPH, spacing)
-		_ui_font = variation
-		_ui_font_base = base
-		_ui_font_spacing = spacing
-	return _ui_font
 
 
 func _update_hovered_box(mouse_position: Vector2) -> void:
