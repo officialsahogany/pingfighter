@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 
 
 static func calculate_starpoint_total(boxes: Array) -> int:
@@ -233,6 +234,37 @@ static func build_perk_info_summary(
 		"title": LanguageSettings.translate_text("획득 퍽 없음"),
 		"detail": LanguageSettings.translate_text("이번 결과는 아이템 보상만 획득했습니다."),
 	}
+
+
+static func build_perk_info_summary_from_reward_state(
+	reward_summary_state: Dictionary,
+	perk_catalog: Object,
+	detail_fallback_text: String,
+	starpoint_title_prefix: String
+) -> Dictionary:
+	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
+	var perks: Array = perks_value if perks_value is Array else []
+	var first_perk_title: String = ""
+	var first_perk_detail: String = ""
+	if not perks.is_empty():
+		var first_perk: Dictionary = perks[0] if perks[0] is Dictionary else {}
+		var first_perk_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+			first_perk,
+			perk_catalog,
+			get_reward_perk_id(first_perk),
+			is_perk_reward(first_perk),
+			StageClearResultRewardTextResolver.get_reward_type_fallback_label(str(first_perk.get("type", ""))),
+			detail_fallback_text,
+			starpoint_title_prefix
+		)
+		first_perk_title = str(first_perk_text_state.get("title", ""))
+		first_perk_detail = str(first_perk_text_state.get("detail", ""))
+	return build_perk_info_summary(
+		perks,
+		int(reward_summary_state.get("starpoint_total", 0)),
+		first_perk_title,
+		first_perk_detail
+	)
 
 
 static func with_result_reward_source(reward: Dictionary, result_source: String, source_labels: Dictionary) -> Dictionary:

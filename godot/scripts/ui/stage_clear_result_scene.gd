@@ -12,7 +12,6 @@ const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultStatusBuilder := preload("res://scripts/ui/stage_clear_result_status_builder.gd")
 const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
-const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
@@ -705,7 +704,12 @@ func get_interaction_status() -> Dictionary:
 		"boxes": _boxes,
 		"box_counts": box_counts,
 		"reward_summary_state": reward_summary_state,
-		"perk_info": _build_perk_info_summary(reward_summary_state),
+		"perk_info": StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state(
+			reward_summary_state,
+			_perk_catalog,
+			REWARD_DETAIL_FALLBACK_TEXT,
+			REWARD_STARPOINT_TITLE_PREFIX
+		),
 		"dalji_reaction_state": _dalji_reaction_state(),
 		"player_victory_reaction_state": _player_victory_reaction_state(),
 		"stage2_boss_reaction_state": _stage2_boss_defeat_reaction_state(),
@@ -1073,32 +1077,6 @@ func _update_scroll(delta: float) -> void:
 	)
 	_scroll_phase = str(result.get("phase", _scroll_phase))
 	_scroll_timer = float(result.get("timer", _scroll_timer))
-
-
-func _build_perk_info_summary(reward_summary_state: Dictionary) -> Dictionary:
-	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
-	var perks: Array = perks_value if perks_value is Array else []
-	var first_perk_title: String = ""
-	var first_perk_detail: String = ""
-	if not perks.is_empty():
-		var first_perk: Dictionary = perks[0] if perks[0] is Dictionary else {}
-		var first_perk_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
-			first_perk,
-			_perk_catalog,
-			StageClearResultSummaryBuilder.get_reward_perk_id(first_perk),
-			StageClearResultSummaryBuilder.is_perk_reward(first_perk),
-			StageClearResultRewardTextResolver.get_reward_type_fallback_label(str(first_perk.get("type", ""))),
-			REWARD_DETAIL_FALLBACK_TEXT,
-			REWARD_STARPOINT_TITLE_PREFIX
-		)
-		first_perk_title = str(first_perk_text_state.get("title", ""))
-		first_perk_detail = str(first_perk_text_state.get("detail", ""))
-	return StageClearResultSummaryBuilder.build_perk_info_summary(
-		perks,
-		int(reward_summary_state.get("starpoint_total", 0)),
-		first_perk_title,
-		first_perk_detail
-	)
 
 
 @warning_ignore("shadowed_variable_base_class")

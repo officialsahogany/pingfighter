@@ -17,6 +17,7 @@ func _init() -> void:
 	_verify_reward_summaries()
 	_verify_metric_helpers()
 	_verify_perk_info_summary()
+	_verify_perk_info_summary_from_reward_state()
 	_verify_perk_id_resolution()
 	_verify_japanese_perk_info_summary()
 	_verify_spanish_perk_info_summary()
@@ -133,6 +134,33 @@ func _verify_perk_info_summary() -> void:
 	var empty_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 0, "", "")
 	_expect(str(empty_summary.get("kind", "")) == "empty", "empty perk info should report no perk rewards")
 	_expect(str(empty_summary.get("title", "")) == "획득 퍽 없음", "empty perk info should use the no-perk title")
+
+
+func _verify_perk_info_summary_from_reward_state() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	var perk_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state(
+		{
+			"perk_rewards": [
+				{"type": "perk", "perk_id": "dash", "label": "Dash", "detail": "Dash detail"},
+				{"type": "skill", "skill_id": "guard", "label": "Guard", "detail": "Guard detail"},
+			],
+			"starpoint_total": 2,
+		},
+		null,
+		"fallback detail",
+		"ticket"
+	)
+	_expect(str(perk_summary.get("kind", "")) == "perk", "reward-state perk info should prefer perk rewards")
+	_expect(str(perk_summary.get("title", "")) == "Dash +1", "reward-state perk info should resolve the first perk title and extra count")
+	_expect(str(perk_summary.get("detail", "")) == "Dash detail", "reward-state perk info should resolve the first perk detail")
+	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state(
+		{"perk_rewards": [], "starpoint_total": 2},
+		null,
+		"fallback detail",
+		"ticket"
+	)
+	_expect(str(starpoint_summary.get("kind", "")) == "starpoint", "reward-state perk info should fall back to starpoints")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _verify_perk_id_resolution() -> void:
@@ -271,6 +299,12 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 			source.find(removed_wrapper) < 0,
 			"stage-clear result scene should not keep summary pass-through wrapper %s" % removed_wrapper
 		)
+	_expect(
+		source.find("StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state") >= 0
+			and source.find("func _build_perk_info_summary") < 0
+			and source.find("StageClearResultRewardTextResolver") < 0,
+		"stage-clear result scene should delegate perk info summary text preparation"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

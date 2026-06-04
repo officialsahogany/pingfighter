@@ -1549,12 +1549,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
   active / passive / mythic item grouping, reward-source count payloads,
-  perk-info tile payloads, box starpoint totals, display-gold / score-rating
-  summary-strip metrics,
+  perk-info tile payloads and their first-reward text preparation, box
+  starpoint totals, display-gold / score-rating summary-strip metrics,
   stage-summary array duplication, and perk reward ID classification. The
-  scene still owns
-  reward rolling, final grant callbacks, scroll/button input, drawing, and
-  the live perk catalog instance used by reward text resolution.
+  scene still owns reward rolling, final grant callbacks, scroll/button input,
+  drawing, and passes the live perk catalog instance into the summary builder.
 - `scripts/ui/stage_clear_result_summary_draw_helper.gd`
   Owns stage-clear summary strip drawing: strip tile layout, gold / score
   metric tiles, and score-rating star tiles. It delegates primitive panels,
