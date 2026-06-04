@@ -1,0 +1,143 @@
+name: Godot CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/godot-ci.yml"
+      - "AGENTS.md"
+      - "docs/godot_port_checklist.md"
+      - "godot/**"
+  push:
+    branches:
+      - feature/refactor-ui
+      - main
+      - master
+    paths:
+      - ".github/workflows/godot-ci.yml"
+      - "AGENTS.md"
+      - "docs/godot_port_checklist.md"
+      - "godot/**"
+  workflow_dispatch:
+    inputs:
+      godot_version:
+        description: "Godot release tag to install"
+        required: true
+        default: "4.6.2-stable"
+      smoke_mode:
+        description: "Smoke test coverage"
+        required: true
+        type: choice
+        default: "focused"
+        options:
+          - focused
+          - all
+          - none
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.godot_version || '4.6.2-stable' }}
+  SMOKE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_mode || 'focused' }}
+  FOCUSED_SMOKE_TESTS: >-
+    res://tests/project_resource_loader_import_preference_smoke.gd
+    res://tests/battle_boot_resource_prewarm_smoke.gd
+    res://tests/battle_scene_overlay_frame_perf_smoke.gd
+    res://tests/weather_event_render_budget_smoke.gd
+
+jobs:
+  godot-ci:
+    name: Godot load, warnings, and smoke tests
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install Godot
+        id: godot
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${env:GODOT_VERSION}"
+          $zipName = "Godot_v${version}_win64.exe.zip"
+          $downloadUrl = "https://github.com/godotengine/godot-builds/releases/download/${version}/${zipName}"
+          $zipPath = Join-Path $env:RUNNER_TEMP $zipName
+          $installDir = Join-Path $env:RUNNER_TEMP "godot"
+
+          Write-Host "Downloading $downloadUrl"
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath
+          New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
+
+          $consoleExe = Get-ChildItem -LiteralPath $installDir -Recurse -Filter "*_console.exe" |
+            Select-Object -First 1
+          if ($null -eq $consoleExe) {
+            $consoleExe = Get-ChildItem -LiteralPath $installDir -Recurse -Filter "Godot*.exe" |
+              Select-Object -First 1
+          }
+          if ($null -eq $consoleExe) {
+            throw "Godot executable was not found in $installDir"
+          }
+
+          "godot_console=$($consoleExe.FullName)" >> $env:GITHUB_OUTPUT
+          & $consoleExe.FullName --version
+
+      - name: Import Godot resources
+        shell: pwsh
+        working-directory: godot
+        run: |
+          $ErrorActionPreference = "Stop"
+          $projectPath = (Get-Location).Path
+          $importLogDir = Join-Path $projectPath ".godot\codex_logs"
+          New-Item -ItemType Directory -Force -Path $importLogDir | Out-Null
+          $importLogPath = Join-Path $importLogDir "resource_import.log"
+
+          $previousErrorActionPreference = $ErrorActionPreference
+          $ErrorActionPreference = "Continue"
+          try {
+            $output = & "${{ steps.godot.outputs.godot_console }}" --headless --path $projectPath --log-file $importLogPath --import 2>&1
+            $exitCode = $LASTEXITCODE
+          } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+          }
+
+          $output | ForEach-Object { Write-Host $_ }
+          if ($exitCode -ne 0) {
+            throw "Godot resource import failed with exit code $exitCode"
+          }
+
+      - name: Headless load check
+        shell: pwsh
+        working-directory: godot
+        run: |
+          .\tools\run_headless_load_check.ps1 -GodotExe "${{ steps.godot.outputs.godot_console }}"
+
+      - name: Warning scan
+        shell: pwsh
+        working-directory: godot
+        run: |
+          .\tools\run_warning_scan.ps1 -GodotExe "${{ steps.godot.outputs.godot_console }}"
+
+      - name: Smoke tests
+        if: env.SMOKE_MODE != 'none'
+        shell: pwsh
+        working-directory: godot
+        run: |
+          $ErrorActionPreference = "Stop"
+          if ("${env:SMOKE_MODE}" -eq "all") {
+            .\tools\run_smoke_tests.ps1 -GodotExe "${{ steps.godot.outputs.godot_console }}"
+          } else {
+            $tests = "${env:FOCUSED_SMOKE_TESTS}".Split(
+              [char[]]@(" ", "`r", "`n", "`t"),
+              [System.StringSplitOptions]::RemoveEmptyEntries
+            )
+            .\tools\run_smoke_tests.ps1 -GodotExe "${{ steps.godot.outputs.godot_console }}" -Tests $tests
+          }
