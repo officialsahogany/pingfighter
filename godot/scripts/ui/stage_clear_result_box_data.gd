@@ -81,3 +81,22 @@ static func get_box_display_labels(boxes: Array) -> Array:
 		var box: Dictionary = box_value
 		labels.append(str(box.get("label", get_box_display_label(str(box.get("kind", BOX_KIND_NORMAL))))))
 	return labels
+
+
+static func get_resolved_rewards(boxes: Array) -> Array:
+	var rewards: Array = []
+	for box_value in boxes:
+		if not (box_value is Dictionary):
+			continue
+		var box: Dictionary = box_value
+		var reward_value: Variant = box.get("reward", {})
+		if not (reward_value is Dictionary):
+			continue
+		var reward: Dictionary = reward_value
+		if reward.is_empty():
+			continue
+		var reward_copy: Dictionary = reward.duplicate(true)
+		reward_copy["box_kind"] = str(box.get("kind", BOX_KIND_NORMAL))
+		reward_copy["box_state"] = str(box.get("state", "idle"))
+		rewards.append(reward_copy)
+	return rewards
