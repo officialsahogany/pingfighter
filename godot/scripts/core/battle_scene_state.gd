@@ -50,6 +50,8 @@ const DEFAULT_VALUES: Dictionary = {
 	"optimus_charge_movement_locked": false,
 	"boss_pos": Vector2.ZERO,
 	"boss_pos_prev": Vector2.ZERO,
+	"boss_paddle_width": 100.0,
+	"boss_hitbox_height": 40.0,
 	"boss_interp_last_physics_usec": 0,
 	"boss_render_interpolation_enabled": true,
 	"boss_vel": 0.0,

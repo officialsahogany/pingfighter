@@ -455,7 +455,12 @@ func _clear_boss_dash_stun() -> void:
 	boss_dash_stun_total_frames = 0.0
 
 
-func _try_start_boss_dash(boss_pos: Vector2, context: Dictionary, predicted_target_x: float) -> bool:
+func _try_start_boss_dash(
+	boss_pos: Vector2,
+	context: Dictionary,
+	predicted_target_x: float,
+	force_trigger: bool = false
+) -> bool:
 	if not bool(context.get("boss_dash_enabled", true)):
 		return false
 	if boss_dash_active or boss_dash_stun_timer_frames > 0.0:
@@ -517,9 +522,10 @@ func _try_start_boss_dash(boss_pos: Vector2, context: Dictionary, predicted_targ
 	if dash_distance < BOSS_DASH_MIN_DISTANCE:
 		return false
 
-	var trigger_chance: float = clamp(float(context.get("boss_dash_trigger_chance", BOSS_DASH_STAGE1_TRIGGER_CHANCE)), 0.0, 1.0)
-	if randf() >= trigger_chance:
-		return false
+	if not force_trigger:
+		var trigger_chance: float = clamp(float(context.get("boss_dash_trigger_chance", BOSS_DASH_STAGE1_TRIGGER_CHANCE)), 0.0, 1.0)
+		if randf() >= trigger_chance:
+			return false
 
 	_start_boss_dash(direction, target_center_x, dash_distance, context)
 	return true
@@ -529,6 +535,8 @@ func _start_boss_dash(direction: int, target_center_x: float, dash_distance: flo
 	boss_dash_active = true
 	boss_dash_direction = direction
 	boss_dash_target_x = target_center_x
+	boss_dash_stun_timer_frames = 0.0
+	boss_dash_stun_total_frames = 0.0
 	boss_dash_duration_frames = clamp(
 		dash_distance / BOSS_DASH_AVERAGE_SPEED,
 		BOSS_DASH_MIN_DURATION_FRAMES,
@@ -548,7 +556,7 @@ func _update_boss_dash_motion(boss_pos: Vector2, context: Dictionary, fps_scale:
 	var play_right: float = float(context.get("play_right", width))
 	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
 	if boss_dash_timer_frames <= 0.0 or boss_dash_direction == 0:
-		_finish_boss_dash(context)
+		_finish_boss_dash(boss_pos, context, fps_scale)
 		return {"boss_pos": boss_pos, "boss_vel": 0.0}
 
 	boss_dash_timer_frames = max(0.0, boss_dash_timer_frames - fps_scale)
@@ -571,7 +579,7 @@ func _update_boss_dash_motion(boss_pos: Vector2, context: Dictionary, fps_scale:
 		or (boss_dash_direction < 0 and boss_pos.x + boss_paddle_width * 0.5 <= boss_dash_target_x + 0.1)
 	)
 	if boss_dash_timer_frames <= 0.0 or reached_target:
-		_finish_boss_dash(context)
+		_finish_boss_dash(boss_pos, context, fps_scale)
 		return {
 			"boss_pos": boss_pos,
 			"boss_vel": 0.0,
@@ -583,17 +591,53 @@ func _update_boss_dash_motion(boss_pos: Vector2, context: Dictionary, fps_scale:
 	}
 
 
-func _finish_boss_dash(context: Dictionary) -> void:
+func _finish_boss_dash(boss_pos: Vector2, context: Dictionary, fps_scale: float) -> void:
 	if not boss_dash_active:
 		return
 	boss_dash_active = false
 	boss_dash_timer_frames = 0.0
+	if _try_start_chained_boss_dash(boss_pos, context, fps_scale):
+		return
 	var stun_seconds: float = max(0.0, float(context.get("boss_dash_stun_seconds", BOSS_DASH_STAGE1_STUN_SECONDS)))
 	boss_dash_stun_total_frames = max(1.0, stun_seconds * 60.0)
 	boss_dash_stun_timer_frames = boss_dash_stun_total_frames
 	var audio: Variant = context.get("audio", null)
 	if audio != null and audio.has_method("play_dash_delay"):
 		audio.play_dash_delay()
+
+
+func _try_start_chained_boss_dash(boss_pos: Vector2, context: Dictionary, fps_scale: float) -> bool:
+	if not bool(context.get("boss_dash_chain_enabled", false)):
+		return false
+	if boss_dash_max_tokens < 2 or boss_dash_tokens <= 0:
+		return false
+	if bool(context.get("waiting_for_serve", true)) or not bool(context.get("ball_active", false)):
+		return false
+	var ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var ball_vel: Vector2 = _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	if ball_vel.y >= 0.0:
+		return false
+	var width: float = float(context.get("width", 760.0))
+	var play_left: float = float(context.get("play_left", 0.0))
+	var play_right: float = float(context.get("play_right", width))
+	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
+	var predicted_x: float = prediction_state.predict_future_x(
+		ball_pos,
+		ball_vel,
+		fps_scale,
+		play_left,
+		play_right,
+		boss_paddle_width,
+		context
+	)
+	var trigger_chance: float = clamp(
+		float(context.get("boss_dash_chain_trigger_chance", context.get("boss_dash_trigger_chance", BOSS_DASH_STAGE1_TRIGGER_CHANCE))),
+		0.0,
+		1.0
+	)
+	if randf() >= trigger_chance:
+		return false
+	return _try_start_boss_dash(boss_pos, context, predicted_x, true)
 
 
 func _update_boss_dash_stun(boss_pos: Vector2, context: Dictionary, fps_scale: float) -> Dictionary:

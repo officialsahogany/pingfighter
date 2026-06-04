@@ -37,6 +37,10 @@ func _init() -> void:
 	_expect(int(dash_snapshot.get("tokens", -1)) == 0, "Stage 3 boss dash should consume the boss dash token")
 	_expect(recharge_frames >= expected_min_recharge and recharge_frames <= expected_max_recharge, "Stage 3 boss dash recharge should use -10% cooldown")
 	_verify_two_dash_tokens_leave_one_after_dash()
+	_verify_two_token_boss_recovers_without_explicit_chain_flag()
+	_verify_two_token_boss_respects_zero_chain_chance()
+	_verify_two_token_boss_chains_dash_when_ball_stays_far()
+	_verify_two_token_boss_recovers_when_ball_is_close_after_dash()
 	_verify_inactive_grenade_knockback_does_not_move_boss()
 
 	if _failures.is_empty():
@@ -72,6 +76,77 @@ func _verify_two_dash_tokens_leave_one_after_dash() -> void:
 	_expect(int(dash_snapshot.get("tokens", -1)) == 1, "two-token boss dash should leave one token after the first dash")
 
 
+func _verify_two_token_boss_chains_dash_when_ball_stays_far() -> void:
+	var context: Dictionary = _build_stage3_context()
+	context["ai_mode"] = "mythic"
+	context["boss_dash_max_tokens"] = 2
+	context["boss_dash_chain_enabled"] = true
+	context["boss_dash_chain_trigger_chance"] = 1.0
+	var state: Object = BossAiState.new()
+	var result: Dictionary = state.update(1.0 / 60.0, Vector2(40.0, 25.0), 0.0, context)
+	var chained := false
+	for _frame in range(80):
+		result = state.update(
+			1.0 / 60.0,
+			result.get("boss_pos", Vector2.ZERO),
+			float(result.get("boss_vel", 0.0)),
+			context
+		)
+		var dash_snapshot: Dictionary = state.get_dash_token_snapshot()
+		if (
+			bool(dash_snapshot.get("active", false))
+			and not bool(dash_snapshot.get("recovering", false))
+			and int(dash_snapshot.get("tokens", -1)) == 0
+		):
+			chained = true
+			break
+	_expect(chained, "two-token boss should chain into a second dash when the predicted ball target stays far")
+
+
+func _verify_two_token_boss_recovers_without_explicit_chain_flag() -> void:
+	var context: Dictionary = _build_stage3_context()
+	context["ai_mode"] = "mythic"
+	context["boss_dash_max_tokens"] = 2
+	context.erase("boss_dash_chain_enabled")
+	context.erase("boss_dash_chain_trigger_chance")
+	_expect(_runs_to_dash_recovery(context), "two-token boss should recover when boss_dash_chain_enabled is not explicit")
+
+
+func _verify_two_token_boss_respects_zero_chain_chance() -> void:
+	var context: Dictionary = _build_stage3_context()
+	context["ai_mode"] = "mythic"
+	context["boss_dash_max_tokens"] = 2
+	context["boss_dash_chain_enabled"] = true
+	context["boss_dash_chain_trigger_chance"] = 0.0
+	_expect(_runs_to_dash_recovery(context), "two-token boss should recover when boss_dash_chain_trigger_chance is zero")
+
+
+func _verify_two_token_boss_recovers_when_ball_is_close_after_dash() -> void:
+	var context: Dictionary = _build_stage3_context()
+	context["ai_mode"] = "mythic"
+	context["boss_dash_max_tokens"] = 2
+	context["boss_dash_chain_enabled"] = true
+	context["boss_dash_chain_trigger_chance"] = 1.0
+	context["ball_pos"] = Vector2(330.0, 145.0)
+	_expect(_runs_to_dash_recovery(context), "two-token boss should enter recovery instead of chaining when the predicted ball target is close")
+
+
+func _runs_to_dash_recovery(context: Dictionary) -> bool:
+	var state: Object = BossAiState.new()
+	var result: Dictionary = state.update(1.0 / 60.0, Vector2(40.0, 25.0), 0.0, context)
+	for _frame in range(80):
+		result = state.update(
+			1.0 / 60.0,
+			result.get("boss_pos", Vector2.ZERO),
+			float(result.get("boss_vel", 0.0)),
+			context
+		)
+		var dash_snapshot: Dictionary = state.get_dash_token_snapshot()
+		if bool(dash_snapshot.get("recovering", false)):
+			return int(dash_snapshot.get("tokens", -1)) == 1
+	return false
+
+
 func _build_stage3_context() -> Dictionary:
 	return {
 		"current_stage": 3,
@@ -92,6 +167,8 @@ func _build_stage3_context() -> Dictionary:
 		"boss_dash_max_tokens": 1,
 		"boss_dash_max_distance": BASE_BOSS_DASH_MAX_DISTANCE * 1.10,
 		"boss_dash_trigger_chance": 1.0,
+		"boss_dash_chain_enabled": false,
+		"boss_dash_chain_trigger_chance": 1.0,
 		"boss_dash_cooldown_min_seconds": BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS * 0.90,
 		"boss_dash_cooldown_max_seconds": BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS * 0.90,
 		"boss_dash_stun_seconds": 0.60,

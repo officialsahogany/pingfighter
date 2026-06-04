@@ -89,6 +89,11 @@ func _roll_approach_decision(ball_vel: Vector2, context: Dictionary) -> void:
 		var mistake_error_min: float = JUNIOR_POWER_SMASH_MISTAKE_ERROR_MIN if junior_power_smash_active else BOSS_MISTAKE_ERROR_MIN
 		var mistake_error_max: float = JUNIOR_POWER_SMASH_MISTAKE_ERROR_MAX if junior_power_smash_active else BOSS_MISTAKE_ERROR_MAX
 		var mistake_speed_scale: float = JUNIOR_POWER_SMASH_MISTAKE_SPEED_SCALE if junior_power_smash_active else BOSS_MISTAKE_SPEED_SCALE
+		if not junior_power_smash_active:
+			mistake_error_min = max(0.0, float(context.get("boss_mistake_error_min", BOSS_MISTAKE_ERROR_MIN)))
+			mistake_error_max = max(0.0, float(context.get("boss_mistake_error_max", BOSS_MISTAKE_ERROR_MAX)))
+			mistake_speed_scale = max(0.0, float(context.get("boss_mistake_speed_scale", BOSS_MISTAKE_SPEED_SCALE)))
+			mistake_error_max = max(mistake_error_min, mistake_error_max)
 		var mistake_magnitude: float = min(
 			mistake_error_max,
 			max(mistake_error_min, current_speed * mistake_speed_scale)

@@ -185,6 +185,9 @@ func _init() -> void:
 	_expect(abs(float(stage3_context.get("boss_stage_speed_multiplier", 0.0)) - 1.06) <= 0.001, "Stage 3 boss speed should be +6% over Stage 1")
 	_expect(abs(float(stage3_context.get("boss_movement_max_speed", 0.0)) - 6.3175 * 1.5 * 1.06) <= 0.001, "Stage 3 actual boss max speed should use the +3% per-stage ramp")
 	_expect(int(stage3_context.get("boss_dash_max_tokens", 0)) == 1, "Champion boss should keep one base dash token")
+	_expect(not bool(stage3_context.get("boss_dash_chain_enabled", true)), "Champion boss should not enable chained boss dash")
+	_expect(abs(float(stage3_context.get("boss_dash_trigger_chance", 0.0)) - 0.30) <= 0.001, "Champion boss dash trigger chance should stay at 30%")
+	_expect(abs(float(stage3_context.get("boss_dash_chain_trigger_chance", 0.0)) - 0.30) <= 0.001, "Champion boss dash chain chance should be explicit")
 	_expect(abs(float(stage3_context.get("boss_dash_stage_distance_multiplier", 0.0)) - 1.10) <= 0.001, "Stage 3 boss dash distance should be +10% over Stage 1")
 	_expect(abs(float(stage3_context.get("boss_dash_stage_cooldown_multiplier", 0.0)) - 0.90) <= 0.001, "Stage 3 boss dash cooldown should be -10% from Stage 1")
 	_expect(abs(float(stage3_context.get("boss_dash_max_distance", 0.0)) - 316.8 * 1.10) <= 0.001, "Stage 3 boss dash distance should use the +5% per-stage ramp")
@@ -192,13 +195,21 @@ func _init() -> void:
 	_expect(abs(float(stage3_context.get("boss_dash_cooldown_max_seconds", 0.0)) - 55.0 * 0.90) <= 0.001, "Stage 3 boss dash max cooldown should use the -5% per-stage ramp")
 
 	owner.ai_mode = "mythic league"
+	var mythic_ball_speed_ratio: float = 32.0 / 26.0
 	var mythic_stage3_context: Dictionary = builder.build_context(owner, registry)
-	_expect(abs(float(mythic_stage3_context.get("boss_league_movement_multiplier", 0.0)) - 1.10) <= 0.001, "Mythic boss movement should be 10% faster than Champion")
-	_expect(abs(float(mythic_stage3_context.get("boss_max_speed", 0.0)) - 6.3175 * 1.06 * 1.10) <= 0.001, "Mythic boss base max speed should be 10% faster")
-	_expect(abs(float(mythic_stage3_context.get("boss_movement_accel", 0.0)) - 0.798 * 1.5 * 1.06 * 1.10) <= 0.001, "Mythic boss acceleration should be 10% faster")
-	_expect(abs(float(mythic_stage3_context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.06 * 1.10) <= 0.001, "Mythic boss deceleration should be 10% faster")
-	_expect(abs(float(mythic_stage3_context.get("boss_movement_max_speed", 0.0)) - 6.3175 * 1.5 * 1.06 * 1.10) <= 0.001, "Mythic boss actual max speed should be 10% faster")
+	_expect(abs(float(mythic_stage3_context.get("boss_league_movement_multiplier", 0.0)) - mythic_ball_speed_ratio) <= 0.001, "Mythic boss movement should match the 32/26 ball speed cap ratio")
+	_expect(abs(float(mythic_stage3_context.get("boss_max_speed", 0.0)) - 6.3175 * 1.06 * mythic_ball_speed_ratio) <= 0.001, "Mythic boss base max speed should match the ball speed cap ratio")
+	_expect(abs(float(mythic_stage3_context.get("boss_movement_accel", 0.0)) - 0.798 * 1.5 * 1.06 * mythic_ball_speed_ratio) <= 0.001, "Mythic boss acceleration should match the ball speed cap ratio")
+	_expect(abs(float(mythic_stage3_context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.06 * mythic_ball_speed_ratio) <= 0.001, "Mythic boss deceleration should match the ball speed cap ratio")
+	_expect(abs(float(mythic_stage3_context.get("boss_movement_max_speed", 0.0)) - 6.3175 * 1.5 * 1.06 * mythic_ball_speed_ratio) <= 0.001, "Mythic boss actual max speed should match the ball speed cap ratio")
+	_expect(abs(float(mythic_stage3_context.get("boss_paddle_width", 0.0)) - 115.0) <= 0.001, "Mythic boss hitbox width should be 15% wider")
+	_expect(abs(float(mythic_stage3_context.get("boss_mistake_chance", 0.0)) - 0.005) <= 0.001, "Mythic boss mistake chance should drop to 0.5%")
+	_expect(abs(float(mythic_stage3_context.get("boss_mistake_error_min", -1.0)) - 0.0) <= 0.001, "Mythic boss mistake error minimum should allow small misses")
+	_expect(abs(float(mythic_stage3_context.get("boss_mistake_error_max", 0.0)) - 20.0) <= 0.001, "Mythic boss mistake error maximum should stay within 20px")
 	_expect(int(mythic_stage3_context.get("boss_dash_max_tokens", 0)) == 2, "Mythic boss should start from two base dash tokens")
+	_expect(bool(mythic_stage3_context.get("boss_dash_chain_enabled", false)), "Mythic boss should explicitly enable chained boss dash")
+	_expect(abs(float(mythic_stage3_context.get("boss_dash_trigger_chance", 0.0)) - 1.0) <= 0.001, "Mythic emergency boss dash should trigger whenever the dash gate says it is needed")
+	_expect(abs(float(mythic_stage3_context.get("boss_dash_chain_trigger_chance", 0.0)) - 1.0) <= 0.001, "Mythic chained boss dash should match the emergency dash trigger chance")
 
 	owner.ai_mode = "junior league"
 	var junior_stage3_context: Dictionary = builder.build_context(owner, registry)
@@ -210,6 +221,7 @@ func _init() -> void:
 	_expect(abs(float(junior_stage3_context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.06 * 0.90) <= 0.001, "Junior boss deceleration should be 10% slower")
 	_expect(abs(float(junior_stage3_context.get("boss_movement_max_speed", 0.0)) - 6.3175 * 1.5 * 1.06 * 0.90) <= 0.001, "Junior boss actual max speed should be 10% slower")
 	_expect(int(junior_stage3_context.get("boss_dash_max_tokens", 0)) == 1, "Junior boss should keep one base dash token")
+	_expect(not bool(junior_stage3_context.get("boss_dash_chain_enabled", true)), "Junior boss should not enable chained boss dash")
 	owner.ai_mode = "champion"
 
 	owner.current_stage = 4
@@ -220,6 +232,13 @@ func _init() -> void:
 	var stage5_context: Dictionary = builder.build_context(owner, registry)
 	_expect(bool(stage5_context.get("stage5_hongryun_marker", false)), "Stage 5 boss context should merge Hongryun state context")
 	_expect(not bool(stage5_context.get("stage2_skill_marker", false)), "Stage 5 boss context should skip Stage 2 skill context")
+	_expect(int(stage5_context.get("boss_dash_max_tokens", 0)) == 1, "Champion Stage 5 boss should keep one dash token")
+	_expect(not bool(stage5_context.get("boss_dash_chain_enabled", true)), "Champion Stage 5 boss should not enable chained boss dash")
+	owner.ai_mode = "mythic league"
+	var mythic_stage5_context: Dictionary = builder.build_context(owner, registry)
+	_expect(int(mythic_stage5_context.get("boss_dash_max_tokens", 0)) == 3, "Mythic Stage 5 boss should start from three dash tokens")
+	_expect(bool(mythic_stage5_context.get("boss_dash_chain_enabled", false)), "Mythic Stage 5 boss should explicitly enable chained boss dash")
+	_expect(abs(float(mythic_stage5_context.get("boss_dash_trigger_chance", 0.0)) - 1.0) <= 0.001, "Mythic Stage 5 emergency boss dash should always trigger when gated")
 
 	if _failures.is_empty():
 		print("boss_ai_context_builder_smoke: ok")
@@ -245,6 +264,7 @@ func _verify_context(context: Dictionary, source: String) -> void:
 	_expect(abs(float(context.get("ball_min_boost", 0.0)) - 0.65) <= 0.001, "%s should copy min boost" % source)
 	_expect(abs(float(context.get("boss_stage_speed_multiplier", 0.0)) - 1.03) <= 0.001, "%s should add +3%% boss speed on Stage 2" % source)
 	_expect(abs(float(context.get("boss_league_movement_multiplier", 0.0)) - 1.0) <= 0.001, "%s should keep Champion boss movement at 100%%" % source)
+	_expect(abs(float(context.get("boss_paddle_width", 0.0)) - 100.0) <= 0.001, "%s should keep Champion boss hitbox width at 100px" % source)
 	_expect(abs(float(context.get("boss_max_speed", 0.0)) - 6.3175 * 1.03) <= 0.001, "%s should scale base boss max speed per stage" % source)
 	_expect(abs(float(context.get("boss_movement_accel", 0.0)) - 0.798 * 1.5 * 1.03) <= 0.001, "%s should scale boss movement acceleration per stage" % source)
 	_expect(abs(float(context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.03) <= 0.001, "%s should scale boss movement deceleration per stage" % source)
@@ -256,6 +276,8 @@ func _verify_context(context: Dictionary, source: String) -> void:
 	_expect(abs(float(context.get("boss_dash_cooldown_min_seconds", 0.0)) - 40.0 * 0.95) <= 0.001, "%s should scale boss dash min cooldown per stage" % source)
 	_expect(abs(float(context.get("boss_dash_cooldown_max_seconds", 0.0)) - 55.0 * 0.95) <= 0.001, "%s should scale boss dash max cooldown per stage" % source)
 	_expect(abs(float(context.get("boss_mistake_chance", 0.0)) - 0.09) <= 0.001, "%s should set Stage 2 boss mistake chance to 9%%" % source)
+	_expect(abs(float(context.get("boss_mistake_error_min", 0.0)) - 78.0) <= 0.001, "%s should expose the default boss mistake error minimum" % source)
+	_expect(abs(float(context.get("boss_mistake_error_max", 0.0)) - 140.0) <= 0.001, "%s should expose the default boss mistake error maximum" % source)
 	_expect(not bool(context.get("power_smashing_parabola_active", false)), "%s should skip Smasher power state for Viper" % source)
 	_expect(int(context.get("power_smashing_combo_consumed", 0)) == 0, "%s should expose zero power combo count for Viper" % source)
 	_expect(not bool(context.get("whip_marker", false)), "%s should skip Stage 1 whip AI context on Stage 2" % source)

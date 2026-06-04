@@ -13,13 +13,16 @@ const PADDLE_HEIGHT := 50.0
 const PLAYER_Y := 700.0
 const BOSS_Y := 25.0
 const BOSS_PADDLE_WIDTH := 100.0
+const BOSS_HITBOX_HEIGHT := 40.0
 const JUNIOR_PLAYER_PADDLE_SCALE := 1.5
+const MYTHIC_BOSS_PADDLE_SCALE := 1.15
 const DEFAULT_STARTING_DASH_TOKENS := 1
 const JUNIOR_STARTING_DASH_TOKENS := 2
 
 
 func build_startup_context(owner: Object) -> Dictionary:
 	var ai_mode := _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	var league_boss_paddle_scale: float = get_league_boss_paddle_scale_for_mode(ai_mode)
 	return {
 		"width": WIDTH,
 		"height": HEIGHT,
@@ -29,8 +32,10 @@ func build_startup_context(owner: Object) -> Dictionary:
 		"player_paddle_width": PADDLE_WIDTH,
 		"player_paddle_height": PADDLE_HEIGHT,
 		"league_player_paddle_scale": get_league_player_paddle_scale_for_mode(ai_mode),
+		"league_boss_paddle_scale": league_boss_paddle_scale,
 		"starting_dash_tokens": get_starting_dash_tokens_for_mode(ai_mode),
-		"boss_paddle_width": BOSS_PADDLE_WIDTH,
+		"boss_paddle_width": BOSS_PADDLE_WIDTH * league_boss_paddle_scale,
+		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
 		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"ai_mode": ai_mode,
@@ -67,6 +72,16 @@ func get_league_player_paddle_scale(owner: Object) -> float:
 func get_league_player_paddle_scale_for_mode(mode: String) -> float:
 	var ai_mode := _normalize_league_mode(mode)
 	return JUNIOR_PLAYER_PADDLE_SCALE if ai_mode == "junior" else 1.0
+
+
+func get_league_boss_paddle_scale(owner: Object) -> float:
+	var ai_mode := _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	return get_league_boss_paddle_scale_for_mode(ai_mode)
+
+
+func get_league_boss_paddle_scale_for_mode(mode: String) -> float:
+	var ai_mode := _normalize_league_mode(mode)
+	return MYTHIC_BOSS_PADDLE_SCALE if ai_mode == "mythic" else 1.0
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

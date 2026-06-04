@@ -207,6 +207,7 @@ func _get_match_flow_deps(registry: Object, current_stage: int = 1, owner: Objec
 		deps["owner"] = owner
 		deps["starting_dash_tokens"] = _get_starting_dash_tokens(owner, registry)
 		deps["league_player_paddle_scale"] = _get_league_player_paddle_scale(owner, registry)
+		deps["league_boss_paddle_scale"] = _get_league_boss_paddle_scale(owner, registry)
 	return deps
 
 
@@ -245,6 +246,17 @@ func _get_league_player_paddle_scale(owner: Object, registry: Object) -> float:
 		config = _fallback_scene_config
 	if config != null and config.has_method("get_league_player_paddle_scale"):
 		return max(0.1, float(config.get_league_player_paddle_scale(owner)))
+	return 1.0
+
+
+func _get_league_boss_paddle_scale(owner: Object, registry: Object) -> float:
+	if owner == null:
+		return 1.0
+	var config: Object = _get_instance(registry, "battle_scene_config")
+	if config == null:
+		config = _fallback_scene_config
+	if config != null and config.has_method("get_league_boss_paddle_scale"):
+		return max(0.1, float(config.get_league_boss_paddle_scale(owner)))
 	return 1.0
 
 

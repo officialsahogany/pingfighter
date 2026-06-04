@@ -8,6 +8,7 @@ const PLAY_LEFT: float = 0.0
 const PLAY_RIGHT: float = WIDTH
 const PADDLE_WIDTH: float = 155.0
 const BOSS_PADDLE_WIDTH: float = 100.0
+const MYTHIC_BOSS_PADDLE_SCALE: float = 1.15
 const BALL_SIZE: float = 28.6
 const BOSS_Y: float = 25.0
 const BOSS_HITBOX_HEIGHT: float = 40.0
@@ -19,6 +20,13 @@ const STAGE4_PONK_MISTAKE_CHANCE: float = 0.07
 const JUNIOR_DEFAULT_BOSS_MISTAKE_CHANCE: float = 0.15
 const JUNIOR_STAGE1_DALJI_BOSS_MISTAKE_CHANCE: float = 0.20
 const JUNIOR_BOSS_MISTAKE_STAGE_RATE: float = 0.01
+const DEFAULT_BOSS_MISTAKE_ERROR_MIN: float = 78.0
+const DEFAULT_BOSS_MISTAKE_ERROR_MAX: float = 140.0
+const DEFAULT_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
+const MYTHIC_BOSS_MISTAKE_CHANCE: float = 0.005
+const MYTHIC_BOSS_MISTAKE_ERROR_MIN: float = 0.0
+const MYTHIC_BOSS_MISTAKE_ERROR_MAX: float = 20.0
+const MYTHIC_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
 const BASE_BOSS_ACCEL: float = 0.798
 const BASE_BOSS_DECEL: float = 0.798
 const BASE_BOSS_MAX_SPEED: float = 6.3175
@@ -27,7 +35,9 @@ const BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS: float = 40.0
 const BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS: float = 55.0
 const CHAMPION_BOSS_SPEED_MULTIPLIER: float = 1.5
 const JUNIOR_BOSS_MOVEMENT_MULTIPLIER: float = 0.90
-const MYTHIC_BOSS_MOVEMENT_MULTIPLIER: float = 1.10
+const MYTHIC_BOSS_MOVEMENT_MULTIPLIER: float = 1.2307692308
+const DEFAULT_BOSS_DASH_TRIGGER_CHANCE: float = 0.30
+const MYTHIC_BOSS_DASH_TRIGGER_CHANCE: float = 1.0
 const DEFAULT_BOSS_DASH_MAX_TOKENS: int = 1
 const MYTHIC_BOSS_DASH_MAX_TOKENS: int = 2
 const MYTHIC_STAGE5_BOSS_DASH_MAX_TOKENS: int = 3
@@ -56,13 +66,14 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 	var ai_mode: String = str(_get_owner_value(owner, "ai_mode", "champion"))
 	var boss_movement_profile: Dictionary = _build_boss_movement_profile(current_stage, ai_mode)
 	var boss_dash_profile: Dictionary = _build_boss_dash_profile(current_stage)
+	var boss_mistake_profile: Dictionary = _build_boss_mistake_profile(current_stage, ai_mode)
 	return {
 		"width": WIDTH,
 		"play_left": PLAY_LEFT,
 		"play_right": PLAY_RIGHT,
 		"current_stage": current_stage,
 		"ai_mode": ai_mode,
-		"boss_paddle_width": BOSS_PADDLE_WIDTH,
+		"boss_paddle_width": _get_boss_paddle_width(owner, ai_mode),
 		"boss_stage_speed_multiplier": boss_movement_profile["boss_stage_speed_multiplier"],
 		"boss_league_movement_multiplier": boss_movement_profile["boss_league_movement_multiplier"],
 		"boss_max_speed": boss_movement_profile["boss_max_speed"],
@@ -74,13 +85,16 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_dash_stage_distance_multiplier": boss_dash_profile["boss_dash_stage_distance_multiplier"],
 		"boss_dash_stage_cooldown_multiplier": boss_dash_profile["boss_dash_stage_cooldown_multiplier"],
 		"boss_dash_max_distance": boss_dash_profile["boss_dash_max_distance"],
-		"boss_dash_trigger_chance": 0.30,
+		"boss_dash_trigger_chance": _get_boss_dash_trigger_chance(ai_mode),
 		"boss_dash_chain_enabled": _is_boss_dash_chain_enabled(ai_mode, current_stage),
-		"boss_dash_chain_trigger_chance": 0.30,
+		"boss_dash_chain_trigger_chance": _get_boss_dash_chain_trigger_chance(ai_mode),
 		"boss_dash_cooldown_min_seconds": boss_dash_profile["boss_dash_cooldown_min_seconds"],
 		"boss_dash_cooldown_max_seconds": boss_dash_profile["boss_dash_cooldown_max_seconds"],
 		"boss_dash_stun_seconds": 0.60,
-		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage, ai_mode),
+		"boss_mistake_chance": boss_mistake_profile["boss_mistake_chance"],
+		"boss_mistake_error_min": boss_mistake_profile["boss_mistake_error_min"],
+		"boss_mistake_error_max": boss_mistake_profile["boss_mistake_error_max"],
+		"boss_mistake_speed_scale": boss_mistake_profile["boss_mistake_speed_scale"],
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
 		"waiting_for_serve": _is_waiting_for_serve(round_state),
 		"player_serves": _does_player_serve(round_state),
@@ -95,7 +109,7 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"ball_min_boost": float(_get_owner_value(owner, "ball_min_boost", 0.70)),
 		"ball_size": BALL_SIZE,
 		"boss_y": BOSS_Y,
-		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
+		"boss_hitbox_height": max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT))),
 		"hitbox_padding": HITBOX_PADDING,
 		"power_smashing_parabola_active": power_state != null and power_state.has_method("is_parabola_active") and power_state.is_parabola_active(),
 		"power_smashing_combo_consumed": int(power_state.get_combo_consumed()) if power_state != null and power_state.has_method("get_combo_consumed") else 0,
@@ -161,9 +175,24 @@ func _is_smasher(character_type: String) -> bool:
 	return character_type == "smasher"
 
 
+func _get_boss_paddle_width(owner: Object, ai_mode: String) -> float:
+	var league_width: float = BOSS_PADDLE_WIDTH * _get_boss_paddle_scale(ai_mode)
+	var owner_width: float = float(_get_owner_value(owner, "boss_paddle_width", league_width))
+	if _normalize_league_mode(ai_mode) == "mythic":
+		return max(1.0, max(owner_width, league_width))
+	return max(1.0, owner_width)
+
+
+func _get_boss_paddle_scale(ai_mode: String) -> float:
+	return MYTHIC_BOSS_PADDLE_SCALE if _normalize_league_mode(ai_mode) == "mythic" else 1.0
+
+
 func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> float:
-	if _normalize_league_mode(ai_mode) == "junior":
+	var normalized_mode: String = _normalize_league_mode(ai_mode)
+	if normalized_mode == "junior":
 		return _get_junior_stage_boss_mistake_chance(current_stage)
+	if normalized_mode == "mythic":
+		return MYTHIC_BOSS_MISTAKE_CHANCE
 	if current_stage == 2:
 		return STAGE2_BOSS_MISTAKE_CHANCE
 	if current_stage == 3:
@@ -171,6 +200,22 @@ func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> floa
 	if current_stage == 4:
 		return STAGE4_PONK_MISTAKE_CHANCE
 	return DEFAULT_BOSS_MISTAKE_CHANCE
+
+
+func _build_boss_mistake_profile(current_stage: int, ai_mode: String) -> Dictionary:
+	if _normalize_league_mode(ai_mode) == "mythic":
+		return {
+			"boss_mistake_chance": MYTHIC_BOSS_MISTAKE_CHANCE,
+			"boss_mistake_error_min": MYTHIC_BOSS_MISTAKE_ERROR_MIN,
+			"boss_mistake_error_max": MYTHIC_BOSS_MISTAKE_ERROR_MAX,
+			"boss_mistake_speed_scale": MYTHIC_BOSS_MISTAKE_SPEED_SCALE,
+		}
+	return {
+		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage, ai_mode),
+		"boss_mistake_error_min": DEFAULT_BOSS_MISTAKE_ERROR_MIN,
+		"boss_mistake_error_max": DEFAULT_BOSS_MISTAKE_ERROR_MAX,
+		"boss_mistake_speed_scale": DEFAULT_BOSS_MISTAKE_SPEED_SCALE,
+	}
 
 
 func _get_junior_stage_boss_mistake_chance(current_stage: int) -> float:
@@ -212,6 +257,16 @@ func _get_boss_dash_max_tokens(ai_mode: String, current_stage: int) -> int:
 			return MYTHIC_STAGE5_BOSS_DASH_MAX_TOKENS
 		return MYTHIC_BOSS_DASH_MAX_TOKENS
 	return DEFAULT_BOSS_DASH_MAX_TOKENS
+
+
+func _get_boss_dash_trigger_chance(ai_mode: String) -> float:
+	if _normalize_league_mode(ai_mode) == "mythic":
+		return MYTHIC_BOSS_DASH_TRIGGER_CHANCE
+	return DEFAULT_BOSS_DASH_TRIGGER_CHANCE
+
+
+func _get_boss_dash_chain_trigger_chance(ai_mode: String) -> float:
+	return _get_boss_dash_trigger_chance(ai_mode)
 
 
 func _is_boss_dash_chain_enabled(ai_mode: String, current_stage: int) -> bool:

@@ -17,6 +17,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var runtime_paddle_base_height: float = float(context.get("runtime_paddle_base_height", player_paddle_height))
 	var player_paddle_visual_scale_override: float = -1.0
 	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
+	var boss_hitbox_height: float = float(context.get("boss_hitbox_height", 40.0))
 	var selected_character_type: String = str(context.get("selected_character_type", "smasher")).strip_edges().to_lower()
 	var current_stage: int = int(context.get("current_stage", 1))
 	var special_gauge := 0.0
@@ -140,6 +141,8 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 		"starting_dash_tokens": starting_dash_tokens,
 		"boss_pos": boss_start_pos,
 		"boss_pos_prev": boss_start_pos,
+		"boss_paddle_width": boss_paddle_width,
+		"boss_hitbox_height": boss_hitbox_height,
 		"selected_character_type": selected_character_type,
 		"battle_textures": battle_textures,
 		"smasher_skill_icon_textures": skill_icons,

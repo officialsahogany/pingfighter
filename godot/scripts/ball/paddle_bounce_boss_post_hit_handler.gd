@@ -1,9 +1,10 @@
 extends RefCounted
 
+const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 
-const BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES := 36.0
-const BOWLING_TRAP_GUARD_KNOCKBACK_DECAY := 0.85
+const BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES := ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_FRAMES
+const BOWLING_TRAP_GUARD_KNOCKBACK_DECAY := ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY
 
 
 func apply(

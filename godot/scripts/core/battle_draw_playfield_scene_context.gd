@@ -31,6 +31,8 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var runtime_paddle_base_width: float = max(1.0, float(_get_owner_value(owner, "runtime_paddle_base_width", player_paddle_width)))
 	var runtime_player_paddle_scale: float = max(0.1, float(_get_owner_value(owner, "player_paddle_scale", player_paddle_width / PADDLE_WIDTH)))
 	var player_paddle_visual_scale_override: float = float(_get_owner_value(owner, "player_paddle_visual_scale_override", -1.0))
+	var boss_paddle_width: float = max(1.0, float(_get_owner_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH)))
+	var boss_hitbox_height: float = max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT)))
 	var player_paddle_scale: float = _resolve_player_visual_paddle_scale(
 		runtime_player_paddle_scale,
 		player_paddle_visual_scale_override,
@@ -84,8 +86,8 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"boss_pos_prev": _get_owner_vector2(owner, "boss_pos_prev", _get_owner_vector2(owner, "boss_pos", Vector2.ZERO)),
 		"boss_interp_last_physics_usec": int(_get_owner_value(owner, "boss_interp_last_physics_usec", 0)),
 		"boss_render_interpolation_enabled": bool(_get_owner_value(owner, "boss_render_interpolation_enabled", true)),
-		"boss_paddle_size": Vector2(BOSS_PADDLE_WIDTH, BOSS_PADDLE_HEIGHT),
-		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
+		"boss_paddle_size": Vector2(boss_paddle_width, boss_hitbox_height),
+		"boss_hitbox_height": boss_hitbox_height,
 		"boss_max_health": max(0, int(_get_owner_value(owner, "boss_max_health", 0))),
 		"boss_current_health": max(0, int(_get_owner_value(owner, "boss_current_health", 0))),
 		"boss_health_damage_units": max(0, int(_get_owner_value(owner, "boss_health_damage_units", 0))),
@@ -112,7 +114,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"player_y": PLAYER_Y,
 		"boss_y": BOSS_Y,
 		"player_paddle_width": player_paddle_width,
-		"boss_paddle_width": BOSS_PADDLE_WIDTH,
+		"boss_paddle_width": boss_paddle_width,
 		"ball_render_radius": BALL_RENDER_RADIUS,
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),

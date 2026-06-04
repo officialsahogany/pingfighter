@@ -13,6 +13,8 @@ const FLOAT_KEYS := {
 	"runtime_paddle_base_width": 155.0,
 	"runtime_paddle_base_height": 50.0,
 	"runtime_paddle_scale": 1.0,
+	"boss_paddle_width": 100.0,
+	"boss_hitbox_height": 40.0,
 	"optimus_energy_ratio": 1.0,
 	"optimus_paddle_scale": 1.0,
 	"optimus_speed_multiplier": 1.0,

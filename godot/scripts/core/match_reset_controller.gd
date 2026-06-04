@@ -186,8 +186,10 @@ func reset_stage_state(deps: Dictionary) -> void:
 
 func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dictionary:
 	var league_player_paddle_scale: float = max(0.1, float(deps.get("league_player_paddle_scale", 1.0)))
+	var league_boss_paddle_scale: float = max(0.1, float(deps.get("league_boss_paddle_scale", 1.0)))
 	var player_paddle_width: float = 155.0 * league_player_paddle_scale
 	var player_paddle_height: float = 50.0 * league_player_paddle_scale
+	var boss_paddle_width: float = 100.0 * league_boss_paddle_scale
 	var player_paddle_visual_scale_override: float = 1.0 if not is_equal_approx(league_player_paddle_scale, 1.0) else -1.0
 	return {
 		"special_gauge": 0.0,
@@ -200,6 +202,8 @@ func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dic
 		"runtime_paddle_base_width": player_paddle_width,
 		"runtime_paddle_base_height": player_paddle_height,
 		"runtime_paddle_scale": 1.0,
+		"boss_paddle_width": boss_paddle_width,
+		"boss_hitbox_height": 40.0,
 		"optimus_energy_initialized": false,
 		"optimus_energy_ratio": 1.0,
 		"optimus_paddle_scale": 1.0,

@@ -7,6 +7,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_context_mistake_chance_overrides_default()
+	_verify_context_mistake_error_bounds_override_default()
 	_verify_power_smash_halves_context_mistake_chance()
 	_verify_junior_power_smash_forces_high_mistake_chance()
 
@@ -25,6 +26,23 @@ func _verify_context_mistake_chance_overrides_default() -> void:
 
 	var forced_prediction := _predict_with_chance(1.0, false, 0)
 	_expect(abs(forced_prediction - 500.0) >= 78.0, "100% context mistake chance should apply the configured mistake offset")
+
+
+func _verify_context_mistake_error_bounds_override_default() -> void:
+	var forced_prediction := _predict_with_chance(
+		1.0,
+		false,
+		0,
+		"mythic",
+		0,
+		{
+			"boss_mistake_error_min": 0.0,
+			"boss_mistake_error_max": 20.0,
+			"boss_mistake_speed_scale": 4.5,
+		}
+	)
+	var offset: float = abs(forced_prediction - 500.0)
+	_expect(abs(offset - 20.0) <= 0.001, "Context mistake error bounds should cap forced misses at the configured maximum")
 
 
 func _verify_power_smash_halves_context_mistake_chance() -> void:
@@ -57,10 +75,18 @@ func _predict_with_chance(
 	focused_power_smash: bool,
 	seed_value: int,
 	ai_mode: String = "champion",
-	combo_consumed: int = 3
+	combo_consumed: int = 3,
+	extra_context: Dictionary = {}
 ) -> float:
 	seed(seed_value)
 	var state: Object = BossAiPredictionState.new()
+	var context: Dictionary = {
+		"ai_mode": ai_mode,
+		"boss_mistake_chance": chance,
+		"power_smashing_parabola_active": focused_power_smash,
+		"power_smashing_combo_consumed": combo_consumed if focused_power_smash else 0,
+	}
+	context.merge(extra_context, true)
 	return float(state.predict_future_x(
 		Vector2(500.0, 500.0),
 		Vector2(0.0, -5.0),
@@ -68,12 +94,7 @@ func _predict_with_chance(
 		0.0,
 		2000.0,
 		100.0,
-		{
-			"ai_mode": ai_mode,
-			"boss_mistake_chance": chance,
-			"power_smashing_parabola_active": focused_power_smash,
-			"power_smashing_combo_consumed": combo_consumed if focused_power_smash else 0,
-		}
+		context
 	))
 
 
