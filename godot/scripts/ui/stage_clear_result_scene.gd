@@ -1055,7 +1055,7 @@ func _draw_dalji_click_dialogue(view_size: Vector2, scale: float, font: Font) ->
 		max(52.0 * scale, boss_rect.position.y - 42.0 * scale)
 	)
 	var bubble := Rect2(bubble_position, bubble_size)
-	_draw_panel(bubble, Color(1.0, 0.96, 0.98, 0.90 * alpha), Color(1.0, 0.72, 0.82, 0.95 * alpha), 2.0 * scale, 17.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, bubble, Color(1.0, 0.96, 0.98, 0.90 * alpha), Color(1.0, 0.72, 0.82, 0.95 * alpha), 2.0 * scale, 17.0 * scale)
 	var tail := PackedVector2Array([
 		Vector2(bubble.position.x + 44.0 * scale, bubble.position.y + bubble.size.y - 2.0 * scale),
 		Vector2(bubble.position.x + 72.0 * scale, bubble.position.y + bubble.size.y - 2.0 * scale),
@@ -1070,7 +1070,7 @@ func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 	if _draw_player_victory_live2d(view_size, scale):
 		return
 	var panel: Rect2 = StageClearResultLayoutHelper.get_player_victory_panel_rect(view_size, scale)
-	_draw_panel(panel, Color(0.03, 0.75, 0.78, 0.74), Color(0.76, 1.0, 1.0, 0.92), 2.0 * scale, 22.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, panel, Color(0.03, 0.75, 0.78, 0.74), Color(0.76, 1.0, 1.0, 0.92), 2.0 * scale, 22.0 * scale)
 
 	if _player_victory_sheet != null:
 		var frame: int = int(floor(timer / PLAYER_VICTORY_FRAME_INTERVAL)) % PLAYER_VICTORY_FRAME_COUNT
@@ -1805,11 +1805,11 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 func _draw_cyber_scroll_fallback(rect: Rect2, scale: float, alpha: float) -> void:
 	var fill := Color(0.86, 0.98, 1.0, 0.76 * alpha)
 	var border := Color(0.20, 0.92, 1.0, 0.88 * alpha)
-	_draw_panel(rect, fill, border, max(2.0, 2.5 * scale), 18.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, rect, fill, border, max(2.0, 2.5 * scale), 18.0 * scale)
 	var rod_height: float = 26.0 * scale
 	var rod_color := Color(0.04, 0.08, 0.11, 0.94 * alpha)
-	_draw_panel(Rect2(rect.position + Vector2(-18.0 * scale, -rod_height * 0.45), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
-	_draw_panel(Rect2(Vector2(rect.position.x - 18.0 * scale, rect.end.y - rod_height * 0.55), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, Rect2(rect.position + Vector2(-18.0 * scale, -rod_height * 0.45), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, Rect2(Vector2(rect.position.x - 18.0 * scale, rect.end.y - rod_height * 0.55), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1892,7 +1892,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 
 
 func _draw_metric_tile(font: Font, rect: Rect2, title: String, value: String, title_color: Color, value_color: Color, alpha: float) -> void:
-	_draw_panel(rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
+	StageClearResultShapeHelper.draw_panel(self, rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
 	StageClearResultTextLayoutHelper.draw_text(self, font, title, rect.position + Vector2(16.0, 25.0) * (rect.size.y / 78.0), int(round(18.0 * rect.size.y / 78.0)), title_color)
 	StageClearResultTextLayoutHelper.draw_text(self, font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
 
@@ -1942,7 +1942,7 @@ func _draw_result_summary_strip(font: Font, rect: Rect2, scale: float, alpha: fl
 
 func _draw_rating_tile(font: Font, rect: Rect2, title: String, stars_filled: int, title_color: Color, alpha: float) -> void:
 	var unit: float = rect.size.y / 78.0
-	_draw_panel(rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
+	StageClearResultShapeHelper.draw_panel(self, rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
 	StageClearResultTextLayoutHelper.draw_text(self, font, title, rect.position + Vector2(16.0, 25.0) * unit, int(round(18.0 * unit)), title_color)
 	var star_outer: float = 13.0 * unit
 	var star_inner: float = 6.2 * unit
@@ -1982,7 +1982,8 @@ func _draw_rating_tile(font: Font, rect: Rect2, title: String, stars_filled: int
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_section_group_panel(rect: Rect2, scale: float, alpha: float) -> void:
-	_draw_panel(
+	StageClearResultShapeHelper.draw_panel(
+		self,
 		rect,
 		Color(0.92, 0.98, 1.0, 0.16 * alpha),
 		Color(0.05, 0.66, 0.84, 0.20 * alpha),
@@ -2041,7 +2042,7 @@ func _draw_reward_section_stack(font: Font, sections: Array, rect: Rect2, scale:
 			Vector2(rect.position.x + 6.0 * scale, band_top + (band_height - 24.0 * scale) * 0.5),
 			Vector2(6.0 * scale, 24.0 * scale)
 		)
-		_draw_panel(accent_bar, accent_color, Color(0.0, 0.0, 0.0, 0.0), 0.0, 3.0 * scale)
+		StageClearResultShapeHelper.draw_panel(self, accent_bar, accent_color, Color(0.0, 0.0, 0.0, 0.0), 0.0, 3.0 * scale)
 		var label_rect := Rect2(
 			Vector2(rect.position.x + 22.0 * scale, band_top),
 			Vector2(max(1.0, label_col_w - 30.0 * scale), band_height)
@@ -2081,7 +2082,8 @@ func _draw_reward_section_stack(font: Font, sections: Array, rect: Rect2, scale:
 func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
 	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_card_visual_state(reward, rect, scale, alpha)
 	var border_color: Color = visual_state.get("border_color", Color(0.06, 0.84, 0.96, 0.78 * alpha))
-	_draw_panel(
+	StageClearResultShapeHelper.draw_panel(
+		self,
 		rect,
 		visual_state.get("base_color", Color(0.40, 0.32, 0.20, 0.18 * alpha)),
 		border_color,
@@ -2089,7 +2091,8 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		float(visual_state.get("corner_radius", 8.0 * scale))
 	)
 	var badge_rect: Rect2 = visual_state.get("badge_rect", Rect2())
-	_draw_panel(
+	StageClearResultShapeHelper.draw_panel(
+		self,
 		badge_rect,
 		visual_state.get("badge_fill", Color(0.02, 0.08, 0.11, 0.64 * alpha)),
 		border_color,
@@ -2107,7 +2110,8 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 	_draw_reward_source_chip(font, reward, rect, scale, alpha)
 	_draw_reward_card_icon(reward, visual_state.get("icon_rect", Rect2()), scale, alpha)
 	var label_rect: Rect2 = visual_state.get("label_rect", Rect2())
-	_draw_panel(
+	StageClearResultShapeHelper.draw_panel(
+		self,
 		visual_state.get("label_plate_rect", label_rect),
 		visual_state.get("label_plate_fill", Color(0.95, 0.99, 0.96, 0.44 * alpha)),
 		Color(0.0, 0.0, 0.0, 0.0),
@@ -2158,7 +2162,8 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 	if visual_state.is_empty():
 		return
 	var chip_rect: Rect2 = visual_state.get("rect", Rect2())
-	_draw_panel(
+	StageClearResultShapeHelper.draw_panel(
+		self,
 		chip_rect,
 		visual_state.get("fill", Color(0.18, 0.24, 0.28, 0.72 * alpha)),
 		visual_state.get("border", Color(0.86, 1.0, 1.0, 0.76 * alpha)),
@@ -2240,7 +2245,7 @@ func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -
 	if next_hovered:
 		next_fill = next_fill.lerp(Color(1.0, 1.0, 1.0, alpha), 0.20)
 		next_border = Color(0.92, 1.0, 1.0, alpha)
-	_draw_panel(next_rect, next_fill, next_border, max(1.5, 2.4 * scale), 14.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, next_rect, next_fill, next_border, max(1.5, 2.4 * scale), 14.0 * scale)
 	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("다음 스테이지"), next_rect, int(round(26.0 * scale)), Color(0.02, 0.06, 0.08, alpha))
 
 	var exit_hovered: bool = clickable and _hovered_button == "exit"
@@ -2251,7 +2256,7 @@ func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -
 		exit_fill = exit_fill.lerp(Color(0.22, 0.08, 0.28, alpha), 0.32)
 		exit_border = Color(1.0, 0.48, 0.96, alpha)
 		exit_text_color = Color(1.0, 0.96, 1.0, alpha)
-	_draw_panel(exit_rect, exit_fill, exit_border, max(1.5, 2.0 * scale), 14.0 * scale)
+	StageClearResultShapeHelper.draw_panel(self, exit_rect, exit_fill, exit_border, max(1.5, 2.0 * scale), 14.0 * scale)
 	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("나가기"), exit_rect, int(round(26.0 * scale)), exit_text_color)
 
 
@@ -2524,23 +2529,6 @@ func _apply_standalone_preview_defaults() -> void:
 		],
 		"reward_count": 5,
 	}
-
-
-func _draw_panel(rect: Rect2, fill_color: Color, border_color: Color, border_width: float, corner_radius: float) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
-	var width: int = max(0, int(round(border_width)))
-	style.border_width_left = width
-	style.border_width_top = width
-	style.border_width_right = width
-	style.border_width_bottom = width
-	style.border_color = border_color
-	var radius: int = max(0, int(round(corner_radius)))
-	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
-	style.corner_radius_bottom_right = radius
-	draw_style_box(style, rect)
 
 
 func _load_textures() -> void:

@@ -127,6 +127,32 @@ static func draw_radial_burst(canvas: CanvasItem, center: Vector2, radius: float
 		canvas.draw_colored_polygon(inner_pts, inner_color)
 
 
+static func draw_panel(
+	canvas: CanvasItem,
+	rect: Rect2,
+	fill_color: Color,
+	border_color: Color,
+	border_width: float,
+	corner_radius: float
+) -> void:
+	if canvas == null:
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	var width: int = max(0, int(round(border_width)))
+	style.border_width_left = width
+	style.border_width_top = width
+	style.border_width_right = width
+	style.border_width_bottom = width
+	style.border_color = border_color
+	var radius: int = max(0, int(round(corner_radius)))
+	style.corner_radius_top_left = radius
+	style.corner_radius_top_right = radius
+	style.corner_radius_bottom_left = radius
+	style.corner_radius_bottom_right = radius
+	canvas.draw_style_box(style, rect)
+
+
 static func box_hover_glow_layers(radius_x: float, radius_y: float, global_alpha: float, pulse: float, layer_count: int = 4) -> Array:
 	var layers: Array = []
 	var safe_layer_count: int = max(1, layer_count)
