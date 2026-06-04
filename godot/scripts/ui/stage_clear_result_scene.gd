@@ -992,18 +992,21 @@ func _handle_box_click(mouse_position: Vector2) -> bool:
 
 
 func _start_opening_box(index: int) -> void:
-	if index < 0 or index >= _boxes.size():
+	var box: Dictionary = _boxes[index] if index >= 0 and index < _boxes.size() and _boxes[index] is Dictionary else {}
+	var result: Dictionary = StageClearResultBoxData.start_opening_box(
+		_boxes,
+		index,
+		StageClearResultBoxData.roll_reward(
+			str(box.get("roll_kind", box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))),
+			reward_roll_callback,
+			FALLBACK_STARPOINT_SINGLE_CHANCE,
+			FALLBACK_STARPOINT_SINGLE_AMOUNT,
+			FALLBACK_STARPOINT_DOUBLE_AMOUNT
+		)
+	)
+	if not bool(result.get("started", false)):
 		return
-	var box: Dictionary = _boxes[index]
-	if str(box.get("state", "idle")) != "idle":
-		return
-	box["state"] = "opening"
-	box["open_progress"] = 0.0
-	box["reward_emerge"] = 0.0
-	box["reward"] = _roll_reward(str(box.get("roll_kind", box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))))
-	box["lid_open_fired"] = false
-	box["lid_open_id"] = -1
-	_boxes[index] = box
+	_boxes = result.get("boxes", _boxes)
 	_play_result_box_open_audio()
 	if _hovered_box_index == index:
 		_hovered_box_index = -1
@@ -1015,53 +1018,24 @@ func _play_result_box_open_audio() -> void:
 		_game_audio.play_result_box_open()
 
 
-func _roll_reward(kind: String) -> Dictionary:
-	if reward_roll_callback.is_valid():
-		var rolled_value: Variant = reward_roll_callback.call(kind)
-		if rolled_value is Dictionary:
-			var rolled: Dictionary = rolled_value
-			if not rolled.is_empty():
-				return rolled
-	if StageClearResultBoxData.is_guaranteed_mythic_box_kind(kind) or StageClearResultBoxData.is_advanced_box_kind(kind):
-		return {"type": "mythic", "label": LanguageSettings.translate_text("신화 아이템")}
-	var roll: float = randf()
-	if roll < 0.60:
-		return {"type": "active", "label": LanguageSettings.translate_text("액티브 아이템")}
-	if roll < 0.80:
-		return {"type": "passive", "label": LanguageSettings.translate_text("패시브 아이템")}
-	var amount: int = (
-		FALLBACK_STARPOINT_SINGLE_AMOUNT
-		if randf() < FALLBACK_STARPOINT_SINGLE_CHANCE
-		else FALLBACK_STARPOINT_DOUBLE_AMOUNT
-	)
-	return {"type": "starpoint", "label": "★ %d" % amount, "amount": amount}
-
-
 func _update_boxes(delta: float) -> void:
-	if _boxes.is_empty() or delta <= 0.0:
+	var result: Dictionary = StageClearResultBoxData.update_box_opening_state(
+		_boxes,
+		delta,
+		BOX_OPEN_DURATION,
+		BOX_REWARD_EMERGE_DURATION,
+		BOX_LID_OPEN_PROGRESS,
+		_lid_open_counter
+	)
+	_boxes = result.get("boxes", _boxes)
+	_lid_open_counter = int(result.get("lid_open_counter", _lid_open_counter))
+	var opened_indices: Array = result.get("opened_indices", [])
+	if opened_indices.is_empty():
 		return
-	for i in range(_boxes.size()):
-		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		var state: String = str(box.get("state", "idle"))
-		if state == "opening":
-			var dur: float = max(0.0001, BOX_OPEN_DURATION)
-			var p: float = float(box.get("open_progress", 0.0)) + delta / dur
-			if p >= 1.0:
-				p = 1.0
-				box["state"] = "opened"
-				box["reward_emerge"] = 0.0
-				_try_grant_immediate_reward(i, box)
-			box["open_progress"] = p
-			if not bool(box.get("lid_open_fired", false)) and p >= BOX_LID_OPEN_PROGRESS:
-				_lid_open_counter += 1
-				box["lid_open_fired"] = true
-				box["lid_open_id"] = _lid_open_counter
-			_boxes[i] = box
-		elif state == "opened":
-			var emerge_dur: float = max(0.0001, BOX_REWARD_EMERGE_DURATION)
-			var ep: float = float(box.get("reward_emerge", 0.0)) + delta / emerge_dur
-			box["reward_emerge"] = clamp(ep, 0.0, 1.0)
-			_boxes[i] = box
+	for index_value in opened_indices:
+		var index: int = int(index_value)
+		if index >= 0 and index < _boxes.size() and _boxes[index] is Dictionary:
+			_try_grant_immediate_reward(index, _boxes[index])
 
 
 func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:

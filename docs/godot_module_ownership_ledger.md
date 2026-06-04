@@ -1458,9 +1458,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stateless stage-clear result-box data assembly: reward-plan box
   materialization, legacy mythic box-kind normalization, box display labels,
   display-label extraction for interaction status, and resolved reward-copy
-  extraction from opened boxes. The scene still owns reward rolling, animation
-  state mutation, drawing, hover / click input, and the public result-scene box
-  constants kept as compatibility aliases.
+  extraction from opened boxes. It also owns reward-roll fallback selection and
+  box opening / reward-emerge state transitions. The scene still owns reward
+  callback wiring, audio side effects, immediate reward grants, drawing, hover /
+  click input, and the public result-scene box constants kept as compatibility
+  aliases.
 - `scripts/ui/stage_clear_result_cinematic_position_helper.gd`
   Owns stateless stage-clear result cinematic position assembly for
   immediate mythic reward grants: floating result-box pickup points,
