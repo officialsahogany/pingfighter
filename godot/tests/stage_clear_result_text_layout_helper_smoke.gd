@@ -52,13 +52,17 @@ func _verify_centered_baseline() -> void:
 func _verify_scene_uses_text_layout_helper() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
-		source.find("StageClearResultTextLayoutHelper.wrap_words_to_width") >= 0
-		and source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0,
-		"result scene should call text layout helper directly"
+		source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0
+		and source.find("StageClearResultTextLayoutHelper.draw_text") >= 0
+		and source.find("StageClearResultTextLayoutHelper.draw_centered_text") >= 0,
+		"result scene should call text layout/draw helpers directly"
 	)
 	for removed_wrapper in [
 		"func _wrap_words_to_width(",
 		"func _fit_font_size(",
+		"func _draw_text(",
+		"func _draw_centered_text(",
+		"func _draw_wrapped_text(",
 	]:
 		_expect(
 			source.find(removed_wrapper) < 0,

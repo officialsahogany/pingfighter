@@ -1484,10 +1484,12 @@ This section is intentionally long; use search to find the nearest owner.
   title formatting, and localized reward type fallback labels. The scene
   still owns the catalog instance and actual drawing.
 - `scripts/ui/stage_clear_result_text_layout_helper.gd`
-  Owns stateless stage-clear result text measurement helpers: centered
-  baseline calculation, word wrapping to width / max-lines, and font-size
-  fitting. The scene still owns all actual text drawing, localized copy,
-  and shadow / color choices.
+  Owns stateless stage-clear result text measurement and low-level
+  CanvasItem text draw helpers: centered baseline calculation, word
+  wrapping to width / max-lines, font-size fitting, baseline text draw,
+  centered text draw, and wrapped text draw. The scene still owns
+  localized copy, high-level text placement, shadow alpha choices, and
+  color selection.
 - `scripts/core/match_round_restart_controller.gd`
   Owns round-restart fanout below match flow: reset-ball callback dispatch
   or round-wait fallback reset, rematch notice startup, and round-restart

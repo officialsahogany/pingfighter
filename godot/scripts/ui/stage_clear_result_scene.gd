@@ -1091,7 +1091,7 @@ func _draw_dalji_click_dialogue(view_size: Vector2, scale: float, font: Font) ->
 		Vector2(bubble.position.x + 54.0 * scale, bubble.position.y + bubble.size.y + 22.0 * scale),
 	])
 	draw_colored_polygon(tail, Color(1.0, 0.96, 0.98, 0.90 * alpha))
-	_draw_centered_text(font, LanguageSettings.translate_text(DALJI_CLICK_DIALOGUE), bubble, int(round(26.0 * scale)), Color(0.34, 0.12, 0.18, 0.98 * alpha))
+	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text(DALJI_CLICK_DIALOGUE), bubble, int(round(26.0 * scale)), Color(0.34, 0.12, 0.18, 0.98 * alpha))
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1107,21 +1107,24 @@ func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 		var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale)
 		draw_texture_rect_region(_player_victory_sheet, actor_rect, source, Color.WHITE, false, true)
 
-	_draw_text(
+	StageClearResultTextLayoutHelper.draw_text(
+		self,
 		font,
 		"플레이어 승리",
 		Vector2(panel.position.x + 34.0 * scale, panel.position.y + panel.size.y - 325.0 * scale),
 		int(round(25.0 * scale)),
 		Color(0.96, 1.0, 1.0, 0.97)
 	)
-	_draw_text(
+	StageClearResultTextLayoutHelper.draw_text(
+		self,
 		font,
 		"Live2D 포즈",
 		Vector2(panel.position.x + 34.0 * scale, panel.position.y + panel.size.y - 278.0 * scale),
 		int(round(34.0 * scale)),
 		Color(1.0, 1.0, 1.0, 0.96)
 	)
-	_draw_text(
+	StageClearResultTextLayoutHelper.draw_text(
+		self,
 		font,
 		"승리 연출 테스트",
 		Vector2(panel.position.x + 34.0 * scale, panel.position.y + panel.size.y - 225.0 * scale),
@@ -1442,7 +1445,7 @@ func _draw_reward_item_icon(reward: Dictionary, anchor: Vector2, scale: float, a
 			int(visual_state.get("fallback_font_preferred_size", round(22.0 * scale))),
 			int(visual_state.get("fallback_font_min_size", round(13.0 * scale)))
 		)
-		_draw_centered_text(font, fallback_label, text_rect, font_size, visual_state.get("fallback_text_color", Color(1.0, 1.0, 1.0, alpha)))
+		StageClearResultTextLayoutHelper.draw_centered_text(self, font, fallback_label, text_rect, font_size, visual_state.get("fallback_text_color", Color(1.0, 1.0, 1.0, alpha)))
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1501,7 +1504,8 @@ func _draw_ingame_starpoint_visual(visual_state: Dictionary, draw_amount: bool) 
 		return
 	var amount: int = int(visual_state.get("amount", 1))
 	var font: Font = ThemeDB.fallback_font
-	_draw_centered_text(
+	StageClearResultTextLayoutHelper.draw_centered_text(
+		self,
 		font,
 		"x %d" % amount,
 		visual_state.get("text_rect", Rect2(star_center + Vector2(-56.0, 38.0), Vector2(112.0, 32.0))),
@@ -1871,7 +1875,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
 
 	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 58.0 * scale))
-	_draw_centered_text(font, LanguageSettings.format_stage_result_label(current_stage), header_rect, int(round(42.0 * scale)), accent)
+	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.format_stage_result_label(current_stage), header_rect, int(round(42.0 * scale)), accent)
 	var divider_y: float = rect.position.y + 68.0 * scale
 	draw_line(
 		Vector2(rect.position.x + 34.0 * scale, divider_y),
@@ -1935,7 +1939,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	)
 	_draw_section_group_panel(body_rect, scale, alpha)
 	if sections.is_empty():
-		_draw_centered_text(font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
+		StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
 	else:
 		_draw_reward_section_stack(font, sections, body_rect, scale, alpha)
 
@@ -1944,8 +1948,8 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 
 func _draw_metric_tile(font: Font, rect: Rect2, title: String, value: String, title_color: Color, value_color: Color, alpha: float) -> void:
 	_draw_panel(rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
-	_draw_text(font, title, rect.position + Vector2(16.0, 25.0) * (rect.size.y / 78.0), int(round(18.0 * rect.size.y / 78.0)), title_color)
-	_draw_text(font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
+	StageClearResultTextLayoutHelper.draw_text(self, font, title, rect.position + Vector2(16.0, 25.0) * (rect.size.y / 78.0), int(round(18.0 * rect.size.y / 78.0)), title_color)
+	StageClearResultTextLayoutHelper.draw_text(self, font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
 
 
 # The project fallback font packs Korean syllable blocks tightly, so at the
@@ -1994,7 +1998,7 @@ func _draw_result_summary_strip(font: Font, rect: Rect2, scale: float, alpha: fl
 func _draw_rating_tile(font: Font, rect: Rect2, title: String, stars_filled: int, title_color: Color, alpha: float) -> void:
 	var unit: float = rect.size.y / 78.0
 	_draw_panel(rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
-	_draw_text(font, title, rect.position + Vector2(16.0, 25.0) * unit, int(round(18.0 * unit)), title_color)
+	StageClearResultTextLayoutHelper.draw_text(self, font, title, rect.position + Vector2(16.0, 25.0) * unit, int(round(18.0 * unit)), title_color)
 	var star_outer: float = 13.0 * unit
 	var star_inner: float = 6.2 * unit
 	var star_gap: float = 33.0 * unit
@@ -2097,7 +2101,8 @@ func _draw_reward_section_stack(font: Font, sections: Array, rect: Rect2, scale:
 			Vector2(rect.position.x + 22.0 * scale, band_top),
 			Vector2(max(1.0, label_col_w - 30.0 * scale), band_height)
 		)
-		_draw_centered_text(
+		StageClearResultTextLayoutHelper.draw_centered_text(
+			self,
 			font,
 			"%s  %d" % [str(section.get("title", "")), rewards.size()],
 			label_rect,
@@ -2146,7 +2151,8 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		float(visual_state.get("badge_border_width", max(1.0, 1.0 * scale))),
 		float(visual_state.get("badge_corner_radius", 6.0 * scale))
 	)
-	_draw_centered_text(
+	StageClearResultTextLayoutHelper.draw_centered_text(
+		self,
 		font,
 		str(visual_state.get("badge_text", StageClearResultRewardVisualResolver.get_reward_badge(reward))),
 		badge_rect,
@@ -2180,7 +2186,7 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		int(visual_state.get("label_font_preferred_size", round(14.0 * scale))),
 		int(visual_state.get("label_font_min_size", round(9.0 * scale)))
 	)
-	_draw_centered_text(font, label, label_rect, label_size, visual_state.get("label_text_color", Color(0.04, 0.08, 0.10, alpha)), 0.0)
+	StageClearResultTextLayoutHelper.draw_centered_text(self, font, label, label_rect, label_size, visual_state.get("label_text_color", Color(0.04, 0.08, 0.10, alpha)), 0.0)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -2221,7 +2227,7 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 		int(visual_state.get("font_preferred_size", round(10.0 * scale))),
 		int(visual_state.get("font_min_size", round(7.0 * scale)))
 	)
-	_draw_centered_text(font, source_label, chip_rect, font_size, visual_state.get("text_color", Color(0.92, 1.0, 1.0, alpha)), 0.0)
+	StageClearResultTextLayoutHelper.draw_centered_text(self, font, source_label, chip_rect, font_size, visual_state.get("text_color", Color(0.92, 1.0, 1.0, alpha)), 0.0)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -2290,7 +2296,7 @@ func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -
 		next_fill = next_fill.lerp(Color(1.0, 1.0, 1.0, alpha), 0.20)
 		next_border = Color(0.92, 1.0, 1.0, alpha)
 	_draw_panel(next_rect, next_fill, next_border, max(1.5, 2.4 * scale), 14.0 * scale)
-	_draw_centered_text(font, LanguageSettings.translate_text("다음 스테이지"), next_rect, int(round(26.0 * scale)), Color(0.02, 0.06, 0.08, alpha))
+	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("다음 스테이지"), next_rect, int(round(26.0 * scale)), Color(0.02, 0.06, 0.08, alpha))
 
 	var exit_hovered: bool = clickable and _hovered_button == "exit"
 	var exit_fill := Color(0.06, 0.07, 0.12, alpha * 0.92)
@@ -2301,12 +2307,13 @@ func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -
 		exit_border = Color(1.0, 0.48, 0.96, alpha)
 		exit_text_color = Color(1.0, 0.96, 1.0, alpha)
 	_draw_panel(exit_rect, exit_fill, exit_border, max(1.5, 2.0 * scale), 14.0 * scale)
-	_draw_centered_text(font, LanguageSettings.translate_text("나가기"), exit_rect, int(round(26.0 * scale)), exit_text_color)
+	StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("나가기"), exit_rect, int(round(26.0 * scale)), exit_text_color)
 
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_footer(view_size: Vector2, scale: float, font: Font) -> void:
-	_draw_text(
+	StageClearResultTextLayoutHelper.draw_text(
+		self,
 		font,
 		LanguageSettings.translate_text("스테이지 %d 결과 화면" % current_stage),
 		Vector2(34.0, view_size.y - 26.0 * scale),
@@ -2625,43 +2632,6 @@ func _draw_panel(rect: Rect2, fill_color: Color, border_color: Color, border_wid
 	style.corner_radius_bottom_left = radius
 	style.corner_radius_bottom_right = radius
 	draw_style_box(style, rect)
-
-
-func _draw_text(font: Font, text: String, baseline: Vector2, font_size: int, color: Color, shadow_alpha: float = 0.62) -> void:
-	if shadow_alpha > 0.001:
-		draw_string(font, baseline + Vector2(2.0, 2.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, color.a * shadow_alpha))
-	draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
-
-
-func _draw_centered_text(font: Font, text: String, rect: Rect2, font_size: int, color: Color, shadow_alpha: float = 0.62) -> void:
-	_draw_text(
-		font,
-		text,
-		StageClearResultTextLayoutHelper.get_centered_baseline(font, text, rect, font_size),
-		font_size,
-		color,
-		shadow_alpha
-	)
-
-
-func _draw_wrapped_text(
-	font: Font,
-	text: String,
-	baseline: Vector2,
-	font_size: int,
-	color: Color,
-	max_width: float,
-	max_lines: int,
-	line_height: float,
-	shadow_alpha: float = 0.62
-) -> void:
-	if text == "" or max_width <= 0.0 or max_lines <= 0:
-		return
-	var lines: Array[String] = StageClearResultTextLayoutHelper.wrap_words_to_width(font, text, font_size, max_width, max_lines)
-	for i in range(lines.size()):
-		var line: String = str(lines[i])
-		var fitted_size: int = StageClearResultTextLayoutHelper.fit_font_size(font, line, max_width, font_size, max(9, int(round(font_size * 0.76))))
-		_draw_text(font, line, baseline + Vector2(0.0, float(i) * line_height), fitted_size, color, shadow_alpha)
 
 
 func _load_textures() -> void:
