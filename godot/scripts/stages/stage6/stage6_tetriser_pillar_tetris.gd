@@ -4,8 +4,8 @@ extends RefCounted
 #
 # Ringpia remaster of the old Tetris side-board feeling: NEXT signs, black wells,
 # beveled stone frames, bottom score plinths, and classic tetromino colors.
-# The CrystalShieldSystem boss skill from pillar_tetriser.py is intentionally not
-# ported here (deferred follow-up).
+# Crystal Shield gameplay is owned by stage6_tetriser_crystal_shield_state.gd;
+# this module remains the self-playing pillar backdrop source.
 #
 # Placement difference vs Python: the original drew the boards inside the on-screen
 # 80px pillars (game x=0..80 / 680..760). In the Godot port the playfield is the FULL

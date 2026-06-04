@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CrystalShieldState := preload("res://scripts/stages/stage6/stage6_tetriser_crystal_shield_state.gd")
+
 # Stage 6 테트리서 boss state.
 #
 # 기획: docs/stage6_tetriser_port_plan.md
@@ -143,6 +145,7 @@ var _laser_state: String = "idle"     # idle / charging / firing
 var _laser_timer: float = 0.0
 var _laser_fired_this_super: bool = false
 var _emp_ripples: Array[Dictionary] = []
+var _crystal_shield: Object = CrystalShieldState.new()
 # 프레임당 1회 사운드 플래그(이벤트 시 set, update 끝에서 deps.audio로 flush).
 var _sfx_break_pending: bool = false
 var _sfx_wall_pending: bool = false
@@ -165,14 +168,14 @@ func _init() -> void:
 
 func reset() -> void:
 	# 전체 초기화(스테이지 이탈 / 디버그 피커 진입). 게이지도 0.
-	_clear_combat_state()
+	_clear_combat_state(true)
 	boss_gauge = 0.0
 	status = "charging"
 
 
 func reset_round() -> void:
 	# 라운드 경계. 전투 구조물만 정리하고 게이지는 보존(원본 persistent).
-	_clear_combat_state()
+	_clear_combat_state(false)
 	status = "charging"
 
 
@@ -181,7 +184,7 @@ func reset_for_result() -> void:
 	reset()
 
 
-func _clear_combat_state() -> void:
+func _clear_combat_state(clear_match_state: bool = false) -> void:
 	_tetrominoes.clear()
 	_guard_blocks.clear()
 	_wall_blocks.clear()
@@ -198,6 +201,7 @@ func _clear_combat_state() -> void:
 	_sfx_break_pending = false
 	_sfx_wall_pending = false
 	_sfx_super_pending = false
+	_crystal_shield.reset(clear_match_state)
 	_arm_spawn_timer()
 	_arm_guard_timer()
 	_arm_wall_timer()
@@ -210,17 +214,18 @@ func _clear_combat_state() -> void:
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
-		if not _tetrominoes.is_empty() or boss_gauge > 0.0:
+		if not _tetrominoes.is_empty() or boss_gauge > 0.0 or _crystal_shield.has_runtime_state():
 			reset()
 		return _build_result()
 
 	var clamped_delta: float = clampf(delta, 0.0, 0.1)
+	_crystal_shield.update(clamped_delta, context)
 
 	# 비활성 / 서브 대기 / 시간 정지 중에는 게이지·스폰·낙하 모두 정지(블록 동결, 게이지 유지).
 	if not bool(context.get("ball_active", false)) \
 			or bool(context.get("waiting_for_serve", false)) \
 			or _is_timing_frozen(context):
-		status = "paused"
+		status = "crystal_shield" if _crystal_shield.is_freeze_active() else "paused"
 		return _build_result()
 
 	status = "charging"
@@ -556,6 +561,9 @@ func _collect_settled_cell_rects() -> Array:
 # scene["ball_pos"]는 공의 '중심'(commando_supply_drop 선례와 동일 규약).
 # 테트로미노 → 가드 블록 순으로 첫 충돌 셀을 찾아 반사 + 파괴한다.
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
+	if _crystal_shield.resolve_ball_collision(scene, context, _deps):
+		_sfx_break_pending = true
+		return true
 	if _tetrominoes.is_empty() and _guard_blocks.is_empty() and _wall_blocks.is_empty():
 		return false
 	var ball_pos: Vector2 = scene.get("ball_pos", Vector2.ZERO)
@@ -1009,7 +1017,9 @@ func _is_timing_frozen(context: Dictionary) -> bool:
 
 func _build_result() -> Dictionary:
 	# 2a에서는 공 모션을 가로채지 않는다(공 충돌은 2b).
-	return {"skip_ball_motion_step": false}
+	var result := {"skip_ball_motion_step": false}
+	result.merge(_crystal_shield.get_update_result(), true)
+	return result
 
 
 # ============================================================================
@@ -1017,7 +1027,7 @@ func _build_result() -> Dictionary:
 # ============================================================================
 
 func get_actor_draw_context() -> Dictionary:
-	return {
+	var context := {
 		"stage6_tetriser_tetrominoes": _build_tetromino_draw_list(),
 		"stage6_tetriser_guard_blocks": _build_guard_draw_list(),
 		"stage6_tetriser_wall_cells": _build_wall_draw_list(),
@@ -1030,6 +1040,8 @@ func get_actor_draw_context() -> Dictionary:
 		"stage6_tetriser_laser": _build_laser_draw_data(),
 		"stage6_tetriser_emp": _build_emp_draw_list(),
 	}
+	context.merge(_crystal_shield.get_actor_draw_context(), true)
+	return context
 
 
 func _build_wall_draw_list() -> Array:
@@ -1084,12 +1096,14 @@ func _build_tetromino_draw_list() -> Array:
 
 
 func get_boss_ai_context() -> Dictionary:
-	return {
+	var context := {
 		"stage6_tetriser_boss_gauge": boss_gauge,
 		"stage6_tetriser_tetromino_count": _tetrominoes.size(),
 		"stage6_tetriser_super_active": _super_active,
 		"stage6_tetriser_super_scale": _super_scale,
 	}
+	context.merge(_crystal_shield.get_boss_ai_context(), true)
+	return context
 
 
 func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}) -> Dictionary:
@@ -1248,6 +1262,30 @@ func debug_get_laser_state() -> String:
 
 func debug_get_emp_count() -> int:
 	return _emp_ripples.size()
+
+
+func debug_force_crystal_shield_pending() -> void:
+	_crystal_shield.debug_force_pending()
+
+
+func debug_start_crystal_shield(boss_center: Vector2 = Vector2(380.0, 45.0), active_immediately: bool = false) -> void:
+	_crystal_shield.debug_start(boss_center, active_immediately)
+
+
+func debug_is_crystal_shield_pending() -> bool:
+	return bool(_crystal_shield.pending_activation)
+
+
+func debug_is_crystal_shield_freeze_active() -> bool:
+	return _crystal_shield.is_freeze_active()
+
+
+func debug_is_crystal_shield_active() -> bool:
+	return _crystal_shield.is_active()
+
+
+func debug_get_crystal_shield_block_count() -> int:
+	return _crystal_shield.get_active_block_count()
 
 
 # 결정론적 테스트용: 공 1회 큐브 통과 시뮬레이션.

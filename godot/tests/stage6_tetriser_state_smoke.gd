@@ -6,6 +6,7 @@ extends SceneTree
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
 const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
 const STAGE6_PILLAR_SCENE_DRAWER_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd"
+const BATTLE_EFFECTS_UPDATE_CONTROLLER_PATH := "res://scripts/effects/battle_effects_update_controller.gd"
 
 var _failures: Array[String] = []
 
@@ -60,6 +61,9 @@ func _init() -> void:
 	_test_cube_solve_clears_field()
 	_test_cube_rebuild_reactivates()
 	_test_super_laser_melts_cube()
+	_test_crystal_shield_score_schedules_and_starts()
+	_test_crystal_shield_collision_and_reset()
+	_test_stage6_score_context_reaches_crystal_shield()
 	_test_boss_skill_hud()
 	_test_pillar_scene_drawer_routes_background()
 	_test_sound_events()
@@ -359,6 +363,80 @@ func _test_super_laser_melts_cube() -> void:
 	_expect(state.debug_get_tetromino_count() == 0, "laser melt clears tetrominoes")
 	_expect(state.debug_get_laser_state() == "firing", "laser is firing after charge (state=%s)" % state.debug_get_laser_state())
 	_expect(state.debug_get_emp_count() > 0, "EMP ripple emitted on laser melt")
+
+
+func _test_crystal_shield_score_schedules_and_starts() -> void:
+	var state: Object = Stage6TetriserState.new()
+	var active_ctx := _active_context()
+	active_ctx["player_score"] = 4
+	active_ctx["boss_pos"] = Vector2(330.0, 45.0)
+	active_ctx["boss_paddle_size"] = Vector2(100.0, 40.0)
+	var active_result: Dictionary = state.update(0.05, active_ctx)
+	_expect(state.debug_is_crystal_shield_pending(), "player score 4 schedules the crystal shield")
+	_expect(not bool(active_result.get("skip_ball_motion_step", true)), "crystal shield scheduling must not hijack ball motion")
+
+	var waiting_ctx: Dictionary = active_ctx.duplicate()
+	waiting_ctx["ball_active"] = false
+	waiting_ctx["waiting_for_serve"] = true
+	var waiting_result: Dictionary = state.update(0.05, waiting_ctx)
+	_expect(state.debug_is_crystal_shield_freeze_active(), "pending crystal shield starts forming on serve wait")
+	_expect(bool(waiting_result.get("stage6_tetriser_crystal_shield_freeze_active", false)), "forming shield reports freeze flag")
+	_expect(not bool(waiting_result.get("skip_ball_motion_step", true)), "crystal shield freeze flag must not set skip_ball_motion_step")
+	var draw_context: Dictionary = state.get_actor_draw_context()
+	_expect((draw_context.get("stage6_tetriser_crystal_shield_blocks", []) as Array).size() == 24, "crystal shield exposes 24 draw blocks")
+
+	for _i in range(24):
+		state.update(0.1, active_ctx)
+	_expect(state.debug_is_crystal_shield_active(), "crystal shield becomes active after the formation freeze")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "active crystal shield has 24 blocks")
+
+
+func _test_crystal_shield_collision_and_reset() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
+	_expect(state.debug_is_crystal_shield_active(), "debug start should activate crystal shield immediately")
+	var blocks: Array = state.get_actor_draw_context().get("stage6_tetriser_crystal_shield_blocks", [])
+	_expect(blocks.size() == 24, "precondition: shield has 24 draw blocks")
+	if blocks.is_empty():
+		return
+	var target_block: Dictionary = blocks[0]
+	var hit_pos: Vector2 = target_block.get("position", Vector2.ZERO)
+	var boss_scene := {
+		"ball_pos": hit_pos,
+		"previous_ball_pos": hit_pos - Vector2(0.0, 30.0),
+		"ball_vel": Vector2(0.0, 12.0),
+	}
+	var boss_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": "boss"}
+	_expect(not state.resolve_ball_collision(boss_scene, boss_ctx, {}), "boss-owned ball should ignore crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "boss-owned ball should not destroy shield blocks")
+
+	var player_scene := {
+		"ball_pos": hit_pos,
+		"previous_ball_pos": hit_pos - Vector2(0.0, 30.0),
+		"ball_vel": Vector2(0.0, 12.0),
+	}
+	var player_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": "player"}
+	_expect(state.resolve_ball_collision(player_scene, player_ctx, {}), "player ball should hit crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 21, "crystal shield hit evaporates the hit block and two neighbors")
+	_expect((player_scene["ball_vel"] as Vector2).length() >= 10.0, "crystal shield reflection preserves a minimum ball speed")
+	for _i in range(5):
+		state.update(0.1, _active_context())
+	_expect((state.get_actor_draw_context().get("stage6_tetriser_crystal_shield_blocks", []) as Array).size() == 21, "evaporated shield blocks are removed after fade")
+	state.reset_round()
+	_expect(not state.debug_is_crystal_shield_active(), "round reset clears active crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 0, "round reset removes crystal shield blocks")
+
+
+func _test_stage6_score_context_reaches_crystal_shield() -> void:
+	var source := FileAccess.get_file_as_string(BATTLE_EFFECTS_UPDATE_CONTROLLER_PATH)
+	var update_marker := "stage6_tetriser_result = stage6_tetriser_state.update"
+	var update_index: int = source.find(update_marker)
+	_expect(update_index >= 0, "effects update controller should call Stage 6 Tetriser state")
+	if update_index < 0:
+		return
+	var nearby_start: int = maxi(0, update_index - 260)
+	var nearby: String = source.substr(nearby_start, update_index - nearby_start)
+	_expect(nearby.find("_merge_score_context(context, deps.get(\"score_state\", null))") >= 0, "Stage 6 Tetriser update should receive player_score for crystal shield trigger")
 
 
 func _test_boss_skill_hud() -> void:

@@ -343,10 +343,11 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
      Python `TetrisGame`/`TetriserPillarBackground` 동작 포팅. 원본은 화면 내 80px 필러였지만
      Godot 풀-캔버스 규칙상 레터박스 여백에 배치(HUD 크롬 뒤 백드롭). 격리 scan/로직 기능검증/
      상태 smoke/headless load 통과.
-   - ⏳ **후속:** (1) **크리스탈 실드 보스 스킬** — `pillar_tetriser.py`의 `CrystalShieldSystem`
-     (필러 블록을 보스 주변 24개 궤도 실드로 형성→공 충돌 파괴→화면 프리즈). 게임플레이 메커닉이라
-     별도 작업으로 분리(공 충돌/라운드·리셋 경계/프리즈 필요). (2) 로딩/결과 화면 이미지,
-     테트리서 스킬카드 텍스처(현재 절차적)는 placeholder 유지.
+   - ✅ **크리스탈 실드 보스 스킬 (2026-06-05):** `stage6_tetriser_crystal_shield_state.gd`로
+     `pillar_tetriser.py`의 `CrystalShieldSystem` 핵심 동작을 포팅. 플레이어 4점에서 예약, 다음
+     serve-wait에 24개 궤도 실드 형성, 형성 중 freeze flag 노출(`skip_ball_motion_step`은 유지 false),
+     플레이어 공 충돌 시 맞은 블록+양옆 블록 증발, 라운드/스테이지 리셋 정리 smoke 통과.
+   - ⏳ **후속:** 로딩/결과 화면 이미지, 테트리서 스킬카드 텍스처(현재 절차적)는 placeholder 유지.
 
 > ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
 > Stage 6 smoke 9종, perf smoke, 직접 Stage 6 런타임 캡처/serve 확인 통과.

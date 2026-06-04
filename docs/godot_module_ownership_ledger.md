@@ -2348,8 +2348,8 @@ This section is intentionally long; use search to find the nearest owner.
   Hongryun boss skill-card HUD in the post-playfield HUD pass.
 - `scripts/stages/stage6/` — Stage 6 테트리서 / Tetriser cluster (port of Python
   Stage 7; Godot slot 6, see `docs/stage6_tetriser_port_plan.md`). Status:
-  **complete through step 5c + boss sprite + background + pillar Tetris deco;
-  crystal-shield boss skill and loading/result art pending**. Owners (8 modules):
+  **complete through step 5c + boss sprite + background + pillar Tetris deco +
+  crystal-shield boss skill; loading/result art pending**. Owners (9 modules):
   - `stage6_tetriser_state.gd` — single owner of boss gauge (max 500, 25/sec
     charge, round-persist via reset_round vs full reset), falling tetrominoes
     (assembly→fall→drift/rotate→settle), guard blocks (slide→active), edge tetro
@@ -2357,10 +2357,16 @@ This section is intentionally long; use search to find the nearest owner.
     + 1.7× cell tetrominoes), 2D central cube (3×3 solve→explode→rebuild),
     super laser melt + EMP, ball collision/reflection (`choose_reflection_axis`
     port) + dash/smoke/explosion destruction, debris, per-frame sound flags,
-    and the single `_clear_combat_state` cleanup core. Emits boss-AI / actor-draw
+    Crystal Shield delegation, and the single `_clear_combat_state` cleanup core. Emits boss-AI / actor-draw
     / `stage6_boss_skill_hud_*` HUD context.
+  - `stage6_tetriser_crystal_shield_state.gd` — owner of the Tetriser Crystal
+    Shield boss skill port from Python `CrystalShieldSystem`: player-score-4
+    scheduling, next-serve formation freeze flag, 24 orbiting shield blocks,
+    player-ball collision with hit+neighbor evaporation, radial reflection, and
+    round/stage cleanup state.
   - `stage6_tetriser_playfield_renderer.gd` — draws cube / tetrominoes / guard
-    bars / wall cells / debris / laser beam / EMP rings (procedural; no art yet).
+    bars / wall cells / debris / laser beam / EMP rings / Crystal Shield blocks
+    (procedural; no art yet).
   - `stage6_tetriser_boss_actor_renderer.gd` — real AutoSprite boss sprite
     (7 sheets idle/walk/attack/dash/victory/defeat/stun under
     `assets/sprites/bosses/stage6_tetriser/`, 3-col 8-frame 256px grid),
@@ -2379,9 +2385,8 @@ This section is intentionally long; use search to find the nearest owner.
   - `stage6_tetriser_pillar_tetris.gd` — two self-playing Tetris wells in the
     screen letterbox margins (behavior port of Python `TetrisGame` /
     `TetriserPillarBackground`: auto-play, line clears, rainbow, NEXT preview).
-    Visual deco only; the `CrystalShieldSystem` boss skill from the same Python
-    file (pulls pillar blocks into a 24-block orbiting shield, ball collision,
-    screen freeze) is NOT yet ported — deferred follow-up.
+    Visual deco only; Crystal Shield gameplay is owned by
+    `stage6_tetriser_crystal_shield_state.gd`.
   - `stage6_tetriser_boss_skill_hud_renderer.gd` — 달지식 boss skill-card HUD
     (gauge + 낙하/가드/벽/초인 cards) via shared `BossSkillCardHudSpec`
     (procedural cards; tetriser skillcard textures pending).

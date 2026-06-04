@@ -49,6 +49,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_
 	_draw_laser(canvas, context, shake_offset)
 	for emp in context.get("stage6_tetriser_emp", []):
 		_draw_emp(canvas, emp, shake_offset)
+	_draw_crystal_shield(canvas, context, shake_offset)
 
 
 func _draw_laser(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
@@ -168,6 +169,36 @@ func _draw_debris(canvas: CanvasItem, debris: Dictionary, shake_offset: Vector2)
 	for r in debris.get("rects", []):
 		var rect: Rect2 = r
 		canvas.draw_rect(Rect2(rect.position - grow_vec + shake_offset, rect.size + grow_vec * 2.0), color)
+
+
+func _draw_crystal_shield(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var blocks: Array = context.get("stage6_tetriser_crystal_shield_blocks", [])
+	if blocks.is_empty():
+		return
+	var center: Vector2 = _as_vector2(context.get("stage6_tetriser_crystal_shield_center", Vector2.ZERO)) + shake_offset
+	var radius: float = float(context.get("stage6_tetriser_crystal_shield_radius", 100.0))
+	var progress: float = clampf(float(context.get("stage6_tetriser_crystal_shield_progress", 0.0)), 0.0, 1.0)
+	if bool(context.get("stage6_tetriser_crystal_shield_freeze_active", false)):
+		canvas.draw_arc(center, radius + 14.0 + sin(progress * TAU) * 6.0, 0.0, TAU, 64, Color(0.55, 0.92, 1.0, 0.28), 3.0, true)
+		canvas.draw_arc(center, radius - 10.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 64, Color(1.0, 0.86, 0.35, 0.64), 4.0, true)
+	for value in blocks:
+		if value is Dictionary:
+			_draw_crystal_shield_block(canvas, value, shake_offset)
+
+
+func _draw_crystal_shield_block(canvas: CanvasItem, block: Dictionary, shake_offset: Vector2) -> void:
+	var alpha: float = clampf(float(block.get("alpha", 1.0)), 0.0, 1.0)
+	if alpha <= 0.0:
+		return
+	var pos: Vector2 = _as_vector2(block.get("position", Vector2.ZERO)) + shake_offset
+	var size: float = maxf(4.0, float(block.get("size", 16.0)))
+	var color: Color = block.get("color", Color(0.55, 0.90, 1.0))
+	var glow_rect := Rect2(pos - Vector2(size + 12.0, size + 12.0) * 0.5, Vector2(size + 12.0, size + 12.0))
+	var block_rect := Rect2(pos - Vector2(size, size) * 0.5, Vector2(size, size))
+	canvas.draw_rect(glow_rect, Color(color.r, color.g, color.b, 0.10 * alpha))
+	canvas.draw_rect(block_rect, Color(color.r, color.g, color.b, 0.62 * alpha))
+	canvas.draw_rect(Rect2(block_rect.position + Vector2(3.0, 3.0), block_rect.size - Vector2(6.0, 6.0)), Color(1.0, 1.0, 1.0, 0.16 * alpha))
+	canvas.draw_rect(block_rect, Color(1.0, 1.0, 1.0, 0.46 * alpha), false, 2.0)
 
 
 func get_imagegen_asset_status() -> Dictionary:

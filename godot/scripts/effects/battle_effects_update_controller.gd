@@ -86,6 +86,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		and stage6_tetriser_state != null
 		and stage6_tetriser_state.has_method("update")
 	):
+		_merge_score_context(context, deps.get("score_state", null))
 		stage6_tetriser_result = stage6_tetriser_state.update(delta, context, effect_deps)
 		context.merge(stage6_tetriser_result, true)
 
