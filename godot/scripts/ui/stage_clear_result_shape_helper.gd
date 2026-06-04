@@ -232,3 +232,65 @@ static func box_hover_sparkles(
 			"alpha": sparkle_alpha,
 		})
 	return sparkles
+
+
+static func draw_box_hover_glow(
+	canvas: CanvasItem,
+	draw_center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	draw_scale: float,
+	is_mythic: bool,
+	global_alpha: float,
+	pulse: float
+) -> void:
+	if canvas == null:
+		return
+	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
+	for layer_value in box_hover_glow_layers(radius_x, radius_y, global_alpha, pulse):
+		var layer: Dictionary = layer_value if layer_value is Dictionary else {}
+		var layer_color: Color = base_color
+		layer_color.a = float(layer.get("alpha", 0.0))
+		draw_filled_ellipse(
+			canvas,
+			draw_center,
+			float(layer.get("radius_x", 0.0)),
+			float(layer.get("radius_y", 0.0)),
+			layer_color
+		)
+	var ring: Dictionary = box_hover_glow_ring(radius_x, radius_y, draw_scale, global_alpha, pulse)
+	var ring_color: Color = base_color
+	ring_color.a = float(ring.get("alpha", 0.0))
+	draw_ellipse_polyline(
+		canvas,
+		draw_center,
+		float(ring.get("radius_x", 0.0)),
+		float(ring.get("radius_y", 0.0)),
+		ring_color,
+		float(ring.get("width", max(1.5, 2.2 * draw_scale)))
+	)
+
+
+static func draw_box_hover_sparkles(
+	canvas: CanvasItem,
+	draw_center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	draw_scale: float,
+	is_mythic: bool,
+	global_alpha: float,
+	phase: float,
+	timer: float
+) -> void:
+	if canvas == null:
+		return
+	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
+	for sparkle_value in box_hover_sparkles(draw_center, radius_x, radius_y, draw_scale, global_alpha, phase, timer):
+		var sparkle: Dictionary = sparkle_value if sparkle_value is Dictionary else {}
+		var sparkle_alpha: float = float(sparkle.get("alpha", 0.0))
+		var sparkle_size: float = float(sparkle.get("size", 2.0))
+		var sparkle_pos: Vector2 = sparkle.get("position", draw_center)
+		var dot_color: Color = base_color
+		dot_color.a = sparkle_alpha
+		canvas.draw_circle(sparkle_pos, sparkle_size, dot_color)
+		canvas.draw_circle(sparkle_pos, sparkle_size * 0.42, Color(1.0, 1.0, 1.0, sparkle_alpha * 0.85))

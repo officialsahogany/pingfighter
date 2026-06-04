@@ -1206,7 +1206,7 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 	)
 
 	if hover_active:
-		_draw_box_hover_glow(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
+		StageClearResultShapeHelper.draw_box_hover_glow(self, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
 
 	var frame_index: int = StageClearResultLayoutHelper.get_result_box_frame_index(
 		state,
@@ -1240,7 +1240,7 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		_draw_result_box_fallback(draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
 
 	if hover_active:
-		_draw_box_hover_sparkles(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase)
+		StageClearResultShapeHelper.draw_box_hover_sparkles(self, draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase, timer)
 
 	if state == "opened":
 		_draw_reward_label(box, draw_center, body_hy, scale, global_alpha)
@@ -1280,48 +1280,6 @@ func _draw_result_box_fallback(
 	draw_circle(Vector2.ZERO, max(3.0, 6.0 * draw_scale), rim_color)
 	draw_circle(Vector2.ZERO, max(1.4, 2.8 * draw_scale), Color(1.0, 1.0, 1.0, 0.78 * global_alpha))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_box_hover_glow(draw_center: Vector2, hx: float, hy: float, scale: float, is_mythic: bool, global_alpha: float, pulse: float) -> void:
-	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
-	for layer_value in StageClearResultShapeHelper.box_hover_glow_layers(hx, hy, global_alpha, pulse):
-		var layer: Dictionary = layer_value if layer_value is Dictionary else {}
-		var c: Color = base_color
-		c.a = float(layer.get("alpha", 0.0))
-		StageClearResultShapeHelper.draw_filled_ellipse(
-			self,
-			draw_center,
-			float(layer.get("radius_x", 0.0)),
-			float(layer.get("radius_y", 0.0)),
-			c
-		)
-
-	var ring: Dictionary = StageClearResultShapeHelper.box_hover_glow_ring(hx, hy, scale, global_alpha, pulse)
-	var ring_color: Color = base_color
-	ring_color.a = float(ring.get("alpha", 0.0))
-	StageClearResultShapeHelper.draw_ellipse_polyline(
-		self,
-		draw_center,
-		float(ring.get("radius_x", 0.0)),
-		float(ring.get("radius_y", 0.0)),
-		ring_color,
-		float(ring.get("width", max(1.5, 2.2 * scale)))
-	)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_box_hover_sparkles(draw_center: Vector2, hx: float, hy: float, scale: float, is_mythic: bool, global_alpha: float, phase: float) -> void:
-	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
-	for sparkle_value in StageClearResultShapeHelper.box_hover_sparkles(draw_center, hx, hy, scale, global_alpha, phase, timer):
-		var sparkle: Dictionary = sparkle_value if sparkle_value is Dictionary else {}
-		var sparkle_alpha: float = float(sparkle.get("alpha", 0.0))
-		var sparkle_size: float = float(sparkle.get("size", 2.0))
-		var sparkle_pos: Vector2 = sparkle.get("position", draw_center)
-		var dot_color: Color = base_color
-		dot_color.a = sparkle_alpha
-		draw_circle(sparkle_pos, sparkle_size, dot_color)
-		draw_circle(sparkle_pos, sparkle_size * 0.42, Color(1.0, 1.0, 1.0, sparkle_alpha * 0.85))
 
 
 @warning_ignore("shadowed_variable_base_class")

@@ -75,13 +75,16 @@ func _verify_box_hover_effects() -> void:
 
 func _verify_scene_delegates_shape_points() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_shape_helper.gd")
 	_expect(source.find("StageClearResultShapeHelper.draw_radial_burst") >= 0, "result scene should delegate radial burst drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_filled_ellipse") >= 0, "result scene should delegate filled ellipse drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_ellipse_polyline") >= 0, "result scene should delegate ellipse polyline drawing")
+	_expect(helper_source.find("draw_ellipse_polyline(") >= 0, "shape helper should own ellipse polyline drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_star_polygon") >= 0, "result scene should delegate star polygon drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_panel") >= 0, "result scene should delegate panel drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_fitted_texture") >= 0, "result scene should delegate fitted texture drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_fallback_reward_icon") >= 0, "result scene should delegate fallback reward icon drawing")
+	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_glow") >= 0, "result scene should delegate box hover glow drawing")
+	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_sparkles") >= 0, "result scene should delegate box hover sparkle drawing")
 	_expect(source.find("func _draw_radial_burst") < 0, "result scene should not keep radial burst drawing wrappers")
 	_expect(source.find("func _draw_shadow_ellipse") < 0, "result scene should not keep shadow ellipse drawing wrappers")
 	_expect(source.find("func _draw_filled_ellipse") < 0, "result scene should not keep filled ellipse drawing wrappers")
@@ -90,10 +93,12 @@ func _verify_scene_delegates_shape_points() -> void:
 	_expect(source.find("func _draw_panel") < 0, "result scene should not keep panel drawing wrappers")
 	_expect(source.find("func _draw_texture_fit") < 0, "result scene should not keep fitted texture drawing wrappers")
 	_expect(source.find("func _draw_fallback_reward_icon") < 0, "result scene should not keep fallback reward icon drawing wrappers")
+	_expect(source.find("func _draw_box_hover_glow") < 0, "result scene should not keep box hover glow drawing wrappers")
+	_expect(source.find("func _draw_box_hover_sparkles") < 0, "result scene should not keep box hover sparkle drawing wrappers")
 	_expect(source.find("func _draw_box_corner_braces") < 0, "result scene should not keep unused corner-brace drawing helpers")
 	_expect(source.find("func _draw_box_lock") < 0, "result scene should not keep unused box-lock drawing helpers")
-	_expect(source.find("StageClearResultShapeHelper.box_hover_glow_layers") >= 0, "result scene should delegate hover glow layer generation")
-	_expect(source.find("StageClearResultShapeHelper.box_hover_sparkles") >= 0, "result scene should delegate hover sparkle generation")
+	_expect(helper_source.find("box_hover_glow_layers(") >= 0, "shape helper should own hover glow layer generation")
+	_expect(helper_source.find("box_hover_sparkles(") >= 0, "shape helper should own hover sparkle generation")
 
 
 func _expect(condition: bool, message: String) -> void:
