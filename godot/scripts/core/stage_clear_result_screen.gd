@@ -8,7 +8,7 @@ const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scen
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const RESULT_SCENE_PATH := "res://scenes/stage_clear_result.tscn"
-const STARPOINT_CHOICE_REWARD_DELAY := 1.45
+const STARPOINT_CHOICE_REWARD_DELAY := 0.65
 const BOX_KIND_NORMAL := "normal"
 const BOX_KIND_ADVANCED := "advanced"
 const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
@@ -757,12 +757,16 @@ func _get_selected_character_type(owner: Object) -> String:
 		return "soldier"
 	if normalized == "optimus" or normalized == "io":
 		return "optimus"
+	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
+		return "blacksmith"
 	return "smasher"
 
 
 func _get_result_victory_character_type(owner: Object) -> String:
 	if _get_selected_character_type(owner) == "soldier":
 		return "soldier"
+	if _get_selected_character_type(owner) == "blacksmith":
+		return "blacksmith"
 	return "smasher"
 
 

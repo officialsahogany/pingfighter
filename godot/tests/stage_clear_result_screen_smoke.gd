@@ -643,16 +643,21 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	_expect(result_scene.visible, "result scene should remain visible while the starpoint choice is delayed")
 	var scene_status: Dictionary = result_scene.get_interaction_status()
 	_expect(bool(scene_status.get("starpoint_choice_gate_active", false)), "result scene should gate box/scroll input while waiting to open the choice")
+	var screen_status: Dictionary = screen.get_status()
+	var pending_delay: float = float(screen_status.get("pending_starpoint_choice_delay", -1.0))
+	_expect(
+		StageClearResultScreen.STARPOINT_CHOICE_REWARD_DELAY < 1.0,
+		"result-screen starpoint choices should open quickly after the reward reveal"
+	)
+	_expect(pending_delay > 0.0, "deferred starpoint choice should expose remaining delay")
 
 	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
 	_expect(sink.reset_calls == 0, "Enter during delayed starpoint choice must not advance stages")
 
-	for _i in range(20):
-		screen.update(0.05)
-	_expect(not runtime_state.choice_active, "perk choice should wait roughly one second after the star rise beat")
+	screen.update(max(0.0, pending_delay - 0.05))
+	_expect(not runtime_state.choice_active, "perk choice should wait until the faster starpoint reveal delay finishes")
 
-	for _i in range(16):
-		screen.update(0.05)
+	screen.update(0.10)
 	_expect(runtime_state.choice_active, "perk choice should open after the delayed starpoint animation")
 	_expect(runtime_state.open_calls == 1, "deferred starpoint should open one perk-choice modal")
 	_expect(str(runtime_state.last_choice_context.get("source", "")) == "result_box_starpoint_choice", "result-screen starpoint choices should carry their box source context")

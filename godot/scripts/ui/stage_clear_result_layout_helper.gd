@@ -166,6 +166,15 @@ static func get_stage2_boss_result_draw_rect(view_size: Vector2, draw_scale: flo
 	return Rect2(position, draw_size)
 
 
+static func get_stage3_boss_result_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	var draw_size := Vector2(660.0, 660.0) * draw_scale
+	var position := Vector2(-4.0, 412.0) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(536.0, 536.0) * draw_scale
+		position = Vector2(-4.0, 456.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
 static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float) -> Dictionary:
 	var gap: float = 16.0 * ui_scale
 	var card_scale: float = ui_scale

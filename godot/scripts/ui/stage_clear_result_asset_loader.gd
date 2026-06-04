@@ -3,13 +3,15 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_host.gd")
 
-const PREWARM_ASSET_STEP_COUNT := 13
+const PREWARM_ASSET_STEP_COUNT := 15
 const TEXTURE_KEYS := [
 	"background_texture",
 	"dalji_defeat_sheet",
 	"dalji_click_reaction_sheet",
 	"stage2_boss_defeat_live2d_sheet",
 	"stage2_boss_defeat_click_reaction_sheet",
+	"stage3_boss_defeat_live2d_sheet",
+	"stage3_boss_defeat_click_reaction_sheet",
 	"player_victory_sheet",
 	"player_victory_click_reaction_sheet",
 	"scroll_texture",
@@ -23,6 +25,8 @@ const IMPORT_PREFERRED_TEXTURE_KEYS := {
 	"dalji_click_reaction_sheet": true,
 	"stage2_boss_defeat_live2d_sheet": true,
 	"stage2_boss_defeat_click_reaction_sheet": true,
+	"stage3_boss_defeat_live2d_sheet": true,
+	"stage3_boss_defeat_click_reaction_sheet": true,
 	"player_victory_sheet": true,
 	"player_victory_click_reaction_sheet": true,
 	"result_box_sheet_common": true,
@@ -36,6 +40,8 @@ const TEXTURE_MESSAGES := {
 	"dalji_click_reaction_sheet": ["Missing Dalji result click reaction sheet at %s", "Failed to load Dalji result click reaction sheet at %s"],
 	"stage2_boss_defeat_live2d_sheet": ["Missing Stage 2 boss result defeat Live2D sheet at %s", "Failed to load Stage 2 boss result defeat Live2D sheet at %s"],
 	"stage2_boss_defeat_click_reaction_sheet": ["Missing Stage 2 boss result click reaction Live2D sheet at %s", "Failed to load Stage 2 boss result click reaction Live2D sheet at %s"],
+	"stage3_boss_defeat_live2d_sheet": ["Missing Stage 3 boss result defeat Live2D sheet at %s", "Failed to load Stage 3 boss result defeat Live2D sheet at %s"],
+	"stage3_boss_defeat_click_reaction_sheet": ["Missing Stage 3 boss result click reaction Live2D sheet at %s", "Failed to load Stage 3 boss result click reaction Live2D sheet at %s"],
 	"player_victory_sheet": ["Missing player victory sheet at %s", "Failed to load player victory sheet at %s"],
 	"player_victory_click_reaction_sheet": ["Missing player victory click reaction sheet at %s", "Failed to load player victory click reaction sheet at %s"],
 	"scroll_texture": ["Missing stage clear cyber scroll panel at %s", "Failed to load stage clear cyber scroll panel at %s"],

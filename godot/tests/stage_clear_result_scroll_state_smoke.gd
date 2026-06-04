@@ -22,19 +22,24 @@ func _init() -> void:
 
 
 func _verify_direct_scroll_phase() -> void:
-	var result: Dictionary = StageClearResultScrollState.update_phase("hidden", 0.0, 0.1, false, false, 0.38, 0.95)
+	var scroll_delay: float = StageClearResultScene.SCROLL_DELAY
+	_expect(
+		scroll_delay > StageClearResultScene.BOX_REWARD_EMERGE_DURATION,
+		"result scroll should wait until the final box reward has emerged"
+	)
+	var result: Dictionary = StageClearResultScrollState.update_phase("hidden", 0.0, 0.1, false, false, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "hidden", "scroll should stay hidden until every box opens")
-	result = StageClearResultScrollState.update_phase("hidden", 0.0, 0.1, false, true, 0.38, 0.95)
+	result = StageClearResultScrollState.update_phase("hidden", 0.0, 0.1, false, true, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "delay", "scroll should enter delay after every box opens")
 	_expect(float(result.get("timer", -1.0)) == 0.0, "scroll delay should start from zero")
-	result = StageClearResultScrollState.update_phase("delay", 0.2, 0.17, false, true, 0.38, 0.95)
+	result = StageClearResultScrollState.update_phase("delay", scroll_delay - 0.18, 0.17, false, true, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "delay", "scroll delay should accumulate before threshold")
-	result = StageClearResultScrollState.update_phase("delay", 0.2, 0.18, false, true, 0.38, 0.95)
+	result = StageClearResultScrollState.update_phase("delay", scroll_delay - 0.18, 0.18, false, true, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "unfurling", "scroll should unfurl after the delay threshold")
-	result = StageClearResultScrollState.update_phase("unfurling", 0.90, 0.05, false, true, 0.38, 0.95)
+	result = StageClearResultScrollState.update_phase("unfurling", 0.90, 0.05, false, true, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "visible", "scroll should become visible after unfurl duration")
 	_expect(_is_close(float(result.get("timer", 0.0)), 0.95), "visible scroll should clamp timer to unfurl duration")
-	result = StageClearResultScrollState.update_phase("delay", 0.2, 0.5, true, true, 0.38, 0.95)
+	result = StageClearResultScrollState.update_phase("delay", 0.2, 0.5, true, true, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "delay" and _is_close(float(result.get("timer", 0.0)), 0.2), "blocked scroll should keep phase and timer")
 
 
@@ -54,7 +59,7 @@ func _verify_scene_scroll_delegates() -> void:
 	]
 	scene._update_scroll(0.1)
 	_expect(str(scene._scroll_phase) == "delay", "scene scroll updater should delegate hidden-to-delay transition")
-	scene._update_scroll(0.38)
+	scene._update_scroll(StageClearResultScene.SCROLL_DELAY)
 	_expect(str(scene._scroll_phase) == "unfurling", "scene scroll updater should delegate delay-to-unfurl transition")
 	_expect(
 		StageClearResultScrollState.get_unfurl_progress(scene._scroll_phase, scene._scroll_timer, StageClearResultScene.SCROLL_UNFURL_DURATION) == 0.0,

@@ -160,8 +160,8 @@ func _verify_scene_wrappers() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
 		source.find("StageClearResultLayoutHelper.get_box_layout") >= 0
-		and source.find("StageClearResultLayoutHelper.rotate_around") >= 0,
-		"stage-clear result scene should call simple layout helpers directly"
+		and source.find("draw_set_transform(draw_center, box_rotation") >= 0,
+		"stage-clear result scene should call the box layout helper and rotate boxes through the draw transform"
 	)
 	_expect(
 		source.find("func _get_title_text") < 0,

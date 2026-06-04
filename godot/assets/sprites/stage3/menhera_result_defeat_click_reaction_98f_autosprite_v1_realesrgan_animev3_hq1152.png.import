@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djxjpbr3rf7lb"
-path="res://.godot/imported/smasher_result_victory_click_reaction_98f_autosprite_v17_joy_realesrgan_animev3_hq1408.png-eabd200b23e6f1a6efeb4fa959c43cec.ctex"
+uid="uid://op7c0ykfpsay"
+path="res://.godot/imported/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png-6824810e53a7f2700800becb0914532c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v17_joy_realesrgan_animev3_hq1408.png"
-dest_files=["res://.godot/imported/smasher_result_victory_click_reaction_98f_autosprite_v17_joy_realesrgan_animev3_hq1408.png-eabd200b23e6f1a6efeb4fa959c43cec.ctex"]
+source_file="res://assets/sprites/stage3/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
+dest_files=["res://.godot/imported/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png-6824810e53a7f2700800becb0914532c.ctex"]
 
 [params]
 
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=12544
 detect_3d/compress_to=1

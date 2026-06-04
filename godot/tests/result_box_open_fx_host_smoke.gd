@@ -27,6 +27,12 @@ func _initialize() -> void:
 	if source.find("func _process") >= 0:
 		push_error("Result box open host should stay controller-driven without its own _process callback")
 		ok = false
+	if ResultBoxOpenFxHost.LIGHT_ENVELOPE_HOLD_DURATION + ResultBoxOpenFxHost.LIGHT_ENVELOPE_FADE_DURATION > 0.80:
+		push_error("Result box open light envelope should clear quickly so rewards are readable")
+		ok = false
+	if ResultBoxOpenFxHost.EMERGE_GLOW_FADE_DURATION > ResultBoxOpenFxHost.LIGHT_ENVELOPE_FADE_DURATION:
+		push_error("Result box emerge glow should not outlive the main light fade")
+		ok = false
 	var host: Node2D = ResultBoxOpenFxHost.new()
 	host.name = "ResultBoxOpenFxHostSmoke"
 	root.add_child(host)
@@ -79,6 +85,9 @@ func _initialize() -> void:
 		ok = false
 	if spark_particles == null or spark_particles.z_index != 3:
 		push_error("Result box open spark particles should render on top of the result box burst")
+		ok = false
+	elif spark_particles.lifetime > 0.40:
+		push_error("Result box open spark particles should clear before they hide the reward")
 		ok = false
 	host.tear_down(true)
 	if ok:

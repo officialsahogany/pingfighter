@@ -25,6 +25,8 @@ const DALJI_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalj
 const DALJI_CLICK_VOICE_PATH := "res://voice/dalzidefeat.mp3"
 const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_live2d_pingpong_98f_autosprite_v2_realesrgan_animev3_hq1152.png"
 const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
+const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_live2d_pingpong_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
+const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
@@ -82,6 +84,19 @@ const STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
 const STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
 const STAGE2_BOSS_DEFEAT_CLICK_RETURN_BLEND_DURATION := STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
 const STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION := STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION + STAGE2_BOSS_DEFEAT_CLICK_RETURN_BLEND_DURATION
+const STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
+const STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
+# Source sheet stores 1152px cells; capped to 896px cells on import
+# (process/size_limit=12544). Must match the imported cell size.
+const STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(896.0, 896.0)
+const STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
+const STAGE3_BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
+const STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION := STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT * STAGE3_BOSS_DEFEAT_CLICK_FRAME_INTERVAL
+const STAGE3_BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
+const STAGE3_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
+const STAGE3_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
+const STAGE3_BOSS_DEFEAT_CLICK_RETURN_BLEND_DURATION := STAGE3_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + STAGE3_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
+const STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION := STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION + STAGE3_BOSS_DEFEAT_CLICK_RETURN_BLEND_DURATION
 
 const BOX_BASE_SIZE := Vector2(65.0, 56.0)
 const BOX_FLOAT_AMPLITUDE := 5.0
@@ -95,10 +110,12 @@ const BOX_REWARD_LABEL_SIZE := Vector2(206.0, 64.0)
 const BOX_OPENING_SHAKE_AMPLITUDE := 4.0
 const BOX_LID_OPEN_PROGRESS := 0.55
 
-const SCROLL_DELAY := 0.38
+const SCROLL_DELAY := 1.10
 const SCROLL_UNFURL_DURATION := 0.95
 const SCROLL_REGION_TOP := 96.0
-const SCROLL_REGION_BOTTOM := 850.0
+# Extended downward (was 850) so the acquired-item list has room for the
+# separate active / passive / mythic bands without cramping the cards.
+const SCROLL_REGION_BOTTOM := 1000.0
 const SCROLL_REGION_LEFT := 340.0
 const SCROLL_REGION_RIGHT := 1580.0
 const SCROLL_CONTENT_MARGIN := Vector4(70.0, 90.0, 70.0, 76.0)
@@ -167,6 +184,8 @@ var _dalji_defeat_sheet: Texture2D
 var _dalji_click_reaction_sheet: Texture2D
 var _stage2_boss_defeat_live2d_sheet: Texture2D
 var _stage2_boss_defeat_click_reaction_sheet: Texture2D
+var _stage3_boss_defeat_live2d_sheet: Texture2D
+var _stage3_boss_defeat_click_reaction_sheet: Texture2D
 var _player_victory_sheet: Texture2D
 var _player_victory_click_reaction_sheet: Texture2D
 var _player_victory_sheet_loaded_path: String = ""
@@ -193,10 +212,12 @@ var _dalji_base_timer: float = 0.0
 var _dalji_click_reaction_timer: float = DALJI_CLICK_TOTAL_DURATION
 var _player_victory_click_reaction_timer: float = PLAYER_VICTORY_CLICK_TOTAL_DURATION
 var _stage2_boss_defeat_click_reaction_timer: float = STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+var _stage3_boss_defeat_click_reaction_timer: float = STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
 var _dalji_dialogue_timer: float = 0.0
 var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
 var _stage2_boss_defeat_click_transition_base_frame: int = 0
+var _stage3_boss_defeat_click_transition_base_frame: int = 0
 var _fx_hosts: Array = []
 var _fx_prewarm_next_index: int = 0
 var _lid_open_counter: int = 0
@@ -277,6 +298,9 @@ static func _result_asset_paths(character_type: String = "smasher", stage_id: in
 	if normalized_stage_id == 2:
 		paths["stage2_boss_defeat_live2d_sheet"] = STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH
 		paths["stage2_boss_defeat_click_reaction_sheet"] = STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
+	elif normalized_stage_id == 3:
+		paths["stage3_boss_defeat_live2d_sheet"] = STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH
+		paths["stage3_boss_defeat_click_reaction_sheet"] = STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
 	else:
 		paths["dalji_defeat_sheet"] = DALJI_DEFEAT_SHEET_PATH
 		paths["dalji_click_reaction_sheet"] = DALJI_CLICK_REACTION_SHEET_PATH
@@ -366,6 +390,7 @@ func configure(
 	_dalji_click_reaction_timer = DALJI_CLICK_TOTAL_DURATION
 	_player_victory_click_reaction_timer = PLAYER_VICTORY_CLICK_TOTAL_DURATION
 	_stage2_boss_defeat_click_reaction_timer = STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	_stage3_boss_defeat_click_reaction_timer = STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	_dalji_dialogue_timer = 0.0
 	_stop_dalji_click_voice()
 	confirmed_callback = on_confirmed
@@ -409,6 +434,14 @@ func update_result_scene(delta: float) -> void:
 		_stage2_boss_defeat_click_reaction_timer = min(
 			STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 			_stage2_boss_defeat_click_reaction_timer + safe_delta
+		)
+	if StageClearResultClickReactionState.is_reaction_active(
+		_stage3_boss_defeat_click_reaction_timer,
+		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	):
+		_stage3_boss_defeat_click_reaction_timer = min(
+			STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+			_stage3_boss_defeat_click_reaction_timer + safe_delta
 		)
 	_dalji_dialogue_timer = max(0.0, _dalji_dialogue_timer - safe_delta)
 	_update_boxes(safe_delta)
@@ -468,6 +501,8 @@ func handle_result_input(event: InputEvent) -> bool:
 			if _handle_dalji_click(mouse_event.position):
 				pass
 			elif _handle_stage2_boss_defeat_click(mouse_event.position):
+				pass
+			elif _handle_stage3_boss_defeat_click(mouse_event.position):
 				pass
 			elif _handle_player_victory_click(mouse_event.position):
 				pass
@@ -703,6 +738,7 @@ func get_interaction_status() -> Dictionary:
 	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
 	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
 	var stage2_boss_reaction_state: Dictionary = _stage2_boss_defeat_reaction_state()
+	var stage3_boss_reaction_state: Dictionary = _stage3_boss_defeat_reaction_state()
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
 		_boxes,
@@ -748,6 +784,24 @@ func get_interaction_status() -> Dictionary:
 		"stage2_boss_defeat_click_total_duration": STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
 		"stage2_boss_defeat_reaction_alpha": float(stage2_boss_reaction_state.get("reaction_alpha", 0.0)),
+		"stage3_boss_defeat_live2d_sheet_path": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
+		"stage3_boss_defeat_click_reaction_sheet_path": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
+		"stage3_boss_defeat_live2d_active": _is_stage3_result_boss(),
+		"stage3_boss_defeat_live2d_frame_count": STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage3_boss_defeat_live2d_grid_cols": STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage3_boss_defeat_live2d_cell_size": STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage3_boss_defeat_live2d_base_frame": int(stage3_boss_reaction_state.get("base_frame", 0)),
+		"stage3_boss_defeat_live2d_draw_rect": StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale),
+		"stage3_boss_defeat_click_rect": StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale),
+		"stage3_boss_defeat_click_reaction_active": bool(stage3_boss_reaction_state.get("reaction_active", false)),
+		"stage3_boss_defeat_click_return_blend_active": bool(stage3_boss_reaction_state.get("return_blend_active", false)),
+		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
+		"stage3_boss_defeat_click_reaction_duration": STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage3_boss_defeat_click_total_duration": STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage3_boss_defeat_click_transition_base_frame": _stage3_boss_defeat_click_transition_base_frame,
+		"stage3_boss_defeat_reaction_alpha": float(stage3_boss_reaction_state.get("reaction_alpha", 0.0)),
 		"player_victory_sheet_loaded": _player_victory_sheet != null,
 		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
 		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
@@ -838,7 +892,7 @@ func _draw() -> void:
 	_load_textures()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = _get_ui_font(scale)
 
 	_draw_background(view_size)
 	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.03, 0.04, 0.10, 0.22))
@@ -932,6 +986,9 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if _is_stage2_result_boss():
 		_draw_stage2_defeated_boss(view_size, scale)
 		return
+	if _is_stage3_result_boss():
+		_draw_stage3_defeated_boss(view_size, scale)
+		return
 	if _dalji_defeat_sheet == null:
 		return
 	@warning_ignore("shadowed_variable_base_class")
@@ -952,6 +1009,14 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 
 func _is_stage2_result_boss() -> bool:
 	return current_stage == 2
+
+
+func _is_stage3_result_boss() -> bool:
+	return current_stage == 3
+
+
+func _get_stage3_boss_defeat_base_frame() -> int:
+	return int(floor(timer / STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL)) % STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -981,6 +1046,39 @@ func _draw_stage2_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if reaction_alpha > 0.001:
 		_draw_stage2_boss_result_sheet_frame(
 			_stage2_boss_defeat_click_reaction_sheet,
+			int(reaction_state.get("reaction_frame", 0)),
+			boss_draw_rect,
+			0.98 * reaction_alpha
+		)
+
+
+@warning_ignore("shadowed_variable_base_class")
+func _draw_stage3_defeated_boss(view_size: Vector2, scale: float) -> void:
+	if _stage3_boss_defeat_live2d_sheet == null:
+		return
+	var boss_draw_rect: Rect2 = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
+	var reaction_state: Dictionary = _stage3_boss_defeat_reaction_state()
+	if not bool(reaction_state.get("reaction_active", false)) or _stage3_boss_defeat_click_reaction_sheet == null:
+		_draw_stage3_boss_result_sheet_frame(
+			_stage3_boss_defeat_live2d_sheet,
+			int(reaction_state.get("base_frame", 0)),
+			boss_draw_rect,
+			0.98
+		)
+		return
+
+	var reaction_alpha: float = float(reaction_state.get("reaction_alpha", 0.0))
+	var base_alpha: float = 1.0 - reaction_alpha
+	if base_alpha > 0.001:
+		_draw_stage3_boss_result_sheet_frame(
+			_stage3_boss_defeat_live2d_sheet,
+			int(reaction_state.get("transition_base_frame", 0)),
+			boss_draw_rect,
+			0.98 * base_alpha
+		)
+	if reaction_alpha > 0.001:
+		_draw_stage3_boss_result_sheet_frame(
+			_stage3_boss_defeat_click_reaction_sheet,
 			int(reaction_state.get("reaction_frame", 0)),
 			boss_draw_rect,
 			0.98 * reaction_alpha
@@ -1905,8 +2003,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		max(1.0, 1.4 * scale)
 	)
 
-	var stat_rect := Rect2(rect.position + Vector2(34.0 * scale, 92.0 * scale), Vector2(250.0, 78.0) * scale)
-	_draw_metric_tile(font, stat_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % PLACEHOLDER_GOLD, muted, accent, alpha)
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
 		_boxes,
@@ -1915,55 +2011,194 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		RESULT_REWARD_SOURCE_LABELS
 	)
 
+	var strip_rect := Rect2(
+		rect.position + Vector2(34.0 * scale, 86.0 * scale),
+		Vector2(rect.size.x - 68.0 * scale, 80.0 * scale)
+	)
+	_draw_result_summary_strip(font, strip_rect, scale, alpha)
+
 	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
 	var item_rewards_value: Variant = reward_summary_state.get("item_rewards", [])
 	var perks: Array = perks_value if perks_value is Array else []
 	var item_rewards: Array = item_rewards_value if item_rewards_value is Array else []
-	var body_top: float = rect.position.y + 198.0 * scale
+
+	# Split acquired items by type so the scroll lists active / passive / mythic
+	# under their own labelled bands instead of one mixed "획득 아이템" grid.
+	var active_items: Array = []
+	var passive_items: Array = []
+	var mythic_items: Array = []
+	for item_value in item_rewards:
+		if not (item_value is Dictionary):
+			continue
+		var item_dict: Dictionary = item_value
+		match str(item_dict.get("type", "")):
+			"active":
+				active_items.append(item_dict)
+			"mythic":
+				mythic_items.append(item_dict)
+			_:
+				passive_items.append(item_dict)
+
+	var sections: Array = []
+	if not perks.is_empty():
+		sections.append({"title": LanguageSettings.translate_text("획득 퍽"), "rewards": perks})
+	if not active_items.is_empty():
+		sections.append({"title": LanguageSettings.translate_text("액티브 아이템"), "rewards": active_items})
+	if not passive_items.is_empty():
+		sections.append({"title": LanguageSettings.translate_text("패시브 아이템"), "rewards": passive_items})
+	if not mythic_items.is_empty():
+		sections.append({"title": LanguageSettings.translate_text("신화 아이템"), "rewards": mythic_items})
+
+	var section_top: float = rect.position.y + 188.0 * scale
 	var button_top: float = rect.position.y + rect.size.y - 90.0 * scale
+	var section_bottom: float = button_top - 22.0 * scale
 	var body_rect := Rect2(
-		Vector2(rect.position.x + 34.0 * scale, body_top),
-		Vector2(rect.size.x - 68.0 * scale, max(150.0 * scale, button_top - body_top - 24.0 * scale))
+		Vector2(rect.position.x + 34.0 * scale, section_top),
+		Vector2(rect.size.x - 68.0 * scale, max(150.0 * scale, section_bottom - section_top))
 	)
-	if perks.is_empty() and item_rewards.is_empty():
-		_draw_text(font, LanguageSettings.translate_text("획득 보상 없음"), body_rect.position + Vector2(0.0, 30.0 * scale), int(round(20.0 * scale)), muted)
-	elif not perks.is_empty() and not item_rewards.is_empty():
-		var column_gap: float = 24.0 * scale
-		var column_width: float = (body_rect.size.x - column_gap) * 0.5
-		_draw_reward_section(
-			font,
-			LanguageSettings.translate_text("획득 퍽"),
-			perks,
-			Rect2(body_rect.position, Vector2(column_width, body_rect.size.y)),
-			scale,
-			alpha
-		)
-		_draw_reward_section(
-			font,
-			LanguageSettings.translate_text("획득 아이템"),
-			item_rewards,
-			Rect2(body_rect.position + Vector2(column_width + column_gap, 0.0), Vector2(column_width, body_rect.size.y)),
-			scale,
-			alpha
-		)
-	elif not perks.is_empty():
-		_draw_reward_section(font, LanguageSettings.translate_text("획득 퍽"), perks, body_rect, scale, alpha)
+	_draw_section_group_panel(body_rect, scale, alpha)
+	if sections.is_empty():
+		_draw_centered_text(font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
 	else:
-		_draw_reward_section(font, LanguageSettings.translate_text("획득 아이템"), item_rewards, body_rect, scale, alpha)
+		_draw_reward_section_stack(font, sections, body_rect, scale, alpha)
 
 	_draw_scroll_buttons(rect, scale, font, alpha)
 
 
 func _draw_metric_tile(font: Font, rect: Rect2, title: String, value: String, title_color: Color, value_color: Color, alpha: float) -> void:
-	_draw_panel(rect, Color(0.90, 0.98, 1.0, 0.22 * alpha), Color(0.04, 0.82, 0.96, 0.35 * alpha), 1.2, 10.0)
+	_draw_panel(rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
 	_draw_text(font, title, rect.position + Vector2(16.0, 25.0) * (rect.size.y / 78.0), int(round(18.0 * rect.size.y / 78.0)), title_color)
 	_draw_text(font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
 
 
+func _resolve_display_gold() -> int:
+	if _runtime_perk_state != null:
+		var gold_value: Variant = _runtime_perk_state.get("gold_from_perks")
+		if gold_value != null:
+			return int(gold_value)
+	return PLACEHOLDER_GOLD
+
+
+# The project fallback font packs Korean syllable blocks tightly, so at the
+# small label sizes used on this scroll (header / metric-tile / chip text) the
+# glyphs read as touching/overlapping. Wrap it in a FontVariation that adds a
+# small per-glyph spacing (scaled with the layout) to separate the syllables.
+# Rebuilt only when the base font or spacing actually changes.
+var _ui_font: FontVariation = null
+var _ui_font_base: Font = null
+var _ui_font_spacing: int = -1
+
+
+@warning_ignore("shadowed_variable_base_class")
+func _get_ui_font(draw_scale: float) -> Font:
+	var base: Font = ThemeDB.fallback_font
+	if base == null:
+		return base
+	var spacing: int = max(1, int(round(2.0 * draw_scale)))
+	if _ui_font == null or _ui_font_base != base or _ui_font_spacing != spacing:
+		var variation := FontVariation.new()
+		variation.base_font = base
+		variation.set_spacing(TextServer.SPACING_GLYPH, spacing)
+		_ui_font = variation
+		_ui_font_base = base
+		_ui_font_spacing = spacing
+	return _ui_font
+
+
+@warning_ignore("shadowed_variable_base_class")
+func _draw_result_summary_strip(font: Font, rect: Rect2, scale: float, alpha: float) -> void:
+	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
+	var accent := Color(0.05, 0.54, 0.68, alpha)
+	var tile_gap: float = 18.0 * scale
+	var tile_width: float = max(1.0, (rect.size.x - tile_gap * 2.0) / 3.0)
+	var tile_size := Vector2(tile_width, rect.size.y)
+	var gold_rect := Rect2(rect.position, tile_size)
+	var score_rect := Rect2(rect.position + Vector2(tile_width + tile_gap, 0.0), tile_size)
+	var rating_rect := Rect2(rect.position + Vector2((tile_width + tile_gap) * 2.0, 0.0), tile_size)
+	_draw_metric_tile(font, gold_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % _resolve_display_gold(), muted, accent, alpha)
+	_draw_metric_tile(font, score_rect, LanguageSettings.translate_text("최종 스코어"), "%d : %d" % [player_score, boss_score], muted, accent, alpha)
+	var margin: int = player_score - boss_score
+	var rating: int = 1
+	if margin >= 4:
+		rating = 3
+	elif margin >= 2:
+		rating = 2
+	_draw_rating_tile(font, rating_rect, LanguageSettings.translate_text("평가"), rating, muted, alpha)
+
+
+func _draw_rating_tile(font: Font, rect: Rect2, title: String, stars_filled: int, title_color: Color, alpha: float) -> void:
+	var unit: float = rect.size.y / 78.0
+	_draw_panel(rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
+	_draw_text(font, title, rect.position + Vector2(16.0, 25.0) * unit, int(round(18.0 * unit)), title_color)
+	var star_outer: float = 13.0 * unit
+	var star_inner: float = 6.2 * unit
+	var star_gap: float = 33.0 * unit
+	var star_y: float = rect.position.y + 55.0 * unit
+	var start_x: float = rect.position.x + 16.0 * unit + star_outer
+	var outline_width: float = max(1.0, 1.5 * unit)
+	var fill_color := Color(1.0, 0.82, 0.24, alpha)
+	var fill_outline := Color(1.0, 0.95, 0.66, alpha * 0.92)
+	var empty_fill := Color(0.30, 0.40, 0.46, alpha * 0.18)
+	var empty_outline := Color(0.28, 0.44, 0.50, alpha * 0.55)
+	for i in range(3):
+		var center := Vector2(start_x + float(i) * star_gap, star_y)
+		if i < stars_filled:
+			_draw_star_polygon(center, star_outer, star_inner, fill_color, fill_outline, outline_width)
+		else:
+			_draw_star_polygon(center, star_outer, star_inner, empty_fill, empty_outline, outline_width)
+
+
+@warning_ignore("shadowed_variable_base_class")
+func _draw_section_group_panel(rect: Rect2, scale: float, alpha: float) -> void:
+	_draw_panel(
+		rect,
+		Color(0.92, 0.98, 1.0, 0.16 * alpha),
+		Color(0.05, 0.66, 0.84, 0.20 * alpha),
+		max(1.0, 1.0 * scale),
+		16.0 * scale
+	)
+
+
+@warning_ignore("shadowed_variable_base_class")
+func _draw_reward_section_stack(font: Font, sections: Array, rect: Rect2, scale: float, alpha: float) -> void:
+	var count: int = sections.size()
+	if count <= 0:
+		return
+	var inner_pad: float = 10.0 * scale
+	var band_gap: float = 12.0 * scale
+	var usable_height: float = max(1.0, rect.size.y - inner_pad * 2.0 - band_gap * float(max(0, count - 1)))
+	var band_height: float = usable_height / float(count)
+	var divider_color := Color(0.05, 0.66, 0.84, alpha * 0.22)
+	for i in range(count):
+		var section_value: Variant = sections[i]
+		var section: Dictionary = section_value if section_value is Dictionary else {}
+		var rewards_value: Variant = section.get("rewards", [])
+		var rewards: Array = rewards_value if rewards_value is Array else []
+		var band_top: float = rect.position.y + inner_pad + float(i) * (band_height + band_gap)
+		if i > 0:
+			var divider_y: float = band_top - band_gap * 0.5
+			draw_line(
+				Vector2(rect.position.x + 20.0 * scale, divider_y),
+				Vector2(rect.end.x - 20.0 * scale, divider_y),
+				divider_color,
+				max(1.0, 1.2 * scale)
+			)
+		var band_rect := Rect2(
+			Vector2(rect.position.x, band_top),
+			Vector2(rect.size.x, band_height)
+		)
+		_draw_reward_section(font, str(section.get("title", "")), rewards, band_rect, scale, alpha)
+
+
 @warning_ignore("shadowed_variable_base_class")
 func _draw_reward_section(font: Font, title: String, rewards: Array, rect: Rect2, scale: float, alpha: float) -> float:
-	var title_color := Color(0.20, 0.36, 0.42, alpha * 0.90)
-	_draw_text(font, title, rect.position + Vector2(0.0, 24.0 * scale), int(round(22.0 * scale)), title_color)
+	var title_color := Color(0.05, 0.42, 0.52, alpha)
+	var accent_bar := Rect2(
+		rect.position + Vector2(16.0 * scale, 8.0 * scale),
+		Vector2(6.0 * scale, 22.0 * scale)
+	)
+	_draw_panel(accent_bar, Color(0.04, 0.78, 0.94, alpha), Color(0.0, 0.0, 0.0, 0.0), 0.0, 3.0 * scale)
+	_draw_text(font, "%s  %d" % [title, rewards.size()], rect.position + Vector2(32.0 * scale, 26.0 * scale), int(round(22.0 * scale)), title_color)
 	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(rewards.size(), rect, scale)
 	var gap: float = float(layout.get("gap", 16.0 * scale))
 	var card_size: Vector2 = layout.get("card_size", Vector2(148.0, 112.0) * scale)
@@ -1971,11 +2206,14 @@ func _draw_reward_section(font: Font, title: String, rewards: Array, rect: Rect2
 	var columns: int = max(1, int(layout.get("columns", 1)))
 	var rows: int = max(1, int(layout.get("rows", 1)))
 	var cards_top: float = float(layout.get("cards_top", 38.0 * scale))
+	var visible_columns: int = clampi(rewards.size(), 1, columns)
+	var grid_width: float = float(visible_columns) * card_size.x + float(max(0, visible_columns - 1)) * gap
+	var grid_origin_x: float = rect.position.x + max(0.0, (rect.size.x - grid_width) * 0.5)
 	for i in range(rewards.size()):
 		var row: int = int(floor(float(i) / float(columns)))
 		var col: int = i % columns
 		var card_rect := Rect2(
-			rect.position + Vector2(float(col) * (card_size.x + gap), cards_top + float(row) * (card_size.y + gap)),
+			Vector2(grid_origin_x + float(col) * (card_size.x + gap), rect.position.y + cards_top + float(row) * (card_size.y + gap)),
 			card_size
 		)
 		var reward: Dictionary = rewards[i] if rewards[i] is Dictionary else {}
@@ -2283,6 +2521,33 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 	return true
 
 
+func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
+	if not _is_stage3_result_boss() or _stage3_boss_defeat_click_reaction_sheet == null:
+		return false
+	var view_size: Vector2 = size
+	if view_size == Vector2.ZERO:
+		view_size = _get_view_size()
+	@warning_ignore("shadowed_variable_base_class")
+	var scale: float = _get_layout_scale(view_size)
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
+	if not click_rect.has_point(mouse_position):
+		return false
+	if StageClearResultClickReactionState.is_reaction_active(
+		_stage3_boss_defeat_click_reaction_timer,
+		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	):
+		queue_redraw()
+		return true
+	_stage3_boss_defeat_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		timer,
+		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+	)
+	_stage3_boss_defeat_click_reaction_timer = 0.0
+	queue_redraw()
+	return true
+
+
 func _play_dalji_click_voice() -> void:
 	_load_audio()
 	if _dalji_click_voice_stream == null:
@@ -2332,6 +2597,17 @@ func _draw_stage2_boss_result_sheet_frame(sheet: Texture2D, frame: int, rect: Re
 	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
 
 
+func _draw_stage3_boss_result_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2, alpha: float) -> void:
+	if sheet == null or alpha <= 0.001:
+		return
+	var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(
+		frame,
+		STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE
+	)
+	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
+
+
 func _player_victory_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
@@ -2361,6 +2637,22 @@ func _stage2_boss_defeat_reaction_state() -> Dictionary:
 		STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
 		STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
 		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	)
+
+
+func _stage3_boss_defeat_reaction_state() -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
+		timer,
+		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		_stage3_boss_defeat_click_reaction_timer,
+		STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		STAGE3_BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		STAGE3_BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		_stage3_boss_defeat_click_transition_base_frame,
+		STAGE3_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		STAGE3_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	)
 
 
@@ -2482,6 +2774,8 @@ func _load_textures() -> void:
 			"dalji_click_reaction_sheet": _dalji_click_reaction_sheet,
 			"stage2_boss_defeat_live2d_sheet": _stage2_boss_defeat_live2d_sheet,
 			"stage2_boss_defeat_click_reaction_sheet": _stage2_boss_defeat_click_reaction_sheet,
+			"stage3_boss_defeat_live2d_sheet": _stage3_boss_defeat_live2d_sheet,
+			"stage3_boss_defeat_click_reaction_sheet": _stage3_boss_defeat_click_reaction_sheet,
 			"player_victory_sheet": _player_victory_sheet if _player_victory_sheet_loaded_path == player_victory_path else null,
 			"player_victory_click_reaction_sheet": (
 				_player_victory_click_reaction_sheet
@@ -2500,6 +2794,8 @@ func _load_textures() -> void:
 	_dalji_click_reaction_sheet = loaded.get("dalji_click_reaction_sheet") as Texture2D
 	_stage2_boss_defeat_live2d_sheet = loaded.get("stage2_boss_defeat_live2d_sheet") as Texture2D
 	_stage2_boss_defeat_click_reaction_sheet = loaded.get("stage2_boss_defeat_click_reaction_sheet") as Texture2D
+	_stage3_boss_defeat_live2d_sheet = loaded.get("stage3_boss_defeat_live2d_sheet") as Texture2D
+	_stage3_boss_defeat_click_reaction_sheet = loaded.get("stage3_boss_defeat_click_reaction_sheet") as Texture2D
 	_player_victory_sheet = loaded.get("player_victory_sheet") as Texture2D
 	_player_victory_click_reaction_sheet = loaded.get("player_victory_click_reaction_sheet") as Texture2D
 	_player_victory_sheet_loaded_path = player_victory_path if _player_victory_sheet != null else ""
@@ -2511,7 +2807,7 @@ func _load_textures() -> void:
 
 
 func _load_audio() -> void:
-	if current_stage == 2:
+	if current_stage != 1:
 		_dalji_click_voice_stream = null
 		return
 	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, DALJI_CLICK_VOICE_PATH)

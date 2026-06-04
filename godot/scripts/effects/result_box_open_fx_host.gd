@@ -29,6 +29,11 @@ const FAN_OUTER_RADIUS := 235.0
 const FAN_ARC_DEGREES := 124.0
 const FAN_RAY_COUNT := 11
 const FAN_VERTICAL_OFFSET := -22.0
+const LID_FLASH_FADE_DURATION := 0.30
+const EMERGE_GLOW_FADE_DURATION := 0.45
+const LIGHT_ENVELOPE_HOLD_DURATION := 0.22
+const LIGHT_ENVELOPE_FADE_DURATION := 0.55
+const SPARK_PARTICLE_LIFETIME := 0.36
 
 const COMMON_HOT := Color(0.30, 0.86, 1.00, 1.0)
 const COMMON_AMBER := Color(1.00, 0.78, 0.36, 1.0)
@@ -184,7 +189,7 @@ func trigger_lid_open() -> void:
 	lid_flash = 1.0
 	if is_inside_tree():
 		_lid_flash_tween = create_tween()
-		_lid_flash_tween.tween_property(self, "lid_flash", 0.0, 0.55).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+		_lid_flash_tween.tween_property(self, "lid_flash", 0.0, LID_FLASH_FADE_DURATION).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	# emerge_glow snaps to peak at lid pop then fades, matching the
 	# light_envelope envelope so the inner glow's contribution does not
 	# linger after the bright flash.
@@ -193,20 +198,17 @@ func trigger_lid_open() -> void:
 	emerge_glow = 1.0
 	if is_inside_tree():
 		_emerge_glow_tween = create_tween()
-		_emerge_glow_tween.tween_property(self, "emerge_glow", 0.0, 1.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	# Master "shine bright then fade out" envelope. Snaps to 1.0 at lid pop,
-	# holds full brightness while the reward ribbon rises and spreads
-	# (~0.85s), then eases out (~1.30s, EASE_OUT) so the pillar can finish
-	# unfurling before the light drains. Without the hold, alpha already
-	# fell to ~50% before reward_emerge finished, so the ribbon looked like
-	# it was collapsing inward instead of blooming upward.
+		_emerge_glow_tween.tween_property(self, "emerge_glow", 0.0, EMERGE_GLOW_FADE_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# Master "shine bright then fade out" envelope. The reward icon needs to
+	# become readable quickly after the lid pop, so the bright hold is short
+	# and the fade completes near the end of reward_emerge instead of lingering.
 	if _light_envelope_tween != null and _light_envelope_tween.is_valid():
 		_light_envelope_tween.kill()
 	light_envelope = 1.0
 	if is_inside_tree():
 		_light_envelope_tween = create_tween()
-		_light_envelope_tween.tween_interval(0.85)
-		_light_envelope_tween.tween_property(self, "light_envelope", 0.0, 1.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_light_envelope_tween.tween_interval(LIGHT_ENVELOPE_HOLD_DURATION)
+		_light_envelope_tween.tween_property(self, "light_envelope", 0.0, LIGHT_ENVELOPE_FADE_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _draw() -> void:
@@ -471,7 +473,7 @@ func _build_children() -> void:
 		_spark_particles = GPUParticles2D.new()
 		_spark_particles.name = "ResultBoxOpenSparkParticles"
 		_spark_particles.amount = 64
-		_spark_particles.lifetime = 0.54
+		_spark_particles.lifetime = SPARK_PARTICLE_LIFETIME
 		_spark_particles.one_shot = true
 		_spark_particles.explosiveness = 0.96
 		_spark_particles.randomness = 0.85

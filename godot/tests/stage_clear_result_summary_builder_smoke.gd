@@ -206,10 +206,11 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 		source.find("reward_summary_state.get(\"item_rewards\"") >= 0,
 		"stage-clear result scene should render the item column from item-only rewards"
 	)
-	_expect(
-		source.find("\"획득 아이템\"") >= 0,
-		"stage-clear result scene should label the item-only reward column"
-	)
+	for item_section_label in ["\"액티브 아이템\"", "\"패시브 아이템\"", "\"신화 아이템\""]:
+		_expect(
+			source.find(item_section_label) >= 0,
+			"stage-clear result scene should label the split item reward bands (%s)" % item_section_label
+		)
 	for removed_wrapper in [
 		"func _calculate_starpoint_total",
 		"func _with_result_reward_source",

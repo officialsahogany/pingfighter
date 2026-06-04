@@ -136,6 +136,8 @@ func _asset_paths() -> Dictionary:
 		"dalji_click_reaction_sheet": StageClearResultScene.DALJI_CLICK_REACTION_SHEET_PATH,
 		"stage2_boss_defeat_live2d_sheet": StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage2_boss_defeat_click_reaction_sheet": StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet": StageClearResultScene.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet": StageClearResultScene.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"player_victory_sheet": StageClearResultScene.SMASHER_VICTORY_SHEET_PATH,
 		"player_victory_click_reaction_sheet": StageClearResultScene.SMASHER_CLICK_REACTION_SHEET_PATH,
 		"scroll_texture": StageClearResultScene.RESULT_SCROLL_PANEL_PATH,
