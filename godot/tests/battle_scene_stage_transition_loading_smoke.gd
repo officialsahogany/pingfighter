@@ -221,7 +221,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_stage_clear_to_stage2_uses_loading_gate()
 	_verify_stage4_clear_to_stage5_uses_loading_gate()
-	_verify_stage5_clear_ends_demo_sequence()
+	_verify_stage5_clear_to_stage6_uses_loading_gate()
 	_verify_non_player_reset_keeps_immediate_match_reset()
 
 	if _failures.is_empty():
@@ -286,6 +286,7 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	_expect(registry.match_flow_driver.reset_game_calls == 0, "stage-clear advance must not wipe perks/items via the full match reset")
 	_expect(registry.battle_resources.load_all_calls == 1, "transition work should reload battle textures once")
 	_expect(int(registry.battle_resources.last_config.get("current_stage", 0)) == 2, "battle textures should reload for stage 2")
+	_expect(bool(registry.battle_resources.last_config.get("include_result_sheets", false)), "stage-transition battle texture reload should include round-result sheets before the next first score")
 	_expect(registry.commando_weapon_controller.prepare_calls == 1 and registry.commando_weapon_controller.last_stage == 2, "commando stage-start prep should run for stage 2")
 	_expect(registry.prewarm_controller.step_calls == 0, "stage runtime prewarm should wait for its own loading-frame chunk")
 	driver.update_stage_transition_loading(0.05, owner, registry)
@@ -389,7 +390,7 @@ func _verify_stage4_clear_to_stage5_uses_loading_gate() -> void:
 	_expect(registry.ball_physics.configure_calls == 1 and registry.ball_physics.last_stage == 5, "code stage 4 clear transition should configure ball physics for code stage 5")
 
 
-func _verify_stage5_clear_ends_demo_sequence() -> void:
+func _verify_stage5_clear_to_stage6_uses_loading_gate() -> void:
 	var driver: Object = BattleSceneMatchEventDriver.new()
 	var owner := FakeOwner.new()
 	owner.current_stage = 5
@@ -397,9 +398,24 @@ func _verify_stage5_clear_ends_demo_sequence() -> void:
 
 	driver.reset_after_stage_clear_result(owner, registry)
 
-	_expect(not bool(driver.is_stage_transition_loading_active()), "code stage 5 player clear should not advance to an unimplemented next demo stage")
-	_expect(registry.match_flow_driver.reset_game_calls == 1, "code stage 5 clear should fall back to the regular match reset path")
-	_expect(owner.current_stage == 5, "code stage 5 clear should leave the current stage id unchanged for the regular reset path")
+	_expect(bool(driver.is_stage_transition_loading_active()), "code stage 5 player clear should enter stage-transition loading for Stage 6")
+	_expect(owner.current_stage == 6, "code stage 5 clear should advance the visible loading stage to code stage 6")
+	_expect(registry.match_flow_driver.reset_for_stage_transition_calls == 0, "code stage 5 to code stage 6 transition work should wait until loading was drawn once")
+	_expect(registry.match_flow_driver.reset_game_calls == 0, "code stage 5 to code stage 6 clear should not use the full match reset path")
+
+	var canvas := Node2D.new()
+	get_root().add_child(canvas)
+	driver.draw_stage_transition_loading(
+		canvas,
+		owner,
+		registry,
+		Callable(registry, "get_instance"),
+		Vector2(1280.0, 720.0)
+	)
+	canvas.queue_free()
+
+	driver.update_stage_transition_loading(0.05, owner, registry)
+	_expect(registry.ball_physics.configure_calls == 1 and registry.ball_physics.last_stage == 6, "code stage 5 clear transition should configure ball physics for code stage 6")
 
 
 func _verify_non_player_reset_keeps_immediate_match_reset() -> void:

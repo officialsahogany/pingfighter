@@ -62,6 +62,8 @@ func _verify_sample_collection() -> void:
 	_expect(int(sample.get("max_usec", 0)) >= 0, "sample max should be stored in microseconds")
 	logger.record_value_sample("sample.value", 1234)
 	_expect(logger.samples.has("sample.value"), "record_value_sample should store externally measured values")
+	logger.detail_checked = true
+	logger.detail_enabled = false
 	_expect(not logger.should_sample_detail("sample.draw"), "detail samples should be disabled by default")
 	logger.detail_checked = true
 	logger.detail_enabled = true
