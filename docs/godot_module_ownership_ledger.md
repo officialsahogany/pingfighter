@@ -1484,10 +1484,11 @@ This section is intentionally long; use search to find the nearest owner.
   reward rolling, final grant callbacks, scroll/button input, drawing, and
   the live perk catalog instance used by reward text resolution.
 - `scripts/ui/stage_clear_result_summary_draw_helper.gd`
-  Owns stage-clear summary strip tile drawing: gold / score metric tiles and
-  score-rating star tiles. It delegates primitive panels, stars, and text to
-  the low-level draw helpers. The scene still owns summary-strip layout,
-  localized labels, and score / gold metric calculation inputs.
+  Owns stage-clear summary strip drawing: strip tile layout, gold / score
+  metric tiles, and score-rating star tiles. It delegates primitive panels,
+  stars, and text to the low-level draw helpers. The scene still owns
+  summary-strip placement, localized labels, and score / gold metric
+  calculation inputs.
 - `scripts/ui/stage_clear_result_reward_card_draw_helper.gd`
   Owns stage-clear reward card draw helpers that are independent of scene
   state: reward section-stack band / grid drawing, reward-card base shell /

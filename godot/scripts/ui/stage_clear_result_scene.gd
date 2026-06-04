@@ -1802,7 +1802,22 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		rect.position + Vector2(34.0 * scale, 86.0 * scale),
 		Vector2(rect.size.x - 68.0 * scale, 80.0 * scale)
 	)
-	_draw_result_summary_strip(font, strip_rect, scale, alpha)
+	var display_gold: int = StageClearResultSummaryBuilder.resolve_display_gold(_runtime_perk_state, PLACEHOLDER_GOLD)
+	var rating: int = StageClearResultSummaryBuilder.calculate_score_rating(player_score, boss_score)
+	StageClearResultSummaryDrawHelper.draw_result_summary_strip(
+		self,
+		font,
+		strip_rect,
+		scale,
+		alpha,
+		display_gold,
+		player_score,
+		boss_score,
+		rating,
+		LanguageSettings.translate_text("획득 골드"),
+		LanguageSettings.translate_text("최종 스코어"),
+		LanguageSettings.translate_text("평가")
+	)
 
 	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
 	var item_rewards_value: Variant = reward_summary_state.get("item_rewards", [])
@@ -1888,23 +1903,6 @@ func _get_ui_font(draw_scale: float) -> Font:
 		_ui_font_base = base
 		_ui_font_spacing = spacing
 	return _ui_font
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_result_summary_strip(font: Font, rect: Rect2, scale: float, alpha: float) -> void:
-	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
-	var accent := Color(0.05, 0.54, 0.68, alpha)
-	var tile_gap: float = 18.0 * scale
-	var tile_width: float = max(1.0, (rect.size.x - tile_gap * 2.0) / 3.0)
-	var tile_size := Vector2(tile_width, rect.size.y)
-	var gold_rect := Rect2(rect.position, tile_size)
-	var score_rect := Rect2(rect.position + Vector2(tile_width + tile_gap, 0.0), tile_size)
-	var rating_rect := Rect2(rect.position + Vector2((tile_width + tile_gap) * 2.0, 0.0), tile_size)
-	var display_gold: int = StageClearResultSummaryBuilder.resolve_display_gold(_runtime_perk_state, PLACEHOLDER_GOLD)
-	StageClearResultSummaryDrawHelper.draw_metric_tile(self, font, gold_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % display_gold, muted, accent, alpha)
-	StageClearResultSummaryDrawHelper.draw_metric_tile(self, font, score_rect, LanguageSettings.translate_text("최종 스코어"), "%d : %d" % [player_score, boss_score], muted, accent, alpha)
-	var rating: int = StageClearResultSummaryBuilder.calculate_score_rating(player_score, boss_score)
-	StageClearResultSummaryDrawHelper.draw_rating_tile(self, font, rating_rect, LanguageSettings.translate_text("평가"), rating, muted, alpha)
 
 
 @warning_ignore("shadowed_variable_base_class")

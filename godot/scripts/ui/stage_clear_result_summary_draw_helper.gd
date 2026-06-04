@@ -4,6 +4,33 @@ const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 
+static func draw_result_summary_strip(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	scale: float,
+	alpha: float,
+	display_gold: int,
+	player_score: int,
+	boss_score: int,
+	rating: int,
+	gold_label: String,
+	score_label: String,
+	rating_label: String
+) -> void:
+	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
+	var accent := Color(0.05, 0.54, 0.68, alpha)
+	var tile_gap: float = 18.0 * scale
+	var tile_width: float = max(1.0, (rect.size.x - tile_gap * 2.0) / 3.0)
+	var tile_size := Vector2(tile_width, rect.size.y)
+	var gold_rect := Rect2(rect.position, tile_size)
+	var score_rect := Rect2(rect.position + Vector2(tile_width + tile_gap, 0.0), tile_size)
+	var rating_rect := Rect2(rect.position + Vector2((tile_width + tile_gap) * 2.0, 0.0), tile_size)
+	draw_metric_tile(canvas, font, gold_rect, gold_label, "%d G" % display_gold, muted, accent, alpha)
+	draw_metric_tile(canvas, font, score_rect, score_label, "%d : %d" % [player_score, boss_score], muted, accent, alpha)
+	draw_rating_tile(canvas, font, rating_rect, rating_label, rating, muted, alpha)
+
+
 static func draw_metric_tile(
 	canvas: CanvasItem,
 	font: Font,

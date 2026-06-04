@@ -20,8 +20,11 @@ func _init() -> void:
 
 func _verify_helper_source() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
+	_expect(source.find("static func draw_result_summary_strip") >= 0, "summary draw helper should own summary strip drawing")
 	_expect(source.find("static func draw_metric_tile") >= 0, "summary draw helper should own metric tile drawing")
 	_expect(source.find("static func draw_rating_tile") >= 0, "summary draw helper should own rating tile drawing")
+	_expect(source.find("draw_metric_tile(canvas") >= 0, "summary strip drawing should use metric tile helpers")
+	_expect(source.find("draw_rating_tile(canvas") >= 0, "summary strip drawing should use rating tile helpers")
 	_expect(source.find("StageClearResultShapeHelper.draw_panel") >= 0, "summary draw helper should delegate panel drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_star_polygon") >= 0, "summary draw helper should delegate star drawing")
 	_expect(source.find("StageClearResultTextLayoutHelper.draw_text") >= 0, "summary draw helper should delegate text drawing")
@@ -30,8 +33,8 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_summary_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultSummaryDrawHelper.draw_metric_tile") >= 0, "result scene should delegate metric tile drawing")
-	_expect(source.find("StageClearResultSummaryDrawHelper.draw_rating_tile") >= 0, "result scene should delegate rating tile drawing")
+	_expect(source.find("StageClearResultSummaryDrawHelper.draw_result_summary_strip") >= 0, "result scene should delegate summary strip drawing")
+	_expect(source.find("func _draw_result_summary_strip") < 0, "result scene should not keep summary strip drawing wrappers")
 	_expect(source.find("func _draw_metric_tile") < 0, "result scene should not keep metric tile wrappers")
 	_expect(source.find("func _draw_rating_tile") < 0, "result scene should not keep rating tile wrappers")
 	_expect(source.find("StageClearResultSummaryBuilder.resolve_display_gold") >= 0, "result scene should keep summary metric calculation in summary builder")
