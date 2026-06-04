@@ -3,9 +3,10 @@ extends RefCounted
 # Stage 6 테트리서 self-playing pillar Tetris (visual deco).
 #
 # Faithful behavior port of pillar_tetriser.py TetrisGame + TetriserPillarBackground
-# (auto-play: 40% left/right nudge, 25% rotate, 0.4s gravity, classic line clears,
-# rainbow prism coloring, NEXT preview). The CrystalShieldSystem boss skill from the
-# same Python file is intentionally NOT ported here (deferred follow-up).
+# (auto-play: 40% left/right nudge, 25% rotate, 0.4s gravity, smooth visual
+# fall interpolation, classic line clears, rainbow prism coloring, NEXT preview).
+# The CrystalShieldSystem boss skill from the same Python file is intentionally
+# NOT ported here (deferred follow-up).
 #
 # Placement difference vs Python: the original drew the boards inside the on-screen
 # 80px pillars (game x=0..80 / 680..760). In the Godot port the playfield is the FULL
@@ -21,7 +22,7 @@ const INSET := 6.0
 const STACK_ALPHA := 0.5
 const FALLING_ALPHA := 0.82
 const NEXT_ALPHA := 0.7
-const LOD_THRESHOLD := 0.6
+const LOD_THRESHOLD := 0.45
 
 
 # One self-playing well. Game-logic constants live here so the inner class can
@@ -233,6 +234,14 @@ class PillarTetrisGame:
 			else:
 				_lock()
 
+	func get_visual_drop_offset() -> float:
+		if current.is_empty() or not clearing_lines.is_empty():
+			return 0.0
+		if not _valid(current, 0, 1, 0):
+			return 0.0
+		var progress := clampf(fall_timer / FALL_SPEED, 0.0, 0.98)
+		return progress * block_size
+
 
 var _left := PillarTetrisGame.new()
 var _right := PillarTetrisGame.new()
@@ -265,7 +274,7 @@ func draw(
 	if view_size.x <= 0.0 or game_size.x <= 0.0:
 		return
 	if quality_scale <= LOD_THRESHOLD:
-		return   # drop the decorative pillar Tetris under severe LOD
+		return   # drop the decorative pillar Tetris only under severe LOD
 	var dt := _consume_dt()
 
 	var left_w := game_offset.x
@@ -306,15 +315,27 @@ func _draw_game(canvas: CanvasItem, game: PillarTetrisGame, margin_x: float, mar
 			var flashing: bool = game.clearing_lines.has(y)
 			_draw_cell(canvas, game, origin_x, origin_y, x, y, STACK_ALPHA, flashing)
 	if not game.current.is_empty() and game.clearing_lines.is_empty():
+		var visual_drop := game.get_visual_drop_offset()
 		for cell in game.cells(game.current):
-			if cell.y >= 0:
-				_draw_cell(canvas, game, origin_x, origin_y, cell.x, cell.y, FALLING_ALPHA, false)
+			var cell_top := origin_y + float(cell.y) * block + visual_drop
+			if cell_top > -block and cell_top < margin_h:
+				_draw_cell(canvas, game, origin_x, origin_y, cell.x, cell.y, FALLING_ALPHA, false, visual_drop)
 	_draw_next_preview(canvas, game, margin_x, margin_w)
 
 
-func _draw_cell(canvas: CanvasItem, game: PillarTetrisGame, origin_x: float, origin_y: float, gx: int, gy: int, alpha: float, flashing: bool) -> void:
+func _draw_cell(
+	canvas: CanvasItem,
+	game: PillarTetrisGame,
+	origin_x: float,
+	origin_y: float,
+	gx: int,
+	gy: int,
+	alpha: float,
+	flashing: bool,
+	visual_y_offset: float = 0.0
+) -> void:
 	var block := game.block_size
-	var rect := Rect2(origin_x + float(gx) * block, origin_y + float(gy) * block, block - 1.0, block - 1.0)
+	var rect := Rect2(origin_x + float(gx) * block, origin_y + float(gy) * block + visual_y_offset, block - 1.0, block - 1.0)
 	var color: Color
 	if flashing:
 		var flash := clampf(game.clear_timer / PillarTetrisGame.CLEAR_DURATION, 0.0, 1.0)
