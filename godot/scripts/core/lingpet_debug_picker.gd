@@ -6,15 +6,20 @@ const COLUMNS := 3
 const CARD_SIZE := Vector2(214.0, 112.0)
 const CARD_GAP := Vector2(14.0, 14.0)
 const PANEL_PADDING := Vector2(28.0, 24.0)
-const HEADER_HEIGHT := 78.0
-const SKILL_SECTION_HEIGHT := 156.0
+const HEADER_HEIGHT := 62.0
+const PANEL_FOOTER_BAND := 8.0
+const SKILL_SECTION_HEIGHT := 194.0
+const SKILL_SECTION_TITLE_BAND := 28.0
+const SKILL_COLUMN_SIDE_PADDING := 12.0
 const SKILL_COLUMN_GAP := 18.0
-const SKILL_ROW_HEIGHT := 28.0
+const SKILL_COLUMN_HEADER := 24.0
+const SKILL_ROW_HEIGHT := 26.0
 const SKILL_ROW_GAP := 6.0
+const SKILL_APPLY_STRIP := 50.0
 const SKILL_LEVEL_BUTTON_SIZE := Vector2(18.0, 18.0)
 const SKILL_LEVEL_LABEL_SIZE := Vector2(36.0, 18.0)
 const SKILL_LEVEL_CONTROL_GAP := 3.0
-const APPLY_BUTTON_SIZE := Vector2(128.0, 34.0)
+const APPLY_BUTTON_SIZE := Vector2(200.0, 34.0)
 
 var open := false
 var selected_index := 0
@@ -316,7 +321,9 @@ func _draw_skill_selection(canvas: CanvasItem, font: Font, view_size: Vector2, p
 	var rect := _get_skill_section_rect(view_size, entry_count)
 	canvas.draw_rect(rect, Color(0.070, 0.084, 0.112, 0.92))
 	canvas.draw_rect(rect, Color(0.42, 0.58, 0.78, 0.68), false, 1.0)
-	canvas.draw_string(font, rect.position + Vector2(12.0, 23.0), "스킬 로드아웃: %s" % _get_display_name(pet_id, LingpetCatalog.get_entry(pet_id)), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 15, Color(0.88, 0.95, 1.0))
+	canvas.draw_string(font, rect.position + Vector2(12.0, 20.0), "스킬 로드아웃: %s" % _get_display_name(pet_id, LingpetCatalog.get_entry(pet_id)), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 24.0, 15, Color(0.88, 0.95, 1.0))
+	var title_divider_y := rect.position.y + SKILL_SECTION_TITLE_BAND - 5.0
+	canvas.draw_line(Vector2(rect.position.x + 12.0, title_divider_y), Vector2(rect.end.x - 12.0, title_divider_y), Color(0.30, 0.42, 0.58, 0.50), 1.0)
 
 	var active_pool := _get_skill_pool(pet_id, true)
 	var passive_pool := _get_skill_pool(pet_id, false)
@@ -605,7 +612,7 @@ func _get_grid_size(entry_count: int) -> Vector2:
 func _get_panel_rect(view_size: Vector2, entry_count: int) -> Rect2:
 	var safe_view := Vector2(max(view_size.x, 760.0), max(view_size.y, 540.0))
 	var grid_size := _get_grid_size(entry_count)
-	var panel_size := grid_size + PANEL_PADDING * 2.0 + Vector2(0.0, HEADER_HEIGHT + CARD_GAP.y + SKILL_SECTION_HEIGHT + 30.0)
+	var panel_size := grid_size + PANEL_PADDING * 2.0 + Vector2(0.0, HEADER_HEIGHT + CARD_GAP.y + SKILL_SECTION_HEIGHT + PANEL_FOOTER_BAND)
 	var pos := (safe_view - panel_size) * 0.5
 	return Rect2(Vector2(max(pos.x, 12.0), max(pos.y, 12.0)), panel_size)
 
@@ -635,18 +642,19 @@ func _get_skill_section_rect(view_size: Vector2, entry_count: int) -> Rect2:
 
 func _get_skill_column_rect(view_size: Vector2, entry_count: int, active_column: bool) -> Rect2:
 	var section_rect := _get_skill_section_rect(view_size, entry_count)
-	var inner := section_rect.grow(-12.0)
-	inner.position.y += 27.0
-	inner.size.y -= 27.0
-	var column_width := (inner.size.x - SKILL_COLUMN_GAP) * 0.5
+	var inner_x := section_rect.position.x + SKILL_COLUMN_SIDE_PADDING
+	var inner_w := section_rect.size.x - SKILL_COLUMN_SIDE_PADDING * 2.0
+	var column_top := section_rect.position.y + SKILL_SECTION_TITLE_BAND
+	var column_height := section_rect.size.y - SKILL_SECTION_TITLE_BAND - SKILL_APPLY_STRIP
+	var column_width := (inner_w - SKILL_COLUMN_GAP) * 0.5
 	var offset_x := 0.0 if active_column else column_width + SKILL_COLUMN_GAP
-	return Rect2(inner.position + Vector2(offset_x, 0.0), Vector2(column_width, inner.size.y))
+	return Rect2(Vector2(inner_x + offset_x, column_top), Vector2(column_width, column_height))
 
 
 func _get_skill_row_rect(view_size: Vector2, entry_count: int, active_column: bool, index: int) -> Rect2:
 	var column_rect := _get_skill_column_rect(view_size, entry_count, active_column)
 	return Rect2(
-		column_rect.position + Vector2(0.0, 24.0 + float(index) * (SKILL_ROW_HEIGHT + SKILL_ROW_GAP)),
+		column_rect.position + Vector2(0.0, SKILL_COLUMN_HEADER + float(index) * (SKILL_ROW_HEIGHT + SKILL_ROW_GAP)),
 		Vector2(column_rect.size.x, SKILL_ROW_HEIGHT)
 	)
 
@@ -688,20 +696,28 @@ func _get_skill_level_minus_rect(view_size: Vector2, entry_count: int, active_co
 
 func _get_skill_level_label_rect(view_size: Vector2, entry_count: int, active_column: bool, row_index: int) -> Rect2:
 	var minus_rect := _get_skill_level_minus_rect(view_size, entry_count, active_column, row_index)
-	return Rect2(minus_rect.end + Vector2(SKILL_LEVEL_CONTROL_GAP, 0.0), SKILL_LEVEL_LABEL_SIZE)
+	return Rect2(
+		Vector2(minus_rect.position.x + SKILL_LEVEL_BUTTON_SIZE.x + SKILL_LEVEL_CONTROL_GAP, minus_rect.position.y),
+		SKILL_LEVEL_LABEL_SIZE
+	)
 
 
 func _get_skill_level_plus_rect(view_size: Vector2, entry_count: int, active_column: bool, row_index: int) -> Rect2:
 	var label_rect := _get_skill_level_label_rect(view_size, entry_count, active_column, row_index)
-	return Rect2(label_rect.end + Vector2(SKILL_LEVEL_CONTROL_GAP, 0.0), SKILL_LEVEL_BUTTON_SIZE)
+	return Rect2(
+		Vector2(label_rect.position.x + SKILL_LEVEL_LABEL_SIZE.x + SKILL_LEVEL_CONTROL_GAP, label_rect.position.y),
+		SKILL_LEVEL_BUTTON_SIZE
+	)
 
 
 func _get_apply_button_rect(view_size: Vector2, entry_count: int) -> Rect2:
 	var section_rect := _get_skill_section_rect(view_size, entry_count)
-	return Rect2(
-		section_rect.position + Vector2(section_rect.size.x - APPLY_BUTTON_SIZE.x - 12.0, section_rect.size.y - APPLY_BUTTON_SIZE.y - 10.0),
-		APPLY_BUTTON_SIZE
+	var button_width := minf(APPLY_BUTTON_SIZE.x, section_rect.size.x - SKILL_COLUMN_SIDE_PADDING * 2.0)
+	var pos := Vector2(
+		section_rect.position.x + (section_rect.size.x - button_width) * 0.5,
+		section_rect.position.y + section_rect.size.y - APPLY_BUTTON_SIZE.y - 8.0
 	)
+	return Rect2(pos, Vector2(button_width, APPLY_BUTTON_SIZE.y))
 
 
 func _get_pet_index(pet_id: String) -> int:

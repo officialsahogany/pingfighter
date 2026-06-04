@@ -38,7 +38,8 @@
     "frame_interval": "looped at 16 fps",
     "source_scale_repack": 0.84,
     "upscale_scale": 2.0,
-    "sha256": "d8d0e44aa276af9d93f4a88341abd3dc6c5f25bf37f76726f766f39d831ebba5"
+    "sha256": "3d218696de31f6891b560105329c262842b2d6fc744b25770d312359c7005216",
+    "bytes": 30244241
   },
   "dismiss_sheet": {
     "path": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
@@ -54,7 +55,8 @@
       5120
     ],
     "source_scale_repack": 0.84,
-    "sha256": "0a092e9b95c82f27c9921d823864d76cd5a690c183418f0c6fa3827471aa77af"
+    "sha256": "2324b3d070764e586857943bc2893950acc25cbc53fd22ab2c8dd095eb7a8bb4",
+    "bytes": 14595944
   },
   "postprocess": {
     "main_operation": "AutoSprite 1024 cells were premultiplied-alpha resized to 84 percent and centered back into each 1024 cell, then each cell was upscaled to 2048 with source alpha recombined.",
@@ -67,6 +69,351 @@
       "repacked_source": ".tmp/lunabi_cutin/postprocess_s84_x2/maribo_acquire_cutin_repacked_s84_1024.png",
       "recombined_output": ".tmp/lunabi_cutin/postprocess_s84_x2/maribo_acquire_cutin_repacked_s84_realesrgan_x2.png",
       "preview": ".tmp/lunabi_cutin/postprocess_s84_x2/preview_upscaled_contact.png"
+    },
+    "white_matte_cleanup": {
+      "acquisition_cutin": {
+        "tool": "local Pillow/numpy connected-component matte cleanup",
+        "operation": "Transparentized large bright low-saturation white matte residue around Lunabi face/ears and moon-glow side regions while protecting eye, mouth, fang, and forehead-mark windows.",
+        "date": "2026-06-04",
+        "rules_norm_xyxy_value_sat_component": [
+          [
+            0.08,
+            0.32,
+            0.37,
+            0.72,
+            176,
+            0.34,
+            700
+          ],
+          [
+            0.31,
+            0.43,
+            0.49,
+            0.73,
+            176,
+            0.34,
+            500
+          ],
+          [
+            0.31,
+            0.5,
+            0.56,
+            0.8,
+            168,
+            0.44,
+            500
+          ],
+          [
+            0.68,
+            0.05,
+            1.0,
+            0.62,
+            165,
+            0.58,
+            700
+          ]
+        ],
+        "protected_face_parts_norm_xyxy": [
+          [
+            0.405,
+            0.34,
+            0.54,
+            0.52
+          ],
+          [
+            0.55,
+            0.28,
+            0.71,
+            0.49
+          ],
+          [
+            0.49,
+            0.49,
+            0.66,
+            0.63
+          ],
+          [
+            0.46,
+            0.22,
+            0.61,
+            0.36
+          ]
+        ],
+        "alpha_threshold_gt": 25,
+        "removed_pixel_count": 2266963,
+        "frames_touched": 16,
+        "frame_count": 16,
+        "backup_dir": "D:/main/bosspong/.tmp/lunabi_face_matte_cleanup_backup"
+      },
+      "acquisition_dismiss": {
+        "tool": "local Pillow/numpy connected-component matte cleanup",
+        "operation": "Transparentized large bright low-saturation white matte residue around Lunabi face/ears and moon-glow side regions while protecting eye, mouth, fang, and forehead-mark windows.",
+        "date": "2026-06-04",
+        "rules_norm_xyxy_value_sat_component": [
+          [
+            0.08,
+            0.32,
+            0.37,
+            0.72,
+            176,
+            0.34,
+            700
+          ],
+          [
+            0.31,
+            0.43,
+            0.49,
+            0.73,
+            176,
+            0.34,
+            500
+          ],
+          [
+            0.31,
+            0.5,
+            0.56,
+            0.8,
+            168,
+            0.44,
+            500
+          ],
+          [
+            0.68,
+            0.05,
+            1.0,
+            0.62,
+            165,
+            0.58,
+            700
+          ]
+        ],
+        "protected_face_parts_norm_xyxy": [
+          [
+            0.405,
+            0.34,
+            0.54,
+            0.52
+          ],
+          [
+            0.55,
+            0.28,
+            0.71,
+            0.49
+          ],
+          [
+            0.49,
+            0.49,
+            0.66,
+            0.63
+          ],
+          [
+            0.46,
+            0.22,
+            0.61,
+            0.36
+          ]
+        ],
+        "alpha_threshold_gt": 25,
+        "removed_pixel_count": 1159133,
+        "frames_touched": 25,
+        "frame_count": 25,
+        "backup_dir": "D:/main/bosspong/.tmp/lunabi_face_matte_cleanup_backup"
+      }
+    },
+    "white_matte_cleanup_refined": {
+      "acquisition_cutin_refine": {
+        "tool": "local Pillow/numpy connected-component matte cleanup",
+        "operation": "Second-pass removal of the remaining large white low-saturation connected matte blobs visible behind Lunabi face/ears and moon-orb area. Uses tighter eye/mouth/forehead protection than the first pass.",
+        "date": "2026-06-04",
+        "zones_norm_xyxy_value_sat_component": [
+          [
+            0.54,
+            0.0,
+            1.0,
+            0.68,
+            145,
+            0.48,
+            700
+          ],
+          [
+            0.08,
+            0.28,
+            0.54,
+            0.82,
+            150,
+            0.44,
+            600
+          ],
+          [
+            0.18,
+            0.55,
+            0.9,
+            0.94,
+            168,
+            0.35,
+            600
+          ]
+        ],
+        "protected_face_parts_norm_xyxy": [
+          [
+            0.405,
+            0.34,
+            0.52,
+            0.47
+          ],
+          [
+            0.505,
+            0.35,
+            0.615,
+            0.5
+          ],
+          [
+            0.49,
+            0.49,
+            0.64,
+            0.61
+          ],
+          [
+            0.46,
+            0.22,
+            0.6,
+            0.36
+          ]
+        ],
+        "alpha_threshold_gt": 20,
+        "removed_pixel_count": 1181362,
+        "frames_touched": 16,
+        "max_removed_in_single_frame": 79588,
+        "frame_count": 16,
+        "backup_dir": "D:/main/bosspong/.tmp/lunabi_face_matte_cleanup_refine_backup"
+      },
+      "acquisition_dismiss_refine": {
+        "tool": "local Pillow/numpy connected-component matte cleanup",
+        "operation": "Second-pass removal of the remaining large white low-saturation connected matte blobs visible behind Lunabi face/ears and moon-orb area. Uses tighter eye/mouth/forehead protection than the first pass.",
+        "date": "2026-06-04",
+        "zones_norm_xyxy_value_sat_component": [
+          [
+            0.54,
+            0.0,
+            1.0,
+            0.68,
+            145,
+            0.48,
+            700
+          ],
+          [
+            0.08,
+            0.28,
+            0.54,
+            0.82,
+            150,
+            0.44,
+            600
+          ],
+          [
+            0.18,
+            0.55,
+            0.9,
+            0.94,
+            168,
+            0.35,
+            600
+          ]
+        ],
+        "protected_face_parts_norm_xyxy": [
+          [
+            0.405,
+            0.34,
+            0.52,
+            0.47
+          ],
+          [
+            0.505,
+            0.35,
+            0.615,
+            0.5
+          ],
+          [
+            0.49,
+            0.49,
+            0.64,
+            0.61
+          ],
+          [
+            0.46,
+            0.22,
+            0.6,
+            0.36
+          ]
+        ],
+        "alpha_threshold_gt": 20,
+        "removed_pixel_count": 315726,
+        "frames_touched": 25,
+        "max_removed_in_single_frame": 20198,
+        "frame_count": 25,
+        "backup_dir": "D:/main/bosspong/.tmp/lunabi_face_matte_cleanup_refine_backup"
+      }
+    },
+    "white_matte_cleanup_ring_restore_final": {
+      "acquisition_cutin": {
+        "tool": "local Pillow/numpy deterministic alpha repair",
+        "operation": "Restored lower gold/purple orbit-ring pixels from the original backup only inside normalized orbit corridors, then removed the remaining right-side low-saturation moon-glow matte residue outside the face/eyes.",
+        "date": "2026-06-05",
+        "backup_dir": "D:/main/bosspong/.tmp/lunabi_ring_restore_final_backup",
+        "candidate_dir": "D:/main/bosspong/.tmp/lunabi_ring_restore_review/final_candidate_v4",
+        "ring_restore_pixels_v3": 687572,
+        "right_residue_removed_pixels_v3": 159015,
+        "extra_ring_highlight_restore_pixels_v4": 70824,
+        "frames_touched": 16,
+        "frame_count": 16,
+        "restore_regions_norm": {
+          "lower_ring": [
+            0.0,
+            0.515,
+            0.965,
+            0.91
+          ],
+          "main_band_center_y": "0.865 - 0.285*x, tolerance 0.078",
+          "left_loop": {
+            "center": [
+              0.095,
+              0.79
+            ],
+            "radius": [
+              0.12,
+              0.12
+            ]
+          },
+          "right_loop": {
+            "center": [
+              0.735,
+              0.615
+            ],
+            "radius": [
+              0.165,
+              0.155
+            ]
+          }
+        },
+        "residue_cleanup_region_norm": [
+          0.585,
+          0.055,
+          0.955,
+          0.5
+        ]
+      },
+      "acquisition_dismiss": {
+        "tool": "local Pillow/numpy deterministic alpha repair",
+        "operation": "Applied the same orbit-ring restoration and right-side residue cleanup to the 25-frame dismiss sheet.",
+        "date": "2026-06-05",
+        "backup_dir": "D:/main/bosspong/.tmp/lunabi_ring_restore_final_backup",
+        "candidate_dir": "D:/main/bosspong/.tmp/lunabi_ring_restore_review/final_candidate_v4",
+        "ring_restore_pixels_v3": 209917,
+        "right_residue_removed_pixels_v3": 99634,
+        "extra_ring_highlight_restore_pixels_v4": 14799,
+        "frames_touched": 25,
+        "frame_count": 25
+      }
     }
   },
   "qa": {

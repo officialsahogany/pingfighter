@@ -29,7 +29,32 @@
     "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
     "extracted_key_color": "#f203f3",
     "canonical_source_background": "#ff00ff",
-    "note": "Transparent art was extracted from the generated near-magenta source. The magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff."
+    "note": "Transparent art was extracted from the generated near-magenta source. The magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff.",
+    "neck_matte_cleanup": {
+      "tool": "local Pillow/numpy matte cleanup",
+      "operation": "Transparentized near-black matte residue behind the Red Dragon neck/collar only, using two normalized side-neck masks per frame.",
+      "date": "2026-06-04",
+      "masks_norm_xyxy": [
+        [
+          0.25,
+          0.39,
+          0.43,
+          0.7
+        ],
+        [
+          0.57,
+          0.39,
+          0.75,
+          0.7
+        ]
+      ],
+      "dark_rgb_threshold_lt": 85,
+      "alpha_threshold_gt": 20,
+      "removed_pixel_count": 7438,
+      "frames_touched": 1,
+      "frame_count": 1,
+      "backup_dir": "D:/main/bosspong/.tmp/red_dragon_neck_cleanup_backup"
+    }
   },
   "ringpet_rule_audit": {
     "accepted_for_live2d_front_source": true,
@@ -69,7 +94,7 @@
     ],
     "transparent_edge_alpha_count": 0,
     "sha256": {
-      "transparent_art": "d961619dd47f1feadbcfbc20ce2be9b5bfd353a7843faa0eabed9239e57b033f",
+      "transparent_art": "fa4a2f125e02447da7349615a2f45b1bd82d606db02669d90b37891cfaa44df1",
       "magenta_source": "00e81852e0c119270f23541947ad225e0467c140a4f848abecaa5894b2922457"
     }
   }

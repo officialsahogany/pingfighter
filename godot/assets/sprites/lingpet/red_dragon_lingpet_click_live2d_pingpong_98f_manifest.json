@@ -42,8 +42,8 @@
       7168
     ],
     "frame_interval": "runtime 0.036s one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
-    "sha256": "4ce6c7a1192ce831ec166e8a01e41b005b4d7a01b35a9d64b35c5ac746fd02de",
-    "bytes": 72234890
+    "sha256": "73c348777f4b2f1cd86888b69165c6f90d2882718eb75161a4c503a8ac99f695",
+    "bytes": 76004961
   },
   "postprocess": {
     "tool": ".tmp/red_dragon_motion_refresh/upscale_red_dragon_l2d_realesrgan.py",
@@ -58,6 +58,31 @@
       "rgb_upscaled": "D:/main/bosspong/.tmp/red_dragon_motion_refresh/realesrgan_l2d_x2/click/rgb_realesrgan_animev3_x2",
       "alpha_source": "D:/main/bosspong/.tmp/red_dragon_motion_refresh/realesrgan_l2d_x2/click/alpha_source_512",
       "alpha_policy": "Raw 512px AutoSprite RGBA cells were split into alpha-bleed RGB and source alpha. RGB was upscaled with Real-ESRGAN animev3 x2; source alpha was resized separately with Lanczos, clipped, recombined per cell, and reassembled into the original runtime grid."
+    },
+    "neck_matte_cleanup": {
+      "tool": "local Pillow/numpy matte cleanup",
+      "operation": "Transparentized near-black matte residue behind the Red Dragon neck/collar only, using two normalized side-neck masks per frame.",
+      "date": "2026-06-04",
+      "masks_norm_xyxy": [
+        [
+          0.25,
+          0.39,
+          0.43,
+          0.7
+        ],
+        [
+          0.57,
+          0.39,
+          0.75,
+          0.7
+        ]
+      ],
+      "dark_rgb_threshold_lt": 85,
+      "alpha_threshold_gt": 20,
+      "removed_pixel_count": 473094,
+      "frames_touched": 98,
+      "frame_count": 98,
+      "backup_dir": "D:/main/bosspong/.tmp/red_dragon_neck_cleanup_backup"
     }
   },
   "qa": {
