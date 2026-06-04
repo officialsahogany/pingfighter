@@ -1846,7 +1846,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	if sections.is_empty():
 		StageClearResultTextLayoutHelper.draw_centered_text(self, font, LanguageSettings.translate_text("획득 보상 없음"), body_rect, int(round(22.0 * scale)), muted)
 	else:
-		_draw_reward_section_stack(font, sections, body_rect, scale, alpha)
+		StageClearResultRewardCardDrawHelper.draw_reward_section_stack(self, font, sections, body_rect, scale, alpha, Callable(self, "_draw_reward_card"))
 
 	_draw_scroll_buttons(rect, scale, font, alpha)
 
@@ -1904,92 +1904,6 @@ func _draw_section_group_panel(rect: Rect2, scale: float, alpha: float) -> void:
 		max(1.0, 1.0 * scale),
 		16.0 * scale
 	)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_reward_section_stack(font: Font, sections: Array, rect: Rect2, scale: float, alpha: float) -> void:
-	var count: int = sections.size()
-	if count <= 0:
-		return
-	var item_counts: Array = []
-	for section_value in sections:
-		var rewards_size: int = 0
-		if section_value is Dictionary:
-			var rewards_value: Variant = (section_value as Dictionary).get("rewards", [])
-			if rewards_value is Array:
-				rewards_size = (rewards_value as Array).size()
-		item_counts.append(rewards_size)
-
-	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_band_stack_layout(item_counts, rect, scale)
-	var label_col_w: float = float(layout.get("label_col_w", 240.0 * scale))
-	var band_gap: float = float(layout.get("band_gap", 10.0 * scale))
-	var band_height: float = float(layout.get("band_height", 0.0))
-	var card_size: Vector2 = layout.get("card_size", Vector2(148.0, 112.0) * scale)
-	var card_scale: float = float(layout.get("card_scale", scale))
-	var card_gap: float = float(layout.get("card_gap", 16.0 * scale))
-	var columns: int = max(1, int(layout.get("columns", 1)))
-	var card_area_x: float = float(layout.get("card_area_x", rect.position.x + label_col_w))
-	var start_y: float = float(layout.get("start_y", rect.position.y))
-
-	var title_color := Color(0.05, 0.42, 0.52, alpha)
-	var accent_color := Color(0.04, 0.78, 0.94, alpha)
-	var divider_color := Color(0.05, 0.66, 0.84, alpha * 0.22)
-	var label_font_size: int = max(13, int(round(22.0 * scale)))
-
-	for i in range(count):
-		var section_value2: Variant = sections[i]
-		var section: Dictionary = section_value2 if section_value2 is Dictionary else {}
-		var rewards_value2: Variant = section.get("rewards", [])
-		var rewards: Array = rewards_value2 if rewards_value2 is Array else []
-		var band_top: float = start_y + float(i) * (band_height + band_gap)
-		if i > 0:
-			var divider_y: float = band_top - band_gap * 0.5
-			draw_line(
-				Vector2(rect.position.x + 16.0 * scale, divider_y),
-				Vector2(rect.end.x - 16.0 * scale, divider_y),
-				divider_color,
-				max(1.0, 1.2 * scale)
-			)
-
-		# Left label column (accent bar + "category  N"), vertically centred.
-		var accent_bar := Rect2(
-			Vector2(rect.position.x + 6.0 * scale, band_top + (band_height - 24.0 * scale) * 0.5),
-			Vector2(6.0 * scale, 24.0 * scale)
-		)
-		StageClearResultShapeHelper.draw_panel(self, accent_bar, accent_color, Color(0.0, 0.0, 0.0, 0.0), 0.0, 3.0 * scale)
-		var label_rect := Rect2(
-			Vector2(rect.position.x + 22.0 * scale, band_top),
-			Vector2(max(1.0, label_col_w - 30.0 * scale), band_height)
-		)
-		StageClearResultTextLayoutHelper.draw_centered_text(
-			self,
-			font,
-			"%s  %d" % [str(section.get("title", "")), rewards.size()],
-			label_rect,
-			label_font_size,
-			title_color
-		)
-
-		# Card row, grid-wrapped if needed, vertically centred in the band and
-		# left-aligned in the card area.
-		var n: int = rewards.size()
-		var rows: int = int(ceil(float(max(1, n)) / float(columns)))
-		var grid_height: float = float(rows) * card_size.y + float(max(0, rows - 1)) * card_gap
-		var grid_top: float = band_top + max(0.0, (band_height - grid_height) * 0.5)
-		for j in range(n):
-			var reward_value: Variant = rewards[j]
-			if not (reward_value is Dictionary):
-				continue
-			var row: int = int(floor(float(j) / float(columns)))
-			var col: int = j % columns
-			var card_rect := Rect2(
-				Vector2(
-					card_area_x + float(col) * (card_size.x + card_gap),
-					grid_top + float(row) * (card_size.y + card_gap)
-				),
-				card_size
-			)
-			_draw_reward_card(font, reward_value, card_rect, card_scale, alpha)
 
 
 @warning_ignore("shadowed_variable_base_class")

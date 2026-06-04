@@ -1,8 +1,101 @@
 extends RefCounted
 
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
+
+
+static func draw_reward_section_stack(
+	canvas: CanvasItem,
+	font: Font,
+	sections: Array,
+	rect: Rect2,
+	scale: float,
+	alpha: float,
+	card_draw_callback: Callable
+) -> void:
+	if canvas == null or font == null:
+		return
+	var count: int = sections.size()
+	if count <= 0:
+		return
+	var item_counts: Array = []
+	for section_value in sections:
+		var rewards_size: int = 0
+		if section_value is Dictionary:
+			var rewards_value: Variant = (section_value as Dictionary).get("rewards", [])
+			if rewards_value is Array:
+				rewards_size = (rewards_value as Array).size()
+		item_counts.append(rewards_size)
+
+	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_band_stack_layout(item_counts, rect, scale)
+	var label_col_w: float = float(layout.get("label_col_w", 240.0 * scale))
+	var band_gap: float = float(layout.get("band_gap", 10.0 * scale))
+	var band_height: float = float(layout.get("band_height", 0.0))
+	var card_size: Vector2 = layout.get("card_size", Vector2(148.0, 112.0) * scale)
+	var card_scale: float = float(layout.get("card_scale", scale))
+	var card_gap: float = float(layout.get("card_gap", 16.0 * scale))
+	var columns: int = max(1, int(layout.get("columns", 1)))
+	var card_area_x: float = float(layout.get("card_area_x", rect.position.x + label_col_w))
+	var start_y: float = float(layout.get("start_y", rect.position.y))
+
+	var title_color := Color(0.05, 0.42, 0.52, alpha)
+	var accent_color := Color(0.04, 0.78, 0.94, alpha)
+	var divider_color := Color(0.05, 0.66, 0.84, alpha * 0.22)
+	var label_font_size: int = max(13, int(round(22.0 * scale)))
+
+	for i in range(count):
+		var section_value2: Variant = sections[i]
+		var section: Dictionary = section_value2 if section_value2 is Dictionary else {}
+		var rewards_value2: Variant = section.get("rewards", [])
+		var rewards: Array = rewards_value2 if rewards_value2 is Array else []
+		var band_top: float = start_y + float(i) * (band_height + band_gap)
+		if i > 0:
+			var divider_y: float = band_top - band_gap * 0.5
+			canvas.draw_line(
+				Vector2(rect.position.x + 16.0 * scale, divider_y),
+				Vector2(rect.end.x - 16.0 * scale, divider_y),
+				divider_color,
+				max(1.0, 1.2 * scale)
+			)
+
+		var accent_bar := Rect2(
+			Vector2(rect.position.x + 6.0 * scale, band_top + (band_height - 24.0 * scale) * 0.5),
+			Vector2(6.0 * scale, 24.0 * scale)
+		)
+		StageClearResultShapeHelper.draw_panel(canvas, accent_bar, accent_color, Color(0.0, 0.0, 0.0, 0.0), 0.0, 3.0 * scale)
+		var label_rect := Rect2(
+			Vector2(rect.position.x + 22.0 * scale, band_top),
+			Vector2(max(1.0, label_col_w - 30.0 * scale), band_height)
+		)
+		StageClearResultTextLayoutHelper.draw_centered_text(
+			canvas,
+			font,
+			"%s  %d" % [str(section.get("title", "")), rewards.size()],
+			label_rect,
+			label_font_size,
+			title_color
+		)
+
+		var n: int = rewards.size()
+		var rows: int = int(ceil(float(max(1, n)) / float(columns)))
+		var grid_height: float = float(rows) * card_size.y + float(max(0, rows - 1)) * card_gap
+		var grid_top: float = band_top + max(0.0, (band_height - grid_height) * 0.5)
+		for j in range(n):
+			var reward_value: Variant = rewards[j]
+			if not (reward_value is Dictionary):
+				continue
+			var row: int = int(floor(float(j) / float(columns)))
+			var col: int = j % columns
+			var card_rect := Rect2(
+				Vector2(
+					card_area_x + float(col) * (card_size.x + card_gap),
+					grid_top + float(row) * (card_size.y + card_gap)
+				),
+				card_size
+			)
+			card_draw_callback.call(font, reward_value, card_rect, card_scale, alpha)
 
 
 static func draw_reward_card_shell(

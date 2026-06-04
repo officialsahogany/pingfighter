@@ -20,6 +20,9 @@ func _init() -> void:
 
 func _verify_helper_source() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+	_expect(source.find("static func draw_reward_section_stack") >= 0, "reward card draw helper should own reward section-stack drawing")
+	_expect(source.find("StageClearResultLayoutHelper.calculate_reward_band_stack_layout") >= 0, "reward section-stack drawing should use the layout helper")
+	_expect(source.find("card_draw_callback.call") >= 0, "reward section-stack drawing should delegate card body drawing through a callback")
 	_expect(source.find("static func draw_reward_card_shell") >= 0, "reward card draw helper should own card shell drawing")
 	_expect(source.find("static func draw_reward_source_chip") >= 0, "reward card draw helper should own source-chip drawing")
 	_expect(source.find("static func draw_reward_card_label") >= 0, "reward card draw helper should own card label drawing")
@@ -34,9 +37,11 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_reward_card_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_section_stack") >= 0, "result scene should delegate reward section-stack drawing")
 	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_card_shell") >= 0, "result scene should delegate reward card shell drawing")
 	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_source_chip") >= 0, "result scene should delegate reward source-chip drawing")
 	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_card_label") >= 0, "result scene should delegate reward card label drawing")
+	_expect(source.find("func _draw_reward_section_stack") < 0, "result scene should not keep reward section-stack drawing wrappers")
 	_expect(source.find("func _draw_reward_source_chip") < 0, "result scene should not keep source-chip drawing wrappers")
 
 
