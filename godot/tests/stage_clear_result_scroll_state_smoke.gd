@@ -54,6 +54,18 @@ func _verify_direct_visual_values() -> void:
 
 
 func _verify_direct_scroll_geometry() -> void:
+	_expect(
+		StageClearResultScrollState.SCROLL_REGION_RECT == StageClearResultScene.SCROLL_REGION_RECT,
+		"scroll state should own the scene-compatible authored scroll region"
+	)
+	_expect(
+		StageClearResultScrollState.SCROLL_CONTENT_MARGIN == StageClearResultScene.SCROLL_CONTENT_MARGIN,
+		"scroll state should own the scene-compatible scroll content margin"
+	)
+	_expect(
+		is_equal_approx(StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN, StageClearResultScene.SCROLL_DRAG_VIEW_MARGIN),
+		"scroll state should own the scene-compatible drag margin"
+	)
 	var base_rect := StageClearResultScrollState.get_base_rect(
 		1.0,
 		StageClearResultScene.SCROLL_REGION_RECT
@@ -96,10 +108,19 @@ func _verify_scene_scroll_delegates() -> void:
 		"scene scroll fields should remain compatible with the delegated box-alpha helper"
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_state.gd")
+	var box_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	_expect(
 		source.find("StageClearResultScrollState.get_unfurl_progress") >= 0
-		and source.find("StageClearResultScrollState.get_box_global_alpha") >= 0,
-		"result scene should call scroll visual helpers directly"
+			and box_draw_source.find("StageClearResultScrollState.get_box_global_alpha") >= 0,
+		"result scene / box draw helper should delegate scroll visual helpers"
+	)
+	_expect(
+		source.find("const SCROLL_REGION_TOP") < 0
+			and helper_source.find("const SCROLL_REGION_RECT") >= 0
+			and helper_source.find("const SCROLL_CONTENT_MARGIN") >= 0
+			and helper_source.find("const SCROLL_DRAG_VIEW_MARGIN") >= 0,
+		"scroll state should own authored scroll geometry constants"
 	)
 	_expect(
 		source.find("func _get_scroll_unfurl_progress") < 0

@@ -5,6 +5,12 @@ const PHASE_DELAY := "delay"
 const PHASE_UNFURLING := "unfurling"
 const PHASE_VISIBLE := "visible"
 
+# Extended downward (was 850) so the acquired-item list has room for the
+# separate active / passive / mythic bands without cramping the cards.
+const SCROLL_REGION_RECT := Rect2(Vector2(340.0, 96.0), Vector2(1240.0, 904.0))
+const SCROLL_CONTENT_MARGIN := Vector4(70.0, 90.0, 70.0, 76.0)
+const SCROLL_DRAG_VIEW_MARGIN := 72.0
+
 
 static func update_phase(
 	phase: String,

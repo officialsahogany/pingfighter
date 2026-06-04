@@ -118,18 +118,9 @@ const BOX_LID_OPEN_PROGRESS := 0.55
 
 const SCROLL_DELAY := 1.10
 const SCROLL_UNFURL_DURATION := 0.95
-const SCROLL_REGION_TOP := 96.0
-# Extended downward (was 850) so the acquired-item list has room for the
-# separate active / passive / mythic bands without cramping the cards.
-const SCROLL_REGION_BOTTOM := 1000.0
-const SCROLL_REGION_LEFT := 340.0
-const SCROLL_REGION_RIGHT := 1580.0
-const SCROLL_REGION_RECT := Rect2(
-	Vector2(SCROLL_REGION_LEFT, SCROLL_REGION_TOP),
-	Vector2(SCROLL_REGION_RIGHT - SCROLL_REGION_LEFT, SCROLL_REGION_BOTTOM - SCROLL_REGION_TOP)
-)
-const SCROLL_CONTENT_MARGIN := Vector4(70.0, 90.0, 70.0, 76.0)
-const SCROLL_DRAG_VIEW_MARGIN := 72.0
+const SCROLL_REGION_RECT := StageClearResultScrollState.SCROLL_REGION_RECT
+const SCROLL_CONTENT_MARGIN := StageClearResultScrollState.SCROLL_CONTENT_MARGIN
+const SCROLL_DRAG_VIEW_MARGIN := StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN
 
 const PLACEHOLDER_GOLD := 1240
 const RESULT_BOX_SHEET_COMMON_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_COMMON_PATH
