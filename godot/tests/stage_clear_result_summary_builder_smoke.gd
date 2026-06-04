@@ -68,9 +68,13 @@ func _verify_reward_summaries() -> void:
 	var perks: Array = StageClearResultSummaryBuilder.build_perk_summary(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	var visible: Array = StageClearResultSummaryBuilder.build_visible_reward_summary(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	var state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
+	var item_groups: Dictionary = StageClearResultSummaryBuilder.split_item_rewards_by_type(items)
 	_expect(items.size() == 3, "item summary should include stage active/passive and box item rewards")
 	_expect(perks.size() == 4, "perk summary should include stage perks, box skill rewards, and box-selected perks")
 	_expect(visible.size() == 5, "visible summary should replace resolved starpoints with selected perk rewards")
+	_expect((item_groups.get("active_items", []) as Array).size() == 1, "item reward groups should split active items")
+	_expect((item_groups.get("passive_items", []) as Array).size() == 1, "item reward groups should split passive items")
+	_expect((item_groups.get("mythic_items", []) as Array).size() == 1, "item reward groups should split mythic items")
 	_expect(int(StageClearResultSummaryBuilder.calculate_starpoint_total(boxes)) == 1, "starpoint total should count only unresolved box starpoints")
 	_expect(int(state.get("item_reward_count", 0)) == items.size(), "summary state should expose item reward count")
 	_expect(int(state.get("perk_reward_count", 0)) == perks.size(), "summary state should expose perk reward count")
@@ -225,6 +229,11 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 	_expect(
 		source.find("reward_summary_state.get(\"item_rewards\"") >= 0,
 		"stage-clear result scene should render the item column from item-only rewards"
+	)
+	_expect(
+		source.find("StageClearResultSummaryBuilder.split_item_rewards_by_type") >= 0
+			and source.find("match str(item_dict.get(\"type\", \"\"))") < 0,
+		"stage-clear result scene should delegate active/passive/mythic item grouping"
 	)
 	_expect(
 		source.find("StageClearResultSummaryBuilder.resolve_display_gold") >= 0

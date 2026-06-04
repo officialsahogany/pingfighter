@@ -1361,20 +1361,13 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 
 	# Split acquired items by type so the scroll lists active / passive / mythic
 	# under their own labelled bands instead of one mixed "획득 아이템" grid.
-	var active_items: Array = []
-	var passive_items: Array = []
-	var mythic_items: Array = []
-	for item_value in item_rewards:
-		if not (item_value is Dictionary):
-			continue
-		var item_dict: Dictionary = item_value
-		match str(item_dict.get("type", "")):
-			"active":
-				active_items.append(item_dict)
-			"mythic":
-				mythic_items.append(item_dict)
-			_:
-				passive_items.append(item_dict)
+	var item_groups: Dictionary = StageClearResultSummaryBuilder.split_item_rewards_by_type(item_rewards)
+	var active_items_value: Variant = item_groups.get("active_items", [])
+	var passive_items_value: Variant = item_groups.get("passive_items", [])
+	var mythic_items_value: Variant = item_groups.get("mythic_items", [])
+	var active_items: Array = active_items_value if active_items_value is Array else []
+	var passive_items: Array = passive_items_value if passive_items_value is Array else []
+	var mythic_items: Array = mythic_items_value if mythic_items_value is Array else []
 
 	var sections: Array = []
 	if not perks.is_empty():

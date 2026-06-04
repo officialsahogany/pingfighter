@@ -1371,8 +1371,9 @@ This section is intentionally long; use search to find the nearest owner.
   sheet playback, score-based reward chest animation, result scroll input,
   result scroll drawing, and scene-local linear texture filtering for
   cutscene art. Result-scroll reward summary arrays, source counts,
-  perk-info tile payloads, starpoint totals, and perk reward ID
-  classification are delegated to `stage_clear_result_summary_builder.gd`;
+  perk-info tile payloads, active / passive / mythic item grouping,
+  starpoint totals, and perk reward ID classification are delegated to
+  `stage_clear_result_summary_builder.gd`;
   reward card colors / rects, reward label visual state, reward item icon
   visual state / palettes, starpoint visual state, badges, fallback reward
   icon state, and source-chip labels / colors / rects are delegated to
@@ -1519,8 +1520,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_summary_builder.gd`
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
-  reward-source count payloads, perk-info tile payloads, box starpoint
-  totals, display-gold / score-rating summary-strip metrics,
+  active / passive / mythic item grouping, reward-source count payloads,
+  perk-info tile payloads, box starpoint totals, display-gold / score-rating
+  summary-strip metrics,
   stage-summary array duplication, and perk reward ID classification. The
   scene still owns
   reward rolling, final grant callbacks, scroll/button input, drawing, and

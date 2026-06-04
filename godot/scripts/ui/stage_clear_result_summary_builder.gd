@@ -63,6 +63,28 @@ static func build_item_summary(
 	return items
 
 
+static func split_item_rewards_by_type(item_rewards: Array) -> Dictionary:
+	var active_items: Array = []
+	var passive_items: Array = []
+	var mythic_items: Array = []
+	for item_value in item_rewards:
+		if not (item_value is Dictionary):
+			continue
+		var item_dict: Dictionary = item_value
+		match str(item_dict.get("type", "")):
+			"active":
+				active_items.append(item_dict)
+			"mythic":
+				mythic_items.append(item_dict)
+			_:
+				passive_items.append(item_dict)
+	return {
+		"active_items": active_items,
+		"passive_items": passive_items,
+		"mythic_items": mythic_items,
+	}
+
+
 static func build_perk_summary(
 	stage_reward_snapshot: Dictionary,
 	boxes: Array,
