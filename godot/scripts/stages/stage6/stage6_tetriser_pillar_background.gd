@@ -1,72 +1,39 @@
 extends RefCounted
 
-# Stage 6 테트리서 pillar background.
+# Stage 6 Tetriser pillar background.
 #
-# Faithful procedural port of Python backgrounds/animated_background_stage7.py
-# (AnimatedBackgroundStage7) — the atmospheric "테트리스 아레나 / 요새 내부"
-# overlay: 4 pulsing torch glows, a sweeping light band, drifting light motes,
-# and a blue-purple arena border frame.
-#
-# The central pseudo-3D cube from the Python class is NOT drawn here: in the
-# Godot port the cube is a gameplay object owned by stage6_tetriser_state.gd
-# and rendered by stage6_tetriser_playfield_renderer.gd (_draw_cube). Drawing
-# it here too would double it.
-#
-# Coordinate convention matches the stage5 홍련 background sibling: the canvas
-# is screen-pixel space, view_size is the full screen, game_offset/game_size
-# describe the game canvas region. Python logical coords (760x750 Godot canvas)
-# map via to_screen(p) = game_offset + (p / LOGICAL) * game_size.
+# Fresh Godot-native visual pass inspired by early arcade/console Tetris side
+# furniture: black wells, beveled stone columns, blocky score plinths, a small
+# palace marquee, and Ringpia cyan/gold ring accents. Gameplay tetrominoes and
+# the central cube remain owned by stage6_tetriser_state/playfield_renderer.
 
 const LOGICAL := Vector2(760.0, 750.0)
 
-const BG_COLOR := Color(0.07, 0.10, 0.18, 1.0)
-const PILLAR_TINT := Color(0.03, 0.045, 0.085, 1.0)
-
-# Torch centers in logical space (Python torch_positions, remapped to 760-wide).
-const TORCH_POSITIONS: Array[Vector2] = [
-	Vector2(96.0, 176.0),
-	Vector2(664.0, 176.0),
-	Vector2(96.0, 530.0),
-	Vector2(664.0, 530.0),
-]
-const TORCH_BLUE := Color(120.0 / 255.0, 200.0 / 255.0, 1.0, 1.0)
-const TORCH_WARM := Color(1.0, 180.0 / 255.0, 120.0 / 255.0, 1.0)
-const TORCH_CORE := Color(1.0, 236.0 / 255.0, 200.0 / 255.0, 1.0)
-
-# Sweeping light band (Python prerendered 200x180 gradient).
-const BAND_LOGICAL_SIZE := Vector2(200.0, 180.0)
-const BAND_TEX_WIDTH := 192
-const BAND_SWEEP_SPEED := 120.0   # logical px/sec (Python time*120)
-
-const MOTE_COUNT := 12
-const MOTE_COLOR := Color(170.0 / 255.0, 220.0 / 255.0, 1.0, 1.0)
-
-# Arena border frame (Python _draw_border).
-const BORDER_THICKNESS := 10.0
-const BORDER_BASE := Color(40.0 / 255.0, 50.0 / 255.0, 80.0 / 255.0, 1.0)
-const BORDER_INNER := Color(60.0 / 255.0, 80.0 / 255.0, 120.0 / 255.0, 1.0)
-const BORDER_GLOW := Color(120.0 / 255.0, 170.0 / 255.0, 1.0, 1.0)
-
-const LOD_THRESHOLD := 0.7
-const SEVERE_LOD_THRESHOLD := 0.6
+const VOID_COLOR := Color(0.005, 0.006, 0.015, 1.0)
+const FIELD_COLOR := Color(0.010, 0.012, 0.026, 1.0)
+const GRID_COLOR := Color(0.05, 0.14, 0.20, 0.20)
+const STONE := Color(0.55, 0.56, 0.68, 1.0)
+const STONE_DARK := Color(0.24, 0.25, 0.42, 1.0)
+const STONE_SHADOW := Color(0.08, 0.08, 0.18, 1.0)
+const STONE_LIGHT := Color(0.78, 0.80, 0.92, 1.0)
+const PURPLE_EDGE := Color(0.38, 0.34, 0.84, 1.0)
+const BLUE_EDGE := Color(0.18, 0.42, 0.92, 1.0)
+const RED_CLOTH := Color(0.86, 0.04, 0.10, 1.0)
+const GOLD := Color(1.0, 0.68, 0.16, 1.0)
+const RING_CYAN := Color(0.05, 0.84, 1.0, 1.0)
+const RING_BLUE := Color(0.18, 0.35, 1.0, 1.0)
+const NEON_RED := Color(1.0, 0.08, 0.16, 1.0)
 
 var _time := 0.0
 var _last_draw_msec := 0
-var _motes: Array = []
-var _band_texture: Texture2D = null
 var _ready := false
 
 
 func prewarm_assets() -> void:
-	while not prewarm_assets_step():
-		pass
+	_ready = true
 
 
 func prewarm_assets_step() -> bool:
-	if _ready:
-		return true
-	_build_motes()
-	_band_texture = _build_band_texture()
 	_ready = true
 	return true
 
@@ -74,13 +41,12 @@ func prewarm_assets_step() -> bool:
 func reset() -> void:
 	_time = 0.0
 	_last_draw_msec = 0
-	_motes.clear()
 	_ready = false
 
 
 func update(_delta: float, _context: Dictionary = {}, _deps: Dictionary = {}) -> void:
-	# Time + motes advance via _consume_draw_delta() in draw() so this stays a
-	# no-op (advancing here too would double the animation rate).
+	# Time advances from draw() to match the existing controller-driven pillar
+	# background path and avoid double-speed animation.
 	pass
 
 
@@ -95,10 +61,10 @@ func draw(
 ) -> bool:
 	if canvas == null:
 		return false
-	_ensure_ready()
+	if not _ready:
+		prewarm_assets()
 	var dt := _consume_draw_delta()
 	_time += dt
-	_advance_motes(dt)
 
 	var target_size := view_size
 	if target_size.x <= 0.0 or target_size.y <= 0.0:
@@ -109,19 +75,12 @@ func draw(
 		game_offset = Vector2.ZERO
 		game_size = target_size
 
-	# Base fill (full screen) + subtle letterbox darkening for arena separation.
-	canvas.draw_rect(Rect2(Vector2.ZERO, target_size), BG_COLOR)
-	_draw_pillar_tint(canvas, target_size, game_offset, game_size)
-
-	var s := game_size.x / LOGICAL.x   # uniform scale for radii / sizes
-	var severe := quality_scale <= SEVERE_LOD_THRESHOLD
-	var low := quality_scale <= LOD_THRESHOLD
-
-	_draw_torches(canvas, game_offset, game_size, s, low)
-	_draw_light_band(canvas, game_offset, game_size)
-	if not severe:
-		_draw_motes(canvas, game_offset, game_size, s)
-	_draw_border(canvas, game_offset, game_size, s)
+	canvas.draw_rect(Rect2(Vector2.ZERO, target_size), VOID_COLOR)
+	_draw_scan_grid(canvas, target_size, quality_scale)
+	_draw_playfield_backplate(canvas, game_offset, game_size, quality_scale)
+	_draw_letterbox_architecture(canvas, target_size, game_offset, game_size, quality_scale)
+	_draw_central_marquee(canvas, game_offset, game_size, quality_scale)
+	_draw_ringpia_orbits(canvas, game_offset, game_size, quality_scale)
 	return true
 
 
@@ -137,134 +96,157 @@ func draw_pillar_background_overlay(
 	pass
 
 
-# ------------------------------------------------------------------
-# atmosphere layers
-# ------------------------------------------------------------------
-func _draw_pillar_tint(canvas: CanvasItem, target_size: Vector2, game_offset: Vector2, game_size: Vector2) -> void:
-	var left_w := maxf(0.0, game_offset.x)
-	if left_w > 0.0:
-		canvas.draw_rect(Rect2(Vector2.ZERO, Vector2(left_w, target_size.y)), PILLAR_TINT)
+func get_asset_status() -> Dictionary:
+	return {
+		"theme": "retro_tetris_ringpia",
+		"uses_runtime_textures": false,
+		"draws_old_tetris_columns": true,
+	}
+
+
+func _draw_scan_grid(canvas: CanvasItem, target_size: Vector2, quality_scale: float) -> void:
+	var gap := 78.0
+	var phase := fmod(_time * 10.0, gap)
+	var alpha := 0.16 if quality_scale > 0.55 else 0.08
+	var line_color := Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, alpha)
+	var x := -target_size.y * 0.16 - phase
+	while x < target_size.x + target_size.y * 0.16:
+		canvas.draw_line(Vector2(x, 0.0), Vector2(x + target_size.y * 0.16, target_size.y), line_color, 1.0, true)
+		x += gap
+	var y := 112.0
+	while y < target_size.y:
+		canvas.draw_line(Vector2(0.0, y), Vector2(target_size.x, y), Color(0.70, 0.55, 0.12, 0.055), 1.0, true)
+		y += 92.0
+
+
+func _draw_playfield_backplate(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, quality_scale: float) -> void:
+	var play_rect := Rect2(game_offset, game_size)
+	canvas.draw_rect(play_rect, FIELD_COLOR)
+	var border_w := maxf(2.0, game_size.x / LOGICAL.x * 3.0)
+	canvas.draw_rect(play_rect.grow(2.0), Color(0.03, 0.06, 0.12, 0.95), false, border_w + 2.0, true)
+	canvas.draw_rect(play_rect, Color(0.11, 0.18, 0.34, 0.88), false, border_w, true)
+	canvas.draw_line(play_rect.position + Vector2(0.0, border_w), play_rect.position + Vector2(game_size.x, border_w), Color(0.34, 0.54, 0.92, 0.48), 1.0, true)
+	if quality_scale > 0.52:
+		var band_w := game_size.x * 0.18
+		var sweep_x := game_offset.x + fmod(_time * 68.0, game_size.x + band_w) - band_w
+		var band_rect := Rect2(Vector2(sweep_x, game_offset.y + game_size.y * 0.58), Vector2(band_w, game_size.y * 0.28))
+		canvas.draw_rect(band_rect, Color(0.12, 0.35, 0.58, 0.18))
+
+
+func _draw_letterbox_architecture(
+	canvas: CanvasItem,
+	target_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	quality_scale: float
+) -> void:
+	var left_rect := Rect2(Vector2.ZERO, Vector2(maxf(0.0, game_offset.x), target_size.y))
 	var right_x := game_offset.x + game_size.x
-	var right_w := maxf(0.0, target_size.x - right_x)
-	if right_w > 0.0:
-		canvas.draw_rect(Rect2(Vector2(right_x, 0.0), Vector2(right_w, target_size.y)), PILLAR_TINT)
+	var right_rect := Rect2(Vector2(right_x, 0.0), Vector2(maxf(0.0, target_size.x - right_x), target_size.y))
+	if left_rect.size.x >= 46.0:
+		_draw_side_architecture(canvas, left_rect, false, quality_scale)
+	if right_rect.size.x >= 46.0:
+		_draw_side_architecture(canvas, right_rect, true, quality_scale)
 
 
-func _draw_torches(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, s: float, low: bool) -> void:
-	for index in range(TORCH_POSITIONS.size()):
-		var logical: Vector2 = TORCH_POSITIONS[index]
-		var pos := _to_screen(logical, game_offset, game_size)
-		var wobble := 0.4 + 0.3 * sin(_time * 6.0 + float(index) * 1.7)
-		var base_radius := (28.0 + 2.0 * sin(_time * 4.3 + float(index))) * s
-		# Two prismatic layers (blue then warm), Python prism_palette.
-		for layer in range(2):
-			var color := TORCH_BLUE if layer == 0 else TORCH_WARM
-			var layer_radius := base_radius * (1.0 + float(layer) * 0.35)
-			var alpha := (70.0 + 35.0 * wobble - float(layer) * 12.0) / 255.0
-			if alpha > 0.0:
-				canvas.draw_circle(pos + Vector2(0.0, -4.0 * s), layer_radius, Color(color.r, color.g, color.b, alpha))
-		# Warm core.
-		var core_alpha := (180.0 + 50.0 * wobble) / 255.0
-		canvas.draw_circle(pos + Vector2(0.0, -6.0 * s), 14.0 * s, Color(TORCH_CORE.r, TORCH_CORE.g, TORCH_CORE.b, core_alpha))
-		# Halo ring only when bright (and skip under LOD).
-		if not low and wobble > 0.5:
-			var halo_radius := base_radius * 1.8
-			var halo_alpha := (50.0 + 40.0 * wobble) / 255.0
-			canvas.draw_arc(pos + Vector2(0.0, -6.0 * s), halo_radius, 0.0, TAU, 28, Color(TORCH_BLUE.r, TORCH_BLUE.g, TORCH_BLUE.b, halo_alpha), 2.0 * s, true)
+func _draw_side_architecture(canvas: CanvasItem, rect: Rect2, right_side: bool, quality_scale: float) -> void:
+	canvas.draw_rect(rect, Color(0.0, 0.0, 0.0, 1.0))
+	var inner := rect.grow(-maxf(6.0, rect.size.x * 0.035))
+	inner.size.y = maxf(1.0, inner.size.y)
+	var column_w := clampf(rect.size.x * 0.12, 12.0, 34.0)
+	var frame_rect := Rect2(Vector2(inner.position.x + column_w, inner.position.y + 42.0), Vector2(maxf(20.0, inner.size.x - column_w * 2.0), inner.size.y - 92.0))
+	_draw_stone_column(canvas, Rect2(inner.position, Vector2(column_w, inner.size.y)), right_side)
+	_draw_stone_column(canvas, Rect2(Vector2(inner.end.x - column_w, inner.position.y), Vector2(column_w, inner.size.y)), right_side)
+	_draw_bottom_plinth(canvas, Rect2(Vector2(inner.position.x, inner.end.y - 86.0), Vector2(inner.size.x, 76.0)), right_side)
+	canvas.draw_rect(frame_rect.grow(8.0), STONE_SHADOW)
+	canvas.draw_rect(frame_rect.grow(5.0), STONE_DARK)
+	canvas.draw_rect(frame_rect.grow(2.0), PURPLE_EDGE, false, 2.0, true)
+	canvas.draw_rect(frame_rect, Color(0.0, 0.0, 0.0, 0.92))
+	canvas.draw_line(frame_rect.position, Vector2(frame_rect.end.x, frame_rect.position.y), Color(0.70, 0.68, 0.96, 0.55), 2.0, true)
+	if quality_scale > 0.55:
+		_draw_hanging_lantern(canvas, Vector2(frame_rect.get_center().x, frame_rect.position.y - 18.0), right_side)
 
 
-func _draw_light_band(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2) -> void:
-	if _band_texture == null:
+func _draw_stone_column(canvas: CanvasItem, rect: Rect2, right_side: bool) -> void:
+	canvas.draw_rect(rect, STONE_DARK)
+	canvas.draw_rect(rect.grow(-2.0), STONE)
+	var segment_h := maxf(36.0, rect.size.y / 9.0)
+	var y := rect.position.y + 14.0
+	while y < rect.end.y - 24.0:
+		var seg := Rect2(Vector2(rect.position.x + 3.0, y), Vector2(rect.size.x - 6.0, segment_h * 0.64))
+		canvas.draw_rect(seg, Color(0.66, 0.66, 0.76, 1.0))
+		canvas.draw_line(seg.position, Vector2(seg.end.x, seg.position.y), STONE_LIGHT, 1.0, true)
+		canvas.draw_line(Vector2(seg.position.x, seg.end.y), seg.end, STONE_SHADOW, 1.0, true)
+		y += segment_h
+	var edge_x := rect.end.x - 2.0 if right_side else rect.position.x + 2.0
+	canvas.draw_line(Vector2(edge_x, rect.position.y), Vector2(edge_x, rect.end.y), BLUE_EDGE, 2.0, true)
+
+
+func _draw_bottom_plinth(canvas: CanvasItem, rect: Rect2, right_side: bool) -> void:
+	canvas.draw_rect(rect, STONE_SHADOW)
+	var body := rect.grow(-4.0)
+	canvas.draw_rect(body, Color(0.12, 0.13, 0.32, 1.0))
+	canvas.draw_rect(body, PURPLE_EDGE, false, 2.0, true)
+	var stripe_w := maxf(5.0, body.size.x * 0.035)
+	var stripe_x := body.end.x - stripe_w - 4.0 if right_side else body.position.x + 4.0
+	canvas.draw_rect(Rect2(Vector2(stripe_x, body.position.y + 6.0), Vector2(stripe_w, body.size.y - 12.0)), NEON_RED)
+	var ring_center := body.get_center() + Vector2(0.0, -body.size.y * 0.04)
+	canvas.draw_arc(ring_center, minf(body.size.x, body.size.y) * 0.31, 0.0, TAU, 32, Color(RING_CYAN.r, RING_CYAN.g, RING_CYAN.b, 0.26), 2.0, true)
+
+
+func _draw_hanging_lantern(canvas: CanvasItem, pos: Vector2, right_side: bool) -> void:
+	canvas.draw_line(pos + Vector2(0.0, -20.0), pos + Vector2(0.0, -4.0), Color(0.9, 0.55, 0.12, 0.75), 2.0, true)
+	var body := Rect2(pos + Vector2(-7.0, -4.0), Vector2(14.0, 19.0))
+	canvas.draw_rect(body, GOLD)
+	canvas.draw_rect(body, Color(0.42, 0.22, 0.72, 1.0), false, 2.0, true)
+	var glow_color := Color(RING_CYAN.r, RING_CYAN.g, RING_CYAN.b, 0.09 if right_side else 0.12)
+	canvas.draw_circle(pos + Vector2(0.0, 6.0), 24.0, glow_color)
+
+
+func _draw_central_marquee(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, quality_scale: float) -> void:
+	if game_size.x <= 0.0 or game_size.y <= 0.0:
 		return
-	var span := LOGICAL.x + BAND_LOGICAL_SIZE.x
-	var sweep := fmod(_time * BAND_SWEEP_SPEED, span) - BAND_LOGICAL_SIZE.x
-	var band_top := LOGICAL.y * 0.5 - BAND_LOGICAL_SIZE.y * 0.5
-	var screen_pos := _to_screen(Vector2(sweep, band_top), game_offset, game_size)
-	var scale := game_size / LOGICAL
-	var screen_size := Vector2(BAND_LOGICAL_SIZE.x * scale.x, BAND_LOGICAL_SIZE.y * scale.y)
-	canvas.draw_texture_rect(_band_texture, Rect2(screen_pos, screen_size), false, Color(1.0, 1.0, 1.0, 0.85))
+	var scale := game_size.x / LOGICAL.x
+	var top_center := game_offset + Vector2(game_size.x * 0.5, maxf(28.0 * scale, 22.0))
+	var arch_w := clampf(game_size.x * 0.26, 150.0 * scale, 230.0 * scale)
+	var arch_h := clampf(game_size.y * 0.11, 56.0 * scale, 92.0 * scale)
+	var arch_rect := Rect2(top_center + Vector2(-arch_w * 0.5, 0.0), Vector2(arch_w, arch_h))
+	canvas.draw_rect(Rect2(arch_rect.position + Vector2(0.0, arch_h * 0.45), Vector2(arch_w, arch_h * 0.55)), STONE)
+	canvas.draw_arc(arch_rect.position + Vector2(arch_w * 0.5, arch_h * 0.50), arch_w * 0.5, PI, TAU, 36, STONE_LIGHT, 8.0 * scale, true)
+	canvas.draw_arc(arch_rect.position + Vector2(arch_w * 0.5, arch_h * 0.50), arch_w * 0.5, PI, TAU, 36, PURPLE_EDGE, 3.0 * scale, true)
+	_draw_turret(canvas, arch_rect.position + Vector2(18.0 * scale, arch_h * 0.22), scale)
+	_draw_turret(canvas, arch_rect.position + Vector2(arch_w - 18.0 * scale, arch_h * 0.22), scale)
+	var font: Font = ThemeDB.fallback_font
+	if font != null and quality_scale > 0.45:
+		var font_size: int = maxi(12, int(round(22.0 * scale)))
+		var text: String = "TETRISER"
+		var text_pos: Vector2 = arch_rect.position + Vector2(arch_w * 0.5 - float(font_size) * 2.65, arch_h * 0.58)
+		canvas.draw_string(font, text_pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, arch_w, font_size, Color(0.0, 0.0, 0.0, 0.65))
+		canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, arch_w, font_size, Color(1.0, 0.12, 0.18, 0.86))
+	var cloth_rect := Rect2(arch_rect.position + Vector2(arch_w * 0.18, arch_h * 0.74), Vector2(arch_w * 0.64, 7.0 * scale))
+	canvas.draw_rect(cloth_rect, RED_CLOTH)
+	for i in range(4):
+		var cx := cloth_rect.position.x + cloth_rect.size.x * (float(i) + 0.5) / 4.0
+		canvas.draw_circle(Vector2(cx, cloth_rect.end.y), 5.0 * scale, RED_CLOTH)
 
 
-func _draw_motes(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, s: float) -> void:
-	for mote in _motes:
-		var wobble := sin(_time * 3.0 + float(mote.get("phase", 0.0)))
-		var radius := (float(mote.get("radius", 3.0)) + wobble * 0.4) * s
-		var alpha := (80.0 + 40.0 * wobble) / 255.0
-		var pos := _to_screen(Vector2(float(mote.get("x", 0.0)), float(mote.get("y", 0.0))), game_offset, game_size)
-		canvas.draw_circle(pos, maxf(1.0, radius), Color(MOTE_COLOR.r, MOTE_COLOR.g, MOTE_COLOR.b, alpha))
+func _draw_turret(canvas: CanvasItem, pos: Vector2, scale: float) -> void:
+	var body := Rect2(pos + Vector2(-8.0, 4.0) * scale, Vector2(16.0, 28.0) * scale)
+	canvas.draw_rect(body, STONE)
+	canvas.draw_rect(body, PURPLE_EDGE, false, 2.0 * scale, true)
+	canvas.draw_circle(pos + Vector2(0.0, 0.0) * scale, 9.0 * scale, GOLD)
+	canvas.draw_rect(Rect2(pos + Vector2(-5.0, -10.0) * scale, Vector2(10.0, 12.0) * scale), GOLD)
 
 
-func _draw_border(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, s: float) -> void:
-	var t := BORDER_THICKNESS * s
-	var origin := game_offset
-	var size := game_size
-	# Main frame (top / bottom / left / right).
-	canvas.draw_rect(Rect2(origin, Vector2(size.x, t)), BORDER_BASE)
-	canvas.draw_rect(Rect2(origin + Vector2(0.0, size.y - t), Vector2(size.x, t)), BORDER_BASE)
-	canvas.draw_rect(Rect2(origin, Vector2(t, size.y)), BORDER_BASE)
-	canvas.draw_rect(Rect2(origin + Vector2(size.x - t, 0.0), Vector2(t, size.y)), BORDER_BASE)
-	# Inner highlight lines (depth).
-	var it := maxf(1.0, 2.0 * s)
-	canvas.draw_rect(Rect2(origin + Vector2(t, t), Vector2(size.x - 2.0 * t, it)), BORDER_INNER)
-	canvas.draw_rect(Rect2(origin + Vector2(t, size.y - t - it), Vector2(size.x - 2.0 * t, it)), BORDER_INNER)
-	canvas.draw_rect(Rect2(origin + Vector2(t, t), Vector2(it, size.y - 2.0 * t)), BORDER_INNER)
-	canvas.draw_rect(Rect2(origin + Vector2(size.x - t - it, t), Vector2(it, size.y - 2.0 * t)), BORDER_INNER)
-	# Corner glow accents.
-	var cr := 5.0 * s
-	canvas.draw_circle(origin + Vector2(t * 0.5, t * 0.5), cr, BORDER_GLOW)
-	canvas.draw_circle(origin + Vector2(size.x - t * 0.5, t * 0.5), cr, BORDER_GLOW)
-	canvas.draw_circle(origin + Vector2(t * 0.5, size.y - t * 0.5), cr, BORDER_GLOW)
-	canvas.draw_circle(origin + Vector2(size.x - t * 0.5, size.y - t * 0.5), cr, BORDER_GLOW)
-
-
-# ------------------------------------------------------------------
-# setup / helpers
-# ------------------------------------------------------------------
-func _ensure_ready() -> void:
-	if not _ready:
-		prewarm_assets()
-
-
-func _build_motes() -> void:
-	# Deterministic spread (no RNG) so motion is reproducible across runs/tests.
-	_motes.clear()
-	for i in range(MOTE_COUNT):
-		var fi := float(i)
-		_motes.append({
-			"x": 140.0 + fmod(fi * 71.0, 480.0),
-			"y": 285.0 + fmod(fi * 53.0, 200.0),
-			"speed": 12.0 + fmod(fi * 7.0, 14.0),
-			"phase": fmod(fi * 1.7, TAU),
-			"radius": 2.0 + fmod(fi * 1.3, 2.0),
-		})
-
-
-func _build_band_texture() -> Texture2D:
-	# Horizontal symmetric falloff (Python: alpha = 70 * intensity^1.8, blue).
-	# Built once at prewarm; a 1-row image stretched vertically at draw time.
-	var image := Image.create(BAND_TEX_WIDTH, 1, false, Image.FORMAT_RGBA8)
-	var half := float(BAND_TEX_WIDTH) * 0.5
-	for x in range(BAND_TEX_WIDTH):
-		var intensity := maxf(0.0, 1.0 - absf(float(x) - half) / half)
-		var alpha := pow(intensity, 1.8)
-		image.set_pixel(x, 0, Color(120.0 / 255.0, 186.0 / 255.0, 1.0, alpha))
-	return ImageTexture.create_from_image(image)
-
-
-func _advance_motes(dt: float) -> void:
-	for mote in _motes:
-		var x := float(mote.get("x", 0.0)) + float(mote.get("speed", 16.0)) * dt
-		var y := float(mote.get("y", 0.0)) + sin(_time * 2.0 + float(mote.get("phase", 0.0))) * 0.5
-		if x > LOGICAL.x + 40.0:
-			x = -40.0
-			# Reset to a deterministic band row derived from phase (no RNG).
-			y = 285.0 + fmod(float(mote.get("phase", 0.0)) * 97.0, 200.0)
-		mote["x"] = x
-		mote["y"] = y
-
-
-func _to_screen(logical: Vector2, game_offset: Vector2, game_size: Vector2) -> Vector2:
-	return game_offset + Vector2(logical.x / LOGICAL.x * game_size.x, logical.y / LOGICAL.y * game_size.y)
+func _draw_ringpia_orbits(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, quality_scale: float) -> void:
+	if quality_scale <= 0.5:
+		return
+	var center := game_offset + game_size * Vector2(0.5, 0.64)
+	var radius := minf(game_size.x, game_size.y) * 0.18
+	var spin := _time * 0.65
+	canvas.draw_arc(center, radius, spin, spin + PI * 1.28, 64, Color(RING_CYAN.r, RING_CYAN.g, RING_CYAN.b, 0.22), 3.0, true)
+	canvas.draw_arc(center, radius * 0.72, -spin * 1.3, -spin * 1.3 + PI * 1.15, 54, Color(GOLD.r, GOLD.g, GOLD.b, 0.18), 2.0, true)
+	canvas.draw_circle(center, radius * 0.18, Color(RING_BLUE.r, RING_BLUE.g, RING_BLUE.b, 0.045))
 
 
 func _consume_draw_delta() -> float:

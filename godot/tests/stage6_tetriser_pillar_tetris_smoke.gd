@@ -1,7 +1,10 @@
 extends SceneTree
 
 const Stage6PillarTetris := preload("res://scripts/stages/stage6/stage6_tetriser_pillar_tetris.gd")
+const Stage6PillarBackground := preload("res://scripts/stages/stage6/stage6_tetriser_pillar_background.gd")
 const STAGE6_PILLAR_DRAWER_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd"
+const STAGE6_PILLAR_TETRIS_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_tetris.gd"
+const STAGE6_PILLAR_BACKGROUND_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_background.gd"
 
 var _failures: Array[String] = []
 
@@ -10,6 +13,8 @@ func _init() -> void:
 	_test_falling_piece_uses_smooth_visual_drop()
 	_test_stage6_lod_keeps_pillar_tetris_visible()
 	_test_stage6_drawer_routes_pillar_tetris()
+	_test_retro_tetris_ringpia_background_contract()
+	_test_arcade_well_contract()
 
 	if _failures.is_empty():
 		print("stage6_tetriser_pillar_tetris_smoke: ok")
@@ -45,6 +50,27 @@ func _test_stage6_drawer_routes_pillar_tetris() -> void:
 	_expect(source.find("Stage6PillarTetris") >= 0, "Stage 6 pillar drawer should preload the pillar Tetris deco")
 	_expect(source.find("stage6.pillar.tetris") >= 0, "Stage 6 pillar drawer should emit a pillar Tetris perf sample")
 	_expect(source.find("pillar_tetris.draw(") >= 0, "Stage 6 pillar drawer should draw pillar Tetris between background and HUD")
+
+
+func _test_retro_tetris_ringpia_background_contract() -> void:
+	var background: Object = Stage6PillarBackground.new()
+	var status: Dictionary = background.get_asset_status()
+	_expect(str(status.get("theme", "")) == "retro_tetris_ringpia", "Stage 6 background should use the retro Tetris + Ringpia theme")
+	_expect(bool(status.get("draws_old_tetris_columns", false)), "Stage 6 background should draw old-Tetris-style side columns")
+	var source := FileAccess.get_file_as_string(STAGE6_PILLAR_BACKGROUND_PATH)
+	_expect(source.find("TORCH_POSITIONS") < 0, "retro Stage 6 background should remove the previous torch port")
+	_expect(source.find("_draw_motes") < 0, "retro Stage 6 background should remove the previous mote port")
+	_expect(source.find("ImageTexture.create_from_image") < 0, "retro Stage 6 background should not build runtime gradient textures")
+	_expect(source.find("TETRISER") >= 0, "retro Stage 6 background should draw the Tetriser marquee")
+
+
+func _test_arcade_well_contract() -> void:
+	var source := FileAccess.get_file_as_string(STAGE6_PILLAR_TETRIS_PATH)
+	_expect(source.find("CLASSIC_COLORS") >= 0, "pillar Tetris should use classic tetromino colors")
+	_expect(source.find("\"SCORE %d\"") >= 0, "pillar Tetris should draw a score plinth")
+	_expect(source.find("\"LINES %d\"") >= 0, "pillar Tetris should draw line count text")
+	_expect(source.find("\"RINGPIA 6\"") >= 0, "pillar Tetris should mix in Ringpia identity")
+	_expect(source.find("WELL_BG") >= 0, "pillar Tetris should draw black arcade wells")
 
 
 func _expect(condition: bool, message: String) -> void:
