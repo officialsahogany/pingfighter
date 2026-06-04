@@ -57,8 +57,13 @@ func _test_retro_tetris_ringpia_background_contract() -> void:
 	var status: Dictionary = background.get_asset_status()
 	_expect(str(status.get("theme", "")) == "retro_tetris_ringpia", "Stage 6 background should use the retro Tetris + Ringpia theme")
 	_expect(bool(status.get("draws_old_tetris_columns", false)), "Stage 6 background should draw old-Tetris-style side columns")
-	_expect(bool(status.get("dense_cabinet_fill", false)), "Stage 6 background should keep the old-Tetris cabinet feeling visually dense")
+	# Single focal panel: the live Tetris well owns the framed cabinet / NEXT / STATS /
+	# score. The background must NOT stack a second decorative panel on top of it, or
+	# the pillar reads as cluttered (competing frames, duplicate STATS, clashing blocks).
+	_expect(not bool(status.get("dense_cabinet_fill", true)), "Stage 6 background must not stack a dense cabinet panel over the live Tetris well")
 	var source := FileAccess.get_file_as_string(STAGE6_PILLAR_BACKGROUND_PATH)
+	_expect(source.find("_draw_panel_backing") < 0, "Stage 6 background should not redraw a cabinet panel backing behind the Tetris well")
+	_expect(source.find("_draw_cabinet_fill_blocks") < 0, "Stage 6 background should not draw cabinet fill blocks that clash with real tetrominoes")
 	_expect(source.find("TORCH_POSITIONS") < 0, "retro Stage 6 background should remove the previous torch port")
 	_expect(source.find("_draw_motes") < 0, "retro Stage 6 background should remove the previous mote port")
 	_expect(source.find("ImageTexture.create_from_image") < 0, "retro Stage 6 background should not build runtime gradient textures")

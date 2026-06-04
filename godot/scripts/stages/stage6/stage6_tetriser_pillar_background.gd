@@ -101,7 +101,7 @@ func get_asset_status() -> Dictionary:
 		"theme": "retro_tetris_ringpia",
 		"uses_runtime_textures": false,
 		"draws_old_tetris_columns": true,
-		"dense_cabinet_fill": true,
+		"dense_cabinet_fill": false,
 	}
 
 
@@ -150,76 +150,18 @@ func _draw_letterbox_architecture(
 		_draw_side_architecture(canvas, right_rect, true, quality_scale)
 
 
-func _draw_side_architecture(canvas: CanvasItem, rect: Rect2, right_side: bool, quality_scale: float) -> void:
+func _draw_side_architecture(canvas: CanvasItem, rect: Rect2, right_side: bool, _quality_scale: float) -> void:
+	# Single focal panel rule: the live Tetris well (stage6_tetriser_pillar_tetris)
+	# owns the framed cabinet, NEXT preview, STATS, and score plinth. The background
+	# only contributes the side stone columns + bottom plinth so the two layers do
+	# not stack into competing frames / duplicate STATS / clashing block grids.
 	canvas.draw_rect(rect, Color(0.0, 0.0, 0.0, 1.0))
 	var inner := rect.grow(-maxf(5.0, rect.size.x * 0.022))
 	inner.size.y = maxf(1.0, inner.size.y)
 	var column_w := clampf(rect.size.x * 0.10, 18.0, 42.0)
-	var frame_rect := Rect2(Vector2(inner.position.x + column_w, inner.position.y + 18.0), Vector2(maxf(20.0, inner.size.x - column_w * 2.0), inner.size.y - 120.0))
 	_draw_stone_column(canvas, Rect2(inner.position, Vector2(column_w, inner.size.y)), right_side)
 	_draw_stone_column(canvas, Rect2(Vector2(inner.end.x - column_w, inner.position.y), Vector2(column_w, inner.size.y)), right_side)
 	_draw_bottom_plinth(canvas, Rect2(Vector2(inner.position.x, inner.end.y - 104.0), Vector2(inner.size.x, 94.0)), right_side)
-	_draw_panel_backing(canvas, frame_rect, right_side, quality_scale)
-	if quality_scale > 0.55:
-		_draw_hanging_lantern(canvas, Vector2(frame_rect.get_center().x, frame_rect.position.y - 18.0), right_side)
-
-
-func _draw_panel_backing(canvas: CanvasItem, frame_rect: Rect2, right_side: bool, quality_scale: float) -> void:
-	canvas.draw_rect(frame_rect.grow(12.0), STONE_SHADOW)
-	canvas.draw_rect(frame_rect.grow(8.0), STONE_DARK)
-	canvas.draw_rect(frame_rect.grow(4.0), STONE)
-	canvas.draw_rect(frame_rect.grow(2.0), PURPLE_EDGE, false, 3.0, true)
-	canvas.draw_rect(frame_rect, Color(0.0, 0.0, 0.0, 0.96))
-	canvas.draw_line(frame_rect.position, Vector2(frame_rect.end.x, frame_rect.position.y), Color(0.70, 0.68, 0.96, 0.62), 2.0, true)
-	_draw_header_plate(canvas, frame_rect, right_side)
-	_draw_stats_plaque(canvas, frame_rect, right_side)
-	if quality_scale > 0.45:
-		_draw_cabinet_fill_blocks(canvas, frame_rect, right_side)
-
-
-func _draw_header_plate(canvas: CanvasItem, frame_rect: Rect2, right_side: bool) -> void:
-	var header_h: float = clampf(frame_rect.size.y * 0.075, 48.0, 78.0)
-	var header := Rect2(frame_rect.position + Vector2(10.0, 10.0), Vector2(frame_rect.size.x - 20.0, header_h))
-	canvas.draw_rect(header.grow(3.0), STONE_DARK)
-	canvas.draw_rect(header, Color(0.15, 0.14, 0.34, 1.0))
-	canvas.draw_rect(header, PURPLE_EDGE, false, 2.0, true)
-	var notch_x: float = header.end.x - 18.0 if right_side else header.position.x + 10.0
-	canvas.draw_rect(Rect2(Vector2(notch_x, header.position.y + 8.0), Vector2(8.0, header.size.y - 16.0)), NEON_RED)
-
-
-func _draw_stats_plaque(canvas: CanvasItem, frame_rect: Rect2, right_side: bool) -> void:
-	var plaque_size := Vector2(maxf(72.0, frame_rect.size.x * 0.28), maxf(88.0, frame_rect.size.y * 0.16))
-	var plaque_x: float = frame_rect.position.x + 14.0 if right_side else frame_rect.end.x - plaque_size.x - 14.0
-	var plaque_y: float = frame_rect.position.y + frame_rect.size.y * 0.33
-	var plaque := Rect2(Vector2(plaque_x, plaque_y), plaque_size)
-	canvas.draw_rect(plaque.grow(3.0), STONE_SHADOW)
-	canvas.draw_rect(plaque, Color(0.09, 0.09, 0.26, 0.92))
-	canvas.draw_rect(plaque, Color(0.64, 0.62, 0.92, 0.52), false, 2.0, true)
-	var bar_color := Color(RING_CYAN.r, RING_CYAN.g, RING_CYAN.b, 0.38)
-	for i in range(3):
-		var y: float = plaque.position.y + 18.0 + float(i) * 20.0
-		canvas.draw_line(Vector2(plaque.position.x + 12.0, y), Vector2(plaque.end.x - 12.0, y), bar_color, 2.0, true)
-
-
-func _draw_cabinet_fill_blocks(canvas: CanvasItem, frame_rect: Rect2, right_side: bool) -> void:
-	var block := clampf(frame_rect.size.x * 0.055, 10.0, 18.0)
-	var start_x: float = frame_rect.position.x + 16.0 if right_side else frame_rect.end.x - 16.0 - block * 3.0
-	var start_y: float = frame_rect.position.y + frame_rect.size.y * 0.62
-	var colors: Array[Color] = [
-		Color(0.18, 0.36, 0.92, 0.42),
-		Color(0.18, 0.78, 0.30, 0.36),
-		Color(0.95, 0.50, 0.12, 0.34),
-		Color(0.62, 0.28, 0.92, 0.32),
-	]
-	for row in range(5):
-		for col in range(3):
-			if (row + col) % 3 == 0:
-				continue
-			var x: float = start_x + float(col) * (block + 3.0)
-			var y: float = start_y + float(row) * (block + 3.0)
-			var color: Color = colors[(row + col) % colors.size()]
-			canvas.draw_rect(Rect2(Vector2(x, y), Vector2(block, block)), color)
-			canvas.draw_rect(Rect2(Vector2(x, y), Vector2(block, block)), Color(0.0, 0.0, 0.0, 0.28), false, 1.0, true)
 
 
 func _draw_stone_column(canvas: CanvasItem, rect: Rect2, right_side: bool) -> void:
@@ -247,15 +189,6 @@ func _draw_bottom_plinth(canvas: CanvasItem, rect: Rect2, right_side: bool) -> v
 	canvas.draw_rect(Rect2(Vector2(stripe_x, body.position.y + 6.0), Vector2(stripe_w, body.size.y - 12.0)), NEON_RED)
 	var ring_center := body.get_center() + Vector2(0.0, -body.size.y * 0.04)
 	canvas.draw_arc(ring_center, minf(body.size.x, body.size.y) * 0.31, 0.0, TAU, 32, Color(RING_CYAN.r, RING_CYAN.g, RING_CYAN.b, 0.26), 2.0, true)
-
-
-func _draw_hanging_lantern(canvas: CanvasItem, pos: Vector2, right_side: bool) -> void:
-	canvas.draw_line(pos + Vector2(0.0, -20.0), pos + Vector2(0.0, -4.0), Color(0.9, 0.55, 0.12, 0.75), 2.0, true)
-	var body := Rect2(pos + Vector2(-7.0, -4.0), Vector2(14.0, 19.0))
-	canvas.draw_rect(body, GOLD)
-	canvas.draw_rect(body, Color(0.42, 0.22, 0.72, 1.0), false, 2.0, true)
-	var glow_color := Color(RING_CYAN.r, RING_CYAN.g, RING_CYAN.b, 0.09 if right_side else 0.12)
-	canvas.draw_circle(pos + Vector2(0.0, 6.0), 24.0, glow_color)
 
 
 func _draw_central_marquee(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, quality_scale: float) -> void:
