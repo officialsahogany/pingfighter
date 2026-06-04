@@ -83,10 +83,11 @@ func _verify_texture_bundle_load() -> void:
 
 
 func _verify_asset_path_resolution() -> void:
-	var path_config: Dictionary = StageClearResultScene._result_asset_path_config()
+	var path_config: Dictionary = StageClearResultAssetLoader.get_default_result_asset_path_config()
+	_expect(str(path_config.get("background_texture", "")) == StageClearResultScene.STAGE1_BACKGROUND_PATH, "asset loader should own the default result background path config")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("commando") == "soldier", "asset loader should normalize Commando result character ids")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("unknown") == "smasher", "asset loader should default unknown result character ids to Smasher")
-	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("commando", 1, path_config)
+	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("commando", 1)
 	_expect(
 		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
 		"asset loader should route Commando player victories to the Commando result Live2D base sheet"
@@ -95,7 +96,7 @@ func _verify_asset_path_resolution() -> void:
 		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
 		"asset loader should route Commando player victory clicks to the Commando result Live2D reaction sheet"
 	)
-	var stage2_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("smasher", 2, path_config)
+	var stage2_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("smasher", 2)
 	_expect(stage2_paths.has("stage2_boss_defeat_live2d_sheet"), "asset loader should include Stage 2 defeated boss sheets for Stage 2")
 	_expect(not stage2_paths.has("dalji_defeat_sheet"), "asset loader should omit Dalji sheets outside Stage 1 result paths")
 
@@ -114,6 +115,10 @@ func _verify_scene_delegates_asset_loading() -> void:
 		and source.find("StageClearResultAssetLoader.prewarm_result_assets_step") >= 0
 		and source.find("StageClearResultAssetLoader.get_result_asset_paths") >= 0,
 		"result scene should delegate asset loading and staged prewarm to the asset loader"
+	)
+	_expect(
+		source.find("static func _result_asset_path_config") < 0,
+		"result scene should not keep result asset path config assembly"
 	)
 	_expect(
 		source.find("ProjectResourceLoader.load_texture") < 0

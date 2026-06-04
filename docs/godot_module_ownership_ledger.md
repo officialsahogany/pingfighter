@@ -1429,10 +1429,10 @@ This section is intentionally long; use search to find the nearest owner.
   result background / scroll / chest sheets, Dalji and player-victory
   sheets, Dalji click voice, result-box FX prewarm, and the stateful
   result-asset prewarm step cursor / status map used by the screen shell. It
-  also owns player-victory character id normalization and result asset path
-  selection from the scene's path config. The scene still owns the loaded
-  texture / stream fields, path constants / compatibility facade, and decides
-  when to load or prewarm.
+  also owns player-victory character id normalization, default result asset
+  path config assembly, and result asset path selection. The scene still owns
+  the loaded texture / stream fields, path constant compatibility aliases, and
+  decides when to load or prewarm.
 - `scripts/ui/stage_clear_result_font_cache.gd`
   Owns the stage-clear result UI font variation cache: it wraps the fallback
   font with scaled glyph spacing for compact Korean result-scroll labels and

@@ -24,19 +24,19 @@ const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
-const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
-const DALJI_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
-const DALJI_CLICK_VOICE_PATH := "res://voice/dalzidefeat.mp3"
-const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_live2d_pingpong_98f_autosprite_v2_realesrgan_animev3_hq1152.png"
-const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
-const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_live2d_pingpong_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
-const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
-const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
-const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
-const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
-const COMMANDO_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
-const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/result_scroll/stage_clear_cyber_scroll_imagegen_v1_alpha.png"
+const STAGE1_BACKGROUND_PATH := StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH
+const DALJI_DEFEAT_SHEET_PATH := StageClearResultAssetLoader.DALJI_DEFEAT_SHEET_PATH
+const DALJI_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.DALJI_CLICK_REACTION_SHEET_PATH
+const DALJI_CLICK_VOICE_PATH := StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH
+const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH
+const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
+const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH
+const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
+const SMASHER_VICTORY_SHEET_PATH := StageClearResultAssetLoader.SMASHER_VICTORY_SHEET_PATH
+const SMASHER_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.SMASHER_CLICK_REACTION_SHEET_PATH
+const COMMANDO_VICTORY_SHEET_PATH := StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH
+const COMMANDO_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.COMMANDO_CLICK_REACTION_SHEET_PATH
+const RESULT_SCROLL_PANEL_PATH := StageClearResultAssetLoader.RESULT_SCROLL_PANEL_PATH
 
 const DALJI_FRAME_COUNT := 98
 const DALJI_GRID_COLS := 14
@@ -131,9 +131,9 @@ const SCROLL_CONTENT_MARGIN := Vector4(70.0, 90.0, 70.0, 76.0)
 const SCROLL_DRAG_VIEW_MARGIN := 72.0
 
 const PLACEHOLDER_GOLD := 1240
-const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
-const RESULT_BOX_SHEET_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
-const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
+const RESULT_BOX_SHEET_COMMON_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_COMMON_PATH
+const RESULT_BOX_SHEET_MYTHIC_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_MYTHIC_PATH
+const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH
 const RESULT_BOX_SHEET_FRAME_COUNT := 16
 const RESULT_BOX_SHEET_GRID_COLS := 4
 const RESULT_BOX_SHEET_GRID_ROWS := 4
@@ -267,28 +267,7 @@ static func get_prewarm_asset_status() -> Dictionary:
 
 
 static func _result_asset_paths(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
-	return StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id, _result_asset_path_config())
-
-
-static func _result_asset_path_config() -> Dictionary:
-	return {
-		"background_texture": STAGE1_BACKGROUND_PATH,
-		"smasher_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
-		"smasher_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
-		"commando_victory_sheet": COMMANDO_VICTORY_SHEET_PATH,
-		"commando_click_reaction_sheet": COMMANDO_CLICK_REACTION_SHEET_PATH,
-		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
-		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
-		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
-		"result_box_sheet_guaranteed_mythic": RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
-		"stage2_boss_defeat_live2d_sheet": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage2_boss_defeat_click_reaction_sheet": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"stage3_boss_defeat_live2d_sheet": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage3_boss_defeat_click_reaction_sheet": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
-		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
-		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
-	}
+	return StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id)
 
 
 func _ready() -> void:
@@ -699,7 +678,6 @@ func get_interaction_status() -> Dictionary:
 		RESULT_REWARD_SOURCE_BOX,
 		RESULT_REWARD_SOURCE_LABELS
 	)
-	var asset_path_config: Dictionary = _result_asset_path_config()
 	return StageClearResultStatusBuilder.build_interaction_status({
 		"view_size": view_size,
 		"layout_scale": layout_scale,
@@ -728,8 +706,8 @@ func get_interaction_status() -> Dictionary:
 		"dalji_click_voice_player_ready": _dalji_click_voice_player != null,
 		"dalji_click_voice_playing": _dalji_click_voice_player != null and _dalji_click_voice_player.playing,
 		"selected_character_type": selected_character_type,
-		"player_victory_sheet_path": StageClearResultAssetLoader.get_player_victory_sheet_path_for_character(selected_character_type, asset_path_config),
-		"player_victory_click_reaction_sheet_path": StageClearResultAssetLoader.get_player_victory_click_reaction_sheet_path_for_character(selected_character_type, asset_path_config),
+		"player_victory_sheet_path": StageClearResultAssetLoader.get_player_victory_sheet_path_for_character(selected_character_type),
+		"player_victory_click_reaction_sheet_path": StageClearResultAssetLoader.get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
 		"player_victory_sheet_loaded": _player_victory_sheet != null,
 		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
 		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
