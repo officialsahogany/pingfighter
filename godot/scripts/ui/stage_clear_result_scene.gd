@@ -15,6 +15,7 @@ const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 const StageClearResultSheetDrawHelper := preload("res://scripts/ui/stage_clear_result_sheet_draw_helper.gd")
+const StageClearResultSummaryDrawHelper := preload("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
@@ -1891,12 +1892,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	_draw_scroll_buttons(rect, scale, font, alpha)
 
 
-func _draw_metric_tile(font: Font, rect: Rect2, title: String, value: String, title_color: Color, value_color: Color, alpha: float) -> void:
-	StageClearResultShapeHelper.draw_panel(self, rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
-	StageClearResultTextLayoutHelper.draw_text(self, font, title, rect.position + Vector2(16.0, 25.0) * (rect.size.y / 78.0), int(round(18.0 * rect.size.y / 78.0)), title_color)
-	StageClearResultTextLayoutHelper.draw_text(self, font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
-
-
 # The project fallback font packs Korean syllable blocks tightly, so at the
 # small label sizes used on this scroll (header / metric-tile / chip text) the
 # glyphs read as touching/overlapping. Wrap it in a FontVariation that adds a
@@ -1934,50 +1929,10 @@ func _draw_result_summary_strip(font: Font, rect: Rect2, scale: float, alpha: fl
 	var score_rect := Rect2(rect.position + Vector2(tile_width + tile_gap, 0.0), tile_size)
 	var rating_rect := Rect2(rect.position + Vector2((tile_width + tile_gap) * 2.0, 0.0), tile_size)
 	var display_gold: int = StageClearResultSummaryBuilder.resolve_display_gold(_runtime_perk_state, PLACEHOLDER_GOLD)
-	_draw_metric_tile(font, gold_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % display_gold, muted, accent, alpha)
-	_draw_metric_tile(font, score_rect, LanguageSettings.translate_text("최종 스코어"), "%d : %d" % [player_score, boss_score], muted, accent, alpha)
+	StageClearResultSummaryDrawHelper.draw_metric_tile(self, font, gold_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % display_gold, muted, accent, alpha)
+	StageClearResultSummaryDrawHelper.draw_metric_tile(self, font, score_rect, LanguageSettings.translate_text("최종 스코어"), "%d : %d" % [player_score, boss_score], muted, accent, alpha)
 	var rating: int = StageClearResultSummaryBuilder.calculate_score_rating(player_score, boss_score)
-	_draw_rating_tile(font, rating_rect, LanguageSettings.translate_text("평가"), rating, muted, alpha)
-
-
-func _draw_rating_tile(font: Font, rect: Rect2, title: String, stars_filled: int, title_color: Color, alpha: float) -> void:
-	var unit: float = rect.size.y / 78.0
-	StageClearResultShapeHelper.draw_panel(self, rect, Color(0.88, 0.97, 1.0, 0.32 * alpha), Color(0.04, 0.78, 0.95, 0.52 * alpha), 1.6, 12.0)
-	StageClearResultTextLayoutHelper.draw_text(self, font, title, rect.position + Vector2(16.0, 25.0) * unit, int(round(18.0 * unit)), title_color)
-	var star_outer: float = 13.0 * unit
-	var star_inner: float = 6.2 * unit
-	var star_gap: float = 33.0 * unit
-	var star_y: float = rect.position.y + 55.0 * unit
-	var start_x: float = rect.position.x + 16.0 * unit + star_outer
-	var outline_width: float = max(1.0, 1.5 * unit)
-	var fill_color := Color(1.0, 0.82, 0.24, alpha)
-	var fill_outline := Color(1.0, 0.95, 0.66, alpha * 0.92)
-	var empty_fill := Color(0.30, 0.40, 0.46, alpha * 0.18)
-	var empty_outline := Color(0.28, 0.44, 0.50, alpha * 0.55)
-	for i in range(3):
-		var center := Vector2(start_x + float(i) * star_gap, star_y)
-		if i < stars_filled:
-			StageClearResultShapeHelper.draw_star_polygon(
-				self,
-				center,
-				star_outer,
-				star_inner,
-				1.0,
-				fill_color,
-				fill_outline,
-				outline_width
-			)
-		else:
-			StageClearResultShapeHelper.draw_star_polygon(
-				self,
-				center,
-				star_outer,
-				star_inner,
-				1.0,
-				empty_fill,
-				empty_outline,
-				outline_width
-			)
+	StageClearResultSummaryDrawHelper.draw_rating_tile(self, font, rating_rect, LanguageSettings.translate_text("평가"), rating, muted, alpha)
 
 
 @warning_ignore("shadowed_variable_base_class")

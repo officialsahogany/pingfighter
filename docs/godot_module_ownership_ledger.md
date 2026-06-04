@@ -1474,6 +1474,11 @@ This section is intentionally long; use search to find the nearest owner.
   scene still owns
   reward rolling, final grant callbacks, scroll/button input, drawing, and
   the live perk catalog instance used by reward text resolution.
+- `scripts/ui/stage_clear_result_summary_draw_helper.gd`
+  Owns stage-clear summary strip tile drawing: gold / score metric tiles and
+  score-rating star tiles. It delegates primitive panels, stars, and text to
+  the low-level draw helpers. The scene still owns summary-strip layout,
+  localized labels, and score / gold metric calculation inputs.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
   colors / rects, reward label visual state, reward item icon visual state /
