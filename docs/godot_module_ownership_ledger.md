@@ -1447,8 +1447,8 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stateless result-scene shape point generation and low-level
   CanvasItem draw helpers: ellipse fill polygons, ellipse polylines,
   radial burst polygons, star polygons, closed polyline conversion,
-  filled ellipse / ellipse-outline / star drawing, plus result-box hover
-  glow / sparkle geometry. The scene still owns high-level draw
+  filled ellipse / ellipse-outline / star / radial-burst drawing, plus
+  result-box hover glow / sparkle geometry. The scene still owns high-level draw
   sequencing, color selection, alpha gates, and animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the

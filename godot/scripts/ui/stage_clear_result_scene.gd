@@ -1362,21 +1362,6 @@ func _draw_box_hover_sparkles(draw_center: Vector2, hx: float, hy: float, scale:
 		draw_circle(sparkle_pos, sparkle_size * 0.42, Color(1.0, 1.0, 1.0, sparkle_alpha * 0.85))
 
 
-func _draw_radial_burst(center: Vector2, radius: float, color: Color) -> void:
-	if radius <= 0.0 or color.a <= 0.001:
-		return
-	var segments: int = 28
-	var outer_color: Color = color
-	outer_color.a = color.a * 0.55
-	var outer_pts: PackedVector2Array = StageClearResultShapeHelper.radial_polygon_points(center, radius, segments)
-	draw_colored_polygon(outer_pts, outer_color)
-	var inner_color: Color = color
-	inner_color.a = color.a * 0.92
-	var inner_radius: float = radius * 0.55
-	var inner_pts: PackedVector2Array = StageClearResultShapeHelper.radial_polygon_points(center, inner_radius, segments)
-	draw_colored_polygon(inner_pts, inner_color)
-
-
 @warning_ignore("shadowed_variable_base_class")
 func _draw_reward_label(box: Dictionary, box_draw_center: Vector2, hy: float, scale: float, global_alpha: float) -> void:
 	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_label_visual_state(
@@ -1414,7 +1399,7 @@ func _draw_reward_item_icon(reward: Dictionary, anchor: Vector2, scale: float, a
 	)
 	var disc_radius: float = float(visual_state.get("disc_radius", 60.0 * scale))
 	var glow_color: Color = visual_state.get("glow_color", Color(0.85, 0.85, 0.92, 0.32 * alpha))
-	_draw_radial_burst(anchor, disc_radius * 1.55, glow_color)
+	StageClearResultShapeHelper.draw_radial_burst(self, anchor, disc_radius * 1.55, glow_color)
 
 	var disc_fill: Color = visual_state.get("disc_fill", Color(0.18, 0.18, 0.24, 0.88 * alpha))
 	draw_circle(anchor, disc_radius, disc_fill)

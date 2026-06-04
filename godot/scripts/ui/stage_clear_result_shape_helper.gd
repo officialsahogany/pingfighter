@@ -112,6 +112,21 @@ static func draw_star_polygon(
 		canvas.draw_polyline(closed_polyline_points(pts), outline, outline_width, true)
 
 
+static func draw_radial_burst(canvas: CanvasItem, center: Vector2, radius: float, color: Color, segments: int = 28) -> void:
+	if canvas == null or radius <= 0.0 or color.a <= 0.001:
+		return
+	var outer_color: Color = color
+	outer_color.a = color.a * 0.55
+	var outer_pts: PackedVector2Array = radial_polygon_points(center, radius, segments)
+	if not outer_pts.is_empty():
+		canvas.draw_colored_polygon(outer_pts, outer_color)
+	var inner_color: Color = color
+	inner_color.a = color.a * 0.92
+	var inner_pts: PackedVector2Array = radial_polygon_points(center, radius * 0.55, segments)
+	if not inner_pts.is_empty():
+		canvas.draw_colored_polygon(inner_pts, inner_color)
+
+
 static func box_hover_glow_layers(radius_x: float, radius_y: float, global_alpha: float, pulse: float, layer_count: int = 4) -> Array:
 	var layers: Array = []
 	var safe_layer_count: int = max(1, layer_count)
