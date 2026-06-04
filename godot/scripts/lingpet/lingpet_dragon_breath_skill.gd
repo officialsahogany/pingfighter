@@ -5,8 +5,12 @@ extends RefCounted
 # only the draw path composites the layered fire look.
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const DragonBreathTextureCache := preload("res://scripts/lingpet/lingpet_dragon_breath_texture_cache.gd")
+# Lingering ground fire reuses the molotov fire-zone effect (5-layer WritheEmber
+# host + GPU embers). We drive a SEPARATE host pool via a dedicated name prefix
+# so the lingpet breath never fights the molotov active item over hosts.
+const MolotovZoneRenderer := preload("res://scripts/items/active_item_throw_molotov_renderer.gd")
 const JET_MATERIAL_PRESET := "red_dragon_breath_jet"
-const ZONE_MATERIAL_PRESET := "red_dragon_breath_zone"
+const ZONE_FX_HOST_PREFIX := "LingpetDragonBreathFireFxHost"
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -68,8 +72,10 @@ var _fire_zone_spawn_count := 0
 var _last_push_dir := 0.0
 var _registry: Object = null
 var _jet_material: ShaderMaterial = null
-var _zone_material: ShaderMaterial = null
 var _additive_material: CanvasItemMaterial = null
+var _zone_fx_renderer: Object = null
+var _zone_fx_dirty := false
+var _zone_id_counter := 0
 
 
 func reset() -> void:
@@ -89,6 +95,9 @@ func reset() -> void:
 	_hit_flash_timer = 0.0
 	_last_hit_pos = Vector2.ZERO
 	_last_push_dir = 0.0
+	if _zone_fx_renderer != null and _zone_fx_renderer.has_method("deactivate_all_hosts"):
+		_zone_fx_renderer.deactivate_all_hosts()
+	_zone_fx_dirty = false
 
 
 func prewarm() -> void:
@@ -100,16 +109,25 @@ func prewarm() -> void:
 	DragonBreathTextureCache.prewarm()
 	ImpactFlareTextureCache.prewarm()
 	_ensure_materials()
+	_ensure_zone_fx_renderer()
+	if _zone_fx_renderer != null and _zone_fx_renderer.has_method("prewarm_assets"):
+		_zone_fx_renderer.prewarm_assets()
 
 
 func _ensure_materials() -> void:
 	if _jet_material == null:
 		_jet_material = WritheEmberMaterial.build_material(JET_MATERIAL_PRESET)
-	if _zone_material == null:
-		_zone_material = WritheEmberMaterial.build_material(ZONE_MATERIAL_PRESET)
 	if _additive_material == null:
 		_additive_material = CanvasItemMaterial.new()
 		_additive_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+
+
+func _ensure_zone_fx_renderer() -> void:
+	if _zone_fx_renderer != null:
+		return
+	_zone_fx_renderer = MolotovZoneRenderer.new()
+	if _zone_fx_renderer.has_method("set_fx_host_name_prefix"):
+		_zone_fx_renderer.set_fx_host_name_prefix(ZONE_FX_HOST_PREFIX)
 
 
 func launch(origin: Vector2, _owner: Object = null) -> void:
@@ -165,20 +183,22 @@ func _follow_companion_origin(launch_context: Dictionary) -> void:
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null or not has_visible_effects():
+	if canvas == null:
+		return
+	# Lingering ground fire reuses the molotov fire-zone effect via a dedicated
+	# host pool. Run it every frame (even with no zones) so the hosts deactivate
+	# cleanly when the last patch expires -- draw() is called every companion
+	# frame, so this is the natural place to drive host lifecycle.
+	_draw_fire_zones_molotov(canvas, shake_offset)
+	if not has_visible_effects():
 		return
 	_ensure_materials()
 	var time_sec := float(Time.get_ticks_msec()) / 1000.0
-	# Layer 1 - shader backplate (depth/mood): lingering burning-floor patches.
-	_draw_fire_zone_backplates(canvas, shake_offset, time_sec)
-	# Layer 2 - shader backplate: the active breath jet pouring from the mouth.
+	# Shader backplate: the active breath jet pouring from the mouth.
 	_draw_breath_jet(canvas, shake_offset, time_sec)
-	# Layer 3 - additive textured detail (dynamic ②/③): zone flames, embers,
-	# trails, sparks, hit flash. One additive context so the layer batches.
+	# Additive textured detail: muzzle, embers, hit flash. One additive context.
 	var prev_material: Material = canvas.material
 	canvas.material = _additive_material
-	for zone in _fire_zones:
-		_draw_zone_flames_textured(canvas, zone, shake_offset)
 	_draw_breath_muzzle(canvas, shake_offset, time_sec)
 	for particle in _particles:
 		_draw_breath_particle(canvas, particle, shake_offset)
@@ -383,6 +403,7 @@ func _maybe_spawn_fire_zone_from_dying(delta: float, dying_positions: Array[Vect
 
 
 func _spawn_fire_zone(center: Vector2) -> void:
+	_zone_id_counter += 1
 	var zone := {
 		"position": center,
 		"width": FIRE_ZONE_WIDTH,
@@ -394,6 +415,7 @@ func _spawn_fire_zone(center: Vector2) -> void:
 		"flames": [],
 		"boss_in_fire": false,
 		"last_push_dir": 0.0,
+		"zone_id": _zone_id_counter,
 	}
 	_seed_zone_flames(zone, FIRE_ZONE_INITIAL_FLAMES, 30.0, 12.0)
 	_fire_zones.append(zone)
@@ -558,34 +580,40 @@ func _play_fire_zone_feedback(registry: Object, low_volume: bool = false) -> voi
 		audio.play_molotov_explosion()
 
 
-func _draw_fire_zone_backplates(canvas: CanvasItem, shake_offset: Vector2, time_sec: float) -> void:
-	if _fire_zones.is_empty() or _zone_material == null:
-		return
-	var glow: Texture2D = ImpactFlareTextureCache.get_glow_texture()
-	if glow == null:
-		return
-	# One WritheEmber context for every patch: per-zone life folds into the
-	# modulate alpha so the whole burning-floor layer batches in a single bind.
-	_zone_material.set_shader_parameter("elapsed", time_sec)
-	_zone_material.set_shader_parameter("intensity", 1.0)
-	var prev_material: Material = canvas.material
-	canvas.material = _zone_material
+func _draw_fire_zones_molotov(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if not _fire_zones.is_empty():
+		_ensure_zone_fx_renderer()
+		_zone_fx_renderer.draw_molotov_fire_zones(canvas, _build_molotov_zone_payload(), shake_offset)
+		_zone_fx_dirty = true
+	elif _zone_fx_dirty:
+		# Final empty sync so the molotov hosts hide after the last patch ends.
+		if _zone_fx_renderer != null:
+			_zone_fx_renderer.draw_molotov_fire_zones(canvas, [], shake_offset)
+		_zone_fx_dirty = false
+
+
+# Convert the breath's fire zones into the molotov renderer's zone schema. The
+# renderer adds shake_offset itself and only uses life_ratio (= remaining/max),
+# so passing seconds-as-"frames" is fine. age_frames stays < 4 on the first
+# frame (timer == max_timer) so the host fires its one-shot explosion burst.
+func _build_molotov_zone_payload() -> Array:
+	var payload: Array = []
 	for zone in _fire_zones:
-		var center: Vector2 = zone.get("position", Vector2.ZERO) + shake_offset
-		var width := float(zone.get("width", FIRE_ZONE_WIDTH))
-		var height := float(zone.get("height", FIRE_ZONE_HEIGHT))
-		var env := _zone_envelope(zone)
-		if env <= 0.01:
-			continue
-		var life_ratio := clampf(float(zone.get("timer", 0.0)) / maxf(0.01, float(zone.get("max_timer", FIRE_ZONE_DURATION_SECONDS))), 0.0, 1.0)
-		var w := width * 1.4
-		var h := height * 1.55
-		var rect := Rect2(center - Vector2(w, h) * 0.5, Vector2(w, h))
-		# Warm modulate so the white glow piece colorizes to burning-floor fire
-		# under the WritheEmber shader (the shader only tints ~50% on its own).
-		var a := 0.7 * env * (0.65 + 0.35 * life_ratio)
-		canvas.draw_texture_rect(glow, rect, false, Color(1.0, 0.46, 0.13, a))
-	canvas.material = prev_material
+		var timer := float(zone.get("timer", 0.0))
+		var max_timer := maxf(0.01, float(zone.get("max_timer", FIRE_ZONE_DURATION_SECONDS)))
+		payload.append({
+			# Visual-only upsize (gameplay hitbox stays width/height) so the
+			# molotov fire reads as a full burning patch rather than a small dot.
+			"position": zone.get("position", Vector2.ZERO),
+			"width": float(zone.get("width", FIRE_ZONE_WIDTH)) * 1.35,
+			"height": float(zone.get("height", FIRE_ZONE_HEIGHT)) * 1.35,
+			"zone_id": int(zone.get("zone_id", 0)),
+			"duration_frames": timer * 60.0,
+			"max_duration_frames": max_timer * 60.0,
+			"age_frames": (max_timer - timer) * 60.0,
+			"flames": [],
+		})
+	return payload
 
 
 func _draw_breath_jet(canvas: CanvasItem, shake_offset: Vector2, time_sec: float) -> void:
@@ -644,38 +672,6 @@ func _draw_breath_muzzle(canvas: CanvasItem, shake_offset: Vector2, time_sec: fl
 	_draw_centered_tex(canvas, ember, origin, 124.0 * env * pulse, Color(1.0, 0.46, 0.14, 0.4 * env))
 	_draw_centered_tex(canvas, ember, origin, 72.0 * env * pulse, Color(1.0, 0.72, 0.32, 0.5 * env))
 	_draw_centered_tex(canvas, ember, origin, 34.0 * env * pulse, Color(1.0, 0.96, 0.82, 0.62 * env))
-
-
-func _draw_zone_flames_textured(canvas: CanvasItem, zone: Dictionary, shake_offset: Vector2) -> void:
-	var flames: Array = zone.get("flames", [])
-	if flames.is_empty():
-		return
-	var env := _zone_envelope(zone)
-	if env <= 0.01:
-		return
-	var tongue: Texture2D = DragonBreathTextureCache.get_flame_tongue_texture()
-	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
-	var up := Vector2(0.0, -1.0)  # ground flames always lick upward
-	for flame_value in flames:
-		if not (flame_value is Dictionary):
-			continue
-		var flame: Dictionary = flame_value as Dictionary
-		var pos: Vector2 = flame.get("pos", Vector2.ZERO) + shake_offset
-		var size := float(flame.get("size", 0.0))
-		if size <= 2.0:
-			continue
-		var max_life := maxf(0.01, float(flame.get("max_life", 0.66)))
-		var life_ratio := clampf(float(flame.get("life", 0.0)) / max_life, 0.0, 1.0)
-		var phase := float(flame.get("phase", 0.0))
-		var heat := clampf(0.30 + 0.70 * life_ratio, 0.0, 1.0)
-		var a := env * (0.35 + 0.55 * life_ratio)
-		_draw_centered_tex(canvas, ember, pos, size * 2.2, _tint(heat * 0.75, a * 0.5))
-		# Rounder, softer ground flame (lower aspect + per-flame tilt) so the
-		# patch reads as a soft burning floor, not standing spikes.
-		var sway: float = sin(phase * 3.7) * 0.35 + sin(phase * 9.0) * 0.12
-		var lick: Vector2 = up.rotated(sway)
-		_draw_flame_tongue(canvas, tongue, pos - up * size * 0.3, lick, size * 0.85, size * 1.25, _tint(heat, a * 0.9))
-		_draw_centered_tex(canvas, ember, pos, size * 0.85, Color(1.0, 0.9, 0.66, a * 0.45))
 
 
 func _draw_breath_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vector2) -> void:
@@ -752,14 +748,6 @@ func _draw_centered_tex(canvas: CanvasItem, tex: Texture2D, center: Vector2, siz
 		return
 	var s := Vector2(size_px, size_px)
 	canvas.draw_texture_rect(tex, Rect2(center - s * 0.5, s), false, color)
-
-
-func _zone_envelope(zone: Dictionary) -> float:
-	var timer := float(zone.get("timer", 0.0))
-	var max_timer := maxf(0.01, float(zone.get("max_timer", FIRE_ZONE_DURATION_SECONDS)))
-	var appear := clampf((max_timer - timer) / 0.18, 0.0, 1.0)
-	var fade := clampf(timer / 0.4, 0.0, 1.0)
-	return appear * fade
 
 
 func _particle_life_ratio(life: float, max_life: float) -> float:

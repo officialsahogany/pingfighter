@@ -33,6 +33,23 @@ var _molotov_view_cached_viewport_size: Vector2 = Vector2.ZERO
 var _molotov_view_cached_game_offset: Vector2 = Vector2.ZERO
 var _molotov_view_cached_render_scale: float = 1.0
 
+# Host-node name prefix. Configurable so other fire-zone owners (e.g. the Red
+# Dragon lingpet breath) can reuse this exact molotov fire-zone effect with a
+# SEPARATE host pool instead of fighting over the same nodes as the molotov item.
+var _fx_host_name_prefix: String = MOLOTOV_FX_HOST_NAME_PREFIX
+
+
+func set_fx_host_name_prefix(prefix: String) -> void:
+	var trimmed := prefix.strip_edges()
+	if trimmed != "":
+		_fx_host_name_prefix = trimmed
+
+
+# Public cleanup for reusers that hold this renderer outside the per-frame draw
+# loop (no canvas needed): tear all owned fire-zone hosts down to hidden.
+func deactivate_all_hosts() -> void:
+	_deactivate_all_molotov_hosts()
+
 
 func prewarm_assets() -> void:
 	MolotovFxHost.prewarm_assets()
@@ -280,7 +297,7 @@ func _ensure_molotov_host_pool(canvas: CanvasItem) -> void:
 	_molotov_fx_hosts_burst_triggered.clear()
 	_molotov_fx_hosts_canvas = canvas
 	for slot_idx in range(MOLOTOV_FX_HOST_POOL_SIZE):
-		var host_name: String = "%s%d" % [MOLOTOV_FX_HOST_NAME_PREFIX, slot_idx]
+		var host_name: String = "%s%d" % [_fx_host_name_prefix, slot_idx]
 		var existing: Node = parent.get_node_or_null(host_name)
 		var host: Node
 		if existing != null and is_instance_valid(existing):

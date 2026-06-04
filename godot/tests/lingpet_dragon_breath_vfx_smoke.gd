@@ -126,6 +126,7 @@ func _run() -> void:
 
 	_expect(_skill.get_ball_hit_count_for_tests() >= 1, "an ember should have hit the ball (drives the hit-flash VFX)")
 	_expect(_skill.get_fire_zone_spawn_count_for_tests() >= 1, "a lingering fire zone should have spawned for the zone VFX")
+	await _verify_breath_zone_host_attached()
 
 	# Force the hit-flash state and draw it explicitly.
 	_owner.ball_pos = Vector2(380.0, 360.0)
@@ -143,6 +144,8 @@ func _run() -> void:
 	await process_frame
 
 	_expect(_probe.draw_count >= 3, "probe should have drawn the breath VFX across multiple frames")
+	await _verify_empty_draw_hides_zone_host()
+	await _verify_reset_hides_zone_host()
 	_finish()
 
 
@@ -155,6 +158,57 @@ func _verify_presets_and_textures() -> void:
 	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
 	_expect(flame != null and flame.get_width() == 64 and flame.get_height() == 64, "flame-tongue texture piece should build at 64x64")
 	_expect(ember != null and ember.get_width() == 48 and ember.get_height() == 48, "ember texture piece should build at 48x48")
+
+
+func _verify_breath_zone_host_attached() -> void:
+	_probe.queue_redraw()
+	await process_frame
+	await process_frame
+	var breath_host := _probe.get_node_or_null("LingpetDragonBreathFireFxHost0") as Node2D
+	_expect(breath_host != null, "dragon breath should attach a dedicated molotov-zone FX host")
+	_expect(
+		_probe.get_node_or_null("ActiveItemMolotovFxHost0") == null,
+		"dragon breath should not reuse the active-item molotov host-name prefix"
+	)
+	if breath_host != null:
+		_expect(breath_host.visible, "dragon breath zone host should be visible while a fire zone is alive")
+
+
+func _verify_empty_draw_hides_zone_host() -> void:
+	var local_skill: Object = DragonBreathSkill.new()
+	local_skill.prewarm()
+	var local_probe := BreathVfxProbe.new()
+	local_probe.name = "BreathEmptyHideProbe"
+	local_probe.skill = local_skill
+	get_root().add_child(local_probe)
+	await process_frame
+
+	local_skill.call("_spawn_fire_zone", Vector2(380.0, 320.0))
+	local_probe.queue_redraw()
+	await process_frame
+	await process_frame
+
+	var host := local_probe.get_node_or_null("LingpetDragonBreathFireFxHost0") as Node2D
+	_expect(host != null, "empty-draw probe should attach the dragon-breath zone host")
+	if host != null:
+		_expect(host.visible, "empty-draw probe host should start visible with a live zone")
+
+	local_skill.update(3.0, _owner, _registry)
+	local_probe.queue_redraw()
+	await process_frame
+	await process_frame
+	if host != null and is_instance_valid(host):
+		_expect(not host.visible, "empty fire-zone draw should hide the molotov host after zone expiry")
+
+	local_probe.queue_free()
+
+
+func _verify_reset_hides_zone_host() -> void:
+	var breath_host := _probe.get_node_or_null("LingpetDragonBreathFireFxHost0") as Node2D
+	_skill.reset()
+	await process_frame
+	if breath_host != null and is_instance_valid(breath_host):
+		_expect(not breath_host.visible, "dragon breath reset should directly hide any reusable molotov host")
 
 
 func _finish() -> void:
