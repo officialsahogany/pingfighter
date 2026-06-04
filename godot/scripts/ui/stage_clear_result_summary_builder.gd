@@ -18,6 +18,23 @@ static func calculate_starpoint_total(boxes: Array) -> int:
 	return total
 
 
+static func resolve_display_gold(runtime_perk_state: Object, fallback_gold: int) -> int:
+	if runtime_perk_state != null:
+		var gold_value: Variant = runtime_perk_state.get("gold_from_perks")
+		if gold_value != null:
+			return int(gold_value)
+	return fallback_gold
+
+
+static func calculate_score_rating(player_score: int, boss_score: int) -> int:
+	var margin: int = player_score - boss_score
+	if margin >= 4:
+		return 3
+	if margin >= 2:
+		return 2
+	return 1
+
+
 static func build_item_summary(
 	stage_reward_snapshot: Dictionary,
 	boxes: Array,

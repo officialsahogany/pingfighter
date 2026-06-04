@@ -1991,14 +1991,6 @@ func _draw_metric_tile(font: Font, rect: Rect2, title: String, value: String, ti
 	_draw_text(font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
 
 
-func _resolve_display_gold() -> int:
-	if _runtime_perk_state != null:
-		var gold_value: Variant = _runtime_perk_state.get("gold_from_perks")
-		if gold_value != null:
-			return int(gold_value)
-	return PLACEHOLDER_GOLD
-
-
 # The project fallback font packs Korean syllable blocks tightly, so at the
 # small label sizes used on this scroll (header / metric-tile / chip text) the
 # glyphs read as touching/overlapping. Wrap it in a FontVariation that adds a
@@ -2035,14 +2027,10 @@ func _draw_result_summary_strip(font: Font, rect: Rect2, scale: float, alpha: fl
 	var gold_rect := Rect2(rect.position, tile_size)
 	var score_rect := Rect2(rect.position + Vector2(tile_width + tile_gap, 0.0), tile_size)
 	var rating_rect := Rect2(rect.position + Vector2((tile_width + tile_gap) * 2.0, 0.0), tile_size)
-	_draw_metric_tile(font, gold_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % _resolve_display_gold(), muted, accent, alpha)
+	var display_gold: int = StageClearResultSummaryBuilder.resolve_display_gold(_runtime_perk_state, PLACEHOLDER_GOLD)
+	_draw_metric_tile(font, gold_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % display_gold, muted, accent, alpha)
 	_draw_metric_tile(font, score_rect, LanguageSettings.translate_text("최종 스코어"), "%d : %d" % [player_score, boss_score], muted, accent, alpha)
-	var margin: int = player_score - boss_score
-	var rating: int = 1
-	if margin >= 4:
-		rating = 3
-	elif margin >= 2:
-		rating = 2
+	var rating: int = StageClearResultSummaryBuilder.calculate_score_rating(player_score, boss_score)
 	_draw_rating_tile(font, rating_rect, LanguageSettings.translate_text("평가"), rating, muted, alpha)
 
 

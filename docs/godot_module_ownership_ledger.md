@@ -1460,8 +1460,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
   reward-source count payloads, perk-info tile payloads, box starpoint
-  totals, stage-summary array duplication, and perk reward ID
-  classification. The scene still owns
+  totals, display-gold / score-rating summary-strip metrics,
+  stage-summary array duplication, and perk reward ID classification. The
+  scene still owns
   reward rolling, final grant callbacks, scroll/button input, drawing, and
   the live perk catalog instance used by reward text resolution.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`

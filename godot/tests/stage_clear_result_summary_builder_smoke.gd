@@ -6,11 +6,16 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const SOURCE_STAGE := "stage"
 const SOURCE_BOX := "box"
 
+class FakeRuntimePerkState:
+	extends RefCounted
+	var gold_from_perks: int = 375
+
 var _failures: Array[String] = []
 
 
 func _init() -> void:
 	_verify_reward_summaries()
+	_verify_metric_helpers()
 	_verify_perk_info_summary()
 	_verify_perk_id_resolution()
 	_verify_japanese_perk_info_summary()
@@ -81,6 +86,21 @@ func _verify_reward_summaries() -> void:
 	_expect(str((items[2] as Dictionary).get("_result_reward_source_label", "")) == "box label", "box rewards should receive the box label")
 	_expect(str((perks[2] as Dictionary).get("_result_reward_source_label", "")) == "box label", "box-selected perks should receive the box label")
 	_expect(str((visible[3] as Dictionary).get("perk_id", "")) == "box_starpoint_perk_a", "visible rewards should show the first selected box perk instead of the starpoint ticket")
+
+
+func _verify_metric_helpers() -> void:
+	var state := FakeRuntimePerkState.new()
+	_expect(
+		StageClearResultSummaryBuilder.resolve_display_gold(state, 1240) == 375,
+		"display gold should prefer runtime perk gold when it exists"
+	)
+	_expect(
+		StageClearResultSummaryBuilder.resolve_display_gold(null, 1240) == 1240,
+		"display gold should fall back when runtime perk state is missing"
+	)
+	_expect(StageClearResultSummaryBuilder.calculate_score_rating(5, 0) == 3, "score margin 4+ should be a 3-star result")
+	_expect(StageClearResultSummaryBuilder.calculate_score_rating(3, 1) == 2, "score margin 2-3 should be a 2-star result")
+	_expect(StageClearResultSummaryBuilder.calculate_score_rating(2, 2) == 1, "score margin below 2 should be a 1-star result")
 
 
 func _verify_perk_info_summary() -> void:
@@ -205,6 +225,11 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 	_expect(
 		source.find("reward_summary_state.get(\"item_rewards\"") >= 0,
 		"stage-clear result scene should render the item column from item-only rewards"
+	)
+	_expect(
+		source.find("StageClearResultSummaryBuilder.resolve_display_gold") >= 0
+			and source.find("StageClearResultSummaryBuilder.calculate_score_rating") >= 0,
+		"stage-clear result scene should delegate summary-strip metric calculations"
 	)
 	for item_section_label in ["\"액티브 아이템\"", "\"패시브 아이템\"", "\"신화 아이템\""]:
 		_expect(
