@@ -1,10 +1,10 @@
 extends Node
 
-# Exhibition / showcase reset hotkey. Pressing F7 anywhere in the running game
+# Exhibition / showcase reset hotkey. Pressing F10 anywhere in the running game
 # returns to the title (main menu) scene and clears volatile match state so the
 # next visitor at the booth starts from a clean slate.
 
-const RESET_KEY := KEY_F7
+const RESET_KEY := KEY_F10
 const TITLE_SCENE_PATH := "res://scenes/main_menu.tscn"
 const DEFAULT_LEAGUE_MODE := "junior"
 const DEFAULT_STAGE_ID := 1

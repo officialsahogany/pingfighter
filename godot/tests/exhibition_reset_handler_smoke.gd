@@ -1,6 +1,6 @@
 extends SceneTree
 
-# Verifies the ExhibitionResetHandler autoload owns the F7 booth-reset hotkey,
+# Verifies the ExhibitionResetHandler autoload owns the F10 booth-reset hotkey,
 # tears down any volatile match state on the autoload's `GameSelectionState`
 # dependency, and never collides with the battle scene input controller's
 # remaining debug-key matrix.
@@ -38,7 +38,7 @@ func _run() -> void:
 	_verify_event_filter()
 	_verify_game_selection_reset_runs()
 	_verify_resetting_lock_blocks_reentry()
-	_verify_battle_input_controller_no_longer_owns_f7()
+	_verify_battle_input_controller_no_longer_owns_reset_key()
 
 	await process_frame
 	if _failures.is_empty():
@@ -51,7 +51,7 @@ func _run() -> void:
 
 
 func _verify_autoload_consts() -> void:
-	_expect(ExhibitionResetHandler.RESET_KEY == KEY_F7, "ExhibitionResetHandler should own KEY_F7 as the booth reset hotkey")
+	_expect(ExhibitionResetHandler.RESET_KEY == KEY_F10, "ExhibitionResetHandler should own KEY_F10 as the booth reset hotkey")
 	_expect(
 		String(ExhibitionResetHandler.TITLE_SCENE_PATH) == "res://scenes/main_menu.tscn",
 		"ExhibitionResetHandler should target main_menu.tscn as the title reset destination"
@@ -64,10 +64,11 @@ func _verify_autoload_consts() -> void:
 
 func _verify_event_filter() -> void:
 	var handler := _make_handler()
-	_expect(handler.is_exhibition_reset_event(_key_event(KEY_F7, KEY_F7, true, false)), "pressed F7 should request exhibition reset")
-	_expect(handler.is_exhibition_reset_event(_key_event(KEY_UNKNOWN, KEY_F7, true, false)), "physical F7 should request exhibition reset")
-	_expect(not handler.is_exhibition_reset_event(_key_event(KEY_F7, KEY_F7, false, false)), "released F7 should not request exhibition reset")
-	_expect(not handler.is_exhibition_reset_event(_key_event(KEY_F7, KEY_F7, true, true)), "echo F7 should not repeat exhibition reset")
+	_expect(handler.is_exhibition_reset_event(_key_event(KEY_F10, KEY_F10, true, false)), "pressed F10 should request exhibition reset")
+	_expect(handler.is_exhibition_reset_event(_key_event(KEY_UNKNOWN, KEY_F10, true, false)), "physical F10 should request exhibition reset")
+	_expect(not handler.is_exhibition_reset_event(_key_event(KEY_F10, KEY_F10, false, false)), "released F10 should not request exhibition reset")
+	_expect(not handler.is_exhibition_reset_event(_key_event(KEY_F10, KEY_F10, true, true)), "echo F10 should not repeat exhibition reset")
+	_expect(not handler.is_exhibition_reset_event(_key_event(KEY_F7, KEY_F7, true, false)), "F7 should remain available for the lingpet debug picker")
 	_expect(not handler.is_exhibition_reset_event(_key_event(KEY_F8, KEY_F8, true, false)), "F8 should remain available for runtime perk debug")
 	handler.queue_free()
 
@@ -98,12 +99,18 @@ func _verify_resetting_lock_blocks_reentry() -> void:
 	handler.queue_free()
 
 
-func _verify_battle_input_controller_no_longer_owns_f7() -> void:
-	# The booth reset key MUST NOT also be claimed by the battle overlay input
-	# controller, or pressing F7 in-battle would race a stale debug toggle
-	# against the autoload.
-	var has_f7_const: bool = "PLAYER_CUSTOMIZATION_DEBUG_KEY" in BattleSceneOverlayInputController
-	_expect(not has_f7_const, "battle_scene_overlay_input_controller must not redeclare F7 as a debug key")
+func _verify_battle_input_controller_no_longer_owns_reset_key() -> void:
+	# The booth reset key (F10) MUST NOT also be claimed by the battle overlay
+	# input controller, or pressing F10 in-battle would race a stale debug toggle
+	# against the autoload. The lingpet debug picker now lives on F7.
+	_expect(
+		BattleSceneOverlayInputController.LINGPET_DEBUG_KEY == KEY_F7,
+		"battle overlay input should bind the lingpet debug picker to F7"
+	)
+	_expect(
+		BattleSceneOverlayInputController.LINGPET_DEBUG_KEY != ExhibitionResetHandler.RESET_KEY,
+		"battle overlay input must not bind any debug key to the booth reset key (F10)"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
