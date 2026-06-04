@@ -115,6 +115,9 @@ This section is intentionally long; use search to find the nearest owner.
   Korean display names, hatch weights, unlock conditions, required hatch
   hits, baseline companion stats, active-skill / passive-skill pool metadata,
   loadout skill-id normalization, and effect text.
+  As of 2026-06-04, passive-skill metadata is a shared Ringpet-wide pool
+  (`COMMON_PASSIVE_SKILL_POOL`) with Lv.1-Lv.5 values; pet-specific legacy
+  passive ids normalize into the shared passive ids for save compatibility.
   `lingpet_egg_runtime.gd`, character-info UI, save reset code, and
   rail-card helpers should read future Ringpet identity data from this
   catalog instead of adding new hardcoded pet ids locally.
@@ -199,6 +202,13 @@ This section is intentionally long; use search to find the nearest owner.
   hit / gauge flash snapshot fields. Future Ringpets with different body-hit
   rules should extend this helper instead of adding more collision math to
   `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_afterglow_leak_state.gd`
+  Owns the shared Ringpet passive `lingpet_afterglow_leak` / 잔광 유출:
+  companion-hit residue spawning, residue lifetime / seep-away cleanup,
+  player-paddle proximity absorption, fast gauge tick grants, procedural
+  glowing-liquid draw accents, gauge feedback calls, and debug / UI snapshot
+  fields. `lingpet_egg_runtime.gd` should only call spawn / advance / draw /
+  reset and should not inline residue math.
 - `scripts/lingpet/lingpet_companion_switch_state.gd`
   Owns Ringpet companion switch-transition state: transition timer, source /
   target pet ids, trigger count, ratio calculation, reset, and snapshot fields
@@ -212,9 +222,10 @@ This section is intentionally long; use search to find the nearest owner.
   inline.
 - `scripts/lingpet/lingpet_loadout_state.gd`
   Owns Ringpet acquisition loadouts: per-pet selected active-skill id,
-  selected passive-skill id, `lingpet_loadouts` / `ringpet_loadouts` owner-key
+  selected active/passive Lv.1-Lv.5 values, selected passive-skill id,
+  passive slot unlock count, `lingpet_loadouts` / `ringpet_loadouts` owner-key
   compatibility, legacy missing-loadout defaults, and first-acquisition random
-  skill-pool selection. Future Ringpet skill rerolls, choice tickets, or
+  shared-passive selection. Future Ringpet skill rerolls, choice tickets, or
   growth-driven loadout changes should update this helper instead of adding
   more selected-skill dictionaries to `lingpet_egg_runtime.gd`.
 - `scripts/lingpet/lingpet_collection_state.gd`
@@ -273,7 +284,7 @@ This section is intentionally long; use search to find the nearest owner.
   puddle code inline.
 - `scripts/lingpet/lingpet_bubble_trap_skill.gd`
   Owns Maribo Bubble Trap's skill-specific runtime: slow forward bubble
-  projectile travel, boss-paddle collision capture, 2-second bubble movement
+  projectile travel, boss-paddle collision capture, 2.5-3.0-second bubble movement
   lock, shared boss-stun refresh, ball-contact / expiry popping, lightweight
   procedural bubble burst VFX, reused hydro-water feedback, and Bubble Trap
   snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this module by the
@@ -2325,8 +2336,11 @@ This section is intentionally long; use search to find the nearest owner.
     / `stage6_boss_skill_hud_*` HUD context.
   - `stage6_tetriser_playfield_renderer.gd` — draws cube / tetrominoes / guard
     bars / wall cells / debris / laser beam / EMP rings (procedural; no art yet).
-  - `stage6_tetriser_boss_actor_renderer.gd` — placeholder boss paddle that
-    scales with `super_scale` (real AutoSprite sheet pending).
+  - `stage6_tetriser_boss_actor_renderer.gd` — real AutoSprite boss sprite
+    (7 sheets idle/walk/attack/dash/victory/defeat/stun under
+    `assets/sprites/bosses/stage6_tetriser/`, 3-col 8-frame 256px grid),
+    priority state machine (defeat>victory>stun>dash>attack>walk>idle),
+    preserves `super_scale` growth + aura.
   - `stage6_tetriser_actor_renderer.gd` — orchestrates playfield + shared Stage1
     player/commando renderers + boss renderer (main draw entry).
   - `stage6_tetriser_pillar_background.gd` — solid blue placeholder backdrop.

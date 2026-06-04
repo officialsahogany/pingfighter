@@ -327,8 +327,13 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
      **효과음 3종** `stage6_tetriser_{break,wall,super_roar}.wav` + 이벤트 배선(파괴=break/벽=wall/초인=cry);
      **prewarm 키** `STAGE6_RUNTIME_PREWARM_KEYS` 등록. (`2c7910bbf`)
    - ✅ **5c 완료:** `character_info_overlay.gd` 리팩터 컴파일 복구 후 전체 warning scan/headless load,
-     Stage 6/perf smoke, 그리고 Stage 6 직접 런타임 QA까지 통과. 보스 스프라이트(AutoSprite),
-     로딩/결과 화면, 테트리서 스킬카드 텍스처는 placeholder/후속 작업으로 유지.
+     Stage 6/perf smoke, 그리고 Stage 6 직접 런타임 QA까지 통과.
+   - ✅ **보스 스프라이트 (2026-06-04, `94d6a4fd6`):** AutoSprite 16-bit 픽셀아트 7종 시트
+     (idle/walk/attack/dash/victory/defeat/stun, 3열 8프레임 256px 그리드)를
+     `godot/assets/sprites/bosses/stage6_tetriser/`에 커밋, `stage6_tetriser_boss_actor_renderer.gd`를
+     placeholder 패들 → 우선순위 상태머신(§17.6: defeat>victory>stun>dash>attack>walk>idle)으로 교체.
+     초인 super_scale/aura 유지. 격리 warning scan/상태 smoke/headless load/런타임 7종 로드 검증 통과.
+   - ⏳ **후속:** 로딩/결과 화면 이미지, 테트리서 스킬카드 텍스처(현재 절차적)는 placeholder/후속 유지.
 
 > ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
 > Stage 6 smoke 9종, perf smoke, 직접 Stage 6 런타임 캡처/serve 확인 통과.
