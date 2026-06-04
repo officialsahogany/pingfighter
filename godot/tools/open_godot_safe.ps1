@@ -36,7 +36,7 @@ function Update-EditorWindowSettingsForSafeRun([string]$settingsPath) {
     $updated = Set-EditorLine $updated "interface/multi_window/restore_windows_on_load" "false"
     $updated = Set-EditorLine $updated "interface/multi_window/maximize_window" "false"
     $updated = Set-EditorLine $updated "run/window_placement/rect" "4"
-    $updated = Set-EditorLine $updated "run/window_placement/game_embed_mode" "2"
+    $updated = Set-EditorLine $updated "run/window_placement/game_embed_mode" "-1"
 
     if ($updated -eq $text) {
         Write-Host "Godot editor fullscreen/no-embed settings already applied."

@@ -54,7 +54,7 @@ $text = Set-EditorLine $text "interface/multi_window/enable" "false"
 $text = Set-EditorLine $text "interface/multi_window/restore_windows_on_load" "false"
 $text = Set-EditorLine $text "interface/multi_window/maximize_window" "false"
 $text = Set-EditorLine $text "run/window_placement/rect" "4"
-$text = Set-EditorLine $text "run/window_placement/game_embed_mode" "2"
+$text = Set-EditorLine $text "run/window_placement/game_embed_mode" "-1"
 [System.IO.File]::WriteAllText($EditorSettings, $text, $utf8NoBom)
 Write-Output "Applied single-window, fullscreen placement, and no-embed editor settings."
 
