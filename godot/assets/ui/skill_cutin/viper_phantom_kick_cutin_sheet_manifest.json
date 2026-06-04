@@ -3,8 +3,8 @@
   "character": "viper",
   "character_name": "Serin Viper",
   "runtime_usage": "viper_phantom_kick_skill_cutin",
-  "version": "v6-wallbrace-charge-facecloseup",
-  "status": "Grave killing-intent wall-brace Phantom Kick cut-in, FACE CLOSE-UP framing. Pose-anchored AutoSprite source ('Wall Charge Peak' erupting pose on BOTH first/last frame = held charge) + head-anchored explicit-crop reframe + inward feather + bottom-fade + side vignette + Real-ESRGAN x2.",
+  "version": "v7-facecloseup-hq-anime-upscale",
+  "status": "Grave killing-intent wall-brace Phantom Kick cut-in, FACE CLOSE-UP framing, HIGH-QUALITY upscale. Pose-anchored AutoSprite source ('Wall Charge Peak' erupting pose on BOTH first/last frame = held charge) + head-anchored native crop -> realesrgan-x4plus-anime x4 -> sharp downscale + inward feather + bottom-fade + side vignette.",
   "generated_at": "2026-06-04",
   "supersedes": {
     "v3_status": "jitter-free upper-body wall-brace (calm 'Wall Cling' hold, subtle energy)",
@@ -22,9 +22,9 @@
     "frame_interval": "phantom-kick-freeze-synced; 16 frames play once across cut-in progress 0.11..0.82 (skill_cutin_standard_renderer._cutin_frame_index), so the energy burst lands early in 'main' and the held coil simmers through 'flash'.",
     "freeze_duration_seconds": "runtime.dmk_freeze_frames / 60.0 = 99 / 60 = 1.65s (matches Smasher power-smash POWER_SMASH_FREEZE_DURATION).",
     "blend_style": "Runtime procedural violet wipe, speed lines, ghost wisps, and charge aura over the alpha-preserved erupting wall-brace sheet. Dimensions unchanged so no runtime profile/host change.",
-    "upscale_scale": 2,
-    "sha256": "1d1d3f36879a36b9f201fd7547f9955e675eb18b234de0d7c40bd6f4b7f47a44",
-    "file_size_bytes": 77410821
+    "upscale_scale": "4x on native crop, then sharp downscale into the 2048 cell",
+    "sha256": "5f292e9ce0d85aec0c33fbcc8dcf1bab8dba40a22bbcb2404a7ff80e2ffcf55f",
+    "file_size_bytes": 53967964
   },
   "source_autosprite": {
     "character_id": "cmp3c535h00daf30y5vml5ly6",
@@ -71,12 +71,16 @@
     "side_vignette": {"fade_side_px": 150, "reason": "Face close-up only: the tight head-anchored crop cuts the bracing arm (left) and streaming hair (right) as hard vertical edges inside the cell. A content-relative left/right smootherstep vignette dissolves them so the bust does not read as 'clipped by a box'. Head crown (top) stays a natural silhouette. Result hard-perimeter 0.0."},
     "realesrgan_upscale": {
       "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
-      "model": "realesr-animevideov3",
-      "scale": 2,
-      "alpha_preservation": "Split each feathered 1024 cell into alpha-bled RGB + feathered source alpha; upscaled RGB x2, resized alpha to 2048 Lanczos, recombined RGBA, rebuilt the 4x4 / 2048-cell / 8192 grid.",
-      "recombined_output": ".tmp/viper_phantom_kick_cutin_facecloseup_v6/viper_phantom_kick_cutin_sheet_final_8192_v6.png"
+      "model": "realesrgan-x4plus-anime",
+      "scale": 4,
+      "quality_fix": "v6 looked soft because the crop was Lanczos-upscaled ~1.79x BEFORE Real-ESRGAN (and used the realesr-animevideov3 video model). v7 instead crops the NATIVE 450x515 face region, runs realesrgan-x4plus-anime (sharp still-anime model) x4 on the native pixels (-> 1800x2060), then sharply DOWNSCALES into the 1611x1843 placement inside the 2048 cell. Only upscaling is the ESRGAN pass from native pixels; everything after is a downscale, so lines/eyes/hair stay crisp. A frame-9 A/B test confirmed v7 is visibly sharper than v6.",
+      "build_script": ".tmp/build_hq_v7.py (prep / assemble modes)",
+      "command": "realesrgan-ncnn-vulkan.exe -i <wd>/esrgan_in -o <wd>/esrgan_out -n realesrgan-x4plus-anime -s 4 -f png",
+      "alpha_preservation": "Crop native RGBA per frame; alpha-bleed RGB; ESRGAN x4 the RGB; resize native alpha to the ESRGAN size (Lanczos); recombine RGBA; downscale to placement; feather/vignette/bottom-fade at 2048; assemble 4x4 / 8192.",
+      "recombined_output": ".tmp/viper_phantom_kick_cutin_hq_v7/viper_phantom_kick_cutin_sheet_final_8192_v7.png",
+      "source_detail_note": "A tight face close-up magnifies only ~450px of native source, so detail is inherently capped. realesrgan-x4plus-anime sharpens lines but cannot invent face detail; a wider framing (v5) would read sharper still if maximum crispness is wanted over tightness."
     },
-    "pre_replace_backup": ".tmp/viper_phantom_kick_cutin_facecloseup_v6/prev_v5_sheet_backup.png"
+    "pre_replace_backup": ".tmp/viper_phantom_kick_cutin_hq_v7/prev_v6_sheet_backup.png"
   },
   "qa": {
     "transparent_corners": true,
