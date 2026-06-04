@@ -2205,28 +2205,10 @@ func _draw_reward_card_icon(reward: Dictionary, rect: Rect2, scale: float, alpha
 			return
 	var texture: Texture2D = StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
 	if texture != null:
-		_draw_texture_fit(texture, rect, alpha)
+		StageClearResultShapeHelper.draw_fitted_texture(self, texture, rect, alpha)
 	else:
-		_draw_fallback_reward_icon(reward, rect, alpha)
-
-
-func _draw_texture_fit(texture: Texture2D, rect: Rect2, alpha: float) -> void:
-	var texture_size: Vector2 = texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		return
-	var scale_ratio: float = min(rect.size.x / texture_size.x, rect.size.y / texture_size.y)
-	var draw_size: Vector2 = texture_size * scale_ratio
-	var icon_draw_rect := Rect2(rect.get_center() - draw_size * 0.5, draw_size)
-	draw_texture_rect(texture, icon_draw_rect, false, Color(1.0, 1.0, 1.0, alpha))
-
-
-func _draw_fallback_reward_icon(reward: Dictionary, rect: Rect2, alpha: float) -> void:
-	var reward_type: String = str(reward.get("type", ""))
-	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_fallback_reward_icon_visual_state(reward_type, rect, alpha)
-	var center: Vector2 = visual_state.get("center", rect.get_center())
-	var radius: float = float(visual_state.get("radius", min(rect.size.x, rect.size.y) * 0.42))
-	draw_circle(center, radius, visual_state.get("fill", Color(0.40, 0.32, 0.20, 0.84 * alpha)))
-	draw_arc(center, radius, 0.0, TAU, 28, visual_state.get("ring_color", Color(0.86, 1.0, 1.0, alpha * 0.80)), float(visual_state.get("ring_width", 1.6)))
+		var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_fallback_reward_icon_visual_state(reward_type, rect, alpha)
+		StageClearResultShapeHelper.draw_fallback_reward_icon(self, visual_state)
 
 
 @warning_ignore("shadowed_variable_base_class")

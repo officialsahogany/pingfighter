@@ -153,6 +153,34 @@ static func draw_panel(
 	canvas.draw_style_box(style, rect)
 
 
+static func draw_fitted_texture(canvas: CanvasItem, texture: Texture2D, rect: Rect2, alpha: float) -> void:
+	if canvas == null or texture == null or alpha <= 0.001:
+		return
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var scale_ratio: float = min(rect.size.x / texture_size.x, rect.size.y / texture_size.y)
+	var draw_size: Vector2 = texture_size * scale_ratio
+	var icon_draw_rect := Rect2(rect.get_center() - draw_size * 0.5, draw_size)
+	canvas.draw_texture_rect(texture, icon_draw_rect, false, Color(1.0, 1.0, 1.0, alpha))
+
+
+static func draw_fallback_reward_icon(canvas: CanvasItem, visual_state: Dictionary) -> void:
+	if canvas == null or visual_state.is_empty():
+		return
+	var center: Vector2 = visual_state.get("center", Vector2.ZERO)
+	var radius: float = float(visual_state.get("radius", 0.0))
+	if radius <= 0.0:
+		return
+	var fill: Color = visual_state.get("fill", Color.TRANSPARENT)
+	if fill.a > 0.001:
+		canvas.draw_circle(center, radius, fill)
+	var ring_color: Color = visual_state.get("ring_color", Color.TRANSPARENT)
+	var ring_width: float = float(visual_state.get("ring_width", 0.0))
+	if ring_color.a > 0.001 and ring_width > 0.0:
+		canvas.draw_arc(center, radius, 0.0, TAU, 28, ring_color, ring_width)
+
+
 static func box_hover_glow_layers(radius_x: float, radius_y: float, global_alpha: float, pulse: float, layer_count: int = 4) -> Array:
 	var layers: Array = []
 	var safe_layer_count: int = max(1, layer_count)
