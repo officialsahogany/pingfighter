@@ -57,6 +57,7 @@ func _test_retro_tetris_ringpia_background_contract() -> void:
 	var status: Dictionary = background.get_asset_status()
 	_expect(str(status.get("theme", "")) == "retro_tetris_ringpia", "Stage 6 background should use the retro Tetris + Ringpia theme")
 	_expect(bool(status.get("draws_old_tetris_columns", false)), "Stage 6 background should draw old-Tetris-style side columns")
+	_expect(bool(status.get("dense_cabinet_fill", false)), "Stage 6 background should keep the old-Tetris cabinet feeling visually dense")
 	var source := FileAccess.get_file_as_string(STAGE6_PILLAR_BACKGROUND_PATH)
 	_expect(source.find("TORCH_POSITIONS") < 0, "retro Stage 6 background should remove the previous torch port")
 	_expect(source.find("_draw_motes") < 0, "retro Stage 6 background should remove the previous mote port")
@@ -66,6 +67,7 @@ func _test_retro_tetris_ringpia_background_contract() -> void:
 
 func _test_arcade_well_contract() -> void:
 	var source := FileAccess.get_file_as_string(STAGE6_PILLAR_TETRIS_PATH)
+	_expect(source.find("TARGET_COLUMNS := 10") >= 0, "pillar Tetris should use a classic 10-column well")
 	_expect(source.find("CLASSIC_COLORS") >= 0, "pillar Tetris should use classic tetromino colors")
 	_expect(source.find("\"SCORE %d\"") >= 0, "pillar Tetris should draw a score plinth")
 	_expect(source.find("\"LINES %d\"") >= 0, "pillar Tetris should draw line count text")

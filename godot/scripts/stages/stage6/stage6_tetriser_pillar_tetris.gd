@@ -14,13 +14,13 @@ extends RefCounted
 
 # Layout / render constants (outer scope; used only by the renderer below).
 const MIN_MARGIN_WIDTH := 72.0
-const TARGET_COLUMNS := 6
+const TARGET_COLUMNS := 10
 const TARGET_ROWS := 20
 const BLOCK_MIN := 9.0
-const BLOCK_MAX := 24.0
-const INSET := 12.0
-const TOP_RESERVED := 64.0
-const BOTTOM_RESERVED := 114.0
+const BLOCK_MAX := 40.0
+const INSET := 18.0
+const TOP_RESERVED := 92.0
+const BOTTOM_RESERVED := 132.0
 const STACK_ALPHA := 0.64
 const FALLING_ALPHA := 0.94
 const NEXT_ALPHA := 0.88
@@ -385,7 +385,7 @@ func _draw_next_preview(canvas: CanvasItem, game: PillarTetrisGame, margin_x: fl
 	if game.next_type == "":
 		return
 	var shape: Array = PillarTetrisGame.TETROMINOS[game.next_type][0]
-	var mini_size := clampf(game.block_size * 0.55, 8.0, 16.0)
+	var mini_size := clampf(game.block_size * 0.62, 9.0, 20.0)
 	var min_x := 99
 	var min_y := 99
 	var max_x := -99
@@ -412,11 +412,11 @@ func _draw_next_preview(canvas: CanvasItem, game: PillarTetrisGame, margin_x: fl
 
 
 func _draw_well_shell(canvas: CanvasItem, well_rect: Rect2, margin_x: float, margin_w: float, margin_h: float, game: PillarTetrisGame) -> void:
-	var shell := well_rect.grow(9.0)
-	canvas.draw_rect(shell.grow(4.0), Color(0.0, 0.0, 0.0, 0.75))
+	var shell := well_rect.grow(13.0)
+	canvas.draw_rect(shell.grow(6.0), Color(0.0, 0.0, 0.0, 0.78))
 	canvas.draw_rect(shell, STONE_DARK)
-	canvas.draw_rect(shell.grow(-3.0), STONE)
-	canvas.draw_rect(well_rect.grow(3.0), PURPLE_EDGE, false, 3.0, true)
+	canvas.draw_rect(shell.grow(-4.0), STONE)
+	canvas.draw_rect(well_rect.grow(4.0), PURPLE_EDGE, false, 4.0, true)
 	canvas.draw_rect(well_rect, WELL_BG)
 	var inner_line := Color(0.78, 0.78, 1.0, 0.42)
 	canvas.draw_line(well_rect.position, Vector2(well_rect.end.x, well_rect.position.y), inner_line, 2.0, true)
@@ -444,8 +444,8 @@ func _draw_side_stats_hint(canvas: CanvasItem, margin_x: float, margin_w: float,
 
 
 func _draw_score_plinth(canvas: CanvasItem, game: PillarTetrisGame, margin_x: float, margin_w: float, margin_h: float, well_rect: Rect2) -> void:
-	var plinth_h := clampf(BOTTOM_RESERVED - 18.0, 74.0, 108.0)
-	var plinth_w := minf(maxf(well_rect.size.x + 36.0, margin_w * 0.78), margin_w - 14.0)
+	var plinth_h := clampf(BOTTOM_RESERVED - 18.0, 90.0, 118.0)
+	var plinth_w := minf(maxf(well_rect.size.x + 44.0, margin_w * 0.90), margin_w - 14.0)
 	var rect := Rect2(Vector2(margin_x + (margin_w - plinth_w) * 0.5, margin_h - plinth_h - 10.0), Vector2(plinth_w, plinth_h))
 	canvas.draw_rect(rect.grow(5.0), Color(0.0, 0.0, 0.0, 0.72))
 	canvas.draw_rect(rect, PANEL_BG)
