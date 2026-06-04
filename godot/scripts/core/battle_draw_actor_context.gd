@@ -115,12 +115,22 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 
 	var warp_gate_context: Dictionary = {}
 	var smasher_wheel_context: Dictionary = {}
+	# Ghost-smashing possession: Mika is sucked into the ball, so the field
+	# paddle is hidden while riding and streaks home on the boss return.
+	var ghost_possession_paddle_hidden: bool = false
+	var ghost_possession_player_override: Dictionary = {}
 	if is_smasher:
 		var warp_gate_state = deps.get("smasher_warp_gate_state", null)
 		warp_gate_context = warp_gate_state.get_actor_draw_context(player_draw_pos, player_draw_size) if warp_gate_state != null and warp_gate_state.has_method("get_actor_draw_context") else {}
 		var smasher_wheel_state = deps.get("smasher_wheel_state", null)
 		var smasher_actor_current_msec: int = int(context.get("current_msec", -1))
 		smasher_wheel_context = smasher_wheel_state.get_actor_draw_context(smasher_actor_current_msec) if smasher_wheel_state != null and smasher_wheel_state.has_method("get_actor_draw_context") else {}
+		var power_smash_state = deps.get("power_state", null)
+		if power_smash_state == null:
+			power_smash_state = deps.get("smasher_power_smash_state", null)
+		if power_smash_state != null and power_smash_state.has_method("is_ghost_possession_paddle_hidden"):
+			ghost_possession_paddle_hidden = bool(power_smash_state.is_ghost_possession_paddle_hidden())
+			ghost_possession_player_override = power_smash_state.get_ghost_possession_player_override()
 
 	var commando_firearm_context: Dictionary = {}
 	var commando_current_weapon_id: String = "pistol"
@@ -394,6 +404,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"dash_recharge_frames": max(1.0, float(dash_context.get("recharge_frames", 300.0))),
 		"pillar_drawer": deps.get("pillar_drawer", null),
 		"player_pos": player_draw_pos,
+		"ghost_possession_paddle_hidden": ghost_possession_paddle_hidden,
+		"ghost_possession_player_override": ghost_possession_player_override,
 		"player_speed": player_speed,
 		"player_walk_direction": player_walk_direction,
 		"player_anim_clock": animation_context.get("player_anim_clock", 0.0),

@@ -205,6 +205,8 @@ func _append_character_round_deps(
 		_append_viper_round_deps(deps, registry, perf_logger, perf_label_prefix)
 	elif character_runtime.is_commando(character_type):
 		_append_commando_round_deps(deps, registry, perf_logger, perf_label_prefix)
+	elif character_runtime.is_blacksmith(character_type):
+		_append_blacksmith_round_deps(deps, registry, perf_logger, perf_label_prefix)
 	else:
 		_append_smasher_round_deps(deps, registry, perf_logger, perf_label_prefix)
 
@@ -251,6 +253,20 @@ func _append_commando_round_deps(
 	deps["commando_weapon_controller"] = _get_round_instance(registry, "commando_weapon_controller", perf_logger, perf_label_prefix)
 
 
+func _append_blacksmith_round_deps(
+	deps: Dictionary,
+	registry,
+	perf_logger: Object = null,
+	perf_label_prefix: String = ""
+) -> void:
+	deps["blacksmith_thor_shield_state"] = _get_round_instance(registry, "blacksmith_thor_shield_state", perf_logger, perf_label_prefix)
+	deps["blacksmith_skill_state"] = _get_round_instance(registry, "blacksmith_skill_state", perf_logger, perf_label_prefix)
+	deps["blacksmith_skill_config"] = _get_round_instance(registry, "blacksmith_skill_config", perf_logger, perf_label_prefix)
+	deps["skill_state"] = deps["blacksmith_skill_state"]
+	deps["skill_config"] = deps["blacksmith_skill_config"]
+	deps["dash_state"] = _get_round_instance(registry, "smasher_dash_state", perf_logger, perf_label_prefix)
+
+
 func _append_stage_round_deps(
 	deps: Dictionary,
 	registry,
@@ -287,6 +303,8 @@ func _append_character_update_deps(deps: Dictionary, registry, character_type: S
 		_append_viper_update_deps(deps, registry, true)
 	elif character_runtime.is_commando(character_type):
 		_append_commando_update_deps(deps, registry, true)
+	elif character_runtime.is_blacksmith(character_type):
+		_append_blacksmith_update_deps(deps, registry, true)
 	else:
 		_append_smasher_update_deps(deps, registry, true)
 
@@ -338,6 +356,18 @@ func _append_commando_update_deps(deps: Dictionary, registry, include_generic_ke
 	if include_generic_keys:
 		deps["commando_weapon_controller"] = _get_instance(registry, "commando_weapon_controller")
 		deps["commando_emergency_supply_state"] = _get_instance(registry, "commando_emergency_supply_state")
+
+
+func _append_blacksmith_update_deps(deps: Dictionary, registry, include_generic_keys: bool) -> void:
+	var skill_state: Object = _get_instance(registry, "blacksmith_skill_state")
+	var skill_config: Object = _get_instance(registry, "blacksmith_skill_config")
+	if include_generic_keys:
+		deps["input_reader"] = _get_instance(registry, "blacksmith_input_reader")
+		deps["skill_state"] = skill_state
+		deps["skill_config"] = skill_config
+	deps["blacksmith_skill_state"] = skill_state
+	deps["blacksmith_skill_config"] = skill_config
+	deps["blacksmith_thor_shield_state"] = _get_instance(registry, "blacksmith_thor_shield_state")
 
 
 func _append_legacy_stage_update_deps(deps: Dictionary, registry) -> void:

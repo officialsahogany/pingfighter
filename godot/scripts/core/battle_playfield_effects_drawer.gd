@@ -308,6 +308,19 @@ func draw_shield_kiting_effects(
 		shield_kiting_state.draw(canvas, shake_offset)
 
 
+func draw_blacksmith_thor_shield_effects(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2,
+	draw_context: Dictionary = {}
+) -> void:
+	if not _is_character_context(draw_context, "blacksmith"):
+		return
+	var blacksmith_thor_shield_state: Object = _get_instance(registry, "blacksmith_thor_shield_state")
+	if _has_visible_effects(blacksmith_thor_shield_state) and blacksmith_thor_shield_state.has_method("draw"):
+		blacksmith_thor_shield_state.draw(canvas, shake_offset)
+
+
 func draw_laurel_leaf_shield(
 	canvas: CanvasItem,
 	registry: Object,
@@ -639,4 +652,6 @@ func _character_type(context: Dictionary) -> String:
 		return "smasher"
 	if character_type == "commando":
 		return "soldier"
+	if character_type == "baltor" or character_type == "kohaku":
+		return "blacksmith"
 	return character_type

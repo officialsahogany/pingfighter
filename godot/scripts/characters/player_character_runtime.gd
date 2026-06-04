@@ -5,6 +5,7 @@ const SMASHER := "smasher"
 const VIPER := "viper"
 const COMMANDO := "soldier"
 const OPTIMUS := "optimus"
+const BLACKSMITH := "blacksmith"
 
 
 func normalize(character_type: Variant) -> String:
@@ -13,6 +14,8 @@ func normalize(character_type: Variant) -> String:
 		return COMMANDO
 	if value == OPTIMUS or value == "io":
 		return OPTIMUS
+	if value == BLACKSMITH or value == "baltor" or value == "kohaku":
+		return BLACKSMITH
 	if value == VIPER:
 		return VIPER
 	return SMASHER
@@ -30,7 +33,13 @@ func is_optimus(character_type: Variant) -> bool:
 	return normalize(character_type) == OPTIMUS
 
 
+func is_blacksmith(character_type: Variant) -> bool:
+	return normalize(character_type) == BLACKSMITH
+
+
 func get_player_controller_key(character_type: Variant) -> String:
+	if is_blacksmith(character_type):
+		return "blacksmith_player_controller"
 	if is_commando(character_type):
 		return "commando_player_controller"
 	if is_optimus(character_type):
@@ -41,6 +50,8 @@ func get_player_controller_key(character_type: Variant) -> String:
 
 
 func get_input_reader_key(character_type: Variant) -> String:
+	if is_blacksmith(character_type):
+		return "blacksmith_input_reader"
 	if is_commando(character_type):
 		return "commando_input_reader"
 	if is_viper(character_type):
@@ -54,12 +65,14 @@ func get_dash_state_key(_character_type: Variant) -> String:
 
 
 func get_combo_state_key(character_type: Variant) -> String:
-	if is_viper(character_type) or is_commando(character_type) or is_optimus(character_type):
+	if is_viper(character_type) or is_commando(character_type) or is_optimus(character_type) or is_blacksmith(character_type):
 		return ""
 	return "smasher_combo_state"
 
 
 func get_skill_config_key(character_type: Variant) -> String:
+	if is_blacksmith(character_type):
+		return "blacksmith_skill_config"
 	if is_commando(character_type):
 		return "commando_skill_config"
 	if is_optimus(character_type):
@@ -70,6 +83,8 @@ func get_skill_config_key(character_type: Variant) -> String:
 
 
 func get_skill_state_key(character_type: Variant) -> String:
+	if is_blacksmith(character_type):
+		return "blacksmith_skill_state"
 	if is_commando(character_type):
 		return "commando_skill_state"
 	if is_optimus(character_type):
@@ -80,6 +95,8 @@ func get_skill_state_key(character_type: Variant) -> String:
 
 
 func get_skill_icon_texture_key(character_type: Variant) -> String:
+	if is_blacksmith(character_type):
+		return ""
 	if is_commando(character_type):
 		return "commando_skill_icon_textures"
 	if is_optimus(character_type):
@@ -92,6 +109,8 @@ func get_skill_icon_texture_key(character_type: Variant) -> String:
 func get_skill_cluster_frame_texture_key(character_type: Variant, max_slots: int = 5) -> String:
 	var slot_count: int = int(max_slots)
 	if slot_count != 5:
+		return ""
+	if is_blacksmith(character_type):
 		return ""
 	if is_commando(character_type):
 		return "smasher_skill_cluster_frame_texture"
@@ -127,6 +146,14 @@ func get_base_movement_config(character_type: Variant) -> Dictionary:
 			"paddle_decel": 0.38,
 			"paddle_turn_decel": 1.0,
 		}
+	if is_blacksmith(character_type):
+		return {
+			"paddle_speed": 6.0,
+			"paddle_max_speed": 6.0,
+			"paddle_accel": 0.5,
+			"paddle_decel": 0.5,
+			"paddle_turn_decel": 1.0,
+		}
 	return {
 		"paddle_speed": 6.0,
 		"paddle_max_speed": 6.0,
@@ -157,6 +184,13 @@ func get_player_render_context(character_type: Variant) -> Dictionary:
 			"texture_prefix": "optimus",
 			"player_color": Color(0.42, 0.78, 0.95),
 			"player_color_light": Color(0.78, 0.96, 1.0),
+		}
+	if is_blacksmith(character_type):
+		return {
+			"use_smasher_sprite_textures": true,
+			"texture_prefix": "blacksmith",
+			"player_color": Color(0.72, 0.48, 0.18),
+			"player_color_light": Color(1.0, 0.78, 0.36),
 		}
 	return {
 		"use_smasher_sprite_textures": true,

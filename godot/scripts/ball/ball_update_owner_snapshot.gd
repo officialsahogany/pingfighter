@@ -82,8 +82,12 @@ func _normalize_character_type(value: Variant) -> String:
 	var normalized: String = str(value).strip_edges().to_lower()
 	if normalized == "soldier" or normalized == "commando":
 		return "soldier"
+	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
+		return "blacksmith"
 	if normalized == "viper":
 		return "viper"
+	if normalized == "optimus" or normalized == "io":
+		return "optimus"
 	return "smasher"
 
 

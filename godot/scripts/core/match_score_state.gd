@@ -58,6 +58,14 @@ func score_for(scoring_side: String) -> Dictionary:
 	return result
 
 
+func is_player_in_danger() -> bool:
+	# True when the boss scoring the next point would finish the match -- i.e.
+	# the player is at match point against. Drives the player danger state-glow.
+	# Reuses would_score_finish so deuce / deuce-goal escalation stays in one
+	# place instead of being re-derived by the renderer.
+	return would_score_finish(SIDE_BOSS)
+
+
 func get_snapshot() -> Dictionary:
 	return {
 		"player_score": player_score,

@@ -76,7 +76,7 @@ func _run() -> void:
 	_expect(_find_runtime_index(entries, "soldier") >= 0, "character debug menu should include Commando")
 	_expect(_find_runtime_index(entries, "optimus") >= 0, "character debug menu should include Optimus / Io")
 	_expect(_find_runtime_index(entries, "viper") >= 0, "character debug menu should include Viper")
-	_expect(_find_runtime_index(entries, "blacksmith") < 0, "character debug menu should omit unsupported runtime-only placeholders")
+	_expect(_find_runtime_index(entries, "blacksmith") >= 0, "character debug menu should include Kohaku / Baltor")
 
 	picker.selected_index = _find_runtime_index(entries, "viper")
 	var enter_event := InputEventKey.new()
@@ -101,6 +101,9 @@ func _run() -> void:
 	state.set_character({"id": "io", "runtime_id": "io", "name": "\uc774\uc624"})
 	selection = state.get_selection()
 	_expect(str(selection.get("runtime_character_id", "")) == "optimus", "GameSelectionState should normalize Io alias to Optimus runtime id")
+	state.set_character({"id": "baltor", "runtime_id": "baltor", "name": "\ucf54\ud558\ucfe0"})
+	selection = state.get_selection()
+	_expect(str(selection.get("runtime_character_id", "")) == "blacksmith", "GameSelectionState should normalize Baltor alias to Blacksmith runtime id")
 
 	picker.toggle(owner)
 	_expect(int(picker.selected_index) == _find_runtime_index(picker._get_entries(), "viper"), "reopening the picker should highlight the current runtime character")

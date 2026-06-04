@@ -9,6 +9,7 @@ func build_deps(registry: Object) -> Dictionary:
 			_get_instance(registry, "viper_skill_state"),
 			_get_instance(registry, "commando_skill_state"),
 			_get_instance(registry, "optimus_energy_state"),
+			_get_instance(registry, "blacksmith_skill_state"),
 		],
 		"drive_input_state": _get_instance(registry, "smasher_drive_input_state"),
 		"smasher_plasma_state": _get_instance(registry, "smasher_plasma_state"),
@@ -20,6 +21,7 @@ func build_deps(registry: Object) -> Dictionary:
 		"smasher_magnum_grip_state": _get_instance(registry, "smasher_magnum_grip_state"),
 		"smasher_dash_spirit_state": _get_instance(registry, "smasher_dash_spirit_state"),
 		"smasher_shield_kiting_state": _get_instance(registry, "smasher_shield_kiting_state"),
+		"blacksmith_thor_shield_state": _get_instance(registry, "blacksmith_thor_shield_state"),
 		"laurel_leaf_shield_state": _get_instance(registry, "laurel_leaf_shield_state"),
 		"monkey_blessing_delivery_state": _get_instance(registry, "monkey_blessing_delivery_state"),
 		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
@@ -29,6 +31,7 @@ func build_deps(registry: Object) -> Dictionary:
 			_get_instance(registry, "smasher_skill_config"),
 			_get_instance(registry, "viper_skill_config"),
 			_get_instance(registry, "commando_skill_config"),
+			_get_instance(registry, "blacksmith_skill_config"),
 		],
 		"skill_runtimes": [
 			_get_instance(registry, "viper_skill_runtime"),

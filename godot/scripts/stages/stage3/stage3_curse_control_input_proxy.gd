@@ -14,6 +14,8 @@ func configure(input_reader: Object, skill_state: Object, shared_status_state: O
 
 func get_snapshot() -> Dictionary:
 	var snapshot := _read_source_snapshot()
+	if _is_player_stun_active():
+		return _lock_player_stun_input(snapshot)
 	if not _is_curse_reverse_active():
 		return snapshot
 	return _reverse_horizontal_input(snapshot)
@@ -43,6 +45,49 @@ func _is_curse_reverse_active() -> bool:
 		if snapshot is Dictionary:
 			return bool(snapshot.get("stage3_curse_reverse_active", false)) or float(snapshot.get("stage3_curse_reverse_ratio", 0.0)) > 0.0
 	return false
+
+
+func _is_player_stun_active() -> bool:
+	if status_effect_state == null:
+		return false
+	if status_effect_state.has_method("is_player_stun_active") and bool(status_effect_state.is_player_stun_active()):
+		return true
+	if status_effect_state.has_method("has_status") and bool(status_effect_state.has_status("player", "stun")):
+		return true
+	if status_effect_state.has_method("get_player_control_context"):
+		var context: Variant = status_effect_state.get_player_control_context()
+		if context is Dictionary:
+			return bool(context.get("player_stun_active", false)) or float(context.get("player_stun_ratio", 0.0)) > 0.0
+	return false
+
+
+func _lock_player_stun_input(snapshot: Dictionary) -> Dictionary:
+	var locked: Dictionary = snapshot.duplicate(true)
+	for key in [
+		"left_pressed",
+		"right_pressed",
+		"up_pressed",
+		"down_pressed",
+		"action_pressed",
+		"action_just_pressed",
+		"action_just_released",
+		"jetpack_pressed",
+		"supply_drop_hold_pressed",
+		"commando_supply_drop_hold_pressed",
+		"mouse_right_pressed",
+		"mouse_right_just_pressed",
+		"gamepad_supply_hold_pressed",
+		"mouse_middle_pressed",
+		"mouse_middle_just_pressed",
+		"firearm_reset_just_pressed",
+	]:
+		if locked.has(key):
+			locked[key] = false
+	locked["direction"] = 0.0
+	locked["power_smash_direction"] = 0
+	locked["player_stun_active"] = true
+	locked["status_player_stun_active"] = true
+	return locked
 
 
 func _reverse_horizontal_input(snapshot: Dictionary) -> Dictionary:

@@ -48,6 +48,11 @@ func _init() -> void:
 		_expect(viper_skill_ids[1] == "marshal_kick", "Serin second representative skill should be Marshal Kick")
 		_expect(viper_skill_ids[2] == "blade_rush", "Serin third representative skill should be Air Blade")
 
+	var blacksmith := _get_character_by_runtime_id(characters, "blacksmith")
+	_expect(not blacksmith.is_empty(), "Kohaku / Baltor character data should be present")
+	if not blacksmith.is_empty():
+		_expect(bool(blacksmith.get("unlocked", false)), "Kohaku / Baltor should be unlocked in character select")
+
 	screen.set("skill_icon_rects", {0: Rect2(Vector2(10.0, 10.0), Vector2(50.0, 50.0))})
 	screen.call("_update_hover_from_mouse", Vector2(20.0, 20.0))
 	_expect(int(screen.get("hovered_skill_index")) == 0, "skill icon hit-test should set hovered_skill_index")

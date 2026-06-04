@@ -96,6 +96,10 @@ func reset_power_and_drive(deps: Dictionary, reset_mythic: bool = true) -> void:
 	if shield_kiting_state != null and shield_kiting_state.has_method("reset_round"):
 		shield_kiting_state.reset_round(deps)
 
+	var blacksmith_shield_state = deps.get("blacksmith_thor_shield_state", null)
+	if blacksmith_shield_state != null and blacksmith_shield_state.has_method("reset_round"):
+		blacksmith_shield_state.reset_round(deps)
+
 	var mythic_item_runtime = deps.get("mythic_item_runtime", null)
 	if reset_mythic and mythic_item_runtime != null and mythic_item_runtime.has_method("reset_round"):
 		mythic_item_runtime.reset_round(deps.get("registry", null))

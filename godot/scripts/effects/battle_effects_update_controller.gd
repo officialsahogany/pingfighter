@@ -102,7 +102,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 			fps_scale,
 			ball_pos,
 			bool(context.get("ball_active", false)),
-			float(context.get("ball_size", 0.0))
+			float(context.get("ball_size", 0.0)),
+			context
 		)
 
 	var plasma_state: Object = deps.get("smasher_plasma_state", null)
@@ -142,6 +143,13 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var shield_kiting_state: Object = deps.get("smasher_shield_kiting_state", null)
 	if _needs_effect_update(shield_kiting_state) and shield_kiting_state.has_method("update_effects"):
 		shield_kiting_state.update_effects(fps_scale)
+
+	var blacksmith_thor_shield_state: Object = deps.get("blacksmith_thor_shield_state", null)
+	var blacksmith_thor_shield_result: Dictionary = {}
+	if _needs_effect_update(blacksmith_thor_shield_state) and blacksmith_thor_shield_state.has_method("update_effects"):
+		blacksmith_thor_shield_result = blacksmith_thor_shield_state.update_effects(fps_scale, context, effect_deps)
+		if not blacksmith_thor_shield_result.is_empty():
+			context.merge(blacksmith_thor_shield_result, true)
 
 	var commando_firearm_runtime: Object = deps.get("commando_firearm_runtime", null)
 	var commando_firearm_result: Dictionary = {}
@@ -244,6 +252,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	result.merge(stage5_hongryun_result, true)
 	result.merge(stage5_hongryun_fire_machine_result, true)
 	result.merge(commando_firearm_result, true)
+	result.merge(blacksmith_thor_shield_result, true)
 	result["special_gauge"] = next_special_gauge
 	return result
 

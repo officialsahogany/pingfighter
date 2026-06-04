@@ -52,6 +52,7 @@ func apply_effects_result(owner: Object, result: Dictionary) -> void:
 		_apply_commando_bowling_trap_guard_state(owner, result)
 	if result.has("commando_suicide_drone_ball_boost_active"):
 		_apply_commando_suicide_drone_ball_boost_state(owner, result)
+	_apply_blacksmith_umbrella_result(owner, result)
 
 
 func _apply_commando_firearm_boss_damage(owner: Object, result: Dictionary) -> void:
@@ -109,6 +110,24 @@ func _apply_commando_suicide_drone_ball_boost_state(owner: Object, result: Dicti
 		"commando_suicide_drone_ball_boosted_speed",
 		_get_owner_value(owner, "commando_suicide_drone_ball_boosted_speed", 0.0)
 	)))
+
+
+func _apply_blacksmith_umbrella_result(owner: Object, result: Dictionary) -> void:
+	for key in [
+		"blacksmith_umbrella_open",
+		"blacksmith_umbrella_anim_timer",
+		"blacksmith_umbrella_retracting",
+		"blacksmith_umbrella_swing_active",
+		"blacksmith_umbrella_swing_direction",
+		"blacksmith_umbrella_swing_timer",
+		"blacksmith_umbrella_gauge",
+		"blacksmith_umbrella_gauge_max",
+		"blacksmith_umbrella_gauge_gain",
+		"blacksmith_umbrella_damage_flash_timer",
+		"blacksmith_umbrella_hit_pulse_timer",
+	]:
+		if result.has(key):
+			owner.set(key, result[key])
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

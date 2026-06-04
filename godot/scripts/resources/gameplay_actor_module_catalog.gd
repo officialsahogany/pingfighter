@@ -21,6 +21,14 @@ const MODULES := {
 		"path": "res://scripts/characters/commando_skill_state.gd",
 		"label": "commando skill state",
 	},
+	"blacksmith_skill_state": {
+		"path": "res://scripts/characters/blacksmith_skill_state.gd",
+		"label": "blacksmith skill state",
+	},
+	"blacksmith_thor_shield_state": {
+		"path": "res://scripts/characters/blacksmith_thor_shield_state.gd",
+		"label": "blacksmith thor shield state",
+	},
 	"commando_weapon_controller": {
 		"path": "res://scripts/characters/commando_weapon_controller.gd",
 		"label": "commando weapon controller",
@@ -125,6 +133,10 @@ const MODULES := {
 		"path": "res://scripts/characters/optimus_player_controller.gd",
 		"label": "optimus player controller",
 	},
+	"blacksmith_player_controller": {
+		"path": "res://scripts/characters/blacksmith_player_controller.gd",
+		"label": "blacksmith player controller",
+	},
 	"smasher_input_reader": {
 		"path": "res://scripts/characters/smasher_input_reader.gd",
 		"label": "smasher input reader",
@@ -136,6 +148,10 @@ const MODULES := {
 	"commando_input_reader": {
 		"path": "res://scripts/characters/commando_input_reader.gd",
 		"label": "commando input reader",
+	},
+	"blacksmith_input_reader": {
+		"path": "res://scripts/characters/blacksmith_input_reader.gd",
+		"label": "blacksmith input reader",
 	},
 	"smasher_drive_input_state": {
 		"path": "res://scripts/characters/smasher_drive_input_state.gd",
@@ -196,6 +212,10 @@ const MODULES := {
 	"commando_skill_config": {
 		"path": "res://scripts/characters/commando_skill_config.gd",
 		"label": "commando skill config",
+	},
+	"blacksmith_skill_config": {
+		"path": "res://scripts/characters/blacksmith_skill_config.gd",
+		"label": "blacksmith skill config",
 	},
 	"player_movement_state": {
 		"path": "res://scripts/characters/player_movement_state.gd",

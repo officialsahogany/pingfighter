@@ -3,7 +3,7 @@ extends RefCounted
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
-const SUPPORTED_RUNTIME_IDS := ["smasher", "soldier", "optimus", "viper"]
+const SUPPORTED_RUNTIME_IDS := ["smasher", "soldier", "optimus", "viper", "blacksmith"]
 const COLUMNS := 3
 const CARD_SIZE := Vector2(188.0, 92.0)
 const CARD_GAP := Vector2(14.0, 14.0)
@@ -14,6 +14,7 @@ const FALLBACK_CHARACTERS := [
 	{"id": "soldier", "runtime_id": "soldier", "name": "\ucf54\ub9cc\ub3c4", "card_color": Color(0.38, 0.68, 0.36)},
 	{"id": "optimus", "runtime_id": "optimus", "name": "\uc774\uc624", "card_color": Color(0.44, 0.78, 0.96)},
 	{"id": "viper", "runtime_id": "viper", "name": "\ubc14\uc774\ud37c", "card_color": Color(0.72, 0.30, 1.0)},
+	{"id": "blacksmith", "runtime_id": "blacksmith", "name": "\ucf54\ud558\ucfe0", "card_color": Color(0.86, 0.58, 0.24)},
 ]
 
 var open := false
@@ -201,8 +202,6 @@ func _get_entries() -> Array:
 		if not (value is Dictionary):
 			continue
 		var character: Dictionary = value
-		if not bool(character.get("unlocked", false)):
-			continue
 		var runtime_id: String = _normalize_runtime_id(character.get("runtime_id", character.get("id", "")))
 		var raw_runtime: String = str(character.get("runtime_id", character.get("id", ""))).strip_edges().to_lower()
 		if not SUPPORTED_RUNTIME_IDS.has(runtime_id):
@@ -310,6 +309,8 @@ func _get_runtime_display_name(runtime_id: String) -> String:
 			return "\uc774\uc624"
 		"viper":
 			return "\ubc14\uc774\ud37c"
+		"blacksmith":
+			return "\ucf54\ud558\ucfe0"
 	return "\uc2a4\ub9e4\uc154"
 
 
@@ -321,6 +322,8 @@ func _get_runtime_label(runtime_id: String) -> String:
 			return "\ubc30\ud130\ub9ac / \uac00\ubcc0 \ud328\ub4e4"
 		"viper":
 			return "\uadfc\uc811 \uc5f0\uacc4 / \uae30\ub3d9"
+		"blacksmith":
+			return "\ud1a0\ub974\uc274\ub4dc / \uac74\uc124"
 	return "\ucd94\uc9c4 \ub4dc\ub77c\uc774\ube0c / \uc624\ube0c"
 
 

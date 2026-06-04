@@ -199,6 +199,15 @@ func configure_player_character(owner: Object, registry: Object, character_type:
 			})
 		elif viper_skill_runtime != null and viper_skill_runtime.has_method("reset"):
 			viper_skill_runtime.reset()
+	var blacksmith_shield_state: Object = _get_instance(registry, "blacksmith_thor_shield_state")
+	if normalized == "blacksmith":
+		if blacksmith_shield_state != null and blacksmith_shield_state.has_method("reset"):
+			blacksmith_shield_state.reset()
+		_clear_blacksmith_umbrella_owner_fields(owner)
+	elif _has_blacksmith_umbrella_owner_fields(owner):
+		if blacksmith_shield_state != null and blacksmith_shield_state.has_method("reset"):
+			blacksmith_shield_state.reset()
+		_clear_blacksmith_umbrella_owner_fields(owner)
 	var optimus_energy_state: Object = _get_instance(registry, "optimus_energy_state")
 	if normalized == "optimus":
 		if optimus_energy_state != null and optimus_energy_state.has_method("reset"):
@@ -236,6 +245,33 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _has_blacksmith_umbrella_owner_fields(owner: Object) -> bool:
+	if owner == null:
+		return false
+	return (
+		bool(owner.get("blacksmith_umbrella_open") if owner.get("blacksmith_umbrella_open") != null else false)
+		or float(owner.get("blacksmith_umbrella_anim_timer") if owner.get("blacksmith_umbrella_anim_timer") != null else 0.0) > 0.0
+		or bool(owner.get("blacksmith_umbrella_retracting") if owner.get("blacksmith_umbrella_retracting") != null else false)
+		or bool(owner.get("blacksmith_umbrella_swing_active") if owner.get("blacksmith_umbrella_swing_active") != null else false)
+	)
+
+
+func _clear_blacksmith_umbrella_owner_fields(owner: Object) -> void:
+	if owner == null:
+		return
+	owner.set("blacksmith_umbrella_open", false)
+	owner.set("blacksmith_umbrella_anim_timer", 0.0)
+	owner.set("blacksmith_umbrella_retracting", false)
+	owner.set("blacksmith_umbrella_swing_active", false)
+	owner.set("blacksmith_umbrella_swing_direction", 0)
+	owner.set("blacksmith_umbrella_swing_timer", 0.0)
+	owner.set("blacksmith_umbrella_gauge", 5)
+	owner.set("blacksmith_umbrella_gauge_max", 5)
+	owner.set("blacksmith_umbrella_gauge_gain", 60.0)
+	owner.set("blacksmith_umbrella_damage_flash_timer", 0.0)
+	owner.set("blacksmith_umbrella_hit_pulse_timer", 0.0)
 
 
 func _align_player_to_current_paddle(owner: Object, previous_paddle_size: Vector2) -> void:

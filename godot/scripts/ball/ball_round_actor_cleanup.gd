@@ -48,6 +48,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if commando_weapon_controller != null and commando_weapon_controller.has_method("reset_round"):
 		commando_weapon_controller.reset_round()
 
+	var blacksmith_shield_state = deps.get("blacksmith_thor_shield_state", null)
+	if blacksmith_shield_state != null and blacksmith_shield_state.has_method("reset_round"):
+		blacksmith_shield_state.reset_round(deps)
+
 	var lingpet_runtime = deps.get("lingpet_egg_runtime", null)
 	if lingpet_runtime != null and lingpet_runtime.has_method("reset_round"):
 		lingpet_runtime.reset_round(deps)

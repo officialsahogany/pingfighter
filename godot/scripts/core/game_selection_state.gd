@@ -8,6 +8,7 @@ const DEFAULT_CHARACTER_NAME := "\uc2a4\ub9e4\uc154"
 const VIPER_RUNTIME_CHARACTER_ID := "viper"
 const COMMANDO_RUNTIME_CHARACTER_ID := "soldier"
 const OPTIMUS_RUNTIME_CHARACTER_ID := "optimus"
+const BLACKSMITH_RUNTIME_CHARACTER_ID := "blacksmith"
 const DEFAULT_LEAGUE_MODE := "junior"
 
 var character_id: String = DEFAULT_CHARACTER_ID
@@ -70,6 +71,8 @@ func _normalize_runtime_character_id(value: Variant) -> String:
 		return COMMANDO_RUNTIME_CHARACTER_ID
 	if normalized == OPTIMUS_RUNTIME_CHARACTER_ID or normalized == "io":
 		return OPTIMUS_RUNTIME_CHARACTER_ID
+	if normalized == BLACKSMITH_RUNTIME_CHARACTER_ID or normalized == "baltor" or normalized == "kohaku":
+		return BLACKSMITH_RUNTIME_CHARACTER_ID
 	if normalized == VIPER_RUNTIME_CHARACTER_ID:
 		return VIPER_RUNTIME_CHARACTER_ID
 	return DEFAULT_RUNTIME_CHARACTER_ID

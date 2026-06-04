@@ -510,7 +510,7 @@ static func get_characters() -> Array:
 			"description": "아담한 체구로 낮게 버티며 화로빛 해머와 토르쉴드로 거리를 잡고 공수를 함께 끌어올린다.",
 			"special": "토르쉴드·포탑 시너지 모듈",
 			"stats": {"속도": 5, "파워": 7, "방어": 5},
-			"unlocked": false,
+			"unlocked": true,
 			"unlock_hint": "해금 후 플레이 가능",
 			"card_color": Color8(190, 137, 76),
 			"glow_color": Color8(235, 180, 95),

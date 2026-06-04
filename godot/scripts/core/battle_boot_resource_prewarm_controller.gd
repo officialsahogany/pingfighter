@@ -984,6 +984,15 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"viper_skill_config",
 				"viper_jetpack_state",
 			])
+		"blacksmith":
+			keys.append_array([
+				"blacksmith_input_reader",
+				"blacksmith_player_controller",
+				"blacksmith_thor_shield_state",
+				"blacksmith_skill_state",
+				"blacksmith_skill_config",
+				"smasher_dash_state",
+			])
 	return keys
 
 
@@ -1191,6 +1200,10 @@ func _get_selected_character_type(owner: Object) -> String:
 	var value: String = str(owner.get("selected_character_type")).strip_edges().to_lower()
 	if value == "soldier" or value == "commando":
 		return "soldier"
+	if value == "blacksmith" or value == "baltor" or value == "kohaku":
+		return "blacksmith"
+	if value == "optimus" or value == "io":
+		return "optimus"
 	if value == "viper":
 		return "viper"
 	return "smasher"

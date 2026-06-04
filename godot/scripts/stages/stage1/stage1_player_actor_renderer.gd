@@ -9,6 +9,8 @@ const PaddleHologramGlitchRenderer := preload("res://scripts/effects/paddle_holo
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
 const HornStrawberryPaddleRenderer := preload("res://scripts/items/horn_strawberry_paddle_renderer.gd")
+const PlayerStateGlowRenderer := preload("res://scripts/effects/player_state_glow_renderer.gd")
+const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
 
 # The legacy generated attack sheet uses 344x384 cells and fills most of each cell.
 # Python's Smasher renderer uses a 250x120 character surface whose visible body
@@ -44,6 +46,8 @@ const PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS := 0.06
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
 var horn_strawberry_paddle_renderer: Object = HornStrawberryPaddleRenderer.new()
+var _state_glow_renderer: Object = PlayerStateGlowRenderer.new()
+var status_overlay_renderer: Object = StatusEffectOverlayRenderer.new()
 var _prewarm_step_index := 0
 
 
@@ -72,6 +76,9 @@ func prewarm_runtime_assets_step() -> bool:
 					return false
 			elif sprite_renderer != null and sprite_renderer.has_method("prewarm_runtime_assets"):
 				sprite_renderer.prewarm_runtime_assets()
+		7:
+			if _state_glow_renderer != null:
+				_state_glow_renderer.prewarm()
 		_:
 			_prewarm_step_index = 0
 			return true
@@ -97,6 +104,12 @@ func draw(
 	# the materialize window opens, then renders through a glitch reveal.
 	if not bool(context.get("paddle_hologram_should_draw", true)):
 		return
+	# Ghost-smashing possession: Mika is sucked into the ball, so hide the field
+	# paddle entirely (sprite + shadow) while she rides it. When the boss returns
+	# the ball she leaves the RIDING phase, this gate falls through, and the
+	# paddle draws normally again at the live position.
+	if bool(context.get("ghost_possession_paddle_hidden", false)):
+		return
 	var pillar_drawer = context.get("pillar_drawer", null)
 	var player_pos: Vector2 = _as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
 	var warp_gate_visual_offset_x: float = float(context.get(
@@ -104,6 +117,13 @@ func draw(
 		context.get("warp_gate_mirror_offset_x", 0.0)
 	))
 	player_pos.x += warp_gate_visual_offset_x
+	var ghost_possession_player_override: Dictionary = _as_dictionary(context.get("ghost_possession_player_override", {}))
+	var ghost_possession_alpha: float = 1.0
+	if not ghost_possession_player_override.is_empty():
+		var ghost_from: Vector2 = _as_vector2(ghost_possession_player_override.get("from", player_pos), player_pos)
+		var ghost_t: float = clampf(float(ghost_possession_player_override.get("t", 1.0)), 0.0, 1.0)
+		ghost_possession_alpha = clampf(float(ghost_possession_player_override.get("alpha", 1.0)), 0.0, 1.0)
+		player_pos = ghost_from.lerp(player_pos, ghost_t)
 	var paddle_size: Vector2 = _as_vector2(context.get("player_paddle_size", Vector2(84.0, 16.0)), Vector2(84.0, 16.0))
 	var player_speed: float = float(context.get("player_speed", 0.0))
 	var dash_active: bool = bool(context.get("dash_active", false))
@@ -266,7 +286,7 @@ func draw(
 	if curse_reverse_active and curse_reverse_ratio <= 0.001:
 		curse_reverse_ratio = 1.0
 	var sprite_context: Dictionary = context
-	if throw_pose_active or curse_reverse_active or player_slow_active:
+	if throw_pose_active or curse_reverse_active or player_slow_active or ghost_possession_alpha < 0.999:
 		sprite_context = context.duplicate()
 	if player_slow_active:
 		sprite_context["player_sprite_modulate"] = _get_player_slow_sprite_modulate(player_slow_ratio)
@@ -274,6 +294,11 @@ func draw(
 		sprite_context["player_sprite_modulate"] = _combine_modulate_colors(
 			sprite_context.get("player_sprite_modulate", Color.WHITE),
 			_get_curse_reverse_sprite_modulate(curse_reverse_ratio)
+		)
+	if ghost_possession_alpha < 0.999:
+		sprite_context["player_sprite_modulate"] = _combine_modulate_colors(
+			sprite_context.get("player_sprite_modulate", Color.WHITE),
+			Color(1.0, 1.0, 1.0, ghost_possession_alpha)
 		)
 	if throw_pose_active:
 		sprite_context["player_sprite_rotation_degrees"] = float(context.get("active_item_throw_windup_angle_degrees", 0.0))
@@ -293,6 +318,10 @@ func draw(
 			dash_side_gauge_renderer.draw(canvas, context, player_pos, paddle_size, shake_offset)
 			_perf_end(perf_logger, "actors.stage1.player.dash_side_gauge", sample_start)
 			return
+	sample_start = _perf_begin(perf_logger)
+	if _state_glow_renderer != null:
+		_state_glow_renderer.draw(canvas, player_visual_rect, context, Time.get_ticks_msec())
+	_perf_end(perf_logger, "actors.stage1.player.state_glow", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_viper_jetpack_effects(canvas, context, shake_offset, player_visual_rect, player_pos, paddle_size)
 	_perf_end(perf_logger, "actors.stage1.player.jetpack_fx", sample_start)
@@ -353,6 +382,15 @@ func draw(
 		_draw_player_slow_wave(canvas, drawn_player_visual_rect, player_slow_ratio)
 	if bool(context.get("active_item_aipill_active", false)):
 		_draw_aipill_system_label(canvas, drawn_player_visual_rect)
+	if status_overlay_renderer != null and status_overlay_renderer.has_method("draw_player_status_overlays"):
+		status_overlay_renderer.draw_player_status_overlays(
+			canvas,
+			context,
+			player_pos,
+			paddle_size,
+			drawn_player_visual_rect,
+			shake_offset
+		)
 	_perf_end(perf_logger, "actors.stage1.player.sprite_stack", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_viper_air_strike_flash(canvas, context, shake_offset)

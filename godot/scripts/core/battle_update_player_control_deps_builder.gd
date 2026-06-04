@@ -35,6 +35,7 @@ func build_deps(registry: Object, character_type: String = "smasher") -> Diction
 	var is_viper: bool = character_runtime.is_viper(character_type)
 	var is_commando: bool = character_runtime.is_commando(character_type)
 	var is_optimus: bool = character_runtime.is_optimus(character_type)
+	var is_blacksmith: bool = character_runtime.is_blacksmith(character_type)
 	var combo_key: String = character_runtime.get_combo_state_key(character_type)
 	var skill_state_key: String = character_runtime.get_skill_state_key(character_type)
 	var skill_config_key: String = character_runtime.get_skill_config_key(character_type)
@@ -50,7 +51,7 @@ func build_deps(registry: Object, character_type: String = "smasher") -> Diction
 		"registry": registry,
 		"input_reader": routed_input_reader,
 		"dash_state": _get_instance(registry, character_runtime.get_dash_state_key(character_type)),
-		"drive_input_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_drive_input_state"),
+		"drive_input_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_drive_input_state"),
 		"skill_state": _get_instance(registry, skill_state_key) if skill_state_key != "" else null,
 		"skill_config": _get_instance(registry, skill_config_key) if skill_config_key != "" else null,
 		"viper_skill_runtime": _get_instance(registry, "viper_skill_runtime") if is_viper else null,
@@ -61,15 +62,16 @@ func build_deps(registry: Object, character_type: String = "smasher") -> Diction
 		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state") if is_commando else null,
 		"commando_firearm_runtime": _get_instance(registry, "commando_firearm_runtime") if is_commando else null,
 		"commando_supply_drop_state": _get_instance(registry, "commando_supply_drop_state") if is_commando else null,
-		"power_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_power_smash_state"),
-		"smasher_plasma_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_plasma_state"),
-		"smasher_recovery_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_recovery_state"),
-		"smasher_cleanse_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_cleanse_state"),
-		"smasher_warp_gate_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_warp_gate_state"),
-		"smasher_wheel_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_wheel_state"),
-		"smasher_magnum_grip_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_magnum_grip_state"),
-		"smasher_dash_spirit_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_dash_spirit_state"),
-		"smasher_shield_kiting_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_shield_kiting_state"),
+		"blacksmith_thor_shield_state": _get_instance(registry, "blacksmith_thor_shield_state") if is_blacksmith else null,
+		"power_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_power_smash_state"),
+		"smasher_plasma_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_plasma_state"),
+		"smasher_recovery_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_recovery_state"),
+		"smasher_cleanse_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_cleanse_state"),
+		"smasher_warp_gate_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_warp_gate_state"),
+		"smasher_wheel_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_wheel_state"),
+		"smasher_magnum_grip_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_magnum_grip_state"),
+		"smasher_dash_spirit_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_dash_spirit_state"),
+		"smasher_shield_kiting_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_shield_kiting_state"),
 		"movement_state": _get_instance(registry, "player_movement_state"),
 		"combo_state": _get_instance(registry, combo_key) if combo_key != "" else null,
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),

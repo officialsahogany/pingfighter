@@ -72,6 +72,17 @@ func build_common_snapshot() -> Dictionary:
 		"commando_suicide_drone_ball_boost_active": false,
 		"commando_suicide_drone_ball_restore_speed": 0.0,
 		"commando_suicide_drone_ball_boosted_speed": 0.0,
+		"blacksmith_umbrella_open": false,
+		"blacksmith_umbrella_anim_timer": 0.0,
+		"blacksmith_umbrella_retracting": false,
+		"blacksmith_umbrella_swing_active": false,
+		"blacksmith_umbrella_swing_direction": 0,
+		"blacksmith_umbrella_swing_timer": 0.0,
+		"blacksmith_umbrella_gauge": 5,
+		"blacksmith_umbrella_gauge_max": 5,
+		"blacksmith_umbrella_gauge_gain": 60.0,
+		"blacksmith_umbrella_damage_flash_timer": 0.0,
+		"blacksmith_umbrella_hit_pulse_timer": 0.0,
 	}
 
 

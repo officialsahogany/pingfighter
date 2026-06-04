@@ -45,34 +45,44 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 	var hitbox_padding: float = float(context.get("hitbox_padding", 5.0))
 	var ball_rect: Rect2 = Rect2(ball_pos.x - ball_size * 0.5, ball_pos.y - ball_size * 0.5, ball_size, ball_size)
 
-	if ball_vel.y > 0.0 or _allows_stopwatch_recovery_upward_player_hit(ball_vel, context):
+	var dark_blade_rising_player_hit: bool = _allows_viper_dark_blade_rising_player_hit(context)
+	if ball_vel.y > 0.0 or _allows_stopwatch_recovery_upward_player_hit(ball_vel, context) or dark_blade_rising_player_hit:
 		if not bool(context.get("viper_core_flip_attack_active", false)):
 			if float(context.get("player_collision_cooldown", 0.0)) > 0.0:
-				return {}
-			var player_pos: Vector2 = _as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
-			var player_paddle_size: Vector2 = _as_vector2(context.get("player_paddle_size", Vector2.ZERO), Vector2.ZERO)
-			var player_rect: Rect2 = Rect2(
-				player_pos.x - hitbox_padding,
-				player_pos.y - hitbox_padding,
-				player_paddle_size.x + hitbox_padding * 2.0,
-				player_paddle_size.y + hitbox_padding * 2.0
-			)
-			player_rect = _apply_dash_acceleration_height_bonus(player_rect, context)
-			var collision_result: Dictionary = _resolve_player_collision_result(player_rect, ball_rect, context)
-			if bool(collision_result.get("hit", false)):
-				var collision_rect: Rect2 = _as_rect2(collision_result.get("rect", player_rect), player_rect)
-				var collision_paddle_x: float = collision_rect.position.x + hitbox_padding
-				var result := {
-					"event": EVENT_PLAYER_PADDLE,
-					"paddle_x": collision_paddle_x,
-					"paddle_w": float(collision_result.get("paddle_w", player_paddle_size.x)),
-					"is_player": true,
-				}
-				if bool(collision_result.get("viper_dual_glitch_clone_hit", false)):
-					result["viper_dual_glitch_clone_hit"] = true
-					result["viper_dual_glitch_clone_index"] = int(collision_result.get("viper_dual_glitch_clone_index", -1))
-					result["viper_dual_glitch_clone_side"] = int(collision_result.get("viper_dual_glitch_clone_side", 0))
-				return result
+				if not (dark_blade_rising_player_hit and ball_vel.y < 0.0):
+					return {}
+			else:
+				var player_pos: Vector2 = _as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
+				var player_paddle_size: Vector2 = _as_vector2(context.get("player_paddle_size", Vector2.ZERO), Vector2.ZERO)
+				var player_rect: Rect2 = Rect2(
+					player_pos.x - hitbox_padding,
+					player_pos.y - hitbox_padding,
+					player_paddle_size.x + hitbox_padding * 2.0,
+					player_paddle_size.y + hitbox_padding * 2.0
+				)
+				player_rect = _apply_dash_acceleration_height_bonus(player_rect, context)
+				var collision_result: Dictionary = _resolve_player_collision_result(player_rect, ball_rect, context)
+				if bool(collision_result.get("hit", false)):
+					var collision_rect: Rect2 = _as_rect2(collision_result.get("rect", player_rect), player_rect)
+					var collision_paddle_x: float = collision_rect.position.x + hitbox_padding
+					var result := {
+						"event": EVENT_PLAYER_PADDLE,
+						"paddle_x": collision_paddle_x,
+						"paddle_w": float(collision_result.get("paddle_w", player_paddle_size.x)),
+						"is_player": true,
+					}
+					if bool(collision_result.get("viper_dual_glitch_clone_hit", false)):
+						result["viper_dual_glitch_clone_hit"] = true
+						result["viper_dual_glitch_clone_index"] = int(collision_result.get("viper_dual_glitch_clone_index", -1))
+						result["viper_dual_glitch_clone_side"] = int(collision_result.get("viper_dual_glitch_clone_side", 0))
+					if bool(collision_result.get("blacksmith_thor_shield_hit", false)):
+						result["blacksmith_thor_shield_hit"] = true
+						result["blacksmith_thor_shield_rect"] = collision_result.get("rect", collision_rect)
+						result["blacksmith_thor_shield_gauge_gain"] = float(collision_result.get(
+							"blacksmith_thor_shield_gauge_gain",
+							context.get("blacksmith_umbrella_gauge_gain", 60.0)
+						))
+					return result
 
 	if ball_vel.y < 0.0:
 		if float(context.get("boss_collision_cooldown", 0.0)) > 0.0:
@@ -105,6 +115,16 @@ func _resolve_player_collision_result(base_rect: Rect2, ball_rect: Rect2, contex
 			"rect": base_hit_rect,
 			"paddle_w": max(1.0, base_hit_rect.size.x - hitbox_padding * 2.0),
 		}
+	if bool(context.get("blacksmith_thor_shield_active", false)):
+		var shield_rect: Rect2 = _as_rect2(context.get("blacksmith_thor_shield_rect", Rect2()), Rect2())
+		if shield_rect.size.x > 0.0 and shield_rect.size.y > 0.0 and shield_rect.intersects(ball_rect):
+			return {
+				"hit": true,
+				"rect": shield_rect,
+				"paddle_w": max(1.0, float(context.get("blacksmith_thor_shield_paddle_w", shield_rect.size.x))),
+				"blacksmith_thor_shield_hit": true,
+				"blacksmith_thor_shield_gauge_gain": float(context.get("blacksmith_umbrella_gauge_gain", 60.0)),
+			}
 	var clone_rects: Array = context.get("viper_dual_glitch_clone_rects", [])
 	for entry_value in clone_rects:
 		var clone_entry: Dictionary = _resolve_dual_glitch_clone_entry(entry_value, hitbox_padding)
@@ -136,6 +156,10 @@ func _allows_stopwatch_recovery_upward_player_hit(ball_vel: Vector2, context: Di
 		bool(context.get("stopwatch_recovery_active", false))
 		or bool(context.get("stopwatch_post_recovery_grace_active", false))
 	)
+
+
+func _allows_viper_dark_blade_rising_player_hit(context: Dictionary) -> bool:
+	return bool(context.get("viper_dark_blade_rising_contact_active", false))
 
 
 func _resolve_player_collision_rect(base_rect: Rect2, ball_rect: Rect2, context: Dictionary) -> Rect2:

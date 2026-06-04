@@ -42,6 +42,21 @@ func draw_boss_status_overlays(
 	boss_health_bar_renderer.draw(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
 
 
+func draw_player_status_overlays(
+	canvas: CanvasItem,
+	context: Dictionary,
+	player_pos: Vector2,
+	player_paddle_size: Vector2,
+	player_visual_rect: Rect2,
+	shake_offset: Vector2,
+	options: Dictionary = {}
+) -> void:
+	if canvas == null:
+		return
+	if bool(context.get("status_player_stun_active", false)) and not bool(context.get("status_player_stun_stars_suppressed", false)):
+		_draw_player_stun_stars(canvas, player_pos, player_paddle_size, player_visual_rect, shake_offset, options)
+
+
 func draw_boss_cooldown_pause_marker(
 	canvas: CanvasItem,
 	context: Dictionary,
@@ -80,6 +95,31 @@ func _draw_boss_stun_stars(
 	for idx in range(3):
 		var angle: float = angle_base + TAU * float(idx) / 3.0
 		_draw_stun_star(canvas, center + Vector2(cos(angle) * 22.0, sin(angle) * 8.0), 8.0)
+
+
+func _draw_player_stun_stars(
+	canvas: CanvasItem,
+	player_pos: Vector2,
+	player_paddle_size: Vector2,
+	player_visual_rect: Rect2,
+	shake_offset: Vector2,
+	options: Dictionary
+) -> void:
+	var center: Vector2
+	if player_visual_rect.size.x > 0.0 and player_visual_rect.size.y > 0.0:
+		center = Vector2(
+			player_visual_rect.get_center().x,
+			player_visual_rect.position.y + float(options.get("stun_center_y_offset", 8.0))
+		)
+	else:
+		center = player_pos + Vector2(
+			player_paddle_size.x * 0.5,
+			float(options.get("fallback_stun_center_y_offset", -40.0))
+		) + shake_offset
+	var angle_base: float = float(Time.get_ticks_msec()) * 0.006
+	for idx in range(3):
+		var angle: float = angle_base + TAU * float(idx) / 3.0
+		_draw_stun_star(canvas, center + Vector2(cos(angle) * 20.0, sin(angle) * 8.0), 8.0)
 
 
 func _draw_stun_star(canvas: CanvasItem, center: Vector2, radius: float) -> void:

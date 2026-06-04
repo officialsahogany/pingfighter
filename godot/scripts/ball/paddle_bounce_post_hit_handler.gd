@@ -52,6 +52,7 @@ func apply(
 	var boss_result: Dictionary = {}
 	var rainbow_glove_result: Dictionary = {}
 	var shrapnel_armor_result: Dictionary = {}
+	var blacksmith_shield_result: Dictionary = {}
 	var runtime_perk_gold: int = -1
 	var clear_smasher_wheel_speed_cap := false
 	var speed_limit_disabled_override: Variant = null
@@ -70,10 +71,37 @@ func apply(
 		)
 		_perf_end(perf_logger, "paddle_bounce.post_hit.player", player_start)
 		ball_pos = _get_vector2(player_result, "ball_pos", ball_pos)
+		if power_state != null and power_state.has_method("trigger_ghost_possession_fly_back"):
+			power_state.trigger_ghost_possession_fly_back(ball_pos)
 		special_gauge = float(player_result.get("special_gauge", special_gauge))
 		context["special_gauge"] = special_gauge
 		player_speed = float(player_result.get("player_speed", player_speed))
 		boss_vel = float(player_result.get("boss_vel", boss_vel))
+		if bool(context.get("blacksmith_thor_shield_hit", false)):
+			var blacksmith_shield_state: Object = deps.get("blacksmith_thor_shield_state", null)
+			if blacksmith_shield_state != null and blacksmith_shield_state.has_method("notify_ball_hit"):
+				var shield_context: Dictionary = context.duplicate()
+				shield_context["ball_pos"] = ball_pos
+				shield_context["blacksmith_umbrella_gauge_gain"] = float(context.get(
+					"blacksmith_thor_shield_gauge_gain",
+					context.get("blacksmith_umbrella_gauge_gain", 60.0)
+				))
+				blacksmith_shield_result = blacksmith_shield_state.notify_ball_hit(
+					ball_pos,
+					ball_vel,
+					gauge_before_player_hit,
+					special_gauge,
+					shield_context,
+					deps
+				)
+				if not blacksmith_shield_result.is_empty():
+					special_gauge = float(blacksmith_shield_result.get("special_gauge", special_gauge))
+					context["special_gauge"] = special_gauge
+					if bool(blacksmith_shield_result.get("suppress_paddle_hit_knockback", false)):
+						context["suppress_paddle_hit_knockback"] = true
+					for pulse_key in ["paddle_hit_pulse_kind", "paddle_hit_pulse_intensity"]:
+						if blacksmith_shield_result.has(pulse_key):
+							context[pulse_key] = blacksmith_shield_result[pulse_key]
 		var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
 		if whip_state != null and whip_state.has_method("register_player_hit"):
 			whip_result = whip_state.register_player_hit(ball_vel, context)
@@ -232,6 +260,12 @@ func apply(
 		drive_speed_increase = float(boss_result.get("drive_speed_increase", drive_speed_increase))
 		drive_hit_boss = bool(boss_result.get("drive_hit_boss", drive_hit_boss))
 		boss_vel = float(boss_result.get("boss_vel", boss_vel))
+		# Ghost-smashing possession: the boss has returned Mika's ghost ball, but
+		# she should remain hidden until that returned ball reaches the player
+		# paddle. The player branch triggers the fly-back on the actual counter.
+		if power_state != null and power_state.has_method("is_ghost_possession_active") and power_state.is_ghost_possession_active():
+			if power_state.has_method("notify_ghost_possession_boss_returned"):
+				power_state.notify_ghost_possession_boss_returned()
 		if bool(boss_result.get("commando_bowling_trap_guard_hit", false)):
 			context["suppress_paddle_hit_knockback"] = true
 		if bool(boss_result.get("kick_skill_knockback_consumed", false)):
@@ -336,6 +370,27 @@ func apply(
 		result["shrapnel_armor_activated"] = true
 		result["shrapnel_armor_shard_count"] = int(shrapnel_armor_result.get("shard_count", 0))
 		result["shrapnel_armor_gauge_cost"] = float(shrapnel_armor_result.get("gauge_cost", 0.0))
+	if not blacksmith_shield_result.is_empty():
+		for key in [
+			"blacksmith_thor_shield_hit",
+			"blacksmith_thor_shield_hit_pos",
+			"blacksmith_umbrella_open",
+			"blacksmith_umbrella_anim_timer",
+			"blacksmith_umbrella_retracting",
+			"blacksmith_umbrella_swing_active",
+			"blacksmith_umbrella_swing_direction",
+			"blacksmith_umbrella_swing_timer",
+			"blacksmith_umbrella_gauge",
+			"blacksmith_umbrella_gauge_max",
+			"blacksmith_umbrella_gauge_gain",
+			"blacksmith_umbrella_damage_flash_timer",
+			"blacksmith_umbrella_hit_pulse_timer",
+			"suppress_paddle_hit_knockback",
+			"paddle_hit_pulse_kind",
+			"paddle_hit_pulse_intensity",
+		]:
+			if blacksmith_shield_result.has(key):
+				result[key] = blacksmith_shield_result[key]
 	if not fire_hit_result.is_empty():
 		result["fire_weather_hit_knockback"] = true
 		if fire_hit_result.has("player_fire_knockback_vel"):

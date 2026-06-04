@@ -299,9 +299,12 @@ func get_boss_ai_context() -> Dictionary:
 
 func get_player_control_context() -> Dictionary:
 	var player_reverse: Dictionary = get_status(TARGET_PLAYER, STATUS_REVERSE)
+	var player_stun: Dictionary = get_status(TARGET_PLAYER, STATUS_STUN)
 	return {
 		"player_reverse_active": not player_reverse.is_empty(),
 		"player_reverse_ratio": float(player_reverse.get("ratio", 0.0)),
+		"player_stun_active": not player_stun.is_empty(),
+		"player_stun_ratio": float(player_stun.get("ratio", 0.0)),
 	}
 
 
@@ -314,6 +317,10 @@ func get_player_speed_multiplier() -> float:
 
 func is_player_reverse_active() -> bool:
 	return has_status(TARGET_PLAYER, STATUS_REVERSE)
+
+
+func is_player_stun_active() -> bool:
+	return has_status(TARGET_PLAYER, STATUS_STUN)
 
 
 func is_curse_reverse_active() -> bool:

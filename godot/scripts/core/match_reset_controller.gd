@@ -103,6 +103,7 @@ func _reset_player_skill_state(deps: Dictionary) -> void:
 		"smasher_magnum_grip_state",
 		"smasher_dash_spirit_state",
 		"smasher_shield_kiting_state",
+		"blacksmith_thor_shield_state",
 		"laurel_leaf_shield_state",
 		"monkey_blessing_delivery_state",
 		"commando_reload_delivery_state",

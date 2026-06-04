@@ -4,6 +4,8 @@ const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_co
 const BattleUpdateBossAiContextBuilder := preload("res://scripts/core/battle_update_boss_ai_context_builder.gd")
 const CleanseState := preload("res://scripts/characters/smasher_cleanse_state.gd")
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
+const PlayerMovementState := preload("res://scripts/characters/player_movement_state.gd")
+const SmasherPlayerController := preload("res://scripts/characters/smasher_player_controller.gd")
 const Stage3CurseControlInputProxy := preload("res://scripts/stages/stage3/stage3_curse_control_input_proxy.gd")
 const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 
@@ -84,6 +86,7 @@ func _init() -> void:
 	_verify_boss_stun_knockback_can_end_before_stun()
 	_verify_slow_stacks_by_strongest_multiplier()
 	_verify_reverse_status_drives_input_proxy()
+	_verify_stun_status_locks_player_control()
 	_verify_burn_status_exports_stage4_draw_context()
 	_verify_stage2_immunity_clears_disable_statuses()
 	_verify_context_builders_merge_shared_status_after_legacy_false_keys()
@@ -171,6 +174,72 @@ func _verify_reverse_status_drives_input_proxy() -> void:
 	_expect(not bool(reversed_snapshot.get("right_pressed", true)), "shared reverse should clear right when input is flipped")
 	_expect(is_equal_approx(float(reversed_snapshot.get("direction", 0.0)), -1.0), "shared reverse should flip horizontal direction")
 	_expect(int(reversed_snapshot.get("power_smash_direction", 0)) == -1, "shared reverse should flip power-smash direction")
+
+
+func _verify_stun_status_locks_player_control() -> void:
+	var status := StatusEffectState.new()
+	status.apply_status("player", "stun", 48.0, {}, "test_stun")
+	var control_context: Dictionary = status.get_player_control_context()
+	_expect(bool(control_context.get("player_stun_active", false)), "shared player stun should be exposed to player control context")
+	_expect(float(control_context.get("player_stun_ratio", 0.0)) > 0.0, "shared player stun control context should include a remaining ratio")
+	var actor_context: Dictionary = status.get_actor_draw_context()
+	_expect(bool(actor_context.get("status_player_stun_active", false)), "shared player stun should be exposed to actor draw context")
+	var overlay_source := FileAccess.get_file_as_string("res://scripts/status/status_effect_overlay_renderer.gd")
+	_expect(overlay_source.find("draw_player_status_overlays") >= 0 and overlay_source.find("_draw_player_stun_stars") >= 0, "shared status overlay should provide player stun star drawing")
+	var player_renderer_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+	_expect(player_renderer_source.find("draw_player_status_overlays") >= 0, "shared player renderer should call player stun status overlays")
+
+	var input := FakeInputReader.new()
+	input.snapshot = {
+		"left_pressed": false,
+		"right_pressed": true,
+		"up_pressed": true,
+		"down_pressed": true,
+		"action_pressed": true,
+		"action_just_pressed": true,
+		"direction": 1.0,
+		"power_smash_direction": 1,
+	}
+	var proxy: Object = Stage3CurseControlInputProxy.new().configure(input, null, status)
+	var locked_snapshot: Dictionary = proxy.get_snapshot()
+	_expect(not bool(locked_snapshot.get("left_pressed", true)), "shared stun should clear left input")
+	_expect(not bool(locked_snapshot.get("right_pressed", true)), "shared stun should clear right input")
+	_expect(not bool(locked_snapshot.get("down_pressed", true)), "shared stun should clear dash input")
+	_expect(not bool(locked_snapshot.get("action_pressed", true)), "shared stun should clear action input")
+	_expect(is_equal_approx(float(locked_snapshot.get("direction", 1.0)), 0.0), "shared stun should zero horizontal direction")
+	_expect(int(locked_snapshot.get("power_smash_direction", 1)) == 0, "shared stun should zero power-smash direction")
+
+	var controller := SmasherPlayerController.new()
+	var result: Dictionary = controller.update(
+		1.0 / 60.0,
+		0,
+		Vector2(300.0, 700.0),
+		6.0,
+		{
+			"play_left": 0.0,
+			"play_right": 760.0,
+			"paddle_width": 155.0,
+			"paddle_height": 50.0,
+			"paddle_max_speed": 6.0,
+			"paddle_accel": 0.5,
+			"paddle_decel": 0.5,
+			"paddle_turn_decel": 1.0,
+			"special_gauge": 0.0,
+		},
+		{
+			"input_reader": input,
+			"movement_state": PlayerMovementState.new(),
+			"status_effect_state": status,
+		}
+	)
+	var moved_pos: Vector2 = result.get("player_pos", Vector2.ZERO)
+	_expect(is_equal_approx(moved_pos.x, 300.0), "shared stun should stop player drift from the current speed")
+	_expect(is_equal_approx(float(result.get("player_speed", -1.0)), 0.0), "shared stun should return zero player speed")
+
+	status.update(48.0)
+	var raw_snapshot: Dictionary = proxy.get_snapshot()
+	_expect(bool(raw_snapshot.get("right_pressed", false)), "expired shared stun should restore raw right input")
+	_expect(is_equal_approx(float(raw_snapshot.get("direction", 0.0)), 1.0), "expired shared stun should restore raw direction")
 
 
 func _verify_burn_status_exports_stage4_draw_context() -> void:

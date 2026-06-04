@@ -75,6 +75,7 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 		"boss_pos": _get_vector2(context, "boss_pos", Vector2.ZERO),
 		"boss_paddle_size": _get_vector2(context, "boss_paddle_size", Vector2.ZERO),
 		"hitbox_padding": float(context.get("hitbox_padding", 5.0)),
+		"viper_dark_blade_rising_contact_active": bool(context.get("viper_dark_blade_rising_contact_active", false)),
 		"warp_gate_active": bool(context.get("warp_gate_active", false)),
 		"player_paddle_mirror_offset_x": float(context.get("player_paddle_mirror_offset_x", 0.0)),
 		"player_collision_cooldown": float(scene.get("player_collision_cooldown", 0.0)),
@@ -106,6 +107,10 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 			step_context["viper_dual_glitch_state"] = str(viper_collision_context.get("viper_dual_glitch_state", "idle"))
 		if viper_collision_context.has("viper_dual_glitch_clone_rects"):
 			step_context["viper_dual_glitch_clone_rects"] = viper_collision_context.get("viper_dual_glitch_clone_rects", [])
+	if str(context.get("selected_character_type", "smasher")).strip_edges().to_lower() == "blacksmith":
+		var blacksmith_shield_state: Object = deps.get("blacksmith_thor_shield_state", null)
+		if blacksmith_shield_state != null and blacksmith_shield_state.has_method("get_ball_collision_context"):
+			step_context.merge(blacksmith_shield_state.get_ball_collision_context(step_context), true)
 	return step_context
 
 
@@ -238,6 +243,11 @@ func _process_paddle(
 		"viper_dual_glitch_clone_hit",
 		"viper_dual_glitch_clone_index",
 		"viper_dual_glitch_clone_side",
+		"blacksmith_thor_shield_hit",
+		"blacksmith_thor_shield_rect",
+		"blacksmith_thor_shield_gauge_gain",
+		"blacksmith_umbrella_open",
+		"blacksmith_umbrella_gauge_gain",
 	]:
 		if step_result.has(key):
 			paddle_context[key] = step_result[key]

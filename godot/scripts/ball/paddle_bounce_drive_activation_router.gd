@@ -83,4 +83,5 @@ func _build_deps(deps: Dictionary) -> Dictionary:
 		"orb_hud_state": deps.get("orb_hud_state", null),
 		"impact_effects": deps.get("impact_effects", null),
 		"audio": deps.get("audio", null),
+		"power_state": deps.get("power_state", null),
 	}

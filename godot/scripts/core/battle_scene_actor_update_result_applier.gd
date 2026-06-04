@@ -53,6 +53,7 @@ func apply_player_result(owner: Object, registry: Object, result: Dictionary) ->
 		owner.set("optimus_charge_lock_seconds", max(0.0, float(result.get("optimus_charge_lock_seconds", 0.0))))
 	if result.has("optimus_charge_movement_locked"):
 		owner.set("optimus_charge_movement_locked", bool(result.get("optimus_charge_movement_locked", false)))
+	_apply_blacksmith_umbrella_result(owner, result)
 	if result.has("ball_pos") and result.get("ball_pos", null) is Vector2:
 		owner.set("ball_pos", result["ball_pos"])
 	if result.has("ball_vel") and result.get("ball_vel", null) is Vector2:
@@ -75,6 +76,24 @@ func apply_boss_result(owner: Object, result: Dictionary) -> void:
 	if updated_pos is Vector2:
 		owner.set("boss_pos", updated_pos)
 	owner.set("boss_vel", float(result.get("boss_vel", _get_owner_value(owner, "boss_vel", 0.0))))
+
+
+func _apply_blacksmith_umbrella_result(owner: Object, result: Dictionary) -> void:
+	for key in [
+		"blacksmith_umbrella_open",
+		"blacksmith_umbrella_anim_timer",
+		"blacksmith_umbrella_retracting",
+		"blacksmith_umbrella_swing_active",
+		"blacksmith_umbrella_swing_direction",
+		"blacksmith_umbrella_swing_timer",
+		"blacksmith_umbrella_gauge",
+		"blacksmith_umbrella_gauge_max",
+		"blacksmith_umbrella_gauge_gain",
+		"blacksmith_umbrella_damage_flash_timer",
+		"blacksmith_umbrella_hit_pulse_timer",
+	]:
+		if result.has(key):
+			owner.set(key, result[key])
 
 
 func _award_skill_gold(owner: Object, registry: Object, amount: int) -> void:

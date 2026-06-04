@@ -62,6 +62,22 @@ func apply(
 		"shrapnel_armor_activated",
 		"shrapnel_armor_shard_count",
 		"shrapnel_armor_gauge_cost",
+		"blacksmith_thor_shield_hit",
+		"blacksmith_thor_shield_hit_pos",
+		"blacksmith_umbrella_open",
+		"blacksmith_umbrella_anim_timer",
+		"blacksmith_umbrella_retracting",
+		"blacksmith_umbrella_swing_active",
+		"blacksmith_umbrella_swing_direction",
+		"blacksmith_umbrella_swing_timer",
+		"blacksmith_umbrella_gauge",
+		"blacksmith_umbrella_gauge_max",
+		"blacksmith_umbrella_gauge_gain",
+		"blacksmith_umbrella_damage_flash_timer",
+		"blacksmith_umbrella_hit_pulse_timer",
+		"suppress_paddle_hit_knockback",
+		"paddle_hit_pulse_kind",
+		"paddle_hit_pulse_intensity",
 	]:
 		if post_hit_result.has(key):
 			result[key] = post_hit_result[key]

@@ -14,6 +14,8 @@ func build_deps(registry: Object, character_type: String = "") -> Dictionary:
 		_append_viper_deps(deps, registry)
 	elif character_runtime.is_commando(normalized_character):
 		_append_commando_deps(deps, registry)
+	elif character_runtime.is_blacksmith(normalized_character):
+		_append_blacksmith_deps(deps, registry)
 	else:
 		_append_smasher_deps(deps, registry)
 	return deps
@@ -58,6 +60,11 @@ func _append_viper_deps(deps: Dictionary, registry: Object) -> void:
 
 func _append_commando_deps(deps: Dictionary, registry: Object) -> void:
 	deps["commando_firearm_runtime"] = _get_instance(registry, "commando_firearm_runtime")
+
+
+func _append_blacksmith_deps(deps: Dictionary, registry: Object) -> void:
+	deps["blacksmith_thor_shield_state"] = _get_instance(registry, "blacksmith_thor_shield_state")
+	deps["blacksmith_skill_state"] = _get_instance(registry, "blacksmith_skill_state")
 
 
 func _get_instance(registry: Object, key: String) -> Object:

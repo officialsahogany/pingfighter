@@ -269,6 +269,13 @@ func _get_player_control_context_prewarm_keys(character_type: String) -> Array:
 			"commando_firearm_runtime",
 			"commando_supply_drop_state",
 		])
+	elif character_runtime.is_blacksmith(normalized_character):
+		keys.append_array([
+			"blacksmith_player_controller",
+			"blacksmith_thor_shield_state",
+			"blacksmith_skill_state",
+			"blacksmith_skill_config",
+		])
 	else:
 		keys.append_array([
 			"smasher_drive_input_state",
@@ -305,6 +312,8 @@ func _get_effects_context_prewarm_keys(owner: Object) -> Array:
 		keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_VIPER_PREWARM_KEYS)
 	elif character_runtime.is_commando(character_type):
 		keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_COMMANDO_PREWARM_KEYS)
+	elif character_runtime.is_blacksmith(character_type):
+		keys.append_array(["blacksmith_thor_shield_state"])
 	elif not character_runtime.is_optimus(character_type):
 		keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_SMASHER_PREWARM_KEYS)
 	keys.append_array(_get_stage_runtime_prewarm_keys(current_stage, false))
@@ -332,6 +341,8 @@ func _get_match_player_skill_prewarm_keys(character_type: String) -> Array:
 		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_COMMANDO_SKILL_PREWARM_KEYS)
 	elif character_runtime.is_optimus(normalized_character):
 		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_OPTIMUS_SKILL_PREWARM_KEYS)
+	elif character_runtime.is_blacksmith(normalized_character):
+		keys.append_array(["blacksmith_skill_state", "blacksmith_skill_config", "blacksmith_thor_shield_state"])
 	else:
 		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_SMASHER_SKILL_PREWARM_KEYS)
 	return keys
