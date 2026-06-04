@@ -5,6 +5,45 @@ const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 
+static func draw_reward_card_shell(
+	canvas: CanvasItem,
+	font: Font,
+	reward: Dictionary,
+	rect: Rect2,
+	scale: float,
+	alpha: float,
+	visual_state: Dictionary
+) -> void:
+	if canvas == null or font == null:
+		return
+	var border_color: Color = visual_state.get("border_color", Color(0.06, 0.84, 0.96, 0.78 * alpha))
+	StageClearResultShapeHelper.draw_panel(
+		canvas,
+		rect,
+		visual_state.get("base_color", Color(0.40, 0.32, 0.20, 0.18 * alpha)),
+		border_color,
+		float(visual_state.get("border_width", max(1.0, 1.6 * scale))),
+		float(visual_state.get("corner_radius", 8.0 * scale))
+	)
+	var badge_rect: Rect2 = visual_state.get("badge_rect", Rect2())
+	StageClearResultShapeHelper.draw_panel(
+		canvas,
+		badge_rect,
+		visual_state.get("badge_fill", Color(0.02, 0.08, 0.11, 0.64 * alpha)),
+		border_color,
+		float(visual_state.get("badge_border_width", max(1.0, 1.0 * scale))),
+		float(visual_state.get("badge_corner_radius", 6.0 * scale))
+	)
+	StageClearResultTextLayoutHelper.draw_centered_text(
+		canvas,
+		font,
+		str(visual_state.get("badge_text", StageClearResultRewardVisualResolver.get_reward_badge(reward))),
+		badge_rect,
+		int(visual_state.get("badge_font_size", round(10.0 * scale))),
+		visual_state.get("badge_text_color", Color(0.86, 1.0, 1.0, alpha))
+	)
+
+
 static func draw_reward_source_chip(
 	canvas: CanvasItem,
 	font: Font,
@@ -62,5 +101,43 @@ static func draw_reward_source_chip(
 		chip_rect,
 		font_size,
 		visual_state.get("text_color", Color(0.92, 1.0, 1.0, alpha)),
+		0.0
+	)
+
+
+static func draw_reward_card_label(
+	canvas: CanvasItem,
+	font: Font,
+	visual_state: Dictionary,
+	reward_text_state: Dictionary,
+	scale: float,
+	alpha: float
+) -> void:
+	if canvas == null or font == null:
+		return
+	var label_rect: Rect2 = visual_state.get("label_rect", Rect2())
+	StageClearResultShapeHelper.draw_panel(
+		canvas,
+		visual_state.get("label_plate_rect", label_rect),
+		visual_state.get("label_plate_fill", Color(0.95, 0.99, 0.96, 0.44 * alpha)),
+		Color(0.0, 0.0, 0.0, 0.0),
+		0.0,
+		5.0 * scale
+	)
+	var label: String = str(reward_text_state.get("title", ""))
+	var label_size: int = StageClearResultTextLayoutHelper.fit_font_size(
+		font,
+		label,
+		label_rect.size.x,
+		int(visual_state.get("label_font_preferred_size", round(14.0 * scale))),
+		int(visual_state.get("label_font_min_size", round(9.0 * scale)))
+	)
+	StageClearResultTextLayoutHelper.draw_centered_text(
+		canvas,
+		font,
+		label,
+		label_rect,
+		label_size,
+		visual_state.get("label_text_color", Color(0.04, 0.08, 0.10, alpha)),
 		0.0
 	)

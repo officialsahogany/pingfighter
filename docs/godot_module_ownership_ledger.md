@@ -1481,9 +1481,10 @@ This section is intentionally long; use search to find the nearest owner.
   localized labels, and score / gold metric calculation inputs.
 - `scripts/ui/stage_clear_result_reward_card_draw_helper.gd`
   Owns stage-clear reward card draw helpers that are independent of scene
-  state, starting with stage-vs-box reward source-chip rendering. The scene
-  still owns card sequencing, reward icon cache / perk icon renderer access,
-  perk catalog lookups, starpoint animation state, and card body layout.
+  state: reward-card base shell / badge rendering, stage-vs-box reward
+  source-chip rendering, and reward title plate drawing. The scene still owns
+  card sequencing, reward icon cache / perk icon renderer access, perk catalog
+  lookups, starpoint animation state, and card body layout.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
   colors / rects, reward label visual state, reward item icon visual state /

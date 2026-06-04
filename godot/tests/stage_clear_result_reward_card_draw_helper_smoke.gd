@@ -20,17 +20,23 @@ func _init() -> void:
 
 func _verify_helper_source() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+	_expect(source.find("static func draw_reward_card_shell") >= 0, "reward card draw helper should own card shell drawing")
 	_expect(source.find("static func draw_reward_source_chip") >= 0, "reward card draw helper should own source-chip drawing")
+	_expect(source.find("static func draw_reward_card_label") >= 0, "reward card draw helper should own card label drawing")
 	_expect(source.find("StageClearResultRewardVisualResolver.get_result_reward_source_label") >= 0, "source-chip drawing should resolve missing source labels")
 	_expect(source.find("StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state") >= 0, "source-chip drawing should use the visual resolver")
+	_expect(source.find("StageClearResultRewardVisualResolver.get_reward_badge") >= 0, "card shell drawing should use the badge resolver fallback")
 	_expect(source.find("StageClearResultShapeHelper.draw_panel") >= 0, "source-chip drawing should delegate panel drawing")
 	_expect(source.find("StageClearResultTextLayoutHelper.draw_centered_text") >= 0, "source-chip drawing should delegate text drawing")
+	_expect(source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0, "card label drawing should fit long reward names")
 	_expect(StageClearResultRewardCardDrawHelper != null, "reward card draw helper preload should resolve")
 
 
 func _verify_scene_delegates_reward_card_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_card_shell") >= 0, "result scene should delegate reward card shell drawing")
 	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_source_chip") >= 0, "result scene should delegate reward source-chip drawing")
+	_expect(source.find("StageClearResultRewardCardDrawHelper.draw_reward_card_label") >= 0, "result scene should delegate reward card label drawing")
 	_expect(source.find("func _draw_reward_source_chip") < 0, "result scene should not keep source-chip drawing wrappers")
 
 
