@@ -299,13 +299,61 @@ func _draw_fire_machine_dragons(canvas: CanvasItem, context: Dictionary, shake_o
 		var angle := float(dragon.get("cannon_angle", 0.0))
 		var mouth := _as_vector2(dragon.get("mouth_pos", center), center) + shake_offset
 		var head := _as_vector2(dragon.get("head_pos", mouth), mouth) + shake_offset
-		canvas.draw_line(center, head, Color(0.44, 0.02, 0.03, 0.78 * emergence), maxf(4.0, 16.0 * machine_scale * emergence), true)
-		canvas.draw_line(center, head, Color(1.0, 0.35, 0.12, 0.46 * emergence), maxf(2.0, 6.0 * machine_scale * emergence), true)
+		_draw_fire_machine_dragon_neck(canvas, center, head, machine_scale, emergence)
 		_draw_fire_machine_dragon_head(canvas, head, angle, machine_scale, emergence, float(dragon.get("jaw_open", 0.0)), str(dragon.get("jaw_phase", "closed")))
 		if bool(dragon.get("is_aiming", false)) and quality_scale > 0.75:
 			var target := _as_vector2(dragon.get("aim_target", mouth), mouth) + shake_offset
 			canvas.draw_line(mouth, target, Color(1.0, 0.06, 0.04, 0.22), 1.0, true)
 			canvas.draw_arc(target, 8.0, 0.0, TAU, 18, Color(1.0, 0.18, 0.10, 0.56), 1.4, true)
+
+
+func _draw_fire_machine_dragon_neck(canvas: CanvasItem, center: Vector2, head: Vector2, machine_scale: float, emergence: float) -> void:
+	# Tapered dragon-neck body emerging from the central core (parity with the
+	# Python _draw_dragon_neck): wide base at machine center -> narrow tip at the
+	# head, so the head reads as growing out of the pot instead of floating at the
+	# rim. Replaces the old straight draw_line "stick".
+	var neck_scale := machine_scale * maxf(0.0, emergence)
+	if neck_scale <= 0.01:
+		return
+	var dir := head - center
+	if dir.length() < 1.0:
+		return
+	var fwd := dir.normalized()
+	var perp := fwd.orthogonal()
+	var base_half := maxf(6.0, 15.0 * neck_scale)
+	var mid_half := maxf(5.0, 12.0 * neck_scale)
+	var tip_half := maxf(4.0, 8.0 * neck_scale)
+	var mid_pt := center.lerp(head, 0.48)
+	var alpha := clampf(emergence, 0.0, 1.0)
+	var outer := PackedVector2Array([
+		center + perp * base_half,
+		mid_pt + perp * mid_half,
+		head + perp * tip_half,
+		head - perp * tip_half,
+		mid_pt - perp * mid_half,
+		center - perp * base_half,
+	])
+	var inner := PackedVector2Array([
+		center + perp * (base_half * 0.58),
+		mid_pt + perp * (mid_half * 0.55),
+		head + perp * (tip_half * 0.52),
+		head - perp * (tip_half * 0.52),
+		mid_pt - perp * (mid_half * 0.55),
+		center - perp * (base_half * 0.58),
+	])
+	canvas.draw_colored_polygon(outer, Color(0.20, 0.03, 0.06, 0.94 * alpha))
+	canvas.draw_colored_polygon(inner, Color(0.52, 0.10, 0.16, 0.94 * alpha))
+	var outline := outer.duplicate()
+	outline.append(outer[0])
+	canvas.draw_polyline(outline, Color(1.0, 0.46, 0.30, 0.66 * alpha), maxf(1.0, 2.0 * neck_scale), true)
+	# Center highlight ridge running base -> tip for the organic spine read.
+	canvas.draw_line(
+		center + perp * (base_half * 0.40),
+		head + perp * (tip_half * 0.35),
+		Color(0.78, 0.26, 0.34, 0.62 * alpha),
+		maxf(1.0, 2.0 * neck_scale),
+		true
+	)
 
 
 func _draw_fire_machine_dragon_head(canvas: CanvasItem, head: Vector2, angle: float, machine_scale: float, emergence: float, jaw_open: float, jaw_phase: String) -> void:
@@ -439,11 +487,13 @@ func _draw_rotated_texture_region(
 	var points := PackedVector2Array()
 	for corner in local_corners:
 		points.append(center + corner.rotated(angle))
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
 	var uvs := PackedVector2Array([
-		source_rect.position,
-		Vector2(source_rect.end.x, source_rect.position.y),
-		source_rect.end,
-		Vector2(source_rect.position.x, source_rect.end.y),
+		uv_min,
+		Vector2(uv_max.x, uv_min.y),
+		uv_max,
+		Vector2(uv_min.x, uv_max.y),
 	])
 	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
 	canvas.draw_polygon(points, colors, uvs, texture)
