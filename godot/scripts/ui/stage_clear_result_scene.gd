@@ -59,30 +59,18 @@ const PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION := 0.18
 const PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION := 0.05
 const PLAYER_VICTORY_CLICK_TOTAL_DURATION := PLAYER_VICTORY_CLICK_REACTION_DURATION + PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION + PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION
 
-const STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
-const STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
 # Source sheet stores 1152px cells; capped to 896px cells on import
 # (process/size_limit=12544). Must match the imported cell size.
-const STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(896.0, 896.0)
-const STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
-const STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
-const STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION := STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT * STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL
-const STAGE2_BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
-const STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
-const STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
-const STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION := STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION + STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
-const STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
-const STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
-# Source sheet stores 1152px cells; capped to 896px cells on import
-# (process/size_limit=12544). Must match the imported cell size.
-const STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(896.0, 896.0)
-const STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
-const STAGE3_BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
-const STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION := STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT * STAGE3_BOSS_DEFEAT_CLICK_FRAME_INTERVAL
-const STAGE3_BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
-const STAGE3_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
-const STAGE3_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
-const STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION := STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION + STAGE3_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + STAGE3_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
+const BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
+const BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
+const BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(896.0, 896.0)
+const BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
+const BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
+const BOSS_DEFEAT_CLICK_REACTION_DURATION := BOSS_DEFEAT_LIVE2D_FRAME_COUNT * BOSS_DEFEAT_CLICK_FRAME_INTERVAL
+const BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
+const BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
+const BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
+const BOSS_DEFEAT_CLICK_TOTAL_DURATION := BOSS_DEFEAT_CLICK_REACTION_DURATION + BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
 
 const BOX_BASE_SIZE := Vector2(65.0, 56.0)
 const BOX_FLOAT_AMPLITUDE := 5.0
@@ -173,8 +161,8 @@ var _driven_by_controller: bool = false
 var _dalji_base_timer: float = 0.0
 var _dalji_click_reaction_timer: float = DALJI_CLICK_TOTAL_DURATION
 var _player_victory_click_reaction_timer: float = PLAYER_VICTORY_CLICK_TOTAL_DURATION
-var _stage2_boss_defeat_click_reaction_timer: float = STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
-var _stage3_boss_defeat_click_reaction_timer: float = STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+var _stage2_boss_defeat_click_reaction_timer: float = BOSS_DEFEAT_CLICK_TOTAL_DURATION
+var _stage3_boss_defeat_click_reaction_timer: float = BOSS_DEFEAT_CLICK_TOTAL_DURATION
 var _dalji_dialogue_timer: float = 0.0
 var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
@@ -269,8 +257,8 @@ func configure(
 	_dalji_base_timer = 0.0
 	_dalji_click_reaction_timer = DALJI_CLICK_TOTAL_DURATION
 	_player_victory_click_reaction_timer = PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	_stage2_boss_defeat_click_reaction_timer = STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	_stage3_boss_defeat_click_reaction_timer = STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	_stage2_boss_defeat_click_reaction_timer = BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	_stage3_boss_defeat_click_reaction_timer = BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	_dalji_dialogue_timer = 0.0
 	_stop_dalji_click_voice()
 	confirmed_callback = on_confirmed
@@ -299,8 +287,8 @@ func update_result_scene(delta: float) -> void:
 	_dalji_base_timer += safe_delta
 	_dalji_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION, safe_delta)
 	_player_victory_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_player_victory_click_reaction_timer, PLAYER_VICTORY_CLICK_TOTAL_DURATION, safe_delta)
-	_stage2_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage2_boss_defeat_click_reaction_timer, STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
-	_stage3_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage3_boss_defeat_click_reaction_timer, STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
+	_stage2_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage2_boss_defeat_click_reaction_timer, BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
+	_stage3_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage3_boss_defeat_click_reaction_timer, BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
 	_dalji_dialogue_timer = max(0.0, _dalji_dialogue_timer - safe_delta)
 	_update_boxes(safe_delta)
 	_update_scroll(safe_delta)
@@ -616,23 +604,23 @@ func get_interaction_status() -> Dictionary:
 		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
 		"stage2_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
-		"stage2_boss_defeat_live2d_frame_count": STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage2_boss_defeat_live2d_grid_cols": STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage2_boss_defeat_live2d_cell_size": STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage2_boss_defeat_live2d_frame_count": BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage2_boss_defeat_live2d_grid_cols": BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage2_boss_defeat_live2d_cell_size": BOSS_DEFEAT_LIVE2D_CELL_SIZE,
 		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
-		"stage2_boss_defeat_click_reaction_duration": STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage2_boss_defeat_click_total_duration": STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage2_boss_defeat_click_reaction_duration": BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage2_boss_defeat_click_total_duration": BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
 		"stage3_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
 		"stage3_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
-		"stage3_boss_defeat_live2d_frame_count": STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage3_boss_defeat_live2d_grid_cols": STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage3_boss_defeat_live2d_cell_size": STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage3_boss_defeat_live2d_frame_count": BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage3_boss_defeat_live2d_grid_cols": BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage3_boss_defeat_live2d_cell_size": BOSS_DEFEAT_LIVE2D_CELL_SIZE,
 		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
-		"stage3_boss_defeat_click_reaction_duration": STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage3_boss_defeat_click_total_duration": STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage3_boss_defeat_click_reaction_duration": BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage3_boss_defeat_click_total_duration": BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		"stage3_boss_defeat_click_transition_base_frame": _stage3_boss_defeat_click_transition_base_frame,
 		"current_stage": current_stage,
 		"hovered_box_index": _hovered_box_index,
@@ -745,11 +733,11 @@ func _is_runtime_perk_choice_active() -> bool:
 func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if current_stage == 2:
 		if _stage2_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, _stage2_boss_defeat_reaction_state(), view_size, scale, STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
+			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, _stage2_boss_defeat_reaction_state(), view_size, scale, BOSS_DEFEAT_LIVE2D_GRID_COLS, BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
 		return
 	if current_stage == 3:
 		if _stage3_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, _stage3_boss_defeat_reaction_state(), view_size, scale, STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS, STAGE3_BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
+			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, _stage3_boss_defeat_reaction_state(), view_size, scale, BOSS_DEFEAT_LIVE2D_GRID_COLS, BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
 		return
 	if _dalji_defeat_sheet == null:
 		return
@@ -1055,10 +1043,10 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 		mouse_position,
 		click_rect,
 		_stage2_boss_defeat_click_reaction_timer,
-		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		timer,
-		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
 	return _consume_click_reaction_attempt(
 		attempt,
@@ -1078,10 +1066,10 @@ func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 		mouse_position,
 		click_rect,
 		_stage3_boss_defeat_click_reaction_timer,
-		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		timer,
-		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
 	return _consume_click_reaction_attempt(
 		attempt,
@@ -1143,32 +1131,32 @@ func _player_victory_reaction_state() -> Dictionary:
 func _stage2_boss_defeat_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
-		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
 		_stage2_boss_defeat_click_reaction_timer,
-		STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
-		STAGE2_BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
 		_stage2_boss_defeat_click_transition_base_frame,
-		STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
-		STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
-		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+		BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	)
 
 
 func _stage3_boss_defeat_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
-		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
 		_stage3_boss_defeat_click_reaction_timer,
-		STAGE3_BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		STAGE3_BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
-		STAGE3_BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
 		_stage3_boss_defeat_click_transition_base_frame,
-		STAGE3_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
-		STAGE3_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
-		STAGE3_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+		BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	)
 
 
