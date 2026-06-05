@@ -377,21 +377,16 @@ func handle_result_input(event: InputEvent) -> bool:
 				_finish_scroll_drag(mouse_event.position)
 			return true
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			if _handle_dalji_click(mouse_event.position):
-				pass
-			elif _handle_stage2_boss_defeat_click(mouse_event.position):
-				pass
-			elif _handle_stage3_boss_defeat_click(mouse_event.position):
-				pass
-			elif _handle_player_victory_click(mouse_event.position):
-				pass
-			elif _start_scroll_drag(mouse_event.position):
-				pass
-			elif _handle_button_click(mouse_event.position):
-				pass
-			elif _handle_box_click(mouse_event.position):
-				pass
-			else:
+			var handled_click: bool = (
+				_handle_dalji_click(mouse_event.position)
+				or _handle_stage2_boss_defeat_click(mouse_event.position)
+				or _handle_stage3_boss_defeat_click(mouse_event.position)
+				or _handle_player_victory_click(mouse_event.position)
+				or _start_scroll_drag(mouse_event.position)
+				or _handle_button_click(mouse_event.position)
+				or _handle_box_click(mouse_event.position)
+			)
+			if not handled_click:
 				_update_hovered_box(mouse_event.position)
 		return true
 
