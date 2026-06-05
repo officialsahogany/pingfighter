@@ -1086,13 +1086,11 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 		PLAYER_VICTORY_FRAME_INTERVAL,
 		PLAYER_VICTORY_FRAME_COUNT
 	)
-	if not bool(attempt.get("handled", false)):
-		return false
-	if bool(attempt.get("started", false)):
-		_player_victory_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
-		_player_victory_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
-	queue_redraw()
-	return true
+	return _consume_click_reaction_attempt(
+		attempt,
+		&"_player_victory_click_transition_base_frame",
+		&"_player_victory_click_reaction_timer"
+	)
 
 
 func _handle_dalji_click(mouse_position: Vector2) -> bool:
@@ -1112,14 +1110,14 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 		DALJI_FRAME_INTERVAL,
 		DALJI_FRAME_COUNT
 	)
-	if not bool(attempt.get("handled", false)):
+	if not _consume_click_reaction_attempt(
+		attempt,
+		&"_dalji_click_transition_base_frame",
+		&"_dalji_click_reaction_timer"
+	):
 		return false
-	if bool(attempt.get("started", false)):
-		_dalji_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
-		_dalji_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
 	_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
 	_play_dalji_click_voice()
-	queue_redraw()
 	return true
 
 
@@ -1139,13 +1137,11 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
 		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
-	if not bool(attempt.get("handled", false)):
-		return false
-	if bool(attempt.get("started", false)):
-		_stage2_boss_defeat_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
-		_stage2_boss_defeat_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
-	queue_redraw()
-	return true
+	return _consume_click_reaction_attempt(
+		attempt,
+		&"_stage2_boss_defeat_click_transition_base_frame",
+		&"_stage2_boss_defeat_click_reaction_timer"
+	)
 
 
 func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
@@ -1164,11 +1160,23 @@ func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
 		STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
+	return _consume_click_reaction_attempt(
+		attempt,
+		&"_stage3_boss_defeat_click_transition_base_frame",
+		&"_stage3_boss_defeat_click_reaction_timer"
+	)
+
+
+func _consume_click_reaction_attempt(
+	attempt: Dictionary,
+	transition_base_frame_property: StringName,
+	reaction_timer_property: StringName
+) -> bool:
 	if not bool(attempt.get("handled", false)):
 		return false
 	if bool(attempt.get("started", false)):
-		_stage3_boss_defeat_click_transition_base_frame = int(attempt.get("transition_base_frame", 0))
-		_stage3_boss_defeat_click_reaction_timer = float(attempt.get("reaction_timer", 0.0))
+		set(transition_base_frame_property, int(attempt.get("transition_base_frame", 0)))
+		set(reaction_timer_property, float(attempt.get("reaction_timer", 0.0)))
 	queue_redraw()
 	return true
 
