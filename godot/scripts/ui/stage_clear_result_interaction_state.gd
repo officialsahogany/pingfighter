@@ -2,6 +2,7 @@ extends RefCounted
 
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
+const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 
 const BUTTON_NONE := "none"
 const BUTTON_NEXT_STAGE := "next_stage"
@@ -18,6 +19,69 @@ static func get_scroll_button_layout(scroll_rect: Rect2, draw_scale: float) -> D
 	return {
 		"next_stage_rect": Rect2(Vector2(start_x, button_y), button_size),
 		"exit_rect": Rect2(Vector2(start_x + button_size.x + gap, button_y), button_size),
+	}
+
+
+static func get_visible_scroll_button_layout(
+	scroll_phase: String,
+	draw_scale: float,
+	position_offset: Vector2
+) -> Dictionary:
+	if scroll_phase != PHASE_VISIBLE:
+		return {
+			"next_stage_rect": Rect2(),
+			"exit_rect": Rect2(),
+		}
+	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(draw_scale, position_offset)
+	return get_scroll_button_layout(
+		StageClearResultLayoutHelper.get_scroll_content_rect(
+			scroll_rect,
+			draw_scale,
+			StageClearResultScrollState.SCROLL_CONTENT_MARGIN
+		),
+		draw_scale
+	)
+
+
+static func get_scroll_drag_start_state(
+	mouse_position: Vector2,
+	scroll_phase: String,
+	blocked: bool,
+	draw_scale: float,
+	position_offset: Vector2
+) -> Dictionary:
+	var button_layout: Dictionary = get_visible_scroll_button_layout(scroll_phase, draw_scale, position_offset)
+	if scroll_phase != PHASE_VISIBLE or blocked:
+		return {
+			"started": false,
+			"button_layout": button_layout,
+			"grab_offset": Vector2.ZERO,
+			"hovered_button": BUTTON_NONE,
+		}
+	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(draw_scale, position_offset)
+	if not scroll_rect.has_point(mouse_position):
+		return {
+			"started": false,
+			"button_layout": button_layout,
+			"grab_offset": Vector2.ZERO,
+			"hovered_button": BUTTON_NONE,
+		}
+	if get_hovered_button(
+		mouse_position,
+		button_layout.get("next_stage_rect", Rect2()),
+		button_layout.get("exit_rect", Rect2())
+	) != BUTTON_NONE:
+		return {
+			"started": false,
+			"button_layout": button_layout,
+			"grab_offset": Vector2.ZERO,
+			"hovered_button": BUTTON_NONE,
+		}
+	return {
+		"started": true,
+		"button_layout": button_layout,
+		"grab_offset": mouse_position - scroll_rect.position,
+		"hovered_button": BUTTON_NONE,
 	}
 
 

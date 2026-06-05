@@ -388,23 +388,23 @@ func _update_hovered_button(mouse_position: Vector2) -> void:
 
 
 func _start_scroll_drag(mouse_position: Vector2) -> bool:
-	if _scroll_phase != "visible" or _starpoint_choice_gate_active:
-		return false
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset)
-	if not scroll_rect.has_point(mouse_position):
-		return false
-	_refresh_scroll_button_rects()
-	if StageClearResultInteractionState.get_hovered_button(
+	var drag_state: Dictionary = StageClearResultInteractionState.get_scroll_drag_start_state(
 		mouse_position,
-		_next_stage_button_rect,
-		_exit_button_rect
-	) != StageClearResultInteractionState.BUTTON_NONE:
+		_scroll_phase,
+		_starpoint_choice_gate_active,
+		layout_scale,
+		_scroll_position_offset
+	)
+	var button_layout: Dictionary = drag_state.get("button_layout", {})
+	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
+	_exit_button_rect = button_layout.get("exit_rect", Rect2())
+	if not bool(drag_state.get("started", false)):
 		return false
 	_scroll_dragging = true
-	_scroll_drag_grab_offset = mouse_position - scroll_rect.position
-	_hovered_button = StageClearResultInteractionState.BUTTON_NONE
+	_scroll_drag_grab_offset = drag_state.get("grab_offset", Vector2.ZERO)
+	_hovered_button = str(drag_state.get("hovered_button", StageClearResultInteractionState.BUTTON_NONE))
 	queue_redraw()
 	return true
 
@@ -439,19 +439,12 @@ func _cancel_scroll_drag() -> void:
 
 
 func _refresh_scroll_button_rects() -> void:
-	if _scroll_phase != "visible":
-		_next_stage_button_rect = Rect2()
-		_exit_button_rect = Rect2()
-		return
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
-		StageClearResultLayoutHelper.get_scroll_content_rect(
-			StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset),
-			layout_scale,
-			StageClearResultScrollState.SCROLL_CONTENT_MARGIN
-		),
-		layout_scale
+	var button_layout: Dictionary = StageClearResultInteractionState.get_visible_scroll_button_layout(
+		_scroll_phase,
+		layout_scale,
+		_scroll_position_offset
 	)
 	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
 	_exit_button_rect = button_layout.get("exit_rect", Rect2())

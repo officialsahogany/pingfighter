@@ -41,6 +41,19 @@ func _verify_scroll_button_layout() -> void:
 	var scaled_next: Rect2 = scaled_layout.get("next_stage_rect", Rect2())
 	_expect(scaled_next.size == Vector2(140.0, 32.0), "button layout should scale button size")
 
+	var hidden_layout: Dictionary = StageClearResultInteractionState.get_visible_scroll_button_layout(
+		"hidden",
+		1.0,
+		Vector2.ZERO
+	)
+	_expect(hidden_layout.get("next_stage_rect", Rect2()) == Rect2(), "hidden scroll should expose empty button rects")
+	var visible_layout: Dictionary = StageClearResultInteractionState.get_visible_scroll_button_layout(
+		"visible",
+		1.0,
+		Vector2.ZERO
+	)
+	_expect(visible_layout.get("next_stage_rect", Rect2()) is Rect2, "visible scroll should expose button rects")
+
 
 func _verify_button_hit_state() -> void:
 	var next_rect := Rect2(Vector2(10.0, 10.0), Vector2(100.0, 40.0))
@@ -65,6 +78,24 @@ func _verify_button_hit_state() -> void:
 		StageClearResultInteractionState.get_clicked_button(Vector2(150.0, 20.0), next_rect, exit_rect, "visible") == StageClearResultInteractionState.BUTTON_EXIT,
 		"click state should report visible-scroll button hits"
 	)
+	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(1.0, Vector2.ZERO)
+	var drag_state: Dictionary = StageClearResultInteractionState.get_scroll_drag_start_state(
+		scroll_rect.position + Vector2(120.0, 120.0),
+		"visible",
+		false,
+		1.0,
+		Vector2.ZERO
+	)
+	_expect(bool(drag_state.get("started", false)), "scroll drag state should start for visible scroll body hits")
+	_expect(drag_state.get("grab_offset", Vector2.ZERO) == Vector2(120.0, 120.0), "scroll drag state should preserve grab offset")
+	var blocked_state: Dictionary = StageClearResultInteractionState.get_scroll_drag_start_state(
+		scroll_rect.position + Vector2(120.0, 120.0),
+		"visible",
+		true,
+		1.0,
+		Vector2.ZERO
+	)
+	_expect(not bool(blocked_state.get("started", true)), "scroll drag state should respect modal blocks")
 
 
 func _verify_box_hit_state() -> void:
@@ -133,6 +164,11 @@ func _verify_scene_delegates_interaction_state() -> void:
 		source.find("StageClearResultInteractionState.get_hovered_box_index") >= 0
 			and source.find("StageClearResultInteractionState.get_clicked_idle_box_index") >= 0,
 		"result scene should delegate box hover and click hit-tests"
+	)
+	_expect(
+		source.find("StageClearResultInteractionState.get_scroll_drag_start_state") >= 0
+			and source.find("StageClearResultInteractionState.get_visible_scroll_button_layout") >= 0,
+		"result scene should delegate scroll drag and button layout state"
 	)
 	_expect(
 		source.find("func _all_boxes_opened") < 0,
