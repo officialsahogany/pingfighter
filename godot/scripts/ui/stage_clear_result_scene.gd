@@ -84,9 +84,6 @@ const BOX_LID_OPEN_PROGRESS := 0.55
 
 const SCROLL_DELAY := 1.10
 const SCROLL_UNFURL_DURATION := 0.95
-const SCROLL_REGION_RECT := StageClearResultScrollState.SCROLL_REGION_RECT
-const SCROLL_CONTENT_MARGIN := StageClearResultScrollState.SCROLL_CONTENT_MARGIN
-const SCROLL_DRAG_VIEW_MARGIN := StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN
 
 var timer: float = 0.0
 var player_score: int = 0
@@ -515,7 +512,7 @@ func _refresh_scroll_button_rects() -> void:
 		StageClearResultLayoutHelper.get_scroll_content_rect(
 			StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset),
 			layout_scale,
-			SCROLL_CONTENT_MARGIN
+			StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 		),
 		layout_scale
 	)
@@ -881,7 +878,7 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 		return
 
 	var content_alpha: float = StageClearResultClickReactionState.smooth01((unfurl - 0.58) / 0.42)
-	_draw_cyber_scroll_contents(StageClearResultLayoutHelper.get_scroll_content_rect(full_rect, scale, SCROLL_CONTENT_MARGIN), scale, font, content_alpha)
+	_draw_cyber_scroll_contents(StageClearResultLayoutHelper.get_scroll_content_rect(full_rect, scale, StageClearResultScrollState.SCROLL_CONTENT_MARGIN), scale, font, content_alpha)
 
 
 @warning_ignore("shadowed_variable_base_class")

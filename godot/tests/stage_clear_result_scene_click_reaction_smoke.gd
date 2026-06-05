@@ -6,6 +6,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
@@ -626,7 +627,7 @@ func _verify_cyber_scroll_button_hitboxes_use_content_rect() -> void:
 	var content_rect: Rect2 = StageClearResultLayoutHelper.get_scroll_content_rect(
 		full_rect,
 		scene._get_layout_scale(scene.size),
-		StageClearResultScene.SCROLL_CONTENT_MARGIN
+		StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 	)
 	var expected_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
 		content_rect,

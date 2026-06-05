@@ -54,28 +54,16 @@ func _verify_direct_visual_values() -> void:
 
 
 func _verify_direct_scroll_geometry() -> void:
-	_expect(
-		StageClearResultScrollState.SCROLL_REGION_RECT == StageClearResultScene.SCROLL_REGION_RECT,
-		"scroll state should own the scene-compatible authored scroll region"
-	)
-	_expect(
-		StageClearResultScrollState.SCROLL_CONTENT_MARGIN == StageClearResultScene.SCROLL_CONTENT_MARGIN,
-		"scroll state should own the scene-compatible scroll content margin"
-	)
-	_expect(
-		is_equal_approx(StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN, StageClearResultScene.SCROLL_DRAG_VIEW_MARGIN),
-		"scroll state should own the scene-compatible drag margin"
-	)
 	var base_rect := StageClearResultScrollState.get_base_rect(
 		1.0,
-		StageClearResultScene.SCROLL_REGION_RECT
+		StageClearResultScrollState.SCROLL_REGION_RECT
 	)
 	_expect(base_rect.position == Vector2(340.0, 96.0), "scroll geometry helper should build the authored base position")
 	_expect(base_rect.size == Vector2(1240.0, 904.0), "scroll geometry helper should build the authored scroll size")
 	var full_rect := StageClearResultScrollState.get_full_rect(
 		1.0,
 		Vector2(80.0, -40.0),
-		StageClearResultScene.SCROLL_REGION_RECT
+		StageClearResultScrollState.SCROLL_REGION_RECT
 	)
 	_expect(full_rect.position == base_rect.position + Vector2(80.0, -40.0), "scroll full rect should add the live drag offset")
 	_expect(
@@ -86,8 +74,8 @@ func _verify_direct_scroll_geometry() -> void:
 		Vector2(2000.0, -2000.0),
 		1.0,
 		Vector2(1920.0, 1080.0),
-		StageClearResultScene.SCROLL_DRAG_VIEW_MARGIN,
-		StageClearResultScene.SCROLL_REGION_RECT
+		StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN,
+		StageClearResultScrollState.SCROLL_REGION_RECT
 	)
 	_expect(clamped.x < 2000.0 and clamped.y > -2000.0, "scroll offset helper should clamp drags to the visible margin")
 	_expect(
@@ -134,6 +122,9 @@ func _verify_scene_scroll_delegates() -> void:
 	)
 	_expect(
 		source.find("const SCROLL_REGION_TOP") < 0
+			and source.find("const SCROLL_REGION_RECT") < 0
+			and source.find("const SCROLL_CONTENT_MARGIN") < 0
+			and source.find("const SCROLL_DRAG_VIEW_MARGIN") < 0
 			and helper_source.find("const SCROLL_REGION_RECT") >= 0
 			and helper_source.find("const SCROLL_CONTENT_MARGIN") >= 0
 			and helper_source.find("const SCROLL_DRAG_VIEW_MARGIN") >= 0,
@@ -164,7 +155,7 @@ func _verify_scene_scroll_drag() -> void:
 	var base_rect: Rect2 = StageClearResultScrollState.get_full_rect(
 		1.0,
 		Vector2.ZERO,
-		StageClearResultScene.SCROLL_REGION_RECT
+		StageClearResultScrollState.SCROLL_REGION_RECT
 	)
 	var grab_point: Vector2 = base_rect.position + Vector2(120.0, 120.0)
 	_expect(scene._start_scroll_drag(grab_point), "visible scroll body should start drag")
