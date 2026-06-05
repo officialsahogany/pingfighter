@@ -60,7 +60,7 @@ func _verify_texture_bundle_load() -> void:
 		stage2_click_sheet != null and stage2_click_sheet.get_size() == Vector2(12544.0, 6272.0),
 		"asset loader should load the Real-ESRGAN hq1152 Stage 2 boss result click Live2D sheet"
 	)
-	var commando_paths: Dictionary = StageClearResultScene._result_asset_paths("soldier")
+	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("soldier", 1)
 	_expect(
 		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH,
 		"result asset paths should route Commando player victories to the Commando result Live2D base sheet"

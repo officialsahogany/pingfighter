@@ -201,7 +201,7 @@ var _starpoint_choice_gate_box_index: int = -1
 
 static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
 	return StageClearResultAssetLoader.prewarm_result_assets(
-		_result_asset_paths(character_type, stage_id),
+		StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id),
 		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
 		stage_id
 	)
@@ -209,7 +209,7 @@ static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1
 
 static func prewarm_assets_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
 	return StageClearResultAssetLoader.prewarm_result_assets_step(
-		_result_asset_paths(character_type, stage_id),
+		StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id),
 		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
 		stage_id
 	)
@@ -217,7 +217,7 @@ static func prewarm_assets_step(character_type: String = "smasher", stage_id: in
 
 static func prewarm_assets_threaded_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
 	return StageClearResultAssetLoader.prewarm_result_assets_step(
-		_result_asset_paths(character_type, stage_id),
+		StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id),
 		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
 		stage_id,
 		true
@@ -230,10 +230,6 @@ static func reset_prewarm_assets_for_test() -> void:
 
 static func get_prewarm_asset_status() -> Dictionary:
 	return StageClearResultAssetLoader.get_result_prewarm_asset_status()
-
-
-static func _result_asset_paths(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
-	return StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id)
 
 
 func _ready() -> void:
@@ -1233,7 +1229,7 @@ func _apply_standalone_preview_defaults() -> void:
 
 
 func _load_textures() -> void:
-	var paths: Dictionary = _result_asset_paths(selected_character_type, current_stage)
+	var paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths(selected_character_type, current_stage)
 	var player_victory_path: String = str(paths.get("player_victory_sheet", ""))
 	var player_victory_click_path: String = str(paths.get("player_victory_click_reaction_sheet", ""))
 	var current: Dictionary = {}
