@@ -62,9 +62,9 @@ func _verify_reward_position_pair() -> void:
 		Vector2(1920.0, 1080.0),
 		1.0,
 		0.0,
-		Vector2(760.0, 750.0),
 		0.0,
-		1.0
+		1.0,
+		Vector2(760.0, 750.0)
 	)
 	_expect(positions.get("pickup_position", null) is Vector2, "cinematic position helper should expose pickup_position")
 	_expect(positions.get("target_player_center", null) is Vector2, "cinematic position helper should expose target_player_center")

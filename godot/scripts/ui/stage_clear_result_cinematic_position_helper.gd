@@ -2,15 +2,17 @@ extends RefCounted
 
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 
+const DEFAULT_FIELD_SIZE := Vector2(760.0, 750.0)
+
 
 static func get_reward_cinematic_positions(
 	box: Dictionary,
 	view_size: Vector2,
 	draw_scale: float,
 	timer: float,
-	field_size: Vector2,
 	box_float_amplitude: float,
-	box_float_speed: float
+	box_float_speed: float,
+	field_size: Vector2 = DEFAULT_FIELD_SIZE
 ) -> Dictionary:
 	return {
 		"pickup_position": get_box_pickup_position(

@@ -95,7 +95,6 @@ const RESULT_REWARD_SOURCE_LABELS := {
 	"stage": "인게임",
 	"box": "상자 보상",
 }
-const RESULT_CINEMATIC_FIELD_SIZE := Vector2(760.0, 750.0)
 const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
 const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
 const PREWARM_ASSET_STEP_COUNT := StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT
@@ -853,7 +852,6 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		view_size,
 		scale,
 		timer,
-		RESULT_CINEMATIC_FIELD_SIZE,
 		BOX_FLOAT_AMPLITUDE,
 		BOX_FLOAT_SPEED
 	)
