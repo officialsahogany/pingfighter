@@ -342,12 +342,11 @@ func _handle_escape_input() -> bool:
 func _open_next_idle_box() -> bool:
 	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
 		return false
-	for i in range(_boxes.size()):
-		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		if str(box.get("state", "idle")) == "idle":
-			_start_opening_box(i)
-			return true
-	return false
+	var next_idle_index: int = StageClearResultBoxData.get_next_idle_box_index(_boxes)
+	if next_idle_index < 0:
+		return false
+	_start_opening_box(next_idle_index)
+	return true
 
 
 func _exit_to_menu() -> void:

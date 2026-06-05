@@ -186,6 +186,14 @@ static func start_opening_box_with_roll(
 	)
 
 
+static func get_next_idle_box_index(boxes: Array) -> int:
+	for i in range(boxes.size()):
+		var box: Dictionary = boxes[i] if boxes[i] is Dictionary else {}
+		if str(box.get("state", "idle")) == "idle":
+			return i
+	return -1
+
+
 static func update_box_opening_state(
 	boxes: Array,
 	delta: float,

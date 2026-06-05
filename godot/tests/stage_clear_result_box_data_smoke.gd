@@ -75,6 +75,8 @@ func _verify_box_opening_state() -> void:
 		{"kind": "normal", "roll_kind": "normal", "state": "idle", "reward": {}},
 		{"kind": "advanced", "state": "opened", "reward": {"type": "active"}, "reward_emerge": 0.2},
 	]
+	_expect(StageClearResultBoxData.get_next_idle_box_index(boxes) == 0, "box data should find the first idle box")
+	_expect(StageClearResultBoxData.get_next_idle_box_index([{"state": "opened"}]) == -1, "box data should report no idle boxes")
 	var start_result: Dictionary = StageClearResultBoxData.start_opening_box(boxes, 0, {"type": "active", "id": "drive"})
 	_expect(bool(start_result.get("started", false)), "box data should start idle boxes")
 	var started_boxes: Array = start_result.get("boxes", [])
@@ -206,6 +208,7 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(scene_source.find("StageClearResultBoxData.get_resolved_rewards") >= 0, "result scene should delegate resolved reward extraction")
 	_expect(scene_source.find("StageClearResultBoxData.start_opening_box") >= 0, "result scene should delegate opening box setup")
 	_expect(scene_source.find("StageClearResultBoxData.start_opening_box_with_roll") >= 0, "result scene should delegate rolled opening box setup")
+	_expect(scene_source.find("StageClearResultBoxData.get_next_idle_box_index") >= 0, "result scene should delegate next idle box selection")
 	_expect(scene_source.find("StageClearResultBoxData.update_box_opening_state") >= 0, "result scene should delegate box opening animation state")
 	_expect(scene_source.find("StageClearResultBoxData.append_resolved_perk_reward") >= 0, "result scene should delegate box resolved perk appends")
 	_expect(scene_source.find("StageClearResultBoxData.build_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview reward plan defaults")
