@@ -918,10 +918,6 @@ func _update_boxes(delta: float) -> void:
 
 
 func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
-	if bool(box.get("reward_immediate_granted", false)):
-		return
-	if not immediate_reward_callback.is_valid():
-		return
 	var view_size: Vector2 = size
 	if view_size == Vector2.ZERO:
 		view_size = _get_view_size()
@@ -936,13 +932,8 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		BOX_FLOAT_AMPLITUDE,
 		BOX_FLOAT_SPEED
 	)
-	var reward: Dictionary = StageClearResultBoxData.build_immediate_reward_payload(box, cinematic_positions)
-	if reward.is_empty():
-		return
-	var granted: bool = bool(immediate_reward_callback.call(reward, index))
-	if not granted:
-		return
-	_boxes = StageClearResultBoxData.mark_immediate_reward_granted(_boxes, index)
+	var result: Dictionary = StageClearResultBoxData.try_grant_immediate_reward(_boxes, index, immediate_reward_callback, cinematic_positions)
+	_boxes = result.get("boxes", _boxes)
 
 
 func _update_scroll(delta: float) -> void:

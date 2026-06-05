@@ -272,6 +272,31 @@ static func mark_immediate_reward_granted(boxes: Array, index: int) -> Array:
 	return updated_boxes
 
 
+static func try_grant_immediate_reward(
+	boxes: Array,
+	index: int,
+	immediate_reward_callback: Callable,
+	cinematic_positions: Dictionary
+) -> Dictionary:
+	if index < 0 or index >= boxes.size():
+		return {"granted": false, "boxes": boxes, "reward": {}}
+	var box: Dictionary = boxes[index] if boxes[index] is Dictionary else {}
+	if bool(box.get("reward_immediate_granted", false)):
+		return {"granted": false, "boxes": boxes, "reward": {}}
+	if not immediate_reward_callback.is_valid():
+		return {"granted": false, "boxes": boxes, "reward": {}}
+	var reward: Dictionary = build_immediate_reward_payload(box, cinematic_positions)
+	if reward.is_empty():
+		return {"granted": false, "boxes": boxes, "reward": {}}
+	if not bool(immediate_reward_callback.call(reward, index)):
+		return {"granted": false, "boxes": boxes, "reward": reward}
+	return {
+		"granted": true,
+		"boxes": mark_immediate_reward_granted(boxes, index),
+		"reward": reward,
+	}
+
+
 static func get_resolved_rewards(boxes: Array) -> Array:
 	var rewards: Array = []
 	for box_value in boxes:
