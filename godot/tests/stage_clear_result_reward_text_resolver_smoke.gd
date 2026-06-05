@@ -1,7 +1,6 @@
 extends SceneTree
 
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
-const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
 
@@ -119,49 +118,59 @@ func _verify_title_resolution() -> void:
 
 
 func _verify_text_state_resolution() -> void:
-	var scene := StageClearResultScene.new()
-	scene._perk_catalog = FakePerkCatalog.new()
+	var perk_catalog := FakePerkCatalog.new()
 
 	var starpoint_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
 		{"type": "starpoint", "amount": 5},
-		scene._perk_catalog,
+		perk_catalog,
 		"",
 		false,
 		StageClearResultRewardTextResolver.get_reward_type_fallback_label("starpoint"),
-		StageClearResultScene.REWARD_DETAIL_FALLBACK_TEXT,
-		StageClearResultScene.REWARD_STARPOINT_TITLE_PREFIX
+		StageClearResultRewardTextResolver.REWARD_DETAIL_FALLBACK_TEXT,
+		StageClearResultRewardTextResolver.REWARD_STARPOINT_TITLE_PREFIX
 	)
 	_expect(str(starpoint_state.get("title", "")).contains("+5"), "text state should keep starpoint amount title formatting")
 	var catalog_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
 		{"type": "perk", "perk_id": "catalog_perk"},
-		scene._perk_catalog,
+		perk_catalog,
 		"catalog_perk",
 		true,
 		StageClearResultRewardTextResolver.get_reward_type_fallback_label("perk"),
-		StageClearResultScene.REWARD_DETAIL_FALLBACK_TEXT,
-		StageClearResultScene.REWARD_STARPOINT_TITLE_PREFIX
+		StageClearResultRewardTextResolver.REWARD_DETAIL_FALLBACK_TEXT,
+		StageClearResultRewardTextResolver.REWARD_STARPOINT_TITLE_PREFIX
 	)
 	_expect(str(catalog_state.get("title", "")) == "Catalog Perk", "text state should use catalog perk names")
 	_expect(str(catalog_state.get("detail", "")) == "Catalog Detail", "text state should use catalog perk descriptions")
 	_expect((catalog_state.get("perk_data", {}) as Dictionary).get("name", "") == "Catalog Perk", "text state should expose catalog perk data")
 	var inline_level_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
 		{"perk_data": {"descriptions": {2: "Level 2"}}, "next_level": 2},
-		scene._perk_catalog,
+		perk_catalog,
 		"",
 		true,
 		StageClearResultRewardTextResolver.get_reward_type_fallback_label("perk"),
-		StageClearResultScene.REWARD_DETAIL_FALLBACK_TEXT,
-		StageClearResultScene.REWARD_STARPOINT_TITLE_PREFIX
+		StageClearResultRewardTextResolver.REWARD_DETAIL_FALLBACK_TEXT,
+		StageClearResultRewardTextResolver.REWARD_STARPOINT_TITLE_PREFIX
 	)
 	_expect(str(inline_level_state.get("detail", "")) == "Level 2", "text state should delegate level descriptions")
-	scene.free()
 
 
 func _verify_scene_uses_text_resolver() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var summary_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_summary_builder.gd")
+	var card_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultRewardTextResolver.get_reward_text_state") >= 0,
-		"scene should call reward text state resolver directly"
+		source.find("StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state") >= 0,
+		"scene should delegate perk info text through the summary builder"
+	)
+	_expect(
+		summary_source.find("StageClearResultRewardTextResolver.get_reward_text_state") >= 0
+		and card_source.find("StageClearResultRewardTextResolver.get_reward_text_state") >= 0,
+		"summary and card helpers should call reward text state resolver directly"
+	)
+	_expect(
+		source.find("REWARD_DETAIL_FALLBACK_TEXT") < 0
+		and source.find("REWARD_STARPOINT_TITLE_PREFIX") < 0,
+		"scene should not own reward text defaults"
 	)
 	_expect(
 		source.find("func _reward_type_fallback_label") < 0

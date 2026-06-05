@@ -4,6 +4,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 const StageClearResultScrollButtonDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_button_draw_helper.gd")
 const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
+const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultSummaryDrawHelper := preload("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
@@ -109,8 +110,8 @@ static func draw_scroll_contents(
 				"perk_catalog": draw_context.get("perk_catalog", null),
 				"perk_icon_renderer": draw_context.get("perk_icon_renderer", null),
 				"reward_icon_cache": _get_dictionary(draw_context, "reward_icon_cache"),
-				"reward_detail_fallback_text": str(draw_context.get("reward_detail_fallback_text", "")),
-				"reward_starpoint_title_prefix": str(draw_context.get("reward_starpoint_title_prefix", "")),
+				"reward_detail_fallback_text": str(draw_context.get("reward_detail_fallback_text", StageClearResultRewardTextResolver.REWARD_DETAIL_FALLBACK_TEXT)),
+				"reward_starpoint_title_prefix": str(draw_context.get("reward_starpoint_title_prefix", StageClearResultRewardTextResolver.REWARD_STARPOINT_TITLE_PREFIX)),
 			}
 		)
 

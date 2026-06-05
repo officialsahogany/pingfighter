@@ -2,6 +2,9 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
+const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
+const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
+
 
 static func get_reward_detail_text(reward: Dictionary, perk_data: Dictionary, fallback_detail: String) -> String:
 	for key in ["description", "detail", "effect_text"]:

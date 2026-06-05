@@ -88,8 +88,6 @@ const SCROLL_REGION_RECT := StageClearResultScrollState.SCROLL_REGION_RECT
 const SCROLL_CONTENT_MARGIN := StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 const SCROLL_DRAG_VIEW_MARGIN := StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN
 
-const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
-const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
 var timer: float = 0.0
 var player_score: int = 0
 var boss_score: int = 0
@@ -545,9 +543,7 @@ func get_interaction_status() -> Dictionary:
 		"reward_summary_state": reward_summary_state,
 		"perk_info": StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state(
 			reward_summary_state,
-			_perk_catalog,
-			REWARD_DETAIL_FALLBACK_TEXT,
-			REWARD_STARPOINT_TITLE_PREFIX
+			_perk_catalog
 		),
 		"dalji_reaction_state": _dalji_reaction_state(),
 		"player_victory_reaction_state": _player_victory_reaction_state(),
@@ -907,8 +903,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 			"perk_catalog": _perk_catalog,
 			"perk_icon_renderer": _perk_icon_renderer,
 			"reward_icon_cache": _reward_icon_cache,
-			"reward_detail_fallback_text": REWARD_DETAIL_FALLBACK_TEXT,
-			"reward_starpoint_title_prefix": REWARD_STARPOINT_TITLE_PREFIX,
 			"scroll_phase": _scroll_phase,
 			"hovered_button": _hovered_button,
 		}

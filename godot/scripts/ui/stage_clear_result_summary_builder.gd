@@ -246,8 +246,8 @@ static func build_perk_info_summary(
 static func build_perk_info_summary_from_reward_state(
 	reward_summary_state: Dictionary,
 	perk_catalog: Object,
-	detail_fallback_text: String,
-	starpoint_title_prefix: String
+	detail_fallback_text: String = StageClearResultRewardTextResolver.REWARD_DETAIL_FALLBACK_TEXT,
+	starpoint_title_prefix: String = StageClearResultRewardTextResolver.REWARD_STARPOINT_TITLE_PREFIX
 ) -> Dictionary:
 	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
 	var perks: Array = perks_value if perks_value is Array else []
