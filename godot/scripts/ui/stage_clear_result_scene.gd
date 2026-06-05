@@ -1285,43 +1285,21 @@ func _load_textures() -> void:
 	var paths: Dictionary = _result_asset_paths(selected_character_type, current_stage)
 	var player_victory_path: String = str(paths.get("player_victory_sheet", ""))
 	var player_victory_click_path: String = str(paths.get("player_victory_click_reaction_sheet", ""))
-	var loaded: Dictionary = StageClearResultAssetLoader.load_textures(
-		{
-			"background_texture": _background_texture,
-			"dalji_defeat_sheet": _dalji_defeat_sheet,
-			"dalji_click_reaction_sheet": _dalji_click_reaction_sheet,
-			"stage2_boss_defeat_live2d_sheet": _stage2_boss_defeat_live2d_sheet,
-			"stage2_boss_defeat_click_reaction_sheet": _stage2_boss_defeat_click_reaction_sheet,
-			"stage3_boss_defeat_live2d_sheet": _stage3_boss_defeat_live2d_sheet,
-			"stage3_boss_defeat_click_reaction_sheet": _stage3_boss_defeat_click_reaction_sheet,
-			"player_victory_sheet": _player_victory_sheet if _player_victory_sheet_loaded_path == player_victory_path else null,
-			"player_victory_click_reaction_sheet": (
-				_player_victory_click_reaction_sheet
-				if _player_victory_click_reaction_sheet_loaded_path == player_victory_click_path
-				else null
-			),
-			"scroll_texture": _scroll_texture,
-			"result_box_sheet_common": _result_box_sheet_common,
-			"result_box_sheet_mythic": _result_box_sheet_mythic,
-			"result_box_sheet_guaranteed_mythic": _result_box_sheet_guaranteed_mythic,
-		},
-		paths
-	)
-	_background_texture = loaded.get("background_texture") as Texture2D
-	_dalji_defeat_sheet = loaded.get("dalji_defeat_sheet") as Texture2D
-	_dalji_click_reaction_sheet = loaded.get("dalji_click_reaction_sheet") as Texture2D
-	_stage2_boss_defeat_live2d_sheet = loaded.get("stage2_boss_defeat_live2d_sheet") as Texture2D
-	_stage2_boss_defeat_click_reaction_sheet = loaded.get("stage2_boss_defeat_click_reaction_sheet") as Texture2D
-	_stage3_boss_defeat_live2d_sheet = loaded.get("stage3_boss_defeat_live2d_sheet") as Texture2D
-	_stage3_boss_defeat_click_reaction_sheet = loaded.get("stage3_boss_defeat_click_reaction_sheet") as Texture2D
-	_player_victory_sheet = loaded.get("player_victory_sheet") as Texture2D
-	_player_victory_click_reaction_sheet = loaded.get("player_victory_click_reaction_sheet") as Texture2D
+	var current: Dictionary = {}
+	for key_value in StageClearResultAssetLoader.TEXTURE_KEYS:
+		var key: String = str(key_value)
+		current[key] = get(StringName("_" + key))
+	if _player_victory_sheet_loaded_path != player_victory_path:
+		current["player_victory_sheet"] = null
+	if _player_victory_click_reaction_sheet_loaded_path != player_victory_click_path:
+		current["player_victory_click_reaction_sheet"] = null
+	var loaded: Dictionary = StageClearResultAssetLoader.load_textures(current, paths)
+	for key_value in StageClearResultAssetLoader.TEXTURE_KEYS:
+		var key: String = str(key_value)
+		var texture: Texture2D = loaded.get(key) as Texture2D
+		set(StringName("_" + key), texture)
 	_player_victory_sheet_loaded_path = player_victory_path if _player_victory_sheet != null else ""
 	_player_victory_click_reaction_sheet_loaded_path = player_victory_click_path if _player_victory_click_reaction_sheet != null else ""
-	_scroll_texture = loaded.get("scroll_texture") as Texture2D
-	_result_box_sheet_common = loaded.get("result_box_sheet_common") as Texture2D
-	_result_box_sheet_mythic = loaded.get("result_box_sheet_mythic") as Texture2D
-	_result_box_sheet_guaranteed_mythic = loaded.get("result_box_sheet_guaranteed_mythic") as Texture2D
 
 
 func _load_audio() -> void:
