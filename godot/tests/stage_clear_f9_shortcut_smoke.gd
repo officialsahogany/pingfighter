@@ -5,6 +5,7 @@ const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_screen.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 
 
 class FakeOwner:
@@ -208,7 +209,7 @@ func _get_module(key: String) -> Object:
 
 
 func _ensure_result_scene_spawned(owner: Node) -> void:
-	var max_steps: int = StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 4
+	var max_steps: int = StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 4
 	for _i in range(max_steps):
 		if owner.get_child_count() > 0:
 			return

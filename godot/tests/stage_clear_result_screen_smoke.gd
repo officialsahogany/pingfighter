@@ -4,6 +4,7 @@ const MatchScoreboardFlowController := preload("res://scripts/core/match_scorebo
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
 const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_screen.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 
 
 class FakeOwner:
@@ -390,10 +391,10 @@ func _verify_prewarm_assets_are_staged() -> void:
 	var calls := 0
 	while not bool(screen.prewarm_assets_step()):
 		calls += 1
-		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "result screen staged prewarm should complete within the declared step budget")
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "result screen staged prewarm should complete within the declared step budget")
 	calls += 1
 	_expect(
-		calls == StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1,
+		calls == StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1,
 		"result screen should split packed-scene, texture, audio, and FX prewarm across separate steps"
 	)
 	var status: Dictionary = screen.get("_prewarm_assets_status")
@@ -412,7 +413,7 @@ func _verify_prewarm_assets_are_staged() -> void:
 	calls = 0
 	while not bool(screen.prewarm_assets_step(stage2_owner)):
 		calls += 1
-		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "Stage 2 result prewarm should complete within the declared step budget")
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Stage 2 result prewarm should complete within the declared step budget")
 	status = screen.get("_prewarm_assets_status")
 	_expect(int(status.get("current_stage", 0)) == 2, "Stage 2 result prewarm should remember the current stage")
 	_expect(bool(status.get("stage2_boss_defeat_live2d_sheet", false)), "Stage 2 result prewarm should load the Stage 2 boss base sheet")
@@ -430,7 +431,7 @@ func _verify_prewarm_assets_follow_selected_character() -> void:
 	var calls := 0
 	while not bool(screen.prewarm_assets_step(owner)):
 		calls += 1
-		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "Commando result prewarm should complete within the declared step budget")
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Commando result prewarm should complete within the declared step budget")
 	var status: Dictionary = screen.get("_prewarm_assets_status")
 	_expect(str(status.get("selected_character_type", "")) == "soldier", "result screen staged prewarm should remember the selected Commando character")
 	_expect(bool(status.get("player_victory_sheet", false)), "Commando result prewarm should load the selected player victory base sheet")
@@ -439,7 +440,7 @@ func _verify_prewarm_assets_follow_selected_character() -> void:
 	calls = 0
 	while not bool(screen.prewarm_assets_step(owner)):
 		calls += 1
-		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "unsupported result victory characters should complete fallback prewarm")
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "unsupported result victory characters should complete fallback prewarm")
 	status = screen.get("_prewarm_assets_status")
 	_expect(str(status.get("selected_character_type", "")) == "smasher", "unsupported result victory characters should prewarm the Smasher fallback sheet")
 	owner.free()
@@ -836,7 +837,7 @@ func _make_key_event(keycode: Key) -> InputEventKey:
 
 
 func _ensure_result_scene_spawned(screen: Object, owner: Node) -> void:
-	var max_steps: int = StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 4
+	var max_steps: int = StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 4
 	for _i in range(max_steps):
 		if owner.get_child_count() > 0:
 			return

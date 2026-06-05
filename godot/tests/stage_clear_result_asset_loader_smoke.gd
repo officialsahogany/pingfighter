@@ -1,7 +1,6 @@
 extends SceneTree
 
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
-const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
@@ -27,7 +26,6 @@ func _init() -> void:
 
 
 func _verify_prewarm_steps() -> void:
-	_expect(StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT == StageClearResultScene.PREWARM_ASSET_STEP_COUNT, "asset loader step count should match the result scene budget")
 	var status: Dictionary = {}
 	for i in range(StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT):
 		StageClearResultAssetLoader.prewarm_assets_step(i, status, _asset_paths())
@@ -119,6 +117,10 @@ func _verify_scene_delegates_asset_loading() -> void:
 	_expect(
 		source.find("static func _result_asset_path_config") < 0,
 		"result scene should not keep result asset path config assembly"
+	)
+	_expect(
+		source.find("const PREWARM_ASSET_STEP_COUNT") < 0,
+		"result scene should not mirror the asset loader prewarm step budget"
 	)
 	_expect(
 		source.find("ProjectResourceLoader.load_texture") < 0
