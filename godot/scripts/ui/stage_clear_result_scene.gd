@@ -13,7 +13,6 @@ const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_re
 const StageClearResultStatusBuilder := preload("res://scripts/ui/stage_clear_result_status_builder.gd")
 const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
-const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
@@ -898,18 +897,7 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 	var full_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(scale, _scroll_position_offset)
 	var current_height: float = full_rect.size.y * unfurl
 	var visible_rect := Rect2(full_rect.position, Vector2(full_rect.size.x, current_height))
-
-	StageClearResultShapeHelper.draw_filled_ellipse(
-		self,
-		Vector2(full_rect.get_center().x, visible_rect.end.y + 22.0 * scale),
-		full_rect.size.x * 0.45,
-		16.0 * scale,
-		Color(0.0, 0.0, 0.0, 0.22 + 0.14 * unfurl),
-		24
-	)
-
-	if not StageClearResultScrollDrawHelper.draw_cyber_scroll_texture(self, _scroll_texture, visible_rect, unfurl):
-		StageClearResultScrollDrawHelper.draw_cyber_scroll_fallback(self, visible_rect, scale, unfurl)
+	StageClearResultScrollDrawHelper.draw_cyber_scroll_frame(self, _scroll_texture, full_rect, visible_rect, scale, unfurl)
 
 	if unfurl <= 0.58:
 		_next_stage_button_rect = Rect2()

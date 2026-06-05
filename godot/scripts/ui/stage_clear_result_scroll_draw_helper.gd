@@ -20,6 +20,28 @@ static func draw_cyber_scroll_texture(
 	return true
 
 
+static func draw_cyber_scroll_frame(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	full_rect: Rect2,
+	visible_rect: Rect2,
+	scale: float,
+	unfurl: float
+) -> void:
+	if canvas == null:
+		return
+	StageClearResultShapeHelper.draw_filled_ellipse(
+		canvas,
+		Vector2(full_rect.get_center().x, visible_rect.end.y + 22.0 * scale),
+		full_rect.size.x * 0.45,
+		16.0 * scale,
+		Color(0.0, 0.0, 0.0, 0.22 + 0.14 * unfurl),
+		24
+	)
+	if not draw_cyber_scroll_texture(canvas, texture, visible_rect, unfurl):
+		draw_cyber_scroll_fallback(canvas, visible_rect, scale, unfurl)
+
+
 static func draw_cyber_scroll_fallback(
 	canvas: CanvasItem,
 	rect: Rect2,
