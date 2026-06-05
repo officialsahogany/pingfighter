@@ -1468,7 +1468,8 @@ This section is intentionally long; use search to find the nearest owner.
   rect, and overall alpha to draw.
 - `scripts/ui/stage_clear_result_box_data.gd`
   Owns stateless stage-clear result-box data assembly: reward-plan box
-  materialization, legacy mythic box-kind normalization, box display labels,
+  materialization, standalone preview reward-plan defaults, legacy mythic
+  box-kind normalization, box display labels,
   display-label extraction for interaction status, and resolved reward-copy
   extraction from opened boxes. It also owns reward-roll fallback selection and
   box opening / reward-emerge state transitions, plus appending selected

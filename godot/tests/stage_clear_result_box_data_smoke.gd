@@ -6,6 +6,7 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
+	_verify_standalone_preview_defaults()
 	_verify_resolved_rewards()
 	_verify_box_opening_state()
 	_verify_resolved_perk_append()
@@ -18,6 +19,19 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_standalone_preview_defaults() -> void:
+	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults("preview", 5)
+	_expect(int(defaults.get("player_score", 0)) == 5, "box data preview defaults should mirror reward count as player score")
+	_expect(int(defaults.get("boss_score", -1)) == 0, "box data preview defaults should start boss score at zero")
+	_expect(int(defaults.get("current_stage", 0)) == 1, "box data preview defaults should target Stage 1")
+	var plan: Dictionary = defaults.get("reward_plan", {}) as Dictionary
+	var boxes: Array = plan.get("boxes", []) as Array
+	_expect(str(plan.get("summary", "")) == "preview", "box data preview defaults should preserve supplied summary text")
+	_expect(int(plan.get("reward_count", 0)) == 5, "box data preview defaults should expose reward count")
+	_expect(boxes.size() == 5, "box data preview defaults should create one normal box per reward")
+	_expect(str((boxes[0] as Dictionary).get("kind", "")) == StageClearResultBoxData.BOX_KIND_NORMAL, "box data preview defaults should use normal boxes")
 
 
 func _verify_resolved_rewards() -> void:
@@ -114,6 +128,7 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(scene_source.find("StageClearResultBoxData.start_opening_box") >= 0, "result scene should delegate opening box setup")
 	_expect(scene_source.find("StageClearResultBoxData.update_box_opening_state") >= 0, "result scene should delegate box opening animation state")
 	_expect(scene_source.find("StageClearResultBoxData.append_resolved_perk_reward") >= 0, "result scene should delegate box resolved perk appends")
+	_expect(scene_source.find("StageClearResultBoxData.build_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview reward plan defaults")
 	_expect(scene_source.find("func _roll_reward") < 0, "result scene should not keep local reward rolling")
 	_expect(scene_source.find("reward_copy[\"box_kind\"]") < 0, "result scene should not keep resolved reward copy assembly")
 

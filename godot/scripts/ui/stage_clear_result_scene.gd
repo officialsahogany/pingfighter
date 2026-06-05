@@ -1275,20 +1275,12 @@ func _confirm() -> void:
 func _apply_standalone_preview_defaults() -> void:
 	if player_score != 0 or boss_score != 0 or not reward_plan.is_empty():
 		return
-	player_score = 5
-	boss_score = 0
-	current_stage = 1
-	reward_plan = {
-		"summary": LanguageSettings.format_item_box_summary(5),
-		"boxes": [
-			{"kind": "normal"},
-			{"kind": "normal"},
-			{"kind": "normal"},
-			{"kind": "normal"},
-			{"kind": "normal"},
-		],
-		"reward_count": 5,
-	}
+	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults(LanguageSettings.format_item_box_summary(5), 5)
+	player_score = int(defaults.get("player_score", 0))
+	boss_score = int(defaults.get("boss_score", 0))
+	current_stage = int(defaults.get("current_stage", 1))
+	var reward_plan_value: Variant = defaults.get("reward_plan", {})
+	reward_plan = reward_plan_value if reward_plan_value is Dictionary else {}
 
 
 func _load_textures() -> void:
