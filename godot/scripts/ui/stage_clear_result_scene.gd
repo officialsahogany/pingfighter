@@ -540,10 +540,7 @@ func _refresh_scroll_button_rects() -> void:
 
 
 func _get_current_view_size() -> Vector2:
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
-	return view_size
+	return size if size != Vector2.ZERO else _get_view_size()
 
 
 func get_interaction_status() -> Dictionary:
@@ -1225,13 +1222,9 @@ func _sync_viewport_size() -> void:
 
 
 func _get_layout_scale(view_size: Vector2) -> float:
-	if view_size.x <= 0.0 or view_size.y <= 0.0:
-		return 1.0
-	return min(view_size.x / 1920.0, view_size.y / 1080.0)
+	return 1.0 if view_size.x <= 0.0 or view_size.y <= 0.0 else min(view_size.x / 1920.0, view_size.y / 1080.0)
 
 
 func _get_view_size() -> Vector2:
 	var viewport: Viewport = get_viewport()
-	if viewport != null:
-		return viewport.get_visible_rect().size
-	return Vector2(1920.0, 1080.0)
+	return viewport.get_visible_rect().size if viewport != null else Vector2(1920.0, 1080.0)
