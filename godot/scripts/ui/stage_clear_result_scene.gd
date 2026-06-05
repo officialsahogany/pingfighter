@@ -1068,9 +1068,7 @@ func _update_hovered_box(mouse_position: Vector2) -> void:
 
 
 func _handle_player_victory_click(mouse_position: Vector2) -> bool:
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_click_rect(
@@ -1100,9 +1098,7 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 func _handle_dalji_click(mouse_position: Vector2) -> bool:
 	if current_stage != 1:
 		return false
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
@@ -1130,9 +1126,7 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 	if current_stage != 2 or _stage2_boss_defeat_click_reaction_sheet == null:
 		return false
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
@@ -1157,9 +1151,7 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 	if current_stage != 3 or _stage3_boss_defeat_click_reaction_sheet == null:
 		return false
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
