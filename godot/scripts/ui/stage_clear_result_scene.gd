@@ -199,14 +199,6 @@ var _lid_open_counter: int = 0
 var _starpoint_choice_gate_active: bool = false
 var _starpoint_choice_gate_box_index: int = -1
 
-static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
-	return StageClearResultAssetLoader.prewarm_result_assets(
-		StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id),
-		StageClearResultAssetLoader.normalize_player_victory_character_type(character_type),
-		stage_id
-	)
-
-
 static func prewarm_assets_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
 	return StageClearResultAssetLoader.prewarm_result_assets_step(
 		StageClearResultAssetLoader.get_result_asset_paths(character_type, stage_id),
