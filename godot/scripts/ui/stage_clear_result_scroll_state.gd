@@ -5,6 +5,9 @@ const PHASE_DELAY := "delay"
 const PHASE_UNFURLING := "unfurling"
 const PHASE_VISIBLE := "visible"
 
+const SCROLL_DELAY := 1.10
+const SCROLL_UNFURL_DURATION := 0.95
+
 # Extended downward (was 850) so the acquired-item list has room for the
 # separate active / passive / mythic bands without cramping the cards.
 const SCROLL_REGION_RECT := Rect2(Vector2(340.0, 96.0), Vector2(1240.0, 904.0))

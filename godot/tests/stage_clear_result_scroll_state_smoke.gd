@@ -23,7 +23,7 @@ func _init() -> void:
 
 
 func _verify_direct_scroll_phase() -> void:
-	var scroll_delay: float = StageClearResultScene.SCROLL_DELAY
+	var scroll_delay: float = StageClearResultScrollState.SCROLL_DELAY
 	_expect(
 		scroll_delay > StageClearResultScene.BOX_REWARD_EMERGE_DURATION,
 		"result scroll should wait until the final box reward has emerged"
@@ -100,16 +100,16 @@ func _verify_scene_scroll_delegates() -> void:
 	]
 	scene._update_scroll(0.1)
 	_expect(str(scene._scroll_phase) == "delay", "scene scroll updater should delegate hidden-to-delay transition")
-	scene._update_scroll(StageClearResultScene.SCROLL_DELAY)
+	scene._update_scroll(StageClearResultScrollState.SCROLL_DELAY)
 	_expect(str(scene._scroll_phase) == "unfurling", "scene scroll updater should delegate delay-to-unfurl transition")
 	_expect(
-		StageClearResultScrollState.get_unfurl_progress(scene._scroll_phase, scene._scroll_timer, StageClearResultScene.SCROLL_UNFURL_DURATION) == 0.0,
+		StageClearResultScrollState.get_unfurl_progress(scene._scroll_phase, scene._scroll_timer, StageClearResultScrollState.SCROLL_UNFURL_DURATION) == 0.0,
 		"scene scroll fields should remain compatible with the delegated unfurl helper"
 	)
 	scene._update_scroll(0.95)
 	_expect(str(scene._scroll_phase) == "visible", "scene scroll updater should delegate unfurl-to-visible transition")
 	_expect(
-		StageClearResultScrollState.get_box_global_alpha(scene._scroll_phase, scene._scroll_timer, StageClearResultScene.SCROLL_UNFURL_DURATION) == 0.04,
+		StageClearResultScrollState.get_box_global_alpha(scene._scroll_phase, scene._scroll_timer, StageClearResultScrollState.SCROLL_UNFURL_DURATION) == 0.04,
 		"scene scroll fields should remain compatible with the delegated box-alpha helper"
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
@@ -150,7 +150,7 @@ func _verify_scene_scroll_drag() -> void:
 	var scene := StageClearResultScene.new()
 	scene.size = Vector2(1920.0, 1080.0)
 	scene._scroll_phase = "visible"
-	scene._scroll_timer = StageClearResultScene.SCROLL_UNFURL_DURATION
+	scene._scroll_timer = StageClearResultScrollState.SCROLL_UNFURL_DURATION
 	scene._boxes = [{"state": "opened"}]
 	var base_rect: Rect2 = StageClearResultScrollState.get_full_rect(
 		1.0,

@@ -82,9 +82,6 @@ const BOX_REWARD_HOVER_OFFSET := 70.0
 const BOX_OPENING_SHAKE_AMPLITUDE := 4.0
 const BOX_LID_OPEN_PROGRESS := 0.55
 
-const SCROLL_DELAY := 1.10
-const SCROLL_UNFURL_DURATION := 0.95
-
 var timer: float = 0.0
 var player_score: int = 0
 var boss_score: int = 0
@@ -282,7 +279,7 @@ func update_result_scene(delta: float) -> void:
 		timer,
 		_scroll_phase,
 		_scroll_timer,
-		SCROLL_UNFURL_DURATION,
+		StageClearResultScrollState.SCROLL_UNFURL_DURATION,
 		BOX_FLOAT_AMPLITUDE,
 		BOX_FLOAT_SPEED
 	)
@@ -595,7 +592,7 @@ func get_interaction_status() -> Dictionary:
 		"hovered_box_index": _hovered_box_index,
 		"scroll_phase": _scroll_phase,
 		"scroll_timer": _scroll_timer,
-		"scroll_unfurl_duration": SCROLL_UNFURL_DURATION,
+		"scroll_unfurl_duration": StageClearResultScrollState.SCROLL_UNFURL_DURATION,
 		"scroll_texture_loaded": _scroll_texture != null,
 		"scroll_rect": StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset),
 		"scroll_position_offset": _scroll_position_offset,
@@ -752,7 +749,7 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 			timer,
 			_scroll_phase,
 			_scroll_timer,
-			SCROLL_UNFURL_DURATION,
+			StageClearResultScrollState.SCROLL_UNFURL_DURATION,
 			BOX_FLOAT_AMPLITUDE,
 			BOX_FLOAT_SPEED,
 			BOX_OPENING_SHAKE_AMPLITUDE,
@@ -847,8 +844,8 @@ func _update_scroll(delta: float) -> void:
 		delta,
 		_starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active(),
 		StageClearResultInteractionState.all_boxes_opened(_boxes),
-		SCROLL_DELAY,
-		SCROLL_UNFURL_DURATION
+		StageClearResultScrollState.SCROLL_DELAY,
+		StageClearResultScrollState.SCROLL_UNFURL_DURATION
 	)
 	_scroll_phase = str(result.get("phase", _scroll_phase))
 	_scroll_timer = float(result.get("timer", _scroll_timer))
@@ -859,7 +856,7 @@ func _draw_scroll(view_size: Vector2, scale: float, font: Font) -> void:
 	if _scroll_phase == "hidden":
 		return
 	_scroll_position_offset = StageClearResultScrollState.clamp_region_offset(_scroll_position_offset, scale, view_size)
-	var unfurl: float = StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
+	var unfurl: float = StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, StageClearResultScrollState.SCROLL_UNFURL_DURATION)
 	if unfurl <= 0.0:
 		return
 	_draw_cyber_scroll(unfurl, scale, font)

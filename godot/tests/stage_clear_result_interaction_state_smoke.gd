@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 
 var _failures: Array[String] = []
 
@@ -110,7 +111,7 @@ func _verify_scene_delegates_interaction_state() -> void:
 	var scene := StageClearResultScene.new()
 	scene.size = Vector2(1920.0, 1080.0)
 	scene._scroll_phase = StageClearResultInteractionState.PHASE_VISIBLE
-	scene._scroll_timer = StageClearResultScene.SCROLL_UNFURL_DURATION
+	scene._scroll_timer = StageClearResultScrollState.SCROLL_UNFURL_DURATION
 	scene._refresh_scroll_button_rects()
 	scene._update_hovered_button(scene._exit_button_rect.get_center())
 	_expect(str(scene.get_interaction_status().get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_EXIT, "scene hovered-button wrapper should delegate")
