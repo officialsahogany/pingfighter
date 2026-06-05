@@ -10,6 +10,9 @@ const LEGACY_BOX_KIND_MYTHIC := "mythic"
 const BOX_LABEL_NORMAL := "일반상자"
 const BOX_LABEL_ADVANCED := "고급상자"
 const BOX_LABEL_GUARANTEED_MYTHIC := "신화 확정상자"
+const FALLBACK_STARPOINT_SINGLE_CHANCE := 0.70
+const FALLBACK_STARPOINT_SINGLE_AMOUNT := 1
+const FALLBACK_STARPOINT_DOUBLE_AMOUNT := 2
 
 
 static func build_standalone_preview_defaults(reward_count: int) -> Dictionary:
@@ -150,9 +153,9 @@ static func start_opening_box_with_roll(
 	boxes: Array,
 	index: int,
 	reward_roll_callback: Callable,
-	fallback_starpoint_single_chance: float,
-	fallback_starpoint_single_amount: int,
-	fallback_starpoint_double_amount: int
+	fallback_starpoint_single_chance: float = FALLBACK_STARPOINT_SINGLE_CHANCE,
+	fallback_starpoint_single_amount: int = FALLBACK_STARPOINT_SINGLE_AMOUNT,
+	fallback_starpoint_double_amount: int = FALLBACK_STARPOINT_DOUBLE_AMOUNT
 ) -> Dictionary:
 	var box: Dictionary = boxes[index] if index >= 0 and index < boxes.size() and boxes[index] is Dictionary else {}
 	var roll_kind: String = str(box.get("roll_kind", box.get("kind", BOX_KIND_NORMAL)))

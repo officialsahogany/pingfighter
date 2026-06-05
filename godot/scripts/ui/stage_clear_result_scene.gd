@@ -98,9 +98,6 @@ const RESULT_REWARD_SOURCE_LABELS := {
 const RESULT_CINEMATIC_FIELD_SIZE := Vector2(760.0, 750.0)
 const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
 const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
-const FALLBACK_STARPOINT_SINGLE_CHANCE := 0.70
-const FALLBACK_STARPOINT_SINGLE_AMOUNT := 1
-const FALLBACK_STARPOINT_DOUBLE_AMOUNT := 2
 const PREWARM_ASSET_STEP_COUNT := StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT
 
 var timer: float = 0.0
@@ -811,10 +808,7 @@ func _start_opening_box(index: int) -> void:
 	var result: Dictionary = StageClearResultBoxData.start_opening_box_with_roll(
 		_boxes,
 		index,
-		reward_roll_callback,
-		FALLBACK_STARPOINT_SINGLE_CHANCE,
-		FALLBACK_STARPOINT_SINGLE_AMOUNT,
-		FALLBACK_STARPOINT_DOUBLE_AMOUNT
+		reward_roll_callback
 	)
 	if not bool(result.get("started", false)):
 		return
