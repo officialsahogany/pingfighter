@@ -6,6 +6,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const RESULT_BOX_COMMON_SHEET := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
@@ -108,11 +109,11 @@ func _init() -> void:
 	_expect(str(status.get("dalji_dialogue", "")) == "건들지마", "Dalji click dialogue should be the requested line")
 
 	_expect(
-		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
+		load(StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
 		"Stage 2 boss result Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
 	_expect(
-		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
+		load(StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
 		"Stage 2 boss result click Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
 	_expect(not bool(status.get("stage2_boss_defeat_live2d_sheet_loaded", true)), "Stage 1 result should not load the Stage 2 boss result Live2D sheet")
@@ -123,11 +124,11 @@ func _init() -> void:
 	_expect(int(status.get("stage2_boss_defeat_live2d_grid_cols", 0)) == 14, "Stage 2 boss result Live2D should use a 14-column grid")
 	_expect(Vector2(status.get("stage2_boss_defeat_live2d_cell_size", Vector2.ZERO)) == Vector2(896.0, 896.0), "Stage 2 boss result Live2D cells are display-fit downscaled (hq1152 source capped to 896px on import)")
 	_expect(
-		load(StageClearResultScene.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
+		load(StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
 		"Stage 3 boss result Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
 	_expect(
-		load(StageClearResultScene.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
+		load(StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
 		"Stage 3 boss result click Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
 	_expect(not bool(status.get("stage3_boss_defeat_live2d_sheet_loaded", true)), "Stage 1 result should not load the Stage 3 boss result Live2D sheet")
@@ -339,11 +340,11 @@ func _init() -> void:
 	var commando_status: Dictionary = commando_scene.get_interaction_status()
 	_expect(str(commando_status.get("selected_character_type", "")) == "soldier", "Commando result scene should preserve the selected character type")
 	_expect(
-		str(commando_status.get("player_victory_sheet_path", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
+		str(commando_status.get("player_victory_sheet_path", "")) == StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH,
 		"Commando victory should use the Commando result base Live2D sheet"
 	)
 	_expect(
-		str(commando_status.get("player_victory_click_reaction_sheet_path", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
+		str(commando_status.get("player_victory_click_reaction_sheet_path", "")) == StageClearResultAssetLoader.COMMANDO_CLICK_REACTION_SHEET_PATH,
 		"Commando victory should use the Commando result click Live2D sheet"
 	)
 	_expect(bool(commando_status.get("player_victory_sheet_loaded", false)), "Commando result base Live2D should load")

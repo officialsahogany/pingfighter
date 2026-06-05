@@ -24,20 +24,6 @@ const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result
 const StageClearResultVoicePlayer := preload("res://scripts/ui/stage_clear_result_voice_player.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
-const STAGE1_BACKGROUND_PATH := StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH
-const DALJI_DEFEAT_SHEET_PATH := StageClearResultAssetLoader.DALJI_DEFEAT_SHEET_PATH
-const DALJI_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.DALJI_CLICK_REACTION_SHEET_PATH
-const DALJI_CLICK_VOICE_PATH := StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH
-const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH
-const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
-const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH
-const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
-const SMASHER_VICTORY_SHEET_PATH := StageClearResultAssetLoader.SMASHER_VICTORY_SHEET_PATH
-const SMASHER_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.SMASHER_CLICK_REACTION_SHEET_PATH
-const COMMANDO_VICTORY_SHEET_PATH := StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH
-const COMMANDO_CLICK_REACTION_SHEET_PATH := StageClearResultAssetLoader.COMMANDO_CLICK_REACTION_SHEET_PATH
-const RESULT_SCROLL_PANEL_PATH := StageClearResultAssetLoader.RESULT_SCROLL_PANEL_PATH
-
 const DALJI_FRAME_COUNT := 98
 const DALJI_GRID_COLS := 14
 # Source sheet stores 1152px cells, but the result screen only displays the
@@ -122,9 +108,6 @@ const SCROLL_CONTENT_MARGIN := StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 const SCROLL_DRAG_VIEW_MARGIN := StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN
 
 const PLACEHOLDER_GOLD := 1240
-const RESULT_BOX_SHEET_COMMON_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_COMMON_PATH
-const RESULT_BOX_SHEET_MYTHIC_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_MYTHIC_PATH
-const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := StageClearResultAssetLoader.RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
 const BOX_KIND_NORMAL := StageClearResultBoxData.BOX_KIND_NORMAL
@@ -641,7 +624,7 @@ func get_interaction_status() -> Dictionary:
 		"dalji_base_timer": _dalji_base_timer,
 		"dalji_dialogue_timer": _dalji_dialogue_timer,
 		"dalji_dialogue": DALJI_CLICK_DIALOGUE,
-		"dalji_click_voice_path": DALJI_CLICK_VOICE_PATH,
+		"dalji_click_voice_path": StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH,
 		"dalji_click_voice_loaded": _dalji_click_voice_stream != null,
 		"dalji_click_voice_player_ready": _dalji_click_voice_player != null,
 		"dalji_click_voice_playing": _dalji_click_voice_player != null and _dalji_click_voice_player.playing,
@@ -657,9 +640,9 @@ func get_interaction_status() -> Dictionary:
 		"player_victory_click_reaction_duration": PLAYER_VICTORY_CLICK_REACTION_DURATION,
 		"player_victory_click_total_duration": PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		"player_victory_click_transition_base_frame": _player_victory_click_transition_base_frame,
-		"stage2_boss_defeat_live2d_sheet_path": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
-		"stage2_boss_defeat_click_reaction_sheet_path": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
 		"stage2_boss_defeat_live2d_frame_count": STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
 		"stage2_boss_defeat_live2d_grid_cols": STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS,
@@ -668,9 +651,9 @@ func get_interaction_status() -> Dictionary:
 		"stage2_boss_defeat_click_reaction_duration": STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
 		"stage2_boss_defeat_click_total_duration": STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
-		"stage3_boss_defeat_live2d_sheet_path": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
-		"stage3_boss_defeat_click_reaction_sheet_path": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
 		"stage3_boss_defeat_live2d_frame_count": STAGE3_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
 		"stage3_boss_defeat_live2d_grid_cols": STAGE3_BOSS_DEFEAT_LIVE2D_GRID_COLS,
@@ -1274,7 +1257,7 @@ func _load_audio() -> void:
 	if current_stage != 1:
 		_dalji_click_voice_stream = null
 		return
-	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, DALJI_CLICK_VOICE_PATH)
+	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH)
 
 
 func _as_object(value: Variant) -> Object:

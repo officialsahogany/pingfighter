@@ -62,11 +62,11 @@ func _verify_texture_bundle_load() -> void:
 	)
 	var commando_paths: Dictionary = StageClearResultScene._result_asset_paths("soldier")
 	_expect(
-		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
+		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH,
 		"result asset paths should route Commando player victories to the Commando result Live2D base sheet"
 	)
 	_expect(
-		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
+		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultAssetLoader.COMMANDO_CLICK_REACTION_SHEET_PATH,
 		"result asset paths should route Commando player victory clicks to the Commando result Live2D reaction sheet"
 	)
 	var commando_textures: Dictionary = StageClearResultAssetLoader.load_textures({}, commando_paths)
@@ -84,16 +84,16 @@ func _verify_texture_bundle_load() -> void:
 
 func _verify_asset_path_resolution() -> void:
 	var path_config: Dictionary = StageClearResultAssetLoader.get_default_result_asset_path_config()
-	_expect(str(path_config.get("background_texture", "")) == StageClearResultScene.STAGE1_BACKGROUND_PATH, "asset loader should own the default result background path config")
+	_expect(str(path_config.get("background_texture", "")) == StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH, "asset loader should own the default result background path config")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("commando") == "soldier", "asset loader should normalize Commando result character ids")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("unknown") == "smasher", "asset loader should default unknown result character ids to Smasher")
 	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("commando", 1)
 	_expect(
-		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
+		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH,
 		"asset loader should route Commando player victories to the Commando result Live2D base sheet"
 	)
 	_expect(
-		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
+		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultAssetLoader.COMMANDO_CLICK_REACTION_SHEET_PATH,
 		"asset loader should route Commando player victory clicks to the Commando result Live2D reaction sheet"
 	)
 	var stage2_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("smasher", 2)
@@ -102,9 +102,9 @@ func _verify_asset_path_resolution() -> void:
 
 
 func _verify_audio_load() -> void:
-	var stream: AudioStream = StageClearResultAssetLoader.load_dalji_click_voice(null, StageClearResultScene.DALJI_CLICK_VOICE_PATH)
+	var stream: AudioStream = StageClearResultAssetLoader.load_dalji_click_voice(null, StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH)
 	_expect(stream != null, "asset loader should load Dalji click voice stream")
-	_expect(StageClearResultAssetLoader.load_dalji_click_voice(stream, StageClearResultScene.DALJI_CLICK_VOICE_PATH) == stream, "asset loader should preserve an existing voice stream")
+	_expect(StageClearResultAssetLoader.load_dalji_click_voice(stream, StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH) == stream, "asset loader should preserve an existing voice stream")
 
 
 func _verify_scene_delegates_asset_loading() -> void:
@@ -179,20 +179,20 @@ func _verify_result_box_texture_region_draw() -> void:
 
 func _asset_paths() -> Dictionary:
 	return {
-		"background_texture": StageClearResultScene.STAGE1_BACKGROUND_PATH,
-		"dalji_defeat_sheet": StageClearResultScene.DALJI_DEFEAT_SHEET_PATH,
-		"dalji_click_reaction_sheet": StageClearResultScene.DALJI_CLICK_REACTION_SHEET_PATH,
-		"stage2_boss_defeat_live2d_sheet": StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage2_boss_defeat_click_reaction_sheet": StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"stage3_boss_defeat_live2d_sheet": StageClearResultScene.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage3_boss_defeat_click_reaction_sheet": StageClearResultScene.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"player_victory_sheet": StageClearResultScene.SMASHER_VICTORY_SHEET_PATH,
-		"player_victory_click_reaction_sheet": StageClearResultScene.SMASHER_CLICK_REACTION_SHEET_PATH,
-		"scroll_texture": StageClearResultScene.RESULT_SCROLL_PANEL_PATH,
-		"result_box_sheet_common": StageClearResultScene.RESULT_BOX_SHEET_COMMON_PATH,
-		"result_box_sheet_mythic": StageClearResultScene.RESULT_BOX_SHEET_MYTHIC_PATH,
-		"result_box_sheet_guaranteed_mythic": StageClearResultScene.RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
-		"dalji_click_voice": StageClearResultScene.DALJI_CLICK_VOICE_PATH,
+		"background_texture": StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH,
+		"dalji_defeat_sheet": StageClearResultAssetLoader.DALJI_DEFEAT_SHEET_PATH,
+		"dalji_click_reaction_sheet": StageClearResultAssetLoader.DALJI_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"player_victory_sheet": StageClearResultAssetLoader.SMASHER_VICTORY_SHEET_PATH,
+		"player_victory_click_reaction_sheet": StageClearResultAssetLoader.SMASHER_CLICK_REACTION_SHEET_PATH,
+		"scroll_texture": StageClearResultAssetLoader.RESULT_SCROLL_PANEL_PATH,
+		"result_box_sheet_common": StageClearResultAssetLoader.RESULT_BOX_SHEET_COMMON_PATH,
+		"result_box_sheet_mythic": StageClearResultAssetLoader.RESULT_BOX_SHEET_MYTHIC_PATH,
+		"result_box_sheet_guaranteed_mythic": StageClearResultAssetLoader.RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
+		"dalji_click_voice": StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH,
 	}
 
 
