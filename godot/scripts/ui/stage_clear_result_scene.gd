@@ -88,7 +88,6 @@ const SCROLL_REGION_RECT := StageClearResultScrollState.SCROLL_REGION_RECT
 const SCROLL_CONTENT_MARGIN := StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 const SCROLL_DRAG_VIEW_MARGIN := StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN
 
-const PLACEHOLDER_GOLD := 1240
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
 const RESULT_REWARD_SOURCE_LABELS := {
@@ -913,7 +912,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 			"stage_reward_snapshot": stage_reward_snapshot,
 			"boxes": _boxes,
 			"runtime_perk_state": _runtime_perk_state,
-			"placeholder_gold": PLACEHOLDER_GOLD,
 			"player_score": player_score,
 			"boss_score": boss_score,
 			"timer": timer,

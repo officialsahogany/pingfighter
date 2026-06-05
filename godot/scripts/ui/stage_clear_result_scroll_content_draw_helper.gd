@@ -8,6 +8,8 @@ const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_re
 const StageClearResultSummaryDrawHelper := preload("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
+const PLACEHOLDER_GOLD := 1240
+
 
 static func draw_scroll_contents(
 	canvas: CanvasItem,
@@ -55,7 +57,7 @@ static func draw_scroll_contents(
 	var runtime_perk_state: Object = draw_context.get("runtime_perk_state", null) as Object
 	var display_gold: int = StageClearResultSummaryBuilder.resolve_display_gold(
 		runtime_perk_state,
-		int(draw_context.get("placeholder_gold", 0))
+		int(draw_context.get("placeholder_gold", PLACEHOLDER_GOLD))
 	)
 	var player_score: int = int(draw_context.get("player_score", 0))
 	var boss_score: int = int(draw_context.get("boss_score", 0))
