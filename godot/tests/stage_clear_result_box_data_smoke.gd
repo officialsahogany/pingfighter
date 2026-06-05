@@ -9,6 +9,7 @@ func _init() -> void:
 	_verify_standalone_preview_defaults()
 	_verify_resolved_rewards()
 	_verify_box_opening_state()
+	_verify_box_opening_with_roll()
 	_verify_resolved_perk_append()
 	_verify_immediate_reward_payload()
 	_verify_scene_delegates_box_data()
@@ -104,6 +105,29 @@ func _roll_callback(_kind: String, reward: Dictionary) -> Dictionary:
 	return reward
 
 
+func _verify_box_opening_with_roll() -> void:
+	var boxes: Array = [
+		{"kind": "normal", "roll_kind": "advanced", "state": "idle", "reward": {}},
+	]
+	var result: Dictionary = StageClearResultBoxData.start_opening_box_with_roll(
+		boxes,
+		0,
+		Callable(self, "_roll_kind_callback"),
+		1.0,
+		1,
+		2
+	)
+	_expect(bool(result.get("started", false)), "box data should start opening boxes with an inline roll")
+	var opened_boxes: Array = result.get("boxes", [])
+	var box: Dictionary = opened_boxes[0] if opened_boxes[0] is Dictionary else {}
+	var reward: Dictionary = box.get("reward", {}) as Dictionary
+	_expect(str(reward.get("rolled_kind", "")) == "advanced", "box data should roll rewards from roll_kind when present")
+
+
+func _roll_kind_callback(kind: String) -> Dictionary:
+	return {"type": "perk", "rolled_kind": kind}
+
+
 func _verify_resolved_perk_append() -> void:
 	var boxes: Array = [
 		{"kind": "normal", "state": "opened", "reward": {"type": "starpoint", "amount": 2}},
@@ -157,6 +181,7 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(box_data_source.find("static func get_resolved_rewards") >= 0, "box data should own resolved reward extraction")
 	_expect(scene_source.find("StageClearResultBoxData.get_resolved_rewards") >= 0, "result scene should delegate resolved reward extraction")
 	_expect(scene_source.find("StageClearResultBoxData.start_opening_box") >= 0, "result scene should delegate opening box setup")
+	_expect(scene_source.find("StageClearResultBoxData.start_opening_box_with_roll") >= 0, "result scene should delegate rolled opening box setup")
 	_expect(scene_source.find("StageClearResultBoxData.update_box_opening_state") >= 0, "result scene should delegate box opening animation state")
 	_expect(scene_source.find("StageClearResultBoxData.append_resolved_perk_reward") >= 0, "result scene should delegate box resolved perk appends")
 	_expect(scene_source.find("StageClearResultBoxData.build_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview reward plan defaults")

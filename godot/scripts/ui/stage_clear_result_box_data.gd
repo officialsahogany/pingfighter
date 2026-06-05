@@ -146,6 +146,29 @@ static func start_opening_box(boxes: Array, index: int, reward: Dictionary) -> D
 	return {"started": true, "boxes": updated_boxes}
 
 
+static func start_opening_box_with_roll(
+	boxes: Array,
+	index: int,
+	reward_roll_callback: Callable,
+	fallback_starpoint_single_chance: float,
+	fallback_starpoint_single_amount: int,
+	fallback_starpoint_double_amount: int
+) -> Dictionary:
+	var box: Dictionary = boxes[index] if index >= 0 and index < boxes.size() and boxes[index] is Dictionary else {}
+	var roll_kind: String = str(box.get("roll_kind", box.get("kind", BOX_KIND_NORMAL)))
+	return start_opening_box(
+		boxes,
+		index,
+		roll_reward(
+			roll_kind,
+			reward_roll_callback,
+			fallback_starpoint_single_chance,
+			fallback_starpoint_single_amount,
+			fallback_starpoint_double_amount
+		)
+	)
+
+
 static func update_box_opening_state(
 	boxes: Array,
 	delta: float,

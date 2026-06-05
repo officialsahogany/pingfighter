@@ -875,17 +875,13 @@ func _handle_box_click(mouse_position: Vector2) -> bool:
 
 
 func _start_opening_box(index: int) -> void:
-	var box: Dictionary = _boxes[index] if index >= 0 and index < _boxes.size() and _boxes[index] is Dictionary else {}
-	var result: Dictionary = StageClearResultBoxData.start_opening_box(
+	var result: Dictionary = StageClearResultBoxData.start_opening_box_with_roll(
 		_boxes,
 		index,
-		StageClearResultBoxData.roll_reward(
-			str(box.get("roll_kind", box.get("kind", StageClearResultBoxData.BOX_KIND_NORMAL))),
-			reward_roll_callback,
-			FALLBACK_STARPOINT_SINGLE_CHANCE,
-			FALLBACK_STARPOINT_SINGLE_AMOUNT,
-			FALLBACK_STARPOINT_DOUBLE_AMOUNT
-		)
+		reward_roll_callback,
+		FALLBACK_STARPOINT_SINGLE_CHANCE,
+		FALLBACK_STARPOINT_SINGLE_AMOUNT,
+		FALLBACK_STARPOINT_DOUBLE_AMOUNT
 	)
 	if not bool(result.get("started", false)):
 		return
