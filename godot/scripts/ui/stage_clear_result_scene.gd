@@ -290,14 +290,8 @@ func configure(
 	reward_plan = plan_value if plan_value is Dictionary else {}
 	var stage_reward_value: Variant = data.get("stage_reward_snapshot", {})
 	stage_reward_snapshot = stage_reward_value if stage_reward_value is Dictionary else {}
-	_runtime_perk_state = _as_object(data.get("runtime_perk_state", null))
-	_runtime_perk_catalog = _as_object(data.get("runtime_perk_catalog", null))
-	_runtime_perk_icon_renderer = _as_object(data.get("runtime_perk_icon_renderer", null))
-	_runtime_perk_owner = _as_object(data.get("runtime_perk_owner", null))
-	_runtime_perk_registry = _as_object(data.get("runtime_perk_registry", null))
-	_mythic_item_runtime = _as_object(data.get("mythic_item_runtime", null))
-	_treasure_hunt_runtime = _as_object(data.get("treasure_hunt_runtime", null))
-	_game_audio = _as_object(data.get("game_audio", null))
+	for object_key in ["runtime_perk_state", "runtime_perk_catalog", "runtime_perk_icon_renderer", "runtime_perk_owner", "runtime_perk_registry", "mythic_item_runtime", "treasure_hunt_runtime", "game_audio"]:
+		set(StringName("_" + object_key), _as_object(data.get(object_key, null)))
 	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
 	_fx_host_pool.reset_prewarm()
 	_lid_open_counter = 0
