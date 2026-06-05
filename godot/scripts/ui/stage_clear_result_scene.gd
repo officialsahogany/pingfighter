@@ -40,8 +40,6 @@ const DALJI_CLICK_DIALOGUE_DURATION := 1.55
 const DALJI_CLICK_DIALOGUE_FADE_DURATION := 0.20
 const DALJI_CLICK_DIALOGUE := "건들지마"
 
-const DALJI_CLICK_VOICE_VOLUME_DB := -4.5
-
 const PLAYER_VICTORY_FRAME_COUNT := 98
 const PLAYER_VICTORY_GRID_COLS := 11
 # Source sheet stores 1408px cells; result screen displays at ~760px. The
@@ -1012,10 +1010,7 @@ func _play_dalji_click_voice() -> void:
 	_dalji_click_voice_player = StageClearResultVoicePlayer.play_voice(
 		self,
 		_dalji_click_voice_player,
-		_dalji_click_voice_stream,
-		DALJI_CLICK_VOICE_VOLUME_DB,
-		"DaljiClickCryVoice",
-		&"_play_dalji_click_voice_deferred"
+		_dalji_click_voice_stream
 	)
 
 

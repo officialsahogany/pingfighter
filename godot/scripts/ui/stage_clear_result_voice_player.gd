@@ -1,13 +1,17 @@
 extends RefCounted
 
+const DALJI_CLICK_VOICE_VOLUME_DB := -4.5
+const DALJI_CLICK_VOICE_PLAYER_NAME := "DaljiClickCryVoice"
+const DALJI_CLICK_VOICE_DEFERRED_METHOD := &"_play_dalji_click_voice_deferred"
+
 
 static func play_voice(
 	parent: Node,
 	player: AudioStreamPlayer,
 	stream: AudioStream,
-	volume_db: float,
-	player_name: String,
-	deferred_method: StringName
+	volume_db: float = DALJI_CLICK_VOICE_VOLUME_DB,
+	player_name: String = DALJI_CLICK_VOICE_PLAYER_NAME,
+	deferred_method: StringName = DALJI_CLICK_VOICE_DEFERRED_METHOD
 ) -> AudioStreamPlayer:
 	if stream == null:
 		return player
