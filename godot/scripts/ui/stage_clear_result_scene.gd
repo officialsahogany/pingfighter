@@ -249,7 +249,9 @@ func configure(
 	var stage_reward_value: Variant = data.get("stage_reward_snapshot", {})
 	stage_reward_snapshot = stage_reward_value if stage_reward_value is Dictionary else {}
 	for object_key in ["runtime_perk_state", "runtime_perk_catalog", "runtime_perk_icon_renderer", "runtime_perk_owner", "runtime_perk_registry", "mythic_item_runtime", "treasure_hunt_runtime", "game_audio"]:
-		set(StringName("_" + object_key), _as_object(data.get(object_key, null)))
+		var object_value: Variant = data.get(object_key, null)
+		var resolved_object: Object = object_value as Object if typeof(object_value) == TYPE_OBJECT and is_instance_valid(object_value) else null
+		set(StringName("_" + object_key), resolved_object)
 	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
 	_fx_host_pool.reset_prewarm()
 	_lid_open_counter = 0
@@ -1228,12 +1230,6 @@ func _load_audio() -> void:
 		_dalji_click_voice_stream = null
 		return
 	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH)
-
-
-func _as_object(value: Variant) -> Object:
-	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
-		return value as Object
-	return null
 
 
 func _sync_viewport_size() -> void:
