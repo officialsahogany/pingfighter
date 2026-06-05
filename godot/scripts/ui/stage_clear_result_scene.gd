@@ -373,9 +373,7 @@ func handle_result_input(event: InputEvent) -> bool:
 func _handle_runtime_perk_input(event: InputEvent) -> bool:
 	if _runtime_perk_state == null or not _runtime_perk_state.has_method("handle_input"):
 		return true
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	_runtime_perk_state.handle_input(event, _runtime_perk_owner, _runtime_perk_registry, view_size)
 	queue_redraw()
 	return true
@@ -549,9 +547,7 @@ func _get_current_view_size() -> Vector2:
 
 
 func get_interaction_status() -> Dictionary:
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
 	var box_counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(_boxes)
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
@@ -654,9 +650,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	if view_size == Vector2.ZERO:
 		return
 
@@ -861,9 +855,7 @@ func _update_boxes(delta: float) -> void:
 
 
 func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
+	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
 	var cinematic_positions: Dictionary = StageClearResultCinematicPositionHelper.get_reward_cinematic_positions(
