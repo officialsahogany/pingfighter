@@ -1,8 +1,123 @@
 extends RefCounted
 
+const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
+const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
+const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+
+
+static func build_scene_interaction_status(scene: Object, dalji_dialogue: String) -> Dictionary:
+	var view_size: Vector2 = _get_vector2(scene.call("_get_current_view_size"))
+	var layout_scale: float = float(scene.call("_get_layout_scale", view_size))
+	var boxes: Array = _get_object_array(scene, "_boxes")
+	var scroll_position_offset: Vector2 = _get_object_vector2(scene, "_scroll_position_offset")
+	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
+		_get_object_dictionary(scene, "stage_reward_snapshot"),
+		boxes
+	)
+	var selected_character_type: String = str(scene.get("selected_character_type"))
+	var dalji_click_voice_player: Object = scene.get("_dalji_click_voice_player")
+	var exit_callback: Callable = scene.get("exit_to_menu_callback")
+	var game_audio: Object = scene.get("_game_audio")
+
+	return build_interaction_status({
+		"view_size": view_size,
+		"layout_scale": layout_scale,
+		"boxes": boxes,
+		"box_counts": StageClearResultInteractionState.get_box_state_counts(boxes),
+		"reward_summary_state": reward_summary_state,
+		"perk_info": StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state(
+			reward_summary_state,
+			scene.get("_perk_catalog")
+		),
+		"dalji_reaction_state": StageClearResultActorDrawHelper.get_dalji_reaction_state(
+			float(scene.get("_dalji_base_timer")),
+			float(scene.get("_dalji_click_reaction_timer")),
+			int(scene.get("_dalji_click_transition_base_frame"))
+		),
+		"player_victory_reaction_state": StageClearResultActorDrawHelper.get_player_victory_reaction_state(
+			float(scene.get("timer")),
+			float(scene.get("_player_victory_click_reaction_timer")),
+			int(scene.get("_player_victory_click_transition_base_frame"))
+		),
+		"stage2_boss_reaction_state": StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(
+			float(scene.get("timer")),
+			float(scene.get("_stage2_boss_defeat_click_reaction_timer")),
+			int(scene.get("_stage2_boss_defeat_click_transition_base_frame"))
+		),
+		"stage3_boss_reaction_state": StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(
+			float(scene.get("timer")),
+			float(scene.get("_stage3_boss_defeat_click_reaction_timer")),
+			int(scene.get("_stage3_boss_defeat_click_transition_base_frame"))
+		),
+		"dalji_click_reaction_timer": scene.get("_dalji_click_reaction_timer"),
+		"dalji_click_reaction_duration": StageClearResultActorDrawHelper.DALJI_CLICK_REACTION_DURATION,
+		"dalji_click_total_duration": StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION,
+		"dalji_click_transition_base_frame": scene.get("_dalji_click_transition_base_frame"),
+		"dalji_base_timer": scene.get("_dalji_base_timer"),
+		"dalji_dialogue_timer": scene.get("_dalji_dialogue_timer"),
+		"dalji_dialogue": dalji_dialogue,
+		"dalji_click_voice_path": StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH,
+		"dalji_click_voice_loaded": scene.get("_dalji_click_voice_stream") != null,
+		"dalji_click_voice_player_ready": dalji_click_voice_player != null,
+		"dalji_click_voice_playing": dalji_click_voice_player != null and bool(dalji_click_voice_player.get("playing")),
+		"selected_character_type": selected_character_type,
+		"player_victory_sheet_path": StageClearResultAssetLoader.get_player_victory_sheet_path_for_character(selected_character_type),
+		"player_victory_click_reaction_sheet_path": StageClearResultAssetLoader.get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
+		"player_victory_sheet_loaded": scene.get("_player_victory_sheet") != null,
+		"player_victory_click_reaction_sheet_loaded": scene.get("_player_victory_click_reaction_sheet") != null,
+		"player_victory_frame_count": StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT,
+		"player_victory_grid_cols": StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS,
+		"player_victory_cell_size": StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE,
+		"player_victory_click_reaction_timer": scene.get("_player_victory_click_reaction_timer"),
+		"player_victory_click_reaction_duration": StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		"player_victory_click_total_duration": StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION,
+		"player_victory_click_transition_base_frame": scene.get("_player_victory_click_transition_base_frame"),
+		"stage2_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet_loaded": scene.get("_stage2_boss_defeat_live2d_sheet") != null,
+		"stage2_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet_loaded": scene.get("_stage2_boss_defeat_click_reaction_sheet") != null,
+		"stage2_boss_defeat_live2d_frame_count": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage2_boss_defeat_live2d_grid_cols": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage2_boss_defeat_live2d_cell_size": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage2_boss_defeat_click_reaction_timer": scene.get("_stage2_boss_defeat_click_reaction_timer"),
+		"stage2_boss_defeat_click_reaction_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage2_boss_defeat_click_total_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage2_boss_defeat_click_transition_base_frame": scene.get("_stage2_boss_defeat_click_transition_base_frame"),
+		"stage3_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage3_boss_defeat_live2d_sheet_loaded": scene.get("_stage3_boss_defeat_live2d_sheet") != null,
+		"stage3_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage3_boss_defeat_click_reaction_sheet_loaded": scene.get("_stage3_boss_defeat_click_reaction_sheet") != null,
+		"stage3_boss_defeat_live2d_frame_count": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage3_boss_defeat_live2d_grid_cols": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage3_boss_defeat_live2d_cell_size": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage3_boss_defeat_click_reaction_timer": scene.get("_stage3_boss_defeat_click_reaction_timer"),
+		"stage3_boss_defeat_click_reaction_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage3_boss_defeat_click_total_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage3_boss_defeat_click_transition_base_frame": scene.get("_stage3_boss_defeat_click_transition_base_frame"),
+		"current_stage": scene.get("current_stage"),
+		"hovered_box_index": scene.get("_hovered_box_index"),
+		"scroll_phase": scene.get("_scroll_phase"),
+		"scroll_timer": scene.get("_scroll_timer"),
+		"scroll_unfurl_duration": StageClearResultScrollState.SCROLL_UNFURL_DURATION,
+		"scroll_texture_loaded": scene.get("_scroll_texture") != null,
+		"scroll_rect": StageClearResultScrollState.get_region_full_rect(layout_scale, scroll_position_offset),
+		"scroll_position_offset": scroll_position_offset,
+		"scroll_dragging": scene.get("_scroll_dragging"),
+		"next_stage_button_rect": _get_object_rect2(scene, "_next_stage_button_rect"),
+		"exit_button_rect": _get_object_rect2(scene, "_exit_button_rect"),
+		"hovered_button": scene.get("_hovered_button"),
+		"scene_timer": scene.get("timer"),
+		"exit_callback_bound": exit_callback.is_valid(),
+		"starpoint_choice_gate_active": scene.get("_starpoint_choice_gate_active"),
+		"starpoint_choice_gate_box_index": scene.get("_starpoint_choice_gate_box_index"),
+		"runtime_perk_choice_active": bool(scene.call("_is_runtime_perk_choice_active")),
+		"treasure_hunt_effect_active": bool(scene.call("_is_treasure_hunt_effect_active")),
+		"box_open_audio_ready": game_audio != null and game_audio.has_method("play_result_box_open"),
+	})
 
 
 static func build_interaction_status(context: Dictionary) -> Dictionary:
@@ -149,3 +264,34 @@ static func _get_array(source: Dictionary, key: String) -> Array:
 	if value is Array:
 		return value
 	return []
+
+
+static func _get_object_array(source: Object, key: String) -> Array:
+	var value: Variant = source.get(key)
+	if value is Array:
+		return value
+	return []
+
+
+static func _get_object_dictionary(source: Object, key: String) -> Dictionary:
+	var value: Variant = source.get(key)
+	if value is Dictionary:
+		return value
+	return {}
+
+
+static func _get_object_rect2(source: Object, key: String) -> Rect2:
+	var value: Variant = source.get(key)
+	if value is Rect2:
+		return value
+	return Rect2()
+
+
+static func _get_object_vector2(source: Object, key: String) -> Vector2:
+	return _get_vector2(source.get(key))
+
+
+static func _get_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	return Vector2.ZERO

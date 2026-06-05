@@ -24,10 +24,17 @@ func _verify_helper_contract() -> void:
 	_expect(source.find("static func draw_stage2_defeated") >= 0, "actor draw helper should own Stage 2 defeated drawing")
 	_expect(source.find("static func draw_stage3_defeated") >= 0, "actor draw helper should own Stage 3 defeated drawing")
 	_expect(source.find("static func draw_player_victory_live2d") >= 0, "actor draw helper should own player victory Live2D drawing")
+	_expect(source.find("static func get_dalji_reaction_state") >= 0, "actor draw helper should own Dalji reaction state")
+	_expect(source.find("static func get_player_victory_reaction_state") >= 0, "actor draw helper should own player reaction state")
+	_expect(source.find("static func get_boss_defeat_reaction_state") >= 0, "actor draw helper should own boss reaction state")
 	_expect(source.find("StageClearResultLayoutHelper.get_dalji_draw_rect") >= 0, "actor draw helper should resolve Dalji draw rects")
 	_expect(source.find("StageClearResultLayoutHelper.get_player_victory_click_rect") >= 0, "actor draw helper should return player click rects")
 	_expect(source.find("StageClearResultSheetDrawHelper.draw_reaction_sheet") >= 0, "actor draw helper should delegate reaction sheet blending")
 	_expect(StageClearResultActorDrawHelper != null, "actor draw helper preload should resolve")
+	_expect(
+		int(StageClearResultActorDrawHelper.get_player_victory_reaction_state(0.2, 0.1, 0).get("base_frame", -1)) == 3,
+		"player reaction helper should calculate base frames"
+	)
 
 	StageClearResultActorDrawHelper.draw_dalji_defeated(null, null, null, {}, Vector2(1280.0, 720.0), 1.0, 14, Vector2(896.0, 896.0), 0.98)
 	StageClearResultActorDrawHelper.draw_stage2_defeated(null, null, null, {}, Vector2(1280.0, 720.0), 1.0, 14, Vector2(896.0, 896.0), 0.98)

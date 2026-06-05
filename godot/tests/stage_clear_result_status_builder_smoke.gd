@@ -122,7 +122,7 @@ func _verify_scene_delegates_status_builder() -> void:
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_status_builder.gd")
 	_expect(
-		scene_source.find("StageClearResultStatusBuilder.build_interaction_status") >= 0,
+		scene_source.find("StageClearResultStatusBuilder.build_scene_interaction_status") >= 0,
 		"stage-clear result scene should delegate interaction status assembly"
 	)
 	_expect(
@@ -130,6 +130,11 @@ func _verify_scene_delegates_status_builder() -> void:
 			and helper_source.find("\"stage2_boss_defeat_live2d_active\"") >= 0
 			and helper_source.find("StageClearResultScrollState.get_unfurl_progress") >= 0,
 		"status builder should own the public interaction status fields"
+	)
+	_expect(
+		helper_source.find("static func build_scene_interaction_status") >= 0
+			and helper_source.find("StageClearResultActorDrawHelper.get_player_victory_reaction_state") >= 0,
+		"status builder should own scene status context assembly"
 	)
 
 

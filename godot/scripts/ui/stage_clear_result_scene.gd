@@ -9,7 +9,6 @@ const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clea
 const StageClearResultStaticDrawHelper := preload("res://scripts/ui/stage_clear_result_static_draw_helper.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
-const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultStatusBuilder := preload("res://scripts/ui/stage_clear_result_status_builder.gd")
 const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
@@ -463,92 +462,7 @@ func _get_current_view_size() -> Vector2:
 
 
 func get_interaction_status() -> Dictionary:
-	var view_size: Vector2 = _get_current_view_size()
-	var layout_scale: float = _get_layout_scale(view_size)
-	var box_counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(_boxes)
-	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
-		stage_reward_snapshot,
-		_boxes
-	)
-	return StageClearResultStatusBuilder.build_interaction_status({
-		"view_size": view_size,
-		"layout_scale": layout_scale,
-		"boxes": _boxes,
-		"box_counts": box_counts,
-		"reward_summary_state": reward_summary_state,
-		"perk_info": StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state(
-			reward_summary_state,
-			_perk_catalog
-		),
-		"dalji_reaction_state": _dalji_reaction_state(),
-		"player_victory_reaction_state": _player_victory_reaction_state(),
-		"stage2_boss_reaction_state": _stage2_boss_defeat_reaction_state(),
-		"stage3_boss_reaction_state": _stage3_boss_defeat_reaction_state(),
-		"dalji_click_reaction_timer": _dalji_click_reaction_timer,
-		"dalji_click_reaction_duration": StageClearResultActorDrawHelper.DALJI_CLICK_REACTION_DURATION,
-		"dalji_click_total_duration": StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION,
-		"dalji_click_transition_base_frame": _dalji_click_transition_base_frame,
-		"dalji_base_timer": _dalji_base_timer,
-		"dalji_dialogue_timer": _dalji_dialogue_timer,
-		"dalji_dialogue": DALJI_CLICK_DIALOGUE,
-		"dalji_click_voice_path": StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH,
-		"dalji_click_voice_loaded": _dalji_click_voice_stream != null,
-		"dalji_click_voice_player_ready": _dalji_click_voice_player != null,
-		"dalji_click_voice_playing": _dalji_click_voice_player != null and _dalji_click_voice_player.playing,
-		"selected_character_type": selected_character_type,
-		"player_victory_sheet_path": StageClearResultAssetLoader.get_player_victory_sheet_path_for_character(selected_character_type),
-		"player_victory_click_reaction_sheet_path": StageClearResultAssetLoader.get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
-		"player_victory_sheet_loaded": _player_victory_sheet != null,
-		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
-		"player_victory_frame_count": StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT,
-		"player_victory_grid_cols": StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS,
-		"player_victory_cell_size": StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE,
-		"player_victory_click_reaction_timer": _player_victory_click_reaction_timer,
-		"player_victory_click_reaction_duration": StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_REACTION_DURATION,
-		"player_victory_click_total_duration": StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION,
-		"player_victory_click_transition_base_frame": _player_victory_click_transition_base_frame,
-		"stage2_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
-		"stage2_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
-		"stage2_boss_defeat_live2d_frame_count": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage2_boss_defeat_live2d_grid_cols": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage2_boss_defeat_live2d_cell_size": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
-		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
-		"stage2_boss_defeat_click_reaction_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage2_boss_defeat_click_total_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
-		"stage3_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
-		"stage3_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
-		"stage3_boss_defeat_live2d_frame_count": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage3_boss_defeat_live2d_grid_cols": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage3_boss_defeat_live2d_cell_size": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
-		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
-		"stage3_boss_defeat_click_reaction_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage3_boss_defeat_click_total_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-		"stage3_boss_defeat_click_transition_base_frame": _stage3_boss_defeat_click_transition_base_frame,
-		"current_stage": current_stage,
-		"hovered_box_index": _hovered_box_index,
-		"scroll_phase": _scroll_phase,
-		"scroll_timer": _scroll_timer,
-		"scroll_unfurl_duration": StageClearResultScrollState.SCROLL_UNFURL_DURATION,
-		"scroll_texture_loaded": _scroll_texture != null,
-		"scroll_rect": StageClearResultScrollState.get_region_full_rect(layout_scale, _scroll_position_offset),
-		"scroll_position_offset": _scroll_position_offset,
-		"scroll_dragging": _scroll_dragging,
-		"next_stage_button_rect": _next_stage_button_rect,
-		"exit_button_rect": _exit_button_rect,
-		"hovered_button": _hovered_button,
-		"scene_timer": timer,
-		"exit_callback_bound": exit_to_menu_callback.is_valid(),
-		"starpoint_choice_gate_active": _starpoint_choice_gate_active,
-		"starpoint_choice_gate_box_index": _starpoint_choice_gate_box_index,
-		"runtime_perk_choice_active": _is_runtime_perk_choice_active(),
-		"treasure_hunt_effect_active": _is_treasure_hunt_effect_active(),
-		"box_open_audio_ready": _game_audio != null and _game_audio.has_method("play_result_box_open"),
-	})
+	return StageClearResultStatusBuilder.build_scene_interaction_status(self, DALJI_CLICK_DIALOGUE)
 
 
 func get_resolved_rewards() -> Array:
@@ -638,15 +552,15 @@ func _is_runtime_perk_choice_active() -> bool:
 func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if current_stage == 2:
 		if _stage2_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, _stage2_boss_defeat_reaction_state(), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
+			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(timer, _stage2_boss_defeat_click_reaction_timer, _stage2_boss_defeat_click_transition_base_frame), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
 		return
 	if current_stage == 3:
 		if _stage3_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, _stage3_boss_defeat_reaction_state(), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
+			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(timer, _stage3_boss_defeat_click_reaction_timer, _stage3_boss_defeat_click_transition_base_frame), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
 		return
 	if _dalji_defeat_sheet == null:
 		return
-	_dalji_click_rect = StageClearResultActorDrawHelper.draw_dalji_defeated(self, _dalji_defeat_sheet, _dalji_click_reaction_sheet, _dalji_reaction_state(), view_size, scale, StageClearResultActorDrawHelper.DALJI_GRID_COLS, StageClearResultActorDrawHelper.DALJI_CELL_SIZE, 0.98)
+	_dalji_click_rect = StageClearResultActorDrawHelper.draw_dalji_defeated(self, _dalji_defeat_sheet, _dalji_click_reaction_sheet, StageClearResultActorDrawHelper.get_dalji_reaction_state(_dalji_base_timer, _dalji_click_reaction_timer, _dalji_click_transition_base_frame), view_size, scale, StageClearResultActorDrawHelper.DALJI_GRID_COLS, StageClearResultActorDrawHelper.DALJI_CELL_SIZE, 0.98)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -663,7 +577,7 @@ func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 
 
 func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> bool:
-	var result: Dictionary = StageClearResultActorDrawHelper.draw_player_victory_live2d(self, _player_victory_sheet, _player_victory_click_reaction_sheet, _player_victory_reaction_state(), view_size, layout_ratio, StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS, StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE)
+	var result: Dictionary = StageClearResultActorDrawHelper.draw_player_victory_live2d(self, _player_victory_sheet, _player_victory_click_reaction_sheet, StageClearResultActorDrawHelper.get_player_victory_reaction_state(timer, _player_victory_click_reaction_timer, _player_victory_click_transition_base_frame), view_size, layout_ratio, StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS, StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE)
 	_player_victory_click_rect = result.get("click_rect", Rect2())
 	return bool(result.get("drawn", true))
 
@@ -977,70 +891,6 @@ func _play_dalji_click_voice_deferred() -> void:
 
 func _stop_dalji_click_voice() -> void:
 	StageClearResultVoicePlayer.stop_voice(_dalji_click_voice_player)
-
-
-func _player_victory_reaction_state() -> Dictionary:
-	return StageClearResultClickReactionState.get_reaction_state(
-		timer,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT,
-		_player_victory_click_reaction_timer,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_REACTION_DURATION,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
-		_player_victory_click_transition_base_frame,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	)
-
-
-func _stage2_boss_defeat_reaction_state() -> Dictionary:
-	return StageClearResultClickReactionState.get_reaction_state(
-		timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		_stage2_boss_defeat_click_reaction_timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
-		_stage2_boss_defeat_click_transition_base_frame,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	)
-
-
-func _stage3_boss_defeat_reaction_state() -> Dictionary:
-	return StageClearResultClickReactionState.get_reaction_state(
-		timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		_stage3_boss_defeat_click_reaction_timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
-		_stage3_boss_defeat_click_transition_base_frame,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	)
-
-
-func _dalji_reaction_state() -> Dictionary:
-	return StageClearResultClickReactionState.get_reaction_state(
-		_dalji_base_timer,
-		StageClearResultActorDrawHelper.DALJI_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.DALJI_FRAME_COUNT,
-		_dalji_click_reaction_timer,
-		StageClearResultActorDrawHelper.DALJI_CLICK_REACTION_DURATION,
-		StageClearResultActorDrawHelper.DALJI_CLICK_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.DALJI_CLICK_TRANSITION_DURATION,
-		_dalji_click_transition_base_frame,
-		StageClearResultActorDrawHelper.DALJI_CLICK_RETURN_HOLD_DURATION,
-		StageClearResultActorDrawHelper.DALJI_CLICK_RETURN_FADE_DURATION,
-		StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION
-	)
 
 
 func _confirm() -> void:

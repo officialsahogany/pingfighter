@@ -1,5 +1,6 @@
 extends RefCounted
 
+const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultSheetDrawHelper := preload("res://scripts/ui/stage_clear_result_sheet_draw_helper.gd")
 
@@ -46,6 +47,66 @@ const BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
 const BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
 const BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
 const BOSS_DEFEAT_CLICK_TOTAL_DURATION := BOSS_DEFEAT_CLICK_REACTION_DURATION + BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
+
+
+static func get_dalji_reaction_state(
+	base_timer: float,
+	reaction_timer: float,
+	transition_base_frame: int
+) -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
+		base_timer,
+		DALJI_FRAME_INTERVAL,
+		DALJI_FRAME_COUNT,
+		reaction_timer,
+		DALJI_CLICK_REACTION_DURATION,
+		DALJI_CLICK_FRAME_INTERVAL,
+		DALJI_CLICK_TRANSITION_DURATION,
+		transition_base_frame,
+		DALJI_CLICK_RETURN_HOLD_DURATION,
+		DALJI_CLICK_RETURN_FADE_DURATION,
+		DALJI_CLICK_TOTAL_DURATION
+	)
+
+
+static func get_player_victory_reaction_state(
+	base_timer: float,
+	reaction_timer: float,
+	transition_base_frame: int
+) -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
+		base_timer,
+		PLAYER_VICTORY_FRAME_INTERVAL,
+		PLAYER_VICTORY_FRAME_COUNT,
+		reaction_timer,
+		PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		PLAYER_VICTORY_CLICK_FRAME_INTERVAL,
+		PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
+		transition_base_frame,
+		PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
+		PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	)
+
+
+static func get_boss_defeat_reaction_state(
+	base_timer: float,
+	reaction_timer: float,
+	transition_base_frame: int
+) -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
+		base_timer,
+		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		reaction_timer,
+		BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		transition_base_frame,
+		BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	)
 
 
 static func draw_dalji_defeated(
