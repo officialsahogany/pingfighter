@@ -109,6 +109,79 @@ static func get_boss_defeat_reaction_state(
 	)
 
 
+static func get_player_victory_click_attempt(
+	mouse_position: Vector2,
+	view_size: Vector2,
+	scale: float,
+	reaction_timer: float,
+	base_timer: float
+) -> Dictionary:
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_click_rect(
+		view_size,
+		scale,
+		PLAYER_VICTORY_CELL_SIZE
+	)
+	return {
+		"click_rect": click_rect,
+		"attempt": StageClearResultClickReactionState.get_click_reaction_attempt(
+			mouse_position,
+			click_rect,
+			reaction_timer,
+			PLAYER_VICTORY_CLICK_TOTAL_DURATION,
+			base_timer,
+			PLAYER_VICTORY_FRAME_INTERVAL,
+			PLAYER_VICTORY_FRAME_COUNT
+		),
+	}
+
+
+static func get_dalji_click_attempt(
+	mouse_position: Vector2,
+	view_size: Vector2,
+	scale: float,
+	reaction_timer: float,
+	base_timer: float
+) -> Dictionary:
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
+	return {
+		"click_rect": click_rect,
+		"attempt": StageClearResultClickReactionState.get_click_reaction_attempt(
+			mouse_position,
+			click_rect,
+			reaction_timer,
+			DALJI_CLICK_TOTAL_DURATION,
+			base_timer,
+			DALJI_FRAME_INTERVAL,
+			DALJI_FRAME_COUNT
+		),
+	}
+
+
+static func get_boss_defeat_click_attempt(
+	stage_id: int,
+	mouse_position: Vector2,
+	view_size: Vector2,
+	scale: float,
+	reaction_timer: float,
+	base_timer: float
+) -> Dictionary:
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
+	if stage_id == 3:
+		click_rect = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
+	return {
+		"click_rect": click_rect,
+		"attempt": StageClearResultClickReactionState.get_click_reaction_attempt(
+			mouse_position,
+			click_rect,
+			reaction_timer,
+			BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+			base_timer,
+			BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+			BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		),
+	}
+
+
 static func draw_dalji_defeated(
 	canvas: CanvasItem,
 	defeat_sheet: Texture2D,

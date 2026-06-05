@@ -766,23 +766,16 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var click_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_click_rect(
+	var click_data: Dictionary = StageClearResultActorDrawHelper.get_player_victory_click_attempt(
+		mouse_position,
 		view_size,
 		scale,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE
-	)
-	_player_victory_click_rect = click_rect
-	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
-		mouse_position,
-		click_rect,
 		_player_victory_click_reaction_timer,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION,
-		timer,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT
+		timer
 	)
+	_player_victory_click_rect = click_data.get("click_rect", Rect2())
 	return _consume_click_reaction_attempt(
-		attempt,
+		click_data.get("attempt", {}),
 		&"_player_victory_click_transition_base_frame",
 		&"_player_victory_click_reaction_timer"
 	)
@@ -794,19 +787,16 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var click_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
-	_dalji_click_rect = click_rect
-	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+	var click_data: Dictionary = StageClearResultActorDrawHelper.get_dalji_click_attempt(
 		mouse_position,
-		click_rect,
+		view_size,
+		scale,
 		_dalji_click_reaction_timer,
-		StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION,
-		_dalji_base_timer,
-		StageClearResultActorDrawHelper.DALJI_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.DALJI_FRAME_COUNT
+		_dalji_base_timer
 	)
+	_dalji_click_rect = click_data.get("click_rect", Rect2())
 	if not _consume_click_reaction_attempt(
-		attempt,
+		click_data.get("attempt", {}),
 		&"_dalji_click_transition_base_frame",
 		&"_dalji_click_reaction_timer"
 	):
@@ -822,18 +812,16 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
-	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+	var click_data: Dictionary = StageClearResultActorDrawHelper.get_boss_defeat_click_attempt(
+		2,
 		mouse_position,
-		click_rect,
+		view_size,
+		scale,
 		_stage2_boss_defeat_click_reaction_timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-		timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		timer
 	)
 	return _consume_click_reaction_attempt(
-		attempt,
+		click_data.get("attempt", {}),
 		&"_stage2_boss_defeat_click_transition_base_frame",
 		&"_stage2_boss_defeat_click_reaction_timer"
 	)
@@ -845,18 +833,16 @@ func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage3_boss_result_draw_rect(view_size, scale)
-	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
+	var click_data: Dictionary = StageClearResultActorDrawHelper.get_boss_defeat_click_attempt(
+		3,
 		mouse_position,
-		click_rect,
+		view_size,
+		scale,
 		_stage3_boss_defeat_click_reaction_timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-		timer,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		timer
 	)
 	return _consume_click_reaction_attempt(
-		attempt,
+		click_data.get("attempt", {}),
 		&"_stage3_boss_defeat_click_transition_base_frame",
 		&"_stage3_boss_defeat_click_reaction_timer"
 	)

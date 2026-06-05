@@ -185,10 +185,11 @@ func _verify_scene_constant_wiring() -> void:
 		"scene Dalji alpha constants should stay wired to click reaction state"
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var actor_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultClickReactionState.get_reaction_state") >= 0
-		and source.find("StageClearResultClickReactionState.get_click_reaction_attempt") >= 0,
-		"scene should call click reaction state helpers directly"
+		actor_helper_source.find("StageClearResultClickReactionState.get_reaction_state") >= 0
+		and actor_helper_source.find("StageClearResultClickReactionState.get_click_reaction_attempt") >= 0,
+		"actor helper should call click reaction state helpers directly"
 	)
 	_expect(
 		source.find("StageClearResultClickReactionState.advance_reaction_timer") >= 0,
