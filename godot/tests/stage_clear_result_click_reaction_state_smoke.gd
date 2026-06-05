@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
 
 var _failures: Array[String] = []
 
@@ -125,8 +126,8 @@ func _verify_scene_constant_wiring() -> void:
 	_expect(
 		StageClearResultClickReactionState.get_base_frame(
 			scene.timer,
-			StageClearResultScene.PLAYER_VICTORY_FRAME_INTERVAL,
-			StageClearResultScene.PLAYER_VICTORY_FRAME_COUNT
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_INTERVAL,
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT
 		) == 2,
 		"scene player base-frame constants should stay wired to click reaction state"
 	)
@@ -135,7 +136,7 @@ func _verify_scene_constant_wiring() -> void:
 	_expect(
 		StageClearResultClickReactionState.get_transition_base_frame(
 			scene._player_victory_click_reaction_timer,
-			StageClearResultScene.PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
 			scene._player_victory_click_transition_base_frame,
 			2
 		) == 9,
@@ -144,11 +145,11 @@ func _verify_scene_constant_wiring() -> void:
 	_expect(
 		_is_close(StageClearResultClickReactionState.get_reaction_alpha(
 			scene._player_victory_click_reaction_timer,
-			StageClearResultScene.PLAYER_VICTORY_CLICK_REACTION_DURATION,
-			StageClearResultScene.PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
-			StageClearResultScene.PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
-			StageClearResultScene.PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
-			StageClearResultScene.PLAYER_VICTORY_CLICK_TOTAL_DURATION
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_REACTION_DURATION,
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
+			StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION
 		), 0.5),
 		"scene player alpha constants should stay wired to click reaction state"
 	)
@@ -156,8 +157,8 @@ func _verify_scene_constant_wiring() -> void:
 	_expect(
 		StageClearResultClickReactionState.get_base_frame(
 			scene._dalji_base_timer,
-			StageClearResultScene.DALJI_FRAME_INTERVAL,
-			StageClearResultScene.DALJI_FRAME_COUNT
+			StageClearResultActorDrawHelper.DALJI_FRAME_INTERVAL,
+			StageClearResultActorDrawHelper.DALJI_FRAME_COUNT
 		) == 2,
 		"scene Dalji base-frame constants should stay wired to click reaction state"
 	)
@@ -166,7 +167,7 @@ func _verify_scene_constant_wiring() -> void:
 	_expect(
 		StageClearResultClickReactionState.get_transition_base_frame(
 			scene._dalji_click_reaction_timer,
-			StageClearResultScene.DALJI_CLICK_TRANSITION_DURATION,
+			StageClearResultActorDrawHelper.DALJI_CLICK_TRANSITION_DURATION,
 			scene._dalji_click_transition_base_frame,
 			2
 		) == 6,
@@ -175,11 +176,11 @@ func _verify_scene_constant_wiring() -> void:
 	_expect(
 		_is_close(StageClearResultClickReactionState.get_reaction_alpha(
 			scene._dalji_click_reaction_timer,
-			StageClearResultScene.DALJI_CLICK_REACTION_DURATION,
-			StageClearResultScene.DALJI_CLICK_TRANSITION_DURATION,
-			StageClearResultScene.DALJI_CLICK_RETURN_HOLD_DURATION,
-			StageClearResultScene.DALJI_CLICK_RETURN_FADE_DURATION,
-			StageClearResultScene.DALJI_CLICK_TOTAL_DURATION
+			StageClearResultActorDrawHelper.DALJI_CLICK_REACTION_DURATION,
+			StageClearResultActorDrawHelper.DALJI_CLICK_TRANSITION_DURATION,
+			StageClearResultActorDrawHelper.DALJI_CLICK_RETURN_HOLD_DURATION,
+			StageClearResultActorDrawHelper.DALJI_CLICK_RETURN_FADE_DURATION,
+			StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION
 		), 0.5),
 		"scene Dalji alpha constants should stay wired to click reaction state"
 	)

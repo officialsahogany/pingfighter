@@ -22,52 +22,9 @@ const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result
 const StageClearResultVoicePlayer := preload("res://scripts/ui/stage_clear_result_voice_player.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
-const DALJI_FRAME_COUNT := 98
-const DALJI_GRID_COLS := 14
-# Source sheet stores 1152px cells, but the result screen only displays the
-# character at ~760px. The .import caps the imported texture to 896px cells
-# (process/size_limit=12544) so the GPU upload is ~3x cheaper with no visible
-# change at the display size. This cell size MUST match that imported cell size.
-const DALJI_CELL_SIZE := Vector2(896.0, 896.0)
-const DALJI_FRAME_INTERVAL := 0.055
-const DALJI_CLICK_FRAME_INTERVAL := 0.036
-const DALJI_CLICK_REACTION_DURATION := DALJI_FRAME_COUNT * DALJI_CLICK_FRAME_INTERVAL
-const DALJI_CLICK_TRANSITION_DURATION := 0.16
-const DALJI_CLICK_RETURN_HOLD_DURATION := 0.18
-const DALJI_CLICK_RETURN_FADE_DURATION := 0.05
-const DALJI_CLICK_TOTAL_DURATION := DALJI_CLICK_REACTION_DURATION + DALJI_CLICK_RETURN_HOLD_DURATION + DALJI_CLICK_RETURN_FADE_DURATION
 const DALJI_CLICK_DIALOGUE_DURATION := 1.55
 const DALJI_CLICK_DIALOGUE_FADE_DURATION := 0.20
 const DALJI_CLICK_DIALOGUE := "건들지마"
-
-const PLAYER_VICTORY_FRAME_COUNT := 98
-const PLAYER_VICTORY_GRID_COLS := 11
-# Source sheet stores 1408px cells; result screen displays at ~760px. The
-# .import caps the imported texture to 896px cells (process/size_limit=9856)
-# for a ~6x cheaper GPU upload with no visible change. Must match the imported
-# cell size; StageClearResultLayoutHelper keeps the authored 1408px click
-# offsets separately so the click region does not drift after downscale.
-const PLAYER_VICTORY_CELL_SIZE := Vector2(896.0, 896.0)
-const PLAYER_VICTORY_FRAME_INTERVAL := 0.055
-const PLAYER_VICTORY_CLICK_FRAME_INTERVAL := 0.036
-const PLAYER_VICTORY_CLICK_REACTION_DURATION := PLAYER_VICTORY_FRAME_COUNT * PLAYER_VICTORY_CLICK_FRAME_INTERVAL
-const PLAYER_VICTORY_CLICK_TRANSITION_DURATION := 0.16
-const PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION := 0.18
-const PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION := 0.05
-const PLAYER_VICTORY_CLICK_TOTAL_DURATION := PLAYER_VICTORY_CLICK_REACTION_DURATION + PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION + PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION
-
-# Source sheet stores 1152px cells; capped to 896px cells on import
-# (process/size_limit=12544). Must match the imported cell size.
-const BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
-const BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
-const BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(896.0, 896.0)
-const BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
-const BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
-const BOSS_DEFEAT_CLICK_REACTION_DURATION := BOSS_DEFEAT_LIVE2D_FRAME_COUNT * BOSS_DEFEAT_CLICK_FRAME_INTERVAL
-const BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
-const BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
-const BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
-const BOSS_DEFEAT_CLICK_TOTAL_DURATION := BOSS_DEFEAT_CLICK_REACTION_DURATION + BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
 
 var timer: float = 0.0
 var player_score: int = 0
@@ -124,10 +81,10 @@ var _treasure_hunt_runtime: Object
 var _game_audio: Object
 var _driven_by_controller: bool = false
 var _dalji_base_timer: float = 0.0
-var _dalji_click_reaction_timer: float = DALJI_CLICK_TOTAL_DURATION
-var _player_victory_click_reaction_timer: float = PLAYER_VICTORY_CLICK_TOTAL_DURATION
-var _stage2_boss_defeat_click_reaction_timer: float = BOSS_DEFEAT_CLICK_TOTAL_DURATION
-var _stage3_boss_defeat_click_reaction_timer: float = BOSS_DEFEAT_CLICK_TOTAL_DURATION
+var _dalji_click_reaction_timer: float = StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION
+var _player_victory_click_reaction_timer: float = StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION
+var _stage2_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
+var _stage3_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
 var _dalji_dialogue_timer: float = 0.0
 var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
@@ -220,10 +177,10 @@ func configure(
 	_cancel_scroll_drag()
 	timer = 0.0
 	_dalji_base_timer = 0.0
-	_dalji_click_reaction_timer = DALJI_CLICK_TOTAL_DURATION
-	_player_victory_click_reaction_timer = PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	_stage2_boss_defeat_click_reaction_timer = BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	_stage3_boss_defeat_click_reaction_timer = BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	_dalji_click_reaction_timer = StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION
+	_player_victory_click_reaction_timer = StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	_stage2_boss_defeat_click_reaction_timer = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	_stage3_boss_defeat_click_reaction_timer = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	_dalji_dialogue_timer = 0.0
 	_stop_dalji_click_voice()
 	confirmed_callback = on_confirmed
@@ -250,10 +207,10 @@ func update_result_scene(delta: float) -> void:
 	var safe_delta: float = max(0.0, delta)
 	timer += safe_delta
 	_dalji_base_timer += safe_delta
-	_dalji_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION, safe_delta)
-	_player_victory_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_player_victory_click_reaction_timer, PLAYER_VICTORY_CLICK_TOTAL_DURATION, safe_delta)
-	_stage2_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage2_boss_defeat_click_reaction_timer, BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
-	_stage3_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage3_boss_defeat_click_reaction_timer, BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
+	_dalji_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_dalji_click_reaction_timer, StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION, safe_delta)
+	_player_victory_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_player_victory_click_reaction_timer, StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION, safe_delta)
+	_stage2_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage2_boss_defeat_click_reaction_timer, StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
+	_stage3_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage3_boss_defeat_click_reaction_timer, StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
 	_dalji_dialogue_timer = max(0.0, _dalji_dialogue_timer - safe_delta)
 	_update_boxes(safe_delta)
 	_update_scroll(safe_delta)
@@ -528,8 +485,8 @@ func get_interaction_status() -> Dictionary:
 		"stage2_boss_reaction_state": _stage2_boss_defeat_reaction_state(),
 		"stage3_boss_reaction_state": _stage3_boss_defeat_reaction_state(),
 		"dalji_click_reaction_timer": _dalji_click_reaction_timer,
-		"dalji_click_reaction_duration": DALJI_CLICK_REACTION_DURATION,
-		"dalji_click_total_duration": DALJI_CLICK_TOTAL_DURATION,
+		"dalji_click_reaction_duration": StageClearResultActorDrawHelper.DALJI_CLICK_REACTION_DURATION,
+		"dalji_click_total_duration": StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION,
 		"dalji_click_transition_base_frame": _dalji_click_transition_base_frame,
 		"dalji_base_timer": _dalji_base_timer,
 		"dalji_dialogue_timer": _dalji_dialogue_timer,
@@ -543,34 +500,34 @@ func get_interaction_status() -> Dictionary:
 		"player_victory_click_reaction_sheet_path": StageClearResultAssetLoader.get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
 		"player_victory_sheet_loaded": _player_victory_sheet != null,
 		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
-		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
-		"player_victory_grid_cols": PLAYER_VICTORY_GRID_COLS,
-		"player_victory_cell_size": PLAYER_VICTORY_CELL_SIZE,
+		"player_victory_frame_count": StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT,
+		"player_victory_grid_cols": StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS,
+		"player_victory_cell_size": StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE,
 		"player_victory_click_reaction_timer": _player_victory_click_reaction_timer,
-		"player_victory_click_reaction_duration": PLAYER_VICTORY_CLICK_REACTION_DURATION,
-		"player_victory_click_total_duration": PLAYER_VICTORY_CLICK_TOTAL_DURATION,
+		"player_victory_click_reaction_duration": StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		"player_victory_click_total_duration": StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		"player_victory_click_transition_base_frame": _player_victory_click_transition_base_frame,
 		"stage2_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
 		"stage2_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
-		"stage2_boss_defeat_live2d_frame_count": BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage2_boss_defeat_live2d_grid_cols": BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage2_boss_defeat_live2d_cell_size": BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage2_boss_defeat_live2d_frame_count": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage2_boss_defeat_live2d_grid_cols": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage2_boss_defeat_live2d_cell_size": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
 		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
-		"stage2_boss_defeat_click_reaction_duration": BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage2_boss_defeat_click_total_duration": BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage2_boss_defeat_click_reaction_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage2_boss_defeat_click_total_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
 		"stage3_boss_defeat_live2d_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage3_boss_defeat_live2d_sheet_loaded": _stage3_boss_defeat_live2d_sheet != null,
 		"stage3_boss_defeat_click_reaction_sheet_path": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage3_boss_defeat_click_reaction_sheet_loaded": _stage3_boss_defeat_click_reaction_sheet != null,
-		"stage3_boss_defeat_live2d_frame_count": BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
-		"stage3_boss_defeat_live2d_grid_cols": BOSS_DEFEAT_LIVE2D_GRID_COLS,
-		"stage3_boss_defeat_live2d_cell_size": BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage3_boss_defeat_live2d_frame_count": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage3_boss_defeat_live2d_grid_cols": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage3_boss_defeat_live2d_cell_size": StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
 		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
-		"stage3_boss_defeat_click_reaction_duration": BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		"stage3_boss_defeat_click_total_duration": BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage3_boss_defeat_click_reaction_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage3_boss_defeat_click_total_duration": StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		"stage3_boss_defeat_click_transition_base_frame": _stage3_boss_defeat_click_transition_base_frame,
 		"current_stage": current_stage,
 		"hovered_box_index": _hovered_box_index,
@@ -681,15 +638,15 @@ func _is_runtime_perk_choice_active() -> bool:
 func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if current_stage == 2:
 		if _stage2_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, _stage2_boss_defeat_reaction_state(), view_size, scale, BOSS_DEFEAT_LIVE2D_GRID_COLS, BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
+			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, _stage2_boss_defeat_reaction_state(), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
 		return
 	if current_stage == 3:
 		if _stage3_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, _stage3_boss_defeat_reaction_state(), view_size, scale, BOSS_DEFEAT_LIVE2D_GRID_COLS, BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
+			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, _stage3_boss_defeat_reaction_state(), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
 		return
 	if _dalji_defeat_sheet == null:
 		return
-	_dalji_click_rect = StageClearResultActorDrawHelper.draw_dalji_defeated(self, _dalji_defeat_sheet, _dalji_click_reaction_sheet, _dalji_reaction_state(), view_size, scale, DALJI_GRID_COLS, DALJI_CELL_SIZE, 0.98)
+	_dalji_click_rect = StageClearResultActorDrawHelper.draw_dalji_defeated(self, _dalji_defeat_sheet, _dalji_click_reaction_sheet, _dalji_reaction_state(), view_size, scale, StageClearResultActorDrawHelper.DALJI_GRID_COLS, StageClearResultActorDrawHelper.DALJI_CELL_SIZE, 0.98)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -700,13 +657,13 @@ func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 		self,
 		font,
 		view_size, scale, timer, _player_victory_sheet,
-		PLAYER_VICTORY_FRAME_INTERVAL, PLAYER_VICTORY_FRAME_COUNT, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_INTERVAL, StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT, StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS, StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE,
 		"플레이어 승리", "Live2D 포즈", "승리 연출 테스트"
 	)
 
 
 func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> bool:
-	var result: Dictionary = StageClearResultActorDrawHelper.draw_player_victory_live2d(self, _player_victory_sheet, _player_victory_click_reaction_sheet, _player_victory_reaction_state(), view_size, layout_ratio, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE)
+	var result: Dictionary = StageClearResultActorDrawHelper.draw_player_victory_live2d(self, _player_victory_sheet, _player_victory_click_reaction_sheet, _player_victory_reaction_state(), view_size, layout_ratio, StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS, StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE)
 	_player_victory_click_rect = result.get("click_rect", Rect2())
 	return bool(result.get("drawn", true))
 
@@ -898,17 +855,17 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 	var click_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_click_rect(
 		view_size,
 		scale,
-		PLAYER_VICTORY_CELL_SIZE
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE
 	)
 	_player_victory_click_rect = click_rect
 	var attempt: Dictionary = StageClearResultClickReactionState.get_click_reaction_attempt(
 		mouse_position,
 		click_rect,
 		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_TOTAL_DURATION,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		timer,
-		PLAYER_VICTORY_FRAME_INTERVAL,
-		PLAYER_VICTORY_FRAME_COUNT
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT
 	)
 	return _consume_click_reaction_attempt(
 		attempt,
@@ -929,10 +886,10 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 		mouse_position,
 		click_rect,
 		_dalji_click_reaction_timer,
-		DALJI_CLICK_TOTAL_DURATION,
+		StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION,
 		_dalji_base_timer,
-		DALJI_FRAME_INTERVAL,
-		DALJI_FRAME_COUNT
+		StageClearResultActorDrawHelper.DALJI_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.DALJI_FRAME_COUNT
 	)
 	if not _consume_click_reaction_attempt(
 		attempt,
@@ -956,10 +913,10 @@ func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
 		mouse_position,
 		click_rect,
 		_stage2_boss_defeat_click_reaction_timer,
-		BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		timer,
-		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
 	return _consume_click_reaction_attempt(
 		attempt,
@@ -979,10 +936,10 @@ func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
 		mouse_position,
 		click_rect,
 		_stage3_boss_defeat_click_reaction_timer,
-		BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
 		timer,
-		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT
 	)
 	return _consume_click_reaction_attempt(
 		attempt,
@@ -1025,64 +982,64 @@ func _stop_dalji_click_voice() -> void:
 func _player_victory_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
-		PLAYER_VICTORY_FRAME_INTERVAL,
-		PLAYER_VICTORY_FRAME_COUNT,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_FRAME_COUNT,
 		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_REACTION_DURATION,
-		PLAYER_VICTORY_CLICK_FRAME_INTERVAL,
-		PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
 		_player_victory_click_transition_base_frame,
-		PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
-		PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
-		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
+		StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION
 	)
 
 
 func _stage2_boss_defeat_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
-		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
 		_stage2_boss_defeat_click_reaction_timer,
-		BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
-		BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
 		_stage2_boss_defeat_click_transition_base_frame,
-		BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
-		BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
-		BOSS_DEFEAT_CLICK_TOTAL_DURATION
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	)
 
 
 func _stage3_boss_defeat_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
-		BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
-		BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
 		_stage3_boss_defeat_click_reaction_timer,
-		BOSS_DEFEAT_CLICK_REACTION_DURATION,
-		BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
-		BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
 		_stage3_boss_defeat_click_transition_base_frame,
-		BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
-		BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
-		BOSS_DEFEAT_CLICK_TOTAL_DURATION
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	)
 
 
 func _dalji_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		_dalji_base_timer,
-		DALJI_FRAME_INTERVAL,
-		DALJI_FRAME_COUNT,
+		StageClearResultActorDrawHelper.DALJI_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.DALJI_FRAME_COUNT,
 		_dalji_click_reaction_timer,
-		DALJI_CLICK_REACTION_DURATION,
-		DALJI_CLICK_FRAME_INTERVAL,
-		DALJI_CLICK_TRANSITION_DURATION,
+		StageClearResultActorDrawHelper.DALJI_CLICK_REACTION_DURATION,
+		StageClearResultActorDrawHelper.DALJI_CLICK_FRAME_INTERVAL,
+		StageClearResultActorDrawHelper.DALJI_CLICK_TRANSITION_DURATION,
 		_dalji_click_transition_base_frame,
-		DALJI_CLICK_RETURN_HOLD_DURATION,
-		DALJI_CLICK_RETURN_FADE_DURATION,
-		DALJI_CLICK_TOTAL_DURATION
+		StageClearResultActorDrawHelper.DALJI_CLICK_RETURN_HOLD_DURATION,
+		StageClearResultActorDrawHelper.DALJI_CLICK_RETURN_FADE_DURATION,
+		StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION
 	)
 
 
