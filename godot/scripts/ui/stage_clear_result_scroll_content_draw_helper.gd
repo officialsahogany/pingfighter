@@ -44,10 +44,7 @@ static func draw_scroll_contents(
 
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		_get_dictionary(draw_context, "stage_reward_snapshot"),
-		_get_array(draw_context, "boxes"),
-		str(draw_context.get("result_reward_source_stage", "")),
-		str(draw_context.get("result_reward_source_box", "")),
-		_get_dictionary(draw_context, "result_reward_source_labels")
+		_get_array(draw_context, "boxes")
 	)
 
 	var strip_rect := Rect2(
@@ -112,9 +109,6 @@ static func draw_scroll_contents(
 				"perk_catalog": draw_context.get("perk_catalog", null),
 				"perk_icon_renderer": draw_context.get("perk_icon_renderer", null),
 				"reward_icon_cache": _get_dictionary(draw_context, "reward_icon_cache"),
-				"result_reward_source_stage": str(draw_context.get("result_reward_source_stage", "")),
-				"result_reward_source_box": str(draw_context.get("result_reward_source_box", "")),
-				"result_reward_source_labels": _get_dictionary(draw_context, "result_reward_source_labels"),
 				"reward_detail_fallback_text": str(draw_context.get("reward_detail_fallback_text", "")),
 				"reward_starpoint_title_prefix": str(draw_context.get("reward_starpoint_title_prefix", "")),
 			}

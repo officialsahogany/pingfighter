@@ -88,12 +88,6 @@ const SCROLL_REGION_RECT := StageClearResultScrollState.SCROLL_REGION_RECT
 const SCROLL_CONTENT_MARGIN := StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 const SCROLL_DRAG_VIEW_MARGIN := StageClearResultScrollState.SCROLL_DRAG_VIEW_MARGIN
 
-const RESULT_REWARD_SOURCE_STAGE := "stage"
-const RESULT_REWARD_SOURCE_BOX := "box"
-const RESULT_REWARD_SOURCE_LABELS := {
-	"stage": "인게임",
-	"box": "상자 보상",
-}
 const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
 const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
 const PREWARM_ASSET_STEP_COUNT := StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT
@@ -543,10 +537,7 @@ func get_interaction_status() -> Dictionary:
 	var box_counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(_boxes)
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
-		_boxes,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		RESULT_REWARD_SOURCE_LABELS
+		_boxes
 	)
 	return StageClearResultStatusBuilder.build_interaction_status({
 		"view_size": view_size,
@@ -918,9 +909,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 			"perk_catalog": _perk_catalog,
 			"perk_icon_renderer": _perk_icon_renderer,
 			"reward_icon_cache": _reward_icon_cache,
-			"result_reward_source_stage": RESULT_REWARD_SOURCE_STAGE,
-			"result_reward_source_box": RESULT_REWARD_SOURCE_BOX,
-			"result_reward_source_labels": RESULT_REWARD_SOURCE_LABELS,
 			"reward_detail_fallback_text": REWARD_DETAIL_FALLBACK_TEXT,
 			"reward_starpoint_title_prefix": REWARD_STARPOINT_TITLE_PREFIX,
 			"scroll_phase": _scroll_phase,

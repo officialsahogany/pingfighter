@@ -568,22 +568,16 @@ func _verify_cyber_scroll_reward_source_tags() -> void:
 	_expect(int(perk_sources.get("box", 0)) == 1, "result perk cards should count box acquisitions separately")
 	var items: Array = StageClearResultSummaryBuilder.build_item_summary(
 		scene.stage_reward_snapshot,
-		scene._boxes,
-		StageClearResultScene.RESULT_REWARD_SOURCE_STAGE,
-		StageClearResultScene.RESULT_REWARD_SOURCE_BOX,
-		StageClearResultScene.RESULT_REWARD_SOURCE_LABELS
+		scene._boxes
 	)
 	var perks: Array = StageClearResultSummaryBuilder.build_perk_summary(
 		scene.stage_reward_snapshot,
-		scene._boxes,
-		StageClearResultScene.RESULT_REWARD_SOURCE_STAGE,
-		StageClearResultScene.RESULT_REWARD_SOURCE_BOX,
-		StageClearResultScene.RESULT_REWARD_SOURCE_LABELS
+		scene._boxes
 	)
-	_expect(str((items[0] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultScene.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultScene.RESULT_REWARD_SOURCE_STAGE, "")), "in-game item cards should show the in-game source label")
-	_expect(str((items[1] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultScene.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultScene.RESULT_REWARD_SOURCE_BOX, "")), "box item cards should show the box source label")
-	_expect(str((perks[0] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultScene.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultScene.RESULT_REWARD_SOURCE_STAGE, "")), "in-game perk cards should show the in-game source label")
-	_expect(str((perks[1] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultScene.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultScene.RESULT_REWARD_SOURCE_BOX, "")), "box perk cards should show the box source label")
+	_expect(str((items[0] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_STAGE, "")), "in-game item cards should show the in-game source label")
+	_expect(str((items[1] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_BOX, "")), "box item cards should show the box source label")
+	_expect(str((perks[0] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_STAGE, "")), "in-game perk cards should show the in-game source label")
+	_expect(str((perks[1] as Dictionary).get("_result_reward_source_label", "")) == str(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_LABELS.get(StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_BOX, "")), "box perk cards should show the box source label")
 	scene.free()
 
 

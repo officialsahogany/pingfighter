@@ -118,7 +118,7 @@ static func draw_reward_card(
 	if canvas == null or font == null:
 		return
 	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_card_visual_state(reward, rect, scale, alpha)
-	var result_reward_source_labels: Dictionary = {}
+	var result_reward_source_labels: Dictionary = StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_LABELS
 	var result_reward_source_labels_value: Variant = card_context.get("result_reward_source_labels", {})
 	if result_reward_source_labels_value is Dictionary:
 		result_reward_source_labels = result_reward_source_labels_value
@@ -134,8 +134,8 @@ static func draw_reward_card(
 		rect,
 		scale,
 		alpha,
-		str(card_context.get("result_reward_source_stage", "")),
-		str(card_context.get("result_reward_source_box", "")),
+		str(card_context.get("result_reward_source_stage", StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_STAGE)),
+		str(card_context.get("result_reward_source_box", StageClearResultSummaryBuilder.RESULT_REWARD_SOURCE_BOX)),
 		result_reward_source_labels
 	)
 	draw_reward_card_icon(

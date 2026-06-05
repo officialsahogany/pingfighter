@@ -3,6 +3,13 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 
+const RESULT_REWARD_SOURCE_STAGE := "stage"
+const RESULT_REWARD_SOURCE_BOX := "box"
+const RESULT_REWARD_SOURCE_LABELS := {
+	"stage": "인게임",
+	"box": "상자 보상",
+}
+
 
 static func calculate_starpoint_total(boxes: Array) -> int:
 	var total: int = 0
@@ -39,9 +46,9 @@ static func calculate_score_rating(player_score: int, boss_score: int) -> int:
 static func build_item_summary(
 	stage_reward_snapshot: Dictionary,
 	boxes: Array,
-	stage_source: String,
-	box_source: String,
-	source_labels: Dictionary
+	stage_source: String = RESULT_REWARD_SOURCE_STAGE,
+	box_source: String = RESULT_REWARD_SOURCE_BOX,
+	source_labels: Dictionary = RESULT_REWARD_SOURCE_LABELS
 ) -> Array:
 	var items: Array = []
 	for reward in get_stage_summary_array(stage_reward_snapshot, "passive_items"):
@@ -89,9 +96,9 @@ static func split_item_rewards_by_type(item_rewards: Array) -> Dictionary:
 static func build_perk_summary(
 	stage_reward_snapshot: Dictionary,
 	boxes: Array,
-	stage_source: String,
-	box_source: String,
-	source_labels: Dictionary
+	stage_source: String = RESULT_REWARD_SOURCE_STAGE,
+	box_source: String = RESULT_REWARD_SOURCE_BOX,
+	source_labels: Dictionary = RESULT_REWARD_SOURCE_LABELS
 ) -> Array:
 	var perks: Array = []
 	for reward in get_stage_summary_array(stage_reward_snapshot, "perks"):
@@ -116,9 +123,9 @@ static func build_perk_summary(
 static func build_visible_reward_summary(
 	stage_reward_snapshot: Dictionary,
 	boxes: Array,
-	stage_source: String,
-	box_source: String,
-	source_labels: Dictionary
+	stage_source: String = RESULT_REWARD_SOURCE_STAGE,
+	box_source: String = RESULT_REWARD_SOURCE_BOX,
+	source_labels: Dictionary = RESULT_REWARD_SOURCE_LABELS
 ) -> Array:
 	var rewards: Array = []
 	for reward in get_stage_summary_array(stage_reward_snapshot, "passive_items"):
@@ -150,9 +157,9 @@ static func build_visible_reward_summary(
 static func build_result_summary_state(
 	stage_reward_snapshot: Dictionary,
 	boxes: Array,
-	stage_source: String,
-	box_source: String,
-	source_labels: Dictionary
+	stage_source: String = RESULT_REWARD_SOURCE_STAGE,
+	box_source: String = RESULT_REWARD_SOURCE_BOX,
+	source_labels: Dictionary = RESULT_REWARD_SOURCE_LABELS
 ) -> Dictionary:
 	var item_rewards: Array = build_item_summary(stage_reward_snapshot, boxes, stage_source, box_source, source_labels)
 	var perk_rewards: Array = build_perk_summary(stage_reward_snapshot, boxes, stage_source, box_source, source_labels)
