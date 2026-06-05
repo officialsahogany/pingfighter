@@ -10,6 +10,7 @@ func _init() -> void:
 	_verify_resolved_rewards()
 	_verify_box_opening_state()
 	_verify_resolved_perk_append()
+	_verify_immediate_reward_payload()
 	_verify_scene_delegates_box_data()
 
 	if _failures.is_empty():
@@ -120,6 +121,36 @@ func _verify_resolved_perk_append() -> void:
 	_expect(not bool(StageClearResultBoxData.append_resolved_perk_reward(boxes, 0, {}).get("updated", true)), "box data should ignore empty resolved perk rewards")
 
 
+func _verify_immediate_reward_payload() -> void:
+	var box: Dictionary = {
+		"kind": "advanced",
+		"state": "opened",
+		"reward": {"type": "mythic", "id": "meteor"},
+	}
+	var payload: Dictionary = StageClearResultBoxData.build_immediate_reward_payload(
+		box,
+		{
+			"pickup_position": Vector2(120.0, 240.0),
+			"target_player_center": Vector2(620.0, 300.0),
+		}
+	)
+	_expect(str(payload.get("id", "")) == "meteor", "immediate payload should copy the opened reward")
+	_expect(str(payload.get("box_kind", "")) == "advanced", "immediate payload should include source box kind")
+	_expect(str(payload.get("box_state", "")) == "opened", "immediate payload should include source box state")
+	_expect(payload.get("pickup_position", null) is Vector2, "immediate payload should include pickup position")
+	_expect(payload.get("target_player_center", null) is Vector2, "immediate payload should include target position")
+	payload["id"] = "mutated"
+	_expect(str((box.get("reward", {}) as Dictionary).get("id", "")) == "meteor", "immediate payload should not mutate source reward")
+
+	var boxes: Array = [box]
+	var marked: Array = StageClearResultBoxData.mark_immediate_reward_granted(boxes, 0)
+	var marked_box: Dictionary = marked[0] if marked[0] is Dictionary else {}
+	var marked_reward: Dictionary = marked_box.get("reward", {}) as Dictionary
+	_expect(bool(marked_box.get("reward_immediate_granted", false)), "box data should mark immediate rewards as granted")
+	_expect(bool(marked_reward.get("immediate_granted", false)), "box data should mark stored reward immediate_granted")
+	_expect(not bool(box.get("reward_immediate_granted", false)), "box data should not mutate source boxes while marking grants")
+
+
 func _verify_scene_delegates_box_data() -> void:
 	var box_data_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_data.gd")
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
@@ -129,8 +160,11 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(scene_source.find("StageClearResultBoxData.update_box_opening_state") >= 0, "result scene should delegate box opening animation state")
 	_expect(scene_source.find("StageClearResultBoxData.append_resolved_perk_reward") >= 0, "result scene should delegate box resolved perk appends")
 	_expect(scene_source.find("StageClearResultBoxData.build_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview reward plan defaults")
+	_expect(scene_source.find("StageClearResultBoxData.build_immediate_reward_payload") >= 0, "result scene should delegate immediate reward payload assembly")
+	_expect(scene_source.find("StageClearResultBoxData.mark_immediate_reward_granted") >= 0, "result scene should delegate immediate reward grant marking")
 	_expect(scene_source.find("func _roll_reward") < 0, "result scene should not keep local reward rolling")
 	_expect(scene_source.find("reward_copy[\"box_kind\"]") < 0, "result scene should not keep resolved reward copy assembly")
+	_expect(scene_source.find("reward[\"pickup_position\"]") < 0, "result scene should not keep immediate reward payload position assembly")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -926,14 +926,6 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		return
 	if not immediate_reward_callback.is_valid():
 		return
-	var reward_value: Variant = box.get("reward", {})
-	if not (reward_value is Dictionary):
-		return
-	var reward: Dictionary = (reward_value as Dictionary).duplicate(true)
-	if reward.is_empty():
-		return
-	reward["box_kind"] = str(box.get("kind", "normal"))
-	reward["box_state"] = str(box.get("state", "opened"))
 	var view_size: Vector2 = size
 	if view_size == Vector2.ZERO:
 		view_size = _get_view_size()
@@ -948,18 +940,13 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		BOX_FLOAT_AMPLITUDE,
 		BOX_FLOAT_SPEED
 	)
-	reward["pickup_position"] = cinematic_positions.get("pickup_position", Vector2.ZERO)
-	reward["target_player_center"] = cinematic_positions.get("target_player_center", Vector2.ZERO)
+	var reward: Dictionary = StageClearResultBoxData.build_immediate_reward_payload(box, cinematic_positions)
+	if reward.is_empty():
+		return
 	var granted: bool = bool(immediate_reward_callback.call(reward, index))
 	if not granted:
 		return
-	box["reward_immediate_granted"] = true
-	reward_value = box.get("reward", {})
-	if reward_value is Dictionary:
-		var stored_reward: Dictionary = reward_value
-		stored_reward["immediate_granted"] = true
-		box["reward"] = stored_reward
-	_boxes[index] = box
+	_boxes = StageClearResultBoxData.mark_immediate_reward_granted(_boxes, index)
 
 
 func _update_scroll(delta: float) -> void:
