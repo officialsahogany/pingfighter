@@ -10,6 +10,16 @@ const LEGACY_BOX_KIND_MYTHIC := "mythic"
 const BOX_LABEL_NORMAL := "일반상자"
 const BOX_LABEL_ADVANCED := "고급상자"
 const BOX_LABEL_GUARANTEED_MYTHIC := "신화 확정상자"
+const BOX_BASE_SIZE := Vector2(65.0, 56.0)
+const BOX_FLOAT_AMPLITUDE := 5.0
+const BOX_FLOAT_SPEED := 1.4
+const BOX_HOVER_GROW := 1.06
+const BOX_SHADOW_OFFSET_Y := 9.0
+const BOX_OPEN_DURATION := 0.6
+const BOX_REWARD_EMERGE_DURATION := 0.45
+const BOX_REWARD_HOVER_OFFSET := 70.0
+const BOX_OPENING_SHAKE_AMPLITUDE := 4.0
+const BOX_LID_OPEN_PROGRESS := 0.55
 const FALLBACK_STARPOINT_SINGLE_CHANCE := 0.70
 const FALLBACK_STARPOINT_SINGLE_AMOUNT := 1
 const FALLBACK_STARPOINT_DOUBLE_AMOUNT := 2
@@ -32,7 +42,11 @@ static func build_standalone_preview_defaults(reward_count: int) -> Dictionary:
 	}
 
 
-static func build_boxes_from_plan(plan: Dictionary, default_amplitude: float, default_speed: float) -> Array:
+static func build_boxes_from_plan(
+	plan: Dictionary,
+	default_amplitude: float = BOX_FLOAT_AMPLITUDE,
+	default_speed: float = BOX_FLOAT_SPEED
+) -> Array:
 	var box_list: Array = []
 	var boxes_value: Variant = plan.get("boxes", [])
 	var source_boxes: Array = boxes_value if boxes_value is Array else []
@@ -175,10 +189,10 @@ static func start_opening_box_with_roll(
 static func update_box_opening_state(
 	boxes: Array,
 	delta: float,
-	box_open_duration: float,
-	box_reward_emerge_duration: float,
-	box_lid_open_progress: float,
-	lid_open_counter: int
+	lid_open_counter: int,
+	box_open_duration: float = BOX_OPEN_DURATION,
+	box_reward_emerge_duration: float = BOX_REWARD_EMERGE_DURATION,
+	box_lid_open_progress: float = BOX_LID_OPEN_PROGRESS
 ) -> Dictionary:
 	if boxes.is_empty() or delta <= 0.0:
 		return {

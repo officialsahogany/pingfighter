@@ -1,5 +1,6 @@
 extends RefCounted
 
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 
 const BUTTON_NONE := "none"
@@ -44,10 +45,10 @@ static func get_hovered_box_index(
 	mouse_position: Vector2,
 	draw_scale: float,
 	timer: float,
-	base_size: Vector2,
-	hover_grow: float,
-	default_amplitude: float,
-	default_speed: float
+	base_size: Vector2 = StageClearResultBoxData.BOX_BASE_SIZE,
+	hover_grow: float = StageClearResultBoxData.BOX_HOVER_GROW,
+	default_amplitude: float = StageClearResultBoxData.BOX_FLOAT_AMPLITUDE,
+	default_speed: float = StageClearResultBoxData.BOX_FLOAT_SPEED
 ) -> int:
 	return _get_box_index_at_mouse(boxes, mouse_position, draw_scale, timer, base_size, hover_grow, default_amplitude, default_speed, false)
 
@@ -57,10 +58,10 @@ static func get_clicked_idle_box_index(
 	mouse_position: Vector2,
 	draw_scale: float,
 	timer: float,
-	base_size: Vector2,
-	hover_grow: float,
-	default_amplitude: float,
-	default_speed: float
+	base_size: Vector2 = StageClearResultBoxData.BOX_BASE_SIZE,
+	hover_grow: float = StageClearResultBoxData.BOX_HOVER_GROW,
+	default_amplitude: float = StageClearResultBoxData.BOX_FLOAT_AMPLITUDE,
+	default_speed: float = StageClearResultBoxData.BOX_FLOAT_SPEED
 ) -> int:
 	return _get_box_index_at_mouse(boxes, mouse_position, draw_scale, timer, base_size, hover_grow, default_amplitude, default_speed, true)
 

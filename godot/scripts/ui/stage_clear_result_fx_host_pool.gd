@@ -29,9 +29,9 @@ func sync(
 	timer: float,
 	scroll_phase: String,
 	scroll_timer: float,
-	scroll_unfurl_duration: float,
-	box_float_amplitude: float,
-	box_float_speed: float
+	scroll_unfurl_duration: float = StageClearResultScrollState.SCROLL_UNFURL_DURATION,
+	box_float_amplitude: float = StageClearResultBoxData.BOX_FLOAT_AMPLITUDE,
+	box_float_speed: float = StageClearResultBoxData.BOX_FLOAT_SPEED
 ) -> void:
 	if boxes.is_empty():
 		deactivate_all()

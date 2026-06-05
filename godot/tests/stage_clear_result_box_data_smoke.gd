@@ -85,9 +85,6 @@ func _verify_box_opening_state() -> void:
 	var update_result: Dictionary = StageClearResultBoxData.update_box_opening_state(
 		started_boxes,
 		0.6,
-		0.6,
-		0.45,
-		0.55,
 		0
 	)
 	var updated_boxes: Array = update_result.get("boxes", [])

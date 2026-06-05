@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 
 var _failures: Array[String] = []
@@ -25,7 +26,7 @@ func _init() -> void:
 func _verify_direct_scroll_phase() -> void:
 	var scroll_delay: float = StageClearResultScrollState.SCROLL_DELAY
 	_expect(
-		scroll_delay > StageClearResultScene.BOX_REWARD_EMERGE_DURATION,
+		scroll_delay > StageClearResultBoxData.BOX_REWARD_EMERGE_DURATION,
 		"result scroll should wait until the final box reward has emerged"
 	)
 	var result: Dictionary = StageClearResultScrollState.update_phase("hidden", 0.0, 0.1, false, false, scroll_delay, 0.95)

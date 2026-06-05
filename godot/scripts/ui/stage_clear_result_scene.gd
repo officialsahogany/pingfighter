@@ -71,17 +71,6 @@ const BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
 const BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
 const BOSS_DEFEAT_CLICK_TOTAL_DURATION := BOSS_DEFEAT_CLICK_REACTION_DURATION + BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
 
-const BOX_BASE_SIZE := Vector2(65.0, 56.0)
-const BOX_FLOAT_AMPLITUDE := 5.0
-const BOX_FLOAT_SPEED := 1.4
-const BOX_HOVER_GROW := 1.06
-const BOX_SHADOW_OFFSET_Y := 9.0
-const BOX_OPEN_DURATION := 0.6
-const BOX_REWARD_EMERGE_DURATION := 0.45
-const BOX_REWARD_HOVER_OFFSET := 70.0
-const BOX_OPENING_SHAKE_AMPLITUDE := 4.0
-const BOX_LID_OPEN_PROGRESS := 0.55
-
 var timer: float = 0.0
 var player_score: int = 0
 var boss_score: int = 0
@@ -184,7 +173,7 @@ func _ready() -> void:
 	set_process(not _driven_by_controller)
 	_apply_standalone_preview_defaults()
 	if _boxes.is_empty() and not reward_plan.is_empty():
-		_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
+		_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan)
 	_sync_viewport_size()
 	_load_textures()
 	_load_audio()
@@ -218,7 +207,7 @@ func configure(
 		var object_value: Variant = data.get(object_key, null)
 		var resolved_object: Object = object_value as Object if typeof(object_value) == TYPE_OBJECT and is_instance_valid(object_value) else null
 		set(StringName("_" + object_key), resolved_object)
-	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
+	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan)
 	_fx_host_pool.reset_prewarm()
 	_lid_open_counter = 0
 	set_starpoint_choice_gate_active(false, -1)
@@ -278,10 +267,7 @@ func update_result_scene(delta: float) -> void:
 		_get_layout_scale(size),
 		timer,
 		_scroll_phase,
-		_scroll_timer,
-		StageClearResultScrollState.SCROLL_UNFURL_DURATION,
-		BOX_FLOAT_AMPLITUDE,
-		BOX_FLOAT_SPEED
+		_scroll_timer
 	)
 	queue_redraw()
 
@@ -750,13 +736,6 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 			_scroll_phase,
 			_scroll_timer,
 			StageClearResultScrollState.SCROLL_UNFURL_DURATION,
-			BOX_FLOAT_AMPLITUDE,
-			BOX_FLOAT_SPEED,
-			BOX_OPENING_SHAKE_AMPLITUDE,
-			BOX_SHADOW_OFFSET_Y,
-			BOX_HOVER_GROW,
-			BOX_BASE_SIZE,
-			BOX_REWARD_HOVER_OFFSET,
 			_result_box_sheet_common,
 			_result_box_sheet_mythic,
 			_result_box_sheet_guaranteed_mythic,
@@ -774,7 +753,7 @@ func _handle_box_click(mouse_position: Vector2) -> bool:
 		return false
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(size)
-	var clicked_index: int = StageClearResultInteractionState.get_clicked_idle_box_index(_boxes, mouse_position, scale, timer, BOX_BASE_SIZE, BOX_HOVER_GROW, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
+	var clicked_index: int = StageClearResultInteractionState.get_clicked_idle_box_index(_boxes, mouse_position, scale, timer)
 	if clicked_index < 0:
 		return false
 	_start_opening_box(clicked_index)
@@ -805,9 +784,6 @@ func _update_boxes(delta: float) -> void:
 	var result: Dictionary = StageClearResultBoxData.update_box_opening_state(
 		_boxes,
 		delta,
-		BOX_OPEN_DURATION,
-		BOX_REWARD_EMERGE_DURATION,
-		BOX_LID_OPEN_PROGRESS,
 		_lid_open_counter
 	)
 	_boxes = result.get("boxes", _boxes)
@@ -829,9 +805,7 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		box,
 		view_size,
 		scale,
-		timer,
-		BOX_FLOAT_AMPLITUDE,
-		BOX_FLOAT_SPEED
+		timer
 	)
 	var result: Dictionary = StageClearResultBoxData.try_grant_immediate_reward(_boxes, index, immediate_reward_callback, cinematic_positions)
 	_boxes = result.get("boxes", _boxes)
@@ -914,7 +888,7 @@ func _update_hovered_box(mouse_position: Vector2) -> void:
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(size)
 	var previous: int = _hovered_box_index
-	_hovered_box_index = StageClearResultInteractionState.get_hovered_box_index(_boxes, mouse_position, scale, timer, BOX_BASE_SIZE, BOX_HOVER_GROW, BOX_FLOAT_AMPLITUDE, BOX_FLOAT_SPEED)
+	_hovered_box_index = StageClearResultInteractionState.get_hovered_box_index(_boxes, mouse_position, scale, timer)
 	if previous != _hovered_box_index:
 		queue_redraw()
 

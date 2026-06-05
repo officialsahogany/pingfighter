@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 
 var _failures: Array[String] = []
@@ -74,19 +75,19 @@ func _verify_box_hit_state() -> void:
 	]
 	_expect(
 		StageClearResultInteractionState.get_hovered_box_index(
-			boxes, Vector2(220.0, 100.0), 1.0, 0.0, StageClearResultScene.BOX_BASE_SIZE, StageClearResultScene.BOX_HOVER_GROW, 0.0, 0.0
+			boxes, Vector2(220.0, 100.0), 1.0, 0.0, StageClearResultBoxData.BOX_BASE_SIZE, StageClearResultBoxData.BOX_HOVER_GROW, 0.0, 0.0
 		) == 2,
 		"hovered box hit-test should prefer the topmost matching box"
 	)
 	_expect(
 		StageClearResultInteractionState.get_clicked_idle_box_index(
-			boxes, Vector2(160.0, 100.0), 1.0, 0.0, StageClearResultScene.BOX_BASE_SIZE, StageClearResultScene.BOX_HOVER_GROW, 0.0, 0.0
+			boxes, Vector2(160.0, 100.0), 1.0, 0.0, StageClearResultBoxData.BOX_BASE_SIZE, StageClearResultBoxData.BOX_HOVER_GROW, 0.0, 0.0
 		) == -1,
 		"clicked idle box hit-test should ignore opened boxes"
 	)
 	_expect(
 		StageClearResultInteractionState.get_clicked_idle_box_index(
-			boxes, Vector2(100.0, 100.0), 1.0, 0.0, StageClearResultScene.BOX_BASE_SIZE, StageClearResultScene.BOX_HOVER_GROW, 0.0, 0.0
+			boxes, Vector2(100.0, 100.0), 1.0, 0.0, StageClearResultBoxData.BOX_BASE_SIZE, StageClearResultBoxData.BOX_HOVER_GROW, 0.0, 0.0
 		) == 0,
 		"clicked idle box hit-test should report idle box hits"
 	)

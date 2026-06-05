@@ -1,5 +1,6 @@
 extends RefCounted
 
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 
 const DEFAULT_FIELD_SIZE := Vector2(760.0, 750.0)
@@ -10,8 +11,8 @@ static func get_reward_cinematic_positions(
 	view_size: Vector2,
 	draw_scale: float,
 	timer: float,
-	box_float_amplitude: float,
-	box_float_speed: float,
+	box_float_amplitude: float = StageClearResultBoxData.BOX_FLOAT_AMPLITUDE,
+	box_float_speed: float = StageClearResultBoxData.BOX_FLOAT_SPEED,
 	field_size: Vector2 = DEFAULT_FIELD_SIZE
 ) -> Dictionary:
 	return {
