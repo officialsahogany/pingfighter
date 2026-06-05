@@ -23,7 +23,6 @@ const StageClearResultFontCache := preload("res://scripts/ui/stage_clear_result_
 const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
 const StageClearResultVoicePlayer := preload("res://scripts/ui/stage_clear_result_voice_player.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
-const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const STAGE1_BACKGROUND_PATH := StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH
 const DALJI_DEFEAT_SHEET_PATH := StageClearResultAssetLoader.DALJI_DEFEAT_SHEET_PATH
@@ -1275,12 +1274,11 @@ func _confirm() -> void:
 func _apply_standalone_preview_defaults() -> void:
 	if player_score != 0 or boss_score != 0 or not reward_plan.is_empty():
 		return
-	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults(LanguageSettings.format_item_box_summary(5), 5)
+	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults(5)
 	player_score = int(defaults.get("player_score", 0))
 	boss_score = int(defaults.get("boss_score", 0))
 	current_stage = int(defaults.get("current_stage", 1))
-	var reward_plan_value: Variant = defaults.get("reward_plan", {})
-	reward_plan = reward_plan_value if reward_plan_value is Dictionary else {}
+	reward_plan = defaults.get("reward_plan", {}) as Dictionary
 
 
 func _load_textures() -> void:

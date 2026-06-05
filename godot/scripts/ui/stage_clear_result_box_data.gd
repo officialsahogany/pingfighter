@@ -12,7 +12,7 @@ const BOX_LABEL_ADVANCED := "고급상자"
 const BOX_LABEL_GUARANTEED_MYTHIC := "신화 확정상자"
 
 
-static func build_standalone_preview_defaults(summary_text: String, reward_count: int) -> Dictionary:
+static func build_standalone_preview_defaults(reward_count: int) -> Dictionary:
 	var safe_count: int = max(0, reward_count)
 	var boxes: Array = []
 	for _i in range(safe_count):
@@ -22,7 +22,7 @@ static func build_standalone_preview_defaults(summary_text: String, reward_count
 		"boss_score": 0,
 		"current_stage": 1,
 		"reward_plan": {
-			"summary": summary_text,
+			"summary": LanguageSettings.format_item_box_summary(safe_count),
 			"boxes": boxes,
 			"reward_count": safe_count,
 		},

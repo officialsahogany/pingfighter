@@ -22,13 +22,13 @@ func _init() -> void:
 
 
 func _verify_standalone_preview_defaults() -> void:
-	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults("preview", 5)
+	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults(5)
 	_expect(int(defaults.get("player_score", 0)) == 5, "box data preview defaults should mirror reward count as player score")
 	_expect(int(defaults.get("boss_score", -1)) == 0, "box data preview defaults should start boss score at zero")
 	_expect(int(defaults.get("current_stage", 0)) == 1, "box data preview defaults should target Stage 1")
 	var plan: Dictionary = defaults.get("reward_plan", {}) as Dictionary
 	var boxes: Array = plan.get("boxes", []) as Array
-	_expect(str(plan.get("summary", "")) == "preview", "box data preview defaults should preserve supplied summary text")
+	_expect(str(plan.get("summary", "")) != "", "box data preview defaults should build a visible summary text")
 	_expect(int(plan.get("reward_count", 0)) == 5, "box data preview defaults should expose reward count")
 	_expect(boxes.size() == 5, "box data preview defaults should create one normal box per reward")
 	_expect(str((boxes[0] as Dictionary).get("kind", "")) == StageClearResultBoxData.BOX_KIND_NORMAL, "box data preview defaults should use normal boxes")
