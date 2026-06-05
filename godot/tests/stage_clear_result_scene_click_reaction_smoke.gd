@@ -7,6 +7,7 @@ const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_resu
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const RESULT_BOX_COMMON_SHEET := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
@@ -91,7 +92,7 @@ func _init() -> void:
 	var status: Dictionary = scene.get_interaction_status()
 	var box_labels: Array = status.get("box_display_labels", []) if status.get("box_display_labels", []) is Array else []
 	_expect(
-		box_labels == [StageClearResultScene.BOX_LABEL_GUARANTEED_MYTHIC, StageClearResultScene.BOX_LABEL_ADVANCED, StageClearResultScene.BOX_LABEL_NORMAL],
+		box_labels == [StageClearResultBoxData.BOX_LABEL_GUARANTEED_MYTHIC, StageClearResultBoxData.BOX_LABEL_ADVANCED, StageClearResultBoxData.BOX_LABEL_NORMAL],
 		"result scene should expose guaranteed mythic boxes as 신화 확정상자"
 	)
 	var click_rect: Rect2 = status.get("dalji_click_rect", Rect2())
