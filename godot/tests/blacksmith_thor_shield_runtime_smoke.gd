@@ -3,14 +3,21 @@ extends SceneTree
 const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 const BlacksmithThorShieldState := preload("res://scripts/characters/blacksmith_thor_shield_state.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const BattleResources := preload("res://scripts/resources/battle_resources.gd")
+const PaddleBouncePlayerPostHitHandler := preload("res://scripts/ball/paddle_bounce_player_post_hit_handler.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
 	_verify_runtime_routing()
+	_verify_imagegen_stretch_draw_path()
+	_verify_stretch_texture_in_prewarm_specs()
+	_verify_shield_open_close_visual_states()
 	_verify_shield_open_swing_and_speed()
 	_verify_shield_collision_and_hit_reward()
+	_verify_hitbox_tracks_visible_shield()
+	_verify_shield_hit_repositions_to_shield_surface()
 
 	if _failures.is_empty():
 		print("blacksmith_thor_shield_runtime_smoke: ok")
@@ -30,6 +37,39 @@ func _verify_runtime_routing() -> void:
 	_expect(runtime.get_input_reader_key("blacksmith") == "blacksmith_input_reader", "Blacksmith should route to its input reader")
 	_expect(runtime.get_skill_state_key("blacksmith") == "blacksmith_skill_state", "Blacksmith should expose its skill-state compatibility shell")
 	_expect(runtime.get_combo_state_key("blacksmith") == "", "Blacksmith should not inherit Smasher combo state")
+
+
+func _verify_imagegen_stretch_draw_path() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/characters/blacksmith_thor_shield_state.gd")
+	var draw_body: String = _function_body(source, "func draw(")
+	_expect(draw_body.find("_draw_integrated_thor_shield_stretch_texture") >= 0, "Thor Shield draw should use the imagegen stretch texture path")
+	_expect(draw_body.find("_draw_original_thor_shield_plate") < 0, "Thor Shield draw must not fall back to the legacy procedural canopy")
+	# The shield body must gate on the stretch texture, NOT on the overhead deploy
+	# sheet. Coupling the body render to `has_blacksmith_thor_shield_deploy_sheet`
+	# silently hid the shield whenever the stretch texture was missing from the cache.
+	_expect(draw_body.find("has_blacksmith_thor_shield_deploy_sheet") < 0, "Thor Shield draw body must not gate the stretch render on the overhead deploy sheet")
+
+
+func _verify_stretch_texture_in_prewarm_specs() -> void:
+	# Regression guard for the "shield never appears" bug: the stretch-shield PNG
+	# must live in the blacksmith texture SPEC list, not only in the direct
+	# `_load_blacksmith_player_textures` loader. The runtime boot / stage-transition
+	# prewarm path (`prewarm_transition_textures_step` -> `_get_player_texture_specs`)
+	# is what fills `_resource_cache` in normal gameplay; a spec omission leaves
+	# `blacksmith_thor_shield_stretch_texture` null at runtime even though the PNG is
+	# on disk and `load_all` would have loaded it on the synchronous fallback path.
+	var resources: Object = BattleResources.new()
+	var specs: Variant = resources.call("_get_blacksmith_player_texture_specs", false, false)
+	var found := false
+	if specs is Array:
+		for spec in specs:
+			if not (spec is Dictionary):
+				continue
+			var keys_value: Variant = spec.get("keys", [])
+			if keys_value is Array and (keys_value as Array).has("blacksmith_thor_shield_stretch_texture"):
+				found = true
+				break
+	_expect(found, "Blacksmith prewarm texture specs must include blacksmith_thor_shield_stretch_texture so the shield body loads in normal gameplay")
 
 
 func _verify_shield_open_swing_and_speed() -> void:
@@ -62,6 +102,111 @@ func _verify_shield_open_swing_and_speed() -> void:
 	var swing_snapshot: Dictionary = state.get_snapshot()
 	_expect(bool(swing_snapshot.get("blacksmith_umbrella_swing_active", false)), "Action plus horizontal input should start Thor Shield swing")
 	_expect(int(swing_snapshot.get("blacksmith_umbrella_swing_direction", 0)) == -1, "Swing direction should preserve the exclusive horizontal input")
+
+
+func _verify_shield_open_close_visual_states() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	var config := {
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_skill_input_locked": false,
+	}
+	var closed_snapshot: Dictionary = state.get_snapshot()
+	_expect(str(closed_snapshot.get("blacksmith_umbrella_visual_state", "")) == "closed", "Thor Shield should start in the folded visual state")
+	_expect(bool(closed_snapshot.get("blacksmith_umbrella_folded", false)), "Closed Thor Shield snapshot should mark folded=true")
+	_expect(is_zero_approx(float(closed_snapshot.get("blacksmith_umbrella_open_ratio", -1.0))), "Closed Thor Shield open ratio should be 0")
+	_expect(int(closed_snapshot.get("blacksmith_umbrella_anim_direction", 0)) == 1, "Closed Thor Shield should reset to the opening/default direction")
+
+	var opening_snapshot: Dictionary = state.update_input(
+		0.0,
+		{"up_just_pressed": true, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		1000,
+		75.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	_expect(bool(opening_snapshot.get("blacksmith_umbrella_open", false)), "Opening Thor Shield should keep the umbrella-open flag")
+	_expect(str(opening_snapshot.get("blacksmith_umbrella_visual_state", "")) == "opening", "Up input should publish the opening Thor Shield visual state")
+	_expect(int(opening_snapshot.get("blacksmith_umbrella_anim_direction", 0)) == 1, "Opening Thor Shield should use the original +1 animation direction")
+	_expect(is_zero_approx(float(opening_snapshot.get("blacksmith_umbrella_open_ratio", -1.0))), "Opening starts from the original folded progress")
+
+	var raising_snapshot: Dictionary = state.update_input(
+		0.30,
+		{"up_just_pressed": false, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		1300,
+		75.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	_expect(float(raising_snapshot.get("blacksmith_umbrella_raise_amount", 0.0)) > 0.90, "Original Thor Shield raise phase should finish before the plate fully opens")
+	_expect(float(raising_snapshot.get("blacksmith_umbrella_shield_open_amount", 0.0)) < 0.25, "Original Thor Shield plate opening should lag behind the raise phase")
+
+	var deployed_snapshot: Dictionary = state.update_input(
+		0.50,
+		{"up_just_pressed": false, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		1800,
+		75.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	_expect(str(deployed_snapshot.get("blacksmith_umbrella_visual_state", "")) == "open", "Thor Shield should publish the fully-open visual state after the deploy timer")
+	_expect(bool(deployed_snapshot.get("blacksmith_umbrella_deployed", false)), "Fully opened Thor Shield should mark deployed=true")
+	_expect(is_equal_approx(float(deployed_snapshot.get("blacksmith_umbrella_shield_open_amount", 0.0)), 1.0), "Fully opened Thor Shield should expose open_amount=1")
+	var integrated_metrics: Dictionary = state.call("_get_integrated_thor_shield_overlay_metrics", Vector2.ZERO)
+	var visual_width: float = float(integrated_metrics.get("shield_width", 0.0))
+	var visual_height: float = float(integrated_metrics.get("shield_height", 0.0))
+	var hand_value: Variant = integrated_metrics.get("hand_anchor", Vector2.ZERO)
+	var grip_value: Variant = integrated_metrics.get("grip_anchor", Vector2.ZERO)
+	var hand_anchor: Vector2 = hand_value if hand_value is Vector2 else Vector2.ZERO
+	var grip_anchor: Vector2 = grip_value if grip_value is Vector2 else Vector2.ZERO
+	_expect(visual_width >= 290.0 and visual_width <= 330.0, "Integrated Thor Shield should lengthen the Kohaku shield without becoming screen-sized")
+	_expect(visual_height >= 110.0 and visual_height <= 135.0, "Integrated Thor Shield should keep a compact imagegen shield height")
+	# hand_anchor must seat ONTO Kohaku's raised hand, not float ~66px overhead like
+	# the first pass did. With player_pos.y=700 the sprite top is ~634 and her raised
+	# shield/hand sits ~666; the anchor should land in that band, above the paddle
+	# baseline (700) but well below the old floating-overhead position (~578).
+	_expect(hand_anchor.y > 615.0 and hand_anchor.y < 685.0, "Integrated Thor Shield hand anchor should seat onto the raised hand, not float overhead")
+	_expect(hand_anchor.distance_to(grip_anchor) <= 70.0, "Integrated Thor Shield stretch prop should stay visually connected to the raised hand")
+
+	var closing_snapshot: Dictionary = state.update_input(
+		0.0,
+		{"up_just_pressed": true, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		1900,
+		75.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	_expect(bool(closing_snapshot.get("blacksmith_umbrella_open", false)), "Closing Thor Shield should preserve the original open flag until retract completes")
+	_expect(bool(closing_snapshot.get("blacksmith_umbrella_retracting", false)), "Closing Thor Shield should mark retracting=true")
+	_expect(str(closing_snapshot.get("blacksmith_umbrella_visual_state", "")) == "closing", "Closing Thor Shield should publish the closing visual state")
+	_expect(int(closing_snapshot.get("blacksmith_umbrella_anim_direction", 0)) == -1, "Closing Thor Shield should use the original -1 animation direction")
+
+	var closing_collision_context: Dictionary = state.get_ball_collision_context({
+		"player_pos": Vector2(302.5, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+	})
+	_expect(bool(closing_collision_context.get("blacksmith_thor_shield_active", false)), "Closing Thor Shield should keep the original retract grace collision context")
+	_expect(str(closing_collision_context.get("blacksmith_umbrella_visual_state", "")) == "closing", "Collision context should include the closing Thor Shield visual state")
+
+	var final_snapshot: Dictionary = state.update_input(
+		0.80,
+		{"up_just_pressed": false, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		2700,
+		75.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	_expect(not bool(final_snapshot.get("blacksmith_umbrella_open", true)), "Retracted Thor Shield should clear the open flag")
+	_expect(not bool(final_snapshot.get("blacksmith_umbrella_retracting", true)), "Retracted Thor Shield should clear retracting")
+	_expect(str(final_snapshot.get("blacksmith_umbrella_visual_state", "")) == "closed", "Retracted Thor Shield should return to the closed visual state")
+	_expect(bool(final_snapshot.get("blacksmith_umbrella_folded", false)), "Retracted Thor Shield should mark folded=true again")
+	_expect(is_zero_approx(float(final_snapshot.get("blacksmith_umbrella_open_ratio", -1.0))), "Retracted Thor Shield open ratio should return to 0")
+	_expect(is_equal_approx(float(state.get_player_speed_multiplier()), 1.0), "Retracted Thor Shield should restore normal movement speed")
 
 
 func _verify_shield_collision_and_hit_reward() -> void:
@@ -117,6 +262,101 @@ func _verify_shield_collision_and_hit_reward() -> void:
 	_expect(bool(hit_result.get("suppress_paddle_hit_knockback", false)), "Thor Shield hit should suppress normal paddle knockback")
 
 
+func _verify_hitbox_tracks_visible_shield() -> void:
+	# Regression guard for the "shield image and Thor Shield hitbox don't line up"
+	# bug: the ball-collision rect must be derived from the same integrated overlay
+	# metrics the renderer draws the stretch shield with, NOT the old paddle-baseline
+	# formula. Open the shield fully, then compare the published collision rect
+	# against the visual metrics.
+	var state: Object = BlacksmithThorShieldState.new()
+	var config := {
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_skill_input_locked": false,
+	}
+	state.update_input(
+		0.80,
+		{"up_just_pressed": true, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		1000,
+		90.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	var metrics: Dictionary = state.call("_get_integrated_thor_shield_overlay_metrics", Vector2.ZERO)
+	var visual_center_value: Variant = metrics.get("shield_center", Vector2.ZERO)
+	var visual_center: Vector2 = visual_center_value if visual_center_value is Vector2 else Vector2.ZERO
+	var visual_width: float = float(metrics.get("shield_width", 0.0))
+	var collision_context: Dictionary = state.get_ball_collision_context({
+		"player_pos": Vector2(302.5, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+	})
+	var rect: Rect2 = collision_context.get("blacksmith_thor_shield_rect", Rect2())
+	var rect_center: Vector2 = rect.get_center()
+	_expect(rect_center.distance_to(visual_center) <= 4.0, "Thor Shield hitbox center should track the visible stretch-shield center")
+	_expect(absf(rect.size.x - visual_width) <= 2.0, "Thor Shield hitbox width should match the drawn stretch-shield width")
+	_expect(rect.size.y < rect.size.x, "Thor Shield hitbox should stay shield-shaped (wider than tall), not paddle-square")
+	# player_pos.y = 700; the lifted overhead shield judges well above the paddle
+	# baseline. The old paddle-baseline rect centered near y~683, so this also guards
+	# against silently reverting to that formula.
+	_expect(rect_center.y < 650.0, "Thor Shield hitbox should follow the raised shield above the paddle baseline")
+
+
+func _verify_shield_hit_repositions_to_shield_surface() -> void:
+	# Regression guard for "the ball teleports to the player when it hits the shield":
+	# a Thor Shield hit must seat the ball just above the shield's TOP surface, NOT
+	# snap down to the player paddle baseline (player_y).
+	var state: Object = BlacksmithThorShieldState.new()
+	var config := {
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_skill_input_locked": false,
+	}
+	state.update_input(
+		0.80,
+		{"up_just_pressed": true, "action_just_pressed": false, "blacksmith_swing_direction": 0},
+		1000,
+		90.0,
+		Vector2(302.5, 700.0),
+		config,
+		{}
+	)
+	var collision_context: Dictionary = state.get_ball_collision_context({
+		"player_pos": Vector2(302.5, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+	})
+	var shield_rect: Rect2 = collision_context.get("blacksmith_thor_shield_rect", Rect2())
+	var ball_size := 28.6
+	var player_y := 700.0
+	var handler: Object = PaddleBouncePlayerPostHitHandler.new()
+	var shield_center: Vector2 = shield_rect.get_center()
+	var snapped: Vector2 = handler.call("_snap_player_hit_ball_pos", shield_center, {
+		"blacksmith_thor_shield_hit": true,
+		"blacksmith_thor_shield_rect": shield_rect,
+		"player_y": player_y,
+		"ball_size": ball_size,
+	})
+	var expected_y: float = shield_rect.position.y - ball_size
+	_expect(absf(snapped.y - expected_y) <= 0.5, "Thor Shield hit should seat the ball above the shield top surface")
+	_expect(snapped.y < player_y - 60.0, "Thor Shield hit must not snap the ball down to the player paddle baseline")
+	# Control: a normal player hit (no shield flag) still snaps to the paddle surface.
+	var normal: Vector2 = handler.call("_snap_player_hit_ball_pos", Vector2(380.0, 560.0), {
+		"player_y": player_y,
+		"ball_size": ball_size,
+	})
+	_expect(absf(normal.y - (player_y - ball_size)) <= 0.5, "Non-shield player hit should still snap to the player paddle surface")
+
+
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start: int = source.find(signature)
+	if start < 0:
+		return ""
+	var next_func: int = source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)

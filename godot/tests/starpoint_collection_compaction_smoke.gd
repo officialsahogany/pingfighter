@@ -27,9 +27,28 @@ class RuntimePerkStateStub:
 		return opens_choice
 
 
+class LingpetStarlightRuntimeStub:
+	var update_calls := 0
+
+	func update_starlight_tracking_for_starpoint_drop(_drop: Dictionary, _delta_seconds: float, _context: Dictionary = {}) -> Dictionary:
+		update_calls += 1
+		if update_calls == 1:
+			_drop["lingpet_starlight_tracking_carrying"] = true
+			return {
+				"picked_up": true,
+				"carrying": true,
+				"claimed": true,
+			}
+		return {
+			"delivered": true,
+			"claimed": true,
+		}
+
+
 func _init() -> void:
 	_verify_stage1_collection_preserves_remaining_drop_after_modal()
 	_verify_stage1_collection_continues_without_modal()
+	_verify_stage1_starlight_tracking_collects_without_player_overlap()
 	_verify_stage2_collection_preserves_remaining_drop_after_modal()
 	_verify_stage3_collection_preserves_remaining_drop_after_modal()
 	_verify_stage4_collection_preserves_remaining_drop_after_modal()
@@ -66,6 +85,28 @@ func _verify_stage1_collection_continues_without_modal() -> void:
 	event._update_starpoint_drops(0.0, _context(1), {"runtime_perk_state": runtime_state})
 	_expect(runtime_state.collect_calls == 2, "Stage 1 should continue normal collection when no modal opens")
 	_expect(event.starpoint_drops.is_empty(), "Stage 1 should remove collected drops when no modal opens")
+
+
+func _verify_stage1_starlight_tracking_collects_without_player_overlap() -> void:
+	var event := Stage1BalloonEvent.new()
+	event.starpoint_drops = [
+		_make_drop(Vector2(320.0, 160.0), Stage1BalloonEvent.STARPOINT_DROP_SIZE),
+	]
+	var runtime_state := RuntimePerkStateStub.new(event, false)
+	var starlight_runtime := LingpetStarlightRuntimeStub.new()
+	event._update_starpoint_drops(0.0, _context(1), {
+		"runtime_perk_state": runtime_state,
+		"lingpet_egg_runtime": starlight_runtime,
+	})
+	_expect(starlight_runtime.update_calls == 1, "Stage 1 should offer live starpoint drops to the lingpet Starlight Tracking runtime")
+	_expect(runtime_state.collect_calls == 0, "Starlight Tracking pickup should not grant the starpoint before player delivery")
+	_expect(event.starpoint_drops.size() == 1, "Starlight Tracking should keep the carried starpoint in-flight until delivery")
+	event._update_starpoint_drops(0.0, _context(1), {
+		"runtime_perk_state": runtime_state,
+		"lingpet_egg_runtime": starlight_runtime,
+	})
+	_expect(runtime_state.collect_calls == 1, "Starlight Tracking collection should grant the starpoint through the normal reward path")
+	_expect(event.starpoint_drops.is_empty(), "Starlight Tracking should remove the auto-collected starpoint drop")
 
 
 func _verify_stage2_collection_preserves_remaining_drop_after_modal() -> void:

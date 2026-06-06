@@ -170,18 +170,19 @@ func _init() -> void:
 	_expect(bool(player_result.get("activated", false)), "100% trigger roll should create a stun ball")
 	_expect(is_equal_approx(float(player_result.get("special_gauge", 0.0)), 70.0), "Ragnarok Hammer should spend its gauge-cost roll")
 	_expect(is_equal_approx(_get_vec(player_result, "ball_vel").length(), 12.5), "Ragnarok Hammer should apply the ball speed boost roll")
-	_expect(bool(player_result.get("speed_limit_disabled", false)), "Ragnarok stun-ball launch should disable the ball speed cap")
+	_expect(not player_result.has("speed_limit_disabled"), "Ragnarok stun-ball launch should no longer fully disable the ball speed cap")
 	var active_collision_context: Dictionary = runtime.get_ball_collision_context()
-	_expect(bool(active_collision_context.get("speed_limit_disabled", false)), "active Ragnarok stun ball should expose uncapped ball physics")
+	_expect(not bool(active_collision_context.get("speed_limit_disabled", false)), "active Ragnarok stun ball should not expose fully uncapped ball physics")
+	_expect(is_equal_approx(float(active_collision_context.get("ragnarok_hammer_speed_cap_bonus", 0.0)), 6.0), "active Ragnarok stun ball should expose the +6 league speed-cap bonus")
+	_expect(is_equal_approx(runtime.get_ragnarok_speed_cap_bonus(), 6.0), "active Ragnarok stun ball should report a +6 speed-cap bonus")
 	var uncapped_scene := {
 		"ball_vel": Vector2(90.0, 0.0),
 		"ball_impact_boost": 1.0,
 		"max_ball_speed": 26.0,
 		"impact_boost_max_ball_speed": 26.0,
-		"speed_limit_disabled": bool(active_collision_context.get("speed_limit_disabled", false)),
 	}
-	BallFrameMotionController.new().apply_ball_speed_limits(uncapped_scene, {"ball_physics": BallPhysics.new()})
-	_expect(is_equal_approx(_get_vec(uncapped_scene, "ball_vel").length(), 90.0), "active Ragnarok stun ball should bypass frame speed caps before the boss guards")
+	BallFrameMotionController.new().apply_ball_speed_limits(uncapped_scene, {"ball_physics": BallPhysics.new(), "mythic_item_runtime": runtime})
+	_expect(is_equal_approx(_get_vec(uncapped_scene, "ball_vel").length(), 32.0), "active Ragnarok stun ball should cap at the league limit +6 (26 -> 32) before the boss guards")
 	_expect(audio.shot_count == 1, "stun-ball activation should play the shot cue")
 	_expect(bool(runtime.get_ball_draw_context().get("ragnarok_hammer_ball_active", false)), "ball draw context should mark the charged ball")
 
@@ -198,20 +199,20 @@ func _init() -> void:
 		deps
 	)
 	_expect(bool(boss_result.get("applied", false)), "boss counter should consume the charged Ragnarok ball")
-	_expect(not bool(boss_result.get("speed_limit_disabled", true)), "Ragnarok boss guard should restore the ball speed cap")
+	_expect(not boss_result.has("speed_limit_disabled"), "Ragnarok boss guard no longer toggles the global speed-limit flag")
 	var guarded_ball_vel: Vector2 = _get_vec(boss_result, "ball_vel")
 	_expect(guarded_ball_vel.length() <= 20.01, "Ragnarok boss guard should slow the counter ball below the normal speed cap")
 	_expect(guarded_ball_vel.y > 0.0, "Ragnarok boss guard should reflect the counter ball back toward the player side")
 	_expect(abs(guarded_ball_vel.x) <= guarded_ball_vel.length() * 0.43, "Ragnarok boss guard should limit sharp horizontal counter angles")
-	_expect(not bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "consumed Ragnarok stun ball should stop exposing uncapped physics")
+	_expect(is_equal_approx(runtime.get_ragnarok_speed_cap_bonus(), 0.0), "consumed Ragnarok stun ball should stop raising the speed cap")
+	_expect(is_equal_approx(float(runtime.get_ball_collision_context().get("ragnarok_hammer_speed_cap_bonus", 0.0)), 0.0), "consumed Ragnarok stun ball should stop exposing the +6 cap bonus")
 	var capped_scene := {
 		"ball_vel": Vector2(90.0, 0.0),
 		"ball_impact_boost": 1.0,
 		"max_ball_speed": 26.0,
 		"impact_boost_max_ball_speed": 26.0,
-		"speed_limit_disabled": false,
 	}
-	BallFrameMotionController.new().apply_ball_speed_limits(capped_scene, {"ball_physics": BallPhysics.new()})
+	BallFrameMotionController.new().apply_ball_speed_limits(capped_scene, {"ball_physics": BallPhysics.new(), "mythic_item_runtime": runtime})
 	_expect(_get_vec(capped_scene, "ball_vel").length() <= 26.01, "normal frame speed cap should return after Ragnarok boss guard")
 	_expect(audio.boom_count == 1, "Ragnarok boss impact should play the boom cue")
 	_expect(audio.electric_play_count == 1 and audio.electric_loop_active, "Ragnarok electric stun should start the Lightning Fury shock loop")
@@ -279,7 +280,7 @@ func _verify_speed_limit_lifecycle_through_ball_update() -> void:
 		{"registry": registry, "feedback": feedback}
 	)
 	_expect(bool(activation_result.get("activated", false)), "Ragnarok speed-limit lifecycle test should arm a stun ball")
-	_expect(bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "armed Ragnarok ball should disable speed caps before guard")
+	_expect(is_equal_approx(runtime.get_ragnarok_speed_cap_bonus(), 6.0), "armed Ragnarok ball should raise the league speed cap by +6 before guard")
 	var update_context := {
 		"selected_character_type": "smasher",
 		"ball_active": true,
@@ -318,8 +319,8 @@ func _verify_speed_limit_lifecycle_through_ball_update() -> void:
 		}
 	)
 	var snapshot: Dictionary = ball_result.get("snapshot", {})
-	_expect(not bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "boss guard should clear Ragnarok's uncapped state")
-	_expect(not bool(snapshot.get("speed_limit_disabled", true)), "boss guard frame should publish the restored speed-limit state")
+	_expect(is_equal_approx(runtime.get_ragnarok_speed_cap_bonus(), 0.0), "boss guard should clear Ragnarok's raised speed cap")
+	_expect(not bool(snapshot.get("speed_limit_disabled", false)), "boss guard frame should not leave the global speed-limit flag set")
 	var guarded_snapshot_vel: Vector2 = _get_vec(snapshot, "ball_vel")
 	_expect(guarded_snapshot_vel.length() <= 20.01, "boss-guarded Ragnarok ball should be slowed below the normal cap immediately")
 	_expect(guarded_snapshot_vel.y > 0.0, "boss-guarded Ragnarok ball should travel back toward the player immediately")

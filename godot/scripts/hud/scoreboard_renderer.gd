@@ -18,7 +18,8 @@ func draw_top_mini(
 	sparkle_timer: float,
 	sparkle_duration: float,
 	t: float,
-	quality_scale: float = 1.0
+	quality_scale: float = 1.0,
+	stakes: Dictionary = {}
 ) -> void:
 	top_mini_renderer.draw(
 		canvas,
@@ -31,7 +32,8 @@ func draw_top_mini(
 		sparkle_timer,
 		sparkle_duration,
 		t,
-		quality_scale
+		quality_scale,
+		stakes
 	)
 
 

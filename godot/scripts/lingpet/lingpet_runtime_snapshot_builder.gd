@@ -48,6 +48,8 @@ func build_runtime_snapshot(
 	var passive_level := int(passive_skill.get("level", 1)) if passive_enabled else 0
 	var passive_max_level := int(passive_skill.get("max_level", 5)) if passive_enabled else 0
 	var player_speed_bonus_pct := maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if passive_enabled else 0.0
+	var starpoint_tracking_chance_pct := maxf(0.0, float(passive_skill.get("starpoint_tracking_chance_pct", 0.0))) if passive_enabled else 0.0
+	var ring_dash_chance_pct := maxf(0.0, float(passive_skill.get("ring_dash_chance_pct", 0.0))) if passive_enabled else 0.0
 	var snapshot := {
 		"pet_id": pet_id,
 		"state": state,
@@ -70,6 +72,8 @@ func build_runtime_snapshot(
 		"companion_passive_skill_level": passive_level,
 		"companion_passive_skill_max_level": passive_max_level,
 		"companion_passive_skill_pool_ids": _get_skill_ids(passive_skill_pool) if companion_active else [],
+		"companion_starpoint_tracking_chance_pct": starpoint_tracking_chance_pct,
+		"companion_ring_dash_chance_pct": ring_dash_chance_pct,
 		"hatch_flash_timer": hatch_flash_timer,
 		"owned_pet_ids": owned_pet_ids.duplicate(),
 		"battle_slot_pet_ids": battle_slot_pet_ids.duplicate(),
@@ -273,6 +277,8 @@ func _sync_passive_owner(owner: Object, passive_id: String, passive_skill: Dicti
 	_set_pair(owner, "lingpet_passive_skill_name", "ringpet_passive_skill_name", str(passive_skill.get("name", "")) if companion_active else "")
 	_set_pair(owner, "lingpet_passive_skill_description", "ringpet_passive_skill_description", str(passive_skill.get("description", "")) if companion_active else "")
 	_set_pair(owner, "lingpet_passive_skill_icon_path", "ringpet_passive_skill_icon_path", str(passive_skill.get("icon_texture_path", "")) if companion_active else "")
+	_set_pair(owner, "lingpet_starpoint_tracking_chance_pct", "ringpet_starpoint_tracking_chance_pct", maxf(0.0, float(passive_skill.get("starpoint_tracking_chance_pct", 0.0))) if companion_active else 0.0)
+	_set_pair(owner, "lingpet_ring_dash_chance_pct", "ringpet_ring_dash_chance_pct", maxf(0.0, float(passive_skill.get("ring_dash_chance_pct", 0.0))) if companion_active else 0.0)
 
 
 func _set_pair(owner: Object, lingpet_key: String, ringpet_key: String, value: Variant) -> void:

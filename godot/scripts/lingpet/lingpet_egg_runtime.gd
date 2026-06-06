@@ -3,6 +3,9 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
 const LingpetAfterglowLeakState := preload("res://scripts/lingpet/lingpet_afterglow_leak_state.gd")
+const LingpetRingDashState := preload("res://scripts/lingpet/lingpet_ring_dash_state.gd")
+const LingpetRingDashVfx := preload("res://scripts/lingpet/lingpet_ring_dash_vfx.gd")
+const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
@@ -91,9 +94,16 @@ var _companion_facing_left := false
 var _companion_motion_state: Object = LingpetCompanionMotionState.new()
 var _hatch_flash_timer := 0.0
 var _afterglow_leak_state: Object = LingpetAfterglowLeakState.new()
+var _ring_dash_state: Object = LingpetRingDashState.new()
+var _ring_dash_vfx: Object = LingpetRingDashVfx.new()
+var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
+# F7 debug-only defense-rate override. < 0 means "use the pet's catalog/profile
+# value"; >= 0 forces that defense_rate for feel testing. Sticky across rounds so
+# the override can be evaluated over a whole match; only the F7 picker writes it.
+var _debug_defense_rate_override := -1.0
 var _companion_draw_context_builder: Object = LingpetCompanionDrawContextBuilder.new()
 var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
@@ -111,6 +121,7 @@ var _companion_skill_state_by_pet_id: Dictionary = {}
 var _has_synced_none := false
 var _click_reaction_visual_prewarm_pet_id := ""
 var _click_reaction_visual_prewarm_done_for := ""
+var _acquire_cutin_assets_prewarm_done_for := ""
 var _applied_loadout_key := ""
 var _synced_owner_loadout_key := ""
 
@@ -143,12 +154,20 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 
 	if _state == STATE_EGG:
 		_egg_state.update_player_contact(delta, owner)
+		# Stream the heavy acquire cut-in sheets (8192px+ Live2D anim/dismiss) into the
+		# texture cache across the calm egg-wait frames, BEFORE the egg hatches. The
+		# reveal is only REVEAL_SECONDS (1.4s) long, so a cold draw-time stream cannot
+		# always finish in time and the cut-in falls back to the static 원화 still. A
+		# head start here lets the cut-in open already showing the Live2D animation.
+		_prewarm_acquire_cutin_assets_step(registry)
 		var changed: bool = _resolve_ball_hit(owner, registry)
 		_sync_owner(owner)
 		return changed
 
 	if _state == STATE_COMPANION:
 		_prewarm_click_reaction_visual_step()
+		_starlight_tracking_state.advance(delta, _get_current_passive_skill(), _state == STATE_COMPANION, _companion_pos)
+		_ring_dash_vfx.advance(delta)
 		_update_companion_motion(delta, owner)
 		_maybe_arm_companion_strike(owner)
 		_resolve_companion_ball_hit(owner, registry)
@@ -179,7 +198,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 				LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY,
 				null
 			)
-		var click_reaction_visible: bool = bool(_companion_click_reaction_state.is_active()) and click_reaction_texture != null
+		var click_reaction_visible: bool = bool(_companion_click_reaction_state.is_active()) and click_reaction_texture != null and not _ring_dash_state.is_companion_visual_hidden()
 		if companion_body_draw_suppressed:
 			pass
 		elif not click_reaction_visible:
@@ -191,6 +210,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 				click_reaction_texture,
 				_get_companion_click_reaction_draw_size()
 			)
+		if _ring_dash_vfx.has_visible_effects():
+			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
@@ -202,6 +223,7 @@ func has_visible_effects() -> bool:
 		or _hatch_flash_timer > 0.0
 		or _acquire_cutin_state.active
 		or _afterglow_leak_state.has_visible_effects()
+		or _ring_dash_vfx.has_visible_effects()
 		or _skill_runtime_host.has_visible_effects()
 	)
 
@@ -381,6 +403,34 @@ func get_afterglow_leak_residue_count_for_tests() -> int:
 	return _afterglow_leak_state.get_residue_count_for_tests()
 
 
+func get_starlight_tracking_trigger_count_for_tests() -> int:
+	return _starlight_tracking_state.get_trigger_count_for_tests()
+
+
+func is_starlight_tracking_active_for_tests() -> bool:
+	return _starlight_tracking_state.is_active_for_tests()
+
+
+func get_ring_dash_trigger_count_for_tests() -> int:
+	return _ring_dash_state.get_trigger_count_for_tests()
+
+
+func is_ring_dash_active_for_tests() -> bool:
+	return _ring_dash_state.is_active_for_tests()
+
+
+func is_ring_dash_vfx_active_for_tests() -> bool:
+	return _ring_dash_vfx.has_visible_effects()
+
+
+func is_ring_dash_visual_hidden_for_tests() -> bool:
+	return _ring_dash_state.is_companion_visual_hidden()
+
+
+func get_companion_draw_motion_speed_ratio_for_tests() -> float:
+	return _get_companion_draw_motion_speed_ratio()
+
+
 func get_headbutt_hit_count_for_tests() -> int:
 	return _skill_runtime_host.get_headbutt_hit_count_for_tests()
 
@@ -392,6 +442,11 @@ func get_headbutt_miss_count_for_tests() -> int:
 func configure_companion_motion_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer: float, test_intercept_active: bool) -> void:
 	_companion_pos = test_pos
 	_companion_motion_state.configure_for_tests(test_pos, test_seed, test_decision_timer, test_intercept_active)
+
+
+func configure_companion_sortie_hidden_for_tests(test_pos: Vector2, test_seed: int, hidden_seconds: float) -> void:
+	_companion_pos = test_pos
+	_companion_motion_state.configure_sortie_hidden_for_tests(test_pos, test_seed, hidden_seconds)
 
 
 func get_gauge_gain_per_hit(base_gain: float) -> float:
@@ -409,6 +464,38 @@ func get_player_speed_multiplier() -> float:
 	if bonus_pct <= 0.0:
 		return 1.0
 	return 1.0 + bonus_pct / 100.0
+
+
+func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_seconds: float, context: Dictionary = {}) -> Dictionary:
+	if drop.is_empty() or _state != STATE_COMPANION:
+		return {}
+	if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()):
+		_starlight_tracking_state.reset_round_transients()
+		return {}
+	if _ring_dash_state.has_companion_position_override():
+		return {}
+	if _companion_pos == Vector2.ZERO:
+		var owner_value: Variant = context.get("owner", null)
+		var owner: Object = null
+		if owner_value is Object:
+			owner = owner_value as Object
+		_initialize_companion_patrol(owner, true)
+	var previous_pos := _companion_pos
+	var result: Dictionary = _starlight_tracking_state.update_drop(
+		maxf(0.0, delta_seconds),
+		drop,
+		_get_current_passive_skill(),
+		_state == STATE_COMPANION,
+		_companion_pos,
+		_get_starlight_tracking_delivery_pos(context)
+	)
+	if result.has("companion_pos"):
+		var next_pos: Variant = result.get("companion_pos", _companion_pos)
+		if next_pos is Vector2:
+			_companion_pos = next_pos
+			_companion_motion_state.pos = _companion_pos
+			_update_companion_facing_after_motion(previous_pos)
+	return result
 
 
 func get_snapshot() -> Dictionary:
@@ -444,6 +531,8 @@ func get_snapshot() -> Dictionary:
 	)
 	snapshot.merge(_switch_transition_state.get_snapshot(COMPANION_SWITCH_TRANSITION_SECONDS), true)
 	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
+	snapshot.merge(_ring_dash_state.get_snapshot(), true)
+	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
 	return snapshot
 
 
@@ -541,6 +630,9 @@ func reset_round(_deps: Dictionary = {}) -> void:
 	_companion_skill_state.reset_round_transients()
 	_companion_body_hit_state.reset_round_transients()
 	_afterglow_leak_state.reset_round_transients()
+	_ring_dash_state.reset_round_transients()
+	_ring_dash_vfx.reset()
+	_starlight_tracking_state.reset_round_transients()
 
 
 func _reset_skill_runtime_transients() -> void:
@@ -556,12 +648,18 @@ func _clear_lingpet_field_state() -> void:
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
 	_afterglow_leak_state.reset_all()
+	_ring_dash_state.reset_all()
+	_ring_dash_vfx.reset()
+	_starlight_tracking_state.reset_all()
 
 
 func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
 	_companion_sprite_animator.reset_all()
 	_companion_body_hit_state.reset_all()
 	_afterglow_leak_state.reset_all()
+	_ring_dash_state.reset_all()
+	_ring_dash_vfx.reset()
+	_starlight_tracking_state.reset_all()
 	_companion_skill_state.reset_all()
 	if reset_defense:
 		_reset_companion_defense()
@@ -793,7 +891,18 @@ func _get_current_hit_gauge_gain() -> float:
 	return _current_profile.get_hit_gauge_gain(COMPANION_HIT_GAUGE_GAIN)
 
 
+func set_debug_defense_rate_override(value: float) -> void:
+	# value < 0 clears the override (back to the pet's catalog/profile defense_rate).
+	_debug_defense_rate_override = -1.0 if value < 0.0 else clampf(value, 0.0, 1.0)
+
+
+func get_debug_defense_rate_override() -> float:
+	return _debug_defense_rate_override
+
+
 func _get_current_defense_rate() -> float:
+	if _debug_defense_rate_override >= 0.0:
+		return _debug_defense_rate_override
 	return _current_profile.get_defense_rate(COMPANION_DEFENSE_RATE)
 
 
@@ -872,6 +981,36 @@ func _get_companion_click_reaction_draw_size() -> Vector2:
 	return Vector2(draw_size, draw_size)
 
 
+func _prewarm_acquire_cutin_assets_step(registry: Object) -> void:
+	# One incremental threaded-stream step toward caching the current egg pet's
+	# acquire cut-in sheets. Driven from the STATE_EGG update so the heavy sheets are
+	# ready by hatch time; the overlay host's own prewarm_pet_assets_step is idempotent
+	# and returns true once the pet's sheets are cached (the host then pulls them from
+	# the same cache on its first reveal draw instead of holding on the static art).
+	if registry == null or _pet_id == "":
+		return
+	if _acquire_cutin_assets_prewarm_done_for == _pet_id:
+		return
+	var host: Object = _get_acquire_cutin_overlay_host(registry)
+	if host == null or not host.has_method("prewarm_pet_assets_step"):
+		return
+	if bool(host.prewarm_pet_assets_step(_pet_id)):
+		_acquire_cutin_assets_prewarm_done_for = _pet_id
+
+
+func _get_acquire_cutin_overlay_host(registry: Object) -> Object:
+	if registry == null:
+		return null
+	var host: Variant = null
+	if registry.has_method("get_cached_instance"):
+		host = registry.get_cached_instance("lingpet_acquire_cutin_overlay_host")
+	if (typeof(host) != TYPE_OBJECT or host == null) and registry.has_method("get_instance"):
+		host = registry.get_instance("lingpet_acquire_cutin_overlay_host")
+	if typeof(host) != TYPE_OBJECT or host == null:
+		return null
+	return host as Object
+
+
 func _queue_click_reaction_visual_prewarm() -> void:
 	if _state != STATE_COMPANION:
 		return
@@ -915,8 +1054,57 @@ func _get_vector2_from_variant(value: Variant, fallback: Vector2) -> Vector2:
 	return fallback
 
 
+func _get_starlight_tracking_delivery_pos(context: Dictionary) -> Vector2:
+	var owner_value: Variant = context.get("owner", null)
+	var owner: Object = null
+	if owner_value is Object:
+		owner = owner_value as Object
+	var owner_player_pos := Vector2.ZERO
+	var owner_paddle_size := Vector2(155.0, 50.0)
+	if owner != null:
+		owner_player_pos = _get_vector2_from_variant(BattleSceneOwnerReader.get_value(owner, "player_pos", Vector2.ZERO), owner_player_pos)
+		owner_paddle_size = Vector2(
+			float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", owner_paddle_size.x)),
+			float(BattleSceneOwnerReader.get_value(owner, "player_paddle_height", owner_paddle_size.y))
+		)
+	var player_pos := _get_vector2_from_variant(context.get("player_pos", owner_player_pos), owner_player_pos)
+	var player_size := _get_vector2_from_variant(context.get("player_paddle_size", owner_paddle_size), owner_paddle_size)
+	return player_pos + player_size * 0.5
+
+
 func _update_companion_motion(delta: float, owner: Object) -> void:
 	var prev_pos: Vector2 = _companion_pos
+	if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()):
+		_ring_dash_state.reset_round_transients()
+		_ring_dash_vfx.reset()
+	else:
+		var ring_dash_was_active: bool = _ring_dash_state.has_companion_position_override()
+		var ring_dash_result: Dictionary = _ring_dash_state.advance(
+			delta,
+			owner,
+			_get_current_passive_skill(),
+			_state == STATE_COMPANION,
+			_companion_pos,
+			_get_current_stat("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0),
+			_get_current_stat("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0)
+		)
+		if _ring_dash_state.has_companion_position_override():
+			_companion_pos = _ring_dash_state.get_companion_position_override(_companion_pos)
+			_companion_motion_state.pos = _companion_pos
+			_update_companion_facing_after_motion(prev_pos)
+			if bool(ring_dash_result.get("started", false)):
+				# prev_pos is the pre-teleport spot (departure collapse); _companion_pos
+				# is the snapped intercept point (arrival burst).
+				_ring_dash_vfx.trigger(prev_pos, _companion_pos)
+				_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
+			return
+		if ring_dash_was_active:
+			_resume_companion_motion_after_ring_dash(owner)
+	if _starlight_tracking_state.has_companion_position_override() and not _skill_runtime_host.has_companion_position_override(_get_current_skill_id()):
+		_companion_pos = _starlight_tracking_state.get_companion_position_override(_companion_pos)
+		_companion_motion_state.pos = _companion_pos
+		_update_companion_facing_after_motion(prev_pos)
+		return
 	_companion_motion_state.pos = _companion_pos
 	_companion_motion_state.update(
 		delta,
@@ -930,6 +1118,17 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 	)
 	_companion_pos = _companion_motion_state.pos
 	_update_companion_facing_after_motion(prev_pos)
+
+
+func _resume_companion_motion_after_ring_dash(owner: Object) -> void:
+	if _companion_motion_state.resume_sortie_loiter_from_current(
+		owner,
+		_companion_skill_state.trigger_count,
+		_get_current_stat("patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
+		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
+		_get_current_motion_style()
+	):
+		_companion_pos = _companion_motion_state.pos
 
 
 func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
@@ -1001,6 +1200,9 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 		return false
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
+	if not _is_companion_body_available_for_hit():
+		_companion_body_hit_state.ball_was_inside = false
+		return false
 
 	var hit_result: Dictionary = _companion_body_hit_state.resolve_ball_hit(
 		owner,
@@ -1081,6 +1283,7 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 			"companion_pos": _companion_pos,
 			"companion_radius": COMPANION_RADIUS,
 			"registry": registry,
+			"stun_duration_seconds": float(_get_current_active_skill().get("stun_duration_seconds", 0.0)),
 		}
 	)
 	if launched and _skill_runtime_host.has_companion_position_override(skill_id):
@@ -1113,6 +1316,16 @@ func _is_companion_body_draw_suppressed(skill_id: String) -> bool:
 	return bool(_skill_runtime_host.suppresses_companion_body_draw(skill_id))
 
 
+func _is_companion_body_available_for_hit() -> bool:
+	if _ring_dash_state.has_companion_position_override():
+		return not _ring_dash_state.is_companion_visual_hidden()
+	if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()):
+		return true
+	if _starlight_tracking_state.has_companion_position_override():
+		return true
+	return bool(_companion_motion_state.motion_visible)
+
+
 func _draw_egg(canvas: CanvasItem, center: Vector2) -> void:
 	_egg_renderer.draw_egg(
 		canvas,
@@ -1138,10 +1351,15 @@ func _get_egg_texture_for_hits() -> Texture2D:
 func _get_companion_draw_motion_speed_ratio() -> float:
 	if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()):
 		return 1.0
-	if _get_current_motion_style() != "sortie_flight":
+	if _ring_dash_state.has_companion_position_override():
 		return 0.0
+	if _starlight_tracking_state.has_companion_position_override():
+		return 1.0
 	if not _companion_motion_state.motion_visible:
 		return 0.0
+	var speed_ratio: float = maxf(0.0, float(_companion_motion_state.motion_speed_ratio))
+	if _get_current_motion_style() != "sortie_flight":
+		return speed_ratio
 	return maxf(COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO, _companion_motion_state.motion_speed_ratio)
 
 
@@ -1163,9 +1381,20 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"face_left": _companion_facing_left,
 		"motion_speed_ratio": _get_companion_draw_motion_speed_ratio(),
-		"companion_visible": _companion_motion_state.motion_visible or _skill_runtime_host.has_companion_position_override(_get_current_skill_id()),
+		"companion_visible": _is_companion_body_visible_for_draw(),
 		"windup_seconds": _get_current_skill_windup_seconds(),
 	}))
+
+
+func _is_companion_body_visible_for_draw() -> bool:
+	if _ring_dash_state.is_companion_visual_hidden():
+		return false
+	return (
+		_companion_motion_state.motion_visible
+		or _skill_runtime_host.has_companion_position_override(_get_current_skill_id())
+		or _ring_dash_state.has_companion_position_override()
+		or _starlight_tracking_state.has_companion_position_override()
+	)
 
 
 # Begin the in-battle click-reaction playback if the click landed on the

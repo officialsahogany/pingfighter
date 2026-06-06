@@ -19,6 +19,7 @@ const Stage2RockRuntimeState := preload("res://scripts/stages/stage2/stage2_rock
 const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
 const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
 const Stage2StarpointDropQuery := preload("res://scripts/stages/stage2/stage2_starpoint_drop_query.gd")
+const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
 const Stage2ChaosRockAbsorbState := preload("res://scripts/stages/stage2/stage2_chaos_rock_absorb_state.gd")
 const Stage2WaterCannonGeometry := preload("res://scripts/stages/stage2/stage2_water_cannon_geometry.gd")
 const Stage2WaterCannonVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_water_cannon_visual_state_builder.gd")
@@ -1826,6 +1827,19 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			STARPOINT_DROP_ACCELERATION,
 			STARPOINT_DROP_BOUNCE_DAMPING
 		):
+			continue
+
+		var starlight_tracking_result := LingpetStarlightTrackingBridge.update_drop(d, fps_scale, context, deps)
+		if bool(starlight_tracking_result.get("delivered", false)):
+			if _collect_starpoint_drop(d, context, deps):
+				_finish_starpoint_modal_collection(index, write_index, drop_count)
+				return
+			if starpoint_drops.size() < drop_count:
+				return
+			continue
+		if bool(starlight_tracking_result.get("claimed", false)):
+			starpoint_drops[write_index] = d
+			write_index += 1
 			continue
 
 		if Stage2StarpointDropQuery.overlaps_any_player(d, player_rects, collision_geometry, STARPOINT_DROP_SIZE):

@@ -1,0 +1,73 @@
+{
+  "asset_id": "rabi_acquisition_cutin_anim_32f_hq",
+  "pet_id": "rabi",
+  "created_at": "2026-06-06",
+  "source": {
+    "asset_id": "cmq1norpp0099apmdlqg6nhnj",
+    "asset_name": "Rabi Ghost Ringpet Acquire Base 20260606",
+    "spritesheet_id": "cmq1u1ltt00h6zrrwd43mfg0p",
+    "job_id": "wf_8350e7ef-d4ca-41a2-b58b-fc68b443ac83",
+    "prompt": "Gentle 32-frame acquisition loop: float, soft breathing, small arm wave, blue eye blink, star wisps bob, collar/core glow pulse. Keep full body stable; no morphing, no crop.",
+    "raw_path": ".tmp/rabi_acquire_cutin_32f/rabi_acquire_32f_autosprite_raw.png",
+    "raw_atlas_path": ".tmp/rabi_acquire_cutin_32f/rabi_acquire_32f_autosprite_raw_atlas.json",
+    "raw_sheet_size": [
+      3072,
+      3072
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "cols": 6,
+    "rows": 6,
+    "frame_count": 32,
+    "bytes": 1705460,
+    "sha256": "a860ee451429c615e971d5c225a04fac54d36493d5988fd25cf4969433bbd2d4"
+  },
+  "output": {
+    "path": "godot/assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png",
+    "cols": 6,
+    "rows": 6,
+    "frame_count": 32,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      6144,
+      6144
+    ],
+    "source_scale_repack": 0.84,
+    "upscale_scale": 4.0,
+    "final_downsampled_scale": 2.0,
+    "bytes": 12963021,
+    "sha256": "ee1f4e5f039fb0ead9ccdd5965bc787db9f943326ba2db824389f76f1e341d7a"
+  },
+  "processing": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale + Lanczos downsample",
+    "operation": "AutoSprite 512 cells scaled to 84 percent and centered; transparent RGB alpha-bled; RGB cells Real-ESRGAN x4 upscaled to 2048 then Lanczos downsampled to 1024; source alpha Lanczos upscaled to 1024 and recombined.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4.0,
+      "rgb_source": ".tmp/rabi_acquire_cutin_32f/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/rabi_acquire_cutin_32f/rgb_cells_s84_x4",
+      "alpha_source": ".tmp/rabi_acquire_cutin_32f/alpha_cells_s84",
+      "alpha_preserved": true
+    },
+    "alpha_threshold": 15
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "visible_green_pixels": 0,
+    "visible_magenta_pixels": 0,
+    "edge_touch_frames": [],
+    "frame_alpha_bbox_area_pct_range": [
+      39.501,
+      42.183
+    ],
+    "preview_contact": ".tmp/rabi_acquire_cutin_32f/rabi_cutin_anim_32f_hq_contact_preview.png",
+    "preview_black": ".tmp/rabi_acquire_cutin_32f/rabi_cutin_anim_32f_hq_black_preview.png",
+    "notes": "Final runtime sheet uses x4-super-sampled RGB downsampled to 1024px cells to improve detail without increasing runtime texture dimensions beyond the accepted 32f sheet class."
+  }
+}

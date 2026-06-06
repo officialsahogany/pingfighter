@@ -23,7 +23,9 @@ const JUNIOR_BOSS_MISTAKE_STAGE_RATE: float = 0.01
 const DEFAULT_BOSS_MISTAKE_ERROR_MIN: float = 78.0
 const DEFAULT_BOSS_MISTAKE_ERROR_MAX: float = 140.0
 const DEFAULT_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
-const MYTHIC_BOSS_MISTAKE_CHANCE: float = 0.005
+const MYTHIC_BOSS_MISTAKE_BASE_CHANCE: float = 0.05
+const MYTHIC_BOSS_MISTAKE_STAGE_RATE: float = 0.005
+const MYTHIC_BOSS_MISTAKE_MIN_CHANCE: float = 0.005
 const MYTHIC_BOSS_MISTAKE_ERROR_MIN: float = 0.0
 const MYTHIC_BOSS_MISTAKE_ERROR_MAX: float = 20.0
 const MYTHIC_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
@@ -192,7 +194,7 @@ func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> floa
 	if normalized_mode == "junior":
 		return _get_junior_stage_boss_mistake_chance(current_stage)
 	if normalized_mode == "mythic":
-		return MYTHIC_BOSS_MISTAKE_CHANCE
+		return _get_mythic_stage_boss_mistake_chance(current_stage)
 	if current_stage == 2:
 		return STAGE2_BOSS_MISTAKE_CHANCE
 	if current_stage == 3:
@@ -205,7 +207,7 @@ func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> floa
 func _build_boss_mistake_profile(current_stage: int, ai_mode: String) -> Dictionary:
 	if _normalize_league_mode(ai_mode) == "mythic":
 		return {
-			"boss_mistake_chance": MYTHIC_BOSS_MISTAKE_CHANCE,
+			"boss_mistake_chance": _get_mythic_stage_boss_mistake_chance(current_stage),
 			"boss_mistake_error_min": MYTHIC_BOSS_MISTAKE_ERROR_MIN,
 			"boss_mistake_error_max": MYTHIC_BOSS_MISTAKE_ERROR_MAX,
 			"boss_mistake_speed_scale": MYTHIC_BOSS_MISTAKE_SPEED_SCALE,
@@ -216,6 +218,15 @@ func _build_boss_mistake_profile(current_stage: int, ai_mode: String) -> Diction
 		"boss_mistake_error_max": DEFAULT_BOSS_MISTAKE_ERROR_MAX,
 		"boss_mistake_speed_scale": DEFAULT_BOSS_MISTAKE_SPEED_SCALE,
 	}
+
+
+func _get_mythic_stage_boss_mistake_chance(current_stage: int) -> float:
+	var stage_offset: int = _get_stage_offset(current_stage)
+	return clamp(
+		MYTHIC_BOSS_MISTAKE_BASE_CHANCE - float(stage_offset) * MYTHIC_BOSS_MISTAKE_STAGE_RATE,
+		MYTHIC_BOSS_MISTAKE_MIN_CHANCE,
+		1.0
+	)
 
 
 func _get_junior_stage_boss_mistake_chance(current_stage: int) -> float:

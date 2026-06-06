@@ -10,7 +10,7 @@ func _build_lingpet_stats(owner: Object) -> Array:
 		STAT_BUFF_COLOR,
 		LINGPET_SPEED_DISPLAY_PX_PER_POINT,
 		LINGPET_HATCH_REQUIRED_HITS,
-		"공을 안정적으로 막을 확률입니다. 높을수록 수비 행동을 더 자주 시도합니다."
+		"링펫 근처로 떨어지는, 플레이어가 막기 어려운 공을 미리 예측해 가드하는 확률입니다. 링펫에서 멀리 떨어진 공은 가드하지 않습니다."
 	)
 	return CharacterInfoOverlayValueUtils.get_array(_lingpet_stats_cache.get("rows", []))
 

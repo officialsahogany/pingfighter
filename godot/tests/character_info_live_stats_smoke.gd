@@ -9,6 +9,8 @@ const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
@@ -30,6 +32,48 @@ class FakeOwner:
 
 	func queue_redraw() -> void:
 		pass
+
+
+# Schema-gated owner that mirrors battle_scene_shell: set()/get() route through
+# battle_scene_state, which SILENTLY no-ops writes to keys not in DEFAULT_VALUES.
+# The plain FakeOwner above stores any key, so it cannot catch the real bug where
+# a synced field is dropped because it is missing from the owner schema.
+class SchemaGatedOwner:
+	extends RefCounted
+
+	var scene_state: Object = BattleSceneState.new()
+
+	func _init() -> void:
+		scene_state.reset()
+
+	func _get(property: StringName) -> Variant:
+		var key := str(property)
+		if scene_state.has_key(key):
+			return scene_state.get_value(key)
+		return null
+
+	func _set(property: StringName, value: Variant) -> bool:
+		var key := str(property)
+		if not scene_state.has_key(key):
+			return false
+		scene_state.set_value(key, value)
+		return true
+
+	func queue_redraw() -> void:
+		pass
+
+	func get_viewport_rect() -> Rect2:
+		return Rect2(Vector2.ZERO, Vector2(1280.0, 720.0))
+
+
+class NullRegistry:
+	extends RefCounted
+
+	func get_instance(_key: String) -> Object:
+		return null
+
+	func get_cached_instance(_key: String) -> Object:
+		return null
 
 
 class FakeRegistry:
@@ -195,8 +239,8 @@ func _init() -> void:
 	var defense_stat: Dictionary = _find_stat(lingpet_stats, "방어율")
 	_expect(str(defense_stat.get("value", "")) == "30%", "Maribo defense rate should be visible in lingpet stats")
 	_expect(
-		str(defense_stat.get("tooltip_body", "")).find("공을 안정적으로 막을 확률") >= 0,
-		"Maribo defense rate should explain the actual intercept behavior in a tooltip"
+		str(defense_stat.get("tooltip_body", "")).find("미리 예측해 가드") >= 0,
+		"Maribo defense rate should explain the local predictive-guard behavior in a tooltip"
 	)
 	var maribo_panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(lingpet_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	var maribo_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(maribo_panel_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
@@ -239,8 +283,43 @@ func _init() -> void:
 	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(lunabi_panel_snapshot), "Lunabi character-info panel should request redraws while its panel Live2D is visible")
 	_expect(not CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(maribo_panel_snapshot), "Maribo character-info panel should not request continuous Live2D redraws")
 
+	_verify_defense_override_reaches_panel_through_schema_gated_owner()
+
 	print("character_info_live_stats_smoke: ok")
 	quit(0)
+
+
+func _verify_defense_override_reaches_panel_through_schema_gated_owner() -> void:
+	# Regression: the F7 defense-rate override must reach the character-info panel.
+	# The panel reads owner.lingpet_companion_defense_rate; the per-frame sync writes
+	# it via owner.set(). On the REAL owner (battle_scene_shell -> battle_scene_state)
+	# set() SILENTLY no-ops keys missing from DEFAULT_VALUES, so when the field is not
+	# declared the panel falls back to the catalog rate (== base, so it went unnoticed
+	# at the base value) and the override never shows. A plain dict FakeOwner cannot
+	# catch this; SchemaGatedOwner mirrors the real schema gate.
+	var owner := SchemaGatedOwner.new()
+	var registry := NullRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
+		"schema-gated owner should accept a Maribo debug grant"
+	)
+	runtime.set_debug_defense_rate_override(0.5)
+	runtime.update(0.0, owner, registry)
+	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(
+		is_equal_approx(float(snapshot.get("companion_defense_rate", 0.0)), 0.5),
+		"F7 defense override (0.5) should reach the character-info panel through the schema-gated owner, not be dropped as Maribo's catalog 0.30"
+	)
+
+	# Clearing the override restores the catalog rate end-to-end through the same owner.
+	runtime.set_debug_defense_rate_override(-1.0)
+	runtime.update(0.0, owner, registry)
+	var cleared: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(
+		is_equal_approx(float(cleared.get("companion_defense_rate", 0.0)), 0.30),
+		"clearing the override should restore Maribo's catalog 30% in the panel"
+	)
 
 
 func _finish_active_runtime_initialization(runtime: Object) -> void:

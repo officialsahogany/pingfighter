@@ -12,10 +12,10 @@ const VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := "res://assets/sprites/hud/player
 const STAGE1_CENTER_BACKGROUND_PATH := "res://assets/sprites/stage1/stage1_center_background_python_v1.png"
 const STAGE1_CENTER_BORDER_PATH := "res://assets/sprites/stage1/stage1_center_danjeong_border_overlay_v1.png"
 const PLAYER_SPRITE_PATH := "res://assets/sprites/smasher_walk_strip.png"
-const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_left_walk_sheet.png"
-const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_right_walk_sheet.png"
-const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_idle_sheet.png"
-const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_idle_sheet.png"
+const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
+const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_rightpose_handlocked_v20_4x2_160_clean.png"
+const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
+const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
 const SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH := "res://assets/sprites/characters/smasher/customization_debug/smasher_debug_paddle_overlay_sheet.png"
 const OPTIMUS_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_idle_sheet.png"
 const OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_walk_left_sheet.png"
@@ -129,8 +129,14 @@ const BLACKSMITH_CHARACTER_TYPE := "blacksmith"
 const BLACKSMITH_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_idle_back_autosprite_v3_custom_4x2_160_clean.png"
 const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_sprint_dash_left_25deg_custom_v3_selected_mirror_from_right_4x2_160_clean.png"
 const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_sprint_dash_right_25deg_custom_v3_selected_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_left_shield_bash_autosprite_v1_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_right_hammer_smash_autosprite_v3_rear_only_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_dash_slide_tackle_rear_left_hold_v4_mirror_from_right_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_dash_slide_tackle_rear_right_hold_v4_4x2_160_clean.png"
+const BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_left_shield_bash_autosprite_v2_16f_4x4_160_clean.png"
+const BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_right_hammer_smash_autosprite_v4_16f_4x4_160_clean.png"
+const BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_thor_shield_overhead_autosprite_v3_hybrid_4x4_160_clean.png"
+const BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_thor_shield_stretch_imagegen_v1.png"
+const BLACKSMITH_PLAYER_VICTORY_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_victory_rear_autosprite_v1_49f_7x7_160_clean.png"
+const BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_defeat_rear_autosprite_v1_49f_7x7_160_clean.png"
 
 # Smasher directional attack sheets: 4x4 grids, 16 frames, cell 160x160.
 # Authored from the current subculture left/right walk sprites so colors,
@@ -485,6 +491,9 @@ func _get_result_texture_specs(character_type: String, current_stage: int, resul
 	elif character_type == VIPER_CHARACTER_TYPE:
 		player_victory_specs.append(_texture_spec(["player_victory_sheet"], VIPER_VICTORY_SHEET_PATH))
 		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], VIPER_DEFEAT_SHEET_PATH))
+	elif character_type == BLACKSMITH_CHARACTER_TYPE:
+		player_victory_specs.append(_texture_spec(["player_victory_sheet"], BLACKSMITH_PLAYER_VICTORY_SHEET_PATH))
+		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH))
 
 	var boss_victory_specs: Array = []
 	var boss_defeat_specs: Array = []
@@ -713,7 +722,10 @@ func _load_player_textures(character_type: String, include_all_characters: bool,
 	if include_all_characters or character_type == OPTIMUS_CHARACTER_TYPE:
 		_load_optimus_player_textures(character_type == OPTIMUS_CHARACTER_TYPE)
 	if include_all_characters or character_type == BLACKSMITH_CHARACTER_TYPE:
-		_load_blacksmith_player_textures(character_type == BLACKSMITH_CHARACTER_TYPE)
+		_load_blacksmith_player_textures(
+			character_type == BLACKSMITH_CHARACTER_TYPE,
+			include_result_sheets and character_type == BLACKSMITH_CHARACTER_TYPE
+		)
 
 
 func _get_player_texture_step_count(character_type: String, include_result_sheets: bool) -> int:
@@ -745,7 +757,7 @@ func _get_player_texture_specs(character_type: String, include_result_sheets: bo
 		OPTIMUS_CHARACTER_TYPE:
 			return _get_optimus_player_texture_specs(true)
 		BLACKSMITH_CHARACTER_TYPE:
-			return _get_blacksmith_player_texture_specs(true)
+			return _get_blacksmith_player_texture_specs(true, include_result_sheets)
 	return _get_smasher_player_texture_specs(include_result_sheets)
 
 
@@ -859,14 +871,32 @@ func _get_optimus_player_texture_specs(clear_generic_player_fallbacks: bool) -> 
 	return specs
 
 
-func _get_blacksmith_player_texture_specs(clear_generic_player_fallbacks: bool) -> Array:
+func _get_blacksmith_player_texture_specs(
+	clear_generic_player_fallbacks: bool,
+	include_result_sheets: bool = false
+) -> Array:
 	var specs := [
 		_texture_spec(["blacksmith_player_idle_sheet"], BLACKSMITH_PLAYER_IDLE_SHEET_PATH),
 		_texture_spec(["blacksmith_player_walk_left_sheet"], BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH),
 		_texture_spec(["blacksmith_player_walk_right_sheet"], BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH),
+		_texture_spec(["blacksmith_player_dash_left_sheet"], BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH),
+		_texture_spec(["blacksmith_player_dash_right_sheet"], BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH),
 		_texture_spec(["blacksmith_player_attack_left_sheet"], BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH),
 		_texture_spec(["blacksmith_player_attack_right_sheet"], BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH),
+		_texture_spec(["blacksmith_player_thor_shield_deploy_sheet"], BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH),
+		# Stretch-shield overlay PNG (the actual "코하쿠 방패가 길게 늘어난" body).
+		# This MUST stay in the spec list, not only in `_load_blacksmith_player_textures`:
+		# the threaded boot / stage-transition prewarm path
+		# (`prewarm_transition_textures_step` -> `_get_player_texture_specs`) is what
+		# fills `_resource_cache` in normal gameplay. `load_all` (which also direct-loads
+		# the stretch texture) only runs on the synchronous fallback path, so a spec
+		# omission here leaves `blacksmith_thor_shield_stretch_texture` null at runtime
+		# and the shield body silently never draws.
+		_texture_spec(["blacksmith_thor_shield_stretch_texture"], BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH),
 	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["player_victory_sheet"], BLACKSMITH_PLAYER_VICTORY_SHEET_PATH))
+		specs.append(_texture_spec(["player_defeat_sheet"], BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH))
 	if clear_generic_player_fallbacks:
 		specs.append(_clear_smasher_player_fallback_spec())
 	return specs
@@ -973,12 +1003,22 @@ func _load_optimus_player_textures(clear_generic_player_fallbacks: bool) -> void
 		_clear_smasher_player_fallback_textures()
 
 
-func _load_blacksmith_player_textures(clear_generic_player_fallbacks: bool) -> void:
+func _load_blacksmith_player_textures(
+	clear_generic_player_fallbacks: bool,
+	include_result_sheets: bool = false
+) -> void:
 	_resource_cache["blacksmith_player_idle_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_IDLE_SHEET_PATH)
 	_resource_cache["blacksmith_player_walk_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH)
 	_resource_cache["blacksmith_player_walk_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH)
+	_resource_cache["blacksmith_player_dash_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH)
+	_resource_cache["blacksmith_player_dash_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH)
 	_resource_cache["blacksmith_player_attack_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH)
 	_resource_cache["blacksmith_player_attack_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH)
+	_resource_cache["blacksmith_player_thor_shield_deploy_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH)
+	_resource_cache["blacksmith_thor_shield_stretch_texture"] = _load_texture_resource(BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH)
+	if include_result_sheets:
+		_resource_cache["player_victory_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_VICTORY_SHEET_PATH)
+		_resource_cache["player_defeat_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH)
 	if clear_generic_player_fallbacks:
 		_clear_smasher_player_fallback_textures()
 

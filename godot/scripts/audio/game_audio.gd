@@ -99,6 +99,7 @@ const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
 const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
 const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
+const LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
 const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
 const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
@@ -108,6 +109,7 @@ const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
 const LINGPET_ACQUIRE_CUTIN_GAIN_DB := 0.0
 const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
 const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
 const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
@@ -150,6 +152,7 @@ const DYNAMITE_FUSE_SOUND_PATH := "res://assets/sounds/bombfuse.wav"
 const FIREBOMB_SOUND_PATH := "res://assets/sounds/firebomb.wav"
 const BOOMERANG_SOUND_PATH := "res://assets/sounds/boomerang.wav"
 const BOOMERANG_HIT_SOUND_PATH := "res://assets/sounds/boomeranghit.wav"
+const BOOMERANG_BREAK_SOUND_PATH := "res://assets/sounds/bonebreak.wav"
 const SHRAPNEL_ARMOR_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
 const SHRAPNEL_ARMOR_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
 const BANANA_THROW_SOUND_PATH := "res://assets/sounds/throwingbanana.wav"
@@ -332,6 +335,7 @@ var result_box_open_sfx: AudioStreamPlayer
 var lingpet_acquire_cutin_sfx: AudioStreamPlayer
 var lingpet_volty_click_voice_sfx: AudioStreamPlayer
 var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
+var lingpet_red_dragon_click_voice_sfx: AudioStreamPlayer
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
 var lingpet_gatling_loop_sfx: AudioStreamPlayer
 var lingpet_gatling_fire_sfx: AudioStreamPlayer
@@ -364,6 +368,7 @@ var smokebomb_sfx: AudioStreamPlayer
 var firebomb_sfx: AudioStreamPlayer
 var boomerang_sfx: AudioStreamPlayer
 var boomerang_hit_sfx: AudioStreamPlayer
+var boomerang_break_sfx: AudioStreamPlayer
 var shrapnel_armor_fire_sfx: AudioStreamPlayer
 var shrapnel_armor_hit_sfx: AudioStreamPlayer
 var banana_throw_sfx: AudioStreamPlayer
@@ -597,6 +602,7 @@ func _setup_item_command_sfx() -> void:
 	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
 	lingpet_volty_click_voice_sfx = player_factory.create(owner_node, "LingpetVoltyClickVoiceSfx", LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH, LINGPET_VOLTY_CLICK_VOICE_GAIN_DB)
 	lingpet_milkring_click_voice_sfx = player_factory.create(owner_node, "LingpetMilkringClickVoiceSfx", LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH, LINGPET_MILKRING_CLICK_VOICE_GAIN_DB)
+	lingpet_red_dragon_click_voice_sfx = player_factory.create(owner_node, "LingpetRedDragonClickVoiceSfx", LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH, LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
@@ -630,6 +636,7 @@ func _setup_projectile_item_sfx() -> void:
 	firebomb_sfx = player_factory.create(owner_node, "FirebombSfx", FIREBOMB_SOUND_PATH, -4.0)
 	boomerang_sfx = player_factory.create(owner_node, "BoomerangSfx", BOOMERANG_SOUND_PATH, -8.0)
 	boomerang_hit_sfx = player_factory.create(owner_node, "BoomerangHitSfx", BOOMERANG_HIT_SOUND_PATH, -5.0)
+	boomerang_break_sfx = player_factory.create(owner_node, "BoomerangBreakSfx", BOOMERANG_BREAK_SOUND_PATH, -5.0)
 	shrapnel_armor_fire_sfx = player_factory.create(owner_node, "ShrapnelArmorFireSfx", SHRAPNEL_ARMOR_FIRE_SOUND_PATH, -5.0)
 	shrapnel_armor_hit_sfx = player_factory.create(owner_node, "ShrapnelArmorHitSfx", SHRAPNEL_ARMOR_HIT_SOUND_PATH, -5.0)
 	_enable_loop(boomerang_sfx)
@@ -878,6 +885,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
 				LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
 				LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
+				LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH,
 				LEGENDARY_AFTER_SOUND_PATH,
 				LEGENDARY_ENDING_SOUND_PATH,
 				RAGNAROK_SHOT_SOUND_PATH,
@@ -909,6 +917,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				FIREBOMB_SOUND_PATH,
 				BOOMERANG_SOUND_PATH,
 				BOOMERANG_HIT_SOUND_PATH,
+				BOOMERANG_BREAK_SOUND_PATH,
 				SHRAPNEL_ARMOR_FIRE_SOUND_PATH,
 				SHRAPNEL_ARMOR_HIT_SOUND_PATH,
 				BANANA_THROW_SOUND_PATH,
@@ -1674,6 +1683,8 @@ func play_lingpet_click_reaction(pet_id: String) -> void:
 		_play_with_pitch(_ensure_lingpet_volty_click_voice_sfx(), randf_range(0.98, 1.02))
 	elif normalized_pet_id == "milkring":
 		_play_with_pitch(_ensure_lingpet_milkring_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "red_dragon":
+		_play_with_pitch(_ensure_lingpet_red_dragon_click_voice_sfx(), randf_range(0.98, 1.02))
 
 
 func play_legendary_after() -> void:
@@ -1881,6 +1892,12 @@ func play_dragon_breath_fire(_low_volume: bool = false) -> void:
 	_play_with_pitch(firebomb_sfx, randf_range(0.92, 1.08))
 
 
+# Short, higher-pitched fire "deflect" tick for when the breath strikes the ball
+# (distinct from the heavier fire whoosh above) so the hit is audibly felt.
+func play_dragon_breath_ball_hit() -> void:
+	_play_with_pitch(firebomb_sfx, randf_range(1.20, 1.38))
+
+
 func play_flashbomb() -> void:
 	_play_with_pitch(flashbomb_sfx, randf_range(0.98, 1.02))
 
@@ -1909,7 +1926,7 @@ func play_boomerang_hit() -> void:
 
 
 func play_boomerang_break() -> void:
-	_play_with_pitch(boomerang_hit_sfx, randf_range(0.86, 0.94))
+	_play_with_pitch(boomerang_break_sfx, 1.0)
 
 
 func play_shrapnel_armor_fire() -> void:
@@ -2063,6 +2080,12 @@ func play_paddle_hit() -> void:
 		return
 	if _play_with_pitch(paddle_hit_sfx, randf_range(0.98, 1.02)):
 		paddle_sound_cooldown = PADDLE_HIT_SOUND_COOLDOWN
+
+
+func play_rally_tier_accent(tier: int) -> void:
+	var clamped_tier: int = clampi(tier, 1, 5)
+	var pitch: float = 1.08 + float(clamped_tier) * 0.035
+	_play_with_pitch(wall_hit_sfx, pitch)
 
 
 func play_serve(ball_visual_type: String = "") -> void:
@@ -2649,6 +2672,17 @@ func _ensure_lingpet_milkring_click_voice_sfx() -> AudioStreamPlayer:
 	return lingpet_milkring_click_voice_sfx
 
 
+func _ensure_lingpet_red_dragon_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_red_dragon_click_voice_sfx != null and lingpet_red_dragon_click_voice_sfx.stream != null:
+		return lingpet_red_dragon_click_voice_sfx
+	lingpet_red_dragon_click_voice_sfx = _create_optional_sfx(
+		"LingpetRedDragonClickVoiceSfx",
+		LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH,
+		LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_red_dragon_click_voice_sfx
+
+
 func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
 	if _is_owned_player_ready(player):
@@ -2867,6 +2901,7 @@ func _get_sfx_players() -> Array:
 		lingpet_acquire_cutin_sfx,
 		lingpet_volty_click_voice_sfx,
 		lingpet_milkring_click_voice_sfx,
+		lingpet_red_dragon_click_voice_sfx,
 		lingpet_gatling_transform_sfx,
 		lingpet_gatling_loop_sfx,
 		lingpet_gatling_fire_sfx,
@@ -2899,6 +2934,7 @@ func _get_sfx_players() -> Array:
 		firebomb_sfx,
 		boomerang_sfx,
 		boomerang_hit_sfx,
+		boomerang_break_sfx,
 		shrapnel_armor_fire_sfx,
 		shrapnel_armor_hit_sfx,
 		banana_throw_sfx,

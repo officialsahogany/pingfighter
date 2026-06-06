@@ -10,30 +10,38 @@ const FLAME_LAYER_COUNT := 2
 const FLAME_LAYER_COUNT_LOD := 1
 const FLAME_STEP := 6
 const FLAME_STEP_LOD := 10
+const OPPORTUNITY_GOLD := Color(1.0, 222.0 / 255.0, 86.0 / 255.0)
 
 var ember_renderer: Object = ScoreboardTopMiniDeuceEmberRenderer.new()
 
 
-func draw(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float, quality_scale: float = 1.0) -> float:
+func draw(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float, quality_scale: float = 1.0, stakes: Dictionary = {}) -> float:
 	var pulse: float = sin(t * 8.0) * 0.3 + 0.7
 	var lod_active: bool = quality_scale < 0.85
-	_draw_glow(canvas, rect, scale_factor, pulse, lod_active)
+	var stakes_boost: float = _get_stakes_global_boost(stakes)
+	_draw_glow(canvas, rect, scale_factor, pulse, lod_active, stakes)
 	_draw_fire_gradient(canvas, rect, t, lod_active)
-	canvas.draw_rect(rect, Color(180.0 / 255.0, 60.0 / 255.0, 20.0 / 255.0), false, max(2.0, 3.0 * scale_factor))
-	_draw_flame_tongues(canvas, rect, scale_factor, t, lod_active)
+	canvas.draw_rect(rect, _get_border_color(stakes), false, max(2.0, 3.0 * scale_factor))
+	_draw_flame_tongues(canvas, rect, scale_factor, t, lod_active, 1.0 + _get_player_stakes_strength(stakes) * 0.18)
 	if not lod_active:
-		ember_renderer.draw(canvas, rect, scale_factor, t)
-	return pulse
+		ember_renderer.draw(canvas, rect, scale_factor, t, 1.0 + _get_player_stakes_strength(stakes) * 0.22)
+	return pulse + stakes_boost
 
 
-func _draw_glow(canvas: CanvasItem, rect: Rect2, scale_factor: float, pulse: float, lod_active: bool) -> void:
+func _draw_glow(canvas: CanvasItem, rect: Rect2, scale_factor: float, pulse: float, lod_active: bool, stakes: Dictionary = {}) -> void:
 	var glow_layers: int = GLOW_LAYER_COUNT_LOD if lod_active else GLOW_LAYER_COUNT
+	var glow_multiplier: float = 1.0 + _get_stakes_global_boost(stakes)
+	var player_strength: float = _get_player_stakes_strength(stakes)
 	for glow_layer in range(glow_layers):
 		var glow_margin: float = (20.0 - float(glow_layer) * 3.0) * scale_factor
-		var glow_alpha: float = ((40.0 - float(glow_layer) * 7.0) / 255.0) * pulse
+		var glow_alpha: float = ((40.0 - float(glow_layer) * 7.0) / 255.0) * pulse * glow_multiplier
+		var glow_color := Color(1.0, (50.0 + float(glow_layer) * 20.0) / 255.0, 0.0, glow_alpha).lerp(
+			Color(OPPORTUNITY_GOLD.r, OPPORTUNITY_GOLD.g, OPPORTUNITY_GOLD.b, glow_alpha),
+			player_strength * 0.45
+		)
 		canvas.draw_rect(
 			rect.grow(glow_margin),
-			Color(1.0, (50.0 + float(glow_layer) * 20.0) / 255.0, 0.0, glow_alpha)
+			glow_color
 		)
 
 
@@ -75,7 +83,7 @@ func _get_fire_gradient_color(ratio: float, wave: float) -> Color:
 	return Color(r / 255.0, g / 255.0, b / 255.0, 245.0 / 255.0)
 
 
-func _draw_flame_tongues(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float, lod_active: bool) -> void:
+func _draw_flame_tongues(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float, lod_active: bool, alpha_multiplier: float = 1.0) -> void:
 	var layer_count: int = FLAME_LAYER_COUNT_LOD if lod_active else FLAME_LAYER_COUNT
 	var step_size: int = FLAME_STEP_LOD if lod_active else FLAME_STEP
 	for layer in range(layer_count):
@@ -90,7 +98,7 @@ func _draw_flame_tongues(canvas: CanvasItem, rect: Rect2, scale_factor: float, t
 			h += sin(t * (35.0 + float(layer) * 8.0) + fx * 0.45) * layer_height * 0.15
 			points.append(Vector2(rect.position.x - 10.0 * scale_factor + fx, rect.position.y + 7.0 * scale_factor - max(0.0, h)))
 		points.append(Vector2(rect.end.x + 10.0 * scale_factor, rect.position.y + 7.0 * scale_factor))
-		canvas.draw_colored_polygon(points, _get_flame_layer_color(layer))
+		canvas.draw_colored_polygon(points, _with_alpha_multiplier(_get_flame_layer_color(layer), alpha_multiplier))
 
 
 func _get_flame_layer_color(layer: int) -> Color:
@@ -101,3 +109,25 @@ func _get_flame_layer_color(layer: int) -> Color:
 	if layer == 2:
 		return Color(1.0, 120.0 / 255.0, 30.0 / 255.0, 120.0 / 255.0)
 	return Color(200.0 / 255.0, 60.0 / 255.0, 10.0 / 255.0, 80.0 / 255.0)
+
+
+func _get_border_color(stakes: Dictionary) -> Color:
+	return Color(180.0 / 255.0, 60.0 / 255.0, 20.0 / 255.0).lerp(OPPORTUNITY_GOLD, _get_player_stakes_strength(stakes) * 0.35)
+
+
+func _get_stakes_global_boost(stakes: Dictionary) -> float:
+	var player_strength: float = _get_player_stakes_strength(stakes)
+	var boss_strength: float = _get_boss_stakes_strength(stakes)
+	return player_strength * 0.20 + boss_strength * 0.08 + player_strength * boss_strength * 0.10
+
+
+func _get_player_stakes_strength(stakes: Dictionary) -> float:
+	return 1.0 if bool(stakes.get("player_can_win", false)) else 0.0
+
+
+func _get_boss_stakes_strength(stakes: Dictionary) -> float:
+	return 1.0 if bool(stakes.get("boss_can_win", false)) else 0.0
+
+
+func _with_alpha_multiplier(color: Color, alpha_multiplier: float) -> Color:
+	return Color(color.r, color.g, color.b, clampf(color.a * max(0.0, alpha_multiplier), 0.0, 1.0))

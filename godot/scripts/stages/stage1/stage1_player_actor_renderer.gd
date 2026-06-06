@@ -20,6 +20,7 @@ const DEFAULT_PLAYER_ATTACK_DRAW_SIZE := Vector2(128.0, 143.0)
 const DEFAULT_PLAYER_DIRECTIONAL_ATTACK_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_COMMANDO_ATTACK_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_DRAW_SIZE := Vector2(160.0, 160.0)
+const DEFAULT_PLAYER_DIRECTIONAL_DASH_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_IDLE_BACK_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_VICTORY_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_DEFEAT_DRAW_SIZE := Vector2(160.0, 160.0)
@@ -176,7 +177,12 @@ func draw(
 			context.get("player_idle_draw_size", DEFAULT_PLAYER_IDLE_BACK_DRAW_SIZE),
 			DEFAULT_PLAYER_IDLE_BACK_DRAW_SIZE
 		)
-	if player_move_active and not hit_active and not player_result_active and _has_directional_walk_texture(context):
+	if bool(context.get("dash_active", false)) and not hit_active and not player_result_active and _has_directional_dash_texture(context):
+		player_draw_size = _as_vector2(
+			context.get("player_directional_dash_draw_size", DEFAULT_PLAYER_DIRECTIONAL_DASH_DRAW_SIZE),
+			DEFAULT_PLAYER_DIRECTIONAL_DASH_DRAW_SIZE
+		)
+	elif player_move_active and not hit_active and not player_result_active and _has_directional_walk_texture(context):
 		player_draw_size = _as_vector2(
 			context.get("player_directional_walk_draw_size", DEFAULT_PLAYER_DIRECTIONAL_WALK_DRAW_SIZE),
 			DEFAULT_PLAYER_DIRECTIONAL_WALK_DRAW_SIZE
@@ -759,6 +765,12 @@ func _get_player_idle_breath_y(context: Dictionary) -> float:
 func _has_directional_walk_texture(context: Dictionary) -> bool:
 	var direction: int = int(context.get("player_walk_direction", 1))
 	var texture_key := "player_walk_left_texture" if direction < 0 else "player_walk_right_texture"
+	return context.get(texture_key, null) is Texture2D
+
+
+func _has_directional_dash_texture(context: Dictionary) -> bool:
+	var direction: int = int(context.get("player_walk_direction", 1))
+	var texture_key := "player_dash_left_texture" if direction < 0 else "player_dash_right_texture"
 	return context.get(texture_key, null) is Texture2D
 
 

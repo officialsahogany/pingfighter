@@ -118,6 +118,12 @@ const DEFAULT_VALUES: Dictionary = {
 	"lingpet_egg_pos": Vector2.ZERO,
 	"lingpet_companion_pos": Vector2.ZERO,
 	"ringpet_companion_pos": Vector2.ZERO,
+	# Live companion defense rate (override-aware). MUST be declared here, or
+	# set_value() silently no-ops the per-frame sync and the character-info panel
+	# falls back to the catalog defense_rate (which equals the base, so the F7
+	# defense-rate override never shows up in the panel).
+	"lingpet_companion_defense_rate": 0.0,
+	"ringpet_companion_defense_rate": 0.0,
 	"lingpet_companion_contact_count": 0,
 	"ringpet_companion_contact_count": 0,
 	"lingpet_companion_last_contact_pos": Vector2.ZERO,

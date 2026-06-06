@@ -10,6 +10,7 @@ const MAX_RENDERED_HIT_SHARDS := 5
 const SHIELD_RENDER_MODE := "procedural_pentagon_v2"
 const CIRCUIT_PATH_COUNT := 8
 const PROJECTILE_VISUAL_SCALE := 0.70
+const CUTIN_SYMBOL_VISUAL_SCALE := 2.05
 const OUTER_GLOW_LINE_WIDTH := 9.0
 const OUTER_BEVEL_LINE_WIDTH := 4.8
 
@@ -56,6 +57,21 @@ func draw(canvas: CanvasItem, projectile: Dictionary, hit_effects: Array, shake_
 	_draw_shield(canvas, position, float(projectile.get("angle", 0.0)), 1.0)
 
 
+func draw_cutin_symbol(
+	canvas: CanvasItem,
+	center: Vector2,
+	progress: float,
+	alpha: float,
+	view_size: Vector2
+) -> void:
+	if canvas == null or alpha <= 0.02:
+		return
+	var symbol_alpha: float = alpha * (0.88 + 0.12 * sin(progress * TAU * 2.4))
+	var angle: float = -18.0 + progress * 42.0 + sin(float(Time.get_ticks_msec()) * 0.006) * 6.0
+	var scale: float = CUTIN_SYMBOL_VISUAL_SCALE * max(0.5, view_size.y / 750.0)
+	_draw_shield(canvas, center, angle, symbol_alpha, scale)
+
+
 func _draw_wind_up_charge(canvas: CanvasItem, projectile: Dictionary, position: Vector2) -> void:
 	var strength: float = clamp(float(projectile.get("windup_strength", 0.0)), 0.0, 1.0)
 	var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.022)
@@ -93,7 +109,13 @@ func _draw_trail_ghost(canvas: CanvasItem, center: Vector2, angle_deg: float, al
 	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH * PROJECTILE_VISUAL_SCALE, true)
 
 
-func _draw_shield(canvas: CanvasItem, center: Vector2, angle_deg: float, alpha: float) -> void:
+func _draw_shield(
+	canvas: CanvasItem,
+	center: Vector2,
+	angle_deg: float,
+	alpha: float,
+	visual_scale: float = PROJECTILE_VISUAL_SCALE
+) -> void:
 	if alpha <= 0.02:
 		return
 	var angle: float = deg_to_rad(angle_deg)
@@ -101,25 +123,25 @@ func _draw_shield(canvas: CanvasItem, center: Vector2, angle_deg: float, alpha: 
 	var s: float = sin(angle)
 	var rotation := Vector2(c, s)
 	var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.021 + angle * 1.7)
-	var points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, PROJECTILE_VISUAL_SCALE)
-	var halo_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.13 * PROJECTILE_VISUAL_SCALE)
-	var bevel_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 0.90 * PROJECTILE_VISUAL_SCALE)
+	var points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, visual_scale)
+	var halo_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.13 * visual_scale)
+	var bevel_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 0.90 * visual_scale)
 
-	ImpactFlareTextureCache.draw_glow(canvas, center, (46.0 + pulse * 6.0) * PROJECTILE_VISUAL_SCALE, SHIELD_BLUE, 0.10 * alpha)
+	ImpactFlareTextureCache.draw_glow(canvas, center, (46.0 + pulse * 6.0) * visual_scale, SHIELD_BLUE, 0.10 * alpha)
 	canvas.draw_colored_polygon(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.075 * alpha))
-	canvas.draw_polyline(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.22 * alpha), OUTER_GLOW_LINE_WIDTH * PROJECTILE_VISUAL_SCALE, true)
+	canvas.draw_polyline(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.22 * alpha), OUTER_GLOW_LINE_WIDTH * visual_scale, true)
 	canvas.draw_colored_polygon(points, Color(SHIELD_SHADOW.r, SHIELD_SHADOW.g, SHIELD_SHADOW.b, 0.48 * alpha))
 	canvas.draw_colored_polygon(bevel_points, Color(SHIELD_DEEP.r, SHIELD_DEEP.g, SHIELD_DEEP.b, 0.62 * alpha))
-	_draw_panel_facets(canvas, center, c, s, alpha, PROJECTILE_VISUAL_SCALE)
-	_draw_circuit_lines(canvas, center, c, s, alpha, pulse, PROJECTILE_VISUAL_SCALE)
+	_draw_panel_facets(canvas, center, c, s, alpha, visual_scale)
+	_draw_circuit_lines(canvas, center, c, s, alpha, pulse, visual_scale)
 
-	var inner_points: PackedVector2Array = _build_rotated_points(SHIELD_INNER_POINTS, center, rotation, PROJECTILE_VISUAL_SCALE)
-	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH * PROJECTILE_VISUAL_SCALE, true)
-	canvas.draw_polyline(points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, (0.70 + pulse * 0.18) * alpha), 1.45 * PROJECTILE_VISUAL_SCALE, true)
-	canvas.draw_polyline(bevel_points, Color(SHIELD_PANEL.r, SHIELD_PANEL.g, SHIELD_PANEL.b, 0.34 * alpha), 1.2 * PROJECTILE_VISUAL_SCALE, true)
-	canvas.draw_polyline(inner_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.54 * alpha), 1.35 * PROJECTILE_VISUAL_SCALE, true)
-	_draw_corner_nodes(canvas, points, center, alpha, pulse, PROJECTILE_VISUAL_SCALE)
-	_draw_center_core(canvas, center, c, s, alpha, pulse, PROJECTILE_VISUAL_SCALE)
+	var inner_points: PackedVector2Array = _build_rotated_points(SHIELD_INNER_POINTS, center, rotation, visual_scale)
+	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH * visual_scale, true)
+	canvas.draw_polyline(points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, (0.70 + pulse * 0.18) * alpha), 1.45 * visual_scale, true)
+	canvas.draw_polyline(bevel_points, Color(SHIELD_PANEL.r, SHIELD_PANEL.g, SHIELD_PANEL.b, 0.34 * alpha), 1.2 * visual_scale, true)
+	canvas.draw_polyline(inner_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.54 * alpha), 1.35 * visual_scale, true)
+	_draw_corner_nodes(canvas, points, center, alpha, pulse, visual_scale)
+	_draw_center_core(canvas, center, c, s, alpha, pulse, visual_scale)
 
 
 func _draw_hit_effects(canvas: CanvasItem, effects: Array, shake_offset: Vector2) -> void:

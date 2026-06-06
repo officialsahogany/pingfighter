@@ -189,6 +189,27 @@ Godot port routing:
   transition, and steady-state hot paths separately; `draw calls`, `prims`,
   `process_nodes outside_shell`, `physics_nodes outside_shell`, and first-frame
   max values are separate regression surfaces.
+- **Do not apply index-based stride decimation as a render-LOD on SPARSE or
+  CHEAP particle effects — it flickers, it does not just thin.** A stride cull
+  like `if (i - particle_start) % stride != 0: continue` selects which
+  particles to draw by their CURRENT array index. Every frame, particles spawn
+  (appended) and expire (compacted out), so each surviving particle's index
+  shifts and `particle_start` moves — meaning the SET of drawn particles
+  changes frame to frame. On a dense effect (rain ~120, fire 44–72) the churn
+  is hidden, but on a sparse one the result is visible blinking/stutter
+  ("뚝뚝 끊김"). The shipped 48-FPS-stable default forces `effect_lod_scale =
+  0.58` (≤ severe threshold) for EVERY player via
+  `BattleRenderQuality.is_fps_cap_lod_active()`, so this LOD is always on in
+  the real game, not an edge case. Reference regression (2026-06-06): wind
+  (breeze/gust) weather was strided + capped to ~12, rendering ~4 flickering
+  ribbons; wind ribbons are one `draw_texture_rect` each (the cheapest weather
+  effect), so the decimation bought nothing. Fix: exempt cheap/sparse effects
+  from stride (render every particle) and keep the count near-full; reserve
+  stride/count LOD for genuinely expensive, dense effects. If a sparse effect
+  truly must shed particles under LOD, drop a STABLE subset (cull by a
+  per-particle id/seed, or shrink a contiguous newest-window), never by live
+  array index. Sealed by `weather_event_render_budget_smoke.gd` (wind stride
+  must be 1, wind count must stay continuous).
 - When adding or porting a stage boss, convert existing boss skills to the
   Stage 1 Dalji-style skill-card cooldown HUD by default. Inventory all
   boss skills from the Python reference, use themed PNG card art for each

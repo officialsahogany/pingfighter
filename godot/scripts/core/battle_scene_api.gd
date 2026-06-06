@@ -254,6 +254,8 @@ func _has_blacksmith_umbrella_owner_fields(owner: Object) -> bool:
 		bool(owner.get("blacksmith_umbrella_open") if owner.get("blacksmith_umbrella_open") != null else false)
 		or float(owner.get("blacksmith_umbrella_anim_timer") if owner.get("blacksmith_umbrella_anim_timer") != null else 0.0) > 0.0
 		or bool(owner.get("blacksmith_umbrella_retracting") if owner.get("blacksmith_umbrella_retracting") != null else false)
+		or float(owner.get("blacksmith_umbrella_open_ratio") if owner.get("blacksmith_umbrella_open_ratio") != null else 0.0) > 0.0
+		or str(owner.get("blacksmith_umbrella_visual_state") if owner.get("blacksmith_umbrella_visual_state") != null else "closed") != "closed"
 		or bool(owner.get("blacksmith_umbrella_swing_active") if owner.get("blacksmith_umbrella_swing_active") != null else false)
 	)
 
@@ -264,6 +266,14 @@ func _clear_blacksmith_umbrella_owner_fields(owner: Object) -> void:
 	owner.set("blacksmith_umbrella_open", false)
 	owner.set("blacksmith_umbrella_anim_timer", 0.0)
 	owner.set("blacksmith_umbrella_retracting", false)
+	owner.set("blacksmith_umbrella_anim_direction", 1)
+	owner.set("blacksmith_umbrella_open_ratio", 0.0)
+	owner.set("blacksmith_thor_shield_open_ratio", 0.0)
+	owner.set("blacksmith_umbrella_raise_amount", 0.0)
+	owner.set("blacksmith_umbrella_shield_open_amount", 0.0)
+	owner.set("blacksmith_umbrella_visual_state", "closed")
+	owner.set("blacksmith_umbrella_folded", true)
+	owner.set("blacksmith_umbrella_deployed", false)
 	owner.set("blacksmith_umbrella_swing_active", false)
 	owner.set("blacksmith_umbrella_swing_direction", 0)
 	owner.set("blacksmith_umbrella_swing_timer", 0.0)

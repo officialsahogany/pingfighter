@@ -58,9 +58,10 @@ func draw(canvas: CanvasItem, context: Dictionary, registry, states: Dictionary)
 
 	var stage_background = states.get("stage_background", null)
 	var drew_layered_background := false
+	var director_snapshot: Dictionary = _build_stage1_crescendo_snapshot(registry)
 	var sample_start: int = _perf_begin(perf_logger)
 	if stage_background != null:
-		drew_layered_background = stage_background.draw(canvas, view_size, game_offset, game_size, width, perf_logger, quality_scale)
+		drew_layered_background = stage_background.draw(canvas, view_size, game_offset, game_size, width, perf_logger, quality_scale, director_snapshot)
 	if not drew_layered_background:
 		var fallback_renderer = registry.get_instance("stage1_fallback_pillar_renderer")
 		if fallback_renderer != null:
@@ -115,9 +116,10 @@ func draw_pillar_background_overlay(canvas: CanvasItem, context: Dictionary, reg
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
 	var width: float = float(context.get("width", 760.0))
 	var quality_scale: float = _get_pillar_quality_scale(context)
+	var director_snapshot: Dictionary = _build_stage1_crescendo_snapshot(registry)
 	var stage_background = states.get("stage_background", null)
 	if stage_background != null and stage_background.has_method("draw_pillar_background_overlay"):
-		stage_background.draw_pillar_background_overlay(canvas, view_size, game_offset, game_size, width, perf_logger, quality_scale)
+		stage_background.draw_pillar_background_overlay(canvas, view_size, game_offset, game_size, width, perf_logger, quality_scale, director_snapshot)
 	_perf_end(perf_logger, "stage1.pillar.background_overlay", sample_start)
 
 
@@ -155,6 +157,28 @@ func _with_stage1_hud_lod_context(context: Dictionary, quality_scale: float) -> 
 	return hud_context
 
 
+func _build_stage1_crescendo_snapshot(registry: Object) -> Dictionary:
+	var ball_intensity: Object = _get_registry_instance(registry, "ball_intensity")
+	if ball_intensity == null:
+		return {}
+	return {
+		"display_intensity": _get_display_intensity(ball_intensity),
+		"rally_tier": _get_rally_tier(ball_intensity),
+	}
+
+
+func _get_display_intensity(ball_intensity: Object) -> float:
+	if ball_intensity != null and ball_intensity.has_method("get_display_intensity"):
+		return clampf(float(ball_intensity.get_display_intensity()), 0.0, 1.0)
+	return 0.0
+
+
+func _get_rally_tier(ball_intensity: Object) -> int:
+	if ball_intensity != null and ball_intensity.has_method("get_rally_tier"):
+		return clampi(int(ball_intensity.get_rally_tier()), 0, 5)
+	return 0
+
+
 func _perf_begin(perf_logger: Object) -> int:
 	if perf_logger != null and perf_logger.has_method("begin_sample"):
 		return int(perf_logger.begin_sample())
@@ -173,3 +197,9 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
+
+
+func _get_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance(key)

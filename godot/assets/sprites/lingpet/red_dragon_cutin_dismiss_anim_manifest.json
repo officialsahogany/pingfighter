@@ -3,7 +3,7 @@
   "asset_type": "lingpet_acquisition_cutin_asset",
   "runtime_usage": "lingpet_acquisition_fullscreen_cutin_dismiss",
   "character": "red_dragon",
-  "display_name": "아기 홍룡",
+  "display_name": "파루키라스",
   "generated_at": "2026-06-04",
   "output_sheet": "res://assets/sprites/lingpet/red_dragon_cutin_dismiss_anim.png",
   "source_autosprite": {

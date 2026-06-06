@@ -35,9 +35,10 @@ func draw_cloud_motion_layers(
 	game_size: Vector2,
 	scale_factor: float,
 	time: float,
-	quality_scale: float = 1.0
+	quality_scale: float = 1.0,
+	motion_multiplier: float = 1.0
 ) -> void:
-	cloud_renderer.draw(canvas, cloud_sprite_texture, view_size, game_offset, game_size, scale_factor, time, quality_scale)
+	cloud_renderer.draw(canvas, cloud_sprite_texture, view_size, game_offset, game_size, scale_factor, time, quality_scale, motion_multiplier)
 
 
 func draw_tree_motion_layers(
@@ -47,9 +48,10 @@ func draw_tree_motion_layers(
 	game_offset: Vector2,
 	game_size: Vector2,
 	scale_factor: float,
-	tree_shakes: Dictionary
+	tree_shakes: Dictionary,
+	crescendo_offset: Vector2 = Vector2.ZERO
 ) -> void:
-	tree_renderer.draw(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes)
+	tree_renderer.draw(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, crescendo_offset)
 
 
 func draw_tree_drop_petals(canvas: CanvasItem, tree_drop_petals: Array[Dictionary], quality_scale: float = 1.0) -> void:
@@ -74,8 +76,8 @@ func draw_butterflies(
 	butterfly_renderer.draw(canvas, butterfly_sheet_texture, butterflies, view_size, game_offset, game_size, scale_factor, time, quality_scale)
 
 
-func draw_game_border_shine(canvas: CanvasItem, game_rect: Rect2, scale_factor: float, time: float, quality_scale: float = 1.0) -> void:
-	chrome_renderer.draw_game_border_shine(canvas, game_rect, scale_factor, time, quality_scale)
+func draw_game_border_shine(canvas: CanvasItem, game_rect: Rect2, scale_factor: float, time: float, quality_scale: float = 1.0, alpha_multiplier: float = 1.0) -> void:
+	chrome_renderer.draw_game_border_shine(canvas, game_rect, scale_factor, time, quality_scale, alpha_multiplier)
 
 
 func get_tree_shake_offset(side: String, scale_factor: float, tree_shakes: Dictionary) -> Vector2:

@@ -17,7 +17,7 @@ static func get_art_texture(pet_id: String, cache: Dictionary) -> Texture2D:
 		if cached_texture is Texture2D:
 			return cached_texture as Texture2D
 		cache.erase(path)
-	var texture := ProjectResourceLoader.load_texture(
+	var texture := ProjectResourceLoader.load_imported_texture(
 		path,
 		"Missing lingpet art texture at %s",
 		"Failed to load lingpet art texture at %s"

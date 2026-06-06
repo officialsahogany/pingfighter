@@ -11,8 +11,11 @@ const LOD_ACTIVE_THRESHOLD := 0.99
 const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
 const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 36
 const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 24
-const WIND_RENDER_PARTICLE_LIMIT_LOD := 18
-const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 12
+# Wind is the cheapest weather effect (one streak per particle), so keep it near-full
+# even under render LOD. Decimating wind to ~12 made the flow read as a few blinking
+# streaks ("뚝뚝 끊김") for no measurable perf gain.
+const WIND_RENDER_PARTICLE_LIMIT_LOD := 32
+const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 28
 const PARTICLE_RENDER_STRIDE_LOD := 2
 const PARTICLE_RENDER_STRIDE_SEVERE_LOD := 3
 const BREEZE_VISUAL_PARTICLE_TARGET := 28
@@ -336,7 +339,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_s
 		return
 	_draw_sand(canvas, shake_offset, effect_lod_scale)
 	var particle_start: int = max(0, weather_particles.size() - _get_render_particle_limit(effect_lod_scale))
-	var particle_stride: int = _get_particle_render_stride(effect_lod_scale)
+	var particle_stride: int = _get_particle_render_stride_for_type(weather_event_type, effect_lod_scale)
 	for particle_index in range(particle_start, weather_particles.size()):
 		if particle_stride > 1 and (particle_index - particle_start) % particle_stride != 0:
 			continue
@@ -1597,6 +1600,15 @@ func _get_particle_render_stride(effect_lod_scale: float) -> int:
 	if _is_lod_active(effect_lod_scale):
 		return PARTICLE_RENDER_STRIDE_LOD
 	return 1
+
+
+func _get_particle_render_stride_for_type(weather_type: String, effect_lod_scale: float) -> int:
+	if weather_type == "breeze" or weather_type == "gust":
+		# Index-based stride drops a different subset of particles each frame as wind
+		# streaks spawn and expire, so the sparse wind flow visibly flickers. Wind is
+		# cheap enough to always render every particle (no stride decimation).
+		return 1
+	return _get_particle_render_stride(effect_lod_scale)
 
 
 func _get_sand_render_stride(effect_lod_scale: float) -> int:

@@ -58,5 +58,16 @@ func apply(
 
 
 func _snap_player_hit_ball_pos(ball_pos: Vector2, context: Dictionary) -> Vector2:
+	# Blacksmith Thor Shield: the shield hitbox sits lifted above the player paddle
+	# (it tracks the raised, stretched shield art). Seat the ball just above the
+	# shield's TOP surface where it was drawn, so it visibly bounces off the shield.
+	# Without this the ball snapped down to the paddle baseline, which read as the
+	# ball teleporting to the player and re-launching from there.
+	if bool(context.get("blacksmith_thor_shield_hit", false)):
+		var shield_rect_value: Variant = context.get("blacksmith_thor_shield_rect", null)
+		if shield_rect_value is Rect2 and (shield_rect_value as Rect2).size.y > 0.0:
+			var shield_rect: Rect2 = shield_rect_value
+			ball_pos.y = shield_rect.position.y - float(context.get("ball_size", 0.0))
+			return ball_pos
 	ball_pos.y = float(context.get("player_y", ball_pos.y)) - float(context.get("ball_size", 0.0))
 	return ball_pos

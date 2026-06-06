@@ -1,0 +1,48 @@
+{
+  "asset_id": "red_dragon_companion_side_fly_flap_v1",
+  "character": "red_dragon",
+  "display_name": "파루키라스",
+  "generated_at": "2026-06-05",
+  "runtime_usage": "lingpet_dragon_wing_skill_flying_dragon_shadow",
+  "description": "Side-profile (right-facing) wing-flap flight loop used as the swooping 용 그림자 in the Dragon Wing (용의 날개) active skill. Mirrored horizontally at runtime for leftward flight. Separate from the rear-view companion sortie sheet (red_dragon_companion_wing_flap.png) — do not conflate the two.",
+  "outputs": {
+    "side_fly_sheet": "res://assets/sprites/lingpet/red_dragon_companion_side_fly_flap.png"
+  },
+  "source_autosprite": {
+    "character_id": "cmq0qfe7m00gvdap41epy12s3",
+    "character_name": "Farukiras Red Dragon Side Flight 20260606",
+    "character_create_quality": "pro",
+    "character_base_prompt": "Chibi super-deformed baby red dragon mascot, strict SIDE PROFILE view facing right, hovering in flight. Bright warm red scales, cream-tan belly, two curved golden horns, large amber eye, cyan-teal gem accents (forehead, neck collar, belly concentric circle, knee/wing rings), red bat wings, long spade-tip tail.",
+    "spritesheet_id": "cmq0qi4eo009590r7quc3loj3",
+    "spritesheet_kind": "custom",
+    "spritesheet_direction": "right",
+    "workflow_job_id": "wf_9fb13fe9-e13b-454f-921d-54e01973aaa9",
+    "source_video_id": "cmq0qg9jp00hcdap4e3pys5f2",
+    "animation_prompt": "strict side profile facing right, hovering in place while flying, flapping both red bat wings strongly up and down in a smooth seamless loop, long tail sways gently, body stays centered and level, continuous forward flight pose",
+    "quality": "legendary",
+    "removeBg": "ultra",
+    "credits_used": 10,
+    "credits_breakdown": "5 create_character(pro) + 5 generate_spritesheet(legendary custom)"
+  },
+  "postprocess": {
+    "operation": "Convert AutoSprite palette(P) sheet to RGBA, save verbatim grid (no re-layout). Corners verified transparent; last (25th) cell is empty by design (24 frames in a 5x5 grid).",
+    "tool": "PIL Image.convert('RGBA')"
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 24,
+    "cell_size": [256, 256],
+    "sheet_size": [1280, 1280],
+    "facing": "right (mirror for leftward flight)",
+    "sha256": "eb08371082fc4fd5e2274705b1ccb2098eea0ac750707e22973dd7f256a8ab5a",
+    "bytes": 1087346
+  },
+  "runtime_wiring": {
+    "owner": "res://scripts/lingpet/lingpet_dragon_wing_skill.gd",
+    "constants": "DRAGON_SHEET_PATH / DRAGON_SHEET_COLS=5 / DRAGON_SHEET_ROWS=5 / DRAGON_SHEET_FRAME_COUNT=24 / DRAGON_FLAP_FPS=22 / DRAGON_SPRITE_DRAW_SIZE=160",
+    "flip_rule": "dir<0 (leftward flight) -> _blit_flipped_region; dir>0 -> draw_texture_rect_region (source faces right)",
+    "blend": "colored sprite drawn with default mix blend (canvas.material=null), fiery glow/aura accents drawn additive around it"
+  },
+  "status": "Accepted and wired as the Dragon Wing skill's side-profile flying dragon shadow (replaces the prior rear-view companion sheet reuse)."
+}

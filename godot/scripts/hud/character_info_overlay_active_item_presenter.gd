@@ -51,6 +51,15 @@ static func refresh_overlay_draw_cache(target: Object, slots: Array, max_slots: 
 	)
 
 
+static func build_body(item_data: Dictionary, cooldown_msec: int) -> String:
+	var lines: Array = []
+	var description: String = CharacterInfoOverlayValueUtils.get_string_fallback(item_data, "description", "desc").strip_edges()
+	if description != "":
+		lines.append(description)
+	lines.append("쿨타임 %.1f초" % (float(max(0, cooldown_msec)) / 1000.0))
+	return "\n".join(lines)
+
+
 static func draw_slots(
 	canvas: CanvasItem,
 	font: Font,
@@ -109,11 +118,12 @@ static func draw_slots(
 				active_item_color = CharacterInfoOverlayFormatter.item_color(item_data, visuals, Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0))
 			var base_cooldown_msec: int = max(0, int(CharacterInfoOverlayValueUtils.get_number_fallback(item_data, "cooldown_msec", "cooldown_ms")))
 			var cooldown_msec: int = CharacterInfoOverlayOwnerState.active_item_cooldown_from_base(base_cooldown_msec, stat_sources if not stat_sources.is_empty() else CharacterInfoOverlayOwnerState.stat_sources(registry), Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
+			var body: String = build_body(item_data, cooldown_msec)
 			hover_data = set_hover_data_callable.call(
 				hover_data,
 				display_name,
-				"?щ’ %d" % (i + 1),
-				"쿨타임 %.1f초" % (float(cooldown_msec) / 1000.0),
+				"슬롯 %d" % (i + 1),
+				body,
 				active_item_color
 			)
 	return hover_data

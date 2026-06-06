@@ -56,7 +56,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 				viper_jetpack_airborne = bool(viper_jetpack_state.is_airborne(0.1))
 			if "air_strike_flash_timer" in viper_jetpack_state:
 				viper_air_strike_flash_timer = float(viper_jetpack_state.air_strike_flash_timer)
-	return {
+	var context := {
 		"shake_offset": shake_offset,
 		"current_msec": current_msec,
 		"width": WIDTH,
@@ -105,6 +105,25 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"ball_visual_type": str(_get_owner_value(owner, "ball_visual_type", "energy")),
 		"bomb_ball_loaded": bool(_get_owner_value(owner, "bomb_ball_loaded", false)),
 		"poisoned_ball_overlay_active": bool(_get_owner_value(owner, "poisoned_ball_overlay_active", false)),
+		"blacksmith_umbrella_open": bool(_get_owner_value(owner, "blacksmith_umbrella_open", false)),
+		"blacksmith_umbrella_anim_timer": float(_get_owner_value(owner, "blacksmith_umbrella_anim_timer", 0.0)),
+		"blacksmith_umbrella_retracting": bool(_get_owner_value(owner, "blacksmith_umbrella_retracting", false)),
+		"blacksmith_umbrella_anim_direction": int(_get_owner_value(owner, "blacksmith_umbrella_anim_direction", 1)),
+		"blacksmith_umbrella_open_ratio": clamp(float(_get_owner_value(owner, "blacksmith_umbrella_open_ratio", 0.0)), 0.0, 1.0),
+		"blacksmith_thor_shield_open_ratio": clamp(float(_get_owner_value(owner, "blacksmith_thor_shield_open_ratio", 0.0)), 0.0, 1.0),
+		"blacksmith_umbrella_raise_amount": clamp(float(_get_owner_value(owner, "blacksmith_umbrella_raise_amount", 0.0)), 0.0, 1.0),
+		"blacksmith_umbrella_shield_open_amount": clamp(float(_get_owner_value(owner, "blacksmith_umbrella_shield_open_amount", 0.0)), 0.0, 1.0),
+		"blacksmith_umbrella_visual_state": str(_get_owner_value(owner, "blacksmith_umbrella_visual_state", "closed")),
+		"blacksmith_umbrella_folded": bool(_get_owner_value(owner, "blacksmith_umbrella_folded", true)),
+		"blacksmith_umbrella_deployed": bool(_get_owner_value(owner, "blacksmith_umbrella_deployed", false)),
+		"blacksmith_umbrella_swing_active": bool(_get_owner_value(owner, "blacksmith_umbrella_swing_active", false)),
+		"blacksmith_umbrella_swing_direction": int(_get_owner_value(owner, "blacksmith_umbrella_swing_direction", 0)),
+		"blacksmith_umbrella_swing_timer": float(_get_owner_value(owner, "blacksmith_umbrella_swing_timer", 0.0)),
+		"blacksmith_umbrella_gauge": int(_get_owner_value(owner, "blacksmith_umbrella_gauge", 5)),
+		"blacksmith_umbrella_gauge_max": int(_get_owner_value(owner, "blacksmith_umbrella_gauge_max", 5)),
+		"blacksmith_umbrella_gauge_gain": float(_get_owner_value(owner, "blacksmith_umbrella_gauge_gain", 60.0)),
+		"blacksmith_umbrella_damage_flash_timer": float(_get_owner_value(owner, "blacksmith_umbrella_damage_flash_timer", 0.0)),
+		"blacksmith_umbrella_hit_pulse_timer": float(_get_owner_value(owner, "blacksmith_umbrella_hit_pulse_timer", 0.0)),
 		"viper_knockback_overlay_active": viper_knockback_overlay_active,
 		"viper_jetpack_active": viper_jetpack_active,
 		"viper_jetpack_airborne": viper_jetpack_airborne,
@@ -121,6 +140,8 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"drive_text_duration_frames": DRIVE_TEXT_DURATION_FRAMES,
 		"power_smash_text_duration_frames": POWER_SMASH_TEXT_DURATION_FRAMES,
 	}
+	_merge_blacksmith_thor_shield_state_context(context, selected_character_type, registry)
+	return context
 
 
 func _build_game_layout(owner: Object, registry, width: float, height: float) -> Dictionary:
@@ -181,6 +202,19 @@ func _get_empty_dash_snapshot() -> Dictionary:
 		"boost_charging_effect_duration": 12.0,
 		"boost_charging_token_index": -1,
 	}
+
+
+func _merge_blacksmith_thor_shield_state_context(context: Dictionary, character_type: String, registry) -> void:
+	if character_type != "blacksmith":
+		return
+	var shield_state: Object = registry.get_instance("blacksmith_thor_shield_state") if registry != null and registry.has_method("get_instance") else null
+	if shield_state == null or not shield_state.has_method("get_snapshot"):
+		return
+	var snapshot: Dictionary = shield_state.get_snapshot()
+	for key in snapshot.keys():
+		var key_name := str(key)
+		if key_name.begins_with("blacksmith_umbrella") or key_name == "blacksmith_thor_shield_open_ratio":
+			context[key_name] = snapshot[key]
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

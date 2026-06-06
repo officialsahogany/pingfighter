@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultBoxDrawHelper := preload("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
+const StageClearResultBoxPresenter := preload("res://scripts/ui/stage_clear_result_box_presenter.gd")
 
 var _failures: Array[String] = []
 
@@ -67,8 +68,11 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_box_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") >= 0, "result scene should delegate floating result-box drawing")
-	_expect(source.find("StageClearResultBoxDrawHelper.build_floating_result_box_draw_context") >= 0, "result scene should delegate floating result-box draw context assembly")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_presenter.gd")
+	_expect(StageClearResultBoxPresenter != null, "box presenter preload should resolve")
+	_expect(source.find("StageClearResultBoxPresenter.draw_floating_boxes") >= 0, "result scene should delegate floating result-box drawing through the box presenter")
+	_expect(presenter_source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") >= 0, "box presenter should delegate floating result-box drawing")
+	_expect(presenter_source.find("StageClearResultBoxDrawHelper.build_floating_result_box_draw_context") >= 0, "box presenter should delegate floating result-box draw context assembly")
 	_expect(source.find("StageClearResultBoxDrawHelper.draw_result_box_sheet_frame") < 0, "result scene should not directly own result-box sheet frame drawing")
 	_expect(source.find("func _get_result_box_sheet_texture") < 0, "result scene should not keep result-box sheet texture selection")
 	_expect(source.find("const RESULT_BOX_SHEET_FRAME_COUNT") < 0, "result scene should not keep result-box sheet draw constants")
@@ -76,6 +80,7 @@ func _verify_scene_delegates_box_draw() -> void:
 	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_glow") < 0, "result scene should not directly draw floating box hover glow")
 	_expect(source.find("var col: int = frame_index % RESULT_BOX_SHEET_GRID_COLS") < 0, "result scene should not keep result-box sheet column math")
 	_expect(source.find("func _draw_result_box_fallback") < 0, "result scene should not keep result-box fallback drawing wrappers")
+	_expect(source.find("func _draw_floating_box(") < 0, "result scene should not keep a per-box draw wrapper")
 
 
 func _expect(condition: bool, message: String) -> void:

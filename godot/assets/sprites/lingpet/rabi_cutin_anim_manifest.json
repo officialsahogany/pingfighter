@@ -1,0 +1,110 @@
+{
+  "asset_id": "rabi_acquisition_cutin_anim",
+  "pet_id": "rabi",
+  "display_name": "라비",
+  "generated_at": "2026-06-06",
+  "runtime_usage": "candidate lingpet_acquisition_fullscreen_cutin; not wired into lingpet_catalog.gd yet",
+  "source_art": {
+    "path": "res://assets/sprites/lingpet/rabi_cutin_art.png",
+    "magenta_source_path": "res://assets/sprites/lingpet/rabi_cutin_art_magenta_source.png",
+    "original_concept_manifest": "res://assets/sprites/lingpet/ghost_lingpet_cutin_concept_imagegen_v1_manifest.json",
+    "size": [1254, 1254],
+    "sha256": "e9fb67038244778cf8395d3fe61673c9a014a51505f44b1d5ba368e4664c798c"
+  },
+  "source_autosprite": {
+    "asset_id": "cmq1norpp0099apmdlqg6nhnj",
+    "asset_name": "Rabi Ghost Ringpet Acquire Base 20260606",
+    "job_id": "wf_e3469f3e-474c-4f8b-a292-b45d2f8dca63",
+    "spritesheet_id": "cmq1nqh4c00bpfnmoukk98wtt",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "animation_prompt": "Gentle acquisition loop: float, soft breathing, tiny arm wave, blue eyes blink, star wisps bob, collar/core glow pulse, stable full body."
+  },
+  "autosprite_raw": {
+    "path": ".tmp/rabi_acquire_cutin/rabi_acquire_autosprite_raw.png",
+    "atlas_path": ".tmp/rabi_acquire_cutin/rabi_acquire_autosprite_raw_atlas.json",
+    "video_path": ".tmp/rabi_acquire_cutin/rabi_acquire_autosprite_video.mp4",
+    "size": [2048, 2048],
+    "cell_size": [512, 512],
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "sha256": "b9f913c00f23e67b45b561c92e99acd2b013aa70f59e0bdef2f5ea5c375c4aab",
+    "bytes": 876098
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/rabi_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [2048, 2048],
+    "sheet_size": [8192, 8192],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 4.0,
+    "sha256": "afbcce1765b603eb421a2cae994d4a946fc24681dab106d6d4de95322b16a9f1",
+    "bytes": 24519709
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale",
+    "operation": "AutoSprite 512 cells scaled to 84 percent and centered; transparent RGB was alpha-bled, RGB cells were Real-ESRGAN x4 upscaled, source alpha was Lanczos x4 upscaled and recombined, then low-alpha green fringe pixels were clipped.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4.0,
+      "rgb_source": ".tmp/rabi_acquire_cutin/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/rabi_acquire_cutin/rgb_cells_s84_x4",
+      "alpha_source": ".tmp/rabi_acquire_cutin/alpha_cells_s84"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "alpha <= 15 set to transparent after alpha resize; 131 low-alpha green fringe pixels removed from the final sheet"
+    }
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_green_pixels": 0,
+    "visible_magenta_pixels": 0,
+    "cell_fill_w_pct_frame0": 56.59,
+    "cell_fill_h_pct_frame0": 74.32,
+    "area_range_pct": [40.95, 42.86],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [443, 263, 1602, 1785],
+        "margin_ltrb": [443, 263, 446, 263],
+        "size": [1159, 1522]
+      },
+      {
+        "frame": 4,
+        "bbox": [431, 227, 1592, 1713],
+        "margin_ltrb": [431, 227, 456, 335],
+        "size": [1161, 1486]
+      },
+      {
+        "frame": 8,
+        "bbox": [432, 202, 1601, 1697],
+        "margin_ltrb": [432, 202, 447, 351],
+        "size": [1169, 1495]
+      },
+      {
+        "frame": 12,
+        "bbox": [435, 251, 1601, 1791],
+        "margin_ltrb": [435, 251, 447, 257],
+        "size": [1166, 1540]
+      },
+      {
+        "frame": 15,
+        "bbox": [436, 266, 1605, 1793],
+        "margin_ltrb": [436, 266, 443, 255],
+        "size": [1169, 1527]
+      }
+    ],
+    "previews": {
+      "contact": ".tmp/rabi_acquire_cutin/rabi_cutin_anim_contact_preview_clean.png",
+      "black": ".tmp/rabi_acquire_cutin/rabi_cutin_anim_black_preview_clean.png"
+    }
+  }
+}

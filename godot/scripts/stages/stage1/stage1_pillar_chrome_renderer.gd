@@ -32,12 +32,12 @@ func _draw_view_border(canvas: CanvasItem, view_size: Vector2, inset: float, lin
 		canvas.draw_rect(rect, line_color, false, line_width)
 
 
-func draw_game_border_shine(canvas: CanvasItem, game_rect: Rect2, scale_factor: float, time: float, quality_scale: float = 1.0) -> void:
+func draw_game_border_shine(canvas: CanvasItem, game_rect: Rect2, scale_factor: float, time: float, quality_scale: float = 1.0, alpha_multiplier: float = 1.0) -> void:
 	var shine: float = (30.0 + 15.0 * sin(time * 2.0)) / 255.0
 	var s: float = max(1.0, scale_factor)
 	var layer_count: int = GAME_BORDER_SHINE_LAYERS_LOD if quality_scale < GAME_BORDER_SHINE_LOD_THRESHOLD else GAME_BORDER_SHINE_LAYERS
 	for i in range(layer_count):
-		var alpha: float = shine - float(i) * (10.0 / 255.0)
+		var alpha: float = (shine - float(i) * (10.0 / 255.0)) * max(0.0, alpha_multiplier)
 		if alpha <= 0.0:
 			continue
 		var rect: Rect2 = game_rect.grow((8.0 + float(i)) * s)

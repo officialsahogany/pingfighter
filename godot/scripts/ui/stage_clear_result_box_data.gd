@@ -267,6 +267,18 @@ static func append_resolved_perk_reward(boxes: Array, index: int, perk_reward: D
 	return {"updated": true, "boxes": updated_boxes}
 
 
+static func get_append_resolved_perk_reward_apply_result(
+	append_result: Dictionary,
+	current_boxes: Array
+) -> Dictionary:
+	var updated: bool = bool(append_result.get("updated", false))
+	return {
+		"updated": updated,
+		"boxes": append_result.get("boxes", current_boxes) if updated else current_boxes,
+		"redraw": updated,
+	}
+
+
 static func build_immediate_reward_payload(box: Dictionary, cinematic_positions: Dictionary) -> Dictionary:
 	var reward_value: Variant = box.get("reward", {})
 	if not (reward_value is Dictionary):

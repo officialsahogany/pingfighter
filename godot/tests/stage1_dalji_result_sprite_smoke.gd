@@ -6,6 +6,10 @@ const BattleUpdateEffectsContext := preload("res://scripts/core/battle_update_ef
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
 const Stage1DaljiSpinningTopRenderer := preload("res://scripts/stages/stage1/stage1_dalji_spinning_top_renderer.gd")
 
+const SMASHER_REAR_IDLE_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
+const SMASHER_REAR_MOVE_LEFT_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
+const SMASHER_REAR_MOVE_RIGHT_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_rightpose_handlocked_v20_4x2_160_clean.png"
+
 
 class FakeOwner:
 	extends RefCounted
@@ -121,6 +125,13 @@ func _init() -> void:
 	_expect(_texture_size(textures, "player_idle_sprite_texture") == Vector2(640.0, 320.0), "Smasher idle fallback should use the same subculture sheet")
 	_expect(_texture_size(textures, "player_walk_left_texture") == Vector2(640.0, 320.0), "Smasher left walk should keep the 4x2 8-frame runtime-sheet size")
 	_expect(_texture_size(textures, "player_walk_right_texture") == Vector2(640.0, 320.0), "Smasher right walk should keep the 4x2 8-frame runtime-sheet size")
+	var expected_smasher_idle: Texture2D = load(SMASHER_REAR_IDLE_PATH) as Texture2D
+	var expected_smasher_left_walk: Texture2D = load(SMASHER_REAR_MOVE_LEFT_PATH) as Texture2D
+	var expected_smasher_right_walk: Texture2D = load(SMASHER_REAR_MOVE_RIGHT_PATH) as Texture2D
+	_expect(textures.get("player_idle_back_sheet", null) == expected_smasher_idle, "Smasher idle should load the blue-energy rear SD breathing sheet")
+	_expect(textures.get("player_idle_sprite_texture", null) == expected_smasher_idle, "Smasher idle fallback should share the blue-energy rear SD breathing sheet")
+	_expect(textures.get("player_walk_left_texture", null) == expected_smasher_left_walk, "Smasher left walk should load the blue-energy rear SD movement sheet")
+	_expect(textures.get("player_walk_right_texture", null) == expected_smasher_right_walk, "Smasher right walk should load the blue-energy rear SD movement sheet")
 
 	var update_context: Dictionary = BattleUpdateEffectsContext.new().build_context(
 		FakeOwner.new({

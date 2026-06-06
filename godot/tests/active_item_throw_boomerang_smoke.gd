@@ -2,6 +2,7 @@ extends SceneTree
 
 const ActiveItemThrowBoomerang := preload("res://scripts/items/active_item_throw_boomerang.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const GameAudio := preload("res://scripts/audio/game_audio.gd")
 
 var _failures: Array[String] = []
 var _collected_positions: Array[Vector2] = []
@@ -81,6 +82,7 @@ func _init() -> void:
 	_verify_boss_hit_applies_status()
 	_verify_returning_collects_and_finishes()
 	_verify_particles_and_helpers()
+	_verify_break_audio_matches_legacy()
 
 	if _failures.is_empty():
 		print("active_item_throw_boomerang_smoke: ok")
@@ -201,6 +203,10 @@ func _verify_particles_and_helpers() -> void:
 
 	_expect(controller.get_boomerang_particles().size() == controller.BOOMERANG_BREAK_PARTICLE_COUNT, "boomerang break should spawn legacy particle count")
 	_expect(float(controller.get_boomerang_particles()[0].get("age", 0.0)) > first_age, "boomerang particles should age")
+
+
+func _verify_break_audio_matches_legacy() -> void:
+	_expect(GameAudio.BOOMERANG_BREAK_SOUND_PATH == "res://assets/sounds/bonebreak.wav", "boomerang break should use the legacy BOOMERANG_BREAK bonebreak cue")
 
 
 func _collect_items_for_boomerang(pos: Vector2, radius: float) -> Array:

@@ -281,7 +281,7 @@ func _load_job_synchronously(job: Dictionary) -> void:
 	var type_hint := str(job.get("type", ""))
 	var path := str(job.get("path", ""))
 	if type_hint == "Texture2D":
-		ProjectResourceLoader.load_texture(path)
+		ProjectResourceLoader.load_imported_texture(path)
 	elif type_hint == "AudioStream":
 		ProjectResourceLoader.load_audio_stream(path)
 	elif type_hint == "PackedScene":

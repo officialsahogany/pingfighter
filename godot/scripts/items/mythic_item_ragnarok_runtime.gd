@@ -86,8 +86,6 @@ func try_apply_player_hit(
 		"ball_vel": next_ball_vel,
 		"special_gauge": max(0.0, special_gauge - gauge_cost),
 		"activated": true,
-		"speed_limit_disabled": true,
-		"ragnarok_hammer_speed_limit_disabled": true,
 	}
 
 
@@ -113,8 +111,6 @@ func apply_boss_hit(
 			"ball_vel": next_ball_vel,
 			"applied": false,
 			"boss_status_immune": true,
-			"speed_limit_disabled": false,
-			"ragnarok_hammer_speed_limit_disabled": false,
 		}
 	var boss_pos: Vector2 = runtime._get_vector2(context.get("boss_pos", Vector2(330.0, 25.0)))
 	var boss_size: Vector2 = runtime._get_vector2(context.get("boss_paddle_size", Vector2(100.0, 40.0)))
@@ -158,8 +154,6 @@ func apply_boss_hit(
 	return {
 		"ball_vel": next_ball_vel,
 		"applied": true,
-		"speed_limit_disabled": false,
-		"ragnarok_hammer_speed_limit_disabled": false,
 	}
 
 

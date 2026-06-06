@@ -4,6 +4,7 @@ const PLAYER_DIRECTIONAL_ATTACK_ANIM_DURATION: float = 0.72
 const PLAYER_LEGACY_ATTACK_ANIM_DURATION: float = 0.40
 const SMASHER_DIRECTIONAL_WALK_FRAME_COUNT: int = 8
 const SMASHER_DIRECTIONAL_WALK_FRAME_SPEED: float = 0.050
+const SMASHER_DIRECTIONAL_DASH_FRAME_COUNT: int = 8
 const SMASHER_IDLE_FRAME_COUNT: int = 8
 const COMMANDO_IDLE_FRAME_COUNT: int = 8
 const DALJI_WALK_FRAME_COUNT: int = 16
@@ -36,6 +37,10 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		has_directional_walk_sheet = _has_texture(textures, "viper_player_walk_left_sheet") or _has_texture(textures, "viper_player_walk_right_sheet")
 	else:
 		has_directional_walk_sheet = _has_texture(textures, "player_walk_left_texture") or _has_texture(textures, "player_walk_right_texture")
+	var has_directional_dash_sheet: bool = is_blacksmith and (
+		_has_texture(textures, "blacksmith_player_dash_left_sheet")
+		or _has_texture(textures, "blacksmith_player_dash_right_sheet")
+	)
 	var has_player_sprite := false
 	if is_viper:
 		has_player_sprite = _has_texture(textures, "viper_player_sprite_texture")
@@ -77,10 +82,12 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		"player_has_idle_sprite": has_idle_sprite,
 		"player_sprite_frame_count": sprite_frame_count,
 		"player_sprite_animation_speed": sprite_frame_speed,
+		"player_has_dash_sheet": has_directional_dash_sheet,
+		"player_dash_frame_count": SMASHER_DIRECTIONAL_DASH_FRAME_COUNT if has_directional_dash_sheet else 0,
 		"player_idle_frame_count": COMMANDO_IDLE_FRAME_COUNT if has_commando_idle_sheet else (SMASHER_IDLE_FRAME_COUNT if has_smasher_idle_sheet or has_blacksmith_idle_sheet else 8),
 		"player_idle_animation_speed": 0.13 if is_viper else 0.15,
 		"player_has_attack_sheet": has_attack_sheet,
-		"player_hit_frame_count": (8 if is_viper or is_blacksmith else 16) if has_directional_attack_sheet else (8 if has_legacy_attack_sheet else (8 if has_commando_attack_sheet else 4)),
+		"player_hit_frame_count": (16 if is_blacksmith else (8 if is_viper else 16)) if has_directional_attack_sheet else (8 if has_legacy_attack_sheet else (8 if has_commando_attack_sheet else 4)),
 		"player_hit_linear_frames": has_directional_attack_sheet,
 		"player_hit_anim_duration": (
 			PLAYER_LEGACY_ATTACK_ANIM_DURATION

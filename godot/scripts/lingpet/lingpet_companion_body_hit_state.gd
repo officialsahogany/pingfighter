@@ -76,6 +76,7 @@ func resolve_ball_hit(
 	hit_flash_timer = HIT_FLASH_SECONDS
 	_release_ball_control_skill_for_companion_guard(owner, registry)
 	_apply_paddle_bounce(owner, ball_pos, ball_radius, companion_pos, half_width, half_height)
+	_register_ball_intensity_contact(registry)
 	_play_paddle_hit(registry)
 	_try_apply_hit_gauge_gain(owner, registry, hit_gauge_gain, companion_active)
 	return {
@@ -154,6 +155,12 @@ func _play_paddle_hit(registry: Object) -> void:
 	var audio: Object = _get_registry_instance(registry, "game_audio")
 	if audio != null and audio.has_method("play_paddle_hit"):
 		audio.play_paddle_hit()
+
+
+func _register_ball_intensity_contact(registry: Object) -> void:
+	var ball_intensity: Object = _get_registry_instance(registry, "ball_intensity")
+	if ball_intensity != null and ball_intensity.has_method("register_contact"):
+		ball_intensity.register_contact("lingpet", "player", {"source": "companion_guard"})
 
 
 func _trigger_hit_gauge_feedback(registry: Object) -> void:

@@ -18,7 +18,8 @@ func draw(
 	sparkle_timer: float,
 	sparkle_duration: float,
 	t: float,
-	quality_scale: float = 1.0
+	quality_scale: float = 1.0,
+	stakes: Dictionary = {}
 ) -> void:
 	if canvas == null or game_offset.y < 20.0:
 		return
@@ -45,6 +46,6 @@ func draw(
 
 	var is_deuce := deuce_mode or (player_score >= 4 and boss_score >= 4 and player_score == boss_score)
 	if is_deuce:
-		deuce_renderer.draw(canvas, box_rect, scale_factor, t, sparkle_intensity, player_score, boss_score, quality_scale)
+		deuce_renderer.draw(canvas, box_rect, scale_factor, t, sparkle_intensity, player_score, boss_score, quality_scale, stakes)
 	else:
-		normal_renderer.draw(canvas, box_rect, scale_factor, sparkle_progress, sparkle_intensity, player_score, boss_score, quality_scale)
+		normal_renderer.draw(canvas, box_rect, scale_factor, sparkle_progress, sparkle_intensity, player_score, boss_score, quality_scale, stakes)

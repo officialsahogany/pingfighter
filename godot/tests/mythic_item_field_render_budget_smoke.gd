@@ -222,6 +222,21 @@ func _verify_draw_paths_use_render_caps() -> void:
 		_function_body(horn_source, "func _draw_bombs").find("explosion_render_limit") >= 0,
 		"Horn Strawberry bomb draw should cap explosion rings"
 	)
+	var horn_barrier_body := _function_body(horn_source, "func _draw_barrier")
+	_expect(
+		horn_barrier_body.find("built_stem_lines") >= 0
+			and horn_barrier_body.find("draw_multiline(built_stem_lines") >= 0,
+		"Horn Strawberry built barriers should batch repeated berry stem strokes"
+	)
+	var tiny_strawberry_body := _function_body(horn_source, "func _draw_tiny_strawberry")
+	_expect(
+		tiny_strawberry_body.find("draw_colored_polygon") >= 0,
+		"Horn Strawberry tiny berries should use the solid-color polygon draw path"
+	)
+	_expect(
+		tiny_strawberry_body.find("draw_multiline(leaf_lines") >= 0,
+		"Horn Strawberry tiny berries should batch leaf strokes"
+	)
 	_expect(
 		_function_body(poseidon_source, "func draw_poseidon_water_trail").find("_recent_start(water_trail, water_trail_render_limit)") >= 0,
 		"Poseidon water trail draw should cap decorative droplets"

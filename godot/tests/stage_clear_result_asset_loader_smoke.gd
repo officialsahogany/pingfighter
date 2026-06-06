@@ -107,12 +107,20 @@ func _verify_audio_load() -> void:
 
 func _verify_scene_delegates_asset_loading() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var apply_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_asset_apply_handler.gd")
+	var audio_apply_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_audio_apply_handler.gd")
+	var character_asset_state_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_character_asset_state_handler.gd")
 	_expect(
-		source.find("StageClearResultAssetLoader.load_textures") >= 0
-		and source.find("StageClearResultAssetLoader.load_dalji_click_voice") >= 0
+		source.find("StageClearResultAssetApplyHandler.load_texture_fields") >= 0
+		and apply_handler_source.find("StageClearResultAssetLoader.load_textures") >= 0
+		and apply_handler_source.find("StageClearResultAssetLoader.get_result_asset_paths") >= 0
+		and source.find("StageClearResultCharacterAssetStateHandler.get_character_asset_state") >= 0
+		and character_asset_state_source.find("StageClearResultAssetLoader.normalize_player_victory_character_type") >= 0
+		and source.find("StageClearResultAudioApplyHandler.load_dalji_click_voice_stream") >= 0
+		and audio_apply_handler_source.find("StageClearResultAssetLoader.load_dalji_click_voice") >= 0
 		and source.find("StageClearResultAssetLoader.prewarm_result_assets_step") >= 0
 		and source.find("StageClearResultAssetLoader.get_result_asset_paths") >= 0,
-		"result scene should delegate asset loading and staged prewarm to the asset loader"
+		"result scene should delegate texture field loading through the asset apply handler and staged prewarm / audio to the asset loader"
 	)
 	_expect(
 		source.find("static func _result_asset_path_config") < 0,
@@ -128,6 +136,14 @@ func _verify_scene_delegates_asset_loading() -> void:
 		"result scene should not keep direct project resource loader calls"
 	)
 	_expect(
+		source.find("for key_value in StageClearResultAssetLoader.TEXTURE_KEYS") < 0,
+		"result scene should not keep texture-key field application loops"
+	)
+	_expect(
+		source.find("StageClearResultAssetLoader.load_dalji_click_voice") < 0,
+		"result scene should not load Dalji click voice streams directly"
+	)
+	_expect(
 		source.find("static var _prewarm_asset") < 0
 			and source.find("static func _prewarm_assets_step_impl") < 0,
 		"result scene should not keep stateful prewarm implementation details"
@@ -137,6 +153,10 @@ func _verify_scene_delegates_asset_loading() -> void:
 			and source.find("static func _get_player_victory_sheet_path_for_character") < 0
 			and source.find("static func _get_player_victory_click_reaction_sheet_path_for_character") < 0,
 		"result scene should not keep asset path resolution helpers"
+	)
+	_expect(
+		source.find("var previous_character_type") < 0,
+		"result scene should not keep configure-time character cache invalidation inline"
 	)
 
 
@@ -168,9 +188,11 @@ func _verify_result_box_export_safe_texture_path() -> void:
 
 func _verify_result_box_texture_region_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var box_presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_presenter.gd")
 	var box_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") >= 0
+		source.find("StageClearResultBoxPresenter.draw_floating_boxes") >= 0
+		and box_presenter_source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") >= 0
 		and box_helper_source.find("draw_result_box_sheet_frame") >= 0
 		and box_helper_source.find("draw_set_transform(draw_center, box_rotation, Vector2.ONE)") >= 0
 		and box_helper_source.find("draw_texture_rect_region(") >= 0

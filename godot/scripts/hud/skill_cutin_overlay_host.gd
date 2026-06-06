@@ -17,6 +17,7 @@ const CUTIN_STANDARD_COLUMNS := 4
 const SKILL_DRIVE := "drive"
 const SKILL_POWER_SMASHING := "power_smashing"
 const SKILL_GHOST_SHOT := "ghost_shot"
+const SKILL_SHIELD_KITING := "shield_kiting"
 const SKILL_PHANTOM_KICK := "phantom_kick"
 
 const POWER_SMASHING_COLOR := Color(1.0, 100.0 / 255.0, 50.0 / 255.0)
@@ -104,6 +105,7 @@ func prewarm_assets_for_character(character_type: String = "") -> void:
 		_get_drive_texture(DRIVE_BACKPLATE_PATH)
 		_get_drive_texture(DRIVE_ARC_PATH)
 		_get_drive_texture(DRIVE_CHARACTER_PATH)
+		_get_drive_texture(SkillCutinDriveRenderer.SHIELD_KITING_CHARACTER_PATH)
 		_get_drive_writhe_material(false)
 		_get_drive_writhe_material(true)
 		DriveCutinFxHost.prewarm_assets()
@@ -173,7 +175,7 @@ func _load_cutin_sheet_texture(path: String, label: String) -> Texture2D:
 		and not ResourceLoader.exists(path)
 	):
 		return null
-	return ProjectResourceLoader.load_texture(
+	return ProjectResourceLoader.load_imported_texture(
 		path,
 		"",
 		"Failed to load %s cut-in sheet: %%s" % label
@@ -333,6 +335,27 @@ func draw_drive_cutin(canvas: CanvasItem, drive_cutin_state: Object, view_size: 
 		Callable(self, "_get_drive_writhe_material"),
 		Callable(self, "_get_localized_skill_title"),
 		Callable(self, "_fit_title_font_size")
+	)
+
+
+func draw_shield_kiting_cutin(
+	canvas: CanvasItem,
+	cutin_state: Object,
+	shield_kiting_state: Object,
+	view_size: Vector2
+) -> void:
+	var shield_symbol_drawer := Callable()
+	if shield_kiting_state != null and shield_kiting_state.has_method("draw_cutin_symbol"):
+		shield_symbol_drawer = Callable(shield_kiting_state, "draw_cutin_symbol")
+	SkillCutinDriveRenderer.draw_shield_kiting_cutin(
+		canvas,
+		cutin_state,
+		view_size,
+		Callable(self, "_get_drive_texture"),
+		Callable(self, "_get_drive_writhe_material"),
+		Callable(self, "_get_localized_skill_title"),
+		Callable(self, "_fit_title_font_size"),
+		shield_symbol_drawer
 	)
 
 

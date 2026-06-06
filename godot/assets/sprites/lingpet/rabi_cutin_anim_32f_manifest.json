@@ -1,0 +1,309 @@
+{
+  "asset_id": "rabi_acquisition_cutin_anim_32f",
+  "pet_id": "rabi",
+  "display_name": "??",
+  "generated_at": "2026-06-06",
+  "runtime_usage": "debug-only lingpet acquisition fullscreen cut-in; wired through lingpet_catalog.gd cutin_anim",
+  "source_art": {
+    "path": "res://assets/sprites/lingpet/rabi_cutin_art.png",
+    "magenta_source_path": "res://assets/sprites/lingpet/rabi_cutin_art_magenta_source.png",
+    "original_concept_manifest": "res://assets/sprites/lingpet/ghost_lingpet_cutin_concept_imagegen_v1_manifest.json",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "e9fb67038244778cf8395d3fe61673c9a014a51505f44b1d5ba368e4664c798c"
+  },
+  "source_autosprite": {
+    "asset_id": "cmq1norpp0099apmdlqg6nhnj",
+    "asset_name": "Rabi Ghost Ringpet Acquire Base 20260606",
+    "job_id": "wf_8350e7ef-d4ca-41a2-b58b-fc68b443ac83",
+    "spritesheet_id": "cmq1u1ltt00h6zrrwd43mfg0p",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "max_frames": 32,
+    "frame_size": 512,
+    "animation_prompt": "Gentle 32-frame acquisition loop: float, soft breathing, small arm wave, blue eye blink, star wisps bob, collar/core glow pulse. Keep full body stable; no morphing, no crop."
+  },
+  "autosprite_raw": {
+    "path": ".tmp/rabi_acquire_cutin_32f/rabi_acquire_32f_autosprite_raw.png",
+    "atlas_path": ".tmp/rabi_acquire_cutin_32f/rabi_acquire_32f_autosprite_raw_atlas.json",
+    "video_path": ".tmp/rabi_acquire_cutin_32f/rabi_acquire_32f_autosprite_video.mp4",
+    "size": [
+      3072,
+      3072
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "cols": 6,
+    "rows": 6,
+    "frame_count": 32,
+    "bytes": 1705460,
+    "sha256": "a860ee451429c615e971d5c225a04fac54d36493d5988fd25cf4969433bbd2d4"
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/rabi_cutin_anim_32f.png",
+    "cols": 6,
+    "rows": 6,
+    "frame_count": 32,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      6144,
+      6144
+    ],
+    "playback_fps": 16.0,
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2.0,
+    "bytes": 12698065,
+    "sha256": "545290fa0be2c0e95ce27c02982d874a8a46193f4ac637901960cdc611129f32"
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale",
+    "operation": "AutoSprite 512 cells scaled to 84 percent and centered; transparent RGB was alpha-bled, RGB cells were Real-ESRGAN x2 upscaled, source alpha was Lanczos x2 upscaled and recombined.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "rgb_source": ".tmp/rabi_acquire_cutin_32f/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/rabi_acquire_cutin_32f/rgb_cells_s84_x2",
+      "alpha_source": ".tmp/rabi_acquire_cutin_32f/alpha_cells_s84"
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "low_alpha_pixels_removed": 296133
+    }
+  },
+  "reconstruction_frame0": {
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 15,
+    "alpha_bbox": [
+      0.21777,
+      0.12891,
+      0.55859,
+      0.74121
+    ],
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_green_pixels": 0,
+    "visible_magenta_pixels": 0,
+    "cell_fill_w_pct_frame0": 56.055,
+    "cell_fill_h_pct_frame0": 74.316,
+    "area_range_pct": [
+      39.501,
+      42.183
+    ],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          222,
+          131,
+          796,
+          892
+        ],
+        "margin_ltrb": [
+          222,
+          131,
+          228,
+          132
+        ],
+        "size": [
+          574,
+          761
+        ]
+      },
+      {
+        "frame": 8,
+        "bbox": [
+          220,
+          122,
+          795,
+          884
+        ],
+        "margin_ltrb": [
+          220,
+          122,
+          229,
+          140
+        ],
+        "size": [
+          575,
+          762
+        ]
+      },
+      {
+        "frame": 16,
+        "bbox": [
+          218,
+          126,
+          780,
+          872
+        ],
+        "margin_ltrb": [
+          218,
+          126,
+          244,
+          152
+        ],
+        "size": [
+          562,
+          746
+        ]
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          218,
+          133,
+          775,
+          889
+        ],
+        "margin_ltrb": [
+          218,
+          133,
+          249,
+          135
+        ],
+        "size": [
+          557,
+          756
+        ]
+      },
+      {
+        "frame": 31,
+        "bbox": [
+          220,
+          132,
+          796,
+          891
+        ],
+        "margin_ltrb": [
+          220,
+          132,
+          228,
+          133
+        ],
+        "size": [
+          576,
+          759
+        ]
+      }
+    ],
+    "previews": {
+      "contact": ".tmp/rabi_acquire_cutin_32f/rabi_cutin_anim_32f_contact_preview.png",
+      "black": ".tmp/rabi_acquire_cutin_32f/rabi_cutin_anim_32f_black_preview.png"
+    }
+  }
+}

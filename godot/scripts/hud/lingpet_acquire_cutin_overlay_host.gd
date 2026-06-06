@@ -30,15 +30,19 @@ const CUTIN_ANIM_FRAMES := 16
 const CUTIN_ANIM_FPS := 16.0
 const CUTIN_ANIM_COLS_OVERRIDES := {
 	"red_dragon": 8,
+	"rabi": 6,
 }
 const CUTIN_ANIM_ROWS_OVERRIDES := {
 	"red_dragon": 4,
+	"rabi": 6,
 }
 const CUTIN_ANIM_FRAMES_OVERRIDES := {
 	"red_dragon": 32,
+	"rabi": 32,
 }
 const CUTIN_ANIM_FPS_OVERRIDES := {
 	"red_dragon": 16.0,
+	"rabi": 32.0,
 }
 const USE_ANIMATED_CUTIN := true
 # Click-triggered EXIT ACTION sheet: the current pet plays its catalog dismiss

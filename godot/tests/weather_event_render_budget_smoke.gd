@@ -89,8 +89,8 @@ func _verify_state_render_lod_budgets() -> void:
 	)
 	weather.weather_event_type = "gust"
 	_expect(
-		weather._get_render_particle_limit(0.58) <= 12,
-		"state fallback should use the severe wind particle budget at 72 FPS quality"
+		weather._get_render_particle_limit(0.58) >= 24,
+		"state fallback should keep wind near-full under render LOD so the flow stays continuous"
 	)
 	_expect(
 		weather._get_sand_render_stride(0.58) >= 5,
@@ -99,6 +99,11 @@ func _verify_state_render_lod_budgets() -> void:
 	_expect(
 		weather._get_particle_render_stride(0.58) >= 3,
 		"state fallback should stride weather particles under severe render LOD"
+	)
+	_expect(
+		weather._get_particle_render_stride_for_type("gust", 0.58) == 1
+		and weather._get_particle_render_stride_for_type("breeze", 0.58) == 1,
+		"state fallback should never stride-decimate wind (index-based stride flickers the sparse wind flow)"
 	)
 
 
@@ -112,8 +117,17 @@ func _verify_renderer_render_lod_budgets() -> void:
 		"texture weather renderer should use the severe fire particle budget at 72 FPS quality"
 	)
 	_expect(
-		renderer._get_render_particle_limit(wind_context, 0.58) <= 12,
-		"texture weather renderer should use the severe wind particle budget at 72 FPS quality"
+		renderer._get_render_particle_limit(wind_context, 0.58) >= 24,
+		"texture weather renderer should keep wind near-full under render LOD so the flow stays continuous"
+	)
+	_expect(
+		renderer._get_particle_render_stride_for_context({"type": "breeze"}, 0.58) == 1
+		and renderer._get_particle_render_stride_for_context({"type": "gust"}, 0.58) == 1,
+		"texture weather renderer should never stride-decimate wind (index-based stride flickers the sparse wind flow)"
+	)
+	_expect(
+		renderer._get_particle_render_stride_for_context({"type": "rain"}, 0.58) >= 3,
+		"texture weather renderer should still stride non-wind particles under severe render LOD"
 	)
 	_expect(
 		renderer._get_render_particle_limit(rain_context, 0.58) <= 24,

@@ -173,7 +173,13 @@ func _init() -> void:
 	owner.ai_mode = "junior"
 	var junior_stage1_context: Dictionary = builder.build_context(owner, registry)
 	_expect(abs(float(junior_stage1_context.get("boss_mistake_chance", 0.0)) - 0.20) <= 0.001, "Junior Stage 1 Dalji boss mistake chance should be 20%")
+	owner.ai_mode = "mythic league"
+	var mythic_stage1_context: Dictionary = builder.build_context(owner, registry)
+	_expect(abs(float(mythic_stage1_context.get("boss_mistake_chance", 0.0)) - 0.05) <= 0.001, "Mythic Stage 1 boss mistake chance should be 5%")
 	owner.current_stage = 2
+	var mythic_stage2_context: Dictionary = builder.build_context(owner, registry)
+	_expect(abs(float(mythic_stage2_context.get("boss_mistake_chance", 0.0)) - 0.045) <= 0.001, "Mythic Stage 2 boss mistake chance should be 4.5%")
+	owner.ai_mode = "junior"
 	var junior_stage2_context: Dictionary = builder.build_context(owner, registry)
 	_expect(abs(float(junior_stage2_context.get("boss_mistake_chance", 0.0)) - 0.14) <= 0.001, "Junior Stage 2 boss mistake chance should be 14%")
 	owner.ai_mode = "champion"
@@ -203,7 +209,7 @@ func _init() -> void:
 	_expect(abs(float(mythic_stage3_context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.06 * mythic_ball_speed_ratio) <= 0.001, "Mythic boss deceleration should match the ball speed cap ratio")
 	_expect(abs(float(mythic_stage3_context.get("boss_movement_max_speed", 0.0)) - 6.3175 * 1.5 * 1.06 * mythic_ball_speed_ratio) <= 0.001, "Mythic boss actual max speed should match the ball speed cap ratio")
 	_expect(abs(float(mythic_stage3_context.get("boss_paddle_width", 0.0)) - 115.0) <= 0.001, "Mythic boss hitbox width should be 15% wider")
-	_expect(abs(float(mythic_stage3_context.get("boss_mistake_chance", 0.0)) - 0.005) <= 0.001, "Mythic boss mistake chance should drop to 0.5%")
+	_expect(abs(float(mythic_stage3_context.get("boss_mistake_chance", 0.0)) - 0.04) <= 0.001, "Mythic Stage 3 boss mistake chance should be 4%")
 	_expect(abs(float(mythic_stage3_context.get("boss_mistake_error_min", -1.0)) - 0.0) <= 0.001, "Mythic boss mistake error minimum should allow small misses")
 	_expect(abs(float(mythic_stage3_context.get("boss_mistake_error_max", 0.0)) - 20.0) <= 0.001, "Mythic boss mistake error maximum should stay within 20px")
 	_expect(int(mythic_stage3_context.get("boss_dash_max_tokens", 0)) == 2, "Mythic boss should start from two base dash tokens")
@@ -238,6 +244,7 @@ func _init() -> void:
 	var mythic_stage5_context: Dictionary = builder.build_context(owner, registry)
 	_expect(int(mythic_stage5_context.get("boss_dash_max_tokens", 0)) == 3, "Mythic Stage 5 boss should start from three dash tokens")
 	_expect(bool(mythic_stage5_context.get("boss_dash_chain_enabled", false)), "Mythic Stage 5 boss should explicitly enable chained boss dash")
+	_expect(abs(float(mythic_stage5_context.get("boss_mistake_chance", 0.0)) - 0.03) <= 0.001, "Mythic Stage 5 boss mistake chance should be 3%")
 	_expect(abs(float(mythic_stage5_context.get("boss_dash_trigger_chance", 0.0)) - 1.0) <= 0.001, "Mythic Stage 5 emergency boss dash should always trigger when gated")
 
 	if _failures.is_empty():

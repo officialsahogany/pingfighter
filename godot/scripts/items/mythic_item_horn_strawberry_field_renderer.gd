@@ -85,6 +85,17 @@ func _draw_barrier(canvas: CanvasItem, shake_offset: Vector2, barrier: Dictionar
 	canvas.draw_line(vine_start, vine_end, Color(0.50, 0.94, 0.36, alpha * 0.42), 1.0)
 	var berry_count: int = max(4, int(rect.size.x / 26.0))
 	var span: float = max(1.0, rect.size.x - 20.0)
+	if built:
+		var built_stem_lines := PackedVector2Array()
+		built_stem_lines.resize(berry_count * 2)
+		for idx in range(berry_count):
+			var cx: float = rect.position.x + 10.0 + span * float(idx) / max(1.0, float(berry_count - 1))
+			var bob: float = sin(now + float(idx) * 0.9) * 1.4
+			var cy: float = berry_row_y + bob
+			var berry_size: float = max(8.0, 17.0 + float(idx % 2) * 2.0)
+			built_stem_lines[idx * 2] = Vector2(cx, vine_y + 2.0)
+			built_stem_lines[idx * 2 + 1] = Vector2(cx, cy - berry_size * 0.55)
+		canvas.draw_multiline(built_stem_lines, Color(0.08, 0.40, 0.06, alpha), 2.0)
 	for idx in range(berry_count):
 		var local_progress: float = 1.0 if built else clamp(build_progress * float(berry_count) - float(idx) + 0.35, 0.0, 1.0)
 		if local_progress <= 0.0:
@@ -93,12 +104,13 @@ func _draw_barrier(canvas: CanvasItem, shake_offset: Vector2, barrier: Dictionar
 		var bob: float = sin(now + float(idx) * 0.9) * 1.4
 		var cy: float = berry_row_y + bob
 		var berry_size: float = max(8.0, (17.0 + float(idx % 2) * 2.0) * local_progress)
-		canvas.draw_line(
-			Vector2(cx, vine_y + 2.0),
-			Vector2(cx, cy - berry_size * 0.55),
-			Color(0.08, 0.40, 0.06, alpha * local_progress),
-			2.0
-		)
+		if not built:
+			canvas.draw_line(
+				Vector2(cx, vine_y + 2.0),
+				Vector2(cx, cy - berry_size * 0.55),
+				Color(0.08, 0.40, 0.06, alpha * local_progress),
+				2.0
+			)
 		_draw_tiny_strawberry(canvas, Vector2(cx, cy), berry_size, alpha * local_progress, (-10.0 if idx % 2 == 0 else 10.0) * local_progress)
 	if built:
 		for idx in range(max(0, berry_count - 1)):
@@ -136,6 +148,8 @@ func _draw_tiny_strawberry(canvas: CanvasItem, center: Vector2, size: float, alp
 	var radius_x: float = max(3.0, size * 0.44)
 	var radius_y: float = max(4.0, size * 0.56)
 	var tilt: float = deg_to_rad(tilt_degrees)
+	var tilt_cos: float = cos(tilt)
+	var tilt_sin: float = sin(tilt)
 	var body := PackedVector2Array()
 	for i in range(18):
 		var angle: float = TAU * float(i) / 18.0 - PI * 0.5
@@ -143,18 +157,22 @@ func _draw_tiny_strawberry(canvas: CanvasItem, center: Vector2, size: float, alp
 		if local.y > 0.0:
 			local.x *= 1.0 - local.y / max(1.0, radius_y) * 0.22
 		var rotated := Vector2(
-			local.x * cos(tilt) - local.y * sin(tilt),
-			local.x * sin(tilt) + local.y * cos(tilt)
+			local.x * tilt_cos - local.y * tilt_sin,
+			local.x * tilt_sin + local.y * tilt_cos
 		)
 		body.append(center + rotated)
-	canvas.draw_polygon(body, PackedColorArray([Color(0.92, 0.07, 0.12, 0.95 * clamped_alpha)]))
+	canvas.draw_colored_polygon(body, Color(0.92, 0.07, 0.12, 0.95 * clamped_alpha))
 	canvas.draw_polyline(body, Color(0.42, 0.01, 0.04, 0.75 * clamped_alpha), 1.0, true)
 	canvas.draw_circle(center + Vector2(-radius_x * 0.24, -radius_y * 0.22), size * 0.12, Color(1.0, 0.58, 0.60, 0.45 * clamped_alpha))
+	var leaf_lines := PackedVector2Array()
+	leaf_lines.resize(6)
+	var base: Vector2 = center + Vector2(0.0, -radius_y * 0.75)
 	for leaf_idx in range(3):
 		var leaf_angle: float = -PI * 0.55 + float(leaf_idx) * PI * 0.18 + tilt
-		var base: Vector2 = center + Vector2(0.0, -radius_y * 0.75)
 		var tip: Vector2 = base + Vector2(cos(leaf_angle), sin(leaf_angle)) * size * 0.35
-		canvas.draw_line(base, tip, Color(0.16, 0.66, 0.12, 0.88 * clamped_alpha), 2.0)
+		leaf_lines[leaf_idx * 2] = base
+		leaf_lines[leaf_idx * 2 + 1] = tip
+	canvas.draw_multiline(leaf_lines, Color(0.16, 0.66, 0.12, 0.88 * clamped_alpha), 2.0)
 	for seed_idx in range(3):
 		var seed_pos := center + Vector2(
 			(-0.24 + float(seed_idx) * 0.24) * radius_x,

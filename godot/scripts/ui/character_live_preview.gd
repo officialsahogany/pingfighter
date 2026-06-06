@@ -147,7 +147,7 @@ func play_fullframe_one_shot(config: Dictionary) -> bool:
 	var sheet_path := str(config.get("path", ""))
 	if sheet_path == "":
 		return false
-	var texture := ProjectResourceLoader.load_texture(
+	var texture := ProjectResourceLoader.load_imported_texture(
 		sheet_path,
 		"Missing character-select one-shot sheet: %s",
 		"Failed to load character-select one-shot sheet: %s"
@@ -300,7 +300,7 @@ func _start_configured_return_one_shot() -> bool:
 	var sheet_path := str(config.get("path", ""))
 	if sheet_path == "":
 		return false
-	var texture := ProjectResourceLoader.load_texture(
+	var texture := ProjectResourceLoader.load_imported_texture(
 		sheet_path,
 		"Missing character-select return sheet: %s",
 		"Failed to load character-select return sheet: %s"
@@ -564,9 +564,9 @@ func _request_next_fullframe_sheet() -> bool:
 			_finish_fullframe_sheet_load(candidate_path, candidate, cached_texture)
 			return true
 		if not _can_thread_load_texture(candidate_path):
-			var raw_texture := ProjectResourceLoader.load_texture(candidate_path)
-			if raw_texture != null:
-				_finish_fullframe_sheet_load(candidate_path, candidate, raw_texture)
+			var fallback_texture := ProjectResourceLoader.load_imported_texture(candidate_path)
+			if fallback_texture != null:
+				_finish_fullframe_sheet_load(candidate_path, candidate, fallback_texture)
 				return true
 			continue
 		var request_error := ResourceLoader.load_threaded_request(candidate_path, "Texture2D", true)
@@ -584,8 +584,6 @@ func _request_next_fullframe_sheet() -> bool:
 
 
 func _can_thread_load_texture(path: String) -> bool:
-	if FileAccess.file_exists(path):
-		return false
 	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
 
 

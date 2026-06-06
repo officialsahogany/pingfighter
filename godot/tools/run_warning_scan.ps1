@@ -25,7 +25,6 @@ function Invoke-WarningScanChunk {
     $scanLogPath = Join-Path $scanLogDir ("warning_scan_{0}_{1}_{2}.log" -f $PID, $StartIndex, [DateTime]::UtcNow.ToString("yyyyMMddHHmmssfff"))
     $godotArgs = @(
         "--headless",
-        "--debug",
         "--path",
         $ProjectPath,
         "--log-file",

@@ -3,7 +3,7 @@ extends RefCounted
 const EMBER_COUNT := 4
 
 
-func draw(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float) -> void:
+func draw(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float, alpha_multiplier: float = 1.0) -> void:
 	var ember_spacing_divisor: float = float(max(1, EMBER_COUNT - 1))
 	for j in range(EMBER_COUNT):
 		var particle_phase: float = fmod(t * (4.0 + float(j) * 0.8) + float(j) * 0.7, 1.0)
@@ -12,7 +12,7 @@ func draw(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float) -> voi
 		var particle_y: float = rect.position.y - 5.0 * scale_factor - particle_phase * 35.0 * scale_factor
 		var size_factor: float = 1.0 - particle_phase * 0.7
 		var particle_size: float = max(0.0, float(2 + (j % 3)) * size_factor * scale_factor)
-		var particle_alpha: float = pow(1.0 - particle_phase, 1.2)
+		var particle_alpha: float = pow(1.0 - particle_phase, 1.2) * max(0.0, alpha_multiplier)
 		if particle_size <= 0.8 or particle_alpha <= 0.08:
 			continue
 

@@ -11,6 +11,7 @@ const THUNDER_ORB_SKILL_PATH := "res://scripts/lingpet/lingpet_thunder_orb_skill
 const BOMB_SURPRISE_SKILL_PATH := "res://scripts/lingpet/lingpet_bomb_surprise_skill.gd"
 const GATLING_BURST_SKILL_PATH := "res://scripts/lingpet/lingpet_gatling_burst_skill.gd"
 const DRAGON_BREATH_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_breath_skill.gd"
+const DRAGON_WING_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_wing_skill.gd"
 
 var _hydro_sphere_skill: Object = null
 var _headbutt_skill: Object = null
@@ -21,6 +22,7 @@ var _thunder_orb_skill: Object = null
 var _bomb_surprise_skill: Object = null
 var _gatling_burst_skill: Object = null
 var _dragon_breath_skill: Object = null
+var _dragon_wing_skill: Object = null
 
 
 func reset() -> void:
@@ -33,6 +35,7 @@ func reset() -> void:
 	_reset_skill(_bomb_surprise_skill)
 	_reset_skill(_gatling_burst_skill)
 	_reset_skill(_dragon_breath_skill)
+	_reset_skill(_dragon_wing_skill)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -56,6 +59,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_gatling_burst_skill().update(safe_delta, owner, registry)
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			_get_dragon_breath_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			_get_dragon_wing_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -70,6 +75,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_bomb_surprise_skill, canvas, shake_offset)
 	_draw_skill(_gatling_burst_skill, canvas, shake_offset)
 	_draw_skill(_dragon_breath_skill, canvas, shake_offset)
+	_draw_skill(_dragon_wing_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
@@ -83,6 +89,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_bomb_surprise_skill)
 		or _skill_has_visible_effects(_gatling_burst_skill)
 		or _skill_has_visible_effects(_dragon_breath_skill)
+		or _skill_has_visible_effects(_dragon_wing_skill)
 	)
 
 
@@ -112,6 +119,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _gatling_burst_skill != null and bool(_gatling_burst_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			return _dragon_breath_skill != null and bool(_dragon_breath_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return _dragon_wing_skill != null and bool(_dragon_wing_skill.is_active())
 		_:
 			return false
 
@@ -122,6 +131,8 @@ func can_arm(skill_id: String, params: Dictionary) -> bool:
 			return bool(_get_headbutt_skill().can_arm(params))
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			return bool(_get_dragon_breath_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return true
 		_:
 			return true
 
@@ -142,7 +153,7 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return bool(_get_milk_production_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
-			_get_thunder_orb_skill().launch(origin, owner)
+			_get_thunder_orb_skill().launch(origin, owner, launch_context)
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			return bool(_get_bomb_surprise_skill().launch(origin, owner, launch_context))
@@ -150,6 +161,9 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_gatling_burst_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			_get_dragon_breath_skill().launch(origin, owner)
+			return true
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			_get_dragon_wing_skill().launch(origin, owner, launch_context)
 			return true
 		_:
 			return false
@@ -175,6 +189,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return companion_pos
 		_:
 			return companion_pos
 
@@ -251,6 +267,8 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			pass
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			_play_dragon_breath_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			_play_dragon_wing_feedback(registry)
 		_:
 			pass
 
@@ -266,6 +284,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _bomb_surprise_skill)
 	_merge_skill_snapshot(snapshot, _gatling_burst_skill)
 	_merge_skill_snapshot(snapshot, _dragon_breath_skill)
+	_merge_skill_snapshot(snapshot, _dragon_wing_skill)
 	return snapshot
 
 
@@ -321,6 +340,14 @@ func get_dragon_breath_fire_zone_spawn_count_for_tests() -> int:
 	return int(_get_dragon_breath_skill().get_fire_zone_spawn_count_for_tests())
 
 
+func get_dragon_wing_ball_hit_count_for_tests() -> int:
+	return int(_get_dragon_wing_skill().get_ball_hit_count_for_tests())
+
+
+func get_dragon_wing_wind_tick_count_for_tests() -> int:
+	return int(_get_dragon_wing_skill().get_wind_tick_count_for_tests())
+
+
 func _get_skill_for_kind(skill_kind: String) -> Object:
 	match skill_kind:
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
@@ -341,6 +368,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_gatling_burst_skill()
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			return _get_dragon_breath_skill()
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return _get_dragon_wing_skill()
 		_:
 			return null
 
@@ -397,6 +426,12 @@ func _get_dragon_breath_skill() -> Object:
 	if _dragon_breath_skill == null:
 		_dragon_breath_skill = _new_skill(DRAGON_BREATH_SKILL_PATH)
 	return _dragon_breath_skill
+
+
+func _get_dragon_wing_skill() -> Object:
+	if _dragon_wing_skill == null:
+		_dragon_wing_skill = _new_skill(DRAGON_WING_SKILL_PATH)
+	return _dragon_wing_skill
 
 
 func _new_skill(path: String) -> Object:
@@ -483,6 +518,18 @@ func _play_dragon_breath_feedback(registry: Object) -> void:
 		audio.play_molotov_explosion()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
+
+
+func _play_dragon_wing_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_active_item"):
+		audio.play_active_item()
+	elif audio.has_method("play_dragon_breath_fire"):
+		audio.play_dragon_breath_fire(true)
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:

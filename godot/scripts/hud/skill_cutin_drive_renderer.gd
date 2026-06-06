@@ -2,9 +2,11 @@ extends RefCounted
 
 const DRIVE_TITLE_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 const DRIVE_TITLE_TEXT := "드라이브"
+const SHIELD_KITING_TITLE_TEXT := "쉴드카이팅"
 const DRIVE_COLOR := Color(0.22, 0.95, 1.0)
 const DRIVE_ACCENT_HOT := Color(1.0, 0.78, 0.24)
 const DRIVE_CHARACTER_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_character.png"
+const SHIELD_KITING_CHARACTER_PATH := "res://assets/ui/skill_cutin/smasher_shield_kiting_cutin_character.png"
 const DRIVE_BACKPLATE_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_backplate.png"
 const DRIVE_ARC_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_arc.png"
 const DRIVE_TRIANGLE_TOP_LEFT := Vector2(0.000, -0.045)
@@ -16,12 +18,29 @@ const DRIVE_ARC_SIZE_RATIO := 0.30
 const DRIVE_ARC_CENTER_Y_RATIO := 0.14
 const DRIVE_ARC_SPIN_SPEED := 0.55
 const DRIVE_SLIDE_DISTANCE_RATIO := 0.55
+const SHIELD_KITING_CUTIN_ENTER_SECONDS := 0.20
+const SHIELD_KITING_CUTIN_HOLD_SECONDS := 2.00
+const SHIELD_KITING_CUTIN_EXIT_SECONDS := 0.50
+const SHIELD_KITING_CUTIN_TOTAL_SECONDS := (
+	SHIELD_KITING_CUTIN_ENTER_SECONDS
+	+ SHIELD_KITING_CUTIN_HOLD_SECONDS
+	+ SHIELD_KITING_CUTIN_EXIT_SECONDS
+)
+const SHIELD_KITING_CUTIN_ENTER_RATIO := SHIELD_KITING_CUTIN_ENTER_SECONDS / SHIELD_KITING_CUTIN_TOTAL_SECONDS
+const SHIELD_KITING_CUTIN_EXIT_START_RATIO := (SHIELD_KITING_CUTIN_ENTER_SECONDS + SHIELD_KITING_CUTIN_HOLD_SECONDS) / SHIELD_KITING_CUTIN_TOTAL_SECONDS
 const DRIVE_PORTRAIT_HEIGHT_RATIO := 0.30
 const DRIVE_PORTRAIT_CENTER_X_RATIO := 0.075
 const DRIVE_PORTRAIT_CENTER_Y_RATIO := 0.135
 const DRIVE_PORTRAIT_CHAR_CENTER := Vector2(0.30, 0.26)
+const SHIELD_KITING_CHARACTER_HEIGHT_RATIO := 0.40
+const SHIELD_KITING_CHARACTER_CENTER_X_RATIO := 0.135
+const SHIELD_KITING_CHARACTER_CENTER_Y_RATIO := 0.142
+const SHIELD_KITING_CHARACTER_ANCHOR := Vector2(0.34, 0.324)
 const DRIVE_VFX_CENTER_X_RATIO := 0.17
+const SHIELD_KITING_SYMBOL_CENTER_X_RATIO := 0.165
+const SHIELD_KITING_SYMBOL_CENTER_Y_RATIO := 0.178
 const SKILL_DRIVE := "drive"
+const SKILL_SHIELD_KITING := "shield_kiting"
 
 
 static func draw_drive_cutin(
@@ -54,8 +73,42 @@ static func draw_drive_cutin(
 	_draw_drive_title(canvas, view_size, progress, alpha, slide_px, title_getter, fit_title_font_size)
 
 
+static func draw_shield_kiting_cutin(
+	canvas: CanvasItem,
+	cutin_state: Object,
+	view_size: Vector2,
+	texture_getter: Callable,
+	material_getter: Callable,
+	title_getter: Callable,
+	fit_title_font_size: Callable,
+	shield_symbol_drawer: Callable
+) -> void:
+	if canvas == null:
+		return
+	if cutin_state == null or not cutin_state.has_method("is_active") or not bool(cutin_state.is_active()):
+		return
+	if view_size.x <= 1.0 or view_size.y <= 1.0:
+		return
+	var progress: float = 0.0
+	if cutin_state.has_method("get_progress"):
+		progress = clampf(float(cutin_state.get_progress()), 0.0, 1.0)
+	var alpha: float = shield_kiting_alpha(progress)
+	if alpha <= 0.0:
+		return
+	var slide_px: float = compute_shield_kiting_slide_px(progress, view_size.x)
+	_draw_drive_triangle_panel(canvas, view_size, progress, alpha, slide_px)
+	_draw_drive_backplate(canvas, view_size, progress, alpha, slide_px, texture_getter, material_getter, false)
+	_draw_drive_arc(canvas, view_size, alpha, slide_px, texture_getter, material_getter, false)
+	_draw_shield_kiting_symbol(canvas, view_size, progress, alpha, slide_px, texture_getter, shield_symbol_drawer)
+	_draw_shield_kiting_title(canvas, view_size, progress, alpha, slide_px, title_getter, fit_title_font_size)
+
+
 static func compute_drive_slide_px(progress: float, view_width: float) -> float:
 	return -drive_slide_ratio(clampf(progress, 0.0, 1.0)) * view_width * DRIVE_SLIDE_DISTANCE_RATIO
+
+
+static func compute_shield_kiting_slide_px(progress: float, view_width: float) -> float:
+	return -shield_kiting_slide_ratio(clampf(progress, 0.0, 1.0)) * view_width * DRIVE_SLIDE_DISTANCE_RATIO
 
 
 static func drive_slide_ratio(progress: float) -> float:
@@ -66,12 +119,31 @@ static func drive_slide_ratio(progress: float) -> float:
 	return _ease_in_out(clampf((progress - 0.58) / 0.42, 0.0, 1.0))
 
 
+static func shield_kiting_slide_ratio(progress: float) -> float:
+	var p: float = clampf(progress, 0.0, 1.0)
+	if p < SHIELD_KITING_CUTIN_ENTER_RATIO:
+		return 1.0 - _ease_out_cubic(p / SHIELD_KITING_CUTIN_ENTER_RATIO)
+	if p < SHIELD_KITING_CUTIN_EXIT_START_RATIO:
+		return 0.0
+	return _ease_in_out((p - SHIELD_KITING_CUTIN_EXIT_START_RATIO) / (1.0 - SHIELD_KITING_CUTIN_EXIT_START_RATIO))
+
+
 static func drive_alpha(progress: float) -> float:
 	if progress < 0.10:
 		return clampf(progress / 0.10, 0.0, 1.0)
 	if progress < 0.80:
 		return 1.0
 	return clampf((1.0 - progress) / 0.20, 0.0, 1.0)
+
+
+static func shield_kiting_alpha(progress: float) -> float:
+	var p: float = clampf(progress, 0.0, 1.0)
+	var fade_in_ratio: float = minf(SHIELD_KITING_CUTIN_ENTER_RATIO, 0.08)
+	if p < fade_in_ratio:
+		return clampf(p / fade_in_ratio, 0.0, 1.0)
+	if p < SHIELD_KITING_CUTIN_EXIT_START_RATIO:
+		return 1.0
+	return clampf((1.0 - p) / (1.0 - SHIELD_KITING_CUTIN_EXIT_START_RATIO), 0.0, 1.0)
 
 
 static func drive_impact_punch(progress: float) -> float:
@@ -314,6 +386,81 @@ static func _draw_drive_title(
 		base.x - view_size.x * 0.012,
 		base.y + view_size.y * 0.012,
 		text_dim.x + view_size.x * 0.024,
+		maxf(3.0, view_size.y * 0.008)
+	)
+	canvas.draw_rect(bar_rect, Color(DRIVE_COLOR.r, DRIVE_COLOR.g, DRIVE_COLOR.b, title_alpha))
+	canvas.draw_string(DRIVE_TITLE_FONT, base + Vector2(3, 3), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color(0.0, 0.0, 0.0, 0.55 * title_alpha))
+	canvas.draw_string(DRIVE_TITLE_FONT, base, title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color(1.0, 1.0, 1.0, title_alpha))
+
+
+static func _draw_shield_kiting_symbol(
+	canvas: CanvasItem,
+	view_size: Vector2,
+	progress: float,
+	alpha: float,
+	slide_px: float,
+	texture_getter: Callable,
+	shield_symbol_drawer: Callable
+) -> void:
+	if _draw_shield_kiting_character(canvas, view_size, progress, alpha, slide_px, texture_getter):
+		return
+	if not shield_symbol_drawer.is_valid():
+		return
+	var center := Vector2(
+		view_size.x * SHIELD_KITING_SYMBOL_CENTER_X_RATIO + slide_px,
+		view_size.y * SHIELD_KITING_SYMBOL_CENTER_Y_RATIO
+	)
+	shield_symbol_drawer.call(canvas, center, progress, alpha, view_size)
+
+
+static func _draw_shield_kiting_character(
+	canvas: CanvasItem,
+	view_size: Vector2,
+	progress: float,
+	alpha: float,
+	slide_px: float,
+	texture_getter: Callable
+) -> bool:
+	var texture: Texture2D = _get_texture(texture_getter, SHIELD_KITING_CHARACTER_PATH)
+	if texture == null:
+		return false
+	var tex_size: Vector2 = texture.get_size()
+	if tex_size.x <= 1.0 or tex_size.y <= 1.0:
+		return false
+	var draw_h: float = view_size.y * SHIELD_KITING_CHARACTER_HEIGHT_RATIO * drive_impact_punch(progress)
+	var scale: float = draw_h / tex_size.y
+	var draw_size := Vector2(tex_size.x * scale, draw_h)
+	var char_center := Vector2(
+		view_size.x * SHIELD_KITING_CHARACTER_CENTER_X_RATIO + slide_px,
+		view_size.y * SHIELD_KITING_CHARACTER_CENTER_Y_RATIO + sin(progress * TAU * 1.45) * view_size.y * 0.005
+	)
+	var pos: Vector2 = char_center - SHIELD_KITING_CHARACTER_ANCHOR * draw_size
+	canvas.draw_texture_rect(texture, Rect2(pos, draw_size), false, Color(1.0, 1.0, 1.0, alpha))
+	return true
+
+
+static func _draw_shield_kiting_title(
+	canvas: CanvasItem,
+	view_size: Vector2,
+	progress: float,
+	alpha: float,
+	slide_px: float,
+	title_getter: Callable,
+	fit_title_font_size: Callable
+) -> void:
+	var reveal: float = clampf((progress - 0.14) / 0.12, 0.0, 1.0)
+	var title_alpha: float = alpha * reveal
+	if title_alpha <= 0.01:
+		return
+	var title_text: String = str(title_getter.call(SKILL_SHIELD_KITING, SHIELD_KITING_TITLE_TEXT))
+	var size_px: int = int(fit_title_font_size.call(DRIVE_TITLE_FONT, title_text, max(12, int(view_size.y * 0.052)), view_size.x * 0.46))
+	var text_dim: Vector2 = DRIVE_TITLE_FONT.get_string_size(title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px)
+	var slide_in: float = lerpf(view_size.x * 0.05, 0.0, _ease_out_cubic(reveal))
+	var base := Vector2(view_size.x * 0.035 + slide_px + slide_in, view_size.y * 0.385)
+	var bar_rect := Rect2(
+		base.x - view_size.x * 0.010,
+		base.y + view_size.y * 0.012,
+		text_dim.x + view_size.x * 0.022,
 		maxf(3.0, view_size.y * 0.008)
 	)
 	canvas.draw_rect(bar_rect, Color(DRIVE_COLOR.r, DRIVE_COLOR.g, DRIVE_COLOR.b, title_alpha))

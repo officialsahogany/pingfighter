@@ -94,6 +94,10 @@ class FakeOwner:
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_player_speed_bonus_pct := 0.0
 	var ringpet_player_speed_bonus_pct := 0.0
+	var lingpet_starpoint_tracking_chance_pct := 0.0
+	var ringpet_starpoint_tracking_chance_pct := 0.0
+	var lingpet_ring_dash_chance_pct := 0.0
+	var ringpet_ring_dash_chance_pct := 0.0
 	var lingpet_passive_skill_id := ""
 	var ringpet_passive_skill_id := ""
 	var lingpet_passive_skill_level := 0
@@ -221,10 +225,12 @@ func _init() -> void:
 	_verify_red_dragon_click_live2d_catalog_wiring()
 	_verify_catalog_entries_are_cached_for_draw_helpers()
 	_verify_f7_opens_lingpet_debug_picker()
+	_verify_skill_rows_never_overlap_apply_button()
 	_verify_click_grants_and_activates_lingpet()
 	_verify_acquire_cutin_overlays_stage_result_paths()
 	_verify_debug_grant_accepts_explicit_skill_loadout()
 	_verify_full_slots_replace_active_slot_for_debug_grant()
+	_verify_defense_rate_slider()
 	if _failures.is_empty():
 		print("lingpet_debug_picker_smoke: ok")
 		quit(0)
@@ -247,6 +253,7 @@ func _verify_catalog_and_source_wiring() -> void:
 
 func _verify_red_dragon_click_live2d_catalog_wiring() -> void:
 	_expect(LingpetCatalog.has_pet("red_dragon"), "Red Dragon should be a debug-activatable lingpet catalog entry")
+	_expect(LingpetCatalog.get_display_name("red_dragon") == "파루키라스", "Red Dragon catalog display name should be Farukiras")
 	_expect(
 		LingpetCatalog.get_visual_path("red_dragon", "click_reaction_anim") == "res://assets/sprites/lingpet/red_dragon_lingpet_click_live2d_pingpong_98f.png",
 		"Red Dragon should wire the dedicated click Live2D reaction sheet"
@@ -308,9 +315,20 @@ func _verify_red_dragon_click_live2d_catalog_wiring() -> void:
 		"Red Dragon Dragon Breath should use the dedicated dragon_breath runtime kind"
 	)
 	_expect(
+		LingpetCatalog.get_active_skill_runtime_kind("red_dragon_dragon_wing") == "dragon_wing",
+		"Red Dragon Dragon Wing should use the dedicated dragon_wing runtime kind"
+	)
+	_expect(
 		is_equal_approx(float(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("cooldown", 0.0)), 40.0),
 		"Red Dragon Dragon Breath should use the requested 40-second cooldown"
 	)
+	_expect(
+		is_equal_approx(float(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_wing").get("cooldown", 0.0)), 15.0),
+		"Red Dragon Dragon Wing should keep Ignis' 15-second cooldown"
+	)
+	var red_dragon_active_pool := LingpetCatalog.get_active_skill_pool("red_dragon")
+	_expect(_active_pool_has(red_dragon_active_pool, "red_dragon_dragon_breath"), "Red Dragon active pool should keep Dragon Breath selectable")
+	_expect(_active_pool_has(red_dragon_active_pool, "red_dragon_dragon_wing"), "Red Dragon active pool should include Dragon Wing as an Ignis port")
 	_expect(
 		LingpetCatalog.get_motion_style("red_dragon") == "sortie_flight",
 		"Red Dragon should use the same sortie-flight movement style as Lunabi"
@@ -355,9 +373,94 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(_find_pet_index(picker, "volty") >= 0, "F7 lingpet debug picker should list Volty")
 	_expect(_find_pet_index(picker, "orbi") >= 0, "F7 lingpet debug picker should list Orbi")
 	_expect(_find_pet_index(picker, "red_dragon") >= 0, "F7 lingpet debug picker should list Red Dragon")
+	_expect(_find_pet_index(picker, "rabi") >= 0, "F7 lingpet debug picker should list debug-only Rabi")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("rabi"), "Rabi should be included in the debug-only lingpet picker list")
+	_expect(LingpetCatalog.has_pet("rabi"), "Rabi should be accepted by runtime helpers for F7 debug activation")
+	_expect(not LingpetCatalog.get_pet_ids().has("rabi"), "Rabi should stay out of the enabled hatch pet id list until final runtime assets ship")
+	var hatch_candidates := LingpetCatalog.get_hatch_candidates({
+		"league_mode": "junior",
+		"character_type": "smasher",
+	}, [])
+	_expect(not hatch_candidates.has("rabi"), "Rabi should not enter the random hatch pool while it is debug-only")
+	_expect(
+		LingpetCatalog.get_visual_path("rabi", "cutin_anim") == "res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png",
+		"Rabi F7 acquisition cut-in should use the 32-frame HQ sheet"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png"),
+		"Rabi 32-frame acquisition cut-in HQ texture should exist under the lingpet asset tree"
+	)
+	var rabi_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq_manifest.json")
+	_expect(
+		rabi_cutin_manifest.find("rabi_acquisition_cutin_anim_32f_hq") >= 0
+		and rabi_cutin_manifest.find("\"frame_count\": 32") >= 0
+		and rabi_cutin_manifest.find("\"cols\": 6") >= 0
+		and rabi_cutin_manifest.find("\"rows\": 6") >= 0
+		and rabi_cutin_manifest.find("\"sheet_size\": [") >= 0
+		and rabi_cutin_manifest.find("6144") >= 0
+		and rabi_cutin_manifest.find("cmq1u1ltt00h6zrrwd43mfg0p") >= 0
+		and rabi_cutin_manifest.find("Real-ESRGAN x4") >= 0,
+		"Rabi 32-frame acquisition cut-in manifest should pin the AutoSprite provenance, grid, frame count, and HQ upscale process"
+	)
+	var cutin_host_source := FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
+	_expect(
+		cutin_host_source.find("\"rabi\": 6") >= 0
+		and cutin_host_source.find("\"rabi\": 32,") >= 0
+		and cutin_host_source.find("\"rabi\": 32.0") >= 0,
+		"Rabi acquisition cut-in should register 6x6 / 32-frame / 32fps playback overrides"
+	)
 	_expect(modal_gate.is_lingpet_debug_picker_open(Callable(registry, "get_instance")), "modal gate should see the open lingpet picker")
 	_expect(modal_gate.should_block_battle_physics(Callable(registry, "get_instance")), "open lingpet picker should block battle physics")
 	_expect(owner.redraws == 1, "opening lingpet debug should request one redraw")
+
+
+func _verify_skill_rows_never_overlap_apply_button() -> void:
+	# The shared passive pool grows over time, so the skill section height and row
+	# pitch are derived at draw time. Lock the invariant that no skill row ever
+	# collides with the apply button, both on a roomy view and on a short view that
+	# forces the rows to compact. This is the regression that left passive rows
+	# rendering on top of the "적용" button once the pool passed three entries.
+	var picker := LingpetDebugPicker.new()
+	var owner := FakeOwner.new()
+	picker.toggle(owner)
+	for view_size in [Vector2(1280.0, 720.0), Vector2(760.0, 620.0), Vector2(760.0, 750.0)]:
+		var apply_rect: Rect2 = picker.get_apply_button_rect_for_tests(view_size)
+		var passive_count := _count_passive_skills(picker)
+		_expect(passive_count >= 4, "shared passive pool should have grown past the old 3-row section budget")
+		for index in range(passive_count):
+			var row_rect: Rect2 = picker.get_passive_skill_rect_for_tests(index, view_size)
+			_expect(
+				not apply_rect.intersects(row_rect),
+				"passive skill row %d should not overlap the apply button at view %s" % [index, view_size]
+			)
+			_expect(
+				row_rect.end.y <= apply_rect.position.y + 0.5,
+				"passive skill row %d should sit above the apply button at view %s" % [index, view_size]
+			)
+		for index in range(_count_active_skills(picker)):
+			var active_rect: Rect2 = picker.get_active_skill_rect_for_tests(index, view_size)
+			_expect(
+				not apply_rect.intersects(active_rect),
+				"active skill row %d should not overlap the apply button at view %s" % [index, view_size]
+			)
+
+
+func _count_passive_skills(picker: Object) -> int:
+	var count := 0
+	for index in range(32):
+		if str(picker.get_passive_skill_id_for_tests(index)) == "":
+			break
+		count += 1
+	return count
+
+
+func _count_active_skills(picker: Object) -> int:
+	var count := 0
+	for index in range(32):
+		if str(picker.get_active_skill_id_for_tests(index)) == "":
+			break
+		count += 1
+	return count
 
 
 func _verify_click_grants_and_activates_lingpet() -> void:
@@ -486,6 +589,11 @@ func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
 	var loadout: Dictionary = owner.lingpet_loadouts.get("maribo", {})
 	_expect(str(loadout.get("active_skill_id", "")) == "maribo_bubble_trap", "explicit debug grant should persist active skill in loadouts")
 	_expect(str(loadout.get("passive_skill_id", "")) == "lingpet_resonance_boost", "explicit debug grant should persist normalized Resonance Boost in loadouts")
+	var rabi_runtime := LingpetEggRuntime.new()
+	var rabi_owner := FakeOwner.new()
+	_expect(rabi_runtime.debug_grant_and_activate_pet("rabi", rabi_owner, false, "rabi_soft_glow", "lingpet_resonance_boost"), "debug grant should accept debug-only Rabi")
+	_expect(rabi_owner.active_lingpet_id == "rabi", "debug-only Rabi should activate when granted through the F7 debug path")
+	_expect(rabi_owner.lingpet_active_skill_id == "rabi_soft_glow", "debug-only Rabi should persist its temporary debug active skill")
 
 
 func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:
@@ -503,8 +611,62 @@ func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:
 	_expect(not runtime.is_acquire_cutin_active(), "direct debug grant should keep cut-in optional unless F7 requests it")
 
 
+func _verify_defense_rate_slider() -> void:
+	var picker := LingpetDebugPicker.new()
+	var runtime := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"lingpet_debug_picker": picker,
+		"lingpet_egg_runtime": runtime,
+	})
+	var view_size := Vector2(1280.0, 720.0)
+	picker.toggle(owner)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), -1.0), "defense override should default to 기본 (off / use pet value)")
+
+	# Right triangle (감도조절): off(-1) -> 0% -> +5% steps.
+	var inc_rect: Rect2 = picker.get_defense_inc_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(inc_rect.position + inc_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), 0.0), "first ► step from 기본 should set the override to 0%")
+	picker.handle_input(_mouse_click(inc_rect.position + inc_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), 0.05), "second ► step should raise the override to 5%")
+
+	# Mouse wheel up over the slider row: +5%.
+	var bar_rect: Rect2 = picker.get_defense_bar_rect_for_tests(view_size)
+	picker.handle_input(_mouse_wheel(bar_rect.position + bar_rect.size * 0.5, true), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), 0.10), "mouse wheel up over the slider should step the override up")
+
+	# Clicking the bar sets the value to that position (center -> 50%).
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x + bar_rect.size.x * 0.5, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), 0.5), "clicking the slider bar should set the override to the clicked position")
+
+	# Far-left of the bar -> 0%, then one ◄ step returns to 기본 (off).
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), 0.0), "clicking the far-left of the bar should set 0%")
+	var dec_rect: Rect2 = picker.get_defense_dec_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(dec_rect.position + dec_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), -1.0), "◄ stepping below 0% should return to 기본 (off)")
+
+	# Stage 50% and apply -> committed to the runtime AND it drives the live defense rate.
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x + bar_rect.size.x * 0.5, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	var maribo_index := _find_pet_index(picker, "maribo")
+	if maribo_index < 0:
+		maribo_index = 0
+	var card_rect := picker.get_card_rect_for_tests(maribo_index, view_size)
+	picker.handle_input(_mouse_click(card_rect.position + card_rect.size * 0.5), owner, registry, view_size)
+	var apply_rect := picker.get_apply_button_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(runtime.get_debug_defense_rate_override(), 0.5), "apply should commit the staged defense override to the lingpet runtime")
+	runtime.update(0.0, owner, registry)
+	_expect(is_equal_approx(float(owner.lingpet_companion_defense_rate), 0.5), "the committed override should drive the live companion defense rate, overriding Maribo's 30%")
+
+	# Clearing the override (기본) restores the pet's catalog defense rate (0.30).
+	runtime.set_debug_defense_rate_override(-1.0)
+	runtime.update(0.0, owner, registry)
+	_expect(is_equal_approx(float(owner.lingpet_companion_defense_rate), 0.30), "clearing the override should restore Maribo's catalog 30% defense rate")
+
+
 func _find_pet_index(picker: Object, pet_id: String) -> int:
-	for index in range(9):
+	for index in range(32):
 		var current := str(picker.get_pet_id_for_tests(index))
 		if current == pet_id:
 			return index
@@ -523,6 +685,13 @@ func _find_active_skill_index(picker: Object, skill_id: String) -> int:
 	return -1
 
 
+func _active_pool_has(pool: Array[Dictionary], skill_id: String) -> bool:
+	for skill in pool:
+		if str(skill.get("id", "")) == skill_id:
+			return true
+	return false
+
+
 func _key_event(keycode: Key) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.pressed = true
@@ -535,6 +704,14 @@ func _mouse_click(position: Vector2) -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.pressed = true
 	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = position
+	return event
+
+
+func _mouse_wheel(position: Vector2, up: bool) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.pressed = true
+	event.button_index = MOUSE_BUTTON_WHEEL_UP if up else MOUSE_BUTTON_WHEEL_DOWN
 	event.position = position
 	return event
 

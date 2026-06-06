@@ -2,7 +2,9 @@ extends RefCounted
 
 const PADDLE_HIT_ENERGY_SCALE := 0.52
 const PADDLE_HIT_SHAKE_AMOUNT := 0.075
+const PADDLE_HIT_SHAKE_AMOUNT_MAX := 0.10
 const PADDLE_HIT_SHAKE_INTENSITY := 2.2
+const PADDLE_HIT_SHAKE_INTENSITY_MAX := 2.6
 const BALL_CONTACT_RADIUS := 14.3
 
 
@@ -41,10 +43,12 @@ func register(
 
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
+		var shake_amount := lerpf(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_AMOUNT_MAX, clampf(intensity, 0.0, 1.0))
+		var shake_intensity := lerpf(PADDLE_HIT_SHAKE_INTENSITY, PADDLE_HIT_SHAKE_INTENSITY_MAX, clampf(intensity, 0.0, 1.0))
 		if feedback.has_method("max_screen_shake"):
-			feedback.max_screen_shake(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_INTENSITY)
+			feedback.max_screen_shake(shake_amount, shake_intensity)
 		elif feedback.has_method("set_screen_shake"):
-			feedback.set_screen_shake(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_INTENSITY)
+			feedback.set_screen_shake(shake_amount, shake_intensity)
 		if is_player and feedback.has_method("trigger_paddle_hit_vibration"):
 			feedback.trigger_paddle_hit_vibration(ball_vel.length(), is_player, drive_activated, power_activated)
 
@@ -52,6 +56,8 @@ func register(
 		var audio = deps.get("audio", null)
 		if audio != null:
 			audio.play_paddle_hit()
+			if _did_rally_tier_advance(ball_intensity) and audio.has_method("play_rally_tier_accent"):
+				audio.play_rally_tier_accent(_get_rally_tier(ball_intensity))
 
 
 func _should_suppress_paddle_hit_audio(is_player: bool, context: Dictionary, deps: Dictionary) -> bool:
@@ -70,3 +76,15 @@ func _should_suppress_paddle_hit_audio(is_player: bool, context: Dictionary, dep
 func _get_paddle_contact_pos(ball_pos: Vector2, is_player: bool) -> Vector2:
 	var y_offset: float = BALL_CONTACT_RADIUS if is_player else -BALL_CONTACT_RADIUS
 	return ball_pos + Vector2(0.0, y_offset)
+
+
+func _did_rally_tier_advance(ball_intensity: Object) -> bool:
+	if ball_intensity == null or not ball_intensity.has_method("did_rally_tier_advance"):
+		return false
+	return bool(ball_intensity.did_rally_tier_advance())
+
+
+func _get_rally_tier(ball_intensity: Object) -> int:
+	if ball_intensity == null or not ball_intensity.has_method("get_rally_tier"):
+		return 0
+	return int(ball_intensity.get_rally_tier())

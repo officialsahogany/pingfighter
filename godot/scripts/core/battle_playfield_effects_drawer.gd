@@ -318,7 +318,7 @@ func draw_blacksmith_thor_shield_effects(
 		return
 	var blacksmith_thor_shield_state: Object = _get_instance(registry, "blacksmith_thor_shield_state")
 	if _has_visible_effects(blacksmith_thor_shield_state) and blacksmith_thor_shield_state.has_method("draw"):
-		blacksmith_thor_shield_state.draw(canvas, shake_offset)
+		blacksmith_thor_shield_state.draw(canvas, shake_offset, draw_context)
 
 
 func draw_laurel_leaf_shield(

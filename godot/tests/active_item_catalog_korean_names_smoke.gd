@@ -39,6 +39,7 @@ func _init() -> void:
 	_language_settings_snapshot = _snapshot_settings_file(LanguageSettings.SETTINGS_PATH)
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	_verify_catalog_display_names()
+	_verify_catalog_descriptions()
 	_verify_pickup_fallback_names()
 	_verify_english_catalog_display_names()
 	_verify_chinese_catalog_display_names()
@@ -65,6 +66,20 @@ func _verify_catalog_display_names() -> void:
 		_expect(not item_data.is_empty(), "%s should build from the active item catalog" % item_name)
 		_expect(str(item_data.get("display_name", "")) == expected_name, "%s should use Korean display text" % item_name)
 		_expect(catalog.get_display_name(str(item_name)) == expected_name, "%s get_display_name should use Korean display text" % item_name)
+
+
+func _verify_catalog_descriptions() -> void:
+	var catalog := ActiveItemCatalog.new()
+	var description_items: Array = EXPECTED_DISPLAY_NAMES.keys()
+	description_items.append("dash_boost")
+	description_items.append("elixir_of_mastery")
+	for item_name in description_items:
+		var item_data: Dictionary = catalog.build_item_by_name(str(item_name))
+		_expect(str(item_data.get("description", "")).strip_edges() != "", "%s should expose a tooltip description" % item_name)
+	_expect(
+		str(catalog.build_item_by_name("regeneration_potion").get("description", "")).find("스킬 쿨타임") >= 0,
+		"regeneration potion description should explain cooldown recovery"
+	)
 
 
 func _verify_pickup_fallback_names() -> void:

@@ -14,6 +14,11 @@ var last_item_use_msec: int = -1000000
 var gamepad_selected_use_pressed := false
 var gamepad_slot_cycle_direction := 0
 
+# [AIDBG] manual diagnostic toggle for "active item unusable after stage transition".
+# Keep false in committed code; flip to true locally only while diagnosing.
+# Gated as a const so real-play and perf-capture logs stay clean by default.
+const _AIDBG := false
+
 
 func reset() -> void:
 	slot_key_pressed.clear()
@@ -57,6 +62,18 @@ func update(
 		return {}
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if _AIDBG:
+		var _aidbg_edge: int = _aidbg_slot_key_edge(active_item_slots.size())
+		var _aidbg_pad: bool = GamepadInput.is_active_item_use_pressed() and not gamepad_selected_use_pressed
+		if _aidbg_edge >= 0 or _aidbg_pad:
+			print("[AIDBG] use attempt key_slot=%d pad=%s empty=%s input_locked=%s slots=%d | %s" % [
+				_aidbg_edge,
+				str(_aidbg_pad),
+				str(active_item_slots.is_empty()),
+				str(input_locked),
+				active_item_slots.size(),
+				_aidbg_lock_breakdown(registry),
+			])
 	if active_item_slots.is_empty() or input_locked:
 		_sync_slot_input_states()
 		return {
@@ -419,11 +436,23 @@ func _sync_slot_input_states() -> void:
 func _is_item_ready(item_data: Dictionary, now_msec: int, registry: Object) -> bool:
 	var cooldown_msec: int = _get_effective_active_item_cooldown_msec(item_data, registry)
 	if now_msec - last_item_use_msec < cooldown_msec:
+		if _AIDBG:
+			print("[AIDBG] BLOCKED global-cooldown item=%s now=%d anchor=%d remain=%dms cd=%d" % [
+				_get_item_identity(item_data), now_msec, last_item_use_msec,
+				cooldown_msec - (now_msec - last_item_use_msec), cooldown_msec,
+			])
 		return false
 	var last_use_msec: int = int(item_data.get("last_use_msec", item_data.get("last_use", -1)))
 	if last_use_msec < 0:
 		return true
-	return now_msec - last_use_msec >= cooldown_msec
+	if now_msec - last_use_msec < cooldown_msec:
+		if _AIDBG:
+			print("[AIDBG] BLOCKED per-item-cooldown item=%s now=%d last_use=%d remain=%dms cd=%d" % [
+				_get_item_identity(item_data), now_msec, last_use_msec,
+				cooldown_msec - (now_msec - last_use_msec), cooldown_msec,
+			])
+		return false
+	return true
 
 
 func _get_effective_active_item_cooldown_msec(item_data: Dictionary, registry: Object) -> int:
@@ -566,3 +595,32 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
+
+
+# [AIDBG] temporary diagnostic helpers — remove with the rest of the _AIDBG blocks.
+func _aidbg_slot_key_edge(slot_count: int) -> int:
+	var limit: int = int(min(slot_count, SLOT_KEY_CODES.size()))
+	for i in range(limit):
+		if Input.is_key_pressed(int(SLOT_KEY_CODES[i])) and not bool(slot_key_pressed.get(i, false)):
+			return i
+	return -1
+
+
+func _aidbg_lock_breakdown(registry: Object) -> String:
+	var rs: Object = _get_instance(registry, "round_flow_state")
+	var waiting: bool = rs != null and rs.has_method("is_waiting_for_serve") and bool(rs.is_waiting_for_serve())
+	var rt: Object = _get_instance(registry, "active_item_runtime")
+	var ctrl_locked: bool = rt != null and rt.has_method("is_player_control_locked") and bool(rt.is_player_control_locked())
+	var aipill: bool = rt != null and rt.has_method("is_aipill_active") and bool(rt.is_aipill_active())
+	return "waiting_for_serve=%s landing_intro=%s ball_spawn_intro=%s ctrl_locked=%s aipill=%s" % [
+		str(waiting),
+		str(_aidbg_module_active(registry, "stage_landing_intro")),
+		str(_aidbg_module_active(registry, "stage_ball_spawn_intro")),
+		str(ctrl_locked),
+		str(aipill),
+	]
+
+
+func _aidbg_module_active(registry: Object, key: String) -> bool:
+	var module: Object = _get_instance(registry, key)
+	return module != null and module.has_method("is_active") and bool(module.is_active())

@@ -170,6 +170,36 @@ class FakeMythicItemRuntime:
 		saw_registry = registry != null
 
 
+class FakeStage4MapState:
+	extends RefCounted
+
+	var prepare_calls := 0
+	var saw_current_stage := false
+	var saw_audio := false
+	var saw_event := false
+
+	func handle_scoreboard_serve_prepare(deps: Dictionary) -> void:
+		prepare_calls += 1
+		saw_current_stage = int(deps.get("current_stage", 0)) == 4
+		saw_audio = deps.get("audio", null) != null
+		saw_event = deps.get("stage4_temple_destruction_event", null) != null
+
+
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+	func has_label(label: String) -> bool:
+		return labels.has(label)
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -177,6 +207,12 @@ class FakeRegistry:
 	var controller: Object
 	var scoreboard_state: Object = null
 	var active_item_runtime: Object = null
+	var round_state: Object = null
+	var mythic_item_runtime: Object = null
+	var stage4_map_state: Object = null
+	var stage4_temple_destruction_event: Object = null
+	var game_audio: Object = null
+	var battle_perf_logger: Object = null
 
 	func _init(next_context_builder: Object, next_controller: Object) -> void:
 		context_builder = next_context_builder
@@ -192,6 +228,18 @@ class FakeRegistry:
 				return scoreboard_state
 			"active_item_runtime":
 				return active_item_runtime
+			"round_flow_state":
+				return round_state
+			"mythic_item_runtime":
+				return mythic_item_runtime
+			"stage4_map_state":
+				return stage4_map_state
+			"stage4_temple_destruction_event":
+				return stage4_temple_destruction_event
+			"game_audio":
+				return game_audio
+			"battle_perf_logger":
+				return battle_perf_logger
 			_:
 				return null
 
@@ -234,12 +282,16 @@ func _init() -> void:
 	var scoreboard := FakeScoreboardState.new()
 	var round_state := FakeRoundState.new()
 	var mythic_runtime := FakeMythicItemRuntime.new()
+	var stage4_map := FakeStage4MapState.new()
+	var perf_logger := FakePerfLogger.new()
 	context_builder.build_calls = 0
-	context_builder.extra_deps = {
-		"round_state": round_state,
-		"mythic_item_runtime": mythic_runtime,
-	}
 	registry.scoreboard_state = scoreboard
+	registry.round_state = round_state
+	registry.mythic_item_runtime = mythic_runtime
+	registry.stage4_map_state = stage4_map
+	registry.stage4_temple_destruction_event = RefCounted.new()
+	registry.game_audio = RefCounted.new()
+	registry.battle_perf_logger = perf_logger
 
 	scoreboard.next_result = ScoreboardState.UPDATE_NONE
 	driver.update_scoreboard(
@@ -262,10 +314,14 @@ func _init() -> void:
 		owner
 	)
 	_expect(scoreboard.update_calls == 2, "scoreboard fast path should tick completion")
-	_expect(context_builder.build_calls == 1 and context_builder.requested_stage == 4, "scoreboard completion should build deps once with the owner stage")
+	_expect(context_builder.build_calls == 0, "scoreboard completion should avoid full match-flow deps")
 	_expect(_ball_reset_calls == ball_resets_before + 1, "scoreboard completion should start the next serve")
 	_expect(round_state.prepare_calls == 1, "scoreboard completion should prepare serve state")
+	_expect(stage4_map.prepare_calls == 1 and stage4_map.saw_current_stage and stage4_map.saw_audio and stage4_map.saw_event, "scoreboard completion should preserve stage 4 serve-prepare routing")
 	_expect(mythic_runtime.pending_calls == 1 and mythic_runtime.saw_owner and mythic_runtime.saw_registry, "scoreboard completion should preserve pending mythic selection routing")
+	_expect(perf_logger.has_label("physics.scoreboard_result.build_light_deps"), "scoreboard completion should profile light deps")
+	_expect(perf_logger.has_label("physics.scoreboard_result.stage4_prepare"), "scoreboard completion should profile stage 4 prepare separately")
+	_expect(perf_logger.has_label("physics.scoreboard_result.total"), "scoreboard completion should profile total result handling")
 
 	var active_item_runtime := FakeStageTransitionActiveItemRuntime.new()
 	registry.active_item_runtime = active_item_runtime

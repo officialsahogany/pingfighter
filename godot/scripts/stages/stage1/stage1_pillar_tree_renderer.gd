@@ -18,12 +18,13 @@ func draw(
 	game_offset: Vector2,
 	game_size: Vector2,
 	scale_factor: float,
-	tree_shakes: Dictionary
+	tree_shakes: Dictionary,
+	crescendo_offset: Vector2 = Vector2.ZERO
 ) -> void:
 	if tree_sprite_texture == null:
 		return
-	_draw_tree_side(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, "left", LEFT_TREE_REGION)
-	_draw_tree_side(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, "right", RIGHT_TREE_REGION)
+	_draw_tree_side(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, "left", LEFT_TREE_REGION, crescendo_offset)
+	_draw_tree_side(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, "right", RIGHT_TREE_REGION, crescendo_offset)
 
 
 func _draw_tree_side(
@@ -35,7 +36,8 @@ func _draw_tree_side(
 	scale_factor: float,
 	tree_shakes: Dictionary,
 	side: String,
-	source_region: Rect2
+	source_region: Rect2,
+	crescendo_offset: Vector2 = Vector2.ZERO
 ) -> void:
 	var bounds: Rect2 = geometry.clip_rect(geometry.get_tree_rect(side, view_size, game_offset, game_size), view_size)
 	if bounds.size.x <= 2.0 or bounds.size.y <= 2.0:
@@ -47,6 +49,8 @@ func _draw_tree_side(
 		fit.position.x = bounds.end.x - fit.size.x
 	fit.position.y = bounds.end.y - fit.size.y
 	fit.position += get_tree_shake_offset(side, scale_factor, tree_shakes)
+	var side_dir: float = -1.0 if side == "left" else 1.0
+	fit.position += Vector2(crescendo_offset.x * side_dir, crescendo_offset.y)
 	geometry.draw_texture_region(canvas, tree_sprite_texture, fit, source_region, 248.0 / 255.0, false)
 
 

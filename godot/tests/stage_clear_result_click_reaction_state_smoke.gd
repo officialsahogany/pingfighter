@@ -3,6 +3,7 @@ extends SceneTree
 const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
+const StageClearResultActorReactionUpdateHandler := preload("res://scripts/ui/stage_clear_result_actor_reaction_update_handler.gd")
 
 var _failures: Array[String] = []
 
@@ -186,15 +187,19 @@ func _verify_scene_constant_wiring() -> void:
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var actor_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
+	var update_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_reaction_update_handler.gd")
 	_expect(
 		actor_helper_source.find("StageClearResultClickReactionState.get_reaction_state") >= 0
 		and actor_helper_source.find("StageClearResultClickReactionState.get_click_reaction_attempt") >= 0,
 		"actor helper should call click reaction state helpers directly"
 	)
 	_expect(
-		source.find("StageClearResultClickReactionState.advance_reaction_timer") >= 0,
-		"scene should delegate click reaction timer advancement"
+		source.find("StageClearResultActorReactionUpdateHandler.update_actor_reaction_timers") >= 0
+		and update_handler_source.find("StageClearResultClickReactionState.advance_reaction_timer") >= 0
+		and StageClearResultActorReactionUpdateHandler != null,
+		"scene should delegate click reaction timer advancement through the actor update handler"
 	)
+	_expect(source.find("StageClearResultClickReactionState.advance_reaction_timer") < 0, "scene should not advance click reaction timers directly")
 	_expect(
 		source.find("func _get_player_victory_base_frame") < 0
 		and source.find("func _get_player_victory_reaction_frame") < 0

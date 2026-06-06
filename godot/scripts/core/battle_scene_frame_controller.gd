@@ -449,25 +449,48 @@ func _draw_drive_cutin_if_active(
 	if registry == null or not registry.has_method("get_cached_instance"):
 		return
 	var power_state: Variant = registry.get_cached_instance("smasher_power_smash_state")
-	if typeof(power_state) != TYPE_OBJECT or power_state == null:
+	var has_power_state: bool = typeof(power_state) == TYPE_OBJECT and power_state != null
+	var shield_state: Variant = registry.get_cached_instance("smasher_shield_kiting_state")
+	var has_shield_state: bool = typeof(shield_state) == TYPE_OBJECT and shield_state != null
+	if not has_power_state and not has_shield_state:
 		return
-	var active: bool = power_state.has_method("is_drive_cutin_active") and bool(power_state.is_drive_cutin_active())
+	var drive_active: bool = (
+		has_power_state
+		and power_state.has_method("is_drive_cutin_active")
+		and bool(power_state.is_drive_cutin_active())
+	)
+	var shield_cutin_state: Object = null
+	if has_shield_state:
+		var shield_cutin_value: Variant = shield_state.get("cutin_state")
+		if typeof(shield_cutin_value) == TYPE_OBJECT and shield_cutin_value != null:
+			shield_cutin_state = shield_cutin_value
+	var shield_active: bool = (
+		shield_cutin_state != null
+		and shield_cutin_state.has_method("is_active")
+		and bool(shield_cutin_state.is_active())
+	)
 	var blocking: bool = false
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
 	if overlay_frame != null and overlay_frame.has_method("has_blocking_activity"):
 		blocking = bool(overlay_frame.has_blocking_activity(module_getter))
-	var draw_now: bool = active and not blocking
+	var draw_drive_now: bool = drive_active and not blocking
+	var draw_shield_now: bool = (not draw_drive_now) and shield_active and not blocking
+	var draw_now: bool = draw_drive_now or draw_shield_now
 
 	var cutin_host: Variant = registry.get_cached_instance("skill_cutin_overlay_host")
 	var has_cutin_host: bool = typeof(cutin_host) == TYPE_OBJECT and cutin_host != null
 
-	# Immediate-mode pieces (backplate + arc behind, portrait + title) drawn in the
-	# shell's _draw so the ADD-light backplate/arc layer correctly behind the
-	# MIX-blend portrait.
-	if draw_now and has_cutin_host and cutin_host.has_method("draw_drive_cutin"):
+	# Immediate-mode pieces (triangle/backplate/arc behind, portrait or symbol +
+	# title) draw in the shell's _draw so the ADD-light pieces layer correctly
+	# behind the MIX-blend subject.
+	if draw_drive_now and has_cutin_host and cutin_host.has_method("draw_drive_cutin"):
 		var drive_start: int = _perf_begin(perf_logger)
 		cutin_host.draw_drive_cutin(canvas, power_state.drive_cutin_state, view_size)
 		_perf_end(perf_logger, "draw.frame.drive_cutin", drive_start)
+	elif draw_shield_now and has_cutin_host and cutin_host.has_method("draw_shield_kiting_cutin"):
+		var shield_start: int = _perf_begin(perf_logger)
+		cutin_host.draw_shield_kiting_cutin(canvas, shield_cutin_state, shield_state, view_size)
+		_perf_end(perf_logger, "draw.frame.shield_kiting_cutin", shield_start)
 
 	# Particle layer node (piece 3), rendered IN FRONT of the portrait. Sync every
 	# reachable frame so it hides (single cleanup) the moment the cut-in ends or a
@@ -476,14 +499,23 @@ func _draw_drive_cutin_if_active(
 	# (enter from the left, exit back to the left).
 	var fx_host: Node = _get_or_create_drive_cutin_fx_host(canvas, draw_now)
 	if fx_host != null and fx_host.has_method("sync_state"):
-		var ds: Object = power_state.drive_cutin_state
-		var progress: float = ds.get_progress() if ds != null and ds.has_method("get_progress") else 0.0
+		var partial_state: Object = null
+		if draw_drive_now and has_power_state:
+			partial_state = power_state.drive_cutin_state
+		elif draw_shield_now:
+			partial_state = shield_cutin_state
+		var progress: float = partial_state.get_progress() if partial_state != null and partial_state.has_method("get_progress") else 0.0
 		var slide_px: float = 0.0
 		if has_cutin_host and cutin_host.has_method("compute_drive_slide_px"):
 			slide_px = float(cutin_host.compute_drive_slide_px(progress, view_size.x))
 		# Combo-charged drive => enraged particle tint (brighter cyan-white). The
 		# immediate-mode backplate/arc read the same flag straight off drive_cutin_state.
-		var enraged: bool = power_state.has_method("is_drive_cutin_enraged") and bool(power_state.is_drive_cutin_enraged())
+		var enraged: bool = (
+			draw_drive_now
+			and has_power_state
+			and power_state.has_method("is_drive_cutin_enraged")
+			and bool(power_state.is_drive_cutin_enraged())
+		)
 		var fx_start: int = _perf_begin(perf_logger)
 		fx_host.sync_state({
 			"view_size": view_size,

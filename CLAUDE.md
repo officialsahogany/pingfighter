@@ -285,6 +285,127 @@ Standing rules for effect zone / impact flash wiring:
   render can hide behind correct radius / color / texture metadata and a
   passing tick-decrement smoke.
 
+## Godot Per-Frame Probability Roll Trap
+
+A `chance_pct` that is meant as a per-opportunity success rate but is rolled
+**every frame** inside a multi-frame gating window does NOT behave like that
+percentage. The ball / actor sits inside the qualifying window for `N` frames,
+so the felt success rate is the compounded `1 - (1 - p)^N`, which saturates
+toward certainty and **washes out level / rarity scaling**. The reference
+failure: `lingpet_ring_dash` (링크포트) rolled its `ring_dash_chance_pct`
+inside `advance()` every frame the descending ball was in the lower guard band.
+With ~9-17 window frames, Lv.1 12% compounded to ~70% and Lv.5 32% to ~99%, so
+both passive levels felt identical in play even though the catalog numbers
+differ 2.7x.
+
+Standing rules for chance-gated per-frame gameplay effects:
+- Decide whether the displayed percentage is **per-opportunity** or
+  **per-frame**, and make the code match. The default player-facing intent is
+  per-opportunity.
+- For per-opportunity semantics, gate the roll with a "already rolled this
+  opportunity" lock and clear it only when the opportunity genuinely ends
+  (e.g. ball stops descending / new rally / actor leaves the window), NOT every
+  frame the gate is briefly false. `lingpet_ring_dash_state._rolled_this_descent`
+  + `_update_descent_roll_lock()` (cleared on `ball_vel.y <= 0` or ball
+  inactive) is the reference pattern.
+- Add a focused smoke that proves a **failed** roll does not re-trigger within
+  the same opportunity, and that a fresh opportunity re-arms exactly one roll
+  (`lingpet_egg_runtime_smoke._verify_ring_dash_single_roll_per_descent`).
+  A success-only test (force_roll = always-succeed) passes either way and hides
+  the compounding bug.
+- When auditing a new chance-based lingpet passive / item proc / boss-skill
+  gate, check the call cadence first: if the roll site is reached from
+  `_process` / `_physics_process` / a per-frame `advance()`, assume per-frame
+  compounding until proven per-opportunity.
+- **Before "fixing" a displayed-stat-vs-felt-behavior gap by buffing power,
+  confirm the stat's INTENDED SCOPE with the design owner — the gap is often a
+  scope/labeling issue, not a reach deficiency.** Reference saga: `lingpet`
+  `defense_rate` ("방어율") armed an intercept correctly but at 155px/s (≈ patrol
+  speed) usually could not REACH the predicted ball X, so the displayed 30%
+  blocked fewer balls than it implied. The first "fix" assumed defense should
+  cover the WHOLE field and raised the speed to 420px/s — which made the lingpet
+  sprint across the field and read as a robotic teleport, NOT what the design
+  wanted. The actual intent was a **local predictive guard**: the lingpet only
+  guards uncatchable balls that fall NEAR it (it is not a field-wide goalkeeper).
+  The correct fix was therefore to SCOPE the stat, not buff reach: keep a subtle,
+  slightly-above-patrol eased speed (`COMPANION_DEFENSE_INTERCEPT_SPEED = 180`
+  with ease-in/out) and arm defense only for balls that match the FULL intent --
+  (1) the **player cannot block** the predicted X (`_player_can_block`, mirroring
+  `lingpet_ring_dash_state`; guarding a ball the player could make is pointless),
+  (2) the predicted X is within a generous **local commit zone**
+  (`COMPANION_DEFENSE_LOCAL_ZONE`) of the lingpet, (3) the roll passes. Far /
+  player-blockable balls never arm (out of scope, by design). **Crucially, the
+  commit is ANTICIPATORY, not "reachable THIS frame".** An earlier iteration gated
+  on a tight `reachable_distance = speed*(time_left)*factor` window, so at the slow
+  180px/s the guard committed too LATE and a high (even 100%) defense rate still
+  whiffed nearby balls — the lingpet only "decided" once the ball was already close
+  enough to reach instantly, by which point it usually wasn't. The fix: commit as
+  soon as the ball enters the band within the local zone, then anchor to the
+  re-predicted landing X and ease toward it EARLY across the whole descent; the slow
+  speed itself caps total travel so anchoring/tracking can never become a field
+  sprint. The displayed rate is then honest WITHIN the local zone, and the tooltip
+  says so ("링펫 근처로 떨어지는 … 미리 예측해 가드"). NOTE: the defense intercept
+  (`lingpet_companion_motion_state`) and the Linkport passive
+  (`lingpet_ring_dash_state`) are SEPARATE systems with their own gates -- do not
+  assume a gate present in one (e.g. `_player_can_block`) exists in the other.
+- **A displayed chance/rate stat must produce its real gameplay OUTCOME (within
+  its intended scope), and the smoke must assert the outcome.** Standing rules:
+  (a) write the smoke against the end effect (ball bounced / `ball_vel.y < 0`,
+  damage dealt, status applied), not the arming/attempt flag —
+  `_verify_maribo_defense_actually_blocks_reachable_ball` asserts a near ball is
+  actually bounced; (b) any tuning that gates the follow-through (chase speed vs
+  arrival time, projectile speed vs distance) must be checked against the real
+  time/space budget; (c) keep an out-of-scope / "does NOT always succeed"
+  counter-case so the effect is neither a guaranteed wall nor silently dead —
+  `_verify_maribo_defense_rate_intercepts_descending_ball` asserts a far ball does
+  NOT arm; (d) **a smoke that hand-advances the ball must mirror the runtime's
+  per-frame distance `ball_vel * delta * 60` (`ball_update_controller`
+  `fps_scale = delta*60`), NOT raw `ball_vel` per step.** Raw `ball_vel` per step
+  (e.g. `ball_y += 12`) descends ~3x too slowly at `delta=0.05`, handing the
+  defender an inflated window so the test passes even at a too-slow speed; use
+  `ball_y += ball_vel.y * delta * 60`.
+- **Lingpet companion test trap: Maribo's auto-cast skill wind-up FREEZES
+  companion motion.** `windup_active` is passed as `freeze_motion` to
+  `lingpet_companion_motion_state.update`, so during the ~1s Hydro Sphere wind-up
+  the companion cannot patrol or run a defense intercept. A multi-frame companion
+  motion smoke must first let the initial cast actually LAUNCH (needs an active
+  ball parked away from the lane) so the skill enters its 40s cooldown; otherwise
+  the wind-up re-arms and the companion stays frozen through the scenario.
+
+## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
+
+The battle `owner` (`battle_scene_shell`) routes `owner.set(key, value)` /
+`owner.get(key)` through `battle_scene_state` `set_value` / `get_value`, which
+**only store / return keys present in `BattleSceneState.DEFAULT_VALUES`**. A
+`set()` to a key NOT in that schema is a **silent no-op** (no error), and a
+`get()` returns null → callers fall back to their default. So any per-frame
+runtime value you sync onto the owner for another system to read (e.g. the
+character-info panel) is **silently dropped unless the key is declared in
+`DEFAULT_VALUES`**.
+
+Reference failure: the F7 lingpet defense-rate override didn't show in the
+character-info panel. `lingpet_runtime_snapshot_builder.sync_owner` wrote
+`owner.set("lingpet_companion_defense_rate", _get_current_defense_rate())` every
+frame, but `lingpet_companion_defense_rate` was missing from `DEFAULT_VALUES`, so
+the write no-opped and `character_info_overlay_lingpet_snapshot_builder` fell back
+to `LingpetCatalog.get_stat(..., "defense_rate")` (the catalog/base value). The
+base equals the catalog value, so the panel "looked right" until an override made
+the live value diverge from the catalog. Fix = declare the key (and its `ringpet_`
+pair) in `DEFAULT_VALUES`.
+
+Standing rules:
+- When a runtime stat must appear in the character-info panel (or any cross-module
+  owner read), confirm the owner key is in `battle_scene_state.DEFAULT_VALUES`.
+  If it is not, the sync silently no-ops and the reader uses its fallback.
+- A panel/stat that reads `owner.<key>` with a **catalog/base fallback** can mask
+  this bug whenever the live value happens to equal the base. Test the DIVERGENT
+  case (a runtime override / buff that differs from the catalog value).
+- Smokes must use a **schema-gated owner** (delegating to `BattleSceneState`, like
+  `battle_scene_shell`) to catch this — a plain dict `FakeOwner` that stores any
+  key will pass even when the real schema would drop the write. Reference:
+  `character_info_live_stats_smoke._verify_defense_override_reaches_panel_through_schema_gated_owner`
+  (verified to FAIL when the schema key is removed).
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such
@@ -300,6 +421,22 @@ fallback, or when imagegen is blocked and the user accepts a fallback.
 After the generated asset is accepted, copy it into the repo asset tree,
 wire the PNG-first loader/cache path, and verify that no procedural
 fallback or special-case early return bypasses the new file.
+
+## Ringpet Visual Terminology
+
+When the user says "링파츠" / "ring parts" for a Ringpet / Lingpet design,
+do NOT interpret that as literal circular rings only. In this project,
+링파츠 means Lumion-style identity hardware / ornament parts mounted on the
+body: chest core plates, shoulder armor pods, forehead gem plates, collar
+buckles, limb cuffs, tail modules, ear plates, sockets, gold / cyan inlays,
+and magical-mechanical trim. Literal ring, halo, or orbit motifs can be
+supporting accents, but they are not the definition of 링파츠.
+
+For new or revised Ringpet concept prompts, first add readable body-mounted
+parts on the chest, shoulders, head, limbs, and tail like Lumion's design
+language; only add literal rings when they help the silhouette or theme. If a
+Ringpet draft reads as "plain creature plus one necklace," strengthen these
+mounted parts before adding more floating rings.
 
 ## Character Live2D Source Art Backgrounds
 
@@ -914,6 +1051,33 @@ checklist is open.
   owned the ball and skipped normal motion, while its local collision was too
   narrow, so the ball visibly slid along the player Y-band without a paddle
   hit.
+- **The same `skip_ball_motion_step` bypass also disables every
+  floor-level / mid-field interception that normally lives inside
+  `step_motion()` — not just paddle bounce.** When an owned-ball phase
+  skips motion, it also skips `BallMotionCollisionDetector.check_holy_barrier`,
+  `check_horn_strawberry_field`, brick-wall, laurel-leaf-shield, and mythic
+  adversity-armor checks. So a floor-invincibility active item can be silently
+  ignored and the player loses through an "invincible" floor. The Hongryun
+  Inferno × Holy Barrier (홀리베리어) loss is the reference failure: the
+  inferno trail owned the ball and resolved its own floor-miss
+  (`_try_resolve_stage5_hongryun_floor_miss`) without ever consulting the
+  active holy barrier, so the ball punched through the invincible floor.
+  Standing rule: any owned-ball skill that resolves its OWN floor/score
+  outcome while `skip_ball_motion_step` is true must first replicate the
+  relevant `step_motion()` barrier checks (geometry from the same
+  `holy_barrier_y` / `holy_barrier_height` / field-width context keys),
+  reflect + release to normal physics on a hit, and call the same runtime
+  notifier (`active_item_runtime.notify_holy_barrier_hit`, etc.). Mirror the
+  existing paddle-guard ordering: player guard → floor-save barrier → loss.
+  Do NOT gate the barrier catch on instantaneous `ball_vel.y > 0`; an owned
+  ball oscillates, so use geometric band intersection and `-abs(ball_vel.y)`
+  for the upward reflection, or a single wobble-up frame at the band bottom
+  leaks straight into the floor-miss. The reference guard +
+  `resolve_inferno_holy_barrier` release live in
+  `ball_update_controller._try_release_stage5_hongryun_holy_barrier`, sealed
+  by `stage5_hongryun_holy_barrier_motion_skip_smoke.gd`. Audit the same hole
+  for horn-strawberry field and brick wall when porting future owned-ball
+  boss skills.
 - **Godot boss-side strong knockback handlers must signal
   `suppress_paddle_hit_knockback` on the same frame.** `boss_ai_state.start_paddle_hit_knockback`
   takes `replace_current=true` from every caller, so the regular paddle hit

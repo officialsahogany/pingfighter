@@ -7,6 +7,8 @@ const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.
 
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_FRAME_COUNT := 8
+const DEFAULT_PLAYER_DIRECTIONAL_DASH_GRID_COLS := 4
+const DEFAULT_PLAYER_DIRECTIONAL_DASH_FRAME_COUNT := 8
 const WHEEL_SPIN_PREWARM_DEST_RECT := Rect2(Vector2(-4096.0, -4096.0), Vector2(1.0, 1.0))
 const WHEEL_SPIN_PREWARM_TINT := Color(1.0, 1.0, 1.0, 0.01)
 const DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY := 0.65
@@ -334,6 +336,30 @@ func draw(
 			_draw_texture_region(canvas, hit_pose_texture_typed, player_visual_rect, Rect2(Vector2.ZERO, hit_pose_texture_typed.get_size()), context)
 			return
 
+	if bool(context.get("blacksmith_thor_shield_deploy_active", false)):
+		var thor_shield_texture = context.get("blacksmith_thor_shield_deploy_sheet", null)
+		if thor_shield_texture is Texture2D:
+			var thor_shield_texture_typed: Texture2D = thor_shield_texture
+			_draw_texture_with_customization_overlays(
+				canvas,
+				thor_shield_texture_typed,
+				player_visual_rect,
+				_get_blacksmith_thor_shield_deploy_sprite_region(context),
+				context,
+				"thor_shield",
+				int(context.get("blacksmith_thor_shield_deploy_frame", 0)),
+				"back",
+				{
+					"grid_cols": int(context.get("blacksmith_thor_shield_deploy_grid_cols", 4)),
+					"grid_rows": int(context.get("blacksmith_thor_shield_deploy_grid_rows", 4)),
+					"frame_count": int(context.get("blacksmith_thor_shield_deploy_frame_count", 16)),
+					"cell_width": float(context.get("blacksmith_thor_shield_deploy_cell_width", 160.0)),
+					"cell_height": float(context.get("blacksmith_thor_shield_deploy_cell_height", 160.0)),
+				},
+				true
+			)
+			return
+
 	var idle_texture = context.get("player_idle_sprite_texture", null)
 	if not player_move_active and idle_texture is Texture2D:
 		var idle_texture_typed: Texture2D = idle_texture
@@ -358,6 +384,30 @@ func draw(
 		return
 
 	if player_move_active:
+		if bool(context.get("dash_active", false)) and bool(context.get("has_player_directional_dash_sheet", false)):
+			var directional_dash_texture = _get_player_directional_dash_texture(context)
+			if directional_dash_texture is Texture2D:
+				var directional_dash_texture_typed: Texture2D = directional_dash_texture
+				_draw_texture_with_customization_overlays(
+					canvas,
+					directional_dash_texture_typed,
+					player_visual_rect,
+					_get_player_directional_dash_region(context),
+					context,
+					"dash",
+					int(context.get("player_sprite_frame", 0)),
+					_get_walk_direction(context),
+					{
+						"grid_cols": int(context.get("player_directional_dash_grid_cols", DEFAULT_PLAYER_DIRECTIONAL_DASH_GRID_COLS)),
+						"grid_rows": 2,
+						"frame_count": int(context.get("player_directional_dash_frame_count", DEFAULT_PLAYER_DIRECTIONAL_DASH_FRAME_COUNT)),
+						"cell_width": float(context.get("player_directional_dash_cell_width", 160.0)),
+						"cell_height": float(context.get("player_directional_dash_cell_height", 160.0)),
+					},
+					true
+				)
+				return
+
 		var directional_walk_texture = _get_player_directional_walk_texture(context)
 		if directional_walk_texture is Texture2D:
 			var directional_walk_texture_typed: Texture2D = directional_walk_texture
@@ -583,6 +633,18 @@ func _get_player_idle_sprite_region(context: Dictionary) -> Rect2:
 func _get_player_hit_sprite_region(context: Dictionary) -> Rect2:
 	var frame_x: float = float(context.get("player_hit_frame_width", 250.0)) * float(context.get("player_hit_frame", 0))
 	return Rect2(frame_x, 0.0, float(context.get("player_hit_frame_width", 250.0)), float(context.get("player_hit_frame_height", 120.0)))
+
+
+func _get_blacksmith_thor_shield_deploy_sprite_region(context: Dictionary) -> Rect2:
+	var cell_w: float = float(context.get("blacksmith_thor_shield_deploy_cell_width", 160.0))
+	var cell_h: float = float(context.get("blacksmith_thor_shield_deploy_cell_height", 160.0))
+	var grid_cols: int = max(1, int(context.get("blacksmith_thor_shield_deploy_grid_cols", 4)))
+	var frame_count: int = max(1, int(context.get("blacksmith_thor_shield_deploy_frame_count", 16)))
+	var frame: int = clamp(int(context.get("blacksmith_thor_shield_deploy_frame", 0)), 0, frame_count - 1)
+	var col: int = frame % grid_cols
+	@warning_ignore("integer_division")
+	var row: int = int(frame / grid_cols)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 
 # Directional Smasher attack sheets: 4x4 grids, 16 frames total, default
@@ -907,6 +969,28 @@ func _get_player_directional_walk_texture(context: Dictionary) -> Variant:
 	var direction: int = int(context.get("player_walk_direction", 1))
 	var texture_key := "player_walk_left_texture" if direction < 0 else "player_walk_right_texture"
 	return context.get(texture_key, null)
+
+
+func _get_player_directional_dash_texture(context: Dictionary) -> Variant:
+	var direction: int = int(context.get("player_walk_direction", 1))
+	var primary_key := "player_dash_left_texture" if direction < 0 else "player_dash_right_texture"
+	var fallback_key := "player_dash_right_texture" if direction < 0 else "player_dash_left_texture"
+	var texture = context.get(primary_key, null)
+	if texture is Texture2D:
+		return texture
+	return context.get(fallback_key, null)
+
+
+func _get_player_directional_dash_region(context: Dictionary) -> Rect2:
+	var cell_w: float = float(context.get("player_directional_dash_cell_width", 160.0))
+	var cell_h: float = float(context.get("player_directional_dash_cell_height", 160.0))
+	var grid_cols: int = max(1, int(context.get("player_directional_dash_grid_cols", DEFAULT_PLAYER_DIRECTIONAL_DASH_GRID_COLS)))
+	var max_frame: int = max(0, int(context.get("player_directional_dash_frame_count", DEFAULT_PLAYER_DIRECTIONAL_DASH_FRAME_COUNT)) - 1)
+	var frame: int = clamp(int(context.get("player_sprite_frame", 0)), 0, max_frame)
+	var col: int = frame % grid_cols
+	@warning_ignore("integer_division")
+	var row: int = int(frame / grid_cols)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 
 func _get_player_directional_walk_region(context: Dictionary) -> Rect2:

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const SmasherShieldKitingRenderer := preload("res://scripts/characters/smasher_shield_kiting_renderer.gd")
+const SmasherSkillPartialCutinState := preload("res://scripts/characters/smasher_skill_partial_cutin_state.gd")
 
 const SKILL_NAME := "shield_kiting"
 const GAUGE_COST := 130.0
@@ -81,10 +82,12 @@ const SHIELD_HIT_SHAKE_AMOUNT := 0.11
 const SHIELD_HIT_SHAKE_INTENSITY := 3.2
 const PLASMA_HIT_SHARD_COUNT := 5
 const PLASMA_HIT_EFFECT_MAX_COUNT := 3
+const PARTIAL_CUTIN_DURATION := 2.70
 
 var projectile: Dictionary = {}
 var hit_effects: Array = []
 var renderer: Object = SmasherShieldKitingRenderer.new()
+var cutin_state: Object = SmasherSkillPartialCutinState.new()
 var last_action_edge_msec := -100000
 var post_activate_cooldown_until_msec := 0
 var previous_action_pressed := false
@@ -95,6 +98,7 @@ var launch_sound_pending := false
 func reset() -> void:
 	projectile.clear()
 	hit_effects.clear()
+	cutin_state.reset()
 	last_action_edge_msec = -100000
 	post_activate_cooldown_until_msec = 0
 	previous_action_pressed = false
@@ -105,6 +109,7 @@ func reset() -> void:
 func reset_round(deps: Dictionary = {}) -> void:
 	projectile.clear()
 	hit_effects.clear()
+	cutin_state.reset()
 	locked_player_x = 0.0
 	launch_sound_pending = false
 	_stop_wind_up_sound(deps)
@@ -159,6 +164,7 @@ func update_input(
 
 	var origin: Vector2 = _get_shield_attach_point(player_pos, _get_player_size(config))
 	projectile = _build_projectile(origin, current_msec, config)
+	cutin_state.begin(SKILL_NAME, PARTIAL_CUTIN_DURATION)
 	locked_player_x = player_pos.x
 	post_activate_cooldown_until_msec = current_msec + DOUBLE_TAP_COOLDOWN_MSEC
 
@@ -208,6 +214,8 @@ func update_and_collide(_fps_scale: float, scene: Dictionary, context: Dictionar
 
 
 func update_effects(fps_scale: float) -> void:
+	if cutin_state.is_active():
+		cutin_state.update(fps_scale / 60.0)
 	_update_hit_effects(fps_scale)
 
 
@@ -237,7 +245,22 @@ func has_visible_effects() -> bool:
 
 
 func needs_effect_update() -> bool:
-	return not hit_effects.is_empty()
+	return cutin_state.is_active() or not hit_effects.is_empty()
+
+
+func is_partial_cutin_active() -> bool:
+	return cutin_state.is_active()
+
+
+func draw_cutin_symbol(
+	canvas: CanvasItem,
+	center: Vector2,
+	progress: float,
+	alpha: float,
+	view_size: Vector2
+) -> void:
+	if renderer != null and renderer.has_method("draw_cutin_symbol"):
+		renderer.draw_cutin_symbol(canvas, center, progress, alpha, view_size)
 
 
 func _build_projectile(origin: Vector2, current_msec: int, config: Dictionary) -> Dictionary:

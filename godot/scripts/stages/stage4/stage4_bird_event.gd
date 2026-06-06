@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
+const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -558,6 +559,19 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		var glow_timer: float = float(drop.get("glow_timer", 0.0)) + 0.1 * fps_scale
 		drop["glow_timer"] = glow_timer
 		drop["glow_intensity"] = 0.7 + 0.3 * absf(sin(glow_timer))
+
+		var starlight_tracking_result := LingpetStarlightTrackingBridge.update_drop(drop, fps_scale, context, deps)
+		if bool(starlight_tracking_result.get("delivered", false)):
+			if _collect_starpoint_drop(drop, context, deps):
+				_finish_starpoint_modal_collection(index, write_index, drop_count)
+				return
+			if starpoint_drops.size() < drop_count:
+				return
+			continue
+		if bool(starlight_tracking_result.get("claimed", false)):
+			starpoint_drops[write_index] = drop
+			write_index += 1
+			continue
 
 		if _starpoint_overlaps_any_player(drop, player_rects):
 			if _collect_starpoint_drop(drop, context, deps):

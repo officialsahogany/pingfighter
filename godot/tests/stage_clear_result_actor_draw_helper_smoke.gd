@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
+const StageClearResultActorPresenter := preload("res://scripts/ui/stage_clear_result_actor_presenter.gd")
 
 var _failures: Array[String] = []
 
@@ -58,12 +59,16 @@ func _verify_helper_contract() -> void:
 
 func _verify_scene_delegates_actor_draws() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultActorDrawHelper.draw_dalji_defeated") >= 0, "result scene should delegate Dalji defeated drawing")
-	_expect(source.find("StageClearResultActorDrawHelper.draw_stage2_defeated") >= 0, "result scene should delegate Stage 2 defeated drawing")
-	_expect(source.find("StageClearResultActorDrawHelper.draw_stage3_defeated") >= 0, "result scene should delegate Stage 3 defeated drawing")
-	_expect(source.find("StageClearResultActorDrawHelper.draw_player_victory_live2d") >= 0, "result scene should delegate player victory Live2D drawing")
-	_expect(source.find("_dalji_click_rect = StageClearResultActorDrawHelper.draw_dalji_defeated") >= 0, "result scene should still store Dalji click rect")
-	_expect(source.find("_player_victory_click_rect = result.get") >= 0, "result scene should still store player victory click rect")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_presenter.gd")
+	_expect(StageClearResultActorPresenter != null, "actor presenter preload should resolve")
+	_expect(source.find("StageClearResultActorPresenter.draw_defeated_boss") >= 0, "result scene should delegate defeated-boss drawing through the actor presenter")
+	_expect(presenter_source.find("StageClearResultActorDrawHelper.draw_dalji_defeated") >= 0, "actor presenter should delegate Dalji defeated drawing")
+	_expect(presenter_source.find("StageClearResultActorDrawHelper.draw_stage2_defeated") >= 0, "actor presenter should delegate Stage 2 defeated drawing")
+	_expect(presenter_source.find("StageClearResultActorDrawHelper.draw_stage3_defeated") >= 0, "actor presenter should delegate Stage 3 defeated drawing")
+	_expect(source.find("StageClearResultActorPresenter.draw_player_victory_live2d") >= 0, "result scene should delegate player victory Live2D drawing through the actor presenter")
+	_expect(presenter_source.find("StageClearResultActorDrawHelper.draw_player_victory_live2d") >= 0, "actor presenter should delegate player victory Live2D drawing")
+	_expect(source.find("StageClearResultActorPresenter.get_defeated_boss_draw_apply_result") >= 0, "result scene should store Dalji click rect through actor presenter apply payloads")
+	_expect(source.find("StageClearResultActorPresenter.get_player_victory_draw_apply_result") >= 0, "result scene should store player victory click rect through actor presenter apply payloads")
 	_expect(source.find("func _draw_stage2_defeated_boss") < 0, "result scene should not keep Stage 2 defeated draw wrappers")
 	_expect(source.find("func _draw_stage3_defeated_boss") < 0, "result scene should not keep Stage 3 defeated draw wrappers")
 	_expect(source.find("func _is_stage2_result_boss") < 0, "result scene should not keep trivial Stage 2 predicate wrappers")

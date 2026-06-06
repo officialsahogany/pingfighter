@@ -109,6 +109,7 @@ class FakeLingpetRuntime:
 func _init() -> void:
 	_verify_dispatcher_and_catalog()
 	_verify_runtime_physics_and_electric_stun()
+	_verify_stun_duration_honors_launch_context()
 	_verify_spark_miss_does_not_stun()
 	_verify_edge_overlap_center_outside_does_not_stun()
 	_verify_reset_stops_electric_loop_and_clears_status()
@@ -134,6 +135,11 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(str(skill.get("name", "")) == "천둥 뇌구", "Thunder Orb should keep the requested Korean skill name")
 	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 25.0), "Thunder Orb should use the requested 25-second cooldown")
 	_expect(str(LingpetCatalog.get_active_skill("lumion").get("id", "")) == "lumion_thunder_orb", "Lumion's default active skill should be Thunder Orb")
+	# Electric stun now scales with the active-skill level (Lv.1 0.8s -> Lv.5 1.6s,
+	# with the current 1.4s state anchored at Lv.4).
+	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 1).get("stun_duration_seconds", 0.0)), 0.8), "Thunder Orb Lv.1 should stun for 0.8s")
+	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 4).get("stun_duration_seconds", 0.0)), 1.4), "Thunder Orb Lv.4 should stun for the current 1.4s baseline")
+	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 5).get("stun_duration_seconds", 0.0)), 1.6), "Thunder Orb Lv.5 should stun for 1.6s")
 	_expect(LingpetRailCard.is_lingpet_skill({"id": "lumion_thunder_orb"}), "shared rail-card helper should recognize Lumion Thunder Orb as a lingpet skill")
 	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "live lingpet catalog should validate after wiring Thunder Orb")
 	_expect(FileAccess.file_exists(GameAudio.THUNDER_ORB_SHOT_SOUND_PATH), "Thunder Orb should include the original thunderbolt.wav launch sound")
@@ -212,10 +218,39 @@ func _verify_runtime_physics_and_electric_stun() -> void:
 	_expect(audio.electric_syncs.has(true), "Thunder Orb electric stun should start the electric shock loop")
 
 	host.update(2.25, owner, registry, skill_id)
-	_expect(not bool(host.get_snapshot().get("thunder_orb_electric_stun_active", true)), "Thunder Orb electric stun should expire after its 2-second stun window")
+	_expect(not bool(host.get_snapshot().get("thunder_orb_electric_stun_active", true)), "Thunder Orb electric stun should expire after its 1.4-second stun window")
 	_expect(not host.is_launch_blocked(skill_id), "Thunder Orb should stop blocking relaunch after the electric stun ends")
 	_expect(audio.electric_syncs.has(false), "Thunder Orb electric stun should stop the electric shock loop")
 	_expect(_has_clear(status_state.clears, "lumion_thunder_orb_electric_stun"), "Thunder Orb should clear its own stun source when the shock ends")
+
+
+func _verify_stun_duration_honors_launch_context() -> void:
+	# The companion launch path forwards the level-scaled `stun_duration_seconds`
+	# through launch_context. A long value must keep the boss stunned well past
+	# the 1.4s const fallback, proving the runtime reads the per-launch duration
+	# instead of the hardcoded constant.
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	var status_state := FakeStatusEffectState.new()
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(status_state, audio)
+	var skill_id := "lumion_thunder_orb"
+
+	_expect(host.launch(skill_id, Vector2(380.0, 700.0), owner, {"stun_duration_seconds": 3.0}), "host should launch Thunder Orb with a level-scaled stun duration")
+	var safety := 0
+	while bool(host.get_snapshot().get("thunder_orb_projectile_active", false)) and safety < 180:
+		host.update(1.0 / 60.0, owner, registry, skill_id)
+		safety += 1
+	# Finish the 0.2s explosion so the stun begins with the configured duration.
+	host.update(0.25, owner, registry, skill_id)
+	_expect(bool(host.get_snapshot().get("thunder_orb_electric_stun_active", false)), "Thunder Orb should stun the boss at explosion end")
+
+	# 2.0s in, a 3.0s stun must still be live (the 1.4s const fallback would be long gone).
+	host.update(2.0, owner, registry, skill_id)
+	_expect(bool(host.get_snapshot().get("thunder_orb_electric_stun_active", false)), "a 3.0s launch-context stun should still be active 2.0s in, not capped at the 1.4s const")
+	# Past the full 3.0s window it must expire.
+	host.update(1.2, owner, registry, skill_id)
+	_expect(not bool(host.get_snapshot().get("thunder_orb_electric_stun_active", true)), "the launch-context stun should expire after its own duration")
 
 
 func _verify_spark_miss_does_not_stun() -> void:

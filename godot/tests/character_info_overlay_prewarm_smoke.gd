@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const CharacterInfoOverlayActiveItemPresenter := preload("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
 const CharacterInfoOverlayHoverGeometry := preload("res://scripts/hud/character_info_overlay_hover_geometry.gd")
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
@@ -254,6 +255,7 @@ func _init() -> void:
 	_expect(_registry.icon_renderer.prewarm_count == 1, "character info prewarm should be idempotent for icons")
 	_expect(_registry.active_item_visuals.prewarm_count == 1, "character info prewarm should be idempotent for active item visuals")
 
+	_verify_active_item_tooltip_body()
 	_verify_acquired_perk_cache_reuses_catalog_rows()
 	_verify_passive_inventory_summary_cache_tracks_equipped_state()
 	_verify_active_item_label_cache_reuses_catalog_rows()
@@ -262,6 +264,17 @@ func _init() -> void:
 
 	print("character_info_overlay_prewarm_smoke: ok")
 	quit(0)
+
+
+func _verify_active_item_tooltip_body() -> void:
+	var described_body: String = CharacterInfoOverlayActiveItemPresenter.build_body(
+		{"description": "스킬 쿨타임과 대쉬 토큰을 즉시 회복합니다."},
+		7000
+	)
+	_expect(described_body.find("스킬 쿨타임과 대쉬 토큰") >= 0, "active item tooltip body should include catalog description text")
+	_expect(described_body.find("쿨타임 7.0초") >= 0, "active item tooltip body should keep the effective cooldown line")
+	var fallback_body: String = CharacterInfoOverlayActiveItemPresenter.build_body({}, 7000)
+	_expect(fallback_body == "쿨타임 7.0초", "active item tooltip body should keep a cooldown-only fallback")
 
 
 func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
@@ -1208,8 +1221,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"lingpet stat rows should support focused hover tooltip bodies from the stats presenter"
 	)
 	_expect(
-		source.find("공을 안정적으로 막을 확률입니다") >= 0,
-		"Maribo defense-rate stat should explain its intercept behavior"
+		source.find("미리 예측해 가드") >= 0,
+		"Maribo defense-rate stat should explain its local predictive-guard behavior"
 	)
 	_expect(
 		stats_presenter_source.find("target.set(\"_stats_row_count\", row_count)") >= 0,
@@ -1666,6 +1679,10 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 	_expect(
 		active_slot_draw_body.find("hover_data = set_hover_data_callable.call(") >= 0,
 		"character info active item presenter hover should reuse the frame hover dictionary"
+	)
+	_expect(
+		active_slot_draw_body.find("\"슬롯 %d\"") >= 0,
+		"character info active item tooltip should show a readable Korean slot label"
 	)
 	_expect(
 		source.find("var _last_lingpet_skill_icon_rects: Array[Rect2] = []") >= 0,

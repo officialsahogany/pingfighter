@@ -114,12 +114,19 @@ func _verify_scene_scroll_delegates() -> void:
 		"scene scroll fields should remain compatible with the delegated box-alpha helper"
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
+	var update_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_update_handler.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_state.gd")
 	var box_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultScrollState.get_unfurl_progress") >= 0
+		source.find("StageClearResultScrollUpdateHandler.update_scroll") >= 0
+			and update_handler_source.find("StageClearResultScrollState.update_phase") >= 0,
+		"scene scroll updates should route through the scroll update handler"
+	)
+	_expect(
+		presenter_source.find("StageClearResultScrollState.get_unfurl_progress") >= 0
 			and box_draw_source.find("StageClearResultScrollState.get_box_global_alpha") >= 0,
-		"result scene / box draw helper should delegate scroll visual helpers"
+		"scroll presenter / box draw helper should delegate scroll visual helpers"
 	)
 	_expect(
 		source.find("const SCROLL_REGION_TOP") < 0
@@ -135,9 +142,9 @@ func _verify_scene_scroll_delegates() -> void:
 		source.find("func _get_scroll_base_rect") < 0
 			and source.find("func _get_scroll_full_rect") < 0
 			and source.find("func _clamp_scroll_offset") < 0
-			and source.find("StageClearResultScrollState.get_region_full_rect") >= 0
-			and source.find("StageClearResultScrollState.clamp_region_offset") >= 0,
-		"result scene should not keep scroll geometry pass-through wrappers"
+			and presenter_source.find("StageClearResultScrollState.get_region_full_rect") >= 0
+			and presenter_source.find("StageClearResultScrollState.clamp_region_offset") >= 0,
+		"result scene should not keep scroll geometry pass-through wrappers; presenter should call the state helpers"
 	)
 	_expect(
 		source.find("func _get_scroll_unfurl_progress") < 0

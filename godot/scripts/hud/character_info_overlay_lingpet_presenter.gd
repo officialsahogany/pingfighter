@@ -295,6 +295,23 @@ static func _draw_skill_symbol(canvas: CanvasItem, font: Font, rect: Rect2, id: 
 			canvas.draw_line(arrow_start, arrow_end, Color.WHITE, 2.0)
 			canvas.draw_line(arrow_end, arrow_end + Vector2(-radius * 0.20, -radius * 0.02), Color.WHITE, 2.0)
 			canvas.draw_line(arrow_end, arrow_end + Vector2(-radius * 0.08, radius * 0.18), Color.WHITE, 2.0)
+		"lingpet_starlight_tracking":
+			var star_points := PackedVector2Array()
+			for i in range(10):
+				var angle: float = -PI * 0.5 + TAU * float(i) / 10.0
+				var point_radius: float = radius * (0.54 if i % 2 == 0 else 0.23)
+				star_points.append(center + Vector2(cos(angle), sin(angle)) * point_radius)
+			canvas.draw_colored_polygon(star_points, Color(1.0, 0.92, 0.45, 0.82))
+			canvas.draw_arc(center + Vector2(-radius * 0.10, radius * 0.08), radius * 0.78, PI * 0.18, PI * 1.30, ring_segments, Color(0.65, 1.0, 1.0, 0.54), 1.6)
+			canvas.draw_circle(center + Vector2(radius * 0.46, -radius * 0.34), radius * 0.10, Color.WHITE)
+		"lingpet_ring_dash":
+			var dash_color := Color(0.50, 0.92, 1.0, 0.62)
+			for i in range(3):
+				var trail_offset := Vector2(-radius * (0.52 + float(i) * 0.16), radius * (0.20 - float(i) * 0.14))
+				canvas.draw_line(center + trail_offset, center + trail_offset + Vector2(radius * 0.46, -radius * 0.18), dash_color, 1.4)
+			var shield_rect := Rect2(center - Vector2(radius * 0.16, radius * 0.42), Vector2(radius * 0.46, radius * 0.84))
+			canvas.draw_rect(shield_rect, Color(1.0, 1.0, 1.0, 0.78), false, 2.0)
+			canvas.draw_line(center + Vector2(-radius * 0.46, radius * 0.28), center + Vector2(radius * 0.42, -radius * 0.28), Color.WHITE, 2.2)
 		"resonance_boost", "maribo_resonance_boost", "lingpet_resonance_boost":
 			for i in range(3):
 				var arc_radius: float = radius * (0.55 + float(i) * 0.18)
@@ -392,6 +409,8 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		})
 	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 0.0))
 	var player_speed_bonus_pct: float = float(snapshot.get("companion_player_speed_bonus_pct", 0.0))
+	var starpoint_tracking_chance_pct: float = float(snapshot.get("companion_starpoint_tracking_chance_pct", 0.0))
+	var ring_dash_chance_pct: float = float(snapshot.get("companion_ring_dash_chance_pct", 0.0))
 	var passive_id: String = str(snapshot.get("companion_passive_skill_id", "")).strip_edges()
 	if passive_id != "":
 		var passive_name: String = str(snapshot.get("companion_passive_skill_name", "")).strip_edges()
@@ -408,6 +427,10 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			passive_subtitle += " · 받아치기 +" + CharacterInfoOverlayFormatter.format_percent_text(gauge_bonus_pct)
 		if player_speed_bonus_pct > 0.0:
 			passive_subtitle += " · 이동 +" + CharacterInfoOverlayFormatter.format_percent_text(player_speed_bonus_pct)
+		if starpoint_tracking_chance_pct > 0.0:
+			passive_subtitle += " · 추적 " + CharacterInfoOverlayFormatter.format_percent_text(starpoint_tracking_chance_pct)
+		if ring_dash_chance_pct > 0.0:
+			passive_subtitle += " · 전이 " + CharacterInfoOverlayFormatter.format_percent_text(ring_dash_chance_pct)
 		specs.append({
 			"id": passive_id,
 			"title": passive_name,

@@ -95,18 +95,38 @@ func _apply_scoreboard_update_result(
 	reset_game_callback: Callable,
 	reset_ball_callback: Callable
 ) -> void:
-	var deps: Dictionary = _get_match_flow_deps(registry, int(_get_owner_value(owner, "current_stage", 1)), owner)
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
 	if update_result == ScoreboardState.UPDATE_RESET_GAME:
+		var show_result_start: int = _perf_begin(perf_logger)
 		if _show_stage_clear_result(registry, reset_game_callback, owner):
+			_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
+			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 			return
+		_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
+		var reset_game_start: int = _perf_begin(perf_logger)
 		_call_callback(reset_game_callback)
+		_perf_end(perf_logger, "physics.scoreboard_result.reset_game_callback", reset_game_start)
 	elif update_result == ScoreboardState.UPDATE_START_SERVE:
+		var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
+		var deps_start: int = _perf_begin(perf_logger)
+		var deps: Dictionary = _get_scoreboard_result_deps(registry, current_stage, owner)
+		_perf_end(perf_logger, "physics.scoreboard_result.build_light_deps", deps_start)
+		var reset_ball_start: int = _perf_begin(perf_logger)
 		_call_callback(reset_ball_callback)
+		_perf_end(perf_logger, "physics.scoreboard_result.reset_ball_callback", reset_ball_start)
+		var prepare_serve_start: int = _perf_begin(perf_logger)
 		var round_state: Object = deps.get("round_state", null)
 		if round_state != null and round_state.has_method("prepare_serve_after_scoreboard"):
 			round_state.prepare_serve_after_scoreboard()
+		_perf_end(perf_logger, "physics.scoreboard_result.prepare_serve", prepare_serve_start)
+		var stage4_start: int = _perf_begin(perf_logger)
 		_start_stage4_pending_destruction(deps)
+		_perf_end(perf_logger, "physics.scoreboard_result.stage4_prepare", stage4_start)
+		var pandora_start: int = _perf_begin(perf_logger)
 		_start_pending_pandora_legacy_selection(deps)
+		_perf_end(perf_logger, "physics.scoreboard_result.pandora_selection", pandora_start)
+	_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 
 
 func _call_callback(callback: Callable) -> void:
@@ -211,10 +231,36 @@ func _get_match_flow_deps(registry: Object, current_stage: int = 1, owner: Objec
 	return deps
 
 
+func _get_scoreboard_result_deps(registry: Object, current_stage: int, owner: Object) -> Dictionary:
+	var deps := {
+		"current_stage": current_stage,
+		"owner": owner,
+		"registry": registry,
+		"round_state": _get_instance(registry, "round_flow_state"),
+		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
+	}
+	if current_stage == 4:
+		deps["stage4_map_state"] = _get_instance(registry, "stage4_map_state")
+		deps["stage4_temple_destruction_event"] = _get_instance(registry, "stage4_temple_destruction_event")
+		deps["audio"] = _get_instance(registry, "game_audio")
+	return deps
+
+
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
 
 
 func _get_reset_result_applier(registry: Object) -> Object:

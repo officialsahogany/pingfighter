@@ -63,6 +63,7 @@ func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dict
 	speed_cap = max(speed_cap, float(scene.get("smasher_wheel_speed_cap", 0.0)))
 	speed_cap = max(speed_cap, _get_magnum_grip_speed_cap(deps))
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(deps))
+	speed_cap = max(speed_cap, _get_ragnarok_speed_cap(scene, deps))
 	if bool(scene.get("fire_weather_speed_cap_active", false)):
 		speed_cap = min(speed_cap, float(scene.get("fire_weather_max_ball_speed", 35.0)))
 	if meditation_release_cap > 0.0:
@@ -389,3 +390,15 @@ func _get_viper_blade_speed_cap(deps: Dictionary) -> float:
 	if viper_skill_runtime == null or not viper_skill_runtime.has_method("get_blade_hit_speed_cap"):
 		return 0.0
 	return float(viper_skill_runtime.get_blade_hit_speed_cap())
+
+
+func _get_ragnarok_speed_cap(scene: Dictionary, deps: Dictionary) -> float:
+	# Ragnarok Hammer raises the current league cap by a fixed +6 while its
+	# charged stun ball is in flight (it no longer disables the cap entirely).
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("get_ragnarok_speed_cap_bonus"):
+		return 0.0
+	var bonus: float = float(mythic_item_runtime.get_ragnarok_speed_cap_bonus())
+	if bonus <= 0.0:
+		return 0.0
+	return float(scene.get("max_ball_speed", 26.0)) + bonus

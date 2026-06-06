@@ -24,6 +24,10 @@ const LOD_PETAL_STRIDE := 2
 const BUTTERFLY_ABSORB_RING_COUNT := 1
 const BUTTERFLY_ABSORB_RING_SEGMENTS := 18
 const BUTTERFLY_ABSORB_RING_SEGMENTS_LOD := 10
+const CRESCENDO_MOOD_ALPHA_MAX := 0.08
+const CRESCENDO_SHINE_ALPHA_BOOST_MAX := 0.45
+const CRESCENDO_CLOUD_MOTION_BOOST_MAX := 0.10
+const CRESCENDO_TREE_OFFSET_MAX_PIXELS := 2.0
 
 var hanji_texture: Texture2D
 var tree_sprite_texture: Texture2D
@@ -125,7 +129,8 @@ func draw(
 	game_size: Vector2,
 	field_width: float,
 	perf_logger: Object = null,
-	quality_scale: float = 1.0
+	quality_scale: float = 1.0,
+	director_snapshot: Dictionary = {}
 ) -> bool:
 	ambient_state.update_layout(view_size, game_offset, game_size)
 	if hanji_texture == null:
@@ -145,14 +150,17 @@ func draw(
 	_perf_end(perf_logger, "stage1.pillar.bg_base", sample_start)
 
 	var scale_factor: float = game_size.x / max(1.0, field_width)
+	var crescendo_cloud_motion: float = _get_crescendo_cloud_motion_multiplier(director_snapshot, quality_scale)
+	var crescendo_tree_offset: Vector2 = _get_crescendo_tree_motion_offset(director_snapshot, quality_scale, scale_factor, ambient_state.get_time())
+	var crescendo_shine_alpha: float = _get_crescendo_shine_alpha_multiplier(director_snapshot, quality_scale)
 	sample_start = _perf_begin(perf_logger)
 	layer_renderer.draw_hanji_subtle_borders(canvas, view_size, game_rect, scale_factor)
 	_perf_end(perf_logger, "stage1.pillar.bg_borders", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	layer_renderer.draw_cloud_motion_layers(canvas, cloud_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_time(), quality_scale)
+	layer_renderer.draw_cloud_motion_layers(canvas, cloud_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_time(), quality_scale, crescendo_cloud_motion)
 	_perf_end(perf_logger, "stage1.pillar.bg_clouds", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	layer_renderer.draw_tree_motion_layers(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_tree_shakes())
+	layer_renderer.draw_tree_motion_layers(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_tree_shakes(), crescendo_tree_offset)
 	_perf_end(perf_logger, "stage1.pillar.bg_trees", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	layer_renderer.draw_tree_drop_petals(canvas, ambient_state.get_tree_drop_petals(), quality_scale)
@@ -162,10 +170,10 @@ func draw(
 	layer_renderer.draw_butterflies(canvas, butterfly_sheet_texture, ambient_state.get_butterflies(), view_size, game_offset, game_size, scale_factor, ambient_state.get_time(), quality_scale)
 	_perf_end(perf_logger, "stage1.pillar.bg_butterflies", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_mood_grade(canvas, [Rect2(Vector2.ZERO, view_size)], true, quality_scale)
+	_draw_mood_grade(canvas, [Rect2(Vector2.ZERO, view_size)], true, quality_scale, director_snapshot)
 	_perf_end(perf_logger, "stage1.pillar.bg_mood_grade", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	layer_renderer.draw_game_border_shine(canvas, game_rect, scale_factor, ambient_state.get_time(), quality_scale)
+	layer_renderer.draw_game_border_shine(canvas, game_rect, scale_factor, ambient_state.get_time(), quality_scale, crescendo_shine_alpha)
 	_perf_end(perf_logger, "stage1.pillar.bg_shine", sample_start)
 	return true
 
@@ -177,7 +185,8 @@ func draw_pillar_background_overlay(
 	game_size: Vector2,
 	field_width: float,
 	perf_logger: Object = null,
-	quality_scale: float = 1.0
+	quality_scale: float = 1.0,
+	director_snapshot: Dictionary = {}
 ) -> bool:
 	ambient_state.update_layout(view_size, game_offset, game_size)
 	if canvas == null or hanji_texture == null:
@@ -193,11 +202,14 @@ func draw_pillar_background_overlay(
 	_perf_end(perf_logger, "stage1.pillar.overlay_base", sample_start)
 
 	var scale_factor: float = game_size.x / max(1.0, field_width)
+	var crescendo_cloud_motion: float = _get_crescendo_cloud_motion_multiplier(director_snapshot, quality_scale)
+	var crescendo_tree_offset: Vector2 = _get_crescendo_tree_motion_offset(director_snapshot, quality_scale, scale_factor, ambient_state.get_time())
+	var crescendo_shine_alpha: float = _get_crescendo_shine_alpha_multiplier(director_snapshot, quality_scale)
 	sample_start = _perf_begin(perf_logger)
-	layer_renderer.draw_cloud_motion_layers(canvas, cloud_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_time(), quality_scale)
+	layer_renderer.draw_cloud_motion_layers(canvas, cloud_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_time(), quality_scale, crescendo_cloud_motion)
 	_perf_end(perf_logger, "stage1.pillar.overlay_clouds", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	layer_renderer.draw_tree_motion_layers(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_tree_shakes())
+	layer_renderer.draw_tree_motion_layers(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, ambient_state.get_tree_shakes(), crescendo_tree_offset)
 	_perf_end(perf_logger, "stage1.pillar.overlay_trees", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	layer_renderer.draw_tree_drop_petals(canvas, ambient_state.get_tree_drop_petals(), quality_scale)
@@ -207,10 +219,10 @@ func draw_pillar_background_overlay(
 	layer_renderer.draw_butterflies(canvas, butterfly_sheet_texture, ambient_state.get_butterflies(), view_size, game_offset, game_size, scale_factor, ambient_state.get_time(), quality_scale)
 	_perf_end(perf_logger, "stage1.pillar.overlay_butterflies", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_mood_grade(canvas, _get_side_rects(view_size, game_offset, game_size), false, quality_scale)
+	_draw_mood_grade(canvas, _get_side_rects(view_size, game_offset, game_size), false, quality_scale, director_snapshot)
 	_perf_end(perf_logger, "stage1.pillar.overlay_mood_grade", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	layer_renderer.draw_game_border_shine(canvas, Rect2(game_offset, game_size), scale_factor, ambient_state.get_time(), quality_scale)
+	layer_renderer.draw_game_border_shine(canvas, Rect2(game_offset, game_size), scale_factor, ambient_state.get_time(), quality_scale, crescendo_shine_alpha)
 	_perf_end(perf_logger, "stage1.pillar.overlay_shine", sample_start)
 	return true
 
@@ -371,15 +383,20 @@ func _draw_hanji_side_regions(canvas: CanvasItem, view_size: Vector2, game_offse
 		canvas.draw_texture_rect_region(hanji_texture, clipped, source_rect, Color.WHITE, false, true)
 
 
-func _draw_mood_grade(canvas: CanvasItem, rects: Array, include_top_bottom: bool, quality_scale: float) -> void:
+func _draw_mood_grade(canvas: CanvasItem, rects: Array, include_top_bottom: bool, quality_scale: float, director_snapshot: Dictionary = {}) -> void:
+	var mood_alpha_boost: float = _get_crescendo_mood_alpha_boost(director_snapshot, quality_scale)
 	for rect_value in rects:
 		if not (rect_value is Rect2):
 			continue
 		var rect: Rect2 = rect_value
 		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 			continue
-		canvas.draw_rect(rect, MOOD_GRADE_COLOR)
-		canvas.draw_rect(rect, MOOD_INK_COLOR)
+		if is_zero_approx(mood_alpha_boost):
+			canvas.draw_rect(rect, MOOD_GRADE_COLOR)
+			canvas.draw_rect(rect, MOOD_INK_COLOR)
+		else:
+			canvas.draw_rect(rect, _with_alpha(MOOD_GRADE_COLOR, MOOD_GRADE_COLOR.a + mood_alpha_boost))
+			canvas.draw_rect(rect, _with_alpha(MOOD_INK_COLOR, MOOD_INK_COLOR.a + mood_alpha_boost * 0.55))
 		_draw_rect_side_shadow(canvas, rect, false, quality_scale)
 		_draw_rect_side_shadow(canvas, rect, true, quality_scale)
 		if include_top_bottom:
@@ -505,6 +522,58 @@ func _get_neon_slit_count(quality_scale: float) -> int:
 
 func _is_lod_active(quality_scale: float) -> bool:
 	return quality_scale < 0.85
+
+
+func _get_crescendo_mood_alpha_boost(director_snapshot: Dictionary, quality_scale: float) -> float:
+	return CRESCENDO_MOOD_ALPHA_MAX * _get_crescendo_strength(director_snapshot, quality_scale)
+
+
+func _get_crescendo_shine_alpha_multiplier(director_snapshot: Dictionary, quality_scale: float) -> float:
+	return 1.0 + CRESCENDO_SHINE_ALPHA_BOOST_MAX * _get_crescendo_strength(director_snapshot, quality_scale)
+
+
+func _get_crescendo_cloud_motion_multiplier(director_snapshot: Dictionary, quality_scale: float) -> float:
+	return 1.0 + CRESCENDO_CLOUD_MOTION_BOOST_MAX * _get_crescendo_parallax_strength(director_snapshot, quality_scale)
+
+
+func _get_crescendo_tree_motion_offset(
+	director_snapshot: Dictionary,
+	quality_scale: float,
+	scale_factor: float,
+	time: float
+) -> Vector2:
+	var strength: float = _get_crescendo_parallax_strength(director_snapshot, quality_scale)
+	if strength <= 0.0:
+		return Vector2.ZERO
+	var amplitude: float = CRESCENDO_TREE_OFFSET_MAX_PIXELS * max(1.0, scale_factor) * strength
+	return Vector2(
+		round(sin(time * 0.68) * amplitude),
+		round(cos(time * 0.47) * amplitude * 0.35)
+	)
+
+
+func _get_crescendo_strength(director_snapshot: Dictionary, quality_scale: float) -> float:
+	if director_snapshot.is_empty():
+		return 0.0
+	var display_intensity: float = clamp(float(director_snapshot.get("display_intensity", 0.0)), 0.0, 1.0)
+	var rally_tier: int = clampi(int(director_snapshot.get("rally_tier", 0)), 0, 5)
+	var tier_ratio: float = float(rally_tier) / 5.0
+	return clampf((display_intensity * 0.62 + tier_ratio * 0.38) * _get_crescendo_quality_factor(quality_scale), 0.0, 1.0)
+
+
+func _get_crescendo_parallax_strength(director_snapshot: Dictionary, quality_scale: float) -> float:
+	if director_snapshot.is_empty():
+		return 0.0
+	var rally_tier: int = clampi(int(director_snapshot.get("rally_tier", 0)), 0, 5)
+	if rally_tier < 2:
+		return 0.0
+	var display_intensity: float = clamp(float(director_snapshot.get("display_intensity", 0.0)), 0.0, 1.0)
+	var tier_ratio: float = float(rally_tier) / 5.0
+	return clampf((display_intensity * 0.55 + tier_ratio * 0.45) * _get_crescendo_quality_factor(quality_scale), 0.0, 1.0)
+
+
+func _get_crescendo_quality_factor(quality_scale: float) -> float:
+	return clampf(quality_scale, 0.0, 1.0)
 
 
 func _with_alpha(color: Color, alpha: float) -> Color:

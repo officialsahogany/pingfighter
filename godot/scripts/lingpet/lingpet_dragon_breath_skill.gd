@@ -4,6 +4,7 @@ extends RefCounted
 # elapsed-driven tween envelopes). The simulation/gameplay below is unchanged;
 # only the draw path composites the layered fire look.
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const WritheEmberMaterial := preload("res://scripts/effects/writhe_ember_material.gd")
 const DragonBreathTextureCache := preload("res://scripts/lingpet/lingpet_dragon_breath_texture_cache.gd")
 # Lingering ground fire reuses the molotov fire-zone effect (5-layer WritheEmber
 # host + GPU embers). We drive a SEPARATE host pool via a dedicated name prefix
@@ -14,13 +15,14 @@ const ZONE_FX_HOST_PREFIX := "LingpetDragonBreathFireFxHost"
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
-const BREATH_DURATION_SECONDS := 3.5
-const BREATH_SPAWN_SECONDS := 1.2
+const BREATH_DURATION_SECONDS := 4.55
+const BREATH_SPAWN_SECONDS := 1.56
 const INITIAL_PARTICLES := 40
 const CONTINUOUS_PARTICLES := 4
 const PARTICLE_MAX := 132
 const SPAWN_INTERVAL_SECONDS := 0.02
 const HIT_COOLDOWN_SECONDS := 0.30
+const HIT_FLASH_SECONDS := 0.32
 const BALL_HIT_PADDING := 5.0
 const BALL_MIN_SPEED := 10.0
 const BALL_SPEED_MULT_MIN := 1.30
@@ -28,6 +30,14 @@ const BALL_SPEED_MULT_MAX := 1.50
 const BALL_SIDE_KNOCK_MIN := 3.0
 const BALL_SIDE_KNOCK_MAX := 6.0
 const ANGLE_OFFSET_MAX := 0.30
+# Breath "heat field": a forgiving upward cone from the mouth. Any ball inside it
+# is reflected while the breath is live, independent of whether a tiny ember
+# sprite happens to overlap it. The AI companion can't be aimed by the player and
+# its stream is narrow, so per-ember hit-testing almost never caught the ball
+# (~0.2 hits per breath in sim); this cone makes the reflection actually land.
+const BREATH_FIELD_REACH := 380.0
+const BREATH_FIELD_BASE_HALF_W := 46.0
+const BREATH_FIELD_TIP_HALF_W := 150.0
 const FIRE_ZONE_WIDTH := 100.0
 const FIRE_ZONE_HEIGHT := 50.0
 const FIRE_ZONE_DURATION_SECONDS := 2.0
@@ -35,7 +45,7 @@ const FIRE_ZONE_DUPLICATE_X := 60.0
 const FIRE_ZONE_DUPLICATE_Y := 40.0
 const FIRE_ZONE_SPAWN_INTERVAL_SECONDS := 0.30
 const FIRE_ZONE_SPREAD_INTERVAL_SECONDS := 5.0 / 60.0
-const FIRE_ZONE_PUSH_INTERVAL_SECONDS := 0.50
+const FIRE_ZONE_PUSH_INTERVAL_SECONDS := 0.34
 const FIRE_ZONE_PUSH_FORCE := 60.0
 const FIRE_ZONE_INITIAL_FLAMES := 10
 const FIRE_ZONE_MAX_FLAMES := 30
@@ -162,6 +172,8 @@ func update(delta: float, owner: Object, registry: Object = null, launch_context
 		# of a one-shot fountain stuck at the launch point.
 		_follow_companion_origin(launch_context)
 		_update_breath_spawn(safe_delta)
+		# Reliable ball reflection: catch any ball inside the breath's heat cone.
+		_try_reflect_ball_in_breath_field(owner)
 		if _elapsed >= BREATH_DURATION_SECONDS:
 			_breath_active = false
 			_spawn_phase_ended = true
@@ -203,7 +215,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	for particle in _particles:
 		_draw_breath_particle(canvas, particle, shake_offset)
 	if _hit_flash_timer > 0.0:
-		_draw_hit_flash(canvas, _last_hit_pos + shake_offset, _hit_flash_timer / 0.24)
+		_draw_hit_flash(canvas, _last_hit_pos + shake_offset, _hit_flash_timer / HIT_FLASH_SECONDS)
 	canvas.material = prev_material
 
 
@@ -298,7 +310,7 @@ func _add_breath_particle(initial: bool, index_ratio: float = 0.0) -> void:
 	var start_y_offset := 20.0 if initial else 25.0
 	var speed_min := 350.0 if initial else 400.0
 	var speed_max := 600.0 if initial else 550.0
-	var vx_range := 50.0 if initial else 40.0
+	var vx_range := 66.0 if initial else 54.0
 	_particles.append({
 		"pos": _origin + Vector2(randf_range(-25.0, 25.0), _direction * start_y_offset),
 		"vel": Vector2(randf_range(-vx_range, vx_range), _direction * randf_range(speed_min, speed_max)),
@@ -364,7 +376,33 @@ func _try_hit_ball_with_particle(particle: Dictionary, owner: Object) -> void:
 	var pos: Vector2 = particle.get("pos", Vector2.ZERO)
 	if pos.distance_to(ball_pos) > size + ball_radius:
 		return
+	_reflect_ball(owner, pos.x)
 
+
+# Reflect any ball inside the breath's upward heat cone (independent of the tiny
+# ember sprites). This is the reliable path that makes the dragon breath actually
+# bounce the ball during normal AI-companion play.
+func _try_reflect_ball_in_breath_field(owner: Object) -> void:
+	if _hit_cooldown > 0.0 or owner == null:
+		return
+	if not bool(_get_owner_value(owner, "ball_active", false)):
+		return
+	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
+	# along = how far the ball sits in the breath's travel direction from the mouth.
+	var along := (ball_pos.y - _origin.y) * _direction
+	if along < -12.0 or along > BREATH_FIELD_REACH:
+		return
+	var spread_t := clampf(along / BREATH_FIELD_REACH, 0.0, 1.0)
+	var half_w := lerpf(BREATH_FIELD_BASE_HALF_W, BREATH_FIELD_TIP_HALF_W, spread_t)
+	if absf(ball_pos.x - _origin.x) > half_w + _get_ball_radius(owner):
+		return
+	_reflect_ball(owner, _origin.x)
+
+
+# Shared boost + side-knockback (Ignis "the fire shoves the ball toward the boss"
+# behavior). `source_x` is the x the ball is pushed away from.
+func _reflect_ball(owner: Object, source_x: float) -> void:
+	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
 	var ball_vel: Vector2 = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
 	var current_speed := ball_vel.length()
 	if current_speed < 8.0:
@@ -373,16 +411,27 @@ func _try_hit_ball_with_particle(particle: Dictionary, owner: Object) -> void:
 	var angle_offset := randf_range(-ANGLE_OFFSET_MAX, ANGLE_OFFSET_MAX)
 	var next_vel := Vector2.ZERO
 	next_vel.y = _direction * absf(boosted_speed * cos(angle_offset))
-	var dx := ball_pos.x - pos.x
+	var dx := ball_pos.x - source_x
 	var knockback_dir := 1.0 if dx >= 0.0 else -1.0
 	if absf(dx) <= 1.0:
 		knockback_dir = -1.0 if randf() < 0.5 else 1.0
 	next_vel.x = knockback_dir * randf_range(BALL_SIDE_KNOCK_MIN, BALL_SIDE_KNOCK_MAX) + boosted_speed * sin(angle_offset)
 	owner.set("ball_vel", next_vel)
 	_hit_cooldown = HIT_COOLDOWN_SECONDS
-	_hit_flash_timer = 0.24
+	_hit_flash_timer = HIT_FLASH_SECONDS
 	_last_hit_pos = ball_pos
 	_ball_hit_count += 1
+	_play_ball_hit_feedback()
+
+
+func _play_ball_hit_feedback() -> void:
+	var audio: Object = _get_registry_instance(_registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_dragon_breath_ball_hit"):
+		audio.play_dragon_breath_ball_hit()
+	elif audio.has_method("play_dragon_breath_fire"):
+		audio.play_dragon_breath_fire(true)
 
 
 func _maybe_spawn_fire_zone_from_dying(delta: float, dying_positions: Array[Vector2]) -> void:
@@ -457,11 +506,18 @@ func _apply_single_fire_zone(zone: Dictionary, owner: Object, registry: Object, 
 	if not in_fire:
 		return
 	_apply_boss_slow(registry)
+	# Snap the boss out of the patch EVERY frame so it reads as a wall it cannot
+	# cross. Dragon breath updates AFTER the boss AI moves the boss (see
+	# battle_frame_flow_controller: update_boss_ai then update_lingpet), so this
+	# snap is the frame's last word on boss_pos. The timer only throttles the
+	# screen-shake feedback so it does not rattle every frame.
 	var push_timer := float(zone.get("push_timer", 0.0)) + delta
+	var play_feedback := false
 	if push_timer >= FIRE_ZONE_PUSH_INTERVAL_SECONDS:
 		push_timer = fmod(push_timer, FIRE_ZONE_PUSH_INTERVAL_SECONDS)
-		_push_boss_from_fire(owner, registry, zone)
+		play_feedback = true
 	zone["push_timer"] = push_timer
+	_push_boss_from_fire(owner, registry, zone, play_feedback)
 
 
 func _seed_zone_flames(zone: Dictionary, count: int, spread_x: float, spread_y: float) -> void:
@@ -520,30 +576,42 @@ func _is_boss_touching_zone(owner: Object, zone: Dictionary) -> bool:
 	var boss_rect := _get_boss_rect(owner)
 	var center: Vector2 = zone.get("position", Vector2.ZERO)
 	var width := float(zone.get("width", FIRE_ZONE_WIDTH))
-	var x_in_range := absf(boss_rect.get_center().x - center.x) < (width * 0.25 + boss_rect.size.x * 0.5)
-	var y_in_range := absf(boss_rect.get_center().y - center.y) < 60.0
+	# Forgiving overlap so the moving boss actually catches the patch as it
+	# crosses the top, instead of slipping past a narrow trigger band.
+	var x_in_range := absf(boss_rect.get_center().x - center.x) < (width * 0.5 + boss_rect.size.x * 0.5)
+	var y_in_range := absf(boss_rect.get_center().y - center.y) < 74.0
 	return x_in_range and y_in_range
 
 
-func _push_boss_from_fire(owner: Object, registry: Object, zone: Dictionary) -> void:
+func _push_boss_from_fire(owner: Object, registry: Object, zone: Dictionary, play_feedback: bool) -> void:
 	if owner == null:
 		return
 	var boss_rect := _get_boss_rect(owner)
 	var boss_pos := boss_rect.position
+	var boss_w := boss_rect.size.x
+	var boss_center_x := boss_rect.get_center().x
 	var center: Vector2 = zone.get("position", Vector2.ZERO)
-	var push_dir := -1.0 if boss_rect.get_center().x < center.x else 1.0
-	if absf(boss_rect.get_center().x - center.x) <= 0.001:
+	var width := float(zone.get("width", FIRE_ZONE_WIDTH))
+	var push_dir := -1.0 if boss_center_x < center.x else 1.0
+	if absf(boss_center_x - center.x) <= 0.001:
 		push_dir = float(zone.get("last_push_dir", _last_push_dir))
 		if absf(push_dir) <= 0.001:
 			push_dir = 1.0
 	zone["last_push_dir"] = push_dir
 	_last_push_dir = push_dir
-	boss_pos.x = clampf(boss_pos.x + push_dir * FIRE_ZONE_PUSH_FORCE, 0.0, maxf(0.0, FIELD_WIDTH - boss_rect.size.x))
+	# Place the boss JUST OUTSIDE the touch band (same geometry as
+	# _is_boss_touching_zone) so it can't stand inside the burning patch -- a hard
+	# wall, like the molotov fire zone, instead of a small periodic nudge it can
+	# walk through between pushes.
+	var blocked_half := maxf(0.0, width * 0.5 + boss_w * 0.5)
+	var target_center_x := center.x + push_dir * (blocked_half + 1.0)
+	boss_pos.x = clampf(target_center_x - boss_w * 0.5, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
 	owner.set("boss_pos", boss_pos)
 	owner.set("boss_vel", push_dir * FIRE_ZONE_PUSH_FORCE * 0.22)
-	var feedback: Object = _get_registry_instance(registry, "battle_feedback_state")
-	if feedback != null and feedback.has_method("max_screen_shake"):
-		feedback.max_screen_shake(0.035, 1.1)
+	if play_feedback:
+		var feedback: Object = _get_registry_instance(registry, "battle_feedback_state")
+		if feedback != null and feedback.has_method("max_screen_shake"):
+			feedback.max_screen_shake(0.035, 1.1)
 
 
 func _apply_boss_slow(registry: Object) -> void:
@@ -738,11 +806,13 @@ func _draw_hit_flash(canvas: CanvasItem, center: Vector2, ratio: float) -> void:
 		return
 	var burst: Texture2D = ImpactFlareTextureCache.get_burst_texture()
 	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
-	# Expanding burst as it fades (matches the original ring's growth feel).
-	var radius := lerpf(54.0, 16.0, clamped)
-	_draw_centered_tex(canvas, ember, center, radius * 1.2, Color(1.0, 0.55, 0.16, 0.34 * clamped))
-	_draw_centered_tex(canvas, burst, center, radius * 2.2, Color(1.0, 0.82, 0.40, 0.5 * clamped))
-	_draw_centered_tex(canvas, ember, center, radius * 0.7, Color(1.0, 0.96, 0.82, 0.6 * clamped))
+	# Expanding burst as it fades -- bigger/brighter so the strike clearly reads
+	# as a hit rather than the ball quietly changing speed.
+	var radius := lerpf(78.0, 22.0, clamped)
+	_draw_centered_tex(canvas, ember, center, radius * 1.4, Color(1.0, 0.5, 0.13, 0.46 * clamped))
+	_draw_centered_tex(canvas, burst, center, radius * 2.6, Color(1.0, 0.82, 0.40, 0.72 * clamped))
+	_draw_centered_tex(canvas, burst, center, radius * 1.5, Color(1.0, 0.92, 0.6, 0.6 * clamped))
+	_draw_centered_tex(canvas, ember, center, radius * 0.8, Color(1.0, 0.97, 0.84, 0.85 * clamped))
 
 
 func _draw_flame_tongue(canvas: CanvasItem, tex: Texture2D, center: Vector2, up: Vector2, half_w: float, half_h: float, color: Color) -> void:

@@ -4,22 +4,37 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
-const StageClearResultBoxDrawHelper := preload("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
-const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
+const StageClearResultActorClickHandler := preload("res://scripts/ui/stage_clear_result_actor_click_handler.gd")
+const StageClearResultActorPresenter := preload("res://scripts/ui/stage_clear_result_actor_presenter.gd")
+const StageClearResultActorReactionUpdateHandler := preload("res://scripts/ui/stage_clear_result_actor_reaction_update_handler.gd")
+const StageClearResultBoxPresenter := preload("res://scripts/ui/stage_clear_result_box_presenter.gd")
 const StageClearResultStaticDrawHelper := preload("res://scripts/ui/stage_clear_result_static_draw_helper.gd")
-const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultStatusBuilder := preload("res://scripts/ui/stage_clear_result_status_builder.gd")
-const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
-const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
-const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
+const StageClearResultScrollInputHandler := preload("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
+const StageClearResultScrollPresenter := preload("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
+const StageClearResultScrollUpdateHandler := preload("res://scripts/ui/stage_clear_result_scroll_update_handler.gd")
+const StageClearResultAssetApplyHandler := preload("res://scripts/ui/stage_clear_result_asset_apply_handler.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const StageClearResultAudioApplyHandler := preload("res://scripts/ui/stage_clear_result_audio_apply_handler.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultBoxInputHandler := preload("res://scripts/ui/stage_clear_result_box_input_handler.gd")
+const StageClearResultBoxUpdateHandler := preload("res://scripts/ui/stage_clear_result_box_update_handler.gd")
+const StageClearResultCallbackHandler := preload("res://scripts/ui/stage_clear_result_callback_handler.gd")
+const StageClearResultCharacterAssetStateHandler := preload("res://scripts/ui/stage_clear_result_character_asset_state_handler.gd")
+const StageClearResultConfigDataStateHandler := preload("res://scripts/ui/stage_clear_result_config_data_state_handler.gd")
+const StageClearResultConfigResetStateHandler := preload("res://scripts/ui/stage_clear_result_config_reset_state_handler.gd")
 const StageClearResultFontCache := preload("res://scripts/ui/stage_clear_result_font_cache.gd")
 const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
+const StageClearResultFxHostUpdateHandler := preload("res://scripts/ui/stage_clear_result_fx_host_update_handler.gd")
+const StageClearResultInputRouter := preload("res://scripts/ui/stage_clear_result_input_router.gd")
+const StageClearResultNavigationActionHandler := preload("res://scripts/ui/stage_clear_result_navigation_action_handler.gd")
+const StageClearResultPreviewDefaultsHandler := preload("res://scripts/ui/stage_clear_result_preview_defaults_handler.gd")
+const StageClearResultRuntimeOverlayPresenter := preload("res://scripts/ui/stage_clear_result_runtime_overlay_presenter.gd")
+const StageClearResultRuntimeObjectStateHandler := preload("res://scripts/ui/stage_clear_result_runtime_object_state_handler.gd")
+const StageClearResultViewportLayout := preload("res://scripts/ui/stage_clear_result_viewport_layout.gd")
 const StageClearResultVoicePlayer := preload("res://scripts/ui/stage_clear_result_voice_player.gd")
-const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const DALJI_CLICK_DIALOGUE_DURATION := 1.55
 const DALJI_CLICK_DIALOGUE_FADE_DURATION := 0.20
@@ -48,6 +63,7 @@ var _next_stage_button_rect: Rect2 = Rect2()
 var _exit_button_rect: Rect2 = Rect2()
 var _hovered_button: String = "none"
 var _reward_icon_cache: Dictionary = {}
+var _scene_field_name_lookup: Dictionary = {}
 var _dalji_click_rect: Rect2 = Rect2()
 var _player_victory_click_rect: Rect2 = Rect2()
 var _background_texture: Texture2D
@@ -143,44 +159,24 @@ func configure(
 ) -> void:
 	_driven_by_controller = true
 	set_process(false)
-	player_score = int(data.get("player_score", 0))
-	boss_score = int(data.get("boss_score", 0))
-	current_stage = int(data.get("current_stage", 1))
-	var previous_character_type: String = selected_character_type
-	selected_character_type = StageClearResultAssetLoader.normalize_player_victory_character_type(str(data.get("selected_character_type", selected_character_type)))
-	if selected_character_type != previous_character_type:
-		_player_victory_sheet = null
-		_player_victory_click_reaction_sheet = null
-		_player_victory_sheet_loaded_path = ""
-		_player_victory_click_reaction_sheet_loaded_path = ""
-	var plan_value: Variant = data.get("reward_plan", {})
-	reward_plan = plan_value if plan_value is Dictionary else {}
-	var stage_reward_value: Variant = data.get("stage_reward_snapshot", {})
-	stage_reward_snapshot = stage_reward_value if stage_reward_value is Dictionary else {}
-	for object_key in ["runtime_perk_state", "runtime_perk_catalog", "runtime_perk_icon_renderer", "runtime_perk_owner", "runtime_perk_registry", "mythic_item_runtime", "treasure_hunt_runtime", "game_audio"]:
-		var object_value: Variant = data.get(object_key, null)
-		var resolved_object: Object = object_value as Object if typeof(object_value) == TYPE_OBJECT and is_instance_valid(object_value) else null
-		set(StringName("_" + object_key), resolved_object)
+	var config_data_state: Dictionary = StageClearResultConfigDataStateHandler.get_config_data_state(
+		data,
+		selected_character_type
+	)
+	_apply_config_data_state(config_data_state)
+	_apply_character_asset_state(StageClearResultCharacterAssetStateHandler.get_character_asset_state(
+		selected_character_type,
+		str(config_data_state.get("selected_character_type", selected_character_type)),
+		_player_victory_sheet,
+		_player_victory_click_reaction_sheet,
+		_player_victory_sheet_loaded_path,
+		_player_victory_click_reaction_sheet_loaded_path
+	))
+	_apply_runtime_object_state(StageClearResultRuntimeObjectStateHandler.get_runtime_object_state(data))
 	_boxes = StageClearResultBoxData.build_boxes_from_plan(reward_plan)
+	_apply_config_reset_state(StageClearResultConfigResetStateHandler.get_config_reset_state())
 	_fx_host_pool.reset_prewarm()
-	_lid_open_counter = 0
-	set_starpoint_choice_gate_active(false, -1)
 	_fx_host_pool.deactivate_all()
-	_hovered_box_index = -1
-	_hovered_button = "none"
-	_next_stage_button_rect = Rect2()
-	_exit_button_rect = Rect2()
-	_scroll_phase = "hidden"
-	_scroll_timer = 0.0
-	_scroll_position_offset = Vector2.ZERO
-	_cancel_scroll_drag()
-	timer = 0.0
-	_dalji_base_timer = 0.0
-	_dalji_click_reaction_timer = StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION
-	_player_victory_click_reaction_timer = StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	_stage2_boss_defeat_click_reaction_timer = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	_stage3_boss_defeat_click_reaction_timer = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION
-	_dalji_dialogue_timer = 0.0
 	_stop_dalji_click_voice()
 	confirmed_callback = on_confirmed
 	exit_to_menu_callback = on_exit_to_menu
@@ -190,6 +186,66 @@ func configure(
 	_load_textures()
 	_load_audio()
 	queue_redraw()
+
+
+func _apply_config_data_state(result: Dictionary) -> void:
+	var apply_result: Dictionary = StageClearResultConfigDataStateHandler.get_config_data_scene_apply_result(
+		result,
+		player_score,
+		boss_score,
+		current_stage,
+		reward_plan,
+		stage_reward_snapshot
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+
+
+func _apply_character_asset_state(result: Dictionary) -> void:
+	var apply_result: Dictionary = StageClearResultCharacterAssetStateHandler.get_character_asset_scene_apply_result(
+		result,
+		selected_character_type,
+		_player_victory_sheet,
+		_player_victory_click_reaction_sheet,
+		_player_victory_sheet_loaded_path,
+		_player_victory_click_reaction_sheet_loaded_path
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+
+
+func _apply_runtime_object_state(result: Dictionary) -> void:
+	_apply_scene_field_payload(StageClearResultRuntimeObjectStateHandler.get_runtime_object_apply_result(result))
+
+
+func _apply_config_reset_state(result: Dictionary) -> void:
+	var apply_result: Dictionary = StageClearResultConfigResetStateHandler.get_config_reset_scene_apply_result(
+		result,
+		_get_config_reset_current_state()
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+
+
+func _get_config_reset_current_state() -> Dictionary:
+	return {
+		"lid_open_counter": _lid_open_counter,
+		"starpoint_choice_gate_active": _starpoint_choice_gate_active,
+		"starpoint_choice_gate_box_index": _starpoint_choice_gate_box_index,
+		"hovered_box_index": _hovered_box_index,
+		"hovered_button": _hovered_button,
+		"next_stage_button_rect": _next_stage_button_rect,
+		"exit_button_rect": _exit_button_rect,
+		"scroll_phase": _scroll_phase,
+		"scroll_timer": _scroll_timer,
+		"scroll_position_offset": _scroll_position_offset,
+		"scroll_dragging": _scroll_dragging,
+		"scroll_drag_grab_offset": _scroll_drag_grab_offset,
+		"timer": timer,
+		"dalji_base_timer": _dalji_base_timer,
+		"dalji_click_reaction_timer": _dalji_click_reaction_timer,
+		"player_victory_click_reaction_timer": _player_victory_click_reaction_timer,
+		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
+		"stage3_boss_defeat_click_reaction_timer": _stage3_boss_defeat_click_reaction_timer,
+		"dalji_dialogue_timer": _dalji_dialogue_timer,
+	}
 
 
 func _process(delta: float) -> void:
@@ -205,17 +261,17 @@ func _exit_tree() -> void:
 func update_result_scene(delta: float) -> void:
 	var safe_delta: float = max(0.0, delta)
 	timer += safe_delta
-	_dalji_base_timer += safe_delta
-	_dalji_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_dalji_click_reaction_timer, StageClearResultActorDrawHelper.DALJI_CLICK_TOTAL_DURATION, safe_delta)
-	_player_victory_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_player_victory_click_reaction_timer, StageClearResultActorDrawHelper.PLAYER_VICTORY_CLICK_TOTAL_DURATION, safe_delta)
-	_stage2_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage2_boss_defeat_click_reaction_timer, StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
-	_stage3_boss_defeat_click_reaction_timer = StageClearResultClickReactionState.advance_reaction_timer(_stage3_boss_defeat_click_reaction_timer, StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION, safe_delta)
-	_dalji_dialogue_timer = max(0.0, _dalji_dialogue_timer - safe_delta)
+	_apply_actor_reaction_timer_update(
+		StageClearResultActorReactionUpdateHandler.update_actor_reaction_timers(
+			_get_actor_reaction_timer_context(),
+			safe_delta
+		)
+	)
 	_update_boxes(safe_delta)
 	_update_scroll(safe_delta)
 	_sync_viewport_size()
-	_fx_host_pool.prewarm_step(self, _boxes)
-	_fx_host_pool.sync(
+	StageClearResultFxHostUpdateHandler.update_fx_hosts(
+		_fx_host_pool,
 		self,
 		_boxes,
 		_get_layout_scale(size),
@@ -226,231 +282,316 @@ func update_result_scene(delta: float) -> void:
 	queue_redraw()
 
 
+func _get_actor_reaction_timer_context() -> Dictionary:
+	return StageClearResultActorReactionUpdateHandler.get_actor_reaction_timer_context(
+		_dalji_base_timer,
+		_dalji_click_reaction_timer,
+		_player_victory_click_reaction_timer,
+		_stage2_boss_defeat_click_reaction_timer,
+		_stage3_boss_defeat_click_reaction_timer,
+		_dalji_dialogue_timer
+	)
+
+
+func _apply_actor_reaction_timer_update(result: Dictionary) -> void:
+	var apply_result: Dictionary = StageClearResultActorReactionUpdateHandler.get_actor_reaction_timer_scene_apply_result(
+		result,
+		_get_actor_reaction_timer_context()
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+
+
 func handle_result_input(event: InputEvent) -> bool:
-	if _is_mythic_acquisition_cinematic_active():
-		_cancel_scroll_drag()
-		return _handle_mythic_acquisition_input(event)
-	if _is_runtime_perk_choice_active():
-		_cancel_scroll_drag()
-		return _handle_runtime_perk_input(event)
-	if _is_treasure_hunt_effect_active():
-		_cancel_scroll_drag()
-		return true
-
-	if GamepadInput.is_gamepad_event(event):
-		if GamepadInput.is_confirm_event(event):
+	var result: Dictionary = StageClearResultInputRouter.get_result_input_route(event, _get_input_router_context())
+	var route: String = str(result.get("route", StageClearResultInputRouter.ROUTE_CONSUME))
+	var mouse_position: Vector2 = result.get("mouse_position", Vector2.ZERO)
+	match route:
+		StageClearResultInputRouter.ROUTE_MYTHIC_ACQUISITION:
+			_cancel_scroll_drag()
+			return _handle_mythic_acquisition_input(event)
+		StageClearResultInputRouter.ROUTE_RUNTIME_PERK:
+			_cancel_scroll_drag()
+			return _handle_runtime_perk_input(event)
+		StageClearResultInputRouter.ROUTE_TREASURE_HUNT:
+			_cancel_scroll_drag()
+			return true
+		StageClearResultInputRouter.ROUTE_ADVANCE:
 			return _handle_advance_input()
-		if GamepadInput.is_cancel_event(event):
+		StageClearResultInputRouter.ROUTE_ESCAPE:
 			return _handle_escape_input()
-		return true
-
-	if event is InputEventKey:
-		var key_event: InputEventKey = event
-		if key_event.pressed and not key_event.echo:
-			match key_event.keycode:
-				KEY_ENTER, KEY_SPACE:
-					return _handle_advance_input()
-				KEY_ESCAPE:
-					return _handle_escape_input()
-		return false
-
-	if event is InputEventMouseMotion:
-		var mouse_motion: InputEventMouseMotion = event
-		if _scroll_dragging:
-			_update_scroll_drag(mouse_motion.position)
+		StageClearResultInputRouter.ROUTE_MOUSE_DRAG_UPDATE:
+			_update_scroll_drag(mouse_position)
 			return true
-		if _scroll_phase == "visible":
-			_update_hovered_button(mouse_motion.position)
-		else:
-			_update_hovered_box(mouse_motion.position)
-		return true
-
-	if event is InputEventMouseButton:
-		var mouse_event: InputEventMouseButton = event
-		if mouse_event.button_index == MOUSE_BUTTON_LEFT and not mouse_event.pressed:
-			if _scroll_dragging:
-				_finish_scroll_drag(mouse_event.position)
+		StageClearResultInputRouter.ROUTE_MOUSE_HOVER_BUTTON:
+			_update_hovered_button(mouse_position)
 			return true
-		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			var handled_click: bool = (
-				_handle_dalji_click(mouse_event.position)
-				or _handle_stage2_boss_defeat_click(mouse_event.position)
-				or _handle_stage3_boss_defeat_click(mouse_event.position)
-				or _handle_player_victory_click(mouse_event.position)
-				or _start_scroll_drag(mouse_event.position)
-				or _handle_button_click(mouse_event.position)
-				or _handle_box_click(mouse_event.position)
-			)
-			if not handled_click:
-				_update_hovered_box(mouse_event.position)
-		return true
+		StageClearResultInputRouter.ROUTE_MOUSE_HOVER_BOX:
+			_update_hovered_box(mouse_position)
+			return true
+		StageClearResultInputRouter.ROUTE_MOUSE_DRAG_FINISH:
+			_finish_scroll_drag(mouse_position)
+			return true
+		StageClearResultInputRouter.ROUTE_MOUSE_LEFT_PRESS:
+			_handle_mouse_left_press(mouse_position)
+			return true
+	return bool(result.get("consumed", true))
 
-	return true
+
+func _get_input_router_context() -> Dictionary:
+	return StageClearResultInputRouter.get_input_router_context(
+		_is_mythic_acquisition_cinematic_active(),
+		_is_runtime_perk_choice_active(),
+		_is_treasure_hunt_effect_active(),
+		_scroll_dragging,
+		_scroll_phase
+	)
+
+
+func _handle_mouse_left_press(mouse_position: Vector2) -> void:
+	var handled_click: bool = (
+		_handle_dalji_click(mouse_position)
+		or _handle_stage2_boss_defeat_click(mouse_position)
+		or _handle_stage3_boss_defeat_click(mouse_position)
+		or _handle_player_victory_click(mouse_position)
+		or _start_scroll_drag(mouse_position)
+		or _handle_button_click(mouse_position)
+		or _handle_box_click(mouse_position)
+	)
+	if not handled_click:
+		_update_hovered_box(mouse_position)
 
 
 func _handle_runtime_perk_input(event: InputEvent) -> bool:
-	if _runtime_perk_state == null or not _runtime_perk_state.has_method("handle_input"):
-		return true
 	var view_size: Vector2 = _get_current_view_size()
-	_runtime_perk_state.handle_input(event, _runtime_perk_owner, _runtime_perk_registry, view_size)
+	StageClearResultRuntimeOverlayPresenter.handle_runtime_perk_input(
+		event,
+		_runtime_perk_state,
+		_runtime_perk_owner,
+		_runtime_perk_registry,
+		view_size
+	)
 	queue_redraw()
 	return true
 
 
 func _handle_mythic_acquisition_input(event: InputEvent) -> bool:
-	if _mythic_item_runtime != null and _mythic_item_runtime.has_method("handle_acquisition_cinematic_input"):
-		_mythic_item_runtime.handle_acquisition_cinematic_input(event, _runtime_perk_registry)
+	StageClearResultRuntimeOverlayPresenter.handle_mythic_acquisition_input(
+		event,
+		_mythic_item_runtime,
+		_runtime_perk_registry
+	)
 	queue_redraw()
 	return true
 
 
 func _is_mythic_acquisition_cinematic_active() -> bool:
-	return (
-		_mythic_item_runtime != null
-		and _mythic_item_runtime.has_method("is_acquisition_cinematic_active")
-		and bool(_mythic_item_runtime.is_acquisition_cinematic_active())
-	)
+	return StageClearResultRuntimeOverlayPresenter.is_mythic_acquisition_cinematic_active(_mythic_item_runtime)
 
 
 func _is_treasure_hunt_effect_active() -> bool:
-	return (
-		_treasure_hunt_runtime != null
-		and _treasure_hunt_runtime.has_method("is_effect_active")
-		and bool(_treasure_hunt_runtime.is_effect_active())
+	return StageClearResultRuntimeOverlayPresenter.is_treasure_hunt_effect_active(_treasure_hunt_runtime)
+
+
+func _is_result_interaction_blocked() -> bool:
+	return StageClearResultRuntimeOverlayPresenter.is_interaction_blocked(
+		_starpoint_choice_gate_active,
+		_runtime_perk_state,
+		_treasure_hunt_runtime
 	)
 
 
 func _handle_advance_input() -> bool:
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
-		return true
-	match _scroll_phase:
-		"hidden":
-			_open_next_idle_box()
-			return true
-		"visible":
-			_confirm()
-			return true
-	return true
+	return _apply_navigation_action_result(StageClearResultNavigationActionHandler.get_navigation_action_apply_result(
+		StageClearResultNavigationActionHandler.get_advance_action(
+			_is_result_interaction_blocked(),
+			_scroll_phase
+		)
+	))
 
 
 func _handle_escape_input() -> bool:
-	if _scroll_phase == "visible":
-		_exit_to_menu()
-	return true
+	return _apply_navigation_action_result(StageClearResultNavigationActionHandler.get_navigation_action_apply_result(
+		StageClearResultNavigationActionHandler.get_escape_action(_scroll_phase)
+	))
 
 
 func _open_next_idle_box() -> bool:
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
+	if _is_result_interaction_blocked():
 		return false
-	var next_idle_index: int = StageClearResultBoxData.get_next_idle_box_index(_boxes)
-	if next_idle_index < 0:
-		return false
-	_start_opening_box(next_idle_index)
-	return true
+	return _apply_box_open_result(StageClearResultBoxInputHandler.open_next_idle_box(
+		_boxes,
+		reward_roll_callback
+	))
 
 
 func _exit_to_menu() -> void:
 	_stop_dalji_click_voice()
-	if exit_to_menu_callback.is_valid():
-		exit_to_menu_callback.call()
-	elif confirmed_callback.is_valid():
-		confirmed_callback.call()
+	StageClearResultCallbackHandler.invoke_exit_to_menu(exit_to_menu_callback, confirmed_callback)
 
 
 func _handle_button_click(mouse_position: Vector2) -> bool:
-	_refresh_scroll_button_rects()
-	var clicked_button: String = StageClearResultInteractionState.get_clicked_button(
+	var view_size: Vector2 = _get_current_view_size()
+	var layout_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultScrollInputHandler.get_button_click_result(
 		mouse_position,
-		_next_stage_button_rect,
-		_exit_button_rect,
-		_scroll_phase
+		_scroll_phase,
+		layout_scale,
+		_scroll_position_offset
 	)
-	if clicked_button == StageClearResultInteractionState.BUTTON_NEXT_STAGE:
-		_confirm()
-		return true
-	if clicked_button == StageClearResultInteractionState.BUTTON_EXIT:
-		_exit_to_menu()
-		return true
-	return false
+	var apply_result: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result(result)
+	_apply_scroll_button_layout(apply_result)
+	return _apply_navigation_action_result(apply_result)
+
+
+func _apply_navigation_action_result(result: Dictionary) -> bool:
+	_apply_navigation_action(str(result.get("action", StageClearResultNavigationActionHandler.ACTION_NONE)))
+	return bool(result.get("handled", false))
+
+
+func _apply_navigation_action(action: String) -> void:
+	match action:
+		StageClearResultNavigationActionHandler.ACTION_OPEN_NEXT_BOX:
+			_open_next_idle_box()
+		StageClearResultNavigationActionHandler.ACTION_CONFIRM:
+			_confirm()
+		StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU:
+			_exit_to_menu()
 
 
 func _update_hovered_button(mouse_position: Vector2) -> void:
-	_refresh_scroll_button_rects()
-	var previous: String = _hovered_button
-	_hovered_button = StageClearResultInteractionState.get_hovered_button(
+	var view_size: Vector2 = _get_current_view_size()
+	var layout_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultScrollInputHandler.get_hovered_button_result(
 		mouse_position,
-		_next_stage_button_rect,
-		_exit_button_rect
+		_hovered_button,
+		_scroll_phase,
+		layout_scale,
+		_scroll_position_offset
 	)
-	if previous != _hovered_button:
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_hovered_button_apply_result(
+		result,
+		_hovered_button
+	)
+	_apply_scroll_state_result(apply_result)
+	if bool(apply_result.get("redraw", false)):
 		queue_redraw()
 
 
 func _start_scroll_drag(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	var drag_state: Dictionary = StageClearResultInteractionState.get_scroll_drag_start_state(
+	var drag_state: Dictionary = StageClearResultScrollInputHandler.get_drag_start_result(
 		mouse_position,
 		_scroll_phase,
 		_starpoint_choice_gate_active,
 		layout_scale,
 		_scroll_position_offset
 	)
-	var button_layout: Dictionary = drag_state.get("button_layout", {})
-	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
-	_exit_button_rect = button_layout.get("exit_rect", Rect2())
-	if not bool(drag_state.get("started", false)):
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_drag_start_apply_result(
+		drag_state,
+		_scroll_dragging,
+		_scroll_drag_grab_offset,
+		_hovered_button
+	)
+	_apply_scroll_state_result(apply_result)
+	if not bool(apply_result.get("started", false)):
 		return false
-	_scroll_dragging = true
-	_scroll_drag_grab_offset = drag_state.get("grab_offset", Vector2.ZERO)
-	_hovered_button = str(drag_state.get("hovered_button", StageClearResultInteractionState.BUTTON_NONE))
-	queue_redraw()
+	if bool(apply_result.get("redraw", false)):
+		queue_redraw()
 	return true
 
 
 func _update_scroll_drag(mouse_position: Vector2) -> void:
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	_scroll_position_offset = StageClearResultScrollState.get_region_drag_offset(
+	var result: Dictionary = StageClearResultScrollInputHandler.get_drag_update_result(
 		mouse_position,
 		_scroll_drag_grab_offset,
+		_scroll_phase,
 		layout_scale,
 		view_size
 	)
-	_refresh_scroll_button_rects()
-	queue_redraw()
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_drag_update_apply_result(
+		result,
+		_scroll_position_offset
+	)
+	_apply_scroll_state_result(apply_result)
+	if bool(apply_result.get("redraw", false)):
+		queue_redraw()
 
 
 func _finish_scroll_drag(mouse_position: Vector2) -> void:
-	_update_scroll_drag(mouse_position)
-	_scroll_dragging = false
-	if _scroll_phase == "visible":
-		_update_hovered_button(mouse_position)
-	else:
+	var view_size: Vector2 = _get_current_view_size()
+	var layout_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultScrollInputHandler.get_drag_finish_result(
+		mouse_position,
+		_scroll_drag_grab_offset,
+		_scroll_phase,
+		_hovered_button,
+		layout_scale,
+		view_size
+	)
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_drag_finish_apply_result(
+		result,
+		_scroll_phase,
+		_scroll_position_offset,
+		_hovered_button
+	)
+	_apply_scroll_state_result(apply_result)
+	if bool(apply_result.get("redraw", false)):
 		queue_redraw()
 
 
 func _cancel_scroll_drag() -> void:
-	if not _scroll_dragging:
-		return
-	_scroll_dragging = false
-	queue_redraw()
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_drag_cancel_apply_result(
+		_scroll_dragging
+	)
+	_apply_scroll_state_result(apply_result)
+	if bool(apply_result.get("redraw", false)):
+		queue_redraw()
 
 
 func _refresh_scroll_button_rects() -> void:
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
-	var button_layout: Dictionary = StageClearResultInteractionState.get_visible_scroll_button_layout(
+	var button_layout: Dictionary = StageClearResultScrollInputHandler.get_button_layout(
 		_scroll_phase,
 		layout_scale,
 		_scroll_position_offset
 	)
-	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
-	_exit_button_rect = button_layout.get("exit_rect", Rect2())
+	_apply_scroll_button_layout(button_layout)
+
+
+func _apply_scroll_button_layout(button_layout: Dictionary) -> void:
+	_apply_scroll_state_result(button_layout)
+
+
+func _apply_scroll_state_result(result: Dictionary) -> void:
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_scroll_state_apply_result(
+		result,
+		_get_scroll_state_current_state()
+	)
+	_next_stage_button_rect = apply_result.get("next_stage_rect", _next_stage_button_rect)
+	_exit_button_rect = apply_result.get("exit_rect", _exit_button_rect)
+	_scroll_position_offset = apply_result.get("scroll_position_offset", _scroll_position_offset)
+	_scroll_dragging = bool(apply_result.get("scroll_dragging", _scroll_dragging))
+	_scroll_drag_grab_offset = apply_result.get("scroll_drag_grab_offset", _scroll_drag_grab_offset)
+	_hovered_button = str(apply_result.get("hovered_button", _hovered_button))
+
+
+func _get_scroll_state_current_state() -> Dictionary:
+	return {
+		"next_stage_rect": _next_stage_button_rect,
+		"exit_rect": _exit_button_rect,
+		"scroll_position_offset": _scroll_position_offset,
+		"scroll_dragging": _scroll_dragging,
+		"scroll_drag_grab_offset": _scroll_drag_grab_offset,
+		"hovered_button": _hovered_button,
+	}
 
 
 func _get_current_view_size() -> Vector2:
-	return size if size != Vector2.ZERO else _get_view_size()
+	return StageClearResultViewportLayout.get_current_view_size(self)
 
 
 func get_interaction_status() -> Dictionary:
@@ -495,64 +636,76 @@ func set_starpoint_choice_gate_active(active: bool, box_index: int = -1) -> void
 
 func append_box_resolved_perk_reward(box_index: int, perk_reward: Dictionary) -> void:
 	var result: Dictionary = StageClearResultBoxData.append_resolved_perk_reward(_boxes, box_index, perk_reward)
-	if not bool(result.get("updated", false)):
-		return
-	_boxes = result.get("boxes", _boxes)
-	queue_redraw()
+	var apply_result: Dictionary = StageClearResultBoxData.get_append_resolved_perk_reward_apply_result(
+		result,
+		_boxes
+	)
+	_boxes = apply_result.get("boxes", _boxes)
+	if bool(apply_result.get("redraw", false)):
+		queue_redraw()
 
 
 func _draw_runtime_perk_overlay(view_size: Vector2) -> void:
-	if not _should_draw_runtime_perk_overlay():
-		return
-	var overlay_renderer: Object = _runtime_perk_overlay_renderer
-	if overlay_renderer == null or not overlay_renderer.has_method("draw"):
-		return
-	var catalog: Object = _runtime_perk_catalog if _runtime_perk_catalog != null else _perk_catalog
-	var icon_renderer: Object = _runtime_perk_icon_renderer if _runtime_perk_icon_renderer != null else _perk_icon_renderer
-	overlay_renderer.draw(
+	StageClearResultRuntimeOverlayPresenter.draw_overlay(
 		self,
+		_runtime_perk_overlay_renderer,
 		_runtime_perk_state,
-		catalog,
+		_perk_catalog,
+		_runtime_perk_catalog,
+		_perk_icon_renderer,
+		_runtime_perk_icon_renderer,
 		view_size,
-		icon_renderer,
 		_mythic_item_runtime,
 		_treasure_hunt_runtime
 	)
 
 
 func _should_draw_runtime_perk_overlay() -> bool:
-	if _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
-		return true
-	if _runtime_perk_overlay_renderer != null and _runtime_perk_overlay_renderer.has_method("has_visible_effects"):
-		return bool(_runtime_perk_overlay_renderer.has_visible_effects(
-			_runtime_perk_state,
-			_mythic_item_runtime,
-			_treasure_hunt_runtime
-		))
-	return false
+	return StageClearResultRuntimeOverlayPresenter.should_draw_overlay(
+		_runtime_perk_overlay_renderer,
+		_runtime_perk_state,
+		_mythic_item_runtime,
+		_treasure_hunt_runtime
+	)
 
 
 func _is_runtime_perk_choice_active() -> bool:
-	return (
-		_runtime_perk_state != null
-		and _runtime_perk_state.has_method("is_choice_active")
-		and bool(_runtime_perk_state.is_choice_active())
-	)
+	return StageClearResultRuntimeOverlayPresenter.is_runtime_perk_choice_active(_runtime_perk_state)
 
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
-	if current_stage == 2:
-		if _stage2_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage2_defeated(self, _stage2_boss_defeat_live2d_sheet, _stage2_boss_defeat_click_reaction_sheet, StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(timer, _stage2_boss_defeat_click_reaction_timer, _stage2_boss_defeat_click_transition_base_frame), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
-		return
-	if current_stage == 3:
-		if _stage3_boss_defeat_live2d_sheet != null:
-			StageClearResultActorDrawHelper.draw_stage3_defeated(self, _stage3_boss_defeat_live2d_sheet, _stage3_boss_defeat_click_reaction_sheet, StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(timer, _stage3_boss_defeat_click_reaction_timer, _stage3_boss_defeat_click_transition_base_frame), view_size, scale, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS, StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE, 0.98)
-		return
-	if _dalji_defeat_sheet == null:
-		return
-	_dalji_click_rect = StageClearResultActorDrawHelper.draw_dalji_defeated(self, _dalji_defeat_sheet, _dalji_click_reaction_sheet, StageClearResultActorDrawHelper.get_dalji_reaction_state(_dalji_base_timer, _dalji_click_reaction_timer, _dalji_click_transition_base_frame), view_size, scale, StageClearResultActorDrawHelper.DALJI_GRID_COLS, StageClearResultActorDrawHelper.DALJI_CELL_SIZE, 0.98)
+	var result: Dictionary = StageClearResultActorPresenter.draw_defeated_boss(
+		self,
+		view_size,
+		scale,
+		_get_actor_defeated_draw_context()
+	)
+	var apply_result: Dictionary = StageClearResultActorPresenter.get_defeated_boss_draw_scene_apply_result(
+		result,
+		_dalji_click_rect
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+
+
+func _get_actor_defeated_draw_context() -> Dictionary:
+	return StageClearResultActorPresenter.get_defeated_boss_draw_context(
+		current_stage,
+		timer,
+		_dalji_base_timer,
+		_dalji_click_reaction_timer,
+		_dalji_click_transition_base_frame,
+		_dalji_defeat_sheet,
+		_dalji_click_reaction_sheet,
+		_stage2_boss_defeat_live2d_sheet,
+		_stage2_boss_defeat_click_reaction_sheet,
+		_stage2_boss_defeat_click_reaction_timer,
+		_stage2_boss_defeat_click_transition_base_frame,
+		_stage3_boss_defeat_live2d_sheet,
+		_stage3_boss_defeat_click_reaction_sheet,
+		_stage3_boss_defeat_click_reaction_timer,
+		_stage3_boss_defeat_click_transition_base_frame
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -569,288 +722,319 @@ func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 
 
 func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> bool:
-	var result: Dictionary = StageClearResultActorDrawHelper.draw_player_victory_live2d(self, _player_victory_sheet, _player_victory_click_reaction_sheet, StageClearResultActorDrawHelper.get_player_victory_reaction_state(timer, _player_victory_click_reaction_timer, _player_victory_click_transition_base_frame), view_size, layout_ratio, StageClearResultActorDrawHelper.PLAYER_VICTORY_GRID_COLS, StageClearResultActorDrawHelper.PLAYER_VICTORY_CELL_SIZE)
-	_player_victory_click_rect = result.get("click_rect", Rect2())
-	return bool(result.get("drawn", true))
+	var result: Dictionary = StageClearResultActorPresenter.draw_player_victory_live2d(
+		self,
+		view_size,
+		layout_ratio,
+		_get_actor_player_victory_draw_context()
+	)
+	var apply_result: Dictionary = StageClearResultActorPresenter.get_player_victory_draw_scene_apply_result(result)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	return bool(apply_result.get("drawn", true))
+
+
+func _get_actor_player_victory_draw_context() -> Dictionary:
+	return StageClearResultActorPresenter.get_player_victory_draw_context(
+		timer,
+		_player_victory_click_reaction_timer,
+		_player_victory_click_transition_base_frame,
+		_player_victory_sheet,
+		_player_victory_click_reaction_sheet
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_floating_boxes(_view_size: Vector2, scale: float) -> void:
-	if _boxes.is_empty():
-		return
-	for i in range(_boxes.size()):
-		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		var hovered: bool = i == _hovered_box_index
-		_draw_floating_box(box, scale, hovered)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
-	StageClearResultBoxDrawHelper.draw_floating_result_box(
+	StageClearResultBoxPresenter.draw_floating_boxes(
 		self,
-		box,
-		StageClearResultBoxDrawHelper.build_floating_result_box_draw_context(
-			box,
-			hovered,
-			scale,
-			timer,
-			_scroll_phase,
-			_scroll_timer,
-			StageClearResultScrollState.SCROLL_UNFURL_DURATION,
-			_result_box_sheet_common,
-			_result_box_sheet_mythic,
-			_result_box_sheet_guaranteed_mythic,
-			_reward_icon_cache
-		)
+		_boxes,
+		scale,
+		_get_floating_box_draw_context()
+	)
+
+
+func _get_floating_box_draw_context() -> Dictionary:
+	return StageClearResultBoxPresenter.get_floating_box_draw_context(
+		timer,
+		_scroll_phase,
+		_scroll_timer,
+		_hovered_box_index,
+		_result_box_sheet_common,
+		_result_box_sheet_mythic,
+		_result_box_sheet_guaranteed_mythic,
+		_reward_icon_cache
 	)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
-	if _boxes.is_empty():
-		return false
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
-		return true
-	if _scroll_phase != "hidden":
-		return false
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(size)
-	var clicked_index: int = StageClearResultInteractionState.get_clicked_idle_box_index(_boxes, mouse_position, scale, timer)
-	if clicked_index < 0:
-		return false
-	_start_opening_box(clicked_index)
-	return true
-
-
-func _start_opening_box(index: int) -> void:
-	var result: Dictionary = StageClearResultBoxData.start_opening_box_with_roll(
+	var view_size: Vector2 = _get_current_view_size()
+	var draw_scale: float = _get_layout_scale(view_size)
+	return _apply_box_open_result(StageClearResultBoxInputHandler.get_box_click_result(
 		_boxes,
-		index,
+		mouse_position,
+		_scroll_phase,
+		_is_result_interaction_blocked(),
+		draw_scale,
+		timer,
 		reward_roll_callback
+	))
+
+
+func _apply_box_open_result(result: Dictionary) -> bool:
+	var apply_result: Dictionary = StageClearResultBoxInputHandler.get_box_open_apply_result(
+		result,
+		_boxes,
+		_hovered_box_index
 	)
-	if not bool(result.get("started", false)):
-		return
-	_boxes = result.get("boxes", _boxes)
-	_play_result_box_open_audio()
-	if _hovered_box_index == index:
-		_hovered_box_index = -1
-	queue_redraw()
+	apply_result = _apply_box_state_result(apply_result)
+	return bool(apply_result.get("consumed", false))
+
+
+func _apply_box_state_result(result: Dictionary) -> Dictionary:
+	var apply_result: Dictionary = StageClearResultBoxInputHandler.get_box_state_apply_result(
+		result,
+		_boxes,
+		_hovered_box_index
+	)
+	_boxes = apply_result.get("boxes", _boxes)
+	_hovered_box_index = int(apply_result.get("hovered_box_index", _hovered_box_index))
+	if bool(apply_result.get("play_open_audio", false)):
+		_play_result_box_open_audio()
+	if bool(apply_result.get("redraw", false)):
+		queue_redraw()
+	return apply_result
 
 
 func _play_result_box_open_audio() -> void:
-	if _game_audio != null and _game_audio.has_method("play_result_box_open"):
-		_game_audio.play_result_box_open()
+	StageClearResultAudioApplyHandler.play_result_box_open_audio(_game_audio)
 
 
 func _update_boxes(delta: float) -> void:
-	var result: Dictionary = StageClearResultBoxData.update_box_opening_state(
-		_boxes,
-		delta,
-		_lid_open_counter
-	)
-	_boxes = result.get("boxes", _boxes)
-	_lid_open_counter = int(result.get("lid_open_counter", _lid_open_counter))
-	var opened_indices: Array = result.get("opened_indices", [])
-	if opened_indices.is_empty():
-		return
-	for index_value in opened_indices:
-		var index: int = int(index_value)
-		if index >= 0 and index < _boxes.size() and _boxes[index] is Dictionary:
-			_try_grant_immediate_reward(index, _boxes[index])
-
-
-func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 	var view_size: Vector2 = _get_current_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var cinematic_positions: Dictionary = StageClearResultCinematicPositionHelper.get_reward_cinematic_positions(
-		box,
+	var result: Dictionary = StageClearResultBoxUpdateHandler.update_boxes(
+		_boxes,
+		delta,
+		_lid_open_counter,
+		immediate_reward_callback,
 		view_size,
 		scale,
 		timer
 	)
-	var result: Dictionary = StageClearResultBoxData.try_grant_immediate_reward(_boxes, index, immediate_reward_callback, cinematic_positions)
-	_boxes = result.get("boxes", _boxes)
+	_apply_scene_field_payload(StageClearResultBoxUpdateHandler.get_box_update_scene_apply_result(
+		result,
+		_boxes,
+		_lid_open_counter
+	))
 
 
 func _update_scroll(delta: float) -> void:
-	var result: Dictionary = StageClearResultScrollState.update_phase(
+	var result: Dictionary = StageClearResultScrollUpdateHandler.update_scroll(
 		_scroll_phase,
 		_scroll_timer,
 		delta,
-		_starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active(),
-		StageClearResultInteractionState.all_boxes_opened(_boxes),
-		StageClearResultScrollState.SCROLL_DELAY,
-		StageClearResultScrollState.SCROLL_UNFURL_DURATION
+		_boxes,
+		_is_result_interaction_blocked(),
 	)
-	_scroll_phase = str(result.get("phase", _scroll_phase))
-	_scroll_timer = float(result.get("timer", _scroll_timer))
+	_apply_scene_field_payload(StageClearResultScrollUpdateHandler.get_scroll_update_scene_apply_result(
+		result,
+		_scroll_phase,
+		_scroll_timer
+	))
+
+
+func _apply_scene_field_payload(field_payload: Dictionary) -> void:
+	for property_name in field_payload.keys():
+		var field_name: String = str(property_name)
+		if not _is_valid_scene_field(field_name):
+			push_error("StageClearResultScene: ignoring unknown scene field payload key '%s'" % field_name)
+			continue
+		set(StringName(field_name), field_payload.get(property_name))
+
+
+func _is_valid_scene_field(field_name: String) -> bool:
+	if _scene_field_name_lookup.is_empty():
+		for property_info in get_property_list():
+			_scene_field_name_lookup[str(property_info.get("name", ""))] = true
+	return _scene_field_name_lookup.has(field_name)
+
+
+func _get_field_payload_from_apply_result(apply_result: Dictionary) -> Dictionary:
+	var field_payload_value: Variant = apply_result.get("field_payload", {})
+	return field_payload_value if field_payload_value is Dictionary else {}
 
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_scroll(view_size: Vector2, scale: float, font: Font) -> void:
-	if _scroll_phase == "hidden":
-		return
-	_scroll_position_offset = StageClearResultScrollState.clamp_region_offset(_scroll_position_offset, scale, view_size)
-	var unfurl: float = StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, StageClearResultScrollState.SCROLL_UNFURL_DURATION)
-	if unfurl <= 0.0:
-		return
-	_draw_cyber_scroll(unfurl, scale, font)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
-	var full_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(scale, _scroll_position_offset)
-	var current_height: float = full_rect.size.y * unfurl
-	var visible_rect := Rect2(full_rect.position, Vector2(full_rect.size.x, current_height))
-	StageClearResultScrollDrawHelper.draw_cyber_scroll_frame(self, _scroll_texture, full_rect, visible_rect, scale, unfurl)
-
-	if unfurl <= 0.58:
-		_next_stage_button_rect = Rect2()
-		_exit_button_rect = Rect2()
-		return
-
-	var content_alpha: float = StageClearResultClickReactionState.smooth01((unfurl - 0.58) / 0.42)
-	_draw_cyber_scroll_contents(StageClearResultLayoutHelper.get_scroll_content_rect(full_rect, scale, StageClearResultScrollState.SCROLL_CONTENT_MARGIN), scale, font, content_alpha)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: float) -> void:
-	var button_layout: Dictionary = StageClearResultScrollContentDrawHelper.draw_scroll_contents(
+	var result: Dictionary = StageClearResultScrollPresenter.draw_scroll(
 		self,
 		font,
-		rect,
+		view_size,
 		scale,
-		alpha,
-		{
-			"current_stage": current_stage,
-			"stage_reward_snapshot": stage_reward_snapshot,
-			"boxes": _boxes,
-			"runtime_perk_state": _runtime_perk_state,
-			"player_score": player_score,
-			"boss_score": boss_score,
-			"timer": timer,
-			"perk_catalog": _perk_catalog,
-			"perk_icon_renderer": _perk_icon_renderer,
-			"reward_icon_cache": _reward_icon_cache,
-			"scroll_phase": _scroll_phase,
-			"hovered_button": _hovered_button,
-		}
+		_scroll_texture,
+		_get_scroll_draw_context()
 	)
-	if button_layout.is_empty():
-		return
-	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
-	_exit_button_rect = button_layout.get("exit_rect", Rect2())
+	_apply_scroll_state_result(StageClearResultScrollPresenter.get_scroll_draw_apply_result(
+		result,
+		_scroll_position_offset
+	))
+
+
+func _get_scroll_draw_context() -> Dictionary:
+	return StageClearResultScrollPresenter.get_scroll_draw_context(
+		current_stage,
+		stage_reward_snapshot,
+		_boxes,
+		_runtime_perk_state,
+		player_score,
+		boss_score,
+		timer,
+		_perk_catalog,
+		_perk_icon_renderer,
+		_reward_icon_cache,
+		_scroll_phase,
+		_scroll_timer,
+		_scroll_position_offset,
+		_hovered_button
+	)
 
 
 func _update_hovered_box(mouse_position: Vector2) -> void:
-	if _boxes.is_empty():
-		_hovered_box_index = -1
-		return
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(size)
-	var previous: int = _hovered_box_index
-	_hovered_box_index = StageClearResultInteractionState.get_hovered_box_index(_boxes, mouse_position, scale, timer)
-	if previous != _hovered_box_index:
-		queue_redraw()
+	var view_size: Vector2 = _get_current_view_size()
+	var draw_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultBoxInputHandler.get_hovered_box_result(
+		_boxes,
+		mouse_position,
+		draw_scale,
+		timer,
+		_hovered_box_index
+	)
+	var apply_result: Dictionary = StageClearResultBoxInputHandler.get_hovered_box_apply_result(
+		result,
+		_hovered_box_index
+	)
+	_apply_box_state_result(apply_result)
 
 
 func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(view_size)
-	var click_data: Dictionary = StageClearResultActorDrawHelper.get_player_victory_click_attempt(
+	var draw_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultActorClickHandler.handle_player_victory_click(
 		mouse_position,
 		view_size,
-		scale,
+		draw_scale,
 		_player_victory_click_reaction_timer,
 		timer
 	)
-	_player_victory_click_rect = click_data.get("click_rect", Rect2())
-	return _consume_click_reaction_attempt(
-		click_data.get("attempt", {}),
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(
+		StageClearResultActorClickHandler.get_player_victory_click_rect_scene_apply_result(result)
+	))
+	return _apply_click_reaction_result(
+		result,
 		&"_player_victory_click_transition_base_frame",
 		&"_player_victory_click_reaction_timer"
 	)
 
 
 func _handle_dalji_click(mouse_position: Vector2) -> bool:
-	if current_stage != 1:
-		return false
 	var view_size: Vector2 = _get_current_view_size()
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(view_size)
-	var click_data: Dictionary = StageClearResultActorDrawHelper.get_dalji_click_attempt(
+	var draw_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultActorClickHandler.handle_dalji_click(
+		current_stage,
 		mouse_position,
 		view_size,
-		scale,
+		draw_scale,
 		_dalji_click_reaction_timer,
 		_dalji_base_timer
 	)
-	_dalji_click_rect = click_data.get("click_rect", Rect2())
-	if not _consume_click_reaction_attempt(
-		click_data.get("attempt", {}),
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(
+		StageClearResultActorClickHandler.get_dalji_click_rect_scene_apply_result(result)
+	))
+	if not _apply_click_reaction_result(
+		result,
 		&"_dalji_click_transition_base_frame",
 		&"_dalji_click_reaction_timer"
 	):
 		return false
-	_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
-	_play_dalji_click_voice()
+	var side_effect_result: Dictionary = StageClearResultActorClickHandler.get_dalji_click_side_effect_scene_apply_result(
+		result,
+		_dalji_dialogue_timer,
+		DALJI_CLICK_DIALOGUE_DURATION
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(side_effect_result))
+	if bool(side_effect_result.get("play_voice", false)):
+		_play_dalji_click_voice()
 	return true
 
 
 func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
-	if current_stage != 2 or _stage2_boss_defeat_click_reaction_sheet == null:
-		return false
-	var view_size: Vector2 = _get_current_view_size()
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(view_size)
-	var click_data: Dictionary = StageClearResultActorDrawHelper.get_boss_defeat_click_attempt(
+	return _handle_boss_defeat_click(
 		2,
+		_stage2_boss_defeat_click_reaction_sheet != null,
 		mouse_position,
-		view_size,
-		scale,
 		_stage2_boss_defeat_click_reaction_timer,
-		timer
-	)
-	return _consume_click_reaction_attempt(
-		click_data.get("attempt", {}),
 		&"_stage2_boss_defeat_click_transition_base_frame",
 		&"_stage2_boss_defeat_click_reaction_timer"
 	)
 
 
 func _handle_stage3_boss_defeat_click(mouse_position: Vector2) -> bool:
-	if current_stage != 3 or _stage3_boss_defeat_click_reaction_sheet == null:
-		return false
-	var view_size: Vector2 = _get_current_view_size()
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(view_size)
-	var click_data: Dictionary = StageClearResultActorDrawHelper.get_boss_defeat_click_attempt(
+	return _handle_boss_defeat_click(
 		3,
+		_stage3_boss_defeat_click_reaction_sheet != null,
 		mouse_position,
-		view_size,
-		scale,
 		_stage3_boss_defeat_click_reaction_timer,
-		timer
-	)
-	return _consume_click_reaction_attempt(
-		click_data.get("attempt", {}),
 		&"_stage3_boss_defeat_click_transition_base_frame",
 		&"_stage3_boss_defeat_click_reaction_timer"
 	)
 
 
-func _consume_click_reaction_attempt(
-	attempt: Dictionary,
+func _handle_boss_defeat_click(
+	stage_id: int,
+	has_reaction_sheet: bool,
+	mouse_position: Vector2,
+	reaction_timer: float,
 	transition_base_frame_property: StringName,
 	reaction_timer_property: StringName
 ) -> bool:
-	if not bool(attempt.get("handled", false)):
+	if current_stage != stage_id:
 		return false
-	if bool(attempt.get("started", false)):
-		set(transition_base_frame_property, int(attempt.get("transition_base_frame", 0)))
-		set(reaction_timer_property, float(attempt.get("reaction_timer", 0.0)))
-	queue_redraw()
+	var view_size: Vector2 = _get_current_view_size()
+	var draw_scale: float = _get_layout_scale(view_size)
+	var result: Dictionary = StageClearResultActorClickHandler.handle_boss_defeat_click(
+		stage_id,
+		has_reaction_sheet,
+		mouse_position,
+		view_size,
+		draw_scale,
+		reaction_timer,
+		timer
+	)
+	return _apply_click_reaction_result(
+		result,
+		transition_base_frame_property,
+		reaction_timer_property
+	)
+
+
+func _apply_click_reaction_result(
+	result: Dictionary,
+	transition_base_frame_property: StringName,
+	reaction_timer_property: StringName
+) -> bool:
+	var apply_result: Dictionary = StageClearResultActorClickHandler.get_click_reaction_scene_apply_result(
+		result,
+		transition_base_frame_property,
+		int(get(transition_base_frame_property)),
+		reaction_timer_property,
+		float(get(reaction_timer_property))
+	)
+	if not bool(apply_result.get("handled", false)):
+		return false
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	if bool(apply_result.get("redraw", false)):
+		queue_redraw()
 	return true
 
 
@@ -873,64 +1057,52 @@ func _stop_dalji_click_voice() -> void:
 
 func _confirm() -> void:
 	_stop_dalji_click_voice()
-	if confirmed_callback.is_valid():
-		confirmed_callback.call()
+	StageClearResultCallbackHandler.invoke_confirm(confirmed_callback)
 
 
 func _apply_standalone_preview_defaults() -> void:
-	if player_score != 0 or boss_score != 0 or not reward_plan.is_empty():
-		return
-	var defaults: Dictionary = StageClearResultBoxData.build_standalone_preview_defaults(5)
-	player_score = int(defaults.get("player_score", 0))
-	boss_score = int(defaults.get("boss_score", 0))
-	current_stage = int(defaults.get("current_stage", 1))
-	reward_plan = defaults.get("reward_plan", {}) as Dictionary
+	var defaults: Dictionary = StageClearResultPreviewDefaultsHandler.get_standalone_preview_defaults(
+		player_score,
+		boss_score,
+		reward_plan,
+		5
+	)
+	var apply_result: Dictionary = StageClearResultPreviewDefaultsHandler.get_standalone_preview_scene_apply_result(
+		defaults,
+		player_score,
+		boss_score,
+		current_stage,
+		reward_plan
+	)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
 
 
 func _load_textures() -> void:
-	var paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths(selected_character_type, current_stage)
-	var player_victory_path: String = str(paths.get("player_victory_sheet", ""))
-	var player_victory_click_path: String = str(paths.get("player_victory_click_reaction_sheet", ""))
-	var current: Dictionary = {}
-	for key_value in StageClearResultAssetLoader.TEXTURE_KEYS:
-		var key: String = str(key_value)
-		current[key] = get(StringName("_" + key))
-	if _player_victory_sheet_loaded_path != player_victory_path:
-		current["player_victory_sheet"] = null
-	if _player_victory_click_reaction_sheet_loaded_path != player_victory_click_path:
-		current["player_victory_click_reaction_sheet"] = null
-	var loaded: Dictionary = StageClearResultAssetLoader.load_textures(current, paths)
-	for key_value in StageClearResultAssetLoader.TEXTURE_KEYS:
-		var key: String = str(key_value)
-		var texture: Texture2D = loaded.get(key) as Texture2D
-		set(StringName("_" + key), texture)
-	_player_victory_sheet_loaded_path = player_victory_path if _player_victory_sheet != null else ""
-	_player_victory_click_reaction_sheet_loaded_path = player_victory_click_path if _player_victory_click_reaction_sheet != null else ""
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(
+		StageClearResultAssetApplyHandler.load_texture_fields(
+			self,
+			selected_character_type,
+			current_stage,
+			_player_victory_sheet_loaded_path,
+			_player_victory_click_reaction_sheet_loaded_path
+		)
+	))
 
 
 func _load_audio() -> void:
-	if current_stage != 1:
-		_dalji_click_voice_stream = null
-		return
-	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH)
+	_dalji_click_voice_stream = StageClearResultAudioApplyHandler.load_dalji_click_voice_stream(
+		current_stage,
+		_dalji_click_voice_stream
+	)
 
 
 func _sync_viewport_size() -> void:
-	var view_size: Vector2 = _get_view_size()
-	if view_size == Vector2.ZERO:
-		return
-	anchor_left = 0.0
-	anchor_top = 0.0
-	anchor_right = 0.0
-	anchor_bottom = 0.0
-	position = Vector2.ZERO
-	size = view_size
+	StageClearResultViewportLayout.sync_control_to_viewport(self)
 
 
 func _get_layout_scale(view_size: Vector2) -> float:
-	return 1.0 if view_size.x <= 0.0 or view_size.y <= 0.0 else min(view_size.x / 1920.0, view_size.y / 1080.0)
+	return StageClearResultViewportLayout.get_layout_scale(view_size)
 
 
 func _get_view_size() -> Vector2:
-	var viewport: Viewport = get_viewport()
-	return viewport.get_visible_rect().size if viewport != null else Vector2(1920.0, 1080.0)
+	return StageClearResultViewportLayout.get_view_size(self)

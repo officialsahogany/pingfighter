@@ -65,6 +65,8 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			var catalog_passive_icon_path := str(catalog_passive.get("icon_texture_path", "")) if catalog_passive_enabled else ""
 			var catalog_gauge_bonus := float(catalog_passive.get("gauge_gain_bonus_pct", LingpetCatalog.get_stat(lingpet_id, "gauge_gain_bonus_pct", 0.0))) if catalog_passive_enabled else 0.0
 			var catalog_player_speed_bonus := float(catalog_passive.get("player_speed_bonus_pct", 0.0)) if catalog_passive_enabled else 0.0
+			var catalog_starpoint_tracking_chance := float(catalog_passive.get("starpoint_tracking_chance_pct", 0.0)) if catalog_passive_enabled else 0.0
+			var catalog_ring_dash_chance := float(catalog_passive.get("ring_dash_chance_pct", 0.0)) if catalog_passive_enabled else 0.0
 			return {
 				"state": "companion",
 				"pet_id": lingpet_id,
@@ -73,6 +75,8 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"body": str(safe_owner_get.call(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
 				"gauge_gain_bonus_pct": float(safe_owner_get.call(owner, "lingpet_gauge_gain_bonus_pct", safe_owner_get.call(owner, "ringpet_gauge_gain_bonus_pct", catalog_gauge_bonus))),
 				"companion_player_speed_bonus_pct": float(safe_owner_get.call(owner, "lingpet_player_speed_bonus_pct", safe_owner_get.call(owner, "ringpet_player_speed_bonus_pct", catalog_player_speed_bonus))),
+				"companion_starpoint_tracking_chance_pct": float(safe_owner_get.call(owner, "lingpet_starpoint_tracking_chance_pct", safe_owner_get.call(owner, "ringpet_starpoint_tracking_chance_pct", catalog_starpoint_tracking_chance))),
+				"companion_ring_dash_chance_pct": float(safe_owner_get.call(owner, "lingpet_ring_dash_chance_pct", safe_owner_get.call(owner, "ringpet_ring_dash_chance_pct", catalog_ring_dash_chance))),
 				"gauge_gain_bonus_icon_path": str(safe_owner_get.call(owner, "lingpet_gauge_gain_bonus_icon_path", catalog_passive_icon_path if catalog_passive_icon_path != "" else LingpetCatalog.get_passive_icon_path(lingpet_id, "gauge_gain_bonus"))),
 				"companion_hit_gauge_gain": float(safe_owner_get.call(owner, "lingpet_companion_hit_gauge_gain", safe_owner_get.call(owner, "ringpet_companion_hit_gauge_gain", LingpetCatalog.get_stat(lingpet_id, "hit_gauge_gain", 40.0)))),
 				"companion_skill_id": str(safe_owner_get.call(owner, "lingpet_skill_id", safe_owner_get.call(owner, "ringpet_skill_id", catalog_skill_id))),

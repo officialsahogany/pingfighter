@@ -7,7 +7,7 @@ const ORB_RADIUS := 10.0
 const ORB_VISUAL_RADIUS := 30.0
 const EXPLOSION_RADIUS := 170.0
 const EXPLOSION_DURATION_SECONDS := 0.20
-const STUN_DURATION_SECONDS := 2.0
+const STUN_DURATION_SECONDS := 1.4
 const STUN_REFRESH_FRAMES := 4.0
 const TOTAL_DURATION_SECONDS := 6.0
 const TARGET_Y_TOP := 65.0
@@ -78,6 +78,10 @@ var _electric_loop_active := false
 var _visual_seed := 0.0
 var _orb_rotation := 0.0
 var _energy_particles: Array = []
+# Per-launch electric-stun duration. Defaults to the const, but the companion
+# launch path overrides it from the level-scaled `stun_duration_seconds`
+# (Lv.1 0.8s -> Lv.5 1.6s) so higher active-skill levels stun longer.
+var _stun_duration_seconds := STUN_DURATION_SECONDS
 # Last registry seen during update(), cached so reset() (round / pet transition)
 # can stop a live electric-shock loop and clear our stun source even though the
 # host reset path is registry-less.
@@ -111,6 +115,7 @@ func reset() -> void:
 	_visual_seed = 0.0
 	_orb_rotation = 0.0
 	_energy_particles.clear()
+	_stun_duration_seconds = STUN_DURATION_SECONDS
 
 
 func prewarm() -> void:
@@ -144,8 +149,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 		_update_particles(safe_delta)
 
 
-func launch(origin: Vector2, owner: Object = null) -> void:
+func launch(origin: Vector2, owner: Object = null, launch_context: Dictionary = {}) -> void:
 	reset()
+	var ctx_stun := float(launch_context.get("stun_duration_seconds", 0.0))
+	_stun_duration_seconds = ctx_stun if ctx_stun > 0.0 else STUN_DURATION_SECONDS
 	_phase = PHASE_TRAVELING
 	_orb_pos = Vector2(clampf(origin.x, ORB_RADIUS, FIELD_WIDTH - ORB_RADIUS), origin.y)
 	_launch_x = _orb_pos.x
@@ -339,7 +346,7 @@ func _try_begin_electric_stun(owner: Object, registry: Object) -> void:
 	_electric_stun_center = boss_center
 	_shock_applied_this_explosion = true
 	_shock_applied_count += 1
-	_electric_stun_timer = STUN_DURATION_SECONDS
+	_electric_stun_timer = _stun_duration_seconds
 	_apply_boss_electric_stun(registry)
 	_sync_electric_audio(registry, true)
 
@@ -575,7 +582,7 @@ func _draw_explosion(canvas: CanvasItem, center: Vector2) -> void:
 func _draw_boss_electric_stun(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	var center := (_electric_stun_center if _electric_stun_center != Vector2.ZERO else _get_default_boss_center()) + shake_offset
 	var now_msec := float(Time.get_ticks_msec())
-	var ratio := clampf(_electric_stun_timer / STUN_DURATION_SECONDS, 0.0, 1.0)
+	var ratio := clampf(_electric_stun_timer / maxf(0.05, _stun_duration_seconds), 0.0, 1.0)
 	var alpha := clampf(ratio / 0.16, 0.0, 1.0)
 	# Discrete ~16Hz re-seed so the arcs snap frame-to-frame like a live
 	# electric discharge instead of smoothly rotating. Matches the Ragnarok

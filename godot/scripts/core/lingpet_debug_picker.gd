@@ -6,20 +6,41 @@ const COLUMNS := 3
 const CARD_SIZE := Vector2(214.0, 112.0)
 const CARD_GAP := Vector2(14.0, 14.0)
 const PANEL_PADDING := Vector2(28.0, 24.0)
-const HEADER_HEIGHT := 62.0
+const HEADER_HEIGHT := 96.0
 const PANEL_FOOTER_BAND := 8.0
-const SKILL_SECTION_HEIGHT := 194.0
 const SKILL_SECTION_TITLE_BAND := 28.0
 const SKILL_COLUMN_SIDE_PADDING := 12.0
 const SKILL_COLUMN_GAP := 18.0
 const SKILL_COLUMN_HEADER := 24.0
-const SKILL_ROW_HEIGHT := 26.0
-const SKILL_ROW_GAP := 6.0
+# Skill rows grow with the shared passive pool, so the section height and row
+# pitch are derived at draw time instead of being fixed. The pitch shrinks
+# toward SKILL_ROW_PITCH_MIN as more rows appear so the list never collides
+# with the apply button, and the section never grows past the visible view.
+const SKILL_ROW_GAP := 4.0
+const SKILL_ROW_PITCH_PREF := 30.0
+const SKILL_ROW_PITCH_MIN := 20.0
+const SKILL_SECTION_MIN_HEIGHT := 150.0
 const SKILL_APPLY_STRIP := 50.0
+const SKILL_SECTION_VIEW_MARGIN := 24.0
 const SKILL_LEVEL_BUTTON_SIZE := Vector2(18.0, 18.0)
 const SKILL_LEVEL_LABEL_SIZE := Vector2(36.0, 18.0)
 const SKILL_LEVEL_CONTROL_GAP := 3.0
 const APPLY_BUTTON_SIZE := Vector2(200.0, 34.0)
+# Header defense-rate override slider. override < 0 = "기본" (use the pet's catalog
+# value); 0..1 forces that defense_rate for feel testing. The slider sits in the
+# header band (HEADER_HEIGHT is sized to include it): [label] ◄ [bar] ► [value].
+# Triangles step by DEFENSE_OVERRIDE_STEP, clicking the bar sets the value to that
+# position, and the mouse wheel over the control steps the value.
+const DEFENSE_OVERRIDE_STEP := 0.05
+const DEFENSE_OVERRIDE_MIN := 0.0
+const DEFENSE_OVERRIDE_MAX := 1.0
+const DEFENSE_SLIDER_ROW_Y := 70.0
+const DEFENSE_SLIDER_SIDE_INSET := 22.0
+const DEFENSE_SLIDER_LABEL_W := 92.0
+const DEFENSE_TRIANGLE := Vector2(16.0, 18.0)
+const DEFENSE_SLIDER_HEIGHT := 12.0
+const DEFENSE_VALUE_W := 64.0
+const DEFENSE_SLIDER_GAP := 6.0
 
 var open := false
 var selected_index := 0
@@ -28,12 +49,16 @@ var selected_active_skill_index := 0
 var selected_passive_skill_index := 0
 var selected_active_skill_level := LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL
 var selected_passive_skill_level := LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
+# F7 defense-rate override staged in the picker; committed to the live lingpet
+# runtime on apply. -1.0 = no override (use the pet's catalog defense_rate).
+var selected_defense_rate_override := -1.0
 var _texture_cache: Dictionary = {}
 var _entries_cache: Array = []
 var _entries_cache_ready := false
 var _entries_cache_build_count := 0
 var _active_skill_pool_cache: Dictionary = {}
 var _passive_skill_pool_cache: Dictionary = {}
+var _max_skill_rows_cache := -1
 
 
 func toggle(owner: Object = null) -> void:
@@ -136,7 +161,25 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 		if mouse_event.button_index == MOUSE_BUTTON_RIGHT:
 			close()
 			return true
+		var panel_rect_for_defense: Rect2 = _get_panel_rect(view_size, entries.size())
+		if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP or mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			if _get_defense_control_row_rect(panel_rect_for_defense).has_point(mouse_event.position):
+				_adjust_defense_override(1 if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP else -1)
+				_request_owner_redraw(owner)
+			return true
 		if mouse_event.button_index != MOUSE_BUTTON_LEFT:
+			return true
+		if _get_defense_dec_rect(panel_rect_for_defense).has_point(mouse_event.position):
+			_adjust_defense_override(-1)
+			_request_owner_redraw(owner)
+			return true
+		if _get_defense_inc_rect(panel_rect_for_defense).has_point(mouse_event.position):
+			_adjust_defense_override(1)
+			_request_owner_redraw(owner)
+			return true
+		if _get_defense_bar_rect(panel_rect_for_defense).has_point(mouse_event.position):
+			_set_defense_override_from_bar(mouse_event.position, panel_rect_for_defense)
+			_request_owner_redraw(owner)
 			return true
 		var active_level_delta := _get_skill_level_delta_at(mouse_event.position, view_size, entries.size(), true)
 		if active_level_delta != 0:
@@ -197,6 +240,7 @@ func draw(canvas: CanvasItem, owner: Object, _registry: Object, view_size: Vecto
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 32.0), "F7 \ub9c1\ud3ab \ub514\ubc84\uadf8 \uc120\ud0dd", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, Color(0.92, 0.97, 1.0))
 	var info := "현재: %s  /  클릭·숫자: 링펫 선택, Q/E 액티브, Z/X 패시브, R/F 액티브 Lv, V/C 패시브 Lv, Enter 적용" % current_name
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 58.0), info, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 13, Color(0.74, 0.82, 0.90))
+	_draw_defense_slider(canvas, font, panel_rect)
 
 	for index in range(entries.size()):
 		_draw_card(canvas, font, _get_card_rect(index, panel_rect), entries[index], index == selected_index, index == hovered_index, current_pet_id, index)
@@ -234,6 +278,22 @@ func get_apply_button_rect_for_tests(view_size: Vector2) -> Rect2:
 
 func get_selected_pet_id_for_tests() -> String:
 	return _get_selected_pet_id()
+
+
+func get_defense_override_for_tests() -> float:
+	return selected_defense_rate_override
+
+
+func get_defense_dec_rect_for_tests(view_size: Vector2) -> Rect2:
+	return _get_defense_dec_rect(_get_panel_rect(view_size, _get_entries().size()))
+
+
+func get_defense_inc_rect_for_tests(view_size: Vector2) -> Rect2:
+	return _get_defense_inc_rect(_get_panel_rect(view_size, _get_entries().size()))
+
+
+func get_defense_bar_rect_for_tests(view_size: Vector2) -> Rect2:
+	return _get_defense_bar_rect(_get_panel_rect(view_size, _get_entries().size()))
 
 
 func get_active_skill_level_for_tests() -> int:
@@ -339,7 +399,7 @@ func _draw_skill_rows(canvas: CanvasItem, font: Font, view_size: Vector2, entry_
 		var disabled_rect := _get_skill_row_rect(view_size, entry_count, active_column, 0)
 		canvas.draw_rect(disabled_rect, Color(0.02, 0.025, 0.034, 0.58))
 		canvas.draw_rect(disabled_rect, Color(0.22, 0.28, 0.36, 0.72), false, 1.0)
-		canvas.draw_string(font, disabled_rect.position + Vector2(10.0, 19.0), "선택 가능한 스킬 없음", HORIZONTAL_ALIGNMENT_LEFT, disabled_rect.size.x - 20.0, 12, Color(0.52, 0.60, 0.68))
+		canvas.draw_string(font, disabled_rect.position + Vector2(10.0, _row_text_baseline(disabled_rect)), "선택 가능한 스킬 없음", HORIZONTAL_ALIGNMENT_LEFT, disabled_rect.size.x - 20.0, 12, Color(0.52, 0.60, 0.68))
 		return
 	for index in range(pool.size()):
 		var skill := pool[index] as Dictionary
@@ -357,7 +417,7 @@ func _draw_skill_rows(canvas: CanvasItem, font: Font, view_size: Vector2, entry_
 		var suffix := (" / %.0f초" % cooldown) if active_column and cooldown > 0.0 else ""
 		var text_color := Color(0.95, 0.99, 1.0) if selected else Color(0.72, 0.80, 0.88)
 		var text_width := row_rect.size.x - (100.0 if selected else 20.0)
-		canvas.draw_string(font, row_rect.position + Vector2(10.0, 19.0), "%s%s" % [name, suffix], HORIZONTAL_ALIGNMENT_LEFT, text_width, 12, text_color)
+		canvas.draw_string(font, row_rect.position + Vector2(10.0, _row_text_baseline(row_rect)), "%s%s" % [name, suffix], HORIZONTAL_ALIGNMENT_LEFT, text_width, 12, text_color)
 		if selected:
 			_draw_skill_level_controls(canvas, font, view_size, entry_count, active_column, index, selected_skill_level)
 
@@ -380,6 +440,47 @@ func _draw_level_button(canvas: CanvasItem, font: Font, rect: Rect2, text: Strin
 	canvas.draw_rect(rect, fill)
 	canvas.draw_rect(rect, border, false, 1.0)
 	canvas.draw_string(font, rect.position + Vector2(0.0, 14.0), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, text_color)
+
+
+func _draw_defense_slider(canvas: CanvasItem, font: Font, panel_rect: Rect2) -> void:
+	var row_origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, DEFENSE_SLIDER_ROW_Y)
+	canvas.draw_string(font, row_origin + Vector2(0.0, 14.0), "방어율 강제", HORIZONTAL_ALIGNMENT_LEFT, DEFENSE_SLIDER_LABEL_W, 12, Color(0.82, 0.90, 0.98))
+	var dec_rect := _get_defense_dec_rect(panel_rect)
+	var inc_rect := _get_defense_inc_rect(panel_rect)
+	var bar_rect := _get_defense_bar_rect(panel_rect)
+	var value_rect := _get_defense_value_rect(panel_rect)
+	_draw_defense_triangle(canvas, dec_rect, false)
+	_draw_defense_triangle(canvas, inc_rect, true)
+	canvas.draw_rect(bar_rect, Color(0.04, 0.06, 0.09, 0.92))
+	canvas.draw_rect(bar_rect, Color(0.40, 0.56, 0.74, 0.80), false, 1.0)
+	var forced := selected_defense_rate_override >= 0.0
+	var ratio := _get_defense_override_ratio()
+	if forced and ratio > 0.0:
+		canvas.draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * ratio, bar_rect.size.y)), Color(0.36, 0.80, 1.0, 0.85))
+	if forced:
+		var handle_x := bar_rect.position.x + bar_rect.size.x * ratio
+		canvas.draw_rect(Rect2(Vector2(handle_x - 2.0, bar_rect.position.y - 3.0), Vector2(4.0, bar_rect.size.y + 6.0)), Color(0.96, 1.0, 1.0, 0.96))
+	var value_color := Color(0.62, 0.96, 1.0) if forced else Color(0.66, 0.72, 0.80)
+	canvas.draw_string(font, value_rect.position + Vector2(0.0, 15.0), _get_defense_value_text(), HORIZONTAL_ALIGNMENT_LEFT, value_rect.size.x, 13, value_color)
+
+
+func _draw_defense_triangle(canvas: CanvasItem, rect: Rect2, pointing_right: bool) -> void:
+	canvas.draw_rect(rect, Color(0.12, 0.18, 0.24, 0.92))
+	canvas.draw_rect(rect, Color(0.62, 0.84, 1.0, 0.86), false, 1.0)
+	var cx := rect.position.x + rect.size.x * 0.5
+	var cy := rect.position.y + rect.size.y * 0.5
+	var hw := rect.size.x * 0.24
+	var hh := rect.size.y * 0.28
+	var pts := PackedVector2Array()
+	if pointing_right:
+		pts.append(Vector2(cx - hw, cy - hh))
+		pts.append(Vector2(cx - hw, cy + hh))
+		pts.append(Vector2(cx + hw, cy))
+	else:
+		pts.append(Vector2(cx + hw, cy - hh))
+		pts.append(Vector2(cx + hw, cy + hh))
+		pts.append(Vector2(cx - hw, cy))
+	canvas.draw_colored_polygon(pts, Color(0.94, 1.0, 1.0, 0.96))
 
 
 func _draw_apply_button(canvas: CanvasItem, font: Font, rect: Rect2) -> void:
@@ -405,6 +506,10 @@ func _apply_selected_lingpet(owner: Object, registry: Object) -> void:
 			selected_active_skill_level,
 			selected_passive_skill_level
 		)
+		# Commit the F7 defense-rate override after the pet is granted (the grant
+		# rebuilds the profile but does not touch this separate override field).
+		if runtime.has_method("set_debug_defense_rate_override"):
+			runtime.set_debug_defense_rate_override(selected_defense_rate_override)
 	close()
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
@@ -414,7 +519,7 @@ func _get_entries() -> Array:
 	if _entries_cache_ready:
 		return _entries_cache
 	var entries: Array = []
-	for pet_id in LingpetCatalog.get_pet_ids(false):
+	for pet_id in LingpetCatalog.get_debug_pet_ids():
 		var normalized := str(pet_id)
 		var entry := LingpetCatalog.get_entry(normalized).duplicate(true)
 		entry["id"] = normalized
@@ -482,6 +587,50 @@ func _adjust_passive_skill_level(direction: int) -> void:
 
 func _adjust_skill_level(current_level: int, direction: int) -> int:
 	return LingpetCatalog.clamp_skill_level(current_level + direction)
+
+
+func _adjust_defense_override(direction: int) -> void:
+	var value := selected_defense_rate_override
+	if direction > 0:
+		# off(-1) -> 0% -> step up to 100%.
+		value = DEFENSE_OVERRIDE_MIN if value < 0.0 else minf(DEFENSE_OVERRIDE_MAX, value + DEFENSE_OVERRIDE_STEP)
+	else:
+		# step down to 0%, then one more step turns the override off (pet default).
+		if value < 0.0:
+			value = -1.0
+		elif value <= DEFENSE_OVERRIDE_MIN + 0.0001:
+			value = -1.0
+		else:
+			value = maxf(DEFENSE_OVERRIDE_MIN, value - DEFENSE_OVERRIDE_STEP)
+	selected_defense_rate_override = _snap_defense_override(value)
+
+
+func _set_defense_override_from_bar(position: Vector2, panel_rect: Rect2) -> void:
+	var bar := _get_defense_bar_rect(panel_rect)
+	if bar.size.x <= 0.0:
+		return
+	var ratio := clampf((position.x - bar.position.x) / bar.size.x, 0.0, 1.0)
+	var value := DEFENSE_OVERRIDE_MIN + ratio * (DEFENSE_OVERRIDE_MAX - DEFENSE_OVERRIDE_MIN)
+	selected_defense_rate_override = _snap_defense_override(value)
+
+
+func _snap_defense_override(value: float) -> float:
+	if value < 0.0:
+		return -1.0
+	var steps := roundf(value / DEFENSE_OVERRIDE_STEP)
+	return clampf(steps * DEFENSE_OVERRIDE_STEP, DEFENSE_OVERRIDE_MIN, DEFENSE_OVERRIDE_MAX)
+
+
+func _get_defense_override_ratio() -> float:
+	if selected_defense_rate_override < 0.0:
+		return 0.0
+	return clampf((selected_defense_rate_override - DEFENSE_OVERRIDE_MIN) / maxf(0.0001, DEFENSE_OVERRIDE_MAX - DEFENSE_OVERRIDE_MIN), 0.0, 1.0)
+
+
+func _get_defense_value_text() -> String:
+	if selected_defense_rate_override < 0.0:
+		return "기본"
+	return "%d%%" % int(round(selected_defense_rate_override * 100.0))
 
 
 func _cycle_skill_index(current_index: int, direction: int, pool_size: int) -> int:
@@ -612,7 +761,8 @@ func _get_grid_size(entry_count: int) -> Vector2:
 func _get_panel_rect(view_size: Vector2, entry_count: int) -> Rect2:
 	var safe_view := Vector2(max(view_size.x, 760.0), max(view_size.y, 540.0))
 	var grid_size := _get_grid_size(entry_count)
-	var panel_size := grid_size + PANEL_PADDING * 2.0 + Vector2(0.0, HEADER_HEIGHT + CARD_GAP.y + SKILL_SECTION_HEIGHT + PANEL_FOOTER_BAND)
+	var section_height := _get_skill_section_height(view_size, entry_count)
+	var panel_size := grid_size + PANEL_PADDING * 2.0 + Vector2(0.0, HEADER_HEIGHT + CARD_GAP.y + section_height + PANEL_FOOTER_BAND)
 	var pos := (safe_view - panel_size) * 0.5
 	return Rect2(Vector2(max(pos.x, 12.0), max(pos.y, 12.0)), panel_size)
 
@@ -637,7 +787,62 @@ func _get_skill_section_rect(view_size: Vector2, entry_count: int) -> Rect2:
 	var panel_rect := _get_panel_rect(view_size, entry_count)
 	var grid_size := _get_grid_size(entry_count)
 	var origin := panel_rect.position + Vector2(PANEL_PADDING.x, PANEL_PADDING.y + HEADER_HEIGHT + grid_size.y + CARD_GAP.y)
-	return Rect2(origin, Vector2(grid_size.x, SKILL_SECTION_HEIGHT))
+	return Rect2(origin, Vector2(grid_size.x, _get_skill_section_height(view_size, entry_count)))
+
+
+func _get_max_skill_rows() -> int:
+	if _max_skill_rows_cache >= 0:
+		return _max_skill_rows_cache
+	# The passive pool is a shared common pool (pet id is ignored), while each
+	# pet carries its own active pool. Size the section to the tallest column so
+	# the panel layout stays stable as you cycle pets and as the passive pool grows.
+	var rows := maxi(1, _get_skill_pool("", false).size())
+	for entry_value in _get_entries():
+		var pet_id := str((entry_value as Dictionary).get("id", ""))
+		rows = maxi(rows, _get_skill_pool(pet_id, true).size())
+	_max_skill_rows_cache = rows
+	return rows
+
+
+func _get_nonsection_panel_height(entry_count: int) -> float:
+	var grid_size := _get_grid_size(entry_count)
+	return PANEL_PADDING.y * 2.0 + HEADER_HEIGHT + CARD_GAP.y + grid_size.y + PANEL_FOOTER_BAND
+
+
+func _get_skill_rows_region_max(view_size: Vector2, entry_count: int) -> float:
+	# Largest band the skill rows may occupy before the panel would overflow the
+	# visible view. Bands above (title) and below (apply strip) the rows are reserved.
+	var safe_height := maxf(view_size.y, 540.0)
+	var max_section := safe_height - SKILL_SECTION_VIEW_MARGIN - _get_nonsection_panel_height(entry_count)
+	max_section = maxf(max_section, SKILL_SECTION_MIN_HEIGHT)
+	return maxf(0.0, max_section - SKILL_SECTION_TITLE_BAND - SKILL_COLUMN_HEADER - SKILL_APPLY_STRIP)
+
+
+func _get_skill_row_pitch(view_size: Vector2, entry_count: int) -> float:
+	var rows := _get_max_skill_rows()
+	if rows <= 0:
+		return SKILL_ROW_PITCH_PREF
+	var region_max := _get_skill_rows_region_max(view_size, entry_count)
+	return clampf(region_max / float(rows), SKILL_ROW_PITCH_MIN, SKILL_ROW_PITCH_PREF)
+
+
+func _get_skill_row_height(view_size: Vector2, entry_count: int) -> float:
+	return maxf(14.0, _get_skill_row_pitch(view_size, entry_count) - SKILL_ROW_GAP)
+
+
+func _row_text_baseline(row_rect: Rect2) -> float:
+	# Keep the 12px label vertically centered as the row height flexes with the pitch.
+	return row_rect.size.y * 0.5 + 6.0
+
+
+func _get_skill_section_height(view_size: Vector2, entry_count: int) -> float:
+	# Section = title band + column header + every skill row + apply strip. Derived
+	# from the clamped pitch so the apply strip always clears the last row, and the
+	# section only overflows the view when there are too many rows to fit even at
+	# the minimum pitch (rows stay readable; the footer is the only thing that clips).
+	var rows := _get_max_skill_rows()
+	var pitch := _get_skill_row_pitch(view_size, entry_count)
+	return SKILL_SECTION_TITLE_BAND + SKILL_COLUMN_HEADER + float(rows) * pitch + SKILL_APPLY_STRIP
 
 
 func _get_skill_column_rect(view_size: Vector2, entry_count: int, active_column: bool) -> Rect2:
@@ -653,9 +858,11 @@ func _get_skill_column_rect(view_size: Vector2, entry_count: int, active_column:
 
 func _get_skill_row_rect(view_size: Vector2, entry_count: int, active_column: bool, index: int) -> Rect2:
 	var column_rect := _get_skill_column_rect(view_size, entry_count, active_column)
+	var pitch := _get_skill_row_pitch(view_size, entry_count)
+	var row_height := _get_skill_row_height(view_size, entry_count)
 	return Rect2(
-		column_rect.position + Vector2(0.0, SKILL_COLUMN_HEADER + float(index) * (SKILL_ROW_HEIGHT + SKILL_ROW_GAP)),
-		Vector2(column_rect.size.x, SKILL_ROW_HEIGHT)
+		column_rect.position + Vector2(0.0, SKILL_COLUMN_HEADER + float(index) * pitch),
+		Vector2(column_rect.size.x, row_height)
 	)
 
 
@@ -720,6 +927,39 @@ func _get_apply_button_rect(view_size: Vector2, entry_count: int) -> Rect2:
 	return Rect2(pos, Vector2(button_width, APPLY_BUTTON_SIZE.y))
 
 
+func _get_defense_control_row_rect(panel_rect: Rect2) -> Rect2:
+	# Full clickable / wheel band of the defense control row (label edge -> value).
+	var origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, DEFENSE_SLIDER_ROW_Y)
+	var width := panel_rect.size.x - DEFENSE_SLIDER_SIDE_INSET * 2.0
+	return Rect2(origin, Vector2(width, DEFENSE_TRIANGLE.y))
+
+
+func _get_defense_dec_rect(panel_rect: Rect2) -> Rect2:
+	var origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET + DEFENSE_SLIDER_LABEL_W, DEFENSE_SLIDER_ROW_Y)
+	return Rect2(origin, DEFENSE_TRIANGLE)
+
+
+func _get_defense_bar_rect(panel_rect: Rect2) -> Rect2:
+	var dec := _get_defense_dec_rect(panel_rect)
+	var bar_x := dec.end.x + DEFENSE_SLIDER_GAP
+	var right_limit := panel_rect.end.x - DEFENSE_SLIDER_SIDE_INSET - DEFENSE_VALUE_W - DEFENSE_SLIDER_GAP - DEFENSE_TRIANGLE.x - DEFENSE_SLIDER_GAP
+	var bar_w := maxf(60.0, right_limit - bar_x)
+	var bar_y := dec.position.y + (DEFENSE_TRIANGLE.y - DEFENSE_SLIDER_HEIGHT) * 0.5
+	return Rect2(Vector2(bar_x, bar_y), Vector2(bar_w, DEFENSE_SLIDER_HEIGHT))
+
+
+func _get_defense_inc_rect(panel_rect: Rect2) -> Rect2:
+	var bar := _get_defense_bar_rect(panel_rect)
+	var y := _get_defense_dec_rect(panel_rect).position.y
+	return Rect2(Vector2(bar.end.x + DEFENSE_SLIDER_GAP, y), DEFENSE_TRIANGLE)
+
+
+func _get_defense_value_rect(panel_rect: Rect2) -> Rect2:
+	var inc := _get_defense_inc_rect(panel_rect)
+	var y := panel_rect.position.y + DEFENSE_SLIDER_ROW_Y
+	return Rect2(Vector2(inc.end.x + DEFENSE_SLIDER_GAP, y), Vector2(DEFENSE_VALUE_W, DEFENSE_TRIANGLE.y))
+
+
 func _get_pet_index(pet_id: String) -> int:
 	var entries: Array = _get_entries()
 	for index in range(entries.size()):
@@ -754,6 +994,8 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 			return "볼티"
 		"orbi":
 			return "오르비"
+		"rabi":
+			return "\ub77c\ube44"
 	var fallback := str(entry.get("display_name", pet_id))
 	return fallback if fallback.strip_edges() != "" else "\ubbf8\ud655\uc778 \ub9c1\ud3ab"
 
@@ -780,6 +1022,8 @@ func _get_summary_text(pet_id: String) -> String:
 			return "전기 호버 바디로 공 반격 + 돌진 보조"
 		"orbi":
 			return "푸른 링 궤도로 공 반격 + 둔화장 보조"
+		"rabi":
+			return "\uc720\ub839\ube5b \ud68d\ub4dd \ub77c\ud22c\ub514 \ub514\ubc84\uadf8 \ud6c4\ubcf4"
 	return "\uc804\ud22c \ubcf4\uc870 \ub9c1\ud3ab"
 
 
@@ -795,6 +1039,8 @@ func _get_card_color(pet_id: String) -> Color:
 			return Color(0.98, 0.84, 0.22)
 		"orbi":
 			return Color(0.30, 1.0, 0.92)
+		"rabi":
+			return Color(0.66, 0.88, 1.0)
 	return Color(0.70, 0.82, 0.92)
 
 

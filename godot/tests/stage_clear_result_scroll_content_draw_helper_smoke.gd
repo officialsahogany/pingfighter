@@ -41,7 +41,9 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_scroll_content_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0, "result scene should delegate opened-scroll content drawing")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
+	_expect(source.find("StageClearResultScrollPresenter.draw_scroll") >= 0, "result scene should delegate opened-scroll presentation")
+	_expect(presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0, "scroll presenter should delegate opened-scroll content drawing")
 	_expect(source.find("StageClearResultSummaryDrawHelper") < 0, "result scene should not directly draw result summary strip")
 	_expect(source.find("StageClearResultRewardCardDrawHelper") < 0, "result scene should not directly draw reward sections")
 	_expect(source.find("StageClearResultScrollButtonDrawHelper") < 0, "result scene should not directly draw scroll buttons")

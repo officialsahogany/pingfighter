@@ -15,6 +15,9 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 	var skill_orb_tooltip_state := _get_skill_orb_tooltip_hover_state(owner, registry)
 	_perf_end(perf_logger, "physics.deps.skill_tooltip_hover", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_sync_ball_intensity_stakes(registry)
+	_perf_end(perf_logger, "physics.deps.ball_intensity_stakes", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	var deps := {
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
@@ -49,6 +52,41 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _sync_ball_intensity_stakes(registry: Object) -> void:
+	var ball_intensity: Object = _get_instance(registry, "ball_intensity")
+	if ball_intensity == null or not ball_intensity.has_method("set_stakes"):
+		return
+	var score_state: Object = _get_instance(registry, "match_score_state")
+	if score_state == null:
+		ball_intensity.set_stakes(false, false, false)
+		return
+	ball_intensity.set_stakes(
+		_is_deuce_mode(score_state),
+		_would_score_finish(score_state, "player"),
+		_is_player_in_danger(score_state)
+	)
+
+
+func _is_deuce_mode(score_state: Object) -> bool:
+	if score_state.has_method("get_snapshot"):
+		var snapshot: Dictionary = score_state.get_snapshot()
+		return bool(snapshot.get("deuce_mode", false))
+	var value: Variant = score_state.get("deuce_mode")
+	return bool(value) if value != null else false
+
+
+func _would_score_finish(score_state: Object, scoring_side: String) -> bool:
+	if score_state.has_method("would_score_finish"):
+		return bool(score_state.would_score_finish(scoring_side))
+	return false
+
+
+func _is_player_in_danger(score_state: Object) -> bool:
+	if score_state.has_method("is_player_in_danger"):
+		return bool(score_state.is_player_in_danger())
+	return _would_score_finish(score_state, "boss")
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

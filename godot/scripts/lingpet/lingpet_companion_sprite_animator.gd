@@ -8,7 +8,6 @@ const SHEET_COLS := 5
 const SHEET_ROWS := 5
 const SHEET_FRAME_COUNT := 25
 const IDLE_FRAME := 12
-const WALK_FPS := 14.0
 const FLIGHT_FPS_MIN := 4.8
 const FLIGHT_FPS_MAX := 13.5
 const WALK_DRAW_SIZE := Vector2(82.0, 82.0)
@@ -78,11 +77,11 @@ func get_cast_frame(windup_elapsed: float, windup_seconds: float) -> int:
 
 func get_walk_frame(patrol_pause: float, ticks_msec: int = -1, speed_ratio: float = 0.0) -> int:
 	var ratio := clampf(speed_ratio, 0.0, 1.0)
-	if patrol_pause > 0.0 and ratio <= 0.0:
+	if ratio <= 0.0:
 		return clampi(IDLE_FRAME, 0, SHEET_FRAME_COUNT - 1)
 	var current_ticks: int = Time.get_ticks_msec() if ticks_msec < 0 else ticks_msec
 	var elapsed: float = float(current_ticks) / 1000.0
-	var fps: float = WALK_FPS if ratio <= 0.0 else lerpf(FLIGHT_FPS_MIN, FLIGHT_FPS_MAX, ratio)
+	var fps: float = lerpf(FLIGHT_FPS_MIN, FLIGHT_FPS_MAX, ratio)
 	return int(elapsed * fps) % SHEET_FRAME_COUNT
 
 

@@ -156,19 +156,32 @@ func _verify_scene_delegates_interaction_state() -> void:
 	scene._boxes = [{"state": "opened"}, {"state": "opened"}]
 	_expect(StageClearResultInteractionState.all_boxes_opened(scene._boxes), "scene boxes should report opened state through helper")
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var scroll_update_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_update_handler.gd")
 	_expect(
-		source.find("StageClearResultInteractionState.all_boxes_opened") >= 0,
-		"result scene should call all-boxes-open helper directly"
+		scroll_update_helper_source.find("StageClearResultInteractionState.all_boxes_opened") >= 0,
+		"scroll update handler should call all-boxes-open helper directly"
 	)
 	_expect(
-		source.find("StageClearResultInteractionState.get_hovered_box_index") >= 0
-			and source.find("StageClearResultInteractionState.get_clicked_idle_box_index") >= 0,
-		"result scene should delegate box hover and click hit-tests"
+		source.find("StageClearResultBoxInputHandler.get_hovered_box_result") >= 0
+			and source.find("StageClearResultBoxInputHandler.get_box_click_result") >= 0,
+		"result scene should delegate box hover and click hit-tests through the box input helper"
 	)
 	_expect(
-		source.find("StageClearResultInteractionState.get_scroll_drag_start_state") >= 0
-			and source.find("StageClearResultInteractionState.get_visible_scroll_button_layout") >= 0,
-		"result scene should delegate scroll drag and button layout state"
+		source.find("StageClearResultScrollInputHandler.get_drag_start_result") >= 0
+			and source.find("StageClearResultScrollInputHandler.get_button_layout") >= 0,
+		"result scene should delegate scroll drag and button layout state through the scroll input helper"
+	)
+	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
+	var box_input_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_input_handler.gd")
+	_expect(
+		helper_source.find("StageClearResultInteractionState.get_scroll_drag_start_state") >= 0
+			and helper_source.find("StageClearResultInteractionState.get_visible_scroll_button_layout") >= 0,
+		"scroll input helper should still delegate pure interaction math to InteractionState"
+	)
+	_expect(
+		box_input_helper_source.find("StageClearResultInteractionState.get_hovered_box_index") >= 0
+			and box_input_helper_source.find("StageClearResultInteractionState.get_clicked_idle_box_index") >= 0,
+		"box input helper should still delegate pure box hit-test math to InteractionState"
 	)
 	_expect(
 		source.find("func _all_boxes_opened") < 0,

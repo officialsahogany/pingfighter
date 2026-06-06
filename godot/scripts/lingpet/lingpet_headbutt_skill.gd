@@ -18,6 +18,9 @@ const GUARANTEED_MISS_SPEED := 18.0
 const MOVING_MISS_CHANCE := 0.14
 const MOVING_MISS_MAX_CHANCE := 0.34
 const MISS_OFFSET_X := 130.0
+const MISS_TEXT := "MISS!"
+const MISS_TEXT_SECONDS := 0.85
+const MISS_TEXT_FLOAT_Y := 34.0
 const TRAIL_MAX_POINTS := 12
 const COMBO_MIN_COUNT := 1
 const COMBO_MAX_COUNT := 3
@@ -42,6 +45,8 @@ var _trail: Array[Vector2] = []
 var _impact_pos := Vector2.ZERO
 var _impact_timer := 0.0
 var _miss_timer := 0.0
+var _miss_text_timer := 0.0
+var _miss_text_pos := Vector2.ZERO
 var _repeat_wait_timer := 0.0
 var _repeat_anchor_pos := Vector2.ZERO
 var _repeat_recoil_start_pos := Vector2.ZERO
@@ -69,6 +74,8 @@ func reset() -> void:
 	_impact_pos = Vector2.ZERO
 	_impact_timer = 0.0
 	_miss_timer = 0.0
+	_miss_text_timer = 0.0
+	_miss_text_pos = Vector2.ZERO
 	_repeat_wait_timer = 0.0
 	_repeat_anchor_pos = Vector2.ZERO
 	_repeat_recoil_start_pos = Vector2.ZERO
@@ -149,6 +156,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 	var safe_delta: float = maxf(0.0, delta)
 	_impact_timer = maxf(0.0, _impact_timer - safe_delta)
 	_miss_timer = maxf(0.0, _miss_timer - safe_delta)
+	_miss_text_timer = maxf(0.0, _miss_text_timer - safe_delta)
 	if _active:
 		_step_dash(safe_delta, owner, registry)
 	elif _repeat_wait_timer > 0.0:
@@ -174,10 +182,12 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_impact(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS, true)
 	if _miss_timer > 0.0:
 		_draw_impact(canvas, _impact_pos + shake_offset, _miss_timer / MISS_FLASH_SECONDS, false)
+	if _miss_text_timer > 0.0:
+		_draw_miss_text(canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
-	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _repeat_wait_timer > 0.0
+	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _miss_text_timer > 0.0 or _repeat_wait_timer > 0.0
 
 
 func is_active() -> bool:
@@ -224,6 +234,8 @@ func get_snapshot() -> Dictionary:
 		"headbutt_impact_timer": _impact_timer,
 		"headbutt_miss_active": _miss_timer > 0.0,
 		"headbutt_miss_timer": _miss_timer,
+		"headbutt_miss_text_active": _miss_text_timer > 0.0,
+		"headbutt_miss_text_timer": _miss_text_timer,
 		"headbutt_repeat_wait_active": _repeat_wait_timer > 0.0,
 		"headbutt_repeat_wait_timer": _repeat_wait_timer,
 		"headbutt_repeat_wait_duration": _repeat_wait_duration,
@@ -315,6 +327,8 @@ func _resolve_miss() -> void:
 	_planned_miss = false
 	_impact_pos = _pos
 	_miss_timer = MISS_FLASH_SECONDS
+	_miss_text_timer = MISS_TEXT_SECONDS
+	_miss_text_pos = _pos
 	_impact_timer = 0.0
 	_last_result = "miss"
 	_miss_count += 1
@@ -508,6 +522,22 @@ func _draw_impact(canvas: CanvasItem, pos: Vector2, ratio: float, hit: bool) -> 
 		var start := pos + Vector2(cos(angle), sin(angle)) * radius * 0.26
 		var end := pos + Vector2(cos(angle), sin(angle)) * radius
 		canvas.draw_line(start, end, Color(1.0, 1.0, 1.0, 0.42 * clamped), 1.5, true)
+
+
+func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if _miss_text_timer <= 0.0:
+		return
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var progress := 1.0 - clampf(_miss_text_timer / MISS_TEXT_SECONDS, 0.0, 1.0)
+	var alpha := maxf(0.0, 1.0 - progress)
+	var draw_pos := _miss_text_pos + shake_offset + Vector2(0.0, -progress * MISS_TEXT_FLOAT_Y)
+	draw_pos.x = clampf(draw_pos.x, 60.0, FIELD_WIDTH - 60.0)
+	draw_pos.y = clampf(draw_pos.y, 60.0, FIELD_HEIGHT - 48.0)
+	var font_size := int(round(24.0 + sin(progress * PI) * 3.0))
+	canvas.draw_string(font, draw_pos + Vector2(-44.0, 2.0), MISS_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 88.0, font_size, Color(0.04, 0.02, 0.08, 0.78 * alpha))
+	canvas.draw_string(font, draw_pos + Vector2(-46.0, 0.0), MISS_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 88.0, font_size, Color(0.86, 0.36, 1.0, 0.95 * alpha))
 
 
 func _play_boomerang_hit(registry: Object) -> void:

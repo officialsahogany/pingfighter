@@ -14,6 +14,10 @@ const BOSS_STAGE2_DEFEAT_FRAME_COUNT := 64
 const PLAYER_VICTORY_FRAME_SPEED := 0.020
 const PLAYER_VICTORY_FRAME_COUNT := 64
 const PLAYER_VICTORY_GRID_COLS := 8
+const BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT := 49
+const BLACKSMITH_PLAYER_VICTORY_GRID_COLS := 7
+const BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT := 49
+const BLACKSMITH_PLAYER_DEFEAT_GRID_COLS := 7
 const PLAYER_DEFEAT_FRAME_SPEED := 0.09
 const PLAYER_DEFEAT_FRAME_COUNT := 16
 const PLAYER_DEFEAT_GRID_COLS := 4
@@ -22,6 +26,8 @@ const PLAYER_DEFEAT_64_FRAME_COUNT := 64
 const PLAYER_DEFEAT_64_GRID_COLS := 8
 const PLAYER_DIRECTIONAL_WALK_FRAME_COUNT := 8
 const PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
+const PLAYER_DIRECTIONAL_DASH_FRAME_COUNT := 8
+const PLAYER_DIRECTIONAL_DASH_GRID_COLS := 4
 const PLAYER_IDLE_FRAME_COUNT := 8
 const PLAYER_IDLE_GRID_COLS := 4
 const PLAYER_IDLE_GRID_ROWS := 2
@@ -33,6 +39,8 @@ const BOSS_WALK_FRAME_COUNT := 16
 const BOSS_WALK_GRID_COLS := 4
 const PLAYER_DIRECTIONAL_ATTACK_ANIM_DURATION := 0.72
 const PLAYER_LEGACY_ATTACK_ANIM_DURATION := 0.40
+const BLACKSMITH_THOR_SHIELD_ANIM_SECONDS := 0.70
+const BLACKSMITH_THOR_SHIELD_DEPLOY_FRAME_COUNT := 16
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var commando_weapon_anchor_table: Object = CommandoWeaponAnchorTable.new()
@@ -181,6 +189,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		player_sprite_texture = _get_value(textures, "blacksmith_player_idle_sheet")
 	var player_walk_left_texture: Variant = _get_value(textures, "player_walk_left_texture") if use_smasher_textures else null
 	var player_walk_right_texture: Variant = _get_value(textures, "player_walk_right_texture") if use_smasher_textures else null
+	var player_dash_left_texture: Variant = null
+	var player_dash_right_texture: Variant = null
 	if not use_smasher_textures:
 		if is_commando:
 			player_walk_left_texture = _get_value(textures, "commando_player_walk_left_sheet")
@@ -194,9 +204,15 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		elif is_blacksmith:
 			player_walk_left_texture = _get_value(textures, "blacksmith_player_walk_left_sheet")
 			player_walk_right_texture = _get_value(textures, "blacksmith_player_walk_right_sheet")
+			player_dash_left_texture = _get_value(textures, "blacksmith_player_dash_left_sheet")
+			player_dash_right_texture = _get_value(textures, "blacksmith_player_dash_right_sheet")
 	var has_player_directional_walk_sheet: bool = (use_smasher_textures or is_commando or is_viper or is_optimus or is_blacksmith) and (
 		player_walk_left_texture is Texture2D
 		or player_walk_right_texture is Texture2D
+	)
+	var has_player_directional_dash_sheet: bool = is_blacksmith and (
+		player_dash_left_texture is Texture2D
+		or player_dash_right_texture is Texture2D
 	)
 	_perf_end(perf_logger, "context.actor.textures.player_core", texture_sample_start)
 	texture_sample_start = _perf_begin(perf_logger)
@@ -264,9 +280,9 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		elif is_blacksmith:
 			player_idle_sheet = _get_value(textures, "blacksmith_player_idle_sheet")
 	var has_player_idle_sheet: bool = player_idle_sheet is Texture2D
-	var player_victory_sheet: Variant = _get_value(textures, "player_victory_sheet") if use_smasher_textures or is_viper else null
+	var player_victory_sheet: Variant = _get_value(textures, "player_victory_sheet") if use_smasher_textures or is_viper or is_blacksmith else null
 	var has_player_victory_sheet: bool = player_victory_sheet is Texture2D
-	var player_defeat_sheet: Variant = _get_value(textures, "player_defeat_sheet") if use_smasher_textures or is_viper else null
+	var player_defeat_sheet: Variant = _get_value(textures, "player_defeat_sheet") if use_smasher_textures or is_viper or is_blacksmith else null
 	var has_player_defeat_sheet: bool = player_defeat_sheet is Texture2D
 	var player_wheel_spin_sheet: Variant = _get_value(textures, "player_wheel_spin_sheet") if use_smasher_textures else null
 	var has_player_wheel_spin_sheet: bool = player_wheel_spin_sheet is Texture2D
@@ -282,6 +298,25 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var player_attack_left_sheet: Variant = _get_value(textures, "player_attack_left_sheet") if use_smasher_textures else (_get_value(textures, "viper_player_attack_left_sheet") if is_viper else (_get_value(textures, "optimus_player_attack_left_sheet") if is_optimus else (_get_value(textures, "blacksmith_player_attack_left_sheet") if is_blacksmith else null)))
 	var player_attack_right_sheet: Variant = _get_value(textures, "player_attack_right_sheet") if use_smasher_textures else (_get_value(textures, "viper_player_attack_right_sheet") if is_viper else (_get_value(textures, "optimus_player_attack_right_sheet") if is_optimus else (_get_value(textures, "blacksmith_player_attack_right_sheet") if is_blacksmith else null)))
 	var player_attack_sheet: Variant = _get_value(textures, "player_attack_sheet") if use_smasher_textures else null
+	var blacksmith_thor_shield_deploy_sheet: Variant = _get_value(textures, "blacksmith_player_thor_shield_deploy_sheet") if is_blacksmith else null
+	var has_blacksmith_thor_shield_deploy_sheet: bool = blacksmith_thor_shield_deploy_sheet is Texture2D
+	var blacksmith_thor_shield_stretch_texture: Variant = _get_value(textures, "blacksmith_thor_shield_stretch_texture") if is_blacksmith else null
+	var has_blacksmith_thor_shield_stretch_texture: bool = blacksmith_thor_shield_stretch_texture is Texture2D
+	var blacksmith_thor_shield_open_ratio: float = _get_blacksmith_thor_shield_open_ratio(context)
+	var blacksmith_thor_shield_deploy_active: bool = (
+		is_blacksmith
+		and has_blacksmith_thor_shield_deploy_sheet
+		and (
+			bool(context.get("blacksmith_umbrella_open", false))
+			or bool(context.get("blacksmith_umbrella_retracting", false))
+			or blacksmith_thor_shield_open_ratio > 0.001
+		)
+	)
+	var blacksmith_thor_shield_deploy_frame: int = clamp(
+		int(round(blacksmith_thor_shield_open_ratio * float(BLACKSMITH_THOR_SHIELD_DEPLOY_FRAME_COUNT - 1))),
+		0,
+		BLACKSMITH_THOR_SHIELD_DEPLOY_FRAME_COUNT - 1
+	)
 	var viper_wall_cling_left_sheet: Variant = _get_value(textures, "viper_player_wall_cling_left_sheet") if is_viper else null
 	var viper_wall_cling_right_sheet: Variant = _get_value(textures, "viper_player_wall_cling_right_sheet") if is_viper else null
 	var has_viper_wall_cling_sheet: bool = is_viper and (viper_wall_cling_left_sheet is Texture2D or viper_wall_cling_right_sheet is Texture2D)
@@ -321,8 +356,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		player_attack_left_sheet is Texture2D
 		or player_attack_right_sheet is Texture2D
 	)
-	var player_directional_attack_frame_count: int = 8 if (is_viper or is_optimus or is_blacksmith) else 16
-	var player_directional_attack_grid_rows: int = 2 if (is_viper or is_optimus or is_blacksmith) else 4
+	var player_directional_attack_frame_count: int = 16 if is_blacksmith else (8 if (is_viper or is_optimus) else 16)
+	var player_directional_attack_grid_rows: int = 4 if is_blacksmith else (2 if (is_viper or is_optimus) else 4)
 	var has_player_legacy_attack_sheet: bool = use_smasher_textures and textures.get("player_attack_sheet", null) is Texture2D
 	var _has_player_attack_sheet: bool = has_player_directional_attack_sheet or has_player_legacy_attack_sheet
 	var player_speed: float = float(context.get("player_speed", 0.0))
@@ -392,6 +427,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	)
 	var player_default_draw_size := Vector2(160.0, 160.0)
 	var player_runtime_draw_size: Vector2 = BLACKSMITH_PLAYER_DRAW_SIZE if is_blacksmith else player_default_draw_size
+	var _player_victory_frame_count: int = BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT if is_blacksmith else PLAYER_VICTORY_FRAME_COUNT
+	var _player_victory_grid_cols: int = BLACKSMITH_PLAYER_VICTORY_GRID_COLS if is_blacksmith else PLAYER_VICTORY_GRID_COLS
+	var _player_defeat_frame_count: int = BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT if is_blacksmith else (PLAYER_DEFEAT_64_FRAME_COUNT if is_viper else PLAYER_DEFEAT_FRAME_COUNT)
+	var _player_defeat_grid_cols: int = BLACKSMITH_PLAYER_DEFEAT_GRID_COLS if is_blacksmith else (PLAYER_DEFEAT_64_GRID_COLS if is_viper else PLAYER_DEFEAT_GRID_COLS)
+	var _player_defeat_frame_key := "player_defeat_frame_64" if is_viper else "player_defeat_frame"
 	_perf_end(perf_logger, "context.actor.customization", actor_sample_start)
 
 	actor_sample_start = _perf_begin(perf_logger)
@@ -461,13 +501,17 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_idle_cell_height": 160.0 if has_player_idle_sheet else 120.0,
 		"player_idle_draw_size": player_runtime_draw_size,
 		"player_victory_active": bool(boss_result_context.get("player_victory_active", false)) and has_player_victory_sheet,
-		"player_victory_frame": int(boss_result_context.get("player_victory_frame", 0)),
+		"player_victory_frame": clamp(
+			int(boss_result_context.get("player_victory_frame", 0)),
+			0,
+			max(0, _player_victory_frame_count - 1)
+		),
 		"player_victory_sheet": player_victory_sheet,
 		"player_victory_cell_width": 160.0,
 		"player_victory_cell_height": 160.0,
-		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
-		"player_victory_grid_cols": PLAYER_VICTORY_GRID_COLS,
-		"player_victory_draw_size": Vector2(160.0, 160.0),
+		"player_victory_frame_count": _player_victory_frame_count,
+		"player_victory_grid_cols": _player_victory_grid_cols,
+		"player_victory_draw_size": player_runtime_draw_size,
 		"player_wheel_spin_active": bool(smasher_wheel_context.get("player_wheel_spin_active", false)) and has_player_wheel_spin_sheet,
 		"player_wheel_spin_frame": int(smasher_wheel_context.get("player_wheel_spin_frame", 32)),
 		"player_wheel_spin_sheet": player_wheel_spin_sheet,
@@ -477,19 +521,29 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_wheel_spin_grid_cols": int(smasher_wheel_context.get("player_wheel_spin_grid_cols", PLAYER_VICTORY_GRID_COLS)),
 		"player_wheel_spin_draw_size": smasher_wheel_context.get("player_wheel_spin_draw_size", Vector2(160.0, 160.0)),
 		"player_defeat_active": bool(boss_result_context.get("player_defeat_active", false)) and has_player_defeat_sheet,
-		"player_defeat_frame": int(boss_result_context.get("player_defeat_frame_64", 0)) if is_viper else int(boss_result_context.get("player_defeat_frame", 0)),
+		"player_defeat_frame": clamp(
+			int(boss_result_context.get(_player_defeat_frame_key, 0)),
+			0,
+			max(0, _player_defeat_frame_count - 1)
+		),
 		"player_defeat_sheet": player_defeat_sheet,
 		"player_defeat_cell_width": 160.0,
 		"player_defeat_cell_height": 160.0,
-		"player_defeat_frame_count": PLAYER_DEFEAT_64_FRAME_COUNT if is_viper else PLAYER_DEFEAT_FRAME_COUNT,
-		"player_defeat_grid_cols": PLAYER_DEFEAT_64_GRID_COLS if is_viper else PLAYER_DEFEAT_GRID_COLS,
-		"player_defeat_draw_size": Vector2(160.0, 160.0),
+		"player_defeat_frame_count": _player_defeat_frame_count,
+		"player_defeat_grid_cols": _player_defeat_grid_cols,
+		"player_defeat_draw_size": player_runtime_draw_size if is_blacksmith else Vector2(160.0, 160.0),
 		"player_sprite_frame": animation_context.get("player_sprite_frame", 0),
 		"player_directional_walk_cell_width": 160.0,
 		"player_directional_walk_cell_height": 160.0,
 		"player_directional_walk_frame_count": PLAYER_DIRECTIONAL_WALK_FRAME_COUNT if has_player_directional_walk_sheet else 8,
 		"player_directional_walk_grid_cols": PLAYER_DIRECTIONAL_WALK_GRID_COLS if has_player_directional_walk_sheet else 4,
 		"player_directional_walk_draw_size": player_runtime_draw_size,
+		"has_player_directional_dash_sheet": has_player_directional_dash_sheet,
+		"player_directional_dash_cell_width": 160.0,
+		"player_directional_dash_cell_height": 160.0,
+		"player_directional_dash_frame_count": PLAYER_DIRECTIONAL_DASH_FRAME_COUNT if has_player_directional_dash_sheet else 8,
+		"player_directional_dash_grid_cols": PLAYER_DIRECTIONAL_DASH_GRID_COLS if has_player_directional_dash_sheet else 4,
+		"player_directional_dash_draw_size": player_runtime_draw_size,
 		# Smasher contact-animation state ported from pingfighter.py
 		# (`smasher_swing_intensity`, `smasher_shield_raise_timer`,
 		# `smasher_left_raise_timer`). Renderers can read intensity to scale
@@ -507,6 +561,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_sprite_texture": player_sprite_texture,
 		"player_walk_left_texture": player_walk_left_texture,
 		"player_walk_right_texture": player_walk_right_texture,
+		"player_dash_left_texture": player_dash_left_texture,
+		"player_dash_right_texture": player_dash_right_texture,
 		"player_idle_sprite_texture": player_idle_sprite_texture,
 		"player_hit_sprite_texture": player_hit_sprite_texture,
 		"player_hit_left_strip_texture": player_hit_left_strip_texture,
@@ -514,6 +570,21 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_attack_left_sheet": player_attack_left_sheet,
 		"player_attack_right_sheet": player_attack_right_sheet,
 		"player_attack_sheet": player_attack_sheet,
+		"blacksmith_thor_shield_deploy_sheet": blacksmith_thor_shield_deploy_sheet,
+		"has_blacksmith_thor_shield_deploy_sheet": has_blacksmith_thor_shield_deploy_sheet,
+		"blacksmith_thor_shield_stretch_texture": blacksmith_thor_shield_stretch_texture,
+		"has_blacksmith_thor_shield_stretch_texture": has_blacksmith_thor_shield_stretch_texture,
+		"blacksmith_thor_shield_deploy_active": blacksmith_thor_shield_deploy_active,
+		"blacksmith_thor_shield_deploy_frame": blacksmith_thor_shield_deploy_frame,
+		"blacksmith_thor_shield_deploy_frame_count": BLACKSMITH_THOR_SHIELD_DEPLOY_FRAME_COUNT,
+		"blacksmith_thor_shield_deploy_grid_cols": 4,
+		"blacksmith_thor_shield_deploy_grid_rows": 4,
+		"blacksmith_thor_shield_deploy_cell_width": 160.0,
+		"blacksmith_thor_shield_deploy_cell_height": 160.0,
+		"blacksmith_thor_shield_deploy_draw_size": player_runtime_draw_size,
+		"blacksmith_umbrella_open_ratio": blacksmith_thor_shield_open_ratio,
+		"blacksmith_thor_shield_open_ratio": blacksmith_thor_shield_open_ratio,
+		"blacksmith_umbrella_visual_state": str(context.get("blacksmith_umbrella_visual_state", "closed")),
 		"viper_wall_cling_left_sheet": viper_wall_cling_left_sheet,
 		"viper_wall_cling_right_sheet": viper_wall_cling_right_sheet,
 		"has_viper_wall_cling_sheet": has_viper_wall_cling_sheet,
@@ -726,6 +797,21 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	actor_context.merge(_get_paddle_hologram_context(deps), true)
 	_perf_end(perf_logger, "context.actor.merge", actor_sample_start)
 	return actor_context
+
+
+func _get_blacksmith_thor_shield_open_ratio(context: Dictionary) -> float:
+	if context.has("blacksmith_umbrella_open_ratio"):
+		return clamp(float(context.get("blacksmith_umbrella_open_ratio", 0.0)), 0.0, 1.0)
+	if context.has("blacksmith_thor_shield_open_ratio"):
+		return clamp(float(context.get("blacksmith_thor_shield_open_ratio", 0.0)), 0.0, 1.0)
+	var anim_timer: float = max(0.0, float(context.get("blacksmith_umbrella_anim_timer", 0.0)))
+	if bool(context.get("blacksmith_umbrella_retracting", false)):
+		return clamp(anim_timer / BLACKSMITH_THOR_SHIELD_ANIM_SECONDS, 0.0, 1.0)
+	if bool(context.get("blacksmith_umbrella_open", false)):
+		if anim_timer <= 0.0:
+			return 1.0
+		return clamp(1.0 - anim_timer / BLACKSMITH_THOR_SHIELD_ANIM_SECONDS, 0.0, 1.0)
+	return 0.0
 
 
 func _perf_begin(perf_logger: Object) -> int:

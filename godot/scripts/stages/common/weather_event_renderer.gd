@@ -12,8 +12,11 @@ const LOD_ACTIVE_THRESHOLD := 0.99
 const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
 const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 36
 const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 24
-const WIND_RENDER_PARTICLE_LIMIT_LOD := 18
-const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 12
+# Wind is the cheapest weather effect (one textured rect per particle), so keep it
+# near-full even under render LOD. Decimating wind to ~12 made the flow read as a few
+# blinking streaks ("뚝뚝 끊김") for no measurable perf gain.
+const WIND_RENDER_PARTICLE_LIMIT_LOD := 32
+const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 28
 const FIRE_RENDER_PARTICLE_LIMIT_LOD := 24
 const FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 18
 const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD := 3
@@ -331,7 +334,7 @@ func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2,
 	var particles: Array = _get_particles(weather)
 	var context: Dictionary = _get_weather_context(weather)
 	var particle_start: int = max(0, particles.size() - _get_render_particle_limit(context, effect_lod_scale))
-	var particle_stride: int = _get_particle_render_stride(effect_lod_scale)
+	var particle_stride: int = _get_particle_render_stride_for_context(context, effect_lod_scale)
 	var fire_explosion_drawn := 0
 	var fire_spark_drawn := 0
 	for particle_index in range(particle_start, particles.size()):
@@ -758,6 +761,16 @@ func _get_particle_render_stride(effect_lod_scale: float) -> int:
 	if _is_lod_active(effect_lod_scale):
 		return PARTICLE_RENDER_STRIDE_LOD
 	return 1
+
+
+func _get_particle_render_stride_for_context(context: Dictionary, effect_lod_scale: float) -> int:
+	var weather_type: String = str(context.get("type", ""))
+	if weather_type == "breeze" or weather_type == "gust":
+		# Index-based stride drops a different subset of particles each frame as wind
+		# ribbons spawn and expire, so the sparse wind flow visibly flickers. Wind is
+		# cheap enough to always render every particle (no stride decimation).
+		return 1
+	return _get_particle_render_stride(effect_lod_scale)
 
 
 func _get_sand_polygon_stride(effect_lod_scale: float) -> int:

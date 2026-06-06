@@ -121,6 +121,11 @@ class FakeOwner:
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_player_speed_bonus_pct := 0.0
 	var ringpet_player_speed_bonus_pct := 0.0
+	var lingpet_starpoint_tracking_chance_pct := 0.0
+	var ringpet_starpoint_tracking_chance_pct := 0.0
+	var lingpet_ring_dash_chance_pct := 0.0
+	var ringpet_ring_dash_chance_pct := 0.0
+	var lingpet_ring_dash_force_roll_pct := -1.0
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -230,6 +235,11 @@ class FakeBattleOwner:
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_player_speed_bonus_pct := 0.0
 	var ringpet_player_speed_bonus_pct := 0.0
+	var lingpet_starpoint_tracking_chance_pct := 0.0
+	var ringpet_starpoint_tracking_chance_pct := 0.0
+	var lingpet_ring_dash_chance_pct := 0.0
+	var ringpet_ring_dash_chance_pct := 0.0
+	var lingpet_ring_dash_force_roll_pct := -1.0
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -366,6 +376,17 @@ class FakeRegistry:
 		return null
 
 
+class FakeCutinHost:
+	extends RefCounted
+
+	var prewarm_calls: Array[String] = []
+	var done_after := 2
+
+	func prewarm_pet_assets_step(pet_id: String) -> bool:
+		prewarm_calls.append(pet_id)
+		return prewarm_calls.size() >= done_after
+
+
 func _init() -> void:
 	_verify_registry_and_frame_wiring()
 	_verify_lingpet_catalog_random_hatch_scaffold()
@@ -375,6 +396,7 @@ func _init() -> void:
 	_verify_egg_hit_uses_player_paddle_reflection()
 	_verify_one_ball_hit_hatches_unidentified_egg()
 	_verify_acquire_cutin_triggers_on_hatch()
+	_verify_acquire_cutin_assets_prewarm_during_egg_phase()
 	_verify_owned_maribo_is_kept_as_companion()
 	_verify_lingpet_battle_slot_model()
 	_verify_companion_visual_and_pillar_card()
@@ -387,6 +409,9 @@ func _init() -> void:
 	_verify_companion_hit_gauge_passive()
 	_verify_afterglow_leak_passive()
 	_verify_tailwind_steps_passive()
+	_verify_starlight_tracking_passive()
+	_verify_ring_dash_passive()
+	_verify_ring_dash_single_roll_per_descent()
 	_verify_companion_paddle_hit_width()
 	_verify_companion_guards_dalji_whip()
 	_verify_companion_skill_card_hydro_sphere()
@@ -398,6 +423,8 @@ func _init() -> void:
 	_verify_battle_lifecycle_restores_lingpet_save()
 	_verify_maribo_companion_gauge_bonus()
 	_verify_maribo_defense_rate_intercepts_descending_ball()
+	_verify_maribo_defense_actually_blocks_reachable_ball()
+	_verify_maribo_defense_anticipates_moderate_distance_ball()
 	_verify_lunabi_free_flight_profile()
 	_verify_lunabi_headbutt_skill()
 	_verify_companion_click_reaction()
@@ -481,6 +508,11 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_hit_state.gd"), "companion body-hit state module should exist")
 	_expect(runtime_source.find("lingpet_afterglow_leak_state.gd") >= 0, "egg runtime should delegate the Afterglow Leak residue passive to a focused state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_afterglow_leak_state.gd"), "Afterglow Leak passive state module should exist")
+	_expect(runtime_source.find("lingpet_starlight_tracking_state.gd") >= 0, "egg runtime should delegate the Starlight Tracking auto-collection passive to a focused state module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_starlight_tracking_state.gd"), "Starlight Tracking passive state module should exist")
+	_expect(FileAccess.file_exists("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd"), "starpoint stages should share a lingpet Starlight Tracking bridge")
+	_expect(runtime_source.find("lingpet_ring_dash_state.gd") >= 0, "egg runtime should delegate the Ring Dash emergency guard passive to a focused state module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_ring_dash_state.gd"), "Ring Dash passive state module should exist")
 	_expect(runtime_source.find("lingpet_companion_motion_state.gd") >= 0, "egg runtime should delegate companion patrol/defense motion to the motion-state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_motion_state.gd"), "companion motion-state module should exist")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
@@ -616,6 +648,13 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(game_audio_source.find("LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Milkring click-reaction voice sound path")
 	_expect(game_audio_source.find("LingpetMilkringClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Milkring click-reaction voice")
 	_expect(game_audio_source.find("_ensure_lingpet_milkring_click_voice_sfx") >= 0, "GameAudio should lazily recover the Milkring click-reaction voice player if setup did not create it")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"), "Red Dragon (Farukiras) should ship its dedicated click-reaction voice in the lingpet sound asset folder")
+	var red_dragon_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3")
+	_expect(red_dragon_click_voice_stream != null and red_dragon_click_voice_stream.get_length() > 0.1, "Red Dragon click-reaction voice should load as a playable Godot AudioStream")
+	_expect(game_audio_source.find("LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Red Dragon click-reaction voice sound path")
+	_expect(game_audio_source.find("LingpetRedDragonClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Red Dragon click-reaction voice")
+	_expect(game_audio_source.find("_ensure_lingpet_red_dragon_click_voice_sfx") >= 0, "GameAudio should lazily recover the Red Dragon click-reaction voice player if setup did not create it")
+	_expect(game_audio_source.find("normalized_pet_id == \"red_dragon\"") >= 0, "GameAudio click-reaction dispatch should route the red_dragon pet id to its dedicated voice")
 
 
 func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
@@ -693,7 +732,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(maribo_active_ids.has("maribo_hydro_sphere") and maribo_active_ids.has("maribo_bubble_trap"), "Maribo should expose Hydro Sphere plus Bubble Trap in its active-skill pool")
 	var maribo_passive_pool: Array[Dictionary] = LingpetCatalog.get_passive_skill_pool("maribo")
 	var maribo_passive_ids: Array[String] = _skill_ids(maribo_passive_pool)
-	_expect(maribo_passive_pool.size() == 3 and maribo_passive_ids.has("lingpet_resonance_boost") and maribo_passive_ids.has("lingpet_afterglow_leak") and maribo_passive_ids.has("lingpet_tailwind_steps"), "Maribo should expose the three approved shared passives for now")
+	_expect(maribo_passive_pool.size() == 5 and maribo_passive_ids.has("lingpet_resonance_boost") and maribo_passive_ids.has("lingpet_afterglow_leak") and maribo_passive_ids.has("lingpet_tailwind_steps") and maribo_passive_ids.has("lingpet_starlight_tracking") and maribo_passive_ids.has("lingpet_ring_dash"), "Maribo should expose the five approved shared passives")
 	var maribo_loadout: Dictionary = LingpetCatalog.build_default_loadout("maribo")
 	_expect(str(maribo_loadout.get("active_skill_id", "")) == "maribo_hydro_sphere", "default Maribo loadout should keep Hydro Sphere for legacy owned Maribo")
 	_expect(str(maribo_loadout.get("passive_skill_id", "")) == "lingpet_resonance_boost", "default Maribo loadout should keep Resonance Boost for legacy owned Maribo")
@@ -895,7 +934,11 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_visual_texture_cache.gd"), "lingpet visual texture cache module should exist")
 	var visual_cache_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 	_expect(visual_cache_source.find("LingpetCatalog.get_visual_path") >= 0, "visual cache should query catalog visual paths instead of hardcoding only Maribo paths")
-	_expect(visual_cache_source.find("ProjectResourceLoader.load_texture") >= 0, "visual cache should route texture loads through the shared project resource loader")
+	_expect(
+		visual_cache_source.find("ProjectResourceLoader.load_texture") >= 0
+			or visual_cache_source.find("ProjectResourceLoader.load_imported_texture") >= 0,
+		"visual cache should route texture loads through the shared project resource loader"
+	)
 
 
 func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
@@ -1238,6 +1281,35 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	_expect(not bool(owned_runtime.is_acquire_cutin_active()), "adopting an already-owned Maribo should not replay the acquisition cut-in")
 
 
+func _verify_acquire_cutin_assets_prewarm_during_egg_phase() -> void:
+	# The acquire cut-in reveal is only LingpetAcquireCutinState.REVEAL_SECONDS long,
+	# so a cold draw-time stream of the heavy 8192px+ Live2D sheets cannot always
+	# finish before the reveal ends -- the cut-in then falls back to the static 원화
+	# still. The STATE_EGG update must drive the overlay host's incremental prewarm
+	# during the calm egg-wait frames so the sheets are cached by hatch time.
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	_expect(str(owner.lingpet_state) == "egg", "fresh junior-league owner should spawn a hatch egg before hatching")
+	var egg_pet_id := str(runtime.get("_pet_id"))
+	_expect(egg_pet_id != "", "egg phase should resolve a pending hatch pet id to prewarm the cut-in for")
+
+	var host := FakeCutinHost.new()
+	host.done_after = 2
+	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
+
+	# Keep the ball away from the egg so it never hatches; we only exercise the
+	# STATE_EGG pre-stream window across multiple frames.
+	owner.ball_active = false
+	for _i in range(5):
+		runtime.update(0.016, owner, registry)
+
+	_expect(str(owner.lingpet_state) == "egg", "egg should stay unhatched while the ball never reaches it")
+	_expect(host.prewarm_calls.size() == 2, "egg-phase update should drive the cut-in host prewarm until it reports done, then stop re-driving it")
+	for raw_called_pet_id in host.prewarm_calls:
+		_expect(str(raw_called_pet_id) == egg_pet_id, "egg-phase cut-in prewarm should target the pending hatch pet id")
+
+
 func _verify_owned_maribo_is_kept_as_companion() -> void:
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
@@ -1333,6 +1405,7 @@ func _verify_companion_visual_and_pillar_card() -> void:
 	var moved_pos: Vector2 = owner.lingpet_companion_pos
 	_expect(absf(moved_pos.y - expected_lane_y) <= 1.0, "Maribo companion should stay on the player-height patrol lane")
 	_expect(absf(moved_pos.x - first_pos.x) > 1.0, "Maribo companion should patrol independently instead of attaching to the player side")
+	_expect(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()) > 0.0, "Maribo walk animation cadence should be driven by real patrol movement")
 	_expect(absf(moved_pos.x - (owner.player_pos.x + owner.player_paddle_width * 0.5)) > 20.0, "Maribo companion should not snap to the paddle center after player movement")
 	var snapshot: Dictionary = runtime.get_save_snapshot()
 	_expect(snapshot.get("companion_pos", Vector2.ZERO) is Vector2, "save snapshot should keep companion visual position")
@@ -1603,6 +1676,224 @@ func _verify_tailwind_steps_passive() -> void:
 	var passive_spec: Dictionary = specs[1] as Dictionary
 	_expect(str(passive_spec.get("id", "")) == "lingpet_tailwind_steps", "Tailwind Steps panel spec should keep the passive id")
 	_expect(str(passive_spec.get("subtitle", "")).find("이동") >= 0, "Tailwind Steps passive subtitle should explain the movement-speed bonus")
+
+
+func _verify_starlight_tracking_passive() -> void:
+	var passive_lv1 := LingpetCatalog.get_passive_skill("maribo", "lingpet_starlight_tracking", 1)
+	var passive_lv5 := LingpetCatalog.get_passive_skill("maribo", "lingpet_starlight_tracking", 5)
+	_expect(str(passive_lv1.get("name", "")) == "별빛 추적", "shared passive catalog should expose the agreed Starlight Tracking Korean name")
+	_expect(is_equal_approx(float(passive_lv1.get("starpoint_tracking_chance_pct", 0.0)), 20.0), "Starlight Tracking Lv.1 should start at a 20 percent drop-trigger chance")
+	_expect(is_equal_approx(float(passive_lv5.get("starpoint_tracking_chance_pct", 0.0)), 60.0), "Starlight Tracking Lv.5 should scale to a 60 percent drop-trigger chance")
+	_expect(float(passive_lv5.get("starpoint_tracking_chase_speed", 0.0)) > float(passive_lv1.get("starpoint_tracking_chase_speed", 0.0)), "Starlight Tracking chase speed should scale by passive level")
+
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var stage1_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_balloon_event.gd")
+	var stage2_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
+	var stage3_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+	var stage4_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_bird_event.gd")
+	_expect(runtime_source.find("update_starlight_tracking_for_starpoint_drop") >= 0, "lingpet runtime should expose a starpoint-drop tracking hook")
+	_expect(stage1_source.find("LingpetStarlightTrackingBridge.update_drop") >= 0, "Stage 1 starpoint drops should offer Starlight Tracking collection")
+	_expect(stage2_source.find("LingpetStarlightTrackingBridge.update_drop") >= 0, "Stage 2 starpoint drops should offer Starlight Tracking collection")
+	_expect(stage3_source.find("LingpetStarlightTrackingBridge.update_drop") >= 0, "Stage 3 starpoint drops should offer Starlight Tracking collection")
+	_expect(stage4_source.find("LingpetStarlightTrackingBridge.update_drop") >= 0, "Stage 4 starpoint drops should offer Starlight Tracking collection")
+
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "debug loadout should equip Starlight Tracking Lv.5 for a focused passive smoke")
+	var snapshot: Dictionary = runtime.get_snapshot()
+	_expect(is_equal_approx(float(snapshot.get("companion_starpoint_tracking_chance_pct", 0.0)), 60.0), "runtime snapshot should expose Starlight Tracking chance for character-info")
+	_expect(is_equal_approx(float(owner.lingpet_starpoint_tracking_chance_pct), 60.0), "owner should publish the lingpet starpoint tracking chance")
+	_expect(is_equal_approx(float(owner.ringpet_starpoint_tracking_chance_pct), 60.0), "owner should publish the ringpet starpoint tracking chance alias")
+	var panel: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(panel, Color.WHITE)
+	_expect(specs.size() >= 2, "Starlight Tracking panel should still expose active and passive skill specs")
+	var passive_spec: Dictionary = specs[1] as Dictionary
+	_expect(str(passive_spec.get("id", "")) == "lingpet_starlight_tracking", "Starlight Tracking panel spec should keep the passive id")
+	_expect(str(passive_spec.get("subtitle", "")).find("추적") >= 0, "Starlight Tracking passive subtitle should explain the drop-trigger chance")
+
+	var companion_pos: Vector2 = owner.lingpet_companion_pos
+	var close_drop := _make_starpoint_drop(companion_pos + Vector2(8.0, 0.0), 0.0)
+	owner.player_pos = companion_pos + Vector2(116.0, 0.0) - Vector2(owner.player_paddle_width, owner.player_paddle_height) * 0.5
+	var close_context := _starpoint_delivery_context(owner)
+	var close_result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.0, close_context)
+	_expect(bool(close_result.get("picked_up", false)) and not bool(close_result.get("delivered", false)), "Starlight Tracking should pick up a successfully claimed nearby starpoint without granting it immediately")
+	_expect(bool(close_result.get("holding", false)), "Starlight Tracking should pause briefly after picking up a starpoint")
+	_expect(int(runtime.get_starlight_tracking_trigger_count_for_tests()) == 0, "Starlight Tracking should not count the reward before delivering the starpoint to the player")
+	var close_hold_result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.30, close_context)
+	_expect(bool(close_hold_result.get("holding", false)) and not bool(close_hold_result.get("delivered", false)), "Starlight Tracking should still hesitate during the one-second pickup hold")
+	_expect(int(runtime.get_starlight_tracking_trigger_count_for_tests()) == 0, "Starlight Tracking should not count the reward while the companion is hesitating")
+	var close_carry_result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.70, close_context)
+	_expect(not bool(close_carry_result.get("holding", true)) and not bool(close_carry_result.get("delivered", false)), "Starlight Tracking should start carrying only after the pickup hold finishes")
+	var close_delivery_result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.30, close_context)
+	_expect(bool(close_delivery_result.get("delivered", false)), "Starlight Tracking should grant the starpoint only after the companion carries it to the player")
+	_expect(int(runtime.get_starlight_tracking_trigger_count_for_tests()) == 1, "Starlight Tracking should count successful deliveries")
+
+	var owner2 := FakeOwner.new()
+	var runtime2: Object = LingpetEggRuntime.new()
+	_expect(runtime2.debug_grant_and_activate_pet("maribo", owner2, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 1), "second debug loadout should equip Starlight Tracking Lv.1 for a failed-roll smoke")
+	var failed_drop := _make_starpoint_drop(owner2.lingpet_companion_pos + Vector2(8.0, 0.0), 99.0)
+	var failed_result: Dictionary = runtime2.update_starlight_tracking_for_starpoint_drop(failed_drop, 0.0, _starpoint_delivery_context(owner2))
+	_expect(not bool(failed_result.get("claimed", false)), "Starlight Tracking should not claim a drop when its spawn roll fails")
+	_expect(bool(failed_drop.get("lingpet_starlight_tracking_roll_done", false)), "Starlight Tracking should roll each starpoint drop only once")
+
+	var owner3 := FakeOwner.new()
+	var runtime3: Object = LingpetEggRuntime.new()
+	_expect(runtime3.debug_grant_and_activate_pet("maribo", owner3, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "third debug loadout should equip Starlight Tracking Lv.5 for a chase smoke")
+	var far_target := owner3.lingpet_companion_pos + Vector2(160.0, 0.0)
+	var far_drop := _make_starpoint_drop(far_target, 0.0)
+	owner3.player_pos = owner3.lingpet_companion_pos + Vector2(-120.0, 0.0) - Vector2(owner3.player_paddle_width, owner3.player_paddle_height) * 0.5
+	var far_context := _starpoint_delivery_context(owner3)
+	var far_result: Dictionary = runtime3.update_starlight_tracking_for_starpoint_drop(far_drop, 0.10, far_context)
+	_expect(bool(far_result.get("claimed", false)) and not bool(far_result.get("picked_up", false)), "Starlight Tracking should chase a successful far starpoint before picking it up")
+	_expect(bool(runtime3.is_starlight_tracking_active_for_tests()), "Starlight Tracking should keep a companion-position override while chasing")
+	var chase_pos_value: Variant = far_result.get("companion_pos", Vector2.ZERO)
+	var chase_pos: Vector2 = chase_pos_value if chase_pos_value is Vector2 else Vector2.ZERO
+	_expect(chase_pos != Vector2.ZERO and chase_pos.distance_to(far_target) < owner3.lingpet_companion_pos.distance_to(far_target), "Starlight Tracking should move the companion toward the starpoint")
+	var pickup_result: Dictionary = runtime3.update_starlight_tracking_for_starpoint_drop(far_drop, 0.20, far_context)
+	_expect(bool(pickup_result.get("picked_up", false)) and bool(pickup_result.get("holding", false)) and not bool(pickup_result.get("delivered", false)), "Starlight Tracking should hold the far starpoint briefly after the companion reaches it")
+	var far_hold_result: Dictionary = runtime3.update_starlight_tracking_for_starpoint_drop(far_drop, 0.40, far_context)
+	_expect(bool(far_hold_result.get("holding", false)) and not bool(far_hold_result.get("delivered", false)), "Starlight Tracking should not deliver a far pickup before the one-second hold is over")
+	var far_carry_result: Dictionary = runtime3.update_starlight_tracking_for_starpoint_drop(far_drop, 0.60, far_context)
+	_expect(not bool(far_carry_result.get("holding", true)) and not bool(far_carry_result.get("delivered", false)), "Starlight Tracking should leave the pickup hold after one second")
+	var deliver_result: Dictionary = runtime3.update_starlight_tracking_for_starpoint_drop(far_drop, 0.40, far_context)
+	_expect(bool(deliver_result.get("delivered", false)), "Starlight Tracking should deliver the carried far starpoint to the player before granting it")
+
+
+func _verify_ring_dash_passive() -> void:
+	var passive_lv1 := LingpetCatalog.get_passive_skill("maribo", "lingpet_ring_dash", 1)
+	var passive_lv5 := LingpetCatalog.get_passive_skill("maribo", "lingpet_ring_dash", 5)
+	_expect(str(passive_lv1.get("name", "")) == "링크포트", "shared passive catalog should expose the agreed Linkport Korean name")
+	_expect(is_equal_approx(float(passive_lv1.get("ring_dash_chance_pct", 0.0)), 25.0), "Ring Dash Lv.1 should start as a rare emergency guard")
+	_expect(is_equal_approx(float(passive_lv5.get("ring_dash_chance_pct", 0.0)), 55.0), "Ring Dash Lv.5 should improve the emergency guard chance")
+	_expect(float(passive_lv5.get("ring_dash_reappear_delay_seconds", 99.0)) < float(passive_lv1.get("ring_dash_reappear_delay_seconds", 0.0)), "Ring Dash reappear delay should shrink by passive level")
+	_expect(float(passive_lv5.get("ring_dash_cooldown_seconds", 99.0)) < float(passive_lv1.get("ring_dash_cooldown_seconds", 0.0)), "Ring Dash cooldown should shrink by passive level")
+	_expect(is_equal_approx(float(passive_lv5.get("ring_dash_lookahead_gap", 0.0)), 120.0), "Linkport should only scan the lower emergency band near the player paddle")
+
+	var owner := FakeOwner.new()
+	owner.lingpet_ring_dash_force_roll_pct = 0.0
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "debug loadout should equip Ring Dash Lv.5 for a focused passive smoke")
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
+	owner.player_pos = Vector2(240.0, owner.player_pos.y)
+	owner.player_paddle_width = 170.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(640.0, owner.player_pos.y - 180.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.12, owner, registry)
+	_expect(not bool(runtime.is_ring_dash_active_for_tests()), "Linkport should wait while the descending ball is still well above the player-side emergency line")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 0, "Linkport should not spend a trigger before the ball reaches the lower emergency band")
+	owner.ball_pos = Vector2(640.0, owner.player_pos.y - 40.0)
+	runtime.update(0.12, owner, registry)
+	var dash_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(bool(runtime.is_ring_dash_active_for_tests()), "Ring Dash should start when the player cannot block and the companion is far from the predicted ball")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 1, "Ring Dash should count emergency dash starts")
+	_expect(is_equal_approx(owner.lingpet_companion_pos.x, 640.0), "Ring Dash should teleport the companion directly to the predicted ball X instead of sliding across the field")
+	_expect(bool(dash_snapshot.get("ring_dash_active", false)), "runtime snapshot should expose the active Ring Dash state")
+	_expect(bool(dash_snapshot.get("ring_dash_visual_hidden", false)), "Ring Dash should briefly hide the companion body for a vanish/reappear beat")
+	_expect(bool(runtime.is_ring_dash_visual_hidden_for_tests()), "Ring Dash visual-hidden test hook should expose the vanish beat")
+	_expect(bool(runtime.is_ring_dash_vfx_active_for_tests()), "Ring Dash should fire the Linkport teleport burst VFX on dash start for a visible 전이 cue")
+	_expect(is_equal_approx(float(dash_snapshot.get("companion_ring_dash_chance_pct", 0.0)), 55.0), "runtime snapshot should expose Ring Dash chance for character-info")
+	_expect(is_equal_approx(float(owner.lingpet_ring_dash_chance_pct), 55.0), "owner should publish the lingpet Ring Dash chance")
+	_expect(is_equal_approx(float(owner.ringpet_ring_dash_chance_pct), 55.0), "owner should publish the ringpet Ring Dash chance alias")
+	runtime.update(0.05, owner, registry)
+	var reappear_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(not bool(reappear_snapshot.get("ring_dash_visual_hidden", true)), "Ring Dash should reveal the companion again after the short teleport vanish")
+	_expect(is_equal_approx(owner.lingpet_companion_pos.x, 640.0), "Ring Dash should hold the reappeared companion at the intercept point instead of drifting back and forth")
+
+	var panel: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(panel, Color.WHITE)
+	_expect(specs.size() >= 2, "Ring Dash panel should still expose active and passive skill specs")
+	var passive_spec: Dictionary = specs[1] as Dictionary
+	_expect(str(passive_spec.get("id", "")) == "lingpet_ring_dash", "Ring Dash panel spec should keep the passive id")
+	_expect(str(passive_spec.get("subtitle", "")).find("전이") >= 0, "Linkport passive subtitle should explain the emergency teleport chance")
+
+	var owner2 := FakeOwner.new()
+	owner2.lingpet_ring_dash_force_roll_pct = 0.0
+	var runtime2: Object = LingpetEggRuntime.new()
+	_expect(runtime2.debug_grant_and_activate_pet("maribo", owner2, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "second debug loadout should equip Ring Dash Lv.5 for player-block gating")
+	var start_pos2: Vector2 = owner2.lingpet_companion_pos
+	runtime2.configure_companion_motion_for_tests(Vector2(120.0, start_pos2.y), 2, 0.0, false)
+	owner2.player_pos = Vector2(560.0, owner2.player_pos.y)
+	owner2.player_paddle_width = 170.0
+	owner2.ball_active = true
+	owner2.ball_pos = Vector2(640.0, owner2.player_pos.y - 40.0)
+	owner2.ball_vel = Vector2(0.0, 12.0)
+	runtime2.update(0.12, owner2, registry)
+	_expect(not bool(runtime2.is_ring_dash_active_for_tests()), "Ring Dash should stay idle when the player paddle can still block the predicted ball")
+	_expect(int(runtime2.get_ring_dash_trigger_count_for_tests()) == 0, "Ring Dash should not spend a trigger on player-blockable balls")
+
+	var owner3 := FakeOwner.new()
+	owner3.lingpet_ring_dash_force_roll_pct = 0.0
+	var runtime3: Object = LingpetEggRuntime.new()
+	_expect(runtime3.debug_grant_and_activate_pet("lunabi", owner3, false, "lunabi_headbutt", "lingpet_ring_dash", registry, 1, 5), "flight companion debug loadout should equip Linkport Lv.5")
+	var hidden_pos := Vector2(-120.0, 245.0)
+	runtime3.configure_companion_sortie_hidden_for_tests(hidden_pos, 2, 8.0)
+	owner3.player_pos = Vector2(240.0, owner3.player_pos.y)
+	owner3.player_paddle_width = 170.0
+	owner3.ball_active = true
+	owner3.ball_pos = Vector2(640.0, owner3.player_pos.y - 13.0)
+	owner3.ball_vel = Vector2(0.0, 12.0)
+	runtime3.update(0.12, owner3, registry)
+	var flight_hidden_dash: Dictionary = runtime3.get_snapshot()
+	_expect(bool(flight_hidden_dash.get("ring_dash_active", false)), "Linkport should start even if a sortie-flight companion was offscreen")
+	_expect(bool(flight_hidden_dash.get("ring_dash_visual_hidden", false)), "Linkport should keep the flight companion hidden for the vanish beat")
+	_expect(int(flight_hidden_dash.get("companion_contact_count", 0)) == 0, "Linkport should not let an invisible flight companion hit the ball before it reappears")
+	runtime3.update(0.05, owner3, registry)
+	var flight_visible_dash: Dictionary = runtime3.get_snapshot()
+	_expect(int(flight_visible_dash.get("companion_contact_count", 0)) == 1, "Linkport should hit after the flight companion has reappeared")
+	_expect(float(owner3.ball_vel.y) < 0.0, "Linkport hit should bounce the descending ball upward after reappearing")
+	runtime3.update(0.05, owner3, registry)
+	var flight_resume: Dictionary = runtime3.get_snapshot()
+	_expect(not bool(flight_resume.get("ring_dash_active", false)), "Linkport should clear once the guarded ball has bounced away")
+	_expect(bool(flight_resume.get("companion_visible", false)), "A sortie-flight companion should stay visible after Linkport instead of disappearing again")
+	_expect(str(flight_resume.get("companion_sortie_phase", "")) == "loiter", "A sortie-flight companion should resume normal visible roaming after Linkport")
+	var resumed_pos: Vector2 = flight_resume.get("companion_pos", Vector2.ZERO)
+	_expect(resumed_pos.x >= 0.0 and resumed_pos.x <= 760.0 and resumed_pos.y >= 0.0 and resumed_pos.y <= 750.0, "A sortie-flight companion should keep an on-screen body position after Linkport")
+
+
+func _verify_ring_dash_single_roll_per_descent() -> void:
+	# Linkport must roll ONCE per descent, not once per frame. Without the per-descent
+	# lock the per-frame roll compounds (1 - (1 - p)^N over the frames the ball spends
+	# in the guard band), so even Lv.1's 12% saturates toward certainty and every level
+	# feels identical. A failed roll must NOT get a second chance while the same
+	# descending ball stays inside the band.
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_ring_dash_force_roll_pct = 100.0  # roll 100 > Lv.5 chance 55 -> guaranteed fail
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "single-roll smoke should equip Ring Dash Lv.5")
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
+	owner.player_pos = Vector2(240.0, owner.player_pos.y)
+	owner.player_paddle_width = 170.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(640.0, owner.player_pos.y - 40.0)  # inside the lower emergency band
+	owner.ball_vel = Vector2(0.0, 12.0)  # descending toward the player floor
+
+	runtime.update(0.05, owner, registry)
+	_expect(not bool(runtime.is_ring_dash_active_for_tests()), "a failed Linkport roll should not trigger the dash")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 0, "a failed Linkport roll should spend no trigger")
+	_expect(bool(runtime.get_snapshot().get("ring_dash_rolled_this_descent", false)), "a Linkport roll should lock further rolls for the current descent")
+
+	# Same descent, now make the next roll a guaranteed success. The per-descent lock
+	# must suppress the re-roll, so the dash still must NOT fire this frame.
+	owner.lingpet_ring_dash_force_roll_pct = 0.0  # would succeed if a re-roll happened
+	runtime.update(0.05, owner, registry)
+	_expect(not bool(runtime.is_ring_dash_active_for_tests()), "Linkport must not re-roll within the same descent even when the next roll would succeed")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 0, "Linkport must spend exactly one roll per descent")
+
+	# A genuinely new descent (ball bounced upward, then falls again) re-arms the roll.
+	owner.ball_vel = Vector2(0.0, -8.0)  # bounced upward -> the opportunity ends, lock clears
+	runtime.update(0.05, owner, registry)
+	_expect(not bool(runtime.get_snapshot().get("ring_dash_rolled_this_descent", true)), "a non-descending ball should clear the Linkport descent lock")
+	owner.ball_pos = Vector2(640.0, owner.player_pos.y - 40.0)
+	owner.ball_vel = Vector2(0.0, 12.0)  # fresh descent into the band
+	runtime.update(0.05, owner, registry)
+	_expect(bool(runtime.is_ring_dash_active_for_tests()), "a fresh descent should re-arm the single Linkport roll")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 1, "the fresh descent should produce exactly one successful trigger")
 
 
 func _verify_companion_strike_anticipates_contact() -> void:
@@ -2049,23 +2340,155 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 
 
 func _verify_maribo_defense_rate_intercepts_descending_ball() -> void:
+	# Defense is a LOCAL predictive guard with three gates: (1) the PLAYER cannot
+	# reach the ball, (2) it falls NEAR the lingpet (reachable), (3) the roll passes.
+	# It aims at the PREDICTED landing X. FakeOwner's player paddle covers ~x[249,511]
+	# (pos 263.75, width 232.5, ball r 14.3), so x=650 is a ball the player can't
+	# block and x=420 is one the player CAN block.
+	# --- near but PLAYER CAN block: must NOT arm (a guard the player could make is
+	#     pointless) -----------------------------------------------------------------
+	var block_owner := FakeOwner.new()
+	block_owner.lingpet_owned_pet_ids = ["maribo"]
+	var block_runtime: Object = LingpetEggRuntime.new()
+	block_runtime.update(0.0, block_owner)
+	var block_start: Vector2 = block_owner.lingpet_companion_pos
+	block_runtime.configure_companion_motion_for_tests(Vector2(340.0, block_start.y), 2, 0.0, false)
+	block_owner.ball_active = true
+	block_owner.ball_pos = Vector2(420.0, block_start.y - 300.0)  # near lingpet, but inside player reach
+	block_owner.ball_vel = Vector2(0.0, 12.0)
+	block_runtime.update(0.05, block_owner)
+	_expect(not bool(block_owner.lingpet_companion_defense_intercept_active), "defense must NOT arm for a near ball the PLAYER can still block")
+
+	# --- near AND player CANNOT block: arms and aims at the predicted landing X ----
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner)
 	var start_pos: Vector2 = owner.lingpet_companion_pos
-	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
+	runtime.configure_companion_motion_for_tests(Vector2(570.0, start_pos.y), 2, 0.0, false)
 	owner.ball_active = true
-	owner.ball_pos = Vector2(520.0, start_pos.y - 230.0)
+	owner.ball_pos = Vector2(650.0, start_pos.y - 300.0)  # 80px aside, beyond player reach
 	owner.ball_vel = Vector2(0.0, 12.0)
-	runtime.update(0.50, owner)
-	_expect(bool(owner.lingpet_companion_defense_intercept_active), "Maribo defense rate should sometimes arm an intercept on a descending ball")
-	_expect(owner.lingpet_companion_pos.x > 170.0, "armed Maribo defense intercept should move toward the predicted ball X")
-	_expect(owner.lingpet_companion_defense_intercept_target_x > owner.lingpet_companion_pos.x, "defense target should stay ahead of the companion while chasing")
+	runtime.update(0.05, owner)
+	_expect(bool(owner.lingpet_companion_defense_intercept_active), "defense should arm for a near ball the player cannot block")
+	_expect(owner.lingpet_companion_pos.x > 570.0, "an armed local guard should start moving toward the predicted ball X")
+	_expect(absf(float(owner.lingpet_companion_defense_intercept_target_x) - 650.0) <= 8.0, "the guard should aim at the predicted landing X")
 
 	owner.ball_active = false
 	runtime.update(0.10, owner)
-	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "Maribo defense intercept should clear once the ball is no longer active")
+	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "defense intercept should clear once the ball is no longer active")
+
+	# --- predictive lead: a horizontally drifting ball -> target LEADS its current X
+	var lead_owner := FakeOwner.new()
+	lead_owner.lingpet_owned_pet_ids = ["maribo"]
+	var lead_runtime: Object = LingpetEggRuntime.new()
+	lead_runtime.update(0.0, lead_owner)
+	var lead_start: Vector2 = lead_owner.lingpet_companion_pos
+	lead_runtime.configure_companion_motion_for_tests(Vector2(620.0, lead_start.y), 2, 0.0, false)
+	lead_owner.ball_active = true
+	lead_owner.ball_pos = Vector2(620.0, lead_start.y - 120.0)  # beyond player reach
+	lead_owner.ball_vel = Vector2(3.0, 12.0)  # drifting right while descending
+	lead_runtime.update(0.05, lead_owner)
+	_expect(bool(lead_owner.lingpet_companion_defense_intercept_active), "defense should arm for a near drifting ball the player cannot block")
+	_expect(float(lead_owner.lingpet_companion_defense_intercept_target_x) > 620.0, "predictive guard target should LEAD a rightward-drifting ball, not aim at its current X")
+
+	# --- far ball: out of the local guard zone, must NOT arm (no field sprint) -----
+	var far_owner := FakeOwner.new()
+	far_owner.lingpet_owned_pet_ids = ["maribo"]
+	var far_runtime: Object = LingpetEggRuntime.new()
+	far_runtime.update(0.0, far_owner)
+	var far_start: Vector2 = far_owner.lingpet_companion_pos
+	far_runtime.configure_companion_motion_for_tests(Vector2(120.0, far_start.y), 2, 0.0, false)
+	far_owner.ball_active = true
+	far_owner.ball_pos = Vector2(700.0, far_start.y - 150.0)  # player can't block AND 580px from lingpet
+	far_owner.ball_vel = Vector2(0.0, 12.0)
+	far_runtime.update(0.05, far_owner)
+	_expect(not bool(far_owner.lingpet_companion_defense_intercept_active), "defense must NOT arm for a far ball outside the lingpet's local guard zone")
+
+
+func _verify_maribo_defense_actually_blocks_reachable_ball() -> void:
+	# A LOCAL guard that arms for a NEAR ball must actually GUARD it: the ball is
+	# bounced upward (ball_vel.y < 0), not merely leaned toward. (Far balls never arm
+	# -- that zone gate is covered by _verify_maribo_defense_rate_intercepts_descending_ball.)
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	# Maribo auto-casts Hydro Sphere with a ~1s wind-up that FREEZES companion motion
+	# (windup_active -> freeze_motion). Let the initial cast LAUNCH (needs an active
+	# ball) so it enters its 40s cooldown and stops re-winding; then the guard moves
+	# freely. Ball is parked away from the lane so it triggers nothing during warm-up.
+	owner.ball_active = true
+	owner.ball_pos = Vector2(60.0, 120.0)
+	owner.ball_vel = Vector2(0.0, 0.0)
+	for _w in range(10):
+		runtime.update(0.2, owner, registry)
+	_expect(not bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "initial Hydro Sphere wind-up should be finished before the guard scenario")
+	var lane_y: float = owner.lingpet_companion_pos.y
+	runtime.configure_companion_motion_for_tests(Vector2(570.0, lane_y), 2, 0.0, false)
+	# Real ball motion = ball_vel * delta * 60 (ball_update_controller fps_scale).
+	# Mirror it, or the ball descends ~3x too slowly and inflates the guard window.
+	var step_delta := 0.05
+	var ball_vy := 12.0
+	var step_drop := ball_vy * step_delta * 60.0  # 36px/step (real descent)
+	owner.ball_active = true
+	# Near ball the PLAYER CANNOT block: x=650 is beyond the player paddle reach
+	# (~x[249,511]) and 80px aside from the lingpet (outside the ~64px body catch, so
+	# the guard MUST move in), within the local reach budget from the start gap.
+	var ball_y: float = lane_y - 300.0
+	owner.ball_pos = Vector2(650.0, ball_y)
+	owner.ball_vel = Vector2(0.0, ball_vy)
+	runtime.update(step_delta, owner, registry)
+	_expect(bool(owner.lingpet_companion_defense_intercept_active), "the near, player-unblockable ball should arm the local guard")
+	ball_y += step_drop
+	var blocked := false
+	for _i in range(20):
+		owner.ball_pos = Vector2(650.0, ball_y)
+		owner.ball_vel = Vector2(0.0, ball_vy)
+		runtime.update(step_delta, owner, registry)
+		if int(owner.lingpet_companion_contact_count) >= 1:
+			blocked = true
+			break
+		ball_y += step_drop
+	_expect(blocked, "an armed local guard should actually intercept-and-bounce the near ball at the real descent rate, not just lean toward it")
+	_expect(float(owner.ball_vel.y) < 0.0, "a guarded ball should be bounced upward (ball_vel.y < 0)")
+
+
+func _verify_maribo_defense_anticipates_moderate_distance_ball() -> void:
+	# Anticipatory commit: the guard must arm EARLY for a ball heading to a moderate
+	# distance INSIDE the local zone (farther than it could reach in a single frame),
+	# then start easing toward the predicted X. This is what stops a high defense rate
+	# from whiffing nearby balls because it committed too late. A far ball beyond the
+	# local zone must still NOT arm (no field sprint).
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.configure_companion_motion_for_tests(Vector2(420.0, start_pos.y), 2, 0.0, false)
+	owner.ball_active = true
+	# 180px aside: inside the local commit zone (220) but well beyond a single-frame
+	# reach, and beyond the player paddle (x[249,511]) so the player cannot block it.
+	owner.ball_pos = Vector2(600.0, start_pos.y - 300.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.05, owner)
+	_expect(bool(owner.lingpet_companion_defense_intercept_active), "defense should anticipatorily arm for a moderate-distance ball inside the local zone (not wait until it is one-frame reachable)")
+	_expect(owner.lingpet_companion_pos.x > 420.0, "an anticipatory guard should start easing toward the predicted X early")
+	_expect(float(owner.lingpet_companion_defense_intercept_target_x) > 560.0, "the anticipatory anchor should be the predicted landing X (~600), not the lingpet's current spot")
+
+	# A ball beyond the local zone must still be ignored (no field sprint).
+	var far_owner := FakeOwner.new()
+	far_owner.lingpet_owned_pet_ids = ["maribo"]
+	var far_runtime: Object = LingpetEggRuntime.new()
+	far_runtime.update(0.0, far_owner)
+	var far_start: Vector2 = far_owner.lingpet_companion_pos
+	far_runtime.configure_companion_motion_for_tests(Vector2(120.0, far_start.y), 2, 0.0, false)
+	far_owner.ball_active = true
+	far_owner.ball_pos = Vector2(700.0, far_start.y - 150.0)  # 580px away, beyond the local zone
+	far_owner.ball_vel = Vector2(0.0, 12.0)
+	far_runtime.update(0.05, far_owner)
+	_expect(not bool(far_owner.lingpet_companion_defense_intercept_active), "a ball beyond the local zone must not arm the anticipatory guard")
 
 
 func _verify_lunabi_free_flight_profile() -> void:
@@ -2152,6 +2575,9 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 	_expect(motion_source.find("SORTIE_PHASE_INGRESS") >= 0 and motion_source.find("SORTIE_EXIT_ACCELERATION") >= 0, "Lunabi sortie flight should use phased ingress/loiter/exit acceleration")
 	var animator := LingpetCompanionSpriteAnimator.new()
+	var idle_frame_a: int = int(animator.get_walk_frame(0.0, 1000, 0.0))
+	var idle_frame_b: int = int(animator.get_walk_frame(0.0, 1800, 0.0))
+	_expect(idle_frame_a == LingpetCompanionSpriteAnimator.IDLE_FRAME and idle_frame_b == LingpetCompanionSpriteAnimator.IDLE_FRAME, "Companion walk sheet should not keep cycling while the body has zero motion speed")
 	var slow_frame: int = int(animator.get_walk_frame(0.0, 1000, 0.20))
 	var fast_frame: int = int(animator.get_walk_frame(0.0, 1000, 1.0))
 	_expect(fast_frame != slow_frame and fast_frame > slow_frame, "Lunabi wing-flap frame cadence should increase with flight speed")
@@ -2352,6 +2778,17 @@ func _verify_companion_click_reaction() -> void:
 	_expect(bool(milkring_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), milkring_registry)), "Milkring companion click reaction should start from the companion tap zone")
 	_expect(milkring_audio.lingpet_click_reaction_pet_ids == ["milkring"], "Milkring companion click reaction should request the Milkring voice once")
 
+	var red_dragon_owner := FakeOwner.new()
+	red_dragon_owner.lingpet_owned_pet_ids = ["red_dragon"]
+	red_dragon_owner.lingpet_slots = ["red_dragon", "", ""]
+	var red_dragon_runtime: Object = LingpetEggRuntime.new()
+	var red_dragon_audio := FakePaddleAudio.new()
+	var red_dragon_registry := FakeRegistry.new({"game_audio": red_dragon_audio})
+	red_dragon_runtime.update(0.0, red_dragon_owner, red_dragon_registry)
+	red_dragon_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	_expect(bool(red_dragon_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), red_dragon_registry)), "Red Dragon companion click reaction should start from the companion tap zone")
+	_expect(red_dragon_audio.lingpet_click_reaction_pet_ids == ["red_dragon"], "Red Dragon companion click reaction should request the Red Dragon voice once")
+
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var click_reaction_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
 	var profile_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_profile.gd")
@@ -2482,6 +2919,24 @@ func _function_body(source: String, signature: String) -> String:
 	if next_static_func >= 0:
 		end = mini(end, next_static_func)
 	return source.substr(start, end - start)
+
+
+func _make_starpoint_drop(pos: Vector2, forced_roll_pct: float) -> Dictionary:
+	return {
+		"pos": pos,
+		"vel": Vector2.ZERO,
+		"size": 12.0,
+		"life": 600.0,
+		"lingpet_starlight_tracking_force_roll_pct": forced_roll_pct,
+	}
+
+
+func _starpoint_delivery_context(owner: FakeOwner) -> Dictionary:
+	return {
+		"owner": owner,
+		"player_pos": owner.player_pos,
+		"player_paddle_size": Vector2(owner.player_paddle_width, owner.player_paddle_height),
+	}
 
 
 func _expect(condition: bool, message: String) -> void:

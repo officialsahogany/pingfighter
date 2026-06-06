@@ -58,7 +58,7 @@ func get_texture(pet_id: String, visual_key: String, fallback: Texture2D = null)
 		if cached is Texture2D:
 			return cached as Texture2D
 		_textures.erase(path)
-	var texture := ProjectResourceLoader.load_texture(
+	var texture := ProjectResourceLoader.load_imported_texture(
 		path,
 		"[LingpetVisualTextureCache] missing lingpet visual texture: %s",
 		"[LingpetVisualTextureCache] failed to load lingpet visual texture: %s"

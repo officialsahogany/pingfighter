@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
+const StageClearResultFxHostUpdateHandler := preload("res://scripts/ui/stage_clear_result_fx_host_update_handler.gd")
 
 var _failures: Array[String] = []
 
@@ -76,12 +77,19 @@ func _verify_scene_delegates_pool_lifecycle() -> void:
 		source.find("StageClearResultFxHostPool.new()") >= 0,
 		"stage-clear result scene should own a result-box FX host pool"
 	)
+	_expect(
+		source.find("StageClearResultFxHostUpdateHandler.update_fx_hosts") >= 0
+			and StageClearResultFxHostUpdateHandler != null,
+		"stage-clear result scene should delegate per-frame FX host update sequencing"
+	)
 	for removed_fragment in [
 		"var _fx_hosts",
 		"func _sync_fx_hosts",
 		"func _prewarm_fx_hosts_step",
 		"func _ensure_fx_host",
 		"ResultBoxOpenFxHost.new()",
+		"_fx_host_pool.prewarm_step",
+		"_fx_host_pool.sync",
 	]:
 		_expect(
 			source.find(removed_fragment) < 0,

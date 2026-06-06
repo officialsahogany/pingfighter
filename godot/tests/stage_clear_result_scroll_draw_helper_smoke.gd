@@ -57,8 +57,10 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_scroll_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
 	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
-	_expect(source.find("StageClearResultScrollDrawHelper.draw_cyber_scroll_frame") >= 0, "result scene should delegate cyber-scroll frame drawing")
+	_expect(source.find("StageClearResultScrollPresenter.draw_scroll") >= 0, "result scene should delegate cyber-scroll presentation")
+	_expect(presenter_source.find("StageClearResultScrollDrawHelper.draw_cyber_scroll_frame") >= 0, "scroll presenter should delegate cyber-scroll frame drawing")
 	_expect(content_source.find("StageClearResultScrollDrawHelper.draw_section_group_panel") >= 0, "scroll content helper should delegate section group panel drawing")
 	_expect(source.find("StageClearResultShapeHelper.draw_filled_ellipse") < 0, "result scene should not keep cyber-scroll shadow drawing")
 	_expect(source.find("draw_texture_rect_region(_scroll_texture") < 0, "result scene should not keep authored scroll texture-region drawing")

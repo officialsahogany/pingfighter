@@ -63,7 +63,10 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_power_motion(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_viper_chaos_spear(scene, fps_scale, frame_context, frame_deps)
 	if bool(scene.get("skip_ball_motion_step", false)):
-		if not _try_release_stage5_hongryun_player_paddle_hit(scene, frame_context, frame_deps, callbacks):
+		var stage5_hongryun_guarded: bool = _try_release_stage5_hongryun_player_paddle_hit(scene, frame_context, frame_deps, callbacks)
+		if not stage5_hongryun_guarded:
+			stage5_hongryun_guarded = _try_release_stage5_hongryun_holy_barrier(scene, frame_context, frame_deps)
+		if not stage5_hongryun_guarded:
 			var stage5_score_event: String = _try_resolve_stage5_hongryun_floor_miss(scene, frame_context, frame_deps)
 			if stage5_score_event != "":
 				return _snapshot_result(scene, {"score_event": stage5_score_event})
@@ -210,6 +213,62 @@ func _try_release_stage5_hongryun_player_paddle_hit(
 	scene["player_collision_cooldown"] = max(6.0, float(scene.get("player_collision_cooldown", 0.0)))
 	if not bool(scene.get("stage5_hongryun_inferno_glance_bounce", false)):
 		scene["stage5_hongryun_inferno_guarded"] = true
+	return true
+
+
+func _try_release_stage5_hongryun_holy_barrier(
+	scene: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> bool:
+	# 홀리베리어(바닥 무적)는 normal step_motion()의 check_holy_barrier()로 공을
+	# 받아내지만, 홍련폭염 trail 공은 ball_hold로 step_motion()을 통째로 우회하므로
+	# 그 차단 경로가 닿지 않는다. trail 공이 베리어 띠에 닿으면 여기서 명시적으로
+	# 위로 반사하고 inferno를 종료해 normal physics로 되돌린다 (가드/미스 경로와
+	# 동일 패턴). 이 가드가 없으면 무적 바닥을 무시하고 floor-miss로 새서 패배한다.
+	if int(context.get("current_stage", 1)) != 5:
+		return false
+	if not bool(context.get("holy_barrier_active", false)):
+		return false
+	var stage5_hongryun_state: Object = deps.get("stage5_hongryun_state", null)
+	if stage5_hongryun_state == null:
+		return false
+	if stage5_hongryun_state.has_method("is_inferno_active") and not bool(stage5_hongryun_state.is_inferno_active()):
+		return false
+	if (
+		stage5_hongryun_state.has_method("get_ball_hijack_reason")
+		and str(stage5_hongryun_state.get_ball_hijack_reason()) != "hongryun_inferno_trail"
+	):
+		return false
+	var ball_size: float = max(1.0, float(context.get("ball_size", 28.6)))
+	var ball_pos: Vector2 = _get_vector2(scene, "ball_pos", Vector2.ZERO)
+	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var width: float = float(context.get("width", 760.0))
+	var barrier_y: float = float(context.get("holy_barrier_y", 725.0))
+	var barrier_height: float = float(context.get("holy_barrier_height", 20.0))
+	var ball_rect := Rect2(ball_pos.x - ball_size * 0.5, ball_pos.y - ball_size * 0.5, ball_size, ball_size)
+	var barrier_rect := Rect2(0.0, barrier_y, width, barrier_height)
+	if not barrier_rect.intersects(ball_rect):
+		return false
+
+	# trail 공은 항상 위(보스 쪽)에서 베리어로 하강해 들어오므로 순간 ball_vel.y가
+	# 진동으로 음수여도 -abs()로 위쪽 반사를 보장한다. 속도 게이트를 두면 베리어 띠
+	# 하단 프레임에서 놓쳐 floor-miss로 새는 한 프레임 구멍이 생기므로 두지 않는다.
+	ball_pos.y = barrier_y - ball_size * 0.5
+	scene["ball_pos"] = ball_pos
+	scene["ball_vel"] = Vector2(ball_vel.x, -abs(ball_vel.y))
+	if stage5_hongryun_state.has_method("resolve_inferno_holy_barrier"):
+		var block_result: Dictionary = stage5_hongryun_state.resolve_inferno_holy_barrier(ball_pos, deps)
+		scene.merge(block_result, true)
+	scene["skip_ball_motion_step"] = false
+	scene["player_collision_cooldown"] = max(6.0, float(scene.get("player_collision_cooldown", 0.0)))
+
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	if active_item_runtime != null and active_item_runtime.has_method("notify_holy_barrier_hit"):
+		active_item_runtime.notify_holy_barrier_hit(Vector2(ball_pos.x, barrier_y))
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("play_wall_hit"):
+		audio.play_wall_hit(abs(ball_vel.y))
 	return true
 
 

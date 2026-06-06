@@ -66,6 +66,7 @@ const RAGNAROK_COUNTER_SPEED_RETENTION := 0.58
 const RAGNAROK_COUNTER_MAX_SPEED := 20.0
 const RAGNAROK_COUNTER_MIN_SPEED := 7.0
 const RAGNAROK_COUNTER_MAX_HORIZONTAL_RATIO := 0.42
+const RAGNAROK_SPEED_CAP_BONUS := 6.0
 const RAGNAROK_COUNTER_MIN_DOWNWARD_RATIO := 0.82
 const POSEIDON_VORTEX_OFFSET_X := 120.0
 const POSEIDON_VORTEX_MAX_HEIGHT := 350.0
@@ -1663,8 +1664,11 @@ func get_ball_collision_context() -> Dictionary:
 	var context: Dictionary = adversity_armor_runtime.get_ball_collision_context(self)
 	context.merge(horn_strawberry_field_state.get_ball_collision_context(), true)
 	if ragnarok_stun_ball_active:
-		context["speed_limit_disabled"] = true
-		context["ragnarok_hammer_speed_limit_disabled"] = true
+		# Ragnarok no longer fully removes the cap; it raises the current league
+		# ball-speed limit by a fixed +6 while the charged stun ball travels.
+		# The effective cap is applied in ball_frame_motion_controller via
+		# get_ragnarok_speed_cap_bonus(); this key is exposed for debug / parity.
+		context["ragnarok_hammer_speed_cap_bonus"] = RAGNAROK_SPEED_CAP_BONUS
 	return context
 
 
@@ -2233,6 +2237,12 @@ func try_apply_ragnarok_player_hit(
 func apply_ragnarok_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary) -> Dictionary:
 	_ensure_helpers_ready()
 	return ragnarok_runtime.apply_boss_hit(self, ball_vel, context, deps, RAGNAROK_CONSTANTS)
+
+
+func get_ragnarok_speed_cap_bonus() -> float:
+	# While a charged Ragnarok stun ball is in flight, raise the current league
+	# ball-speed cap by +6 instead of removing it entirely.
+	return RAGNAROK_SPEED_CAP_BONUS if ragnarok_stun_ball_active else 0.0
 
 
 func apply_poseidon_wave_to_ball(scene: Dictionary, fps_scale: float, _context: Dictionary, deps: Dictionary) -> Dictionary:

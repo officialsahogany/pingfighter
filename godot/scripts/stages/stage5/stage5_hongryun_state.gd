@@ -369,6 +369,21 @@ func resolve_inferno_player_miss(pos: Vector2, deps: Dictionary = {}) -> Diction
 	}
 
 
+# 홀리베리어(바닥 무적)가 홍련폭염 trail 공을 받아냈을 때 — inferno를 종료하고
+# 공을 normal physics로 되돌린다. inferno owned-ball은 step_motion()을 우회하므로
+# ball_update_controller가 베리어 충돌을 직접 감지해 이 entry point를 호출한다
+# (가드/미스 경로와 동일하게 _stop_inferno로 단일 cleanup을 통과시킨다).
+func resolve_inferno_holy_barrier(pos: Vector2, deps: Dictionary = {}) -> Dictionary:
+	if not inferno_active:
+		return {}
+	_register_fireball_impact(pos, "inferno_guard", deps, 1.35)
+	_stop_inferno(deps)
+	return {
+		"skip_ball_motion_step": false,
+		"stage5_hongryun_inferno_holy_barrier_block": true,
+	}
+
+
 func register_fireball_parried() -> Dictionary:
 	return {"stage5_hongryun_fireball_parried": true}
 

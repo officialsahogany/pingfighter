@@ -1420,8 +1420,10 @@ This section is intentionally long; use search to find the nearest owner.
   `stage_clear_result_sheet_draw_helper.gd`; public QA / smoke-test
   interaction status dictionary assembly is delegated to
   `stage_clear_result_status_builder.gd`; player-victory and Dalji
-  click-reaction frame / transition / alpha math and timer advancement are delegated to
-  `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
+  click-reaction frame / transition / alpha math is delegated to
+  `stage_clear_result_click_reaction_state.gd`; result actor click-reaction
+  timer advancement is delegated to
+  `stage_clear_result_actor_reaction_update_handler.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
   to the battle shell; do not put grant logic back in this UI scene.
 - `scripts/ui/stage_clear_result_asset_loader.gd`
@@ -1430,14 +1432,56 @@ This section is intentionally long; use search to find the nearest owner.
   sheets, Dalji click voice, result-box FX prewarm, and the stateful
   result-asset prewarm step cursor / status map used by the screen shell. It
   also owns player-victory character id normalization, default result asset
-  path config assembly, and result asset path selection. The scene still owns
-  the loaded texture / stream fields, path constant compatibility aliases, and
-  decides when to load or prewarm.
+  path config assembly, and result asset path selection. The asset apply
+  handler owns texture-field collection / invalidation / application for the
+  scene; the character asset state handler owns configure-time selected
+  character cache invalidation; the scene still owns loaded stream fields, path
+  constant compatibility aliases, and decides when to load or prewarm.
+- `scripts/ui/stage_clear_result_character_asset_state_handler.gd`
+  Owns configure-time result character asset state resolution: normalizing the
+  requested result character through `stage_clear_result_asset_loader.gd`,
+  detecting selected-character changes, preserving existing victory sheet
+  caches when the normalized character is unchanged, and clearing player-victory
+  base / click sheets plus cached loaded paths when it changes. It also owns
+  character asset apply payloads and scene-field apply payloads for the
+  selected character, player-victory sheet references, and cached loaded path
+  fields. The scene still owns writing the returned fields through the shared
+  field-payload applier.
+- `scripts/ui/stage_clear_result_audio_apply_handler.gd`
+  Owns stage-clear result audio stream / SFX application for the scene: the
+  Stage 1 Dalji click-voice stage gate, clearing non-Stage 1 voice streams,
+  delegating actual audio loading to `stage_clear_result_asset_loader.gd`,
+  preserving already-loaded voice streams, and routing result-box-open SFX
+  calls through the optional game-audio dependency. The scene still owns when
+  to request audio, stores the returned stream field, and sequences voice/SFX
+  calls around gameplay state changes.
+- `scripts/ui/stage_clear_result_asset_apply_handler.gd`
+  Owns stage-clear result texture-field application for the scene: collecting
+  current texture fields from the canonical asset-loader key list, invalidating
+  player-victory base / click sheets when the selected character path changes,
+  delegating the actual load to `stage_clear_result_asset_loader.gd`, writing
+  loaded textures back to scene fields, and returning the applied victory sheet
+  path state. It also packages texture-path apply payloads for the cached
+  player-victory base / click sheet path fields plus scene-field apply payloads
+  for the cached path strings. The scene still owns when to call it and stores
+  the returned path cache strings through the shared field-payload applier.
 - `scripts/ui/stage_clear_result_voice_player.gd`
   Owns stage-clear one-shot voice player lifecycle for result-scene click
   voices: AudioStreamPlayer creation / parent attachment, stream and volume
   assignment, immediate vs deferred playback, and stopping. The scene still
   owns when the Dalji click voice should play and its loaded stream field.
+- `scripts/ui/stage_clear_result_actor_click_handler.gd`
+  Owns stage-clear result actor click routing for player-victory, Dalji, and
+  Stage 2 / Stage 3 boss defeat reaction sheets: stage / sheet guards,
+  hit-test delegation to the actor draw helper, click-consume vs restart
+  classification, captured base-frame payloads, click-rect apply payloads,
+  click-reaction apply payloads, Dalji dialogue / voice request flags, and
+  Dalji click side-effect apply payloads for dialogue timer / voice-play
+  requests. It also packages scene-field apply payloads for click reaction
+  timers, player / Dalji click rects, and Dalji dialogue timer side effects.
+  The scene still owns live timer fields, stored click rects, voice playback
+  side effects, property writes through the shared field-payload applier, and
+  redraw calls.
 - `scripts/ui/stage_clear_result_font_cache.gd`
   Owns the stage-clear result UI font variation cache: it wraps the fallback
   font with scaled glyph spacing for compact Korean result-scroll labels and
@@ -1447,9 +1491,33 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stage-clear result actor sheet drawing for the defeated Dalji, Stage 2
   boss, Stage 3 boss, and player-victory Live2D result actors. It resolves
   actor / click rects through the layout helper and delegates base /
-  click-reaction blending to the sheet draw helper. The scene still owns which
-  current stage to draw, live reaction-state dictionaries, texture fields, and
-  stored click rects for input.
+  click-reaction blending to the sheet draw helper. The actor presenter owns
+  player-victory / defeated-boss draw orchestration and reaction-state
+  assembly; the scene still owns fallback drawing, texture fields, and stored
+  click rects for input.
+- `scripts/ui/stage_clear_result_actor_presenter.gd`
+  Owns stage-clear result actor draw orchestration for player-victory Live2D
+  and defeated-boss actors: current-stage branching for Dalji / Stage 2 /
+  Stage 3, draw-context assembly / unpacking, click-reaction state assembly,
+  returning draw-time click rects, and packaging actor draw apply payloads for
+  player-victory / defeated-boss click rect fields plus player drawn state. It
+  also packages draw scene-field apply payloads for `_player_victory_click_rect`
+  and `_dalji_click_rect`. It delegates low-level sheet drawing and
+  reaction-frame math to
+  `stage_clear_result_actor_draw_helper.gd`. The scene still owns fallback
+  drawing, live timer fields, loaded texture references, thin context wrapper
+  calls, and local field writes.
+- `scripts/ui/stage_clear_result_actor_reaction_update_handler.gd`
+  Owns result-scene actor reaction timer context assembly and advancement for
+  the per-frame update loop: Dalji base-loop timer, Dalji click reaction,
+  player-victory click reaction, Stage 2 / Stage 3 boss defeat click
+  reactions, and Dalji dialogue countdown clamping. It delegates reaction timer
+  clamping to
+  `stage_clear_result_click_reaction_state.gd`, uses actor draw helper
+  duration constants, and packages actor reaction timer apply payloads plus
+  scene-field apply payloads. The scene still owns storage for the live timer
+  fields plus thin wrapper calls and applies the returned values through the
+  shared field-payload applier.
 - `scripts/ui/stage_clear_result_layout_helper.gd`
   Owns stateless stage-clear result layout and frame policy helpers:
   floating chest anchor layouts, result-box safe-frame selection, reward
@@ -1473,10 +1541,111 @@ This section is intentionally long; use search to find the nearest owner.
   display-label extraction for interaction status, and resolved reward-copy
   extraction from opened boxes. It also owns reward-roll fallback selection and
   box opening / reward-emerge state transitions, plus appending selected
-  starpoint perk rewards back into box reward data. The scene still owns reward
-  callback wiring, audio side effects, immediate reward grants, drawing, hover /
-  click input, and the public result-scene box constants kept as compatibility
-  aliases.
+  starpoint perk rewards back into box reward data and packaging append apply
+  payloads for scene box writes / redraw requests. Box hover / click / next-idle
+  opening input now routes through `stage_clear_result_box_input_handler.gd`;
+  opening-state update sequencing now routes through
+  `stage_clear_result_box_update_handler.gd`; the scene still owns reward
+  callback wiring, audio side effects, drawing, and the public result-scene box
+  constants kept as compatibility aliases.
+- `scripts/ui/stage_clear_result_preview_defaults_handler.gd`
+  Owns stage-clear result standalone-preview default application decisions:
+  determining when an otherwise empty result scene should receive preview data,
+  requesting the preview reward-plan defaults from `stage_clear_result_box_data.gd`,
+  returning an explicit apply flag plus field payload, and packaging standalone
+  preview apply payloads that preserve current fields when defaults should not
+  apply. It also packages standalone preview scene-field apply payloads for
+  score / stage / reward-plan fields. The scene still owns writing the returned
+  fields through the shared field-payload applier.
+- `scripts/ui/stage_clear_result_runtime_object_state_handler.gd`
+  Owns configure-time result scene runtime object dependency resolution:
+  the canonical runtime object key list, accepting only valid Godot objects from
+  configure data, rejecting non-object values, and returning null for missing
+  or invalid dependencies. It also owns runtime object apply payloads that map
+  canonical configure keys to result-scene private dependency field names. The
+  scene still owns writing the returned private dependency fields and invoking
+  their runtime methods.
+- `scripts/ui/stage_clear_result_input_router.gd`
+  Owns top-level stage-clear result input context assembly and route
+  classification: modal capture priority for mythic acquisition / runtime perk
+  choices / treasure-hunt effects, keyboard advance / escape mapping, gamepad
+  confirm / cancel mapping, mouse-motion hover / drag routing, and left-click /
+  drag-release route payloads. The scene still owns thin context-wrapper calls
+  plus applying routed side effects through existing handlers, callbacks, drag
+  state, click reactions, and redraws.
+- `scripts/ui/stage_clear_result_runtime_overlay_presenter.gd`
+  Owns result-scene runtime overlay and modal dependency interaction:
+  runtime-perk input forwarding, mythic acquisition input forwarding, active
+  state checks for runtime perk / mythic acquisition / treasure-hunt effects,
+  result-interaction blocking policy, overlay visibility checks, fallback-vs-
+  runtime catalog / icon-renderer selection, and delegating final overlay draw
+  calls to `runtime_perk_overlay_renderer.gd`. The scene still owns the live
+  dependency fields, public status-wrapper methods, redraw timing, and result
+  callbacks.
+- `scripts/ui/stage_clear_result_viewport_layout.gd`
+  Owns stage-clear result viewport sizing policy: detached-scene fallback size,
+  current-size fallback, 1920x1080 layout-scale calculation, and synchronizing
+  the result `Control` to the full visible viewport. The scene still owns when
+  to request viewport sync and keeps thin wrapper methods for status builders
+  and existing smoke tests.
+- `scripts/ui/stage_clear_result_config_reset_state_handler.gd`
+    Owns configure-time result scene reset-state, reset apply payloads, and
+    reset scene-field apply payloads: lid counter, starpoint gate fields, hover
+    state, button rects, scroll phase / timer / drag state, scene timers, actor
+    click-reaction inactive timers, and Dalji dialogue timer.
+  The scene still owns applying the returned values, rebuilding boxes, FX-pool
+  side effects, voice cleanup, callback storage, and redraw / resource sync.
+- `scripts/ui/stage_clear_result_config_data_state_handler.gd`
+  Owns configure-time result scene data normalization: player / boss score,
+  current stage, requested selected-character id, reward-plan dictionary
+  validation, stage-reward snapshot dictionary validation, and config data
+  apply payloads plus scene-field apply payloads with fallback handling for
+  public score / stage / reward fields. The scene still owns applying the
+  returned public fields through the shared field-payload applier, routing the
+  requested character through the character asset-state handler, and building
+  live result boxes from the sanitized reward plan.
+- `scripts/ui/stage_clear_result_callback_handler.gd`
+  Owns stage-clear result callback invocation policy: next-stage confirm calls,
+  exit-to-menu calls, and the exit fallback to confirm when no explicit exit
+  callback exists. The scene still owns callback storage, button / keyboard
+  routing, Dalji voice cleanup before callback invocation, and redraw state.
+- `scripts/ui/stage_clear_result_navigation_action_handler.gd`
+  Owns stage-clear result navigation action policy: advance input while boxes
+  are hidden vs scroll-visible, blocked advance consumption, escape behavior,
+  next / exit scroll-button action mapping, action apply payloads for handled
+  vs actionless results, and scroll-button click apply payloads that preserve
+  button rects while reporting the resulting action / handled state. The scene
+  still owns applying those actions through box opening, callbacks, voice
+  cleanup, and redraws.
+- `scripts/ui/stage_clear_result_box_input_handler.gd`
+  Owns the result scene's floating-box input adapter layer: next idle box
+  selection, clicked idle box classification, blocked-click consumption,
+  opening-result packaging, opened-index reporting, hover-index change
+  payloads, hover apply payloads, and box-open apply payloads for scene state
+  writes / audio / redraw requests. It also packages common box-state apply
+  payloads for box arrays, hover index fallback, consumed state, audio
+  requests, and redraw requests. It delegates pure box data mutation to
+  `stage_clear_result_box_data.gd` and pure box hit-test math to
+  `stage_clear_result_interaction_state.gd`; the scene still owns storing the
+  returned box array and hover index, playing the result-box-open sound, and
+  redraw calls.
+- `scripts/ui/stage_clear_result_box_update_handler.gd`
+  Owns the result scene's floating-box update sequencing: applying
+  `stage_clear_result_box_data.gd` opening / reward-emerge state transitions,
+  collecting just-opened box indices, and routing those indices through
+  `stage_clear_result_immediate_reward_helper.gd` for cinematic immediate
+  reward grants. It also packages update apply payloads and scene field apply
+  payloads for the live box array and lid-open counter. The scene still owns
+  live field writes through the shared field-payload applier, viewport / scale
+  lookup, and the immediate reward callback.
+- `scripts/ui/stage_clear_result_box_presenter.gd`
+  Owns stage-clear floating result-box draw orchestration: iterating the live
+  box array, resolving hover state by index, assembling draw context payloads,
+  passing scroll reveal timing, and delegating per-box draw-context assembly
+  plus final drawing to
+  `stage_clear_result_box_draw_helper.gd`. The scene still owns live box
+  state, loaded result-box sheets, reward icon cache storage, and when to draw
+  the presenter through a thin context wrapper.
 - `scripts/ui/stage_clear_result_cinematic_position_helper.gd`
   Owns stateless stage-clear result cinematic position assembly for
   immediate mythic reward grants: floating result-box pickup points,
@@ -1491,7 +1660,8 @@ This section is intentionally long; use search to find the nearest owner.
   frame grid, fallback body / lid rects, open-lid easing, rim highlights, and
   canvas transform reset. It also owns result-box sheet draw constants, default
   floating-box draw context assembly, and box-kind-to-sheet texture selection.
-  The scene still owns loaded sheet texture storage and FX-host sync.
+  The box presenter owns array iteration / hover routing; the scene still owns
+  loaded sheet texture storage and FX-host sync.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update
@@ -1499,8 +1669,17 @@ This section is intentionally long; use search to find the nearest owner.
   the opened scroll, authored scroll region / content / drag-margin
   constants, region rect helpers, and scroll rect / drag-offset clamping
   geometry.
-  The scene still owns the live box array, perk-choice
-  and starpoint-choice gates, input, drawing, and confirmation callbacks.
+  The scroll update handler owns combining live box-open state with the phase
+  transition helper; the scene still owns the live box array, perk-choice and
+  starpoint-choice gates, input, drawing, and confirmation callbacks.
+- `scripts/ui/stage_clear_result_scroll_update_handler.gd`
+  Owns the result scene's scroll phase update sequencing: checking whether all
+  floating boxes have opened via `stage_clear_result_interaction_state.gd`,
+  applying gate-blocked state, and routing phase / timer transitions through
+  `stage_clear_result_scroll_state.gd` with the authored delay and unfurl
+  duration constants. It also packages update apply payloads and scene field
+  apply payloads for the live scroll phase / timer fields. The scene still owns
+  live field writes through the shared field-payload applier and gate sources.
 - `scripts/ui/stage_clear_result_scroll_draw_helper.gd`
   Owns stage-clear result scroll drawing helpers that are independent of
   scene state: authored cyber-scroll texture-region drawing, the fallback
@@ -1515,11 +1694,26 @@ This section is intentionally long; use search to find the nearest owner.
   The scene still owns scroll visibility phase, live score / reward state,
   perk catalog / icon-renderer instances, and storing the returned button
   rects for input.
+- `scripts/ui/stage_clear_result_scroll_presenter.gd`
+  Owns stage-clear result scroll draw context assembly and draw orchestration:
+  draw-time scroll-offset clamping, unfurl progress lookup, visible source rect
+  construction, content reveal alpha, content rect lookup, scroll-frame draw
+  delegation, opened scroll content draw delegation, and returning updated
+  scroll offset plus next / exit button rects. It also owns draw-result apply
+  payload packaging for the scene's scroll offset and button rect fields. The
+  scene still owns the loaded scroll texture, live score / reward / hover
+  state, a thin context wrapper, and the local field writes.
 - `scripts/ui/stage_clear_result_fx_host_pool.gd`
   Owns result-box open FX host pooling for the stage-clear result scene:
   host allocation, prewarm cursor advancement, active / inactive sync state,
-  and teardown. The scene still owns box state mutation, scroll phase/timer,
-  layout scale, and when to advance / sync the pool.
+  and teardown. The FX host update handler owns per-frame prewarm/sync
+  sequencing; the scene still owns box state mutation, scroll phase/timer,
+  layout scale, and pool lifecycle reset / teardown calls.
+- `scripts/ui/stage_clear_result_fx_host_update_handler.gd`
+  Owns per-frame stage-clear result-box FX host update sequencing: one staged
+  pool prewarm step followed by active host sync with the current boxes,
+  layout scale, timer, and scroll phase/timer. It delegates host allocation,
+  visibility, and state payload construction to `stage_clear_result_fx_host_pool.gd`.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button
   layout rects, button hover / visible-click hit classification, opened /
@@ -1527,6 +1721,21 @@ This section is intentionally long; use search to find the nearest owner.
   click hit-tests. The scene still owns
   actual input consumption, callback dispatch, hover redraw requests, live
   box mutation, and drawing.
+- `scripts/ui/stage_clear_result_scroll_input_handler.gd`
+  Owns the result scene's scroll-input adapter layer: refreshing visible
+  next / exit button rects from scroll phase and offset, classifying scroll
+  button clicks / hovers for scene callbacks, and packaging scroll drag
+  start / update / finish offsets plus refreshed button / hover state. It now
+  also packages hover / drag-start / drag-update / drag-finish / drag-cancel
+  apply payloads so the scene can mutate scroll dragging, grab offset, final
+  scroll offset, hover state, and redraw requests from one small local apply
+  method instead of interpreting helper result keys at each input branch. It
+  also packages common scene scroll-state apply payloads for button rects,
+  scroll offset, drag state, grab offset, and hovered-button fallback handling.
+  It delegates pure geometry and hit-test math to
+  `stage_clear_result_interaction_state.gd` and
+  `stage_clear_result_scroll_state.gd`; the scene still owns actual confirm /
+  exit callbacks, live field mutation, and `queue_redraw()` execution.
 - `scripts/ui/stage_clear_result_scroll_button_draw_helper.gd`
   Owns stage-clear scroll button drawing: shared next-stage / exit button
   layout lookup, visible-phase hover coloring, button panel chrome, and

@@ -98,6 +98,10 @@ class FakeOwner:
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_player_speed_bonus_pct := 0.0
 	var ringpet_player_speed_bonus_pct := 0.0
+	var lingpet_starpoint_tracking_chance_pct := 0.0
+	var ringpet_starpoint_tracking_chance_pct := 0.0
+	var lingpet_ring_dash_chance_pct := 0.0
+	var ringpet_ring_dash_chance_pct := 0.0
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -236,7 +240,7 @@ func _rows_contain_value(rows: Array, expected_value: String) -> bool:
 
 
 func _shared_passive_ids() -> Array[String]:
-	return ["lingpet_resonance_boost", "lingpet_afterglow_leak", "lingpet_tailwind_steps"]
+	return ["lingpet_resonance_boost", "lingpet_afterglow_leak", "lingpet_tailwind_steps", "lingpet_starlight_tracking", "lingpet_ring_dash"]
 
 
 func _skill_specs_have_id(skill_specs: Array, expected_id: String) -> bool:

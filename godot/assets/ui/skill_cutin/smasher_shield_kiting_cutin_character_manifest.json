@@ -1,0 +1,29 @@
+{
+  "asset_id": "smasher_shield_kiting_cutin_character",
+  "character": "smasher",
+  "character_name": "Mika",
+  "runtime_usage": "smasher_shield_kiting_partial_cutin_character",
+  "status": "imagegen still cut-in art with pentagonal energy shield, magenta chroma-key removed to transparent PNG",
+  "generated_at": "2026-06-06",
+  "runtime_asset": {
+    "path": "res://assets/ui/skill_cutin/smasher_shield_kiting_cutin_character.png",
+    "source_path": "res://assets/ui/skill_cutin/smasher_shield_kiting_cutin_character_source.png",
+    "format": "RGBA transparent cutout, 96px transparent runtime padding",
+    "blend_style": "MIX character art in front of the Drive-style triangle/backplate/arc, with procedural shield symbol fallback"
+  },
+  "generation": {
+    "tool": "built-in image_gen",
+    "source_output_path": "C:/Users/woduq/.codex/generated_images/019e8ea8-62f6-7093-a199-913a162b72ed/ig_06db340e913b592e016a23ffaa36b88191b572759337575bed.png",
+    "background_removal": "remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "runtime_padding": "96px transparent border added after background removal so energy streaks do not terminate on the texture edge",
+    "detected_key_color": "#fb02f8",
+    "prompt": "Mika, black twin-tail hair, teal/cyan eyes, white and black futuristic bionic bodysuit with cyan accents, lunging forward and throwing a translucent five-sided pentagonal energy shield toward the viewer/right side. The shield must be a beveled pentagon/kite-shaped sci-fi shield, not round, circular, oval, or disk-like. Polished anime action game cut-in illustration on perfectly flat #ff00ff chroma-key background. No text, no UI, no watermark."
+  },
+  "identity_lock": {
+    "references": [
+      "res://assets/ui/skill_cutin/drive/drive_cutin_character.png",
+      "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+    ],
+    "notes": "Runtime-only Shield Kiting still art. Existing Mika drive/power-smashing assets remain the stronger identity anchors."
+  }
+}

@@ -74,7 +74,7 @@ const COMMON_PASSIVE_SKILL_POOL := [
 		"id": "lingpet_afterglow_leak",
 		"name": "잔광 유출",
 		"description": "링펫이 공을 받아칠 때 빛나는 공명 유체를 흘립니다. 플레이어 패들이 가까이 가면 유체를 흡수해 게이지를 빠르게 얻고, 시간이 지나면 바닥으로 스며들어 사라집니다.",
-		"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+		"icon_texture_path": "res://assets/sprites/lingpet/lingpet_afterglow_leak_passive_icon_imagegen_v1.png",
 		"category": "게이지 회수 / 필드 잔류물",
 		"afterglow_total_gauge_by_level": [20.0, 40.0, 60.0, 80.0, 100.0],
 		"afterglow_duration_seconds_by_level": [2.4, 2.6, 2.8, 3.0, 3.2],
@@ -85,9 +85,31 @@ const COMMON_PASSIVE_SKILL_POOL := [
 		"id": "lingpet_tailwind_steps",
 		"name": "순풍 발산",
 		"description": "링펫이 순풍의 기운을 발산해 플레이어의 이동 속도가 증가합니다.",
-		"icon_texture_path": "res://assets/sprites/perks/common_swiftness_perk_icon.png",
+		"icon_texture_path": "res://assets/sprites/lingpet/lingpet_tailwind_steps_passive_icon_imagegen_v1.png",
 		"category": "이동 속도",
 		"player_speed_bonus_pct_by_level": [4.0, 7.0, 10.0, 13.0, 16.0],
+	},
+	{
+		"id": "lingpet_starlight_tracking",
+		"name": "별빛 추적",
+		"description": "스타포인트가 드랍될 때 일정 확률로 링펫이 별빛을 추적해 달려가고, 주운 뒤 잠깐 머뭇거리다가 플레이어에게 가져다주면 보상을 획득합니다.",
+		"icon_texture_path": "res://assets/sprites/lingpet/lingpet_starlight_tracking_passive_icon_imagegen_v1.png",
+		"category": "보상 회수",
+		"starpoint_tracking_chance_pct_by_level": [20.0, 30.0, 40.0, 50.0, 60.0],
+		"starpoint_tracking_chase_speed_by_level": [420.0, 470.0, 520.0, 570.0, 640.0],
+		"starpoint_tracking_collect_radius_by_level": [24.0, 27.0, 30.0, 33.0, 36.0],
+	},
+	{
+		"id": "lingpet_ring_dash",
+		"name": "링크포트",
+		"description": "플레이어가 받기 어려운 공이 내려오고 링펫도 멀리 떨어져 있을 때, 일정 확률로 링펫이 잠깐 사라졌다가 공 앞에 재등장해 막아냅니다.",
+		"icon_texture_path": "res://assets/sprites/lingpet/lingpet_ring_dash_passive_icon_imagegen_v1.png",
+		"category": "긴급 수비",
+		"ring_dash_chance_pct_by_level": [25.0, 32.5, 40.0, 47.5, 55.0],
+		"ring_dash_reappear_delay_seconds_by_level": [0.080, 0.070, 0.060, 0.050, 0.040],
+		"ring_dash_cooldown_seconds_by_level": [13.0, 12.0, 11.0, 10.0, 9.0],
+		"ring_dash_min_distance_by_level": [150.0, 138.0, 126.0, 114.0, 102.0],
+		"ring_dash_lookahead_gap_by_level": [72.0, 84.0, 96.0, 108.0, 120.0],
 	},
 ]
 
@@ -135,6 +157,7 @@ const PETS := {
 			"cooldown": 40.0,
 			"windup_seconds": 1.0,
 			"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skill_icon_imagegen_v1.png",
 		},
 		"active_skill_pool": [
 			{
@@ -145,6 +168,7 @@ const PETS := {
 				"cooldown": 40.0,
 				"windup_seconds": 1.0,
 				"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skill_icon_imagegen_v1.png",
 			},
 			{
 				"id": "maribo_bubble_trap",
@@ -298,8 +322,8 @@ const PETS := {
 			"description": "밀크링이 3초 동안 우유병을 제조합니다. 완성된 우유병은 바닥에 세워지며, 플레이어가 닿으면 액티브 아이템 슬롯에 들어갑니다. 대쉬로 부딪히면 우유병이 파괴됩니다.",
 			"cooldown": 50.0,
 			"windup_seconds": 3.0,
-			"card_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+			"card_texture_path": "res://assets/sprites/lingpet/milkring_milk_production_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/milkring_milk_production_skill_icon_imagegen_v1.png",
 		},
 		"active_skill_pool": [
 			{
@@ -309,8 +333,8 @@ const PETS := {
 				"description": "밀크링이 3초 동안 우유병을 제조합니다. 완성된 우유병은 바닥에 세워지며, 플레이어가 닿으면 액티브 아이템 슬롯에 들어갑니다. 대쉬로 부딪히면 우유병이 파괴됩니다.",
 				"cooldown": 50.0,
 				"windup_seconds": 3.0,
-				"card_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
-				"icon_texture_path": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+				"card_texture_path": "res://assets/sprites/lingpet/milkring_milk_production_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/milkring_milk_production_skill_icon_imagegen_v1.png",
 			},
 		],
 		"effect_text": "공을 직접 받아치면 게이지 +40 / 우유생산은 50초마다 3초 동안 우유병을 제조해 바닥에 생성합니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
@@ -363,8 +387,8 @@ const PETS := {
 			"description": "볼티가 시한폭탄을 공에 부착합니다. 폭탄은 공과 패들 사이를 오가다가 폭발하며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.",
 			"cooldown": 60.0,
 			"windup_seconds": 0.45,
-			"card_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+			"card_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skill_icon_imagegen_v1.png",
 		},
 		"active_skill_pool": [
 			{
@@ -374,8 +398,8 @@ const PETS := {
 				"description": "볼티가 시한 폭탄을 공에 부착합니다. 폭탄은 공과 양쪽 패들 사이를 오가며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.",
 				"cooldown": 60.0,
 				"windup_seconds": 0.45,
-				"card_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
-				"icon_texture_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
+				"card_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skill_icon_imagegen_v1.png",
 			},
 			{
 				"id": "volty_gatling_burst",
@@ -384,7 +408,7 @@ const PETS := {
 				"description": "볼티가 개틀링 탱크로 변신해 1초 동안 전개한 뒤 3초 동안 상대를 향해 난사합니다. 맞은 대상은 코만도 AK-47과 같은 짧은 스턴과 넉백을 받습니다.",
 				"cooldown": 50.0,
 				"windup_seconds": 0.0,
-				"card_texture_path": "res://assets/sprites/lingpet/volty_gatling_burst_skill_icon.png",
+				"card_texture_path": "res://assets/sprites/lingpet/volty_gatling_burst_skillcard_imagegen_v1.png",
 				"icon_texture_path": "res://assets/sprites/lingpet/volty_gatling_burst_skill_icon.png",
 			},
 		],
@@ -438,13 +462,15 @@ const PETS := {
 			"description": "루미온이 일직선 번개 구체를 발사합니다. 뇌구는 처음 빠르게 날아간 뒤 점점 느려지고, 상대 진영에서 폭발해 전기 스파크에 닿은 보스를 감전시킵니다.",
 			"cooldown": 25.0,
 			"windup_seconds": 0.55,
-			"card_texture_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
+			"stun_duration_seconds": 1.4,
+			"stun_duration_seconds_by_level": [0.8, 1.0, 1.2, 1.4, 1.6],
+			"card_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skill_icon_imagegen_v1.png",
 		},
-		"effect_text": "공을 직접 받아치면 게이지 +40 / 천둥 뇌구는 25초마다 일직선으로 발사되어 상대 진영에서 폭발하고 닿은 보스를 2초 감전시킵니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 천둥 뇌구는 25초마다 일직선으로 발사되어 상대 진영에서 폭발하고 닿은 보스를 0.8~1.6초(레벨별) 감전시킵니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/lumion_cutin_art_magenta_source.png",
-		"note": "Lumion companion visuals are live. Dedicated egg and skill-card art are pending, but the Thunder Orb active-skill runtime is wired with Horus-style straight-line deceleration, explosion, and electric stun.",
+		"note": "Lumion companion visuals and Thunder Orb skill card/icon are live. Dedicated egg art is still pending; the active-skill runtime is wired with Horus-style straight-line deceleration, explosion, and electric stun.",
 	},
 	"orbi": {
 		"id": "orbi",
@@ -491,17 +517,17 @@ const PETS := {
 			"description": "오르비가 푸른 링 궤도를 전개합니다. 상대 진영 벽에 닿으면 4초 동안 가로로 넓은 둔화장을 만듭니다.",
 			"cooldown": 36.0,
 			"windup_seconds": 0.8,
-			"card_texture_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
+			"card_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skill_icon_imagegen_v1.png",
 		},
 		"effect_text": "공을 직접 받아치면 게이지 +40 / 링 오비트는 36초마다 푸른 링 궤도를 쏘아 상대 진영에 4초 둔화장을 만듭니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/orbi_cutin_art_magenta_source.png",
-		"note": "Orbi companion/cut-in/click visuals are live. Dedicated egg, cast sheet, dismiss sheet, skill card, and custom skill runtime are pending; catalog temporarily reuses the shared egg, strike art for cast, cut-in animation for dismiss, and the supported moon_orbit runtime.",
+		"note": "Orbi companion/cut-in/click visuals and Ring Orbit skill card/icon are live. Dedicated egg, cast sheet, dismiss sheet, and custom skill runtime are still pending; catalog temporarily reuses the shared egg, strike art for cast, cut-in animation for dismiss, and the supported moon_orbit runtime.",
 	},
 	"red_dragon": {
 		"id": "red_dragon",
-		"display_name": "아기 홍룡",
+		"display_name": "파루키라스",
 		"motion_style": "sortie_flight",
 		"enabled": true,
 		"hatch_weight": 1.0,
@@ -546,17 +572,97 @@ const PETS := {
 			"id": "red_dragon_dragon_breath",
 			"runtime_kind": "dragon_breath",
 			"name": "드래곤 브레스",
-			"description": "아기 홍룡이 용의 화염을 뿜어 공을 타격하고 가속시킵니다. 사라진 불꽃은 짧은 화염 지대를 남겨 보스를 둔화시키고 바깥으로 밀어냅니다.",
+			"description": "파루키라스가 용의 화염을 뿜어 공을 타격하고 가속시킵니다. 사라진 불꽃은 짧은 화염 지대를 남겨 보스를 둔화시키고 바깥으로 밀어냅니다.",
 			"cooldown": 40.0,
 			"windup_seconds": 0.65,
-			"card_texture_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
+			"card_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_breath_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_breath_skill_icon_imagegen_v1.png",
 		},
-		"effect_text": "공을 직접 받아치면 게이지 +40 / 드래곤 브레스는 40초마다 용의 화염으로 공을 가속하고 짧은 화염 지대로 보스를 둔화시킵니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
+		"active_skill_pool": [
+			{
+				"id": "red_dragon_dragon_breath",
+				"runtime_kind": "dragon_breath",
+				"name": "드래곤 브레스",
+				"description": "파루키라스가 용의 화염을 뿜어 공을 타격하고 가속시킵니다. 사라진 불꽃은 짧은 화염 지대를 남겨 보스를 둔화시키고 바깥으로 밀어냅니다.",
+				"cooldown": 40.0,
+				"windup_seconds": 0.65,
+				"card_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_breath_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_breath_skill_icon_imagegen_v1.png",
+			},
+			{
+				"id": "red_dragon_dragon_wing",
+				"runtime_kind": "dragon_wing",
+				"name": "용의 날개",
+				"description": "파루키라스가 거대한 날갯짓으로 2.5초 동안 좌우 횡풍과 완만한 상승풍을 일으킵니다. 공은 회오리에 감긴 듯 빙글빙글 휩쓸리며 보스 쪽으로 떠밀려 가고, 날아가는 용 그림자가 닿으면 보스 방향으로 되받아칩니다.",
+				"cooldown": 15.0,
+				"windup_seconds": 0.45,
+				"card_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_wing_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_wing_skill_icon_imagegen_v1.png",
+			},
+		],
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 획득 시 드래곤 브레스 또는 용의 날개 중 하나를 액티브 스킬로 얻습니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/red_dragon_lingpet_live2d_front_redesign_imagegen_v6_magenta_source.png",
 		"companion_sd_source_path": "res://assets/sprites/lingpet/red_dragon_companion_sd_back.png",
-		"note": "Red Dragon has a dedicated rear-three-quarter SD wing-flap sheet for sortie_flight movement, acquisition cut-in/dismiss sheets, a dedicated click_reaction_anim, and a Dragon Breath active runtime ported from the original Ignis hero skill.",
+		"note": "Red Dragon has a dedicated rear-three-quarter SD wing-flap sheet for sortie_flight movement, acquisition cut-in/dismiss sheets, a dedicated click_reaction_anim, and Dragon Breath / Dragon Wing active runtimes ported from the original Ignis hero skill kit.",
+	},
+	"rabi": {
+		"id": "rabi",
+		"display_name": "\ub77c\ube44",
+		"motion_style": "free_flight",
+		"enabled": false,
+		"debug_enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 168.0,
+			"patrol_speed_min": 108.0,
+			"patrol_speed_max": 222.0,
+			"catch_width": 90.0,
+			"catch_height": 50.0,
+			"defense_rate": 0.10,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/maribo_companion_walk.png",
+			"companion_strike": "res://assets/sprites/lingpet/maribo_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/maribo_companion_hydro_cast.png",
+			"cutin_art": "res://assets/sprites/lingpet/rabi_cutin_art.png",
+			"cutin_anim": "res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png",
+			"companion_click_reaction_anim": "res://assets/sprites/lingpet/maribo_companion_click_reaction_98f.png",
+		},
+		"visual_layout": {
+			"cutin_anim_view_h_ratio": 0.62,
+			"cutin_dismiss_view_h_ratio": 0.62,
+			"click_reaction_draw_size": 64.0,
+			"companion_walk_draw_size": 92.0,
+			"companion_strike_draw_size": 92.0,
+			"companion_cast_draw_size": 92.0,
+		},
+		"active_skill": {
+			"id": "rabi_soft_glow",
+			"runtime_kind": "hydro_sphere",
+			"name": "\uc720\ud63c \uae00\ub85c\uc6b0",
+			"description": "\ub77c\ube44\uac00 \ubd80\ub4dc\ub7ec\uc6b4 \uc720\ud63c \ube5b\uc744 \ubaa8\uc544 \uc804\ubc29\uc5d0 \ub744\uc6c1\ub2c8\ub2e4. \ud604\uc7ac\ub294 F7 \ud14c\uc2a4\ud2b8\uc6a9 \uc784\uc2dc \uc2a4\ud0ac\ub85c \ud558\uc774\ub4dc\ub85c \uc2a4\ud53c\uc5b4 \ub7f0\ud0c0\uc784\uc744 \uacf5\uc720\ud569\ub2c8\ub2e4.",
+			"cooldown": 40.0,
+			"windup_seconds": 1.0,
+			"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skill_icon_imagegen_v1.png",
+		},
+		"effect_text": "\ub77c\ube44\ub294 F7 \ub514\ubc84\uadf8 \ud14c\uc2a4\ud2b8\uc6a9 \uc720\ub839\ud615 \ub9c1\ud3ab\uc785\ub2c8\ub2e4. \ud68d\ub4dd \ub77c\ud22c\ub514\ub294 \uc804\uc6a9 \uc2dc\ud2b8\ub97c \uc0ac\uc6a9\ud558\uace0, \ub3d9\ud589 / \ud074\ub9ad \uc2dc\ud2b8\ub294 \uc804\uc6a9 \uc790\uc0b0 \uc791\uc5c5 \uc804\uae4c\uc9c0 \uc784\uc2dc \ud50c\ub808\uc774\uc2a4\ud640\ub354\ub97c \uc0ac\uc6a9\ud569\ub2c8\ub2e4.",
+		"concept_art_path": "res://assets/sprites/lingpet/rabi_cutin_art.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/rabi_cutin_art_magenta_source.png",
+		"note": "Rabi is debug-only until dedicated companion, click-reaction, dismiss, egg, and skill assets are accepted. Acquisition cut-in uses the 32-frame sheet. Do not add to the random hatch pool yet.",
 	},
 }
 
@@ -566,7 +672,7 @@ static func get_default_pet_id() -> String:
 
 
 static func has_pet(pet_id: String) -> bool:
-	return is_pet_enabled_from_entries(PETS, pet_id)
+	return is_pet_available_for_runtime_from_entries(PETS, pet_id)
 
 
 static func get_pet_ids(include_disabled: bool = false) -> Array[String]:
@@ -574,6 +680,15 @@ static func get_pet_ids(include_disabled: bool = false) -> Array[String]:
 	for pet_id in PETS.keys():
 		var entry: Variant = PETS.get(pet_id, {})
 		if include_disabled or (entry is Dictionary and _is_entry_enabled(entry as Dictionary)):
+			result.append(str(pet_id))
+	return result
+
+
+static func get_debug_pet_ids() -> Array[String]:
+	var result: Array[String] = []
+	for pet_id in PETS.keys():
+		var entry: Variant = PETS.get(pet_id, {})
+		if entry is Dictionary and (_is_entry_enabled(entry as Dictionary) or _is_entry_debug_enabled(entry as Dictionary)):
 			result.append(str(pet_id))
 	return result
 
@@ -586,6 +701,21 @@ static func is_pet_enabled_from_entries(entries: Dictionary, pet_id: String) -> 
 	var normalized := _normalize_pet_id(pet_id)
 	var entry: Variant = _get_entry_from_entries(entries, normalized)
 	return entry is Dictionary and _is_entry_enabled(entry as Dictionary)
+
+
+static func is_pet_available_for_runtime_from_entries(entries: Dictionary, pet_id: String) -> bool:
+	var normalized := _normalize_pet_id(pet_id)
+	var entry: Variant = _get_entry_from_entries(entries, normalized)
+	return entry is Dictionary and (
+		_is_entry_enabled(entry as Dictionary)
+		or _is_entry_debug_enabled(entry as Dictionary)
+	)
+
+
+static func is_pet_debug_enabled(pet_id: String) -> bool:
+	var normalized := _normalize_pet_id(pet_id)
+	var entry: Variant = _get_entry_from_entries(PETS, normalized)
+	return entry is Dictionary and _is_entry_debug_enabled(entry as Dictionary)
 
 
 static func get_entry(pet_id: String) -> Dictionary:
@@ -1030,6 +1160,10 @@ static func _get_entry_from_entries(entries: Dictionary, pet_id: String) -> Vari
 
 static func _is_entry_enabled(entry: Dictionary) -> bool:
 	return bool(entry.get("enabled", true))
+
+
+static func _is_entry_debug_enabled(entry: Dictionary) -> bool:
+	return bool(entry.get("debug_enabled", false))
 
 
 static func _get_active_skill_pool_from_entry(entry: Dictionary, include_primary_fallback: bool) -> Array[Dictionary]:

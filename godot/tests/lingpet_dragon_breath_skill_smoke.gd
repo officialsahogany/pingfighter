@@ -63,12 +63,18 @@ class FakeAudio:
 	var launch_count := 0
 	var low_fire_count := 0
 	var fallback_count := 0
+	var ball_hit_sfx_count := 0
 
 	func play_dragon_breath_fire(low_volume: bool = false) -> void:
 		if low_volume:
 			low_fire_count += 1
 		else:
 			launch_count += 1
+
+	# Ball strikes use their own deflect cue so the fire-zone low-fire assertion
+	# stays meaningful (not bumped by ball hits falling back to the fire sound).
+	func play_dragon_breath_ball_hit() -> void:
+		ball_hit_sfx_count += 1
 
 	func play_molotov_explosion() -> void:
 		fallback_count += 1
@@ -113,6 +119,7 @@ func _init() -> void:
 	_verify_dispatcher_and_catalog()
 	_verify_center_arm_gate()
 	_verify_runtime_ball_boost_and_fire_zone()
+	_verify_breath_field_reflects_distant_ball()
 	_verify_reset_clears_fire_slow()
 
 	if _failures.is_empty():
@@ -150,6 +157,26 @@ func _verify_center_arm_gate() -> void:
 	_expect(not host.can_arm(SKILL_ID, {"companion_visible": true, "companion_pos": Vector2(735.0, 300.0)}), "Dragon Breath must NOT arm at the right screen edge during ingress")
 	_expect(not host.can_arm(SKILL_ID, {"companion_visible": true, "companion_pos": Vector2(-190.0, 300.0)}), "Dragon Breath must NOT arm off-screen")
 	_expect(not host.can_arm(SKILL_ID, {"companion_visible": false, "companion_pos": Vector2(380.0, 300.0)}), "Dragon Breath must NOT arm while the dragon is hidden")
+
+
+func _verify_breath_field_reflects_distant_ball() -> void:
+	# The breath heat cone must reflect a ball that sits inside the cone but far
+	# from the mouth (where no ember sprite overlaps it). This is the path that
+	# makes the reflection land in normal AI-companion play, not just when the
+	# ball happens to touch a tiny ember near the origin.
+	var skill: Object = load("res://scripts/lingpet/lingpet_dragon_breath_skill.gd").new()
+	var owner := FakeOwner.new()
+	owner.ball_pos = Vector2(380.0, 400.0)
+	owner.ball_vel = Vector2(0.0, -200.0)
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(FakeStatusEffectState.new(), audio, FakeFeedback.new())
+	var initial_speed := owner.ball_vel.length()
+	skill.launch(Vector2(380.0, 690.0), owner)
+	skill.update(1.0 / 60.0, owner, registry)
+	_expect(int(skill.get_ball_hit_count_for_tests()) >= 1, "breath heat cone should reflect a ball inside it even with no ember on top of the ball")
+	_expect(owner.ball_vel.y < 0.0, "field-reflected ball should be driven toward the boss")
+	_expect(owner.ball_vel.length() > initial_speed * 1.25, "field-reflected ball should keep the original Ignis speed boost")
+	_expect(audio.ball_hit_sfx_count >= 1, "breath ball strike should play an audible deflect cue so the hit is felt")
 
 
 func _verify_runtime_ball_boost_and_fire_zone() -> void:
