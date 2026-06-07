@@ -189,8 +189,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		player_sprite_texture = _get_value(textures, "blacksmith_player_idle_sheet")
 	var player_walk_left_texture: Variant = _get_value(textures, "player_walk_left_texture") if use_smasher_textures else null
 	var player_walk_right_texture: Variant = _get_value(textures, "player_walk_right_texture") if use_smasher_textures else null
-	var player_dash_left_texture: Variant = null
-	var player_dash_right_texture: Variant = null
+	var player_dash_left_texture: Variant = _get_value(textures, "player_dash_left_texture") if use_smasher_textures else null
+	var player_dash_right_texture: Variant = _get_value(textures, "player_dash_right_texture") if use_smasher_textures else null
 	if not use_smasher_textures:
 		if is_commando:
 			player_walk_left_texture = _get_value(textures, "commando_player_walk_left_sheet")
@@ -210,7 +210,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		player_walk_left_texture is Texture2D
 		or player_walk_right_texture is Texture2D
 	)
-	var has_player_directional_dash_sheet: bool = is_blacksmith and (
+	var has_player_directional_dash_sheet: bool = (use_smasher_textures or is_blacksmith) and (
 		player_dash_left_texture is Texture2D
 		or player_dash_right_texture is Texture2D
 	)
@@ -460,6 +460,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_customization_overlay_textures": player_customization_overlay_textures,
 		"dash_active": dash_context.get("active", false),
 		"dash_timer": float(dash_context.get("timer", 0.0)),
+		"dash_elapsed_frames": float(dash_context.get("elapsed_frames", 0.0)),
 		"dash_is_half": dash_context.get("is_half", false),
 		"dash_direction": dash_context.get("direction", 0.0),
 		"dash_recovering": dash_context.get("recovering", false),
@@ -751,6 +752,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"boss_walk_right_sheet": _get_value(textures, "boss_walk_right_sheet"),
 		"boss_idle_sheet": _get_value(textures, "boss_idle_sheet"),
 		"boss_attack_sheet": _get_value(textures, "boss_attack_sheet"),
+		"boss_quake_stomp_sheet": _get_value(textures, "boss_quake_stomp_sheet"),
 		"boss_dash_sheet": _get_value(textures, "boss_dash_sheet"),
 		"boss_turn_sheet": _get_value(textures, "boss_turn_sheet"),
 		"boss_victory_sheet": _get_value(textures, "boss_victory_sheet"),

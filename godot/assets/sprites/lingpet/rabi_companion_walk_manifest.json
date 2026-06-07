@@ -1,0 +1,148 @@
+{
+  "asset_id": "rabi_companion_earwing_flight_autosprite_composite_v1",
+  "pet_id": "rabi",
+  "created_at": "2026-06-07",
+  "view_contract": "In-game movement sheet is AutoSprite-derived rear/side 3/4 flight. Rightward movement uses the unflipped sheet with the right face edge and one blue eye slightly visible; leftward movement uses the existing renderer mirror so the left face edge is slightly visible. The long ear-like side appendages are the wings and visibly flap up/down during movement while the body stays mostly stable.",
+  "source": {
+    "body_source": {
+      "asset_id": "cmq2c5cn2000uaw6ogz1wsu8i",
+      "asset_name": "Rabi Back SD Companion Base 20260606 v1",
+      "spritesheet_id": "cmq2wmlre00n1c7cq9ghln0vw",
+      "job_id": "wf_7330c3a3-ad37-4aa4-9f47-83a56365e57c",
+      "selected_raw_path": ".tmp/rabi_companion_flight_move_side_v2/rabi_companion_flight_move_side_v2_autosprite_raw.png",
+      "reason": "Preserves the Maribo-style rear/side movement body and direction-side face edge without front rotation."
+    },
+    "earwing_source": {
+      "asset_id": "cmq2ewlvg001veeb9grscsg13",
+      "asset_name": "Rabi Live2D SD Identity Source 20260606 v2",
+      "spritesheet_id": "cmq36fa15001tvnk0c7c3j0v4",
+      "job_id": "wf_348f008d-f2d7-4d3c-b648-c2f2bdce7aad",
+      "raw_path": ".tmp/rabi_companion_earwing_flight_v5/rabi_companion_earwing_flight_v5_autosprite_raw.png",
+      "prompt": "Side/rear 3/4 right flight loop. Body nearly fixed, no twisting, no full front turn. Ear-like appendages act as wings, large vertical flapping up/down. Tail bob.",
+      "reason": "Supplies the accepted up/down ear-wing flap motion that the prior movement sheet was missing."
+    }
+  },
+  "rejected_autosprite_candidates": [
+    {
+      "job_id": "wf_45c14cc7-caec-4394-aa7d-cf30c732acb5",
+      "spritesheet_id": "cmq2wiqze009ul76mnxnvsvhw",
+      "asset_id": "cmq2ewlvg001veeb9grscsg13",
+      "reason": "Too front-facing for an in-game movement sheet."
+    },
+    {
+      "job_id": "wf_5ba7c58e-ffd5-4923-aac7-737b4e8dad64",
+      "spritesheet_id": "cmq2y45eb001w12l7pw6c0tdg",
+      "asset_id": "cmq2c5cn2000uaw6ogz1wsu8i",
+      "reason": "Ear flap improved, but loop rotated through front-facing/prop-like frames."
+    },
+    {
+      "job_id": "wf_92860a58-8090-42f8-8ac2-228e5e6186e1",
+      "spritesheet_id": "cmq2yb74q00456cjddknkw3mt",
+      "asset_id": "cmq2c5cn2000uaw6ogz1wsu8i",
+      "reason": "Strong flap prompt caused broken alpha/form frames."
+    }
+  ],
+  "output": {
+    "path": "godot/assets/sprites/lingpet/rabi_companion_walk.png",
+    "res_path": "res://assets/sprites/lingpet/rabi_companion_walk.png",
+    "runtime_visual_key": "companion_walk",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      128,
+      128
+    ],
+    "sheet_size": [
+      640,
+      640
+    ],
+    "safe_content_size": [
+      118,
+      118
+    ],
+    "bytes": 292931,
+    "sha256": "72dc3d5340b9084bde766e2d05860a49a4244437b06acf9de0dde55f319c50f5"
+  },
+  "processing": {
+    "tool": "AutoSprite animate_asset sources + deterministic alpha composite + Pillow runtime repack",
+    "operation": "Composited the stable rear/side body and face edge from the AutoSprite-selected movement sheet with the ear-wing appendage motion from the newer AutoSprite flap sheet; discarded the front body from the flap sheet, kept only outer ear-wing appendage regions, scaled the final composite into a 118px safe box, and repacked 25 runtime cells at 128px.",
+    "reason": "Rabi movement must read as a ghost companion flying by flapping its ear-like appendages, not as a body-twist loop."
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "visible_green_pixels": 0,
+    "visible_magenta_pixels": 0,
+    "edge_touch_frames": [],
+    "frame_alpha_bbox_area_pct_range": [
+      58.594,
+      72.742
+    ],
+    "output_bbox_samples": [
+      {
+        "frame": 0,
+        "bbox": [
+          17,
+          11,
+          113,
+          111
+        ]
+      },
+      {
+        "frame": 4,
+        "bbox": [
+          16,
+          10,
+          114,
+          111
+        ]
+      },
+      {
+        "frame": 8,
+        "bbox": [
+          8,
+          10,
+          123,
+          111
+        ]
+      },
+      {
+        "frame": 12,
+        "bbox": [
+          5,
+          10,
+          123,
+          111
+        ]
+      },
+      {
+        "frame": 16,
+        "bbox": [
+          6,
+          11,
+          123,
+          111
+        ]
+      },
+      {
+        "frame": 20,
+        "bbox": [
+          13,
+          11,
+          118,
+          111
+        ]
+      },
+      {
+        "frame": 24,
+        "bbox": [
+          17,
+          11,
+          113,
+          111
+        ]
+      }
+    ],
+    "preview_numbered": ".tmp/rabi_companion_earwing_composite_v1_safe/numbered_preview.png"
+  }
+}

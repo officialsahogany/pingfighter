@@ -30,7 +30,7 @@ static func try_hold_activation(runtime: Object, up_pressed: bool, input_snapsho
 		if skill_state.has_method("trigger_configured_cooldown"):
 			skill_state.trigger_configured_cooldown(skill_name, now_msec, start_skill_config)
 		elif skill_state.has_method("trigger_cooldown"):
-			skill_state.trigger_cooldown(skill_name, now_msec, runtime._get_skill_cooldown_seconds_with_fallback(start_skill_config, skill_name, float(constants.get("fallback_cooldown_seconds", 80.0))))
+			skill_state.trigger_cooldown(skill_name, now_msec, runtime._get_skill_cooldown_seconds_with_fallback(start_skill_config, skill_name, float(constants.get("fallback_cooldown_seconds", 70.0))))
 	runtime._trigger_orb_gauge_spin(deps, now_msec)
 	runtime.audio_router.play_ignition_aura_sound(deps)
 	runtime.runtime_action_router.trigger_feedback(deps, 0.14, 4.2)

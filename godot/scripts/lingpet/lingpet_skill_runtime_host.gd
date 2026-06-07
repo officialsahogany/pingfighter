@@ -12,6 +12,8 @@ const BOMB_SURPRISE_SKILL_PATH := "res://scripts/lingpet/lingpet_bomb_surprise_s
 const GATLING_BURST_SKILL_PATH := "res://scripts/lingpet/lingpet_gatling_burst_skill.gd"
 const DRAGON_BREATH_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_breath_skill.gd"
 const DRAGON_WING_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_wing_skill.gd"
+const GHOST_SUMMON_SKILL_PATH := "res://scripts/lingpet/lingpet_ghost_summon_skill.gd"
+const SOUL_CLONE_SKILL_PATH := "res://scripts/lingpet/lingpet_soul_clone_skill.gd"
 
 var _hydro_sphere_skill: Object = null
 var _headbutt_skill: Object = null
@@ -23,19 +25,23 @@ var _bomb_surprise_skill: Object = null
 var _gatling_burst_skill: Object = null
 var _dragon_breath_skill: Object = null
 var _dragon_wing_skill: Object = null
+var _ghost_summon_skill: Object = null
+var _soul_clone_skill: Object = null
 
 
-func reset() -> void:
-	_reset_skill(_hydro_sphere_skill)
-	_reset_skill(_headbutt_skill)
-	_reset_skill(_moon_orbit_skill)
-	_reset_skill(_bubble_trap_skill)
-	_reset_skill(_milk_production_skill)
-	_reset_skill(_thunder_orb_skill)
-	_reset_skill(_bomb_surprise_skill)
-	_reset_skill(_gatling_burst_skill)
-	_reset_skill(_dragon_breath_skill)
-	_reset_skill(_dragon_wing_skill)
+func reset(owner: Object = null, registry: Object = null) -> void:
+	_reset_skill(_hydro_sphere_skill, owner, registry)
+	_reset_skill(_headbutt_skill, owner, registry)
+	_reset_skill(_moon_orbit_skill, owner, registry)
+	_reset_skill(_bubble_trap_skill, owner, registry)
+	_reset_skill(_milk_production_skill, owner, registry)
+	_reset_skill(_thunder_orb_skill, owner, registry)
+	_reset_skill(_bomb_surprise_skill, owner, registry)
+	_reset_skill(_gatling_burst_skill, owner, registry)
+	_reset_skill(_dragon_breath_skill, owner, registry)
+	_reset_skill(_dragon_wing_skill, owner, registry)
+	_reset_skill(_ghost_summon_skill, owner, registry)
+	_reset_skill(_soul_clone_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -61,6 +67,10 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_dragon_breath_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			_get_dragon_wing_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			_get_ghost_summon_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			_get_soul_clone_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -76,6 +86,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_gatling_burst_skill, canvas, shake_offset)
 	_draw_skill(_dragon_breath_skill, canvas, shake_offset)
 	_draw_skill(_dragon_wing_skill, canvas, shake_offset)
+	_draw_skill(_ghost_summon_skill, canvas, shake_offset)
+	_draw_skill(_soul_clone_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
@@ -90,6 +102,8 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_gatling_burst_skill)
 		or _skill_has_visible_effects(_dragon_breath_skill)
 		or _skill_has_visible_effects(_dragon_wing_skill)
+		or _skill_has_visible_effects(_ghost_summon_skill)
+		or _skill_has_visible_effects(_soul_clone_skill)
 	)
 
 
@@ -121,6 +135,10 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _dragon_breath_skill != null and bool(_dragon_breath_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			return _dragon_wing_skill != null and bool(_dragon_wing_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return _ghost_summon_skill != null and bool(_ghost_summon_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			return _soul_clone_skill != null and bool(_soul_clone_skill.is_active())
 		_:
 			return false
 
@@ -165,6 +183,10 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			_get_dragon_wing_skill().launch(origin, owner, launch_context)
 			return true
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return bool(_get_ghost_summon_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			return bool(_get_soul_clone_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -190,6 +212,10 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return companion_pos
 		_:
 			return companion_pos
@@ -269,6 +295,10 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_dragon_breath_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			_play_dragon_wing_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			_play_ghost_summon_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			_play_soul_clone_feedback(registry)
 		_:
 			pass
 
@@ -285,6 +315,8 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _gatling_burst_skill)
 	_merge_skill_snapshot(snapshot, _dragon_breath_skill)
 	_merge_skill_snapshot(snapshot, _dragon_wing_skill)
+	_merge_skill_snapshot(snapshot, _ghost_summon_skill)
+	_merge_skill_snapshot(snapshot, _soul_clone_skill)
 	return snapshot
 
 
@@ -348,6 +380,18 @@ func get_dragon_wing_wind_tick_count_for_tests() -> int:
 	return int(_get_dragon_wing_skill().get_wind_tick_count_for_tests())
 
 
+func get_ghost_summon_catch_count_for_tests() -> int:
+	return int(_get_ghost_summon_skill().get_catch_count_for_tests())
+
+
+func get_ghost_summon_release_count_for_tests() -> int:
+	return int(_get_ghost_summon_skill().get_release_count_for_tests())
+
+
+func get_soul_clone_hit_count_for_tests() -> int:
+	return int(_get_soul_clone_skill().get_hit_count_for_tests())
+
+
 func _get_skill_for_kind(skill_kind: String) -> Object:
 	match skill_kind:
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
@@ -370,6 +414,10 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_dragon_breath_skill()
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			return _get_dragon_wing_skill()
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return _get_ghost_summon_skill()
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			return _get_soul_clone_skill()
 		_:
 			return null
 
@@ -434,6 +482,18 @@ func _get_dragon_wing_skill() -> Object:
 	return _dragon_wing_skill
 
 
+func _get_ghost_summon_skill() -> Object:
+	if _ghost_summon_skill == null:
+		_ghost_summon_skill = _new_skill(GHOST_SUMMON_SKILL_PATH)
+	return _ghost_summon_skill
+
+
+func _get_soul_clone_skill() -> Object:
+	if _soul_clone_skill == null:
+		_soul_clone_skill = _new_skill(SOUL_CLONE_SKILL_PATH)
+	return _soul_clone_skill
+
+
 func _new_skill(path: String) -> Object:
 	var script_resource: Variant = load(path)
 	if script_resource == null:
@@ -442,8 +502,12 @@ func _new_skill(path: String) -> Object:
 	return script_resource.new()
 
 
-func _reset_skill(skill: Object) -> void:
-	if skill != null and skill.has_method("reset"):
+func _reset_skill(skill: Object, owner: Object = null, registry: Object = null) -> void:
+	if skill == null:
+		return
+	if skill.has_method("cancel"):
+		skill.cancel(owner, registry)
+	elif skill.has_method("reset"):
 		skill.reset()
 
 
@@ -530,6 +594,32 @@ func _play_dragon_wing_feedback(registry: Object) -> void:
 		audio.play_active_item()
 	elif audio.has_method("play_dragon_breath_fire"):
 		audio.play_dragon_breath_fire(true)
+
+
+func _play_ghost_summon_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_ghost_summon"):
+		audio.play_lingpet_ghost_summon()
+	elif audio.has_method("play_stage3_kuromi_tongue"):
+		audio.play_stage3_kuromi_tongue()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_soul_clone_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_ghost_summon"):
+		audio.play_lingpet_ghost_summon()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:

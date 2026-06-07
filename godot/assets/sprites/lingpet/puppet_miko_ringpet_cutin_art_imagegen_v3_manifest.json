@@ -1,0 +1,39 @@
+{
+  "asset_id": "puppet_miko_ringpet_cutin_art_imagegen_v3",
+  "asset_type": "lingpet_acquire_cutin_art_concept",
+  "display_name": "Puppet Miko Ringpet",
+  "generator": {
+    "mode": "built_in_imagegen",
+    "source_image": "C:/Users/woduq/.codex/generated_images/019ea055-b9f7-7e90-b717-7258944e5d5b/ig_09effa31d54a46ff016a2552f15d2481918c27f7c0224bf75d.png",
+    "prompt_summary": "Tail-attachment revision of the puppet miko Ringpet concept. The fox tail now emerges from behind the right hip / lower back and overlaps the skirt and waist armor so it no longer reads as detached on the magenta source."
+  },
+  "outputs": {
+    "magenta_source": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3_magenta_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py remove_chroma_key.py --key-color #ea07d8 --tolerance 60 --edge-contract 1 --despill",
+    "key_mode": "manual hard key",
+    "key_color": "#ea07d8",
+    "canonical_source_background": "#ff00ff",
+    "tolerance": 60,
+    "edge_contract": 1,
+    "soft_matte": false,
+    "despill": true,
+    "note": "The generated raw source background was a magenta gradient rather than exact flat #ff00ff. Soft matte removal damaged red/plum subject colors, so the accepted alpha uses a conservative hard key plus 1px edge contraction. The repo magenta_source output was then recomposited from the accepted alpha onto exact opaque #ff00ff."
+  },
+  "qa": {
+    "size": "1024x1536",
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [84, 46, 933, 1457],
+    "margins": {
+      "left": 84,
+      "top": 46,
+      "right": 91,
+      "bottom": 79
+    },
+    "visible_magenta_pixels": 0,
+    "detached_tail_check": "Tail root overlaps the right hip / skirt area and reads as attached on both magenta-source and alpha previews."
+  }
+}

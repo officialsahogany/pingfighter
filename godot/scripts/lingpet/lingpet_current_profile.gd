@@ -154,6 +154,10 @@ func get_defense_rate(fallback: float) -> float:
 	return get_stat("defense_rate", fallback)
 
 
+func get_appearance_rate(fallback: float) -> float:
+	return clampf(get_stat("appearance_rate", fallback), 0.0, 1.0)
+
+
 func get_hit_half_width(fallback_width: float) -> float:
 	return maxf(1.0, get_stat("catch_width", fallback_width) * 0.5)
 

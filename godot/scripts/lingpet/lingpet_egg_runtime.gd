@@ -5,6 +5,7 @@ const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire
 const LingpetAfterglowLeakState := preload("res://scripts/lingpet/lingpet_afterglow_leak_state.gd")
 const LingpetRingDashState := preload("res://scripts/lingpet/lingpet_ring_dash_state.gd")
 const LingpetRingDashVfx := preload("res://scripts/lingpet/lingpet_ring_dash_vfx.gd")
+const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
@@ -96,6 +97,10 @@ var _hatch_flash_timer := 0.0
 var _afterglow_leak_state: Object = LingpetAfterglowLeakState.new()
 var _ring_dash_state: Object = LingpetRingDashState.new()
 var _ring_dash_vfx: Object = LingpetRingDashVfx.new()
+var _ghost_blink_vfx: Object = LingpetGhostBlinkVfx.new()
+# Tracks the free-flight ghost's visibility across frames so a vanish/appear edge
+# can fire the ghost blink "퐁" VFX once per transition.
+var _prev_ghost_visible := true
 var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
@@ -104,6 +109,9 @@ var _current_profile: Object = LingpetCurrentProfile.new()
 # value"; >= 0 forces that defense_rate for feel testing. Sticky across rounds so
 # the override can be evaluated over a whole match; only the F7 picker writes it.
 var _debug_defense_rate_override := -1.0
+# F7 debug-only appearance-rate override (flight-style only). Same contract as the
+# defense override: < 0 = use catalog/profile, >= 0 forces the value.
+var _debug_appearance_rate_override := -1.0
 var _companion_draw_context_builder: Object = LingpetCompanionDrawContextBuilder.new()
 var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
@@ -168,13 +176,28 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_prewarm_click_reaction_visual_step()
 		_starlight_tracking_state.advance(delta, _get_current_passive_skill(), _state == STATE_COMPANION, _companion_pos)
 		_ring_dash_vfx.advance(delta)
+		_ghost_blink_vfx.advance(delta)
 		_update_companion_motion(delta, owner)
+		_update_ghost_blink_vfx_triggers()
 		_maybe_arm_companion_strike(owner)
 		_resolve_companion_ball_hit(owner, registry)
 		_afterglow_leak_state.advance(delta, owner, registry, _get_current_passive_skill(), _state == STATE_COMPANION)
 		_update_companion_skill_effects(delta, owner, registry)
 		_sync_owner(owner)
 	return false
+
+
+func _update_ghost_blink_vfx_triggers() -> void:
+	# Fire the ghost "퐁" pop on the rabi free-flight vanish/appear edges. Only the
+	# free-flight ghost blinks; for every other motion style this just tracks the
+	# visibility so a later free-flight session does not fire a spurious pop.
+	var now_visible: bool = _companion_motion_state.motion_visible
+	if _state == STATE_COMPANION and _get_current_motion_style() == "free_flight" and now_visible != _prev_ghost_visible:
+		if now_visible:
+			_ghost_blink_vfx.trigger_appear(_companion_pos)
+		else:
+			_ghost_blink_vfx.trigger_vanish(_companion_pos)
+	_prev_ghost_visible = now_visible
 
 
 func prewarm_assets() -> void:
@@ -212,6 +235,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 			)
 		if _ring_dash_vfx.has_visible_effects():
 			_ring_dash_vfx.draw(canvas, shake_offset)
+		if _ghost_blink_vfx.has_visible_effects():
+			_ghost_blink_vfx.draw(canvas, shake_offset)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
@@ -224,6 +249,7 @@ func has_visible_effects() -> bool:
 		or _acquire_cutin_state.active
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
+		or _ghost_blink_vfx.has_visible_effects()
 		or _skill_runtime_host.has_visible_effects()
 	)
 
@@ -234,8 +260,28 @@ func is_acquire_cutin_active() -> bool:
 
 # Advanced from the ungated idle pump (process_idle), so the reveal AND the exit
 # action keep animating while the gated update driver is paused by the modal gate.
-func advance_acquire_cutin(delta: float) -> void:
-	_acquire_cutin_state.advance(delta)
+# The reveal is gated on the heavy Live2D acquisition sheet being cached: until then it
+# holds in the reconstruction phase instead of locking solid on the static 원화 (the F7
+# grant / 1-hit egg regression). We keep pumping the host's incremental stream here so
+# the gate releases as soon as the sheet is ready, covering paths that skipped (or had
+# too few) STATE_EGG calm frames.
+func advance_acquire_cutin(delta: float, registry: Object = null) -> void:
+	var anim_ready: bool = _is_acquire_cutin_anim_ready(registry)
+	if not anim_ready and registry != null:
+		_prewarm_acquire_cutin_assets_step(registry)
+	_acquire_cutin_state.advance(delta, anim_ready)
+
+
+func _is_acquire_cutin_anim_ready(registry: Object) -> bool:
+	# True (no gate) when there is no host wired (smoke tests), no readiness query, or the
+	# pet has no animated cut-in (static art is the intended visual). Otherwise defer to
+	# the host, which checks the SAME texture cache key the draw path falls back from.
+	if registry == null:
+		return true
+	var host: Object = _get_acquire_cutin_overlay_host(registry)
+	if host == null or not host.has_method("is_pet_cutin_anim_ready"):
+		return true
+	return bool(host.is_pet_cutin_anim_ready(_pet_id))
 
 
 func get_acquire_cutin_progress() -> float:
@@ -253,8 +299,9 @@ func is_acquire_cutin_awaiting_dismiss() -> bool:
 # Begin the animated exit action (does NOT close immediately). The cut-in stays
 # active (gameplay paused) until advance_acquire_cutin finishes the action+fade.
 func begin_acquire_cutin_dismiss(registry: Object = null) -> bool:
-	if not _acquire_cutin_state.begin_dismiss():
+	if not _acquire_cutin_state.begin_dismiss(_get_current_acquire_cutin_dismiss_seconds()):
 		return false
+	_play_acquire_click_reaction_backing_audio(registry)
 	_play_click_reaction_audio(registry)
 	return true
 
@@ -533,6 +580,7 @@ func get_snapshot() -> Dictionary:
 	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
+	snapshot["companion_appearance_rate"] = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
 	return snapshot
 
 
@@ -623,8 +671,8 @@ func reset_for_tests() -> void:
 	_has_synced_none = false
 
 
-func reset_round(_deps: Dictionary = {}) -> void:
-	_reset_skill_runtime_transients()
+func reset_round(deps: Dictionary = {}) -> void:
+	_reset_skill_runtime_transients(deps.get("owner", null) as Object, deps.get("registry", null) as Object)
 	_reset_companion_defense()
 	_switch_transition_state.reset()
 	_companion_skill_state.reset_round_transients()
@@ -632,12 +680,13 @@ func reset_round(_deps: Dictionary = {}) -> void:
 	_afterglow_leak_state.reset_round_transients()
 	_ring_dash_state.reset_round_transients()
 	_ring_dash_vfx.reset()
+	_ghost_blink_vfx.reset()
 	_starlight_tracking_state.reset_round_transients()
 
 
-func _reset_skill_runtime_transients() -> void:
+func _reset_skill_runtime_transients(owner: Object = null, registry: Object = null) -> void:
 	_companion_skill_state.cancel_windup()
-	_skill_runtime_host.reset()
+	_skill_runtime_host.reset(owner, registry)
 
 
 func _clear_lingpet_field_state() -> void:
@@ -650,6 +699,8 @@ func _clear_lingpet_field_state() -> void:
 	_afterglow_leak_state.reset_all()
 	_ring_dash_state.reset_all()
 	_ring_dash_vfx.reset()
+	_ghost_blink_vfx.reset()
+	_prev_ghost_visible = true
 	_starlight_tracking_state.reset_all()
 
 
@@ -659,6 +710,8 @@ func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
 	_afterglow_leak_state.reset_all()
 	_ring_dash_state.reset_all()
 	_ring_dash_vfx.reset()
+	_ghost_blink_vfx.reset()
+	_prev_ghost_visible = true
 	_starlight_tracking_state.reset_all()
 	_companion_skill_state.reset_all()
 	if reset_defense:
@@ -750,6 +803,11 @@ func _sync_owner(owner: Object) -> void:
 		_get_current_passive_skill(),
 		should_sync_loadouts
 	)
+	# Appearance rate (flight-only 출현율) is synced directly here rather than threaded
+	# through the snapshot builder; the panel reads owner.lingpet_companion_appearance_rate.
+	var appearance_rate: float = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
+	owner.set("lingpet_companion_appearance_rate", appearance_rate)
+	owner.set("ringpet_companion_appearance_rate", appearance_rate)
 	if should_sync_loadouts:
 		_synced_owner_loadout_key = _applied_loadout_key
 
@@ -879,6 +937,13 @@ func _get_current_skill_windup_seconds() -> float:
 	return _current_profile.get_skill_windup_seconds(COMPANION_SKILL_WINDUP_SECONDS)
 
 
+func _get_current_acquire_cutin_dismiss_seconds() -> float:
+	return maxf(
+		0.1,
+		_current_profile.get_visual_layout_value("cutin_dismiss_seconds", LingpetAcquireCutinState.DISMISS_SECONDS)
+	)
+
+
 func _get_current_gauge_gain_bonus_pct() -> float:
 	return _current_profile.get_gauge_gain_bonus_pct(0.0)
 
@@ -900,10 +965,36 @@ func get_debug_defense_rate_override() -> float:
 	return _debug_defense_rate_override
 
 
+func set_debug_appearance_rate_override(value: float) -> void:
+	# value < 0 clears the override (back to the pet's catalog/profile appearance_rate).
+	_debug_appearance_rate_override = -1.0 if value < 0.0 else clampf(value, 0.0, 1.0)
+
+
+func get_debug_appearance_rate_override() -> float:
+	return _debug_appearance_rate_override
+
+
 func _get_current_defense_rate() -> float:
+	# Defense intercept is PATROL-only (flight-style companions skip it in
+	# lingpet_companion_motion_state.update). Report 0 for non-patrol lingpets so the
+	# character-info panel never shows a defense rate they can't act on, and so the
+	# F7 defense-rate override is a no-op for flight-style pets.
+	if _get_current_motion_style() != "patrol":
+		return 0.0
 	if _debug_defense_rate_override >= 0.0:
 		return _debug_defense_rate_override
 	return _current_profile.get_defense_rate(COMPANION_DEFENSE_RATE)
+
+
+func _get_current_appearance_rate() -> float:
+	# Appearance rate is FLIGHT-only — it shortens the hidden/vanish wait between
+	# reappearances. Patrol pets return 0 (defense is their stat instead), so the
+	# panel never shows it for them and the F7 override is a no-op for patrol pets.
+	if _get_current_motion_style() == "patrol":
+		return 0.0
+	if _debug_appearance_rate_override >= 0.0:
+		return _debug_appearance_rate_override
+	return _current_profile.get_appearance_rate(0.0)
 
 
 func _get_current_hit_half_width() -> float:
@@ -1114,7 +1205,8 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 		_companion_skill_state.trigger_count,
 		_get_current_stat("patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
 		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
-		_get_current_motion_style()
+		_get_current_motion_style(),
+		_get_current_appearance_rate()
 	)
 	_companion_pos = _companion_motion_state.pos
 	_update_companion_facing_after_motion(prev_pos)
@@ -1382,6 +1474,10 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"face_left": _companion_facing_left,
 		"motion_speed_ratio": _get_companion_draw_motion_speed_ratio(),
 		"companion_visible": _is_companion_body_visible_for_draw(),
+		# Ghost (free_flight) fade alpha, 0..1. The renderer multiplies the companion
+		# sprite + aura by this so rabi fades out/in instead of hard-popping. 1.0 for
+		# non-ghost pets (motion state leaves ghost_alpha at 1.0 for them).
+		"companion_alpha": _companion_motion_state.ghost_alpha,
 		"windup_seconds": _get_current_skill_windup_seconds(),
 	}))
 
@@ -1424,6 +1520,14 @@ func _play_click_reaction_audio(registry: Object = null) -> void:
 	var audio: Object = registry.get_instance("game_audio")
 	if audio != null and audio.has_method("play_lingpet_click_reaction"):
 		audio.play_lingpet_click_reaction(_pet_id)
+
+
+func _play_acquire_click_reaction_backing_audio(registry: Object = null) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var audio: Object = registry.get_instance("game_audio")
+	if audio != null and audio.has_method("play_lingpet_acquire_click_reaction_backing"):
+		audio.play_lingpet_acquire_click_reaction_backing()
 
 
 func is_companion_click_reaction_active() -> bool:

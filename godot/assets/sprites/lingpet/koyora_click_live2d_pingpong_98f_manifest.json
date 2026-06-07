@@ -1,0 +1,79 @@
+{
+  "asset_id": "koyora_click_live2d_pingpong_98f",
+  "pet_id": "koyora",
+  "display_name": "코요라",
+  "created_at": "2026-06-07",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "source_art_asset_id": "puppet_miko_ringpet_cutin_art_imagegen_v3",
+    "source_art_path": "godot/assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
+    "autosprite_character_id": "cmq3qfdsg003f64i483cxoet2",
+    "autosprite_character_name": "Koyora Puppet Miko Ringpet Click Source 20260607",
+    "spritesheet_id": "cmq3qix2t0027kenvlraomm9w",
+    "spritesheet_job_id": "wf_35490bae-62df-4a41-8469-7c3fbec8a2d1",
+    "video_id": "cmq3qg1lx003z64i40noazuy4",
+    "raw_sheet_local_path": ".tmp/koyora_click_live2d_v1/koyora_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/koyora_click_live2d_v1/koyora_click_live2d_raw_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [1024, 1024]
+    },
+    "prompt": "Click reaction one-shot: Koyora is happily surprised, blinks then winks, tiny paw tugging puppet strings, talismans flutter, bells jiggle, cyan strings sparkle, attached fox tail swishes behind the right hip, bounce then settle. Preserve full body, front 3/4 pose, fox-mask face, outfit, tail attachment, and clean anime style. Transparent background, generous margins, no text, no crop.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [1152, 1152],
+    "sheet_size": [16128, 8064],
+    "frame_interval": "intended one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.84,
+    "content_size_px": 968,
+    "cell_offset_px": 92,
+    "sha256": "4a939fed28822622261ffbd4b9e3ed831ffbc94a10413ebb61259d08d01cc9af",
+    "bytes": 88875585
+  },
+  "postprocess": {
+    "tool": "Pillow premultiplied-alpha safe-margin repack + deterministic pingpong reassembly",
+    "operation": "AutoSprite 49f source cells were premultiplied-alpha resized from 1024px to 968px and centered in 1152px cells. Final sheet was assembled as forward frames 0..48 plus reverse frames 48..0.",
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "Pixels with alpha <= 15 were set fully transparent after resize."
+    },
+    "upscale": "none; raw AutoSprite 1024px cells were preserved near-native by resizing to 968px inside 1152px runtime cells."
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_estimate": 0,
+    "visible_green_pixels_estimate": 0,
+    "pingpong_loop_closure": "frame0 returns at frame97 and frame48 is held at frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [247, 92, 942, 1060],
+      "8": [257, 92, 964, 1060],
+      "16": [289, 92, 973, 1060],
+      "24": [276, 92, 992, 1060],
+      "32": [247, 92, 1008, 1060],
+      "40": [234, 92, 1015, 1060],
+      "48": [247, 92, 942, 1060],
+      "49": [247, 92, 942, 1060],
+      "64": [247, 92, 1009, 1060],
+      "80": [288, 92, 966, 1060],
+      "96": [247, 92, 942, 1060],
+      "97": [247, 92, 942, 1060]
+    },
+    "contact_preview": ".tmp/koyora_click_live2d_v1/koyora_click_live2d_pingpong_98f_contact.jpg",
+    "black_preview": ".tmp/koyora_click_live2d_v1/koyora_click_live2d_pingpong_98f_black_preview.jpg",
+    "status": "Accepted runtime candidate: Koyora click Live2D sheet with happy surprise, wink/blink, puppet-string tug, talisman flutter, bell jiggle, cyan sparkle, and attached tail swish."
+  }
+}

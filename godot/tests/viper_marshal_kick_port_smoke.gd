@@ -182,6 +182,7 @@ func _init() -> void:
 	_test_kick_guard_speed_tooltip_copy()
 	_test_shadow_chain_marshal_prep_retime()
 	_test_phantom_chain_marshal_prep_retime()
+	_test_dynamic_ball_speed_kick_prep_retime()
 
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
@@ -259,7 +260,7 @@ func _init() -> void:
 	_expect(not bool(snap.get("shadow_starburst_is_double", true)), "first marshal starburst should be the normal variant")
 	_expect(bool(snap.get("dark_blade_window", false)), "marshal hit should open the Dark Blade combo window when equipped")
 	_expect(stage_background.absorbed > 0, "marshal hit should destroy nearby stage objects through the impact hook")
-	_expect(int(snap.get("kick_guard_speed_reduction_pending_pct", 0)) == 30, "normal marshal hit should arm boss-guard ball speed reduction")
+	_expect(int(snap.get("kick_guard_speed_reduction_pending_pct", 0)) == 50, "normal marshal hit should arm boss-guard ball speed reduction")
 
 	input.snapshot["down_pressed"] = false
 	for _i in range(48):
@@ -432,7 +433,7 @@ func _test_phantom_kick_speed_limit_lifecycle() -> void:
 
 func _test_kick_guard_speed_reduction_lifecycle() -> void:
 	var runtime: Object = ViperSkillRuntime.new()
-	runtime.kick_guard_speed_reduction_pending_pct = 30
+	runtime.kick_guard_speed_reduction_pending_pct = 50
 	var update_context := {
 		"selected_character_type": "viper",
 		"ai_mode": "champion",
@@ -468,15 +469,15 @@ func _test_kick_guard_speed_reduction_lifecycle() -> void:
 	var ball_result: Dictionary = BallUpdateController.new().update(1.0 / 60.0, update_context, deps)
 	var snapshot: Dictionary = ball_result.get("snapshot", {})
 	_expect(int(runtime.get_snapshot().get("kick_guard_speed_reduction_pending_pct", -1)) == 0, "boss guard should consume the Viper kick speed reduction")
-	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 18.21, "boss-guarded Viper kick ball should lose 30 percent speed after the champion cap")
+	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() <= 13.01, "boss-guarded Viper kick ball should lose 50 percent speed after the champion cap")
 
 
 func _test_kick_guard_speed_tooltip_copy() -> void:
 	var skill_config: Object = ViperSkillConfig.new()
 	var shadow_data: Dictionary = skill_config.get_skill_data("shadow_step")
 	var marshal_data: Dictionary = skill_config.get_skill_data("marshal_kick")
-	_expect(str(shadow_data.get("description", "")).find("30%") >= 0, "Shadow Backstep tooltip should mention the guard speed reduction")
-	_expect(str(marshal_data.get("description", "")).find("30%") >= 0, "Martial Kick tooltip should mention the guard speed reduction")
+	_expect(str(shadow_data.get("description", "")).find("50%") >= 0, "Shadow Backstep tooltip should mention the guard speed reduction")
+	_expect(str(marshal_data.get("description", "")).find("50%") >= 0, "Martial Kick tooltip should mention the guard speed reduction")
 
 
 func _test_shadow_chain_marshal_prep_retime() -> void:
@@ -503,7 +504,35 @@ func _test_phantom_chain_marshal_prep_retime() -> void:
 	_expect(normal_runtime != null and int(normal_runtime.marshal_phase) == 0, "normal marshal wall-flight prep should stay slower than the phantom chain")
 
 
-func _start_marshal_prep_case(from_shadow_step_chain: bool) -> Dictionary:
+func _test_dynamic_ball_speed_kick_prep_retime() -> void:
+	var fast_marshal_setup: Dictionary = _start_marshal_prep_case(false, {
+		"ball_pos": Vector2(640.0, 560.0),
+		"ball_vel": Vector2(0.0, 18.0),
+	})
+	_advance_marshal_prep_frames(fast_marshal_setup, 14)
+	var fast_marshal_runtime: Object = fast_marshal_setup.get("runtime", null)
+	_expect(fast_marshal_runtime != null and int(fast_marshal_runtime.marshal_phase) == 1, "fast descending ball should shorten Marshal Kick wall-flight prep")
+
+	var slow_marshal_setup: Dictionary = _start_marshal_prep_case(false)
+	_advance_marshal_prep_frames(slow_marshal_setup, 20)
+	var slow_marshal_runtime: Object = slow_marshal_setup.get("runtime", null)
+	_expect(slow_marshal_runtime != null and int(slow_marshal_runtime.marshal_phase) == 0, "slow upward ball should keep Marshal Kick wall-flight prep unshortened")
+
+	var fast_phantom_setup: Dictionary = _start_phantom_prep_case(false, {
+		"ball_pos": Vector2(640.0, 560.0),
+		"ball_vel": Vector2(0.0, 18.0),
+	})
+	_advance_marshal_prep_frames(fast_phantom_setup, 9)
+	var fast_phantom_runtime: Object = fast_phantom_setup.get("runtime", null)
+	_expect(fast_phantom_runtime != null and int(fast_phantom_runtime.marshal_phase) == 1, "fast descending ball should shorten Phantom Kick wall-flight prep")
+
+	var slow_phantom_setup: Dictionary = _start_phantom_prep_case(false)
+	_advance_marshal_prep_frames(slow_phantom_setup, 9)
+	var slow_phantom_runtime: Object = slow_phantom_setup.get("runtime", null)
+	_expect(slow_phantom_runtime != null and int(slow_phantom_runtime.marshal_phase) == 0, "slow upward ball should keep Phantom Kick wall-flight prep unshortened")
+
+
+func _start_marshal_prep_case(from_shadow_step_chain: bool, config_overrides: Dictionary = {}) -> Dictionary:
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
 	var skill_config := FakeSkillConfig.new()
@@ -540,6 +569,7 @@ func _start_marshal_prep_case(from_shadow_step_chain: bool) -> Dictionary:
 	}
 	var player_pos := Vector2(302.5, 680.0)
 	var gauge := 200.0
+	_apply_config_overrides(config, config_overrides)
 	runtime.shadow_was_airborne = true
 	runtime.open_marshal_kick_window(from_shadow_step_chain)
 	input.snapshot["down_pressed"] = true
@@ -557,7 +587,7 @@ func _start_marshal_prep_case(from_shadow_step_chain: bool) -> Dictionary:
 	}
 
 
-func _start_phantom_prep_case(from_shadow_step_chain: bool) -> Dictionary:
+func _start_phantom_prep_case(from_shadow_step_chain: bool, config_overrides: Dictionary = {}) -> Dictionary:
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
 	var skill_config := FakeSkillConfig.new()
@@ -592,6 +622,7 @@ func _start_phantom_prep_case(from_shadow_step_chain: bool) -> Dictionary:
 		"ball_vel": Vector2(0.0, -8.0),
 		"ball_impact_boost": 1.0,
 	}
+	_apply_config_overrides(config, config_overrides)
 	var player_pos := Vector2(302.5, 680.0)
 	var gauge := 200.0
 	runtime.shadow_was_airborne = true
@@ -624,6 +655,11 @@ func _advance_marshal_prep_frames(setup: Dictionary, frames: int) -> void:
 		gauge = float(result.get("special_gauge", gauge))
 	setup["player_pos"] = player_pos
 	setup["gauge"] = gauge
+
+
+func _apply_config_overrides(config: Dictionary, overrides: Dictionary) -> void:
+	for key in overrides.keys():
+		config[key] = overrides[key]
 
 
 func _expect_phantom_show_freezes_ball_and_boss(runtime: Object, config: Dictionary) -> void:

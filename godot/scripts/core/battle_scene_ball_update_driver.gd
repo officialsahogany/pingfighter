@@ -23,6 +23,8 @@ func reset_ball(owner: Object, registry: Object) -> void:
 		perf_logger,
 		"process.reset_ball.build_deps"
 	)
+	round_deps["owner"] = owner
+	round_deps["registry"] = registry
 	round_deps["perf_logger"] = perf_logger
 	_perf_end(perf_logger, "process.reset_ball.build_deps", sample_start)
 	sample_start = _perf_begin(perf_logger)

@@ -1,0 +1,55 @@
+{
+  "asset_id": "rabi_live2d_source_sd_identity_v2",
+  "pet_id": "rabi",
+  "created_at": "2026-06-06",
+  "intent": "Live2D source-art redesign based on accepted rear-view SD companion identity with large ear/wing side appendages.",
+  "selected_candidate": {
+    "generated_directory": "C:/Users/woduq/.codex/generated_images/019e9a60-787b-7653-af57-6e13b28fac41",
+    "source_file_name": "ig_05feece9cc26375e016a2419e9c7b48191848a93c87bf7761f.png",
+    "selection_reason": "Best match to SD identity: large side ear/wing appendages, gold halo, gold core/collar parts, blue ghost tail, cute Live2D-ready front expression."
+  },
+  "prompt_summary": "Front-facing Live2D source art for Rabi redesigned from the current SD sprite: cute white ghost, long ear/wing side appendages, gold halo, gold chest/core and end-ring parts, blue gem/star wisps, flat #ff00ff chroma-key background.",
+  "source": {
+    "path": "godot/assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2_magenta_source.png",
+    "key_color_detected": "#fb03f9",
+    "requested_key_color": "#ff00ff",
+    "bytes": 1424651,
+    "sha256": "e62a9b4744a0cd45112e4548e57819e2bd2b18317965abb46c0afe16b95f59d2"
+  },
+  "output": {
+    "path": "godot/assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2.png",
+    "res_path": "res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 879064,
+    "sha256": "64c3893c1fa4a1fc74c7a9d48d051bb18af7b0acd8fd8dca5bfe4068bedb9715"
+  },
+  "processing": {
+    "tool": "built-in image_gen + remove_chroma_key.py",
+    "background_removal": "auto-key border, soft matte, transparent-threshold 12, opaque-threshold 220, despill",
+    "reason": "Production Live2D source art needs alpha PNG plus preserved chroma-key source for future sheet generation."
+  },
+  "identity_locks": [
+    "large ear-like side appendages inherited from SD sprite",
+    "gold halo ring above head",
+    "gold collar/core chest ring with blue gem",
+    "gold rim parts at side appendage tips",
+    "white ghost body with blue tail and star wisps",
+    "cute non-horror expression"
+  ],
+  "qa": {
+    "alpha_bbox": [
+      128,
+      59,
+      1147,
+      1183
+    ],
+    "edge_alpha_max": 0,
+    "visible_pixels": 502233,
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels": 0,
+    "transparent_corner_check": true
+  }
+}

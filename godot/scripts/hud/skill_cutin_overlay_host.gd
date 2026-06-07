@@ -365,6 +365,10 @@ func compute_drive_slide_px(progress: float, view_width: float) -> float:
 	return SkillCutinDriveRenderer.compute_drive_slide_px(progress, view_width)
 
 
+func compute_shield_kiting_slide_px(progress: float, view_width: float) -> float:
+	return SkillCutinDriveRenderer.compute_shield_kiting_slide_px(progress, view_width)
+
+
 func _drive_slide_ratio(progress: float) -> float:
 	return SkillCutinDriveRenderer.drive_slide_ratio(progress)
 

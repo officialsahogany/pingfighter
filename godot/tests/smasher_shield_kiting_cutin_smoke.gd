@@ -66,6 +66,7 @@ class ShieldCutinDrawProbe:
 
 func _init() -> void:
 	_test_activation_starts_partial_cutin()
+	_test_ball_hit_keeps_partial_cutin()
 	_test_renderer_contract()
 	_test_frame_controller_fanout()
 	_start_draw_probe()
@@ -92,16 +93,55 @@ func _test_activation_starts_partial_cutin() -> void:
 	_expect(skill_state.triggered_skill == "shield_kiting", "Shield Kiting activation should still trigger cooldown")
 	_expect(shield_state.is_partial_cutin_active(), "Shield Kiting activation should start the partial cut-in")
 	_expect(str(shield_state.cutin_state.get_skill_name()) == "shield_kiting", "partial cut-in state should publish shield_kiting")
-	_expect(absf(shield_state.cutin_state.get_duration() - 2.70) < 0.01, "Shield Kiting partial cut-in should use the extended 2.7s timing")
-	for _i in 120:
+	_expect(absf(shield_state.cutin_state.get_duration() - 1.70) < 0.01, "Shield Kiting partial cut-in should use the 1.7s timing")
+	for _i in 60:
 		shield_state.update_effects(1.0)
-	_expect(shield_state.is_partial_cutin_active(), "Shield Kiting partial cut-in should still be visible after roughly 2 seconds")
+	_expect(shield_state.is_partial_cutin_active(), "Shield Kiting partial cut-in should still be visible after roughly 1 second")
 	for _i in 50:
 		shield_state.update_effects(1.0)
 	_expect(not shield_state.is_partial_cutin_active(), "Shield Kiting partial cut-in should expire through effect updates")
 	shield_state.cutin_state.begin("shield_kiting", 1.0)
 	shield_state.reset_round()
 	_expect(not shield_state.is_partial_cutin_active(), "round reset should clear Shield Kiting partial cut-in")
+
+
+func _test_ball_hit_keeps_partial_cutin() -> void:
+	var shield_state := SmasherShieldKitingState.new()
+	var context: Dictionary = _base_context()
+	context["player_pos"] = Vector2(302.5, 690.0)
+	var skill_state := FakeSkillState.new()
+	var now_msec := Time.get_ticks_msec()
+	shield_state.last_action_edge_msec = now_msec - 120
+	var activation: Dictionary = shield_state.update_input(
+		{"action_pressed": true},
+		now_msec,
+		500.0,
+		Vector2(302.5, 690.0),
+		context,
+		{
+			"skill_config": FakeSkillConfig.new(),
+			"skill_state": skill_state,
+		}
+	)
+	_expect(bool(activation.get("activated", false)), "Shield Kiting hit regression setup should activate")
+	var shield_position: Vector2 = Vector2(302.5, 690.0) + Vector2(155.0 * 0.70, 50.0 * 0.34)
+	shield_state.projectile["started_msec"] = Time.get_ticks_msec() - 420
+	shield_state.projectile["last_update_msec"] = Time.get_ticks_msec() - 16
+	var scene := {
+		"ball_pos": shield_position,
+		"ball_vel": Vector2(0.0, 8.0),
+	}
+	var hit_result: Dictionary = shield_state.update_and_collide(
+		1.0,
+		scene,
+		context,
+		{}
+	)
+	_expect(hit_result.has("ball_vel"), "Shield Kiting forced collision should execute the ball-hit path")
+	_expect(shield_state.is_partial_cutin_active(), "Shield Kiting partial cut-in should remain active after the projectile hits the ball")
+	for _i in 30:
+		shield_state.update_effects(1.0)
+	_expect(shield_state.is_partial_cutin_active(), "Shield Kiting partial cut-in should continue after post-hit effect updates")
 
 
 func _test_renderer_contract() -> void:
@@ -113,9 +153,10 @@ func _test_renderer_contract() -> void:
 	var texture: Texture2D = host._get_drive_texture(SkillCutinDriveRenderer.SHIELD_KITING_CHARACTER_PATH)
 	_expect(host.has_method("draw_shield_kiting_cutin"), "overlay host should expose Shield Kiting partial cut-in draw")
 	_expect(texture != null and texture.get_size().x > 1.0 and texture.get_size().y > 1.0, "Shield Kiting cut-in character art should load")
-	_expect(SkillCutinDriveRenderer.shield_kiting_slide_ratio(0.50) == 0.0, "Shield Kiting cut-in should stay seated during the 2s hold")
-	_expect(SkillCutinDriveRenderer.shield_kiting_alpha(0.50) == 1.0, "Shield Kiting cut-in should stay fully opaque during the 2s hold")
+	_expect(SkillCutinDriveRenderer.shield_kiting_slide_ratio(0.50) == 0.0, "Shield Kiting cut-in should stay seated during the 1s hold")
+	_expect(SkillCutinDriveRenderer.shield_kiting_alpha(0.50) == 1.0, "Shield Kiting cut-in should stay fully opaque during the 1s hold")
 	_expect(SkillCutinDriveRenderer.shield_kiting_slide_ratio(0.90) > 0.0, "Shield Kiting cut-in should only exit after its long hold")
+	_expect(host.has_method("compute_shield_kiting_slide_px"), "overlay host should expose Shield Kiting slide timing for the particle layer")
 	_expect(shield_state.has_method("draw_cutin_symbol"), "Shield Kiting state should expose a cut-in symbol drawer")
 
 
@@ -124,6 +165,7 @@ func _test_frame_controller_fanout() -> void:
 	_expect(source.find("smasher_shield_kiting_state") >= 0, "frame controller should inspect Shield Kiting state for partial cut-in")
 	_expect(source.find("draw_shield_kiting_cutin") >= 0, "frame controller should draw the Shield Kiting partial cut-in")
 	_expect(source.find("draw_shield_now") >= 0, "frame controller should gate Shield Kiting partial cut-in separately from Drive")
+	_expect(source.find("compute_shield_kiting_slide_px") >= 0, "frame controller should sync Shield Kiting particles with Shield Kiting slide timing")
 
 
 func _start_draw_probe() -> void:

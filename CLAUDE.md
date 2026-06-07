@@ -348,6 +348,12 @@ Standing rules for chance-gated per-frame gameplay effects:
   (`lingpet_companion_motion_state`) and the Linkport passive
   (`lingpet_ring_dash_state`) are SEPARATE systems with their own gates -- do not
   assume a gate present in one (e.g. `_player_can_block`) exists in the other.
+  Also: defense intercept is **PATROL-only** — flight-style companions
+  (`sortie_flight` / `free_flight`) skip it in `lingpet_companion_motion_state.update`,
+  so `_get_current_defense_rate()` returns 0 for non-patrol pets (override included)
+  and the character-info panel hides the 방어율 row when the rate is 0. A new
+  flight-style lingpet must keep `defense_rate: 0.0` in the catalog (a nonzero value
+  is dead data that only misleads the UI).
 - **A displayed chance/rate stat must produce its real gameplay OUTCOME (within
   its intended scope), and the smoke must assert the outcome.** Standing rules:
   (a) write the smoke against the end effect (ball bounced / `ball_vel.y < 0`,

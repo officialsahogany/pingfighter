@@ -66,6 +66,7 @@ static func apply_hit(runtime: Object, hit_center: Vector2, hit_size: Vector2, c
 	runtime.phantom_strike_frames = 0.0
 	runtime.shadow_marshal_delay_frames = float(constants.get("marshal_delay_frames", 18.0))
 	runtime.shadow_marshal_delay_from_shadow_step = true
+	runtime.shadow_marshal_delay_from_core_flip = false
 	if not runtime.core_flip_consumed and runtime.core_flip_last_dash_start_msec > int(constants.get("core_flip_dash_start_valid_after_msec", -99999)):
 		runtime.core_flip_ready_msec = Time.get_ticks_msec()
 		runtime.core_flip_buffered_until_msec = 0
@@ -167,13 +168,15 @@ static func _update_marshal_delay(runtime: Object, fps_scale: float, context: Di
 		return
 	if runtime.core_flip_attack_active:
 		runtime.shadow_marshal_delay_frames = 1.0
-	elif not runtime.marshal_active:
+		return
+	if not runtime.marshal_active:
 		var skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
 		var marshal_kick: String = str(constants.get("marshal_kick", "marshal_kick"))
 		var phantom_kick: String = str(constants.get("phantom_kick", "phantom_kick"))
 		if runtime.visibility_query.is_skill_equipped(skill_config, marshal_kick) and runtime.visibility_query.context_has_enough_gauge(context, runtime.visibility_query.get_marshal_skill_cost(skill_config, marshal_kick, phantom_kick)) and runtime.visibility_query.is_configured_skill_ready(marshal_kick, deps, -1):
-			runtime.open_marshal_kick_window(runtime.shadow_marshal_delay_from_shadow_step)
+			runtime.open_marshal_kick_window(runtime.shadow_marshal_delay_from_shadow_step, runtime.shadow_marshal_delay_from_core_flip)
 	runtime.shadow_marshal_delay_from_shadow_step = false
+	runtime.shadow_marshal_delay_from_core_flip = false
 
 
 static func _update_starburst(runtime: Object, fps_scale: float, starburst_frames: int, frame_duration: float) -> void:

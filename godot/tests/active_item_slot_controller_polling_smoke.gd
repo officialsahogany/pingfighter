@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemHudState := preload("res://scripts/hud/active_item_hud_state.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
 
 var _failures: Array[String] = []
@@ -15,13 +16,17 @@ class FakeRegistry:
 	extends RefCounted
 
 	var hud_state: Object = null
+	var active_item_runtime: Object = null
 
-	func _init(hud: Object = null) -> void:
+	func _init(hud: Object = null, active_runtime: Object = null) -> void:
 		hud_state = hud
+		active_item_runtime = active_runtime
 
 	func get_instance(key: String) -> Object:
 		if key == "active_item_hud_state":
 			return hud_state
+		if key == "active_item_runtime":
+			return active_item_runtime
 		return null
 
 
@@ -37,10 +42,20 @@ class FakeHudState:
 		return selected_index
 
 
+class FakePausedActiveItemRuntime:
+	extends RefCounted
+
+	var frozen_time_msec := 0
+
+	func get_active_item_cooldown_time_msec(_current_time_msec: int) -> int:
+		return frozen_time_msec
+
+
 func _init() -> void:
 	_verify_idle_polling_avoids_slot_deep_copy()
 	_verify_many_slot_idle_polling_stays_noop()
 	_verify_gamepad_selected_slot_flow()
+	_verify_cooldown_pause_freezes_hud_and_shifts_anchors()
 
 	if _failures.is_empty():
 		print("active_item_slot_controller_polling_smoke: ok")
@@ -124,6 +139,43 @@ func _verify_gamepad_selected_slot_flow() -> void:
 	_expect(str(owner.active_item_slots[0].get("name", "")) == "first_item", "selected use should leave earlier slots intact")
 	_expect(str(owner.active_item_slots[1].get("name", "")) == "second_item", "selected use should remove the selected third slot")
 	_expect(hud_state.selected_index == 1, "selected index should clamp after the selected item is consumed")
+
+
+func _verify_cooldown_pause_freezes_hud_and_shifts_anchors() -> void:
+	var controller: Object = ActiveItemSlotController.new()
+	controller.last_item_use_msec = 1000
+	controller.pause_cooldowns(3000)
+	_expect(
+		int(controller.get_cooldown_time_msec(12000)) == 3000,
+		"active item cooldown display time should stay pinned while paused"
+	)
+
+	var paused_runtime := FakePausedActiveItemRuntime.new()
+	paused_runtime.frozen_time_msec = 3000
+	var hud_state: Object = ActiveItemHudState.new()
+	var status: Dictionary = hud_state.get_slot_status(
+		0,
+		{"name": "long_boost", "cooldown_msec": 10000, "last_use_msec": 1000},
+		12000,
+		12000,
+		FakeRegistry.new(null, paused_runtime)
+	)
+	_expect(
+		is_equal_approx(float(status.get("cooldown_remaining_ratio", 0.0)), 0.8),
+		"active item HUD cooldown ring should not drain while paused"
+	)
+
+	var resumed_slots: Array = controller.resume_cooldowns(8000, [
+		{"name": "long_boost", "cooldown_msec": 10000, "last_use_msec": 1000, "last_use": 1000},
+	])
+	_expect(int(controller.last_item_use_msec) == 6000, "global active item cooldown anchor should shift by paused wall time")
+	_expect(int(resumed_slots[0].get("last_use_msec", 0)) == 6000, "slot last_use_msec should shift by paused wall time")
+	_expect(int(resumed_slots[0].get("last_use", 0)) == 6000, "legacy slot last_use should shift by paused wall time")
+	_expect(int(controller.get_cooldown_time_msec(12000)) == 12000, "active item cooldown display time should resume after unpause")
+	_expect(
+		not bool(controller._is_item_ready(resumed_slots[0], 10000, FakeRegistry.new())),
+		"resumed active item should not become ready from wall-clock time spent paused"
+	)
 
 
 func _extract_function_body(source: String, signature: String) -> String:

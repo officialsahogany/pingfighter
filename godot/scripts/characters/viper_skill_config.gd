@@ -40,8 +40,8 @@ const COOLDOWN_SECONDS := {
 	"dark_blade": 45.0,
 	"chaos_spear": 20.0,
 	"core_flip": 25.0,
-	"dual_glitch": 45.0,
-	"ignition_aura": 80.0,
+	"dual_glitch": 40.0,
+	"ignition_aura": 70.0,
 }
 const SKILL_DATA := {
 	"shadow_step": {
@@ -148,7 +148,7 @@ const SKILL_DATA := {
 		"korean": "듀얼 글리치",
 		"cost": 220.0,
 		"color": Color(60.0 / 255.0, 220.0 / 255.0, 150.0 / 255.0),
-		"cooldown": 45.0,
+		"cooldown": 40.0,
 		"description": "바이퍼 고대기술로 스스로를 분열합니다.\n분신이 플레이어 움직임을 미러링합니다.\n좌우에서 공을 가드합니다.",
 		"how_to_use": "A, D, A, D 순서 또는 좌우좌우 입력",
 		"motion_hint": "좌우 분신 패들 소환",
@@ -159,7 +159,7 @@ const SKILL_DATA := {
 		"korean": "이그니션 오라",
 		"cost": 230.0,
 		"color": Color(1.0, 130.0 / 255.0, 40.0 / 255.0),
-		"cooldown": 80.0,
+		"cooldown": 70.0,
 		"description": "체내의 화염 에너지를 증폭합니다.\n일정 기간 모든 퍽 레벨이 증가합니다.\n골드 보너스도 함께 증가합니다.",
 		"how_to_use": "지상에서 W키 또는 위쪽 방향키를 0.5초 이상 누르기",
 		"motion_hint": "화염 에너지 분출",
@@ -250,9 +250,9 @@ func get_skill_data(skill_name: String) -> Dictionary:
 func _append_guard_speed_reduction_description(data: Dictionary, skill_name: String) -> void:
 	if skill_name != "shadow_step" and skill_name != "marshal_kick":
 		return
-	var line: String = "상대가 가드하면 돌아오는 공속이 30% 감소합니다."
+	var line: String = "상대가 가드하면 돌아오는 공속이 50% 감소합니다."
 	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
-		line = "If the opponent guards it, the returned ball loses 30% speed."
+		line = "If the opponent guards it, the returned ball loses 50% speed."
 	var description: String = str(data.get("description", ""))
 	if description.find(line) >= 0:
 		return

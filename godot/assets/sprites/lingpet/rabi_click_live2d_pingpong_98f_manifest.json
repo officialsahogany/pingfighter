@@ -1,0 +1,175 @@
+{
+  "asset_id": "rabi_click_live2d_pingpong_98f",
+  "pet_id": "rabi",
+  "created_at": "2026-06-06",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "source_art_asset_id": "rabi_live2d_source_sd_identity_v2",
+    "source_art_path": "godot/assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2.png",
+    "autosprite_asset_id": "cmq2ewlvg001veeb9grscsg13",
+    "spritesheet_id": "cmq2fjhpg001qmilhiurs1b87",
+    "spritesheet_job_id": "wf_edd14b2d-89dc-4321-aa54-013d00b3dc03",
+    "raw_sheet_local_path": ".tmp/rabi_click_live2d_98f/rabi_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/rabi_click_live2d_98f/rabi_click_live2d_raw_49f_atlas.json",
+    "video_local_path": ".tmp/rabi_click_live2d_98f/rabi_click_live2d_video.mp4",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click reaction: Rabi is happily surprised, tiny wave, ear-wing appendages flap, halo/core sparkle, blue wisps pop, bounce then settle. Full body stable.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1152,
+      1152
+    ],
+    "sheet_size": [
+      16128,
+      8064
+    ],
+    "frame_interval": "intended one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.84,
+    "sha256": "b3d719f2657ec03d9db98ad13bf1e2ab53aa057bfc635baa5a3b09690d688cc7",
+    "bytes": 51682002
+  },
+  "postprocess": {
+    "tool": "AutoSprite MCP + Real-ESRGAN animev3 x4 RGB/alpha split + 1152px safe-margin pingpong repack",
+    "operation": "AutoSprite 49f source cells were scaled to 84 percent and centered. RGB cells were alpha-bled and Real-ESRGAN x4 upscaled to 2048, downsampled to 1152, lightly sharpened, then recombined with source alpha resized separately. Final sheet uses deterministic forward+reverse 98f pingpong assembly.",
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4,
+      "rgb_source": ".tmp/rabi_click_live2d_98f/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/rabi_click_live2d_98f/rgb_cells_s84_x4",
+      "alpha_source": ".tmp/rabi_click_live2d_98f/alpha_cells_s84",
+      "alpha_preserved": true,
+      "target_cell_size": [
+        1152,
+        1152
+      ],
+      "content_scale": 0.84
+    },
+    "unsharp_mask": {
+      "tool": "PIL ImageFilter.UnsharpMask",
+      "params": {
+        "radius": 1.1,
+        "percent": 70,
+        "threshold": 3
+      }
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "alpha_1_15_after": 0
+    },
+    "face_nukki_cleanup": {
+      "tool": "OpenCV connected-component dark matte removal + edge-color inpaint",
+      "source_clean_candidate": ".tmp/rabi_click_live2d_face_nukki_clean_v3/rabi_click_live2d_pingpong_98f_face_nukki_clean_v3.png",
+      "operation": "Removed low-alpha black/gray matte components around the face, ear-wing edges, and tail, then inpainted remaining neutral dark alpha-edge pixels with nearby colors while preserving opaque eye/mouth line art.",
+      "removed_dark_matte_components": 174,
+      "removed_dark_matte_pixels": 77594,
+      "edge_inpainted_pixels": 1460730
+    },
+    "face_nukki_cleanup_v4": {
+      "tool": "Pillow + OpenCV targeted side-cavity matte removal",
+      "source_clean_candidate": ".tmp/rabi_click_nukki_refine_v4/rabi_click_live2d_pingpong_98f_face_nukki_clean_v4_candidate.png",
+      "operation": "Second cleanup pass for the visible black cutout artifacts around Rabi face. Transparentized neutral black/gray matte residue only inside the left/right under-face and inner ear-wing cavity zones, while excluding eye, mouth, forehead, and central gold collar regions.",
+      "removed_side_cavity_candidate_pixels": 437994,
+      "removed_side_cavity_pixels_after_dilation": 743048,
+      "max_removed_frame": {
+        "frame": 9,
+        "candidate_pixels": 5598,
+        "removed_pixels": 10000
+      }
+    }
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": 0,
+    "edge_touch_frames": [],
+    "visible_green_pixels_estimate": 0,
+    "visible_magenta_pixels_estimate": 0,
+    "frame_alpha_bbox_area_pct_range": [
+      33.195,
+      61.589
+    ],
+    "pingpong_loop_closure": "frame0 == frame97 and frame48 == frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [
+        191,
+        138,
+        979,
+        1006
+      ],
+      "12": [
+        91,
+        237,
+        1061,
+        981
+      ],
+      "24": [
+        91,
+        184,
+        1061,
+        966
+      ],
+      "36": [
+        108,
+        301,
+        1061,
+        976
+      ],
+      "48": [
+        287,
+        213,
+        888,
+        946
+      ],
+      "49": [
+        287,
+        213,
+        888,
+        946
+      ],
+      "72": [
+        91,
+        206,
+        1061,
+        964
+      ],
+      "97": [
+        191,
+        138,
+        979,
+        1006
+      ]
+    },
+    "contact_preview": ".tmp/rabi_click_live2d_98f/rabi_click_live2d_pingpong_98f_contact_preview.jpg",
+    "black_preview": ".tmp/rabi_click_live2d_98f/rabi_click_live2d_pingpong_98f_black_preview.jpg",
+    "status": "Accepted runtime candidate: Rabi SD-identity click Live2D sheet with happy-surprise bounce, ear-wing flap, halo/core sparkle, and blue wisp pop.",
+    "face_nukki_cleanup": "Passed: connected low-alpha dark matte residue around the face/ears was removed; opaque eye and mouth line art preserved.",
+    "removed_dark_matte_components": 174,
+    "removed_dark_matte_pixels": 77594,
+    "edge_inpainted_pixels": 1460730,
+    "face_nukki_cleanup_v4": "Passed: visible black/gray cutout residue around the face-side cavities was removed; eye, mouth, forehead mark, and central gold collar line art preserved.",
+    "v4_removed_side_cavity_candidate_pixels": 437994,
+    "v4_removed_side_cavity_pixels_after_dilation": 743048,
+    "v4_preview_white": ".tmp/rabi_click_nukki_refine_v4/before_after_v4_face_white.png",
+    "v4_preview_mint": ".tmp/rabi_click_nukki_refine_v4/before_after_v4_face_mint.png"
+  },
+  "cleaned_at": "2026-06-07"
+}

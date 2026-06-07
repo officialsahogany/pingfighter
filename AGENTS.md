@@ -483,6 +483,14 @@ edits or when a Godot port needs a behavior comparison.
   Copy the selected output into the workspace asset tree, add or audit the
   on-disk PNG loader/cache path, and make sure the live renderer tries that
   PNG before any procedural fallback or early-return branch.
+- For Lingpet / Ringpet acquisition or click Live2D asset work, generation is
+  not complete until the F7 Lingpet debug route can reach the pet. When adding
+  or regenerating `cutin_art`, `cutin_anim`, `cutin_dismiss_anim`,
+  `click_reaction_anim`, or `companion_click_reaction_anim`, also audit the
+  pet's `lingpet_catalog.gd` entry, debug-enabled / available state, and
+  `scripts/core/lingpet_debug_picker.gd` visibility before sign-off so the
+  asset can be previewed through the F7 Ringpet debug flow even before normal
+  hatch-pool promotion.
 - Treat user wording such as "upscale", "upscaling", "hires",
   "업스케일", "업스케일링", or "real / Real-ESRGAN처럼" as a real
   Real-ESRGAN asset-processing request across item icons, HUD art, sprites,

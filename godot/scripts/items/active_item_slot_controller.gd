@@ -13,6 +13,7 @@ var slot_key_pressed: Dictionary = {}
 var last_item_use_msec: int = -1000000
 var gamepad_selected_use_pressed := false
 var gamepad_slot_cycle_direction := 0
+var cooldown_pause_started_msec := -1
 
 # [AIDBG] manual diagnostic toggle for "active item unusable after stage transition".
 # Keep false in committed code; flip to true locally only while diagnosing.
@@ -25,10 +26,12 @@ func reset() -> void:
 	last_item_use_msec = -1000000
 	gamepad_selected_use_pressed = false
 	gamepad_slot_cycle_direction = 0
+	cooldown_pause_started_msec = -1
 
 
 func reset_cooldowns_for_stage_transition(active_item_slots: Array) -> Array:
 	last_item_use_msec = -1000000
+	cooldown_pause_started_msec = -1
 	var result: Array = active_item_slots.duplicate(true)
 	for i in range(result.size()):
 		var slot: Variant = result[i]
@@ -44,6 +47,43 @@ func reset_cooldowns_for_stage_transition(active_item_slots: Array) -> Array:
 			item["last_use"] = -1
 		result[i] = item
 	return result
+
+
+func pause_cooldowns(time_now: int) -> void:
+	if cooldown_pause_started_msec >= 0:
+		return
+	cooldown_pause_started_msec = max(0, time_now)
+
+
+func resume_cooldowns(time_now: int, active_item_slots: Array = []) -> Array:
+	if cooldown_pause_started_msec < 0:
+		return active_item_slots
+	var pause_duration_msec: int = max(0, time_now - cooldown_pause_started_msec)
+	cooldown_pause_started_msec = -1
+	if pause_duration_msec <= 0:
+		return active_item_slots
+	if last_item_use_msec >= 0:
+		last_item_use_msec += pause_duration_msec
+	var result: Array = active_item_slots.duplicate(true)
+	for i in range(result.size()):
+		var slot: Variant = result[i]
+		if not (slot is Dictionary):
+			continue
+		var item: Dictionary = slot
+		if item.has("last_use_msec"):
+			var last_use_msec: int = int(item.get("last_use_msec", -1))
+			if last_use_msec >= 0:
+				item["last_use_msec"] = last_use_msec + pause_duration_msec
+		if item.has("last_use"):
+			var last_use: int = int(item.get("last_use", -1))
+			if last_use >= 0:
+				item["last_use"] = last_use + pause_duration_msec
+		result[i] = item
+	return result
+
+
+func get_cooldown_time_msec(current_time_msec: int) -> int:
+	return cooldown_pause_started_msec if cooldown_pause_started_msec >= 0 else current_time_msec
 
 
 func build_starting_slots() -> Array:

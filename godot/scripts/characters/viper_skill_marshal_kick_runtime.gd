@@ -8,6 +8,7 @@ static func start_kick(runtime: Object, skill_name: String, player_pos: Vector2,
 	var skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
 	var is_double_start: bool = skill_name == str(constants.get("phantom_kick", "phantom_kick"))
 	var shadow_chain_start: bool = runtime.marshal_from_shadow_step_chain if is_double_start else runtime.marshal_ready_from_shadow_step_chain
+	var core_flip_chain_start: bool = false if is_double_start else runtime.marshal_ready_from_core_flip_chain
 	var next_gauge: float = max(0.0, special_gauge - runtime.visibility_query.get_marshal_skill_cost(skill_config, skill_name, str(constants.get("phantom_kick", "phantom_kick"))))
 	runtime._trigger_configured_skill_cooldown(skill_name, skill_config, deps, now_msec)
 	runtime._trigger_orb_gauge_spin(deps, now_msec)
@@ -19,6 +20,7 @@ static func start_kick(runtime: Object, skill_name: String, player_pos: Vector2,
 	runtime._clear_marshal_first_hit_pending()
 	runtime.marshal_is_double = is_double_start
 	runtime.marshal_from_shadow_step_chain = shadow_chain_start
+	runtime.marshal_from_core_flip_chain = core_flip_chain_start
 	runtime.phantom_aura_active = is_double_start
 	runtime.phantom_kick_knockback_pending = false
 	runtime._clear_dmk_presentation_state()
@@ -55,7 +57,7 @@ static func update_kick(runtime: Object, delta: float, player_pos: Vector2, spec
 	var next_pos: Vector2 = player_pos
 	match runtime.marshal_phase:
 		0:
-			var jump_progress: float = ViperSkillGeometry.marshal_phase_progress(runtime.marshal_phase_frames, get_prep_duration_frames(runtime, float(constants.get("jump_frames", 24.72)), deps, true, constants))
+			var jump_progress: float = ViperSkillGeometry.marshal_phase_progress(runtime.marshal_phase_frames, get_prep_duration_frames(runtime, float(constants.get("jump_frames", 24.72)), config, deps, true, constants))
 			next_pos = ViperSkillGeometry.marshal_jump_position(runtime.marshal_start_pos, runtime.marshal_wall_pos, jump_progress)
 			set_web_line_to_wall(runtime, next_pos, config)
 			spawn_motion_particle(runtime, ViperSkillGeometry.player_center(next_pos, config), "trail", 0.65, -1.0, constants)
@@ -65,7 +67,7 @@ static func update_kick(runtime: Object, delta: float, player_pos: Vector2, spec
 				runtime.marshal_web_lines.clear()
 				runtime.runtime_action_router.trigger_feedback(deps, 0.08, 3.0)
 		1:
-			var cling_progress: float = ViperSkillGeometry.marshal_phase_progress(runtime.marshal_phase_frames, get_prep_duration_frames(runtime, float(constants.get("cling_frames", 15.0)), deps, false, constants))
+			var cling_progress: float = ViperSkillGeometry.marshal_phase_progress(runtime.marshal_phase_frames, get_prep_duration_frames(runtime, float(constants.get("cling_frames", 15.0)), config, deps, false, constants))
 			if cling_progress >= 1.0:
 				var cling_ball_pos: Vector2 = ViperSkillGeometry.get_ball_pos(config)
 				var wall_center: Vector2 = ViperSkillGeometry.player_center(runtime.marshal_wall_pos, config)
@@ -82,7 +84,7 @@ static func update_kick(runtime: Object, delta: float, player_pos: Vector2, spec
 					enter_charge(runtime, config, deps)
 			next_pos = runtime.marshal_wall_pos
 		3:
-			var reclimb_progress: float = ViperSkillGeometry.marshal_phase_progress(runtime.marshal_phase_frames, get_prep_duration_frames(runtime, float(constants.get("reclimb_frames", 10.8)), deps, false, constants))
+			var reclimb_progress: float = ViperSkillGeometry.marshal_phase_progress(runtime.marshal_phase_frames, get_prep_duration_frames(runtime, float(constants.get("reclimb_frames", 10.8)), config, deps, false, constants))
 			next_pos = ViperSkillGeometry.marshal_reclimb_position(runtime.marshal_reclimb_start_pos, runtime.marshal_wall_pos, reclimb_progress)
 			set_web_line_to_wall(runtime, next_pos, config)
 			spawn_motion_particle(runtime, ViperSkillGeometry.player_center(next_pos, config), "trail", 0.8, -1.0, constants)
@@ -170,6 +172,7 @@ static func reset_runtime(runtime: Object) -> void:
 	runtime.marshal_web_lines.clear()
 	if not (runtime.marshal_first_hit_pending or runtime.double_marshal_ready):
 		runtime.marshal_from_shadow_step_chain = false
+	runtime.marshal_from_core_flip_chain = false
 
 
 static func spawn_motion_particle(runtime: Object, pos: Vector2, kind: String, chance: float = 1.0, life_override: float = -1.0, constants: Dictionary = {}) -> void:
@@ -207,18 +210,21 @@ static func get_duration_frames(runtime: Object, base_frames: float, deps: Dicti
 	return runtime.skill_scaling.get_marshal_duration_frames(base_frames, runtime.visibility_query.get_runtime_skill_level(deps, "kick_enhance"), runtime.marshal_is_double, double_fast, float(constants.get("double_fast_mult", 1.3)))
 
 
-static func get_prep_duration_frames(runtime: Object, base_frames: float, deps: Dictionary, double_fast: bool, constants: Dictionary) -> float:
+static func get_prep_duration_frames(runtime: Object, base_frames: float, config: Dictionary, deps: Dictionary, double_fast: bool, constants: Dictionary) -> float:
 	var chain_mult := 1.0
 	if runtime.marshal_from_shadow_step_chain:
 		chain_mult *= float(constants.get("shadow_chain_prep_mult", 0.8))
 	if runtime.marshal_is_double:
 		chain_mult *= float(constants.get("phantom_chain_prep_mult", 0.8))
+	chain_mult *= runtime.skill_scaling.get_kick_prep_ball_dynamic_multiplier(config)
 	return max(1.0, get_duration_frames(runtime, base_frames, deps, double_fast, constants) * chain_mult)
 
 
-static func get_prep_duration_mult(runtime: Object, deps: Dictionary, constants: Dictionary) -> float:
+static func get_prep_duration_mult(runtime: Object, deps: Dictionary, constants: Dictionary, config: Dictionary = {}) -> float:
 	var prep_mult: float = runtime.skill_scaling.get_marshal_prep_duration_mult(runtime.visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
-	return max(0.1, prep_mult * (float(constants.get("shadow_chain_prep_mult", 0.8)) if runtime.marshal_from_shadow_step_chain else 1.0))
+	prep_mult *= float(constants.get("shadow_chain_prep_mult", 0.8)) if runtime.marshal_from_shadow_step_chain else 1.0
+	prep_mult *= runtime.skill_scaling.get_kick_prep_ball_dynamic_multiplier(config)
+	return max(0.1, prep_mult)
 
 
 static func mark_kick_skill_knockback_pending(runtime: Object, deps: Dictionary, constants: Dictionary) -> void:
@@ -229,7 +235,7 @@ static func mark_kick_skill_knockback_pending(runtime: Object, deps: Dictionary,
 
 
 static func mark_kick_guard_speed_reduction_pending(runtime: Object, constants: Dictionary) -> void:
-	runtime.kick_guard_speed_reduction_pending_pct = max(0, int(constants.get("kick_guard_speed_reduction_pct", 30)))
+	runtime.kick_guard_speed_reduction_pending_pct = max(0, int(constants.get("kick_guard_speed_reduction_pct", 50)))
 
 
 static func update_charge_phase(runtime: Object, config: Dictionary, deps: Dictionary, result: Dictionary, constants: Dictionary) -> Vector2:

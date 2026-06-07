@@ -28,7 +28,7 @@ static func try_command_activation(runtime: Object, player_pos: Vector2, special
 	var clone_hp: int = runtime.skill_scaling.get_dual_glitch_clone_hp(runtime.visibility_query.get_runtime_skill_level(deps, "four_poisons"), constants.get("clone_hp_values", []), int(constants.get("clone_hp_cap", 6)))
 	for side in [-1, 1]:
 		runtime.dual_glitch_clones.append({"side": side, "hp": clone_hp, "max_hp": clone_hp, "collision_enabled": true, "evaporation_frames": -1.0})
-	var cooldown_seconds: float = runtime._get_skill_cooldown_seconds_with_fallback(dual_glitch_skill_config, skill_name, float(constants.get("cooldown_seconds", 45.0)))
+	var cooldown_seconds: float = runtime._get_skill_cooldown_seconds_with_fallback(dual_glitch_skill_config, skill_name, float(constants.get("cooldown_seconds", 40.0)))
 	cooldown_seconds = runtime._get_four_poisons_additive_cooldown_seconds(skill_name, dual_glitch_skill_config, deps, cooldown_seconds)
 	runtime.runtime_action_router.trigger_viper_runtime_cooldown(skill_name, now_msec, dual_glitch_skill_config, deps, cooldown_seconds, runtime.visibility_query)
 	runtime._trigger_orb_gauge_spin(deps, now_msec)

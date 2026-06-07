@@ -124,6 +124,10 @@ const DEFAULT_VALUES: Dictionary = {
 	# defense-rate override never shows up in the panel).
 	"lingpet_companion_defense_rate": 0.0,
 	"ringpet_companion_defense_rate": 0.0,
+	# Flight-style appearance rate (출현율). Same schema requirement as defense_rate:
+	# missing here -> set_value() no-ops the sync and the panel can't show it.
+	"lingpet_companion_appearance_rate": 0.0,
+	"ringpet_companion_appearance_rate": 0.0,
 	"lingpet_companion_contact_count": 0,
 	"ringpet_companion_contact_count": 0,
 	"lingpet_companion_last_contact_pos": Vector2.ZERO,

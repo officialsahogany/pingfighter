@@ -10,12 +10,14 @@ func pause_skill_cooldowns(owner: Object, registry: Object) -> void:
 	var skill_state: Object = _get_active_skill_state(owner, registry)
 	if skill_state != null and skill_state.has_method("pause_cooldowns"):
 		skill_state.pause_cooldowns(Time.get_ticks_msec())
+	_pause_active_item_cooldowns(owner, registry)
 
 
 func resume_skill_cooldowns(owner: Object, registry: Object) -> void:
 	var skill_state: Object = _get_active_skill_state(owner, registry)
 	if skill_state != null and skill_state.has_method("resume_cooldowns"):
 		skill_state.resume_cooldowns(Time.get_ticks_msec())
+	_resume_active_item_cooldowns(owner, registry)
 
 
 func queue_tooltip_overlay_redraw(owner: Object, registry: Object) -> void:
@@ -54,6 +56,18 @@ func _get_active_skill_state(owner: Object, registry: Object) -> Object:
 		BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")
 	))
 	return _get_instance(registry, _character_runtime.get_skill_state_key(character_type))
+
+
+func _pause_active_item_cooldowns(owner: Object, registry: Object) -> void:
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("pause_cooldowns"):
+		active_item_runtime.pause_cooldowns(owner, registry)
+
+
+func _resume_active_item_cooldowns(owner: Object, registry: Object) -> void:
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("resume_cooldowns"):
+		active_item_runtime.resume_cooldowns(owner, registry)
 
 
 func _get_instance(registry: Object, key: String) -> Object:

@@ -9,6 +9,9 @@ const DEFAULT_PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_FRAME_COUNT := 8
 const DEFAULT_PLAYER_DIRECTIONAL_DASH_GRID_COLS := 4
 const DEFAULT_PLAYER_DIRECTIONAL_DASH_FRAME_COUNT := 8
+const SMASHER_DASH_SEQUENCE_START_FRAME := 2
+const SMASHER_DASH_HOLD_FRAME := 5
+const SMASHER_DASH_HOLD_START_PROGRESS := 0.66
 const WHEEL_SPIN_PREWARM_DEST_RECT := Rect2(Vector2(-4096.0, -4096.0), Vector2(1.0, 1.0))
 const WHEEL_SPIN_PREWARM_TINT := Color(1.0, 1.0, 1.0, 0.01)
 const DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY := 0.65
@@ -388,14 +391,15 @@ func draw(
 			var directional_dash_texture = _get_player_directional_dash_texture(context)
 			if directional_dash_texture is Texture2D:
 				var directional_dash_texture_typed: Texture2D = directional_dash_texture
+				var directional_dash_frame: int = _get_player_directional_dash_frame(context)
 				_draw_texture_with_customization_overlays(
 					canvas,
 					directional_dash_texture_typed,
 					player_visual_rect,
-					_get_player_directional_dash_region(context),
+					_get_player_directional_dash_region(context, directional_dash_frame),
 					context,
 					"dash",
-					int(context.get("player_sprite_frame", 0)),
+					directional_dash_frame,
 					_get_walk_direction(context),
 					{
 						"grid_cols": int(context.get("player_directional_dash_grid_cols", DEFAULT_PLAYER_DIRECTIONAL_DASH_GRID_COLS)),
@@ -981,16 +985,47 @@ func _get_player_directional_dash_texture(context: Dictionary) -> Variant:
 	return context.get(fallback_key, null)
 
 
-func _get_player_directional_dash_region(context: Dictionary) -> Rect2:
+func _get_player_directional_dash_region(context: Dictionary, frame_override: int = -1) -> Rect2:
 	var cell_w: float = float(context.get("player_directional_dash_cell_width", 160.0))
 	var cell_h: float = float(context.get("player_directional_dash_cell_height", 160.0))
 	var grid_cols: int = max(1, int(context.get("player_directional_dash_grid_cols", DEFAULT_PLAYER_DIRECTIONAL_DASH_GRID_COLS)))
 	var max_frame: int = max(0, int(context.get("player_directional_dash_frame_count", DEFAULT_PLAYER_DIRECTIONAL_DASH_FRAME_COUNT)) - 1)
-	var frame: int = clamp(int(context.get("player_sprite_frame", 0)), 0, max_frame)
+	var frame: int = clamp(frame_override if frame_override >= 0 else _get_player_directional_dash_frame(context), 0, max_frame)
 	var col: int = frame % grid_cols
 	@warning_ignore("integer_division")
 	var row: int = int(frame / grid_cols)
 	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_player_directional_dash_frame(context: Dictionary) -> int:
+	var max_frame: int = max(0, int(context.get("player_directional_dash_frame_count", DEFAULT_PLAYER_DIRECTIONAL_DASH_FRAME_COUNT)) - 1)
+	var fallback_frame: int = clamp(int(context.get("player_sprite_frame", 0)), 0, max_frame)
+	if not _should_use_smasher_dash_hold_sequence(context, max_frame):
+		return fallback_frame
+	var elapsed_frames: float = max(0.0, float(context.get("dash_elapsed_frames", 0.0)))
+	var remaining_frames: float = max(0.0, float(context.get("dash_timer", 0.0)))
+	var total_frames: float = elapsed_frames + remaining_frames
+	if total_frames <= 0.001:
+		return fallback_frame
+	var progress: float = clamp(elapsed_frames / total_frames, 0.0, 1.0)
+	var start_frame: int = min(SMASHER_DASH_SEQUENCE_START_FRAME, max_frame)
+	var hold_frame: int = min(SMASHER_DASH_HOLD_FRAME, max_frame)
+	if hold_frame <= start_frame:
+		return fallback_frame
+	if progress >= SMASHER_DASH_HOLD_START_PROGRESS:
+		return hold_frame
+	var lead_progress: float = clamp(progress / SMASHER_DASH_HOLD_START_PROGRESS, 0.0, 0.999)
+	var span: int = max(1, hold_frame - start_frame + 1)
+	return clamp(start_frame + int(floor(lead_progress * float(span))), start_frame, hold_frame)
+
+
+func _should_use_smasher_dash_hold_sequence(context: Dictionary, max_frame: int) -> bool:
+	if max_frame < SMASHER_DASH_HOLD_FRAME:
+		return false
+	if not bool(context.get("dash_active", false)):
+		return false
+	var character_type: String = str(context.get("selected_character_type", "smasher"))
+	return character_type == "smasher"
 
 
 func _get_player_directional_walk_region(context: Dictionary) -> Rect2:

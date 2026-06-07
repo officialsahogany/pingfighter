@@ -93,11 +93,11 @@ static func _core_flip_constants(constants: Dictionary) -> Dictionary:
 
 
 static func _dual_glitch_constants(constants: Dictionary) -> Dictionary:
-	return {"skill_name": str(constants.get("dual_glitch", "dual_glitch")), "command_window_msec": int(constants.get("dual_glitch_window_msec", 1200)), "active_frames": float(constants.get("dual_glitch_active_frames", 900.0)), "duration_pct_values": constants.get("dual_glitch_duration_pct_values", []), "duration_pct_cap": int(constants.get("dual_glitch_duration_pct_cap", 45)), "duration_pct_per_extra": int(constants.get("dual_glitch_duration_pct_per_extra", 5)), "clone_hp_values": constants.get("dual_glitch_clone_hp_values", []), "clone_hp_cap": int(constants.get("dual_glitch_clone_hp_cap", 6)), "cooldown_seconds": float(constants.get("dual_glitch_cooldown_seconds", 45.0))}
+	return {"skill_name": str(constants.get("dual_glitch", "dual_glitch")), "command_window_msec": int(constants.get("dual_glitch_window_msec", 1200)), "active_frames": float(constants.get("dual_glitch_active_frames", 900.0)), "duration_pct_values": constants.get("dual_glitch_duration_pct_values", []), "duration_pct_cap": int(constants.get("dual_glitch_duration_pct_cap", 45)), "duration_pct_per_extra": int(constants.get("dual_glitch_duration_pct_per_extra", 5)), "clone_hp_values": constants.get("dual_glitch_clone_hp_values", []), "clone_hp_cap": int(constants.get("dual_glitch_clone_hp_cap", 6)), "cooldown_seconds": float(constants.get("dual_glitch_cooldown_seconds", 40.0))}
 
 
 static func _blade_followup_constants(constants: Dictionary) -> Dictionary:
-	return {"blade_rush": str(constants.get("blade_rush", "blade_rush")), "dark_blade": str(constants.get("dark_blade", "dark_blade")), "nerve_strike": str(constants.get("nerve_strike", "nerve_strike")), "nerve_window_start_frames": float(constants.get("nerve_window_start_frames", 66.0)), "nerve_window_end_frames": float(constants.get("nerve_window_end_frames", 102.0)), "nerve_dark_blade_split_frames": float(constants.get("nerve_dark_blade_split_frames", 84.0)), "nerve_fallback_cost": float(constants.get("nerve_fallback_cost", 90.0)), "nerve_cooldown_base": float(constants.get("nerve_cooldown_base", 40.0))}
+	return {"blade_rush": str(constants.get("blade_rush", "blade_rush")), "dark_blade": str(constants.get("dark_blade", "dark_blade")), "nerve_strike": str(constants.get("nerve_strike", "nerve_strike")), "nerve_window_start_frames": float(constants.get("nerve_window_start_frames", 66.0)), "nerve_window_end_frames": float(constants.get("nerve_window_end_frames", 102.0)), "nerve_dark_blade_split_frames": float(constants.get("nerve_dark_blade_split_frames", 84.0)), "nerve_fallback_cost": float(constants.get("nerve_fallback_cost", 90.0)), "nerve_cooldown_base": float(constants.get("nerve_cooldown_base", 35.0))}
 
 
 static func _chaos_constants(constants: Dictionary) -> Dictionary:
@@ -105,7 +105,7 @@ static func _chaos_constants(constants: Dictionary) -> Dictionary:
 
 
 static func _ignition_constants(constants: Dictionary) -> Dictionary:
-	return {"skill_name": str(constants.get("ignition_aura", "ignition_aura")), "hold_required_msec": int(constants.get("ignition_hold_required_msec", 500)), "duration_frames": float(constants.get("ignition_duration_frames", 1500.0)), "gauge_cost": float(constants.get("ignition_gauge_cost", 230.0)), "particle_limit": int(constants.get("ignition_particle_limit", 180)), "charge_particle_limit": int(constants.get("ignition_charge_particle_limit", 80)), "fallback_cooldown_seconds": float(constants.get("ignition_fallback_cooldown_seconds", 80.0))}
+	return {"skill_name": str(constants.get("ignition_aura", "ignition_aura")), "hold_required_msec": int(constants.get("ignition_hold_required_msec", 500)), "duration_frames": float(constants.get("ignition_duration_frames", 1500.0)), "gauge_cost": float(constants.get("ignition_gauge_cost", 230.0)), "particle_limit": int(constants.get("ignition_particle_limit", 180)), "charge_particle_limit": int(constants.get("ignition_charge_particle_limit", 80)), "fallback_cooldown_seconds": float(constants.get("ignition_fallback_cooldown_seconds", 70.0))}
 
 
 static func _dive_constants(constants: Dictionary) -> Dictionary:

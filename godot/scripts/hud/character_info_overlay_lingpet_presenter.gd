@@ -503,13 +503,22 @@ static func build_stats(
 		skill_name = "액티브 스킬"
 	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
 	var defense_rate: float = float(snapshot.get("companion_defense_rate", 0.0))
+	var appearance_rate: float = float(snapshot.get("companion_appearance_rate", 0.0))
 	var speed_display: float = speed_default / speed_display_px_per_point
 	var rows := [
 		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, "마리보가 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다." % [CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
 		make_display_stat_row("몸집크기", "%sx%spx" % [CharacterInfoOverlayFormatter.format_plain_number(catch_width), CharacterInfoOverlayFormatter.format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
 		make_display_stat_row("게이지 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
-		make_display_stat_row("방어율", CharacterInfoOverlayFormatter.format_percent_text(defense_rate * 100.0), stat_buff_color, defense_rate_tooltip),
 	]
+	# Defense is a PATROL-only local guard, so flight-style lingpets report a 0 rate
+	# (see lingpet_egg_runtime._get_current_defense_rate). Hide the row entirely for
+	# them rather than showing a misleading "방어율 0%" they can never act on.
+	if defense_rate > 0.0:
+		rows.append(make_display_stat_row("방어율", CharacterInfoOverlayFormatter.format_percent_text(defense_rate * 100.0), stat_buff_color, defense_rate_tooltip))
+	# Flight-style lingpets show 출현율 (appearance rate) instead of 방어율 — the two are
+	# mutually exclusive (patrol = defense, flight = appearance), so only one row shows.
+	if appearance_rate > 0.0:
+		rows.append(make_display_stat_row("출현율", CharacterInfoOverlayFormatter.format_percent_text(appearance_rate * 100.0), stat_buff_color, "사라졌다 다시 나타나기까지의 대기가 짧아지는 정도입니다. 높을수록 더 자주 등장합니다."))
 	if skill_id != "":
 		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % skill_name))
 	return rows
@@ -560,6 +569,7 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		str(snapshot.get("companion_skill_name", "")).strip_edges(),
 		float(snapshot.get("companion_skill_cooldown_duration", 40.0)),
 		float(snapshot.get("companion_defense_rate", 0.0)),
+		float(snapshot.get("companion_appearance_rate", 0.0)),
 	])
 
 

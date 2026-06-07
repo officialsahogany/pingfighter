@@ -101,6 +101,7 @@ func begin(owner: Object, registry: Object) -> bool:
 	cached_game_rect = Rect2()
 	background_texture = _load_stage_background(current_stage)
 	active = true
+	_play_landing_audio(registry)
 	_sync_serve_input(registry)
 	return true
 
@@ -425,6 +426,12 @@ func _sync_serve_input(registry: Object) -> void:
 	var serve_flow: Object = _get_instance(registry, "serve_flow_controller")
 	if serve_flow != null and serve_flow.has_method("sync_current_input_state"):
 		serve_flow.sync_current_input_state()
+
+
+func _play_landing_audio(registry: Object) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_stage_landing_zoom_intro"):
+		audio.play_stage_landing_zoom_intro()
 
 
 func _get_instance(registry: Object, key: String) -> Object:

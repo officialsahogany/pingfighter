@@ -238,6 +238,7 @@ func _init() -> void:
 	_expect(_find_stat(lingpet_stats, "공명 충전 쿨타임").is_empty(), "Maribo stats should not expose the removed resonance-charge cooldown")
 	var defense_stat: Dictionary = _find_stat(lingpet_stats, "방어율")
 	_expect(str(defense_stat.get("value", "")) == "30%", "Maribo defense rate should be visible in lingpet stats")
+	_expect(_find_stat(lingpet_stats, "출현율").is_empty(), "patrol-style Maribo should NOT show an 출현율 row (appearance rate is flight-only)")
 	_expect(
 		str(defense_stat.get("tooltip_body", "")).find("미리 예측해 가드") >= 0,
 		"Maribo defense rate should explain the local predictive-guard behavior in a tooltip"
@@ -275,6 +276,8 @@ func _init() -> void:
 	_expect(str((lunabi_skill_specs[1] as Dictionary).get("id", "")) == "lingpet_resonance_boost", "Lunabi fallback passive icon should come from the default shared passive pool")
 	_expect(str(_find_stat(lunabi_stats, "액티브 쿨타임").get("value", "")) == "30초", "Lunabi should show the Headbutt active cooldown stat")
 	_expect(str(_find_stat(lunabi_stats, "이동 속도").get("value", "")) == "4.75", "Lunabi character-info speed should use its own sortie-flight catalog stat, not Maribo's")
+	_expect(_find_stat(lunabi_stats, "방어율").is_empty(), "flight-style Lunabi should NOT show a 방어율 row (defense intercept is patrol-only)")
+	_expect(str(_find_stat(lunabi_stats, "출현율").get("value", "")) == "30%", "flight-style Lunabi should show an 출현율 row from its catalog appearance_rate")
 	_expect(CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art("lunabi"), "Lunabi character-info art should opt into the panel Live2D sheet")
 	_expect(not CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art("maribo"), "Maribo character-info art should keep using the static cutin art for now")
 	_expect(lunabi_art_texture != null and str(lunabi_art_texture.resource_path).ends_with("lunabi_click_live2d_pingpong_98f.png"), "Lunabi character-info art should resolve to the 98-frame panel Live2D sheet")

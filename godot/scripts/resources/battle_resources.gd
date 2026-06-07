@@ -13,7 +13,9 @@ const STAGE1_CENTER_BACKGROUND_PATH := "res://assets/sprites/stage1/stage1_cente
 const STAGE1_CENTER_BORDER_PATH := "res://assets/sprites/stage1/stage1_center_danjeong_border_overlay_v1.png"
 const PLAYER_SPRITE_PATH := "res://assets/sprites/smasher_walk_strip.png"
 const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
-const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_rightpose_handlocked_v20_4x2_160_clean.png"
+const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_glide_bodyweight_v9_4x2_160_clean.png"
+const PLAYER_DASH_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_dash_left_rugby_shoulder_charge_autosprite_v4_mirror_from_right_4x2_160_clean.png"
+const PLAYER_DASH_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_dash_right_rugby_shoulder_charge_autosprite_v4_4x2_160_clean.png"
 const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
 const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
 const SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH := "res://assets/sprites/characters/smasher/customization_debug/smasher_debug_paddle_overlay_sheet.png"
@@ -27,9 +29,9 @@ const OPTIMUS_OVERLAY_CORE_GLOW_PATH := "res://assets/sprites/characters/optimus
 const OPTIMUS_OVERLAY_BACK_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_back_unit_overlay_sheet.png"
 const OPTIMUS_OVERLAY_ACCESSORY_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_accessory_overlay_sheet.png"
 const OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_outfit_accent_overlay_sheet.png"
-const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_victory_fullhelmet_64f_autosprite_v3.png"
+const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_victory_joydance_64f_autosprite_v6.png"
 const SMASHER_WHEEL_BODY_SHEET_PATH := SMASHER_VICTORY_SHEET_PATH
-const SMASHER_DEFEAT_SHEET_PATH := "res://assets/sprites/smasher/smasher_defeat_sheet_autosprite_v1.png"
+const SMASHER_DEFEAT_SHEET_PATH := "res://assets/sprites/smasher/smasher_defeat_dizzy_16f_autosprite_v2.png"
 const PLAYER_HIT_SPRITE_PATH := "res://assets/sprites/smasher_hit_pose.png"
 const PLAYER_HIT_LEFT_STRIP_PATH := "res://assets/sprites/smasher_hit_left_strip.png"
 const PLAYER_HIT_RIGHT_STRIP_PATH := "res://assets/sprites/smasher_hit_right_strip.png"
@@ -163,6 +165,7 @@ const STAGE2_BOSS_WALK_LEFT_PATH := "res://assets/sprites/stage2/stage2_boss_run
 const STAGE2_BOSS_WALK_RIGHT_PATH := "res://assets/sprites/stage2/stage2_boss_run_right_angled_autosprite_v1_16f.png"
 const STAGE2_BOSS_IDLE_PATH := "res://assets/sprites/stage2/stage2_boss_idle_combat_breath_autosprite_v2_8f.png"
 const STAGE2_BOSS_ATTACK_PATH := "res://assets/sprites/stage2/stage2_boss_attack_front_paddle_autosprite_v1_16f.png"
+const STAGE2_BOSS_QUAKE_STOMP_PATH := "res://assets/sprites/stage2/stage2_boss_jungle_quake_stomp_autosprite_v1_16f.png"
 const STAGE2_BOSS_VICTORY_PATH := "res://assets/sprites/stage2/stage2_boss_victory_hop_autosprite_v1_64f.png"
 const STAGE2_BOSS_DEFEAT_PATH := "res://assets/sprites/stage2/stage2_boss_defeat_collapse_autosprite_v1_64f.png"
 const STAGE3_MENHERA_BOSS_WALK_PATH := "res://assets/sprites/stage3/menhera_boss_sheet.png"
@@ -766,6 +769,8 @@ func _get_smasher_player_texture_specs(include_result_sheets: bool) -> Array:
 		_texture_spec(["player_sprite_texture"], PLAYER_SPRITE_PATH),
 		_texture_spec(["player_walk_left_texture"], PLAYER_WALK_LEFT_SPRITE_PATH),
 		_texture_spec(["player_walk_right_texture"], PLAYER_WALK_RIGHT_SPRITE_PATH),
+		_texture_spec(["player_dash_left_texture"], PLAYER_DASH_LEFT_SPRITE_PATH),
+		_texture_spec(["player_dash_right_texture"], PLAYER_DASH_RIGHT_SPRITE_PATH),
 		_texture_spec(["player_idle_back_sheet", "player_idle_sprite_texture"], SMASHER_IDLE_SHEET_PATH),
 		_texture_spec(["player_hit_sprite_texture"], PLAYER_HIT_SPRITE_PATH),
 		_texture_spec(["player_hit_left_strip_texture"], PLAYER_HIT_LEFT_STRIP_PATH),
@@ -906,6 +911,8 @@ func _load_smasher_player_textures(include_result_sheets: bool) -> void:
 	_resource_cache["player_sprite_texture"] = _load_texture_resource(PLAYER_SPRITE_PATH)
 	_resource_cache["player_walk_left_texture"] = _load_texture_resource(PLAYER_WALK_LEFT_SPRITE_PATH)
 	_resource_cache["player_walk_right_texture"] = _load_texture_resource(PLAYER_WALK_RIGHT_SPRITE_PATH)
+	_resource_cache["player_dash_left_texture"] = _load_texture_resource(PLAYER_DASH_LEFT_SPRITE_PATH)
+	_resource_cache["player_dash_right_texture"] = _load_texture_resource(PLAYER_DASH_RIGHT_SPRITE_PATH)
 	var idle_sheet: Texture2D = _load_texture_resource(SMASHER_IDLE_SHEET_PATH)
 	_resource_cache["player_idle_back_sheet"] = idle_sheet
 	_resource_cache["player_idle_sprite_texture"] = idle_sheet
@@ -1095,6 +1102,7 @@ func _load_stage2_boss_textures(include_result_sheets: bool = false) -> void:
 	_resource_cache["boss_walk_right_sheet"] = walk_right
 	_resource_cache["boss_idle_sheet"] = _load_texture_resource(STAGE2_BOSS_IDLE_PATH)
 	_resource_cache["boss_attack_sheet"] = attack
+	_resource_cache["boss_quake_stomp_sheet"] = _load_texture_resource(STAGE2_BOSS_QUAKE_STOMP_PATH)
 	if include_result_sheets:
 		_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE2_BOSS_VICTORY_PATH)
 		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE2_BOSS_DEFEAT_PATH)
@@ -1150,6 +1158,7 @@ func _get_stage2_boss_texture_specs(include_result_sheets: bool) -> Array:
 		_texture_spec(["boss_walk_right_sheet", "boss_sprite_sheet"], STAGE2_BOSS_WALK_RIGHT_PATH),
 		_texture_spec(["boss_idle_sheet"], STAGE2_BOSS_IDLE_PATH),
 		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], STAGE2_BOSS_ATTACK_PATH),
+		_texture_spec(["boss_quake_stomp_sheet"], STAGE2_BOSS_QUAKE_STOMP_PATH),
 	]
 	if include_result_sheets:
 		specs.append(_texture_spec(["boss_victory_sheet"], STAGE2_BOSS_VICTORY_PATH))
@@ -1246,9 +1255,11 @@ func _load_stage2_boss_texture_step(include_result_sheets: bool, step_index: int
 			_resource_cache["boss_attack_sheet"] = attack
 			_resource_cache["boss_hit_sprite_sheet"] = attack
 		4:
+			_resource_cache["boss_quake_stomp_sheet"] = _load_texture_resource(STAGE2_BOSS_QUAKE_STOMP_PATH)
+		5:
 			if include_result_sheets:
 				_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE2_BOSS_VICTORY_PATH)
-		5:
+		6:
 			if include_result_sheets:
 				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE2_BOSS_DEFEAT_PATH)
 

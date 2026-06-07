@@ -82,7 +82,7 @@ const SHIELD_HIT_SHAKE_AMOUNT := 0.11
 const SHIELD_HIT_SHAKE_INTENSITY := 3.2
 const PLASMA_HIT_SHARD_COUNT := 5
 const PLASMA_HIT_EFFECT_MAX_COUNT := 3
-const PARTIAL_CUTIN_DURATION := 2.70
+const PARTIAL_CUTIN_DURATION := 1.70
 
 var projectile: Dictionary = {}
 var hit_effects: Array = []

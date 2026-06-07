@@ -1,5 +1,14 @@
 extends RefCounted
 
+const KICK_PREP_SPEED_START := 9.0
+const KICK_PREP_SPEED_FULL := 24.0
+const KICK_PREP_SPEED_MIN_MULT := 0.78
+const KICK_PREP_DANGER_START_FRAMES := 78.0
+const KICK_PREP_DANGER_FULL_FRAMES := 24.0
+const KICK_PREP_DANGER_MIN_MULT := 0.55
+const KICK_PREP_DOWNWARD_SPEED_START := 7.0
+const KICK_PREP_DOWNWARD_SPEED_FULL := 20.0
+
 
 func get_four_poisons_prep_reduction_pct(
 	four_poisons_level: int,
@@ -48,7 +57,7 @@ func get_four_poisons_additive_cooldown_seconds(
 		chaos_spear_name:
 			base_seconds = 20.0
 		dual_glitch_name:
-			base_seconds = 45.0
+			base_seconds = 40.0
 	var configured_reduction: float = clamp(1.0 - configured_seconds / max(0.001, base_seconds), 0.0, 0.95)
 	var cooldown_reduction_pct: int = get_four_poisons_scaled_pct(
 		four_poisons_level,
@@ -94,6 +103,31 @@ func get_core_flip_duration_frames(base_frames: float, kick_enhance_level: int) 
 	return max(1.0, base_frames * get_marshal_prep_duration_mult(kick_enhance_level))
 
 
+func get_core_flip_wall_prep_duration_frames(base_frames: float, kick_enhance_level: int, config: Dictionary) -> float:
+	return max(1.0, get_core_flip_duration_frames(base_frames, kick_enhance_level) * get_kick_prep_ball_dynamic_multiplier(config))
+
+
+func get_kick_prep_ball_dynamic_multiplier(config: Dictionary) -> float:
+	var ball_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	var impact_boost: float = max(1.0, float(config.get("ball_impact_boost", 1.0)))
+	var effective_vel: Vector2 = ball_vel * impact_boost
+	var speed: float = effective_vel.length()
+	if speed <= 0.001:
+		return 1.0
+	var speed_ratio: float = clamp((speed - KICK_PREP_SPEED_START) / max(0.001, KICK_PREP_SPEED_FULL - KICK_PREP_SPEED_START), 0.0, 1.0)
+	var speed_mult: float = lerp(1.0, KICK_PREP_SPEED_MIN_MULT, speed_ratio)
+	var danger_mult: float = 1.0
+	if effective_vel.y > 0.001:
+		var ball_pos: Vector2 = _get_vector2(config.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+		var floor_y: float = float(config.get("player_floor_y", float(config.get("height", 750.0)) - float(config.get("paddle_height", 50.0))))
+		var frames_to_floor: float = max(0.0, floor_y - ball_pos.y) / max(0.001, effective_vel.y)
+		var time_ratio: float = clamp((KICK_PREP_DANGER_START_FRAMES - frames_to_floor) / max(0.001, KICK_PREP_DANGER_START_FRAMES - KICK_PREP_DANGER_FULL_FRAMES), 0.0, 1.0)
+		var downward_speed_ratio: float = clamp((effective_vel.y - KICK_PREP_DOWNWARD_SPEED_START) / max(0.001, KICK_PREP_DOWNWARD_SPEED_FULL - KICK_PREP_DOWNWARD_SPEED_START), 0.0, 1.0)
+		var danger_ratio: float = max(time_ratio, downward_speed_ratio * 0.75)
+		danger_mult = lerp(1.0, KICK_PREP_DANGER_MIN_MULT, danger_ratio)
+	return clamp(min(speed_mult, danger_mult), KICK_PREP_DANGER_MIN_MULT, 1.0)
+
+
 func get_marshal_hit_speed(
 	current_speed: float,
 	kick_enhance_level: int,
@@ -122,3 +156,7 @@ func get_core_flip_hit_speed(
 func get_marshal_prep_duration_mult(kick_enhance_level: int) -> float:
 	var prep_cut_pct: float = min(float(kick_enhance_level) * 7.0, 90.0)
 	return max(0.1, 1.0 - prep_cut_pct / 100.0)
+
+
+func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	return value if value is Vector2 else fallback

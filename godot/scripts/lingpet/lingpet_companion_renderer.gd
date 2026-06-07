@@ -27,15 +27,19 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 	var gauge_flash: float = float(config.get("gauge_flash", 0.0))
 	var skill_flash: float = float(config.get("skill_flash", 0.0))
 	var switch_transition: float = clampf(float(config.get("switch_transition", 0.0)), 0.0, 1.0)
+	# Ghost (free_flight) fade: rabi fades out before vanishing and fades in on
+	# reappear. 1.0 for non-ghost pets. Applied to the aura + sprite so the whole
+	# companion fades coherently instead of hard-popping.
+	var ghost_alpha: float = clampf(float(config.get("companion_alpha", 1.0)), 0.0, 1.0)
 	var now_ms: float = float(Time.get_ticks_msec())
 	var bob: float = sin(now_ms * 0.0048) * 2.6
 	var draw_center: Vector2 = center + Vector2(0.0, bob)
 	# Soft "barely-there" ambient aura -- replaces the old hard draw_circle disc.
 	# See the _SOFT_GLOW_TEX_SIZE notes at the top of the file.
-	_draw_soft_aura(canvas, draw_center, radius, now_ms)
+	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha)
 	if switch_transition > 0.0:
 		_draw_switch_transition(canvas, draw_center, radius, switch_transition, int(config.get("switch_particles", 12)), int(config.get("switch_trigger_count", 0)))
-	var sprite_alpha: float = 1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)
+	var sprite_alpha: float = (1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)) * ghost_alpha
 	_draw_companion_sprite(canvas, draw_center, config, sprite_alpha)
 	if switch_transition > 0.0:
 		_draw_switch_label(canvas, draw_center, str(config.get("display_name", "")), switch_transition)
@@ -55,9 +59,11 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
 
 
-func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float) -> void:
+func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0) -> void:
 	var tex: Texture2D = _get_or_create_soft_glow_texture()
 	if tex == null:
+		return
+	if alpha_mult <= 0.0:
 		return
 	# Two-rate breathing: a slow primary swell mixed with a gentler faster
 	# shimmer so the pulse never reads as one mechanical sine. Small amplitude.
@@ -78,9 +84,9 @@ func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms:
 	var mid_a: float = lerpf(0.115, 0.150, breath)
 	var outer_r: float = body_r + lerpf(37.0, 45.0, breath)
 	var outer_a: float = lerpf(0.060, 0.085, breath)
-	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.20, 1.0, 0.72, outer_a))
-	_blit_soft_glow(canvas, tex, center, mid_r, Color(0.34, 1.0, 0.80, mid_a))
-	_blit_soft_glow(canvas, tex, center, core_r, Color(0.66, 1.0, 0.92, core_a))
+	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.20, 1.0, 0.72, outer_a * alpha_mult))
+	_blit_soft_glow(canvas, tex, center, mid_r, Color(0.34, 1.0, 0.80, mid_a * alpha_mult))
+	_blit_soft_glow(canvas, tex, center, core_r, Color(0.66, 1.0, 0.92, core_a * alpha_mult))
 
 
 func _blit_soft_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:

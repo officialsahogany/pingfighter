@@ -13,6 +13,8 @@ const SKILL_KIND_BOMB_SURPRISE := "bomb_surprise"
 const SKILL_KIND_GATLING_BURST := "gatling_burst"
 const SKILL_KIND_DRAGON_BREATH := "dragon_breath"
 const SKILL_KIND_DRAGON_WING := "dragon_wing"
+const SKILL_KIND_GHOST_SUMMON := "ghost_summon"
+const SKILL_KIND_SOUL_CLONE := "soul_clone"
 const HYDRO_SPHERE_SKILL_ID := "maribo_hydro_sphere"
 const HEADBUTT_SKILL_ID := "lunabi_headbutt"
 const MOON_ORBIT_SKILL_ID := "draft_bat_moon_orbit"
@@ -23,6 +25,8 @@ const BOMB_SURPRISE_SKILL_ID := "volty_bomb_surprise"
 const GATLING_BURST_SKILL_ID := "volty_gatling_burst"
 const DRAGON_BREATH_SKILL_ID := "red_dragon_dragon_breath"
 const DRAGON_WING_SKILL_ID := "red_dragon_dragon_wing"
+const RABI_GHOST_SUMMON_SKILL_ID := "rabi_ghost_summon"
+const RABI_SOUL_CLONE_SKILL_ID := "rabi_soul_clone"
 const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_HYDRO_SPHERE: true,
 	SKILL_KIND_HEADBUTT: true,
@@ -34,6 +38,8 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_GATLING_BURST: true,
 	SKILL_KIND_DRAGON_BREATH: true,
 	SKILL_KIND_DRAGON_WING: true,
+	SKILL_KIND_GHOST_SUMMON: true,
+	SKILL_KIND_SOUL_CLONE: true,
 }
 
 
@@ -65,6 +71,10 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_DRAGON_BREATH
 		DRAGON_WING_SKILL_ID:
 			return SKILL_KIND_DRAGON_WING
+		RABI_GHOST_SUMMON_SKILL_ID:
+			return SKILL_KIND_GHOST_SUMMON
+		RABI_SOUL_CLONE_SKILL_ID:
+			return SKILL_KIND_SOUL_CLONE
 		_:
 			return SKILL_KIND_NONE
 
@@ -107,6 +117,14 @@ static func is_dragon_breath(skill_id: String) -> bool:
 
 static func is_dragon_wing(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_DRAGON_WING
+
+
+static func is_ghost_summon(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_GHOST_SUMMON
+
+
+static func is_soul_clone(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_SOUL_CLONE
 
 
 static func has_supported_runtime(skill_id: String) -> bool:

@@ -6,6 +6,7 @@ const RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER := 15.0 / 60.0
 
 var _drive_cutin_fx_host: Node = null
 var _drive_cutin_fx_host_add_pending := false
+var _modal_active_item_cooldown_pause_active := false
 
 
 func process_idle(
@@ -52,7 +53,9 @@ func process_idle(
 		and bool(lingpet_acquire_runtime.is_acquire_cutin_active())
 	):
 		if lingpet_acquire_runtime.has_method("advance_acquire_cutin"):
-			lingpet_acquire_runtime.advance_acquire_cutin(delta)
+			# Pass registry so the reveal can gate on the heavy Live2D sheet being cached
+			# (and keep streaming it), instead of locking solid on the static 원화 first.
+			lingpet_acquire_runtime.advance_acquire_cutin(delta, registry)
 		_queue_redraw(owner)
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
@@ -212,10 +215,12 @@ func process_physics(
 
 	sample_start = _perf_begin(perf_logger)
 	if _should_block_battle_physics(module_getter, perf_logger):
+		_pause_modal_active_item_cooldowns(owner, registry, module_getter)
 		_perf_end(perf_logger, "physics.frame.gate.modal_block", sample_start)
 		_perf_end(perf_logger, "physics.frame.total", total_start)
 		return
 	_perf_end(perf_logger, "physics.frame.gate.modal_block", sample_start)
+	_resume_modal_active_item_cooldowns(owner, registry, module_getter)
 
 	sample_start = _perf_begin(perf_logger)
 	var update_driver: Object = _get_module(module_getter, "battle_scene_update_driver")
@@ -506,7 +511,9 @@ func _draw_drive_cutin_if_active(
 			partial_state = shield_cutin_state
 		var progress: float = partial_state.get_progress() if partial_state != null and partial_state.has_method("get_progress") else 0.0
 		var slide_px: float = 0.0
-		if has_cutin_host and cutin_host.has_method("compute_drive_slide_px"):
+		if draw_shield_now and has_cutin_host and cutin_host.has_method("compute_shield_kiting_slide_px"):
+			slide_px = float(cutin_host.compute_shield_kiting_slide_px(progress, view_size.x))
+		elif has_cutin_host and cutin_host.has_method("compute_drive_slide_px"):
 			slide_px = float(cutin_host.compute_drive_slide_px(progress, view_size.x))
 		# Combo-charged drive => enraged particle tint (brighter cyan-white). The
 		# immediate-mode backplate/arc read the same flag straight off drive_cutin_state.
@@ -711,6 +718,25 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if modal_gate.has_method("should_block_battle_physics"):
 		return bool(modal_gate.should_block_battle_physics(module_getter))
 	return false
+
+
+func _pause_modal_active_item_cooldowns(owner: Object, registry: Object, module_getter: Callable) -> void:
+	if _modal_active_item_cooldown_pause_active:
+		return
+	var active_item_runtime: Object = _get_module(module_getter, "active_item_runtime")
+	if active_item_runtime == null or not active_item_runtime.has_method("pause_cooldowns"):
+		return
+	active_item_runtime.pause_cooldowns(owner, registry)
+	_modal_active_item_cooldown_pause_active = true
+
+
+func _resume_modal_active_item_cooldowns(owner: Object, registry: Object, module_getter: Callable) -> void:
+	if not _modal_active_item_cooldown_pause_active:
+		return
+	_modal_active_item_cooldown_pause_active = false
+	var active_item_runtime: Object = _get_module(module_getter, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("resume_cooldowns"):
+		active_item_runtime.resume_cooldowns(owner, registry)
 
 
 func _call_modal_gate_bool(module_getter: Callable, method_name: String, fallback: bool = false) -> bool:

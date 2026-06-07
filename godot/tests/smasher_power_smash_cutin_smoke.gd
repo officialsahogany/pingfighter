@@ -9,8 +9,18 @@ const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_c
 
 const CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
 const GHOST_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
-const CUTIN_VOICE_PATH := "res://assets/sounds/mika_powersmashing.mp3"
-const GHOST_CUTIN_VOICE_PATH := "res://assets/sounds/mika_ghostsmashing.mp3"
+const CUTIN_VOICE_PATHS := [
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v1.mp3",
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v2.mp3",
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v3.mp3",
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v4.mp3",
+]
+const GHOST_CUTIN_VOICE_PATHS := [
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v1.mp3",
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v2.wav",
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v3.mp3",
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v4.wav",
+]
 const CUTIN_SHEET_SIZE := 8192
 const GHOST_CUTIN_SHEET_SIZE := 8192
 const FREEZE_DURATION := 1.65
@@ -253,22 +263,23 @@ func _test_ghost_cutin_host_prewarms_sheet() -> void:
 
 
 func _test_cutin_voice_asset_loads() -> void:
-	var stream: AudioStream = ProjectResourceLoader.load_audio_stream(CUTIN_VOICE_PATH)
-	_expect(stream != null, "Mika power-smashing cutin voice should load")
-	if stream != null:
-		_expect(stream.get_length() > 0.0, "Mika power-smashing cutin voice should have duration")
-		_expect(stream.get_length() <= FREEZE_DURATION + 0.05, "Mika power-smashing cutin voice should finish within cutin freeze")
+	for voice_path in CUTIN_VOICE_PATHS:
+		var stream: AudioStream = ProjectResourceLoader.load_audio_stream(str(voice_path))
+		_expect(stream != null, "Mika power-smashing cutin voice should load: %s" % voice_path)
+		if stream != null:
+			_expect(stream.get_length() > 0.0, "Mika power-smashing cutin voice should have duration: %s" % voice_path)
+			_expect(stream.get_length() <= FREEZE_DURATION + 0.05, "Mika power-smashing cutin voice should finish within cutin freeze: %s" % voice_path)
 
 
 func _test_ghost_cutin_voice_asset_loads() -> void:
-	var stream: AudioStream = ProjectResourceLoader.load_audio_stream(GHOST_CUTIN_VOICE_PATH)
-	_expect(stream != null, "Mika ghost-smashing cutin voice should load")
-	if stream != null:
-		_expect(stream.get_length() > 0.0, "Mika ghost-smashing cutin voice should have duration")
-		# The ghost line (~1.88s) intentionally tails slightly past the 1.65s freeze,
-		# unlike the power line which is tuned to finish inside the freeze. Bound it
-		# loosely so a wrong/oversized asset is still caught.
-		_expect(stream.get_length() <= 2.5, "Mika ghost-smashing cutin voice should stay under 2.5s")
+	for voice_path in GHOST_CUTIN_VOICE_PATHS:
+		var stream: AudioStream = ProjectResourceLoader.load_audio_stream(str(voice_path))
+		_expect(stream != null, "Mika ghost-smashing cutin voice should load: %s" % voice_path)
+		if stream != null:
+			_expect(stream.get_length() > 0.0, "Mika ghost-smashing cutin voice should have duration: %s" % voice_path)
+			# Ghost lines may intentionally tail past the 1.65s freeze. Bound them
+			# loosely so a wrong/oversized asset is still caught.
+			_expect(stream.get_length() <= 2.5, "Mika ghost-smashing cutin voice should stay under 2.5s: %s" % voice_path)
 
 
 func _test_power_smash_freeze_config_is_extended() -> void:

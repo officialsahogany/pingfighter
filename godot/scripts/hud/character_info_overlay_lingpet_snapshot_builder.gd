@@ -99,6 +99,7 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"companion_catch_width": float(safe_owner_get.call(owner, "lingpet_companion_catch_width", safe_owner_get.call(owner, "ringpet_companion_catch_width", LingpetCatalog.get_stat(lingpet_id, "catch_width", 100.0)))),
 				"companion_catch_height": float(safe_owner_get.call(owner, "lingpet_companion_catch_height", safe_owner_get.call(owner, "ringpet_companion_catch_height", LingpetCatalog.get_stat(lingpet_id, "catch_height", 44.0)))),
 				"companion_defense_rate": float(safe_owner_get.call(owner, "lingpet_companion_defense_rate", safe_owner_get.call(owner, "ringpet_companion_defense_rate", LingpetCatalog.get_stat(lingpet_id, "defense_rate", 0.0)))),
+				"companion_appearance_rate": float(safe_owner_get.call(owner, "lingpet_companion_appearance_rate", safe_owner_get.call(owner, "ringpet_companion_appearance_rate", LingpetCatalog.get_stat(lingpet_id, "appearance_rate", 0.0)))),
 				"hatch_hits": required_hits,
 				"required_hits": required_hits,
 			}

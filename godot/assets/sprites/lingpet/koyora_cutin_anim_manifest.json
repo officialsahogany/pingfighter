@@ -1,0 +1,113 @@
+{
+  "asset_id": "koyora_acquisition_cutin_anim",
+  "pet_id": "koyora",
+  "display_name": "코요라",
+  "generated_at": "2026-06-07",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_cutin_anim.png",
+  "source_art": {
+    "asset_id": "puppet_miko_ringpet_cutin_art_imagegen_v3",
+    "path": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
+    "magenta_source_path": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3_magenta_source.png"
+  },
+  "source_autosprite": {
+    "autosprite_character_id": "cmq3qfdsg003f64i483cxoet2",
+    "autosprite_character_name": "Koyora Puppet Miko Ringpet Click Source 20260607",
+    "spritesheet_id": "cmq3rf3g8005szhze4d4ijfd3",
+    "spritesheet_job_id": "wf_adeabf98-80f7-483f-8cf7-5cbdd395f7d2",
+    "video_id": "cmq3rclq8001gba8drqsubpjz",
+    "raw_sheet_local_path": ".tmp/koyora_acquire_cutin_v1/koyora_acquire_autosprite_raw_16f.png",
+    "raw_atlas_local_path": ".tmp/koyora_acquire_cutin_v1/koyora_acquire_autosprite_raw_16f_atlas.json",
+    "raw_grid": {
+      "cols": 4,
+      "rows": 4,
+      "frame_count": 16,
+      "cell_size": [1024, 1024]
+    },
+    "prompt": "16-frame seamless acquisition cut-in loop for Koyora the puppet miko fox-mask Ringpet. Gentle floating reveal, soft breathing, eyes blink, tiny paw tugs cyan puppet strings, talismans and bells sway subtly, chest core pulses, cyan string sparkles, attached fox tail swishes behind right hip. Preserve identity, full body, front 3/4 pose, tail attachment, halo frame, shrine outfit. Stable scale and centered silhouette, transparent background, safe margins, no text, no crop. Frame16 loops to frame1.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/koyora_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [2048, 2048],
+    "sheet_size": [8192, 8192],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2.0,
+    "sha256": "4940dd45019e90d680e94943ca8d64069128a595ab5a428bfb03a6845113ec01",
+    "bytes": 39715683
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale",
+    "operation": "AutoSprite 1024px source cells were premultiplied-alpha scaled to 84 percent and centered. RGB was alpha-bled, Real-ESRGAN animev3 x2 upscaled to 2048px cells, then recombined with source alpha upscaled separately.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "rgb_source": ".tmp/koyora_acquire_cutin_v1/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/koyora_acquire_cutin_v1/rgb_cells_s84_x2",
+      "alpha_source": ".tmp/koyora_acquire_cutin_v1/alpha_cells_s84",
+      "alpha_preserved": true
+    },
+    "unsharp_mask": {
+      "tool": "PIL ImageFilter.UnsharpMask",
+      "params": {
+        "radius": 1.0,
+        "percent": 50,
+        "threshold": 3
+      }
+    },
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "Pixels with alpha <= 15 were set fully transparent after alpha resize."
+    }
+  },
+  "qa": {
+    "raw_frame_count": 16,
+    "final_frame_count": 16,
+    "raw_grid_cols": 4,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels_estimate": 1,
+    "visible_green_note": "Single detected green-like pixel is an over-broad threshold hit from cyan gem/string highlights, not a chroma-key fringe.",
+    "cell_fill_area_pct_range": [47.899, 50.44],
+    "sample_bboxes": [
+      {"frame": 0, "bbox": [461, 184, 1666, 1862], "margin_ltrb": [461, 184, 382, 186], "size": [1205, 1678]},
+      {"frame": 4, "bbox": [434, 164, 1700, 1827], "margin_ltrb": [434, 164, 348, 221], "size": [1266, 1663]},
+      {"frame": 8, "bbox": [447, 163, 1707, 1817], "margin_ltrb": [447, 163, 341, 231], "size": [1260, 1654]},
+      {"frame": 12, "bbox": [458, 174, 1673, 1843], "margin_ltrb": [458, 174, 375, 205], "size": [1215, 1669]},
+      {"frame": 15, "bbox": [466, 182, 1664, 1859], "margin_ltrb": [466, 182, 384, 189], "size": [1198, 1677]}
+    ],
+    "previews": {
+      "contact": ".tmp/koyora_acquire_cutin_v1/koyora_cutin_anim_contact_preview.png",
+      "gif": ".tmp/koyora_acquire_cutin_v1/koyora_cutin_anim_preview.gif"
+    },
+    "status": "Accepted runtime candidate: Koyora acquisition cut-in loop with gentle float, blink, puppet-string tug, talisman/bell sway, core pulse, cyan sparkle, and attached tail swish."
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.1,
+    "alpha_bbox": [0.2251, 0.0898, 0.8135, 0.9092],
+    "note": "Frame-0 alpha occupancy for the acquisition reconstruction shards; generated for Koyora cutin_anim.",
+    "occupancy": [
+      0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+      0, 0, 0, 1, 1, 1, 1, 0, 0, 0,
+      0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+      0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+      0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+      0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+      0, 0, 1, 1, 1, 1, 1, 1, 1, 0,
+      0, 0, 1, 1, 1, 1, 1, 1, 1, 0,
+      0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
+      0, 0, 0, 0, 1, 0, 0, 0, 0, 0
+    ]
+  }
+}

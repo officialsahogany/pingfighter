@@ -1,0 +1,43 @@
+{
+  "asset_id": "rabi_companion_click_reaction_98f",
+  "pet_id": "rabi",
+  "created_at": "2026-06-06",
+  "runtime_usage": "lingpet_companion_click_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/rabi_companion_click_reaction_98f.png",
+  "source_sheet": "res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f.png",
+  "source_manifest": "res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f_manifest.json",
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      128,
+      128
+    ],
+    "sheet_size": [
+      1792,
+      896
+    ],
+    "sha256": "133917a110d10ca64b807361875f1323e237d9b8e23f42f1808acc7ff175e48d",
+    "bytes": 1261297
+  },
+  "postprocess": {
+    "tool": "Pillow Lanczos downscale from accepted full-size Rabi click Live2D sheet",
+    "operation": "Each cleaned 1152px full-size frame was downscaled to 128px for the in-battle companion click-reaction path so the runtime does not synchronously load the giant sheet during gameplay.",
+    "source_cleanup": "rabi_click_live2d_pingpong_98f face_nukki_clean_v4 side-cavity matte removal"
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "frame_count": 98,
+    "cols": 14,
+    "rows": 7,
+    "source_spritesheet_id": "cmq2fjhpg001qmilhiurs1b87",
+    "preview_contact": ".tmp/rabi_click_live2d_98f/rabi_companion_click_reaction_98f_contact_preview.jpg",
+    "source_face_nukki_cleanup": "Inherited from rabi_click_live2d_pingpong_98f_manifest.json; low-alpha dark matte components removed before downscale.",
+    "source_removed_dark_matte_components": 174,
+    "source_removed_dark_matte_pixels": 77594,
+    "source_face_nukki_cleanup_v4": "Inherited from rabi_click_live2d_pingpong_98f_manifest.json; visible black/gray face-side cavity residue removed before downscale.",
+    "source_v4_removed_side_cavity_pixels_after_dilation": 743048
+  },
+  "cleaned_at": "2026-06-07"
+}

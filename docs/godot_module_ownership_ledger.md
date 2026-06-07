@@ -270,6 +270,11 @@ This section is intentionally long; use search to find the nearest owner.
   click-reaction sheet prewarm keys, 98-frame popup timing / alpha, and sheet
   frame drawing. `lingpet_egg_runtime.gd` keeps only the playfield click API
   and current-pet texture lookup.
+- `scripts/lingpet/lingpet_ghost_blink_vfx.gd`
+  Owns Rabi free-flight companion appear / vanish blink VFX: deterministic
+  soft-glow prewarm, pop / implode timers, bounded wisp particles, immediate
+  draw ordering, and reset cleanup. `lingpet_egg_runtime.gd` should only
+  trigger, advance, draw, and reset this helper when ghost visibility changes.
 - `scripts/lingpet/lingpet_runtime_snapshot_builder.gd`
   Owns Ringpet runtime data projection: live snapshot assembly, save snapshot
   assembly, selected loadout / passive-skill projection, and owner
@@ -299,6 +304,21 @@ This section is intentionally long; use search to find the nearest owner.
   Future Ringpet active skills should add a focused skill module plus a
   dispatcher / host branch here instead of adding concrete projectile or field
   behavior to `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_ghost_summon_skill.gd`
+  Owns Rabi's `rabi_ghost_summon` / Ghost Summon active runtime: two
+  Banshee-style ghost paddles, ball-eat capture, hidden-ball hold, teleport
+  release, catch / release counters, start / outro cue routing, procedural
+  ghost fallback drawing, and `ghost_summon_*` snapshot keys.
+  `lingpet_skill_runtime_host.gd` dispatches this by the `ghost_summon`
+  runtime kind while keeping the shared Ringpet lifecycle in
+  `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_soul_clone_skill.gd`
+  Owns Rabi's `rabi_soul_clone` / 영혼분신 active runtime: one 15-second
+  translucent Rabi clone, lower-player-side free-flight movement, mini-paddle
+  ball reflection without extra gauge gain, lightweight spirit particles, and
+  `soul_clone_*` snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this
+  by the `soul_clone` runtime kind while Rabi's visual identity remains
+  catalog-backed through existing `rabi_companion_walk` art.
 - `scripts/lingpet/lingpet_hydro_sphere_skill.gd`
   Owns Maribo Hydro Sphere's skill-specific runtime: projectile travel,
   opponent-wall impact, horizontal elliptical puddle, slow status refresh,

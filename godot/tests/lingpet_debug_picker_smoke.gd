@@ -373,7 +373,11 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(_find_pet_index(picker, "volty") >= 0, "F7 lingpet debug picker should list Volty")
 	_expect(_find_pet_index(picker, "orbi") >= 0, "F7 lingpet debug picker should list Orbi")
 	_expect(_find_pet_index(picker, "red_dragon") >= 0, "F7 lingpet debug picker should list Red Dragon")
+	_expect(_find_pet_index(picker, "koyora") >= 0, "F7 lingpet debug picker should list debug-only Koyora")
 	_expect(_find_pet_index(picker, "rabi") >= 0, "F7 lingpet debug picker should list debug-only Rabi")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("koyora"), "Koyora should be included in the debug-only lingpet picker list")
+	_expect(LingpetCatalog.has_pet("koyora"), "Koyora should be accepted by runtime helpers for F7 debug activation")
+	_expect(not LingpetCatalog.get_pet_ids().has("koyora"), "Koyora should stay out of the enabled hatch pet id list until final runtime assets ship")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("rabi"), "Rabi should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("rabi"), "Rabi should be accepted by runtime helpers for F7 debug activation")
 	_expect(not LingpetCatalog.get_pet_ids().has("rabi"), "Rabi should stay out of the enabled hatch pet id list until final runtime assets ship")
@@ -381,26 +385,245 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"league_mode": "junior",
 		"character_type": "smasher",
 	}, [])
+	_expect(not hatch_candidates.has("koyora"), "Koyora should not enter the random hatch pool while it is debug-only")
 	_expect(not hatch_candidates.has("rabi"), "Rabi should not enter the random hatch pool while it is debug-only")
+	_expect(LingpetCatalog.get_display_name("koyora") == "코요라", "Koyora catalog display name should use the accepted Korean name")
 	_expect(
-		LingpetCatalog.get_visual_path("rabi", "cutin_anim") == "res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png",
-		"Rabi F7 acquisition cut-in should use the 32-frame HQ sheet"
+		LingpetCatalog.get_visual_path("koyora", "cutin_art") == "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
+		"Koyora static Live2D source art should use the accepted attached-tail puppet miko artwork"
 	)
 	_expect(
-		FileAccess.file_exists("res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq.png"),
-		"Rabi 32-frame acquisition cut-in HQ texture should exist under the lingpet asset tree"
+		LingpetCatalog.get_visual_path("koyora", "cutin_anim") == "res://assets/sprites/lingpet/koyora_cutin_anim.png",
+		"Koyora F7 acquisition cut-in should use the 4x4 / 16-frame AutoSprite sheet"
 	)
-	var rabi_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_cutin_anim_32f_hq_manifest.json")
 	_expect(
-		rabi_cutin_manifest.find("rabi_acquisition_cutin_anim_32f_hq") >= 0
+		LingpetCatalog.get_visual_path("koyora", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png"
+		and LingpetCatalog.get_visual_path("koyora", "click_reaction_anim") == "res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png",
+		"Koyora acquisition click-dismiss and full click reaction should route to the 98-frame full-size click Live2D sheet"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("koyora", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png",
+		"Koyora in-battle companion click reaction should use the downscaled 14x7 / 128px runtime sheet"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("koyora", "companion_walk") == "res://assets/sprites/lingpet/koyora_companion_walk.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_strike") == "res://assets/sprites/lingpet/koyora_companion_walk.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_cast") == "res://assets/sprites/lingpet/koyora_companion_walk.png",
+		"Koyora F7 runtime companion visuals should use the temporary 5x5 source-art hover sheet instead of cropping the fullscreen Live2D sheet"
+	)
+	_expect(
+		is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_seconds", 0.0), 3.35)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_action_portion", 0.0), 0.92)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_fade_start", 0.0), 0.82),
+		"Koyora acquisition click-dismiss should use the long 98-frame Live2D exit timing"
+	)
+	var koyora_active_pool := LingpetCatalog.get_active_skill_pool("koyora")
+	_expect(_active_pool_has(koyora_active_pool, "koyora_puppet_string_orbit"), "Koyora debug loadout should expose Puppet String Orbit")
+	_expect(
+		LingpetCatalog.get_active_skill_runtime_kind("koyora_puppet_string_orbit") == "moon_orbit",
+		"Koyora temporary debug active skill should route through the supported moon_orbit runtime"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3_magenta_source.png"),
+		"Koyora source and exact-magenta source artwork should ship under the lingpet asset tree"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/koyora_cutin_anim.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_walk.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png"),
+		"Koyora acquisition, full click, companion walk, and companion click textures should exist under the lingpet asset tree"
+	)
+	var koyora_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_cutin_anim_manifest.json")
+	_expect(
+		koyora_cutin_manifest.find("koyora_acquisition_cutin_anim") >= 0
+		and koyora_cutin_manifest.find("\"frame_count\": 16") >= 0
+		and koyora_cutin_manifest.find("\"cols\": 4") >= 0
+		and koyora_cutin_manifest.find("\"rows\": 4") >= 0
+		and koyora_cutin_manifest.find("8192") >= 0
+		and koyora_cutin_manifest.find("\"whole_sheet_edge_alpha\": 0") >= 0
+		and koyora_cutin_manifest.find("\"cells_with_edge_touch\": []") >= 0,
+		"Koyora acquisition cut-in manifest should pin the 4x4 / 16-frame / 8192px sheet and clean-edge QA"
+	)
+	var koyora_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f_manifest.json")
+	_expect(
+		koyora_click_manifest.find("koyora_click_live2d_pingpong_98f") >= 0
+		and koyora_click_manifest.find("\"frame_count\": 98") >= 0
+		and koyora_click_manifest.find("\"cols\": 14") >= 0
+		and koyora_click_manifest.find("\"rows\": 7") >= 0
+		and koyora_click_manifest.find("\"final_whole_sheet_edge_alpha\": 0") >= 0
+		and koyora_click_manifest.find("\"edge_touch_frames\": []") >= 0,
+		"Koyora full click Live2D manifest should pin the 14x7 / 98-frame pingpong sheet and clean-edge QA"
+	)
+	var koyora_companion_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_walk_manifest.json")
+	var koyora_companion_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f_manifest.json")
+	_expect(
+		koyora_companion_manifest.find("koyora_companion_static_float_25f_v1") >= 0
+		and koyora_companion_manifest.find("\"frame_count\": 25") >= 0
+		and koyora_companion_manifest.find("\"cols\": 5") >= 0
+		and koyora_companion_manifest.find("\"rows\": 5") >= 0
+		and koyora_companion_manifest.find("\"edge_alpha_max\": 0") >= 0,
+		"Koyora temporary companion hover manifest should pin the 5x5 / 25-frame sheet and transparent-edge QA"
+	)
+	_expect(
+		koyora_companion_click_manifest.find("koyora_companion_click_reaction_98f_v1") >= 0
+		and koyora_companion_click_manifest.find("\"frame_count\": 98") >= 0
+		and koyora_companion_click_manifest.find("\"cols\": 14") >= 0
+		and koyora_companion_click_manifest.find("\"rows\": 7") >= 0
+		and koyora_companion_click_manifest.find("\"cell_size\": [") >= 0
+		and koyora_companion_click_manifest.find("128") >= 0
+		and koyora_companion_click_manifest.find("\"edge_touch_frames\": []") >= 0,
+		"Koyora companion click manifest should pin the 14x7 / 98-frame / 128px runtime sheet and clean-edge QA"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("rabi", "cutin_anim") == "res://assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq_clean.png",
+		"Rabi F7 acquisition cut-in should use the cleaned SD-identity 32-frame HQ sheet"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("rabi", "cutin_art") == "res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v3_clean.png",
+		"Rabi static Live2D source art should use the cleaned SD-identity redesign with side ear-wing appendages"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("rabi", "click_reaction_anim") == "res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f.png"
+		and LingpetCatalog.get_visual_path("rabi", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/rabi_companion_click_reaction_98f.png",
+		"Rabi click-reaction visuals should use dedicated full-size and companion-scale SD-identity sheets"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("rabi", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f.png",
+		"Rabi acquisition click-dismiss cut-in should route to the full-size 98-frame click Live2D sheet"
+	)
+	_expect(
+		is_equal_approx(LingpetCatalog.get_visual_layout_value("rabi", "cutin_dismiss_seconds", 0.0), 3.35)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("rabi", "cutin_dismiss_action_portion", 0.0), 0.92)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("rabi", "cutin_dismiss_fade_start", 0.0), 0.82),
+		"Rabi acquisition click-dismiss should slow the 98-frame Live2D sheet to roughly 32fps before fade-out"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("rabi", "companion_walk") == "res://assets/sprites/lingpet/rabi_companion_walk.png"
+		and LingpetCatalog.get_visual_path("rabi", "companion_strike") == "res://assets/sprites/lingpet/rabi_companion_walk.png"
+		and LingpetCatalog.get_visual_path("rabi", "companion_cast") == "res://assets/sprites/lingpet/rabi_companion_walk.png",
+		"Rabi F7 runtime companion visuals should use the dedicated SD float loop instead of Maribo placeholders"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq_clean.png"),
+		"Rabi cleaned SD-identity 32-frame acquisition cut-in HQ texture should exist under the lingpet asset tree"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rabi_companion_click_reaction_98f.png"),
+		"Rabi dedicated click-reaction textures should exist under the lingpet asset tree"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/rabi_companion_walk.png"),
+		"Rabi in-game SD companion texture should exist under the lingpet asset tree"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v3_clean.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2_magenta_source.png"),
+		"Rabi cleaned SD-identity Live2D source art should ship while preserving the original chroma-key source"
+	)
+	var rabi_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq_manifest.json")
+	_expect(
+		rabi_cutin_manifest.find("rabi_acquisition_cutin_anim_sd_identity_32f_hq") >= 0
 		and rabi_cutin_manifest.find("\"frame_count\": 32") >= 0
 		and rabi_cutin_manifest.find("\"cols\": 6") >= 0
 		and rabi_cutin_manifest.find("\"rows\": 6") >= 0
 		and rabi_cutin_manifest.find("\"sheet_size\": [") >= 0
 		and rabi_cutin_manifest.find("6144") >= 0
-		and rabi_cutin_manifest.find("cmq1u1ltt00h6zrrwd43mfg0p") >= 0
+		and rabi_cutin_manifest.find("rabi_live2d_source_sd_identity_v2") >= 0
+		and rabi_cutin_manifest.find("cmq2f0zrf003jgpobw2whfb8q") >= 0
 		and rabi_cutin_manifest.find("Real-ESRGAN x4") >= 0,
-		"Rabi 32-frame acquisition cut-in manifest should pin the AutoSprite provenance, grid, frame count, and HQ upscale process"
+		"Rabi SD-identity 32-frame acquisition cut-in manifest should pin the source art, AutoSprite provenance, grid, frame count, and HQ upscale process"
+	)
+	var rabi_clean_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_live2d_edge_clean_v3_manifest.json")
+	_expect(
+		rabi_clean_manifest.find("rabi_live2d_component_clean_v3") >= 0
+		and rabi_clean_manifest.find("connected dark component cleanup") >= 0
+		and rabi_clean_manifest.find("rabi_cutin_art_sd_identity_v3_clean.png") >= 0
+		and rabi_clean_manifest.find("rabi_cutin_anim_sd_identity_32f_hq_clean.png") >= 0
+		and rabi_clean_manifest.find("removed_connected_dark_pixels") >= 0,
+		"Rabi cleaned Live2D manifest should pin the connected dark-matte cleanup and output assets"
+	)
+	var rabi_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_click_live2d_pingpong_98f_manifest.json")
+	_expect(
+		rabi_click_manifest.find("rabi_click_live2d_pingpong_98f") >= 0
+		and rabi_click_manifest.find("\"frame_count\": 98") >= 0
+		and rabi_click_manifest.find("\"cols\": 14") >= 0
+		and rabi_click_manifest.find("\"rows\": 7") >= 0
+		and rabi_click_manifest.find("1152") >= 0
+		and rabi_click_manifest.find("rabi_live2d_source_sd_identity_v2") >= 0
+		and rabi_click_manifest.find("cmq2fjhpg001qmilhiurs1b87") >= 0
+		and rabi_click_manifest.find("Real-ESRGAN x4") >= 0
+		and rabi_click_manifest.find("\"final_whole_sheet_edge_alpha\": 0") >= 0
+		and rabi_click_manifest.find("face_nukki_cleanup") >= 0
+		and rabi_click_manifest.find("removed_dark_matte_components") >= 0
+		and rabi_click_manifest.find("edge_inpainted_pixels") >= 0
+		and rabi_click_manifest.find("opaque eye and mouth line art preserved") >= 0
+		and rabi_click_manifest.find("face_nukki_cleanup_v4") >= 0
+		and rabi_click_manifest.find("removed_side_cavity_pixels_after_dilation") >= 0
+		and rabi_click_manifest.find("face-side cavities") >= 0
+		and rabi_click_manifest.find("central gold collar line art preserved") >= 0,
+		"Rabi 98-frame click Live2D manifest should pin the SD source, AutoSprite provenance, 14x7 grid, HQ upscale, edge cleanup, and v4 face-side matte cleanup"
+	)
+	var rabi_companion_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_companion_click_reaction_98f_manifest.json")
+	_expect(
+		rabi_companion_click_manifest.find("rabi_companion_click_reaction_98f") >= 0
+		and rabi_companion_click_manifest.find("\"frame_count\": 98") >= 0
+		and rabi_companion_click_manifest.find("\"cols\": 14") >= 0
+		and rabi_companion_click_manifest.find("\"rows\": 7") >= 0
+		and rabi_companion_click_manifest.find("128") >= 0
+		and rabi_companion_click_manifest.find("cmq2fjhpg001qmilhiurs1b87") >= 0
+		and rabi_companion_click_manifest.find("source_face_nukki_cleanup") >= 0
+		and rabi_companion_click_manifest.find("face_nukki_clean_v4") >= 0
+		and rabi_companion_click_manifest.find("source_face_nukki_cleanup_v4") >= 0,
+		"Rabi companion click-reaction manifest should pin the 98-frame downscaled runtime sheet contract and inherit the v4 face matte cleanup"
+	)
+	var rabi_companion_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_companion_walk_manifest.json")
+	_expect(
+		rabi_companion_manifest.find("rabi_companion_earwing_flight_autosprite_composite_v1") >= 0
+		and rabi_companion_manifest.find("\"frame_count\": 25") >= 0
+		and rabi_companion_manifest.find("\"cols\": 5") >= 0
+		and rabi_companion_manifest.find("\"rows\": 5") >= 0
+		and rabi_companion_manifest.find("640") >= 0
+		and rabi_companion_manifest.find("cmq2wmlre00n1c7cq9ghln0vw") >= 0
+		and rabi_companion_manifest.find("cmq36fa15001tvnk0c7c3j0v4") >= 0
+		and rabi_companion_manifest.find("wf_348f008d-f2d7-4d3c-b648-c2f2bdce7aad") >= 0
+		and rabi_companion_manifest.find("safe_content_size") >= 0
+		and rabi_companion_manifest.find("right face edge") >= 0
+		and rabi_companion_manifest.find("left face edge") >= 0
+		and rabi_companion_manifest.find("ear-like side appendages are the wings") >= 0
+		and rabi_companion_manifest.find("flap up/down") >= 0,
+		"Rabi in-game SD companion manifest should pin the composite AutoSprite ear-wing flight sheet, 5x5 grid, face-direction contract, and ear-wing flap contract"
+	)
+	_expect(
+		rabi_companion_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and rabi_companion_manifest.find("\"visible_magenta_pixels\": 0") >= 0
+		and rabi_companion_manifest.find("\"visible_green_pixels\": 0") >= 0
+		and rabi_companion_manifest.find("\"edge_touch_frames\": []") >= 0,
+		"Rabi companion movement sheet should pin transparent-edge and chroma cleanup QA"
+	)
+	_expect(
+		rabi_companion_manifest.find("wf_45c14cc7-caec-4394-aa7d-cf30c732acb5") >= 0
+		and rabi_companion_manifest.find("wf_5ba7c58e-ffd5-4923-aac7-737b4e8dad64") >= 0
+		and rabi_companion_manifest.find("wf_92860a58-8090-42f8-8ac2-228e5e6186e1") >= 0,
+		"Rabi companion manifest should document rejected AutoSprite attempts that were too front-facing, rotating, or broken"
+	)
+	var companion_context_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	var companion_renderer_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
+	_expect(
+		companion_context_source.find("\"pet_id\": _get_pet_id(current_profile)") < 0
+		and companion_renderer_source.find("_draw_directional_face_hint") < 0
+		and companion_renderer_source.find("face_left") >= 0,
+		"Rabi companion movement face should now come from the AutoSprite sheet itself, while the renderer keeps the standard left/right mirror path"
+	)
+	var rabi_source_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2_manifest.json")
+	_expect(
+		rabi_source_manifest.find("rabi_live2d_source_sd_identity_v2") >= 0
+		and rabi_source_manifest.find("large ear-like side appendages") >= 0
+		and rabi_source_manifest.find("\"visible_magenta_pixels\": 0") >= 0
+		and rabi_source_manifest.find("\"edge_alpha_max\": 0") >= 0,
+		"Rabi SD-identity Live2D source manifest should pin the ear-wing identity locks and alpha cleanup QA"
 	)
 	var cutin_host_source := FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
 	_expect(
@@ -408,6 +631,20 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and cutin_host_source.find("\"rabi\": 32,") >= 0
 		and cutin_host_source.find("\"rabi\": 32.0") >= 0,
 		"Rabi acquisition cut-in should register 6x6 / 32-frame / 32fps playback overrides"
+	)
+	_expect(
+		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
+		and cutin_host_source.find("\"rabi\": 14") >= 0
+		and cutin_host_source.find("\"rabi\": 7") >= 0
+		and cutin_host_source.find("\"rabi\": 98") >= 0,
+		"Rabi acquisition click-dismiss cut-in should register 14x7 / 98-frame playback overrides"
+	)
+	_expect(
+		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
+		and cutin_host_source.find("\"koyora\": 14") >= 0
+		and cutin_host_source.find("\"koyora\": 7") >= 0
+		and cutin_host_source.find("\"koyora\": 98") >= 0,
+		"Koyora acquisition click-dismiss cut-in should register 14x7 / 98-frame playback overrides"
 	)
 	_expect(modal_gate.is_lingpet_debug_picker_open(Callable(registry, "get_instance")), "modal gate should see the open lingpet picker")
 	_expect(modal_gate.should_block_battle_physics(Callable(registry, "get_instance")), "open lingpet picker should block battle physics")
@@ -591,9 +828,14 @@ func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
 	_expect(str(loadout.get("passive_skill_id", "")) == "lingpet_resonance_boost", "explicit debug grant should persist normalized Resonance Boost in loadouts")
 	var rabi_runtime := LingpetEggRuntime.new()
 	var rabi_owner := FakeOwner.new()
-	_expect(rabi_runtime.debug_grant_and_activate_pet("rabi", rabi_owner, false, "rabi_soft_glow", "lingpet_resonance_boost"), "debug grant should accept debug-only Rabi")
+	_expect(rabi_runtime.debug_grant_and_activate_pet("rabi", rabi_owner, false, "rabi_ghost_summon", "lingpet_resonance_boost"), "debug grant should accept debug-only Rabi")
 	_expect(rabi_owner.active_lingpet_id == "rabi", "debug-only Rabi should activate when granted through the F7 debug path")
-	_expect(rabi_owner.lingpet_active_skill_id == "rabi_soft_glow", "debug-only Rabi should persist its temporary debug active skill")
+	_expect(rabi_owner.lingpet_active_skill_id == "rabi_ghost_summon", "debug-only Rabi should persist its ghost summon active skill")
+	var koyora_runtime := LingpetEggRuntime.new()
+	var koyora_owner := FakeOwner.new()
+	_expect(koyora_runtime.debug_grant_and_activate_pet("koyora", koyora_owner, false, "koyora_puppet_string_orbit", "lingpet_resonance_boost"), "debug grant should accept debug-only Koyora")
+	_expect(koyora_owner.active_lingpet_id == "koyora", "debug-only Koyora should activate when granted through the F7 debug path")
+	_expect(koyora_owner.lingpet_active_skill_id == "koyora_puppet_string_orbit", "debug-only Koyora should persist its puppet-string active skill")
 
 
 func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:

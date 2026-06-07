@@ -1,0 +1,73 @@
+{
+  "asset_id": "koyora_companion_static_float_25f_v1",
+  "pet_id": "koyora",
+  "display_name": "Koyora",
+  "created_at": "2026-06-07",
+  "runtime_usage": "debug_only_lingpet_companion_walk_strike_cast_placeholder",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_companion_walk.png",
+  "source_art": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      128,
+      128
+    ],
+    "sheet_size": [
+      640,
+      640
+    ],
+    "frame_interval": "runtime 25-frame companion loop; subtle deterministic hover from accepted cut-in art",
+    "sha256": "174cb4366455838ce9907d1a7a8b88b56416ed86d690a272226d4b59bb423a54",
+    "bytes": 268414
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic fullbody crop, alpha-preserved resize, 5x5 hover-sheet assembly",
+    "note": "Temporary F7/debug companion sheet so Koyora can be selected without using a broken crop of the fullscreen Live2D sheet. Replace with dedicated SD AutoSprite movement sheets before normal hatch-pool promotion."
+  },
+  "qa": {
+    "source_alpha_bbox": [
+      84,
+      46,
+      933,
+      1457
+    ],
+    "sample_bboxes": {
+      "0": [
+        28,
+        6,
+        100,
+        125
+      ],
+      "6": [
+        29,
+        9,
+        101,
+        128
+      ],
+      "12": [
+        31,
+        7,
+        101,
+        124
+      ],
+      "18": [
+        31,
+        5,
+        101,
+        121
+      ],
+      "24": [
+        28,
+        5,
+        99,
+        124
+      ]
+    },
+    "edge_alpha_max": 0,
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels": 0,
+    "edge_touch_frames": []
+  }
+}

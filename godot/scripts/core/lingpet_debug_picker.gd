@@ -222,9 +222,13 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 	return true
 
 
-func draw(canvas: CanvasItem, owner: Object, _registry: Object, view_size: Vector2) -> void:
+func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
 	if canvas == null or not open:
 		return
+	# Stream the selected pet's heavy Live2D acquisition sheet while the picker is open so
+	# applying it (debug grant -> acquisition cut-in) opens already animated instead of
+	# holding in the reconstruction phase. One incremental threaded step per draw frame.
+	_prewarm_selected_cutin_assets(registry)
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
@@ -487,6 +491,18 @@ func _draw_apply_button(canvas: CanvasItem, font: Font, rect: Rect2) -> void:
 	canvas.draw_rect(rect, Color(0.18, 0.38, 0.48, 0.96))
 	canvas.draw_rect(rect, Color(0.62, 0.92, 1.0, 0.98), false, 1.5)
 	canvas.draw_string(font, rect.position + Vector2(0.0, 23.0), "적용", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 14, Color(0.94, 1.0, 1.0))
+
+
+func _prewarm_selected_cutin_assets(registry: Object) -> void:
+	if registry == null:
+		return
+	var pet_id := _get_selected_pet_id()
+	if pet_id == "":
+		return
+	var host: Object = _get_instance(registry, "lingpet_acquire_cutin_overlay_host")
+	if host == null or not host.has_method("prewarm_pet_assets_step"):
+		return
+	host.prewarm_pet_assets_step(pet_id)
 
 
 func _apply_selected_lingpet(owner: Object, registry: Object) -> void:
@@ -994,6 +1010,8 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 			return "볼티"
 		"orbi":
 			return "오르비"
+		"koyora":
+			return "코요라"
 		"rabi":
 			return "\ub77c\ube44"
 	var fallback := str(entry.get("display_name", pet_id))
@@ -1022,6 +1040,8 @@ func _get_summary_text(pet_id: String) -> String:
 			return "전기 호버 바디로 공 반격 + 돌진 보조"
 		"orbi":
 			return "푸른 링 궤도로 공 반격 + 둔화장 보조"
+		"koyora":
+			return "인형실과 청록 부적으로 공명하는 무녀 링펫"
 		"rabi":
 			return "\uc720\ub839\ube5b \ud68d\ub4dd \ub77c\ud22c\ub514 \ub514\ubc84\uadf8 \ud6c4\ubcf4"
 	return "\uc804\ud22c \ubcf4\uc870 \ub9c1\ud3ab"
@@ -1039,6 +1059,8 @@ func _get_card_color(pet_id: String) -> Color:
 			return Color(0.98, 0.84, 0.22)
 		"orbi":
 			return Color(0.30, 1.0, 0.92)
+		"koyora":
+			return Color(0.92, 0.36, 0.76)
 		"rabi":
 			return Color(0.66, 0.88, 1.0)
 	return Color(0.70, 0.82, 0.92)

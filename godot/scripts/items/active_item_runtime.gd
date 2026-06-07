@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 const HELPER_INIT_ORDER := [
@@ -170,6 +172,28 @@ func update(owner: Object, registry: Object, delta: float, perf_logger: Object =
 	if result is Dictionary:
 		return result
 	return {}
+
+
+func pause_cooldowns(_owner: Object = null, _registry: Object = null) -> void:
+	_ensure_helpers_ready()
+	if slot_controller != null and slot_controller.has_method("pause_cooldowns"):
+		slot_controller.pause_cooldowns(Time.get_ticks_msec())
+
+
+func resume_cooldowns(owner: Object = null, _registry: Object = null) -> void:
+	_ensure_helpers_ready()
+	if slot_controller == null or not slot_controller.has_method("resume_cooldowns"):
+		return
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	var resumed_slots: Array = slot_controller.resume_cooldowns(Time.get_ticks_msec(), active_item_slots)
+	if owner != null:
+		owner.set("active_item_slots", resumed_slots)
+
+
+func get_active_item_cooldown_time_msec(current_time_msec: int) -> int:
+	if slot_controller != null and slot_controller.has_method("get_cooldown_time_msec"):
+		return int(slot_controller.get_cooldown_time_msec(current_time_msec))
+	return current_time_msec
 
 
 func use_slot(slot_index: int, owner: Object, registry: Object) -> bool:

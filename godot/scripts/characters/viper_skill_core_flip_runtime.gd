@@ -95,12 +95,12 @@ static func _update_startup_phase(runtime: Object, deps: Dictionary, constants: 
 
 static func _update_wall_climb_phase(runtime: Object, config: Dictionary, deps: Dictionary, constants: Dictionary) -> Vector2:
 	var kick_level: int = runtime.visibility_query.get_runtime_skill_level(deps, "kick_enhance")
-	var phase1_cap: float = runtime.skill_scaling.get_core_flip_duration_frames(float(constants.get("phase1_frames", 105.3)), kick_level)
+	var phase1_cap: float = runtime.skill_scaling.get_core_flip_wall_prep_duration_frames(float(constants.get("phase1_frames", 105.3)), kick_level, config)
 	var t1: float = ViperSkillGeometry.core_flip_phase_progress(runtime.core_flip_phase_frames, phase1_cap)
 	runtime.core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
 	runtime.core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
-	var leg_frames: float = runtime.skill_scaling.get_core_flip_duration_frames(float(constants.get("zigzag_leg_frames", 28.08)), kick_level)
-	var cling_frames: float = runtime.skill_scaling.get_core_flip_duration_frames(float(constants.get("zigzag_cling_frames", 11.7)), kick_level)
+	var leg_frames: float = runtime.skill_scaling.get_core_flip_wall_prep_duration_frames(float(constants.get("zigzag_leg_frames", 28.08)), kick_level, config)
+	var cling_frames: float = runtime.skill_scaling.get_core_flip_wall_prep_duration_frames(float(constants.get("zigzag_cling_frames", 11.7)), kick_level, config)
 	var center1: Vector2 = ViperSkillGeometry.core_flip_wall_climb_center(t1, config, runtime.core_flip_paddle_size, runtime.core_flip_origin_center, runtime.core_flip_target_center, runtime.core_flip_kick_dir, runtime.core_flip_phase_frames, leg_frames, cling_frames, float(constants.get("kick_trigger_y", 200.0)))
 	var wall_contact: Dictionary = ViperSkillGeometry.core_flip_wall_contact_state(center1, float(config.get("width", 760.0)), runtime.core_flip_phase_frames, leg_frames, cling_frames)
 	var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
@@ -156,6 +156,7 @@ static func _apply_kick_hit(runtime: Object, result: Dictionary, kick_center: Ve
 	runtime.shadow_was_airborne = true
 	runtime.shadow_marshal_delay_frames = float(constants.get("marshal_delay_frames", 6.0))
 	runtime.shadow_marshal_delay_from_shadow_step = false
+	runtime.shadow_marshal_delay_from_core_flip = true
 	runtime.marshal_phantom_allowed = true
 	var dark_blade_name: String = str(constants.get("dark_blade", "dark_blade"))
 	if runtime.visibility_query.is_skill_equipped(runtime.visibility_query.get_viper_skill_config(deps), dark_blade_name):

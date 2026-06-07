@@ -42,8 +42,9 @@ func get_slot_status(
 	}
 
 	var last_use_msec: int = get_active_item_last_use_msec(item_data)
+	var cooldown_time_msec: int = _get_active_item_cooldown_time_msec(current_time_msec, registry)
 	if last_use_msec >= 0:
-		var elapsed: int = current_time_msec - last_use_msec
+		var elapsed: int = max(0, cooldown_time_msec - last_use_msec)
 		var cooldown_msec: int = get_active_item_cooldown_msec(item_data, registry, runtime_perk_state)
 		if elapsed < cooldown_msec:
 			var remaining_ratio: float = 1.0 - float(elapsed) / float(max(1, cooldown_msec))
@@ -52,8 +53,8 @@ func get_slot_status(
 			cooldown_complete_flash.erase(slot_index)
 		else:
 			if not cooldown_complete_flash.has(slot_index):
-				cooldown_complete_flash[slot_index] = current_time_msec
-			var flash_elapsed: int = current_time_msec - int(cooldown_complete_flash[slot_index])
+				cooldown_complete_flash[slot_index] = cooldown_time_msec
+			var flash_elapsed: int = cooldown_time_msec - int(cooldown_complete_flash[slot_index])
 			if flash_elapsed < COOLDOWN_FLASH_DURATION_MS:
 				var progress: float = float(flash_elapsed) / float(COOLDOWN_FLASH_DURATION_MS)
 				var pulse: float = progress / 0.2 if progress < 0.2 else 1.0 - ((progress - 0.2) / 0.8)
@@ -91,6 +92,13 @@ func get_active_item_cooldown_msec(item_data: Dictionary, registry: Object = nul
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_cooldown_msec"):
 		cooldown_msec = int(mythic_item_runtime.get_active_item_cooldown_msec(cooldown_msec))
 	return max(0, cooldown_msec)
+
+
+func _get_active_item_cooldown_time_msec(current_time_msec: int, registry: Object = null) -> int:
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("get_active_item_cooldown_time_msec"):
+		return int(active_item_runtime.get_active_item_cooldown_time_msec(current_time_msec))
+	return current_time_msec
 
 
 func _get_instance(registry: Object, key: String) -> Object:

@@ -9,12 +9,12 @@ static func reset_round(runtime: Object, deps: Dictionary, constants: Dictionary
 	runtime.shadow_hologram_active = false; runtime.shadow_hologram_frames = 0.0; runtime.shadow_hologram_origin = Vector2.ZERO; runtime.shadow_hologram_target = Vector2.ZERO; runtime.shadow_hologram_kick_dir = 1; runtime.shadow_hologram_kick_hit = false; runtime.shadow_hologram_dest_shock_spawned = false; runtime.shadow_paddle_size = Vector2(155.0, 50.0); runtime.shadow_wave_active = false; runtime.shadow_wave_pos = Vector2.ZERO; runtime.shadow_wave_target_x = 0.0; runtime.shadow_wave_dir = 1; runtime.shadow_wave_hit_ball = false
 	runtime.shadow_wave_trail.clear()
 	runtime._clear_shadow_kick_ready()
-	runtime.shadow_hit_consumed = false; runtime.shadow_was_airborne = false; runtime.shadow_marshal_delay_frames = 0.0; runtime.shadow_marshal_delay_from_shadow_step = false; runtime.shadow_curve_active = false; runtime.shadow_curve_timer = 0.0; runtime.shadow_curve_total = 0.0; runtime.shadow_curve_force = 0.0; runtime.shadow_curve_dir = 1; runtime.shadow_starburst_active = false; runtime.shadow_starburst_pos = Vector2.ZERO; runtime.shadow_starburst_frame = 0; runtime.shadow_starburst_timer = 0.0; runtime.shadow_starburst_is_double = false; runtime.phantom_strike_active = false; runtime.phantom_strike_frames = 0.0; runtime.phantom_strike_curve_dir = 1
+	runtime.shadow_hit_consumed = false; runtime.shadow_was_airborne = false; runtime.shadow_marshal_delay_frames = 0.0; runtime.shadow_marshal_delay_from_shadow_step = false; runtime.shadow_marshal_delay_from_core_flip = false; runtime.shadow_curve_active = false; runtime.shadow_curve_timer = 0.0; runtime.shadow_curve_total = 0.0; runtime.shadow_curve_force = 0.0; runtime.shadow_curve_dir = 1; runtime.shadow_starburst_active = false; runtime.shadow_starburst_pos = Vector2.ZERO; runtime.shadow_starburst_frame = 0; runtime.shadow_starburst_timer = 0.0; runtime.shadow_starburst_is_double = false; runtime.phantom_strike_active = false; runtime.phantom_strike_frames = 0.0; runtime.phantom_strike_curve_dir = 1
 	runtime._clear_marshal_ready_window()
 	runtime.marshal_phantom_allowed = false
 	runtime._clear_double_marshal_ready_window()
 	runtime._clear_marshal_first_hit_pending()
-	runtime.marshal_from_shadow_step_chain = false; runtime.phantom_kick_knockback_pending = false; runtime.phantom_kick_speed_limit_disabled = false; runtime.kick_skill_knockback_pending_pct = 0; runtime.kick_guard_speed_reduction_pending_pct = 0
+	runtime.marshal_from_shadow_step_chain = false; runtime.marshal_from_core_flip_chain = false; runtime.phantom_kick_knockback_pending = false; runtime.phantom_kick_speed_limit_disabled = false; runtime.kick_skill_knockback_pending_pct = 0; runtime.kick_guard_speed_reduction_pending_pct = 0
 	if runtime.cutin_state != null and runtime.cutin_state.has_method("reset"):
 		runtime.cutin_state.reset()
 	runtime._clear_dmk_presentation_state()

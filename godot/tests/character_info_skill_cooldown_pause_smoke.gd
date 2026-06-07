@@ -14,13 +14,26 @@ class FakeOwner:
 	extends RefCounted
 
 	var selected_character_type := "smasher"
-	var active_item_slots: Array = []
+	var active_item_slots: Array = [{"name": "long_boost", "cooldown_msec": 10000, "last_use_msec": 1000}]
 
 	func queue_redraw() -> void:
 		pass
 
 	func get_viewport_rect() -> Rect2:
 		return Rect2(Vector2.ZERO, Vector2(1280.0, 720.0))
+
+
+class FakeActiveItemRuntime:
+	extends RefCounted
+
+	var pause_calls := 0
+	var resume_calls := 0
+
+	func pause_cooldowns(_owner: Object = null, _registry: Object = null) -> void:
+		pause_calls += 1
+
+	func resume_cooldowns(_owner: Object = null, _registry: Object = null) -> void:
+		resume_calls += 1
 
 
 class FakeRegistry:
@@ -30,6 +43,7 @@ class FakeRegistry:
 	var character_info: Object = CharacterInfoOverlay.new()
 	var skill_tooltip_driver: Object = BattleSceneSkillTooltipDriver.new()
 	var skill_state: Object = SmasherSkillState.new()
+	var active_item_runtime: Object = FakeActiveItemRuntime.new()
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -41,6 +55,8 @@ class FakeRegistry:
 				return skill_tooltip_driver
 			"smasher_skill_state":
 				return skill_state
+			"active_item_runtime":
+				return active_item_runtime
 		return null
 
 
@@ -78,12 +94,14 @@ func _verify_character_info_pauses_wall_clock_skill_cooldowns() -> void:
 		float(skill_state.get_cooldown_remaining("drive", pause_started_msec + 15000, cooldown_seconds)) > 0.9,
 		"paused character info cooldown should stay pinned even if wall-clock time advances"
 	)
+	_expect(registry.active_item_runtime.pause_calls == 1, "character info should pause active item cooldowns too")
 
 	overlay.close()
 	_expect(
 		int(skill_state.get("cooldown_pause_started_msec")) == -1,
 		"closing character info should resume paused skill cooldowns"
 	)
+	_expect(registry.active_item_runtime.resume_calls == 1, "closing character info should resume active item cooldowns too")
 
 
 func _verify_tab_input_opens_character_info_with_cooldown_pause() -> void:
@@ -109,8 +127,10 @@ func _verify_tab_input_opens_character_info_with_cooldown_pause() -> void:
 		int(registry.skill_state.get("cooldown_pause_started_msec")) >= start_msec,
 		"TAB input should pass owner and registry so character info pauses skill cooldowns"
 	)
+	_expect(registry.active_item_runtime.pause_calls == 1, "TAB input should pause active item cooldowns through character info")
 
 	registry.character_info.close()
+	_expect(registry.active_item_runtime.resume_calls == 1, "closing TAB character info should resume active item cooldowns")
 	_active_registry = null
 
 

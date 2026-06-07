@@ -475,6 +475,26 @@ return-motion handoffs, and skills whose tooltip says "after X" or
       release velocity on every resume / release / final-fire / cancel
       path. Focused smoke coverage must prove the shared skip flag does
       not remain stuck after the handoff.
+- [ ] For a ported **hit-cutscene freeze** — a cross-module flag that
+      gates ball motion + boss AI + stage hazards (e.g.
+      `viper_nerve_strike_freeze_active` for Venom Edge,
+      `viper_dmk_freeze_active` for Marshal Kick wall-dive) — release the
+      freeze at the SAME phase point as the Python original, not at the
+      most convenient GDScript transition. The common parity is **hold the
+      freeze through the return / recovery flight and clear it only when the
+      actor LANDS** (Python: `_viper_ns_freeze_active = False` at the end of
+      return Phase 2, with the explicit comment "프리즈는 착지 완료까지
+      유지"). Clearing it on return-phase *entry* lets the ball/boss resume
+      ~15 frames (~0.25s) early while the character is still flying back —
+      a silent feel divergence that no runtime error surfaces. Reference
+      fix: `viper_skill_nerve_strike_runtime.gd` `enter_return_phase()` must
+      NOT set `nerve_strike_freeze_active = false`; the freeze is dropped by
+      `reset_runtime()` at the end of `_update_return_phase()` (landing).
+      The smoke must assert the freeze PERSISTS through the whole return
+      flight (ball + boss held one frame before landing) and clears only
+      after the final landing frame — a "return phase cleared the freeze"
+      assertion bakes in the wrong behavior. Misses never arm the freeze, so
+      leaving it untouched at phase entry is correct for the miss path too.
 - [ ] Verify both window creation and window lifetime:
       duration value, pause / update path, active-motion exceptions,
       airborne / grounded expiry, and cleanup on cast / hit / reset.

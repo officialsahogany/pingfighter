@@ -212,6 +212,8 @@ func _init() -> void:
 	_test_ball_dependency_context_routes_viper_skill_config()
 	_test_half_dash_does_not_arm_core_flip()
 	_test_post_dash_recovery_arms_core_flip()
+	_test_core_flip_dynamic_ball_prep_retime()
+	_test_hwarang_followup_marshal_dynamic_prep_retime()
 	_test_core_flip_runtime()
 	print("viper_core_flip_port_smoke: ok")
 	quit(0)
@@ -288,6 +290,48 @@ func _test_post_dash_recovery_arms_core_flip() -> void:
 	dash_state.snapshot["recovering"] = true
 	runtime.register_player_ball_contact(deps, _base_config())
 	_expect(bool(runtime.get_snapshot().get("core_flip_ready", false)), "post-dash recovery hit should open Hwarang Kick like the Python 0.4s window")
+
+
+func _test_core_flip_dynamic_ball_prep_retime() -> void:
+	var fast_setup: Dictionary = _start_core_flip_prep_case({
+		"ai_mode": "junior",
+		"ball_pos": Vector2(620.0, 350.0),
+		"ball_vel": Vector2(0.0, 18.0),
+	})
+	_advance_core_flip_frames(fast_setup, 50)
+	var fast_runtime: Object = fast_setup.get("runtime", null)
+	_expect(fast_runtime != null and int(fast_runtime.core_flip_attack_phase) == 2, "fast descending ball should shorten Hwarang wall prep regardless of league")
+
+	var slow_setup: Dictionary = _start_core_flip_prep_case({
+		"ai_mode": "mythic league",
+		"ball_vel": Vector2(0.0, -8.0),
+	})
+	_advance_core_flip_frames(slow_setup, 60)
+	var slow_runtime: Object = slow_setup.get("runtime", null)
+	_expect(slow_runtime != null and int(slow_runtime.core_flip_attack_phase) == 1, "slow upward ball should keep the original Hwarang wall prep even in mythic league")
+	_advance_core_flip_frames(slow_setup, 10)
+	_expect(int(slow_runtime.core_flip_attack_phase) == 2, "slow upward Hwarang prep should still finish on the original wall timing")
+
+
+func _test_hwarang_followup_marshal_dynamic_prep_retime() -> void:
+	var fast_setup: Dictionary = _start_hwarang_followup_marshal_case({}, {
+		"ball_pos": Vector2(620.0, 560.0),
+		"ball_vel": Vector2(0.0, 18.0),
+	})
+	_advance_hwarang_followup_marshal_frames(fast_setup, 14)
+	var fast_runtime: Object = fast_setup.get("runtime", null)
+	_expect(fast_runtime != null and int(fast_runtime.marshal_phase) == 1, "fast descending ball should shorten Hwarang-followup Marshal wall jump")
+
+	var slow_setup: Dictionary = _start_hwarang_followup_marshal_case({
+		"ai_mode": "mythic league",
+	}, {
+		"ball_vel": Vector2(0.0, -8.0),
+	})
+	_advance_hwarang_followup_marshal_frames(slow_setup, 20)
+	var slow_runtime: Object = slow_setup.get("runtime", null)
+	_expect(slow_runtime != null and int(slow_runtime.marshal_phase) == 0, "slow upward ball should keep Hwarang-followup Marshal prep unshortened")
+	_advance_hwarang_followup_marshal_frames(slow_setup, 5)
+	_expect(int(slow_runtime.marshal_phase) == 1, "slow upward Hwarang-followup Marshal prep should finish on the original wall-jump timing")
 
 
 func _test_core_flip_runtime() -> void:
@@ -416,6 +460,125 @@ func _test_core_flip_runtime() -> void:
 	_expect(not bool(result.get("activated", false)), "Extra follow-up input should be ignored when Phantom Kick is unavailable")
 	_expect(skill_state.triggered.size() == trigger_count_before_extra_input, "Ignored Phantom input should not trigger another skill cooldown")
 	_expect(audio.backstep == backstep_before_extra_input, "Ignored Phantom input should not replay the wall-climb cue")
+
+
+func _start_core_flip_prep_case(config_overrides: Dictionary = {}) -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var deps := _make_deps()
+	var input: Object = deps["input_reader"]
+	var dash_state: Object = deps["dash_state"]
+	var config := _base_config()
+	_apply_config_overrides(config, config_overrides)
+	var player_pos := Vector2(302.5, 680.0)
+	var gauge := 200.0
+	dash_state.snapshot["active"] = true
+	dash_state.snapshot["is_half"] = false
+	runtime.observe_after_movement(1.0 / 60.0, player_pos, player_pos + Vector2(120.0, 0.0), deps)
+	runtime.register_player_ball_contact(deps, config)
+	dash_state.snapshot["active"] = false
+	dash_state.snapshot["recovering"] = true
+	input.snapshot["left_pressed"] = true
+	input.snapshot["right_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+	input.snapshot["left_pressed"] = false
+	input.snapshot["right_pressed"] = false
+	_expect(bool(result.get("activated", false)), "Hwarang dynamic prep retime setup should activate Hwarang Kick")
+	return {
+		"runtime": runtime,
+		"deps": deps,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
+
+
+func _advance_core_flip_frames(setup: Dictionary, frames: int) -> void:
+	var runtime: Object = setup.get("runtime", null)
+	var deps: Dictionary = setup.get("deps", {})
+	var config: Dictionary = setup.get("config", {})
+	var player_pos: Vector2 = _get_vector2(setup, "player_pos", Vector2.ZERO)
+	var gauge: float = float(setup.get("gauge", 0.0))
+	_expect(runtime != null, "Hwarang dynamic prep retime setup should include runtime")
+	for _i in range(frames):
+		var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		gauge = float(result.get("special_gauge", gauge))
+		runtime.update_effects(1.0, Time.get_ticks_msec(), config, deps)
+	setup["player_pos"] = player_pos
+	setup["gauge"] = gauge
+
+
+func _start_hwarang_followup_marshal_case(config_overrides: Dictionary = {}, followup_overrides: Dictionary = {}) -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var deps := _make_deps()
+	var input: Object = deps["input_reader"]
+	var dash_state: Object = deps["dash_state"]
+	var config := _base_config()
+	_apply_config_overrides(config, config_overrides)
+	var player_pos := Vector2(302.5, 680.0)
+	var gauge := 200.0
+	dash_state.snapshot["active"] = true
+	dash_state.snapshot["is_half"] = false
+	runtime.observe_after_movement(1.0 / 60.0, player_pos, player_pos + Vector2(120.0, 0.0), deps)
+	runtime.register_player_ball_contact(deps, config)
+	dash_state.snapshot["active"] = false
+	dash_state.snapshot["recovering"] = true
+	input.snapshot["left_pressed"] = true
+	input.snapshot["right_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+	input.snapshot["left_pressed"] = false
+	input.snapshot["right_pressed"] = false
+	_expect(bool(result.get("activated", false)), "Hwarang-followup Marshal retime setup should activate Hwarang Kick")
+	player_pos = _get_vector2(result, "player_pos", player_pos)
+	gauge = float(result.get("special_gauge", gauge))
+
+	for _frame in range(220):
+		config["special_gauge"] = gauge
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		gauge = float(result.get("special_gauge", gauge))
+		if result.has("ball_vel"):
+			config["ball_vel"] = _get_vector2(result, "ball_vel", Vector2.ZERO)
+		runtime.update_effects(1.0, Time.get_ticks_msec(), config, deps)
+		if bool(runtime.get_snapshot().get("marshal_ready", false)):
+			break
+
+	_expect(bool(runtime.get_snapshot().get("marshal_ready", false)), "Hwarang Kick hit should open the Marshal follow-up window")
+	_expect(runtime.marshal_ready_from_core_flip_chain, "Marshal follow-up window should remember it came from Hwarang Kick")
+	_apply_config_overrides(config, followup_overrides)
+	input.snapshot["down_pressed"] = true
+	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+	input.snapshot["down_pressed"] = false
+	_expect(bool(result.get("activated", false)), "Hwarang follow-up input should activate Marshal Kick")
+	_expect(str(result.get("skill_name", "")) == "marshal_kick", "Hwarang follow-up should start Marshal Kick")
+	_expect(runtime.marshal_from_core_flip_chain, "Active Marshal Kick should remember the Hwarang chain source")
+	return {
+		"runtime": runtime,
+		"deps": deps,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
+
+
+func _advance_hwarang_followup_marshal_frames(setup: Dictionary, frames: int) -> void:
+	var runtime: Object = setup.get("runtime", null)
+	var deps: Dictionary = setup.get("deps", {})
+	var config: Dictionary = setup.get("config", {})
+	var player_pos: Vector2 = _get_vector2(setup, "player_pos", Vector2.ZERO)
+	var gauge: float = float(setup.get("gauge", 0.0))
+	_expect(runtime != null, "Hwarang-followup Marshal retime setup should include runtime")
+	for _i in range(frames):
+		var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		gauge = float(result.get("special_gauge", gauge))
+	setup["player_pos"] = player_pos
+	setup["gauge"] = gauge
+
+
+func _apply_config_overrides(config: Dictionary, overrides: Dictionary) -> void:
+	for key in overrides.keys():
+		config[key] = overrides[key]
 
 
 func _make_deps() -> Dictionary:

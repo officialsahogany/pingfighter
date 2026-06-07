@@ -206,12 +206,24 @@ func _test_activation_hit_freeze_confusion_and_mist() -> void:
 	_expect(str(status_entry.get("status_id", "")) == "confusion", "slash end should apply boss confusion")
 	_expect_close(float(status_entry.get("duration_frames", 0.0)), 255.0, "Four Poisons Lv5 should scale confusion to 255 frames")
 	_expect(not bool(runtime.get_actor_draw_context().get("viper_venom_edge_strike_active", true)), "behind-boss strike sheet should auto-clear during the slash cutscene")
-	_expect(not bool(runtime.get_ball_collision_context().get("viper_nerve_strike_freeze_active", true)), "return phase should clear the cutscene freeze")
+	# Python parity: the cutscene freeze is HELD through the return flight and only
+	# released when Viper lands. It must NOT clear when the return phase begins.
+	_expect(int(runtime.get_snapshot().get("nerve_strike_phase", -1)) == 2, "slash end should hand off to the return phase")
+	_expect(bool(runtime.get_ball_collision_context().get("viper_nerve_strike_freeze_active", false)), "return phase should KEEP the cutscene freeze active (ball/boss stay frozen until landing)")
 	_expect(audio.moving == 2, "return phase should play the moving cue again")
-	for _i in range(15):
+	_expect_freezes_ball_and_boss(runtime, config)
+	# Advance all but the final frame of the return flight (return_hit_frames = 15);
+	# the freeze must persist right up to the landing frame.
+	for _i in range(14):
 		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
 		player_pos = _get_vector2(result, "player_pos", player_pos)
+	_expect(bool(runtime.get_ball_collision_context().get("viper_nerve_strike_freeze_active", false)), "freeze must persist through the entire return flight, including the frame before landing")
+	_expect_freezes_ball_and_boss(runtime, config)
+	# Final return frame lands Viper and releases the freeze + skill state together.
+	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+	player_pos = _get_vector2(result, "player_pos", player_pos)
 	_expect(not bool(runtime.get_snapshot().get("nerve_strike_active", true)), "Venom Edge should clear after the hit return phase")
+	_expect(not bool(runtime.get_ball_collision_context().get("viper_nerve_strike_freeze_active", true)), "landing should release the cutscene freeze")
 
 
 func _test_miss_returns_without_slash_sound_or_vfx() -> void:

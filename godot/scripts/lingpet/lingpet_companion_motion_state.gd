@@ -53,12 +53,31 @@ const FREE_FLIGHT_TARGET_TOLERANCE := 12.0
 const FREE_FLIGHT_TARGET_INTERVAL_MIN := 0.55
 const FREE_FLIGHT_TARGET_INTERVAL_MAX := 1.65
 const FREE_FLIGHT_EXIT_CHANCE := 0.28
+# free_flight = GHOST blink: rabi fades in at a spot, hovers, fades out IN PLACE,
+# waits hidden, then reappears at a NEW random spot. It does NOT fly. appearance_rate
+# shortens the hidden wait (HIDDEN_FAST_* is the appearance_rate=1.0 floor).
+const FREE_GHOST_VISIBLE_SECONDS_MIN := 2.2
+const FREE_GHOST_VISIBLE_SECONDS_MAX := 3.8
+const FREE_GHOST_HIDDEN_SECONDS_MIN := 5.00
+const FREE_GHOST_HIDDEN_SECONDS_MAX := 12.00
+const FREE_GHOST_HIDDEN_FAST_MIN := 1.20
+const FREE_GHOST_HIDDEN_FAST_MAX := 2.50
+const FREE_GHOST_FADE_SECONDS := 0.35
+# While visible the ghost slowly drifts toward nearby wander points so it reads as a
+# floating spirit, not a frozen sprite (it still vanishes in place and reappears
+# elsewhere). Slow + local on purpose -- this is NOT the old continuous roam.
+const FREE_GHOST_DRIFT_SPEED := 64.0
+const FREE_GHOST_WANDER_RADIUS := 96.0
+const FREE_GHOST_WANDER_TOLERANCE := 12.0
 const SORTIE_OFFSCREEN_MARGIN_X := 190.0
 const SORTIE_OFFSCREEN_MARGIN_Y := 150.0
 const SORTIE_EDGE_Y_MIN := 118.0
 const SORTIE_EDGE_Y_MAX := FIELD_HEIGHT - 250.0
 const SORTIE_HIDDEN_SECONDS_MIN := 6.50
 const SORTIE_HIDDEN_SECONDS_MAX := 15.00
+# appearance_rate=1.0 floor for the sortie hidden (reappear) wait.
+const SORTIE_HIDDEN_FAST_MIN := 1.50
+const SORTIE_HIDDEN_FAST_MAX := 3.00
 const SORTIE_TURN_RATE := 1.05
 const SORTIE_LOITER_TURN_RATE := 1.42
 const SORTIE_EXIT_TURN_RATE := 0.94
@@ -98,6 +117,12 @@ var motion_speed_ratio := 0.0
 var motion_visible := true
 var sortie_phase := ""
 var sortie_phase_timer := 0.0
+# appearance_rate (출현율): flight-only stat that shortens hidden/vanish waits.
+var appearance_rate := 0.0
+# Ghost (free_flight) fade: 0 = fully hidden, 1 = fully visible. Renderer multiplies
+# the companion sprite alpha by this so rabi fades out/in instead of hard-popping.
+var ghost_alpha := 1.0
+var ghost_visible_total := 0.0
 var patrol_dir := 0.0
 var patrol_pause := 0.0
 var patrol_change_timer := 0.0
@@ -171,9 +196,11 @@ func update(
 	trigger_count: int,
 	speed_min: float,
 	speed_max: float,
-	motion_style_value: String = MOTION_STYLE_PATROL
+	motion_style_value: String = MOTION_STYLE_PATROL,
+	appearance_rate_value: float = 0.0
 ) -> void:
 	motion_style = _normalize_motion_style(motion_style_value)
+	appearance_rate = clampf(appearance_rate_value, 0.0, 1.0)
 	if motion_style == MOTION_STYLE_SORTIE_FLIGHT:
 		_update_sortie_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max)
 		return
@@ -302,6 +329,7 @@ func restore(
 	)
 	motion_speed_ratio = clampf(float(snapshot.get("companion_motion_speed_ratio", motion_speed_ratio)), 0.0, 1.0)
 	motion_visible = bool(snapshot.get("companion_visible", motion_visible))
+	ghost_alpha = clampf(float(snapshot.get("companion_ghost_alpha", ghost_alpha)), 0.0, 1.0)
 	sortie_phase = str(snapshot.get("companion_sortie_phase", sortie_phase)).strip_edges().to_lower()
 	sortie_phase_timer = maxf(0.0, float(snapshot.get("companion_sortie_phase_timer", sortie_phase_timer)))
 	var restored_dir: float = float(snapshot.get("companion_patrol_dir", patrol_dir))
@@ -332,6 +360,7 @@ func get_snapshot(speed_default: float, speed_min: float, speed_max: float, defe
 		"companion_motion_velocity": motion_velocity,
 		"companion_motion_speed_ratio": motion_speed_ratio,
 		"companion_visible": motion_visible,
+		"companion_ghost_alpha": ghost_alpha,
 		"companion_sortie_phase": sortie_phase,
 		"companion_sortie_phase_timer": sortie_phase_timer,
 		"companion_patrol_dir": patrol_dir,
@@ -361,6 +390,7 @@ func get_save_snapshot() -> Dictionary:
 		"companion_motion_velocity": motion_velocity,
 		"companion_motion_speed_ratio": motion_speed_ratio,
 		"companion_visible": motion_visible,
+		"companion_ghost_alpha": ghost_alpha,
 		"companion_sortie_phase": sortie_phase,
 		"companion_sortie_phase_timer": sortie_phase_timer,
 		"companion_patrol_dir": patrol_dir,
@@ -442,39 +472,88 @@ func _update_free_flight(
 	speed_min: float,
 	speed_max: float
 ) -> void:
-	if patrol_seed <= 0 or patrol_max_x <= patrol_min_x:
+	if patrol_seed <= 0:
 		_initialize_free_flight(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max)
-	else:
-		_sync_free_flight_bounds()
+	_sync_free_flight_bounds()
 	if pos == Vector2.ZERO:
 		_initialize_free_flight(owner, true, trigger_count, speed_min, speed_max)
 		return
 
 	var safe_delta: float = maxf(0.0, delta)
 	clear_defense_intercept()
-	motion_visible = true
+	# rabi is a GHOST: it never flies IN/OUT, it blinks (vanish in place -> wait ->
+	# reappear at a NEW spot). While visible it gently DRIFTS so it reads as a floating
+	# spirit rather than a frozen sprite.
 	if freeze_motion or safe_delta <= 0.0:
-		motion_speed_ratio = 0.0 if freeze_motion else _speed_ratio(patrol_speed, speed_min, speed_max)
+		motion_velocity = Vector2.ZERO
+		motion_speed_ratio = 0.0
 		return
-	patrol_change_timer = maxf(0.0, patrol_change_timer - safe_delta)
-	if (
-		free_flight_target == Vector2.ZERO
-		or patrol_change_timer <= 0.0
-		or pos.distance_to(free_flight_target) <= FREE_FLIGHT_TARGET_TOLERANCE
-	):
-		_choose_free_flight_target(speed_min, speed_max)
 
-	var offset := free_flight_target - pos
-	var distance := offset.length()
-	if distance > 0.01:
-		var step := minf(distance, patrol_speed * safe_delta)
-		motion_velocity = offset / distance * (step / safe_delta)
-		pos += offset / distance * step
-		if absf(offset.x) > 1.0:
-			patrol_dir = 1.0 if offset.x > 0.0 else -1.0
-	pos.x = clampf(pos.x, patrol_min_x, patrol_max_x)
-	pos.y = clampf(pos.y, -FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
-	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+	if motion_visible:
+		# Visible: fade in -> hover-drift -> fade out, then vanish in place.
+		patrol_change_timer = maxf(0.0, patrol_change_timer - safe_delta)
+		var elapsed: float = maxf(0.0, ghost_visible_total - patrol_change_timer)
+		var fade_in: float = clampf(elapsed / FREE_GHOST_FADE_SECONDS, 0.0, 1.0)
+		var fade_out: float = clampf(patrol_change_timer / FREE_GHOST_FADE_SECONDS, 0.0, 1.0)
+		ghost_alpha = minf(fade_in, fade_out)
+		# Gentle local drift toward a nearby wander point (re-picked when reached).
+		if free_flight_target == pos or pos.distance_to(free_flight_target) <= FREE_GHOST_WANDER_TOLERANCE:
+			_pick_ghost_wander_target()
+		var offset: Vector2 = free_flight_target - pos
+		var distance: float = offset.length()
+		if distance > 0.01:
+			var step: float = minf(distance, FREE_GHOST_DRIFT_SPEED * safe_delta)
+			motion_velocity = offset / distance * (step / safe_delta)
+			pos += offset / distance * step
+			if absf(offset.x) > 1.0:
+				patrol_dir = 1.0 if offset.x > 0.0 else -1.0
+		else:
+			motion_velocity = Vector2.ZERO
+		motion_speed_ratio = _speed_ratio(FREE_GHOST_DRIFT_SPEED, speed_min, speed_max)
+		if patrol_change_timer <= 0.0:
+			_begin_free_ghost_hidden()
+	else:
+		# Hidden: vanished, waiting; appearance_rate (출현율) shortens this wait.
+		motion_velocity = Vector2.ZERO
+		motion_speed_ratio = 0.0
+		ghost_alpha = 0.0
+		patrol_pause = maxf(0.0, patrol_pause - safe_delta)
+		if patrol_pause <= 0.0:
+			_begin_free_ghost_visible()
+
+
+func _begin_free_ghost_hidden() -> void:
+	motion_visible = false
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	ghost_alpha = 0.0
+	var hidden_min: float = lerpf(FREE_GHOST_HIDDEN_SECONDS_MIN, FREE_GHOST_HIDDEN_FAST_MIN, appearance_rate)
+	var hidden_max: float = lerpf(FREE_GHOST_HIDDEN_SECONDS_MAX, FREE_GHOST_HIDDEN_FAST_MAX, appearance_rate)
+	patrol_pause = _next_range(hidden_min, hidden_max)
+
+
+func _begin_free_ghost_visible() -> void:
+	# Reappear at a NEW random inside spot (teleport blink), then fade in.
+	pos = Vector2(
+		_next_range(FREE_FLIGHT_INSIDE_MARGIN_X, FIELD_WIDTH - FREE_FLIGHT_INSIDE_MARGIN_X),
+		_next_range(FREE_FLIGHT_INSIDE_MARGIN_Y, FIELD_HEIGHT - FREE_FLIGHT_INSIDE_MARGIN_Y)
+	)
+	free_flight_target = pos
+	motion_visible = true
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	ghost_alpha = 0.0
+	ghost_visible_total = _next_range(FREE_GHOST_VISIBLE_SECONDS_MIN, FREE_GHOST_VISIBLE_SECONDS_MAX)
+	patrol_change_timer = ghost_visible_total
+	patrol_dir = -1.0 if _next_unit() < 0.5 else 1.0
+
+
+func _pick_ghost_wander_target() -> void:
+	# A nearby point within the field so the visible ghost drifts locally (not a
+	# cross-field roam). Re-picked when reached; cleared/replaced on each reappear.
+	var tx: float = clampf(pos.x + _next_range(-FREE_GHOST_WANDER_RADIUS, FREE_GHOST_WANDER_RADIUS), FREE_FLIGHT_INSIDE_MARGIN_X, FIELD_WIDTH - FREE_FLIGHT_INSIDE_MARGIN_X)
+	var ty: float = clampf(pos.y + _next_range(-FREE_GHOST_WANDER_RADIUS, FREE_GHOST_WANDER_RADIUS), FREE_FLIGHT_INSIDE_MARGIN_Y, FIELD_HEIGHT - FREE_FLIGHT_INSIDE_MARGIN_Y)
+	free_flight_target = Vector2(tx, ty)
 
 
 func _initialize_free_flight(
@@ -484,6 +563,8 @@ func _initialize_free_flight(
 	speed_min: float,
 	speed_max: float
 ) -> void:
+	var _unused_speed_min := speed_min  # ghost does not fly; fly speeds are ignored
+	var _unused_speed_max := speed_max
 	_sync_free_flight_bounds()
 	if patrol_seed <= 0:
 		patrol_seed = _build_seed(owner, trigger_count)
@@ -497,17 +578,17 @@ func _initialize_free_flight(
 			clampf(pos.x, patrol_min_x, patrol_max_x),
 			clampf(pos.y, -FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
 		)
+	free_flight_target = pos
 	if is_zero_approx(patrol_dir):
 		patrol_dir = -1.0 if _next_unit() < 0.5 else 1.0
-	patrol_speed = clampf(
-		patrol_speed if patrol_speed > 0.0 else _next_speed(speed_min, speed_max),
-		speed_min,
-		speed_max
-	)
-	if patrol_change_timer <= 0.0 or free_flight_target == Vector2.ZERO:
-		_choose_free_flight_target(speed_min, speed_max)
+	# Start the ghost cycle already VISIBLE at the spawn spot, then it will blink.
 	motion_visible = true
-	motion_speed_ratio = _speed_ratio(patrol_speed, speed_min, speed_max)
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	ghost_alpha = 0.0
+	ghost_visible_total = _next_range(FREE_GHOST_VISIBLE_SECONDS_MIN, FREE_GHOST_VISIBLE_SECONDS_MAX)
+	patrol_change_timer = ghost_visible_total
+	patrol_pause = 0.0
 
 
 func _update_sortie_flight(
@@ -678,7 +759,10 @@ func _begin_sortie_hidden(speed_min: float, speed_max: float) -> void:
 	motion_visible = false
 	sortie_phase = SORTIE_PHASE_HIDDEN
 	sortie_phase_timer = 0.0
-	patrol_pause = _next_range(SORTIE_HIDDEN_SECONDS_MIN, SORTIE_HIDDEN_SECONDS_MAX)
+	# appearance_rate (출현율) shortens the hidden wait toward the FAST floor.
+	var hidden_min: float = lerpf(SORTIE_HIDDEN_SECONDS_MIN, SORTIE_HIDDEN_FAST_MIN, appearance_rate)
+	var hidden_max: float = lerpf(SORTIE_HIDDEN_SECONDS_MAX, SORTIE_HIDDEN_FAST_MAX, appearance_rate)
+	patrol_pause = _next_range(hidden_min, hidden_max)
 	patrol_speed = _next_speed(speed_min, speed_max)
 
 
@@ -751,39 +835,6 @@ func _sync_free_flight_bounds() -> void:
 	patrol_lane_y = FIELD_HEIGHT * 0.5
 	patrol_min_x = -FREE_FLIGHT_MARGIN_X
 	patrol_max_x = FIELD_WIDTH + FREE_FLIGHT_MARGIN_X
-
-
-func _choose_free_flight_target(speed_min: float, speed_max: float) -> void:
-	patrol_speed = _next_speed(speed_min, speed_max)
-	patrol_pause = 0.0
-	patrol_change_timer = _next_range(FREE_FLIGHT_TARGET_INTERVAL_MIN, FREE_FLIGHT_TARGET_INTERVAL_MAX)
-	if _next_unit() < FREE_FLIGHT_EXIT_CHANCE:
-		var side_roll := _next_unit()
-		if side_roll < 0.25:
-			free_flight_target = Vector2(
-				-FREE_FLIGHT_MARGIN_X,
-				_next_range(-FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
-			)
-		elif side_roll < 0.50:
-			free_flight_target = Vector2(
-				FIELD_WIDTH + FREE_FLIGHT_MARGIN_X,
-				_next_range(-FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
-			)
-		elif side_roll < 0.75:
-			free_flight_target = Vector2(
-				_next_range(-FREE_FLIGHT_MARGIN_X, FIELD_WIDTH + FREE_FLIGHT_MARGIN_X),
-				-FREE_FLIGHT_MARGIN_Y
-			)
-		else:
-			free_flight_target = Vector2(
-				_next_range(-FREE_FLIGHT_MARGIN_X, FIELD_WIDTH + FREE_FLIGHT_MARGIN_X),
-				FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y
-			)
-		return
-	free_flight_target = Vector2(
-		_next_range(FREE_FLIGHT_INSIDE_MARGIN_X, FIELD_WIDTH - FREE_FLIGHT_INSIDE_MARGIN_X),
-		_next_range(FREE_FLIGHT_INSIDE_MARGIN_Y, FIELD_HEIGHT - FREE_FLIGHT_INSIDE_MARGIN_Y)
-	)
 
 
 func _try_update_defense_intercept(delta: float, owner: Object, defense_rate: float, speed_min: float) -> bool:

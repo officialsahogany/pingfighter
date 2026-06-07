@@ -1,0 +1,29 @@
+{
+  "asset_id": "rabi_live2d_component_clean_v3",
+  "method": "connected dark component cleanup: remove dark pixels connected to transparent matte, protecting internal face features; then fill fully transparent RGB for texture filtering",
+  "outputs": [
+    {
+      "source": "godot/assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2.png",
+      "output": "godot/assets/sprites/lingpet/rabi_cutin_art_sd_identity_v3_clean.png",
+      "stats": {
+        "removed_connected_dark_pixels": 11092,
+        "transparent_rgb_filled_pixels": 226328,
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "source": "godot/assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq.png",
+      "output": "godot/assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq_clean.png",
+      "stats": {
+        "removed_connected_dark_pixels": 365422,
+        "transparent_rgb_filled_pixels": 3741482,
+        "width": 6144,
+        "height": 6144,
+        "cell_width": 1024,
+        "cell_height": 1024,
+        "frames": 32
+      }
+    }
+  ]
+}

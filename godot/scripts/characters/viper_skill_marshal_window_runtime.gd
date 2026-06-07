@@ -20,7 +20,7 @@ static func update_windows(runtime: Object, fps_scale: float, context: Dictionar
 		if runtime.double_marshal_ready_frames <= 0.0 or not runtime.visibility_query.context_has_enough_gauge(context, runtime.visibility_query.get_marshal_skill_cost(skill_config, str(constants.get("phantom_kick", "phantom_kick")), str(constants.get("phantom_kick", "phantom_kick")))):
 			runtime._clear_phantom_kick_chain_window()
 	if runtime.dmk_freeze_active:
-		var prep_mult: float = runtime._get_marshal_prep_duration_mult(deps)
+		var prep_mult: float = runtime._get_marshal_prep_duration_mult(deps, context)
 		runtime.dmk_freeze_frames = max(0.0, runtime.dmk_freeze_frames - fps_scale / max(0.1, prep_mult))
 		if runtime.dmk_freeze_frames <= 0.0:
 			runtime.dmk_freeze_active = false

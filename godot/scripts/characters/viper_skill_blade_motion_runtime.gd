@@ -25,7 +25,7 @@ static func try_phase2_followup_activation(runtime: Object, up_edge: bool, playe
 						if air_blade_nerve_skill_state == null:
 							air_blade_can_start_nerve_combo = true
 						elif air_blade_nerve_skill_state.has_method("get_cooldown_remaining"):
-							air_blade_can_start_nerve_combo = air_blade_nerve_skill_state.get_cooldown_remaining(nerve_strike, now_msec, runtime._get_four_poisons_additive_cooldown_seconds(nerve_strike, air_blade_nerve_skill_config, deps, float(constants.get("nerve_cooldown_base", 40.0)))) <= 0.0
+							air_blade_can_start_nerve_combo = air_blade_nerve_skill_state.get_cooldown_remaining(nerve_strike, now_msec, runtime._get_four_poisons_additive_cooldown_seconds(nerve_strike, air_blade_nerve_skill_config, deps, float(constants.get("nerve_cooldown_base", 35.0)))) <= 0.0
 						else:
 							air_blade_can_start_nerve_combo = runtime.visibility_query.is_configured_skill_ready(nerve_strike, deps, now_msec)
 			if air_blade_can_start_nerve_combo:

@@ -143,6 +143,25 @@ func _verify_build_entry_states() -> void:
 	var lunabi_repeat_wait_entry := LingpetRailCard.build_entry(_make_registry(lunabi_runtime))
 	_expect(str(lunabi_repeat_wait_entry.get("status", "")) == "casting", "Lunabi Headbutt repeat wait should stay in casting state on the rail card")
 
+	# Ghost Summon (rabi): an active summon effect must read as casting, not fall back
+	# to charging while the ghosts are still on the field.
+	var ghost_runtime := FakeLingpetRuntime.new()
+	ghost_runtime.active = true
+	ghost_runtime.snapshot = {
+		"companion_skill_id": "rabi_ghost_summon",
+		"companion_skill_name": "유령 소환",
+		"companion_skill_description": "라비가 유령들을 소환합니다.",
+		"companion_skill_card_path": "res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png",
+		"companion_skill_cooldown": 30.0,
+		"companion_skill_cooldown_duration": 40.0,
+		"companion_skill_ready": false,
+		"companion_skill_flash_ratio": 0.0,
+		"companion_skill_winding_up": false,
+		"ghost_summon_active": true,
+	}
+	var ghost_entry := LingpetRailCard.build_entry(_make_registry(ghost_runtime))
+	_expect(str(ghost_entry.get("status", "")) == "casting", "an active Ghost Summon effect should read as casting on the rail card, not revert to charging")
+
 
 func _verify_build_entry_inactive_is_empty() -> void:
 	_expect(LingpetRailCard.build_entry(_make_registry(_make_runtime(false, 0.0, false, false, false, false))).is_empty(), "build_entry should be empty when the companion is not active (pre-hatch mystery)")

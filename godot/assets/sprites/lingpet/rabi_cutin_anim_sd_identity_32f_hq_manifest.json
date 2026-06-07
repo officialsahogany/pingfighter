@@ -1,0 +1,83 @@
+{
+  "asset_id": "rabi_acquisition_cutin_anim_sd_identity_32f_hq",
+  "pet_id": "rabi",
+  "created_at": "2026-06-06",
+  "source": {
+    "source_art_asset_id": "rabi_live2d_source_sd_identity_v2",
+    "source_art_path": "godot/assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2.png",
+    "autosprite_source_asset_id": "cmq2ewlvg001veeb9grscsg13",
+    "autosprite_source_asset_name": "Rabi Live2D SD Identity Source 20260606 v2",
+    "spritesheet_id": "cmq2f0zrf003jgpobw2whfb8q",
+    "job_id": "wf_0243cbc0-e255-4a95-a574-3d5af9a861a5",
+    "prompt": "32f acquisition loop: Rabi floats, breathes, long ear-wing appendages sway, halo/core glow pulse, blue eye blink, star wisps bob. Stable full body.",
+    "raw_path": ".tmp/rabi_live2d_sd_identity_32f/rabi_live2d_sd_identity_32f_autosprite_raw.png",
+    "raw_atlas_path": ".tmp/rabi_live2d_sd_identity_32f/rabi_live2d_sd_identity_32f_autosprite_raw_atlas.json",
+    "raw_video_path": ".tmp/rabi_live2d_sd_identity_32f/rabi_live2d_sd_identity_32f_autosprite_video.mp4",
+    "raw_sheet_size": [
+      3072,
+      3072
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "cols": 6,
+    "rows": 6,
+    "frame_count": 32,
+    "bytes": 1770240,
+    "sha256": "c9f06a3a0d591d2763c69d1df2eea0d01c5771d24f58e72e7855be2c6028cb92",
+    "identity_locks": [
+      "large ear-like side appendages from accepted SD companion sheet",
+      "white Casper-like ghost body with tapered tail",
+      "gold halo, shoulder/end-cap ring parts, and chest core",
+      "blue wisps and blue eyes retained across frames"
+    ]
+  },
+  "output": {
+    "path": "godot/assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq.png",
+    "cols": 6,
+    "rows": 6,
+    "frame_count": 32,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      6144,
+      6144
+    ],
+    "source_scale_repack": 0.84,
+    "upscale_scale": 4.0,
+    "final_downsampled_scale": 2.0,
+    "playback_fps": 32.0,
+    "bytes": 15069387,
+    "sha256": "bfa15c218a7f0137a68e4cbe7e171dc1571f9fe19cf4b27a6bca7e20e7c51901"
+  },
+  "processing": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale + Lanczos downsample",
+    "operation": "AutoSprite 512 cells scaled to 84 percent and centered; transparent RGB alpha-bled before upscale; RGB cells Real-ESRGAN x4 upscaled to 2048 then Lanczos downsampled to 1024; source alpha Lanczos upscaled to 1024 and recombined.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4.0,
+      "rgb_source": ".tmp/rabi_live2d_sd_identity_32f/rgb_cells_s84",
+      "rgb_upscaled": ".tmp/rabi_live2d_sd_identity_32f/rgb_cells_s84_x4",
+      "alpha_source": ".tmp/rabi_live2d_sd_identity_32f/alpha_cells_s84",
+      "alpha_preserved": true
+    },
+    "alpha_threshold": 3
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "visible_green_pixels": 0,
+    "visible_magenta_pixels": 0,
+    "edge_touch_frames": [],
+    "frame_alpha_bbox_area_pct_range": [
+      48.598,
+      57.574
+    ],
+    "preview_contact": ".tmp/rabi_live2d_sd_identity_32f/rabi_cutin_anim_sd_identity_32f_hq_contact_preview.png",
+    "preview_black": ".tmp/rabi_live2d_sd_identity_32f/rabi_cutin_anim_sd_identity_32f_hq_black_preview.png",
+    "notes": "Generated from the SD-identity Rabi source so the Live2D cut-in keeps the ear-wing appendages now accepted as the main identity. Final runtime sheet uses x4-super-sampled RGB downsampled to 1024px cells for a sharper 32-frame acquisition loop."
+  }
+}

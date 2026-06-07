@@ -97,6 +97,9 @@ const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
 const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
 const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
+const LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"
+const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"
+const LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3"
 const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
 const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
 const LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"
@@ -107,6 +110,9 @@ const LINGPET_GATLING_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
 const LEGENDARY_AFTER_SOUND_PATH := "res://assets/sounds/legendafter.wav"
 const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
 const LINGPET_ACQUIRE_CUTIN_GAIN_DB := 0.0
+const LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB := -2.0
+const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB := -5.0
+const LINGPET_LUNABI_CLICK_VOICE_GAIN_DB := -4.0
 const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB := 0.0
@@ -171,11 +177,24 @@ const BOMB_SURPRISE_TRANSFER_GAIN_DB := -10.4576
 const BOMB_SURPRISE_URGENT_TICK_GAIN_DB := -6.9357
 const BOMB_SURPRISE_EXPLOSION_GAIN_DB := -1.9382
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
-const MIKA_POWER_SMASHING_VOICE_PATH := "res://assets/sounds/mika_powersmashing.mp3"
-const MIKA_GHOST_SMASHING_VOICE_PATH := "res://assets/sounds/mika_ghostsmashing.mp3"
+const MIKA_POWER_SMASHING_VOICE_PATHS := [
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v1.mp3",
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v2.mp3",
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v3.mp3",
+	"res://assets/sounds/voice/mika_power_smashing_cutin_v4.mp3",
+]
+const MIKA_GHOST_SMASHING_VOICE_PATHS := [
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v1.mp3",
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v2.wav",
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v3.mp3",
+	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v4.wav",
+]
+const MIKA_POWER_SMASHING_VOICE_GAIN_DB := -6.0
+const MIKA_GHOST_SMASHING_VOICE_GAIN_DB := -4.5
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
 const BALL_SPAWN_INTRO_SOUND_PATH := "res://assets/sounds/stagestart_godot_short.wav"
+const STAGE_LANDING_ZOOM_INTRO_SOUND_PATH := "res://assets/sounds/stage_landing_zoom_doom.wav"
 const BALLOON_POP_SOUND_PATH := "res://assets/sounds/balloonboom.wav"
 const STAGE1_BALLOON_DOOR_SOUND_PATH := "res://assets/sounds/stage1door.wav"
 const STAGE1_BALLOON_MACHINE_SOUND_PATH := "res://assets/sounds/stage1muchine.wav"
@@ -199,6 +218,8 @@ const STAGE3_KUROMI_AWAKE_SOUND_PATH := "res://assets/sounds/kuromiawake.wav"
 const STAGE3_KUROMI_STONEBREAK_SOUND_PATH := "res://assets/sounds/stonebreak_large.wav"
 const STAGE3_KUROMI_TONGUE_SOUND_PATH := "res://assets/sounds/kuromitongue.wav"
 const STAGE3_KUROMI_SWALLOW_SOUND_PATH := "res://assets/sounds/kuromiswallow.wav"
+const LINGPET_GHOST_SUMMON_SOUND_PATH := "res://assets/sounds/bencyghost.wav"
+const LINGPET_GHOST_SUMMON_OUT_SOUND_PATH := "res://assets/sounds/bencyghostout.wav"
 const STAGE4_MOON_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot.wav"
 const STAGE4_FRAGMENT_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot2.wav"
 const STAGE4_TEMPLE_HIT_SOUND_PATH := "res://assets/sounds/stage4hitting.wav"
@@ -333,6 +354,9 @@ var megingjord_sfx: AudioStreamPlayer
 var legendary_open_sfx: AudioStreamPlayer
 var result_box_open_sfx: AudioStreamPlayer
 var lingpet_acquire_cutin_sfx: AudioStreamPlayer
+var lingpet_acquire_click_deep_bass_sfx: AudioStreamPlayer
+var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer
+var lingpet_lunabi_click_voice_sfx: AudioStreamPlayer
 var lingpet_volty_click_voice_sfx: AudioStreamPlayer
 var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
 var lingpet_red_dragon_click_voice_sfx: AudioStreamPlayer
@@ -387,10 +411,13 @@ var bomb_surprise_explosion_sfx: AudioStreamPlayer
 var bomb_surprise_self_explosion_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
 var mika_power_smashing_voice_sfx: AudioStreamPlayer
+var mika_power_smashing_voice_streams: Array[AudioStream] = []
 var mika_ghost_smashing_voice_sfx: AudioStreamPlayer
+var mika_ghost_smashing_voice_streams: Array[AudioStream] = []
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
 var ball_spawn_intro_sfx: AudioStreamPlayer
+var stage_landing_zoom_intro_sfx: AudioStreamPlayer
 var balloon_pop_sfx: AudioStreamPlayer
 var stage1_balloon_door_sfx: AudioStreamPlayer
 var stage1_balloon_machine_sfx: AudioStreamPlayer
@@ -414,6 +441,8 @@ var stage3_kuromi_awake_sfx: AudioStreamPlayer
 var stage3_kuromi_stonebreak_sfx: AudioStreamPlayer
 var stage3_kuromi_tongue_sfx: AudioStreamPlayer
 var stage3_kuromi_swallow_sfx: AudioStreamPlayer
+var lingpet_ghost_summon_sfx: AudioStreamPlayer
+var lingpet_ghost_summon_out_sfx: AudioStreamPlayer
 var stage4_moon_shoot_sfx: AudioStreamPlayer
 var stage4_fragment_shoot_sfx: AudioStreamPlayer
 var stage4_temple_hit_sfx: AudioStreamPlayer
@@ -600,6 +629,9 @@ func _setup_item_command_sfx() -> void:
 	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
 	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
 	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
+	lingpet_acquire_click_deep_bass_sfx = player_factory.create(owner_node, "LingpetAcquireClickDeepBassSfx", LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH, LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB)
+	lingpet_acquire_click_crackle_sweep_sfx = player_factory.create(owner_node, "LingpetAcquireClickCrackleSweepSfx", LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH, LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB)
+	lingpet_lunabi_click_voice_sfx = player_factory.create(owner_node, "LingpetLunabiClickVoiceSfx", LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH, LINGPET_LUNABI_CLICK_VOICE_GAIN_DB)
 	lingpet_volty_click_voice_sfx = player_factory.create(owner_node, "LingpetVoltyClickVoiceSfx", LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH, LINGPET_VOLTY_CLICK_VOICE_GAIN_DB)
 	lingpet_milkring_click_voice_sfx = player_factory.create(owner_node, "LingpetMilkringClickVoiceSfx", LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH, LINGPET_MILKRING_CLICK_VOICE_GAIN_DB)
 	lingpet_red_dragon_click_voice_sfx = player_factory.create(owner_node, "LingpetRedDragonClickVoiceSfx", LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH, LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB)
@@ -664,11 +696,14 @@ func _setup_projectile_item_sfx() -> void:
 
 func _setup_stage_feedback_sfx() -> void:
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
-	mika_power_smashing_voice_sfx = player_factory.create(owner_node, "MikaPowerSmashingVoiceSfx", MIKA_POWER_SMASHING_VOICE_PATH, -2.5)
-	mika_ghost_smashing_voice_sfx = player_factory.create(owner_node, "MikaGhostSmashingVoiceSfx", MIKA_GHOST_SMASHING_VOICE_PATH, 1.5)
+	mika_power_smashing_voice_sfx = player_factory.create(owner_node, "MikaPowerSmashingVoiceSfx", str(MIKA_POWER_SMASHING_VOICE_PATHS[0]), MIKA_POWER_SMASHING_VOICE_GAIN_DB)
+	mika_power_smashing_voice_streams = _load_audio_stream_candidates(MIKA_POWER_SMASHING_VOICE_PATHS)
+	mika_ghost_smashing_voice_sfx = player_factory.create(owner_node, "MikaGhostSmashingVoiceSfx", str(MIKA_GHOST_SMASHING_VOICE_PATHS[0]), MIKA_GHOST_SMASHING_VOICE_GAIN_DB)
+	mika_ghost_smashing_voice_streams = _load_audio_stream_candidates(MIKA_GHOST_SMASHING_VOICE_PATHS)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
 	ball_spawn_intro_sfx = player_factory.create(owner_node, "BallSpawnIntroSfx", BALL_SPAWN_INTRO_SOUND_PATH, -4.0)
+	stage_landing_zoom_intro_sfx = player_factory.create(owner_node, "StageLandingZoomIntroSfx", STAGE_LANDING_ZOOM_INTRO_SOUND_PATH, -3.0)
 	balloon_pop_sfx = player_factory.create(owner_node, "BalloonPopSfx", BALLOON_POP_SOUND_PATH, -5.0)
 	stage1_balloon_door_sfx = player_factory.create(owner_node, "Stage1BalloonDoorSfx", STAGE1_BALLOON_DOOR_SOUND_PATH, -6.0)
 	stage1_balloon_machine_sfx = player_factory.create(owner_node, "Stage1BalloonMachineSfx", STAGE1_BALLOON_MACHINE_SOUND_PATH, -7.0)
@@ -692,6 +727,8 @@ func _setup_stage_feedback_sfx() -> void:
 	stage3_kuromi_stonebreak_sfx = _create_optional_sfx("Stage3KuromiStonebreakSfx", STAGE3_KUROMI_STONEBREAK_SOUND_PATH, -4.0)
 	stage3_kuromi_tongue_sfx = player_factory.create(owner_node, "Stage3KuromiTongueSfx", STAGE3_KUROMI_TONGUE_SOUND_PATH, -4.5)
 	stage3_kuromi_swallow_sfx = player_factory.create(owner_node, "Stage3KuromiSwallowSfx", STAGE3_KUROMI_SWALLOW_SOUND_PATH, -5.0)
+	lingpet_ghost_summon_sfx = player_factory.create(owner_node, "LingpetGhostSummonSfx", LINGPET_GHOST_SUMMON_SOUND_PATH, -5.0)
+	lingpet_ghost_summon_out_sfx = player_factory.create(owner_node, "LingpetGhostSummonOutSfx", LINGPET_GHOST_SUMMON_OUT_SOUND_PATH, -5.0)
 	stage4_moon_shoot_sfx = player_factory.create(owner_node, "Stage4MoonShootSfx", STAGE4_MOON_SHOOT_SOUND_PATH, -4.0)
 	stage4_fragment_shoot_sfx = player_factory.create(owner_node, "Stage4FragmentShootSfx", STAGE4_FRAGMENT_SHOOT_SOUND_PATH, -5.0)
 	stage4_temple_hit_sfx = player_factory.create(owner_node, "Stage4TempleHitSfx", STAGE4_TEMPLE_HIT_SOUND_PATH, -5.0)
@@ -883,6 +920,9 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LEGENDARY_OPEN_SOUND_PATH,
 				RESULT_BOX_OPEN_SOUND_PATH,
 				LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
+				LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH,
+				LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH,
+				LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH,
 				LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
 				LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
 				LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH,
@@ -931,11 +971,10 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 		5:
 			var stage_paths: Array[String] = [
 				POWER_SMASH_SOUND_PATH,
-				MIKA_POWER_SMASHING_VOICE_PATH,
-				MIKA_GHOST_SMASHING_VOICE_PATH,
 				POWER_SMASH_LAUNCH_SOUND_PATH,
 				ROUND_SET_SOUND_PATH,
 				BALL_SPAWN_INTRO_SOUND_PATH,
+				STAGE_LANDING_ZOOM_INTRO_SOUND_PATH,
 				BALLOON_POP_SOUND_PATH,
 				STAGE1_BALLOON_DOOR_SOUND_PATH,
 				STAGE1_BALLOON_MACHINE_SOUND_PATH,
@@ -959,6 +998,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				STAGE3_KUROMI_STONEBREAK_SOUND_PATH,
 				STAGE3_KUROMI_TONGUE_SOUND_PATH,
 				STAGE3_KUROMI_SWALLOW_SOUND_PATH,
+				LINGPET_GHOST_SUMMON_SOUND_PATH,
+				LINGPET_GHOST_SUMMON_OUT_SOUND_PATH,
 				STAGE4_MOON_SHOOT_SOUND_PATH,
 				STAGE4_FRAGMENT_SHOOT_SOUND_PATH,
 				STAGE4_TEMPLE_HIT_SOUND_PATH,
@@ -971,6 +1012,10 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				STAGE5_HONGRYUN_SHOOT_SOUND_PATH,
 				LEAF_SHIELD_SOUND_PATH,
 			]
+			for voice_path in MIKA_POWER_SMASHING_VOICE_PATHS:
+				stage_paths.append(str(voice_path))
+			for voice_path in MIKA_GHOST_SMASHING_VOICE_PATHS:
+				stage_paths.append(str(voice_path))
 			for hurt_path in STAGE5_HONGRYUN_HURT_SOUND_PATHS:
 				stage_paths.append(str(hurt_path))
 			return stage_paths
@@ -1674,12 +1719,19 @@ func play_lingpet_acquire_cutin() -> void:
 		play_item_get()
 
 
+func play_lingpet_acquire_click_reaction_backing() -> void:
+	_play_with_pitch(_ensure_lingpet_acquire_click_deep_bass_sfx(), 1.0)
+	_play_with_pitch(_ensure_lingpet_acquire_click_crackle_sweep_sfx(), 1.0)
+
+
 # In-battle companion click-reaction voice. Pet-agnostic at the call site; this
 # method owns the per-pet sound mapping. Pets without a dedicated click voice
 # play nothing (silent), so callers can always pass the current pet id.
 func play_lingpet_click_reaction(pet_id: String) -> void:
 	var normalized_pet_id := pet_id.strip_edges().to_lower()
-	if normalized_pet_id == "volty":
+	if normalized_pet_id == "lunabi":
+		_play_with_pitch(_ensure_lingpet_lunabi_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "volty":
 		_play_with_pitch(_ensure_lingpet_volty_click_voice_sfx(), randf_range(0.98, 1.02))
 	elif normalized_pet_id == "milkring":
 		_play_with_pitch(_ensure_lingpet_milkring_click_voice_sfx(), randf_range(0.98, 1.02))
@@ -2064,11 +2116,11 @@ func play_power_smash() -> void:
 
 
 func play_power_smashing_cutin_voice() -> void:
-	_play_with_pitch(mika_power_smashing_voice_sfx, 1.0)
+	_play_random_stream_with_pitch(mika_power_smashing_voice_sfx, mika_power_smashing_voice_streams, 1.0)
 
 
 func play_ghost_smashing_cutin_voice() -> void:
-	_play_with_pitch(mika_ghost_smashing_voice_sfx, 1.0)
+	_play_random_stream_with_pitch(mika_ghost_smashing_voice_sfx, mika_ghost_smashing_voice_streams, 1.0)
 
 
 func play_power_smash_launch() -> void:
@@ -2172,6 +2224,15 @@ func play_ball_spawn_intro() -> void:
 func stop_ball_spawn_intro() -> void:
 	if ball_spawn_intro_sfx != null and ball_spawn_intro_sfx.playing:
 		ball_spawn_intro_sfx.stop()
+
+
+func play_stage_landing_zoom_intro() -> void:
+	if stage_landing_zoom_intro_sfx == null or stage_landing_zoom_intro_sfx.stream == null:
+		return
+	if stage_landing_zoom_intro_sfx.playing:
+		stage_landing_zoom_intro_sfx.stop()
+	stage_landing_zoom_intro_sfx.pitch_scale = 1.0
+	stage_landing_zoom_intro_sfx.play()
 
 
 func play_stage1_balloon_pop() -> void:
@@ -2293,6 +2354,14 @@ func play_stage3_kuromi_tongue() -> void:
 
 func play_stage3_kuromi_swallow() -> void:
 	_play_with_pitch(stage3_kuromi_swallow_sfx, randf_range(0.97, 1.03))
+
+
+func play_lingpet_ghost_summon() -> void:
+	_play_with_pitch(lingpet_ghost_summon_sfx, randf_range(0.97, 1.03))
+
+
+func play_lingpet_ghost_summon_out() -> void:
+	_play_with_pitch(lingpet_ghost_summon_out_sfx, randf_range(0.97, 1.03))
 
 
 func play_stage3_psychoball_loop() -> void:
@@ -2590,6 +2659,33 @@ func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	return true
 
 
+func _play_random_stream_with_pitch(player: AudioStreamPlayer, streams: Array[AudioStream], pitch: float) -> bool:
+	if player == null:
+		return false
+	var valid_streams: Array[AudioStream] = []
+	for stream in streams:
+		if stream != null:
+			valid_streams.append(stream)
+	if valid_streams.is_empty():
+		return _play_with_pitch(player, pitch)
+	player.stream = valid_streams[randi() % valid_streams.size()]
+	return _play_with_pitch(player, pitch)
+
+
+func _load_audio_stream_candidates(paths: Array) -> Array[AudioStream]:
+	var streams: Array[AudioStream] = []
+	for path_value in paths:
+		var path := str(path_value)
+		var stream: AudioStream = ProjectResourceLoader.load_audio_stream(
+			path,
+			"Missing sound at %s",
+			"Failed to load sound at %s"
+		)
+		if stream != null:
+			streams.append(stream)
+	return streams
+
+
 func _set_sfx_player_linear_volume(player: AudioStreamPlayer, volume: float) -> void:
 	if player != null:
 		player.volume_db = _volume_to_db(volume)
@@ -2648,6 +2744,39 @@ func _ensure_lingpet_acquire_cutin_sfx() -> AudioStreamPlayer:
 		LINGPET_ACQUIRE_CUTIN_GAIN_DB
 	)
 	return lingpet_acquire_cutin_sfx
+
+
+func _ensure_lingpet_acquire_click_deep_bass_sfx() -> AudioStreamPlayer:
+	if lingpet_acquire_click_deep_bass_sfx != null and lingpet_acquire_click_deep_bass_sfx.stream != null:
+		return lingpet_acquire_click_deep_bass_sfx
+	lingpet_acquire_click_deep_bass_sfx = _create_optional_sfx(
+		"LingpetAcquireClickDeepBassSfx",
+		LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH,
+		LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB
+	)
+	return lingpet_acquire_click_deep_bass_sfx
+
+
+func _ensure_lingpet_acquire_click_crackle_sweep_sfx() -> AudioStreamPlayer:
+	if lingpet_acquire_click_crackle_sweep_sfx != null and lingpet_acquire_click_crackle_sweep_sfx.stream != null:
+		return lingpet_acquire_click_crackle_sweep_sfx
+	lingpet_acquire_click_crackle_sweep_sfx = _create_optional_sfx(
+		"LingpetAcquireClickCrackleSweepSfx",
+		LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH,
+		LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB
+	)
+	return lingpet_acquire_click_crackle_sweep_sfx
+
+
+func _ensure_lingpet_lunabi_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_lunabi_click_voice_sfx != null and lingpet_lunabi_click_voice_sfx.stream != null:
+		return lingpet_lunabi_click_voice_sfx
+	lingpet_lunabi_click_voice_sfx = _create_optional_sfx(
+		"LingpetLunabiClickVoiceSfx",
+		LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH,
+		LINGPET_LUNABI_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_lunabi_click_voice_sfx
 
 
 func _ensure_lingpet_volty_click_voice_sfx() -> AudioStreamPlayer:
@@ -2899,6 +3028,9 @@ func _get_sfx_players() -> Array:
 		legendary_open_sfx,
 		result_box_open_sfx,
 		lingpet_acquire_cutin_sfx,
+		lingpet_acquire_click_deep_bass_sfx,
+		lingpet_acquire_click_crackle_sweep_sfx,
+		lingpet_lunabi_click_voice_sfx,
 		lingpet_volty_click_voice_sfx,
 		lingpet_milkring_click_voice_sfx,
 		lingpet_red_dragon_click_voice_sfx,
@@ -2957,6 +3089,7 @@ func _get_sfx_players() -> Array:
 		power_smash_launch_sfx,
 		round_set_sfx,
 		ball_spawn_intro_sfx,
+		stage_landing_zoom_intro_sfx,
 		balloon_pop_sfx,
 		stage1_balloon_door_sfx,
 		stage1_balloon_machine_sfx,
@@ -2980,6 +3113,8 @@ func _get_sfx_players() -> Array:
 		stage3_kuromi_stonebreak_sfx,
 		stage3_kuromi_tongue_sfx,
 		stage3_kuromi_swallow_sfx,
+		lingpet_ghost_summon_sfx,
+		lingpet_ghost_summon_out_sfx,
 		stage4_moon_shoot_sfx,
 		stage4_fragment_shoot_sfx,
 		stage4_temple_hit_sfx,

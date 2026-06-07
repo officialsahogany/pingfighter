@@ -10,6 +10,7 @@ const WALK_LEFT_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_run_lef
 const WALK_RIGHT_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_run_right_angled_autosprite_v1_16f.png"
 const ATTACK_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_attack_front_paddle_autosprite_v1_16f.png"
 const IDLE_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_idle_combat_breath_autosprite_v2_8f.png"
+const QUAKE_STOMP_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_jungle_quake_stomp_autosprite_v1_16f.png"
 const VICTORY_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_victory_hop_autosprite_v1_64f.png"
 const DEFEAT_TEXTURE_PATH := "res://assets/sprites/stage2/stage2_boss_defeat_collapse_autosprite_v1_64f.png"
 const GROUND_SHADOW_SEGMENTS := 18
@@ -29,6 +30,12 @@ const ATTACK_SHEET_ROWS := 4
 const ATTACK_FRAME_COUNT := ATTACK_SHEET_COLS * ATTACK_SHEET_ROWS
 const ATTACK_DRAW_SIZE := Vector2(156.0, 156.0)
 const ATTACK_CENTER_OFFSET := Vector2(0.0, -7.0)
+const QUAKE_STOMP_SHEET_COLS := 4
+const QUAKE_STOMP_SHEET_ROWS := 4
+const QUAKE_STOMP_FRAME_COUNT := QUAKE_STOMP_SHEET_COLS * QUAKE_STOMP_SHEET_ROWS
+const QUAKE_STOMP_FRAME_INTERVAL_SEC := 5.0 / 60.0
+const QUAKE_STOMP_DRAW_SIZE := Vector2(166.0, 166.0)
+const QUAKE_STOMP_CENTER_OFFSET := Vector2(0.0, -9.0)
 const IDLE_SHEET_COLS := 4
 const IDLE_SHEET_ROWS := 2
 const IDLE_FRAME_COUNT := IDLE_SHEET_COLS * IDLE_SHEET_ROWS
@@ -57,6 +64,7 @@ var walk_left_texture: Texture2D
 var walk_right_texture: Texture2D
 var attack_texture: Texture2D
 var idle_texture: Texture2D
+var quake_stomp_texture: Texture2D
 var victory_texture: Texture2D
 var defeat_texture: Texture2D
 var _unit_stun_star_points := PackedVector2Array()
@@ -83,17 +91,19 @@ func prewarm_assets_step() -> bool:
 		3:
 			_get_attack_texture()
 		4:
-			_get_idle_texture()
+			_get_quake_stomp_texture()
 		5:
-			_get_victory_texture()
+			_get_idle_texture()
 		6:
+			_get_victory_texture()
+		7:
 			_get_defeat_texture()
 		_:
 			_prewarm_done = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 6:
+	if _prewarm_step_index > 7:
 		_prewarm_done = true
 		_prewarm_step_index = 0
 		return true
@@ -126,6 +136,11 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		return
 	if bool(context.get("boss_victory_active", false)) and _draw_victory_sheet(canvas, center, context):
 		_draw_emp_status_overlay(canvas, center, VICTORY_DRAW_SIZE, context)
+		_draw_status_overlays(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
+		return
+	if bool(context.get("stage2_quake_active", false)) and _draw_quake_stomp_sheet(canvas, center, context):
+		_draw_rage_overlay(canvas, center, rage_tint)
+		_draw_emp_status_overlay(canvas, center, QUAKE_STOMP_DRAW_SIZE, context)
 		_draw_status_overlays(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
 		return
 	if speed_defense_active and _draw_speed_defense_form(canvas, center, context):
@@ -326,6 +341,52 @@ func _get_attack_texture() -> Texture2D:
 		"Failed to load Stage 2 attack texture at %s"
 	)
 	return attack_texture
+
+
+func _draw_quake_stomp_sheet(canvas: CanvasItem, center: Vector2, context: Dictionary) -> bool:
+	var texture: Texture2D = _get_quake_stomp_texture()
+	if texture == null:
+		return false
+
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return false
+	var cell_width: float = texture_size.x / float(QUAKE_STOMP_SHEET_COLS)
+	var cell_height: float = texture_size.y / float(QUAKE_STOMP_SHEET_ROWS)
+	var frame: int = _get_quake_stomp_frame_index(context)
+	var col: int = frame % QUAKE_STOMP_SHEET_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame / QUAKE_STOMP_SHEET_COLS)
+	var source_rect := Rect2(
+		float(col) * cell_width,
+		float(row) * cell_height,
+		cell_width,
+		cell_height
+	)
+	var draw_rect := Rect2(
+		center + QUAKE_STOMP_CENTER_OFFSET - QUAKE_STOMP_DRAW_SIZE * 0.5,
+		QUAKE_STOMP_DRAW_SIZE
+	)
+	canvas.draw_texture_rect_region(texture, draw_rect, source_rect, ElectricStunVisual.body_modulate(context), false, true)
+	return true
+
+
+func _get_quake_stomp_frame_index(context: Dictionary) -> int:
+	var duration: float = max(0.001, float(context.get("stage2_quake_duration", 0.0)))
+	var timer: float = clamp(float(context.get("stage2_quake_timer", duration)), 0.0, duration)
+	var elapsed: float = max(0.0, duration - timer)
+	return int(floor((elapsed + 0.0001) / QUAKE_STOMP_FRAME_INTERVAL_SEC)) % QUAKE_STOMP_FRAME_COUNT
+
+
+func _get_quake_stomp_texture() -> Texture2D:
+	if quake_stomp_texture != null:
+		return quake_stomp_texture
+	quake_stomp_texture = ProjectResourceLoader.load_texture(
+		QUAKE_STOMP_TEXTURE_PATH,
+		"Missing Stage 2 quake stomp texture at %s",
+		"Failed to load Stage 2 quake stomp texture at %s"
+	)
+	return quake_stomp_texture
 
 
 func _draw_idle_sheet(canvas: CanvasItem, center: Vector2, context: Dictionary) -> bool:

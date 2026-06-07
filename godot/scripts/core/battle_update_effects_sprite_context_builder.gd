@@ -37,9 +37,20 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		has_directional_walk_sheet = _has_texture(textures, "viper_player_walk_left_sheet") or _has_texture(textures, "viper_player_walk_right_sheet")
 	else:
 		has_directional_walk_sheet = _has_texture(textures, "player_walk_left_texture") or _has_texture(textures, "player_walk_right_texture")
-	var has_directional_dash_sheet: bool = is_blacksmith and (
-		_has_texture(textures, "blacksmith_player_dash_left_sheet")
-		or _has_texture(textures, "blacksmith_player_dash_right_sheet")
+	var has_directional_dash_sheet: bool = (
+		is_blacksmith
+		and (
+			_has_texture(textures, "blacksmith_player_dash_left_sheet")
+			or _has_texture(textures, "blacksmith_player_dash_right_sheet")
+		)
+	) or (
+		not is_viper
+		and not is_commando
+		and not is_blacksmith
+		and (
+			_has_texture(textures, "player_dash_left_texture")
+			or _has_texture(textures, "player_dash_right_texture")
+		)
 	)
 	var has_player_sprite := false
 	if is_viper:

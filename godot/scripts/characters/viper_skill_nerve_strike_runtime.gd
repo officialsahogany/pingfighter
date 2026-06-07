@@ -56,7 +56,14 @@ static func update_strike(runtime: Object, delta: float, player_pos: Vector2, sp
 static func enter_return_phase(runtime: Object, config: Dictionary, deps: Dictionary) -> void:
 	runtime.nerve_strike_phase = 2
 	runtime.nerve_strike_phase_frames = 0.0
-	runtime.nerve_strike_freeze_active = false
+	# Python parity (pingfighter.py: "프리즈는 착지 완료까지 유지 — Phase 2 끝에서 해제"):
+	# the hit cutscene freeze (ball + boss + stage hazards) is held THROUGH the
+	# return flight and is only released when Viper finishes landing, via
+	# reset_runtime() at the end of _update_return_phase(). Do NOT clear
+	# nerve_strike_freeze_active here — clearing it on return-phase entry lets the
+	# ball/boss resume ~15 frames (~0.25s) early while Viper is still flying back.
+	# Misses never set the freeze (start_strike() leaves it false), so leaving it
+	# untouched is correct for the miss path too.
 	runtime.nerve_strike_return_start_pos = runtime.nerve_strike_pos
 	runtime.nerve_strike_return_target_pos = ViperSkillGeometry.nerve_strike_return_target_pos(config)
 	runtime.audio_router.play_nerve_strike_moving_sound(deps)

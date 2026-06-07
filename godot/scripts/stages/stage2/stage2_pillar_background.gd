@@ -1060,7 +1060,12 @@ func get_rustle_snapshot() -> Dictionary:
 func get_actor_draw_context() -> Dictionary:
 	return actor_draw_context_builder.build_context(
 		get_boss_rage_snapshot(),
-		boss_expression_state.get_snapshot()
+		boss_expression_state.get_snapshot(),
+		{
+			"active": quake_timer > 0.0,
+			"timer": quake_timer,
+			"duration": quake_duration,
+		}
 	)
 
 

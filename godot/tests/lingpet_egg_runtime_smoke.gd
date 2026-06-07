@@ -9,6 +9,8 @@ const BattleSceneLifecycle := preload("res://scripts/core/battle_scene_lifecycle
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
+const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
@@ -17,6 +19,7 @@ const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_pr
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSaveStore := preload("res://scripts/lingpet/lingpet_save_store.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
+const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
 const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_texture_cache.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -292,6 +295,7 @@ class FakePaddleAudio:
 	var boomerang_hits := 0
 	var hydro_count := 0
 	var lingpet_acquire_count := 0
+	var lingpet_acquire_click_backing_count := 0
 	var lingpet_click_reaction_pet_ids: Array = []
 
 	func play_paddle_hit() -> void:
@@ -305,6 +309,9 @@ class FakePaddleAudio:
 
 	func play_lingpet_acquire_cutin() -> void:
 		lingpet_acquire_count += 1
+
+	func play_lingpet_acquire_click_reaction_backing() -> void:
+		lingpet_acquire_click_backing_count += 1
 
 	func play_lingpet_click_reaction(pet_id: String) -> void:
 		lingpet_click_reaction_pet_ids.append(pet_id)
@@ -381,10 +388,14 @@ class FakeCutinHost:
 
 	var prewarm_calls: Array[String] = []
 	var done_after := 2
+	var anim_ready := true
 
 	func prewarm_pet_assets_step(pet_id: String) -> bool:
 		prewarm_calls.append(pet_id)
 		return prewarm_calls.size() >= done_after
+
+	func is_pet_cutin_anim_ready(_pet_id: String) -> bool:
+		return anim_ready
 
 
 func _init() -> void:
@@ -397,6 +408,7 @@ func _init() -> void:
 	_verify_one_ball_hit_hatches_unidentified_egg()
 	_verify_acquire_cutin_triggers_on_hatch()
 	_verify_acquire_cutin_assets_prewarm_during_egg_phase()
+	_verify_acquire_cutin_reveal_holds_until_anim_sheet_ready()
 	_verify_owned_maribo_is_kept_as_companion()
 	_verify_lingpet_battle_slot_model()
 	_verify_companion_visual_and_pillar_card()
@@ -425,6 +437,8 @@ func _init() -> void:
 	_verify_maribo_defense_rate_intercepts_descending_ball()
 	_verify_maribo_defense_actually_blocks_reachable_ball()
 	_verify_maribo_defense_anticipates_moderate_distance_ball()
+	_verify_rabi_ghost_blink_cycle()
+	_verify_ghost_blink_vfx()
 	_verify_lunabi_free_flight_profile()
 	_verify_lunabi_headbutt_skill()
 	_verify_companion_click_reaction()
@@ -576,8 +590,15 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(runtime_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "lingpet runtime should expose the post-reveal dismissable state")
 	_expect(runtime_source.find("dismiss_acquire_cutin") >= 0, "lingpet runtime should support hard dismissal of the cut-in")
 	_expect(runtime_source.find("begin_acquire_cutin_dismiss") >= 0, "lingpet runtime should start the click-triggered exit action")
+	_expect(runtime_source.find("_get_current_acquire_cutin_dismiss_seconds") >= 0 and runtime_source.find("cutin_dismiss_seconds") >= 0, "lingpet runtime should allow pet-specific acquisition click-dismiss duration tuning")
 	_expect(runtime_source.find("is_acquire_cutin_dismissing") >= 0, "lingpet runtime should expose the exit-action (dismissing) state")
 	_expect(runtime_source.find("get_acquire_cutin_dismiss_progress") >= 0, "lingpet runtime should expose the exit-action progress for the host")
+	var acquire_cutin_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
+	_expect(
+		acquire_cutin_state_source.find("dismiss_seconds") >= 0
+		and acquire_cutin_state_source.find("begin_dismiss(duration_seconds") >= 0,
+		"lingpet acquire cut-in state should time the exit action with the pet-specific dismiss duration"
+	)
 	var hud_catalog_source: String = FileAccess.get_file_as_string("res://scripts/resources/gameplay_hud_module_catalog.gd")
 	_expect(hud_catalog_source.find("lingpet_acquire_cutin_overlay_host") >= 0, "HUD module catalog should register the lingpet acquisition cut-in host")
 	var frame_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_frame_controller.gd")
@@ -605,6 +626,11 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_dynamic_source.find("CUTIN_ANIM_FRAMES_OVERRIDES") >= 0 and cutin_host_dynamic_source.find("\"red_dragon\": 32") >= 0, "Red Dragon acquisition cut-in should use its 32-frame per-pet playback override")
 	_expect(cutin_host_dynamic_source.find("CUTIN_ANIM_FPS_OVERRIDES") >= 0 and cutin_host_dynamic_source.find("\"red_dragon\": 16.0") >= 0, "Red Dragon acquisition cut-in should keep a 2-second loop with 32 frames at 16fps")
 	_expect(cutin_host_dynamic_source.find("cutin_anim_view_h_ratio") >= 0 and cutin_host_dynamic_source.find("cutin_dismiss_view_h_ratio") >= 0, "Red Dragon acquisition cut-in should support per-pet visual-size matching through catalog layout ratios")
+	_expect(
+		cutin_host_dynamic_source.find("cutin_dismiss_action_portion") >= 0
+		and cutin_host_dynamic_source.find("cutin_dismiss_fade_start") >= 0,
+		"acquisition click-dismiss host should support per-pet action/fade pacing for longer 98-frame Live2D sheets"
+	)
 	_expect(host.has_method("prewarm_assets_step"), "lingpet acquisition cut-in host should expose staged prewarm for hatch-time cut-in assets")
 	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
 	_expect(host.has_method("prewarm_pet_assets_step"), "lingpet acquisition cut-in host should expose per-pet texture prewarm instead of warming every pet during boot")
@@ -622,6 +648,7 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(refresh_assets_body.find("_cutin_art == null") >= 0 and refresh_assets_body.find("_get_cached_cutin_texture(pet_id, \"cutin_art\")") >= 0, "cut-in host should pick up static art from cache once threaded prewarm finishes")
 	_expect(load_catalog_texture_body.find("FileAccess.file_exists(path)") < 0, "cut-in texture loading should not require raw PNG files in exported builds")
 	_expect(load_catalog_texture_body.find("ProjectResourceLoader.load_imported_texture(path") >= 0, "cut-in texture loading should use the imported (size_limit'd) texture via ProjectResourceLoader, not the raw 8192px source decode that froze the first draw")
+	_expect(cutin_host_dynamic_source.find("_load_catalog_texture(pet_id, \"cutin_dismiss_anim\")") >= 0, "click-dismiss should import-load the dismiss sheet if threaded prewarm has not finished before the user clicks")
 	_expect(cutin_host_dynamic_source.find("preload(\"res://assets/sprites/lingpet/maribo_cutin_anim.png\")") < 0, "cut-in host should not hard-preload the 8192px Maribo cut-in sheet during module instantiation")
 	_expect(cutin_host_dynamic_source.find("preload(\"res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png\")") < 0, "cut-in host should not hard-preload the dismiss sheet during module instantiation")
 	_expect(cutin_host_dynamic_source.find("_recon_mask_cache") >= 0, "cut-in host should cache reconstruction masks instead of reparsing JSON on pet switches")
@@ -635,6 +662,25 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(game_audio_source.find("_ensure_lingpet_acquire_cutin_sfx") >= 0, "GameAudio should lazily recover the lingpet acquisition SFX player if setup did not create it")
 	_expect(game_audio_source.find("play_lingpet_acquire_cutin") >= 0, "GameAudio should expose a lingpet acquisition cut-in play method")
 	_expect(runtime_source.find("play_lingpet_acquire_cutin") >= 0, "lingpet runtime should request the acquisition cut-in sound when the screen starts")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"), "lingpet acquisition click Live2D should ship the deep bass doom backing SFX in the lingpet sound asset folder")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"), "lingpet acquisition click Live2D should ship the magic crackle sweep backing SFX in the lingpet sound asset folder")
+	var acquire_click_bass_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav")
+	var acquire_click_sweep_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav")
+	_expect(acquire_click_bass_stream != null and acquire_click_bass_stream.get_length() > 2.0, "lingpet acquisition click deep bass SFX should load as a playable Godot AudioStream")
+	_expect(acquire_click_sweep_stream != null and acquire_click_sweep_stream.get_length() > 2.0, "lingpet acquisition click crackle sweep SFX should load as a playable Godot AudioStream")
+	_expect(game_audio_source.find("LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH") >= 0, "GameAudio should register the lingpet acquisition click deep bass sound path")
+	_expect(game_audio_source.find("LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH") >= 0, "GameAudio should register the lingpet acquisition click crackle sweep sound path")
+	_expect(game_audio_source.find("LingpetAcquireClickDeepBassSfx") >= 0, "GameAudio should create a dedicated player for the acquisition click deep bass backing")
+	_expect(game_audio_source.find("LingpetAcquireClickCrackleSweepSfx") >= 0, "GameAudio should create a dedicated player for the acquisition click crackle sweep backing")
+	_expect(game_audio_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "GameAudio should expose a dedicated acquisition-click backing play method")
+	_expect(runtime_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "lingpet runtime should request the backing SFX only when the acquisition click Live2D starts")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3"), "Lunabi should ship its dedicated click-reaction voice in the lingpet sound asset folder")
+	var lunabi_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3")
+	_expect(lunabi_click_voice_stream != null and lunabi_click_voice_stream.get_length() > 0.1, "Lunabi click-reaction voice should load as a playable Godot AudioStream")
+	_expect(game_audio_source.find("LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Lunabi click-reaction voice sound path")
+	_expect(game_audio_source.find("LingpetLunabiClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Lunabi click-reaction voice")
+	_expect(game_audio_source.find("_ensure_lingpet_lunabi_click_voice_sfx") >= 0, "GameAudio should lazily recover the Lunabi click-reaction voice player if setup did not create it")
+	_expect(game_audio_source.find("normalized_pet_id == \"lunabi\"") >= 0, "GameAudio click-reaction dispatch should route the lunabi pet id to its dedicated voice")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"), "Volty should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var volty_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3")
 	_expect(volty_click_voice_stream != null and volty_click_voice_stream.get_length() > 0.1, "Volty click-reaction voice should load as a playable Godot AudioStream")
@@ -689,9 +735,9 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var all_catalog_pet_ids: Array[String] = LingpetCatalog.get_pet_ids(true)
 	var enabled_catalog_pet_ids: Array[String] = LingpetCatalog.get_pet_ids()
 	_expect(all_catalog_pet_ids.has("draft_bat"), "catalog should keep the draft Bat lingpet metadata")
-	_expect(enabled_catalog_pet_ids.has("draft_bat"), "draft Bat should appear in enabled pet ids after final cut-in/click assets ship")
-	_expect(candidates.has("draft_bat"), "draft Bat should enter the random hatch pool after final cut-in/click assets ship")
-	_expect(LingpetCatalog.is_pet_enabled("draft_bat"), "draft Bat should be treated as a live pet")
+	_expect(not enabled_catalog_pet_ids.has("draft_bat"), "draft Bat should stay out of enabled pet ids until hatch-pool approval")
+	_expect(not candidates.has("draft_bat"), "draft Bat should stay out of the random hatch pool until hatch-pool approval")
+	_expect(not LingpetCatalog.is_pet_enabled("draft_bat"), "draft Bat should remain a parked draft pet")
 	_expect(all_catalog_pet_ids.has("milkring"), "catalog should keep the Milkring lingpet metadata")
 	_expect(enabled_catalog_pet_ids.has("milkring"), "Milkring should appear in enabled pet ids after companion/cut-in/click assets ship")
 	_expect(candidates.has("milkring"), "Milkring should enter the random hatch pool after live catalog integration")
@@ -1228,6 +1274,7 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	_expect(str(owner.lingpet_state) == "companion", "first counted hit should hatch the unidentified egg before the cut-in check")
 	_expect(bool(runtime.is_acquire_cutin_active()), "hatching should trigger the fullscreen acquisition cut-in")
 	_expect(audio.lingpet_acquire_count == 1, "hatching should play the lingpet acquisition cut-in sound once")
+	_expect(audio.lingpet_acquire_click_backing_count == 0, "hatching should not play the acquisition click backing SFX before the player clicks the Live2D")
 	_expect(is_equal_approx(float(runtime.get_acquire_cutin_progress()), 0.0), "acquisition cut-in should start at zero progress")
 	_expect(not bool(runtime.is_acquire_cutin_awaiting_dismiss()), "acquisition cut-in should not be dismissable before the reveal finishes")
 	# The gated update driver must NOT advance the reveal -- only the ungated idle
@@ -1248,11 +1295,13 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	var hatched_pet_id := str(owner.active_lingpet_id)
 	_expect(hatched_pet_id != "", "hatching should publish the active lingpet id before the cut-in dismissal click")
 	_expect(bool(runtime.begin_acquire_cutin_dismiss(registry)), "click should start the exit action")
+	_expect(audio.lingpet_acquire_click_backing_count == 1, "clicking the acquisition Live2D exit action should play the backing SFX once")
 	_expect(audio.lingpet_click_reaction_pet_ids == [hatched_pet_id], "clicking the acquisition Live2D exit action should request the hatched pet voice once")
 	_expect(bool(runtime.is_acquire_cutin_dismissing()), "exit action should be playing after the click")
 	_expect(bool(runtime.is_acquire_cutin_active()), "cut-in should stay active (gameplay paused) during the exit action")
 	_expect(not bool(runtime.is_acquire_cutin_awaiting_dismiss()), "a second click must not re-trigger the exit action once it is playing")
 	_expect(not bool(runtime.begin_acquire_cutin_dismiss(registry)), "begin_acquire_cutin_dismiss should be a no-op once already dismissing")
+	_expect(audio.lingpet_acquire_click_backing_count == 1, "re-clicking during the acquisition Live2D exit action should not replay backing SFX")
 	_expect(audio.lingpet_click_reaction_pet_ids == [hatched_pet_id], "re-clicking during the acquisition Live2D exit action should not replay voice")
 	_expect(float(runtime.get_acquire_cutin_dismiss_progress()) >= 0.0, "exit action should expose a dismiss progress for the host")
 	# Advancing through the exit action + fade auto-closes the cut-in and resumes play.
@@ -1269,7 +1318,24 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 		_expect(voiced_runtime.debug_grant_and_activate_pet(voiced_pet_id, voiced_owner, true, "", "", voiced_registry), "direct debug grant should start acquisition cut-in for voiced pets")
 		voiced_runtime.advance_acquire_cutin(2.0)
 		_expect(bool(voiced_runtime.begin_acquire_cutin_dismiss(voiced_registry)), "voiced pet acquisition cut-in click should start the exit action")
+		_expect(voiced_audio.lingpet_acquire_click_backing_count == 1, "voiced pet acquisition Live2D click should play the backing SFX once")
 		_expect(voiced_audio.lingpet_click_reaction_pet_ids == [voiced_pet_id], "voiced pet acquisition Live2D click should request the pet-specific voice")
+
+	var rabi_owner := FakeOwner.new()
+	var rabi_runtime: Object = LingpetEggRuntime.new()
+	var rabi_audio := FakePaddleAudio.new()
+	var rabi_registry := FakeRegistry.new({"game_audio": rabi_audio})
+	_expect(
+		rabi_runtime.debug_grant_and_activate_pet("rabi", rabi_owner, true, "rabi_ghost_summon", "", rabi_registry),
+		"direct debug grant should start acquisition cut-in for Rabi"
+	)
+	rabi_runtime.advance_acquire_cutin(2.0)
+	_expect(bool(rabi_runtime.begin_acquire_cutin_dismiss(rabi_registry)), "Rabi acquisition cut-in click should start the 98-frame Live2D exit action")
+	rabi_runtime.advance_acquire_cutin(2.0)
+	_expect(bool(rabi_runtime.is_acquire_cutin_active()), "Rabi 98-frame click Live2D should still be visible after the old 1.6s default dismiss window")
+	_expect(float(rabi_runtime.get_acquire_cutin_dismiss_progress()) < 1.0, "Rabi 98-frame click Live2D should progress more slowly than the old compressed dismiss timing")
+	rabi_runtime.advance_acquire_cutin(2.0)
+	_expect(not bool(rabi_runtime.is_acquire_cutin_active()), "Rabi 98-frame click Live2D should close after its longer pet-specific dismiss window")
 
 	# Re-adopting an already-owned Maribo (no hatch event) must NOT replay the
 	# acquisition cut-in.
@@ -1308,6 +1374,59 @@ func _verify_acquire_cutin_assets_prewarm_during_egg_phase() -> void:
 	_expect(host.prewarm_calls.size() == 2, "egg-phase update should drive the cut-in host prewarm until it reports done, then stop re-driving it")
 	for raw_called_pet_id in host.prewarm_calls:
 		_expect(str(raw_called_pet_id) == egg_pet_id, "egg-phase cut-in prewarm should target the pending hatch pet id")
+
+
+func _verify_acquire_cutin_reveal_holds_until_anim_sheet_ready() -> void:
+	# Regression: on the F7 grant and 1-hit egg paths the reveal can open before the heavy
+	# Live2D acquisition sheet finishes streaming. It must NOT lock solid on the static 원화
+	# fallback for a few seconds -- it holds in the reconstruction phase until the sheet is
+	# cached, then completes on the animation.
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	var host := FakeCutinHost.new()
+	host.anim_ready = false
+	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
+	_expect(
+		runtime.debug_grant_and_activate_pet("maribo", owner, true, "", "", registry),
+		"debug grant should start the acquisition cut-in for the gate test"
+	)
+	# Sheet still streaming: the reveal must hold below the lock-solid progress and stay
+	# non-dismissable (no locked 원화), and it must keep pumping the host's stream.
+	runtime.advance_acquire_cutin(2.0, registry)
+	_expect(bool(runtime.is_acquire_cutin_active()), "cut-in should stay active while held for the streaming sheet")
+	_expect(
+		not bool(runtime.is_acquire_cutin_awaiting_dismiss()),
+		"reveal must hold in reconstruction until the anim sheet is cached (must not lock solid on the static 원화)"
+	)
+	_expect(
+		float(runtime.get_acquire_cutin_progress()) <= LingpetAcquireCutinState.REVEAL_ASSET_GATE_FRACTION + 0.001
+			and float(runtime.get_acquire_cutin_progress()) > 0.0,
+		"held reveal progress should clamp at the asset gate fraction, below the lock-solid frame"
+	)
+	_expect(host.prewarm_calls.size() > 0, "advance should keep streaming the cut-in sheet while the reveal is gated")
+	# Sheet cached: the gate releases and the reveal completes on the animation.
+	host.anim_ready = true
+	runtime.advance_acquire_cutin(2.0, registry)
+	_expect(bool(runtime.is_acquire_cutin_awaiting_dismiss()), "reveal should complete once the anim sheet is ready")
+	_expect(is_equal_approx(float(runtime.get_acquire_cutin_progress()), 1.0), "released reveal should reach full progress")
+
+	# Failsafe: a sheet that never caches must not soft-lock the modal forever -- after the
+	# max hold the reveal completes on the static art (the old pre-fix behavior).
+	var stuck_owner := FakeOwner.new()
+	var stuck_runtime: Object = LingpetEggRuntime.new()
+	var stuck_host := FakeCutinHost.new()
+	stuck_host.anim_ready = false
+	var stuck_registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": stuck_host})
+	_expect(
+		stuck_runtime.debug_grant_and_activate_pet("maribo", stuck_owner, true, "", "", stuck_registry),
+		"debug grant should start the acquisition cut-in for the failsafe test"
+	)
+	for _i in range(10):
+		stuck_runtime.advance_acquire_cutin(1.0, stuck_registry)
+	_expect(
+		bool(stuck_runtime.is_acquire_cutin_awaiting_dismiss()),
+		"a never-cached sheet must not hang the reveal -- the failsafe should release it after the max hold"
+	)
 
 
 func _verify_owned_maribo_is_kept_as_companion() -> void:
@@ -2491,6 +2610,72 @@ func _verify_maribo_defense_anticipates_moderate_distance_ball() -> void:
 	_expect(not bool(far_owner.lingpet_companion_defense_intercept_active), "a ball beyond the local zone must not arm the anticipatory guard")
 
 
+func _verify_rabi_ghost_blink_cycle() -> void:
+	# rabi (free_flight) is a GHOST: it must VANISH in place then REAPPEAR at a NEW spot
+	# (not roam continuously), and a higher appearance_rate (출현율) must shorten the
+	# hidden wait between blinks. Drives the motion state directly for determinism.
+	var slow: Dictionary = _measure_ghost_hidden_wait(0.0)
+	var fast: Dictionary = _measure_ghost_hidden_wait(1.0)
+	var slow_hidden: float = float(slow.get("hidden", 0.0))
+	var fast_hidden: float = float(fast.get("hidden", 0.0))
+	var slow_vanish: Vector2 = slow.get("vanish_pos", Vector2.ZERO)
+	var slow_reappear: Vector2 = slow.get("reappear_pos", Vector2.ZERO)
+	var slow_spawn: Vector2 = slow.get("spawn_pos", Vector2.ZERO)
+	_expect(slow_hidden > 0.0, "rabi ghost should vanish then reappear, not stay visible forever (the old center-roaming bug)")
+	_expect(slow_reappear != slow_vanish, "rabi ghost should reappear at a NEW random spot, not the spot it vanished from")
+	_expect(slow_vanish != slow_spawn, "rabi ghost should DRIFT while visible (keep moving after appearing), not sit frozen until it vanishes")
+	_expect(fast_hidden > 0.0, "rabi ghost should still reappear at appearance_rate 1.0")
+	_expect(fast_hidden < slow_hidden, "higher appearance_rate should shorten rabi's hidden wait before reappearing")
+
+
+func _verify_ghost_blink_vfx() -> void:
+	# The high-quality "퐁" blink VFX (cached glow texture + wisp particles + eased
+	# envelopes) must light up on appear/vanish, run its particle sim, and fully expire.
+	var vfx: Object = LingpetGhostBlinkVfx.new()
+	_expect(not vfx.has_visible_effects(), "ghost blink VFX should start idle")
+	vfx.trigger_appear(Vector2(380.0, 360.0))
+	_expect(vfx.has_visible_effects(), "trigger_appear should make the ghost blink VFX active (pop + scatter wisps)")
+	# Drive the particle sim well past the envelope + wisp lifetimes; it must clear.
+	for _i in range(40):
+		vfx.advance(0.05)
+	_expect(not vfx.has_visible_effects(), "appear VFX should fully expire (timers + wisp pool drained)")
+	vfx.trigger_vanish(Vector2(420.0, 300.0))
+	_expect(vfx.has_visible_effects(), "trigger_vanish should make the ghost blink VFX active (implode poof)")
+	for _j in range(40):
+		vfx.advance(0.05)
+	_expect(not vfx.has_visible_effects(), "vanish VFX should fully expire")
+
+	# Wiring: the egg runtime must advance, draw, and fire the blink on free-flight
+	# visibility edges, and reset it on the lingpet reset paths.
+	var runtime_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(runtime_src.find("_ghost_blink_vfx.trigger_appear") >= 0 and runtime_src.find("_ghost_blink_vfx.trigger_vanish") >= 0, "egg runtime should fire the ghost blink VFX on appear/vanish edges")
+	_expect(runtime_src.find("_ghost_blink_vfx.draw(") >= 0 and runtime_src.find("_ghost_blink_vfx.advance(") >= 0, "egg runtime should advance + draw the ghost blink VFX")
+	_expect(runtime_src.find("_ghost_blink_vfx.reset()") >= 0, "egg runtime should reset the ghost blink VFX on lingpet resets")
+
+
+func _measure_ghost_hidden_wait(rate: float) -> Dictionary:
+	var motion: Object = LingpetCompanionMotionState.new()
+	var owner := FakeOwner.new()
+	motion.patrol_seed = 24680  # fixed seed: both rates share the RNG so only the
+	motion.pos = Vector2.ZERO   # appearance_rate scaling differs, not the random rolls
+	var dt := 0.1
+	# First update initializes the ghost (spawn spot, visible).
+	motion.update(dt, owner, false, 0.0, 0, 70.0, 200.0, "free_flight", rate)
+	var spawn_pos: Vector2 = motion.pos
+	# Advance through the visible phase (drifting) until the ghost first vanishes.
+	var visible_elapsed := 0.0
+	while bool(motion.motion_visible) and visible_elapsed < 25.0:
+		motion.update(dt, owner, false, 0.0, 0, 70.0, 200.0, "free_flight", rate)
+		visible_elapsed += dt
+	var vanish_pos: Vector2 = motion.pos
+	# Advance through the hidden wait until it reappears.
+	var hidden := 0.0
+	while not bool(motion.motion_visible) and hidden < 40.0:
+		motion.update(dt, owner, false, 0.0, 0, 70.0, 200.0, "free_flight", rate)
+		hidden += dt
+	return {"hidden": hidden, "spawn_pos": spawn_pos, "vanish_pos": vanish_pos, "reappear_pos": motion.pos}
+
+
 func _verify_lunabi_free_flight_profile() -> void:
 	var eligible_context := {
 		"league_mode": "junior",
@@ -2763,9 +2948,11 @@ func _verify_companion_click_reaction() -> void:
 	volty_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
 	_expect(bool(volty_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), volty_registry)), "Volty companion click reaction should start from the companion tap zone")
 	_expect(volty_audio.lingpet_click_reaction_pet_ids == ["volty"], "Volty companion click reaction should request the Volty voice once")
+	_expect(volty_audio.lingpet_acquire_click_backing_count == 0, "in-battle companion clicks should not play the acquisition-screen backing SFX")
 	_expect(not bool(volty_runtime.try_begin_companion_click_reaction(Vector2(40.0, 40.0), volty_registry)), "active Volty click reaction should still ignore clicks outside the companion tap zone")
 	_expect(bool(volty_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), volty_registry)), "active Volty click reaction should consume another companion tap without restarting the popup")
 	_expect(volty_audio.lingpet_click_reaction_pet_ids == ["volty", "volty"], "active Volty companion taps should replay the click voice without stacking animation state")
+	_expect(volty_audio.lingpet_acquire_click_backing_count == 0, "repeated in-battle companion taps should still not play the acquisition-screen backing SFX")
 
 	var milkring_owner := FakeOwner.new()
 	milkring_owner.lingpet_owned_pet_ids = ["milkring"]

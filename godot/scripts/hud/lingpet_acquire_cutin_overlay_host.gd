@@ -52,6 +52,18 @@ const FALLBACK_CUTIN_DISMISS_SHEET_PATH := "res://assets/sprites/lingpet/maribo_
 const CUTIN_DISMISS_COLS := 5
 const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
+const CUTIN_DISMISS_COLS_OVERRIDES := {
+	"koyora": 14,
+	"rabi": 14,
+}
+const CUTIN_DISMISS_ROWS_OVERRIDES := {
+	"koyora": 7,
+	"rabi": 7,
+}
+const CUTIN_DISMISS_FRAMES_OVERRIDES := {
+	"koyora": 98,
+	"rabi": 98,
+}
 # Frames play over the first DISMISS_ACTION_PORTION of the dismiss window, then the
 # final frame holds while the overlay fades out (DISMISS_FADE_START -> 1.0). The
 # extra water-spray burst peaks near the spear-raise apex.
@@ -325,6 +337,10 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 		var dismiss_progress: float = 0.0
 		if runtime.has_method("get_acquire_cutin_dismiss_progress"):
 			dismiss_progress = clampf(float(runtime.get_acquire_cutin_dismiss_progress()), 0.0, 1.0)
+		if _cutin_dismiss_sheet == null:
+			# If the player clicks before threaded prewarm finishes, resolve the
+			# imported sheet here so the click Live2D action never disappears.
+			_cutin_dismiss_sheet = _load_catalog_texture(pet_id, "cutin_dismiss_anim")
 		_draw_dismiss_action(canvas, view_size, dismiss_progress)
 		return
 
@@ -382,6 +398,23 @@ func _get_cached_cutin_texture(pet_id: String, visual_key: String) -> Texture2D:
 	if path == "":
 		return null
 	return ProjectResourceLoader.get_cached_texture(path)
+
+
+func is_pet_cutin_anim_ready(pet_id: String) -> bool:
+	# Reveal-clock gate (lingpet_acquire_cutin_state): true once the animated Live2D
+	# sheet — the visual the reveal locks onto — is in the texture cache, so the reveal
+	# can finish on the animation instead of locking solid on the static 원화 fallback.
+	# Returns true (no gate) when animation is disabled or the pet has no cut-in anim
+	# (static art is then the intended visual), so static-only pets reveal normally.
+	if not USE_ANIMATED_CUTIN:
+		return true
+	var normalized := pet_id.strip_edges().to_lower()
+	if normalized == "" or not LingpetCatalog.has_pet(normalized):
+		normalized = DEFAULT_PET_ID
+	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
+	if anim_path == "":
+		return true
+	return ProjectResourceLoader.get_cached_texture(anim_path) != null
 
 
 func _get_runtime_pet_id(runtime: Object) -> String:
@@ -646,9 +679,37 @@ func _get_cutin_dismiss_view_h_ratio() -> float:
 	return maxf(0.01, LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_dismiss_view_h_ratio", anim_ratio))
 
 
+func _get_cutin_dismiss_cols() -> int:
+	return maxi(1, int(CUTIN_DISMISS_COLS_OVERRIDES.get(_asset_pet_id, CUTIN_DISMISS_COLS)))
+
+
+func _get_cutin_dismiss_rows() -> int:
+	return maxi(1, int(CUTIN_DISMISS_ROWS_OVERRIDES.get(_asset_pet_id, CUTIN_DISMISS_ROWS)))
+
+
+func _get_cutin_dismiss_frame_count() -> int:
+	return maxi(1, int(CUTIN_DISMISS_FRAMES_OVERRIDES.get(_asset_pet_id, CUTIN_DISMISS_FRAMES)))
+
+
+func _get_cutin_dismiss_action_portion() -> float:
+	return clampf(
+		LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_dismiss_action_portion", DISMISS_ACTION_PORTION),
+		0.01,
+		1.0
+	)
+
+
+func _get_cutin_dismiss_fade_start() -> float:
+	return clampf(
+		LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_dismiss_fade_start", DISMISS_FADE_START),
+		0.0,
+		0.99
+	)
+
+
 func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progress: float) -> void:
 	# Overlay fades out over [DISMISS_FADE_START, 1.0] so the screen closes naturally.
-	var out_fade: float = 1.0 - _smoothstep_range(DISMISS_FADE_START, 1.0, dismiss_progress)
+	var out_fade: float = 1.0 - _smoothstep_range(_get_cutin_dismiss_fade_start(), 1.0, dismiss_progress)
 	if out_fade <= 0.0:
 		return
 	var t: float = float(Time.get_ticks_msec()) / 1000.0
@@ -666,15 +727,16 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 	canvas.draw_circle(center, view_size.length() * 0.30, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.14 * out_fade))
 
 	# Exit action frame: play 0..N over the action portion, then hold the last frame.
-	var action_t: float = clampf(dismiss_progress / maxf(0.01, DISMISS_ACTION_PORTION), 0.0, 1.0)
+	var action_t: float = clampf(dismiss_progress / maxf(0.01, _get_cutin_dismiss_action_portion()), 0.0, 1.0)
 	var sheet: Texture2D = _cutin_dismiss_sheet
 	if sheet != null and sheet.get_width() > 1:
-		var cols: int = maxi(1, CUTIN_DISMISS_COLS)
-		var rows: int = maxi(1, CUTIN_DISMISS_ROWS)
+		var cols: int = _get_cutin_dismiss_cols()
+		var rows: int = _get_cutin_dismiss_rows()
+		var frame_count: int = clampi(_get_cutin_dismiss_frame_count(), 1, cols * rows)
 		var cw: float = float(sheet.get_width()) / float(cols)
 		var ch: float = float(sheet.get_height()) / float(rows)
 		if cw > 1.0 and ch > 1.0:
-			var frame: int = clampi(int(action_t * float(CUTIN_DISMISS_FRAMES)), 0, CUTIN_DISMISS_FRAMES - 1)
+			var frame: int = clampi(int(action_t * float(frame_count)), 0, frame_count - 1)
 			var col: int = frame % cols
 			var row: int = int(floor(float(frame) / float(cols)))
 			var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
