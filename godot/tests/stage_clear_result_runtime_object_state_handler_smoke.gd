@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_runtime_object_state_contract()
 	_verify_runtime_object_apply_contract()
+	_verify_runtime_object_scene_apply_contract()
 	_verify_scene_applies_runtime_object_state()
 	_verify_runtime_object_state_source()
 	_verify_scene_delegates_runtime_object_state()
@@ -54,6 +55,24 @@ func _verify_runtime_object_apply_contract() -> void:
 	valid_runtime.free()
 
 
+func _verify_runtime_object_scene_apply_contract() -> void:
+	var valid_runtime := Node.new()
+	var valid_audio := RefCounted.new()
+	var result: Dictionary = StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result({
+		"runtime_perk_state": valid_runtime,
+		"runtime_perk_catalog": "not an object",
+		"game_audio": valid_audio,
+	})
+	var payload_value: Variant = result.get("field_payload", {})
+	_expect(payload_value is Dictionary, "runtime object scene apply should wrap fields in a field payload")
+	var payload: Dictionary = payload_value if payload_value is Dictionary else {}
+	_expect(payload.get("_runtime_perk_state", null) == valid_runtime, "runtime object scene apply should prefix valid runtime state property")
+	_expect(payload.get("_game_audio", null) == valid_audio, "runtime object scene apply should prefix valid game audio property")
+	_expect(payload.get("_runtime_perk_catalog", "sentinel") == null, "runtime object scene apply should reject non-object values")
+	_expect(payload.get("_mythic_item_runtime", "sentinel") == null, "runtime object scene apply should include missing keys as null")
+	valid_runtime.free()
+
+
 func _verify_scene_applies_runtime_object_state() -> void:
 	var scene := StageClearResultScene.new()
 	var valid_runtime := RefCounted.new()
@@ -75,6 +94,7 @@ func _verify_runtime_object_state_source() -> void:
 	_expect(source.find("const RUNTIME_OBJECT_KEYS") >= 0, "runtime object state handler should own the runtime object key list")
 	_expect(source.find("static func get_runtime_object_state") >= 0, "runtime object state handler should expose state resolution")
 	_expect(source.find("static func get_runtime_object_apply_result") >= 0, "runtime object state handler should expose apply resolution")
+	_expect(source.find("static func get_runtime_object_scene_apply_result") >= 0, "runtime object state handler should expose scene field payload resolution")
 	_expect(source.find("static func _valid_object_or_null") >= 0, "runtime object state handler should centralize object validation")
 	_expect(source.find("typeof(value) == TYPE_OBJECT") >= 0, "runtime object state handler should guard non-object values")
 	_expect(source.find("is_instance_valid(value)") >= 0, "runtime object state handler should guard invalid objects")
@@ -84,10 +104,11 @@ func _verify_scene_delegates_runtime_object_state() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var apply_source: String = _slice_function(source, "func _apply_runtime_object_state", "func _apply_config_reset_state")
 	_expect(source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_state") >= 0, "result scene should delegate runtime object state resolution")
-	_expect(source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_apply_result") >= 0, "result scene should delegate runtime object apply payloads")
+	_expect(source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result") >= 0, "result scene should delegate runtime object scene field payloads")
 	_expect(source.find("func _apply_runtime_object_state") >= 0, "result scene should apply runtime object state results")
 	_expect(apply_source.find("RUNTIME_OBJECT_KEYS") < 0, "runtime object applier should not inspect the runtime object key list")
 	_expect(apply_source.find("result.get(key") < 0, "runtime object applier should not inspect runtime object keys directly")
+	_expect(apply_source.find("get_runtime_object_apply_result") < 0, "runtime object applier should not request raw runtime object apply payloads")
 	_expect(source.find("for object_key in [\"runtime_perk_state\"") < 0, "result scene should not keep the runtime object key list inline")
 	_expect(source.find("typeof(object_value) == TYPE_OBJECT") < 0, "result scene should not validate runtime object values inline")
 	_expect(StageClearResultScene != null, "result scene preload should still resolve")

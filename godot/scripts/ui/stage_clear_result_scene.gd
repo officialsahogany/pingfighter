@@ -213,7 +213,9 @@ func _apply_character_asset_state(result: Dictionary) -> void:
 
 
 func _apply_runtime_object_state(result: Dictionary) -> void:
-	_apply_scene_field_payload(StageClearResultRuntimeObjectStateHandler.get_runtime_object_apply_result(result))
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(
+		StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result(result)
+	))
 
 
 func _apply_config_reset_state(result: Dictionary) -> void:
@@ -567,16 +569,11 @@ func _apply_scroll_button_layout(button_layout: Dictionary) -> void:
 
 
 func _apply_scroll_state_result(result: Dictionary) -> void:
-	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_scroll_state_apply_result(
+	var apply_result: Dictionary = StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result(
 		result,
 		_get_scroll_state_current_state()
 	)
-	_next_stage_button_rect = apply_result.get("next_stage_rect", _next_stage_button_rect)
-	_exit_button_rect = apply_result.get("exit_rect", _exit_button_rect)
-	_scroll_position_offset = apply_result.get("scroll_position_offset", _scroll_position_offset)
-	_scroll_dragging = bool(apply_result.get("scroll_dragging", _scroll_dragging))
-	_scroll_drag_grab_offset = apply_result.get("scroll_drag_grab_offset", _scroll_drag_grab_offset)
-	_hovered_button = str(apply_result.get("hovered_button", _hovered_button))
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
 
 
 func _get_scroll_state_current_state() -> Dictionary:
@@ -636,11 +633,11 @@ func set_starpoint_choice_gate_active(active: bool, box_index: int = -1) -> void
 
 func append_box_resolved_perk_reward(box_index: int, perk_reward: Dictionary) -> void:
 	var result: Dictionary = StageClearResultBoxData.append_resolved_perk_reward(_boxes, box_index, perk_reward)
-	var apply_result: Dictionary = StageClearResultBoxData.get_append_resolved_perk_reward_apply_result(
+	var apply_result: Dictionary = StageClearResultBoxData.get_append_resolved_perk_reward_scene_apply_result(
 		result,
 		_boxes
 	)
-	_boxes = apply_result.get("boxes", _boxes)
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
 	if bool(apply_result.get("redraw", false)):
 		queue_redraw()
 
@@ -791,13 +788,12 @@ func _apply_box_open_result(result: Dictionary) -> bool:
 
 
 func _apply_box_state_result(result: Dictionary) -> Dictionary:
-	var apply_result: Dictionary = StageClearResultBoxInputHandler.get_box_state_apply_result(
+	var apply_result: Dictionary = StageClearResultBoxInputHandler.get_box_state_scene_apply_result(
 		result,
 		_boxes,
 		_hovered_box_index
 	)
-	_boxes = apply_result.get("boxes", _boxes)
-	_hovered_box_index = int(apply_result.get("hovered_box_index", _hovered_box_index))
+	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
 	if bool(apply_result.get("play_open_audio", false)):
 		_play_result_box_open_audio()
 	if bool(apply_result.get("redraw", false)):

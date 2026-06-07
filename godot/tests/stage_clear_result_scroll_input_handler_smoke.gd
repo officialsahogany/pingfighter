@@ -221,6 +221,27 @@ func _verify_apply_payloads() -> void:
 	_expect(scene_apply.get("scroll_drag_grab_offset", Vector2.ZERO) == Vector2(6.0, 7.0), "invalid grab offset should keep current grab offset")
 	_expect(str(scene_apply.get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_NEXT_STAGE, "scene scroll apply should apply hover")
 
+	var scene_field_apply: Dictionary = StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result(
+		{
+			"next_stage_rect": Rect2(Vector2(31.0, 32.0), Vector2(33.0, 34.0)),
+			"exit_rect": "invalid",
+			"scroll_position_offset": Vector2(35.0, 36.0),
+			"scroll_dragging": false,
+			"scroll_drag_grab_offset": "invalid",
+			"hovered_button": StageClearResultInteractionState.BUTTON_NEXT_STAGE,
+		},
+		current_state
+	)
+	var field_payload_value: Variant = scene_field_apply.get("field_payload", {})
+	_expect(field_payload_value is Dictionary, "scene scroll apply helper should wrap scene fields in a field payload")
+	var field_payload: Dictionary = field_payload_value if field_payload_value is Dictionary else {}
+	_expect((field_payload.get("_next_stage_button_rect", Rect2()) as Rect2).position == Vector2(31.0, 32.0), "scene scroll field payload should write next button rect")
+	_expect(field_payload.get("_exit_button_rect", Rect2()) == exit_rect, "scene scroll field payload should keep current exit rect for invalid values")
+	_expect(field_payload.get("_scroll_position_offset", Vector2.ZERO) == Vector2(35.0, 36.0), "scene scroll field payload should write offset")
+	_expect(not bool(field_payload.get("_scroll_dragging", true)), "scene scroll field payload should write dragging flag")
+	_expect(field_payload.get("_scroll_drag_grab_offset", Vector2.ZERO) == Vector2(6.0, 7.0), "scene scroll field payload should keep current grab offset for invalid values")
+	_expect(str(field_payload.get("_hovered_button", "")) == StageClearResultInteractionState.BUTTON_NEXT_STAGE, "scene scroll field payload should write hover")
+
 	var scene := StageClearResultScene.new()
 	scene.set("_next_stage_button_rect", next_rect)
 	scene.set("_exit_button_rect", exit_rect)
@@ -245,6 +266,7 @@ func _verify_apply_payloads() -> void:
 
 func _verify_scene_delegates_scroll_input() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
 	_expect(source.find("StageClearResultScrollInputHandler.get_button_click_result") >= 0, "result scene should delegate scroll button click state")
 	_expect(source.find("StageClearResultScrollInputHandler.get_hovered_button_result") >= 0, "result scene should delegate scroll button hover state")
 	_expect(source.find("StageClearResultScrollInputHandler.get_hovered_button_apply_result") >= 0, "result scene should delegate scroll button hover apply payloads")
@@ -254,7 +276,9 @@ func _verify_scene_delegates_scroll_input() -> void:
 	_expect(source.find("StageClearResultScrollInputHandler.get_drag_update_apply_result") >= 0, "result scene should delegate scroll drag-update apply payloads")
 	_expect(source.find("StageClearResultScrollInputHandler.get_drag_finish_apply_result") >= 0, "result scene should delegate scroll drag-finish apply payloads")
 	_expect(source.find("StageClearResultScrollInputHandler.get_drag_cancel_apply_result") >= 0, "result scene should delegate scroll drag-cancel apply payloads")
-	_expect(source.find("StageClearResultScrollInputHandler.get_scroll_state_apply_result") >= 0, "result scene should delegate common scroll-state apply payloads")
+	_expect(source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0, "result scene should delegate common scroll-state scene field payloads")
+	_expect(helper_source.find("static func get_scroll_state_apply_result") >= 0, "scroll input helper should expose common scroll-state apply payloads")
+	_expect(helper_source.find("static func get_scroll_state_scene_apply_result") >= 0, "scroll input helper should expose scene field payloads")
 	_expect(source.find("StageClearResultInteractionState.get_scroll_drag_start_state") < 0, "result scene should not build scroll drag starts directly")
 	_expect(source.find("StageClearResultInteractionState.get_visible_scroll_button_layout") < 0, "result scene should not build scroll button layout directly")
 	_expect(source.find("drag_state.get(\"started\"") < 0, "result scene should not inspect drag-start success directly")

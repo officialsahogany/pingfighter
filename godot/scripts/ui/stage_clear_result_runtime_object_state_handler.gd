@@ -29,6 +29,12 @@ static func get_runtime_object_apply_result(runtime_object_state: Dictionary) ->
 	return result
 
 
+static func get_runtime_object_scene_apply_result(runtime_object_state: Dictionary) -> Dictionary:
+	return {
+		"field_payload": get_runtime_object_apply_result(runtime_object_state),
+	}
+
+
 static func _valid_object_or_null(value: Variant) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object

@@ -124,6 +124,23 @@ static func get_box_state_apply_result(
 	}
 
 
+static func get_box_state_scene_apply_result(
+	box_state_result: Dictionary,
+	current_boxes: Array,
+	current_hovered_box_index: int
+) -> Dictionary:
+	var apply_result: Dictionary = get_box_state_apply_result(
+		box_state_result,
+		current_boxes,
+		current_hovered_box_index
+	)
+	apply_result["field_payload"] = {
+		"_boxes": apply_result.get("boxes", current_boxes),
+		"_hovered_box_index": int(apply_result.get("hovered_box_index", current_hovered_box_index)),
+	}
+	return apply_result
+
+
 static func _empty_result(boxes: Array) -> Dictionary:
 	return {
 		"started": false,

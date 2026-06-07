@@ -185,6 +185,20 @@ static func get_scroll_state_apply_result(scroll_state_result: Dictionary, curre
 	}
 
 
+static func get_scroll_state_scene_apply_result(scroll_state_result: Dictionary, current_state: Dictionary) -> Dictionary:
+	var apply_result: Dictionary = get_scroll_state_apply_result(scroll_state_result, current_state)
+	return {
+		"field_payload": {
+			"_next_stage_button_rect": apply_result.get("next_stage_rect", current_state.get("next_stage_rect", Rect2())),
+			"_exit_button_rect": apply_result.get("exit_rect", current_state.get("exit_rect", Rect2())),
+			"_scroll_position_offset": apply_result.get("scroll_position_offset", current_state.get("scroll_position_offset", Vector2.ZERO)),
+			"_scroll_dragging": bool(apply_result.get("scroll_dragging", current_state.get("scroll_dragging", false))),
+			"_scroll_drag_grab_offset": apply_result.get("scroll_drag_grab_offset", current_state.get("scroll_drag_grab_offset", Vector2.ZERO)),
+			"_hovered_button": str(apply_result.get("hovered_button", current_state.get("hovered_button", StageClearResultInteractionState.BUTTON_NONE))),
+		},
+	}
+
+
 static func _extract_button_layout(source: Dictionary) -> Dictionary:
 	var button_layout_value: Variant = source.get("button_layout", {})
 	return button_layout_value if button_layout_value is Dictionary else {}

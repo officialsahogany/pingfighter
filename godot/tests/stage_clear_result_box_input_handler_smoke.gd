@@ -208,6 +208,28 @@ func _verify_box_state_apply_result() -> void:
 	_expect(not bool(fallback_result.get("play_open_audio", true)), "missing audio request should default to false")
 	_expect(not bool(fallback_result.get("redraw", true)), "missing redraw request should default to false")
 
+	var scene_apply: Dictionary = StageClearResultBoxInputHandler.get_box_state_scene_apply_result(
+		{
+			"started": true,
+			"consumed": true,
+			"boxes": updated_boxes,
+			"hovered_box_index": -1,
+			"play_open_audio": true,
+			"redraw": true,
+		},
+		current_boxes,
+		2
+	)
+	var field_payload_value: Variant = scene_apply.get("field_payload", {})
+	_expect(field_payload_value is Dictionary, "box-state scene apply helper should wrap scene fields in a field payload")
+	var field_payload: Dictionary = field_payload_value if field_payload_value is Dictionary else {}
+	_expect(bool(scene_apply.get("started", false)), "box-state scene apply helper should preserve started state")
+	_expect(bool(scene_apply.get("consumed", false)), "box-state scene apply helper should preserve consumed state")
+	_expect(bool(scene_apply.get("play_open_audio", false)), "box-state scene apply helper should preserve audio request")
+	_expect(bool(scene_apply.get("redraw", false)), "box-state scene apply helper should preserve redraw request")
+	_expect(field_payload.get("_boxes", []) == updated_boxes, "box-state scene field payload should write boxes")
+	_expect(int(field_payload.get("_hovered_box_index", 99)) == -1, "box-state scene field payload should write hover index")
+
 
 func _verify_scene_applies_box_state_result() -> void:
 	var scene := StageClearResultScene.new()
@@ -236,7 +258,7 @@ func _verify_scene_delegates_box_input() -> void:
 	_expect(scene_source.find("StageClearResultBoxInputHandler.get_hovered_box_result") >= 0, "result scene should delegate box hover state")
 	_expect(scene_source.find("StageClearResultBoxInputHandler.get_hovered_box_apply_result") >= 0, "result scene should delegate box hover apply payloads")
 	_expect(scene_source.find("StageClearResultBoxInputHandler.get_box_open_apply_result") >= 0, "result scene should delegate box-open apply payloads")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.get_box_state_apply_result") >= 0, "result scene should delegate common box-state apply payloads")
+	_expect(scene_source.find("StageClearResultBoxInputHandler.get_box_state_scene_apply_result") >= 0, "result scene should delegate common box-state scene field payloads")
 	_expect(open_apply_source.find("_hovered_box_index = int(apply_result.get") < 0, "box-open apply should not write hover directly")
 	_expect(open_apply_source.find("_boxes = apply_result.get") < 0, "box-open apply should not write boxes directly")
 	_expect(hover_apply_source.find("_hovered_box_index = int(apply_result.get") < 0, "box-hover apply should not write hover directly")
@@ -245,6 +267,7 @@ func _verify_scene_delegates_box_input() -> void:
 	_expect(scene_source.find("StageClearResultInteractionState.get_clicked_idle_box_index") < 0, "result scene should not hit-test clicked boxes directly")
 	_expect(scene_source.find("StageClearResultInteractionState.get_hovered_box_index") < 0, "result scene should not hit-test hovered boxes directly")
 	_expect(helper_source.find("static func get_box_state_apply_result") >= 0, "box input helper should expose common box-state apply payloads")
+	_expect(helper_source.find("static func get_box_state_scene_apply_result") >= 0, "box input helper should expose scene field payloads")
 	_expect(helper_source.find("StageClearResultBoxData.get_next_idle_box_index") >= 0, "box input helper should use box-data next idle selection")
 	_expect(helper_source.find("StageClearResultBoxData.start_opening_box_with_roll") >= 0, "box input helper should use box-data opening setup")
 

@@ -160,6 +160,17 @@ func _verify_resolved_perk_append() -> void:
 	_expect(missed_apply.get("boxes", []) == boxes, "box data append apply helper should keep current boxes for misses")
 	_expect(not bool(missed_apply.get("redraw", true)), "box data append apply helper should not redraw misses")
 
+	var scene_apply: Dictionary = StageClearResultBoxData.get_append_resolved_perk_reward_scene_apply_result(
+		result,
+		boxes
+	)
+	var field_payload_value: Variant = scene_apply.get("field_payload", {})
+	_expect(field_payload_value is Dictionary, "box data append scene apply helper should wrap scene fields in a field payload")
+	var field_payload: Dictionary = field_payload_value if field_payload_value is Dictionary else {}
+	_expect(bool(scene_apply.get("updated", false)), "box data append scene apply helper should preserve updated state")
+	_expect(bool(scene_apply.get("redraw", false)), "box data append scene apply helper should preserve redraw requests")
+	_expect(field_payload.get("_boxes", []) == updated_boxes, "box data append scene field payload should write boxes")
+
 
 func _verify_immediate_reward_payload() -> void:
 	var box: Dictionary = {
@@ -227,6 +238,7 @@ func _verify_scene_delegates_box_data() -> void:
 	var append_source: String = _slice_function(scene_source, "func append_box_resolved_perk_reward", "func _draw_runtime_perk_overlay")
 	_expect(box_data_source.find("static func get_resolved_rewards") >= 0, "box data should own resolved reward extraction")
 	_expect(box_data_source.find("static func get_append_resolved_perk_reward_apply_result") >= 0, "box data should own resolved perk append apply payloads")
+	_expect(box_data_source.find("static func get_append_resolved_perk_reward_scene_apply_result") >= 0, "box data should own resolved perk append scene field payloads")
 	_expect(scene_source.find("StageClearResultBoxData.get_resolved_rewards") >= 0, "result scene should delegate resolved reward extraction")
 	_expect(box_input_helper_source.find("StageClearResultBoxData.start_opening_box_with_roll") >= 0, "box input helper should delegate rolled opening box setup")
 	_expect(box_input_helper_source.find("StageClearResultBoxData.get_next_idle_box_index") >= 0, "box input helper should delegate next idle box selection")
@@ -235,7 +247,7 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(scene_source.find("StageClearResultBoxUpdateHandler.update_boxes") >= 0, "result scene should delegate box update sequencing through the update handler")
 	_expect(box_update_helper_source.find("StageClearResultBoxData.update_box_opening_state") >= 0, "box update handler should delegate box opening animation state")
 	_expect(scene_source.find("StageClearResultBoxData.append_resolved_perk_reward") >= 0, "result scene should delegate box resolved perk appends")
-	_expect(scene_source.find("StageClearResultBoxData.get_append_resolved_perk_reward_apply_result") >= 0, "result scene should delegate box resolved perk append apply payloads")
+	_expect(scene_source.find("StageClearResultBoxData.get_append_resolved_perk_reward_scene_apply_result") >= 0, "result scene should delegate box resolved perk append scene field payloads")
 	_expect(append_source.find("result.get(\"updated\"") < 0, "result scene should not inspect append updated state directly")
 	_expect(scene_source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview reward plan defaults through the preview handler")
 	_expect(preview_defaults_source.find("StageClearResultBoxData.build_standalone_preview_defaults") >= 0, "preview defaults handler should delegate standalone reward plan data assembly")

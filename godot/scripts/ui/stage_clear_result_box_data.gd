@@ -279,6 +279,20 @@ static func get_append_resolved_perk_reward_apply_result(
 	}
 
 
+static func get_append_resolved_perk_reward_scene_apply_result(
+	append_result: Dictionary,
+	current_boxes: Array
+) -> Dictionary:
+	var apply_result: Dictionary = get_append_resolved_perk_reward_apply_result(
+		append_result,
+		current_boxes
+	)
+	apply_result["field_payload"] = {
+		"_boxes": apply_result.get("boxes", current_boxes),
+	}
+	return apply_result
+
+
 static func build_immediate_reward_payload(box: Dictionary, cinematic_positions: Dictionary) -> Dictionary:
 	var reward_value: Variant = box.get("reward", {})
 	if not (reward_value is Dictionary):
