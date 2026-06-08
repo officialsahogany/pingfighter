@@ -436,7 +436,7 @@ const VIPER_PERKS := {
 		"name": "팬텀 킥",
 		"max_level": 1,
 		"descriptions": {1: "마샬 킥 적중 후 팬텀 킥 발동 가능"},
-		"detail": "마샬 킥으로 공을 맞힌 뒤 S/아래 입력으로 2차 연계 팬텀 킥을 사용할 수 있습니다. 게이지 60, 쿨타임 50초.",
+		"detail": "마샬 킥으로 공을 맞힌 뒤 S/아래 입력으로 2차 연계 팬텀 킥을 사용할 수 있습니다. 게이지 60, 쿨타임 40초.",
 		"icon_color": Color(180.0 / 255.0, 0.0, 1.0),
 		"tree": "viper_unlock",
 		"character_restriction": "viper",

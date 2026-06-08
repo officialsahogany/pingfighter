@@ -55,7 +55,7 @@ func get_four_poisons_additive_cooldown_seconds(
 		dive_strike_name:
 			base_seconds = 70.0
 		chaos_spear_name:
-			base_seconds = 20.0
+			base_seconds = 30.0
 		dual_glitch_name:
 			base_seconds = 40.0
 	var configured_reduction: float = clamp(1.0 - configured_seconds / max(0.001, base_seconds), 0.0, 0.95)

@@ -7,7 +7,7 @@ static func start_strike(runtime: Object, player_pos: Vector2, special_gauge: fl
 	var skill_name: String = str(constants.get("skill_name", "nerve_strike"))
 	var skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
 	var next_gauge: float = max(0.0, special_gauge - runtime._get_skill_cost_with_fallback(skill_config, skill_name, float(constants.get("gauge_cost", 90.0))))
-	runtime.runtime_action_router.trigger_viper_runtime_cooldown(skill_name, now_msec, skill_config, deps, runtime._get_four_poisons_additive_cooldown_seconds(skill_name, skill_config, deps, float(constants.get("cooldown_base", 40.0))), runtime.visibility_query)
+	runtime.runtime_action_router.trigger_viper_runtime_cooldown(skill_name, now_msec, skill_config, deps, runtime._get_four_poisons_additive_cooldown_seconds(skill_name, skill_config, deps, float(constants.get("cooldown_base", 35.0))), runtime.visibility_query)
 	runtime._trigger_orb_gauge_spin(deps, now_msec)
 	runtime.runtime_action_router.trigger_feedback(deps, 0.12, 4.2)
 	runtime.runtime_action_router.interrupt_viper_jetpack_thrust(deps)

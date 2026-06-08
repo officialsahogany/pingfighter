@@ -101,7 +101,7 @@ static func _blade_followup_constants(constants: Dictionary) -> Dictionary:
 
 
 static func _chaos_constants(constants: Dictionary) -> Dictionary:
-	return {"skill_name": str(constants.get("chaos_spear", "chaos_spear")), "command_window_msec": int(constants.get("chaos_cmd_window_msec", 600))}
+	return {"skill_name": str(constants.get("chaos_spear", "chaos_spear")), "command_window_msec": int(constants.get("chaos_cmd_window_msec", 600)), "cooldown_seconds": float(constants.get("chaos_cooldown_seconds", 30.0))}
 
 
 static func _ignition_constants(constants: Dictionary) -> Dictionary:

@@ -48,7 +48,9 @@ static func start(runtime: Object, player_pos: Vector2, special_gauge: float, co
 	runtime.chaos_release_pending = false
 	runtime.chaos_release_velocity = Vector2.ZERO
 	runtime.chaos_state = "startup"
-	runtime._trigger_configured_skill_cooldown(skill_name, skill_config, deps, now_msec)
+	var cooldown_seconds: float = runtime._get_skill_cooldown_seconds_with_fallback(skill_config, skill_name, float(constants.get("cooldown_seconds", 30.0)))
+	cooldown_seconds = runtime._get_four_poisons_additive_cooldown_seconds(skill_name, skill_config, deps, cooldown_seconds)
+	runtime.runtime_action_router.trigger_viper_runtime_cooldown(skill_name, now_msec, skill_config, deps, cooldown_seconds, runtime.visibility_query)
 	runtime._trigger_orb_gauge_spin(deps, now_msec)
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null and feedback.has_method("set_screen_shake"):

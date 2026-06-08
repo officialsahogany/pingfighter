@@ -375,10 +375,10 @@ func _test_phantom_kick_unlock_catalog_wiring() -> void:
 	var unlock_data: Dictionary = catalog.get_perk_data("double_marshal_kick")
 	_expect(not unlock_data.is_empty(), "double_marshal_kick should exist as the Phantom Kick unlock perk")
 	_expect(str(unlock_data.get("unlocks_skill", "")) == "phantom_kick", "double_marshal_kick should unlock the runtime phantom_kick orb")
-	_expect(str(unlock_data.get("detail", "")).find("쿨타임 50초") >= 0, "Phantom Kick unlock detail should show the 50-second cooldown")
-	_expect(is_equal_approx(skill_config.get_cooldown_seconds("phantom_kick"), 50.0), "Phantom Kick config cooldown should be 50 seconds")
+	_expect(str(unlock_data.get("detail", "")).find("40") >= 0, "Phantom Kick unlock detail should show the 40-second cooldown")
+	_expect(is_equal_approx(skill_config.get_cooldown_seconds("phantom_kick"), 40.0), "Phantom Kick config cooldown should be 40 seconds")
 	var phantom_data: Dictionary = skill_config.get_skill_data("phantom_kick")
-	_expect(is_equal_approx(float(phantom_data.get("cooldown", 0.0)), 50.0), "Phantom Kick tooltip data should expose the 50-second cooldown")
+	_expect(is_equal_approx(float(phantom_data.get("cooldown", 0.0)), 40.0), "Phantom Kick tooltip data should expose the 40-second cooldown")
 
 	unlock_data["id"] = "double_marshal_kick"
 	_expect(perk_state.apply_choice(unlock_data, owner, registry), "selecting double_marshal_kick should apply cleanly")

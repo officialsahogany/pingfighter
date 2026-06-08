@@ -977,7 +977,7 @@ func _get_viper_base_cooldown_seconds(skill_name: String, fallback: float) -> fl
 		"dive_strike":
 			return 70.0
 		"chaos_spear":
-			return 20.0
+			return 30.0
 		"dual_glitch":
 			return 40.0
 		"nerve_strike":
