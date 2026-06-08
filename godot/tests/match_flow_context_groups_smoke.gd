@@ -65,6 +65,12 @@ class FakeRegistry:
 			"commando_reload_delivery_state",
 			"commando_firearm_runtime",
 			"commando_supply_drop_state",
+			"optimus_energy_state",
+			"blacksmith_skill_state",
+			"blacksmith_skill_config",
+			"blacksmith_thor_shield_state",
+			"laurel_leaf_shield_state",
+			"status_effect_state",
 		]:
 			instances[key] = RefCounted.new()
 		instances["stage_runtime_router"] = FakeStageRouter.new()
@@ -85,8 +91,8 @@ func _init() -> void:
 	_expect(deps.get("mythic_item_runtime", null) == registry.instances["mythic_item_runtime"], "item deps should include mythic runtime")
 	_expect(deps.get("orb_hud_state", null) == registry.instances["orb_hud_state"], "item/HUD deps should include orb HUD")
 	_expect(deps.get("skill_state", null) == registry.instances["smasher_skill_state"], "skill deps should keep legacy skill_state")
-	_expect(deps.get("skill_states", []).size() == 4, "skill deps should include registered skill states")
-	_expect(deps.get("skill_configs", []).size() == 3, "skill deps should include skill configs")
+	_expect(deps.get("skill_states", []).size() == 5, "skill deps should include registered skill states")
+	_expect(deps.get("skill_configs", []).size() == 4, "skill deps should include skill configs")
 	_expect(deps.get("skill_runtimes", []).size() == 4, "skill deps should include skill runtimes")
 	_expect(deps.get("commando_reload_delivery_state", null) == registry.instances["commando_reload_delivery_state"], "skill deps should include Commando reload delivery state")
 	_expect(deps.get("dash_state", null) == registry.instances["smasher_dash_state"], "skill deps should include dash state")
