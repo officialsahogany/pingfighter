@@ -3,6 +3,8 @@ extends RefCounted
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const FONT_BODY: Font = preload("res://assets/fonts/NanumSquareB.ttf")
+const FONT_TECH: Font = preload("res://assets/fonts/NeoDunggeunmoPro.ttf")
 
 const MENU_CONTINUE := "continue"
 const MENU_CHARACTER_INFO := "character_info"
@@ -45,19 +47,25 @@ const CONTROLS_BASE_FOCUS_COUNT := 2
 const CONTROLS_JOYPAD_FOCUS_COUNT := 3
 const LANGUAGE_FOCUS_COUNT := 8
 
-const PANEL_COLOR := Color(16.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 0.96)
-const PANEL_BORDER := Color(82.0 / 255.0, 165.0 / 255.0, 220.0 / 255.0, 0.86)
-const HEADER_COLOR := Color(35.0 / 255.0, 48.0 / 255.0, 70.0 / 255.0, 0.96)
-const SECTION_COLOR := Color(23.0 / 255.0, 29.0 / 255.0, 44.0 / 255.0, 0.94)
-const BUTTON_COLOR := Color(36.0 / 255.0, 48.0 / 255.0, 70.0 / 255.0, 0.96)
-const BUTTON_HOVER := Color(54.0 / 255.0, 82.0 / 255.0, 112.0 / 255.0, 0.98)
-const BUTTON_SELECTED := Color(62.0 / 255.0, 96.0 / 255.0, 132.0 / 255.0, 1.0)
-const BUTTON_BORDER := Color(112.0 / 255.0, 190.0 / 255.0, 1.0, 0.78)
-const SLIDER_BACK := Color(64.0 / 255.0, 68.0 / 255.0, 82.0 / 255.0, 1.0)
-const TEXT_DIM := Color(178.0 / 255.0, 188.0 / 255.0, 210.0 / 255.0)
-const ACCENT_BLUE := Color(0.0, 200.0 / 255.0, 1.0)
-const ACCENT_GREEN := Color(0.0, 1.0, 120.0 / 255.0)
-const ACCENT_GOLD := Color(1.0, 215.0 / 255.0, 90.0 / 255.0)
+const PANEL_COLOR := Color(0.04, 0.06, 0.10, 0.92)
+const PANEL_BORDER := Color(0.36, 0.78, 0.98, 0.90)
+const HEADER_COLOR := Color(0.06, 0.10, 0.16, 0.94)
+const SECTION_COLOR := Color(0.02, 0.04, 0.08, 0.55)
+const BUTTON_COLOR := Color(0.06, 0.10, 0.16, 0.90)
+const BUTTON_HOVER := Color(0.10, 0.18, 0.28, 0.96)
+const BUTTON_SELECTED := Color(0.14, 0.24, 0.36, 1.0)
+const BUTTON_BORDER := Color(0.36, 0.78, 0.98, 0.55)
+const SLIDER_BACK := Color(0.06, 0.10, 0.16, 1.0)
+const TEXT_DIM := Color(0.62, 0.72, 0.84)
+const ACCENT_BLUE := Color(0.36, 0.78, 0.98)
+const ACCENT_GREEN := Color(0.0, 1.0, 0.47)
+const ACCENT_GOLD := Color(1.0, 0.80, 0.20)
+const NEON_CYAN := Color(0.36, 0.78, 0.98)
+const NEON_CYAN_HOT := Color(0.66, 0.92, 1.00)
+const RESONANCE_MAG := Color(0.72, 0.50, 1.00)
+const NEON_GREEN := Color(0.00, 1.00, 0.47)
+const WARM_GOLD := Color(1.00, 0.80, 0.20)
+const TEXT_WARM := Color(0.94, 0.99, 1.00)
 
 var active := false
 var options_open := false
@@ -149,7 +157,7 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
 	if not active or canvas == null:
 		return
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = _get_ui_font()
 	if font == null:
 		return
 	var alpha: float = clamp(animation_time / 0.12, 0.0, 1.0)
@@ -157,7 +165,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
 
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
-	_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0)
+	_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0, true, true)
 	if options_open:
 		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry, owner)
 	else:
@@ -1062,7 +1070,7 @@ func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_po
 func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
 	var header_rect := Rect2(panel_rect.position, Vector2(panel_rect.size.x, 62.0))
 	canvas.draw_rect(header_rect, HEADER_COLOR)
-	canvas.draw_line(panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), PANEL_BORDER, 2.0)
+	_draw_neon_line(canvas, panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), NEON_CYAN, 1.5)
 	_draw_text(canvas, font, _text("settings.title"), panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
 	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), _text("settings.tab.sound"), options_tab == OPTIONS_TAB_SOUND)
 	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), _text("settings.tab.display"), options_tab == OPTIONS_TAB_DISPLAY)
@@ -1087,9 +1095,16 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 
 
 func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool) -> void:
-	var fill := Color(70.0 / 255.0, 100.0 / 255.0, 140.0 / 255.0, 0.98) if active_tab else BUTTON_COLOR
-	_draw_panel(canvas, rect, fill, BUTTON_BORDER, 1.0)
-	_draw_text_in_rect(canvas, font, label, rect, 15, Color.WHITE)
+	var draw_rect := rect
+	if active_tab:
+		draw_rect.position.y -= 2.0
+	var fill := BUTTON_SELECTED if active_tab else BUTTON_COLOR
+	var border := NEON_CYAN_HOT if active_tab else BUTTON_BORDER
+	_draw_panel(canvas, draw_rect, fill, border, 1.0)
+	if active_tab:
+		_draw_neon_line(canvas, Vector2(draw_rect.position.x + 4.0, draw_rect.end.y), Vector2(draw_rect.end.x - 4.0, draw_rect.end.y), NEON_CYAN, 1.2)
+		canvas.draw_line(draw_rect.position + Vector2(4.0, 1.0), Vector2(draw_rect.end.x - 4.0, draw_rect.position.y + 1.0), RESONANCE_MAG, 1.0)
+	_draw_text_in_rect(canvas, font, label, draw_rect, 15, Color.WHITE)
 
 
 func _draw_volume_slider(
@@ -1332,7 +1347,7 @@ func _draw_mode_pill(
 	var fill := BUTTON_SELECTED if selected else BUTTON_COLOR
 	if hovered:
 		fill = BUTTON_HOVER
-	var border := ACCENT_BLUE if selected or focused or hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42)
+	var border := NEON_CYAN_HOT if hovered else (ACCENT_BLUE if selected or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42))
 	_draw_panel(canvas, rect, fill, border, 2.0 if selected or focused else 1.0)
 	_draw_text_in_rect(canvas, font, label, rect, 17, Color.WHITE)
 
@@ -1351,7 +1366,7 @@ func _draw_setting_select_row(
 	var fill := Color(25.0 / 255.0, 33.0 / 255.0, 50.0 / 255.0, 0.94)
 	if hovered or focused:
 		fill = Color(31.0 / 255.0, 43.0 / 255.0, 64.0 / 255.0, 0.98)
-	var border := ACCENT_BLUE if hovered or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.24)
+	var border := NEON_CYAN_HOT if hovered else (ACCENT_BLUE if focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.24))
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
 	_draw_text(canvas, font, label, row_rect.position + Vector2(18.0, 29.0), 16, Color.WHITE)
 	_draw_panel(canvas, value_rect, BUTTON_COLOR, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.48), 1.0)
@@ -1376,12 +1391,13 @@ func _draw_toggle_setting_row(
 		fill = Color(30.0 / 255.0, 42.0 / 255.0, 62.0 / 255.0, 0.96)
 	var border := ACCENT_BLUE if hovered or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.20)
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
-	var checkbox_fill := Color(55.0 / 255.0, 85.0 / 255.0, 122.0 / 255.0, 0.95) if enabled else Color(31.0 / 255.0, 39.0 / 255.0, 54.0 / 255.0, 0.95)
-	_draw_panel(canvas, checkbox_rect, checkbox_fill, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.72), 1.0)
+	var checkbox_fill := Color(0.0, 0.24, 0.14, 0.95) if enabled else Color(0.02, 0.05, 0.08, 0.95)
+	var checkbox_border := NEON_GREEN if enabled else Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.72)
+	_draw_panel(canvas, checkbox_rect, checkbox_fill, checkbox_border, 1.0, enabled)
 	if enabled:
 		var center := checkbox_rect.get_center()
-		canvas.draw_line(center + Vector2(-5.0, 0.0), center + Vector2(-1.5, 4.0), ACCENT_BLUE, 2.5)
-		canvas.draw_line(center + Vector2(-1.5, 4.0), center + Vector2(6.0, -5.0), ACCENT_BLUE, 2.5)
+		canvas.draw_line(center + Vector2(-5.0, 0.0), center + Vector2(-1.5, 4.0), NEON_CYAN_HOT, 2.5)
+		canvas.draw_line(center + Vector2(-1.5, 4.0), center + Vector2(6.0, -5.0), NEON_CYAN_HOT, 2.5)
 	var title_color := Color(1.0, 1.0, 1.0, 0.88) if muted and not enabled else Color.WHITE
 	_draw_text(canvas, font, title, row_rect.position + Vector2(58.0, 24.0), 15, title_color)
 	_draw_text(canvas, font, subtitle, row_rect.position + Vector2(58.0, 42.0), 11, TEXT_DIM)
@@ -1392,9 +1408,10 @@ func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, sel
 	var fill := BUTTON_SELECTED if selected else BUTTON_COLOR
 	if hovered:
 		fill = BUTTON_HOVER
-	_draw_panel(canvas, rect, fill, BUTTON_BORDER if selected or hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.36), 1.0)
+	var border := NEON_CYAN_HOT if selected else (BUTTON_BORDER if hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.36))
+	_draw_panel(canvas, rect, fill, border, 1.0)
 	if selected:
-		canvas.draw_rect(Rect2(rect.position + Vector2(8.0, 10.0), Vector2(4.0, rect.size.y - 20.0)), ACCENT_GOLD)
+		canvas.draw_rect(Rect2(rect.position + Vector2(8.0, 10.0), Vector2(4.0, rect.size.y - 20.0)), RESONANCE_MAG)
 	_draw_text_in_rect(canvas, font, text, rect, 18, Color.WHITE)
 
 
@@ -1405,10 +1422,27 @@ func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, tex
 		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(14.0, 19.0 + float(index) * 18.0), 12, Color(224.0 / 255.0, 232.0 / 255.0, 244.0 / 255.0))
 
 
-func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
+func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float, double_line: bool = false, glow: bool = false) -> void:
 	canvas.draw_rect(rect, fill)
 	if border_width > 0.0:
+		if glow:
+			canvas.draw_rect(rect, Color(border.r, border.g, border.b, border.a * 0.18), false, border_width * 3.0)
+			canvas.draw_rect(rect, Color(border.r, border.g, border.b, border.a * 0.35), false, border_width * 2.0)
 		canvas.draw_rect(rect, border, false, border_width)
+		if double_line and rect.size.x > 6.0 and rect.size.y > 6.0:
+			canvas.draw_rect(rect.grow(-3.0), Color(border.r, border.g, border.b, border.a * 0.45), false, 1.0)
+
+
+func _draw_neon_line(canvas: CanvasItem, start: Vector2, finish: Vector2, color: Color, core_width: float = 1.0) -> void:
+	var halo := Color(color.r, color.g, color.b, color.a * 0.18)
+	var mid := Color(color.r, color.g, color.b, color.a * 0.35)
+	canvas.draw_line(start, finish, halo, core_width * 3.0)
+	canvas.draw_line(start, finish, mid, core_width * 2.0)
+	canvas.draw_line(start, finish, color, core_width)
+
+
+func _get_ui_font(tech: bool = false) -> Font:
+	return FONT_TECH if tech else FONT_BODY
 
 
 func _draw_text(canvas: CanvasItem, font: Font, text: String, pos: Vector2, size: int, color: Color) -> void:
