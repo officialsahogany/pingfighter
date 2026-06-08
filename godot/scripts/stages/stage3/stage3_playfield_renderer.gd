@@ -32,23 +32,23 @@ const STADIUM_GAP_LENGTH := 30
 const STADIUM_DASH_LENGTH_SEVERE_LOD := 48
 const STADIUM_GAP_LENGTH_SEVERE_LOD := 54
 const KUROMI_SHADOW_LAYERS := 2
-const KUROMI_SHADOW_LAYERS_LOD := 1
+const KUROMI_SHADOW_LAYERS_LOD := 2
 const KUROMI_SHADOW_LAYERS_SEVERE_LOD := 1
 const KUROMI_FACE_LAYER_COUNT := 2
-const KUROMI_FACE_LAYER_COUNT_LOD := 1
+const KUROMI_FACE_LAYER_COUNT_LOD := 2
 const KUROMI_FACE_LAYER_COUNT_SEVERE_LOD := 1
 const KUROMI_EAR_LAYER_COUNT := 2
-const KUROMI_EAR_LAYER_COUNT_LOD := 1
+const KUROMI_EAR_LAYER_COUNT_LOD := 2
 const KUROMI_EAR_LAYER_COUNT_SEVERE_LOD := 1
 const KUROMI_TONGUE_POINT_MIN := 10
 const KUROMI_TONGUE_POINT_MAX := 20
 const KUROMI_TONGUE_POINT_MAX_LOD := 14
 const KUROMI_TONGUE_POINT_MAX_SEVERE_LOD := 10
 const KUROMI_IDLE_TAIL_POINT_COUNT := 8
-const KUROMI_IDLE_TAIL_POINT_COUNT_LOD := 5
+const KUROMI_IDLE_TAIL_POINT_COUNT_LOD := 8
 const KUROMI_IDLE_TAIL_POINT_COUNT_SEVERE_LOD := 3
 const KUROMI_PETRIFIED_TAIL_POINT_COUNT := 4
-const KUROMI_PETRIFIED_TAIL_POINT_COUNT_LOD := 3
+const KUROMI_PETRIFIED_TAIL_POINT_COUNT_LOD := 4
 const KUROMI_PETRIFIED_TAIL_POINT_COUNT_SEVERE_LOD := 3
 const KUROMI_AWAKENING_RING_SEGMENTS := 18
 const KUROMI_AWAKENING_RING_SEGMENTS_LOD := 12
@@ -63,7 +63,7 @@ const KUROMI_TONGUE_WRAP_ARC_SEGMENTS := 12
 const KUROMI_TONGUE_WRAP_ARC_SEGMENTS_LOD := 8
 const KUROMI_TONGUE_WRAP_ARC_SEGMENTS_SEVERE_LOD := 6
 const KUROMI_AWAKE_SPARKLE_COUNT := 2
-const KUROMI_AWAKE_SPARKLE_COUNT_LOD := 1
+const KUROMI_AWAKE_SPARKLE_COUNT_LOD := 2
 const KUROMI_AWAKE_SPARKLE_COUNT_SEVERE_LOD := 1
 const KUROMI_SPIT_WARNING_MARK_COUNT := 4
 const KUROMI_SPIT_WARNING_MARK_COUNT_LOD := 3
@@ -78,6 +78,7 @@ const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT := 10
 const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_LOD := 6
 const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_SEVERE_LOD := 2
 const KUROMI_CRACK_PARTICLE_SIMPLE_SIZE_THRESHOLD := 8.0
+const KUROMI_SEVERE_RESTORE_QUALITY_SCALE := 0.84
 
 const PASTEL_PINK := Color(1.0, 182.0 / 255.0, 193.0 / 255.0, 1.0)
 const LAVENDER := Color(230.0 / 255.0, 190.0 / 255.0, 1.0, 1.0)
@@ -282,6 +283,8 @@ func get_performance_snapshot() -> Dictionary:
 		"kuromi_crack_particle_detailed_draw_limit_severe_lod": KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_SEVERE_LOD,
 		"shared_render_quality_lod_supported": true,
 		"kuromi_severe_lod_simplified": true,
+		"kuromi_severe_lod_restored": true,
+		"kuromi_severe_lod_restore_quality_scale": KUROMI_SEVERE_RESTORE_QUALITY_SCALE,
 	}
 
 
@@ -511,79 +514,10 @@ func _draw_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2, size
 
 
 func _draw_kuromi_severe_lod(canvas: CanvasItem, context: Dictionary, center: Vector2, size: float, petrified: bool) -> void:
-	var head_size: float = size * 0.6
-	canvas.draw_circle(center + Vector2(0.0, 10.0), head_size + 4.0, Color(0.23, 0.12, 0.20, 0.08))
 	if petrified:
-		var stone_base := Color(125.0 / 255.0, 125.0 / 255.0, 128.0 / 255.0, 1.0)
-		var stone_dark := Color(76.0 / 255.0, 76.0 / 255.0, 80.0 / 255.0, 1.0)
-		var stone_light := Color(180.0 / 255.0, 180.0 / 255.0, 184.0 / 255.0, 1.0)
-		var petrified_left_ear := PackedVector2Array([
-			center + Vector2(-head_size * 0.54, -head_size * 0.42),
-			center + Vector2(-head_size * 0.78, -head_size * 1.74),
-			center + Vector2(-head_size * 0.18, -head_size * 0.46),
-		])
-		var petrified_right_ear := PackedVector2Array([
-			center + Vector2(head_size * 0.54, -head_size * 0.42),
-			center + Vector2(head_size * 0.78, -head_size * 1.74),
-			center + Vector2(head_size * 0.18, -head_size * 0.46),
-		])
-		canvas.draw_colored_polygon(petrified_left_ear, stone_dark)
-		canvas.draw_colored_polygon(petrified_right_ear, stone_dark)
-		canvas.draw_circle(center + Vector2(0.0, 4.0), head_size, stone_base)
-		canvas.draw_circle(center + Vector2(-head_size * 0.38, -2.0), 5.0, stone_light)
-		canvas.draw_circle(center + Vector2(head_size * 0.38, -2.0), 5.0, stone_light)
-		canvas.draw_circle(center + Vector2(-head_size * 0.38, -1.0), 2.2, stone_dark)
-		canvas.draw_circle(center + Vector2(head_size * 0.38, -1.0), 2.2, stone_dark)
-		canvas.draw_line(center + Vector2(-head_size * 0.14, head_size * 0.28), center + Vector2(head_size * 0.14, head_size * 0.28), stone_dark, 2.0, true)
-		canvas.draw_line(center + Vector2(-head_size * 0.42, -head_size * 0.45), center + Vector2(-head_size * 0.10, -head_size * 0.08), stone_dark, 1.2, true)
-		canvas.draw_line(center + Vector2(head_size * 0.20, -head_size * 0.55), center + Vector2(head_size * 0.42, -head_size * 0.10), stone_dark, 1.2, true)
-		canvas.draw_line(center + Vector2(head_size * 0.58, head_size * 0.42), center + Vector2(head_size * 0.86, head_size * 0.78), stone_dark, 4.0, true)
-		_draw_kuromi_heart(canvas, center + Vector2(head_size * 0.92, head_size * 0.82), 5.5, stone_dark, Color.TRANSPARENT, false)
+		_draw_petrified_kuromi(canvas, context, center, size, KUROMI_SEVERE_RESTORE_QUALITY_SCALE)
 		return
-
-	var emotional: int = wrapi(int(context.get("stage3_emotional_phase", emotional_phase)), 0, 3)
-	var face_color := Color(1.0, 248.0 / 255.0, 1.0, 1.0)
-	var ear_wiggle: float = sin(time_sec * 0.48) * 1.5
-	var awake_left_ear := PackedVector2Array([
-		center + Vector2(-head_size * 0.54, -head_size * 0.42),
-		center + Vector2(-head_size * 0.80 + ear_wiggle, -head_size * 1.72),
-		center + Vector2(-head_size * 0.18, -head_size * 0.46),
-	])
-	var awake_right_ear := PackedVector2Array([
-		center + Vector2(head_size * 0.54, -head_size * 0.42),
-		center + Vector2(head_size * 0.80 - ear_wiggle, -head_size * 1.72),
-		center + Vector2(head_size * 0.18, -head_size * 0.46),
-	])
-	canvas.draw_colored_polygon(awake_left_ear, LAVENDER)
-	canvas.draw_colored_polygon(awake_right_ear, LAVENDER)
-	canvas.draw_circle(center + Vector2(0.0, 4.0), head_size, face_color)
-	canvas.draw_arc(center + Vector2(0.0, 4.0), head_size, 0.0, TAU, 12, Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, 0.72), 2.0, true)
-	var skull_center := center + Vector2(0.0, -head_size * 1.12)
-	canvas.draw_circle(skull_center, head_size * 0.18, PASTEL_PINK)
-	canvas.draw_circle(skull_center + Vector2(-head_size * 0.06, -1.0), 1.5, SOFT_BLACK)
-	canvas.draw_circle(skull_center + Vector2(head_size * 0.06, -1.0), 1.5, SOFT_BLACK)
-	var eye_y: float = center.y - head_size * 0.10
-	if emotional == 1:
-		eye_y -= 2.0
-	elif emotional == 2:
-		eye_y += 2.0
-	for side in [-1.0, 1.0]:
-		var eye_center := Vector2(center.x + side * head_size * 0.38, eye_y)
-		canvas.draw_circle(eye_center, head_size * 0.13, WHITE)
-		canvas.draw_circle(eye_center, head_size * 0.075, SOFT_BLACK)
-		canvas.draw_circle(eye_center + Vector2(-1.5, -1.5), head_size * 0.03, WHITE)
-		if emotional == 2:
-			canvas.draw_circle(eye_center + Vector2(0.0, head_size * 0.20), 2.2, BABY_BLUE)
-	_draw_kuromi_heart(canvas, center + Vector2(0.0, head_size * 0.16), 3.0, PASTEL_PINK, Color.TRANSPARENT, false)
-	var mouth_y: float = center.y + head_size * 0.32
-	if emotional == 1:
-		canvas.draw_arc(Vector2(center.x, mouth_y - 3.0), head_size * 0.17, 0.0, PI, 6, SOFT_BLACK, 2.0, true)
-	else:
-		canvas.draw_line(Vector2(center.x - head_size * 0.13, mouth_y), Vector2(center.x + head_size * 0.13, mouth_y), SOFT_BLACK, 2.0, true)
-	var tail_start := center + Vector2(head_size * 0.58, head_size * 0.38)
-	var tail_end := tail_start + Vector2(head_size * 0.34, head_size * 0.32)
-	canvas.draw_line(tail_start, tail_end, LAVENDER, 5.0, true)
-	_draw_kuromi_heart(canvas, tail_end + Vector2(4.0, 2.0), 5.6, PASTEL_PINK, SOFT_BLACK, true)
+	_draw_awake_kuromi(canvas, context, center, size, KUROMI_SEVERE_RESTORE_QUALITY_SCALE)
 
 
 func _draw_petrified_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2, size: float, quality_scale: float) -> void:
@@ -1264,7 +1198,9 @@ func _ellipse_outline_points(rect: Rect2, segments: int) -> PackedVector2Array:
 	var points: PackedVector2Array = _ellipse_points(rect, count)
 	if points.is_empty():
 		return PackedVector2Array()
-	var closed_points: PackedVector2Array = points.duplicate()
+	var closed_points := PackedVector2Array()
+	for point in points:
+		closed_points.append(point)
 	closed_points.append(points[0])
 	if ellipse_outline_points_cache.size() >= MAX_ELLIPSE_OUTLINE_POINTS_CACHE_ENTRIES:
 		ellipse_outline_points_cache.clear()

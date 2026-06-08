@@ -26,6 +26,15 @@ func _verify_severe_lod_snapshot() -> void:
 		"Stage 3 playfield should report the simplified severe-LOD Kuromi path"
 	)
 	_expect(
+		bool(snapshot.get("kuromi_severe_lod_restored", false)),
+		"Stage 3 playfield should report the restored severe-LOD Kuromi path"
+	)
+	_expect(
+		float(snapshot.get("kuromi_severe_lod_restore_quality_scale", 0.0)) >= 0.80
+			and float(snapshot.get("kuromi_severe_lod_restore_quality_scale", 1.0)) < 0.85,
+		"Stage 3 restored severe-LOD Kuromi should reuse the budgeted non-severe LOD shape"
+	)
+	_expect(
 		bool(snapshot.get("shared_render_quality_lod_supported", false)),
 		"Stage 3 playfield should keep shared render-quality LOD enabled"
 	)
@@ -34,9 +43,10 @@ func _verify_severe_lod_snapshot() -> void:
 func _verify_severe_lod_source_path() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_playfield_renderer.gd")
 	var kuromi_body := _function_body(source, "func _draw_kuromi(")
+	var severe_body := _function_body(source, "func _draw_kuromi_severe_lod(")
 	_expect(
 		source.find("func _draw_kuromi_severe_lod") >= 0,
-		"Stage 3 playfield should define a simplified Kuromi severe-LOD draw path"
+		"Stage 3 playfield should define a restored Kuromi severe-LOD draw path"
 	)
 	_expect(
 		kuromi_body.find("_is_severe_lod_active(quality_scale)") >= 0,
@@ -44,11 +54,17 @@ func _verify_severe_lod_source_path() -> void:
 	)
 	_expect(
 		kuromi_body.find("_draw_kuromi_severe_lod") >= 0,
-		"Stage 3 Kuromi draw should use the simplified severe-LOD draw path"
+		"Stage 3 Kuromi draw should use the restored severe-LOD draw path"
 	)
 	_expect(
 		kuromi_body.find("stage3_kuromi_eating_active") >= 0,
 		"Stage 3 Kuromi severe LOD should keep eating-pattern visuals on the full path"
+	)
+	_expect(
+		severe_body.find("KUROMI_SEVERE_RESTORE_QUALITY_SCALE") >= 0
+			and severe_body.find("_draw_petrified_kuromi") >= 0
+			and severe_body.find("_draw_awake_kuromi") >= 0,
+		"Stage 3 restored severe-LOD Kuromi should reuse the backup-style full shape renderer"
 	)
 
 
