@@ -412,6 +412,68 @@ Standing rules:
   `character_info_live_stats_smoke._verify_defense_override_reaches_panel_through_schema_gated_owner`
   (verified to FAIL when the schema key is removed).
 
+## Godot Boss-Paddle-Scripting Skill Trap (drag / grab / displace the boss)
+
+Any skill that **scripts the boss paddle position** instead of nudging it
+(lingpet 꼭두각시 조종 / Koyora puppet grab, future pull / grab / vacuum /
+displace ports) must do THREE things together, or the effect looks broken:
+
+1. **Freeze the boss AI** so it stops re-deriving `boss_pos` from the ball.
+   `boss_ai_state.update()` overwrites a bare `owner.set("boss_pos", …)` every
+   frame (the headbutt skill only survives because it rides the decaying
+   `start_paddle_hit_knockback` channel). For a precise drag-and-exact-return,
+   add a context freeze flag that mirrors `viper_dmk_freeze_active` — boss AI
+   returns `{boss_pos, boss_vel: 0}` unchanged — and have the skill write
+   `owner.boss_pos = scripted_target` every active frame (ordering-independent;
+   the freeze is a no-op on position). Reference: `lingpet_puppet_grab_active`
+   in `boss_ai_state.gd` + `battle_update_boss_ai_context_builder.gd`.
+2. **Skip the boss's BALL collision while it is displaced.** This is the
+   non-obvious half. Porting a symmetric-arena CC skill (both paddles mid-field)
+   to this asymmetric pong drags the boss into the LOWER half, where its hitbox
+   would intercept a rising ball (`ball_motion_collision_detector` boss block
+   fires for `ball_vel.y < 0`) and bounce it back down — inverting the intended
+   "boss can't defend, goal is open" payoff into "boss saves balls from the
+   wrong side." Gate the boss collision on the same flag, threaded through
+   `ball_update_owner_snapshot` → `ball_motion_event_processor._build_step_context`
+   → `ball_motion_collision_detector`.
+3. **Declare the flag in `battle_scene_state.DEFAULT_VALUES`** (see the
+   Owner-Field Schema Trap above) or every `owner.set(flag, true)` silently
+   no-ops and neither consumer ever sees it.
+4. **Release via a self-healing ownership flag, NOT via `cancel(owner)`.** The
+   round-end cleanup path (`ball_round_actor_cleanup.reset_actor_round_state` →
+   `lingpet_egg_runtime.reset_round` → host `cancel`) runs with **`owner == null`**
+   — the round-cleanup deps (`ball_dependency_context._build_common_round_deps`)
+   carry no `owner`, and those deps are cached, so threading owner in is invasive.
+   A `cancel(owner)` that depends on the owner being passed therefore **cannot
+   clear the freeze flag on round end**, so the stuck `*_grab_active` flag freezes
+   the boss into the next round (at whatever `boss_pos` it lands on — it can't move
+   or defend). Fix: keep an `_owns_boss` ownership flag that **survives an
+   owner-less `cancel()`**, and finish the release (restore boss to the captured
+   origin + clear the flag) on the next `update()` that does have the owner (the
+   host dispatches `update()` every frame while the pet is equipped). Reference:
+   `lingpet_puppet_grab_skill._release` + the deferred-release branch at the top of
+   `update()`.
+5. **Displaced `boss_pos.y` must be reset at the round-reset layer too.** This was
+   a latent asymmetry: `ball_round_controller.reset_ball` reset the player paddle's
+   y (`player_y`) but NOT the boss paddle's y — it only re-centered boss **x** and
+   kept the current y. Nothing else touched boss y (the boss AI manages x only), so
+   a skill that drags the boss DOWN left the dragged y surviving the reset. Fixed by
+   adding `boss_y` to `ball_update_static_config.build_reset_config` and restoring
+   `boss_pos.y = config.boss_y` in `reset_ball`. Lesson: any skill that moves an
+   actor field the round-reset path does not already normalize (here, boss y) must
+   either restore it itself on release OR get the reset path to normalize it — and
+   `reset_ball` only normalizes the fields it explicitly lists.
+
+The smoke must assert the OUTCOME across phases (boss stays put → dragged down →
+pinned at the kiss point → restored to the exact origin) AND that the owner flag
+is true while held and false after release, a mid-grab `cancel(owner)` cleanup
+case, a **round-end leak regression** that calls `cancel(null)` mid-grab and
+proves the next `update(owner)` clears the flag, AND a regression that runs the
+real `BallRoundController.reset_ball()` after a drag and proves boss y returns to
+`BOSS_Y`. Reference: `lingpet_egg_runtime_smoke._verify_koyora_puppet_grab_skill`.
+A faithful port of a pure-CC skill must NOT read/write the ball, score, or
+damage — the smoke asserts the module never references `ball_vel`/`ball_pos`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such

@@ -7,6 +7,7 @@ const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const BattleSceneLifecycle := preload("res://scripts/core/battle_scene_lifecycle.gd")
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
+const BallRoundController := preload("res://scripts/ball/ball_round_controller.gd")
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
@@ -39,6 +40,7 @@ class FakeOwner:
 	var boss_vel := 0.0
 	var boss_paddle_width := 100.0
 	var boss_hitbox_height := 40.0
+	var lingpet_puppet_grab_active := false
 	var ball_active := false
 	var ball_pos := Vector2.ZERO
 	var ball_vel := Vector2.ZERO
@@ -441,6 +443,7 @@ func _init() -> void:
 	_verify_ghost_blink_vfx()
 	_verify_lunabi_free_flight_profile()
 	_verify_lunabi_headbutt_skill()
+	_verify_koyora_puppet_grab_skill()
 	_verify_companion_click_reaction()
 	_verify_ineligible_conditions_do_not_spawn()
 
@@ -866,6 +869,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.pick_hatch_pet_id_from_entries(multi_entries, eligible_context, ["maribo"])) == "test_bubble", "multi-candidate picker should resolve the remaining eligible pet after ownership filtering")
 	_expect(LingpetCatalog.get_required_hits("maribo") == 1, "catalog should own Maribo hatch-hit requirements")
 	_expect(LingpetCatalog.get_display_name("maribo") == "마리보", "catalog should own lingpet display names")
+	_expect(LingpetCatalog.get_display_name("lunabi") == "달벳", "catalog should expose Dalbet as the visible name for the lunabi runtime id")
+	_expect(LingpetCatalog.get_display_name("milkring") == "밀쿠", "catalog should expose Milku as the visible name for the milkring runtime id")
+	_expect(LingpetCatalog.get_display_name("volty") == "볼탄", "catalog should expose Voltan as the visible name for the volty runtime id")
+	_expect(LingpetCatalog.get_display_name("rabi") == "모락모랑", "catalog should expose Morakmorang as the visible name for the rabi runtime id")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own the current shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
@@ -908,6 +915,12 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_active_skill_entry("lunabi_headbutt").get("runtime_kind", "")) == "headbutt", "catalog should expose Lunabi headbutt runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("milkring_milk_production").get("runtime_kind", "")) == "milk_production", "catalog should expose Milkring's milk-production runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("lumion_thunder_orb").get("runtime_kind", "")) == "thunder_orb", "catalog should expose Lumion's Thunder Orb runtime kind by skill id")
+	_expect(
+		is_equal_approx(LingpetCatalog.get_visual_layout_value("lumion", "cutin_anim_view_h_ratio", 0.0), 0.68)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("lumion", "cutin_dismiss_view_h_ratio", 0.0), 0.68)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("lumion", "click_reaction_draw_size", 0.0), 83.2),
+		"Lumion acquisition and click Live2D visuals should apply the requested 20 percent smaller layout"
+	)
 	_expect(str(LingpetCatalog.get_active_skill_entry("volty_bomb_surprise").get("runtime_kind", "")) == "bomb_surprise", "catalog should expose Volty's Bomb Surprise runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("volty_gatling_burst").get("runtime_kind", "")) == "gatling_burst", "catalog should expose Volty's Gatling Burst runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("runtime_kind", "")) == "dragon_breath", "catalog should expose Red Dragon's Dragon Breath runtime kind by skill id")
@@ -996,6 +1009,12 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	_expect(runtime_source.find("MARIBO_COMPANION_WALK_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo walk fallback")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 	_expect(draw_context_source.find("companion_walk") >= 0, "companion draw context should resolve walk visuals through the current lingpet catalog profile")
+	_expect(
+		draw_context_source.find("companion_idle") >= 0
+		and draw_context_source.find("companion_move_left") >= 0
+		and draw_context_source.find("companion_move_right") >= 0,
+		"companion draw context should resolve optional dedicated rear idle / left / right SD sheets through the catalog profile"
+	)
 	_expect(runtime_source.find("\"walk_fallback\"") < 0, "runtime draw config should not pass a Maribo walk fallback after catalog-profile wiring")
 	_expect(draw_context_source.find("walk_fallback") < 0, "companion draw context should not accept a legacy walk fallback parameter")
 	_expect(runtime_source.find("lingpet_companion_renderer.gd") >= 0, "egg runtime should delegate companion sprite drawing to the companion renderer")
@@ -1050,20 +1069,27 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		)
 		var dest_rect: Rect2 = draw_rects.get("dest", Rect2())
 		_expect(is_equal_approx(dest_rect.size.x, 104.0) and is_equal_approx(dest_rect.size.y, 104.0), "Maribo walk draw-size override should render the refreshed walk sheet at strike/cast scale")
-	# Directional facing: the walk sheet is the AutoSprite iso_walk_northeast
-	# 3/4-back view facing the direction of travel (rightward). Leftward travel
-	# is rendered by mirroring the UVs across the same destination rect, no in-_draw
-	# draw_set_transform. The facing must be latched from ACTUAL horizontal travel
-	# (dx) during normal movement: patrol_dir toggles during pauses / reverse-and-
-	# pause decisions, which snapped the held spear sides while standing still. First
-	# spawn/restore is the exception because zero-to-spawn placement is not travel;
-	# seed that frame from patrol_dir. Seal the travel -> face_left -> flip chain so
-	# neither the latch nor the mirror silently regresses.
+	# Directional facing: dedicated rear-view idle / left / right sheets take
+	# precedence when present. Older pets still use the AutoSprite iso_walk_northeast
+	# 3/4-back sheet facing rightward and mirror the UVs for leftward travel. The
+	# facing must be latched from ACTUAL horizontal travel (dx) during normal
+	# movement: patrol_dir toggles during pauses / reverse-and-pause decisions,
+	# which snapped held sheet sides while standing still. First spawn/restore is
+	# the exception because zero-to-spawn placement is not travel; seed that frame
+	# from patrol_dir. Seal the travel -> face_left -> dedicated-or-flip chain so
+	# neither the latch nor the mirror fallback silently regresses.
 	_expect(runtime_source.find("_companion_facing_left") >= 0, "egg runtime should latch companion facing to actual horizontal travel, not raw patrol_dir")
 	_expect(runtime_source.find("_set_companion_facing_from_patrol_dir") >= 0, "egg runtime should seed companion facing from patrol_dir on first spawn/restore")
 	_expect(runtime_source.find("\"face_left\"") >= 0, "egg runtime should feed the latched facing into the draw config")
 	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should pass the face_left flag through to the renderer")
-	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should flip the walk sheet horizontally when facing left")
+	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should use the latched facing to select a dedicated left sheet or flip the fallback walk sheet")
+	_expect(
+		companion_renderer_source.find("idle_texture") >= 0
+		and companion_renderer_source.find("move_left_texture") >= 0
+		and companion_renderer_source.find("move_right_texture") >= 0
+		and companion_renderer_source.find("should_flip_sprite") >= 0,
+		"companion renderer should prefer dedicated idle/left/right sheets and keep the legacy walk-sheet flip fallback"
+	)
 	_expect(companion_renderer_source.find("_draw_flipped_texture_region") >= 0, "companion renderer should mirror via UV-swapped polygon drawing")
 	_expect(companion_renderer_source.find("-dest_rect.size.x") < 0, "companion renderer should not use negative-width destination rects for left-facing sheets")
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
@@ -2924,6 +2950,152 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(is_equal_approx(miss_owner.boss_pos.x, miss_boss_x_before), "missed Lunabi Headbutt should not knock back the boss paddle")
 	_expect(miss_audio.boomerang_hits == 0, "missed Lunabi Headbutt should not play the boomerang boss-hit sound")
 	_expect(miss_audio.paddle_hits == 0, "missed Lunabi Headbutt should not play the paddle-hit fallback sound")
+
+
+func _verify_koyora_puppet_grab_skill() -> void:
+	# 꼭두각시 조종 (Puppet Control) — ported from 연화 (maria) in the original.
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_puppet_grab_skill.gd"), "Koyora puppet-grab skill module should exist")
+	var src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_puppet_grab_skill.gd")
+	_expect(
+		src.find("PHASE_EXTENDING") >= 0 and src.find("PHASE_PULLING") >= 0 and src.find("PHASE_KISSING") >= 0 and src.find("PHASE_RETURNING") >= 0,
+		"꼭두각시 조종 should keep the original 4-phase extend/pull/kiss/return machine"
+	)
+	_expect(src.find("ball_vel") < 0 and src.find("ball_pos") < 0, "꼭두각시 조종 is pure paddle CC — it must not read or write the ball")
+	_expect(src.find("lingpet_puppet_grab_active") >= 0, "꼭두각시 조종 should flag the owner so the boss is held + uncollidable")
+
+	# Boss-side plumbing: the grab only works if the freeze + collision-skip wiring is present.
+	var ai_src: String = FileAccess.get_file_as_string("res://scripts/ai/boss_ai_state.gd")
+	_expect(ai_src.find("lingpet_puppet_grab_active") >= 0, "boss_ai_state should freeze the boss while it is puppeted")
+	var ctx_src: String = FileAccess.get_file_as_string("res://scripts/core/battle_update_boss_ai_context_builder.gd")
+	_expect(ctx_src.find("lingpet_puppet_grab_active") >= 0, "boss AI context should publish the puppet-grab flag")
+	var det_src: String = FileAccess.get_file_as_string("res://scripts/ball/ball_motion_collision_detector.gd")
+	_expect(det_src.find("lingpet_puppet_grab_active") >= 0, "ball collision detector should skip the boss while it is puppeted")
+
+	# --- Live grab through the runtime: arm -> launch -> pull -> kiss -> return -> release.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["koyora"]
+	owner.lingpet_slots = ["koyora", "", ""]
+	owner.boss_pos = Vector2(330.0, 25.0)
+	owner.boss_paddle_width = 100.0
+	owner.boss_hitbox_height = 40.0
+	owner.boss_vel = 0.0
+	owner.ball_active = true
+	var boss_original: Vector2 = owner.boss_pos
+	var runtime: Object = LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	runtime.update(0.0, owner, registry)
+	runtime.configure_companion_motion_for_tests(Vector2(380.0, 600.0), 2, 0.0, false)
+	runtime.update(0.0, owner, registry)
+	var windup_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(windup_snap.get("companion_skill_winding_up", false)), "Koyora 꼭두각시 조종 should telegraph a wind-up before grabbing")
+	_expect(not bool(windup_snap.get("puppet_grab_active", false)), "Koyora 꼭두각시 조종 should not grab before its wind-up releases")
+	_expect(not bool(owner.lingpet_puppet_grab_active), "the boss should not be flagged held during the wind-up")
+
+	runtime.update(0.85, owner, registry)  # exceed the 0.8s wind-up
+	var launched: Dictionary = runtime.get_snapshot()
+	_expect(bool(launched.get("puppet_grab_active", false)), "Koyora 꼭두각시 조종 should launch after its wind-up")
+	_expect(bool(owner.lingpet_puppet_grab_active), "launching the grab should flag the owner so the boss is frozen + uncollidable")
+	_expect(int(launched.get("puppet_grab_phase", -1)) == 0, "the grab should open in the extending phase")
+	_expect(bool(launched.get("puppet_grab_companion_override_active", false)), "Koyora should stay pinned at her cast spot while puppeteering")
+	_expect(int(runtime.get_puppet_grab_count_for_tests()) == 1, "the grab should count one launch")
+	_expect(owner.lingpet_skill_cooldown > 30.0, "꼭두각시 조종 should enter its long cooldown at launch")
+
+	# Extending phase: the boss has not moved yet.
+	runtime.update(0.3, owner, registry)
+	var ext: Dictionary = runtime.get_snapshot()
+	_expect(int(ext.get("puppet_grab_phase", -1)) == 0, "the boss should still be extending at 0.3s")
+	_expect(_vector2_distance(owner.boss_pos, boss_original) <= 0.01, "the boss must stay put while the strings extend")
+
+	# Pulling phase: the boss is dragged downward toward Koyora.
+	runtime.update(0.5, owner, registry)  # +0.5 -> 0.8s total -> into PULLING
+	var pull: Dictionary = runtime.get_snapshot()
+	_expect(int(pull.get("puppet_grab_phase", -1)) == 1, "the boss should be pulling once the extend window ends")
+	_expect(owner.boss_pos.y > boss_original.y + 2.0, "the boss should be dragged downward during the pull")
+
+	# Kissing phase: the boss is pinned at the kiss point and the kiss registers.
+	runtime.update(1.5, owner, registry)  # 2.3s total -> into KISSING
+	var kiss: Dictionary = runtime.get_snapshot()
+	_expect(int(kiss.get("puppet_grab_phase", -1)) == 2, "the boss should be kissing after the pull completes")
+	_expect(int(runtime.get_puppet_grab_kiss_count_for_tests()) == 1, "the kiss should register once the boss is pulled in")
+	var kiss_center: Vector2 = kiss.get("puppet_grab_kiss_center", Vector2.ZERO)
+	var boss_center: Vector2 = owner.boss_pos + Vector2(50.0, 20.0)
+	_expect(_vector2_distance(boss_center, kiss_center) <= 0.5, "the boss should be pinned at the kiss point during the kiss")
+	_expect(kiss_center.y < boss_original.y + 700.0 and kiss_center.y > boss_original.y, "the kiss point should sit in front of Koyora, below the boss origin")
+
+	# Return phase completes: boss restored to exact origin, owner flag released.
+	runtime.update(1.5, owner, registry)  # 3.8s total > 3.616s -> finished
+	var done: Dictionary = runtime.get_snapshot()
+	_expect(not bool(done.get("puppet_grab_active", false)), "꼭두각시 조종 should finish after the return phase")
+	_expect(not bool(owner.lingpet_puppet_grab_active), "finishing the grab should release the owner boss-freeze flag")
+	_expect(_vector2_distance(owner.boss_pos, boss_original) <= 0.01, "the boss must be returned to its exact original position")
+
+	# --- Direct cleanup case: cancelling mid-grab must release the boss with no leak.
+	var skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var cowner := FakeOwner.new()
+	cowner.boss_pos = Vector2(330.0, 25.0)
+	cowner.boss_paddle_width = 100.0
+	cowner.boss_hitbox_height = 40.0
+	_expect(bool(skill.launch(Vector2(380.0, 600.0), cowner, {})), "puppet-grab launch should succeed with a valid owner")
+	skill.update(0.9, cowner)  # into the pull
+	_expect(bool(cowner.lingpet_puppet_grab_active), "the grab should hold the boss while active")
+	_expect(cowner.boss_pos.y > 25.0, "the grab should have started dragging the boss down")
+	skill.cancel(cowner)
+	_expect(not bool(cowner.lingpet_puppet_grab_active), "cancel should release the boss-freeze flag")
+	_expect(not bool(skill.is_active()), "cancel should end the grab")
+	_expect(_vector2_distance(cowner.boss_pos, Vector2(330.0, 25.0)) <= 0.01, "cancel should snap the boss back to its origin")
+
+	# --- Round-end leak regression: the round cleanup deps carry NO owner, so
+	# cancel() runs owner-less mid-grab. The boss must NOT stay dragged/frozen into
+	# the next round — the next update() with the owner must restore it.
+	var leak_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lowner := FakeOwner.new()
+	lowner.boss_pos = Vector2(330.0, 25.0)
+	lowner.boss_paddle_width = 100.0
+	lowner.boss_hitbox_height = 40.0
+	_expect(bool(leak_skill.launch(Vector2(380.0, 600.0), lowner, {})), "leak-case launch should succeed")
+	leak_skill.update(0.9, lowner)  # into the pull -> boss dragged down, flag held
+	_expect(bool(lowner.lingpet_puppet_grab_active) and lowner.boss_pos.y > 25.0, "grab should be holding the boss mid-pull")
+	leak_skill.cancel(null)  # round-end cleanup WITHOUT owner (reproduces the bug trigger)
+	_expect(bool(leak_skill.get_snapshot().get("puppet_grab_owns_boss", false)), "owner-less cancel should defer the release, not drop ownership")
+	leak_skill.update(0.0, lowner)  # next round's first lingpet update HAS the owner
+	_expect(not bool(lowner.lingpet_puppet_grab_active), "deferred release must clear the stuck boss-freeze flag next round")
+	_expect(_vector2_distance(lowner.boss_pos, Vector2(330.0, 25.0)) <= 0.01, "deferred release must restore the boss y to the top, not leave it dragged")
+	_expect(not bool(leak_skill.is_active()) and not bool(leak_skill.get_snapshot().get("puppet_grab_owns_boss", false)), "after the deferred release the grab owns nothing")
+
+	# --- Full round-reset regression: reset_ball builds its config before cleanup,
+	# so its returned boss_pos must not preserve the dragged Y after cleanup releases Koyora.
+	var round_owner := FakeOwner.new()
+	round_owner.lingpet_owned_pet_ids = ["koyora"]
+	round_owner.lingpet_slots = ["koyora", "", ""]
+	round_owner.boss_pos = Vector2(330.0, 25.0)
+	round_owner.boss_paddle_width = 100.0
+	round_owner.boss_hitbox_height = 40.0
+	round_owner.ball_active = true
+	var round_runtime: Object = LingpetEggRuntime.new()
+	var round_registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	round_runtime.update(0.0, round_owner, round_registry)
+	round_runtime.configure_companion_motion_for_tests(Vector2(380.0, 600.0), 2, 0.0, false)
+	round_runtime.update(0.0, round_owner, round_registry)
+	round_runtime.update(0.85, round_owner, round_registry)
+	round_runtime.update(0.9, round_owner, round_registry)
+	var dragged_pos: Vector2 = round_owner.boss_pos
+	_expect(bool(round_owner.lingpet_puppet_grab_active) and dragged_pos.y > 25.0, "full reset setup should have Koyora dragging the boss before reset_ball")
+	var reset_result: Dictionary = BallRoundController.new().reset_ball({
+		"width": 760.0,
+		"height": 750.0,
+		"player_pos": round_owner.player_pos,
+		"boss_pos": dragged_pos,
+		"player_y": round_owner.player_pos.y,
+		"boss_y": 25.0,
+		"player_paddle_width": round_owner.player_paddle_width,
+		"boss_paddle_width": round_owner.boss_paddle_width,
+	}, {
+		"lingpet_egg_runtime": round_runtime,
+		"owner": round_owner,
+	}, {})
+	var reset_boss_pos: Vector2 = reset_result.get("boss_pos", Vector2.ZERO)
+	_expect(not bool(round_owner.lingpet_puppet_grab_active), "reset_ball cleanup should release Koyora's boss-freeze flag")
+	_expect(is_equal_approx(reset_boss_pos.y, 25.0), "reset_ball result must reset boss Y instead of replaying the pre-cleanup dragged Y")
 
 
 func _verify_companion_click_reaction() -> void:

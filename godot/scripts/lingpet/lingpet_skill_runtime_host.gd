@@ -14,6 +14,7 @@ const DRAGON_BREATH_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_breath_s
 const DRAGON_WING_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_wing_skill.gd"
 const GHOST_SUMMON_SKILL_PATH := "res://scripts/lingpet/lingpet_ghost_summon_skill.gd"
 const SOUL_CLONE_SKILL_PATH := "res://scripts/lingpet/lingpet_soul_clone_skill.gd"
+const PUPPET_GRAB_SKILL_PATH := "res://scripts/lingpet/lingpet_puppet_grab_skill.gd"
 
 var _hydro_sphere_skill: Object = null
 var _headbutt_skill: Object = null
@@ -27,6 +28,7 @@ var _dragon_breath_skill: Object = null
 var _dragon_wing_skill: Object = null
 var _ghost_summon_skill: Object = null
 var _soul_clone_skill: Object = null
+var _puppet_grab_skill: Object = null
 
 
 func reset(owner: Object = null, registry: Object = null) -> void:
@@ -42,6 +44,7 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_dragon_wing_skill, owner, registry)
 	_reset_skill(_ghost_summon_skill, owner, registry)
 	_reset_skill(_soul_clone_skill, owner, registry)
+	_reset_skill(_puppet_grab_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -71,6 +74,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_ghost_summon_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			_get_soul_clone_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			_get_puppet_grab_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -88,6 +93,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_dragon_wing_skill, canvas, shake_offset)
 	_draw_skill(_ghost_summon_skill, canvas, shake_offset)
 	_draw_skill(_soul_clone_skill, canvas, shake_offset)
+	_draw_skill(_puppet_grab_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
@@ -104,6 +110,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_dragon_wing_skill)
 		or _skill_has_visible_effects(_ghost_summon_skill)
 		or _skill_has_visible_effects(_soul_clone_skill)
+		or _skill_has_visible_effects(_puppet_grab_skill)
 	)
 
 
@@ -139,6 +146,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _ghost_summon_skill != null and bool(_ghost_summon_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return _soul_clone_skill != null and bool(_soul_clone_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return _puppet_grab_skill != null and bool(_puppet_grab_skill.is_active())
 		_:
 			return false
 
@@ -187,6 +196,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_ghost_summon_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return bool(_get_soul_clone_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return bool(_get_puppet_grab_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -217,6 +228,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return companion_pos
 		_:
 			return companion_pos
 
@@ -229,6 +242,8 @@ func has_companion_position_override(skill_id: String) -> bool:
 			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.has_companion_position_override())
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
 			return _gatling_burst_skill != null and bool(_gatling_burst_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return _puppet_grab_skill != null and bool(_puppet_grab_skill.has_companion_position_override())
 		_:
 			return false
 
@@ -241,6 +256,8 @@ func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vec
 			return _bomb_surprise_skill.get_companion_position_override(fallback) if _bomb_surprise_skill != null else fallback
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
 			return _gatling_burst_skill.get_companion_position_override(fallback) if _gatling_burst_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return _puppet_grab_skill.get_companion_position_override(fallback) if _puppet_grab_skill != null else fallback
 		_:
 			return fallback
 
@@ -299,6 +316,8 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_ghost_summon_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			_play_soul_clone_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			_play_active_item_feedback(registry)
 		_:
 			pass
 
@@ -317,6 +336,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _dragon_wing_skill)
 	_merge_skill_snapshot(snapshot, _ghost_summon_skill)
 	_merge_skill_snapshot(snapshot, _soul_clone_skill)
+	_merge_skill_snapshot(snapshot, _puppet_grab_skill)
 	return snapshot
 
 
@@ -392,6 +412,14 @@ func get_soul_clone_hit_count_for_tests() -> int:
 	return int(_get_soul_clone_skill().get_hit_count_for_tests())
 
 
+func get_puppet_grab_count_for_tests() -> int:
+	return int(_get_puppet_grab_skill().get_grab_count_for_tests())
+
+
+func get_puppet_grab_kiss_count_for_tests() -> int:
+	return int(_get_puppet_grab_skill().get_kiss_count_for_tests())
+
+
 func _get_skill_for_kind(skill_kind: String) -> Object:
 	match skill_kind:
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
@@ -418,6 +446,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_ghost_summon_skill()
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return _get_soul_clone_skill()
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return _get_puppet_grab_skill()
 		_:
 			return null
 
@@ -492,6 +522,12 @@ func _get_soul_clone_skill() -> Object:
 	if _soul_clone_skill == null:
 		_soul_clone_skill = _new_skill(SOUL_CLONE_SKILL_PATH)
 	return _soul_clone_skill
+
+
+func _get_puppet_grab_skill() -> Object:
+	if _puppet_grab_skill == null:
+		_puppet_grab_skill = _new_skill(PUPPET_GRAB_SKILL_PATH)
+	return _puppet_grab_skill
 
 
 func _new_skill(path: String) -> Object:

@@ -486,6 +486,14 @@ func get_headbutt_miss_count_for_tests() -> int:
 	return _skill_runtime_host.get_headbutt_miss_count_for_tests()
 
 
+func get_puppet_grab_count_for_tests() -> int:
+	return _skill_runtime_host.get_puppet_grab_count_for_tests()
+
+
+func get_puppet_grab_kiss_count_for_tests() -> int:
+	return _skill_runtime_host.get_puppet_grab_kiss_count_for_tests()
+
+
 func configure_companion_motion_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer: float, test_intercept_active: bool) -> void:
 	_companion_pos = test_pos
 	_companion_motion_state.configure_for_tests(test_pos, test_seed, test_decision_timer, test_intercept_active)

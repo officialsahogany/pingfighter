@@ -146,7 +146,7 @@ func _verify_rail_card_casting_status() -> void:
 	runtime.snapshot = {
 		"companion_skill_id": "rabi_soul_clone",
 		"companion_skill_name": "영혼분신",
-		"companion_skill_description": "라비의 영혼 분신이 공을 튕겨냅니다.",
+		"companion_skill_description": "모락모랑의 영혼 분신이 공을 튕겨냅니다.",
 		"companion_skill_card_path": "res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v3_clean.png",
 		"companion_skill_cooldown": 44.0,
 		"companion_skill_cooldown_duration": 55.0,

@@ -50,6 +50,10 @@ const DEFAULT_VALUES: Dictionary = {
 	"optimus_charge_movement_locked": false,
 	"boss_pos": Vector2.ZERO,
 	"boss_pos_prev": Vector2.ZERO,
+	# Lingpet 꼭두각시 조종 (Koyora puppet grab): while true, the boss paddle is
+	# scripted by the lingpet skill — the boss AI must not move it and the ball
+	# must not bounce off it. See lingpet_puppet_grab_skill.gd.
+	"lingpet_puppet_grab_active": false,
 	"boss_paddle_width": 100.0,
 	"boss_hitbox_height": 40.0,
 	"boss_interp_last_physics_usec": 0,

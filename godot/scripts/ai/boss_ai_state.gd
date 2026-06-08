@@ -183,6 +183,16 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 			"boss_vel": 0.0,
 		}
 
+	# Koyora 꼭두각시 조종 (puppet grab): the lingpet skill writes the scripted
+	# boss_pos every frame while it drags/holds/returns the boss. Hold whatever
+	# position the skill set this frame and never re-derive it from the ball, so
+	# the puppet drag and the precise original-position restore are authoritative.
+	if bool(context.get("lingpet_puppet_grab_active", false)):
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": 0.0,
+		}
+
 	if bool(context.get("stage2_boss_movement_locked", false)):
 		return {
 			"boss_pos": boss_pos,

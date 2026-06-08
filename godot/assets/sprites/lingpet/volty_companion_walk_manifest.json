@@ -1,7 +1,7 @@
 {
   "asset_id": "volty_companion_walk_v1",
   "character": "volty",
-  "display_name": "볼티",
+  "display_name": "볼탄",
   "generated_at": "2026-06-03",
   "runtime_usage": "lingpet_companion_walk_rightward_canonical_mirrored_for_left",
   "status": "Accepted candidate: fixed-angle 3/4 hover movement loop from AutoSprite, runtime-sized 128px cells.",

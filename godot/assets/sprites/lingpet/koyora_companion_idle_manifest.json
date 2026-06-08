@@ -1,0 +1,79 @@
+{
+  "asset_id": "koyora_companion_idle_rear_25f_v1",
+  "pet_id": "koyora",
+  "display_name": "Koyora",
+  "created_at": "2026-06-07",
+  "runtime_usage": "lingpet_companion_idle_rear_view_sheet",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_companion_idle.png",
+  "autosprite": {
+    "character_id": "cmq3vc0na0028hw3s1u2pi0iq",
+    "character_name": "Koyora SD Rear Ringpet 20260607",
+    "kind": "iso_idle_up",
+    "spritesheet_id": "cmq3veetj002yu5sevc51f6c9",
+    "workflow_job_id": "wf_2a17215e-7e7e-4f78-b07f-61c9e0059bf0",
+    "source_frame_size": [
+      512,
+      512
+    ],
+    "generated_frame_count": 25,
+    "remove_bg": "ultra",
+    "quality": "legendary"
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "sha256": "84f31210af90796339f27c12eac134f161f1b527fa7688839631778fb401bb7b",
+    "bytes": 1656096
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell resize, alpha dust cleanup, 5x5 sheet assembly",
+    "note": "Accepted rear-view idle sheet, downscaled per cell from 512px to 256px."
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "sample_bboxes": {
+      "0": [
+        26,
+        17,
+        231,
+        235
+      ],
+      "6": [
+        27,
+        17,
+        231,
+        235
+      ],
+      "12": [
+        30,
+        18,
+        229,
+        235
+      ],
+      "18": [
+        28,
+        18,
+        229,
+        235
+      ],
+      "24": [
+        26,
+        17,
+        231,
+        235
+      ]
+    },
+    "visible_magenta_pixels": 283,
+    "visible_green_pixels": 3162
+  }
+}

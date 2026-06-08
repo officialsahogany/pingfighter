@@ -98,6 +98,7 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_mistake_error_max": boss_mistake_profile["boss_mistake_error_max"],
 		"boss_mistake_speed_scale": boss_mistake_profile["boss_mistake_speed_scale"],
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
+		"lingpet_puppet_grab_active": bool(_get_owner_value(owner, "lingpet_puppet_grab_active", false)),
 		"waiting_for_serve": _is_waiting_for_serve(round_state),
 		"player_serves": _does_player_serve(round_state),
 		"boss_serve_timer": _get_round_snapshot_float(round_state, "serve_timer", 0.0),

@@ -1,7 +1,7 @@
 {
   "asset_id": "milkring_futuristic_milk_blaster_concept_imagegen_v5",
   "pet_id": "milkring",
-  "display_name": "밀크링",
+  "display_name": "밀쿠",
   "source_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5_magenta_source.png",
   "alpha_path": "res://assets/sprites/lingpet/milkring_futuristic_milk_blaster_concept_imagegen_v5.png",
   "tool": "built-in image_gen",

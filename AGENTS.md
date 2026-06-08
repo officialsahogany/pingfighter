@@ -491,6 +491,17 @@ edits or when a Godot port needs a behavior comparison.
   `scripts/core/lingpet_debug_picker.gd` visibility before sign-off so the
   asset can be previewed through the F7 Ringpet debug flow even before normal
   hatch-pool promotion.
+- For Lingpet / Ringpet in-game SD companion sheets, the accepted viewpoint is
+  player-perspective rear view. A runtime-ready companion set needs three
+  5x5 / 25-frame sheets by default: `companion_idle` (rear view, facing
+  upfield / away from the player), `companion_move_left`, and
+  `companion_move_right`. Left/right movement sheets must be rear three-quarter
+  like Maribo, not full side profile: a slight face edge may be visible, but
+  the body must read as facing the playfield with clear alternating foot / step
+  motion. Do not satisfy this with a front-facing Live2D shrink or only one
+  mirrored `companion_walk` sheet when dedicated SD work is requested. Wire the
+  catalog / F7 debug route to the accepted directional sheets and keep
+  `companion_walk` as the legacy fallback for older pets.
 - Treat user wording such as "upscale", "upscaling", "hires",
   "업스케일", "업스케일링", or "real / Real-ESRGAN처럼" as a real
   Real-ESRGAN asset-processing request across item icons, HUD art, sprites,

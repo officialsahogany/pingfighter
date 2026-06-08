@@ -28,6 +28,7 @@ func reset_ball(config: Dictionary, deps: Dictionary, callbacks: Dictionary) -> 
 	player_pos.y = float(config.get("player_y", player_pos.y))
 	var boss_pos: Vector2 = _get_vector2(config, "boss_pos", Vector2.ZERO)
 	boss_pos.x = float(config.get("width", 0.0)) * 0.5 - float(config.get("boss_paddle_width", 0.0)) * 0.5
+	boss_pos.y = float(config.get("boss_y", boss_pos.y))
 	_perf_end(perf_logger, "process.reset_ball.controller.positions", sample_start)
 
 	return {

@@ -1,7 +1,7 @@
 {
   "asset_id": "volty_companion_strike_v1",
   "character": "volty",
-  "display_name": "볼티",
+  "display_name": "볼탄",
   "generated_at": "2026-06-03",
   "runtime_usage": "lingpet_companion_strike_ball_hit_with_anticipation",
   "status": "Accepted candidate: compact AutoSprite electric claw strike remapped so runtime frame 22 is impact.",

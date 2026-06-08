@@ -1003,17 +1003,17 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 		"maribo":
 			return "\ub9c8\ub9ac\ubcf4"
 		"lunabi":
-			return "\ub8e8\ub098\ube44"
+			return "달벳"
 		"milkring":
-			return "\ubc00\ud06c\ub9c1"
+			return "밀쿠"
 		"volty":
-			return "볼티"
+			return "볼탄"
 		"orbi":
 			return "오르비"
 		"koyora":
 			return "코요라"
 		"rabi":
-			return "\ub77c\ube44"
+			return "모락모랑"
 	var fallback := str(entry.get("display_name", pet_id))
 	return fallback if fallback.strip_edges() != "" else "\ubbf8\ud655\uc778 \ub9c1\ud3ab"
 

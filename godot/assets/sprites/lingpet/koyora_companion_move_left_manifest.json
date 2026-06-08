@@ -1,0 +1,116 @@
+{
+  "asset_id": "koyora_companion_move_left_rear_3q_smooth_25f_v2",
+  "pet_id": "koyora",
+  "display_name": "Koyora",
+  "created_at": "2026-06-08",
+  "runtime_usage": "lingpet_companion_move_left_rear_three_quarter_smooth_sheet",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_companion_move_left.png",
+  "autosprite": {
+    "character_id": "cmq3vc0na0028hw3s1u2pi0iq",
+    "character_name": "Koyora SD Rear Ringpet 20260607",
+    "kind": "iso_walk_northeast",
+    "spritesheet_id": "cmq3vedwe002uu5se9da6bt9j",
+    "workflow_job_id": "wf_6a6e243d-1169-4f69-a564-2bd9d00dfda8",
+    "source_frame_size": [
+      512,
+      512
+    ],
+    "generated_frame_count": 25,
+    "remove_bg": "ultra",
+    "quality": "legendary",
+    "rejected_followups": [
+      "wf_83ebccec-5a24-4a42-8ae8-a30dd142d875",
+      "wf_dabacf61-8528-45ce-a19a-a9c8451c3233"
+    ]
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "sha256": "0fa983de51bfce1fb7609298300735bf14c77cf16d860b1bde8dc2f96cf9ee00",
+    "bytes": 1151643
+  },
+  "postprocess": {
+    "tool": "Pillow AutoSprite-derived frame selection, alpha dust cleanup, center-bottom alignment, 5x5 sheet assembly",
+    "note": "Smooth v2 rebuild: keeps the accepted rear three-quarter angle but replaces the earlier discontinuous source-frame jump with a connected 0-1-2-3-4-3-2-1 walk loop and aligned cell anchors.",
+    "selected_source_frame_indices": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "runtime_frame_source_sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      3,
+      2,
+      1,
+      0,
+      1,
+      2,
+      3,
+      4,
+      3,
+      2,
+      1,
+      0,
+      1,
+      2,
+      3,
+      4,
+      3,
+      2,
+      1,
+      0
+    ],
+    "mirrored_from": "res://assets/sprites/lingpet/koyora_companion_move_right.png"
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "sample_bboxes": {
+      "0": [
+        39,
+        15,
+        209,
+        226
+      ],
+      "6": [
+        39,
+        20,
+        209,
+        226
+      ],
+      "12": [
+        39,
+        21,
+        209,
+        226
+      ],
+      "18": [
+        39,
+        20,
+        209,
+        226
+      ],
+      "24": [
+        39,
+        15,
+        209,
+        226
+      ]
+    }
+  }
+}

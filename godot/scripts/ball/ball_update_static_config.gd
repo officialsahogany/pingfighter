@@ -85,6 +85,7 @@ func build_reset_config(player_pos: Vector2, boss_pos: Vector2) -> Dictionary:
 		"player_pos": player_pos,
 		"boss_pos": boss_pos,
 		"player_y": PLAYER_Y,
+		"boss_y": BOSS_Y,
 		"player_paddle_width": PADDLE_WIDTH,
 		"boss_paddle_width": BOSS_PADDLE_WIDTH,
 	}

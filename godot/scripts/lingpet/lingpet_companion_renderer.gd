@@ -109,12 +109,34 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		return
 	var mode: String = LingpetCompanionSpriteAnimator.MODE_WALK
 	var tex: Texture2D = config.get("walk_texture", null) as Texture2D
+	var facing_left := bool(config.get("face_left", false))
+	var should_flip_sprite := false
 	if bool(config.get("casting_windup", false)):
 		mode = LingpetCompanionSpriteAnimator.MODE_CAST
 		tex = config.get("cast_texture", null) as Texture2D
+		should_flip_sprite = facing_left
 	elif bool(config.get("attacking", false)):
 		mode = LingpetCompanionSpriteAnimator.MODE_STRIKE
 		tex = config.get("strike_texture", null) as Texture2D
+		should_flip_sprite = facing_left
+	else:
+		var moving := float(config.get("motion_speed_ratio", 0.0)) > 0.01
+		if not moving:
+			var idle_tex: Texture2D = config.get("idle_texture", null) as Texture2D
+			if idle_tex != null:
+				tex = idle_tex
+			else:
+				should_flip_sprite = facing_left
+		elif facing_left:
+			var move_left_tex: Texture2D = config.get("move_left_texture", null) as Texture2D
+			if move_left_tex != null:
+				tex = move_left_tex
+			else:
+				should_flip_sprite = true
+		else:
+			var move_right_tex: Texture2D = config.get("move_right_texture", null) as Texture2D
+			if move_right_tex != null:
+				tex = move_right_tex
 	if tex == null:
 		return
 	var draw_size_override: Vector2 = _get_draw_size_override(config, mode)
@@ -133,12 +155,12 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 	var dest_rect: Rect2 = rects.get("dest", Rect2())
 	var source_rect: Rect2 = rects.get("source", Rect2())
 	var modulate := Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
-	# The walk sheet faces the direction of travel (iso_walk_northeast = rightward
-	# 3/4 back). When the companion moves left, mirror it by swapping UVs across the
-	# same positive destination rect. Passing a negative Rect2 width to
+	# Dedicated movement sheets render as-authored. Legacy sheets mirror through
+	# UVs for left-facing walk / strike / cast fallbacks. Passing a negative Rect2
+	# width to
 	# draw_texture_rect_region can shift the visible sheet away from the collision
-	# center on some draw paths.
-	if bool(config.get("face_left", false)):
+	# center on some draw paths, so the flip stays UV-swapped.
+	if should_flip_sprite:
 		_draw_flipped_texture_region(canvas, tex, source_rect, dest_rect, modulate)
 	else:
 		canvas.draw_texture_rect_region(tex, dest_rect, source_rect, modulate, false, true)

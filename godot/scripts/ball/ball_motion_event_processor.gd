@@ -74,6 +74,7 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 		"player_paddle_size": _get_vector2(context, "player_paddle_size", Vector2.ZERO),
 		"boss_pos": _get_vector2(context, "boss_pos", Vector2.ZERO),
 		"boss_paddle_size": _get_vector2(context, "boss_paddle_size", Vector2.ZERO),
+		"lingpet_puppet_grab_active": bool(context.get("lingpet_puppet_grab_active", false)),
 		"hitbox_padding": float(context.get("hitbox_padding", 5.0)),
 		"viper_dark_blade_rising_contact_active": bool(context.get("viper_dark_blade_rising_contact_active", false)),
 		"warp_gate_active": bool(context.get("warp_gate_active", false)),

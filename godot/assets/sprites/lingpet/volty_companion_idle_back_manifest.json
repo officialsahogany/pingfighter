@@ -1,7 +1,7 @@
 {
   "asset_id": "volty_companion_idle_back_v1",
   "character": "volty",
-  "display_name": "볼티",
+  "display_name": "볼탄",
   "generated_at": "2026-06-03",
   "runtime_usage": "lingpet_companion_walk_idle_candidate",
   "status": "Accepted candidate: rear-view hover breathing loop from AutoSprite, runtime-sized 128px cells.",

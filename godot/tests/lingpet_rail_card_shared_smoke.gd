@@ -6,6 +6,7 @@ extends SceneTree
 # every stage, so its card must ride every stage's rail, not just Stage 1).
 
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -48,6 +49,8 @@ func _init() -> void:
 	_verify_staged_prewarm()
 	_verify_prewarm_registered()
 
+	LingpetRailCard.clear_caches()
+	ProjectResourceLoader.clear_caches()
 	if _failures.is_empty():
 		print("lingpet_rail_card_shared_smoke: ok")
 		quit(0)
@@ -121,7 +124,7 @@ func _verify_build_entry_states() -> void:
 	lunabi_runtime.snapshot = {
 		"companion_skill_id": "lunabi_headbutt",
 		"companion_skill_name": "박치기",
-		"companion_skill_description": "루나비가 상대 패들을 향해 돌진합니다.",
+		"companion_skill_description": "달벳이 상대 패들을 향해 돌진합니다.",
 		"companion_skill_card_path": "res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png",
 		"companion_skill_cooldown": 12.0,
 		"companion_skill_cooldown_duration": 30.0,
@@ -150,7 +153,7 @@ func _verify_build_entry_states() -> void:
 	ghost_runtime.snapshot = {
 		"companion_skill_id": "rabi_ghost_summon",
 		"companion_skill_name": "유령 소환",
-		"companion_skill_description": "라비가 유령들을 소환합니다.",
+		"companion_skill_description": "모락모랑이 유령들을 소환합니다.",
 		"companion_skill_card_path": "res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png",
 		"companion_skill_cooldown": 30.0,
 		"companion_skill_cooldown_duration": 40.0,
@@ -213,7 +216,7 @@ func _verify_tooltip_info() -> void:
 		"label": "박치기",
 		"trigger_label": "자동",
 		"cooldown_total": 30.0,
-		"description": "루나비가 돌진합니다.",
+		"description": "달벳이 돌진합니다.",
 	})
 	_expect(str(lunabi_info.get("name", "")) == "박치기", "tooltip should use the live Lunabi Headbutt label")
 	_expect(absf(float(lunabi_info.get("cooldown_seconds", 0.0)) - 30.0) <= 0.01, "tooltip should expose Lunabi Headbutt's 30s cooldown")

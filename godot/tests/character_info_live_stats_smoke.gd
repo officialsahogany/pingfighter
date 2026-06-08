@@ -12,6 +12,7 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
 
@@ -288,6 +289,7 @@ func _init() -> void:
 
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
 
+	ProjectResourceLoader.clear_caches()
 	print("character_info_live_stats_smoke: ok")
 	quit(0)
 
@@ -370,4 +372,5 @@ func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
 	push_error(message)
+	ProjectResourceLoader.clear_caches()
 	quit(1)

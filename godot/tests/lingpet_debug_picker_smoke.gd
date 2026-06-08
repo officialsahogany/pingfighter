@@ -408,10 +408,13 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"Koyora in-battle companion click reaction should use the downscaled 14x7 / 128px runtime sheet"
 	)
 	_expect(
-		LingpetCatalog.get_visual_path("koyora", "companion_walk") == "res://assets/sprites/lingpet/koyora_companion_walk.png"
-		and LingpetCatalog.get_visual_path("koyora", "companion_strike") == "res://assets/sprites/lingpet/koyora_companion_walk.png"
-		and LingpetCatalog.get_visual_path("koyora", "companion_cast") == "res://assets/sprites/lingpet/koyora_companion_walk.png",
-		"Koyora F7 runtime companion visuals should use the temporary 5x5 source-art hover sheet instead of cropping the fullscreen Live2D sheet"
+		LingpetCatalog.get_visual_path("koyora", "companion_idle") == "res://assets/sprites/lingpet/koyora_companion_idle.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_move_left") == "res://assets/sprites/lingpet/koyora_companion_move_left.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_move_right") == "res://assets/sprites/lingpet/koyora_companion_move_right.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_walk") == "res://assets/sprites/lingpet/koyora_companion_move_right.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_strike") == "res://assets/sprites/lingpet/koyora_companion_move_right.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_cast") == "res://assets/sprites/lingpet/koyora_companion_idle.png",
+		"Koyora F7 runtime companion visuals should use dedicated rear-view idle/left/right SD sheets"
 	)
 	_expect(
 		is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_seconds", 0.0), 3.35)
@@ -420,10 +423,10 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"Koyora acquisition click-dismiss should use the long 98-frame Live2D exit timing"
 	)
 	var koyora_active_pool := LingpetCatalog.get_active_skill_pool("koyora")
-	_expect(_active_pool_has(koyora_active_pool, "koyora_puppet_string_orbit"), "Koyora debug loadout should expose Puppet String Orbit")
+	_expect(_active_pool_has(koyora_active_pool, "koyora_puppet_control"), "Koyora debug loadout should expose 꼭두각시 조종 (Puppet Control)")
 	_expect(
-		LingpetCatalog.get_active_skill_runtime_kind("koyora_puppet_string_orbit") == "moon_orbit",
-		"Koyora temporary debug active skill should route through the supported moon_orbit runtime"
+		LingpetCatalog.get_active_skill_runtime_kind("koyora_puppet_control") == "puppet_grab",
+		"Koyora 꼭두각시 조종 should route through the ported puppet_grab runtime"
 	)
 	_expect(
 		FileAccess.file_exists("res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png")
@@ -433,9 +436,11 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(
 		FileAccess.file_exists("res://assets/sprites/lingpet/koyora_cutin_anim.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png")
-		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_walk.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_idle.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_move_left.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_move_right.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png"),
-		"Koyora acquisition, full click, companion walk, and companion click textures should exist under the lingpet asset tree"
+		"Koyora acquisition, full click, three-way SD companion, and companion click textures should exist under the lingpet asset tree"
 	)
 	var koyora_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_cutin_anim_manifest.json")
 	_expect(
@@ -458,15 +463,21 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and koyora_click_manifest.find("\"edge_touch_frames\": []") >= 0,
 		"Koyora full click Live2D manifest should pin the 14x7 / 98-frame pingpong sheet and clean-edge QA"
 	)
-	var koyora_companion_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_walk_manifest.json")
+	var koyora_companion_idle_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_idle_manifest.json")
+	var koyora_companion_move_left_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_move_left_manifest.json")
+	var koyora_companion_move_right_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_move_right_manifest.json")
 	var koyora_companion_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f_manifest.json")
 	_expect(
-		koyora_companion_manifest.find("koyora_companion_static_float_25f_v1") >= 0
-		and koyora_companion_manifest.find("\"frame_count\": 25") >= 0
-		and koyora_companion_manifest.find("\"cols\": 5") >= 0
-		and koyora_companion_manifest.find("\"rows\": 5") >= 0
-		and koyora_companion_manifest.find("\"edge_alpha_max\": 0") >= 0,
-		"Koyora temporary companion hover manifest should pin the 5x5 / 25-frame sheet and transparent-edge QA"
+		koyora_companion_idle_manifest.find("koyora_companion_idle_rear_25f_v1") >= 0
+		and koyora_companion_move_left_manifest.find("koyora_companion_move_left_rear_3q_smooth_25f_v2") >= 0
+		and koyora_companion_move_right_manifest.find("koyora_companion_move_right_rear_3q_smooth_25f_v2") >= 0
+		and koyora_companion_idle_manifest.find("\"frame_count\": 25") >= 0
+		and koyora_companion_move_left_manifest.find("\"frame_count\": 25") >= 0
+		and koyora_companion_move_right_manifest.find("\"frame_count\": 25") >= 0
+		and koyora_companion_idle_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and koyora_companion_move_left_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and koyora_companion_move_right_manifest.find("\"edge_alpha_max\": 0") >= 0,
+		"Koyora SD companion manifests should pin the three rear-view 5x5 / 25-frame sheets and transparent-edge QA"
 	)
 	_expect(
 		koyora_companion_click_manifest.find("koyora_companion_click_reaction_98f_v1") >= 0
@@ -616,8 +627,11 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(
 		companion_context_source.find("\"pet_id\": _get_pet_id(current_profile)") < 0
 		and companion_renderer_source.find("_draw_directional_face_hint") < 0
+		and companion_context_source.find("companion_idle") >= 0
+		and companion_context_source.find("companion_move_left") >= 0
+		and companion_context_source.find("companion_move_right") >= 0
 		and companion_renderer_source.find("face_left") >= 0,
-		"Rabi companion movement face should now come from the AutoSprite sheet itself, while the renderer keeps the standard left/right mirror path"
+		"Companion movement face should come from the sheet itself when available, while the renderer keeps the standard left/right mirror fallback"
 	)
 	var rabi_source_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2_manifest.json")
 	_expect(
@@ -835,9 +849,9 @@ func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
 	_expect(rabi_owner.lingpet_active_skill_id == "rabi_ghost_summon", "debug-only Rabi should persist its ghost summon active skill")
 	var koyora_runtime := LingpetEggRuntime.new()
 	var koyora_owner := FakeOwner.new()
-	_expect(koyora_runtime.debug_grant_and_activate_pet("koyora", koyora_owner, false, "koyora_puppet_string_orbit", "lingpet_resonance_boost"), "debug grant should accept debug-only Koyora")
+	_expect(koyora_runtime.debug_grant_and_activate_pet("koyora", koyora_owner, false, "koyora_puppet_control", "lingpet_resonance_boost"), "debug grant should accept debug-only Koyora")
 	_expect(koyora_owner.active_lingpet_id == "koyora", "debug-only Koyora should activate when granted through the F7 debug path")
-	_expect(koyora_owner.lingpet_active_skill_id == "koyora_puppet_string_orbit", "debug-only Koyora should persist its puppet-string active skill")
+	_expect(koyora_owner.lingpet_active_skill_id == "koyora_puppet_control", "debug-only Koyora should persist its 꼭두각시 조종 active skill")
 
 
 func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:

@@ -40,6 +40,16 @@ static func prewarm() -> void:
 		pass
 
 
+static func clear_caches() -> void:
+	_texture = null
+	_texture_loaded = false
+	_texture_cache.clear()
+	_prewarm_paths.clear()
+	_prewarm_paths_ready = false
+	_prewarm_path_index = 0
+	_prewarm_complete = false
+
+
 static func prewarm_step() -> bool:
 	if _prewarm_complete:
 		return true

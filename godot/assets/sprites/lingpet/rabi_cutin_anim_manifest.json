@@ -1,7 +1,7 @@
 {
   "asset_id": "rabi_acquisition_cutin_anim",
   "pet_id": "rabi",
-  "display_name": "라비",
+  "display_name": "모락모랑",
   "generated_at": "2026-06-06",
   "runtime_usage": "candidate lingpet_acquisition_fullscreen_cutin; not wired into lingpet_catalog.gd yet",
   "source_art": {

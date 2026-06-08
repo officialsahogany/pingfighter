@@ -150,7 +150,7 @@ static func prewarm_texture_threaded_step(
 		if _is_threaded_texture_prewarm_expired(max_msec, max_polls):
 			if emit_timeout_warning:
 				_push_threaded_texture_prewarm_stale_warning()
-			_clear_threaded_texture_prewarm()
+			_drain_threaded_texture_prewarm()
 			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		if _is_threaded_texture_prewarm_stale():
 			_push_threaded_texture_prewarm_stale_warning()
@@ -177,7 +177,7 @@ static func prewarm_texture_threaded_step(
 	if _is_threaded_texture_prewarm_expired(max_msec, max_polls):
 		if emit_timeout_warning:
 			_push_threaded_texture_prewarm_stale_warning()
-		_clear_threaded_texture_prewarm()
+		_drain_threaded_texture_prewarm()
 		return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 	if _is_threaded_texture_prewarm_stale():
 		_push_threaded_texture_prewarm_stale_warning()
@@ -282,7 +282,7 @@ static func prewarm_audio_stream_threaded_step(path: String, missing_warning: St
 	if _threaded_audio_prewarm_path != path:
 		_threaded_audio_prewarm_poll_count += 1
 		if _is_threaded_audio_prewarm_expired():
-			_clear_threaded_audio_prewarm()
+			_drain_threaded_audio_prewarm()
 			return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
 		return {"done": false, "stream": null}
 
@@ -302,7 +302,7 @@ static func prewarm_audio_stream_threaded_step(path: String, missing_warning: St
 			return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
 	_threaded_audio_prewarm_poll_count += 1
 	if _is_threaded_audio_prewarm_expired():
-		_clear_threaded_audio_prewarm()
+		_drain_threaded_audio_prewarm()
 		return {"done": true, "stream": load_audio_stream(path, missing_warning, failed_warning)}
 	return {"done": false, "stream": null}
 
