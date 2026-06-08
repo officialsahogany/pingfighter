@@ -27,15 +27,20 @@ var _stage_transition_loading_work_step := 0
 
 
 func handle_score_event(scoring_side: String, owner: Object, registry: Object) -> void:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var current_stage := int(_get_owner_value(owner, "current_stage", 1))
+	var sample_start: int = _perf_begin(perf_logger)
 	_restore_pending_active_item_throw(owner, registry)
+	_perf_end(perf_logger, "physics.score_event.restore_pending_throw", sample_start)
 	var match_flow_driver: Object = _get_match_flow_driver(registry)
 	if match_flow_driver != null and match_flow_driver.has_method("handle_score_event"):
+		sample_start = _perf_begin(perf_logger)
 		var reset_ball_callback := Callable(self, "_reset_ball").bind(owner, registry)
 		if _method_accepts_argument_count(match_flow_driver, "handle_score_event", 5):
 			match_flow_driver.handle_score_event(registry, scoring_side, reset_ball_callback, current_stage, owner)
 		else:
 			match_flow_driver.handle_score_event(registry, scoring_side, reset_ball_callback, current_stage)
+		_perf_end(perf_logger, "physics.score_event.match_flow_driver", sample_start)
 
 
 func handle_round_restart_event(reason: String, owner: Object, registry: Object) -> void:

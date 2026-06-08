@@ -4,28 +4,63 @@ const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_aud
 
 
 func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dictionary) -> void:
+	var perf_logger: Object = _get_perf_logger(deps)
 	var score_state: Object = deps.get("score_state", null)
 	if score_state == null:
 		return
+	var sample_start: int = _perf_begin(perf_logger)
 	if _try_negate_boss_score(scoring_side, score_state, deps, callbacks):
+		_perf_end(perf_logger, "physics.score_event.negate_boss_score", sample_start)
 		return
+	_perf_end(perf_logger, "physics.score_event.negate_boss_score", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	if _try_trigger_revival(scoring_side, score_state, deps, callbacks):
+		_perf_end(perf_logger, "physics.score_event.revival", sample_start)
 		return
+	_perf_end(perf_logger, "physics.score_event.revival", sample_start)
 
+	sample_start = _perf_begin(perf_logger)
 	var score_result: Dictionary = score_state.score_for(scoring_side)
+	_perf_end(perf_logger, "physics.score_event.score_state.score_for", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_queue_pandora_legacy_selection(scoring_side, deps)
+	_perf_end(perf_logger, "physics.score_event.mythic.pandora_queue", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_queue_adversity_armor_after_loss(scoring_side, score_result, deps)
+	_perf_end(perf_logger, "physics.score_event.mythic.adversity_queue", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_apply_stage_score_reaction(scoring_side, deps)
+	_perf_end(perf_logger, "physics.score_event.stage_reaction.background", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_apply_stage3_kuromi_score_reaction(scoring_side, score_result, deps)
+	_perf_end(perf_logger, "physics.score_event.stage_reaction.stage3", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_apply_stage4_score_reaction(scoring_side, score_result, deps)
+	_perf_end(perf_logger, "physics.score_event.stage_reaction.stage4", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_clear_stage2_round_boundary_fx(deps)
+	_perf_end(perf_logger, "physics.score_event.round_boundary.stage2_fx", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_clear_stage4_round_boundary_fx(deps)
+	_perf_end(perf_logger, "physics.score_event.round_boundary.stage4_fx", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_clear_stage5_round_boundary_fx(deps)
+	_perf_end(perf_logger, "physics.score_event.round_boundary.stage5_fx", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_start_score_result_texture_prewarm(scoring_side, deps)
+	_perf_end(perf_logger, "physics.score_event.result_texture_queue", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_sync_next_server(scoring_side, score_result, deps)
+	_perf_end(perf_logger, "physics.score_event.round_state.next_server", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_start_scoreboard_or_reset_ball(scoring_side, score_result, deps, callbacks)
+	_perf_end(perf_logger, "physics.score_event.scoreboard_start", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_start_scoreboard_wait(deps)
+	_perf_end(perf_logger, "physics.score_event.round_state.scoreboard_wait", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_play_score_audio(deps)
+	_perf_end(perf_logger, "physics.score_event.audio.total", sample_start)
 
 
 func _start_score_result_texture_prewarm(scoring_side: String, deps: Dictionary) -> void:
@@ -104,9 +139,12 @@ func _play_score_audio(deps: Dictionary) -> void:
 	var audio: Object = deps.get("audio", null)
 	if audio == null:
 		return
-	_stop_score_audio_loops(audio)
+	var perf_logger: Object = _get_perf_logger(deps)
+	_stop_score_audio_loops(audio, perf_logger, "physics.score_event.audio.cleanup")
+	var sample_start: int = _perf_begin(perf_logger)
 	if audio.has_method("play_round_set"):
 		audio.play_round_set()
+	_perf_end(perf_logger, "physics.score_event.audio.round_set", sample_start)
 
 
 func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
@@ -121,8 +159,14 @@ func _method_accepts_argument_count(target: Object, method_name: String, argumen
 	return false
 
 
-func _stop_score_audio_loops(audio: Object) -> void:
+func _stop_score_audio_loops(
+	audio: Object,
+	perf_logger: Object = null,
+	label: String = "physics.score_event.audio.cleanup"
+) -> void:
+	var sample_start: int = _perf_begin(perf_logger)
 	GameplayLoopAudioCleanup.stop_all(audio)
+	_perf_end(perf_logger, label, sample_start)
 
 
 func _queue_pandora_legacy_selection(scoring_side: String, deps: Dictionary) -> void:
@@ -341,3 +385,21 @@ func _call_callback(callbacks: Dictionary, key: String) -> void:
 	var callback: Callable = callbacks.get(key, Callable())
 	if callback.is_valid():
 		callback.call()
+
+
+func _get_perf_logger(deps: Dictionary) -> Object:
+	var perf_logger: Variant = deps.get("perf_logger", null)
+	if typeof(perf_logger) == TYPE_OBJECT and is_instance_valid(perf_logger):
+		return perf_logger as Object
+	return null
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

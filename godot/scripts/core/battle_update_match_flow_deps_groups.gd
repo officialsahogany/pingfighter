@@ -23,5 +23,9 @@ func build_player_skill_runtime_deps(registry: Object) -> Dictionary:
 	return player_skill_deps_builder.build_deps(registry)
 
 
-func build_stage_runtime_deps(registry: Object, current_stage: int = 1) -> Dictionary:
-	return stage_runtime_deps_builder.build_deps(registry, current_stage)
+func build_stage_runtime_deps(
+	registry: Object,
+	current_stage: int = 1,
+	include_all_stages: bool = true
+) -> Dictionary:
+	return stage_runtime_deps_builder.build_deps(registry, current_stage, include_all_stages)

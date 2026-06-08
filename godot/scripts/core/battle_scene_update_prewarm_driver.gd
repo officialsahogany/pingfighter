@@ -112,7 +112,7 @@ func _prewarm_update_context(owner: Object, registry: Object) -> void:
 	_prewarm_player_control_context(owner, registry)
 	_prewarm_boss_ai_context(owner, registry)
 	_prewarm_effects_context(owner, registry)
-	_prewarm_match_flow_context(registry)
+	_prewarm_match_flow_context(owner, registry)
 
 
 func _prewarm_player_control_context(owner: Object, registry: Object) -> void:
@@ -188,12 +188,17 @@ func _prewarm_effects_context_step(owner: Object, registry: Object) -> bool:
 	return true
 
 
-func _prewarm_match_flow_context(registry: Object) -> void:
+func _prewarm_match_flow_context(owner: Object, registry: Object) -> void:
 	var context_builder: Object = _get_instance(registry, "battle_update_context")
 	if context_builder == null:
 		return
 	if context_builder.has_method("build_match_flow_deps"):
-		context_builder.build_match_flow_deps(registry)
+		_build_match_flow_deps_for_prewarm(
+			context_builder,
+			registry,
+			int(_get_owner_value(owner, "current_stage", 1)),
+			false
+		)
 
 
 func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
@@ -209,7 +214,8 @@ func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
 			return false
 		update_prewarm_substep_index += 1
 		return false
-	update_prewarm_detail_label = "match_deps.deferred_finalize"
+	update_prewarm_detail_label = "match_deps.finalize"
+	_prewarm_match_flow_context(owner, registry)
 	return true
 
 
@@ -395,3 +401,31 @@ func _get_step_key_label(prefix: String, keys: Array) -> String:
 			str(keys[update_prewarm_substep_index]),
 		]
 	return "%s.finalize" % prefix
+
+
+func _build_match_flow_deps_for_prewarm(
+	context_builder: Object,
+	registry: Object,
+	current_stage: int,
+	include_all_stage_deps: bool
+) -> void:
+	if _method_accepts_argument_count(context_builder, "build_match_flow_deps", 5):
+		context_builder.build_match_flow_deps(registry, current_stage, null, "", include_all_stage_deps)
+	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 4):
+		context_builder.build_match_flow_deps(registry, current_stage, null, "")
+	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 3):
+		context_builder.build_match_flow_deps(registry, current_stage, null)
+	else:
+		context_builder.build_match_flow_deps(registry, current_stage)
+
+
+func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
+	if target == null:
+		return false
+	for method_value in target.get_method_list():
+		var method_info: Dictionary = method_value if method_value is Dictionary else {}
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args: Array = method_info.get("args", [])
+		return args.size() >= argument_count
+	return false

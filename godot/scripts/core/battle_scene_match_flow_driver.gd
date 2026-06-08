@@ -19,9 +19,21 @@ func handle_score_event(
 	var controller: Object = _get_instance(registry, "match_flow_controller")
 	if controller == null:
 		return
-	controller.handle_score_event(scoring_side, _get_match_flow_deps(registry, current_stage, owner), {
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var sample_start: int = _perf_begin(perf_logger)
+	var deps: Dictionary = _get_match_flow_deps(
+		registry,
+		current_stage,
+		owner,
+		"physics.score_event.match_flow.deps",
+		false
+	)
+	_perf_end(perf_logger, "physics.score_event.match_flow.build_deps", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	controller.handle_score_event(scoring_side, deps, {
 		"reset_ball": reset_ball_callback,
 	})
+	_perf_end(perf_logger, "physics.score_event.match_flow.controller", sample_start)
 
 
 func handle_round_restart(registry: Object, reason: String, reset_ball_callback: Callable) -> void:
@@ -217,17 +229,48 @@ func reset_for_stage_transition(
 	_notify_mythic_stage_advance(owner, registry)
 
 
-func _get_match_flow_deps(registry: Object, current_stage: int = 1, owner: Object = null) -> Dictionary:
+func _get_match_flow_deps(
+	registry: Object,
+	current_stage: int = 1,
+	owner: Object = null,
+	perf_label_prefix: String = "",
+	include_all_stage_deps: bool = true
+) -> Dictionary:
 	var context_builder: Object = _get_instance(registry, "battle_update_context")
 	if context_builder == null:
 		return {}
-	var deps: Dictionary = context_builder.build_match_flow_deps(registry, current_stage)
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var context_perf_logger: Object = perf_logger if perf_label_prefix != "" else null
+	var deps: Dictionary
+	if _method_accepts_argument_count(context_builder, "build_match_flow_deps", 5):
+		deps = context_builder.build_match_flow_deps(
+			registry,
+			current_stage,
+			context_perf_logger,
+			perf_label_prefix,
+			include_all_stage_deps
+		)
+	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 4):
+		deps = context_builder.build_match_flow_deps(
+			registry,
+			current_stage,
+			context_perf_logger,
+			perf_label_prefix
+		)
+	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 3):
+		deps = context_builder.build_match_flow_deps(registry, current_stage, context_perf_logger)
+	else:
+		deps = context_builder.build_match_flow_deps(registry, current_stage)
 	deps["registry"] = registry
+	if perf_logger != null:
+		deps["perf_logger"] = perf_logger
 	if owner != null:
+		var owner_start: int = _perf_begin(context_perf_logger)
 		deps["owner"] = owner
 		deps["starting_dash_tokens"] = _get_starting_dash_tokens(owner, registry)
 		deps["league_player_paddle_scale"] = _get_league_player_paddle_scale(owner, registry)
 		deps["league_boss_paddle_scale"] = _get_league_boss_paddle_scale(owner, registry)
+		_perf_end(context_perf_logger, "%s.owner_extras" % perf_label_prefix, owner_start)
 	return deps
 
 
@@ -250,6 +293,18 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
+	if target == null:
+		return false
+	for method_value in target.get_method_list():
+		var method_info: Dictionary = method_value if method_value is Dictionary else {}
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args: Array = method_info.get("args", [])
+		return args.size() >= argument_count
+	return false
 
 
 func _perf_begin(perf_logger: Object) -> int:

@@ -23,6 +23,8 @@ class FakeContextBuilder:
 	var effects_deps_stage := 0
 	var effects_deps_character := ""
 	var match_deps_calls := 0
+	var match_deps_stage := 0
+	var match_deps_include_all_stage_deps := true
 
 	func build_player_control_config(character_type: String = "smasher") -> Dictionary:
 		player_config_character = character_type
@@ -49,8 +51,16 @@ class FakeContextBuilder:
 		effects_deps_character = character_type
 		return {}
 
-	func build_match_flow_deps(_registry: Object, _current_stage: int = 1) -> Dictionary:
+	func build_match_flow_deps(
+		_registry: Object,
+		_current_stage: int = 1,
+		_perf_logger: Object = null,
+		_perf_label_prefix: String = "",
+		_include_all_stage_deps: bool = true
+	) -> Dictionary:
 		match_deps_calls += 1
+		match_deps_stage = _current_stage
+		match_deps_include_all_stage_deps = _include_all_stage_deps
 		return {}
 
 
@@ -127,10 +137,12 @@ func _init() -> void:
 	_expect(context.effects_deps_calls == 1, "prewarm should prime effects deps")
 	_expect(context.effects_deps_stage == 4, "prewarm should prime effects deps for selected stage")
 	_expect(context.effects_deps_character == "viper", "prewarm should prime effects deps for selected character")
-	_expect(context.match_deps_calls == 0, "prewarm should defer full match flow deps until score or reset flow needs them")
+	_expect(context.match_deps_calls == 1, "prewarm should finalize match flow deps before the first score event")
+	_expect(context.match_deps_stage == 4, "prewarm should finalize match flow deps for selected stage")
+	_expect(not context.match_deps_include_all_stage_deps, "prewarm should use current-stage score-event deps")
 	_expect(registry.requested_keys.has("viper_skill_runtime"), "prewarm should still warm selected Viper match/runtime deps")
 	_expect(not registry.requested_keys.has("commando_firearm_runtime"), "prewarm should not warm unselected Commando firearm deps")
-	_expect(not registry.requested_keys.has("stage2_pillar_background"), "prewarm should not warm off-stage Stage 2 background deps")
+	_expect(not registry.requested_keys.has("stage2_pillar_background"), "prewarm should not warm off-stage deps during score-event prewarm")
 	_expect(registry.requested_keys.has("stage4_ponk_skill_state"), "prewarm should still warm selected Stage 4 deps")
 
 	driver.prewarm_ball_update(owner, registry)
