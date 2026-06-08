@@ -8,6 +8,7 @@ const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_cor
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetDebugPicker := preload("res://scripts/core/lingpet_debug_picker.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -231,6 +232,7 @@ func _init() -> void:
 	_verify_debug_grant_accepts_explicit_skill_loadout()
 	_verify_full_slots_replace_active_slot_for_debug_grant()
 	_verify_defense_rate_slider()
+	ProjectResourceLoader.clear_caches()
 	if _failures.is_empty():
 		print("lingpet_debug_picker_smoke: ok")
 		quit(0)

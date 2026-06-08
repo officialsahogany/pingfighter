@@ -444,6 +444,7 @@ func _init() -> void:
 	_verify_companion_click_reaction()
 	_verify_ineligible_conditions_do_not_spawn()
 
+	ProjectResourceLoader.clear_caches()
 	if _failures.is_empty():
 		print("lingpet_egg_runtime_smoke: ok")
 		quit(0)

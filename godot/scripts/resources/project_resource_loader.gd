@@ -433,6 +433,19 @@ static func _clear_threaded_texture_prewarm() -> void:
 	_threaded_texture_prewarm_stale_warning_sent = false
 
 
+static func _drain_threaded_texture_prewarm() -> void:
+	if _threaded_texture_prewarm_path == "":
+		return
+	var path := _threaded_texture_prewarm_path
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		ResourceLoader.load_threaded_get(path)
+	elif status != ResourceLoader.THREAD_LOAD_FAILED and status != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		ResourceLoader.load_threaded_get(path)
+	_clear_threaded_texture_prewarm()
+
+
 static func _is_threaded_audio_prewarm_expired() -> bool:
 	if _threaded_audio_prewarm_path == "":
 		return false
@@ -448,7 +461,22 @@ static func _clear_threaded_audio_prewarm() -> void:
 	_threaded_audio_prewarm_poll_count = 0
 
 
+static func _drain_threaded_audio_prewarm() -> void:
+	if _threaded_audio_prewarm_path == "":
+		return
+	var path := _threaded_audio_prewarm_path
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		ResourceLoader.load_threaded_get(path)
+	elif status != ResourceLoader.THREAD_LOAD_FAILED and status != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		ResourceLoader.load_threaded_get(path)
+	_clear_threaded_audio_prewarm()
+
+
 static func clear_caches() -> void:
+	_drain_threaded_texture_prewarm()
+	_drain_threaded_audio_prewarm()
 	_texture_cache.clear()
 	_audio_cache.clear()
 	_font_cache.clear()
