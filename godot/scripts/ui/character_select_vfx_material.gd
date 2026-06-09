@@ -2,10 +2,12 @@ extends RefCounted
 
 
 static func prewarm() -> void:
+	# Compatibility hook: the current VFX material path has no shader cache to warm.
 	pass
 
 
 static func clear_caches() -> void:
+	# Compatibility hook kept for callers that release shared VFX resources.
 	pass
 
 

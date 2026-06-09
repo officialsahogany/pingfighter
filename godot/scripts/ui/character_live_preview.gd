@@ -851,6 +851,7 @@ func _draw_preview_backdrop(accent: Color, glow: Color) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.018, 0.020, 0.034, 0.98))
 	draw_rect(Rect2(Vector2(8.0, 8.0), size - Vector2(16.0, 16.0)), Color(0.026, 0.032, 0.052, 0.92))
 	var floor_y := _stage_floor_y()
+	# The parent draw pass owns backdrop textures so they stay behind the character art.
 	if preview_vfx_enabled:
 		_draw_preview_vfx_texture_backdrop(floor_y)
 	var center := Vector2(size.x * 0.5, floor_y)
