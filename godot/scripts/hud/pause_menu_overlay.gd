@@ -1561,6 +1561,7 @@ func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, tex
 func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, text: String) -> void:
 	if text.is_empty():
 		return
+	var draw_font := _get_text_draw_font(font, text)
 	var bar := Rect2(panel_rect.position + Vector2(28.0, panel_rect.size.y - 22.0), Vector2(panel_rect.size.x - 56.0, 16.0))
 	var marker_center := Vector2(bar.position.x, bar.get_center().y)
 	canvas.draw_colored_polygon(
@@ -1571,7 +1572,7 @@ func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, te
 		]),
 		Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.88)
 	)
-	canvas.draw_string(font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, maxf(0.0, bar.size.x - 13.0), 12, TEXT_DIM)
+	canvas.draw_string(draw_font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, maxf(0.0, bar.size.x - 13.0), 12, TEXT_DIM)
 
 
 func _get_select_chevron_rects(value_rect: Rect2) -> Dictionary:
@@ -1584,7 +1585,8 @@ func _get_select_chevron_rects(value_rect: Rect2) -> Dictionary:
 
 func _draw_toggle_leader(canvas: CanvasItem, font: Font, row_rect: Rect2, checkbox_rect: Rect2, title: String) -> void:
 	var title_start_x := row_rect.position.x + 58.0
-	var title_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15).x
+	var title_font := _get_text_draw_font(font, title)
+	var title_width := title_font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15).x
 	var title_end_x := title_start_x + title_width
 	var leader_y := row_rect.position.y + 20.0
 	var leader_x0 := title_end_x + 10.0
@@ -1649,6 +1651,25 @@ func _get_ui_font(tech: bool = false) -> Font:
 	return FONT_TECH if tech else FONT_BODY
 
 
+func _get_text_draw_font(font: Font, text: String) -> Font:
+	if font != null and not _needs_cjk_fallback_font(text):
+		return font
+	return ThemeDB.fallback_font if ThemeDB.fallback_font != null else font
+
+
+func _needs_cjk_fallback_font(text: String) -> bool:
+	for index in range(text.length()):
+		var codepoint := text.unicode_at(index)
+		if (
+			(codepoint >= 0x3000 and codepoint <= 0x30FF)
+			or (codepoint >= 0x3400 and codepoint <= 0x9FFF)
+			or (codepoint >= 0xF900 and codepoint <= 0xFAFF)
+			or (codepoint >= 0xFF66 and codepoint <= 0xFF9F)
+		):
+			return true
+	return false
+
+
 func _focus_pulse_alpha() -> float:
 	return 0.55 + 0.45 * sin(animation_time * TAU / 2.85)
 
@@ -1698,22 +1719,25 @@ func _get_focused_option_description(tab: String, focus: int) -> String:
 
 
 func _draw_text(canvas: CanvasItem, font: Font, text: String, pos: Vector2, size: int, color: Color) -> void:
-	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
+	var draw_font := _get_text_draw_font(font, text)
+	canvas.draw_string(draw_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
 
 
 func _draw_text_centered(canvas: CanvasItem, font: Font, text: String, center: Vector2, size: int, color: Color) -> void:
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size)
-	canvas.draw_string(font, center - Vector2(text_size.x * 0.5, text_size.y * 0.5), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
+	var draw_font := _get_text_draw_font(font, text)
+	var text_size: Vector2 = draw_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size)
+	canvas.draw_string(draw_font, center - Vector2(text_size.x * 0.5, text_size.y * 0.5), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
 
 
 func _draw_text_in_rect(canvas: CanvasItem, font: Font, text: String, rect: Rect2, size: int, color: Color) -> void:
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size)
-	var ascent: float = font.get_ascent(size)
+	var draw_font := _get_text_draw_font(font, text)
+	var text_size: Vector2 = draw_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size)
+	var ascent: float = draw_font.get_ascent(size)
 	var pos := Vector2(
 		rect.position.x + (rect.size.x - text_size.x) * 0.5,
 		rect.position.y + (rect.size.y - text_size.y) * 0.5 + ascent
 	)
-	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
+	canvas.draw_string(draw_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
 
 
 func _get_active_panel_rect(view_size: Vector2) -> Rect2:
