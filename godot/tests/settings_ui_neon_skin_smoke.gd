@@ -79,14 +79,18 @@ class NeonSkinProbe:
 		overlay._draw_neon_line(self, Vector2(8.0, 8.0), Vector2(160.0, 8.0), Overlay.NEON_CYAN, 1.5)
 		overlay._draw_panel(self, Rect2(8.0, 18.0, 56.0, 24.0), Overlay.PANEL_COLOR, Overlay.PANEL_BORDER, 2.0)
 		overlay._draw_panel(self, Rect2(72.0, 18.0, 56.0, 24.0), Overlay.PANEL_COLOR, Overlay.PANEL_BORDER, 2.0, true, true)
-		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(8.0, 50.0, 58.0, 28.0), "탭", true)
-		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(72.0, 50.0, 58.0, 28.0), "탭", false)
+		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(8.0, 50.0, 78.0, 28.0), "탭", true, "sound")
+		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(92.0, 50.0, 78.0, 28.0), "탭", false, "display")
+		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(8.0, 84.0, 78.0, 28.0), "탭", false, "controls")
+		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(92.0, 84.0, 78.0, 28.0), "탭", false, "language")
+		overlay._draw_tab(self, Overlay.FONT_BODY, Rect2(8.0, 118.0, 78.0, 28.0), "탭", false)
+		overlay._draw_scanlines(self, Rect2(92.0, 118.0, 78.0, 28.0))
 		overlay._draw_button(self, Overlay.FONT_BODY, Rect2(8.0, 84.0, 96.0, 30.0), "선택", true, Vector2(-99.0, -99.0))
 		overlay._draw_toggle_setting_row(
 			self,
 			Overlay.FONT_BODY,
-			Rect2(8.0, 120.0, 156.0, 40.0),
-			Rect2(138.0, 130.0, 16.0, 16.0),
+			Rect2(8.0, 154.0, 156.0, 40.0),
+			Rect2(138.0, 164.0, 16.0, 16.0),
 			"토글",
 			"네온",
 			true,
@@ -96,20 +100,20 @@ class NeonSkinProbe:
 		overlay._draw_toggle_setting_row(
 			self,
 			Overlay.FONT_BODY,
-			Rect2(8.0, 164.0, 156.0, 40.0),
-			Rect2(138.0, 174.0, 16.0, 16.0),
+			Rect2(8.0, 198.0, 156.0, 40.0),
+			Rect2(138.0, 208.0, 16.0, 16.0),
 			"토글",
 			"오프",
 			false,
 			false,
 			Vector2(-99.0, -99.0)
 		)
-		overlay._draw_holo_focus_frame(self, Rect2(8.0, 208.0, 150.0, 26.0), 1.0)
+		overlay._draw_holo_focus_frame(self, Rect2(8.0, 242.0, 150.0, 26.0), 1.0)
 		overlay._draw_setting_select_row(
 			self,
 			Overlay.FONT_BODY,
-			Rect2(8.0, 240.0, 156.0, 36.0),
-			Rect2(106.0, 246.0, 50.0, 24.0),
+			Rect2(8.0, 274.0, 156.0, 36.0),
+			Rect2(106.0, 280.0, 50.0, 24.0),
 			"라벨",
 			"값",
 			true,
@@ -118,15 +122,15 @@ class NeonSkinProbe:
 		overlay._draw_setting_select_row(
 			self,
 			Overlay.FONT_BODY,
-			Rect2(8.0, 282.0, 156.0, 36.0),
-			Rect2(106.0, 288.0, 50.0, 24.0),
+			Rect2(8.0, 316.0, 156.0, 36.0),
+			Rect2(106.0, 322.0, 50.0, 24.0),
 			"라벨",
 			"값",
 			false,
 			Vector2(-99.0, -99.0)
 		)
-		overlay._draw_hud_readout_bar(self, Overlay.FONT_BODY, Rect2(0.0, 0.0, 180.0, 340.0), "설명 텍스트")
-		overlay._draw_hud_readout_bar(self, Overlay.FONT_BODY, Rect2(0.0, 0.0, 180.0, 340.0), "")
+		overlay._draw_hud_readout_bar(self, Overlay.FONT_BODY, Rect2(0.0, 0.0, 180.0, 374.0), "설명 텍스트")
+		overlay._draw_hud_readout_bar(self, Overlay.FONT_BODY, Rect2(0.0, 0.0, 180.0, 374.0), "")
 		component_draw_count += 1
 
 
@@ -163,7 +167,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	get_root().size = Vector2i(180, 340)
+	get_root().size = Vector2i(180, 374)
 	_probe = NeonSkinProbe.new()
 	_probe.name = "SettingsUiNeonSkinProbe"
 	get_root().add_child(_probe)
@@ -206,6 +210,7 @@ func _verify_contract() -> void:
 	_verify_desc_focus_mappings(overlay)
 	_verify_chevron_click_contract()
 	_verify_reset_contract()
+	_verify_tab_icon_contract()
 
 
 func _verify_desc_localization() -> void:
@@ -372,6 +377,23 @@ func _verify_reset_contract() -> void:
 	_verify_reset_controls(overlay)
 	_verify_reset_language(overlay)
 	_verify_reset_click_routing(panel, view_size)
+
+
+func _verify_tab_icon_contract() -> void:
+	var overlay: Object = Overlay.new()
+	var panel: Rect2 = overlay._get_options_panel_rect(Vector2(900.0, 600.0))
+	var sound_tab: Rect2 = overlay._get_sound_tab_rect(panel)
+	var display_tab: Rect2 = overlay._get_display_tab_rect(panel)
+	var controls_tab: Rect2 = overlay._get_controls_tab_rect(panel)
+	var language_tab: Rect2 = overlay._get_language_tab_rect(panel)
+	var reset_rect: Rect2 = overlay._get_reset_button_rect(panel)
+	_expect(not _rects_overlap(sound_tab, display_tab), "sound and display tabs should not overlap after icon layout")
+	_expect(not _rects_overlap(sound_tab, controls_tab), "sound and controls tabs should not overlap after icon layout")
+	_expect(not _rects_overlap(sound_tab, language_tab), "sound and language tabs should not overlap after icon layout")
+	_expect(not _rects_overlap(display_tab, controls_tab), "display and controls tabs should not overlap after icon layout")
+	_expect(not _rects_overlap(display_tab, language_tab), "display and language tabs should not overlap after icon layout")
+	_expect(not _rects_overlap(controls_tab, language_tab), "controls and language tabs should not overlap after icon layout")
+	_expect(not _rects_overlap(language_tab, reset_rect), "language tab should not overlap the reset button after icon layout")
 
 
 func _verify_reset_sound(overlay: Object) -> void:

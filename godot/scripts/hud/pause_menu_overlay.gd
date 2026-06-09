@@ -1117,14 +1117,15 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	canvas.draw_rect(header_rect, HEADER_COLOR)
 	_draw_neon_line(canvas, panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), NEON_CYAN, 1.5)
 	_draw_text(canvas, font, _text("settings.title"), panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
-	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), _text("settings.tab.sound"), options_tab == OPTIONS_TAB_SOUND)
-	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), _text("settings.tab.display"), options_tab == OPTIONS_TAB_DISPLAY)
-	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), _text("settings.tab.controls"), options_tab == OPTIONS_TAB_CONTROLS)
-	_draw_tab(canvas, font, _get_language_tab_rect(panel_rect), _text("settings.tab.language"), options_tab == OPTIONS_TAB_LANGUAGE)
+	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), _text("settings.tab.sound"), options_tab == OPTIONS_TAB_SOUND, "sound")
+	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), _text("settings.tab.display"), options_tab == OPTIONS_TAB_DISPLAY, "display")
+	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), _text("settings.tab.controls"), options_tab == OPTIONS_TAB_CONTROLS, "controls")
+	_draw_tab(canvas, font, _get_language_tab_rect(panel_rect), _text("settings.tab.language"), options_tab == OPTIONS_TAB_LANGUAGE, "language")
 	_draw_button(canvas, font, _get_reset_button_rect(panel_rect), _text("settings.reset", "초기화"), false, mouse_pos)
 
 	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
 	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0)
+	_draw_scanlines(canvas, content_rect)
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry, owner)
 	elif options_tab == OPTIONS_TAB_CONTROLS:
@@ -1141,7 +1142,7 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	_draw_hud_readout_bar(canvas, font, panel_rect, _get_focused_option_description(options_tab, options_focus))
 
 
-func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool) -> void:
+func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool, icon_kind: String = "") -> void:
 	var draw_rect := rect
 	if active_tab:
 		draw_rect.position.y -= 2.0
@@ -1151,7 +1152,67 @@ func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, activ
 	if active_tab:
 		_draw_neon_line(canvas, Vector2(draw_rect.position.x + 4.0, draw_rect.end.y), Vector2(draw_rect.end.x - 4.0, draw_rect.end.y), NEON_CYAN, 1.2)
 		canvas.draw_line(draw_rect.position + Vector2(4.0, 1.0), Vector2(draw_rect.end.x - 4.0, draw_rect.position.y + 1.0), RESONANCE_MAG, 1.0)
-	_draw_text_in_rect(canvas, font, label, draw_rect, 15, Color.WHITE)
+	var label_rect := draw_rect
+	if not icon_kind.is_empty():
+		var icon_rect := Rect2(draw_rect.position + Vector2(10.0, (draw_rect.size.y - 18.0) * 0.5), Vector2(18.0, 18.0))
+		var icon_color := NEON_CYAN_HOT if active_tab else Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.60)
+		_draw_tab_icon(canvas, icon_kind, icon_rect, icon_color)
+		label_rect = Rect2(draw_rect.position + Vector2(29.0, 0.0), Vector2(maxf(0.0, draw_rect.size.x - 31.0), draw_rect.size.y))
+	_draw_text_in_rect(canvas, font, label, label_rect, 15, Color.WHITE)
+
+
+func _draw_tab_icon(canvas: CanvasItem, kind: String, icon_rect: Rect2, color: Color) -> void:
+	var center := icon_rect.get_center()
+	match kind:
+		"sound":
+			canvas.draw_colored_polygon(
+				PackedVector2Array([
+					icon_rect.position + Vector2(2.0, 7.0),
+					icon_rect.position + Vector2(6.0, 7.0),
+					icon_rect.position + Vector2(11.0, 3.0),
+					icon_rect.position + Vector2(11.0, 15.0),
+					icon_rect.position + Vector2(6.0, 11.0),
+					icon_rect.position + Vector2(2.0, 11.0),
+				]),
+				color
+			)
+			canvas.draw_arc(center + Vector2(3.0, 0.0), 5.0, -0.8, 0.8, 12, color, 1.2)
+			canvas.draw_arc(center + Vector2(3.0, 0.0), 8.0, -0.7, 0.7, 12, Color(color.r, color.g, color.b, color.a * 0.70), 1.0)
+		"display":
+			var screen := Rect2(icon_rect.position + Vector2(2.0, 3.0), Vector2(14.0, 10.0))
+			canvas.draw_rect(screen, color, false, 1.2)
+			canvas.draw_line(Vector2(center.x, screen.end.y), Vector2(center.x, screen.end.y + 3.0), color, 1.2)
+			canvas.draw_line(Vector2(center.x - 5.0, screen.end.y + 3.0), Vector2(center.x + 5.0, screen.end.y + 3.0), color, 1.2)
+		"controls":
+			var body := Rect2(icon_rect.position + Vector2(1.5, 5.0), Vector2(15.0, 9.0))
+			var radius := body.size.y * 0.5
+			var left_center := body.position + Vector2(radius, radius)
+			var right_center := Vector2(body.end.x - radius, body.position.y + radius)
+			canvas.draw_arc(left_center, radius, PI * 0.5, PI * 1.5, 10, color, 1.2)
+			canvas.draw_arc(right_center, radius, -PI * 0.5, PI * 0.5, 10, color, 1.2)
+			canvas.draw_line(Vector2(left_center.x, body.position.y), Vector2(right_center.x, body.position.y), color, 1.2)
+			canvas.draw_line(Vector2(left_center.x, body.end.y), Vector2(right_center.x, body.end.y), color, 1.2)
+			var dpad_center := body.position + Vector2(4.5, 4.5)
+			canvas.draw_line(dpad_center + Vector2(-2.5, 0.0), dpad_center + Vector2(2.5, 0.0), color, 1.1)
+			canvas.draw_line(dpad_center + Vector2(0.0, -2.5), dpad_center + Vector2(0.0, 2.5), color, 1.1)
+			canvas.draw_circle(body.position + Vector2(10.5, 3.2), 1.2, color)
+			canvas.draw_circle(body.position + Vector2(13.0, 5.8), 1.2, color)
+		"language":
+			canvas.draw_arc(center, 7.0, 0.0, TAU, 24, color, 1.2)
+			canvas.draw_arc(center, 3.5, -PI * 0.5, PI * 0.5, 16, color, 1.0)
+			canvas.draw_arc(center, 3.5, PI * 0.5, PI * 1.5, 16, color, 1.0)
+			canvas.draw_line(center + Vector2(-6.0, -2.5), center + Vector2(6.0, -2.5), Color(color.r, color.g, color.b, color.a * 0.72), 1.0)
+			canvas.draw_line(center + Vector2(-6.0, 2.5), center + Vector2(6.0, 2.5), Color(color.r, color.g, color.b, color.a * 0.72), 1.0)
+
+
+func _draw_scanlines(canvas: CanvasItem, rect: Rect2) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var color := Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.04)
+	var start_y := int(rect.position.y) + 2
+	var end_y := int(rect.end.y)
+	for y in range(start_y, end_y, 3):
+		canvas.draw_line(Vector2(rect.position.x, float(y)), Vector2(rect.end.x, float(y)), color, 1.0)
 
 
 func _draw_volume_slider(
@@ -1670,19 +1731,19 @@ func _get_options_panel_rect(view_size: Vector2) -> Rect2:
 
 
 func _get_sound_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(92.0, 14.0), Vector2(92.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(92.0, 14.0), Vector2(106.0, 36.0))
 
 
 func _get_display_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(194.0, 14.0), Vector2(124.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(208.0, 14.0), Vector2(138.0, 36.0))
 
 
 func _get_controls_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(328.0, 14.0), Vector2(92.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(356.0, 14.0), Vector2(112.0, 36.0))
 
 
 func _get_language_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(430.0, 14.0), Vector2(108.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(478.0, 14.0), Vector2(122.0, 36.0))
 
 
 func _get_reset_button_rect(panel_rect: Rect2) -> Rect2:
