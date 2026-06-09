@@ -41,6 +41,8 @@ const SLIDER_HEIGHT := 10.0
 const SLIDER_HIT_HEIGHT := 34.0
 const SLIDER_HANDLE_RADIUS := 8.0
 const VOLUME_STEP := 0.05
+const DEFAULT_BGM_VOLUME := 0.4
+const DEFAULT_SFX_VOLUME := 0.7
 const SOUND_FOCUS_COUNT := 3
 const DISPLAY_FOCUS_COUNT := 9
 const CONTROLS_BASE_FOCUS_COUNT := 2
@@ -438,6 +440,9 @@ func _handle_mouse_motion(mouse_event: InputEventMouseMotion, registry: Object, 
 
 func _handle_options_click(position: Vector2, owner: Object, registry: Object, view_size: Vector2) -> Dictionary:
 	var panel_rect: Rect2 = _get_options_panel_rect(view_size)
+	if _get_reset_button_rect(panel_rect).has_point(position):
+		_reset_current_tab_to_defaults(owner, registry)
+		return {"handled": true}
 	if _get_sound_tab_rect(panel_rect).has_point(position):
 		options_tab = OPTIONS_TAB_SOUND
 		options_focus = 0
@@ -805,6 +810,28 @@ func _activate_language_focus(owner: Object) -> Dictionary:
 	return {"handled": true}
 
 
+func _reset_current_tab_to_defaults(owner: Object, registry: Object) -> void:
+	match options_tab:
+		OPTIONS_TAB_SOUND:
+			_set_bgm_volume(registry, DEFAULT_BGM_VOLUME)
+			_set_sfx_volume(registry, DEFAULT_SFX_VOLUME)
+		OPTIONS_TAB_DISPLAY:
+			display_mode = DISPLAY_MODE_WINDOWED
+			render_fps_cap = RENDER_FPS_CAP_DEFAULT
+			vsync_mode = VSYNC_MODE_AUTO
+			remember_display_mode = false
+			auto_refresh_rate_60hz = false
+			_display_preference_dirty = true
+			_save_display_options(owner, registry)
+		OPTIONS_TAB_CONTROLS:
+			controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+			gamepad_vibration_level = GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT
+			GamepadVibrationSettings.set_vibration_level(gamepad_vibration_level)
+			options_focus = clampi(options_focus, 0, _get_controls_focus_count() - 1)
+		OPTIONS_TAB_LANGUAGE:
+			_set_language_option(LanguageSettings.DEFAULT_LANGUAGE, owner)
+
+
 func _notify_language_changed(owner: Object) -> void:
 	if owner != null and owner.has_method("refresh_language_texts"):
 		owner.refresh_language_texts()
@@ -1094,6 +1121,7 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), _text("settings.tab.display"), options_tab == OPTIONS_TAB_DISPLAY)
 	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), _text("settings.tab.controls"), options_tab == OPTIONS_TAB_CONTROLS)
 	_draw_tab(canvas, font, _get_language_tab_rect(panel_rect), _text("settings.tab.language"), options_tab == OPTIONS_TAB_LANGUAGE)
+	_draw_button(canvas, font, _get_reset_button_rect(panel_rect), _text("settings.reset", "초기화"), false, mouse_pos)
 
 	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
 	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0)
@@ -1657,6 +1685,10 @@ func _get_language_tab_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(panel_rect.position + Vector2(430.0, 14.0), Vector2(108.0, 36.0))
 
 
+func _get_reset_button_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(panel_rect.size.x - 142.0, 14.0), Vector2(124.0, 34.0))
+
+
 func _get_button_rect(panel_rect: Rect2, index: int, count: int) -> Rect2:
 	var total_height: float = BUTTON_SIZE.y * float(count) + BUTTON_GAP * float(max(0, count - 1))
 	var start_y: float = panel_rect.position.y + TITLE_HEIGHT + (panel_rect.size.y - TITLE_HEIGHT - total_height) * 0.5
@@ -1857,7 +1889,7 @@ func _get_bgm_volume(registry: Object) -> float:
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null and audio.has_method("get_bgm_volume"):
 		return clampf(float(audio.get_bgm_volume()), 0.0, 1.0)
-	return 0.4
+	return DEFAULT_BGM_VOLUME
 
 
 func _set_bgm_volume(registry: Object, value: float) -> float:
@@ -1872,7 +1904,7 @@ func _get_sfx_volume(registry: Object) -> float:
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null and audio.has_method("get_sfx_volume"):
 		return clampf(float(audio.get_sfx_volume()), 0.0, 1.0)
-	return 0.7
+	return DEFAULT_SFX_VOLUME
 
 
 func _set_sfx_volume(registry: Object, value: float) -> float:

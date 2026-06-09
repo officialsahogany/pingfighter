@@ -52,6 +52,15 @@ const DESC_KO := {
 	"settings.desc.language": "게임 언어를 선택합니다.",
 	"settings.desc.language_back": "이전 화면으로 돌아갑니다.",
 }
+const RESET_LABELS := {
+	LanguageSettingsData.LANGUAGE_KOREAN: "초기화",
+	LanguageSettingsData.LANGUAGE_ENGLISH: "Reset",
+	LanguageSettingsData.LANGUAGE_CHINESE: "重置",
+	LanguageSettingsData.LANGUAGE_JAPANESE: "リセット",
+	LanguageSettingsData.LANGUAGE_SPANISH: "Restablecer",
+	LanguageSettingsData.LANGUAGE_PORTUGUESE_BRAZIL: "Redefinir",
+	LanguageSettingsData.LANGUAGE_RUSSIAN: "Сброс",
+}
 
 var _failures: Array[String] = []
 var _probe: NeonSkinProbe = null
@@ -121,6 +130,38 @@ class NeonSkinProbe:
 		component_draw_count += 1
 
 
+class FakeAudio:
+	extends RefCounted
+
+	var bgm_volume := 0.0
+	var sfx_volume := 0.0
+
+	func get_bgm_volume() -> float:
+		return bgm_volume
+
+	func set_bgm_volume(value: float) -> float:
+		bgm_volume = clampf(value, 0.0, 1.0)
+		return bgm_volume
+
+	func get_sfx_volume() -> float:
+		return sfx_volume
+
+	func set_sfx_volume(value: float) -> float:
+		sfx_volume = clampf(value, 0.0, 1.0)
+		return sfx_volume
+
+
+class FakeRegistry:
+	extends RefCounted
+
+	var audio := FakeAudio.new()
+
+	func get_instance(key: String) -> Object:
+		if key == "game_audio":
+			return audio
+		return null
+
+
 func _init() -> void:
 	get_root().size = Vector2i(180, 340)
 	_probe = NeonSkinProbe.new()
@@ -164,6 +205,7 @@ func _verify_contract() -> void:
 	_verify_desc_localization()
 	_verify_desc_focus_mappings(overlay)
 	_verify_chevron_click_contract()
+	_verify_reset_contract()
 
 
 func _verify_desc_localization() -> void:
@@ -305,10 +347,121 @@ func _verify_chevron_regression_guards(overlay: Object, panel: Rect2, view_size:
 	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "tab click should not cycle render FPS")
 
 
+func _verify_reset_contract() -> void:
+	_expect(Overlay.SOUND_FOCUS_COUNT == 3, "reset should not join the sound focus cycle")
+	_expect(Overlay.DISPLAY_FOCUS_COUNT == 9, "reset should not join the display focus cycle")
+	_expect(Overlay.CONTROLS_BASE_FOCUS_COUNT == 2, "reset should not join the keyboard controls focus cycle")
+	_expect(Overlay.CONTROLS_JOYPAD_FOCUS_COUNT == 3, "reset should not join the joypad controls focus cycle")
+	_expect(Overlay.LANGUAGE_FOCUS_COUNT == 8, "reset should not join the language focus cycle")
+	for language in RESET_LABELS.keys():
+		var table: Dictionary = LanguageSettingsData.TEXT.get(language, {})
+		_expect(str(table.get("settings.reset", "")) == str(RESET_LABELS[language]), "%s should localize settings.reset" % language)
+	var overlay: Object = Overlay.new()
+	var view_size := Vector2(900.0, 600.0)
+	var panel: Rect2 = overlay._get_options_panel_rect(view_size)
+	var reset_rect: Rect2 = overlay._get_reset_button_rect(panel)
+	_expect(not _rects_overlap(reset_rect, overlay._get_sound_tab_rect(panel)), "reset button should not overlap the sound tab")
+	_expect(not _rects_overlap(reset_rect, overlay._get_display_tab_rect(panel)), "reset button should not overlap the display tab")
+	_expect(not _rects_overlap(reset_rect, overlay._get_controls_tab_rect(panel)), "reset button should not overlap the controls tab")
+	_expect(not _rects_overlap(reset_rect, overlay._get_language_tab_rect(panel)), "reset button should not overlap the language tab")
+	_expect(not _rects_overlap(reset_rect, overlay._get_display_save_button_rect(panel)), "reset button should not overlap the display save button")
+	_expect(not _rects_overlap(reset_rect, overlay._get_display_back_button_rect(panel)), "reset button should not overlap the display back button")
+	_expect(not _rects_overlap(reset_rect, overlay._get_back_button_rect(panel)), "reset button should not overlap the sound back button")
+	_verify_reset_sound(overlay)
+	_verify_reset_display(overlay)
+	_verify_reset_controls(overlay)
+	_verify_reset_language(overlay)
+	_verify_reset_click_routing(panel, view_size)
+
+
+func _verify_reset_sound(overlay: Object) -> void:
+	var registry := FakeRegistry.new()
+	registry.audio.bgm_volume = 0.91
+	registry.audio.sfx_volume = 0.12
+	overlay.options_tab = Overlay.OPTIONS_TAB_SOUND
+	overlay._reset_current_tab_to_defaults(null, registry)
+	_expect(is_equal_approx(registry.audio.bgm_volume, Overlay.DEFAULT_BGM_VOLUME), "sound reset should restore the default BGM volume through the audio setter")
+	_expect(is_equal_approx(registry.audio.sfx_volume, Overlay.DEFAULT_SFX_VOLUME), "sound reset should restore the default SFX volume through the audio setter")
+
+
+func _verify_reset_display(overlay: Object) -> void:
+	overlay.options_tab = Overlay.OPTIONS_TAB_DISPLAY
+	overlay.options_focus = 2
+	overlay.display_mode = Overlay.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay.vsync_mode = Overlay.VSYNC_MODE_ENABLED
+	overlay.remember_display_mode = true
+	overlay.auto_refresh_rate_60hz = true
+	overlay._reset_current_tab_to_defaults(null, null)
+	_expect(overlay.options_focus == 2, "display reset should not change focus")
+	_expect(overlay.display_mode == Overlay.DISPLAY_MODE_WINDOWED, "display reset should restore the factory display mode")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_DEFAULT, "display reset should restore the default render FPS cap")
+	_expect(overlay.vsync_mode == Overlay.VSYNC_MODE_AUTO, "display reset should restore the default VSync mode")
+	_expect(not overlay.remember_display_mode, "display reset should clear remember display mode")
+	_expect(not overlay.auto_refresh_rate_60hz, "display reset should clear auto 60Hz mode")
+	_expect(not overlay._display_preference_dirty, "display reset should finish through the existing save path")
+
+
+func _verify_reset_controls(overlay: Object) -> void:
+	var saved_vibration_level: int = GamepadVibrationSettings.get_vibration_level()
+	overlay.options_tab = Overlay.OPTIONS_TAB_CONTROLS
+	overlay.controls_device_view = Overlay.CONTROL_DEVICE_JOYPAD
+	overlay.options_focus = 2
+	overlay.gamepad_vibration_level = GamepadVibrationSettings.VIBRATION_LEVEL_MAX
+	GamepadVibrationSettings.set_vibration_level(GamepadVibrationSettings.VIBRATION_LEVEL_MAX)
+	overlay._reset_current_tab_to_defaults(null, null)
+	_expect(overlay.controls_device_view == Overlay.CONTROL_DEVICE_KEYBOARD_MOUSE, "controls reset should return to keyboard and mouse view")
+	_expect(overlay.gamepad_vibration_level == GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT, "controls reset should restore default vibration level")
+	_expect(GamepadVibrationSettings.get_vibration_level() == GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT, "controls reset should persist default vibration level")
+	_expect(overlay.options_focus == 1, "controls reset should clamp focus to the keyboard controls range")
+	GamepadVibrationSettings.set_vibration_level(saved_vibration_level)
+
+
+func _verify_reset_language(overlay: Object) -> void:
+	var previous_language: String = LanguageSettings.get_language()
+	overlay.options_tab = Overlay.OPTIONS_TAB_LANGUAGE
+	overlay.options_focus = 4
+	overlay.language_code = LanguageSettings.LANGUAGE_SPANISH
+	overlay._reset_current_tab_to_defaults(null, null)
+	_expect(overlay.options_focus == 4, "language reset should not change focus")
+	_expect(overlay.language_code == LanguageSettings.DEFAULT_LANGUAGE, "language reset should restore the default language")
+	_expect(LanguageSettings.get_language() == LanguageSettings.DEFAULT_LANGUAGE, "language reset should persist the default language")
+	LanguageSettings.set_language(previous_language)
+
+
+func _verify_reset_click_routing(panel: Rect2, view_size: Vector2) -> void:
+	var overlay: Object = Overlay.new()
+	overlay.options_tab = Overlay.OPTIONS_TAB_DISPLAY
+	overlay.options_focus = 1
+	overlay.display_mode = Overlay.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay.vsync_mode = Overlay.VSYNC_MODE_ENABLED
+	overlay.remember_display_mode = true
+	overlay.auto_refresh_rate_60hz = true
+	overlay._handle_options_click(overlay._get_reset_button_rect(panel).get_center(), null, null, view_size)
+	_expect(overlay.options_focus == 1, "reset click should not join or move focus")
+	_expect(overlay.display_mode == Overlay.DISPLAY_MODE_WINDOWED, "reset button click should reset the current tab")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_DEFAULT, "reset button click should reset render FPS")
+	overlay.display_mode = Overlay.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay._handle_options_click(panel.position + Vector2(panel.size.x - 20.0, 76.0), null, null, view_size)
+	_expect(overlay.display_mode == Overlay.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN, "empty header/content click should not reset display mode")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "empty header/content click should not reset render FPS")
+
+
 func _rect_inside(container: Rect2, inner: Rect2) -> bool:
 	return (
 		container.has_point(inner.position)
 		and container.has_point(inner.position + Vector2(inner.size.x - 0.01, inner.size.y - 0.01))
+	)
+
+
+func _rects_overlap(first: Rect2, second: Rect2) -> bool:
+	return (
+		first.position.x < second.end.x
+		and first.end.x > second.position.x
+		and first.position.y < second.end.y
+		and first.end.y > second.position.y
 	)
 
 
