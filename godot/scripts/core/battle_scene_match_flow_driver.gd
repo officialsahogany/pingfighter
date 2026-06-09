@@ -241,8 +241,20 @@ func _get_match_flow_deps(
 		return {}
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var context_perf_logger: Object = perf_logger if perf_label_prefix != "" else null
+	var character_type := ""
+	if owner != null:
+		character_type = str(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher"))
 	var deps: Dictionary
-	if _method_accepts_argument_count(context_builder, "build_match_flow_deps", 5):
+	if _method_accepts_argument_count(context_builder, "build_match_flow_deps", 6):
+		deps = context_builder.build_match_flow_deps(
+			registry,
+			current_stage,
+			context_perf_logger,
+			perf_label_prefix,
+			include_all_stage_deps,
+			character_type
+		)
+	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 5):
 		deps = context_builder.build_match_flow_deps(
 			registry,
 			current_stage,

@@ -177,6 +177,15 @@ const STAGE5_HONGRYUN_BOSS_SHEET_PATH := "res://assets/sprites/stage5/stage5_hon
 const STAGE5_HONGRYUN_BOSS_ATTACK_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_attack.png"
 const STAGE5_HONGRYUN_BOSS_DASH_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_dash.png"
 const STAGE5_HONGRYUN_BOSS_TURN_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_turn.png"
+const SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+const SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
+const VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png"
+const SMASHER_DRIVE_CUTIN_BACKPLATE_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_backplate.png"
+const SMASHER_DRIVE_CUTIN_ARC_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_arc.png"
+const SMASHER_DRIVE_CUTIN_CHARACTER_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_character.png"
+const SMASHER_DRIVE_CUTIN_PARTICLE_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_particle.png"
+const SMASHER_SHIELD_KITING_CUTIN_CHARACTER_PATH := "res://assets/ui/skill_cutin/smasher_shield_kiting_cutin_character.png"
+const LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH := "res://assets/sprites/lingpet/effects/lingpet_acquire_resonance_backplate_imagegen_v1.png"
 
 const SMASHER_SKILL_ICON_PATHS := {
 	"drive": "res://assets/sprites/skills/smasher_drive_skill_orb.png",
@@ -477,12 +486,26 @@ func _load_optional_texture_resource(path: String) -> Texture2D:
 	return ProjectResourceLoader.load_texture(path, "", "")
 
 
+func _load_imported_texture_resource(path: String, optional: bool = false) -> Texture2D:
+	return ProjectResourceLoader.load_imported_texture(
+		path,
+		"" if optional else "Missing sprite at %s",
+		"" if optional else "Failed to load texture at %s"
+	)
+
+
 func _texture_spec(keys: Array, path: String, optional: bool = false) -> Dictionary:
 	return {
 		"keys": keys,
 		"path": path,
 		"optional": optional,
 	}
+
+
+func _imported_texture_spec(keys: Array, path: String, optional: bool = false) -> Dictionary:
+	var spec := _texture_spec(keys, path, optional)
+	spec["prefer_imported"] = true
+	return spec
 
 
 func _get_result_texture_specs(character_type: String, current_stage: int, result_context: Dictionary) -> Array:
@@ -657,11 +680,14 @@ func _load_texture_spec(spec: Dictionary) -> void:
 	var path := str(spec.get("path", ""))
 	if path == "":
 		return
-	var texture: Texture2D = (
-		_load_optional_texture_resource(path)
-		if bool(spec.get("optional", false))
-		else _load_texture_resource(path)
-	)
+	var prefer_imported := bool(spec.get("prefer_imported", false))
+	var texture: Texture2D = null
+	if prefer_imported:
+		texture = _load_imported_texture_resource(path, bool(spec.get("optional", false)))
+	elif bool(spec.get("optional", false)):
+		texture = _load_optional_texture_resource(path)
+	else:
+		texture = _load_texture_resource(path)
 	_store_texture_spec(spec, texture)
 
 
@@ -683,6 +709,7 @@ func _get_core_texture_specs() -> Array:
 		_texture_spec(["viper_skill_cluster_frame_texture"], VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH),
 		_texture_spec(["stage1_center_background_texture"], STAGE1_CENTER_BACKGROUND_PATH),
 		_texture_spec(["stage1_center_border_texture"], STAGE1_CENTER_BORDER_PATH),
+		_imported_texture_spec(["lingpet_acquire_resonance_portal"], LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH),
 	]
 
 
@@ -713,6 +740,7 @@ func _load_core_textures() -> void:
 	_resource_cache["viper_skill_cluster_frame_texture"] = _load_texture_resource(VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH)
 	_resource_cache["stage1_center_background_texture"] = _load_texture_resource(STAGE1_CENTER_BACKGROUND_PATH)
 	_resource_cache["stage1_center_border_texture"] = _load_texture_resource(STAGE1_CENTER_BORDER_PATH)
+	_resource_cache["lingpet_acquire_resonance_portal"] = _load_imported_texture_resource(LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH)
 
 
 func _load_player_textures(character_type: String, include_all_characters: bool, include_result_sheets: bool) -> void:
@@ -780,6 +808,13 @@ func _get_smasher_player_texture_specs(include_result_sheets: bool) -> Array:
 		_texture_spec(["player_attack_sheet"], SMASHER_ATTACK_SHEET_PATH),
 		_texture_spec(["player_wheel_spin_sheet"], SMASHER_WHEEL_BODY_SHEET_PATH),
 		_texture_spec(["smasher_debug_paddle_overlay_sheet"], SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH),
+		_imported_texture_spec(["smasher_power_smashing_cutin_sheet"], SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH),
+		_imported_texture_spec(["smasher_ghost_smashing_cutin_sheet"], SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH),
+		_imported_texture_spec(["smasher_drive_cutin_backplate"], SMASHER_DRIVE_CUTIN_BACKPLATE_PATH),
+		_imported_texture_spec(["smasher_drive_cutin_arc"], SMASHER_DRIVE_CUTIN_ARC_PATH),
+		_imported_texture_spec(["smasher_drive_cutin_character"], SMASHER_DRIVE_CUTIN_CHARACTER_PATH),
+		_imported_texture_spec(["smasher_drive_cutin_particle"], SMASHER_DRIVE_CUTIN_PARTICLE_PATH),
+		_imported_texture_spec(["smasher_shield_kiting_cutin_character"], SMASHER_SHIELD_KITING_CUTIN_CHARACTER_PATH),
 	]
 	if include_result_sheets:
 		specs.append(_texture_spec(["player_victory_sheet"], SMASHER_VICTORY_SHEET_PATH))
@@ -815,6 +850,7 @@ func _get_viper_player_texture_specs(include_result_sheets: bool) -> Array:
 		_texture_spec(["viper_player_venom_edge_strike_sheet"], VIPER_PLAYER_VENOM_EDGE_STRIKE_SHEET_PATH),
 		_texture_spec(["viper_player_hit_left_strip_texture"], VIPER_PLAYER_HIT_LEFT_STRIP_PATH),
 		_texture_spec(["viper_player_hit_right_strip_texture"], VIPER_PLAYER_HIT_RIGHT_STRIP_PATH),
+		_imported_texture_spec(["viper_phantom_kick_cutin_sheet"], VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH),
 	]
 	if include_result_sheets:
 		specs.append(_texture_spec(["player_victory_sheet"], VIPER_VICTORY_SHEET_PATH))

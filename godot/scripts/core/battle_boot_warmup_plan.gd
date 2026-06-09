@@ -108,6 +108,8 @@ const MODULE_GROUPS := {
 		"ball_effects_renderer",
 		"smasher_skill_feedback_renderer",
 		"smasher_skill_orb_renderer",
+		"skill_cutin_overlay_host",
+		"lingpet_acquire_cutin_overlay_host",
 		"scoreboard_renderer",
 		"serve_wait_indicator_renderer",
 		"battle_feedback_state",

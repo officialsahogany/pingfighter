@@ -10,7 +10,8 @@ func build_deps(
 	current_stage: int = 1,
 	perf_logger: Object = null,
 	perf_label_prefix: String = "",
-	include_all_stage_deps: bool = true
+	include_all_stage_deps: bool = true,
+	character_type: String = ""
 ) -> Dictionary:
 	var deps := {}
 	var sample_start: int = _perf_begin(perf_logger)
@@ -20,7 +21,7 @@ func build_deps(
 	deps.merge(deps_groups.build_item_runtime_deps(registry), true)
 	_perf_end(perf_logger, _perf_label(perf_label_prefix, "item_runtime"), sample_start)
 	sample_start = _perf_begin(perf_logger)
-	deps.merge(deps_groups.build_player_skill_runtime_deps(registry), true)
+	deps.merge(deps_groups.build_player_skill_runtime_deps(registry, character_type), true)
 	_perf_end(perf_logger, _perf_label(perf_label_prefix, "player_skill"), sample_start)
 	sample_start = _perf_begin(perf_logger)
 	deps.merge(deps_groups.build_stage_runtime_deps(registry, current_stage, include_all_stage_deps), true)

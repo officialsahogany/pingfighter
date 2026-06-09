@@ -894,11 +894,50 @@ func prewarm_selected_character_runtime_resources_step(owner: Object, module_get
 		_mark_selected_character_runtime_prewarmed(character_type)
 		return true
 	var module_key := module_keys[selected_character_runtime_prewarm_step_index]
+	var module_index := selected_character_runtime_prewarm_step_index
+	var module_label := "%02d_%s" % [module_index, module_key]
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
+	var lookup_start: int = _perf_begin(perf_logger)
 	var module: Object = _get_module(module_getter, module_key)
-	if not _prewarm_selected_character_module_assets_step(module, character_type):
+	_perf_end(
+		perf_logger,
+		"process.frame.stage_runtime_prewarm.selected_character.%s.lookup" % module_label,
+		lookup_start
+	)
+	var assets_start: int = _perf_begin(perf_logger)
+	var assets_complete := _prewarm_selected_character_module_assets_step(module, character_type)
+	_perf_end(
+		perf_logger,
+		"process.frame.stage_runtime_prewarm.selected_character.%s.assets" % module_label,
+		assets_start
+	)
+	if not assets_complete:
+		_perf_end(
+			perf_logger,
+			"process.frame.stage_runtime_prewarm.selected_character.%s.total" % module_label,
+			total_start
+		)
 		return false
-	if not _prewarm_selected_character_runtime_nodes_step(owner, module):
+	var runtime_start: int = _perf_begin(perf_logger)
+	var runtime_nodes_complete := _prewarm_selected_character_runtime_nodes_step(owner, module)
+	_perf_end(
+		perf_logger,
+		"process.frame.stage_runtime_prewarm.selected_character.%s.runtime_nodes" % module_label,
+		runtime_start
+	)
+	if not runtime_nodes_complete:
+		_perf_end(
+			perf_logger,
+			"process.frame.stage_runtime_prewarm.selected_character.%s.total" % module_label,
+			total_start
+		)
 		return false
+	_perf_end(
+		perf_logger,
+		"process.frame.stage_runtime_prewarm.selected_character.%s.total" % module_label,
+		total_start
+	)
 	selected_character_runtime_prewarm_step_index += 1
 	if selected_character_runtime_prewarm_step_index >= module_keys.size():
 		_mark_selected_character_runtime_prewarmed(character_type)

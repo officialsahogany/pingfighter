@@ -7,7 +7,8 @@ var stage_runtime_deps_builder: Object = BattleUpdateStageRuntimeDepsBuilder.new
 
 func build_deps(registry: Object, current_stage: int = 1, include_all_stages: bool = true) -> Dictionary:
 	var deps: Dictionary = stage_runtime_deps_builder.build_deps(registry, current_stage, include_all_stages)
-	deps["stage5_hongryun_actor_renderer"] = _get_instance(registry, "stage5_hongryun_actor_renderer")
+	if include_all_stages or current_stage == 5:
+		deps["stage5_hongryun_actor_renderer"] = _get_instance(registry, "stage5_hongryun_actor_renderer")
 	return deps
 
 

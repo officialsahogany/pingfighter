@@ -312,7 +312,7 @@ func prewarm_runtime_nodes(_owner: Object = null) -> void:
 func _get_portal_texture() -> Texture2D:
 	if _portal_texture != null:
 		return _portal_texture
-	_portal_texture = ProjectResourceLoader.load_texture(RESONANCE_PORTAL_PATH, "", "")
+	_portal_texture = ProjectResourceLoader.load_imported_texture(RESONANCE_PORTAL_PATH, "", "")
 	return _portal_texture
 
 

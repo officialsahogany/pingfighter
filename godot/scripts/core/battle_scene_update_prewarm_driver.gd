@@ -14,6 +14,41 @@ var battle_ball_update_prewarmed := false
 var battle_ball_update_prewarmed_for := ""
 
 
+class PerfRegistryAdapter:
+	extends RefCounted
+
+	var registry: Object = null
+	var perf_logger: Object = null
+	var label_prefix := ""
+	var lookup_index := 0
+
+	func _init(p_registry: Object = null, p_perf_logger: Object = null, p_label_prefix: String = "") -> void:
+		registry = p_registry
+		perf_logger = p_perf_logger
+		label_prefix = p_label_prefix
+
+	func get_instance(key: String) -> Object:
+		var sample_index := lookup_index
+		lookup_index += 1
+		var start_usec := _perf_begin()
+		var instance: Object = null
+		if registry != null and registry.has_method("get_instance"):
+			var value: Variant = registry.get_instance(key)
+			if value is Object:
+				instance = value
+		_perf_end("%s.lookup.%02d_%s" % [label_prefix, sample_index, key], start_usec)
+		return instance
+
+	func _perf_begin() -> int:
+		if perf_logger != null and perf_logger.has_method("begin_sample"):
+			return int(perf_logger.begin_sample())
+		return 0
+
+	func _perf_end(label: String, start_usec: int) -> void:
+		if perf_logger != null and perf_logger.has_method("finish_sample"):
+			perf_logger.finish_sample(label, start_usec)
+
+
 func prewarm_update(owner: Object, registry: Object) -> void:
 	while not prewarm_update_step(owner, registry):
 		pass
@@ -193,12 +228,19 @@ func _prewarm_match_flow_context(owner: Object, registry: Object) -> void:
 	if context_builder == null:
 		return
 	if context_builder.has_method("build_match_flow_deps"):
+		var perf_logger: Object = _get_perf_logger(registry)
+		var label_prefix := "process.frame.update_prewarm.match_deps.finalize"
+		var total_start: int = _perf_begin(perf_logger)
 		_build_match_flow_deps_for_prewarm(
 			context_builder,
 			registry,
 			int(_get_owner_value(owner, "current_stage", 1)),
-			false
+			false,
+			perf_logger,
+			label_prefix,
+			character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 		)
+		_perf_end(perf_logger, "%s.total" % label_prefix, total_start)
 
 
 func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
@@ -228,6 +270,21 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_perf_logger(registry: Object) -> Object:
+	return _get_instance(registry, "battle_perf_logger")
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
 
 
 func _prewarm_instance_assets_step(key: String, instance: Object) -> bool:
@@ -295,6 +352,11 @@ func _get_player_control_context_prewarm_keys(character_type: String) -> Array:
 			"smasher_dash_spirit_state",
 			"smasher_shield_kiting_state",
 			"smasher_combo_state",
+			"smasher_drive_bounce_state",
+			"smasher_drive_counter_state",
+			"smasher_drive_activation_controller",
+			"smasher_power_smash_activation_controller",
+			"smasher_power_smash_motion_controller",
 		])
 	keys.append_array([
 		"player_movement_state",
@@ -407,16 +469,31 @@ func _build_match_flow_deps_for_prewarm(
 	context_builder: Object,
 	registry: Object,
 	current_stage: int,
-	include_all_stage_deps: bool
+	include_all_stage_deps: bool,
+	perf_logger: Object = null,
+	perf_label_prefix: String = "",
+	character_type: String = ""
 ) -> void:
-	if _method_accepts_argument_count(context_builder, "build_match_flow_deps", 5):
-		context_builder.build_match_flow_deps(registry, current_stage, null, "", include_all_stage_deps)
+	var deps_registry: Object = registry
+	if perf_logger != null and not perf_label_prefix.is_empty():
+		deps_registry = PerfRegistryAdapter.new(registry, perf_logger, perf_label_prefix)
+	if _method_accepts_argument_count(context_builder, "build_match_flow_deps", 6):
+		context_builder.build_match_flow_deps(
+			deps_registry,
+			current_stage,
+			perf_logger,
+			perf_label_prefix,
+			include_all_stage_deps,
+			character_type
+		)
+	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 5):
+		context_builder.build_match_flow_deps(deps_registry, current_stage, perf_logger, perf_label_prefix, include_all_stage_deps)
 	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 4):
-		context_builder.build_match_flow_deps(registry, current_stage, null, "")
+		context_builder.build_match_flow_deps(deps_registry, current_stage, perf_logger, perf_label_prefix)
 	elif _method_accepts_argument_count(context_builder, "build_match_flow_deps", 3):
-		context_builder.build_match_flow_deps(registry, current_stage, null)
+		context_builder.build_match_flow_deps(deps_registry, current_stage, perf_logger)
 	else:
-		context_builder.build_match_flow_deps(registry, current_stage)
+		context_builder.build_match_flow_deps(deps_registry, current_stage)
 
 
 func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:

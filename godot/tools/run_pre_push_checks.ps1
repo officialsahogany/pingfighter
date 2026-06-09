@@ -43,6 +43,7 @@ if ($Mode -notin @("full", "light", "load")) {
 $focusedSmoke = @(
     "res://tests/project_resource_loader_import_preference_smoke.gd",
     "res://tests/battle_boot_resource_prewarm_smoke.gd",
+    "res://tests/match_player_skill_deps_builder_smoke.gd",
     "res://tests/battle_scene_overlay_frame_perf_smoke.gd",
     "res://tests/weather_event_render_budget_smoke.gd"
 )

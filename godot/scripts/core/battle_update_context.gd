@@ -34,12 +34,14 @@ func build_match_flow_deps(
 	current_stage: int = 1,
 	perf_logger: Object = null,
 	perf_label_prefix: String = "",
-	include_all_stage_deps: bool = true
+	include_all_stage_deps: bool = true,
+	character_type: String = ""
 ) -> Dictionary:
 	return match_flow_context.build_deps(
 		registry,
 		current_stage,
 		perf_logger,
 		perf_label_prefix,
-		include_all_stage_deps
+		include_all_stage_deps,
+		character_type
 	)

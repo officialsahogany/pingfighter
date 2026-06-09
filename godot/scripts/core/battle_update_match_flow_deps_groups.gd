@@ -19,8 +19,8 @@ func build_item_runtime_deps(registry: Object) -> Dictionary:
 	return item_runtime_deps_builder.build_deps(registry)
 
 
-func build_player_skill_runtime_deps(registry: Object) -> Dictionary:
-	return player_skill_deps_builder.build_deps(registry)
+func build_player_skill_runtime_deps(registry: Object, character_type: String = "") -> Dictionary:
+	return player_skill_deps_builder.build_deps(registry, character_type)
 
 
 func build_stage_runtime_deps(

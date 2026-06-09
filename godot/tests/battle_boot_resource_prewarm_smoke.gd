@@ -14,6 +14,22 @@ class FakeOwner:
 	var commando_skill_icon_textures: Dictionary = {}
 
 
+class FakePerfLogger:
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+	func has_label_containing(fragment: String) -> bool:
+		for label in labels:
+			if label.find(fragment) >= 0:
+				return true
+		return false
+
+
 class FakePrewarmModule:
 	var prewarm_count := 0
 
@@ -254,6 +270,7 @@ class FakeCharacterInfo:
 class FakeRegistry:
 	var warmup_plan := BattleBootWarmupPlan.new()
 	var resource_prewarm := BattleBootResourcePrewarmController.new()
+	var battle_perf_logger := FakePerfLogger.new()
 	var battle_resources := FakeBattleResources.new()
 	var ball_renderer := FakeBallRenderer.new()
 	var game_audio := FakeGameAudio.new()
@@ -313,6 +330,8 @@ class FakeRegistry:
 				return resource_prewarm
 			"battle_boot_warmup_plan":
 				return warmup_plan
+			"battle_perf_logger":
+				return battle_perf_logger
 			"battle_resources":
 				return battle_resources
 			"ball_renderer":
@@ -458,6 +477,14 @@ func _init() -> void:
 	_expect(_registry.skill_cutin_overlay_host.prewarm_count == 1, "stage runtime prewarm should warm Smasher cut-in assets once")
 	_expect(_registry.skill_cutin_overlay_host.runtime_node_calls == 1, "stage runtime prewarm should pre-create the Smasher cut-in FX host")
 	_expect(_registry.skill_cutin_overlay_host.last_runtime_owner == owner, "Smasher cut-in FX host prewarm should receive the battle owner")
+	_expect(
+		_registry.battle_perf_logger.has_label_containing("selected_character.04_skill_cutin_overlay_host.assets"),
+		"selected character prewarm should report per-module cut-in asset timing"
+	)
+	_expect(
+		_registry.battle_perf_logger.has_label_containing("selected_character.04_skill_cutin_overlay_host.runtime_nodes"),
+		"selected character prewarm should report per-module cut-in runtime node timing"
+	)
 	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
 	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
 	_expect(_registry.smasher_plasma_state.step_calls == 3, "stage runtime prewarm should stage Smasher plasma textures")

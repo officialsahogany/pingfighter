@@ -12,6 +12,24 @@ class FakeOwner:
 	var selected_character_type := "viper"
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+	func has_label_containing(fragment: String) -> bool:
+		for label in labels:
+			if label.find(fragment) >= 0:
+				return true
+		return false
+
+
 class FakeContextBuilder:
 	extends RefCounted
 
@@ -25,6 +43,9 @@ class FakeContextBuilder:
 	var match_deps_calls := 0
 	var match_deps_stage := 0
 	var match_deps_include_all_stage_deps := true
+	var match_deps_has_perf_logger := false
+	var match_deps_label_prefix := ""
+	var match_deps_character := ""
 
 	func build_player_control_config(character_type: String = "smasher") -> Dictionary:
 		player_config_character = character_type
@@ -56,11 +77,20 @@ class FakeContextBuilder:
 		_current_stage: int = 1,
 		_perf_logger: Object = null,
 		_perf_label_prefix: String = "",
-		_include_all_stage_deps: bool = true
+		_include_all_stage_deps: bool = true,
+		_character_type: String = ""
 	) -> Dictionary:
 		match_deps_calls += 1
 		match_deps_stage = _current_stage
 		match_deps_include_all_stage_deps = _include_all_stage_deps
+		match_deps_has_perf_logger = _perf_logger != null
+		match_deps_label_prefix = _perf_label_prefix
+		match_deps_character = _character_type
+		_registry.get_instance("match_score_state")
+		if _character_type == "viper":
+			_registry.get_instance("viper_skill_runtime")
+		elif _character_type == "soldier":
+			_registry.get_instance("commando_firearm_runtime")
 		return {}
 
 
@@ -90,6 +120,7 @@ class FakeRegistry:
 	var context_builder: Object
 	var ball_driver: Object
 	var cleanse_state := FakeStagedCleanseState.new()
+	var battle_perf_logger := FakePerfLogger.new()
 	var requested_keys: Array[String] = []
 
 	func _init(context: Object, ball: Object) -> void:
@@ -99,6 +130,8 @@ class FakeRegistry:
 	func get_instance(key: String) -> Object:
 		requested_keys.append(key)
 		match key:
+			"battle_perf_logger":
+				return battle_perf_logger
 			"battle_update_context":
 				return context_builder
 			"battle_scene_ball_update_driver":
@@ -140,6 +173,20 @@ func _init() -> void:
 	_expect(context.match_deps_calls == 1, "prewarm should finalize match flow deps before the first score event")
 	_expect(context.match_deps_stage == 4, "prewarm should finalize match flow deps for selected stage")
 	_expect(not context.match_deps_include_all_stage_deps, "prewarm should use current-stage score-event deps")
+	_expect(context.match_deps_has_perf_logger, "prewarm should pass the perf logger into match flow deps")
+	_expect(
+		context.match_deps_label_prefix == "process.frame.update_prewarm.match_deps.finalize",
+		"prewarm should label match flow finalize detail samples"
+	)
+	_expect(context.match_deps_character == "viper", "prewarm should finalize match flow deps for selected character")
+	_expect(
+		registry.battle_perf_logger.has_label_containing("process.frame.update_prewarm.match_deps.finalize.lookup.00_match_score_state"),
+		"prewarm should report match flow registry lookup timing"
+	)
+	_expect(
+		registry.battle_perf_logger.has_label_containing("process.frame.update_prewarm.match_deps.finalize.total"),
+		"prewarm should report match flow finalize total timing"
+	)
 	_expect(registry.requested_keys.has("viper_skill_runtime"), "prewarm should still warm selected Viper match/runtime deps")
 	_expect(not registry.requested_keys.has("commando_firearm_runtime"), "prewarm should not warm unselected Commando firearm deps")
 	_expect(not registry.requested_keys.has("stage2_pillar_background"), "prewarm should not warm off-stage deps during score-event prewarm")
@@ -160,6 +207,20 @@ func _init() -> void:
 		smasher_registry.cleanse_state.prewarm_calls >= smasher_registry.cleanse_state.complete_after,
 		"prewarm should wait for staged smasher cleanse assets before advancing the dependency key"
 	)
+	_expect(smasher_context.match_deps_character == "smasher", "Smasher prewarm should finalize match flow deps for Smasher")
+	_expect(not smasher_registry.requested_keys.has("viper_skill_runtime"), "Smasher prewarm should not wake Viper match runtime")
+	_expect(not smasher_registry.requested_keys.has("commando_firearm_runtime"), "Smasher prewarm should not wake Commando match runtime")
+	for smasher_controller_key in [
+		"smasher_drive_bounce_state",
+		"smasher_drive_counter_state",
+		"smasher_drive_activation_controller",
+		"smasher_power_smash_activation_controller",
+		"smasher_power_smash_motion_controller",
+	]:
+		_expect(
+			smasher_registry.requested_keys.has(smasher_controller_key),
+			"Smasher update prewarm should request %s before selected-character runtime prewarm" % smasher_controller_key
+		)
 
 	if _failures.is_empty():
 		print("update_prewarm_driver_smoke: ok")

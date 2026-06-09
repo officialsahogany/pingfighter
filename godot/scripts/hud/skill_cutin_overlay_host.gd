@@ -84,6 +84,10 @@ var _drive_writhe_material: ShaderMaterial = null
 var _drive_writhe_material_enraged: ShaderMaterial = null
 var _smasher_title_skill_config: Object = null
 var _viper_title_skill_config: Object = null
+var _asset_prewarm_step_character := ""
+var _asset_prewarm_step_index := 0
+var _asset_prewarm_steps: Array = []
+var _asset_prewarmed_characters: Dictionary = {}
 
 
 func prewarm_assets() -> void:
@@ -91,24 +95,29 @@ func prewarm_assets() -> void:
 
 
 func prewarm_assets_for_character(character_type: String = "") -> void:
+	_reset_asset_prewarm_step(character_type.strip_edges().to_lower())
+	while not prewarm_assets_for_character_step(character_type):
+		pass
+
+
+func prewarm_assets_for_character_step(character_type: String = "") -> bool:
 	var normalized_character: String = character_type.strip_edges().to_lower()
-	_prewarmed = true
-	if normalized_character.is_empty() or normalized_character == "smasher":
-		_prewarm_cutin_sheet_texture(POWER_SMASHING_CUTIN_SHEET_PATH, "Smasher power-smashing")
-		_prewarm_cutin_sheet_texture(GHOST_SMASHING_CUTIN_SHEET_PATH, "Smasher ghost-smashing")
-	if normalized_character.is_empty() or normalized_character == "viper":
-		_prewarm_cutin_sheet_texture(VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH, "Viper phantom-kick")
-	# Drive cut-in 3-piece VFX: warm the 2 immediate-mode textures + the writhe-ember
-	# materials so the first drive never sync-loads art / compiles a shader on the
-	# draw hot path. The particle layer node prewarms itself (DriveCutinFxHost).
-	if normalized_character.is_empty() or normalized_character == "smasher":
-		_get_drive_texture(DRIVE_BACKPLATE_PATH)
-		_get_drive_texture(DRIVE_ARC_PATH)
-		_get_drive_texture(DRIVE_CHARACTER_PATH)
-		_get_drive_texture(SkillCutinDriveRenderer.SHIELD_KITING_CHARACTER_PATH)
-		_get_drive_writhe_material(false)
-		_get_drive_writhe_material(true)
-		DriveCutinFxHost.prewarm_assets()
+	if _is_asset_prewarmed_for(normalized_character):
+		return true
+	if _asset_prewarm_step_character != normalized_character:
+		_reset_asset_prewarm_step(normalized_character)
+	var steps: Array = _asset_prewarm_steps
+	if steps.is_empty() or _asset_prewarm_step_index >= steps.size():
+		_mark_assets_prewarmed(normalized_character)
+		return true
+	var step: Dictionary = steps[_asset_prewarm_step_index]
+	if not _run_asset_prewarm_step(step):
+		return false
+	_asset_prewarm_step_index += 1
+	if _asset_prewarm_step_index >= steps.size():
+		_mark_assets_prewarmed(normalized_character)
+		return true
+	return false
 
 
 func prewarm_runtime_nodes(_owner: Object = null) -> void:
@@ -166,6 +175,26 @@ func _prewarm_cutin_sheet_texture(path: String, label: String) -> void:
 	var texture: Texture2D = _load_cutin_sheet_texture(path, label)
 	_cutin_sheet_textures[path] = texture
 	_refresh_sheet_grid(path, texture)
+
+
+func _prewarm_cutin_sheet_texture_threaded_step(path: String, label: String) -> bool:
+	if _cutin_sheet_textures.has(path):
+		return true
+	var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		"",
+		"Failed to load %s cut-in sheet: %%s" % label,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+		false,
+		true
+	)
+	if not bool(result.get("done", false)):
+		return false
+	var texture: Texture2D = result.get("texture", null) as Texture2D
+	_cutin_sheet_textures[path] = texture
+	_refresh_sheet_grid(path, texture)
+	return true
 
 
 func _load_cutin_sheet_texture(path: String, label: String) -> Texture2D:
@@ -405,6 +434,25 @@ func _get_drive_texture(path: String) -> Texture2D:
 	return texture
 
 
+func _prewarm_drive_texture_threaded_step(path: String) -> bool:
+	if _drive_textures.has(path):
+		return true
+	var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		"",
+		"Failed to load drive cut-in VFX texture: %s",
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+		false,
+		true
+	)
+	if not bool(result.get("done", false)):
+		return false
+	var texture: Texture2D = result.get("texture", null) as Texture2D
+	_drive_textures[path] = texture
+	return true
+
+
 func _get_drive_writhe_material(enraged: bool) -> ShaderMaterial:
 	if enraged:
 		if _drive_writhe_material_enraged == null:
@@ -413,3 +461,61 @@ func _get_drive_writhe_material(enraged: bool) -> ShaderMaterial:
 	if _drive_writhe_material == null:
 		_drive_writhe_material = WritheEmber.build_material(DRIVE_WRITHE_PRESET)
 	return _drive_writhe_material
+
+
+func _build_asset_prewarm_steps(normalized_character: String) -> Array:
+	var steps: Array = []
+	if normalized_character.is_empty() or normalized_character == "smasher":
+		steps.append({"kind": "cutin_sheet", "path": POWER_SMASHING_CUTIN_SHEET_PATH, "label": "Smasher power-smashing"})
+		steps.append({"kind": "cutin_sheet", "path": GHOST_SMASHING_CUTIN_SHEET_PATH, "label": "Smasher ghost-smashing"})
+	if normalized_character.is_empty() or normalized_character == "viper":
+		steps.append({"kind": "cutin_sheet", "path": VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH, "label": "Viper phantom-kick"})
+	if normalized_character.is_empty() or normalized_character == "smasher":
+		steps.append({"kind": "drive_texture", "path": DRIVE_BACKPLATE_PATH})
+		steps.append({"kind": "drive_texture", "path": DRIVE_ARC_PATH})
+		steps.append({"kind": "drive_texture", "path": DRIVE_CHARACTER_PATH})
+		steps.append({"kind": "drive_texture", "path": SkillCutinDriveRenderer.SHIELD_KITING_CHARACTER_PATH})
+		steps.append({"kind": "drive_material", "enraged": false})
+		steps.append({"kind": "drive_material", "enraged": true})
+		steps.append({"kind": "drive_host_assets"})
+	return steps
+
+
+func _run_asset_prewarm_step(step: Dictionary) -> bool:
+	var kind := str(step.get("kind", ""))
+	match kind:
+		"cutin_sheet":
+			return _prewarm_cutin_sheet_texture_threaded_step(
+				str(step.get("path", "")),
+				str(step.get("label", "Skill"))
+			)
+		"drive_texture":
+			return _prewarm_drive_texture_threaded_step(str(step.get("path", "")))
+		"drive_material":
+			_get_drive_writhe_material(bool(step.get("enraged", false)))
+			return true
+		"drive_host_assets":
+			DriveCutinFxHost.prewarm_assets()
+			return true
+	return true
+
+
+func _reset_asset_prewarm_step(normalized_character: String) -> void:
+	_asset_prewarm_step_character = normalized_character
+	_asset_prewarm_step_index = 0
+	_asset_prewarm_steps = _build_asset_prewarm_steps(normalized_character)
+
+
+func _mark_assets_prewarmed(normalized_character: String) -> void:
+	_prewarmed = true
+	_asset_prewarmed_characters[normalized_character] = true
+	if normalized_character.is_empty():
+		_asset_prewarmed_characters["smasher"] = true
+		_asset_prewarmed_characters["viper"] = true
+	_asset_prewarm_step_character = ""
+	_asset_prewarm_step_index = 0
+	_asset_prewarm_steps = []
+
+
+func _is_asset_prewarmed_for(normalized_character: String) -> bool:
+	return bool(_asset_prewarmed_characters.get(normalized_character, false))
