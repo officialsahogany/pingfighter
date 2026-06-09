@@ -6,6 +6,7 @@ const LOGO_BAKED_BACKGROUND_PATH := "res://assets/ui/main_menu/lingpia_main_menu
 const MAIN_MENU_BGM_PATH := "res://assets/bgm/main_menu_moon_crack.wav"
 const MAIN_MENU_START_SFX_PATH := "res://assets/sounds/stagestart_godot_short.wav"
 const BGM_BUS_NAME := "BGM"
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
 class QuitRequestSink:
@@ -26,6 +27,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	ProjectResourceLoader.clear_caches()
 	var packed := load(MAIN_MENU_SCENE_PATH) as PackedScene
 	_expect(packed != null, "main menu scene should load")
 	if packed == null:
@@ -231,6 +233,8 @@ func _run() -> void:
 		_expect(quit_sink.quit_calls == 1, "yes button should trigger exactly one quit request")
 		_expect(bool(menu.get("transitioning")), "confirmed quit should lock the menu transition state")
 		menu.set("transitioning", false)
+	menu.set("application_quit_callback", Callable())
+	quit_sink = null
 	if bgm_player != null:
 		_send_b_to_menu()
 		await process_frame
@@ -258,7 +262,9 @@ func _run() -> void:
 				FileAccess.file_exists(MAIN_MENU_START_SFX_PATH) or ResourceLoader.exists(MAIN_MENU_START_SFX_PATH, "AudioStream"),
 				"start transition should use the stage-start style SFX resource"
 			)
-	await create_timer(1.12).timeout
+	var transition_timer := create_timer(1.12)
+	await transition_timer.timeout
+	transition_timer = null
 	await process_frame
 	var active_scene := current_scene
 	_expect(active_scene != null, "start should leave a current scene")
@@ -280,16 +286,24 @@ func _run() -> void:
 				character_bgm_player.playing,
 				"B key should resume BGM from the character-select screen"
 			)
+	await _cleanup_main_menu_reference()
 	await _cleanup_current_scene()
+	ProjectResourceLoader.clear_caches()
 	_finish()
 
 
 func _finish() -> void:
 	if failure_count > 0:
-		quit(1)
+		call_deferred("_quit_with_code", 1)
 		return
 	print("main_menu_flow_smoke: ok")
-	quit(0)
+	call_deferred("_quit_with_code", 0)
+
+
+func _quit_with_code(exit_code: int) -> void:
+	for _i in range(6):
+		await process_frame
+	quit(exit_code)
 
 
 func _send_escape_to_menu() -> void:
@@ -361,6 +375,30 @@ func _cleanup_current_scene() -> void:
 	await process_frame
 	await process_frame
 	menu = null
+
+
+func _cleanup_main_menu_reference() -> void:
+	if menu == null:
+		return
+	if is_instance_valid(menu):
+		_cleanup_audio_player(menu.get("main_menu_bgm_player") as AudioStreamPlayer)
+		_cleanup_audio_player(menu.get("start_transition_sfx_player") as AudioStreamPlayer)
+		menu.set("application_quit_callback", Callable())
+		var registry: Object = menu.get("main_menu_settings_registry")
+		if registry != null:
+			if "audio_settings" in registry:
+				registry.set("audio_settings", null)
+			if "view_layout" in registry:
+				registry.set("view_layout", null)
+		menu.set("main_menu_settings_overlay", null)
+		menu.set("main_menu_settings_registry", null)
+		await process_frame
+		if not menu.is_queued_for_deletion():
+			menu.queue_free()
+			await process_frame
+	menu = null
+	await process_frame
+	await process_frame
 
 
 func _cleanup_audio_player(player: AudioStreamPlayer) -> void:

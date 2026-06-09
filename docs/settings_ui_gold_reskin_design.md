@@ -558,3 +558,347 @@ overlay._draw_toggle_setting_row(self, Overlay.FONT_BODY, r, Rect2(90.0, 18.0, 1
    행에 마젠타를 또 얹을 때 이중 적용/혼동 주의.
 5. **탭 솟음 클립**: active 탭 y-2가 위 영역으로 새지 않는지.
 6. **세 검증 재실행** + RefCounted라 Control shadowing 무관(rotation 등).
+
+---
+
+## 부록 C — 슬라이스 3 배선 브리프 (공명 포커스 프레임)
+
+범위: **포커스된 1개 행에만** 시안 더블라인 + 마젠타 코너 브래킷(알파
+펄스). 핵심 체감 = **"한 행만 살아서 반응한다."** 시각 임팩트는 크지만
+회귀 지점은 좁음(헬퍼 1개 + 두 row 함수에 overlay 한 줄씩). 입력·레이아웃
+불변. 줄 앵커는 슬라이스 2 반영 후 기준.
+
+### C-1. 펄스는 **인자로** (helper는 순수) — 테스트 결정성
+
+`_draw_holo_focus_frame`은 `animation_time`을 **직접 읽지 않음**. 펄스 알파를
+인자로 받음 → smoke가 `1.0`을 넘겨 결정적으로 테스트 가능. 라이브 펄스는
+**호출하는 row 함수**가 멤버 `animation_time`을 읽어 계산해 넘김.
+
+```gdscript
+func _focus_pulse_alpha() -> float:
+    return 0.55 + 0.45 * sin(animation_time * TAU / 2.85)   # 범위 ~[0.1, 1.0], 메뉴 오브 주기
+```
+
+### C-2. `_draw_holo_focus_frame` 헬퍼 (계약) — `_draw_panel` 근처 추가
+
+**기본 패널을 대체하지 않고 위에 얹는 overlay.** 시안 더블라인 = 주 구조,
+**마젠타는 4코너 브래킷에만**(펄스 포인트). 전체 row 테두리를 마젠타로
+칠하지 말 것(슬라이스 2 버튼 캡·탭 엣지와 충돌).
+
+```gdscript
+func _draw_holo_focus_frame(canvas: CanvasItem, rect: Rect2, pulse_alpha: float = 1.0) -> void:
+    if rect.size.x <= 8.0 or rect.size.y <= 8.0:
+        return
+    # 시안 inner 라인 → 기본 패널 테두리(바깥)와 합쳐져 더블라인을 이룸 (주 구조, 펄스 X)
+    canvas.draw_rect(rect.grow(-3.0), Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.5), false, 1.0)
+    # 마젠타 ㄱ자 코너 브래킷 = 펄스 포인트 (코너에만)
+    var mag := Color(RESONANCE_MAG.r, RESONANCE_MAG.g, RESONANCE_MAG.b, clampf(pulse_alpha, 0.0, 1.0))
+    var arm := minf(14.0, rect.size.x * 0.25)
+    var w := 2.0
+    var tl := rect.position
+    var tr := Vector2(rect.end.x, rect.position.y)
+    var bl := Vector2(rect.position.x, rect.end.y)
+    var br := rect.end
+    canvas.draw_line(tl, tl + Vector2(arm, 0.0), mag, w); canvas.draw_line(tl, tl + Vector2(0.0, arm), mag, w)
+    canvas.draw_line(tr, tr + Vector2(-arm, 0.0), mag, w); canvas.draw_line(tr, tr + Vector2(0.0, arm), mag, w)
+    canvas.draw_line(bl, bl + Vector2(arm, 0.0), mag, w); canvas.draw_line(bl, bl + Vector2(0.0, -arm), mag, w)
+    canvas.draw_line(br, br + Vector2(-arm, 0.0), mag, w); canvas.draw_line(br, br + Vector2(0.0, -arm), mag, w)
+```
+
+> 바깥 시안 엣지는 기본 패널의 `focused` 테두리(이미 슬라이스 1/2에서
+> 시안/시안-hot)가 공급 → 프레임은 inner 라인 + 코너만 얹는 **가산
+> overlay**. 코너에서 마젠타가 기본 시안 위에 올라가 펄스 포인트가 됨.
+
+### C-3. 적용 = focused 행 1개에만 (기본 패널 유지 + overlay)
+
+대상은 **`_draw_setting_select_row`(L1355)** 와 **`_draw_toggle_setting_row`
+(L1376)** 둘뿐. 각 함수에서 기존 `_draw_panel(canvas, row_rect, ...)`는
+**그대로 두고**, 그 아래 한 줄 추가:
+
+```gdscript
+# _draw_setting_select_row: 기존 _draw_panel(row_rect...) 다음, value_rect 그리기 전/후 무관
+if focused:
+    _draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
+
+# _draw_toggle_setting_row: 기존 _draw_panel(row_rect...) 다음
+if focused:
+    _draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
+```
+
+> **이번 슬라이스 적용 범위는 이 두 row 타입뿐.** 모드/언어 pill,
+> 버튼, 슬라이더의 포커스 프레임은 **의도적으로 미적용**(범위 밖). 리뷰어가
+> "왜 pill엔 프레임 없냐"로 오해하지 않도록 명시. 후속에서 필요하면 같은
+> overlay 패턴으로 확장.
+
+### C-4. Smoke 보강 — 기존 `settings_ui_neon_skin_smoke.gd`
+
+probe `_draw()`에 (픽셀 단언 없이, 무오류 + 결정적 펄스):
+```gdscript
+overlay._draw_holo_focus_frame(self, Rect2(8.0, 150.0, 150.0, 26.0), 1.0)   # 결정적 펄스=1.0
+overlay._draw_setting_select_row(self, Overlay.FONT_BODY, Rect2(8.0, 18.0, 120.0, 24.0), Rect2(120.0, 18.0, 40.0, 24.0), "라벨", "값", true, Vector2(-99.0, -99.0))   # focused=true → 라이브 프레임 경로
+overlay._draw_setting_select_row(self, Overlay.FONT_BODY, Rect2(8.0, 18.0, 120.0, 24.0), Rect2(120.0, 18.0, 40.0, 24.0), "라벨", "값", false, Vector2(-99.0, -99.0))  # focused=false → 프레임 없이 기존 row만
+```
+(toggle는 슬라이스 2에서 이미 focused=false 경로 있음; 원하면 focused=true도 한 줄.)
+- (선택) `_verify_contract`에 `_focus_pulse_alpha()` 결과가 `[0,1]` 안인지
+  단언(animation_time=0이라 결정적으로 0.55).
+
+### C-5. 시각 QA — 디스플레이 탭에서 포커스 2장
+
+`_draw_panel` 공통 변경이 아니므로 슬라이스 2의 3장 회귀는 가벼움. 대신
+**"한 행만 반응"** 을 증명할 2장 추가:
+- `options_focus`를 **select row**(예 FPS Cap, focus 1)로 잡은 디스플레이 탭.
+- `options_focus`를 **checkbox row**(remember/auto, focus 3/4)로 잡은 디스플레이 탭.
+- 각 캡처에서 **그 행만** 코너 브래킷이 있고 나머지 행은 평범한지 확인
+  (펄스는 정지 캡처라 한 위상으로 박힘 — 알파 차이만 확인).
+
+### C-6. 편집 후 검증 (동일 3종)
+- `.\tools\run_headless_load_check.ps1`
+- `.\tools\run_warning_scan.ps1`
+- `.\tools\run_smoke_tests.ps1 -Tests res://tests/settings_ui_neon_skin_smoke.gd`
+
+### C-7. 트랩 (슬라이스 3 한정)
+1. **대체 금지, overlay만**: 기존 `_draw_panel(row_rect, ...)`를 지우지 말
+   것. 프레임은 그 위에 얹는 가산 레이어.
+2. **포커스 1개 불변식**: `options_focus`가 한 번에 한 인덱스만 true →
+   프레임도 한 행만. 두 행이 동시에 frame 받으면 게이팅 버그.
+3. **마젠타는 코너만**: 전체 row border 마젠타화 금지(슬라이스 2 충돌).
+   시안=구조, 마젠타=펄스 포인트.
+4. **펄스는 인자**: 헬퍼가 `animation_time`을 직접 읽지 않게(smoke 결정성).
+   라이브 위상은 row 함수가 `_focus_pulse_alpha()`로 계산해 주입.
+5. **범위 = 두 row 타입뿐**: pill/버튼/슬라이더 미적용은 의도.
+6. **입력·레이아웃 불변**: 셰브론/스크롤/RESET 여전히 금지.
+
+---
+
+## 부록 D — 슬라이스 4a 배선 브리프 (데이터 leader + 하단 리드아웃 골격)
+
+슬라이스 4를 둘로 분할. **4a = 시각 골격(코드)**, **4b = i18n 7개 언어 +
+포커스 매핑 완성(Codex 분배)**. 4a는 desc를 `_text(key, "한국어 fallback")`
+임시로만 채워 시각을 빠르게 확인하고, 전체 번역은 범위 밖.
+
+회귀 핵심 = **`_draw_recommendation_block`을 절대 건드리지 않음.** 하단
+리드아웃은 신규 `_draw_hud_readout_bar`로 **완전 분리**(아래 D-3).
+
+### D-1. 점선 leader — Godot 내장 사용
+
+Godot 4엔 `CanvasItem.draw_dashed_line(from, to, color, width, dash, ...)`
+내장. **별도 `_draw_dashed_line` 헬퍼는 선택**(고정 dash 파라미터를 프로젝트
+전역으로 통일하고 싶을 때만 얇은 래퍼). 4a는 내장 직접 호출 권장 — 데드코드
+회피. (Godot 버전이 4.x인지만 확인; 내장은 4.0+.)
+
+### D-2. `_draw_toggle_setting_row`에 라벨↔체크박스 leader — L1378
+
+기존 본문 유지, **타이틀 텍스트 뒤 ~ 체크박스 앞** 구간에만 점선 1줄 추가.
+모든 토글 행에 적용(포커스 행은 위에 슬라이스 3 프레임이 같이 얹힘 — 공존 OK).
+
+```gdscript
+# title 그린 직후(L1404 근처). 서브타이틀(y+42) 아님 — 타이틀 라인(y+~20)에.
+var title_w := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15).x
+var leader_y := row_rect.position.y + 20.0
+var leader_x0 := row_rect.position.x + 58.0 + title_w + 10.0
+var leader_x1 := checkbox_rect.position.x - 10.0
+if leader_x1 > leader_x0 + 6.0:
+    canvas.draw_dashed_line(Vector2(leader_x0, leader_y), Vector2(leader_x1, leader_y), Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.30), 1.0, 4.0)
+```
+> 가드(`leader_x1 > leader_x0 + 6`)로 긴 라벨이 체크박스와 겹칠 때 leader
+> 생략. 슬라이스 3 포커스 프레임과 그리는 순서는 무관(둘 다 가산).
+
+### D-3. 하단 리드아웃 — **신규** `_draw_hud_readout_bar` (회귀 핵심)
+
+**`_draw_recommendation_block`은 동결.** 새 헬퍼를 `_draw_recommendation_block`
+근처에 추가. 테두리/박스 없음(추천 박스와 다름) — 하단 폭 전체 딤 1줄 +
+좌측 시안 ▸ 폴리곤(글리프 금지).
+
+```gdscript
+func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, text: String) -> void:
+    if text == "":
+        return
+    var bar := Rect2(panel_rect.position + Vector2(28.0, panel_rect.size.y - 26.0), Vector2(panel_rect.size.x - 56.0, 20.0))
+    var m := Vector2(bar.position.x, bar.get_center().y)
+    canvas.draw_colored_polygon(PackedVector2Array([m + Vector2(0.0, -3.0), m + Vector2(5.0, 0.0), m + Vector2(0.0, 3.0)]), NEON_CYAN)  # ▸ (폴리곤)
+    _draw_text(canvas, font, text, Vector2(bar.position.x + 12.0, bar.get_center().y + 5.0), 13, TEXT_DIM)
+```
+
+호출 = `_draw_options_window` 끝(탭 콘텐츠·back 버튼 그린 뒤, L1092 이후):
+```gdscript
+_draw_hud_readout_bar(canvas, font, panel_rect, _get_focused_option_description(options_tab, options_focus))
+```
+
+### D-4. `_get_focused_option_description` 최소 골격 (4b가 완성)
+
+```gdscript
+func _get_focused_option_description(tab: String, focus: int) -> String:
+    if tab == OPTIONS_TAB_SOUND:
+        match focus:
+            0: return _text("settings.desc.bgm", "배경음 음량을 조절합니다.")
+            1: return _text("settings.desc.sfx", "효과음 음량을 조절합니다.")
+    elif tab == OPTIONS_TAB_DISPLAY:
+        match focus:
+            0: return _text("settings.desc.display_mode", "화면 표시 방식을 선택합니다.")
+            1: return _text("settings.desc.render_fps", "렌더링 최대 프레임을 설정합니다.")
+            2: return _text("settings.desc.vsync", "수직 동기화 방식을 설정합니다.")
+            3: return _text("settings.desc.remember_display", "표시 모드를 다음 실행에도 유지합니다.")
+            4: return _text("settings.desc.auto_refresh", "60Hz를 자동으로 적용합니다.")
+    elif tab == OPTIONS_TAB_LANGUAGE:
+        return _text("settings.desc.language", "게임 언어를 선택합니다.")
+    return ""
+```
+> controls 탭 / display 버튼 포커스(5~8) 등은 4a에선 `""` → 리드아웃 생략
+> (정상). 4b에서 매핑 완성 + `settings.desc.*` 7개 언어 키 추가.
+
+### D-5. Smoke 보강
+
+probe `_draw()`에:
+```gdscript
+overlay._draw_hud_readout_bar(self, Overlay.FONT_BODY, Rect2(0.0, 0.0, 180.0, 180.0), "설명 텍스트")  # 무오류
+overlay._draw_hud_readout_bar(self, Overlay.FONT_BODY, Rect2(0.0, 0.0, 180.0, 180.0), "")              # 빈 텍스트 early-return
+```
+`_verify_contract`에:
+```gdscript
+_expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_DISPLAY, 1) != "", "display fps focus should yield a readout description")
+_expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_CONTROLS, 99) == "", "out-of-range focus should yield empty readout")
+```
+(toggle 행 leader는 기존 toggle smoke 호출이 이미 경로를 탐 — `draw_dashed_line`
+무오류만 확인되면 충분, 픽셀 단언 X.)
+
+### D-6. 편집 후 검증 (동일 3종) + 시각 QA
+- `run_headless_load_check.ps1` / `run_warning_scan.ps1` /
+  `run_smoke_tests.ps1 -Tests res://tests/settings_ui_neon_skin_smoke.gd`
+- **스샷**: ① 토글 행 leader 보이는 디스플레이 탭, ② 하단 리드아웃이
+  포커스 따라 바뀌는 것(사운드 BGM/SFX, 디스플레이 select 행) 1~2장.
+- **회귀 확인 필수**: display 탭 **페이싱 추천 골드 박스**와 language 탭
+  **subtitle 노트 박스**가 슬라이스 3과 동일하게 보이는지(=
+  `_draw_recommendation_block` 무변경 증명).
+
+### D-7. 트랩 (슬라이스 4a 한정)
+1. **`_draw_recommendation_block` 동결**: 함수 본문·callsite(L1199/L1318)·
+   rect getter(`_get_display_pacing_recommendation_rect`/`_get_language_note_rect`)
+   모두 손대지 말 것. 하단 리드아웃은 완전 별도 `_draw_hud_readout_bar`.
+2. **하단 바 ↔ back/액션 버튼 충돌**: 권장 rect는 `panel.end.y - 26`.
+   사운드 back은 `end.y - 70`~`end.y - 25`라 그 아래로 안 겹침. **디스플레이
+   탭은 버튼이 많으니** 캡처로 겹침 확인, 겹치면 y를 더 내리거나 탭별 조정.
+3. **▸ 마커는 폴리곤**: `draw_colored_polygon`, 유니코드 글리프 금지.
+4. **leader는 타이틀 라인에**: 서브타이틀(y+42) 위 타이틀(y+~20) 구간.
+   긴 라벨 겹침 가드 필수.
+5. **i18n 전체 번역 범위 밖**: 4a는 ko fallback만. `settings.desc.*` 7개
+   언어 키 + controls 매핑은 4b(Codex).
+6. **입력 변화 없음**: 셰브론/스크롤/RESET 여전히 금지.
+
+### D-8. 배선 실측 메모 (4a 완료 후 기록)
+
+- **현재 토글 레이아웃은 체크박스가 왼쪽**(title은 `row.x+58`부터, 체크박스는
+  그 왼쪽). 본 문서 §4 ASCII 목업의 우측 `(◉)`는 레퍼런스 기준 희망안일 뿐
+  현행과 다름. leader는 별도 `_draw_toggle_leader`로 분리되어, `checkbox.x <=
+  title_end_x`면 **오른쪽 여백**으로, 아니면 **체크박스 앞**으로 흐르는 유연
+  가드를 둠 → 좌/우 체크박스 양 레이아웃 모두 대응. 후속 슬라이스(셰브론 등)
+  는 "체크박스 우측" 가정을 다시 깔지 말 것.
+- 하단 리드아웃 바 최종 위치 = `panel.end.y - 22`(높이 16). 사운드 back
+  버튼(`end.y-70`~`end.y-25`) 아래라 비충돌 확인됨.
+- leader는 별도 헬퍼(`_draw_toggle_leader`), 하단 바도 별도 헬퍼
+  (`_draw_hud_readout_bar`) — `_draw_recommendation_block`는 동결 유지.
+
+---
+
+## 부록 E — 슬라이스 4b 핸드오프 스펙 (i18n 완성 + 매핑 — Codex)
+
+소유: Codex. 4a와 **한 커밋으로 묶음**(리드아웃 골격+번역/매핑 = 한 단위).
+4a가 깐 `settings.desc.*`는 **현재 코드 fallback(ko)만** 있고
+`language_settings_data.gd`엔 키가 **하나도 없음** → 4b가 7개 언어에 전부
+추가 + `_get_focused_option_description` 매핑을 완성한다.
+
+### E-1. 추가할 키 = 17개 × 7개 언어 (119 문자열)
+
+대상 dict 블록(각 언어): ko(L3973~) / en(L4080~) / zh(L4187~) / ja(L4294~)
+/ es(L4401~) / **pt-BR(L4508~, 코드값 `"pt-BR"` ← `pt_br` 아님)** / ru(L4615~).
+배치는 기존 `display.desc.*`/`language.subtitle` 근처에 같은 스타일로.
+
+| key | 포커스 매핑 | ko 원문(소스) |
+|---|---|---|
+| `settings.desc.bgm` | sound 0 | 배경음 음량을 조절합니다. |
+| `settings.desc.sfx` | sound 1 | 효과음 음량을 조절합니다. |
+| `settings.desc.sound_back` | sound 2(back) | 이전 화면으로 돌아갑니다. |
+| `settings.desc.display_mode` | display 0 | 화면 표시 방식을 선택합니다. |
+| `settings.desc.render_fps` | display 1 | 렌더링 최대 프레임을 설정합니다. |
+| `settings.desc.vsync` | display 2 | 수직 동기화 방식을 설정합니다. |
+| `settings.desc.remember_display` | display 3 | 표시 모드를 다음 실행에도 유지합니다. |
+| `settings.desc.auto_refresh` | display 4 | 60Hz를 자동으로 적용합니다. |
+| `settings.desc.recommend_apply` | display 5 | 권장 설정을 한 번에 적용합니다. |
+| `settings.desc.apply_60hz` | display 6 | 지금 60Hz 설정을 적용합니다. |
+| `settings.desc.save` | display 7 | 현재 디스플레이 설정을 저장합니다. |
+| `settings.desc.display_back` | display 8(back) | 이전 화면으로 돌아갑니다. |
+| `settings.desc.controls_device` | controls 0 | 입력 장치를 선택합니다. |
+| `settings.desc.controls_vibration` | controls 1(조이패드) | 조이패드 진동 세기를 조절합니다. |
+| `settings.desc.controls_back` | controls back | 이전 화면으로 돌아갑니다. |
+| `settings.desc.language` | language 0~6 | 게임 언어를 선택합니다. |
+| `settings.desc.language_back` | language 7(back) | 이전 화면으로 돌아갑니다. |
+
+> ko가 소스. Codex가 en/zh/ja/es/pt-BR/ru를 각 블록 기존 톤에 맞춰 번역.
+> "이전 화면으로 돌아갑니다" 계열은 동일 문장 반복이라 언어별로도 한 문장
+> 재사용 OK. `settings.desc.*`는 **코드 fallback도 이 ko 원문으로 동기화**
+> (4a 골격의 fallback 문자열과 표를 일치시킬 것).
+
+### E-2. `_get_focused_option_description` 매핑 완성 (L1518)
+
+현재 sound 0/1, display 0~4, language(전체→language) 만 채워짐. 완성:
+- **sound**: 2 → `sound_back`.
+- **display**: 5→`recommend_apply`, 6→`apply_60hz`, 7→`save`, 8→`display_back`.
+- **language**: 0~6 → `language`, **7 → `language_back`** (현재는 7도 language로
+  잘못 감 — 분기 추가).
+- **controls (device-view 의존, 멤버 `controls_device_view` 읽어야 함)**:
+  ```gdscript
+  elif tab == OPTIONS_TAB_CONTROLS:
+      if focus == 0:
+          return _text("settings.desc.controls_device", "입력 장치를 선택합니다.")
+      if controls_device_view == CONTROL_DEVICE_JOYPAD and focus == 1:
+          return _text("settings.desc.controls_vibration", "조이패드 진동 세기를 조절합니다.")
+      if focus == _get_controls_back_focus_index():
+          return _text("settings.desc.controls_back", "이전 화면으로 돌아갑니다.")
+  ```
+  > **함정**: 키보드 모드에서 focus 1 = back(진동 행 없음). focus 1 = 진동을
+  > 하드코딩하면 키보드에서 오설명. 반드시 `controls_device_view` +
+  > `_get_controls_back_focus_index()`로 분기.
+
+### E-3. 긴 번역 1줄 오버플로우 방침
+
+리드아웃 바 1줄, 폭 = `panel.size.x - 56`. **최소 패널 폭 560**(`_get_options_panel_rect`
+하한)에서 usable ≈ **504px @ 12px**. 두 겹 방어:
+1. **저작 규칙(주 통제)**: desc는 1 짧은 문장. 가장 긴 언어(ru/pt-BR 경향)
+   기준으로도 504px/12px에서 1줄에 들어가게(대략 라틴 ~55자 / 한글 ~28자
+   이내). 넘으면 문장을 줄임 — 폰트 축소로 때우지 말 것.
+2. **런타임 세이프넷**: `_draw_hud_readout_bar`의 텍스트 그리기를 **폭 제한**
+   으로 바꿔 패널 밖으로 새지 않게:
+   ```gdscript
+   # 기존: _draw_text(canvas, font, text, pos, 12, TEXT_DIM)  (width -1.0)
+   canvas.draw_string(font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, bar.size.x - 13.0, 12, TEXT_DIM)
+   ```
+   폭 제한이면 클립되어 패널 경계를 넘지 않음(클립 발생 자체가 "번역이 너무
+   김" 신호 → 길이 QA로 잡음). 이 변경은 `_draw_recommendation_block`과 무관.
+
+### E-4. smoke / coverage 기준 (둘 다 신규 — 기존 localization 테스트 없음)
+
+신규 `settings_desc_localization_smoke.gd`(또는 기존 smoke 확장):
+1. **누락 키 0**: 7개 언어 dict 각각이 위 17개 `settings.desc.*` 키를 **전부
+   포함**. `LanguageSettingsData`의 per-language dict를 직접 순회해
+   `dict.has(key)` 단언(번역 경로 fallback에 가려지지 않게 dict 직접 검사).
+2. **빈 리드아웃 0**: 모든 유효 (tab, focus)에 대해
+   `_get_focused_option_description(tab, focus) != ""`.
+   - sound 0~2, display 0~8, language 0~7.
+   - controls는 device-view 두 경우 모두: keyboard(focus 0,1) + joypad(focus
+     0,1,2). 각 모드 set 후(또는 멤버 직접 세팅) 단언.
+3. **오버플로우 길이 체크**: 각 언어 각 키 텍스트가
+   `font.get_string_size(text, ALIGN_LEFT, -1.0, 12).x <= 504.0` 인지 단언
+   (넘으면 fail → 문장 줄이기). FONT_BODY로 측정.
+
+### E-5. 트랩 (슬라이스 4b 한정)
+1. **pt-BR 코드 = `"pt-BR"`** (하이픈), `pt_br` 아님. 기존 블록과 일치.
+2. **7개 dict 전부**: 한 언어라도 누락 시 그 언어에서 ko fallback이 섞여
+   나옴(혼합 언어 리드아웃) — coverage smoke가 잡음.
+3. **controls device-view 의존**: focus 1을 진동으로 하드코딩 금지(E-2 함정).
+4. **`display.desc.*` 기존 패밀리와 분리**: 이미 `display.desc.fullscreen/
+   windowed`가 있음(모드 pill 설명용, `_get_display_mode_description` 경로).
+   리드아웃용 `settings.desc.display_mode`와 **혼동/중복 금지** — 별도 유지.
+   이 핑계로 `_draw_recommendation_block`/모드 설명 경로를 건드리지 말 것.
+5. **language 7 = back**: 4a가 7도 language로 보내던 것 분기로 교정.
+6. **코드 fallback ↔ 데이터 키 동기화**: `_get_focused_option_description`의
+   ko fallback 문자열과 `settings.desc.*` ko 값이 같은 문장이어야(불일치 시
+   언어=ko인데 키 누락 상황에서 다른 문구가 보일 수 있음).
