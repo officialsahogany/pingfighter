@@ -1092,6 +1092,7 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	if options_tab == OPTIONS_TAB_SOUND:
 		var back_rect: Rect2 = _get_back_button_rect(panel_rect)
 		_draw_button(canvas, font, back_rect, _get_options_back_label(), options_focus == 2, mouse_pos)
+	_draw_hud_readout_bar(canvas, font, panel_rect, _get_focused_option_description(options_tab, options_focus))
 
 
 func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool) -> void:
@@ -1371,6 +1372,8 @@ func _draw_setting_select_row(
 	_draw_text(canvas, font, label, row_rect.position + Vector2(18.0, 29.0), 16, Color.WHITE)
 	_draw_panel(canvas, value_rect, BUTTON_COLOR, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.48), 1.0)
 	_draw_text_in_rect(canvas, font, value, value_rect, 15, Color.WHITE)
+	if focused:
+		_draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
 
 
 func _draw_toggle_setting_row(
@@ -1393,14 +1396,17 @@ func _draw_toggle_setting_row(
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
 	var checkbox_fill := Color(0.0, 0.24, 0.14, 0.95) if enabled else Color(0.02, 0.05, 0.08, 0.95)
 	var checkbox_border := NEON_GREEN if enabled else Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.72)
-	_draw_panel(canvas, checkbox_rect, checkbox_fill, checkbox_border, 1.0, enabled)
+	_draw_panel(canvas, checkbox_rect, checkbox_fill, checkbox_border, 1.0)
 	if enabled:
 		var center := checkbox_rect.get_center()
 		canvas.draw_line(center + Vector2(-5.0, 0.0), center + Vector2(-1.5, 4.0), NEON_CYAN_HOT, 2.5)
 		canvas.draw_line(center + Vector2(-1.5, 4.0), center + Vector2(6.0, -5.0), NEON_CYAN_HOT, 2.5)
 	var title_color := Color(1.0, 1.0, 1.0, 0.88) if muted and not enabled else Color.WHITE
 	_draw_text(canvas, font, title, row_rect.position + Vector2(58.0, 24.0), 15, title_color)
+	_draw_toggle_leader(canvas, font, row_rect, checkbox_rect, title)
 	_draw_text(canvas, font, subtitle, row_rect.position + Vector2(58.0, 42.0), 11, TEXT_DIM)
+	if focused:
+		_draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
 
 
 func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, selected: bool, mouse_pos: Vector2) -> void:
@@ -1422,6 +1428,41 @@ func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, tex
 		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(14.0, 19.0 + float(index) * 18.0), 12, Color(224.0 / 255.0, 232.0 / 255.0, 244.0 / 255.0))
 
 
+func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, text: String) -> void:
+	if text.is_empty():
+		return
+	var bar := Rect2(panel_rect.position + Vector2(28.0, panel_rect.size.y - 22.0), Vector2(panel_rect.size.x - 56.0, 16.0))
+	var marker_center := Vector2(bar.position.x, bar.get_center().y)
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			marker_center + Vector2(0.0, -3.0),
+			marker_center + Vector2(6.0, 0.0),
+			marker_center + Vector2(0.0, 3.0),
+		]),
+		Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.88)
+	)
+	canvas.draw_string(font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, maxf(0.0, bar.size.x - 13.0), 12, TEXT_DIM)
+
+
+func _draw_toggle_leader(canvas: CanvasItem, font: Font, row_rect: Rect2, checkbox_rect: Rect2, title: String) -> void:
+	var title_start_x := row_rect.position.x + 58.0
+	var title_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15).x
+	var title_end_x := title_start_x + title_width
+	var leader_y := row_rect.position.y + 20.0
+	var leader_x0 := title_end_x + 10.0
+	var leader_x1 := checkbox_rect.position.x - 10.0
+	if checkbox_rect.position.x <= title_end_x:
+		leader_x1 = row_rect.end.x - 18.0
+	if leader_x1 > leader_x0 + 6.0:
+		canvas.draw_dashed_line(
+			Vector2(leader_x0, leader_y),
+			Vector2(leader_x1, leader_y),
+			Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.30),
+			1.0,
+			4.0
+		)
+
+
 func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float, double_line: bool = false, glow: bool = false) -> void:
 	canvas.draw_rect(rect, fill)
 	if border_width > 0.0:
@@ -1441,8 +1482,81 @@ func _draw_neon_line(canvas: CanvasItem, start: Vector2, finish: Vector2, color:
 	canvas.draw_line(start, finish, color, core_width)
 
 
+func _draw_holo_focus_frame(canvas: CanvasItem, rect: Rect2, pulse_alpha: float = 1.0) -> void:
+	if rect.size.x <= 8.0 or rect.size.y <= 8.0:
+		return
+	var inner_rect := rect.grow(-3.0)
+	canvas.draw_rect(inner_rect, Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.50), false, 1.0)
+
+	var alpha := clampf(pulse_alpha, 0.0, 1.0)
+	var magenta := Color(RESONANCE_MAG.r, RESONANCE_MAG.g, RESONANCE_MAG.b, alpha)
+	var frame_rect := rect.grow(-1.0)
+	var arm: float = minf(14.0, minf(frame_rect.size.x, frame_rect.size.y) * 0.45)
+	var width := 2.0
+	var top_left := frame_rect.position
+	var top_right := Vector2(frame_rect.end.x, frame_rect.position.y)
+	var bottom_left := Vector2(frame_rect.position.x, frame_rect.end.y)
+	var bottom_right := frame_rect.end
+	canvas.draw_line(top_left, top_left + Vector2(arm, 0.0), magenta, width)
+	canvas.draw_line(top_left, top_left + Vector2(0.0, arm), magenta, width)
+	canvas.draw_line(top_right, top_right + Vector2(-arm, 0.0), magenta, width)
+	canvas.draw_line(top_right, top_right + Vector2(0.0, arm), magenta, width)
+	canvas.draw_line(bottom_left, bottom_left + Vector2(arm, 0.0), magenta, width)
+	canvas.draw_line(bottom_left, bottom_left + Vector2(0.0, -arm), magenta, width)
+	canvas.draw_line(bottom_right, bottom_right + Vector2(-arm, 0.0), magenta, width)
+	canvas.draw_line(bottom_right, bottom_right + Vector2(0.0, -arm), magenta, width)
+
+
 func _get_ui_font(tech: bool = false) -> Font:
 	return FONT_TECH if tech else FONT_BODY
+
+
+func _focus_pulse_alpha() -> float:
+	return 0.55 + 0.45 * sin(animation_time * TAU / 2.85)
+
+
+func _get_focused_option_description(tab: String, focus: int) -> String:
+	if tab == OPTIONS_TAB_SOUND:
+		match focus:
+			0:
+				return _text("settings.desc.bgm", "배경음 음량을 조절합니다.")
+			1:
+				return _text("settings.desc.sfx", "효과음 음량을 조절합니다.")
+			2:
+				return _text("settings.desc.sound_back", "이전 화면으로 돌아갑니다.")
+	elif tab == OPTIONS_TAB_DISPLAY:
+		match focus:
+			0:
+				return _text("settings.desc.display_mode", "화면 표시 방식을 선택합니다.")
+			1:
+				return _text("settings.desc.render_fps", "렌더링 최대 프레임을 설정합니다.")
+			2:
+				return _text("settings.desc.vsync", "수직 동기화 방식을 설정합니다.")
+			3:
+				return _text("settings.desc.remember_display", "표시 모드를 다음 실행에도 유지합니다.")
+			4:
+				return _text("settings.desc.auto_refresh", "60Hz를 자동으로 적용합니다.")
+			5:
+				return _text("settings.desc.recommend_apply", "권장 설정을 한 번에 적용합니다.")
+			6:
+				return _text("settings.desc.apply_60hz", "지금 60Hz 설정을 적용합니다.")
+			7:
+				return _text("settings.desc.save", "현재 디스플레이 설정을 저장합니다.")
+			8:
+				return _text("settings.desc.display_back", "이전 화면으로 돌아갑니다.")
+	elif tab == OPTIONS_TAB_CONTROLS:
+		if focus == 0:
+			return _text("settings.desc.controls_device", "입력 장치를 선택합니다.")
+		if controls_device_view == CONTROL_DEVICE_JOYPAD and focus == 1:
+			return _text("settings.desc.controls_vibration", "조이패드 진동 세기를 조절합니다.")
+		if focus == _get_controls_back_focus_index():
+			return _text("settings.desc.controls_back", "이전 화면으로 돌아갑니다.")
+	elif tab == OPTIONS_TAB_LANGUAGE:
+		if focus == LANGUAGE_FOCUS_COUNT - 1:
+			return _text("settings.desc.language_back", "이전 화면으로 돌아갑니다.")
+		if focus >= 0 and focus < LANGUAGE_FOCUS_COUNT - 1:
+			return _text("settings.desc.language", "게임 언어를 선택합니다.")
+	return ""
 
 
 func _draw_text(canvas: CanvasItem, font: Font, text: String, pos: Vector2, size: int, color: Color) -> void:
