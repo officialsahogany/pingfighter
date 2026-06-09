@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Overlay := preload("res://scripts/hud/pause_menu_overlay.gd")
+const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
 const READOUT_MAX_WIDTH := 491.0
@@ -162,6 +163,7 @@ func _verify_contract() -> void:
 	_expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_CONTROLS, 99) == "", "out-of-range controls focus should yield empty readout")
 	_verify_desc_localization()
 	_verify_desc_focus_mappings(overlay)
+	_verify_chevron_click_contract()
 
 
 func _verify_desc_localization() -> void:
@@ -197,6 +199,117 @@ func _verify_desc_focus_mappings(overlay: Object) -> void:
 			_expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_CONTROLS, focus) != "", "%s joypad controls focus %d should yield a readout" % [language, focus])
 		_expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_CONTROLS, 99) == "", "%s out-of-range controls focus should stay empty" % language)
 	LanguageSettings._cached_language = previous_language
+
+
+func _verify_chevron_click_contract() -> void:
+	var overlay: Object = Overlay.new()
+	var view_size := Vector2(900.0, 600.0)
+	var panel: Rect2 = overlay._get_options_panel_rect(view_size)
+	_verify_display_chevron_clicks(overlay, panel)
+	_verify_controls_chevron_clicks(overlay, panel)
+	_verify_chevron_regression_guards(overlay, panel, view_size)
+
+
+func _verify_display_chevron_clicks(overlay: Object, panel: Rect2) -> void:
+	var fps_value_rect: Rect2 = overlay._get_display_fps_cap_value_rect(panel)
+	var fps_chevrons: Dictionary = overlay._get_select_chevron_rects(fps_value_rect)
+	var fps_left: Rect2 = fps_chevrons["left"]
+	var fps_right: Rect2 = fps_chevrons["right"]
+	_expect(_rect_inside(overlay._get_display_fps_cap_row_rect(panel), fps_left), "render FPS left chevron hit rect should stay inside the row")
+	_expect(_rect_inside(fps_value_rect, fps_left), "render FPS left chevron hit rect should stay inside the value rect")
+	_expect(_rect_inside(fps_value_rect, fps_right), "render FPS right chevron hit rect should stay inside the value rect")
+
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay._handle_display_click(fps_left.get_center(), null, null, panel)
+	var fps_left_result: int = overlay.render_fps_cap
+	_expect(fps_left_result == Overlay.RENDER_FPS_CAP_STABILITY, "render FPS left chevron should select the previous option")
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay._handle_display_click(fps_right.get_center(), null, null, panel)
+	var fps_right_result: int = overlay.render_fps_cap
+	_expect(fps_right_result == Overlay.RENDER_FPS_CAP_BALANCED, "render FPS right chevron should select the next option")
+	_expect(fps_left_result != fps_right_result, "render FPS left and right chevrons should split directions")
+
+	var fps_label_pos: Vector2 = overlay._get_display_fps_cap_row_rect(panel).position + Vector2(28.0, 20.0)
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay.options_focus = 0
+	overlay._handle_display_click(fps_label_pos, null, null, panel)
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "render FPS label-area click should not cycle")
+	_expect(overlay.options_focus == 1, "render FPS label-area click should only focus the row")
+
+	var vsync_value_rect: Rect2 = overlay._get_display_vsync_value_rect(panel)
+	var vsync_chevrons: Dictionary = overlay._get_select_chevron_rects(vsync_value_rect)
+	var vsync_left: Rect2 = vsync_chevrons["left"]
+	var vsync_right: Rect2 = vsync_chevrons["right"]
+	_expect(_rect_inside(overlay._get_display_vsync_row_rect(panel), vsync_left), "VSync left chevron hit rect should stay inside the row")
+	_expect(_rect_inside(vsync_value_rect, vsync_left), "VSync left chevron hit rect should stay inside the value rect")
+	_expect(_rect_inside(vsync_value_rect, vsync_right), "VSync right chevron hit rect should stay inside the value rect")
+
+	overlay.vsync_mode = Overlay.VSYNC_MODE_ENABLED
+	overlay._handle_display_click(vsync_left.get_center(), null, null, panel)
+	var vsync_left_result: int = overlay.vsync_mode
+	_expect(vsync_left_result == Overlay.VSYNC_MODE_AUTO, "VSync left chevron should select the previous option")
+	overlay.vsync_mode = Overlay.VSYNC_MODE_ENABLED
+	overlay._handle_display_click(vsync_right.get_center(), null, null, panel)
+	var vsync_right_result: int = overlay.vsync_mode
+	_expect(vsync_right_result == Overlay.VSYNC_MODE_MAILBOX, "VSync right chevron should select the next option")
+	_expect(vsync_left_result != vsync_right_result, "VSync left and right chevrons should split directions")
+
+
+func _verify_controls_chevron_clicks(overlay: Object, panel: Rect2) -> void:
+	var saved_vibration_level: int = GamepadVibrationSettings.get_vibration_level()
+	overlay.controls_device_view = Overlay.CONTROL_DEVICE_JOYPAD
+	var vibration_value_rect: Rect2 = overlay._get_controls_vibration_value_rect(panel)
+	var vibration_chevrons: Dictionary = overlay._get_select_chevron_rects(vibration_value_rect)
+	var vibration_left: Rect2 = vibration_chevrons["left"]
+	var vibration_right: Rect2 = vibration_chevrons["right"]
+	_expect(_rect_inside(overlay._get_controls_vibration_row_rect(panel), vibration_left), "vibration left chevron hit rect should stay inside the row")
+	_expect(_rect_inside(vibration_value_rect, vibration_left), "vibration left chevron hit rect should stay inside the value rect")
+	_expect(_rect_inside(vibration_value_rect, vibration_right), "vibration right chevron hit rect should stay inside the value rect")
+
+	overlay.gamepad_vibration_level = 3
+	overlay._handle_controls_click(vibration_left.get_center(), panel)
+	var vibration_left_result: int = overlay.gamepad_vibration_level
+	_expect(vibration_left_result == 2, "vibration left chevron should decrease sensitivity")
+	overlay.gamepad_vibration_level = 3
+	overlay._handle_controls_click(vibration_right.get_center(), panel)
+	var vibration_right_result: int = overlay.gamepad_vibration_level
+	_expect(vibration_right_result == 4, "vibration right chevron should increase sensitivity")
+	_expect(vibration_left_result != vibration_right_result, "vibration left and right chevrons should split directions")
+	GamepadVibrationSettings.set_vibration_level(saved_vibration_level)
+
+
+func _verify_chevron_regression_guards(overlay: Object, panel: Rect2, view_size: Vector2) -> void:
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay.remember_display_mode = false
+	overlay._handle_display_click(overlay._get_display_default_checkbox_rect(panel).get_center(), null, null, panel)
+	_expect(overlay.remember_display_mode, "toggle checkbox click should still toggle display preference")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "toggle checkbox click should not cycle render FPS")
+
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay.options_focus = 0
+	overlay._handle_display_click(overlay._get_display_save_button_rect(panel).get_center(), null, null, panel)
+	_expect(overlay.options_focus == 7, "display save button click should still route to the button")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "display save button click should not cycle render FPS")
+
+	overlay.options_tab = Overlay.OPTIONS_TAB_SOUND
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay._handle_options_click(overlay._get_slider_hit_rect_from_panel(Overlay.SOUND_SLIDER_BGM, panel).get_center(), null, null, view_size)
+	_expect(overlay.options_focus == 0, "sound slider click should still focus the BGM slider")
+	_expect(overlay.dragging_slider == Overlay.SOUND_SLIDER_BGM, "sound slider click should still start slider drag")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "sound slider click should not cycle render FPS")
+
+	overlay.options_tab = Overlay.OPTIONS_TAB_DISPLAY
+	overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+	overlay._handle_options_click(overlay._get_sound_tab_rect(panel).get_center(), null, null, view_size)
+	_expect(overlay.options_tab == Overlay.OPTIONS_TAB_SOUND, "tab click should still switch tabs before content handlers")
+	_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_SMOOTH, "tab click should not cycle render FPS")
+
+
+func _rect_inside(container: Rect2, inner: Rect2) -> bool:
+	return (
+		container.has_point(inner.position)
+		and container.has_point(inner.position + Vector2(inner.size.x - 0.01, inner.size.y - 0.01))
+	)
 
 
 func _color_equal(actual: Color, expected: Color) -> bool:

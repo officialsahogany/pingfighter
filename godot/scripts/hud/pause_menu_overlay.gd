@@ -500,12 +500,24 @@ func _handle_display_click(position: Vector2, owner: Object, registry: Object, p
 		options_focus = 0
 		return {"handled": true}
 	if _get_display_fps_cap_row_rect(panel_rect).has_point(position):
-		_cycle_render_fps_cap(1, owner, registry)
 		options_focus = 1
+		var chevrons := _get_select_chevron_rects(_get_display_fps_cap_value_rect(panel_rect))
+		var left_rect: Rect2 = chevrons["left"]
+		var right_rect: Rect2 = chevrons["right"]
+		if left_rect.has_point(position):
+			_cycle_render_fps_cap(-1, owner, registry)
+		elif right_rect.has_point(position):
+			_cycle_render_fps_cap(1, owner, registry)
 		return {"handled": true}
 	if _get_display_vsync_row_rect(panel_rect).has_point(position):
-		_cycle_vsync_mode(1, owner, registry)
 		options_focus = 2
+		var chevrons := _get_select_chevron_rects(_get_display_vsync_value_rect(panel_rect))
+		var left_rect: Rect2 = chevrons["left"]
+		var right_rect: Rect2 = chevrons["right"]
+		if left_rect.has_point(position):
+			_cycle_vsync_mode(-1, owner, registry)
+		elif right_rect.has_point(position):
+			_cycle_vsync_mode(1, owner, registry)
 		return {"handled": true}
 	if _get_display_default_row_rect(panel_rect).has_point(position):
 		remember_display_mode = not remember_display_mode
@@ -545,7 +557,13 @@ func _handle_controls_click(position: Vector2, panel_rect: Rect2) -> Dictionary:
 		return {"handled": true}
 	if controls_device_view == CONTROL_DEVICE_JOYPAD and _get_controls_vibration_row_rect(panel_rect).has_point(position):
 		options_focus = 1
-		_adjust_gamepad_vibration_level(1)
+		var chevrons := _get_select_chevron_rects(_get_controls_vibration_value_rect(panel_rect))
+		var left_rect: Rect2 = chevrons["left"]
+		var right_rect: Rect2 = chevrons["right"]
+		if left_rect.has_point(position):
+			_adjust_gamepad_vibration_level(-1)
+		elif right_rect.has_point(position):
+			_adjust_gamepad_vibration_level(1)
 		return {"handled": true}
 	if _get_controls_back_button_rect(panel_rect).has_point(position):
 		return _close_options_page()
@@ -1371,6 +1389,29 @@ func _draw_setting_select_row(
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
 	_draw_text(canvas, font, label, row_rect.position + Vector2(18.0, 29.0), 16, Color.WHITE)
 	_draw_panel(canvas, value_rect, BUTTON_COLOR, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.48), 1.0)
+	var chevrons := _get_select_chevron_rects(value_rect)
+	var left_rect: Rect2 = chevrons["left"]
+	var right_rect: Rect2 = chevrons["right"]
+	var left_color := NEON_CYAN_HOT if left_rect.has_point(mouse_pos) else NEON_CYAN
+	var right_color := NEON_CYAN_HOT if right_rect.has_point(mouse_pos) else NEON_CYAN
+	var left_center := Vector2(value_rect.position.x + 14.0, value_rect.get_center().y)
+	var right_center := Vector2(value_rect.end.x - 14.0, value_rect.get_center().y)
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			left_center + Vector2(4.0, -7.0),
+			left_center + Vector2(-5.0, 0.0),
+			left_center + Vector2(4.0, 7.0),
+		]),
+		left_color
+	)
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			right_center + Vector2(-4.0, -7.0),
+			right_center + Vector2(5.0, 0.0),
+			right_center + Vector2(-4.0, 7.0),
+		]),
+		right_color
+	)
 	_draw_text_in_rect(canvas, font, value, value_rect, 15, Color.WHITE)
 	if focused:
 		_draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
@@ -1442,6 +1483,14 @@ func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, te
 		Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.88)
 	)
 	canvas.draw_string(font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, maxf(0.0, bar.size.x - 13.0), 12, TEXT_DIM)
+
+
+func _get_select_chevron_rects(value_rect: Rect2) -> Dictionary:
+	var half_width := value_rect.size.x * 0.5
+	return {
+		"left": Rect2(value_rect.position, Vector2(half_width, value_rect.size.y)),
+		"right": Rect2(value_rect.position + Vector2(half_width, 0.0), Vector2(value_rect.size.x - half_width, value_rect.size.y)),
+	}
 
 
 func _draw_toggle_leader(canvas: CanvasItem, font: Font, row_rect: Rect2, checkbox_rect: Rect2, title: String) -> void:
