@@ -32,6 +32,7 @@ const ITEM_DISPLAY_JA := LanguageSettingsData.ITEM_DISPLAY_JA
 const ITEM_DISPLAY_ES := LanguageSettingsData.ITEM_DISPLAY_ES
 const ITEM_DISPLAY_PT_BR := LanguageSettingsData.ITEM_DISPLAY_PT_BR
 const ITEM_DISPLAY_RU := LanguageSettingsData.ITEM_DISPLAY_RU
+const ACTIVE_ITEM_DESCRIPTION_EN := LanguageSettingsData.ACTIVE_ITEM_DESCRIPTION_EN
 const MYTHIC_DESCRIPTION_EN := LanguageSettingsData.MYTHIC_DESCRIPTION_EN
 const MYTHIC_DESCRIPTION_ZH := LanguageSettingsData.MYTHIC_DESCRIPTION_ZH
 const MYTHIC_DESCRIPTION_JA := LanguageSettingsData.MYTHIC_DESCRIPTION_JA
@@ -79,6 +80,7 @@ const QUALITY_PREFIXES_RU := LanguageSettingsData.QUALITY_PREFIXES_RU
 const TEXT := LanguageSettingsData.TEXT
 
 static var _cached_language := ""
+static var _item_description_override_maps: Dictionary = {}
 
 static func apply_saved_language() -> String:
 	var language := get_language()
@@ -109,6 +111,7 @@ static func set_language(language: String) -> String:
 
 static func reset_cache_for_tests() -> void:
 	_cached_language = ""
+	_item_description_override_maps.clear()
 
 
 static func normalize_language(language: String) -> String:
@@ -169,6 +172,14 @@ static func _get_item_display_map(language: String) -> Dictionary:
 	return ITEM_DISPLAY_EN
 
 
+static func _get_active_item_description_map(language: String) -> Dictionary:
+	if language == LANGUAGE_KOREAN:
+		return {}
+	# Active item tooltip bodies are currently authored in English only.
+	# Use English as the non-Korean fallback so unsupported locales do not leak Korean copy.
+	return ACTIVE_ITEM_DESCRIPTION_EN
+
+
 static func _get_mythic_description_map(language: String) -> Dictionary:
 	if language == LANGUAGE_RUSSIAN:
 		return MYTHIC_DESCRIPTION_RU
@@ -181,6 +192,24 @@ static func _get_mythic_description_map(language: String) -> Dictionary:
 	if language == LANGUAGE_CHINESE:
 		return MYTHIC_DESCRIPTION_ZH
 	return MYTHIC_DESCRIPTION_EN
+
+
+static func _get_item_description_override_map(language: String) -> Dictionary:
+	if language == LANGUAGE_KOREAN:
+		return {}
+	if _item_description_override_maps.has(language):
+		return _item_description_override_maps[language]
+	var active_item_description_map := _get_active_item_description_map(language)
+	var mythic_description_map := _get_mythic_description_map(language)
+	var result := {}
+	if language == LANGUAGE_ENGLISH:
+		result.merge(mythic_description_map, true)
+		result.merge(active_item_description_map, true)
+	else:
+		result.merge(active_item_description_map, true)
+		result.merge(mythic_description_map, true)
+	_item_description_override_maps[language] = result
+	return result
 
 
 static func _get_perk_name_map(language: String) -> Dictionary:
@@ -330,12 +359,12 @@ static func localize_item_data(item_data: Dictionary) -> Dictionary:
 	var result := _localize_visible_dictionary(item_data.duplicate(true), "")
 	var item_name := str(result.get("name", result.get("effect", "")))
 	var item_display_map := _get_item_display_map(language)
-	var mythic_description_map := _get_mythic_description_map(language)
+	var item_description_map := _get_item_description_override_map(language)
 	if item_display_map.has(item_name):
 		result["display_name"] = str(item_display_map[item_name])
 		result["korean_name"] = str(item_display_map[item_name])
-	if mythic_description_map.has(item_name):
-		result["description"] = str(mythic_description_map[item_name])
+	if item_description_map.has(item_name):
+		result["description"] = str(item_description_map[item_name])
 	if result.has("qualified_display_name"):
 		result["qualified_display_name"] = format_item_display_name(result)
 	return result

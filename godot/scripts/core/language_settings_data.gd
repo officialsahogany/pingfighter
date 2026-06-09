@@ -479,6 +479,35 @@ const ITEM_DISPLAY_RU := {
 	"baal_boots": "Ботинки Баала",
 }
 
+const ACTIVE_ITEM_DESCRIPTION_EN := {
+	"gauge_charge": "Charges 220 gauge.",
+	"life_elixir": "Fully charges the gauge.",
+	"ammo_box": "Restocks ammunition for the currently selected rental firearm.",
+	"doping_potion": "Temporarily boosts Commando firearm fire rate and power.",
+	"vitamin_pill": "Temporarily increases movement speed.",
+	"strange_vial": "Randomly changes paddle size and movement speed by a large amount.",
+	"aipill": "Activates auto guard; gauge is consumed whenever it guards.",
+	"pandora_box": "Opens a portal that summons an active item onto the field.",
+	"grenade": "Throws a grenade that stuns the boss inside the explosion radius.",
+	"flare": "Throws a flare that confuses the boss inside the blast radius.",
+	"tear_gas": "Throws tear gas that briefly pauses boss skill cooldowns.",
+	"dynamite": "Plants dynamite that counts down before a strong explosion.",
+	"molotov": "Throws a Molotov that creates a fire zone dealing damage over time.",
+	"stopwatch": "Briefly stops time, freezing the ball and battle flow.",
+	"magnet_field": "Temporarily pulls the ball toward the player paddle.",
+	"long_boost": "Temporarily greatly increases the player's paddle size.",
+	"regeneration_potion": "Instantly restores skill cooldowns and dash tokens.",
+	"holy_barrier": "Deploys a barrier behind the player that bounces the ball back.",
+	"dash_boost": "Temporarily greatly reduces dash cost and cooldown.",
+	"wall": "Installs defensive bricks that block the ball.",
+	"boomerang": "Throws a boomerang toward the boss; catch it on return to recover it.",
+	"banana": "Throws a banana trap that makes the boss slip when stepped on.",
+	"soap": "Throws soap that makes the boss slip when stepped on.",
+	"spider_mine": "Deploys a wall-crawling mine that slows the boss.",
+	"elixir_of_mastery": "On use, randomly selects one owned perk and raises it to Lv.5. This mythic active item is consumed after use.",
+	"milk_bottle": "On use, increases the player's paddle and character image size by 20% until the stage ends.",
+}
+
 const MYTHIC_DESCRIPTION_EN := {
 	"speedboots": "While equipped, increases player movement speed by the rolled option value.",
 	"speedgear": "While equipped, left/right turning deceleration is increased by 2.5x.",

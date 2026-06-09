@@ -2,22 +2,19 @@ extends SceneTree
 
 const CharacterLivePreview := preload("res://scripts/ui/character_live_preview.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var failure_count: int = 0
-var ran: bool = false
 
 
-func _process(_delta: float) -> bool:
-	if ran:
-		return true
-	ran = true
-	_run()
-	return true
+func _init() -> void:
+	call_deferred("_run")
 
 
 func _run() -> void:
 	var main_window: Window = get_root()
 	var preview: Control = CharacterLivePreview.new()
+	preview.set("preview_vfx_enabled", false)
 	preview.size = Vector2(640.0, 800.0)
 	main_window.add_child(preview)
 
@@ -26,18 +23,11 @@ func _run() -> void:
 	var portrait := load(str(smasher.get("portrait_path", ""))) as Texture2D
 	_expect(portrait != null, "smasher portrait should load")
 	preview.call("set_character", smasher, portrait)
+	await _wait_for_fullframe_sheet(preview)
 
 	var idle_path := str(smasher.get("live2d_fullframe_sheet_path", ""))
-	var idle_texture := load(idle_path) as Texture2D
-	_expect(idle_texture != null, "smasher idle Live2D sheet should load")
-	var idle_config := {
-		"cols": int(smasher.get("live2d_fullframe_cols", 1)),
-		"rows": int(smasher.get("live2d_fullframe_rows", 1)),
-		"count": int(smasher.get("live2d_fullframe_count", 1)),
-		"interval": float(smasher.get("live2d_fullframe_interval", 0.16)),
-		"trim_rect": smasher.get("live2d_trim_rect", Rect2()),
-	}
-	preview.call("_finish_fullframe_sheet_load", idle_path, idle_config, idle_texture)
+	_expect(idle_path != "", "smasher idle Live2D path should be configured")
+	_expect(preview.get("fullframe_sheet_texture") != null, "smasher idle Live2D sheet should finish loading through the threaded poll path")
 	preview.set("elapsed", 0.24)
 
 	var idle_count := int(preview.get("fullframe_count"))
@@ -76,6 +66,17 @@ func _run() -> void:
 	preview.call("_process", 0.30)
 	_expect(preview.get("return_transition_texture") == null, "return transition overlay should clear after its duration")
 
+	preview.set("fullframe_loading", true)
+	preview.set("fullframe_loading_path", "res://tests/missing_character_preview_sheet.png")
+	preview.set("fullframe_loading_config", {"path": "res://tests/missing_character_preview_sheet.png"})
+	preview.set("fullframe_loading_progress", 0.5)
+	preview.call("_drain_fullframe_sheet_load")
+	_expect(not bool(preview.get("fullframe_loading")), "draining a stale fullframe load should clear the loading flag")
+	_expect(str(preview.get("fullframe_loading_path")) == "", "draining a stale fullframe load should clear the loading path")
+	_expect((preview.get("fullframe_loading_config") as Dictionary).is_empty(), "draining a stale fullframe load should clear the loading config")
+	var preview_source := _read_text_file("res://scripts/ui/character_live_preview.gd")
+	_expect(preview_source.find("elif status != ResourceLoader.THREAD_LOAD_FAILED") < 0, "fullframe load drain must not call load_threaded_get while the request is still in progress")
+
 	_expect(
 		bool(preview.call("play_fullframe_one_shot", {
 			"path": one_shot_path,
@@ -93,7 +94,14 @@ func _run() -> void:
 	_expect(int(preview.get("fullframe_count")) == 1, "confirm one-shot should keep its one-shot frame config")
 	_expect(preview.get("return_transition_texture") == null, "confirm one-shot should not arm the return transition overlay")
 
+	if preview.has_method("clear_runtime_state"):
+		preview.call("clear_runtime_state")
 	preview.queue_free()
+	preview = null
+	await process_frame
+	await process_frame
+	ProjectResourceLoader.clear_caches()
+	await process_frame
 	if failure_count > 0:
 		quit(1)
 		return
@@ -108,6 +116,23 @@ func _find_character(characters: Array, character_id: String) -> Dictionary:
 			if str(character.get("id", "")) == character_id:
 				return character
 	return {}
+
+
+func _wait_for_fullframe_sheet(preview: Control, max_frames: int = 180) -> void:
+	for _idx in range(max_frames):
+		if preview.get("fullframe_sheet_texture") != null:
+			return
+		preview.call("_process", 1.0 / 60.0)
+		await process_frame
+
+
+func _read_text_file(path: String) -> String:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	var text := file.get_as_text()
+	file.close()
+	return text
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -103,6 +103,10 @@ const LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/luna
 const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
 const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
 const LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"
+const LINGPET_PUPPET_GRAB_CAST_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
+const LINGPET_PUPPET_GRAB_PULL_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab.wav"
+const LINGPET_PUPPET_GRAB_KISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_kissing.wav"
+const LINGPET_PUPPET_GRAB_MISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
 const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
 const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
@@ -116,6 +120,10 @@ const LINGPET_LUNABI_CLICK_VOICE_GAIN_DB := -4.0
 const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_PUPPET_GRAB_CAST_GAIN_DB := -5.0
+const LINGPET_PUPPET_GRAB_PULL_GAIN_DB := -5.0
+const LINGPET_PUPPET_GRAB_KISS_GAIN_DB := -5.0
+const LINGPET_PUPPET_GRAB_MISS_GAIN_DB := -5.0
 const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
 const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
 const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
@@ -360,6 +368,10 @@ var lingpet_lunabi_click_voice_sfx: AudioStreamPlayer
 var lingpet_volty_click_voice_sfx: AudioStreamPlayer
 var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
 var lingpet_red_dragon_click_voice_sfx: AudioStreamPlayer
+var lingpet_puppet_grab_cast_sfx: AudioStreamPlayer
+var lingpet_puppet_grab_pull_sfx: AudioStreamPlayer
+var lingpet_puppet_grab_kiss_sfx: AudioStreamPlayer
+var lingpet_puppet_grab_miss_sfx: AudioStreamPlayer
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
 var lingpet_gatling_loop_sfx: AudioStreamPlayer
 var lingpet_gatling_fire_sfx: AudioStreamPlayer
@@ -635,6 +647,10 @@ func _setup_item_command_sfx() -> void:
 	lingpet_volty_click_voice_sfx = player_factory.create(owner_node, "LingpetVoltyClickVoiceSfx", LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH, LINGPET_VOLTY_CLICK_VOICE_GAIN_DB)
 	lingpet_milkring_click_voice_sfx = player_factory.create(owner_node, "LingpetMilkringClickVoiceSfx", LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH, LINGPET_MILKRING_CLICK_VOICE_GAIN_DB)
 	lingpet_red_dragon_click_voice_sfx = player_factory.create(owner_node, "LingpetRedDragonClickVoiceSfx", LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH, LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB)
+	lingpet_puppet_grab_cast_sfx = player_factory.create(owner_node, "LingpetPuppetGrabCastSfx", LINGPET_PUPPET_GRAB_CAST_SOUND_PATH, LINGPET_PUPPET_GRAB_CAST_GAIN_DB)
+	lingpet_puppet_grab_pull_sfx = player_factory.create(owner_node, "LingpetPuppetGrabPullSfx", LINGPET_PUPPET_GRAB_PULL_SOUND_PATH, LINGPET_PUPPET_GRAB_PULL_GAIN_DB)
+	lingpet_puppet_grab_kiss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabKissSfx", LINGPET_PUPPET_GRAB_KISS_SOUND_PATH, LINGPET_PUPPET_GRAB_KISS_GAIN_DB)
+	lingpet_puppet_grab_miss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabMissSfx", LINGPET_PUPPET_GRAB_MISS_SOUND_PATH, LINGPET_PUPPET_GRAB_MISS_GAIN_DB)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
@@ -926,6 +942,10 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
 				LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
 				LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH,
+				LINGPET_PUPPET_GRAB_CAST_SOUND_PATH,
+				LINGPET_PUPPET_GRAB_PULL_SOUND_PATH,
+				LINGPET_PUPPET_GRAB_KISS_SOUND_PATH,
+				LINGPET_PUPPET_GRAB_MISS_SOUND_PATH,
 				LEGENDARY_AFTER_SOUND_PATH,
 				LEGENDARY_ENDING_SOUND_PATH,
 				RAGNAROK_SHOT_SOUND_PATH,
@@ -1737,6 +1757,26 @@ func play_lingpet_click_reaction(pet_id: String) -> void:
 		_play_with_pitch(_ensure_lingpet_milkring_click_voice_sfx(), randf_range(0.98, 1.02))
 	elif normalized_pet_id == "red_dragon":
 		_play_with_pitch(_ensure_lingpet_red_dragon_click_voice_sfx(), randf_range(0.98, 1.02))
+
+
+func play_lingpet_puppet_grab_cast() -> void:
+	if not _play_with_pitch(lingpet_puppet_grab_cast_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_lingpet_puppet_grab_pull() -> void:
+	if not _play_with_pitch(lingpet_puppet_grab_pull_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_lingpet_puppet_grab_kiss() -> void:
+	if not _play_with_pitch(lingpet_puppet_grab_kiss_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_lingpet_puppet_grab_miss() -> void:
+	if not _play_with_pitch(lingpet_puppet_grab_miss_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
 
 
 func play_legendary_after() -> void:

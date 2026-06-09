@@ -299,6 +299,10 @@ class FakePaddleAudio:
 	var lingpet_acquire_count := 0
 	var lingpet_acquire_click_backing_count := 0
 	var lingpet_click_reaction_pet_ids: Array = []
+	var puppet_grab_cast_count := 0
+	var puppet_grab_pull_count := 0
+	var puppet_grab_kiss_count := 0
+	var puppet_grab_miss_count := 0
 
 	func play_paddle_hit() -> void:
 		paddle_hits += 1
@@ -317,6 +321,18 @@ class FakePaddleAudio:
 
 	func play_lingpet_click_reaction(pet_id: String) -> void:
 		lingpet_click_reaction_pet_ids.append(pet_id)
+
+	func play_lingpet_puppet_grab_cast() -> void:
+		puppet_grab_cast_count += 1
+
+	func play_lingpet_puppet_grab_pull() -> void:
+		puppet_grab_pull_count += 1
+
+	func play_lingpet_puppet_grab_kiss() -> void:
+		puppet_grab_kiss_count += 1
+
+	func play_lingpet_puppet_grab_miss() -> void:
+		puppet_grab_miss_count += 1
 
 
 class FakeBossAiState:
@@ -2962,6 +2978,28 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	)
 	_expect(src.find("ball_vel") < 0 and src.find("ball_pos") < 0, "꼭두각시 조종 is pure paddle CC — it must not read or write the ball")
 	_expect(src.find("lingpet_puppet_grab_active") >= 0, "꼭두각시 조종 should flag the owner so the boss is held + uncollidable")
+	_expect(src.find("play_lingpet_puppet_grab_pull") >= 0, "꼭두각시 조종 should play the original grab.wav on the pull phase edge")
+	_expect(src.find("play_lingpet_puppet_grab_kiss") >= 0, "꼭두각시 조종 should play the original kissing.wav on the kiss phase edge")
+
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/puppet_grab_tentacle.wav"), "Godot should ship the original Puppet Control tentacle cast sound")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/puppet_grab.wav"), "Godot should ship the original Puppet Control grab sound")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/puppet_grab_kissing.wav"), "Godot should ship the original Puppet Control kissing sound")
+	_expect(ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/puppet_grab_tentacle.wav") != null, "Puppet Control tentacle cast sound should load as an AudioStream")
+	_expect(ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/puppet_grab.wav") != null, "Puppet Control grab sound should load as an AudioStream")
+	_expect(ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/puppet_grab_kissing.wav") != null, "Puppet Control kissing sound should load as an AudioStream")
+	var game_audio_src: String = FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
+	_expect(
+		game_audio_src.find("play_lingpet_puppet_grab_cast") >= 0
+			and game_audio_src.find("play_lingpet_puppet_grab_pull") >= 0
+			and game_audio_src.find("play_lingpet_puppet_grab_kiss") >= 0,
+		"game_audio should expose the three original Puppet Control SFX calls"
+	)
+	var skill_host_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
+	_expect(
+		skill_host_src.find("_play_puppet_grab_cast_feedback") >= 0
+			and skill_host_src.find("play_lingpet_puppet_grab_cast") >= 0,
+		"skill runtime host should use the original tentacle cast SFX instead of generic active-item feedback"
+	)
 
 	# Boss-side plumbing: the grab only works if the freeze + collision-skip wiring is present.
 	var ai_src: String = FileAccess.get_file_as_string("res://scripts/ai/boss_ai_state.gd")
@@ -2982,7 +3020,8 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	owner.ball_active = true
 	var boss_original: Vector2 = owner.boss_pos
 	var runtime: Object = LingpetEggRuntime.new()
-	var registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	var puppet_audio := FakePaddleAudio.new()
+	var registry := FakeRegistry.new({"game_audio": puppet_audio})
 	runtime.update(0.0, owner, registry)
 	runtime.configure_companion_motion_for_tests(Vector2(380.0, 600.0), 2, 0.0, false)
 	runtime.update(0.0, owner, registry)
@@ -2994,23 +3033,36 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	runtime.update(0.85, owner, registry)  # exceed the 0.8s wind-up
 	var launched: Dictionary = runtime.get_snapshot()
 	_expect(bool(launched.get("puppet_grab_active", false)), "Koyora 꼭두각시 조종 should launch after its wind-up")
-	_expect(bool(owner.lingpet_puppet_grab_active), "launching the grab should flag the owner so the boss is frozen + uncollidable")
+	# Snapshot lock-on: the freeze flag is NOT set during EXTENDING. The boss is
+	# free to dodge during the 0.7s extend window — only a confirmed HIT at the
+	# end of EXTENDING commits the grab. This is what makes a MISS possible.
+	_expect(not bool(owner.lingpet_puppet_grab_active), "EXTENDING must leave the boss free so it has a real chance to dodge before the strings arrive")
 	_expect(int(launched.get("puppet_grab_phase", -1)) == 0, "the grab should open in the extending phase")
 	_expect(bool(launched.get("puppet_grab_companion_override_active", false)), "Koyora should stay pinned at her cast spot while puppeteering")
 	_expect(int(runtime.get_puppet_grab_count_for_tests()) == 1, "the grab should count one launch")
-	_expect(owner.lingpet_skill_cooldown > 30.0, "꼭두각시 조종 should enter its long cooldown at launch")
+	_expect(owner.lingpet_skill_cooldown > 20.0, "꼭두각시 조종 should enter its long cooldown at launch (25s)")
+	_expect(puppet_audio.puppet_grab_cast_count == 1, "launching Puppet Control should play the original tentacle cast sound once")
+	_expect(puppet_audio.puppet_grab_pull_count == 0 and puppet_audio.puppet_grab_kiss_count == 0, "Puppet Control should not play pull/kiss sounds before their phase edges")
 
-	# Extending phase: the boss has not moved yet.
+	# Extending phase: FakeOwner has no AI so the boss naturally stays at its
+	# launch position; that gives us the HIT path on the phase boundary below.
 	runtime.update(0.3, owner, registry)
 	var ext: Dictionary = runtime.get_snapshot()
 	_expect(int(ext.get("puppet_grab_phase", -1)) == 0, "the boss should still be extending at 0.3s")
-	_expect(_vector2_distance(owner.boss_pos, boss_original) <= 0.01, "the boss must stay put while the strings extend")
+	_expect(_vector2_distance(owner.boss_pos, boss_original) <= 0.01, "FakeOwner has no AI driving the boss so it stays put during extend (giving us a HIT in this test path)")
+	_expect(not bool(owner.lingpet_puppet_grab_active), "the boss must NOT be flagged held mid-EXTEND — the freeze only commits on HIT")
+	_expect(puppet_audio.puppet_grab_pull_count == 0 and puppet_audio.puppet_grab_kiss_count == 0, "extending strings should remain silent after the cast sound")
 
-	# Pulling phase: the boss is dragged downward toward Koyora.
+	# Pulling phase: HIT at the extend boundary commits the grab and the boss is
+	# dragged downward toward Koyora.
 	runtime.update(0.5, owner, registry)  # +0.5 -> 0.8s total -> into PULLING
 	var pull: Dictionary = runtime.get_snapshot()
 	_expect(int(pull.get("puppet_grab_phase", -1)) == 1, "the boss should be pulling once the extend window ends")
+	_expect(bool(owner.lingpet_puppet_grab_active), "HIT-transition into PULLING must NOW flag the owner so the boss is frozen + uncollidable")
 	_expect(owner.boss_pos.y > boss_original.y + 2.0, "the boss should be dragged downward during the pull")
+	_expect(puppet_audio.puppet_grab_pull_count == 1, "entering the pull phase should play the original grab.wav once")
+	_expect(puppet_audio.puppet_grab_kiss_count == 0, "the kiss sound should wait until the kiss phase edge")
+	_expect(puppet_audio.puppet_grab_miss_count == 0, "a HIT path should never play the miss sound")
 
 	# Kissing phase: the boss is pinned at the kiss point and the kiss registers.
 	runtime.update(1.5, owner, registry)  # 2.3s total -> into KISSING
@@ -3021,6 +3073,7 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	var boss_center: Vector2 = owner.boss_pos + Vector2(50.0, 20.0)
 	_expect(_vector2_distance(boss_center, kiss_center) <= 0.5, "the boss should be pinned at the kiss point during the kiss")
 	_expect(kiss_center.y < boss_original.y + 700.0 and kiss_center.y > boss_original.y, "the kiss point should sit in front of Koyora, below the boss origin")
+	_expect(puppet_audio.puppet_grab_kiss_count == 1, "entering the kiss phase should play the original kissing.wav once")
 
 	# Return phase completes: boss restored to exact origin, owner flag released.
 	runtime.update(1.5, owner, registry)  # 3.8s total > 3.616s -> finished
@@ -3028,6 +3081,27 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	_expect(not bool(done.get("puppet_grab_active", false)), "꼭두각시 조종 should finish after the return phase")
 	_expect(not bool(owner.lingpet_puppet_grab_active), "finishing the grab should release the owner boss-freeze flag")
 	_expect(_vector2_distance(owner.boss_pos, boss_original) <= 0.01, "the boss must be returned to its exact original position")
+
+	# --- Ownerless HIT edge: if the HIT transition happens without an owner,
+	# keep the pending pin and apply it on the first owner-backed update instead
+	# of losing the owner write for one frame.
+	var pending_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var pending_owner := FakeOwner.new()
+	pending_owner.boss_pos = Vector2(330.0, 25.0)
+	pending_owner.boss_paddle_width = 100.0
+	pending_owner.boss_hitbox_height = 40.0
+	_expect(bool(pending_skill.launch(Vector2(380.0, 600.0), pending_owner, {})), "pending-pin launch should succeed")
+	pending_skill.update(0.75, null, registry)
+	var pending_snap: Dictionary = pending_skill.get_snapshot()
+	_expect(int(pending_snap.get("puppet_grab_phase", -1)) == 1, "ownerless HIT transition should still enter PULLING")
+	_expect(bool(pending_snap.get("puppet_grab_pending_owner", false)), "ownerless HIT transition should keep a pending owner pin")
+	_expect(not bool(pending_snap.get("puppet_grab_owns_boss", false)), "ownerless HIT transition should not claim ownership before writing the owner")
+	_expect(not bool(pending_owner.lingpet_puppet_grab_active), "ownerless HIT transition should not mutate a missing owner")
+	pending_skill.update(0.0, pending_owner, registry)
+	_expect(bool(pending_owner.lingpet_puppet_grab_active), "next owner-backed update should apply the pending puppet grab immediately")
+	_expect(bool(pending_skill.get_snapshot().get("puppet_grab_owns_boss", false)), "pending pin should become real ownership after owner write")
+	pending_skill.cancel(pending_owner)
+	_expect(not bool(pending_owner.lingpet_puppet_grab_active), "pending-pin cleanup should release the owner flag")
 
 	# --- Direct cleanup case: cancelling mid-grab must release the boss with no leak.
 	var skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
@@ -3096,6 +3170,63 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	var reset_boss_pos: Vector2 = reset_result.get("boss_pos", Vector2.ZERO)
 	_expect(not bool(round_owner.lingpet_puppet_grab_active), "reset_ball cleanup should release Koyora's boss-freeze flag")
 	_expect(is_equal_approx(reset_boss_pos.y, 25.0), "reset_ball result must reset boss Y instead of replaying the pre-cleanup dragged Y")
+
+	# --- MISS-path regression: if the boss leaves the predicted lock-on point
+	# before the strings arrive at end of EXTENDING, the grab MUST whiff. No
+	# freeze flag, no PULL / KISS / RETURN, no boss displacement — just a brief
+	# MISS feedback phase and a clean skill end.
+	var miss_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var miss_audio_for_skill := FakePaddleAudio.new()
+	var miss_registry := FakeRegistry.new({"game_audio": miss_audio_for_skill})
+	var miss_owner := FakeOwner.new()
+	miss_owner.boss_pos = Vector2(330.0, 25.0)
+	miss_owner.boss_paddle_width = 100.0
+	miss_owner.boss_hitbox_height = 40.0
+	var miss_origin := Vector2(380.0, 600.0)
+	_expect(bool(miss_skill.launch(miss_origin, miss_owner, {})), "MISS-case launch should succeed")
+	_expect(not bool(miss_owner.lingpet_puppet_grab_active), "the boss must not be flagged held during EXTENDING — that is what makes a dodge possible")
+	miss_skill.update(0.3, miss_owner, miss_registry)  # 0.3s into EXTEND (still 0.4s left)
+	_expect(int(miss_skill.get_snapshot().get("puppet_grab_phase", -1)) == 0, "0.3s into extend should still be EXTENDING")
+	_expect(not bool(miss_owner.lingpet_puppet_grab_active), "still no freeze mid-EXTEND")
+	# Simulate the boss tracking the ball across the field and leaving the
+	# predicted lock-on point before the strings arrive.
+	miss_owner.boss_pos = Vector2(600.0, 25.0)  # ~270px right of the launch position
+	miss_skill.update(0.5, miss_owner, miss_registry)  # +0.5 -> past 0.7s extend → HIT/MISS check fires
+	var miss_snap: Dictionary = miss_skill.get_snapshot()
+	_expect(int(miss_snap.get("puppet_grab_phase", -1)) == 4, "boss outside hit tolerance at extend end should send the skill to PHASE_MISSING")
+	_expect(bool(miss_snap.get("puppet_grab_missed", false)), "MISS should be flagged on the snapshot")
+	_expect(int(miss_snap.get("puppet_grab_miss_count", -1)) == 1, "MISS should register exactly once")
+	_expect(not bool(miss_owner.lingpet_puppet_grab_active), "a MISS must NEVER set the boss freeze flag")
+	_expect(_vector2_distance(miss_owner.boss_pos, Vector2(600.0, 25.0)) <= 0.01, "a MISS must not displace the boss")
+	_expect(not bool(miss_snap.get("puppet_grab_owns_boss", false)), "a MISS must not take ownership of the boss")
+	_expect(miss_audio_for_skill.puppet_grab_pull_count == 0, "MISS path must not play the pull (grab.wav) sound")
+	_expect(miss_audio_for_skill.puppet_grab_kiss_count == 0, "MISS path must not play the kiss (kissing.wav) sound")
+	_expect(miss_audio_for_skill.puppet_grab_miss_count == 1, "MISS path should play the dedicated miss feedback once")
+	# Let the MISS feedback fade out — skill ends naturally with no leak.
+	miss_skill.update(0.5, miss_owner, miss_registry)  # 0.5s > MISS_SECONDS (0.45)
+	_expect(not bool(miss_skill.is_active()), "MISS phase should auto-end after MISS_SECONDS")
+	_expect(not bool(miss_owner.lingpet_puppet_grab_active), "MISS end leaves the boss free")
+	_expect(_vector2_distance(miss_owner.boss_pos, Vector2(600.0, 25.0)) <= 0.01, "MISS end must not teleport the boss anywhere")
+
+	# --- MISS hit-tolerance edge case: a small dodge inside the tolerance window
+	# should still HIT (boss center within ~58px of launch position for a 100px
+	# paddle = HIT_TOLERANCE_PAD(8) + boss_size.x*0.5(50)).
+	var grazed_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var grazed_audio := FakePaddleAudio.new()
+	var grazed_registry := FakeRegistry.new({"game_audio": grazed_audio})
+	var grazed_owner := FakeOwner.new()
+	grazed_owner.boss_pos = Vector2(330.0, 25.0)
+	grazed_owner.boss_paddle_width = 100.0
+	grazed_owner.boss_hitbox_height = 40.0
+	_expect(bool(grazed_skill.launch(Vector2(380.0, 600.0), grazed_owner, {})), "edge-case launch should succeed")
+	grazed_owner.boss_pos = Vector2(370.0, 25.0)  # 40px right — well inside tolerance
+	grazed_skill.update(0.75, grazed_owner, grazed_registry)
+	var grazed_snap: Dictionary = grazed_skill.get_snapshot()
+	_expect(int(grazed_snap.get("puppet_grab_phase", -1)) == 1, "small dodge inside tolerance should still HIT and enter PULLING")
+	_expect(not bool(grazed_snap.get("puppet_grab_missed", false)), "small dodge must not register a MISS")
+	_expect(bool(grazed_owner.lingpet_puppet_grab_active), "small dodge should still flip the freeze flag on HIT")
+	_expect(grazed_audio.puppet_grab_pull_count == 1, "small dodge HIT path should play the pull sound")
+	_expect(grazed_audio.puppet_grab_miss_count == 0, "small dodge HIT path should not play the miss sound")
 
 
 func _verify_companion_click_reaction() -> void:

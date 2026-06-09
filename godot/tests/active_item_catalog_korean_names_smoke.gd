@@ -47,6 +47,7 @@ func _init() -> void:
 	_verify_spanish_catalog_display_names()
 	_verify_portuguese_brazil_catalog_display_names()
 	_verify_russian_catalog_display_names()
+	_verify_duplicate_active_item_descriptions()
 	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
@@ -80,6 +81,31 @@ func _verify_catalog_descriptions() -> void:
 		str(catalog.build_item_by_name("regeneration_potion").get("description", "")).find("스킬 쿨타임") >= 0,
 		"regeneration potion description should explain cooldown recovery"
 	)
+
+
+func _verify_duplicate_active_item_descriptions() -> void:
+	var catalog := ActiveItemCatalog.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	_expect(
+		str(catalog.build_item_by_name("elixir_of_mastery").get("description", "")) == str(LanguageSettings.ACTIVE_ITEM_DESCRIPTION_EN["elixir_of_mastery"]),
+		"English active catalog should use the active elixir description"
+	)
+	_expect(
+		str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.ACTIVE_ITEM_DESCRIPTION_EN["milk_bottle"]),
+		"English active catalog should use the active milk-bottle description"
+	)
+
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_CHINESE)
+	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_ZH["milk_bottle"]), "Chinese active catalog should keep the localized milk-bottle description")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_JA["milk_bottle"]), "Japanese active catalog should keep the localized milk-bottle description")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_ES["milk_bottle"]), "Spanish active catalog should keep the localized milk-bottle description")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_PT_BR["milk_bottle"]), "Brazilian Portuguese active catalog should keep the localized milk-bottle description")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_RU["milk_bottle"]), "Russian active catalog should keep the localized milk-bottle description")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _verify_pickup_fallback_names() -> void:

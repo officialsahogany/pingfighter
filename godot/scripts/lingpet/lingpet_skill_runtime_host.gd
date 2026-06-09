@@ -317,7 +317,7 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			_play_soul_clone_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
-			_play_active_item_feedback(registry)
+			_play_puppet_grab_cast_feedback(registry)
 		_:
 			pass
 
@@ -654,6 +654,18 @@ func _play_soul_clone_feedback(registry: Object) -> void:
 		return
 	if audio.has_method("play_lingpet_ghost_summon"):
 		audio.play_lingpet_ghost_summon()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_puppet_grab_cast_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_puppet_grab_cast"):
+		audio.play_lingpet_puppet_grab_cast()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
 
