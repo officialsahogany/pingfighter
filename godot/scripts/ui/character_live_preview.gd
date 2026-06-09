@@ -4,6 +4,7 @@ extends Control
 signal one_shot_finished
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
 
 const LAYER_ORDER := [
 	"back_hair",
@@ -103,9 +104,57 @@ var return_transition_trim_valid: bool = false
 var return_transition_stage_scale: float = 1.0
 var return_transition_stage_offset_ratio: Vector2 = Vector2.ZERO
 var return_transition_float_motion_enabled: bool = false
+var preview_vfx_host: Control = null
+var preview_vfx_backplate_texture: Texture2D = null
+var preview_vfx_mandala_texture: Texture2D = null
+var preview_vfx_floor_ring_texture: Texture2D = null
+var preview_vfx_light_slit_texture: Texture2D = null
+var preview_vfx_enabled: bool = true
+
+
+func _ready() -> void:
+	clip_contents = true
+	_ensure_preview_vfx_host()
+	_sync_preview_vfx_layout()
+
+
+func _exit_tree() -> void:
+	clear_runtime_state()
+
+
+func clear_runtime_state() -> void:
+	_clear_preview_vfx()
+	_clear_preview_vfx_textures()
+	_drain_fullframe_sheet_load()
+	character.clear()
+	portrait_texture = null
+	layer_textures.clear()
+	fullframe_sheet_texture = null
+	fullframe_cols = 1
+	fullframe_rows = 1
+	fullframe_count = 1
+	fullframe_interval = 0.16
+	fullframe_trim_relative_rect = Rect2()
+	fullframe_trim_valid = false
+	fullframe_loading = false
+	fullframe_loading_path = ""
+	fullframe_loading_config = {}
+	fullframe_loading_candidates.clear()
+	fullframe_loading_candidate_index = 0
+	fullframe_loading_progress = 0.0
+	fullframe_loading_failed = false
+	one_shot_active = false
+	one_shot_finished_emitted = false
+	one_shot_min_duration = 0.0
+	one_shot_pending_return_config.clear()
+	one_shot_playing_configured_return = false
+	_clear_one_shot_restore_source()
+	_clear_one_shot_transition()
+	_clear_return_transition()
 
 
 func set_character(data: Dictionary, texture: Texture2D) -> void:
+	_drain_fullframe_sheet_load()
 	one_shot_active = false
 	one_shot_finished_emitted = false
 	one_shot_min_duration = 0.0
@@ -133,6 +182,7 @@ func set_character(data: Dictionary, texture: Texture2D) -> void:
 	if fullframe_sheet_texture != null:
 		layer_textures.clear()
 	_enforce_layer_policy()
+	_sync_preview_vfx_character()
 	queue_redraw()
 
 
@@ -140,10 +190,96 @@ func set_interaction_state(hover_amount: float, click_flash: float, active: bool
 	interaction_hover_amount = clamp(hover_amount, 0.0, 1.0)
 	interaction_click_flash = clamp(click_flash, 0.0, 1.0)
 	interaction_active = active
+	_sync_preview_vfx_interaction()
 	queue_redraw()
 
 
+func play_confirm_vfx(config: Dictionary = {}) -> void:
+	if not preview_vfx_enabled:
+		return
+	_ensure_preview_vfx_host()
+	if preview_vfx_host != null and preview_vfx_host.has_method("play_confirm"):
+		preview_vfx_host.call("play_confirm", config)
+
+
+func _ensure_preview_vfx_host() -> void:
+	if not preview_vfx_enabled:
+		return
+	if preview_vfx_host != null and is_instance_valid(preview_vfx_host):
+		return
+	var host: Control = CharacterSelectPreviewVfxHost.new()
+	host.name = "CharacterSelectPreviewVfxHost"
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.position = Vector2.ZERO
+	host.size = size
+	host.z_index = -20
+	add_child(host)
+	move_child(host, 0)
+	preview_vfx_host = host
+
+
+func _sync_preview_vfx_character() -> void:
+	_ensure_preview_vfx_host()
+	if preview_vfx_host == null:
+		return
+	if character.is_empty():
+		if preview_vfx_host.has_method("set_active"):
+			preview_vfx_host.call("set_active", false)
+		return
+	if preview_vfx_host.has_method("set_character"):
+		preview_vfx_host.call("set_character", character)
+	if preview_vfx_enabled:
+		_load_preview_vfx_textures()
+	_sync_preview_vfx_interaction()
+	_sync_preview_vfx_layout()
+
+
+func _sync_preview_vfx_interaction() -> void:
+	if preview_vfx_host == null or not is_instance_valid(preview_vfx_host):
+		return
+	if preview_vfx_host.has_method("set_interaction_state"):
+		preview_vfx_host.call(
+			"set_interaction_state",
+			interaction_hover_amount,
+			interaction_click_flash,
+			interaction_active or not character.is_empty()
+		)
+
+
+func _sync_preview_vfx_layout() -> void:
+	if preview_vfx_host == null or not is_instance_valid(preview_vfx_host):
+		return
+	preview_vfx_host.position = Vector2.ZERO
+	preview_vfx_host.size = size
+
+
+func _clear_preview_vfx() -> void:
+	if preview_vfx_host == null or not is_instance_valid(preview_vfx_host):
+		preview_vfx_host = null
+		return
+	if preview_vfx_host.has_method("clear_runtime_state"):
+		preview_vfx_host.call("clear_runtime_state")
+
+
+func _load_preview_vfx_textures() -> void:
+	var character_id := str(character.get("id", ""))
+	preview_vfx_backplate_texture = ProjectResourceLoader.load_imported_texture(CharacterSelectPreviewVfxHost.DEEP_BACKPLATE_PATH)
+	preview_vfx_floor_ring_texture = ProjectResourceLoader.load_imported_texture(CharacterSelectPreviewVfxHost.FLOOR_RING_PATH)
+	preview_vfx_light_slit_texture = ProjectResourceLoader.load_imported_texture(CharacterSelectPreviewVfxHost.LIGHT_SLIT_PATH)
+	preview_vfx_mandala_texture = ProjectResourceLoader.load_imported_texture(
+		CharacterSelectPreviewVfxHost.get_mandala_texture_path(character_id)
+	)
+
+
+func _clear_preview_vfx_textures() -> void:
+	preview_vfx_backplate_texture = null
+	preview_vfx_mandala_texture = null
+	preview_vfx_floor_ring_texture = null
+	preview_vfx_light_slit_texture = null
+
+
 func play_fullframe_one_shot(config: Dictionary) -> bool:
+	_drain_fullframe_sheet_load()
 	var sheet_path := str(config.get("path", ""))
 	if sheet_path == "":
 		return false
@@ -293,6 +429,7 @@ func _build_configured_return_one_shot(config: Dictionary) -> Dictionary:
 
 
 func _start_configured_return_one_shot() -> bool:
+	_drain_fullframe_sheet_load()
 	if one_shot_pending_return_config.is_empty():
 		return false
 	var config := one_shot_pending_return_config.duplicate(true)
@@ -387,6 +524,7 @@ func _process(delta: float) -> void:
 		target.x = clamp(target.x, -18.0, 18.0)
 		target.y = clamp(target.y, -14.0, 14.0)
 	look_offset = look_offset.lerp(target, min(1.0, delta * 8.0))
+	_sync_preview_vfx_layout()
 	queue_redraw()
 
 
@@ -509,6 +647,7 @@ func _draw() -> void:
 
 
 func _begin_fullframe_sheet_load() -> bool:
+	_drain_fullframe_sheet_load()
 	fullframe_sheet_texture = null
 	fullframe_trim_relative_rect = Rect2()
 	fullframe_trim_valid = false
@@ -607,6 +746,22 @@ func _poll_fullframe_sheet_load() -> void:
 				queue_redraw()
 
 
+func _drain_fullframe_sheet_load() -> void:
+	if not fullframe_loading or fullframe_loading_path == "":
+		return
+	var path := fullframe_loading_path
+	fullframe_loading = false
+	fullframe_loading_path = ""
+	fullframe_loading_config = {}
+	fullframe_loading_progress = 0.0
+	if not _can_thread_load_texture(path):
+		return
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		ResourceLoader.load_threaded_get(path)
+
+
 func _finish_fullframe_sheet_load(path: String, config: Dictionary, texture: Texture2D) -> void:
 	_apply_fullframe_sheet_config(config)
 	fullframe_sheet_texture = texture
@@ -696,6 +851,8 @@ func _draw_preview_backdrop(accent: Color, glow: Color) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.018, 0.020, 0.034, 0.98))
 	draw_rect(Rect2(Vector2(8.0, 8.0), size - Vector2(16.0, 16.0)), Color(0.026, 0.032, 0.052, 0.92))
 	var floor_y := _stage_floor_y()
+	if preview_vfx_enabled:
+		_draw_preview_vfx_texture_backdrop(floor_y)
 	var center := Vector2(size.x * 0.5, floor_y)
 	var pulse := 0.5 + sin(elapsed * 2.4) * 0.5
 	var spotlight_alpha: float = 0.10 + pulse * 0.035
@@ -744,6 +901,157 @@ func _draw_preview_backdrop(accent: Color, glow: Color) -> void:
 	_draw_ellipse(center, base_radius * 0.68, Color(1.0, 1.0, 1.0, 0.22), false, 1.2)
 	draw_line(Vector2(size.x * 0.24, floor_y + size.y * 0.10), Vector2(size.x * 0.76, floor_y + size.y * 0.10), Color(glow.r, glow.g, glow.b, 0.16), 1.0)
 	_draw_stage_side_hud(accent, glow, floor_y)
+
+
+func _draw_preview_vfx_texture_backdrop(floor_y: float) -> void:
+	if size.x <= 1.0 or size.y <= 1.0:
+		return
+	var accent := _accent_color()
+	var glow := _glow_color()
+	var hover_boost: float = interaction_hover_amount * 0.08
+	var drift := Vector2(
+		sin(elapsed * 0.31) * size.x * 0.008,
+		cos(elapsed * 0.27 + 0.8) * size.y * 0.006
+	) + look_offset * 0.10
+	if preview_vfx_backplate_texture != null:
+		_draw_preview_vfx_texture_transformed(
+			preview_vfx_backplate_texture,
+			Rect2(-size * 0.018 + drift, size * 1.036),
+			Color(1.0, 1.0, 1.0, 0.17 + hover_boost),
+			0.0,
+			Vector2.ONE
+		)
+	if preview_vfx_mandala_texture != null:
+		var mandala_side: float = min(size.x * 0.78, size.y * 0.62)
+		var mandala_rect := Rect2(
+			Vector2((size.x - mandala_side) * 0.5, size.y * 0.085) - drift * 0.36,
+			Vector2(mandala_side, mandala_side)
+		)
+		var mandala_pulse: float = 1.0 + sin(elapsed * 1.05) * 0.010 + interaction_hover_amount * 0.018
+		_draw_preview_vfx_texture_transformed(
+			preview_vfx_mandala_texture,
+			mandala_rect,
+			Color(1.0, 1.0, 1.0, 0.25 + hover_boost),
+			elapsed * 0.030,
+			Vector2(mandala_pulse, mandala_pulse)
+		)
+	if preview_vfx_light_slit_texture != null:
+		var slit_size := Vector2(size.x * 0.22, size.y * 0.70)
+		var slit_alpha: float = 0.13 + interaction_hover_amount * 0.07
+		for side_index in range(2):
+			var base_x: float = size.x * (0.08 if side_index == 0 else 0.70)
+			var sweep_y: float = size.y * 0.075 + sin(elapsed * 0.72 + float(side_index) * 1.7) * size.y * 0.020
+			_draw_preview_vfx_texture_transformed(
+				preview_vfx_light_slit_texture,
+				Rect2(Vector2(base_x, sweep_y), slit_size),
+				Color(1.0, 1.0, 1.0, slit_alpha),
+				sin(elapsed * 0.22 + float(side_index)) * 0.018,
+				Vector2.ONE
+			)
+	if preview_vfx_floor_ring_texture != null:
+		var ring_size := Vector2(size.x * 0.78, size.y * 0.14)
+		var ring_scale: float = 1.0 + sin(elapsed * 1.55) * 0.018 + interaction_hover_amount * 0.026
+		var ring_rect := Rect2(
+			Vector2((size.x - ring_size.x) * 0.5, floor_y - ring_size.y * 0.45),
+			ring_size
+		)
+		_draw_preview_vfx_texture_transformed(
+			preview_vfx_floor_ring_texture,
+			ring_rect,
+			Color(1.0, 1.0, 1.0, 0.31 + interaction_hover_amount * 0.10),
+			0.0,
+			Vector2(ring_scale, ring_scale)
+		)
+	_draw_preview_vfx_data_motes(accent, glow, floor_y)
+	_draw_preview_vfx_scan_sweep(accent, glow, floor_y)
+
+
+func _draw_preview_vfx_texture_transformed(
+	texture: Texture2D,
+	rect: Rect2,
+	color: Color,
+	rotation: float,
+	scale: Vector2
+) -> void:
+	if texture == null:
+		return
+	var center := rect.get_center()
+	draw_set_transform(center, rotation, scale)
+	draw_texture_rect(texture, Rect2(-rect.size * 0.5, rect.size), false, color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_preview_vfx_data_motes(accent: Color, glow: Color, floor_y: float) -> void:
+	var top_y: float = size.y * 0.16
+	var travel_h: float = max(1.0, floor_y - top_y)
+	var mote_count := 30
+	for mote_index in range(mote_count):
+		var seed := float(mote_index)
+		var speed: float = 0.045 + _preview_vfx_hash(seed, 1.3) * 0.040
+		var phase: float = fposmod(elapsed * speed + _preview_vfx_hash(seed, 4.7), 1.0)
+		var y: float = floor_y - travel_h * phase
+		var base_x: float = size.x * lerp(0.18, 0.82, _preview_vfx_hash(seed, 9.1))
+		var sway: float = sin(elapsed * (0.62 + _preview_vfx_hash(seed, 2.1) * 0.55) + seed) * size.x * 0.020
+		var point := Vector2(base_x + sway, y)
+		var fade: float = sin(phase * PI)
+		var radius: float = 1.0 + _preview_vfx_hash(seed, 6.2) * 1.8
+		var alpha: float = fade * (0.10 + interaction_hover_amount * 0.055)
+		var mote_color := glow.lerp(accent, _preview_vfx_hash(seed, 3.4))
+		draw_circle(point, radius + 1.8, Color(mote_color.r, mote_color.g, mote_color.b, alpha * 0.22), true)
+		draw_circle(point, radius, Color(mote_color.r, mote_color.g, mote_color.b, alpha), true)
+		if mote_index % 5 == 0:
+			draw_line(
+				point + Vector2(0.0, radius + 2.0),
+				point + Vector2(0.0, radius + 16.0),
+				Color(mote_color.r, mote_color.g, mote_color.b, alpha * 0.45),
+				1.0
+			)
+
+
+func _draw_preview_vfx_scan_sweep(accent: Color, glow: Color, floor_y: float) -> void:
+	var scan_top: float = size.y * 0.14
+	var scan_bottom: float = floor_y + size.y * 0.08
+	var scan_span: float = max(1.0, scan_bottom - scan_top)
+	var scan_phase: float = fposmod(elapsed * 0.16, 1.0)
+	var scan_y: float = scan_top + scan_span * scan_phase
+	var scan_alpha: float = 0.10 + interaction_hover_amount * 0.07
+	for trail_index in range(4):
+		var trail_offset: float = float(trail_index) * size.y * 0.018
+		var trail_alpha: float = scan_alpha * (1.0 - float(trail_index) * 0.22)
+		var y: float = scan_y - trail_offset
+		if y < scan_top or y > scan_bottom:
+			continue
+		draw_line(
+			Vector2(size.x * 0.22, y),
+			Vector2(size.x * 0.78, y),
+			Color(glow.r, glow.g, glow.b, trail_alpha),
+			2.0 - float(trail_index) * 0.32
+		)
+		draw_line(
+			Vector2(size.x * 0.32, y + size.y * 0.006),
+			Vector2(size.x * 0.68, y + size.y * 0.006),
+			Color(accent.r, accent.g, accent.b, trail_alpha * 0.55),
+			1.0
+		)
+	var ring_center := Vector2(size.x * 0.5, floor_y + size.y * 0.010)
+	var ring_radius := Vector2(min(size.x * 0.31, size.y * 0.34), size.y * 0.052)
+	for tick_index in range(10):
+		var phase: float = fposmod(elapsed * 0.26 + float(tick_index) / 10.0, 1.0)
+		var angle: float = phase * TAU
+		var point := ring_center + Vector2(cos(angle) * ring_radius.x, sin(angle) * ring_radius.y)
+		var tangent := Vector2(-sin(angle), cos(angle)).normalized()
+		var tick_alpha: float = (0.045 + interaction_hover_amount * 0.035) * (0.5 + 0.5 * sin(phase * PI))
+		draw_line(
+			point - tangent * size.x * 0.012,
+			point + tangent * size.x * 0.012,
+			Color(glow.r, glow.g, glow.b, tick_alpha),
+			1.4
+		)
+
+
+func _preview_vfx_hash(a: float, b: float) -> float:
+	var hashed := sin(a * 12.9898 + b * 78.233) * 43758.5453
+	return hashed - floor(hashed)
 
 
 func _draw_preview_card_frame(accent: Color, glow: Color) -> void:

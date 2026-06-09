@@ -3,6 +3,7 @@ extends RefCounted
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 
@@ -32,6 +33,8 @@ func begin(character_select_scene_path: String) -> void:
 	_add_job(character_select_scene_path, "PackedScene", "캐릭터 선택 화면")
 	_add_job(CHARACTER_SELECT_BGM_PATH, "AudioStream", "캐릭터 선택 BGM")
 	_add_character_select_assets()
+	_add_character_select_vfx_assets()
+	CharacterSelectPreviewVfxHost.prewarm_materials()
 	total_count = jobs.size()
 	_request_next_job()
 
@@ -105,6 +108,11 @@ func _add_character_select_assets() -> void:
 		var click_motion_voice_path := str(character.get("click_motion_voice_path", ""))
 		if click_motion_voice_path != "":
 			_add_job(click_motion_voice_path, "AudioStream", "%s click voice" % character_name)
+
+
+func _add_character_select_vfx_assets() -> void:
+	for texture_path in CharacterSelectPreviewVfxHost.get_vfx_texture_paths():
+		_add_job(str(texture_path), "Texture2D", "character select VFX")
 
 
 func _primary_fullframe_path(character: Dictionary) -> String:

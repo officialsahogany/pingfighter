@@ -97,12 +97,29 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	set_process(false)
 	character_select_bgm_loop_enabled = false
 	_stop_click_motion_voice()
 	_stop_confirm_intro_voice()
 	if character_select_bgm_player != null:
 		character_select_bgm_player.stop()
 		character_select_bgm_player.stream = null
+		character_select_bgm_player = null
+	if preview != null:
+		var one_shot_callback := Callable(self, "_on_preview_one_shot_finished")
+		if preview.has_signal("one_shot_finished") and preview.is_connected("one_shot_finished", one_shot_callback):
+			preview.disconnect("one_shot_finished", one_shot_callback)
+		if preview.has_method("clear_runtime_state"):
+			preview.call("clear_runtime_state")
+	preview = null
+	portrait_textures.clear()
+	skill_icon_textures.clear()
+	full_body_live2d_textures.clear()
+	full_body_live2d_still_textures.clear()
+	card_rects.clear()
+	skill_icon_rects.clear()
+	skill_config_instances.clear()
+	confirm_intro_character.clear()
 
 
 func _process(delta: float) -> void:
@@ -718,6 +735,11 @@ func _try_begin_confirm_intro(character: Dictionary, next_scene_path: String) ->
 	}
 	if not bool(preview.call("play_fullframe_one_shot", config)):
 		return false
+	if preview.has_method("play_confirm_vfx"):
+		preview.call("play_confirm_vfx", {
+			"character_id": str(character.get("id", "")),
+			"amount": 1.0,
+		})
 	confirm_intro_active = true
 	confirm_intro_character = character.duplicate(true)
 	confirm_intro_elapsed = 0.0
