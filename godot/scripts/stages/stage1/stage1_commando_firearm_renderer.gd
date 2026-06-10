@@ -329,7 +329,14 @@ func _sync_fx_host(
 	var host: Node = _get_or_create_fx_host(canvas)
 	if host == null or not host.has_method("sync_state"):
 		return
-	var fx_draw_items: Dictionary = draw_items.duplicate(true)
+	# Shallow copy, not deep: the only mutation is swapping the impact_flashes
+	# key to the grenade-filtered set, so we just need a fresh top-level dict so
+	# draw() can keep using the original unfiltered impact_flashes afterward. The
+	# fx host treats draw_items as read-only (sync_state re-copies it shallow and
+	# copies each anchor entry before mutating), so the 8 shared array refs are
+	# safe. The old duplicate(true) deep-copied every projectile/casing/effect
+	# array every firing frame purely to replace one key.
+	var fx_draw_items: Dictionary = draw_items.duplicate(false)
 	fx_draw_items["impact_flashes"] = fx_impact_flashes
 	host.sync_state(fx_draw_items, shake_offset, active, _build_fx_host_layout(layout_context))
 
