@@ -86,6 +86,11 @@
    숨은 프레임(스테이지 전환 로딩 말미 또는 첫 스코어보드 일시정지)으로
    스테이징, (c) 현상 유지 — 52ms 일회성 수용. icon_sheet_path 프리웜은
    정책과 무관하게 추가 가능.
+   [2026-06-11 (b) 적용 완료: 볼-스폰 인트로 시작 훅
+   (`battle_scene_stage_intro_flow_lifecycle._stage_acquisition_cinematic`)
+   에서 호스트+mythic 아이콘 시트 12장(총 ~283KB) 스테이징 — 진입/전환 모두
+   통과, 랠리 프레임 밖, 부트 스모크 계약 무손상. 시트는
+   `prewarm_item_textures`로 ProjectResourceLoader 캐시에 적재.]
 4. **링펫 획득 직후 50~54ms 1회**: 부화 프레임이 아니라 **획득 컷인 모달
    dismiss 후 재개된 첫 lingpet update 프레임**(적대 검증으로 귀속 정정).
    `physics.callback.lingpet`이 하위 라벨 없는 leaf라 분해 불가 → 하위 계측

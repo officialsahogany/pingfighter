@@ -33,10 +33,25 @@ func begin_ball_spawn_intro(flow: Object, owner: Object, registry: Object, modul
 	if bool(flow.get("_ball_spawn_intro_started")) or not bool(flow.get("_battle_initialized")):
 		return
 	flow.set("_ball_spawn_intro_started", true)
+	_stage_acquisition_cinematic(owner, registry, module_getter)
 	var ball_spawn_intro: Object = _get_module(module_getter, "stage_ball_spawn_intro")
 	if ball_spawn_intro != null and ball_spawn_intro.has_method("begin"):
 		if bool(ball_spawn_intro.begin(owner, registry)):
 			_queue_redraw(owner)
+
+
+# Policy (b), 2026-06-11: the mythic/legendary acquisition cinematic host
+# (~11 nodes, 3 GPUParticles2D) and the mythic icon sheets are staged at
+# ball-spawn-intro start — entry and stage transition both pass here, with
+# the owner available and outside rally frames — so the first mid-battle
+# pickup no longer pays the ~52ms ensure_host cold start. The boot
+# stage-runtime prewarm stays asset-only per its smoke contract
+# (battle_boot_resource_prewarm_smoke). Idempotent: the runtime prewarm
+# no-ops once the host exists and the loader cache holds the sheet paths.
+func _stage_acquisition_cinematic(owner: Object, registry: Object, module_getter: Callable) -> void:
+	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_acquisition_cinematic"):
+		mythic_item_runtime.prewarm_acquisition_cinematic(owner, registry)
 
 
 func start_battle_bgm(flow: Object, owner: Object, module_getter: Callable) -> void:

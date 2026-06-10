@@ -1,8 +1,10 @@
 extends SceneTree
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const BattleSceneItemUpdateDriver := preload("res://scripts/core/battle_scene_item_update_driver.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -64,6 +66,15 @@ func _run() -> void:
 	_verify_cinematic_updates_while_gameplay_frame_is_frozen()
 	_verify_cinematic_reset_round_cleanup()
 
+	# Release the sheet textures the prewarm parked in the static loader
+	# cache so test-time statics do not accumulate across asserts. Note: the
+	# raw-decode load path can still print one "ObjectDB instances leaked"
+	# warning at exit (a single zero-refcount RefCounted — engine
+	# static-teardown-order artifact, verified via --verbose; not a gameplay
+	# leak and not matched by the runner's error gates).
+	for sheet_path_value in MythicItemCatalogIconMetadata.MYTHIC_ICON_SHEET_PATHS.values():
+		ProjectResourceLoader._texture_cache.erase(str(sheet_path_value))
+
 	if _failures.is_empty():
 		print("mythic_item_acquisition_cinematic_smoke: ok")
 		quit(0)
@@ -83,6 +94,11 @@ func _verify_cinematic_host_prewarm_reused() -> void:
 	root.add_child(owner)
 
 	runtime.prewarm_acquisition_cinematic(owner, registry)
+	for sheet_path_value in MythicItemCatalogIconMetadata.MYTHIC_ICON_SHEET_PATHS.values():
+		_expect(
+			ProjectResourceLoader.get_cached_texture(str(sheet_path_value)) != null,
+			"cinematic prewarm should warm the mythic icon sheet into the loader cache (%s)" % str(sheet_path_value)
+		)
 	var prewarmed_host: Object = runtime.acquisition_cinematic
 	var prewarmed_node: Node = prewarmed_host as Node
 	_expect(prewarmed_host is Node2D, "acquisition cinematic prewarm should create the hidden Node2D host")

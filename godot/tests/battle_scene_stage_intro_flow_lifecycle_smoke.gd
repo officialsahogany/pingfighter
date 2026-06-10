@@ -49,6 +49,19 @@ class FakeIntro:
 		return should_begin
 
 
+class FakeMythicItemRuntime:
+	extends RefCounted
+
+	var prewarm_calls := 0
+	var last_owner: Object = null
+	var last_registry: Object = null
+
+	func prewarm_acquisition_cinematic(owner: Object = null, registry: Object = null) -> void:
+		prewarm_calls += 1
+		last_owner = owner
+		last_registry = registry
+
+
 class FakeStageIntroFlowLifecycle:
 	extends RefCounted
 
@@ -76,6 +89,7 @@ func _init() -> void:
 	_verify_stage_intro_waits_for_logo_audio()
 	_verify_stage_intro_starts_landing_intro()
 	_verify_stage_intro_falls_back_to_ball_spawn()
+	_verify_ball_spawn_intro_stages_acquisition_cinematic()
 	_verify_flow_controller_delegates_stage_intro_surface()
 
 	if _failures.is_empty():
@@ -177,6 +191,41 @@ func _verify_stage_intro_falls_back_to_ball_spawn() -> void:
 		"fallback path should try landing then ball-spawn intro"
 	)
 	_expect(owner.redraw_calls == 1, "ball-spawn fallback should request redraw when it begins")
+
+
+# Policy (b), 2026-06-11: the acquisition cinematic host is staged at
+# ball-spawn-intro start (entry + stage transition both pass here, outside
+# rally frames) so the first mid-battle mythic/legendary pickup does not pay
+# the ~52ms ensure_host cold start. The boot stage-runtime prewarm stays
+# asset-only — battle_boot_resource_prewarm_smoke pins that contract.
+func _verify_ball_spawn_intro_stages_acquisition_cinematic() -> void:
+	var lifecycle: Object = BattleSceneStageIntroFlowLifecycle.new()
+	var flow: Object = BattleSceneFlowController.new()
+	var owner := FakeOwner.new()
+	var ball_spawn := FakeIntro.new()
+	var mythic := FakeMythicItemRuntime.new()
+	flow.set("_battle_initialized", true)
+	_modules = {
+		"stage_ball_spawn_intro": ball_spawn,
+		"mythic_item_runtime": mythic,
+	}
+	_cached_modules = {}
+
+	lifecycle.begin_ball_spawn_intro(flow, owner, null, Callable(self, "_get_module"))
+	_expect(
+		mythic.prewarm_calls == 1,
+		"ball-spawn intro start should stage the acquisition cinematic host once"
+	)
+	_expect(
+		mythic.last_owner == owner,
+		"cinematic host staging must receive the battle owner for ensure_host"
+	)
+
+	lifecycle.begin_ball_spawn_intro(flow, owner, null, Callable(self, "_get_module"))
+	_expect(
+		mythic.prewarm_calls == 1,
+		"repeat begin while the intro flag is set should not restage the host"
+	)
 
 
 func _verify_flow_controller_delegates_stage_intro_surface() -> void:

@@ -1,16 +1,30 @@
 extends RefCounted
 
 const ACQUISITION_CINEMATIC_SCRIPT_PATH := "res://scripts/items/mythic_item_acquisition_cinematic_v2.gd"
+const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _script_cache: Variant = null
 
 
 func prewarm(runtime: Object, owner: Object = null, registry: Object = null) -> void:
 	prewarm_assets()
+	prewarm_item_textures()
 	if runtime.acquisition_cinematic != null or not (owner is Node):
 		return
 	if ensure_host(runtime, owner):
 		runtime.acquisition_cinematic.reset(registry)
+
+
+# Warms the per-item mythic icon sheets into the ProjectResourceLoader path
+# cache so trigger()'s _load_item_texture does not pay a cold raw-PNG decode
+# inside the first-pickup store sample. Sheets are 7~39KB each; the whole
+# batch is a few ms on a loading/intro frame.
+func prewarm_item_textures() -> void:
+	for path_value in MythicItemCatalogIconMetadata.MYTHIC_ICON_SHEET_PATHS.values():
+		var path: String = str(path_value)
+		if path != "":
+			ProjectResourceLoader.load_texture(path)
 
 
 func reset(runtime: Object, registry: Object = null) -> void:
