@@ -44,11 +44,11 @@ func draw(
 	# to the separate pillar scene pass.
 	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
 	var feedback: Object = _get_instance(registry, "battle_feedback_state")
-	var power_state: Object = _get_instance(registry, "smasher_power_smash_state")
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var draw_context: Dictionary = {}
 	var draw_deps: Dictionary = {}
 	var actor_context: Dictionary = {}
+	var power_state: Object = null
 	var frame_start: int = _perf_begin(perf_logger)
 	if draw_context_builder != null:
 		var context_start: int = _perf_begin(perf_logger)
@@ -56,6 +56,7 @@ func draw(
 		draw_context = draw_context_builder.build_scene_context(canvas, shake_offset, registry)
 		_perf_end(perf_logger, "context.scene", context_step_start)
 		context_step_start = _perf_begin(perf_logger)
+		power_state = _get_smasher_power_state_for_draw(registry, draw_context)
 		draw_deps = draw_context_builder.build_scene_deps(registry, feedback, power_state, draw_context)
 		_perf_end(perf_logger, "context.deps", context_step_start)
 		context_step_start = _perf_begin(perf_logger)
@@ -210,6 +211,25 @@ func _get_cached_instance(registry: Object, key: String) -> Object:
 		return null
 	var value: Variant = registry.get_cached_instance(key)
 	return _as_object(value)
+
+
+func _get_smasher_power_state_for_draw(registry: Object, draw_context: Dictionary) -> Object:
+	if _get_draw_character_type(draw_context) != "smasher":
+		return null
+	return _get_cached_instance(registry, "smasher_power_smash_state")
+
+
+func _get_draw_character_type(draw_context: Dictionary) -> String:
+	# Live draw contexts are already normalized; keep aliases here for direct tests
+	# or older callers while preserving a conservative Smasher fallback.
+	var character_type := str(draw_context.get("selected_character_type", "smasher")).strip_edges().to_lower()
+	if character_type == "commando":
+		return "soldier"
+	if character_type == "baltor" or character_type == "kohaku":
+		return "blacksmith"
+	if character_type == "":
+		return "smasher"
+	return character_type
 
 
 func _get_registry_module(key: String, registry: Object) -> Object:
