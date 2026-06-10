@@ -722,6 +722,25 @@ Current Godot-first rule:
       (`active_item_trampoline_smoke._verify_stepper_full_path_collision_priority`
       is the reference). A detector-only unit test cannot catch this
       priority regression.
+- [ ] **A new floor-save / reflect channel must release boss ball-control
+      skills, and vice versa.** Skills like the Stage 1 Dalji whip
+      (상모돌리기) re-shape `ball_vel` EVERY frame while active (upward
+      velocity gets flipped back down), so a floor-save that reflects or
+      launches the ball without notifying the skill gets nullified the
+      next frame — the launch-nullify recapture loop deferred the floor
+      loss until the trampoline expired (2026-06-11 report: "ball at the
+      floor but no immediate loss"). On a successful save, call
+      `stage1_dalji_whip_skill_state.register_player_hit` (holy barrier /
+      lingpet guard / trampoline are the precedents in
+      `ball_motion_event_processor.gd`), clear
+      `stage1_dalji_whip_controls_speed` when deactivated, and decide
+      per-item whether to adopt the whip guard-counter velocity (clamped
+      ~10.5) or keep the item's own launch velocity (trampoline keeps its
+      slingshot overspeed). The smoke must drive the real `step_motion` +
+      per-frame skill loop and assert the OUTCOME (ball escapes upward,
+      skill released) — `_verify_trampoline_contact_releases_dalji_whip`
+      is the reference. When a future boss skill gains per-frame ball
+      control, audit every existing save channel for the same notify.
 - [ ] **The F2 debug spawn menu is NOT catalog-driven — add the item to
       `active_item_debug_spawn_menu.gd::DEBUG_ENTRY_ORDER` by hand.** The
       menu calls `item_catalog.build_item_by_name()` per cell, which makes
