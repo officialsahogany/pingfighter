@@ -87,6 +87,7 @@ func _verify_translation_map_coverage() -> void:
 	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_ES, "SKILL_DATA_ES")
 	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_PT_BR, "SKILL_DATA_PT_BR")
 	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_RU, "SKILL_DATA_RU")
+	_verify_viper_dark_blade_window_text()
 	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_ZH, "EXACT_TEXT_ZH")
 	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_JA, "EXACT_TEXT_JA")
 	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_ES, "EXACT_TEXT_ES")
@@ -213,6 +214,23 @@ func _verify_same_nested_keys(expected: Dictionary, actual: Dictionary, actual_n
 		var actual_value: Variant = actual[key_value]
 		if expected_value is Dictionary and actual_value is Dictionary:
 			_verify_same_keys(expected_value, actual_value, "%s.%s" % [actual_name, key_value])
+
+
+func _verify_viper_dark_blade_window_text() -> void:
+	var localized_skill_maps := {
+		"SKILL_DATA_ZH": {"data": LanguageSettings.SKILL_DATA_ZH, "one": "1秒", "glow": "红"},
+		"SKILL_DATA_JA": {"data": LanguageSettings.SKILL_DATA_JA, "one": "1秒", "glow": "赤"},
+		"SKILL_DATA_ES": {"data": LanguageSettings.SKILL_DATA_ES, "one": "1 s", "glow": "rojo"},
+		"SKILL_DATA_PT_BR": {"data": LanguageSettings.SKILL_DATA_PT_BR, "one": "1 s", "glow": "vermelho"},
+		"SKILL_DATA_RU": {"data": LanguageSettings.SKILL_DATA_RU, "one": "1 с", "glow": "крас"},
+	}
+	for label in localized_skill_maps.keys():
+		var spec: Dictionary = localized_skill_maps[label]
+		var skill_data: Dictionary = (spec.get("data", {}) as Dictionary).get("dark_blade", {})
+		var description := str(skill_data.get("description", ""))
+		_expect(description.find(str(spec.get("one", ""))) >= 0, "%s.dark_blade should describe the 1-second chain window" % label)
+		_expect(description.find(str(spec.get("glow", ""))) >= 0, "%s.dark_blade should mention the red chain glow" % label)
+		_expect(description.find("3秒") < 0 and description.find("3 s") < 0 and description.find("3 с") < 0, "%s.dark_blade should not keep stale 3-second copy" % label)
 
 
 func _verify_same_keys(expected: Dictionary, actual: Dictionary, actual_name: String) -> void:

@@ -4,9 +4,10 @@ const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 
 # Player "state glow": a soft alert aura drawn BEHIND the player body that lights
 # up only on meaningful states, so the always-on bottom area stays uncluttered.
-# v1 covers two states with a fixed precedence (danger > transform); skill-ready
-# is a planned follow-up (its readiness signal is spread across per-character
-# skill systems + the orb HUD, so it needs its own plumbing pass).
+# Covers three states with a fixed precedence (danger > chain > transform).
+# "chain" is the first skill-ready-class signal: Viper's dark blade chain window
+# (viper_dark_blade_chain_glow_ratio from the viper actor draw context) lights the
+# body crimson for the 1s combo window and fades with the remaining time.
 #
 # Sized off the VISIBLE draw rect (player sprite is ~160 px), NOT a gameplay hit
 # radius -- otherwise the halo blooms entirely behind the body and reads as
@@ -18,6 +19,7 @@ const GLOW_TEX_SIZE := 96
 
 const STATE_NONE := ""
 const STATE_DANGER := "danger"
+const STATE_CHAIN := "chain"
 const STATE_TRANSFORM := "transform"
 
 
@@ -48,7 +50,9 @@ func draw(canvas: CanvasItem, visual_rect: Rect2, context: Dictionary, now_ms: f
 	var palette: Dictionary = _state_palette(state)
 	var tint: Color = palette.get("tint", Color(1.0, 1.0, 1.0, 1.0))
 	var amp: float = float(palette.get("amp", 1.0))
-	var rate: float = 0.0034 if state == STATE_DANGER else 0.0020
+	if state == STATE_CHAIN:
+		amp *= 0.4 + 0.6 * clampf(float(context.get("viper_dark_blade_chain_glow_ratio", 0.0)), 0.0, 1.0)
+	var rate: float = float(palette.get("rate", 0.0020))
 	var breath: float = 0.5 + 0.5 * sin(now_ms * rate)
 	var outer_r: float = body_r + lerpf(40.0, 48.0, breath)
 	var mid_r: float = body_r + lerpf(26.0, 32.0, breath)
@@ -63,9 +67,12 @@ func draw(canvas: CanvasItem, visual_rect: Rect2, context: Dictionary, now_ms: f
 
 func resolve_state(context: Dictionary) -> String:
 	# Precedence: a match-point danger read matters more than the transform buff,
-	# so danger wins when both are active.
+	# so danger wins when both are active. The chain prompt is a short actionable
+	# window, so it outranks the long-lived transform aura.
 	if bool(context.get("player_in_danger", false)):
 		return STATE_DANGER
+	if float(context.get("viper_dark_blade_chain_glow_ratio", 0.0)) > 0.001:
+		return STATE_CHAIN
 	if bool(context.get("horn_strawberry_transformed", false)):
 		return STATE_TRANSFORM
 	return STATE_NONE
@@ -74,9 +81,13 @@ func resolve_state(context: Dictionary) -> String:
 func _state_palette(state: String) -> Dictionary:
 	if state == STATE_DANGER:
 		# Alarm red, slightly stronger; overrides the character accent color.
-		return {"tint": Color(1.0, 0.24, 0.20), "amp": 1.15}
+		return {"tint": Color(1.0, 0.24, 0.20), "amp": 1.15, "rate": 0.0034}
+	if state == STATE_CHAIN:
+		# Dark blade chain prompt: deep crimson with an urgent pulse; the draw
+		# path additionally fades amp with the remaining window ratio.
+		return {"tint": Color(0.98, 0.12, 0.30), "amp": 1.1, "rate": 0.0048}
 	# Transform: warm strawberry-pink "empowered" aura, distinct from danger red.
-	return {"tint": Color(1.0, 0.46, 0.74), "amp": 1.0}
+	return {"tint": Color(1.0, 0.46, 0.74), "amp": 1.0, "rate": 0.0020}
 
 
 func _blit(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:

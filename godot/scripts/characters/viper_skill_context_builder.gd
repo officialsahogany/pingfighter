@@ -53,6 +53,7 @@ func build_actor_draw_context(runtime: Object) -> Dictionary:
 		"viper_dual_glitch_state": runtime.dual_glitch_state,
 		"viper_dual_glitch_phase_frames": runtime.dual_glitch_phase_frames,
 		"viper_dual_glitch_clone_rects": runtime._get_dual_glitch_clone_rect_entries(false, true),
+		"viper_dark_blade_chain_glow_ratio": clamp(runtime.dark_blade_window_frames / runtime.DARK_BLADE_WINDOW_FRAMES, 0.0, 1.0) if runtime.dark_blade_window else 0.0,
 	}
 	if runtime.dive_slip_timer > 0.0:
 		var slip_ratio: float = clamp(runtime.dive_slip_timer / max(1.0, runtime.dive_slip_duration), 0.0, 1.0)

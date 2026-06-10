@@ -30,6 +30,13 @@ class FakeInput:
 		return snapshot
 
 
+class FakeJetpackState:
+	var airborne := false
+
+	func is_airborne(_threshold: float = 0.0) -> bool:
+		return airborne
+
+
 class FakeSkillConfig:
 	func is_skill_equipped(skill_name: String) -> bool:
 		return skill_name in ["shadow_step", "marshal_kick", "phantom_kick", "dark_blade"]
@@ -183,6 +190,9 @@ func _init() -> void:
 	_test_shadow_chain_marshal_prep_retime()
 	_test_phantom_chain_marshal_prep_retime()
 	_test_dynamic_ball_speed_kick_prep_retime()
+	_test_new_kick_start_clears_stale_dark_blade_window()
+	_test_dark_blade_window_expires_after_one_second()
+	_test_dark_blade_window_copy_is_one_second()
 
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
@@ -530,6 +540,197 @@ func _test_dynamic_ball_speed_kick_prep_retime() -> void:
 	_advance_marshal_prep_frames(slow_phantom_setup, 9)
 	var slow_phantom_runtime: Object = slow_phantom_setup.get("runtime", null)
 	_expect(slow_phantom_runtime != null and int(slow_phantom_runtime.marshal_phase) == 0, "slow upward ball should keep Phantom Kick wall-flight prep unshortened")
+
+
+func _test_new_kick_start_clears_stale_dark_blade_window() -> void:
+	var setup: Dictionary = _start_marshal_prep_case_with_stale_dark_blade_window()
+	var runtime: Object = setup.get("runtime", null)
+	var input: Object = setup.get("input", null)
+	var deps: Dictionary = setup.get("deps", {})
+	var config: Dictionary = setup.get("config", {})
+	var player_pos: Vector2 = _get_vector2(setup, "player_pos", Vector2.ZERO)
+	var gauge: float = float(setup.get("gauge", 0.0))
+	var snap: Dictionary = runtime.get_snapshot()
+	_expect(not bool(snap.get("dark_blade_window", true)), "new marshal kick start should clear the stale Dark Blade chain window (Python parity)")
+	_expect(float(snap.get("dark_blade_window_frames", 1.0)) <= 0.0, "new marshal kick start should zero the stale Dark Blade window frames")
+	_expect(float(runtime.core_flip_dark_blade_handoff_frames) <= 0.0, "new marshal kick start should clear the stale core-flip Dark Blade handoff")
+
+	input.snapshot["down_pressed"] = false
+	input.snapshot["up_pressed"] = true
+	var chain_result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+	_expect(not bool(chain_result.get("activated", false)), "W during a fresh kick (before its hit) must NOT fire Dark Blade from the stale window")
+	_expect(not bool(runtime.blade_motion_active), "stale-window W press must not enter Dark Blade motion")
+	input.snapshot["up_pressed"] = false
+	player_pos = _get_vector2(chain_result, "player_pos", player_pos)
+
+	var reopened_hit := false
+	for _i in range(90):
+		var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		gauge = float(result.get("special_gauge", gauge))
+		runtime.update_effects(1.0, Time.get_ticks_msec(), _context_with_gauge(config, gauge), deps)
+		if result.has("ball_vel"):
+			reopened_hit = true
+			break
+	_expect(reopened_hit, "stale-window regression kick should still hit the ball during the charge")
+	_expect(bool(runtime.get_snapshot().get("dark_blade_window", false)), "THIS kick's ball hit should re-open the Dark Blade chain window")
+
+
+func _test_dark_blade_window_expires_after_one_second() -> void:
+	# Within-window chain: a W press while the 1s window is open fires Dark Blade,
+	# and the actor draw context publishes the red chain glow fading with time.
+	var within: Dictionary = _make_airborne_dark_blade_window_case()
+	var within_runtime: Object = within.get("runtime", null)
+	within_runtime._open_dark_blade_start_window()
+	_expect(absf(float(within_runtime.dark_blade_window_frames) - 60.0) < 0.01, "dark blade chain window should arm exactly 60 frames (1 second)")
+	_expect(float(within_runtime.get_actor_draw_context().get("viper_dark_blade_chain_glow_ratio", 0.0)) > 0.95, "fresh chain window should publish a full-strength red glow ratio")
+	_tick_dark_blade_window_frames(within, 30)
+	var mid_ratio: float = float(within_runtime.get_actor_draw_context().get("viper_dark_blade_chain_glow_ratio", 0.0))
+	_expect(mid_ratio > 0.4 and mid_ratio < 0.6, "chain glow ratio should fade with the remaining window time")
+	var within_input: Object = within.get("input", null)
+	within_input.snapshot["up_pressed"] = true
+	var within_result: Dictionary = within_runtime.try_activate_before_movement(1.0 / 60.0, _get_vector2(within, "player_pos", Vector2.ZERO), float(within.get("gauge", 0.0)), within.get("config", {}), within.get("deps", {}))
+	_expect(bool(within_result.get("activated", false)), "W inside the 1-second window should chain into Dark Blade")
+	_expect(str(within_result.get("skill_name", "")) == "dark_blade", "within-window chain should fire dark_blade")
+	_expect(bool(within_runtime.blade_dark_mode), "within-window chain should enter dark blade motion")
+
+	# Expired window: a W press after the 60-frame window lapses must NOT chain,
+	# even while still airborne, and the glow ratio must be back to zero.
+	var expired: Dictionary = _make_airborne_dark_blade_window_case()
+	var expired_runtime: Object = expired.get("runtime", null)
+	expired_runtime._open_dark_blade_start_window()
+	_tick_dark_blade_window_frames(expired, 61)
+	_expect(not bool(expired_runtime.dark_blade_window), "chain window should expire after 60 frames even while airborne")
+	_expect(float(expired_runtime.get_actor_draw_context().get("viper_dark_blade_chain_glow_ratio", 1.0)) <= 0.001, "expired chain window should zero the red glow ratio")
+	var expired_input: Object = expired.get("input", null)
+	expired_input.snapshot["up_pressed"] = true
+	var expired_result: Dictionary = expired_runtime.try_activate_before_movement(1.0 / 60.0, _get_vector2(expired, "player_pos", Vector2.ZERO), float(expired.get("gauge", 0.0)), expired.get("config", {}), expired.get("deps", {}))
+	_expect(not bool(expired_result.get("activated", false)), "W after the window expired must not fire Dark Blade")
+	_expect(not bool(expired_runtime.blade_motion_active), "expired-window W press must not enter blade motion")
+
+
+func _test_dark_blade_window_copy_is_one_second() -> void:
+	var skill_config: Object = ViperSkillConfig.new()
+	var skill_data: Dictionary = skill_config.get_skill_data("dark_blade")
+	var skill_description := str(skill_data.get("description", ""))
+	_expect(skill_description.find("1초") >= 0, "Dark Blade orb tooltip should describe the 1-second chain window")
+	_expect(skill_description.find("3초") < 0, "Dark Blade orb tooltip should not keep stale 3-second copy")
+
+	var catalog: Object = RuntimePerkCatalog.new()
+	var perk_data: Dictionary = catalog.get_perk_data("dark_blade")
+	var perk_summary := str((perk_data.get("descriptions", {}) as Dictionary).get(1, ""))
+	var perk_detail := str(perk_data.get("detail", ""))
+	_expect(perk_summary.find("1초") >= 0 and perk_summary.find("3초") < 0, "Dark Blade perk summary should describe the 1-second chain window")
+	_expect(perk_detail.find("1초") >= 0 and perk_detail.find("3초") < 0, "Dark Blade perk detail should describe the 1-second chain window")
+	_expect(perk_detail.find("붉게") >= 0, "Dark Blade perk detail should mention the red chain glow")
+
+
+func _make_airborne_dark_blade_window_case() -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var jetpack := FakeJetpackState.new()
+	jetpack.airborne = true
+	var deps := {
+		"input_reader": input,
+		"skill_config": FakeSkillConfig.new(),
+		"skill_state": FakeSkillState.new(),
+		"audio": FakeAudio.new(),
+		"feedback": FakeFeedback.new(),
+		"orb_hud_state": FakeOrbHud.new(),
+		"runtime_perk_state": FakePerkState.new(),
+		"viper_jetpack_state": jetpack,
+	}
+	var config := {
+		"selected_character_type": "viper",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_floor_y": 680.0,
+		"ball_size": 28.6,
+		"boss_pos": Vector2(380.0, 45.0),
+		"boss_paddle_width": 100.0,
+		"ball_pos": Vector2(640.0, 350.0),
+		"ball_vel": Vector2(0.0, -8.0),
+		"ball_impact_boost": 1.0,
+	}
+	return {
+		"runtime": runtime,
+		"input": input,
+		"deps": deps,
+		"config": config,
+		"player_pos": Vector2(302.5, 560.0),
+		"gauge": 200.0,
+	}
+
+
+func _tick_dark_blade_window_frames(setup: Dictionary, frames: int) -> void:
+	var runtime: Object = setup.get("runtime", null)
+	var config: Dictionary = setup.get("config", {})
+	var deps: Dictionary = setup.get("deps", {})
+	for _i in range(frames):
+		runtime.update_effects(1.0, Time.get_ticks_msec(), _context_with_gauge(config, float(setup.get("gauge", 200.0))), deps)
+
+
+func _start_marshal_prep_case_with_stale_dark_blade_window() -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var feedback := FakeFeedback.new()
+	var orb := FakeOrbHud.new()
+	var perk_state := FakePerkState.new()
+	var deps := {
+		"input_reader": input,
+		"skill_config": skill_config,
+		"skill_state": skill_state,
+		"audio": audio,
+		"feedback": feedback,
+		"orb_hud_state": orb,
+		"runtime_perk_state": perk_state,
+	}
+	var config := {
+		"selected_character_type": "viper",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_floor_y": 680.0,
+		"ball_size": 28.6,
+		"boss_pos": Vector2(380.0, 45.0),
+		"boss_paddle_width": 100.0,
+		"ball_pos": Vector2(640.0, 350.0),
+		"ball_vel": Vector2(0.0, -8.0),
+		"ball_impact_boost": 1.0,
+	}
+	var player_pos := Vector2(302.5, 680.0)
+	var gauge := 200.0
+	runtime.shadow_was_airborne = true
+	runtime.open_marshal_kick_window()
+	# Stale window from an earlier predecessor hit (e.g. shadow backstep) that must NOT
+	# survive a brand-new kick start.
+	runtime.dark_blade_window = true
+	runtime.dark_blade_window_frames = 180.0
+	runtime.core_flip_dark_blade_handoff_frames = 30.0
+	input.snapshot["down_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, deps)
+	_expect(bool(result.get("activated", false)), "stale-window regression setup should activate marshal kick")
+	_expect(str(result.get("skill_name", "")) == "marshal_kick", "stale-window regression setup should start marshal_kick")
+	return {
+		"runtime": runtime,
+		"input": input,
+		"deps": deps,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
 
 
 func _start_marshal_prep_case(from_shadow_step_chain: bool, config_overrides: Dictionary = {}) -> Dictionary:

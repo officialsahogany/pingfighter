@@ -18,6 +18,11 @@ static func start_kick(runtime: Object, skill_name: String, player_pos: Vector2,
 	runtime._clear_marshal_ready_window()
 	runtime._clear_double_marshal_ready_window()
 	runtime._clear_marshal_first_hit_pending()
+	# A new marshal/phantom kick invalidates any stale dark blade chain window (Python parity):
+	# only THIS kick's ball hit may reopen it.
+	runtime.dark_blade_window = false
+	runtime.dark_blade_window_frames = 0.0
+	runtime.core_flip_dark_blade_handoff_frames = 0.0
 	runtime.marshal_is_double = is_double_start
 	runtime.marshal_from_shadow_step_chain = shadow_chain_start
 	runtime.marshal_from_core_flip_chain = core_flip_chain_start

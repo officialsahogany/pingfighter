@@ -1,11 +1,12 @@
 extends SceneTree
 
 # Verifies the player state-glow plumbing: the match-point danger query, the
-# state precedence (danger > transform > none), and that the shared soft-glow
-# texture bakes a feathered radial alpha (near-opaque center, ~0 corners). The
-# glow is a soft alert aura behind the player body that only lights up on
-# danger / transform; a regression here usually means the aura shows at the
-# wrong time or the texture lost its falloff (hard disc / invisible).
+# state precedence (danger > chain > transform > none), and that the shared
+# soft-glow texture bakes a feathered radial alpha (near-opaque center, ~0
+# corners). The glow is a soft alert aura behind the player body that only
+# lights up on danger / dark-blade-chain / transform; a regression here usually
+# means the aura shows at the wrong time or the texture lost its falloff
+# (hard disc / invisible).
 
 const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
@@ -69,6 +70,22 @@ func _verify_state_precedence() -> void:
 	_expect(
 		renderer.resolve_state({"player_in_danger": true, "horn_strawberry_transformed": true}) == PlayerStateGlowRenderer.STATE_DANGER,
 		"danger should take precedence over transform"
+	)
+	_expect(
+		renderer.resolve_state({"viper_dark_blade_chain_glow_ratio": 1.0}) == PlayerStateGlowRenderer.STATE_CHAIN,
+		"open dark blade chain window -> chain glow"
+	)
+	_expect(
+		renderer.resolve_state({"viper_dark_blade_chain_glow_ratio": 0.0}) == PlayerStateGlowRenderer.STATE_NONE,
+		"zero chain ratio -> no chain glow"
+	)
+	_expect(
+		renderer.resolve_state({"viper_dark_blade_chain_glow_ratio": 0.5, "horn_strawberry_transformed": true}) == PlayerStateGlowRenderer.STATE_CHAIN,
+		"chain prompt should take precedence over transform"
+	)
+	_expect(
+		renderer.resolve_state({"player_in_danger": true, "viper_dark_blade_chain_glow_ratio": 1.0}) == PlayerStateGlowRenderer.STATE_DANGER,
+		"danger should take precedence over chain"
 	)
 
 

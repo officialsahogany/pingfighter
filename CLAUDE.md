@@ -1453,7 +1453,18 @@ These are easy to miss even when the runtime checklist is open:
   input priority, window lifetime, consumption, expiry, and focused smoke
   coverage. Viper Dark Blade is the reference trap: Air Blade coverage
   alone does not prove Shadow Step, Marshal Kick, Phantom Kick, and
-  Hwarang/Core Flip hit paths are wired.
+  Hwarang/Core Flip hit paths are wired. The matrix must also include
+  window-INVALIDATION events, not just openers: if the original clears a
+  stale chain window when a NEW predecessor cast starts ("이번 킥으로
+  공을 맞춰야만 오픈" — pingfighter.py marshal/phantom start clears
+  `_viper_dark_blade_window` + core-flip handoff), a port that wires only
+  the open sites leaves stale windows alive through the new cast,
+  especially when a keep-alive flag like `marshal_active` holds the
+  window open. Reference fix: `viper_skill_marshal_kick_runtime.start_kick`
+  stale-window clear + `viper_marshal_kick_port_smoke.gd`
+  `_test_new_kick_start_clears_stale_dark_blade_window` (asserts the
+  cleared window does NOT fire on the chain key pre-hit, and THIS kick's
+  hit re-opens it).
 - **Transparent-canvas overlay trap on copied runtime surfaces is real.**
   If a glitch clone, afterimage, low-HP variant, or other runtime copy is
   built from `base_surface.copy()` plus `BLEND_RGB_ADD` /
