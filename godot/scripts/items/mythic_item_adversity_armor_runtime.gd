@@ -80,8 +80,17 @@ func try_queue_after_loss(runtime: Object, deps: Dictionary) -> bool:
 
 func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
 	if not is_equipped(runtime):
+		# This runs on every round restart. The full owner sync costs ~1.5ms,
+		# so only push the cleared state when something owner-visible was
+		# actually cleared; clearing an already-clean runtime needs no sync.
+		var had_visible_state: bool = (
+			is_effect_active(runtime)
+			or runtime.adversity_armor_pending_invincible
+			or runtime.adversity_armor_serve_speed_boost_pending
+		)
 		clear_runtime(runtime)
-		runtime._sync_owner(owner, registry)
+		if had_visible_state:
+			runtime._sync_owner(owner, registry)
 		return
 	if not runtime.adversity_armor_pending_invincible:
 		return

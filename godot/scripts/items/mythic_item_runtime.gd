@@ -1686,7 +1686,12 @@ func on_round_start(owner: Object, registry: Object = null) -> void:
 	horn_strawberry_mask_runtime.reset_round(self)
 	adversity_armor_runtime.on_round_start(self, owner, registry)
 	if owner != null:
-		_sync_owner(owner, registry)
+		# Round start mutates nothing beyond the adversity branch above (which
+		# runs its own full sync when it actually changes state) — horn
+		# strawberry reset_round is a deliberate no-op. The full ~250-key
+		# _sync_owner here cost ~1.5ms on every round-resume frame, so keep
+		# only the change-gated transient pass as a drift net.
+		owner_syncer.sync_transient_owner_state(self, owner)
 
 
 func consume_adversity_armor_serve_speed_bonus() -> float:

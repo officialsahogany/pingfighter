@@ -941,6 +941,25 @@ boss sprite classes.
   yield identical values). This is a DIFFERENT class from the hot-path
   lazy-init trap (that one is first-call construction; this one is steady-state
   per-frame copying).
+- **Round / event-boundary hooks must not re-run a full owner sync "just in
+  case".** A runtime's `on_round_start`-style hook that ends with the full
+  multi-hundred-key owner sync (`mythic_item_owner_syncer.sync_owner` = 254
+  `owner.set` attempts, ~1.5ms) re-pays that cost on EVERY round restart even
+  when the hook changed nothing. Reference failure (2026-06-10): mythic
+  `on_round_start` ran it TWICE per restart (unequipped adversity-armor branch
+  + trailing sync) — `physics.reset_ball.mythic_round_start` 3.0~3.5ms, a
+  guaranteed frame doubling on the round-resume frame at 72 FPS. The full sync
+  belongs at equip / unequip / stage-advance / load time, where the mutating
+  call sites already run it. An event hook should (a) full-sync only when the
+  hook actually changed owner-visible state (gate like the adversity-armor
+  unequipped branch), and (b) otherwise run only the change-gated transient
+  pass (`sync_transient_owner_state`) as a drift net. Note the schema reality:
+  direct keys missing from `battle_scene_state.DEFAULT_VALUES` were silent
+  no-ops anyway — the real propagation channel is the schema-listed
+  `mythic_item_state` dict, which the transient pass updates. Seal the budget
+  with a set-attempt-counting schema-gated owner smoke
+  (`mythic_round_start_sync_smoke.gd` is the reference; it fails at 254
+  attempts when the full sync is restored).
 - **Bounded threaded texture prewarm — keep the DEFAULT hard bound short.**
   `ProjectResourceLoader.prewarm_texture_threaded_step()` shares ONE threaded
   load slot and is polled once per frame by a caller that blocks its visible
