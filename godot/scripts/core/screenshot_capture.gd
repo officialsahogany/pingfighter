@@ -3,13 +3,27 @@ extends Node
 const SCREENSHOT_KEY := KEY_F12
 const SCREENSHOT_DIR := "D:/screenshot"
 const SCREENSHOT_PREFIX := "diskhearts_lingpia_"
+# A capture used to stall the main thread ~450ms per shot: Image.save_png's
+# single-threaded PNG encode of the full window (2026-06-11 perf logs, 55-shot
+# burst). The encode now runs on a WorkerThreadPool task; only the GPU
+# readback (get_image, ~0-40ms) stays on the main thread. The cooldown keeps
+# a held key from queueing dozens of ~16MB pending images.
+const CAPTURE_COOLDOWN_MSEC := 500
 
 var capture_in_progress := false
 var last_saved_path := ""
+var _last_capture_msec: int = -CAPTURE_COOLDOWN_MSEC
+var _pending_save_task_ids: Array[int] = []
 
 
 func _ready() -> void:
 	set_process_input(true)
+
+
+func _exit_tree() -> void:
+	for task_id in _pending_save_task_ids:
+		WorkerThreadPool.wait_for_task_completion(task_id)
+	_pending_save_task_ids.clear()
 
 
 func _input(event: InputEvent) -> void:
@@ -24,8 +38,16 @@ func _input(event: InputEvent) -> void:
 func request_screenshot() -> void:
 	if capture_in_progress:
 		return
+	var now_msec: int = Time.get_ticks_msec()
+	if not should_accept_capture(now_msec):
+		return
+	_last_capture_msec = now_msec
 	capture_in_progress = true
 	call_deferred("_capture_after_frame")
+
+
+func should_accept_capture(now_msec: int) -> bool:
+	return now_msec - _last_capture_msec >= CAPTURE_COOLDOWN_MSEC
 
 
 func is_screenshot_key_event(event: InputEvent) -> bool:
@@ -53,6 +75,9 @@ func build_screenshot_path(datetime: Dictionary = {}, msec: int = -1) -> String:
 	return "%s/%s%s.png" % [SCREENSHOT_DIR, SCREENSHOT_PREFIX, stamp]
 
 
+# Reads the frame back on the main thread, then hands the encode+write to a
+# worker task. Returns the path the capture will be written to ("" on
+# failure); last_saved_path updates only after the background save lands.
 func capture_viewport_to_png(viewport: Viewport = null) -> String:
 	var target_viewport := viewport
 	if target_viewport == null:
@@ -78,13 +103,12 @@ func capture_viewport_to_png(viewport: Viewport = null) -> String:
 
 	var path := _build_unique_screenshot_path()
 	var absolute_path := _globalize_output_path(path)
-	var save_error := image.save_png(absolute_path)
-	if save_error != OK:
-		_finish_failed_capture("스크린샷 저장에 실패했습니다. 오류 코드: %d" % save_error)
-		return ""
-
-	last_saved_path = path
-	print("스크린샷 저장: %s" % absolute_path)
+	var task_id: int = WorkerThreadPool.add_task(
+		Callable(self, "_save_image_task").bind(image, path, absolute_path),
+		false,
+		"screenshot png encode"
+	)
+	_pending_save_task_ids.append(task_id)
 	return path
 
 
@@ -97,6 +121,31 @@ func _capture_after_frame() -> void:
 	await RenderingServer.frame_post_draw
 	capture_viewport_to_png()
 	capture_in_progress = false
+
+
+# Runs on a WorkerThreadPool thread. The Image is owned by this task after
+# dispatch; only the deferred completion call touches node state, back on the
+# main thread.
+func _save_image_task(image: Image, path: String, absolute_path: String) -> void:
+	var save_error := image.save_png(absolute_path)
+	call_deferred("_on_save_task_finished", path, absolute_path, save_error)
+
+
+func _on_save_task_finished(path: String, absolute_path: String, save_error: int) -> void:
+	_reap_finished_save_tasks()
+	if save_error != OK:
+		_finish_failed_capture("스크린샷 저장에 실패했습니다. 오류 코드: %d" % save_error)
+		return
+	last_saved_path = path
+	print("스크린샷 저장: %s" % absolute_path)
+
+
+func _reap_finished_save_tasks() -> void:
+	for index in range(_pending_save_task_ids.size() - 1, -1, -1):
+		var task_id: int = _pending_save_task_ids[index]
+		if WorkerThreadPool.is_task_completed(task_id):
+			WorkerThreadPool.wait_for_task_completion(task_id)
+			_pending_save_task_ids.remove_at(index)
 
 
 func _build_unique_screenshot_path() -> String:

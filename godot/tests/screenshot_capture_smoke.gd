@@ -4,6 +4,10 @@ const ScreenshotCapture := preload("res://scripts/core/screenshot_capture.gd")
 
 
 func _init() -> void:
+	_run()
+
+
+func _run() -> void:
 	var capture := ScreenshotCapture.new()
 	_expect(capture.is_screenshot_key_event(_key_event(KEY_F12, KEY_F12, true, false)), "F12 should request a screenshot")
 	_expect(capture.is_screenshot_key_event(_key_event(KEY_UNKNOWN, KEY_F12, true, false)), "physical F12 should request a screenshot")
@@ -21,6 +25,45 @@ func _init() -> void:
 	}, 42)
 	_expect(path == "D:/screenshot/diskhearts_lingpia_20260508_091011_042.png", "screenshot path should be timestamped")
 	_expect(capture.ensure_screenshot_directory() == OK, "screenshot directory should be creatable")
+
+	# Cooldown: a key burst must not queue dozens of pending captures
+	# (2026-06-11 perf logs: 55-shot burst at ~450ms main-thread stall each).
+	_expect(capture.should_accept_capture(0), "first capture should pass the cooldown gate")
+	capture._last_capture_msec = 1000
+	_expect(
+		not capture.should_accept_capture(1000 + capture.CAPTURE_COOLDOWN_MSEC - 1),
+		"capture inside the cooldown window should be rejected"
+	)
+	_expect(
+		capture.should_accept_capture(1000 + capture.CAPTURE_COOLDOWN_MSEC),
+		"capture at the cooldown boundary should be accepted"
+	)
+
+	# The ~450ms PNG encode must run as a WorkerThreadPool task and report
+	# back through the deferred completion path while the node is alive.
+	var image := Image.create(4, 4, false, Image.FORMAT_RGB8)
+	image.fill(Color(0.2, 0.4, 0.6))
+	var absolute_path: String = OS.get_user_data_dir() + "/screenshot_capture_smoke.png"
+	if FileAccess.file_exists(absolute_path):
+		DirAccess.remove_absolute(absolute_path)
+	var task_id: int = WorkerThreadPool.add_task(
+		Callable(capture, "_save_image_task").bind(image, absolute_path, absolute_path),
+		false,
+		"screenshot smoke save"
+	)
+	WorkerThreadPool.wait_for_task_completion(task_id)
+	await process_frame
+	_expect(FileAccess.file_exists(absolute_path), "background save task should write the PNG")
+	_expect(
+		capture.last_saved_path == absolute_path,
+		"deferred completion should record last_saved_path on the main thread"
+	)
+	var loaded: Image = Image.load_from_file(absolute_path)
+	_expect(
+		loaded != null and loaded.get_width() == 4 and loaded.get_height() == 4,
+		"saved PNG should round-trip through Image.load_from_file"
+	)
+	DirAccess.remove_absolute(absolute_path)
 
 	capture.free()
 	print("screenshot_capture_smoke: ok")
