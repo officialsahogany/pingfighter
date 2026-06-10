@@ -85,6 +85,11 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 			and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
 		):
 			config["horizontal_input_locked"] = true
+		if (
+			mythic_item_runtime.has_method("is_odins_eye_control_locked")
+			and bool(mythic_item_runtime.is_odins_eye_control_locked())
+		):
+			config["horizontal_input_locked"] = true
 	return config
 
 
@@ -140,6 +145,16 @@ func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
 	if (
 		mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
 		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_odins_eye_skills_locked")
+		and bool(mythic_item_runtime.is_odins_eye_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_odins_eye_control_locked")
+		and bool(mythic_item_runtime.is_odins_eye_control_locked())
 	):
 		return true
 	return false

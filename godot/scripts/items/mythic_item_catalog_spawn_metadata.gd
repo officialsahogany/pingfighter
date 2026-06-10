@@ -9,6 +9,7 @@ const FIELD_CHANCES := {
 	"transcendent_crown": 0.00008,
 	"heavenly_cape": 0.00008,
 	"horn_strawberry_mask": 0.00008,
+	"odins_eye": 0.00008,
 	"celestial_armor": 0.00008,
 	"baal_boots": 0.00008,
 	"pandora_legacy": 0.00008,

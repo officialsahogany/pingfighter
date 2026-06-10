@@ -54,6 +54,7 @@ const ITEM_BUILD_METHODS := {
 	"transcendent_crown": "_build_transcendent_crown",
 	"heavenly_cape": "_build_heavenly_cape",
 	"horn_strawberry_mask": "_build_horn_strawberry_mask",
+	"odins_eye": "_build_odins_eye",
 	"celestial_armor": "_build_celestial_armor",
 	"baal_boots": "_build_baal_boots",
 	"elixir_of_mastery": "_build_elixir_of_mastery",
@@ -504,6 +505,15 @@ func _build_horn_strawberry_mask(catalog: Object) -> Dictionary:
 		"description": "A→D→A→D→A→D 커맨드로 1스테이지 1회 뿔딸기로 변신합니다.",
 		"color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
 	}, "horn_strawberry_mask", "head", true)
+
+
+func _build_odins_eye(catalog: Object) -> Dictionary:
+	return _with_mythic_icon_item(catalog, {
+		"display_name": "오딘의 눈",
+		"korean_name": "오딘의 눈",
+		"description": "실점 시 롤 확률로 그 실점을 무효화하고 부활합니다. 부활 후에는 이동과 대시에 페널티를 받으며, 다시 실점하면 패배합니다.",
+		"color": Color(110.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0),
+	}, "odins_eye", "belt", true)
 
 
 func _build_celestial_armor(catalog: Object) -> Dictionary:

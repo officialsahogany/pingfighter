@@ -52,6 +52,28 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("revival_used", runtime.revival_state.used)
 	owner.set("revival_effect_active", runtime.is_revival_effect_active())
 	owner.set("revival_last_loss_type", runtime.revival_state.last_loss_type)
+	owner.set("odins_eye_equipped", runtime.is_odins_eye_equipped())
+	owner.set("odins_eye_available", runtime.is_odins_eye_available())
+	owner.set("odins_eye_revival_used", runtime.has_odins_eye_revival_used())
+	owner.set("odins_eye_penalty_active", runtime.is_odins_eye_penalty_active())
+	owner.set("odins_eye_transformed", runtime.is_odins_eye_transformed())
+	owner.set("odins_eye_skills_locked", runtime.is_odins_eye_skills_locked())
+	owner.set("odins_eye_control_locked", runtime.is_odins_eye_control_locked())
+	owner.set("odins_eye_revival_animation_active", runtime.is_odins_eye_revival_animation_active())
+	owner.set("odins_eye_death_animation_active", runtime.is_odins_eye_death_animation_active())
+	owner.set("odins_eye_effect_active", runtime.is_odins_eye_effect_active())
+	owner.set("odins_eye_revival_chance_pct", runtime.get_odins_eye_revival_chance_pct())
+	owner.set("odins_eye_context", runtime.get_odins_eye_context())
+	owner.set("odins_eye_move_speed_multiplier", runtime.get_odins_eye_move_speed_multiplier())
+	owner.set("odins_eye_dash_token_limit", runtime.get_odins_eye_dash_token_limit_override())
+	owner.set("odins_eye_dash_cooldown_multiplier", runtime.get_odins_eye_dash_cooldown_multiplier())
+	owner.set("odins_eye_death_phase", runtime.get_odins_eye_death_phase())
+	owner.set("odins_eye_death_overall_progress", runtime.get_odins_eye_death_overall_progress())
+	owner.set("odins_eye_death_phase_progress", runtime.get_odins_eye_death_phase_progress())
+	owner.set("odins_eye_death_energy_buildup", runtime.get_odins_eye_death_energy_buildup())
+	owner.set("odins_eye_death_disintegrate_progress", runtime.get_odins_eye_death_disintegrate_progress())
+	owner.set("odins_eye_death_shake_intensity", runtime.get_odins_eye_death_shake_intensity())
+	owner.set("odins_eye_hide_player_paddle", runtime.should_hide_odins_eye_player_paddle())
 	owner.set("sensor_equipped", runtime.is_sensor_equipped())
 	owner.set("sensor_enabled", runtime.sensor_enabled)
 	owner.set("sensor_ready", runtime.is_sensor_auto_dash_ready())
@@ -290,9 +312,23 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 	var shrapnel_context: Dictionary = runtime.get_shrapnel_armor_context()
 	var poseidon_context: Dictionary = runtime.get_poseidon_context()
 	var horn_strawberry_context: Dictionary = runtime.get_horn_strawberry_context()
+	var odins_eye_context: Dictionary = runtime.get_odins_eye_context()
 
 	state_changed = _put_state_if_changed(state, "megingjord_activation_active", runtime.is_activation_effect_active()) or state_changed
 	state_changed = _put_state_if_changed(state, "revival_effect_active", runtime.is_revival_effect_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_revival_animation_active", runtime.is_odins_eye_revival_animation_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_animation_active", runtime.is_odins_eye_death_animation_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_effect_active", runtime.is_odins_eye_effect_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_penalty_active", runtime.is_odins_eye_penalty_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_transformed", runtime.is_odins_eye_transformed()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_context", odins_eye_context) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_phase", runtime.get_odins_eye_death_phase()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_overall_progress", runtime.get_odins_eye_death_overall_progress()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_phase_progress", runtime.get_odins_eye_death_phase_progress()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_energy_buildup", runtime.get_odins_eye_death_energy_buildup()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_disintegrate_progress", runtime.get_odins_eye_death_disintegrate_progress()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_death_shake_intensity", runtime.get_odins_eye_death_shake_intensity()) or state_changed
+	state_changed = _put_state_if_changed(state, "odins_eye_hide_player_paddle", runtime.should_hide_odins_eye_player_paddle()) or state_changed
 	state_changed = _put_state_if_changed(state, "sensor_ready", runtime.is_sensor_auto_dash_ready()) or state_changed
 	state_changed = _put_state_if_changed(state, "sensor_cooldown_remaining_sec", runtime.get_sensor_cooldown_remaining_seconds()) or state_changed
 	state_changed = _put_state_if_changed(state, "sensor_cooldown_progress", runtime.get_sensor_cooldown_progress()) or state_changed
@@ -350,6 +386,21 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 		owner.set("mythic_item_state", state)
 
 	_set_owner_if_changed(owner, runtime, "revival_effect_active", runtime.is_revival_effect_active())
+	_set_owner_if_changed(owner, runtime, "odins_eye_revival_animation_active", runtime.is_odins_eye_revival_animation_active())
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_animation_active", runtime.is_odins_eye_death_animation_active())
+	_set_owner_if_changed(owner, runtime, "odins_eye_effect_active", runtime.is_odins_eye_effect_active())
+	_set_owner_if_changed(owner, runtime, "odins_eye_penalty_active", runtime.is_odins_eye_penalty_active())
+	_set_owner_if_changed(owner, runtime, "odins_eye_transformed", runtime.is_odins_eye_transformed())
+	_set_owner_if_changed(owner, runtime, "odins_eye_skills_locked", runtime.is_odins_eye_skills_locked())
+	_set_owner_if_changed(owner, runtime, "odins_eye_control_locked", runtime.is_odins_eye_control_locked())
+	_set_owner_if_changed(owner, runtime, "odins_eye_context", odins_eye_context)
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_phase", runtime.get_odins_eye_death_phase())
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_overall_progress", runtime.get_odins_eye_death_overall_progress())
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_phase_progress", runtime.get_odins_eye_death_phase_progress())
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_energy_buildup", runtime.get_odins_eye_death_energy_buildup())
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_disintegrate_progress", runtime.get_odins_eye_death_disintegrate_progress())
+	_set_owner_if_changed(owner, runtime, "odins_eye_death_shake_intensity", runtime.get_odins_eye_death_shake_intensity())
+	_set_owner_if_changed(owner, runtime, "odins_eye_hide_player_paddle", runtime.should_hide_odins_eye_player_paddle())
 	_set_owner_if_changed(owner, runtime, "sensor_ready", runtime.is_sensor_auto_dash_ready())
 	_set_owner_if_changed(owner, runtime, "sensor_cooldown_remaining_sec", runtime.get_sensor_cooldown_remaining_seconds())
 	_set_owner_if_changed(owner, runtime, "sensor_cooldown_progress", runtime.get_sensor_cooldown_progress())

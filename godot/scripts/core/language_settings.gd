@@ -634,6 +634,19 @@ static func _translate_known_patterns(text: String) -> String:
 		if language == LANGUAGE_RUSSIAN:
 			return "Жетоны рывка %s" % text.substr("대시 토큰 ".length())
 		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
+	if text.begins_with("부활 확률 "):
+		var revival_value := text.substr("부활 확률 ".length())
+		if language == LANGUAGE_CHINESE:
+			return "复活概率 %s" % revival_value
+		if language == LANGUAGE_JAPANESE:
+			return "復活確率 %s" % revival_value
+		if language == LANGUAGE_SPANISH:
+			return "Probabilidad de revivir %s" % revival_value
+		if language == LANGUAGE_PORTUGUESE_BRAZIL:
+			return "Chance de reviver %s" % revival_value
+		if language == LANGUAGE_RUSSIAN:
+			return "Шанс воскрешения %s" % revival_value
+		return "Revival Chance %s" % revival_value
 	if text.begins_with("선택 대기: "):
 		if language == LANGUAGE_CHINESE:
 			return "待选择：%s" % text.substr("선택 대기: ".length())

@@ -8,16 +8,31 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	var score_state: Object = deps.get("score_state", null)
 	if score_state == null:
 		return
+	var odins_eye_death_finalize_score := bool(deps.get("odins_eye_death_finalize_score", false))
 	var sample_start: int = _perf_begin(perf_logger)
-	if _try_negate_boss_score(scoring_side, score_state, deps, callbacks):
+	if not odins_eye_death_finalize_score and _try_start_odins_eye_death_sequence(scoring_side, score_state, deps):
+		_perf_end(perf_logger, "physics.score_event.odins_eye_death", sample_start)
+		return
+	_perf_end(perf_logger, "physics.score_event.odins_eye_death", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	if not odins_eye_death_finalize_score and _try_negate_boss_score(scoring_side, score_state, deps, callbacks):
 		_perf_end(perf_logger, "physics.score_event.negate_boss_score", sample_start)
 		return
 	_perf_end(perf_logger, "physics.score_event.negate_boss_score", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	if _try_trigger_revival(scoring_side, score_state, deps, callbacks):
+	if not odins_eye_death_finalize_score and _try_trigger_revival(scoring_side, score_state, deps, callbacks):
 		_perf_end(perf_logger, "physics.score_event.revival", sample_start)
 		return
 	_perf_end(perf_logger, "physics.score_event.revival", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	if not odins_eye_death_finalize_score and _try_trigger_odins_eye_revival(scoring_side, score_state, deps):
+		_perf_end(perf_logger, "physics.score_event.odins_eye_revival", sample_start)
+		return
+	_perf_end(perf_logger, "physics.score_event.odins_eye_revival", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	_clear_odins_eye_penalty_after_player_victory(scoring_side, deps)
+	_perf_end(perf_logger, "physics.score_event.odins_eye_victory_clear", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	var score_result: Dictionary = score_state.score_for(scoring_side)
@@ -219,6 +234,93 @@ func _try_trigger_revival(scoring_side: String, score_state: Object, deps: Dicti
 		_stop_score_audio_loops(audio)
 	_start_boss_score_cancel_stage_hold(deps, callbacks)
 	return true
+
+
+func _try_start_odins_eye_death_sequence(scoring_side: String, score_state: Object, deps: Dictionary) -> bool:
+	if scoring_side != "boss":
+		return false
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null:
+		return false
+	if not (
+		mythic_item_runtime.has_method("is_odins_eye_penalty_active")
+		and mythic_item_runtime.has_method("begin_odins_eye_death_sequence")
+	):
+		return false
+	if not bool(mythic_item_runtime.is_odins_eye_penalty_active()):
+		return false
+	var loss_type: String = "deuce" if _is_deuce_mode(score_state) else "round"
+	if not bool(mythic_item_runtime.begin_odins_eye_death_sequence(loss_type)):
+		return false
+	var audio: Object = deps.get("audio", null)
+	if audio != null:
+		_stop_score_audio_loops(audio)
+	_hide_ball_for_odins_eye_event(deps)
+	_sync_mythic_owner(mythic_item_runtime, deps)
+	return true
+
+
+func _try_trigger_odins_eye_revival(scoring_side: String, score_state: Object, deps: Dictionary) -> bool:
+	if scoring_side != "boss":
+		return false
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_trigger_odins_eye_revival"):
+		return false
+	var loss_type: String = "deuce" if _is_deuce_mode(score_state) else "round"
+	if not bool(mythic_item_runtime.try_trigger_odins_eye_revival(loss_type)):
+		return false
+	var audio: Object = deps.get("audio", null)
+	if audio != null:
+		_stop_score_audio_loops(audio)
+	_hide_ball_for_odins_eye_event(deps)
+	_sync_mythic_owner(mythic_item_runtime, deps)
+	return true
+
+
+func _clear_odins_eye_penalty_after_player_victory(scoring_side: String, deps: Dictionary) -> void:
+	# §8 boundary policy (docs/odins_eye_port_plan.md): a player rally win during
+	# the Odin penalty form clears the penalty AND re-arms revival
+	# (clear_after_victory -> revival_used = false). Gated on penalty_active so a
+	# normal player score never touches Odin state. Without this, the penalty
+	# leaks past the rally win and the next boss score routes into the death
+	# sequence even though the player had scored in between.
+	if scoring_side != "player":
+		return
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null:
+		return
+	if not (
+		mythic_item_runtime.has_method("is_odins_eye_penalty_active")
+		and mythic_item_runtime.has_method("clear_odins_eye_after_victory")
+	):
+		return
+	if not bool(mythic_item_runtime.is_odins_eye_penalty_active()):
+		return
+	mythic_item_runtime.clear_odins_eye_after_victory()
+	_sync_mythic_owner(mythic_item_runtime, deps)
+
+
+func _hide_ball_for_odins_eye_event(deps: Dictionary) -> void:
+	var owner_value: Variant = deps.get("owner", null)
+	if not (typeof(owner_value) == TYPE_OBJECT and is_instance_valid(owner_value)):
+		return
+	var owner: Object = owner_value as Object
+	var hidden_pos := Vector2(-100.0, -100.0)
+	owner.set("ball_pos", hidden_pos)
+	owner.set("ball_pos_prev", hidden_pos)
+	owner.set("ball_vel", Vector2.ZERO)
+	owner.set("ball_active", false)
+	if owner.has_method("queue_redraw"):
+		owner.queue_redraw()
+
+
+func _sync_mythic_owner(mythic_item_runtime: Object, deps: Dictionary) -> void:
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("_sync_owner"):
+		return
+	var owner: Object = deps.get("owner", null)
+	if owner == null:
+		return
+	mythic_item_runtime._sync_owner(owner, deps.get("registry", null))
 
 
 func _would_score_finish(score_state: Object, scoring_side: String) -> bool:

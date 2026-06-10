@@ -53,6 +53,11 @@ func apply_player_movement_config(runtime: Object, config: Dictionary) -> void:
 		config["horizontal_input_locked"] = true
 	elif runtime.is_horn_strawberry_skills_locked():
 		config["player_skill_input_locked"] = true
+	if runtime.is_odins_eye_control_locked():
+		config["player_skill_input_locked"] = true
+		config["horizontal_input_locked"] = true
+	elif runtime.is_odins_eye_skills_locked():
+		config["player_skill_input_locked"] = true
 	if runtime.is_horn_strawberry_transformed():
 		var move_speed: float = float(runtime.get_horn_strawberry_move_speed())
 		config["paddle_speed"] = move_speed
@@ -65,6 +70,7 @@ func get_player_speed_multiplier(runtime: Object, baal_boots_constants: Dictiona
 	multiplier *= get_gold_bar_speed_multiplier(runtime)
 	multiplier *= runtime.get_sage_ring_speed_multiplier()
 	multiplier *= runtime.baal_boots_runtime.get_player_speed_multiplier(runtime, baal_boots_constants)
+	multiplier *= runtime.get_odins_eye_move_speed_multiplier()
 	return max(0.0, multiplier)
 
 
@@ -168,6 +174,9 @@ func get_dash_token_capacity(
 	base_tokens: int = 1,
 	runtime_perk_state: Object = null
 ) -> int:
+	var odins_limit: Variant = runtime.get_odins_eye_dash_token_limit_override()
+	if odins_limit != null:
+		return max(1, int(odins_limit))
 	var capacity: int = max(1, int(base_tokens)) + get_dashholder_dash_token_bonus(runtime)
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_bonus"):
 		capacity += int(runtime_perk_state.get_runtime_skill_bonus("dash_amplification"))

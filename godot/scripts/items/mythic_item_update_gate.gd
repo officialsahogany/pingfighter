@@ -61,6 +61,8 @@ func has_non_ragnarok_transient_runtime_update_work(runtime: Object) -> bool:
 		return true
 	if runtime.revival_state.is_effect_active():
 		return true
+	if runtime.odins_eye_runtime.has_runtime_update_work(runtime):
+		return true
 	if runtime.sensor_cooldown_timer_frames > 0.0 or runtime.sensor_auto_dash_effect_timer_frames > 0.0:
 		return true
 	if runtime.smartphone_cooldown_frames > 0.0:

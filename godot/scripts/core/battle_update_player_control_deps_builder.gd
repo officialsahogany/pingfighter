@@ -144,6 +144,16 @@ func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
 		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
 	):
 		return true
+	if (
+		mythic_item_runtime.has_method("is_odins_eye_skills_locked")
+		and bool(mythic_item_runtime.is_odins_eye_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_odins_eye_control_locked")
+		and bool(mythic_item_runtime.is_odins_eye_control_locked())
+	):
+		return true
 	return false
 
 

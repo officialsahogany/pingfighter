@@ -47,6 +47,7 @@ const FIELD_SPAWN_ORDER := [
 	"transcendent_crown",
 	"heavenly_cape",
 	"horn_strawberry_mask",
+	"odins_eye",
 	"celestial_armor",
 	"baal_boots",
 ]

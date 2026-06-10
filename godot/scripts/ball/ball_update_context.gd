@@ -39,8 +39,6 @@ func build_reset_config(owner: Object) -> Dictionary:
 		player_pos,
 		owner_snapshot.get_owner_vector2(owner, "boss_pos", Vector2.ZERO)
 	)
-	if player_pos != Vector2.ZERO:
-		config["player_y"] = player_pos.y
 	config["player_paddle_width"] = max(1.0, float(owner_snapshot.get_owner_value(
 		owner,
 		"player_paddle_width",
@@ -51,6 +49,7 @@ func build_reset_config(owner: Object) -> Dictionary:
 		"player_paddle_height",
 		config.get("player_paddle_height", 50.0)
 	)))
+	config["player_y"] = float(config.get("height", 750.0)) - float(config["player_paddle_height"])
 	config["boss_paddle_width"] = _get_boss_paddle_width(owner, float(config.get("boss_paddle_width", 100.0)))
 	return config
 

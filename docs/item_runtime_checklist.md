@@ -1452,6 +1452,36 @@ right one for the new item:
       override legitimate in-transform movement systems (for
       example Yachaman's bomb-spin dash applies `PLAYER.x +=`).
 
+#### 7.2.1. Godot round-reset `player_y` must be the floor baseline, not live `player_pos.y`
+
+In the Godot port the finalize landing is achieved by **reusing
+`reset_ball`** (`battle_scene_ball_update_driver.reset_ball` →
+`ball_round_cleanup.reset_for_ball_reset` →
+`actor_cleanup.reset_actor_round_state` → `viper_jetpack_state.reset_round()`
+clears `offset_y`, and `ball_round_controller` writes `player_pos.y =
+config.player_y`). For this to actually LAND the paddle,
+`ball_update_context.build_reset_config` must derive `player_y` from the
+**floor baseline** (`field height − player_paddle_height`), **NOT** from the
+live (possibly airborne) `player_pos.y`.
+
+- The "read live `player_pos.y` into the reset config" form is a **latent
+  float trap**: a Viper that revives mid-jetpack keeps its airborne y across
+  the reset even after `offset_y` is cleared.
+- **Why it normally hides:** in ordinary play the per-frame paddle-position
+  writer (Viper jetpack `update()` → `next_pos.y = floor + offset_y`)
+  re-corrects `player_pos.y` to the floor on the next frame, masking the bug.
+  A transform/penalty that **gates that writer off** (`is_*_skills_locked` /
+  `is_*_transformed`) removes the corrector, so the preserved airborne y
+  survives and the paddle floats — this is the §7.2 family ("the corrector
+  is gated off").
+- **Rule:** any round-reset config that feeds paddle Y must source it from the
+  baseline, and any new airborne mechanic (jetpack, dash-lift, hover) must
+  verify a finalize/reset while airborne lands the paddle.
+- Reference fix: `ball_update_context.build_reset_config` deriving
+  `player_y = height − player_paddle_height`. Reference smoke (real
+  `reset_ball` + `ViperJetpackState`, asserts `offset_y==0` and
+  `player_pos.y == floor`): `odins_eye_finalize_paddle_land_smoke.gd`.
+
 ### 7.3. Reverse / detransform paths
 
 - [ ] If the transform is reversible (for example Yachaman's

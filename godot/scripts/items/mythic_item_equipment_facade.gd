@@ -16,6 +16,7 @@ const ITEM_CELESTIAL_ARMOR := "celestial_armor"
 const ITEM_HERMES_SHOES := "hermes_shoes"
 const ITEM_BAAL_BOOTS := "baal_boots"
 const ITEM_HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
+const ITEM_ODINS_EYE := "odins_eye"
 const ITEM_PANDORA_LEGACY := "pandora_legacy"
 const ITEM_REINFORCED_BOOMERANG_GAUNTLET := "reinforced_boomerang_gauntlet"
 const ITEM_BOOMERANG := "boomerang"
@@ -285,6 +286,8 @@ func _clear_on_equip(
 		runtime.baal_boots_runtime.try_arm_from_weather(runtime, owner, registry, "", baal_boots_constants)
 	if item_name == ITEM_HORN_STRAWBERRY_MASK:
 		runtime.horn_strawberry_mask_runtime.clear_on_equip(runtime)
+	if item_name == ITEM_ODINS_EYE:
+		runtime.odins_eye_runtime.clear_on_equip(runtime)
 	if item_name == ITEM_PANDORA_LEGACY:
 		runtime.pandora_legacy_runtime.clear_selection(runtime, false)
 
@@ -327,6 +330,8 @@ func _clear_on_unequip(
 		runtime.baal_boots_runtime.clear_runtime(runtime, registry, baal_boots_constants)
 	if item_name == ITEM_HORN_STRAWBERRY_MASK:
 		runtime.horn_strawberry_mask_runtime.clear_on_unequip(runtime)
+	if item_name == ITEM_ODINS_EYE:
+		runtime.odins_eye_runtime.clear_on_unequip(runtime)
 	if item_name == ITEM_PANDORA_LEGACY:
 		runtime.pandora_legacy_runtime.clear_runtime(runtime)
 
@@ -355,6 +360,8 @@ func _clear_on_remove_before_rebuild(
 		runtime.baal_boots_runtime.clear_runtime(runtime, registry, baal_boots_constants)
 	if item_name == ITEM_HORN_STRAWBERRY_MASK:
 		runtime.horn_strawberry_mask_runtime.clear_on_unequip(runtime)
+	if item_name == ITEM_ODINS_EYE:
+		runtime.odins_eye_runtime.clear_on_unequip(runtime)
 	if item_name == ITEM_PANDORA_LEGACY:
 		runtime.pandora_legacy_runtime.clear_runtime(runtime)
 

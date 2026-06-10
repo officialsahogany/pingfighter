@@ -38,6 +38,7 @@ const ITEM_HERMES_SHOES := "hermes_shoes"
 const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
 const ITEM_HEAVENLY_CAPE := "heavenly_cape"
 const ITEM_HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
+const ITEM_ODINS_EYE := "odins_eye"
 const ITEM_CELESTIAL_ARMOR := "celestial_armor"
 const ITEM_BAAL_BOOTS := "baal_boots"
 const ARM_SLOT_KEYS := ["left_arm", "right_arm"]
@@ -136,6 +137,7 @@ const CONTEXT_CONSTANTS := {
 	"item_dowsing_goggles": ITEM_DOWSING_GOGGLES,
 	"item_hermes_shoes": ITEM_HERMES_SHOES,
 	"item_horn_strawberry_mask": ITEM_HORN_STRAWBERRY_MASK,
+	"item_odins_eye": ITEM_ODINS_EYE,
 	"item_megingjord": ITEM_MEGINGJORD,
 	"item_poseidon_trident": ITEM_POSEIDON_TRIDENT,
 	"item_ragnarok_hammer": ITEM_RAGNAROK_HAMMER,
@@ -351,6 +353,7 @@ var soul_burst_shockwaves: Array = []
 var soul_burst_wind_trails: Array = []
 var foul_whistle_state: Object = null
 var revival_state: Object = null
+var odins_eye_state: Object = null
 var sensor_enabled := true
 var sensor_cooldown_timer_frames := 0.0
 var sensor_last_dash_direction := 0.0
@@ -395,6 +398,7 @@ var shrapnel_armor_boss_stun_timer_frames := 0.0
 var shrapnel_armor_last_proc_shard_count := 0
 var shrapnel_armor_last_gauge_cost := 0.0
 var revival_runtime: Object = null
+var odins_eye_runtime: Object = null
 var celestial_armor_runtime: Object = null
 var celestial_armor_state: Object = null
 var heavenly_cape_runtime: Object = null
@@ -1137,7 +1141,7 @@ func get_dash_recovery_frames(base_frames: float) -> float:
 
 func get_dash_recharge_frames(base_frames: float) -> float:
 	_ensure_helpers_ready()
-	return defense_gear_runtime.get_dash_recharge_frames(self, base_frames)
+	return defense_gear_runtime.get_dash_recharge_frames(self, base_frames) * get_odins_eye_dash_cooldown_multiplier()
 
 
 func is_slot_add_equipped() -> bool:
@@ -1802,6 +1806,161 @@ func try_trigger_revival(loss_type: String = "round", context: Dictionary = {}) 
 	return revival_runtime.try_trigger(self, loss_type, context, CONTEXT_CONSTANTS)
 
 
+func is_odins_eye_equipped() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_equipped(self)
+
+
+func is_odins_eye_available() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_available(self)
+
+
+func has_odins_eye_revival_used() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.has_revival_used(self)
+
+
+func is_odins_eye_penalty_active() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_penalty_active(self)
+
+
+func is_odins_eye_transformed() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_transformed(self)
+
+
+func is_odins_eye_skills_locked() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_skills_locked(self)
+
+
+func is_odins_eye_control_locked() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_control_locked(self)
+
+
+func is_odins_eye_revival_animation_active() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_revival_animation_active(self)
+
+
+func is_odins_eye_death_animation_active() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_death_animation_active(self)
+
+
+func is_odins_eye_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_effect_active(self)
+
+
+func get_odins_eye_revival_chance_pct() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_revival_chance_pct(self)
+
+
+func get_odins_eye_revival_chance() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_revival_chance(self)
+
+
+func try_trigger_odins_eye_revival(loss_type: String = "round", roll_pct: float = -1.0) -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.try_trigger_revival(self, loss_type, roll_pct)
+
+
+func begin_odins_eye_death_sequence(loss_type: String = "round") -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.begin_death_sequence(self, loss_type)
+
+
+func consume_odins_eye_revival_finalize_ready() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.consume_revival_finalize_ready(self)
+
+
+func consume_odins_eye_death_finalize_ready() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.consume_death_finalize_ready(self)
+
+
+func consume_odins_eye_death_explosion_edge() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.consume_death_explosion_edge(self)
+
+
+func consume_odins_eye_disintegration_edge() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.consume_disintegration_edge(self)
+
+
+func clear_odins_eye_after_victory() -> void:
+	_ensure_helpers_ready()
+	odins_eye_runtime.clear_after_victory(self)
+
+
+func clear_odins_eye_after_death() -> void:
+	_ensure_helpers_ready()
+	odins_eye_runtime.clear_after_death(self)
+
+
+func get_odins_eye_move_speed_multiplier() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_move_speed_multiplier(self)
+
+
+func get_odins_eye_dash_token_limit_override() -> Variant:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_dash_token_limit_override(self)
+
+
+func get_odins_eye_dash_cooldown_multiplier() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_dash_cooldown_multiplier(self)
+
+
+func get_odins_eye_death_phase() -> String:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_death_phase(self)
+
+
+func get_odins_eye_death_overall_progress() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_death_overall_progress(self)
+
+
+func get_odins_eye_death_phase_progress() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_death_phase_progress(self)
+
+
+func get_odins_eye_death_energy_buildup() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_death_energy_buildup(self)
+
+
+func get_odins_eye_death_disintegrate_progress() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_death_disintegrate_progress(self)
+
+
+func get_odins_eye_death_shake_intensity() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_death_shake_intensity(self)
+
+
+func should_hide_odins_eye_player_paddle() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.should_hide_player_paddle(self)
+
+
+func get_odins_eye_context() -> Dictionary:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_context(self)
+
+
 func is_gold_digger_equipped() -> bool:
 	_ensure_helpers_ready()
 	return resource_bonus_runtime.is_gold_digger_equipped(self)
@@ -2125,6 +2284,7 @@ func consume_horn_strawberry_strong_boss_hit(
 func on_stage_advance(owner: Object = null, registry: Object = null) -> void:
 	_ensure_helpers_ready()
 	horn_strawberry_mask_runtime.on_stage_advance(self)
+	odins_eye_runtime.on_stage_advance(self)
 	if owner != null:
 		_sync_owner(owner, registry)
 

@@ -200,6 +200,18 @@ const HORN_STRAWBERRY_MASK_ROLL_OPTIONS := [
 	},
 ]
 
+const ODINS_EYE_ROLL_OPTIONS := [
+	{
+		"key": "revival_chance",
+		"label": "부활 확률",
+		"min": 30.0,
+		"max": 45.0,
+		"step": 1.0,
+		"unit": "%",
+		"default": 35.0,
+	},
+]
+
 const DOWSING_PENDULUM_ROLL_OPTIONS := [
 	{
 		"key": "attraction_range",
@@ -780,6 +792,7 @@ const ITEM_ROLL_OPTIONS := {
 	"celestial_armor": CELESTIAL_ARMOR_ROLL_OPTIONS,
 	"baal_boots": BAAL_BOOTS_ROLL_OPTIONS,
 	"horn_strawberry_mask": HORN_STRAWBERRY_MASK_ROLL_OPTIONS,
+	"odins_eye": ODINS_EYE_ROLL_OPTIONS,
 	"dowsing_pendulum": DOWSING_PENDULUM_ROLL_OPTIONS,
 	"dowsing_goggles": DOWSING_GOGGLES_ROLL_OPTIONS,
 	"speedboots": SPEEDBOOTS_ROLL_OPTIONS,

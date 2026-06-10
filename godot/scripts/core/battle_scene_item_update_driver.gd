@@ -1,9 +1,11 @@
 extends RefCounted
 
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
+const MatchFlowController := preload("res://scripts/core/match_flow_controller.gd")
 
 var _last_mythic_update_frame := -1
 var _fallback_boss_health_flow: Object = BattleSceneBossHealthFlow.new()
+var _fallback_match_flow_controller: Object = MatchFlowController.new()
 var _method_argument_count_cache: Dictionary = {}
 
 
@@ -19,6 +21,7 @@ func update_items(owner: Object, registry: Object, delta: float) -> void:
 	var mythic_start: int = _perf_begin(perf_logger)
 	_update_mythic_once(owner, registry, delta, mythic_item_runtime)
 	_perf_end(perf_logger, "physics.items.mythic_once_from_active", mythic_start)
+	_consume_odins_eye_finalize_edges(owner, registry, mythic_item_runtime, perf_logger)
 	if (
 		mythic_item_runtime != null
 		and mythic_item_runtime.has_method("consume_foul_whistle_reset_ready")
@@ -35,6 +38,7 @@ func update_mythic_items(owner: Object, registry: Object, delta: float) -> void:
 	var sample_start: int = _perf_begin(perf_logger)
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	_update_mythic_once(owner, registry, delta, mythic_item_runtime)
+	_consume_odins_eye_finalize_edges(owner, registry, mythic_item_runtime, perf_logger)
 	_perf_end(perf_logger, "physics.items.mythic_total", sample_start)
 
 
@@ -79,6 +83,93 @@ func _reset_ball_after_foul_whistle(owner: Object, registry: Object) -> void:
 			round_state.reset_round_wait()
 
 
+func _consume_odins_eye_finalize_edges(
+	owner: Object,
+	registry: Object,
+	mythic_item_runtime: Object,
+	perf_logger: Object
+) -> void:
+	if mythic_item_runtime == null:
+		return
+	if (
+		mythic_item_runtime.has_method("consume_odins_eye_revival_finalize_ready")
+		and bool(mythic_item_runtime.consume_odins_eye_revival_finalize_ready())
+	):
+		var revival_start: int = _perf_begin(perf_logger)
+		_reset_ball_after_odins_eye_revival(owner, registry)
+		_perf_end(perf_logger, "physics.items.odins_eye_revival_finalize", revival_start)
+	if (
+		mythic_item_runtime.has_method("consume_odins_eye_death_finalize_ready")
+		and bool(mythic_item_runtime.consume_odins_eye_death_finalize_ready())
+	):
+		var death_start: int = _perf_begin(perf_logger)
+		if mythic_item_runtime.has_method("clear_odins_eye_after_death"):
+			mythic_item_runtime.clear_odins_eye_after_death()
+		if mythic_item_runtime.has_method("_sync_owner"):
+			mythic_item_runtime._sync_owner(owner, registry)
+		_dispatch_odins_eye_death_score(owner, registry, mythic_item_runtime)
+		_perf_end(perf_logger, "physics.items.odins_eye_death_finalize", death_start)
+
+
+func _reset_ball_after_odins_eye_revival(owner: Object, registry: Object) -> void:
+	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
+	if ball_driver != null and ball_driver.has_method("reset_ball"):
+		ball_driver.reset_ball(owner, registry)
+	_reset_boss_round_health(owner, registry)
+	var round_state: Object = _get_instance(registry, "round_flow_state")
+	if round_state != null:
+		if round_state.has_method("set_player_serves"):
+			round_state.set_player_serves(true)
+		if round_state.has_method("reset_round_wait"):
+			round_state.reset_round_wait()
+
+
+func _dispatch_odins_eye_death_score(owner: Object, registry: Object, mythic_item_runtime: Object) -> void:
+	var score_state: Object = _get_instance(registry, "match_score_state")
+	if score_state == null:
+		_reset_ball_after_odins_eye_score(owner, registry)
+		return
+	var controller: Object = _get_instance(registry, "match_flow_controller")
+	if controller == null or not controller.has_method("handle_score_event"):
+		controller = _fallback_match_flow_controller
+	controller.handle_score_event("boss", _build_odins_eye_death_score_deps(owner, registry, mythic_item_runtime), {
+		"reset_ball": Callable(self, "_reset_ball_after_odins_eye_score").bind(owner, registry),
+	})
+
+
+func _build_odins_eye_death_score_deps(owner: Object, registry: Object, mythic_item_runtime: Object) -> Dictionary:
+	var current_stage := int(_get_owner_value(owner, "current_stage", 1))
+	# Keep this manual finalize path mirrored with the normal score-flow deps as
+	# new score reactions are added; Odin death intentionally re-enters that flow.
+	return {
+		"score_state": _get_instance(registry, "match_score_state"),
+		"round_state": _get_instance(registry, "round_flow_state"),
+		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
+		"mythic_item_runtime": mythic_item_runtime,
+		"audio": _get_instance(registry, "game_audio"),
+		"owner": owner,
+		"registry": registry,
+		"current_stage": current_stage,
+		"battle_resources": _get_instance(registry, "battle_resources"),
+		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
+		"stage_background": _get_instance(registry, "stage_background"),
+		"stage2_pillar_background": _get_instance(registry, "stage2_pillar_background"),
+		"stage3_boss_skill_state": _get_instance(registry, "stage3_boss_skill_state"),
+		"stage4_map_state": _get_instance(registry, "stage4_map_state"),
+		"stage4_ponk_skill_state": _get_instance(registry, "stage4_ponk_skill_state"),
+		"stage5_hongryun_state": _get_instance(registry, "stage5_hongryun_state"),
+		"stage5_hongryun_actor_renderer": _get_instance(registry, "stage5_hongryun_actor_renderer"),
+		"odins_eye_death_finalize_score": true,
+	}
+
+
+func _reset_ball_after_odins_eye_score(owner: Object, registry: Object) -> void:
+	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
+	if ball_driver != null and ball_driver.has_method("reset_ball"):
+		ball_driver.reset_ball(owner, registry)
+	_reset_boss_round_health(owner, registry)
+
+
 func _update_mythic_once(owner: Object, registry: Object, delta: float, mythic_item_runtime: Object) -> void:
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("update"):
 		return
@@ -109,6 +200,13 @@ func _reset_boss_round_health(owner: Object, registry: Object) -> void:
 	if flow == null or not flow.has_method("reset_round_health"):
 		flow = _fallback_boss_health_flow
 	flow.reset_round_health(owner)
+
+
+func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(key)
+	return value if value != null else fallback
 
 
 func _get_method_argument_count(target: Object, method_name: String) -> int:

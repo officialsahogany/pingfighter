@@ -72,6 +72,12 @@ const HORN_STRAWBERRY_MASK_FIXED_OPTIONS := [
 	{"label": "공 타격 게이지", "value": "+80", "unit": ""},
 ]
 
+const ODINS_EYE_FIXED_OPTIONS := [
+	{"label": "페널티 이동", "value": "-50", "unit": "%"},
+	{"label": "대시 토큰", "value": "1", "unit": "개"},
+	{"label": "대시 쿨타임", "value": "+100", "unit": "%"},
+]
+
 const ITEM_FIXED_OPTIONS := {
 	"speedgear": SPEEDGEAR_FIXED_OPTIONS,
 	"gravitybelt": GRAVITYBELT_FIXED_OPTIONS,
@@ -82,6 +88,7 @@ const ITEM_FIXED_OPTIONS := {
 	"sage_ring": SAGE_RING_FIXED_OPTIONS,
 	"heavenly_cape": HEAVENLY_CAPE_FIXED_OPTIONS,
 	"horn_strawberry_mask": HORN_STRAWBERRY_MASK_FIXED_OPTIONS,
+	"odins_eye": ODINS_EYE_FIXED_OPTIONS,
 }
 
 
