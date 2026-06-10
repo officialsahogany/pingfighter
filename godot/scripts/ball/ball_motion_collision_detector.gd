@@ -8,6 +8,7 @@ const EVENT_BOSS_PADDLE := "boss_paddle"
 const EVENT_HOLY_BARRIER := "holy_barrier"
 const EVENT_HORN_STRAWBERRY_FIELD := "horn_strawberry_field"
 const EVENT_BRICK_WALL := "brick_wall"
+const EVENT_TRAMPOLINE := "trampoline"
 const EVENT_SAND_TERRAIN := "sand_terrain"
 
 
@@ -242,6 +243,45 @@ func check_brick_wall(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, co
 			"ball_pos": ball_pos,
 			"wall_index": i,
 			"impact_pos": Vector2(ball_pos.x, wall_rect.position.y),
+		}
+
+	return {}
+
+
+func check_trampoline(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, context: Dictionary) -> Dictionary:
+	if ball_vel.y <= 0.0:
+		return {}
+
+	var trampolines: Array = context.get("trampolines", [])
+	if trampolines.is_empty():
+		return {}
+
+	var ball_rect := Rect2(
+		ball_pos.x - ball_size * 0.5,
+		ball_pos.y - ball_size * 0.5,
+		ball_size,
+		ball_size
+	)
+	for i in range(trampolines.size()):
+		var trampoline_value: Variant = trampolines[i]
+		if not (trampoline_value is Dictionary):
+			continue
+		var trampoline: Dictionary = trampoline_value
+		var trampoline_rect: Rect2 = _as_rect2(trampoline.get("rect", Rect2()), Rect2())
+		if trampoline_rect.size.x <= 0.0 or trampoline_rect.size.y <= 0.0:
+			continue
+		# The capture band extends one ball below the mat so contact events
+		# keep firing while the slingshot draw sinks the ball into the mat.
+		var capture_band: Rect2 = trampoline_rect.grow_individual(0.0, 0.0, 0.0, ball_size)
+		if not capture_band.intersects(ball_rect):
+			continue
+		# No snap-to-mat-top: the slingshot capture lets the ball keep
+		# sinking into the mat, so the stepped position is the real one.
+		return {
+			"event": EVENT_TRAMPOLINE,
+			"ball_pos": ball_pos,
+			"trampoline_index": i,
+			"impact_pos": Vector2(ball_pos.x, trampoline_rect.position.y),
 		}
 
 	return {}

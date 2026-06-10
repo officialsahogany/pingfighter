@@ -58,6 +58,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_dash_boost", [owner, registry])
 	if _matches(item_name, effect_name, "wall"):
 		return _call_bool(effect_controller, "activate_wall", [owner, registry])
+	if _matches(item_name, effect_name, "trampoline"):
+		return _call_bool(effect_controller, "activate_trampoline", [owner, registry])
 	if _matches(item_name, effect_name, "elixir_of_mastery"):
 		return _call_bool(effect_controller, "activate_elixir_of_mastery", [owner, registry])
 	return false

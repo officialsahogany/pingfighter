@@ -180,6 +180,8 @@ func get_ball_collision_context(runtime: Object) -> Dictionary:
 		context.merge(runtime.effect_controller.get_holy_barrier_collision_context(), true)
 	if runtime.effect_controller.has_method("get_brick_wall_collision_context"):
 		context.merge(runtime.effect_controller.get_brick_wall_collision_context(), true)
+	if runtime.effect_controller.has_method("get_trampoline_collision_context"):
+		context.merge(runtime.effect_controller.get_trampoline_collision_context(), true)
 	if runtime.effect_controller.has_method("get_stopwatch_ball_context"):
 		context.merge(runtime.effect_controller.get_stopwatch_ball_context(), true)
 	return context
@@ -205,6 +207,12 @@ func notify_brick_wall_hit(runtime: Object, wall_index: int, impact_pos: Vector2
 	if runtime.effect_controller == null or not runtime.effect_controller.has_method("notify_brick_wall_hit"):
 		return {}
 	return runtime.effect_controller.notify_brick_wall_hit(wall_index, impact_pos)
+
+
+func notify_trampoline_hit(runtime: Object, trampoline_index: int, ball_pos: Vector2, ball_vel: Vector2) -> Dictionary:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("notify_trampoline_hit"):
+		return {}
+	return runtime.effect_controller.notify_trampoline_hit(trampoline_index, ball_pos, ball_vel)
 
 
 func _is_time_frozen(runtime: Object) -> bool:

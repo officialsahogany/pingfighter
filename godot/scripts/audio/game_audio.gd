@@ -2258,6 +2258,16 @@ func play_wall_hit(impact_speed: float) -> void:
 		wall_sound_cooldown = WALL_HIT_SOUND_COOLDOWN
 
 
+func play_trampoline_bounce(impact_speed: float = 0.0) -> void:
+	var pitch: float = clamp(1.20 + impact_speed / 60.0, 1.20, 1.48) * randf_range(0.97, 1.03)
+	if not _play_with_pitch(wall_hit_sfx, pitch):
+		play_wall_hit(impact_speed)
+
+
+func play_trampoline_catch() -> void:
+	_play_with_pitch(wall_hit_sfx, 0.68 * randf_range(0.96, 1.04))
+
+
 func play_round_set() -> void:
 	if round_set_sfx == null or round_set_sfx.stream == null:
 		return

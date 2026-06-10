@@ -700,6 +700,42 @@ Current Godot-first rule:
       `active_item_slot_controller.gd`, update/reset ownership, exposed
       getters, `active_item_runtime.gd` draw fanout, renderer call, and
       `game_audio.gd` cues.
+- [ ] **Ball-interacting deployables must decide their `BallMotionStepper`
+      ordering against `check_paddles()` explicitly — and ordering alone is
+      not enough.** The player paddle hitbox band is `player_pos.y ±
+      hitbox_padding + paddle height` (~y 695..760 at runtime), so any
+      floor-band object checked AFTER `check_paddles` is unreachable while
+      the player x-overlaps it. Worse, even when the object's check runs
+      FIRST, sub-stepping (max 12 px) means the paddle still wins whenever
+      the object's collision band top sits below the paddle hitbox top —
+      the ball hits a paddle-only overlap window earlier. Decide the intent
+      per object: a pure missed-ball blocker (brick wall) may let the
+      paddle pre-empt; an object that must visibly proc while the player
+      stands on it (trampoline) needs BOTH its check placed before
+      `check_paddles` in `ball_motion_stepper.gd` AND its collision band
+      top above the paddle hitbox top
+      (`active_item_trampoline_runtime.TRAMPOLINE_MAT_TOP_Y` is the
+      reference). The smoke must drive the full `BallMotionStepper.step()`
+      path with `player_pos` / `player_paddle_size` / `hitbox_padding` plus
+      the object's collision context and assert the returned event BOTH
+      with the player x-overlapping the object and away from it
+      (`active_item_trampoline_smoke._verify_stepper_full_path_collision_priority`
+      is the reference). A detector-only unit test cannot catch this
+      priority regression.
+- [ ] **The F2 debug spawn menu is NOT catalog-driven — add the item to
+      `active_item_debug_spawn_menu.gd::DEBUG_ENTRY_ORDER` by hand.** The
+      menu calls `item_catalog.build_item_by_name()` per cell, which makes
+      it LOOK catalog-enumerated, but the visible grid entries come from
+      its own hardcoded `DEBUG_ENTRY_ORDER` list — the Godot reincarnation
+      of the legacy Python dev-mode `all_items` trap in §1.2. Membership
+      in `FIELD_SPAWN_ORDER` does not surface the item there. Cell icons
+      resolve generically from the catalog `icon_path`, so only the list
+      entry is needed. Seal it with a smoke assert that
+      `DEBUG_ENTRY_ORDER.has("<item_name>")`
+      (`active_item_trampoline_smoke.gd` is the reference). Intentional
+      exclusions (e.g. `lingpet_generated_only` milk_bottle,
+      `supply_drop_only` ammo_box / doping_potion) should stay out and be
+      noted as deliberate.
 - [ ] For any active-item loop sound, add / verify all links:
       `play_*_loop` or `sync_*_loop` in `game_audio.gd`, direct
       item-controller stop when the last runtime object is gone,

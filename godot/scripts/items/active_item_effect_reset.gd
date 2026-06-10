@@ -38,6 +38,8 @@ func apply(
 	_clear_array(target, "brick_walls")
 	state_applier.apply_brick_wall_installation_state(target, brick_wall_installation.clear_installation())
 	_clear_array(target, "brick_particles")
+	_clear_array(target, "trampolines")
+	_clear_array(target, "trampoline_particles")
 
 
 func _clear_array(target: Object, key: String) -> void:

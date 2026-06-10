@@ -3,6 +3,7 @@ extends RefCounted
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const BrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
+const TrampolineRenderer := preload("res://scripts/items/active_item_trampoline_renderer.gd")
 const TimerGaugeRenderer := preload("res://scripts/items/active_item_timer_gauge_renderer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
@@ -40,6 +41,7 @@ var _pickup_icon_cache: Dictionary = {}
 var _text_size_cache: Dictionary = {}
 var _prewarm_step_index := 0
 var _brick_wall_renderer: Object = BrickWallEffectRenderer.new()
+var _trampoline_renderer: Object = TrampolineRenderer.new()
 var _timer_gauge_renderer: Object = TimerGaugeRenderer.new()
 
 
@@ -455,6 +457,10 @@ func _draw_dash_boost_particle(canvas: CanvasItem, particle: Dictionary, shake_o
 
 func _draw_brick_wall_effect(canvas: CanvasItem, brick_wall_context: Dictionary, shake_offset: Vector2) -> void:
 	_brick_wall_renderer.draw_brick_wall_effect(canvas, brick_wall_context, shake_offset)
+
+
+func draw_trampoline_effect(canvas: CanvasItem, trampoline_context: Dictionary, shake_offset: Vector2) -> void:
+	_trampoline_renderer.draw_trampoline_effect(canvas, trampoline_context, shake_offset)
 
 
 func _draw_regeneration_potion_effect(

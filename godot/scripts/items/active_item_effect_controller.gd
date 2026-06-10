@@ -11,6 +11,7 @@ const ActiveItemMagnetFieldRuntime := preload("res://scripts/items/active_item_m
 const ActiveItemAipillRuntime := preload("res://scripts/items/active_item_aipill_runtime.gd")
 const ActiveItemPickupEffectState := preload("res://scripts/items/active_item_pickup_effect_state.gd")
 const ActiveItemBrickWallGeometry := preload("res://scripts/items/active_item_brick_wall_geometry.gd")
+const ActiveItemTrampolineRuntime := preload("res://scripts/items/active_item_trampoline_runtime.gd")
 const ActiveItemBrickWallParticles := preload("res://scripts/items/active_item_brick_wall_particles.gd")
 const ActiveItemBrickWallInstallation := preload("res://scripts/items/active_item_brick_wall_installation.gd")
 const ActiveItemPlayerCenterReader := preload("res://scripts/items/active_item_player_center_reader.gd")
@@ -107,6 +108,8 @@ var brick_wall_installing: bool = false
 var brick_wall_install_timer_frames: float = 0.0
 var brick_wall_install_initial_frames: float = 0.0
 var brick_particles: Array[Dictionary] = []
+var trampolines: Array[Dictionary] = []
+var trampoline_particles: Array[Dictionary] = []
 var _state_applier: Object = ActiveItemEffectStateApplier.new()
 var _paddle_sync: Object = ActiveItemPaddleSync.new()
 var _holy_barrier_particles: Object = ActiveItemHolyBarrierParticles.new()
@@ -120,6 +123,7 @@ var _pickup_effect_state: Object = ActiveItemPickupEffectState.new()
 var _brick_wall_geometry: Object = ActiveItemBrickWallGeometry.new()
 var _brick_wall_particles: Object = ActiveItemBrickWallParticles.new()
 var _brick_wall_installation: Object = ActiveItemBrickWallInstallation.new()
+var _trampoline_runtime: Object = ActiveItemTrampolineRuntime.new()
 var _player_center_reader: Object = ActiveItemPlayerCenterReader.new()
 var _regeneration_potion_effect: Object = ActiveItemRegenerationPotionEffect.new()
 var _timed_paddle_effects: Object = ActiveItemTimedPaddleEffects.new()
@@ -155,6 +159,7 @@ func _init() -> void:
 		"dash_boost_particles": _dash_boost_particles,
 		"brick_wall_installation": _brick_wall_installation,
 		"brick_wall_particles": _brick_wall_particles,
+		"trampoline_runtime": _trampoline_runtime,
 		"transient_effect_updater": _transient_effect_updater,
 		"regeneration_potion_effect": _regeneration_potion_effect,
 		"pickup_effect_state": _pickup_effect_state,
@@ -342,6 +347,17 @@ func activate_wall(owner: Object, registry: Object) -> bool:
 	)
 
 
+func activate_trampoline(owner: Object, registry: Object) -> bool:
+	if owner == null:
+		return false
+	var trampoline: Dictionary = _trampoline_runtime.build_spawn_trampoline(owner)
+	trampolines.append(trampoline)
+	_trampoline_runtime.spawn_install_particles(trampoline_particles, trampoline.get("rect", Rect2()))
+	_effect_feedback.trigger_registry_feedback(registry, false, false, 0.02, 0.7)
+	_effect_feedback.play_first_audio(registry, ["play_active_item"])
+	return true
+
+
 func can_store_item(item_name: String) -> bool:
 	return _effect_query.can_store_item(self, item_name)
 
@@ -470,6 +486,21 @@ func get_brick_wall_collision_context() -> Dictionary:
 	return _effect_query.get_brick_wall_collision_context(self)
 
 
+func get_trampoline_collision_context() -> Dictionary:
+	return {
+		"trampolines": trampolines,
+	}
+
+
+func get_trampoline_context() -> Dictionary:
+	if trampolines.is_empty() and trampoline_particles.is_empty():
+		return {}
+	return {
+		"trampolines": trampolines,
+		"particles": trampoline_particles,
+	}
+
+
 func get_stopwatch_ball_context() -> Dictionary:
 	return _effect_query.get_stopwatch_ball_context(self)
 
@@ -540,6 +571,10 @@ func notify_holy_barrier_hit(impact_pos: Vector2) -> void:
 
 func notify_brick_wall_hit(wall_index: int, impact_pos: Vector2) -> Dictionary:
 	return _effect_interaction_facade.notify_brick_wall_hit(self, wall_index, impact_pos, BRICK_WALL_DESTROY_HITS)
+
+
+func notify_trampoline_hit(trampoline_index: int, ball_pos: Vector2, ball_vel: Vector2) -> Dictionary:
+	return _trampoline_runtime.apply_contact(trampolines, trampoline_particles, trampoline_index, ball_pos, ball_vel)
 
 
 func apply_aipill_player_control(player_pos: Vector2, player_speed: float, config: Dictionary, delta: float) -> Dictionary:

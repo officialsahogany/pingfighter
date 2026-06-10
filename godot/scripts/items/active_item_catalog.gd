@@ -26,6 +26,7 @@ const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/regeneration_
 const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/holy_barrier.png"
 const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/dash_boost.png"
 const WALL_ICON_PATH := "res://assets/sprites/items/wall.png"
+const TRAMPOLINE_ICON_PATH := "res://assets/sprites/items/trampoline.png"
 const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang.png"
 const BOOMERANG_METAL_ICON_PATH := "res://assets/sprites/items/boomerang_metal.png"
 const BANANA_ICON_PATH := "res://assets/sprites/items/banana.png"
@@ -54,6 +55,7 @@ const FIELD_SPAWN_ORDER := [
 	"holy_barrier",
 	"dash_boost",
 	"wall",
+	"trampoline",
 	"boomerang",
 	"banana",
 	"soap",
@@ -104,6 +106,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_dash_boost()
 		"wall":
 			item_data = _build_wall()
+		"trampoline":
+			item_data = _build_trampoline()
 		"boomerang":
 			item_data = _build_boomerang()
 		"banana":
@@ -482,6 +486,22 @@ func _build_wall() -> Dictionary:
 		"description": "공을 막는 방어용 벽돌을 설치합니다.",
 		"icon_path": WALL_ICON_PATH,
 		"color": Color(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0),
+		"consumable": true,
+	}
+
+
+func _build_trampoline() -> Dictionary:
+	return {
+		"name": "trampoline",
+		"display_name": "트램펄린",
+		"type": "active",
+		"effect": "trampoline",
+		"chance": 0.012,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"description": "공을 띠용 튕겨 올리는 트램펄린을 설치합니다. 3회 튕기면 사라집니다.",
+		"icon_path": TRAMPOLINE_ICON_PATH,
+		"color": Color(80.0 / 255.0, 210.0 / 255.0, 1.0),
 		"consumable": true,
 	}
 

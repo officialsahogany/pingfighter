@@ -30,6 +30,8 @@ func step_motion(
 		_process_sand_terrain(step_result, scene, deps)
 	elif event == "brick_wall":
 		_process_brick_wall(step_result, scene, context, deps)
+	elif event == "trampoline":
+		_process_trampoline(step_result, scene, deps)
 	elif event == "horn_strawberry_field":
 		_process_horn_strawberry_field(step_result, scene, deps)
 	elif event == "holy_barrier":
@@ -222,6 +224,46 @@ func _process_brick_wall(step_result: Dictionary, scene: Dictionary, context: Di
 			feedback.max_screen_shake(0.035, 1.1)
 	_apply_chargebag_wall_gauge(scene, context, deps)
 	_register_ball_hit_pulse(step_result, scene, deps, "brick_wall", 0.58)
+
+
+func _process_trampoline(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
+	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var ball_pos: Vector2 = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	var hit_result: Dictionary = {}
+	if active_item_runtime != null and active_item_runtime.has_method("notify_trampoline_hit"):
+		hit_result = active_item_runtime.notify_trampoline_hit(
+			int(step_result.get("trampoline_index", -1)),
+			ball_pos,
+			ball_vel
+		)
+	scene["ball_pos"] = ball_pos
+
+	var audio: Object = deps.get("audio", null)
+	var phase: String = str(hit_result.get("phase", ""))
+	if phase == "catch" or phase == "sinking" or phase == "hold":
+		scene["ball_vel"] = _get_vector2(hit_result, "ball_vel", ball_vel)
+		if phase == "catch" and audio != null and audio.has_method("play_trampoline_catch"):
+			audio.play_trampoline_catch()
+		return
+
+	# "launch" — and the defensive fallback when the runtime is missing.
+	var launch_velocity: Vector2 = _get_vector2(hit_result, "bounce_velocity", Vector2(ball_vel.x, -max(abs(ball_vel.y), 9.0)))
+	scene["ball_vel"] = launch_velocity
+	# The slingshot launch may exceed the global ball speed cap by up to 30%;
+	# raise the transient cap key consumed by ball_frame_motion_controller so
+	# the per-frame clamp does not silently swallow the overspeed
+	# (meditation-release cap precedent — dormant once the ball slows down).
+	scene["trampoline_launch_speed_cap"] = max(
+		float(scene.get("trampoline_launch_speed_cap", 0.0)),
+		launch_velocity.length()
+	)
+	if audio != null:
+		if audio.has_method("play_trampoline_bounce"):
+			audio.play_trampoline_bounce(abs(_get_vector2(scene, "ball_vel", Vector2.ZERO).y))
+		elif audio.has_method("play_wall_hit"):
+			audio.play_wall_hit(abs(ball_vel.y))
+	_register_ball_hit_pulse(step_result, scene, deps, "trampoline", 0.66)
 
 
 func _process_paddle(

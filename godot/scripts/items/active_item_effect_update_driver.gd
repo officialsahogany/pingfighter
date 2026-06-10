@@ -17,6 +17,7 @@ var _dash_boost_runtime: Object
 var _dash_boost_particles: Object
 var _brick_wall_installation: Object
 var _brick_wall_particles: Object
+var _trampoline_runtime: Object
 var _transient_effect_updater: Object
 var _regeneration_potion_effect: Object
 var _pickup_effect_state: Object
@@ -42,6 +43,7 @@ func configure(deps: Dictionary) -> void:
 	_dash_boost_particles = deps.get("dash_boost_particles")
 	_brick_wall_installation = deps.get("brick_wall_installation")
 	_brick_wall_particles = deps.get("brick_wall_particles")
+	_trampoline_runtime = deps.get("trampoline_runtime")
 	_transient_effect_updater = deps.get("transient_effect_updater")
 	_regeneration_potion_effect = deps.get("regeneration_potion_effect")
 	_pickup_effect_state = deps.get("pickup_effect_state")
@@ -104,6 +106,10 @@ func apply_update(
 		sample_start = _perf_begin(detail_perf_logger)
 		_update_brick_wall_installation(target, delta)
 		_perf_end(detail_perf_logger, "physics.callback.active_items.brick_wall", sample_start)
+	if _should_update_trampolines(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_trampolines(target, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.trampoline", sample_start)
 	if _should_update_transient_effects(target):
 		sample_start = _perf_begin(detail_perf_logger)
 		_update_transient_effects(target, delta)
@@ -333,6 +339,16 @@ func _update_brick_wall_installation(target: Object, delta: float) -> void:
 	)
 
 
+func _update_trampolines(target: Object, delta: float) -> void:
+	if _trampoline_runtime == null:
+		return
+	_trampoline_runtime.update_animations(
+		target.get("trampolines"),
+		target.get("trampoline_particles"),
+		delta
+	)
+
+
 func _update_transient_effects(target: Object, delta: float) -> void:
 	_transient_effect_updater.apply_update(
 		target.get("brick_particles"),
@@ -477,6 +493,13 @@ func _should_update_brick_wall(target: Object) -> bool:
 		_get_bool_property(target, "brick_wall_installing")
 		or _get_float_property(target, "brick_wall_install_timer_frames", 0.0) > 0.0
 		or not _get_dictionary_property(target, "pending_brick_wall").is_empty()
+	)
+
+
+func _should_update_trampolines(target: Object) -> bool:
+	return (
+		_has_array_items(target.get("trampolines"))
+		or _has_array_items(target.get("trampoline_particles"))
 	)
 
 

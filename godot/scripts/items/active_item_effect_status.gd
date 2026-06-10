@@ -44,6 +44,8 @@ func has_field_effects(effect_flags: Dictionary) -> bool:
 		or bool(effect_flags.get("brick_wall_installing", false))
 		or bool(effect_flags.get("has_brick_walls", false))
 		or bool(effect_flags.get("has_brick_particles", false))
+		or bool(effect_flags.get("has_trampolines", false))
+		or bool(effect_flags.get("has_trampoline_particles", false))
 		or bool(effect_flags.get("long_boost_active", false))
 		or bool(effect_flags.get("vitamin_pill_active", false))
 		or bool(effect_flags.get("strange_vial_active", false))

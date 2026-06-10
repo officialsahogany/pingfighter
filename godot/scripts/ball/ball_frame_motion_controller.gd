@@ -61,6 +61,7 @@ func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dict
 	if meditation_release_cap > 0.0:
 		speed_cap = max(speed_cap, meditation_release_cap)
 	speed_cap = max(speed_cap, float(scene.get("smasher_wheel_speed_cap", 0.0)))
+	speed_cap = max(speed_cap, float(scene.get("trampoline_launch_speed_cap", 0.0)))
 	speed_cap = max(speed_cap, _get_magnum_grip_speed_cap(deps))
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(deps))
 	speed_cap = max(speed_cap, _get_ragnarok_speed_cap(scene, deps))

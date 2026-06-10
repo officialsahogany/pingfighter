@@ -553,6 +553,11 @@ func notify_brick_wall_hit(wall_index: int, impact_pos: Vector2) -> Dictionary:
 	return context_facade.notify_brick_wall_hit(self, wall_index, impact_pos)
 
 
+func notify_trampoline_hit(trampoline_index: int, ball_pos: Vector2, ball_vel: Vector2) -> Dictionary:
+	_ensure_helpers_ready()
+	return context_facade.notify_trampoline_hit(self, trampoline_index, ball_pos, ball_vel)
+
+
 func _store_active_item(field_item: Dictionary, active_item_slots: Array, registry: Object, owner: Object) -> bool:
 	_ensure_helpers_ready()
 	return pickup_router.store_field_item(

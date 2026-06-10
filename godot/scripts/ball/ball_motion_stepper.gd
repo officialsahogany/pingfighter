@@ -43,6 +43,11 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 			horn_strawberry_field_result["ball_pos"] = horn_strawberry_field_result.get("ball_pos", ball_pos)
 			return horn_strawberry_field_result
 
+		var trampoline_result: Dictionary = collision_detector.check_trampoline(ball_pos, ball_vel, ball_size, context)
+		if not trampoline_result.is_empty():
+			trampoline_result["ball_pos"] = trampoline_result.get("ball_pos", ball_pos)
+			return trampoline_result
+
 		var paddle_result: Dictionary = collision_detector.check_paddles(ball_pos, ball_vel, ball_size, context)
 		if not paddle_result.is_empty():
 			paddle_result["ball_pos"] = ball_pos

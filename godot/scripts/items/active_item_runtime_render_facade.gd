@@ -266,6 +266,7 @@ func _call_effect_renderer_draw_field_effects(
 	var context_start: int = _perf_begin(detail_perf_logger)
 	var draw_context: Dictionary = _get_field_effect_draw_context(effect_controller)
 	_perf_end(detail_perf_logger, "active_item.field.context", context_start)
+	_draw_trampoline_effect(canvas, draw_context, shake_offset, detail_perf_logger)
 	var doping_potion_context: Dictionary = _get_context_dictionary(draw_context, "doping_potion_timer_context")
 	if argument_count <= 6:
 		effect_renderer.draw_field_effects(
@@ -364,6 +365,22 @@ func _call_effect_renderer_draw_field_effects(
 		shake_offset,
 		_get_instance(registry, "horizontal_timer_gauge_stack")
 	)
+
+
+func _draw_trampoline_effect(
+	canvas: CanvasItem,
+	draw_context: Dictionary,
+	shake_offset: Vector2,
+	detail_perf_logger: Object
+) -> void:
+	if effect_renderer == null or not effect_renderer.has_method("draw_trampoline_effect"):
+		return
+	var trampoline_context: Dictionary = _get_context_dictionary(draw_context, "trampoline_context")
+	if trampoline_context.is_empty():
+		return
+	var sample_start: int = _perf_begin(detail_perf_logger)
+	effect_renderer.draw_trampoline_effect(canvas, trampoline_context, shake_offset)
+	_perf_end(detail_perf_logger, "active_item.field.trampoline", sample_start)
 
 
 func _refresh_field_renderer_cache() -> void:

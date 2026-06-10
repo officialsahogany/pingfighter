@@ -78,6 +78,8 @@ func get_field_effect_draw_context(target: Object) -> Dictionary:
 	var dash_boost_particles: Array[Dictionary] = _get_array_property(target, "dash_boost_particles")
 	var brick_walls: Array[Dictionary] = _get_array_property(target, "brick_walls")
 	var brick_particles: Array[Dictionary] = _get_array_property(target, "brick_particles")
+	var trampolines: Array[Dictionary] = _get_array_property(target, "trampolines")
+	var trampoline_particles: Array[Dictionary] = _get_array_property(target, "trampoline_particles")
 	return {
 		"pickup_particles": pickup_particles,
 		"regeneration_potion_rings": regeneration_potion_rings,
@@ -88,6 +90,7 @@ func get_field_effect_draw_context(target: Object) -> Dictionary:
 		"holy_barrier_context": get_holy_barrier_context(target) if bool(target.get("holy_barrier_active")) else {},
 		"holy_barrier_particles": holy_barrier_particles,
 		"brick_wall_context": get_brick_wall_context(target) if bool(target.get("brick_wall_installing")) or not brick_walls.is_empty() or not brick_particles.is_empty() else {},
+		"trampoline_context": {"trampolines": trampolines, "particles": trampoline_particles} if not trampolines.is_empty() or not trampoline_particles.is_empty() else {},
 		"long_boost_timer_context": get_long_boost_timer_context(target) if bool(target.get("long_boost_active")) else {},
 		"vitamin_pill_timer_context": get_vitamin_pill_timer_context(target) if bool(target.get("vitamin_pill_active")) else {},
 		"strange_vial_timer_context": get_strange_vial_timer_context(target) if bool(target.get("strange_vial_active")) else {},
@@ -323,6 +326,8 @@ func _build_field_effect_flags(target: Object) -> Dictionary:
 		"has_dash_boost_particles": not get_dash_boost_particles(target).is_empty(),
 		"has_brick_walls": not _get_array_property(target, "brick_walls").is_empty(),
 		"has_brick_particles": not _get_array_property(target, "brick_particles").is_empty(),
+		"has_trampolines": not _get_array_property(target, "trampolines").is_empty(),
+		"has_trampoline_particles": not _get_array_property(target, "trampoline_particles").is_empty(),
 	}, true)
 	return flags
 

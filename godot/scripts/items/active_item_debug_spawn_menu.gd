@@ -38,6 +38,7 @@ const DEBUG_ENTRY_ORDER := [
 	"holy_barrier",
 	"dash_boost",
 	"wall",
+	"trampoline",
 	"boomerang",
 	"banana",
 	"soap",
