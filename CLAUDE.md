@@ -46,6 +46,8 @@ listed here -- read the repo state, `AGENTS.md`, or `README.md` when needed.
   code location and QA checkpoint that must be touched when adding,
   removing, or modifying a runtime character perk, unlock perk, or
   player-skill / 5-orb skill.
+- `docs/skill_vfx_workflow.md` = shared Claude / Codex workflow for
+  imagegen assets, Live2D-style assets, and modular 2D skill / VFX work.
 - `docs/current_development_boundary.md` = one-page summary of the current
   Godot-vs-legacy boundary.
 - Legacy design / review packets such as `docs/four_poisons_handoff.md`,
@@ -78,6 +80,28 @@ If the documents conflict:
 - Everything else (hidden-knowledge rules, coordinate standards, stage
   mapping) -> this file wins.
 
+## 0.1 Claude / Codex Asset Workflow Split
+
+This split is a repo policy, not a tool-local memory. Keep the durable rule in
+`CLAUDE.md`, `AGENTS.md`, and `docs/skill_vfx_workflow.md` so either tool sees
+the same boundary on a later session.
+
+- Claude leads aesthetic direction: skill-effect concept, mood, palette,
+  silhouette, layer recipe, prompt wording, alpha / nukki visual review, and
+  the "does this look right" pass.
+- Codex leads executable delivery: Codex imagegen or Live2D-style asset
+  generation when used, copying accepted assets into `godot/`, `res://` loader
+  and prewarm wiring, shader family presets, `GPUParticles2D`,
+  `Tween` / `AnimationPlayer`, audio, hitstop, camera shake, flash, lifecycle
+  cleanup, and automated / live verification.
+- New 2D skill / VFX work defaults to modular VFX layering. Use static texture
+  pieces plus runtime composition, prefer shared shader families such as
+  `WritheEmberMaterial` presets over one-off inline shader copies, and treat
+  the 3-piece recipe as the baseline template rather than a hard limit.
+- Claude may finish the art direction, but Godot runtime completion is Codex
+  territory. Do not call a skill effect done until Codex has handled coordinate
+  space, clip, loader / prewarm, cleanup, and test obligations.
+
 ## Fast Reading Map
 
 For current 디스크하츠 - 링피아 work, do not read this file front-to-back as an
@@ -89,6 +113,7 @@ implementation checklist. Use it as a routing and hidden-knowledge index:
 | Godot port wiring and module boundaries | `docs/godot_port_checklist.md`, then `docs/godot_port_architecture.md` |
 | Item runtime work | `docs/item_runtime_checklist.md` |
 | Character skill / perk runtime work | `docs/character_skill_perk_checklist.md` |
+| Skill / VFX art-to-runtime workflow | `docs/skill_vfx_workflow.md`, then `docs/godot_port_architecture.md` |
 | Sprite generation / nukki / sheet QA | `.claude/skills/sprite-generation/` |
 | Item visual generation | `.claude/skills/item-generation/` |
 | HUD frame generation | `.claude/skills/ui-hud-generation/` |
@@ -209,30 +234,49 @@ another display-setting matrix will fix it. Player-facing helpers may recommend
 opening Windows display settings, but automatic refresh-rate switching must be
 explicit opt-in because it affects the whole desktop.
 
-The shipped project default is intentionally the **"48 stable preset"**:
-`run/max_fps=48` plus `physics_ticks_per_second=72` in `godot/project.godot`,
-mirrored by `RENDER_FPS_CAP_STABILITY := 48` and
-`RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABILITY` in
-`godot/scripts/core/battle_view_layout.gd` (with the same constants mirrored
-in `godot/scripts/hud/pause_menu_overlay.gd`), and a regression assertion in
-`godot/tests/project_boot_flow_settings_smoke.gd` that locks the "48 FPS
-stable 144Hz-divisor preset". This 48 default is **not** an attempt to revive
-the rejected 144Hz divisor-lock smoothness hypothesis above -- it is a
-stability floor chosen so players see fewer hitches on arbitrary refresh-rate
-hardware without having to tune Windows display settings first. Players on a
-60Hz display still get a smoother feel from the `60Hz + 60 FPS + VSync On`
-known-good setup, and the runtime options screen exposes 60 / 72 / Unlimited
-as explicit alternatives.
+The shipped project keeps a **48 FPS bootstrap safety cap** in
+`godot/project.godot` (`run/max_fps=48`, `physics_ticks_per_second=72`), while
+the runtime display default is intentionally **Stable Monitor**:
+`RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR` in
+`godot/scripts/core/battle_view_layout.gd`, mirrored in
+`godot/scripts/hud/pause_menu_overlay.gd`. Stable Monitor resolves through
+`_get_stable_monitor_refresh_rate()` so 144Hz -> 48, 120Hz -> 60, and
+60Hz -> 60. This keeps the `60Hz + 60 FPS + VSync On` known-good setup intact
+on 60Hz displays while giving high-refresh displays a safer default frame
+budget than monitor-rate 144 FPS. Runtime options still expose 48 / 60 / 72 /
+Unlimited / Monitor as explicit alternatives.
 
-Before changing the shipped default, move all of these together:
-`RENDER_FPS_CAP_STABILITY` / `RENDER_FPS_CAP_DEFAULT` in
-`battle_view_layout.gd` (and the mirrored constants in
-`pause_menu_overlay.gd`), `run/max_fps` in `project.godot`, and the
-"48 FPS stable 144Hz-divisor preset" assertion in
-`project_boot_flow_settings_smoke.gd`. Touching only one of them silently
-desynchronizes the shipped default from the regression test and from the live
-runtime cap, which is exactly how this section first drifted out of step with
-the project default.
+Display settings schema 5 migrates materialized schema <=4
+`RENDER_FPS_CAP_MONITOR` defaults to Stable Monitor. This intentionally cleans
+up settings files created while the runtime default followed monitor Hz. Before
+changing the shipped runtime default again, move all of these together:
+`RENDER_FPS_CAP_DEFAULT` in `battle_view_layout.gd`, the mirrored constants and
+recommended-settings path in `pause_menu_overlay.gd`, the recommendation copy in
+`language_settings_data.gd`, the default / migration assertions in
+`render_fps_cap_settings_smoke.gd`, this documentation, and the display-settings
+migration. Touch `project.godot` and `project_boot_flow_settings_smoke.gd` only
+if the bootstrap safety cap itself changes.
+
+**Stable Monitor default trades physics fidelity for pacing on >120Hz
+displays.** `_resolve_physics_ticks_per_second()` syncs the physics tick rate to
+the resolved render cap for `RENDER_FPS_CAP_STABLE_MONITOR` /
+`RENDER_FPS_CAP_MONITOR` whenever that cap lands in `[30, 120]`, and
+`render_fps_cap_settings_smoke.gd` locks this as a contract. So the shipped
+Stable Monitor default resolves to **render 48 / physics 48 on a 144Hz monitor**
+(a 60Hz display stays 60/60), which is intentionally NOT the original
+48-stable-preset **render 48 / physics 72** decoupling — the prior Monitor
+default ran 144/72 on the same hardware. Only `>120Hz` users see the
+`72 -> 48` physics drop. The lower tick rate is coarser, so the felt risk is
+fast-ball **tunneling** through thin collision bands (paddle edge, holy barrier,
+brick wall) on high-refresh hardware; gameplay speed itself stays constant only
+as long as motion uses the `ball_update_controller` `fps_scale = delta * 60`
+path. This is a deliberate, smoke-locked choice, not a bug. If in-game play on a
+`>120Hz` display shows tunneling, the minimal, cleanest follow-up is to make
+`STABLE_MONITOR` fall back to the project physics default (`72`) inside
+`_resolve_physics_ticks_per_second()` instead of syncing to the resolved cap,
+then flip the `render_fps_cap_settings_smoke.gd` "sync physics to its resolved
+cap" assert. That single lever is the documented switch — do not silently
+re-raise physics anywhere else.
 
 ## Godot Hot-Path Lazy Init Trap
 
@@ -416,7 +460,7 @@ Standing rules:
 
 Any skill that **scripts the boss paddle position** instead of nudging it
 (lingpet 꼭두각시 조종 / Koyora puppet grab, future pull / grab / vacuum /
-displace ports) must do THREE things together, or the effect looks broken:
+displace ports) must keep these invariants together, or the effect looks broken:
 
 1. **Freeze the boss AI** so it stops re-deriving `boss_pos` from the ball.
    `boss_ai_state.update()` overwrites a bare `owner.set("boss_pos", …)` every
@@ -427,15 +471,16 @@ displace ports) must do THREE things together, or the effect looks broken:
    `owner.boss_pos = scripted_target` every active frame (ordering-independent;
    the freeze is a no-op on position). Reference: `lingpet_puppet_grab_active`
    in `boss_ai_state.gd` + `battle_update_boss_ai_context_builder.gd`.
-2. **Skip the boss's BALL collision while it is displaced.** This is the
-   non-obvious half. Porting a symmetric-arena CC skill (both paddles mid-field)
-   to this asymmetric pong drags the boss into the LOWER half, where its hitbox
-   would intercept a rising ball (`ball_motion_collision_detector` boss block
-   fires for `ball_vel.y < 0`) and bounce it back down — inverting the intended
-   "boss can't defend, goal is open" payoff into "boss saves balls from the
-   wrong side." Gate the boss collision on the same flag, threaded through
-   `ball_update_owner_snapshot` → `ball_motion_event_processor._build_step_context`
-   → `ball_motion_collision_detector`.
+2. **Preserve the boss's BALL collision while it is displaced.** 2026-06-09
+   design decision: match the original Python behavior 100%. The puppet skill
+   only scripts the boss paddle position; if that displaced paddle overlaps a
+   rising ball, `ball_motion_collision_detector` should still emit
+   `EVENT_BOSS_PADDLE`. Do not gate boss collision on
+   `lingpet_puppet_grab_active`; that flag is for AI freeze, schema, and cleanup
+   only. Historical reversal note: older guidance said to skip this collision
+   to keep the goal "open"; that guidance is obsolete. The shipped intent is
+   that a dragged boss can still physically bounce a rising ball from its
+   displaced position, even when that looks like defending from the wrong side.
 3. **Declare the flag in `battle_scene_state.DEFAULT_VALUES`** (see the
    Owner-Field Schema Trap above) or every `owner.set(flag, true)` silently
    no-ops and neither consumer ever sees it.
@@ -470,7 +515,11 @@ is true while held and false after release, a mid-grab `cancel(owner)` cleanup
 case, a **round-end leak regression** that calls `cancel(null)` mid-grab and
 proves the next `update(owner)` clears the flag, AND a regression that runs the
 real `BallRoundController.reset_ball()` after a drag and proves boss y returns to
-`BOSS_Y`. Reference: `lingpet_egg_runtime_smoke._verify_koyora_puppet_grab_skill`.
+`BOSS_Y`, AND a collision regression proving a puppeted boss paddle still returns
+`EVENT_BOSS_PADDLE` for a rising overlap. Keep the source guard too:
+`ball_motion_collision_detector.gd` must not branch on
+`lingpet_puppet_grab_active`. Reference:
+`lingpet_egg_runtime_smoke._verify_koyora_puppet_grab_skill`.
 A faithful port of a pure-CC skill must NOT read/write the ball, score, or
 damage — the smoke asserts the module never references `ball_vel`/`ball_pos`.
 

@@ -156,11 +156,21 @@ func _verify_text_state_resolution() -> void:
 
 func _verify_scene_uses_text_resolver() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var status_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_status_builder.gd")
+	var scroll_presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
+	var scroll_content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 	var summary_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_summary_builder.gd")
 	var card_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state") >= 0,
-		"scene should delegate perk info text through the summary builder"
+		source.find("StageClearResultStatusBuilder.build_scene_interaction_status") >= 0
+		and status_source.find("StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state") >= 0,
+		"scene should delegate perk info text through the status and summary builders"
+	)
+	_expect(
+		source.find("StageClearResultScrollPresenter.draw_scroll") >= 0
+		and scroll_presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0
+		and scroll_content_source.find("StageClearResultSummaryBuilder.build_result_summary_state") >= 0,
+		"opened-scroll reward text should flow through presenter, content helper, and summary builder"
 	)
 	_expect(
 		summary_source.find("StageClearResultRewardTextResolver.get_reward_text_state") >= 0

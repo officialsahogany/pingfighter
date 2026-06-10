@@ -1,6 +1,7 @@
 # Keep live Godot runtime binaries out of normal Git blobs.
 .gitattributes text eol=lf
 .gitignore text eol=lf
+*.md text eol=lf
 
 godot/**/*.gd text eol=lf
 godot/**/*.gd.uid text eol=lf

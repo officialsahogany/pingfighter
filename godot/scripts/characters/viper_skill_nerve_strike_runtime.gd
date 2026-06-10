@@ -45,7 +45,7 @@ static func update_strike(runtime: Object, delta: float, player_pos: Vector2, sp
 		1:
 			_update_slash_phase(runtime, config, deps, constants)
 		2:
-			_update_return_phase(runtime, result, deps, constants)
+			_update_return_phase(runtime, result, config, deps, constants)
 		_:
 			reset_runtime(runtime, false)
 	if runtime.nerve_strike_active:
@@ -66,6 +66,10 @@ static func enter_return_phase(runtime: Object, config: Dictionary, deps: Dictio
 	# untouched is correct for the miss path too.
 	runtime.nerve_strike_return_start_pos = runtime.nerve_strike_pos
 	runtime.nerve_strike_return_target_pos = ViperSkillGeometry.nerve_strike_return_target_pos(config)
+	runtime.nerve_strike_release_ball_hit_pending = false
+	runtime.nerve_strike_release_ball_hit_paddle_x = runtime.nerve_strike_return_target_pos.x
+	runtime.nerve_strike_release_ball_hit_paddle_w = runtime.nerve_strike_paddle_size.x
+	runtime.nerve_strike_release_ball_hit_pos = Vector2.ZERO
 	runtime.audio_router.play_nerve_strike_moving_sound(deps)
 
 
@@ -83,6 +87,10 @@ static func reset_runtime(runtime: Object, clear_clones: bool = false) -> void:
 	runtime.nerve_strike_hit_confirmed = false
 	runtime.nerve_strike_freeze_active = false
 	runtime.nerve_strike_slash_triggered = false
+	runtime.nerve_strike_release_ball_hit_pending = false
+	runtime.nerve_strike_release_ball_hit_paddle_x = 0.0
+	runtime.nerve_strike_release_ball_hit_paddle_w = runtime.nerve_strike_paddle_size.x
+	runtime.nerve_strike_release_ball_hit_pos = Vector2.ZERO
 	runtime.nerve_strike_slash_vfx_frames = 0.0
 	runtime.nerve_strike_slash_center = Vector2.ZERO
 	if clear_clones:
@@ -181,17 +189,94 @@ static func _update_slash_phase(runtime: Object, config: Dictionary, deps: Dicti
 		enter_return_phase(runtime, config, deps)
 
 
-static func _update_return_phase(runtime: Object, result: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
+static func _update_return_phase(runtime: Object, result: Dictionary, config: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
 	var return_frames: float = float(constants.get("return_hit_frames", 15.0)) if runtime.nerve_strike_hit_confirmed else float(constants.get("return_miss_frames", 9.0))
+	var previous_pos: Vector2 = runtime.nerve_strike_pos
 	var return_motion: Dictionary = ViperSkillGeometry.nerve_strike_return_motion(runtime.nerve_strike_return_start_pos, runtime.nerve_strike_return_target_pos, runtime.nerve_strike_phase_frames, return_frames)
 	var return_progress: float = float(return_motion.get("progress", 0.0))
 	runtime.nerve_strike_pos = _get_vector2(return_motion.get("pos", runtime.nerve_strike_pos), runtime.nerve_strike_pos)
+	if runtime.nerve_strike_hit_confirmed:
+		_try_store_return_ball_hit(runtime, previous_pos, runtime.nerve_strike_pos, config)
 	if return_progress >= 1.0:
 		runtime.nerve_strike_pos = runtime.nerve_strike_return_target_pos
 		var nerve_strike_final_pos: Vector2 = runtime.nerve_strike_pos
+		var release_hit_result: Dictionary = {}
+		if runtime.nerve_strike_release_ball_hit_pending:
+			release_hit_result = _build_release_ball_hit_result(runtime, config, deps, result)
+		else:
+			result["player_collision_cooldown"] = 0.0
 		runtime.runtime_action_router.force_viper_jetpack_land(deps)
 		reset_runtime(runtime, false)
+		if not release_hit_result.is_empty():
+			result.merge(release_hit_result, true)
 		result["player_pos"] = nerve_strike_final_pos
+
+
+static func _try_store_return_ball_hit(runtime: Object, previous_pos: Vector2, current_pos: Vector2, config: Dictionary) -> void:
+	if runtime.nerve_strike_release_ball_hit_pending:
+		return
+	if not bool(config.get("ball_active", true)):
+		return
+	var ball_pos: Vector2 = _get_vector2(config.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var ball_size: float = max(1.0, float(config.get("ball_size", 28.6)))
+	var ball_rect := Rect2(ball_pos - Vector2(ball_size, ball_size) * 0.5, Vector2(ball_size, ball_size))
+	var hitbox_padding: float = max(0.0, float(config.get("hitbox_padding", 5.0)))
+	var pad := Vector2(hitbox_padding, hitbox_padding)
+	var previous_rect := Rect2(previous_pos - pad, runtime.nerve_strike_paddle_size + pad * 2.0)
+	var current_rect := Rect2(current_pos - pad, runtime.nerve_strike_paddle_size + pad * 2.0)
+	var swept_rect: Rect2 = previous_rect.merge(current_rect)
+	if not swept_rect.intersects(ball_rect):
+		return
+	runtime.nerve_strike_release_ball_hit_pending = true
+	runtime.nerve_strike_release_ball_hit_paddle_x = runtime.nerve_strike_return_target_pos.x
+	runtime.nerve_strike_release_ball_hit_paddle_w = runtime.nerve_strike_paddle_size.x
+	runtime.nerve_strike_release_ball_hit_pos = ball_pos
+
+
+static func _build_release_ball_hit_result(runtime: Object, config: Dictionary, deps: Dictionary, result: Dictionary) -> Dictionary:
+	var ball_pos: Vector2 = _get_vector2(config.get("ball_pos", runtime.nerve_strike_release_ball_hit_pos), runtime.nerve_strike_release_ball_hit_pos)
+	var ball_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	var bounce_context: Dictionary = config.duplicate(true)
+	bounce_context["ball_pos"] = ball_pos
+	bounce_context["ball_vel"] = ball_vel
+	bounce_context["player_pos"] = runtime.nerve_strike_return_target_pos
+	bounce_context["player_paddle_size"] = runtime.nerve_strike_paddle_size
+	bounce_context["paddle_width"] = runtime.nerve_strike_paddle_size.x
+	bounce_context["paddle_height"] = runtime.nerve_strike_paddle_size.y
+	bounce_context["player_collision_cooldown"] = 0.0
+	bounce_context["special_gauge"] = float(result.get("special_gauge", config.get("special_gauge", 0.0)))
+	var controller: Object = deps.get("paddle_bounce_controller", null)
+	if controller != null and controller.has_method("bounce") and deps.get("paddle_bounce_state", null) != null:
+		var bounce_result: Dictionary = controller.bounce(
+			runtime.nerve_strike_release_ball_hit_paddle_x,
+			max(1.0, runtime.nerve_strike_release_ball_hit_paddle_w),
+			true,
+			bounce_context,
+			deps
+		)
+		if not bounce_result.is_empty():
+			bounce_result["player_collision_cooldown"] = max(6.0, float(bounce_result.get("player_collision_cooldown", 0.0)))
+			bounce_result["viper_nerve_strike_release_ball_hit"] = true
+			return bounce_result
+	return _build_release_ball_hit_fallback(runtime, ball_pos, ball_vel, bounce_context)
+
+
+static func _build_release_ball_hit_fallback(runtime: Object, ball_pos: Vector2, ball_vel: Vector2, context: Dictionary) -> Dictionary:
+	var paddle_w: float = max(1.0, runtime.nerve_strike_release_ball_hit_paddle_w)
+	var paddle_center_x: float = runtime.nerve_strike_release_ball_hit_paddle_x + paddle_w * 0.5
+	var hit_pos: float = clamp((ball_pos.x - paddle_center_x) / (paddle_w * 0.5), -1.0, 1.0)
+	var launch_dir := Vector2(0.0, -1.0).rotated(deg_to_rad(hit_pos * float(context.get("max_bounce_angle", 60.0)))).normalized()
+	var min_speed: float = float(context.get("min_ball_speed", 3.0))
+	var max_speed: float = float(context.get("max_ball_speed", 26.0))
+	var speed: float = max(ball_vel.length(), min_speed)
+	if max_speed > 0.0:
+		speed = min(speed, max_speed)
+	return {
+		"ball_pos": ball_pos,
+		"ball_vel": launch_dir * speed,
+		"player_collision_cooldown": 6.0,
+		"viper_nerve_strike_release_ball_hit": true,
+	}
 
 
 static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:

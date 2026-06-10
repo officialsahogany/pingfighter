@@ -329,7 +329,9 @@ static func apply_net_constrict_input(
 			effect["constrict_factor"] = get_next_net_constrict_factor(effect, min_constrict_factor, constrict_step)
 			effects[index] = effect
 		applied = true
-		if audio != null and audio.has_method("play_commando_net_gun_capture"):
+		if audio != null and audio.has_method("play_commando_net_gun_constrict"):
+			audio.play_commando_net_gun_constrict()
+		elif audio != null and audio.has_method("play_commando_net_gun_capture"):
 			audio.play_commando_net_gun_capture()
 	return {
 		"effects": effects,

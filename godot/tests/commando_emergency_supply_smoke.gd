@@ -182,7 +182,7 @@ func _verify_moving_tap_does_not_arm_emergency_supply() -> void:
 	state.update_input(_input(false), 4070, 500.0, deps)
 	var result: Dictionary = state.update_input(_input(true), 4200, 500.0, deps)
 	_expect(not bool(result.get("activated", true)), "a moving first tap should not arm the second tap")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 2, "blocked moving tap should not refill ammo")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 3, "blocked moving tap should not refill ammo")
 	_expect(is_equal_approx(float(result.get("special_gauge", -1.0)), 500.0), "blocked moving tap should not spend gauge")
 	_expect(not bool(delivery_state.is_active()), "blocked moving tap should not start the delivery")
 

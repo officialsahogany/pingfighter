@@ -6,10 +6,7 @@ var failure_count: int = 0
 
 
 class PreviewVfxGateProbe extends CharacterLivePreview:
-	var backdrop_draw_calls: int = 0
-
-	func _draw_preview_vfx_texture_backdrop(_floor_y: float) -> void:
-		backdrop_draw_calls += 1
+	pass
 
 
 func _init() -> void:
@@ -18,13 +15,17 @@ func _init() -> void:
 
 func _run() -> void:
 	var disabled_probe := await _draw_probe(false)
-	_expect(disabled_probe.backdrop_draw_calls == 0, "disabled preview VFX should not call the backdrop draw path")
 	_expect(disabled_probe.get_node_or_null("CharacterSelectPreviewVfxHost") == null, "disabled preview VFX should not create the host")
 	disabled_probe.queue_free()
 
 	var enabled_probe := await _draw_probe(true)
-	_expect(enabled_probe.backdrop_draw_calls > 0, "enabled preview VFX should call the backdrop draw path")
-	_expect(enabled_probe.get_node_or_null("CharacterSelectPreviewVfxHost") != null, "enabled preview VFX should create the host")
+	var host := enabled_probe.get_node_or_null("CharacterSelectPreviewVfxHost")
+	_expect(host != null, "enabled preview VFX should create the host")
+	enabled_probe.set("look_offset", Vector2(12.0, -6.0))
+	enabled_probe.call("_sync_preview_vfx_look_offset")
+	if host != null:
+		var status: Dictionary = host.call("get_runtime_status")
+		_expect(_as_vector2(status.get("look_offset", Vector2.ZERO)).is_equal_approx(Vector2(12.0, -6.0)), "enabled preview VFX should push live look_offset into the host")
 	enabled_probe.queue_free()
 
 	await process_frame
@@ -44,6 +45,12 @@ func _draw_probe(vfx_enabled: bool) -> PreviewVfxGateProbe:
 	await process_frame
 	await process_frame
 	return probe
+
+
+func _as_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	return Vector2.ZERO
 
 
 func _expect(condition: bool, message: String) -> void:

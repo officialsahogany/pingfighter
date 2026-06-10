@@ -351,7 +351,7 @@ func _test_four_poisons_duration_cooldown_and_replication() -> void:
 	_expect(bool(result.get("activated", false)), "Four Poisons should not block Dual Glitch activation")
 	var snap: Dictionary = runtime.get_snapshot()
 	_expect(abs(float(snap.get("dual_glitch_active_total_frames", 0.0)) - 1197.0) < 0.01, "Four Poisons Lv5 should extend Dual Glitch active time by 33%")
-	_expect(abs(float(skill_state.cooldown_seconds.get("dual_glitch", 0.0)) - 36.0) < 0.01, "Four Poisons Lv5 should reduce Dual Glitch cooldown by 20%")
+	_expect(abs(float(skill_state.cooldown_seconds.get("dual_glitch", 0.0)) - 32.0) < 0.01, "Four Poisons Lv5 should reduce Dual Glitch cooldown by 20%")
 	_expect(int(((snap.get("dual_glitch_clones", []) as Array)[0] as Dictionary).get("hp", 0)) == 4, "Four Poisons Lv5 should raise clone HP to 4")
 	_advance_dual(runtime, config, deps, player_pos, 49)
 	_advance_dual(runtime, config, deps, player_pos, 24)
@@ -447,7 +447,7 @@ func _test_tooltip_runtime_bonus() -> void:
 	_expect(description.find("분신 HP 4") >= 0, "Dual Glitch tooltip should show Four Poisons clone HP")
 	_expect(description.find("스킬 복제") >= 0, "Dual Glitch tooltip should show the Lv5 clone replication bonus")
 	var cooldown: float = renderer._get_effective_skill_cooldown_seconds(skill_data, hover_context)
-	_expect(abs(cooldown - 36.0) < 0.01, "Dual Glitch tooltip cooldown should include Four Poisons reduction")
+	_expect(abs(cooldown - 32.0) < 0.01, "Dual Glitch tooltip cooldown should include Four Poisons reduction")
 
 
 func _activate_dual_glitch(

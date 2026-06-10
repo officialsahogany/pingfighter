@@ -84,9 +84,12 @@ func _verify_scene_delegates_icon_resolver() -> void:
 		"result scene icon cache should reuse cached item-name fallback paths"
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var card_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+	var float_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_float_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultRewardIconResolver.get_reward_icon_texture") >= 0,
-		"result scene should call the reward icon resolver directly"
+		card_source.find("StageClearResultRewardIconResolver.get_reward_icon_texture") >= 0
+		and float_source.find("StageClearResultRewardIconResolver.get_reward_icon_texture") >= 0,
+		"reward draw helpers should call the reward icon resolver directly"
 	)
 	_expect(
 		source.find("func _get_reward_icon_texture") < 0,

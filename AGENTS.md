@@ -22,6 +22,8 @@ prompt wording, sprite-sheet composition, and offline background-removal steps.
 `docs/item_runtime_checklist.md` covers item runtime integration.
 `docs/character_skill_perk_checklist.md` covers runtime character perk / skill integration (unlock perks, 5-orb skills, academy/NPC skill-offer flows, effective-level audits, tooltip/UI sync, save/load/reset QA).
 `docs/godot_port_checklist.md` covers Godot porting integration rules, including module registry wiring, modal gate connections, runtime performance lifecycle checks, and anti-hallucination checks for method signatures.
+`docs/skill_vfx_workflow.md` covers the shared Claude / Codex workflow for
+imagegen assets, Live2D-style assets, and modular 2D skill / VFX work.
 `docs/current_development_boundary.md` is the one-page summary of the current
 Godot-vs-legacy boundary.
 Skill source policy: `.claude/skills/` is the canonical repo skill tree.
@@ -55,6 +57,8 @@ When the documents overlap:
 - `docs/item_runtime_checklist.md` is the source of truth for item runtime integration.
 - `docs/character_skill_perk_checklist.md` is the source of truth for runtime character perk / skill integration.
 - `docs/godot_port_checklist.md` is the source of truth for Godot porting integration and wiring rules.
+- `docs/skill_vfx_workflow.md` is the source of truth for Claude / Codex
+  art-to-runtime workflow boundaries and the modular VFX handoff checklist.
 - Legacy handoff / review docs are never the current edit target by
   themselves. They lose to the Godot-first routing in this file, the
   relevant runtime checklist, and `docs/godot_port_architecture.md`.
@@ -109,6 +113,28 @@ When the documents overlap:
   NPC active-skill teaching flows, re-check cancel semantics,
   ownership-vs-equipped state, and `perk_id`-vs-`skill_id` cleanup
   mapping in `docs/character_skill_perk_checklist.md` before sign-off.
+
+Claude / Codex asset and VFX workflow split:
+- This split is repo policy, not tool-local memory. Keep durable workflow
+  rules in `CLAUDE.md`, this file, and `docs/skill_vfx_workflow.md`.
+- Claude leads aesthetic direction: skill-effect concept, mood, palette,
+  silhouette, layer recipe, prompt wording, alpha / nukki visual review, and
+  the final beauty / character-read pass.
+- Codex leads executable delivery: Codex imagegen or Live2D-style asset
+  generation when used, copying accepted assets into `godot/`, `res://` loader
+  and prewarm wiring, shader family presets, `GPUParticles2D`,
+  `Tween` / `AnimationPlayer`, audio, hitstop, camera shake, flash, lifecycle
+  cleanup, and automated / live verification.
+- New 2D skill / VFX work defaults to modular VFX layering: static texture
+  pieces plus runtime composition, shared shader-family presets such as
+  `WritheEmberMaterial` where applicable, and a 3-piece baseline template that
+  may grow when the effect needs more layers. Do not force `TextureRect`, a
+  fixed 3-piece count, or one-off inline shader copies when the current host or
+  effect shape calls for a different reusable implementation.
+- Claude direction is not runtime completion. Codex must still verify
+  coordinate space, clip, loader / prewarm, round / score / serve / reset
+  cleanup, smoke tests, headless load, warning scan after `.gd` edits, and a
+  scaled / windowed live visual check when the VFX is visible.
 
 Godot port routing:
 - Default all new implementation prompts in this workspace to the repo-local

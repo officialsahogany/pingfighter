@@ -5,6 +5,7 @@ const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const MythicItemVenomMistRuntime := preload("res://scripts/items/mythic_item_venom_mist_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ViperSkillCoreFlipRuntime := preload("res://scripts/characters/viper_skill_core_flip_runtime.gd")
 const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime.gd")
 
 
@@ -178,18 +179,9 @@ func _test_core_flip_hook_poisons_ball() -> void:
 		"mist_duration_sec": 3.0,
 	}, false), "gauntlet should equip before Core Flip hook test")
 	var viper_runtime: Object = ViperSkillRuntime.new()
-	var config := {
-		"width": 760.0,
-		"height": 750.0,
-		"ball_pos": owner.ball_pos,
-		"ball_vel": owner.ball_vel,
-		"ball_impact_boost": 1.0,
-		"boss_pos": owner.boss_pos,
-		"boss_paddle_width": owner.boss_paddle_width,
-		"boss_hitbox_height": owner.boss_hitbox_height,
-		"player_collision_cooldown": 0.0,
-	}
-	viper_runtime._apply_core_flip_hit(config, {
+	var core_flip_source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_core_flip_runtime.gd")
+	_expect(core_flip_source.find("_apply_core_flip_mythic_hit(runtime, deps)") >= 0, "Core Flip kick hit should keep the mythic item hook")
+	ViperSkillCoreFlipRuntime._apply_core_flip_mythic_hit(viper_runtime, {
 		"registry": registry,
 		"mythic_item_runtime": item_runtime,
 	})

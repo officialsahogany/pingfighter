@@ -70,6 +70,7 @@ const COMMANDO_RELOAD_SOUND_PATH := "res://assets/sounds/reload.wav"
 const COMMANDO_AK47_FIRE_SOUND_PATH := "res://assets/sounds/ak47.wav"
 const COMMANDO_BAZOOKA_FIRE_SOUND_PATH := "res://assets/sounds/bazukagoing.wav"
 const COMMANDO_NET_CAPTURE_SOUND_PATH := "res://assets/sounds/net.wav"
+const COMMANDO_NET_CONSTRICT_SOUND_PATH := "res://assets/sounds/netcome.wav"
 const COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH := "res://assets/sounds/ballingtrapsetup.wav"
 const COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH := "res://assets/sounds/ballingtrapgrap.wav"
 const COMMANDO_SUICIDE_DRONE_SOUND_PATH := "res://assets/sounds/drone.wav"
@@ -81,6 +82,7 @@ const COMMANDO_AK47_FIRE_GAIN_DB := -6.0206
 const COMMANDO_AK47_FIRE_POOL_SIZE := 4
 const COMMANDO_BAZOOKA_FIRE_GAIN_DB := -4.4370
 const COMMANDO_NET_CAPTURE_GAIN_DB := -6.0206
+const COMMANDO_NET_CONSTRICT_GAIN_DB := -1.9382
 const COMMANDO_BOWLING_TRAP_GAIN_DB := -3.0980
 const COMMANDO_SUICIDE_DRONE_GAIN_DB := 0.0
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
@@ -346,6 +348,7 @@ var commando_ak47_fire_sfx_layers: Array = []
 var commando_ak47_fire_sfx_cursor := 0
 var commando_bazooka_fire_sfx: AudioStreamPlayer
 var commando_net_capture_sfx: AudioStreamPlayer
+var commando_net_constrict_sfx: AudioStreamPlayer
 var commando_bowling_trap_install_sfx: AudioStreamPlayer
 var commando_bowling_trap_snap_sfx: AudioStreamPlayer
 var commando_suicide_drone_sfx: AudioStreamPlayer
@@ -621,6 +624,7 @@ func _setup_commando_skill_sfx() -> void:
 	commando_ak47_fire_sfx_cursor = 0
 	commando_bazooka_fire_sfx = _create_optional_sfx("CommandoBazookaFireSfx", COMMANDO_BAZOOKA_FIRE_SOUND_PATH, COMMANDO_BAZOOKA_FIRE_GAIN_DB)
 	commando_net_capture_sfx = _create_optional_sfx("CommandoNetCaptureSfx", COMMANDO_NET_CAPTURE_SOUND_PATH, COMMANDO_NET_CAPTURE_GAIN_DB)
+	commando_net_constrict_sfx = _create_optional_sfx("CommandoNetConstrictSfx", COMMANDO_NET_CONSTRICT_SOUND_PATH, COMMANDO_NET_CONSTRICT_GAIN_DB)
 	commando_bowling_trap_install_sfx = _create_optional_sfx("CommandoBowlingTrapInstallSfx", COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH, COMMANDO_BOWLING_TRAP_GAIN_DB)
 	commando_bowling_trap_snap_sfx = _create_optional_sfx("CommandoBowlingTrapSnapSfx", COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH, COMMANDO_BOWLING_TRAP_GAIN_DB)
 	commando_suicide_drone_sfx = _create_optional_sfx("CommandoSuicideDroneSfx", COMMANDO_SUICIDE_DRONE_SOUND_PATH, COMMANDO_SUICIDE_DRONE_GAIN_DB)
@@ -1662,6 +1666,11 @@ func play_commando_net_gun_capture() -> void:
 		play_boomerang_hit()
 
 
+func play_commando_net_gun_constrict() -> void:
+	if not _play_with_pitch(commando_net_constrict_sfx, randf_range(0.98, 1.02)):
+		play_commando_net_gun_capture()
+
+
 func play_commando_bowling_trap_snap() -> void:
 	if not _play_with_pitch(commando_bowling_trap_snap_sfx, randf_range(0.98, 1.02)):
 		play_stage2_rockhit()
@@ -1776,6 +1785,11 @@ func play_lingpet_puppet_grab_kiss() -> void:
 
 func play_lingpet_puppet_grab_miss() -> void:
 	if not _play_with_pitch(lingpet_puppet_grab_miss_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_lingpet_doll_curse() -> void:
+	if not _play_with_pitch(stage3_dollcurse_sfx, randf_range(0.97, 1.03)):
 		play_active_item()
 
 
@@ -3052,6 +3066,7 @@ func _get_sfx_players() -> Array:
 		commando_ak47_fire_sfx,
 		commando_bazooka_fire_sfx,
 		commando_net_capture_sfx,
+		commando_net_constrict_sfx,
 		commando_bowling_trap_install_sfx,
 		commando_bowling_trap_snap_sfx,
 		commando_suicide_drone_sfx,

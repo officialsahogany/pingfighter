@@ -105,10 +105,6 @@ var return_transition_stage_scale: float = 1.0
 var return_transition_stage_offset_ratio: Vector2 = Vector2.ZERO
 var return_transition_float_motion_enabled: bool = false
 var preview_vfx_host: Control = null
-var preview_vfx_backplate_texture: Texture2D = null
-var preview_vfx_mandala_texture: Texture2D = null
-var preview_vfx_floor_ring_texture: Texture2D = null
-var preview_vfx_light_slit_texture: Texture2D = null
 var preview_vfx_enabled: bool = true
 
 
@@ -122,9 +118,13 @@ func _exit_tree() -> void:
 	clear_runtime_state()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_sync_preview_vfx_layout()
+
+
 func clear_runtime_state() -> void:
 	_clear_preview_vfx()
-	_clear_preview_vfx_textures()
 	_drain_fullframe_sheet_load()
 	character.clear()
 	portrait_texture = null
@@ -229,9 +229,8 @@ func _sync_preview_vfx_character() -> void:
 	if preview_vfx_host.has_method("set_character"):
 		preview_vfx_host.call("set_character", character)
 	if preview_vfx_enabled:
-		_load_preview_vfx_textures()
+		_sync_preview_vfx_layout()
 	_sync_preview_vfx_interaction()
-	_sync_preview_vfx_layout()
 
 
 func _sync_preview_vfx_interaction() -> void:
@@ -251,6 +250,14 @@ func _sync_preview_vfx_layout() -> void:
 		return
 	preview_vfx_host.position = Vector2.ZERO
 	preview_vfx_host.size = size
+	_sync_preview_vfx_look_offset()
+
+
+func _sync_preview_vfx_look_offset() -> void:
+	if preview_vfx_host == null or not is_instance_valid(preview_vfx_host):
+		return
+	if preview_vfx_host.has_method("set_look_offset"):
+		preview_vfx_host.call("set_look_offset", look_offset)
 
 
 func _clear_preview_vfx() -> void:
@@ -261,21 +268,13 @@ func _clear_preview_vfx() -> void:
 		preview_vfx_host.call("clear_runtime_state")
 
 
-func _load_preview_vfx_textures() -> void:
-	var character_id := str(character.get("id", ""))
-	preview_vfx_backplate_texture = ProjectResourceLoader.load_imported_texture(CharacterSelectPreviewVfxHost.DEEP_BACKPLATE_PATH)
-	preview_vfx_floor_ring_texture = ProjectResourceLoader.load_imported_texture(CharacterSelectPreviewVfxHost.FLOOR_RING_PATH)
-	preview_vfx_light_slit_texture = ProjectResourceLoader.load_imported_texture(CharacterSelectPreviewVfxHost.LIGHT_SLIT_PATH)
-	preview_vfx_mandala_texture = ProjectResourceLoader.load_imported_texture(
-		CharacterSelectPreviewVfxHost.get_mandala_texture_path(character_id)
+func _is_preview_vfx_host_active() -> bool:
+	return (
+		preview_vfx_enabled
+		and preview_vfx_host != null
+		and is_instance_valid(preview_vfx_host)
+		and preview_vfx_host.visible
 	)
-
-
-func _clear_preview_vfx_textures() -> void:
-	preview_vfx_backplate_texture = null
-	preview_vfx_mandala_texture = null
-	preview_vfx_floor_ring_texture = null
-	preview_vfx_light_slit_texture = null
 
 
 func play_fullframe_one_shot(config: Dictionary) -> bool:
@@ -524,7 +523,7 @@ func _process(delta: float) -> void:
 		target.x = clamp(target.x, -18.0, 18.0)
 		target.y = clamp(target.y, -14.0, 14.0)
 	look_offset = look_offset.lerp(target, min(1.0, delta * 8.0))
-	_sync_preview_vfx_layout()
+	_sync_preview_vfx_look_offset()
 	queue_redraw()
 
 
@@ -848,138 +847,17 @@ func _has_registered_layer_set() -> bool:
 
 
 func _draw_preview_backdrop(accent: Color, glow: Color) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.018, 0.020, 0.034, 0.98))
-	draw_rect(Rect2(Vector2(8.0, 8.0), size - Vector2(16.0, 16.0)), Color(0.026, 0.032, 0.052, 0.92))
+	var host_backdrop_active := _is_preview_vfx_host_active()
+	if not host_backdrop_active:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.018, 0.020, 0.034, 0.98))
+		draw_rect(Rect2(Vector2(8.0, 8.0), size - Vector2(16.0, 16.0)), Color(0.026, 0.032, 0.052, 0.92))
 	var floor_y := _stage_floor_y()
-	# The parent draw pass owns backdrop textures so they stay behind the character art.
-	if preview_vfx_enabled:
-		_draw_preview_vfx_texture_backdrop(floor_y)
+	if host_backdrop_active:
+		_draw_preview_vfx_data_motes(accent, glow, floor_y)
+		_draw_preview_vfx_scan_sweep(accent, glow, floor_y)
 	var center := Vector2(size.x * 0.5, floor_y)
-	var pulse := 0.5 + sin(elapsed * 2.4) * 0.5
-	var spotlight_alpha: float = 0.10 + pulse * 0.035
-	draw_colored_polygon(
-		PackedVector2Array([
-			Vector2(size.x * 0.31, size.y * 0.04),
-			Vector2(size.x * 0.69, size.y * 0.04),
-			Vector2(size.x * 0.61, floor_y + size.y * 0.08),
-			Vector2(size.x * 0.39, floor_y + size.y * 0.08),
-		]),
-		Color(glow.r, glow.g, glow.b, spotlight_alpha)
-	)
-	draw_colored_polygon(
-		PackedVector2Array([
-			Vector2(size.x * 0.10, size.y * 0.20),
-			Vector2(size.x * 0.23, size.y * 0.12),
-			Vector2(size.x * 0.44, floor_y + size.y * 0.05),
-			Vector2(size.x * 0.33, floor_y + size.y * 0.10),
-		]),
-		Color(accent.r, accent.g, accent.b, 0.055)
-	)
-	draw_colored_polygon(
-		PackedVector2Array([
-			Vector2(size.x * 0.90, size.y * 0.20),
-			Vector2(size.x * 0.77, size.y * 0.12),
-			Vector2(size.x * 0.56, floor_y + size.y * 0.05),
-			Vector2(size.x * 0.67, floor_y + size.y * 0.10),
-		]),
-		Color(accent.r, accent.g, accent.b, 0.055)
-	)
-
-	for beam_index in range(5):
-		var x_ratio: float = 0.22 + float(beam_index) * 0.14
-		var drift := sin(elapsed * 0.8 + float(beam_index) * 1.7) * size.x * 0.012
-		draw_line(
-			Vector2(size.x * x_ratio + drift, size.y * 0.10),
-			Vector2(size.x * (0.42 + float(beam_index) * 0.04), floor_y + size.y * 0.04),
-			Color(glow.r, glow.g, glow.b, 0.08),
-			1.0
-		)
-
-	var base_radius := Vector2(min(size.x * 0.30, size.y * 0.34), size.y * 0.070)
-	_draw_ellipse(center + Vector2(0.0, size.y * 0.018), base_radius * 1.75, Color(glow.r, glow.g, glow.b, 0.060), true)
-	_draw_ellipse(center + Vector2(0.0, size.y * 0.014), base_radius * 1.28, Color(accent.r, accent.g, accent.b, 0.095), true)
-	_draw_ellipse(center, base_radius * (1.0 + pulse * 0.035), Color(glow.r, glow.g, glow.b, 0.78), false, 4.0)
-	_draw_ellipse(center, base_radius * 0.68, Color(1.0, 1.0, 1.0, 0.22), false, 1.2)
-	draw_line(Vector2(size.x * 0.24, floor_y + size.y * 0.10), Vector2(size.x * 0.76, floor_y + size.y * 0.10), Color(glow.r, glow.g, glow.b, 0.16), 1.0)
+	_draw_ellipse(center + Vector2(0.0, size.y * 0.018), Vector2(size.x * 0.08, size.y * 0.011), Color(0.0, 0.0, 0.0, 0.22), true)
 	_draw_stage_side_hud(accent, glow, floor_y)
-
-
-func _draw_preview_vfx_texture_backdrop(floor_y: float) -> void:
-	if size.x <= 1.0 or size.y <= 1.0:
-		return
-	var accent := _accent_color()
-	var glow := _glow_color()
-	var hover_boost: float = interaction_hover_amount * 0.08
-	var drift := Vector2(
-		sin(elapsed * 0.31) * size.x * 0.008,
-		cos(elapsed * 0.27 + 0.8) * size.y * 0.006
-	) + look_offset * 0.10
-	if preview_vfx_backplate_texture != null:
-		_draw_preview_vfx_texture_transformed(
-			preview_vfx_backplate_texture,
-			Rect2(-size * 0.018 + drift, size * 1.036),
-			Color(1.0, 1.0, 1.0, 0.17 + hover_boost),
-			0.0,
-			Vector2.ONE
-		)
-	if preview_vfx_mandala_texture != null:
-		var mandala_side: float = min(size.x * 0.78, size.y * 0.62)
-		var mandala_rect := Rect2(
-			Vector2((size.x - mandala_side) * 0.5, size.y * 0.085) - drift * 0.36,
-			Vector2(mandala_side, mandala_side)
-		)
-		var mandala_pulse: float = 1.0 + sin(elapsed * 1.05) * 0.010 + interaction_hover_amount * 0.018
-		_draw_preview_vfx_texture_transformed(
-			preview_vfx_mandala_texture,
-			mandala_rect,
-			Color(1.0, 1.0, 1.0, 0.25 + hover_boost),
-			elapsed * 0.030,
-			Vector2(mandala_pulse, mandala_pulse)
-		)
-	if preview_vfx_light_slit_texture != null:
-		var slit_size := Vector2(size.x * 0.22, size.y * 0.70)
-		var slit_alpha: float = 0.13 + interaction_hover_amount * 0.07
-		for side_index in range(2):
-			var base_x: float = size.x * (0.08 if side_index == 0 else 0.70)
-			var sweep_y: float = size.y * 0.075 + sin(elapsed * 0.72 + float(side_index) * 1.7) * size.y * 0.020
-			_draw_preview_vfx_texture_transformed(
-				preview_vfx_light_slit_texture,
-				Rect2(Vector2(base_x, sweep_y), slit_size),
-				Color(1.0, 1.0, 1.0, slit_alpha),
-				sin(elapsed * 0.22 + float(side_index)) * 0.018,
-				Vector2.ONE
-			)
-	if preview_vfx_floor_ring_texture != null:
-		var ring_size := Vector2(size.x * 0.78, size.y * 0.14)
-		var ring_scale: float = 1.0 + sin(elapsed * 1.55) * 0.018 + interaction_hover_amount * 0.026
-		var ring_rect := Rect2(
-			Vector2((size.x - ring_size.x) * 0.5, floor_y - ring_size.y * 0.45),
-			ring_size
-		)
-		_draw_preview_vfx_texture_transformed(
-			preview_vfx_floor_ring_texture,
-			ring_rect,
-			Color(1.0, 1.0, 1.0, 0.31 + interaction_hover_amount * 0.10),
-			0.0,
-			Vector2(ring_scale, ring_scale)
-		)
-	_draw_preview_vfx_data_motes(accent, glow, floor_y)
-	_draw_preview_vfx_scan_sweep(accent, glow, floor_y)
-
-
-func _draw_preview_vfx_texture_transformed(
-	texture: Texture2D,
-	rect: Rect2,
-	color: Color,
-	rotation: float,
-	scale: Vector2
-) -> void:
-	if texture == null:
-		return
-	var center := rect.get_center()
-	draw_set_transform(center, rotation, scale)
-	draw_texture_rect(texture, Rect2(-rect.size * 0.5, rect.size), false, color)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_preview_vfx_data_motes(accent: Color, glow: Color, floor_y: float) -> void:

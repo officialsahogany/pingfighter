@@ -250,10 +250,13 @@ func _verify_russian_perk_info_summary() -> void:
 
 func _verify_scene_delegates_summary_builder_directly() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
 	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
+	var status_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_status_builder.gd")
 	_expect(
-		source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0,
-		"stage-clear result scene should delegate opened-scroll summary drawing"
+		source.find("StageClearResultScrollPresenter.draw_scroll") >= 0
+		and presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0,
+		"stage-clear result scene should delegate opened-scroll summary drawing through the scroll presenter"
 	)
 	_expect(
 		content_source.find("StageClearResultSummaryBuilder.build_result_summary_state") >= 0,
@@ -300,10 +303,11 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 			"stage-clear result scene should not keep summary pass-through wrapper %s" % removed_wrapper
 		)
 	_expect(
-		source.find("StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state") >= 0
+		source.find("StageClearResultStatusBuilder.build_scene_interaction_status") >= 0
+			and status_source.find("StageClearResultSummaryBuilder.build_perk_info_summary_from_reward_state") >= 0
 			and source.find("func _build_perk_info_summary") < 0
 			and source.find("StageClearResultRewardTextResolver") < 0,
-		"stage-clear result scene should delegate perk info summary text preparation"
+		"stage-clear result scene should delegate perk info summary text preparation through the status builder"
 	)
 
 

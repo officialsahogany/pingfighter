@@ -51,6 +51,9 @@ class FakeSpecificAudio:
 	func play_commando_net_gun_capture() -> void:
 		calls.append("net_gun_capture")
 
+	func play_commando_net_gun_constrict() -> void:
+		calls.append("net_gun_constrict")
+
 	func play_commando_bowling_trap_snap() -> void:
 		calls.append("bowling_trap_snap")
 
@@ -230,6 +233,7 @@ func _verify_game_audio_asset_parity() -> void:
 		"CommandoAk47FireSfx": GameAudio.COMMANDO_AK47_FIRE_SOUND_PATH,
 		"CommandoBazookaFireSfx": GameAudio.COMMANDO_BAZOOKA_FIRE_SOUND_PATH,
 		"CommandoNetCaptureSfx": GameAudio.COMMANDO_NET_CAPTURE_SOUND_PATH,
+		"CommandoNetConstrictSfx": GameAudio.COMMANDO_NET_CONSTRICT_SOUND_PATH,
 		"CommandoBowlingTrapInstallSfx": GameAudio.COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH,
 		"CommandoBowlingTrapSnapSfx": GameAudio.COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH,
 		"CommandoSuicideDroneSfx": GameAudio.COMMANDO_SUICIDE_DRONE_SOUND_PATH,
@@ -245,6 +249,7 @@ func _verify_game_audio_asset_parity() -> void:
 		"CommandoAk47FireSfx": GameAudio.COMMANDO_AK47_FIRE_GAIN_DB,
 		"CommandoBazookaFireSfx": GameAudio.COMMANDO_BAZOOKA_FIRE_GAIN_DB,
 		"CommandoNetCaptureSfx": GameAudio.COMMANDO_NET_CAPTURE_GAIN_DB,
+		"CommandoNetConstrictSfx": GameAudio.COMMANDO_NET_CONSTRICT_GAIN_DB,
 		"CommandoBowlingTrapInstallSfx": GameAudio.COMMANDO_BOWLING_TRAP_GAIN_DB,
 		"CommandoBowlingTrapSnapSfx": GameAudio.COMMANDO_BOWLING_TRAP_GAIN_DB,
 		"CommandoSuicideDroneSfx": GameAudio.COMMANDO_SUICIDE_DRONE_GAIN_DB,
@@ -281,9 +286,12 @@ func _verify_game_audio_asset_parity() -> void:
 	_expect(_function_body(source, "func play_commando_bazooka_impact() -> void:").find("play_grenade_explosion") >= 0, "bazooka impact should use the Python grenade explosion cue")
 	_expect(_function_body(source, "func play_commando_fire_support_bomb() -> void:").find("play_grenade_explosion") >= 0, "fire-support bombs should use the Python grenade explosion cue")
 	_expect(_function_body(source, "func play_commando_net_gun_capture() -> void:").find("commando_net_capture_sfx") >= 0, "net capture should use net.wav")
+	_expect(_function_body(source, "func play_commando_net_gun_constrict() -> void:").find("commando_net_constrict_sfx") >= 0, "net constrict should use netcome.wav")
 	_expect(_function_body(source, "func play_commando_bowling_trap_snap() -> void:").find("commando_bowling_trap_snap_sfx") >= 0, "bowling trap snap should use ballingtrapgrap.wav")
 	_expect(_function_body(source, "func play_commando_suicide_drone_explosion() -> void:").find("stop_commando_suicide_drone_loop") >= 0, "suicide drone explosion should stop the drone loop")
 	_expect(_function_body(source, "func play_commando_weapon_change() -> void:").find("commando_weapon_change_sfx") >= 0, "firearm switch/acquire should use weapon.wav")
+	var net_field_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
+	_expect(_function_body(net_field_source, "static func apply_net_constrict_input(").find("play_commando_net_gun_constrict") >= 0, "net constrict input should call the original netcome.wav cue")
 	host.free()
 
 

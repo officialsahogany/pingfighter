@@ -4,6 +4,8 @@ const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime
 const TooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
+const PaddleBounceController := preload("res://scripts/ball/paddle_bounce_controller.gd")
+const PaddleBounceState := preload("res://scripts/ball/paddle_bounce_state.gd")
 
 
 class FakeInput:
@@ -86,12 +88,16 @@ class FakeOrbHud:
 
 class FakeFeedback:
 	var shakes := 0
+	var gauge_flashes := 0
 
 	func set_screen_shake(_duration: float, _amount: float) -> void:
 		shakes += 1
 
 	func max_screen_shake(_duration: float, _amount: float) -> void:
 		shakes += 1
+
+	func trigger_gauge_flash() -> void:
+		gauge_flashes += 1
 
 
 class FakeAudio:
@@ -111,6 +117,9 @@ class FakeAudio:
 
 	func stop_viper_blade_spin() -> void:
 		blade_spin_stopped += 1
+
+	func play_paddle_hit() -> void:
+		pass
 
 
 class FakeStatusState:
@@ -140,6 +149,7 @@ class FakeMythicRuntime:
 
 func _init() -> void:
 	_test_activation_hit_freeze_confusion_and_mist()
+	_test_hit_return_stores_ball_hit_until_landing()
 	_test_miss_returns_without_slash_sound_or_vfx()
 	_test_dark_blade_split_window()
 	_test_edge_boss_arrival_ignores_player_clamp()
@@ -224,6 +234,41 @@ func _test_activation_hit_freeze_confusion_and_mist() -> void:
 	player_pos = _get_vector2(result, "player_pos", player_pos)
 	_expect(not bool(runtime.get_snapshot().get("nerve_strike_active", true)), "Venom Edge should clear after the hit return phase")
 	_expect(not bool(runtime.get_ball_collision_context().get("viper_nerve_strike_freeze_active", true)), "landing should release the cutscene freeze")
+
+
+func _test_hit_return_stores_ball_hit_until_landing() -> void:
+	var bundle: Dictionary = _make_bundle(0)
+	var runtime: Object = bundle["runtime"]
+	var config: Dictionary = _base_config()
+	config["ball_pos"] = Vector2(430.0, 620.0)
+	config["ball_vel"] = Vector2(0.0, 8.0)
+	config["player_collision_cooldown"] = 6.0
+	config["min_ball_speed"] = 3.0
+	config["max_ball_speed"] = 30.0
+	var player_pos := Vector2(302.5, 610.0)
+	var gauge := 500.0
+	runtime._start_nerve_strike(player_pos, gauge, config, bundle["deps"], Time.get_ticks_msec())
+	gauge = 410.0
+	var result: Dictionary = {}
+	for _i in range(30):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+	_expect(bool(runtime.get_snapshot().get("nerve_strike_hit_confirmed", false)), "stored-hit setup should confirm Venom Edge hit")
+	for _i in range(138):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+	_expect(int(runtime.get_snapshot().get("nerve_strike_phase", -1)) == 2, "stored-hit setup should enter return phase")
+	for _i in range(14):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+	_expect(bool(runtime.get_ball_collision_context().get("viper_nerve_strike_freeze_active", false)), "stored return hit should keep the freeze until landing")
+	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+	_expect(bool(result.get("viper_nerve_strike_release_ball_hit", false)), "Venom Edge return should store the swept ball contact until release")
+	_expect(_get_vector2(result, "ball_vel", Vector2.ZERO).y < 0.0, "Venom Edge release should launch the stored-hit ball upward")
+	_expect(float(result.get("player_collision_cooldown", 0.0)) >= 6.0, "stored release hit should consume the contact with a fresh player cooldown")
+	_expect(not bool(runtime.get_snapshot().get("nerve_strike_active", true)), "stored release hit should finish Venom Edge")
+	var final_pos: Vector2 = _get_vector2(result, "player_pos", Vector2.ZERO)
+	_expect_close(final_pos.x + _get_player_paddle_size(config).x * 0.5, 430.0, "Venom Edge return should land centered under the frozen ball")
 
 
 func _test_miss_returns_without_slash_sound_or_vfx() -> void:
@@ -367,6 +412,8 @@ func _make_bundle(four_poisons_level: int) -> Dictionary:
 		"audio": audio,
 		"status_effect_state": status,
 		"mythic_item_runtime": mythic,
+		"paddle_bounce_controller": PaddleBounceController.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
 	}
 	return {
 		"runtime": runtime,

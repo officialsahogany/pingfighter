@@ -31,7 +31,7 @@ func _run() -> void:
 		var status: Dictionary = host.call("get_runtime_status")
 		_expect(bool(status.get("clip_contents", false)), "VFX host should clip to the LivePreview-local rect")
 		_expect(str(status.get("character_id", "")) == character_id, "VFX host should switch preset for %s" % character_id)
-		_expect(int(status.get("texture_layers", -1)) == 0, "VFX host should not duplicate LivePreview backdrop texture layers for %s" % character_id)
+		_expect(int(status.get("texture_layers", -1)) == 5, "VFX host should keep clipped backplate, mandala, slit, and floor-ring texture layers for %s" % character_id)
 		_expect(int(status.get("gpu_particle_layers", 0)) == 1, "VFX host should keep one clipped particle layer for %s" % character_id)
 		host.call("play_confirm", {"amount": 1.0})
 		host.call("_process", 0.016)

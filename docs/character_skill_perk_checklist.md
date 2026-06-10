@@ -1140,6 +1140,11 @@ Current Godot-first rule:
 - [ ] Gate the skill with the correct gauge / resource predicate.
 - [ ] Apply the real effect:
       projectile, buff, cleanse, pull, shield, spawn, damage mod, etc.
+- [ ] If a character skill drains a stage boss gauge, audit the Godot
+      stage-owner key list for every live `boss_special_gauge` owner.
+      Smasher Plasma is a known trap: its non-Hongryun drain route uses
+      hardcoded stage state keys, so adding a new stage boss gauge owner
+      also requires adding that key and a focused smoke case.
 - [ ] If the effect applies damage, stun, slow, confusion, knockback, or
       another gameplay result through a circular / elliptical / explosion
       / aura radius, write down the intended **hit primitive** before

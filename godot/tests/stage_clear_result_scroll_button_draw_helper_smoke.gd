@@ -43,12 +43,27 @@ func _verify_helper_contract() -> void:
 
 func _verify_scene_delegates_scroll_button_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
 	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
-	_expect(source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0, "result scene should delegate opened-scroll content drawing")
+	var input_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
+	_expect(
+		source.find("StageClearResultScrollPresenter.draw_scroll") >= 0
+		and presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0,
+		"result scene should delegate opened-scroll content drawing through the scroll presenter"
+	)
 	_expect(content_source.find("StageClearResultScrollButtonDrawHelper.draw_scroll_buttons") >= 0, "scroll content helper should delegate scroll button drawing")
 	_expect(source.find("func _draw_scroll_buttons") < 0, "result scene should not keep scroll button drawing wrappers")
-	_expect(source.find("_next_stage_button_rect = button_layout.get") >= 0, "result scene should still store next-stage button rect")
-	_expect(source.find("_exit_button_rect = button_layout.get") >= 0, "result scene should still store exit button rect")
+	_expect(
+		source.find("StageClearResultScrollPresenter.get_scroll_draw_apply_result") >= 0
+		and source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0
+		and input_source.find("\"_next_stage_button_rect\"") >= 0,
+		"result scene should still store next-stage button rect through scroll apply payloads"
+	)
+	_expect(
+		source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0
+		and input_source.find("\"_exit_button_rect\"") >= 0,
+		"result scene should still store exit button rect through scroll apply payloads"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

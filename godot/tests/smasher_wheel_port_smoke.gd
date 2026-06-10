@@ -160,7 +160,7 @@ func _init() -> void:
 	})
 	_expect(runtime_textures.get("player_wheel_spin_sheet", null) is Texture2D, "smasher wheel should load its body spin sheet without result prewarm")
 	var wheel_spin_texture: Texture2D = runtime_textures["player_wheel_spin_sheet"]
-	_expect(wheel_spin_texture.get_size() == Vector2(1280.0, 1280.0), "smasher wheel body spin sheet should reuse the 8x8 victory sheet")
+	_expect(wheel_spin_texture.get_size() == Vector2(640.0, 640.0), "smasher wheel body spin sheet should use the dedicated 4x4 flame-blade spin sheet")
 
 	var scene_state := BattleSceneState.new()
 	_expect(scene_state.has_key("smasher_wheel_speed_cap"), "battle scene state should preserve smasher wheel speed cap")
@@ -253,9 +253,9 @@ func _init() -> void:
 	_expect(is_equal_approx(float(result.get("special_gauge", -1.0)), 50.0), "activation should spend 200 gauge")
 	_expect(is_equal_approx(float(result.get("player_speed", 0.0)), 5.1), "activation should launch the paddle in the wheel direction")
 	_expect(wheel_state.is_active(), "smasher wheel should become active immediately")
-	_expect(int(wheel_state.get_body_spin_frame(1500)) == SmasherWheelState.BODY_SPIN_FRAME_START, "wheel body spin should start on victory frame 32")
-	_expect(int(wheel_state.get_body_spin_frame(1500 + int(ceil(SmasherWheelState.BODY_SPIN_FRAME_MSEC * 12.0)))) == SmasherWheelState.BODY_SPIN_FRAME_END, "wheel body spin should include victory frame 44")
-	_expect(int(wheel_state.get_body_spin_frame(1500 + int(ceil(SmasherWheelState.BODY_SPIN_FRAME_MSEC * 13.0)))) == SmasherWheelState.BODY_SPIN_FRAME_START, "wheel body spin should loop 32..44 while active")
+	_expect(int(wheel_state.get_body_spin_frame(1500)) == SmasherWheelState.BODY_SPIN_FRAME_START, "wheel body spin should start on the first dedicated spin frame")
+	_expect(int(wheel_state.get_body_spin_frame(1500 + int(ceil(SmasherWheelState.BODY_SPIN_FRAME_MSEC * 15.0)))) == SmasherWheelState.BODY_SPIN_FRAME_END, "wheel body spin should include the final dedicated spin frame")
+	_expect(int(wheel_state.get_body_spin_frame(1500 + int(ceil(SmasherWheelState.BODY_SPIN_FRAME_MSEC * 16.0)))) == SmasherWheelState.BODY_SPIN_FRAME_START, "wheel body spin should loop all 16 dedicated frames while active")
 	_expect(skill_state.triggered_skill == "smasher_wheel", "activation should trigger the shared cooldown")
 	_expect(is_equal_approx(skill_state.triggered_cooldown_seconds, 25.0), "activation should request the configured 25-second cooldown")
 	_expect(feedback.flash_triggered and feedback.shake_intensity > 0.0, "activation should trigger gauge and shake feedback")
@@ -271,7 +271,7 @@ func _init() -> void:
 		{"smasher_wheel_state": wheel_state}
 	)
 	_expect(bool(actor_context.get("player_wheel_spin_active", false)), "actor draw context should expose the wheel spin body override")
-	_expect(actor_context.get("player_wheel_spin_sheet", null) == runtime_textures.get("player_wheel_spin_sheet", null), "wheel spin body override should draw the loaded victory sheet")
+	_expect(actor_context.get("player_wheel_spin_sheet", null) == runtime_textures.get("player_wheel_spin_sheet", null), "wheel spin body override should draw the loaded dedicated spin sheet")
 	var draw_scene_context: Object = BattleDrawSceneContext.new()
 	var live_draw_deps: Dictionary = draw_scene_context.build_scene_deps(FakeDrawRegistry.new({"smasher_wheel_state": wheel_state}), null, null)
 	_expect(live_draw_deps.get("smasher_wheel_state", null) == wheel_state, "live battle draw deps should include smasher wheel state")
@@ -287,25 +287,25 @@ func _init() -> void:
 	)
 	_expect(bool(live_actor_context.get("player_wheel_spin_active", false)), "live battle actor context should expose wheel spin through draw deps")
 	var spin_frame: int = int(actor_context.get("player_wheel_spin_frame", -1))
-	_expect(spin_frame >= SmasherWheelState.BODY_SPIN_FRAME_START and spin_frame <= SmasherWheelState.BODY_SPIN_FRAME_END, "wheel spin frame should stay inside the 32..44 loop")
+	_expect(spin_frame >= SmasherWheelState.BODY_SPIN_FRAME_START and spin_frame <= SmasherWheelState.BODY_SPIN_FRAME_END, "wheel spin frame should stay inside the dedicated 0..15 loop")
 	var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 	var spin_region: Rect2 = sprite_renderer.call("_get_player_wheel_spin_sprite_region", {
 		"player_wheel_spin_frame": SmasherWheelState.BODY_SPIN_FRAME_END,
 		"player_wheel_spin_cell_width": 160.0,
 		"player_wheel_spin_cell_height": 160.0,
-		"player_wheel_spin_grid_cols": 8,
-		"player_wheel_spin_frame_count": 64,
+		"player_wheel_spin_grid_cols": SmasherWheelState.BODY_SPIN_GRID_COLS,
+		"player_wheel_spin_frame_count": SmasherWheelState.BODY_SPIN_SHEET_FRAME_COUNT,
 	})
-	_expect(spin_region == Rect2(640.0, 800.0, 160.0, 160.0), "wheel spin frame 44 should slice the expected victory-sheet cell")
+	_expect(spin_region == Rect2(480.0, 480.0, 160.0, 160.0), "wheel spin frame 15 should slice the final dedicated 4x4 cell")
 	_expect(sprite_renderer.has_method("_prewarm_wheel_spin_sheet_draw"), "stage1 sprite renderer should prewarm the wheel spin sheet before activation draw")
 	var prewarm_region: Rect2 = sprite_renderer.call("_get_player_wheel_spin_prewarm_source_rect", {
 		"player_wheel_spin_frame": SmasherWheelState.BODY_SPIN_FRAME_START,
 		"player_wheel_spin_cell_width": 160.0,
 		"player_wheel_spin_cell_height": 160.0,
-		"player_wheel_spin_grid_cols": 8,
-		"player_wheel_spin_frame_count": 64,
+		"player_wheel_spin_grid_cols": SmasherWheelState.BODY_SPIN_GRID_COLS,
+		"player_wheel_spin_frame_count": SmasherWheelState.BODY_SPIN_SHEET_FRAME_COUNT,
 	})
-	_expect(prewarm_region == Rect2(0.0, 640.0, 160.0, 160.0), "wheel spin prewarm should prime the first active frame cell")
+	_expect(prewarm_region == Rect2(0.0, 0.0, 160.0, 160.0), "wheel spin prewarm should prime the first dedicated spin cell")
 	var start_draw_context: Dictionary = wheel_state.get_actor_draw_context(1500)
 	_expect(int(start_draw_context.get("player_wheel_spin_frame", -1)) == SmasherWheelState.BODY_SPIN_FRAME_START, "wheel draw context should accept a shared timestamp for the activation frame")
 

@@ -44,7 +44,8 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_reward_float_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultRewardFloatDrawHelper.draw_reward_label") >= 0, "result scene should delegate floating reward label drawing")
+	var box_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
+	_expect(box_draw_source.find("StageClearResultRewardFloatDrawHelper.draw_reward_label") >= 0, "box draw helper should delegate floating reward label drawing")
 	_expect(source.find("func _draw_reward_label") < 0, "result scene should not keep floating reward label wrappers")
 	_expect(source.find("func _draw_reward_item_icon") < 0, "result scene should not keep floating reward icon wrappers")
 	_expect(source.find("func _draw_reward_starpoint") < 0, "result scene should not keep floating starpoint routing wrappers")

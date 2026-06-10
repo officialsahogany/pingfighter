@@ -94,16 +94,26 @@ class FakeFinishLifecycle:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_finish_lifecycle_resets_and_resumes_serve()
 	_verify_lifecycle_delegates_finish_surface()
 
+	await process_frame
 	if _failures.is_empty():
 		print("stage_ball_spawn_intro_finish_lifecycle_smoke: ok")
-		quit(0)
+		call_deferred("_quit_with_code", 0)
 	else:
 		for failure in _failures:
 			push_error(failure)
-		quit(1)
+		call_deferred("_quit_with_code", 1)
+
+
+func _quit_with_code(exit_code: int) -> void:
+	await process_frame
+	quit(exit_code)
 
 
 func _verify_finish_lifecycle_resets_and_resumes_serve() -> void:
@@ -135,6 +145,10 @@ func _verify_finish_lifecycle_resets_and_resumes_serve() -> void:
 	_expect(handed_off_registry.round_state.prepared == 0, "finish lifecycle should not prepare serve twice after early handoff")
 	_expect(handed_off_intro.synced_serve_input == 0, "finish lifecycle should not resync serve input after early handoff")
 	_expect(handed_off_registry.runtime_perk_state.intro_finished_calls == 1, "finish lifecycle should still flush runtime perk effects after the residual overlay ends")
+	registry.runtime_perk_state.last_owner = null
+	registry.runtime_perk_state.last_registry = null
+	handed_off_registry.runtime_perk_state.last_owner = null
+	handed_off_registry.runtime_perk_state.last_registry = null
 
 
 func _verify_lifecycle_delegates_finish_surface() -> void:

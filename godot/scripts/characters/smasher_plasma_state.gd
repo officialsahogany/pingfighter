@@ -444,11 +444,14 @@ func _drain_boss_special_gauge(amount: float, current_stage: int, deps: Dictiona
 			state_keys = ["stage2_boss_skill_state"]
 		3:
 			state_keys = ["stage3_boss_skill_state"]
+		4:
+			state_keys = ["stage4_ponk_skill_state"]
 		_:
 			state_keys = [
 				"stage1_dalji_whip_skill_state",
 				"stage2_boss_skill_state",
 				"stage3_boss_skill_state",
+				"stage4_ponk_skill_state",
 			]
 	for key in state_keys:
 		var state: Object = deps.get(key, null)

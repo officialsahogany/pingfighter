@@ -17,6 +17,10 @@ class FakeNetConstrictAudio:
 	extends RefCounted
 
 	var capture_calls: int = 0
+	var constrict_calls: int = 0
+
+	func play_commando_net_gun_constrict() -> void:
+		constrict_calls += 1
 
 	func play_commando_net_gun_capture() -> void:
 		capture_calls += 1
@@ -765,7 +769,8 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.76), "net constrict input path should update the first active net")
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("constrict_factor", 0.0)), 0.68), "net constrict input path should update every active candidate")
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("constrict_factor", 0.0)), 0.6), "net constrict input path should clamp active nets at the floor")
-	_expect(net_audio.capture_calls == 1, "net constrict input path should play capture audio when available")
+	_expect(net_audio.constrict_calls == 1, "net constrict input path should play netcome audio when available")
+	_expect(net_audio.capture_calls == 0, "net constrict input path should not reuse capture audio when netcome audio is available")
 	net_constrict_result = CommandoFirearmLingeringNetFieldState.apply_net_constrict_input(
 		runtime.lingering_effects,
 		{"left_pressed": true},
@@ -780,8 +785,9 @@ func _verify_runtime_value_utils_integration() -> void:
 	runtime.lingering_effects = CommandoFirearmValueUtils.get_array(net_constrict_result.get("effects", runtime.lingering_effects))
 	runtime.net_constrict_last_dir = int(net_constrict_result.get("last_dir", runtime.net_constrict_last_dir))
 	runtime.net_constrict_last_tick_msec = int(net_constrict_result.get("last_tick_msec", runtime.net_constrict_last_tick_msec))
-	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.72), "net constrict input path should tolerate audio deps without capture methods")
-	_expect(net_audio.capture_calls == 1, "net constrict input path should not call the previous audio dep again")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.72), "net constrict input path should tolerate audio deps without constrict methods")
+	_expect(net_audio.constrict_calls == 1, "net constrict input path should not call the previous audio dep again")
+	_expect(net_audio.capture_calls == 0, "net constrict input path should keep capture audio untouched")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": Vector2(12.0, 34.0)}) == Vector2(12.0, 34.0), "net field pos owner should read effect positions")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": "bad"}) == Vector2.ZERO, "net field pos owner should fall back for invalid positions")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_effect_width({"width": -5.0}, 280.0), 1.0), "net field width owner should clamp to a positive width")

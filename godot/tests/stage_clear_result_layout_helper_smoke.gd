@@ -185,12 +185,17 @@ func _verify_scene_wrappers() -> void:
 	_expect(StageClearResultLayoutHelper.sheet_source_rect(15, 4, Vector2(256.0, 256.0)).position == Vector2(768.0, 768.0), "sheet-rect helper should preserve scene source-frame policy")
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var box_data_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_data.gd")
+	var box_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
+	var interaction_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_interaction_state.gd")
 	var reward_card_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 	var sheet_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_sheet_draw_helper.gd")
+	var scroll_presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
+	var static_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_static_draw_helper.gd")
+	var actor_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
 	_expect(
 		box_data_source.find("StageClearResultLayoutHelper.get_box_layout") >= 0
-		and source.find("draw_set_transform(draw_center, box_rotation") >= 0,
-		"stage-clear result box data should call the box layout helper and the scene should rotate boxes through the draw transform"
+		and box_draw_source.find("draw_set_transform(draw_center, box_rotation") >= 0,
+		"stage-clear result box data should call the box layout helper and the box draw helper should rotate boxes through the draw transform"
 	)
 	_expect(
 		source.find("func _get_title_text") < 0,
@@ -201,10 +206,10 @@ func _verify_scene_wrappers() -> void:
 		"stage-clear result scene should not keep simple layout pass-through wrappers"
 	)
 	_expect(
-		source.find("StageClearResultLayoutHelper.get_result_box_frame_index") >= 0
-		and source.find("StageClearResultLayoutHelper.get_box_draw_center") >= 0
-		and source.find("StageClearResultLayoutHelper.get_box_aabb") >= 0,
-		"stage-clear result scene should call box layout helpers directly"
+		box_draw_source.find("StageClearResultLayoutHelper.get_result_box_frame_index") >= 0
+		and box_draw_source.find("StageClearResultLayoutHelper.get_box_draw_center") >= 0
+		and interaction_source.find("StageClearResultLayoutHelper.get_box_aabb") >= 0,
+		"stage-clear result focused helpers should call box layout helpers"
 	)
 	_expect(
 		source.find("func _get_result_box_frame_index") < 0
@@ -213,11 +218,11 @@ func _verify_scene_wrappers() -> void:
 		"stage-clear result scene should not keep box layout pass-through wrappers"
 	)
 	_expect(
-		source.find("StageClearResultLayoutHelper.get_scroll_content_rect") >= 0
+		scroll_presenter_source.find("StageClearResultLayoutHelper.get_scroll_content_rect") >= 0
 		and reward_card_source.find("StageClearResultLayoutHelper.calculate_reward_band_stack_layout") >= 0
 		and sheet_draw_source.find("StageClearResultLayoutHelper.sheet_source_rect") >= 0
-		and source.find("StageClearResultLayoutHelper.cover_source_rect") >= 0,
-		"stage-clear result scene and focused draw helpers should call residual layout helpers"
+		and static_draw_source.find("StageClearResultLayoutHelper.cover_source_rect") >= 0,
+		"stage-clear result focused draw helpers should call residual layout helpers"
 	)
 	_expect(
 		source.find("func _get_scroll_content_rect") < 0
@@ -228,11 +233,11 @@ func _verify_scene_wrappers() -> void:
 		"stage-clear result scene should not keep residual layout pass-through wrappers"
 	)
 	_expect(
-		source.find("StageClearResultLayoutHelper.get_player_victory_actor_rect") >= 0
-		and source.find("StageClearResultLayoutHelper.get_player_victory_click_rect") >= 0
-		and source.find("StageClearResultLayoutHelper.get_player_victory_panel_rect") >= 0
-		and source.find("StageClearResultLayoutHelper.get_dalji_draw_rect") >= 0,
-		"stage-clear result scene should call victory/Dalji layout helpers directly"
+		actor_draw_source.find("StageClearResultLayoutHelper.get_player_victory_actor_rect") >= 0
+		and actor_draw_source.find("StageClearResultLayoutHelper.get_player_victory_click_rect") >= 0
+		and static_draw_source.find("StageClearResultLayoutHelper.get_player_victory_panel_rect") >= 0
+		and actor_draw_source.find("StageClearResultLayoutHelper.get_dalji_draw_rect") >= 0,
+		"stage-clear result focused actor/static helpers should call victory/Dalji layout helpers"
 	)
 	_expect(
 		source.find("func _get_player_victory_actor_rect") < 0

@@ -44,8 +44,10 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_reward_card_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
 	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
-	_expect(source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0, "result scene should delegate opened-scroll content drawing")
+	_expect(source.find("StageClearResultScrollPresenter.draw_scroll") >= 0, "result scene should delegate scroll drawing through the scroll presenter")
+	_expect(presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0, "scroll presenter should delegate opened-scroll content drawing")
 	_expect(content_source.find("StageClearResultRewardCardDrawHelper.draw_reward_section_stack") >= 0, "scroll content helper should delegate reward section-stack drawing")
 	_expect(content_source.find("\"reward_icon_cache\"") >= 0, "scroll content helper should pass reward card drawing context to the helper")
 	_expect(source.find("func _draw_reward_section_stack") < 0, "result scene should not keep reward section-stack drawing wrappers")

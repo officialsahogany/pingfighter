@@ -76,15 +76,34 @@ func _verify_box_hover_effects() -> void:
 func _verify_scene_delegates_shape_points() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_shape_helper.gd")
-	_expect(source.find("StageClearResultShapeHelper.draw_radial_burst") >= 0, "result scene should delegate radial burst drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_filled_ellipse") >= 0, "result scene should delegate filled ellipse drawing")
+	var box_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
+	var card_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+	var float_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_float_draw_helper.gd")
+	var scroll_button_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_button_draw_helper.gd")
+	var scroll_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
+	var starpoint_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_starpoint_draw_helper.gd")
+	var summary_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
+	_expect(float_draw_source.find("StageClearResultShapeHelper.draw_radial_burst") >= 0, "reward float helper should delegate radial burst drawing")
+	_expect(
+		box_draw_source.find("StageClearResultShapeHelper.draw_filled_ellipse") >= 0
+		and scroll_draw_source.find("StageClearResultShapeHelper.draw_filled_ellipse") >= 0,
+		"box and scroll draw helpers should delegate filled ellipse drawing"
+	)
 	_expect(helper_source.find("draw_ellipse_polyline(") >= 0, "shape helper should own ellipse polyline drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_star_polygon") >= 0, "result scene should delegate star polygon drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_panel") >= 0, "result scene should delegate panel drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_fitted_texture") >= 0, "result scene should delegate fitted texture drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_fallback_reward_icon") >= 0, "result scene should delegate fallback reward icon drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_glow") >= 0, "result scene should delegate box hover glow drawing")
-	_expect(source.find("StageClearResultShapeHelper.draw_box_hover_sparkles") >= 0, "result scene should delegate box hover sparkle drawing")
+	_expect(
+		starpoint_draw_source.find("StageClearResultShapeHelper.draw_star_polygon") >= 0
+		or summary_draw_source.find("StageClearResultShapeHelper.draw_star_polygon") >= 0,
+		"starpoint or summary draw helper should delegate star polygon drawing"
+	)
+	_expect(
+		card_draw_source.find("StageClearResultShapeHelper.draw_panel") >= 0
+		and scroll_button_source.find("StageClearResultShapeHelper.draw_panel") >= 0,
+		"reward card and scroll button helpers should delegate panel drawing"
+	)
+	_expect(card_draw_source.find("StageClearResultShapeHelper.draw_fitted_texture") >= 0, "reward card helper should delegate fitted texture drawing")
+	_expect(card_draw_source.find("StageClearResultShapeHelper.draw_fallback_reward_icon") >= 0, "reward card helper should delegate fallback reward icon drawing")
+	_expect(box_draw_source.find("StageClearResultShapeHelper.draw_box_hover_glow") >= 0, "box draw helper should delegate box hover glow drawing")
+	_expect(box_draw_source.find("StageClearResultShapeHelper.draw_box_hover_sparkles") >= 0, "box draw helper should delegate box hover sparkle drawing")
 	_expect(source.find("func _draw_radial_burst") < 0, "result scene should not keep radial burst drawing wrappers")
 	_expect(source.find("func _draw_shadow_ellipse") < 0, "result scene should not keep shadow ellipse drawing wrappers")
 	_expect(source.find("func _draw_filled_ellipse") < 0, "result scene should not keep filled ellipse drawing wrappers")

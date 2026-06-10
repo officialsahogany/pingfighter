@@ -148,6 +148,18 @@ func _test_stage_gauge_drain_routes() -> void:
 	})
 	_expect(is_equal_approx(stage2_gauge.boss_special_gauge, 99.0), "non-Hongryun stages should drain the current boss gauge route")
 
+	var stage4_state: Object = _active_wave_state()
+	var stage4_gauge := FakeBossGauge.new()
+	stage4_state.update_effects(1.0, _contact_context(4), {
+		"current_stage": 4,
+		"stage4_ponk_skill_state": stage4_gauge,
+	})
+	stage4_state.update_effects(1.0, _contact_context(4), {
+		"current_stage": 4,
+		"stage4_ponk_skill_state": stage4_gauge,
+	})
+	_expect(is_equal_approx(stage4_gauge.boss_special_gauge, 99.0), "Stage 4 Ponk should drain through its boss_special_gauge owner")
+
 	var hongryun_state: Object = _active_wave_state()
 	var hongryun_gauge := FakeHongryunGauge.new()
 	hongryun_state.update_effects(1.0, _contact_context(5), {

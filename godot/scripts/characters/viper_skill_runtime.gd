@@ -160,6 +160,7 @@ var nerve_strike_active := false; var nerve_strike_phase := 0; var nerve_strike_
 var nerve_strike_start_pos := Vector2.ZERO; var nerve_strike_pos := Vector2.ZERO; var nerve_strike_dash_target_pos := Vector2.ZERO
 var nerve_strike_return_start_pos := Vector2.ZERO; var nerve_strike_return_target_pos := Vector2.ZERO; var nerve_strike_paddle_size := Vector2(155.0, 50.0); var nerve_strike_floor_y := 700.0
 var nerve_strike_hit_confirmed := false; var nerve_strike_combo_used := false; var nerve_strike_freeze_active := false; var nerve_strike_slash_triggered := false
+var nerve_strike_release_ball_hit_pending := false; var nerve_strike_release_ball_hit_paddle_x := 0.0; var nerve_strike_release_ball_hit_paddle_w := 155.0; var nerve_strike_release_ball_hit_pos := Vector2.ZERO
 var nerve_strike_slash_vfx_frames := 0.0; var nerve_strike_slash_center := Vector2.ZERO; var nerve_strike_cast_id := 0
 var nerve_strike_miss_text_timer := 0.0; var nerve_strike_miss_text_pos := Vector2.ZERO; var nerve_strike_clone_slashes: Array = []
 var dive_hold_start_msec := 0; var dive_hold_ratio := 0.0; var dive_hold_player_pos := Vector2.ZERO; var dive_hold_paddle_size := Vector2(155.0, 50.0); var dive_charge_particles: Array = []

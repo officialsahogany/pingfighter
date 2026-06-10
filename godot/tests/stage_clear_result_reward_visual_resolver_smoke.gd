@@ -216,16 +216,20 @@ func _verify_source_colors() -> void:
 
 func _verify_scene_delegates_visual_resolver() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var box_presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_presenter.gd")
+	var box_draw_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	var card_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 	var float_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_reward_float_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultRewardFloatDrawHelper.draw_reward_label") >= 0
+		source.find("StageClearResultBoxPresenter.draw_floating_boxes") >= 0
+		and box_presenter_source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") >= 0
+		and box_draw_helper_source.find("StageClearResultRewardFloatDrawHelper.draw_reward_label") >= 0
 		and card_helper_source.find("StageClearResultRewardVisualResolver.get_reward_card_visual_state") >= 0
 		and card_helper_source.find("StageClearResultRewardVisualResolver.get_reward_badge") >= 0
 		and card_helper_source.find("StageClearResultRewardVisualResolver.get_result_reward_source_label") >= 0
 		and float_helper_source.find("StageClearResultRewardVisualResolver.get_reward_label_visual_state") >= 0
 		and float_helper_source.find("StageClearResultRewardVisualResolver.get_reward_item_icon_visual_state") >= 0,
-		"result scene and reward draw helpers should call visual resolver helpers directly"
+		"result scene should delegate reward visuals through presenter/draw helpers and visual resolver"
 	)
 	for removed_wrapper in [
 		"func _get_reward_color(",

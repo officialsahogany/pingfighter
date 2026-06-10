@@ -622,13 +622,30 @@ func _run() -> void:
 	_expect(str(selection.get("runtime_character_id", "")) == "viper", "viper id-only handoffs should still select the viper runtime")
 
 	_flush_current_prewarm_job(prewarm)
+	if preview_node != null and preview_node.has_method("clear_runtime_state"):
+		preview_node.call("clear_runtime_state")
+	preview_node = null
 	screen.free()
+	screen = null
 	owner.free()
+	owner = null
+	prewarm = null
+	startup = null
+	if state != null and state.get_parent() == root:
+		state.free()
+	state = null
+	ProjectResourceLoader.clear_caches()
 	if failure_count > 0:
-		quit(1)
+		call_deferred("_quit_with_code", 1)
 		return
 	print("character_selection_viper_start_smoke: ok")
-	quit(0)
+	call_deferred("_quit_with_code", 0)
+
+
+func _quit_with_code(exit_code: int) -> void:
+	for _i in range(3):
+		await process_frame
+	quit(exit_code)
 
 
 @warning_ignore("shadowed_variable_base_class")

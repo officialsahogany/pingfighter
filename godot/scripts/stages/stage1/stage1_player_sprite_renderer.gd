@@ -488,9 +488,9 @@ func _get_player_defeat_sprite_region(context: Dictionary) -> Rect2:
 func _get_player_wheel_spin_sprite_region(context: Dictionary) -> Rect2:
 	var cell_w: float = float(context.get("player_wheel_spin_cell_width", 160.0))
 	var cell_h: float = float(context.get("player_wheel_spin_cell_height", 160.0))
-	var grid_cols: int = max(1, int(context.get("player_wheel_spin_grid_cols", 8)))
-	var max_frame: int = max(0, int(context.get("player_wheel_spin_frame_count", 64)) - 1)
-	var frame: int = clamp(int(context.get("player_wheel_spin_frame", 32)), 0, max_frame)
+	var grid_cols: int = max(1, int(context.get("player_wheel_spin_grid_cols", 4)))
+	var max_frame: int = max(0, int(context.get("player_wheel_spin_frame_count", 16)) - 1)
+	var frame: int = clamp(int(context.get("player_wheel_spin_frame", 0)), 0, max_frame)
 	var col: int = frame % grid_cols
 	@warning_ignore("integer_division")
 	var row: int = int(frame / grid_cols)

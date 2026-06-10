@@ -64,8 +64,8 @@ func _verify_permanent_and_rental_weapon_model() -> void:
 	_expect(weapons == ["pistol", "net_gun", "bazooka", "commando_pistol"], "weapon list should be one derived list, not stacked HUD entries")
 	_expect(str(controller.cycle_weapon(1, 1000)) == "net_gun", "wheel down should advance to first permanent firearm")
 	var net_weapon := controller.get_current_weapon_data()
-	_expect(int(net_weapon.get("ammo_current", -1)) == 3, "net gun should expose Python 3-harpoon ammo")
-	_expect(int(net_weapon.get("ammo_max", -1)) == 3, "net gun max ammo should stay at three")
+	_expect(int(net_weapon.get("ammo_current", -1)) == 4, "net gun should expose the tuned 4-harpoon ammo")
+	_expect(int(net_weapon.get("ammo_max", -1)) == 4, "net gun max ammo should stay at four")
 	_expect(str(controller.cycle_weapon(1, 1010)) == "net_gun", "switch debounce should ignore immediate repeat")
 	_expect(str(controller.cycle_weapon(1, 1200)) == "bazooka", "wheel down should advance after debounce")
 

@@ -124,9 +124,9 @@ func _update_aipill(
 	_aipill_runtime.apply_update(
 		target,
 		owner,
-		bool(target.get("aipill_active")),
-		float(target.get("aipill_phase")),
-		float(target.get("aipill_flash_timer_frames")),
+		_get_bool_property(target, "aipill_active"),
+		_get_float_property(target, "aipill_phase", 0.0),
+		_get_float_property(target, "aipill_flash_timer_frames", 0.0),
 		delta,
 		_state_applier
 	)
@@ -153,14 +153,14 @@ func _update_stopwatch(target: Object, owner: Object, delta: float) -> void:
 	_stopwatch_runtime.apply_update(
 		target,
 		owner,
-		bool(target.get("stopwatch_active")),
-		float(target.get("stopwatch_timer_frames")),
-		float(target.get("stopwatch_initial_timer_frames")),
-		float(target.get("stopwatch_recovery_timer_frames")),
-		float(target.get("stopwatch_post_recovery_grace_frames")),
+		_get_bool_property(target, "stopwatch_active"),
+		_get_float_property(target, "stopwatch_timer_frames", 0.0),
+		_get_float_property(target, "stopwatch_initial_timer_frames", 0.0),
+		_get_float_property(target, "stopwatch_recovery_timer_frames", 0.0),
+		_get_float_property(target, "stopwatch_post_recovery_grace_frames", 0.0),
 		_get_vector2_property(target, "stopwatch_original_ball_vel"),
-		float(target.get("stopwatch_flash_timer_frames")),
-		float(target.get("stopwatch_clock_angle")),
+		_get_float_property(target, "stopwatch_flash_timer_frames", 0.0),
+		_get_float_property(target, "stopwatch_clock_angle", 0.0),
 		delta,
 		_state_applier,
 		_stopwatch_owner_effects
@@ -171,12 +171,12 @@ func _update_magnet_field(target: Object, owner: Object, delta: float) -> void:
 	_magnet_field_runtime.apply_update(
 		target,
 		target.get("magnet_field_particles"),
-		bool(target.get("magnet_field_active")),
-		float(target.get("magnet_field_timer_frames")),
-		float(target.get("magnet_field_initial_timer_frames")),
-		float(target.get("magnet_field_phase")),
+		_get_bool_property(target, "magnet_field_active"),
+		_get_float_property(target, "magnet_field_timer_frames", 0.0),
+		_get_float_property(target, "magnet_field_initial_timer_frames", 0.0),
+		_get_float_property(target, "magnet_field_phase", 0.0),
 		_read_player_center(owner, _get_vector2_property(target, "magnet_field_player_center")),
-		float(target.get("magnet_field_particle_accumulator_frames")),
+		_get_float_property(target, "magnet_field_particle_accumulator_frames", 0.0),
 		owner != null,
 		delta,
 		_state_applier,
@@ -187,9 +187,9 @@ func _update_magnet_field(target: Object, owner: Object, delta: float) -> void:
 func _update_long_boost(target: Object, delta: float) -> void:
 	_timed_paddle_effects.apply_update_long_boost(
 		target,
-		bool(target.get("long_boost_active")),
-		float(target.get("long_boost_timer_frames")),
-		float(target.get("long_boost_initial_timer_frames")),
+		_get_bool_property(target, "long_boost_active"),
+		_get_float_property(target, "long_boost_timer_frames", 0.0),
+		_get_float_property(target, "long_boost_initial_timer_frames", 0.0),
 		delta,
 		_state_applier
 	)
@@ -198,11 +198,11 @@ func _update_long_boost(target: Object, delta: float) -> void:
 func _update_vitamin_pill(target: Object, owner: Object, delta: float) -> void:
 	_timed_paddle_effects.apply_update_vitamin_pill(
 		target,
-		bool(target.get("vitamin_pill_active")),
-		float(target.get("vitamin_pill_timer_frames")),
-		float(target.get("vitamin_pill_initial_timer_frames")),
-		float(target.get("vitamin_pill_phase")),
-		float(target.get("vitamin_pill_flash_timer_frames")),
+		_get_bool_property(target, "vitamin_pill_active"),
+		_get_float_property(target, "vitamin_pill_timer_frames", 0.0),
+		_get_float_property(target, "vitamin_pill_initial_timer_frames", 0.0),
+		_get_float_property(target, "vitamin_pill_phase", 0.0),
+		_get_float_property(target, "vitamin_pill_flash_timer_frames", 0.0),
 		_read_player_center(owner, _get_vector2_property(target, "vitamin_pill_player_center")),
 		delta,
 		_state_applier
@@ -212,14 +212,14 @@ func _update_vitamin_pill(target: Object, owner: Object, delta: float) -> void:
 func _update_strange_vial(target: Object, owner: Object, delta: float) -> void:
 	_timed_paddle_effects.apply_update_strange_vial(
 		target,
-		bool(target.get("strange_vial_active")),
-		float(target.get("strange_vial_timer_frames")),
-		float(target.get("strange_vial_initial_timer_frames")),
+		_get_bool_property(target, "strange_vial_active"),
+		_get_float_property(target, "strange_vial_timer_frames", 0.0),
+		_get_float_property(target, "strange_vial_initial_timer_frames", 0.0),
 		str(target.get("strange_vial_effect_type")),
-		float(target.get("strange_vial_target_scale")),
-		float(target.get("strange_vial_target_speed_multiplier")),
-		float(target.get("strange_vial_phase")),
-		float(target.get("strange_vial_flash_timer_frames")),
+		_get_float_property(target, "strange_vial_target_scale", 1.0),
+		_get_float_property(target, "strange_vial_target_speed_multiplier", 1.0),
+		_get_float_property(target, "strange_vial_phase", 0.0),
+		_get_float_property(target, "strange_vial_flash_timer_frames", 0.0),
 		_read_player_center(owner, _get_vector2_property(target, "strange_vial_player_center")),
 		delta,
 		_state_applier
@@ -229,11 +229,11 @@ func _update_strange_vial(target: Object, owner: Object, delta: float) -> void:
 func _update_doping_potion(target: Object, owner: Object, delta: float) -> void:
 	_commando_supply_actions.apply_update_doping_potion(
 		target,
-		bool(target.get("doping_potion_active")),
-		float(target.get("doping_potion_timer_frames")),
-		float(target.get("doping_potion_initial_timer_frames")),
-		float(target.get("doping_potion_phase")),
-		float(target.get("doping_potion_flash_timer_frames")),
+		_get_bool_property(target, "doping_potion_active"),
+		_get_float_property(target, "doping_potion_timer_frames", 0.0),
+		_get_float_property(target, "doping_potion_initial_timer_frames", 0.0),
+		_get_float_property(target, "doping_potion_phase", 0.0),
+		_get_float_property(target, "doping_potion_flash_timer_frames", 0.0),
 		_read_player_center(owner, _get_vector2_property(target, "doping_potion_player_center")),
 		delta,
 		_state_applier
@@ -276,13 +276,13 @@ func _should_sync_paddle_owner_state(target: Object, owner: Object, active_item_
 
 func _has_paddle_scale_runtime_work(target: Object) -> bool:
 	return (
-		bool(target.get("long_boost_active"))
-		or float(target.get("long_boost_timer_frames")) > 0.0
+		_get_bool_property(target, "long_boost_active")
+		or _get_float_property(target, "long_boost_timer_frames", 0.0) > 0.0
 		or not is_equal_approx(_get_float_property(target, "long_boost_scale", 1.0), 1.0)
-		or bool(target.get("milk_bottle_active"))
+		or _get_bool_property(target, "milk_bottle_active")
 		or not is_equal_approx(_get_float_property(target, "milk_bottle_scale", 1.0), 1.0)
-		or bool(target.get("strange_vial_active"))
-		or float(target.get("strange_vial_timer_frames")) > 0.0
+		or _get_bool_property(target, "strange_vial_active")
+		or _get_float_property(target, "strange_vial_timer_frames", 0.0) > 0.0
 		or not is_equal_approx(_get_float_property(target, "strange_vial_scale", 1.0), 1.0)
 	)
 
@@ -291,11 +291,11 @@ func _update_holy_barrier(target: Object, delta: float) -> void:
 	_holy_barrier_runtime.apply_update(
 		target,
 		target.get("holy_barrier_particles"),
-		bool(target.get("holy_barrier_active")),
-		float(target.get("holy_barrier_timer_frames")),
-		float(target.get("holy_barrier_initial_timer_frames")),
-		float(target.get("holy_barrier_glow_phase")),
-		float(target.get("holy_barrier_particle_accumulator_frames")),
+		_get_bool_property(target, "holy_barrier_active"),
+		_get_float_property(target, "holy_barrier_timer_frames", 0.0),
+		_get_float_property(target, "holy_barrier_initial_timer_frames", 0.0),
+		_get_float_property(target, "holy_barrier_glow_phase", 0.0),
+		_get_float_property(target, "holy_barrier_particle_accumulator_frames", 0.0),
 		delta,
 		_state_applier,
 		_holy_barrier_particles
@@ -306,11 +306,11 @@ func _update_dash_boost(target: Object, owner: Object, delta: float) -> void:
 	_dash_boost_runtime.apply_update(
 		target,
 		target.get("dash_boost_particles"),
-		bool(target.get("dash_boost_active")),
-		float(target.get("dash_boost_timer_frames")),
-		float(target.get("dash_boost_initial_timer_frames")),
-		float(target.get("dash_boost_glow_phase")),
-		float(target.get("dash_boost_particle_accumulator_frames")),
+		_get_bool_property(target, "dash_boost_active"),
+		_get_float_property(target, "dash_boost_timer_frames", 0.0),
+		_get_float_property(target, "dash_boost_initial_timer_frames", 0.0),
+		_get_float_property(target, "dash_boost_glow_phase", 0.0),
+		_get_float_property(target, "dash_boost_particle_accumulator_frames", 0.0),
 		_read_player_center(owner, _get_vector2_property(target, "dash_boost_player_center")),
 		delta,
 		_state_applier,
@@ -321,9 +321,9 @@ func _update_dash_boost(target: Object, owner: Object, delta: float) -> void:
 func _update_brick_wall_installation(target: Object, delta: float) -> void:
 	_brick_wall_installation.apply_update(
 		target,
-		bool(target.get("brick_wall_installing")),
-		float(target.get("brick_wall_install_timer_frames")),
-		float(target.get("brick_wall_install_initial_frames")),
+		_get_bool_property(target, "brick_wall_installing"),
+		_get_float_property(target, "brick_wall_install_timer_frames", 0.0),
+		_get_float_property(target, "brick_wall_install_initial_frames", 0.0),
 		_get_dictionary_property(target, "pending_brick_wall"),
 		target.get("brick_walls"),
 		target.get("brick_particles"),
@@ -374,6 +374,13 @@ func _get_float_property(target: Object, key: String, fallback: float) -> float:
 	return float(value)
 
 
+func _get_bool_property(target: Object, key: String, fallback := false) -> bool:
+	var value: Variant = target.get(key)
+	if value == null:
+		return fallback
+	return bool(value)
+
+
 func _perf_begin(perf_logger: Object) -> int:
 	if perf_logger != null and perf_logger.has_method("begin_sample"):
 		return int(perf_logger.begin_sample())
@@ -394,81 +401,81 @@ func _detail_perf_logger(perf_logger: Object, label: String) -> Object:
 
 
 func _should_update_aipill(target: Object) -> bool:
-	return bool(target.get("aipill_active")) or float(target.get("aipill_flash_timer_frames")) > 0.0
+	return _get_bool_property(target, "aipill_active") or _get_float_property(target, "aipill_flash_timer_frames", 0.0) > 0.0
 
 
 func _should_update_stopwatch(target: Object) -> bool:
 	return (
-		bool(target.get("stopwatch_active"))
-		or float(target.get("stopwatch_timer_frames")) > 0.0
-		or float(target.get("stopwatch_recovery_timer_frames")) > 0.0
-		or float(target.get("stopwatch_post_recovery_grace_frames")) > 0.0
-		or float(target.get("stopwatch_flash_timer_frames")) > 0.0
+		_get_bool_property(target, "stopwatch_active")
+		or _get_float_property(target, "stopwatch_timer_frames", 0.0) > 0.0
+		or _get_float_property(target, "stopwatch_recovery_timer_frames", 0.0) > 0.0
+		or _get_float_property(target, "stopwatch_post_recovery_grace_frames", 0.0) > 0.0
+		or _get_float_property(target, "stopwatch_flash_timer_frames", 0.0) > 0.0
 	)
 
 
 func _should_update_magnet_field(target: Object) -> bool:
 	return (
-		bool(target.get("magnet_field_active"))
-		or float(target.get("magnet_field_timer_frames")) > 0.0
+		_get_bool_property(target, "magnet_field_active")
+		or _get_float_property(target, "magnet_field_timer_frames", 0.0) > 0.0
 		or _has_array_items(target.get("magnet_field_particles"))
 	)
 
 
 func _should_update_long_boost(target: Object) -> bool:
 	return (
-		bool(target.get("long_boost_active"))
-		or float(target.get("long_boost_timer_frames")) > 0.0
-		or not is_equal_approx(float(target.get("long_boost_scale")), 1.0)
+		_get_bool_property(target, "long_boost_active")
+		or _get_float_property(target, "long_boost_timer_frames", 0.0) > 0.0
+		or not is_equal_approx(_get_float_property(target, "long_boost_scale", 1.0), 1.0)
 	)
 
 
 func _should_update_vitamin_pill(target: Object) -> bool:
 	return (
-		bool(target.get("vitamin_pill_active"))
-		or float(target.get("vitamin_pill_timer_frames")) > 0.0
-		or float(target.get("vitamin_pill_flash_timer_frames")) > 0.0
+		_get_bool_property(target, "vitamin_pill_active")
+		or _get_float_property(target, "vitamin_pill_timer_frames", 0.0) > 0.0
+		or _get_float_property(target, "vitamin_pill_flash_timer_frames", 0.0) > 0.0
 	)
 
 
 func _should_update_strange_vial(target: Object) -> bool:
 	return (
-		bool(target.get("strange_vial_active"))
-		or float(target.get("strange_vial_timer_frames")) > 0.0
-		or float(target.get("strange_vial_flash_timer_frames")) > 0.0
-		or not is_equal_approx(float(target.get("strange_vial_scale")), 1.0)
-		or not is_equal_approx(float(target.get("strange_vial_speed_multiplier")), 1.0)
+		_get_bool_property(target, "strange_vial_active")
+		or _get_float_property(target, "strange_vial_timer_frames", 0.0) > 0.0
+		or _get_float_property(target, "strange_vial_flash_timer_frames", 0.0) > 0.0
+		or not is_equal_approx(_get_float_property(target, "strange_vial_scale", 1.0), 1.0)
+		or not is_equal_approx(_get_float_property(target, "strange_vial_speed_multiplier", 1.0), 1.0)
 	)
 
 
 func _should_update_doping_potion(target: Object) -> bool:
 	return (
-		bool(target.get("doping_potion_active"))
-		or float(target.get("doping_potion_timer_frames")) > 0.0
-		or float(target.get("doping_potion_flash_timer_frames")) > 0.0
+		_get_bool_property(target, "doping_potion_active")
+		or _get_float_property(target, "doping_potion_timer_frames", 0.0) > 0.0
+		or _get_float_property(target, "doping_potion_flash_timer_frames", 0.0) > 0.0
 	)
 
 
 func _should_update_holy_barrier(target: Object) -> bool:
 	return (
-		bool(target.get("holy_barrier_active"))
-		or float(target.get("holy_barrier_timer_frames")) > 0.0
+		_get_bool_property(target, "holy_barrier_active")
+		or _get_float_property(target, "holy_barrier_timer_frames", 0.0) > 0.0
 		or _has_array_items(target.get("holy_barrier_particles"))
 	)
 
 
 func _should_update_dash_boost(target: Object) -> bool:
 	return (
-		bool(target.get("dash_boost_active"))
-		or float(target.get("dash_boost_timer_frames")) > 0.0
+		_get_bool_property(target, "dash_boost_active")
+		or _get_float_property(target, "dash_boost_timer_frames", 0.0) > 0.0
 		or _has_array_items(target.get("dash_boost_particles"))
 	)
 
 
 func _should_update_brick_wall(target: Object) -> bool:
 	return (
-		bool(target.get("brick_wall_installing"))
-		or float(target.get("brick_wall_install_timer_frames")) > 0.0
+		_get_bool_property(target, "brick_wall_installing")
+		or _get_float_property(target, "brick_wall_install_timer_frames", 0.0) > 0.0
 		or not _get_dictionary_property(target, "pending_brick_wall").is_empty()
 	)
 

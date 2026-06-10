@@ -543,7 +543,7 @@ func _verify_net_gun_ammo_rope_capture_and_break() -> void:
 	var deps: Dictionary = setup.get("deps", {})
 	var result: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
 	_expect(bool(result.get("fired", false)), "ready net gun shot should report fired")
-	_expect(int(result.get("ammo_current", -1)) == 2, "net gun should spend one of the Python 3 harpoons")
+	_expect(int(result.get("ammo_current", -1)) == 3, "net gun should spend one of the tuned 4 harpoons")
 	_expect(bool(controller.get_current_weapon_data().get("can_fire", false)), "net gun should remain fire-capable while harpoons remain")
 	_expect(is_equal_approx(float(result.get("cooldown_frames", 0.0)), 120.0), "net gun should start the Python 120-frame internal cooldown")
 	_expect(is_equal_approx(float(result.get("control_lock_frames", 0.0)), 30.0), "net gun should expose the Python 30-frame control lock")
