@@ -66,6 +66,13 @@
    smasher_power_smash_state를 **생성하지 않음**을 직접 잠글 것 — 현재는 이
    경로를 막는 스모크가 없다. 같은 첫 프레임에 컨트롤러 레벨 비계측 ~68~87ms
    별도 존재 — 라벨 보강 필요.
+   [2026-06-11 적용 완료 — 사용자 배선 + 3렌즈 적대 리뷰 승인. 동류 잔여
+   후속: `viper_jetpack_state`가 pillar draw 경로 2곳에서 무게이트 생성형
+   fetch(battle_scene_pillar_draw_pass.gd:124, battle_scene_drawer.gd:238,
+   프리웜 viper 분기 전용) — 비-viper 첫 pillar draw 콜드 생성, 같은 클래스
+   (규모는 더 작을 것, 측정 후 동일 패턴 적용). optimus 세션은 물리 측
+   ball_dependency_context else→smasher 분기로 여전히 smasher 모듈을 생성
+   (기존 비대칭, draw 스파이크와 무관).]
 3. **mythic/legendary 첫 픽업 52ms**: 획득 시네마틱 ensure_host 콜드 기동
    (11노드 + GPUParticles2D 3 + ShaderMaterial 다수). 2번째 픽업은
    3.08ms(17배 저렴) → 일회성 확정. **주의(코덱스 리뷰 2026-06-11 반영)**:
