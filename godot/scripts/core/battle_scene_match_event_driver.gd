@@ -44,10 +44,15 @@ func handle_score_event(scoring_side: String, owner: Object, registry: Object) -
 
 
 func handle_round_restart_event(reason: String, owner: Object, registry: Object) -> void:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var sample_start: int = _perf_begin(perf_logger)
 	_restore_pending_active_item_throw(owner, registry)
+	_perf_end(perf_logger, "physics.round_restart.restore_pending_throw", sample_start)
 	var match_flow_driver: Object = _get_match_flow_driver(registry)
 	if match_flow_driver != null and match_flow_driver.has_method("handle_round_restart"):
+		sample_start = _perf_begin(perf_logger)
 		match_flow_driver.handle_round_restart(registry, reason, Callable(self, "_reset_ball").bind(owner, registry))
+		_perf_end(perf_logger, "physics.round_restart.match_flow_driver", sample_start)
 
 
 func update_scoreboard(delta: float, owner: Object, registry: Object) -> void:
@@ -514,14 +519,23 @@ func _reset_drive_input_frames(registry: Object) -> void:
 
 
 func _reset_ball(owner: Object, registry: Object) -> void:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
 	if ball_driver != null:
+		var ball_start: int = _perf_begin(perf_logger)
 		ball_driver.reset_ball(owner, registry)
+		_perf_end(perf_logger, "physics.reset_ball.ball_driver", ball_start)
+	var health_start: int = _perf_begin(perf_logger)
 	_reset_boss_round_health(owner, registry)
+	_perf_end(perf_logger, "physics.reset_ball.boss_health", health_start)
+	var mythic_start: int = _perf_begin(perf_logger)
 	_notify_mythic_round_start(owner, registry)
+	_perf_end(perf_logger, "physics.reset_ball.mythic_round_start", mythic_start)
 	var weather_driver: Object = _get_instance(registry, "battle_scene_weather_update_driver")
 	if weather_driver != null and weather_driver.has_method("on_round_start"):
+		var weather_start: int = _perf_begin(perf_logger)
 		weather_driver.on_round_start(owner, registry)
+		_perf_end(perf_logger, "physics.reset_ball.weather_round_start", weather_start)
 
 
 func _notify_mythic_round_start(owner: Object, registry: Object) -> void:
