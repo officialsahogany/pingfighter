@@ -36,7 +36,6 @@ func build(owner: Object) -> Dictionary:
 		"commando_suicide_drone_ball_boosted_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_boosted_speed", 0.0)),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
-		"lingpet_puppet_grab_active": bool(_get_owner_value(owner, "lingpet_puppet_grab_active", false)),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"gameplay_frame_counter": int(_get_owner_value(owner, "gameplay_frame_counter", 0)),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),

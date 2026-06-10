@@ -1,0 +1,1285 @@
+{
+  "asset_id": "monkeyring_acquisition_cutin_anim_v2_clean_regen",
+  "pet_id": "monkeyring",
+  "display_name": "몽키링",
+  "generated_at": "2026-06-09T23:27:19Z",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "output_sheet": "res://assets/sprites/lingpet/monkeyring_cutin_anim.png",
+  "source_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
+  "source_green_art": ".tmp/monkeyring_l2d_clean/monkeyring_cutin_art_flat_green_source.png",
+  "source_autosprite": {
+    "asset_id": "cmq79f5bn00i4rs84fnv5gka9",
+    "asset_name": "Monkeyring Clean Green Live2D Source 20260610",
+    "spritesheet_id": "cmq79hq0100klrs842h5h0ojh",
+    "spritesheet_job_id": "wf_c9b9d25e-d433-486c-b937-2fe8a6bb1892",
+    "raw_sheet_local_path": ".tmp/monkeyring_l2d_clean/acquire_clean_raw_16f.png",
+    "raw_atlas_local_path": ".tmp/monkeyring_l2d_clean/acquire_clean_raw_16f_atlas.json",
+    "raw_grid": {
+      "cols": 4,
+      "rows": 4,
+      "frame_count": 16,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Acquisition idle loop: fixed camera, full body centered, gentle breathing, ears bob, tail sways, banana pouch bounces, gems pulse. No zoom, no crop, no black matte, no head ring.",
+    "video_tier": "turbo",
+    "duration_sec": 2,
+    "remove_bg": "ultra",
+    "credits_used": 5
+  },
+  "postprocess": {
+    "tool": "AutoSprite clean-green source + Pillow/OpenCV alpha and matte cleanup",
+    "operation": "Generated from a flat green source to avoid transparent-input black matte; removed green residue, alpha-cleaned, upscaled each 512px cell to 1024px, cleared tail-hole matte, inpainted neck-side matte if present, then bbox-normalized every frame into a safe margin so no acquisition frame touches the cell edge.",
+    "alpha_cleanup": {
+      "threshold": 6
+    },
+    "safe_margin_normalize": {
+      "target_height_px": 900,
+      "target_center_x_px": 512,
+      "target_bottom_y_px": 960,
+      "max_target_width_px": 850,
+      "normalization_samples": {
+        "0": {
+          "source_bbox": [
+            172,
+            33,
+            913,
+            951
+          ],
+          "source_size": [
+            742,
+            919
+          ],
+          "scale": 0.9793,
+          "normalized_size": [
+            727,
+            900
+          ],
+          "normalized_bbox": [
+            148,
+            60,
+            874,
+            959
+          ]
+        },
+        "4": {
+          "source_bbox": [
+            181,
+            0,
+            939,
+            952
+          ],
+          "source_size": [
+            759,
+            953
+          ],
+          "scale": 0.9444,
+          "normalized_size": [
+            717,
+            900
+          ],
+          "normalized_bbox": [
+            154,
+            60,
+            870,
+            959
+          ]
+        },
+        "8": {
+          "source_bbox": [
+            171,
+            46,
+            927,
+            952
+          ],
+          "source_size": [
+            757,
+            907
+          ],
+          "scale": 0.9923,
+          "normalized_size": [
+            751,
+            900
+          ],
+          "normalized_bbox": [
+            136,
+            60,
+            886,
+            959
+          ]
+        },
+        "12": {
+          "source_bbox": [
+            172,
+            18,
+            907,
+            952
+          ],
+          "source_size": [
+            736,
+            935
+          ],
+          "scale": 0.9626,
+          "normalized_size": [
+            708,
+            900
+          ],
+          "normalized_bbox": [
+            158,
+            60,
+            865,
+            959
+          ]
+        },
+        "15": {
+          "source_bbox": [
+            172,
+            27,
+            911,
+            952
+          ],
+          "source_size": [
+            740,
+            926
+          ],
+          "scale": 0.9719,
+          "normalized_size": [
+            719,
+            900
+          ],
+          "normalized_bbox": [
+            152,
+            60,
+            870,
+            959
+          ]
+        }
+      }
+    },
+    "targeted_matte_cleanup": {
+      "0": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            520,
+            435,
+            566,
+            484
+          ],
+          "component_size": 700,
+          "changed_pixels": 1224
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            465,
+            456,
+            485
+          ],
+          "component_size": 330,
+          "changed_pixels": 444
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            462,
+            519,
+            484
+          ],
+          "component_size": 120,
+          "changed_pixels": 194
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            506,
+            440,
+            529,
+            448
+          ],
+          "component_size": 95,
+          "changed_pixels": 169
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            438,
+            452,
+            464,
+            458
+          ],
+          "component_size": 106,
+          "changed_pixels": 178
+        }
+      ],
+      "1": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            523,
+            436,
+            568,
+            479
+          ],
+          "component_size": 707,
+          "changed_pixels": 1131
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            464,
+            457,
+            484
+          ],
+          "component_size": 348,
+          "changed_pixels": 456
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            462,
+            522,
+            482
+          ],
+          "component_size": 137,
+          "changed_pixels": 223
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            523,
+            442,
+            531,
+            446
+          ],
+          "component_size": 21,
+          "changed_pixels": 53
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            541,
+            435,
+            548,
+            438
+          ],
+          "component_size": 14,
+          "changed_pixels": 42
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            451,
+            456,
+            456,
+            458
+          ],
+          "component_size": 14,
+          "changed_pixels": 36
+        }
+      ],
+      "2": [
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            454,
+            458,
+            472
+          ],
+          "component_size": 351,
+          "changed_pixels": 462
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            366,
+            364,
+            403,
+            369
+          ],
+          "component_size": 112,
+          "changed_pixels": 204
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            515,
+            429,
+            569,
+            475
+          ],
+          "component_size": 967,
+          "changed_pixels": 1200
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            393,
+            495,
+            400,
+            501
+          ],
+          "component_size": 17,
+          "changed_pixels": 51
+        }
+      ],
+      "3": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            516,
+            418,
+            565,
+            459
+          ],
+          "component_size": 946,
+          "changed_pixels": 1140
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            427,
+            439,
+            428,
+            451
+          ],
+          "component_size": 14,
+          "changed_pixels": 53
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            433,
+            436,
+            459,
+            456
+          ],
+          "component_size": 382,
+          "changed_pixels": 491
+        }
+      ],
+      "4": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            516,
+            411,
+            564,
+            453
+          ],
+          "component_size": 909,
+          "changed_pixels": 1256
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            434,
+            429,
+            459,
+            450
+          ],
+          "component_size": 391,
+          "changed_pixels": 509
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            441,
+            414,
+            467,
+            423
+          ],
+          "component_size": 140,
+          "changed_pixels": 222
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            491,
+            413,
+            511,
+            415
+          ],
+          "component_size": 37,
+          "changed_pixels": 89
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            524,
+            407,
+            535,
+            412
+          ],
+          "component_size": 48,
+          "changed_pixels": 113
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            545,
+            400,
+            555,
+            406
+          ],
+          "component_size": 40,
+          "changed_pixels": 95
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            536,
+            403,
+            542,
+            410
+          ],
+          "component_size": 22,
+          "changed_pixels": 59
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            567,
+            403,
+            572,
+            409
+          ],
+          "component_size": 20,
+          "changed_pixels": 50
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            389,
+            471,
+            395,
+            476
+          ],
+          "component_size": 15,
+          "changed_pixels": 56
+        }
+      ],
+      "5": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            515,
+            411,
+            562,
+            453
+          ],
+          "component_size": 870,
+          "changed_pixels": 1182
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            433,
+            431,
+            458,
+            451
+          ],
+          "component_size": 404,
+          "changed_pixels": 528
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            394,
+            400,
+            404,
+            403
+          ],
+          "component_size": 23,
+          "changed_pixels": 95
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            439,
+            407,
+            498,
+            424
+          ],
+          "component_size": 306,
+          "changed_pixels": 486
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            527,
+            396,
+            560,
+            409
+          ],
+          "component_size": 214,
+          "changed_pixels": 347
+        }
+      ],
+      "6": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            533,
+            400,
+            562,
+            415
+          ],
+          "component_size": 218,
+          "changed_pixels": 337
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            420,
+            559,
+            463
+          ],
+          "component_size": 860,
+          "changed_pixels": 1111
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            438,
+            416,
+            495,
+            434
+          ],
+          "component_size": 369,
+          "changed_pixels": 629
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            412,
+            413,
+            420,
+            415
+          ],
+          "component_size": 14,
+          "changed_pixels": 46
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            441,
+            456,
+            461
+          ],
+          "component_size": 372,
+          "changed_pixels": 477
+        }
+      ],
+      "7": [
+        {
+          "target": "left_neck",
+          "bbox": [
+            431,
+            459,
+            455,
+            479
+          ],
+          "component_size": 353,
+          "changed_pixels": 468
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            512,
+            439,
+            559,
+            479
+          ],
+          "component_size": 845,
+          "changed_pixels": 1051
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            437,
+            435,
+            461,
+            452
+          ],
+          "component_size": 279,
+          "changed_pixels": 381
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            522,
+            429,
+            528,
+            433
+          ],
+          "component_size": 18,
+          "changed_pixels": 65
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            539,
+            420,
+            559,
+            431
+          ],
+          "component_size": 150,
+          "changed_pixels": 257
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            531,
+            425,
+            537,
+            428
+          ],
+          "component_size": 24,
+          "changed_pixels": 50
+        }
+      ],
+      "8": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            512,
+            444,
+            565,
+            491
+          ],
+          "component_size": 898,
+          "changed_pixels": 1295
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            542,
+            431,
+            559,
+            442
+          ],
+          "component_size": 108,
+          "changed_pixels": 180
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            416,
+            449,
+            432,
+            452
+          ],
+          "component_size": 33,
+          "changed_pixels": 107
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            431,
+            470,
+            456,
+            490
+          ],
+          "component_size": 336,
+          "changed_pixels": 474
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            440,
+            453,
+            463,
+            464
+          ],
+          "component_size": 193,
+          "changed_pixels": 272
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            524,
+            441,
+            532,
+            447
+          ],
+          "component_size": 40,
+          "changed_pixels": 76
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            410,
+            449,
+            421,
+            450
+          ],
+          "component_size": 13,
+          "changed_pixels": 76
+        }
+      ],
+      "9": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            442,
+            566,
+            490
+          ],
+          "component_size": 936,
+          "changed_pixels": 1358
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            468,
+            456,
+            488
+          ],
+          "component_size": 353,
+          "changed_pixels": 483
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            524,
+            447,
+            530,
+            450
+          ],
+          "component_size": 21,
+          "changed_pixels": 47
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            436,
+            456,
+            459,
+            463
+          ],
+          "component_size": 128,
+          "changed_pixels": 211
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            540,
+            433,
+            554,
+            440
+          ],
+          "component_size": 63,
+          "changed_pixels": 113
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            425,
+            474,
+            428,
+            485
+          ],
+          "component_size": 26,
+          "changed_pixels": 71
+        }
+      ],
+      "10": [
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            464,
+            457,
+            484
+          ],
+          "component_size": 373,
+          "changed_pixels": 515
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            441,
+            566,
+            486
+          ],
+          "component_size": 966,
+          "changed_pixels": 1350
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            537,
+            435,
+            549,
+            440
+          ],
+          "component_size": 30,
+          "changed_pixels": 93
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            425,
+            464,
+            428,
+            480
+          ],
+          "component_size": 36,
+          "changed_pixels": 84
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            437,
+            456,
+            456,
+            459
+          ],
+          "component_size": 62,
+          "changed_pixels": 114
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            520,
+            443,
+            531,
+            447
+          ],
+          "component_size": 31,
+          "changed_pixels": 71
+        }
+      ],
+      "11": [
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            460,
+            457,
+            481
+          ],
+          "component_size": 394,
+          "changed_pixels": 520
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            437,
+            565,
+            481
+          ],
+          "component_size": 945,
+          "changed_pixels": 1328
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            426,
+            469,
+            428,
+            476
+          ],
+          "component_size": 15,
+          "changed_pixels": 54
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            533,
+            435,
+            545,
+            440
+          ],
+          "component_size": 23,
+          "changed_pixels": 65
+        }
+      ],
+      "12": [
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            457,
+            457,
+            479
+          ],
+          "component_size": 405,
+          "changed_pixels": 513
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            526,
+            429,
+            550,
+            440
+          ],
+          "component_size": 51,
+          "changed_pixels": 208
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            435,
+            565,
+            478
+          ],
+          "component_size": 926,
+          "changed_pixels": 1173
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            425,
+            458,
+            427,
+            472
+          ],
+          "component_size": 24,
+          "changed_pixels": 64
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            384,
+            439,
+            389,
+            442
+          ],
+          "component_size": 15,
+          "changed_pixels": 40
+        }
+      ],
+      "13": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            437,
+            561,
+            476
+          ],
+          "component_size": 892,
+          "changed_pixels": 1278
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            521,
+            425,
+            554,
+            440
+          ],
+          "component_size": 103,
+          "changed_pixels": 220
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            385,
+            497,
+            401,
+            510
+          ],
+          "component_size": 76,
+          "changed_pixels": 142
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            565,
+            413,
+            574,
+            420
+          ],
+          "component_size": 26,
+          "changed_pixels": 72
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            456,
+            457,
+            479
+          ],
+          "component_size": 403,
+          "changed_pixels": 518
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            441,
+            449,
+            456,
+            451
+          ],
+          "component_size": 33,
+          "changed_pixels": 75
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            562,
+            431,
+            569,
+            438
+          ],
+          "component_size": 29,
+          "changed_pixels": 69
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            390,
+            439,
+            396,
+            442
+          ],
+          "component_size": 16,
+          "changed_pixels": 42
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            426,
+            458,
+            427,
+            471
+          ],
+          "component_size": 22,
+          "changed_pixels": 58
+        }
+      ],
+      "14": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            436,
+            561,
+            478
+          ],
+          "component_size": 882,
+          "changed_pixels": 1357
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            515,
+            423,
+            556,
+            441
+          ],
+          "component_size": 192,
+          "changed_pixels": 333
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            437,
+            448,
+            459,
+            453
+          ],
+          "component_size": 92,
+          "changed_pixels": 154
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            564,
+            414,
+            572,
+            420
+          ],
+          "component_size": 21,
+          "changed_pixels": 66
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            459,
+            457,
+            479
+          ],
+          "component_size": 384,
+          "changed_pixels": 490
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            386,
+            497,
+            402,
+            510
+          ],
+          "component_size": 81,
+          "changed_pixels": 149
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            461,
+            367,
+            467,
+            373
+          ],
+          "component_size": 17,
+          "changed_pixels": 72
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            425,
+            459,
+            427,
+            473
+          ],
+          "component_size": 25,
+          "changed_pixels": 65
+        }
+      ],
+      "15": [
+        {
+          "target": "right_neck",
+          "bbox": [
+            513,
+            436,
+            566,
+            480
+          ],
+          "component_size": 893,
+          "changed_pixels": 1487
+        },
+        {
+          "target": "right_neck",
+          "bbox": [
+            510,
+            425,
+            555,
+            445
+          ],
+          "component_size": 271,
+          "changed_pixels": 434
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            438,
+            449,
+            459,
+            456
+          ],
+          "component_size": 114,
+          "changed_pixels": 180
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            432,
+            463,
+            457,
+            483
+          ],
+          "component_size": 364,
+          "changed_pixels": 464
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            425,
+            462,
+            427,
+            477
+          ],
+          "component_size": 27,
+          "changed_pixels": 71
+        },
+        {
+          "target": "left_neck",
+          "bbox": [
+            460,
+            364,
+            469,
+            374
+          ],
+          "component_size": 25,
+          "changed_pixels": 71
+        }
+      ]
+    }
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/monkeyring_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      4096,
+      4096
+    ],
+    "frame_interval": "looped at 16 fps by the acquisition cut-in host",
+    "sha256": "77ff0e6fbdd5cf83809fd03bd503e47bd536414f14709f42095ea2945967506b",
+    "bytes": 11096069
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "sample_bboxes": {
+      "0": [
+        148,
+        60,
+        874,
+        959
+      ],
+      "4": [
+        154,
+        60,
+        870,
+        959
+      ],
+      "8": [
+        136,
+        60,
+        886,
+        959
+      ],
+      "12": [
+        158,
+        60,
+        865,
+        959
+      ],
+      "15": [
+        152,
+        60,
+        870,
+        959
+      ]
+    }
+  }
+}

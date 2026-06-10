@@ -1,0 +1,40 @@
+{
+  "asset_id": "monkey_lingpet_concept_imagegen_v1",
+  "asset_type": "lingpet_cutin_concept_art",
+  "runtime_usage": "candidate Ringpet / Lingpet concept and cut-in source art; not wired into lingpet_catalog.gd yet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019eadfa-f2cd-7372-8891-7b5b61e39c30/ig_019c34deaf9569f5016a28719c896c8191b8d71e02158fae58.png",
+  "outputs": {
+    "magenta_source": "res://assets/sprites/lingpet/monkey_lingpet_concept_imagegen_v1_magenta_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/monkey_lingpet_concept_imagegen_v1.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "prompt_summary": "Cute chibi monkey Ringpet / Lingpet companion, full-body 3/4 front cut-in concept art with warm brown fur, gold and cyan body-mounted ring parts, curled tail, and one small floating ring accent on a flat magenta chroma-key background."
+  },
+  "prompt": {
+    "use_case": "stylized-concept",
+    "asset_type": "game asset concept and cut-in source art for a Ringpet / Lingpet companion in DiskHearts - Ringpia",
+    "primary_request": "a cute monkey Lingpet companion character",
+    "subject": "full-body chibi monkey Lingpet, 3/4 front view, playful brave expression, round ears, curled tail, small agile body, soft brown and cream fur with crisp stylized edges, bright readable eyes, body-mounted Ringpet parts including a forehead gem plate, chest core plate, shoulder pods, wrist cuffs, tail module, ring collar buckle, gold and cyan magical-mechanical trim, plus one small floating ring accent as a secondary motif",
+    "style": "polished Korean mobile game character concept art, clean anime-toy illustration, high readability at small HUD size, opaque subject, crisp outline, no painterly fuzzy fur",
+    "composition": "centered full-body 3/4 front view with generous padding; entire character visible, no crop",
+    "background": "perfectly flat solid #ff00ff chroma-key background for background removal",
+    "constraints": "no text, no UI, no watermark, no logo, no extra characters, no scenery, no border, no cast shadow, no contact shadow, no reflection, no #ff00ff in the subject"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#fb03fa",
+    "canonical_source_background": "#ff00ff",
+    "note": "The generated image used a near-magenta background. After alpha extraction, the project magenta source was recomposited from the transparent PNG onto exact opaque #ff00ff so repo source corners are stable."
+  },
+  "validation": {
+    "alpha_size": "1254x1254",
+    "source_corner_rgba": ["#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255", "#ff00ff/a255"],
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [210, 72, 1098, 1161],
+    "visible_magenta_pixels": 0,
+    "opaque_pixels": 486631,
+    "partial_alpha_pixels": 10845
+  }
+}

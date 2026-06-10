@@ -1012,6 +1012,10 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 			return "오르비"
 		"koyora":
 			return "코요라"
+		"nekuring":
+			return "네쿠링"
+		"monkeyring":
+			return "몽키링"
 		"rabi":
 			return "모락모랑"
 	var fallback := str(entry.get("display_name", pet_id))
@@ -1042,6 +1046,10 @@ func _get_summary_text(pet_id: String) -> String:
 			return "푸른 링 궤도로 공 반격 + 둔화장 보조"
 		"koyora":
 			return "인형실과 청록 부적으로 공명하는 무녀 링펫"
+		"nekuring":
+			return "해골 링과 영혼 코어로 공명하는 네크로 링펫"
+		"monkeyring":
+			return "바나나 주머니와 꼬리 다이아 링파츠 라투디 후보"
 		"rabi":
 			return "\uc720\ub839\ube5b \ud68d\ub4dd \ub77c\ud22c\ub514 \ub514\ubc84\uadf8 \ud6c4\ubcf4"
 	return "\uc804\ud22c \ubcf4\uc870 \ub9c1\ud3ab"
@@ -1061,6 +1069,10 @@ func _get_card_color(pet_id: String) -> Color:
 			return Color(0.30, 1.0, 0.92)
 		"koyora":
 			return Color(0.92, 0.36, 0.76)
+		"nekuring":
+			return Color(0.62, 0.42, 0.92)
+		"monkeyring":
+			return Color(1.0, 0.76, 0.24)
 		"rabi":
 			return Color(0.66, 0.88, 1.0)
 	return Color(0.70, 0.82, 0.92)

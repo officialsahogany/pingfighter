@@ -1,0 +1,75 @@
+{
+  "asset_id": "monkeyring_companion_walk_placeholder_v1",
+  "pet_id": "monkeyring",
+  "display_name": "???",
+  "generated_at": "2026-06-10",
+  "runtime_usage": "debug-only placeholder companion thumbnail/walk sheet until dedicated rear-view SD companion sheets are produced",
+  "source_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/monkeyring_companion_walk_placeholder.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "sha256": "242a89cb45cd8c3f8fb5cb1098ab59a12daff83f9da939a0dedb01ebcf65175d",
+    "bytes": 1360016
+  },
+  "note": "Front-facing deterministic placeholder only. Do not treat this as the final player-perspective rear-view SD companion set required for production hatch-pool promotion.",
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "sample_bboxes": {
+      "0": [
+        47,
+        27,
+        210,
+        229
+      ],
+      "1": [
+        47,
+        25,
+        212,
+        228
+      ],
+      "2": [
+        47,
+        24,
+        213,
+        228
+      ],
+      "3": [
+        47,
+        23,
+        213,
+        228
+      ],
+      "4": [
+        46,
+        22,
+        212,
+        227
+      ],
+      "12": [
+        47,
+        26,
+        210,
+        229
+      ],
+      "24": [
+        46,
+        28,
+        208,
+        230
+      ]
+    }
+  }
+}

@@ -39,6 +39,10 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_is_lingpet_skill()
 	_verify_build_entry_states()
 	_verify_build_entry_inactive_is_empty()
@@ -51,13 +55,19 @@ func _init() -> void:
 
 	LingpetRailCard.clear_caches()
 	ProjectResourceLoader.clear_caches()
+	await process_frame
 	if _failures.is_empty():
 		print("lingpet_rail_card_shared_smoke: ok")
-		quit(0)
+		call_deferred("_quit_with_code", 0)
 	else:
 		for failure in _failures:
 			push_error(failure)
-		quit(1)
+		call_deferred("_quit_with_code", 1)
+
+
+func _quit_with_code(exit_code: int) -> void:
+	await process_frame
+	quit(exit_code)
 
 
 func _make_runtime(active: bool, cooldown: float, ready: bool, projectile: bool, puddle: bool, winding_up: bool, flash: float = 0.0) -> FakeLingpetRuntime:

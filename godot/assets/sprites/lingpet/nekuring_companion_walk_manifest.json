@@ -1,0 +1,90 @@
+{
+  "asset_id": "nekuring_companion_rear_idle_25f_v1",
+  "pet_id": "nekuring",
+  "display_name": "네쿠링",
+  "created_at": "2026-06-10",
+  "runtime_usage": "lingpet_companion_rear_view_walk_strike_cast_sheet",
+  "output_sheet": "res://assets/sprites/lingpet/nekuring_companion_walk.png",
+  "source_art": {
+    "imagegen_raw_path": ".tmp/nekuring_companion_sd_rear/nekuring_companion_rear_imagegen_raw.png",
+    "clean_source_path": "res://assets/sprites/lingpet/nekuring_companion_rear_source.png",
+    "sha256": "d4ae270d68e3c951dee2e078091021f9cd9fe6159686768c6b82322a019ad071",
+    "note": "Rear-view SD Nekuring source generated on magenta, hard-keyed to transparent, and uploaded to AutoSprite as the character base."
+  },
+  "autosprite": {
+    "character_id": "cmq748y50004ne7iexc9ebie9",
+    "character_name": "Nekuring Rear SD Companion 20260610",
+    "spritesheet_id": "cmq74axve004elccrs0m8gxdh",
+    "workflow_job_id": "wf_012f2f2a-72ce-4d94-aff7-5bc100fcfbad",
+    "video_id": "cmq749b6n004te7ieq9wx089y",
+    "kind": "iso_idle_up",
+    "prompt": "rear view only, keep facing away from camera, tiny floating idle loop, hood and cloak breathe gently, skull halo bobs, skull staff sways slightly, purple back soul core pulses, no turn to front, no spin, centered body",
+    "video_tier": "turbo",
+    "remove_bg": "ultra",
+    "credits_used": 5,
+    "raw_sheet_local_path": ".tmp/nekuring_companion_sd_rear/nekuring_companion_rear_autosprite_raw_25f.png",
+    "raw_atlas_local_path": ".tmp/nekuring_companion_sd_rear/nekuring_companion_rear_autosprite_raw_25f_atlas.json"
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "sha256": "44ae36dac2b9eafbdf32e7f42827ceab1898579c56c7c986dfa877e2b00e27e8",
+    "bytes": 836903
+  },
+  "postprocess": {
+    "tool": "Pillow alpha cleanup + direct runtime promotion",
+    "operation": "Kept the accepted 5x5 / 25-frame AutoSprite rear-view sheet at 256px cells, cleared RGB in fully transparent pixels, and promoted it as Nekuring companion walk/strike/cast runtime art."
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels": 0,
+    "visible_background_green_pixels": 0,
+    "greenish_character_pixels_estimate": 4534,
+    "frame_alpha_bbox_area_pct_range": [
+      46.536,
+      48.492
+    ],
+    "sample_bboxes": {
+      "0": [
+        55,
+        15,
+        194,
+        236
+      ],
+      "6": [
+        54,
+        13,
+        193,
+        236
+      ],
+      "12": [
+        55,
+        9,
+        194,
+        236
+      ],
+      "18": [
+        56,
+        11,
+        195,
+        236
+      ],
+      "24": [
+        55,
+        15,
+        194,
+        236
+      ]
+    }
+  }
+}

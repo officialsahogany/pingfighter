@@ -1,0 +1,306 @@
+{
+  "asset_id": "monkeyring_click_banana_chomp_live2d_pingpong_98f_v3_scale_locked",
+  "pet_id": "monkeyring",
+  "display_name": "몽키링",
+  "generated_at": "2026-06-09T23:27:08Z",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
+  "source_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
+  "source_autosprite": {
+    "asset_id": "cmq79f5bn00i4rs84fnv5gka9",
+    "asset_name": "Monkeyring Clean Green Live2D Source 20260610",
+    "spritesheet_id": "cmq79jeyt00myrs84cumvc7v4",
+    "spritesheet_job_id": "wf_9bfe7fb7-5115-4f32-9b25-bf3d77210144",
+    "raw_sheet_local_path": ".tmp/monkeyring_l2d_autosprite/click_banana_chomp_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/monkeyring_l2d_autosprite/click_banana_chomp_raw_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click reaction: fixed camera, no zoom; Monkeyring pulls one banana from pouch, bites and chews whole with puffed cheeks, happy blink, crumbs; tail diamond gleams. No crop/head ring.",
+    "video_tier": "turbo",
+    "duration_sec": 2,
+    "remove_bg": "ultra",
+    "credits_used": 5
+  },
+  "postprocess": {
+    "tool": "AutoSprite animation + Pillow alpha cleanup + deterministic pingpong reassembly + bbox scale lock",
+    "operation": "AutoSprite 49f source cells were alpha-cleaned, cropped to their visible bbox, rescaled to a constant body height, anchored to a fixed center/bottom point, then assembled as a 98f pingpong sheet so the banana-chomp click no longer reads as a progressive close-up.",
+    "alpha_cleanup": {
+      "threshold": 6
+    },
+    "safe_margin_repack": {
+      "source_cell_size": 512,
+      "content_size_px": 430
+    },
+    "scale_lock": {
+      "target_height_px": 386,
+      "target_center_x_px": 268,
+      "target_bottom_y_px": 440,
+      "max_target_width_px": 392,
+      "source_backup_dir": ".tmp/monkeyring_l2d_autosprite/zoom_cleanup_backup",
+      "normalization_samples": {
+        "0": {
+          "source_bbox": [
+            88,
+            17,
+            454,
+            475
+          ],
+          "source_size": [
+            367,
+            459
+          ],
+          "scale": 0.841,
+          "normalized_size": [
+            309,
+            386
+          ],
+          "normalized_bbox": [
+            114,
+            54,
+            422,
+            439
+          ]
+        },
+        "8": {
+          "source_bbox": [
+            108,
+            33,
+            468,
+            475
+          ],
+          "source_size": [
+            361,
+            443
+          ],
+          "scale": 0.8713,
+          "normalized_size": [
+            315,
+            386
+          ],
+          "normalized_bbox": [
+            110,
+            54,
+            424,
+            439
+          ]
+        },
+        "16": {
+          "source_bbox": [
+            116,
+            19,
+            473,
+            475
+          ],
+          "source_size": [
+            358,
+            457
+          ],
+          "scale": 0.8446,
+          "normalized_size": [
+            302,
+            386
+          ],
+          "normalized_bbox": [
+            117,
+            54,
+            418,
+            439
+          ]
+        },
+        "24": {
+          "source_bbox": [
+            97,
+            27,
+            456,
+            475
+          ],
+          "source_size": [
+            360,
+            449
+          ],
+          "scale": 0.8597,
+          "normalized_size": [
+            309,
+            386
+          ],
+          "normalized_bbox": [
+            114,
+            54,
+            422,
+            439
+          ]
+        },
+        "32": {
+          "source_bbox": [
+            76,
+            17,
+            460,
+            475
+          ],
+          "source_size": [
+            385,
+            459
+          ],
+          "scale": 0.841,
+          "normalized_size": [
+            324,
+            386
+          ],
+          "normalized_bbox": [
+            106,
+            54,
+            429,
+            439
+          ]
+        },
+        "40": {
+          "source_bbox": [
+            78,
+            20,
+            468,
+            475
+          ],
+          "source_size": [
+            391,
+            456
+          ],
+          "scale": 0.8465,
+          "normalized_size": [
+            331,
+            386
+          ],
+          "normalized_bbox": [
+            102,
+            55,
+            432,
+            439
+          ]
+        },
+        "48": {
+          "source_bbox": [
+            76,
+            19,
+            466,
+            475
+          ],
+          "source_size": [
+            391,
+            457
+          ],
+          "scale": 0.8446,
+          "normalized_size": [
+            330,
+            386
+          ],
+          "normalized_bbox": [
+            104,
+            54,
+            432,
+            439
+          ]
+        }
+      }
+    }
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      7168,
+      3584
+    ],
+    "frame_interval": "intended one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "sha256": "910393f7e35a55074d90119cbf2bf815724a6c6ff3c487dde76164d82de0d95e",
+    "bytes": 14957060,
+    "source_scale_repack": "per-frame bbox scale locked",
+    "content_size_px": "target height 386px, center x 268px, bottom y 440px"
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "final_grid_cols": 14,
+    "final_grid_rows": 7,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "pingpong_loop_closure": "frame0 returns at frame97 and frame48 is held at frame49 by deterministic reverse assembly",
+    "scale_lock": "visible bbox heights are normalized to avoid progressive close-up during the click reaction",
+    "sample_bboxes": {
+      "0": [
+        114,
+        54,
+        422,
+        439
+      ],
+      "8": [
+        110,
+        54,
+        424,
+        439
+      ],
+      "16": [
+        117,
+        54,
+        418,
+        439
+      ],
+      "24": [
+        114,
+        54,
+        422,
+        439
+      ],
+      "32": [
+        106,
+        54,
+        429,
+        439
+      ],
+      "40": [
+        102,
+        55,
+        432,
+        439
+      ],
+      "48": [
+        104,
+        54,
+        432,
+        439
+      ],
+      "49": [
+        104,
+        54,
+        432,
+        439
+      ],
+      "80": [
+        116,
+        54,
+        419,
+        439
+      ],
+      "97": [
+        114,
+        54,
+        422,
+        439
+      ]
+    }
+  }
+}

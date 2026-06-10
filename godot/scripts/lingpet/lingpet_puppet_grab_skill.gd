@@ -6,12 +6,10 @@ extends RefCounted
 # Faithful 4-phase paddle-displacement crowd-control gag: Koyora flings rose
 # puppet strings up to the boss, drags it down to her cast spot, "kisses" it,
 # then slides it back to its exact original position. It does NOT touch the
-# ball, score, or apply damage — the payoff is emergent: while the boss is
-# dragged out of its goal (and held there) it cannot defend, so rising balls
-# score on it. While the grab owns the boss, `lingpet_puppet_grab_active` is
-# written onto the owner so (a) boss_ai_state freezes the boss at the scripted
-# position instead of chasing the ball, and (b) the ball collision detector
-# skips the boss paddle (its hitbox is now sitting near midfield).
+# ball, score, or apply damage. While the grab owns the boss,
+# `lingpet_puppet_grab_active` is written onto the owner so boss_ai_state
+# freezes the boss at the scripted position instead of chasing the ball. Boss
+# paddle collision remains normal while displaced, matching the Python original.
 
 const CHU_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 
@@ -19,12 +17,13 @@ const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 
 # Phase ids (mirror the original PuppetControl PHASE_* constants, plus a
-# Godot-only PHASE_MISSING for the Venom-Edge-style snapshot-lock-on miss).
+# Godot-only miss / retry phases for the Venom-Edge-style snapshot-lock-on miss).
 const PHASE_EXTENDING := 0   # 실이 뻗어나가는 중
 const PHASE_PULLING := 1     # 상대를 끌어당기는 중
 const PHASE_KISSING := 2     # 뽀뽀 중
 const PHASE_RETURNING := 3   # 원래 위치로 복귀 중
 const PHASE_MISSING := 4     # 잡기 실패: 줄이 빈자리에 도착, MISS 텍스트 + 줄 회수
+const PHASE_RETRY_WAIT := 5  # 잡기 실패 후 재시도 대기: MISS 피드백 뒤 줄 재발사
 
 # Phase durations (seconds).
 # EXTEND is 30% faster than the original Yeonhwa 0.7s (0.7 / 1.3 ≈ 0.538) so
@@ -36,6 +35,13 @@ const KISS_SECONDS := 1.0
 const RETURN_SECONDS := 0.833
 const MISS_SECONDS := 0.45   # 줄이 회수되며 MISS 텍스트가 페이드아웃하는 시간
 const TOTAL_SECONDS := EXTEND_SECONDS + PULL_SECONDS + KISS_SECONDS + RETURN_SECONDS
+
+const RETRY_DELAY_SECONDS := 0.5
+const RETRY_CHANCE_PCT := 50.0
+
+const COMPANION_CAST_EXTEND_PROGRESS_MAX := 0.56
+const COMPANION_CAST_PULL_PROGRESS_START := 0.62
+const COMPANION_CAST_PULL_PROGRESS_END := 0.96
 
 # Snapshot lock-on hit window: at launch we capture the boss center as the
 # string tip target. At end of EXTENDING we check the current boss center
@@ -54,6 +60,8 @@ const STRING_COUNT := 5
 const STRING_SEGMENTS := 20
 const STRING_WAVE_SPEED := 4.0
 const STRING_WAVE_AMPLITUDE := 12.0
+const STRING_TIP_FOCUS_START := 0.55
+const STRING_TIP_FOCUS_POWER := 1.35
 const HAND_OFFSET_Y := -6.0
 
 const HEART_MAX := 14
@@ -94,6 +102,11 @@ var _sparkles: Array[Dictionary] = []
 var _grab_count := 0
 var _kiss_count := 0
 var _miss_count := 0
+var _shot_count := 0
+var _retry_count := 0
+var _active_skill_level := 1
+var _retries_remaining := 0
+var _retry_roll_queue_for_tests: Array[bool] = []
 var _missed := false
 # Captured at launch: where the boss center WAS the moment strings fired. The
 # strings travel toward this fixed point; if the boss moves out of HIT range
@@ -128,6 +141,9 @@ func reset() -> void:
 	_sparkle_spawn_accum = 0.0
 	_sparkles.clear()
 	_last_phase_for_test = PHASE_EXTENDING
+	_active_skill_level = 1
+	_retries_remaining = 0
+	_retry_roll_queue_for_tests.clear()
 
 
 func prewarm() -> void:
@@ -148,9 +164,18 @@ func cancel(owner: Object = null, _registry: Object = null) -> void:
 	# release. Do NOT full-reset here or the restore data is lost.
 
 
-func launch(origin: Vector2, owner: Object = null, _launch_context: Dictionary = {}) -> bool:
+func launch(origin: Vector2, owner: Object = null, launch_context: Dictionary = {}) -> bool:
 	if owner == null:
 		return false
+	_active_skill_level = _get_active_skill_level(launch_context)
+	_retries_remaining = _get_max_retries_for_level(_active_skill_level)
+	_retry_count = 0
+	_shot_count = 0
+	_grab_count += 1
+	return _begin_shot(origin, owner)
+
+
+func _begin_shot(origin: Vector2, owner: Object = null) -> bool:
 	_boss_size = Vector2(
 		maxf(1.0, float(_get_owner_value(owner, "boss_paddle_width", 100.0))),
 		maxf(1.0, float(_get_owner_value(owner, "boss_hitbox_height", 40.0)))
@@ -176,7 +201,7 @@ func launch(origin: Vector2, owner: Object = null, _launch_context: Dictionary =
 	_sparkle_spawn_accum = 0.0
 	_sparkles.clear()
 	_boss_draw_center = _predicted_target_center
-	_grab_count += 1
+	_shot_count += 1
 	_last_phase_for_test = PHASE_EXTENDING
 	# IMPORTANT: do NOT take ownership of the boss yet. EXTENDING is the dodge
 	# window; we only flip `lingpet_puppet_grab_active` (and start writing
@@ -216,7 +241,7 @@ func update(delta: float, owner: Object = null, registry: Object = null, _launch
 	_update_hearts(safe_delta)
 	_update_sparkles(safe_delta)
 	# Only pin / sync the owner once we have committed to a HIT. During EXTENDING
-	# and MISSING the boss must be free.
+	# and miss / retry feedback the boss must be free.
 	if _owns_boss or _pending_owner_grab:
 		_write_owner_grab(owner, _boss_draw_center)
 
@@ -245,10 +270,7 @@ func _advance_phase(owner: Object = null, registry: Object = null) -> void:
 				else:
 					# MISS — strings hit air. Skill ends without ever freezing the
 					# boss; no PULL / KISS / RETURN.
-					_phase = PHASE_MISSING
-					_missed = true
-					_miss_count += 1
-					_play_audio(registry, "play_lingpet_puppet_grab_miss")
+					_enter_miss_or_retry(registry)
 			PHASE_PULLING:
 				if _phase_timer < PULL_SECONDS:
 					return
@@ -271,10 +293,56 @@ func _advance_phase(owner: Object = null, registry: Object = null) -> void:
 					return
 				_active = false
 				return
+			PHASE_RETRY_WAIT:
+				if _phase_timer < RETRY_DELAY_SECONDS:
+					return
+				_phase_timer -= RETRY_DELAY_SECONDS
+				var retry_carry := _phase_timer
+				_retry_count += 1
+				_begin_shot(_cast_pos, owner)
+				_phase_timer = retry_carry
+				_play_audio(registry, "play_lingpet_puppet_grab_cast")
 			_:
 				_active = false
 				return
 		_last_phase_for_test = _phase
+
+
+func _enter_miss_or_retry(registry: Object = null) -> void:
+	_missed = true
+	_miss_count += 1
+	_play_audio(registry, "play_lingpet_puppet_grab_miss")
+	if _retries_remaining <= 0:
+		_phase = PHASE_MISSING
+		return
+	if _roll_retry():
+		_retries_remaining -= 1
+		_phase = PHASE_RETRY_WAIT
+	else:
+		_retries_remaining = 0
+		_phase = PHASE_MISSING
+
+
+func _get_active_skill_level(launch_context: Dictionary) -> int:
+	return clampi(
+		int(launch_context.get("active_skill_level", launch_context.get("skill_level", 1))),
+		1,
+		5
+	)
+
+
+func _get_max_retries_for_level(level: int) -> int:
+	if level >= 5:
+		return 2
+	if level >= 3:
+		return 1
+	return 0
+
+
+func _roll_retry() -> bool:
+	if not _retry_roll_queue_for_tests.is_empty():
+		return bool(_retry_roll_queue_for_tests.pop_front())
+	return randf() < RETRY_CHANCE_PCT / 100.0
 
 
 func hit_tolerance() -> float:
@@ -304,7 +372,7 @@ func _compute_boss_center(owner: Object = null) -> Vector2:
 			var rp: float = clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0)
 			var reased: float = rp * rp
 			return _kiss_center.lerp(_boss_original_center, reased)
-		PHASE_MISSING:
+		PHASE_MISSING, PHASE_RETRY_WAIT:
 			return _get_current_boss_center(owner)
 		_:
 			return _boss_original_center
@@ -322,7 +390,7 @@ func _write_owner_grab(owner: Object, boss_center: Vector2) -> bool:
 
 func _release(owner: Object) -> void:
 	# Restore the boss to its exact captured origin and drop the freeze /
-	# collision-skip flag, then fully reset. Requires the owner; the deferred
+	# ownership flag, then fully reset. Requires the owner; the deferred
 	# path in update() guarantees this only runs with a non-null owner.
 	if owner != null and _owns_boss:
 		owner.set("boss_pos", _boss_original_center - _boss_size * 0.5)
@@ -400,6 +468,21 @@ func get_companion_position_override(fallback: Vector2 = Vector2.ZERO) -> Vector
 	return _cast_pos if _active else fallback
 
 
+func get_companion_cast_pose_progress() -> float:
+	if not _active:
+		return -1.0
+	match _phase:
+		PHASE_EXTENDING:
+			var extend_ratio := clampf(_phase_timer / EXTEND_SECONDS, 0.0, 1.0)
+			return lerpf(0.0, COMPANION_CAST_EXTEND_PROGRESS_MAX, extend_ratio)
+		PHASE_MISSING, PHASE_RETRY_WAIT:
+			return COMPANION_CAST_EXTEND_PROGRESS_MAX
+		PHASE_PULLING:
+			var pull_ratio := clampf(_phase_timer / PULL_SECONDS, 0.0, 1.0)
+			return lerpf(COMPANION_CAST_PULL_PROGRESS_START, COMPANION_CAST_PULL_PROGRESS_END, pull_ratio)
+	return -1.0
+
+
 func get_grab_count_for_tests() -> int:
 	return _grab_count
 
@@ -426,14 +509,23 @@ func get_snapshot() -> Dictionary:
 		"puppet_grab_sparkle_count": _sparkles.size(),
 		"puppet_grab_missed": _missed,
 		"puppet_grab_miss_count": _miss_count,
+		"puppet_grab_shot_count": _shot_count,
+		"puppet_grab_retry_count": _retry_count,
+		"puppet_grab_retries_remaining": _retries_remaining,
+		"puppet_grab_active_skill_level": _active_skill_level,
+		"puppet_grab_retry_rolls_queued": _retry_roll_queue_for_tests.size(),
 		"puppet_grab_predicted_target": _predicted_target_center,
 		"puppet_grab_hit_tolerance": hit_tolerance(),
 		"puppet_grab_phase_missing": PHASE_MISSING,
+		"puppet_grab_phase_retry_wait": PHASE_RETRY_WAIT,
 		"puppet_grab_extend_seconds": EXTEND_SECONDS,
 		"puppet_grab_pull_seconds": PULL_SECONDS,
 		"puppet_grab_kiss_seconds": KISS_SECONDS,
 		"puppet_grab_return_seconds": RETURN_SECONDS,
 		"puppet_grab_miss_seconds": MISS_SECONDS,
+		"puppet_grab_retry_delay_seconds": RETRY_DELAY_SECONDS,
+		"puppet_grab_retry_chance_pct": RETRY_CHANCE_PCT,
+		"puppet_grab_companion_cast_pose_progress": get_companion_cast_pose_progress(),
 		"puppet_grab_total_seconds": TOTAL_SECONDS,
 		"puppet_grab_kiss_front_offset": KISS_FRONT_OFFSET,
 	}
@@ -447,6 +539,32 @@ func is_missed_for_tests() -> bool:
 	return _missed
 
 
+func get_string_visual_lateral_radius_for_tests(path_progress: float, extend_ratio: float = 1.0) -> float:
+	var t := clampf(path_progress, 0.0, 1.0)
+	var focus := _string_tip_focus(t)
+	var max_offset := 20.0 * (1.0 - t * 0.6)
+	var max_wave := STRING_WAVE_AMPLITUDE * (1.0 - t * 0.5) * clampf(extend_ratio, 0.0, 1.0)
+	return (max_offset + max_wave) * focus
+
+
+func set_retry_roll_queue_for_tests(values: Array) -> void:
+	_retry_roll_queue_for_tests.clear()
+	for value in values:
+		_retry_roll_queue_for_tests.append(bool(value))
+
+
+func _is_miss_feedback_phase() -> bool:
+	return _phase == PHASE_MISSING or _phase == PHASE_RETRY_WAIT
+
+
+func _miss_feedback_progress() -> float:
+	return clampf(minf(_phase_timer, MISS_SECONDS) / MISS_SECONDS, 0.0, 1.0)
+
+
+func _miss_feedback_fade() -> float:
+	return 1.0 - _miss_feedback_progress()
+
+
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
@@ -457,7 +575,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_hand(canvas, shake_offset)
 		if _phase == PHASE_KISSING:
 			_draw_chu_text(canvas, shake_offset)
-		if _phase == PHASE_MISSING:
+		if _is_miss_feedback_phase():
 			_draw_miss_text(canvas, shake_offset)
 	if not _sparkles.is_empty():
 		_draw_sparkles(canvas, shake_offset)
@@ -476,8 +594,8 @@ func _compute_string_tip(hand: Vector2, shake_offset: Vector2) -> Vector2:
 			var p: float = clampf(_phase_timer / EXTEND_SECONDS, 0.0, 1.0)
 			var eased: float = 1.0 - pow(1.0 - p, 3.0)  # ease-out cubic: quick start, settled finish
 			return hand.lerp(_predicted_target_center + shake_offset, eased)
-		PHASE_MISSING:
-			var rp: float = clampf(1.0 - _phase_timer / MISS_SECONDS, 0.0, 1.0)
+		PHASE_MISSING, PHASE_RETRY_WAIT:
+			var rp: float = _miss_feedback_fade()
 			return hand.lerp(_predicted_target_center + shake_offset, rp)
 		_:
 			return _boss_draw_center + shake_offset
@@ -491,8 +609,8 @@ func _draw_strings(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	#   pre-kiss  (180, 100, 150)  → kiss  (255, 150, 180)
 	# MISS path overrides to a fading red so the failure reads instantly.
 	var base_color: Color
-	if _phase == PHASE_MISSING:
-		var miss_fade: float = clampf(1.0 - _phase_timer / MISS_SECONDS, 0.0, 1.0)
+	if _is_miss_feedback_phase():
+		var miss_fade: float = _miss_feedback_fade()
 		base_color = Color(0.85, 0.30, 0.40, 0.85 * miss_fade)
 	elif kissing:
 		base_color = Color(1.0, 0.588, 0.706, 0.9)
@@ -520,9 +638,16 @@ func _draw_strings(canvas: CanvasItem, shake_offset: Vector2) -> void:
 			# Lazy dangling string feel, NOT a vibrating midpoint.
 			var taper: float = 1.0 - t * 0.5
 			var wave: float = sin(phase_seed + t * PI * 3.0) * STRING_WAVE_AMPLITUDE * taper * extend_ratio
-			along += perp * (offset * (1.0 - t * 0.6) + wave)
+			var tip_focus := _string_tip_focus(t)
+			along += perp * ((offset * (1.0 - t * 0.6) + wave) * tip_focus)
 			points.append(along)
 		canvas.draw_polyline(points, Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.85), 2.0, true)
+
+
+func _string_tip_focus(t: float) -> float:
+	var progress := clampf((t - STRING_TIP_FOCUS_START) / maxf(0.001, 1.0 - STRING_TIP_FOCUS_START), 0.0, 1.0)
+	var eased := pow(progress, STRING_TIP_FOCUS_POWER)
+	return clampf(1.0 - eased, 0.0, 1.0)
 
 
 func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
@@ -530,7 +655,7 @@ func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	# the boss successfully dodged), drifting upward and fading out.
 	var anchor: Vector2 = _predicted_target_center + MISS_OFFSET + shake_offset
 	anchor.y -= MISS_FLOAT_UP_SPEED * _phase_timer
-	var fade: float = clampf(1.0 - _phase_timer / MISS_SECONDS, 0.0, 1.0)
+	var fade: float = _miss_feedback_fade()
 	var alpha: float = 0.95 * fade
 	# Drop shadow for legibility against busy backgrounds.
 	canvas.draw_string(

@@ -1,0 +1,39 @@
+{
+  "asset": "koyora_doll_curse_wooden_marionette_dance.png",
+  "purpose": "Koyora Doll Curse rear-view wooden carved marionette dance loop sheet",
+  "source_policy": "Deterministic restyle and pose expansion from the accepted AutoSprite rear guardian doll sheet. AutoSprite MCP was available for provenance reads but this session did not expose a new-asset generation tool, so this shipped candidate is not claimed as a fresh AutoSprite sheet.",
+  "derived_from": {
+    "source_asset": "koyora_doll_curse_rear_emerge_retract.png",
+    "source_asset_id": "cmq702b4j0085ztzqan6py2y0",
+    "source_spritesheet_id": "cmq703k0j002k1kos71i32zqg",
+    "source_job_id": "wf_962d7f18-7f1d-440c-907c-e5fbd3f28df3"
+  },
+  "runtime_contract": {
+    "view": "rear",
+    "faces": "boss/upfield",
+    "style": "wooden_carved_marionette",
+    "frame_size": 128,
+    "frame_count": 16,
+    "cols": 4,
+    "rows": 4,
+    "dance_loop": true,
+    "active_frame_band": "0-15",
+    "emerge_frame_band": "0-3",
+    "retract_frame_band": "12-15",
+    "drawn_strings": false,
+    "runtime_strings": true,
+    "runtime_control_bar": true,
+    "drawn_beam": false,
+    "drawn_face": false,
+    "entry_motion": "descend_from_sky",
+    "exit_motion": "ascend_to_sky",
+    "fallback": "lingpet_doll_curse_skill.gd keeps the previous procedural doll fallback if this texture fails to load."
+  },
+  "visual_qa": {
+    "all_frames_full_body": true,
+    "wood_grain": true,
+    "jointed_limbs": true,
+    "loop_note": "Sixteen poses form a continuous puppet dance loop; frame 16 returns cleanly to frame 1 through sinusoidal arm and leg motion.",
+    "no_cell_edge_contact": true
+  }
+}

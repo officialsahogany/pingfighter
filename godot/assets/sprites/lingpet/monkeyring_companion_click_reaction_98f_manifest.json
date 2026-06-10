@@ -1,0 +1,84 @@
+{
+  "asset_id": "monkeyring_companion_banana_chomp_click_reaction_98f_v3_scale_locked",
+  "pet_id": "monkeyring",
+  "display_name": "몽키링",
+  "generated_at": "2026-06-09T23:27:08Z",
+  "runtime_usage": "lingpet_in_battle_companion_click_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/monkeyring_companion_click_reaction_98f.png",
+  "source_sheet": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/monkeyring_companion_click_reaction_98f.png",
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      128,
+      128
+    ],
+    "sheet_size": [
+      1792,
+      896
+    ],
+    "source_scale": "downscaled from the bbox scale-locked 512px AutoSprite banana-chomp click cells",
+    "sha256": "e7bcdebeaf5084ec86e77daa261fe8d274310319c3f50b649307e20894e5931e",
+    "bytes": 1302013
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell downscale from scale-locked full click Live2D sheet",
+    "operation": "Downscaled the scale-locked whole-banana chewing click sheet to 128px cells for live battle companion click reactions.",
+    "alpha_cleanup": {
+      "threshold": 6
+    }
+  },
+  "qa": {
+    "final_frame_count": 98,
+    "final_grid_cols": 14,
+    "final_grid_rows": 7,
+    "final_cell_size": [
+      128,
+      128
+    ],
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "sample_bboxes": {
+      "0": [
+        28,
+        13,
+        105,
+        109
+      ],
+      "24": [
+        28,
+        13,
+        105,
+        109
+      ],
+      "48": [
+        26,
+        13,
+        107,
+        109
+      ],
+      "49": [
+        26,
+        13,
+        107,
+        109
+      ],
+      "80": [
+        29,
+        13,
+        104,
+        109
+      ],
+      "97": [
+        28,
+        13,
+        105,
+        109
+      ]
+    }
+  }
+}

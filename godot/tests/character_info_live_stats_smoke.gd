@@ -286,6 +286,19 @@ func _init() -> void:
 	_expect(is_equal_approx(lunabi_live2d_source_1.position.x, 1024.0), "Lunabi character-info Live2D should advance to the next sheet cell after one 16fps tick")
 	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(lunabi_panel_snapshot), "Lunabi character-info panel should request redraws while its panel Live2D is visible")
 	_expect(not CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(maribo_panel_snapshot), "Maribo character-info panel should not request continuous Live2D redraws")
+	var nekuring_owner := FakeOwner.new({
+		"lingpet_id": "nekuring",
+		"lingpet_state": "companion",
+	})
+	var nekuring_panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(nekuring_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var nekuring_art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_art_texture("nekuring", {})
+	var nekuring_live2d_source_0: Rect2 = CharacterInfoOverlayLingpetPresenter.panel_live2d_source_rect("nekuring", nekuring_art_texture.get_size() if nekuring_art_texture != null else Vector2.ZERO, 0.0)
+	var nekuring_live2d_source_1: Rect2 = CharacterInfoOverlayLingpetPresenter.panel_live2d_source_rect("nekuring", nekuring_art_texture.get_size() if nekuring_art_texture != null else Vector2.ZERO, 0.07)
+	_expect(CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art("nekuring"), "Nekuring character-info art should opt into the panel Live2D sheet")
+	_expect(nekuring_art_texture != null and str(nekuring_art_texture.resource_path).ends_with("nekuring_click_live2d_pingpong_98f.png"), "Nekuring character-info art should resolve to the 98-frame panel Live2D sheet")
+	_expect(nekuring_live2d_source_0.position == Vector2.ZERO and nekuring_live2d_source_0.size == Vector2(1152.0, 1152.0), "Nekuring character-info Live2D should start from the first 1152px HQ sheet cell")
+	_expect(is_equal_approx(nekuring_live2d_source_1.position.x, 1152.0), "Nekuring character-info Live2D should advance to the next HQ sheet cell after one 16fps tick")
+	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(nekuring_panel_snapshot), "Nekuring character-info panel should request redraws while its panel Live2D is visible")
 
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
 

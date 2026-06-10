@@ -1,0 +1,270 @@
+{
+  "asset_id": "nekuring_acquisition_cutin_anim_v1",
+  "pet_id": "nekuring",
+  "display_name": "???",
+  "generated_at": "2026-06-10",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "output_sheet": "res://assets/sprites/lingpet/nekuring_cutin_anim.png",
+  "source_art": {
+    "asset_id": "nekuring_cutin_art_imagegen_v1",
+    "path": "res://assets/sprites/lingpet/nekuring_cutin_art.png",
+    "magenta_source_path": "res://assets/sprites/lingpet/nekuring_cutin_art_magenta_source.png"
+  },
+  "source_autosprite": {
+    "asset_id": "cmq6waz3t006313pywqmkat43",
+    "asset_name": "Nekuring Acquire Cutin Source 20260610",
+    "spritesheet_id": "cmq6weeth008o13py4ly4txbr",
+    "spritesheet_job_id": "wf_ac7c747a-c2a0-4775-8ab7-bf9598502c2b",
+    "raw_sheet_local_path": ".tmp/nekuring_acquire_l2d/nekuring_acquire_autosprite_raw_16f.png",
+    "raw_atlas_local_path": ".tmp/nekuring_acquire_l2d/nekuring_acquire_autosprite_raw_16f_atlas.json",
+    "raw_grid": {
+      "cols": 4,
+      "rows": 4,
+      "frame_count": 16,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Seamless acquisition loop: Nekuring gently floats, cloak breathes, skull halo sways, eyes blink, chest core pulses, staff orb glows, soft wave. Front-facing, no spin, no crop.",
+    "video_tier": "turbo",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "credits_used": 5
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/nekuring_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      4096,
+      4096
+    ],
+    "frame_interval": "looped at 16 fps by the acquisition cut-in host",
+    "sha256": "9ae6dd2b85a4c5640b9060fbe3c23633aa510ba074a041f1e947bc1a680671f4",
+    "bytes": 13926198
+  },
+  "postprocess": {
+    "tool": "AutoSprite asset animation + direct runtime promotion",
+    "operation": "Downloaded the transparent 4x4/16f AutoSprite sheet and promoted it without upscale; 512px cells are sufficient for this first debug acquisition cut-in pass.",
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "rgb_source": ".tmp/nekuring_l2d_realesrgan_hq/acquire/rgb_alpha_bleed_512",
+      "rgb_upscaled": ".tmp/nekuring_l2d_realesrgan_hq/acquire/rgb_realesrgan_realesr-animevideov3_x",
+      "alpha_source": ".tmp/nekuring_l2d_realesrgan_hq/acquire/alpha_source_512",
+      "alpha_preserved": true,
+      "target_cell_size": [
+        1024,
+        1024
+      ],
+      "note": "RGB was alpha-bled/inpainted before Real-ESRGAN; original alpha was resized separately and recombined after upscale."
+    }
+  },
+  "qa": {
+    "size": [
+      2048,
+      2048
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "sha256": "561c435d9b9502df41ce48d31bb110d5642040dedef238c1b61ac4d01873ea84",
+    "bytes": 1247449,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels_estimate": 0,
+    "cell_fill_w_pct_range": [
+      74.414,
+      77.539
+    ],
+    "cell_fill_h_pct_range": [
+      87.305,
+      89.453
+    ],
+    "sample_bboxes": {
+      "0": [
+        60,
+        57,
+        835,
+        944
+      ],
+      "1": [
+        57,
+        54,
+        836,
+        944
+      ],
+      "2": [
+        54,
+        49,
+        838,
+        943
+      ],
+      "3": [
+        53,
+        44,
+        840,
+        943
+      ],
+      "4": [
+        54,
+        39,
+        841,
+        943
+      ],
+      "8": [
+        72,
+        36,
+        839,
+        942
+      ],
+      "12": [
+        79,
+        48,
+        834,
+        942
+      ],
+      "15": [
+        66,
+        55,
+        834,
+        942
+      ]
+    },
+    "final_frame_count": 16,
+    "final_grid_cols": 4,
+    "final_grid_rows": 4,
+    "final_cell_size": [
+      1024,
+      1024
+    ],
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.1,
+    "alpha_bbox": [
+      0.0547,
+      0.0508,
+      0.7637,
+      0.875
+    ],
+    "note": "Per-cell frame-0 alpha occupancy for the acquisition reconstruction effect.",
+    "occupancy": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ]
+  }
+}

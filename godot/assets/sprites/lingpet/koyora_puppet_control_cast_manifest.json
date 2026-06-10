@@ -1,0 +1,87 @@
+{
+  "asset_id": "koyora_puppet_control_cast_original_idle_big_two_arm_v3",
+  "pet_id": "koyora",
+  "display_name": "Koyora",
+  "created_at": "2026-06-10",
+  "runtime_usage": "koyora_puppet_control_active_companion_cast_pose",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_puppet_control_cast.png",
+  "preview_gif": "res://assets/sprites/lingpet/koyora_puppet_control_cast_preview.gif",
+  "supersedes_asset_id": "koyora_puppet_control_cast_original_idle_one_arm_opaque_v2",
+  "source_sheet": {
+    "path": "res://assets/sprites/lingpet/koyora_companion_idle.png",
+    "sha256": "84f31210af90796339f27c12eac134f161f1b527fa7688839631778fb401bb7b",
+    "bytes": 1656096,
+    "note": "Uses the accepted original Koyora rear idle companion sheet as the art source so body shape, ring, side puppet decorations, palette, and silhouette remain locked to the existing runtime art."
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "sha256": "59a8599130b4822942676c7886a0a101703cc32578b42ad3cb724d0bcae302df",
+    "bytes": 1864048
+  },
+  "preview": {
+    "sha256": "b7d8354e5a8f6cb75dd0fea0a906c2a1d3ce6b37fcb107931bca3a0afeadb22e",
+    "bytes": 457375
+  },
+  "prompt_summary": "No new image-generation pass. Recombined pixels from the original Koyora companion idle sheet: frames 0-14 push both original sleeves forward/upward in a deliberately large motion; frames 15-24 pull them inward toward the body. The runtime puppet rope/string VFX is intentionally not drawn into this sheet.",
+  "postprocess": {
+    "tool": "local PIL original-sheet recomposite",
+    "source_frame_grid": "5x5 / 25 frames / 256px cells",
+    "moved_region": "both viewer-side sleeve polygons from the original idle cells",
+    "new_attack_strings_drawn": false,
+    "preserves_original_ring_and_side_puppet_decoration": true,
+    "visible_motion_tuning": "Large two-sleeve overlays plus active-only 112px draw size keep the arm-thrust / pull-in readable in live gameplay.",
+    "note": "The original hanging ring strings and side puppet decorations are retained because they are part of Koyora companion identity; only the extra skill rope/string blast is omitted."
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "sample_bboxes": {
+      "0": [
+        26,
+        17,
+        231,
+        235
+      ],
+      "5": [
+        27,
+        17,
+        231,
+        235
+      ],
+      "12": [
+        17,
+        18,
+        237,
+        235
+      ],
+      "14": [
+        17,
+        18,
+        239,
+        235
+      ],
+      "18": [
+        28,
+        18,
+        229,
+        235
+      ],
+      "24": [
+        26,
+        17,
+        231,
+        235
+      ]
+    }
+  }
+}

@@ -228,6 +228,7 @@ func _init() -> void:
 	_verify_f7_opens_lingpet_debug_picker()
 	_verify_skill_rows_never_overlap_apply_button()
 	_verify_click_grants_and_activates_lingpet()
+	_verify_debug_picker_can_select_koyora_doll_curse()
 	_verify_acquire_cutin_overlays_stage_result_paths()
 	_verify_debug_grant_accepts_explicit_skill_loadout()
 	_verify_full_slots_replace_active_slot_for_debug_grant()
@@ -376,10 +377,18 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(_find_pet_index(picker, "orbi") >= 0, "F7 lingpet debug picker should list Orbi")
 	_expect(_find_pet_index(picker, "red_dragon") >= 0, "F7 lingpet debug picker should list Red Dragon")
 	_expect(_find_pet_index(picker, "koyora") >= 0, "F7 lingpet debug picker should list debug-only Koyora")
+	_expect(_find_pet_index(picker, "nekuring") >= 0, "F7 lingpet debug picker should list debug-only Nekuring")
+	_expect(_find_pet_index(picker, "monkeyring") >= 0, "F7 lingpet debug picker should list debug-only Monkeyring")
 	_expect(_find_pet_index(picker, "rabi") >= 0, "F7 lingpet debug picker should list debug-only Rabi")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("koyora"), "Koyora should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("koyora"), "Koyora should be accepted by runtime helpers for F7 debug activation")
 	_expect(not LingpetCatalog.get_pet_ids().has("koyora"), "Koyora should stay out of the enabled hatch pet id list until final runtime assets ship")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("nekuring"), "Nekuring should be included in the debug-only lingpet picker list")
+	_expect(LingpetCatalog.has_pet("nekuring"), "Nekuring should be accepted by runtime helpers for F7 debug activation")
+	_expect(not LingpetCatalog.get_pet_ids().has("nekuring"), "Nekuring should stay out of the enabled hatch pet id list until full runtime assets ship")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("monkeyring"), "Monkeyring should be included in the debug-only lingpet picker list")
+	_expect(LingpetCatalog.has_pet("monkeyring"), "Monkeyring should be accepted by runtime helpers for F7 debug activation")
+	_expect(not LingpetCatalog.get_pet_ids().has("monkeyring"), "Monkeyring should stay out of the enabled hatch pet id list until full runtime assets ship")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("rabi"), "Rabi should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("rabi"), "Rabi should be accepted by runtime helpers for F7 debug activation")
 	_expect(not LingpetCatalog.get_pet_ids().has("rabi"), "Rabi should stay out of the enabled hatch pet id list until final runtime assets ship")
@@ -388,6 +397,8 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"character_type": "smasher",
 	}, [])
 	_expect(not hatch_candidates.has("koyora"), "Koyora should not enter the random hatch pool while it is debug-only")
+	_expect(not hatch_candidates.has("nekuring"), "Nekuring should not enter the random hatch pool while it is debug-only")
+	_expect(not hatch_candidates.has("monkeyring"), "Monkeyring should not enter the random hatch pool while it is debug-only")
 	_expect(not hatch_candidates.has("rabi"), "Rabi should not enter the random hatch pool while it is debug-only")
 	_expect(LingpetCatalog.get_display_name("koyora") == "코요라", "Koyora catalog display name should use the accepted Korean name")
 	_expect(
@@ -417,12 +428,23 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"Koyora F7 runtime companion visuals should use dedicated rear-view idle/left/right SD sheets"
 	)
 	_expect(
-		is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_seconds", 0.0), 3.35)
-		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_action_portion", 0.0), 0.92)
-		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_fade_start", 0.0), 0.82),
-		"Koyora acquisition click-dismiss should use the long 98-frame Live2D exit timing"
+		LingpetCatalog.get_visual_path("koyora", "companion_puppet_control") == "res://assets/sprites/lingpet/koyora_puppet_control_cast.png",
+		"Koyora Puppet Control should expose the dedicated arm-thrust / pull-in companion sheet"
+	)
+	_expect(
+		is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_view_h_ratio", 0.0), 0.56)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_seconds", 0.0), 4.25)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_action_portion", 0.0), 0.86)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "cutin_dismiss_fade_start", 0.0), 0.70)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("koyora", "click_reaction_draw_size", 0.0), 84.0),
+		"Koyora acquisition click-dismiss should use calmer 98-frame Live2D exit timing"
 	)
 	var koyora_active_pool := LingpetCatalog.get_active_skill_pool("koyora")
+	_expect(_active_pool_has(koyora_active_pool, "koyora_doll_curse"), "Koyora debug loadout should expose Doll Curse as a second active skill")
+	_expect(
+		LingpetCatalog.get_active_skill_runtime_kind("koyora_doll_curse") == "doll_curse",
+		"Koyora Doll Curse should route through the ported doll_curse runtime"
+	)
 	_expect(_active_pool_has(koyora_active_pool, "koyora_puppet_control"), "Koyora debug loadout should expose 꼭두각시 조종 (Puppet Control)")
 	_expect(
 		LingpetCatalog.get_active_skill_runtime_kind("koyora_puppet_control") == "puppet_grab",
@@ -439,8 +461,9 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_idle.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_move_left.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_move_right.png")
-		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png"),
-		"Koyora acquisition, full click, three-way SD companion, and companion click textures should exist under the lingpet asset tree"
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_puppet_control_cast.png"),
+		"Koyora acquisition, full click, three-way SD companion, companion click, and Puppet Control textures should exist under the lingpet asset tree"
 	)
 	var koyora_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_cutin_anim_manifest.json")
 	_expect(
@@ -467,6 +490,7 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	var koyora_companion_move_left_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_move_left_manifest.json")
 	var koyora_companion_move_right_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_move_right_manifest.json")
 	var koyora_companion_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f_manifest.json")
+	var koyora_puppet_control_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_puppet_control_cast_manifest.json")
 	_expect(
 		koyora_companion_idle_manifest.find("koyora_companion_idle_rear_25f_v1") >= 0
 		and koyora_companion_move_left_manifest.find("koyora_companion_move_left_rear_3q_smooth_25f_v2") >= 0
@@ -488,6 +512,18 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and koyora_companion_click_manifest.find("128") >= 0
 		and koyora_companion_click_manifest.find("\"edge_touch_frames\": []") >= 0,
 		"Koyora companion click manifest should pin the 14x7 / 98-frame / 128px runtime sheet and clean-edge QA"
+	)
+	_expect(
+		koyora_puppet_control_manifest.find("koyora_puppet_control_cast_original_idle_big_two_arm_v3") >= 0
+		and koyora_puppet_control_manifest.find("koyora_companion_idle.png") >= 0
+		and koyora_puppet_control_manifest.find("\"new_attack_strings_drawn\": false") >= 0
+		and koyora_puppet_control_manifest.find("visible_motion_tuning") >= 0
+		and koyora_puppet_control_manifest.find("\"frame_count\": 25") >= 0
+		and koyora_puppet_control_manifest.find("\"cols\": 5") >= 0
+		and koyora_puppet_control_manifest.find("\"rows\": 5") >= 0
+		and koyora_puppet_control_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and koyora_puppet_control_manifest.find("\"edge_touch_frames\": []") >= 0,
+		"Koyora Puppet Control manifest should pin the original-idle-derived 5x5 / 25-frame arm-thrust and pull-in sheet with clean-edge QA"
 	)
 	_expect(
 		LingpetCatalog.get_visual_path("rabi", "cutin_anim") == "res://assets/sprites/lingpet/rabi_cutin_anim_sd_identity_32f_hq_clean.png",
@@ -662,6 +698,149 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and cutin_host_source.find("\"koyora\": 98") >= 0,
 		"Koyora acquisition click-dismiss cut-in should register 14x7 / 98-frame playback overrides"
 	)
+	_expect(
+		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
+		and cutin_host_source.find("\"nekuring\": 14") >= 0
+		and cutin_host_source.find("\"nekuring\": 7") >= 0
+		and cutin_host_source.find("\"nekuring\": 98") >= 0,
+		"Nekuring acquisition click-dismiss cut-in should register 14x7 / 98-frame playback overrides"
+	)
+	_expect(LingpetCatalog.get_display_name("nekuring") == "네쿠링", "Nekuring catalog display name should use the accepted Korean name")
+	_expect(
+		LingpetCatalog.get_visual_path("nekuring", "cutin_art") == "res://assets/sprites/lingpet/nekuring_cutin_art.png"
+		and LingpetCatalog.get_visual_path("nekuring", "cutin_anim") == "res://assets/sprites/lingpet/nekuring_cutin_anim.png"
+		and LingpetCatalog.get_visual_path("nekuring", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png"
+		and LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim") == "res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png",
+		"Nekuring acquisition cut-in should use the accepted static, 4x4 loop, and 98-frame click/dismiss sheets"
+	)
+	_expect(
+		LingpetCatalog.get_visual_path("nekuring", "companion_idle") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_move_left") == "res://assets/sprites/lingpet/nekuring_companion_move_left.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_move_right") == "res://assets/sprites/lingpet/nekuring_companion_move_right.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_walk") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_strike") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_cast") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f.png",
+		"Nekuring debug companion should use the ringpart-matched idle SD sheet, dedicated movement sheets, and downscaled click-reaction sheet"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_cutin_art.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_cutin_art_magenta_source.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_cutin_anim.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_idle.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_walk.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_move_left.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_move_right.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_rear_source.png"),
+		"Nekuring source, acquisition, full click, companion click, idle, fallback, and movement SD companion textures should exist under the lingpet asset tree"
+	)
+	_expect(
+		is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "cutin_anim_view_h_ratio", 0.0), 0.56)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "cutin_dismiss_view_h_ratio", 0.0), 0.56)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "cutin_dismiss_seconds", 0.0), 3.75)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "cutin_dismiss_action_portion", 0.0), 0.90)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "cutin_dismiss_fade_start", 0.0), 0.82)
+		and is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "click_reaction_draw_size", 0.0), 73.6),
+		"Nekuring acquisition and companion Live2D should keep the accepted smaller scale while using the original fast click timing"
+	)
+	var nekuring_active_pool := LingpetCatalog.get_active_skill_pool("nekuring")
+	_expect(_active_pool_has(nekuring_active_pool, "nekuring_ghost_summon"), "Nekuring debug loadout should expose 해골소환")
+	_expect(
+		LingpetCatalog.get_active_skill_runtime_kind("nekuring_ghost_summon") == "ghost_summon",
+		"Nekuring 해골소환 should route through the existing ghost_summon runtime"
+	)
+	var nekuring_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_cutin_anim_manifest.json")
+	var nekuring_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f_manifest.json")
+	var nekuring_companion_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f_manifest.json")
+	var nekuring_companion_idle_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_idle_manifest.json")
+	var nekuring_companion_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_walk_manifest.json")
+	var nekuring_companion_move_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_move_pair_manifest.json")
+	var nekuring_art_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_cutin_art_manifest.json")
+	_expect(
+		nekuring_art_manifest.find("nekuring_cutin_art_imagegen_v1") >= 0
+		and nekuring_art_manifest.find("manual hard key") >= 0
+		and nekuring_art_manifest.find("\"whole_image_edge_alpha\": 0") >= 0,
+		"Nekuring source-art manifest should pin the hard-key alpha cleanup and clean-edge QA"
+	)
+	_expect(
+		nekuring_cutin_manifest.find("nekuring_acquisition_cutin_anim_v1") >= 0
+		and nekuring_cutin_manifest.find("\"frame_count\": 16") >= 0
+		and nekuring_cutin_manifest.find("\"cols\": 4") >= 0
+		and nekuring_cutin_manifest.find("\"rows\": 4") >= 0
+		and nekuring_cutin_manifest.find("\"realesrgan_upscale\"") >= 0
+		and nekuring_cutin_manifest.find("\"final_cell_size\": [") >= 0
+		and nekuring_cutin_manifest.find("1024") >= 0
+		and nekuring_cutin_manifest.find("\"whole_sheet_edge_alpha\": 0") >= 0
+		and nekuring_cutin_manifest.find("\"cells_with_edge_touch\": []") >= 0,
+		"Nekuring acquisition cut-in manifest should pin the 4x4 / 16-frame HQ sheet and clean-edge QA"
+	)
+	_expect(
+		nekuring_click_manifest.find("nekuring_click_live2d_pingpong_98f_v1") >= 0
+		and nekuring_click_manifest.find("\"frame_count\": 98") >= 0
+		and nekuring_click_manifest.find("\"cols\": 14") >= 0
+		and nekuring_click_manifest.find("\"rows\": 7") >= 0
+		and nekuring_click_manifest.find("\"source_scale_repack\": 0.84") >= 0
+		and nekuring_click_manifest.find("\"realesrgan_upscale\"") >= 0
+		and nekuring_click_manifest.find("\"final_cell_size\": [") >= 0
+		and nekuring_click_manifest.find("1152") >= 0
+		and nekuring_click_manifest.find("\"final_whole_sheet_edge_alpha\": 0") >= 0
+		and nekuring_click_manifest.find("\"final_cells_with_edge_touch\": []") >= 0,
+		"Nekuring full click Live2D manifest should pin the 14x7 / 98-frame HQ pingpong sheet and clean-edge QA"
+	)
+	_expect(
+		nekuring_companion_click_manifest.find("nekuring_companion_click_reaction_98f_v1") >= 0
+		and nekuring_companion_click_manifest.find("\"frame_count\": 98") >= 0
+		and nekuring_companion_click_manifest.find("\"cols\": 14") >= 0
+		and nekuring_companion_click_manifest.find("\"rows\": 7") >= 0
+		and nekuring_companion_click_manifest.find("\"cell_size\": [") >= 0
+		and nekuring_companion_click_manifest.find("128") >= 0
+		and nekuring_companion_click_manifest.find("\"final_cells_with_edge_touch\": []") >= 0,
+		"Nekuring companion click manifest should pin the downscaled 14x7 / 98-frame / 128px sheet and clean-edge QA"
+	)
+	_expect(
+		nekuring_companion_manifest.find("nekuring_companion_rear_idle_25f_v1") >= 0
+		and nekuring_companion_manifest.find("cmq748y50004ne7iexc9ebie9") >= 0
+		and nekuring_companion_manifest.find("cmq74axve004elccrs0m8gxdh") >= 0
+		and nekuring_companion_manifest.find("\"frame_count\": 25") >= 0
+		and nekuring_companion_manifest.find("\"cols\": 5") >= 0
+		and nekuring_companion_manifest.find("\"rows\": 5") >= 0
+		and nekuring_companion_manifest.find("256") >= 0
+		and nekuring_companion_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and nekuring_companion_manifest.find("\"edge_touch_frames\": []") >= 0
+		and nekuring_companion_manifest.find("\"visible_background_green_pixels\": 0") >= 0,
+		"Nekuring rear-view SD companion manifest should pin the 5x5 / 25-frame AutoSprite sheet and clean-edge QA"
+	)
+	_expect(
+		nekuring_companion_idle_manifest.find("nekuring_companion_idle_ringparts_25f_v1") >= 0
+		and nekuring_companion_idle_manifest.find("cmq77h3fv005uocu4groreo2c") >= 0
+		and nekuring_companion_idle_manifest.find("wf_4ca8ff92-657c-4a80-aa8a-465a969085a0") >= 0
+		and nekuring_companion_idle_manifest.find("cmq77ixc10068ocu4ahtned1b") >= 0
+		and nekuring_companion_idle_manifest.find("\"source_frame_index\": 12") >= 0
+		and nekuring_companion_idle_manifest.find("\"frame_count\": 25") >= 0
+		and nekuring_companion_idle_manifest.find("\"cols\": 5") >= 0
+		and nekuring_companion_idle_manifest.find("\"rows\": 5") >= 0
+		and nekuring_companion_idle_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and nekuring_companion_idle_manifest.find("\"edge_touch_frames\": []") >= 0
+		and nekuring_companion_idle_manifest.find("\"visible_green_pixels\": 0") >= 0,
+		"Nekuring idle manifest should pin the ringpart-matched idle source and clean-edge QA"
+	)
+	_expect(
+		nekuring_companion_move_manifest.find("nekuring_companion_rear_3q_move_pair_25f_v1") >= 0
+		and nekuring_companion_move_manifest.find("cmq75rk81000914hjk6cryb81") >= 0
+		and nekuring_companion_move_manifest.find("wf_fd50f148-cc91-46ab-8904-a07da3c56c10") >= 0
+		and nekuring_companion_move_manifest.find("\"accepted_kind\": \"iso_walk_northeast\"") >= 0
+		and nekuring_companion_move_manifest.find("\"companion_move_left\"") >= 0
+		and nekuring_companion_move_manifest.find("\"companion_move_right\"") >= 0
+		and nekuring_companion_move_manifest.find("\"frame_count\": 25") >= 0
+		and nekuring_companion_move_manifest.find("\"cols\": 5") >= 0
+		and nekuring_companion_move_manifest.find("\"rows\": 5") >= 0
+		and nekuring_companion_move_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and nekuring_companion_move_manifest.find("\"edge_touch_frames\": []") >= 0
+		and nekuring_companion_move_manifest.find("\"visible_green_pixels\": 0") >= 0,
+		"Nekuring rear-3/4 movement manifest should pin the accepted AutoSprite sheet, mirrored left sheet, and clean-edge QA"
+	)
 	_expect(modal_gate.is_lingpet_debug_picker_open(Callable(registry, "get_instance")), "modal gate should see the open lingpet picker")
 	_expect(modal_gate.should_block_battle_physics(Callable(registry, "get_instance")), "open lingpet picker should block battle physics")
 	_expect(owner.redraws == 1, "opening lingpet debug should request one redraw")
@@ -797,6 +976,45 @@ func _verify_click_grants_and_activates_lingpet() -> void:
 	_expect(owner.redraws >= 1, "F7 selection and apply should request redraws")
 
 
+func _verify_debug_picker_can_select_koyora_doll_curse() -> void:
+	var picker := LingpetDebugPicker.new()
+	var runtime := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"game_audio": FakeAudio.new(),
+		"lingpet_debug_picker": picker,
+		"lingpet_egg_runtime": runtime,
+	})
+	var view_size := owner.get_viewport_rect().size
+	picker.toggle(owner)
+	var koyora_index := _find_pet_index(picker, "koyora")
+	_expect(koyora_index >= 0, "F7 picker should list Koyora before selecting Doll Curse")
+	if koyora_index < 0:
+		return
+	var card_rect := picker.get_card_rect_for_tests(koyora_index, view_size)
+	var handled := bool(picker.handle_input(_mouse_click(card_rect.position + card_rect.size * 0.5), owner, registry, view_size))
+	_expect(handled, "clicking the Koyora card should be handled")
+	_expect(picker.get_selected_pet_id_for_tests() == "koyora", "Koyora card click should switch the F7 skill loadout panel to Koyora")
+	_expect(picker.get_active_skill_id_for_tests() == "koyora_puppet_control", "Koyora should still default to Puppet Control before selecting the second active")
+	var doll_curse_index := _find_active_skill_index(picker, "koyora_doll_curse")
+	_expect(doll_curse_index >= 0, "Koyora Doll Curse should be listed as a selectable F7 active skill row")
+	if doll_curse_index < 0:
+		return
+	var skill_rect := picker.get_active_skill_rect_for_tests(doll_curse_index, view_size)
+	handled = bool(picker.handle_input(_mouse_click(skill_rect.position + skill_rect.size * 0.5), owner, registry, view_size))
+	_expect(handled, "clicking Koyora Doll Curse active row should be handled")
+	_expect(picker.get_active_skill_id_for_tests() == "koyora_doll_curse", "clicked Koyora Doll Curse row should become the selected F7 loadout skill")
+	var apply_rect := picker.get_apply_button_rect_for_tests(view_size)
+	handled = bool(picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size))
+	_expect(handled, "applying Koyora Doll Curse through F7 should be handled")
+	_expect(not picker.is_open(), "applying Koyora Doll Curse should close the F7 picker")
+	_expect(owner.active_lingpet_id == "koyora", "F7 apply should activate Koyora after selecting Doll Curse")
+	_expect(owner.lingpet_active_skill_id == "koyora_doll_curse", "F7 apply should persist Koyora Doll Curse as the active skill")
+	var loadout: Dictionary = owner.lingpet_loadouts.get("koyora", {})
+	_expect(str(loadout.get("active_skill_id", "")) == "koyora_doll_curse", "stored Koyora F7 loadout should include Doll Curse")
+	_expect(str(loadout.get("passive_skill_id", "")) == "lingpet_resonance_boost", "stored Koyora F7 loadout should retain the default Resonance Boost passive")
+
+
 func _verify_acquire_cutin_overlays_stage_result_paths() -> void:
 	var runtime := FakeAcquireRuntime.new()
 	var acquire_host := FakeAcquireHost.new()
@@ -852,6 +1070,18 @@ func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
 	_expect(koyora_runtime.debug_grant_and_activate_pet("koyora", koyora_owner, false, "koyora_puppet_control", "lingpet_resonance_boost"), "debug grant should accept debug-only Koyora")
 	_expect(koyora_owner.active_lingpet_id == "koyora", "debug-only Koyora should activate when granted through the F7 debug path")
 	_expect(koyora_owner.lingpet_active_skill_id == "koyora_puppet_control", "debug-only Koyora should persist its 꼭두각시 조종 active skill")
+	var koyora_doll_runtime := LingpetEggRuntime.new()
+	var koyora_doll_owner := FakeOwner.new()
+	_expect(koyora_doll_runtime.debug_grant_and_activate_pet("koyora", koyora_doll_owner, false, "koyora_doll_curse", "lingpet_resonance_boost"), "debug grant should accept Koyora Doll Curse as an explicit active skill")
+	_expect(koyora_doll_owner.active_lingpet_id == "koyora", "debug-only Koyora should activate when granted with Doll Curse")
+	_expect(koyora_doll_owner.lingpet_active_skill_id == "koyora_doll_curse", "debug-only Koyora should persist Doll Curse as its explicit active skill")
+	var koyora_doll_loadout: Dictionary = koyora_doll_owner.lingpet_loadouts.get("koyora", {})
+	_expect(str(koyora_doll_loadout.get("active_skill_id", "")) == "koyora_doll_curse", "explicit Koyora Doll Curse debug grant should persist active skill in loadouts")
+	var nekuring_runtime := LingpetEggRuntime.new()
+	var nekuring_owner := FakeOwner.new()
+	_expect(nekuring_runtime.debug_grant_and_activate_pet("nekuring", nekuring_owner, false, "nekuring_ghost_summon", "lingpet_resonance_boost"), "debug grant should accept debug-only Nekuring")
+	_expect(nekuring_owner.active_lingpet_id == "nekuring", "debug-only Nekuring should activate when granted through the F7 debug path")
+	_expect(nekuring_owner.lingpet_active_skill_id == "nekuring_ghost_summon", "debug-only Nekuring should persist its 해골소환 active skill")
 
 
 func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:

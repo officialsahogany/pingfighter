@@ -1,0 +1,54 @@
+{
+  "asset_id": "nekuring_companion_idle_ringparts_25f_v1",
+  "pet_id": "nekuring",
+  "display_name": "Nekuring",
+  "output_sheet": "res://assets/sprites/lingpet/nekuring_companion_idle.png",
+  "generation": {
+    "tool": "AutoSprite MCP",
+    "source_sheet": "res://assets/sprites/lingpet/nekuring_companion_move_right.png",
+    "source_frame_index": 12,
+    "source_move_pair_manifest": "res://assets/sprites/lingpet/nekuring_companion_move_pair_manifest.json",
+    "source_move_spritesheet_id": "cmq75rk81000914hjk6cryb81",
+    "accepted_character_id": "cmq77h3fv005uocu4groreo2c",
+    "accepted_job_id": "wf_4ca8ff92-657c-4a80-aa8a-465a969085a0",
+    "accepted_video_id": "cmq77hb8j003jrs843be8zick",
+    "accepted_spritesheet_id": "cmq77ixc10068ocu4ahtned1b",
+    "accepted_kind": "iso_idle_up",
+    "rejected_too_small_character_id": "cmq77cgqk004focu4mdja3iqq",
+    "rejected_too_small_job_id": "wf_6ac4a6e0-8f2d-448f-83c2-00248242cc87",
+    "rejected_too_small_spritesheet_id": "cmq77dx9y00ad1ocgspr83rig",
+    "note": "Regenerated idle from the accepted movement sheet frame so the back gold ring frame and glowing purple soul core remain visible while standing still."
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "whole_sheet_size": [
+      1280,
+      1280
+    ],
+    "intended_visual_keys": [
+      "companion_idle",
+      "companion_walk",
+      "companion_strike",
+      "companion_cast"
+    ],
+    "frame_interval_owner": "res://scripts/lingpet/lingpet_companion_sprite_animator.gd"
+  },
+  "qa": {
+    "sha256": "17cd988998e5dee9981eb060b9932cb471d920b8bbc9b6a44a8b86df432c241e",
+    "bytes": 301867,
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "bbox_area_minmax_pct": [
+      44.914,
+      45.447
+    ],
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels": 0
+  }
+}

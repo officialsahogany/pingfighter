@@ -9,7 +9,7 @@ const DragonWingSkill := preload("res://scripts/lingpet/lingpet_dragon_wing_skil
 
 const FIELD := Vector2i(760, 750)
 const OUT_DIR := "d:/tmp"
-const TAG := "step4"
+const TAG := "step5"
 
 
 class FakeOwner:

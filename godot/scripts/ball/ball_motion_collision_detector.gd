@@ -85,11 +85,6 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 					return result
 
 	if ball_vel.y < 0.0:
-		# While Koyora's 꼭두각시 조종 drags the boss into the lower field, the boss
-		# is a helpless puppet — it must not intercept the rising ball even though
-		# its hitbox is now sitting near midfield. Skip the boss bounce entirely.
-		if bool(context.get("lingpet_puppet_grab_active", false)):
-			return {}
 		if float(context.get("boss_collision_cooldown", 0.0)) > 0.0:
 			return {}
 		var boss_pos: Vector2 = _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)

@@ -3,21 +3,30 @@ extends RefCounted
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayLingpetSnapshotBuilder := preload("res://scripts/hud/character_info_overlay_lingpet_snapshot_builder.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
+const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 const PANEL_LIVE2D_COLS_BY_PET_ID := {
 	"lunabi": 14,
+	"nekuring": 14,
+	"monkeyring": 14,
 }
 const PANEL_LIVE2D_ROWS_BY_PET_ID := {
 	"lunabi": 7,
+	"nekuring": 7,
+	"monkeyring": 7,
 }
 const PANEL_LIVE2D_FRAME_COUNT_BY_PET_ID := {
 	"lunabi": 98,
+	"nekuring": 98,
+	"monkeyring": 98,
 }
 const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 	"lunabi": 1.0 / 16.0,
+	"nekuring": 1.0 / 16.0,
+	"monkeyring": 1.0 / 16.0,
 }
 
 static func draw_panel(
@@ -358,8 +367,10 @@ static func _draw_centered_text(canvas: CanvasItem, font: Font, text: String, ce
 		return
 	var visible_text := LanguageSettings.translate_text(text)
 	var ui_size: int = max(1, int(round(float(size) * ui_text_scale)))
-	var text_size: Vector2 = font.get_string_size(visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, ui_size)
-	canvas.draw_string(font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, ui_size, color)
+	# get_string_size + draw_string과 픽셀 동일한 셰이핑 캐시 경로
+	# (Font 내부 64-LRU 순환 축출 회피, 측정/드로우가 같은 엔트리 공유).
+	var text_size: Vector2 = CharacterInfoOverlayTextLineCache.get_string_size_cached(font, visible_text, ui_size)
+	CharacterInfoOverlayTextLineCache.draw_string_cached(canvas, font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, ui_size, color)
 
 
 static func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline_x: float, baseline_y: float, size: int, color: Color, ui_text_scale: float) -> void:
@@ -367,7 +378,8 @@ static func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline
 		return
 	if font == null:
 		return
-	canvas.draw_string(font, Vector2(baseline_x, baseline_y), LanguageSettings.translate_text(text), HORIZONTAL_ALIGNMENT_LEFT, -1.0, max(1, int(round(float(size) * ui_text_scale))), color)
+	# draw_string과 픽셀 동일한 셰이핑 캐시 경로 (Font 내부 64-LRU 순환 축출 회피).
+	CharacterInfoOverlayTextLineCache.draw_string_cached(canvas, font, Vector2(baseline_x, baseline_y), LanguageSettings.translate_text(text), max(1, int(round(float(size) * ui_text_scale))), color)
 
 
 static func get_display_name(lingpet_id: String) -> String:

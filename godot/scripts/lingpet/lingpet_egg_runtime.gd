@@ -1369,13 +1369,14 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	var skill_id := _get_current_skill_id()
+	var current_active_skill := _get_current_active_skill()
 	var origin: Vector2 = _skill_runtime_host.get_launch_origin(skill_id, _companion_pos, COMPANION_RADIUS)
 	var launched: bool = _companion_skill_controller.complete_launch(
 		_companion_skill_state,
 		_skill_runtime_host,
 		skill_id,
 		origin,
-		float(_get_current_active_skill().get("cooldown", COMPANION_SKILL_COOLDOWN_SECONDS)),
+		float(current_active_skill.get("cooldown", COMPANION_SKILL_COOLDOWN_SECONDS)),
 		COMPANION_SKILL_FLASH_SECONDS,
 		registry,
 		owner,
@@ -1383,7 +1384,10 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 			"companion_pos": _companion_pos,
 			"companion_radius": COMPANION_RADIUS,
 			"registry": registry,
-			"stun_duration_seconds": float(_get_current_active_skill().get("stun_duration_seconds", 0.0)),
+			"active_skill_id": str(current_active_skill.get("id", skill_id)),
+			"active_skill_level": int(current_active_skill.get("level", _current_profile.active_skill_level)),
+			"beam_homing_chance_pct": float(current_active_skill.get("beam_homing_chance_pct", -1.0)),
+			"stun_duration_seconds": float(current_active_skill.get("stun_duration_seconds", 0.0)),
 		}
 	)
 	if launched and _skill_runtime_host.has_companion_position_override(skill_id):

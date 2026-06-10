@@ -54,14 +54,20 @@ const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
 const CUTIN_DISMISS_COLS_OVERRIDES := {
 	"koyora": 14,
+	"nekuring": 14,
+	"monkeyring": 14,
 	"rabi": 14,
 }
 const CUTIN_DISMISS_ROWS_OVERRIDES := {
 	"koyora": 7,
+	"nekuring": 7,
+	"monkeyring": 7,
 	"rabi": 7,
 }
 const CUTIN_DISMISS_FRAMES_OVERRIDES := {
 	"koyora": 98,
+	"nekuring": 98,
+	"monkeyring": 98,
 	"rabi": 98,
 }
 # Frames play over the first DISMISS_ACTION_PORTION of the dismiss window, then the

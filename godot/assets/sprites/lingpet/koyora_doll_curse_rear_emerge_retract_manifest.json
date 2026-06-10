@@ -1,0 +1,37 @@
+{
+  "asset": "koyora_doll_curse_rear_emerge_retract.png",
+  "purpose": "Koyora Doll Curse rear-view guardian doll body sheet for sky descent, hold, and sky retract",
+  "source_policy": "AutoSprite-derived runtime sheet; front-facing candidate wf_3118193b-e823-49bf-9d50-f893d191f548 is rejected for this skill. Marionette strings and control bars are drawn by runtime overlay, not baked into this sheet.",
+  "autosprite": {
+    "preview_asset_id": "cmq702b4j0085ztzqan6py2y0",
+    "job_id": "wf_962d7f18-7f1d-440c-907c-e5fbd3f28df3",
+    "spritesheet_id": "cmq703k0j002k1kos71i32zqg",
+    "frame_size": 128,
+    "frame_count": 16,
+    "cols": 4,
+    "rows": 4,
+    "remove_bg": "ultra",
+    "prompt": "rear-view guardian doll rises from dark ground slit, holds, then sinks down; always facing away upward, no face, no strings, no beam, cute SD"
+  },
+  "runtime_contract": {
+    "view": "rear",
+    "faces": "boss/upfield",
+    "entry_motion": "descend_from_sky",
+    "exit_motion": "ascend_to_sky",
+    "sky_marionette_frame_band": "frames 0-2 only; runtime position handles descend/ascend so the mid-sunk cells are not used for ACTIVE",
+    "drawn_strings": false,
+    "runtime_strings": true,
+    "runtime_control_bar": true,
+    "drawn_beam": false,
+    "drawn_face": false,
+    "left_right_usage": "Render the same single-doll sheet twice for the two guardian dolls.",
+    "fallback": "lingpet_doll_curse_skill.gd keeps the previous procedural doll fallback if this texture fails to load.",
+    "runtime_note": "The accepted sheet supplies only the rear-view doll body. lingpet_doll_curse_skill.gd draws thin marionette strings and a small wood control bar above each live doll."
+  },
+  "postprocess": {
+    "removed_preview_background": true,
+    "removed_seed_string": true,
+    "removed_small_alpha_noise": true,
+    "preserved_runtime_grid": "4x4, 128px cells"
+  }
+}

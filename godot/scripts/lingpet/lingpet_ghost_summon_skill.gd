@@ -22,6 +22,11 @@ const PARTICLE_MAX := 96
 const RELEASE_MIN_SPEED := 6.0
 const RELEASE_MIN_VERTICAL_SPEED := 4.0
 const GHOST_Y_POSITIONS := [325.0, 425.0]
+const RELEASE_SPEED_MULTIPLIER_BY_LEVEL := [1.0, 1.25, 1.55, 1.9, 2.25]
+const TELEPORT_FAR_FROM_BOSS_CHANCE_BY_LEVEL := [0.15, 0.35, 0.55, 0.75, 1.0]
+const TELEPORT_FAR_FROM_BOSS_MIN_DISTANCE_BY_LEVEL := [150.0, 180.0, 210.0, 240.0, 260.0]
+const TELEPORT_MIN_DISTANCE_FROM_CURRENT := 100.0
+const TELEPORT_EDGE_MARGIN := 60.0
 
 const TELEPORT_PHASE_DISAPPEAR := "disappear"
 const TELEPORT_PHASE_APPEAR := "appear"
@@ -61,6 +66,7 @@ var _last_release_pos := Vector2.ZERO
 var _last_release_vel := Vector2.ZERO
 var _last_audio_registry: Object = null
 var _launch_flash_timer := 0.0
+var _active_skill_level := 1
 
 
 func reset() -> void:
@@ -68,6 +74,7 @@ func reset() -> void:
 	_elapsed = 0.0
 	_launch_origin = Vector2.ZERO
 	_release_dir = -1.0
+	_active_skill_level = 1
 	_ghosts.clear()
 	_dying_ghosts.clear()
 	_particles.clear()
@@ -100,6 +107,7 @@ func launch(origin: Vector2, _owner: Object = null, launch_context: Dictionary =
 	reset()
 	_active = true
 	_elapsed = 0.0
+	_active_skill_level = _get_active_skill_level(launch_context)
 	_launch_origin = Vector2(clampf(origin.x, GAME_LEFT + 20.0, GAME_RIGHT - 20.0), clampf(origin.y, 0.0, FIELD_HEIGHT))
 	_release_dir = 1.0 if bool(launch_context.get("caster_is_top", false)) else -1.0
 	for idx in range(GHOST_Y_POSITIONS.size()):
@@ -175,6 +183,10 @@ func get_snapshot() -> Dictionary:
 		"ghost_summon_release_count": _release_count,
 		"ghost_summon_last_release_pos": _last_release_pos,
 		"ghost_summon_last_release_vel": _last_release_vel,
+		"ghost_summon_active_skill_level": _active_skill_level,
+		"ghost_summon_release_speed_multiplier": _get_release_speed_multiplier(),
+		"ghost_summon_far_teleport_chance": _get_far_teleport_chance(),
+		"ghost_summon_far_teleport_min_distance": _get_far_teleport_min_distance(),
 		"ghost_summon_particle_count": _particles.size() + _teleport_particles.size(),
 		"ghost_summon_dying_count": _dying_ghosts.size(),
 	}
@@ -215,7 +227,7 @@ func _update_ghosts(delta: float, owner: Object, registry: Object) -> void:
 		if bool(ghost.get("teleporting", false)):
 			_update_teleporting_ghost(ghost, delta, owner)
 		elif bool(ghost.get("eating", false)):
-			_update_eating_ghost(ghost, delta, registry)
+			_update_eating_ghost(ghost, delta, owner, registry)
 		else:
 			_update_roaming_ghost(ghost, delta, owner, registry)
 
@@ -260,7 +272,7 @@ func _update_roaming_ghost(ghost: Dictionary, delta: float, owner: Object, regis
 	_try_catch_ball(ghost, owner, registry)
 
 
-func _update_eating_ghost(ghost: Dictionary, delta: float, registry: Object) -> void:
+func _update_eating_ghost(ghost: Dictionary, delta: float, owner: Object, registry: Object) -> void:
 	var pos: Vector2 = _get_dict_vector2(ghost, "pos", _hidden_ball_pos)
 	var eat_timer: float = float(ghost.get("eat_timer", 0.0)) + delta
 	var grow_acc: float = float(ghost.get("eat_grow_acc", 0.0)) + delta
@@ -282,7 +294,7 @@ func _update_eating_ghost(ghost: Dictionary, delta: float, registry: Object) -> 
 	if randf() < 0.4:
 		_add_particle(pos + Vector2(randf_range(-20.0, 20.0), randf_range(-15.0, 15.0)), Vector2(randf_range(-8.0, 8.0), randf_range(-92.0, -35.0)), randf_range(0.3, 0.8), randf_range(2.0, 5.0), Color(0.62, 1.0, 0.9, randf_range(0.48, 0.78)))
 	if eat_timer >= EAT_DURATION:
-		_begin_ghost_teleport(ghost)
+		_begin_ghost_teleport(ghost, owner)
 
 
 func _update_teleporting_ghost(ghost: Dictionary, delta: float, owner: Object) -> void:
@@ -349,24 +361,17 @@ func _try_catch_ball(ghost: Dictionary, owner: Object, registry: Object) -> void
 	ghost["swallow_sound_played"] = false
 	_hold_owner_ball(owner, _hidden_ball_pos)
 	if consecutive:
-		_begin_ghost_teleport(ghost)
+		_begin_ghost_teleport(ghost, owner)
 	_play_audio(registry, "play_stage3_kuromi_tongue")
 
 
-func _begin_ghost_teleport(ghost: Dictionary) -> void:
+func _begin_ghost_teleport(ghost: Dictionary, owner: Object) -> void:
 	var pos: Vector2 = _get_dict_vector2(ghost, "pos", _hidden_ball_pos)
 	ghost["teleporting"] = true
 	ghost["teleport_phase"] = TELEPORT_PHASE_DISAPPEAR
 	ghost["teleport_timer"] = 0.0
 	ghost["pre_teleport_pos"] = pos
-	var min_x := GAME_LEFT + 60.0
-	var max_x := GAME_RIGHT - 60.0
-	var new_x := randf_range(min_x, max_x)
-	var attempts := 0
-	while absf(new_x - pos.x) < 100.0 and attempts < 20:
-		new_x = randf_range(min_x, max_x)
-		attempts += 1
-	ghost["teleport_target_x"] = new_x
+	ghost["teleport_target_x"] = _pick_teleport_target_x(pos.x, owner)
 
 
 func _release_ball_from_ghost(ghost: Dictionary, owner: Object) -> void:
@@ -375,9 +380,92 @@ func _release_ball_from_ghost(ghost: Dictionary, owner: Object) -> void:
 
 
 func _get_saved_release_velocity() -> Vector2:
+	var release_vel := Vector2(0.0, maxf(RELEASE_MIN_SPEED, RELEASE_MIN_VERTICAL_SPEED) * _release_dir)
 	if _saved_ball_vel.length_squared() > 0.0001:
-		return _saved_ball_vel
-	return Vector2(0.0, maxf(RELEASE_MIN_SPEED, RELEASE_MIN_VERTICAL_SPEED) * _release_dir)
+		release_vel = _saved_ball_vel
+		release_vel.y = maxf(absf(release_vel.y), RELEASE_MIN_VERTICAL_SPEED) * _release_dir
+		if release_vel.length() < RELEASE_MIN_SPEED:
+			release_vel.y = maxf(absf(release_vel.y), RELEASE_MIN_SPEED) * _release_dir
+	return release_vel * _get_release_speed_multiplier()
+
+
+func _pick_teleport_target_x(current_x: float, owner: Object) -> float:
+	var min_x := GAME_LEFT + TELEPORT_EDGE_MARGIN
+	var max_x := GAME_RIGHT - TELEPORT_EDGE_MARGIN
+	var use_far_from_boss := randf() < _get_far_teleport_chance()
+	var ranges: Array[Vector2] = []
+	if use_far_from_boss:
+		ranges = _get_far_teleport_ranges(owner, min_x, max_x)
+	if ranges.is_empty():
+		ranges.append(Vector2(min_x, max_x))
+	for _attempt in range(32):
+		var new_x := _sample_x_from_ranges(ranges)
+		if absf(new_x - current_x) >= TELEPORT_MIN_DISTANCE_FROM_CURRENT:
+			return new_x
+	return _pick_farthest_range_edge(ranges, current_x)
+
+
+func _get_far_teleport_ranges(owner: Object, min_x: float, max_x: float) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	var boss_center_x := _get_boss_center_x(owner)
+	var min_distance := _get_far_teleport_min_distance()
+	var left_max := minf(max_x, boss_center_x - min_distance)
+	if left_max >= min_x:
+		result.append(Vector2(min_x, left_max))
+	var right_min := maxf(min_x, boss_center_x + min_distance)
+	if right_min <= max_x:
+		result.append(Vector2(right_min, max_x))
+	return result
+
+
+func _sample_x_from_ranges(ranges: Array[Vector2]) -> float:
+	if ranges.is_empty():
+		return randf_range(GAME_LEFT + TELEPORT_EDGE_MARGIN, GAME_RIGHT - TELEPORT_EDGE_MARGIN)
+	var range_value: Vector2 = ranges[randi() % ranges.size()]
+	return randf_range(range_value.x, range_value.y)
+
+
+func _pick_farthest_range_edge(ranges: Array[Vector2], current_x: float) -> float:
+	if ranges.is_empty():
+		return clampf(current_x, GAME_LEFT + TELEPORT_EDGE_MARGIN, GAME_RIGHT - TELEPORT_EDGE_MARGIN)
+	var best_x := ranges[0].x
+	var best_distance := -1.0
+	for range_value in ranges:
+		for candidate_x in [range_value.x, range_value.y]:
+			var distance := absf(float(candidate_x) - current_x)
+			if distance > best_distance:
+				best_distance = distance
+				best_x = float(candidate_x)
+	return best_x
+
+
+func _get_boss_center_x(owner: Object) -> float:
+	var boss_pos: Vector2 = _get_owner_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
+	var boss_width := _get_owner_float(owner, "boss_paddle_width", 100.0)
+	return boss_pos.x + boss_width * 0.5
+
+
+func _get_release_speed_multiplier() -> float:
+	return _get_level_array_value(RELEASE_SPEED_MULTIPLIER_BY_LEVEL, 1.0)
+
+
+func _get_far_teleport_chance() -> float:
+	return clampf(_get_level_array_value(TELEPORT_FAR_FROM_BOSS_CHANCE_BY_LEVEL, 0.15), 0.0, 1.0)
+
+
+func _get_far_teleport_min_distance() -> float:
+	return _get_level_array_value(TELEPORT_FAR_FROM_BOSS_MIN_DISTANCE_BY_LEVEL, 150.0)
+
+
+func _get_level_array_value(values: Array, fallback: float) -> float:
+	if values.is_empty():
+		return fallback
+	var index := clampi(_active_skill_level, 1, values.size()) - 1
+	return float(values[index])
+
+
+func _get_active_skill_level(launch_context: Dictionary) -> int:
+	return clampi(int(launch_context.get("active_skill_level", launch_context.get("skill_level", 1))), 1, 5)
 
 
 func _release_owner_ball(owner: Object, release_pos: Vector2, release_vel: Vector2) -> void:
@@ -758,6 +846,15 @@ func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _get_owner_float(owner: Object, key: String, fallback: float) -> float:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(key)
+	if value == null:
+		return fallback
+	return float(value)
 
 
 func _get_dict_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

@@ -1,0 +1,164 @@
+{
+  "asset_id": "nekuring_click_live2d_pingpong_98f_v1",
+  "pet_id": "nekuring",
+  "display_name": "???",
+  "created_at": "2026-06-10",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "asset_id": "cmq6waz3t006313pywqmkat43",
+    "asset_name": "Nekuring Acquire Cutin Source 20260610",
+    "spritesheet_id": "cmq715w9w0023awhsrzagsmv8",
+    "spritesheet_job_id": "wf_d6e6ec95-d1a4-46a5-83ad-e8c8d63372e6",
+    "video_local_path": ".tmp/nekuring_click_live2d_98f/nekuring_click_live2d_video.mp4",
+    "raw_sheet_local_path": ".tmp/nekuring_click_live2d_98f/nekuring_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/nekuring_click_live2d_98f/nekuring_click_live2d_raw_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click reaction: Nekuring blinks, happy hop, waves skull staff, skull halo bounces, chest core pulses, purple wisps pop, staff orb flashes, cloak sways, then settles. Front full body, no spin/crop.",
+    "video_tier": "pro",
+    "duration_sec": 4,
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "credits_used": 10
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1152,
+      1152
+    ],
+    "sheet_size": [
+      16128,
+      8064
+    ],
+    "frame_interval": "intended one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.84,
+    "content_size_px": 430,
+    "cell_offset_px": 41,
+    "sha256": "e31bdffd7bec1901c19f7229b2800e07a01b12e83b13c3a77e7b5c641881f2eb",
+    "bytes": 63148113
+  },
+  "postprocess": {
+    "tool": "Pillow safe-margin resize + alpha-threshold cleanup + deterministic pingpong reassembly",
+    "operation": "AutoSprite 49f source cells were alpha-cleaned, scaled to 84 percent inside each 512px cell for safe margins, then packed as forward frames 0..48 plus reverse frames 48..0 into a 14x7 / 98-frame runtime sheet.",
+    "alpha_cleanup": {
+      "threshold": 15,
+      "operation": "Pixels with alpha <= 15 were set fully transparent before safe-margin packing."
+    },
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 4,
+      "rgb_source": ".tmp/nekuring_l2d_realesrgan_hq/click/rgb_alpha_bleed_512",
+      "rgb_upscaled": ".tmp/nekuring_l2d_realesrgan_hq/click/rgb_realesrgan_realesr-animevideov3_x",
+      "alpha_source": ".tmp/nekuring_l2d_realesrgan_hq/click/alpha_source_512",
+      "alpha_preserved": true,
+      "target_cell_size": [
+        1152,
+        1152
+      ],
+      "note": "RGB was alpha-bled/inpainted before Real-ESRGAN; original alpha was resized separately and recombined after upscale."
+    }
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "final_grid_cols": 14,
+    "final_grid_rows": 7,
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "pingpong_loop_closure": "frame0 returns at frame97 and frame48 is held at frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [
+        148,
+        145,
+        881,
+        982
+      ],
+      "8": [
+        163,
+        163,
+        905,
+        982
+      ],
+      "16": [
+        161,
+        91,
+        938,
+        903
+      ],
+      "24": [
+        247,
+        141,
+        903,
+        982
+      ],
+      "32": [
+        300,
+        163,
+        907,
+        982
+      ],
+      "40": [
+        292,
+        160,
+        920,
+        982
+      ],
+      "48": [
+        272,
+        151,
+        965,
+        982
+      ],
+      "49": [
+        272,
+        151,
+        965,
+        982
+      ],
+      "64": [
+        261,
+        161,
+        963,
+        982
+      ],
+      "80": [
+        184,
+        91,
+        915,
+        913
+      ],
+      "96": [
+        148,
+        145,
+        881,
+        982
+      ],
+      "97": [
+        148,
+        145,
+        881,
+        982
+      ]
+    },
+    "status": "Accepted runtime candidate: Nekuring click Live2D with happy hop, skull staff wave, halo bounce, chest-core pulse, purple wisps, orb flash, cloak sway, and settle.",
+    "final_cell_size": [
+      1152,
+      1152
+    ]
+  }
+}

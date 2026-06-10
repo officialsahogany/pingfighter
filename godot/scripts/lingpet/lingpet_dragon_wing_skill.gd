@@ -86,6 +86,7 @@ var _wind_particles: Array[Dictionary] = []
 var _flying_dragon: Dictionary = {}
 var _hit_flash_timer := 0.0
 var _last_hit_pos := Vector2.ZERO
+var _last_hit_dir := Vector2.ZERO
 var _ball_hit_count := 0
 var _wind_tick_count := 0
 var _swirl_tick_count := 0
@@ -108,6 +109,7 @@ func reset() -> void:
 	_flying_dragon.clear()
 	_hit_flash_timer = 0.0
 	_last_hit_pos = Vector2.ZERO
+	_last_hit_dir = Vector2.ZERO
 	_swirl_tick_count = 0
 	_swirl_center = Vector2.ZERO
 	_swirl_spin_sign = 1.0
@@ -493,6 +495,12 @@ func _try_hit_ball_with_flying_dragon(owner: Object, dragon: Dictionary) -> void
 	dragon["hit_cooldown"] = HIT_COOLDOWN_SECONDS
 	_hit_flash_timer = HIT_FLASH_SECONDS
 	_last_hit_pos = ball_pos
+	# Cache the post-bounce direction so the hit flash can elongate along the
+	# kick path instead of reading as a tiny isotropic puff behind the dragon.
+	if ball_vel.length_squared() > 0.001:
+		_last_hit_dir = ball_vel.normalized()
+	else:
+		_last_hit_dir = Vector2.ZERO
 	_ball_hit_count += 1
 	_play_ball_hit_feedback()
 
@@ -511,24 +519,23 @@ func _draw_wind_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
 		var length := float(particle.get("length", 36.0)) * 1.8
 		var phase := float(particle.get("phase", 0.0))
 		var width := maxf(1.0, float(particle.get("width", 2.0)))
-		# Soft flowing air-current streak: a gently bowed polyline that fades in at the
-		# tail, peaks in the middle, and fades out at the head — like a passing gust of
-		# wind. Deliberately pale and low-alpha (은은한 바람), no embers / sparks, so it
-		# reads as gentle moving air rather than fire.
 		var seg := 7
 		var points := PackedVector2Array()
 		var core_colors := PackedColorArray()
 		var halo_colors := PackedColorArray()
-		var core_a := 0.17 * ratio
-		var halo_a := 0.085 * ratio
+		# Warm gold/orange tint so the wind streaks join the fire-dragon palette
+		# instead of reading as cold pale scratches against the warm vortex. Alpha
+		# stays low (은은한 바람) — color, not intensity, does the unification.
+		var core_a := 0.22 * ratio
+		var halo_a := 0.12 * ratio
 		for i in range(seg + 1):
 			var t := float(i) / float(seg)
 			var along := lerpf(-length, 0.0, t)
 			var bow := sin(t * PI * 1.15 + phase) * 6.0 * sin(t * PI)
 			points.append(pos + dir * along + perp * bow)
 			var gust := sin(t * PI)
-			core_colors.append(Color(1.0, 0.95, 0.86, core_a * gust))
-			halo_colors.append(Color(0.95, 0.93, 0.90, halo_a * gust))
+			core_colors.append(Color(1.0, 0.84, 0.38, core_a * gust))
+			halo_colors.append(Color(1.0, 0.54, 0.18, halo_a * gust))
 		canvas.draw_polyline_colors(points, halo_colors, maxf(2.5, width * 3.0), true)
 		canvas.draw_polyline_colors(points, core_colors, maxf(1.0, width), true)
 
@@ -602,10 +609,20 @@ func _draw_flying_dragon(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	var pos: Vector2 = _flying_dragon.get("pos", Vector2.ZERO) + shake_offset
 	var dir := float(_flying_dragon.get("direction", _wind_direction))
 	var wing_time := float(_flying_dragon.get("wing_time", 0.0))
-	# Fiery aura behind the dragon (additive material is active in draw()).
+	# Fiery aura behind the dragon (additive material is active in draw()). Use
+	# the soft-falloff glow texture instead of raw draw_circle calls — solid
+	# discs at low alpha read as a flat brown shadow under additive blending,
+	# while the texture's gradient gives a proper hot-core → flame-fringe halo.
 	var glow_pulse := 0.5 + 0.5 * sin(wing_time * 9.0)
-	canvas.draw_circle(pos, 52.0 + glow_pulse * 8.0, Color(1.0, 0.40, 0.10, 0.12))
-	canvas.draw_circle(pos, 34.0, Color(1.0, 0.62, 0.18, 0.14))
+	var halo_tex := ImpactFlareTextureCache.get_glow_texture()
+	if halo_tex != null:
+		var halo_size := 132.0 + glow_pulse * 24.0
+		_draw_centered_tex(canvas, halo_tex, pos, halo_size, Color(1.0, 0.32, 0.08, 0.26))
+		_draw_centered_tex(canvas, halo_tex, pos, halo_size * 0.58, Color(1.0, 0.58, 0.18, 0.30))
+		_draw_centered_tex(canvas, halo_tex, pos, halo_size * 0.32, Color(1.0, 0.86, 0.42, 0.26))
+	else:
+		canvas.draw_circle(pos, 52.0 + glow_pulse * 8.0, Color(1.0, 0.40, 0.10, 0.12))
+		canvas.draw_circle(pos, 34.0, Color(1.0, 0.62, 0.18, 0.14))
 	# The real flapping dragon sprite reads the swoop; fall back to the old
 	# procedural blob only if the sheet failed to load.
 	if _dragon_sheet_texture != null:
@@ -613,8 +630,8 @@ func _draw_flying_dragon(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	else:
 		_draw_flying_dragon_procedural(canvas, pos, dir, wing_time)
 	# Fiery wing-trail accents trailing behind the travel direction (additive).
-	canvas.draw_line(pos - Vector2(dir * 22.0, -4.0), pos - Vector2(dir * 64.0, 20.0), Color(1.0, 0.82, 0.30, 0.40), 3.0, true)
-	canvas.draw_line(pos - Vector2(dir * 30.0, 8.0), pos - Vector2(dir * 76.0, 30.0), Color(1.0, 0.42, 0.12, 0.28), 2.0, true)
+	canvas.draw_line(pos - Vector2(dir * 22.0, -4.0), pos - Vector2(dir * 78.0, 22.0), Color(1.0, 0.86, 0.36, 0.62), 4.0, true)
+	canvas.draw_line(pos - Vector2(dir * 30.0, 8.0), pos - Vector2(dir * 92.0, 34.0), Color(1.0, 0.46, 0.14, 0.46), 3.0, true)
 
 
 func _draw_dragon_sprite(canvas: CanvasItem, pos: Vector2, dir: float, wing_time: float) -> void:
@@ -695,14 +712,24 @@ func _draw_hit_flash(canvas: CanvasItem, center: Vector2, ratio: float) -> void:
 	var clamped := clampf(ratio, 0.0, 1.0)
 	if clamped <= 0.01:
 		return
-	# Textured fire-burst impact (modular pieces) gives the dragon strike real
-	# 타격감 instead of two thin procedural rings.
+	# Bigger, more pyrotechnic impact so a 160px dragon strike actually reads as
+	# a punch. Adds a directional comet tail along the post-bounce velocity so
+	# the moment of contact telegraphs "I kicked the ball THIS way" instead of
+	# popping a tiny radial puff behind the sprite.
 	var expand := 1.0 - clamped
-	var radius := lerpf(26.0, 78.0, expand)
-	ImpactFlareTextureCache.draw_glow(canvas, center, radius * 0.92, Color(1.0, 0.58, 0.20), 0.50 * clamped)
-	ImpactFlareTextureCache.draw_burst(canvas, center, radius, Color(1.0, 0.82, 0.40), 0.88 * clamped)
-	ImpactFlareTextureCache.draw_sparkle(canvas, center, radius * 0.52, Color(1.0, 0.97, 0.72), 0.72 * clamped)
-	canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(1.0, 0.90, 0.52, 0.55 * clamped), maxf(1.5, 3.0 * clamped), true)
+	var radius := lerpf(46.0, 138.0, expand)
+	ImpactFlareTextureCache.draw_glow(canvas, center, radius * 1.05, Color(1.0, 0.42, 0.12), 0.55 * clamped)
+	ImpactFlareTextureCache.draw_burst(canvas, center, radius, Color(1.0, 0.82, 0.40), 0.95 * clamped)
+	ImpactFlareTextureCache.draw_sparkle(canvas, center, radius * 0.58, Color(1.0, 0.97, 0.72), 0.80 * clamped)
+	canvas.draw_arc(center, radius * 0.88, 0.0, TAU, 56, Color(1.0, 0.90, 0.52, 0.55 * clamped), maxf(1.5, 3.0 * clamped), true)
+	if _last_hit_dir.length_squared() > 0.001:
+		var tail_dir := _last_hit_dir
+		for i in range(3):
+			var step := float(i + 1)
+			var offset := tail_dir * (radius * 0.42 * step)
+			var tail_size := radius * lerpf(0.78, 0.30, step / 3.0)
+			var tail_alpha := clamped * lerpf(0.55, 0.20, step / 3.0)
+			ImpactFlareTextureCache.draw_glow(canvas, center + offset, tail_size, Color(1.0, 0.62, 0.20), tail_alpha)
 
 
 func _play_ball_hit_feedback() -> void:

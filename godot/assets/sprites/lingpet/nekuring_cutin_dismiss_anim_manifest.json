@@ -1,0 +1,121 @@
+{
+  "asset_id": "nekuring_acquisition_cutin_dismiss_anim_v1",
+  "pet_id": "nekuring",
+  "display_name": "네쿠링",
+  "generated_at": "2026-06-10",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin_dismiss",
+  "output_sheet": "res://assets/sprites/lingpet/nekuring_cutin_dismiss_anim.png",
+  "source_autosprite": {
+    "asset_id": "cmq6waz3t006313pywqmkat43",
+    "asset_name": "Nekuring Acquire Cutin Source 20260610",
+    "spritesheet_id": "cmq6wdbun000429mlbmzawgab",
+    "spritesheet_job_id": "wf_01bc59c0-963c-496c-a254-66e5add6225a",
+    "raw_sheet_local_path": ".tmp/nekuring_acquire_l2d/nekuring_dismiss_autosprite_raw_25f.png",
+    "raw_atlas_local_path": ".tmp/nekuring_acquire_l2d/nekuring_dismiss_autosprite_raw_25f_atlas.json",
+    "raw_grid": {
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click dismiss action: Nekuring does a tiny happy hop, waves, skull halo bounces, staff orb flashes, cloak settles, eyes blink. Front-facing, no spin, no crop.",
+    "video_tier": "turbo",
+    "remove_bg": "ultra",
+    "with_sound": false,
+    "credits_used": 5
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/nekuring_cutin_dismiss_anim.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      2560,
+      2560
+    ],
+    "sha256": "cf4132d9af47d9d1a83c5fca701c83618406d47dc76aa234a1b194a65cff9d5e",
+    "bytes": 1930252
+  },
+  "postprocess": {
+    "tool": "AutoSprite asset animation + direct runtime promotion",
+    "operation": "Downloaded the transparent 5x5/25f AutoSprite sheet and promoted it as the acquisition click-dismiss action."
+  },
+  "qa": {
+    "size": [
+      2560,
+      2560
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "sha256": "cf4132d9af47d9d1a83c5fca701c83618406d47dc76aa234a1b194a65cff9d5e",
+    "bytes": 1930252,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels_estimate": 0,
+    "cell_fill_w_pct_range": [
+      65.82,
+      76.367
+    ],
+    "cell_fill_h_pct_range": [
+      84.766,
+      89.062
+    ],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          28,
+          26,
+          419,
+          473
+        ]
+      },
+      {
+        "frame": 1,
+        "bbox": [
+          28,
+          26,
+          419,
+          473
+        ]
+      },
+      {
+        "frame": 2,
+        "bbox": [
+          28,
+          31,
+          416,
+          473
+        ]
+      },
+      {
+        "frame": 3,
+        "bbox": [
+          31,
+          40,
+          414,
+          474
+        ]
+      },
+      {
+        "frame": 4,
+        "bbox": [
+          57,
+          35,
+          426,
+          470
+        ]
+      }
+    ]
+  }
+}

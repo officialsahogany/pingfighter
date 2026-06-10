@@ -13,9 +13,21 @@ func build_config(params: Dictionary) -> Dictionary:
 	var switch_transition_seconds := maxf(0.0, float(params.get("switch_transition_seconds", 0.0)))
 	var windup_seconds := maxf(0.0, float(params.get("windup_seconds", 0.0)))
 	var windup_active := skill_state != null and bool(skill_state.windup_active)
-	var casting_windup := windup_active and skill_runtime_host != null and bool(skill_runtime_host.should_show_cast_windup(skill_id))
+	var skill_cast_pose_progress := _get_skill_cast_pose_progress(skill_runtime_host, skill_id)
+	var skill_cast_pose_active := skill_cast_pose_progress >= 0.0
+	var casting_windup := skill_cast_pose_active or (windup_active and skill_runtime_host != null and bool(skill_runtime_host.should_show_cast_windup(skill_id)))
 	var animator: Object = params.get("animator", null) as Object
 	var attacking := animator != null and bool(animator.strike_active)
+	var cast_texture: Texture2D = null
+	if skill_cast_pose_active:
+		cast_texture = _get_visual_texture(current_profile, "companion_puppet_control")
+	if cast_texture == null:
+		cast_texture = _get_visual_texture(current_profile, "companion_cast")
+	var cast_draw_size := _get_visual_layout_value(current_profile, "companion_cast_draw_size")
+	if skill_cast_pose_active:
+		var puppet_control_draw_size := _get_visual_layout_value(current_profile, "companion_puppet_control_draw_size")
+		if puppet_control_draw_size > 0.0:
+			cast_draw_size = puppet_control_draw_size
 	return {
 		"radius": float(params.get("radius", 16.0)),
 		"burst_particles": int(params.get("burst_particles", 8)),
@@ -34,9 +46,10 @@ func build_config(params: Dictionary) -> Dictionary:
 		# Older pets still fall back to the AutoSprite-canonical "generate NE,
 		# flip for NW" model by using companion_walk + face_left.
 		"face_left": bool(params.get("face_left", false)),
-		"windup_elapsed": _get_float(skill_state.windup_elapsed if skill_state != null else 0.0),
-		"windup_seconds": windup_seconds,
+		"windup_elapsed": skill_cast_pose_progress if skill_cast_pose_active else _get_float(skill_state.windup_elapsed if skill_state != null else 0.0),
+		"windup_seconds": 1.0 if skill_cast_pose_active else windup_seconds,
 		"casting_windup": casting_windup,
+		"skill_cast_pose_active": skill_cast_pose_active,
 		"attacking": attacking,
 		"companion_visible": bool(params.get("companion_visible", true)),
 		"idle_texture": _get_visual_texture(current_profile, "companion_idle"),
@@ -44,10 +57,10 @@ func build_config(params: Dictionary) -> Dictionary:
 		"move_right_texture": _get_visual_texture(current_profile, "companion_move_right"),
 		"walk_texture": _get_visual_texture(current_profile, "companion_walk"),
 		"strike_texture": _get_visual_texture(current_profile, "companion_strike"),
-		"cast_texture": _get_visual_texture(current_profile, "companion_cast"),
+		"cast_texture": cast_texture,
 		"walk_draw_size": _get_visual_layout_value(current_profile, "companion_walk_draw_size"),
 		"strike_draw_size": _get_visual_layout_value(current_profile, "companion_strike_draw_size"),
-		"cast_draw_size": _get_visual_layout_value(current_profile, "companion_cast_draw_size"),
+		"cast_draw_size": cast_draw_size,
 		"motion_speed_ratio": _resolve_motion_speed_ratio(current_profile, params.get("motion_speed_ratio", 0.0)),
 	}
 
@@ -92,6 +105,12 @@ func _get_visual_layout_value(current_profile: Object, layout_key: String) -> fl
 	if current_profile == null or not current_profile.has_method("get_visual_layout_value"):
 		return 0.0
 	return maxf(0.0, float(current_profile.get_visual_layout_value(layout_key, 0.0)))
+
+
+func _get_skill_cast_pose_progress(skill_runtime_host: Object, skill_id: String) -> float:
+	if skill_runtime_host == null or not skill_runtime_host.has_method("get_companion_cast_pose_progress"):
+		return -1.0
+	return clampf(float(skill_runtime_host.get_companion_cast_pose_progress(skill_id)), -1.0, 1.0)
 
 
 func _resolve_motion_speed_ratio(current_profile: Object, value: Variant) -> float:

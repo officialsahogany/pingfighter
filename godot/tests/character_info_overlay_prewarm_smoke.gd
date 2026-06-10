@@ -191,6 +191,8 @@ func _init() -> void:
 	_expect(lunabi_panel_art_path.ends_with("lunabi_click_live2d_pingpong_98f.png"), "Lunabi character info panel should use the 98-frame panel Live2D sheet path")
 	_expect(layout_overlay._lingpet_art_texture_cache.has(lunabi_panel_art_path), "character info prewarm should cache Lunabi's panel Live2D sheet")
 	_expect(not layout_overlay._lingpet_skill_icon_texture_cache.has(lunabi_panel_art_path), "character info prewarm should keep Lunabi panel Live2D out of the skill icon cache")
+	var nekuring_panel_art_path: String = CharacterInfoOverlayLingpetTextureLoader.get_panel_art_path("nekuring")
+	_expect(nekuring_panel_art_path.ends_with("nekuring_click_live2d_pingpong_98f.png"), "Nekuring character info panel should use the 98-frame panel Live2D sheet path")
 	var loader_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 	_expect(loader_source.find("FileAccess.file_exists") < 0, "lingpet texture loader should delegate export-safe existence checks to ProjectResourceLoader")
 

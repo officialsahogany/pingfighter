@@ -1,0 +1,49 @@
+{
+  "asset_id": "nekuring_cutin_art_imagegen_v1",
+  "pet_id": "nekuring",
+  "display_name": "네쿠링",
+  "asset_type": "lingpet_acquire_cutin_art",
+  "generated_at": "2026-06-10",
+  "generator": {
+    "mode": "built_in_imagegen",
+    "source_image": "C:/Users/woduq/.codex/generated_images/019ead3d-d255-7f80-9df3-bc47badde615/ig_0ab559ed6bf10a1d016a2847a075d48191aac32fe2f817055d.png",
+    "prompt_summary": "Nekuring cute Necro-inspired Ringpet acquisition Live2D source art with skull halo ring, skull staff, purple cloak, and body-mounted ring parts on a magenta chroma-key background."
+  },
+  "outputs": {
+    "raw_imagegen_source": "res://assets/sprites/lingpet/nekuring_cutin_art_imagegen_raw.png",
+    "magenta_source": "res://assets/sprites/lingpet/nekuring_cutin_art_magenta_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/nekuring_cutin_art.png"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_mode": "manual hard key",
+    "key_color": "#f603e6",
+    "tolerance": 54,
+    "edge_contract": 1,
+    "soft_matte": false,
+    "despill": false,
+    "note": "Soft matte/despill damaged the purple cloak and eye glow, so the accepted alpha uses hard keying to preserve Nekuring identity colors. The repo magenta source was recomposited from the accepted alpha onto exact #ff00ff."
+  },
+  "qa": {
+    "size": [
+      1254,
+      1254
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "alpha_bbox": [
+      76,
+      71,
+      1020,
+      1150
+    ],
+    "visible_magenta_pixels": 9,
+    "whole_image_edge_alpha": 0,
+    "sha256": "24236c29ba15485bbce8a90acbf77d4b48a7df2f0741525066c838b446188bbf",
+    "bytes": 1262729
+  }
+}

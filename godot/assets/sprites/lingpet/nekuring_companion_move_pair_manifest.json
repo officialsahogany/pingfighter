@@ -1,0 +1,67 @@
+{
+  "asset_id": "nekuring_companion_rear_3q_move_pair_25f_v1",
+  "pet_id": "nekuring",
+  "display_name": "Nekuring",
+  "output_left_sheet": "res://assets/sprites/lingpet/nekuring_companion_move_left.png",
+  "output_right_sheet": "res://assets/sprites/lingpet/nekuring_companion_move_right.png",
+  "generation": {
+    "tool": "AutoSprite MCP",
+    "character_id": "cmq748y50004ne7iexc9ebie9",
+    "source_rear_idle_spritesheet_id": "cmq74axve004elccrs0m8gxdh",
+    "accepted_right_job_id": "wf_fd50f148-cc91-46ab-8904-a07da3c56c10",
+    "accepted_right_video_id": "cmq75q4aa0036aipgln10x9pb",
+    "accepted_right_spritesheet_id": "cmq75rk81000914hjk6cryb81",
+    "accepted_kind": "iso_walk_northeast",
+    "rejected_candidate_jobs": [
+      "wf_411dd43d-567a-40e1-8992-1f902cba247a",
+      "wf_94e03015-1a58-4396-aadc-4acb1481e8b8",
+      "wf_74d57259-a6c9-4713-be66-c5bd22944a92",
+      "wf_459bf56c-a6a9-4edb-bc66-90b958d74b5b"
+    ],
+    "note": "Accepted the rear-dominant 3/4 diagonal walk because it matches the Maribo companion read better than the full side-profile walk candidates. The left sheet is a per-cell horizontal mirror of the accepted right sheet so frame order remains unchanged and runtime does not need UV flipping."
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "whole_sheet_size": [
+      1280,
+      1280
+    ],
+    "intended_visual_keys": [
+      "companion_move_left",
+      "companion_move_right"
+    ],
+    "frame_interval_owner": "res://scripts/lingpet/lingpet_companion_sprite_animator.gd"
+  },
+  "qa": {
+    "left": {
+      "sha256": "2a338852cc30e87e5bf6f5a322be544c1ca80b2d7ef952a3e4d662e86bfff5ab",
+      "bytes": 1181486,
+      "edge_alpha_max": 0,
+      "edge_touch_frames": [],
+      "bbox_area_minmax_pct": [
+        57.59,
+        59.827
+      ],
+      "visible_magenta_pixels": 0,
+      "visible_green_pixels": 0
+    },
+    "right": {
+      "sha256": "2ef256b449e3b2255949a123aa323946ebfb1df32ef3b8cee90c306b8e4b8662",
+      "bytes": 384383,
+      "edge_alpha_max": 0,
+      "edge_touch_frames": [],
+      "bbox_area_minmax_pct": [
+        57.59,
+        59.827
+      ],
+      "visible_magenta_pixels": 0,
+      "visible_green_pixels": 0
+    }
+  }
+}

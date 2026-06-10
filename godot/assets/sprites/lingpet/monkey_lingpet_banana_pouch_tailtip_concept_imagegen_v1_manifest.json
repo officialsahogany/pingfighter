@@ -1,0 +1,44 @@
+{
+  "asset_id": "monkey_lingpet_banana_pouch_tailtip_concept_imagegen_v1",
+  "asset_type": "lingpet_cutin_concept_art",
+  "runtime_usage": "candidate Ringpet / Lingpet concept and cut-in source art; not wired into lingpet_catalog.gd yet",
+  "source_image": "C:/Users/woduq/.codex/generated_images/019eadfa-f2cd-7372-8891-7b5b61e39c30/ig_019c34deaf9569f5016a28763e5ba081919a928065a1bf2b0c.png",
+  "outputs": {
+    "green_source": "res://assets/sprites/lingpet/monkey_lingpet_banana_pouch_tailtip_concept_imagegen_v1_green_source.png",
+    "transparent_art": "res://assets/sprites/lingpet/monkey_lingpet_banana_pouch_tailtip_concept_imagegen_v1.png"
+  },
+  "generator": {
+    "mode": "built_in_imagegen",
+    "prompt_summary": "Edited monkey Lingpet concept with a kangaroo-style belly pouch full of bananas, no floating head-side ring, clean brown tail shaft, and a pointed diamond-like gold/cyan Ringpet part attached only at the tail tip."
+  },
+  "prompt": {
+    "use_case": "precise-object-edit",
+    "asset_type": "revised Ringpet / Lingpet concept and cut-in source art for DiskHearts - Ringpia",
+    "primary_request": "make the monkey Lingpet have a kangaroo-like belly pouch full of bananas, remove the ring-like object near the upper right of the head, and redesign the tail hardware so it is only at the tail tip",
+    "change_only": [
+      "Add a soft kangaroo-style pouch on the lower cream belly, open at the top and filled with several bright yellow bananas.",
+      "Remove the floating ring-like accessory near the upper right of the head.",
+      "Remove any ring part or cuff from the middle of the tail.",
+      "Add one gold-and-white Ringpet tail-tip module with cyan gem accents, shaped like a pointed diamond or spearhead."
+    ],
+    "preserve": "same cute chibi monkey identity, warm brown and cream fur, brave playful face, eyes, ears, head gem plate, collar, shoulder pods, arm cuffs, leg cuffs, curled tail pose, full-body 3/4 front framing, polished Korean mobile game mascot style, crisp clean outline, bright gold hardware, cyan glow accents",
+    "background": "perfectly flat solid #00ff00 chroma-key background for background removal",
+    "constraints": "no text, no UI, no watermark, no extra characters, no scenery, no basket, no backpack, no giant banana weapon, no floating ring near the head, no ring/cuff on the middle of the tail, no green lighting or color cast on the monkey"
+  },
+  "postprocess": {
+    "tool": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "command": "py -3 remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extracted_key_color": "#05f80a",
+    "canonical_source_background": "#00ff00",
+    "note": "The project green source was recomposited from the transparent PNG onto exact opaque #00ff00 so source corners are stable."
+  },
+  "validation": {
+    "alpha_size": "1254x1254",
+    "source_corner_rgba": ["#00ff00/a255", "#00ff00/a255", "#00ff00/a255", "#00ff00/a255"],
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [214, 40, 1114, 1163],
+    "visible_green_pixels": 0,
+    "opaque_pixels": 485423,
+    "partial_alpha_pixels": 9014
+  }
+}

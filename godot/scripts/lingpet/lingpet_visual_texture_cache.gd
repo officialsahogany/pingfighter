@@ -13,6 +13,7 @@ const DEFAULT_PREWARM_KEYS := [
 	"companion_walk",
 	"companion_strike",
 	"companion_cast",
+	"companion_puppet_control",
 ]
 
 var _textures: Dictionary = {}

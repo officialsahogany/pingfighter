@@ -18,10 +18,12 @@ const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_comp
 const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
+const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const LingpetSaveStore := preload("res://scripts/lingpet/lingpet_save_store.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
+const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_texture_cache.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -758,6 +760,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(not enabled_catalog_pet_ids.has("draft_bat"), "draft Bat should stay out of enabled pet ids until hatch-pool approval")
 	_expect(not candidates.has("draft_bat"), "draft Bat should stay out of the random hatch pool until hatch-pool approval")
 	_expect(not LingpetCatalog.is_pet_enabled("draft_bat"), "draft Bat should remain a parked draft pet")
+	_expect(all_catalog_pet_ids.has("nekuring"), "catalog should keep the Nekuring debug lingpet metadata")
+	_expect(not enabled_catalog_pet_ids.has("nekuring"), "Nekuring should stay out of enabled pet ids until full runtime assets ship")
+	_expect(not candidates.has("nekuring"), "Nekuring should stay out of the random hatch pool while it is debug-only")
+	_expect(not LingpetCatalog.is_pet_enabled("nekuring"), "Nekuring should remain a debug-only pet")
 	_expect(all_catalog_pet_ids.has("milkring"), "catalog should keep the Milkring lingpet metadata")
 	_expect(enabled_catalog_pet_ids.has("milkring"), "Milkring should appear in enabled pet ids after companion/cut-in/click assets ship")
 	_expect(candidates.has("milkring"), "Milkring should enter the random hatch pool after live catalog integration")
@@ -888,6 +894,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_display_name("lunabi") == "달벳", "catalog should expose Dalbet as the visible name for the lunabi runtime id")
 	_expect(LingpetCatalog.get_display_name("milkring") == "밀쿠", "catalog should expose Milku as the visible name for the milkring runtime id")
 	_expect(LingpetCatalog.get_display_name("volty") == "볼탄", "catalog should expose Voltan as the visible name for the volty runtime id")
+	_expect(LingpetCatalog.get_display_name("nekuring") == "네쿠링", "catalog should expose Nekuring as the visible name for the nekuring debug id")
 	_expect(LingpetCatalog.get_display_name("rabi") == "모락모랑", "catalog should expose Morakmorang as the visible name for the rabi runtime id")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own the current shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
@@ -924,6 +931,15 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(volty_dismiss_manifest_source.find("\"cols\": 5") >= 0 and volty_dismiss_manifest_source.find("\"frame_count\": 25") >= 0, "Volty click-dismiss manifest should pin the 5x5/25 runtime grid")
 	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("orbi_companion_walk.png"), "catalog should own Orbi companion walk visual path")
 	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")).ends_with("orbi_companion_strike.png"), "catalog should own Orbi companion strike visual path")
+	_expect(str(LingpetCatalog.get_visual_path("nekuring", "cutin_dismiss_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's acquisition click-dismiss cut-in to the full 98-frame click sheet")
+	_expect(str(LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's panel click Live2D to the full 98-frame click sheet")
+	_expect(str(LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim")).ends_with("nekuring_companion_click_reaction_98f.png"), "catalog should route Nekuring's in-battle companion click to the downscaled 98-frame sheet")
+	var nekuring_click_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png")
+	_expect(nekuring_click_texture != null and nekuring_click_texture.get_width() == 16128 and nekuring_click_texture.get_height() == 8064, "Nekuring full click Live2D should load as a 14x7 / 98-frame 1152-cell HQ sheet")
+	var nekuring_companion_click_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f.png")
+	_expect(nekuring_companion_click_texture != null and nekuring_companion_click_texture.get_width() == 1792 and nekuring_companion_click_texture.get_height() == 896, "Nekuring companion click Live2D should load as a 14x7 / 98-frame 128-cell sheet")
+	var nekuring_click_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f_manifest.json")
+	_expect(nekuring_click_manifest_source.find("\"frame_count\": 98") >= 0 and nekuring_click_manifest_source.find("\"final_cell_size\": [") >= 0 and nekuring_click_manifest_source.find("1152") >= 0 and nekuring_click_manifest_source.find("\"realesrgan_upscale\"") >= 0 and nekuring_click_manifest_source.find("\"final_cells_with_edge_touch\": []") >= 0, "Nekuring full click Live2D manifest should pin the 98-frame clean-edge HQ runtime grid")
 	_expect(is_equal_approx(LingpetCatalog.get_visual_layout_value("maribo", "companion_walk_draw_size", 0.0), 104.0), "catalog should upscale Maribo's refreshed walk sheet to match strike/cast scale")
 	_expect(is_equal_approx(LingpetCatalog.get_visual_layout_value("draft_bat", "companion_walk_draw_size", 82.0), 82.0), "catalog walk-size override should be per-pet, not a global companion scale")
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
@@ -942,6 +958,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("runtime_kind", "")) == "dragon_breath", "catalog should expose Red Dragon's Dragon Breath runtime kind by skill id")
 	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("cooldown", 0.0)), 40.0), "Red Dragon Dragon Breath should use the requested 40-second cooldown")
 	_expect(str(LingpetCatalog.get_active_skill_entry("orbi_ring_orbit").get("runtime_kind", "")) == "moon_orbit", "catalog should expose Orbi's temporary ring-orbit runtime kind by skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("nekuring_ghost_summon").get("runtime_kind", "")) == "ghost_summon", "catalog should expose Nekuring's Ghost Summon runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
 	_expect(str(LingpetCatalog.get_passive_skill("maribo", "maribo_resonance_boost").get("id", "")) == "lingpet_resonance_boost", "catalog should resolve legacy passive-skill ids to Resonance Boost metadata")
 	_expect(str(LingpetCatalog.get_passive_skill("maribo", "maribo_resonance_boost").get("name", "")) == "공명 증폭", "catalog should resolve selected passive-skill metadata by id")
@@ -954,6 +971,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetSkillDispatcher.is_gatling_burst("volty_gatling_burst"), "skill dispatcher should route Volty's Gatling Burst skill through the gatling_burst runtime")
 	_expect(LingpetSkillDispatcher.is_dragon_breath("red_dragon_dragon_breath"), "skill dispatcher should route Red Dragon's Dragon Breath skill through the dragon_breath runtime")
 	_expect(LingpetSkillDispatcher.is_moon_orbit("orbi_ring_orbit"), "skill dispatcher should route Orbi's temporary ring-orbit skill through the moon-orbit runtime")
+	_expect(LingpetSkillDispatcher.is_ghost_summon("nekuring_ghost_summon"), "skill dispatcher should route Nekuring's Ghost Summon skill through the ghost_summon runtime")
 	_expect(LingpetSkillDispatcher.is_supported_kind("hydro_sphere"), "skill dispatcher should expose supported runtime kinds for future lingpet skill modules")
 	_expect(LingpetSkillDispatcher.is_supported_kind("headbutt"), "skill dispatcher should expose the Lunabi headbutt runtime kind")
 	_expect(LingpetSkillDispatcher.is_supported_kind("milk_production"), "skill dispatcher should expose Milkring's milk-production runtime kind")
@@ -2977,9 +2995,18 @@ func _verify_koyora_puppet_grab_skill() -> void:
 		"꼭두각시 조종 should keep the original 4-phase extend/pull/kiss/return machine"
 	)
 	_expect(src.find("ball_vel") < 0 and src.find("ball_pos") < 0, "꼭두각시 조종 is pure paddle CC — it must not read or write the ball")
-	_expect(src.find("lingpet_puppet_grab_active") >= 0, "꼭두각시 조종 should flag the owner so the boss is held + uncollidable")
+	_expect(src.find("lingpet_puppet_grab_active") >= 0, "꼭두각시 조종 should flag the owner so the boss AI is held while scripted")
 	_expect(src.find("play_lingpet_puppet_grab_pull") >= 0, "꼭두각시 조종 should play the original grab.wav on the pull phase edge")
 	_expect(src.find("play_lingpet_puppet_grab_kiss") >= 0, "꼭두각시 조종 should play the original kissing.wav on the kiss phase edge")
+
+	_expect(
+		src.find("STRING_TIP_FOCUS_START") >= 0 and src.find("_string_tip_focus") >= 0,
+		"Puppet Control string VFX should tighten near the target so MISS visuals do not look like boss contact"
+	)
+	var string_visual_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	_expect(float(string_visual_skill.get_string_visual_lateral_radius_for_tests(1.0)) <= 0.05, "Puppet Control strings should converge exactly at the lock-on point")
+	_expect(float(string_visual_skill.get_string_visual_lateral_radius_for_tests(0.95)) <= 3.0, "Puppet Control strings should be narrow near the lock-on point so edge-dodges do not read as contact")
+	_expect(float(string_visual_skill.get_string_visual_lateral_radius_for_tests(0.75)) >= 8.0, "Puppet Control strings should keep visible wave/body before the final target focus")
 
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/puppet_grab_tentacle.wav"), "Godot should ship the original Puppet Control tentacle cast sound")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/puppet_grab.wav"), "Godot should ship the original Puppet Control grab sound")
@@ -3000,14 +3027,42 @@ func _verify_koyora_puppet_grab_skill() -> void:
 			and skill_host_src.find("play_lingpet_puppet_grab_cast") >= 0,
 		"skill runtime host should use the original tentacle cast SFX instead of generic active-item feedback"
 	)
+	var draw_context_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	var visual_cache_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
+	_expect(skill_host_src.find("get_companion_cast_pose_progress") >= 0, "skill runtime host should expose active skill companion-cast pose progress")
+	_expect(draw_context_src.find("companion_puppet_control") >= 0 and draw_context_src.find("skill_cast_pose_active") >= 0, "companion draw context should swap to Koyora's Puppet Control sheet during active puppet phases")
+	_expect(visual_cache_src.find("companion_puppet_control") >= 0, "lingpet visual prewarm should include Koyora's active Puppet Control sheet key")
+	_expect(LingpetCatalog.get_visual_path("koyora", "companion_puppet_control") == "res://assets/sprites/lingpet/koyora_puppet_control_cast.png", "Koyora catalog should own the Puppet Control active companion sheet path")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/koyora_puppet_control_cast.png"), "Koyora Puppet Control active companion sheet should exist")
+	var puppet_control_sheet: Texture2D = load("res://assets/sprites/lingpet/koyora_puppet_control_cast.png") as Texture2D
+	_expect(puppet_control_sheet != null, "Koyora Puppet Control active companion sheet should load as a Texture2D")
+	if puppet_control_sheet != null:
+		_expect(puppet_control_sheet.get_width() == 1280 and puppet_control_sheet.get_height() == 1280, "Koyora Puppet Control sheet should be the normalized 1280px 5x5 runtime sheet")
+		_expect(puppet_control_sheet.get_width() % 5 == 0 and puppet_control_sheet.get_height() % 5 == 0, "Koyora Puppet Control sheet should divide evenly into the companion 5x5 grid")
+	var puppet_control_manifest: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_puppet_control_cast_manifest.json")
+	_expect(
+		puppet_control_manifest.find("koyora_puppet_control_cast_original_idle_big_two_arm_v3") >= 0
+			and puppet_control_manifest.find("koyora_companion_idle.png") >= 0
+			and puppet_control_manifest.find("\"new_attack_strings_drawn\": false") >= 0
+			and puppet_control_manifest.find("visible_motion_tuning") >= 0
+			and puppet_control_manifest.find("\"edge_alpha_max\": 0") >= 0
+			and puppet_control_manifest.find("\"edge_touch_frames\": []") >= 0,
+		"Koyora Puppet Control manifest should pin the original-idle-derived sheet provenance and clean-edge QA"
+	)
+	_expect(
+		_sheet_frame_motion_score("res://assets/sprites/lingpet/koyora_puppet_control_cast.png", 0, 14, 112) > 900.0
+			and _sheet_frame_motion_score("res://assets/sprites/lingpet/koyora_puppet_control_cast.png", 14, 24, 112) > 900.0,
+		"Koyora Puppet Control sheet should have visible frame-to-frame sleeve motion at runtime draw size"
+	)
 
-	# Boss-side plumbing: the grab only works if the freeze + collision-skip wiring is present.
+	# Boss-side plumbing: the grab only works if the freeze wiring is present,
+	# while normal boss-paddle collision remains active as in the Python original.
 	var ai_src: String = FileAccess.get_file_as_string("res://scripts/ai/boss_ai_state.gd")
 	_expect(ai_src.find("lingpet_puppet_grab_active") >= 0, "boss_ai_state should freeze the boss while it is puppeted")
 	var ctx_src: String = FileAccess.get_file_as_string("res://scripts/core/battle_update_boss_ai_context_builder.gd")
 	_expect(ctx_src.find("lingpet_puppet_grab_active") >= 0, "boss AI context should publish the puppet-grab flag")
 	var det_src: String = FileAccess.get_file_as_string("res://scripts/ball/ball_motion_collision_detector.gd")
-	_expect(det_src.find("lingpet_puppet_grab_active") >= 0, "ball collision detector should skip the boss while it is puppeted")
+	_expect(det_src.find("lingpet_puppet_grab_active") < 0, "ball collision detector must not skip the puppeted boss")
 
 	# --- Live grab through the runtime: arm -> launch -> pull -> kiss -> return -> release.
 	var owner := FakeOwner.new()
@@ -3058,8 +3113,29 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	runtime.update(0.5, owner, registry)  # +0.5 -> 0.8s total -> into PULLING
 	var pull: Dictionary = runtime.get_snapshot()
 	_expect(int(pull.get("puppet_grab_phase", -1)) == 1, "the boss should be pulling once the extend window ends")
-	_expect(bool(owner.lingpet_puppet_grab_active), "HIT-transition into PULLING must NOW flag the owner so the boss is frozen + uncollidable")
+	_expect(bool(owner.lingpet_puppet_grab_active), "HIT-transition into PULLING must NOW flag the owner so the boss AI is frozen")
 	_expect(owner.boss_pos.y > boss_original.y + 2.0, "the boss should be dragged downward during the pull")
+	var puppeted_collision_detector: Object = BallMotionCollisionDetector.new()
+	var puppeted_boss_size := Vector2(owner.boss_paddle_width, owner.boss_hitbox_height)
+	var puppeted_collision_context: Dictionary = {
+		"hitbox_padding": 5.0,
+		"player_pos": owner.player_pos,
+		"player_paddle_size": Vector2(owner.player_paddle_width, owner.player_paddle_height),
+		"boss_pos": owner.boss_pos,
+		"boss_paddle_size": puppeted_boss_size,
+		"boss_collision_cooldown": 0.0,
+		"lingpet_puppet_grab_active": true,
+	}
+	var puppeted_collision: Dictionary = puppeted_collision_detector.check_paddles(
+		owner.boss_pos + puppeted_boss_size * 0.5,
+		Vector2(0.0, -12.0),
+		owner.ball_size,
+		puppeted_collision_context
+	)
+	_expect(
+		str(puppeted_collision.get("event", "")) == BallMotionCollisionDetector.EVENT_BOSS_PADDLE,
+		"puppeted boss paddle should still collide with a rising ball, matching the Python original"
+	)
 	_expect(puppet_audio.puppet_grab_pull_count == 1, "entering the pull phase should play the original grab.wav once")
 	_expect(puppet_audio.puppet_grab_kiss_count == 0, "the kiss sound should wait until the kiss phase edge")
 	_expect(puppet_audio.puppet_grab_miss_count == 0, "a HIT path should never play the miss sound")
@@ -3228,6 +3304,180 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	_expect(grazed_audio.puppet_grab_pull_count == 1, "small dodge HIT path should play the pull sound")
 	_expect(grazed_audio.puppet_grab_miss_count == 0, "small dodge HIT path should not play the miss sound")
 
+	var pose_host: Object = LingpetSkillRuntimeHost.new()
+	var pose_profile: Object = LingpetCurrentProfile.new()
+	pose_profile.set_pet_id("koyora")
+	pose_profile.set_loadout("koyora_puppet_control", "")
+	var pose_owner := FakeOwner.new()
+	pose_owner.boss_pos = Vector2(330.0, 25.0)
+	pose_owner.boss_paddle_width = 100.0
+	pose_owner.boss_hitbox_height = 40.0
+	var pose_registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	_expect(bool(pose_host.launch("koyora_puppet_control", Vector2(380.0, 600.0), pose_owner, {})), "Puppet Control pose host should launch")
+	pose_host.update(0.2, pose_owner, pose_registry, "koyora_puppet_control")
+	var pose_extend_config: Dictionary = LingpetCompanionDrawContextBuilder.new().build_config({
+		"companion_active": true,
+		"skill_runtime_host": pose_host,
+		"current_profile": pose_profile,
+		"skill_id": "koyora_puppet_control",
+		"animator": LingpetCompanionSpriteAnimator.new(),
+		"windup_seconds": 0.8,
+	})
+	_expect(bool(pose_extend_config.get("skill_cast_pose_active", false)), "active Puppet Control EXTENDING should force the companion cast pose sheet")
+	_expect(pose_extend_config.get("cast_texture", null) is Texture2D, "active Puppet Control EXTENDING should resolve a cast texture")
+	_expect(is_equal_approx(float(pose_extend_config.get("cast_draw_size", 0.0)), 112.0), "active Puppet Control should use the larger action-pose draw size so the sleeve motion is readable")
+	_expect(float(pose_extend_config.get("windup_seconds", 0.0)) == 1.0, "active Puppet Control pose progress should use normalized cast-sheet progress")
+	_expect(float(pose_extend_config.get("windup_elapsed", -1.0)) >= 0.0 and float(pose_extend_config.get("windup_elapsed", -1.0)) < 0.56, "active Puppet Control EXTENDING should map to the arm-thrust half of the sheet")
+	pose_host.update(0.5, pose_owner, pose_registry, "koyora_puppet_control")
+	var pose_pull_config: Dictionary = LingpetCompanionDrawContextBuilder.new().build_config({
+		"companion_active": true,
+		"skill_runtime_host": pose_host,
+		"current_profile": pose_profile,
+		"skill_id": "koyora_puppet_control",
+		"animator": LingpetCompanionSpriteAnimator.new(),
+		"windup_seconds": 0.8,
+	})
+	_expect(bool(pose_pull_config.get("skill_cast_pose_active", false)), "active Puppet Control PULLING should keep the companion cast pose sheet")
+	_expect(float(pose_pull_config.get("windup_elapsed", -1.0)) >= 0.62, "active Puppet Control PULLING should map to the pull-in frames of the sheet")
+
+	var level_context_owner := FakeOwner.new()
+	level_context_owner.lingpet_owned_pet_ids = ["koyora"]
+	level_context_owner.lingpet_slots = ["koyora", "", ""]
+	level_context_owner.boss_pos = Vector2(330.0, 25.0)
+	level_context_owner.boss_paddle_width = 100.0
+	level_context_owner.boss_hitbox_height = 40.0
+	level_context_owner.ball_active = true
+	var level_context_runtime: Object = LingpetEggRuntime.new()
+	var level_context_registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	_expect(level_context_runtime.debug_grant_and_activate_pet("koyora", level_context_owner, false, "koyora_puppet_control", "", level_context_registry, 5, 1), "debug Koyora grant should accept active skill Lv.5")
+	level_context_runtime.update(0.0, level_context_owner, level_context_registry)
+	level_context_runtime.configure_companion_motion_for_tests(Vector2(380.0, 600.0), 2, 0.0, false)
+	level_context_runtime.update(0.0, level_context_owner, level_context_registry)
+	level_context_runtime.update(0.85, level_context_owner, level_context_registry)
+	_expect(int(level_context_runtime.get_snapshot().get("puppet_grab_active_skill_level", 0)) == 5, "egg runtime should pass the equipped active skill level into puppet-grab launch context")
+
+	# --- Skill-level retry rules: Lv.1-2 never retry, Lv.3-4 can retry once,
+	# Lv.5 can chain up to two retry launches. Forced roll queues prove the 50%
+	# gate is rolled once per MISS edge, not every frame while the MISS feedback
+	# remains active.
+	var lv2_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lv2_owner := FakeOwner.new()
+	var lv2_audio := FakePaddleAudio.new()
+	var lv2_registry := FakeRegistry.new({"game_audio": lv2_audio})
+	lv2_owner.boss_pos = Vector2(330.0, 25.0)
+	_expect(bool(lv2_skill.launch(Vector2(380.0, 600.0), lv2_owner, {"active_skill_level": 2})), "Lv.2 puppet retry smoke should launch")
+	lv2_skill.set_retry_roll_queue_for_tests([true])
+	lv2_owner.boss_pos = Vector2(600.0, 25.0)
+	lv2_skill.update(float(lv2_skill.get_snapshot().get("puppet_grab_extend_seconds", 0.538)), lv2_owner, lv2_registry)
+	var lv2_snap: Dictionary = lv2_skill.get_snapshot()
+	_expect(int(lv2_snap.get("puppet_grab_phase", -1)) == int(lv2_snap.get("puppet_grab_phase_missing", -2)), "Lv.2 MISS should not enter retry wait even if the forced retry roll would succeed")
+	_expect(int(lv2_snap.get("puppet_grab_shot_count", -1)) == 1, "Lv.2 should fire exactly one string shot")
+	_expect(int(lv2_snap.get("puppet_grab_retry_rolls_queued", -1)) == 1, "Lv.2 should not consume a retry roll because it has no retry chance")
+
+	var lv3_fail_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lv3_fail_owner := FakeOwner.new()
+	var lv3_fail_audio := FakePaddleAudio.new()
+	var lv3_fail_registry := FakeRegistry.new({"game_audio": lv3_fail_audio})
+	lv3_fail_owner.boss_pos = Vector2(330.0, 25.0)
+	_expect(bool(lv3_fail_skill.launch(Vector2(380.0, 600.0), lv3_fail_owner, {"active_skill_level": 3})), "Lv.3 failed-roll retry smoke should launch")
+	lv3_fail_skill.set_retry_roll_queue_for_tests([false])
+	lv3_fail_owner.boss_pos = Vector2(600.0, 25.0)
+	var lv3_fail_extend := float(lv3_fail_skill.get_snapshot().get("puppet_grab_extend_seconds", 0.538))
+	lv3_fail_skill.update(lv3_fail_extend, lv3_fail_owner, lv3_fail_registry)
+	var lv3_fail_first: Dictionary = lv3_fail_skill.get_snapshot()
+	_expect(int(lv3_fail_first.get("puppet_grab_phase", -1)) == int(lv3_fail_first.get("puppet_grab_phase_missing", -2)), "Lv.3 forced-fail retry roll should end in MISSING")
+	for _i in range(5):
+		lv3_fail_skill.update(0.1, lv3_fail_owner, lv3_fail_registry)
+	var lv3_fail_done: Dictionary = lv3_fail_skill.get_snapshot()
+	_expect(int(lv3_fail_done.get("puppet_grab_shot_count", -1)) == 1, "a failed retry roll must not be re-rolled across later MISS frames")
+	_expect(lv3_fail_audio.puppet_grab_cast_count == 0, "failed retry roll should not play a retry cast sound")
+
+	var lv3_success_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lv3_success_owner := FakeOwner.new()
+	var lv3_success_audio := FakePaddleAudio.new()
+	var lv3_success_registry := FakeRegistry.new({"game_audio": lv3_success_audio})
+	lv3_success_owner.boss_pos = Vector2(330.0, 25.0)
+	_expect(bool(lv3_success_skill.launch(Vector2(380.0, 600.0), lv3_success_owner, {"active_skill_level": 3})), "Lv.3 success retry smoke should launch")
+	lv3_success_skill.set_retry_roll_queue_for_tests([true])
+	lv3_success_owner.boss_pos = Vector2(600.0, 25.0)
+	var lv3_success_extend := float(lv3_success_skill.get_snapshot().get("puppet_grab_extend_seconds", 0.538))
+	var lv3_retry_delay := float(lv3_success_skill.get_snapshot().get("puppet_grab_retry_delay_seconds", 0.5))
+	lv3_success_skill.update(lv3_success_extend, lv3_success_owner, lv3_success_registry)
+	var lv3_wait: Dictionary = lv3_success_skill.get_snapshot()
+	_expect(int(lv3_wait.get("puppet_grab_phase", -1)) == int(lv3_wait.get("puppet_grab_phase_retry_wait", -2)), "Lv.3 successful retry roll should enter the retry wait phase")
+	lv3_success_owner.boss_pos = Vector2(420.0, 25.0)
+	lv3_success_skill.update(lv3_retry_delay - 0.01, lv3_success_owner, lv3_success_registry)
+	_expect(int(lv3_success_skill.get_snapshot().get("puppet_grab_shot_count", -1)) == 1, "retry should wait the full 0.5s before firing")
+	lv3_success_skill.update(0.02, lv3_success_owner, lv3_success_registry)
+	var lv3_relaunched: Dictionary = lv3_success_skill.get_snapshot()
+	_expect(int(lv3_relaunched.get("puppet_grab_phase", -1)) == 0, "Lv.3 retry should re-enter EXTENDING after the wait")
+	_expect(int(lv3_relaunched.get("puppet_grab_shot_count", -1)) == 2, "Lv.3 successful retry should fire a second string shot")
+	_expect(int(lv3_relaunched.get("puppet_grab_retry_count", -1)) == 1, "Lv.3 should count one retry launch")
+	_expect(lv3_success_audio.puppet_grab_cast_count == 1, "retry launch should play the puppet cast SFX once")
+	_expect(_vector2_distance(lv3_relaunched.get("puppet_grab_predicted_target", Vector2.ZERO), lv3_success_owner.boss_pos + Vector2(50.0, 20.0)) <= 0.01, "retry launch should snapshot the boss's current position, not reuse the stale MISS target")
+
+	var lv3_hit_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lv3_hit_owner := FakeOwner.new()
+	var lv3_hit_audio := FakePaddleAudio.new()
+	var lv3_hit_registry := FakeRegistry.new({"game_audio": lv3_hit_audio})
+	lv3_hit_owner.boss_pos = Vector2(330.0, 25.0)
+	_expect(bool(lv3_hit_skill.launch(Vector2(380.0, 600.0), lv3_hit_owner, {"active_skill_level": 3})), "Lv.3 retry-hit smoke should launch")
+	lv3_hit_skill.set_retry_roll_queue_for_tests([true])
+	var lv3_hit_extend := float(lv3_hit_skill.get_snapshot().get("puppet_grab_extend_seconds", 0.538))
+	var lv3_hit_delay := float(lv3_hit_skill.get_snapshot().get("puppet_grab_retry_delay_seconds", 0.5))
+	lv3_hit_owner.boss_pos = Vector2(600.0, 25.0)
+	lv3_hit_skill.update(lv3_hit_extend, lv3_hit_owner, lv3_hit_registry)
+	lv3_hit_owner.boss_pos = Vector2(420.0, 25.0)
+	lv3_hit_skill.update(lv3_hit_delay, lv3_hit_owner, lv3_hit_registry)
+	lv3_hit_skill.update(lv3_hit_extend, lv3_hit_owner, lv3_hit_registry)
+	var lv3_hit_snap: Dictionary = lv3_hit_skill.get_snapshot()
+	_expect(int(lv3_hit_snap.get("puppet_grab_phase", -1)) == 1, "a retry shot that catches the boss should enter PULLING normally")
+	_expect(bool(lv3_hit_owner.lingpet_puppet_grab_active), "retry HIT should take boss ownership and freeze boss AI")
+	_expect(lv3_hit_audio.puppet_grab_pull_count == 1, "retry HIT should play the pull sound exactly once")
+
+	var lv5_chain_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lv5_chain_owner := FakeOwner.new()
+	var lv5_chain_audio := FakePaddleAudio.new()
+	var lv5_chain_registry := FakeRegistry.new({"game_audio": lv5_chain_audio})
+	lv5_chain_owner.boss_pos = Vector2(330.0, 25.0)
+	_expect(bool(lv5_chain_skill.launch(Vector2(380.0, 600.0), lv5_chain_owner, {"active_skill_level": 5})), "Lv.5 chain retry smoke should launch")
+	lv5_chain_skill.set_retry_roll_queue_for_tests([true, true])
+	var lv5_extend := float(lv5_chain_skill.get_snapshot().get("puppet_grab_extend_seconds", 0.538))
+	var lv5_delay := float(lv5_chain_skill.get_snapshot().get("puppet_grab_retry_delay_seconds", 0.5))
+	lv5_chain_owner.boss_pos = Vector2(600.0, 25.0)
+	lv5_chain_skill.update(lv5_extend, lv5_chain_owner, lv5_chain_registry)
+	lv5_chain_skill.update(lv5_delay, lv5_chain_owner, lv5_chain_registry)
+	lv5_chain_owner.boss_pos = Vector2(180.0, 25.0)
+	lv5_chain_skill.update(lv5_extend, lv5_chain_owner, lv5_chain_registry)
+	lv5_chain_skill.update(lv5_delay, lv5_chain_owner, lv5_chain_registry)
+	lv5_chain_owner.boss_pos = Vector2(600.0, 25.0)
+	lv5_chain_skill.update(lv5_extend, lv5_chain_owner, lv5_chain_registry)
+	var lv5_chain_snap: Dictionary = lv5_chain_skill.get_snapshot()
+	_expect(int(lv5_chain_snap.get("puppet_grab_shot_count", -1)) == 3, "Lv.5 with two successful retry gates should fire three total shots")
+	_expect(int(lv5_chain_snap.get("puppet_grab_retry_count", -1)) == 2, "Lv.5 should count two retry launches when both retry gates succeed")
+	_expect(int(lv5_chain_snap.get("puppet_grab_retries_remaining", -1)) == 0, "Lv.5 should have no retries left after two retry launches")
+	_expect(int(lv5_chain_snap.get("puppet_grab_phase", -1)) == int(lv5_chain_snap.get("puppet_grab_phase_missing", -2)), "Lv.5 third MISS should end instead of retrying a third time")
+	_expect(lv5_chain_audio.puppet_grab_cast_count == 2, "Lv.5 two retry launches should play two retry cast sounds")
+
+	var lv5_stop_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var lv5_stop_owner := FakeOwner.new()
+	var lv5_stop_audio := FakePaddleAudio.new()
+	var lv5_stop_registry := FakeRegistry.new({"game_audio": lv5_stop_audio})
+	lv5_stop_owner.boss_pos = Vector2(330.0, 25.0)
+	_expect(bool(lv5_stop_skill.launch(Vector2(380.0, 600.0), lv5_stop_owner, {"active_skill_level": 5})), "Lv.5 fail-second retry smoke should launch")
+	lv5_stop_skill.set_retry_roll_queue_for_tests([true, false])
+	var lv5_stop_extend := float(lv5_stop_skill.get_snapshot().get("puppet_grab_extend_seconds", 0.538))
+	var lv5_stop_delay := float(lv5_stop_skill.get_snapshot().get("puppet_grab_retry_delay_seconds", 0.5))
+	lv5_stop_owner.boss_pos = Vector2(600.0, 25.0)
+	lv5_stop_skill.update(lv5_stop_extend, lv5_stop_owner, lv5_stop_registry)
+	lv5_stop_skill.update(lv5_stop_delay, lv5_stop_owner, lv5_stop_registry)
+	lv5_stop_owner.boss_pos = Vector2(180.0, 25.0)
+	lv5_stop_skill.update(lv5_stop_extend, lv5_stop_owner, lv5_stop_registry)
+	var lv5_stop_snap: Dictionary = lv5_stop_skill.get_snapshot()
+	_expect(int(lv5_stop_snap.get("puppet_grab_shot_count", -1)) == 2, "Lv.5 should stop at two shots when the second retry gate fails")
+	_expect(int(lv5_stop_snap.get("puppet_grab_retry_count", -1)) == 1, "Lv.5 failed second gate should count only the first retry launch")
+	_expect(int(lv5_stop_snap.get("puppet_grab_phase", -1)) == int(lv5_stop_snap.get("puppet_grab_phase_missing", -2)), "Lv.5 failed second gate should enter final MISSING")
+
 
 func _verify_companion_click_reaction() -> void:
 	var owner := FakeOwner.new()
@@ -3280,6 +3530,17 @@ func _verify_companion_click_reaction() -> void:
 	_expect(bool(red_dragon_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), red_dragon_registry)), "Red Dragon companion click reaction should start from the companion tap zone")
 	_expect(red_dragon_audio.lingpet_click_reaction_pet_ids == ["red_dragon"], "Red Dragon companion click reaction should request the Red Dragon voice once")
 
+	var nekuring_owner := FakeOwner.new()
+	nekuring_owner.lingpet_owned_pet_ids = ["nekuring"]
+	nekuring_owner.lingpet_slots = ["nekuring", "", ""]
+	var nekuring_runtime: Object = LingpetEggRuntime.new()
+	var nekuring_audio := FakePaddleAudio.new()
+	var nekuring_registry := FakeRegistry.new({"game_audio": nekuring_audio})
+	nekuring_runtime.update(0.0, nekuring_owner, nekuring_registry)
+	nekuring_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	_expect(bool(nekuring_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), nekuring_registry)), "Nekuring companion click reaction should start from the companion tap zone")
+	_expect(nekuring_audio.lingpet_click_reaction_pet_ids == ["nekuring"], "Nekuring companion click reaction should request the pet-agnostic click voice hook once")
+
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var click_reaction_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
 	var profile_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_profile.gd")
@@ -3293,6 +3554,7 @@ func _verify_companion_click_reaction() -> void:
 	_expect(click_reaction_source.find("DEFAULT_VIEW_HEIGHT := 82.0") >= 0, "click-reaction module should fall back to the same small size as the SD walk sprite")
 	_expect(click_reaction_source.find("CENTER_OFFSET_Y := -6.0") >= 0, "click-reaction module should align to the SD walk sprite center instead of floating above it")
 	_expect(click_reaction_source.find("RUNTIME_VISUAL_KEY := \"companion_click_reaction_anim\"") >= 0, "click-reaction module should use the downscaled in-battle visual key")
+	_expect(click_reaction_source.find("REACTION_DURATION") >= 0 and click_reaction_source.find("FRAME_INTERVAL := 0.036") >= 0, "click-reaction module should keep the original fixed 98-frame playback timing")
 	_expect(click_reaction_source.find("large popup") < 0, "click-reaction module should no longer describe or draw a large in-battle popup")
 	_expect(profile_source.find("prewarm_visual_keys") >= 0, "lingpet current profile should support focused visual prewarm keys for large optional sheets")
 	_expect(profile_source.find("get_cached_visual_texture") >= 0, "lingpet current profile should expose cached-only texture lookup for click-reaction draw frames")
@@ -3308,6 +3570,7 @@ func _verify_companion_click_reaction() -> void:
 	)
 	_expect(_lingpet_runtime_click_sheet_is_small("maribo"), "Maribo in-battle click-reaction sheet should be the downscaled companion sheet")
 	_expect(_lingpet_runtime_click_sheet_is_small("lunabi"), "Lunabi in-battle click-reaction sheet should be the downscaled companion sheet")
+	_expect(_lingpet_runtime_click_sheet_is_small("nekuring"), "Nekuring in-battle click-reaction sheet should be the downscaled companion sheet")
 	_expect(runtime_source.find("_get_companion_click_reaction_draw_size") >= 0, "lingpet runtime should size click-reaction Live2D through a focused helper")
 	_expect(runtime_source.find("click_reaction_draw_size") >= 0 and runtime_source.find("companion_walk_draw_size") >= 0, "lingpet runtime should support a per-pet click-reaction size override before falling back to SD walk draw size")
 	_expect(runtime_source.find("if not click_reaction_visible") >= 0, "lingpet runtime should hide the base SD companion while the click-reaction Live2D is visible")
@@ -3374,6 +3637,35 @@ func _vector2_distance(a: Variant, b: Variant) -> float:
 	if not (a is Vector2) or not (b is Vector2):
 		return INF
 	return (a as Vector2).distance_to(b as Vector2)
+
+
+func _sheet_frame_motion_score(path: String, frame_a: int, frame_b: int, draw_size: int) -> float:
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if image == null:
+		return -1.0
+	var cols := 5
+	var rows := 5
+	var cell_w: int = int(image.get_width() / cols)
+	var cell_h: int = int(image.get_height() / rows)
+	if cell_w <= 0 or cell_h <= 0:
+		return -1.0
+	var safe_a := clampi(frame_a, 0, cols * rows - 1)
+	var safe_b := clampi(frame_b, 0, cols * rows - 1)
+	var region_a := image.get_region(Rect2i((safe_a % cols) * cell_w, int(safe_a / cols) * cell_h, cell_w, cell_h))
+	var region_b := image.get_region(Rect2i((safe_b % cols) * cell_w, int(safe_b / cols) * cell_h, cell_w, cell_h))
+	var target_size := maxi(8, draw_size)
+	region_a.resize(target_size, target_size, Image.INTERPOLATE_LANCZOS)
+	region_b.resize(target_size, target_size, Image.INTERPOLATE_LANCZOS)
+	var score := 0.0
+	for y in range(0, target_size, 2):
+		for x in range(0, target_size, 2):
+			var color_a: Color = region_a.get_pixel(x, y)
+			var color_b: Color = region_b.get_pixel(x, y)
+			score += absf(color_a.r - color_b.r)
+			score += absf(color_a.g - color_b.g)
+			score += absf(color_a.b - color_b.b)
+			score += absf(color_a.a - color_b.a)
+	return score
 
 
 func _lingpet_runtime_click_sheet_is_small(pet_id: String) -> bool:

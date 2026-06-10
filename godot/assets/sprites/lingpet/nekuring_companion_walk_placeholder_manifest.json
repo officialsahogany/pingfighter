@@ -1,0 +1,96 @@
+{
+  "asset_id": "nekuring_companion_walk_placeholder_v1",
+  "pet_id": "nekuring",
+  "display_name": "네쿠링",
+  "generated_at": "2026-06-10",
+  "runtime_usage": "debug-only placeholder companion thumbnail/walk sheet until dedicated rear-view SD companion sheets are produced",
+  "source_art": "res://assets/sprites/lingpet/nekuring_cutin_art.png",
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/nekuring_companion_walk_placeholder.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "sha256": "24aa65de6a8c63aeb71b31d0c942d09cc1d9404ce8e06bbb49d2d7321271626c",
+    "bytes": 945432
+  },
+  "note": "Front-facing deterministic placeholder only. Do not treat this as the final player-perspective rear-view SD companion set required for production hatch-pool promotion.",
+  "qa": {
+    "size": [
+      1280,
+      1280
+    ],
+    "cell_size": [
+      256,
+      256
+    ],
+    "sha256": "24aa65de6a8c63aeb71b31d0c942d09cc1d9404ce8e06bbb49d2d7321271626c",
+    "bytes": 945432,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels": 355,
+    "visible_green_pixels_estimate": 129,
+    "cell_fill_w_pct_range": [
+      66.406,
+      69.141
+    ],
+    "cell_fill_h_pct_range": [
+      76.172,
+      79.297
+    ],
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          41,
+          27,
+          215,
+          226
+        ]
+      },
+      {
+        "frame": 1,
+        "bbox": [
+          39,
+          26,
+          216,
+          229
+        ]
+      },
+      {
+        "frame": 2,
+        "bbox": [
+          39,
+          26,
+          216,
+          229
+        ]
+      },
+      {
+        "frame": 3,
+        "bbox": [
+          39,
+          27,
+          216,
+          230
+        ]
+      },
+      {
+        "frame": 4,
+        "bbox": [
+          41,
+          27,
+          215,
+          226
+        ]
+      }
+    ]
+  }
+}

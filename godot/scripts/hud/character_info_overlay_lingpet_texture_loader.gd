@@ -5,6 +5,8 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 
 const PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID := {
 	"lunabi": "click_reaction_anim",
+	"nekuring": "click_reaction_anim",
+	"monkeyring": "click_reaction_anim",
 }
 
 
