@@ -133,8 +133,16 @@ func _update_lingpet(delta: float, owner: Object, registry: Object) -> void:
 	var sample_start: int = _perf_begin(perf_logger)
 	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
 	if runtime != null and runtime.has_method("update"):
-		if bool(runtime.update(delta, owner, registry)):
+		# Split sub-labels: the 50~54ms one-shot on the first update after the
+		# acquire-cutin modal closes needs update-vs-save attribution (the save
+		# branch is a synchronous ConfigFile disk write).
+		var update_start: int = _perf_begin(perf_logger)
+		var should_save: bool = bool(runtime.update(delta, owner, registry))
+		_perf_end(perf_logger, "physics.callback.lingpet.update", update_start)
+		if should_save:
+			var save_start: int = _perf_begin(perf_logger)
 			_save_lingpet_runtime(owner, registry)
+			_perf_end(perf_logger, "physics.callback.lingpet.save", save_start)
 	_perf_end(perf_logger, "physics.callback.lingpet", sample_start)
 
 
