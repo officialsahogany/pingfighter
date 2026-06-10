@@ -2,6 +2,11 @@ extends SceneTree
 
 const ScreenshotCapture := preload("res://scripts/core/screenshot_capture.gd")
 
+# quit(1) inside a coroutine does not stop the script: after `await
+# process_frame` the continuation still reaches the final quit(0), which
+# overrides the failure. Gate the exit on an accumulated flag instead.
+var _failed := false
+
 
 func _init() -> void:
 	_run()
@@ -66,6 +71,9 @@ func _run() -> void:
 	DirAccess.remove_absolute(absolute_path)
 
 	capture.free()
+	if _failed:
+		quit(1)
+		return
 	print("screenshot_capture_smoke: ok")
 	quit(0)
 
@@ -84,5 +92,5 @@ func _key_event(keycode: int, physical_keycode: int, pressed: bool, echo: bool) 
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
+	_failed = true
 	push_error(message)
-	quit(1)
