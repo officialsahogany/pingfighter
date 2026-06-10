@@ -170,9 +170,30 @@ var runtime_cooldown_multiplier := 1.0
 var item_cooldown_multiplier := 1.0
 var item_skill_slot_bonus := 0
 
+# get_snapshot() 캐시 — smasher_skill_config.gd의 캐시 주석 참조. 입력 필드
+# (영구 장착 무기 / 쿨타임 배수 / 슬롯 보너스 / 언어)가 그대로면 같은
+# Dictionary를 공유 참조로 돌려준다 (소비자는 읽기 전용 계약). 무효화는
+# 매 호출 값 비교 + 언어 비교, 재빌드는 새 Dictionary 교체.
+var _snapshot_cache: Dictionary = {}
+var _snapshot_cache_equipped_permanent: Array = []
+var _snapshot_cache_runtime_mult := -1.0
+var _snapshot_cache_item_mult := -1.0
+var _snapshot_cache_slot_bonus := -1
+var _snapshot_cache_language := ""
+
 
 func get_snapshot() -> Dictionary:
-	return {
+	var language: String = LanguageSettings.get_language()
+	if (
+		not _snapshot_cache.is_empty()
+		and _snapshot_cache_equipped_permanent == equipped_permanent
+		and _snapshot_cache_runtime_mult == runtime_cooldown_multiplier
+		and _snapshot_cache_item_mult == item_cooldown_multiplier
+		and _snapshot_cache_slot_bonus == item_skill_slot_bonus
+		and _snapshot_cache_language == language
+	):
+		return _snapshot_cache
+	_snapshot_cache = {
 		"max_slots": get_max_skill_slots(),
 		"shared_slot_capacity": get_shared_slot_capacity(),
 		"fixed_skills": FIXED_SKILLS.duplicate(),
@@ -188,6 +209,12 @@ func get_snapshot() -> Dictionary:
 		"cooldown_seconds": _get_effective_cooldown_seconds_map(),
 		"skill_data": _get_effective_skill_data_map(),
 	}
+	_snapshot_cache_equipped_permanent = equipped_permanent.duplicate()
+	_snapshot_cache_runtime_mult = runtime_cooldown_multiplier
+	_snapshot_cache_item_mult = item_cooldown_multiplier
+	_snapshot_cache_slot_bonus = item_skill_slot_bonus
+	_snapshot_cache_language = language
+	return _snapshot_cache
 
 
 func get_save_snapshot() -> Dictionary:

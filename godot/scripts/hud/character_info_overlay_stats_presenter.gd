@@ -4,6 +4,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
+const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
@@ -331,7 +332,8 @@ static func _get_color(value: Variant, fallback: Color) -> Color:
 static func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline_x: float, baseline_y: float, size: int, color: Color, ui_text_scale: float) -> void:
 	if text == "":
 		return
-	canvas.draw_string(font, Vector2(baseline_x, baseline_y), LanguageSettings.translate_text(text), HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size, ui_text_scale), color)
+	# draw_string과 픽셀 동일한 셰이핑 캐시 경로 (Font 내부 64-LRU 순환 축출 회피).
+	CharacterInfoOverlayTextLineCache.draw_string_cached(canvas, font, Vector2(baseline_x, baseline_y), LanguageSettings.translate_text(text), _ui_font_size(size, ui_text_scale), color)
 
 
 static func _draw_text_centered_xy(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color, ui_text_scale: float) -> void:
@@ -339,13 +341,14 @@ static func _draw_text_centered_xy(canvas: CanvasItem, font: Font, text: String,
 		return
 	var visible_text := LanguageSettings.translate_text(text)
 	var text_size: Vector2 = _text_size(font, visible_text, size, ui_text_scale)
-	canvas.draw_string(font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size, ui_text_scale), color)
+	CharacterInfoOverlayTextLineCache.draw_string_cached(canvas, font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, _ui_font_size(size, ui_text_scale), color)
 
 
 static func _text_size(font: Font, text: String, size: int, ui_text_scale: float) -> Vector2:
 	if font == null or text == "":
 		return Vector2.ZERO
-	return font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size, ui_text_scale))
+	# get_string_size와 동일 값. 매 프레임 그려지는 행 텍스트라 셰이핑 캐시를 공유한다.
+	return CharacterInfoOverlayTextLineCache.get_string_size_cached(font, text, _ui_font_size(size, ui_text_scale))
 
 
 static func _ui_font_size(size: int, ui_text_scale: float) -> int:

@@ -239,6 +239,10 @@ func draw_dash_sector_liquid(
 	if canvas == null:
 		return
 	var charge_radius: float = inner_radius * progress
+	# A near-zero charge radius collapses every sector point onto the center,
+	# which fails canvas_item_add_polygon triangulation and spams error logs.
+	if charge_radius <= 0.5:
+		return
 	var lod_active: bool = quality_scale < 0.85
 	var sector_segments: int = 12 if lod_active else DASH_SECTOR_SEGMENTS
 	var inner_segments: int = 7 if lod_active else DASH_INNER_SECTOR_SEGMENTS

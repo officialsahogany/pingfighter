@@ -159,9 +159,34 @@ var runtime_cooldown_multiplier := 1.0
 var item_cooldown_multiplier := 1.0
 var item_skill_slot_bonus := 0
 
+# get_snapshot() 캐시. 전투 HUD가 매 프레임 호출하는데 skill_data 딥카피 +
+# 로컬라이즈 재구성이 비쌌다. 입력 필드(장착 스킬 / 쿨타임 배수 / 슬롯 보너스 /
+# 언어)가 그대로면 같은 Dictionary를 공유 참조로 돌려준다. 소비자는 전부 읽기
+# 전용이며, 수정이 필요한 소비자는 duplicate(true) 후 사용해야 한다
+# (smasher_skill_orb_tooltip_renderer가 기존 선례). 무효화는 dirty 플래그 대신
+# 매 호출 값 비교라서 필드 직접 대입(테스트 등)도 안전하게 잡힌다.
+# 재빌드 시 clear()가 아니라 새 Dictionary로 교체하므로, 이전에 반환된 스냅샷을
+# 들고 있는 코드는 기존(매 호출 새 dict) 동작과 동일하게 옛 값을 유지한다.
+var _snapshot_cache: Dictionary = {}
+var _snapshot_cache_equipped: Array = []
+var _snapshot_cache_runtime_mult := -1.0
+var _snapshot_cache_item_mult := -1.0
+var _snapshot_cache_slot_bonus := -1
+var _snapshot_cache_language := ""
+
 
 func get_snapshot() -> Dictionary:
-	return {
+	var language: String = LanguageSettings.get_language()
+	if (
+		not _snapshot_cache.is_empty()
+		and _snapshot_cache_equipped == equipped_skills
+		and _snapshot_cache_runtime_mult == runtime_cooldown_multiplier
+		and _snapshot_cache_item_mult == item_cooldown_multiplier
+		and _snapshot_cache_slot_bonus == item_skill_slot_bonus
+		and _snapshot_cache_language == language
+	):
+		return _snapshot_cache
+	_snapshot_cache = {
 		"max_slots": get_max_skill_slots(),
 		"equipped_skills": equipped_skills.duplicate(),
 		"skill_costs": SKILL_COSTS,
@@ -173,6 +198,12 @@ func get_snapshot() -> Dictionary:
 		"cooldown_seconds": _get_effective_cooldown_seconds_map(),
 		"skill_data": _get_effective_skill_data_map(),
 	}
+	_snapshot_cache_equipped = equipped_skills.duplicate()
+	_snapshot_cache_runtime_mult = runtime_cooldown_multiplier
+	_snapshot_cache_item_mult = item_cooldown_multiplier
+	_snapshot_cache_slot_bonus = item_skill_slot_bonus
+	_snapshot_cache_language = language
+	return _snapshot_cache
 
 
 func get_max_skill_slots() -> int:

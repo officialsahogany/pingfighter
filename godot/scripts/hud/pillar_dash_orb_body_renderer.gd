@@ -1,6 +1,11 @@
 extends RefCounted
 
 const PillarOrbBackgroundCache := preload("res://scripts/hud/pillar_orb_background_cache.gd")
+const PillarOrbStaticLayerCache := preload("res://scripts/hud/pillar_orb_static_layer_cache.gd")
+
+# stage1_pillar_ui_layout.PILLAR_ORB_RADIUS_BASE 미러 — 라이브 scale_factor 는
+# 항상 orb_radius / 55 이므로 프리웜에서 같은 관계로 복원한다.
+const ORB_RADIUS_BASE := 55.0
 
 const OUTER_GLOW_LAYERS := 2
 const OUTER_GLOW_LAYERS_LOD := 1
@@ -17,6 +22,7 @@ const COMPACT_FRAME_HIGHLIGHT_SEGMENTS_STATIC_LOD := 5
 const COMPACT_FRAME_INNER_SEGMENTS_STATIC_LOD := 8
 
 var background_cache: Object = PillarOrbBackgroundCache.new()
+var _static_layer_cache: Object = PillarOrbStaticLayerCache.new()
 
 
 func prewarm_caches(radius: float, context: Dictionary = {}) -> void:
@@ -25,6 +31,18 @@ func prewarm_caches(radius: float, context: Dictionary = {}) -> void:
 		_get_color(context, "orb_background_outer", Color(0.06, 0.02, 0.03, 1.0)),
 		_get_color(context, "orb_background_inner", Color(0.18, 0.06, 0.09, 1.0))
 	)
+	if bool(context.get("compact_fallback_frame", false)):
+		var safe_radius: float = max(16.0, radius)
+		var scale_factor: float = safe_radius / ORB_RADIUS_BASE
+		var frame_width: float = max(4.0, float(context.get("frame_width_base", 7.0)) * scale_factor)
+		var metal_dark: Color = _get_color(context, "orb_metal_dark", Color(0.16, 0.10, 0.09, 1.0))
+		var metal_mid: Color = _get_color(context, "orb_metal_mid", Color(0.46, 0.34, 0.32, 1.0))
+		var metal_light: Color = _get_color(context, "orb_metal_light", Color(0.70, 0.54, 0.50, 1.0))
+		var gem_core: Color = _get_color(context, "orb_gem_core", Color(0.84, 0.20, 0.20, 1.0))
+		_static_layer_cache.build_now(
+			_compact_frame_cache_key(safe_radius, frame_width, metal_dark, metal_mid, metal_light, gem_core),
+			_build_compact_frame_ops(safe_radius, frame_width, metal_dark, metal_mid, metal_light, gem_core)
+		)
 
 
 func draw(
@@ -113,6 +131,19 @@ func _draw_compact_fallback_frame(
 		_draw_static_compact_fallback_frame(canvas, center, radius, frame_width, metal_dark, metal_mid, metal_light)
 		return
 	var lod_active: bool = _is_hud_lod_active(context)
+	# 정적 레이어: 풀 퀄리티 변형만 베이크한다. LOD 변형은 세그먼트 수가 달라
+	# 지오메트리가 다르고 이미 충분히 싸므로 즉시 경로를 유지한다.
+	if not lod_active:
+		var cache_key: String = _compact_frame_cache_key(radius, frame_width, metal_dark, metal_mid, metal_light, gem_core)
+		var cached_texture: Texture2D = _static_layer_cache.get_texture(cache_key)
+		if cached_texture == null and not _static_layer_cache.is_pending(cache_key):
+			cached_texture = _static_layer_cache.request_build(
+				cache_key,
+				_build_compact_frame_ops(radius, frame_width, metal_dark, metal_mid, metal_light, gem_core)
+			)
+		if cached_texture != null:
+			_static_layer_cache.draw_centered(canvas, cached_texture, center)
+			return
 	var outer_segments: int = COMPACT_FRAME_OUTER_SEGMENTS_LOD if lod_active else COMPACT_FRAME_OUTER_SEGMENTS
 	var highlight_segments: int = COMPACT_FRAME_HIGHLIGHT_SEGMENTS_LOD if lod_active else COMPACT_FRAME_HIGHLIGHT_SEGMENTS
 	var inner_segments: int = COMPACT_FRAME_INNER_SEGMENTS_LOD if lod_active else COMPACT_FRAME_INNER_SEGMENTS
@@ -146,6 +177,50 @@ func _draw_static_compact_fallback_frame(
 		var angle: float = deg_to_rad(angle_deg)
 		var bolt_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * (radius + frame_width * 0.76)
 		canvas.draw_circle(bolt_pos, frame_width * 0.30, metal_mid)
+
+
+func _compact_frame_cache_key(
+	radius: float,
+	frame_width: float,
+	metal_dark: Color,
+	metal_mid: Color,
+	metal_light: Color,
+	gem_core: Color
+) -> String:
+	return "compact_frame|%.2f|%.2f|%s|%s|%s|%s" % [
+		radius,
+		frame_width,
+		PillarOrbStaticLayerCache.color_key(metal_dark),
+		PillarOrbStaticLayerCache.color_key(metal_mid),
+		PillarOrbStaticLayerCache.color_key(metal_light),
+		PillarOrbStaticLayerCache.color_key(gem_core),
+	]
+
+
+# _draw_compact_fallback_frame 의 풀 퀄리티 즉시 드로우 본문과 지오메트리
+# 1:1 대응. 본문이 바뀌면 이 op 리스트도 같이 갱신해야 한다.
+func _build_compact_frame_ops(
+	radius: float,
+	frame_width: float,
+	metal_dark: Color,
+	metal_mid: Color,
+	metal_light: Color,
+	gem_core: Color
+) -> Array:
+	var outer_radius: float = radius + frame_width
+	var ops: Array = [
+		PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, outer_radius, metal_dark),
+		PillarOrbStaticLayerCache.make_arc_band(Vector2.ZERO, outer_radius - 2.0, 0.0, TAU, COMPACT_FRAME_OUTER_SEGMENTS, max(2.0, frame_width * 0.42), Color(metal_mid.r, metal_mid.g, metal_mid.b, 0.88)),
+		PillarOrbStaticLayerCache.make_arc_band(Vector2.ZERO, outer_radius - frame_width * 0.52, deg_to_rad(205.0), deg_to_rad(335.0), COMPACT_FRAME_HIGHLIGHT_SEGMENTS, max(1.0, frame_width * 0.26), Color(1.0, 0.96, 0.86, 0.46)),
+		PillarOrbStaticLayerCache.make_arc_band(Vector2.ZERO, radius + 1.0, 0.0, TAU, COMPACT_FRAME_INNER_SEGMENTS, max(1.0, frame_width * 0.20), Color(0.08, 0.06, 0.08, 0.76)),
+	]
+	for angle_deg in [45.0, 135.0, 225.0, 315.0]:
+		var angle: float = deg_to_rad(angle_deg)
+		var bolt_pos: Vector2 = Vector2(cos(angle), sin(angle)) * (radius + frame_width * 0.76)
+		ops.append(PillarOrbStaticLayerCache.make_circle(bolt_pos, frame_width * 0.44, metal_mid))
+		ops.append(PillarOrbStaticLayerCache.make_circle(bolt_pos, frame_width * 0.27, metal_light))
+		ops.append(PillarOrbStaticLayerCache.make_circle(bolt_pos, frame_width * 0.15, gem_core))
+	return ops
 
 
 func _draw_background(canvas: CanvasItem, center: Vector2, radius: float, context: Dictionary) -> void:

@@ -31,6 +31,7 @@ var token_renderer: Object = PillarDashTokenRenderer.new()
 
 func prewarm_caches(orb_radius: float, context: Dictionary = {}) -> void:
 	body_renderer.prewarm_caches(max(16.0, orb_radius), context)
+	token_renderer.prewarm_caches(max(16.0, orb_radius), context)
 
 
 func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scale_factor: float, context: Dictionary) -> void:

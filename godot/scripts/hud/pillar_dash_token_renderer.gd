@@ -7,6 +7,11 @@ var fill_renderer: Object = PillarDashTokenFillRenderer.new()
 var flash_renderer: Object = PillarDashTokenFlashRenderer.new()
 
 
+# 로딩 프리웜: 정적 토큰 레이어(컴팩트 풀 토큰 / 정착 분할선) 베이크.
+func prewarm_caches(orb_radius: float, context: Dictionary = {}) -> void:
+	fill_renderer.prewarm_caches(orb_radius, context)
+
+
 func draw_tokens(
 	canvas: CanvasItem,
 	pillar_drawer: Object,

@@ -34,6 +34,14 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 var _prewarm_step_index := 0
 var _prewarm_character_type := ""
 var _prewarm_finished_for := ""
+# _draw_stage1_pillar_ui가 매 프레임 렌더러에 넘기는 ~40키 컨텍스트 재사용 버퍼.
+# 키 집합은 고정이고 매 프레임 전 키를 다시 쓴다. 렌더러 체인
+# (stage1_pillar_ui_renderer / stage1_pillar_ui_layout /
+# stage1_pillar_status_orb_context_builder / commando_firearm_selector_renderer)
+# 은 이 dict를 프레임 안에서 읽기만 하고 저장하지 않는 것을 확인했다.
+# 새 소비자가 이 dict를 보관하거나 수정하면 안 된다.
+var _pillar_ui_render_context: Dictionary = {}
+var _default_boss_dash_snapshot: Dictionary = {}
 
 
 func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
@@ -92,6 +100,12 @@ func prewarm_assets_step(module_getter: Callable, selected_character_type: Strin
 		4:
 			if character_type == "soldier":
 				_get_module(module_getter, "commando_firearm_runtime")
+		5:
+			# 오브 글래스 정적 레이어 베이크 (pillar_orb_chrome_drawer 소유).
+			var pillar_orb_drawer: Object = _get_module(module_getter, "pillar_orb_drawer")
+			if pillar_orb_drawer != null and pillar_orb_drawer.has_method("prewarm_static_layers_step"):
+				if not bool(pillar_orb_drawer.prewarm_static_layers_step()):
+					return false
 		_:
 			_prewarm_finished_for = character_type
 			_prewarm_step_index = 0
@@ -173,9 +187,14 @@ func _draw_stage1_pillar_ui(
 	var dash_state: Object = _get_cached_module(registry, dash_state_key)
 	var dash_snapshot: Dictionary = dash_state.get_snapshot() if dash_state != null else {}
 	var boss_ai_state: Object = _get_cached_module(registry, "boss_ai_state")
-	var boss_dash_snapshot: Dictionary = _build_default_boss_dash_snapshot()
+	var boss_dash_snapshot: Dictionary
 	if boss_ai_state != null and boss_ai_state.has_method("get_dash_token_snapshot"):
 		boss_dash_snapshot = boss_ai_state.get_dash_token_snapshot()
+	else:
+		# 폴백 기본값은 내용이 불변이므로 한 번만 만들어 재사용한다 (읽기 전용).
+		if _default_boss_dash_snapshot.is_empty():
+			_default_boss_dash_snapshot = _build_default_boss_dash_snapshot()
+		boss_dash_snapshot = _default_boss_dash_snapshot
 	var cleanse_status_active := false
 	if _skill_snapshot_has_skill(skill_config_snapshot, "cleanse"):
 		cleanse_status_active = _is_cleanse_status_active(registry)
@@ -199,50 +218,52 @@ func _draw_stage1_pillar_ui(
 	var lingpet_runtime: Object = _get_cached_module(registry, "lingpet_egg_runtime")
 	_perf_end(perf_logger, "stage1.pillar.ui_prepare", prep_start)
 	var renderer_start: int = _perf_begin(perf_logger)
-	renderer.draw(canvas, game_offset, game_size, time_seconds, {
-		"battle_perf_logger": perf_logger,
-		"height": float(context.get("height", 750.0)),
-		"selected_character_type": character_type,
-		"pillar_hud_static_lod": bool(context.get("pillar_hud_static_lod", false)),
-		"pillar_drawer": pillar_drawer,
-		"skill_orb_renderer": skill_orb_renderer,
-		"horn_strawberry_skill_pillar_renderer": horn_strawberry_skill_pillar_renderer,
-		"horn_strawberry_context": horn_strawberry_context,
-		"status_orb_renderer": status_orb_renderer,
-		"commando_firearm_selector_renderer": commando_firearm_selector_renderer,
-		"commando_weapon_controller": commando_weapon_controller,
-		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
-		"commando_firearm_pistol_state": _get_dict(commando_firearm_context.get("commando_firearm_pistol_state", context.get("commando_firearm_pistol_state", {}))),
-		"commando_firearm_weapon_fire_sheet_state": _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", context.get("commando_firearm_weapon_fire_sheet_state", {}))),
-		"commando_firearm_suicide_drone_state": _get_dict(commando_firearm_context.get("commando_firearm_suicide_drone_state", context.get("commando_firearm_suicide_drone_state", {}))),
-		"combo_renderer": combo_renderer,
-		"combo_state": combo_state,
-		"cluster_frame_texture": _get_value(textures, skill_cluster_frame_key),
-		"cluster_frame_slots": max_skill_slots,
-		"skill_orb_frame_texture": _get_value(textures, "skill_orb_frame_texture"),
-		"skill_icons": context.get("skill_icons", {}),
-		"skill_state": skill_state,
-		"skill_config_snapshot": skill_config_snapshot,
-		"cleanse_status_active": cleanse_status_active,
-		"special_gauge": float(context.get("special_gauge", 0.0)),
-		"gauge_max": float(context.get("gauge_max", 500.0)),
-		"gauge_flash_timer": feedback.get_gauge_flash_timer() if feedback != null else 0.0,
-		"gauge_flash_duration": feedback.get_gauge_flash_duration() if feedback != null else 0.45,
-		"gauge_frame_texture": _get_value(textures, "gauge_orb_frame_texture"),
-		"gauge_frame_spin_angle": orb_state.get_gauge_spin_angle(now_msec) if orb_state != null else 0.0,
-		"dash_snapshot": dash_snapshot,
-		"dash_flash_timer": feedback.get_dash_flash_timer() if feedback != null else 0.0,
-		"dash_flash_duration": feedback.get_dash_flash_duration() if feedback != null else 0.55,
-		"dash_divider_anim_progress": feedback.get_dash_divider_anim_progress() if feedback != null else 1.0,
-		"dash_frame_texture": _get_value(textures, "dash_token_frame_texture"),
-		"dash_frame_spin_angle": orb_state.get_dash_token_spin_angle(now_msec) if orb_state != null else 0.0,
-		"sensor_context": sensor_context,
-		"lingpet_runtime": lingpet_runtime,
-		"boss_dash_visible": not bool(context.get("arena_mode_enabled", false)),
-		"boss_dash_snapshot": boss_dash_snapshot,
-		"boss_dash_frame_texture": null,
-		"boss_dash_frame_spin_angle": 0.0,
-	})
+	# 매 프레임 새 Dictionary 리터럴 대신 멤버 dict를 재사용한다 (할당 제거).
+	# 키 집합은 고정이고 아래에서 전 키를 다시 쓰므로 이전 프레임 값이 남지 않는다.
+	var ui_context: Dictionary = _pillar_ui_render_context
+	ui_context["battle_perf_logger"] = perf_logger
+	ui_context["height"] = float(context.get("height", 750.0))
+	ui_context["selected_character_type"] = character_type
+	ui_context["pillar_hud_static_lod"] = bool(context.get("pillar_hud_static_lod", false))
+	ui_context["pillar_drawer"] = pillar_drawer
+	ui_context["skill_orb_renderer"] = skill_orb_renderer
+	ui_context["horn_strawberry_skill_pillar_renderer"] = horn_strawberry_skill_pillar_renderer
+	ui_context["horn_strawberry_context"] = horn_strawberry_context
+	ui_context["status_orb_renderer"] = status_orb_renderer
+	ui_context["commando_firearm_selector_renderer"] = commando_firearm_selector_renderer
+	ui_context["commando_weapon_controller"] = commando_weapon_controller
+	ui_context["commando_firearm_slingshot_state"] = _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {})))
+	ui_context["commando_firearm_pistol_state"] = _get_dict(commando_firearm_context.get("commando_firearm_pistol_state", context.get("commando_firearm_pistol_state", {})))
+	ui_context["commando_firearm_weapon_fire_sheet_state"] = _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", context.get("commando_firearm_weapon_fire_sheet_state", {})))
+	ui_context["commando_firearm_suicide_drone_state"] = _get_dict(commando_firearm_context.get("commando_firearm_suicide_drone_state", context.get("commando_firearm_suicide_drone_state", {})))
+	ui_context["combo_renderer"] = combo_renderer
+	ui_context["combo_state"] = combo_state
+	ui_context["cluster_frame_texture"] = _get_value(textures, skill_cluster_frame_key)
+	ui_context["cluster_frame_slots"] = max_skill_slots
+	ui_context["skill_orb_frame_texture"] = _get_value(textures, "skill_orb_frame_texture")
+	ui_context["skill_icons"] = context.get("skill_icons", {})
+	ui_context["skill_state"] = skill_state
+	ui_context["skill_config_snapshot"] = skill_config_snapshot
+	ui_context["cleanse_status_active"] = cleanse_status_active
+	ui_context["special_gauge"] = float(context.get("special_gauge", 0.0))
+	ui_context["gauge_max"] = float(context.get("gauge_max", 500.0))
+	ui_context["gauge_flash_timer"] = feedback.get_gauge_flash_timer() if feedback != null else 0.0
+	ui_context["gauge_flash_duration"] = feedback.get_gauge_flash_duration() if feedback != null else 0.45
+	ui_context["gauge_frame_texture"] = _get_value(textures, "gauge_orb_frame_texture")
+	ui_context["gauge_frame_spin_angle"] = orb_state.get_gauge_spin_angle(now_msec) if orb_state != null else 0.0
+	ui_context["dash_snapshot"] = dash_snapshot
+	ui_context["dash_flash_timer"] = feedback.get_dash_flash_timer() if feedback != null else 0.0
+	ui_context["dash_flash_duration"] = feedback.get_dash_flash_duration() if feedback != null else 0.55
+	ui_context["dash_divider_anim_progress"] = feedback.get_dash_divider_anim_progress() if feedback != null else 1.0
+	ui_context["dash_frame_texture"] = _get_value(textures, "dash_token_frame_texture")
+	ui_context["dash_frame_spin_angle"] = orb_state.get_dash_token_spin_angle(now_msec) if orb_state != null else 0.0
+	ui_context["sensor_context"] = sensor_context
+	ui_context["lingpet_runtime"] = lingpet_runtime
+	ui_context["boss_dash_visible"] = not bool(context.get("arena_mode_enabled", false))
+	ui_context["boss_dash_snapshot"] = boss_dash_snapshot
+	ui_context["boss_dash_frame_texture"] = null
+	ui_context["boss_dash_frame_spin_angle"] = 0.0
+	renderer.draw(canvas, game_offset, game_size, time_seconds, ui_context)
 	_perf_end(perf_logger, "stage1.pillar.ui_renderer", renderer_start)
 
 

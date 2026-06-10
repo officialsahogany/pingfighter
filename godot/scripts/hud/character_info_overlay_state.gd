@@ -20,6 +20,7 @@ const CharacterInfoOverlayPrewarmPresenter := preload("res://scripts/hud/charact
 const CharacterInfoOverlaySkillSlotPresenter := preload("res://scripts/hud/character_info_overlay_skill_slot_presenter.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const CharacterInfoOverlayStaticData := preload("res://scripts/hud/character_info_overlay_static_data.gd")
+const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
 const CharacterInfoOverlayTextWidthCache := preload("res://scripts/hud/character_info_overlay_text_width_cache.gd")
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayTooltipPresenter := preload("res://scripts/hud/character_info_overlay_tooltip_presenter.gd")

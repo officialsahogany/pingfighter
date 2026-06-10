@@ -62,6 +62,11 @@ func get_orb_frame_draw_size(radius: float) -> float:
 	return chrome_drawer.get_orb_frame_draw_size(radius)
 
 
+# 정적 글래스 레이어 베이크 프리웜 (로딩 스텝에서 호출; true = 완료).
+func prewarm_static_layers_step() -> bool:
+	return bool(chrome_drawer.prewarm_static_layers_step())
+
+
 func draw_rotating_orb_frame_texture(
 	canvas: CanvasItem,
 	texture: Texture2D,

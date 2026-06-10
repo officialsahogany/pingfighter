@@ -1,6 +1,12 @@
 extends RefCounted
 
 const PillarDashTokenDividerRenderer := preload("res://scripts/hud/pillar_dash_token_divider_renderer.gd")
+const PillarOrbStaticLayerCache := preload("res://scripts/hud/pillar_orb_static_layer_cache.gd")
+
+# stage1_pillar_ui_layout.PILLAR_ORB_RADIUS_BASE 미러 (프리웜 스케일 복원용).
+const ORB_RADIUS_BASE := 55.0
+# 플레이어 대쉬 토큰의 흔한 최대 토큰 수 (정착 분할선 프리웜 키).
+const DIVIDER_PREWARM_TOKEN_COUNTS := [2, 3]
 
 const BOOST_SINGLE_RING_LAYERS := 1
 const BOOST_SINGLE_RING_SEGMENTS := 24
@@ -13,6 +19,27 @@ const BOOST_SECTOR_PULSE_SEGMENTS := 9
 const BOOST_SECTOR_RAINBOW_SEGMENTS := 9
 
 var divider_renderer: Object = PillarDashTokenDividerRenderer.new()
+var _static_layer_cache: Object = PillarOrbStaticLayerCache.new()
+
+
+# 로딩 프리웜: 컴팩트 풀 단일 토큰 + 정착 상태 분할선 베이크.
+# context 색 키는 stage1_pillar_status_orb_context_builder 와 동일 계약.
+func prewarm_caches(orb_radius: float, context: Dictionary = {}) -> void:
+	var safe_radius: float = max(16.0, orb_radius)
+	var scale_factor: float = safe_radius / ORB_RADIUS_BASE
+	var inner_radius: float = max(2.0, safe_radius - 5.0 * scale_factor)
+	var liquid_top: Color = _get_color(context, "token_liquid_top", Color(0.98, 0.46, 0.36, 1.0))
+	var liquid_bottom: Color = _get_color(context, "token_liquid_bottom", Color(0.42, 0.10, 0.12, 1.0))
+	var wave_glow: Color = _get_color(context, "token_wave_glow", Color(1.0, 0.78, 0.70, 1.0))
+	var inner_glow: Color = _get_color(context, "token_inner_glow", Color(1.0, 0.46, 0.36, 1.0))
+	_static_layer_cache.build_now(
+		_compact_token_cache_key(inner_radius, liquid_top, liquid_bottom, wave_glow, inner_glow),
+		_build_compact_full_single_token_ops(inner_radius, liquid_top, liquid_bottom, wave_glow, inner_glow)
+	)
+	var token_counts: Array = DIVIDER_PREWARM_TOKEN_COUNTS
+	if context.has("max_tokens"):
+		token_counts = [int(context.get("max_tokens", 1))]
+	divider_renderer.prewarm_caches(inner_radius, token_counts, -PI * 0.5, scale_factor)
 
 
 func draw_tokens(
@@ -170,10 +197,54 @@ func _draw_compact_full_single_token(
 	wave_glow: Color,
 	inner_glow: Color
 ) -> void:
+	# 정적 레이어: 베이크 텍스처가 준비되면 4개 드로우 대신 blit 1회.
+	var cache_key: String = _compact_token_cache_key(inner_radius, liquid_top, liquid_bottom, wave_glow, inner_glow)
+	var cached_texture: Texture2D = _static_layer_cache.get_texture(cache_key)
+	if cached_texture == null and not _static_layer_cache.is_pending(cache_key):
+		cached_texture = _static_layer_cache.request_build(
+			cache_key,
+			_build_compact_full_single_token_ops(inner_radius, liquid_top, liquid_bottom, wave_glow, inner_glow)
+		)
+	if cached_texture != null:
+		_static_layer_cache.draw_centered(canvas, cached_texture, center)
+		return
 	canvas.draw_circle(center, inner_radius, Color(liquid_bottom.r, liquid_bottom.g, liquid_bottom.b, 0.92))
 	canvas.draw_circle(center + Vector2(0.0, -inner_radius * 0.18), inner_radius * 0.76, Color(liquid_top.r, liquid_top.g, liquid_top.b, 0.42))
 	canvas.draw_circle(center, inner_radius * 0.42, Color(inner_glow.r, inner_glow.g, inner_glow.b, 0.22))
 	canvas.draw_arc(center, inner_radius * 0.82, deg_to_rad(205.0), deg_to_rad(335.0), 16, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.34), 2.0, true)
+
+
+func _compact_token_cache_key(
+	inner_radius: float,
+	liquid_top: Color,
+	liquid_bottom: Color,
+	wave_glow: Color,
+	inner_glow: Color
+) -> String:
+	return "compact_token|%.2f|%s|%s|%s|%s" % [
+		inner_radius,
+		PillarOrbStaticLayerCache.color_key(liquid_top),
+		PillarOrbStaticLayerCache.color_key(liquid_bottom),
+		PillarOrbStaticLayerCache.color_key(wave_glow),
+		PillarOrbStaticLayerCache.color_key(inner_glow),
+	]
+
+
+# _draw_compact_full_single_token 의 즉시 드로우 본문과 지오메트리 1:1 대응.
+# 림 아크만 원본이 antialiased=true 라서 AA 밴드 op 를 쓴다.
+func _build_compact_full_single_token_ops(
+	inner_radius: float,
+	liquid_top: Color,
+	liquid_bottom: Color,
+	wave_glow: Color,
+	inner_glow: Color
+) -> Array:
+	return [
+		PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, inner_radius, Color(liquid_bottom.r, liquid_bottom.g, liquid_bottom.b, 0.92)),
+		PillarOrbStaticLayerCache.make_circle(Vector2(0.0, -inner_radius * 0.18), inner_radius * 0.76, Color(liquid_top.r, liquid_top.g, liquid_top.b, 0.42)),
+		PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, inner_radius * 0.42, Color(inner_glow.r, inner_glow.g, inner_glow.b, 0.22)),
+		PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, inner_radius * 0.82, deg_to_rad(205.0), deg_to_rad(335.0), 2.0, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.34)),
+	]
 
 
 func _draw_single_boost_charging_token(

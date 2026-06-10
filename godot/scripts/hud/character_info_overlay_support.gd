@@ -61,7 +61,8 @@ func _draw_equipment_anatomy_silhouette(canvas: CanvasItem, content_rect: Rect2,
 func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline_x: float, baseline_y: float, size: int, color: Color) -> void:
 	if text == "":
 		return
-	canvas.draw_string(font, Vector2(baseline_x, baseline_y), LanguageSettings.translate_text(text), HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size), color)
+	# draw_string과 픽셀 동일한 셰이핑 캐시 경로 (Font 내부 64-LRU 순환 축출 회피).
+	CharacterInfoOverlayTextLineCache.draw_string_cached(canvas, font, Vector2(baseline_x, baseline_y), LanguageSettings.translate_text(text), _ui_font_size(size), color)
 
 func _draw_text_centered_xy(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color) -> void:
 	if text == "":
@@ -76,7 +77,7 @@ func _draw_text_centered_with_size_xy(canvas: CanvasItem, font: Font, text: Stri
 	var visible_text := LanguageSettings.translate_text(text)
 	if visible_text != text:
 		text_size = _get_centered_text_size(font, visible_text, size)
-	canvas.draw_string(font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size), color)
+	CharacterInfoOverlayTextLineCache.draw_string_cached(canvas, font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, _ui_font_size(size), color)
 
 func _ui_font_size(size: int) -> int:
 	if size < 0 or size >= UI_FONT_SIZE_CACHE_LIMIT:

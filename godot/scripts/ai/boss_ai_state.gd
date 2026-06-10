@@ -69,6 +69,8 @@ var boss_dash_direction := 0
 var boss_dash_target_x := 0.0
 var boss_dash_stun_timer_frames := 0.0
 var boss_dash_stun_total_frames := 0.0
+# 매 프레임 HUD가 읽는 대쉬 토큰 스냅샷 재사용 버퍼 (get_dash_token_snapshot 참조).
+var _dash_token_snapshot: Dictionary = {}
 
 
 func reset() -> void:
@@ -82,6 +84,10 @@ func reset() -> void:
 	_reset_boss_dash()
 
 
+# 매 프레임 HUD가 읽는 스냅샷이라 Dictionary를 재사용해 프레임당 할당을 없앤다.
+# 키 집합은 고정이고 매 호출 전 키를 다시 쓴다. 반환값은 공유 참조이므로
+# 소비자는 같은 프레임 안에서 읽기만 해야 한다 (현 소비자: stage1 pillar HUD,
+# weather_event_state, 스모크 — 전부 즉시 읽기 전용으로 확인됨).
 func get_dash_token_snapshot() -> Dictionary:
 	var recharge_frames: float = max(1.0, boss_dash_recharge_frames)
 	var charge_progress: float = 1.0
@@ -90,22 +96,21 @@ func get_dash_token_snapshot() -> Dictionary:
 	var recovery_progress := 1.0
 	if boss_dash_stun_total_frames > 0.0 and boss_dash_stun_timer_frames > 0.0:
 		recovery_progress = clamp(1.0 - boss_dash_stun_timer_frames / boss_dash_stun_total_frames, 0.0, 1.0)
-	return {
-		"tokens": boss_dash_tokens,
-		"max_tokens": max(1, boss_dash_max_tokens),
-		"charge_timer": boss_dash_charge_timer_frames,
-		"recharge_frames": recharge_frames,
-		"charge_progress": charge_progress,
-		"available_timer": 1.0 if boss_dash_tokens > 0 else 0.0,
-		"active": boss_dash_active,
-		"recovering": boss_dash_stun_timer_frames > 0.0,
-		"stun_timer": boss_dash_stun_timer_frames,
-		"recovery_total_frames": boss_dash_stun_total_frames,
-		"recovery_progress": recovery_progress,
-		"timer": boss_dash_timer_frames,
-		"duration_frames": boss_dash_duration_frames,
-		"direction": boss_dash_direction,
-	}
+	_dash_token_snapshot["tokens"] = boss_dash_tokens
+	_dash_token_snapshot["max_tokens"] = max(1, boss_dash_max_tokens)
+	_dash_token_snapshot["charge_timer"] = boss_dash_charge_timer_frames
+	_dash_token_snapshot["recharge_frames"] = recharge_frames
+	_dash_token_snapshot["charge_progress"] = charge_progress
+	_dash_token_snapshot["available_timer"] = 1.0 if boss_dash_tokens > 0 else 0.0
+	_dash_token_snapshot["active"] = boss_dash_active
+	_dash_token_snapshot["recovering"] = boss_dash_stun_timer_frames > 0.0
+	_dash_token_snapshot["stun_timer"] = boss_dash_stun_timer_frames
+	_dash_token_snapshot["recovery_total_frames"] = boss_dash_stun_total_frames
+	_dash_token_snapshot["recovery_progress"] = recovery_progress
+	_dash_token_snapshot["timer"] = boss_dash_timer_frames
+	_dash_token_snapshot["duration_frames"] = boss_dash_duration_frames
+	_dash_token_snapshot["direction"] = boss_dash_direction
+	return _dash_token_snapshot
 
 
 func get_dash_draw_context() -> Dictionary:
