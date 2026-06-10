@@ -33,19 +33,90 @@
 - 스파이크: scoreboard result callback 4~5ms,
   `stage_transition_loading.step.8` 12.85ms가 전투 윈도우에 1회 출현(누수 의심)
 
+## 0.1 재측정 (2026-06-11 새벽, S1/S2/S5/F1/F5 + 진입 로딩 최적화 반영 후)
+
+세 세션: smasher stage2(99윈도우), viper stage1(28윈도우), soldier stage1
+(79윈도우, **디버그 오염 세션** — F12 스크린샷 55장 버스트 + F3/F7 오버레이 +
+디버그 스폰 → 비교 무효).
+
+| 세션 | ≥27.78ms 더블링 | >20ms 기준 | 베이스라인 |
+|---|---|---|---|
+| stage2 smasher | 21% (strict 초과만 세면 7%) | 26% | 33~72% |
+| stage1 viper | 7% | 14% | 11~20% |
+| stage1 soldier | 30%+ (오염) | — | 11~20% |
+
+- 판정: stage2 33~72% → **21~26%로 대폭 개선**, 그러나 게이트 <15% 미달.
+- F1 효과 확정: `physics.reset_ball.mythic_round_start` 3.0~3.5ms →
+  avg 0.63~0.75 / max 1.26ms.
+- draw 개선 확정: stage2 `draw.frame.battle_scene` 윈도우 avg 중앙값 4.22ms
+  (베이스라인 4.7~5.5ms).
+
+확정 스파이크 소스(적대적 검증 통과, 레버리지 순):
+1. **F12 스크린샷 1장 = ~450ms 동기 스톨.** `Image.save_png` 단일스레드 인코드
+   (2928x1806)가 본체 — 같은 머신 독립 벤치 433~475ms 1:1 재현, GPU readback
+   잔여 0~40ms, 디스크 ~3%. 수정: save_png를 WorkerThreadPool 오프로드(+쿨다운).
+   `godot/scripts/core/screenshot_capture.gd`.
+2. **비-smasher 캐릭 첫 전투 draw 프레임 74~141ms**:
+   `battle_playfield_scene_drawer.gd:47`의 무조건
+   `_get_instance("smasher_power_smash_state")`가 콜드 모듈 생성(preload 7 +
+   서브스테이트 7 new). 프리웜 3경로 전부 smasher 한정이라 원래부터 커버리지 밖.
+   soldier 141ms / viper 74ms 양쪽 재현. 수정: cached-only 조회 또는 캐릭터
+   게이트(power_state는 draw_power_smash_effects 전용). 수정 시 회귀 스모크
+   동반 필수(코덱스 리뷰): fake registry로 soldier/viper draw 경로가
+   smasher_power_smash_state를 **생성하지 않음**을 직접 잠글 것 — 현재는 이
+   경로를 막는 스모크가 없다. 같은 첫 프레임에 컨트롤러 레벨 비계측 ~68~87ms
+   별도 존재 — 라벨 보강 필요.
+3. **mythic/legendary 첫 픽업 52ms**: 획득 시네마틱 ensure_host 콜드 기동
+   (11노드 + GPUParticles2D 3 + ShaderMaterial 다수). 2번째 픽업은
+   3.08ms(17배 저렴) → 일회성 확정. **주의(코덱스 리뷰 2026-06-11 반영)**:
+   `battle_boot_resource_prewarm_controller.gd:862` 분기가 assets-only step을
+   우선하는 것은 데드 브랜치가 아니라 **스모크로 봉인된 의도적 정책**이다 —
+   `battle_boot_resource_prewarm_smoke.gd:495`가 "첫 전투 프레임 전 Node2D
+   호스트 미생성"을, `:496`이 "asset-only 프리웜은 owner 불요"를 명시 계약으로
+   잠근다. 따라서 "호스트 prewarm 연결"은 구현 전에 이 테스트 정책 변경 결정이
+   선행돼야 한다. 옵션: (a) 정책 뒤집기 — 스모크 계약 수정 + 호스트 부트
+   프리웜(트리 상주 11노드 비용 수용), (b) 정책 유지 — 호스트 생성을 전투 밖
+   숨은 프레임(스테이지 전환 로딩 말미 또는 첫 스코어보드 일시정지)으로
+   스테이징, (c) 현상 유지 — 52ms 일회성 수용. icon_sheet_path 프리웜은
+   정책과 무관하게 추가 가능.
+4. **링펫 획득 직후 50~54ms 1회**: 부화 프레임이 아니라 **획득 컷인 모달
+   dismiss 후 재개된 첫 lingpet update 프레임**(적대 검증으로 귀속 정정).
+   `physics.callback.lingpet`이 하위 라벨 없는 leaf라 분해 불가 → 하위 계측
+   (재개 프레임 / prewarm_visuals / save) 추가 후 재측정.
+   `_save_lingpet_runtime` 동기 ConfigFile 쓰기 분리 후보.
+5. scoreboard `reset_game_callback` 322ms: 게임 리셋 1회성, 결과 화면 내. 후순위.
+
+미발화 트랩(코드 확정, 아직 스파이크로 미발현):
+- doll curse 첫 arm: 1034줄 스킬 스크립트 lazy `load()+new()` + 512px raw PNG
+  동기 디코드가 physics 콜백 내부 prewarm에서 실행 — koyora 첫 arm 세션에서
+  같은 클래스 스파이크 예고. DOLL_SHEET_PATH 부트 프리웜 등록 + 스크립트
+  preload 필요.
+- 트램펄린 renderer `Invalid polygon data` 에러 62회/세션
+  (`active_item_trampoline_renderer.gd:83 draw_colored_polygon`) — 캡처
+  sag(최대 38px)가 매트 두께를 초과할 때 자기교차 폴리곤 의심.
+  `pillar_liquid_drawer` 퇴화 폴리곤 가드와 동일 클래스. 백트레이스 스팸
+  자체가 프레임 비용.
+
+엔진측 잔여(스크립트 라벨 전부 ≤12ms인데 delta 38~112ms): soldier 17/20,
+stage2 3건(41.7×2, 69.4ms), viper 1건. soldier에서 링펫 활성 후 빈도 증가
+(15%→42%) 상관 — 08b.lingpet draw 피크 윈도우 6개가 전부 더블링 윈도우와
+일치. 게임내/외부 분리는 클린 재측정으로.
+
 ## 1. 완료 게이트 (이걸 통과해야 144→72 승급)
 
 1. 72캡에서 스테이지 1~4 각각 2분 플레이 시 **더블링 윈도우 < 15%**.
 2. 인게임 체감 확인(체감이 진실 — 코드 지표만으로 합격 처리 금지).
 3. 시각 회귀 없음: 오브 HUD, 필러 크롬, 캐릭터 정보 패널이 캐싱 전과 동일하게 보임.
 
-측정 방법: `godot/`에 `battle_perf_log.flag` 생성 후 플레이, 로그에서
-```powershell
-# 스테이지별 더블링 비율
-$lines = Get-Content "$env:APPDATA\Godot\app_userdata\pingfighter\logs\godot.log" |
-  Where-Object { $_ -match '^\[BattlePerf-Gap\]' }
-# stage=N별로 delta=proc=...(max=...) 의 max>20ms 비율 집계 (calls<100 윈도우는 비전투로 제외)
-```
+측정 방법(2026-06-11 명문화): `godot/`에 `battle_perf_log.flag` +
+`battle_perf_samples.flag` 생성 후 플레이. **더블링 = `[BattlePerf-Samples]`
+윈도우의 `process.shell.delta` max ≥ 27.776ms(=2틱, 정확-2틱 싱글스킵 포함)**,
+전투 윈도우 필터는 `00.playfield_frame_total` n ≥ 100. 종전 레시피(>20ms,
+Gap 라인 기반)는 폐기 — 0.1의 ">20ms 기준" 열은 베이스라인과의 호환 참고용.
+
+측정 위생: 측정 런 중 F12 스크린샷·F3/F7 디버그 오버레이·디버그 스폰 금지
+(스크린샷 1장당 ~450ms 스톨로 더블링%가 오염됨 — soldier 세션 사례). 더블링%
+비교는 같은 캐릭터·같은 로드아웃(링펫/mythic 수)에서만 유효.
 
 ## 2. 슬라이스 (레버리지/위험 순)
 
