@@ -9,7 +9,9 @@ const ActiveItemTrampolineRenderer := preload("res://scripts/items/active_item_t
 const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
 const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion_controller.gd")
+const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
+const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 
 const BALL_SIZE := 28.6
 const FRAME_DELTA := 1.0 / 60.0
@@ -32,6 +34,7 @@ func _init() -> void:
 	_verify_rising_ball_is_ignored()
 	_verify_bounce_speed_floor_and_cap()
 	_verify_launch_overspeed_survives_frame_speed_cap()
+	_verify_launch_overspeed_persists_across_frame_boundary()
 	_verify_capture_watchdog_releases_on_lost_contact()
 	_verify_trampoline_expires_after_three_bounces()
 	_verify_bounce_anim_timer_ticks_down_on_update()
@@ -356,6 +359,58 @@ func _verify_launch_overspeed_survives_frame_speed_cap() -> void:
 	_expect(
 		abs(Vector2(plain_scene.get("ball_vel", Vector2.ZERO)).length() - BallUpdateStaticConfig.MAX_BALL_SPEED) < 0.01,
 		"without the transient cap key the same launch is clamped — proves the key is load-bearing, not decorative"
+	)
+
+
+# The overspeed must produce REAL displacement frames after the launch frame:
+# the cap key survives the frame boundary (owner schema + scene snapshot
+# whitelist), holds the opened cap for the TTL, then expires so the normal
+# cap reins the ball back in. Regression: the key used to live one frame —
+# the next frame's leading apply_ball_speed_limits clamped 33.8 -> 26 before
+# any movement, so the +30% launch had zero overspeed displacement.
+func _verify_launch_overspeed_persists_across_frame_boundary() -> void:
+	_expect(
+		BattleSceneState.DEFAULT_VALUES.has("trampoline_launch_speed_cap")
+			and BattleSceneState.DEFAULT_VALUES.has("trampoline_launch_speed_cap_frames"),
+		"launch cap keys must be declared in the owner schema or owner.set silently no-ops"
+	)
+
+	var controller: Object = BallUpdateController.new()
+	var scene: Dictionary = controller._build_scene_snapshot({
+		"trampoline_launch_speed_cap": 33.8,
+		"trampoline_launch_speed_cap_frames": ActiveItemTrampolineRuntime.LAUNCH_OVERSPEED_CAP_FRAMES,
+		"ball_vel": Vector2(0.0, -33.8),
+		"max_ball_speed": BallUpdateStaticConfig.MAX_BALL_SPEED,
+		"ball_impact_boost": 1.0,
+	})
+	_expect(
+		abs(float(scene.get("trampoline_launch_speed_cap", 0.0)) - 33.8) < 0.01,
+		"the scene snapshot whitelist must carry the launch cap across the frame boundary"
+	)
+
+	var motion: Object = BallFrameMotionController.new()
+	var deps: Dictionary = {"ball_physics": RefCounted.new()}
+	var overspeed_frames: int = 0
+	for frame in range(8):
+		motion.update_trampoline_launch_cap(scene, 1.0)
+		motion.apply_ball_speed_limits(scene, deps)
+		if Vector2(scene.get("ball_vel", Vector2.ZERO)).length() > BallUpdateStaticConfig.MAX_BALL_SPEED + 0.01:
+			overspeed_frames += 1
+	_expect(
+		overspeed_frames >= 2,
+		"the launch must keep real overspeed displacement frames after the launch frame (got %d)" % overspeed_frames
+	)
+	_expect(
+		overspeed_frames <= 6,
+		"the overspeed window must expire within the TTL instead of riding forever (got %d frames)" % overspeed_frames
+	)
+	_expect(
+		abs(Vector2(scene.get("ball_vel", Vector2.ZERO)).length() - BallUpdateStaticConfig.MAX_BALL_SPEED) < 0.01,
+		"after the TTL expires the normal cap must rein the ball back in"
+	)
+	_expect(
+		float(scene.get("trampoline_launch_speed_cap", 0.0)) == 0.0,
+		"the cap key must self-clear when the TTL expires"
 	)
 
 

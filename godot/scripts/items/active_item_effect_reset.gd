@@ -40,6 +40,8 @@ func apply(
 	_clear_array(target, "brick_particles")
 	_clear_array(target, "trampolines")
 	_clear_array(target, "trampoline_particles")
+	target.set("trampoline_launch_speed_cap", 0.0)
+	target.set("trampoline_launch_speed_cap_frames", 0.0)
 
 
 func _clear_array(target: Object, key: String) -> void:

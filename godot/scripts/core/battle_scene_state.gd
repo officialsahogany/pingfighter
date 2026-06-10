@@ -24,6 +24,8 @@ const DEFAULT_VALUES: Dictionary = {
 	"drive_speed_increase": 0.0,
 	"drive_text_timer_frames": 0.0,
 	"smasher_wheel_speed_cap": 0.0,
+	"trampoline_launch_speed_cap": 0.0,
+	"trampoline_launch_speed_cap_frames": 0.0,
 	"gameplay_frame_counter": 0,
 	"ball_visual_type": "energy",
 	"boost_charging_active": false,

@@ -55,6 +55,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	)
 	var motion_apply_start: int = _perf_begin(perf_logger)
 	frame_motion_controller.update_serve_collision_cooldowns(scene, fps_scale)
+	frame_motion_controller.update_trampoline_launch_cap(scene, fps_scale)
 	if not power_smashing_parabola_active and not ball_speed_recovery_active:
 		frame_motion_controller.apply_ball_speed_limits(scene, frame_deps)
 
@@ -630,6 +631,8 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 		"fire_weather_max_ball_speed": float(context.get("fire_weather_max_ball_speed", 35.0)),
 		"fire_weather_speed_cap_active": bool(context.get("fire_weather_speed_cap_active", false)),
 		"smasher_wheel_speed_cap": float(context.get("smasher_wheel_speed_cap", 0.0)),
+		"trampoline_launch_speed_cap": float(context.get("trampoline_launch_speed_cap", 0.0)),
+		"trampoline_launch_speed_cap_frames": float(context.get("trampoline_launch_speed_cap_frames", 0.0)),
 	}
 
 

@@ -249,6 +249,8 @@ func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dic
 		"commando_suicide_drone_ball_boost_active": false,
 		"commando_suicide_drone_ball_restore_speed": 0.0,
 		"commando_suicide_drone_ball_boosted_speed": 0.0,
+		"trampoline_launch_speed_cap": 0.0,
+		"trampoline_launch_speed_cap_frames": 0.0,
 	}
 
 

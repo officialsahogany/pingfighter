@@ -251,12 +251,17 @@ func _process_trampoline(step_result: Dictionary, scene: Dictionary, deps: Dicti
 	var launch_velocity: Vector2 = _get_vector2(hit_result, "bounce_velocity", Vector2(ball_vel.x, -max(abs(ball_vel.y), 9.0)))
 	scene["ball_vel"] = launch_velocity
 	# The slingshot launch may exceed the global ball speed cap by up to 30%;
-	# raise the transient cap key consumed by ball_frame_motion_controller so
-	# the per-frame clamp does not silently swallow the overspeed
-	# (meditation-release cap precedent — dormant once the ball slows down).
+	# raise the cap key consumed by ball_frame_motion_controller so the
+	# per-frame clamp does not silently swallow the overspeed. The frames TTL
+	# keeps the opened cap alive across the frame boundary (schema + snapshot
+	# whitelist) until ball_frame_motion_controller ticks it out.
 	scene["trampoline_launch_speed_cap"] = max(
 		float(scene.get("trampoline_launch_speed_cap", 0.0)),
 		launch_velocity.length()
+	)
+	scene["trampoline_launch_speed_cap_frames"] = max(
+		float(scene.get("trampoline_launch_speed_cap_frames", 0.0)),
+		float(hit_result.get("launch_speed_cap_frames", 0.0))
 	)
 	if audio != null:
 		if audio.has_method("play_trampoline_bounce"):

@@ -24,10 +24,15 @@ const TRAMPOLINE_MIN_UPWARD_SPEED := 9.0
 # A full draw adds up to 30% of the global ball speed cap on top of the
 # entry-based launch, and the launch itself may exceed that cap by up to 30%.
 # The overspeed only survives the per-frame clamp because the launch also
-# raises the transient "trampoline_launch_speed_cap" scene key consumed by
-# ball_frame_motion_controller (meditation-release cap precedent).
+# raises the "trampoline_launch_speed_cap" scene key consumed by
+# ball_frame_motion_controller. The key (and its frames TTL) is declared in
+# battle_scene_state.DEFAULT_VALUES and the ball scene snapshot whitelist so
+# it survives the frame boundary; ball_frame_motion_controller ticks the TTL
+# down each frame and clears the cap when it expires, giving the launch a few
+# real overspeed displacement frames before the normal cap reins it in.
 const LAUNCH_DRAW_BONUS_CAP_RATIO := 0.30
 const LAUNCH_OVERSPEED_CAP_RATIO := 1.30
+const LAUNCH_OVERSPEED_CAP_FRAMES := 5.0
 
 # Slingshot capture: the ball is not reflected instantly. Each frame the
 # descending ball overlaps the mat it keeps its motion but loses speed to a
@@ -159,6 +164,7 @@ func apply_contact(
 		"destroyed": destroyed,
 		"bounce_count": bounce_count,
 		"bounce_velocity": launch_velocity,
+		"launch_speed_cap_frames": LAUNCH_OVERSPEED_CAP_FRAMES,
 	}
 
 

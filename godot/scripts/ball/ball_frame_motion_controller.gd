@@ -25,6 +25,20 @@ func cap_ball_speed(scene: Dictionary, deps: Dictionary) -> void:
 	apply_ball_speed_limits(scene, deps)
 
 
+# Ticks the trampoline launch overspeed window. Runs before the frame's first
+# clamp: while the TTL holds, the opened cap survives apply_ball_speed_limits;
+# once it expires the cap clears and the normal cap reins the ball back in.
+func update_trampoline_launch_cap(scene: Dictionary, fps_scale: float) -> void:
+	if float(scene.get("trampoline_launch_speed_cap", 0.0)) <= 0.0:
+		return
+	var frames: float = float(scene.get("trampoline_launch_speed_cap_frames", 0.0)) - fps_scale
+	if frames > 0.0:
+		scene["trampoline_launch_speed_cap_frames"] = frames
+		return
+	scene["trampoline_launch_speed_cap_frames"] = 0.0
+	scene["trampoline_launch_speed_cap"] = 0.0
+
+
 func apply_power_smash_speed_limit(scene: Dictionary, max_effective_speed: float) -> void:
 	_limit_effective_speed(scene, max_effective_speed)
 
