@@ -902,3 +902,299 @@ _expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_CONTROLS, 99
 6. **코드 fallback ↔ 데이터 키 동기화**: `_get_focused_option_description`의
    ko fallback 문자열과 `settings.desc.*` ko 값이 같은 문장이어야(불일치 시
    언어=ko인데 키 누락 상황에서 다른 문구가 보일 수 있음).
+
+---
+
+## 부록 F — 슬라이스 5 배선 브리프 (네온 셰브론 cycler · 첫 입력 변화)
+
+이번부터 **입력이 바뀜** → 회귀 면이 넓다. 핵심: **새 상태/새 증감 로직을
+만들지 말고**, 셰브론 클릭을 **기존 cycle 함수에 방향만 넣어 합류**시킨다.
+배선 시작 전 `git status` + HEAD 재스냅샷([[project-godot-wip-branch-moving-head]]).
+
+### F-1. 범위 = select_row 계열만 (3개)
+`render_fps`(display focus 1) / `vsync`(display focus 2) /
+`controls_vibration`(controls 조이패드 focus 1). **display mode pill / language
+pill의 cycler화는 후속 슬라이스.** 이번에 pill은 손대지 않는다.
+
+### F-2. 단일 진실원: 셰브론 hit rect 헬퍼 (draw·click 공용)
+드로잉과 히트테스트가 **같은 rect**를 써야 어긋나지 않음. value_rect를
+좌/우 반으로 나눈 공용 헬퍼 하나:
+```gdscript
+func _get_select_chevron_rects(value_rect: Rect2) -> Dictionary:
+    var half := value_rect.size.x * 0.5
+    return {
+        "left": Rect2(value_rect.position, Vector2(half, value_rect.size.y)),
+        "right": Rect2(value_rect.position + Vector2(half, 0.0), Vector2(value_rect.size.x - half, value_rect.size.y)),
+    }
+```
+- 히트영역 = value_rect 좌/우 반(시각 셰브론보다 넓고, **value_rect 밖으로
+  안 샘**). 라벨/다른 rect 침범 없음.
+
+### F-3. 드로잉 — `_draw_setting_select_row` (func 앵커)
+기존 `_draw_panel(value_rect, ...)` + 중앙 텍스트는 두되, 값 좌/우에 네온
+셰브론 폴리곤(**글리프 금지**)을 추가. hover 쪽만 `NEON_CYAN_HOT`로 발광
+(mouse_pos 이미 파라미터로 있음):
+```gdscript
+var ch := _get_select_chevron_rects(value_rect)
+var lcol := NEON_CYAN_HOT if ch.left.has_point(mouse_pos) else NEON_CYAN
+var rcol := NEON_CYAN_HOT if ch.right.has_point(mouse_pos) else NEON_CYAN
+# ‹ : value_rect 좌측 안쪽, › : 우측 안쪽 — draw_colored_polygon 삼각형
+```
+값 텍스트는 두 셰브론 사이 중앙 유지.
+
+### F-4. 입력 배선 = 기존 cycle 함수에 방향만 (새 상태 금지)
+**키보드는 이미 정상**(좌/우→cycle) → **건드리지 말 것.** 클릭만 바꾼다.
+
+`_handle_display_click` fps 행(현재 L502 whole-row +1):
+```gdscript
+if _get_display_fps_cap_row_rect(panel_rect).has_point(position):
+    options_focus = 1
+    var ch := _get_select_chevron_rects(_get_display_fps_cap_value_rect(panel_rect))
+    if ch.left.has_point(position):
+        _cycle_render_fps_cap(-1, owner, registry)
+    elif ch.right.has_point(position):
+        _cycle_render_fps_cap(1, owner, registry)
+    # else 라벨 영역: focus만, cycle 없음
+    return {"handled": true}
+```
+vsync 행(L506)도 동일하게 `_cycle_vsync_mode(∓1, ...)`.
+`_handle_controls_click` vibration 행(L546)도 동일하게
+`_adjust_gamepad_vibration_level(∓1)`.
+- **행 rect를 바깥 게이트로 유지** → 행 클릭은 계속 이 핸들러가 소비(=다른
+  rect로 누수 없음). 방향만 value 좌/우 반으로 분기.
+- 라벨 영역 클릭은 **focus만**(cycle 없음). 기존 "행 아무데나 +1"에서
+  바뀌는 미세 동작이나 방향 모호성 제거 — 의도. (+1 유지를 원하면 else에
+  `_cycle_*(1,...)` 넣어도 되나, 비권장.)
+
+### F-5. 회귀 가드 (셰브론이 먹으면 안 되는 곳)
+셰브론 분기는 **fps/vsync/vibration 행 rect 게이트 안에만** 존재하므로 구조적
+으로 분리됨. 그래도 smoke로 증명:
+- **sound slider**(다른 탭/`_handle_sound_click`) — 셰브론 무관, 슬라이더 그대로.
+- **toggle checkbox**(L510/L515 `_get_display_default_row_rect` 등) — 토글 동작,
+  cycle 아님.
+- **back/save/recommend 버튼**(L520-532) — 버튼 동작.
+- **탭 전환**(헤더 탭 rect, `_handle_options_click`에서 콘텐츠보다 먼저 검사)
+  — 탭 전환.
+세 select 행의 value_rect ⊆ 행 rect 이고, 위 rect들과 겹치지 않음(확인).
+
+### F-6. Smoke 보강 (좌/우 분리 + 회귀)
+`_handle_display_click`은 owner/registry null이어도 핵심 cycle은 실행됨
+(`_cycle_render_fps_cap`의 `render_fps_cap = options[...]`은 view_layout null
+가드 위에서 동작) → smoke가 null로 호출 가능.
+- 패널: `var panel := overlay._get_options_panel_rect(Vector2(900,600))`.
+- **좌 클릭 = 이전 옵션**: `render_fps_cap` 알려진 값 세팅 →
+  `ch.left.get_center()`로 `_handle_display_click(pos, null, null, panel)` →
+  `render_fps_cap`이 옵션 배열의 **이전** 값인지 단언.
+- **우 클릭 = 다음 옵션**: `ch.right.get_center()` → **다음** 값.
+- **분리 증명**: 같은 시작값에서 좌 클릭 결과 ≠ 우 클릭 결과.
+- **회귀**: 토글 행 위치 클릭 → `remember_display_mode` 토글되고
+  `render_fps_cap` **불변**; 버튼 위치 클릭 → 버튼 동작; (라벨영역 클릭 →
+  `render_fps_cap` 불변, focus만).
+- vsync/vibration도 최소 좌/우 1쌍씩.
+- 픽셀 단언 없음(드로잉은 무오류 호출만).
+
+### F-7. 트랩 (슬라이스 5 한정)
+1. **draw·click 공용 rect**: 반드시 `_get_select_chevron_rects` 한 곳에서.
+   드로잉만 바꾸고 히트영역을 따로 계산하면 시각/클릭 어긋남.
+2. **새 상태 금지**: `_cycle_render_fps_cap`/`_cycle_vsync_mode`/
+   `_adjust_gamepad_vibration_level` 재사용, 방향 인자만. 값 저장/적용/
+   wrap 로직 복제 금지(이미 그 함수 안에 있음).
+3. **키보드 미변경**: 좌/우→cycle 이미 정상(L267-282 / `_adjust_controls_focus`).
+   중복 배선/재작성 금지.
+4. **hit rect ⊆ value_rect**: 행/라벨/다른 rect로 안 새게. pill(mode/language)
+   미적용.
+5. **셰브론은 폴리곤**(글리프 금지), hover 쪽만 발광.
+6. **행 rect 바깥 게이트 유지**: 셰브론 분기를 행 rect `has_point` 안에 둬서
+   클릭이 버튼/체크박스/탭으로 누수되지 않게.
+7. **owner/registry null 경로**: smoke가 null로 cycle 호출 시 죽지 않는지
+   (현재 view_layout null 가드 있음 — 확인).
+
+---
+
+## 부록 G — 슬라이스 7 배선 브리프 (RESET 버튼 · 스크롤바 보류)
+
+**스크롤바는 보류**(정상 900×500 패널에선 어느 탭도 오버플로우 안 함 →
+기능 스크롤바는 현재 죽은 코드. 작은 뷰포트/행 증가 시 별도 도입).
+슬라이스 7 = **RESET(현재 탭 기본값 복원) 버튼만.** 입력/배선 계열로 닫고,
+그 다음 슬라이스 6(에셋)을 순수 미감으로 분리.
+
+### G-1. RESET 동작 = 현재 탭만, 기존 세터/적용 재사용
+신규 `_reset_current_tab_to_defaults(owner, registry)` 가 `options_tab`으로
+분기. **적용 로직 복제 금지** — 기존 함수/세터 호출:
+```gdscript
+func _reset_current_tab_to_defaults(owner: Object, registry: Object) -> void:
+    match options_tab:
+        OPTIONS_TAB_SOUND:
+            _set_bgm_volume(registry, DEFAULT_BGM_VOLUME)   # 0.4 (getter fallback과 동일)
+            _set_sfx_volume(registry, DEFAULT_SFX_VOLUME)   # 0.7
+        OPTIONS_TAB_DISPLAY:
+            display_mode = DISPLAY_MODE_WINDOWED
+            render_fps_cap = RENDER_FPS_CAP_DEFAULT
+            vsync_mode = VSYNC_MODE_AUTO
+            remember_display_mode = false
+            auto_refresh_rate_60hz = false
+            _display_preference_dirty = true
+            _save_display_options(owner, registry)          # 적용/저장은 기존 경로
+        OPTIONS_TAB_CONTROLS:
+            controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+            gamepad_vibration_level = GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT
+            GamepadVibrationSettings.set_vibration_level(gamepad_vibration_level)  # 영속화(기존 진동 경로 확인)
+        OPTIONS_TAB_LANGUAGE:
+            _set_language_option(LanguageSettings.DEFAULT_LANGUAGE, owner)
+```
+- 신규 상수 2개: `const DEFAULT_BGM_VOLUME := 0.4`, `const DEFAULT_SFX_VOLUME := 0.7`
+  (`_get_bgm_volume`/`_get_sfx_volume` fallback과 동일 — smoke 단언용 이름).
+  나머지 기본값은 기존 상수 그대로(WINDOWED/MONITOR/AUTO/VIBRATION_LEVEL_DEFAULT/DEFAULT_LANGUAGE).
+- **"recommended"와 다름**: `_apply_recommended_display_settings`는
+  EXCLUSIVE_FULLSCREEN+remember=true(권장). RESET은 **팩토리 기본값**
+  (WINDOWED 등). 둘을 섞지 말 것.
+
+### G-2. 버튼 = 마우스 전용, **포커스 사이클에 넣지 말 것** (핵심 트랩)
+RESET을 focus 사이클에 추가하면 `SOUND/DISPLAY/CONTROLS/LANGUAGE_FOCUS_COUNT`
++ 모든 focus 인덱스 매핑 + **4b의 `_get_focused_option_description` 매핑**까지
+연쇄 변경됨. 그래서 **마우스 전용 코너 버튼**으로(레퍼런스의 마우스 아이콘
+Restore Defaults와 동일 성격). focus_count·desc 매핑 **무변경**.
+- (선택) 키보드 접근이 필요하면 focus 사이클 말고 **전용 키 1개**
+  (`KEY_DELETE` 등)를 `_handle_options_key_input`에 추가해 현재 탭 리셋.
+  저우선, 안 해도 됨.
+
+### G-3. 배치 = 헤더 우상단 (바텀 우측 충돌 회피)
+레퍼런스는 바텀 우측이지만, **display 탭 바텀은 4버튼(권장값/60Hz/저장/
+뒤로가기)으로 꽉 참** → 바텀 우측 RESET은 뒤로가기와 충돌. 모든 탭에서
+비어 있는 **헤더 우상단**(타이틀/탭 오른쪽, language 탭 끝 ~x+538 이후
+우측 ~360px 여백)에 배치:
+```gdscript
+func _get_reset_button_rect(panel_rect: Rect2) -> Rect2:
+    return Rect2(panel_rect.position + Vector2(panel_rect.size.x - 142.0, 14.0), Vector2(124.0, 34.0))
+```
+- `_draw_options_window`에서 헤더 그린 뒤 모든 탭 공통으로 1회 draw
+  (탭 분기 전). 라벨 `_text("settings.reset", "초기화")`. ⟳ 아이콘은
+  폴리곤/선(글리프 금지), 선택.
+- 스타일은 기존 `_draw_button` 재사용 가능(시안 톤). selected=false 고정
+  (focus 비참여).
+
+### G-4. 클릭 라우팅 = 탭 콘텐츠보다 먼저
+`_handle_options_click`에서 **탭 분기 이전에** RESET rect 검사(헤더 레벨
+버튼이므로):
+```gdscript
+if _get_reset_button_rect(panel_rect).has_point(position):
+    _reset_current_tab_to_defaults(owner, registry)
+    return {"handled": true}
+```
+- 헤더 우상단이라 탭 rect/콘텐츠 rect와 안 겹침. 탭 전환보다 먼저/나중
+  순서는 무관(영역 분리). back/save/버튼과도 분리.
+
+### G-5. i18n (1키 — 가벼움)
+`settings.reset` 1키를 7개 언어에 추가(ko "초기화" / en "Reset" / zh "重置"
+/ ja "リセット" / es "Restablecer" / pt-BR "Redefinir" / ru "Сброс").
+- 4b 패턴대로 `language_settings_data.gd` 7블록 + 코드 fallback "초기화"
+  동기화. 1키라 부담 적음. (보류 원하면 fallback만으로도 동작하나, 7키
+  추가 권장 — 반쪽 i18n 회피.)
+- **주의**: 이 파일은 HEAD 유동 churn 잦음([[project-godot-wip-branch-moving-head]])
+  — 커밋 직전 재스냅샷.
+
+### G-6. Smoke 보강
+overlay 변수에 저장되는 탭(display/controls/language)은 직접 단언:
+```gdscript
+# display: 비기본값으로 세팅 → reset → 기본값 확인
+overlay.options_tab = Overlay.OPTIONS_TAB_DISPLAY
+overlay.display_mode = Overlay.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+overlay.render_fps_cap = Overlay.RENDER_FPS_CAP_SMOOTH
+overlay.vsync_mode = Overlay.VSYNC_MODE_ENABLED
+overlay.remember_display_mode = true
+overlay.auto_refresh_rate_60hz = true
+overlay._reset_current_tab_to_defaults(null, null)
+_expect(overlay.display_mode == Overlay.DISPLAY_MODE_WINDOWED, ...)
+_expect(overlay.render_fps_cap == Overlay.RENDER_FPS_CAP_DEFAULT, ...)
+_expect(overlay.vsync_mode == Overlay.VSYNC_MODE_AUTO, ...)
+_expect(not overlay.remember_display_mode and not overlay.auto_refresh_rate_60hz, ...)
+# controls: vibration/device 비기본 → reset → 기본
+# language: language_code 비기본 → reset → DEFAULT_LANGUAGE
+```
+- **배치 비충돌**: `_get_reset_button_rect`가 각 탭 back/save 버튼 rect 및
+  탭 rect와 **겹치지 않음** 단언(`_rect_inside` 반대로 disjoint 체크).
+- **클릭 라우팅**: RESET rect 중심 클릭 → 현재 탭 리셋 발생; 헤더 빈 곳/
+  콘텐츠 클릭 → 리셋 안 일어남.
+- 사운드 볼륨 리셋은 registry 필요 → fake audio stub 있으면 단언, 없으면
+  `_set_bgm_volume(null, 0.4)`가 죽지 않는지(반환 클램프)만 확인하고 메모.
+- 픽셀 단언 없음.
+
+### G-7. 트랩 (슬라이스 7 한정)
+1. **focus 사이클 불참**: RESET을 focus에 넣으면 focus_count + 4b desc
+   매핑 연쇄 변경 → 마우스 전용 코너 버튼으로.
+2. **적용 로직 복제 금지**: display는 `_save_display_options`, 볼륨은
+   `_set_*_volume`, 언어는 `_set_language_option` 재사용.
+3. **RESET ≠ recommended**: 팩토리 기본값(WINDOWED) vs 권장(EXCLUSIVE+remember).
+4. **배치 = 헤더 우상단**: display 바텀 4버튼과 충돌 회피. 바텀 우측 금지.
+5. **클릭은 헤더 레벨**(`_handle_options_click` 탭 분기와 영역 분리), back/
+   save/탭으로 누수 없게.
+6. **owner/registry null**: smoke 직접 호출 시 죽지 않게(기존 null 가드 확인).
+7. **스크롤바 미도입 명시**: 지금은 RESET만. 스크롤은 오버플로우 실제
+   발생 시 별도 슬라이스.
+
+---
+
+## 부록 H — 슬라이스 6 배선 브리프 (절차적 아이콘+텍스트 탭 + 스캔라인)
+
+**방식 결정: 절차적**(비트맵 자산 X). 설정 UI는 100% `_draw()`/자산 0개이고
+필요한 글리프(스피커/모니터/게임패드/글로브)가 단순 표준형이라, 기존 네온
+헬퍼로 그리는 게 일관·무churn·무프리웜. 더 디테일한 비트맵을 원하면 그때
+`ui-hud-generation`으로 전환(현재 미선택). 브리프→배선→리뷰 흐름 유지.
+
+### H-1. 탭 글리프 = 절차적 네온 라인아트 (active=HOT)
+신규 `_draw_tab_icon(canvas, kind, icon_rect, color)` 디스패처. `kind` ∈
+{sound, display, controls, language}. 전부 `draw_line`/`draw_arc`/
+`draw_colored_polygon`, ~16px, **글리프/유니코드 금지**:
+- **sound**: 스피커 사다리꼴 폴리곤 + 우측 1~2개 호(`draw_arc`, 음파).
+- **display**: 모니터 사각 outline + 하단 받침 짧은 선.
+- **controls**: 가로 캡슐(둥근 사각) + 우측 작은 원 2개 + 좌측 십자(d-pad).
+- **language**: 원 + 세로 타원(경선) + 가로선 1~2(위선).
+색은 active 탭이면 `NEON_CYAN_HOT`(또는 `RESONANCE_MAG` 상단 엣지와 톤 맞춤),
+inactive면 `NEON_CYAN` 60%. `_draw_tab`의 hover/active 상태와 동기.
+
+### H-2. `_draw_tab` 시그니처에 icon kind 추가
+`func _draw_tab(canvas, font, rect, label, active_tab, icon_kind := "")`.
+`_draw_options_window`(L1067~70 등가)에서 탭별 kind 전달
+(sound/display/controls/language). 아이콘은 rect 좌측 안쪽
+(`rect.position + Vector2(10, center)`), 라벨은 그 우측으로 시프트
+(`_draw_text_in_rect` 대신 아이콘 폭만큼 들여쓴 좌측정렬, 또는 라벨 중앙
+정렬 기준점을 아이콘 우측 영역으로).
+
+### H-3. 탭 rect 재튜닝 (레이아웃 — 회귀 주의)
+아이콘+텍스트라 각 탭이 ~20px 넓어짐. `_get_sound_tab_rect`/
+`_get_display_tab_rect`/`_get_controls_tab_rect`/`_get_language_tab_rect`의
+x오프셋·폭을 재배치:
+- 4탭이 서로 안 겹치고, **마지막 탭 우측 끝이 RESET 버튼(x+758)과 안 겹치게**
+  (현재 language 탭 끝 ~x+538 → 아이콘 추가 후 ~x+620 예상, 758 미만 OK).
+- **클릭 hit-test는 같은 rect getter를 쓰므로 자동 동기** — 별도 입력 변경
+  없음(드로잉/레이아웃만).
+- 헤더 높이(62px)·탭 y(14)·높이(36)는 유지.
+
+### H-4. 스캔라인 (홀로그램, §I)
+`_draw_options_window` 콘텐츠 패널 그린 뒤, `content_rect` 영역에 가로선을
+~3px 간격으로 `NEON_CYAN` alpha ~0.04로. 메뉴라 hot path 아님(매 프레임
+~100 draw_line 무해). content_rect로 클립(밖으로 안 새게). 너무 진하면
+alpha/간격 튜닝. **저강도 유지**("잔잔" 톤).
+
+### H-5. Smoke
+probe `_draw()`에 무오류 호출:
+- `_draw_tab(self, FONT_BODY, rect, "탭", true, "sound")` 및 display/controls/
+  language 4종 + `icon_kind=""`(폴백) 무오류.
+- (있으면) 스캔라인 그리는 헬퍼 무오류.
+계약 단언:
+- `_get_sound_tab_rect`~`_get_language_tab_rect` 4개가 **서로 disjoint**
+  (`_rects_overlap` false).
+- 마지막 탭(language) rect가 `_get_reset_button_rect`와 **disjoint**.
+- 픽셀 단언 없음.
+
+### H-6. 트랩 (슬라이스 6 한정)
+1. **절차적 — 자산/프리웜 도입 금지**(이 슬라이스 범위). 비트맵 원하면
+   별도 ui-hud-generation 슬라이스로.
+2. **글리프/유니코드 금지**: 아이콘은 폴리곤/선/호로만(tofu 트랩).
+3. **탭 rect 재튜닝 = 드로잉/레이아웃만, 입력 무변경**: hit-test는 같은
+   getter라 자동 동기. focus 인덱스/순서 건드리지 말 것.
+4. **탭 ↔ RESET 비충돌**: 넓어진 탭이 헤더 우상단 RESET(x+758)로 안 새게.
+5. **스캔라인 저강도 + 클립**: 진한 스캔라인/오버드로 금지, content_rect
+   클립. 게임 hot path 아님은 맞지만 알파 과하면 가독성 해침.
+6. **active/hover 색 동기**: 아이콘 색이 탭 상태(`active_tab`/hover)와 따로
+   놀지 않게 — 슬라이스 2 탭 스킨과 같은 톤.

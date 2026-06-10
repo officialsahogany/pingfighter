@@ -26,7 +26,7 @@ const RENDER_FPS_CAP_SMOOTH := 60
 const RENDER_FPS_CAP_BALANCED := 72
 const RENDER_FPS_CAP_MONITOR := -1
 const RENDER_FPS_CAP_STABLE_MONITOR := -2
-const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_MONITOR
+const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR
 const VSYNC_MODE_AUTO := -1
 const VSYNC_MODE_DISABLED := 0
 const VSYNC_MODE_ENABLED := 1
@@ -937,7 +937,7 @@ func _save_display_options(owner: Object, registry: Object) -> void:
 func _apply_recommended_display_settings(owner: Object, registry: Object) -> void:
 	display_mode = DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
 	remember_display_mode = true
-	render_fps_cap = RENDER_FPS_CAP_MONITOR
+	render_fps_cap = RENDER_FPS_CAP_STABLE_MONITOR
 	vsync_mode = VSYNC_MODE_AUTO
 	auto_refresh_rate_60hz = false
 	_display_preference_dirty = true
@@ -1043,15 +1043,15 @@ func _get_display_pacing_recommendation(registry: Object, owner: Object = null) 
 	var monitor_rate: int = _get_monitor_refresh_rate(registry, owner)
 	if monitor_rate <= 0:
 		return _text("display.recommendation.fallback")
-	var game_settings_ready := (
+	var stable_settings_ready := (
 		display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
-		and render_fps_cap == RENDER_FPS_CAP_MONITOR
+		and render_fps_cap == RENDER_FPS_CAP_STABLE_MONITOR
 		and (
 			vsync_mode == VSYNC_MODE_AUTO
 			or vsync_mode == VSYNC_MODE_ENABLED
 		)
 	)
-	if game_settings_ready:
+	if stable_settings_ready:
 		return _text("display.recommendation.ready") % monitor_rate
 	if render_fps_cap == RENDER_FPS_CAP_MONITOR:
 		return _text("display.recommendation.monitor") % monitor_rate

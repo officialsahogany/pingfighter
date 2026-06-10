@@ -14,14 +14,14 @@ const DISPLAY_MODE_EXCLUSIVE_FULLSCREEN := "exclusive_fullscreen"
 const DISPLAY_MODE_WINDOWED := "windowed"
 const SETTINGS_PATH := "user://display_settings.cfg"
 const SETTINGS_BACKUP_PATH := "user://display_settings.last_good.cfg"
-const SETTINGS_SCHEMA_VERSION := 4
+const SETTINGS_SCHEMA_VERSION := 5
 const RENDER_FPS_CAP_UNLIMITED := 0
 const RENDER_FPS_CAP_STABILITY := 48
 const RENDER_FPS_CAP_SMOOTH := 60
 const RENDER_FPS_CAP_BALANCED := 72
 const RENDER_FPS_CAP_MONITOR := -1
 const RENDER_FPS_CAP_STABLE_MONITOR := -2
-const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_MONITOR
+const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR
 const RENDER_FPS_CAP_STABLE_MAX := 90
 const RENDER_FPS_CAP_STABLE_MIN := 45
 const RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 60
@@ -384,28 +384,29 @@ func get_display_pacing_recommendation(
 	var normalized_mode := _normalize_display_mode(selected_display_mode)
 	var normalized_cap: int = _normalize_render_fps_cap(selected_cap)
 	var normalized_vsync: int = _normalize_vsync_mode(selected_vsync_mode)
-	var game_settings_ready := (
+	var stable_cap: int = _get_stable_monitor_refresh_rate(window)
+	var stable_settings_ready := (
 		normalized_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
-		and normalized_cap == RENDER_FPS_CAP_MONITOR
+		and normalized_cap == RENDER_FPS_CAP_STABLE_MONITOR
 		and (
 			normalized_vsync == VSYNC_MODE_AUTO
 			or normalized_vsync == DisplayServer.VSYNC_ENABLED
 		)
 	)
-	if game_settings_ready:
+	if stable_settings_ready:
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-			return "%dHz monitor detected: render FPS will follow the current refresh rate.\nIf you change monitors, the next apply will follow the new refresh rate." % monitor_rate
+			return "%dHz monitor detected: stable pacing will use %d FPS.\nIf you change monitors, the next apply will recalculate the stable cap." % [monitor_rate, stable_cap]
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-			return "Monitor de %d Hz detectado: los FPS de render seguirán la frecuencia actual.\nSi cambias de monitor, la próxima aplicación seguirá la nueva frecuencia." % monitor_rate
+			return "Monitor de %d Hz detectado: el ritmo estable usara %d FPS.\nSi cambias de monitor, el proximo aplicar recalculara el limite estable." % [monitor_rate, stable_cap]
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-			return "Monitor de %d Hz detectado: os FPS de renderização seguirão a frequência atual.\nSe trocar de monitor, a próxima aplicação seguirá a nova frequência." % monitor_rate
+			return "Monitor de %d Hz detectado: o ritmo estavel usara %d FPS.\nSe trocar de monitor, a proxima aplicacao recalculara o limite estavel." % [monitor_rate, stable_cap]
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-			return "Обнаружен монитор %d Hz: FPS рендера будет следовать текущей частоте.\nЕсли сменить монитор, следующее применение возьмет новую частоту." % monitor_rate
+			return "Обнаружен монитор %d Hz: стабильный режим использует %d FPS.\nЕсли сменить монитор, следующее применение пересчитает стабильный лимит." % [monitor_rate, stable_cap]
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-			return "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n更换显示器后，下次应用会跟随新的刷新率。" % monitor_rate
+			return "检测到%dHz显示器：稳定节奏将使用%d FPS。\n更换显示器后，下次应用会重新计算稳定上限。" % [monitor_rate, stable_cap]
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-			return "%dHzモニターを検出：描画FPSは現在のリフレッシュレートに追従します。\nモニターを変更すると、次回適用時に新しいリフレッシュレートへ追従します。" % monitor_rate
-		return "%dHz 모니터 감지: 현재 주사율에 렌더 FPS를 자동으로 맞춥니다.\n모니터를 바꾸면 다음 적용 시 새 주사율을 따라갑니다." % monitor_rate
+			return "%dHzモニターを検出：安定ペーシングは%d FPSを使います。\nモニターを変更すると、次回適用時に安定上限を再計算します。" % [monitor_rate, stable_cap]
+		return "%dHz 모니터 감지: 안정 페이싱은 %d FPS를 사용합니다.\n모니터를 바꾸면 다음 적용 시 안정 상한을 다시 계산합니다." % [monitor_rate, stable_cap]
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 			return "%dHz monitor detected: render FPS follows the current refresh rate.\nExclusive fullscreen and VSync Auto are the cleanest settings." % monitor_rate
@@ -421,18 +422,18 @@ func get_display_pacing_recommendation(
 			return "%dHzモニターを検出：描画FPSは現在のリフレッシュレートに追従します。\n排他全画面とVSync Autoが最も安定します。" % monitor_rate
 		return "%dHz 모니터 감지: 렌더 FPS는 현재 주사율을 따라갑니다.\n독점 전체화면과 VSync Auto가 가장 깔끔합니다." % monitor_rate
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "%dHz monitor detected: set render FPS to monitor Hz for automatic pacing.\nUse Recommended to save settings based on the current refresh rate." % monitor_rate
+		return "%dHz monitor detected: use Stable Monitor for %d FPS pacing.\nUse Recommended to save the display-aware stable cap." % [monitor_rate, stable_cap]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Monitor de %d Hz detectado: ajusta los FPS de render al Hz del monitor para un ritmo automático.\nUsa Recomendado para guardar ajustes basados en la frecuencia actual." % monitor_rate
+		return "Monitor de %d Hz detectado: usa Monitor estable para %d FPS.\nUsa Recomendado para guardar el limite estable de esta pantalla." % [monitor_rate, stable_cap]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Monitor de %d Hz detectado: ajuste os FPS de renderização para o Hz do monitor para ritmo automático.\nUse Recomendado para salvar ajustes baseados na frequência atual." % monitor_rate
+		return "Monitor de %d Hz detectado: use Monitor estavel para %d FPS.\nUse Recomendado para salvar o limite estavel desta tela." % [monitor_rate, stable_cap]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Обнаружен монитор %d Hz: поставьте FPS рендера на Hz монитора для автоматического темпа.\nРекомендованное сохранит настройки по текущей частоте." % monitor_rate
+		return "Обнаружен монитор %d Hz: используйте стабильный монитор для %d FPS.\nРекомендованное сохранит стабильный лимит для этого экрана." % [monitor_rate, stable_cap]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "检测到%dHz显示器：将渲染FPS设为显示器Hz可自动匹配。\n使用推荐会保存基于当前刷新率的设置。" % monitor_rate
+		return "检测到%dHz显示器：使用稳定显示器节奏会采用%d FPS。\n使用推荐会保存此屏幕的稳定上限。" % [monitor_rate, stable_cap]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "%dHzモニターを検出：描画FPSをモニターHzにすると自動で合わせます。\n推奨値を使うと現在のリフレッシュレート基準で保存します。" % monitor_rate
-	return "%dHz 모니터 감지: 렌더 FPS를 모니터 Hz로 두면 자동으로 맞춰집니다.\n권장값 적용을 누르면 현재 주사율 기반 설정으로 저장합니다." % monitor_rate
+		return "%dHzモニターを検出：安定モニター設定では%d FPSを使います。\n推奨値を使うとこの画面の安定上限を保存します。" % [monitor_rate, stable_cap]
+	return "%dHz 모니터 감지: 안정 모니터 페이싱은 %d FPS를 사용합니다.\n권장값 적용을 누르면 현재 화면의 안정 상한을 저장합니다." % [monitor_rate, stable_cap]
 
 
 func open_system_display_settings() -> int:
@@ -637,6 +638,15 @@ func _migrate_display_settings(config: ConfigFile) -> void:
 		)))
 		if saved_display_mode != DISPLAY_MODE_WINDOWED:
 			config.set_value("graphics", "remember_display_mode", true)
+			changed = true
+	if version < 5 and config.has_section_key("graphics", "render_fps_cap"):
+		var saved_cap: int = _normalize_render_fps_cap(int(config.get_value(
+			"graphics",
+			"render_fps_cap",
+			RENDER_FPS_CAP_DEFAULT
+		)))
+		if saved_cap == RENDER_FPS_CAP_MONITOR:
+			config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
 			changed = true
 	_stamp_display_settings_schema(config)
 	changed = true

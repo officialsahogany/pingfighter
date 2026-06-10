@@ -160,7 +160,7 @@ class FakeViewLayout:
 		return "VSync On"
 
 	func get_display_pacing_recommendation(_window: Object, _mode: String, _cap: int, _vsync: int) -> String:
-		return "144Hz 모니터 감지: 현재 주사율에 렌더 FPS를 자동으로 맞춥니다.\n모니터를 바꾸면 다음 적용 시 새 주사율을 따라갑니다."
+		return "144Hz 모니터 감지: 안정 모니터 페이싱을 사용합니다.\n모니터를 바꾸면 다음 적용 시 안정 상한을 다시 계산합니다."
 
 	func open_system_display_settings() -> int:
 		system_settings_count += 1
@@ -243,8 +243,10 @@ func _init() -> void:
 	_expect(registry.pause_menu.is_options_open(), "display tab should keep the options page open")
 	_expect(_click(input, owner, registry.pause_menu._get_display_fullscreen_rect(options_panel).get_center()), "fullscreen pill should be handled")
 	_expect(_click(input, owner, registry.pause_menu._get_display_exclusive_fullscreen_rect(options_panel).get_center()), "exclusive fullscreen pill should be handled")
-	_expect(_click(input, owner, registry.pause_menu._get_display_fps_cap_row_rect(options_panel).get_center()), "render FPS cap row should be handled")
-	_expect(_click(input, owner, registry.pause_menu._get_display_vsync_row_rect(options_panel).get_center()), "vsync row should be handled")
+	var fps_cap_value_rect: Rect2 = registry.pause_menu._get_display_fps_cap_value_rect(options_panel)
+	var vsync_value_rect: Rect2 = registry.pause_menu._get_display_vsync_value_rect(options_panel)
+	_expect(_click(input, owner, fps_cap_value_rect.position + Vector2(fps_cap_value_rect.size.x * 0.75, fps_cap_value_rect.size.y * 0.5)), "render FPS cap row should be handled")
+	_expect(_click(input, owner, vsync_value_rect.position + Vector2(vsync_value_rect.size.x * 0.75, vsync_value_rect.size.y * 0.5)), "vsync row should be handled")
 	_expect(_click(input, owner, registry.pause_menu._get_display_default_row_rect(options_panel).get_center()), "default display checkbox should be handled")
 	_expect(_click(input, owner, registry.pause_menu._get_display_auto_refresh_row_rect(options_panel).get_center()), "auto 60Hz row should be handled")
 	registry.view_layout.saved_auto_refresh_rate_60hz = false
@@ -344,12 +346,12 @@ func _init() -> void:
 	_expect(bool(recommended_result.get("handled", false)), "recommended display settings button should be handled")
 	_expect(recommended_options.display_mode == "exclusive_fullscreen", "recommended settings should select exclusive fullscreen")
 	_expect(recommended_options.remember_display_mode, "recommended settings should remember the display mode")
-	_expect(recommended_options.render_fps_cap == -1, "recommended settings should select the monitor refresh render FPS")
+	_expect(recommended_options.render_fps_cap == -2, "recommended settings should select the stable monitor render FPS")
 	_expect(recommended_options.vsync_mode == -1, "recommended settings should select automatic VSync")
 	_expect(not recommended_options.auto_refresh_rate_60hz, "recommended settings should not silently enable automatic OS refresh switching")
 	_expect(registry.view_layout.display_mode == "exclusive_fullscreen", "recommended settings should apply exclusive fullscreen")
 	_expect(registry.view_layout.saved_mode == "exclusive_fullscreen" and registry.view_layout.saved_remember, "recommended settings should persist exclusive fullscreen")
-	_expect(registry.view_layout.render_fps_cap == -1 and registry.view_layout.saved_render_fps_cap == -1, "recommended settings should apply and persist monitor refresh FPS")
+	_expect(registry.view_layout.render_fps_cap == -2 and registry.view_layout.saved_render_fps_cap == -2, "recommended settings should apply and persist stable monitor FPS")
 	_expect(registry.view_layout.vsync_mode == -1 and registry.view_layout.saved_vsync_mode == -1, "recommended settings should apply and persist automatic VSync")
 
 	var direct_options := PauseMenuOverlay.new()

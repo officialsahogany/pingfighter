@@ -16,6 +16,7 @@ func _init() -> void:
 	var original_vsync_mode: int = int(DisplayServer.window_get_vsync_mode())
 	_verify_render_fps_cap_runtime_options()
 	_verify_legacy_display_settings_migrate_without_losing_explicit_choices()
+	_verify_materialized_monitor_default_migrates_to_stable_monitor()
 	_verify_non_windowed_display_save_forces_remember()
 	_verify_auto_refresh_setting_persists_and_repairs_as_opt_in()
 	_verify_utf8_bom_settings_load_without_losing_graphics()
@@ -50,8 +51,8 @@ func _verify_render_fps_cap_runtime_options() -> void:
 	var options: Array[int] = layout.get_render_fps_cap_options()
 	_expect(options == [0, 48, 60, 72, -2, -1], "render FPS cap options should stay unlimited, 48, 60, 72, stable monitor, monitor")
 	_expect(
-		int(layout.get_saved_render_fps_cap()) == BattleViewLayout.RENDER_FPS_CAP_MONITOR,
-		"missing display settings should default render FPS to the current monitor rate"
+		int(layout.get_saved_render_fps_cap()) == BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR,
+		"missing display settings should default render FPS to the stable monitor cap"
 	)
 	_expect(FileAccess.file_exists(SETTINGS_PATH), "missing display settings should be materialized with default graphics values")
 	var default_config := ConfigFile.new()
@@ -61,8 +62,8 @@ func _verify_render_fps_cap_runtime_options() -> void:
 		"materialized default display settings should stamp the current schema"
 	)
 	_expect(
-		int(default_config.get_value("graphics", "render_fps_cap", 0)) == BattleViewLayout.RENDER_FPS_CAP_MONITOR,
-		"materialized default display settings should persist monitor-rate render pacing"
+		int(default_config.get_value("graphics", "render_fps_cap", 0)) == BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR,
+		"materialized default display settings should persist stable monitor render pacing"
 	)
 
 	_expect(int(layout.apply_render_fps_cap(null, 0)) == 0, "unlimited cap should normalize to zero")
@@ -87,6 +88,15 @@ func _verify_render_fps_cap_runtime_options() -> void:
 	_expect(int(Engine.get("max_fps")) == 60, "60 FPS cap should apply to Engine.max_fps")
 	_expect(int(Engine.physics_ticks_per_second) == 60, "60 FPS cap should sync the physics tick rate to 60")
 
+	# NOTE (risk, 2026-06-10): Stable Monitor deliberately syncs the physics tick
+	# rate to its resolved render cap (assert below), so the shipped 144Hz default
+	# resolves to render 48 / physics 48 — NOT the original "48 stable preset"
+	# render 48 / physics 72 decoupling (the old Monitor default ran 144/72 here).
+	# Coarser physics → watch fast-ball tunneling at paddle edge / holy-barrier
+	# band on >120Hz hardware. If tunneling shows up in play, the minimal follow-up
+	# is to make STABLE_MONITOR fall back to the project physics default (72) in
+	# _resolve_physics_ticks_per_second() and flip the assert below. Keep this
+	# contract until that decision is made.
 	_expect(int(layout.apply_render_fps_cap(null, -2)) == -2, "stable monitor cap should keep the stable sentinel in settings")
 	var stable_cap: int = int(Engine.get("max_fps"))
 	_expect(stable_cap >= 45 and stable_cap <= 90, "stable monitor cap should apply a playable refresh divisor")
@@ -116,7 +126,7 @@ func _verify_legacy_display_settings_migrate_without_losing_explicit_choices() -
 	legacy_config.save(SETTINGS_PATH)
 
 	var layout: Object = BattleViewLayout.new()
-	_expect(int(layout.get_saved_render_fps_cap()) == -1, "legacy saved 72 FPS cap should migrate to the monitor-refresh default")
+	_expect(int(layout.get_saved_render_fps_cap()) == BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR, "legacy saved 72 FPS cap should migrate to the stable monitor default")
 	_expect(bool(layout.get_remember_display_mode()), "legacy explicit fullscreen display mode should imply remembered display mode")
 	_expect(
 		int(layout.get_saved_vsync_mode()) == DisplayServer.VSYNC_ENABLED,
@@ -130,8 +140,8 @@ func _verify_legacy_display_settings_migrate_without_losing_explicit_choices() -
 		"display settings migration should stamp the schema version"
 	)
 	_expect(
-		int(migrated_config.get_value("graphics", "render_fps_cap", 0)) == -1,
-		"display settings migration should rewrite legacy saved 72 FPS to the monitor-refresh sentinel"
+		int(migrated_config.get_value("graphics", "render_fps_cap", 0)) == BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR,
+		"display settings migration should rewrite legacy saved 72 FPS to the stable monitor sentinel"
 	)
 	_expect(
 		bool(migrated_config.get_value("graphics", "remember_display_mode", false)),
@@ -144,6 +154,38 @@ func _verify_legacy_display_settings_migrate_without_losing_explicit_choices() -
 	_expect(
 		not bool(migrated_config.get_value("graphics", "auto_60hz_refresh_rate", true)),
 		"display settings migration should keep automatic 60Hz switching opt-in"
+	)
+
+	_restore_display_settings_files(snapshot)
+
+
+func _verify_materialized_monitor_default_migrates_to_stable_monitor() -> void:
+	var snapshot := _snapshot_display_settings_files()
+
+	var materialized_monitor_config := ConfigFile.new()
+	materialized_monitor_config.set_value("graphics", "remember_display_mode", false)
+	materialized_monitor_config.set_value("graphics", "display_mode", "windowed")
+	materialized_monitor_config.set_value("graphics", "render_fps_cap", BattleViewLayout.RENDER_FPS_CAP_MONITOR)
+	materialized_monitor_config.set_value("graphics", "vsync_mode", BattleViewLayout.VSYNC_MODE_AUTO)
+	materialized_monitor_config.set_value("graphics", "auto_60hz_refresh_rate", false)
+	materialized_monitor_config.set_value("meta", "settings_schema_version", 4)
+	materialized_monitor_config.save(SETTINGS_PATH)
+
+	var layout: Object = BattleViewLayout.new()
+	_expect(
+		int(layout.get_saved_render_fps_cap()) == BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR,
+		"schema 4 materialized monitor default should migrate to stable monitor"
+	)
+
+	var migrated_config := ConfigFile.new()
+	migrated_config.load(SETTINGS_PATH)
+	_expect(
+		int(migrated_config.get_value("meta", "settings_schema_version", 0)) >= BattleViewLayout.SETTINGS_SCHEMA_VERSION,
+		"materialized monitor default migration should stamp schema 5"
+	)
+	_expect(
+		int(migrated_config.get_value("graphics", "render_fps_cap", 0)) == BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR,
+		"materialized monitor default migration should persist stable monitor"
 	)
 
 	_restore_display_settings_files(snapshot)
@@ -374,20 +416,24 @@ func _verify_vsync_runtime_options() -> void:
 
 func _verify_display_pacing_recommendation_helpers() -> void:
 	var layout: Object = BattleViewLayout.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var monitor_rate: int = int(layout.get_monitor_refresh_rate(null))
 	_expect(monitor_rate >= 30, "monitor refresh helper should expose a safe positive refresh rate")
 	_expect(
 		bool(layout.is_high_refresh_monitor(null)) == (monitor_rate >= BattleViewLayout.HIGH_REFRESH_RECOMMENDATION_MIN_HZ),
 		"high-refresh helper should match the recommendation threshold"
 	)
+	layout.apply_render_fps_cap(null, BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR, BattleViewLayout.VSYNC_MODE_AUTO)
+	var stable_cap: int = int(Engine.get("max_fps"))
 	var recommendation := str(layout.get_display_pacing_recommendation(
 		null,
 		BattleViewLayout.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN,
-		BattleViewLayout.RENDER_FPS_CAP_MONITOR,
+		BattleViewLayout.RENDER_FPS_CAP_STABLE_MONITOR,
 		BattleViewLayout.VSYNC_MODE_AUTO
 	))
 	_expect(recommendation.find(str(monitor_rate)) >= 0, "display pacing recommendation should mention the detected monitor refresh rate")
-	_expect(recommendation.find("자동") >= 0, "display pacing recommendation should describe automatic monitor-rate pacing")
+	_expect(recommendation.find(str(stable_cap)) >= 0, "display pacing recommendation should mention the resolved stable cap")
+	_expect(recommendation.find("안정") >= 0, "display pacing recommendation should describe stable monitor pacing")
 
 
 	_verify_spanish_display_pacing_text(layout)
