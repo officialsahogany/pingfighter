@@ -7,7 +7,9 @@ const ActiveItemEffectRouter := preload("res://scripts/items/active_item_effect_
 const ActiveItemTrampolineRuntime := preload("res://scripts/items/active_item_trampoline_runtime.gd")
 const ActiveItemTrampolineRenderer := preload("res://scripts/items/active_item_trampoline_renderer.gd")
 const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
+const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
+const Stage1DaljiWhipSkillState := preload("res://scripts/stages/stage1/stage1_dalji_whip_skill_state.gd")
 const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion_controller.gd")
 const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
@@ -25,6 +27,22 @@ class FakeOwner:
 	var player_paddle_width := 155.0
 
 
+# Adapts the effect controller to the active_item_runtime surface step_motion
+# consumes (collision context merge + contact notify).
+class ControllerBackedItemRuntime:
+	extends RefCounted
+	var controller: Object = null
+
+	func _init(controller_value: Object) -> void:
+		controller = controller_value
+
+	func get_ball_collision_context() -> Dictionary:
+		return controller.get_trampoline_collision_context()
+
+	func notify_trampoline_hit(trampoline_index: int, ball_pos: Vector2, ball_vel: Vector2) -> Dictionary:
+		return controller.notify_trampoline_hit(trampoline_index, ball_pos, ball_vel)
+
+
 func _init() -> void:
 	_verify_catalog_entry()
 	_verify_router_dispatches_activation()
@@ -39,6 +57,7 @@ func _init() -> void:
 	_verify_trampoline_expires_after_three_bounces()
 	_verify_bounce_anim_timer_ticks_down_on_update()
 	_verify_mat_body_polygon_stays_triangulable()
+	_verify_trampoline_contact_releases_dalji_whip()
 	_verify_reset_clears_trampoline_state()
 
 	if _failures.is_empty():
@@ -530,6 +549,89 @@ func _verify_mat_body_polygon_stays_triangulable() -> void:
 		)
 
 
+# Dalji whip (상모돌리기) forces the ball downward every frame while active.
+# Without the whip release on trampoline contact, the whip flips each launch
+# back down (launch-nullify recapture loop) and the floor loss is deferred
+# until the mat expires — the 2026-06-11 "ball at the floor but no loss"
+# report. Mirrors the holy-barrier × whip precedent smoke, with the
+# trampoline's own launch velocity preserved (no guard-counter clamp).
+func _verify_trampoline_contact_releases_dalji_whip() -> void:
+	var whip: Object = Stage1DaljiWhipSkillState.new()
+	whip.active = true
+	whip.timer_frames = 220.0
+	whip.original_ball_y_speed = 8.0
+
+	var controller: Object = ActiveItemEffectController.new()
+	controller.activate_trampoline(FakeOwner.new(), null)
+	var rect: Rect2 = controller.trampolines[0].get("rect", Rect2())
+
+	var processor: Object = BallMotionEventProcessor.new()
+	# Start one frame above the capture band so the whip's sine-x injection
+	# (up to ±15 px/frame while still active) stays small at first contact —
+	# a large pre-release lateral speed legitimately slides the ball off the
+	# 110px mat during the sink (physical slide-off, separate from this bug).
+	var scene := {
+		"ball_pos": Vector2(rect.get_center().x, 672.0),
+		"ball_vel": Vector2(0.0, 8.0),
+		"ball_impact_boost": 1.0,
+		"player_collision_cooldown": 0.0,
+		"boss_collision_cooldown": 0.0,
+		"stage1_dalji_whip_controls_speed": true,
+	}
+	var context := {
+		"current_stage": 1,
+		"ball_size": BALL_SIZE,
+		"width": 760.0,
+		"height": 750.0,
+		"max_step_distance": 12.0,
+		"player_pos": Vector2(-400.0, -400.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"boss_pos": Vector2(-400.0, -400.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"hitbox_padding": 5.0,
+	}
+	var deps := {
+		"motion_stepper": BallMotionStepper.new(),
+		"active_item_runtime": ControllerBackedItemRuntime.new(controller),
+		"stage1_dalji_whip_skill_state": whip,
+	}
+
+	var floor_scored := false
+	var escaped := false
+	for frame in range(240):
+		# Mirror the runtime ordering: the whip shapes ball_vel before the
+		# motion step each frame.
+		var whip_result: Dictionary = whip.update_ball_motion(
+			1.0, _get_vector2(scene, "ball_vel", Vector2.ZERO), context
+		)
+		if whip_result.has("ball_vel"):
+			scene["ball_vel"] = whip_result.get("ball_vel")
+		var score_event: String = processor.step_motion(scene, 1.0, context, deps, {})
+		if score_event == "boss":
+			floor_scored = true
+			break
+		controller.update(null, FRAME_DELTA)
+		if _get_vector2(scene, "ball_vel", Vector2.ZERO).y < 0.0 \
+				and _get_vector2(scene, "ball_pos", Vector2.ZERO).y < 600.0:
+			escaped = true
+			break
+
+	_expect(not floor_scored, "the trampoline save should not turn into a floor loss mid-capture")
+	_expect(escaped, "the slingshot launch must survive the whip and carry the ball back upward")
+	_expect(not bool(whip.is_active()), "trampoline contact should release the Dalji whip ball control")
+	_expect(
+		not bool(scene.get("stage1_dalji_whip_controls_speed", true)),
+		"released whip should stop owning speed control"
+	)
+	var followup: Dictionary = whip.update_ball_motion(
+		1.0, _get_vector2(scene, "ball_vel", Vector2.ZERO), context
+	)
+	_expect(
+		not bool(followup.get("stage1_dalji_whip_controls_speed", false)),
+		"released whip should not force the launched ball downward on the next frame"
+	)
+
+
 func _verify_reset_clears_trampoline_state() -> void:
 	var controller: Object = ActiveItemEffectController.new()
 	controller.activate_trampoline(FakeOwner.new(), null)
@@ -539,6 +641,13 @@ func _verify_reset_clears_trampoline_state() -> void:
 	controller.reset()
 	_expect(controller.trampolines.is_empty(), "reset should clear placed trampolines")
 	_expect(controller.trampoline_particles.is_empty(), "reset should clear trampoline particles")
+
+
+func _get_vector2(source: Dictionary, key: String, fallback: Vector2 = Vector2.ZERO) -> Vector2:
+	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _expect(condition: bool, message: String) -> void:

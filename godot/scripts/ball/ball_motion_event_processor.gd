@@ -31,7 +31,7 @@ func step_motion(
 	elif event == "brick_wall":
 		_process_brick_wall(step_result, scene, context, deps)
 	elif event == "trampoline":
-		_process_trampoline(step_result, scene, deps)
+		_process_trampoline(step_result, scene, context, deps)
 	elif event == "horn_strawberry_field":
 		_process_horn_strawberry_field(step_result, scene, deps)
 	elif event == "holy_barrier":
@@ -226,9 +226,20 @@ func _process_brick_wall(step_result: Dictionary, scene: Dictionary, context: Di
 	_register_ball_hit_pulse(step_result, scene, deps, "brick_wall", 0.58)
 
 
-func _process_trampoline(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
+func _process_trampoline(step_result: Dictionary, scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
 	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
 	var ball_pos: Vector2 = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
+	# Any trampoline contact is a successful player-side floor save: release
+	# the Dalji whip like the holy barrier / lingpet guard precedents, or the
+	# still-active whip flips the launch back down every frame (launch-nullify
+	# recapture loop that defers the floor loss until the mat expires). Keep
+	# the trampoline's own velocities — the whip guard-counter clamp would
+	# swallow the slingshot launch overspeed.
+	var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
+	if whip_state != null and whip_state.has_method("register_player_hit"):
+		var whip_result: Dictionary = whip_state.register_player_hit(ball_vel, context)
+		if bool(whip_result.get("whip_deactivated", false)):
+			scene["stage1_dalji_whip_controls_speed"] = false
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	var hit_result: Dictionary = {}
 	if active_item_runtime != null and active_item_runtime.has_method("notify_trampoline_hit"):
