@@ -13,6 +13,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
+const BattleEntryBackgroundPrewarm := preload("res://scripts/ui/battle_entry_background_prewarm.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 const BGM_BUS_NAME := "BGM"
@@ -71,6 +72,7 @@ var confirm_intro_exit_flash_overlay: Control = null
 var gamepad_menu_horizontal_latch: int = 0
 var gamepad_menu_vertical_latch: int = 0
 var locked_character_feedback_timer: float = 0.0
+var entry_background_prewarm: Object = BattleEntryBackgroundPrewarm.new()
 
 
 func _ready() -> void:
@@ -131,7 +133,46 @@ func _process(delta: float) -> void:
 	_update_preview_layout()
 	_update_click_motion_voice(delta)
 	_update_confirm_intro(delta)
+	_update_entry_background_prewarm()
 	queue_redraw()
+
+
+# Menu-idle background prewarm: fills the static texture cache with the battle
+# entry assets for the selected character + entry stage (battle textures /
+# pillar backplates / stage-clear result sheets) so the entry loading screen's
+# threaded waits become instant cache hits. Paused during the confirm intro so
+# the cinematic and the battle scene change keep the IO worker to themselves.
+func _update_entry_background_prewarm() -> void:
+	if Engine.is_editor_hint() or confirm_intro_active:
+		return
+	if entry_background_prewarm == null or not entry_background_prewarm.has_method("update"):
+		return
+	entry_background_prewarm.update(_selected_character_runtime_type(), _selected_entry_stage_id())
+
+
+# Mirrors battle_scene_selection_startup_lifecycle.apply_selection_state: the
+# battle boot's entry stage comes from GameSelectionState.stage_id, so the
+# background prewarm must target the same stage or it warms the wrong assets.
+func _selected_entry_stage_id() -> int:
+	var state: Node = get_node_or_null("/root/GameSelectionState")
+	if state != null and state.has_method("get_selection"):
+		var selection: Dictionary = state.get_selection()
+		return max(1, int(selection.get("stage_id", 1)))
+	return 1
+
+
+func _selected_character_runtime_type() -> String:
+	if selected_index >= 0 and selected_index < characters.size():
+		var character_value: Variant = characters[selected_index]
+		if character_value is Dictionary:
+			var character: Dictionary = character_value
+			var runtime_id := str(character.get("runtime_id", ""))
+			if runtime_id != "":
+				return runtime_id
+			var character_id := str(character.get("id", ""))
+			if character_id != "":
+				return character_id
+	return "smasher"
 
 
 func _gui_input(event: InputEvent) -> void:

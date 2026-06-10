@@ -14,6 +14,17 @@ class FakeOwner:
 	var commando_skill_icon_textures: Dictionary = {}
 
 
+# Node-backed owner for the PSO frame-gate case: the budgeted warmup loop
+# checks for a live "BattlePsoPrewarmer" child on the battle scene node.
+class FakeNodeOwner extends Node:
+	var current_stage := 1
+	var selected_character_type := "smasher"
+	var battle_textures: Dictionary = {}
+	var smasher_skill_icon_textures: Dictionary = {}
+	var viper_skill_icon_textures: Dictionary = {}
+	var commando_skill_icon_textures: Dictionary = {}
+
+
 class FakePerfLogger:
 	var labels: Array[String] = []
 
@@ -156,6 +167,25 @@ class FakeStagedResultScreen:
 		last_owner = owner
 
 
+class ThreadedGateOverrideWarmupController extends BattleBootWarmupController:
+	var threaded_in_flight := false
+
+	func _is_threaded_prewarm_in_flight(_module_getter: Callable) -> bool:
+		return threaded_in_flight
+
+
+class FakeNeverCompletingBattleResources extends FakeBattleResources:
+	var busy_wait_usec := 0
+
+	func prewarm_transition_textures_step(_context: Dictionary = {}) -> bool:
+		step_calls += 1
+		if busy_wait_usec > 0:
+			var deadline := Time.get_ticks_usec() + busy_wait_usec
+			while Time.get_ticks_usec() < deadline:
+				pass
+		return false
+
+
 class FakeGameAudio:
 	var setup_calls := 0
 	var setup_complete_after := 6
@@ -178,6 +208,7 @@ class FakeBattleResources:
 	var step_calls := 0
 	var load_all_calls := 0
 	var complete_after := 3
+	var threaded_in_flight := false
 	var last_context: Dictionary = {}
 	var cache: Dictionary = {
 		"loaded_stage": 1,
@@ -185,6 +216,9 @@ class FakeBattleResources:
 		"viper_skill_icon_textures": {},
 		"commando_skill_icon_textures": {},
 	}
+
+	func is_threaded_prewarm_in_flight() -> bool:
+		return threaded_in_flight
 
 	func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		step_calls += 1
@@ -505,6 +539,13 @@ func _init() -> void:
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
 	_verify_boot_warmup_result_step_uses_result_prewarm_signature()
 	_verify_full_boot_warmup_finishes_without_stalling()
+	_verify_budgeted_boot_warmup_batches_steps_per_frame()
+	_verify_budgeted_boot_warmup_yields_on_threaded_prewarm()
+	_verify_budgeted_boot_warmup_yields_on_battle_resources_threaded_slot()
+	_verify_budgeted_boot_warmup_yields_on_pso_prewarmer_node()
+	_verify_budgeted_boot_warmup_respects_frame_budget()
+	_verify_budgeted_boot_warmup_bounds_non_advancing_spin()
+	_verify_shell_wires_budgeted_boot_warmup()
 
 	if _failures.is_empty():
 		print("battle_boot_resource_prewarm_smoke: ok")
@@ -937,6 +978,219 @@ func _verify_full_boot_warmup_finishes_without_stalling() -> void:
 	_expect(_registry.game_audio.last_prime_stage == 1, "full boot warmup should prime the selected stage BGM")
 	_expect(_boot_initialize_calls == 1, "full boot warmup should initialize battle exactly once")
 	_expect(_boot_redraw_calls == 1, "full boot warmup should request the first redraw exactly once")
+
+
+const BUDGETED_TEST_GENEROUS_BUDGET_USEC := 10_000_000
+
+
+func _verify_budgeted_boot_warmup_batches_steps_per_frame() -> void:
+	_registry = FakeRegistry.new()
+	_boot_initialize_calls = 0
+	_boot_redraw_calls = 0
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(self, "_mark_boot_initialized"),
+		Callable(self, "_mark_boot_redraw_requested"),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		int(warmup.get("boot_warmup_step")) > 1,
+		"budgeted boot warmup should advance multiple steps within one frame call"
+	)
+
+	var budgeted_calls := 1
+	const MAX_BUDGETED_CALLS := 6
+	while not bool(warmup.is_finished()) and budgeted_calls < MAX_BUDGETED_CALLS:
+		warmup.run_boot_warmup_steps_budgeted(
+			owner,
+			Callable(self, "_get_module"),
+			Callable(self, "_mark_boot_initialized"),
+			Callable(self, "_mark_boot_redraw_requested"),
+			BUDGETED_TEST_GENEROUS_BUDGET_USEC
+		)
+		budgeted_calls += 1
+	_expect(
+		bool(warmup.is_finished()),
+		"budgeted boot warmup should finish the full warmup in a handful of frame calls instead of one step per frame"
+	)
+	_expect(_registry.game_audio.setup_calls == _registry.game_audio.setup_complete_after, "budgeted boot warmup should finish staged audio setup exactly once")
+	_expect(_registry.game_audio.prime_calls == 1, "budgeted boot warmup should prime BGM once after audio setup")
+	_expect(_boot_initialize_calls == 1, "budgeted boot warmup should initialize battle exactly once")
+	_expect(_boot_redraw_calls == 1, "budgeted boot warmup should request the first redraw exactly once")
+
+
+func _verify_budgeted_boot_warmup_yields_on_threaded_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var warmup := ThreadedGateOverrideWarmupController.new()
+	warmup.threaded_in_flight = true
+	var owner := FakeOwner.new()
+	owner.selected_character_type = "soldier"
+	warmup.set("boot_warmup_step", 18)
+
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		_registry.result_screen.threaded_step_calls == 1,
+		"budgeted boot warmup must poll an in-flight threaded prewarm at most once per frame (spin-polling trips the bounded sync fallback)"
+	)
+	_expect(int(warmup.get("boot_warmup_step")) == 18, "budgeted boot warmup should stay on the threaded result step while the worker is busy")
+
+	warmup.threaded_in_flight = false
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		_registry.result_screen.threaded_step_calls == 4,
+		"budgeted boot warmup should batch the remaining result chunks once the threaded slot is free"
+	)
+	_expect(int(warmup.get("boot_warmup_step")) > 18, "budgeted boot warmup should advance past the result step once its staged work completes")
+
+
+func _verify_budgeted_boot_warmup_yields_on_battle_resources_threaded_slot() -> void:
+	_registry = FakeRegistry.new()
+	_registry.battle_resources.threaded_in_flight = true
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+	warmup.set("boot_warmup_step", 2)
+
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		_registry.battle_resources.step_calls == 1,
+		"budgeted boot warmup must also yield on battle_resources' own threaded slot (it does not use the shared ProjectResourceLoader slot)"
+	)
+
+	_registry.battle_resources.threaded_in_flight = false
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		_registry.battle_resources.step_calls == 3,
+		"budgeted boot warmup should resume batching once battle_resources' threaded slot is free"
+	)
+
+
+func _verify_budgeted_boot_warmup_yields_on_pso_prewarmer_node() -> void:
+	_registry = FakeRegistry.new()
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeNodeOwner.new()
+	var pso_prewarmer := Node.new()
+	pso_prewarmer.name = "BattlePsoPrewarmer"
+	owner.add_child(pso_prewarmer)
+	warmup.set("boot_warmup_step", 2)
+
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		_registry.battle_resources.step_calls == 1,
+		"budgeted boot warmup must run exactly one step per frame while the PSO prewarmer node is alive"
+	)
+
+	owner.remove_child(pso_prewarmer)
+	pso_prewarmer.free()
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		_registry.battle_resources.step_calls == 3,
+		"budgeted boot warmup should resume batching once the PSO prewarmer node is gone"
+	)
+	owner.free()
+
+
+func _verify_budgeted_boot_warmup_respects_frame_budget() -> void:
+	_registry = FakeRegistry.new()
+	var slow_resources := FakeNeverCompletingBattleResources.new()
+	slow_resources.busy_wait_usec = 3000
+	_registry.battle_resources = slow_resources
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+	warmup.set("boot_warmup_step", 2)
+
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		1000
+	)
+	_expect(
+		slow_resources.step_calls == 1,
+		"budgeted boot warmup should stop batching once the frame time budget is spent"
+	)
+
+
+func _verify_budgeted_boot_warmup_bounds_non_advancing_spin() -> void:
+	_registry = FakeRegistry.new()
+	var spin_resources := FakeNeverCompletingBattleResources.new()
+	_registry.battle_resources = spin_resources
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+	warmup.set("boot_warmup_step", 2)
+
+	warmup.run_boot_warmup_steps_budgeted(
+		owner,
+		Callable(self, "_get_module"),
+		Callable(),
+		Callable(),
+		BUDGETED_TEST_GENEROUS_BUDGET_USEC
+	)
+	_expect(
+		spin_resources.step_calls == BattleBootWarmupController.BOOT_WARMUP_MAX_STEPS_PER_FRAME,
+		"budgeted boot warmup must bound a non-advancing wait-poll step at the per-frame step cap"
+	)
+
+
+func _verify_shell_wires_budgeted_boot_warmup() -> void:
+	var shell_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_shell.gd")
+	var warmup_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
+	_expect(
+		shell_source.find("run_boot_warmup_steps_budgeted") >= 0,
+		"battle scene shell should drive boot warmup through the frame-budgeted batching path"
+	)
+	_expect(
+		warmup_source.find("has_threaded_prewarm_in_flight") >= 0,
+		"budgeted boot warmup must gate batching on the shared threaded prewarm slot"
+	)
+	_expect(
+		warmup_source.find("resources.is_threaded_prewarm_in_flight()") >= 0,
+		"budgeted boot warmup must gate batching on battle_resources' own threaded slots too"
+	)
+	_expect(
+		warmup_source.find("BattlePsoPrewarmer") >= 0,
+		"budgeted boot warmup must gate batching on the frame-gated PSO prewarmer node"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

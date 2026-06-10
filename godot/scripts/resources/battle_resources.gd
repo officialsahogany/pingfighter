@@ -300,6 +300,46 @@ func get_resource_cache() -> Dictionary:
 	return _resource_cache
 
 
+# Battle resources owns its own threaded load slots (transition + result
+# texture specs) via ResourceLoader.load_threaded_request, SEPARATE from the
+# shared ProjectResourceLoader prewarm slot. Frame-budgeted warmup batching
+# must consult this too, or it spin-polls _update_transition_texture_prewarm_thread
+# for the whole frame budget while the worker loads (observed: step 02 call
+# count 172 -> 7,469 on Stage 1 entry).
+func is_threaded_prewarm_in_flight() -> bool:
+	return _transition_texture_prewarm_active or _result_texture_prewarm_active
+
+
+# Job list ({path, prefer_imported}) the staged transition texture prewarm will
+# walk for this context, for the menu-idle background prewarmer. Filling
+# ProjectResourceLoader's static texture cache with these paths makes the boot
+# transition steps resolve as instant cache hits (_try_store_cached_texture_spec).
+# Pseudo-specs without a path (e.g. clear_smasher_player_fallbacks) are skipped.
+func get_transition_texture_prewarm_jobs(context: Dictionary = {}) -> Array:
+	var character_type := _get_selected_character_type(context)
+	var current_stage := _get_current_stage(context)
+	var include_result_sheets := _should_include_result_sheets(context)
+	var specs: Array = []
+	specs.append_array(_get_core_texture_specs())
+	specs.append_array(_get_player_texture_specs(character_type, include_result_sheets))
+	specs.append_array(_get_stage_boss_texture_specs(current_stage, include_result_sheets))
+	var jobs: Array = []
+	for spec_value in specs:
+		if not (spec_value is Dictionary):
+			continue
+		var spec: Dictionary = spec_value
+		var spec_path := str(spec.get("path", ""))
+		if spec_path == "":
+			continue
+		jobs.append({"path": spec_path, "prefer_imported": bool(spec.get("prefer_imported", false))})
+	var icon_paths: Dictionary = _get_selected_skill_icon_paths(character_type)
+	for icon_path_value in icon_paths.values():
+		var icon_path := str(icon_path_value)
+		if icon_path != "":
+			jobs.append({"path": icon_path, "prefer_imported": false})
+	return jobs
+
+
 func reset_transition_texture_prewarm() -> void:
 	_transition_texture_prewarm_key = ""
 	_transition_texture_prewarm_step_index = 0

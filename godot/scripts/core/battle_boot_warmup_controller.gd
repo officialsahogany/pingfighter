@@ -2,8 +2,27 @@ extends RefCounted
 
 const BattleBootWarmupSampleLabels := preload("res://scripts/core/battle_boot_warmup_sample_labels.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const BOOT_WARMUP_TOTAL_STEPS := 21
+# Frame-budgeted step batching. The boot loading path used to advance exactly
+# one warmup (sub)step per process frame, so an entry loading of ~2,100 step
+# invocations was paced by wall-clock frame rate (~30s at 72 FPS for ~11s of
+# measured work; most substeps are sub-millisecond). The budgeted loop packs
+# synchronous substeps into one frame until the time budget is spent, but must
+# yield the frame whenever the current step waits on work only a real frame
+# can advance:
+# - the shared threaded texture/audio prewarm slot: its bounded-fallback
+#   counters assume ~1 poll per frame, so same-frame spin-polling would hit
+#   MAX_POLLS early and demote big threaded sheet loads to synchronous
+#   main-thread fallbacks (see project_resource_loader.gd), and
+# - the BattlePsoPrewarmer node: GPU pipeline warmup advances per rendered
+#   frame, not per call.
+# BOOT_WARMUP_MAX_STEPS_PER_FRAME bounds any unknown wait-poll step that
+# returns "call me again" without making observable progress.
+const BOOT_WARMUP_FRAME_BUDGET_USEC := 24000
+const BOOT_WARMUP_MAX_STEPS_PER_FRAME := 128
+const PSO_PREWARMER_NODE_NAME := "BattlePsoPrewarmer"
 const BOOT_WARMUP_STATUS_BY_STEP := {
 	0: "전투 화면 준비 중",
 	1: "인트로 리소스 확인 중",
@@ -156,6 +175,52 @@ func run_boot_warmup_step(
 	if not should_advance:
 		return
 	boot_warmup_step += 1
+
+
+func run_boot_warmup_steps_budgeted(
+	owner: Object,
+	module_getter: Callable,
+	initialize_battle: Callable,
+	request_redraw: Callable = Callable(),
+	budget_usec: int = BOOT_WARMUP_FRAME_BUDGET_USEC
+) -> void:
+	# A slot orphaned by the menu-idle entry prewarmer (scene changed mid-load)
+	# would otherwise hold the in-flight gate true and throttle this whole loop
+	# to one step per frame. Resolve a finished foreign load before batching.
+	ProjectResourceLoader.try_resolve_finished_threaded_prewarm()
+	var deadline_usec: int = Time.get_ticks_usec() + max(0, budget_usec)
+	var steps_left: int = BOOT_WARMUP_MAX_STEPS_PER_FRAME
+	while not boot_warmup_finished and steps_left > 0:
+		run_boot_warmup_step(owner, module_getter, initialize_battle, request_redraw)
+		steps_left -= 1
+		if Time.get_ticks_usec() >= deadline_usec:
+			return
+		if _is_waiting_on_frame_gated_work(owner, module_getter):
+			return
+
+
+func _is_waiting_on_frame_gated_work(owner: Object, module_getter: Callable) -> bool:
+	if _is_threaded_prewarm_in_flight(module_getter):
+		return true
+	return _is_pso_prewarmer_node_alive(owner)
+
+
+func _is_threaded_prewarm_in_flight(module_getter: Callable) -> bool:
+	if ProjectResourceLoader.has_threaded_prewarm_in_flight():
+		return true
+	# battle_resources owns separate transition/result threaded slots that do
+	# not go through the shared ProjectResourceLoader slot.
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("is_threaded_prewarm_in_flight"):
+		return bool(resources.is_threaded_prewarm_in_flight())
+	return false
+
+
+func _is_pso_prewarmer_node_alive(owner: Object) -> bool:
+	if owner == null or not (owner is Node):
+		return false
+	var prewarmer: Node = (owner as Node).get_node_or_null(PSO_PREWARMER_NODE_NAME)
+	return prewarmer != null and is_instance_valid(prewarmer) and not prewarmer.is_queued_for_deletion()
 
 
 func run_logo_intro_warmup_step(module_getter: Callable) -> void:

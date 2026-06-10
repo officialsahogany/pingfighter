@@ -37,6 +37,37 @@ const THREADED_AUDIO_PREWARM_MAX_MSEC := 1800
 const THREADED_AUDIO_PREWARM_MAX_POLLS := 240
 
 
+# True while either shared threaded prewarm slot (texture or audio) has a load
+# in flight. Frame-budgeted warmup batching must yield the frame instead of
+# re-polling within the same frame: the bounded-fallback counters above assume
+# ~1 poll per frame, so same-frame spin-polling would hit MAX_POLLS early and
+# demote a healthy threaded load to a synchronous main-thread fallback.
+static func has_threaded_prewarm_in_flight() -> bool:
+	return _threaded_texture_prewarm_path != "" or _threaded_audio_prewarm_path != ""
+
+
+# Resolves the shared texture slot WITHOUT becoming a new owner: if the
+# in-flight load already finished (or failed), harvest/clear it now. Callers
+# that gate frame batching on has_threaded_prewarm_in_flight() should run this
+# once per frame first, so a slot orphaned by a caller that will never poll
+# again (e.g. the menu-idle entry prewarmer after a scene change) frees on the
+# first frame instead of throttling the whole loading batch until a cross-path
+# poll expires it.
+static func try_resolve_finished_threaded_prewarm() -> void:
+	if _threaded_texture_prewarm_path == "":
+		return
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(_threaded_texture_prewarm_path, progress_values)
+	match status:
+		ResourceLoader.THREAD_LOAD_LOADED:
+			var resource: Resource = ResourceLoader.load_threaded_get(_threaded_texture_prewarm_path)
+			if resource is Texture2D:
+				store_texture(_threaded_texture_prewarm_path, resource)
+			_clear_threaded_texture_prewarm()
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			_clear_threaded_texture_prewarm()
+
+
 static func load_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
 	if _texture_cache.has(path):
 		var cached_texture: Variant = _texture_cache[path]
@@ -142,10 +173,17 @@ static func prewarm_texture_threaded_step(
 		_threaded_texture_prewarm_stale_warning_sent = false
 		return {"done": false, "texture": null}
 	if _threaded_texture_prewarm_path != path:
-		# A different path owns the shared threaded slot. Count the poll so a stuck
-		# slot is bounded for cross-path callers too, then bail to a synchronous load
-		# once the hard MAX bound is hit -- an unrelated stuck load must never block
-		# this path forever.
+		# A different path owns the shared threaded slot. If that foreign load has
+		# already finished, harvest it now (store + clear) and retry this path
+		# against the freed slot. Without this, an orphaned owner that never polls
+		# again (e.g. the menu-idle entry prewarmer after a scene change) keeps the
+		# slot occupied until the expiry bound even though the worker is done.
+		try_resolve_finished_threaded_prewarm()
+		if _threaded_texture_prewarm_path == "":
+			return prewarm_texture_threaded_step(path, missing_warning, failed_warning, max_msec, max_polls, emit_timeout_warning, prefer_imported_fallback)
+		# Still loading: count the poll so a stuck slot is bounded for cross-path
+		# callers too, then bail to a synchronous load once the hard MAX bound is
+		# hit -- an unrelated stuck load must never block this path forever.
 		_threaded_texture_prewarm_poll_count += 1
 		if _is_threaded_texture_prewarm_expired(max_msec, max_polls):
 			if emit_timeout_warning:

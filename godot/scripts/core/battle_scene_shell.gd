@@ -44,7 +44,17 @@ func _begin_ball_spawn_intro() -> void:
 
 func _run_boot_warmup_step() -> void:
 	var warmup: Object = _get_boot_warmup_controller()
-	if warmup != null and warmup.has_method("run_boot_warmup_step"):
+	if warmup == null:
+		return
+	if warmup.has_method("run_boot_warmup_steps_budgeted"):
+		warmup.run_boot_warmup_steps_budgeted(
+			self,
+			Callable(self, "_get_module"),
+			Callable(self, "_initialize_battle"),
+			Callable(self, "queue_redraw")
+		)
+		return
+	if warmup.has_method("run_boot_warmup_step"):
 		warmup.run_boot_warmup_step(
 			self,
 			Callable(self, "_get_module"),

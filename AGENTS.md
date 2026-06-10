@@ -982,7 +982,16 @@ boss sprite classes.
   `max_msec` / `max_polls` (only justified for a genuine live-gameplay caller
   that would rather defer art than hitch). The regression is sealed by a
   numeric assertion in `project_resource_loader_import_preference_smoke.gd`
-  (`MAX_MSEC <= 3000` / `MAX_POLLS <= 600`); do not loosen it. A genuinely
+  (`MAX_MSEC <= 3000` / `MAX_POLLS <= 600`); do not loosen it. Cross-path
+  callers HARVEST a finished foreign load (store + clear + retry) instead of
+  waiting for expiry, and the boot budgeted warmup additionally calls
+  `try_resolve_finished_threaded_prewarm()` once per frame BEFORE batching —
+  without that, a slot orphaned by the menu-idle
+  `battle_entry_background_prewarm` (scene changed mid-load) holds the
+  in-flight gate true and throttles the whole loading batch to one step per
+  frame even though the worker already finished. Keep both the harvest branch
+  and the per-frame resolve when touching the slot (sealed by
+  `battle_entry_background_prewarm_smoke.gd`). A genuinely
   oversized source sheet (e.g. a 12k×6k+ Real-ESRGAN result Live2D sheet) is a
   SEPARATE problem — downscale / compress the asset, do not widen the timeout
   to mask the slow upload. The symptom is a single ~0.5–1.5s main-thread FREEZE
@@ -1005,6 +1014,30 @@ boss sprite classes.
   display size. Trap when verifying: the open editor caches `.import` in memory
   and re-reverts headless reimports of changed sheets, so chain `--import` +
   the texture-loading smoke (or restart the editor) to read a consistent state.
+- **Frame-budgeted batching of a one-step-per-frame loading loop must YIELD on
+  the shared threaded prewarm slot and on the PSO prewarmer node.** The boot
+  warmup loop used to advance exactly one (sub)step per process frame, so
+  ~2,100 mostly sub-millisecond step invocations paced Stage 1 entry loading at
+  wall-clock frame rate (~30s at 72 FPS for ~11s of measured work). The fix is
+  `battle_boot_warmup_controller.run_boot_warmup_steps_budgeted()`: pack
+  synchronous substeps into one frame under a time budget + per-frame step cap.
+  When batching ANY other step loop on this pattern (e.g. the stage-transition
+  work loop), two waits must stay one-call-per-frame or they break: (1) the
+  shared `prewarm_texture_threaded_step` slot — its STALE/MAX bounded-fallback
+  counters assume ~1 poll per frame, so same-frame spin-polling hits
+  `MAX_POLLS` (240) early and silently demotes a healthy threaded sheet load to
+  a synchronous main-thread fallback (gate on
+  `ProjectResourceLoader.has_threaded_prewarm_in_flight()`); (2) a live
+  `BattlePsoPrewarmer` node — GPU pipeline warmup advances per RENDERED frame,
+  not per call, so batching its wait just busy-spins. The shared slot is NOT
+  the only threaded state: `battle_resources` owns its own transition/result
+  threaded slots via direct `ResourceLoader.load_threaded_request` (exposed as
+  `battle_resources.is_threaded_prewarm_in_flight()`), and missing that gate
+  made the budgeted loop spin-poll boot step 02 from 172 to 7,469 calls on a
+  real Stage 1 entry. Before batching a loop, grep its steps for EVERY
+  module-owned `load_threaded_request` slot and add each to the yield gate.
+  Also bound unknown wait-poll steps with a max-steps-per-frame cap. Sealed by
+  the budgeted verifies in `battle_boot_resource_prewarm_smoke.gd`.
 - **`size_limit` is BYPASSED by `ProjectResourceLoader.load_texture()` — it
   decodes the RAW source PNG first.** `load_texture()` (project_resource_loader.gd)
   tries the in-memory `_texture_cache`, then `Image.load_from_file(raw_png)`
