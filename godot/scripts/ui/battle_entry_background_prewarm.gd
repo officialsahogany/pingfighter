@@ -67,10 +67,14 @@ func update(character_type: String, stage_id: int = ENTRY_PREWARM_DEFAULT_STAGE)
 	while _job_index < _jobs.size() and advances > 0:
 		var job_value: Variant = _jobs[_job_index]
 		var job: Dictionary = job_value if job_value is Dictionary else {}
+		# Pass real warning templates: a harvested path that fails to decode
+		# (engine "Failed to load image. Error 15") is otherwise anonymous —
+		# the backtrace shows this call site but never the asset path, so the
+		# broken/unsupported file cannot be identified from the log.
 		var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
 			str(job.get("path", "")),
-			"",
-			"",
+			"Entry background prewarm: missing texture at %s",
+			"Entry background prewarm: failed to load texture at %s",
 			ENTRY_PREWARM_MAX_MSEC,
 			ENTRY_PREWARM_MAX_POLLS,
 			false,
