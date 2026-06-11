@@ -9,7 +9,6 @@ const POWER_SMASH_NO_COMBO_BOOST_MULT := 1.0
 const POWER_SMASH_INITIAL_STRAIGHT_MULT := 1.0 + ((1.197568 - 1.0) * POWER_SMASH_EFFECT_MULT)
 const POWER_SMASH_INITIAL_SIDE_MULT := 1.0 + ((1.263424 - 1.0) * POWER_SMASH_EFFECT_MULT)
 const POWER_SMASH_NO_COMBO_INITIAL_MULT := 1.0
-const POWER_SMASH_BASE_COMBO_EQUIVALENT := 3
 const POWER_SMASH_COMBO_SPEED_PER_COUNT := 0.01448832 * POWER_SMASH_EFFECT_MULT
 const POWER_SMASH_COMBO_SPEED_CAP := 0.065856 * POWER_SMASH_EFFECT_MULT
 const POWER_SMASH_MAX_LAUNCH_SPEED_MULT := 2.14032 * POWER_SMASH_EFFECT_MULT
@@ -39,7 +38,7 @@ func apply(
 	var min_boost: float = base_speed * POWER_SMASH_MIN_BOOST_MULT
 	var actual_boost: float = max(ball_current_speed * POWER_SMASH_SPEED_BOOST_RATE * speed_dampen_factor, min_boost)
 	var combo_consumed: int = int(power_state.get_combo_consumed())
-	var effective_combo_count: int = max(combo_consumed, POWER_SMASH_BASE_COMBO_EQUIVALENT)
+	var combo_boosted: bool = combo_consumed >= combo_min_count
 	if combo_consumed < combo_min_count:
 		actual_boost *= POWER_SMASH_NO_COMBO_BOOST_MULT
 
@@ -78,16 +77,16 @@ func apply(
 	if final_speed > 0.0:
 		var boost_ratio: float = _apply_dampened_multiplier(ball_physics, final_speed, initial_boost_multiplier)
 		ball_velocity *= boost_ratio
-		if effective_combo_count >= combo_min_count:
+		if combo_boosted:
 			var combo_final_bonus: float = min(
-				float(effective_combo_count) * POWER_SMASH_COMBO_SPEED_PER_COUNT,
+				float(combo_consumed) * POWER_SMASH_COMBO_SPEED_PER_COUNT,
 				POWER_SMASH_COMBO_SPEED_CAP
 			)
 			ball_velocity *= 1.0 + combo_final_bonus
 		ball_velocity = _clamp_launch_speed(
 			ball_velocity,
 			base_speed,
-			effective_combo_count >= combo_min_count,
+			combo_boosted,
 			safe_launch_speed_multiplier
 		)
 		power_state.start_initial_boost(ball_velocity.length())
