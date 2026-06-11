@@ -1328,13 +1328,23 @@ func _draw_net_field(canvas: CanvasItem, effect: Dictionary, shake_offset: Vecto
 
 	var fill_alpha: float = max(20.0, alpha_base * (0.4 if dissolve else 0.55)) / 255.0
 	var outline_alpha: float = max(60.0 / 255.0, alpha_unit)
-	canvas.draw_colored_polygon(jittered, _with_alpha(fill_color, fill_alpha))
+	# A late-dissolve net collapses the hull (shrink = ratio^1.4 -> 0) while
+	# the jitter amplitude grows to ~12px, so the jittered ring can
+	# self-intersect and fail draw_colored_polygon triangulation (error spam
+	# every frame near expiry). Gate only the fill — the outline and lattice
+	# overlay are line-based and degenerate-safe.
+	if can_fill_polygon(jittered):
+		canvas.draw_colored_polygon(jittered, _with_alpha(fill_color, fill_alpha))
 	for index in range(jittered.size()):
 		var a: Vector2 = jittered[index]
 		var b: Vector2 = jittered[(index + 1) % jittered.size()]
 		canvas.draw_line(a, b, _with_alpha(outline_color, outline_alpha), 2.0, true)
 
 	_draw_net_mesh_overlay(canvas, jittered, _with_alpha(lattice_color, alpha_unit * 0.7), dissolve, remaining_ratio)
+
+
+static func can_fill_polygon(points: PackedVector2Array) -> bool:
+	return points.size() >= 3 and not Geometry2D.triangulate_polygon(points).is_empty()
 
 
 func _fallback_net_shape(width: float, height: float) -> Array:

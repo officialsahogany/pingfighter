@@ -263,6 +263,7 @@ func _init() -> void:
 	_verify_fire_support_edge_only_blast_does_not_stun()
 	_verify_suicide_drone_edge_only_blast_does_not_stun()
 	_verify_net_gun_ammo_rope_capture_and_break()
+	_verify_net_field_fill_guard_rejects_degenerate_polygon()
 	_verify_ak47_shell_casing_lifecycle()
 	_verify_ak47_hold_burst_ammo_duration_and_slowdown()
 	_verify_removed_ak47_runtime_bridges()
@@ -2251,6 +2252,31 @@ func _has_bazooka_explosion_shake(feedback: Object) -> bool:
 		):
 			return true
 	return false
+
+
+# Late-dissolve nets collapse the hull below the jitter amplitude and can
+# self-intersect; the fill gate must reject those instead of letting
+# draw_colored_polygon spam "Invalid polygon data" every frame near expiry
+# (137 errors/session in the 2026-06-11 stage 1-5 commando run).
+func _verify_net_field_fill_guard_rejects_degenerate_polygon() -> void:
+	var bowtie := PackedVector2Array([
+		Vector2(0.0, 0.0), Vector2(10.0, 10.0), Vector2(10.0, 0.0), Vector2(0.0, 10.0),
+	])
+	_expect(
+		not Stage1CommandoFirearmRenderer.can_fill_polygon(bowtie),
+		"self-intersecting net hull should be rejected by the fill gate"
+	)
+	var ring := PackedVector2Array([
+		Vector2(0.0, 0.0), Vector2(20.0, 0.0), Vector2(24.0, 12.0), Vector2(10.0, 20.0), Vector2(-4.0, 12.0),
+	])
+	_expect(
+		Stage1CommandoFirearmRenderer.can_fill_polygon(ring),
+		"a simple net hull should still pass the fill gate"
+	)
+	_expect(
+		not Stage1CommandoFirearmRenderer.can_fill_polygon(PackedVector2Array([Vector2.ZERO, Vector2.ONE])),
+		"a sub-triangle point set should be rejected by the fill gate"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
