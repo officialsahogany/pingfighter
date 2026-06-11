@@ -81,6 +81,7 @@ func _init() -> void:
 	_verify_beam_boss_contact_signal_is_per_doll()
 	_verify_emerge_has_no_confusion_or_ball_hit()
 	_verify_confusion_applies_only_while_beam_touches_and_preserves_other_sources()
+	_verify_beam_cone_edge_epsilon_regression()
 	_verify_confusion_reaches_boss_ai_context_builder()
 	_verify_ball_hit_destroys_one_doll_and_bounces_downward_ball()
 	_verify_both_dolls_destroyed_end_early()
@@ -460,6 +461,37 @@ func _verify_confusion_applies_only_while_beam_touches_and_preserves_other_sourc
 	skill.update(1.0 / 60.0, owner, registry)
 	_expect(status_state.get_status_source("boss", "confusion", STATUS_SOURCE).is_empty(), "leaving the beam should clear only Doll Curse confusion immediately")
 	_expect(not status_state.get_status_source("boss", "confusion", "flare_x").is_empty(), "source-scoped clear must not erase flare confusion")
+
+
+func _verify_beam_cone_edge_epsilon_regression() -> void:
+	var skill: Object = load("res://scripts/lingpet/lingpet_doll_curse_skill.gd").new()
+	var owner := FakeOwner.new()
+	owner.ball_active = false
+	var status_state := StatusEffectState.new()
+	var registry := FakeRegistry.new(status_state, FakeAudio.new())
+	_expect(bool(skill.launch(Vector2(380.0, 600.0), owner, {"registry": registry})), "Doll Curse should launch for cone edge test")
+	skill.set_phase_for_tests(int(skill.get_snapshot().get("doll_curse_phase_active", 2)), 0.0)
+	skill.force_beam_angle_for_tests(-PI * 0.5)
+	var left_pos: Vector2 = _live_doll_dictionary(skill, 0).get("pos", Vector2.ZERO)
+	var beam_origin := left_pos + Vector2(0.0, -32.0 * 0.70)
+	var boss_center_y := 45.0
+	var dy := beam_origin.y - boss_center_y
+
+	var inside_dx := dy * tan(deg_to_rad(6.0))
+	owner.boss_pos = Vector2(
+		left_pos.x + inside_dx - owner.boss_paddle_width * 0.5,
+		boss_center_y - owner.boss_hitbox_height * 0.5
+	)
+	skill.update(1.0 / 60.0, owner, registry)
+	_expect(not status_state.get_status_source("boss", "confusion", STATUS_SOURCE).is_empty(), "boss center just inside the 7-degree hit cone should receive Doll Curse confusion")
+
+	var outside_dx := dy * tan(deg_to_rad(8.0))
+	owner.boss_pos = Vector2(
+		left_pos.x + outside_dx - owner.boss_paddle_width * 0.5,
+		boss_center_y - owner.boss_hitbox_height * 0.5
+	)
+	skill.update(1.0 / 60.0, owner, registry)
+	_expect(status_state.get_status_source("boss", "confusion", STATUS_SOURCE).is_empty(), "boss center just outside the cone half-angle (+epsilon) should clear confusion on the next frame")
 
 
 func _verify_confusion_reaches_boss_ai_context_builder() -> void:

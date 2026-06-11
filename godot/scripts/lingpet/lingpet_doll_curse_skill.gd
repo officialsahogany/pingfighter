@@ -456,18 +456,6 @@ func _advance_beam_sweep(doll: Dictionary, current_angle: float, owner: Object) 
 	return doll
 
 
-func _any_beam_hits_boss(owner: Object) -> bool:
-	if owner == null:
-		return false
-	var boss_center := _get_boss_rect(owner).get_center()
-	for doll in _dolls:
-		if not bool(doll.get("alive", false)):
-			continue
-		if _point_in_doll_beam(doll, boss_center):
-			return true
-	return false
-
-
 func _update_beam_boss_contacts(owner: Object) -> bool:
 	var any_touching := false
 	var boss_center := Vector2.ZERO

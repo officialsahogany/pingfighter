@@ -323,16 +323,23 @@ get_snapshot() -> Dictionary
 
 ## 10. 트랩 체크리스트 (이 스킬에 실제 해당)
 
-- [ ] **라디알 CC 프리미티브 명시**: boss-center-in-cone, 엣지 회귀(S3). 보이는 빔=판정 기하 동일.
-- [ ] **ball_vel px/frame**: 바운스는 부호 반전만, 크기 주입 금지. 스모크 owner도 px/frame.
-- [ ] **skip_ball_motion_step 미설정**: 공 비소유 수동 바운서. owned-ball floor-miss 트랩 비해당.
-- [ ] **owner 새 키 없음**: 보스 비스크립트. `owner.set(미선언 키)` 없음.
-- [ ] **status 소스 스코프 clear**: `clear_status(...,"lingpet_doll_curse")`만. 전체 confusion clear 금지(다른 소스 클로버).
-- [ ] **registry 캐시 리셋**(§6): thunder_orb 패턴. 안 하면 혼란 라운드 누수.
-- [ ] **혼란 "닿을 때만"**: 안 닿는 프레임 명시적 clear (apply max-remaining 잔류 주의).
-- [ ] **시트 타이머 한 키**: 페이즈별 프레임 진행을 페이즈 타이머에서 파생. 현재
+- [x] **라디알 CC 프리미티브 명시**: boss-center-in-cone, 엣지 회귀(S3). 보이는 빔=판정 기하 동일.
+  (엣지 ε 회귀는 `_verify_beam_cone_edge_epsilon_regression` — 반각 6° 안쪽 적용 /
+  8° 바깥 해제, 반각을 17°로 깨면 FAIL하는 것까지 확인)
+- [x] **ball_vel px/frame**: 바운스는 부호 반전만, 크기 주입 금지. 스모크 owner도 px/frame.
+  (최소 수직속도 플로어 `-BALL_SPEED_MIN*0.5`는 dragon_wing보다 보수적인 유계 완화로 수용)
+- [x] **skip_ball_motion_step 미설정**: 공 비소유 수동 바운서. owned-ball floor-miss 트랩 비해당.
+- [x] **owner 새 키 없음**: 보스 비스크립트. `owner.set(미선언 키)` 없음. (`ball_vel` 단일 지점)
+- [x] **status 소스 스코프 clear**: `clear_status(...,"lingpet_doll_curse")`만. 전체 confusion clear 금지(다른 소스 클로버).
+- [x] **registry 캐시 리셋**(§6): thunder_orb 패턴. 안 하면 혼란 라운드 누수.
+- [x] **혼란 "닿을 때만"**: 안 닿는 프레임 명시적 clear (apply max-remaining 잔류 주의).
+- [x] **시트 타이머 한 키**: 페이즈별 프레임 진행을 페이즈 타이머에서 파생. 현재
   목각 춤 빌드는 ACTIVE가 0~15 전체 루프를 돌고, EMERGE/RETRACT는 각자의 짧은
   풀바디 밴드만 사용해야 함.
+
+> 적대적 리뷰 완료 (2026-06-10): 위 8항목 전부 코드/스모크로 봉인 확인.
+> 데드 함수 `_any_beam_hits_boss` 삭제. §11의 F7 2-액티브 선택 경로는
+> `lingpet_debug_picker._cycle_active_skill` 범용 구현으로 해소 확인.
 
 ---
 
