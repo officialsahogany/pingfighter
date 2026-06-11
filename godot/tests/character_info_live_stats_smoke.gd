@@ -324,6 +324,8 @@ func _init() -> void:
 
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
 	_verify_affinity_values_reach_panel_through_schema_gated_owner()
+	_verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner()
+	_verify_snapshot_sync_keys_are_schema_declared()
 
 	ProjectResourceLoader.clear_caches()
 	print("character_info_live_stats_smoke: ok")
@@ -428,6 +430,64 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	var vertical_lingpet_rect := CharacterInfoOverlayStatsPresenter.lingpet_stat_rect_for_sections(vertical_stack_rect)
 	var visible_capacity := CharacterInfoOverlayStatsPresenter.lingpet_stat_rows_visible_capacity(vertical_lingpet_rect, rows.size())
 	_expect(visible_capacity >= 6, "vertical stacked TAB layout should have draw-time room for the sixth 교감 row")
+
+
+func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> void:
+	# 교감 reward stacks (기동/게이지 강화) boost the runtime stats through
+	# lingpet_current_profile.get_stat, and the per-frame sync mirrors the
+	# BOOSTED values onto the owner. If the owner keys are missing from
+	# BattleSceneState.DEFAULT_VALUES, owner.set() silently no-ops and the
+	# panel falls back to the catalog BASE — the upgrade applies in gameplay
+	# but never shows in the TAB rows (sibling of the defense-rate trap).
+	var owner := SchemaGatedOwner.new()
+	var registry := NullRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
+		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
+	)
+	var commit_guard := 0
+	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 400:
+		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+		commit_guard += 1
+	_expect(runtime.get_affinity_level("maribo") == LingpetAffinityState.MAX_LEVEL, "stat-boost fixture should reach affinity max level via round commits")
+	runtime.update(0.0, owner, registry)
+	var base_gauge := float(LingpetCatalog.get_stat("maribo", "hit_gauge_gain", 40.0))
+	var base_speed := float(LingpetCatalog.get_stat("maribo", "patrol_speed_default", 0.0))
+	_expect(base_speed > 0.0, "Maribo should expose a catalog patrol speed for the divergence fixture")
+	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	# Canonical Lv.15 track grants 3x 기동 강화 (+5% patrol speed each) and
+	# 2x 게이지 강화 (+5 hit gauge each).
+	_expect(
+		is_equal_approx(float(snapshot.get("companion_hit_gauge_gain", 0.0)), base_gauge + 10.0),
+		"게이지 강화 stacks should reach the panel gauge-gain row instead of the catalog base"
+	)
+	_expect(
+		is_equal_approx(float(snapshot.get("companion_patrol_speed_default", 0.0)), base_speed * 1.15),
+		"기동 강화 stacks should reach the panel move-speed row instead of the catalog base"
+	)
+
+
+func _verify_snapshot_sync_keys_are_schema_declared() -> void:
+	# Structural seal for the owner-field schema trap: every lingpet_/ringpet_
+	# key the per-frame snapshot sync writes must be declared in
+	# BattleSceneState.DEFAULT_VALUES, or owner.set() silently no-ops it and
+	# every mirror reader falls back to stale/base data.
+	var source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
+	_expect(source != "", "snapshot sync source should be readable for the schema seal")
+	var key_regex := RegEx.new()
+	key_regex.compile("\"((?:ling|ring)pet_[a-z0-9_]+)\"")
+	var seen := {}
+	for line in source.split("\n"):
+		if line.find("_set_pair(owner") < 0 and line.find("owner.set(") < 0:
+			continue
+		for match_value in key_regex.search_all(line):
+			var key := match_value.get_string(1)
+			if seen.has(key):
+				continue
+			seen[key] = true
+			_expect(BattleSceneState.DEFAULT_VALUES.has(key), "snapshot sync key must be declared in BattleSceneState.DEFAULT_VALUES or owner.set() silently no-ops it: %s" % key)
+	_expect(seen.size() >= 40, "schema seal should scan the full snapshot sync key family (found %d)" % seen.size())
 
 
 func _finish_active_runtime_initialization(runtime: Object) -> void:

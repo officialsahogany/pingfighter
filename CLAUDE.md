@@ -565,6 +565,21 @@ Standing rules:
   key will pass even when the real schema would drop the write. Reference:
   `character_info_live_stats_smoke._verify_defense_override_reaches_panel_through_schema_gated_owner`
   (verified to FAIL when the schema key is removed).
+- This trap repeated at scale (2026-06-12): 17 of the snapshot sync's keys
+  (`hit_gauge_gain`, `patrol_speed_*`, `catch_*`, passive bonus pcts, slot
+  mirrors) were missing from `DEFAULT_VALUES`, so 교감 기동/게이지 강화 and
+  passive stat boosts applied in gameplay but the TAB panel kept showing the
+  catalog base. The structural seal is now
+  `character_info_live_stats_smoke._verify_snapshot_sync_keys_are_schema_declared`,
+  which scans every `_set_pair(owner, ...)` / `owner.set(...)` key literal in
+  `lingpet_runtime_snapshot_builder.gd` against `DEFAULT_VALUES` — new sync
+  keys fail the smoke until declared. Also remember the pair fallback masks
+  single-key omissions: the panel reads `lingpet_*` then `ringpet_*`, so a
+  value-level test alone can pass while one of the pair is dropped.
+- Slot-index style mirrors need a **negative sentinel default** (`-1`), and the
+  owner-read helper must treat negatives as "not synced yet"
+  (`lingpet_collection_state.get_active_slot_index_from_owner`); a `0` default
+  would force slot 0 over the runtime's internal index on a fresh battle state.
 
 ## Godot Lazy Applied-Key Re-Apply Trap
 

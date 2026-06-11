@@ -179,6 +179,48 @@ const DEFAULT_VALUES: Dictionary = {
 	"ringpet_companion_last_contact_pos": Vector2.ZERO,
 	"lingpet_companion_hit_cooldown": 0.0,
 	"ringpet_companion_hit_cooldown": 0.0,
+	# Per-frame lingpet runtime -> TAB panel stat mirrors. Every key the
+	# snapshot sync writes MUST be declared here (owner-field schema trap):
+	# a missing key makes owner.set() silently no-op and the panel falls back
+	# to the catalog BASE, hiding 교감 reward stacks and passive stat boosts.
+	# Sealed by character_info_live_stats_smoke
+	# _verify_snapshot_sync_keys_are_schema_declared.
+	"lingpet_companion_hit_gauge_gain": 0.0,
+	"ringpet_companion_hit_gauge_gain": 0.0,
+	"lingpet_companion_hit_gauge_last_gain": 0.0,
+	"ringpet_companion_hit_gauge_last_gain": 0.0,
+	"lingpet_companion_hit_gauge_trigger_count": 0,
+	"ringpet_companion_hit_gauge_trigger_count": 0,
+	"lingpet_companion_patrol_speed_default": 0.0,
+	"ringpet_companion_patrol_speed_default": 0.0,
+	"lingpet_companion_patrol_speed_min": 0.0,
+	"ringpet_companion_patrol_speed_min": 0.0,
+	"lingpet_companion_patrol_speed_max": 0.0,
+	"ringpet_companion_patrol_speed_max": 0.0,
+	"lingpet_companion_catch_width": 0.0,
+	"ringpet_companion_catch_width": 0.0,
+	"lingpet_companion_catch_height": 0.0,
+	"ringpet_companion_catch_height": 0.0,
+	"lingpet_companion_defense_intercept_active": false,
+	"ringpet_companion_defense_intercept_active": false,
+	"lingpet_companion_defense_intercept_target_x": 0.0,
+	"ringpet_companion_defense_intercept_target_x": 0.0,
+	"lingpet_gauge_gain_bonus_pct": 0.0,
+	"ringpet_gauge_gain_bonus_pct": 0.0,
+	"lingpet_player_speed_bonus_pct": 0.0,
+	"ringpet_player_speed_bonus_pct": 0.0,
+	"lingpet_ring_dash_chance_pct": 0.0,
+	"ringpet_ring_dash_chance_pct": 0.0,
+	"lingpet_starpoint_tracking_chance_pct": 0.0,
+	"ringpet_starpoint_tracking_chance_pct": 0.0,
+	"lingpet_slots": [],
+	"ringpet_slots": [],
+	"lingpet_slot_pet_ids": [],
+	"ringpet_slot_pet_ids": [],
+	# -1 sentinel: slot readers treat negatives as "not synced yet" so a fresh
+	# battle state cannot force slot 0 over the runtime's internal index.
+	"lingpet_active_slot_index": -1,
+	"ringpet_active_slot_index": -1,
 	"lingpet_skill_id": "",
 	"ringpet_skill_id": "",
 	"lingpet_active_skill_id": "",

@@ -165,7 +165,9 @@ func get_battle_slots_from_owner(owner: Object) -> Array[String]:
 func get_active_slot_index_from_owner(owner: Object) -> int:
 	for key in OWNER_ACTIVE_SLOT_KEYS:
 		var value: Variant = _get_owner_value(owner, str(key), null)
-		if value != null:
+		# The schema default is a -1 sentinel: a declared-but-never-synced
+		# owner must fall through to the internal index, not force slot 0.
+		if value != null and int(value) >= 0:
 			return clampi(int(value), 0, MAX_BATTLE_SLOTS - 1)
 	return active_slot_index
 
