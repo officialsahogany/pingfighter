@@ -45,6 +45,7 @@ class ControllerBackedItemRuntime:
 
 func _init() -> void:
 	_verify_catalog_entry()
+	_verify_generated_visual_assets_load()
 	_verify_router_dispatches_activation()
 	_verify_activation_places_trampoline_at_player_center()
 	_verify_slingshot_capture_then_launch()
@@ -91,6 +92,33 @@ func _verify_catalog_entry() -> void:
 		ActiveItemDebugSpawnMenu.DEBUG_ENTRY_ORDER.has("trampoline"),
 		"trampoline should be in the F2 debug spawn menu DEBUG_ENTRY_ORDER (separate hardcoded list, not catalog-driven)"
 	)
+
+
+func _verify_generated_visual_assets_load() -> void:
+	var renderer: Object = ActiveItemTrampolineRenderer.new()
+	renderer.prewarm_assets()
+	_expect(
+		renderer.get_installed_texture() != null,
+		"generated trampoline installed texture should load through the renderer"
+	)
+	_expect(
+		renderer.get_stretch_sheet_texture() != null,
+		"generated AutoSprite trampoline stretch sheet should load through the renderer"
+	)
+	var source_rect: Rect2 = renderer.get_stretch_sheet_source_rect_for_tests(8)
+	_expect(
+		is_equal_approx(source_rect.size.x, 384.0) and is_equal_approx(source_rect.size.y, 128.0),
+		"runtime trampoline stretch sheet should expose 384x128 cells"
+	)
+	var deep_capture_frame: int = int(renderer.get_stretch_sheet_frame_index_for_tests({
+		"capture_active": true,
+		"capture_depth": ActiveItemTrampolineRuntime.CAPTURE_MAX_SINK_DEPTH,
+	}))
+	_expect(deep_capture_frame == 8, "full trampoline capture should select the deepest AutoSprite frame")
+	var rebound_frame: int = int(renderer.get_stretch_sheet_frame_index_for_tests({
+		"bounce_timer_frames": ActiveItemTrampolineRuntime.TRAMPOLINE_BOUNCE_ANIM_FRAMES * 0.5,
+	}))
+	_expect(rebound_frame >= 9, "trampoline rebound should select an AutoSprite recovery frame")
 
 
 func _verify_router_dispatches_activation() -> void:

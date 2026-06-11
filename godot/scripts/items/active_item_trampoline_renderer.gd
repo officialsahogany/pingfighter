@@ -2,10 +2,20 @@ extends RefCounted
 
 # Direct-draw exception note: the bounce visual is a per-frame deforming mat
 # polygon (deterministic geometry driven by the runtime bounce timer), so the
-# procedural path is intentional rather than a texture/shader remaster gap.
+# procedural path is kept as a fallback when the generated sprite assets are
+# unavailable.
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemTrampolineRuntime := preload("res://scripts/items/active_item_trampoline_runtime.gd")
 
+const INSTALLED_TEXTURE_PATH := "res://assets/sprites/items/trampoline_installed_runtime_v1.png"
+const STRETCH_SHEET_TEXTURE_PATH := "res://assets/sprites/items/trampoline_stretch_autosprite_v2_runtime_sheet.png"
+const STRETCH_SHEET_COLUMNS := 4
+const STRETCH_SHEET_ROWS := 4
+const STRETCH_SHEET_FRAME_COUNT := 16
+const TEXTURE_DRAW_WIDTH_SCALE := 1.15
+const TEXTURE_DRAW_BOTTOM_OFFSET := 11.0
+const TEXTURE_DRAW_MIN_HEIGHT := 24.0
 const MAT_TOP_SEGMENTS := 12
 const MAT_MIN_FABRIC_THICKNESS := 2.0
 const MAT_MAX_SAG := 7.0
@@ -19,6 +29,47 @@ const LEG_COLOR := Color(0.30, 0.34, 0.44)
 const SPRING_COLOR := Color(0.78, 0.84, 0.95)
 const PIP_REMAINING_COLOR := Color(0.55, 0.95, 1.0)
 const PIP_USED_COLOR := Color(0.30, 0.36, 0.50, 0.55)
+
+var _installed_texture: Texture2D = null
+var _stretch_sheet_texture: Texture2D = null
+
+
+func prewarm_assets() -> void:
+	_touch_texture(get_installed_texture())
+	_touch_texture(get_stretch_sheet_texture())
+
+
+func get_installed_texture() -> Texture2D:
+	if _installed_texture != null:
+		return _installed_texture
+	_installed_texture = ProjectResourceLoader.load_texture(
+		INSTALLED_TEXTURE_PATH,
+		"Missing trampoline installed sprite at %s",
+		"Failed to load trampoline installed sprite at %s"
+	)
+	return _installed_texture
+
+
+func get_stretch_sheet_texture() -> Texture2D:
+	if _stretch_sheet_texture != null:
+		return _stretch_sheet_texture
+	_stretch_sheet_texture = ProjectResourceLoader.load_texture(
+		STRETCH_SHEET_TEXTURE_PATH,
+		"Missing trampoline stretch sheet at %s",
+		"Failed to load trampoline stretch sheet at %s"
+	)
+	return _stretch_sheet_texture
+
+
+func get_stretch_sheet_source_rect_for_tests(frame_index: int) -> Rect2:
+	var sheet: Texture2D = get_stretch_sheet_texture()
+	if sheet == null:
+		return Rect2()
+	return _get_stretch_sheet_source_rect(sheet, frame_index)
+
+
+func get_stretch_sheet_frame_index_for_tests(trampoline: Dictionary) -> int:
+	return _get_stretch_sheet_frame_index(trampoline)
 
 
 func draw_trampoline_effect(canvas: CanvasItem, trampoline_context: Dictionary, shake_offset: Vector2) -> void:
@@ -48,10 +99,48 @@ func _draw_trampoline(canvas: CanvasItem, trampoline: Dictionary, shake_offset: 
 	var mat_top: float = center.y - mat_height * 0.5
 	var mat_bottom: float = center.y + mat_height * 0.5
 
-	_draw_legs(canvas, center, half_width, mat_bottom)
-	_draw_mat(canvas, center, half_width, mat_top, mat_bottom, deflection, sag_center)
-	_draw_springs(canvas, center, half_width, mat_bottom)
+	if not _draw_textured_trampoline(canvas, trampoline, center, half_width, mat_bottom, spawn_scale):
+		_draw_legs(canvas, center, half_width, mat_bottom)
+		_draw_mat(canvas, center, half_width, mat_top, mat_bottom, deflection, sag_center)
+		_draw_springs(canvas, center, half_width, mat_bottom)
 	_draw_bounce_pips(canvas, trampoline, center, half_width, mat_top)
+
+
+func _draw_textured_trampoline(
+	canvas: CanvasItem,
+	trampoline: Dictionary,
+	center: Vector2,
+	half_width: float,
+	mat_bottom: float,
+	spawn_scale: float
+) -> bool:
+	var frame_index: int = _get_stretch_sheet_frame_index(trampoline)
+	var texture: Texture2D = null
+	var source_rect := Rect2()
+	if frame_index >= 0:
+		texture = get_stretch_sheet_texture()
+		if texture != null:
+			source_rect = _get_stretch_sheet_source_rect(texture, frame_index)
+	if texture == null:
+		texture = get_installed_texture()
+	if texture == null:
+		return false
+
+	var source_size: Vector2 = source_rect.size if source_rect.size.x > 0.0 and source_rect.size.y > 0.0 else texture.get_size()
+	if source_size.x <= 0.0 or source_size.y <= 0.0:
+		return false
+	var draw_width: float = max(1.0, half_width * 2.0 * TEXTURE_DRAW_WIDTH_SCALE)
+	var draw_height: float = max(TEXTURE_DRAW_MIN_HEIGHT * spawn_scale, draw_width * source_size.y / source_size.x)
+	var visual_bottom: float = mat_bottom + TEXTURE_DRAW_BOTTOM_OFFSET * spawn_scale
+	var draw_rect := Rect2(
+		Vector2(center.x - draw_width * 0.5, visual_bottom - draw_height),
+		Vector2(draw_width, draw_height)
+	)
+	if source_rect.size.x > 0.0 and source_rect.size.y > 0.0:
+		canvas.draw_texture_rect_region(texture, draw_rect, source_rect)
+	else:
+		canvas.draw_texture_rect(texture, draw_rect, false)
+	return true
 
 
 func _draw_legs(canvas: CanvasItem, center: Vector2, half_width: float, mat_bottom: float) -> void:
@@ -172,6 +261,40 @@ func _get_mat_deflection(trampoline: Dictionary) -> float:
 	return _get_bounce_deflection(bounce_timer)
 
 
+func _get_stretch_sheet_frame_index(trampoline: Dictionary) -> int:
+	var capture_depth: float = float(trampoline.get("capture_depth", 0.0))
+	var bounce_timer: float = float(trampoline.get("bounce_timer_frames", 0.0))
+	if bool(trampoline.get("capture_active", false)) or (capture_depth > 0.1 and bounce_timer <= 0.0):
+		var capture_ratio: float = clamp(
+			capture_depth / ActiveItemTrampolineRuntime.CAPTURE_MAX_SINK_DEPTH,
+			0.0,
+			1.0
+		)
+		return clamp(int(round(lerp(0.0, 8.0, capture_ratio))), 0, 8)
+	if bounce_timer > 0.0:
+		var rebound_progress: float = clamp(
+			1.0 - bounce_timer / ActiveItemTrampolineRuntime.TRAMPOLINE_BOUNCE_ANIM_FRAMES,
+			0.0,
+			1.0
+		)
+		return clamp(9 + int(floor(rebound_progress * 7.0)), 9, STRETCH_SHEET_FRAME_COUNT - 1)
+	return -1
+
+
+func _get_stretch_sheet_source_rect(sheet: Texture2D, frame_index: int) -> Rect2:
+	if sheet == null or sheet.get_width() <= 0 or sheet.get_height() <= 0:
+		return Rect2()
+	var clamped_index: int = clamp(frame_index, 0, STRETCH_SHEET_FRAME_COUNT - 1)
+	var frame_width: float = float(sheet.get_width()) / float(STRETCH_SHEET_COLUMNS)
+	var frame_height: float = float(sheet.get_height()) / float(STRETCH_SHEET_ROWS)
+	var column: int = clamped_index % STRETCH_SHEET_COLUMNS
+	var row: int = int(floor(float(clamped_index) / float(STRETCH_SHEET_COLUMNS)))
+	return Rect2(
+		Vector2(float(column) * frame_width, float(row) * frame_height),
+		Vector2(frame_width, frame_height)
+	)
+
+
 func _get_bounce_deflection(bounce_timer_frames: float) -> float:
 	if bounce_timer_frames <= 0.0:
 		return 0.0
@@ -209,3 +332,8 @@ func _get_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
 		return value
 	return fallback
+
+
+func _touch_texture(texture: Texture2D) -> void:
+	if texture != null:
+		texture.get_size()

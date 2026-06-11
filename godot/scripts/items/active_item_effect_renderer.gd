@@ -76,6 +76,7 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 		7:
 			_brick_wall_renderer.prewarm_assets()
 			brick_wall_variant_sheet_texture = _brick_wall_renderer.brick_wall_variant_sheet_texture
+			_trampoline_renderer.prewarm_assets()
 		8:
 			if active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons_step"):
 				if not bool(active_item_hud_visuals.prewarm_catalog_icons_step()):
