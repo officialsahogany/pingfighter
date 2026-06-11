@@ -16,6 +16,7 @@ var _best_levels: Dictionary = {}
 var _bond_points: Dictionary = {}
 var _loaded := false
 var _schema_version := SAVE_SCHEMA_VERSION
+var _recovery_blocked := false
 
 
 func set_save_path(path: String) -> void:
@@ -23,9 +24,14 @@ func set_save_path(path: String) -> void:
 		return
 	save_path = path
 	_loaded = false
+	_recovery_blocked = false
 	_best_levels.clear()
 	_bond_points.clear()
 	_schema_version = SAVE_SCHEMA_VERSION
+
+
+func get_backup_path() -> String:
+	return save_path.trim_suffix(".cfg") + ".last_good.cfg"
 
 
 func load() -> bool:
@@ -33,38 +39,62 @@ func load() -> bool:
 	_bond_points.clear()
 	_schema_version = SAVE_SCHEMA_VERSION
 	_loaded = true
+	_recovery_blocked = false
 	if not FileAccess.file_exists(save_path):
 		last_load_summary = "missing"
 		return true
 	var config := ConfigFile.new()
-	var result := _load_config_file(config)
+	var result := _load_config_file(config, save_path)
 	if result != OK:
+		# Permanent-ledger recovery: a corrupted main file must repair from
+		# the last-good backup instead of silently resetting every pet's
+		# affinity residue to defaults.
+		if _try_recover_from_backup():
+			return true
+		# Keep the backup file untouched for inspection while corrupted.
+		_recovery_blocked = true
 		last_load_summary = "load_error_%d" % result
 		return false
 	var stored_version := _read_schema_version(config)
 	_load_best_levels(config)
 	_load_bond_points(config)
 	_schema_version = SAVE_SCHEMA_VERSION
+	if _best_levels.is_empty() and _bond_points.is_empty():
+		# An existing file with no residue data is a botched / partial write,
+		# not a new player (new players have no file at all). Repair from the
+		# backup when it holds data, and never let this empty state clobber
+		# the last-good backup below.
+		if _try_recover_from_backup():
+			return true
+		last_load_summary = "ok_empty"
+		return true
 	last_load_summary = "migrated_v%d" % stored_version if stored_version < SAVE_SCHEMA_VERSION else "ok"
+	_build_save_config().save(get_backup_path())
+	return true
+
+
+func _try_recover_from_backup() -> bool:
+	if not FileAccess.file_exists(get_backup_path()):
+		return false
+	var backup := ConfigFile.new()
+	if _load_config_file(backup, get_backup_path()) != OK:
+		return false
+	_load_best_levels(backup)
+	_load_bond_points(backup)
+	if _best_levels.is_empty() and _bond_points.is_empty():
+		return false
+	last_load_summary = "recovered_last_good"
+	save()
 	return true
 
 
 func save() -> bool:
 	_ensure_loaded()
-	var config := ConfigFile.new()
-	config.set_value(META_SECTION, META_SCHEMA_VERSION_KEY, SAVE_SCHEMA_VERSION)
-	for raw_pet_id in _best_levels.keys():
-		var pet_id := _normalize_pet_id(str(raw_pet_id))
-		var best_level := clampi(int(_best_levels.get(raw_pet_id, 0)), 0, MAX_BEST_LEVEL)
-		if pet_id != "" and best_level > 0:
-			config.set_value(BEST_LEVELS_SECTION, pet_id, best_level)
-	for raw_pet_id in _bond_points.keys():
-		var pet_id := _normalize_pet_id(str(raw_pet_id))
-		var bond_value := _sanitize_bond_points(_bond_points.get(raw_pet_id, 0))
-		if pet_id != "" and bond_value > 0:
-			config.set_value(BOND_POINTS_SECTION, pet_id, bond_value)
+	var config := _build_save_config()
 	var result: int = config.save(save_path)
 	last_save_summary = "ok" if result == OK else "save_error_%d" % result
+	if result == OK and not _recovery_blocked:
+		config.save(get_backup_path())
 	return result == OK
 
 
@@ -73,6 +103,11 @@ func clear() -> bool:
 	_bond_points.clear()
 	_schema_version = SAVE_SCHEMA_VERSION
 	_loaded = true
+	_recovery_blocked = false
+	# Remove the backup too, or cleared residue resurrects through the
+	# corruption-recovery path on a later bad load.
+	if FileAccess.file_exists(get_backup_path()):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(get_backup_path()))
 	if not FileAccess.file_exists(save_path):
 		last_save_summary = "cleared"
 		return true
@@ -171,11 +206,27 @@ func _ensure_loaded() -> void:
 	self.load()
 
 
-func _load_config_file(config: ConfigFile) -> int:
-	var bytes := FileAccess.get_file_as_bytes(save_path)
+func _load_config_file(config: ConfigFile, path: String) -> int:
+	var bytes := FileAccess.get_file_as_bytes(path)
 	if bytes.size() >= 3 and bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF:
 		bytes = bytes.slice(3)
 	return config.parse(bytes.get_string_from_utf8())
+
+
+func _build_save_config() -> ConfigFile:
+	var config := ConfigFile.new()
+	config.set_value(META_SECTION, META_SCHEMA_VERSION_KEY, SAVE_SCHEMA_VERSION)
+	for raw_pet_id in _best_levels.keys():
+		var pet_id := _normalize_pet_id(str(raw_pet_id))
+		var best_level := clampi(int(_best_levels.get(raw_pet_id, 0)), 0, MAX_BEST_LEVEL)
+		if pet_id != "" and best_level > 0:
+			config.set_value(BEST_LEVELS_SECTION, pet_id, best_level)
+	for raw_pet_id in _bond_points.keys():
+		var pet_id := _normalize_pet_id(str(raw_pet_id))
+		var bond_value := _sanitize_bond_points(_bond_points.get(raw_pet_id, 0))
+		if pet_id != "" and bond_value > 0:
+			config.set_value(BOND_POINTS_SECTION, pet_id, bond_value)
+	return config
 
 
 func _read_schema_version(config: ConfigFile) -> int:

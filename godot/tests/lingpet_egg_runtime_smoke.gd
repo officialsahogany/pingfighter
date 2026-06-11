@@ -4266,11 +4266,72 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	_expect_eq(runtime.get_affinity_level(hatched_pet_id), LingpetAffinityState.MAX_LEVEL, "headstarted run should be able to exceed the previous best")
 	_expect_eq(int(store.get_best_level(hatched_pet_id)), LingpetAffinityState.MAX_LEVEL, "only a real best-level increase should persist residue")
 
+	# Permanent-ledger corruption recovery (CLAUDE.md ConfigFile trap): the
+	# affinity residue is a player-facing permanent save, so a corrupted or
+	# emptied main file must repair from the last-good backup instead of
+	# silently resetting. Expected engine parse errors are muted via
+	# Engine.print_error_messages so the smoke runner's error gate only sees
+	# intentional output.
+	var recovery_path := "user://lingpet_affinity_store_recovery_smoke.cfg"
+	var recovery_store: Object = LingpetAffinityStore.new()
+	recovery_store.set_save_path(recovery_path)
+	var recovery_backup_path := str(recovery_store.get_backup_path())
+	_expect(recovery_backup_path.ends_with(".last_good.cfg") and recovery_backup_path != recovery_path, "affinity store should derive a sibling last-good backup path")
+	_remove_user_file(recovery_path)
+	_remove_user_file(recovery_backup_path)
+	_expect(bool(recovery_store.set_best_level("maribo", 8)), "recovery fixture should persist an initial best level")
+	_expect(FileAccess.file_exists(recovery_backup_path), "every successful residue save should refresh the last-good backup")
+
+	var empty_file := FileAccess.open(recovery_path, FileAccess.WRITE)
+	_expect(empty_file != null, "test helper should open the empty residue fixture")
+	if empty_file != null:
+		empty_file.store_string("[meta]\nschema_version=2\n")
+		empty_file.close()
+	var empty_recovered_store: Object = LingpetAffinityStore.new()
+	empty_recovered_store.set_save_path(recovery_path)
+	_expect_eq(int(empty_recovered_store.get_best_level("maribo")), 8, "an existing-but-empty residue file should recover from the last-good backup")
+	_expect_str(str(empty_recovered_store.last_load_summary), "recovered_last_good", "empty-file recovery should report the last-good summary")
+
+	_write_affinity_store_broken_file(recovery_path)
+	Engine.print_error_messages = false
+	var recovered_store: Object = LingpetAffinityStore.new()
+	recovered_store.set_save_path(recovery_path)
+	var recovered_best := int(recovered_store.get_best_level("maribo"))
+	var recovered_summary := str(recovered_store.last_load_summary)
+	Engine.print_error_messages = true
+	_expect_eq(recovered_best, 8, "a corrupted residue file should recover from the last-good backup instead of resetting")
+	_expect_str(recovered_summary, "recovered_last_good", "corruption recovery should report the last-good summary")
+	var repaired_store: Object = LingpetAffinityStore.new()
+	repaired_store.set_save_path(recovery_path)
+	_expect_eq(int(repaired_store.get_best_level("maribo")), 8, "recovery should rewrite the corrupted main file with the recovered residue")
+	_expect_str(str(repaired_store.last_load_summary), "ok", "the repaired main file should load cleanly afterwards")
+
+	_write_affinity_store_broken_file(recovery_path)
+	_write_affinity_store_broken_file(recovery_backup_path)
+	Engine.print_error_messages = false
+	var double_corrupt_store: Object = LingpetAffinityStore.new()
+	double_corrupt_store.set_save_path(recovery_path)
+	var double_corrupt_best := int(double_corrupt_store.get_best_level("maribo"))
+	var double_corrupt_saved := bool(double_corrupt_store.set_best_level("maribo", 2))
+	Engine.print_error_messages = true
+	_expect_eq(double_corrupt_best, 0, "double corruption should fall back to defaults instead of crashing")
+	_expect(double_corrupt_saved, "post-corruption saves should still persist new residue")
+	_expect(FileAccess.get_file_as_string(recovery_backup_path).find("maribo=:::") >= 0, "a save after double corruption must keep the broken backup inspectable instead of clobbering it")
+	_expect(bool(double_corrupt_store.clear()), "clear should remove the residue main file")
+	_expect(not FileAccess.file_exists(recovery_path), "clear should remove the residue main file from disk")
+	_expect(not FileAccess.file_exists(recovery_backup_path), "clear should remove the last-good backup so cleared residue cannot resurrect")
+
 	_remove_user_file(affinity_path)
 	_remove_user_file(run_save_path)
 	_remove_user_file(bom_path)
 	_remove_user_file(v1_migration_path)
 	_remove_user_file(corrupt_bond_path)
+	_remove_user_file(recovery_path)
+	_remove_user_file(recovery_backup_path)
+	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(bom_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(v1_migration_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(corrupt_bond_path.trim_suffix(".cfg") + ".last_good.cfg")
 
 
 func _grant_affinity_round_commits(runtime: Object, pet_id: String, count: int) -> void:
@@ -4487,6 +4548,15 @@ func _write_affinity_store_bom_file(path: String) -> void:
 	if file == null:
 		return
 	file.store_buffer(bytes)
+	file.close()
+
+
+func _write_affinity_store_broken_file(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	_expect(file != null, "test helper should open the affinity broken-file fixture")
+	if file == null:
+		return
+	file.store_string("[best_levels\nmaribo=:::\n")
 	file.close()
 
 
