@@ -530,6 +530,7 @@ func _init() -> void:
 	_verify_lunabi_free_flight_profile()
 	_verify_lunabi_headbutt_skill()
 	_verify_koyora_puppet_grab_skill()
+	_verify_loadout_apply_prewarms_active_skill_runtime()
 	_verify_companion_click_reaction()
 	_verify_affinity_click_start_edge_and_visibility_gate()
 	_verify_affinity_score_event_and_battle_reset()
@@ -3096,6 +3097,31 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(is_equal_approx(miss_owner.boss_pos.x, miss_boss_x_before), "missed Lunabi Headbutt should not knock back the boss paddle")
 	_expect(miss_audio.boomerang_hits == 0, "missed Lunabi Headbutt should not play the boomerang boss-hit sound")
 	_expect(miss_audio.paddle_hits == 0, "missed Lunabi Headbutt should not play the paddle-hit fallback sound")
+
+
+func _verify_loadout_apply_prewarms_active_skill_runtime() -> void:
+	# Hot-path lazy-init regression: the skill runtime host must already hold
+	# the active skill module (and its heavy sheet) after the discrete
+	# loadout-apply / boot-prewarm moments, never on the first per-frame
+	# update() or the first arm.
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		runtime.debug_grant_and_activate_pet("koyora", owner, false, "koyora_doll_curse", "lingpet_resonance_boost"),
+		"prewarm regression setup should activate Koyora with the doll curse loadout"
+	)
+	var host: Object = runtime._skill_runtime_host
+	_expect(host._doll_curse_skill != null, "loadout apply should build the doll curse module before any per-frame host update")
+	if host._doll_curse_skill != null:
+		_expect(host._doll_curse_skill._doll_sheet_texture != null, "loadout apply should load the doll sheet before the first arm")
+
+	host._doll_curse_skill = null
+	runtime.prewarm_assets()
+	_expect(host._doll_curse_skill != null, "boot prewarm_assets should rebuild the carried pet's active skill module")
+
+	var fresh: Object = LingpetEggRuntime.new()
+	fresh.prewarm_assets()
+	_expect(fresh._skill_runtime_host._doll_curse_skill == null, "boot prewarm without an equipped pet should not build skill modules")
 
 
 func _verify_koyora_puppet_grab_skill() -> void:

@@ -219,6 +219,7 @@ func prewarm_assets() -> void:
 	_afterglow_leak_state.prewarm()
 	if _companion_renderer != null and _companion_renderer.has_method("prewarm_assets"):
 		_companion_renderer.prewarm_assets()
+	_prewarm_current_skill_runtime()
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_context: Dictionary = {}) -> void:
@@ -1162,6 +1163,7 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 	)
 	_sync_current_profile_affinity(_pet_id)
 	_applied_loadout_key = loadout_key
+	_prewarm_current_skill_runtime()
 
 
 func _invalidate_current_loadout_cache() -> void:
@@ -1186,6 +1188,19 @@ func _prewarm_current_visuals() -> void:
 		_companion_renderer.prewarm_assets()
 	if _state == STATE_COMPANION:
 		_queue_click_reaction_visual_prewarm()
+
+
+func _prewarm_current_skill_runtime() -> void:
+	# The skill runtime host lazy-creates the active skill module on its first
+	# per-frame update(), and heavy assets (the 512px doll curse sheet) only
+	# load at first arm — both land mid-rally. Build them at the discrete
+	# loadout-apply / boot-prewarm moment instead.
+	if _skill_runtime_host == null:
+		return
+	var skill_id := _get_current_skill_id()
+	if skill_id == "":
+		return
+	_skill_runtime_host.prewarm(skill_id)
 
 
 func _get_current_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:
