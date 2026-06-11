@@ -405,6 +405,41 @@ Godot.** In the live Godot runtime:
 When adding any new fullscreen FX, cinematic, perk-flight, or overlay
 renderer, check this section before deciding where to attach the draw call.
 
+## Godot Degenerate `draw_colored_polygon` Trap
+
+Any procedurally built polygon whose vertices are animated (jitter, sag,
+sine waves, shrink/dissolve envelopes) WILL eventually self-intersect or
+collapse onto a collinear/duplicate-point shape, and
+`draw_colored_polygon` then fails triangulation with an
+"Invalid polygon data" error **every frame** — the backtrace spam itself
+costs frame time and can flood the log (218MB in one session). Four
+shipped repeats of this exact class: `pillar_liquid_drawer` (charge sector
+at radius ~0), trampoline mat (capture sag deeper than the mat thickness),
+commando net field (dissolve shrink below the jitter amplitude), and the
+deuce mini-scoreboard flame (tongues flattened exactly onto the closing
+baseline edge).
+
+Standing rules:
+- Before shipping an animated-polygon draw, ask: at the parameter extremes
+  (timer 0, full sag, full dissolve, scale 0.2, amplitude max), can the
+  ring self-intersect, collapse to zero area, or touch its own closing
+  edge? If yes, fix the GEOMETRY (epsilon lift / band-follow bottom /
+  degenerate-radius guard) when the shape must stay visible every frame,
+  or gate ONLY the fill behind a `Geometry2D.triangulate_polygon(...)`
+  pre-check when a one-frame fill skip is invisible (line-based outlines
+  keep drawing either way). Do not pick the skip-gate for an effect that
+  is degenerate on MOST frames — it reads as flicker.
+- Extract the point construction into a pure/static builder and seal it
+  with a smoke that sweeps the animation parameters and asserts
+  `not Geometry2D.triangulate_polygon(points).is_empty()` — and verify the
+  smoke FAILS on the pre-fix geometry before committing. References:
+  `active_item_trampoline_smoke._verify_mat_body_polygon_stays_triangulable`,
+  `scoreboard_mini_deuce_flame_polygon_smoke`,
+  `commando_firearm_runtime_vfx_smoke._verify_net_field_fill_guard_rejects_degenerate_polygon`.
+- A burst of "Invalid polygon data" backtraces in a perf log is a
+  first-class perf finding, not just noise — treat the error count as a
+  regression signal during BattlePerf analysis.
+
 ## Build, Test, and Development Commands
 - Godot load check: from `godot/`, run `.\tools\run_headless_load_check.ps1`.
 - Godot warning scan: from `godot/`, run `.\tools\run_warning_scan.ps1`.
