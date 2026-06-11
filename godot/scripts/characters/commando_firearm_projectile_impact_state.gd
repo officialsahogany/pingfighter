@@ -208,15 +208,16 @@ static func dispatch_runtime_impact(
 ) -> Dictionary:
 	if impact_reason == "":
 		return {}
-	CommandoFirearmImpactFlashResolver.append_flash(
-		impact_flashes,
-		projectile,
-		weapon_profiles,
-		weapon_profile_overrides,
-		base_weapon_id,
-		grenade_explosion_duration_frames,
-		flash_limit
-	)
+	if _should_spawn_impact_flash(projectile, impact_reason):
+		CommandoFirearmImpactFlashResolver.append_flash(
+			impact_flashes,
+			projectile,
+			weapon_profiles,
+			weapon_profile_overrides,
+			base_weapon_id,
+			grenade_explosion_duration_frames,
+			flash_limit
+		)
 	CommandoFirearmHitFeedbackDispatcher.trigger_explosion_screen_shake(
 		CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, base_weapon_id),
 		deps
@@ -255,6 +256,18 @@ static func dispatch_runtime_impact(
 				context
 			)
 	return {}
+
+
+# Bullet-kind projectiles (pistol / commando_pistol / ak47) that die without
+# hitting anything must fizzle silently. The terminal flash would otherwise pop
+# the red-orange starburst — and the fx-host glow + one-shot particle burst
+# anchored to impact_flashes[0] — at the bullet's quasi-random death position in
+# the open field (spread misses, stage 2 rock ricochet deaths). "expired" stays
+# a visible detonation reason for rocket / support / drone / net payloads.
+static func _should_spawn_impact_flash(projectile: Dictionary, impact_reason: String) -> bool:
+	if impact_reason != "expired" and impact_reason != "out_of_bounds":
+		return true
+	return str(projectile.get("kind", "bullet")) != "bullet"
 
 
 static func _call_runtime_lingering_spawn(

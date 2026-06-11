@@ -328,6 +328,22 @@ Standing rules for effect zone / impact flash wiring:
   verify in-game that the explosion actually animates -- a static frame-0
   render can hide behind correct radius / color / texture metadata and a
   passing tick-decrement smoke.
+- Terminal projectile-death dispatch must whitelist which death reasons get a
+  visible impact flash. A dispatcher that appends a flash for ANY non-empty
+  reason pops the flash at the projectile's quasi-random death position --
+  the Commando pistol spread-miss bug is the reference: bullets dying via
+  `"expired"` / `"out_of_bounds"` (cross-field spread misses, stage 2
+  rock-ricochet deaths) drew the red-orange starburst at random mid-field
+  positions. Bullet-kind projectiles must fizzle silently on those reasons,
+  while `"expired"` stays a legitimate detonation reason for rocket /
+  support / drone / net payloads
+  (`commando_firearm_projectile_impact_state._should_spawn_impact_flash`,
+  sealed by `commando_firearm_projectile_impact_state_smoke`
+  `_verify_bullet_terminal_fizzle_is_silent`). Remember the amplifier: an fx
+  host anchored to `impact_flashes[0]`
+  (`stage1_commando_firearm_fx_host.gd`) replays a large glow + one-shot
+  particle burst at whatever position lands in that array, so auditing only
+  the immediate-mode drawer understates how visible a stray flash entry is.
 
 ## Godot Per-Frame Probability Roll Trap
 

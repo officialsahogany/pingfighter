@@ -89,6 +89,7 @@ func _init() -> void:
 	_verify_direct_projectile_impact_state()
 	_verify_environment_impact_state()
 	_verify_fire_support_impact_screen_shake()
+	_verify_bullet_terminal_fizzle_is_silent()
 
 	if _failures.is_empty():
 		print("commando_firearm_projectile_impact_state_smoke: ok")
@@ -402,6 +403,68 @@ func _has_bazooka_explosion_shake(calls: Array) -> bool:
 		):
 			return true
 	return false
+
+
+# Spread-missed bullets die mid-field (life expiry / leaving the field). The
+# terminal dispatch must NOT append an impact flash for them: the flash (plus
+# the fx-host glow/particle burst anchored to impact_flashes[0]) reads as a red
+# starburst popping at random central-background positions on pistol misses.
+# Non-bullet payloads keep their "expired" detonation flash by design.
+func _verify_bullet_terminal_fizzle_is_silent() -> void:
+	var flashes: Array = []
+	_dispatch_terminal_impact(flashes, {
+		"id": 50,
+		"weapon_id": "pistol",
+		"kind": "bullet",
+		"pos": Vector2(480.0, 150.0),
+		"velocity": Vector2(-6.0, -11.0),
+		"life_frames": 0.0,
+	}, "expired", "pistol")
+	_expect(flashes.is_empty(), "expired pistol bullet must fizzle silently without a mid-field impact flash")
+	_dispatch_terminal_impact(flashes, {
+		"id": 51,
+		"weapon_id": "commando_pistol",
+		"kind": "bullet",
+		"pos": Vector2(330.0, -90.0),
+		"velocity": Vector2(0.0, -30.0),
+	}, "out_of_bounds", "commando_pistol")
+	_expect(flashes.is_empty(), "out-of-bounds pistol bullet must not append an impact flash")
+	_dispatch_terminal_impact(flashes, {
+		"id": 52,
+		"weapon_id": "pistol",
+		"kind": "bullet",
+		"pos": Vector2(330.0, 60.0),
+		"velocity": Vector2(0.0, -25.0),
+	}, "target", "pistol")
+	_expect(flashes.size() == 1, "boss-hit pistol bullet must keep its impact flash")
+	_dispatch_terminal_impact(flashes, {
+		"id": 53,
+		"weapon_id": "suicide_drone",
+		"kind": "drone",
+		"pos": Vector2(360.0, 90.0),
+		"velocity": Vector2(0.0, -6.0),
+		"life_frames": 0.0,
+	}, "expired", "suicide_drone")
+	_expect(flashes.size() == 2, "expired drone payload must keep its detonation impact flash")
+
+
+func _dispatch_terminal_impact(flashes: Array, projectile: Dictionary, impact_reason: String, weapon_id: String) -> void:
+	CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+		flashes,
+		null,
+		projectile,
+		impact_reason,
+		weapon_id,
+		{},
+		{},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		8
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
