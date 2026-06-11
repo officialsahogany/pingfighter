@@ -132,7 +132,7 @@ func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Obj
 	if cycle_direction != 0:
 		if not runtime.has_method("cycle_lingpet_slot"):
 			return false
-		if not bool(runtime.cycle_lingpet_slot(cycle_direction, owner)):
+		if not bool(runtime.cycle_lingpet_slot(cycle_direction, owner, registry)):
 			return false
 		_queue_redraw(owner)
 		_mark_handled(owner)

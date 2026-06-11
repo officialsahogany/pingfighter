@@ -156,6 +156,23 @@ const DEFAULT_VALUES: Dictionary = {
 	# missing here -> set_value() no-ops the sync and the panel can't show it.
 	"lingpet_companion_appearance_rate": 0.0,
 	"ringpet_companion_appearance_rate": 0.0,
+	# Run-scoped affinity ("교감" in HUD strings). These are synced from the
+	# lingpet runtime so the TAB panel never falls back to stale catalog data.
+	"lingpet_affinity_level": 0,
+	"ringpet_affinity_level": 0,
+	"lingpet_affinity_points": 0.0,
+	"ringpet_affinity_points": 0.0,
+	"lingpet_affinity_next_requirement": 0.0,
+	"ringpet_affinity_next_requirement": 0.0,
+	"lingpet_affinity_next_label": "",
+	"ringpet_affinity_next_label": "",
+	# Permanent bond title ("친밀도" in collection/panel strings). Kept separate
+	# from run-scoped affinity so the TAB panel can show the residue title without
+	# adding another stat row.
+	"lingpet_bond_points": 0,
+	"ringpet_bond_points": 0,
+	"lingpet_bond_title": "",
+	"ringpet_bond_title": "",
 	"lingpet_companion_contact_count": 0,
 	"ringpet_companion_contact_count": 0,
 	"lingpet_companion_last_contact_pos": Vector2.ZERO,

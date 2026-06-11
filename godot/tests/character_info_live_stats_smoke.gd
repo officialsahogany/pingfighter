@@ -9,6 +9,7 @@ const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
@@ -75,6 +76,27 @@ class NullRegistry:
 
 	func get_cached_instance(_key: String) -> Object:
 		return null
+
+
+class FakeBondStore:
+	extends RefCounted
+
+	var bond_points: Dictionary = {}
+
+	func _init(initial_points: Dictionary = {}) -> void:
+		for raw_pet_id in initial_points.keys():
+			set_bond_points(str(raw_pet_id), int(initial_points.get(raw_pet_id, 0)))
+
+	func get_best_level(_pet_id: String) -> int:
+		return 0
+
+	func get_bond_points(pet_id: String) -> int:
+		return int(bond_points.get(pet_id.strip_edges().to_lower(), 0))
+
+	func set_bond_points(pet_id: String, points: int) -> void:
+		var normalized_pet_id := pet_id.strip_edges().to_lower()
+		if normalized_pet_id != "":
+			bond_points[normalized_pet_id] = maxi(0, points)
 
 
 class FakeRegistry:
@@ -301,6 +323,7 @@ func _init() -> void:
 	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(nekuring_panel_snapshot), "Nekuring character-info panel should request redraws while its panel Live2D is visible")
 
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
+	_verify_affinity_values_reach_panel_through_schema_gated_owner()
 
 	ProjectResourceLoader.clear_caches()
 	print("character_info_live_stats_smoke: ok")
@@ -338,6 +361,73 @@ func _verify_defense_override_reaches_panel_through_schema_gated_owner() -> void
 		is_equal_approx(float(cleared.get("companion_defense_rate", 0.0)), 0.30),
 		"clearing the override should restore Maribo's catalog 30% in the panel"
 	)
+
+
+func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
+	for key in [
+		"lingpet_affinity_level",
+		"ringpet_affinity_level",
+		"lingpet_affinity_points",
+		"ringpet_affinity_points",
+		"lingpet_affinity_next_requirement",
+		"ringpet_affinity_next_requirement",
+		"lingpet_affinity_next_label",
+		"ringpet_affinity_next_label",
+		"lingpet_bond_points",
+		"ringpet_bond_points",
+		"lingpet_bond_title",
+		"ringpet_bond_title",
+	]:
+		_expect(BattleSceneState.DEFAULT_VALUES.has(key), "BattleSceneState should declare %s for TAB affinity sync" % key)
+	var fallback_owner := FakeOwner.new({
+		"lingpet_id": "maribo",
+		"lingpet_state": "companion",
+	})
+	var fallback_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(fallback_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(str(fallback_snapshot.get("subtitle", "")) == "동행 중 · 친밀도 어색함", "TAB panel should fall back to the first permanent affinity title when no store data exists")
+	_expect(str(fallback_snapshot.get("subtitle", "")).find("교감") < 0, "permanent title subtitle should not use the run-scoped 교감 label")
+
+	var owner := SchemaGatedOwner.new()
+	var registry := NullRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	var bond_store := FakeBondStore.new({"maribo": 21})
+	runtime.set_affinity_store_for_tests(bond_store)
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
+		"schema-gated owner should accept a Maribo debug grant for affinity panel sync"
+	)
+	runtime.update(0.0, owner, registry)
+	var before_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var before_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(before_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(int(before_snapshot.get("bond_points", 0)) == 21, "TAB panel snapshot should read permanent bond points through the schema-gated owner")
+	_expect(str(before_snapshot.get("bond_title", "")) == "영혼의 단짝", "TAB panel snapshot should resolve the permanent top title through the shared helper")
+	_expect(str(before_snapshot.get("subtitle", "")) == "동행 중 · 친밀도 영혼의 단짝", "TAB art-panel subtitle should show the permanent 친밀도 title without adding a stat row")
+	for _i in range(25):
+		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
+	runtime.update(0.0, owner, registry)
+	var after_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var after_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(after_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(int(after_snapshot.get("affinity_level", 0)) == 2, "TAB panel snapshot should read affinity Lv.2 through the schema-gated owner after a live level-up")
+	_expect(is_equal_approx(float(after_snapshot.get("affinity_points", -1.0)), 0.0), "TAB panel snapshot should read post-level-up affinity points")
+	_expect(is_equal_approx(float(after_snapshot.get("affinity_next_requirement", 0.0)), 100.0), "TAB panel snapshot should read the Lv.2 next requirement")
+	_expect(str(after_snapshot.get("affinity_next_label", "")) != "", "TAB panel snapshot should read the next affinity reward label")
+	_expect(after_hash != before_hash, "lingpet stat cache hash should change when affinity level changes")
+	bond_store.set_bond_points("maribo", 6)
+	runtime.update(0.0, owner, registry)
+	var bond_changed_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var bond_changed_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(bond_changed_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(str(bond_changed_snapshot.get("bond_title", "")) == "가까워짐", "TAB panel snapshot should update permanent title bands from store data")
+	_expect(str(bond_changed_snapshot.get("subtitle", "")) == "동행 중 · 친밀도 가까워짐", "TAB subtitle should use 친밀도 only for the permanent bond axis")
+	_expect(bond_changed_hash != after_hash, "lingpet stat cache hash should include bond fields so title changes cannot freeze")
+	var overlay: Object = CharacterInfoOverlay.new()
+	var rows: Array = overlay._build_lingpet_stats(owner)
+	var affinity_row: Dictionary = _find_stat(rows, "교감")
+	_expect(str(affinity_row.get("value", "")) == "Lv.2", "TAB lingpet stats should include a text-only 교감 Lv.N row")
+	_expect(rows.size() >= 6, "TAB lingpet stats should keep six companion rows visible in the data model")
+	var vertical_stack_rect := Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
+	var vertical_lingpet_rect := CharacterInfoOverlayStatsPresenter.lingpet_stat_rect_for_sections(vertical_stack_rect)
+	var visible_capacity := CharacterInfoOverlayStatsPresenter.lingpet_stat_rows_visible_capacity(vertical_lingpet_rect, rows.size())
+	_expect(visible_capacity >= 6, "vertical stacked TAB layout should have draw-time room for the sixth 교감 row")
 
 
 func _finish_active_runtime_initialization(runtime: Object) -> void:

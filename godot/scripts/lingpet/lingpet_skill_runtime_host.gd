@@ -16,6 +16,7 @@ const GHOST_SUMMON_SKILL_PATH := "res://scripts/lingpet/lingpet_ghost_summon_ski
 const SOUL_CLONE_SKILL_PATH := "res://scripts/lingpet/lingpet_soul_clone_skill.gd"
 const PUPPET_GRAB_SKILL_PATH := "res://scripts/lingpet/lingpet_puppet_grab_skill.gd"
 const DOLL_CURSE_SKILL_PATH := "res://scripts/lingpet/lingpet_doll_curse_skill.gd"
+const BANANA_SLICE_SKILL_PATH := "res://scripts/lingpet/lingpet_banana_slice_skill.gd"
 
 var _hydro_sphere_skill: Object = null
 var _headbutt_skill: Object = null
@@ -31,6 +32,7 @@ var _ghost_summon_skill: Object = null
 var _soul_clone_skill: Object = null
 var _puppet_grab_skill: Object = null
 var _doll_curse_skill: Object = null
+var _banana_slice_skill: Object = null
 
 
 func reset(owner: Object = null, registry: Object = null) -> void:
@@ -48,6 +50,7 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_soul_clone_skill, owner, registry)
 	_reset_skill(_puppet_grab_skill, owner, registry)
 	_reset_skill(_doll_curse_skill, owner, registry)
+	_reset_skill(_banana_slice_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -81,6 +84,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_puppet_grab_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			_get_doll_curse_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			_get_banana_slice_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -100,6 +105,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_soul_clone_skill, canvas, shake_offset)
 	_draw_skill(_puppet_grab_skill, canvas, shake_offset)
 	_draw_skill(_doll_curse_skill, canvas, shake_offset)
+	_draw_skill(_banana_slice_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
@@ -118,6 +124,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_soul_clone_skill)
 		or _skill_has_visible_effects(_puppet_grab_skill)
 		or _skill_has_visible_effects(_doll_curse_skill)
+		or _skill_has_visible_effects(_banana_slice_skill)
 	)
 
 
@@ -157,6 +164,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _puppet_grab_skill != null and bool(_puppet_grab_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			return _doll_curse_skill != null and bool(_doll_curse_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return _banana_slice_skill != null and bool(_banana_slice_skill.is_active())
 		_:
 			return false
 
@@ -209,6 +218,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_puppet_grab_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			return bool(_get_doll_curse_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return bool(_get_banana_slice_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -243,6 +254,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return companion_pos
 		_:
 			return companion_pos
 
@@ -259,6 +272,8 @@ func has_companion_position_override(skill_id: String) -> bool:
 			return _puppet_grab_skill != null and bool(_puppet_grab_skill.has_companion_position_override())
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			return _doll_curse_skill != null and bool(_doll_curse_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return _banana_slice_skill != null and bool(_banana_slice_skill.has_companion_position_override())
 		_:
 			return false
 
@@ -275,6 +290,8 @@ func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vec
 			return _puppet_grab_skill.get_companion_position_override(fallback) if _puppet_grab_skill != null else fallback
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			return _doll_curse_skill.get_companion_position_override(fallback) if _doll_curse_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return _banana_slice_skill.get_companion_position_override(fallback) if _banana_slice_skill != null else fallback
 		_:
 			return fallback
 
@@ -317,6 +334,9 @@ func get_companion_cast_pose_progress(skill_id: String) -> float:
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			if _doll_curse_skill != null and _doll_curse_skill.has_method("get_companion_cast_pose_progress"):
 				return float(_doll_curse_skill.get_companion_cast_pose_progress())
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			if _banana_slice_skill != null and _banana_slice_skill.has_method("get_companion_cast_pose_progress"):
+				return float(_banana_slice_skill.get_companion_cast_pose_progress())
 	return -1.0
 
 
@@ -348,8 +368,20 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_puppet_grab_cast_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			_play_doll_curse_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			# Banana Slice plays its throw cue when PREPARE actually releases.
+			pass
 		_:
 			pass
+
+
+func get_boss_ai_context() -> Dictionary:
+	if _banana_slice_skill == null or not _banana_slice_skill.has_method("get_boss_ai_context"):
+		return {}
+	var context: Variant = _banana_slice_skill.get_boss_ai_context()
+	if context is Dictionary:
+		return context
+	return {}
 
 
 func get_snapshot() -> Dictionary:
@@ -368,6 +400,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _soul_clone_skill)
 	_merge_skill_snapshot(snapshot, _puppet_grab_skill)
 	_merge_skill_snapshot(snapshot, _doll_curse_skill)
+	_merge_skill_snapshot(snapshot, _banana_slice_skill)
 	return snapshot
 
 
@@ -459,6 +492,18 @@ func get_doll_curse_confusion_apply_count_for_tests() -> int:
 	return int(_get_doll_curse_skill().get_confusion_apply_count_for_tests())
 
 
+func get_banana_slice_slip_state_for_tests() -> Dictionary:
+	return _get_banana_slice_skill().get_slip_state_for_tests()
+
+
+func get_banana_slice_projectile_count_for_tests() -> int:
+	return int(_get_banana_slice_skill().get_projectile_count_for_tests())
+
+
+func get_banana_slice_landed_count_for_tests() -> int:
+	return int(_get_banana_slice_skill().get_landed_count_for_tests())
+
+
 func _get_skill_for_kind(skill_kind: String) -> Object:
 	match skill_kind:
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
@@ -489,6 +534,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_puppet_grab_skill()
 		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
 			return _get_doll_curse_skill()
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return _get_banana_slice_skill()
 		_:
 			return null
 
@@ -575,6 +622,12 @@ func _get_doll_curse_skill() -> Object:
 	if _doll_curse_skill == null:
 		_doll_curse_skill = _new_skill(DOLL_CURSE_SKILL_PATH)
 	return _doll_curse_skill
+
+
+func _get_banana_slice_skill() -> Object:
+	if _banana_slice_skill == null:
+		_banana_slice_skill = _new_skill(BANANA_SLICE_SKILL_PATH)
+	return _banana_slice_skill
 
 
 func _new_skill(path: String) -> Object:

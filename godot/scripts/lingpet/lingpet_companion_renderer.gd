@@ -36,7 +36,7 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 	var draw_center: Vector2 = center + Vector2(0.0, bob)
 	# Soft "barely-there" ambient aura -- replaces the old hard draw_circle disc.
 	# See the _SOFT_GLOW_TEX_SIZE notes at the top of the file.
-	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha)
+	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, bool(config.get("affinity_heart_tint", false)))
 	if switch_transition > 0.0:
 		_draw_switch_transition(canvas, draw_center, radius, switch_transition, int(config.get("switch_particles", 12)), int(config.get("switch_trigger_count", 0)))
 	var sprite_alpha: float = (1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)) * ghost_alpha
@@ -59,7 +59,30 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
 
 
-func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0) -> void:
+func draw_affinity_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
+	if canvas == null:
+		return
+	var flash_ratio := clampf(float(config.get("affinity_flash", 0.0)), 0.0, 1.0)
+	if flash_ratio <= 0.0:
+		return
+	var label := str(config.get("affinity_label", "")).strip_edges()
+	if label == "":
+		return
+	var radius: float = float(config.get("radius", 16.0))
+	var now_ms: float = float(Time.get_ticks_msec())
+	var draw_center := center + Vector2(0.0, sin(now_ms * 0.0048) * 2.6)
+	var progress := 1.0 - flash_ratio
+	var pulse := sin(progress * PI)
+	var ring_radius := lerpf(radius + 20.0, radius + 56.0, progress)
+	var ring_alpha := clampf(0.30 * flash_ratio + 0.16 * pulse, 0.0, 0.72)
+	canvas.draw_circle(draw_center, ring_radius, Color(1.0, 0.22, 0.56, 0.12 * flash_ratio))
+	canvas.draw_arc(draw_center, ring_radius * 0.86, -PI * 0.45 + progress * TAU, PI * 1.45 + progress * TAU, 42, Color(1.0, 0.54, 0.78, ring_alpha), 2.5, true)
+	canvas.draw_arc(draw_center, ring_radius * 0.58, PI * 0.25 - progress * TAU, PI * 1.60 - progress * TAU, 34, Color(0.92, 1.0, 1.0, 0.34 * flash_ratio), 1.7, true)
+	_draw_burst(canvas, draw_center, flash_ratio, int(config.get("burst_particles", 8)), int(config.get("affinity_trigger_count", 0)), Color(1.0, 0.46, 0.72, 1.0), false)
+	_draw_affinity_label(canvas, draw_center, label, str(config.get("affinity_title", "")), progress, flash_ratio)
+
+
+func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0, heart_tint: bool = false) -> void:
 	var tex: Texture2D = _get_or_create_soft_glow_texture()
 	if tex == null:
 		return
@@ -84,9 +107,12 @@ func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms:
 	var mid_a: float = lerpf(0.115, 0.150, breath)
 	var outer_r: float = body_r + lerpf(37.0, 45.0, breath)
 	var outer_a: float = lerpf(0.060, 0.085, breath)
-	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.20, 1.0, 0.72, outer_a * alpha_mult))
-	_blit_soft_glow(canvas, tex, center, mid_r, Color(0.34, 1.0, 0.80, mid_a * alpha_mult))
-	_blit_soft_glow(canvas, tex, center, core_r, Color(0.66, 1.0, 0.92, core_a * alpha_mult))
+	var outer_color := Color(1.0, 0.24, 0.54, outer_a * alpha_mult) if heart_tint else Color(0.20, 1.0, 0.72, outer_a * alpha_mult)
+	var mid_color := Color(1.0, 0.38, 0.70, mid_a * alpha_mult) if heart_tint else Color(0.34, 1.0, 0.80, mid_a * alpha_mult)
+	var core_color := Color(1.0, 0.72, 0.90, core_a * alpha_mult) if heart_tint else Color(0.66, 1.0, 0.92, core_a * alpha_mult)
+	_blit_soft_glow(canvas, tex, center, outer_r, outer_color)
+	_blit_soft_glow(canvas, tex, center, mid_r, mid_color)
+	_blit_soft_glow(canvas, tex, center, core_r, core_color)
 
 
 func _blit_soft_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:
@@ -294,3 +320,34 @@ func _draw_switch_label(canvas: CanvasItem, center: Vector2, display_name: Strin
 	canvas.draw_rect(bg_rect, Color(0.42, 1.0, 0.94, 0.62 * alpha), false, 1.4)
 	canvas.draw_string(font, pos + Vector2(1.0, 1.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.58 * alpha))
 	canvas.draw_string(font, pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.78, 1.0, 0.95, 0.96 * alpha))
+
+
+func _draw_affinity_label(canvas: CanvasItem, center: Vector2, text: String, title: String, progress: float, flash_ratio: float) -> void:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var main_text := text.strip_edges()
+	if main_text == "":
+		return
+	var title_text := title.strip_edges()
+	var alpha := clampf(sin(progress * PI) * 1.45 + flash_ratio * 0.18, 0.0, 1.0)
+	if alpha <= 0.01:
+		return
+	var main_size := 14
+	var title_size := 11
+	var main_width := font.get_string_size(main_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, main_size).x
+	var title_width := font.get_string_size(title_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size).x if title_text != "" else 0.0
+	var width := maxf(main_width, title_width)
+	var baseline_y := center.y - 70.0 - 8.0 * sin(progress * PI)
+	var title_h := float(title_size + 4) if title_text != "" else 0.0
+	var bg_rect := Rect2(Vector2(center.x - width * 0.5 - 9.0, baseline_y - float(main_size) - 7.0), Vector2(width + 18.0, float(main_size) + title_h + 13.0))
+	canvas.draw_rect(bg_rect, Color(0.045, 0.018, 0.040, 0.62 * alpha))
+	canvas.draw_rect(bg_rect, Color(1.0, 0.52, 0.78, 0.72 * alpha), false, 1.4)
+	var main_pos := Vector2(center.x - main_width * 0.5, baseline_y)
+	canvas.draw_string(font, main_pos + Vector2(1.0, 1.0), main_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, main_size, Color(0.0, 0.0, 0.0, 0.62 * alpha))
+	canvas.draw_string(font, main_pos, main_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, main_size, Color(1.0, 0.88, 0.96, 0.98 * alpha))
+	if title_text == "":
+		return
+	var title_pos := Vector2(center.x - title_width * 0.5, baseline_y + float(title_size) + 2.0)
+	canvas.draw_string(font, title_pos + Vector2(1.0, 1.0), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, Color(0.0, 0.0, 0.0, 0.54 * alpha))
+	canvas.draw_string(font, title_pos, title_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, Color(0.95, 1.0, 1.0, 0.92 * alpha))

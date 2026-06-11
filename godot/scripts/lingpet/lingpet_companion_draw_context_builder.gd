@@ -6,6 +6,7 @@ func build_config(params: Dictionary) -> Dictionary:
 	var body_hit_state: Object = params.get("body_hit_state", null) as Object
 	var skill_state: Object = params.get("skill_state", null) as Object
 	var switch_state: Object = params.get("switch_state", null) as Object
+	var affinity_feedback_state: Object = params.get("affinity_feedback_state", null) as Object
 	var skill_runtime_host: Object = params.get("skill_runtime_host", null) as Object
 	var current_profile: Object = params.get("current_profile", null) as Object
 	var skill_id := str(params.get("skill_id", ""))
@@ -34,6 +35,11 @@ func build_config(params: Dictionary) -> Dictionary:
 		"hit_flash": _get_hit_flash_ratio(body_hit_state, companion_active),
 		"gauge_flash": _get_gauge_flash_ratio(body_hit_state, companion_active),
 		"skill_flash": _get_skill_flash_ratio(skill_state, companion_active, skill_flash_seconds),
+		"affinity_flash": _get_affinity_flash_ratio(affinity_feedback_state, companion_active),
+		"affinity_label": _get_affinity_label(affinity_feedback_state, companion_active),
+		"affinity_title": _get_affinity_title(affinity_feedback_state),
+		"affinity_heart_tint": _get_affinity_heart_tint(affinity_feedback_state),
+		"affinity_trigger_count": _get_trigger_count(affinity_feedback_state),
 		"switch_transition": _get_switch_ratio(switch_state, switch_transition_seconds),
 		"switch_particles": int(params.get("switch_particles", 12)),
 		"switch_trigger_count": _get_trigger_count(switch_state),
@@ -65,6 +71,20 @@ func build_config(params: Dictionary) -> Dictionary:
 	}
 
 
+func build_affinity_feedback_config(params: Dictionary) -> Dictionary:
+	var companion_active := bool(params.get("companion_active", false))
+	var affinity_feedback_state: Object = params.get("affinity_feedback_state", null) as Object
+	return {
+		"radius": float(params.get("radius", 16.0)),
+		"burst_particles": int(params.get("burst_particles", 8)),
+		"affinity_flash": _get_affinity_flash_ratio(affinity_feedback_state, companion_active),
+		"affinity_label": _get_affinity_label(affinity_feedback_state, companion_active),
+		"affinity_title": _get_affinity_title(affinity_feedback_state),
+		"affinity_heart_tint": _get_affinity_heart_tint(affinity_feedback_state),
+		"affinity_trigger_count": _get_trigger_count(affinity_feedback_state),
+	}
+
+
 func _get_hit_flash_ratio(body_hit_state: Object, companion_active: bool) -> float:
 	if body_hit_state == null:
 		return 0.0
@@ -81,6 +101,30 @@ func _get_skill_flash_ratio(skill_state: Object, companion_active: bool, flash_s
 	if not companion_active or skill_state == null or flash_seconds <= 0.0:
 		return 0.0
 	return float(skill_state.get_flash_ratio(flash_seconds))
+
+
+func _get_affinity_flash_ratio(affinity_feedback_state: Object, companion_active: bool) -> float:
+	if affinity_feedback_state == null or not affinity_feedback_state.has_method("get_flash_ratio"):
+		return 0.0
+	return float(affinity_feedback_state.get_flash_ratio(companion_active))
+
+
+func _get_affinity_label(affinity_feedback_state: Object, companion_active: bool) -> String:
+	if affinity_feedback_state == null or _get_affinity_flash_ratio(affinity_feedback_state, companion_active) <= 0.0:
+		return ""
+	return str(affinity_feedback_state.label)
+
+
+func _get_affinity_title(affinity_feedback_state: Object) -> String:
+	if affinity_feedback_state == null:
+		return ""
+	return str(affinity_feedback_state.title_label)
+
+
+func _get_affinity_heart_tint(affinity_feedback_state: Object) -> bool:
+	if affinity_feedback_state == null:
+		return false
+	return bool(affinity_feedback_state.heart_tint_unlocked)
 
 
 func _get_switch_ratio(switch_state: Object, transition_seconds: float) -> float:

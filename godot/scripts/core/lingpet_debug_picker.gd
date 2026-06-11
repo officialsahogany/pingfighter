@@ -26,11 +26,14 @@ const SKILL_LEVEL_BUTTON_SIZE := Vector2(18.0, 18.0)
 const SKILL_LEVEL_LABEL_SIZE := Vector2(36.0, 18.0)
 const SKILL_LEVEL_CONTROL_GAP := 3.0
 const APPLY_BUTTON_SIZE := Vector2(200.0, 34.0)
-# Header defense-rate override slider. override < 0 = "기본" (use the pet's catalog
-# value); 0..1 forces that defense_rate for feel testing. The slider sits in the
-# header band (HEADER_HEIGHT is sized to include it): [label] ◄ [bar] ► [value].
-# Triangles step by DEFENSE_OVERRIDE_STEP, clicking the bar sets the value to that
-# position, and the mouse wheel over the control steps the value.
+# Header stat-override slider. override < 0 = "기본" (use the pet's catalog value);
+# 0..1 forces the stat for feel testing. The forced stat follows the SELECTED pet's
+# motion style: patrol pets force defense_rate (방어율), flight pets (sortie_flight /
+# free_flight) force appearance_rate (출현율) — defense is patrol-only and appearance
+# is flight-only in the runtime, so the other channel would be a silent no-op.
+# The slider sits in the header band (HEADER_HEIGHT is sized to include it):
+# [label] ◄ [bar] ► [value]. Triangles step by DEFENSE_OVERRIDE_STEP, clicking the
+# bar sets the value to that position, and the mouse wheel over the control steps it.
 const DEFENSE_OVERRIDE_STEP := 0.05
 const DEFENSE_OVERRIDE_MIN := 0.0
 const DEFENSE_OVERRIDE_MAX := 1.0
@@ -49,8 +52,9 @@ var selected_active_skill_index := 0
 var selected_passive_skill_index := 0
 var selected_active_skill_level := LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL
 var selected_passive_skill_level := LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
-# F7 defense-rate override staged in the picker; committed to the live lingpet
-# runtime on apply. -1.0 = no override (use the pet's catalog defense_rate).
+# F7 stat override staged in the picker; committed to the live lingpet runtime on
+# apply, routed to defense_rate (patrol pets) or appearance_rate (flight pets).
+# -1.0 = no override (use the pet's catalog value).
 var selected_defense_rate_override := -1.0
 var _texture_cache: Dictionary = {}
 var _entries_cache: Array = []
@@ -288,6 +292,10 @@ func get_defense_override_for_tests() -> float:
 	return selected_defense_rate_override
 
 
+func get_stat_override_label_for_tests() -> String:
+	return _get_stat_override_label()
+
+
 func get_defense_dec_rect_for_tests(view_size: Vector2) -> Rect2:
 	return _get_defense_dec_rect(_get_panel_rect(view_size, _get_entries().size()))
 
@@ -448,7 +456,7 @@ func _draw_level_button(canvas: CanvasItem, font: Font, rect: Rect2, text: Strin
 
 func _draw_defense_slider(canvas: CanvasItem, font: Font, panel_rect: Rect2) -> void:
 	var row_origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, DEFENSE_SLIDER_ROW_Y)
-	canvas.draw_string(font, row_origin + Vector2(0.0, 14.0), "방어율 강제", HORIZONTAL_ALIGNMENT_LEFT, DEFENSE_SLIDER_LABEL_W, 12, Color(0.82, 0.90, 0.98))
+	canvas.draw_string(font, row_origin + Vector2(0.0, 14.0), _get_stat_override_label(), HORIZONTAL_ALIGNMENT_LEFT, DEFENSE_SLIDER_LABEL_W, 12, Color(0.82, 0.90, 0.98))
 	var dec_rect := _get_defense_dec_rect(panel_rect)
 	var inc_rect := _get_defense_inc_rect(panel_rect)
 	var bar_rect := _get_defense_bar_rect(panel_rect)
@@ -522,10 +530,16 @@ func _apply_selected_lingpet(owner: Object, registry: Object) -> void:
 			selected_active_skill_level,
 			selected_passive_skill_level
 		)
-		# Commit the F7 defense-rate override after the pet is granted (the grant
-		# rebuilds the profile but does not touch this separate override field).
+		# Commit the F7 stat override after the pet is granted (the grant rebuilds
+		# the profile but does not touch these separate override fields). The staged
+		# value routes by motion style — patrol pets force defense_rate, flight pets
+		# force appearance_rate — and the unused channel is cleared so an override
+		# staged for a previous pet type cannot leak across applies.
+		var flight := _is_flight_pet(pet_id)
 		if runtime.has_method("set_debug_defense_rate_override"):
-			runtime.set_debug_defense_rate_override(selected_defense_rate_override)
+			runtime.set_debug_defense_rate_override(-1.0 if flight else selected_defense_rate_override)
+		if runtime.has_method("set_debug_appearance_rate_override"):
+			runtime.set_debug_appearance_rate_override(selected_defense_rate_override if flight else -1.0)
 	close()
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
@@ -647,6 +661,17 @@ func _get_defense_value_text() -> String:
 	if selected_defense_rate_override < 0.0:
 		return "기본"
 	return "%d%%" % int(round(selected_defense_rate_override * 100.0))
+
+
+func _is_flight_pet(pet_id: String) -> bool:
+	# Mirrors the runtime gate: defense intercept is patrol-only, appearance rate
+	# (출현율) is flight-only (lingpet_egg_runtime._get_current_defense_rate /
+	# _get_current_appearance_rate both branch on motion_style != "patrol").
+	return LingpetCatalog.get_motion_style(pet_id) != "patrol"
+
+
+func _get_stat_override_label() -> String:
+	return "출현율 강제" if _is_flight_pet(_get_selected_pet_id()) else "방어율 강제"
 
 
 func _cycle_skill_index(current_index: int, direction: int, pool_size: int) -> int:
@@ -1015,7 +1040,7 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 		"nekuring":
 			return "네쿠링"
 		"monkeyring":
-			return "몽키링"
+			return "빠나몽"
 		"rabi":
 			return "모락모랑"
 	var fallback := str(entry.get("display_name", pet_id))

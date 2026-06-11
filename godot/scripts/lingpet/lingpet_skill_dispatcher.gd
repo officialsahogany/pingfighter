@@ -17,6 +17,7 @@ const SKILL_KIND_GHOST_SUMMON := "ghost_summon"
 const SKILL_KIND_SOUL_CLONE := "soul_clone"
 const SKILL_KIND_PUPPET_GRAB := "puppet_grab"
 const SKILL_KIND_DOLL_CURSE := "doll_curse"
+const SKILL_KIND_BANANA_SLICE := "banana_slice"
 const HYDRO_SPHERE_SKILL_ID := "maribo_hydro_sphere"
 const HEADBUTT_SKILL_ID := "lunabi_headbutt"
 const MOON_ORBIT_SKILL_ID := "draft_bat_moon_orbit"
@@ -31,6 +32,7 @@ const RABI_GHOST_SUMMON_SKILL_ID := "rabi_ghost_summon"
 const RABI_SOUL_CLONE_SKILL_ID := "rabi_soul_clone"
 const PUPPET_GRAB_SKILL_ID := "koyora_puppet_control"
 const DOLL_CURSE_SKILL_ID := "koyora_doll_curse"
+const BANANA_SLICE_SKILL_ID := "monkeyring_banana_slice"
 const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_HYDRO_SPHERE: true,
 	SKILL_KIND_HEADBUTT: true,
@@ -46,6 +48,7 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_SOUL_CLONE: true,
 	SKILL_KIND_PUPPET_GRAB: true,
 	SKILL_KIND_DOLL_CURSE: true,
+	SKILL_KIND_BANANA_SLICE: true,
 }
 
 
@@ -85,6 +88,8 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_PUPPET_GRAB
 		DOLL_CURSE_SKILL_ID:
 			return SKILL_KIND_DOLL_CURSE
+		BANANA_SLICE_SKILL_ID:
+			return SKILL_KIND_BANANA_SLICE
 		_:
 			return SKILL_KIND_NONE
 
@@ -143,6 +148,10 @@ static func is_puppet_grab(skill_id: String) -> bool:
 
 static func is_doll_curse(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_DOLL_CURSE
+
+
+static func is_banana_slice(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_BANANA_SLICE
 
 
 static func has_supported_runtime(skill_id: String) -> bool:

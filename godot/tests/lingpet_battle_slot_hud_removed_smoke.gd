@@ -27,11 +27,11 @@ class FakeRuntime:
 	var cycle_result := true
 	var companion_click_result := false
 
-	func switch_lingpet_slot(slot_index: int, _owner: Object = null) -> bool:
+	func switch_lingpet_slot(slot_index: int, _owner: Object = null, _registry: Object = null) -> bool:
 		switched_slots.append(slot_index)
 		return switch_result
 
-	func cycle_lingpet_slot(direction: int = 1, _owner: Object = null) -> bool:
+	func cycle_lingpet_slot(direction: int = 1, _owner: Object = null, _registry: Object = null) -> bool:
 		cycled_directions.append(direction)
 		return cycle_result
 

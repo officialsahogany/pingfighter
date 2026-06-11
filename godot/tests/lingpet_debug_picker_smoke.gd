@@ -55,6 +55,8 @@ class FakeOwner:
 	var ringpet_companion_catch_height := 44.0
 	var lingpet_companion_defense_rate := 0.0
 	var ringpet_companion_defense_rate := 0.0
+	var lingpet_companion_appearance_rate := 0.0
+	var ringpet_companion_appearance_rate := 0.0
 	var lingpet_companion_defense_intercept_active := false
 	var ringpet_companion_defense_intercept_active := false
 	var lingpet_companion_defense_intercept_target_x := 0.0
@@ -233,6 +235,7 @@ func _init() -> void:
 	_verify_debug_grant_accepts_explicit_skill_loadout()
 	_verify_full_slots_replace_active_slot_for_debug_grant()
 	_verify_defense_rate_slider()
+	_verify_flight_pet_appearance_override()
 	ProjectResourceLoader.clear_caches()
 	if _failures.is_empty():
 		print("lingpet_debug_picker_smoke: ok")
@@ -1151,6 +1154,55 @@ func _verify_defense_rate_slider() -> void:
 	runtime.set_debug_defense_rate_override(-1.0)
 	runtime.update(0.0, owner, registry)
 	_expect(is_equal_approx(float(owner.lingpet_companion_defense_rate), 0.30), "clearing the override should restore Maribo's catalog 30% defense rate")
+
+
+func _verify_flight_pet_appearance_override() -> void:
+	var picker := LingpetDebugPicker.new()
+	var runtime := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"lingpet_debug_picker": picker,
+		"lingpet_egg_runtime": runtime,
+	})
+	var view_size := Vector2(1280.0, 720.0)
+	picker.toggle(owner)
+
+	# Patrol pet selected -> the header slider is the defense-rate forcing control.
+	var maribo_index := _find_pet_index(picker, "maribo")
+	var lunabi_index := _find_pet_index(picker, "lunabi")
+	_expect(maribo_index >= 0 and lunabi_index >= 0, "maribo and lunabi should both be present in the F7 picker for the override-routing case")
+	if maribo_index < 0 or lunabi_index < 0:
+		return
+	var maribo_rect := picker.get_card_rect_for_tests(maribo_index, view_size)
+	picker.handle_input(_mouse_click(maribo_rect.position + maribo_rect.size * 0.5), owner, registry, view_size)
+	_expect(picker.get_stat_override_label_for_tests() == "방어율 강제", "patrol pet should label the override slider 방어율 강제")
+
+	# Flight pet selected -> the same slider becomes the appearance-rate (출현율) control.
+	var lunabi_rect := picker.get_card_rect_for_tests(lunabi_index, view_size)
+	picker.handle_input(_mouse_click(lunabi_rect.position + lunabi_rect.size * 0.5), owner, registry, view_size)
+	_expect(picker.get_stat_override_label_for_tests() == "출현율 강제", "flight pet should label the override slider 출현율 강제")
+
+	# Stage 50% and apply -> committed to the appearance channel; defense stays clear
+	# (it would be a silent no-op for a flight pet).
+	var bar_rect: Rect2 = picker.get_defense_bar_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x + bar_rect.size.x * 0.5, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	var apply_rect := picker.get_apply_button_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(runtime.get_debug_appearance_rate_override(), 0.5), "applying a flight pet should commit the staged override to the appearance-rate channel")
+	_expect(is_equal_approx(runtime.get_debug_defense_rate_override(), -1.0), "applying a flight pet should leave the defense-rate channel cleared")
+	runtime.update(0.0, owner, registry)
+	_expect(is_equal_approx(float(owner.lingpet_companion_appearance_rate), 0.5), "the committed appearance override should drive the live companion appearance rate")
+	_expect(is_equal_approx(float(owner.lingpet_companion_defense_rate), 0.0), "a flight pet should still report 0 defense rate with a staged slider value")
+
+	# Re-applying a patrol pet routes the staged value back to defense and clears
+	# the appearance channel (no cross-pet-type leak).
+	picker.toggle(owner)
+	maribo_rect = picker.get_card_rect_for_tests(maribo_index, view_size)
+	picker.handle_input(_mouse_click(maribo_rect.position + maribo_rect.size * 0.5), owner, registry, view_size)
+	apply_rect = picker.get_apply_button_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(runtime.get_debug_defense_rate_override(), 0.5), "re-applying a patrol pet should route the staged override back to the defense channel")
+	_expect(is_equal_approx(runtime.get_debug_appearance_rate_override(), -1.0), "re-applying a patrol pet should clear the appearance-rate channel")
 
 
 func _find_pet_index(picker: Object, pet_id: String) -> int:

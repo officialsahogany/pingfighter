@@ -179,6 +179,15 @@ class FakeWeatherState:
 		reset_calls += 1
 
 
+class FakeLingpetRuntime:
+	extends RefCounted
+
+	var affinity_battle_reset_calls := 0
+
+	func reset_affinity_for_new_battle() -> void:
+		affinity_battle_reset_calls += 1
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -192,6 +201,7 @@ class FakeRegistry:
 	var perf_logger := FakePerfLogger.new()
 	var prewarm_controller := FakePrewarmController.new()
 	var weather_state := FakeWeatherState.new()
+	var lingpet_runtime := FakeLingpetRuntime.new()
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -215,6 +225,8 @@ class FakeRegistry:
 				return prewarm_controller
 			"weather_event_state":
 				return weather_state
+			"lingpet_egg_runtime":
+				return lingpet_runtime
 		return null
 
 
@@ -246,6 +258,7 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	_expect(registry.weather_state.reset_calls == 1, "stage-transition loading should clear residual weather draw state immediately")
 	_expect(registry.match_flow_driver.reset_for_stage_transition_calls == 0, "transition work should wait until loading was drawn once")
 	_expect(registry.match_flow_driver.reset_game_calls == 0, "stage-clear advance should not invoke the full match reset path")
+	_expect(registry.lingpet_runtime.affinity_battle_reset_calls == 0, "lingpet affinity battle budget should wait for the transition reset chunk")
 	_expect(registry.battle_resources.load_all_calls == 0, "battle textures should not reload before the first loading draw")
 
 	driver.update_stage_transition_loading(0.05, owner, registry)
@@ -283,6 +296,7 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	for _step in range(3):
 		driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.match_flow_driver.reset_for_stage_transition_calls == 1, "stage-clear advance should run the perk/item-preserving stage-transition reset")
+	_expect(registry.lingpet_runtime.affinity_battle_reset_calls == 1, "stage-clear advance should reset lingpet affinity battle budgets once before the next battle")
 	_expect(registry.match_flow_driver.reset_game_calls == 0, "stage-clear advance must not wipe perks/items via the full match reset")
 	_expect(registry.battle_resources.load_all_calls == 1, "transition work should reload battle textures once")
 	_expect(int(registry.battle_resources.last_config.get("current_stage", 0)) == 2, "battle textures should reload for stage 2")
@@ -428,6 +442,7 @@ func _verify_non_player_reset_keeps_immediate_match_reset() -> void:
 
 	_expect(not bool(driver.is_stage_transition_loading_active()), "boss-side reset should not enter stage-transition loading")
 	_expect(registry.match_flow_driver.reset_game_calls == 1, "non-player stage-clear reset should keep the regular match reset path")
+	_expect(registry.lingpet_runtime.affinity_battle_reset_calls == 0, "non-transition reset should not reset lingpet affinity battle budgets")
 	_expect(owner.current_stage == 1, "non-player reset should not advance the stage")
 
 

@@ -10,6 +10,9 @@ const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_st
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetAffinityFeedbackState := preload("res://scripts/lingpet/lingpet_affinity_feedback_state.gd")
+const LingpetAffinityIncomeTracker := preload("res://scripts/lingpet/lingpet_affinity_income_tracker.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
@@ -105,6 +108,7 @@ var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
+var _affinity_context_profile: Object = LingpetCurrentProfile.new()
 # F7 debug-only defense-rate override. < 0 means "use the pet's catalog/profile
 # value"; >= 0 forces that defense_rate for feel testing. Sticky across rounds so
 # the override can be evaluated over a whole match; only the F7 picker writes it.
@@ -125,6 +129,14 @@ var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _companion_click_reaction_state: Object = LingpetCompanionClickReactionState.new()
 var _loadout_state: Object = LingpetLoadoutState.new()
+var _affinity_state: Object = LingpetAffinityState.new()
+var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
+var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
+var _affinity_store_override: Object = null
+var _affinity_headstart_applied_pet_ids: Dictionary = {}
+var _affinity_reward_seeds_by_pet_id: Dictionary = {}
+var _last_affinity_result: Dictionary = {}
+var _last_affinity_bond_settlement: Dictionary = {}
 var _companion_skill_state_by_pet_id: Dictionary = {}
 var _has_synced_none := false
 var _click_reaction_visual_prewarm_pet_id := ""
@@ -145,17 +157,18 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	_hatch_flash_timer = maxf(0.0, _hatch_flash_timer - maxf(0.0, delta))
 	_companion_sprite_animator.advance(delta)
 	_companion_click_reaction_state.advance(delta)
+	_affinity_feedback_state.advance(delta)
 
 	if _state == STATE_NONE:
 		var owned_pet_id := _find_active_slot_pet_id(owner)
 		if owned_pet_id != "":
-			_adopt_owned_pet(owner, owned_pet_id)
+			_adopt_owned_pet(owner, owned_pet_id, registry)
 			return true
 		if _should_spawn_lingpet_egg(owner):
 			_spawn_egg(owner)
 			return true
 		if not _has_synced_none:
-			_sync_owner(owner)
+			_sync_owner(owner, registry)
 			_has_synced_none = true
 			return false
 		return false
@@ -169,7 +182,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		# head start here lets the cut-in open already showing the Live2D animation.
 		_prewarm_acquire_cutin_assets_step(registry)
 		var changed: bool = _resolve_ball_hit(owner, registry)
-		_sync_owner(owner)
+		_sync_owner(owner, registry)
 		return changed
 
 	if _state == STATE_COMPANION:
@@ -177,13 +190,15 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_starlight_tracking_state.advance(delta, _get_current_passive_skill(), _state == STATE_COMPANION, _companion_pos)
 		_ring_dash_vfx.advance(delta)
 		_ghost_blink_vfx.advance(delta)
+		var affinity_hit_tags := _capture_affinity_hit_tags()
 		_update_companion_motion(delta, owner)
+		affinity_hit_tags = _merge_affinity_hit_tags(affinity_hit_tags, _capture_affinity_hit_tags())
 		_update_ghost_blink_vfx_triggers()
 		_maybe_arm_companion_strike(owner)
-		_resolve_companion_ball_hit(owner, registry)
+		_resolve_companion_ball_hit(owner, registry, affinity_hit_tags)
 		_afterglow_leak_state.advance(delta, owner, registry, _get_current_passive_skill(), _state == STATE_COMPANION)
 		_update_companion_skill_effects(delta, owner, registry)
-		_sync_owner(owner)
+		_sync_owner(owner, registry)
 	return false
 
 
@@ -237,6 +252,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _ghost_blink_vfx.has_visible_effects():
 			_ghost_blink_vfx.draw(canvas, shake_offset)
+		if _affinity_feedback_state.has_visible_effects(_state == STATE_COMPANION):
+			_draw_affinity_feedback(canvas, _companion_pos + shake_offset)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
@@ -250,8 +267,20 @@ func has_visible_effects() -> bool:
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
+		or _affinity_feedback_state.has_visible_effects(_state == STATE_COMPANION)
 		or _skill_runtime_host.has_visible_effects()
 	)
+
+
+func get_boss_ai_context() -> Dictionary:
+	if _state != STATE_COMPANION or _skill_runtime_host == null:
+		return {}
+	if not _skill_runtime_host.has_method("get_boss_ai_context"):
+		return {}
+	var context: Variant = _skill_runtime_host.get_boss_ai_context()
+	if context is Dictionary:
+		return context
+	return {}
 
 
 func is_acquire_cutin_active() -> bool:
@@ -343,11 +372,12 @@ func debug_grant_and_activate_pet(
 	if normalized_pet_id == "":
 		return false
 	_save_current_companion_skill_state()
-	_state = STATE_COMPANION
-	_set_current_pet_id(normalized_pet_id)
 	if active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != "":
 		_loadout_state.set_pet_loadout(owner, normalized_pet_id, active_skill_id, passive_skill_id, active_skill_level, passive_skill_level)
 		_invalidate_current_loadout_cache()
+	_state = STATE_COMPANION
+	_set_current_pet_id(normalized_pet_id)
+	_apply_affinity_headstart_from_store(normalized_pet_id, registry)
 	_apply_current_loadout(owner, true, true)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
@@ -375,7 +405,7 @@ func debug_grant_and_activate_pet(
 	_initialize_companion_patrol(owner, true)
 	if show_acquire_cutin:
 		_start_acquire_cutin(registry)
-	_sync_owner(owner)
+	_sync_owner(owner, registry)
 	return true
 
 
@@ -390,23 +420,27 @@ func get_active_lingpet_slot_index() -> int:
 func _set_current_pet_id(value: String) -> void:
 	var previous_pet_id := _pet_id
 	_pet_id = _current_profile.set_pet_id(value, PET_ID)
+	_sync_current_profile_affinity(_pet_id)
 	if _pet_id != previous_pet_id:
+		_affinity_feedback_state.reset_transients()
 		_invalidate_current_loadout_cache()
+	_affinity_feedback_state.sync_for_level(_affinity_state.get_level(_pet_id), LingpetAffinityState.MAX_LEVEL)
 
 
-func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
+func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
 	_save_current_companion_skill_state()
 	var next_pet_id: String = _collection_state.select_active_slot(slot_index, owner)
 	if next_pet_id == "":
 		return false
 	if _state != STATE_COMPANION:
-		_adopt_owned_pet(owner, next_pet_id)
+		_adopt_owned_pet(owner, next_pet_id, registry)
 		return true
 	if next_pet_id == _pet_id:
-		_sync_owner(owner)
+		_sync_owner(owner, registry)
 		return true
 	_switch_transition_state.begin(_pet_id, next_pet_id, COMPANION_SWITCH_TRANSITION_SECONDS)
 	_set_current_pet_id(next_pet_id)
+	_apply_affinity_headstart_from_store(next_pet_id, registry)
 	_apply_current_loadout(owner, true, false)
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
@@ -414,17 +448,17 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	_restore_current_companion_skill_state()
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
-	_sync_owner(owner)
+	_sync_owner(owner, registry)
 	return true
 
 
-func cycle_lingpet_slot(direction: int = 1, owner: Object = null) -> bool:
+func cycle_lingpet_slot(direction: int = 1, owner: Object = null, registry: Object = null) -> bool:
 	var next_slot_index: int = _collection_state.find_next_occupied_slot_index(direction, owner)
 	if next_slot_index < 0:
 		return false
 	if next_slot_index == _collection_state.get_active_slot_index_from_owner(owner):
 		return false
-	return switch_lingpet_slot(next_slot_index, owner)
+	return switch_lingpet_slot(next_slot_index, owner, registry)
 
 
 # Test-only accessors: the strike state is transient visual state that is
@@ -460,6 +494,23 @@ func is_starlight_tracking_active_for_tests() -> bool:
 
 func get_ring_dash_trigger_count_for_tests() -> int:
 	return _ring_dash_state.get_trigger_count_for_tests()
+
+
+func set_affinity_store_for_tests(store: Object) -> void:
+	_affinity_store_override = store
+	_affinity_headstart_applied_pet_ids.clear()
+
+
+func set_affinity_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return
+	_affinity_reward_seeds_by_pet_id[normalized_pet_id] = maxi(1, reward_seed % LingpetAffinityState.REWARD_DECK_SEED_MOD)
+	_configure_affinity_reward_context(normalized_pet_id)
+	_affinity_state.set_reward_seed_for_tests(normalized_pet_id, reward_seed)
+	if normalized_pet_id == _pet_id:
+		_sync_current_profile_affinity(normalized_pet_id)
+		_invalidate_current_loadout_cache()
 
 
 func is_ring_dash_active_for_tests() -> bool:
@@ -589,6 +640,12 @@ func get_snapshot() -> Dictionary:
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
 	snapshot["companion_appearance_rate"] = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
+	var affinity_snapshot := _build_affinity_owner_snapshot()
+	snapshot["affinity_level"] = int(affinity_snapshot.get("level", 0))
+	snapshot["affinity_points"] = float(affinity_snapshot.get("points", 0.0))
+	snapshot["affinity_next_requirement"] = float(affinity_snapshot.get("next_requirement", 0.0))
+	snapshot["affinity_next_label"] = str(affinity_snapshot.get("next_label", ""))
+	snapshot.merge(_affinity_feedback_state.get_snapshot(_state == STATE_COMPANION), true)
 	return snapshot
 
 
@@ -665,7 +722,15 @@ func restore_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictio
 func reset_for_tests() -> void:
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
+	_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
 	_invalidate_current_loadout_cache()
+	_affinity_state.reset_for_new_run()
+	_affinity_feedback_state.reset_all()
+	_affinity_income_tracker.reset_all()
+	_affinity_headstart_applied_pet_ids.clear()
+	_affinity_reward_seeds_by_pet_id.clear()
+	_last_affinity_result = {}
+	_last_affinity_bond_settlement = {}
 	_egg_state.reset_all()
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
@@ -681,6 +746,7 @@ func reset_for_tests() -> void:
 
 func reset_round(deps: Dictionary = {}) -> void:
 	_reset_skill_runtime_transients(deps.get("owner", null) as Object, deps.get("registry", null) as Object)
+	_affinity_state.reset_round_caps()
 	_reset_companion_defense()
 	_switch_transition_state.reset()
 	_companion_skill_state.reset_round_transients()
@@ -701,6 +767,7 @@ func _clear_lingpet_field_state() -> void:
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
 	_invalidate_current_loadout_cache()
+	_affinity_feedback_state.reset_all()
 	_egg_state.reset_all()
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
@@ -750,6 +817,8 @@ func _resolve_ball_hit(owner: Object, registry: Object = null) -> bool:
 	if bool(hit_result.get("hatched", false)):
 		_state = STATE_COMPANION
 		_apply_current_loadout(owner, true, true)
+		_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
+		_apply_affinity_headstart_from_store(_pet_id, registry)
 		_companion_pos = _egg_state.pos
 		_initialize_companion_patrol(owner, false)
 		_egg_state.reset_contact_motion()
@@ -776,7 +845,7 @@ func _play_acquire_cutin_audio(registry: Object = null) -> void:
 		audio.play_lingpet_acquire_cutin()
 
 
-func _sync_owner(owner: Object) -> void:
+func _sync_owner(owner: Object, registry: Object = null) -> void:
 	if _state == STATE_COMPANION:
 		if _applied_loadout_key == "":
 			_apply_current_loadout(owner, true, false)
@@ -816,13 +885,67 @@ func _sync_owner(owner: Object) -> void:
 	var appearance_rate: float = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
 	owner.set("lingpet_companion_appearance_rate", appearance_rate)
 	owner.set("ringpet_companion_appearance_rate", appearance_rate)
+	var affinity_snapshot := _build_affinity_owner_snapshot(registry)
+	owner.set("lingpet_affinity_level", int(affinity_snapshot.get("level", 0)))
+	owner.set("ringpet_affinity_level", int(affinity_snapshot.get("level", 0)))
+	owner.set("lingpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
+	owner.set("ringpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
+	owner.set("lingpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
+	owner.set("ringpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
+	owner.set("lingpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
+	owner.set("ringpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
+	owner.set("lingpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
+	owner.set("ringpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
+	owner.set("lingpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
+	owner.set("ringpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
 	if should_sync_loadouts:
 		_synced_owner_loadout_key = _applied_loadout_key
 
 
-func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
+func _build_affinity_owner_snapshot(registry: Object = null) -> Dictionary:
+	var level := 0
+	var points := 0.0
+	var next_requirement := 0.0
+	var next_label := ""
+	var bond_points := 0
+	if _state == STATE_COMPANION:
+		_configure_affinity_reward_context(_pet_id)
+		level = _affinity_state.get_level(_pet_id)
+		points = _affinity_state.get_points(_pet_id)
+		next_requirement = _affinity_state.get_next_requirement(_pet_id)
+		next_label = _affinity_next_label_for_pet(_pet_id)
+		bond_points = _get_affinity_bond_points(_pet_id, registry)
+	return {
+		"level": level,
+		"points": points,
+		"next_requirement": next_requirement,
+		"next_label": next_label,
+		"bond_points": bond_points,
+		"bond_title": LingpetAffinityState.get_bond_title_for_points(bond_points),
+	}
+
+
+func _get_affinity_bond_points(pet_id: String, registry: Object = null) -> int:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return 0
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("get_bond_points"):
+		return 0
+	return maxi(0, int(store.get_bond_points(normalized_pet_id)))
+
+
+func _affinity_next_label_for_pet(pet_id: String) -> String:
+	var next_reward: Dictionary = _affinity_state.get_next_reward(_normalize_pet_id(pet_id))
+	if bool(next_reward.has("title")):
+		return str(next_reward.get("title", "하트 공명"))
+	return str(next_reward.get("label", ""))
+
+
+func _adopt_owned_pet(owner: Object, pet_id: String, registry: Object = null) -> void:
 	_state = STATE_COMPANION
 	_set_current_pet_id(pet_id)
+	_apply_affinity_headstart_from_store(pet_id, registry)
 	_apply_current_loadout(owner, true, false)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
@@ -833,7 +956,7 @@ func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_hatch_flash_timer = 0.0
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
-	_sync_owner(owner)
+	_sync_owner(owner, registry)
 
 
 func _save_current_companion_skill_state() -> void:
@@ -1020,12 +1143,14 @@ func _normalize_pet_id(value: String) -> String:
 func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool = false) -> void:
 	if _pet_id == "":
 		if _applied_loadout_key != "":
+			_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
 			_current_profile.set_loadout("", "")
 			_invalidate_current_loadout_cache()
 		return
 	if not randomize_missing and _applied_loadout_key != "":
 		return
 	var loadout: Dictionary = _loadout_state.ensure_pet_loadout(owner, _pet_id, null, randomize_missing) if ensure else _loadout_state.get_loadout(_pet_id)
+	_configure_affinity_reward_context(_pet_id, loadout)
 	var loadout_key := _build_loadout_key(_pet_id, loadout)
 	if not randomize_missing and loadout_key == _applied_loadout_key:
 		return
@@ -1035,6 +1160,7 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 		int(loadout.get("active_skill_level", 1)),
 		int(loadout.get("passive_skill_level", 1))
 	)
+	_sync_current_profile_affinity(_pet_id)
 	_applied_loadout_key = loadout_key
 
 
@@ -1044,12 +1170,13 @@ func _invalidate_current_loadout_cache() -> void:
 
 
 func _build_loadout_key(pet_id: String, loadout: Dictionary) -> String:
-	return "%s|%s|%d|%s|%d" % [
+	return "%s|%s|%d|%s|%d|%s" % [
 		pet_id,
 		str(loadout.get("active_skill_id", "")),
 		int(loadout.get("active_skill_level", 1)),
 		str(loadout.get("passive_skill_id", "")),
 		int(loadout.get("passive_skill_level", 1)),
+		_affinity_state.get_reward_signature(pet_id),
 	]
 
 
@@ -1291,7 +1418,7 @@ func _set_companion_facing_from_patrol_dir() -> void:
 	_companion_facing_left = patrol_dir < 0.0
 
 
-func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool:
+func _resolve_companion_ball_hit(owner: Object, registry: Object = null, captured_affinity_hit_tags: Dictionary = {}) -> bool:
 	if not bool(_get_owner_value(owner, "ball_active", false)):
 		_companion_body_hit_state.ball_was_inside = false
 		return false
@@ -1304,6 +1431,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 
+	var affinity_hit_tags := _merge_affinity_hit_tags(captured_affinity_hit_tags, _capture_affinity_hit_tags())
 	var hit_result: Dictionary = _companion_body_hit_state.resolve_ball_hit(
 		owner,
 		registry,
@@ -1316,6 +1444,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 	)
 	if not bool(hit_result.get("hit", false)):
 		return false
+	_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_BALL_HIT, affinity_hit_tags, registry)
 
 	# If the anticipatory predictor already started the swing for this approach,
 	# leave it running (do NOT restart -- mirrors boss trigger_hit's hit_active
@@ -1387,6 +1516,8 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 			"active_skill_id": str(current_active_skill.get("id", skill_id)),
 			"active_skill_level": int(current_active_skill.get("level", _current_profile.active_skill_level)),
 			"beam_homing_chance_pct": float(current_active_skill.get("beam_homing_chance_pct", -1.0)),
+			"banana_count": float(current_active_skill.get("banana_count", -1.0)),
+			"slip_speed": float(current_active_skill.get("slip_speed", -1.0)),
 			"stun_duration_seconds": float(current_active_skill.get("stun_duration_seconds", 0.0)),
 		}
 	)
@@ -1491,6 +1622,16 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		# non-ghost pets (motion state leaves ghost_alpha at 1.0 for them).
 		"companion_alpha": _companion_motion_state.ghost_alpha,
 		"windup_seconds": _get_current_skill_windup_seconds(),
+		"affinity_feedback_state": _affinity_feedback_state,
+	}))
+
+
+func _draw_affinity_feedback(canvas: CanvasItem, center: Vector2) -> void:
+	_companion_renderer.draw_affinity_feedback(canvas, center, _companion_draw_context_builder.build_affinity_feedback_config({
+		"companion_active": _state == STATE_COMPANION,
+		"radius": COMPANION_RADIUS,
+		"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
+		"affinity_feedback_state": _affinity_feedback_state,
 	}))
 
 
@@ -1522,6 +1663,8 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object
 		_play_click_reaction_audio(registry)
 		return true
 	_companion_click_reaction_state.start()
+	if _can_grant_click_affinity():
+		_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_CLICK, {}, registry)
 	_play_click_reaction_audio(registry)
 	return true
 
@@ -1544,6 +1687,223 @@ func _play_acquire_click_reaction_backing_audio(registry: Object = null) -> void
 
 func is_companion_click_reaction_active() -> bool:
 	return _companion_click_reaction_state.is_active()
+
+
+func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
+	var affinity_pet_id := _get_active_affinity_pet_id()
+	var registry: Object = _deps.get("registry", null) as Object
+	if affinity_pet_id != "":
+		_add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+		if scoring_side == "player" and bool(score_result.get("match_finished", false)):
+			_add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_VICTORY, {}, registry)
+	if bool(score_result.get("match_finished", false)):
+		if scoring_side == "player":
+			_settle_affinity_bond_level_ups(registry)
+		else:
+			_last_affinity_bond_settlement = _affinity_state.discard_pending_bond_level_ups()
+
+
+func add_affinity_points(source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
+	return _add_affinity_points(_pet_id, source, tags, registry)
+
+
+func reset_affinity_for_new_battle() -> void:
+	_affinity_income_tracker.flush_battle_log("battle_reset")
+	_affinity_state.reset_for_new_battle()
+	_last_affinity_result = {}
+	_last_affinity_bond_settlement = {}
+
+
+func get_affinity_data(pet_id: String = "") -> Dictionary:
+	return _affinity_state.get_pet_data(_resolve_affinity_pet_id(pet_id))
+
+
+func get_affinity_level(pet_id: String = "") -> int:
+	return _affinity_state.get_level(_resolve_affinity_pet_id(pet_id))
+
+
+func get_affinity_points(pet_id: String = "") -> float:
+	return _affinity_state.get_points(_resolve_affinity_pet_id(pet_id))
+
+
+func get_last_affinity_result_for_tests() -> Dictionary:
+	return _last_affinity_result.duplicate(true)
+
+
+func get_last_affinity_bond_settlement_for_tests() -> Dictionary:
+	return _last_affinity_bond_settlement.duplicate(true)
+
+
+func get_affinity_tracked_pet_ids_for_tests() -> Array[String]:
+	return _affinity_state.get_tracked_pet_ids()
+
+
+func debug_add_affinity_points_for_tests(pet_id: String, source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
+	return _add_affinity_points(_normalize_pet_id(pet_id), source, tags, registry)
+
+
+func get_affinity_income_summary_for_tests() -> Dictionary:
+	return _affinity_income_tracker.get_summary()
+
+
+func get_affinity_reward_deck_for_tests(pet_id: String = "") -> Array[Dictionary]:
+	return _affinity_state.get_reward_deck(_resolve_affinity_pet_id(pet_id))
+
+
+func get_affinity_rewards_for_tests(pet_id: String = "") -> Dictionary:
+	return _affinity_state.get_cumulative_rewards(_resolve_affinity_pet_id(pet_id))
+
+
+func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}) -> void:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return
+	var active_base_level := int(loadout.get("active_skill_level", 1))
+	var passive_base_level := int(loadout.get("passive_skill_level", 1))
+	if loadout.is_empty():
+		var existing_loadout: Dictionary = _loadout_state.get_loadout(normalized_pet_id)
+		active_base_level = int(existing_loadout.get("active_skill_level", active_base_level))
+		passive_base_level = int(existing_loadout.get("passive_skill_level", passive_base_level))
+	var motion_style: String = _resolve_affinity_motion_style(normalized_pet_id)
+	_affinity_state.configure_reward_context(
+		normalized_pet_id,
+		motion_style,
+		active_base_level,
+		passive_base_level,
+		_get_affinity_reward_seed(normalized_pet_id)
+	)
+
+
+func _get_affinity_reward_seed(pet_id: String) -> int:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return 0
+	if not _affinity_reward_seeds_by_pet_id.has(normalized_pet_id):
+		_affinity_reward_seeds_by_pet_id[normalized_pet_id] = int(randi() % (LingpetAffinityState.REWARD_DECK_SEED_MOD - 1)) + 1
+	return int(_affinity_reward_seeds_by_pet_id.get(normalized_pet_id, 0))
+
+
+func _resolve_affinity_motion_style(pet_id: String) -> String:
+	if pet_id == _pet_id:
+		return _current_profile.get_motion_style()
+	_affinity_context_profile.set_pet_id(pet_id)
+	return _affinity_context_profile.get_motion_style()
+
+
+func _sync_current_profile_affinity(pet_id: String) -> void:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
+		return
+	_configure_affinity_reward_context(normalized_pet_id)
+	_current_profile.set_affinity_state(
+		_affinity_state.get_level(normalized_pet_id),
+		_affinity_state.get_cumulative_rewards(normalized_pet_id)
+	)
+
+
+func _apply_affinity_headstart_from_store(pet_id: String, registry: Object = null) -> void:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "" or _affinity_headstart_applied_pet_ids.has(normalized_pet_id):
+		return
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("get_best_level"):
+		return
+	var best_level := clampi(int(store.get_best_level(normalized_pet_id)), 0, LingpetAffinityState.MAX_LEVEL)
+	if best_level <= 0:
+		_affinity_headstart_applied_pet_ids[normalized_pet_id] = true
+		return
+	var level_before: int = _affinity_state.get_level(normalized_pet_id)
+	_configure_affinity_reward_context(normalized_pet_id)
+	_affinity_state.apply_headstart_from_best(normalized_pet_id, best_level)
+	var level_after: int = _affinity_state.get_level(normalized_pet_id)
+	_affinity_headstart_applied_pet_ids[normalized_pet_id] = true
+	if normalized_pet_id == _pet_id:
+		_sync_current_profile_affinity(normalized_pet_id)
+		_affinity_feedback_state.sync_for_level(level_after, LingpetAffinityState.MAX_LEVEL)
+		if level_after != level_before:
+			_invalidate_current_loadout_cache()
+
+
+func _record_affinity_best_level_if_needed(pet_id: String, best_before: int, registry: Object = null) -> void:
+	var best_after: int = _affinity_state.get_best_level(pet_id)
+	if best_after <= best_before:
+		return
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("set_best_level"):
+		return
+	store.set_best_level(pet_id, best_after)
+
+
+func _settle_affinity_bond_level_ups(registry: Object = null) -> void:
+	_last_affinity_bond_settlement = _affinity_state.settle_bond_level_ups_for_victory()
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("add_bond_levels"):
+		return
+	var settled: Dictionary = _last_affinity_bond_settlement.get("settled", {}) as Dictionary
+	for raw_pet_id in settled.keys():
+		var pet_id := str(raw_pet_id)
+		var amount := int(settled.get(raw_pet_id, 0))
+		if amount > 0:
+			store.add_bond_levels(pet_id, amount)
+
+
+func _get_affinity_store(registry: Object = null) -> Object:
+	if _affinity_store_override != null:
+		return _affinity_store_override
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	var store: Object = registry.get_instance("lingpet_affinity_store")
+	return store
+
+
+func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		_last_affinity_result = {}
+		return {}
+	_configure_affinity_reward_context(normalized_pet_id)
+	var best_before: int = _affinity_state.get_best_level(normalized_pet_id)
+	_last_affinity_result = _affinity_state.add_points(normalized_pet_id, source, tags)
+	_affinity_income_tracker.record(normalized_pet_id, source, _last_affinity_result, registry)
+	if normalized_pet_id == _pet_id and int(_last_affinity_result.get("levels_gained", 0)) > 0:
+		var level_after: int = _affinity_state.get_level(normalized_pet_id)
+		_sync_current_profile_affinity(normalized_pet_id)
+		_invalidate_current_loadout_cache()
+		_affinity_feedback_state.trigger_level_up(level_after, LingpetAffinityState.MAX_LEVEL, _affinity_next_label_for_pet(normalized_pet_id))
+	_record_affinity_best_level_if_needed(normalized_pet_id, best_before, registry)
+	return _last_affinity_result.duplicate(true)
+
+
+func _resolve_affinity_pet_id(pet_id: String) -> String:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id != "":
+		return normalized_pet_id
+	return _pet_id
+
+
+func _get_active_affinity_pet_id() -> String:
+	if _state != STATE_COMPANION:
+		return ""
+	return _normalize_pet_id(_pet_id)
+
+
+func _capture_affinity_hit_tags() -> Dictionary:
+	return {
+		"defense_intercept": bool(_companion_motion_state.defense_intercept_active),
+		"ring_dash_block": _ring_dash_state.has_companion_position_override(),
+	}
+
+
+func _merge_affinity_hit_tags(first: Dictionary, second: Dictionary) -> Dictionary:
+	return {
+		"defense_intercept": bool(first.get("defense_intercept", false)) or bool(second.get("defense_intercept", false)),
+		"ring_dash_block": bool(first.get("ring_dash_block", false)) or bool(second.get("ring_dash_block", false)),
+	}
+
+
+func _can_grant_click_affinity() -> bool:
+	return bool(_companion_motion_state.motion_visible) and not _ring_dash_state.is_companion_visual_hidden()
 
 
 func _maybe_arm_companion_strike(owner: Object) -> void:

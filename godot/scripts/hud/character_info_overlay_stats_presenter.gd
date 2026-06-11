@@ -187,6 +187,35 @@ static func draw_lingpet_stat_rows(
 	return hover_data
 
 
+static func lingpet_stat_rows_visible_capacity(rect: Rect2, row_count: int) -> int:
+	if row_count <= 0:
+		return 0
+	var start_y: float = rect.position.y + 46.0
+	var available_h: float = max(1.0, rect.end.y - start_y - 8.0)
+	var line_gap: float = min(26.0, available_h / float(max(1, row_count)))
+	line_gap = max(16.0, line_gap)
+	var visible_count := 0
+	for i in range(row_count):
+		var baseline_y: float = start_y + float(i) * line_gap
+		if baseline_y > rect.end.y - 8.0:
+			break
+		visible_count += 1
+	return visible_count
+
+
+static func lingpet_stat_rect_for_sections(rect: Rect2) -> Rect2:
+	var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 38.0, rect.size.x - 24.0, rect.size.y - 50.0)
+	var column_gap := 18.0
+	if inner_rect.size.x >= 620.0:
+		var column_w: float = (inner_rect.size.x - column_gap) * 0.5
+		var player_rect := Rect2(inner_rect.position, Vector2(column_w, inner_rect.size.y))
+		return Rect2(player_rect.end.x + column_gap, inner_rect.position.y, column_w, inner_rect.size.y)
+	var row_gap := 10.0
+	var row_h: float = (inner_rect.size.y - row_gap) * 0.5
+	var stacked_player_rect := Rect2(inner_rect.position, Vector2(inner_rect.size.x, row_h))
+	return Rect2(inner_rect.position.x, stacked_player_rect.end.y + row_gap, inner_rect.size.x, row_h)
+
+
 static func draw_stat_sections(
 	canvas: CanvasItem,
 	font: Font,

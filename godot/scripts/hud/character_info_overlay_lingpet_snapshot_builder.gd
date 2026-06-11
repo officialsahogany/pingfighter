@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 static func _get_display_name(lingpet_id: String) -> String:
@@ -13,6 +14,19 @@ static func _get_display_name(lingpet_id: String) -> String:
 			return "링펫"
 		_:
 			return lingpet_id
+
+
+static func _default_affinity_next_label(level: int) -> String:
+	if level >= LingpetAffinityState.MAX_LEVEL:
+		return "하트 공명"
+	return ""
+
+
+static func _companion_subtitle_for_bond(title: String) -> String:
+	var bond_title := title.strip_edges()
+	if bond_title == "":
+		bond_title = LingpetAffinityState.get_bond_title_for_points(0)
+	return "동행 중 · 친밀도 " + bond_title
 
 
 static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_required_hits: int) -> Dictionary:
@@ -67,11 +81,19 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			var catalog_player_speed_bonus := float(catalog_passive.get("player_speed_bonus_pct", 0.0)) if catalog_passive_enabled else 0.0
 			var catalog_starpoint_tracking_chance := float(catalog_passive.get("starpoint_tracking_chance_pct", 0.0)) if catalog_passive_enabled else 0.0
 			var catalog_ring_dash_chance := float(catalog_passive.get("ring_dash_chance_pct", 0.0)) if catalog_passive_enabled else 0.0
+			var affinity_level := int(safe_owner_get.call(owner, "lingpet_affinity_level", safe_owner_get.call(owner, "ringpet_affinity_level", 0)))
+			var affinity_points := float(safe_owner_get.call(owner, "lingpet_affinity_points", safe_owner_get.call(owner, "ringpet_affinity_points", 0.0)))
+			var affinity_next_requirement := float(safe_owner_get.call(owner, "lingpet_affinity_next_requirement", safe_owner_get.call(owner, "ringpet_affinity_next_requirement", LingpetAffinityState.get_requirement_for_level(affinity_level))))
+			var affinity_next_label := str(safe_owner_get.call(owner, "lingpet_affinity_next_label", safe_owner_get.call(owner, "ringpet_affinity_next_label", _default_affinity_next_label(affinity_level))))
+			var bond_points := maxi(0, int(safe_owner_get.call(owner, "lingpet_bond_points", safe_owner_get.call(owner, "ringpet_bond_points", 0))))
+			var bond_title := str(safe_owner_get.call(owner, "lingpet_bond_title", safe_owner_get.call(owner, "ringpet_bond_title", LingpetAffinityState.get_bond_title_for_points(bond_points))))
+			if bond_title.strip_edges() == "":
+				bond_title = LingpetAffinityState.get_bond_title_for_points(bond_points)
 			return {
 				"state": "companion",
 				"pet_id": lingpet_id,
 				"title": display_name,
-				"subtitle": "동행 중",
+				"subtitle": _companion_subtitle_for_bond(bond_title),
 				"body": str(safe_owner_get.call(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
 				"gauge_gain_bonus_pct": float(safe_owner_get.call(owner, "lingpet_gauge_gain_bonus_pct", safe_owner_get.call(owner, "ringpet_gauge_gain_bonus_pct", catalog_gauge_bonus))),
 				"companion_player_speed_bonus_pct": float(safe_owner_get.call(owner, "lingpet_player_speed_bonus_pct", safe_owner_get.call(owner, "ringpet_player_speed_bonus_pct", catalog_player_speed_bonus))),
@@ -100,6 +122,12 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"companion_catch_height": float(safe_owner_get.call(owner, "lingpet_companion_catch_height", safe_owner_get.call(owner, "ringpet_companion_catch_height", LingpetCatalog.get_stat(lingpet_id, "catch_height", 44.0)))),
 				"companion_defense_rate": float(safe_owner_get.call(owner, "lingpet_companion_defense_rate", safe_owner_get.call(owner, "ringpet_companion_defense_rate", LingpetCatalog.get_stat(lingpet_id, "defense_rate", 0.0)))),
 				"companion_appearance_rate": float(safe_owner_get.call(owner, "lingpet_companion_appearance_rate", safe_owner_get.call(owner, "ringpet_companion_appearance_rate", LingpetCatalog.get_stat(lingpet_id, "appearance_rate", 0.0)))),
+				"affinity_level": affinity_level,
+				"affinity_points": affinity_points,
+				"affinity_next_requirement": affinity_next_requirement,
+				"affinity_next_label": affinity_next_label,
+				"bond_points": bond_points,
+				"bond_title": bond_title,
 				"hatch_hits": required_hits,
 				"required_hits": required_hits,
 			}

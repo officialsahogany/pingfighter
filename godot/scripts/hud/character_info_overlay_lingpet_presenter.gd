@@ -28,6 +28,8 @@ const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 	"nekuring": 1.0 / 16.0,
 	"monkeyring": 1.0 / 16.0,
 }
+const AFFINITY_BAND_HEIGHT := 32.0
+const AFFINITY_METER_HEIGHT := 8.0
 
 static func draw_panel(
 	canvas: CanvasItem,
@@ -177,11 +179,12 @@ static func draw_companion_panel(
 	var pet_id := str(snapshot.get("pet_id", "")).strip_edges().to_lower()
 	var skill_specs: Array = get_skill_specs(snapshot, stat_buff_color)
 	var skill_row_h: float = clamp(content_rect.size.y * 0.22, 58.0, 78.0)
+	var affinity_band_h: float = AFFINITY_BAND_HEIGHT
 	var title_y: float = content_rect.position.y + 26.0
 	_draw_centered_text(canvas, font, title, content_rect.get_center().x, title_y, 18, Color.WHITE, ui_text_scale)
 	_draw_centered_text(canvas, font, subtitle, content_rect.get_center().x, title_y + 23.0, 12, stat_buff_color, ui_text_scale)
 
-	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h)
+	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h, affinity_band_h)
 	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
 	var art_glow_center := art_rect.get_center()
 	var art_glow_radius: float = min(art_rect.size.x, art_rect.size.y) * 0.42
@@ -195,6 +198,9 @@ static func draw_companion_panel(
 			CharacterInfoOverlayTextureDrawer.draw_contained(canvas, art_texture, art_rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
 	else:
 		draw_egg_icon(canvas, Rect2(art_rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
+
+	var affinity_rect := Rect2(art_rect.position.x, art_rect.end.y + 4.0, art_rect.size.x, max(24.0, affinity_band_h - 6.0))
+	draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale)
 
 	var icon_count: int = max(1, skill_specs.size())
 	var icon_gap: float = 9.0
@@ -210,8 +216,43 @@ static func draw_companion_panel(
 	return hover_data
 
 
-static func companion_art_rect(content_rect: Rect2, skill_row_h: float) -> Rect2:
-	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0))
+static func companion_art_rect(content_rect: Rect2, skill_row_h: float, affinity_band_h: float = 0.0) -> Rect2:
+	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0 - maxf(0.0, affinity_band_h)))
+
+
+static func draw_affinity_status(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	snapshot: Dictionary,
+	stat_buff_color: Color,
+	empty_text_color: Color,
+	accent_blue: Color,
+	ui_text_scale: float
+) -> void:
+	var level := int(snapshot.get("affinity_level", 0))
+	var points := maxf(0.0, float(snapshot.get("affinity_points", 0.0)))
+	var requirement := maxf(0.0, float(snapshot.get("affinity_next_requirement", 0.0)))
+	var next_label := str(snapshot.get("affinity_next_label", "")).strip_edges()
+	var maxed := requirement <= 0.0 and level > 0
+	var progress: float = 1.0 if maxed else clampf(points / maxf(1.0, requirement), 0.0, 1.0)
+	var level_text := "교감 Lv.%d" % level
+	var value_text := next_label if maxed and next_label != "" else "%d / %d" % [int(round(points)), int(round(requirement))]
+	var value_w := _text_size(font, value_text, 11, ui_text_scale).x
+	_draw_text_xy(canvas, font, level_text, rect.position.x, rect.position.y + 11.0, 11, Color.WHITE, ui_text_scale)
+	_draw_text_xy(canvas, font, value_text, rect.end.x - value_w, rect.position.y + 11.0, 11, stat_buff_color if maxed else empty_text_color, ui_text_scale)
+
+	var meter_w: float = clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
+	var meter_rect := Rect2(rect.position.x, rect.position.y + 18.0, meter_w, AFFINITY_METER_HEIGHT)
+	canvas.draw_rect(meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
+	canvas.draw_rect(Rect2(meter_rect.position, Vector2(meter_rect.size.x * progress, meter_rect.size.y)), Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.82))
+	canvas.draw_rect(meter_rect, Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.86), false, 1.0)
+	var next_text := next_label if maxed else "다음: %s" % next_label
+	if next_label == "":
+		next_text = "다음 보상 준비 중"
+	var next_x := meter_rect.end.x + 8.0
+	var next_w := maxf(10.0, rect.end.x - next_x)
+	_draw_text_xy(canvas, font, _fit_text_to_width(font, next_text, 10, next_w, ui_text_scale), next_x, rect.position.y + 26.0, 10, accent_blue if maxed else empty_text_color, ui_text_scale)
 
 
 static func should_redraw_panel_live2d(snapshot: Dictionary) -> bool:
@@ -358,6 +399,29 @@ static func _fallback_symbol_letter(id_text: String) -> String:
 
 static func _draw_centered_fallback_text(canvas: CanvasItem, text: String, center_x: float, center_y: float, size: int, color: Color, ui_text_scale: float) -> void:
 	_draw_centered_text(canvas, ThemeDB.fallback_font, text, center_x, center_y, size, color, ui_text_scale)
+
+
+static func _fit_text_to_width(font: Font, text: String, size: int, max_width: float, ui_text_scale: float) -> String:
+	if text == "" or font == null or max_width <= 0.0:
+		return ""
+	if _text_size(font, text, size, ui_text_scale).x <= max_width:
+		return text
+	var ellipsis := "..."
+	var ellipsis_w := _text_size(font, ellipsis, size, ui_text_scale).x
+	var next_text := text
+	while next_text.length() > 0:
+		next_text = next_text.left(next_text.length() - 1)
+		if _text_size(font, next_text, size, ui_text_scale).x + ellipsis_w <= max_width:
+			return next_text + ellipsis
+	return ellipsis if ellipsis_w <= max_width else ""
+
+
+static func _text_size(font: Font, text: String, size: int, ui_text_scale: float) -> Vector2:
+	if font == null or text == "":
+		return Vector2.ZERO
+	var visible_text := LanguageSettings.translate_text(text)
+	var ui_size: int = max(1, int(round(float(size) * ui_text_scale)))
+	return CharacterInfoOverlayTextLineCache.get_string_size_cached(font, visible_text, ui_size)
 
 
 static func _draw_centered_text(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color, ui_text_scale: float) -> void:
@@ -533,6 +597,7 @@ static func build_stats(
 		rows.append(make_display_stat_row("출현율", CharacterInfoOverlayFormatter.format_percent_text(appearance_rate * 100.0), stat_buff_color, "사라졌다 다시 나타나기까지의 대기가 짧아지는 정도입니다. 높을수록 더 자주 등장합니다."))
 	if skill_id != "":
 		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % skill_name))
+	rows.append(make_display_stat_row("교감", "Lv.%d" % int(snapshot.get("affinity_level", 0)), stat_buff_color))
 	return rows
 
 
@@ -582,6 +647,12 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		float(snapshot.get("companion_skill_cooldown_duration", 40.0)),
 		float(snapshot.get("companion_defense_rate", 0.0)),
 		float(snapshot.get("companion_appearance_rate", 0.0)),
+		int(snapshot.get("affinity_level", 0)),
+		float(snapshot.get("affinity_points", 0.0)),
+		float(snapshot.get("affinity_next_requirement", 0.0)),
+		str(snapshot.get("affinity_next_label", "")).strip_edges(),
+		int(snapshot.get("bond_points", 0)),
+		str(snapshot.get("bond_title", "")).strip_edges(),
 	])
 
 

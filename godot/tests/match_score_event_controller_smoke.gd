@@ -24,6 +24,27 @@ class FakeScoreState:
 		}
 
 
+class FakeCancelableScoreState:
+	extends RefCounted
+
+	var score_calls := 0
+	var would_finish := true
+	var deuce_mode := false
+
+	func score_for(_side: String) -> Dictionary:
+		score_calls += 1
+		return {
+			"player_score": 0,
+			"boss_score": 0,
+			"match_finished": false,
+			"win_goal": 5,
+			"next_player_serves": true,
+		}
+
+	func would_score_finish(_side: String) -> bool:
+		return would_finish
+
+
 class FakeRoundState:
 	extends RefCounted
 
@@ -86,6 +107,57 @@ class FakeBattleResources:
 		character_type = new_character_type
 		current_stage = new_current_stage
 		result_context = new_result_context.duplicate(true)
+
+
+class FakeLingpetRuntime:
+	extends RefCounted
+
+	var score_event_calls := 0
+	var scoring_sides: Array[String] = []
+	var score_results: Array[Dictionary] = []
+
+	func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
+		score_event_calls += 1
+		scoring_sides.append(scoring_side)
+		score_results.append(score_result.duplicate(true))
+
+
+class FakeLingpetRegistry:
+	extends RefCounted
+
+	var lingpet_runtime: Object = null
+
+	func _init(new_lingpet_runtime: Object = null) -> void:
+		lingpet_runtime = new_lingpet_runtime
+
+	func get_instance(key: String) -> Object:
+		if key == "lingpet_egg_runtime":
+			return lingpet_runtime
+		return null
+
+
+class FakeMythicItemRuntime:
+	extends RefCounted
+
+	var foul_whistle_active := false
+	var revival_active := false
+	var odins_eye_death_active := false
+	var odins_eye_revival_active := false
+
+	func try_trigger_foul_whistle(_loss_type: String, _deps: Dictionary) -> bool:
+		return foul_whistle_active
+
+	func try_trigger_revival(_loss_type: String, _deps: Dictionary) -> bool:
+		return revival_active
+
+	func is_odins_eye_penalty_active() -> bool:
+		return odins_eye_death_active
+
+	func begin_odins_eye_death_sequence(_loss_type: String) -> bool:
+		return odins_eye_death_active
+
+	func try_trigger_odins_eye_revival(_loss_type: String) -> bool:
+		return odins_eye_revival_active
 
 
 class FakeStageBackground:
@@ -191,6 +263,7 @@ func _init() -> void:
 	var stage_background := FakeStageBackground.new()
 	var audio := FakeAudio.new()
 	var battle_resources := FakeBattleResources.new()
+	var lingpet_runtime := FakeLingpetRuntime.new()
 
 	controller.handle_score_event("player", {
 		"score_state": score,
@@ -201,11 +274,14 @@ func _init() -> void:
 		"battle_resources": battle_resources,
 		"selected_character_type": "smasher",
 		"current_stage": 1,
+		"registry": FakeLingpetRegistry.new(lingpet_runtime),
 	}, {
 		"reset_ball": Callable(self, "_record_reset_ball"),
 	})
 
 	_expect(score.score_calls == 1 and score.scoring_side == "player", "score state should receive scoring side")
+	_expect(lingpet_runtime.score_event_calls == 1 and lingpet_runtime.scoring_sides == ["player"], "lingpet affinity score hook should run once after a committed score")
+	_expect(bool(lingpet_runtime.score_results[0].get("match_finished", false)), "lingpet affinity score hook should receive the committed score result")
 	_expect(stage_background.expression == "sad", "player score should set sad stage expression")
 	_expect(round_state.set_player_serves_calls == 1 and not round_state.player_serves, "next serve should sync from score result")
 	_expect(scoreboard.sparkle_calls == 1, "scoreboard should trigger mini sparkle")
@@ -282,6 +358,8 @@ func _init() -> void:
 	_expect(null_score_audio.play_round_set_calls == 0, "missing score state should skip score event side effects")
 	_expect(_reset_ball_calls == 1, "missing score state should not reset ball")
 
+	_verify_lingpet_affinity_skips_score_cancel_paths(controller)
+
 	if _failures.is_empty():
 		print("match_score_event_controller_smoke: ok")
 		quit(0)
@@ -293,6 +371,46 @@ func _init() -> void:
 
 func _record_reset_ball() -> void:
 	_reset_ball_calls += 1
+
+
+func _verify_lingpet_affinity_skips_score_cancel_paths(controller: Object) -> void:
+	var foul_whistle := FakeMythicItemRuntime.new()
+	foul_whistle.foul_whistle_active = true
+	_expect_cancel_path_blocks_lingpet(controller, "foul whistle", "boss", foul_whistle, FakeCancelableScoreState.new())
+
+	var revival := FakeMythicItemRuntime.new()
+	revival.revival_active = true
+	_expect_cancel_path_blocks_lingpet(controller, "revival", "boss", revival, FakeCancelableScoreState.new())
+
+	var odins_eye_death := FakeMythicItemRuntime.new()
+	odins_eye_death.odins_eye_death_active = true
+	_expect_cancel_path_blocks_lingpet(controller, "Odin death", "boss", odins_eye_death, FakeCancelableScoreState.new())
+
+	var odins_eye_revival := FakeMythicItemRuntime.new()
+	odins_eye_revival.odins_eye_revival_active = true
+	_expect_cancel_path_blocks_lingpet(controller, "Odin revival", "boss", odins_eye_revival, FakeCancelableScoreState.new())
+
+
+func _expect_cancel_path_blocks_lingpet(
+	controller: Object,
+	path_name: String,
+	scoring_side: String,
+	mythic_runtime: Object,
+	score_state: FakeCancelableScoreState
+) -> void:
+	var lingpet_runtime := FakeLingpetRuntime.new()
+	controller.handle_score_event(scoring_side, {
+		"score_state": score_state,
+		"round_state": FakeRoundState.new(),
+		"scoreboard_state": FakeScoreboardState.new(),
+		"mythic_item_runtime": mythic_runtime,
+		"lingpet_egg_runtime": lingpet_runtime,
+		"audio": FakeAudio.new(),
+	}, {
+		"reset_ball": Callable(self, "_record_reset_ball"),
+	})
+	_expect(score_state.score_calls == 0, "%s should return before score_state.score_for commits a score" % path_name)
+	_expect(lingpet_runtime.score_event_calls == 0, "%s should not grant lingpet affinity on a canceled score path" % path_name)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -195,6 +195,7 @@ func _reset_current_match(owner: Object, registry: Object) -> void:
 
 
 func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
+	_reset_lingpet_affinity_for_stage_transition(registry)
 	var match_flow_driver: Object = _get_match_flow_driver(registry)
 	if match_flow_driver == null:
 		return
@@ -214,6 +215,12 @@ func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
 			reset_drive_input_callback,
 			reset_ball_callback
 		)
+
+
+func _reset_lingpet_affinity_for_stage_transition(registry: Object) -> void:
+	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime != null and runtime.has_method("reset_affinity_for_new_battle"):
+		runtime.reset_affinity_for_new_battle()
 
 
 func _try_advance_demo_stage(owner: Object, registry: Object) -> bool:
