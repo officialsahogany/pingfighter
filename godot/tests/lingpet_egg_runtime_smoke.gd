@@ -536,6 +536,7 @@ func _init() -> void:
 	_verify_affinity_score_event_and_battle_reset()
 	_verify_affinity_reward_application()
 	_verify_affinity_level_up_feedback_and_income_log()
+	_verify_affinity_point_gain_popup()
 	_verify_affinity_residue_store_and_headstart()
 	_verify_ineligible_conditions_do_not_spawn()
 
@@ -4147,6 +4148,58 @@ func _verify_affinity_level_up_feedback_and_income_log() -> void:
 	_expect(bool(post_max_snapshot.get("affinity_feedback_heart_tint", false)), "heart tint should remain after the max-level flash expires")
 	runtime.reset_affinity_for_new_battle()
 	_expect_float(float(runtime.get_affinity_income_summary_for_tests().get("total", -1.0)), 0.0, "battle reset should clear the debug income summary")
+
+
+func _verify_affinity_point_gain_popup() -> void:
+	# Rising "+N" popup above the companion on every REAL point grant:
+	# spawns with the granted amount, coalesces rapid gains, skips blocked
+	# (granted_points 0) results, expires after its lifetime, and caps the
+	# concurrent count so grant spam cannot flood the overlay.
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost")),
+		"point-popup fixture should activate a Maribo companion"
+	)
+	var fb: Object = runtime._affinity_feedback_state
+	_expect((fb.get_point_popups() as Array).is_empty(), "no popup should exist before any affinity grant")
+
+	var first: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
+	var first_granted := float(first.get("granted_points", 0.0))
+	_expect(first_granted > 0.0, "point-popup fixture grant should land real points")
+	var popups: Array = fb.get_point_popups()
+	_expect(popups.size() == 1, "a granted gain should spawn exactly one +N popup")
+	if popups.is_empty():
+		return
+	_expect(is_equal_approx(float((popups[0] as Dictionary).get("amount", 0.0)), first_granted), "the popup should carry the granted amount")
+
+	runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
+	popups = fb.get_point_popups()
+	_expect(popups.size() == 1, "rapid gains inside the coalesce window should merge into one popup")
+	_expect(is_equal_approx(float((popups[0] as Dictionary).get("amount", 0.0)), 2.0 * first_granted), "the merged popup should sum both gains")
+	_expect((runtime.get_snapshot().get("affinity_point_popups", []) as Array).size() == 1, "the companion snapshot should expose the point popups for the draw context")
+
+	fb.point_popups.clear()
+	var hatch_first: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_HATCH)
+	_expect(float(hatch_first.get("granted_points", 0.0)) > 0.0, "first hatch-source grant should land for the blocked-grant case")
+	var hatch_blocked: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_HATCH)
+	_expect(is_equal_approx(float(hatch_blocked.get("granted_points", -1.0)), 0.0), "duplicate hatch grant should be blocked")
+	popups = fb.get_point_popups()
+	_expect(popups.size() == 1 and is_equal_approx(float((popups[0] as Dictionary).get("amount", 0.0)), float(hatch_first.get("granted_points", 0.0))), "a blocked grant must not spawn or merge a popup")
+
+	runtime.update(1.0, owner)
+	_expect((fb.get_point_popups() as Array).is_empty(), "point popups should expire after their lifetime")
+	_expect(not bool(fb.has_visible_effects(true)), "expired popups should release the visible-effects redraw gate")
+
+	fb.point_popups.clear()
+	for _i in range(5):
+		fb.trigger_point_gain(3.0)
+		if not fb.point_popups.is_empty():
+			fb.point_popups[fb.point_popups.size() - 1]["age"] = 0.3
+	_expect(fb.point_popups.size() == fb.MAX_POINT_POPUPS, "concurrent popups should cap at MAX_POINT_POPUPS")
+	_expect(bool(fb.has_visible_effects(true)), "live popups should hold the visible-effects redraw gate without a level-up flash")
+	_expect((fb.get_point_popups(false) as Array).is_empty(), "non-companion draw context should expose no point popups")
+	fb.point_popups.clear()
 
 
 func _verify_affinity_residue_store_and_headstart() -> void:

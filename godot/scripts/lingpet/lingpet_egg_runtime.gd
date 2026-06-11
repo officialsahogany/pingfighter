@@ -1881,6 +1881,9 @@ func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {},
 	var best_before: int = _affinity_state.get_best_level(normalized_pet_id)
 	_last_affinity_result = _affinity_state.add_points(normalized_pet_id, source, tags)
 	_affinity_income_tracker.record(normalized_pet_id, source, _last_affinity_result, registry)
+	if normalized_pet_id == _pet_id and _state == STATE_COMPANION:
+		# Blocked / capped grants report granted_points 0 and must not popup.
+		_affinity_feedback_state.trigger_point_gain(float(_last_affinity_result.get("granted_points", 0.0)))
 	if normalized_pet_id == _pet_id and int(_last_affinity_result.get("levels_gained", 0)) > 0:
 		var level_after: int = _affinity_state.get_level(normalized_pet_id)
 		_sync_current_profile_affinity(normalized_pet_id)

@@ -82,7 +82,14 @@ func build_affinity_feedback_config(params: Dictionary) -> Dictionary:
 		"affinity_title": _get_affinity_title(affinity_feedback_state),
 		"affinity_heart_tint": _get_affinity_heart_tint(affinity_feedback_state),
 		"affinity_trigger_count": _get_trigger_count(affinity_feedback_state),
+		"affinity_point_popups": _get_affinity_point_popups(affinity_feedback_state, companion_active),
 	}
+
+
+func _get_affinity_point_popups(affinity_feedback_state: Object, companion_active: bool) -> Array:
+	if affinity_feedback_state == null or not affinity_feedback_state.has_method("get_point_popups"):
+		return []
+	return affinity_feedback_state.get_point_popups(companion_active)
 
 
 func _get_hit_flash_ratio(body_hit_state: Object, companion_active: bool) -> float:

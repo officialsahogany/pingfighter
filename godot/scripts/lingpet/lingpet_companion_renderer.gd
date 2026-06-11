@@ -63,6 +63,9 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 func draw_affinity_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
+	# Point popups render independently of the level-up flash, so they must
+	# draw before the flash early-returns below.
+	_draw_point_popups(canvas, center, config.get("affinity_point_popups", []) as Array)
 	var flash_ratio := clampf(float(config.get("affinity_flash", 0.0)), 0.0, 1.0)
 	if flash_ratio <= 0.0:
 		return
@@ -321,6 +324,35 @@ func _draw_switch_label(canvas: CanvasItem, center: Vector2, display_name: Strin
 	canvas.draw_rect(bg_rect, Color(0.42, 1.0, 0.94, 0.62 * alpha), false, 1.4)
 	canvas.draw_string(font, pos + Vector2(1.0, 1.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.58 * alpha))
 	canvas.draw_string(font, pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.78, 1.0, 0.95, 0.96 * alpha))
+
+
+func _draw_point_popups(canvas: CanvasItem, center: Vector2, popups: Array) -> void:
+	if popups == null or popups.is_empty():
+		return
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var font_size := 12
+	for index in range(popups.size()):
+		if not popups[index] is Dictionary:
+			continue
+		var popup: Dictionary = popups[index]
+		var amount := float(popup.get("amount", 0.0))
+		if amount <= 0.0:
+			continue
+		var ratio := clampf(float(popup.get("ratio", 0.0)), 0.0, 1.0)
+		var eased := 1.0 - pow(1.0 - ratio, 2.0)
+		var alpha := clampf(1.25 * (1.0 - ratio), 0.0, 1.0)
+		var text := "+%d" % int(round(amount)) if is_equal_approx(amount, round(amount)) else "+%.1f" % amount
+		var text_width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		# Anchored to the pet's upper-right so a same-frame level-up flash
+		# label (centered above the head) cannot overlap the rising number.
+		var pos := Vector2(
+			center.x + 24.0 - text_width * 0.5 + float(index) * 3.0,
+			center.y - 40.0 - 30.0 * eased
+		)
+		canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.55 * alpha))
+		canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.74, 0.88, 0.95 * alpha))
 
 
 func _draw_affinity_label(canvas: CanvasItem, center: Vector2, text: String, title: String, progress: float, flash_ratio: float) -> void:
