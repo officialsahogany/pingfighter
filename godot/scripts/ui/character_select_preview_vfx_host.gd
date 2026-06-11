@@ -5,7 +5,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const CharacterSelectVfxMaterial := preload("res://scripts/ui/character_select_vfx_material.gd")
 
 const ASSET_ROOT := "res://assets/ui/character_select_vfx/"
-const DEEP_BACKPLATE_PATH := ASSET_ROOT + "character_select_deep_backplate.png"
+const DEEP_BACKPLATE_PATH := ASSET_ROOT + "character_select_chamber_backplate.png"
 const PARTICLE_MOTE_PATH := ASSET_ROOT + "character_select_particle_mote.png"
 const FLOOR_RING_PATH := ASSET_ROOT + "character_select_floor_ring.png"
 const LIGHT_SLIT_PATH := ASSET_ROOT + "character_select_light_slit.png"
@@ -427,7 +427,9 @@ func _update_runtime_uniforms() -> void:
 	if _backplate_rect != null:
 		_backplate_rect.visible = _active
 		_backplate_rect.position = -view_size * 0.018 + drift
-		_backplate_rect.modulate = Color(1.0, 1.0, 1.0, 0.32 + _hover_amount * 0.08)
+		# Chamber backplate is authored dark with a baked vignette; run it
+		# near-opaque so the room reads as space instead of a faint texture.
+		_backplate_rect.modulate = Color(1.0, 1.0, 1.0, 0.88 + _hover_amount * 0.08)
 	if _mandala_rect != null:
 		_mandala_rect.visible = _active
 		_mandala_rect.position = Vector2((view_size.x - _mandala_rect.size.x) * 0.5, view_size.y * 0.085) - drift * 0.36

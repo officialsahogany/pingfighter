@@ -345,10 +345,16 @@ func _consume_gamepad_axis_latch(axis_value: float, direction: int, horizontal: 
 func _draw() -> void:
 	_ensure_cache_dictionaries()
 	var view_size := _resolved_view_size()
-	_draw_background(view_size)
+	var preview_rect_value := _preview_rect(view_size)
+	# The preview VFX host renders at negative canvas z (behind this control's
+	# own _draw), so the opaque fullscreen background must leave a hole at the
+	# preview rect or the host backdrop is painted over and never visible.
+	var backdrop_hole := Rect2()
+	if preview != null and preview.has_method("is_backdrop_host_active") and bool(preview.call("is_backdrop_host_active")):
+		backdrop_hole = preview_rect_value
+	_draw_background(view_size, backdrop_hole)
 	_draw_header(view_size)
 	var card_column := _card_column_rect(view_size)
-	var preview_rect_value := _preview_rect(view_size)
 	var info_rect := _info_panel_rect(view_size, preview_rect_value)
 	_draw_card_column(card_column)
 	_draw_preview_frame(preview_rect_value)
@@ -1053,11 +1059,11 @@ func _stop_confirm_intro_voice() -> void:
 		confirm_intro_voice_player.stream = null
 
 
-func _draw_background(view_size: Vector2) -> void:
-	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.007, 0.010, 0.016, 1.0))
+func _draw_background(view_size: Vector2, backdrop_hole: Rect2 = Rect2()) -> void:
+	_draw_rect_excluding_hole(Rect2(Vector2.ZERO, view_size), backdrop_hole, Color(0.007, 0.010, 0.016, 1.0))
 	var upper_h: float = view_size.y * 0.39
-	draw_rect(Rect2(0.0, 0.0, view_size.x, upper_h), Color(0.013, 0.030, 0.038, 0.94))
-	draw_rect(Rect2(0.0, upper_h, view_size.x, view_size.y - upper_h), Color(0.009, 0.009, 0.014, 0.97))
+	_draw_rect_excluding_hole(Rect2(0.0, 0.0, view_size.x, upper_h), backdrop_hole, Color(0.013, 0.030, 0.038, 0.94))
+	_draw_rect_excluding_hole(Rect2(0.0, upper_h, view_size.x, view_size.y - upper_h), backdrop_hole, Color(0.009, 0.009, 0.014, 0.97))
 	var step: float = max(40.0, view_size.x / 40.0)
 	var drift: float = fmod(animation_time * 10.0, step)
 	var x: float = -view_size.y * 0.16 + drift
@@ -1068,7 +1074,29 @@ func _draw_background(view_size: Vector2) -> void:
 	while y < view_size.y:
 		draw_line(Vector2(0.0, y), Vector2(view_size.x, y), Color(0.0, 0.55, 0.64, 0.025), 1.0)
 		y += step * 0.55
-	draw_line(Vector2(0.0, upper_h), Vector2(view_size.x, upper_h), Color(0.0, 0.95, 1.0, 0.22), 1.5)
+	var horizon_color := Color(0.0, 0.95, 1.0, 0.22)
+	if backdrop_hole.has_area() and upper_h > backdrop_hole.position.y and upper_h < backdrop_hole.end.y:
+		if backdrop_hole.position.x > 0.0:
+			draw_line(Vector2(0.0, upper_h), Vector2(backdrop_hole.position.x, upper_h), horizon_color, 1.5)
+		if backdrop_hole.end.x < view_size.x:
+			draw_line(Vector2(backdrop_hole.end.x, upper_h), Vector2(view_size.x, upper_h), horizon_color, 1.5)
+	else:
+		draw_line(Vector2(0.0, upper_h), Vector2(view_size.x, upper_h), horizon_color, 1.5)
+
+
+func _draw_rect_excluding_hole(rect: Rect2, hole: Rect2, color: Color) -> void:
+	var cut := rect.intersection(hole)
+	if not cut.has_area():
+		draw_rect(rect, color)
+		return
+	if cut.position.y > rect.position.y:
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, cut.position.y - rect.position.y)), color)
+	if rect.end.y > cut.end.y:
+		draw_rect(Rect2(Vector2(rect.position.x, cut.end.y), Vector2(rect.size.x, rect.end.y - cut.end.y)), color)
+	if cut.position.x > rect.position.x:
+		draw_rect(Rect2(Vector2(rect.position.x, cut.position.y), Vector2(cut.position.x - rect.position.x, cut.size.y)), color)
+	if rect.end.x > cut.end.x:
+		draw_rect(Rect2(Vector2(cut.end.x, cut.position.y), Vector2(rect.end.x - cut.end.x, cut.size.y)), color)
 
 
 func _draw_header(view_size: Vector2) -> void:

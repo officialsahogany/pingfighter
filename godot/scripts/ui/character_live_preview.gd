@@ -277,6 +277,10 @@ func _is_preview_vfx_host_active() -> bool:
 	)
 
 
+func is_backdrop_host_active() -> bool:
+	return _is_preview_vfx_host_active()
+
+
 func play_fullframe_one_shot(config: Dictionary) -> bool:
 	_drain_fullframe_sheet_load()
 	var sheet_path := str(config.get("path", ""))
