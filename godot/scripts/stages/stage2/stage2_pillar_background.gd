@@ -521,7 +521,12 @@ func resolve_quake_boss_backstop(scene: Dictionary, context: Dictionary, deps: D
 	ball_pos = _get_vector2(scene.get("ball_pos", ball_pos), ball_pos)
 	if ball_pos.y - ball_radius <= 0.0:
 		var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
-		var boss_bottom: float = boss_pos.y + float(context.get("boss_hitbox_height", 40.0))
+		# "Below the boss" means the HOME top band. A boss-scripting skill
+		# (lingpet puppet grab) can hold the boss mid-field; anchoring to the
+		# live paddle there would teleport the ball from the goal line into
+		# the player band, so cap the anchor at the home boss_y.
+		var boss_anchor_y: float = min(boss_pos.y, float(context.get("boss_y", boss_pos.y)))
+		var boss_bottom: float = boss_anchor_y + float(context.get("boss_hitbox_height", 40.0))
 		ball_pos.y = boss_bottom + max(6.0, ball_radius + 2.0) + ball_radius
 		scene["ball_pos"] = ball_pos
 	var base_speed: float = QUAKE_BALL_REFERENCE_BASE_SPEED

@@ -327,6 +327,24 @@ func _init() -> void:
 		_as_vector2(backstop_scene.get("ball_vel", Vector2.ZERO), Vector2.ZERO).y > 0.0,
 		"Stage 2 quake backstop should relaunch boss-hit balls downward"
 	)
+	# Displaced-boss regression: with the boss held mid-field (lingpet puppet
+	# grab), the backstop must re-place the ball at the HOME top band, not
+	# teleport it below the displaced paddle into the player band.
+	var displaced_backstop_scene := {
+		"ball_pos": Vector2(330.0, 4.0),
+		"ball_vel": Vector2(1.0, -7.0),
+	}
+	var displaced_backstop_context: Dictionary = quake_motion_context.duplicate()
+	displaced_backstop_context["boss_pos"] = Vector2(320.0, 634.0)
+	displaced_backstop_context["boss_y"] = 25.0
+	_expect(
+		stage2_background.resolve_quake_boss_backstop(displaced_backstop_scene, displaced_backstop_context, {"ball_intensity": FakeBallIntensity.new()}),
+		"Stage 2 quake backstop should still fire while the boss is displaced"
+	)
+	_expect(
+		_as_vector2(displaced_backstop_scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO).y < 120.0,
+		"Stage 2 quake backstop must anchor to the home top band while the boss is puppeted mid-field"
+	)
 	var player_hit_handler := PaddleBouncePlayerPostHitHandler.new()
 	stage2_background.activate_quake(0.5, 2)
 	player_hit_handler.apply(

@@ -57,7 +57,11 @@ static func apply_boss_launch_guard(
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 	var ball_radius: float = float(context.get("ball_size", 28.6)) * 0.5
 	var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
-	var boss_bottom: float = boss_pos.y + float(context.get("boss_hitbox_height", 40.0))
+	# Cap the guard anchor at the HOME boss_y: with the boss held mid-field by
+	# a boss-scripting skill (lingpet puppet grab), a live-paddle anchor would
+	# clamp the ball into the player's floor band and force it downward.
+	var boss_anchor_y: float = min(boss_pos.y, float(context.get("boss_y", boss_pos.y)))
+	var boss_bottom: float = boss_anchor_y + float(context.get("boss_hitbox_height", 40.0))
 	var safe_top: float = boss_bottom + max(6.0, ball_radius + 2.0)
 	var backup_y: float = abs(backup_velocity_y) if backup_velocity_valid else 0.0
 	var min_down_speed: float = min(12.5, max(reference_base_speed * 0.55, backup_y * 0.45, 3.5))

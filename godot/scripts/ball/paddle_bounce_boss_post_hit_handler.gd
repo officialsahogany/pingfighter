@@ -6,6 +6,13 @@ const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES := ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_FRAMES
 const BOWLING_TRAP_GUARD_KNOCKBACK_DECAY := ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY
 
+# Python parity (pingfighter.py 174199 / BOSS_COLLISION_COOLDOWN_FRAMES = 10):
+# every boss paddle hit re-arms the boss collision cooldown so the ball cannot
+# re-collide with the boss rect on the very next frames. Without it a
+# displaced boss (lingpet puppet grab kiss point sits just above the player
+# band) ping-pongs the ball boss<->player every couple of frames.
+const BOSS_COLLISION_COOLDOWN_FRAMES := 10.0
+
 
 func apply(
 	ball_pos: Vector2,
@@ -175,6 +182,7 @@ func apply(
 		"drive_speed_increase": next_drive_speed_increase,
 		"drive_hit_boss": next_drive_hit_boss,
 		"boss_vel": boss_vel_override,
+		"boss_collision_cooldown": BOSS_COLLISION_COOLDOWN_FRAMES,
 	}
 	if kick_skill_knockback_consumed:
 		result["kick_skill_knockback_consumed"] = true
@@ -210,8 +218,16 @@ func apply(
 
 
 func _snap_boss_hit_ball_pos(ball_pos: Vector2, context: Dictionary) -> Vector2:
+	# Anchor to the LIVE boss paddle top, not the static `boss_y` constant: a
+	# boss-scripting skill (lingpet puppet grab) can hold the boss mid-field,
+	# and the static anchor teleported the ball back to the top on contact.
+	var boss_top: float = BallContextReader.get_vector2(
+		context,
+		"boss_pos",
+		Vector2(0.0, float(context.get("boss_y", ball_pos.y)))
+	).y
 	ball_pos.y = (
-		float(context.get("boss_y", ball_pos.y))
+		boss_top
 		+ float(context.get("boss_hitbox_height", 0.0))
 		+ float(context.get("ball_size", 0.0))
 	)

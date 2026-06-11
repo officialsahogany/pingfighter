@@ -55,6 +55,7 @@ func apply(
 		result["runtime_perk_gold"] = int(post_hit_result.get("runtime_perk_gold", 0))
 	for key in [
 		"player_collision_cooldown",
+		"boss_collision_cooldown",
 		"smasher_wheel_speed_cap",
 		"smasher_wheel_hit",
 		"rainbow_fur_glove_activated",
