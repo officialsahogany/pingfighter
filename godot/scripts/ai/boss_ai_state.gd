@@ -291,6 +291,11 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 			float(context.get("stage2_monkey_banana_boss_slip_direction", 0.0))
 			* float(context.get("stage2_monkey_banana_boss_slip_speed", 0.0))
 		)
+	if bool(context.get("lingpet_banana_slice_boss_slip_active", false)):
+		combined_banana_slip_vel += (
+			float(context.get("lingpet_banana_slice_boss_slip_direction", 0.0))
+			* float(context.get("lingpet_banana_slice_boss_slip_speed", 0.0))
+		)
 	if abs(combined_banana_slip_vel) > 0.0:
 		boss_pos.x += combined_banana_slip_vel * fps_scale
 		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
@@ -493,6 +498,8 @@ func _try_start_boss_dash(
 	if bool(context.get("active_item_banana_slip_active", false)):
 		return false
 	if bool(context.get("stage2_monkey_banana_boss_slip_active", false)):
+		return false
+	if bool(context.get("lingpet_banana_slice_boss_slip_active", false)):
 		return false
 
 	var ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)

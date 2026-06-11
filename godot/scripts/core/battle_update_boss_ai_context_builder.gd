@@ -124,6 +124,7 @@ func _merge_shared_context(context: Dictionary, registry: Object, character_type
 	for key in [
 		"active_item_runtime",
 		"mythic_item_runtime",
+		"lingpet_egg_runtime",
 	]:
 		var source: Object = _get_instance(registry, key)
 		if source != null and source.has_method("get_boss_ai_context"):
