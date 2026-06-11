@@ -302,8 +302,15 @@ Use one of these instead:
 Known repeats of this exact class include F3 mythic-management first icon
 creation, score-result texture ensure during draw, desktop mobile-touch first
 draw module creation, Stage 1 pillar mythic runtime lookup during draw,
-perk-debug overlay first visible draw, and the modal-gate physics regression
-where closed overlay checks lazy-created modules for a 158ms spike.
+perk-debug overlay first visible draw, the modal-gate physics regression
+where closed overlay checks lazy-created modules for a 158ms spike, and the
+lingpet skill runtime host lazy-creating the active skill module (1034-line
+doll curse script + 512px sheet) on its first per-frame update / first arm.
+The lingpet fix pattern is prewarming at the discrete loadout-apply / boot
+moment (`lingpet_egg_runtime._prewarm_current_skill_runtime`, sealed by
+`lingpet_egg_runtime_smoke._verify_loadout_apply_prewarms_active_skill_runtime`);
+a new lingpet skill gets the sheet half of this for free only if it
+implements `prewarm()` for its heavy textures.
 
 ## Godot Effect Drawer Static-Frame Trap
 
