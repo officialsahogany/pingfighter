@@ -1,7 +1,7 @@
 {
   "asset_id": "monkeyring_acquisition_cutin_anim_v2_clean_regen",
   "pet_id": "monkeyring",
-  "display_name": "몽키링",
+  "display_name": "빠나몽",
   "generated_at": "2026-06-09T23:27:19Z",
   "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
   "output_sheet": "res://assets/sprites/lingpet/monkeyring_cutin_anim.png",

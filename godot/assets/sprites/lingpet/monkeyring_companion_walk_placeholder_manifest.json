@@ -1,7 +1,7 @@
 {
   "asset_id": "monkeyring_companion_walk_placeholder_v1",
   "pet_id": "monkeyring",
-  "display_name": "???",
+  "display_name": "빠나몽",
   "generated_at": "2026-06-10",
   "runtime_usage": "debug-only placeholder companion thumbnail/walk sheet until dedicated rear-view SD companion sheets are produced",
   "source_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",

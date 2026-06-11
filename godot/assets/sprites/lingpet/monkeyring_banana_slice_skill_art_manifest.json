@@ -1,0 +1,37 @@
+{
+  "asset_id": "monkeyring_banana_slice_skill_art_v1_composite",
+  "pet_id": "monkeyring",
+  "display_name": "???",
+  "skill_id": "monkeyring_banana_slice",
+  "skill_name": "??? ????",
+  "generated_at": "2026-06-11",
+  "source_assets": [
+    "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
+    "res://assets/sprites/items/banana.png"
+  ],
+  "outputs": {
+    "card": {
+      "path": "res://assets/sprites/lingpet/monkeyring_banana_slice_skillcard_imagegen_v1.png",
+      "size": [
+        1720,
+        541
+      ],
+      "sha256": "3d3a7b2cd9938695f60527d4eb7f62ad8db893288bf74f5f477b7be05ce48aef",
+      "bytes": 470265
+    },
+    "icon": {
+      "path": "res://assets/sprites/lingpet/monkeyring_banana_slice_skill_icon_imagegen_v1.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "sha256": "a9358ca999b5a7adfe0673c60aba76289eb36eff0a8346ed0d52f4041c7309cb",
+      "bytes": 712004
+    }
+  },
+  "qa": {
+    "transparent_background": false,
+    "uses_existing_runtime_banana_texture": true,
+    "no_text_baked_into_art": true
+  }
+}

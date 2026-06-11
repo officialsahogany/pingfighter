@@ -1,8 +1,8 @@
 {
-  "asset_id": "monkeyring_companion_banana_chomp_click_reaction_98f_v3_scale_locked",
+  "asset_id": "monkeyring_companion_banana_chomp_click_reaction_98f_v5_full_remake",
   "pet_id": "monkeyring",
-  "display_name": "몽키링",
-  "generated_at": "2026-06-09T23:27:08Z",
+  "display_name": "빠나몽",
+  "generated_at": "2026-06-11T04:18:18Z",
   "runtime_usage": "lingpet_in_battle_companion_click_reaction_asset",
   "output_sheet": "res://assets/sprites/lingpet/monkeyring_companion_click_reaction_98f.png",
   "source_sheet": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
@@ -19,15 +19,19 @@
       1792,
       896
     ],
-    "source_scale": "downscaled from the bbox scale-locked 512px AutoSprite banana-chomp click cells",
-    "sha256": "e7bcdebeaf5084ec86e77daa261fe8d274310319c3f50b649307e20894e5931e",
-    "bytes": 1302013
+    "source_scale": "downscaled from the v5 full-remake click Live2D sheet",
+    "sha256": "11b779d89a4f10af9227848a445b689187b7a88dea8f55dd0afd897d90888ade",
+    "bytes": 1289465
   },
   "postprocess": {
-    "tool": "Pillow per-cell downscale from scale-locked full click Live2D sheet",
-    "operation": "Downscaled the scale-locked whole-banana chewing click sheet to 128px cells for live battle companion click reactions.",
+    "tool": "Pillow per-cell downscale from v5 full-remake click Live2D sheet",
+    "operation": "Downscaled the fixed-anchor whole-banana chewing click sheet to 128px cells for live battle companion click reactions.",
     "alpha_cleanup": {
-      "threshold": 6
+      "threshold": 5
+    },
+    "pouch_banana_persistence": {
+      "operation": "Downscaled from the full click sheet; pouch banana persistence is authored in the source pose rather than patched into later frames.",
+      "patch_based": false
     }
   },
   "qa": {
@@ -42,42 +46,44 @@
     "cells_with_edge_touch": [],
     "visible_magenta_pixels_exact": 0,
     "visible_green_pixels_exact": 0,
+    "pouch_bananas_persist": true,
+    "patch_based_pouch_fix": false,
     "sample_bboxes": {
       "0": [
-        28,
-        13,
-        105,
-        109
+        30,
+        12,
+        103,
+        110
       ],
       "24": [
-        28,
-        13,
-        105,
+        29,
+        10,
+        103,
         109
       ],
       "48": [
-        26,
-        13,
-        107,
-        109
+        30,
+        12,
+        103,
+        110
       ],
       "49": [
-        26,
-        13,
-        107,
-        109
+        30,
+        12,
+        103,
+        110
       ],
       "80": [
-        29,
-        13,
+        30,
+        9,
         104,
-        109
+        108
       ],
       "97": [
-        28,
-        13,
-        105,
-        109
+        30,
+        12,
+        103,
+        110
       ]
     }
   }

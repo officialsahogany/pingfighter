@@ -24,7 +24,7 @@ func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.has_pet("monkeyring"), "Monkeyring should be debug-activatable through the lingpet catalog")
 	_expect(not LingpetCatalog.is_pet_enabled("monkeyring"), "Monkeyring should stay out of the normal hatch pool")
 	_expect(LingpetCatalog.is_pet_debug_enabled("monkeyring"), "Monkeyring should be visible in the F7 debug picker")
-	_expect(LingpetCatalog.get_display_name("monkeyring") == "몽키링", "Monkeyring display name should be Korean")
+	_expect(LingpetCatalog.get_display_name("monkeyring") == "빠나몽", "Monkeyring display name should be Korean")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_art") == "res://assets/sprites/lingpet/monkeyring_cutin_art.png", "Monkeyring should own the accepted cutin art")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_anim") == "res://assets/sprites/lingpet/monkeyring_cutin_anim.png", "Monkeyring should own the 16f acquisition Live2D sheet")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png", "Monkeyring should use the 98f click sheet for acquisition dismiss")
@@ -32,8 +32,8 @@ func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/monkeyring_companion_click_reaction_98f.png", "Monkeyring should use the downscaled battle click reaction sheet")
 	_expect(CharacterInfoOverlayLingpetTextureLoader.get_panel_live2d_visual_key("monkeyring") == "click_reaction_anim", "Character info panel should use Monkeyring's Live2D click sheet")
 	var skill := LingpetCatalog.get_active_skill("monkeyring")
-	_expect(str(skill.get("id", "")) == "monkeyring_headbutt", "Monkeyring should expose the debug headbutt active skill")
-	_expect(LingpetSkillDispatcher.is_headbutt("monkeyring_headbutt"), "Monkeyring headbutt should resolve through the supported headbutt runtime")
+	_expect(str(skill.get("id", "")) == "monkeyring_banana_slice", "Monkeyring should expose Banana Slice as its active skill")
+	_expect(LingpetSkillDispatcher.is_banana_slice("monkeyring_banana_slice"), "Monkeyring Banana Slice should resolve through the supported banana-slice runtime")
 
 
 func _verify_l2d_assets() -> void:
