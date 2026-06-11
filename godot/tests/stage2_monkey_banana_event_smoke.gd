@@ -53,6 +53,47 @@ func _init() -> void:
 		event.update(1.0 / 60.0, context, {"audio": throw_audio})
 	_expect(throw_audio.banana_throw_count >= 1, "monkey should throw after climbing and waiting")
 
+	# Launch continuity: the projectile must spawn on the exact frame the throw
+	# sheet's hand goes empty (banana in hand on frames 0-2, empty from frame 3),
+	# otherwise the banana visibly vanishes between wind-up and release.
+	_expect(
+		event._get_throw_frame_index(event.MONKEY_THROW_RELEASE_SEC) == event.MONKEY_THROW_HAND_EMPTY_FRAME,
+		"banana projectile should spawn on the first hand-empty throw frame"
+	)
+	_expect(
+		event._get_throw_frame_index(event.MONKEY_THROW_RELEASE_SEC - 0.01) == event.MONKEY_THROW_HAND_EMPTY_FRAME - 1,
+		"throw sheet hand should still hold the banana right before release"
+	)
+
+	# Facing / launch-point contract: the throw sheet is authored right-facing,
+	# so a right-tree monkey must mirror its throw sprite, and the banana must
+	# launch from the field-side hand (above and ahead of the body center),
+	# flying toward the playfield in the same direction the monkey faces.
+	for side in ["left", "right"]:
+		event.reset()
+		var side_audio := FakeAudio.new()
+		_expect(event.force_spawn_monkey(side), "monkey should force-spawn on the %s tree" % side)
+		var guard := 0
+		while event.bananas.is_empty() and guard < 11 * 60:
+			event.update(1.0 / 60.0, context, {"audio": side_audio})
+			guard += 1
+		_expect(not event.bananas.is_empty(), "%s monkey should release a banana within the guard window" % side)
+		_expect(not event.active_monkeys.is_empty(), "%s monkey should still be present at banana release" % side)
+		var monkey: Dictionary = event.active_monkeys[0]
+		var facing_right: bool = side == "left"
+		_expect(event._should_flip_throw_sprite(monkey) == (not facing_right), "%s monkey throw sprite must face the playfield (right tree mirrors the right-facing sheet)" % side)
+		var banana: Dictionary = event.bananas[0]
+		var start: Vector2 = _as_vector2(banana.get("start", Vector2.ZERO), Vector2.ZERO)
+		var target: Vector2 = _as_vector2(banana.get("target", Vector2.ZERO), Vector2.ZERO)
+		_expect((start.x < target.x) == facing_right, "%s monkey banana must fly toward the playfield in the monkey's facing direction" % side)
+		var monkey_center_game: Vector2 = event._viewport_to_game(_as_vector2(monkey.get("position", Vector2.ZERO), Vector2.ZERO))
+		if facing_right:
+			_expect(start.x > monkey_center_game.x, "left monkey banana should launch from the field-side hand, not the body center")
+		else:
+			_expect(start.x < monkey_center_game.x, "right monkey banana should launch from the field-side hand, not the body center")
+		_expect(start.y < monkey_center_game.y, "%s monkey banana should launch at hand height above the body center" % side)
+		_expect(event._is_banana_in_draw_area(start), "%s monkey banana must be drawable at its letterbox launch point (no mid-flight pop-in)" % side)
+
 	event.reset()
 	var player_slip_audio := FakeAudio.new()
 	event.debug_spawn_landed_banana(Vector2(320.0, 700.0), true)

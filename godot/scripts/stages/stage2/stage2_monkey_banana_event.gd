@@ -14,7 +14,11 @@ const MONKEY_CLIMB_SPEED := 2.4
 const MONKEY_LEAVE_SPEED_MULTIPLIER := 1.5
 const MONKEY_THROW_DELAY_MIN_SEC := 1.5
 const MONKEY_THROW_DELAY_MAX_SEC := 3.0
-const MONKEY_THROW_RELEASE_SEC := 0.5
+# The throw sheet holds the banana in-hand on frames 0-2 and shows an empty
+# extended hand from frame 3, so the projectile must spawn exactly when
+# frame 3 lands or the banana visibly vanishes for the gap.
+const MONKEY_THROW_RELEASE_SEC := 2.0 / 7.0
+const MONKEY_THROW_HAND_EMPTY_FRAME := 3
 const MONKEY_THROW_TOTAL_SEC := 1.0
 const BANANA_FLIGHT_DURATION_SEC := 1.0
 const BANANA_ARC_HEIGHT := -200.0
@@ -34,6 +38,8 @@ const MONKEY_RUNTIME_SIZE_MULTIPLIER := 2.0
 const MONKEY_CLIMB_DRAW_SCALE := 1.65
 const MONKEY_THROW_DRAW_SCALE := 1.85
 const BANANA_DRAW_SIZE := 44.0
+const BANANA_HAND_OFFSET_X_FACTOR := 0.28
+const BANANA_HAND_OFFSET_Y_FACTOR := 0.18
 const TREE_LEFT_SOURCE_SIZE := Vector2(265.0, 832.0)
 const TREE_RIGHT_SOURCE_SIZE := Vector2(267.0, 831.0)
 const TREE_TEXTURE_PATH := "res://assets/sprites/hud/stage2_layered_tree_sprites_imagegen_v3.png"
@@ -384,7 +390,13 @@ func _is_monkey_done(monkey: Dictionary) -> bool:
 
 func _throw_banana(monkey: Dictionary, deps: Dictionary) -> void:
 	var start_viewport: Vector2 = _get_vector2(monkey.get("position", Vector2.ZERO), Vector2.ZERO)
-	var start_game: Vector2 = _viewport_to_game(start_viewport)
+	var facing_dir: float = 1.0 if _is_monkey_facing_right(monkey) else -1.0
+	var monkey_draw_size: float = _get_monkey_draw_size(MONKEY_THROW_DRAW_SCALE)
+	var hand_offset := Vector2(
+		facing_dir * monkey_draw_size * BANANA_HAND_OFFSET_X_FACTOR,
+		-monkey_draw_size * BANANA_HAND_OFFSET_Y_FACTOR
+	)
+	var start_game: Vector2 = _viewport_to_game(start_viewport + hand_offset)
 	var target_player: bool = rng.randf() < PLAYER_TARGET_PROBABILITY
 	var target_y: float = 700.0 if target_player else 50.0
 	var target_x: float = rng.randf_range(30.0, WIDTH - 30.0)
@@ -760,27 +772,47 @@ func _draw_monkey(canvas: CanvasItem, monkey: Dictionary) -> void:
 	var frame_count: int = MONKEY_CLIMB_FRAME_COUNT
 	var draw_scale: float = MONKEY_CLIMB_DRAW_SCALE
 	var offset_y := 0.0
+	var flip_h := false
 	if state == "sitting" or state == "throwing":
 		texture = throw_sheet
 		frame_count = MONKEY_THROW_FRAME_COUNT
 		draw_scale = MONKEY_THROW_DRAW_SCALE
 		offset_y = 1.0 * render_scale
+		flip_h = _should_flip_throw_sprite(monkey)
 		if state == "sitting":
 			frame_index = 0
 		else:
-			frame_index = min(MONKEY_THROW_FRAME_COUNT - 1, 1 + int(clamp(float(monkey.get("throw_timer", 0.0)), 0.0, 0.999) * 7.0))
+			frame_index = _get_throw_frame_index(float(monkey.get("throw_timer", 0.0)))
 	else:
 		frame_index = int(anim_timer * 4.0) % MONKEY_CLIMB_FRAME_COUNT
 		if state == "leaving":
 			frame_index = MONKEY_CLIMB_FRAME_COUNT - 1 - frame_index
-	var target_size: float = max(28.0, 28.0 * draw_scale * MONKEY_RUNTIME_SIZE_MULTIPLIER * render_scale)
+	var target_size: float = _get_monkey_draw_size(draw_scale)
 	if texture != null:
-		_draw_sheet_frame(canvas, texture, frame_index, frame_count, pos + Vector2(0.0, offset_y), Vector2(target_size, target_size))
+		_draw_sheet_frame(canvas, texture, frame_index, frame_count, pos + Vector2(0.0, offset_y), Vector2(target_size, target_size), flip_h)
 	else:
 		_draw_monkey_fallback(canvas, pos, target_size * 0.5)
 
 
-func _draw_sheet_frame(canvas: CanvasItem, texture: Texture2D, frame_index: int, frame_count: int, center: Vector2, size: Vector2) -> void:
+func _get_throw_frame_index(throw_timer: float) -> int:
+	return min(MONKEY_THROW_FRAME_COUNT - 1, 1 + int(clamp(throw_timer, 0.0, 0.999) * 7.0))
+
+
+func _is_monkey_facing_right(monkey: Dictionary) -> bool:
+	return bool(monkey.get("facing_right", str(monkey.get("side", "left")) == "left"))
+
+
+# The throw sheet is authored right-facing, so a right-tree monkey
+# (throwing leftward into the playfield) must mirror.
+func _should_flip_throw_sprite(monkey: Dictionary) -> bool:
+	return not _is_monkey_facing_right(monkey)
+
+
+func _get_monkey_draw_size(draw_scale: float) -> float:
+	return max(28.0, 28.0 * draw_scale * MONKEY_RUNTIME_SIZE_MULTIPLIER * render_scale)
+
+
+func _draw_sheet_frame(canvas: CanvasItem, texture: Texture2D, frame_index: int, frame_count: int, center: Vector2, size: Vector2, flip_h: bool = false) -> void:
 	if frame_count <= 0:
 		return
 	var texture_size: Vector2 = texture.get_size()
@@ -789,7 +821,34 @@ func _draw_sheet_frame(canvas: CanvasItem, texture: Texture2D, frame_index: int,
 	var frame_w: float = texture_size.x / float(frame_count)
 	var source_rect := Rect2(Vector2(frame_w * clampi(frame_index, 0, frame_count - 1), 0.0), Vector2(frame_w, texture_size.y))
 	var rect := Rect2(center - size * 0.5, size)
+	if flip_h:
+		_draw_flipped_sheet_frame(canvas, texture, source_rect, rect)
+		return
 	canvas.draw_texture_rect_region(texture, rect, source_rect)
+
+
+# Mirrors through swapped, texture-size-normalized UVs (negative-width
+# Rect2 flips can drift off the draw center on some canvas paths).
+func _draw_flipped_sheet_frame(canvas: CanvasItem, texture: Texture2D, source_rect: Rect2, target_rect: Rect2) -> void:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var points := PackedVector2Array([
+		target_rect.position,
+		Vector2(target_rect.end.x, target_rect.position.y),
+		target_rect.end,
+		Vector2(target_rect.position.x, target_rect.end.y),
+	])
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var uvs := PackedVector2Array([
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_min.x, uv_max.y),
+		Vector2(uv_max.x, uv_max.y),
+	])
+	var colors := PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _draw_monkey_fallback(canvas: CanvasItem, center: Vector2, radius: float) -> void:
@@ -864,8 +923,18 @@ func _draw_banana_burst(canvas: CanvasItem, banana: Dictionary, shake_offset: Ve
 		canvas.draw_circle(pos, float(particle.get("size", 4.0)), color)
 
 
+# The launch point sits on a letterbox tree well outside 0..WIDTH (about
+# -290 / +1050 game px in the default layout), so the horizontal cull must
+# span the whole letterbox band or the banana pops into view mid-flight.
 func _is_banana_in_draw_area(pos: Vector2) -> bool:
-	return pos.x >= -120.0 and pos.x <= WIDTH + 120.0 and pos.y >= -120.0 and pos.y <= HEIGHT + 120.0
+	var letterbox_left: float = max(0.0, game_offset.x) / render_scale
+	var letterbox_right: float = max(0.0, view_size.x - game_offset.x - game_size.x) / render_scale
+	return (
+		pos.x >= -letterbox_left - 120.0
+		and pos.x <= WIDTH + letterbox_right + 120.0
+		and pos.y >= -120.0
+		and pos.y <= HEIGHT + 120.0
+	)
 
 
 func _draw_ellipse(canvas: CanvasItem, rect: Rect2, color: Color, segments: int = 28) -> void:
