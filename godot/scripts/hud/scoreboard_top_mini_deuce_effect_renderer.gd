@@ -10,6 +10,7 @@ const FLAME_LAYER_COUNT := 2
 const FLAME_LAYER_COUNT_LOD := 1
 const FLAME_STEP := 6
 const FLAME_STEP_LOD := 10
+const FLAME_MIN_TONGUE_LIFT := 0.5
 const OPPORTUNITY_GOLD := Color(1.0, 222.0 / 255.0, 86.0 / 255.0)
 
 var ember_renderer: Object = ScoreboardTopMiniDeuceEmberRenderer.new()
@@ -87,18 +88,42 @@ func _draw_flame_tongues(canvas: CanvasItem, rect: Rect2, scale_factor: float, t
 	var layer_count: int = FLAME_LAYER_COUNT_LOD if lod_active else FLAME_LAYER_COUNT
 	var step_size: int = FLAME_STEP_LOD if lod_active else FLAME_STEP
 	for layer in range(layer_count):
-		var layer_height: float = (35.0 - float(layer) * 6.0) * scale_factor
-		var points := PackedVector2Array()
-		points.append(Vector2(rect.position.x - 10.0 * scale_factor, rect.position.y + 7.0 * scale_factor))
-		for step in range(0, int(rect.size.x + 20.0 * scale_factor), step_size):
-			var fx: float = float(step)
-			var h: float = layer_height * 0.4
-			h += sin(t * (15.0 + float(layer) * 3.0) + fx * 0.18) * layer_height * 0.3
-			h += sin(t * (22.0 + float(layer) * 5.0) + fx * 0.28) * layer_height * 0.2
-			h += sin(t * (35.0 + float(layer) * 8.0) + fx * 0.45) * layer_height * 0.15
-			points.append(Vector2(rect.position.x - 10.0 * scale_factor + fx, rect.position.y + 7.0 * scale_factor - max(0.0, h)))
-		points.append(Vector2(rect.end.x + 10.0 * scale_factor, rect.position.y + 7.0 * scale_factor))
-		canvas.draw_colored_polygon(points, _with_alpha_multiplier(_get_flame_layer_color(layer), alpha_multiplier))
+		canvas.draw_colored_polygon(
+			build_flame_layer_points(rect, scale_factor, t, layer, step_size),
+			_with_alpha_multiplier(_get_flame_layer_color(layer), alpha_multiplier)
+		)
+
+
+# The tongue height clamps to a small positive lift instead of 0: a tongue
+# flattened exactly onto the baseline duplicates / runs collinear with the
+# polygon's closing baseline edge and fails draw_colored_polygon
+# triangulation. The sine stack goes non-positive every few frames, which
+# spammed "Invalid polygon data" continuously during deuce (2026-06-11,
+# 218MB log). A fill-skip gate would flicker the flame here, so the
+# geometry itself stays simple instead.
+static func build_flame_layer_points(
+	rect: Rect2,
+	scale_factor: float,
+	t: float,
+	layer: int,
+	step_size: int
+) -> PackedVector2Array:
+	var layer_height: float = (35.0 - float(layer) * 6.0) * scale_factor
+	var baseline_y: float = rect.position.y + 7.0 * scale_factor
+	var points := PackedVector2Array()
+	points.append(Vector2(rect.position.x - 10.0 * scale_factor, baseline_y))
+	for step in range(0, int(rect.size.x + 20.0 * scale_factor), step_size):
+		var fx: float = float(step)
+		var h: float = layer_height * 0.4
+		h += sin(t * (15.0 + float(layer) * 3.0) + fx * 0.18) * layer_height * 0.3
+		h += sin(t * (22.0 + float(layer) * 5.0) + fx * 0.28) * layer_height * 0.2
+		h += sin(t * (35.0 + float(layer) * 8.0) + fx * 0.45) * layer_height * 0.15
+		points.append(Vector2(
+			rect.position.x - 10.0 * scale_factor + fx,
+			baseline_y - max(FLAME_MIN_TONGUE_LIFT, h)
+		))
+	points.append(Vector2(rect.end.x + 10.0 * scale_factor, baseline_y))
+	return points
 
 
 func _get_flame_layer_color(layer: int) -> Color:
