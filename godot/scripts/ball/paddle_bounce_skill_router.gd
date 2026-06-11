@@ -93,6 +93,8 @@ func try_activate_drive(
 func _is_player_skill_input_locked(deps: Dictionary) -> bool:
 	if bool(deps.get("player_skill_input_locked", false)):
 		return true
+	if _is_player_stun_active(deps):
+		return true
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime == null:
 		return false
@@ -106,6 +108,30 @@ func _is_player_skill_input_locked(deps: Dictionary) -> bool:
 		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
 	):
 		return true
+	if (
+		mythic_item_runtime.has_method("is_odins_eye_skills_locked")
+		and bool(mythic_item_runtime.is_odins_eye_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_odins_eye_control_locked")
+		and bool(mythic_item_runtime.is_odins_eye_control_locked())
+	):
+		return true
+	return false
+
+
+func _is_player_stun_active(deps: Dictionary) -> bool:
+	var status_effect_state: Object = deps.get("status_effect_state", null)
+	if status_effect_state != null:
+		if status_effect_state.has_method("is_player_stun_active") and bool(status_effect_state.is_player_stun_active()):
+			return true
+		if status_effect_state.has_method("has_status") and bool(status_effect_state.has_status("player", "stun")):
+			return true
+		if status_effect_state.has_method("get_player_control_context"):
+			var context: Variant = status_effect_state.get_player_control_context()
+			if context is Dictionary:
+				return bool(context.get("player_stun_active", false)) or float(context.get("player_stun_ratio", 0.0)) > 0.0
 	return false
 
 
