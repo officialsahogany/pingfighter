@@ -1708,7 +1708,11 @@ func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: D
 	var affinity_pet_id := _get_active_affinity_pet_id()
 	var registry: Object = _deps.get("registry", null) as Object
 	if affinity_pet_id != "":
-		_add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+		# 2026-06-12 design decision: only PLAYER-scored commits pay the +5
+		# round reward. A lost point paying affinity read as wrong once the
+		# +N popup made the income visible.
+		if scoring_side == "player":
+			_add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
 		if scoring_side == "player" and bool(score_result.get("match_finished", false)):
 			_add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_VICTORY, {}, registry)
 	if bool(score_result.get("match_finished", false)):
