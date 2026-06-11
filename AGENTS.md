@@ -474,7 +474,16 @@ Standing rules:
   helpers fall back through `ResourceLoader.exists/load` for packed resources.
   Optional source-file checks are acceptable for editor-only validation or JSON
   sidecars, but they must not decide that an exported texture is missing.
-- Export-build UI rendering invariant: user-visible reward boxes, Live2D-style
+- Export-build asset STAGING invariant (mirror of the loader rule above): a
+  PNG newly copied into `godot/` is not integrated until an import pass has
+  generated `<file>.png.import` plus its dest `.ctex` under `.godot/imported/`,
+  and the `.import` sidecar is committed with the PNG. A missing sidecar is
+  invisible to `run_headless_load_check.ps1`, smokes, and the editor preview
+  because the `ProjectResourceLoader` raw-PNG fallback decodes the source file
+  directly — but the export build packs imported resources, so the texture can
+  silently drop from shipped builds. Reference miss: the character select
+  chamber backplate (2026-06-11) passed headless load check, warning scan, and
+  three VFX smokes with no sidecar on disk.
   sheets, cut-ins, click reactions, and result-screen visuals must have a
   visible fallback if their texture is unexpectedly null. For result-screen box
   bodies, prefer `draw_texture_rect_region()` with an explicit source rect and

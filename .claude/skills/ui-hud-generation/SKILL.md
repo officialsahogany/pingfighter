@@ -365,6 +365,17 @@ When the visual asset is accepted, hand off:
   `.\tools\run_headless_load_check.ps1`,
   `.\tools\run_warning_scan.ps1`, and fullscreen screenshot / preview at
   the user's reported aspect ratio
+- **`.import` sidecar gate (every newly staged PNG)**: a PNG copied into
+  `godot/` is NOT staged until an import pass has generated
+  `<file>.png.import` plus its dest `.ctex` under `.godot/imported/`.
+  `run_headless_load_check.ps1` passing is NOT proof — the
+  `ProjectResourceLoader` raw-PNG fallback decodes the source file
+  directly, so editor / headless runs look correct while the export
+  build can drop the texture entirely. Run an editor import pass (or
+  `--headless --import`), verify the sidecar + ctex exist, and commit
+  the `.import` together with the PNG. Reference miss: the character
+  select chamber backplate (2026-06-11) shipped without its sidecar and
+  passed every headless check.
 - **atlas grid declaration (multi-cell sheets only)**: if the accepted PNG is
   a multi-cell atlas (lantern mirror pair, lotus pulse strip, dragon-head
   16-frame strip, motion ambient grid, etc.), the runtime handoff and the

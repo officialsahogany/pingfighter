@@ -352,6 +352,76 @@ Standing rules for effect zone / impact flash wiring:
   particle burst at whatever position lands in that array, so auditing only
   the immediate-mode drawer understates how visible a stray flash entry is.
 
+## Godot Negative-Z Backdrop Host vs Ancestor Opaque Fill Trap
+
+Canvas `z_index` is sorted globally within a CanvasLayer, not per-parent. A
+"draw behind my parent" host node with negative z (`z_as_relative`) therefore
+draws before EVERY z=0 canvas item in the layer — including the screen-root
+ancestor's `_draw`. If any ancestor paints an opaque full-screen background
+(`draw_rect(view, color, alpha≈1.0)`), the entire negative-z host subtree
+(every TextureRect layer, every GPUParticles2D child, regardless of their own
+positive relative z) is silently and permanently covered. There is no error,
+state smokes still pass (`visible=true`, correct modulate/texture), and the
+on-screen result just "looks unchanged", so the burial can ship unnoticed for
+weeks. Reference failure: the character-select preview VFX host (z=-20,
+designed only against its parent `character_live_preview`'s immediate draw)
+was buried by `character_select_screen._draw_background()`'s opaque
+full-screen fill the whole time — discovered 2026-06-12 only when the new
+chamber backplate "didn't show" despite every state probe reading correct.
+
+Standing rules:
+- When adding a negative-z host under a Control whose ANCESTORS also do
+  immediate `_draw`, audit every ancestor for full-screen / panel-covering
+  opaque fills. The direct parent is not the only cover candidate.
+- z alone cannot slot a child between an ancestor's `_draw` and its parent's
+  `_draw`: any negative z sinks below the ancestor too, and z=0 rises above
+  the parent's own canvas item. The working fixes are (a) cut a hole in the
+  ancestor's opaque fill at the host rect (4-strip
+  `_draw_rect_excluding_hole` + an explicit "host active" gate like
+  `character_live_preview.is_backdrop_host_active()`), or (b) restructure the
+  host as a z=0 sibling tree-ordered before the actor renderer.
+- A backdrop / VFX host integration is not "done" on state smokes alone. The
+  sign-off requires a PIXEL-level check — run the real scene windowed, take a
+  viewport screenshot, and confirm the layer actually reads on screen. The
+  reference incident had `visible=true`, correct texture, correct modulate,
+  and zero visible pixels.
+
+A sprite sheet with a lateral action (throw, strike, aim, lunge) is authored
+facing ONE direction, and that authored facing is invisible in code -- you
+must open the PNG to know it. Any runtime that can play the sheet in BOTH
+gameplay directions must mirror the draw when the actual action direction
+opposes the authored facing, and the projectile / effect spawn point must
+come from the acting limb (offset toward the facing direction), not the body
+center. Reference failure: the Stage 2 pillar monkey stored `facing_right`
+at spawn but `_draw_monkey` never read it, and the banana spawned at body
+center -- a right-tree monkey visibly threw toward the letterbox while the
+banana flew left into the field from behind its back
+(`stage2_monkey_banana_event.gd`).
+
+Standing rules:
+- A per-actor facing / direction flag that exists only in the spawn dict is
+  a red flag -- grep that the renderer actually consumes it.
+- Mirror via the established UV-swapped `draw_polygon` helper
+  (texture-size-normalized UVs; see `_draw_flipped_sheet_frame` /
+  `lingpet_companion_renderer._draw_flipped_texture_region`), not a
+  negative-width Rect2.
+- The smoke must assert the OUTCOME pair: the flip decision matches the
+  actual travel direction of the spawned projectile, AND the spawn point is
+  offset to the facing side of the actor center
+  (`stage2_monkey_banana_event_smoke` facing / launch-point block is the
+  reference).
+- The projectile spawn TIME must match the sheet's hand-empty frame, not a
+  round-number delay. If the sheet holds the object in-hand through frame N
+  and shows an empty hand from frame N+1, spawn the projectile exactly when
+  frame N+1 lands (derive the release constant from the frame mapping, e.g.
+  `2.0 / 7.0`, not `0.5`), or the object visibly vanishes between wind-up
+  and release.
+- If the actor lives in the screen letterbox (pillar tree, outer chrome),
+  the projectile's draw cull must include the letterbox band in game
+  coordinates (`game_offset.x / render_scale` each side), not just
+  `0..WIDTH` plus a small margin -- otherwise the projectile pops into view
+  mid-flight at the field edge even though its motion math is correct.
+
 ## Godot Per-Frame Probability Roll Trap
 
 A `chance_pct` that is meant as a per-opportunity success rate but is rolled
@@ -444,6 +514,16 @@ Standing rules for chance-gated per-frame gameplay effects:
   motion smoke must first let the initial cast actually LAUNCH (needs an active
   ball parked away from the lane) so the skill enters its 40s cooldown; otherwise
   the wind-up re-arms and the companion stays frozen through the scenario.
+- **Interaction-grant variant: a player-driven reward grant (pet click rapport,
+  future companion petting / feeding rewards) needs BOTH the per-opportunity
+  edge lock AND round/battle caps owned by the battle lifecycle — global,
+  pet-id-agnostic, surviving pet switch / re-hatch.** The edge lock alone
+  leaves an AFK re-trigger loop (~one grant per animation cycle), and per-pet
+  cap counters re-arm on pet switch. Reference: lingpet 교감 click grant —
+  start()-edge-only award in `try_begin_companion_click_reaction` (the
+  already-active replay branch must not grant) + battle-global caps in
+  `lingpet_affinity_state` (round 2 / battle 5), sealed by
+  `lingpet_affinity_state_smoke`'s same-round pet-switch cases.
 
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
@@ -479,6 +559,39 @@ Standing rules:
   `character_info_live_stats_smoke._verify_defense_override_reaches_panel_through_schema_gated_owner`
   (verified to FAIL when the schema key is removed).
 
+## Godot Lazy Applied-Key Re-Apply Trap
+
+A lazy apply gate that early-returns on "already applied" BEFORE recomputing
+its key makes key-CONTENT changes invisible: if an input folded into the key
+changes while the stored key string is still non-empty, the gate returns
+before the key is ever rebuilt, so "include the new input in the key" alone
+is a silent no-op. Reference failure class: `lingpet_egg_runtime.
+_apply_current_loadout` early-returns on `_applied_loadout_key != ""` before
+`_build_loadout_key` runs — an affinity level-up that only changed key
+contents would never re-apply. The only working lever is explicit
+invalidation (`_invalidate_current_loadout_cache()` on every level-up) plus
+folding the changing input into the downstream value caches
+(`lingpet_current_profile` skill-dict cache keys). Standing rules:
+- For any applied-key / dirty-key lazy gate, audit WHERE the early-return
+  sits relative to the key recompute before claiming "the key includes X".
+- The regression smoke must drive the REAL apply path: change the input
+  WITHOUT invalidation and assert the stale value persists, then invalidate
+  and assert the new value lands (lingpet_egg_runtime_smoke affinity
+  synthesis case is the reference).
+
+## Godot Stats-Panel Row Budget Trap
+
+`character_info_overlay_stats_presenter.draw_lingpet_stat_rows` silently
+DROPS rows that overflow the section rect (line gap floors at 16px, rows
+past the rect bottom break out of the draw loop). A new stat row can pass
+every data-model assert (`rows.size() >= N`) while the drawn panel silently
+loses its last row in the vertical stacked layout (<620px inner width).
+This is the sibling of the tooltip shared-line-budget clip trap. When adding
+a panel row, assert DRAW-TIME capacity at the stacked-layout rect via
+`lingpet_stat_rows_visible_capacity` (reference:
+`character_info_live_stats_smoke`'s 교감-row capacity assert), or define
+which row yields when the rect cannot fit.
+
 ## Godot Boss-Paddle-Scripting Skill Trap (drag / grab / displace the boss)
 
 Any skill that **scripts the boss paddle position** instead of nudging it
@@ -504,6 +617,34 @@ displace ports) must keep these invariants together, or the effect looks broken:
    to keep the goal "open"; that guidance is obsolete. The shipped intent is
    that a dragged boss can still physically bounce a rising ball from its
    displaced position, even when that looks like defending from the wrong side.
+   Corollary (2026-06-11 fix): the boss-hit BOUNCE response must anchor to the
+   LIVE paddle too. `paddle_bounce_boss_post_hit_handler._snap_boss_hit_ball_pos`
+   used to snap the ball's y to the static `boss_y` constant (`BOSS_Y = 25`),
+   so with a displaced boss the collision fired correctly but the post-hit
+   snap teleported the ball back to the top of the screen on contact. The snap
+   now reads the live `context.boss_pos.y` (static `boss_y` only as fallback).
+   Any post-hit logic anchored to the boss paddle (ball snap, effect spawn,
+   cooldown bands) must use the live `boss_pos`, never `BOSS_Y` / `boss_y`.
+   Second corollary (2026-06-11): a boss paddle hit must re-arm
+   `boss_collision_cooldown` (Python parity: `pingfighter.py` 174199,
+   `BOSS_COLLISION_COOLDOWN_FRAMES = 10`). The Godot port originally relied on
+   the `ball_vel.y < 0` gate alone, which is enough for a top-parked boss but
+   lets a displaced boss (kiss point just above the player band) ping-pong the
+   ball boss<->player every couple of frames. The cooldown is set in
+   `paddle_bounce_boss_post_hit_handler` and must be propagated through every
+   bounce-result allowlist layer (`paddle_bounce_post_hit_handler` →
+   `paddle_bounce_post_hit_step` → `paddle_bounce_controller`) or the scene
+   merge silently drops it.
+6. **"Below the boss" repositioning hacks must not follow a displaced boss.**
+   Stage-side guards that re-place the ball "just under the boss" as a proxy
+   for "just under the top goal band" (stage2 quake
+   `resolve_quake_boss_backstop`, `stage2_quake_ball_motion_state.apply_boss_launch_guard`)
+   must cap their anchor at the HOME band — `min(boss_pos.y, context.boss_y)` —
+   or a puppeted mid-field boss makes them teleport the ball from the goal
+   line into the player's floor band (stealing a goal / forcing a loss). When
+   porting any future "keep the ball below/above an actor" guard, ask whether
+   the actor can be displaced by a scripting skill and pick the intent anchor
+   (home band) explicitly.
 3. **Declare the flag in `battle_scene_state.DEFAULT_VALUES`** (see the
    Owner-Field Schema Trap above) or every `owner.set(flag, true)` silently
    no-ops and neither consumer ever sees it.
@@ -539,7 +680,10 @@ case, a **round-end leak regression** that calls `cancel(null)` mid-grab and
 proves the next `update(owner)` clears the flag, AND a regression that runs the
 real `BallRoundController.reset_ball()` after a drag and proves boss y returns to
 `BOSS_Y`, AND a collision regression proving a puppeted boss paddle still returns
-`EVENT_BOSS_PADDLE` for a rising overlap. Keep the source guard too:
+`EVENT_BOSS_PADDLE` for a rising overlap, AND an OUTCOME regression that runs
+`paddle_bounce_boss_post_hit_handler.apply()` with a displaced `boss_pos` and
+asserts the ball snaps below the DISPLACED paddle (no static-top teleport).
+Keep the source guard too:
 `ball_motion_collision_detector.gd` must not branch on
 `lingpet_puppet_grab_active`. Reference:
 `lingpet_egg_runtime_smoke._verify_koyora_puppet_grab_skill`.

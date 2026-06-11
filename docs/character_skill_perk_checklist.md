@@ -555,6 +555,19 @@ Important current behavior:
 - Existing Smasher skills such as Magnum Grip, Plasma, Recovery,
   Cleanse, and Ghost Shot each have separate gameplay trigger paths.
   A new skill must have its own real trigger/update path too.
+- **Power-smash combo scaling is a recorded 2026-06-11 design decision
+  (option C), an intentional divergence from Python.** The combo final
+  speed bonus AND the combo launch cap (2.403744 vs 2.14032) gate on
+  REAL `combo_consumed >= combo_min_count` in
+  `smasher_power_smash_hit_velocity_resolver.gd`, with the bonus scaled
+  by real combo count. The Python originals' no-combo PENALTIES
+  (0.75 boost / 0.78 initial mult, pingfighter.py:186090/:186161) are
+  deliberately neutralized at 1.0 (`POWER_SMASH_NO_COMBO_*_MULT`) so a
+  no-combo smash stays usable; do not "restore parity" on those
+  constants without a new design decision. VFX / knockback / boss-AI
+  context already use real `combo_consumed`, so velocity and feedback
+  lanes now agree. Sealed by
+  `junior_power_smash_tuning_smoke._verify_power_smash_combo_gate_uses_real_combo_for_launch_cap`.
 
 ### 3.3. Viper Godot audit points
 
@@ -1138,6 +1151,31 @@ Current Godot-first rule:
 - [ ] Gate the skill with the correct unlock-and-equip predicate.
 - [ ] Gate the skill with the correct cooldown predicate.
 - [ ] Gate the skill with the correct gauge / resource predicate.
+- [ ] **Ball-deps `input_reader` is RAW.** The paddle-bounce activation
+      path reads the unwrapped per-character input reader from
+      `ball_dependency_context.gd` (smasher/viper/commando/blacksmith),
+      NOT the player-control deps reader that is wrapped by
+      `Stage3CurseControlInputProxy` + `PlayerSkillLockInputProxy`. Any
+      skill activated from a paddle-bounce event must be gated through
+      `paddle_bounce_skill_router._is_player_skill_input_locked()` (or
+      equivalent), or it silently bypasses transform locks and player
+      stun. Reference failure: Odin's Eye penalty form + Stage 5 stun
+      could still fire power smashing / ghost shot / drive (fixed
+      2026-06-11; sealed by `smasher_power_smash_skill_lock_smoke.gd`).
+- [ ] **Player skill-lock predicates live at FOUR sites that must stay
+      in sync:** `paddle_bounce_skill_router._is_player_skill_input_locked`,
+      `player_skill_lock_input_proxy._is_player_skill_locked` (the proxy
+      re-check, not just its installer), `battle_update_player_control_deps_builder`,
+      and `battle_scene_player_control_config_builder`. A new transform /
+      lock effect (Yachaman Soul port, Odin dark-swamp `dark_energy_active`
+      phase) must be added to all four in one pass — the proxy installer
+      including a lock that the proxy's internal re-check lacks makes the
+      proxy a silent pass-through for that lock.
+- [ ] **New player stun sources must go through
+      `status_effect_state.apply_status("player", "stun", ...)`.** That
+      shared status state is the only stun channel the activation gates
+      and movement controllers probe; a private stun flag in a stage /
+      boss module is invisible to them.
 - [ ] Apply the real effect:
       projectile, buff, cleanse, pull, shield, spawn, damage mod, etc.
 - [ ] If a character skill drains a stage boss gauge, audit the Godot
