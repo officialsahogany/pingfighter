@@ -88,15 +88,33 @@ func _verify_render_fps_cap_runtime_options() -> void:
 	_expect(int(Engine.get("max_fps")) == 60, "60 FPS cap should apply to Engine.max_fps")
 	_expect(int(Engine.physics_ticks_per_second) == 60, "60 FPS cap should sync the physics tick rate to 60")
 
-	# NOTE (risk, 2026-06-10): Stable Monitor deliberately syncs the physics tick
-	# rate to its resolved render cap (assert below), so the shipped 144Hz default
-	# resolves to render 48 / physics 48 — NOT the original "48 stable preset"
-	# render 48 / physics 72 decoupling (the old Monitor default ran 144/72 here).
-	# Coarser physics → watch fast-ball tunneling at paddle edge / holy-barrier
-	# band on >120Hz hardware. If tunneling shows up in play, the minimal follow-up
-	# is to make STABLE_MONITOR fall back to the project physics default (72) in
-	# _resolve_physics_ticks_per_second() and flip the assert below. Keep this
-	# contract until that decision is made.
+	# 2026-06-11 promotion: STABLE_PREFERRED_MAX is 72, so the shipped 144Hz
+	# default resolves to render 72 / physics 72 (the project physics default —
+	# the earlier 48/48 mapping and its tunneling-risk note are retired). Gate
+	# evidence: docs/frame_budget_72fps_optimization_design.md §0.2 clean-run
+	# verdict. Stable Monitor still syncs the physics tick to its resolved cap
+	# (assert below); the divisor table is sealed explicitly here so a constant
+	# regression cannot silently drop 144Hz users back to 48.
+	_expect(
+		int(BattleViewLayout.resolve_stable_cap_for_monitor_rate(144)) == 72,
+		"144Hz monitor should map to the promoted 72 stable cap"
+	)
+	_expect(
+		int(BattleViewLayout.resolve_stable_cap_for_monitor_rate(120)) == 60,
+		"120Hz monitor should keep mapping to 60"
+	)
+	_expect(
+		int(BattleViewLayout.resolve_stable_cap_for_monitor_rate(60)) == 60,
+		"60Hz monitor should pass through unchanged (known-good setup)"
+	)
+	_expect(
+		int(BattleViewLayout.resolve_stable_cap_for_monitor_rate(240)) == 60,
+		"240Hz monitor should map to a stable divisor (60)"
+	)
+	_expect(
+		int(BattleViewLayout.resolve_stable_cap_for_monitor_rate(165)) == 55,
+		"165Hz monitor should map to its stable divisor (55)"
+	)
 	_expect(int(layout.apply_render_fps_cap(null, -2)) == -2, "stable monitor cap should keep the stable sentinel in settings")
 	var stable_cap: int = int(Engine.get("max_fps"))
 	_expect(stable_cap >= 45 and stable_cap <= 90, "stable monitor cap should apply a playable refresh divisor")

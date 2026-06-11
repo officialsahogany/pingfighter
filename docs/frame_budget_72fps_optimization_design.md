@@ -190,6 +190,19 @@ Gap 라인 기반)는 폐기 — 0.1의 ">20ms 기준" 열은 베이스라인과
 
 ## 3. 완료 후: Stable Monitor 144→72 승급 절차
 
+**[2026-06-11 승급 완료.** 게이트: §0.2 클린 런(1~2 체감 클린) + 3~5 런(4/5
+스테이지 체감 클린, 스테이지3 후반 각성-페이즈 한정 "살짝" — 후속 슬라이스로
+분리) + 사용자 승인. 실제 레버는 `RENDER_FPS_CAP_STABLE_PREFERRED_MAX 60→72`
+하나(divisor 테이블이라 144→72, 120→60 유지, 240→60, 165→55). 매핑을
+`resolve_stable_cap_for_monitor_rate()` 순수 함수로 추출해
+`render_fps_cap_settings_smoke.gd`가 테이블을 직접 봉인. 물리 틱 동기로
+144Hz는 72/72(=프로젝트 기본)가 되어 48틱 터널링 우려는 144Hz에서 소멸
+(165/240Hz 등 72 미만 해석 모니터에는 잔존 — CLAUDE.md 문단 갱신).
+pause_menu_overlay(48 프리셋 상수만, 무관)와 language_settings_data(숫자
+하드코딩 없음)는 무변경. 신규 마이그레이션 불필요: 저장값은 Stable Monitor
+센티널이라 로드 시 새 테이블로 재해석. 부트스트랩 캡(48)은 불변. 잔여 후속:
+스테이지3 각성-페이즈 effects 비용 슬라이스.]
+
 CLAUDE.md "Godot High-Refresh Pacing Trap"의 이동-함께 목록을 그대로 따른다:
 `_get_stable_monitor_refresh_rate()`(battle_view_layout.gd) 144→72 매핑,
 `pause_menu_overlay.gd` 미러 상수/권장설정 경로,

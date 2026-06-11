@@ -240,11 +240,18 @@ the runtime display default is intentionally **Stable Monitor**:
 `RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR` in
 `godot/scripts/core/battle_view_layout.gd`, mirrored in
 `godot/scripts/hud/pause_menu_overlay.gd`. Stable Monitor resolves through
-`_get_stable_monitor_refresh_rate()` so 144Hz -> 48, 120Hz -> 60, and
+`_get_stable_monitor_refresh_rate()` /
+`resolve_stable_cap_for_monitor_rate()` so **144Hz -> 72** (promoted
+2026-06-11 from 48 after the 72fps budget work passed its clean-run felt
+gate — see `docs/frame_budget_72fps_optimization_design.md` §0.2; the
+single lever is `RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 72`, divisor table
+sealed in `render_fps_cap_settings_smoke.gd`), 120Hz -> 60, and
 60Hz -> 60. This keeps the `60Hz + 60 FPS + VSync On` known-good setup intact
 on 60Hz displays while giving high-refresh displays a safer default frame
 budget than monitor-rate 144 FPS. Runtime options still expose 48 / 60 / 72 /
-Unlimited / Monitor as explicit alternatives.
+Unlimited / Monitor as explicit alternatives. No new settings migration was
+needed for the promotion: the stored value is the Stable Monitor sentinel,
+which re-resolves through the new table on load.
 
 Display settings schema 5 migrates materialized schema <=4
 `RENDER_FPS_CAP_MONITOR` defaults to Stable Monitor. This intentionally cleans
@@ -261,22 +268,22 @@ if the bootstrap safety cap itself changes.
 displays.** `_resolve_physics_ticks_per_second()` syncs the physics tick rate to
 the resolved render cap for `RENDER_FPS_CAP_STABLE_MONITOR` /
 `RENDER_FPS_CAP_MONITOR` whenever that cap lands in `[30, 120]`, and
-`render_fps_cap_settings_smoke.gd` locks this as a contract. So the shipped
-Stable Monitor default resolves to **render 48 / physics 48 on a 144Hz monitor**
-(a 60Hz display stays 60/60), which is intentionally NOT the original
-48-stable-preset **render 48 / physics 72** decoupling — the prior Monitor
-default ran 144/72 on the same hardware. Only `>120Hz` users see the
-`72 -> 48` physics drop. The lower tick rate is coarser, so the felt risk is
-fast-ball **tunneling** through thin collision bands (paddle edge, holy barrier,
-brick wall) on high-refresh hardware; gameplay speed itself stays constant only
+`render_fps_cap_settings_smoke.gd` locks this as a contract. After the
+2026-06-11 144->72 promotion the shipped Stable Monitor default resolves to
+**render 72 / physics 72 on a 144Hz monitor** (a 60Hz display stays 60/60) —
+72 IS the project physics default, so the earlier `72 -> 48` physics drop and
+its fast-ball **tunneling** risk note for `>120Hz` displays are retired for
+144Hz. The tick-sync contract itself still applies to other monitor rates
+(e.g. 165Hz -> 55/55, 240Hz -> 60/60), where the resolved tick can sit below
+72: the felt risk there remains tunneling through thin collision bands
+(paddle edge, holy barrier, brick wall); gameplay speed stays constant only
 as long as motion uses the `ball_update_controller` `fps_scale = delta * 60`
-path. This is a deliberate, smoke-locked choice, not a bug. If in-game play on a
-`>120Hz` display shows tunneling, the minimal, cleanest follow-up is to make
-`STABLE_MONITOR` fall back to the project physics default (`72`) inside
-`_resolve_physics_ticks_per_second()` instead of syncing to the resolved cap,
-then flip the `render_fps_cap_settings_smoke.gd` "sync physics to its resolved
-cap" assert. That single lever is the documented switch — do not silently
-re-raise physics anywhere else.
+path. If tunneling shows up on such a display, the minimal, cleanest
+follow-up is to make `STABLE_MONITOR` fall back to the project physics
+default (`72`) inside `_resolve_physics_ticks_per_second()` instead of
+syncing to the resolved cap, then flip the `render_fps_cap_settings_smoke.gd`
+"sync physics to its resolved cap" assert. That single lever is the
+documented switch — do not silently re-raise physics anywhere else.
 
 ## Godot Hot-Path Lazy Init Trap
 

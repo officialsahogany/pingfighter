@@ -24,7 +24,12 @@ const RENDER_FPS_CAP_STABLE_MONITOR := -2
 const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR
 const RENDER_FPS_CAP_STABLE_MAX := 90
 const RENDER_FPS_CAP_STABLE_MIN := 45
-const RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 60
+# 2026-06-11 promotion: 72 so a 144Hz monitor maps to 72 (was 60 -> 144Hz
+# mapped to 48). Gated by the 72fps budget work — clean-run verdict in
+# docs/frame_budget_72fps_optimization_design.md §0.2. Physics tick syncs to
+# the resolved cap, so 144Hz now runs 72/72 (= the project physics default,
+# which also retires the 48-tick tunneling concern for >120Hz displays).
+const RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 72
 const HIGH_REFRESH_RECOMMENDATION_MIN_HZ := 120
 const WINDOWS_DISPLAY_SETTINGS_URI := "ms-settings:display"
 const PHYSICS_TICKS_SETTING := "physics/common/physics_ticks_per_second"
@@ -555,7 +560,12 @@ func _get_display_refresh_manager() -> Object:
 
 
 func _get_stable_monitor_refresh_rate(window: Window = null) -> int:
-	var monitor_rate: int = _get_monitor_refresh_rate(window)
+	return resolve_stable_cap_for_monitor_rate(_get_monitor_refresh_rate(window))
+
+
+# Pure divisor mapping so the smoke can seal the monitor-rate table directly
+# (144 -> 72, 120 -> 60, <= 90 -> as-is).
+static func resolve_stable_cap_for_monitor_rate(monitor_rate: int) -> int:
 	if monitor_rate <= RENDER_FPS_CAP_STABLE_MAX:
 		return monitor_rate
 	# Prefer divisors with enough headroom to avoid near-budget VSync misses.
