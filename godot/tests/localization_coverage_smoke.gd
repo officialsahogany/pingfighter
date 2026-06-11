@@ -2,6 +2,7 @@ extends SceneTree
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
@@ -130,6 +131,42 @@ func _verify_runtime_surfaces_have_no_hangul(language: String) -> void:
 	_verify_character_select(language)
 	_verify_skill_configs(language)
 	_verify_formatter_outputs(language)
+	_verify_lingpet_panel_surface(language)
+
+
+func _verify_lingpet_panel_surface(language: String) -> void:
+	# Lingpet TAB panel + 교감 (affinity) overlay surface. Reward labels and
+	# bond titles are pulled from the runtime constants so a new reward type
+	# or bond title cannot ship Korean-only, and the composed labels exercise
+	# the translate-then-format / known-patterns paths the presenters use.
+	var surface_texts: Array[String] = [
+		"링펫", "링펫 알", "링펫 없음", "링펫 알 없음", "미해금", "미획득",
+		"동행 중", "하트 공명", "액티브 스킬", "패시브 스킬", "다음 보상 준비 중",
+		"방어율", "출현율", "액티브 쿨타임", "받아치기", "이동", "추적", "전이",
+		"공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
+		"주니어리그에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
+		"링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다.",
+		"링펫에게 배정된 패시브 스킬입니다.",
+	]
+	for reward_label in LingpetAffinityState.LABEL_BY_REWARD_TYPE.values():
+		surface_texts.append(str(reward_label))
+	for bond_title in [
+		LingpetAffinityState.BOND_TITLE_AWKWARD,
+		LingpetAffinityState.BOND_TITLE_CLOSER,
+		LingpetAffinityState.BOND_TITLE_FRIENDLY,
+		LingpetAffinityState.BOND_TITLE_BEST_FRIEND,
+		LingpetAffinityState.BOND_TITLE_SOULMATE,
+	]:
+		surface_texts.append(str(bond_title))
+	for korean_text in surface_texts:
+		_expect_no_hangul(LanguageSettings.translate_text(korean_text), "LINGPET_SURFACE[%s] %s" % [language, korean_text])
+	_expect_no_hangul(LanguageSettings.translate_text("교감 Lv.15!"), "LINGPET_SURFACE[%s] affinity flash label" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("교감 Lv.%d") % 3, "LINGPET_SURFACE[%s] affinity row label" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("동행 중 · 친밀도 %s") % LanguageSettings.translate_text(LingpetAffinityState.BOND_TITLE_AWKWARD), "LINGPET_SURFACE[%s] companion subtitle" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("공 충돌 %s") % "1 / 3", "LINGPET_SURFACE[%s] egg subtitle" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text("기동 강화"), "LINGPET_SURFACE[%s] next reward line" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("액티브 · %s쿨타임 %s") % ["Lv.2 · ", LanguageSettings.translate_text("18초")], "LINGPET_SURFACE[%s] active skill subtitle" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % "X", "LINGPET_SURFACE[%s] cooldown tooltip" % language)
 
 
 func _verify_active_item_catalog(language: String) -> void:

@@ -610,6 +610,21 @@ static func _localize_visible_string(key: String, value: String, parent_key: Str
 
 static func _translate_known_patterns(text: String) -> String:
 	var language := get_language()
+	if text.begins_with("교감 Lv."):
+		# Covers the composed affinity flash/row labels ("교감 Lv.5", "교감 Lv.15!")
+		# that never exact-match because the level is baked in before draw.
+		var bond_suffix := text.substr("교감 Lv.".length())
+		if language == LANGUAGE_CHINESE:
+			return "羁绊 Lv.%s" % bond_suffix
+		if language == LANGUAGE_JAPANESE:
+			return "絆 Lv.%s" % bond_suffix
+		if language == LANGUAGE_SPANISH:
+			return "Vínculo Lv.%s" % bond_suffix
+		if language == LANGUAGE_PORTUGUESE_BRAZIL:
+			return "Vínculo Lv.%s" % bond_suffix
+		if language == LANGUAGE_RUSSIAN:
+			return "Связь Lv.%s" % bond_suffix
+		return "Bond Lv.%s" % bond_suffix
 	if text.begins_with("게이지 "):
 		if language == LANGUAGE_CHINESE:
 			return "能量 %s" % text.substr("게이지 ".length())

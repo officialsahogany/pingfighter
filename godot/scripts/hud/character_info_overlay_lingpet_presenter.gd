@@ -236,8 +236,11 @@ static func draw_affinity_status(
 	var next_label := str(snapshot.get("affinity_next_label", "")).strip_edges()
 	var maxed := requirement <= 0.0 and level > 0
 	var progress: float = 1.0 if maxed else clampf(points / maxf(1.0, requirement), 0.0, 1.0)
-	var level_text := "교감 Lv.%d" % level
-	var value_text := next_label if maxed and next_label != "" else "%d / %d" % [int(round(points)), int(round(requirement))]
+	# Composed/measured strings are translated here (not only inside
+	# _draw_text_xy) so exact-map lookups still match and the right-aligned
+	# width is measured on the same text that gets drawn.
+	var level_text := LanguageSettings.translate_text("교감 Lv.%d") % level
+	var value_text := LanguageSettings.translate_text(next_label) if maxed and next_label != "" else "%d / %d" % [int(round(points)), int(round(requirement))]
 	var value_w := _text_size(font, value_text, 11, ui_text_scale).x
 	_draw_text_xy(canvas, font, level_text, rect.position.x, rect.position.y + 11.0, 11, Color.WHITE, ui_text_scale)
 	_draw_text_xy(canvas, font, value_text, rect.end.x - value_w, rect.position.y + 11.0, 11, stat_buff_color if maxed else empty_text_color, ui_text_scale)
@@ -247,9 +250,9 @@ static func draw_affinity_status(
 	canvas.draw_rect(meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
 	canvas.draw_rect(Rect2(meter_rect.position, Vector2(meter_rect.size.x * progress, meter_rect.size.y)), Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.82))
 	canvas.draw_rect(meter_rect, Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.86), false, 1.0)
-	var next_text := next_label if maxed else "다음: %s" % next_label
+	var next_text := LanguageSettings.translate_text(next_label) if maxed else LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text(next_label)
 	if next_label == "":
-		next_text = "다음 보상 준비 중"
+		next_text = LanguageSettings.translate_text("다음 보상 준비 중")
 	var next_x := meter_rect.end.x + 8.0
 	var next_w := maxf(10.0, rect.end.x - next_x)
 	_draw_text_xy(canvas, font, _fit_text_to_width(font, next_text, 10, next_w, ui_text_scale), next_x, rect.position.y + 26.0, 10, accent_blue if maxed else empty_text_color, ui_text_scale)
@@ -475,7 +478,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		specs.append({
 			"id": skill_id,
 			"title": skill_name,
-			"subtitle": "액티브 · " + active_level_label + "쿨타임 " + CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown),
+			"subtitle": LanguageSettings.translate_text("액티브 · %s쿨타임 %s") % [active_level_label, LanguageSettings.translate_text(CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown))],
 			"body": skill_description,
 			"color": Color(80.0 / 255.0, 220.0 / 255.0, 1.0),
 			"badge": "A",
@@ -495,18 +498,18 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		var passive_description: String = str(snapshot.get("companion_passive_skill_description", "")).strip_edges()
 		if passive_description == "":
 			passive_description = "링펫에게 배정된 패시브 스킬입니다."
-		var passive_subtitle := "패시브"
+		var passive_subtitle := LanguageSettings.translate_text("패시브")
 		var passive_level: int = int(snapshot.get("companion_passive_skill_level", 0))
 		if passive_level > 0:
 			passive_subtitle += " · Lv.%d" % passive_level
 		if gauge_bonus_pct > 0.0:
-			passive_subtitle += " · 받아치기 +" + CharacterInfoOverlayFormatter.format_percent_text(gauge_bonus_pct)
+			passive_subtitle += " · " + LanguageSettings.translate_text("받아치기") + " +" + CharacterInfoOverlayFormatter.format_percent_text(gauge_bonus_pct)
 		if player_speed_bonus_pct > 0.0:
-			passive_subtitle += " · 이동 +" + CharacterInfoOverlayFormatter.format_percent_text(player_speed_bonus_pct)
+			passive_subtitle += " · " + LanguageSettings.translate_text("이동") + " +" + CharacterInfoOverlayFormatter.format_percent_text(player_speed_bonus_pct)
 		if starpoint_tracking_chance_pct > 0.0:
-			passive_subtitle += " · 추적 " + CharacterInfoOverlayFormatter.format_percent_text(starpoint_tracking_chance_pct)
+			passive_subtitle += " · " + LanguageSettings.translate_text("추적") + " " + CharacterInfoOverlayFormatter.format_percent_text(starpoint_tracking_chance_pct)
 		if ring_dash_chance_pct > 0.0:
-			passive_subtitle += " · 전이 " + CharacterInfoOverlayFormatter.format_percent_text(ring_dash_chance_pct)
+			passive_subtitle += " · " + LanguageSettings.translate_text("전이") + " " + CharacterInfoOverlayFormatter.format_percent_text(ring_dash_chance_pct)
 		specs.append({
 			"id": passive_id,
 			"title": passive_name,
@@ -582,7 +585,7 @@ static func build_stats(
 	var appearance_rate: float = float(snapshot.get("companion_appearance_rate", 0.0))
 	var speed_display: float = speed_default / speed_display_px_per_point
 	var rows := [
-		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, "마리보가 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다." % [CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
+		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, LanguageSettings.translate_text("마리보가 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다.") % [CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
 		make_display_stat_row("몸집크기", "%sx%spx" % [CharacterInfoOverlayFormatter.format_plain_number(catch_width), CharacterInfoOverlayFormatter.format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
 		make_display_stat_row("게이지 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
 	]
@@ -596,7 +599,7 @@ static func build_stats(
 	if appearance_rate > 0.0:
 		rows.append(make_display_stat_row("출현율", CharacterInfoOverlayFormatter.format_percent_text(appearance_rate * 100.0), stat_buff_color, "사라졌다 다시 나타나기까지의 대기가 짧아지는 정도입니다. 높을수록 더 자주 등장합니다."))
 	if skill_id != "":
-		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % skill_name))
+		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % skill_name))
 	rows.append(make_display_stat_row("교감", "Lv.%d" % int(snapshot.get("affinity_level", 0)), stat_buff_color))
 	return rows
 

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
@@ -26,7 +27,9 @@ static func _companion_subtitle_for_bond(title: String) -> String:
 	var bond_title := title.strip_edges()
 	if bond_title == "":
 		bond_title = LingpetAffinityState.get_bond_title_for_points(0)
-	return "동행 중 · 친밀도 " + bond_title
+	# Composed strings never exact-match the translation maps, so translate the
+	# template and the bond title separately before joining.
+	return LanguageSettings.translate_text("동행 중 · 친밀도 %s") % LanguageSettings.translate_text(bond_title)
 
 
 static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_required_hits: int) -> Dictionary:
@@ -53,7 +56,7 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			return {
 				"state": "egg",
 				"title": "링펫 알",
-				"subtitle": "공 충돌 " + CharacterInfoOverlayFormatter.format_int_pair(hits, required_hits),
+				"subtitle": LanguageSettings.translate_text("공 충돌 %s") % CharacterInfoOverlayFormatter.format_int_pair(hits, required_hits),
 				"body": "공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
 				"hatch_hits": hits,
 				"required_hits": required_hits,

@@ -1,5 +1,6 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 
@@ -326,10 +327,13 @@ func _draw_affinity_label(canvas: CanvasItem, center: Vector2, text: String, tit
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var main_text := text.strip_edges()
+	# This overlay draws raw (no _draw_text_xy), so translate at this boundary:
+	# the composed "교감 Lv.N!" resolves via the known-patterns branch and the
+	# bond/max titles via the exact map.
+	var main_text := LanguageSettings.translate_text(text.strip_edges())
 	if main_text == "":
 		return
-	var title_text := title.strip_edges()
+	var title_text := LanguageSettings.translate_text(title.strip_edges())
 	var alpha := clampf(sin(progress * PI) * 1.45 + flash_ratio * 0.18, 0.0, 1.0)
 	if alpha <= 0.01:
 		return
