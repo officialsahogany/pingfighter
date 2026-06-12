@@ -13,12 +13,23 @@ var _fallback_scene_config: Object = BattleSceneConfig.new()
 var _transient_sync_primed := false
 var _transient_state_cache: Dictionary = {}
 var _transient_owner_cache: Dictionary = {}
+# The mythic_item_state dict as last pushed to the owner. Dirty ticks shallow-
+# duplicate this and apply only the changed keys instead of re-reading and
+# deep-copying the owner's dict (cooldown countdown keys make EVERY tick
+# dirty, so the old read+duplicate(true) stayed a per-tick cost even with the
+# value cache). Rebased from the owner exactly once after an invalidation so
+# unknown/external keys written by the full sync survive; afterwards only the
+# keys this pass manages are updated.
+var _pushed_state_rebased := false
+var _pushed_state_dict: Dictionary = {}
 
 
 func invalidate_transient_sync_cache() -> void:
 	_transient_sync_primed = false
 	_transient_state_cache = {}
 	_transient_owner_cache = {}
+	_pushed_state_rebased = false
+	_pushed_state_dict = {}
 
 
 func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> void:
@@ -48,7 +59,12 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("passive_item_slots", slots.duplicate(true))
 	owner.set("equipped_passive_items", slots.duplicate(true))
 	sync_boomerang_active_slot_visuals(runtime, owner, constants)
-	owner.set("mythic_item_state", runtime.get_snapshot())
+	var full_state_snapshot: Dictionary = runtime.get_snapshot()
+	owner.set("mythic_item_state", full_state_snapshot)
+	# Refresh the pushed cache with what the full sync just wrote so the next
+	# transient tick neither re-reads the owner nor pushes stale values.
+	_pushed_state_dict = full_state_snapshot
+	_pushed_state_rebased = true
 	owner.set("megingjord_equipped", runtime.is_equipped(str(constants.get("item_megingjord", "megingjord"))))
 	owner.set("dowsing_pendulum_equipped", runtime.is_dowsing_pendulum_equipped())
 	owner.set("dowsing_pendulum_range", runtime.get_dowsing_pendulum_range())
@@ -312,6 +328,10 @@ func sync_ragnarok_transient_owner_state(runtime: Object, owner: Object) -> void
 	next_state["ragnarok_hammer_stun_ball_active"] = next_stun_ball_active
 	next_state["ragnarok_hammer_boss_stun_active"] = next_boss_stun_active
 	owner.set("mythic_item_state", next_state)
+	# This branch read the full owner dict itself, so adopting it doubles as a
+	# rebase for the pushed cache.
+	_pushed_state_dict = next_state
+	_pushed_state_rebased = true
 	if _transient_sync_primed:
 		_transient_state_cache["ragnarok_hammer_stun_ball_active"] = next_stun_ball_active
 		_transient_state_cache["ragnarok_hammer_boss_stun_active"] = next_boss_stun_active
@@ -339,12 +359,22 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 				state_dirty = true
 				break
 	if state_dirty:
-		var state: Dictionary = runtime._get_dict(runtime._safe_owner_get(owner, "mythic_item_state", {})).duplicate(true)
+		var base_state: Dictionary
+		if _pushed_state_rebased:
+			base_state = _pushed_state_dict
+		else:
+			# One-time rebase after an invalidation boundary: read the owner
+			# once so keys this pass does not manage (full-sync snapshot keys,
+			# external writers) are preserved in every later push.
+			base_state = runtime._get_dict(runtime._safe_owner_get(owner, "mythic_item_state", {})).duplicate(true)
+			_pushed_state_rebased = true
+		var state: Dictionary = base_state.duplicate(false)
 		var state_changed := false
 		for key in state_values:
 			state_changed = _put_state_if_changed(state, key, state_values[key]) or state_changed
 		if state_changed:
 			owner.set("mythic_item_state", state)
+		_pushed_state_dict = state
 
 	for key in owner_values:
 		if (

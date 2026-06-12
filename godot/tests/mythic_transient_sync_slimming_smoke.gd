@@ -30,6 +30,7 @@ class CountingOwner:
 	var scene_state: Object = BattleSceneState.new()
 	var get_attempts: int = 0
 	var set_attempts: int = 0
+	var state_get_attempts: int = 0
 
 	func _init() -> void:
 		scene_state.reset()
@@ -37,6 +38,8 @@ class CountingOwner:
 	func _get(property: StringName) -> Variant:
 		get_attempts += 1
 		var key := str(property)
+		if key == "mythic_item_state":
+			state_get_attempts += 1
 		if scene_state.has_key(key):
 			return scene_state.get_value(key)
 		return null
@@ -72,6 +75,9 @@ func _init() -> void:
 	_verify_dirty_tick_reaches_owner_state()
 	_verify_invalidate_repairs_third_party_overwrite()
 	_verify_full_sync_reprimes_transient_cache()
+	_verify_dirty_ticks_never_reread_owner_state()
+	_verify_external_unknown_key_survives_rebase_and_pushes()
+	_verify_full_sync_refresh_skips_rebase_read()
 
 	if _failures.is_empty():
 		print("mythic_transient_sync_slimming_smoke: ok")
@@ -159,6 +165,69 @@ func _verify_full_sync_reprimes_transient_cache() -> void:
 	_expect(
 		owner.get_attempts == gets_before and owner.set_attempts == sets_before,
 		"clean tick after a full-sync re-prime should be zero-touch"
+	)
+
+
+# v2 contract (pushed-dict 보유): dirty ticks must not re-read the owner's
+# mythic_item_state — cooldown countdown keys make every tick dirty, so the
+# old read+duplicate(true) per dirty tick stayed a standing per-tick cost.
+func _verify_dirty_ticks_never_reread_owner_state() -> void:
+	var setup := _make_primed_setup()
+	var runtime: Object = setup["runtime"]
+	var owner: CountingOwner = setup["owner"]
+	var state_gets_before: int = owner.state_get_attempts
+	for i in range(100):
+		runtime.smartphone_cooldown_frames = 200.0 - float(i)
+		setup["syncer"].sync_transient_owner_state(runtime, owner)
+	var state_gets: int = owner.state_get_attempts - state_gets_before
+	_expect(
+		state_gets <= 1,
+		"100 dirty transient ticks should read owner mythic_item_state at most once (got %d)" % state_gets
+	)
+	_expect(
+		is_equal_approx(float(owner.get_mythic_state().get("smartphone_auto_cooldown_frames", -1.0)), 101.0),
+		"last dirty value should still land in owner mythic_item_state"
+	)
+
+
+func _verify_external_unknown_key_survives_rebase_and_pushes() -> void:
+	var runtime: Object = MythicItemRuntime.new()
+	var owner := CountingOwner.new()
+	runtime.reset()
+	owner.scene_state.set_value("mythic_item_state", {"external_unknown_key": "keepme"})
+	var syncer: Object = runtime.owner_syncer
+	syncer.sync_transient_owner_state(runtime, owner)
+	_expect(
+		str(owner.get_mythic_state().get("external_unknown_key", "")) == "keepme",
+		"external unknown key should survive the one-time cache rebase"
+	)
+	runtime.smartphone_cooldown_frames = 42.0
+	syncer.sync_transient_owner_state(runtime, owner)
+	_expect(
+		str(owner.get_mythic_state().get("external_unknown_key", "")) == "keepme",
+		"external unknown key should keep riding later cached pushes"
+	)
+	_expect(
+		is_equal_approx(float(owner.get_mythic_state().get("smartphone_auto_cooldown_frames", -1.0)), 42.0),
+		"known keys should still update alongside the preserved external key"
+	)
+
+
+func _verify_full_sync_refresh_skips_rebase_read() -> void:
+	var setup := _make_primed_setup()
+	var runtime: Object = setup["runtime"]
+	var owner: CountingOwner = setup["owner"]
+	runtime._sync_owner(owner, NullRegistry.new())
+	var state_gets_before: int = owner.state_get_attempts
+	runtime.smartphone_cooldown_frames = 9.0
+	setup["syncer"].sync_transient_owner_state(runtime, owner)
+	_expect(
+		owner.state_get_attempts == state_gets_before,
+		"full sync should refresh the pushed cache so the next dirty tick needs no owner re-read"
+	)
+	_expect(
+		is_equal_approx(float(owner.get_mythic_state().get("smartphone_auto_cooldown_frames", -1.0)), 9.0),
+		"dirty tick after a full-sync refresh should push the new value, not a stale one"
 	)
 
 

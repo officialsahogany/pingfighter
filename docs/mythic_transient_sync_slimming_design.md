@@ -76,6 +76,35 @@ get/set 카운팅 owner(F1 스모크의 SchemaGatedCountingOwner 패턴 확장):
   틱 위주 구간에서 0.2ms대; 쿨다운 카운트다운 중에는 dirty 틱이라 더 높음 — 정상).
 - active 경로 n이 여전히 틱 수에 붙어 있으면(장착-상시 게이트) **F4-B**로.
 
+## F4-A v2: pushed dict 보유 (1차 재측정 판정 반영)
+
+1차 재측정(2026-06-13 05시): 0.896 → 0.565ms/틱(−37%), 그러나 **클린 지배 창
+0/144** — 쿨다운 카운트다운 키(smartphone frames, poseidon/sensor remaining
+류)가 매 틱 dirty를 만들어 part-1 풀 경로(owner read + duplicate(true))가 매
+틱 남았다. v2 계약:
+
+- syncer가 **마지막으로 owner에 push한 `mythic_item_state` 사본을 보유**
+  (`_pushed_state_dict`).
+- dirty 틱은 owner를 읽지 않고 pushed dict를 **shallow duplicate** 후 변경
+  키만 적용. (중첩 컨텍스트 dict는 통째 교체만 하고 제자리 변형이 없으므로
+  shallow 공유가 안전.)
+- 캐시가 비었거나 무효화(풀 싱크 / equip / unequip / load / reset / 외부
+  owner state 재주입) 이후에는 **딱 한 번 owner를 읽어 재기반화** — 이때
+  unknown/external 키가 보존되고, 이후에는 syncer가 관리하는 known 키만 갱신.
+- 풀 `sync_owner`가 owner에 쓴 뒤에는 pushed cache를 같은 스냅샷으로 갱신
+  (다음 dirty 틱이 재기반화 읽기도 생략). ragnarok 전용 브랜치는 스스로 owner를
+  읽어 만든 dict를 쓰므로 그 결과를 그대로 pushed cache로 채택(재기반화 겸용).
+- `mythic_item_state`를 쓰는 외부 작성자는 매치 리셋의 `{}` 와이프(dynamic
+  set)뿐이며, 그 경로는 `runtime.reset()` 무효화가 선행되어 다음 틱 재기반화로
+  수렴한다.
+
+씰 추가분: 100 dirty 틱에 owner `mythic_item_state` 읽기 ≤1회(수정 전엔 dirty
+틱마다 1회), 외부 unknown 키가 재기반화 후 보존+후속 push에도 유지, 풀 싱크
+직후 dirty 틱이 재기반화 읽기 없이 신값을 push.
+
+v2 재측정 후에도 dirty 빈도 자체가 지배 비용이면, 다음 카드는 **HUD 표시용
+transient 값 0.1s 양자화**(공개 값 정밀도 완화 — 별도 승인 필요).
+
 ## F4-B: full-pass 게이트 강등 (다음 슬라이스, 측정 후)
 
 - 헤르메스/혼딸기 `is_equipped` 및 쿨다운형(poseidon/sensor/smartphone 쿨다운)
