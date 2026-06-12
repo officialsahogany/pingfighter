@@ -2375,7 +2375,7 @@ func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = 
 	return stat_bonus_runtime.get_dash_token_capacity(self, base_tokens, runtime_perk_state)
 
 
-func update(owner: Object, registry: Object, delta: float) -> void:
+func update(owner: Object, registry: Object, delta: float, perf_logger: Object = null) -> void:
 	_ensure_helpers_ready()
 	update_runtime.update(
 		self,
@@ -2385,7 +2385,8 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 		RAGNAROK_CONSTANTS,
 		POSEIDON_CONSTANTS,
 		BAAL_BOOTS_CONSTANTS,
-		CONTEXT_CONSTANTS
+		CONTEXT_CONSTANTS,
+		perf_logger
 	)
 
 

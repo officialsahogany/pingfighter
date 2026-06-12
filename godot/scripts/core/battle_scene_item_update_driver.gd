@@ -19,7 +19,7 @@ func update_items(owner: Object, registry: Object, delta: float) -> void:
 		_perf_end(perf_logger, "physics.items.active_runtime", sample_start)
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	var mythic_start: int = _perf_begin(perf_logger)
-	_update_mythic_once(owner, registry, delta, mythic_item_runtime)
+	_update_mythic_once(owner, registry, delta, mythic_item_runtime, perf_logger)
 	_perf_end(perf_logger, "physics.items.mythic_once_from_active", mythic_start)
 	_consume_odins_eye_finalize_edges(owner, registry, mythic_item_runtime, perf_logger)
 	if (
@@ -37,7 +37,7 @@ func update_mythic_items(owner: Object, registry: Object, delta: float) -> void:
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var sample_start: int = _perf_begin(perf_logger)
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	_update_mythic_once(owner, registry, delta, mythic_item_runtime)
+	_update_mythic_once(owner, registry, delta, mythic_item_runtime, perf_logger)
 	_consume_odins_eye_finalize_edges(owner, registry, mythic_item_runtime, perf_logger)
 	_perf_end(perf_logger, "physics.items.mythic_total", sample_start)
 
@@ -170,7 +170,13 @@ func _reset_ball_after_odins_eye_score(owner: Object, registry: Object) -> void:
 	_reset_boss_round_health(owner, registry)
 
 
-func _update_mythic_once(owner: Object, registry: Object, delta: float, mythic_item_runtime: Object) -> void:
+func _update_mythic_once(
+	owner: Object,
+	registry: Object,
+	delta: float,
+	mythic_item_runtime: Object,
+	perf_logger: Object = null
+) -> void:
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("update"):
 		return
 	var frame_key: int = int(Engine.get_physics_frames())
@@ -180,9 +186,24 @@ func _update_mythic_once(owner: Object, registry: Object, delta: float, mythic_i
 			frame_key = int(value)
 	if frame_key >= 0 and frame_key == _last_mythic_update_frame and not _is_pause_cinematic_active(mythic_item_runtime):
 		return
-	mythic_item_runtime.update(owner, registry, delta)
+	if _method_accepts_argument_count(mythic_item_runtime, "update", 4):
+		mythic_item_runtime.update(owner, registry, delta, perf_logger)
+	else:
+		mythic_item_runtime.update(owner, registry, delta)
 	if frame_key >= 0:
 		_last_mythic_update_frame = frame_key
+
+
+func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
+	if target == null:
+		return false
+	for method_value in target.get_method_list():
+		var method_info: Dictionary = method_value if method_value is Dictionary else {}
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args: Array = method_info.get("args", [])
+		return args.size() >= argument_count
+	return false
 
 
 func _is_pause_cinematic_active(mythic_item_runtime: Object) -> bool:
