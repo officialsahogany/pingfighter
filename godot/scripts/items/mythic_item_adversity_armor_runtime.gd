@@ -107,7 +107,9 @@ func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
 	runtime.audio_router.play_adversity_armor_activate_audio(runtime, registry)
 	runtime.audio_router.apply_ragnarok_feedback(runtime, {"registry": registry}, 0.05, 1.7)
 	runtime._sync_owner(owner, registry)
-	if owner != null and owner.has_method("queue_redraw"):
+	if owner != null and owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
 

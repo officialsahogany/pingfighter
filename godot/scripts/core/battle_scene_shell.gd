@@ -6,6 +6,7 @@ const BallRenderInterpolation := preload("res://scripts/ball/ball_render_interpo
 
 var scene_state: Object = BattleSceneState.new()
 var gameplay_modules: Object = GameplayModuleRegistry.new()
+var _battle_redraw_requested := false
 
 
 func _ready() -> void:
@@ -196,6 +197,7 @@ func _process(delta: float) -> void:
 	var frame_controller: Object = _get_battle_frame_controller()
 	_perf_end(perf_logger, "process.shell.lookup_frame_controller", sample_start)
 	if frame_controller == null or not frame_controller.has_method("process_idle"):
+		_flush_battle_redraw_request()
 		_perf_end(perf_logger, "process.shell.total", shell_start)
 		return
 	sample_start = _perf_begin(perf_logger)
@@ -204,7 +206,26 @@ func _process(delta: float) -> void:
 	sample_start = _perf_begin(perf_logger)
 	frame_controller.process_idle(delta, self, gameplay_modules, Callable(self, "_get_module"), frame_callbacks)
 	_perf_end(perf_logger, "process.shell.frame_controller", sample_start)
+	_flush_battle_redraw_request()
 	_perf_end(perf_logger, "process.shell.total", shell_start)
+
+
+# Physics-tick code must not call queue_redraw() directly: Godot flushes the
+# MessageQueue after every physics tick, so each tick's queued redraw runs the
+# full immediate-mode _draw again. During physics catch-up that multiplies the
+# draw cost per rendered frame (the frame-drop spiral; see the BattlePerf
+# draw==proc+phys identity). Tick-side code requests here instead, and
+# _process flushes at most one queue_redraw per rendered frame.
+func request_battle_redraw() -> void:
+	_battle_redraw_requested = true
+
+
+func _flush_battle_redraw_request() -> bool:
+	if not _battle_redraw_requested:
+		return false
+	_battle_redraw_requested = false
+	queue_redraw()
+	return true
 
 
 func _physics_process(delta: float) -> void:

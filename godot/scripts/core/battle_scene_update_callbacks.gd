@@ -29,7 +29,7 @@ func build_frame_callbacks(owner: Object, registry: Object) -> Dictionary:
 		"update_boss_ai": Callable(self, "_update_boss_ai").bind(owner, registry),
 		"update_lingpet": Callable(self, "_update_lingpet").bind(owner, registry),
 		"serve_ball": Callable(self, "_serve_ball").bind(owner, registry),
-		"queue_redraw": Callable(owner, "queue_redraw"),
+		"queue_redraw": _build_queue_redraw_callable(owner),
 		"queue_skill_orb_tooltip_overlay_redraw": Callable(self, "_queue_skill_orb_tooltip_overlay_redraw").bind(owner, registry),
 		"hide_skill_orb_tooltip_overlay": Callable(self, "_hide_skill_orb_tooltip_overlay").bind(registry),
 		"pause_skill_cooldowns": Callable(self, "_pause_skill_cooldowns").bind(owner, registry),
@@ -262,6 +262,18 @@ func _ensure_ball_event_callbacks(owner: Object, registry: Object) -> void:
 func _rebuild_ball_event_callbacks(owner: Object, registry: Object) -> void:
 	_cached_score_event_callback = Callable(self, "_handle_score_event").bind(owner, registry)
 	_cached_round_restart_callback = Callable(self, "_handle_round_restart_event").bind(owner, registry)
+
+
+# This dict is dispatched from physics ticks; binding owner.queue_redraw
+# directly makes every catch-up tick redraw the scene (see
+# battle_scene_shell.request_battle_redraw). Owners without the request API
+# (tests, legacy shells) keep the direct path.
+func _build_queue_redraw_callable(owner: Object) -> Callable:
+	if owner != null and owner.has_method("request_battle_redraw"):
+		return Callable(owner, "request_battle_redraw")
+	if owner != null and owner.has_method("queue_redraw"):
+		return Callable(owner, "queue_redraw")
+	return Callable()
 
 
 func _get_boss_health_flow(registry: Object) -> Object:

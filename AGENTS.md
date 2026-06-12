@@ -215,6 +215,27 @@ Godot port routing:
   transition, and steady-state hot paths separately; `draw calls`, `prims`,
   `process_nodes outside_shell`, `physics_nodes outside_shell`, and first-frame
   max values are separate regression surfaces.
+- **Physics-tick code must never call the battle shell's `queue_redraw()`
+  directly — route through `request_battle_redraw()` (dirty flag).** Godot
+  flushes the MessageQueue after EVERY physics tick, and a queued CanvasItem
+  redraw executes the full immediate-mode `_draw()` inside that flush. So a
+  per-tick `queue_redraw()` looks free at 1 tick/frame, but the moment one
+  slow frame starts physics catch-up (up to 8 ticks/frame), the 5–10ms battle
+  `_draw` runs once per tick and the frame slows further — a self-sustaining
+  frame-drop spiral (reference incident 2026-06-13: commando stage 1, 7–13
+  FPS craters; BattlePerf signature is `draw.shell.total` count ≈
+  `process.shell` count + `physics.shell` count in the degraded windows, and
+  repeated `delta max = 111.1ms` = the 8-tick clamp). The shell flushes the
+  flag to at most ONE `queue_redraw()` per rendered frame at the end of
+  `_process` (`battle_scene_shell._flush_battle_redraw_request`). New
+  physics-side drivers must bind redraw to `request_battle_redraw` (see
+  `battle_scene_update_callbacks._build_queue_redraw_callable`,
+  `battle_scene_match_event_driver._queue_redraw`); process/idle/input/modal
+  code may keep immediate `queue_redraw()`. Do not "fix" the degraded-window
+  gap as engine physics cost: the catch-up draws land in the physics monitor
+  and BattlePerf can misclassify them as `monitor-physics-lag`. Sealed by
+  `battle_redraw_coalescing_smoke.gd` (N physics flow updates → 0 direct
+  `queue_redraw`, one flush → exactly 1).
 - **Do not apply index-based stride decimation as a render-LOD on SPARSE or
   CHEAP particle effects — it flickers, it does not just thin.** A stride cull
   like `if (i - particle_start) % stride != 0: continue` selects which

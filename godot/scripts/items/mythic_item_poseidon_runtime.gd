@@ -208,7 +208,9 @@ func try_trigger_vortex(
 		float(constants.get("feedback_shake_amount", 0.16)) * 0.65,
 		float(constants.get("feedback_shake_intensity", 4.8)) * 0.75
 	)
-	if owner != null and owner.has_method("queue_redraw"):
+	if owner != null and owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 	return true
 

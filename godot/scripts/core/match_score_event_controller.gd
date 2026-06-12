@@ -313,7 +313,10 @@ func _hide_ball_for_odins_eye_event(deps: Dictionary) -> void:
 	owner.set("ball_pos_prev", hidden_pos)
 	owner.set("ball_vel", Vector2.ZERO)
 	owner.set("ball_active", false)
-	if owner.has_method("queue_redraw"):
+	# Score events run on physics ticks; see battle_scene_shell.request_battle_redraw.
+	if owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
 

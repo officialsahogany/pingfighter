@@ -20,7 +20,9 @@ func start(runtime: Object, owner: Object, registry: Object) -> void:
 	build_particles(runtime)
 	build_bolts(runtime)
 	runtime.audio_router.play_activation_audio(runtime, registry)
-	if owner != null and owner.has_method("queue_redraw"):
+	if owner != null and owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
 

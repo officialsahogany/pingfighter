@@ -514,8 +514,15 @@ func _play_stage_bgm(registry: Object, stage_id: int) -> void:
 		audio.play_stage_bgm(stage_id)
 
 
+# Score / scoreboard-result / match-reset events reach this helper from
+# physics ticks; see battle_scene_shell.request_battle_redraw.
 func _queue_redraw(owner: Object) -> void:
-	if owner != null and owner.has_method("queue_redraw"):
+	if owner == null:
+		return
+	if owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+		return
+	if owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
 
