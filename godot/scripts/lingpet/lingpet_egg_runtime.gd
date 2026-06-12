@@ -146,9 +146,14 @@ var _applied_loadout_key := ""
 var _synced_owner_loadout_key := ""
 
 
+# physics.callback.lingpet.update measured ~1.0ms/tick standing as an opaque
+# leaf, so every phase below carries a physics.lingpet.* label — keep the
+# label set gap-free or the standing cost hides between labels again.
 func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	if owner == null:
 		return false
+	var perf_logger: Object = _get_perf_logger(registry)
+	var sample_start: int = _perf_begin(perf_logger)
 	_switch_transition_state.advance(delta)
 	_egg_state.advance(delta)
 	_companion_body_hit_state.advance(delta)
@@ -158,22 +163,16 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	_companion_sprite_animator.advance(delta)
 	_companion_click_reaction_state.advance(delta)
 	_affinity_feedback_state.advance(delta)
+	_perf_end(perf_logger, "physics.lingpet.advance", sample_start)
 
 	if _state == STATE_NONE:
-		var owned_pet_id := _find_active_slot_pet_id(owner)
-		if owned_pet_id != "":
-			_adopt_owned_pet(owner, owned_pet_id, registry)
-			return true
-		if _should_spawn_lingpet_egg(owner):
-			_spawn_egg(owner)
-			return true
-		if not _has_synced_none:
-			_sync_owner(owner, registry)
-			_has_synced_none = true
-			return false
-		return false
+		sample_start = _perf_begin(perf_logger)
+		var none_changed: bool = _update_none_state(owner, registry)
+		_perf_end(perf_logger, "physics.lingpet.none_state", sample_start)
+		return none_changed
 
 	if _state == STATE_EGG:
+		sample_start = _perf_begin(perf_logger)
 		_egg_state.update_player_contact(delta, owner)
 		# Stream the heavy acquire cut-in sheets (8192px+ Live2D anim/dismiss) into the
 		# texture cache across the calm egg-wait frames, BEFORE the egg hatches. The
@@ -183,23 +182,71 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_prewarm_acquire_cutin_assets_step(registry)
 		var changed: bool = _resolve_ball_hit(owner, registry)
 		_sync_owner(owner, registry)
+		_perf_end(perf_logger, "physics.lingpet.egg_phase", sample_start)
 		return changed
 
 	if _state == STATE_COMPANION:
+		sample_start = _perf_begin(perf_logger)
 		_prewarm_click_reaction_visual_step()
+		_perf_end(perf_logger, "physics.lingpet.prewarm_step", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		_starlight_tracking_state.advance(delta, _get_current_passive_skill(), _state == STATE_COMPANION, _companion_pos)
 		_ring_dash_vfx.advance(delta)
 		_ghost_blink_vfx.advance(delta)
+		_perf_end(perf_logger, "physics.lingpet.vfx_states", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		var affinity_hit_tags := _capture_affinity_hit_tags()
 		_update_companion_motion(delta, owner)
+		_perf_end(perf_logger, "physics.lingpet.companion_motion", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		affinity_hit_tags = _merge_affinity_hit_tags(affinity_hit_tags, _capture_affinity_hit_tags())
 		_update_ghost_blink_vfx_triggers()
 		_maybe_arm_companion_strike(owner)
+		_perf_end(perf_logger, "physics.lingpet.strike_arm", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		_resolve_companion_ball_hit(owner, registry, affinity_hit_tags)
+		_perf_end(perf_logger, "physics.lingpet.ball_hit", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		_afterglow_leak_state.advance(delta, owner, registry, _get_current_passive_skill(), _state == STATE_COMPANION)
+		_perf_end(perf_logger, "physics.lingpet.afterglow", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		_update_companion_skill_effects(delta, owner, registry)
+		_perf_end(perf_logger, "physics.lingpet.skill_effects", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		_sync_owner(owner, registry)
+		_perf_end(perf_logger, "physics.lingpet.owner_sync", sample_start)
 	return false
+
+
+func _update_none_state(owner: Object, registry: Object) -> bool:
+	var owned_pet_id := _find_active_slot_pet_id(owner)
+	if owned_pet_id != "":
+		_adopt_owned_pet(owner, owned_pet_id, registry)
+		return true
+	if _should_spawn_lingpet_egg(owner):
+		_spawn_egg(owner)
+		return true
+	if not _has_synced_none:
+		_sync_owner(owner, registry)
+		_has_synced_none = true
+	return false
+
+
+func _get_perf_logger(registry: Object) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance("battle_perf_logger")
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
 
 
 func _update_ghost_blink_vfx_triggers() -> void:
