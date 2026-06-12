@@ -199,15 +199,24 @@ func reset_game(
 	var controller: Object = _get_instance(registry, "match_flow_controller")
 	if controller == null or owner == null:
 		return
-	var result: Dictionary = controller.reset_game(_get_match_flow_deps(
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var sample_start: int = _perf_begin(perf_logger)
+	var deps: Dictionary = _get_match_flow_deps(
 		registry,
 		int(_get_owner_value(owner, "current_stage", 1)),
-		owner
-	), {
+		owner,
+		"physics.match_reset.deps"
+	)
+	_perf_end(perf_logger, "physics.match_reset.build_deps", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var result: Dictionary = controller.reset_game(deps, {
 		"reset_drive_input": reset_drive_input_callback,
 		"reset_ball": reset_ball_callback,
 	})
+	_perf_end(perf_logger, "physics.match_reset.controller_total", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_get_reset_result_applier(registry).apply_reset_result(owner, result)
+	_perf_end(perf_logger, "physics.match_reset.apply_result", sample_start)
 
 
 func reset_for_stage_transition(

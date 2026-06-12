@@ -4,17 +4,42 @@ const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_aud
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 
 
+# Runs on the physics tick that closes a match (scoreboard UPDATE_RESET_GAME),
+# so every sub-step is labeled: a 370ms reset was once visible only as one
+# opaque physics.scoreboard_result.reset_game_callback sample.
 func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
+	var perf_logger: Object = deps.get("perf_logger", null)
+	var sample_start: int = _perf_begin(perf_logger)
 	_reset_match_state(deps)
+	_perf_end(perf_logger, "physics.match_reset.match_state", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	var orb_hud_state: Object = _reset_hud_state(deps)
+	_perf_end(perf_logger, "physics.match_reset.hud_state", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	var active_item_slots: Array = _reset_item_runtimes(deps)
+	_perf_end(perf_logger, "physics.match_reset.item_runtimes", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_reset_player_skill_state(deps)
+	_perf_end(perf_logger, "physics.match_reset.player_skill_state", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_call_callback(callbacks, "reset_drive_input")
+	_perf_end(perf_logger, "physics.match_reset.drive_input", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_reset_dash_state(deps, orb_hud_state)
+	_perf_end(perf_logger, "physics.match_reset.dash_state", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_stop_reset_audio(deps)
+	_perf_end(perf_logger, "physics.match_reset.audio_stop", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	reset_stage_state(deps)
+	_perf_end(perf_logger, "physics.match_reset.stage_state", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_call_callback(callbacks, "reset_ball")
-	return _build_reset_result(active_item_slots, deps)
+	_perf_end(perf_logger, "physics.match_reset.reset_ball", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var result: Dictionary = _build_reset_result(active_item_slots, deps)
+	_perf_end(perf_logger, "physics.match_reset.build_result", sample_start)
+	return result
 
 
 func reset_for_stage_transition(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
@@ -263,3 +288,14 @@ func _call_callback(callbacks: Dictionary, key: String) -> void:
 	var callback: Callable = callbacks.get(key, Callable())
 	if callback.is_valid():
 		callback.call()
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
