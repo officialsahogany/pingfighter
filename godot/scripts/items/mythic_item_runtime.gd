@@ -445,6 +445,8 @@ func prewarm_initialization_step(perform_reset: bool = true) -> bool:
 func reset() -> void:
 	_ensure_helpers_ready(false)
 	lifecycle_runtime.reset(self, BASE_SPECIAL_GAUGE_MAX, BAAL_BOOTS_CONSTANTS)
+	if owner_syncer != null and owner_syncer.has_method("invalidate_transient_sync_cache"):
+		owner_syncer.invalidate_transient_sync_cache()
 
 
 func prewarm_assets() -> void:
