@@ -930,22 +930,17 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 	)
 	# Appearance rate (flight-only 출현율) is synced directly here rather than threaded
 	# through the snapshot builder; the panel reads owner.lingpet_companion_appearance_rate.
+	# Route through the builder's gated setters so these stable-most-ticks keys
+	# share the change-gated last-pushed cache (F-lingpet-1).
 	var appearance_rate: float = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
-	owner.set("lingpet_companion_appearance_rate", appearance_rate)
-	owner.set("ringpet_companion_appearance_rate", appearance_rate)
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_companion_appearance_rate", "ringpet_companion_appearance_rate", appearance_rate)
 	var affinity_snapshot := _build_affinity_owner_snapshot(registry)
-	owner.set("lingpet_affinity_level", int(affinity_snapshot.get("level", 0)))
-	owner.set("ringpet_affinity_level", int(affinity_snapshot.get("level", 0)))
-	owner.set("lingpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
-	owner.set("ringpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
-	owner.set("lingpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
-	owner.set("ringpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
-	owner.set("lingpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
-	owner.set("ringpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
-	owner.set("lingpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
-	owner.set("ringpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
-	owner.set("lingpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
-	owner.set("ringpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_level", "ringpet_affinity_level", int(affinity_snapshot.get("level", 0)))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_points", "ringpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_requirement", "ringpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_label", "ringpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_points", "ringpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_title", "ringpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
 	if should_sync_loadouts:
 		_synced_owner_loadout_key = _applied_loadout_key
 
@@ -1216,6 +1211,11 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 func _invalidate_current_loadout_cache() -> void:
 	_applied_loadout_key = ""
 	_synced_owner_loadout_key = ""
+	# Every static-key boundary (pet adopt/switch, level-up/affinity change,
+	# loadout apply, resets) funnels through here, so this is also where the
+	# snapshot sync's last-pushed cache rebases.
+	if _snapshot_builder != null and _snapshot_builder.has_method("invalidate_sync_cache"):
+		_snapshot_builder.invalidate_sync_cache()
 
 
 func _build_loadout_key(pet_id: String, loadout: Dictionary) -> String:

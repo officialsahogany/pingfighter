@@ -479,7 +479,11 @@ func _verify_snapshot_sync_keys_are_schema_declared() -> void:
 	key_regex.compile("\"((?:ling|ring)pet_[a-z0-9_]+)\"")
 	var seen := {}
 	for line in source.split("\n"):
-		if line.find("_set_pair(owner") < 0 and line.find("owner.set(") < 0:
+		if (
+			line.find("_set_pair(owner") < 0
+			and line.find("_set_single(owner") < 0
+			and line.find("owner.set(") < 0
+		):
 			continue
 		for match_value in key_regex.search_all(line):
 			var key := match_value.get_string(1)

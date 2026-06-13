@@ -3,6 +3,48 @@ extends RefCounted
 const STATE_NONE := "none"
 const STATE_COMPANION := "companion"
 
+# Last values pushed to the owner by sync_owner. The per-tick sync used to
+# issue ~83 unconditional owner.set() calls (plus per-tick array duplicates)
+# and measured 0.32ms/tick standing — 38% of the whole lingpet update. Only
+# keys whose value changed are pushed now; volatile keys (companion_pos,
+# running cooldowns) pass naturally. The cache rebases when the owner
+# instance changes (new battle scene) and on the loadout-invalidate boundary
+# (pet adopt/switch, level-up, loadout apply, resets) via
+# invalidate_sync_cache(). Container values are cached as detached copies so
+# external mutation of an owner-held array/dict can never alias the cache.
+var _pushed_owner_id := 0
+var _pushed_values: Dictionary = {}
+
+
+func invalidate_sync_cache() -> void:
+	_pushed_owner_id = 0
+	_pushed_values = {}
+
+
+# Public gated setters for owner keys that the egg runtime computes itself
+# (appearance rate, affinity, bond) and syncs right after sync_owner in the
+# same tick — they share the same change-gated last-pushed cache so they are
+# also skipped on stable ticks.
+func set_owner_value_gated(owner: Object, key: String, value: Variant) -> void:
+	if owner == null:
+		return
+	_rebase_for_owner(owner)
+	_set_single(owner, key, value)
+
+
+func set_owner_pair_gated(owner: Object, lingpet_key: String, ringpet_key: String, value: Variant) -> void:
+	if owner == null:
+		return
+	_rebase_for_owner(owner)
+	_set_pair(owner, lingpet_key, ringpet_key, value)
+
+
+func _rebase_for_owner(owner: Object) -> void:
+	var owner_id: int = owner.get_instance_id()
+	if owner_id != _pushed_owner_id:
+		_pushed_owner_id = owner_id
+		_pushed_values = {}
+
 
 func build_runtime_snapshot(
 	pet_id: String,
@@ -174,6 +216,7 @@ func sync_owner(
 ) -> void:
 	if owner == null:
 		return
+	_rebase_for_owner(owner)
 	var companion_active: bool = state == STATE_COMPANION
 	var public_pet_id: String = pet_id if companion_active else ""
 	var skill_enabled := bool(active_skill.get("enabled", true))
@@ -185,18 +228,18 @@ func sync_owner(
 	var skill_max_level := int(active_skill.get("max_level", 5)) if skill_active else 0
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
-	owner.set("lingpet_id", public_pet_id)
-	owner.set("active_lingpet_id", public_pet_id if companion_active else "")
-	owner.set("current_lingpet_id", public_pet_id)
-	_set_pair(owner, "lingpet_slots", "ringpet_slots", battle_slot_pet_ids.duplicate())
-	_set_pair(owner, "lingpet_slot_pet_ids", "ringpet_slot_pet_ids", battle_slot_pet_ids.duplicate())
+	_set_single(owner, "lingpet_id", public_pet_id)
+	_set_single(owner, "active_lingpet_id", public_pet_id if companion_active else "")
+	_set_single(owner, "current_lingpet_id", public_pet_id)
+	_set_pair(owner, "lingpet_slots", "ringpet_slots", battle_slot_pet_ids)
+	_set_pair(owner, "lingpet_slot_pet_ids", "ringpet_slot_pet_ids", battle_slot_pet_ids)
 	if sync_loadouts:
-		_set_pair(owner, "lingpet_loadouts", "ringpet_loadouts", loadouts_by_pet_id.duplicate(true))
+		_set_pair(owner, "lingpet_loadouts", "ringpet_loadouts", loadouts_by_pet_id)
 	_set_pair(owner, "lingpet_active_slot_index", "ringpet_active_slot_index", active_slot_index)
 	_set_pair(owner, "lingpet_state", "ringpet_state", state)
 	_set_pair(owner, "lingpet_hatch_hits", "ringpet_hatch_hits", hatch_hits)
 	_set_pair(owner, "lingpet_hatch_required_hits", "ringpet_hatch_required_hits", required_hits)
-	owner.set("lingpet_egg_pos", egg_pos)
+	_set_single(owner, "lingpet_egg_pos", egg_pos)
 	_set_pair(owner, "lingpet_companion_pos", "ringpet_companion_pos", companion_pos)
 	_set_pair(owner, "lingpet_companion_patrol_speed_default", "ringpet_companion_patrol_speed_default", patrol_speed_default)
 	_set_pair(owner, "lingpet_companion_patrol_speed_min", "ringpet_companion_patrol_speed_min", patrol_speed_min)
@@ -210,7 +253,7 @@ func sync_owner(
 	_sync_passive_owner(owner, passive_id, passive_skill, passive_enabled)
 	_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
 	_set_pair(owner, "lingpet_player_speed_bonus_pct", "ringpet_player_speed_bonus_pct", maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if companion_active else 0.0)
-	owner.set("lingpet_effect_text", effect_text)
+	_set_single(owner, "lingpet_effect_text", effect_text)
 
 
 func _sync_motion_owner(owner: Object, motion_state: Object) -> void:
@@ -281,9 +324,32 @@ func _sync_passive_owner(owner: Object, passive_id: String, passive_skill: Dicti
 	_set_pair(owner, "lingpet_ring_dash_chance_pct", "ringpet_ring_dash_chance_pct", maxf(0.0, float(passive_skill.get("ring_dash_chance_pct", 0.0))) if companion_active else 0.0)
 
 
+# Change-gated owner writes: a key whose value matches the last push is
+# skipped entirely. Containers are detached on both sides (owner copy and
+# cache copy) so neither side can mutate the other or the caller's live
+# collection.
+func _set_single(owner: Object, key: String, value: Variant) -> void:
+	if _pushed_values.has(key) and _pushed_values[key] == value:
+		return
+	_pushed_values[key] = _detached_copy(value)
+	owner.set(key, _detached_copy(value))
+
+
 func _set_pair(owner: Object, lingpet_key: String, ringpet_key: String, value: Variant) -> void:
-	owner.set(lingpet_key, value)
-	owner.set(ringpet_key, value)
+	if _pushed_values.has(lingpet_key) and _pushed_values[lingpet_key] == value:
+		return
+	_pushed_values[lingpet_key] = _detached_copy(value)
+	var owner_value: Variant = _detached_copy(value)
+	owner.set(lingpet_key, owner_value)
+	owner.set(ringpet_key, owner_value)
+
+
+func _detached_copy(value: Variant) -> Variant:
+	if value is Array:
+		return (value as Array).duplicate(true)
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	return value
 
 
 func _get_skill_ids(skills: Array[Dictionary]) -> Array[String]:
