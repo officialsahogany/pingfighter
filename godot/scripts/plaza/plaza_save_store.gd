@@ -314,6 +314,25 @@ func perform_blacksmith_enhancement_payment(cost: int, consume_ap: bool = true) 
 	return _build_blacksmith_summary(-safe_cost, true, "ok", ap_spent)
 
 
+func perform_academy_lesson_payment(cost: int, consume_ap: bool = true) -> Dictionary:
+	_ensure_loaded()
+	var safe_cost := maxi(1, cost)
+	if _plaza_gold < safe_cost:
+		last_save_summary = "skipped_not_enough_gold"
+		return _build_academy_summary(-safe_cost, false, "not_enough_gold")
+	if consume_ap and _ap_current <= 0:
+		last_save_summary = "skipped_no_ap"
+		return _build_academy_summary(-safe_cost, false, "no_ap")
+
+	var ap_spent := 0
+	if consume_ap:
+		_ap_current = maxi(0, _ap_current - 1)
+		ap_spent = 1
+	_plaza_gold = _sanitize_gold(_plaza_gold - safe_cost)
+	save()
+	return _build_academy_summary(-safe_cost, true, "ok", ap_spent)
+
+
 func get_summary() -> Dictionary:
 	return {
 		"save_path": save_path,
@@ -566,6 +585,27 @@ func _build_blacksmith_summary(
 	return {
 		"save_path": save_path,
 		"action": "enhance",
+		"handled": true,
+		"changed": changed,
+		"reason": reason,
+		"delta_gold": delta_gold if changed else 0,
+		"ap_spent": ap_spent,
+		"plaza_gold": _plaza_gold,
+		"ap_current": _ap_current,
+		"save": last_save_summary,
+		"load": last_load_summary,
+	}
+
+
+func _build_academy_summary(
+	delta_gold: int,
+	changed: bool,
+	reason: String,
+	ap_spent: int = 0
+) -> Dictionary:
+	return {
+		"save_path": save_path,
+		"action": "lesson",
 		"handled": true,
 		"changed": changed,
 		"reason": reason,

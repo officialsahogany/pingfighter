@@ -1,6 +1,7 @@
 extends Control
 
 const PlazaAssetLoader := preload("res://scripts/plaza/plaza_asset_loader.gd")
+const PlazaAcademyTransactions := preload("res://scripts/plaza/plaza_academy_transactions.gd")
 const PlazaBlacksmithTransactions := preload("res://scripts/plaza/plaza_blacksmith_transactions.gd")
 const PlazaGachaTransactions := preload("res://scripts/plaza/plaza_gacha_transactions.gd")
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
@@ -8,6 +9,8 @@ const PlazaPlayerController := preload("res://scripts/plaza/plaza_player_control
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const PlazaShopTransactions := preload("res://scripts/plaza/plaza_shop_transactions.gd")
 const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 
 const GAME_SIZE := Vector2(760.0, 750.0)
 const MAP_SIZE := Vector2(3040.0, 750.0)
@@ -96,11 +99,15 @@ var _last_shop_transaction_summary: Dictionary = {}
 var _last_blacksmith_transaction_summary: Dictionary = {}
 var _last_gacha_transaction_summary: Dictionary = {}
 var _last_lingpet_store_transaction_summary: Dictionary = {}
+var _last_academy_transaction_summary: Dictionary = {}
 var _plaza_save_store: Object = PlazaSaveStore.new()
 var _plaza_shop_transactions: Object = PlazaShopTransactions.new()
 var _plaza_blacksmith_transactions: Object = PlazaBlacksmithTransactions.new()
 var _plaza_gacha_transactions: Object = PlazaGachaTransactions.new()
 var _plaza_lingpet_store_transactions: Object = PlazaLingpetStoreTransactions.new()
+var _plaza_academy_transactions: Object = PlazaAcademyTransactions.new()
+var _runtime_perk_overlay_renderer: Object = RuntimePerkOverlayRenderer.new()
+var _runtime_perk_icon_renderer: Object = RuntimePerkIconRenderer.new()
 var _plaza_save_snapshot: Dictionary = {}
 var _runtime_owner: Object = null
 var _runtime_registry: Object = null
@@ -166,6 +173,12 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 
 func update_plaza(delta: float) -> void:
 	_sync_game_rect()
+	if _is_runtime_perk_overlay_active():
+		_update_runtime_perk_overlay(delta)
+		_dialog_timer = 0.0
+		_update_hovered_building()
+		queue_redraw()
+		return
 	if _menu_open:
 		_dialog_timer = 0.0
 		_update_hovered_building()
@@ -192,6 +205,8 @@ func update_plaza(delta: float) -> void:
 
 
 func handle_plaza_input(event: InputEvent) -> bool:
+	if _is_runtime_perk_overlay_active():
+		return _handle_runtime_perk_overlay_input(event)
 	if _menu_open:
 		return _handle_menu_input(event)
 	if event is InputEventKey:
@@ -248,6 +263,10 @@ func get_status() -> Dictionary:
 		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary.duplicate(true),
 		"last_gacha_transaction_summary": _last_gacha_transaction_summary.duplicate(true),
 		"last_lingpet_store_transaction_summary": _last_lingpet_store_transaction_summary.duplicate(true),
+		"last_academy_transaction_summary": _last_academy_transaction_summary.duplicate(true),
+		"runtime_perk_choice_active": _is_runtime_perk_overlay_active(),
+		"runtime_perk_choice_count": _get_runtime_perk_choice_count(),
+		"runtime_perk_selected_index": _get_runtime_perk_selected_index(),
 		"plaza_gold": int(_plaza_save_snapshot.get("plaza_gold", 0)),
 		"ap_current": int(_plaza_save_snapshot.get("ap_current", 0)),
 		"bank_deposit_gold": int(_plaza_save_snapshot.get("bank_deposit_gold", 0)),
@@ -338,6 +357,7 @@ func _draw() -> void:
 	_draw_exit_zone(scale)
 	_draw_world_objects(scale)
 	_draw_overlay_ui(scale)
+	_draw_runtime_perk_overlay()
 
 
 func _sync_game_rect() -> void:
@@ -399,6 +419,90 @@ func _handle_menu_input(event: InputEvent) -> bool:
 			return true
 		return true
 	return true
+
+
+func _handle_runtime_perk_overlay_input(event: InputEvent) -> bool:
+	var runtime_state := _get_runtime_perk_state()
+	if runtime_state == null or not runtime_state.has_method("handle_input"):
+		return true
+	var overlay_event := _localize_runtime_perk_event(event)
+	runtime_state.handle_input(overlay_event, _runtime_owner, _runtime_registry, size)
+	queue_redraw()
+	return true
+
+
+func _localize_runtime_perk_event(event: InputEvent) -> InputEvent:
+	if not (event is InputEventMouse):
+		return event
+	var duplicated := event.duplicate()
+	if duplicated is InputEventMouse:
+		var mouse_event := duplicated as InputEventMouse
+		mouse_event.position = (event as InputEventMouse).position - get_global_rect().position
+	return duplicated
+
+
+func _update_runtime_perk_overlay(delta: float) -> void:
+	var runtime_state := _get_runtime_perk_state()
+	if runtime_state != null and runtime_state.has_method("update"):
+		runtime_state.update(max(0.0, delta), size, _runtime_owner, _runtime_registry)
+
+
+func _draw_runtime_perk_overlay() -> void:
+	var runtime_state := _get_runtime_perk_state()
+	var catalog := _get_runtime_perk_catalog()
+	if runtime_state == null or catalog == null:
+		return
+	if _runtime_perk_overlay_renderer == null or not _runtime_perk_overlay_renderer.has_method("draw"):
+		return
+	if not _is_runtime_perk_overlay_active():
+		return
+	_runtime_perk_overlay_renderer.draw(self, runtime_state, catalog, size, _runtime_perk_icon_renderer)
+
+
+func _is_runtime_perk_overlay_active() -> bool:
+	var runtime_state := _get_runtime_perk_state()
+	if runtime_state == null:
+		return false
+	var snapshot := _get_runtime_perk_snapshot(runtime_state)
+	if bool(snapshot.get("choice_active", false)):
+		return true
+	if runtime_state.has_method("has_pending_unlock_swap") and bool(runtime_state.has_pending_unlock_swap()):
+		return true
+	if runtime_state.has_method("is_choice_flight_active") and bool(runtime_state.is_choice_flight_active()):
+		return true
+	if _runtime_perk_overlay_renderer != null and _runtime_perk_overlay_renderer.has_method("has_visible_effects"):
+		return bool(_runtime_perk_overlay_renderer.has_visible_effects(runtime_state))
+	return false
+
+
+func _get_runtime_perk_state() -> Object:
+	if _runtime_registry == null or not _runtime_registry.has_method("get_instance"):
+		return null
+	return _runtime_registry.get_instance("runtime_perk_state")
+
+
+func _get_runtime_perk_catalog() -> Object:
+	if _runtime_registry == null or not _runtime_registry.has_method("get_instance"):
+		return null
+	return _runtime_registry.get_instance("runtime_perk_catalog")
+
+
+func _get_runtime_perk_snapshot(runtime_state: Object = null) -> Dictionary:
+	var state := runtime_state if runtime_state != null else _get_runtime_perk_state()
+	if state != null and state.has_method("get_snapshot"):
+		var result: Variant = state.get_snapshot()
+		if result is Dictionary:
+			return result
+	return {}
+
+
+func _get_runtime_perk_choice_count() -> int:
+	var choices_value: Variant = _get_runtime_perk_snapshot().get("current_choices", [])
+	return (choices_value as Array).size() if choices_value is Array else 0
+
+
+func _get_runtime_perk_selected_index() -> int:
+	return int(_get_runtime_perk_snapshot().get("selected_index", -1))
 
 
 func _normalize_player_pos(pos: Vector2) -> Vector2:
@@ -685,6 +789,15 @@ func _draw_building_menu(font: Font, scale: float) -> void:
 		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, lingpet_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
 		var lingpet_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 알 뽑기 때 열쇠 1개를 사용합니다."
 		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, lingpet_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
+	elif _active_menu_type == "academy":
+		var academy_ledger_text := "보유 %dG  |  행동력 %d  |  수업료 %dG" % [
+			int(_plaza_save_snapshot.get("plaza_gold", 0)),
+			int(_plaza_save_snapshot.get("ap_current", 0)),
+			PlazaAcademyTransactions.LESSON_COST,
+		]
+		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, academy_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
+		var academy_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 수업 처리 때 행동력 1개를 사용합니다."
+		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, academy_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
 	elif _active_menu_type == "blacksmith":
 		var target_summary := _get_blacksmith_target_summary()
 		var target_text := "대상 없음"
@@ -815,6 +928,8 @@ func _open_building_menu(building: Dictionary) -> void:
 	_active_menu_title = str(spec.get("title", building.get("display_name", "건물")))
 	_active_menu_subtitle = str(spec.get("subtitle", ""))
 	_active_menu_actions = _get_string_array(spec.get("actions", []))
+	if building_type == "academy":
+		_active_menu_actions = PlazaAcademyTransactions.get_menu_action_labels()
 	_active_menu_last_message = ""
 	_active_menu_visit_ap_consumed = false
 	_last_bank_transaction_summary = {}
@@ -822,6 +937,7 @@ func _open_building_menu(building: Dictionary) -> void:
 	_last_blacksmith_transaction_summary = {}
 	_last_gacha_transaction_summary = {}
 	_last_lingpet_store_transaction_summary = {}
+	_last_academy_transaction_summary = {}
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	queue_redraw()
@@ -848,6 +964,8 @@ func _trigger_menu_action(action_index: int) -> bool:
 			return _trigger_lingpet_store_menu_action(action_index)
 		"blacksmith":
 			return _trigger_blacksmith_menu_action(action_index)
+		"academy":
+			return _trigger_academy_menu_action(action_index)
 		_:
 			_active_menu_last_message = "아직 준비 중입니다."
 			queue_redraw()
@@ -956,6 +1074,35 @@ func _trigger_blacksmith_menu_action(action_index: int) -> bool:
 	_active_menu_last_message = _format_blacksmith_transaction_message(summary)
 	_refresh_plaza_save_snapshot()
 	queue_redraw()
+	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+
+
+func _trigger_academy_menu_action(action_index: int) -> bool:
+	if _plaza_academy_transactions == null or not _plaza_academy_transactions.has_method("perform_action"):
+		_active_menu_last_message = "아카데미 장치를 찾을 수 없습니다."
+		queue_redraw()
+		return false
+	var summary: Dictionary = _plaza_academy_transactions.perform_action(
+		action_index,
+		_plaza_save_store,
+		_runtime_owner,
+		_runtime_registry,
+		not _active_menu_visit_ap_consumed
+	)
+	_last_academy_transaction_summary = summary.duplicate(true)
+	if int(summary.get("ap_spent", 0)) > 0:
+		_active_menu_visit_ap_consumed = true
+	_active_menu_last_message = _format_academy_transaction_message(summary)
+	_refresh_plaza_save_snapshot()
+	if bool(summary.get("choice_opened", false)):
+		var message := _active_menu_last_message
+		_close_building_menu()
+		_last_academy_transaction_summary = summary.duplicate(true)
+		_dialog_text = message
+		_dialog_timer = DIALOG_DURATION
+		_update_runtime_perk_overlay(0.0)
+	else:
+		queue_redraw()
 	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
 
 
@@ -1099,6 +1246,31 @@ func _format_blacksmith_transaction_message(summary: Dictionary) -> String:
 	return "강화를 시도했습니다."
 
 
+func _format_academy_transaction_message(summary: Dictionary) -> String:
+	var reason := str(summary.get("reason", ""))
+	if not bool(summary.get("changed", false)):
+		match reason:
+			"no_ap":
+				return "행동력이 부족합니다."
+			"not_enough_gold":
+				return "수업료가 부족합니다."
+			"missing_owner":
+				return "현재 캐릭터를 찾을 수 없습니다."
+			"missing_runtime_perk_state", "missing_runtime_perk_catalog":
+				return "스킬 수업 장치를 찾을 수 없습니다."
+			"choice_already_active":
+				return "이미 진행 중인 스킬 선택이 있습니다."
+			"no_academy_choices":
+				return "지금 배울 수 있는 스킬이 없습니다."
+			"exchange_stub":
+				return "스킬 교환은 다음 단계에서 열립니다."
+			_:
+				return "지금은 수업을 진행할 수 없습니다."
+	if bool(summary.get("choice_opened", false)):
+		return "스킬 수업을 시작합니다. -%dG" % abs(int(summary.get("delta_gold", 0)))
+	return "수업료를 냈지만 선택지를 열지 못했습니다."
+
+
 func _close_building_menu() -> void:
 	_menu_open = false
 	_active_menu_type = ""
@@ -1115,7 +1287,7 @@ func _close_building_menu() -> void:
 
 
 func _is_executable_menu_type(menu_type: String) -> bool:
-	return ["bank", "shop", "gacha", "lingpet_store", "blacksmith"].has(menu_type)
+	return ["bank", "shop", "gacha", "lingpet_store", "blacksmith", "academy"].has(menu_type)
 
 
 func _get_string_array(value: Variant) -> Array[String]:

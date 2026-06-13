@@ -182,7 +182,10 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		_expect(bool(status.get("menu_open", false)), "%s menu shell should report open" % building_type)
 		_expect(str(status.get("active_menu_type", "")) == str(building_type), "%s menu shell should report the active menu type" % building_type)
 		_expect(str(status.get("active_menu_title", "")) == str(expected_titles[building_type]), "%s menu shell should use the expected title" % building_type)
-		_expect(_string_arrays_equal(status.get("active_menu_actions", []), expected_actions[building_type]), "%s menu shell should expose the expected action stubs" % building_type)
+		var expected_action_labels: Array = expected_actions[building_type]
+		if str(building_type) == "academy":
+			expected_action_labels = ["스킬 수업 200G", "스킬 교환"]
+		_expect(_string_arrays_equal(status.get("active_menu_actions", []), expected_action_labels), "%s menu shell should expose the expected action stubs" % building_type)
 		scene.close_menu_for_test()
 
 

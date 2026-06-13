@@ -19,6 +19,7 @@ func _run() -> void:
 	_verify_gacha_payment_and_ap_consumption()
 	_verify_lingpet_egg_payment_and_ap_consumption()
 	_verify_blacksmith_payment_and_ap_consumption()
+	_verify_academy_payment_and_ap_consumption()
 	_verify_corrupt_primary_recovers_last_good()
 
 	if _failures.is_empty():
@@ -217,6 +218,27 @@ func _verify_blacksmith_payment_and_ap_consumption() -> void:
 	_expect(str(expensive_summary.get("reason", "")) == "not_enough_gold", "insufficient blacksmith payment should report not_enough_gold")
 	_expect(int(expensive_summary.get("ap_spent", 0)) == 0, "failed blacksmith payment should not spend AP")
 	_expect(int(expensive_summary.get("plaza_gold", 0)) == 100, "failed blacksmith payment should leave wallet unchanged")
+	_cleanup(path)
+
+
+func _verify_academy_payment_and_ap_consumption() -> void:
+	var path := _test_path("academy_payment")
+	_cleanup(path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(path)
+	store.apply_stage_clear_progress(1, 320, true)
+	var payment_summary: Dictionary = store.perform_academy_lesson_payment(200, true)
+	_expect(bool(payment_summary.get("changed", false)), "academy payment should change the wallet")
+	_expect(int(payment_summary.get("delta_gold", 0)) == -200, "academy payment should subtract the lesson cost")
+	_expect(int(payment_summary.get("ap_spent", 0)) == 1, "first academy lesson should spend AP")
+	_expect(int(payment_summary.get("plaza_gold", 0)) == 120, "academy payment should preserve remaining gold")
+	_expect(int(payment_summary.get("ap_current", 0)) == PlazaSaveStore.BASE_AP, "academy AP spend should preserve current-minus-one semantics")
+
+	var expensive_summary: Dictionary = store.perform_academy_lesson_payment(9999, true)
+	_expect(not bool(expensive_summary.get("changed", true)), "academy payment should fail when gold is insufficient")
+	_expect(str(expensive_summary.get("reason", "")) == "not_enough_gold", "insufficient academy payment should report not_enough_gold")
+	_expect(int(expensive_summary.get("ap_spent", 0)) == 0, "failed academy payment should not spend AP")
+	_expect(int(expensive_summary.get("plaza_gold", 0)) == 120, "failed academy payment should leave wallet unchanged")
 	_cleanup(path)
 
 
