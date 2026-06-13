@@ -76,13 +76,14 @@ func _verify_scene_apply_contract() -> void:
 		StageClearResultScrollState.PHASE_DELAY,
 		0.5
 	)
-	_expect(str(scene_apply.get("_scroll_phase", "")) == StageClearResultScrollState.PHASE_VISIBLE, "scroll update scene apply helper should map phase to scene field")
-	_expect(abs(float(scene_apply.get("_scroll_timer", 0.0)) - 1.25) <= 0.001, "scroll update scene apply helper should map timer to scene field")
+	var field_payload: Dictionary = scene_apply.get("field_payload", {}) as Dictionary
+	_expect(str(field_payload.get("_scroll_phase", "")) == StageClearResultScrollState.PHASE_VISIBLE, "scroll update scene apply helper should map phase to scene field")
+	_expect(abs(float(field_payload.get("_scroll_timer", 0.0)) - 1.25) <= 0.001, "scroll update scene apply helper should map timer to scene field")
 
 	var scene := StageClearResultScene.new()
 	scene.set("_scroll_phase", StageClearResultScrollState.PHASE_DELAY)
 	scene.set("_scroll_timer", 0.5)
-	scene._apply_scene_field_payload(scene_apply)
+	scene._apply_scene_apply_result(scene_apply)
 	_expect(str(scene.get("_scroll_phase")) == StageClearResultScrollState.PHASE_VISIBLE, "scene field payload helper should apply scroll phase")
 	_expect(abs(float(scene.get("_scroll_timer")) - 1.25) <= 0.001, "scene field payload helper should apply scroll timer")
 	scene.free()
@@ -104,7 +105,8 @@ func _verify_scene_delegates_scroll_update_handler() -> void:
 	var update_scroll_source: String = _slice_function(source, "func _update_scroll", "func _draw_scroll")
 	_expect(source.find("StageClearResultScrollUpdateHandler.update_scroll") >= 0, "result scene should delegate scroll update sequencing")
 	_expect(source.find("StageClearResultScrollUpdateHandler.get_scroll_update_scene_apply_result") >= 0, "result scene should delegate scroll update scene field payloads")
-	_expect(source.find("func _apply_scene_field_payload") >= 0, "result scene should centralize scene field payload application")
+	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
 	_expect(update_scroll_source.find("_scroll_phase = str(apply_result.get") < 0, "result scene should not write scroll phase directly during scroll updates")
 	_expect(update_scroll_source.find("_scroll_timer = float(apply_result.get") < 0, "result scene should not write scroll timer directly during scroll updates")
 	_expect(update_scroll_source.find("result.get(\"phase\"") < 0, "result scene should not inspect scroll update phases directly")

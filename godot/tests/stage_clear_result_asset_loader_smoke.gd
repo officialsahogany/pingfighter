@@ -78,12 +78,33 @@ func _verify_texture_bundle_load() -> void:
 		commando_click_sheet != null and commando_click_sheet.get_size() == Vector2(9856.0, 8064.0),
 		"asset loader should load the Commando result click Live2D hq1408 11x9 sheet"
 	)
+	var optimus_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("optimus", 1)
+	_expect(
+		str(optimus_paths.get("player_victory_sheet", "")) == StageClearResultAssetLoader.OPTIMUS_VICTORY_SHEET_PATH,
+		"result asset paths should route Optimus player victories to the Optimus result Live2D base sheet"
+	)
+	_expect(
+		str(optimus_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultAssetLoader.OPTIMUS_CLICK_REACTION_SHEET_PATH,
+		"result asset paths should route Optimus player victory clicks to the Optimus result Live2D reaction sheet"
+	)
+	var optimus_textures: Dictionary = StageClearResultAssetLoader.load_textures({}, optimus_paths)
+	var optimus_sheet := optimus_textures.get("player_victory_sheet") as Texture2D
+	_expect(
+		optimus_sheet != null and optimus_sheet.get_size() == Vector2(9856.0, 8064.0),
+		"asset loader should load the Optimus result base Live2D xfit67 11x9 sheet"
+	)
+	var optimus_click_sheet := optimus_textures.get("player_victory_click_reaction_sheet") as Texture2D
+	_expect(
+		optimus_click_sheet != null and optimus_click_sheet.get_size() == Vector2(9856.0, 8064.0),
+		"asset loader should load the Optimus result click Live2D xfit67 11x9 sheet"
+	)
 
 
 func _verify_asset_path_resolution() -> void:
 	var path_config: Dictionary = StageClearResultAssetLoader.get_default_result_asset_path_config()
 	_expect(str(path_config.get("background_texture", "")) == StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH, "asset loader should own the default result background path config")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("commando") == "soldier", "asset loader should normalize Commando result character ids")
+	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("optimus") == "optimus", "asset loader should normalize Optimus result character ids")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("unknown") == "smasher", "asset loader should default unknown result character ids to Smasher")
 	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("commando", 1)
 	_expect(
@@ -93,6 +114,15 @@ func _verify_asset_path_resolution() -> void:
 	_expect(
 		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultAssetLoader.COMMANDO_CLICK_REACTION_SHEET_PATH,
 		"asset loader should route Commando player victory clicks to the Commando result Live2D reaction sheet"
+	)
+	var optimus_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("io", 1)
+	_expect(
+		str(optimus_paths.get("player_victory_sheet", "")) == StageClearResultAssetLoader.OPTIMUS_VICTORY_SHEET_PATH,
+		"asset loader should route Io aliases to the Optimus result Live2D base sheet"
+	)
+	_expect(
+		str(optimus_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultAssetLoader.OPTIMUS_CLICK_REACTION_SHEET_PATH,
+		"asset loader should route Io aliases to the Optimus result click Live2D reaction sheet"
 	)
 	var stage2_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("smasher", 2)
 	_expect(stage2_paths.has("stage2_boss_defeat_live2d_sheet"), "asset loader should include Stage 2 defeated boss sheets for Stage 2")

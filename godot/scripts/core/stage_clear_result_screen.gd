@@ -1,19 +1,16 @@
 extends RefCounted
 
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
-const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
-const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
-const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
+const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
+const StageClearResultRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
+const StageClearResultStageSnapshotBuilder := preload("res://scripts/core/stage_clear_result_stage_snapshot_builder.gd")
 
 const RESULT_SCENE_PATH := "res://scenes/stage_clear_result.tscn"
+const PLAZA_SCENE_PATH := "res://scenes/plaza.tscn"
 const STARPOINT_CHOICE_REWARD_DELAY := 0.65
-const BOX_KIND_NORMAL := "normal"
-const BOX_KIND_ADVANCED := "advanced"
-const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
-const GUARANTEED_MYTHIC_BOX_CHANCE := 0.03
-const ADVANCED_BOX_CHANCE := 0.20
 
 var active: bool = false
 var player_score: int = 0
@@ -26,9 +23,9 @@ var _pending_registry: Object
 var _scene_node: Control
 var _spawn_pending: bool = false
 var _reward_resolver: Object = StageClearRewardResolver.new()
-var _active_item_catalog: Object = ActiveItemCatalog.new()
-var _mythic_item_catalog: Object = MythicItemCatalog.new()
 var _perk_catalog: Object = RuntimePerkCatalog.new()
+var _reward_plan_builder: Object = StageClearResultRewardPlanBuilder.new()
+var _stage_snapshot_builder: Object = StageClearResultStageSnapshotBuilder.new()
 var _rewards_granted: bool = false
 var _last_grant_summary: Dictionary = {}
 var _immediate_reward_summaries: Array = []
@@ -39,6 +36,14 @@ var _pending_starpoint_choice_box_index: int = -1
 var _active_starpoint_choice_box_index: int = -1
 var _last_recorded_perk_choice_sequence: int = 0
 var _result_scene_packed: PackedScene
+var _plaza_node: Control
+var _plaza_scene_packed: PackedScene
+var _plaza_prewarm_complete: bool = false
+var _plaza_prewarm_stage: int = -1
+var _plaza_save_store: Object = PlazaSaveStore.new()
+var _stage_clear_gold_transfer_consumed: bool = false
+var _stage_clear_ap_grant_consumed: bool = false
+var _last_plaza_progress_summary: Dictionary = {}
 var _prewarm_assets_step_index: int = 0
 var _prewarm_assets_status: Dictionary = {}
 
@@ -61,10 +66,18 @@ func show_from_scoreboard(
 	_pending_exit_callback = exit_to_menu_callback
 	_pending_owner = owner
 	_pending_registry = registry
-	_last_stage_reward_snapshot = _build_stage_reward_snapshot(owner, registry, current_stage)
+	_last_stage_reward_snapshot = _stage_snapshot_builder.build_stage_reward_snapshot(
+		owner,
+		registry,
+		current_stage,
+		_stage_start_snapshot
+	)
 	_rewards_granted = false
 	_last_grant_summary = {}
 	_immediate_reward_summaries.clear()
+	_stage_clear_gold_transfer_consumed = false
+	_stage_clear_ap_grant_consumed = false
+	_last_plaza_progress_summary = {}
 	_clear_pending_starpoint_choice()
 	_clear_active_starpoint_choice_tracking()
 	active = true
@@ -101,15 +114,25 @@ func reset() -> void:
 	_last_grant_summary = {}
 	_immediate_reward_summaries.clear()
 	_last_stage_reward_snapshot = {}
+	_stage_clear_gold_transfer_consumed = false
+	_stage_clear_ap_grant_consumed = false
+	_last_plaza_progress_summary = {}
 	_clear_pending_starpoint_choice()
 	_clear_active_starpoint_choice_tracking()
 	if _scene_node != null and is_instance_valid(_scene_node):
 		_scene_node.queue_free()
 	_scene_node = null
+	_free_plaza_scene()
+	_plaza_prewarm_complete = false
+	_plaza_prewarm_stage = -1
 
 
 func update(delta: float) -> void:
 	if not is_active():
+		return
+	if _has_plaza_scene():
+		if _plaza_node.has_method("update_plaza"):
+			_plaza_node.update_plaza(delta)
 		return
 	if _spawn_pending:
 		_update_pending_scene_spawn()
@@ -120,6 +143,7 @@ func update(delta: float) -> void:
 	_sync_result_scene_visibility()
 	if _scene_node.has_method("update_result_scene"):
 		_scene_node.update_result_scene(delta)
+	_prewarm_plaza_assets_step()
 	_update_mythic_acquisition_cinematic(delta)
 	_update_runtime_perk_choice(delta)
 	_update_pending_starpoint_choice(delta)
@@ -128,6 +152,10 @@ func update(delta: float) -> void:
 func handle_input(event: InputEvent, _owner: Object, _registry: Object, _view_size: Vector2) -> bool:
 	if not is_active():
 		return false
+	if _has_plaza_scene():
+		if _plaza_node.has_method("handle_plaza_input"):
+			_plaza_node.handle_plaza_input(event)
+		return true
 	if _spawn_pending or not _has_result_scene():
 		return true
 	if _handle_mythic_acquisition_input(event):
@@ -139,13 +167,13 @@ func handle_input(event: InputEvent, _owner: Object, _registry: Object, _view_si
 
 
 func draw(canvas: CanvasItem, _owner: Object, _registry: Object, view_size: Vector2) -> void:
-	if not active or _has_result_scene() or canvas == null:
+	if not active or _has_result_scene() or _has_plaza_scene() or canvas == null:
 		return
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.015, 0.018, 0.028, 0.94))
 
 
 func get_reward_plan() -> Dictionary:
-	return _build_reward_plan(player_score, boss_score)
+	return _reward_plan_builder.build_reward_plan(player_score, boss_score)
 
 
 func get_status() -> Dictionary:
@@ -157,9 +185,16 @@ func get_status() -> Dictionary:
 		"reward_plan": get_reward_plan(),
 		"scene_path": RESULT_SCENE_PATH,
 		"scene_ready": _has_result_scene(),
+		"plaza_scene_path": PLAZA_SCENE_PATH,
+		"plaza_active": _has_plaza_scene(),
+		"plaza_scene_ready": _has_plaza_scene(),
+		"plaza_prewarm_complete": _plaza_prewarm_complete,
+		"plaza_prewarm_stage": _plaza_prewarm_stage,
+		"plaza_status": _plaza_node.get_status() if _has_plaza_scene() and _plaza_node.has_method("get_status") else {},
 		"spawn_pending": _spawn_pending,
 		"rewards_granted": _rewards_granted,
 		"last_grant_summary": _last_grant_summary.duplicate(true),
+		"last_plaza_progress_summary": _last_plaza_progress_summary.duplicate(true),
 		"immediate_reward_summaries": _immediate_reward_summaries.duplicate(true),
 		"stage_start_snapshot": _stage_start_snapshot.duplicate(true),
 		"stage_reward_snapshot": _last_stage_reward_snapshot.duplicate(true),
@@ -172,7 +207,18 @@ func prepare_stage_start(owner: Object, registry: Object, stage_id: int = -1) ->
 	var next_stage: int = stage_id
 	if next_stage <= 0:
 		next_stage = _get_current_stage(owner)
-	_stage_start_snapshot = _build_progress_snapshot(owner, registry, next_stage)
+	_stage_start_snapshot = _stage_snapshot_builder.build_progress_snapshot(owner, registry, next_stage)
+
+
+func set_plaza_save_path_for_test(path: String) -> void:
+	if _plaza_save_store != null and _plaza_save_store.has_method("set_save_path"):
+		_plaza_save_store.set_save_path(path)
+
+
+func get_plaza_save_summary() -> Dictionary:
+	if _plaza_save_store == null or not _plaza_save_store.has_method("get_summary"):
+		return {}
+	return _plaza_save_store.get_summary()
 
 
 func prewarm_assets(_owner: Object = null, _registry: Object = null) -> Dictionary:
@@ -269,7 +315,8 @@ func _spawn_result_scene(owner: Object) -> bool:
 		Callable(self, "_finish_next_stage"),
 		Callable(self, "_finish_exit_to_menu"),
 		Callable(self, "_roll_box_reward"),
-		Callable(self, "_grant_immediate_box_reward")
+		Callable(self, "_grant_immediate_box_reward"),
+		Callable(self, "_finish_enter_plaza")
 		)
 	(owner as Node).add_child(_scene_node)
 	return true
@@ -292,6 +339,10 @@ func _update_pending_scene_spawn() -> void:
 
 func _has_result_scene() -> bool:
 	return _scene_node != null and is_instance_valid(_scene_node)
+
+
+func _has_plaza_scene() -> bool:
+	return _plaza_node != null and is_instance_valid(_plaza_node)
 
 
 func _are_scene_assets_ready_for_spawn() -> bool:
@@ -332,6 +383,35 @@ func _get_result_scene_packed() -> PackedScene:
 		return _result_scene_packed
 	_result_scene_packed = load(RESULT_SCENE_PATH) as PackedScene
 	return _result_scene_packed
+
+
+func _get_plaza_scene_packed() -> PackedScene:
+	if _plaza_scene_packed != null:
+		return _plaza_scene_packed
+	_plaza_scene_packed = load(PLAZA_SCENE_PATH) as PackedScene
+	return _plaza_scene_packed
+
+
+func _prewarm_plaza_assets_step() -> bool:
+	if _plaza_prewarm_complete and _plaza_prewarm_stage == current_stage:
+		return true
+	_plaza_prewarm_stage = current_stage
+	_plaza_prewarm_complete = bool(PlazaScene.prewarm_assets_threaded_step(current_stage))
+	return _plaza_prewarm_complete
+
+
+func _ensure_plaza_assets_ready() -> bool:
+	if _plaza_prewarm_complete and _plaza_prewarm_stage == current_stage:
+		return true
+	_plaza_prewarm_stage = current_stage
+	var guard := 0
+	while not bool(PlazaScene.prewarm_assets_blocking_step(current_stage)):
+		guard += 1
+		if guard > 256:
+			push_warning("Timed out while prewarming plaza assets for stage %d" % current_stage)
+			return false
+	_plaza_prewarm_complete = true
+	return true
 
 
 func _roll_box_reward(box_kind: String) -> Dictionary:
@@ -679,6 +759,7 @@ func _finish_next_stage() -> void:
 	if not active:
 		return
 	_grant_pending_rewards()
+	_apply_stage_clear_progress_once(true)
 	active = false
 	var callback: Callable = _pending_reset_callback
 	_pending_reset_callback = Callable()
@@ -686,9 +767,74 @@ func _finish_next_stage() -> void:
 	_pending_owner = null
 	_pending_registry = null
 	_spawn_pending = false
-	if _scene_node != null and is_instance_valid(_scene_node):
-		_scene_node.queue_free()
-	_scene_node = null
+	_free_result_scene()
+	_free_plaza_scene()
+	if callback.is_valid():
+		callback.call()
+
+
+func _finish_enter_plaza() -> void:
+	if not active:
+		return
+	_grant_pending_rewards()
+	_apply_stage_clear_progress_once(true)
+	_clear_pending_starpoint_choice()
+	_clear_active_starpoint_choice_tracking()
+	_spawn_pending = false
+	_free_result_scene()
+	if not _ensure_plaza_assets_ready() or not _spawn_plaza_scene(_pending_owner):
+		_finish_plaza_and_continue()
+		return
+	if _pending_owner != null and _pending_owner.has_method("queue_redraw"):
+		_pending_owner.queue_redraw()
+
+
+func _spawn_plaza_scene(owner: Object) -> bool:
+	if not (owner is Node):
+		return false
+	_free_plaza_scene()
+	var packed: PackedScene = _get_plaza_scene_packed()
+	if packed == null:
+		push_warning("Missing plaza scene at %s" % PLAZA_SCENE_PATH)
+		return false
+	var instance: Node = packed.instantiate()
+	if not (instance is Control):
+		if instance != null:
+			instance.queue_free()
+		push_warning("Plaza scene root must be Control: %s" % PLAZA_SCENE_PATH)
+		return false
+	_plaza_node = instance as Control
+	_plaza_node.name = "PlazaScene"
+	_plaza_node.process_mode = Node.PROCESS_MODE_ALWAYS
+	_plaza_node.z_index = 1200
+	_plaza_node.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	if _plaza_node.has_method("configure"):
+		_plaza_node.configure(
+			{
+				"current_stage": current_stage,
+				"plaza_save_path": _get_plaza_save_path(),
+				"runtime_owner": _pending_owner,
+				"runtime_registry": _pending_registry,
+			},
+			Callable(self, "_finish_plaza_and_continue"),
+			true
+		)
+	(owner as Node).add_child(_plaza_node)
+	return true
+
+
+func _finish_plaza_and_continue() -> void:
+	if not active:
+		return
+	active = false
+	var callback: Callable = _pending_reset_callback
+	_pending_reset_callback = Callable()
+	_pending_exit_callback = Callable()
+	_pending_owner = null
+	_pending_registry = null
+	_spawn_pending = false
+	_free_result_scene()
+	_free_plaza_scene()
 	if callback.is_valid():
 		callback.call()
 
@@ -697,6 +843,7 @@ func _finish_exit_to_menu() -> void:
 	if not active:
 		return
 	_grant_pending_rewards()
+	_apply_stage_clear_progress_once(false)
 	active = false
 	var exit_cb: Callable = _pending_exit_callback
 	var reset_cb: Callable = _pending_reset_callback
@@ -705,13 +852,58 @@ func _finish_exit_to_menu() -> void:
 	_pending_owner = null
 	_pending_registry = null
 	_spawn_pending = false
-	if _scene_node != null and is_instance_valid(_scene_node):
-		_scene_node.queue_free()
-	_scene_node = null
+	_free_result_scene()
+	_free_plaza_scene()
 	if exit_cb.is_valid():
 		exit_cb.call()
 	elif reset_cb.is_valid():
 		reset_cb.call()
+
+
+func _apply_stage_clear_progress_once(grant_ap: bool) -> Dictionary:
+	if not _owner_has_runtime_perk_gold(_pending_owner):
+		_last_plaza_progress_summary = {
+			"transferred_gold": 0,
+			"granted_ap": 0,
+			"save": "skipped_missing_runtime_perk_gold_owner",
+		}
+		return _last_plaza_progress_summary.duplicate(true)
+	if _plaza_save_store == null or not _plaza_save_store.has_method("apply_stage_clear_progress"):
+		_last_plaza_progress_summary = {
+			"transferred_gold": 0,
+			"granted_ap": 0,
+			"save": "missing_plaza_save_store",
+		}
+		return _last_plaza_progress_summary.duplicate(true)
+	var gold_amount := 0
+	if not _stage_clear_gold_transfer_consumed:
+		gold_amount = _get_owner_runtime_perk_gold(_pending_owner)
+		_stage_clear_gold_transfer_consumed = true
+		_set_owner_runtime_perk_gold(_pending_owner, 0)
+	var should_grant_ap := grant_ap and not _stage_clear_ap_grant_consumed
+	if should_grant_ap:
+		_stage_clear_ap_grant_consumed = true
+	_last_plaza_progress_summary = _plaza_save_store.apply_stage_clear_progress(current_stage, gold_amount, should_grant_ap)
+	return _last_plaza_progress_summary.duplicate(true)
+
+
+func _get_plaza_save_path() -> String:
+	if _plaza_save_store == null or not _plaza_save_store.has_method("get_summary"):
+		return ""
+	var summary: Dictionary = _plaza_save_store.get_summary()
+	return str(summary.get("save_path", ""))
+
+
+func _free_result_scene() -> void:
+	if _scene_node != null and is_instance_valid(_scene_node):
+		_scene_node.queue_free()
+	_scene_node = null
+
+
+func _free_plaza_scene() -> void:
+	if _plaza_node != null and is_instance_valid(_plaza_node):
+		_plaza_node.queue_free()
+	_plaza_node = null
 
 
 func _get_score_snapshot(registry: Object) -> Dictionary:
@@ -742,6 +934,25 @@ func _get_current_stage(owner: Object) -> int:
 		if value != null:
 			return max(1, int(value))
 	return 1
+
+
+func _get_owner_runtime_perk_gold(owner: Object) -> int:
+	if owner == null:
+		return 0
+	var value: Variant = owner.get("runtime_perk_gold")
+	if value == null:
+		return 0
+	return maxi(0, int(value))
+
+
+func _set_owner_runtime_perk_gold(owner: Object, value: int) -> void:
+	if not _owner_has_runtime_perk_gold(owner):
+		return
+	owner.set("runtime_perk_gold", maxi(0, value))
+
+
+func _owner_has_runtime_perk_gold(owner: Object) -> bool:
+	return owner != null and owner.get("runtime_perk_gold") != null
 
 
 func _get_selected_character_type(owner: Object) -> String:
@@ -776,17 +987,6 @@ func _get_instance(registry: Object, key: String) -> Object:
 	return registry.get_instance(key)
 
 
-func _get_cached_instance(registry: Object, key: String) -> Object:
-	if registry == null or key == "":
-		return null
-	if registry.has_method("get_cached_instance"):
-		var cached: Variant = registry.get_cached_instance(key)
-		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
-			return cached as Object
-		return null
-	return _get_instance(registry, key)
-
-
 func _reset_stage5_for_result(registry: Object, stage_id: int) -> void:
 	if stage_id != 5:
 		return
@@ -802,255 +1002,6 @@ func _reset_stage5_for_result(registry: Object, stage_id: int) -> void:
 			stage5_hongryun_actor_renderer.reset_round_fx()
 		elif stage5_hongryun_actor_renderer.has_method("reset"):
 			stage5_hongryun_actor_renderer.reset()
-
-
-func _build_reward_plan(winning_score: int, losing_score: int) -> Dictionary:
-	var boxes: Array = []
-	var summary := LanguageSettings.format_item_box_summary(1)
-	if winning_score == 5 and losing_score == 0:
-		_append_stage_clear_boxes(boxes, 5)
-		summary = LanguageSettings.format_item_box_summary(5)
-	elif winning_score == 5 and losing_score == 1:
-		_append_stage_clear_boxes(boxes, 4)
-		summary = LanguageSettings.format_item_box_summary(4)
-	elif winning_score == 5 and losing_score == 2:
-		_append_stage_clear_boxes(boxes, 3)
-		summary = LanguageSettings.format_item_box_summary(3)
-	elif winning_score == 5 and losing_score == 3:
-		_append_stage_clear_boxes(boxes, 2)
-		summary = LanguageSettings.format_item_box_summary(2)
-	else:
-		_append_stage_clear_boxes(boxes, 1)
-	return {
-		"summary": summary,
-		"boxes": boxes,
-		"reward_count": boxes.size(),
-	}
-
-
-func _append_stage_clear_boxes(boxes: Array, count: int) -> void:
-	for _index in range(max(0, count)):
-		boxes.append({"kind": _roll_stage_clear_box_kind(randf())})
-
-
-func _roll_stage_clear_box_kind(roll: float) -> String:
-	var clamped_roll: float = clamp(roll, 0.0, 0.999999)
-	if clamped_roll < GUARANTEED_MYTHIC_BOX_CHANCE:
-		return BOX_KIND_GUARANTEED_MYTHIC
-	if clamped_roll < GUARANTEED_MYTHIC_BOX_CHANCE + ADVANCED_BOX_CHANCE:
-		return BOX_KIND_ADVANCED
-	return BOX_KIND_NORMAL
-
-
-func _build_progress_snapshot(owner: Object, registry: Object, stage_id: int) -> Dictionary:
-	return {
-		"stage": max(1, stage_id),
-		"active_item_slots": _get_active_item_slots(owner),
-		"passive_item_inventory": _get_passive_item_inventory(owner, registry),
-		"runtime_perk_levels": _get_runtime_perk_levels(owner, registry),
-	}
-
-
-func _build_stage_reward_snapshot(owner: Object, registry: Object, stage_id: int) -> Dictionary:
-	var baseline: Dictionary = _stage_start_snapshot
-	if int(baseline.get("stage", 0)) != stage_id:
-		baseline = {
-			"stage": stage_id,
-			"active_item_slots": [],
-			"passive_item_inventory": [],
-			"runtime_perk_levels": {},
-		}
-	var active_items: Array = []
-	for item_value in _get_active_item_slots(owner):
-		if item_value is Dictionary:
-			var active_item: Dictionary = _build_item_reward(item_value as Dictionary, "active", "remaining_active")
-			if not active_item.is_empty():
-				active_items.append(active_item)
-
-	var passive_items: Array = []
-	var baseline_inventory: Array = _get_array(baseline.get("passive_item_inventory", []))
-	var baseline_counts: Dictionary = _build_item_identity_counts(baseline_inventory)
-	for item_value in _get_passive_item_inventory(owner, registry):
-		if not (item_value is Dictionary):
-			continue
-		var item_data: Dictionary = item_value
-		var identity: String = _get_item_identity(item_data)
-		var remaining_count: int = int(baseline_counts.get(identity, 0))
-		if remaining_count > 0:
-			baseline_counts[identity] = remaining_count - 1
-			continue
-		var reward_type: String = "mythic" if _is_mythic_item(item_data) else "passive"
-		var passive_item: Dictionary = _build_item_reward(item_data, reward_type, "stage_passive")
-		if not passive_item.is_empty():
-			passive_items.append(passive_item)
-
-	var perks: Array = []
-	var baseline_levels: Dictionary = _get_dictionary(baseline.get("runtime_perk_levels", {}))
-	var current_levels: Dictionary = _get_runtime_perk_levels(owner, registry)
-	for perk_id_value in current_levels.keys():
-		var perk_id: String = str(perk_id_value)
-		var current_level: int = int(current_levels.get(perk_id_value, 0))
-		var baseline_level: int = int(baseline_levels.get(perk_id, baseline_levels.get(perk_id_value, 0)))
-		if current_level <= baseline_level:
-			continue
-		var perk_reward: Dictionary = _build_perk_reward(perk_id, baseline_level, current_level)
-		if not perk_reward.is_empty():
-			perks.append(perk_reward)
-
-	return {
-		"stage": stage_id,
-		"active_items": active_items,
-		"passive_items": passive_items,
-		"perks": perks,
-	}
-
-
-func _build_item_identity_counts(items: Array) -> Dictionary:
-	var counts: Dictionary = {}
-	for item_value in items:
-		if not (item_value is Dictionary):
-			continue
-		var key: String = _get_item_identity(item_value as Dictionary)
-		counts[key] = int(counts.get(key, 0)) + 1
-	return counts
-
-
-func _get_item_identity(item_data: Dictionary) -> String:
-	var inventory_id: int = int(item_data.get("_inventory_id", 0))
-	if inventory_id > 0:
-		return "inventory:%d" % inventory_id
-	var item_name: String = _get_item_name(item_data)
-	if item_name != "":
-		return "name:%s" % item_name
-	var label: String = str(item_data.get("display_name", item_data.get("label", "")))
-	if label != "":
-		return "label:%s" % label
-	return "unknown:%s" % str(item_data)
-
-
-func _build_item_reward(item_data: Dictionary, reward_type: String, source: String) -> Dictionary:
-	var item_name: String = _get_item_name(item_data)
-	var enriched: Dictionary = item_data.duplicate(true)
-	if item_name != "":
-		var catalog_data: Dictionary = _build_catalog_item_data(item_name, reward_type)
-		if not catalog_data.is_empty():
-			catalog_data.merge(enriched, true)
-			enriched = catalog_data
-	var label: String = _get_item_label(enriched, item_name, reward_type)
-	var icon_path: String = str(enriched.get("icon_path", ""))
-	return {
-		"type": reward_type,
-		"label": label,
-		"item_name": item_name,
-		"icon_path": icon_path,
-		"amount": 1,
-		"source": source,
-		"item_data": enriched,
-	}
-
-
-func _build_catalog_item_data(item_name: String, reward_type: String) -> Dictionary:
-	if reward_type == "active":
-		if _active_item_catalog != null and _active_item_catalog.has_method("build_item_by_name"):
-			var active_value: Variant = _active_item_catalog.build_item_by_name(item_name)
-			if active_value is Dictionary:
-				return (active_value as Dictionary).duplicate(true)
-	else:
-		if _mythic_item_catalog != null and _mythic_item_catalog.has_method("build_item_by_name"):
-			var mythic_value: Variant = _mythic_item_catalog.build_item_by_name(item_name)
-			if mythic_value is Dictionary:
-				return (mythic_value as Dictionary).duplicate(true)
-	return {}
-
-
-func _get_item_label(item_data: Dictionary, item_name: String, reward_type: String) -> String:
-	if reward_type != "active" and _mythic_item_catalog != null and _mythic_item_catalog.has_method("format_item_display_name"):
-		var formatted: String = str(_mythic_item_catalog.format_item_display_name(item_data))
-		if formatted != "":
-			return formatted
-	var display_name: String = str(item_data.get("display_name", item_data.get("label", "")))
-	if display_name != "":
-		return display_name
-	if reward_type == "active" and _active_item_catalog != null and _active_item_catalog.has_method("get_display_name") and item_name != "":
-		return str(_active_item_catalog.get_display_name(item_name))
-	if reward_type != "active" and _mythic_item_catalog != null and _mythic_item_catalog.has_method("get_display_name") and item_name != "":
-		return str(_mythic_item_catalog.get_display_name(item_name))
-	return item_name
-
-
-func _build_perk_reward(perk_id: String, baseline_level: int, current_level: int) -> Dictionary:
-	if perk_id == "" or current_level <= baseline_level:
-		return {}
-	var perk_data: Dictionary = {}
-	if _perk_catalog != null and _perk_catalog.has_method("get_perk_data"):
-		var perk_value: Variant = _perk_catalog.get_perk_data(perk_id)
-		if perk_value is Dictionary:
-			perk_data = (perk_value as Dictionary).duplicate(true)
-	var perk_name: String = str(perk_data.get("name", perk_id))
-	var label: String = "%s Lv.%d" % [perk_name, current_level]
-	if current_level - baseline_level > 1:
-		label = "%s +%d" % [label, current_level - baseline_level]
-	return {
-		"type": "perk",
-		"label": label,
-		"perk_id": perk_id,
-		"id": perk_id,
-		"current_level": baseline_level,
-		"next_level": current_level,
-		"level_delta": current_level - baseline_level,
-		"source": "stage_perk",
-		"perk_data": perk_data,
-	}
-
-
-func _get_active_item_slots(owner: Object) -> Array:
-	if owner == null:
-		return []
-	var value: Variant = owner.get("active_item_slots")
-	if value is Array:
-		return (value as Array).duplicate(true)
-	return []
-
-
-func _get_passive_item_inventory(owner: Object, registry: Object) -> Array:
-	var mythic_item_runtime: Object = _get_cached_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_snapshot"):
-		var snapshot_value: Variant = mythic_item_runtime.get_snapshot()
-		if snapshot_value is Dictionary:
-			var inventory_value: Variant = (snapshot_value as Dictionary).get("inventory_items", [])
-			if inventory_value is Array:
-				return (inventory_value as Array).duplicate(true)
-	if owner != null:
-		var owner_value: Variant = owner.get("passive_item_inventory")
-		if owner_value is Array:
-			return (owner_value as Array).duplicate(true)
-	return []
-
-
-func _get_runtime_perk_levels(owner: Object, registry: Object) -> Dictionary:
-	var runtime_perk_state: Object = _get_cached_instance(registry, "runtime_perk_state")
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_snapshot"):
-		var snapshot_value: Variant = runtime_perk_state.get_snapshot()
-		if snapshot_value is Dictionary:
-			var levels_value: Variant = (snapshot_value as Dictionary).get("runtime_skill_levels", {})
-			if levels_value is Dictionary:
-				return (levels_value as Dictionary).duplicate(true)
-	if owner != null:
-		var owner_value: Variant = owner.get("runtime_perk_levels")
-		if owner_value is Dictionary:
-			return (owner_value as Dictionary).duplicate(true)
-	return {}
-
-
-func _get_item_name(item_data: Dictionary) -> String:
-	var item_name: String = str(item_data.get("name", ""))
-	if item_name != "":
-		return item_name
-	return str(item_data.get("item_name", item_data.get("effect", "")))
-
-
-func _is_mythic_item(item_data: Dictionary) -> bool:
-	return str(item_data.get("type", "")) == "mythic" or str(item_data.get("rarity", "")) == "mythic"
 
 
 func _get_array(value: Variant) -> Array:

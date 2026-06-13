@@ -60,6 +60,8 @@ static func get_box_update_scene_apply_result(
 		current_lid_open_counter
 	)
 	return {
-		"_boxes": apply_result.get("boxes", current_boxes),
-		"_lid_open_counter": int(apply_result.get("lid_open_counter", current_lid_open_counter)),
+		"field_payload": {
+			"_boxes": apply_result.get("boxes", current_boxes),
+			"_lid_open_counter": int(apply_result.get("lid_open_counter", current_lid_open_counter)),
+		},
 	}

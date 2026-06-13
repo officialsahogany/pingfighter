@@ -99,13 +99,14 @@ func _verify_scene_apply_contract() -> void:
 		current_boxes,
 		2
 	)
-	_expect(scene_apply.get("_boxes", []) == updated_boxes, "box update scene apply helper should map boxes to scene field")
-	_expect(int(scene_apply.get("_lid_open_counter", 0)) == 8, "box update scene apply helper should map lid counter to scene field")
+	var field_payload: Dictionary = scene_apply.get("field_payload", {}) as Dictionary
+	_expect(field_payload.get("_boxes", []) == updated_boxes, "box update scene apply helper should map boxes to scene field")
+	_expect(int(field_payload.get("_lid_open_counter", 0)) == 8, "box update scene apply helper should map lid counter to scene field")
 
 	var scene := StageClearResultScene.new()
 	scene.set("_boxes", current_boxes)
 	scene.set("_lid_open_counter", 2)
-	scene._apply_scene_field_payload(scene_apply)
+	scene._apply_scene_apply_result(scene_apply)
 	_expect(scene.get("_boxes") == updated_boxes, "scene field payload helper should apply box arrays")
 	_expect(int(scene.get("_lid_open_counter")) == 8, "scene field payload helper should apply lid counter")
 	scene.free()
@@ -125,7 +126,8 @@ func _verify_scene_delegates_box_update_handler() -> void:
 	var update_boxes_source: String = _slice_function(source, "func _update_boxes", "func _update_scroll")
 	_expect(source.find("StageClearResultBoxUpdateHandler.update_boxes") >= 0, "result scene should delegate box updates through the update handler")
 	_expect(source.find("StageClearResultBoxUpdateHandler.get_box_update_scene_apply_result") >= 0, "result scene should delegate box update scene field payloads")
-	_expect(source.find("func _apply_scene_field_payload") >= 0, "result scene should centralize scene field payload application")
+	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
 	_expect(update_boxes_source.find("_boxes = apply_result.get") < 0, "result scene should not write box arrays directly during box updates")
 	_expect(update_boxes_source.find("_lid_open_counter = int(apply_result.get") < 0, "result scene should not write lid counters directly during box updates")
 	_expect(update_boxes_source.find("_lid_open_counter = int(result.get") < 0, "result scene should not inspect box update lid counters directly")

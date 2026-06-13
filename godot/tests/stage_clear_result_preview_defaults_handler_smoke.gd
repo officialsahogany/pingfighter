@@ -61,7 +61,7 @@ func _verify_preview_scene_apply_contract() -> void:
 	scene.boss_score = 8
 	scene.current_stage = 7
 	scene.reward_plan = {"existing": true}
-	scene._apply_scene_field_payload(field_payload)
+	scene._apply_scene_apply_result(scene_apply)
 	_expect(scene.player_score == 5, "scene field payload helper should apply preview player score")
 	_expect(scene.boss_score == 0, "scene field payload helper should apply preview boss score")
 	_expect(scene.current_stage == 1, "scene field payload helper should apply preview stage")
@@ -98,8 +98,9 @@ func _verify_scene_delegates_preview_defaults() -> void:
 	var preview_source: String = _slice_function(source, "func _apply_standalone_preview_defaults", "func _load_textures")
 	_expect(source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview defaults")
 	_expect(source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_scene_apply_result") >= 0, "result scene should delegate standalone preview scene field apply payloads")
-	_expect(source.find("func _apply_scene_field_payload") >= 0, "result scene should centralize scene field payload application")
-	_expect(source.find("func _get_field_payload_from_apply_result") >= 0, "result scene should unwrap nested scene field payloads in one helper")
+	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
+	_expect(source.find("func _get_field_payload_from_apply_result") < 0, "result scene should not keep the retired payload-unwrapping wrapper")
 	_expect(preview_source.find("defaults.get(\"apply\"") < 0, "result scene should not inspect preview apply flags directly")
 	_expect(preview_source.find("player_score = int(apply_result.get") < 0, "result scene should not write preview player score directly")
 	_expect(preview_source.find("boss_score = int(apply_result.get") < 0, "result scene should not write preview boss score directly")

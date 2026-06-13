@@ -3,6 +3,7 @@ extends SceneTree
 const MatchScoreboardFlowController := preload("res://scripts/core/match_scoreboard_flow_controller.gd")
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
 const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_screen.gd")
+const StageClearResultRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 
@@ -364,12 +365,12 @@ func _verify_module_registration() -> void:
 
 
 func _verify_stage_clear_box_kind_odds() -> void:
-	var screen: Object = StageClearResultScreen.new()
-	_expect(screen._roll_stage_clear_box_kind(0.0) == "guaranteed_mythic", "stage-clear box odds should map the low 3 percent to guaranteed mythic boxes")
-	_expect(screen._roll_stage_clear_box_kind(0.029) == "guaranteed_mythic", "guaranteed mythic box range should end before 3 percent")
-	_expect(screen._roll_stage_clear_box_kind(0.03) == "advanced", "stage-clear box odds should map rolls from 3 percent to advanced boxes")
-	_expect(screen._roll_stage_clear_box_kind(0.229) == "advanced", "advanced box range should add exactly 20 percent")
-	_expect(screen._roll_stage_clear_box_kind(0.23) == "normal", "normal boxes should occupy the remaining 77 percent")
+	var builder := StageClearResultRewardPlanBuilder.new()
+	_expect(builder.roll_stage_clear_box_kind(0.0) == "guaranteed_mythic", "stage-clear box odds should map the low 3 percent to guaranteed mythic boxes")
+	_expect(builder.roll_stage_clear_box_kind(0.029) == "guaranteed_mythic", "guaranteed mythic box range should end before 3 percent")
+	_expect(builder.roll_stage_clear_box_kind(0.03) == "advanced", "stage-clear box odds should map rolls from 3 percent to advanced boxes")
+	_expect(builder.roll_stage_clear_box_kind(0.229) == "advanced", "advanced box range should add exactly 20 percent")
+	_expect(builder.roll_stage_clear_box_kind(0.23) == "normal", "normal boxes should occupy the remaining 77 percent")
 
 
 func _verify_scene_shell_prewarm_is_light() -> void:

@@ -6,6 +6,7 @@ const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_resul
 const ACTION_NONE := "none"
 const ACTION_OPEN_NEXT_BOX := "open_next_box"
 const ACTION_CONFIRM := "confirm"
+const ACTION_ENTER_PLAZA := "enter_plaza"
 const ACTION_EXIT_TO_MENU := "exit_to_menu"
 const ACTION_CONSUME := "consume"
 
@@ -28,6 +29,8 @@ static func get_escape_action(scroll_phase: String) -> String:
 static func get_scroll_button_action(clicked_button: String) -> String:
 	if clicked_button == StageClearResultInteractionState.BUTTON_NEXT_STAGE:
 		return ACTION_CONFIRM
+	if clicked_button == StageClearResultInteractionState.BUTTON_PLAZA:
+		return ACTION_ENTER_PLAZA
 	if clicked_button == StageClearResultInteractionState.BUTTON_EXIT:
 		return ACTION_EXIT_TO_MENU
 	return ACTION_NONE
@@ -45,6 +48,7 @@ static func get_scroll_button_click_apply_result(button_click_result: Dictionary
 	var result: Dictionary = get_navigation_action_apply_result(get_scroll_button_action(clicked_button))
 	result.merge({
 		"next_stage_rect": button_click_result.get("next_stage_rect", Rect2()),
+		"plaza_rect": button_click_result.get("plaza_rect", Rect2()),
 		"exit_rect": button_click_result.get("exit_rect", Rect2()),
 		"clicked_button": clicked_button,
 	}, true)

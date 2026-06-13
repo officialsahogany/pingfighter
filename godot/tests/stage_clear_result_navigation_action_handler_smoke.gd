@@ -46,6 +46,10 @@ func _verify_navigation_action_contract() -> void:
 		"next-stage button should confirm"
 	)
 	_expect(
+		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_PLAZA) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
+		"plaza button should enter the plaza"
+	)
+	_expect(
 		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_EXIT) == StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU,
 		"exit button should exit to menu"
 	)
@@ -72,13 +76,16 @@ func _verify_navigation_action_contract() -> void:
 	_expect(not bool(none_apply.get("handled", true)), "navigation apply helper should not handle none actions")
 
 	var next_rect := Rect2(Vector2(10.0, 12.0), Vector2(100.0, 40.0))
-	var exit_rect := Rect2(Vector2(130.0, 12.0), Vector2(100.0, 40.0))
+	var plaza_rect := Rect2(Vector2(130.0, 12.0), Vector2(100.0, 40.0))
+	var exit_rect := Rect2(Vector2(250.0, 12.0), Vector2(100.0, 40.0))
 	var next_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
 		"next_stage_rect": next_rect,
+		"plaza_rect": plaza_rect,
 		"exit_rect": exit_rect,
 		"clicked_button": StageClearResultInteractionState.BUTTON_NEXT_STAGE,
 	})
 	_expect(next_apply.get("next_stage_rect", Rect2()) == next_rect, "scroll-button apply helper should preserve next-stage layout")
+	_expect(next_apply.get("plaza_rect", Rect2()) == plaza_rect, "scroll-button apply helper should preserve plaza layout")
 	_expect(next_apply.get("exit_rect", Rect2()) == exit_rect, "scroll-button apply helper should preserve exit layout")
 	_expect(str(next_apply.get("clicked_button", "")) == StageClearResultInteractionState.BUTTON_NEXT_STAGE, "scroll-button apply helper should preserve clicked button")
 	_expect(str(next_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_CONFIRM, "scroll-button apply helper should map next-stage to confirm")
@@ -89,6 +96,12 @@ func _verify_navigation_action_contract() -> void:
 	})
 	_expect(str(exit_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU, "scroll-button apply helper should map exit to menu")
 	_expect(bool(exit_apply.get("handled", false)), "scroll-button apply helper should handle exit clicks")
+
+	var plaza_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
+		"clicked_button": StageClearResultInteractionState.BUTTON_PLAZA,
+	})
+	_expect(str(plaza_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA, "scroll-button apply helper should map plaza to plaza entry")
+	_expect(bool(plaza_apply.get("handled", false)), "scroll-button apply helper should handle plaza clicks")
 
 	var missed_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
 		"clicked_button": StageClearResultInteractionState.BUTTON_NONE,
@@ -110,6 +123,7 @@ func _verify_scene_delegates_navigation_actions() -> void:
 	_expect(source.find("result.get(\"clicked_button\"") < 0, "result scene should not inspect clicked scroll buttons directly")
 	_expect(source.find("get_scroll_button_action") < 0, "result scene should not map scroll-button actions directly")
 	_expect(source.find("clicked_button == StageClearResultInteractionState.BUTTON_NEXT_STAGE") < 0, "result scene should not map next-stage button inline")
+	_expect(source.find("clicked_button == StageClearResultInteractionState.BUTTON_PLAZA") < 0, "result scene should not map plaza button inline")
 	_expect(source.find("clicked_button == StageClearResultInteractionState.BUTTON_EXIT") < 0, "result scene should not map exit button inline")
 
 

@@ -33,6 +33,7 @@ const StageClearResultNavigationActionHandler := preload("res://scripts/ui/stage
 const StageClearResultPreviewDefaultsHandler := preload("res://scripts/ui/stage_clear_result_preview_defaults_handler.gd")
 const StageClearResultRuntimeOverlayPresenter := preload("res://scripts/ui/stage_clear_result_runtime_overlay_presenter.gd")
 const StageClearResultRuntimeObjectStateHandler := preload("res://scripts/ui/stage_clear_result_runtime_object_state_handler.gd")
+const StageClearResultSceneFieldApplier := preload("res://scripts/ui/stage_clear_result_scene_field_applier.gd")
 const StageClearResultViewportLayout := preload("res://scripts/ui/stage_clear_result_viewport_layout.gd")
 const StageClearResultVoicePlayer := preload("res://scripts/ui/stage_clear_result_voice_player.gd")
 
@@ -48,6 +49,7 @@ var selected_character_type: String = "smasher"
 var reward_plan: Dictionary = {}
 var stage_reward_snapshot: Dictionary = {}
 var confirmed_callback: Callable = Callable()
+var enter_plaza_callback: Callable = Callable()
 var exit_to_menu_callback: Callable = Callable()
 var reward_roll_callback: Callable = Callable()
 var immediate_reward_callback: Callable = Callable()
@@ -60,6 +62,7 @@ var _scroll_position_offset: Vector2 = Vector2.ZERO
 var _scroll_dragging: bool = false
 var _scroll_drag_grab_offset: Vector2 = Vector2.ZERO
 var _next_stage_button_rect: Rect2 = Rect2()
+var _plaza_button_rect: Rect2 = Rect2()
 var _exit_button_rect: Rect2 = Rect2()
 var _hovered_button: String = "none"
 var _reward_icon_cache: Dictionary = {}
@@ -155,7 +158,8 @@ func configure(
 	on_confirmed: Callable,
 	on_exit_to_menu: Callable = Callable(),
 	on_roll_reward: Callable = Callable(),
-	on_immediate_reward: Callable = Callable()
+	on_immediate_reward: Callable = Callable(),
+	on_enter_plaza: Callable = Callable()
 ) -> void:
 	_driven_by_controller = true
 	set_process(false)
@@ -179,6 +183,7 @@ func configure(
 	_fx_host_pool.deactivate_all()
 	_stop_dalji_click_voice()
 	confirmed_callback = on_confirmed
+	enter_plaza_callback = on_enter_plaza
 	exit_to_menu_callback = on_exit_to_menu
 	reward_roll_callback = on_roll_reward
 	immediate_reward_callback = on_immediate_reward
@@ -197,7 +202,7 @@ func _apply_config_data_state(result: Dictionary) -> void:
 		reward_plan,
 		stage_reward_snapshot
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func _apply_character_asset_state(result: Dictionary) -> void:
@@ -209,13 +214,11 @@ func _apply_character_asset_state(result: Dictionary) -> void:
 		_player_victory_sheet_loaded_path,
 		_player_victory_click_reaction_sheet_loaded_path
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func _apply_runtime_object_state(result: Dictionary) -> void:
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(
-		StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result(result)
-	))
+	_apply_scene_apply_result(StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result(result))
 
 
 func _apply_config_reset_state(result: Dictionary) -> void:
@@ -223,7 +226,7 @@ func _apply_config_reset_state(result: Dictionary) -> void:
 		result,
 		_get_config_reset_current_state()
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func _get_config_reset_current_state() -> Dictionary:
@@ -234,6 +237,7 @@ func _get_config_reset_current_state() -> Dictionary:
 		"hovered_box_index": _hovered_box_index,
 		"hovered_button": _hovered_button,
 		"next_stage_button_rect": _next_stage_button_rect,
+		"plaza_button_rect": _plaza_button_rect,
 		"exit_button_rect": _exit_button_rect,
 		"scroll_phase": _scroll_phase,
 		"scroll_timer": _scroll_timer,
@@ -300,7 +304,7 @@ func _apply_actor_reaction_timer_update(result: Dictionary) -> void:
 		result,
 		_get_actor_reaction_timer_context()
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func handle_result_input(event: InputEvent) -> bool:
@@ -431,6 +435,11 @@ func _exit_to_menu() -> void:
 	StageClearResultCallbackHandler.invoke_exit_to_menu(exit_to_menu_callback, confirmed_callback)
 
 
+func _enter_plaza() -> void:
+	_stop_dalji_click_voice()
+	StageClearResultCallbackHandler.invoke_enter_plaza(enter_plaza_callback)
+
+
 func _handle_button_click(mouse_position: Vector2) -> bool:
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
@@ -456,6 +465,8 @@ func _apply_navigation_action(action: String) -> void:
 			_open_next_idle_box()
 		StageClearResultNavigationActionHandler.ACTION_CONFIRM:
 			_confirm()
+		StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA:
+			_enter_plaza()
 		StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU:
 			_exit_to_menu()
 
@@ -573,12 +584,13 @@ func _apply_scroll_state_result(result: Dictionary) -> void:
 		result,
 		_get_scroll_state_current_state()
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func _get_scroll_state_current_state() -> Dictionary:
 	return {
 		"next_stage_rect": _next_stage_button_rect,
+		"plaza_rect": _plaza_button_rect,
 		"exit_rect": _exit_button_rect,
 		"scroll_position_offset": _scroll_position_offset,
 		"scroll_dragging": _scroll_dragging,
@@ -637,7 +649,7 @@ func append_box_resolved_perk_reward(box_index: int, perk_reward: Dictionary) ->
 		result,
 		_boxes
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 	if bool(apply_result.get("redraw", false)):
 		queue_redraw()
 
@@ -682,7 +694,7 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 		result,
 		_dalji_click_rect
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func _get_actor_defeated_draw_context() -> Dictionary:
@@ -726,7 +738,7 @@ func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> boo
 		_get_actor_player_victory_draw_context()
 	)
 	var apply_result: Dictionary = StageClearResultActorPresenter.get_player_victory_draw_scene_apply_result(result)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 	return bool(apply_result.get("drawn", true))
 
 
@@ -793,7 +805,7 @@ func _apply_box_state_result(result: Dictionary) -> Dictionary:
 		_boxes,
 		_hovered_box_index
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 	if bool(apply_result.get("play_open_audio", false)):
 		_play_result_box_open_audio()
 	if bool(apply_result.get("redraw", false)):
@@ -818,7 +830,7 @@ func _update_boxes(delta: float) -> void:
 		scale,
 		timer
 	)
-	_apply_scene_field_payload(StageClearResultBoxUpdateHandler.get_box_update_scene_apply_result(
+	_apply_scene_apply_result(StageClearResultBoxUpdateHandler.get_box_update_scene_apply_result(
 		result,
 		_boxes,
 		_lid_open_counter
@@ -833,32 +845,20 @@ func _update_scroll(delta: float) -> void:
 		_boxes,
 		_is_result_interaction_blocked(),
 	)
-	_apply_scene_field_payload(StageClearResultScrollUpdateHandler.get_scroll_update_scene_apply_result(
+	_apply_scene_apply_result(StageClearResultScrollUpdateHandler.get_scroll_update_scene_apply_result(
 		result,
 		_scroll_phase,
 		_scroll_timer
 	))
 
 
-func _apply_scene_field_payload(field_payload: Dictionary) -> void:
-	for property_name in field_payload.keys():
-		var field_name: String = str(property_name)
-		if not _is_valid_scene_field(field_name):
-			push_error("StageClearResultScene: ignoring unknown scene field payload key '%s'" % field_name)
-			continue
-		set(StringName(field_name), field_payload.get(property_name))
-
-
-func _is_valid_scene_field(field_name: String) -> bool:
-	if _scene_field_name_lookup.is_empty():
-		for property_info in get_property_list():
-			_scene_field_name_lookup[str(property_info.get("name", ""))] = true
-	return _scene_field_name_lookup.has(field_name)
-
-
-func _get_field_payload_from_apply_result(apply_result: Dictionary) -> Dictionary:
-	var field_payload_value: Variant = apply_result.get("field_payload", {})
-	return field_payload_value if field_payload_value is Dictionary else {}
+func _apply_scene_apply_result(apply_result: Dictionary) -> void:
+	StageClearResultSceneFieldApplier.apply_from_result(
+		self,
+		apply_result,
+		_scene_field_name_lookup,
+		"StageClearResultScene"
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -923,9 +923,7 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 		_player_victory_click_reaction_timer,
 		timer
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(
-		StageClearResultActorClickHandler.get_player_victory_click_rect_scene_apply_result(result)
-	))
+	_apply_scene_apply_result(StageClearResultActorClickHandler.get_player_victory_click_rect_scene_apply_result(result))
 	return _apply_click_reaction_result(
 		result,
 		&"_player_victory_click_transition_base_frame",
@@ -944,9 +942,7 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 		_dalji_click_reaction_timer,
 		_dalji_base_timer
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(
-		StageClearResultActorClickHandler.get_dalji_click_rect_scene_apply_result(result)
-	))
+	_apply_scene_apply_result(StageClearResultActorClickHandler.get_dalji_click_rect_scene_apply_result(result))
 	if not _apply_click_reaction_result(
 		result,
 		&"_dalji_click_transition_base_frame",
@@ -958,7 +954,7 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 		_dalji_dialogue_timer,
 		DALJI_CLICK_DIALOGUE_DURATION
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(side_effect_result))
+	_apply_scene_apply_result(side_effect_result)
 	if bool(side_effect_result.get("play_voice", false)):
 		_play_dalji_click_voice()
 	return true
@@ -1028,7 +1024,7 @@ func _apply_click_reaction_result(
 	)
 	if not bool(apply_result.get("handled", false)):
 		return false
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 	if bool(apply_result.get("redraw", false)):
 		queue_redraw()
 	return true
@@ -1070,18 +1066,16 @@ func _apply_standalone_preview_defaults() -> void:
 		current_stage,
 		reward_plan
 	)
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(apply_result))
+	_apply_scene_apply_result(apply_result)
 
 
 func _load_textures() -> void:
-	_apply_scene_field_payload(_get_field_payload_from_apply_result(
-		StageClearResultAssetApplyHandler.load_texture_fields(
-			self,
-			selected_character_type,
-			current_stage,
-			_player_victory_sheet_loaded_path,
-			_player_victory_click_reaction_sheet_loaded_path
-		)
+	_apply_scene_apply_result(StageClearResultAssetApplyHandler.load_texture_fields(
+		self,
+		selected_character_type,
+		current_stage,
+		_player_victory_sheet_loaded_path,
+		_player_victory_click_reaction_sheet_loaded_path
 	))
 
 

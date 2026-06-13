@@ -30,16 +30,18 @@ func _verify_scroll_button_layout() -> void:
 		1.0
 	)
 	var next_rect: Rect2 = layout.get("next_stage_rect", Rect2())
+	var plaza_rect: Rect2 = layout.get("plaza_rect", Rect2())
 	var exit_rect: Rect2 = layout.get("exit_rect", Rect2())
-	_expect(next_rect == Rect2(Vector2(156.0, 510.0), Vector2(280.0, 64.0)), "button layout should center the next-stage button")
-	_expect(exit_rect == Rect2(Vector2(464.0, 510.0), Vector2(280.0, 64.0)), "button layout should place the exit button after the gap")
+	_expect(next_rect == Rect2(Vector2(116.0, 510.0), Vector2(208.0, 64.0)), "button layout should center the three-button row")
+	_expect(plaza_rect == Rect2(Vector2(346.0, 510.0), Vector2(208.0, 64.0)), "button layout should place plaza between next and exit")
+	_expect(exit_rect == Rect2(Vector2(576.0, 510.0), Vector2(208.0, 64.0)), "button layout should place the exit button after the plaza button")
 
 	var scaled_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
 		Rect2(Vector2.ZERO, Vector2(900.0, 600.0)),
 		0.5
 	)
 	var scaled_next: Rect2 = scaled_layout.get("next_stage_rect", Rect2())
-	_expect(scaled_next.size == Vector2(140.0, 32.0), "button layout should scale button size")
+	_expect(scaled_next.size == Vector2(104.0, 32.0), "button layout should scale button size")
 
 	var hidden_layout: Dictionary = StageClearResultInteractionState.get_visible_scroll_button_layout(
 		"hidden",
@@ -47,6 +49,7 @@ func _verify_scroll_button_layout() -> void:
 		Vector2.ZERO
 	)
 	_expect(hidden_layout.get("next_stage_rect", Rect2()) == Rect2(), "hidden scroll should expose empty button rects")
+	_expect(hidden_layout.get("plaza_rect", Rect2()) == Rect2(), "hidden scroll should expose empty plaza button rect")
 	var visible_layout: Dictionary = StageClearResultInteractionState.get_visible_scroll_button_layout(
 		"visible",
 		1.0,
@@ -57,25 +60,34 @@ func _verify_scroll_button_layout() -> void:
 
 func _verify_button_hit_state() -> void:
 	var next_rect := Rect2(Vector2(10.0, 10.0), Vector2(100.0, 40.0))
-	var exit_rect := Rect2(Vector2(130.0, 10.0), Vector2(100.0, 40.0))
+	var plaza_rect := Rect2(Vector2(130.0, 10.0), Vector2(100.0, 40.0))
+	var exit_rect := Rect2(Vector2(250.0, 10.0), Vector2(100.0, 40.0))
 	_expect(
-		StageClearResultInteractionState.get_hovered_button(Vector2(30.0, 20.0), next_rect, exit_rect) == StageClearResultInteractionState.BUTTON_NEXT_STAGE,
+		StageClearResultInteractionState.get_hovered_button(Vector2(30.0, 20.0), next_rect, plaza_rect, exit_rect) == StageClearResultInteractionState.BUTTON_NEXT_STAGE,
 		"hover state should identify the next-stage button"
 	)
 	_expect(
-		StageClearResultInteractionState.get_hovered_button(Vector2(150.0, 20.0), next_rect, exit_rect) == StageClearResultInteractionState.BUTTON_EXIT,
+		StageClearResultInteractionState.get_hovered_button(Vector2(150.0, 20.0), next_rect, plaza_rect, exit_rect) == StageClearResultInteractionState.BUTTON_PLAZA,
+		"hover state should identify the plaza button"
+	)
+	_expect(
+		StageClearResultInteractionState.get_hovered_button(Vector2(270.0, 20.0), next_rect, plaza_rect, exit_rect) == StageClearResultInteractionState.BUTTON_EXIT,
 		"hover state should identify the exit button"
 	)
 	_expect(
-		StageClearResultInteractionState.get_hovered_button(Vector2(300.0, 20.0), next_rect, exit_rect) == StageClearResultInteractionState.BUTTON_NONE,
+		StageClearResultInteractionState.get_hovered_button(Vector2(390.0, 20.0), next_rect, plaza_rect, exit_rect) == StageClearResultInteractionState.BUTTON_NONE,
 		"hover state should ignore misses"
 	)
 	_expect(
-		StageClearResultInteractionState.get_clicked_button(Vector2(30.0, 20.0), next_rect, exit_rect, "hidden") == StageClearResultInteractionState.BUTTON_NONE,
+		StageClearResultInteractionState.get_clicked_button(Vector2(30.0, 20.0), next_rect, plaza_rect, exit_rect, "hidden") == StageClearResultInteractionState.BUTTON_NONE,
 		"click state should ignore buttons before the scroll is visible"
 	)
 	_expect(
-		StageClearResultInteractionState.get_clicked_button(Vector2(150.0, 20.0), next_rect, exit_rect, "visible") == StageClearResultInteractionState.BUTTON_EXIT,
+		StageClearResultInteractionState.get_clicked_button(Vector2(150.0, 20.0), next_rect, plaza_rect, exit_rect, "visible") == StageClearResultInteractionState.BUTTON_PLAZA,
+		"click state should report visible-scroll plaza hits"
+	)
+	_expect(
+		StageClearResultInteractionState.get_clicked_button(Vector2(270.0, 20.0), next_rect, plaza_rect, exit_rect, "visible") == StageClearResultInteractionState.BUTTON_EXIT,
 		"click state should report visible-scroll button hits"
 	)
 	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(1.0, Vector2.ZERO)

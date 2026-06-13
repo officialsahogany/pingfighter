@@ -15,6 +15,8 @@ const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
 const COMMANDO_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
+const OPTIMUS_VICTORY_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_io_result_victory_base_loop_98f_magenta_onebounce_autosprite_v5_realesrgan_animev3_hq896_safe.png"
+const OPTIMUS_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_io_result_victory_click_talk_nozoom_98f_magenta_autosprite_v6_realesrgan_animev3_hq896_safe.png"
 const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/result_scroll/stage_clear_cyber_scroll_imagegen_v1_alpha.png"
 const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_SHEET_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
@@ -80,6 +82,8 @@ static func get_default_result_asset_path_config() -> Dictionary:
 		"smasher_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
 		"commando_victory_sheet": COMMANDO_VICTORY_SHEET_PATH,
 		"commando_click_reaction_sheet": COMMANDO_CLICK_REACTION_SHEET_PATH,
+		"optimus_victory_sheet": OPTIMUS_VICTORY_SHEET_PATH,
+		"optimus_click_reaction_sheet": OPTIMUS_CLICK_REACTION_SHEET_PATH,
 		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
 		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
 		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
@@ -125,22 +129,30 @@ static func normalize_player_victory_character_type(character_type: String) -> S
 	var normalized: String = str(character_type).strip_edges().to_lower()
 	if normalized == "soldier" or normalized == "commando":
 		return "soldier"
+	if normalized == "optimus" or normalized == "io":
+		return "optimus"
 	return "smasher"
 
 
 static func get_player_victory_sheet_path_for_character(character_type: String, path_config: Dictionary = {}) -> String:
 	if path_config.is_empty():
 		path_config = get_default_result_asset_path_config()
-	if normalize_player_victory_character_type(character_type) == "soldier":
+	var normalized_character: String = normalize_player_victory_character_type(character_type)
+	if normalized_character == "soldier":
 		return str(path_config.get("commando_victory_sheet", ""))
+	if normalized_character == "optimus":
+		return str(path_config.get("optimus_victory_sheet", ""))
 	return str(path_config.get("smasher_victory_sheet", ""))
 
 
 static func get_player_victory_click_reaction_sheet_path_for_character(character_type: String, path_config: Dictionary = {}) -> String:
 	if path_config.is_empty():
 		path_config = get_default_result_asset_path_config()
-	if normalize_player_victory_character_type(character_type) == "soldier":
+	var normalized_character: String = normalize_player_victory_character_type(character_type)
+	if normalized_character == "soldier":
 		return str(path_config.get("commando_click_reaction_sheet", ""))
+	if normalized_character == "optimus":
+		return str(path_config.get("optimus_click_reaction_sheet", ""))
 	return str(path_config.get("smasher_click_reaction_sheet", ""))
 
 

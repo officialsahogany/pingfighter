@@ -85,6 +85,7 @@ func _verify_status_builder_fields() -> void:
 		"scroll_position_offset": Vector2(3.0, 4.0),
 		"scroll_dragging": true,
 		"next_stage_button_rect": Rect2(Vector2(12.0, 22.0), Vector2(40.0, 20.0)),
+		"plaza_button_rect": Rect2(Vector2(112.0, 22.0), Vector2(40.0, 20.0)),
 		"exit_button_rect": Rect2(Vector2(62.0, 22.0), Vector2(40.0, 20.0)),
 		"hovered_button": "next_stage",
 		"scene_timer": 12.5,
@@ -112,6 +113,7 @@ func _verify_status_builder_fields() -> void:
 	_expect(bool(status.get("buttons_clickable", false)), "visible scroll phase should make buttons clickable")
 	_expect(bool(status.get("scroll_texture_loaded", false)), "status should expose scroll texture load state")
 	_expect(bool(status.get("scroll_dragging", false)), "status should expose drag state")
+	_expect(status.get("plaza_button_rect", Rect2()) is Rect2, "status should expose plaza button rect")
 	_expect(bool(status.get("exit_callback_bound", false)), "status should expose callback binding state")
 	_expect(bool(status.get("starpoint_choice_gate_active", false)), "status should expose starpoint gate state")
 	_expect(bool(status.get("runtime_perk_choice_active", false)), "status should expose runtime perk gate state")

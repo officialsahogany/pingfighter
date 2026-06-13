@@ -3,6 +3,7 @@ extends SceneTree
 const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
 const StageClearResultConfigResetStateHandler := preload("res://scripts/ui/stage_clear_result_config_reset_state_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultSceneFieldApplier := preload("res://scripts/ui/stage_clear_result_scene_field_applier.gd")
 
 var _failures: Array[String] = []
 
@@ -32,6 +33,7 @@ func _verify_reset_state_payload() -> void:
 	_expect(int(result.get("hovered_box_index", 99)) == -1, "reset state should clear hovered box")
 	_expect(str(result.get("hovered_button", "")) == "none", "reset state should clear hovered button")
 	_expect(result.get("next_stage_button_rect", null) is Rect2, "reset state should include next button rect")
+	_expect(result.get("plaza_button_rect", null) is Rect2, "reset state should include plaza button rect")
 	_expect(result.get("exit_button_rect", null) is Rect2, "reset state should include exit button rect")
 	_expect(str(result.get("scroll_phase", "")) == "hidden", "reset state should hide scroll")
 	_expect(float(result.get("scroll_timer", -1.0)) == 0.0, "reset state should clear scroll timer")
@@ -77,6 +79,7 @@ func _verify_reset_apply_payload() -> void:
 		{
 			"hovered_button": "exit",
 			"next_stage_button_rect": "invalid",
+			"plaza_button_rect": "invalid",
 			"scroll_position_offset": "invalid",
 		},
 		current_state
@@ -84,6 +87,7 @@ func _verify_reset_apply_payload() -> void:
 	_expect(int(partial_payload.get("_lid_open_counter", -1)) == 5, "partial reset apply should keep current lid counter")
 	_expect(str(partial_payload.get("_hovered_button", "")) == "exit", "partial reset apply should apply provided hovered button")
 	_expect(partial_payload.get("_next_stage_button_rect", null) == current_state.get("next_stage_button_rect"), "invalid next button rect should keep current rect")
+	_expect(partial_payload.get("_plaza_button_rect", null) == current_state.get("plaza_button_rect"), "invalid plaza button rect should keep current rect")
 	_expect(partial_payload.get("_scroll_position_offset", null) == current_state.get("scroll_position_offset"), "invalid scroll offset should keep current offset")
 	_expect(float(partial_payload.get("timer", -1.0)) == 12.0, "partial reset apply should keep current scene timer")
 
@@ -100,6 +104,7 @@ func _verify_reset_scene_apply_payload() -> void:
 	_expect(int(field_payload.get("_hovered_box_index", 99)) == -1, "reset scene apply should map hovered box")
 	_expect(str(field_payload.get("_hovered_button", "")) == "none", "reset scene apply should map hovered button")
 	_expect(field_payload.get("_next_stage_button_rect", null) is Rect2, "reset scene apply should map next button rect")
+	_expect(field_payload.get("_plaza_button_rect", null) is Rect2, "reset scene apply should map plaza button rect")
 	_expect(field_payload.get("_exit_button_rect", null) is Rect2, "reset scene apply should map exit button rect")
 	_expect(str(field_payload.get("_scroll_phase", "")) == "hidden", "reset scene apply should map scroll phase")
 	_expect(float(field_payload.get("_scroll_timer", -1.0)) == 0.0, "reset scene apply should map scroll timer")
@@ -111,7 +116,7 @@ func _verify_reset_scene_apply_payload() -> void:
 	_expect(float(field_payload.get("_dalji_dialogue_timer", -1.0)) == 0.0, "reset scene apply should map Dalji dialogue timer")
 
 	var scene := StageClearResultScene.new()
-	scene._apply_scene_field_payload(field_payload)
+	scene._apply_scene_apply_result(scene_apply)
 	_expect(int(scene.get("_lid_open_counter")) == 0, "scene field payload helper should apply reset lid counter")
 	_expect(not bool(scene.get("_starpoint_choice_gate_active")), "scene field payload helper should apply reset starpoint gate")
 	_expect(int(scene.get("_starpoint_choice_gate_box_index")) == -1, "scene field payload helper should apply reset gate index")
@@ -132,6 +137,7 @@ func _verify_scene_applies_reset_state() -> void:
 	scene.set("_hovered_box_index", 3)
 	scene.set("_hovered_button", "exit")
 	scene.set("_next_stage_button_rect", Rect2(Vector2(1.0, 2.0), Vector2(3.0, 4.0)))
+	scene.set("_plaza_button_rect", Rect2(Vector2(3.0, 4.0), Vector2(5.0, 6.0)))
 	scene.set("_exit_button_rect", Rect2(Vector2(5.0, 6.0), Vector2(7.0, 8.0)))
 	scene.set("_scroll_phase", "visible")
 	scene.set("_scroll_timer", 2.5)
@@ -160,11 +166,12 @@ func _verify_scene_applies_reset_state() -> void:
 
 func _verify_scene_field_guard() -> void:
 	var scene := StageClearResultScene.new()
-	_expect(scene._is_valid_scene_field("_lid_open_counter"), "field guard should accept a real private member name")
-	_expect(scene._is_valid_scene_field("timer"), "field guard should accept a public member name")
-	_expect(not scene._is_valid_scene_field("_definitely_not_a_real_field"), "field guard should reject an unknown payload key so typos cannot silently no-op")
+	var lookup: Dictionary = {}
+	_expect(StageClearResultSceneFieldApplier.is_valid_field(scene, lookup, "_lid_open_counter"), "field guard should accept a real private member name")
+	_expect(StageClearResultSceneFieldApplier.is_valid_field(scene, lookup, "timer"), "field guard should accept a public member name")
+	_expect(not StageClearResultSceneFieldApplier.is_valid_field(scene, lookup, "_definitely_not_a_real_field"), "field guard should reject an unknown payload key so typos cannot silently no-op")
 	scene.set("_lid_open_counter", 7)
-	scene._apply_scene_field_payload({"_lid_open_counter": 3})
+	scene._apply_scene_apply_result({"field_payload": {"_lid_open_counter": 3}})
 	_expect(int(scene.get("_lid_open_counter")) == 3, "guarded applier should still apply valid payload keys")
 	scene.free()
 
@@ -177,10 +184,11 @@ func _verify_scene_delegates_config_reset_state() -> void:
 	var apply_source: String = _slice_function(source, "func _apply_config_reset_state", "func _get_config_reset_current_state")
 	_expect(source.find("StageClearResultConfigResetStateHandler.get_config_reset_state") >= 0, "result scene should delegate configure reset-state creation")
 	_expect(source.find("StageClearResultConfigResetStateHandler.get_config_reset_scene_apply_result") >= 0, "result scene should delegate config reset scene field apply payloads")
-	_expect(source.find("func _apply_scene_field_payload") >= 0, "result scene should centralize scene field payload application")
-	_expect(source.find("func _is_valid_scene_field") >= 0, "result scene should guard scene field payload keys so typos surface instead of silently no-op")
+	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
+	_expect(source.find("func _is_valid_scene_field") < 0, "result scene should leave field validation ownership in the helper")
 	_expect(source.find("apply_result.get(property_name, null) as Object") < 0, "runtime object state should route through the guarded field payload applier, not a bespoke set loop")
-	_expect(source.find("func _get_field_payload_from_apply_result") >= 0, "result scene should unwrap nested scene field payloads in one helper")
+	_expect(source.find("func _get_field_payload_from_apply_result") < 0, "result scene should not keep the retired payload-unwrapping wrapper")
 	_expect(source.find("func _apply_config_reset_state") >= 0, "result scene should keep a focused reset-state applier")
 	_expect(apply_source.find("_lid_open_counter = int(result.get") < 0, "reset-state applier should not inspect lid counter directly")
 	_expect(apply_source.find("_starpoint_choice_gate_active = bool(result.get") < 0, "reset-state applier should not inspect starpoint gate directly")
@@ -205,6 +213,7 @@ func _get_non_reset_current_state() -> Dictionary:
 		"hovered_box_index": 3,
 		"hovered_button": "next",
 		"next_stage_button_rect": Rect2(Vector2(1.0, 2.0), Vector2(3.0, 4.0)),
+		"plaza_button_rect": Rect2(Vector2(3.0, 4.0), Vector2(5.0, 6.0)),
 		"exit_button_rect": Rect2(Vector2(5.0, 6.0), Vector2(7.0, 8.0)),
 		"scroll_phase": "visible",
 		"scroll_timer": 2.5,

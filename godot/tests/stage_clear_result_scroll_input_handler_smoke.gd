@@ -30,8 +30,9 @@ func _verify_button_click_and_hover() -> void:
 		Vector2.ZERO
 	)
 	var next_rect: Rect2 = layout.get("next_stage_rect", Rect2())
+	var plaza_rect: Rect2 = layout.get("plaza_rect", Rect2())
 	var exit_rect: Rect2 = layout.get("exit_rect", Rect2())
-	_expect(next_rect.size.x > 0.0 and exit_rect.size.x > 0.0, "visible scroll should expose button rects")
+	_expect(next_rect.size.x > 0.0 and plaza_rect.size.x > 0.0 and exit_rect.size.x > 0.0, "visible scroll should expose button rects")
 
 	var click_result: Dictionary = StageClearResultScrollInputHandler.get_button_click_result(
 		exit_rect.get_center(),
@@ -40,6 +41,14 @@ func _verify_button_click_and_hover() -> void:
 		Vector2.ZERO
 	)
 	_expect(str(click_result.get("clicked_button", "")) == StageClearResultInteractionState.BUTTON_EXIT, "button click helper should report exit hits")
+
+	var plaza_click: Dictionary = StageClearResultScrollInputHandler.get_button_click_result(
+		plaza_rect.get_center(),
+		StageClearResultInteractionState.PHASE_VISIBLE,
+		1.0,
+		Vector2.ZERO
+	)
+	_expect(str(plaza_click.get("clicked_button", "")) == StageClearResultInteractionState.BUTTON_PLAZA, "button click helper should report plaza hits")
 
 	var hidden_click: Dictionary = StageClearResultScrollInputHandler.get_button_click_result(
 		exit_rect.get_center(),
@@ -98,10 +107,12 @@ func _verify_drag_lifecycle() -> void:
 
 func _verify_apply_payloads() -> void:
 	var next_rect := Rect2(Vector2(12.0, 24.0), Vector2(120.0, 48.0))
-	var exit_rect := Rect2(Vector2(150.0, 24.0), Vector2(120.0, 48.0))
+	var plaza_rect := Rect2(Vector2(150.0, 24.0), Vector2(120.0, 48.0))
+	var exit_rect := Rect2(Vector2(288.0, 24.0), Vector2(120.0, 48.0))
 	var hover_apply: Dictionary = StageClearResultScrollInputHandler.get_hovered_button_apply_result(
 		{
 			"next_stage_rect": next_rect,
+			"plaza_rect": plaza_rect,
 			"exit_rect": exit_rect,
 			"hovered_button": StageClearResultInteractionState.BUTTON_NEXT_STAGE,
 			"changed": true,
@@ -109,6 +120,7 @@ func _verify_apply_payloads() -> void:
 		StageClearResultInteractionState.BUTTON_NONE
 	)
 	_expect(hover_apply.get("next_stage_rect", Rect2()) == next_rect, "hover apply helper should preserve next-stage layout")
+	_expect(hover_apply.get("plaza_rect", Rect2()) == plaza_rect, "hover apply helper should preserve plaza layout")
 	_expect(hover_apply.get("exit_rect", Rect2()) == exit_rect, "hover apply helper should preserve exit layout")
 	_expect(str(hover_apply.get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_NEXT_STAGE, "hover apply helper should apply hovered button")
 	_expect(bool(hover_apply.get("redraw", false)), "hover apply helper should redraw when hover changes")
@@ -118,6 +130,7 @@ func _verify_apply_payloads() -> void:
 			"started": false,
 			"button_layout": {
 				"next_stage_rect": next_rect,
+				"plaza_rect": plaza_rect,
 				"exit_rect": exit_rect,
 			},
 			"grab_offset": Vector2.ZERO,
@@ -138,6 +151,7 @@ func _verify_apply_payloads() -> void:
 			"started": true,
 			"button_layout": {
 				"next_stage_rect": next_rect,
+				"plaza_rect": plaza_rect,
 				"exit_rect": exit_rect,
 			},
 			"grab_offset": Vector2(22.0, 33.0),
@@ -155,6 +169,7 @@ func _verify_apply_payloads() -> void:
 	var update_apply: Dictionary = StageClearResultScrollInputHandler.get_drag_update_apply_result(
 		{
 			"next_stage_rect": next_rect,
+			"plaza_rect": plaza_rect,
 			"exit_rect": exit_rect,
 			"position_offset": Vector2(44.0, 55.0),
 		},
@@ -166,6 +181,7 @@ func _verify_apply_payloads() -> void:
 	var finish_apply: Dictionary = StageClearResultScrollInputHandler.get_drag_finish_apply_result(
 		{
 			"next_stage_rect": next_rect,
+			"plaza_rect": plaza_rect,
 			"exit_rect": exit_rect,
 			"position_offset": Vector2(66.0, 77.0),
 			"hovered_button": StageClearResultInteractionState.BUTTON_EXIT,
@@ -197,6 +213,7 @@ func _verify_apply_payloads() -> void:
 
 	var current_state := {
 		"next_stage_rect": next_rect,
+		"plaza_rect": plaza_rect,
 		"exit_rect": exit_rect,
 		"scroll_position_offset": Vector2(4.0, 5.0),
 		"scroll_dragging": true,
@@ -206,6 +223,7 @@ func _verify_apply_payloads() -> void:
 	var scene_apply: Dictionary = StageClearResultScrollInputHandler.get_scroll_state_apply_result(
 		{
 			"next_stage_rect": Rect2(Vector2(1.0, 2.0), Vector2(3.0, 4.0)),
+			"plaza_rect": Rect2(Vector2(2.0, 3.0), Vector2(4.0, 5.0)),
 			"exit_rect": "invalid",
 			"scroll_position_offset": Vector2(8.0, 9.0),
 			"scroll_dragging": false,
@@ -215,6 +233,7 @@ func _verify_apply_payloads() -> void:
 		current_state
 	)
 	_expect(scene_apply.get("next_stage_rect", Rect2()).position == Vector2(1.0, 2.0), "scene scroll apply should apply next rect")
+	_expect(scene_apply.get("plaza_rect", Rect2()).position == Vector2(2.0, 3.0), "scene scroll apply should apply plaza rect")
 	_expect(scene_apply.get("exit_rect", Rect2()) == exit_rect, "invalid exit rect should keep current rect")
 	_expect(scene_apply.get("scroll_position_offset", Vector2.ZERO) == Vector2(8.0, 9.0), "scene scroll apply should apply offset")
 	_expect(not bool(scene_apply.get("scroll_dragging", true)), "scene scroll apply should apply dragging flag")
@@ -224,6 +243,7 @@ func _verify_apply_payloads() -> void:
 	var scene_field_apply: Dictionary = StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result(
 		{
 			"next_stage_rect": Rect2(Vector2(31.0, 32.0), Vector2(33.0, 34.0)),
+			"plaza_rect": Rect2(Vector2(32.0, 33.0), Vector2(34.0, 35.0)),
 			"exit_rect": "invalid",
 			"scroll_position_offset": Vector2(35.0, 36.0),
 			"scroll_dragging": false,
@@ -236,6 +256,7 @@ func _verify_apply_payloads() -> void:
 	_expect(field_payload_value is Dictionary, "scene scroll apply helper should wrap scene fields in a field payload")
 	var field_payload: Dictionary = field_payload_value if field_payload_value is Dictionary else {}
 	_expect((field_payload.get("_next_stage_button_rect", Rect2()) as Rect2).position == Vector2(31.0, 32.0), "scene scroll field payload should write next button rect")
+	_expect((field_payload.get("_plaza_button_rect", Rect2()) as Rect2).position == Vector2(32.0, 33.0), "scene scroll field payload should write plaza button rect")
 	_expect(field_payload.get("_exit_button_rect", Rect2()) == exit_rect, "scene scroll field payload should keep current exit rect for invalid values")
 	_expect(field_payload.get("_scroll_position_offset", Vector2.ZERO) == Vector2(35.0, 36.0), "scene scroll field payload should write offset")
 	_expect(not bool(field_payload.get("_scroll_dragging", true)), "scene scroll field payload should write dragging flag")
@@ -244,6 +265,7 @@ func _verify_apply_payloads() -> void:
 
 	var scene := StageClearResultScene.new()
 	scene.set("_next_stage_button_rect", next_rect)
+	scene.set("_plaza_button_rect", plaza_rect)
 	scene.set("_exit_button_rect", exit_rect)
 	scene.set("_scroll_position_offset", Vector2(4.0, 5.0))
 	scene.set("_scroll_dragging", true)
@@ -251,11 +273,13 @@ func _verify_apply_payloads() -> void:
 	scene.set("_hovered_button", StageClearResultInteractionState.BUTTON_EXIT)
 	scene._apply_scroll_state_result({
 		"next_stage_rect": Rect2(Vector2(11.0, 12.0), Vector2(13.0, 14.0)),
+		"plaza_rect": Rect2(Vector2(12.0, 13.0), Vector2(14.0, 15.0)),
 		"scroll_position_offset": Vector2(15.0, 16.0),
 		"scroll_dragging": false,
 		"hovered_button": StageClearResultInteractionState.BUTTON_NEXT_STAGE,
 	})
 	_expect((scene.get("_next_stage_button_rect") as Rect2).position == Vector2(11.0, 12.0), "scene should apply scroll next rect through helper")
+	_expect((scene.get("_plaza_button_rect") as Rect2).position == Vector2(12.0, 13.0), "scene should apply scroll plaza rect through helper")
 	_expect(scene.get("_exit_button_rect") == exit_rect, "scene should keep missing exit rect through helper")
 	_expect(scene.get("_scroll_position_offset") == Vector2(15.0, 16.0), "scene should apply scroll offset through helper")
 	_expect(not bool(scene.get("_scroll_dragging")), "scene should apply dragging through helper")

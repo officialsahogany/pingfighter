@@ -26,6 +26,7 @@ static func get_button_click_result(
 	var clicked_button: String = StageClearResultInteractionState.get_clicked_button(
 		mouse_position,
 		layout.get("next_stage_rect", Rect2()),
+		layout.get("plaza_rect", Rect2()),
 		layout.get("exit_rect", Rect2()),
 		scroll_phase
 	)
@@ -44,6 +45,7 @@ static func get_hovered_button_result(
 	var hovered_button: String = StageClearResultInteractionState.get_hovered_button(
 		mouse_position,
 		layout.get("next_stage_rect", Rect2()),
+		layout.get("plaza_rect", Rect2()),
 		layout.get("exit_rect", Rect2())
 	)
 	layout["hovered_button"] = hovered_button
@@ -146,6 +148,7 @@ static func get_drag_finish_result(
 			update_result.get("position_offset", Vector2.ZERO)
 		)
 		update_result["next_stage_rect"] = hover_result.get("next_stage_rect", Rect2())
+		update_result["plaza_rect"] = hover_result.get("plaza_rect", Rect2())
 		update_result["exit_rect"] = hover_result.get("exit_rect", Rect2())
 		update_result["hovered_button"] = str(hover_result.get("hovered_button", current_hovered_button))
 		update_result["hover_changed"] = bool(hover_result.get("changed", false))
@@ -177,6 +180,7 @@ static func get_drag_cancel_apply_result(current_scroll_dragging: bool) -> Dicti
 static func get_scroll_state_apply_result(scroll_state_result: Dictionary, current_state: Dictionary) -> Dictionary:
 	return {
 		"next_stage_rect": _rect_value(scroll_state_result, current_state, "next_stage_rect"),
+		"plaza_rect": _rect_value(scroll_state_result, current_state, "plaza_rect"),
 		"exit_rect": _rect_value(scroll_state_result, current_state, "exit_rect"),
 		"scroll_position_offset": _vector2_value(scroll_state_result, current_state, "scroll_position_offset"),
 		"scroll_dragging": bool(scroll_state_result.get("scroll_dragging", current_state.get("scroll_dragging", false))),
@@ -190,6 +194,7 @@ static func get_scroll_state_scene_apply_result(scroll_state_result: Dictionary,
 	return {
 		"field_payload": {
 			"_next_stage_button_rect": apply_result.get("next_stage_rect", current_state.get("next_stage_rect", Rect2())),
+			"_plaza_button_rect": apply_result.get("plaza_rect", current_state.get("plaza_rect", Rect2())),
 			"_exit_button_rect": apply_result.get("exit_rect", current_state.get("exit_rect", Rect2())),
 			"_scroll_position_offset": apply_result.get("scroll_position_offset", current_state.get("scroll_position_offset", Vector2.ZERO)),
 			"_scroll_dragging": bool(apply_result.get("scroll_dragging", current_state.get("scroll_dragging", false))),
@@ -207,6 +212,7 @@ static func _extract_button_layout(source: Dictionary) -> Dictionary:
 static func _get_button_layout_apply_result(source: Dictionary) -> Dictionary:
 	return {
 		"next_stage_rect": source.get("next_stage_rect", Rect2()),
+		"plaza_rect": source.get("plaza_rect", Rect2()),
 		"exit_rect": source.get("exit_rect", Rect2()),
 	}
 

@@ -249,12 +249,14 @@ func _verify_scene_field_apply_results() -> void:
 	var player_rect := Rect2(Vector2(10.0, 20.0), Vector2(120.0, 140.0))
 	var dalji_rect := Rect2(Vector2(30.0, 40.0), Vector2(150.0, 160.0))
 	var scene := StageClearResultScene.new()
-	scene._apply_scene_field_payload({
-		"_player_victory_click_rect": player_rect,
-		"_dalji_click_rect": dalji_rect,
-		"_dalji_dialogue_timer": 1.55,
-		"_player_victory_click_transition_base_frame": 9,
-		"_player_victory_click_reaction_timer": 0.0,
+	scene._apply_scene_apply_result({
+		"field_payload": {
+			"_player_victory_click_rect": player_rect,
+			"_dalji_click_rect": dalji_rect,
+			"_dalji_dialogue_timer": 1.55,
+			"_player_victory_click_transition_base_frame": 9,
+			"_player_victory_click_reaction_timer": 0.0,
+		},
 	})
 	_expect(scene.get("_player_victory_click_rect") == player_rect, "scene field helper should apply player click rect fields")
 	_expect(scene.get("_dalji_click_rect") == dalji_rect, "scene field helper should apply Dalji click rect fields")
@@ -275,8 +277,9 @@ func _verify_scene_delegates_actor_clicks() -> void:
 	_expect(source.find("StageClearResultActorClickHandler.get_player_victory_click_rect_scene_apply_result") >= 0, "result scene should delegate player click-rect scene field apply payloads")
 	_expect(source.find("StageClearResultActorClickHandler.get_dalji_click_rect_scene_apply_result") >= 0, "result scene should delegate Dalji click-rect scene field apply payloads")
 	_expect(source.find("StageClearResultActorClickHandler.get_dalji_click_side_effect_scene_apply_result") >= 0, "result scene should delegate Dalji click side-effect scene field apply payloads")
-	_expect(source.find("func _apply_scene_field_payload") >= 0, "result scene should centralize scene field payload application")
-	_expect(source.find("func _get_field_payload_from_apply_result") >= 0, "result scene should unwrap nested scene field payloads in one helper")
+	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
+	_expect(source.find("func _get_field_payload_from_apply_result") < 0, "result scene should not keep the retired payload-unwrapping wrapper")
 	_expect(helper_source.find("static func get_click_reaction_scene_apply_result") >= 0, "actor click helper should expose click reaction scene field payloads")
 	_expect(helper_source.find("static func get_player_victory_click_rect_scene_apply_result") >= 0, "actor click helper should expose player click-rect scene field payloads")
 	_expect(helper_source.find("static func get_dalji_click_rect_scene_apply_result") >= 0, "actor click helper should expose Dalji click-rect scene field payloads")

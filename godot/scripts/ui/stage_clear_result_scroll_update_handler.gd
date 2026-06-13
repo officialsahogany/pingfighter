@@ -44,6 +44,8 @@ static func get_scroll_update_scene_apply_result(
 		current_scroll_timer
 	)
 	return {
-		"_scroll_phase": str(apply_result.get("scroll_phase", current_scroll_phase)),
-		"_scroll_timer": float(apply_result.get("scroll_timer", current_scroll_timer)),
+		"field_payload": {
+			"_scroll_phase": str(apply_result.get("scroll_phase", current_scroll_phase)),
+			"_scroll_timer": float(apply_result.get("scroll_timer", current_scroll_timer)),
+		},
 	}

@@ -35,9 +35,11 @@ func _verify_helper_contract() -> void:
 		"visible",
 		"next_stage",
 		"Next",
+		"Plaza",
 		"Exit"
 	)
 	_expect(layout.has("next_stage_rect"), "helper should return next-stage button rect")
+	_expect(layout.has("plaza_rect"), "helper should return plaza button rect")
 	_expect(layout.has("exit_rect"), "helper should return exit button rect")
 
 

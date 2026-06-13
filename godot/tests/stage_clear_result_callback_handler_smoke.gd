@@ -9,10 +9,14 @@ class CallbackSink:
 	extends RefCounted
 
 	var confirm_calls := 0
+	var plaza_calls := 0
 	var exit_calls := 0
 
 	func confirm() -> void:
 		confirm_calls += 1
+
+	func enter_plaza() -> void:
+		plaza_calls += 1
 
 	func exit_to_menu() -> void:
 		exit_calls += 1
@@ -42,6 +46,15 @@ func _verify_callback_handler_contract() -> void:
 	_expect(result == StageClearResultCallbackHandler.RESULT_NONE, "confirm handler should report none for invalid callbacks")
 	_expect(sink.confirm_calls == 1, "invalid confirm callback should not change call count")
 
+	result = StageClearResultCallbackHandler.invoke_enter_plaza(Callable(sink, "enter_plaza"))
+	_expect(result == StageClearResultCallbackHandler.RESULT_ENTER_PLAZA, "plaza handler should report plaza callback")
+	_expect(sink.plaza_calls == 1, "plaza handler should invoke the plaza callback once")
+	_expect(sink.confirm_calls == 1, "plaza handler should not invoke confirm callback")
+
+	result = StageClearResultCallbackHandler.invoke_enter_plaza(Callable())
+	_expect(result == StageClearResultCallbackHandler.RESULT_NONE, "plaza handler should report none for invalid callbacks")
+	_expect(sink.plaza_calls == 1, "invalid plaza callback should not change call count")
+
 	result = StageClearResultCallbackHandler.invoke_exit_to_menu(
 		Callable(sink, "exit_to_menu"),
 		Callable(sink, "confirm")
@@ -61,8 +74,10 @@ func _verify_callback_handler_contract() -> void:
 func _verify_scene_delegates_callbacks() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(source.find("StageClearResultCallbackHandler.invoke_confirm") >= 0, "result scene should delegate confirm callback invocation")
+	_expect(source.find("StageClearResultCallbackHandler.invoke_enter_plaza") >= 0, "result scene should delegate plaza callback invocation")
 	_expect(source.find("StageClearResultCallbackHandler.invoke_exit_to_menu") >= 0, "result scene should delegate exit callback invocation")
 	_expect(source.find("confirmed_callback.call()") < 0, "result scene should not call confirmed callback directly")
+	_expect(source.find("enter_plaza_callback.call()") < 0, "result scene should not call plaza callback directly")
 	_expect(source.find("exit_to_menu_callback.call()") < 0, "result scene should not call exit callback directly")
 	_expect(source.find("_stop_dalji_click_voice()") >= 0, "result scene should keep voice cleanup before callbacks")
 

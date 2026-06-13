@@ -6,19 +6,21 @@ const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_resul
 
 const BUTTON_NONE := "none"
 const BUTTON_NEXT_STAGE := "next_stage"
+const BUTTON_PLAZA := "plaza"
 const BUTTON_EXIT := "exit"
 const PHASE_VISIBLE := "visible"
 
 
 static func get_scroll_button_layout(scroll_rect: Rect2, draw_scale: float) -> Dictionary:
-	var button_size := Vector2(280.0, 64.0) * draw_scale
-	var gap: float = 28.0 * draw_scale
-	var total_width: float = button_size.x * 2.0 + gap
+	var button_size := Vector2(208.0, 64.0) * draw_scale
+	var gap: float = 22.0 * draw_scale
+	var total_width: float = button_size.x * 3.0 + gap * 2.0
 	var start_x: float = scroll_rect.position.x + (scroll_rect.size.x - total_width) * 0.5
 	var button_y: float = scroll_rect.position.y + scroll_rect.size.y - 90.0 * draw_scale
 	return {
 		"next_stage_rect": Rect2(Vector2(start_x, button_y), button_size),
-		"exit_rect": Rect2(Vector2(start_x + button_size.x + gap, button_y), button_size),
+		"plaza_rect": Rect2(Vector2(start_x + button_size.x + gap, button_y), button_size),
+		"exit_rect": Rect2(Vector2(start_x + (button_size.x + gap) * 2.0, button_y), button_size),
 	}
 
 
@@ -30,6 +32,7 @@ static func get_visible_scroll_button_layout(
 	if scroll_phase != PHASE_VISIBLE:
 		return {
 			"next_stage_rect": Rect2(),
+			"plaza_rect": Rect2(),
 			"exit_rect": Rect2(),
 		}
 	var scroll_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(draw_scale, position_offset)
@@ -69,6 +72,7 @@ static func get_scroll_drag_start_state(
 	if get_hovered_button(
 		mouse_position,
 		button_layout.get("next_stage_rect", Rect2()),
+		button_layout.get("plaza_rect", Rect2()),
 		button_layout.get("exit_rect", Rect2())
 	) != BUTTON_NONE:
 		return {
@@ -85,9 +89,11 @@ static func get_scroll_drag_start_state(
 	}
 
 
-static func get_hovered_button(mouse_position: Vector2, next_stage_rect: Rect2, exit_rect: Rect2) -> String:
+static func get_hovered_button(mouse_position: Vector2, next_stage_rect: Rect2, plaza_rect: Rect2, exit_rect: Rect2) -> String:
 	if _rect_contains_mouse(next_stage_rect, mouse_position):
 		return BUTTON_NEXT_STAGE
+	if _rect_contains_mouse(plaza_rect, mouse_position):
+		return BUTTON_PLAZA
 	if _rect_contains_mouse(exit_rect, mouse_position):
 		return BUTTON_EXIT
 	return BUTTON_NONE
@@ -96,12 +102,13 @@ static func get_hovered_button(mouse_position: Vector2, next_stage_rect: Rect2, 
 static func get_clicked_button(
 	mouse_position: Vector2,
 	next_stage_rect: Rect2,
+	plaza_rect: Rect2,
 	exit_rect: Rect2,
 	scroll_phase: String
 ) -> String:
 	if scroll_phase != PHASE_VISIBLE:
 		return BUTTON_NONE
-	return get_hovered_button(mouse_position, next_stage_rect, exit_rect)
+	return get_hovered_button(mouse_position, next_stage_rect, plaza_rect, exit_rect)
 
 
 static func get_hovered_box_index(

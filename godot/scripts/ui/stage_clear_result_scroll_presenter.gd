@@ -105,6 +105,7 @@ static func draw_scroll(
 	if button_layout.is_empty():
 		return result
 	result["next_stage_rect"] = button_layout.get("next_stage_rect", Rect2())
+	result["plaza_rect"] = button_layout.get("plaza_rect", Rect2())
 	result["exit_rect"] = button_layout.get("exit_rect", Rect2())
 	result["content_drawn"] = true
 	return result
@@ -117,6 +118,7 @@ static func get_scroll_draw_apply_result(
 	return {
 		"scroll_position_offset": draw_result.get("scroll_position_offset", current_position_offset),
 		"next_stage_rect": draw_result.get("next_stage_rect", Rect2()),
+		"plaza_rect": draw_result.get("plaza_rect", Rect2()),
 		"exit_rect": draw_result.get("exit_rect", Rect2()),
 	}
 
@@ -127,6 +129,7 @@ static func _empty_result(position_offset: Vector2) -> Dictionary:
 		"content_drawn": false,
 		"scroll_position_offset": position_offset,
 		"next_stage_rect": Rect2(),
+		"plaza_rect": Rect2(),
 		"exit_rect": Rect2(),
 		"unfurl": 0.0,
 	}

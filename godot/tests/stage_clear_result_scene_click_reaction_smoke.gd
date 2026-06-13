@@ -369,6 +369,66 @@ func _init() -> void:
 	)
 	commando_scene.free()
 
+	var optimus_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(optimus_scene != null, "stage clear result scene should instantiate for Optimus victory Live2D")
+	root.add_child(optimus_scene)
+	optimus_scene.configure({
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 1,
+		"selected_character_type": "optimus",
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var optimus_status: Dictionary = optimus_scene.get_interaction_status()
+	_expect(str(optimus_status.get("selected_character_type", "")) == "optimus", "Optimus result scene should preserve the selected character type")
+	_expect(
+		str(optimus_status.get("player_victory_sheet_path", "")) == StageClearResultAssetLoader.OPTIMUS_VICTORY_SHEET_PATH,
+		"Optimus victory should use the Optimus result base Live2D sheet"
+	)
+	_expect(
+		str(optimus_status.get("player_victory_click_reaction_sheet_path", "")) == StageClearResultAssetLoader.OPTIMUS_CLICK_REACTION_SHEET_PATH,
+		"Optimus victory should use the Optimus result click Live2D sheet"
+	)
+	_expect(bool(optimus_status.get("player_victory_sheet_loaded", false)), "Optimus result base Live2D should load")
+	_expect(bool(optimus_status.get("player_victory_click_reaction_sheet_loaded", false)), "Optimus result click Live2D should load")
+	optimus_scene.update_result_scene(0.55)
+	optimus_status = optimus_scene.get_interaction_status()
+	var optimus_base_frame_before_click: int = int(optimus_status.get("player_victory_base_frame", 0))
+	_expect(optimus_base_frame_before_click > 0, "test should click Optimus from a non-neutral base Live2D frame")
+	var optimus_click_rect: Rect2 = optimus_status.get("player_victory_click_rect", Rect2())
+	var optimus_click := InputEventMouseButton.new()
+	optimus_click.button_index = MOUSE_BUTTON_LEFT
+	optimus_click.pressed = true
+	optimus_click.position = optimus_click_rect.get_center()
+	_expect(optimus_scene.handle_result_input(optimus_click), "Optimus click should be consumed by the result scene")
+	optimus_status = optimus_scene.get_interaction_status()
+	_expect(bool(optimus_status.get("player_victory_click_reaction_active", false)), "Optimus click should start the reaction sheet")
+	_expect(
+		int(optimus_status.get("player_victory_click_transition_base_frame", -1)) == optimus_base_frame_before_click,
+		"Optimus click should freeze the current base frame for blend-in"
+	)
+	optimus_scene.update_result_scene(0.11)
+	optimus_status = optimus_scene.get_interaction_status()
+	var optimus_mid_alpha: float = float(optimus_status.get("player_victory_reaction_alpha", 0.0))
+	_expect(optimus_mid_alpha > 0.05 and optimus_mid_alpha < 0.95, "Optimus click should crossfade into the reaction instead of hard switching")
+	var optimus_reaction_timer_now: float = float(optimus_status.get("player_victory_click_reaction_timer", 0.0))
+	var optimus_reaction_duration: float = float(optimus_status.get("player_victory_click_reaction_duration", 0.0))
+	optimus_scene.update_result_scene(max(0.0, optimus_reaction_duration - optimus_reaction_timer_now) + 0.02)
+	optimus_status = optimus_scene.get_interaction_status()
+	_expect(bool(optimus_status.get("player_victory_click_return_blend_active", false)), "Optimus click should enter the return blend hold phase after the 98-frame pass")
+	_expect(is_equal_approx(float(optimus_status.get("player_victory_reaction_alpha", 0.0)), 1.0), "Optimus click should hold the final reaction frame at full alpha during the settle window")
+	optimus_scene.update_result_scene(6.0)
+	optimus_status = optimus_scene.get_interaction_status()
+	_expect(not bool(optimus_status.get("player_victory_click_reaction_active", true)), "Optimus click reaction should return to the base loop")
+	_expect(is_equal_approx(float(optimus_status.get("player_victory_reaction_alpha", 1.0)), 0.0), "Optimus click should fade fully back to the base loop")
+	optimus_scene.free()
+
 	scene.update_result_scene(1.10)
 	status = scene.get_interaction_status()
 	var base_frame_before_click: int = int(status.get("dalji_base_frame", 0))
