@@ -457,12 +457,61 @@ func debug_grant_and_activate_pet(
 	return true
 
 
+func get_plaza_resonance_egg_offer(owner: Object) -> Dictionary:
+	if owner == null:
+		return _build_plaza_resonance_egg_summary(false, "missing_owner")
+	if _state == STATE_EGG:
+		return _build_plaza_resonance_egg_summary(false, "egg_already_active")
+	if not _should_spawn_lingpet_egg(owner):
+		return _build_plaza_resonance_egg_summary(false, "no_hatch_candidates")
+	return _build_plaza_resonance_egg_summary(true, "ok")
+
+
+func spawn_plaza_resonance_egg(owner: Object, registry: Object = null) -> Dictionary:
+	var offer := get_plaza_resonance_egg_offer(owner)
+	if not bool(offer.get("can_spawn", false)):
+		return offer
+	_collection_state.set_owned_pet_ids(_collection_state.get_owned_pet_ids_from_owner(owner))
+	_collection_state.set_battle_slots(_collection_state.get_battle_slots_from_owner(owner))
+	_collection_state.set_active_slot_index(_collection_state.get_active_slot_index_from_owner(owner))
+	var hatch_pet_id := _pick_hatch_pet_id(owner)
+	if hatch_pet_id == "":
+		return _build_plaza_resonance_egg_summary(false, "no_hatch_candidates")
+
+	_save_current_companion_skill_state()
+	_state = STATE_EGG
+	_set_current_pet_id(hatch_pet_id)
+	_egg_state.spawn(owner)
+	_companion_pos = Vector2.ZERO
+	_reset_companion_patrol()
+	_hatch_flash_timer = 0.0
+	_reset_companion_runtime_state()
+	_acquire_cutin_state.reset()
+	_switch_transition_state.reset()
+	_has_synced_none = false
+	_prewarm_current_visuals()
+	_sync_owner(owner, registry)
+	return _build_plaza_resonance_egg_summary(true, "ok")
+
+
 func get_lingpet_slots() -> Array[String]:
 	return _collection_state.get_battle_slots()
 
 
 func get_active_lingpet_slot_index() -> int:
 	return _collection_state.get_active_slot_index()
+
+
+func _build_plaza_resonance_egg_summary(can_spawn: bool, reason: String) -> Dictionary:
+	return {
+		"can_spawn": can_spawn,
+		"handled": true,
+		"changed": can_spawn and reason == "ok",
+		"reason": reason,
+		"state": _state,
+		"hatch_hits": _egg_state.hatch_hits,
+		"required_hits": _get_current_required_hits(),
+	}
 
 
 func _set_current_pet_id(value: String) -> void:

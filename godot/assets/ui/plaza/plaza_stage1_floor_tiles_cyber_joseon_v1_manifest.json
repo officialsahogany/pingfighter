@@ -1,0 +1,127 @@
+﻿{
+    "asset_id":  "plaza_stage1_floor_tiles_cyber_joseon_v1",
+    "stage_theme":  "stage1_cyber_joseon",
+    "runtime_usage":  "plaza_floor_tile_miniset",
+    "generated_at":  "2026-06-13T04:01:02+09:00",
+    "production_route":  "Codex using built-in image_gen rework references plus local System.Drawing postprocess; rejected accent/border replaced for Claude re-gate",
+    "tile_size":  [
+                      1024,
+                      1024
+                  ],
+    "display_intent":  "Draw as 384-512px/repeat floor textures in a 760px-wide plaza canvas; logic grid remains separate.",
+    "derivation":  "base_01 is the mother tile; base_02 preserves the same stone layout with tonal wear; accent_neon was regenerated from current base_01 and finalized as grout-snapped cyan/magenta neon seams plus one gold circuit glyph with quiet outer edges; border_dancheong was regenerated from current base_01 as a vertical eodo band with dark slate retint, gold dancheong key-fret/lotus linework, and two cyan shimmer nodes; rejected Claude-intermediate ornament pixel transfer is no longer used; special_medallion keeps base_01 outer edges and uses generated medallion only in the feathered center.",
+    "palette":  [
+                    "hanji cream stone",
+                    "ink navy grout",
+                    "muted amber gold",
+                    "cyan/magenta VR hairlines"
+                ],
+    "assets":  [
+                   {
+                       "id":  "base_01",
+                       "role":  "base_01",
+                       "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_base_01_cyber_joseon_imagegen_v1.png",
+                       "width":  1024,
+                       "height":  1024,
+                       "sha256":  "99db83a5fab616fc2ff1a34091e6ff81006e83a86c12bc1e20abaa288a4524af",
+                       "source_path":  "res://assets/ui/plaza/plaza_stage1_floor_base_01_cyber_joseon_imagegen_v1_source.png"
+                   },
+                   {
+                       "id":  "base_02",
+                       "role":  "base_02",
+                       "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_base_02_cyber_joseon_imagegen_v1.png",
+                       "width":  1024,
+                       "height":  1024,
+                       "sha256":  "496c075f7b206abcd27e541dded9f35851f8e71ae1150e3eab58262908331d4b",
+                       "source_path":  "res://assets/ui/plaza/plaza_stage1_floor_base_02_cyber_joseon_imagegen_v1_source.png"
+                   },
+                   {
+                       "id":  "accent_neon",
+                       "role":  "accent_neon",
+                       "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_accent_neon_cyber_joseon_imagegen_v1.png",
+                       "width":  1024,
+                       "height":  1024,
+                       "sha256":  "6b4a269ea4823646db6a7aeec9eb3e4ddff7fa34c168a3da5009a06de8efc5bc",
+                       "source_path":  "res://assets/ui/plaza/plaza_stage1_floor_accent_neon_cyber_joseon_imagegen_v1_source.png"
+                   },
+                   {
+                       "id":  "border_dancheong",
+                       "role":  "border_dancheong",
+                       "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_border_dancheong_cyber_joseon_imagegen_v1.png",
+                       "width":  1024,
+                       "height":  1024,
+                       "sha256":  "e72116c3dae2350815c50e2de48b812299e8b7a5f76f2a5629806cb8b9e65920",
+                       "source_path":  "res://assets/ui/plaza/plaza_stage1_floor_border_dancheong_cyber_joseon_imagegen_v1_source.png"
+                   },
+                   {
+                       "id":  "special_medallion",
+                       "role":  "special_medallion",
+                       "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_special_medallion_cyber_joseon_imagegen_v1.png",
+                       "width":  1024,
+                       "height":  1024,
+                       "sha256":  "0263f190aae5a3086c287cfe19837d7090bd0201c3e4a13034694e387f064db8",
+                       "source_path":  "res://assets/ui/plaza/plaza_stage1_floor_special_medallion_cyber_joseon_imagegen_v1_source.png"
+                   }
+               ],
+    "emissive_overlays":  [
+                              {
+                                  "id":  "accent_neon_emissive",
+                                  "base_role":  "accent_neon",
+                                  "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_accent_neon_emissive_v1.png",
+                                  "width":  1024,
+                                  "height":  1024,
+                                  "sha256":  "4cfcd6bd78fabf1861a66a363511fa391cf840e6e8ec18d34ea4c02a485f6a91",
+                                  "blend":  "additive_runtime_shader_uniform_intensity"
+                              },
+                              {
+                                  "id":  "border_dancheong_emissive",
+                                  "base_role":  "border_dancheong",
+                                  "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_border_dancheong_emissive_v1.png",
+                                  "width":  1024,
+                                  "height":  1024,
+                                  "sha256":  "7e9093995c58931f59bb5d81350bcbaa76911daa2c93e461ced36b761263db18",
+                                  "blend":  "additive_runtime_shader_uniform_intensity"
+                              },
+                              {
+                                  "id":  "special_medallion_emissive",
+                                  "base_role":  "special_medallion",
+                                  "res_path":  "res://assets/ui/plaza/plaza_stage1_floor_special_medallion_emissive_v1.png",
+                                  "width":  1024,
+                                  "height":  1024,
+                                  "sha256":  "9ea85c67a646d2f9e825a991ed9c557bd20400dfe0b1a033f0b477fabbe47f7f",
+                                  "blend":  "additive_runtime_shader_uniform_intensity"
+                              }
+                          ],
+    "source_inputs":  {
+                          "generated_base_01":  "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_069c792a1f4b700d016a2c4966e43c8191bf573bfd6d17784e.png",
+                          "generated_special_medallion":  "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_069c792a1f4b700d016a2c47f638a08191be380fbb71eca819.png",
+                          "generated_accent_rework_reference":  "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_069c792a1f4b700d016a2c5283f3e08191be11b2c13892a3a3.png",
+                          "generated_border_rework_reference":  "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_069c792a1f4b700d016a2c533139ec8191a86ff878fde178be.png",
+                          "inherited_reference_dir":  "d:/tmp/plaza_s1"
+                      },
+    "qa":  {
+               "preview_dir":  "d:\\tmp\\plaza_s1\\codex_work\\qa",
+               "previews":  [
+                                "stage1_floor_tileset_contact_board.png",
+                                "stage1_floor_760_mockup.png",
+                                "base_01_2x2.png",
+                                "base_02_2x2.png",
+                                "accent_neon_2x2.png",
+                                "border_dancheong_2x2.png",
+                                "special_medallion_2x2.png",
+                                "base_01_4x4.png",
+                                "base_02_4x4.png",
+                                "accent_neon_4x4.png",
+                                "border_dancheong_4x4.png",
+                                "special_medallion_4x4.png"
+                            ],
+               "notes":  [
+                             "base_01 regenerated by Codex to avoid visible center repair patch in inherited claude_base_01",
+                             "base_02 derives from base_01 edge-compatible layout",
+                             "accent_neon reworked after Claude gate: current-base grout-snapped 3 cyan seams, exactly 1 magenta seam, one gold circuit glyph; emissive alpha coverage 4.36%; edge32 diff 0.01",
+                             "border_dancheong reworked after Claude gate: vertical dark-slate eodo band with gold key-fret/lotus dancheong linework and 2 cyan shimmer nodes; emissive alpha coverage 13.10%; edge32 diff 7.74 from intentional top/bottom road continuation",
+                             "special medallion keeps base_01 outer edges and uses generated medallion only in the feathered center",
+                             "emissive overlays are extracted/generated as additive runtime shader layers for uniform intensity control"
+                         ]
+           }
+}

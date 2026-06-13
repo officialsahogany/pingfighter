@@ -1,0 +1,98 @@
+{
+    "asset_id":  "plaza_stage1_cyber_joseon_lingpet_store_v1",
+    "building_type":  "lingpet_store",
+    "stage_theme":  "stage1_cyber_joseon",
+    "runtime_usage":  "plaza_building_kit_production_v1",
+    "generated_at":  "2026-06-13T06:49:08+09:00",
+    "production_route":  "Codex built-in image_gen base source; local #ff00ff chroma-key alpha; deterministic sign/window emissive extraction from the locked base to avoid edit drift",
+    "display_height":  240,
+    "display_scale":  0.2344,
+    "source_size":  [
+                        1536,
+                        1024
+                    ],
+    "origin_pivot":  [
+                         768,
+                         1006
+                     ],
+    "collision_rect":  {
+                           "x":  -553,
+                           "y":  -77,
+                           "w":  1106,
+                           "h":  72
+                       },
+    "interaction_rect":  {
+                             "x":  -292,
+                             "y":  -251,
+                             "w":  584,
+                             "h":  179
+                         },
+    "y_sort_anchor":  [
+                          768,
+                          1006
+                      ],
+    "identity_emblem":  {
+                            "id":  "lingpet_store_glowing_egg_orbit_ring",
+                            "canonical_across_themes":  true,
+                            "description":  "glowing egg plus orbit ring pictogram; same ringpet store emblem across every stage theme"
+                        },
+    "layers":  {
+                   "base":  {
+                                "res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_building_base.png",
+                                "sha256":  "509c387b7fda92e7321f3c6a7ded817c2458b6ec8a4ab0e4eb72a9770366f472"
+                            },
+                   "sign_emissive":  {
+                                         "res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_sign_emissive.png",
+                                         "sha256":  "83e9f528c50f8ac3f2aef33b22451297a9cc752caa21329ad9918d6eeee90609"
+                                     },
+                   "window_glow_mask":  {
+                                            "res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_window_glow_mask.png",
+                                            "sha256":  "ee5bd3902e1db83e076193ef95b9bd35ce95f4db9be34069b28a2cdfc153e354"
+                                        },
+                   "loop":  null
+               },
+    "source_layers":  {
+                          "base_chromakey":  {
+                                                 "res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_building_base_source_chromakey.png",
+                                                 "sha256":  "792694d499941e1398789e2c3b42b12f6208321c7216d6fb3c55e3df3ce9402f"
+                                             },
+                          "sign_on_chromakey":  {
+                                                    "res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_sign_on_source_chromakey.png",
+                                                    "sha256":  "bb1fa2c26df05cd9eb5ac5a745db2d23cccc0ba22d240ef3c1c7b64f22c8e071"
+                                                },
+                          "window_on_chromakey":  {
+                                                      "res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_window_on_source_chromakey.png",
+                                                      "sha256":  "8e5f26613ec4e3c88ea6138d94518e81626d2c03ea7ce5ebed2d26670cf79a1f"
+                                                  }
+                      },
+    "provenance":  {
+                       "generated_base_source":  "Copied from C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3 into source_layers.base_chromakey; original left in place",
+                       "generated_sign_edit_source":  "local synthesized sign-on source from extracted mask; chosen for production batch alignment",
+                       "generated_window_edit_source":  "local synthesized window-on source from extracted mask; chosen for production batch alignment",
+                       "nukki_method":  "local #ff00ff chroma-key alpha; no white-background remove_bg path",
+                       "brief":  "pictorial identity sign, no text; stage-specific cyber-Joseon exterior; emblem shape is canonical across themes"
+                   },
+    "qa":  {
+               "source_bbox":  {
+                                   "x":  0,
+                                   "y":  0,
+                                   "w":  1536,
+                                   "h":  1024
+                               },
+               "base_alpha_coverage_percent":  50.47,
+               "sign_emissive_alpha_coverage_percent":  9.5862,
+               "window_glow_alpha_coverage_percent":  8.2287,
+               "transparent_corner_pixels_24px":  2300,
+               "remaining_key_fringe_pixels":  0,
+               "intentional_base_magenta_pixels":  3499,
+               "despill_edge_magenta_pixels":  1368,
+               "preview_lit_res_path":  "res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_lit_preview.png",
+               "preview_dir":  "D:\\tmp\\plaza_s5\\codex_work\\qa",
+               "previews":  [
+                                "plaza_stage1_cyber_joseon_lingpet_store_v1_kit_contact_board.png",
+                                "plaza_stage1_cyber_joseon_lingpet_store_v1_760_mockup_floor380_emissive_on.png",
+                                "plaza_stage1_cyber_joseon_building_production_contact_board_v1.png"
+                            ],
+               "mockup_notes":  "Clean 760px mockup: no square backing, additive-style emissive composition, single emissive-ON state, S1 floor at runtime default 380px repeat."
+           }
+}

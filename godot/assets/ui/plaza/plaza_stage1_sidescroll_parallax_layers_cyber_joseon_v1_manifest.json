@@ -1,0 +1,114 @@
+{
+    "asset_id": "plaza_stage1_sidescroll_parallax_layers_cyber_joseon_v1",
+    "stage_theme": "stage1_cyber_joseon",
+    "runtime_usage": "S4.5 side-scroll plaza aesthetic pass",
+    "generated_at": "2026-06-13T12:06:55+09:00",
+    "production_route": "Codex built-in image_gen source art plus local Pillow crop/resize/X-edge blend/emissive extraction",
+    "coordinate_contract": {
+        "game_size": [
+            760,
+            750
+        ],
+        "ground_world_rect": {
+            "x_repeat": 1140,
+            "y": 596,
+            "h": 154
+        },
+        "midground_world_rect": {
+            "x_repeat": 960,
+            "y": 388,
+            "h": 180,
+            "parallax": 0.48
+        },
+        "far_sky_screen_rect": {
+            "w": 1520,
+            "h": 430,
+            "parallax": 0.04
+        }
+    },
+    "assets": [
+        {
+            "id": "ground",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_ground_strip_cyber_joseon_imagegen_v1.png",
+            "width": 1140,
+            "height": 154,
+            "sha256": "a62f0f2792513ef8d9053399c159b810835d6c9522b540177ddd10735a95b584"
+        },
+        {
+            "id": "ground_emissive",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_ground_strip_emissive_v1.png",
+            "width": 1140,
+            "height": 154,
+            "sha256": "2400a6296cd719c36ff7a9cb77ed40e94aede54adc76fb6cde3424f6d4d44b79"
+        },
+        {
+            "id": "midground",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_midground_wall_cyber_joseon_imagegen_v1.png",
+            "width": 960,
+            "height": 180,
+            "sha256": "e89391d143af062760754c1c098518d4ecad35e0e0a11c6eb1c1736d2dfda70f"
+        },
+        {
+            "id": "sky",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_far_sky_moon_cyber_joseon_imagegen_v1.png",
+            "width": 1520,
+            "height": 430,
+            "sha256": "b11a7ea3a24f874a4a9a074e03f244aaba4552000ea62e9b28a1a8c53ef0f286"
+        },
+        {
+            "id": "accent_cutout",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_accent_neon_cutout_v1.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "25bf635776d03ad976a379921b38e6e89b072293834f42094c7ed9324941ffec",
+            "alpha_coverage_percent": 3.514
+        },
+        {
+            "id": "accent_cutout_emissive",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_accent_neon_cutout_emissive_v1.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "22ae2d7b0d4c7602d0afb95e0c18f00baecfe94287fbf0c1a331e17ece65629d",
+            "alpha_coverage_percent": 3.707
+        },
+        {
+            "id": "medallion_cutout",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_v1.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "07252f00c2682dcee211b7c335e133850496809f91a3ed11f364d2f9c5d9d213",
+            "alpha_coverage_percent": 54.585
+        },
+        {
+            "id": "medallion_cutout_emissive",
+            "res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_emissive_v1.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "bac2be69843602885c2b7ea6135d385ef9f5782dfb977f958078f46641504b4b",
+            "alpha_coverage_percent": 9.575
+        }
+    ],
+    "source_inputs": {
+        "generated_ground": "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_0b0c74d1e19dd06a016a2cc77760d481919b99266399869509.png",
+        "generated_midground": "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_0b0c74d1e19dd06a016a2cc7a62b1c81918077341c6267153a.png",
+        "generated_sky": "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_0b0c74d1e19dd06a016a2cc7dee5248191ad41ce1c92843bc0.png",
+        "source_ground_res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_ground_strip_cyber_joseon_imagegen_v1_source.png",
+        "source_midground_res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_midground_wall_cyber_joseon_imagegen_v1_source.png",
+        "source_sky_res_path": "res://assets/ui/plaza/plaza_stage1_sidescroll_far_sky_moon_cyber_joseon_imagegen_v1_source.png"
+    },
+    "qa": {
+        "preview_dir": "d:\\tmp\\plaza_s45",
+        "previews": [
+            "plaza_s45_asset_contact_board.png",
+            "plaza_s45_cutout_contact_board.png"
+        ],
+        "notes": [
+            "Ground strip keeps S1 stone palette and exposes a thicker cyan/magenta VR data stratum below the sidewalk.",
+            "Eodo, medallion, and accent tiles are not baked into the strip; runtime overlay positions remain separate.",
+            "Midground wall is brightness/saturation reduced so foreground buildings keep hierarchy.",
+            "Far sky uses warm cream moon; no lime/green moon tint.",
+            "Horizontal edge bands are mirrored/blended to reduce X-wrap popping in side-scroll capture.",
+            "S4.5 side-scroll point overlays use transparent cutouts so accepted S1 medallion/accent art no longer appears as square tile patches over the new ground strip."
+        ]
+    }
+}
