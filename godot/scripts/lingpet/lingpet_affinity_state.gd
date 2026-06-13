@@ -6,6 +6,10 @@ const SOURCE_CLICK := "click"
 const SOURCE_HATCH := "hatch"
 const SOURCE_VICTORY := "victory"
 
+const REWARD_TYPE_ACTIVE_UNLOCK := "active_unlock"
+const REWARD_TYPE_PASSIVE_UNLOCK := "passive_unlock"
+const REWARD_TYPE_SECOND_ACTIVE_UNLOCK := "second_active_unlock"
+const REWARD_TYPE_SECOND_PASSIVE_UNLOCK := "second_passive_unlock"
 const REWARD_TYPE_ACTIVE_SKILL := "active_skill"
 const REWARD_TYPE_PASSIVE_SKILL := "passive_skill"
 const REWARD_TYPE_MOBILITY := "mobility"
@@ -17,9 +21,10 @@ const REWARD_TYPE_NO_REWARD := "no_reward"
 const MOTION_STYLE_PATROL := "patrol"
 const MOTION_STYLE_FLIGHT := "flight"
 
-const MAX_LEVEL := 15
-# V2 keeps the residue headstart ceiling at +4 by decision (§12-6), even though
-# the run reward track expanded to 15 levels.
+const MAX_LEVEL := 30
+# V3 keeps the residue headstart ceiling at +4 until the stage-count/income
+# tuning pass. The store may remember a higher best level, but a new run still
+# starts conservatively.
 const HEADSTART_MAX_LEVEL := 4
 const SKILL_LEVEL_MAX := 5
 const MAX_MOBILITY_STACKS := 6
@@ -33,14 +38,24 @@ const BOND_TITLE_FRIENDLY := "친함"
 const BOND_TITLE_BEST_FRIEND := "단짝"
 const BOND_TITLE_SOULMATE := "영혼의 단짝"
 
-const REQUIREMENT_FIRST := 50.0
-const REQUIREMENT_SECOND := 75.0
-const REQUIREMENT_DEFAULT := 100.0
+const REQUIREMENT_BY_CURRENT_LEVEL := [
+	50.0,
+	75.0,
+	100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0,
+	125.0, 125.0, 125.0, 125.0, 125.0,
+	150.0, 150.0, 150.0, 150.0, 150.0,
+	175.0, 175.0, 175.0, 175.0, 175.0,
+	200.0, 200.0, 200.0, 200.0, 200.0,
+]
 
 const REWARD_DECK_SEED_MOD := 2147483647
 const DEFAULT_REWARD_DECK_SEED := 991
 
 const LABEL_BY_REWARD_TYPE := {
+	REWARD_TYPE_ACTIVE_UNLOCK: "액티브 스킬 해금",
+	REWARD_TYPE_PASSIVE_UNLOCK: "패시브 스킬 해금",
+	REWARD_TYPE_SECOND_ACTIVE_UNLOCK: "2번째 액티브 해금",
+	REWARD_TYPE_SECOND_PASSIVE_UNLOCK: "2번째 패시브 해금",
 	REWARD_TYPE_ACTIVE_SKILL: "액티브 스킬 +1",
 	REWARD_TYPE_PASSIVE_SKILL: "패시브 스킬 +1",
 	REWARD_TYPE_MOBILITY: "기동 강화",
@@ -51,21 +66,36 @@ const LABEL_BY_REWARD_TYPE := {
 }
 
 const CANONICAL_REWARD_TRACK := {
-	1: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1"},
-	2: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1"},
-	3: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1"},
-	4: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1"},
-	5: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
-	6: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1"},
-	7: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1"},
-	8: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1"},
-	9: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1"},
+	1: {"type": REWARD_TYPE_ACTIVE_UNLOCK, "label": "액티브 스킬 해금"},
+	2: {"type": REWARD_TYPE_PASSIVE_UNLOCK, "label": "패시브 스킬 해금"},
+	3: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
+	4: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
+	5: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
+	6: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
+	7: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	8: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
+	9: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
 	10: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
-	11: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
-	12: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
+	11: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	12: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
 	13: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
-	14: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
-	15: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화", "title": "하트 공명"},
+	14: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
+	15: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
+	16: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	17: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
+	18: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
+	19: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
+	20: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
+	21: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	22: {"type": REWARD_TYPE_SECOND_ACTIVE_UNLOCK, "label": "2번째 액티브 해금"},
+	23: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
+	24: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
+	25: {"type": REWARD_TYPE_SECOND_PASSIVE_UNLOCK, "label": "2번째 패시브 해금"},
+	26: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "2번째 액티브 스킬 +1", "skill_slot": 2},
+	27: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "2번째 패시브 스킬 +1", "skill_slot": 2},
+	28: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
+	29: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "2번째 액티브 스킬 +1", "skill_slot": 2},
+	30: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "2번째 패시브 스킬 +1", "skill_slot": 2, "title": "하트 공명"},
 }
 
 const GAIN_TABLE := {
@@ -140,24 +170,29 @@ func configure_reward_context(
 	active_skill_base_level: int = 1,
 	passive_skill_base_level: int = 1,
 	reward_seed: int = 0,
-	force_rebuild: bool = false
+	force_rebuild: bool = false,
+	ring_core_cap: int = MAX_LEVEL
 ) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return
 	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	_ensure_unlock_state(normalized_pet_id, pet_data)
 	var next_motion_style := _normalize_motion_style(motion_style)
 	var next_active_base_level := clampi(active_skill_base_level, 1, SKILL_LEVEL_MAX)
 	var next_passive_base_level := clampi(passive_skill_base_level, 1, SKILL_LEVEL_MAX)
+	var next_ring_core_cap := clampi(ring_core_cap, 0, MAX_LEVEL)
 	var context_changed := (
 		str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)) != next_motion_style
 		or int(pet_data.get("active_skill_base_level", 1)) != next_active_base_level
 		or int(pet_data.get("passive_skill_base_level", 1)) != next_passive_base_level
+		or int(pet_data.get("ring_core_cap", MAX_LEVEL)) != next_ring_core_cap
 	)
 	var history: Array = pet_data.get("reward_history", []) as Array
 	pet_data["reward_motion_style"] = next_motion_style
 	pet_data["active_skill_base_level"] = next_active_base_level
 	pet_data["passive_skill_base_level"] = next_passive_base_level
+	pet_data["ring_core_cap"] = next_ring_core_cap
 	if reward_seed > 0:
 		pet_data["reward_seed"] = maxi(1, reward_seed % REWARD_DECK_SEED_MOD)
 	if force_rebuild or not _has_reward_deck(pet_data) or (context_changed and history.is_empty()):
@@ -165,11 +200,128 @@ func configure_reward_context(
 	_pets[normalized_pet_id] = pet_data
 
 
+func set_unlock_choice_candidates(pet_id: String, reward_type: String, candidates: Array) -> void:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	_ensure_unlock_state(normalized_pet_id, pet_data)
+	var normalized_candidates := _normalize_choice_candidates(candidates)
+	if normalized_candidates.size() < 2:
+		return
+	var pool: Dictionary = pet_data.get("unlock_candidate_pool", {}) as Dictionary
+	pool[choice_key] = normalized_candidates
+	pet_data["unlock_candidate_pool"] = pool
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	if pending.has(choice_key):
+		var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
+		choice["candidates"] = normalized_candidates.duplicate(true)
+		pending[choice_key] = choice
+		pet_data["pending_unlock_choices"] = pending
+	_pets[normalized_pet_id] = pet_data
+
+
+func get_pending_unlock_choices(pet_id: String) -> Dictionary:
+	var pet_data := _get_existing_pet_data(_normalize_pet_id(pet_id))
+	if pet_data.is_empty():
+		return {}
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	return pending.duplicate(true)
+
+
+func get_resolved_unlock_choices(pet_id: String) -> Dictionary:
+	var pet_data := _get_existing_pet_data(_normalize_pet_id(pet_id))
+	if pet_data.is_empty():
+		return {}
+	var choices: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+	return choices.duplicate(true)
+
+
+func choose_skill_unlock(pet_id: String, reward_type: String, selected_id: String) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {"accepted": false, "blocked_reason": "missing_pet_id"}
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return {"accepted": false, "blocked_reason": "not_unlock_type"}
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	if pet_data.is_empty():
+		return {"accepted": false, "blocked_reason": "missing_pet"}
+	_ensure_unlock_state(normalized_pet_id, pet_data)
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	if not pending.has(choice_key):
+		return {"accepted": false, "blocked_reason": "missing_choice"}
+	var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
+	var candidates: Array = choice.get("candidates", []) as Array
+	var normalized_selected := selected_id.strip_edges()
+	if normalized_selected == "" or not candidates.has(normalized_selected):
+		return {"accepted": false, "blocked_reason": "invalid_selection", "candidates": candidates.duplicate(true)}
+	var rejected: Array[String] = []
+	for raw_candidate in candidates:
+		var candidate := str(raw_candidate)
+		if candidate != normalized_selected:
+			rejected.append(candidate)
+	var resolved := {
+		"type": reward_type,
+		"choice_key": choice_key,
+		"selected": normalized_selected,
+		"rejected": rejected,
+		"candidates": candidates.duplicate(true),
+	}
+	var resolved_choices: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+	resolved_choices[choice_key] = resolved
+	pending.erase(choice_key)
+	pet_data["pending_unlock_choices"] = pending
+	pet_data["resolved_unlock_choices"] = resolved_choices
+	_pets[normalized_pet_id] = pet_data
+	_dirty = true
+	return {"accepted": true, "choice": resolved.duplicate(true)}
+
+
+func resolve_single_unlock(pet_id: String, reward_type: String, only_id: String) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {"accepted": false, "blocked_reason": "missing_pet_id"}
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return {"accepted": false, "blocked_reason": "not_unlock_type"}
+	var normalized_only_id := only_id.strip_edges()
+	if normalized_only_id == "":
+		return {"accepted": false, "blocked_reason": "missing_selection"}
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	_ensure_unlock_state(normalized_pet_id, pet_data)
+	var counts := _reward_counts_snapshot(pet_data)
+	_apply_reward_type_to_counts(counts, reward_type)
+	counts["signature"] = _build_reward_signature_from_counts(counts)
+	pet_data["reward_counts"] = counts
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	pending.erase(choice_key)
+	var resolved := {
+		"type": reward_type,
+		"choice_key": choice_key,
+		"selected": normalized_only_id,
+		"rejected": [],
+		"candidates": [normalized_only_id],
+		"single": true,
+	}
+	var resolved_choices: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+	resolved_choices[choice_key] = resolved
+	pet_data["pending_unlock_choices"] = pending
+	pet_data["resolved_unlock_choices"] = resolved_choices
+	_pets[normalized_pet_id] = pet_data
+	_dirty = true
+	return {"accepted": true, "choice": resolved.duplicate(true)}
+
+
 func set_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return
 	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	_ensure_unlock_state(normalized_pet_id, pet_data)
 	pet_data["reward_seed"] = maxi(1, reward_seed % REWARD_DECK_SEED_MOD)
 	_build_reward_deck(normalized_pet_id, pet_data)
 	_award_missing_rewards_up_to_level(pet_data, int(pet_data.get("affinity_level", 0)))
@@ -237,8 +389,10 @@ func apply_headstart_from_best(pet_id: String, best_level: int) -> Dictionary:
 	if normalized_pet_id == "":
 		return {}
 	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	_ensure_unlock_state(normalized_pet_id, pet_data)
 	var clamped_best := clampi(best_level, 0, MAX_LEVEL)
-	var headstart_level := clampi(int(floor(float(clamped_best) / 3.0)), 0, HEADSTART_MAX_LEVEL)
+	var ring_core_cap := clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
+	var headstart_level := mini(clampi(int(floor(float(clamped_best) / 3.0)), 0, HEADSTART_MAX_LEVEL), ring_core_cap)
 	var level_before := int(pet_data.get("affinity_level", 0))
 	var level_after: int = max(level_before, headstart_level)
 	pet_data["affinity_level"] = level_after
@@ -287,7 +441,7 @@ func get_cumulative_rewards(pet_id: String) -> Dictionary:
 
 
 func get_reward_signature(pet_id: String) -> String:
-	return str(get_cumulative_rewards(pet_id).get("signature", "0|0|0|0|0|0"))
+	return str(get_cumulative_rewards(pet_id).get("signature", _empty_reward_signature()))
 
 
 func get_next_reward(pet_id: String) -> Dictionary:
@@ -381,12 +535,8 @@ func discard_pending_bond_level_ups() -> Dictionary:
 
 
 static func get_requirement_for_level(current_level: int) -> float:
-	if current_level <= 0:
-		return REQUIREMENT_FIRST
-	if current_level == 1:
-		return REQUIREMENT_SECOND
-	if current_level < MAX_LEVEL:
-		return REQUIREMENT_DEFAULT
+	if current_level >= 0 and current_level < REQUIREMENT_BY_CURRENT_LEVEL.size():
+		return float(REQUIREMENT_BY_CURRENT_LEVEL[current_level])
 	return 0.0
 
 
@@ -419,7 +569,7 @@ static func get_cumulative_rewards_for_level(level: int) -> Dictionary:
 	var clamped_level := clampi(level, 0, MAX_LEVEL)
 	for reward_level in range(1, clamped_level + 1):
 		var reward := get_reward_for_level(reward_level)
-		_apply_reward_type_to_counts(rewards, str(reward.get("type", "")))
+		_apply_reward_type_to_counts(rewards, str(reward.get("type", "")), int(reward.get("skill_slot", 0)))
 		if bool(reward.has("title")):
 			rewards["title_unlocked"] = true
 	rewards["signature"] = _build_reward_signature_from_counts(rewards)
@@ -428,14 +578,20 @@ static func get_cumulative_rewards_for_level(level: int) -> Dictionary:
 
 static func get_empty_reward_counts() -> Dictionary:
 	return {
+		"active_unlocked": false,
+		"passive_unlocked": false,
+		"second_active_unlocked": false,
+		"second_passive_unlocked": false,
 		"active_skill_bonus": 0,
 		"passive_skill_bonus": 0,
+		"second_active_skill_bonus": 0,
+		"second_passive_skill_bonus": 0,
 		"mobility_stacks": 0,
 		"defense_stacks": 0,
 		"gauge_stacks": 0,
 		"support_stacks": 0,
 		"title_unlocked": false,
-		"signature": "0|0|0|0|0|0",
+		"signature": _empty_reward_signature(),
 	}
 
 
@@ -528,13 +684,16 @@ func _apply_level_ups(pet_id: String, pet_data: Dictionary) -> Array[Dictionary]
 	var level := int(pet_data.get("affinity_level", 0))
 	var points := float(pet_data.get("affinity_points", 0.0))
 	_ensure_reward_state(pet_id, pet_data)
-	while level < MAX_LEVEL:
+	var level_cap := clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
+	while level < level_cap:
 		var requirement := get_requirement_for_level(level)
 		if requirement <= 0.0 or points < requirement:
 			break
 		points -= requirement
 		level += 1
 		rewards.append(_award_reward_for_level(pet_data, level))
+	# Temporary ring-core caps preserve overflow for the next cap upgrade. Only the
+	# absolute Lv.30 cap discards overflow so long runs cannot bank beyond max.
 	if level >= MAX_LEVEL:
 		points = 0.0
 	pet_data["affinity_level"] = level
@@ -568,7 +727,7 @@ func _award_reward_for_level(pet_data: Dictionary, level: int) -> Dictionary:
 
 func _resolve_effective_reward_card(pet_data: Dictionary, card: Dictionary) -> Dictionary:
 	var card_type := str(card.get("type", ""))
-	if _can_apply_reward_type(pet_data, card_type):
+	if _can_apply_reward_card(pet_data, card):
 		return card.duplicate(true)
 	var replacement_type := _select_replacement_stat_reward_type(pet_data)
 	if replacement_type == "":
@@ -586,12 +745,26 @@ func _resolve_effective_reward_card(pet_data: Dictionary, card: Dictionary) -> D
 
 
 func _can_apply_reward_type(pet_data: Dictionary, card_type: String) -> bool:
+	return _can_apply_reward_card(pet_data, {"type": card_type})
+
+
+func _can_apply_reward_card(pet_data: Dictionary, card: Dictionary) -> bool:
 	var counts := _reward_counts_snapshot(pet_data)
+	var card_type := str(card.get("type", ""))
+	var skill_slot := int(card.get("skill_slot", 0))
 	match card_type:
+		REWARD_TYPE_ACTIVE_UNLOCK:
+			return not bool(counts.get("active_unlocked", false))
+		REWARD_TYPE_PASSIVE_UNLOCK:
+			return not bool(counts.get("passive_unlocked", false))
+		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
+			return not bool(counts.get("second_active_unlocked", false))
+		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
+			return not bool(counts.get("second_passive_unlocked", false))
 		REWARD_TYPE_ACTIVE_SKILL:
-			return int(counts.get("active_skill_bonus", 0)) < _available_active_skill_bonus_slots(pet_data)
+			return _can_apply_skill_bonus(pet_data, counts, true, skill_slot)
 		REWARD_TYPE_PASSIVE_SKILL:
-			return int(counts.get("passive_skill_bonus", 0)) < _available_passive_skill_bonus_slots(pet_data)
+			return _can_apply_skill_bonus(pet_data, counts, false, skill_slot)
 		REWARD_TYPE_MOBILITY:
 			return int(counts.get("mobility_stacks", 0)) < MAX_MOBILITY_STACKS
 		REWARD_TYPE_DEFENSE:
@@ -616,19 +789,35 @@ func _select_replacement_stat_reward_type(pet_data: Dictionary) -> String:
 
 func _apply_reward_to_pet_counts(pet_data: Dictionary, reward: Dictionary) -> void:
 	var counts := _reward_counts_snapshot(pet_data)
-	_apply_reward_type_to_counts(counts, str(reward.get("type", "")))
+	_apply_reward_type_to_counts(counts, str(reward.get("type", "")), int(reward.get("skill_slot", 0)))
 	if bool(reward.has("title")):
 		counts["title_unlocked"] = true
 	counts["signature"] = _build_reward_signature_from_counts(counts)
 	pet_data["reward_counts"] = counts
+	if _is_unlock_reward_type(str(reward.get("type", ""))):
+		_record_pending_unlock_choice(pet_data, reward)
 
 
-static func _apply_reward_type_to_counts(counts: Dictionary, reward_type: String) -> void:
+static func _apply_reward_type_to_counts(counts: Dictionary, reward_type: String, skill_slot: int = 0) -> void:
 	match reward_type:
+		REWARD_TYPE_ACTIVE_UNLOCK:
+			counts["active_unlocked"] = true
+		REWARD_TYPE_PASSIVE_UNLOCK:
+			counts["passive_unlocked"] = true
+		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
+			counts["second_active_unlocked"] = true
+		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
+			counts["second_passive_unlocked"] = true
 		REWARD_TYPE_ACTIVE_SKILL:
-			counts["active_skill_bonus"] = int(counts.get("active_skill_bonus", 0)) + 1
+			if skill_slot == 2:
+				counts["second_active_skill_bonus"] = int(counts.get("second_active_skill_bonus", 0)) + 1
+			else:
+				counts["active_skill_bonus"] = int(counts.get("active_skill_bonus", 0)) + 1
 		REWARD_TYPE_PASSIVE_SKILL:
-			counts["passive_skill_bonus"] = int(counts.get("passive_skill_bonus", 0)) + 1
+			if skill_slot == 2:
+				counts["second_passive_skill_bonus"] = int(counts.get("second_passive_skill_bonus", 0)) + 1
+			else:
+				counts["passive_skill_bonus"] = int(counts.get("passive_skill_bonus", 0)) + 1
 		REWARD_TYPE_MOBILITY:
 			counts["mobility_stacks"] = int(counts.get("mobility_stacks", 0)) + 1
 		REWARD_TYPE_DEFENSE:
@@ -639,6 +828,7 @@ static func _apply_reward_type_to_counts(counts: Dictionary, reward_type: String
 
 
 func _ensure_reward_state(pet_id: String, pet_data: Dictionary) -> void:
+	_ensure_unlock_state(pet_id, pet_data)
 	if not pet_data.has("reward_counts"):
 		pet_data["reward_counts"] = get_empty_reward_counts()
 	if not pet_data.has("reward_history"):
@@ -653,64 +843,96 @@ func _build_reward_deck(pet_id: String, pet_data: Dictionary) -> void:
 	if seed <= 0:
 		seed = _build_default_reward_seed(pet_id, motion_style)
 	pet_data["reward_seed"] = seed
+	var support_card_type := REWARD_TYPE_DEFENSE if motion_style == MOTION_STYLE_PATROL else REWARD_TYPE_GAUGE
 	var level_cards: Array[Dictionary] = []
-	level_cards.append(_make_reward_card(REWARD_TYPE_ACTIVE_SKILL))
-	level_cards.append_array(_shuffle_reward_band([
-		REWARD_TYPE_PASSIVE_SKILL,
-		REWARD_TYPE_ACTIVE_SKILL,
-		REWARD_TYPE_PASSIVE_SKILL,
-		REWARD_TYPE_MOBILITY,
-	], seed, 2))
-	level_cards.append_array(_shuffle_reward_band([
-		REWARD_TYPE_ACTIVE_SKILL,
-		REWARD_TYPE_PASSIVE_SKILL,
-		REWARD_TYPE_ACTIVE_SKILL,
-		REWARD_TYPE_PASSIVE_SKILL,
-		REWARD_TYPE_MOBILITY,
+	level_cards.append(_make_reward_card(REWARD_TYPE_ACTIVE_UNLOCK))
+	level_cards.append(_make_reward_card(REWARD_TYPE_PASSIVE_UNLOCK))
+	level_cards.append_array(_shuffle_reward_card_band([
+		_make_reward_card(support_card_type),
+		_make_reward_card(REWARD_TYPE_MOBILITY),
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
+	], seed, 3))
+	level_cards.append_array(_shuffle_reward_card_band([
+		_make_reward_card(REWARD_TYPE_GAUGE),
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
+		_make_reward_card(support_card_type),
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_MOBILITY),
 	], seed, 6))
-	var late_band: Array[String] = []
+	level_cards.append_array(_shuffle_reward_card_band([
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_GAUGE),
+		_make_reward_card(support_card_type),
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_MOBILITY),
+	], seed, 11))
+	level_cards.append_array(_shuffle_reward_card_band([
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_GAUGE),
+		_make_reward_card(support_card_type),
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_MOBILITY),
+	], seed, 16))
+	var pre_second_unlock_band := _shuffle_reward_card_band([
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_GAUGE),
+		_make_reward_card(REWARD_TYPE_MOBILITY),
+	], seed, 21)
+	level_cards.append(pre_second_unlock_band[0])
+	level_cards.append(_make_reward_card(REWARD_TYPE_SECOND_ACTIVE_UNLOCK))
+	level_cards.append(pre_second_unlock_band[1])
+	level_cards.append(pre_second_unlock_band[2])
+	level_cards.append(_make_reward_card(REWARD_TYPE_SECOND_PASSIVE_UNLOCK))
+	var final_band: Array[Dictionary] = [
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 2),
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 2),
+		_make_reward_card(REWARD_TYPE_GAUGE),
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 2),
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 2),
+	]
 	if motion_style == MOTION_STYLE_FLIGHT:
-		late_band.assign([
-			REWARD_TYPE_MOBILITY,
-			REWARD_TYPE_GAUGE,
-			REWARD_TYPE_GAUGE,
-			REWARD_TYPE_GAUGE,
-			REWARD_TYPE_GAUGE,
-		])
-	else:
-		late_band.assign([
-			REWARD_TYPE_MOBILITY,
-			REWARD_TYPE_DEFENSE,
-			REWARD_TYPE_DEFENSE,
-			REWARD_TYPE_GAUGE,
-			REWARD_TYPE_GAUGE,
-		])
-	level_cards.append_array(_shuffle_reward_band(late_band, seed, 11))
+		final_band[2] = _make_reward_card(REWARD_TYPE_MOBILITY)
+	level_cards.append_array(_shuffle_reward_card_band(final_band, seed, 26))
 	if level_cards.size() >= MAX_LEVEL and level_cards[MAX_LEVEL - 1] is Dictionary:
 		(level_cards[MAX_LEVEL - 1] as Dictionary)["title"] = "하트 공명"
 	pet_data["reward_deck"] = level_cards
 
 
 func _shuffle_reward_band(types: Array[String], base_seed: int, band_start_level: int) -> Array[Dictionary]:
+	var cards: Array[Dictionary] = []
+	for reward_type in types:
+		cards.append(_make_reward_card(reward_type))
+	return _shuffle_reward_card_band(cards, base_seed, band_start_level)
+
+
+func _shuffle_reward_card_band(cards: Array[Dictionary], base_seed: int, band_start_level: int) -> Array[Dictionary]:
 	var state_seed := maxi(1, int((base_seed + band_start_level * 1103) % REWARD_DECK_SEED_MOD))
-	var shuffled := types.duplicate()
+	var shuffled := cards.duplicate(true)
 	for i in range(shuffled.size() - 1, 0, -1):
 		state_seed = _advance_reward_seed(state_seed)
 		var j := state_seed % (i + 1)
-		var tmp: String = str(shuffled[i])
+		var tmp: Dictionary = (shuffled[i] as Dictionary).duplicate(true)
 		shuffled[i] = shuffled[j]
 		shuffled[j] = tmp
 	var result: Array[Dictionary] = []
-	for reward_type in shuffled:
-		result.append(_make_reward_card(reward_type))
+	for raw_card in shuffled:
+		if raw_card is Dictionary:
+			result.append((raw_card as Dictionary).duplicate(true))
 	return result
 
 
-func _make_reward_card(reward_type: String) -> Dictionary:
-	return {
+func _make_reward_card(reward_type: String, skill_slot: int = 0) -> Dictionary:
+	var card := {
 		"type": reward_type,
 		"label": str(LABEL_BY_REWARD_TYPE.get(reward_type, "보상")),
 	}
+	if skill_slot > 0:
+		card["skill_slot"] = skill_slot
+		if reward_type == REWARD_TYPE_ACTIVE_SKILL and skill_slot == 2:
+			card["label"] = "2번째 액티브 스킬 +1"
+		elif reward_type == REWARD_TYPE_PASSIVE_SKILL and skill_slot == 2:
+			card["label"] = "2번째 패시브 스킬 +1"
+	return card
 
 
 func _has_reward_deck(pet_data: Dictionary) -> bool:
@@ -724,6 +946,101 @@ func _available_active_skill_bonus_slots(pet_data: Dictionary) -> int:
 
 func _available_passive_skill_bonus_slots(pet_data: Dictionary) -> int:
 	return maxi(0, SKILL_LEVEL_MAX - int(pet_data.get("passive_skill_base_level", 1)))
+
+
+func _can_apply_skill_bonus(pet_data: Dictionary, counts: Dictionary, active: bool, skill_slot: int) -> bool:
+	var normalized_slot := 1 if skill_slot <= 1 else 2
+	if active:
+		if normalized_slot == 2:
+			return (
+				bool(counts.get("second_active_unlocked", false))
+				and int(counts.get("second_active_skill_bonus", 0)) < SKILL_LEVEL_MAX - 1
+			)
+		return (
+			bool(counts.get("active_unlocked", false))
+			and int(counts.get("active_skill_bonus", 0)) < _available_active_skill_bonus_slots(pet_data)
+		)
+	if normalized_slot == 2:
+		return (
+			bool(counts.get("second_passive_unlocked", false))
+			and int(counts.get("second_passive_skill_bonus", 0)) < SKILL_LEVEL_MAX - 1
+		)
+	return (
+		bool(counts.get("passive_unlocked", false))
+		and int(counts.get("passive_skill_bonus", 0)) < _available_passive_skill_bonus_slots(pet_data)
+	)
+
+
+func _record_pending_unlock_choice(pet_data: Dictionary, reward: Dictionary) -> void:
+	var reward_type := str(reward.get("type", ""))
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	var resolved: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+	if pending.has(choice_key) or resolved.has(choice_key):
+		return
+	var candidates := _get_unlock_candidates(pet_data, reward_type)
+	pending[choice_key] = {
+		"type": reward_type,
+		"choice_key": choice_key,
+		"candidates": candidates,
+		"selected": "",
+		"rejected": [],
+	}
+	pet_data["pending_unlock_choices"] = pending
+
+
+func _get_unlock_candidates(pet_data: Dictionary, reward_type: String) -> Array[String]:
+	var choice_key := _unlock_choice_key(reward_type)
+	var pool: Dictionary = pet_data.get("unlock_candidate_pool", {}) as Dictionary
+	var pooled: Variant = pool.get(choice_key, [])
+	if pooled is Array:
+		var normalized := _normalize_choice_candidates(pooled as Array)
+		if normalized.size() >= 2:
+			return normalized
+	return _default_unlock_candidates(str(pet_data.get("pet_id", "")), reward_type)
+
+
+func _default_unlock_candidates(pet_id: String, reward_type: String) -> Array[String]:
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return []
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		normalized_pet_id = "lingpet"
+	return [
+		"%s_%s_a" % [normalized_pet_id, choice_key],
+		"%s_%s_b" % [normalized_pet_id, choice_key],
+	]
+
+
+func _normalize_choice_candidates(candidates: Array) -> Array[String]:
+	var result: Array[String] = []
+	for raw_candidate in candidates:
+		var candidate := str(raw_candidate).strip_edges()
+		if candidate != "" and not result.has(candidate):
+			result.append(candidate)
+		if result.size() >= 2:
+			break
+	return result
+
+
+func _is_unlock_reward_type(reward_type: String) -> bool:
+	return _unlock_choice_key(reward_type) != ""
+
+
+func _unlock_choice_key(reward_type: String) -> String:
+	match reward_type:
+		REWARD_TYPE_ACTIVE_UNLOCK:
+			return "active"
+		REWARD_TYPE_PASSIVE_UNLOCK:
+			return "passive"
+		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
+			return "second_active"
+		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
+			return "second_passive"
+	return ""
 
 
 func _is_victory_participation_eligible(pet_id: String) -> bool:
@@ -776,11 +1093,16 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"reward_motion_style": MOTION_STYLE_PATROL,
 		"active_skill_base_level": 1,
 		"passive_skill_base_level": 1,
+		"ring_core_cap": MAX_LEVEL,
 		"reward_seed": 0,
 		"reward_deck": [],
 		"reward_history": [],
 		"reward_counts": get_empty_reward_counts(),
+		"unlock_candidate_pool": {},
+		"pending_unlock_choices": {},
+		"resolved_unlock_choices": {},
 	}
+	_ensure_unlock_state(pet_id, pet_data)
 	_pets[pet_id] = pet_data
 	return pet_data
 
@@ -805,10 +1127,33 @@ func _reward_counts_snapshot(pet_data: Dictionary) -> Dictionary:
 	return counts
 
 
+func _ensure_unlock_state(pet_id: String, pet_data: Dictionary) -> void:
+	if not pet_data.has("ring_core_cap"):
+		pet_data["ring_core_cap"] = MAX_LEVEL
+	if not pet_data.has("unlock_candidate_pool"):
+		pet_data["unlock_candidate_pool"] = {}
+	if not pet_data.has("pending_unlock_choices"):
+		pet_data["pending_unlock_choices"] = {}
+	if not pet_data.has("resolved_unlock_choices"):
+		pet_data["resolved_unlock_choices"] = {}
+	if not pet_data.has("pet_id") or str(pet_data.get("pet_id", "")) == "":
+		pet_data["pet_id"] = _normalize_pet_id(pet_id)
+
+
+static func _empty_reward_signature() -> String:
+	return "0|0|0|0|0|0|0|0|0|0|0|0"
+
+
 static func _build_reward_signature_from_counts(counts: Dictionary) -> String:
-	return "%d|%d|%d|%d|%d|%d" % [
+	return "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
+		1 if bool(counts.get("active_unlocked", false)) else 0,
+		1 if bool(counts.get("passive_unlocked", false)) else 0,
+		1 if bool(counts.get("second_active_unlocked", false)) else 0,
+		1 if bool(counts.get("second_passive_unlocked", false)) else 0,
 		int(counts.get("active_skill_bonus", 0)),
 		int(counts.get("passive_skill_bonus", 0)),
+		int(counts.get("second_active_skill_bonus", 0)),
+		int(counts.get("second_passive_skill_bonus", 0)),
 		int(counts.get("mobility_stacks", 0)),
 		int(counts.get("defense_stacks", 0)),
 		int(counts.get("gauge_stacks", 0)),

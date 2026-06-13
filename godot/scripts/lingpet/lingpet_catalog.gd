@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
 const DEFAULT_PET_ID := "maribo"
 const REQUIRED_STAT_KEYS := [
 	"patrol_speed_default",
@@ -41,8 +43,11 @@ const SKILL_LEVEL_MIN := 1
 const SKILL_LEVEL_MAX := 5
 const DEFAULT_ACTIVE_SKILL_LEVEL := 1
 const DEFAULT_PASSIVE_SKILL_LEVEL := 1
+const DEFAULT_ACTIVE_SLOT_COUNT := 1
+const MAX_ACTIVE_SLOT_COUNT := 2
 const DEFAULT_PASSIVE_SLOT_COUNT := 1
 const MAX_PASSIVE_SLOT_COUNT := 2
+const DEFAULT_ACTIVE_SKILL_SENTINEL := "__default_active_skill__"
 const ACTIVE_COOLDOWN_REDUCTION_PCT_BY_LEVEL := [0.0, 3.0, 6.0, 9.0, 12.0]
 const ACTIVE_WINDUP_REDUCTION_PCT_BY_LEVEL := [0.0, 2.0, 4.0, 6.0, 8.0]
 const LEGACY_PASSIVE_ID_ALIASES := {
@@ -473,6 +478,31 @@ const PETS := {
 			"card_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skillcard_imagegen_v1.png",
 			"icon_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skill_icon_imagegen_v1.png",
 		},
+		"active_skill_pool": [
+			{
+				"id": "lumion_thunder_orb",
+				"runtime_kind": "thunder_orb",
+				"name": "천둥 뇌구",
+				"description": "루미온이 일직선 번개 구체를 발사합니다. 뇌구는 처음 빠르게 날아간 뒤 점점 느려지고, 상대 진영에서 폭발해 전기 스파크에 닿은 보스를 감전시킵니다.",
+				"cooldown": 25.0,
+				"windup_seconds": 0.55,
+				"stun_duration_seconds": 1.4,
+				"stun_duration_seconds_by_level": [0.8, 1.0, 1.2, 1.4, 1.6],
+				"card_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skill_icon_imagegen_v1.png",
+			},
+			{
+				"id": "lumion_solar_bolt",
+				"runtime_kind": "solar_bolt",
+				"name": "천둥 낙뢰",
+				"description": "하강하는 공이 플레이어가 막기 어려운 궤도에 들어오면 루미온이 낙뢰를 내려 공을 보스 쪽으로 되받아칩니다. 속도는 보존되며, Lv.3부터 후속 낙뢰가 발동할 수 있습니다.",
+				"cooldown": 22.0,
+				"windup_seconds": 0.0,
+				"refire_chance_pct": 50.0,
+				"card_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skill_icon_imagegen_v1.png",
+			},
+		],
 		"effect_text": "공을 직접 받아치면 게이지 +40 / 천둥 뇌구는 25초마다 일직선으로 발사되어 상대 진영에서 폭발하고 닿은 보스를 0.8~1.6초(레벨별) 감전시킵니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/lumion_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/lumion_cutin_art_magenta_source.png",
@@ -645,7 +675,7 @@ const PETS := {
 			"companion_move_left": "res://assets/sprites/lingpet/koyora_companion_move_left.png",
 			"companion_move_right": "res://assets/sprites/lingpet/koyora_companion_move_right.png",
 			"companion_walk": "res://assets/sprites/lingpet/koyora_companion_move_right.png",
-			"companion_strike": "res://assets/sprites/lingpet/koyora_companion_move_right.png",
+			"companion_strike": "res://assets/sprites/lingpet/koyora_companion_strike.png",
 			"companion_cast": "res://assets/sprites/lingpet/koyora_companion_idle.png",
 			"companion_puppet_control": "res://assets/sprites/lingpet/koyora_puppet_control_cast.png",
 			"cutin_art": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
@@ -671,7 +701,7 @@ const PETS := {
 				"id": "koyora_puppet_control",
 				"runtime_kind": "puppet_grab",
 				"name": "꼭두각시 조종",
-				"description": "분홍 인형실을 빠르게 던져 락온된 보스를 코요라 앞까지 끌어당겨 뽀뽀한 뒤 제자리로 돌려놓습니다. 줄이 도착하기 전에 보스가 락온 지점을 벗어나면 MISS. Lv.3부터 MISS 시 50% 확률로 0.5초 뒤 1회 재발사하고, Lv.5에서는 이 재시도를 최대 2회까지 이어갑니다.",
+				"description": "분홍 인형실을 빠르게 던져 락온된 보스를 코요라 앞까지 끌어당겨 뽀뽀한 뒤 제자리로 돌려놓습니다. 조종 중 줄이 공에 닿으면 줄이 끊기고 보스가 즉시 원래 위치로 되돌아갑니다. 줄이 도착하기 전에 보스가 락온 지점을 벗어나면 MISS. Lv.3부터 MISS 시 50% 확률로 0.5초 뒤 1회 재발사하고, Lv.5에서는 이 재시도를 최대 2회까지 이어갑니다.",
 				"cooldown": 25.0,
 				"windup_seconds": 0.8,
 				"card_texture_path": "res://assets/sprites/lingpet/koyora_puppet_control_skillcard_imagegen_v1.png",
@@ -692,7 +722,7 @@ const PETS := {
 		"effect_text": "코요라는 F7 디버그용 인형극 무녀 링펫입니다. 획득/클릭 라투디와 전투 SD 동반자 시트는 전용 파일을 사용합니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3_magenta_source.png",
-		"note": "Koyora is debug-only until dedicated egg work and final hatch-pool QA are accepted. Puppet Control and Doll Curse now use dedicated skill-card/icon art. Acquisition cut-in uses the 4x4 / 16-frame AutoSprite sheet; acquisition click-dismiss and character-info click use the full 14x7 / 98-frame click Live2D sheet; in-battle companion click uses the downscaled 14x7 / 98-frame 128px companion sheet. In-game SD companion rendering uses dedicated rear-view idle, move-left, and move-right 5x5 / 25-frame sheets.",
+		"note": "Koyora is debug-only until dedicated egg work and final hatch-pool QA are accepted. Puppet Control and Doll Curse now use dedicated skill-card/icon art. Acquisition cut-in uses the 4x4 / 16-frame AutoSprite sheet; acquisition click-dismiss and character-info click use the full 14x7 / 98-frame click Live2D sheet; in-battle companion click uses the downscaled 14x7 / 98-frame 128px companion sheet. In-game SD companion rendering uses dedicated rear-view idle, move-left, move-right, and strike 5x5 / 25-frame sheets.",
 	},
 	"nekuring": {
 		"id": "nekuring",
@@ -723,7 +753,7 @@ const PETS := {
 			"companion_move_left": "res://assets/sprites/lingpet/nekuring_companion_move_left.png",
 			"companion_move_right": "res://assets/sprites/lingpet/nekuring_companion_move_right.png",
 			"companion_walk": "res://assets/sprites/lingpet/nekuring_companion_idle.png",
-			"companion_strike": "res://assets/sprites/lingpet/nekuring_companion_idle.png",
+			"companion_strike": "res://assets/sprites/lingpet/nekuring_companion_strike.png",
 			"companion_cast": "res://assets/sprites/lingpet/nekuring_companion_idle.png",
 			"cutin_art": "res://assets/sprites/lingpet/nekuring_cutin_art.png",
 			"cutin_anim": "res://assets/sprites/lingpet/nekuring_cutin_anim.png",
@@ -757,7 +787,7 @@ const PETS := {
 		"effect_text": "네쿠링은 F7 디버그용 네크로 계열 해골 링펫입니다. 획득 라투디와 전투 동행 SD는 전용 네쿠링 시트를 사용합니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/nekuring_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/nekuring_cutin_art_magenta_source.png",
-		"note": "Nekuring is debug-only until dedicated egg assets and final hatch-pool QA are accepted. Ghost Summon now uses dedicated skill-card/icon art. Acquisition cut-in uses the 4x4 / 16-frame AutoSprite sheet; acquisition click-dismiss and character-info click use the full 14x7 / 98-frame click Live2D sheet; in-battle companion click uses the downscaled 14x7 / 98-frame 128px companion sheet; in-game SD companion rendering uses the ringpart-matched rear idle 5x5 / 25-frame sheet plus Maribo-style rear-3/4 move-left and move-right 5x5 / 25-frame sheets.",
+		"note": "Nekuring is debug-only until dedicated egg assets and final hatch-pool QA are accepted. Ghost Summon now uses dedicated skill-card/icon art. Acquisition cut-in uses the 4x4 / 16-frame AutoSprite sheet; acquisition click-dismiss and character-info click use the full 14x7 / 98-frame click Live2D sheet; in-battle companion click uses the downscaled 14x7 / 98-frame 128px companion sheet; in-game SD companion rendering uses the ringpart-matched rear idle 5x5 / 25-frame sheet, Maribo-style rear-3/4 move-left and move-right 5x5 / 25-frame sheets, and a dedicated rear staff-strike 5x5 / 25-frame sheet.",
 	},
 	"monkeyring": {
 		"id": "monkeyring",
@@ -784,9 +814,12 @@ const PETS := {
 			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
 			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
 			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
-			"companion_walk": "res://assets/sprites/lingpet/monkeyring_companion_walk_placeholder.png",
-			"companion_strike": "res://assets/sprites/lingpet/monkeyring_companion_walk_placeholder.png",
-			"companion_cast": "res://assets/sprites/lingpet/monkeyring_companion_walk_placeholder.png",
+			"companion_idle": "res://assets/sprites/lingpet/monkeyring_companion_idle.png",
+			"companion_move_left": "res://assets/sprites/lingpet/monkeyring_companion_move_left.png",
+			"companion_move_right": "res://assets/sprites/lingpet/monkeyring_companion_move_right.png",
+			"companion_walk": "res://assets/sprites/lingpet/monkeyring_companion_move_right.png",
+			"companion_strike": "res://assets/sprites/lingpet/monkeyring_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/monkeyring_companion_wild_roar_cast.png",
 			"cutin_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
 			"cutin_anim": "res://assets/sprites/lingpet/monkeyring_cutin_anim.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
@@ -821,11 +854,23 @@ const PETS := {
 				"card_texture_path": "res://assets/sprites/lingpet/monkeyring_banana_slice_skillcard_imagegen_v1.png",
 				"icon_texture_path": "res://assets/sprites/lingpet/monkeyring_banana_slice_skill_icon_imagegen_v1.png",
 			},
+			{
+				"id": "monkeyring_wild_roar",
+				"runtime_kind": "wild_roar",
+				"name": "야생의 포효",
+				"description": "빠나몽이 야생의 포효로 접근하는 공을 위쪽으로 튕겨냅니다. 레벨이 오르면 포효 반경과 순간 반사 배율이 커집니다.",
+				"cooldown": 27.0,
+				"windup_seconds": 0.0,
+				"roar_radius_by_level": [180.0, 198.0, 216.0, 234.0, 252.0],
+				"ball_boost_by_level": [2.6, 2.85, 3.1, 3.35, 3.6],
+				"card_texture_path": "res://assets/sprites/lingpet/monkeyring_wild_roar_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/monkeyring_wild_roar_skill_icon_imagegen_v1.png",
+			},
 		],
-		"effect_text": "빠나몽은 바나나 주머니와 꼬리 끝 다이아 링파츠가 특징인 F7 디버그용 원숭이 링펫입니다. 액티브 스킬 바나나 슬라이스로 보스 진영에 바나나를 던져 미끄럼을 유도합니다. 획득 컷인은 4x4 / 16프레임 AutoSprite 라투디 시트를 사용하고, 획득 해제 및 캐릭터 정보 클릭 반응은 14x7 / 98프레임 클릭 라투디 시트를 사용합니다. 전투 SD 동행 시트는 후방 전용 시트 제작 전까지 전면 placeholder를 사용합니다.",
+		"effect_text": "빠나몽은 바나나 주머니와 꼬리 끝 다이아 링파츠가 특징인 F7 디버그용 원숭이 링펫입니다. 액티브 스킬 바나나 슬라이스로 보스 진영에 바나나를 던져 미끄럼을 유도합니다. 획득 컷인은 4x4 / 16프레임 AutoSprite 라투디 시트를 사용하고, 획득 해제 및 캐릭터 정보 클릭 반응은 14x7 / 98프레임 클릭 라투디 시트를 사용합니다. 전투 SD 동행 시트는 뒷모습 기준 제자리 숨쉬기와 마리보처럼 살짝 측면이 보이는 좌/우 이동 전용 5x5 시트를 사용하며, 야생의 포효 발동 시 다리를 굽히고 팔을 위로 벌리는 전용 포효 cast 시트를 사용합니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
 		"concept_green_source_path": "res://assets/sprites/lingpet/monkey_lingpet_banana_pouch_tailtip_concept_imagegen_v1_green_source.png",
-		"note": "Monkeyring is debug-only until dedicated egg and player-perspective rear-view SD companion sheets are accepted. Banana Slice ports Monkey King's original banana throw/slip skill into the lingpet active-skill runtime. Acquisition cut-in uses the 4x4 / 16-frame AutoSprite sheet; acquisition click-dismiss and character-info click use the full 14x7 / 98-frame click Live2D sheet; in-battle companion click uses the downscaled 14x7 / 98-frame 128px companion sheet.",
+		"note": "Monkeyring is debug-only until dedicated egg assets and final hatch-pool QA are accepted. Banana Slice ports Monkey King's original banana throw/slip skill into the lingpet active-skill runtime. Acquisition cut-in uses the 4x4 / 16-frame AutoSprite sheet; acquisition click-dismiss and character-info click use the full 14x7 / 98-frame click Live2D sheet; in-battle companion click uses the downscaled 14x7 / 98-frame 128px companion sheet. In-game SD companion rendering uses a rear-view idle breathing 5x5 / 25-frame sheet, Maribo-style rear-3Q move-left and move-right 5x5 / 25-frame sheets, a dedicated rear tail-slap strike 5x5 / 25-frame sheet, and a Wild Roar rear cast 5x5 / 25-frame sheet.",
 	},
 	"rabi": {
 		"id": "rabi",
@@ -882,9 +927,11 @@ const PETS := {
 				"id": "rabi_soul_clone",
 				"runtime_kind": "soul_clone",
 				"name": "영혼분신",
-				"description": "15초 동안 모락모랑의 영혼 분신을 하나 소환합니다. 분신은 플레이어 진영을 자유롭게 떠다니며 공을 패들처럼 튕겨냅니다.",
+				"description": "모락모랑의 영혼 분신을 소환합니다. Lv.3부터 2마리, Lv.5부터 3마리가 나타나고 레벨이 오를수록 지속시간도 조금씩 늘어납니다. 분신은 플레이어 진영을 자유롭게 떠다니며 공을 패들처럼 튕겨냅니다.",
 				"cooldown": 55.0,
 				"windup_seconds": 0.8,
+				"clone_count_by_level": [1, 1, 2, 2, 3],
+				"duration_seconds_by_level": [15.0, 16.0, 17.0, 18.0, 20.0],
 				"card_texture_path": "res://assets/sprites/lingpet/rabi_soul_clone_skillcard_imagegen_v1.png",
 				"icon_texture_path": "res://assets/sprites/lingpet/rabi_soul_clone_skill_icon_imagegen_v1.png",
 			},
@@ -899,7 +946,7 @@ const PETS := {
 				"icon_texture_path": "res://assets/sprites/lingpet/rabi_ghost_summon_skill_icon_imagegen_v1.png",
 			},
 		],
-		"effect_text": "모락모랑은 F7 디버그 테스트용 유령형 링펫입니다. 획득 라투디와 인게임 SD 동행 시트는 전용 자산을 사용하고, 기본 액티브 스킬은 15초 동안 모락모랑의 영혼 분신을 하나 더 불러 공을 패들처럼 튕겨내는 영혼분신입니다.",
+		"effect_text": "모락모랑은 F7 디버그 테스트용 유령형 링펫입니다. 획득 라투디와 인게임 SD 동행 시트는 전용 자산을 사용하고, 기본 액티브 스킬은 레벨에 따라 더 오래 유지되는 영혼 분신을 1~3마리 불러 공을 패들처럼 튕겨내는 영혼분신입니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v3_clean.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/rabi_cutin_art_sd_identity_v2_magenta_source.png",
 		"note": "Rabi is debug-only until dedicated egg assets and final hatch-pool QA are accepted. Soul Clone and Ghost Summon now use dedicated skill-card/icon art. Static Live2D source art and the 32-frame acquisition cut-in now use the v3 clean alpha-matte variants that remove connected dark cutout artifacts around the face/body while preserving the accepted SD identity with large ear/wing side appendages. The acquisition click-dismiss cut-in reuses the dedicated 98-frame full-size click Live2D sheet, while in-game companion click uses the downscaled Rabi click-reaction sheet. In-game companion walk/strike/cast currently share the dedicated 25-frame rear-view SD flight movement loop, and the active runtime ports Banshee's Ghost Summon at a 40-second cooldown. Do not add to the random hatch pool yet.",
@@ -1016,14 +1063,17 @@ static func get_skill_level_value(skill_data: Dictionary, effect_key: String, le
 	return float(skill_data.get(effect_key, fallback))
 
 
-static func get_active_skill(pet_id: String, skill_id: String = "", level: int = DEFAULT_ACTIVE_SKILL_LEVEL) -> Dictionary:
+static func get_active_skill(pet_id: String, skill_id: String = DEFAULT_ACTIVE_SKILL_SENTINEL, level: int = DEFAULT_ACTIVE_SKILL_LEVEL) -> Dictionary:
 	var active_pool := get_active_skill_pool(pet_id)
 	var normalized_skill_id := _normalize_skill_id(skill_id)
+	var allow_primary_fallback := normalized_skill_id == DEFAULT_ACTIVE_SKILL_SENTINEL
+	if allow_primary_fallback:
+		normalized_skill_id = ""
 	if normalized_skill_id != "":
 		for skill in active_pool:
 			if _normalize_skill_id(str(skill.get("id", ""))) == normalized_skill_id:
 				return _apply_active_skill_level(skill, level)
-	if not active_pool.is_empty():
+	if allow_primary_fallback and not active_pool.is_empty():
 		return _apply_active_skill_level(active_pool[0], level)
 	return {}
 
@@ -1111,19 +1161,22 @@ static func get_passive_skill_entry(passive_id: String) -> Dictionary:
 
 
 static func pick_skill_loadout(pet_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
-	var active_pool := get_active_skill_pool(pet_id)
-	var passive_pool := get_passive_skill_pool(pet_id)
-	var active_skill := _pick_skill_from_pool(active_pool, rng)
-	var passive_skill := _pick_skill_from_pool(passive_pool, rng)
-	var passive_id := str(passive_skill.get("id", ""))
+	var _unused_rng := rng
+	return build_empty_loadout(pet_id)
+
+
+static func build_empty_loadout(_pet_id: String = "") -> Dictionary:
 	return {
-		"active_skill_id": str(active_skill.get("id", "")),
-		"active_skill_level": DEFAULT_ACTIVE_SKILL_LEVEL,
-		"passive_skill_id": passive_id,
-		"passive_skill_level": DEFAULT_PASSIVE_SKILL_LEVEL,
-		"passive_slot_count": DEFAULT_PASSIVE_SLOT_COUNT,
-		"passive_skill_ids": [passive_id] if passive_id != "" else [],
-		"passive_skill_levels": {passive_id: DEFAULT_PASSIVE_SKILL_LEVEL} if passive_id != "" else {},
+		"active_skill_id": "",
+		"active_skill_level": 0,
+		"active_slot_count": 0,
+		"active_skill_ids": [],
+		"active_skill_levels": {},
+		"passive_skill_id": "",
+		"passive_skill_level": 0,
+		"passive_slot_count": 0,
+		"passive_skill_ids": [],
+		"passive_skill_levels": {},
 	}
 
 
@@ -1134,6 +1187,9 @@ static func build_default_loadout(pet_id: String) -> Dictionary:
 	return {
 		"active_skill_id": str(active_skill.get("id", "")),
 		"active_skill_level": DEFAULT_ACTIVE_SKILL_LEVEL,
+		"active_slot_count": DEFAULT_ACTIVE_SLOT_COUNT,
+		"active_skill_ids": [str(active_skill.get("id", ""))] if str(active_skill.get("id", "")) != "" else [],
+		"active_skill_levels": {str(active_skill.get("id", "")): DEFAULT_ACTIVE_SKILL_LEVEL} if str(active_skill.get("id", "")) != "" else {},
 		"passive_skill_id": passive_id,
 		"passive_skill_level": DEFAULT_PASSIVE_SKILL_LEVEL,
 		"passive_slot_count": DEFAULT_PASSIVE_SLOT_COUNT,
@@ -1255,7 +1311,7 @@ static func _validate_required_visuals(pet_id: String, entry: Dictionary, issues
 		var path := str(visuals_data.get(key, "")).strip_edges()
 		if path == "":
 			issues.append("%s: missing visuals.%s" % [pet_id, str(key)])
-		elif require_existing_files and not FileAccess.file_exists(path):
+		elif require_existing_files and not _texture_resource_exists(path):
 			issues.append("%s: missing visual file %s" % [pet_id, path])
 
 
@@ -1280,10 +1336,10 @@ static func _validate_active_skill_data(pet_id: String, label: String, skill_dat
 	if skill_data.has("windup_seconds") and float(skill_data.get("windup_seconds", 0.0)) < 0.0:
 		issues.append("%s: %s.windup_seconds must be >= 0" % [pet_id, label])
 	var card_path := str(skill_data.get("card_texture_path", "")).strip_edges()
-	if card_path != "" and require_existing_files and not FileAccess.file_exists(card_path):
+	if card_path != "" and require_existing_files and not _texture_resource_exists(card_path):
 		issues.append("%s: missing skill-card file %s" % [pet_id, card_path])
 	var icon_path := str(skill_data.get("icon_texture_path", "")).strip_edges()
-	if icon_path != "" and require_existing_files and not FileAccess.file_exists(icon_path):
+	if icon_path != "" and require_existing_files and not _texture_resource_exists(icon_path):
 		issues.append("%s: missing active skill icon file %s" % [pet_id, icon_path])
 
 
@@ -1301,7 +1357,7 @@ static func _validate_passive_icons(pet_id: String, entry: Dictionary, issues: A
 			issues.append("%s: passive_icons has an empty key" % pet_id)
 		if path == "":
 			issues.append("%s: missing passive icon path for %s" % [pet_id, icon_key])
-		elif require_existing_files and not FileAccess.file_exists(path):
+		elif require_existing_files and not _texture_resource_exists(path):
 			issues.append("%s: missing passive icon file %s" % [pet_id, path])
 
 
@@ -1325,12 +1381,16 @@ static func _validate_passive_skill_pool(label: String, passive_pool: Array[Dict
 				issues.append("%s: duplicate passive skill id %s" % [label, passive_id])
 			seen_ids[passive_id] = true
 		var icon_path := str(passive.get("icon_texture_path", "")).strip_edges()
-		if icon_path != "" and require_existing_files and not FileAccess.file_exists(icon_path):
+		if icon_path != "" and require_existing_files and not _texture_resource_exists(icon_path):
 			issues.append("%s: missing passive skill icon file %s" % [label, icon_path])
 		if passive.has("gauge_gain_bonus_pct") and float(passive.get("gauge_gain_bonus_pct", 0.0)) < 0.0:
 			issues.append("%s[%d].gauge_gain_bonus_pct must be >= 0" % [label, i])
 		if passive.has("player_speed_bonus_pct") and float(passive.get("player_speed_bonus_pct", 0.0)) < 0.0:
 			issues.append("%s[%d].player_speed_bonus_pct must be >= 0" % [label, i])
+
+
+static func _texture_resource_exists(path: String) -> bool:
+	return ProjectResourceLoader.texture_resource_exists(path)
 
 
 static func get_hatch_candidates(context: Dictionary, owned_pet_ids: Array) -> Array[String]:

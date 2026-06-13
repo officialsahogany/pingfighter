@@ -47,9 +47,11 @@ class FakeOwner:
 	var lingpet_puppet_grab_active := false
 	var ball_active := false
 	var ball_pos := Vector2.ZERO
+	var ball_pos_prev := Vector2.ZERO
 	var ball_vel := Vector2.ZERO
 	var ball_serve_origin := ""
 	var ball_size := 28.6
+	var rally_speed_cap_bonus := 0.0
 	var special_gauge := 100.0
 	var special_gauge_max := 500.0
 	var lingpet_id := ""
@@ -112,6 +114,10 @@ class FakeOwner:
 	var ringpet_active_skill_id := ""
 	var lingpet_active_skill_level := 0
 	var ringpet_active_skill_level := 0
+	var lingpet_second_active_skill_id := ""
+	var ringpet_second_active_skill_id := ""
+	var lingpet_second_active_skill_level := 0
+	var ringpet_second_active_skill_level := 0
 	var lingpet_active_skill_max_level := 0
 	var ringpet_active_skill_max_level := 0
 	var lingpet_skill_name := ""
@@ -126,6 +132,22 @@ class FakeOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_second_skill_id := ""
+	var ringpet_second_skill_id := ""
+	var lingpet_second_skill_name := ""
+	var ringpet_second_skill_name := ""
+	var lingpet_second_skill_max_level := 0
+	var ringpet_second_skill_max_level := 0
+	var lingpet_second_skill_cooldown := 0.0
+	var ringpet_second_skill_cooldown := 0.0
+	var lingpet_second_skill_cooldown_duration := 0.0
+	var ringpet_second_skill_cooldown_duration := 0.0
+	var lingpet_second_skill_ready := false
+	var ringpet_second_skill_ready := false
+	var lingpet_second_skill_winding_up := false
+	var ringpet_second_skill_winding_up := false
+	var lingpet_second_skill_windup_ratio := 0.0
+	var ringpet_second_skill_windup_ratio := 0.0
 	var lingpet_skill_icon_path := ""
 	var ringpet_skill_icon_path := ""
 	var lingpet_passive_skill_id := ""
@@ -254,6 +276,22 @@ class FakeBattleOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_second_skill_id := ""
+	var ringpet_second_skill_id := ""
+	var lingpet_second_skill_name := ""
+	var ringpet_second_skill_name := ""
+	var lingpet_second_skill_max_level := 0
+	var ringpet_second_skill_max_level := 0
+	var lingpet_second_skill_cooldown := 0.0
+	var ringpet_second_skill_cooldown := 0.0
+	var lingpet_second_skill_cooldown_duration := 0.0
+	var ringpet_second_skill_cooldown_duration := 0.0
+	var lingpet_second_skill_ready := false
+	var ringpet_second_skill_ready := false
+	var lingpet_second_skill_winding_up := false
+	var ringpet_second_skill_winding_up := false
+	var lingpet_second_skill_windup_ratio := 0.0
+	var ringpet_second_skill_windup_ratio := 0.0
 	var lingpet_skill_icon_path := ""
 	var ringpet_skill_icon_path := ""
 	var lingpet_passive_skill_id := ""
@@ -524,7 +562,11 @@ func _init() -> void:
 	_verify_maribo_companion_gauge_bonus()
 	_verify_maribo_defense_rate_intercepts_descending_ball()
 	_verify_maribo_defense_actually_blocks_reachable_ball()
+	_verify_lingpet_defense_guard_chase_feedback()
 	_verify_maribo_defense_anticipates_moderate_distance_ball()
+	_verify_maribo_defense_hold_stops_walk_animation()
+	_verify_walk_animation_freezes_when_update_skipped()
+	_verify_starlight_pickup_hold_reads_idle()
 	_verify_rabi_ghost_blink_cycle()
 	_verify_ghost_blink_vfx()
 	_verify_lunabi_free_flight_profile()
@@ -535,8 +577,12 @@ func _init() -> void:
 	_verify_affinity_click_start_edge_and_visibility_gate()
 	_verify_affinity_score_event_and_battle_reset()
 	_verify_affinity_reward_application()
+	_verify_second_active_slot_runtime_foundation()
+	_verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change()
+	_verify_second_active_resource_conflict_mediation()
 	_verify_affinity_level_up_feedback_and_income_log()
 	_verify_affinity_point_gain_popup()
+	_verify_lingpet_guard_label_feedback()
 	_verify_affinity_residue_store_and_headstart()
 	_verify_ineligible_conditions_do_not_spawn()
 
@@ -1101,7 +1147,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(skill_runtime_host_source.find("var _hydro_sphere_skill: Object = null") >= 0, "skill runtime host should keep concrete skill modules lazy until the active skill needs them")
 	_expect(skill_runtime_host_source.find("_new_skill(") >= 0 and skill_runtime_host_source.find("load(path)") >= 0, "skill runtime host should dynamically load concrete skill modules on demand")
 	_expect(skill_runtime_host_source.find("get_companion_position_override") >= 0, "skill runtime host should let body-driven skills override the real companion position")
-	_expect(runtime_source.find("_apply_companion_skill_position_override") >= 0, "egg runtime should apply body-driven skill positions to the real companion")
+	_expect(runtime_source.find("_apply_active_companion_skill_position_override") >= 0, "egg runtime should apply body-driven skill positions through the active owner query")
 	_expect(dispatcher_source.find("LingpetCatalog.get_active_skill_runtime_kind") >= 0, "skill dispatcher should resolve active-skill runtime kind through the catalog before falling back to legacy ids")
 	_expect(runtime_source.find("lingpet_companion_skill_state.gd") >= 0, "egg runtime should delegate shared active-skill cooldown/wind-up state to the companion skill-state controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_state.gd"), "companion skill-state controller should exist for future lingpet active skills")
@@ -1366,30 +1412,27 @@ func _verify_one_ball_hit_hatches_unidentified_egg() -> void:
 	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == hatched_id, "hatched lingpet should auto-fill the first lingpet battle slot")
 	_expect(int(owner.lingpet_active_slot_index) == 0, "hatched lingpet should use slot 0 as the active battle slot")
 	_expect(bool(owner.lingpet_collection.get(hatched_id, false)), "hatched lingpet should be marked in the lingpet collection")
-	_expect(owner.lingpet_loadouts is Dictionary and (owner.lingpet_loadouts as Dictionary).has(hatched_id), "hatched lingpet should receive a persisted active/passive loadout")
+	_expect(owner.lingpet_loadouts is Dictionary and (owner.lingpet_loadouts as Dictionary).has(hatched_id), "hatched lingpet should receive a persisted no-skill loadout shell")
 	var hatched_loadout: Dictionary = (owner.lingpet_loadouts as Dictionary).get(hatched_id, {}) as Dictionary
 	var selected_active_id := str(hatched_loadout.get("active_skill_id", ""))
 	var selected_passive_id := str(hatched_loadout.get("passive_skill_id", ""))
-	_expect(_skill_ids(LingpetCatalog.get_active_skill_pool(hatched_id)).has(selected_active_id), "hatched lingpet loadout should store one active skill from its active-skill pool")
-	var passive_pool_ids := _skill_ids(LingpetCatalog.get_passive_skill_pool(hatched_id))
-	if passive_pool_ids.is_empty():
-		_expect(selected_passive_id == "", "hatched lingpet with no passive-skill pool should store an empty passive skill id")
-	else:
-		_expect(passive_pool_ids.has(selected_passive_id), "hatched lingpet loadout should store one passive skill from its passive-skill pool")
+	_expect(selected_active_id == "", "hatched lingpet loadout should not auto-pick an active skill before affinity unlock resolve")
+	_expect(selected_passive_id == "", "hatched lingpet loadout should not auto-pick a passive skill before affinity unlock resolve")
+	_expect((hatched_loadout.get("active_skill_ids", []) as Array).is_empty(), "hatched no-skill loadout should keep active_skill_ids empty")
+	_expect((hatched_loadout.get("passive_skill_ids", []) as Array).is_empty(), "hatched no-skill loadout should keep passive_skill_ids empty")
 	_expect(str(owner.lingpet_active_skill_id) == selected_active_id, "owner should publish the active skill selected by the lingpet loadout")
 	_expect(str(owner.lingpet_passive_skill_id) == selected_passive_id, "owner should publish the passive skill selected by the lingpet loadout")
-	var selected_passive: Dictionary = LingpetCatalog.get_passive_skill(hatched_id, selected_passive_id)
-	var expected_bonus_pct: float = float(selected_passive.get("gauge_gain_bonus_pct", 0.0))
-	var expected_gain: float = floor(50.0 * (1.0 + expected_bonus_pct / 100.0))
-	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), expected_gain), "hatched lingpet should expose its catalog gauge-gain bonus")
+	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), 50.0), "hatched no-skill lingpet should not apply a passive gauge-gain bonus before unlock resolve")
 	_expect(runtime.has_visible_effects(), "hatched lingpet should keep visible companion effects after hatching")
 	_expect(owner.lingpet_companion_pos is Vector2 and owner.lingpet_companion_pos != Vector2.ZERO, "hatched lingpet should publish companion position")
 	var runtime_snapshot: Dictionary = runtime.get_snapshot()
 	_expect(float(runtime_snapshot.get("hatch_flash_timer", 0.0)) > 0.0, "hatched lingpet should keep the egg-break animation active briefly")
 	_expect(str(runtime_snapshot.get("active_skill_id", "")) == selected_active_id, "runtime snapshot should expose the selected active skill id")
 	_expect(str(runtime_snapshot.get("passive_skill_id", "")) == selected_passive_id, "runtime snapshot should expose the selected passive skill id")
-	_expect(int(runtime_snapshot.get("active_skill_level", 0)) == 1, "runtime snapshot should expose the selected active skill level")
-	_expect(int(runtime_snapshot.get("passive_skill_level", 0)) == 1, "runtime snapshot should expose the selected passive skill level")
+	_expect(str(runtime_snapshot.get("companion_skill_id", "")) == "", "hatched no-skill snapshot should not leak pool[0] into the rail/TAB active skill id")
+	_expect(str(runtime_snapshot.get("companion_skill_name", "")) == "", "hatched no-skill snapshot should not leak pool[0] into the rail/TAB active skill name")
+	_expect(int(runtime_snapshot.get("active_skill_level", 0)) == 0, "runtime snapshot should expose active skill level 0 before unlock resolve")
+	_expect(int(runtime_snapshot.get("passive_skill_level", 0)) == 0, "runtime snapshot should expose passive skill level 0 before unlock resolve")
 	var panel: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(str(panel.get("title", "")) == LingpetCatalog.get_display_name(hatched_id), "character-info panel should reveal the hatched lingpet after hatching")
 	_expect(str(panel.get("subtitle", "")).find("동행 중") >= 0 and str(panel.get("subtitle", "")).find("친밀도 어색함") >= 0, "character-info panel should show companion status with the default permanent affinity title after hatching")
@@ -2049,6 +2092,34 @@ func _verify_starlight_tracking_passive() -> void:
 	_expect(not bool(far_carry_result.get("holding", true)) and not bool(far_carry_result.get("delivered", false)), "Starlight Tracking should leave the pickup hold after one second")
 	var deliver_result: Dictionary = runtime3.update_starlight_tracking_for_starpoint_drop(far_drop, 0.40, far_context)
 	_expect(bool(deliver_result.get("delivered", false)), "Starlight Tracking should deliver the carried far starpoint to the player before granting it")
+
+	var owner4 := FakeOwner.new()
+	var runtime4: Object = LingpetEggRuntime.new()
+	_expect(runtime4.debug_grant_and_activate_pet("maribo", owner4, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "fourth debug loadout should equip Starlight Tracking Lv.5 for a ground-prediction smoke")
+	var ground_start: Vector2 = owner4.lingpet_companion_pos
+	var high_drop := _make_starpoint_drop(ground_start + Vector2(150.0, -260.0), 0.0)
+	high_drop["vel"] = Vector2(1.6, 4.0)
+	owner4.player_pos = ground_start + Vector2(-130.0, 0.0) - Vector2(owner4.player_paddle_width, owner4.player_paddle_height) * 0.5
+	var ground_context := _starpoint_delivery_context(owner4)
+	ground_context["play_left"] = 0.0
+	ground_context["play_right"] = 760.0
+	ground_context["height"] = 750.0
+	var ground_approach_result: Dictionary = runtime4.update_starlight_tracking_for_starpoint_drop(high_drop, 1.0, ground_context)
+	_expect(bool(ground_approach_result.get("ground_tracking", false)), "Ground Starlight Tracking should report the patrol-only ground route")
+	_expect(bool(ground_approach_result.get("claimed", false)) and not bool(ground_approach_result.get("picked_up", false)), "Ground Starlight Tracking should claim a high falling star but wait for it near the floor")
+	var ground_pos_value: Variant = ground_approach_result.get("companion_pos", Vector2.ZERO)
+	var ground_pos: Vector2 = ground_pos_value if ground_pos_value is Vector2 else Vector2.ZERO
+	var ground_target_value: Variant = ground_approach_result.get("target_pos", Vector2.ZERO)
+	var ground_target: Vector2 = ground_target_value if ground_target_value is Vector2 else Vector2.ZERO
+	_expect(ground_pos != Vector2.ZERO and absf(ground_pos.y - ground_start.y) <= 0.01, "Ground Starlight Tracking should move along the floor instead of flying up to a high starpoint")
+	_expect(ground_target != Vector2.ZERO and absf(ground_target.y - ground_start.y) <= 0.01, "Ground Starlight Tracking should target the predicted floor catch lane")
+	high_drop["pos"] = ground_target + Vector2(0.0, -18.0)
+	high_drop["vel"] = Vector2.ZERO
+	var ground_catch_result: Dictionary = runtime4.update_starlight_tracking_for_starpoint_drop(high_drop, 0.0, ground_context)
+	_expect(bool(ground_catch_result.get("picked_up", false)) and bool(ground_catch_result.get("holding", false)), "Ground Starlight Tracking should catch the falling star after waiting under the predicted point")
+	var jump_pos_value: Variant = ground_catch_result.get("companion_pos", Vector2.ZERO)
+	var jump_pos: Vector2 = jump_pos_value if jump_pos_value is Vector2 else Vector2.ZERO
+	_expect(jump_pos != Vector2.ZERO and jump_pos.y < ground_start.y, "Ground Starlight Tracking should use a small jump at pickup instead of staying flat")
 
 
 func _verify_ring_dash_passive() -> void:
@@ -2747,6 +2818,57 @@ func _verify_maribo_defense_actually_blocks_reachable_ball() -> void:
 	_expect(blocked, "an armed local guard should actually intercept-and-bounce the near ball at the real descent rate, not just lean toward it")
 	_expect(float(owner.ball_vel.y) < 0.0, "a guarded ball should be bounced upward (ball_vel.y < 0)")
 	_expect_float(runtime.get_affinity_points("maribo"), 13.0, "defense intercept should grant direct-hit affinity plus one defense bonus captured before resolve")
+	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "defense guard aura should clear immediately after the guarded hit")
+	_expect((runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).get("text", "") == "방어", "defense intercept should spawn the guard label at the hit moment")
+
+
+func _verify_lingpet_defense_guard_chase_feedback() -> void:
+	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
+	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
+	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_MULT := 1.25") >= 0, "defense guard chase speed should be a single 1.25 multiplier on the saga-capped intercept speed")
+	_expect(renderer_source.find("defense_guard_aura_ratio") >= 0 and renderer_source.find("_resolve_aura_color") >= 0, "companion renderer should tint the soft aura through a guard ratio")
+	_expect(draw_context_source.find("\"defense_guard_active\"") >= 0 and draw_context_source.find("\"defense_guard_aura_ratio\"") >= 0, "draw context should expose guard chase aura fields")
+	var guard_speed: float = LingpetCompanionMotionState.COMPANION_DEFENSE_INTERCEPT_SPEED * LingpetCompanionMotionState.COMPANION_DEFENSE_GUARD_SPEED_MULT
+	_expect_float(guard_speed, 225.0, "guard chase speed should be 25 percent above the 180px/s intercept baseline")
+
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	_prepare_maribo_guard_after_windup(runtime, owner, registry)
+	var lane_y: float = owner.lingpet_companion_pos.y
+	runtime.configure_companion_motion_for_tests(Vector2(570.0, lane_y), 2, 0.0, false)
+	var step_delta := 0.05
+	var ball_vy := 12.0
+	var step_drop := ball_vy * step_delta * 60.0
+	var ball_y: float = lane_y - 300.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(650.0, ball_y)
+	owner.ball_vel = Vector2(0.0, ball_vy)
+	runtime.update(step_delta, owner, registry)
+	var first_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(bool(first_snapshot.get("companion_defense_intercept_active", false)), "guard chase fixture should arm the defense intercept")
+	var first_aura := float(first_snapshot.get("companion_defense_guard_aura_ratio", 0.0))
+	_expect(first_aura > 0.0 and first_aura < 1.0, "guard aura should ramp in instead of popping instantly")
+	ball_y += step_drop
+	for _i in range(2):
+		owner.ball_pos = Vector2(650.0, ball_y)
+		owner.ball_vel = Vector2(0.0, ball_vy)
+		runtime.update(step_delta, owner, registry)
+		ball_y += step_drop
+	var fast_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) <= guard_speed + 0.001, "guard chase must not exceed the 225px/s cap")
+	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) >= guard_speed - 0.001, "guard chase should ramp up to the 225px/s cap")
+	_expect_float(float(fast_snapshot.get("companion_defense_guard_aura_ratio", 0.0)), 1.0, "guard aura should reach full red after the short ramp")
+
+	var builder_config: Dictionary = LingpetCompanionDrawContextBuilder.new().build_config({
+		"defense_guard_active": true,
+		"defense_guard_aura_ratio": 0.5,
+	})
+	_expect(bool(builder_config.get("defense_guard_active", false)), "draw config should keep the guard-active flag true while chasing")
+	_expect_float(float(builder_config.get("defense_guard_aura_ratio", 0.0)), 0.5, "draw config should preserve the guard aura ramp ratio")
 
 
 func _verify_maribo_defense_anticipates_moderate_distance_ball() -> void:
@@ -2783,6 +2905,111 @@ func _verify_maribo_defense_anticipates_moderate_distance_ball() -> void:
 	far_owner.ball_vel = Vector2(0.0, 12.0)
 	far_runtime.update(0.05, far_owner)
 	_expect(not bool(far_owner.lingpet_companion_defense_intercept_active), "a ball beyond the local zone must not arm the anticipatory guard")
+
+
+func _verify_maribo_defense_hold_stops_walk_animation() -> void:
+	# The anticipatory guard arrives at the predicted landing X EARLY by design, then
+	# waits there for the ball. While parked, the draw-side motion_speed_ratio (the
+	# renderer's walk/idle gate AND walk-anim speed) must be 0 so the companion reads
+	# as idle — a guard-cap-based ratio made it treadmill in place at full walk speed.
+	# The chase phase toward the anchor must still keep a positive ratio.
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	_prepare_maribo_guard_after_windup(runtime, owner, registry)
+	var lane_y: float = owner.lingpet_companion_pos.y
+	# 15px short of the landing X: arms immediately, arrives within ~3 steps, then
+	# holds for several steps while the ball is still descending.
+	runtime.configure_companion_motion_for_tests(Vector2(585.0, lane_y), 2, 0.0, false)
+	var step_delta := 0.05
+	var ball_vy := 12.0
+	var step_drop := ball_vy * step_delta * 60.0  # mirror runtime fps_scale = delta * 60
+	var ball_y: float = lane_y - 300.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(600.0, ball_y)
+	owner.ball_vel = Vector2(0.0, ball_vy)
+	runtime.update(step_delta, owner, registry)
+	ball_y += step_drop
+	_expect(bool(owner.lingpet_companion_defense_intercept_active), "hold fixture should arm the defense intercept for the near unblockable ball")
+	_expect(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()) > 0.01, "the chase phase toward the anchor should keep the walk animation running")
+	# Let the guard finish the short approach and snap onto the anchor.
+	for _i in range(2):
+		owner.ball_pos = Vector2(600.0, ball_y)
+		owner.ball_vel = Vector2(0.0, ball_vy)
+		runtime.update(step_delta, owner, registry)
+		ball_y += step_drop
+	var anchored_x: float = owner.lingpet_companion_pos.x
+	_expect(absf(anchored_x - 600.0) <= 0.001, "the guard should be parked exactly on the predicted landing X after the approach")
+	# Arrived-and-holding: position frozen, intercept still active, walk ratio 0.
+	for _i in range(3):
+		owner.ball_pos = Vector2(600.0, ball_y)
+		owner.ball_vel = Vector2(0.0, ball_vy)
+		runtime.update(step_delta, owner, registry)
+		ball_y += step_drop
+		_expect(bool(owner.lingpet_companion_defense_intercept_active), "the guard should stay armed while holding at the anchor for the descending ball")
+		_expect(absf(owner.lingpet_companion_pos.x - anchored_x) <= 0.001, "the holding guard should not move off the anchor")
+		_expect_float(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()), 0.0, "an arrived-and-holding guard must read as idle (no in-place walk animation)")
+
+
+func _verify_walk_animation_freezes_when_update_skipped() -> void:
+	# Mechanism A: a pause branch in battle_frame_flow_controller skips update_lingpet, so
+	# advance_walk_phase() is NOT called while the scene keeps redrawing. The walk frame must
+	# FREEZE (it rides the accumulator), instead of marching in place on wall-clock time while
+	# the frozen pet's position never advances.
+	var animator := LingpetCompanionSpriteAnimator.new()
+	for _i in range(20):
+		animator.advance_walk_phase(0.05, 1.0)
+	var frame_before: int = int(animator.get_walk_frame(0.0, 1000, 1.0))
+	# Skip the tick (no advance_walk_phase) while wall-clock leaps forward. A wall-clock walk
+	# would cycle here; the accumulator-driven walk must hold the same frame.
+	var frame_skip_a: int = int(animator.get_walk_frame(0.0, 5000, 1.0))
+	var frame_skip_b: int = int(animator.get_walk_frame(0.0, 9000, 1.0))
+	_expect(frame_skip_a == frame_before and frame_skip_b == frame_before, "a skipped update_lingpet must freeze the companion walk frame, not march in place on wall-clock time")
+	# Resuming ticks advances it again.
+	for _i in range(20):
+		animator.advance_walk_phase(0.05, 1.0)
+	var frame_resumed: int = int(animator.get_walk_frame(0.0, 9000, 1.0))
+	_expect(frame_resumed != frame_before, "the walk frame should resume advancing once update_lingpet ticks again")
+	# A never-driven animator keeps the wall-clock fallback so the soul-clone path is intact.
+	var fallback := LingpetCompanionSpriteAnimator.new()
+	var wc_a: int = int(fallback.get_walk_frame(0.0, 1000, 1.0))
+	var wc_b: int = int(fallback.get_walk_frame(0.0, 1370, 1.0))
+	_expect(wc_a != wc_b, "an animator never driven by advance_walk_phase must keep the wall-clock cadence (soul-clone fallback)")
+
+
+func _verify_starlight_pickup_hold_reads_idle() -> void:
+	# Mechanism B: a ground pet with Starlight Tracking holds position for ~1s during the
+	# pickup hold (only a vertical hop, x fixed). The draw ratio used to be hardcoded 1.0 for
+	# ANY starlight override, so the held pet marched in place. It must now read the real
+	# (zero horizontal) movement => idle.
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "starlight hold smoke should equip Starlight Tracking Lv.5 on a ground pet")
+	# Settle a normal frame so the draw-anim prev-pos seed is established.
+	runtime.update(0.05, owner, registry)
+	var companion_pos: Vector2 = owner.lingpet_companion_pos
+	var close_drop := _make_starpoint_drop(companion_pos + Vector2(8.0, 0.0), 0.0)
+	owner.player_pos = companion_pos + Vector2(116.0, 0.0) - Vector2(owner.player_paddle_width, owner.player_paddle_height) * 0.5
+	var close_context := _starpoint_delivery_context(owner)
+	var pickup: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.0, close_context)
+	_expect(bool(pickup.get("holding", false)), "starlight hold smoke fixture should reach the pickup hold")
+	# One settle cycle: the pet relocates from its patrol spot to the catch X (a legitimate
+	# horizontal move that DOES read as walking), and the draw-anim prev-pos catches up to the
+	# held X. Then x is fixed for the rest of the ~1s hold.
+	runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.05, close_context)
+	runtime.update(0.05, owner, registry)
+	var held_x: float = owner.lingpet_companion_pos.x
+	# Interleave the per-frame starpoint hook + runtime update across the held frames. Position
+	# x must now stay put (only a vertical hop) and the draw ratio must read idle (0).
+	for _i in range(3):
+		var hold_result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(close_drop, 0.05, close_context)
+		_expect(bool(hold_result.get("holding", false)), "starlight pickup hold should persist across the held frames")
+		runtime.update(0.05, owner, registry)
+		_expect(absf(owner.lingpet_companion_pos.x - held_x) <= 0.001, "the held starlight pet must not travel horizontally during the pickup hold")
+		_expect_float(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()), 0.0, "a position-held starlight override must read as idle (no in-place walk animation)")
 
 
 func _verify_rabi_ghost_blink_cycle() -> void:
@@ -3133,10 +3360,14 @@ func _verify_koyora_puppet_grab_skill() -> void:
 		src.find("PHASE_EXTENDING") >= 0 and src.find("PHASE_PULLING") >= 0 and src.find("PHASE_KISSING") >= 0 and src.find("PHASE_RETURNING") >= 0,
 		"꼭두각시 조종 should keep the original 4-phase extend/pull/kiss/return machine"
 	)
-	_expect(src.find("ball_vel") < 0 and src.find("ball_pos") < 0, "꼭두각시 조종 is pure paddle CC — it must not read or write the ball")
+	_expect(src.find("ball_pos") >= 0 and src.find("ROPE_CUT_BALL_RADIUS_PAD") >= 0, "꼭두각시 조종 should read live ball position only for rope-cut counterplay")
+	_expect(src.find("ball_vel") < 0 and src.find("owner.set(\"ball_pos\"") < 0, "꼭두각시 조종 must not move the ball or read its velocity")
 	_expect(src.find("lingpet_puppet_grab_active") >= 0, "꼭두각시 조종 should flag the owner so the boss AI is held while scripted")
 	_expect(src.find("play_lingpet_puppet_grab_pull") >= 0, "꼭두각시 조종 should play the original grab.wav on the pull phase edge")
 	_expect(src.find("play_lingpet_puppet_grab_kiss") >= 0, "꼭두각시 조종 should play the original kissing.wav on the kiss phase edge")
+	var puppet_skill_data: Dictionary = LingpetCatalog.get_active_skill("koyora", "koyora_puppet_control")
+	var puppet_desc := str(puppet_skill_data.get("description", ""))
+	_expect(puppet_desc.find("줄이 공에 닿으면") >= 0 and puppet_desc.find("원래 위치") >= 0, "Koyora Puppet Control tooltip should explain the ball-cut return counterplay")
 
 	_expect(
 		src.find("STRING_TIP_FOCUS_START") >= 0 and src.find("_string_tip_focus") >= 0,
@@ -3346,6 +3577,50 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	_expect(not bool(done.get("puppet_grab_active", false)), "꼭두각시 조종 should finish after the return phase")
 	_expect(not bool(owner.lingpet_puppet_grab_active), "finishing the grab should release the owner boss-freeze flag")
 	_expect(_vector2_distance(owner.boss_pos, boss_original) <= 0.01, "the boss must be returned to its exact original position")
+
+	# --- Ball-cut counterplay: once the boss is actually being controlled, a
+	# live ball crossing the puppet strings should snap them and force the boss
+	# into the same return path without counting as MISS / retry.
+	var cut_skill: Object = load("res://scripts/lingpet/lingpet_puppet_grab_skill.gd").new()
+	var cut_audio := FakePaddleAudio.new()
+	var cut_registry := FakeRegistry.new({"game_audio": cut_audio})
+	var cut_owner := FakeOwner.new()
+	cut_owner.boss_pos = Vector2(330.0, 25.0)
+	cut_owner.boss_paddle_width = 100.0
+	cut_owner.boss_hitbox_height = 40.0
+	cut_owner.ball_active = true
+	cut_owner.ball_pos = Vector2(20.0, 700.0)
+	cut_owner.ball_pos_prev = cut_owner.ball_pos
+	var cut_origin := Vector2(380.0, 600.0)
+	_expect(bool(cut_skill.launch(cut_origin, cut_owner, {})), "ball-cut launch should succeed")
+	cut_skill.update(0.75, cut_owner, cut_registry)
+	var pre_cut_snap: Dictionary = cut_skill.get_snapshot()
+	_expect(int(pre_cut_snap.get("puppet_grab_phase", -1)) == 1, "ball-cut setup should be in PULLING before the ball touches the rope")
+	_expect(bool(cut_owner.lingpet_puppet_grab_active), "ball-cut setup should own and freeze the boss before the rope is cut")
+	var cut_hand := cut_origin + Vector2(0.0, -6.0)
+	var pre_cut_boss_center: Vector2 = pre_cut_snap.get("puppet_grab_boss_center", Vector2.ZERO)
+	var rope_mid := cut_hand.lerp(pre_cut_boss_center, 0.5)
+	cut_owner.ball_pos_prev = rope_mid + Vector2(-80.0, 0.0)
+	cut_owner.ball_pos = rope_mid + Vector2(80.0, 0.0)
+	cut_skill.update(0.016, cut_owner, cut_registry)
+	var cut_snap: Dictionary = cut_skill.get_snapshot()
+	_expect(int(cut_snap.get("puppet_grab_phase", -1)) == 3, "ball touching the puppet string should switch the grab into RETURNING")
+	_expect(bool(cut_snap.get("puppet_grab_cut_by_ball", false)), "rope-cut snapshot should mark the ball-cut reason")
+	_expect(int(cut_snap.get("puppet_grab_cut_count", -1)) == 1, "rope-cut should count exactly once")
+	_expect(not bool(cut_snap.get("puppet_grab_missed", false)), "rope-cut should not be treated as a lock-on MISS")
+	_expect(int(cut_snap.get("puppet_grab_miss_count", -1)) == 0, "rope-cut should not consume MISS retry accounting")
+	_expect(int(cut_snap.get("puppet_grab_kiss_count", -1)) == 0, "rope-cut before kiss should skip the kiss payoff")
+	_expect(cut_audio.puppet_grab_miss_count == 1, "rope-cut should play the short snap/miss feedback cue once")
+	var cut_start_pos: Vector2 = cut_owner.boss_pos
+	cut_skill.update(0.30, cut_owner, cut_registry)
+	_expect(
+		_vector2_distance(cut_owner.boss_pos, Vector2(330.0, 25.0)) < _vector2_distance(cut_start_pos, Vector2(330.0, 25.0)),
+		"after the rope is cut, the boss should travel back toward its captured origin"
+	)
+	cut_skill.update(1.0, cut_owner, cut_registry)
+	_expect(not bool(cut_skill.is_active()), "rope-cut return should finish through the normal return phase")
+	_expect(not bool(cut_owner.lingpet_puppet_grab_active), "rope-cut return should release the boss-freeze flag")
+	_expect(_vector2_distance(cut_owner.boss_pos, Vector2(330.0, 25.0)) <= 0.01, "rope-cut return should restore the boss to its exact origin")
 
 	# --- Ownerless HIT edge: if the HIT transition happens without an owner,
 	# keep the pending pin and apply it on the first owner-backed update instead
@@ -3980,7 +4255,7 @@ func _verify_affinity_reward_application() -> void:
 	_expect_eq(high_runtime.get_affinity_level("maribo"), 4, "previous best 12 should headstart to Lv4")
 	_expect_eq(int(high_rewards.get("active_skill_bonus", 0)), 0, "headstart should respect high active base level before dealing rewards")
 	_expect_eq(int(high_rewards.get("passive_skill_bonus", 0)), 0, "headstart should respect high passive base level before dealing rewards")
-	_expect_eq(int(high_rewards.get("mobility_stacks", 0)) + int(high_rewards.get("defense_stacks", 0)) + int(high_rewards.get("gauge_stacks", 0)), 4, "high-base headstart should substitute four stat cards instead of evaporating skill cards")
+	_expect_eq(int(high_rewards.get("mobility_stacks", 0)) + int(high_rewards.get("defense_stacks", 0)) + int(high_rewards.get("gauge_stacks", 0)), 2, "V3 Lv1-4 headstart should count unlock cards separately from two stat cards")
 	_remove_user_file(high_store_path)
 
 	var skill_owner := FakeOwner.new()
@@ -3988,7 +4263,7 @@ func _verify_affinity_reward_application() -> void:
 	skill_owner.lingpet_slots = ["maribo", "", ""]
 	var skill_runtime: Object = LingpetEggRuntime.new()
 	var skill_registry := FakeRegistry.new({})
-	skill_runtime.set_affinity_reward_seed_for_tests("maribo", 78912611)
+	skill_runtime.set_affinity_reward_seed_for_tests("maribo", 4)
 	_expect(skill_runtime.debug_grant_and_activate_pet("maribo", skill_owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", skill_registry, 1, 1), "skill synthesis fixture should activate Maribo with base Lv.1 skills")
 	var before_skill_snapshot: Dictionary = skill_runtime.get_snapshot()
 	_expect_eq(int(before_skill_snapshot.get("active_skill_level", 0)), 1, "base loadout should start active skill at Lv.1 before affinity rewards")
@@ -4001,9 +4276,22 @@ func _verify_affinity_reward_application() -> void:
 	_expect_float(float(skill_owner.lingpet_affinity_points), 0.0, "owner sync should expose post-level-up affinity points")
 	_expect_float(float(skill_owner.lingpet_affinity_next_requirement), 100.0, "owner sync should expose the next affinity requirement")
 	_expect(str(skill_owner.lingpet_affinity_next_label) != "", "owner sync should expose the next affinity reward label")
-	_expect_eq(int(after_skill_snapshot.get("active_skill_level", 0)), 2, "runtime launch-context active skill level should rise after affinity Lv.1")
-	_expect_eq(int(after_skill_snapshot.get("companion_passive_skill_level", 0)), 2, "runtime passive metadata should rise after affinity Lv.2")
-	_expect_float(float(after_skill_snapshot.get("companion_ring_dash_chance_pct", 0.0)), 32.5, "runtime flattened passive dict should refresh after affinity level-up")
+	_expect_eq(int(after_skill_snapshot.get("active_skill_level", 0)), 1, "V3 Lv.1 active unlock should not add an active skill level")
+	_expect_eq(int(after_skill_snapshot.get("companion_passive_skill_level", 0)), 1, "V3 Lv.2 passive unlock should not add a passive skill level")
+	_grant_affinity_round_commits(skill_runtime, "maribo", 40)
+	skill_runtime.update(0.0, skill_owner, skill_registry)
+	var pre_plus_one_snapshot: Dictionary = skill_runtime.get_snapshot()
+	_expect_eq(skill_runtime.get_affinity_level("maribo"), 4, "65 committed rounds should reach affinity Lv.4 before the first skill +1 card")
+	_expect_eq(int(pre_plus_one_snapshot.get("active_skill_level", 0)), 1, "V3 Lv.4 should still keep the active skill at base Lv.1")
+	_expect_eq(int(pre_plus_one_snapshot.get("companion_passive_skill_level", 0)), 1, "V3 Lv.4 should still keep the passive skill at base Lv.1")
+	_grant_affinity_round_commits(skill_runtime, "maribo", 20)
+	skill_runtime.update(0.0, skill_owner, skill_registry)
+	var first_plus_one_snapshot: Dictionary = skill_runtime.get_snapshot()
+	var first_plus_rewards: Dictionary = skill_runtime.get_affinity_rewards_for_tests("maribo")
+	_expect_eq(skill_runtime.get_affinity_level("maribo"), 5, "85 committed rounds should reach affinity Lv.5 for the first active +1 card")
+	_expect_eq(int(first_plus_rewards.get("active_skill_bonus", 0)), 1, "V3 Lv.5 should be the first active skill +1 reward for this seed")
+	_expect_eq(int(first_plus_one_snapshot.get("active_skill_level", 0)), 2, "V3 Lv.5 active +1 should synthesize active skill Lv.2")
+	_expect_eq(int(first_plus_one_snapshot.get("companion_passive_skill_level", 0)), 1, "V3 Lv.5 should not add a passive skill level yet")
 
 	var base_defense_owner := FakeOwner.new()
 	base_defense_owner.lingpet_owned_pet_ids = ["maribo"]
@@ -4021,16 +4309,20 @@ func _verify_affinity_reward_application() -> void:
 	boosted_owner.lingpet_owned_pet_ids = ["maribo"]
 	var boosted_runtime: Object = LingpetEggRuntime.new()
 	var boosted_registry := FakeRegistry.new({})
-	boosted_runtime.set_affinity_reward_seed_for_tests("maribo", 78912611)
+	boosted_runtime.set_affinity_reward_seed_for_tests("maribo", 4)
 	boosted_runtime.update(0.0, boosted_owner, boosted_registry)
 	_grant_affinity_round_commits(boosted_runtime, "maribo", 245)
 	boosted_runtime.update(0.0, boosted_owner, boosted_registry)
 	var boosted_snapshot: Dictionary = boosted_runtime.get_snapshot()
-	_expect_eq(boosted_runtime.get_affinity_level("maribo"), 13, "245 committed rounds should reach affinity Lv.13 for v2 stat rewards")
-	_expect_float(float(boosted_snapshot.get("companion_patrol_speed_min", 0.0)), 77.0, "two mobility cards should raise patrol min speed by 10 percent")
-	_expect_float(float(boosted_snapshot.get("companion_patrol_speed_max", 0.0)), 148.5, "two mobility cards should raise patrol max speed by 10 percent")
-	_expect_float(float(boosted_snapshot.get("companion_defense_rate", 0.0)), 0.34, "one defense card should raise patrol defense by 4 percentage points")
-	_expect_float(float(boosted_snapshot.get("companion_hit_gauge_gain", 0.0)), 50.0, "two gauge cards should add +10 direct-hit gauge gain")
+	_expect_eq(boosted_runtime.get_affinity_level("maribo"), 12, "245 committed rounds should reach affinity Lv.12 on the V3 requirement curve")
+	var boosted_rewards: Dictionary = boosted_runtime.get_affinity_rewards_for_tests("maribo")
+	_expect_eq(int(boosted_rewards.get("active_skill_bonus", 0)), 2, "V3 Lv.12 fixture should have two active skill +1 rewards")
+	_expect_eq(int(boosted_rewards.get("passive_skill_bonus", 0)), 2, "V3 Lv.12 fixture should have two passive skill +1 rewards")
+	_expect_eq(int(boosted_snapshot.get("active_skill_level", 0)), 3, "V3 Lv.12 should synthesize active skill Lv.3 from base Lv.1 plus two bonuses")
+	_expect_eq(int(boosted_snapshot.get("companion_passive_skill_level", 0)), 3, "V3 Lv.12 should synthesize passive skill Lv.3 from base Lv.1 plus two bonuses")
+	_expect_eq(int(boosted_rewards.get("defense_stacks", 0)), 2, "V3 Lv.12 patrol fixture should keep both defense cards")
+	_expect_eq(int(boosted_rewards.get("gauge_stacks", 0)), 2, "V3 Lv.12 patrol fixture should keep both gauge cards")
+	_expect_eq(int(boosted_rewards.get("mobility_stacks", 0)), 2, "V3 Lv.12 patrol fixture should keep both mobility cards")
 	_prepare_maribo_guard_after_windup(boosted_runtime, boosted_owner, boosted_registry)
 	var lane_y: float = boosted_owner.lingpet_companion_pos.y
 	boosted_runtime.configure_companion_motion_for_tests(Vector2(570.0, lane_y), 5, 0.0, false)
@@ -4091,9 +4383,240 @@ func _verify_affinity_reward_application() -> void:
 	_grant_affinity_round_commits(flight_runtime, "rabi", 80)
 	flight_runtime.update(0.0, flight_owner, flight_registry)
 	var support_flight_snapshot: Dictionary = flight_runtime.get_snapshot()
-	_expect_eq(flight_runtime.get_affinity_level("rabi"), 11, "flight fixture should reach affinity Lv.11 for the first gauge reward")
+	_expect_eq(flight_runtime.get_affinity_level("rabi"), 10, "205 committed rounds should reach affinity Lv.10 on the V3 requirement curve")
 	_expect_float(float(support_flight_snapshot.get("companion_defense_rate", -1.0)), 0.0, "flight support reward should not create a dead defense-rate stat")
-	_expect_float(float(support_flight_snapshot.get("companion_hit_gauge_gain", 0.0)), 45.0, "flight gauge reward should add +5 direct-hit gauge gain")
+	var support_flight_rewards: Dictionary = flight_runtime.get_affinity_rewards_for_tests("rabi")
+	_expect_eq(int(support_flight_rewards.get("active_skill_bonus", 0)), 2, "V3 Lv.10 flight fixture should have two active skill +1 rewards")
+	_expect_eq(int(support_flight_rewards.get("passive_skill_bonus", 0)), 1, "V3 Lv.10 flight fixture should have one passive skill +1 reward")
+	_expect_eq(int(support_flight_snapshot.get("active_skill_level", 0)), 3, "V3 Lv.10 flight fixture should synthesize active skill Lv.3")
+	_expect_eq(int(support_flight_snapshot.get("companion_passive_skill_level", 0)), 2, "V3 Lv.10 flight fixture should synthesize passive skill Lv.2")
+	_expect_eq(int(support_flight_rewards.get("gauge_stacks", 0)), 3, "V3 Lv.10 flight fixture should count three gauge cards")
+	_expect_float(float(support_flight_snapshot.get("companion_appearance_rate", 0.0)), base_appearance_rate + 0.10, "V3 Lv.10 flight fixture should synthesize two mobility cards into appearance rate")
+	_expect_float(float(support_flight_snapshot.get("companion_hit_gauge_gain", 0.0)), 55.0, "V3 Lv.10 flight fixture should synthesize three gauge cards into hit gauge gain")
+
+
+func _verify_second_active_slot_runtime_foundation() -> void:
+	var owner := FakeOwner.new()
+	owner.ball_active = true
+	owner.ball_pos = Vector2(380.0, 260.0)
+	owner.ball_vel = Vector2(0.0, -12.0)
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		runtime.debug_grant_and_activate_pet("red_dragon", owner, false, "", "", registry, 1, 1),
+		"second-active fixture should activate Red Dragon without a debug-forced loadout"
+	)
+	runtime._loadout_state.set_pet_loadout(
+		owner,
+		"red_dragon",
+		"red_dragon_dragon_breath",
+		"",
+		1,
+		1,
+		"red_dragon_dragon_wing",
+		"",
+		1,
+		1
+	)
+	runtime._invalidate_current_loadout_cache()
+	runtime.update(0.0, owner, registry)
+	_expect_eq(runtime._get_active_slot_count(), 1, "slot 1 should stay runtime-locked before second_active_unlocked")
+	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 7, 0.0, true)
+	runtime.update(0.05, owner, registry)
+	var locked_slot_state: Object = runtime._get_companion_skill_state_for_slot(1)
+	_expect(not bool(locked_slot_state.windup_active), "locked slot 1 should not arm even when a second active id exists")
+	_expect_float(float(locked_slot_state.cooldown), 0.0, "locked slot 1 should not spend cooldown")
+
+	runtime.reset_round({"owner": owner, "registry": registry})
+	_grant_affinity_round_commits(runtime, "red_dragon", 530)
+	runtime.update(0.0, owner, registry)
+	_expect_eq(runtime.get_affinity_level("red_dragon"), 22, "second-active fixture should reach the Lv.22 unlock gate")
+	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")
+	_expect(bool(rewards.get("second_active_unlocked", false)), "Lv.22 should record the second-active unlock flag")
+	var loadout: Dictionary = runtime._loadout_state.get_loadout("red_dragon")
+	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 1, "V3-2c reconcile should keep only slot 0 active id")
+	_expect_str(str(loadout.get("second_active_skill_id", "")), "", "V3-2c reconcile should not write a slot-1 active id")
+	_expect_str(str(owner.lingpet_second_active_skill_id), "", "owner second active key should remain empty in V3-2c")
+	_expect_eq(runtime._get_active_slot_count(), 1, "Lv.22 unlock without a slot-1 id should keep runtime at one active slot")
+	_expect_str(runtime._get_skill_id_for_slot(1), "", "slot 1 should resolve empty even after the Lv.22 unlock flag")
+	_expect(runtime._skill_runtime_host._dragon_breath_skill != null, "slot 0 skill runtime should prewarm at loadout apply")
+	_expect(runtime._skill_runtime_host._dragon_wing_skill == null, "V3-2c should not prewarm a second active runtime from reconcile")
+
+	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 7, 0.0, true)
+	runtime.update(0.05, owner, registry)
+	var slot0_state: Object = runtime._get_companion_skill_state_for_slot(0)
+	var slot1_state: Object = runtime._get_companion_skill_state_for_slot(1)
+	_expect(bool(slot0_state.windup_active), "slot 0 FREE skill should arm its own windup")
+	_expect(not bool(slot1_state.windup_active), "slot 1 should remain disarmed while V3-2c leaves its id empty")
+	_expect_float(float(slot0_state.cooldown), 0.0, "slot 0 windup should not spend slot 0 cooldown before launch")
+	_expect_float(float(slot1_state.cooldown), 0.0, "slot 1 should not spend cooldown while V3-2c leaves its id empty")
+
+	var same_kind_runtime: Object = LingpetEggRuntime.new()
+	var same_kind_owner := FakeOwner.new()
+	same_kind_owner.ball_active = true
+	same_kind_owner.ball_pos = Vector2(380.0, 260.0)
+	same_kind_owner.ball_vel = Vector2(0.0, -12.0)
+	_expect(
+		same_kind_runtime.debug_grant_and_activate_pet("red_dragon", same_kind_owner, false, "red_dragon_dragon_breath", "", registry, 1, 1),
+		"same-kind fixture should activate Red Dragon"
+	)
+	_expect(
+		bool(same_kind_runtime._skill_runtime_host.would_share_module("red_dragon_dragon_breath", "red_dragon_dragon_breath")),
+		"would_share_module should identify same-kind active skills"
+	)
+	_expect(
+		not bool(same_kind_runtime._skill_runtime_host.would_share_module("red_dragon_dragon_breath", "red_dragon_dragon_wing")),
+		"would_share_module should allow different runtime kinds"
+	)
+	var same_kind_rewards := LingpetAffinityState.get_empty_reward_counts()
+	same_kind_rewards["second_active_unlocked"] = true
+	same_kind_rewards["signature"] = "same-kind-second-active"
+	var same_kind_active_ids: Array[String] = ["red_dragon_dragon_breath", "red_dragon_dragon_breath"]
+	same_kind_runtime._current_profile.active_skill_ids = same_kind_active_ids
+	same_kind_runtime._current_profile.active_skill_levels = {"red_dragon_dragon_breath": 1}
+	same_kind_runtime._current_profile.active_slot_count = 2
+	same_kind_runtime._current_profile.set_affinity_state(22, same_kind_rewards)
+	_expect_eq(same_kind_runtime._get_active_slot_count(), 1, "same-kind active slots should collapse to slot 0 to avoid shared state")
+	same_kind_runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 8, 0.0, true)
+	same_kind_runtime.update(0.05, same_kind_owner, registry)
+	var same_kind_slot1: Object = same_kind_runtime._get_companion_skill_state_for_slot(1)
+	_expect(not bool(same_kind_slot1.windup_active), "same-kind slot 1 should not arm when module sharing is blocked")
+	_expect_float(float(same_kind_slot1.cooldown), 0.0, "same-kind slot 1 should not spend cooldown when module sharing is blocked")
+
+	var legacy_runtime: Object = LingpetEggRuntime.new()
+	legacy_runtime._companion_skill_state_by_pet_id["red_dragon"] = {
+		"cooldown": 20.0,
+		"trigger_count": 3,
+		"last_gain": 1.0,
+		"origin": Vector2(12.0, 34.0),
+	}
+	legacy_runtime._advance_stored_companion_skill_cooldowns(3.0)
+	var legacy_stored: Dictionary = legacy_runtime._companion_skill_state_by_pet_id.get("red_dragon", {}) as Dictionary
+	var legacy_slot0: Dictionary = legacy_stored.get("slot_0", {}) as Dictionary
+	var legacy_slot1: Dictionary = legacy_stored.get("slot_1", {}) as Dictionary
+	_expect_float(float(legacy_slot0.get("cooldown", 0.0)), 17.0, "legacy flat skill snapshot should migrate into slot 0 and advance")
+	_expect_float(float(legacy_slot1.get("cooldown", -1.0)), 0.0, "legacy flat skill snapshot should leave slot 1 cold")
+	_expect_eq(int(legacy_stored.get("trigger_count", 0)), 3, "legacy flat skill snapshot should preserve shared trigger count")
+
+
+func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> void:
+	var owner := FakeOwner.new()
+	owner.ball_active = true
+	owner.ball_pos = Vector2(380.0, 260.0)
+	owner.ball_vel = Vector2(0.0, -12.0)
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry, 1, 1),
+		"explicit debug active fixture should activate Maribo"
+	)
+	_expect(bool(runtime._skip_unlock_reconcile), "debug-grant unlock reconcile skip should stay sticky for the forced same-pet loadout")
+	var initial_loadout: Dictionary = runtime._loadout_state.get_loadout("maribo")
+	_expect_str(str(initial_loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "explicit debug grant should keep its forced active skill")
+	_expect_str(str(initial_loadout.get("passive_skill_id", "")), "", "explicit active-only debug grant should start without a passive skill")
+
+	_grant_affinity_round_commits(runtime, "maribo", 25)
+	runtime.update(0.0, owner, registry)
+	_expect_eq(runtime.get_affinity_level("maribo"), 2, "25 committed rounds should reach the V3 Lv.2 passive unlock gate")
+	var reconciled_loadout: Dictionary = runtime._loadout_state.get_loadout("maribo")
+	var reconciled_passive_id := str(reconciled_loadout.get("passive_skill_id", ""))
+	_expect_str(str(reconciled_loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "same-pet reconcile should preserve the selected primary active")
+	_expect_str(reconciled_passive_id, "", "same-pet debug grant should keep unlock reconcile blocked for the forced loadout")
+	_expect_eq((reconciled_loadout.get("passive_skill_ids", []) as Array).size(), 0, "same-pet debug grant should not auto-fill a primary passive slot")
+	_expect_str(str(owner.lingpet_passive_skill_id), "", "owner sync should keep passive empty while the forced debug loadout is protected")
+
+	_expect(
+		runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry, 1, 1),
+		"same fixture should switch to Lumion without a forced debug loadout"
+	)
+	_expect(not bool(runtime._skip_unlock_reconcile), "pet change should clear the debug reconcile skip flag")
+	_grant_affinity_round_commits(runtime, "lumion", 10)
+	runtime.update(0.0, owner, registry)
+	var lumion_loadout: Dictionary = runtime._loadout_state.get_loadout("lumion")
+	_expect_str(str(lumion_loadout.get("active_skill_id", "")), "lumion_thunder_orb", "unforced pet after a debug switch should reconcile its primary active unlock")
+
+
+func _verify_second_active_resource_conflict_mediation() -> void:
+	_expect(
+		bool(LingpetSkillDispatcher.skills_share_exclusive_resource("rabi_ghost_summon", "maribo_hydro_sphere")),
+		"BALL_OWNER skills should report an exclusive-resource intersection"
+	)
+	_expect(
+		bool(LingpetSkillDispatcher.skills_share_exclusive_resource("monkeyring_wild_roar", "maribo_hydro_sphere")),
+		"Wild Roar should intersect BALL_OWNER skills"
+	)
+	_expect(
+		bool(LingpetSkillDispatcher.skills_share_exclusive_resource("monkeyring_wild_roar", "lunabi_headbutt")),
+		"Wild Roar should also intersect POS_OVERRIDE skills"
+	)
+	_expect(
+		not bool(LingpetSkillDispatcher.skills_share_exclusive_resource("rabi_ghost_summon", "red_dragon_dragon_breath")),
+		"FREE skills should not be blocked by a BALL_OWNER wind-up"
+	)
+
+	var registry := FakeRegistry.new({})
+	var ball_owner := FakeOwner.new()
+	ball_owner.ball_active = true
+	ball_owner.ball_pos = Vector2(380.0, 260.0)
+	ball_owner.ball_vel = Vector2(0.0, -12.0)
+	var ball_runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		ball_runtime.debug_grant_and_activate_pet("rabi", ball_owner, false, "rabi_ghost_summon", "", registry, 1, 1),
+		"BALL_OWNER conflict fixture should activate Rabi"
+	)
+	_force_second_active_runtime_profile(ball_runtime, "rabi", "rabi_ghost_summon", "maribo_hydro_sphere")
+	ball_runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 4, 0.0, true)
+	ball_runtime.update(0.05, ball_owner, registry)
+	var ball_slot0: Object = ball_runtime._get_companion_skill_state_for_slot(0)
+	var ball_slot1: Object = ball_runtime._get_companion_skill_state_for_slot(1)
+	_expect(bool(ball_slot0.windup_active), "slot 0 BALL_OWNER should arm first")
+	_expect(not bool(ball_slot1.windup_active), "slot 1 BALL_OWNER should wait while slot 0 owns the class")
+	_expect(not bool(ball_runtime._can_arm_companion_skill_slot(1, "maribo_hydro_sphere")), "BALL_OWNER arm gate should be falsifiable at slot 1")
+	_expect(bool(ball_runtime._can_arm_companion_skill_slot(1, "red_dragon_dragon_breath")), "FREE slot should remain eligible beside a BALL_OWNER wind-up")
+
+	var pos_owner := FakeOwner.new()
+	pos_owner.ball_active = true
+	pos_owner.ball_pos = Vector2(380.0, 260.0)
+	pos_owner.ball_vel = Vector2(0.0, -12.0)
+	var pos_runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		pos_runtime.debug_grant_and_activate_pet("lunabi", pos_owner, false, "lunabi_headbutt", "", registry, 1, 1),
+		"POS_OVERRIDE conflict fixture should activate Lunabi"
+	)
+	_force_second_active_runtime_profile(pos_runtime, "lunabi", "lunabi_headbutt", "koyora_puppet_control")
+	pos_runtime.configure_companion_motion_for_tests(Vector2(380.0, 310.0), 5, 0.0, true)
+	pos_runtime.update(0.05, pos_owner, registry)
+	var pos_slot0: Object = pos_runtime._get_companion_skill_state_for_slot(0)
+	var pos_slot1: Object = pos_runtime._get_companion_skill_state_for_slot(1)
+	_expect(bool(pos_slot0.windup_active), "slot 0 POS_OVERRIDE should arm first")
+	_expect(not bool(pos_slot1.windup_active), "slot 1 POS_OVERRIDE should wait while slot 0 owns the class")
+	pos_runtime.update(0.50, pos_owner, registry)
+	var override_owner: Dictionary = pos_runtime._get_active_position_override_owner()
+	_expect(bool(override_owner.get("has", false)), "launched POS_OVERRIDE skill should expose one active position owner")
+	_expect_str(str(override_owner.get("skill_id", "")), "lunabi_headbutt", "position override owner query should keep slot-0 priority")
+	_expect_str(pos_runtime._get_companion_body_skill_id(), "lunabi_headbutt", "body hit/draw gates should read the active position owner")
+
+	var wild_runtime: Object = LingpetEggRuntime.new()
+	var wild_owner := FakeOwner.new()
+	_expect(
+		wild_runtime.debug_grant_and_activate_pet("monkeyring", wild_owner, false, "monkeyring_wild_roar", "", registry, 1, 1),
+		"Wild Roar resource-class fixture should activate Monkeyring"
+	)
+	_force_second_active_runtime_profile(wild_runtime, "monkeyring", "monkeyring_wild_roar", "maribo_hydro_sphere")
+	wild_runtime._get_companion_skill_state_for_slot(0).arm_windup()
+	_expect(not bool(wild_runtime._can_arm_companion_skill_slot(1, "maribo_hydro_sphere")), "Wild Roar should block BALL_OWNER peers through set intersection")
+	_force_second_active_runtime_profile(wild_runtime, "monkeyring", "monkeyring_wild_roar", "lunabi_headbutt")
+	_expect(not bool(wild_runtime._can_arm_companion_skill_slot(1, "lunabi_headbutt")), "Wild Roar should block POS_OVERRIDE peers through set intersection")
+
+	var visual_runtime: Object = LingpetEggRuntime.new()
+	var visual_owner := FakeOwner.new()
+	_expect(
+		visual_runtime.debug_grant_and_activate_pet("koyora", visual_owner, false, "koyora_doll_curse", "", registry, 1, 1),
+		"active visual slot fixture should activate Koyora"
+	)
+	_force_second_active_runtime_profile(visual_runtime, "koyora", "red_dragon_dragon_breath", "koyora_doll_curse")
+	visual_runtime._get_companion_skill_state_for_slot(1).arm_windup()
+	_expect_eq(visual_runtime._get_active_visual_slot_index(), 1, "draw context should select slot 1 when only the second active is casting")
 
 
 func _verify_affinity_level_up_feedback_and_income_log() -> void:
@@ -4135,15 +4658,15 @@ func _verify_affinity_level_up_feedback_and_income_log() -> void:
 	_expect_float(float(expired_snapshot.get("affinity_feedback_flash_ratio", -1.0)), 0.0, "level-up feedback should expire without pausing battle update")
 	_expect_str(str(expired_snapshot.get("affinity_feedback_label", "")), "", "expired level-up feedback should stop drawing the label")
 
-	for _i in range(275):
+	for _i in range(825):
 		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
 	var max_snapshot: Dictionary = runtime.get_snapshot()
 	var max_title := str(LingpetAffinityState.get_reward_for_level(LingpetAffinityState.MAX_LEVEL).get("title", ""))
 	_expect_eq(int(max_snapshot.get("affinity_level", 0)), LingpetAffinityState.MAX_LEVEL, "affinity fixture should reach max level")
-	_expect_str(str(max_snapshot.get("affinity_feedback_label", "")), "교감 Lv.15!", "max-level feedback should still use 교감 in the live overlay")
+	_expect_str(str(max_snapshot.get("affinity_feedback_label", "")), "교감 Lv.30!", "max-level feedback should still use 교감 in the live overlay")
 	_expect_str(str(max_snapshot.get("affinity_feedback_title", "")), max_title, "max-level feedback should expose the max title")
 	_expect(bool(max_snapshot.get("affinity_feedback_heart_tint", false)), "max-level feedback should unlock permanent heart tint")
-	_expect_float(float(runtime.get_affinity_income_summary_for_tests().get("total", 0.0)), 1425.0, "income summary should preserve the full battle total until battle reset")
+	_expect_float(float(runtime.get_affinity_income_summary_for_tests().get("total", 0.0)), 4175.0, "income summary should preserve the full battle total until battle reset")
 	runtime.update(1.0, owner, registry)
 	var post_max_snapshot: Dictionary = runtime.get_snapshot()
 	_expect_float(float(post_max_snapshot.get("affinity_feedback_flash_ratio", -1.0)), 0.0, "max-level flash should expire")
@@ -4202,6 +4725,48 @@ func _verify_affinity_point_gain_popup() -> void:
 	_expect(bool(fb.has_visible_effects(true)), "live popups should hold the visible-effects redraw gate without a level-up flash")
 	_expect((fb.get_point_popups(false) as Array).is_empty(), "non-companion draw context should expose no point popups")
 	fb.point_popups.clear()
+
+
+func _verify_lingpet_guard_label_feedback() -> void:
+	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(renderer_source.find("LanguageSettings.translate_text") >= 0 and renderer_source.find("_draw_guard_label") >= 0, "guard label should translate at the raw draw-string boundary")
+	_expect(runtime_source.find("trigger_guard_label") >= 0 and runtime_source.find("_has_defense_affinity_hit_tag") >= 0, "runtime should trigger the guard label from defense-tagged hits")
+
+	var plain_owner := FakeOwner.new()
+	plain_owner.lingpet_owned_pet_ids = ["maribo"]
+	var plain_runtime: Object = LingpetEggRuntime.new()
+	plain_runtime.update(0.0, plain_owner)
+	var plain_pos: Vector2 = plain_owner.lingpet_companion_pos
+	plain_owner.ball_active = true
+	plain_owner.ball_pos = plain_pos + Vector2(0.0, -6.0)
+	plain_owner.ball_vel = Vector2(0.0, 14.0)
+	plain_runtime.update(0.01, plain_owner)
+	_expect((plain_runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).is_empty(), "ordinary companion hits should not spawn the defense label")
+
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1), "guard-label fixture should activate Maribo")
+	_prepare_maribo_guard_after_windup(runtime, owner, registry)
+	var contact_center := Vector2(650.0, owner.lingpet_companion_pos.y)
+	for _i in range(3):
+		_force_tagged_guard_hit(runtime, owner, registry, contact_center)
+	var snapshot: Dictionary = runtime.get_snapshot()
+	var label: Dictionary = snapshot.get("affinity_guard_label", {}) as Dictionary
+	_expect(not label.is_empty(), "third defense-tagged guard should still expose a guard label after the two-bonus cap is exhausted")
+	_expect_str(str(label.get("text", "")), "방어", "guard label should use the localized exact-text key")
+	_expect(_get_vector2(label.get("position", Vector2.ZERO), Vector2.ZERO).distance_to(owner.lingpet_companion_last_contact_pos) <= 0.01, "guard label should anchor at the hit position, not at the moving companion")
+	_expect_float(runtime.get_affinity_points("maribo"), 34.0, "third guard should be past the two-bonus cap while still showing the defense label")
+	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "guard hit should clear the intercept flag immediately after contact")
+
+	owner.ball_active = false
+	runtime.update(0.81, owner, registry)
+	_expect((runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).is_empty(), "guard label should expire after its short fade")
+	runtime._affinity_feedback_state.trigger_guard_label(Vector2(320.0, 520.0))
+	runtime.reset_round({"owner": owner, "registry": registry})
+	_expect((runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).is_empty(), "round reset should clear a lingering guard label without relying on draw")
 
 
 func _verify_affinity_residue_store_and_headstart() -> void:
@@ -4316,7 +4881,7 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	for _i in range(10):
 		runtime.debug_add_affinity_points_for_tests(hatched_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
 	_expect_eq(int(store.get_best_level(hatched_pet_id)), 11, "a headstarted run below the previous best should not rewrite residue")
-	for _i in range(225):
+	for _i in range(775):
 		runtime.debug_add_affinity_points_for_tests(hatched_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
 	_expect_eq(runtime.get_affinity_level(hatched_pet_id), LingpetAffinityState.MAX_LEVEL, "headstarted run should be able to exceed the previous best")
 	_expect_eq(int(store.get_best_level(hatched_pet_id)), LingpetAffinityState.MAX_LEVEL, "only a real best-level increase should persist residue")
@@ -4410,6 +4975,25 @@ func _deck_type_count(deck: Array, reward_type: String) -> int:
 	return count
 
 
+func _force_second_active_runtime_profile(runtime: Object, pet_id: String, first_skill_id: String, second_skill_id: String) -> void:
+	var ids: Array[String] = [first_skill_id, second_skill_id]
+	var levels: Dictionary = {}
+	if first_skill_id != "":
+		levels[first_skill_id] = 1
+	if second_skill_id != "":
+		levels[second_skill_id] = 1
+	var rewards := LingpetAffinityState.get_empty_reward_counts()
+	rewards["second_active_unlocked"] = true
+	rewards["signature"] = "runtime-second-active-%s-%s" % [first_skill_id, second_skill_id]
+	runtime._current_profile.set_pet_id(pet_id)
+	runtime._current_profile.active_skill_ids = ids
+	runtime._current_profile.active_skill_levels = levels
+	runtime._current_profile.active_slot_count = 2
+	runtime._current_profile.active_skill_id = first_skill_id
+	runtime._current_profile.active_skill_level = 1 if first_skill_id != "" else 0
+	runtime._current_profile.set_affinity_state(22, rewards)
+
+
 func _prepare_maribo_guard_after_windup(runtime: Object, owner: FakeOwner, registry: Object) -> void:
 	owner.ball_active = true
 	owner.ball_pos = Vector2(60.0, 120.0)
@@ -4417,6 +5001,22 @@ func _prepare_maribo_guard_after_windup(runtime: Object, owner: FakeOwner, regis
 	for _w in range(10):
 		runtime.update(0.2, owner, registry)
 	_expect(not bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "Maribo guard fixture should finish the initial Hydro Sphere wind-up")
+
+
+func _force_tagged_guard_hit(runtime: Object, owner: FakeOwner, registry: Object, companion_pos: Vector2) -> void:
+	runtime.configure_companion_motion_for_tests(companion_pos, 2, 0.0, true)
+	runtime._companion_body_hit_state.ball_was_inside = false
+	runtime._companion_body_hit_state.cooldown = 0.0
+	owner.ball_active = true
+	owner.ball_pos = companion_pos + Vector2(0.0, -6.0)
+	owner.ball_vel = Vector2(0.0, 14.0)
+	runtime.update(0.01, owner, registry)
+
+
+func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _verify_ineligible_conditions_do_not_spawn() -> void:

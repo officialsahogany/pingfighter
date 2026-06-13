@@ -14,6 +14,9 @@ const AFFINITY_HIT_GAUGE_CARD_BONUS := 5.0
 
 var pet_id := DEFAULT_PET_ID
 var active_skill_id := ""
+var active_skill_ids: Array[String] = []
+var active_skill_levels: Dictionary = {}
+var active_slot_count := LingpetCatalog.DEFAULT_ACTIVE_SLOT_COUNT
 var passive_skill_id := ""
 var active_skill_level := LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL
 var passive_skill_level := LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
@@ -23,6 +26,8 @@ var affinity_reward_signature := "0|0|0|0|0|0"
 var _visual_texture_cache: Object = LingpetVisualTextureCache.new()
 var _active_skill_cache_key := ""
 var _active_skill_cache: Dictionary = {}
+var _active_skill_cache_keys: Dictionary = {}
+var _active_skill_caches: Dictionary = {}
 var _passive_skill_cache_key := ""
 var _passive_skill_cache: Dictionary = {}
 var _passive_effect_cache_key := ""
@@ -97,11 +102,13 @@ func get_visual_layout_value(layout_key: String, fallback: float) -> float:
 	return LingpetCatalog.get_visual_layout_value(pet_id, layout_key, fallback)
 
 
-func get_active_skill() -> Dictionary:
-	var cache_key := _build_active_skill_cache_key()
-	if cache_key == _active_skill_cache_key:
-		return _active_skill_cache
-	var skill := LingpetCatalog.get_active_skill(pet_id, active_skill_id, _get_effective_active_skill_level())
+func get_active_skill(slot_index: int = 0) -> Dictionary:
+	var slot := clampi(slot_index, 0, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT - 1)
+	var cache_key := _build_active_skill_cache_key(slot)
+	if str(_active_skill_cache_keys.get(slot, "")) == cache_key:
+		return (_active_skill_caches.get(slot, {}) as Dictionary)
+	var skill_id := get_skill_id(slot)
+	var skill := LingpetCatalog.get_active_skill(pet_id, skill_id, _get_effective_active_skill_level(slot))
 	var passive_cooldown_reduction_pct := _get_passive_effect_value("active_cooldown_reduction_pct")
 	if passive_cooldown_reduction_pct > 0.0 and float(skill.get("cooldown", 0.0)) > 0.0:
 		var current_cooldown := float(skill.get("cooldown", 0.0))
@@ -114,9 +121,12 @@ func get_active_skill() -> Dictionary:
 		skill["pre_passive_windup_seconds"] = current_windup
 		skill["passive_windup_reduction_pct"] = passive_windup_reduction_pct
 		skill["windup_seconds"] = current_windup * maxf(0.10, 1.0 - passive_windup_reduction_pct / 100.0)
-	_active_skill_cache_key = cache_key
-	_active_skill_cache = skill
-	return _active_skill_cache
+	_active_skill_cache_keys[slot] = cache_key
+	_active_skill_caches[slot] = skill
+	if slot == 0:
+		_active_skill_cache_key = cache_key
+		_active_skill_cache = skill
+	return skill
 
 
 func get_active_skill_pool() -> Array[Dictionary]:
@@ -127,14 +137,38 @@ func set_loadout(
 	active_id: String,
 	passive_id: String,
 	active_level: int = LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL,
-	passive_level: int = LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
+	passive_level: int = LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL,
+	next_active_skill_ids: Array[String] = [],
+	next_active_skill_levels: Dictionary = {},
+	next_active_slot_count: int = LingpetCatalog.DEFAULT_ACTIVE_SLOT_COUNT
 ) -> void:
-	active_skill_id = LingpetCatalog.normalize_active_skill_id(pet_id, active_id)
+	active_skill_ids = _normalize_active_skill_ids(active_id, next_active_skill_ids)
+	active_slot_count = _normalize_active_slot_count(next_active_slot_count, active_skill_ids)
+	active_skill_levels = _normalize_active_skill_levels(active_skill_ids, active_level, next_active_skill_levels)
+	active_skill_id = active_skill_ids[0] if active_skill_ids.size() > 0 else ""
 	passive_skill_id = LingpetCatalog.normalize_passive_skill_id(pet_id, passive_id)
-	active_skill_level = LingpetCatalog.clamp_skill_level(active_level)
-	passive_skill_level = LingpetCatalog.clamp_skill_level(passive_level)
-	_apply_default_loadout_if_needed()
+	active_skill_level = get_active_skill_level_for_slot(0)
+	passive_skill_level = LingpetCatalog.clamp_skill_level(passive_level) if passive_skill_id != "" else 0
 	_invalidate_metadata_cache()
+
+
+func set_loadout_from_data(loadout: Dictionary) -> void:
+	var raw_active_ids: Array[String] = []
+	var active_ids_value: Variant = loadout.get("active_skill_ids", [])
+	if active_ids_value is Array:
+		for raw_id in active_ids_value as Array:
+			raw_active_ids.append(str(raw_id))
+	var has_active_loadout := str(loadout.get("active_skill_id", "")).strip_edges() != "" or not raw_active_ids.is_empty()
+	var has_passive_loadout := str(loadout.get("passive_skill_id", "")).strip_edges() != ""
+	set_loadout(
+		str(loadout.get("active_skill_id", "")),
+		str(loadout.get("passive_skill_id", "")),
+		int(loadout.get("active_skill_level", LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL if has_active_loadout else 0)),
+		int(loadout.get("passive_skill_level", LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL if has_passive_loadout else 0)),
+		raw_active_ids,
+		loadout.get("active_skill_levels", {}) as Dictionary,
+		int(loadout.get("active_slot_count", LingpetCatalog.DEFAULT_ACTIVE_SLOT_COUNT if has_active_loadout else 0))
+	)
 
 
 func set_affinity_level(level: int) -> void:
@@ -165,6 +199,10 @@ func set_affinity_state(level: int, rewards: Dictionary) -> void:
 
 
 func get_passive_skill() -> Dictionary:
+	if passive_skill_id.strip_edges() == "":
+		_passive_skill_cache_key = ""
+		_passive_skill_cache = {}
+		return {}
 	var cache_key := _build_passive_skill_cache_key()
 	if cache_key != _passive_skill_cache_key:
 		_passive_skill_cache_key = cache_key
@@ -184,12 +222,36 @@ func get_motion_style() -> String:
 	return LingpetCatalog.get_motion_style(pet_id)
 
 
-func get_skill_id() -> String:
-	return str(get_active_skill().get("id", ""))
+func get_affinity_motion_style() -> String:
+	if _is_patrol_motion_style():
+		return LingpetAffinityState.MOTION_STYLE_PATROL
+	return LingpetAffinityState.MOTION_STYLE_FLIGHT
 
 
-func get_skill_windup_seconds(fallback: float) -> float:
-	return maxf(0.0, float(get_active_skill().get("windup_seconds", fallback)))
+func get_skill_id(slot_index: int = 0) -> String:
+	var slot := clampi(slot_index, 0, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT - 1)
+	if slot < active_skill_ids.size():
+		return str(active_skill_ids[slot])
+	return ""
+
+
+func get_active_skill_level_for_slot(slot_index: int = 0) -> int:
+	var skill_id := get_skill_id(slot_index)
+	if skill_id == "":
+		return 0
+	return LingpetCatalog.clamp_skill_level(int(active_skill_levels.get(skill_id, LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL)))
+
+
+func get_active_slot_count() -> int:
+	return clampi(active_slot_count, 0, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
+
+
+func is_second_active_unlocked() -> bool:
+	return bool(_get_affinity_rewards().get("second_active_unlocked", false))
+
+
+func get_skill_windup_seconds(fallback: float, slot_index: int = 0) -> float:
+	return maxf(0.0, float(get_active_skill(slot_index).get("windup_seconds", fallback)))
 
 
 func get_gauge_gain_bonus_pct(fallback: float) -> float:
@@ -242,12 +304,18 @@ func get_cached_visual_texture(visual_key: String, fallback: Texture2D) -> Textu
 
 func _apply_default_loadout_if_needed() -> void:
 	var defaults := LingpetCatalog.build_default_loadout(pet_id)
-	active_skill_id = LingpetCatalog.normalize_active_skill_id(pet_id, active_skill_id)
-	if active_skill_id == "":
-		active_skill_id = str(defaults.get("active_skill_id", ""))
-	active_skill_level = LingpetCatalog.clamp_skill_level(active_skill_level)
+	if active_skill_ids.is_empty() and active_slot_count > 0:
+		var default_active_id := LingpetCatalog.normalize_active_skill_id(pet_id, str(defaults.get("active_skill_id", "")))
+		if default_active_id != "":
+			active_skill_ids.append(default_active_id)
+	else:
+		active_skill_ids = _normalize_active_skill_ids("", active_skill_ids)
+	active_slot_count = _normalize_active_slot_count(active_slot_count, active_skill_ids)
+	active_skill_levels = _normalize_active_skill_levels(active_skill_ids, active_skill_level, active_skill_levels)
+	active_skill_id = active_skill_ids[0] if active_skill_ids.size() > 0 else ""
+	active_skill_level = get_active_skill_level_for_slot(0)
 	passive_skill_id = LingpetCatalog.normalize_passive_skill_id(pet_id, passive_skill_id)
-	if passive_skill_id == "":
+	if passive_skill_id == "" and active_slot_count > 0:
 		passive_skill_id = str(defaults.get("passive_skill_id", ""))
 	passive_skill_level = LingpetCatalog.clamp_skill_level(passive_skill_level)
 
@@ -268,8 +336,9 @@ func _get_passive_effect_value(effect_key: String, fallback: float = 0.0) -> flo
 	return value
 
 
-func _get_effective_active_skill_level() -> int:
-	return LingpetCatalog.clamp_skill_level(active_skill_level + _get_affinity_reward_count("active_skill_bonus"))
+func _get_effective_active_skill_level(slot_index: int = 0) -> int:
+	var bonus_key := "second_active_skill_bonus" if slot_index == 1 else "active_skill_bonus"
+	return LingpetCatalog.clamp_skill_level(get_active_skill_level_for_slot(slot_index) + _get_affinity_reward_count(bonus_key))
 
 
 func _get_effective_passive_skill_level() -> int:
@@ -295,21 +364,59 @@ func _is_flight_motion_style() -> bool:
 func _invalidate_metadata_cache() -> void:
 	_active_skill_cache_key = ""
 	_active_skill_cache.clear()
+	_active_skill_cache_keys.clear()
+	_active_skill_caches.clear()
 	_passive_skill_cache_key = ""
 	_passive_skill_cache.clear()
 	_passive_effect_cache_key = ""
 	_passive_effect_cache.clear()
 
 
-func _build_active_skill_cache_key() -> String:
-	return "%s|%s|%d|%s|%d|%s" % [
+func _build_active_skill_cache_key(slot_index: int = 0) -> String:
+	return "%s|%d|%s|%d|%s|%d|%s" % [
 		pet_id,
-		active_skill_id,
-		active_skill_level,
+		slot_index,
+		get_skill_id(slot_index),
+		get_active_skill_level_for_slot(slot_index),
 		passive_skill_id,
 		passive_skill_level,
 		affinity_reward_signature,
 	]
+
+
+func _normalize_active_skill_ids(primary_active_id: String, raw_ids: Array[String]) -> Array[String]:
+	var ids: Array[String] = []
+	_append_normalized_active_skill_id(ids, primary_active_id)
+	for raw_id in raw_ids:
+		_append_normalized_active_skill_id(ids, raw_id)
+	if ids.size() > LingpetCatalog.MAX_ACTIVE_SLOT_COUNT:
+		ids.resize(LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
+	return ids
+
+
+func _append_normalized_active_skill_id(ids: Array[String], skill_id: String) -> void:
+	var normalized := LingpetCatalog.normalize_active_skill_id(pet_id, skill_id)
+	if normalized == "" or ids.has(normalized):
+		return
+	ids.append(normalized)
+
+
+func _normalize_active_skill_levels(ids: Array[String], primary_level: int, raw_levels: Dictionary) -> Dictionary:
+	var levels: Dictionary = {}
+	for index in range(ids.size()):
+		var skill_id := str(ids[index])
+		var fallback_level := primary_level if index == 0 else LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL
+		levels[skill_id] = LingpetCatalog.clamp_skill_level(int(raw_levels.get(skill_id, fallback_level)))
+	return levels
+
+
+func _normalize_active_slot_count(raw_count: int, ids: Array[String]) -> int:
+	if ids.is_empty() and raw_count <= 0:
+		return 0
+	var count := clampi(raw_count, LingpetCatalog.DEFAULT_ACTIVE_SLOT_COUNT, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
+	if ids.size() > count:
+		count = ids.size()
+	return clampi(count, LingpetCatalog.DEFAULT_ACTIVE_SLOT_COUNT, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
 
 
 func _build_passive_skill_cache_key() -> String:
