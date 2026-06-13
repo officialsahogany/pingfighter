@@ -50,6 +50,13 @@ listed here -- read the repo state, `AGENTS.md`, or `README.md` when needed.
   imagegen assets, Live2D-style assets, and modular 2D skill / VFX work.
 - `docs/current_development_boundary.md` = one-page summary of the current
   Godot-vs-legacy boundary.
+- `docs/agent_operating_posture.md` = shared agent (Claude/Codex) working
+  posture — the fable-grade default (reduce output variance by applying the
+  full rigor stack to every task). Thin routing here; that doc is the single
+  source. Highest-value invariant: SAFE regression-detection validation
+  (반증검증 = prove a new smoke FAILS on the buggy code by an **in-place Edit
+  toggle / temp patch / fixture only — NEVER `git reset`/`checkout`/`stash`**,
+  which would destroy uncommitted WIP in this repo).
 - Legacy design / review packets such as `docs/four_poisons_handoff.md`,
   `docs/dual_glitch_clone_replication_handoff.md`,
   `docs/dual_glitch_clone_hp_handoff.md`,
@@ -109,6 +116,7 @@ implementation checklist. Use it as a routing and hidden-knowledge index:
 
 | Need | Read / follow |
 |---|---|
+| How to work (default agent posture) | `docs/agent_operating_posture.md` |
 | Godot implementation, runtime checks, test commands | `AGENTS.md` |
 | Godot port wiring and module boundaries | `docs/godot_port_checklist.md`, then `docs/godot_port_architecture.md` |
 | Item runtime work | `docs/item_runtime_checklist.md` |

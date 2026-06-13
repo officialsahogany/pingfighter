@@ -26,6 +26,13 @@ prompt wording, sprite-sheet composition, and offline background-removal steps.
 imagegen assets, Live2D-style assets, and modular 2D skill / VFX work.
 `docs/current_development_boundary.md` is the one-page summary of the current
 Godot-vs-legacy boundary.
+`docs/agent_operating_posture.md` covers the shared agent (Claude/Codex)
+working posture — the fable-grade default: SAFE regression-detection
+validation (in-place Edit toggle / temp patch / fixture only — never
+`git reset`/`checkout`/`stash` to revert in this dirty-worktree repo),
+root-cause proof over hunch, adversarial self-review, fixed-vs-deferred
+reporting with severity tags, options+recommendation at genuine forks,
+commit hygiene, and pixel-level QA for visual changes.
 Skill source policy: `.claude/skills/` is the canonical repo skill tree.
 `.agents/skills/` may exist as a Codex loader mirror only. Do not edit both
 trees by hand; update `.claude/skills/` first, then refresh any mirror copy if
@@ -59,6 +66,11 @@ When the documents overlap:
 - `docs/godot_port_checklist.md` is the source of truth for Godot porting integration and wiring rules.
 - `docs/skill_vfx_workflow.md` is the source of truth for Claude / Codex
   art-to-runtime workflow boundaries and the modular VFX handoff checklist.
+- `docs/agent_operating_posture.md` is the source of truth for the shared
+  agent working posture (verification/adversarial-review discipline,
+  decision presentation, commit hygiene). Note the safety constraint on
+  regression-detection validation: never use git reset/checkout/stash to
+  "revert and check" — toggle the target line in place instead.
 - Legacy handoff / review docs are never the current edit target by
   themselves. They lose to the Godot-first routing in this file, the
   relevant runtime checklist, and `docs/godot_port_architecture.md`.

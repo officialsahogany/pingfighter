@@ -1,0 +1,21 @@
+# captured 2026-06-14, files=48 (NOTE: transcripts are live/growing — re-runs drift)
+
+===== claude-fable-5  (asst_turns=7308) =====
+  tool_uses total          : 3550
+  tools / asst-turn  mean  : 0.49   (parallelism signal)
+  multi-tool turns (>=2)   : 0 (0%)
+  turns_with_think         : 3147 (43%)
+  think chars  mean/median : 0 / 0
+  say   chars  mean/median : 565.41 / 140  (verbosity to user)
+  tool histogram           : Edit:840, Read:726, Grep:544, PowerShell:540, Bash:513, Write:105, Glob:67, TodoWrite:59, Workflow:28, ToolSearch:22, Agent:20, TaskOutput:17, mcp__autosprite__get_asset_job_status:12, mcp__autosprite__animate_asset:11, ScheduleWakeup:9, AskUserQuestion:7
+  per-100-tooluses         : TodoWrite:1.7, Workflow:0.8, Agent:0.6, Task:0, Read:20.5, Grep:15.3, Glob:1.9, Edit:23.7, Write:3.0, Bash:14.5, PowerShell:15.2, AskUserQuestion:0.2
+
+===== claude-opus-4-8  (asst_turns=2237) =====
+  tool_uses total          : 937
+  tools / asst-turn  mean  : 0.42   (parallelism signal)
+  multi-tool turns (>=2)   : 1 (0%)
+  turns_with_think         : 642 (29%)
+  think chars  mean/median : 0 / 0.0
+  say   chars  mean/median : 476.83 / 180  (verbosity to user)
+  tool histogram           : Read:331, Bash:180, Edit:161, Grep:152, PowerShell:48, Glob:18, Write:18, AskUserQuestion:11, Agent:8, Workflow:5, TodoWrite:3, Skill:2
+  per-100-tooluses         : TodoWrite:0.3, Workflow:0.5, Agent:0.9, Task:0, Read:35.3, Grep:16.2, Glob:1.9, Edit:17.2, Write:1.9, Bash:19.2, PowerShell:5.1, AskUserQuestion:1.2
