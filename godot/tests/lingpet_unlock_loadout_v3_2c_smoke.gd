@@ -4,6 +4,7 @@ const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_st
 const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
@@ -105,12 +106,17 @@ var _runtime_refs: Array[Object] = []
 func _init() -> void:
 	_verify_catalog_no_skill_and_lumion_pool()
 	_verify_no_skill_activation_snapshot()
+	_verify_fresh_hatch_keeps_zero_skill_loadout()
+	_verify_empty_primary_set_does_not_reinject_defaults()
+	_verify_legacy_one_slot_loadout_survives_v3_2c_normalization()
 	_verify_primary_unlock_reconcile()
 	_verify_single_entry_pool_resolve()
-	_verify_second_unlock_flags_do_not_fill_slot_one()
-	_verify_debug_forced_skill_skips_reconcile()
+	_verify_second_unlock_flags_fill_slot_one()
+	_verify_debug_forced_skill_reconcile_stays_sticky()
 	_verify_headstart_rederives_primary_unlock()
+	_verify_maribo_headstart_rederives_starter_unlock()
 	_cleanup_runtimes()
+	ProjectResourceLoader.clear_caches()
 
 	if _failures.is_empty():
 		print("lingpet_unlock_loadout_v3_2c_smoke: ok")
@@ -154,6 +160,73 @@ func _verify_no_skill_activation_snapshot() -> void:
 	_expect_eq((loadout.get("passive_skill_ids", []) as Array).size(), 0, "no-skill activation loadout should keep passive ids empty")
 	_expect_eq(int(snapshot.get("companion_skill_level", 0)), 0, "no-skill activation snapshot should keep active level zero")
 	_expect_eq(int(snapshot.get("companion_passive_skill_level", 0)), 0, "no-skill activation snapshot should keep passive level zero")
+
+
+func _verify_fresh_hatch_keeps_zero_skill_loadout() -> void:
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	runtime.update(0.0, owner, registry)
+	var egg_pos: Vector2 = owner.value_of("lingpet_egg_pos")
+	_expect(egg_pos != Vector2.ZERO, "fresh hatch fixture should spawn a field egg")
+	_register_hit(runtime, owner, registry, egg_pos)
+	var hatched_pet_id := str(owner.value_of("active_lingpet_id"))
+	_expect(hatched_pet_id != "", "fresh hatch should publish a hatched pet id")
+	var loadouts: Dictionary = owner.value_of("lingpet_loadouts") as Dictionary
+	var hatch_loadout: Dictionary = loadouts.get(hatched_pet_id, {}) as Dictionary
+	_expect_str(str(hatch_loadout.get("active_skill_id", "")), "", "fresh hatch should keep primary active empty until affinity reconcile")
+	_expect_str(str(hatch_loadout.get("passive_skill_id", "")), "", "fresh hatch should keep primary passive empty until affinity reconcile")
+	_expect_eq((hatch_loadout.get("active_skill_ids", []) as Array).size(), 0, "fresh hatch should keep active ids empty")
+	_expect_eq((hatch_loadout.get("passive_skill_ids", []) as Array).size(), 0, "fresh hatch should keep passive ids empty")
+	_expect_eq(int(hatch_loadout.get("active_slot_count", -1)), 0, "fresh hatch should keep active slot count at zero")
+	_expect_eq(int(hatch_loadout.get("passive_slot_count", -1)), 0, "fresh hatch should keep passive slot count at zero")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "", "fresh hatch owner active id should stay empty before reconcile")
+	_expect_str(str(owner.value_of("lingpet_passive_skill_id")), "", "fresh hatch owner passive id should stay empty before reconcile")
+
+
+func _verify_empty_primary_set_does_not_reinject_defaults() -> void:
+	var owner := FakeOwner.new()
+	var state := LingpetLoadoutState.new()
+	var loadout: Dictionary = state.set_pet_loadout(
+		owner,
+		"maribo",
+		"",
+		"",
+		0,
+		0
+	)
+	_expect_str(str(loadout.get("active_skill_id", "")), "", "empty primary write should not reinject default active")
+	_expect_str(str(loadout.get("passive_skill_id", "")), "", "empty primary write should not reinject default passive")
+	_expect_eq(int(loadout.get("active_slot_count", -1)), 0, "empty primary write should force active slot count zero")
+	_expect_eq(int(loadout.get("passive_slot_count", -1)), 0, "empty primary write should force passive slot count zero")
+	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 0, "empty primary write should keep active ids empty")
+	_expect_eq((loadout.get("passive_skill_ids", []) as Array).size(), 0, "empty primary write should keep passive ids empty")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "", "empty primary owner active id should stay empty")
+	_expect_str(str(owner.value_of("lingpet_passive_skill_id")), "", "empty primary owner passive id should stay empty")
+
+
+func _verify_legacy_one_slot_loadout_survives_v3_2c_normalization() -> void:
+	var owner := FakeOwner.new()
+	owner.values["lingpet_loadouts"] = {
+		"maribo": {
+			"active_skill_id": "maribo_hydro_sphere",
+			"active_skill_level": 2,
+			"passive_skill_id": "lingpet_resonance_boost",
+			"passive_skill_level": 3,
+		},
+	}
+	var state := LingpetLoadoutState.new()
+	state.sync_from_owner(owner)
+	var loadout := state.get_loadout("maribo")
+	_expect_str(str(loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "pre-V3-2c one-slot active should survive normalization")
+	_expect_eq(int(loadout.get("active_skill_level", 0)), 2, "pre-V3-2c one-slot active level should survive normalization")
+	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 1, "pre-V3-2c active array should contain only slot 0")
+	_expect_str(str(loadout.get("second_active_skill_id", "")), "", "pre-V3-2c active should not invent a second slot")
+	_expect_str(str(loadout.get("passive_skill_id", "")), "lingpet_resonance_boost", "pre-V3-2c one-slot passive should survive normalization")
+	_expect_eq(int(loadout.get("passive_skill_level", 0)), 3, "pre-V3-2c one-slot passive level should survive normalization")
+	_expect_eq((loadout.get("passive_skill_ids", []) as Array).size(), 1, "pre-V3-2c passive array should contain only slot 0")
+	_expect_str(str(loadout.get("second_passive_skill_id", "")), "", "pre-V3-2c passive should not invent a second slot")
 
 
 func _verify_primary_unlock_reconcile() -> void:
@@ -213,7 +286,7 @@ func _verify_single_entry_pool_resolve() -> void:
 	_expect_eq((direct_resolved.get("candidates", []) as Array).size(), 1, "direct single resolve should persist a one-id candidate list")
 
 
-func _verify_second_unlock_flags_do_not_fill_slot_one() -> void:
+func _verify_second_unlock_flags_fill_slot_one() -> void:
 	var fixture := _activate_pet("red_dragon")
 	var runtime: Object = fixture.get("runtime")
 	var owner: FakeOwner = fixture.get("owner")
@@ -225,29 +298,33 @@ func _verify_second_unlock_flags_do_not_fill_slot_one() -> void:
 	_expect(bool(rewards.get("second_active_unlocked", false)), "Lv.25 fixture should include second active unlock")
 	_expect(bool(rewards.get("second_passive_unlocked", false)), "Lv.25 fixture should include second passive unlock")
 	var loadout: Dictionary = runtime._loadout_state.get_loadout("red_dragon")
-	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 1, "V3-2c should keep exactly one active id after second unlock flags")
-	_expect_eq((loadout.get("passive_skill_ids", []) as Array).size(), 1, "V3-2c should keep exactly one passive id after second unlock flags")
-	_expect_str(str(loadout.get("second_active_skill_id", "")), "", "V3-2c should not write second active id")
-	_expect_str(str(loadout.get("second_passive_skill_id", "")), "", "V3-2c should not write second passive id")
-	_expect_str(str(owner.value_of("lingpet_second_active_skill_id")), "", "owner second active id should stay empty after second unlock flags")
-	_expect_str(str(owner.value_of("lingpet_second_passive_skill_id")), "", "owner second passive id should stay empty after second unlock flags")
-	_expect_eq(runtime._get_active_slot_count(), 1, "runtime active slot count should stay one without a slot-1 id")
-	_expect_str(runtime._get_skill_id_for_slot(1), "", "runtime slot 1 active id should stay empty after second unlock flags")
+	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 2, "V3-2c should write two active ids after second unlock flags")
+	_expect_eq((loadout.get("passive_skill_ids", []) as Array).size(), 2, "V3-2c should write two passive ids after second unlock flags")
+	var second_active_id := str(loadout.get("second_active_skill_id", ""))
+	var second_passive_id := str(loadout.get("second_passive_skill_id", ""))
+	_expect(second_active_id != "", "V3-2c should write second active id")
+	_expect(second_passive_id != "", "V3-2c should write second passive id")
+	_expect(second_active_id != str(loadout.get("active_skill_id", "")), "V3-2c second active should exclude the primary active")
+	_expect(second_passive_id != str(loadout.get("passive_skill_id", "")), "V3-2c second passive should exclude the primary passive")
+	_expect_str(str(owner.value_of("lingpet_second_active_skill_id")), second_active_id, "owner second active id should mirror the reconciled slot-1 active")
+	_expect_str(str(owner.value_of("lingpet_second_passive_skill_id")), second_passive_id, "owner second passive id should mirror the reconciled slot-1 passive")
+	_expect_eq(runtime._get_active_slot_count(), 2, "runtime active slot count should enable slot 1 after second active reconcile")
+	_expect_str(runtime._get_skill_id_for_slot(1), second_active_id, "runtime slot 1 active id should match the reconciled second active")
 
 
-func _verify_debug_forced_skill_skips_reconcile() -> void:
+func _verify_debug_forced_skill_reconcile_stays_sticky() -> void:
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
 	_expect(
-		runtime.debug_grant_and_activate_pet("lumion", owner, false, "lumion_solar_bolt", "", registry, 1, 1),
-		"debug forced Solar Bolt grant should activate Lumion"
+		runtime.debug_grant_and_activate_pet("lumion", owner, false, "lumion_thunder_orb", "", registry, 1, 1),
+		"debug forced Thunder Orb grant should activate Lumion"
 	)
 	_grant_round_commits(runtime, "lumion", 10, registry)
 	runtime.update(0.0, owner, registry)
-	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "lumion_solar_bolt", "debug forced active skill should survive reconcile")
-	_expect_str(str(runtime.get_snapshot().get("companion_skill_id", "")), "lumion_solar_bolt", "debug forced active skill should stay in the snapshot")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "lumion_thunder_orb", "debug forced active skill should stay sticky while same-pet reconcile is protected")
+	_expect_str(str(runtime.get_snapshot().get("companion_skill_id", "")), "lumion_thunder_orb", "debug forced active skill should stay in the snapshot while forced reconcile is protected")
 
 
 func _verify_headstart_rederives_primary_unlock() -> void:
@@ -276,6 +353,23 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	store.clear()
 
 
+func _verify_maribo_headstart_rederives_starter_unlock() -> void:
+	var store := LingpetAffinityStore.new()
+	store.set_save_path("user://lingpet_unlock_v3_2c_maribo_headstart_smoke.cfg")
+	store.clear()
+	_expect(bool(store.set_best_level("maribo", 3)), "Maribo headstart fixture should persist best level 3")
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry), "Maribo headstart fixture should activate with an empty hatch-zero loadout")
+	runtime.update(0.0, owner, registry)
+	_expect_eq(runtime.get_affinity_level("maribo"), 1, "Maribo best level 3 should rederive a Lv.1 headstart")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "maribo_hydro_sphere", "Maribo Lv.1 headstart should rederive the starter active through unlock reconcile")
+	_expect_str(str(owner.value_of("lingpet_passive_skill_id")), "", "Maribo Lv.1 headstart should not bypass the Lv.2 passive unlock")
+	store.clear()
+
+
 func _activate_pet(pet_id: String) -> Dictionary:
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new({})
@@ -295,6 +389,13 @@ func _cleanup_runtimes() -> void:
 func _grant_round_commits(runtime: Object, pet_id: String, count: int, registry: Object = null) -> void:
 	for _i in range(count):
 		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+
+
+func _register_hit(runtime: Object, owner: FakeOwner, registry: Object, egg_pos: Vector2) -> void:
+	owner.values["ball_active"] = true
+	owner.values["ball_pos"] = egg_pos
+	owner.values["ball_vel"] = Vector2(0.0, 12.0)
+	runtime.update(0.0, owner, registry)
 
 
 func _resolved_choice(runtime: Object, pet_id: String, choice_key: String) -> Dictionary:

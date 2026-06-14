@@ -4434,22 +4434,22 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")
 	_expect(bool(rewards.get("second_active_unlocked", false)), "Lv.22 should record the second-active unlock flag")
 	var loadout: Dictionary = runtime._loadout_state.get_loadout("red_dragon")
-	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 1, "V3-2c reconcile should keep only slot 0 active id")
-	_expect_str(str(loadout.get("second_active_skill_id", "")), "", "V3-2c reconcile should not write a slot-1 active id")
-	_expect_str(str(owner.lingpet_second_active_skill_id), "", "owner second active key should remain empty in V3-2c")
-	_expect_eq(runtime._get_active_slot_count(), 1, "Lv.22 unlock without a slot-1 id should keep runtime at one active slot")
-	_expect_str(runtime._get_skill_id_for_slot(1), "", "slot 1 should resolve empty even after the Lv.22 unlock flag")
+	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 2, "V3-2c reconcile should write a real slot-1 active id")
+	_expect(str(loadout.get("second_active_skill_id", "")) != "", "V3-2c reconcile should persist the resolved second active id")
+	_expect(str(owner.lingpet_second_active_skill_id) != "", "owner second active key should expose the reconciled slot-1 id")
+	_expect_eq(runtime._get_active_slot_count(), 2, "Lv.22 unlock with a slot-1 id should enable two active slots")
+	_expect(runtime._get_skill_id_for_slot(1) != "", "slot 1 should resolve a real skill id after V3-2c reconcile")
 	_expect(runtime._skill_runtime_host._dragon_breath_skill != null, "slot 0 skill runtime should prewarm at loadout apply")
-	_expect(runtime._skill_runtime_host._dragon_wing_skill == null, "V3-2c should not prewarm a second active runtime from reconcile")
+	_expect(runtime._skill_runtime_host._dragon_wing_skill != null, "V3-2c should prewarm the reconciled second active runtime")
 
 	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 7, 0.0, true)
 	runtime.update(0.05, owner, registry)
 	var slot0_state: Object = runtime._get_companion_skill_state_for_slot(0)
 	var slot1_state: Object = runtime._get_companion_skill_state_for_slot(1)
 	_expect(bool(slot0_state.windup_active), "slot 0 FREE skill should arm its own windup")
-	_expect(not bool(slot1_state.windup_active), "slot 1 should remain disarmed while V3-2c leaves its id empty")
+	_expect(bool(slot1_state.windup_active), "slot 1 should arm its own windup after V3-2c reconcile")
 	_expect_float(float(slot0_state.cooldown), 0.0, "slot 0 windup should not spend slot 0 cooldown before launch")
-	_expect_float(float(slot1_state.cooldown), 0.0, "slot 1 should not spend cooldown while V3-2c leaves its id empty")
+	_expect_float(float(slot1_state.cooldown), 0.0, "slot 1 windup should not spend slot 1 cooldown before launch")
 
 	var same_kind_runtime: Object = LingpetEggRuntime.new()
 	var same_kind_owner := FakeOwner.new()
@@ -4481,7 +4481,45 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	same_kind_runtime.update(0.05, same_kind_owner, registry)
 	var same_kind_slot1: Object = same_kind_runtime._get_companion_skill_state_for_slot(1)
 	_expect(not bool(same_kind_slot1.windup_active), "same-kind slot 1 should not arm when module sharing is blocked")
+
+	var suppress_runtime: Object = LingpetEggRuntime.new()
+	var suppress_owner := FakeOwner.new()
+	_expect(
+		suppress_runtime.debug_grant_and_activate_pet("red_dragon", suppress_owner, false, "", "", registry, 1, 1),
+		"same-kind reconcile fixture should activate Red Dragon"
+	)
+	suppress_runtime._affinity_state.resolve_single_unlock("red_dragon", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "red_dragon_dragon_breath")
+	suppress_runtime._affinity_state.resolve_single_unlock("red_dragon", LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK, "red_dragon_dragon_breath")
+	suppress_runtime._invalidate_current_loadout_cache()
+	suppress_runtime.update(0.0, suppress_owner, registry)
+	var suppress_loadout: Dictionary = suppress_runtime._loadout_state.get_loadout("red_dragon")
+	_expect_str(str(suppress_loadout.get("active_skill_id", "")), "red_dragon_dragon_breath", "forced same-kind reconcile should preserve slot 0")
+	_expect_str(str(suppress_loadout.get("second_active_skill_id", "")), "", "write-time would_share_module should suppress a same-kind slot-1 id")
 	_expect_float(float(same_kind_slot1.cooldown), 0.0, "same-kind slot 1 should not spend cooldown when module sharing is blocked")
+
+	var passive_runtime: Object = LingpetEggRuntime.new()
+	var passive_owner := FakeOwner.new()
+	_expect(
+		passive_runtime.debug_grant_and_activate_pet("maribo", passive_owner, false, "", "", registry, 1, 1),
+		"second-passive reconcile fixture should activate Maribo"
+	)
+	passive_runtime._affinity_state.resolve_single_unlock("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "maribo_hydro_sphere")
+	passive_runtime._affinity_state.resolve_single_unlock("maribo", LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK, "lingpet_resonance_boost")
+	passive_runtime._affinity_state.resolve_single_unlock("maribo", LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK, "lingpet_tailwind_steps")
+	passive_runtime._invalidate_current_loadout_cache()
+	passive_runtime.update(0.0, passive_owner, registry)
+	var passive_loadout: Dictionary = passive_runtime._loadout_state.get_loadout("maribo")
+	_expect_str(str(passive_loadout.get("passive_skill_id", "")), "lingpet_resonance_boost", "primary passive reconcile should write slot 0")
+	_expect_str(str(passive_loadout.get("second_passive_skill_id", "")), "lingpet_tailwind_steps", "second-passive reconcile should write slot 1")
+	_expect_eq((passive_loadout.get("passive_skill_ids", []) as Array).size(), 2, "second-passive reconcile should persist two passive ids")
+	_expect(
+		passive_runtime._loadout_matches_unlock_reconcile(passive_loadout, "maribo_hydro_sphere", "lingpet_resonance_boost", "", "lingpet_tailwind_steps"),
+		"loadout match should include the second passive id so a settled reconcile does not thrash"
+	)
+	_expect(
+		not bool(passive_runtime._reconcile_unlock_choices(passive_owner)),
+		"a settled 4-key reconcile should return false instead of rewriting every frame"
+	)
 
 	var legacy_runtime: Object = LingpetEggRuntime.new()
 	legacy_runtime._companion_skill_state_by_pet_id["red_dragon"] = {
