@@ -21,9 +21,15 @@ fable-5가 링피아 프레임 예산 최적화 24개 커밋에서 균일하게 
 
 기법 자체보다 **모든 기법에 빠짐없이 적용되는 이 규율**이 핵심이다.
 
-1. **계측은 non-behavioral + gap-free.** `perf_logger`는 optional/null-default,
-   deps dict로 스레드하거나 arg-count reflection으로 caller 백호환. early-return
-   분기는 헬퍼로 추출해 무계측 틈이 안 생기게(`_update_none_state` 패턴).
+1. **계측은 non-behavioral + gap-free + 플러밍 자체가 핫패스 비용이면 안 됨.**
+   `perf_logger`는 optional/null-default, deps dict로 스레드하거나 arg-count
+   reflection으로 caller 백호환. early-return 분기는 헬퍼로 추출해 무계측 틈이
+   안 생기게(`_update_none_state` 패턴). **단 그 back-compat 리플렉션(arg-count
+   체크)이 매 틱 `get_method_list()`를 스캔하면 계측 플러밍이 곧 핫패스 오버헤드가
+   된다** — instance_id:method로 캐시(`_get_method_argument_count`). 회귀
+   `24de004fa`: 계측 커밋 `11f0a86bc`의 uncached arg-count 스캔이 mythic 업데이트를
+   0.67→3.04ms로 부풀려 "계측 먼저"가 역설적으로 회귀를 주입(첫 lookup 2389us→캐시
+   22.2us). "non-behavioral"은 동작뿐 아니라 *비용*도 중립이어야 한다.
 2. **데이터가 타겟을 재지정하게 둔다 — 직관의 반대인 경우가 흔하다.** mythic
    per-tick 1.1ms의 81%는 18개 family 업데이트가 아니라 post-update owner sync
    였고, sync 바닥은 owner write가 아니라 value-getter/context-build fan-out
