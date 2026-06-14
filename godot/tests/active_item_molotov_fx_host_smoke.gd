@@ -11,6 +11,7 @@ extends SceneTree
 # torn-down tween (set_active(false) ordering bug).
 
 const ActiveItemMolotovFxHost := preload("res://scripts/items/active_item_molotov_fx_host.gd")
+const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const WritheEmber := preload("res://scripts/effects/writhe_ember_material.gd")
 
 var _failures: Array[String] = []
@@ -25,6 +26,7 @@ func _run() -> void:
 	_verify_pipeline_status_keys()
 	_verify_required_writhe_ember_presets()
 	await _verify_host_sync_and_burst()
+	await _verify_throw_renderer_deactivates_molotov_pool()
 
 	if _failures.is_empty():
 		print("active_item_molotov_fx_host_smoke: ok")
@@ -155,6 +157,72 @@ func _verify_host_sync_and_burst() -> void:
 	)
 
 	host.queue_free()
+
+
+func _verify_throw_renderer_deactivates_molotov_pool() -> void:
+	var renderer: Object = ActiveItemThrowRenderer.new()
+	var canvas := Node2D.new()
+	get_root().add_child(canvas)
+
+	renderer.draw(
+		canvas,
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[_build_fire_zone()],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		[],
+		Vector2.ZERO
+	)
+	await process_frame
+
+	var host: Node = canvas.get_node_or_null("ActiveItemMolotovFxHost0")
+	_expect(host != null, "throw renderer should create a molotov FX host for active fire zones")
+	if host != null:
+		_expect(host.visible, "throw renderer molotov host should be visible after active fire zone sync")
+
+	renderer.deactivate_all_hosts()
+	await process_frame
+
+	if host != null and is_instance_valid(host):
+		_expect(not host.visible, "throw renderer deactivate_all_hosts should hide pooled molotov hosts")
+		var status: Dictionary = host.get_debug_status()
+		_expect(
+			not bool(status.get("ember_emitting", false)),
+			"throw renderer deactivate_all_hosts should stop pooled molotov ember emission"
+		)
+
+	canvas.queue_free()
+
+
+func _build_fire_zone() -> Dictionary:
+	return {
+		"zone_id": 991,
+		"position": Vector2(230.0, 520.0),
+		"width": 150.0,
+		"height": 60.0,
+		"duration_frames": 120.0,
+		"max_duration_frames": 150.0,
+		"age_frames": 1.0,
+		"flames": [],
+	}
 
 
 func _expect(condition: bool, message: String) -> void:

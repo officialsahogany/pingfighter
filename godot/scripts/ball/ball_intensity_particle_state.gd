@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallEffectPayloadFactory := preload("res://scripts/ball/ball_effect_payload_factory.gd")
+
 const SEVERE_LOD_SCALE_THRESHOLD := 0.50
 const SEVERE_LOD_MAX_PARTICLES := 18
 const SEVERE_LOD_SPAWN_CHANCE_MULTIPLIER := 0.45
@@ -49,17 +51,7 @@ func update(
 		spawn_chance *= SEVERE_LOD_SPAWN_CHANCE_MULTIPLIER
 	for _i in range(particle_count):
 		if randf() < spawn_chance:
-			var angle: float = atan2(-ball_velocity.y, -ball_velocity.x) + randf_range(-0.5, 0.5)
-			var speed: float = randf_range(1.0, 3.0) * (1.0 + intensity)
-			intensity_particles.append({
-				"pos": ball_center + Vector2(randf_range(-5.0, 5.0), randf_range(-5.0, 5.0)),
-				"vel": Vector2(cos(angle), sin(angle)) * speed + Vector2(randf_range(-0.5, 0.5), randf_range(-0.5, 0.5)),
-				"size": randf_range(3.0, 8.0) * (0.5 + intensity * 0.5),
-				"life": 15.0 + intensity * 25.0,
-				"max_life": 15.0 + intensity * 25.0,
-				"color": colors[randi() % colors.size()],
-				"type": "flame" if randf() < 0.7 else "spark",
-			})
+			intensity_particles.append(BallEffectPayloadFactory.build_intensity_particle(ball_center, ball_velocity, intensity, colors))
 
 	var write_idx: int = 0
 	for i in range(intensity_particles.size()):

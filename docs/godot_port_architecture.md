@@ -466,6 +466,18 @@ During implementation:
 - [ ] For lifecycle refactors, preserve the public API at the old owner
   with forwarding wrappers or equivalent facades, and keep behavior,
   ordering, state names, and resource paths unchanged.
+- [ ] For payload-factory extraction, compare the new factory against the
+  previous inline dictionary at literal granularity: constants, random
+  ranges, color alpha, key names, lifetime fields, and RNG call order. Do
+  not replace one similar-looking constant with another; give factory
+  parameters semantic names such as `initial_sweep_half_angle` versus
+  `slow_drift_half_angle`, and make the smoke assert the original
+  reference range rather than the newly extracted code.
+- [ ] Smoke tests must not call `quit(1)` inside `_expect()` and then fall
+  through to a later `quit(0)`. Use the repo-standard `_failures` array,
+  print the ok marker only when it is empty, and emit `quit(1)` from the
+  final failure branch so both `run_smoke_tests.ps1` and direct
+  `godot --headless -s` exit-code workflows catch failures.
 - [ ] Register new lazy-loaded modules in the relevant
   `scripts/resources/gameplay_*_module_catalog.gd` catalog so they are
   reachable through `gameplay_module_registry.gd`.
@@ -665,6 +677,17 @@ Before sign-off:
 - `scripts/items/`
   Active/passive item state, cooldowns, acquisition routing, and item
   runtime effects.
+- `scripts/plaza/`
+  Plaza shell runtime: accepted plaza asset manifests, staged prewarm,
+  side-scroll street rendering, S4.5 parallax layer assets, S1 sidewalk ground
+  reuse, player X-walk/X-camera state, per-instance CPU emissive flicker,
+  building menu shells, `plaza_save_store.gd` persistent gold/AP/bank/shop
+  wallet ledger, first-pass bank menu transactions, first-pass active-item shop
+  transactions, first-pass active-slot blacksmith enhancement attempts,
+  first-pass active-item capsule gacha pulls, first-pass Lingpet Store
+  resonance-egg purchases via `lingpet_egg_runtime` (plaza pays and opens the
+  egg; the lingpet runtime owns hatch/ownership/slot state), and EXIT callback
+  handoff from the result screen.
 - `scripts/audio/`
   Sound loading, pitch/volume policies, cooldown gates, and event sound
   routing.

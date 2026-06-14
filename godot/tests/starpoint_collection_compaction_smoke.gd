@@ -4,6 +4,7 @@ const Stage1BalloonEvent := preload("res://scripts/stages/stage1/stage1_balloon_
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
 const Stage3BossSkillState := preload("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
 const Stage4BirdEvent := preload("res://scripts/stages/stage4/stage4_bird_event.gd")
+const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
 
 var _failures: Array[String] = []
 
@@ -46,6 +47,8 @@ class LingpetStarlightRuntimeStub:
 
 
 func _init() -> void:
+	_verify_common_compaction_helpers()
+	_verify_stage_sources_delegate_compaction()
 	_verify_stage1_collection_preserves_remaining_drop_after_modal()
 	_verify_stage1_collection_continues_without_modal()
 	_verify_stage1_starlight_tracking_collects_without_player_overlap()
@@ -60,6 +63,43 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_common_compaction_helpers() -> void:
+	var drops := [
+		_make_drop(Vector2(100.0, 100.0), 12.0),
+		_make_drop(Vector2(110.0, 100.0), 12.0),
+		_make_drop(Vector2(120.0, 100.0), 12.0),
+	]
+	StarpointCollectionCompaction.finish_in_place(drops, 1, 0, 3)
+	_expect(drops.size() == 1, "common in-place compaction should keep tail drops after the collected index")
+	_expect(_drop_pos(drops[0]) == Vector2(120.0, 100.0), "common in-place compaction should preserve the correct tail drop")
+
+	var original := [
+		_make_drop(Vector2(100.0, 100.0), 12.0),
+		_make_drop(Vector2(110.0, 100.0), 12.0),
+		_make_drop(Vector2(120.0, 100.0), 12.0),
+	]
+	var kept := [_make_drop(Vector2(90.0, 100.0), 12.0)]
+	var preserved: Array = StarpointCollectionCompaction.build_preserved_after_modal(original, kept, 1, 3)
+	_expect(preserved.size() == 2, "common kept-array compaction should join pre-kept drops and tail drops")
+	_expect(_drop_pos(preserved[0]) == Vector2(90.0, 100.0), "common kept-array compaction should preserve prior kept drops")
+	_expect(_drop_pos(preserved[1]) == Vector2(120.0, 100.0), "common kept-array compaction should preserve tail drops")
+
+
+func _verify_stage_sources_delegate_compaction() -> void:
+	var in_place_paths := [
+		"res://scripts/stages/stage1/stage1_balloon_event.gd",
+		"res://scripts/stages/stage2/stage2_pillar_background.gd",
+		"res://scripts/stages/stage4/stage4_bird_event.gd",
+	]
+	for path in in_place_paths:
+		var source: String = FileAccess.get_file_as_string(path)
+		_expect(source.find("StarpointCollectionCompaction.finish_in_place") >= 0, "%s should delegate in-place modal compaction" % path)
+		_expect(source.find("func _finish_starpoint_modal_collection") < 0, "%s should not keep private modal compaction" % path)
+	var stage3_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+	_expect(stage3_source.find("StarpointCollectionCompaction.build_preserved_after_modal") >= 0, "Stage 3 should delegate kept-array modal compaction")
+	_expect(stage3_source.find("func _finish_starpoint_modal_collection") < 0, "Stage 3 should not keep private modal compaction")
 
 
 func _verify_stage1_collection_preserves_remaining_drop_after_modal() -> void:

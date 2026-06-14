@@ -15,6 +15,7 @@ extends SceneTree
 # now also scans the gated _set_single/_set_pair helpers.
 
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -60,6 +61,10 @@ class SchemaGatedCountingOwner:
 	func value_of(key: String) -> Variant:
 		return scene_state.get_value(key) if scene_state.has_key(key) else null
 
+	func set_value(key: String, value: Variant) -> void:
+		if scene_state.has_key(key):
+			scene_state.set_value(key, value)
+
 
 class NullRegistry:
 	extends RefCounted
@@ -75,6 +80,7 @@ func _init() -> void:
 	_verify_stable_ticks_stay_within_volatile_write_budget()
 	_verify_pet_switch_converges_static_keys()
 	_verify_level_change_updates_display_keys()
+	_verify_second_skill_live_values_sync_through_schema_owner()
 	_verify_owner_array_mutation_cannot_poison_cache()
 
 	ProjectResourceLoader.clear_caches()
@@ -150,6 +156,64 @@ func _verify_level_change_updates_display_keys() -> void:
 	)
 
 
+func _verify_second_skill_live_values_sync_through_schema_owner() -> void:
+	var runtime: Object = LingpetEggRuntime.new()
+	var owner := SchemaGatedCountingOwner.new()
+	var registry := NullRegistry.new()
+	owner.set_value("ball_active", true)
+	owner.set_value("ball_pos", Vector2(380.0, 260.0))
+	owner.set_value("ball_vel", Vector2(0.0, -12.0))
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("red_dragon", owner, false, "red_dragon_dragon_breath", "", registry, 1, 1)),
+		"second-skill owner fixture should activate Red Dragon"
+	)
+	_force_second_active_runtime_profile(runtime, "red_dragon", "red_dragon_dragon_breath", "red_dragon_dragon_wing")
+	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 7, 0.0, true)
+	runtime.update(0.05, owner, registry)
+	runtime.update(0.10, owner, registry)
+	var snapshot: Dictionary = runtime.get_snapshot()
+	_expect(str(snapshot.get("companion_skill_id", "")) == "red_dragon_dragon_breath", "bare companion skill id should remain slot 0")
+	_expect(snapshot.has("companion_skill_cooldown_duration"), "slot-0 snapshot should keep the bare cooldown-duration key for HUD back-compat")
+	_expect(snapshot.has("companion_skill_windup_ratio"), "slot-0 snapshot should keep the bare windup-ratio key for HUD back-compat")
+	_expect(not snapshot.has("companion_skill_id_0"), "slot-0 snapshot should not be renamed to an indexed key")
+	_expect(str(snapshot.get("companion_skill_id_1", "")) == "red_dragon_dragon_wing", "slot-1 internal snapshot should expose the second active id")
+	_expect(bool(snapshot.get("companion_skill_winding_up_1", false)), "slot-1 internal snapshot should expose live windup state")
+	var snapshot_ratio := float(snapshot.get("companion_skill_windup_ratio_1", 0.0))
+	_expect(snapshot_ratio > 0.0 and snapshot_ratio <= 1.0, "slot-1 internal snapshot should expose a normalized windup ratio")
+	_expect(str(owner.value_of("lingpet_second_skill_id")) == "red_dragon_dragon_wing", "schema-gated owner should receive the live second skill id")
+	_expect(str(owner.value_of("ringpet_second_skill_id")) == "red_dragon_dragon_wing", "ringpet mirror should receive the live second skill id")
+	_expect(float(owner.value_of("lingpet_second_skill_cooldown_duration")) > 0.0, "schema-gated owner should receive the live second skill cooldown duration")
+	_expect(float(owner.value_of("lingpet_second_skill_cooldown_duration")) < float(owner.value_of("lingpet_skill_cooldown_duration")), "second skill cooldown duration should stay divergent from slot 0")
+	_expect(bool(owner.value_of("lingpet_second_skill_winding_up")), "schema-gated owner should receive live second skill windup state")
+	var owner_ratio := float(owner.value_of("lingpet_second_skill_windup_ratio"))
+	_expect(owner_ratio > 0.0 and owner_ratio <= 1.0, "schema-gated owner should receive a normalized second skill windup ratio")
+
+	var locked_runtime: Object = LingpetEggRuntime.new()
+	var locked_owner := owner
+	_expect(
+		bool(locked_runtime.debug_grant_and_activate_pet("red_dragon", locked_owner, false, "red_dragon_dragon_breath", "", registry, 1, 1)),
+		"locked second-skill fixture should clear a previously live second-skill owner"
+	)
+	var locked_ids: Array[String] = ["red_dragon_dragon_breath", "red_dragon_dragon_wing"]
+	locked_runtime._current_profile.active_skill_ids = locked_ids
+	locked_runtime._current_profile.active_skill_levels = {"red_dragon_dragon_breath": 1, "red_dragon_dragon_wing": 1}
+	locked_runtime._current_profile.active_slot_count = 2
+	locked_runtime.update(0.05, locked_owner, registry)
+	var locked_snapshot: Dictionary = locked_runtime.get_snapshot()
+	_expect(str(locked_snapshot.get("companion_skill_id_1", "")) == "", "slot-1 snapshot should stay hidden before second_active_unlocked")
+	_expect(is_equal_approx(float(locked_snapshot.get("companion_skill_cooldown_1", -1.0)), 0.0), "locked slot-1 snapshot cooldown should reset to default")
+	_expect(is_equal_approx(float(locked_snapshot.get("companion_skill_cooldown_duration_1", -1.0)), 0.0), "locked slot-1 snapshot cooldown duration should reset to default")
+	_expect(is_equal_approx(float(locked_snapshot.get("companion_skill_windup_ratio_1", -1.0)), 0.0), "locked slot-1 snapshot windup ratio should reset to default")
+	_expect(not bool(locked_snapshot.get("companion_skill_ready_1", true)), "locked slot-1 snapshot ready should reset to default")
+	_expect(str(locked_owner.value_of("lingpet_second_skill_id")) == "", "owner second skill id should stay default before second_active_unlocked")
+	_expect(str(locked_owner.value_of("ringpet_second_skill_id")) == "", "ringpet owner second skill id should stay default before second_active_unlocked")
+	_expect(is_equal_approx(float(locked_owner.value_of("lingpet_second_skill_cooldown")), 0.0), "owner second skill cooldown should clear stale live values before second_active_unlocked")
+	_expect(is_equal_approx(float(locked_owner.value_of("lingpet_second_skill_cooldown_duration")), 0.0), "owner second skill cooldown duration should clear stale live values before second_active_unlocked")
+	_expect(not bool(locked_owner.value_of("lingpet_second_skill_ready")), "owner second skill ready should stay default before second_active_unlocked")
+	_expect(not bool(locked_owner.value_of("lingpet_second_skill_winding_up")), "owner second skill windup should stay default before second_active_unlocked")
+	_expect(is_equal_approx(float(locked_owner.value_of("lingpet_second_skill_windup_ratio")), 0.0), "owner second skill windup ratio should clear stale live values before second_active_unlocked")
+
+
 func _verify_owner_array_mutation_cannot_poison_cache() -> void:
 	var setup := _make_companion_setup()
 	var owner: SchemaGatedCountingOwner = setup["owner"]
@@ -175,6 +239,25 @@ func _verify_owner_array_mutation_cannot_poison_cache() -> void:
 			(refreshed as Array).has("rabi"),
 			"the refreshed slots array should contain the newly granted pet"
 		)
+
+
+func _force_second_active_runtime_profile(runtime: Object, pet_id: String, first_skill_id: String, second_skill_id: String) -> void:
+	var ids: Array[String] = [first_skill_id, second_skill_id]
+	var levels: Dictionary = {}
+	if first_skill_id != "":
+		levels[first_skill_id] = 1
+	if second_skill_id != "":
+		levels[second_skill_id] = 1
+	var rewards := LingpetAffinityState.get_empty_reward_counts()
+	rewards["second_active_unlocked"] = true
+	rewards["signature"] = "snapshot-sync-second-active-%s-%s" % [first_skill_id, second_skill_id]
+	runtime._current_profile.set_pet_id(pet_id)
+	runtime._current_profile.active_skill_ids = ids
+	runtime._current_profile.active_skill_levels = levels
+	runtime._current_profile.active_slot_count = 2
+	runtime._current_profile.active_skill_id = first_skill_id
+	runtime._current_profile.active_skill_level = 1 if first_skill_id != "" else 0
+	runtime._current_profile.set_affinity_state(22, rewards)
 
 
 func _expect(condition: bool, message: String) -> void:

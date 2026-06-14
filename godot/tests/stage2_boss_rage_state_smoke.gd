@@ -42,6 +42,24 @@ func _verify_crisis_gate() -> void:
 		"player_score": 4,
 		"boss_score": 5,
 	}, false, false, false, 4), "crisis gate should ignore boss scores above the crisis score")
+	var mythic_reservation: Dictionary = Stage2BossRageState.get_crisis_reservation({
+		"current_stage": 2,
+		"player_score": 4,
+		"boss_score": 2,
+		"ai_mode": "mythic",
+	}, false, false, false, 4)
+	_expect(bool(mythic_reservation.get("triggered", false)), "crisis reservation should report triggered gates")
+	_expect(str(mythic_reservation.get("ai_mode", "")) == "mythic", "crisis reservation should preserve mythic AI mode")
+	var fallback_reservation: Dictionary = Stage2BossRageState.get_crisis_reservation({
+		"current_stage": 2,
+		"player_score": 4,
+		"boss_score": 2,
+		"league_mode": "diamond",
+	}, false, false, false, 4)
+	_expect(str(fallback_reservation.get("ai_mode", "")) == "champion", "crisis reservation should normalize non-mythic modes")
+	_expect(Stage2BossRageState.get_crisis_ai_mode({"league_mode": "mythic"}) == "mythic", "crisis AI mode should fall back to league mode")
+	_expect(Stage2BossRageState.get_crisis_rock_count("mythic", 3, 5) == 5, "mythic crisis should use the mythic rock count")
+	_expect(Stage2BossRageState.get_crisis_rock_count("champion", 3, 5) == 3, "non-mythic crisis should use the champion rock count")
 
 
 func _verify_visual_timing() -> void:
@@ -74,6 +92,11 @@ func _verify_stomp_step_window() -> void:
 
 
 func _verify_runtime_delegate() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
+	_expect(source.find("Stage2BossRageState.get_crisis_reservation") >= 0, "background should reserve crisis through the rage state helper")
+	_expect(source.find("Stage2BossRageState.get_crisis_rock_count") >= 0, "background should resolve crisis rock count through the rage state helper")
+	_expect(source.find("func _get_crisis_ai_mode") < 0, "background should not keep crisis AI mode policy")
+
 	var background := Stage2PillarBackground.new()
 	background.update(0.0, {
 		"current_stage": 2,

@@ -5,13 +5,15 @@ extends RefCounted
 #
 # Faithful 4-phase paddle-displacement crowd-control gag: Koyora flings rose
 # puppet strings up to the boss, drags it down to her cast spot, "kisses" it,
-# then slides it back to its exact original position. It does NOT touch the
-# ball, score, or apply damage. While the grab owns the boss,
+# then slides it back to its exact original position. The live ball can now cut
+# the strings during the held control window; the skill still never moves the
+# ball, score, or applies damage. While the grab owns the boss,
 # `lingpet_puppet_grab_active` is written onto the owner so boss_ai_state
 # freezes the boss at the scripted position instead of chasing the ball. Boss
 # paddle collision remains normal while displaced, matching the Python original.
 
 const CHU_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
+const LingpetPuppetGrabPayloadFactory := preload("res://scripts/lingpet/lingpet_puppet_grab_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -85,6 +87,12 @@ const MISS_TEXT := "MISS"
 const MISS_FONT_SIZE := 32
 const MISS_FLOAT_UP_SPEED := 28.0
 const MISS_OFFSET := Vector2(-32.0, -6.0)
+const ROPE_CUT_BALL_RADIUS_PAD := 18.0
+const ROPE_CUT_ARMING_SECONDS := 0.14
+const ROPE_CUT_GAP := 18.0
+const CUT_TEXT := "끊김!"
+const CUT_FONT_SIZE := 25
+const CUT_OFFSET := Vector2(-36.0, -18.0)
 
 var _active := false
 var _phase := PHASE_EXTENDING
@@ -93,8 +101,12 @@ var _anim_time := 0.0
 var _cast_pos := Vector2.ZERO
 var _boss_size := Vector2(100.0, 40.0)
 var _boss_original_center := Vector2.ZERO
+var _return_start_center := Vector2.ZERO
 var _kiss_center := Vector2.ZERO
 var _boss_draw_center := Vector2.ZERO
+var _cut_by_ball := false
+var _cut_point := Vector2.ZERO
+var _cut_count := 0
 var _heart_spawn_accum := 0.0
 var _hearts: Array[Dictionary] = []
 var _sparkle_spawn_accum := 0.0
@@ -133,9 +145,12 @@ func reset() -> void:
 	_cast_pos = Vector2.ZERO
 	_boss_size = Vector2(100.0, 40.0)
 	_boss_original_center = Vector2.ZERO
+	_return_start_center = Vector2.ZERO
 	_predicted_target_center = Vector2.ZERO
 	_kiss_center = Vector2.ZERO
 	_boss_draw_center = Vector2.ZERO
+	_cut_by_ball = false
+	_cut_point = Vector2.ZERO
 	_heart_spawn_accum = 0.0
 	_hearts.clear()
 	_sparkle_spawn_accum = 0.0
@@ -191,8 +206,11 @@ func _begin_shot(origin: Vector2, owner: Object = null) -> bool:
 		clampf(origin.x, _boss_size.x * 0.5, FIELD_WIDTH - _boss_size.x * 0.5),
 		clampf(origin.y - KISS_FRONT_OFFSET, KISS_CENTER_Y_MIN, KISS_CENTER_Y_MAX)
 	)
+	_return_start_center = _kiss_center
 	_active = true
 	_missed = false
+	_cut_by_ball = false
+	_cut_point = Vector2.ZERO
 	_phase = PHASE_EXTENDING
 	_phase_timer = 0.0
 	_anim_time = 0.0
@@ -233,11 +251,14 @@ func update(delta: float, owner: Object = null, registry: Object = null, _launch
 			_release(owner)
 		else:
 			_missed = false
+			_cut_by_ball = false
 			_owns_boss = false
 			_pending_owner_grab = false
 			reset()
 		return
 	_boss_draw_center = _compute_boss_center(owner)
+	if _maybe_cut_rope_by_ball(owner, registry):
+		_boss_draw_center = _compute_boss_center(owner)
 	_update_hearts(safe_delta)
 	_update_sparkles(safe_delta)
 	# Only pin / sync the owner once we have committed to a HIT. During EXTENDING
@@ -282,6 +303,7 @@ func _advance_phase(owner: Object = null, registry: Object = null) -> void:
 				if _phase_timer < KISS_SECONDS:
 					return
 				_phase_timer -= KISS_SECONDS
+				_return_start_center = _kiss_center
 				_phase = PHASE_RETURNING
 			PHASE_RETURNING:
 				if _phase_timer < RETURN_SECONDS:
@@ -349,6 +371,50 @@ func hit_tolerance() -> float:
 	return _boss_size.x * 0.5 + HIT_TOLERANCE_PAD
 
 
+func _maybe_cut_rope_by_ball(owner: Object, registry: Object = null) -> bool:
+	if not _is_rope_cuttable_phase():
+		return false
+	if owner == null or not bool(_get_owner_value(owner, "ball_active", false)):
+		return false
+	if _phase == PHASE_PULLING and _phase_timer < ROPE_CUT_ARMING_SECONDS:
+		return false
+	var hand := _get_rope_hand()
+	var tip := _boss_draw_center
+	if hand.distance_to(tip) < 1.0:
+		return false
+	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
+	var prev_value: Variant = _get_owner_value(owner, "ball_pos_prev", null)
+	var ball_prev: Vector2 = prev_value if prev_value is Vector2 else ball_pos
+	if ball_prev == Vector2.ZERO and ball_pos.distance_to(Vector2.ZERO) > 90.0:
+		ball_prev = ball_pos
+	var ball_radius: float = maxf(1.0, float(_get_owner_value(owner, "ball_size", 28.6)) * 0.5)
+	var cut_radius: float = ball_radius + ROPE_CUT_BALL_RADIUS_PAD
+	if _segment_distance(ball_prev, ball_pos, hand, tip) > cut_radius:
+		return false
+	_enter_rope_cut(registry, _closest_point_on_segment(ball_pos, hand, tip))
+	return true
+
+
+func _is_rope_cuttable_phase() -> bool:
+	return _phase == PHASE_PULLING or _phase == PHASE_KISSING
+
+
+func _enter_rope_cut(registry: Object, cut_point: Vector2) -> void:
+	if _cut_by_ball:
+		return
+	_cut_by_ball = true
+	_cut_count += 1
+	_cut_point = cut_point
+	_return_start_center = _boss_draw_center
+	_phase = PHASE_RETURNING
+	_phase_timer = 0.0
+	_heart_spawn_accum = 0.0
+	_sparkle_spawn_accum = 0.0
+	_hearts.clear()
+	_sparkles.clear()
+	_play_audio(registry, "play_lingpet_puppet_grab_miss")
+
+
 func _get_current_boss_center(owner: Object) -> Vector2:
 	if owner == null:
 		return _predicted_target_center
@@ -371,7 +437,7 @@ func _compute_boss_center(owner: Object = null) -> Vector2:
 		PHASE_RETURNING:
 			var rp: float = clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0)
 			var reased: float = rp * rp
-			return _kiss_center.lerp(_boss_original_center, reased)
+			return _return_start_center.lerp(_boss_original_center, reased)
 		PHASE_MISSING, PHASE_RETRY_WAIT:
 			return _get_current_boss_center(owner)
 		_:
@@ -386,6 +452,51 @@ func _write_owner_grab(owner: Object, boss_center: Vector2) -> bool:
 	owner.set("lingpet_puppet_grab_active", true)
 	owner.set("boss_pos", boss_center - _boss_size * 0.5)
 	return true
+
+
+func _get_rope_hand() -> Vector2:
+	return _cast_pos + Vector2(0.0, HAND_OFFSET_Y)
+
+
+func _point_segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
+	return point.distance_to(_closest_point_on_segment(point, a, b))
+
+
+func _closest_point_on_segment(point: Vector2, a: Vector2, b: Vector2) -> Vector2:
+	var ab := b - a
+	var len_sq := ab.length_squared()
+	if len_sq <= 0.0001:
+		return a
+	var t := clampf((point - a).dot(ab) / len_sq, 0.0, 1.0)
+	return a + ab * t
+
+
+func _segment_distance(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> float:
+	if _segments_intersect(a, b, c, d):
+		return 0.0
+	return minf(
+		minf(_point_segment_distance(a, c, d), _point_segment_distance(b, c, d)),
+		minf(_point_segment_distance(c, a, b), _point_segment_distance(d, a, b))
+	)
+
+
+func _segments_intersect(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
+	var ab := b - a
+	var cd := d - c
+	var denom := _cross(ab, cd)
+	var ac := c - a
+	if absf(denom) <= 0.0001:
+		return _point_segment_distance(a, c, d) <= 0.01 \
+			or _point_segment_distance(b, c, d) <= 0.01 \
+			or _point_segment_distance(c, a, b) <= 0.01 \
+			or _point_segment_distance(d, a, b) <= 0.01
+	var t := _cross(ac, cd) / denom
+	var u := _cross(ac, ab) / denom
+	return t >= 0.0 and t <= 1.0 and u >= 0.0 and u <= 1.0
+
+
+func _cross(a: Vector2, b: Vector2) -> float:
+	return a.x * b.y - a.y * b.x
 
 
 func _release(owner: Object) -> void:
@@ -424,12 +535,7 @@ func _update_hearts(delta: float) -> void:
 	_heart_spawn_accum += delta
 	while _heart_spawn_accum >= HEART_SPAWN_INTERVAL and _hearts.size() < HEART_MAX:
 		_heart_spawn_accum -= HEART_SPAWN_INTERVAL
-		_hearts.append({
-			"pos": _kiss_center + Vector2(randf_range(-22.0, 22.0), randf_range(-6.0, 14.0)),
-			"drift": randf_range(-18.0, 18.0),
-			"life": HEART_LIFE_SECONDS,
-			"size": randf_range(5.0, 9.0),
-		})
+		_hearts.append(LingpetPuppetGrabPayloadFactory.build_heart(_kiss_center, HEART_LIFE_SECONDS))
 
 
 func _update_sparkles(delta: float) -> void:
@@ -445,11 +551,7 @@ func _update_sparkles(delta: float) -> void:
 	_sparkle_spawn_accum += delta
 	while _sparkle_spawn_accum >= SPARKLE_SPAWN_INTERVAL and _sparkles.size() < SPARKLE_MAX:
 		_sparkle_spawn_accum -= SPARKLE_SPAWN_INTERVAL
-		_sparkles.append({
-			"pos": _kiss_center + Vector2(randf_range(-30.0, 30.0), randf_range(-20.0, 20.0)),
-			"life": SPARKLE_LIFE_SECONDS,
-			"size": randf_range(2.0, 5.0),
-		})
+		_sparkles.append(LingpetPuppetGrabPayloadFactory.build_sparkle(_kiss_center, SPARKLE_LIFE_SECONDS))
 
 
 func is_active() -> bool:
@@ -499,7 +601,11 @@ func get_snapshot() -> Dictionary:
 		"puppet_grab_boss_center": _boss_draw_center,
 		"puppet_grab_kiss_center": _kiss_center,
 		"puppet_grab_original_center": _boss_original_center,
+		"puppet_grab_return_start_center": _return_start_center,
 		"puppet_grab_cast_pos": _cast_pos,
+		"puppet_grab_cut_by_ball": _cut_by_ball,
+		"puppet_grab_cut_count": _cut_count,
+		"puppet_grab_cut_point": _cut_point,
 		"puppet_grab_companion_override_active": has_companion_position_override(),
 		"puppet_grab_owns_boss": _owns_boss,
 		"puppet_grab_pending_owner": _pending_owner_grab,
@@ -525,6 +631,8 @@ func get_snapshot() -> Dictionary:
 		"puppet_grab_miss_seconds": MISS_SECONDS,
 		"puppet_grab_retry_delay_seconds": RETRY_DELAY_SECONDS,
 		"puppet_grab_retry_chance_pct": RETRY_CHANCE_PCT,
+		"puppet_grab_rope_cut_radius_pad": ROPE_CUT_BALL_RADIUS_PAD,
+		"puppet_grab_rope_cut_arming_seconds": ROPE_CUT_ARMING_SECONDS,
 		"puppet_grab_companion_cast_pose_progress": get_companion_cast_pose_progress(),
 		"puppet_grab_total_seconds": TOTAL_SECONDS,
 		"puppet_grab_kiss_front_offset": KISS_FRONT_OFFSET,
@@ -575,6 +683,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_hand(canvas, shake_offset)
 		if _phase == PHASE_KISSING:
 			_draw_chu_text(canvas, shake_offset)
+		if _cut_by_ball and _phase == PHASE_RETURNING:
+			_draw_cut_text(canvas, shake_offset)
 		if _is_miss_feedback_phase():
 			_draw_miss_text(canvas, shake_offset)
 	if not _sparkles.is_empty():
@@ -620,6 +730,9 @@ func _draw_strings(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	var length: float = axis.length()
 	if length < 1.0:
 		return
+	if _cut_by_ball and _phase == PHASE_RETURNING:
+		_draw_cut_strings(canvas, hand, tip, base_color)
+		return
 	var perp: Vector2 = Vector2(-axis.y, axis.x).normalized()
 	# Strings reach their full wave only once they've extended; during EXTENDING
 	# the wave is suppressed proportionally to extend progress so the strings
@@ -642,6 +755,50 @@ func _draw_strings(canvas: CanvasItem, shake_offset: Vector2) -> void:
 			along += perp * ((offset * (1.0 - t * 0.6) + wave) * tip_focus)
 			points.append(along)
 		canvas.draw_polyline(points, Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.85), 2.0, true)
+
+
+func _draw_cut_strings(canvas: CanvasItem, hand: Vector2, tip: Vector2, base_color: Color) -> void:
+	var axis := tip - hand
+	var length := axis.length()
+	if length < 1.0:
+		return
+	var dir := axis / length
+	var perp := Vector2(-dir.y, dir.x)
+	var break_point := _cut_point
+	if break_point == Vector2.ZERO:
+		break_point = hand.lerp(tip, 0.5)
+	else:
+		break_point += hand - _get_rope_hand()
+	var local_break := _closest_point_on_segment(break_point, hand, tip)
+	var left_end := _closest_point_on_segment(local_break - dir * ROPE_CUT_GAP, hand, tip)
+	var right_start := _closest_point_on_segment(local_break + dir * ROPE_CUT_GAP, hand, tip)
+	var fade := 1.0 - clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0) * 0.55
+	for s in range(STRING_COUNT):
+		var offset: float = -20.0 + float(s) * 10.0
+		var flutter: float = sin(_anim_time * 13.0 + float(s) * 1.9) * 5.0
+		var string_offset := perp * (offset * 0.32)
+		var tear_offset := perp * (flutter + offset * 0.08)
+		canvas.draw_line(
+			hand + string_offset,
+			left_end + tear_offset,
+			Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.75 * fade),
+			2.0,
+			true
+		)
+		canvas.draw_line(
+			tip + string_offset,
+			right_start - tear_offset,
+			Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.75 * fade),
+			2.0,
+			true
+		)
+		canvas.draw_line(
+			left_end + tear_offset,
+			left_end + tear_offset + perp * randf_range(-4.0, 4.0) - dir * randf_range(3.0, 8.0),
+			Color(1.0, 0.78, 0.88, 0.55 * fade),
+			1.0,
+			true
+		)
 
 
 func _string_tip_focus(t: float) -> float:
@@ -675,6 +832,30 @@ func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
 		-1,
 		MISS_FONT_SIZE,
 		Color(1.0, 0.27, 0.32, alpha),
+	)
+
+
+func _draw_cut_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	var anchor := (_cut_point if _cut_point != Vector2.ZERO else _boss_draw_center) + CUT_OFFSET + shake_offset
+	var fade := 1.0 - clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0)
+	var alpha := 0.95 * fade
+	canvas.draw_string(
+		CHU_FONT,
+		anchor + Vector2(2.0, 2.0),
+		CUT_TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		CUT_FONT_SIZE,
+		Color(0.0, 0.0, 0.0, 0.58 * fade),
+	)
+	canvas.draw_string(
+		CHU_FONT,
+		anchor,
+		CUT_TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		CUT_FONT_SIZE,
+		Color(1.0, 0.82, 0.92, alpha),
 	)
 
 

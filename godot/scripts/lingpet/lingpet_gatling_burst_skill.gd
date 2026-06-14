@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const LingpetGatlingBurstPayloadFactory := preload("res://scripts/lingpet/lingpet_gatling_burst_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -255,14 +256,7 @@ func _fire_bullet(owner: Object, registry: Object) -> void:
 	var spread := deg_to_rad(randf_range(-burst_spread, burst_spread))
 	var final_angle := base_angle + spread
 	var direction := Vector2(cos(final_angle), sin(final_angle))
-	var tracer := (_shot_count % 5) == 0
-	_bullets.append({
-		"pos": muzzle_pos,
-		"vel": direction * BULLET_SPEED,
-		"age": 0.0,
-		"angle": final_angle,
-		"tracer": tracer,
-	})
+	_bullets.append(LingpetGatlingBurstPayloadFactory.build_bullet(muzzle_pos, direction, BULLET_SPEED, final_angle, _shot_count))
 	while _bullets.size() > 72:
 		_bullets.remove_at(0)
 	_shot_count += 1
@@ -378,7 +372,12 @@ func _apply_boss_ak47_hit_status(owner: Object, registry: Object, hit_pos: Vecto
 			"boss",
 			"stun",
 			AK47_STUN_FRAMES,
-			_build_ak47_stun_status_data(knockback_velocity),
+			LingpetGatlingBurstPayloadFactory.build_ak47_stun_status_data(
+				knockback_velocity,
+				AK47_KNOCKBACK_FRAMES,
+				AK47_KNOCKBACK_DECAY,
+				STATUS_SOURCE
+			),
 			STATUS_SOURCE
 		)
 		return
@@ -389,56 +388,21 @@ func _apply_boss_ak47_hit_status(owner: Object, registry: Object, hit_pos: Vecto
 		owner.set("boss_vel", knockback_velocity)
 
 
-func _build_ak47_stun_status_data(knockback_velocity: float) -> Dictionary:
-	return {
-		"knockback_vel": knockback_velocity,
-		"knockback_active": absf(knockback_velocity) > 0.001,
-		"knockback_frames": AK47_KNOCKBACK_FRAMES,
-		"knockback_decay_per_frame": AK47_KNOCKBACK_DECAY,
-		"source": STATUS_SOURCE,
-	}
-
-
 func _spawn_hit_particles(pos: Vector2, hit_angle: float) -> void:
 	for i in range(8):
-		var spread_angle := hit_angle + PI + randf_range(-1.2, 1.2)
-		var speed := randf_range(100.0, 300.0)
-		_hit_particles.append({
-			"pos": pos,
-			"vel": Vector2(cos(spread_angle), sin(spread_angle)) * speed,
-			"life": randf_range(0.15, 0.35),
-			"age": 0.0,
-			"size": randf_range(1.5, 4.0),
-			"ember": (i % 3) == 0,
-		})
+		_hit_particles.append(LingpetGatlingBurstPayloadFactory.build_hit_particle(pos, hit_angle, i))
 	while _hit_particles.size() > PARTICLE_MAX:
 		_hit_particles.remove_at(0)
 
 
 func _spawn_shell_casing(pos: Vector2, direction: Vector2) -> void:
-	var side := -1.0 if randf() < 0.5 else 1.0
-	var side_vec := Vector2(-direction.y, direction.x) * side
-	_shell_casings.append({
-		"pos": pos,
-		"vel": side_vec * randf_range(80.0, 160.0) + Vector2(0.0, randf_range(-100.0, -30.0)),
-		"gravity": 500.0,
-		"age": 0.0,
-		"life": 0.5,
-		"rotation": randf_range(0.0, TAU),
-		"rot_speed": randf_range(8.0, 20.0),
-	})
+	_shell_casings.append(LingpetGatlingBurstPayloadFactory.build_shell_casing(pos, direction))
 	while _shell_casings.size() > 36:
 		_shell_casings.remove_at(0)
 
 
 func _spawn_muzzle_smoke(pos: Vector2, direction: Vector2) -> void:
-	_smoke_puffs.append({
-		"pos": pos - direction * 4.0,
-		"vel": -direction * randf_range(8.0, 26.0) + Vector2(randf_range(-10.0, 10.0), randf_range(-18.0, -4.0)),
-		"age": 0.0,
-		"life": randf_range(0.18, 0.34),
-		"size": randf_range(4.0, 8.0),
-	})
+	_smoke_puffs.append(LingpetGatlingBurstPayloadFactory.build_muzzle_smoke(pos, direction))
 	while _smoke_puffs.size() > 28:
 		_smoke_puffs.remove_at(0)
 

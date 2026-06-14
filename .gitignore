@@ -275,6 +275,7 @@ godot/battle_perf_detail.flag
 godot/battle_perf_samples.flag
 godot/battle_perf_clean_capture.flag
 godot/stage2_perf_log.flag
+godot/smasher_25d_sheets.flag
 godot/*.flag.off
 *.bak
 *.bak_pre_sync_*

@@ -1,5 +1,8 @@
 extends RefCounted
 
+const Stage4DestructionWavePayloadFactory := preload("res://scripts/stages/stage4/stage4_destruction_wave_payload_factory.gd")
+const Stage4TempleCollapsePayloadFactory := preload("res://scripts/stages/stage4/stage4_temple_collapse_payload_factory.gd")
+
 const PHASE_IDLE := 0
 const PHASE_MOON_TURNING_RED := 1
 const PHASE_RED_LIGHT := 2
@@ -286,28 +289,12 @@ func _play_temple_hit_sound(deps: Dictionary) -> void:
 
 
 func _fire_destruction_wave() -> void:
-	var direction: Vector2 = WAVE_TARGET - WAVE_START
-	var distance: float = maxf(1.0, direction.length())
-	var velocity: Vector2 = direction / distance * WAVE_SPEED_PX_PER_SEC
-	destruction_wave = {
-		"start_x": WAVE_START.x,
-		"start_y": WAVE_START.y,
-		"current_x": WAVE_START.x,
-		"current_y": WAVE_START.y,
-		"target_x": WAVE_TARGET.x,
-		"target_y": WAVE_TARGET.y,
-		"vx": velocity.x,
-		"vy": velocity.y,
-		"speed": WAVE_SPEED_PX_PER_SEC / 60.0,
-		"radius": 25.0,
-		"max_radius": 120.0,
-		"lifetime": 0.0,
-		"max_lifetime": WAVE_MAX_LIFETIME_SEC,
-		"trail": [],
-		"beam_particles": [],
-		"energy_rings": [],
-		"core_rotation": 0.0,
-	}
+	destruction_wave = Stage4DestructionWavePayloadFactory.build_wave(
+		WAVE_START,
+		WAVE_TARGET,
+		WAVE_SPEED_PX_PER_SEC,
+		WAVE_MAX_LIFETIME_SEC
+	)
 	destruction_wave_active = true
 
 
@@ -335,38 +322,26 @@ func _update_destruction_wave_payload(delta: float, deps: Dictionary) -> void:
 func _spawn_destruction_wave_particles() -> void:
 	var lifetime_frames: int = int(round(float(destruction_wave.get("lifetime", 0.0)) * 60.0))
 	if lifetime_frames % 2 == 0:
+		var center := Vector2(
+			float(destruction_wave.get("current_x", WAVE_START.x)),
+			float(destruction_wave.get("current_y", WAVE_START.y))
+		)
 		var trail: Array = _as_array(destruction_wave.get("trail", []))
-		for _idx in range(5):
-			trail.append({
-				"x": float(destruction_wave.get("current_x", WAVE_START.x)) + rng.randf_range(-20.0, 20.0),
-				"y": float(destruction_wave.get("current_y", WAVE_START.y)) + rng.randf_range(-20.0, 20.0),
-				"life": 30.0,
-				"size": rng.randf_range(5.0, 15.0),
-				"color_phase": rng.randf(),
-			})
+		trail.append_array(Stage4DestructionWavePayloadFactory.build_trail_particles(center, 5, rng))
 		destruction_wave["trail"] = trail
 		var beams: Array = _as_array(destruction_wave.get("beam_particles", []))
 		var angle: float = atan2(float(destruction_wave.get("vy", 0.0)), float(destruction_wave.get("vx", 0.0)))
-		for _idx in range(3):
-			beams.append({
-				"x": float(destruction_wave.get("current_x", WAVE_START.x)) + rng.randf_range(-5.0, 5.0),
-				"y": float(destruction_wave.get("current_y", WAVE_START.y)) + rng.randf_range(-5.0, 5.0),
-				"life": 40.0,
-				"length": rng.randf_range(20.0, 40.0),
-				"width": rng.randf_range(2.0, 4.0),
-				"angle": angle,
-			})
+		beams.append_array(Stage4DestructionWavePayloadFactory.build_beam_particles(center, angle, 3, rng))
 		destruction_wave["beam_particles"] = beams
 	if lifetime_frames % 10 == 0:
 		var rings: Array = _as_array(destruction_wave.get("energy_rings", []))
-		rings.append({
-			"x": float(destruction_wave.get("current_x", WAVE_START.x)),
-			"y": float(destruction_wave.get("current_y", WAVE_START.y)),
-			"radius": 10.0,
-			"max_radius": float(destruction_wave.get("radius", 25.0)) * 2.0,
-			"life": 20.0,
-			"opacity": 1.0,
-		})
+		rings.append(Stage4DestructionWavePayloadFactory.build_energy_ring(
+			Vector2(
+				float(destruction_wave.get("current_x", WAVE_START.x)),
+				float(destruction_wave.get("current_y", WAVE_START.y))
+			),
+			float(destruction_wave.get("radius", 25.0))
+		))
 		destruction_wave["energy_rings"] = rings
 
 
@@ -673,22 +648,7 @@ func _weighted_crush_debris_type() -> String:
 func _start_lanterns_falling() -> void:
 	falling_lanterns.clear()
 	for lantern in LANTERN_ANCHORS:
-		var x: float = float(lantern.get("x", 0.0))
-		var target_x: float = 300.0 + float(rng.randi_range(-100, 100))
-		var vx: float = clampf((target_x - x) / 100.0 + rng.randf_range(-1.0, 1.0), -4.0, 4.0)
-		falling_lanterns.append({
-			"x": x,
-			"y": float(lantern.get("y", 0.0)),
-			"vx": vx,
-			"vy": 0.0,
-			"rotation": 0.0,
-			"rotation_speed": rng.randf_range(-5.0, 5.0),
-			"size": str(lantern.get("size", "medium")),
-			"broken": false,
-			"ground_y": 650.0 + float(rng.randi_range(-10, 10)),
-			"deformation": 0.0,
-			"bounce_count": 0,
-		})
+		falling_lanterns.append(Stage4TempleCollapsePayloadFactory.make_falling_lantern(lantern, rng))
 
 
 func _update_falling_lanterns(fps_scale: float) -> void:
@@ -817,49 +777,31 @@ func _explode_training_dummies() -> void:
 
 
 func _make_debris(data: Dictionary) -> Dictionary:
-	var debris := data.duplicate()
-	var debris_type: String = str(debris.get("type", "stone"))
-	debris["type"] = debris_type
-	debris["sprite_index"] = int(debris.get("sprite_index", _pick_debris_sprite_index(debris_type)))
-	debris["sprite_flip_x"] = bool(debris.get("sprite_flip_x", rng.randf() < 0.5))
-	debris["sprite_scale_jitter"] = float(debris.get("sprite_scale_jitter", rng.randf_range(0.88, 1.14)))
-	debris["opacity"] = float(debris.get("opacity", 1.0))
-	debris["delay"] = float(debris.get("delay", 0.0))
-	debris["gravity"] = float(debris.get("gravity", 0.35))
-	debris["drag"] = float(debris.get("drag", 0.98))
-	return debris
-
-
-func _pick_debris_sprite_index(debris_type: String) -> int:
-	var variants: Array = DEBRIS_TYPE_SPRITE_VARIANTS.get(debris_type, [15])
-	if variants.is_empty():
-		return 15
-	return int(variants[rng.randi_range(0, variants.size() - 1)])
+	return Stage4TempleCollapsePayloadFactory.make_debris(data, rng, DEBRIS_TYPE_SPRITE_VARIANTS)
 
 
 func _make_dust_cloud(x: float, y: float, size: float, max_opacity: float, expand_rate: float, rise_speed: float, delay: float) -> Dictionary:
-	return {
-		"x": x,
-		"y": y,
-		"size": size,
-		"opacity": 0.0,
-		"max_opacity": max_opacity,
-		"expand_rate": expand_rate,
-		"rise_speed": rise_speed,
-		"delay": delay,
-	}
+	return Stage4TempleCollapsePayloadFactory.make_dust_cloud(
+		x,
+		y,
+		size,
+		max_opacity,
+		expand_rate,
+		rise_speed,
+		delay
+	)
 
 
 func _make_fire_particle(x: float, y: float, vx: float, vy: float, size: float, life: float) -> Dictionary:
-	return {
-		"x": x,
-		"y": y,
-		"vx": vx,
-		"vy": vy,
-		"size": size,
-		"life": life,
-		"color_phase": rng.randf(),
-	}
+	return Stage4TempleCollapsePayloadFactory.make_fire_particle(
+		x,
+		y,
+		vx,
+		vy,
+		size,
+		life,
+		rng
+	)
 
 
 func _as_array(value: Variant) -> Array:

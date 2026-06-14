@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Stage1PillarPetalPayloadFactory := preload("res://scripts/stages/stage1/stage1_pillar_petal_payload_factory.gd")
 const Stage1PillarTreeDropPetalState := preload("res://scripts/stages/stage1/stage1_pillar_tree_drop_petal_state.gd")
 
 const FLOATING_PETAL_MAX := 8
@@ -76,18 +77,4 @@ func _spawn_floating_petal() -> void:
 		x = randf_range(right_x + 20.0, max(right_x + 21.0, last_view_size.x - 20.0))
 	else:
 		return
-	var colors: Array[Color] = [
-		Color(1.0, 200.0 / 255.0, 210.0 / 255.0, 0.78),
-		Color(1.0, 220.0 / 255.0, 225.0 / 255.0, 0.78),
-		Color(250.0 / 255.0, 210.0 / 255.0, 220.0 / 255.0, 0.78),
-	]
-	floating_petals.append({
-		"x": x,
-		"y": randf_range(-20.0, 0.0),
-		"vx": randf_range(-0.5, 0.5),
-		"vy": randf_range(0.8, 1.5),
-		"rotation": randf_range(0.0, 360.0),
-		"rot_speed": randf_range(-2.0, 2.0),
-		"size": float(randi_range(6, 10)),
-		"color": colors[randi() % colors.size()],
-	})
+	floating_petals.append(Stage1PillarPetalPayloadFactory.build_floating_petal(x))

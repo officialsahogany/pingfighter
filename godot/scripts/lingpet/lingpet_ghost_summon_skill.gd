@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallRenderInterpolation := preload("res://scripts/ball/ball_render_interpolation.gd")
+const LingpetGhostSummonPayloadFactory := preload("res://scripts/lingpet/lingpet_ghost_summon_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -193,28 +194,7 @@ func get_snapshot() -> Dictionary:
 
 
 func _make_ghost(index: int, origin: Vector2, target_y: float) -> Dictionary:
-	var target_x := randf_range(GAME_LEFT + 100.0, GAME_RIGHT - 100.0)
-	return {
-		"id": index,
-		"pos": origin,
-		"start_pos": origin,
-		"target_pos": Vector2(target_x, target_y),
-		"spawn_time": 0.0,
-		"vx": randf_range(-5.0, 5.0),
-		"hit_cooldown": 0.0,
-		"eating": false,
-		"eat_timer": 0.0,
-		"eat_scale": 1.0,
-		"eat_grow_acc": 0.0,
-		"eat_bulge_phase": randf_range(0.0, TAU),
-		"swallow_sound_played": false,
-		"teleporting": false,
-		"teleport_phase": "",
-		"teleport_timer": 0.0,
-		"teleport_target_x": target_x,
-		"pre_teleport_pos": origin,
-		"phase": randf_range(0.0, TAU),
-	}
+	return LingpetGhostSummonPayloadFactory.build_ghost(index, origin, target_y, GAME_LEFT, GAME_RIGHT)
 
 
 func _update_ghosts(delta: float, owner: Object, registry: Object) -> void:
@@ -500,11 +480,10 @@ func _end_effect(owner: Object, registry: Object) -> void:
 	_eating_ghost_id = -1
 	for ghost_value in _ghosts:
 		var ghost := ghost_value as Dictionary
-		_dying_ghosts.append({
-			"pos": _get_dict_vector2(ghost, "pos", Vector2.ZERO),
-			"death_timer": 0.0,
-			"phase": float(ghost.get("phase", 0.0)),
-		})
+		_dying_ghosts.append(LingpetGhostSummonPayloadFactory.build_dying_ghost(
+			_get_dict_vector2(ghost, "pos", Vector2.ZERO),
+			float(ghost.get("phase", 0.0))
+		))
 	_ghosts.clear()
 	_play_audio(registry, "play_lingpet_ghost_summon_out")
 
@@ -745,38 +724,13 @@ func _spawn_launch_particles(origin: Vector2) -> void:
 
 
 func _spawn_teleport_particle(origin: Vector2, ratio: float, inward: bool) -> void:
-	var angle := randf_range(0.0, TAU)
-	var dist := randf_range(0.0, 40.0) * clampf(ratio, 0.0, 1.0)
-	var pos := origin + Vector2(cos(angle), sin(angle)) * dist
-	var dir := Vector2(cos(angle), sin(angle))
-	var velocity := dir * (-120.0 if inward else 150.0) + Vector2(0.0, -60.0)
-	var color_options := [
-		Color(0.36, 0.92, 0.82, 0.68),
-		Color(0.55, 1.0, 0.90, 0.74),
-		Color(0.25, 0.72, 0.62, 0.62),
-	]
-	var particle := {
-		"pos": pos,
-		"vel": velocity,
-		"life": randf_range(0.3, 0.8),
-		"age": 0.0,
-		"size": randf_range(3.0, 8.0),
-		"color": color_options[randi() % color_options.size()],
-	}
-	_teleport_particles.append(particle)
+	_teleport_particles.append(LingpetGhostSummonPayloadFactory.build_teleport_particle(origin, ratio, inward))
 	while _teleport_particles.size() > PARTICLE_MAX:
 		_teleport_particles.remove_at(0)
 
 
 func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, color_value: Color) -> void:
-	_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": maxf(0.05, life),
-		"age": 0.0,
-		"size": size,
-		"color": color_value,
-	})
+	_particles.append(LingpetGhostSummonPayloadFactory.build_particle(pos, vel, life, size, color_value))
 	while _particles.size() > PARTICLE_MAX:
 		_particles.remove_at(0)
 

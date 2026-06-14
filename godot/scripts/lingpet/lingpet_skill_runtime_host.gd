@@ -8,6 +8,7 @@ const MOON_ORBIT_SKILL_PATH := "res://scripts/lingpet/lingpet_moon_orbit_skill.g
 const BUBBLE_TRAP_SKILL_PATH := "res://scripts/lingpet/lingpet_bubble_trap_skill.gd"
 const MILK_PRODUCTION_SKILL_PATH := "res://scripts/lingpet/lingpet_milk_production_skill.gd"
 const THUNDER_ORB_SKILL_PATH := "res://scripts/lingpet/lingpet_thunder_orb_skill.gd"
+const SOLAR_BOLT_SKILL_PATH := "res://scripts/lingpet/lingpet_solar_bolt_skill.gd"
 const BOMB_SURPRISE_SKILL_PATH := "res://scripts/lingpet/lingpet_bomb_surprise_skill.gd"
 const GATLING_BURST_SKILL_PATH := "res://scripts/lingpet/lingpet_gatling_burst_skill.gd"
 const DRAGON_BREATH_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_breath_skill.gd"
@@ -17,6 +18,7 @@ const SOUL_CLONE_SKILL_PATH := "res://scripts/lingpet/lingpet_soul_clone_skill.g
 const PUPPET_GRAB_SKILL_PATH := "res://scripts/lingpet/lingpet_puppet_grab_skill.gd"
 const DOLL_CURSE_SKILL_PATH := "res://scripts/lingpet/lingpet_doll_curse_skill.gd"
 const BANANA_SLICE_SKILL_PATH := "res://scripts/lingpet/lingpet_banana_slice_skill.gd"
+const WILD_ROAR_SKILL_PATH := "res://scripts/lingpet/lingpet_wild_roar_skill.gd"
 
 var _hydro_sphere_skill: Object = null
 var _headbutt_skill: Object = null
@@ -24,6 +26,7 @@ var _moon_orbit_skill: Object = null
 var _bubble_trap_skill: Object = null
 var _milk_production_skill: Object = null
 var _thunder_orb_skill: Object = null
+var _solar_bolt_skill: Object = null
 var _bomb_surprise_skill: Object = null
 var _gatling_burst_skill: Object = null
 var _dragon_breath_skill: Object = null
@@ -33,6 +36,7 @@ var _soul_clone_skill: Object = null
 var _puppet_grab_skill: Object = null
 var _doll_curse_skill: Object = null
 var _banana_slice_skill: Object = null
+var _wild_roar_skill: Object = null
 
 
 func reset(owner: Object = null, registry: Object = null) -> void:
@@ -42,6 +46,7 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_bubble_trap_skill, owner, registry)
 	_reset_skill(_milk_production_skill, owner, registry)
 	_reset_skill(_thunder_orb_skill, owner, registry)
+	_reset_skill(_solar_bolt_skill, owner, registry)
 	_reset_skill(_bomb_surprise_skill, owner, registry)
 	_reset_skill(_gatling_burst_skill, owner, registry)
 	_reset_skill(_dragon_breath_skill, owner, registry)
@@ -51,6 +56,7 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_puppet_grab_skill, owner, registry)
 	_reset_skill(_doll_curse_skill, owner, registry)
 	_reset_skill(_banana_slice_skill, owner, registry)
+	_reset_skill(_wild_roar_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -68,6 +74,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_milk_production_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			_get_thunder_orb_skill().update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			_get_solar_bolt_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			_get_bomb_surprise_skill().update(safe_delta, owner, registry)
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
@@ -86,6 +94,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_doll_curse_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			_get_banana_slice_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			_get_wild_roar_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -97,6 +107,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_bubble_trap_skill, canvas, shake_offset)
 	_draw_skill(_milk_production_skill, canvas, shake_offset)
 	_draw_skill(_thunder_orb_skill, canvas, shake_offset)
+	_draw_skill(_solar_bolt_skill, canvas, shake_offset)
 	_draw_skill(_bomb_surprise_skill, canvas, shake_offset)
 	_draw_skill(_gatling_burst_skill, canvas, shake_offset)
 	_draw_skill(_dragon_breath_skill, canvas, shake_offset)
@@ -106,6 +117,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_puppet_grab_skill, canvas, shake_offset)
 	_draw_skill(_doll_curse_skill, canvas, shake_offset)
 	_draw_skill(_banana_slice_skill, canvas, shake_offset)
+	_draw_skill(_wild_roar_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
@@ -116,6 +128,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_bubble_trap_skill)
 		or _skill_has_visible_effects(_milk_production_skill)
 		or _skill_has_visible_effects(_thunder_orb_skill)
+		or _skill_has_visible_effects(_solar_bolt_skill)
 		or _skill_has_visible_effects(_bomb_surprise_skill)
 		or _skill_has_visible_effects(_gatling_burst_skill)
 		or _skill_has_visible_effects(_dragon_breath_skill)
@@ -125,6 +138,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_puppet_grab_skill)
 		or _skill_has_visible_effects(_doll_curse_skill)
 		or _skill_has_visible_effects(_banana_slice_skill)
+		or _skill_has_visible_effects(_wild_roar_skill)
 	)
 
 
@@ -132,6 +146,18 @@ func prewarm(skill_id: String) -> void:
 	var skill: Object = _get_skill_for_kind(LingpetSkillDispatcher.get_skill_kind(skill_id))
 	if skill != null and skill.has_method("prewarm"):
 		skill.prewarm()
+
+
+func would_share_module(first_skill_id: String, second_skill_id: String) -> bool:
+	return LingpetSkillDispatcher.would_share_module(first_skill_id, second_skill_id)
+
+
+func skills_share_exclusive_resource(first_skill_id: String, second_skill_id: String) -> bool:
+	return LingpetSkillDispatcher.skills_share_exclusive_resource(first_skill_id, second_skill_id)
+
+
+func get_exclusive_resource_classes(skill_id: String) -> Array[String]:
+	return LingpetSkillDispatcher.get_exclusive_resource_classes(skill_id)
 
 
 func is_launch_blocked(skill_id: String) -> bool:
@@ -148,6 +174,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _milk_production_skill != null and bool(_milk_production_skill.is_producing())
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			return _thunder_orb_skill != null and bool(_thunder_orb_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return _solar_bolt_skill != null and bool(_solar_bolt_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
@@ -166,6 +194,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _doll_curse_skill != null and bool(_doll_curse_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			return _banana_slice_skill != null and bool(_banana_slice_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return _wild_roar_skill != null and bool(_wild_roar_skill.is_active())
 		_:
 			return false
 
@@ -178,6 +208,10 @@ func can_arm(skill_id: String, params: Dictionary) -> bool:
 			return bool(_get_dragon_breath_skill().can_arm(params))
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			return true
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return bool(_get_wild_roar_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return bool(_get_solar_bolt_skill().can_arm(params))
 		_:
 			return true
 
@@ -200,6 +234,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			_get_thunder_orb_skill().launch(origin, owner, launch_context)
 			return true
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return bool(_get_solar_bolt_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			return bool(_get_bomb_surprise_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
@@ -220,6 +256,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_doll_curse_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			return bool(_get_banana_slice_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return bool(_get_wild_roar_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -237,6 +275,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			return companion_pos
@@ -256,6 +296,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return companion_pos
 		_:
 			return companion_pos
 
@@ -274,6 +316,8 @@ func has_companion_position_override(skill_id: String) -> bool:
 			return _doll_curse_skill != null and bool(_doll_curse_skill.has_companion_position_override())
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			return _banana_slice_skill != null and bool(_banana_slice_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return _wild_roar_skill != null and bool(_wild_roar_skill.has_companion_position_override())
 		_:
 			return false
 
@@ -292,8 +336,28 @@ func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vec
 			return _doll_curse_skill.get_companion_position_override(fallback) if _doll_curse_skill != null else fallback
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			return _banana_slice_skill.get_companion_position_override(fallback) if _banana_slice_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return _wild_roar_skill.get_companion_position_override(fallback) if _wild_roar_skill != null else fallback
 		_:
 			return fallback
+
+
+func get_active_position_override_owner(skill_ids: Array, fallback: Vector2) -> Dictionary:
+	for index in range(skill_ids.size()):
+		var skill_id := str(skill_ids[index])
+		if has_companion_position_override(skill_id):
+			return {
+				"has": true,
+				"slot_index": index,
+				"skill_id": skill_id,
+				"pos": get_companion_position_override(skill_id, fallback),
+			}
+	return {
+		"has": false,
+		"slot_index": -1,
+		"skill_id": "",
+		"pos": fallback,
+	}
 
 
 func suppresses_companion_body_hit(skill_id: String) -> bool:
@@ -337,6 +401,9 @@ func get_companion_cast_pose_progress(skill_id: String) -> float:
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			if _banana_slice_skill != null and _banana_slice_skill.has_method("get_companion_cast_pose_progress"):
 				return float(_banana_slice_skill.get_companion_cast_pose_progress())
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			if _wild_roar_skill != null and _wild_roar_skill.has_method("get_companion_cast_pose_progress"):
+				return float(_wild_roar_skill.get_companion_cast_pose_progress())
 	return -1.0
 
 
@@ -352,6 +419,8 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_active_item_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			_play_thunder_orb_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			_play_solar_bolt_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			_play_bomb_surprise_attach_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
@@ -370,6 +439,9 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_doll_curse_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			# Banana Slice plays its throw cue when PREPARE actually releases.
+			pass
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			# Wild Roar plays its one-shot roar from the launch module itself.
 			pass
 		_:
 			pass
@@ -392,6 +464,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _bubble_trap_skill)
 	_merge_skill_snapshot(snapshot, _milk_production_skill)
 	_merge_skill_snapshot(snapshot, _thunder_orb_skill)
+	_merge_skill_snapshot(snapshot, _solar_bolt_skill)
 	_merge_skill_snapshot(snapshot, _bomb_surprise_skill)
 	_merge_skill_snapshot(snapshot, _gatling_burst_skill)
 	_merge_skill_snapshot(snapshot, _dragon_breath_skill)
@@ -401,6 +474,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _puppet_grab_skill)
 	_merge_skill_snapshot(snapshot, _doll_curse_skill)
 	_merge_skill_snapshot(snapshot, _banana_slice_skill)
+	_merge_skill_snapshot(snapshot, _wild_roar_skill)
 	return snapshot
 
 
@@ -434,6 +508,30 @@ func get_milk_production_spawn_count_for_tests() -> int:
 
 func get_thunder_orb_shock_count_for_tests() -> int:
 	return int(_get_thunder_orb_skill().get_shock_applied_count_for_tests())
+
+
+func get_solar_bolt_strike_count_for_tests() -> int:
+	return int(_get_solar_bolt_skill().get_strike_count_for_tests())
+
+
+func get_solar_bolt_scheduled_refires_for_tests() -> int:
+	return int(_get_solar_bolt_skill().get_scheduled_refires_for_tests())
+
+
+func get_solar_bolt_snapshot_for_tests() -> Dictionary:
+	return _get_solar_bolt_skill().get_snapshot()
+
+
+func set_solar_bolt_force_roll_for_tests(value: float) -> void:
+	_get_solar_bolt_skill().set_force_roll_for_tests(value)
+
+
+func set_solar_bolt_force_rolls_for_tests(values: Array) -> void:
+	_get_solar_bolt_skill().set_force_rolls_for_tests(values)
+
+
+func set_solar_bolt_jitter_degrees_for_tests(values: Array) -> void:
+	_get_solar_bolt_skill().set_jitter_degrees_for_tests(values)
 
 
 func get_bomb_surprise_explosion_count_for_tests() -> int:
@@ -504,6 +602,18 @@ func get_banana_slice_landed_count_for_tests() -> int:
 	return int(_get_banana_slice_skill().get_landed_count_for_tests())
 
 
+func get_wild_roar_reflect_count_for_tests() -> int:
+	return int(_get_wild_roar_skill().get_reflect_count_for_tests())
+
+
+func get_wild_roar_whiff_count_for_tests() -> int:
+	return int(_get_wild_roar_skill().get_whiff_count_for_tests())
+
+
+func get_wild_roar_snapshot_for_tests() -> Dictionary:
+	return _get_wild_roar_skill().get_snapshot()
+
+
 func _get_skill_for_kind(skill_kind: String) -> Object:
 	match skill_kind:
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
@@ -518,6 +628,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_milk_production_skill()
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			return _get_thunder_orb_skill()
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return _get_solar_bolt_skill()
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			return _get_bomb_surprise_skill()
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
@@ -536,6 +648,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_doll_curse_skill()
 		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
 			return _get_banana_slice_skill()
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return _get_wild_roar_skill()
 		_:
 			return null
 
@@ -574,6 +688,12 @@ func _get_thunder_orb_skill() -> Object:
 	if _thunder_orb_skill == null:
 		_thunder_orb_skill = _new_skill(THUNDER_ORB_SKILL_PATH)
 	return _thunder_orb_skill
+
+
+func _get_solar_bolt_skill() -> Object:
+	if _solar_bolt_skill == null:
+		_solar_bolt_skill = _new_skill(SOLAR_BOLT_SKILL_PATH)
+	return _solar_bolt_skill
 
 
 func _get_bomb_surprise_skill() -> Object:
@@ -628,6 +748,12 @@ func _get_banana_slice_skill() -> Object:
 	if _banana_slice_skill == null:
 		_banana_slice_skill = _new_skill(BANANA_SLICE_SKILL_PATH)
 	return _banana_slice_skill
+
+
+func _get_wild_roar_skill() -> Object:
+	if _wild_roar_skill == null:
+		_wild_roar_skill = _new_skill(WILD_ROAR_SKILL_PATH)
+	return _wild_roar_skill
 
 
 func _new_skill(path: String) -> Object:
@@ -690,6 +816,22 @@ func _play_thunder_orb_feedback(registry: Object) -> void:
 		audio.play_thunder_orb_shot()
 	elif audio.has_method("play_ragnarok_shot"):
 		audio.play_ragnarok_shot()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_solar_bolt_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_solar_bolt_strike"):
+		audio.play_solar_bolt_strike()
+	elif audio.has_method("play_ragnarok_shot"):
+		audio.play_ragnarok_shot()
+	elif audio.has_method("play_thunder_orb_boom"):
+		audio.play_thunder_orb_boom()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
 

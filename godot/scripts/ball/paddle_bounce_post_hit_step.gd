@@ -111,6 +111,10 @@ func apply(
 		"commando_suicide_drone_ball_boosted_speed",
 		"commando_suicide_drone_ball_boost_consumed",
 		"commando_suicide_drone_ball_restored_speed",
+		"lingpet_wild_roar_ball_boost_active",
+		"lingpet_wild_roar_ball_restore_speed",
+		"lingpet_wild_roar_ball_boost_consumed",
+		"lingpet_wild_roar_ball_restored_speed",
 		"boss_status_immune",
 	]:
 		if post_hit_result.has(key):

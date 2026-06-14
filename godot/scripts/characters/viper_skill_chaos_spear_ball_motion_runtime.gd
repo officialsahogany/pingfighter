@@ -9,6 +9,19 @@ static func apply_motion(runtime: Object, fps_scale: float, scene: Dictionary, c
 		result["ball_impact_boost"] = 1.0
 		runtime.chaos_release_pending = false
 		runtime.chaos_release_velocity = Vector2.ZERO
+		runtime.chaos_ball_motion_owned = false
+	elif runtime.chaos_ball_motion_owned and runtime.chaos_state != "blackhole":
+		# 자가 해제: update_ball이 멈춘 일시정지 창(신화 획득 시네마틱 등)에서 블랙홀이
+		# 만료->fade->reset까지 끝나면 pending 해제가 와이프된 채 공유 skip 플래그만 잔류한다.
+		# 소유권 플래그가 남아 있고 scene 플래그가 아직 true면 만료 해제와 같은 속도로 풀어준다.
+		if bool(scene.get("skip_ball_motion_step", false)):
+			var stuck_vel: Vector2 = _get_vector2(scene.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+			var heal_speed: float = max(16.0, stuck_vel.length() * 1.6)
+			var heal_angle: float = randf_range(0.0, TAU)
+			result["ball_vel"] = Vector2(cos(heal_angle), sin(heal_angle)) * heal_speed
+			result["skip_ball_motion_step"] = false
+			result["ball_impact_boost"] = 1.0
+		runtime.chaos_ball_motion_owned = false
 	if runtime.chaos_state != "blackhole" or not bool(context.get("ball_active", false)):
 		return result
 	var center: Vector2 = runtime.chaos_target
@@ -32,6 +45,7 @@ static func apply_motion(runtime: Object, fps_scale: float, scene: Dictionary, c
 	result["ball_pos"] = new_pos
 	result["ball_vel"] = new_pos - prev_pos
 	result["skip_ball_motion_step"] = true
+	runtime.chaos_ball_motion_owned = true
 	result["player_collision_cooldown"] = max(6.0, float(scene.get("player_collision_cooldown", 0.0)))
 	result["ball_impact_boost"] = 1.0
 	runtime.chaos_prev_ball_center = new_pos

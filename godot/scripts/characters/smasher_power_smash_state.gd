@@ -111,6 +111,12 @@ func apply_motion(ball_velocity: Vector2, fps_scale: float, gravity_effect: floa
 	return velocity_facade.apply_motion(runtime_state, ball_velocity, fps_scale, gravity_effect, boost_duration)
 
 
+func notify_wall_bounce(side: String) -> void:
+	if not is_parabola_active() or is_ghost_shot_motion_active():
+		return
+	runtime_state.notify_wall_bounce(side)
+
+
 func apply_ghost_shot_motion(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if not is_ghost_shot_motion_active():
 		return {}
@@ -271,6 +277,10 @@ func force_release_ghost_possession() -> void:
 
 func get_original_speed() -> float:
 	return runtime_state.get_original_speed()
+
+
+func get_arc_strength() -> float:
+	return runtime_state.get_arc_strength()
 
 
 func get_combo_consumed() -> int:

@@ -44,6 +44,21 @@ func draw_hermes_shoes_effect(
 		host.sync_state(screen_center, player_size, active, move_delta_x, Vector2.ZERO, 1.0, render_scale)
 
 
+func tear_down_hermes_shoes_fx(free_host: bool = false) -> void:
+	if not _is_valid_hermes_fx_host():
+		return
+	if _hermes_fx_host.has_method("tear_down"):
+		_hermes_fx_host.tear_down(free_host)
+	else:
+		_hermes_fx_host.visible = false
+		if free_host:
+			_hermes_fx_host.queue_free()
+	if free_host:
+		_hermes_fx_host = null
+		_hermes_fx_host_canvas = null
+		_hermes_fx_host_add_pending = false
+
+
 func _get_or_create_hermes_fx_host(canvas: CanvasItem) -> Node:
 	if _is_valid_hermes_fx_host() and _hermes_fx_host_canvas == canvas:
 		return _hermes_fx_host

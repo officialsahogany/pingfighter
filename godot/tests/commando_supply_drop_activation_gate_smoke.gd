@@ -58,7 +58,8 @@ func _init() -> void:
 	_verify_right_mouse_snapshot_exposes_supply_hold()
 	_verify_supply_hold_alias_activates()
 	_verify_supply_hold_feedback_matches_python_threshold()
-	_verify_activation_stops_hold_feedback_loop()
+	_verify_activation_continues_hold_radio_without_replay()
+	_verify_activation_without_hold_loop_plays_radio_cue_once()
 	_verify_round_reset_stops_hold_feedback_loop()
 	_verify_round_gates_match_python_reference()
 	_verify_hold_buffer_survives_post_serve_gate()
@@ -118,12 +119,12 @@ func _verify_supply_hold_feedback_matches_python_threshold() -> void:
 	_expect(is_equal_approx(rect.position.y, 610.0), "hold gauge should sit 40px above the player top like Python")
 
 	supply_state.update_input({"supply_drop_hold_pressed": false}, 0.02, 500.0, skill_config, skill_state, deps)
-	_expect(audio.calls.has("stop_commando_supply_radio_loop"), "releasing supply-drop hold should stop the radio loop")
+	_expect(not audio.calls.has("stop_commando_supply_radio_loop"), "releasing supply-drop hold must not cut the radio sample (Python non-forced stop lets a busy channel finish)")
 	_expect(not bool(supply_state.is_hold_radio_audio_active()), "released hold should clear radio-loop state")
 	_expect(not bool(supply_state.build_hold_gauge_status().get("visible", false)), "released hold should hide the gauge")
 
 
-func _verify_activation_stops_hold_feedback_loop() -> void:
+func _verify_activation_continues_hold_radio_without_replay() -> void:
 	var supply_state: Object = CommandoSupplyDropState.new()
 	var skill_config: Object = CommandoSkillConfig.new()
 	var skill_state: Object = CommandoSkillState.new()
@@ -132,16 +133,39 @@ func _verify_activation_stops_hold_feedback_loop() -> void:
 	supply_state.update_input(_supply_input(), 0.4, 500.0, skill_config, skill_state, deps)
 	var result: Dictionary = supply_state.update_input(_supply_input(), 0.6, 500.0, skill_config, skill_state, deps)
 	_expect(bool(result.get("activated", false)), "supply-drop should activate after the held feedback phase reaches one second")
-	_expect(audio.calls.has("stop_commando_supply_radio_loop"), "activation should stop the hold radio loop")
-	_expect(audio.calls.has("play_commando_supply_radio"), "activation should play the supply radio call cue")
+	_expect(audio.calls == ["play_commando_supply_radio_loop"], "activation must keep the running hold radio loop without replaying the radio cue (Python channel-busy dedupe)")
+	_expect(bool(supply_state.is_hold_radio_audio_active()), "activation should keep the hold radio loop alive through the radio-motion tail")
 	_expect(not audio.calls.has("play_commando_supply_aircraft_loop"), "activation should defer the aircraft loop until the original delayed aircraft arrival")
-	_expect(not bool(supply_state.is_hold_radio_audio_active()), "activation should clear hold radio-loop state")
 	var snapshot: Dictionary = supply_state.get_snapshot()
 	_expect(not bool(snapshot.get("aircraft_spawned", true)), "activation should wait before spawning the supply aircraft")
 	_expect(["left_to_right", "right_to_left"].has(str(snapshot.get("aircraft_direction", ""))), "activation should choose one of the original random aircraft directions")
-	_expect(float(snapshot.get("timer", 0.0)) >= 1.5 and float(snapshot.get("timer", 0.0)) <= 5.0, "supply aircraft arrival timer should match Python 90-300 frame delay")
-	supply_state.update(float(snapshot.get("timer", 0.0)), deps)
+	var arrival_timer: float = float(snapshot.get("timer", 0.0))
+	_expect(arrival_timer >= 1.5 and arrival_timer <= 5.0, "supply aircraft arrival timer should match Python 90-300 frame delay")
+	supply_state.update(float(snapshot.get("radio_duration", 0.35)) + 0.01, deps)
+	_expect(not audio.calls.has("stop_commando_supply_radio_loop"), "the radio tail expiry must not cut the ~3.5s radio sample (Python tick_radio_animation never touches the channel)")
+	_expect(not bool(supply_state.is_hold_radio_audio_active()), "expired radio tail should re-arm the one-playback radio gate")
+	_expect(not audio.calls.has("play_commando_supply_radio"), "hold-to-activation must produce a single continuous radio cue, never a second playback")
+	supply_state.update(arrival_timer, deps)
 	_expect(audio.calls.has("play_commando_supply_aircraft_loop"), "aircraft loop should start exactly when the delayed aircraft appears")
+	_expect(audio.calls.count("play_commando_supply_radio_loop") == 1, "the whole hold-to-flight sequence should contain exactly one radio playback")
+	_expect(not audio.calls.has("stop_commando_supply_radio_loop"), "nothing before round cleanup may cut the naturally-ending radio sample")
+
+
+func _verify_activation_without_hold_loop_plays_radio_cue_once() -> void:
+	var supply_state: Object = CommandoSupplyDropState.new()
+	var audio := FakeAudio.new()
+	var deps := _feedback_deps(audio)
+	var result: Dictionary = supply_state.update_input(
+		_supply_input(),
+		1.0,
+		500.0,
+		CommandoSkillConfig.new(),
+		CommandoSkillState.new(),
+		deps
+	)
+	_expect(bool(result.get("activated", false)), "single-step hold should activate supply drop")
+	_expect(audio.calls.count("play_commando_supply_radio") == 1, "activation without a running hold loop should still play the radio cue exactly once")
+	_expect(not audio.calls.has("play_commando_supply_radio_loop"), "single-step activation should not have started the hold radio loop")
 
 
 func _verify_round_reset_stops_hold_feedback_loop() -> void:

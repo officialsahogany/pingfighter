@@ -164,6 +164,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"stage4_brazier_monk_event": registry.get_instance("stage4_brazier_monk_event"),
 		"stage4_ponk_skill_state": registry.get_instance("stage4_ponk_skill_state"),
 		"stage5_hongryun_state": registry.get_instance("stage5_hongryun_state"),
+		"stage5_hongryun_fire_machine_event": registry.get_instance("stage5_hongryun_fire_machine_event"),
 		"stage5_hongryun_actor_renderer": registry.get_instance("stage5_hongryun_actor_renderer"),
 		"stage1_balloon_event": registry.get_instance("stage1_balloon_event"),
 	}
@@ -295,6 +296,7 @@ func _append_stage_round_deps(
 			deps["stage4_ponk_skill_state"] = _get_round_instance(registry, "stage4_ponk_skill_state", perf_logger, perf_label_prefix)
 		5:
 			deps["stage5_hongryun_state"] = _get_round_instance(registry, "stage5_hongryun_state", perf_logger, perf_label_prefix)
+			deps["stage5_hongryun_fire_machine_event"] = _get_round_instance(registry, "stage5_hongryun_fire_machine_event", perf_logger, perf_label_prefix)
 			deps["stage5_hongryun_actor_renderer"] = _get_round_instance(registry, "stage5_hongryun_actor_renderer", perf_logger, perf_label_prefix)
 
 
@@ -384,6 +386,7 @@ func _append_legacy_stage_update_deps(deps: Dictionary, registry) -> void:
 	deps["stage4_brazier_monk_event"] = _get_instance(registry, "stage4_brazier_monk_event")
 	deps["stage4_ponk_skill_state"] = _get_instance(registry, "stage4_ponk_skill_state")
 	deps["stage5_hongryun_state"] = _get_instance(registry, "stage5_hongryun_state")
+	deps["stage5_hongryun_fire_machine_event"] = _get_instance(registry, "stage5_hongryun_fire_machine_event")
 	deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
 	deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
 	deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
@@ -419,6 +422,7 @@ func _append_stage_update_deps(deps: Dictionary, registry, current_stage: int) -
 			deps["stage4_ponk_skill_state"] = _get_instance(registry, "stage4_ponk_skill_state")
 		5:
 			deps["stage5_hongryun_state"] = _get_instance(registry, "stage5_hongryun_state")
+			deps["stage5_hongryun_fire_machine_event"] = _get_instance(registry, "stage5_hongryun_fire_machine_event")
 
 
 func _get_stage_background_key(router: Object, current_stage: int) -> String:

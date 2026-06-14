@@ -1,6 +1,7 @@
 extends RefCounted
 
 const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_texture_cache.gd")
+const LingpetHydroSpherePayloadFactory := preload("res://scripts/lingpet/lingpet_hydro_sphere_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -158,29 +159,14 @@ func _spawn_puddle(owner: Object) -> void:
 
 
 func _spawn_splash_burst(origin: Vector2) -> void:
-	for i in range(SPLASH_PARTICLES):
-		var angle: float = -PI * 0.5 + (randf() - 0.5) * PI * 1.05
-		var speed: float = randf_range(150.0, 360.0)
-		_add_particle(
-			origin + Vector2(randf_range(-10.0, 10.0), randf_range(-4.0, 4.0)),
-			Vector2(cos(angle), sin(angle)) * speed,
-			randf_range(0.34, 0.62),
-			randf_range(3.0, 7.0),
-			0
-		)
+	for _i in range(SPLASH_PARTICLES):
+		_add_particle(LingpetHydroSpherePayloadFactory.build_splash_particle(origin))
 
 
-func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int) -> void:
+func _add_particle(particle: Dictionary) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
-	_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": life,
-		"max_life": maxf(0.01, life),
-		"size": size,
-		"kind": kind,
-	})
+	_particles.append(particle)
 
 
 func _update_particles(delta: float) -> void:
@@ -207,11 +193,14 @@ func _update_particles(delta: float) -> void:
 		_ambient_timer -= delta
 		if _ambient_timer <= 0.0:
 			_ambient_timer = AMBIENT_INTERVAL
-			for i in range(AMBIENT_BURST):
-				var ux: float = randf_range(-0.92, 0.92)
-				var uy: float = randf_range(-0.55, 0.55)
-				var spawn := _puddle_pos + Vector2(ux * PUDDLE_HALF_WIDTH, uy * PUDDLE_HALF_HEIGHT)
-				_add_particle(spawn, Vector2(randf_range(-12.0, 12.0), randf_range(-28.0, -10.0)), randf_range(0.5, 0.95), randf_range(2.0, 4.2), 1)
+			for _i in range(AMBIENT_BURST):
+				_add_particle(
+					LingpetHydroSpherePayloadFactory.build_ambient_particle(
+						_puddle_pos,
+						PUDDLE_HALF_WIDTH,
+						PUDDLE_HALF_HEIGHT
+					)
+				)
 
 
 func _apply_boss_slow(owner: Object, registry: Object) -> void:
@@ -224,11 +213,7 @@ func _apply_boss_slow(owner: Object, registry: Object) -> void:
 		"boss",
 		"slow",
 		SLOW_REFRESH_FRAMES,
-		{
-			"multiplier": SLOW_MULTIPLIER,
-			"cleansable": true,
-			"visual": "maribo_hydro_sphere",
-		},
+		LingpetHydroSpherePayloadFactory.build_slow_status_data(SLOW_MULTIPLIER),
 		STATUS_SOURCE
 	)
 

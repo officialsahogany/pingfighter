@@ -64,6 +64,7 @@ func _is_speed_limit_disabled(scene: Dictionary) -> bool:
 	return (
 		bool(scene.get("speed_limit_disabled", false))
 		or bool(scene.get("commando_suicide_drone_ball_boost_active", false))
+		or bool(scene.get("lingpet_wild_roar_ball_boost_active", false))
 	)
 
 

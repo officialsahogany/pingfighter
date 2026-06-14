@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage4PonkMagneticFxHost := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd")
 const Stage4PonkMeditationFxHost := preload("res://scripts/stages/stage4/stage4_ponk_meditation_fx_host.gd")
+const Stage4PonkSkillPayloadFactory := preload("res://scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd")
 
 const MAGNETIC_FIELD_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_refraction_magnetic_field_sheet_imagegen_v3_soft.png"
 const MAGNETIC_FIELD_COLS := 4
@@ -742,11 +743,7 @@ func _build_meditation_release_velocity(context: Dictionary, deps: Dictionary) -
 
 
 func _append_meditation_trail(pos: Vector2) -> void:
-	meditation_trails.append({
-		"pos": pos,
-		"life": 34.0,
-		"radius": 11.0,
-	})
+	meditation_trails.append(Stage4PonkSkillPayloadFactory.build_meditation_trail(pos))
 	while meditation_trails.size() > MEDITATION_TRAIL_MAX:
 		meditation_trails.pop_front()
 
@@ -808,24 +805,13 @@ func _update_meditation_release_fx(fps_scale: float) -> void:
 func _spawn_meditation_particle(pos: Vector2) -> void:
 	if meditation_particles.size() >= MEDITATION_PARTICLE_MAX or rng.randf() > 0.42:
 		return
-	var angle := rng.randf_range(0.0, TAU)
-	meditation_particles.append({
-		"pos": pos + Vector2(cos(angle), sin(angle)) * rng.randf_range(10.0, 34.0),
-		"vel": Vector2(cos(angle), sin(angle)) * rng.randf_range(0.25, 1.15),
-		"life": rng.randf_range(20.0, 42.0),
-		"size": rng.randf_range(1.8, 4.2),
-	})
+	meditation_particles.append(Stage4PonkSkillPayloadFactory.build_meditation_particle(pos, rng))
 
 
 func _spawn_meditation_circles() -> void:
 	var center := magnetic_center
 	for idx in range(3):
-		meditation_circles.append({
-			"pos": center,
-			"radius": 34.0 + float(idx) * 20.0,
-			"grow": 1.6 + float(idx) * 0.35,
-			"life": 54.0 + float(idx) * 18.0,
-		})
+		meditation_circles.append(Stage4PonkSkillPayloadFactory.build_meditation_circle(center, idx))
 
 
 func _ensure_textures() -> void:

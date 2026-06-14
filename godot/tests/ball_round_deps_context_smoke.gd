@@ -116,6 +116,7 @@ class FakePerfLogger:
 func _init() -> void:
 	_verify_round_deps_use_current_smasher_stage()
 	_verify_round_deps_use_current_viper_stage()
+	_verify_round_deps_use_current_stage5()
 	_verify_round_deps_cache_reuses_current_context()
 	_verify_round_deps_exposes_per_key_perf()
 	_verify_empty_context_keeps_legacy_full_deps()
@@ -145,6 +146,7 @@ func _verify_round_deps_use_current_smasher_stage() -> void:
 	_expect(not registry.requested_keys.has("commando_firearm_runtime"), "smasher round deps should not wake commando runtime")
 	_expect(not registry.requested_keys.has("stage4_pillar_background"), "stage 1 round deps should not wake stage 4 background")
 	_expect(not registry.requested_keys.has("stage5_hongryun_state"), "stage 1 round deps should not wake stage 5 state")
+	_expect(not registry.requested_keys.has("stage5_hongryun_fire_machine_event"), "stage 1 round deps should not wake Stage 5 fire-machine event")
 
 
 func _verify_round_deps_use_current_viper_stage() -> void:
@@ -160,6 +162,20 @@ func _verify_round_deps_use_current_viper_stage() -> void:
 	_expect(not registry.requested_keys.has("smasher_power_smash_state"), "viper round deps should not wake smasher power state")
 	_expect(not registry.requested_keys.has("commando_firearm_runtime"), "viper round deps should not wake commando runtime")
 	_expect(not registry.requested_keys.has("stage1_balloon_event"), "stage 4 round deps should not wake stage 1 balloon event")
+
+
+func _verify_round_deps_use_current_stage5() -> void:
+	var deps_context := BallDependencyContext.new()
+	var registry := FakeRegistry.new()
+	deps_context.build_round_deps(registry, {
+		"current_stage": 5,
+		"selected_character_type": "smasher",
+	})
+
+	_expect(registry.requested_keys.has("stage5_hongryun_state"), "stage 5 round deps should request Hongryun state")
+	_expect(registry.requested_keys.has("stage5_hongryun_fire_machine_event"), "stage 5 round deps should request Hongryun fire-machine event")
+	_expect(registry.requested_keys.has("stage5_hongryun_actor_renderer"), "stage 5 round deps should request Hongryun actor renderer")
+	_expect(not registry.requested_keys.has("stage4_ponk_skill_state"), "stage 5 round deps should not wake Stage 4 Ponk state")
 
 
 func _verify_round_deps_cache_reuses_current_context() -> void:
@@ -215,6 +231,7 @@ func _verify_empty_context_keeps_legacy_full_deps() -> void:
 	_expect(registry.requested_keys.has("viper_skill_runtime"), "empty round context should keep the legacy full-deps path")
 	_expect(registry.requested_keys.has("commando_firearm_runtime"), "empty round context should keep commando legacy deps")
 	_expect(registry.requested_keys.has("stage5_hongryun_state"), "empty round context should keep stage 5 legacy deps")
+	_expect(registry.requested_keys.has("stage5_hongryun_fire_machine_event"), "empty round context should keep Stage 5 fire-machine cleanup deps")
 	_expect(registry.requested_keys.has("stage5_hongryun_actor_renderer"), "empty round context should keep stage 5 actor renderer cleanup deps")
 
 	var perf_only_registry := FakeRegistry.new()

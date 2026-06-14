@@ -2,7 +2,7 @@ extends RefCounted
 
 const SAVE_PATH := "user://lingpet_affinity.cfg"
 const SAVE_SCHEMA_VERSION := 2
-const MAX_BEST_LEVEL := 15 # Mirrors LingpetAffinityState.MAX_LEVEL without coupling the store to runtime state.
+const MAX_BEST_LEVEL := 30 # Mirrors LingpetAffinityState.MAX_LEVEL without coupling the store to runtime state.
 const META_SECTION := "meta"
 const META_SCHEMA_VERSION_KEY := "schema_version"
 const LEGACY_META_VERSION_KEY := "version"

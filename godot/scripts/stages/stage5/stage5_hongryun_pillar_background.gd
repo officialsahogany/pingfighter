@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage5HongryunPillarBackgroundPayloadFactory := preload("res://scripts/stages/stage5/stage5_hongryun_pillar_background_payload_factory.gd")
 
 const BASE_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_layered_cyber_base_imagegen_v3.png"
 const INFERNO_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_center_background_imagegen_v1.png"
@@ -77,12 +78,12 @@ func update(delta: float, _context: Dictionary = {}, _deps: Dictionary = {}) -> 
 
 
 func trigger_spiral_burst(inferno_active: bool = false) -> void:
-	_spiral_bursts.append({
-		"age": 0.0,
-		"life": SPIRAL_BURST_LIFETIME_SEC,
-		"intensity": 1.6 if inferno_active else 1.0,
-		"phase": float(_spiral_bursts.size()) * 0.73 + time_sec,
-	})
+	_spiral_bursts.append(Stage5HongryunPillarBackgroundPayloadFactory.build_spiral_burst(
+		_spiral_bursts.size(),
+		time_sec,
+		SPIRAL_BURST_LIFETIME_SEC,
+		inferno_active
+	))
 	while _spiral_bursts.size() > MAX_SPIRAL_BURSTS:
 		_spiral_bursts.pop_front()
 
@@ -92,12 +93,10 @@ func set_inferno_mode(active: bool) -> void:
 
 
 func add_fire_impact(x: float, y: float) -> void:
-	_fire_impacts.append({
-		"pos": Vector2(x, y),
-		"age": 0.0,
-		"life": FIRE_IMPACT_LIFETIME_SEC,
-		"scale": 1.0,
-	})
+	_fire_impacts.append(Stage5HongryunPillarBackgroundPayloadFactory.build_fire_impact(
+		Vector2(x, y),
+		FIRE_IMPACT_LIFETIME_SEC
+	))
 	while _fire_impacts.size() > MAX_FIRE_IMPACTS:
 		_fire_impacts.pop_front()
 

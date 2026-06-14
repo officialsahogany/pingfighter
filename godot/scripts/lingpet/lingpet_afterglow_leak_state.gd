@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const AfterglowFluidTextureCache := preload("res://scripts/effects/afterglow_fluid_texture_cache.gd")
+const LingpetAfterglowLeakPayloadFactory := preload("res://scripts/lingpet/lingpet_afterglow_leak_payload_factory.gd")
 
 const PASSIVE_ID := "lingpet_afterglow_leak"
 const FIELD_WIDTH := 760.0
@@ -102,25 +103,18 @@ func spawn_from_hit(contact_pos: Vector2, passive_skill: Dictionary, companion_a
 		clampf(contact_pos.x, 18.0, FIELD_WIDTH - 18.0),
 		clampf(contact_pos.y, 32.0, floor_pos.y)
 	)
-	var residue := {
-		"id": _next_residue_id,
-		"pos": floor_pos,
-		"origin": origin,
-		"timer": duration,
-		"duration": duration,
-		"age": 0.0,
-		"emit_timer": JET_EMIT_SECONDS,
-		"emit_accum": 0.0,
-		"lean": randf_range(-0.12, 0.12),
-		"splats": [],
-		"remaining_gauge": total_gauge,
-		"total_gauge": total_gauge,
-		"tick_gain": total_gauge / float(tick_count),
-		"absorb_accum": 0.0,
-		"absorb_radius": maxf(8.0, float(passive_skill.get("afterglow_absorb_radius", DEFAULT_ABSORB_RADIUS))),
-		"seed": _stable_seed(contact_pos),
-		"absorb_flash": ABSORB_FLASH_SECONDS,
-	}
+	var residue := LingpetAfterglowLeakPayloadFactory.build_residue(
+		_next_residue_id,
+		floor_pos,
+		origin,
+		duration,
+		total_gauge,
+		tick_count,
+		float(passive_skill.get("afterglow_absorb_radius", DEFAULT_ABSORB_RADIUS)),
+		_stable_seed(contact_pos),
+		JET_EMIT_SECONDS,
+		ABSORB_FLASH_SECONDS
+	)
 	_next_residue_id += 1
 	_residues.append(residue)
 	while _residues.size() > MAX_RESIDUES:
@@ -328,13 +322,7 @@ func _deposit_splat(pool_id: int, landing_x: float, floor_y: float) -> void:
 				grown["x"] = lerpf(float(grown.get("x", landing_x)), landing_x, 0.3)
 				splats[nearest_index] = grown
 			return
-		splats.append({
-			"x": landing_x,
-			"y": floor_y,
-			"born": born,
-			"size": randf_range(6.0, 12.0),
-			"seed": fmod(absf(landing_x * 0.13 + born * 7.0), TAU),
-		})
+		splats.append(LingpetAfterglowLeakPayloadFactory.build_splat(landing_x, floor_y, born))
 		residue["splats"] = splats
 		return
 
@@ -359,17 +347,7 @@ func _spawn_absorb_wisps(owner: Object, residue: Dictionary) -> void:
 func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int, params: Dictionary = {}) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
-	_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": life,
-		"max_life": maxf(0.01, life),
-		"size": size,
-		"kind": kind,
-		"target": _as_vector2(params.get("target", Vector2.ZERO), Vector2.ZERO),
-		"floor_y": float(params.get("floor_y", 0.0)),
-		"pool_id": int(params.get("pool_id", -1)),
-	})
+	_particles.append(LingpetAfterglowLeakPayloadFactory.build_particle(pos, vel, life, size, kind, params))
 
 
 func _update_particles(delta: float) -> void:

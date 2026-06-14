@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ImpactEffectPayloadFactory := preload("res://scripts/effects/impact_effect_payload_factory.gd")
+
 const PADDLE_HIT_PLAYER_COLOR_LIGHT := Color(0.40, 0.60, 1.0)
 const PADDLE_HIT_BOSS_COLOR_LIGHT := Color(1.0, 0.45, 0.35)
 const HIGH_INTENSITY_COLOR := Color(1.0, 0.38, 0.80)
@@ -103,72 +105,25 @@ func _spawn_sparks(pos: Vector2, color: Color, direction: Vector2, force: float)
 	var tangent := Vector2(-direction.y, direction.x)
 	var count: int = min(HIT_PARTICLE_SPAWN_MAX, HIT_PARTICLE_COUNT + int(round(force * HIT_PARTICLE_FORCE_BONUS)))
 	for _i in range(count):
-		var spread: float = randf_range(-1.0, 1.0)
-		var push: Vector2 = (direction * randf_range(3.0, 6.4 + force * 3.0)) + (tangent * spread * randf_range(1.2, 4.6))
-		push += Vector2(randf_range(-0.55, 0.55), randf_range(-0.55, 0.55))
-		var max_life: float = randf_range(SPARK_LIFE_MIN, SPARK_LIFE_MAX + force * 0.025)
-		hit_particles.append({
-			"pos": pos + tangent * randf_range(-4.0, 4.0),
-			"vel": push,
-			"life": max_life,
-			"max_life": max_life,
-			"size": randf_range(1.8, 4.2 + force * 0.9),
-			"color": color,
-			"trail": randf_range(7.0, 16.0 + force * 8.0),
-		})
+		hit_particles.append(ImpactEffectPayloadFactory.build_paddle_spark(pos, color, direction, tangent, force, SPARK_LIFE_MIN, SPARK_LIFE_MAX))
 
 
 func _spawn_rings(pos: Vector2, color: Color, direction: Vector2, force: float) -> void:
-	hit_rings.append({
-		"pos": pos,
-		"life": RING_LIFE + force * 0.04,
-		"max_life": RING_LIFE + force * 0.04,
-		"start_radius": 8.0 + force * 3.0,
-		"end_radius": 32.0 + force * 28.0,
-		"color": color,
-		"thickness": 2.4 + force * 1.6,
-	})
+	hit_rings.append(ImpactEffectPayloadFactory.build_paddle_primary_ring(pos, color, force, RING_LIFE))
 	if force < 1.05:
 		return
-	hit_rings.append({
-		"pos": pos - direction * (4.0 + force * 3.0),
-		"life": RING_LIFE * 0.72,
-		"max_life": RING_LIFE * 0.72,
-		"start_radius": 4.0 + force * 2.0,
-		"end_radius": 18.0 + force * 18.0,
-		"color": CORE_FLASH_COLOR.lerp(color, 0.35),
-		"thickness": 1.6 + force,
-	})
+	hit_rings.append(ImpactEffectPayloadFactory.build_paddle_core_ring(pos, color, direction, force, RING_LIFE, CORE_FLASH_COLOR))
 
 
 func _spawn_streaks(pos: Vector2, color: Color, direction: Vector2, force: float) -> void:
 	var tangent := Vector2(-direction.y, direction.x)
 	var streak_count: int = min(HIT_STREAK_SPAWN_MAX, HIT_STREAK_BASE_COUNT + int(round(force * HIT_STREAK_FORCE_BONUS)))
 	for _i in range(streak_count):
-		var tangent_bias: float = randf_range(-1.0, 1.0)
-		var streak_dir: Vector2 = (tangent * tangent_bias * randf_range(0.7, 1.45) + direction * randf_range(0.45, 1.0)).normalized()
-		if streak_dir.length_squared() <= 0.001:
-			streak_dir = direction
-		hit_streaks.append({
-			"pos": pos + tangent * randf_range(-12.0, 12.0) - direction * randf_range(0.0, 5.0),
-			"vel": streak_dir * randf_range(2.4, 5.4 + force * 2.0),
-			"dir": streak_dir,
-			"life": STREAK_LIFE + randf_range(-0.025, 0.04),
-			"max_life": STREAK_LIFE + 0.04,
-			"length": randf_range(20.0, 36.0 + force * 30.0),
-			"width": randf_range(1.5, 2.9 + force * 1.1),
-			"color": color,
-		})
+		hit_streaks.append(ImpactEffectPayloadFactory.build_paddle_streak(pos, color, direction, tangent, force, STREAK_LIFE))
 
 
 func _spawn_flash(pos: Vector2, color: Color, force: float) -> void:
-	hit_flashes.append({
-		"pos": pos,
-		"life": FLASH_LIFE,
-		"max_life": FLASH_LIFE,
-		"radius": 18.0 + force * 26.0,
-		"color": CORE_FLASH_COLOR.lerp(color, 0.28),
-	})
+	hit_flashes.append(ImpactEffectPayloadFactory.build_paddle_flash(pos, color, force, FLASH_LIFE, CORE_FLASH_COLOR))
 
 
 func _update_particles(delta: float, fps_scale: float) -> void:

@@ -52,6 +52,8 @@ func apply_effects_result(owner: Object, result: Dictionary) -> void:
 		_apply_commando_bowling_trap_guard_state(owner, result)
 	if result.has("commando_suicide_drone_ball_boost_active"):
 		_apply_commando_suicide_drone_ball_boost_state(owner, result)
+	if result.has("lingpet_wild_roar_ball_boost_active"):
+		_apply_lingpet_wild_roar_ball_boost_state(owner, result)
 	_apply_blacksmith_umbrella_result(owner, result)
 
 
@@ -109,6 +111,17 @@ func _apply_commando_suicide_drone_ball_boost_state(owner: Object, result: Dicti
 	owner.set("commando_suicide_drone_ball_boosted_speed", float(result.get(
 		"commando_suicide_drone_ball_boosted_speed",
 		_get_owner_value(owner, "commando_suicide_drone_ball_boosted_speed", 0.0)
+	)))
+
+
+func _apply_lingpet_wild_roar_ball_boost_state(owner: Object, result: Dictionary) -> void:
+	owner.set("lingpet_wild_roar_ball_boost_active", bool(result.get(
+		"lingpet_wild_roar_ball_boost_active",
+		_get_owner_value(owner, "lingpet_wild_roar_ball_boost_active", false)
+	)))
+	owner.set("lingpet_wild_roar_ball_restore_speed", float(result.get(
+		"lingpet_wild_roar_ball_restore_speed",
+		_get_owner_value(owner, "lingpet_wild_roar_ball_restore_speed", 0.0)
 	)))
 
 

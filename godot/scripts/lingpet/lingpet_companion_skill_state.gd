@@ -97,17 +97,28 @@ func get_snapshot(
 	skill_id: String,
 	skill_cooldown_duration: float,
 	skill_windup_seconds: float,
-	flash_seconds: float
+	flash_seconds: float,
+	key_suffix: String = ""
 ) -> Dictionary:
-	return {
-		"companion_skill_cooldown": cooldown,
-		"companion_skill_cooldown_duration": skill_cooldown_duration,
-		"companion_skill_windup_seconds": skill_windup_seconds if companion_active else 0.0,
-		"companion_skill_ready": companion_active and skill_id != "" and cooldown <= 0.0,
-		"companion_skill_last_gain": last_gain,
-		"companion_skill_trigger_count": trigger_count,
-		"companion_skill_flash_timer": flash_timer,
-		"companion_skill_flash_ratio": get_flash_ratio(flash_seconds),
-		"companion_skill_winding_up": windup_active,
-		"companion_skill_origin": origin,
-	}
+	var suffix := key_suffix.strip_edges()
+	var snapshot := {}
+	snapshot["companion_skill_cooldown%s" % suffix] = cooldown
+	snapshot["companion_skill_cooldown_duration%s" % suffix] = skill_cooldown_duration
+	snapshot["companion_skill_windup_seconds%s" % suffix] = skill_windup_seconds if companion_active else 0.0
+	snapshot["companion_skill_windup_ratio%s" % suffix] = _get_windup_ratio(companion_active, skill_windup_seconds)
+	snapshot["companion_skill_ready%s" % suffix] = companion_active and skill_id != "" and cooldown <= 0.0
+	snapshot["companion_skill_last_gain%s" % suffix] = last_gain
+	snapshot["companion_skill_trigger_count%s" % suffix] = trigger_count
+	snapshot["companion_skill_flash_timer%s" % suffix] = flash_timer
+	snapshot["companion_skill_flash_ratio%s" % suffix] = get_flash_ratio(flash_seconds)
+	snapshot["companion_skill_winding_up%s" % suffix] = windup_active
+	snapshot["companion_skill_origin%s" % suffix] = origin
+	return snapshot
+
+
+func _get_windup_ratio(companion_active: bool, skill_windup_seconds: float) -> float:
+	if not companion_active or not windup_active:
+		return 0.0
+	if skill_windup_seconds <= 0.0:
+		return 1.0
+	return clampf(windup_elapsed / skill_windup_seconds, 0.0, 1.0)

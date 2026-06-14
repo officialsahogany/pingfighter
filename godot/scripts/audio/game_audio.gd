@@ -109,6 +109,8 @@ const LINGPET_PUPPET_GRAB_CAST_SOUND_PATH := "res://assets/sounds/lingpet/puppet
 const LINGPET_PUPPET_GRAB_PULL_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab.wav"
 const LINGPET_PUPPET_GRAB_KISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_kissing.wav"
 const LINGPET_PUPPET_GRAB_MISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
+const LINGPET_WILD_ROAR_SOUND_PATH := "res://assets/sounds/lingpet/monkeyshouting.wav"
+const LINGPET_RING_DASH_SOUND_PATH := "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
 const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
 const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
@@ -126,6 +128,8 @@ const LINGPET_PUPPET_GRAB_CAST_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_PULL_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_KISS_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_MISS_GAIN_DB := -5.0
+const LINGPET_WILD_ROAR_GAIN_DB := -4.0
+const LINGPET_RING_DASH_GAIN_DB := -5.0
 const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
 const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
 const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
@@ -139,6 +143,11 @@ const THUNDER_ORB_SHOT_SOUND_PATH := "res://assets/sounds/thunderbolt.wav"
 const THUNDER_ORB_BOOM_SOUND_PATH := "res://assets/sounds/thunderboltboom.wav"
 const THUNDER_ORB_SHOT_GAIN_DB := -7.9588
 const THUNDER_ORB_BOOM_GAIN_DB := -6.0206
+# Original PingFighter SolarBolt used devinethunder.wav. That source asset is
+# not in the Godot tree yet, so keep a dedicated API/player and point it at the
+# closest one-shot electric cue until the parity asset lands.
+const SOLAR_BOLT_STRIKE_SOUND_PATH := RAGNAROK_SHOT_SOUND_PATH
+const SOLAR_BOLT_STRIKE_GAIN_DB := -6.0206
 const POSEIDON_WAVE_SOUND_PATH := "res://assets/sounds/poseidon.wav"
 const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
 const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
@@ -375,6 +384,8 @@ var lingpet_puppet_grab_cast_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_pull_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_kiss_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_miss_sfx: AudioStreamPlayer
+var lingpet_wild_roar_sfx: AudioStreamPlayer
+var lingpet_ring_dash_sfx: AudioStreamPlayer
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
 var lingpet_gatling_loop_sfx: AudioStreamPlayer
 var lingpet_gatling_fire_sfx: AudioStreamPlayer
@@ -387,6 +398,7 @@ var ragnarok_shock_sfx: AudioStreamPlayer
 var electric_shock_sfx: AudioStreamPlayer
 var thunder_orb_shot_sfx: AudioStreamPlayer
 var thunder_orb_boom_sfx: AudioStreamPlayer
+var solar_bolt_strike_sfx: AudioStreamPlayer
 var poseidon_wave_sfx: AudioStreamPlayer
 var poseidon_charge_sfx: AudioStreamPlayer
 var timewatch_sfx: AudioStreamPlayer
@@ -603,10 +615,11 @@ func _setup_smasher_skill_sfx() -> void:
 
 func _setup_commando_skill_sfx() -> void:
 	commando_supply_radio_sfx = _create_optional_sfx("CommandoSupplyRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -6.0)
+	# Python parity (supply_drop.py start_radio_loop): radio.wav (~3.5s) plays
+	# exactly once per hold session and runs to its natural end -- the "loop"
+	# name is historical. Do not _enable_loop this player; with the state-side
+	# tail no longer force-stopping it, a looping stream would never end.
 	commando_supply_radio_loop_sfx = _create_optional_sfx("CommandoSupplyRadioLoopSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -7.0)
-	if commando_supply_radio_loop_sfx != null and commando_supply_radio_loop_sfx.stream != null:
-		commando_supply_radio_loop_sfx.stream = commando_supply_radio_loop_sfx.stream.duplicate(true)
-	_enable_loop(commando_supply_radio_loop_sfx)
 	commando_supply_aircraft_sfx = _create_optional_sfx("CommandoSupplyAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB)
 	_enable_loop(commando_supply_aircraft_sfx)
 	commando_weapon_change_sfx = _create_optional_sfx("CommandoWeaponChangeSfx", COMMANDO_WEAPON_CHANGE_SOUND_PATH, COMMANDO_WEAPON_CHANGE_GAIN_DB)
@@ -655,6 +668,8 @@ func _setup_item_command_sfx() -> void:
 	lingpet_puppet_grab_pull_sfx = player_factory.create(owner_node, "LingpetPuppetGrabPullSfx", LINGPET_PUPPET_GRAB_PULL_SOUND_PATH, LINGPET_PUPPET_GRAB_PULL_GAIN_DB)
 	lingpet_puppet_grab_kiss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabKissSfx", LINGPET_PUPPET_GRAB_KISS_SOUND_PATH, LINGPET_PUPPET_GRAB_KISS_GAIN_DB)
 	lingpet_puppet_grab_miss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabMissSfx", LINGPET_PUPPET_GRAB_MISS_SOUND_PATH, LINGPET_PUPPET_GRAB_MISS_GAIN_DB)
+	lingpet_wild_roar_sfx = player_factory.create(owner_node, "LingpetWildRoarSfx", LINGPET_WILD_ROAR_SOUND_PATH, LINGPET_WILD_ROAR_GAIN_DB)
+	lingpet_ring_dash_sfx = player_factory.create(owner_node, "LingpetRingDashSfx", LINGPET_RING_DASH_SOUND_PATH, LINGPET_RING_DASH_GAIN_DB)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
@@ -663,6 +678,7 @@ func _setup_item_command_sfx() -> void:
 	electric_shock_sfx = player_factory.create(owner_node, "ElectricShockSfx", ELECTRIC_SHOCK_SOUND_PATH, ELECTRIC_SHOCK_GAIN_DB)
 	thunder_orb_shot_sfx = player_factory.create(owner_node, "ThunderOrbShotSfx", THUNDER_ORB_SHOT_SOUND_PATH, THUNDER_ORB_SHOT_GAIN_DB)
 	thunder_orb_boom_sfx = player_factory.create(owner_node, "ThunderOrbBoomSfx", THUNDER_ORB_BOOM_SOUND_PATH, THUNDER_ORB_BOOM_GAIN_DB)
+	solar_bolt_strike_sfx = player_factory.create(owner_node, "SolarBoltStrikeSfx", SOLAR_BOLT_STRIKE_SOUND_PATH, SOLAR_BOLT_STRIKE_GAIN_DB)
 	poseidon_wave_sfx = player_factory.create(owner_node, "PoseidonWaveSfx", POSEIDON_WAVE_SOUND_PATH, -5.0)
 	poseidon_charge_sfx = player_factory.create(owner_node, "PoseidonChargeSfx", POSEIDON_CHARGE_SOUND_PATH, -5.0)
 	_enable_loop(ragnarok_shock_sfx)
@@ -950,6 +966,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_PUPPET_GRAB_PULL_SOUND_PATH,
 				LINGPET_PUPPET_GRAB_KISS_SOUND_PATH,
 				LINGPET_PUPPET_GRAB_MISS_SOUND_PATH,
+				LINGPET_WILD_ROAR_SOUND_PATH,
+				LINGPET_RING_DASH_SOUND_PATH,
 				LEGENDARY_AFTER_SOUND_PATH,
 				LEGENDARY_ENDING_SOUND_PATH,
 				RAGNAROK_SHOT_SOUND_PATH,
@@ -958,6 +976,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				ELECTRIC_SHOCK_SOUND_PATH,
 				THUNDER_ORB_SHOT_SOUND_PATH,
 				THUNDER_ORB_BOOM_SOUND_PATH,
+				SOLAR_BOLT_STRIKE_SOUND_PATH,
 				POSEIDON_WAVE_SOUND_PATH,
 				POSEIDON_CHARGE_SOUND_PATH,
 				TIMEWATCH_SOUND_PATH,
@@ -1080,11 +1099,7 @@ func _get_bgm_stream_path(bgm_name: String) -> String:
 func _should_prewarm_audio_stream(path: String) -> bool:
 	return (
 		path != ""
-		and (
-			FileAccess.file_exists(path)
-			or FileAccess.file_exists("%s.import" % path)
-			or ResourceLoader.exists(path, "AudioStream")
-		)
+		and (FileAccess.file_exists(path) or ProjectResourceLoader.audio_resource_exists(path))
 	)
 
 
@@ -1788,6 +1803,16 @@ func play_lingpet_puppet_grab_miss() -> void:
 		play_active_item()
 
 
+func play_lingpet_wild_roar() -> void:
+	if not _play_with_pitch(lingpet_wild_roar_sfx, randf_range(0.96, 1.04)):
+		play_active_item()
+
+
+func play_lingpet_ring_dash() -> void:
+	if not _play_with_pitch(lingpet_ring_dash_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
 func play_lingpet_doll_curse() -> void:
 	if not _play_with_pitch(stage3_dollcurse_sfx, randf_range(0.97, 1.03)):
 		play_active_item()
@@ -1841,6 +1866,11 @@ func play_thunder_orb_shot() -> void:
 func play_thunder_orb_boom() -> void:
 	if not _play_with_pitch(thunder_orb_boom_sfx, 1.0):
 		play_grenade_explosion()
+
+
+func play_solar_bolt_strike() -> void:
+	if not _play_with_pitch(solar_bolt_strike_sfx, randf_range(0.98, 1.02)):
+		play_ragnarok_shot()
 
 
 func play_ragnarok_shock_loop() -> void:
@@ -2782,10 +2812,11 @@ func _play_commando_ak47_fire_layer(pitch: float) -> bool:
 
 
 func _create_optional_sfx(name: String, path: String, volume_db: float) -> AudioStreamPlayer:
-	if FileAccess.file_exists(path) or FileAccess.file_exists("%s.import" % path):
+	if FileAccess.file_exists(path) or ProjectResourceLoader.audio_resource_exists(path):
 		return _configure_sfx_player(player_factory.create(owner_node, name, path, volume_db))
 	var player := AudioStreamPlayer.new()
 	player.name = name
+	player.bus = "Master"
 	player.volume_db = volume_db
 	if owner_node != null:
 		owner_node.add_child(player)
@@ -3099,6 +3130,12 @@ func _get_sfx_players() -> Array:
 		lingpet_volty_click_voice_sfx,
 		lingpet_milkring_click_voice_sfx,
 		lingpet_red_dragon_click_voice_sfx,
+		lingpet_puppet_grab_cast_sfx,
+		lingpet_puppet_grab_pull_sfx,
+		lingpet_puppet_grab_kiss_sfx,
+		lingpet_puppet_grab_miss_sfx,
+		lingpet_wild_roar_sfx,
+		lingpet_ring_dash_sfx,
 		lingpet_gatling_transform_sfx,
 		lingpet_gatling_loop_sfx,
 		lingpet_gatling_fire_sfx,
@@ -3111,6 +3148,7 @@ func _get_sfx_players() -> Array:
 		electric_shock_sfx,
 		thunder_orb_shot_sfx,
 		thunder_orb_boom_sfx,
+		solar_bolt_strike_sfx,
 		poseidon_wave_sfx,
 		poseidon_charge_sfx,
 		timewatch_sfx,

@@ -30,10 +30,12 @@ func get_speed_multiplier(runtime: Object) -> float:
 
 func clear_runtime(runtime: Object) -> void:
 	runtime.hermes_shoes_state.clear_runtime(get_default_player_size())
+	_tear_down_field_fx(runtime)
 
 
 func clear_round_state(runtime: Object) -> void:
 	runtime.hermes_shoes_state.clear_round_state(get_default_player_size())
+	_tear_down_field_fx(runtime)
 
 
 func update_runtime(runtime: Object, owner: Object, fps_scale: float) -> void:
@@ -65,3 +67,11 @@ func update_runtime(runtime: Object, owner: Object, fps_scale: float) -> void:
 
 func get_default_player_size() -> Vector2:
 	return Vector2(PLAYER_BASE_PADDLE_WIDTH, PLAYER_BASE_PADDLE_HEIGHT)
+
+
+func _tear_down_field_fx(runtime: Object) -> void:
+	if runtime == null:
+		return
+	var renderer: Object = runtime.get("field_effect_renderer")
+	if renderer != null and renderer.has_method("tear_down_hermes_shoes_fx"):
+		renderer.tear_down_hermes_shoes_fx(false)

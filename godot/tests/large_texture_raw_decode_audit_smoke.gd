@@ -12,22 +12,32 @@ func _init() -> void:
 	var warmup_plan_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_plan.gd")
 	var lingpet_cache_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 	var lingpet_panel_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
+	var lingpet_catalog_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_catalog.gd")
 
 	var character_sync_body := _function_body(character_prewarm_source, "func _load_job_synchronously(")
 	_expect(
 		character_sync_body.find("ProjectResourceLoader.load_imported_texture(path)") >= 0,
 		"character-select sync fallback should not raw-decode large Live2D texture jobs"
 	)
+	var character_prewarm_path_exists_body := _function_body(character_prewarm_source, "func _path_exists(")
+	_expect(
+		character_prewarm_path_exists_body.find("ProjectResourceLoader.texture_resource_exists(path)") >= 0,
+		"character-select texture job discovery should require import/ResourceLoader-visible textures, not raw PNG files"
+	)
+	_expect(
+		character_prewarm_path_exists_body.find("FileAccess.file_exists(path)") < 0
+			and character_prewarm_path_exists_body.find("FileAccess.file_exists(\"%s.import\" % path)") < 0,
+		"character-select path discovery should not duplicate raw texture FileAccess gates"
+	)
 
 	var preview_threadable_body := _function_body(character_preview_source, "func _can_thread_load_texture(")
 	_expect(
-		preview_threadable_body.find("FileAccess.file_exists(path)") < 0,
-		"character live preview should not reject threaded/imported loading just because the raw PNG exists"
+		preview_threadable_body.find("ProjectResourceLoader.can_thread_load_texture(path)") >= 0,
+		"character live preview should delegate texture threadability to the central export-safe loader helper"
 	)
 	_expect(
-		preview_threadable_body.find("FileAccess.file_exists(\"%s.import\" % path)") >= 0
-			and preview_threadable_body.find("ResourceLoader.exists(path, \"Texture2D\")") >= 0,
-		"character live preview should allow imported or ResourceLoader-visible texture sheets to load off the main path"
+		preview_threadable_body.find("FileAccess.file_exists") < 0,
+		"character live preview should not duplicate raw FileAccess texture gates"
 	)
 
 	var preview_request_body := _function_body(character_preview_source, "func _request_next_fullframe_sheet(")
@@ -79,6 +89,44 @@ func _init() -> void:
 		lingpet_panel_body.find("ProjectResourceLoader.load_imported_texture(") >= 0,
 		"character-info lingpet panel art should prefer imported textures for Live2D panel sheets"
 	)
+	var battle_threadable_body := _function_body(battle_resources_source, "func _is_thread_loadable_texture_path(")
+	_expect(
+		battle_threadable_body.find("ProjectResourceLoader.can_thread_load_texture(path)") >= 0,
+		"battle resource threaded texture prewarm should share the central export-safe texture gate"
+	)
+	var skill_cutin_load_body_for_gate := _function_body(skill_cutin_source, "func _load_cutin_sheet_texture(")
+	_expect(
+		skill_cutin_load_body_for_gate.find("ProjectResourceLoader.texture_resource_exists(path)") >= 0
+			and skill_cutin_load_body_for_gate.find("FileAccess.file_exists") < 0,
+		"skill cut-in sheet loading should not require raw PNG files in exported builds"
+	)
+	var lingpet_catalog_validate_body := _function_body(lingpet_catalog_source, "static func _validate_required_visuals(")
+	_expect(
+		lingpet_catalog_validate_body.find("_texture_resource_exists(path)") >= 0
+			and lingpet_catalog_validate_body.find("FileAccess.file_exists(path)") < 0,
+		"lingpet catalog visual validation should require import/ResourceLoader-visible textures, not raw PNG files"
+	)
+	var lingpet_catalog_active_skill_body := _function_body(lingpet_catalog_source, "static func _validate_active_skill_data(")
+	_expect(
+		lingpet_catalog_active_skill_body.find("_texture_resource_exists(card_path)") >= 0
+			and lingpet_catalog_active_skill_body.find("_texture_resource_exists(icon_path)") >= 0
+			and lingpet_catalog_active_skill_body.find("FileAccess.file_exists") < 0,
+		"lingpet catalog active skill card/icon validation should require import/ResourceLoader-visible textures"
+	)
+	var lingpet_catalog_passive_icon_body := _function_body(lingpet_catalog_source, "static func _validate_passive_icons(")
+	_expect(
+		lingpet_catalog_passive_icon_body.find("_texture_resource_exists(path)") >= 0
+			and lingpet_catalog_passive_icon_body.find("FileAccess.file_exists(path)") < 0,
+		"lingpet catalog passive icon validation should require import/ResourceLoader-visible textures"
+	)
+	var lingpet_catalog_passive_pool_body := _function_body(lingpet_catalog_source, "static func _validate_passive_skill_pool(")
+	_expect(
+		lingpet_catalog_passive_pool_body.find("_texture_resource_exists(icon_path)") >= 0
+			and lingpet_catalog_passive_pool_body.find("FileAccess.file_exists") < 0,
+		"lingpet catalog passive skill pool icon validation should require import/ResourceLoader-visible textures"
+	)
+
+	_verify_raw_source_decode_confined_to_central_loader()
 
 	if _failed:
 		quit(1)
@@ -124,6 +172,36 @@ func _verify_skill_cutin_transition_prewarm(battle_resources_source: String, war
 		warmup_plan_source.find("\"lingpet_acquire_cutin_overlay_host\"") >= 0,
 		"boot draw-runtime warmup should instantiate the lingpet acquire cut-in host before selected-character asset prewarm"
 	)
+
+
+# Raw source-file decodes (Image.load_from_file / AudioStream*.load_from_file /
+# FontFile.load_dynamic_font on globalize_path(res://...)) only work in the
+# editor: exported builds pack the imported .ctex/.sample artifacts, not the
+# original source files, so every such caller outside the central loader
+# returns null in the shipped build while looking correct in dev runs.
+# Reference failures: the main-menu logo glint mask and the stage2 monkey
+# trunk-path alpha scan were silently dead in every exported build. Route the
+# load through ProjectResourceLoader and read pixels via texture.get_image().
+func _verify_raw_source_decode_confined_to_central_loader() -> void:
+	var allowed_scripts: Array[String] = [
+		"res://scripts/resources/project_resource_loader.gd",
+	]
+	var forbidden_calls := [
+		"Image.load_from_file(",
+		"AudioStreamWAV.load_from_file(",
+		"AudioStreamMP3.load_from_file(",
+		"AudioStreamOggVorbis.load_from_file(",
+		".load_dynamic_font(",
+	]
+	for script_path in _collect_gd_files("res://scripts"):
+		if allowed_scripts.has(script_path):
+			continue
+		var source := FileAccess.get_file_as_string(script_path)
+		for pattern in forbidden_calls:
+			_expect(
+				source.find(pattern) < 0,
+				"raw source-file decode (%s) outside the central loader is export-dead; load via ProjectResourceLoader + get_image() in %s" % [pattern, script_path]
+			)
 
 
 func _verify_lingpet_portal_has_no_raw_loads() -> void:

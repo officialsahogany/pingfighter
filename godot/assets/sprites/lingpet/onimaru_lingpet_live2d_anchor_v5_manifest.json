@@ -1,0 +1,35 @@
+{
+  "asset_id": "onimaru_lingpet_live2d_anchor_v5",
+  "created_date": "2026-06-13",
+  "purpose": "Onimaru Lingpet Live2D source anchor: v4 cute style with Yeomra-style crown and stronger Ringpet ring parts",
+  "source": {
+    "tool": "Codex built-in image_gen",
+    "raw_chromakey_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v5_magenta_source.png",
+    "raw_chromakey": "#ff00ff",
+    "style_reference": "onimaru_lingpet_live2d_anchor_v4_magenta_source.png",
+    "correction_reference": "User note: original Onimaru head ornament reads like a Yeomra Daewang crown, not a simple halo",
+    "notes": [
+      "Keeps v4 cute chibi face, fluffy black hair, expressive golden eyes, fang smile, outfit direction, and flower staff.",
+      "Replaces the simple halo with a compact gold Yeomra / King Yama ceremonial crown form between the horns.",
+      "Adds stronger Ringpet identity parts: collar ring, chest ring core, shoulder gems, wrist and boot ring accents, belt/skirt ring segments, and staff ring ornament.",
+      "Raw generated background was normalized to exact #ff00ff after generation.",
+      "No tail, wings, dragon scales, dinosaur silhouette, large club, or scenic background."
+    ]
+  },
+  "transparent_cutout": {
+    "path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v5.png",
+    "cleanup_method": "remove_chroma_key.py --key-color #ff00ff --tolerance 3, followed by targeted 2px boundary removal for magenta-like edge pixels",
+    "detected_key_color": "#ff00ff",
+    "note": "Exact-key cleanup was used because the outfit intentionally contains warm pink-red armor and sleeves."
+  },
+  "qa": {
+    "raw_size": "1254x1254",
+    "raw_edge_samples_exact_ff00ff": true,
+    "cutout_corner_alpha": [0, 0, 0, 0],
+    "cutout_alpha_bbox": [274, 54, 1088, 1144],
+    "cutout_alpha_bbox_touches_edge": false,
+    "edge_magenta_pixels_removed": 2464,
+    "partial_alpha_pixels": 0
+  },
+  "prompt_summary": "Revise v4 Onimaru Lingpet by changing the head ornament from a simple halo into a compact gold Yeomra Daewang / King Yama ceremonial crown, while increasing Lingpet ring parts across collar, chest, shoulders, wrists, belt/skirt, boots, and flower staff on exact #ff00ff magenta chroma-key background."
+}

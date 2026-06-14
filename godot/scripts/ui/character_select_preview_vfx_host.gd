@@ -7,8 +7,6 @@ const CharacterSelectVfxMaterial := preload("res://scripts/ui/character_select_v
 const ASSET_ROOT := "res://assets/ui/character_select_vfx/"
 const DEEP_BACKPLATE_PATH := ASSET_ROOT + "character_select_chamber_backplate.png"
 const PARTICLE_MOTE_PATH := ASSET_ROOT + "character_select_particle_mote.png"
-const FLOOR_RING_PATH := ASSET_ROOT + "character_select_floor_ring.png"
-const LIGHT_SLIT_PATH := ASSET_ROOT + "character_select_light_slit.png"
 
 const MANDALA_PATHS := {
 	"ufo_player": ASSET_ROOT + "character_select_mandala_ufo_player.png",
@@ -34,22 +32,16 @@ var _background_inner_rect: ColorRect = null
 var _confirm_flash_rect: ColorRect = null
 var _backplate_rect: TextureRect = null
 var _mandala_rect: TextureRect = null
-var _floor_ring_rect: TextureRect = null
-var _light_slit_rects: Array[TextureRect] = []
 var _mote_particles: GPUParticles2D = null
 var _mote_process_material: ParticleProcessMaterial = null
 
 var _additive_canvas_material: CanvasItemMaterial = null
-var _floor_ring_material: ShaderMaterial = null
-var _light_slit_materials: Array[ShaderMaterial] = []
 
 
 static func get_vfx_texture_paths() -> Array[String]:
 	return [
 		DEEP_BACKPLATE_PATH,
 		PARTICLE_MOTE_PATH,
-		FLOOR_RING_PATH,
-		LIGHT_SLIT_PATH,
 		MANDALA_PATHS["ufo_player"],
 		MANDALA_PATHS["soldier"],
 		MANDALA_PATHS["viper"],
@@ -191,35 +183,20 @@ func _release_layer_resources() -> void:
 	if _mandala_rect != null:
 		_mandala_rect.texture = null
 		_mandala_rect.material = null
-	if _floor_ring_rect != null:
-		_floor_ring_rect.texture = null
-		_floor_ring_rect.material = null
-	for rect in _light_slit_rects:
-		if rect == null:
-			continue
-		rect.texture = null
-		rect.material = null
 	_mote_process_material = null
 	_additive_canvas_material = null
-	_floor_ring_material = null
-	_light_slit_materials.clear()
 	_free_layer_node(_background_outer_rect)
 	_free_layer_node(_background_inner_rect)
 	_free_layer_node(_mote_particles)
 	_free_layer_node(_confirm_flash_rect)
 	_free_layer_node(_backplate_rect)
 	_free_layer_node(_mandala_rect)
-	_free_layer_node(_floor_ring_rect)
-	for rect in _light_slit_rects:
-		_free_layer_node(rect)
 	_mote_particles = null
 	_confirm_flash_rect = null
 	_background_outer_rect = null
 	_background_inner_rect = null
 	_backplate_rect = null
 	_mandala_rect = null
-	_floor_ring_rect = null
-	_light_slit_rects.clear()
 	CharacterSelectVfxMaterial.clear_caches()
 
 
@@ -249,13 +226,10 @@ func get_runtime_status() -> Dictionary:
 
 func get_layer_rects() -> Array[Rect2]:
 	var rects: Array[Rect2] = []
-	for node in [_floor_ring_rect, _confirm_flash_rect]:
+	for node in [_confirm_flash_rect]:
 		var control := node as Control
 		if control != null and control.visible:
 			rects.append(Rect2(control.position, control.size))
-	for rect in _light_slit_rects:
-		if rect != null and rect.visible:
-			rects.append(Rect2(rect.position, rect.size))
 	return rects
 
 
@@ -297,20 +271,6 @@ func _build_layers() -> void:
 
 	_backplate_rect = _build_texture_layer("DeepBackplate", DEEP_BACKPLATE_PATH, null, -4)
 	_mandala_rect = _build_texture_layer("CharacterMandala", get_mandala_texture_path(_character_id), null, -3)
-
-	for side_index in range(2):
-		var slit_material := CharacterSelectVfxMaterial.build_light_slit_flow_material()
-		var slit_rect := _build_texture_layer(
-			"LightSlitFlow%s" % str(side_index + 1),
-			LIGHT_SLIT_PATH,
-			slit_material,
-			0
-		)
-		_light_slit_rects.append(slit_rect)
-		_light_slit_materials.append(slit_material)
-
-	_floor_ring_material = CharacterSelectVfxMaterial.build_floor_ring_flow_material()
-	_floor_ring_rect = _build_texture_layer("FloorRingFlow", FLOOR_RING_PATH, _floor_ring_material, 1)
 
 	_confirm_flash_rect = ColorRect.new()
 	_confirm_flash_rect.name = "ConfirmFlashTint"
@@ -374,7 +334,6 @@ func _layout_layers() -> void:
 	var view_size := size
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return
-	var floor_y: float = view_size.y * 0.80
 	if _background_outer_rect != null:
 		_background_outer_rect.position = Vector2.ZERO
 		_background_outer_rect.size = view_size
@@ -387,20 +346,6 @@ func _layout_layers() -> void:
 	if _mandala_rect != null:
 		_mandala_rect.size = Vector2(mandala_side, mandala_side)
 		_mandala_rect.pivot_offset = _mandala_rect.size * 0.5
-	var slit_size := Vector2(view_size.x * 0.22, view_size.y * 0.70)
-	for side_index in range(_light_slit_rects.size()):
-		var slit_rect := _light_slit_rects[side_index]
-		if slit_rect == null:
-			continue
-		var base_x: float = view_size.x * (0.08 if side_index == 0 else 0.70)
-		slit_rect.position = Vector2(base_x, view_size.y * 0.075)
-		slit_rect.size = slit_size
-		slit_rect.pivot_offset = slit_size * 0.5
-	var ring_size := Vector2(view_size.x * 0.78, view_size.y * 0.14)
-	if _floor_ring_rect != null:
-		_floor_ring_rect.position = Vector2((view_size.x - ring_size.x) * 0.5, floor_y - ring_size.y * 0.45)
-		_floor_ring_rect.size = ring_size
-		_floor_ring_rect.pivot_offset = ring_size * 0.5
 	if _confirm_flash_rect != null:
 		_confirm_flash_rect.position = Vector2.ZERO
 		_confirm_flash_rect.size = view_size
@@ -418,7 +363,6 @@ func _update_runtime_uniforms() -> void:
 	var confirm_curve: float = _confirm_amount * _confirm_amount
 	var palette := CharacterSelectVfxMaterial.get_palette(_character_id)
 	var primary: Color = palette["primary"]
-	var accent: Color = palette["accent"]
 	var view_size := size
 	var drift := Vector2(
 		sin(_elapsed * 0.31) * view_size.x * 0.008,
@@ -437,30 +381,6 @@ func _update_runtime_uniforms() -> void:
 		var mandala_pulse: float = 1.0 + sin(_elapsed * 1.05) * 0.010 + _hover_amount * 0.018
 		_mandala_rect.scale = Vector2(mandala_pulse, mandala_pulse)
 		_mandala_rect.modulate = Color(1.0, 1.0, 1.0, 0.25 + _hover_amount * 0.08)
-	for side_index in range(_light_slit_rects.size()):
-		var slit_rect := _light_slit_rects[side_index]
-		if slit_rect == null:
-			continue
-		slit_rect.visible = _active
-		slit_rect.rotation = sin(_elapsed * 0.22 + float(side_index)) * 0.018
-		if view_size.x > 1.0 and view_size.y > 1.0:
-			slit_rect.position.y = view_size.y * 0.075 + sin(_elapsed * 0.72 + float(side_index) * 1.7) * view_size.y * 0.020
-		var slit_material := _light_slit_materials[side_index] if side_index < _light_slit_materials.size() else null
-		if slit_material != null:
-			slit_material.set_shader_parameter("elapsed", _elapsed)
-			slit_material.set_shader_parameter("opacity", 0.28 + sin(_elapsed * 1.1 + float(side_index)) * 0.05 + _hover_amount * 0.07)
-			slit_material.set_shader_parameter("phase", float(side_index) * 0.17)
-			slit_material.set_shader_parameter("primary_color", primary)
-			slit_material.set_shader_parameter("accent_color", accent)
-	if _floor_ring_rect != null:
-		_floor_ring_rect.visible = _active
-		var ring_scale: float = 1.0 + sin(_elapsed * 1.55) * 0.018 + _hover_amount * 0.026
-		_floor_ring_rect.scale = Vector2(ring_scale, ring_scale)
-	if _floor_ring_material != null:
-		_floor_ring_material.set_shader_parameter("elapsed", _elapsed)
-		_floor_ring_material.set_shader_parameter("opacity", 0.34 + _hover_amount * 0.10)
-		_floor_ring_material.set_shader_parameter("primary_color", primary)
-		_floor_ring_material.set_shader_parameter("accent_color", accent)
 	if _confirm_flash_rect != null:
 		_confirm_flash_rect.visible = confirm_curve > 0.002
 		_confirm_flash_rect.modulate = Color(primary.r, primary.g, primary.b, confirm_curve * 0.13)
@@ -514,11 +434,6 @@ func _get_texture_layer_count() -> int:
 		count += 1
 	if _mandala_rect != null:
 		count += 1
-	if _floor_ring_rect != null:
-		count += 1
-	for rect in _light_slit_rects:
-		if rect != null:
-			count += 1
 	return count
 
 

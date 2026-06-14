@@ -16,9 +16,10 @@ const Stage2AmbientVisualState := preload("res://scripts/stages/stage2/stage2_am
 const Stage2RockVisualFactory := preload("res://scripts/stages/stage2/stage2_rock_visual_factory.gd")
 const Stage2RockVisualAssetsBuilder := preload("res://scripts/stages/stage2/stage2_rock_visual_assets_builder.gd")
 const Stage2RockRuntimeState := preload("res://scripts/stages/stage2/stage2_rock_runtime_state.gd")
-const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
-const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
-const Stage2StarpointDropQuery := preload("res://scripts/stages/stage2/stage2_starpoint_drop_query.gd")
+const Stage2PistolRockBounceState := preload("res://scripts/stages/stage2/stage2_pistol_rock_bounce_state.gd")
+const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
+const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint_drop_motion_state.gd")
+const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
 const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
 const Stage2ChaosRockAbsorbState := preload("res://scripts/stages/stage2/stage2_chaos_rock_absorb_state.gd")
 const Stage2WaterCannonGeometry := preload("res://scripts/stages/stage2/stage2_water_cannon_geometry.gd")
@@ -36,7 +37,8 @@ const Stage2CrisisRockWallPayloadFactory := preload("res://scripts/stages/stage2
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
 const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
 const Stage2WaterFragmentHitResolver := preload("res://scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd")
-const Stage2StarpointParticleState := preload("res://scripts/stages/stage2/stage2_starpoint_particle_state.gd")
+const Stage2ChaosAbsorbPayloadFactory := preload("res://scripts/stages/stage2/stage2_chaos_absorb_payload_factory.gd")
+const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
 const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2_ambient_payload_factory.gd")
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
 const Stage2RustlePayloadFactory := preload("res://scripts/stages/stage2/stage2_rustle_payload_factory.gd")
@@ -53,6 +55,9 @@ const Stage2PerfLogger := preload("res://scripts/stages/stage2/stage2_perf_logge
 const Stage2PerfCounterRecorder := preload("res://scripts/stages/stage2/stage2_perf_counter_recorder.gd")
 const Stage2CollisionGeometry := preload("res://scripts/stages/stage2/stage2_collision_geometry.gd")
 const Stage2PlayfieldBounds := preload("res://scripts/stages/stage2/stage2_playfield_bounds.gd")
+const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
+const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
+const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
 const Stage2BossExpressionState := preload("res://scripts/stages/stage2/stage2_boss_expression_state.gd")
 const Stage2SkillWarningState := preload("res://scripts/stages/stage2/stage2_skill_warning_state.gd")
 const Stage2BorderFlashState := preload("res://scripts/stages/stage2/stage2_border_flash_state.gd")
@@ -79,10 +84,6 @@ const ROCK_FRAGMENT_LIFE_SEC := 45.0 / 60.0
 const BORDER_FLASH_DURATION_SEC := 0.22
 const QUAKE_DURATION_SEC := 80.0 / 60.0
 const QUAKE_INITIAL_COOLDOWN_SEC := 0.0
-const PISTOL_ROCK_BOUNCE_MAX := 2
-const PISTOL_ROCK_BOUNCE_DAMPING := 0.88
-const PISTOL_ROCK_BOUNCE_MIN_SPEED := 6.0
-const PISTOL_ROCK_BOUNCE_EPSILON := 0.1
 const QUAKE_REPEAT_COOLDOWN_SEC := 4.0
 const ROCK_LIFE_SEC := -1.0
 const QUAKE_ROCK_DROP_HEIGHT := 185.0
@@ -181,7 +182,6 @@ var screen_overlay_visual_renderer: Object = Stage2ScreenOverlayVisualRenderer.n
 var ambient_visual_renderer: Object = Stage2AmbientVisualRenderer.new()
 var rock_visual_factory: Object = Stage2RockVisualFactory.new()
 var rock_visual_assets_builder: Object = Stage2RockVisualAssetsBuilder.new()
-var starpoint_visual_factory: Object = Stage2StarpointVisualFactory.new()
 var water_cannon_geometry: Object = Stage2WaterCannonGeometry.new()
 var water_cannon_visual_state_builder: Object = Stage2WaterCannonVisualStateBuilder.new()
 var quake_wave_visual_state_builder: Object = Stage2QuakeWaveVisualStateBuilder.new()
@@ -863,10 +863,10 @@ func resolve_pistol_projectile_rock_bounce(projectile: Dictionary, deps: Diction
 		var rect_hit := projectile_rect.intersects(rock_rect)
 		if not rect_hit and not collision_geometry.segment_hits_circle(prev_pos, pos, rock_center, rock_radius + projectile_radius):
 			continue
-		if int(projectile.get("rock_bounces", 0)) >= PISTOL_ROCK_BOUNCE_MAX:
+		if Stage2PistolRockBounceState.is_bounce_limit_reached(projectile):
 			return {"bounced": false, "consumed": true}
-		var hit_side: String = _get_pistol_rock_hit_side(projectile_rect, rock_rect, pos, velocity, rect_hit)
-		var bounced_projectile: Dictionary = _build_pistol_rock_bounce_projectile(
+		var hit_side: String = Stage2PistolRockBounceState.get_hit_side(projectile_rect, rock_rect, pos, velocity, rect_hit)
+		var bounced_projectile: Dictionary = Stage2PistolRockBounceState.build_projectile(
 			projectile,
 			pos,
 			velocity,
@@ -910,11 +910,7 @@ func absorb_chaos_spear_objects(center: Vector2, radius: float, _deps: Dictionar
 		var splash_pos: Vector2 = _get_vector2(splash.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var splash_radius: float = float(splash.get("radius", 10.0))
 		if splash_pos.distance_to(center) <= radius + splash_radius:
-			absorbed.append({
-				"position": splash_pos,
-				"strength": 0.75,
-				"color": Color(0.42, 0.88, 1.0, 1.0),
-			})
+			absorbed.append(Stage2ChaosAbsorbPayloadFactory.build_absorbed_splash_payload(splash_pos))
 			continue
 		water_splashes[splash_write_index] = splash
 		splash_write_index += 1
@@ -1566,11 +1562,10 @@ func _destroy_chaos_absorbed_rock(rock: Dictionary, center: Vector2, deps: Dicti
 	_spawn_golden_rock_starpoint_drop(rock, center, deps, context)
 	Stage2AudioRouter.play_rock_break(rock, deps)
 	var rock_radius: float = float(rock.get("radius", 28.0))
-	chaos_absorbed_entries.append({
-		"position": center,
-		"strength": clamp(rock_radius / 28.0, 0.85, 1.65),
-		"color": Color(0.48, 0.92, 0.78, 1.0),
-	})
+	chaos_absorbed_entries.append(Stage2ChaosAbsorbPayloadFactory.build_absorbed_rock_payload(
+		center,
+		rock_radius
+	))
 
 
 func _spawn_quake_rocks(count: int, deps: Dictionary = {}) -> void:
@@ -1659,67 +1654,6 @@ func _mark_rock_ricochet(index: int, deps: Dictionary) -> void:
 	Stage2AudioRouter.play_rock_hit(deps)
 
 
-func _get_pistol_rock_hit_side(
-	projectile_rect: Rect2,
-	rock_rect: Rect2,
-	pos: Vector2,
-	velocity: Vector2,
-	rect_hit: bool
-) -> String:
-	if rect_hit:
-		var overlap_left: float = projectile_rect.end.x - rock_rect.position.x
-		var overlap_right: float = rock_rect.end.x - projectile_rect.position.x
-		var overlap_top: float = projectile_rect.end.y - rock_rect.position.y
-		var overlap_bottom: float = rock_rect.end.y - projectile_rect.position.y
-		var hit_side := "left"
-		var min_overlap := overlap_left
-		if overlap_right < min_overlap:
-			min_overlap = overlap_right
-			hit_side = "right"
-		if overlap_top < min_overlap:
-			min_overlap = overlap_top
-			hit_side = "top"
-		if overlap_bottom < min_overlap:
-			hit_side = "bottom"
-		return hit_side
-	var relative: Vector2 = pos - (rock_rect.position + rock_rect.size * 0.5)
-	if relative.length_squared() <= 0.001:
-		relative = -velocity
-	if abs(relative.x) > abs(relative.y):
-		return "left" if relative.x <= 0.0 else "right"
-	return "top" if relative.y <= 0.0 else "bottom"
-
-
-func _build_pistol_rock_bounce_projectile(
-	projectile: Dictionary,
-	pos: Vector2,
-	velocity: Vector2,
-	projectile_radius: float,
-	rock_rect: Rect2,
-	hit_side: String
-) -> Dictionary:
-	var next_projectile: Dictionary = projectile.duplicate(true)
-	match hit_side:
-		"left":
-			pos.x = rock_rect.position.x - projectile_radius - PISTOL_ROCK_BOUNCE_EPSILON
-			velocity.x = -max(abs(velocity.x) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
-		"right":
-			pos.x = rock_rect.end.x + projectile_radius + PISTOL_ROCK_BOUNCE_EPSILON
-			velocity.x = max(abs(velocity.x) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
-		"top":
-			pos.y = rock_rect.position.y - projectile_radius - PISTOL_ROCK_BOUNCE_EPSILON
-			velocity.y = -max(abs(velocity.y) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
-		_:
-			pos.y = rock_rect.end.y + projectile_radius + PISTOL_ROCK_BOUNCE_EPSILON
-			velocity.y = max(abs(velocity.y) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
-	next_projectile["rock_bounces"] = int(next_projectile.get("rock_bounces", 0)) + 1
-	next_projectile["pos"] = pos
-	next_projectile["velocity"] = velocity
-	next_projectile["speed"] = velocity.length()
-	next_projectile["stage2_rock_bounce_side"] = hit_side
-	return next_projectile
-
-
 func _spawn_rock_fragments(rock: Dictionary, center: Vector2) -> void:
 	var colors: Array = rock.get("style_colors", rock_visual_factory.get_style_colors(str(rock.get("style_type", "gray_stone"))))
 	var payload_config: Dictionary = rock_fragment_payload_config_builder.build_config(ROCK_FRAGMENT_LIFE_SEC)
@@ -1763,7 +1697,7 @@ func _spawn_starpoint_drop_at(
 	allow_star_detector_bonus: bool = true,
 	star_detector_bonus: bool = false
 ) -> void:
-	starpoint_drops.append(starpoint_visual_factory.build_drop(
+	starpoint_drops.append(StarpointPayloadFactory.build_drop(
 		pos,
 		rng,
 		star_detector_bonus,
@@ -1776,7 +1710,7 @@ func _spawn_starpoint_drop_at(
 
 
 func _spawn_star_detector_bonus_drops(pos: Vector2, deps: Dictionary, context: Dictionary) -> void:
-	var bonus_count: int = _roll_star_detector_bonus_drop_count(deps, context)
+	var bonus_count: int = StarpointBonusDropPolicy.roll_star_detector_bonus_drop_count(deps, context)
 	for _i in range(bonus_count):
 		var bonus_pos := Vector2(
 			clamp(
@@ -1791,13 +1725,6 @@ func _spawn_star_detector_bonus_drops(pos: Vector2, deps: Dictionary, context: D
 			)
 		)
 		_spawn_starpoint_drop_at(bonus_pos, deps, context, false, true)
-
-
-func _roll_star_detector_bonus_drop_count(deps: Dictionary, context: Dictionary) -> int:
-	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps, context)
-	if mythic_item_runtime == null or not mythic_item_runtime.has_method("roll_star_detector_bonus_drop_count"):
-		return 0
-	return max(0, int(mythic_item_runtime.roll_star_detector_bonus_drop_count()))
 
 
 func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
@@ -1826,7 +1753,7 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 	var drop_count := starpoint_drops.size()
 	for index in range(drop_count):
 		var d: Dictionary = starpoint_drops[index]
-		if not Stage2StarpointDropMotionState.update_drop(
+		if not StarpointDropMotionState.update_drop(
 			d,
 			fps_scale,
 			play_left,
@@ -1842,7 +1769,7 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		var starlight_tracking_result := LingpetStarlightTrackingBridge.update_drop(d, fps_scale, context, deps)
 		if bool(starlight_tracking_result.get("delivered", false)):
 			if _collect_starpoint_drop(d, context, deps):
-				_finish_starpoint_modal_collection(index, write_index, drop_count)
+				StarpointCollectionCompaction.finish_in_place(starpoint_drops, index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -1852,9 +1779,9 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			write_index += 1
 			continue
 
-		if Stage2StarpointDropQuery.overlaps_any_player(d, player_rects, collision_geometry, STARPOINT_DROP_SIZE):
+		if StarpointDropOverlapQuery.overlaps_any_circle_player(d, player_rects, STARPOINT_DROP_SIZE):
 			if _collect_starpoint_drop(d, context, deps):
-				_finish_starpoint_modal_collection(index, write_index, drop_count)
+				StarpointCollectionCompaction.finish_in_place(starpoint_drops, index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -1865,35 +1792,17 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		starpoint_drops.resize(write_index)
 
 
-func _finish_starpoint_modal_collection(collected_index: int, write_index: int, drop_count: int) -> void:
-	if starpoint_drops.size() < drop_count:
-		return
-	var tail_write := write_index
-	for tail_read in range(collected_index + 1, drop_count):
-		starpoint_drops[tail_write] = starpoint_drops[tail_read]
-		tail_write += 1
-	starpoint_drops.resize(tail_write)
-
-
 func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
-	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
-	var runtime_perk_catalog: Object = deps.get("runtime_perk_catalog", null)
-	var owner: Object = context.get("owner", null)
-	var registry: Object = context.get("registry", deps.get("registry", null))
-	var character_type: String = str(context.get("selected_character_type", "smasher"))
-	var opened_choice: bool = false
-	if runtime_perk_state != null and runtime_perk_state.has_method("collect_star_points"):
-		opened_choice = bool(runtime_perk_state.collect_star_points(1, character_type, runtime_perk_catalog, owner, registry))
+	var opened_choice: bool = StarpointCollectionRewardPolicy.collect_starpoint_reward(context, deps)
 	var pos: Vector2 = _get_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO)
 	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + 10, 1.4)
 	Stage2AudioRouter.play_starpoint_collect(deps)
-	if owner != null and owner.has_method("queue_redraw"):
-		owner.queue_redraw()
+	StarpointCollectionRewardPolicy.request_owner_redraw(context)
 	return opened_choice
 
 
 func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> void:
-	starpoint_particles.append_array(starpoint_visual_factory.build_particles(
+	starpoint_particles.append_array(StarpointPayloadFactory.build_particles(
 		pos,
 		count,
 		intensity,
@@ -1903,43 +1812,31 @@ func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> v
 
 
 func _update_starpoint_particles(fps_scale: float) -> void:
-	Stage2StarpointParticleState.update_particles(starpoint_particles, fps_scale)
-
-
-func _get_mythic_item_runtime(deps: Dictionary, context: Dictionary = {}) -> Object:
-	var runtime: Object = deps.get("mythic_item_runtime", null)
-	if runtime != null:
-		return runtime
-	var registry: Object = context.get("registry", deps.get("registry", null))
-	if registry != null and registry.has_method("get_instance"):
-		return registry.get_instance("mythic_item_runtime")
-	return null
+	StarpointParticleState.update_particles(starpoint_particles, fps_scale)
 
 
 func _check_crisis_situation(context: Dictionary) -> bool:
-	if not Stage2BossRageState.should_trigger_crisis(
+	var reservation: Dictionary = Stage2BossRageState.get_crisis_reservation(
 		context,
 		crisis_triggered,
 		boss_rage_pending,
 		boss_rage_active,
 		CRISIS_PLAYER_SCORE
-	):
+	)
+	if not bool(reservation.get("triggered", false)):
 		return false
 	crisis_triggered = true
 	boss_rage_pending = true
-	boss_rage_ai_mode = _get_crisis_ai_mode(context)
+	boss_rage_ai_mode = str(reservation.get("ai_mode", "champion"))
 	return true
 
 
 func _get_boss_rage_crisis_rock_count() -> int:
-	if boss_rage_ai_mode == "mythic":
-		return BOSS_RAGE_CRISIS_ROCK_COUNT_MYTHIC
-	return BOSS_RAGE_CRISIS_ROCK_COUNT_CHAMPION
-
-
-func _get_crisis_ai_mode(context: Dictionary) -> String:
-	var ai_mode: String = str(context.get("ai_mode", context.get("league_mode", "champion")))
-	return "mythic" if ai_mode == "mythic" else "champion"
+	return Stage2BossRageState.get_crisis_rock_count(
+		boss_rage_ai_mode,
+		BOSS_RAGE_CRISIS_ROCK_COUNT_CHAMPION,
+		BOSS_RAGE_CRISIS_ROCK_COUNT_MYTHIC
+	)
 
 
 func _update_boss_expression(delta: float) -> void:
@@ -2233,7 +2130,7 @@ func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> boo
 	if cleanse_state != null and cleanse_state.has_method("is_immune"):
 		if bool(cleanse_state.is_immune()):
 			return true
-	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps, context)
+	var mythic_item_runtime: Object = StarpointBonusDropPolicy.get_mythic_item_runtime(deps, context)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_consume_celestial_armor_immunity"):
 		var status_deps: Dictionary = deps.duplicate()
 		status_deps["context"] = context

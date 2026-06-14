@@ -142,6 +142,16 @@ static func store_texture(path: String, texture: Texture2D) -> void:
 	_texture_cache[path] = texture
 
 
+static func texture_resource_exists(path: String) -> bool:
+	if path == "":
+		return false
+	return _can_load_imported_resource(path) or ResourceLoader.exists(path, "Texture2D")
+
+
+static func can_thread_load_texture(path: String) -> bool:
+	return texture_resource_exists(path)
+
+
 static func prewarm_texture_threaded_step(
 	path: String,
 	missing_warning: String = "",
@@ -296,6 +306,12 @@ static func store_audio_stream(path: String, stream: AudioStream) -> void:
 	_audio_cache[path] = stream
 
 
+static func audio_resource_exists(path: String) -> bool:
+	if path == "":
+		return false
+	return _can_load_imported_resource(path) or ResourceLoader.exists(path, "AudioStream")
+
+
 static func prewarm_audio_stream_threaded_step(path: String, missing_warning: String = "", failed_warning: String = "") -> Dictionary:
 	if path == "":
 		return {"done": true, "stream": null}
@@ -431,11 +447,11 @@ static func _get_resource_loader_audio_stream(path: String) -> AudioStream:
 
 
 static func _is_thread_loadable_texture_path(path: String) -> bool:
-	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+	return can_thread_load_texture(path)
 
 
 static func _is_thread_loadable_audio_path(path: String) -> bool:
-	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "AudioStream")
+	return audio_resource_exists(path)
 
 
 static func _is_threaded_texture_prewarm_stale() -> bool:

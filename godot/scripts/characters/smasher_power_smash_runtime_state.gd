@@ -64,6 +64,10 @@ func step_motion(fps_scale: float, boost_duration: float) -> bool:
 	return true
 
 
+func notify_wall_bounce(side: String) -> void:
+	lifecycle_state.notify_wall_bounce(side)
+
+
 func update_text_timer(fps_scale: float) -> void:
 	text_state.update(fps_scale)
 

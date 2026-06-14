@@ -1,13 +1,9 @@
 extends RefCounted
 
+const ActiveItemMagnetFieldParticlePayloadFactory := preload("res://scripts/items/active_item_magnet_field_particle_payload_factory.gd")
+
 const MAGNET_PARTICLE_INTERVAL_FRAMES := 3.0
 const MAGNET_FIELD_PARTICLE_CAP := 96
-const MAGNET_FIELD_PARTICLE_COLORS := [
-	Color(100.0 / 255.0, 150.0 / 255.0, 1.0, 1.0),
-	Color(150.0 / 255.0, 100.0 / 255.0, 1.0, 1.0),
-	Color(80.0 / 255.0, 200.0 / 255.0, 1.0, 1.0),
-	Color(200.0 / 255.0, 150.0 / 255.0, 1.0, 1.0),
-]
 
 
 func advance_particles(
@@ -25,19 +21,7 @@ func advance_particles(
 
 
 func spawn_particle(particles: Array[Dictionary], player_center: Vector2) -> void:
-	var angle: float = randf_range(0.0, TAU)
-	var radius: float = randf_range(40.0, 150.0)
-	var start_pos := Vector2(
-		player_center.x + cos(angle) * radius,
-		player_center.y - randf_range(20.0, 120.0)
-	)
-	particles.append({
-		"position": start_pos,
-		"velocity": Vector2(cos(angle) * randf_range(-0.3, 0.3), randf_range(-1.5, -0.5)),
-		"radius": float(randi_range(2, 4)),
-		"alpha": 200.0 / 255.0,
-		"color": MAGNET_FIELD_PARTICLE_COLORS[randi() % MAGNET_FIELD_PARTICLE_COLORS.size()],
-	})
+	particles.append(ActiveItemMagnetFieldParticlePayloadFactory.build_particle(player_center))
 	enforce_cap(particles)
 
 

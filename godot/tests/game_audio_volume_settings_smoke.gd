@@ -23,6 +23,7 @@ func _run() -> void:
 	audio.owner_node = host
 	audio._setup_core_ball_sfx()
 	audio._setup_item_command_sfx()
+	audio._setup_commando_skill_sfx()
 	audio._setup_bgm_players()
 
 	_expect(is_equal_approx(float(audio.get_bgm_volume()), 0.4), "BGM volume should use the Godot runtime default")
@@ -32,6 +33,9 @@ func _run() -> void:
 	_expect(is_equal_approx(float(audio.lingpet_lunabi_click_voice_sfx.volume_db), -4.0), "Lunabi click-reaction voice should sit slightly behind the click Live2D SFX mix")
 	_expect(audio.lingpet_volty_click_voice_sfx != null and audio.lingpet_volty_click_voice_sfx.stream != null, "Volty click-reaction voice player should load its MP3 stream")
 	_expect(audio.lingpet_milkring_click_voice_sfx != null and audio.lingpet_milkring_click_voice_sfx.stream != null, "Milkring click-reaction voice player should load its MP3 stream")
+	_expect(audio.commando_supply_radio_loop_sfx != null and audio.commando_supply_radio_loop_sfx.stream != null, "commando supply radio player should load its WAV stream")
+	var supply_radio_stream: AudioStreamWAV = audio.commando_supply_radio_loop_sfx.stream as AudioStreamWAV
+	_expect(supply_radio_stream != null and supply_radio_stream.loop_mode == AudioStreamWAV.LOOP_DISABLED, "supply radio sample must not loop: Python plays radio.wav once to its natural end, and the supply-drop state no longer force-stops the post-activation tail")
 	audio.play_lingpet_acquire_cutin()
 	_expect(audio.lingpet_acquire_cutin_sfx.playing, "lingpet acquisition cut-in SFX should enter playback when requested")
 	audio.lingpet_acquire_cutin_sfx.stop()
@@ -131,6 +135,7 @@ func _verify_setup_step_completes_from_cold_cache() -> void:
 func _verify_setup_uses_sync_audio_prewarm() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
 	var prewarm_body := _function_body(source, "func _prewarm_audio_setup_streams_step()")
+	var optional_sfx_body := _function_body(source, "func _create_optional_sfx(")
 	_expect(
 		prewarm_body.find("ProjectResourceLoader.load_audio_stream(path)") >= 0,
 		"GameAudio boot setup should cache one audio stream per frame through the synchronous loader"
@@ -138,6 +143,18 @@ func _verify_setup_uses_sync_audio_prewarm() -> void:
 	_expect(
 		prewarm_body.find("prewarm_audio_stream_threaded_step") < 0,
 		"GameAudio boot setup should not wait on threaded audio prewarm during the visible 38 percent loading step"
+	)
+	_expect(
+		optional_sfx_body.find("ProjectResourceLoader.audio_resource_exists(path)") >= 0,
+		"GameAudio optional SFX setup should accept packed/imported AudioStream resources"
+	)
+	_expect(
+		optional_sfx_body.find("FileAccess.file_exists(\"%s.import\" % path)") < 0,
+		"GameAudio optional SFX setup should not depend on raw .import sidecar visibility"
+	)
+	_expect(
+		source.find("FileAccess.file_exists(\"%s.import\" % path)") < 0,
+		"GameAudio setup should not depend on raw audio .import sidecar visibility"
 	)
 
 

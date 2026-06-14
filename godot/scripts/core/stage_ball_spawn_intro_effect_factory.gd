@@ -72,6 +72,36 @@ func make_vortex_ring(rng: RandomNumberGenerator, start_pos: Vector2, radius: fl
 	}
 
 
+func make_starfield_dot(rng: RandomNumberGenerator, game_width: float, game_height: float) -> Dictionary:
+	return {
+		"pos": Vector2(rng.randf_range(0.0, game_width), rng.randf_range(0.0, game_height)),
+		"size": rng.randf_range(0.7, 2.0),
+		"phase": rng.randf_range(0.0, TAU),
+		"speed": rng.randf_range(2.5, 7.0),
+		"hue": rng.randi_range(0, 4),
+	}
+
+
+func make_haze_cloud(rng: RandomNumberGenerator, game_width: float, game_height: float) -> Dictionary:
+	var palette: Array = [
+		Color(0.55, 0.75, 1.0),
+		Color(0.78, 0.62, 1.0),
+		Color(1.0, 0.72, 0.92),
+		Color(0.66, 0.92, 1.0),
+	]
+	return {
+		"pos": Vector2(rng.randf_range(80.0, game_width - 80.0), rng.randf_range(80.0, game_height - 80.0)),
+		"radius": rng.randf_range(180.0, 320.0),
+		"drift_angle": rng.randf_range(0.0, TAU),
+		"drift_speed": rng.randf_range(8.0, 20.0),
+		"rotation": rng.randf_range(0.0, TAU),
+		"rotation_speed": rng.randf_range(-0.3, 0.3),
+		"pulse_phase": rng.randf_range(0.0, TAU),
+		"pulse_speed": rng.randf_range(0.7, 1.6),
+		"color": palette[rng.randi_range(0, palette.size() - 1)],
+	}
+
+
 func make_lightning_bolt(
 	rng: RandomNumberGenerator,
 	start_pt: Vector2,

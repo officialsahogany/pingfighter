@@ -31,7 +31,7 @@ func _run() -> void:
 	_expect(bool(status.get("active", false)), "VFX host should activate after set_character")
 	_expect(bool(status.get("visible", false)), "VFX host should be visible after set_character")
 	_expect(str(status.get("character_id", "")) == "ufo_player", "VFX host should track the selected character id")
-	_expect(int(status.get("texture_layers", -1)) == 5, "VFX host should own backplate, mandala, slit layers, and floor-ring layer")
+	_expect(int(status.get("texture_layers", -1)) == 2, "VFX host should own only backplate and mandala texture layers")
 	_expect(int(status.get("gpu_particle_layers", 0)) == 1, "VFX host should build one GPUParticles2D layer")
 	_expect(bool(status.get("particles_emitting", false)), "VFX particles should emit while active")
 	_expect(float(status.get("hover_amount", 0.0)) > 0.0, "VFX hover envelope should advance")

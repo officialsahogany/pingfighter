@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const LingpetBananaSlicePayloadFactory := preload("res://scripts/lingpet/lingpet_banana_slice_payload_factory.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const FIELD_WIDTH := 760.0
@@ -20,7 +21,7 @@ const LAND_RANDOM_MIN := 40.0
 const LAND_RANDOM_MAX := 720.0
 const LAND_RANDOM_MIN_GAP := 120.0
 const LAND_RANDOM_ATTEMPTS := 20
-const FLYING_DRAW_SIZE := 64.0
+const FLYING_DRAW_SIZE := 51.2
 const LANDED_DRAW_SIZE := 72.0
 const COLLISION_SIZE := Vector2(80.0, 50.0)
 const BOSS_PADDLE_WIDTH := 100.0
@@ -240,12 +241,9 @@ func get_slip_state_for_tests() -> Dictionary:
 
 
 func force_land_for_tests(pos: Vector2, timer: float = LAND_SECONDS) -> void:
-	_landed_bananas.append({
-		"position": Vector2(clampf(pos.x, LAND_X_MIN, LAND_X_MAX), LAND_Y),
-		"timer": maxf(0.0, timer),
-		"max_timer": LAND_SECONDS,
-		"slip_triggered": false,
-	})
+	_landed_bananas.append(
+		LingpetBananaSlicePayloadFactory.build_landed_banana(pos, LAND_X_MIN, LAND_X_MAX, LAND_Y, timer, LAND_SECONDS)
+	)
 
 
 func force_throw_for_tests() -> void:
@@ -262,20 +260,18 @@ func _execute_throw() -> void:
 	var start_pos := _get_prepare_banana_pos(1.0)
 	for index in range(_banana_count):
 		var target_x := float(targets[index])
-		var dx := target_x - start_pos.x
-		var x_speed := minf(absf(dx) / THROW_AIM_X_DIVISOR, THROW_SPEED_X_MAX_PER_FRAME)
-		var x_dir := -1.0 if dx < 0.0 else 1.0
-		if absf(dx) <= 0.001:
-			x_dir = 0.0
-		_projectiles.append({
-			"position": start_pos,
-			"velocity": Vector2(x_dir * x_speed, THROW_SPEED_Y_PER_FRAME),
-			"target_position": Vector2(target_x, LAND_Y),
-			"delay": SECOND_THROW_DELAY_SECONDS * float(index),
-			"rotation_degrees": 0.0,
-			"rotation_speed_degrees": randf_range(480.0, 900.0) * (-1.0 if randf() < 0.5 else 1.0),
-			"trail": [start_pos],
-		})
+		_projectiles.append(
+			LingpetBananaSlicePayloadFactory.build_projectile(
+				start_pos,
+				target_x,
+				index,
+				LAND_Y,
+				THROW_AIM_X_DIVISOR,
+				THROW_SPEED_X_MAX_PER_FRAME,
+				THROW_SPEED_Y_PER_FRAME,
+				SECOND_THROW_DELAY_SECONDS
+			)
+		)
 	_play_throw_feedback()
 
 
@@ -325,12 +321,9 @@ func _update_projectiles(delta: float) -> void:
 
 
 func _land_banana(pos: Vector2) -> void:
-	_landed_bananas.append({
-		"position": Vector2(clampf(pos.x, LAND_X_MIN, LAND_X_MAX), LAND_Y),
-		"timer": LAND_SECONDS,
-		"max_timer": LAND_SECONDS,
-		"slip_triggered": false,
-	})
+	_landed_bananas.append(
+		LingpetBananaSlicePayloadFactory.build_landed_banana(pos, LAND_X_MIN, LAND_X_MAX, LAND_Y, LAND_SECONDS)
+	)
 
 
 func _update_landed(delta: float, owner: Object) -> void:
@@ -380,26 +373,10 @@ func _update_slip(delta: float) -> void:
 
 
 func _spawn_burst_particles(pos: Vector2) -> void:
-	var colors := [
-		Color(1.0, 225.0 / 255.0, 50.0 / 255.0, 1.0),
-		Color(227.0 / 255.0, 189.0 / 255.0, 52.0 / 255.0, 1.0),
-		Color(198.0 / 255.0, 156.0 / 255.0, 41.0 / 255.0, 1.0),
-		Color(1.0, 1.0, 200.0 / 255.0, 1.0),
-		Color(139.0 / 255.0, 90.0 / 255.0, 43.0 / 255.0, 1.0),
-	]
 	for _i in range(BURST_PARTICLE_COUNT):
 		if _particles.size() >= BURST_PARTICLE_MAX:
 			_particles.pop_front()
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(180.0, 480.0)
-		_particles.append({
-			"position": pos,
-			"velocity": Vector2(cos(angle), sin(angle)) * speed + Vector2(0.0, -180.0),
-			"life": randf_range(0.33, 0.67),
-			"max_life": 0.67,
-			"size": randf_range(3.0, 7.0),
-			"color": colors[randi() % colors.size()],
-		})
+		_particles.append(LingpetBananaSlicePayloadFactory.build_burst_particle(pos))
 
 
 func _update_particles(delta: float) -> void:

@@ -1,7 +1,7 @@
 extends RefCounted
 
 const SAVE_PATH := "user://plaza_save.cfg"
-const SAVE_SCHEMA_VERSION := 2
+const SAVE_SCHEMA_VERSION := 3
 const BASE_AP := 3
 const MAX_AP := 10
 const BANK_TRANSACTION_AMOUNT := 100
@@ -11,12 +11,20 @@ const META_SCHEMA_VERSION_KEY := "schema_version"
 const LEGACY_META_VERSION_KEY := "version"
 const WALLET_SECTION := "wallet"
 const BANK_SECTION := "bank"
+const TAVERN_SECTION := "tavern"
 const AP_AWARDED_STAGES_SECTION := "ap_awarded_stages"
 const BANK_INTEREST_CLAIMED_STAGES_SECTION := "bank_interest_claimed_stages"
+const TAVERN_ACCEPTED_STAGES_SECTION := "tavern_accepted_stages"
+const TAVERN_COMPLETED_QUESTS_SECTION := "tavern_completed_quests"
 const PLAZA_GOLD_KEY := "plaza_gold"
 const AP_CURRENT_KEY := "ap_current"
 const AP_IS_FIRST_STAGE_KEY := "ap_is_first_stage"
 const BANK_DEPOSIT_GOLD_KEY := "bank_deposit_gold"
+const TAVERN_ACTIVE_QUEST_ID_KEY := "active_quest_id"
+const TAVERN_ACTIVE_QUEST_NAME_KEY := "active_quest_name"
+const TAVERN_ACTIVE_QUEST_DESCRIPTION_KEY := "active_quest_description"
+const TAVERN_ACTIVE_QUEST_STAGE_KEY := "active_quest_stage"
+const TAVERN_ACTIVE_QUEST_REWARD_GOLD_KEY := "active_quest_reward_gold"
 
 var save_path := SAVE_PATH
 var last_load_summary := "not_loaded"
@@ -28,8 +36,11 @@ var _plaza_gold := 0
 var _ap_current := BASE_AP
 var _ap_is_first_stage := true
 var _bank_deposit_gold := 0
+var _tavern_active_quest: Dictionary = {}
 var _ap_awarded_stages: Dictionary = {}
 var _bank_interest_claimed_stages: Dictionary = {}
+var _tavern_accepted_stages: Dictionary = {}
+var _tavern_completed_quests: Dictionary = {}
 var _last_load_stripped_bom := false
 
 
@@ -113,6 +124,11 @@ func get_ap_is_first_stage() -> bool:
 func get_bank_deposit_gold() -> int:
 	_ensure_loaded()
 	return _bank_deposit_gold
+
+
+func get_tavern_active_quest() -> Dictionary:
+	_ensure_loaded()
+	return _tavern_active_quest.duplicate(true)
 
 
 func add_plaza_gold(amount: int) -> Dictionary:
@@ -333,6 +349,61 @@ func perform_academy_lesson_payment(cost: int, consume_ap: bool = true) -> Dicti
 	return _build_academy_summary(-safe_cost, true, "ok", ap_spent)
 
 
+func perform_tavern_accept_quest(stage_id: int, quest: Dictionary, consume_ap: bool = true) -> Dictionary:
+	_ensure_loaded()
+	var normalized_stage := maxi(1, stage_id)
+	var stage_key := str(normalized_stage)
+	var normalized_quest := _normalize_tavern_quest(quest, normalized_stage)
+	if not _tavern_active_quest.is_empty():
+		last_save_summary = "skipped_tavern_quest_already_active"
+		return _build_tavern_summary("accept", normalized_quest, false, "quest_already_active")
+	if bool(_tavern_accepted_stages.get(stage_key, false)):
+		last_save_summary = "skipped_tavern_stage_already_accepted"
+		return _build_tavern_summary("accept", normalized_quest, false, "stage_already_accepted")
+	if str(normalized_quest.get("id", "")) == "":
+		last_save_summary = "skipped_invalid_tavern_quest"
+		return _build_tavern_summary("accept", normalized_quest, false, "invalid_quest")
+	if consume_ap and _ap_current <= 0:
+		last_save_summary = "skipped_no_ap"
+		return _build_tavern_summary("accept", normalized_quest, false, "no_ap")
+
+	var ap_spent := 0
+	if consume_ap:
+		_ap_current = maxi(0, _ap_current - 1)
+		ap_spent = 1
+	_tavern_active_quest = normalized_quest.duplicate(true)
+	_tavern_accepted_stages[stage_key] = true
+	save()
+	return _build_tavern_summary("accept", normalized_quest, true, "ok", 0, ap_spent)
+
+
+func perform_tavern_complete_quest(stage_id: int, consume_ap: bool = true) -> Dictionary:
+	_ensure_loaded()
+	var normalized_stage := maxi(1, stage_id)
+	if _tavern_active_quest.is_empty():
+		last_save_summary = "skipped_no_active_tavern_quest"
+		return _build_tavern_summary("complete", {}, false, "no_active_quest")
+	var quest := _tavern_active_quest.duplicate(true)
+	var accepted_stage := maxi(1, int(quest.get("accepted_stage", 0)))
+	if normalized_stage <= accepted_stage:
+		last_save_summary = "skipped_tavern_quest_in_progress"
+		return _build_tavern_summary("complete", quest, false, "quest_in_progress")
+	if consume_ap and _ap_current <= 0:
+		last_save_summary = "skipped_no_ap"
+		return _build_tavern_summary("complete", quest, false, "no_ap")
+
+	var reward_gold := _sanitize_gold(quest.get("reward_gold", 0))
+	var ap_spent := 0
+	if consume_ap:
+		_ap_current = maxi(0, _ap_current - 1)
+		ap_spent = 1
+	_plaza_gold = _sanitize_gold(_plaza_gold + reward_gold)
+	_tavern_completed_quests[str(quest.get("id", ""))] = true
+	_tavern_active_quest.clear()
+	save()
+	return _build_tavern_summary("complete", quest, true, "ok", reward_gold, ap_spent)
+
+
 func get_summary() -> Dictionary:
 	return {
 		"save_path": save_path,
@@ -344,8 +415,11 @@ func get_summary() -> Dictionary:
 		"ap_current": get_ap_current(),
 		"ap_is_first_stage": get_ap_is_first_stage(),
 		"bank_deposit_gold": get_bank_deposit_gold(),
+		"tavern_active_quest": get_tavern_active_quest(),
 		"ap_awarded_stages": _get_ap_awarded_stages(),
 		"bank_interest_claimed_stages": _get_bank_interest_claimed_stages(),
+		"tavern_accepted_stages": _get_tavern_accepted_stages(),
+		"tavern_completed_quests": _get_tavern_completed_quests(),
 	}
 
 
@@ -370,9 +444,12 @@ func _reset_runtime_state() -> void:
 	_ap_current = BASE_AP
 	_ap_is_first_stage = true
 	_bank_deposit_gold = 0
+	_tavern_active_quest.clear()
 	_last_load_stripped_bom = false
 	_ap_awarded_stages.clear()
 	_bank_interest_claimed_stages.clear()
+	_tavern_accepted_stages.clear()
+	_tavern_completed_quests.clear()
 
 
 func _try_recover_from_backup() -> bool:
@@ -405,6 +482,12 @@ func _build_save_config() -> ConfigFile:
 	config.set_value(WALLET_SECTION, AP_CURRENT_KEY, clampi(_ap_current, 0, MAX_AP))
 	config.set_value(WALLET_SECTION, AP_IS_FIRST_STAGE_KEY, _ap_is_first_stage)
 	config.set_value(BANK_SECTION, BANK_DEPOSIT_GOLD_KEY, _sanitize_gold(_bank_deposit_gold))
+	if not _tavern_active_quest.is_empty():
+		config.set_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_ID_KEY, str(_tavern_active_quest.get("id", "")))
+		config.set_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_NAME_KEY, str(_tavern_active_quest.get("name", "")))
+		config.set_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_DESCRIPTION_KEY, str(_tavern_active_quest.get("description", "")))
+		config.set_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_STAGE_KEY, maxi(1, int(_tavern_active_quest.get("accepted_stage", 1))))
+		config.set_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_REWARD_GOLD_KEY, _sanitize_gold(_tavern_active_quest.get("reward_gold", 0)))
 	for raw_stage in _ap_awarded_stages.keys():
 		var stage_key := str(raw_stage).strip_edges()
 		if stage_key != "" and bool(_ap_awarded_stages.get(raw_stage, false)):
@@ -413,6 +496,14 @@ func _build_save_config() -> ConfigFile:
 		var stage_key := str(raw_stage).strip_edges()
 		if stage_key != "" and bool(_bank_interest_claimed_stages.get(raw_stage, false)):
 			config.set_value(BANK_INTEREST_CLAIMED_STAGES_SECTION, stage_key, true)
+	for raw_stage in _tavern_accepted_stages.keys():
+		var stage_key := str(raw_stage).strip_edges()
+		if stage_key != "" and bool(_tavern_accepted_stages.get(raw_stage, false)):
+			config.set_value(TAVERN_ACCEPTED_STAGES_SECTION, stage_key, true)
+	for raw_quest_id in _tavern_completed_quests.keys():
+		var quest_id := str(raw_quest_id).strip_edges()
+		if quest_id != "" and bool(_tavern_completed_quests.get(raw_quest_id, false)):
+			config.set_value(TAVERN_COMPLETED_QUESTS_SECTION, quest_id, true)
 	return config
 
 
@@ -422,10 +513,45 @@ func _read_from_config(config: ConfigFile) -> void:
 	_ap_current = clampi(int(config.get_value(WALLET_SECTION, AP_CURRENT_KEY, BASE_AP)), 0, MAX_AP)
 	_ap_is_first_stage = bool(config.get_value(WALLET_SECTION, AP_IS_FIRST_STAGE_KEY, true))
 	_bank_deposit_gold = _sanitize_gold(config.get_value(BANK_SECTION, BANK_DEPOSIT_GOLD_KEY, 0))
+	_tavern_active_quest = _read_tavern_active_quest(config)
 	_ap_awarded_stages.clear()
 	_bank_interest_claimed_stages.clear()
+	_tavern_accepted_stages.clear()
+	_tavern_completed_quests.clear()
 	_load_bool_section(config, AP_AWARDED_STAGES_SECTION, _ap_awarded_stages)
 	_load_bool_section(config, BANK_INTEREST_CLAIMED_STAGES_SECTION, _bank_interest_claimed_stages)
+	_load_bool_section(config, TAVERN_ACCEPTED_STAGES_SECTION, _tavern_accepted_stages)
+	_load_bool_section(config, TAVERN_COMPLETED_QUESTS_SECTION, _tavern_completed_quests)
+
+
+func _read_tavern_active_quest(config: ConfigFile) -> Dictionary:
+	if not config.has_section(TAVERN_SECTION):
+		return {}
+	var quest_id := str(config.get_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_ID_KEY, "")).strip_edges()
+	if quest_id == "":
+		return {}
+	return _normalize_tavern_quest({
+		"id": quest_id,
+		"name": str(config.get_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_NAME_KEY, "")),
+		"description": str(config.get_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_DESCRIPTION_KEY, "")),
+		"accepted_stage": int(config.get_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_STAGE_KEY, 1)),
+		"reward_gold": int(config.get_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_REWARD_GOLD_KEY, 0)),
+	}, int(config.get_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_STAGE_KEY, 1)))
+
+
+func _normalize_tavern_quest(quest: Dictionary, stage_id: int) -> Dictionary:
+	var normalized_stage := maxi(1, stage_id)
+	var quest_id := str(quest.get("id", "")).strip_edges()
+	var quest_name := str(quest.get("name", "")).strip_edges()
+	if quest_name == "":
+		quest_name = quest_id
+	return {
+		"id": quest_id,
+		"name": quest_name,
+		"description": str(quest.get("description", "")),
+		"accepted_stage": maxi(1, int(quest.get("accepted_stage", normalized_stage))),
+		"reward_gold": _sanitize_gold(quest.get("reward_gold", 0)),
+	}
 
 
 func _load_bool_section(config: ConfigFile, section: String, target: Dictionary) -> void:
@@ -468,6 +594,16 @@ func _get_ap_awarded_stages() -> Dictionary:
 func _get_bank_interest_claimed_stages() -> Dictionary:
 	_ensure_loaded()
 	return _bank_interest_claimed_stages.duplicate(true)
+
+
+func _get_tavern_accepted_stages() -> Dictionary:
+	_ensure_loaded()
+	return _tavern_accepted_stages.duplicate(true)
+
+
+func _get_tavern_completed_quests() -> Dictionary:
+	_ensure_loaded()
+	return _tavern_completed_quests.duplicate(true)
 
 
 func _build_apply_summary(transferred_gold: int, granted_ap: int, ap_recorded: bool, save_summary: String) -> Dictionary:
@@ -609,6 +745,35 @@ func _build_academy_summary(
 		"handled": true,
 		"changed": changed,
 		"reason": reason,
+		"delta_gold": delta_gold if changed else 0,
+		"ap_spent": ap_spent,
+		"plaza_gold": _plaza_gold,
+		"ap_current": _ap_current,
+		"save": last_save_summary,
+		"load": last_load_summary,
+	}
+
+
+func _build_tavern_summary(
+	action_id: String,
+	quest: Dictionary,
+	changed: bool,
+	reason: String,
+	delta_gold: int = 0,
+	ap_spent: int = 0
+) -> Dictionary:
+	var normalized_quest := _normalize_tavern_quest(quest, int(quest.get("accepted_stage", 1)))
+	return {
+		"save_path": save_path,
+		"action": action_id,
+		"handled": ["accept", "complete"].has(action_id),
+		"changed": changed,
+		"reason": reason,
+		"quest": normalized_quest.duplicate(true),
+		"quest_id": str(normalized_quest.get("id", "")),
+		"quest_name": str(normalized_quest.get("name", "")),
+		"accepted_stage": int(normalized_quest.get("accepted_stage", 0)),
+		"reward_gold": int(normalized_quest.get("reward_gold", 0)),
 		"delta_gold": delta_gold if changed else 0,
 		"ap_spent": ap_spent,
 		"plaza_gold": _plaza_gold,

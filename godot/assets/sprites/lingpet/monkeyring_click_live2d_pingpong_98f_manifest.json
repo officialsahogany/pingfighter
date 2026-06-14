@@ -1,38 +1,65 @@
 {
-  "asset_id": "monkeyring_click_banana_chomp_live2d_pingpong_98f_v5_full_remake",
+  "asset_id": "monkeyring_magenta_banana_chomp_click_live2d_pingpong_98f_v2_autosprite",
   "pet_id": "monkeyring",
   "display_name": "빠나몽",
-  "generated_at": "2026-06-11T04:18:18Z",
+  "generated_at": "2026-06-12T16:49:27Z",
   "runtime_usage": "lingpet_click_live2d_reaction_asset",
   "output_sheet": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
-  "source_art": "res://assets/sprites/lingpet/monkeyring_click_pose_imagegen_v5_alpha_source.png",
-  "source_imagegen": {
-    "source_green_local_path": ".tmp/monkeyring_click_remake/monkeyring_click_pose_v5_green.png",
-    "source_alpha_local_path": ".tmp/monkeyring_click_remake/monkeyring_click_pose_v5_alpha.png",
-    "prompt": "Full-body Ppanamong monkey ringpet click reaction pose: eats exactly one banana while the kangaroo-like pouch keeps several bananas visible; forehead cyan diamond headpiece; tail-tip diamond ring part; no head-side ring; green chroma-key background.",
-    "background_removal": "imagegen chroma-key source + remove_chroma_key.py auto-key border soft matte despill edge-contract 1"
+  "source_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
+  "source_magenta_art": ".tmp/monkeyring_magenta_l2d_20260613/monkeyring_one_banana_source_magenta_flat_v2.png",
+  "source_alpha_art": ".tmp/monkeyring_magenta_l2d_20260613/monkeyring_one_banana_source_alpha_from_magenta_v2.png",
+  "source_autosprite": {
+    "asset_id": "cmqb5dic00067u3f9k9c2f314",
+    "asset_name": "Monkeyring Magenta One Banana Source 20260613 v2",
+    "spritesheet_id": "cmqb5gpwp00hbi3npmjdgkvw8",
+    "spritesheet_job_id": "wf_9b869394-8af9-4961-9af7-3e98fa533898",
+    "raw_sheet_local_path": ".tmp/monkeyring_magenta_l2d_20260613/click_magenta_banana_chomp_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/monkeyring_magenta_l2d_20260613/click_magenta_banana_chomp_raw_49f_atlas.json",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    },
+    "prompt": "Click reaction: Monkeyring pulls the ONLY pouch banana out, bites it, chews happily. No extra bananas or bunches; pouch starts with one and may empty.",
+    "video_tier": "turbo",
+    "duration_sec": 2,
+    "remove_bg": "ultra",
+    "credits_used": 5
   },
   "postprocess": {
-    "tool": "Imagegen single-pose cutout + Pillow deterministic Live2D-style pingpong assembly",
-    "operation": "Rebuilt the click Live2D sheet from a clean generated banana-chomp pose instead of patching the previous AutoSprite frames. The pose is anchored to a fixed body size and animated with subtle chew bob, cheek pulse, crumb flecks, and tail gem sparkle so the pouch bananas remain visible from the first frame through the pingpong return.",
+    "tool": "AutoSprite flat-magenta banana-chomp animation + Pillow alpha cleanup + deterministic pingpong reassembly",
+    "operation": "AutoSprite 49f source cells were alpha/key-cleaned, low-alpha dark edge matte stripped, and safe-margin repacked before deterministic pingpong assembly. The click reaction pulls the only belly-pouch banana out and eats it; no extra pouch bananas are introduced.",
     "alpha_cleanup": {
-      "threshold": 5
+      "threshold": 6
     },
-    "motion": {
-      "forward_frames": 49,
-      "pingpong_frames": 98,
-      "target_height_px": 392,
-      "target_center_x_px": 266,
-      "target_bottom_y_px": 444,
-      "max_target_width_px": 408,
-      "body_scale_range": "1.000..1.020",
-      "rotation_range_degrees": "-1.8..1.8"
+    "low_alpha_dark_edge_matte_cleanup": {
+      "max_alpha": 180,
+      "max_rgb": 42,
+      "radius_px": 6
     },
-    "pouch_banana_persistence": {
-      "operation": "Persistence is authored in the source pose itself: one banana is held and eaten while multiple pouch bananas remain visible in every generated frame.",
-      "patch_based": false
+    "magenta_edge_spill_cleanup": {
+      "min_red_blue": 130,
+      "max_green": 120,
+      "min_key_delta": 42,
+      "radius_px": 6
     },
-    "source_backup_dir": ".tmp/monkeyring_click_remake/backup_pre_v5"
+    "safe_margin_repack": {
+      "source_cell_size": 512,
+      "content_size_px": 430
+    },
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "model_path": "tools/realesrgan/models",
+      "method": "per-cell RGB/alpha split; alpha-bleed RGB input; Real-ESRGAN RGB upscale; source alpha resized and recombined",
+      "scratch_dir": ".tmp/monkeyring_magenta_l2d_realesrgan_x2_20260613",
+      "upscaled_at": "2026-06-12T17:28:03Z"
+    }
   },
   "runtime_sheet": {
     "path": "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png",
@@ -40,89 +67,1001 @@
     "rows": 7,
     "frame_count": 98,
     "cell_size": [
-      512,
-      512
+      1024,
+      1024
     ],
     "sheet_size": [
-      7168,
-      3584
+      14336,
+      7168
     ],
-    "frame_interval": "intended one-shot pingpong; 49 authored frames + deterministic reverse 48..0",
-    "sha256": "6d77b80c3e46d4fcf54aa5fa675a248bd7908949685ab3172d798d29dc422bb4",
-    "bytes": 14610265,
-    "source_scale_repack": "single-pose bbox scale locked",
-    "content_size_px": "target height 392px, center x 266px, bottom y 444px"
+    "frame_interval": "intended one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "sha256": "8fb22940abcb47afd927262c96671a4f613a582a71f3b192397910c3fd3a9549",
+    "bytes": 63669687,
+    "source_scale_repack": 0.8398,
+    "content_size_px": 860
   },
   "qa": {
+    "raw_frame_count": 49,
     "final_frame_count": 98,
+    "raw_grid_cols": 7,
     "final_grid_cols": 14,
     "final_grid_rows": 7,
     "whole_sheet_edge_alpha": 0,
     "cells_with_edge_touch": [],
     "visible_magenta_pixels_exact": 0,
     "visible_green_pixels_exact": 0,
-    "pouch_bananas_persist": true,
-    "patch_based_pouch_fix": false,
-    "sample_bboxes": {
-      "0": [
-        120,
-        50,
-        411,
-        441
+    "interior_transparent_component_summary": {
+      "frames_with_components": 30,
+      "max_component": {
+        "area": 1969,
+        "avg_alpha": 0.0,
+        "bbox": [
+          130,
+          211,
+          183,
+          277
+        ],
+        "frame": 44
+      },
+      "note": "Zero-alpha gaps are summarized for QA; focused smoke rejects old cheek disks and neck/choker holes."
+    },
+    "face_roi_low_alpha_components": {
+      "12": [
+        {
+          "area": 499,
+          "avg_alpha": 4.71,
+          "bbox": [
+            243,
+            285,
+            261,
+            327
+          ]
+        }
       ],
-      "8": [
-        120,
-        45,
-        413,
-        439
+      "13": [
+        {
+          "area": 455,
+          "avg_alpha": 5.61,
+          "bbox": [
+            243,
+            283,
+            260,
+            323
+          ]
+        }
+      ],
+      "14": [
+        {
+          "area": 419,
+          "avg_alpha": 3.16,
+          "bbox": [
+            244,
+            281,
+            260,
+            320
+          ]
+        }
+      ],
+      "15": [
+        {
+          "area": 423,
+          "avg_alpha": 5.39,
+          "bbox": [
+            243,
+            280,
+            259,
+            320
+          ]
+        }
       ],
       "16": [
-        120,
-        38,
-        415,
-        432
+        {
+          "area": 420,
+          "avg_alpha": 4.27,
+          "bbox": [
+            242,
+            278,
+            257,
+            317
+          ]
+        }
+      ],
+      "17": [
+        {
+          "area": 434,
+          "avg_alpha": 5.22,
+          "bbox": [
+            242,
+            277,
+            258,
+            316
+          ]
+        }
+      ],
+      "18": [
+        {
+          "area": 430,
+          "avg_alpha": 5.1,
+          "bbox": [
+            240,
+            277,
+            256,
+            315
+          ]
+        }
+      ],
+      "19": [
+        {
+          "area": 427,
+          "avg_alpha": 4.73,
+          "bbox": [
+            240,
+            277,
+            256,
+            315
+          ]
+        }
+      ],
+      "20": [
+        {
+          "area": 423,
+          "avg_alpha": 5.47,
+          "bbox": [
+            240,
+            278,
+            256,
+            315
+          ]
+        }
+      ],
+      "21": [
+        {
+          "area": 408,
+          "avg_alpha": 5.03,
+          "bbox": [
+            241,
+            280,
+            257,
+            316
+          ]
+        }
+      ],
+      "22": [
+        {
+          "area": 400,
+          "avg_alpha": 7.55,
+          "bbox": [
+            244,
+            281,
+            259,
+            317
+          ]
+        }
+      ],
+      "23": [
+        {
+          "area": 374,
+          "avg_alpha": 4.54,
+          "bbox": [
+            247,
+            282,
+            261,
+            318
+          ]
+        }
       ],
       "24": [
-        118,
-        41,
-        413,
-        437
+        {
+          "area": 360,
+          "avg_alpha": 6.35,
+          "bbox": [
+            253,
+            284,
+            268,
+            318
+          ]
+        }
+      ],
+      "25": [
+        {
+          "area": 340,
+          "avg_alpha": 4.21,
+          "bbox": [
+            263,
+            286,
+            277,
+            319
+          ]
+        }
+      ],
+      "26": [
+        {
+          "area": 340,
+          "avg_alpha": 4.78,
+          "bbox": [
+            272,
+            287,
+            286,
+            320
+          ]
+        }
+      ],
+      "27": [
+        {
+          "area": 340,
+          "avg_alpha": 3.7,
+          "bbox": [
+            273,
+            288,
+            287,
+            321
+          ]
+        }
+      ],
+      "28": [
+        {
+          "area": 348,
+          "avg_alpha": 5.95,
+          "bbox": [
+            273,
+            288,
+            287,
+            322
+          ]
+        }
+      ],
+      "29": [
+        {
+          "area": 346,
+          "avg_alpha": 4.16,
+          "bbox": [
+            271,
+            288,
+            284,
+            323
+          ]
+        }
+      ],
+      "30": [
+        {
+          "area": 352,
+          "avg_alpha": 3.55,
+          "bbox": [
+            266,
+            287,
+            279,
+            323
+          ]
+        }
+      ],
+      "31": [
+        {
+          "area": 362,
+          "avg_alpha": 4.85,
+          "bbox": [
+            261,
+            285,
+            275,
+            322
+          ]
+        }
       ],
       "32": [
-        116,
-        42,
-        412,
-        438
+        {
+          "area": 378,
+          "avg_alpha": 6.7,
+          "bbox": [
+            261,
+            285,
+            275,
+            323
+          ]
+        }
+      ],
+      "33": [
+        {
+          "area": 379,
+          "avg_alpha": 5.9,
+          "bbox": [
+            261,
+            284,
+            275,
+            322
+          ]
+        }
+      ],
+      "34": [
+        {
+          "area": 381,
+          "avg_alpha": 5.85,
+          "bbox": [
+            262,
+            284,
+            276,
+            322
+          ]
+        }
+      ],
+      "35": [
+        {
+          "area": 382,
+          "avg_alpha": 4.57,
+          "bbox": [
+            264,
+            284,
+            278,
+            322
+          ]
+        }
+      ],
+      "36": [
+        {
+          "area": 373,
+          "avg_alpha": 3.18,
+          "bbox": [
+            266,
+            285,
+            280,
+            322
+          ]
+        }
+      ],
+      "37": [
+        {
+          "area": 382,
+          "avg_alpha": 7.09,
+          "bbox": [
+            268,
+            286,
+            282,
+            324
+          ]
+        }
+      ],
+      "38": [
+        {
+          "area": 372,
+          "avg_alpha": 5.89,
+          "bbox": [
+            270,
+            287,
+            284,
+            324
+          ]
+        }
+      ],
+      "39": [
+        {
+          "area": 360,
+          "avg_alpha": 3.15,
+          "bbox": [
+            271,
+            288,
+            284,
+            325
+          ]
+        }
       ],
       "40": [
-        116,
-        41,
-        410,
-        436
+        {
+          "area": 358,
+          "avg_alpha": 6.46,
+          "bbox": [
+            270,
+            290,
+            284,
+            326
+          ]
+        }
+      ],
+      "41": [
+        {
+          "area": 353,
+          "avg_alpha": 4.07,
+          "bbox": [
+            271,
+            290,
+            284,
+            327
+          ]
+        }
+      ],
+      "42": [
+        {
+          "area": 359,
+          "avg_alpha": 8.3,
+          "bbox": [
+            270,
+            291,
+            284,
+            327
+          ]
+        }
+      ],
+      "43": [
+        {
+          "area": 351,
+          "avg_alpha": 4.29,
+          "bbox": [
+            270,
+            290,
+            283,
+            326
+          ]
+        }
+      ],
+      "44": [
+        {
+          "area": 353,
+          "avg_alpha": 3.63,
+          "bbox": [
+            269,
+            289,
+            282,
+            326
+          ]
+        }
+      ],
+      "45": [
+        {
+          "area": 374,
+          "avg_alpha": 6.77,
+          "bbox": [
+            268,
+            289,
+            282,
+            326
+          ]
+        }
+      ],
+      "46": [
+        {
+          "area": 361,
+          "avg_alpha": 3.53,
+          "bbox": [
+            269,
+            288,
+            282,
+            326
+          ]
+        }
+      ],
+      "47": [
+        {
+          "area": 369,
+          "avg_alpha": 3.83,
+          "bbox": [
+            268,
+            288,
+            282,
+            326
+          ]
+        }
       ],
       "48": [
-        120,
-        50,
-        411,
-        441
+        {
+          "area": 369,
+          "avg_alpha": 3.96,
+          "bbox": [
+            268,
+            287,
+            282,
+            325
+          ]
+        }
       ],
       "49": [
-        120,
-        50,
-        411,
-        441
+        {
+          "area": 369,
+          "avg_alpha": 3.96,
+          "bbox": [
+            268,
+            287,
+            282,
+            325
+          ]
+        }
+      ],
+      "50": [
+        {
+          "area": 369,
+          "avg_alpha": 3.83,
+          "bbox": [
+            268,
+            288,
+            282,
+            326
+          ]
+        }
+      ],
+      "51": [
+        {
+          "area": 361,
+          "avg_alpha": 3.53,
+          "bbox": [
+            269,
+            288,
+            282,
+            326
+          ]
+        }
+      ],
+      "52": [
+        {
+          "area": 374,
+          "avg_alpha": 6.77,
+          "bbox": [
+            268,
+            289,
+            282,
+            326
+          ]
+        }
+      ],
+      "53": [
+        {
+          "area": 353,
+          "avg_alpha": 3.63,
+          "bbox": [
+            269,
+            289,
+            282,
+            326
+          ]
+        }
+      ],
+      "54": [
+        {
+          "area": 351,
+          "avg_alpha": 4.29,
+          "bbox": [
+            270,
+            290,
+            283,
+            326
+          ]
+        }
+      ],
+      "55": [
+        {
+          "area": 359,
+          "avg_alpha": 8.3,
+          "bbox": [
+            270,
+            291,
+            284,
+            327
+          ]
+        }
+      ],
+      "56": [
+        {
+          "area": 353,
+          "avg_alpha": 4.07,
+          "bbox": [
+            271,
+            290,
+            284,
+            327
+          ]
+        }
+      ],
+      "57": [
+        {
+          "area": 358,
+          "avg_alpha": 6.46,
+          "bbox": [
+            270,
+            290,
+            284,
+            326
+          ]
+        }
+      ],
+      "58": [
+        {
+          "area": 360,
+          "avg_alpha": 3.15,
+          "bbox": [
+            271,
+            288,
+            284,
+            325
+          ]
+        }
+      ],
+      "59": [
+        {
+          "area": 372,
+          "avg_alpha": 5.89,
+          "bbox": [
+            270,
+            287,
+            284,
+            324
+          ]
+        }
+      ],
+      "60": [
+        {
+          "area": 382,
+          "avg_alpha": 7.09,
+          "bbox": [
+            268,
+            286,
+            282,
+            324
+          ]
+        }
+      ],
+      "61": [
+        {
+          "area": 373,
+          "avg_alpha": 3.18,
+          "bbox": [
+            266,
+            285,
+            280,
+            322
+          ]
+        }
+      ],
+      "62": [
+        {
+          "area": 382,
+          "avg_alpha": 4.57,
+          "bbox": [
+            264,
+            284,
+            278,
+            322
+          ]
+        }
+      ],
+      "63": [
+        {
+          "area": 381,
+          "avg_alpha": 5.85,
+          "bbox": [
+            262,
+            284,
+            276,
+            322
+          ]
+        }
+      ],
+      "64": [
+        {
+          "area": 379,
+          "avg_alpha": 5.9,
+          "bbox": [
+            261,
+            284,
+            275,
+            322
+          ]
+        }
+      ],
+      "65": [
+        {
+          "area": 378,
+          "avg_alpha": 6.7,
+          "bbox": [
+            261,
+            285,
+            275,
+            323
+          ]
+        }
+      ],
+      "66": [
+        {
+          "area": 362,
+          "avg_alpha": 4.85,
+          "bbox": [
+            261,
+            285,
+            275,
+            322
+          ]
+        }
+      ],
+      "67": [
+        {
+          "area": 352,
+          "avg_alpha": 3.55,
+          "bbox": [
+            266,
+            287,
+            279,
+            323
+          ]
+        }
+      ],
+      "68": [
+        {
+          "area": 346,
+          "avg_alpha": 4.16,
+          "bbox": [
+            271,
+            288,
+            284,
+            323
+          ]
+        }
+      ],
+      "69": [
+        {
+          "area": 348,
+          "avg_alpha": 5.95,
+          "bbox": [
+            273,
+            288,
+            287,
+            322
+          ]
+        }
+      ],
+      "70": [
+        {
+          "area": 340,
+          "avg_alpha": 3.7,
+          "bbox": [
+            273,
+            288,
+            287,
+            321
+          ]
+        }
+      ],
+      "71": [
+        {
+          "area": 340,
+          "avg_alpha": 4.78,
+          "bbox": [
+            272,
+            287,
+            286,
+            320
+          ]
+        }
+      ],
+      "72": [
+        {
+          "area": 340,
+          "avg_alpha": 4.21,
+          "bbox": [
+            263,
+            286,
+            277,
+            319
+          ]
+        }
+      ],
+      "73": [
+        {
+          "area": 360,
+          "avg_alpha": 6.35,
+          "bbox": [
+            253,
+            284,
+            268,
+            318
+          ]
+        }
+      ],
+      "74": [
+        {
+          "area": 374,
+          "avg_alpha": 4.54,
+          "bbox": [
+            247,
+            282,
+            261,
+            318
+          ]
+        }
+      ],
+      "75": [
+        {
+          "area": 400,
+          "avg_alpha": 7.55,
+          "bbox": [
+            244,
+            281,
+            259,
+            317
+          ]
+        }
+      ],
+      "76": [
+        {
+          "area": 408,
+          "avg_alpha": 5.03,
+          "bbox": [
+            241,
+            280,
+            257,
+            316
+          ]
+        }
+      ],
+      "77": [
+        {
+          "area": 423,
+          "avg_alpha": 5.47,
+          "bbox": [
+            240,
+            278,
+            256,
+            315
+          ]
+        }
+      ],
+      "78": [
+        {
+          "area": 427,
+          "avg_alpha": 4.73,
+          "bbox": [
+            240,
+            277,
+            256,
+            315
+          ]
+        }
+      ],
+      "79": [
+        {
+          "area": 430,
+          "avg_alpha": 5.1,
+          "bbox": [
+            240,
+            277,
+            256,
+            315
+          ]
+        }
       ],
       "80": [
-        119,
-        37,
-        415,
-        432
+        {
+          "area": 434,
+          "avg_alpha": 5.22,
+          "bbox": [
+            242,
+            277,
+            258,
+            316
+          ]
+        }
+      ],
+      "81": [
+        {
+          "area": 420,
+          "avg_alpha": 4.27,
+          "bbox": [
+            242,
+            278,
+            257,
+            317
+          ]
+        }
+      ],
+      "82": [
+        {
+          "area": 423,
+          "avg_alpha": 5.39,
+          "bbox": [
+            243,
+            280,
+            259,
+            320
+          ]
+        }
+      ],
+      "83": [
+        {
+          "area": 419,
+          "avg_alpha": 3.16,
+          "bbox": [
+            244,
+            281,
+            260,
+            320
+          ]
+        }
+      ],
+      "84": [
+        {
+          "area": 455,
+          "avg_alpha": 5.61,
+          "bbox": [
+            243,
+            283,
+            260,
+            323
+          ]
+        }
+      ],
+      "85": [
+        {
+          "area": 499,
+          "avg_alpha": 4.71,
+          "bbox": [
+            243,
+            285,
+            261,
+            327
+          ]
+        }
+      ]
+    },
+    "one_pouch_banana_yellow_area_samples": {
+      "0": 26822,
+      "12": 25351,
+      "24": 24195,
+      "36": 26813,
+      "48": 26956
+    },
+    "held_banana_yellow_area_samples": {
+      "0": 18004,
+      "12": 24206,
+      "24": 20745,
+      "36": 20276,
+      "48": 21982
+    },
+    "one_pouch_banana_starts_visible": true,
+    "held_or_eaten_banana_present": true,
+    "low_alpha_dark_pixel_count": 1972,
+    "edge_key_spill_pixel_count": 18748,
+    "pingpong_loop_closure": "frame0 returns at frame97 and frame48 is held at frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [
+        164,
+        81,
+        859,
+        942
+      ],
+      "12": [
+        188,
+        78,
+        831,
+        945
+      ],
+      "24": [
+        147,
+        80,
+        878,
+        942
+      ],
+      "36": [
+        126,
+        80,
+        894,
+        945
+      ],
+      "48": [
+        144,
+        81,
+        881,
+        945
+      ],
+      "49": [
+        144,
+        81,
+        881,
+        945
+      ],
+      "80": [
+        176,
+        81,
+        850,
+        945
       ],
       "97": [
-        120,
-        50,
-        411,
-        441
+        164,
+        81,
+        859,
+        942
       ]
     }
   }

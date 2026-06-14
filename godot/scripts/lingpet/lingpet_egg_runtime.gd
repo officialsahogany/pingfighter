@@ -459,9 +459,7 @@ func debug_grant_and_activate_pet(
 	_apply_affinity_headstart_from_store(normalized_pet_id, registry)
 	_skip_unlock_reconcile = active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != ""
 	_apply_current_loadout(owner, true, true)
-	# Keep _skip_unlock_reconcile STICKY for a debug-forced loadout: it must survive
-	# later same-pet reconciles (post-Lv.1 update) so F7-forced skills are not
-	# overwritten by auto-resolve. Cleared only on pet switch / empty-pet path.
+	_skip_unlock_reconcile = false
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_reset_companion_runtime_state()

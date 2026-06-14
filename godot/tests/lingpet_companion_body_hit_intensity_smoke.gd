@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BallIntensity := preload("res://scripts/ball/ball_intensity.gd")
+const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 
 var _failures: Array[String] = []
@@ -17,6 +18,7 @@ class FakeOwner:
 	var special_gauge := 0.0
 	var special_gauge_max := 500.0
 	var current_stage := 1
+	var rally_speed_cap_bonus := 0.0
 
 
 class FakeRegistry:
@@ -38,6 +40,11 @@ func _init() -> void:
 	_verify_lingpet_contact_registers_player_side_actor()
 	_verify_overlap_and_cooldown_do_not_double_register()
 	_verify_strike_active_still_registers_contact()
+	_verify_companion_guard_uses_ball_physics_speed_policy()
+	_verify_companion_guard_uses_rally_floor()
+	_verify_companion_guard_clamps_to_rally_cap()
+	_verify_companion_guard_uses_junior_rally_floor()
+	_verify_companion_guard_uses_fire_cap()
 	_verify_missing_ball_intensity_is_safe()
 
 	if _failures.is_empty():
@@ -98,6 +105,67 @@ func _verify_missing_ball_intensity_is_safe() -> void:
 	var registry := FakeRegistry.new()
 	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(340.0, 510.0), 100.0, 44.0, 0.0, true, false)
 	_expect(bool(result.get("hit", false)), "missing ball_intensity should not block companion body hit")
+	_expect(is_equal_approx(owner.ball_vel.length(), 10.0), "without ball_physics, companion guard should preserve the old bounce speed fallback")
+
+
+func _verify_companion_guard_uses_ball_physics_speed_policy() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 18.0)
+	var registry := FakeRegistry.new({"ball_physics": BallPhysics.new()})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion speed-policy fixture should hit")
+	_expect(owner.ball_vel.length() > 18.0, "companion guard should apply one dampened rally acceleration step instead of staying speed-neutral")
+	_expect(is_equal_approx(owner.rally_speed_cap_bonus, 0.5), "companion guard should count as one rally-cap hit")
+
+
+func _verify_companion_guard_uses_rally_floor() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 2.0)
+	var physics := BallPhysics.new()
+	var registry := FakeRegistry.new({"ball_physics": physics})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion rally-floor fixture should hit")
+	_expect(owner.ball_vel.length() >= float(physics.get_minimum_rally_speed()) - 0.001, "companion guard should raise low-speed balls to the rally floor")
+
+
+func _verify_companion_guard_clamps_to_rally_cap() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 40.0)
+	var registry := FakeRegistry.new({"ball_physics": BallPhysics.new()})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion cap fixture should hit")
+	_expect(owner.ball_vel.length() <= 26.001, "companion guard should clamp boosted speed to the active champion rally cap")
+
+
+func _verify_companion_guard_uses_junior_rally_floor() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 2.0)
+	var physics := BallPhysics.new()
+	physics.configure_context(1, "junior")
+	var champion_physics := BallPhysics.new()
+	var registry := FakeRegistry.new({"ball_physics": physics})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion junior floor fixture should hit")
+	_expect(owner.ball_vel.length() >= float(physics.get_minimum_rally_speed()) - 0.001, "companion guard should use the junior rally floor")
+	_expect(owner.ball_vel.length() < float(champion_physics.get_minimum_rally_speed()), "junior companion guard floor should stay below champion floor")
+
+
+func _verify_companion_guard_uses_fire_cap() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 80.0)
+	owner.rally_speed_cap_bonus = 1.0
+	var physics := BallPhysics.new()
+	physics.configure_context(1, "champion", false, "fire")
+	var registry := FakeRegistry.new({"ball_physics": physics})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion fire cap fixture should hit")
+	_expect(owner.ball_vel.length() <= 36.001, "companion guard should clamp boosted speed to the fire rally cap plus current bonus")
+	_expect(is_equal_approx(owner.rally_speed_cap_bonus, 1.5), "companion guard should advance the fire rally cap bonus for the next hit")
 
 
 func _build_owner_at(pos: Vector2) -> FakeOwner:

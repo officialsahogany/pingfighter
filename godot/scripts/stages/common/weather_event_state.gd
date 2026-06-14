@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const WeatherEventPayloadFactory := preload("res://scripts/stages/common/weather_event_payload_factory.gd")
 
 const WEATHER_TYPES := ["breeze", "gust", "fire", "ice", "rain", "hail", "sand"]
 const WEATHER_DURATION_WEIGHTS := [1, 1, 1, 1, 1, 2, 2, 2, 3, 3]
@@ -1004,48 +1005,12 @@ func _roll_fire_paddle_knockback_velocity() -> float:
 
 
 func _spawn_fire_hit_explosion(pos: Vector2) -> void:
-	var fire_color := _get_weather_color("fire")
-	for _i in range(FIRE_HIT_EXPLOSION_PARTICLES):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(2.5, 7.2)
-		var life := randf_range(18.0, 34.0)
-		weather_particles.append({
-			"x": pos.x,
-			"y": pos.y,
-			"vx": cos(angle) * speed,
-			"vy": sin(angle) * speed - randf_range(0.8, 2.4),
-			"life": life,
-			"max_life": life,
-			"size": randf_range(3.4, 8.4),
-			"kind": "fire_explosion",
-			"weather_type": "fire",
-			"color": fire_color,
-			"gravity": 0.08,
-			"friction": 0.955,
-			"size_decay": 0.972,
-		})
-	for _i in range(FIRE_HIT_SPARK_PARTICLES):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(6.5, 13.0)
-		var life := randf_range(14.0, 26.0)
-		weather_particles.append({
-			"x": pos.x,
-			"y": pos.y,
-			"vx": cos(angle) * speed,
-			"vy": sin(angle) * speed - randf_range(1.2, 3.0),
-			"life": life,
-			"max_life": life,
-			"size": randf_range(2.0, 4.2),
-			"length": randf_range(8.0, 18.0),
-			"angle": angle,
-			"spin": randf_range(-0.10, 0.10),
-			"kind": "fire_spark",
-			"weather_type": "fire",
-			"color": Color(1.0, 0.72, 0.18, 1.0),
-			"gravity": 0.05,
-			"friction": 0.965,
-			"size_decay": 0.986,
-		})
+	weather_particles.append_array(WeatherEventPayloadFactory.build_fire_hit_explosion_particles(
+		pos,
+		FIRE_HIT_EXPLOSION_PARTICLES,
+		FIRE_HIT_SPARK_PARTICLES,
+		_get_weather_color("fire")
+	))
 	_trim_weather_particles_for_type("fire", FIRE_VISUAL_PARTICLE_CAP)
 
 
@@ -1104,62 +1069,12 @@ func _update_hail_collision(owner: Object, registry: Object, fps_scale: float) -
 
 
 func _spawn_hail_impact(pos: Vector2, size: float, dash_destroy: bool) -> void:
-	var burst_life := 12.0 if dash_destroy else 16.0
-	weather_particles.append({
-		"x": pos.x,
-		"y": pos.y,
-		"vx": 0.0,
-		"vy": 0.0,
-		"life": burst_life,
-		"max_life": burst_life,
-		"size": max(11.0, size * (2.05 if dash_destroy else 1.72)),
-		"kind": "hail_burst",
-		"weather_type": "hail",
-		"color": _get_weather_color("hail"),
-		"angle": randf_range(0.0, PI * 0.5),
-	})
-
-	var shard_count: int = int(max(8.0, size * (2.5 if dash_destroy else 1.45)))
-	for _i in range(shard_count):
-		var shard_angle := randf_range(0.0, TAU)
-		var shard_speed := randf_range(8.0, 16.0) if dash_destroy else randf_range(5.0, 11.0)
-		var shard_life := randf_range(18.0, 32.0) if dash_destroy else randf_range(14.0, 26.0)
-		weather_particles.append({
-			"x": pos.x,
-			"y": pos.y,
-			"vx": cos(shard_angle) * shard_speed,
-			"vy": sin(shard_angle) * shard_speed - (5.0 if dash_destroy else 3.0),
-			"life": shard_life,
-			"max_life": shard_life,
-			"size": randf_range(3.0, 7.0) if dash_destroy else randf_range(2.5, 5.5),
-			"kind": "hail_shard",
-			"weather_type": "hail",
-			"color": _get_weather_color("hail"),
-			"angle": shard_angle,
-			"spin": randf_range(-0.06, 0.06),
-			"gravity": 0.22,
-			"friction": 0.965,
-		})
-
-	var count: int = int(max(8.0, size * (5.0 if dash_destroy else 2.6)))
-	for _i in range(count):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(6.0, 12.0) if dash_destroy else randf_range(3.5, 7.5)
-		var dust_life := randf_range(20.0, 40.0) if dash_destroy else randf_range(14.0, 28.0)
-		weather_particles.append({
-			"x": pos.x,
-			"y": pos.y,
-			"vx": cos(angle) * speed,
-			"vy": sin(angle) * speed - (4.0 if dash_destroy else 2.0),
-			"life": dust_life,
-			"max_life": dust_life,
-			"size": randf_range(3.0, 8.0) if dash_destroy else randf_range(2.2, 5.6),
-			"kind": "hail_impact",
-			"weather_type": "hail",
-			"color": _get_weather_color("hail"),
-			"gravity": 0.3,
-			"friction": 0.98,
-		})
+	weather_particles.append_array(WeatherEventPayloadFactory.build_hail_impact_particles(
+		pos,
+		size,
+		dash_destroy,
+		_get_weather_color("hail")
+	))
 
 
 func _apply_hail_player_hit(owner: Object, registry: Object) -> void:
@@ -1437,19 +1352,14 @@ func _apply_boss_sand_erosion(result: Dictionary, owner: Object, registry: Objec
 
 func _spawn_ice_slide_particles(pos: Vector2, direction: int, player: bool) -> void:
 	var y: float = FIELD_HEIGHT - 35.0 if player else 55.0
+	var ice_color: Color = _get_weather_color("ice")
 	for _i in range(12):
-		weather_particles.append({
-			"x": pos.x + randf_range(10.0, 135.0),
-			"y": y + randf_range(-4.0, 4.0),
-			"vx": -float(direction) * randf_range(1.5, 4.5),
-			"vy": randf_range(-2.5, 2.5),
-			"life": randf_range(16.0, 34.0),
-			"max_life": 34.0,
-			"size": randf_range(2.0, 5.0),
-			"kind": "ice",
-			"weather_type": "ice",
-			"color": _get_weather_color("ice"),
-		})
+		weather_particles.append(WeatherEventPayloadFactory.build_ice_slide_particle(
+			pos,
+			y,
+			direction,
+			ice_color
+		))
 
 
 func _reset_ice_slide_state() -> void:
@@ -1700,22 +1610,14 @@ func _erode_sand_at(side: String, world_pos: float, amount: float, radius_segmen
 
 func _spawn_sand_particles(side: String, pos: Vector2, eroded: float) -> void:
 	var count: int = max(3, min(10, int(eroded / 3.0)))
+	var sand_color: Color = _get_weather_color("sand")
 	for _i in range(count):
 		var velocity := _get_sand_particle_velocity(side)
-		weather_particles.append({
-			"x": pos.x + randf_range(-6.0, 6.0),
-			"y": pos.y + randf_range(-6.0, 6.0),
-			"vx": velocity.x,
-			"vy": velocity.y,
-			"life": randf_range(18.0, 35.0),
-			"max_life": 35.0,
-			"size": randf_range(2.0, 4.0),
-			"kind": "sand",
-			"weather_type": "sand",
-			"color": _get_weather_color("sand"),
-			"gravity": 0.12,
-			"friction": 0.95,
-		})
+		weather_particles.append(WeatherEventPayloadFactory.build_sand_erosion_particle(
+			pos,
+			velocity,
+			sand_color
+		))
 
 
 func _update_sand_dissolve(fps_scale: float) -> void:
@@ -1801,20 +1703,11 @@ func _spawn_sand_dissolve_particles(progress: float) -> void:
 					py = FIELD_HEIGHT - depth * 0.5
 					vx = randf_range(-1.0, 1.0)
 					vy = randf_range(-0.5, 1.0)
-			weather_particles.append({
-				"x": px + randf_range(-4.0, 4.0),
-				"y": py + randf_range(-4.0, 4.0),
-				"vx": vx,
-				"vy": vy,
-				"life": randf_range(20.0, 45.0),
-				"max_life": 45.0,
-				"size": randf_range(1.0, 3.0),
-				"kind": "sand",
-				"weather_type": "sand",
-				"color": sand_color,
-				"gravity": 0.15,
-				"friction": 0.95,
-			})
+			weather_particles.append(WeatherEventPayloadFactory.build_sand_dissolve_particle(
+				Vector2(px, py),
+				Vector2(vx, vy),
+				sand_color
+			))
 
 
 func _clear_non_sand_particles() -> void:

@@ -1,0 +1,142 @@
+{
+  "asset_id": "monkeyring_companion_strike_tail_slap_25f_v1",
+  "pet_id": "monkeyring",
+  "display_name": "Ppanamong / Monkeyring",
+  "created_at": "2026-06-13",
+  "runtime_usage": "lingpet_companion_strike_rear_tail_slap_ball_hit_sheet",
+  "output_sheet": "res://assets/sprites/lingpet/monkeyring_companion_strike.png",
+  "memorized_contract": "In-game SD companion strike stays rear/back-view based. The active runtime window frames 18-24 should read as tail windup, tail-gem slap / paw chop, cyan impact, and recoil without turning into a front-facing banana-eating animation.",
+  "autosprite": {
+    "character_id": "cmqbcx75u000bch77g70bds58",
+    "character_name": "Monkeyring SD Companion 20260613",
+    "kind": "custom",
+    "spritesheet_id": "cmqbfqusu006bh3qjtdgpyktp",
+    "workflow_job_id": "wf_09fe9bcb-e7f2-438e-acf3-94d56c83ed48",
+    "video_id": "cmqbfppax003a7fnbuzcgzi6a",
+    "source_frame_size": [
+      256,
+      256
+    ],
+    "generated_frame_count": 25,
+    "remove_bg": "ultra",
+    "video_tier": "turbo",
+    "raw_sheet_local_path": "godot/.tmp/monkeyring_companion_strike/monkeyring_companion_strike_tail_slap_256_25f.png",
+    "raw_atlas_local_path": "godot/.tmp/monkeyring_companion_strike/monkeyring_companion_strike_tail_slap_256_25f_atlas.json",
+    "prompt_summary": "Back-view-only SD Ppanamong / Monkeyring companion strike preserving brown fur, gold gear, cyan shoulder gems, curled tail cyan gem tip, and banana pouch silhouette; no front face, full side profile, banana eating, camera spin, rectangular glow, square box, text, UI, or grid."
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "intended_visual_keys": [
+      "companion_strike"
+    ],
+    "frame_interval": "one-shot strike; compatible with lingpet_companion_sprite_animator.gd 5x5 frame math",
+    "runtime_active_frames": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "runtime_frame_source_sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      5,
+      6,
+      8,
+      12,
+      17,
+      20,
+      24
+    ],
+    "impact_runtime_frame": 22,
+    "impact_source_frame": 17,
+    "sha256": "cd8855eb65b4b2f6f598897201561c6429238377f771167db90a353341c99aae",
+    "bytes": 961856
+  },
+  "postprocess": {
+    "tool": "Pillow AutoSprite-derived frame remap and alpha dust cleanup",
+    "alpha_cleanup": {
+      "threshold": 6
+    },
+    "note": "The raw AutoSprite sheet was visually accepted. The final sheet preserves AutoSprite source frames and remaps the tail windup / cyan impact / recoil into frames 18-24 so LingpetCompanionSpriteAnimator's contact frame reaches the strike read."
+  },
+  "qa": {
+    "runtime_preview": "godot/.tmp/monkeyring_companion_strike/monkeyring_companion_strike_runtime_frames_18_24.png",
+    "comparison_preview": "godot/.tmp/monkeyring_companion_strike/monkeyring_strike_compare_gameplay.png",
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels": 0,
+    "sample_bboxes": {
+      "0": [
+        29,
+        12,
+        210,
+        230
+      ],
+      "6": [
+        8,
+        22,
+        211,
+        230
+      ],
+      "12": [
+        62,
+        47,
+        210,
+        239
+      ],
+      "18": [
+        16,
+        19,
+        211,
+        230
+      ],
+      "22": [
+        29,
+        19,
+        186,
+        230
+      ],
+      "24": [
+        32,
+        18,
+        214,
+        230
+      ]
+    },
+    "notes": [
+      "Gameplay-scale preview matches existing Monkeyring idle and rear-3Q movement body class at companion_strike_draw_size 92.0.",
+      "Attack branch preserves brown fur, gold gear, cyan shoulder gems, and the curled tail with cyan gem tip.",
+      "No visible rectangular glow, square aura, magenta key, or green key pixels remain in non-transparent sprite pixels."
+    ]
+  }
+}

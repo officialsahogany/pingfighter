@@ -25,30 +25,8 @@ func spawn_initial_entities(intro: Object, config: Dictionary) -> void:
 		var ex: Vector2 = intro.start_pos + Vector2(cos(end_angle), sin(end_angle)) * ed
 		intro.lightning_bolts.append(intro._make_lightning_bolt(sx, ex, true, 1))
 	for _i in range(starfield_count):
-		intro.starfield.append({
-			"pos": Vector2(intro.rng.randf_range(0.0, game_width), intro.rng.randf_range(0.0, game_height)),
-			"size": intro.rng.randf_range(0.7, 2.0),
-			"phase": intro.rng.randf_range(0.0, TAU),
-			"speed": intro.rng.randf_range(2.5, 7.0),
-			"hue": intro.rng.randi_range(0, 4),
-		})
-	var palette: Array = [
-		Color(0.55, 0.75, 1.0),
-		Color(0.78, 0.62, 1.0),
-		Color(1.0, 0.72, 0.92),
-		Color(0.66, 0.92, 1.0),
-	]
+		intro.starfield.append(intro._make_starfield_dot(game_width, game_height))
 	for _i in range(haze_cloud_count):
-		intro.haze_clouds.append({
-			"pos": Vector2(intro.rng.randf_range(80.0, game_width - 80.0), intro.rng.randf_range(80.0, game_height - 80.0)),
-			"radius": intro.rng.randf_range(180.0, 320.0),
-			"drift_angle": intro.rng.randf_range(0.0, TAU),
-			"drift_speed": intro.rng.randf_range(8.0, 20.0),
-			"rotation": intro.rng.randf_range(0.0, TAU),
-			"rotation_speed": intro.rng.randf_range(-0.3, 0.3),
-			"pulse_phase": intro.rng.randf_range(0.0, TAU),
-			"pulse_speed": intro.rng.randf_range(0.7, 1.6),
-			"color": palette[intro.rng.randi_range(0, palette.size() - 1)],
-		})
+		intro.haze_clouds.append(intro._make_haze_cloud(game_width, game_height))
 	intro.fog_alpha = 100.0
 	intro.fog_color = Color(0.78, 0.86, 1.0, 1.0)

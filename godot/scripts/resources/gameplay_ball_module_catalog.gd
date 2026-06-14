@@ -29,6 +29,10 @@ const MODULES := {
 		"path": "res://scripts/ball/ball_effects.gd",
 		"label": "ball effects state",
 	},
+	"ball_effect_payload_factory": {
+		"path": "res://scripts/ball/ball_effect_payload_factory.gd",
+		"label": "ball effect payload factory",
+	},
 	"ball_round_state": {
 		"path": "res://scripts/ball/ball_round_state.gd",
 		"label": "ball round state",

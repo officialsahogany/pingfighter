@@ -4,6 +4,7 @@ const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const HermesFieldRenderer := preload("res://scripts/items/mythic_item_hermes_field_renderer.gd")
 const HermesShoesFxHost := preload("res://scripts/items/mythic_item_hermes_shoes_fx_host.gd")
 const HermesShoesState := preload("res://scripts/items/hermes_shoes_state.gd")
+const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 
 var _failures: Array[String] = []
 
@@ -14,6 +15,7 @@ func _init() -> void:
 
 func _run() -> void:
 	await _verify_fx_host_screen_space_sync()
+	await _verify_round_reset_tears_down_attached_host()
 	await process_frame
 	if _failures.is_empty():
 		print("hermes_shoes_fx_host_smoke: ok")
@@ -81,6 +83,46 @@ func _verify_fx_host_screen_space_sync() -> void:
 		var cleared_status: Dictionary = host.get_debug_status()
 		_expect(not bool(cleared_status.get("visible", true)), "tear_down should hide the Hermes Shoes FX host")
 		_expect(not bool(cleared_status.get("trail_emitting", true)), "tear_down should stop Hermes Shoes trail particles")
+
+	canvas.queue_free()
+
+
+func _verify_round_reset_tears_down_attached_host() -> void:
+	var canvas := Node2D.new()
+	get_root().add_child(canvas)
+	var runtime: Object = MythicItemRuntime.new()
+	while not runtime.prewarm_initialization_step(false):
+		pass
+	runtime.equipped_items["hermes_shoes"] = {
+		"name": "hermes_shoes",
+		"equipped": true,
+		"_equipped_slot": "shoes",
+	}
+	runtime.hermes_shoes_state.player_center = Vector2(382.0, 714.0)
+	runtime.hermes_shoes_state.player_size = Vector2(155.0, 50.0)
+	runtime.hermes_shoes_state.last_move_delta_x = 13.0
+
+	runtime.draw_field_effects(canvas, null, Vector2.ZERO, null, null, {})
+	await process_frame
+	runtime.draw_field_effects(canvas, null, Vector2.ZERO, null, null, {})
+	await process_frame
+
+	var host: Node = canvas.get_node_or_null("MythicHermesShoesFxHost")
+	_expect(host != null, "Hermes Shoes runtime draw should attach the FX host before round reset")
+	if host == null or not host.has_method("get_debug_status"):
+		canvas.queue_free()
+		return
+	var active_status: Dictionary = host.get_debug_status()
+	_expect(bool(active_status.get("visible", false)), "active Hermes Shoes host should be visible before round reset")
+	_expect(bool(active_status.get("trail_emitting", false)), "active Hermes Shoes host should emit particles before round reset")
+
+	runtime.reset_round(null)
+	await process_frame
+
+	var reset_status: Dictionary = host.get_debug_status()
+	_expect(not bool(reset_status.get("visible", true)), "Hermes Shoes round reset should hide the detached FX host without waiting for another draw")
+	_expect(not bool(reset_status.get("trail_emitting", true)), "Hermes Shoes round reset should stop old trail particles")
+	_expect(not bool(reset_status.get("spark_emitting", true)), "Hermes Shoes round reset should stop old spark particles")
 
 	canvas.queue_free()
 

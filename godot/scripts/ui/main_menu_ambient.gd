@@ -15,6 +15,8 @@ extends Control
 #      a 6 sec cycle (cinematic focus).
 # All layers are intentionally low-alpha so the scene reads as "잔잔".
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
 const PARTICLE_COUNT := 32
 const GLINT_PERIOD_SEC := 9.2
 const GLINT_SWEEP_DURATION_SEC := 3.15
@@ -543,11 +545,27 @@ func _sparkle_fade_curve(raw_amount: float) -> float:
 	return t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 
 
+# Exported builds pack only the imported texture (.ctex), never the original
+# PNG, so a raw Image.load_from_file here would silently return null in every
+# shipped build. Both mask PNGs import lossless (compress/mode=0, size_limit=0),
+# so get_image() pixels match the raw source exactly.
+func _load_mask_source_image(path: String) -> Image:
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path)
+	if texture == null:
+		return null
+	var image: Image = texture.get_image()
+	if image == null or image.is_empty():
+		return null
+	if image.is_compressed():
+		image.decompress()
+	return image
+
+
 func _build_logo_letter_mask() -> void:
 	logo_letter_mask.clear()
 	logo_orb_effect_mask.clear()
-	var logo_image := Image.load_from_file(ProjectSettings.globalize_path(LOGO_BACKGROUND_PATH))
-	var base_image := Image.load_from_file(ProjectSettings.globalize_path(LOGO_NO_BACKGROUND_PATH))
+	var logo_image := _load_mask_source_image(LOGO_BACKGROUND_PATH)
+	var base_image := _load_mask_source_image(LOGO_NO_BACKGROUND_PATH)
 	if logo_image == null or base_image == null or logo_image.is_empty() or base_image.is_empty():
 		push_warning("Main-menu logo glint mask could not load background comparison images.")
 		return

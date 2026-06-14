@@ -268,6 +268,13 @@ These are the bugs most likely to survive a "looks registered" pass:
 - Stage-clear gacha is a separate candidate builder from `gacha.py`
   metadata. If an item should be one-time there, the gate must read an
   ownership signal, not the current equipped state.
+- Godot plaza gacha is also a path-specific acquisition route. The S6b-4
+  plaza v1 path is intentionally active-item-only: it reads
+  `ActiveItemCatalog.FIELD_SPAWN_ORDER`, pays through
+  `plaza_save_store`, and grants through
+  `active_item_runtime.grant_item_to_slot(..., allow_overflow=false)`.
+  Do not assume it updates or consumes stage-clear gacha, legendary /
+  mythic pools, treasure-hunt, Nemesis chest, or crane reward routing.
 - Special reward paths are independent. Nemesis chest pools, treasure-
   hunt legendary pools, the stage-clear gacha candidate builder,
   `gacha.py` item metadata / display sets, crane prize generation, and

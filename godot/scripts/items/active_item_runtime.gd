@@ -95,18 +95,21 @@ func prewarm_initialization_step(perform_reset: bool = true) -> bool:
 func reset() -> void:
 	_ensure_helpers_ready(false)
 	lifecycle_facade.reset(self)
+	_deactivate_render_hosts()
 
 
 func reset_round() -> void:
 	_ensure_helpers_ready()
 	if throw_controller != null and throw_controller.has_method("clear_round_boss_status_effects"):
 		throw_controller.clear_round_boss_status_effects()
+	_deactivate_render_hosts()
 
 
 func reset_for_stage_transition(owner: Object = null, _registry: Object = null) -> void:
 	_ensure_helpers_ready(false)
 	if lifecycle_facade != null and lifecycle_facade.has_method("reset_for_stage_transition"):
 		lifecycle_facade.reset_for_stage_transition(self, owner, _registry)
+	_deactivate_render_hosts()
 
 
 func build_starting_slots() -> Array:
@@ -638,6 +641,11 @@ func draw_elixir_cinematic(canvas: CanvasItem, view_size: Vector2) -> void:
 func _ensure_helpers_ready(perform_reset: bool = true) -> void:
 	while not prewarm_initialization_step(perform_reset):
 		pass
+
+
+func _deactivate_render_hosts() -> void:
+	if render_facade != null and render_facade.has_method("deactivate_all_hosts"):
+		render_facade.deactivate_all_hosts()
 
 
 func _init_helper(member_name: String) -> void:

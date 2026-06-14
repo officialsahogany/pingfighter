@@ -35,9 +35,10 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 	var now_ms: float = float(Time.get_ticks_msec())
 	var bob: float = sin(now_ms * 0.0048) * 2.6
 	var draw_center: Vector2 = center + Vector2(0.0, bob)
+	var guard_aura_ratio: float = clampf(float(config.get("defense_guard_aura_ratio", 0.0)), 0.0, 1.0)
 	# Soft "barely-there" ambient aura -- replaces the old hard draw_circle disc.
 	# See the _SOFT_GLOW_TEX_SIZE notes at the top of the file.
-	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, bool(config.get("affinity_heart_tint", false)))
+	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, bool(config.get("affinity_heart_tint", false)), guard_aura_ratio)
 	if switch_transition > 0.0:
 		_draw_switch_transition(canvas, draw_center, radius, switch_transition, int(config.get("switch_particles", 12)), int(config.get("switch_trigger_count", 0)))
 	var sprite_alpha: float = (1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)) * ghost_alpha
@@ -66,6 +67,7 @@ func draw_affinity_feedback(canvas: CanvasItem, center: Vector2, config: Diction
 	# Point popups render independently of the level-up flash, so they must
 	# draw before the flash early-returns below.
 	_draw_point_popups(canvas, center, config.get("affinity_point_popups", []) as Array)
+	_draw_guard_label(canvas, config.get("affinity_guard_label", {}), _get_vector2(config.get("shake_offset", Vector2.ZERO), Vector2.ZERO))
 	var flash_ratio := clampf(float(config.get("affinity_flash", 0.0)), 0.0, 1.0)
 	if flash_ratio <= 0.0:
 		return
@@ -86,7 +88,7 @@ func draw_affinity_feedback(canvas: CanvasItem, center: Vector2, config: Diction
 	_draw_affinity_label(canvas, draw_center, label, str(config.get("affinity_title", "")), progress, flash_ratio)
 
 
-func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0, heart_tint: bool = false) -> void:
+func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0, heart_tint: bool = false, guard_aura_ratio: float = 0.0) -> void:
 	var tex: Texture2D = _get_or_create_soft_glow_texture()
 	if tex == null:
 		return
@@ -111,9 +113,22 @@ func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms:
 	var mid_a: float = lerpf(0.115, 0.150, breath)
 	var outer_r: float = body_r + lerpf(37.0, 45.0, breath)
 	var outer_a: float = lerpf(0.060, 0.085, breath)
-	var outer_color := Color(1.0, 0.24, 0.54, outer_a * alpha_mult) if heart_tint else Color(0.20, 1.0, 0.72, outer_a * alpha_mult)
-	var mid_color := Color(1.0, 0.38, 0.70, mid_a * alpha_mult) if heart_tint else Color(0.34, 1.0, 0.80, mid_a * alpha_mult)
-	var core_color := Color(1.0, 0.72, 0.90, core_a * alpha_mult) if heart_tint else Color(0.66, 1.0, 0.92, core_a * alpha_mult)
+	var guard_ratio := clampf(guard_aura_ratio, 0.0, 1.0)
+	var outer_color := _resolve_aura_color(
+		Color(1.0, 0.24, 0.54, outer_a * alpha_mult) if heart_tint else Color(0.20, 1.0, 0.72, outer_a * alpha_mult),
+		Color(1.0, 0.20, 0.06, outer_a * alpha_mult),
+		guard_ratio
+	)
+	var mid_color := _resolve_aura_color(
+		Color(1.0, 0.38, 0.70, mid_a * alpha_mult) if heart_tint else Color(0.34, 1.0, 0.80, mid_a * alpha_mult),
+		Color(1.0, 0.34, 0.12, mid_a * alpha_mult),
+		guard_ratio
+	)
+	var core_color := _resolve_aura_color(
+		Color(1.0, 0.72, 0.90, core_a * alpha_mult) if heart_tint else Color(0.66, 1.0, 0.92, core_a * alpha_mult),
+		Color(1.0, 0.72, 0.44, core_a * alpha_mult),
+		guard_ratio
+	)
 	_blit_soft_glow(canvas, tex, center, outer_r, outer_color)
 	_blit_soft_glow(canvas, tex, center, mid_r, mid_color)
 	_blit_soft_glow(canvas, tex, center, core_r, core_color)
@@ -122,6 +137,20 @@ func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms:
 func _blit_soft_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:
 	var r: float = maxf(1.0, glow_radius)
 	canvas.draw_texture_rect(tex, Rect2(center - Vector2(r, r), Vector2(r * 2.0, r * 2.0)), false, color)
+
+
+func _resolve_aura_color(base: Color, guard: Color, guard_ratio: float) -> Color:
+	if guard_ratio <= 0.0:
+		return base
+	if guard_ratio >= 1.0:
+		return guard
+	return base.lerp(guard, guard_ratio)
+
+
+func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback
 
 
 # Cached soft radial-falloff glow sprite, shared with player_state_glow_renderer
@@ -353,6 +382,32 @@ func _draw_point_popups(canvas: CanvasItem, center: Vector2, popups: Array) -> v
 		)
 		canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.55 * alpha))
 		canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.74, 0.88, 0.95 * alpha))
+
+
+func _draw_guard_label(canvas: CanvasItem, popup: Variant, shake_offset: Vector2) -> void:
+	if not popup is Dictionary:
+		return
+	var data: Dictionary = popup
+	if data.is_empty():
+		return
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var text := LanguageSettings.translate_text(str(data.get("text", "")).strip_edges())
+	if text == "":
+		return
+	var ratio := clampf(float(data.get("ratio", 0.0)), 0.0, 1.0)
+	var eased := 1.0 - pow(1.0 - ratio, 2.0)
+	var fade_start := 0.60
+	var alpha := 1.0 if ratio <= fade_start else clampf(1.0 - (ratio - fade_start) / maxf(0.001, 1.0 - fade_start), 0.0, 1.0)
+	if alpha <= 0.01:
+		return
+	var pos := _get_vector2(data.get("position", Vector2.ZERO), Vector2.ZERO)
+	var font_size := 12
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+	var draw_pos := pos + shake_offset + Vector2(-width * 0.5, -18.0 - 16.0 * eased)
+	canvas.draw_string(font, draw_pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.60 * alpha))
+	canvas.draw_string(font, draw_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.42, 0.20, 0.96 * alpha))
 
 
 func _draw_affinity_label(canvas: CanvasItem, center: Vector2, text: String, title: String, progress: float, flash_ratio: float) -> void:

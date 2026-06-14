@@ -93,6 +93,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if stage5_hongryun_state != null and stage5_hongryun_state.has_method("reset_round"):
 		stage5_hongryun_state.reset_round()
 
+	var stage5_hongryun_fire_machine_event = deps.get("stage5_hongryun_fire_machine_event", null)
+	if stage5_hongryun_fire_machine_event != null and stage5_hongryun_fire_machine_event.has_method("reset_round"):
+		stage5_hongryun_fire_machine_event.reset_round()
+
 	var stage5_hongryun_actor_renderer = deps.get("stage5_hongryun_actor_renderer", null)
 	_reset_stage5_hongryun_round_fx(stage5_hongryun_actor_renderer)
 
@@ -106,6 +110,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 		audio.stop_stage3_psychoball_loop()
 	if audio != null and audio.has_method("stop_stage5_hongryun_charge"):
 		audio.stop_stage5_hongryun_charge()
+	if audio != null and audio.has_method("stop_stage5_hongryun_fireball"):
+		audio.stop_stage5_hongryun_fireball()
+	if audio != null and audio.has_method("stop_stage5_hongryun_shoot"):
+		audio.stop_stage5_hongryun_shoot()
 	if audio != null and audio.has_method("stop_commando_supply_radio_loop"):
 		audio.stop_commando_supply_radio_loop()
 	if audio != null and audio.has_method("stop_commando_supply_aircraft_loop"):

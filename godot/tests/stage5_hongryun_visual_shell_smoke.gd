@@ -7,6 +7,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const StageRuntimeRouter := preload("res://scripts/stages/stage_runtime_router.gd")
 const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
 const Stage5HongryunPillarBackground := preload("res://scripts/stages/stage5/stage5_hongryun_pillar_background.gd")
+const Stage5HongryunPillarBackgroundPayloadFactory := preload("res://scripts/stages/stage5/stage5_hongryun_pillar_background_payload_factory.gd")
 const Stage5HongryunPillarSceneDrawer := preload("res://scripts/stages/stage5/stage5_hongryun_pillar_scene_drawer.gd")
 const Stage5HongryunPlayfieldRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_playfield_renderer.gd")
 const Stage5HongryunBossActorRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_boss_actor_renderer.gd")
@@ -73,6 +74,7 @@ func _verify_router_and_catalog() -> void:
 		"stage5_hongryun_playfield_renderer",
 		"stage5_hongryun_boss_actor_renderer",
 		"stage5_hongryun_pillar_background",
+		"stage5_hongryun_pillar_background_payload_factory",
 		"stage5_hongryun_pillar_scene_drawer",
 		"stage5_hongryun_boss_skill_hud_renderer",
 	]:
@@ -93,6 +95,16 @@ func _verify_background_contract() -> void:
 	_expect(Stage5HongryunPillarBackground.SPIRAL_BURST_PRIMARY_SEGMENTS_SEVERE_LOD <= 14, "Hongryun background severe LOD should reduce spiral arc segments")
 	_expect(Stage5HongryunPillarBackground.FIRE_IMPACT_OUTER_SEGMENTS_SEVERE_LOD <= 20, "Hongryun background severe LOD should reduce fire impact arc segments")
 	_expect(Stage5HongryunPillarBackground.VIGNETTE_STEPS_SEVERE_LOD <= 3, "Hongryun background severe LOD should reduce vignette passes")
+	var payload_burst: Dictionary = Stage5HongryunPillarBackgroundPayloadFactory.build_spiral_burst(2, 1.5, Stage5HongryunPillarBackground.SPIRAL_BURST_LIFETIME_SEC, true)
+	_expect(float(payload_burst.get("age", -1.0)) == 0.0, "spiral burst payload should start at zero age")
+	_expect(float(payload_burst.get("life", 0.0)) == Stage5HongryunPillarBackground.SPIRAL_BURST_LIFETIME_SEC, "spiral burst payload should preserve configured lifetime")
+	_expect(float(payload_burst.get("intensity", 0.0)) == 1.6, "inferno spiral burst payload should keep boosted intensity")
+	_expect(is_equal_approx(float(payload_burst.get("phase", 0.0)), 2.0 * 0.73 + 1.5), "spiral burst payload should derive phase from queue position and time")
+	var payload_impact: Dictionary = Stage5HongryunPillarBackgroundPayloadFactory.build_fire_impact(Vector2(300.0, 420.0), Stage5HongryunPillarBackground.FIRE_IMPACT_LIFETIME_SEC)
+	_expect(payload_impact.get("pos", null) == Vector2(300.0, 420.0), "fire impact payload should preserve position")
+	_expect(float(payload_impact.get("age", -1.0)) == 0.0, "fire impact payload should start at zero age")
+	_expect(float(payload_impact.get("life", 0.0)) == Stage5HongryunPillarBackground.FIRE_IMPACT_LIFETIME_SEC, "fire impact payload should preserve configured lifetime")
+	_expect(float(payload_impact.get("scale", 0.0)) == 1.0, "fire impact payload should default to scale one")
 
 	background.trigger_spiral_burst(true)
 	background.add_fire_impact(300.0, 420.0)
@@ -108,6 +120,9 @@ func _verify_background_contract() -> void:
 	_expect(not bool(reset_status.get("inferno_mode_active", true)), "background reset should clear inferno mode")
 	_expect(int(reset_status.get("spiral_burst_count", -1)) == 0, "background reset should clear bursts")
 	_expect(int(reset_status.get("fire_impact_count", -1)) == 0, "background reset should clear impacts")
+	var background_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_pillar_background.gd")
+	_expect(background_source.find("Stage5HongryunPillarBackgroundPayloadFactory.build_spiral_burst") >= 0, "Hongryun background should delegate spiral burst payloads")
+	_expect(background_source.find("Stage5HongryunPillarBackgroundPayloadFactory.build_fire_impact") >= 0, "Hongryun background should delegate fire impact payloads")
 
 
 func _verify_renderer_asset_status() -> void:

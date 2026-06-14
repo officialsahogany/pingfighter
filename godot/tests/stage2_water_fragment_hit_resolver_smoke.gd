@@ -2,7 +2,10 @@ extends SceneTree
 
 const Stage2CollisionGeometry := preload("res://scripts/stages/stage2/stage2_collision_geometry.gd")
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
+const Stage2WaterFragmentHitPayloadFactory := preload("res://scripts/stages/stage2/stage2_water_fragment_hit_payload_factory.gd")
 const Stage2WaterFragmentHitResolver := preload("res://scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd")
+const GameplayModuleCatalog := preload("res://scripts/resources/gameplay_module_catalog.gd")
+const GameplayStageModuleCatalog := preload("res://scripts/resources/gameplay_stage_module_catalog.gd")
 
 var _failures: Array[String] = []
 
@@ -15,6 +18,7 @@ class FakeAudio:
 
 
 func _init() -> void:
+	_verify_payload_factory()
 	_verify_resolver_cools_down_splash()
 	_verify_resolver_returns_hits()
 	_verify_background_delegates_fragment_hit_resolution()
@@ -26,6 +30,15 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_payload_factory() -> void:
+	var splash := {"can_hit_player": true}
+	var hit: Dictionary = Stage2WaterFragmentHitPayloadFactory.build_hit(3, splash, Vector2(20.0, 30.0), Rect2(Vector2.ONE, Vector2(4.0, 5.0)))
+	_expect(int(hit.get("index", -1)) == 3, "fragment hit payload should preserve index")
+	_expect(hit.get("splash", {}) == splash, "fragment hit payload should preserve splash dictionary")
+	_expect(hit.get("pos", Vector2.ZERO) == Vector2(20.0, 30.0), "fragment hit payload should preserve position")
+	_expect((hit.get("hit_rect", Rect2()) as Rect2).size == Vector2(4.0, 5.0), "fragment hit payload should preserve hit rect")
 
 
 func _verify_resolver_cools_down_splash() -> void:
@@ -61,6 +74,14 @@ func _verify_resolver_returns_hits() -> void:
 	_expect(int(hit.get("index", -1)) == 0, "water fragment resolver should preserve splash index")
 	_expect(hit.get("pos", Vector2.ZERO) == Vector2(20.0, 20.0), "water fragment resolver should preserve hit position")
 	_expect((hit.get("hit_rect", Rect2()) as Rect2).size == Vector2(60.0, 60.0), "water fragment resolver should preserve hit rect")
+	var resolver_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd")
+	_expect(resolver_source.find("Stage2WaterFragmentHitPayloadFactory.build_hit") >= 0, "water fragment resolver should delegate hit payload construction")
+	_expect(resolver_source.find("hits.append({") < 0, "water fragment resolver should not inline hit dictionaries")
+	var stage_modules: Dictionary = GameplayStageModuleCatalog.MODULES
+	_expect(stage_modules.has("stage2_water_fragment_hit_resolver"), "stage module catalog should list water fragment hit resolver")
+	_expect(stage_modules.has("stage2_water_fragment_hit_payload_factory"), "stage module catalog should list water fragment hit payload factory")
+	var spec: Dictionary = GameplayModuleCatalog.new().get_spec("stage2_water_fragment_hit_payload_factory")
+	_expect(str(spec.get("path", "")) == "res://scripts/stages/stage2/stage2_water_fragment_hit_payload_factory.gd", "top-level catalog should resolve water fragment hit payload factory")
 
 
 func _verify_background_delegates_fragment_hit_resolution() -> void:

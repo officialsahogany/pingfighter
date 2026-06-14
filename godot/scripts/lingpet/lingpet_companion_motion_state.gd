@@ -28,9 +28,12 @@ const COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP := 320.0
 # lingpet anchors early and tracks, which is what makes a high defense rate actually
 # guard nearby balls instead of whiffing because it committed too late.
 const COMPANION_DEFENSE_INTERCEPT_SPEED := 180.0
+const COMPANION_DEFENSE_GUARD_SPEED_MULT := 1.25
+const COMPANION_DEFENSE_GUARD_SPEED := COMPANION_DEFENSE_INTERCEPT_SPEED * COMPANION_DEFENSE_GUARD_SPEED_MULT
 # Ease-in: ramp from patrol speed up to the peak so even the small guard move starts
 # gently instead of snapping.
 const COMPANION_DEFENSE_INTERCEPT_ACCEL := 1500.0
+const COMPANION_DEFENSE_GUARD_AURA_RAMP_SECONDS := 0.15
 # Ease-out: cap the speed at distance / this time so it decelerates into the
 # intercept point (smooth arrival) instead of stopping dead.
 const COMPANION_DEFENSE_INTERCEPT_EASE_OUT_TIME := 0.12
@@ -135,7 +138,14 @@ var defense_decision_timer := 0.0
 var defense_intercept_active := false
 var defense_intercept_target_x := 0.0
 var defense_intercept_speed := 0.0
+# ACTUAL per-frame intercept movement speed (0 while parked at the anchor waiting
+# for the ball). motion_speed_ratio is the renderer's walk/idle gate AND walk-anim
+# speed, so it must come from this, never from the guard capability cap — the
+# anticipatory guard arrives EARLY by design, and a cap-based ratio makes the
+# arrived-and-holding companion treadmill in place at full walk speed.
+var defense_intercept_step_speed := 0.0
 var defense_last_roll := 1.0
+var defense_guard_aura_ratio := 0.0
 
 
 func reset() -> void:
@@ -168,6 +178,8 @@ func clear_defense_intercept() -> void:
 	defense_intercept_active = false
 	defense_intercept_target_x = 0.0
 	defense_intercept_speed = 0.0
+	defense_intercept_step_speed = 0.0
+	defense_guard_aura_ratio = 0.0
 
 
 func _normalize_motion_style(value: String) -> String:
@@ -226,8 +238,10 @@ func update(
 		motion_speed_ratio = 0.0 if patrol_pause > 0.0 else _speed_ratio(patrol_speed, speed_min, speed_max)
 		return
 	if _try_update_defense_intercept(safe_delta, owner, defense_rate, speed_min):
-		motion_speed_ratio = _speed_ratio(COMPANION_DEFENSE_INTERCEPT_SPEED, speed_min, speed_max)
+		_advance_defense_guard_aura(safe_delta)
+		motion_speed_ratio = _speed_ratio(defense_intercept_step_speed, speed_min, speed_max)
 		return
+	_advance_defense_guard_aura(safe_delta)
 	if patrol_pause > 0.0:
 		patrol_pause = maxf(0.0, patrol_pause - safe_delta)
 		motion_speed_ratio = 0.0
@@ -257,7 +271,14 @@ func update(
 			patrol_change_timer = _next_range(COMPANION_PATROL_CHANGE_INTERVAL_MIN, COMPANION_PATROL_CHANGE_INTERVAL_MAX)
 		elif patrol_change_timer <= 0.0:
 			_choose_next_action(speed_min, speed_max)
-	motion_speed_ratio = _speed_ratio(absf(patrol_speed), speed_min, speed_max)
+	# An edge-hit / surprise / choose-next-action above may have just armed patrol_pause
+	# (the pet should stand still this beat). Reflect that in the draw ratio now instead of
+	# emitting one stray walk frame at the clamped boundary before the next frame's pause
+	# branch zeroes it.
+	if patrol_pause > 0.0:
+		motion_speed_ratio = 0.0
+	else:
+		motion_speed_ratio = _speed_ratio(absf(patrol_speed), speed_min, speed_max)
 
 
 func initialize(
@@ -377,6 +398,7 @@ func get_snapshot(speed_default: float, speed_min: float, speed_max: float, defe
 		"companion_defense_rate": defense_rate,
 		"companion_defense_intercept_active": defense_intercept_active,
 		"companion_defense_intercept_target_x": defense_intercept_target_x,
+		"companion_defense_guard_aura_ratio": defense_guard_aura_ratio,
 		"companion_defense_decision_timer": defense_decision_timer,
 		"companion_defense_last_roll": defense_last_roll,
 	}
@@ -407,6 +429,7 @@ func configure_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer:
 	patrol_seed = test_seed
 	defense_decision_timer = maxf(0.0, test_decision_timer)
 	defense_intercept_active = test_intercept_active
+	defense_guard_aura_ratio = 1.0 if test_intercept_active else 0.0
 	motion_velocity = Vector2.ZERO
 	motion_speed_ratio = 0.0
 	motion_visible = true
@@ -911,22 +934,34 @@ func _advance_defense_intercept(delta: float, speed_min: float) -> bool:
 		pos.x = target_x
 		patrol_dir = 0.0
 		defense_intercept_speed = 0.0
+		defense_intercept_step_speed = 0.0
 		return true
 	patrol_dir = 1.0 if distance > 0.0 else -1.0
 	# Ease-in: ramp from the patrol launch speed up to the cap so the dash starts
 	# gently (a constant cap-speed slide from a standstill read as a teleport).
 	defense_intercept_speed = minf(
-		COMPANION_DEFENSE_INTERCEPT_SPEED,
+		COMPANION_DEFENSE_GUARD_SPEED,
 		maxf(defense_intercept_speed, speed_min) + COMPANION_DEFENSE_INTERCEPT_ACCEL * safe_delta
 	)
 	# Ease-out: never move faster than what settles onto the target within the
 	# ease-out window, so the companion decelerates into the intercept point.
 	var ease_out_speed: float = absf(distance) / COMPANION_DEFENSE_INTERCEPT_EASE_OUT_TIME
 	var step_speed: float = minf(defense_intercept_speed, ease_out_speed)
-	patrol_speed = clampf(step_speed, speed_min, COMPANION_DEFENSE_INTERCEPT_SPEED)
+	defense_intercept_step_speed = step_speed
+	patrol_speed = clampf(step_speed, speed_min, COMPANION_DEFENSE_GUARD_SPEED)
 	pos.x = move_toward(pos.x, target_x, step_speed * safe_delta)
 	pos.x = clampf(pos.x, patrol_min_x, patrol_max_x)
 	return true
+
+
+func _advance_defense_guard_aura(delta: float) -> void:
+	if not defense_intercept_active:
+		defense_guard_aura_ratio = 0.0
+		return
+	defense_guard_aura_ratio = minf(
+		1.0,
+		defense_guard_aura_ratio + maxf(0.0, delta) / COMPANION_DEFENSE_GUARD_AURA_RAMP_SECONDS
+	)
 
 
 func _resolve_lane(owner: Object) -> Dictionary:

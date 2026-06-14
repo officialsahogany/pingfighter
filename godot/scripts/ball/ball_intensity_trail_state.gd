@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallEffectPayloadFactory := preload("res://scripts/ball/ball_effect_payload_factory.gd")
+
 const SEVERE_LOD_SCALE_THRESHOLD := 0.50
 const SEVERE_LOD_TRAIL_LENGTH := 4
 
@@ -26,12 +28,7 @@ func update(
 	var trail_alpha: float = (210.0 + intensity * 35.0) / 255.0
 	var trail_size: float = 6.0 + intensity * 7.0
 	if intensity_trail.is_empty():
-		intensity_trail.append({
-			"pos": ball_center,
-			"alpha": trail_alpha,
-			"size": trail_size,
-			"color": colors[0],
-		})
+		intensity_trail.append(BallEffectPayloadFactory.build_intensity_trail_point(ball_center, trail_alpha, trail_size, colors[0]))
 	else:
 		var last_trail: Dictionary = intensity_trail[intensity_trail.size() - 1]
 		var last_pos: Vector2 = last_trail["pos"]
@@ -44,12 +41,7 @@ func update(
 				segments = 1
 			for step in range(1, segments + 1):
 				var t: float = float(step) / float(segments)
-				intensity_trail.append({
-					"pos": last_pos.lerp(ball_center, t),
-					"alpha": trail_alpha,
-					"size": trail_size,
-					"color": colors[0],
-				})
+				intensity_trail.append(BallEffectPayloadFactory.build_intensity_trail_point(last_pos.lerp(ball_center, t), trail_alpha, trail_size, colors[0]))
 
 	while intensity_trail.size() > trail_length:
 		intensity_trail.pop_front()

@@ -185,6 +185,8 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		var expected_action_labels: Array = expected_actions[building_type]
 		if str(building_type) == "academy":
 			expected_action_labels = ["스킬 수업 200G", "스킬 교환"]
+		if str(building_type) == "tavern":
+			expected_action_labels = ["의뢰 받기", "의뢰 보고"]
 		_expect(_string_arrays_equal(status.get("active_menu_actions", []), expected_action_labels), "%s menu shell should expose the expected action stubs" % building_type)
 		scene.close_menu_for_test()
 

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage5HongryunPayloadFactory := preload("res://scripts/stages/stage5/stage5_hongryun_payload_factory.gd")
+
 # Stage 5 홍련 boss state.
 #
 # 단일 cleanup 경로 규율 (CLAUDE.md "Legacy Stage Order Reference + Current
@@ -453,12 +455,11 @@ func _spawn_fireball_volley(context: Dictionary, deps: Dictionary, result: Dicti
 		if direction.length() <= 0.001:
 			direction = Vector2.DOWN
 		direction = direction.normalized().rotated(deg_to_rad(rng.randf_range(-20.0, 20.0)))
-		fireball_projectiles.append({
-			"pos": boss_origin,
-			"vel": direction * FIREBALL_SPEED,
-			"radius": FIREBALL_RADIUS,
-			"age": 0.0,
-		})
+		fireball_projectiles.append(Stage5HongryunPayloadFactory.build_fireball_projectile(
+			boss_origin,
+			direction * FIREBALL_SPEED,
+			FIREBALL_RADIUS
+		))
 
 	fireball_cooldown_total = rng.randf_range(FIREBALL_COOLDOWN_MIN_SEC, FIREBALL_COOLDOWN_MAX_SEC)
 	fireball_cooldown = fireball_cooldown_total
@@ -775,11 +776,11 @@ func _tick_player_fireball_immunity(fps_scale: float) -> void:
 func _register_fireball_impact(pos: Vector2, reason: String, deps: Dictionary, scale: float = 0.85) -> void:
 	var perf_logger: Object = deps.get("perf_logger", null)
 	var sample_start: int = _perf_begin(perf_logger)
-	fireball_impact_events.append({
-		"pos": pos,
-		"reason": reason,
-		"scale": scale,
-	})
+	fireball_impact_events.append(Stage5HongryunPayloadFactory.build_fireball_impact_event(
+		pos,
+		reason,
+		scale
+	))
 	var stage_background: Object = deps.get("stage_background", null)
 	if stage_background != null and stage_background.has_method("add_fire_impact"):
 		stage_background.add_fire_impact(pos.x, pos.y)

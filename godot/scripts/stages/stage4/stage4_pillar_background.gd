@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage4MoonEvent := preload("res://scripts/stages/stage4/stage4_moon_event.gd")
+const Stage4PillarBackgroundPayloadFactory := preload("res://scripts/stages/stage4/stage4_pillar_background_payload_factory.gd")
 
 const NIGHTSKY_PRIMARY_PATH := "res://assets/sprites/hud/stage4_empty_temple_nightsky_base_imagegen_v4_nomoon.png"
 const NIGHTSKY_FALLBACK_PATH := "res://assets/sprites/hud/stage4_empty_temple_nightsky_base_imagegen_v3.png"
@@ -210,13 +211,12 @@ func trigger_tree_shake(side: String, impact_y: float, impact_speed: float, fiel
 	var height: float = maxf(1.0, field_height)
 	var y_ratio: float = clampf(impact_y / height, 0.03, 0.97)
 	var speed_scale: float = clampf(abs(impact_speed) / 640.0, 0.35, 1.65)
-	wall_shake_accents.append({
-		"side": resolved_side,
-		"y_ratio": y_ratio,
-		"speed_scale": speed_scale,
-		"timer": WALL_IMPACT_FLASH_SEC,
-		"duration": WALL_IMPACT_FLASH_SEC,
-	})
+	wall_shake_accents.append(Stage4PillarBackgroundPayloadFactory.build_wall_shake_accent(
+		resolved_side,
+		y_ratio,
+		speed_scale,
+		WALL_IMPACT_FLASH_SEC
+	))
 	while wall_shake_accents.size() > WALL_IMPACT_ACCENT_MAX:
 		wall_shake_accents.pop_front()
 

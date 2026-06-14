@@ -41,6 +41,7 @@ class FakeRegistry:
 			"stage4_brazier_monk_event",
 			"stage4_ponk_skill_state",
 			"stage5_hongryun_state",
+			"stage5_hongryun_fire_machine_event",
 			"stage5_hongryun_actor_renderer",
 			"stage1_pillar_background",
 			"stage2_pillar_background",
@@ -101,6 +102,7 @@ func _verify_stage_deps(deps: Dictionary, registry: FakeRegistry, source: String
 		"stage4_brazier_monk_event",
 		"stage4_ponk_skill_state",
 		"stage5_hongryun_state",
+		"stage5_hongryun_fire_machine_event",
 		"stage5_hongryun_actor_renderer",
 	]:
 		_expect(deps.get(key, null) == registry.instances[key], "%s should include %s" % [source, key])

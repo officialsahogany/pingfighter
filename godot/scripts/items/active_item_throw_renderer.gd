@@ -116,6 +116,11 @@ func get_spider_mine_asset_status() -> Dictionary:
 	return _spider_mine_renderer.get_asset_status()
 
 
+func deactivate_all_hosts() -> void:
+	if _molotov_renderer != null and _molotov_renderer.has_method("deactivate_all_hosts"):
+		_molotov_renderer.deactivate_all_hosts()
+
+
 func draw(
 	canvas: CanvasItem,
 	pending_throws: Array,

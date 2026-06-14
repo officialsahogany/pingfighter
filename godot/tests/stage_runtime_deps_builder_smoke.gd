@@ -43,6 +43,7 @@ class FakeRegistry:
 			"stage4_brazier_monk_event",
 			"stage4_ponk_skill_state",
 			"stage5_hongryun_state",
+			"stage5_hongryun_fire_machine_event",
 			"stage1_pillar_background",
 			"stage2_pillar_background",
 			"stage5_hongryun_pillar_background",
@@ -141,6 +142,7 @@ func _verify_scoped_stage2_deps(deps: Dictionary, registry: FakeRegistry, source
 		"stage4_brazier_monk_event",
 		"stage4_ponk_skill_state",
 		"stage5_hongryun_state",
+		"stage5_hongryun_fire_machine_event",
 	]:
 		_expect(not deps.has(inactive_key), "%s should omit inactive stage dep %s" % [source, inactive_key])
 	_expect(
@@ -153,6 +155,7 @@ func _verify_scoped_stage5_deps(deps: Dictionary, registry: FakeRegistry, source
 	for key in [
 		"weather_event_state",
 		"stage5_hongryun_state",
+		"stage5_hongryun_fire_machine_event",
 	]:
 		_expect(deps.get(key, null) == registry.instances[key], "%s should include %s" % [source, key])
 	for inactive_key in [
@@ -194,6 +197,7 @@ func _verify_all_stage_deps(deps: Dictionary, registry: FakeRegistry, source: St
 		"stage4_brazier_monk_event",
 		"stage4_ponk_skill_state",
 		"stage5_hongryun_state",
+		"stage5_hongryun_fire_machine_event",
 	]:
 		_expect(deps.get(key, null) == registry.instances[key], "%s should include %s" % [source, key])
 	_expect(

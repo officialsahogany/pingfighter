@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetThunderOrbPayloadFactory := preload("res://scripts/lingpet/lingpet_thunder_orb_payload_factory.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const ORB_SPEED := 605.0
@@ -289,16 +291,7 @@ func _update_orb_visual_state(delta: float) -> void:
 		kept.append(p)
 	_energy_particles = kept
 	if _energy_particles.size() < ENERGY_PARTICLE_MAX and randf() < 0.6:
-		var angle := randf_range(0.0, TAU)
-		var dist := ORB_VISUAL_RADIUS * randf_range(0.9, 1.5)
-		_energy_particles.append({
-			"pos": _orb_pos + Vector2(cos(angle) * dist, sin(angle) * dist),
-			"vel": Vector2(randf_range(-12.0, 12.0), randf_range(-42.0, -16.0)),
-			"life": randf_range(0.33, 0.66),
-			"max_life": 0.66,
-			"size": randf_range(1.2, 2.6),
-			"color": ENERGY_COLORS[randi() % ENERGY_COLORS.size()],
-		})
+		_energy_particles.append(LingpetThunderOrbPayloadFactory.build_energy_particle(_orb_pos, ORB_VISUAL_RADIUS, ENERGY_COLORS))
 
 
 func _start_explosion(_owner: Object, registry: Object) -> void:
@@ -371,12 +364,7 @@ func _apply_boss_electric_stun(registry: Object) -> void:
 		"boss",
 		"stun",
 		STUN_REFRESH_FRAMES,
-		{
-			"cleansable": true,
-			"visual": "lumion_thunder_orb",
-			"suppress_stun_stars": true,
-			"electric_stun": true,
-		},
+		LingpetThunderOrbPayloadFactory.build_electric_stun_status_data(),
 		STATUS_SOURCE
 	)
 
@@ -389,41 +377,15 @@ func _clear_boss_electric_stun(registry: Object) -> void:
 
 func _spawn_explosion_particles(origin: Vector2) -> void:
 	for _i in range(EXPLOSION_PARTICLES_LARGE):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(200.0, 600.0)
-		_add_particle(
-			origin + Vector2(randf_range(-6.0, 6.0), randf_range(-6.0, 6.0)),
-			Vector2(cos(angle), sin(angle)) * speed,
-			randf_range(0.20, 0.45),
-			randf_range(2.0, 5.0),
-			0,
-			LARGE_PARTICLE_COLORS[randi() % LARGE_PARTICLE_COLORS.size()]
-		)
+		_add_particle(LingpetThunderOrbPayloadFactory.build_large_explosion_particle(origin, LARGE_PARTICLE_COLORS))
 	for _i in range(EXPLOSION_PARTICLES_SMALL):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(300.0, 800.0)
-		_add_particle(
-			origin + Vector2(randf_range(-10.0, 10.0), randf_range(-10.0, 10.0)),
-			Vector2(cos(angle), sin(angle)) * speed,
-			randf_range(0.10, 0.30),
-			randf_range(1.0, 2.5),
-			1,
-			ENERGY_COLORS[randi() % ENERGY_COLORS.size()]
-		)
+		_add_particle(LingpetThunderOrbPayloadFactory.build_small_explosion_particle(origin, ENERGY_COLORS))
 
 
-func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int, color: Color = Color.WHITE) -> void:
+func _add_particle(particle: Dictionary) -> void:
 	if _explosion_particles.size() >= PARTICLE_MAX:
 		return
-	_explosion_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": maxf(0.01, life),
-		"max_life": maxf(0.01, life),
-		"size": size,
-		"kind": kind,
-		"color": color,
-	})
+	_explosion_particles.append(particle)
 
 
 func _update_particles(delta: float) -> void:

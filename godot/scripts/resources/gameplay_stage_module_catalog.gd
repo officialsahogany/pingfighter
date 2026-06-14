@@ -9,9 +9,17 @@ const MODULES := {
 		"path": "res://scripts/stages/common/weather_event_state.gd",
 		"label": "common weather event state",
 	},
+	"weather_event_payload_factory": {
+		"path": "res://scripts/stages/common/weather_event_payload_factory.gd",
+		"label": "common weather event payload factory",
+	},
 	"weather_event_renderer": {
 		"path": "res://scripts/stages/common/weather_event_renderer.gd",
 		"label": "common weather event renderer",
+	},
+	"starpoint_payload_factory": {
+		"path": "res://scripts/stages/common/starpoint_payload_factory.gd",
+		"label": "common starpoint payload factory",
 	},
 	"stage1_fallback_pillar_renderer": {
 		"path": "res://scripts/stages/stage1/stage1_fallback_pillar_renderer.gd",
@@ -29,6 +37,10 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_dalji_spinning_top_skill_state.gd",
 		"label": "stage1 Dalji spinning top skill state",
 	},
+	"stage1_dalji_spinning_top_payload_factory": {
+		"path": "res://scripts/stages/stage1/stage1_dalji_spinning_top_payload_factory.gd",
+		"label": "stage1 Dalji spinning top payload factory",
+	},
 	"stage1_dalji_boss_skill_cooldown_state": {
 		"path": "res://scripts/stages/stage1/stage1_dalji_boss_skill_cooldown_state.gd",
 		"label": "stage1 Dalji boss skill cooldown state",
@@ -41,6 +53,10 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_balloon_event.gd",
 		"label": "stage1 balloon machine event",
 	},
+	"stage1_balloon_payload_factory": {
+		"path": "res://scripts/stages/stage1/stage1_balloon_payload_factory.gd",
+		"label": "stage1 balloon payload factory",
+	},
 	"stage1_context_reader": {
 		"path": "res://scripts/stages/stage1/stage1_context_reader.gd",
 		"label": "stage1 context reader",
@@ -48,6 +64,14 @@ const MODULES := {
 	"stage1_pillar_background": {
 		"path": "res://scripts/stages/stage1/stage1_pillar_background.gd",
 		"label": "stage1 pillar background",
+	},
+	"stage1_pillar_ambient_payload_factory": {
+		"path": "res://scripts/stages/stage1/stage1_pillar_ambient_payload_factory.gd",
+		"label": "stage1 pillar ambient payload factory",
+	},
+	"stage1_pillar_petal_payload_factory": {
+		"path": "res://scripts/stages/stage1/stage1_pillar_petal_payload_factory.gd",
+		"label": "stage1 pillar petal payload factory",
 	},
 	"stage1_pillar_scene_drawer": {
 		"path": "res://scripts/stages/stage1/stage1_pillar_scene_drawer.gd",
@@ -121,6 +145,14 @@ const MODULES := {
 		"path": "res://scripts/stages/stage2/stage2_fragment_hit_flash_state.gd",
 		"label": "stage2 fragment hit flash state",
 	},
+	"stage2_water_fragment_hit_resolver": {
+		"path": "res://scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd",
+		"label": "stage2 water fragment hit resolver",
+	},
+	"stage2_water_fragment_hit_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_water_fragment_hit_payload_factory.gd",
+		"label": "stage2 water fragment hit payload factory",
+	},
 	"stage2_water_cannon_payload_factory": {
 		"path": "res://scripts/stages/stage2/stage2_water_cannon_payload_factory.gd",
 		"label": "stage2 water cannon payload factory",
@@ -185,13 +217,13 @@ const MODULES := {
 		"path": "res://scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd",
 		"label": "stage2 rock fragment payload factory",
 	},
+	"stage2_chaos_absorb_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_chaos_absorb_payload_factory.gd",
+		"label": "stage2 chaos absorb payload factory",
+	},
 	"stage2_rock_fragment_payload_config_builder": {
 		"path": "res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd",
 		"label": "stage2 rock fragment payload config builder",
-	},
-	"stage2_starpoint_visual_factory": {
-		"path": "res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd",
-		"label": "stage2 starpoint visual factory",
 	},
 	"stage2_boss_skill_state": {
 		"path": "res://scripts/stages/stage2/stage2_boss_skill_state.gd",
@@ -213,6 +245,10 @@ const MODULES := {
 		"path": "res://scripts/stages/stage2/stage2_monkey_banana_event.gd",
 		"label": "stage2 monkey banana event",
 	},
+	"stage2_monkey_banana_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_monkey_banana_payload_factory.gd",
+		"label": "stage2 monkey banana payload factory",
+	},
 	"stage2_boss_skill_hud_renderer": {
 		"path": "res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd",
 		"label": "stage2 boss skill HUD renderer",
@@ -232,6 +268,10 @@ const MODULES := {
 	"stage3_boss_skill_state": {
 		"path": "res://scripts/stages/stage3/stage3_boss_skill_state.gd",
 		"label": "stage3 Menhera boss skill state",
+	},
+	"stage3_boss_skill_payload_factory": {
+		"path": "res://scripts/stages/stage3/stage3_boss_skill_payload_factory.gd",
+		"label": "stage3 Menhera boss skill payload factory",
 	},
 	"stage3_boss_skill_hud_renderer": {
 		"path": "res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd",
@@ -261,6 +301,10 @@ const MODULES := {
 		"path": "res://scripts/stages/stage4/stage4_pillar_background.gd",
 		"label": "stage4 pillar background",
 	},
+	"stage4_pillar_background_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_pillar_background_payload_factory.gd",
+		"label": "stage4 pillar background payload factory",
+	},
 	"stage4_pillar_scene_drawer": {
 		"path": "res://scripts/stages/stage4/stage4_pillar_scene_drawer.gd",
 		"label": "stage4 pillar scene drawer",
@@ -273,21 +317,45 @@ const MODULES := {
 		"path": "res://scripts/stages/stage4/stage4_temple_destruction_event.gd",
 		"label": "stage4 temple destruction event",
 	},
+	"stage4_destruction_wave_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_destruction_wave_payload_factory.gd",
+		"label": "stage4 destruction wave payload factory",
+	},
+	"stage4_temple_collapse_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_temple_collapse_payload_factory.gd",
+		"label": "stage4 temple collapse payload factory",
+	},
 	"stage4_moon_event": {
 		"path": "res://scripts/stages/stage4/stage4_moon_event.gd",
 		"label": "stage4 moon event",
+	},
+	"stage4_moon_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_moon_payload_factory.gd",
+		"label": "stage4 moon payload factory",
 	},
 	"stage4_bird_event": {
 		"path": "res://scripts/stages/stage4/stage4_bird_event.gd",
 		"label": "stage4 star bird event",
 	},
+	"stage4_bird_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_bird_payload_factory.gd",
+		"label": "stage4 star bird payload factory",
+	},
 	"stage4_brazier_monk_event": {
 		"path": "res://scripts/stages/stage4/stage4_brazier_monk_event.gd",
 		"label": "stage4 brazier monk event",
 	},
+	"stage4_brazier_monk_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_brazier_monk_payload_factory.gd",
+		"label": "stage4 brazier monk payload factory",
+	},
 	"stage4_ponk_skill_state": {
 		"path": "res://scripts/stages/stage4/stage4_ponk_skill_state.gd",
 		"label": "stage4 Ponk skill state",
+	},
+	"stage4_ponk_skill_payload_factory": {
+		"path": "res://scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd",
+		"label": "stage4 Ponk skill payload factory",
 	},
 	"stage5_hongryun_actor_renderer": {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_actor_renderer.gd",
@@ -305,13 +373,25 @@ const MODULES := {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_pillar_background.gd",
 		"label": "stage5 Hongryun pillar background",
 	},
+	"stage5_hongryun_pillar_background_payload_factory": {
+		"path": "res://scripts/stages/stage5/stage5_hongryun_pillar_background_payload_factory.gd",
+		"label": "stage5 Hongryun pillar background payload factory",
+	},
 	"stage5_hongryun_state": {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_state.gd",
 		"label": "stage5 Hongryun boss state",
 	},
+	"stage5_hongryun_payload_factory": {
+		"path": "res://scripts/stages/stage5/stage5_hongryun_payload_factory.gd",
+		"label": "stage5 Hongryun payload factory",
+	},
 	"stage5_hongryun_fire_machine_event": {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_fire_machine_event.gd",
 		"label": "stage5 Hongryun fire machine event",
+	},
+	"stage5_hongryun_fire_machine_payload_factory": {
+		"path": "res://scripts/stages/stage5/stage5_hongryun_fire_machine_payload_factory.gd",
+		"label": "stage5 Hongryun fire machine payload factory",
 	},
 	"stage5_hongryun_pillar_scene_drawer": {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_pillar_scene_drawer.gd",

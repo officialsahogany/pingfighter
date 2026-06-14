@@ -21,6 +21,10 @@ const MODULES := {
 		"path": "res://scripts/effects/impact_effects_renderer.gd",
 		"label": "impact effects renderer",
 	},
+	"impact_effect_payload_factory": {
+		"path": "res://scripts/effects/impact_effect_payload_factory.gd",
+		"label": "impact effect payload factory",
+	},
 }
 
 

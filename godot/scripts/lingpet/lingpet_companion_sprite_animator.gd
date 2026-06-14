@@ -28,6 +28,14 @@ var strike_active := false
 var strike_elapsed := 0.0
 var strike_start_frame := 0
 var strike_latched := false
+# Walk-animation phase, in frames. Advanced by advance_walk_phase() from the companion's
+# update_lingpet tick instead of raw wall-clock time. This is what makes the walk frame
+# FREEZE when update_lingpet is skipped by a pause branch (power-smash freeze, mythic
+# cinematic, scoreboard fade): a wall-clock frame keeps cycling — marching in place — while
+# the frozen pet's position never advances. Consumers that never call advance_walk_phase
+# (the soul-clone's own animator instance) keep the wall-clock fallback below.
+var walk_phase := 0.0
+var _walk_phase_driven := false
 
 
 func reset_all() -> void:
@@ -75,10 +83,24 @@ func get_cast_frame(windup_elapsed: float, windup_seconds: float) -> int:
 	return clampi(int(progress * float(SHEET_FRAME_COUNT)), 0, max_frame)
 
 
+func advance_walk_phase(delta: float, speed_ratio: float) -> void:
+	# Accumulate the walk phase only while the pet is actually moving. Called once per
+	# companion update_lingpet tick, so it stops accumulating the moment that tick is
+	# skipped (pause branches) — freezing the walk frame instead of marching in place.
+	_walk_phase_driven = true
+	var ratio := clampf(speed_ratio, 0.0, 1.0)
+	if ratio <= 0.0:
+		return
+	var fps: float = lerpf(FLIGHT_FPS_MIN, FLIGHT_FPS_MAX, ratio)
+	walk_phase += maxf(0.0, delta) * fps
+
+
 func get_walk_frame(patrol_pause: float, ticks_msec: int = -1, speed_ratio: float = 0.0) -> int:
 	var ratio := clampf(speed_ratio, 0.0, 1.0)
 	if ratio <= 0.0:
 		return clampi(IDLE_FRAME, 0, SHEET_FRAME_COUNT - 1)
+	if _walk_phase_driven:
+		return int(walk_phase) % SHEET_FRAME_COUNT
 	var current_ticks: int = Time.get_ticks_msec() if ticks_msec < 0 else ticks_msec
 	var elapsed: float = float(current_ticks) / 1000.0
 	var fps: float = lerpf(FLIGHT_FPS_MIN, FLIGHT_FPS_MAX, ratio)

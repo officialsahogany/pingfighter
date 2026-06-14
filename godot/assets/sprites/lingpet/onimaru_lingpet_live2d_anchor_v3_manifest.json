@@ -1,0 +1,31 @@
+{
+  "asset_id": "onimaru_lingpet_live2d_anchor_v3",
+  "created_date": "2026-06-13",
+  "purpose": "Onimaru Lingpet Live2D source anchor based on the original pixel-card reference",
+  "source": {
+    "tool": "Codex built-in image_gen",
+    "raw_chromakey_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v3_magenta_source.png",
+    "raw_chromakey": "#ff00ff",
+    "reference": "User-provided original Onimaru pixel card",
+    "notes": [
+      "Preserves the original card identity: round red oni head, small gold horns, ring halo, black cloak/hair side masses, shoulder pauldrons, pink segmented arms, yellow armor skirt, red boots, and flower staff.",
+      "Raw generated background was normalized to exact #ff00ff after generation.",
+      "No tail, wings, dragon scales, dinosaur silhouette, large club, or scenic background."
+    ]
+  },
+  "transparent_cutout": {
+    "path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v3.png",
+    "cleanup_method": "remove_chroma_key.py --key-color #ff00ff --tolerance 3 --force, followed by targeted 2px boundary removal for magenta-like edge pixels",
+    "detected_key_color": "#ff00ff",
+    "note": "Exact-key cleanup was used because the character intentionally has warm pink/red armor and arms; broad soft-matte despill damages the body colors."
+  },
+  "qa": {
+    "raw_size": "1254x1254",
+    "raw_edge_samples_exact_ff00ff": true,
+    "cutout_corner_alpha": [0, 0, 0, 0],
+    "cutout_alpha_bbox": [248, 103, 1080, 1120],
+    "cutout_alpha_bbox_touches_edge": false,
+    "broad_soft_matte_rejected": true
+  },
+  "prompt_summary": "Cute SD Lingpet reinterpretation of the user-provided Onimaru pixel-card: round red mask-like oni head, gold horns and halo ring, black cloak side masses, simple fang mouth, dark shoulder pauldrons, pink segmented arms, yellow armor panels, red boots, and slim flower staff on a perfectly flat #ff00ff magenta chroma-key background."
+}

@@ -1,7 +1,7 @@
 extends SceneTree
 
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
-const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
+const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint_drop_motion_state.gd")
 
 var _failures: Array[String] = []
 
@@ -34,7 +34,7 @@ func _verify_drop_motion_updates_payload() -> void:
 		"rotation_speed": 0.5,
 		"glow_timer": 0.0,
 	}
-	var alive := Stage2StarpointDropMotionState.update_drop(drop, 1.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
+	var alive := StarpointDropMotionState.update_drop(drop, 1.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
 	_expect(alive, "starpoint drop motion should keep live drops")
 	_expect(Vector2(drop.get("pos", Vector2.ZERO)).y > 100.0, "starpoint drop motion should advance y position")
 	_expect(Vector2(drop.get("vel", Vector2.ZERO)).y > 3.0, "starpoint drop motion should accelerate fall speed")
@@ -47,7 +47,7 @@ func _verify_drop_motion_expires_payload() -> void:
 		"pos": Vector2(100.0, 100.0),
 		"vel": Vector2.ZERO,
 	}
-	var alive := Stage2StarpointDropMotionState.update_drop(drop, 1.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
+	var alive := StarpointDropMotionState.update_drop(drop, 1.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
 	_expect(not alive, "starpoint drop motion should expire dead drops")
 
 
@@ -58,7 +58,7 @@ func _verify_drop_motion_bounces_at_bounds() -> void:
 		"vel": Vector2(-3.0, 0.0),
 		"size": 12.0,
 	}
-	var alive := Stage2StarpointDropMotionState.update_drop(drop, 1.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
+	var alive := StarpointDropMotionState.update_drop(drop, 1.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
 	_expect(alive, "starpoint drop motion should keep bounced drops alive")
 	_expect(is_equal_approx(Vector2(drop.get("pos", Vector2.ZERO)).x, 12.0), "starpoint drop motion should clamp left bound")
 	_expect(Vector2(drop.get("vel", Vector2.ZERO)).x > 0.0, "starpoint drop motion should bounce x velocity inward")
@@ -71,16 +71,23 @@ func _verify_drop_motion_culls_at_floor_edge() -> void:
 		"vel": Vector2.ZERO,
 		"size": 12.0,
 	}
-	var alive := Stage2StarpointDropMotionState.update_drop(drop, 0.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
+	var alive := StarpointDropMotionState.update_drop(drop, 0.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
 	_expect(not alive, "starpoint drop motion should cull when the rendered bottom edge reaches the floor")
 
 
 func _verify_background_delegates_drop_motion() -> void:
-	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
-	_expect(
-		source.find("Stage2StarpointDropMotionState.update_drop") >= 0,
-		"Stage 2 background source should delegate starpoint drop motion"
-	)
+	var paths := [
+		"res://scripts/stages/stage1/stage1_balloon_event.gd",
+		"res://scripts/stages/stage2/stage2_pillar_background.gd",
+		"res://scripts/stages/stage3/stage3_boss_skill_state.gd",
+		"res://scripts/stages/stage4/stage4_bird_event.gd",
+	]
+	for path in paths:
+		var source: String = FileAccess.get_file_as_string(path)
+		_expect(
+			source.find("StarpointDropMotionState.update_drop") >= 0,
+			"%s should delegate starpoint drop motion" % path
+		)
 	var background := Stage2PillarBackground.new()
 	background.starpoint_drops = [{
 		"life": 10.0,

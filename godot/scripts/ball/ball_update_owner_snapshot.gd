@@ -34,6 +34,8 @@ func build(owner: Object) -> Dictionary:
 		"commando_suicide_drone_ball_boost_active": bool(_get_owner_value(owner, "commando_suicide_drone_ball_boost_active", false)),
 		"commando_suicide_drone_ball_restore_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_restore_speed", 0.0)),
 		"commando_suicide_drone_ball_boosted_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_boosted_speed", 0.0)),
+		"lingpet_wild_roar_ball_boost_active": bool(_get_owner_value(owner, "lingpet_wild_roar_ball_boost_active", false)),
+		"lingpet_wild_roar_ball_restore_speed": float(_get_owner_value(owner, "lingpet_wild_roar_ball_restore_speed", 0.0)),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),

@@ -6,6 +6,7 @@ extends RefCounted
 # glowing vortex body instead of thin procedural arcs.
 const DragonBreathTextureCache := preload("res://scripts/lingpet/lingpet_dragon_breath_texture_cache.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const LingpetDragonWingPayloadFactory := preload("res://scripts/lingpet/lingpet_dragon_wing_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -208,18 +209,12 @@ func get_snapshot() -> Dictionary:
 
 
 func _spawn_flying_dragon(origin: Vector2) -> void:
-	var dir := _wind_direction
-	var start_x := -DRAGON_OFFSCREEN_MARGIN if dir > 0.0 else FIELD_WIDTH + DRAGON_OFFSCREEN_MARGIN
-	var source_y := origin.y if origin != Vector2.ZERO else randf_range(420.0, 540.0)
-	var dragon_y := clampf(source_y, 400.0, 550.0)
-	_flying_dragon = {
-		"active": true,
-		"pos": Vector2(start_x, dragon_y),
-		"base_y": dragon_y,
-		"direction": dir,
-		"wing_time": 0.0,
-		"hit_cooldown": 0.0,
-	}
+	_flying_dragon = LingpetDragonWingPayloadFactory.build_flying_dragon(
+		origin,
+		_wind_direction,
+		FIELD_WIDTH,
+		DRAGON_OFFSCREEN_MARGIN
+	)
 
 
 func _apply_wind_to_ball(owner: Object, delta: float) -> void:
@@ -331,24 +326,14 @@ func _maybe_spawn_wind_particle(delta: float) -> void:
 func _add_wind_particle(initial: bool) -> void:
 	if _wind_particles.size() >= PARTICLE_MAX:
 		return
-	var dir := _wind_direction
-	var start_x := 0.0 if dir > 0.0 else FIELD_WIDTH
-	var life := randf_range(0.55, 1.05)
-	var speed := randf_range(210.0, 420.0)
-	var y_range_min := 150.0 if initial else 90.0
-	var y_range_max := 610.0 if initial else 660.0
-	var pos := Vector2(start_x + randf_range(-22.0, 22.0), randf_range(y_range_min, y_range_max))
-	if initial:
-		pos.x = randf_range(0.0, FIELD_WIDTH)
-	_wind_particles.append({
-		"pos": pos,
-		"vel": Vector2(dir * speed, OPPONENT_Y_WIND_DIRECTION * randf_range(OPPONENT_Y_PARTICLE_SPEED_MIN, OPPONENT_Y_PARTICLE_SPEED_MAX)),
-		"life": life,
-		"max_life": life,
-		"length": randf_range(24.0, 58.0),
-		"width": randf_range(1.3, 3.4),
-		"phase": randf() * TAU,
-	})
+	_wind_particles.append(LingpetDragonWingPayloadFactory.build_wind_particle(
+		initial,
+		_wind_direction,
+		FIELD_WIDTH,
+		OPPONENT_Y_WIND_DIRECTION,
+		OPPONENT_Y_PARTICLE_SPEED_MIN,
+		OPPONENT_Y_PARTICLE_SPEED_MAX
+	))
 
 
 func _update_wind_particles(delta: float) -> void:
@@ -383,12 +368,11 @@ func _update_wind_particles(delta: float) -> void:
 
 func _record_ball_swirl(ball_pos: Vector2) -> void:
 	_last_ball_pos = ball_pos
-	_ball_swirl_trail.append({
-		"pos": ball_pos,
-		"life": SWIRL_TRAIL_LIFE_SECONDS,
-		"max_life": SWIRL_TRAIL_LIFE_SECONDS,
-		"phase": _elapsed * 8.0 + randf_range(-0.35, 0.35),
-	})
+	_ball_swirl_trail.append(LingpetDragonWingPayloadFactory.build_ball_swirl_trail_entry(
+		ball_pos,
+		_elapsed,
+		SWIRL_TRAIL_LIFE_SECONDS
+	))
 	while _ball_swirl_trail.size() > SWIRL_TRAIL_MAX:
 		_ball_swirl_trail.remove_at(0)
 
@@ -424,7 +408,7 @@ func _update_flying_dragon(delta: float, owner: Object) -> void:
 	_dragon_trail_accum += delta
 	if _dragon_trail_accum >= DRAGON_TRAIL_SPAWN_INTERVAL:
 		_dragon_trail_accum = 0.0
-		_dragon_trail.append({"pos": pos, "life": DRAGON_TRAIL_LIFE_SECONDS, "max_life": DRAGON_TRAIL_LIFE_SECONDS})
+		_dragon_trail.append(LingpetDragonWingPayloadFactory.build_dragon_trail_entry(pos, DRAGON_TRAIL_LIFE_SECONDS))
 		while _dragon_trail.size() > DRAGON_TRAIL_MAX:
 			_dragon_trail.remove_at(0)
 	_try_hit_ball_with_flying_dragon(owner, dragon)

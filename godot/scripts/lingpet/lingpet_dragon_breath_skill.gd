@@ -6,6 +6,7 @@ extends RefCounted
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const WritheEmberMaterial := preload("res://scripts/effects/writhe_ember_material.gd")
 const DragonBreathTextureCache := preload("res://scripts/lingpet/lingpet_dragon_breath_texture_cache.gd")
+const LingpetDragonBreathPayloadFactory := preload("res://scripts/lingpet/lingpet_dragon_breath_payload_factory.gd")
 # Lingering ground fire reuses the molotov fire-zone effect (5-layer WritheEmber
 # host + GPU embers). We drive a SEPARATE host pool via a dedicated name prefix
 # so the lingpet breath never fights the molotov active item over hosts.
@@ -304,25 +305,7 @@ func _spawn_initial_particles() -> void:
 func _add_breath_particle(initial: bool, index_ratio: float = 0.0) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
-	var delay := index_ratio * 0.3 if initial else 0.0
-	var life := randf_range(1.0, 1.8) if initial else randf_range(0.6, 1.2)
-	var size := randf_range(10.0, 25.0) if initial else randf_range(8.0, 18.0)
-	var start_y_offset := 20.0 if initial else 25.0
-	var speed_min := 350.0 if initial else 400.0
-	var speed_max := 600.0 if initial else 550.0
-	var vx_range := 66.0 if initial else 54.0
-	_particles.append({
-		"pos": _origin + Vector2(randf_range(-25.0, 25.0), _direction * start_y_offset),
-		"vel": Vector2(randf_range(-vx_range, vx_range), _direction * randf_range(speed_min, speed_max)),
-		"life": life + delay,
-		"max_life": maxf(0.01, life),
-		"size": size,
-		"max_size": size,
-		"phase": randf(),
-		"wob": randf(),
-		"delay": delay,
-		"zone_reported": false,
-	})
+	_particles.append(LingpetDragonBreathPayloadFactory.build_breath_particle(_origin, _direction, initial, index_ratio))
 
 
 func _update_particles(delta: float, owner: Object) -> void:
@@ -453,19 +436,14 @@ func _maybe_spawn_fire_zone_from_dying(delta: float, dying_positions: Array[Vect
 
 func _spawn_fire_zone(center: Vector2) -> void:
 	_zone_id_counter += 1
-	var zone := {
-		"position": center,
-		"width": FIRE_ZONE_WIDTH,
-		"height": FIRE_ZONE_HEIGHT,
-		"timer": FIRE_ZONE_DURATION_SECONDS,
-		"max_timer": FIRE_ZONE_DURATION_SECONDS,
-		"spread_timer": 0.0,
-		"push_timer": FIRE_ZONE_PUSH_INTERVAL_SECONDS,
-		"flames": [],
-		"boss_in_fire": false,
-		"last_push_dir": 0.0,
-		"zone_id": _zone_id_counter,
-	}
+	var zone := LingpetDragonBreathPayloadFactory.build_fire_zone(
+		center,
+		FIRE_ZONE_WIDTH,
+		FIRE_ZONE_HEIGHT,
+		FIRE_ZONE_DURATION_SECONDS,
+		FIRE_ZONE_PUSH_INTERVAL_SECONDS,
+		_zone_id_counter
+	)
 	_seed_zone_flames(zone, FIRE_ZONE_INITIAL_FLAMES, 30.0, 12.0)
 	_fire_zones.append(zone)
 	_fire_zone_positions.append(center)
@@ -524,13 +502,7 @@ func _seed_zone_flames(zone: Dictionary, count: int, spread_x: float, spread_y: 
 	var flames: Array = zone.get("flames", [])
 	var center: Vector2 = zone.get("position", Vector2.ZERO)
 	for _i in range(count):
-		flames.append({
-			"pos": center + Vector2(randf_range(-spread_x, spread_x), randf_range(-spread_y, spread_y)),
-			"size": randf_range(8.0, 20.0),
-			"life": randf_range(0.33, 0.66),
-			"max_life": 0.66,
-			"phase": randf(),
-		})
+		flames.append(LingpetDragonBreathPayloadFactory.build_zone_flame(center, spread_x, spread_y))
 	zone["flames"] = flames
 
 
@@ -622,12 +594,7 @@ func _apply_boss_slow(registry: Object) -> void:
 		"boss",
 		"slow",
 		SLOW_REFRESH_FRAMES,
-		{
-			"multiplier": SLOW_MULTIPLIER,
-			"cleansable": true,
-			"visual": "red_dragon_dragon_breath",
-			"suppress_legacy_boss_ai_slow": true,
-		},
+		LingpetDragonBreathPayloadFactory.build_boss_slow_status_data(SLOW_MULTIPLIER),
 		STATUS_SOURCE
 	)
 
@@ -667,20 +634,13 @@ func _draw_fire_zones_molotov(canvas: CanvasItem, shake_offset: Vector2) -> void
 func _build_molotov_zone_payload() -> Array:
 	var payload: Array = []
 	for zone in _fire_zones:
-		var timer := float(zone.get("timer", 0.0))
-		var max_timer := maxf(0.01, float(zone.get("max_timer", FIRE_ZONE_DURATION_SECONDS)))
-		payload.append({
-			# Visual-only upsize (gameplay hitbox stays width/height) so the
-			# molotov fire reads as a full burning patch rather than a small dot.
-			"position": zone.get("position", Vector2.ZERO),
-			"width": float(zone.get("width", FIRE_ZONE_WIDTH)) * 1.35,
-			"height": float(zone.get("height", FIRE_ZONE_HEIGHT)) * 1.35,
-			"zone_id": int(zone.get("zone_id", 0)),
-			"duration_frames": timer * 60.0,
-			"max_duration_frames": max_timer * 60.0,
-			"age_frames": (max_timer - timer) * 60.0,
-			"flames": _convert_zone_flames(zone.get("flames", [])),
-		})
+		payload.append(LingpetDragonBreathPayloadFactory.build_molotov_zone_payload(
+			zone,
+			FIRE_ZONE_WIDTH,
+			FIRE_ZONE_HEIGHT,
+			FIRE_ZONE_DURATION_SECONDS,
+			_convert_zone_flames(zone.get("flames", []))
+		))
 	return payload
 
 
@@ -693,13 +653,7 @@ func _convert_zone_flames(flames: Array) -> Array:
 		if not (flame_value is Dictionary):
 			continue
 		var flame: Dictionary = flame_value as Dictionary
-		out.append({
-			"position": flame.get("pos", Vector2.ZERO),
-			"size": float(flame.get("size", 8.0)),
-			"lifetime_frames": float(flame.get("life", 0.0)) * 60.0,
-			"max_lifetime_frames": maxf(1.0, float(flame.get("max_life", 0.66)) * 60.0),
-			"color_phase": float(flame.get("phase", 0.0)),
-		})
+		out.append(LingpetDragonBreathPayloadFactory.build_molotov_flame_payload(flame, 8.0, 0.66))
 	return out
 
 

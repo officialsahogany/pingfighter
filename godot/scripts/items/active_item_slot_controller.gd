@@ -18,7 +18,7 @@ var cooldown_pause_started_msec := -1
 # [AIDBG] manual diagnostic toggle for "active item unusable after stage transition".
 # Keep false in committed code; flip to true locally only while diagnosing.
 # Gated as a const so real-play and perf-capture logs stay clean by default.
-const _AIDBG := false
+const _AIDBG := true
 
 
 func reset() -> void:
@@ -383,7 +383,13 @@ func _try_use_slot(
 	var applied: bool = bool(apply_item_effect_callback.call(item_data, owner, registry))
 	_perf_end(perf_logger, "physics.callback.active_items.use.%s" % item_label, sample_start)
 	if not applied:
+		if _AIDBG:
+			print("[AIDBG] APPLY-FAILED slot=%d item=%s keys=%s" % [
+				slot_index, item_label, str(item_data.keys()),
+			])
 		return false
+	if _AIDBG:
+		print("[AIDBG] USED slot=%d item=%s" % [slot_index, item_label])
 	sample_start = _perf_begin(perf_logger)
 	_apply_active_item_use_gauge_bonus(owner, registry)
 	_perf_end(perf_logger, "physics.callback.active_items.use_gauge_bonus", sample_start)
@@ -652,15 +658,43 @@ func _aidbg_lock_breakdown(registry: Object) -> String:
 	var rt: Object = _get_instance(registry, "active_item_runtime")
 	var ctrl_locked: bool = rt != null and rt.has_method("is_player_control_locked") and bool(rt.is_player_control_locked())
 	var aipill: bool = rt != null and rt.has_method("is_aipill_active") and bool(rt.is_aipill_active())
-	return "waiting_for_serve=%s landing_intro=%s ball_spawn_intro=%s ctrl_locked=%s aipill=%s" % [
+	return "waiting_for_serve=%s landing_intro=%s ball_spawn_intro=%s ctrl_locked=%s aipill=%s pending_throws=%s" % [
 		str(waiting),
 		str(_aidbg_module_active(registry, "stage_landing_intro")),
 		str(_aidbg_module_active(registry, "stage_ball_spawn_intro")),
 		str(ctrl_locked),
 		str(aipill),
+		_aidbg_pending_throw_summary(rt),
 	]
 
 
 func _aidbg_module_active(registry: Object, key: String) -> bool:
 	var module: Object = _get_instance(registry, key)
 	return module != null and module.has_method("is_active") and bool(module.is_active())
+
+
+# [AIDBG] if ctrl_locked is true, this shows WHICH pending throw is stuck and
+# how overdue its release is (negative remain = should have released already).
+func _aidbg_pending_throw_summary(rt: Object) -> String:
+	if rt == null:
+		return "?"
+	var throw_controller_value: Variant = rt.get("throw_controller")
+	if not (throw_controller_value is Object):
+		return "?"
+	var throw_controller: Object = throw_controller_value
+	if not throw_controller.has_method("get_pending_throws"):
+		return "?"
+	var pending: Array = throw_controller.get_pending_throws()
+	if pending.is_empty():
+		return "0"
+	var now_msec: int = Time.get_ticks_msec()
+	var parts: Array = []
+	for entry_value in pending:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		parts.append("%s(remain=%dms)" % [
+			str(entry.get("item_name", "?")),
+			int(entry.get("release_msec", now_msec)) - now_msec,
+		])
+	return "%d[%s]" % [pending.size(), ", ".join(PackedStringArray(parts))]

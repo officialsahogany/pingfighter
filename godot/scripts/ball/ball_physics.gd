@@ -4,6 +4,7 @@ const BallImpactBoostPolicy := preload("res://scripts/ball/ball_impact_boost_pol
 const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
 
 const BALL_BASE_SPEED := 7.65
+const COMPANION_GUARD_CENTER_HIT_ACCEL_MULT := 0.03
 
 var speed_policy: Object = BallSpeedPolicy.new()
 var impact_boost_policy: Object = BallImpactBoostPolicy.new()
@@ -74,6 +75,18 @@ func apply_dampened_multiplier(current_speed: float, raw_multiplier: float) -> f
 	return speed_policy.apply_dampened_multiplier(current_speed, raw_multiplier)
 
 
+func apply_companion_guard_bounce_speed(velocity: Vector2, rally_speed_cap_bonus: float = 0.0) -> Vector2:
+	if velocity.length() <= 0.0:
+		return velocity
+	var adjusted_velocity: Vector2 = enforce_minimum_rally_speed(velocity)
+	var speed: float = adjusted_velocity.length()
+	var accel_scale: float = get_rally_speed_increase_multiplier() * get_junior_speed_increase_multiplier()
+	var raw_multiplier: float = 1.0 + COMPANION_GUARD_CENTER_HIT_ACCEL_MULT * accel_scale
+	speed *= apply_dampened_multiplier(speed, raw_multiplier)
+	speed = minf(speed, _get_companion_guard_speed_cap(rally_speed_cap_bonus))
+	return adjusted_velocity.normalized() * speed
+
+
 func get_scaled_random_multiplier(raw_min: float, raw_max: float, scale: float) -> float:
 	return speed_policy.get_scaled_random_multiplier(raw_min, raw_max, scale)
 
@@ -135,3 +148,12 @@ func _build_context() -> Dictionary:
 		"weather_type": weather_type,
 		"weather_active": weather_active,
 	}
+
+
+func _get_companion_guard_speed_cap(rally_speed_cap_bonus: float) -> float:
+	var cap: float = BallSpeedPolicy.DEFAULT_MAX_BALL_SPEED
+	if ai_mode == "mythic":
+		cap = BallSpeedPolicy.MYTHIC_MAX_BALL_SPEED
+	if weather_active and weather_type == "fire":
+		cap = BallSpeedPolicy.FIRE_WEATHER_MAX_BALL_SPEED
+	return cap + maxf(0.0, rally_speed_cap_bonus)

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage4BrazierMonkPayloadFactory := preload("res://scripts/stages/stage4/stage4_brazier_monk_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -407,40 +408,7 @@ func _spawn_monk(is_smoke_grenade_monk: bool = false) -> bool:
 
 
 func _make_monk(overrides: Dictionary) -> Dictionary:
-	var monk := {
-		"x": ENTRANCE_POS.x,
-		"y": ENTRANCE_POS.y,
-		"target_x": 200.0,
-		"target_y": 510.0,
-		"speed": 0.3,
-		"direction": 1,
-		"walking_phase": 0.0,
-		"robe_sway": 0.0,
-		"meditation_timer": 0.0,
-		"state": "walking",
-		"state_timer": 3.0,
-		"staff_angle": 0.0,
-		"opacity": 0.0,
-		"fade_in": true,
-		"swing_count": 0,
-		"swing_animation": 0.0,
-		"swing_cooldown": 0.0,
-		"can_deflect": true,
-		"returning_to_temple": false,
-		"has_hit_ball": false,
-		"swing_chance_used": false,
-		"is_smoke_grenade_monk": false,
-		"smoke_return_timer": 0.0,
-		"monk_type": "normal",
-		"robe_color": Color(0.24, 0.20, 0.16, 1.0),
-		"hat_type": "",
-		"weapon_type": "basic_staff",
-		"weapon_color": Color(0.31, 0.24, 0.16, 1.0),
-		"swing_chance": 0.2,
-		"speed_boost": 1.0,
-	}
-	monk.merge(overrides, true)
-	return monk
+	return Stage4BrazierMonkPayloadFactory.build_monk(ENTRANCE_POS, overrides)
 
 
 func _update_monks(fps_scale: float) -> void:
@@ -569,28 +537,11 @@ func _start_returning(monk: Dictionary) -> void:
 
 
 func _create_monk_hit_effect(monk: Dictionary) -> void:
-	var direction := 1.0 if int(monk.get("direction", 1)) >= 0 else -1.0
-	var staff_tip := Vector2(float(monk.get("x", 0.0)), float(monk.get("y", 0.0))) + Vector2(TEMPLE_GHOST_HIT_TIP_OFFSET.x * direction, TEMPLE_GHOST_HIT_TIP_OFFSET.y)
-	monk_hit_effects.append({
-		"type": "shockwave",
-		"x": staff_tip.x,
-		"y": staff_tip.y,
-		"radius": 8.0,
-		"alpha": 255.0,
-		"life": 1.0,
-	})
-	for idx in range(8):
-		var spark_angle: float = float(idx) * TAU / 8.0 + rng.randf_range(-0.18, 0.18)
-		var speed: float = rng.randf_range(1.2, 3.8)
-		monk_hit_effects.append({
-			"type": "spark",
-			"x": staff_tip.x,
-			"y": staff_tip.y,
-			"vx": cos(spark_angle) * speed,
-			"vy": sin(spark_angle) * speed,
-			"alpha": 255.0,
-			"life": rng.randf_range(12.0, 20.0),
-		})
+	monk_hit_effects.append_array(Stage4BrazierMonkPayloadFactory.build_hit_effects(
+		monk,
+		TEMPLE_GHOST_HIT_TIP_OFFSET,
+		rng
+	))
 
 
 func _update_hit_effects(fps_scale: float) -> void:
@@ -630,41 +581,12 @@ func _update_death_particles(fps_scale: float) -> void:
 
 
 func _create_monk_explosion(pos: Vector2, robe_color: Color, hero: bool = false) -> void:
-	var body_types := ["head", "torso", "arm", "arm", "leg", "leg"]
-	for idx in range(body_types.size()):
-		var angle: float = (float(idx) / float(body_types.size())) * TAU + rng.randf_range(-0.28, 0.28)
-		var speed: float = rng.randf_range(2.0, 5.2) * (1.35 if hero else 1.0)
-		monk_death_particles.append({
-			"type": body_types[idx],
-			"x": pos.x,
-			"y": pos.y,
-			"vx": cos(angle) * speed,
-			"vy": sin(angle) * speed - rng.randf_range(1.0, 3.2),
-			"size": rng.randf_range(6.0, 12.0) * (1.22 if hero else 1.0),
-			"rotation": rng.randf_range(0.0, 360.0),
-			"rotation_speed": rng.randf_range(-12.0, 12.0),
-			"gravity": 0.14,
-			"life": rng.randf_range(60.0, 92.0),
-			"opacity": 1.0,
-			"color": robe_color.lightened(0.18) if hero else robe_color,
-		})
-	for _idx in range(12 if hero else 8):
-		var angle: float = rng.randf_range(0.0, TAU)
-		var speed: float = rng.randf_range(1.0, 4.0) * (1.35 if hero else 1.0)
-		monk_death_particles.append({
-			"type": "spark",
-			"x": pos.x,
-			"y": pos.y,
-			"vx": cos(angle) * speed,
-			"vy": sin(angle) * speed - 1.5,
-			"size": rng.randf_range(2.0, 4.0),
-			"rotation": 0.0,
-			"rotation_speed": 0.0,
-			"gravity": 0.08,
-			"life": rng.randf_range(24.0, 44.0),
-			"opacity": 1.0,
-			"color": Color(1.0, 0.86, 0.30, 1.0) if hero else Color(0.42, 0.34, 0.24, 1.0),
-		})
+	monk_death_particles.append_array(Stage4BrazierMonkPayloadFactory.build_explosion_particles(
+		pos,
+		robe_color,
+		hero,
+		rng
+	))
 
 
 func _draw_monk(canvas: CanvasItem, monk: Dictionary, shake_offset: Vector2, visual_time: float = 0.0) -> void:

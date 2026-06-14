@@ -71,20 +71,33 @@ func build_runtime_snapshot(
 	skill_windup_seconds: float,
 	skill_flash_seconds: float,
 	skill_runtime_host: Object,
+	second_active_skill: Dictionary = {},
+	second_skill_state: Object = null,
+	second_skill_windup_seconds: float = 0.0,
 	loadouts_by_pet_id: Dictionary = {},
 	active_skill_pool: Array[Dictionary] = [],
 	passive_skill: Dictionary = {},
 	passive_skill_pool: Array[Dictionary] = []
 ) -> Dictionary:
 	var companion_active: bool = state == STATE_COMPANION
-	var skill_enabled := bool(active_skill.get("enabled", true))
+	var raw_skill_id := str(active_skill.get("id", ""))
+	var skill_enabled := raw_skill_id != "" and bool(active_skill.get("enabled", true))
 	var skill_active := companion_active and skill_enabled
-	var skill_id := str(active_skill.get("id", ""))
+	var skill_id := raw_skill_id if skill_active else ""
 	var skill_name := str(active_skill.get("name", ""))
 	var skill_description := str(active_skill.get("description", ""))
 	var skill_cooldown := float(active_skill.get("cooldown", 0.0))
-	var skill_level := int(active_skill.get("level", 1))
-	var skill_max_level := int(active_skill.get("max_level", 5))
+	var skill_level := int(active_skill.get("level", 1)) if skill_active else 0
+	var skill_max_level := int(active_skill.get("max_level", 5)) if skill_active else 0
+	var second_raw_skill_id := str(second_active_skill.get("id", ""))
+	var second_skill_enabled := second_raw_skill_id != "" and bool(second_active_skill.get("enabled", true))
+	var second_skill_active := companion_active and second_skill_enabled
+	var second_skill_id := second_raw_skill_id if second_skill_active else ""
+	var second_skill_name := str(second_active_skill.get("name", "")) if second_skill_active else ""
+	var second_skill_description := str(second_active_skill.get("description", "")) if second_skill_active else ""
+	var second_skill_cooldown := float(second_active_skill.get("cooldown", 0.0)) if second_skill_active else 0.0
+	var second_skill_level := int(second_active_skill.get("level", 1)) if second_skill_active else 0
+	var second_skill_max_level := int(second_active_skill.get("max_level", 5)) if second_skill_active else 0
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
 	var passive_level := int(passive_skill.get("level", 1)) if passive_enabled else 0
@@ -106,6 +119,13 @@ func build_runtime_snapshot(
 		"companion_skill_icon_path": str(active_skill.get("icon_texture_path", "")) if skill_active else "",
 		"companion_skill_level": skill_level if skill_active else 0,
 		"companion_skill_max_level": skill_max_level if skill_active else 0,
+		"companion_skill_id_1": second_skill_id,
+		"companion_skill_name_1": second_skill_name,
+		"companion_skill_description_1": second_skill_description,
+		"companion_skill_card_path_1": str(second_active_skill.get("card_texture_path", "")) if second_skill_active else "",
+		"companion_skill_icon_path_1": str(second_active_skill.get("icon_texture_path", "")) if second_skill_active else "",
+		"companion_skill_level_1": second_skill_level,
+		"companion_skill_max_level_1": second_skill_max_level,
 		"companion_active_skill_pool_ids": _get_skill_ids(active_skill_pool) if companion_active else [],
 		"companion_passive_skill_id": passive_id,
 		"companion_passive_skill_name": str(passive_skill.get("name", "")) if passive_enabled else "",
@@ -144,6 +164,14 @@ func build_runtime_snapshot(
 		snapshot.merge(body_hit_state.get_snapshot(companion_active, hit_gauge_gain), true)
 	if skill_state != null:
 		snapshot.merge(skill_state.get_snapshot(skill_active, skill_id, skill_cooldown, skill_windup_seconds, skill_flash_seconds), true)
+	snapshot.merge(_build_second_skill_state_snapshot(
+		second_skill_state,
+		second_skill_active,
+		second_skill_id,
+		second_skill_cooldown,
+		second_skill_windup_seconds,
+		skill_flash_seconds
+	), true)
 	if skill_runtime_host != null:
 		snapshot.merge(skill_runtime_host.get_snapshot(), true)
 	return snapshot
@@ -208,6 +236,9 @@ func sync_owner(
 	hit_gauge_gain: float,
 	active_skill: Dictionary,
 	skill_state: Object,
+	second_active_skill: Dictionary,
+	second_skill_state: Object,
+	second_skill_windup_seconds: float,
 	gauge_gain_bonus_pct: float,
 	effect_text: String,
 	loadouts_by_pet_id: Dictionary = {},
@@ -219,13 +250,21 @@ func sync_owner(
 	_rebase_for_owner(owner)
 	var companion_active: bool = state == STATE_COMPANION
 	var public_pet_id: String = pet_id if companion_active else ""
-	var skill_enabled := bool(active_skill.get("enabled", true))
+	var raw_skill_id := str(active_skill.get("id", ""))
+	var skill_enabled := raw_skill_id != "" and bool(active_skill.get("enabled", true))
 	var skill_active := companion_active and skill_enabled
-	var skill_id := str(active_skill.get("id", "")) if skill_active else ""
+	var skill_id := raw_skill_id if skill_active else ""
 	var skill_name := str(active_skill.get("name", "")) if skill_active else ""
 	var skill_cooldown := float(active_skill.get("cooldown", 0.0)) if skill_active else 0.0
 	var skill_level := int(active_skill.get("level", 1)) if skill_active else 0
 	var skill_max_level := int(active_skill.get("max_level", 5)) if skill_active else 0
+	var second_raw_skill_id := str(second_active_skill.get("id", ""))
+	var second_skill_enabled := second_raw_skill_id != "" and bool(second_active_skill.get("enabled", true))
+	var second_skill_active := companion_active and second_skill_enabled
+	var second_skill_id := second_raw_skill_id if second_skill_active else ""
+	var second_skill_name := str(second_active_skill.get("name", "")) if second_skill_active else ""
+	var second_skill_cooldown := float(second_active_skill.get("cooldown", 0.0)) if second_skill_active else 0.0
+	var second_skill_max_level := int(second_active_skill.get("max_level", 5)) if second_skill_active else 0
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
 	_set_single(owner, "lingpet_id", public_pet_id)
@@ -250,6 +289,7 @@ func sync_owner(
 	_sync_motion_owner(owner, motion_state)
 	_sync_body_hit_owner(owner, body_hit_state, hit_gauge_gain if companion_active else 0.0)
 	_sync_skill_owner(owner, skill_state, skill_id, skill_name, skill_cooldown, skill_active, skill_level, skill_max_level)
+	_sync_second_skill_owner(owner, second_skill_state, second_skill_id, second_skill_name, second_skill_cooldown, second_skill_active, second_skill_max_level, second_skill_windup_seconds)
 	_sync_passive_owner(owner, passive_id, passive_skill, passive_enabled)
 	_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
 	_set_pair(owner, "lingpet_player_speed_bonus_pct", "ringpet_player_speed_bonus_pct", maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if companion_active else 0.0)
@@ -313,6 +353,35 @@ func _sync_skill_owner(
 	_set_pair(owner, "lingpet_skill_trigger_count", "ringpet_skill_trigger_count", trigger_count)
 
 
+func _sync_second_skill_owner(
+	owner: Object,
+	skill_state: Object,
+	skill_id: String,
+	skill_name: String,
+	skill_cooldown_duration: float,
+	skill_active: bool,
+	skill_max_level: int,
+	skill_windup_seconds: float
+) -> void:
+	var cooldown := 0.0
+	var ready := false
+	var winding_up := false
+	var windup_ratio := 0.0
+	if skill_active and skill_state != null:
+		cooldown = skill_state.cooldown
+		ready = skill_id != "" and skill_state.cooldown <= 0.0
+		winding_up = bool(skill_state.windup_active)
+		windup_ratio = _skill_windup_ratio(skill_state, skill_windup_seconds, skill_active)
+	_set_pair(owner, "lingpet_second_skill_id", "ringpet_second_skill_id", skill_id if skill_active else "")
+	_set_pair(owner, "lingpet_second_skill_name", "ringpet_second_skill_name", skill_name if skill_active else "")
+	_set_pair(owner, "lingpet_second_skill_max_level", "ringpet_second_skill_max_level", skill_max_level if skill_active else 0)
+	_set_pair(owner, "lingpet_second_skill_cooldown", "ringpet_second_skill_cooldown", cooldown)
+	_set_pair(owner, "lingpet_second_skill_cooldown_duration", "ringpet_second_skill_cooldown_duration", skill_cooldown_duration if skill_active else 0.0)
+	_set_pair(owner, "lingpet_second_skill_ready", "ringpet_second_skill_ready", ready)
+	_set_pair(owner, "lingpet_second_skill_winding_up", "ringpet_second_skill_winding_up", winding_up)
+	_set_pair(owner, "lingpet_second_skill_windup_ratio", "ringpet_second_skill_windup_ratio", windup_ratio)
+
+
 func _sync_passive_owner(owner: Object, passive_id: String, passive_skill: Dictionary, companion_active: bool) -> void:
 	_set_pair(owner, "lingpet_passive_skill_id", "ringpet_passive_skill_id", passive_id)
 	_set_pair(owner, "lingpet_passive_skill_level", "ringpet_passive_skill_level", int(passive_skill.get("level", 1)) if companion_active else 0)
@@ -350,6 +419,39 @@ func _detached_copy(value: Variant) -> Variant:
 	if value is Dictionary:
 		return (value as Dictionary).duplicate(true)
 	return value
+
+
+func _build_second_skill_state_snapshot(
+	skill_state: Object,
+	skill_active: bool,
+	skill_id: String,
+	skill_cooldown_duration: float,
+	skill_windup_seconds: float,
+	flash_seconds: float
+) -> Dictionary:
+	if skill_active and skill_state != null:
+		return skill_state.get_snapshot(skill_active, skill_id, skill_cooldown_duration, skill_windup_seconds, flash_seconds, "_1")
+	return {
+		"companion_skill_cooldown_1": 0.0,
+		"companion_skill_cooldown_duration_1": 0.0,
+		"companion_skill_windup_seconds_1": 0.0,
+		"companion_skill_windup_ratio_1": 0.0,
+		"companion_skill_ready_1": false,
+		"companion_skill_last_gain_1": 0.0,
+		"companion_skill_trigger_count_1": 0,
+		"companion_skill_flash_timer_1": 0.0,
+		"companion_skill_flash_ratio_1": 0.0,
+		"companion_skill_winding_up_1": false,
+		"companion_skill_origin_1": Vector2.ZERO,
+	}
+
+
+func _skill_windup_ratio(skill_state: Object, skill_windup_seconds: float, skill_active: bool) -> float:
+	if not skill_active or skill_state == null or not bool(skill_state.windup_active):
+		return 0.0
+	if skill_windup_seconds <= 0.0:
+		return 1.0
+	return clampf(float(skill_state.windup_elapsed) / skill_windup_seconds, 0.0, 1.0)
 
 
 func _get_skill_ids(skills: Array[Dictionary]) -> Array[String]:

@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
+const Smasher25DSheetOverride := preload("res://scripts/core/smasher_25d_sheet_override.gd")
 
 const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball_runtime_128.png"
 const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v1.png"
@@ -706,7 +707,7 @@ func _finish_result_texture_threaded_job(resource: Resource) -> void:
 
 
 func _is_thread_loadable_texture_path(path: String) -> bool:
-	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+	return ProjectResourceLoader.can_thread_load_texture(path)
 
 
 func _clear_smasher_player_fallback_spec() -> Dictionary:
@@ -833,18 +834,19 @@ func _get_player_texture_specs(character_type: String, include_result_sheets: bo
 
 
 func _get_smasher_player_texture_specs(include_result_sheets: bool) -> Array:
+	var sheet_paths := _get_smasher_player_sheet_paths()
 	var specs := [
-		_texture_spec(["player_sprite_texture"], PLAYER_SPRITE_PATH),
-		_texture_spec(["player_walk_left_texture"], PLAYER_WALK_LEFT_SPRITE_PATH),
-		_texture_spec(["player_walk_right_texture"], PLAYER_WALK_RIGHT_SPRITE_PATH),
+		_texture_spec(["player_sprite_texture"], str(sheet_paths["sprite"])),
+		_texture_spec(["player_walk_left_texture"], str(sheet_paths["walk_left"])),
+		_texture_spec(["player_walk_right_texture"], str(sheet_paths["walk_right"])),
 		_texture_spec(["player_dash_left_texture"], PLAYER_DASH_LEFT_SPRITE_PATH),
 		_texture_spec(["player_dash_right_texture"], PLAYER_DASH_RIGHT_SPRITE_PATH),
-		_texture_spec(["player_idle_back_sheet", "player_idle_sprite_texture"], SMASHER_IDLE_SHEET_PATH),
+		_texture_spec(["player_idle_back_sheet", "player_idle_sprite_texture"], str(sheet_paths["idle"])),
 		_texture_spec(["player_hit_sprite_texture"], PLAYER_HIT_SPRITE_PATH),
 		_texture_spec(["player_hit_left_strip_texture"], PLAYER_HIT_LEFT_STRIP_PATH),
 		_texture_spec(["player_hit_right_strip_texture"], PLAYER_HIT_RIGHT_STRIP_PATH),
-		_texture_spec(["player_attack_left_sheet"], SMASHER_ATTACK_LEFT_SHEET_PATH),
-		_texture_spec(["player_attack_right_sheet"], SMASHER_ATTACK_RIGHT_SHEET_PATH),
+		_texture_spec(["player_attack_left_sheet"], str(sheet_paths["attack_left"])),
+		_texture_spec(["player_attack_right_sheet"], str(sheet_paths["attack_right"])),
 		_texture_spec(["player_attack_sheet"], SMASHER_ATTACK_SHEET_PATH),
 		_texture_spec(["player_wheel_spin_sheet"], SMASHER_WHEEL_BODY_SHEET_PATH),
 		_texture_spec(["smasher_debug_paddle_overlay_sheet"], SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH),
@@ -860,6 +862,25 @@ func _get_smasher_player_texture_specs(include_result_sheets: bool) -> Array:
 		specs.append(_texture_spec(["player_victory_sheet"], SMASHER_VICTORY_SHEET_PATH))
 		specs.append(_texture_spec(["player_defeat_sheet"], SMASHER_DEFEAT_SHEET_PATH))
 	return specs
+
+
+func _get_smasher_player_sheet_paths() -> Dictionary:
+	var paths := {
+		"sprite": PLAYER_SPRITE_PATH,
+		"walk_left": PLAYER_WALK_LEFT_SPRITE_PATH,
+		"walk_right": PLAYER_WALK_RIGHT_SPRITE_PATH,
+		"idle": SMASHER_IDLE_SHEET_PATH,
+		"attack_left": SMASHER_ATTACK_LEFT_SHEET_PATH,
+		"attack_right": SMASHER_ATTACK_RIGHT_SHEET_PATH,
+	}
+	var override_paths: Dictionary = Smasher25DSheetOverride.get_active_sheet_paths()
+	if override_paths.is_empty():
+		return paths
+	paths["walk_left"] = str(override_paths.get("walk_left", paths["walk_left"]))
+	paths["walk_right"] = str(override_paths.get("walk_right", paths["walk_right"]))
+	paths["idle"] = str(override_paths.get("idle", paths["idle"]))
+	paths["attack_left"] = str(override_paths.get("attack_left", paths["attack_left"]))
+	return paths
 
 
 func _get_viper_player_texture_specs(include_result_sheets: bool) -> Array:
@@ -984,19 +1005,20 @@ func _get_blacksmith_player_texture_specs(
 
 
 func _load_smasher_player_textures(include_result_sheets: bool) -> void:
-	_resource_cache["player_sprite_texture"] = _load_texture_resource(PLAYER_SPRITE_PATH)
-	_resource_cache["player_walk_left_texture"] = _load_texture_resource(PLAYER_WALK_LEFT_SPRITE_PATH)
-	_resource_cache["player_walk_right_texture"] = _load_texture_resource(PLAYER_WALK_RIGHT_SPRITE_PATH)
+	var sheet_paths := _get_smasher_player_sheet_paths()
+	_resource_cache["player_sprite_texture"] = _load_texture_resource(str(sheet_paths["sprite"]))
+	_resource_cache["player_walk_left_texture"] = _load_texture_resource(str(sheet_paths["walk_left"]))
+	_resource_cache["player_walk_right_texture"] = _load_texture_resource(str(sheet_paths["walk_right"]))
 	_resource_cache["player_dash_left_texture"] = _load_texture_resource(PLAYER_DASH_LEFT_SPRITE_PATH)
 	_resource_cache["player_dash_right_texture"] = _load_texture_resource(PLAYER_DASH_RIGHT_SPRITE_PATH)
-	var idle_sheet: Texture2D = _load_texture_resource(SMASHER_IDLE_SHEET_PATH)
+	var idle_sheet: Texture2D = _load_texture_resource(str(sheet_paths["idle"]))
 	_resource_cache["player_idle_back_sheet"] = idle_sheet
 	_resource_cache["player_idle_sprite_texture"] = idle_sheet
 	_resource_cache["player_hit_sprite_texture"] = _load_texture_resource(PLAYER_HIT_SPRITE_PATH)
 	_resource_cache["player_hit_left_strip_texture"] = _load_texture_resource(PLAYER_HIT_LEFT_STRIP_PATH)
 	_resource_cache["player_hit_right_strip_texture"] = _load_texture_resource(PLAYER_HIT_RIGHT_STRIP_PATH)
-	_resource_cache["player_attack_left_sheet"] = _load_texture_resource(SMASHER_ATTACK_LEFT_SHEET_PATH)
-	_resource_cache["player_attack_right_sheet"] = _load_texture_resource(SMASHER_ATTACK_RIGHT_SHEET_PATH)
+	_resource_cache["player_attack_left_sheet"] = _load_texture_resource(str(sheet_paths["attack_left"]))
+	_resource_cache["player_attack_right_sheet"] = _load_texture_resource(str(sheet_paths["attack_right"]))
 	_resource_cache["player_attack_sheet"] = _load_texture_resource(SMASHER_ATTACK_SHEET_PATH)
 	_resource_cache["player_wheel_spin_sheet"] = _load_texture_resource(SMASHER_WHEEL_BODY_SHEET_PATH)
 	_resource_cache["smasher_debug_paddle_overlay_sheet"] = _load_texture_resource(SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH)

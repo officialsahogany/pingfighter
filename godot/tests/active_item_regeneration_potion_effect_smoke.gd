@@ -2,6 +2,9 @@ extends SceneTree
 
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
 const ActiveItemRegenerationPotionEffect := preload("res://scripts/items/active_item_regeneration_potion_effect.gd")
+const ActiveItemRegenerationPotionPayloadFactory := preload("res://scripts/items/active_item_regeneration_potion_payload_factory.gd")
+const GameplayItemModuleCatalog := preload("res://scripts/resources/gameplay_item_module_catalog.gd")
+const GameplayModuleCatalog := preload("res://scripts/resources/gameplay_module_catalog.gd")
 
 var _failures: Array[String] = []
 
@@ -15,8 +18,10 @@ class FakeOwner:
 
 
 func _init() -> void:
+	_verify_payload_factory()
 	_verify_direct_regeneration_effect()
 	_verify_controller_delegates_regeneration_effect()
+	_verify_effect_delegation_and_catalog()
 
 	if _failures.is_empty():
 		print("active_item_regeneration_potion_effect_smoke: ok")
@@ -25,6 +30,25 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_payload_factory() -> void:
+	seed(20260612)
+	var center := Vector2(160.0, 618.0)
+	var ring: Dictionary = ActiveItemRegenerationPotionPayloadFactory.build_ring(center, ActiveItemRegenerationPotionEffect.REGENERATION_POTION_RING_DURATION_SEC)
+	_expect(ring.get("position", Vector2.ZERO) == center, "regeneration ring payload should preserve center")
+	_expect(is_equal_approx(float(ring.get("age", -1.0)), 0.0), "regeneration ring payload should start at age zero")
+	_expect(is_equal_approx(float(ring.get("duration", 0.0)), ActiveItemRegenerationPotionEffect.REGENERATION_POTION_RING_DURATION_SEC), "regeneration ring payload should preserve duration")
+
+	var particle: Dictionary = ActiveItemRegenerationPotionPayloadFactory.build_particle(center, ActiveItemRegenerationPotionEffect.REGENERATION_POTION_PARTICLE_DURATION_SEC)
+	var position: Vector2 = particle.get("position", Vector2.INF)
+	_expect(position.distance_to(center) >= 6.0 and position.distance_to(center) <= 48.0, "regeneration particle payload should keep radial spawn range")
+	var velocity: Vector2 = particle.get("velocity", Vector2.ZERO)
+	_expect(velocity.x >= -34.0 and velocity.x <= 34.0, "regeneration particle payload should keep x velocity range")
+	_expect(velocity.y >= -104.0 and velocity.y <= -34.0, "regeneration particle payload should keep y velocity range")
+	_expect(float(particle.get("radius", 0.0)) >= 2.4 and float(particle.get("radius", 0.0)) <= 5.2, "regeneration particle payload should keep radius range")
+	_expect(float(particle.get("lifetime", 0.0)) >= 0.42 and float(particle.get("lifetime", 0.0)) <= ActiveItemRegenerationPotionEffect.REGENERATION_POTION_PARTICLE_DURATION_SEC, "regeneration particle payload should keep lifetime range")
+	_expect(_color_in(particle.get("color", Color.TRANSPARENT), ActiveItemRegenerationPotionPayloadFactory.REGENERATION_POTION_PARTICLE_COLORS), "regeneration particle payload should use known palette")
 
 
 func _verify_direct_regeneration_effect() -> void:
@@ -63,6 +87,29 @@ func _verify_controller_delegates_regeneration_effect() -> void:
 	controller.update(null, 2.0)
 	_expect(controller.regeneration_potion_particles.is_empty(), "controller delegated particles should expire")
 	_expect(controller.regeneration_potion_rings.is_empty(), "controller delegated rings should expire")
+
+
+func _verify_effect_delegation_and_catalog() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_regeneration_potion_effect.gd")
+	_expect(source.find("ActiveItemRegenerationPotionPayloadFactory.build_ring") >= 0, "Regeneration Potion effect should delegate ring payloads")
+	_expect(source.find("ActiveItemRegenerationPotionPayloadFactory.build_particle") >= 0, "Regeneration Potion effect should delegate particle payloads")
+	_expect(source.find("rings.append({") < 0, "Regeneration Potion effect should not inline ring dictionaries")
+	_expect(source.find("particles.append({") < 0, "Regeneration Potion effect should not inline particle dictionaries")
+
+	var item_modules: Dictionary = GameplayItemModuleCatalog.MODULES
+	_expect(item_modules.has("active_item_regeneration_potion_effect"), "item module catalog should list Regeneration Potion effect")
+	_expect(item_modules.has("active_item_regeneration_potion_payload_factory"), "item module catalog should list Regeneration Potion payload factory")
+	var spec: Dictionary = GameplayModuleCatalog.new().get_spec("active_item_regeneration_potion_payload_factory")
+	_expect(str(spec.get("path", "")) == "res://scripts/items/active_item_regeneration_potion_payload_factory.gd", "top-level module catalog should resolve Regeneration Potion payload factory")
+
+
+func _color_in(value: Variant, colors: Array) -> bool:
+	if not (value is Color):
+		return false
+	for color in colors:
+		if (value as Color).is_equal_approx(color):
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -236,6 +236,7 @@ func _init() -> void:
 	_verify_full_slots_replace_active_slot_for_debug_grant()
 	_verify_defense_rate_slider()
 	_verify_flight_pet_appearance_override()
+	_verify_move_speed_slider()
 	ProjectResourceLoader.clear_caches()
 	if _failures.is_empty():
 		print("lingpet_debug_picker_smoke: ok")
@@ -426,9 +427,9 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and LingpetCatalog.get_visual_path("koyora", "companion_move_left") == "res://assets/sprites/lingpet/koyora_companion_move_left.png"
 		and LingpetCatalog.get_visual_path("koyora", "companion_move_right") == "res://assets/sprites/lingpet/koyora_companion_move_right.png"
 		and LingpetCatalog.get_visual_path("koyora", "companion_walk") == "res://assets/sprites/lingpet/koyora_companion_move_right.png"
-		and LingpetCatalog.get_visual_path("koyora", "companion_strike") == "res://assets/sprites/lingpet/koyora_companion_move_right.png"
+		and LingpetCatalog.get_visual_path("koyora", "companion_strike") == "res://assets/sprites/lingpet/koyora_companion_strike.png"
 		and LingpetCatalog.get_visual_path("koyora", "companion_cast") == "res://assets/sprites/lingpet/koyora_companion_idle.png",
-		"Koyora F7 runtime companion visuals should use dedicated rear-view idle/left/right SD sheets"
+		"Koyora F7 runtime companion visuals should use dedicated rear-view idle/left/right/strike SD sheets"
 	)
 	_expect(
 		LingpetCatalog.get_visual_path("koyora", "companion_puppet_control") == "res://assets/sprites/lingpet/koyora_puppet_control_cast.png",
@@ -464,9 +465,10 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_idle.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_move_left.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_move_right.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_strike.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/koyora_puppet_control_cast.png"),
-		"Koyora acquisition, full click, three-way SD companion, companion click, and Puppet Control textures should exist under the lingpet asset tree"
+		"Koyora acquisition, full click, four-way SD companion, companion click, and Puppet Control textures should exist under the lingpet asset tree"
 	)
 	var koyora_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_cutin_anim_manifest.json")
 	_expect(
@@ -492,19 +494,23 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	var koyora_companion_idle_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_idle_manifest.json")
 	var koyora_companion_move_left_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_move_left_manifest.json")
 	var koyora_companion_move_right_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_move_right_manifest.json")
+	var koyora_companion_strike_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_strike_manifest.json")
 	var koyora_companion_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_companion_click_reaction_98f_manifest.json")
 	var koyora_puppet_control_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_puppet_control_cast_manifest.json")
 	_expect(
 		koyora_companion_idle_manifest.find("koyora_companion_idle_rear_25f_v1") >= 0
 		and koyora_companion_move_left_manifest.find("koyora_companion_move_left_rear_3q_smooth_25f_v2") >= 0
 		and koyora_companion_move_right_manifest.find("koyora_companion_move_right_rear_3q_smooth_25f_v2") >= 0
+		and koyora_companion_strike_manifest.find("koyora_companion_strike_rear_only_25f_v1") >= 0
 		and koyora_companion_idle_manifest.find("\"frame_count\": 25") >= 0
 		and koyora_companion_move_left_manifest.find("\"frame_count\": 25") >= 0
 		and koyora_companion_move_right_manifest.find("\"frame_count\": 25") >= 0
+		and koyora_companion_strike_manifest.find("\"frame_count\": 25") >= 0
 		and koyora_companion_idle_manifest.find("\"edge_alpha_max\": 0") >= 0
 		and koyora_companion_move_left_manifest.find("\"edge_alpha_max\": 0") >= 0
-		and koyora_companion_move_right_manifest.find("\"edge_alpha_max\": 0") >= 0,
-		"Koyora SD companion manifests should pin the three rear-view 5x5 / 25-frame sheets and transparent-edge QA"
+		and koyora_companion_move_right_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and koyora_companion_strike_manifest.find("\"edge_alpha_max\": 0") >= 0,
+		"Koyora SD companion manifests should pin the rear-view 5x5 / 25-frame movement and strike sheets with transparent-edge QA"
 	)
 	_expect(
 		koyora_companion_click_manifest.find("koyora_companion_click_reaction_98f_v1") >= 0
@@ -721,10 +727,10 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and LingpetCatalog.get_visual_path("nekuring", "companion_move_left") == "res://assets/sprites/lingpet/nekuring_companion_move_left.png"
 		and LingpetCatalog.get_visual_path("nekuring", "companion_move_right") == "res://assets/sprites/lingpet/nekuring_companion_move_right.png"
 		and LingpetCatalog.get_visual_path("nekuring", "companion_walk") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
-		and LingpetCatalog.get_visual_path("nekuring", "companion_strike") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
+		and LingpetCatalog.get_visual_path("nekuring", "companion_strike") == "res://assets/sprites/lingpet/nekuring_companion_strike.png"
 		and LingpetCatalog.get_visual_path("nekuring", "companion_cast") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"
 		and LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f.png",
-		"Nekuring debug companion should use the ringpart-matched idle SD sheet, dedicated movement sheets, and downscaled click-reaction sheet"
+		"Nekuring debug companion should use the ringpart-matched idle SD sheet, dedicated movement and strike sheets, and downscaled click-reaction sheet"
 	)
 	_expect(
 		FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_cutin_art.png")
@@ -736,8 +742,9 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_walk.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_move_left.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_move_right.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_strike.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/nekuring_companion_rear_source.png"),
-		"Nekuring source, acquisition, full click, companion click, idle, fallback, and movement SD companion textures should exist under the lingpet asset tree"
+		"Nekuring source, acquisition, full click, companion click, idle, fallback, movement, and strike SD companion textures should exist under the lingpet asset tree"
 	)
 	_expect(
 		is_equal_approx(LingpetCatalog.get_visual_layout_value("nekuring", "cutin_anim_view_h_ratio", 0.0), 0.56)
@@ -760,6 +767,7 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	var nekuring_companion_idle_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_idle_manifest.json")
 	var nekuring_companion_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_walk_manifest.json")
 	var nekuring_companion_move_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_move_pair_manifest.json")
+	var nekuring_companion_strike_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_companion_strike_manifest.json")
 	var nekuring_art_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_cutin_art_manifest.json")
 	_expect(
 		nekuring_art_manifest.find("nekuring_cutin_art_imagegen_v1") >= 0
@@ -843,6 +851,20 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and nekuring_companion_move_manifest.find("\"edge_touch_frames\": []") >= 0
 		and nekuring_companion_move_manifest.find("\"visible_green_pixels\": 0") >= 0,
 		"Nekuring rear-3/4 movement manifest should pin the accepted AutoSprite sheet, mirrored left sheet, and clean-edge QA"
+	)
+	_expect(
+		nekuring_companion_strike_manifest.find("nekuring_companion_strike_rear_staff_25f_v1") >= 0
+		and nekuring_companion_strike_manifest.find("cmq77h3fv005uocu4groreo2c") >= 0
+		and nekuring_companion_strike_manifest.find("wf_e7de6e2b-f675-4690-bda8-19033f908f29") >= 0
+		and nekuring_companion_strike_manifest.find("cmqbeitp2001pv3js5m9m7sd4") >= 0
+		and nekuring_companion_strike_manifest.find("\"runtime_active_frames\": [") >= 0
+		and nekuring_companion_strike_manifest.find("\"frame_count\": 25") >= 0
+		and nekuring_companion_strike_manifest.find("\"cols\": 5") >= 0
+		and nekuring_companion_strike_manifest.find("\"rows\": 5") >= 0
+		and nekuring_companion_strike_manifest.find("\"edge_alpha_max\": 0") >= 0
+		and nekuring_companion_strike_manifest.find("\"edge_touch_frames\": []") >= 0
+		and nekuring_companion_strike_manifest.find("\"visible_green_pixels\": 0") >= 0,
+		"Nekuring strike manifest should pin the AutoSprite rear staff-strike remap and clean-edge QA"
 	)
 	_expect(modal_gate.is_lingpet_debug_picker_open(Callable(registry, "get_instance")), "modal gate should see the open lingpet picker")
 	_expect(modal_gate.should_block_battle_physics(Callable(registry, "get_instance")), "open lingpet picker should block battle physics")
@@ -1203,6 +1225,73 @@ func _verify_flight_pet_appearance_override() -> void:
 	picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
 	_expect(is_equal_approx(runtime.get_debug_defense_rate_override(), 0.5), "re-applying a patrol pet should route the staged override back to the defense channel")
 	_expect(is_equal_approx(runtime.get_debug_appearance_rate_override(), -1.0), "re-applying a patrol pet should clear the appearance-rate channel")
+
+
+func _verify_move_speed_slider() -> void:
+	var picker := LingpetDebugPicker.new()
+	var runtime := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"lingpet_debug_picker": picker,
+		"lingpet_egg_runtime": runtime,
+	})
+	var view_size := Vector2(1280.0, 720.0)
+	picker.toggle(owner)
+	_expect(is_equal_approx(picker.get_move_speed_override_for_tests(), -1.0), "move-speed override should default to 기본 (off)")
+
+	# Stepping: off(-1) -> MIN 0.5x -> +0.25 steps, independent of the defense row.
+	var inc_rect: Rect2 = picker.get_move_speed_inc_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(inc_rect.position + inc_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_move_speed_override_for_tests(), 0.5), "first ► step should set the move-speed override to 0.5x")
+	var bar_rect: Rect2 = picker.get_move_speed_bar_rect_for_tests(view_size)
+	picker.handle_input(_mouse_wheel(bar_rect.position + bar_rect.size * 0.5, true), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_move_speed_override_for_tests(), 0.75), "wheel up over the move-speed row should step to 0.75x")
+	_expect(is_equal_approx(picker.get_defense_override_for_tests(), -1.0), "the move-speed row must not touch the defense slider")
+
+	# Bar center -> 1.25x (MIN 0.5 + 0.5 * range 1.5, snapped to the 0.25 grid).
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x + bar_rect.size.x * 0.5, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_move_speed_override_for_tests(), 1.25), "clicking the bar center should set ~1.25x")
+
+	# ◄ below MIN returns to 기본 (off).
+	var dec_rect: Rect2 = picker.get_move_speed_dec_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_move_speed_override_for_tests(), 0.5), "far-left bar click should set MIN 0.5x")
+	picker.handle_input(_mouse_click(dec_rect.position + dec_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(picker.get_move_speed_override_for_tests(), -1.0), "◄ below MIN should return to 기본 (off)")
+
+	# PATROL pet apply commits the staged multiplier.
+	picker.handle_input(_mouse_click(Vector2(bar_rect.position.x + bar_rect.size.x * 0.5, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+	var maribo_index := _find_pet_index(picker, "maribo")
+	if maribo_index < 0:
+		maribo_index = 0
+	var maribo_rect := picker.get_card_rect_for_tests(maribo_index, view_size)
+	picker.handle_input(_mouse_click(maribo_rect.position + maribo_rect.size * 0.5), owner, registry, view_size)
+	var apply_rect := picker.get_apply_button_rect_for_tests(view_size)
+	picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
+	_expect(is_equal_approx(runtime.get_debug_move_speed_override(), 1.25), "patrol pet apply should commit the staged move-speed multiplier")
+
+	# FLIGHT pet apply ALSO commits move-speed (no motion-style gate, unlike defense/appearance).
+	var lunabi_index := _find_pet_index(picker, "lunabi")
+	if lunabi_index >= 0:
+		picker.toggle(owner)
+		bar_rect = picker.get_move_speed_bar_rect_for_tests(view_size)
+		picker.handle_input(_mouse_click(Vector2(bar_rect.position.x + bar_rect.size.x * 0.5, bar_rect.position.y + bar_rect.size.y * 0.5)), owner, registry, view_size)
+		var lunabi_rect := picker.get_card_rect_for_tests(lunabi_index, view_size)
+		picker.handle_input(_mouse_click(lunabi_rect.position + lunabi_rect.size * 0.5), owner, registry, view_size)
+		apply_rect = picker.get_apply_button_rect_for_tests(view_size)
+		picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
+		_expect(is_equal_approx(runtime.get_debug_move_speed_override(), 1.25), "flight pet apply should ALSO commit move-speed (no motion-style gate)")
+
+	# Live effect: the override scales the published patrol speed by the multiplier,
+	# and clearing it restores the base speed (no gate -> works for the active pet).
+	runtime.set_debug_move_speed_override(-1.0)
+	runtime.update(0.0, owner, registry)
+	var base_speed := float(owner.lingpet_companion_patrol_speed_default)
+	runtime.set_debug_move_speed_override(1.5)
+	runtime.update(0.0, owner, registry)
+	var scaled_speed := float(owner.lingpet_companion_patrol_speed_default)
+	_expect(base_speed > 0.0, "base patrol speed should be published before scaling")
+	_expect(is_equal_approx(scaled_speed, base_speed * 1.5), "move-speed override should scale the live patrol speed by the multiplier")
 
 
 func _find_pet_index(picker: Object, pet_id: String) -> int:

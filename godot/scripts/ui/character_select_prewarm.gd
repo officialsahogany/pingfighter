@@ -123,18 +123,18 @@ func _primary_fullframe_path(character: Dictionary) -> String:
 				continue
 			var candidate: Dictionary = candidate_value
 			var path := str(candidate.get("path", ""))
-			if _path_exists(path):
+			if _path_exists(path, "Texture2D"):
 				return path
 	var fallback_path := str(character.get("live2d_fullframe_sheet_path", ""))
-	return fallback_path if _path_exists(fallback_path) else ""
+	return fallback_path if _path_exists(fallback_path, "Texture2D") else ""
 
 
 func _primary_full_body_path(character: Dictionary) -> String:
 	var sheet_path := str(character.get("full_body_live2d_sheet_path", ""))
-	if _path_exists(sheet_path):
+	if _path_exists(sheet_path, "Texture2D"):
 		return sheet_path
 	var fallback_path := str(character.get("full_body_live2d_path", ""))
-	return fallback_path if _path_exists(fallback_path) else ""
+	return fallback_path if _path_exists(fallback_path, "Texture2D") else ""
 
 
 func _add_layer_jobs(character: Dictionary, character_name: String) -> void:
@@ -144,12 +144,12 @@ func _add_layer_jobs(character: Dictionary, character_name: String) -> void:
 	var layers: Dictionary = layers_value
 	for key in layers.keys():
 		var path := str(layers.get(key, ""))
-		if _path_exists(path):
+		if _path_exists(path, "Texture2D"):
 			_add_job(path, "Texture2D", _format_asset_label(character_name, "parts"))
 
 
 func _add_job(path: String, type_hint: String, label: String) -> void:
-	if path == "" or not _path_exists(path):
+	if path == "" or not _path_exists(path, type_hint):
 		return
 	for job_value in jobs:
 		if job_value is Dictionary and str(job_value.get("path", "")) == path:
@@ -282,7 +282,7 @@ func _can_thread_load_job(job: Dictionary) -> bool:
 	var path := str(job.get("path", ""))
 	if type_hint != "Texture2D":
 		return true
-	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+	return ProjectResourceLoader.can_thread_load_texture(path)
 
 
 func _load_job_synchronously(job: Dictionary) -> void:
@@ -303,11 +303,13 @@ func _finish_current_job() -> void:
 	current_progress = 0.0
 
 
-func _path_exists(path: String) -> bool:
+func _path_exists(path: String, type_hint: String = "") -> bool:
 	if path == "":
 		return false
-	if FileAccess.file_exists(path):
-		return true
-	if FileAccess.file_exists("%s.import" % path):
-		return true
+	if type_hint == "Texture2D":
+		return ProjectResourceLoader.texture_resource_exists(path)
+	if type_hint == "AudioStream":
+		return ProjectResourceLoader.audio_resource_exists(path)
+	if type_hint != "":
+		return ResourceLoader.exists(path, type_hint) or ResourceLoader.exists(path)
 	return ResourceLoader.exists(path)

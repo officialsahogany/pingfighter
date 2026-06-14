@@ -40,6 +40,8 @@ func build_config(params: Dictionary) -> Dictionary:
 		"affinity_title": _get_affinity_title(affinity_feedback_state),
 		"affinity_heart_tint": _get_affinity_heart_tint(affinity_feedback_state),
 		"affinity_trigger_count": _get_trigger_count(affinity_feedback_state),
+		"defense_guard_active": bool(params.get("defense_guard_active", false)),
+		"defense_guard_aura_ratio": clampf(float(params.get("defense_guard_aura_ratio", 0.0)), 0.0, 1.0),
 		"switch_transition": _get_switch_ratio(switch_state, switch_transition_seconds),
 		"switch_particles": int(params.get("switch_particles", 12)),
 		"switch_trigger_count": _get_trigger_count(switch_state),
@@ -83,7 +85,15 @@ func build_affinity_feedback_config(params: Dictionary) -> Dictionary:
 		"affinity_heart_tint": _get_affinity_heart_tint(affinity_feedback_state),
 		"affinity_trigger_count": _get_trigger_count(affinity_feedback_state),
 		"affinity_point_popups": _get_affinity_point_popups(affinity_feedback_state, companion_active),
+		"affinity_guard_label": _get_affinity_guard_label(affinity_feedback_state, companion_active),
+		"shake_offset": params.get("shake_offset", Vector2.ZERO),
 	}
+
+
+func _get_affinity_guard_label(affinity_feedback_state: Object, companion_active: bool) -> Dictionary:
+	if affinity_feedback_state == null or not affinity_feedback_state.has_method("get_guard_label"):
+		return {}
+	return affinity_feedback_state.get_guard_label(companion_active)
 
 
 func _get_affinity_point_popups(affinity_feedback_state: Object, companion_active: bool) -> Array:

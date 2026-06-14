@@ -49,6 +49,10 @@ func build_serve_snapshot(
 
 func build_common_snapshot() -> Dictionary:
 	return {
+		# 공-소유 스킬이 ball 패스의 해제를 못 거치고 라운드 경계에서 정리될 수 있으므로
+		# (예: 연출 pause 창 만료, owner 없는 round cleanup), 공유 홀드 플래그는
+		# 리셋/서브 스냅샷 계층에서 항상 정규화한다. 어떤 홀드도 라운드를 넘겨 살 수 없다.
+		"skip_ball_motion_step": false,
 		"ball_impact_boost": 1.0,
 		"ball_boost_decay_rate": BALL_IMPACT_BASE_DECAY_RATE,
 		"ball_min_boost": BALL_IMPACT_BASE_MIN_BOOST,
@@ -72,6 +76,8 @@ func build_common_snapshot() -> Dictionary:
 		"commando_suicide_drone_ball_boost_active": false,
 		"commando_suicide_drone_ball_restore_speed": 0.0,
 		"commando_suicide_drone_ball_boosted_speed": 0.0,
+		"lingpet_wild_roar_ball_boost_active": false,
+		"lingpet_wild_roar_ball_restore_speed": 0.0,
 		"blacksmith_umbrella_open": false,
 		"blacksmith_umbrella_anim_timer": 0.0,
 		"blacksmith_umbrella_retracting": false,

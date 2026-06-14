@@ -8,6 +8,7 @@ const HIT_FLASH_SECONDS := 0.28
 const BOUNCE_MAX_ANGLE := 60.0
 const BOUNCE_MIN_SPEED := 6.0
 const HIT_GAUGE_FLASH_SECONDS := 0.45
+const RALLY_SPEED_CAP_INCREASE_PER_GUARD := 0.5
 
 var ball_was_inside := false
 var contact_count := 0
@@ -75,7 +76,7 @@ func resolve_ball_hit(
 	cooldown = HIT_COOLDOWN_SECONDS
 	hit_flash_timer = HIT_FLASH_SECONDS
 	_release_ball_control_skill_for_companion_guard(owner, registry)
-	_apply_paddle_bounce(owner, ball_pos, ball_radius, companion_pos, half_width, half_height)
+	_apply_paddle_bounce(owner, registry, ball_pos, ball_radius, companion_pos, half_width, half_height)
 	_register_ball_intensity_contact(registry)
 	_play_paddle_hit(registry)
 	_try_apply_hit_gauge_gain(owner, registry, hit_gauge_gain, companion_active)
@@ -111,14 +112,29 @@ func get_gauge_flash_ratio(companion_active: bool) -> float:
 	return clampf(gauge_flash_timer / HIT_GAUGE_FLASH_SECONDS, 0.0, 1.0)
 
 
-func _apply_paddle_bounce(owner: Object, ball_pos: Vector2, ball_radius: float, companion_pos: Vector2, half_width: float, half_height: float) -> void:
+func _apply_paddle_bounce(owner: Object, registry: Object, ball_pos: Vector2, ball_radius: float, companion_pos: Vector2, half_width: float, half_height: float) -> void:
 	var ball_vel: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "ball_vel", Vector2.ZERO)
 	var speed: float = maxf(ball_vel.length(), BOUNCE_MIN_SPEED)
 	var max_angle: float = float(BattleSceneOwnerReader.get_value(owner, "max_bounce_angle", BOUNCE_MAX_ANGLE))
 	var hit_pos: float = clampf((ball_pos.x - companion_pos.x) / maxf(1.0, half_width), -1.0, 1.0)
 	var launch_dir: Vector2 = Vector2(0.0, -1.0).rotated(deg_to_rad(hit_pos * max_angle)).normalized()
-	owner.set("ball_vel", launch_dir * speed)
+	owner.set("ball_vel", _apply_companion_guard_bounce_speed(registry, owner, launch_dir * speed))
 	owner.set("ball_pos", companion_pos + launch_dir * (half_height + ball_radius + 1.0))
+	_apply_rally_speed_cap_progression(owner)
+
+
+func _apply_companion_guard_bounce_speed(registry: Object, owner: Object, velocity: Vector2) -> Vector2:
+	var ball_physics: Object = _get_registry_instance(registry, "ball_physics")
+	if ball_physics == null or not ball_physics.has_method("apply_companion_guard_bounce_speed"):
+		return velocity
+	var cap_bonus: float = maxf(0.0, float(BattleSceneOwnerReader.get_value(owner, "rally_speed_cap_bonus", 0.0)))
+	var adjusted: Variant = ball_physics.apply_companion_guard_bounce_speed(velocity, cap_bonus)
+	return adjusted if adjusted is Vector2 else velocity
+
+
+func _apply_rally_speed_cap_progression(owner: Object) -> void:
+	var current_bonus: float = maxf(0.0, float(BattleSceneOwnerReader.get_value(owner, "rally_speed_cap_bonus", 0.0)))
+	owner.set("rally_speed_cap_bonus", current_bonus + RALLY_SPEED_CAP_INCREASE_PER_GUARD)
 
 
 func _try_apply_hit_gauge_gain(owner: Object, registry: Object, hit_gauge_gain: float, companion_active: bool) -> bool:

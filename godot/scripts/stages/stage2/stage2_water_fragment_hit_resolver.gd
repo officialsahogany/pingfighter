@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage2WaterFragmentHitPayloadFactory := preload("res://scripts/stages/stage2/stage2_water_fragment_hit_payload_factory.gd")
+
 
 static func resolve_hits(water_splashes: Array, player_rects: Array[Rect2], collision_geometry: Object) -> Array:
 	var hits: Array = []
@@ -18,12 +20,7 @@ static func resolve_hits(water_splashes: Array, player_rects: Array[Rect2], coll
 		var hit_rect: Rect2 = collision_geometry.get_first_overlapping_rect(pos, radius, player_rects)
 		if hit_rect.size.x <= 0.0:
 			continue
-		hits.append({
-			"index": index,
-			"splash": splash,
-			"pos": pos,
-			"hit_rect": hit_rect,
-		})
+		hits.append(Stage2WaterFragmentHitPayloadFactory.build_hit(index, splash, pos, hit_rect))
 	return hits
 
 

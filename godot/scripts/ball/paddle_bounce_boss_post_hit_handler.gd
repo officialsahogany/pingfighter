@@ -175,6 +175,13 @@ func apply(
 	if not suicide_drone_boost_result.is_empty():
 		next_ball_vel = _get_vector2(suicide_drone_boost_result, "ball_vel", next_ball_vel)
 
+	var wild_roar_boost_result: Dictionary = _consume_lingpet_wild_roar_ball_boost(
+		next_ball_vel,
+		context
+	)
+	if not wild_roar_boost_result.is_empty():
+		next_ball_vel = _get_vector2(wild_roar_boost_result, "ball_vel", next_ball_vel)
+
 	var result := {
 		"ball_pos": next_ball_pos,
 		"ball_vel": next_ball_vel,
@@ -212,6 +219,10 @@ func apply(
 		for key in suicide_drone_boost_result.keys():
 			if key != "ball_vel":
 				result[key] = suicide_drone_boost_result[key]
+	if not wild_roar_boost_result.is_empty():
+		for key in wild_roar_boost_result.keys():
+			if key != "ball_vel":
+				result[key] = wild_roar_boost_result[key]
 	if not stage5_hongryun_result.is_empty():
 		result.merge(stage5_hongryun_result, true)
 	return result
@@ -367,6 +378,24 @@ func _consume_commando_suicide_drone_ball_boost(ball_vel: Vector2, context: Dict
 		"commando_suicide_drone_ball_boost_consumed": true,
 		"commando_suicide_drone_ball_restored_speed": restore_speed,
 		"commando_suicide_drone_speed_limit_disabled": false,
+		"speed_limit_disabled": false,
+	}
+
+
+func _consume_lingpet_wild_roar_ball_boost(ball_vel: Vector2, context: Dictionary) -> Dictionary:
+	if not bool(context.get("lingpet_wild_roar_ball_boost_active", false)):
+		return {}
+	var restore_speed: float = max(0.0, float(context.get("lingpet_wild_roar_ball_restore_speed", 0.0)))
+	var next_ball_vel: Vector2 = ball_vel
+	if restore_speed > 0.0 and ball_vel.length() > 0.001:
+		next_ball_vel = ball_vel.normalized() * restore_speed
+	return {
+		"ball_vel": next_ball_vel,
+		"lingpet_wild_roar_ball_boost_active": false,
+		"lingpet_wild_roar_ball_restore_speed": 0.0,
+		"lingpet_wild_roar_ball_boost_consumed": true,
+		"lingpet_wild_roar_ball_restored_speed": restore_speed,
+		"lingpet_wild_roar_speed_limit_disabled": false,
 		"speed_limit_disabled": false,
 	}
 

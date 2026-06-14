@@ -3,6 +3,15 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
+const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
+const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
+const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
+const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint_drop_motion_state.gd")
+const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
+const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
+const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
+const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
+const Stage1BalloonPayloadFactory := preload("res://scripts/stages/stage1/stage1_balloon_payload_factory.gd")
 
 const STAGE_ID := 1
 const WIDTH := 760.0
@@ -221,11 +230,12 @@ func absorb_chaos_spear_objects(center: Vector2, radius: float, deps: Dictionary
 			continue
 		balloons.remove_at(i)
 		_handle_balloon_pop(balloon, deps)
-		absorbed.append({
-			"position": balloon_pos,
-			"strength": clamp(balloon_radius / 30.0, 0.75, 1.55),
-			"color": balloon.get("color", Color(0.78, 0.48, 1.0, 1.0)),
-		})
+		var balloon_color: Color = _get_color(balloon.get("color", Color(0.78, 0.48, 1.0, 1.0)), Color(0.78, 0.48, 1.0, 1.0))
+		absorbed.append(Stage1BalloonPayloadFactory.build_absorbed_balloon_payload(
+			balloon_pos,
+			balloon_radius,
+			balloon_color
+		))
 	return absorbed
 
 
@@ -390,20 +400,23 @@ func _shoot_single_balloon(index: int, deps: Dictionary) -> void:
 	var speed: float = randf_range(3.0, 4.0)
 	var is_special: bool = special_balloon_indices.has(index)
 	var color: Color = STARPOINT_BALLOON_COLOR if is_special else NORMAL_BALLOON_COLORS[balloon_shoot_order[index] % NORMAL_BALLOON_COLORS.size()]
-	balloons.append({
-		"pos": machine_pos,
-		"vel": Vector2(cos(angle), sin(angle)) * speed,
-		"radius": float(randi_range(BALLOON_MIN_RADIUS, BALLOON_MAX_RADIUS)),
-		"color": color,
-		"bounce": randf_range(0.0, TAU),
-		"lifetime": 0.0,
-		"is_special": is_special,
-		"sprite_index": balloon_shoot_order[index] % NORMAL_BALLOON_FRAME_COUNT,
-		"rotation": randf_range(0.0, 360.0),
-		"rotation_speed": (-1.0 if randf() < 0.5 else 1.0) * randf_range(1.4, 2.8),
-		"paddle_bounce_cooldown": 0.0,
-		"paddle_bounce_slow_timer": 0.0,
-	})
+	var radius: float = float(randi_range(BALLOON_MIN_RADIUS, BALLOON_MAX_RADIUS))
+	var bounce: float = randf_range(0.0, TAU)
+	var sprite_index: int = balloon_shoot_order[index] % NORMAL_BALLOON_FRAME_COUNT
+	var rotation: float = randf_range(0.0, 360.0)
+	var rotation_speed: float = (-1.0 if randf() < 0.5 else 1.0) * randf_range(1.4, 2.8)
+	balloons.append(Stage1BalloonPayloadFactory.build_balloon(
+		machine_pos,
+		angle,
+		speed,
+		radius,
+		color,
+		bounce,
+		is_special,
+		sprite_index,
+		rotation,
+		rotation_speed
+	))
 	_play_pop_sound(deps)
 
 
@@ -457,7 +470,7 @@ func _resolve_paddle_interactions(context: Dictionary, deps: Dictionary) -> void
 		_get_vector2(context, "player_pos", Vector2.ZERO),
 		_get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0))
 	)
-	var player_rects: Array[Rect2] = _get_player_interaction_rects(player_rect, deps)
+	var player_rects: Array[Rect2] = StagePlayerInteractionRects.get_player_interaction_rects(player_rect, deps)
 	var boss_rect: Rect2 = Rect2(
 		_get_vector2(context, "boss_pos", Vector2.ZERO),
 		Vector2(float(context.get("boss_paddle_width", 100.0)), float(context.get("boss_hitbox_height", 40.0)))
@@ -494,17 +507,6 @@ func _circle_rect_overlap(balloon: Dictionary, rect: Rect2) -> bool:
 		clamp(pos.y, rect.position.y, rect.position.y + rect.size.y)
 	)
 	return pos.distance_to(nearest) <= radius
-
-
-func _get_player_interaction_rects(base_rect: Rect2, deps: Dictionary) -> Array[Rect2]:
-	var rects: Array[Rect2] = [base_rect]
-	var warp_gate_state: Object = deps.get("smasher_warp_gate_state", null)
-	if warp_gate_state == null or not warp_gate_state.has_method("get_mirror_offset_x"):
-		return rects
-	var mirror_offset_x: float = float(warp_gate_state.get_mirror_offset_x(base_rect.position, base_rect.size.x))
-	if abs(mirror_offset_x) > 0.01:
-		rects.append(Rect2(base_rect.position + Vector2(mirror_offset_x, 0.0), base_rect.size))
-	return rects
 
 
 func _get_first_overlapping_player_rect(balloon: Dictionary, player_rects: Array[Rect2]) -> Rect2:
@@ -566,38 +568,23 @@ func _create_pop_effect(balloon: Dictionary) -> void:
 	var radius: float = float(balloon.get("radius", 30.0))
 	_ensure_textures()
 	if balloon_pop_sheet != null:
-		pop_effects.append({
-			"type": "sprite",
-			"pos": pos,
-			"timer": 0.0,
-			"life": float(BALLOON_POP_FRAME_COUNT) * BALLOON_POP_FRAME_DURATION,
-			"radius": radius,
-			"is_special": bool(balloon.get("is_special", false)),
-		})
+		pop_effects.append(Stage1BalloonPayloadFactory.build_sprite_pop_effect(
+			pos,
+			radius,
+			bool(balloon.get("is_special", false)),
+			BALLOON_POP_FRAME_COUNT,
+			BALLOON_POP_FRAME_DURATION
+		))
 		return
 
-	pop_effects.append({
-		"type": "burst",
-		"pos": pos,
-		"color": color,
-		"radius": 4.0,
-		"max_radius": max(40.0, radius * 2.2),
-		"alpha": 0.86,
-		"life": 16.0,
-	})
-	var particle_count := POP_EFFECT_FALLBACK_SPECIAL_PARTICLES if bool(balloon.get("is_special", false)) else POP_EFFECT_FALLBACK_NORMAL_PARTICLES
-	for _i in range(particle_count):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(3.0, 9.0)
-		pop_effects.append({
-			"type": "particle",
-			"pos": pos,
-			"vel": Vector2(cos(angle), sin(angle)) * speed,
-			"color": color,
-			"alpha": 1.0,
-			"size": float(randi_range(4, 11)),
-			"life": float(randi_range(20, 34)),
-		})
+	pop_effects.append_array(Stage1BalloonPayloadFactory.build_fallback_pop_effects(
+		pos,
+		color,
+		radius,
+		bool(balloon.get("is_special", false)),
+		POP_EFFECT_FALLBACK_NORMAL_PARTICLES,
+		POP_EFFECT_FALLBACK_SPECIAL_PARTICLES
+	))
 
 
 func _update_pop_effects(fps_scale: float) -> void:
@@ -649,29 +636,23 @@ func _spawn_starpoint_drop_at(
 	allow_star_detector_bonus: bool = true,
 	star_detector_bonus: bool = false
 ) -> void:
-	var direction: float = -1.0 if randf() < 0.5 else 1.0
-	starpoint_drops.append({
-		"pos": pos,
-		"vel": Vector2(randf_range(1.5, 3.0) * direction, randf_range(-4.0, -2.5)),
-		"size": STARPOINT_DROP_SIZE * (0.94 if star_detector_bonus else 1.0),
-		"rotation": randf_range(0.0, TAU),
-		# Reduced from (0.05, 0.1) so the iridescent pink star tumbles slowly
-		# during its fall (closer to "drifting jewel" than "spinning sparkle"),
-		# matching the user's "slowly rotating while falling" direction.
-		"rotation_speed": randf_range(0.02, 0.045),
-		"glow_intensity": 1.0,
-		"glow_timer": 0.0,
-		"life": STARPOINT_DROP_LIFETIME,
-		"float_timer": randf_range(0.0, TAU),
-		"star_detector_bonus": star_detector_bonus,
-	})
+	# Stage 1 keeps the iridescent pink star on a slower "drifting jewel" tumble.
+	starpoint_drops.append(StarpointPayloadFactory.build_drop(
+		pos,
+		null,
+		star_detector_bonus,
+		STARPOINT_DROP_SIZE,
+		STARPOINT_DROP_LIFETIME,
+		0.02,
+		0.045
+	))
 	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + (6 if star_detector_bonus else 0), 1.2 if star_detector_bonus else 1.0)
 	if allow_star_detector_bonus:
 		_spawn_star_detector_bonus_drops(pos, deps, context)
 
 
 func _spawn_star_detector_bonus_drops(pos: Vector2, deps: Dictionary, context: Dictionary) -> void:
-	var bonus_count: int = _roll_star_detector_bonus_drop_count(deps, context)
+	var bonus_count: int = StarpointBonusDropPolicy.roll_star_detector_bonus_drop_count(deps, context)
 	for _i in range(bonus_count):
 		var bonus_pos := Vector2(
 			clamp(
@@ -688,13 +669,6 @@ func _spawn_star_detector_bonus_drops(pos: Vector2, deps: Dictionary, context: D
 		_spawn_starpoint_drop_at(bonus_pos, deps, context, false, true)
 
 
-func _roll_star_detector_bonus_drop_count(deps: Dictionary, context: Dictionary) -> int:
-	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps, context)
-	if mythic_item_runtime == null or not mythic_item_runtime.has_method("roll_star_detector_bonus_drop_count"):
-		return 0
-	return max(0, int(mythic_item_runtime.roll_star_detector_bonus_drop_count()))
-
-
 func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	if starpoint_drops.is_empty():
 		return
@@ -703,47 +677,28 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		_get_vector2(context, "player_pos", Vector2.ZERO),
 		_get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0))
 	)
-	var player_rects: Array[Rect2] = _get_player_interaction_rects(player_rect, deps)
+	var player_rects: Array[Rect2] = StagePlayerInteractionRects.get_player_interaction_rects(player_rect, deps)
 	var write_index := 0
 	var drop_count := starpoint_drops.size()
 	for index in range(drop_count):
 		var d: Dictionary = starpoint_drops[index]
-		d["life"] = float(d.get("life", 0.0)) - fps_scale
-		if float(d.get("life", 0.0)) <= 0.0:
+		if not StarpointDropMotionState.update_drop(
+			d,
+			fps_scale,
+			play_left,
+			play_right,
+			play_height,
+			STARPOINT_DROP_SIZE,
+			STARPOINT_DROP_MAX_FALL_SPEED,
+			STARPOINT_DROP_ACCELERATION,
+			STARPOINT_DROP_BOUNCE_DAMPING
+		):
 			continue
-
-		var pos: Vector2 = _get_vector2(d, "pos", Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(d, "vel", Vector2.ZERO)
-		var size: float = max(1.0, float(d.get("size", STARPOINT_DROP_SIZE)))
-		var float_timer: float = float(d.get("float_timer", 0.0)) + 0.05 * fps_scale
-		pos.x += (vel.x + sin(float_timer) * 0.1) * fps_scale
-		pos.y += vel.y * fps_scale
-		vel.y = min(STARPOINT_DROP_MAX_FALL_SPEED, vel.y + STARPOINT_DROP_ACCELERATION * fps_scale)
-
-		if pos.x <= play_left + size:
-			pos.x = play_left + size
-			vel.x = abs(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
-		elif pos.x >= play_right - size:
-			pos.x = play_right - size
-			vel.x = -abs(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
-		vel.x *= pow(0.98, fps_scale)
-		# Cull at the spawn-clamp boundary so a descending drop disappears the
-		# instant its bottom edge reaches the floor (matches spawn pos.y max).
-		if pos.y > play_height - size:
-			continue
-
-		d["pos"] = pos
-		d["vel"] = vel
-		d["float_timer"] = float_timer
-		d["rotation"] = float(d.get("rotation", 0.0)) + float(d.get("rotation_speed", 0.07)) * fps_scale
-		var glow_timer: float = float(d.get("glow_timer", 0.0)) + 0.1 * fps_scale
-		d["glow_timer"] = glow_timer
-		d["glow_intensity"] = 0.7 + 0.3 * abs(sin(glow_timer))
 
 		var starlight_tracking_result := LingpetStarlightTrackingBridge.update_drop(d, fps_scale, context, deps)
 		if bool(starlight_tracking_result.get("delivered", false)):
 			if _collect_starpoint_drop(d, context, deps):
-				_finish_starpoint_modal_collection(index, write_index, drop_count)
+				StarpointCollectionCompaction.finish_in_place(starpoint_drops, index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -753,9 +708,9 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			write_index += 1
 			continue
 
-		if _starpoint_overlaps_any_player(d, player_rects):
+		if StarpointDropOverlapQuery.overlaps_any_rect_player(d, player_rects, STARPOINT_DROP_SIZE):
 			if _collect_starpoint_drop(d, context, deps):
-				_finish_starpoint_modal_collection(index, write_index, drop_count)
+				StarpointCollectionCompaction.finish_in_place(starpoint_drops, index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -766,83 +721,27 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		starpoint_drops.resize(write_index)
 
 
-func _finish_starpoint_modal_collection(collected_index: int, write_index: int, drop_count: int) -> void:
-	if starpoint_drops.size() < drop_count:
-		return
-	var tail_write := write_index
-	for tail_read in range(collected_index + 1, drop_count):
-		starpoint_drops[tail_write] = starpoint_drops[tail_read]
-		tail_write += 1
-	starpoint_drops.resize(tail_write)
-
-
-func _starpoint_overlaps_player(drop: Dictionary, player_rect: Rect2) -> bool:
-	if player_rect.size.x <= 0.0 or player_rect.size.y <= 0.0:
-		return false
-	var pos: Vector2 = _get_vector2(drop, "pos", Vector2.ZERO)
-	var size: float = max(1.0, float(drop.get("size", STARPOINT_DROP_SIZE)))
-	var star_rect := Rect2(pos - Vector2(size, size), Vector2(size * 2.0, size * 2.0))
-	return player_rect.intersects(star_rect, true)
-
-
-func _starpoint_overlaps_any_player(drop: Dictionary, player_rects: Array[Rect2]) -> bool:
-	for rect in player_rects:
-		if _starpoint_overlaps_player(drop, rect):
-			return true
-	return false
-
-
 func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
-	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
-	var runtime_perk_catalog: Object = deps.get("runtime_perk_catalog", null)
-	var owner: Object = context.get("owner", null)
-	var registry: Object = context.get("registry", null)
-	var character_type: String = str(context.get("selected_character_type", "smasher"))
-	var opened_choice: bool = false
-	if runtime_perk_state != null and runtime_perk_state.has_method("collect_star_points"):
-		opened_choice = bool(runtime_perk_state.collect_star_points(1, character_type, runtime_perk_catalog, owner, registry))
+	var opened_choice: bool = StarpointCollectionRewardPolicy.collect_starpoint_reward(context, deps, false)
 	var pos: Vector2 = _get_vector2(drop, "pos", Vector2.ZERO)
 	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + 10, 1.4)
 	_play_starpoint_collect_sound(deps)
-	if owner != null and owner.has_method("queue_redraw"):
-		owner.queue_redraw()
+	StarpointCollectionRewardPolicy.request_owner_redraw(context)
 	return opened_choice
 
 
 func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> void:
-	var resolved_count: int = max(0, count)
-	for _i in range(resolved_count):
-		starpoint_particles.append({
-			"pos": pos + Vector2(randf_range(-10.0, 10.0), randf_range(-10.0, 10.0)),
-			"vel": Vector2(randf_range(-2.0, 2.0) * intensity, randf_range(-4.0, -1.0) * intensity),
-			"size": randf_range(1.4, 3.3) * min(1.6, intensity),
-			"alpha": 1.0,
-			"fade_speed": randf_range(0.035, 0.070),
-			"life": STARPOINT_PARTICLE_LIFE,
-			"color_shift": randf_range(0.3, 1.0),
-		})
+	starpoint_particles.append_array(StarpointPayloadFactory.build_particles(
+		pos,
+		count,
+		intensity,
+		null,
+		STARPOINT_PARTICLE_LIFE
+	))
 
 
 func _update_starpoint_particles(fps_scale: float) -> void:
-	if starpoint_particles.is_empty():
-		return
-	var write_index := 0
-	var particle_count := starpoint_particles.size()
-	for index in range(particle_count):
-		var p: Dictionary = starpoint_particles[index]
-		var pos: Vector2 = _get_vector2(p, "pos", Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(p, "vel", Vector2.ZERO)
-		pos += vel * fps_scale
-		vel.y += 0.1 * fps_scale
-		p["pos"] = pos
-		p["vel"] = vel
-		p["alpha"] = max(0.0, float(p.get("alpha", 1.0)) - float(p.get("fade_speed", 0.05)) * fps_scale)
-		p["life"] = float(p.get("life", 0.0)) - fps_scale
-		if float(p.get("alpha", 0.0)) > 0.0 and float(p.get("life", 0.0)) > 0.0:
-			starpoint_particles[write_index] = p
-			write_index += 1
-	if write_index < particle_count:
-		starpoint_particles.resize(write_index)
+	StarpointParticleState.update_particles(starpoint_particles, fps_scale)
 
 
 func _draw_door(canvas: CanvasItem, shake_offset: Vector2) -> void:
@@ -1250,7 +1149,7 @@ func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> boo
 	if cleanse_state != null and cleanse_state.has_method("is_immune"):
 		if bool(cleanse_state.is_immune()):
 			return true
-	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps, context)
+	var mythic_item_runtime: Object = StarpointBonusDropPolicy.get_mythic_item_runtime(deps, context)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_consume_celestial_armor_immunity"):
 		var status_deps: Dictionary = deps.duplicate()
 		status_deps["context"] = context
@@ -1259,16 +1158,6 @@ func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> boo
 		if bool(mythic_item_runtime.try_consume_celestial_armor_immunity("stage1_balloon", "knockback", status_deps)):
 			return true
 	return false
-
-
-func _get_mythic_item_runtime(deps: Dictionary, context: Dictionary = {}) -> Object:
-	var runtime: Object = deps.get("mythic_item_runtime", null)
-	if runtime != null:
-		return runtime
-	var registry: Object = context.get("registry", null)
-	if registry != null and registry.has_method("get_instance"):
-		return registry.get_instance("mythic_item_runtime")
-	return null
 
 
 func _ease_out_cubic(t: float) -> float:

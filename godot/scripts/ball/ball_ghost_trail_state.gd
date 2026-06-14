@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallEffectPayloadFactory := preload("res://scripts/ball/ball_effect_payload_factory.gd")
+
 const BALL_GHOST_MAX_LENGTH := 4
 const BALL_GHOST_FADE_SPEED := 0.75
 const BALL_GHOST_MIN_DISTANCE := 8.0
@@ -14,12 +16,7 @@ func clear() -> void:
 
 func update(ball_center: Vector2, ball_size: float, fps_scale: float) -> void:
 	if ghost_trail.is_empty():
-		ghost_trail.append({
-			"pos": ball_center,
-			"alpha": BALL_GHOST_INITIAL_ALPHA,
-			"size": ball_size,
-			"age": 0.0,
-		})
+		ghost_trail.append(BallEffectPayloadFactory.build_ghost_trail_point(ball_center, BALL_GHOST_INITIAL_ALPHA, ball_size))
 	else:
 		_append_interpolated_points(ball_center, ball_size)
 
@@ -55,9 +52,4 @@ func _append_interpolated_points(ball_center: Vector2, ball_size: float) -> void
 	segments = clampi(segments, 1, 2)
 	for step in range(1, segments + 1):
 		var t: float = float(step) / float(segments)
-		ghost_trail.append({
-			"pos": last_pos.lerp(ball_center, t),
-			"alpha": BALL_GHOST_INITIAL_ALPHA,
-			"size": ball_size,
-			"age": 0.0,
-		})
+		ghost_trail.append(BallEffectPayloadFactory.build_ghost_trail_point(last_pos.lerp(ball_center, t), BALL_GHOST_INITIAL_ALPHA, ball_size))

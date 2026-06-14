@@ -555,6 +555,15 @@ Important current behavior:
 - Existing Smasher skills such as Magnum Grip, Plasma, Recovery,
   Cleanse, and Ghost Shot each have separate gameplay trigger paths.
   A new skill must have its own real trigger/update path too.
+- **Power-smash wall-bounce arc repointing is a recorded 2026-06-11
+  design decision, an intentional divergence from Python.** On a side-wall
+  bounce during the basic parabola (never during ghost-shot motion), the
+  arc is re-pointed AWAY from the hit wall and shrunk to 25% on the first
+  repoint (`smasher_power_smash_parabola_state.repoint_arc_away_from`,
+  `WALL_ARC_REPOINT_SCALE`). Python never repoints — its post-wall arc
+  brake is the original felt bug, so do NOT "restore parity" here.
+  Design note: `docs/power_smash_wall_arc_design.md`. Sealed by
+  `smasher_power_smash_wall_arc_smoke.gd`.
 - **Power-smash combo scaling is a recorded 2026-06-11 design decision
   (option C), an intentional divergence from Python.** The combo final
   speed bonus AND the combo launch cap (2.403744 vs 2.14032) gate on
@@ -1208,6 +1217,12 @@ Current Godot-first rule:
       Avoid display-only nudges, unrelated one-off velocity globals, or
       a second decay system unless the design explicitly calls for a
       different gameplay identity.
+- [ ] If a skill launches or boosts the ball while bypassing the normal
+      speed cap, guard the release vector against near-horizontal
+      side-wall ping-pong. Preserve the intended shallow diagonal feel,
+      but enforce a documented minimum vertical component and smoke a
+      worst-case side-offset / jitter case so the ball cannot repeatedly
+      hit both side walls until a reset.
 - [ ] Start and end the cooldown in the same character-specific system
       as the existing skills.
 - [ ] If the skill starts or syncs looped audio, or starts a sustained /
@@ -1222,6 +1237,36 @@ Current Godot-first rule:
       is visible, gate the sync or pass muted audio deps during round
       boundaries. A one-shot stop at score time is insufficient if the
       active state can immediately sync the loop back on.
+- [ ] If a hold / charge feedback sound and an activation cue share the
+      same sample, port the Python `start_*_radio_loop` semantics
+      exactly -- they are NOT a loop and NOT timer-stopped, despite the
+      name. The original (`supply_drop.py`): `sound.play()` plays the
+      sample ONCE to its natural end; a re-call while the channel is
+      busy only extends the animation timer ("이미 루프가 재생 중이면
+      타이머만 연장", duplicate playback prevented); the animation-timer
+      expiry (`tick_radio_animation`) only re-arms the started flag and
+      never touches the channel; a non-forced stop skips a busy channel
+      (the sample finishes even on early hold release); ONLY round /
+      battle cleanup uses `force=True` to cut audio. A port that (a)
+      makes the player actually loop, (b) cuts it on an animation/tail
+      timer, or (c) stops-then-replays at activation will produce double
+      cues or mid-sample cuts vs the original. Port shape: non-looping
+      player + playing-check dedupe in `game_audio`, a state-side
+      one-playback-per-hold-session gate that release / tail expiry only
+      RE-ARMS (no audio call), and force-stop wired only into
+      round-reset / save-load / `gameplay_loop_audio_cleanup`. The smoke
+      must assert the OUTCOME: exactly one playback call and ZERO stop
+      calls across hold -> activation -> tail expiry (plus a no-loop
+      fallback case where the one-shot cue fires once), and a
+      game_audio-level assert that the stream stays `LOOP_DISABLED`
+      (with no timer stop, a re-looped stream would play forever).
+      Reference: `commando_supply_drop_state` radio fix +
+      `commando_supply_drop_activation_gate_smoke`
+      `_verify_activation_continues_hold_radio_without_replay` +
+      `game_audio_volume_settings_smoke` loop-disabled assert (the
+      supply-drop radio first fired twice per activation, then the
+      "fix" cut the 3.5s sample mid-way at the 0.35s tail; the old
+      smoke had sealed both behaviors as if they were parity).
 - [ ] If the skill has a player-visible active duration, startup-hold,
       or timed persistence window, wire the shared right-bottom
       horizontal timer bar to the same runtime state transitions and the

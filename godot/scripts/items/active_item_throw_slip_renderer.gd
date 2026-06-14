@@ -5,7 +5,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
 const BANANA_ICON_PATH := ActiveItemCatalog.BANANA_ICON_PATH
 const SOAP_ICON_PATH := ActiveItemCatalog.SOAP_ICON_PATH
-const BANANA_DRAW_SIZE := 64.0
+const BANANA_DRAW_SIZE := 51.2
 const BANANA_LANDED_DRAW_SIZE := 72.0
 const BANANA_LAND_DURATION_FRAMES := 180.0
 const SOAP_DRAW_SIZE := 48.0

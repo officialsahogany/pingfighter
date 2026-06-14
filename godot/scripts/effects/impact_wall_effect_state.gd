@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ImpactEffectPayloadFactory := preload("res://scripts/effects/impact_effect_payload_factory.gd")
+
 const WALL_IMPACT_FLASH_DURATION := 8.0 / 60.0
 const WALL_IMPACT_PARTICLE_LIFE_MIN := 10.0 / 60.0
 const WALL_IMPACT_PARTICLE_LIFE_MAX := 16.0 / 60.0
@@ -47,29 +49,16 @@ func spawn_wall_impact(pos: Vector2, side: String, impact_speed: float) -> void:
 	var direction_mult: float = 1.0 if side == "left" else -1.0
 	var speed_bonus: float = clamp((impact_speed - 6.0) / 24.0, 0.0, 1.0)
 	var particle_count: int = 2 + int(round(speed_bonus))
-	wall_impact_rings.append({
-		"pos": pos,
-		"side": side,
-		"life": WALL_IMPACT_RING_LIFE,
-		"max_life": WALL_IMPACT_RING_LIFE,
-		"start_radius": 10.0,
-		"end_radius": 36.0 + speed_bonus * 30.0,
-		"thickness": 2.0 + speed_bonus * 1.8,
-		"color": WALL_IMPACT_PARTICLE_COLORS[randi() % WALL_IMPACT_PARTICLE_COLORS.size()],
-	})
+	wall_impact_rings.append(ImpactEffectPayloadFactory.build_wall_ring(pos, side, speed_bonus, WALL_IMPACT_RING_LIFE, WALL_IMPACT_PARTICLE_COLORS))
 	for _i in range(particle_count):
-		var angle: float = randf_range(-0.8, 0.8)
-		var speed: float = randf_range(3.0, 6.4 + speed_bonus * 2.4)
-		var max_life: float = randf_range(WALL_IMPACT_PARTICLE_LIFE_MIN, WALL_IMPACT_PARTICLE_LIFE_MAX)
-		wall_impact_particles.append({
-			"pos": pos,
-			"vel": Vector2(cos(angle) * speed * direction_mult, sin(angle) * speed + randf_range(-1.0, 1.0)),
-			"life": max_life,
-			"max_life": max_life,
-			"size": randf_range(2.4, 4.8 + speed_bonus),
-			"color": WALL_IMPACT_PARTICLE_COLORS[randi() % WALL_IMPACT_PARTICLE_COLORS.size()],
-			"trail": randf_range(8.0, 16.0 + speed_bonus * 9.0),
-		})
+		wall_impact_particles.append(ImpactEffectPayloadFactory.build_wall_particle(
+			pos,
+			direction_mult,
+			speed_bonus,
+			WALL_IMPACT_PARTICLE_LIFE_MIN,
+			WALL_IMPACT_PARTICLE_LIFE_MAX,
+			WALL_IMPACT_PARTICLE_COLORS
+		))
 	while wall_impact_particles.size() > WALL_IMPACT_PARTICLE_MAX_COUNT:
 		wall_impact_particles.pop_front()
 	while wall_impact_rings.size() > WALL_IMPACT_RING_MAX_COUNT:

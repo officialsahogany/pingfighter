@@ -138,6 +138,7 @@ func needs_ball_motion_update(runtime: Object) -> bool:
 		or not runtime.blade_followup_projectiles.is_empty()
 		or runtime.chaos_release_pending
 		or runtime.chaos_state == "blackhole"
+		or runtime.chaos_ball_motion_owned
 		or (runtime.dive_active and runtime.dive_phase == 2 and not runtime.dive_ball_boosted)
 		or not runtime.dual_glitch_clone_dive_entries.is_empty()
 	)

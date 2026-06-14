@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ImpactEffectPayloadFactory := preload("res://scripts/effects/impact_effect_payload_factory.gd")
+
 const ENERGY_EXPLOSION_MAX_PARTICLES := 36
 const ENERGY_BURST_LIFE_BASE := 12.0
 const ENERGY_BURST_LIFE_INTENSITY_BONUS := 7.0
@@ -26,33 +28,22 @@ func clear() -> void:
 
 
 func create_energy_explosion(pos: Vector2, scale: float, intensity: float) -> void:
-	var normalized_intensity: float = clamp(intensity, 0.0, 1.5)
-	var clamped_scale: float = max(0.10, scale)
-	energy_explosion_particles.append({
-		"pos": pos,
-		"size": (ENERGY_BURST_RADIUS_BASE + ENERGY_BURST_RADIUS_INTENSITY_BONUS * normalized_intensity) * clamped_scale,
-		"lifetime": 0.0,
-		"max_lifetime": (ENERGY_BURST_LIFE_BASE + ENERGY_BURST_LIFE_INTENSITY_BONUS * normalized_intensity) * clamped_scale,
-		"color": ENERGY_EXPLOSION_COLORS[randi() % ENERGY_EXPLOSION_COLORS.size()],
-		"intensity": normalized_intensity,
-		"type": "burst",
-	})
+	energy_explosion_particles.append(ImpactEffectPayloadFactory.build_energy_burst(
+		pos,
+		scale,
+		intensity,
+		ENERGY_EXPLOSION_COLORS,
+		ENERGY_BURST_RADIUS_BASE,
+		ENERGY_BURST_RADIUS_INTENSITY_BONUS,
+		ENERGY_BURST_LIFE_BASE,
+		ENERGY_BURST_LIFE_INTENSITY_BONUS
+	))
 	_trim_energy_particles()
 
 
 func spawn_drive_particles(pos: Vector2, count: int = 4) -> void:
 	for _i in range(max(0, count)):
-		var angle: float = randf_range(0.0, TAU)
-		var speed: float = randf_range(3.0, 8.0)
-		energy_explosion_particles.append({
-			"pos": pos + Vector2(randf_range(-4.0, 4.0), randf_range(-4.0, 4.0)),
-			"vel": Vector2(cos(angle), sin(angle)) * speed + Vector2(0.0, -1.5),
-			"size": randf_range(2.0, 4.0),
-			"lifetime": 0.0,
-			"max_lifetime": float(randi_range(14, 24)),
-			"color": DRIVE_PARTICLE_COLORS[randi() % DRIVE_PARTICLE_COLORS.size()],
-			"type": "spark",
-		})
+		energy_explosion_particles.append(ImpactEffectPayloadFactory.build_drive_spark(pos, DRIVE_PARTICLE_COLORS))
 	_trim_energy_particles()
 
 

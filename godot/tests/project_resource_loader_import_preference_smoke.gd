@@ -17,9 +17,13 @@ func _init() -> void:
 	_expect(texture != null, "imported texture should load")
 	_expect(texture is ImageTexture, "source texture should prefer raw ImageTexture decode before imported fallback")
 	_expect(texture.resource_path == IMPORTED_TEXTURE_PATH, "imported texture should preserve the source resource path")
+	_expect(ProjectResourceLoader.texture_resource_exists(IMPORTED_TEXTURE_PATH), "texture resource existence helper should accept import-visible PNG assets")
+	_expect(ProjectResourceLoader.can_thread_load_texture(IMPORTED_TEXTURE_PATH), "threaded texture gate should accept import-visible PNG assets")
 
 	var audio: AudioStream = ProjectResourceLoader.load_audio_stream(IMPORTED_AUDIO_PATH)
 	_expect(audio != null, "imported audio should load")
+	_expect(ProjectResourceLoader.audio_resource_exists(IMPORTED_AUDIO_PATH), "audio resource existence helper should accept import-visible audio assets")
+	_verify_asset_png_import_sidecars()
 
 	var source := FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd")
 	var texture_body := _function_body(source, "static func load_texture(")
@@ -98,6 +102,33 @@ func _verify_threaded_prewarm_short_guard(threaded_prewarm_body: String) -> void
 			and ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS <= 600,
 		"threaded prewarm default hard bound must stay short (<=3000ms / <=600 polls); long keep-threaded is opt-in per caller"
 	)
+
+
+func _verify_asset_png_import_sidecars() -> void:
+	var missing_sidecars := _collect_pngs_missing_import("res://assets")
+	for path in missing_sidecars:
+		_expect(false, "PNG asset is missing its committed .import sidecar: %s" % path)
+
+
+func _collect_pngs_missing_import(root_path: String) -> Array[String]:
+	var results: Array[String] = []
+	var dir := DirAccess.open(root_path)
+	if dir == null:
+		return results
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry.begins_with("."):
+			entry = dir.get_next()
+			continue
+		var path := "%s/%s" % [root_path, entry]
+		if dir.current_is_dir():
+			results.append_array(_collect_pngs_missing_import(path))
+		elif entry.ends_with(".png") and not FileAccess.file_exists("%s.import" % path):
+			results.append(path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return results
 
 
 func _function_body(source: String, signature: String) -> String:

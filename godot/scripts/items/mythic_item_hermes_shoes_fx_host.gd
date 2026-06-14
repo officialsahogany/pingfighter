@@ -102,10 +102,8 @@ func tear_down(free_self: bool = false) -> void:
 	_active = false
 	_kill_opacity_tween()
 	_opacity = 0.0
-	if _trail_particles != null:
-		_trail_particles.emitting = false
-	if _spark_particles != null:
-		_spark_particles.emitting = false
+	_stop_and_clear_particles(_trail_particles)
+	_stop_and_clear_particles(_spark_particles)
 	visible = false
 	set_process(false)
 	if free_self:
@@ -429,6 +427,14 @@ func _set_wake_visible(next_visible: bool) -> void:
 	for sprite in _wake_sprites:
 		if sprite != null and is_instance_valid(sprite):
 			sprite.visible = next_visible
+
+
+func _stop_and_clear_particles(particles: GPUParticles2D) -> void:
+	if particles == null:
+		return
+	particles.emitting = false
+	particles.restart()
+	particles.emitting = false
 
 
 func get_debug_status() -> Dictionary:

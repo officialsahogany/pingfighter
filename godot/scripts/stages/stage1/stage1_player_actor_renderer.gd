@@ -1037,13 +1037,16 @@ func _draw_viper_jetpack_hold_bar(
 		return
 	if ViperAirborneRenderToggles.is_hold_bar_disabled():
 		return
-	# Match the Pygame original: 40x3 bar, anchored at PLAYER.left - 8 with
-	# vertical center on PLAYER.centery. The dash side gauge uses the same
-	# anchor and shifts -6 when the jetpack bar is also visible, so the two
-	# read as a side-by-side pair instead of overlapping.
+	# 40x3 bar vertically centered on PLAYER.centery. Anchored to the SAME
+	# paddle-center, scale-tracking slot as the dash side gauge so it hugs the
+	# character body at any paddle size; the hold bar keeps the inner slot and
+	# the dash gauge shifts one bar-width + gap left when both are visible, so
+	# the two read as a side-by-side pair instead of overlapping.
 	var bar_height := 40.0
 	var bar_width := 3.0
-	var bar_x: float = player_pos.x - 8.0 + shake_offset.x
+	var bar_x: float = dash_side_gauge_renderer.get_primary_bar_anchor_x(
+		context, player_pos, paddle_size, shake_offset
+	)
 	var bar_y: float = player_pos.y + paddle_size.y * 0.5 - bar_height * 0.5 + shake_offset.y
 	var rect := Rect2(bar_x, bar_y, bar_width, bar_height)
 	canvas.draw_rect(rect.grow(2.0), Color(0.02, 0.05, 0.08, 0.58))

@@ -499,11 +499,13 @@ func _prepare_frame_source(key: String) -> void:
 	if not metadata.is_empty() and texture.get_size() == FRAME_METADATA_TEXTURE_SIZE:
 		_prepare_frame_source_from_metadata(key, metadata, texture)
 		return
-	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	var image: Image = texture.get_image()
 	if image == null or image.is_empty():
 		_frame_sources[key] = _fallback_cell_sources(texture)
 		_frame_references[key] = texture.get_size() / Vector2(float(GRID_COLS), float(GRID_ROWS))
 		return
+	if image.is_compressed():
+		image.decompress()
 	var image_size := Vector2i(image.get_width(), image.get_height())
 	@warning_ignore("integer_division")
 	var cell_w: int = max(1, int(image_size.x / GRID_COLS))

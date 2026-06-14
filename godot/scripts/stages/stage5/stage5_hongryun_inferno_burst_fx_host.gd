@@ -57,7 +57,7 @@ func _ready() -> void:
 	z_index = 14
 	_additive_material = _make_additive_material()
 	_build_children()
-	set_active(false)
+	set_active(visible and not _state.is_empty())
 
 
 # 한 번의 폭발 burst를 트리거. burst_pos는 playfield_renderer가

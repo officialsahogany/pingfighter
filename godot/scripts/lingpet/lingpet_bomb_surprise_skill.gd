@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetBombSurprisePayloadFactory := preload("res://scripts/lingpet/lingpet_bomb_surprise_payload_factory.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const BALL_RADIUS_FALLBACK := 14.3
@@ -318,14 +320,12 @@ func _apply_explosion_status(owner: Object, registry: Object, target: String, se
 				"boss",
 				"stun",
 				_last_stun_frames,
-				{
-					"cleansable": true,
-					"visual": STATUS_SOURCE,
-					"knockback_vel": boss_velocity,
-					"knockback_active": true,
-					"knockback_frames": BOSS_KNOCKBACK_FRAMES,
-					"knockback_decay_per_frame": KNOCKBACK_DECAY,
-				},
+				LingpetBombSurprisePayloadFactory.build_boss_stun_status_data(
+					STATUS_SOURCE,
+					boss_velocity,
+					BOSS_KNOCKBACK_FRAMES,
+					KNOCKBACK_DECAY
+				),
 				STATUS_SOURCE
 			)
 	else:
@@ -337,11 +337,7 @@ func _apply_explosion_status(owner: Object, registry: Object, target: String, se
 				"player",
 				"stun",
 				_last_stun_frames,
-				{
-					"cleansable": true,
-					"visual": STATUS_SOURCE,
-					"weak_stun": self_explosion,
-				},
+				LingpetBombSurprisePayloadFactory.build_player_stun_status_data(STATUS_SOURCE, self_explosion),
 				STATUS_SOURCE
 			)
 		var movement_state := _get_registry_instance(registry, "player_movement_state")
@@ -371,33 +367,14 @@ func _get_knockback_direction(owner: Object, target: String, origin: Vector2) ->
 
 func _spawn_explosion_particles(origin: Vector2, self_explosion: bool) -> void:
 	var particle_count := 35 if self_explosion else 72
-	var speed_min := 120.0 if self_explosion else 220.0
-	var speed_max := 360.0 if self_explosion else 720.0
-	var life_min := 0.16 if self_explosion else 0.24
-	var life_max := 0.40 if self_explosion else 0.62
 	for _i in range(particle_count):
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(speed_min, speed_max)
-		_add_particle(
-			origin + Vector2(randf_range(-8.0, 8.0), randf_range(-8.0, 8.0)),
-			Vector2(cos(angle), sin(angle)) * speed,
-			randf_range(life_min, life_max),
-			randf_range(2.0, 7.0) if self_explosion else randf_range(3.0, 11.0),
-			0 if randf() < 0.72 else 1
-		)
+		_add_particle(LingpetBombSurprisePayloadFactory.build_explosion_particle(origin, self_explosion))
 
 
-func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int) -> void:
+func _add_particle(particle: Dictionary) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
-	_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": maxf(0.01, life),
-		"max_life": maxf(0.01, life),
-		"size": maxf(0.5, size),
-		"kind": kind,
-	})
+	_particles.append(particle)
 
 
 func _update_particles(delta: float) -> void:

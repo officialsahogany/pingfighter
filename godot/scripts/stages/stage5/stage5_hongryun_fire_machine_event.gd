@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage5HongryunFireMachinePayloadFactory := preload("res://scripts/stages/stage5/stage5_hongryun_fire_machine_payload_factory.gd")
+
 const STAGE_ID := 5
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -209,20 +211,7 @@ func _set_next_cooldown() -> void:
 
 
 func _init_dragons() -> void:
-	dragons.clear()
-	for index in range(2):
-		dragons.append({
-			"cannon_angle": 0.0,
-			"target_cannon_angle": 0.0,
-			"cannon_emergence": 0.0,
-			"cannon_current_length": 0.0,
-			"is_aiming": false,
-			"aim_target": Vector2.ZERO,
-			"jaw_open": 0.0,
-			"jaw_phase": "closed",
-			"fired": false,
-			"base_angle_offset": lerpf(-0.08, 0.08, float(index)),
-		})
+	dragons = Stage5HongryunFireMachinePayloadFactory.build_dragons(2)
 
 
 func _sync_geometry(context: Dictionary) -> void:
@@ -368,17 +357,12 @@ func _spray_fire_dragon(index: int, dragon: Dictionary, deps: Dictionary, result
 
 	var mouth_pos := _get_dragon_mouth_position(dragon)
 	var target := _get_vector2(dragon, "aim_target", machine_pos + Vector2.DOWN * 220.0)
-	var to_target := target - mouth_pos
-	fire_streams.append({
-		"start": mouth_pos,
-		"target": target,
-		"angle": to_target.angle() if to_target.length() > 0.001 else angle,
-		"distance": to_target.length(),
-		"timer": 0.0,
-		"duration": STREAM_DURATION,
-		"particles": [],
-		"completed": false,
-	})
+	fire_streams.append(Stage5HongryunFireMachinePayloadFactory.build_fire_stream(
+		mouth_pos,
+		target,
+		angle,
+		STREAM_DURATION
+	))
 	spray_count += 1
 	dragon["is_aiming"] = false
 	dragon["fired"] = true
@@ -407,13 +391,7 @@ func _update_fire_streams(fps_scale: float) -> void:
 			var target: Vector2 = _get_vector2(stream, "target", machine_pos)
 			var stream_pos := start.lerp(target, progress)
 			for _i in range(3):
-				particles.append({
-					"pos": stream_pos + Vector2(rng.randf_range(-5.0, 5.0), rng.randf_range(-5.0, 5.0)),
-					"vel": Vector2(rng.randf_range(-1.0, 1.0), rng.randf_range(0.0, 2.0)),
-					"size": rng.randf_range(6.0, 12.0),
-					"life": 30.0,
-					"color": _random_fire_color(),
-				})
+				particles.append(Stage5HongryunFireMachinePayloadFactory.build_stream_particle(stream_pos, rng))
 		elif not bool(stream.get("completed", false)):
 			stream["completed"] = true
 			_create_fire_zone(_get_vector2(stream, "target", machine_pos))
@@ -439,18 +417,14 @@ func _update_fire_streams(fps_scale: float) -> void:
 
 
 func _create_fire_zone(pos: Vector2) -> void:
-	var zone := {
-		"pos": pos,
-		"width": FIRE_ZONE_WIDTH,
-		"height": FIRE_ZONE_HEIGHT,
-		"duration": FIRE_ZONE_DURATION,
-		"spread_timer": 0.0,
-		"flames": [],
-	}
-	var flames: Array = zone["flames"]
-	for _i in range(15):
-		flames.append(_make_flame(pos, FIRE_ZONE_WIDTH, FIRE_ZONE_HEIGHT, true))
-	fire_zones.append(zone)
+	fire_zones.append(Stage5HongryunFireMachinePayloadFactory.build_fire_zone(
+		pos,
+		FIRE_ZONE_WIDTH,
+		FIRE_ZONE_HEIGHT,
+		FIRE_ZONE_DURATION,
+		15,
+		rng
+	))
 
 
 func _update_fire_zones(fps_scale: float) -> void:
@@ -464,7 +438,7 @@ func _update_fire_zones(fps_scale: float) -> void:
 		var flames: Array = _get_array(zone.get("flames", []))
 		if int(zone.get("spread_timer", 0.0)) % 5 == 0 and flames.size() < MAX_FLAMES_PER_ZONE:
 			for _i in range(3):
-				flames.append(_make_flame(pos, width, height, false))
+				flames.append(Stage5HongryunFireMachinePayloadFactory.build_flame(pos, width, height, false, rng))
 		var write_index := 0
 		for flame_index in range(flames.size()):
 			var flame: Dictionary = flames[flame_index]
@@ -483,15 +457,6 @@ func _update_fire_zones(fps_scale: float) -> void:
 			fire_zones.remove_at(index)
 		else:
 			fire_zones[index] = zone
-
-
-func _make_flame(center: Vector2, width: float, height: float, initial: bool) -> Dictionary:
-	return {
-		"pos": center + Vector2(rng.randf_range(-width * 0.5, width * 0.5), rng.randf_range(-height * 0.5, height * 0.5)),
-		"size": rng.randf_range(8.0, 20.0) if initial else rng.randf_range(5.0, 15.0),
-		"life": rng.randf_range(20.0, 40.0) if initial else rng.randf_range(15.0, 30.0),
-		"color_phase": rng.randf(),
-	}
 
 
 func _update_spray_particles(fps_scale: float) -> void:
@@ -546,21 +511,13 @@ func _update_smoke_particles(fps_scale: float) -> void:
 
 
 func _create_smoke_effect(center: Vector2, width: float, height: float) -> void:
-	for _i in range(rng.randi_range(22, 34)):
-		var life := rng.randf_range(80.0, 140.0)
-		smoke_particles.append({
-			"pos": center + Vector2(rng.randf_range(-width * 0.45, width * 0.45), rng.randf_range(-height * 0.45, height * 0.45)),
-			"vel": Vector2(rng.randf_range(-0.8, 0.8), rng.randf_range(-2.2, -0.6)),
-			"size": rng.randf_range(8.0, 14.0),
-			"max_size": rng.randf_range(28.0, 46.0),
-			"life": life,
-			"max_life": life,
-			"alpha": 0.0,
-			"warmth": rng.randf_range(0.3, 0.9),
-			"wobble_phase": rng.randf_range(0.0, TAU),
-			"wobble_freq": rng.randf_range(0.04, 0.09),
-			"wobble_amp": rng.randf_range(0.4, 1.0),
-		})
+	smoke_particles.append_array(Stage5HongryunFireMachinePayloadFactory.build_smoke_particles(
+		center,
+		width,
+		height,
+		rng.randi_range(22, 34),
+		rng
+	))
 
 
 func _resolve_player_fire_zone(context: Dictionary, deps: Dictionary, result: Dictionary) -> void:
@@ -713,15 +670,6 @@ func _get_player_rect(context: Dictionary) -> Rect2:
 		Vector2(float(context.get("player_paddle_width", 155.0)), float(context.get("player_paddle_height", 50.0)))
 	)
 	return Rect2(player_pos, player_size)
-
-
-func _random_fire_color() -> Color:
-	var roll := rng.randi_range(0, 2)
-	if roll == 0:
-		return Color(1.0, 0.38, 0.05, 0.95)
-	if roll == 1:
-		return Color(1.0, 0.62, 0.05, 0.95)
-	return Color(1.0, 0.86, 0.18, 0.95)
 
 
 func _ease_out_cubic(t: float) -> float:

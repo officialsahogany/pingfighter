@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage2MonkeyBananaPayloadFactory := preload("res://scripts/stages/stage2/stage2_monkey_banana_payload_factory.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -85,6 +86,7 @@ var climb_sheet: Texture2D = null
 var throw_sheet: Texture2D = null
 var banana_texture: Texture2D = null
 var tree_source_image: Image = null
+var tree_source_image_load_attempted := false
 var tree_source_path_cache: Dictionary = {}
 var _prewarm_done := false
 var _prewarm_step_index := 0
@@ -224,20 +226,7 @@ func force_spawn_monkey(side: String = "") -> bool:
 
 
 func debug_spawn_landed_banana(position: Vector2, target_player: bool = true) -> void:
-	bananas.append({
-		"state": "landed",
-		"position": position,
-		"start": position,
-		"target": position,
-		"target_player": target_player,
-		"flight_progress": 1.0,
-		"rotation_degrees": 0.0,
-		"land_timer": 0.0,
-		"slip_triggered": false,
-		"boss_slip_triggered": false,
-		"burst_timer": 0.0,
-		"particles": [],
-	})
+	bananas.append(Stage2MonkeyBananaPayloadFactory.build_landed_banana(position, target_player))
 
 
 func debug_trigger_boss_slip(direction: int = 1) -> void:
@@ -288,23 +277,13 @@ func _spawn_monkey(side_override: String = "") -> bool:
 	var trunk_points: Array = _build_trunk_points(side)
 	if trunk_points.size() < 2:
 		return false
-	var sit_min: int = max(1, int(floor(float(trunk_points.size()) / 3.0)))
-	var sit_max: int = max(sit_min, int(floor(float(trunk_points.size()) * 0.7)))
-	var start_pos: Vector2 = _get_vector2(trunk_points[0], Vector2.ZERO)
-	active_monkeys.append({
-		"side": side,
-		"trunk_points": trunk_points,
-		"state": "climbing",
-		"position": start_pos,
-		"target_point_idx": 0,
-		"sit_point_idx": rng.randi_range(sit_min, sit_max),
-		"climb_progress": 0.0,
-		"throw_timer": 0.0,
-		"throw_delay": rng.randf_range(MONKEY_THROW_DELAY_MIN_SEC, MONKEY_THROW_DELAY_MAX_SEC),
-		"has_thrown": false,
-		"anim_timer": 0.0,
-		"facing_right": side == "left",
-	})
+	active_monkeys.append(Stage2MonkeyBananaPayloadFactory.build_monkey(
+		side,
+		trunk_points,
+		MONKEY_THROW_DELAY_MIN_SEC,
+		MONKEY_THROW_DELAY_MAX_SEC,
+		rng
+	))
 	return true
 
 
@@ -400,20 +379,11 @@ func _throw_banana(monkey: Dictionary, deps: Dictionary) -> void:
 	var target_player: bool = rng.randf() < PLAYER_TARGET_PROBABILITY
 	var target_y: float = 700.0 if target_player else 50.0
 	var target_x: float = rng.randf_range(30.0, WIDTH - 30.0)
-	bananas.append({
-		"state": "flying",
-		"position": start_game,
-		"start": start_game,
-		"target": Vector2(target_x, target_y),
-		"target_player": target_player,
-		"flight_progress": 0.0,
-		"rotation_degrees": 0.0,
-		"land_timer": 0.0,
-		"slip_triggered": false,
-		"boss_slip_triggered": false,
-		"burst_timer": 0.0,
-		"particles": [],
-	})
+	bananas.append(Stage2MonkeyBananaPayloadFactory.build_flying_banana(
+		start_game,
+		Vector2(target_x, target_y),
+		target_player
+	))
 	var audio: Object = deps.get("audio", null)
 	if audio != null and audio.has_method("play_banana_throw"):
 		audio.play_banana_throw()
@@ -523,22 +493,13 @@ func _trigger_banana_burst(banana: Dictionary) -> void:
 	banana["state"] = "bursting"
 	banana["burst_timer"] = 0.0
 	var origin: Vector2 = _get_vector2(banana.get("position", Vector2.ZERO), Vector2.ZERO)
-	var particles: Array = []
 	var count: int = rng.randi_range(12, 16)
-	for _i in range(count):
-		var angle: float = rng.randf_range(0.0, TAU)
-		var speed: float = rng.randf_range(80.0, 200.0)
-		particles.append({
-			"pos": origin,
-			"vel": Vector2(cos(angle), sin(angle)) * speed + Vector2(0.0, -100.0),
-			"size": rng.randf_range(3.0, 8.0),
-			"color": BURST_COLORS[rng.randi_range(0, BURST_COLORS.size() - 1)],
-			"life": rng.randf_range(0.2, 0.4),
-			"max_life": 0.4,
-			"rotation_degrees": rng.randf_range(0.0, 360.0),
-			"rot_speed": rng.randf_range(-500.0, 500.0),
-		})
-	banana["particles"] = particles
+	banana["particles"] = Stage2MonkeyBananaPayloadFactory.build_burst_particles(
+		origin,
+		count,
+		BURST_COLORS,
+		rng
+	)
 
 
 func _trigger_player_slip(player_rect: Rect2, dash_dir: int = 0) -> void:
@@ -709,12 +670,25 @@ func _prewarm_tree_path_cache() -> void:
 	_get_tree_source_path_points("right", TREE_RIGHT_SOURCE_REGION)
 
 
+# Exported builds pack only the imported texture (.ctex), never the original
+# PNG, so a raw Image.load_from_file here would silently return null in every
+# shipped build and the climb path would fall back to the procedural sway
+# curve. The failure is cached so a dead load is not retried on every spawn.
 func _get_tree_source_image() -> Image:
 	if tree_source_image != null and not tree_source_image.is_empty():
 		return tree_source_image
-	tree_source_image = Image.load_from_file(ProjectSettings.globalize_path(TREE_TEXTURE_PATH))
-	if tree_source_image == null or tree_source_image.is_empty():
+	if tree_source_image_load_attempted:
 		return null
+	tree_source_image_load_attempted = true
+	var texture: Texture2D = ProjectResourceLoader.load_texture(TREE_TEXTURE_PATH)
+	if texture == null:
+		return null
+	var image: Image = texture.get_image()
+	if image == null or image.is_empty():
+		return null
+	if image.is_compressed():
+		image.decompress()
+	tree_source_image = image
 	return tree_source_image
 
 

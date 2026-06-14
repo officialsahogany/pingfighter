@@ -6,7 +6,7 @@ const COLUMNS := 3
 const CARD_SIZE := Vector2(214.0, 112.0)
 const CARD_GAP := Vector2(14.0, 14.0)
 const PANEL_PADDING := Vector2(28.0, 24.0)
-const HEADER_HEIGHT := 96.0
+const HEADER_HEIGHT := 116.0
 const PANEL_FOOTER_BAND := 8.0
 const SKILL_SECTION_TITLE_BAND := 28.0
 const SKILL_COLUMN_SIDE_PADDING := 12.0
@@ -44,6 +44,15 @@ const DEFENSE_TRIANGLE := Vector2(16.0, 18.0)
 const DEFENSE_SLIDER_HEIGHT := 12.0
 const DEFENSE_VALUE_W := 64.0
 const DEFENSE_SLIDER_GAP := 6.0
+# Second header row: move-speed override slider. Unlike the defense/appearance row
+# this is NOT motion-style routed — it scales patrol speed for every pet (flight
+# felt effect is small). Value is a MULTIPLIER (0.5x..2.0x, step 0.25); -1 = 기본
+# (use the pet's catalog/affinity speed). Shares the defense-row geometry constants,
+# only the row Y differs (slider rect helpers take row_y).
+const MOVE_SPEED_OVERRIDE_STEP := 0.25
+const MOVE_SPEED_OVERRIDE_MIN := 0.5
+const MOVE_SPEED_OVERRIDE_MAX := 2.0
+const MOVE_SPEED_SLIDER_ROW_Y := 94.0
 
 var open := false
 var selected_index := 0
@@ -56,6 +65,10 @@ var selected_passive_skill_level := LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
 # apply, routed to defense_rate (patrol pets) or appearance_rate (flight pets).
 # -1.0 = no override (use the pet's catalog value).
 var selected_defense_rate_override := -1.0
+# Move-speed multiplier override staged in the picker; committed unconditionally
+# (no motion-style routing) to runtime.set_debug_move_speed_override on apply.
+# -1.0 = no override.
+var selected_move_speed_override := -1.0
 var _texture_cache: Dictionary = {}
 var _entries_cache: Array = []
 var _entries_cache_ready := false
@@ -167,8 +180,12 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 			return true
 		var panel_rect_for_defense: Rect2 = _get_panel_rect(view_size, entries.size())
 		if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP or mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			var wheel_dir := 1 if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP else -1
 			if _get_defense_control_row_rect(panel_rect_for_defense).has_point(mouse_event.position):
-				_adjust_defense_override(1 if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP else -1)
+				_adjust_defense_override(wheel_dir)
+				_request_owner_redraw(owner)
+			elif _get_move_speed_control_row_rect(panel_rect_for_defense).has_point(mouse_event.position):
+				_adjust_move_speed_override(wheel_dir)
 				_request_owner_redraw(owner)
 			return true
 		if mouse_event.button_index != MOUSE_BUTTON_LEFT:
@@ -183,6 +200,18 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 			return true
 		if _get_defense_bar_rect(panel_rect_for_defense).has_point(mouse_event.position):
 			_set_defense_override_from_bar(mouse_event.position, panel_rect_for_defense)
+			_request_owner_redraw(owner)
+			return true
+		if _get_move_speed_dec_rect(panel_rect_for_defense).has_point(mouse_event.position):
+			_adjust_move_speed_override(-1)
+			_request_owner_redraw(owner)
+			return true
+		if _get_move_speed_inc_rect(panel_rect_for_defense).has_point(mouse_event.position):
+			_adjust_move_speed_override(1)
+			_request_owner_redraw(owner)
+			return true
+		if _get_move_speed_bar_rect(panel_rect_for_defense).has_point(mouse_event.position):
+			_set_move_speed_override_from_bar(mouse_event.position, panel_rect_for_defense)
 			_request_owner_redraw(owner)
 			return true
 		var active_level_delta := _get_skill_level_delta_at(mouse_event.position, view_size, entries.size(), true)
@@ -249,6 +278,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var info := "현재: %s  /  클릭·숫자: 링펫 선택, Q/E 액티브, Z/X 패시브, R/F 액티브 Lv, V/C 패시브 Lv, Enter 적용" % current_name
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 58.0), info, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 13, Color(0.74, 0.82, 0.90))
 	_draw_defense_slider(canvas, font, panel_rect)
+	_draw_move_speed_slider(canvas, font, panel_rect)
 
 	for index in range(entries.size()):
 		_draw_card(canvas, font, _get_card_rect(index, panel_rect), entries[index], index == selected_index, index == hovered_index, current_pet_id, index)
@@ -306,6 +336,22 @@ func get_defense_inc_rect_for_tests(view_size: Vector2) -> Rect2:
 
 func get_defense_bar_rect_for_tests(view_size: Vector2) -> Rect2:
 	return _get_defense_bar_rect(_get_panel_rect(view_size, _get_entries().size()))
+
+
+func get_move_speed_override_for_tests() -> float:
+	return selected_move_speed_override
+
+
+func get_move_speed_dec_rect_for_tests(view_size: Vector2) -> Rect2:
+	return _get_move_speed_dec_rect(_get_panel_rect(view_size, _get_entries().size()))
+
+
+func get_move_speed_inc_rect_for_tests(view_size: Vector2) -> Rect2:
+	return _get_move_speed_inc_rect(_get_panel_rect(view_size, _get_entries().size()))
+
+
+func get_move_speed_bar_rect_for_tests(view_size: Vector2) -> Rect2:
+	return _get_move_speed_bar_rect(_get_panel_rect(view_size, _get_entries().size()))
 
 
 func get_active_skill_level_for_tests() -> int:
@@ -455,25 +501,43 @@ func _draw_level_button(canvas: CanvasItem, font: Font, rect: Rect2, text: Strin
 
 
 func _draw_defense_slider(canvas: CanvasItem, font: Font, panel_rect: Rect2) -> void:
-	var row_origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, DEFENSE_SLIDER_ROW_Y)
-	canvas.draw_string(font, row_origin + Vector2(0.0, 14.0), _get_stat_override_label(), HORIZONTAL_ALIGNMENT_LEFT, DEFENSE_SLIDER_LABEL_W, 12, Color(0.82, 0.90, 0.98))
-	var dec_rect := _get_defense_dec_rect(panel_rect)
-	var inc_rect := _get_defense_inc_rect(panel_rect)
-	var bar_rect := _get_defense_bar_rect(panel_rect)
-	var value_rect := _get_defense_value_rect(panel_rect)
+	_draw_slider_row(
+		canvas, font, panel_rect, DEFENSE_SLIDER_ROW_Y,
+		_get_stat_override_label(),
+		selected_defense_rate_override >= 0.0,
+		_get_defense_override_ratio(),
+		_get_defense_value_text()
+	)
+
+
+func _draw_move_speed_slider(canvas: CanvasItem, font: Font, panel_rect: Rect2) -> void:
+	_draw_slider_row(
+		canvas, font, panel_rect, MOVE_SPEED_SLIDER_ROW_Y,
+		"이동속도 강제",
+		selected_move_speed_override >= 0.0,
+		_get_move_speed_override_ratio(),
+		_get_move_speed_value_text()
+	)
+
+
+func _draw_slider_row(canvas: CanvasItem, font: Font, panel_rect: Rect2, row_y: float, label: String, forced: bool, ratio: float, value_text: String) -> void:
+	var row_origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, row_y)
+	canvas.draw_string(font, row_origin + Vector2(0.0, 14.0), label, HORIZONTAL_ALIGNMENT_LEFT, DEFENSE_SLIDER_LABEL_W, 12, Color(0.82, 0.90, 0.98))
+	var dec_rect := _slider_dec_rect(panel_rect, row_y)
+	var inc_rect := _slider_inc_rect(panel_rect, row_y)
+	var bar_rect := _slider_bar_rect(panel_rect, row_y)
+	var value_rect := _slider_value_rect(panel_rect, row_y)
 	_draw_defense_triangle(canvas, dec_rect, false)
 	_draw_defense_triangle(canvas, inc_rect, true)
 	canvas.draw_rect(bar_rect, Color(0.04, 0.06, 0.09, 0.92))
 	canvas.draw_rect(bar_rect, Color(0.40, 0.56, 0.74, 0.80), false, 1.0)
-	var forced := selected_defense_rate_override >= 0.0
-	var ratio := _get_defense_override_ratio()
 	if forced and ratio > 0.0:
 		canvas.draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * ratio, bar_rect.size.y)), Color(0.36, 0.80, 1.0, 0.85))
 	if forced:
 		var handle_x := bar_rect.position.x + bar_rect.size.x * ratio
 		canvas.draw_rect(Rect2(Vector2(handle_x - 2.0, bar_rect.position.y - 3.0), Vector2(4.0, bar_rect.size.y + 6.0)), Color(0.96, 1.0, 1.0, 0.96))
 	var value_color := Color(0.62, 0.96, 1.0) if forced else Color(0.66, 0.72, 0.80)
-	canvas.draw_string(font, value_rect.position + Vector2(0.0, 15.0), _get_defense_value_text(), HORIZONTAL_ALIGNMENT_LEFT, value_rect.size.x, 13, value_color)
+	canvas.draw_string(font, value_rect.position + Vector2(0.0, 15.0), value_text, HORIZONTAL_ALIGNMENT_LEFT, value_rect.size.x, 13, value_color)
 
 
 func _draw_defense_triangle(canvas: CanvasItem, rect: Rect2, pointing_right: bool) -> void:
@@ -540,6 +604,10 @@ func _apply_selected_lingpet(owner: Object, registry: Object) -> void:
 			runtime.set_debug_defense_rate_override(-1.0 if flight else selected_defense_rate_override)
 		if runtime.has_method("set_debug_appearance_rate_override"):
 			runtime.set_debug_appearance_rate_override(selected_defense_rate_override if flight else -1.0)
+		# Move-speed override is NOT motion-style routed — it scales patrol speed for
+		# every pet, so it is committed unconditionally (no XOR clearing).
+		if runtime.has_method("set_debug_move_speed_override"):
+			runtime.set_debug_move_speed_override(selected_move_speed_override)
 	close()
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
@@ -661,6 +729,50 @@ func _get_defense_value_text() -> String:
 	if selected_defense_rate_override < 0.0:
 		return "기본"
 	return "%d%%" % int(round(selected_defense_rate_override * 100.0))
+
+
+func _adjust_move_speed_override(direction: int) -> void:
+	var value := selected_move_speed_override
+	if direction > 0:
+		# off(-1) -> MIN (0.5x) -> step up to MAX (2.0x).
+		value = MOVE_SPEED_OVERRIDE_MIN if value < 0.0 else minf(MOVE_SPEED_OVERRIDE_MAX, value + MOVE_SPEED_OVERRIDE_STEP)
+	else:
+		# step down to MIN, then one more step turns the override off (pet default).
+		if value < 0.0:
+			value = -1.0
+		elif value <= MOVE_SPEED_OVERRIDE_MIN + 0.0001:
+			value = -1.0
+		else:
+			value = maxf(MOVE_SPEED_OVERRIDE_MIN, value - MOVE_SPEED_OVERRIDE_STEP)
+	selected_move_speed_override = _snap_move_speed_override(value)
+
+
+func _set_move_speed_override_from_bar(position: Vector2, panel_rect: Rect2) -> void:
+	var bar := _get_move_speed_bar_rect(panel_rect)
+	if bar.size.x <= 0.0:
+		return
+	var ratio := clampf((position.x - bar.position.x) / bar.size.x, 0.0, 1.0)
+	var value := MOVE_SPEED_OVERRIDE_MIN + ratio * (MOVE_SPEED_OVERRIDE_MAX - MOVE_SPEED_OVERRIDE_MIN)
+	selected_move_speed_override = _snap_move_speed_override(value)
+
+
+func _snap_move_speed_override(value: float) -> float:
+	if value < 0.0:
+		return -1.0
+	var steps := roundf((value - MOVE_SPEED_OVERRIDE_MIN) / MOVE_SPEED_OVERRIDE_STEP)
+	return clampf(MOVE_SPEED_OVERRIDE_MIN + steps * MOVE_SPEED_OVERRIDE_STEP, MOVE_SPEED_OVERRIDE_MIN, MOVE_SPEED_OVERRIDE_MAX)
+
+
+func _get_move_speed_override_ratio() -> float:
+	if selected_move_speed_override < 0.0:
+		return 0.0
+	return clampf((selected_move_speed_override - MOVE_SPEED_OVERRIDE_MIN) / maxf(0.0001, MOVE_SPEED_OVERRIDE_MAX - MOVE_SPEED_OVERRIDE_MIN), 0.0, 1.0)
+
+
+func _get_move_speed_value_text() -> String:
+	if selected_move_speed_override < 0.0:
+		return "기본"
+	return "x%.2f" % selected_move_speed_override
 
 
 func _is_flight_pet(pet_id: String) -> bool:
@@ -968,20 +1080,22 @@ func _get_apply_button_rect(view_size: Vector2, entry_count: int) -> Rect2:
 	return Rect2(pos, Vector2(button_width, APPLY_BUTTON_SIZE.y))
 
 
-func _get_defense_control_row_rect(panel_rect: Rect2) -> Rect2:
-	# Full clickable / wheel band of the defense control row (label edge -> value).
-	var origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, DEFENSE_SLIDER_ROW_Y)
+# --- Shared slider geometry (row_y selects which header row). The defense row and
+# the move-speed row share every constant except row_y, so the rects are computed
+# once here and the per-row getters are thin wrappers. ---
+func _slider_control_row_rect(panel_rect: Rect2, row_y: float) -> Rect2:
+	var origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET, row_y)
 	var width := panel_rect.size.x - DEFENSE_SLIDER_SIDE_INSET * 2.0
 	return Rect2(origin, Vector2(width, DEFENSE_TRIANGLE.y))
 
 
-func _get_defense_dec_rect(panel_rect: Rect2) -> Rect2:
-	var origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET + DEFENSE_SLIDER_LABEL_W, DEFENSE_SLIDER_ROW_Y)
+func _slider_dec_rect(panel_rect: Rect2, row_y: float) -> Rect2:
+	var origin := panel_rect.position + Vector2(DEFENSE_SLIDER_SIDE_INSET + DEFENSE_SLIDER_LABEL_W, row_y)
 	return Rect2(origin, DEFENSE_TRIANGLE)
 
 
-func _get_defense_bar_rect(panel_rect: Rect2) -> Rect2:
-	var dec := _get_defense_dec_rect(panel_rect)
+func _slider_bar_rect(panel_rect: Rect2, row_y: float) -> Rect2:
+	var dec := _slider_dec_rect(panel_rect, row_y)
 	var bar_x := dec.end.x + DEFENSE_SLIDER_GAP
 	var right_limit := panel_rect.end.x - DEFENSE_SLIDER_SIDE_INSET - DEFENSE_VALUE_W - DEFENSE_SLIDER_GAP - DEFENSE_TRIANGLE.x - DEFENSE_SLIDER_GAP
 	var bar_w := maxf(60.0, right_limit - bar_x)
@@ -989,16 +1103,54 @@ func _get_defense_bar_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(Vector2(bar_x, bar_y), Vector2(bar_w, DEFENSE_SLIDER_HEIGHT))
 
 
+func _slider_inc_rect(panel_rect: Rect2, row_y: float) -> Rect2:
+	var bar := _slider_bar_rect(panel_rect, row_y)
+	return Rect2(Vector2(bar.end.x + DEFENSE_SLIDER_GAP, panel_rect.position.y + row_y), DEFENSE_TRIANGLE)
+
+
+func _slider_value_rect(panel_rect: Rect2, row_y: float) -> Rect2:
+	var inc := _slider_inc_rect(panel_rect, row_y)
+	return Rect2(Vector2(inc.end.x + DEFENSE_SLIDER_GAP, panel_rect.position.y + row_y), Vector2(DEFENSE_VALUE_W, DEFENSE_TRIANGLE.y))
+
+
+func _get_defense_control_row_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_control_row_rect(panel_rect, DEFENSE_SLIDER_ROW_Y)
+
+
+func _get_defense_dec_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_dec_rect(panel_rect, DEFENSE_SLIDER_ROW_Y)
+
+
+func _get_defense_bar_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_bar_rect(panel_rect, DEFENSE_SLIDER_ROW_Y)
+
+
 func _get_defense_inc_rect(panel_rect: Rect2) -> Rect2:
-	var bar := _get_defense_bar_rect(panel_rect)
-	var y := _get_defense_dec_rect(panel_rect).position.y
-	return Rect2(Vector2(bar.end.x + DEFENSE_SLIDER_GAP, y), DEFENSE_TRIANGLE)
+	return _slider_inc_rect(panel_rect, DEFENSE_SLIDER_ROW_Y)
 
 
 func _get_defense_value_rect(panel_rect: Rect2) -> Rect2:
-	var inc := _get_defense_inc_rect(panel_rect)
-	var y := panel_rect.position.y + DEFENSE_SLIDER_ROW_Y
-	return Rect2(Vector2(inc.end.x + DEFENSE_SLIDER_GAP, y), Vector2(DEFENSE_VALUE_W, DEFENSE_TRIANGLE.y))
+	return _slider_value_rect(panel_rect, DEFENSE_SLIDER_ROW_Y)
+
+
+func _get_move_speed_control_row_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_control_row_rect(panel_rect, MOVE_SPEED_SLIDER_ROW_Y)
+
+
+func _get_move_speed_dec_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_dec_rect(panel_rect, MOVE_SPEED_SLIDER_ROW_Y)
+
+
+func _get_move_speed_bar_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_bar_rect(panel_rect, MOVE_SPEED_SLIDER_ROW_Y)
+
+
+func _get_move_speed_inc_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_inc_rect(panel_rect, MOVE_SPEED_SLIDER_ROW_Y)
+
+
+func _get_move_speed_value_rect(panel_rect: Rect2) -> Rect2:
+	return _slider_value_rect(panel_rect, MOVE_SPEED_SLIDER_ROW_Y)
 
 
 func _get_pet_index(pet_id: String) -> int:

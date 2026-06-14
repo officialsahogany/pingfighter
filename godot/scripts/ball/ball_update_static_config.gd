@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
+const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -9,11 +10,11 @@ const BALL_VISUAL_SCALE := 1.575
 const BALL_RENDER_RADIUS := 16.9 * BALL_VISUAL_SCALE
 const BALL_MAX_STEP_DISTANCE := 12.0
 const MIN_BALL_SPEED := 3.0
-const MAX_BALL_SPEED := 26.0
+const MAX_BALL_SPEED := BallSpeedPolicy.DEFAULT_MAX_BALL_SPEED
 const POWER_SMASH_MAX_BALL_SPEED := 35.0
-const IMPACT_BOOST_MAX_BALL_SPEED := 26.0
-const MYTHIC_MAX_BALL_SPEED := 32.0
-const FIRE_WEATHER_MAX_BALL_SPEED := 35.0
+const IMPACT_BOOST_MAX_BALL_SPEED := MAX_BALL_SPEED
+const MYTHIC_MAX_BALL_SPEED := BallSpeedPolicy.MYTHIC_MAX_BALL_SPEED
+const FIRE_WEATHER_MAX_BALL_SPEED := BallSpeedPolicy.FIRE_WEATHER_MAX_BALL_SPEED
 const RALLY_SPEED_CAP_INCREASE_PER_HIT := 0.5
 const MAX_BOUNCE_ANGLE := 60.0
 const DRIVE_GAUGE_COST := 150.0

@@ -52,6 +52,8 @@ func build_context(owner: Object, registry: Object, character_type: String, dash
 		"commando_suicide_drone_ball_boost_active": bool(_get_owner_value(owner, "commando_suicide_drone_ball_boost_active", false)),
 		"commando_suicide_drone_ball_restore_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_restore_speed", 0.0)),
 		"commando_suicide_drone_ball_boosted_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_boosted_speed", 0.0)),
+		"lingpet_wild_roar_ball_boost_active": bool(_get_owner_value(owner, "lingpet_wild_roar_ball_boost_active", false)),
+		"lingpet_wild_roar_ball_restore_speed": float(_get_owner_value(owner, "lingpet_wild_roar_ball_restore_speed", 0.0)),
 		"blacksmith_umbrella_open": bool(_get_owner_value(owner, "blacksmith_umbrella_open", false)),
 		"blacksmith_umbrella_anim_timer": float(_get_owner_value(owner, "blacksmith_umbrella_anim_timer", 0.0)),
 		"blacksmith_umbrella_retracting": bool(_get_owner_value(owner, "blacksmith_umbrella_retracting", false)),

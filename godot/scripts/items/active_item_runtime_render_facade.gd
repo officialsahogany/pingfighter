@@ -43,6 +43,11 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 	return false
 
 
+func deactivate_all_hosts() -> void:
+	if throw_renderer != null and throw_renderer.has_method("deactivate_all_hosts"):
+		throw_renderer.deactivate_all_hosts()
+
+
 func draw_field_items(
 	canvas: CanvasItem,
 	registry: Object,

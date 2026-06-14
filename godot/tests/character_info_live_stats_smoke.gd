@@ -251,6 +251,11 @@ func _init() -> void:
 		"lingpet_id": "maribo",
 		"lingpet_state": "companion",
 		"lingpet_companion_defense_rate": 0.30,
+		"lingpet_active_skill_id": "maribo_hydro_sphere",
+		"lingpet_active_skill_level": 1,
+		"lingpet_skill_id": "maribo_hydro_sphere",
+		"lingpet_passive_skill_id": "lingpet_resonance_boost",
+		"lingpet_passive_skill_level": 1,
 	})
 	var lingpet_stats: Array = overlay._build_lingpet_stats(lingpet_owner)
 	_expect(str(_find_stat(lingpet_stats, "이동 속도").get("value", "")) == "2.00", "Maribo move speed should use a slower single player-style speed value")
@@ -285,6 +290,11 @@ func _init() -> void:
 	var lunabi_owner := FakeOwner.new({
 		"lingpet_id": "lunabi",
 		"lingpet_state": "companion",
+		"lingpet_active_skill_id": "lunabi_headbutt",
+		"lingpet_active_skill_level": 1,
+		"lingpet_skill_id": "lunabi_headbutt",
+		"lingpet_passive_skill_id": "lingpet_resonance_boost",
+		"lingpet_passive_skill_level": 1,
 	})
 	var lunabi_panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(lunabi_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	var lunabi_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(lunabi_panel_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
@@ -447,7 +457,7 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
 	)
 	var commit_guard := 0
-	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 400:
+	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 1000:
 		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
 		commit_guard += 1
 	_expect(runtime.get_affinity_level("maribo") == LingpetAffinityState.MAX_LEVEL, "stat-boost fixture should reach affinity max level via round commits")
@@ -455,15 +465,22 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	var base_gauge := float(LingpetCatalog.get_stat("maribo", "hit_gauge_gain", 40.0))
 	var base_speed := float(LingpetCatalog.get_stat("maribo", "patrol_speed_default", 0.0))
 	_expect(base_speed > 0.0, "Maribo should expose a catalog patrol speed for the divergence fixture")
+	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
+	var gauge_stacks := mini(int(rewards.get("gauge_stacks", 0)), LingpetAffinityState.MAX_GAUGE_STACKS)
+	var mobility_stacks := mini(int(rewards.get("mobility_stacks", 0)), LingpetAffinityState.MAX_MOBILITY_STACKS)
+	var expected_gauge := base_gauge + float(gauge_stacks) * 5.0
+	var expected_speed := base_speed * (1.0 + minf(float(mobility_stacks) * 5.0, 30.0) / 100.0)
+	_expect(gauge_stacks > 0, "stat-boost fixture should earn gauge stacks before checking panel sync")
+	_expect(mobility_stacks > 0, "stat-boost fixture should earn mobility stacks before checking panel sync")
 	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	# Canonical Lv.15 track grants 3x 기동 강화 (+5% patrol speed each) and
-	# 2x 게이지 강화 (+5 hit gauge each).
+	# V3 may reshuffle / replace dead stat cards, so the panel expectation is
+	# derived from the live reward counts instead of a frozen V2 stack count.
 	_expect(
-		is_equal_approx(float(snapshot.get("companion_hit_gauge_gain", 0.0)), base_gauge + 10.0),
+		is_equal_approx(float(snapshot.get("companion_hit_gauge_gain", 0.0)), expected_gauge),
 		"게이지 강화 stacks should reach the panel gauge-gain row instead of the catalog base"
 	)
 	_expect(
-		is_equal_approx(float(snapshot.get("companion_patrol_speed_default", 0.0)), base_speed * 1.15),
+		is_equal_approx(float(snapshot.get("companion_patrol_speed_default", 0.0)), expected_speed),
 		"기동 강화 stacks should reach the panel move-speed row instead of the catalog base"
 	)
 

@@ -137,6 +137,7 @@ func _process_wall(step_result: Dictionary, scene: Dictionary, context: Dictiona
 	)
 	scene.merge(result, true)
 	if not bool(result.get("rematch_requested", false)):
+		_notify_power_smash_wall_bounce(step_result, deps)
 		_apply_chargebag_wall_gauge(scene, context, deps)
 	return bool(result.get("rematch_requested", false))
 
@@ -343,6 +344,13 @@ func _apply_chargebag_wall_gauge(scene: Dictionary, context: Dictionary, deps: D
 	var next_gauge: float = float(mythic_item_runtime.apply_chargebag_wall_bounce_gauge(current_gauge, wall_context, deps))
 	if not is_equal_approx(next_gauge, current_gauge):
 		scene["special_gauge"] = next_gauge
+
+
+func _notify_power_smash_wall_bounce(step_result: Dictionary, deps: Dictionary) -> void:
+	var power_state: Object = deps.get("power_state", null)
+	if power_state == null or not power_state.has_method("notify_wall_bounce"):
+		return
+	power_state.notify_wall_bounce(str(step_result.get("side", "")))
 
 
 func _register_ball_hit_pulse(

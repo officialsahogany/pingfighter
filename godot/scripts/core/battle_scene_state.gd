@@ -53,8 +53,8 @@ const DEFAULT_VALUES: Dictionary = {
 	"boss_pos": Vector2.ZERO,
 	"boss_pos_prev": Vector2.ZERO,
 	# Lingpet 꼭두각시 조종 (Koyora puppet grab): while true, the boss paddle is
-	# scripted by the lingpet skill — the boss AI must not move it and the ball
-	# must not bounce off it. See lingpet_puppet_grab_skill.gd.
+	# scripted by the lingpet skill, so the boss AI must not move it. Ball
+	# collision stays live, and the puppet rope can break when touched.
 	"lingpet_puppet_grab_active": false,
 	"boss_paddle_width": 100.0,
 	"boss_hitbox_height": 40.0,
@@ -227,6 +227,10 @@ const DEFAULT_VALUES: Dictionary = {
 	"ringpet_active_skill_id": "",
 	"lingpet_active_skill_level": 0,
 	"ringpet_active_skill_level": 0,
+	"lingpet_second_active_skill_id": "",
+	"ringpet_second_active_skill_id": "",
+	"lingpet_second_active_skill_level": 0,
+	"ringpet_second_active_skill_level": 0,
 	"lingpet_active_skill_max_level": 0,
 	"ringpet_active_skill_max_level": 0,
 	"lingpet_skill_name": "",
@@ -241,10 +245,30 @@ const DEFAULT_VALUES: Dictionary = {
 	"ringpet_skill_last_gain": 0.0,
 	"lingpet_skill_trigger_count": 0,
 	"ringpet_skill_trigger_count": 0,
+	"lingpet_second_skill_id": "",
+	"ringpet_second_skill_id": "",
+	"lingpet_second_skill_name": "",
+	"ringpet_second_skill_name": "",
+	"lingpet_second_skill_max_level": 0,
+	"ringpet_second_skill_max_level": 0,
+	"lingpet_second_skill_cooldown": 0.0,
+	"ringpet_second_skill_cooldown": 0.0,
+	"lingpet_second_skill_cooldown_duration": 0.0,
+	"ringpet_second_skill_cooldown_duration": 0.0,
+	"lingpet_second_skill_ready": false,
+	"ringpet_second_skill_ready": false,
+	"lingpet_second_skill_winding_up": false,
+	"ringpet_second_skill_winding_up": false,
+	"lingpet_second_skill_windup_ratio": 0.0,
+	"ringpet_second_skill_windup_ratio": 0.0,
 	"lingpet_passive_skill_id": "",
 	"ringpet_passive_skill_id": "",
 	"lingpet_passive_skill_level": 0,
 	"ringpet_passive_skill_level": 0,
+	"lingpet_second_passive_skill_id": "",
+	"ringpet_second_passive_skill_id": "",
+	"lingpet_second_passive_skill_level": 0,
+	"ringpet_second_passive_skill_level": 0,
 	"lingpet_passive_skill_max_level": 0,
 	"ringpet_passive_skill_max_level": 0,
 	"lingpet_passive_skill_name": "",
@@ -278,6 +302,8 @@ const DEFAULT_VALUES: Dictionary = {
 	"commando_suicide_drone_ball_boost_active": false,
 	"commando_suicide_drone_ball_restore_speed": 0.0,
 	"commando_suicide_drone_ball_boosted_speed": 0.0,
+	"lingpet_wild_roar_ball_boost_active": false,
+	"lingpet_wild_roar_ball_restore_speed": 0.0,
 }
 
 var values: Dictionary = {}

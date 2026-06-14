@@ -20,6 +20,7 @@ func _run() -> void:
 	_verify_lingpet_egg_payment_and_ap_consumption()
 	_verify_blacksmith_payment_and_ap_consumption()
 	_verify_academy_payment_and_ap_consumption()
+	_verify_tavern_quest_state_and_ap_consumption()
 	_verify_corrupt_primary_recovers_last_good()
 
 	if _failures.is_empty():
@@ -239,6 +240,53 @@ func _verify_academy_payment_and_ap_consumption() -> void:
 	_expect(str(expensive_summary.get("reason", "")) == "not_enough_gold", "insufficient academy payment should report not_enough_gold")
 	_expect(int(expensive_summary.get("ap_spent", 0)) == 0, "failed academy payment should not spend AP")
 	_expect(int(expensive_summary.get("plaza_gold", 0)) == 120, "failed academy payment should leave wallet unchanged")
+	_cleanup(path)
+
+
+func _verify_tavern_quest_state_and_ap_consumption() -> void:
+	var path := _test_path("tavern_quest")
+	_cleanup(path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(path)
+	store.apply_stage_clear_progress(1, 0, true)
+	var quest := {
+		"id": "smoke_quest_stage_1",
+		"name": "스모크 의뢰",
+		"description": "다음 전투를 마친 뒤 보고합니다.",
+		"accepted_stage": 1,
+		"reward_gold": 180,
+	}
+	var accept_summary: Dictionary = store.perform_tavern_accept_quest(1, quest, true)
+	_expect(bool(accept_summary.get("changed", false)), "tavern accept should persist an active quest")
+	_expect(int(accept_summary.get("ap_spent", 0)) == 1, "first tavern accept should spend AP")
+	_expect(int(accept_summary.get("ap_current", 0)) == PlazaSaveStore.BASE_AP, "tavern accept AP spend should preserve current-minus-one semantics")
+	var active_quest: Dictionary = store.get_summary().get("tavern_active_quest", {})
+	_expect(str(active_quest.get("id", "")) == "smoke_quest_stage_1", "tavern accept should save the active quest id")
+
+	var repeat_accept_summary: Dictionary = store.perform_tavern_accept_quest(1, quest, true)
+	_expect(not bool(repeat_accept_summary.get("changed", true)), "tavern should reject a second active quest")
+	_expect(str(repeat_accept_summary.get("reason", "")) == "quest_already_active", "repeat tavern accept should report the active quest guard")
+	_expect(int(repeat_accept_summary.get("ap_spent", 0)) == 0, "rejected tavern accept should not spend AP")
+
+	var early_complete_summary: Dictionary = store.perform_tavern_complete_quest(1, true)
+	_expect(not bool(early_complete_summary.get("changed", true)), "tavern report should wait for a later stage")
+	_expect(str(early_complete_summary.get("reason", "")) == "quest_in_progress", "same-stage tavern report should report quest_in_progress")
+	_expect(int(early_complete_summary.get("ap_spent", 0)) == 0, "same-stage tavern report should not spend AP")
+
+	store.apply_stage_clear_progress(2, 25, true)
+	var complete_summary: Dictionary = store.perform_tavern_complete_quest(2, true)
+	_expect(bool(complete_summary.get("changed", false)), "tavern report should complete after a later stage clear")
+	_expect(int(complete_summary.get("delta_gold", 0)) == 180, "tavern report should award the quest gold")
+	_expect(int(complete_summary.get("plaza_gold", 0)) == 205, "tavern report should add reward gold to the existing wallet")
+	_expect(int(complete_summary.get("ap_spent", 0)) == 1, "first successful tavern report visit should spend AP")
+	_expect((store.get_summary().get("tavern_active_quest", {}) as Dictionary).is_empty(), "tavern report should clear the active quest")
+	var completed_quests: Dictionary = store.get_summary().get("tavern_completed_quests", {})
+	_expect(bool(completed_quests.get("smoke_quest_stage_1", false)), "tavern report should persist the completed quest id")
+
+	var repeat_complete_summary: Dictionary = store.perform_tavern_complete_quest(2, true)
+	_expect(not bool(repeat_complete_summary.get("changed", true)), "tavern should reject reporting without an active quest")
+	_expect(str(repeat_complete_summary.get("reason", "")) == "no_active_quest", "repeat tavern report should report no_active_quest")
+	_expect(int(repeat_complete_summary.get("ap_spent", 0)) == 0, "rejected tavern report should not spend AP")
 	_cleanup(path)
 
 

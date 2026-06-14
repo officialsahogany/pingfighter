@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage1PillarPetalPayloadFactory := preload("res://scripts/stages/stage1/stage1_pillar_petal_payload_factory.gd")
+
 const TREE_DROP_PETAL_MAX := 18
 const TREE_DROP_PETAL_SPAWN_MIN := 1
 const TREE_DROP_PETAL_SPAWN_MAX := 2
@@ -63,32 +65,15 @@ func spawn(
 	else:
 		base_x = randf_range(tree_rect.position.x + 16.0, tree_rect.position.x + tree_rect.size.x * 0.58)
 	var side_dir: float = 1.0 if side == "left" else -1.0
-	var colors: Array[Color] = [
-		Color(1.0, 246.0 / 255.0, 218.0 / 255.0, 1.0),
-		Color(1.0, 232.0 / 255.0, 224.0 / 255.0, 1.0),
-		Color(248.0 / 255.0, 239.0 / 255.0, 204.0 / 255.0, 1.0),
-		Color(1.0, 218.0 / 255.0, 226.0 / 255.0, 1.0),
-	]
 	var count: int = randi_range(TREE_DROP_PETAL_SPAWN_MIN, TREE_DROP_PETAL_SPAWN_MAX)
 	var clamped_strength: float = clamp(strength, 0.25, 1.0)
 	for _i in range(count):
 		var burst: float = 0.75 + clamped_strength * 0.6
-		var life: float = randf_range(1.35, 2.15)
-		tree_drop_petals.append({
-			"x": base_x + randf_range(-16.0, 16.0),
-			"y": base_y + randf_range(-28.0, 24.0),
-			"vx": (side_dir * randf_range(16.0, 48.0) + randf_range(-18.0, 18.0)) * burst,
-			"vy": randf_range(24.0, 76.0) * burst,
-			"gravity": randf_range(34.0, 72.0),
-			"sway": randf_range(0.0, TAU),
-			"sway_speed": randf_range(4.0, 7.5),
-			"rotation": randf_range(0.0, 360.0),
-			"rot_speed": randf_range(-165.0, 165.0),
-			"size": float(randi_range(5, 9)),
-			"color": colors[randi() % colors.size()],
-			"life": life,
-			"max_life": life,
-		})
+		tree_drop_petals.append(Stage1PillarPetalPayloadFactory.build_tree_drop_petal(
+			Vector2(base_x, base_y),
+			side_dir,
+			burst
+		))
 	while tree_drop_petals.size() > TREE_DROP_PETAL_MAX:
 		tree_drop_petals.pop_front()
 

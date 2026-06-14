@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage4MoonPayloadFactory := preload("res://scripts/stages/stage4/stage4_moon_payload_factory.gd")
 
 const MOON_WHITE_SHEET_PATH := "res://assets/sprites/hud/stage4_moon_white_idle_sheet_imagegen_v1.png"
 const MOON_RED_TRANSFORM_SHEET_PATH := "res://assets/sprites/hud/stage4_moon_red_transform_sheet_imagegen_v2.png"
@@ -320,35 +321,18 @@ func _spawn_moon_fragments(count: int, target: Variant, deps: Dictionary) -> int
 		)
 		if target is Vector2:
 			target_pos = target
-		var to_target: Vector2 = target_pos - origin
-		if to_target.length() <= 0.001:
-			to_target = Vector2(-1.0, 1.0)
-		var speed: float = rng.randf_range(5.0, 8.0)
-		var fragment_id: int = int(Time.get_ticks_msec()) * 1000 + rng.randi_range(0, 999)
-		var size: float = rng.randf_range(8.0, 15.0)
-		moon_fragments.append({
-			"fragment_id": fragment_id,
-			"x": origin.x + rng.randf_range(-8.0, 12.0),
-			"y": origin.y + rng.randf_range(-8.0, 8.0),
-			"vx": to_target.normalized().x * speed,
-			"vy": to_target.normalized().y * speed,
-			"target_x": target_pos.x,
-			"target_y": target_pos.y,
-			"size": size,
-			"rotation": rng.randf_range(0.0, 360.0),
-			"rotation_speed": _get_random_fragment_rotation_speed(),
-			"lifetime": 300.0,
-			"trail": [origin],
-			"impact": false,
-			"impact_timer": 0.0,
-			"shockwave_radius": 0.0,
-			"entered_field": origin.x <= FIELD_WIDTH + 30.0,
-			"deflected": false,
-			"glow_phase": rng.randf_range(0.0, TAU),
-			"sprite_index": rng.randi_range(0, FRAGMENT_ATLAS_COLUMNS * FRAGMENT_ATLAS_ROWS - 1),
-			"sprite_scale_jitter": rng.randf_range(0.88, 1.0),
-			"visual_scale": rng.randf_range(FRAGMENT_IMAGE_SCALE_MIN, FRAGMENT_IMAGE_SCALE_MAX),
-		})
+		moon_fragments.append(Stage4MoonPayloadFactory.build_fragment(
+			origin,
+			target_pos,
+			rng,
+			int(Time.get_ticks_msec()),
+			FRAGMENT_ROTATION_SPEED_MIN,
+			FRAGMENT_ROTATION_SPEED_MAX,
+			FRAGMENT_IMAGE_SCALE_MIN,
+			FRAGMENT_IMAGE_SCALE_MAX,
+			FIELD_WIDTH + 30.0,
+			FRAGMENT_ATLAS_COLUMNS * FRAGMENT_ATLAS_ROWS
+		))
 		spawned += 1
 	if spawned > 0:
 		moon_pulse_timer_frames = 30.0
@@ -358,11 +342,6 @@ func _spawn_moon_fragments(count: int, target: Variant, deps: Dictionary) -> int
 
 func _get_fragment_origin() -> Vector2:
 	return Vector2(FIELD_WIDTH + 24.0, clampf(moon_center.y if moon_center != Vector2.ZERO else 96.0, -20.0, FIELD_HEIGHT * 0.28))
-
-
-func _get_random_fragment_rotation_speed() -> float:
-	var direction := -1.0 if rng.randf() < 0.5 else 1.0
-	return direction * rng.randf_range(FRAGMENT_ROTATION_SPEED_MIN, FRAGMENT_ROTATION_SPEED_MAX)
 
 
 func _update_fragment_trail(fragment: Dictionary) -> void:

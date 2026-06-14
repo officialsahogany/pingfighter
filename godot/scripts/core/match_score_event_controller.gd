@@ -454,6 +454,9 @@ func _clear_stage5_round_boundary_fx(deps: Dictionary) -> void:
 	var stage5_hongryun_state: Object = deps.get("stage5_hongryun_state", null)
 	if stage5_hongryun_state != null and stage5_hongryun_state.has_method("reset_round"):
 		stage5_hongryun_state.reset_round()
+	var stage5_hongryun_fire_machine_event: Object = deps.get("stage5_hongryun_fire_machine_event", null)
+	if stage5_hongryun_fire_machine_event != null and stage5_hongryun_fire_machine_event.has_method("reset_round"):
+		stage5_hongryun_fire_machine_event.reset_round()
 	var stage5_hongryun_actor_renderer: Object = deps.get("stage5_hongryun_actor_renderer", null)
 	if stage5_hongryun_actor_renderer == null:
 		return

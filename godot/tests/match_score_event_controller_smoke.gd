@@ -222,6 +222,15 @@ class FakeAudio:
 	func stop_stage2_quake_loop() -> void:
 		stopped["quake"] = true
 
+	func stop_stage5_hongryun_fireball() -> void:
+		stopped["stage5_fireball"] = true
+
+	func stop_stage5_hongryun_charge() -> void:
+		stopped["stage5_charge"] = true
+
+	func stop_stage5_hongryun_shoot() -> void:
+		stopped["stage5_shoot"] = true
+
 	func play_round_set() -> void:
 		play_round_set_calls += 1
 
@@ -238,6 +247,15 @@ class FakeStage4PonkSkillState:
 
 
 class FakeStage5HongryunState:
+	extends RefCounted
+
+	var reset_round_calls := 0
+
+	func reset_round() -> void:
+		reset_round_calls += 1
+
+
+class FakeStage5HongryunFireMachineEvent:
 	extends RefCounted
 
 	var reset_round_calls := 0
@@ -291,7 +309,7 @@ func _init() -> void:
 	_expect(bool(battle_resources.result_context.get("player_victory_active", false)) and bool(battle_resources.result_context.get("boss_defeat_active", false)), "player score should queue player victory and boss defeat result textures")
 	_expect(round_state.scoreboard_wait_calls == 1, "round state should enter scoreboard wait")
 	_expect(_reset_ball_calls == 0, "scoreboard flow should not reset ball immediately")
-	_expect(audio.stopped.size() == 12 and bool(audio.stopped.get("boomerang", false)) and bool(audio.stopped.get("spider_mine", false)) and bool(audio.stopped.get("chaos_blackhole", false)) and audio.play_round_set_calls == 1, "score audio should stop gameplay loops and play round set")
+	_expect(audio.stopped.size() == 15 and bool(audio.stopped.get("boomerang", false)) and bool(audio.stopped.get("spider_mine", false)) and bool(audio.stopped.get("chaos_blackhole", false)) and bool(audio.stopped.get("stage5_charge", false)) and audio.play_round_set_calls == 1, "score audio should stop gameplay loops and play round set")
 
 	var stage4_ponk_skill_state := FakeStage4PonkSkillState.new()
 	controller.handle_score_event("player", {
@@ -322,6 +340,7 @@ func _init() -> void:
 	_expect(stage2_background.saw_audio_dep, "Stage 2 score boundary should pass audio deps to quake cleanup")
 
 	var stage5_hongryun_state := FakeStage5HongryunState.new()
+	var stage5_hongryun_fire_machine_event := FakeStage5HongryunFireMachineEvent.new()
 	var stage5_hongryun_actor_renderer := FakeStage5HongryunActorRenderer.new()
 	controller.handle_score_event("player", {
 		"score_state": FakeScoreState.new(),
@@ -330,11 +349,13 @@ func _init() -> void:
 		"audio": FakeAudio.new(),
 		"current_stage": 5,
 		"stage5_hongryun_state": stage5_hongryun_state,
+		"stage5_hongryun_fire_machine_event": stage5_hongryun_fire_machine_event,
 		"stage5_hongryun_actor_renderer": stage5_hongryun_actor_renderer,
 	}, {
 		"reset_ball": Callable(self, "_record_reset_ball"),
 	})
 	_expect(stage5_hongryun_state.reset_round_calls == 1, "Stage 5 score boundary should clear Hongryun inferno state before result overlays")
+	_expect(stage5_hongryun_fire_machine_event.reset_round_calls == 1, "Stage 5 score boundary should clear Hongryun fire-machine zones before result overlays")
 	_expect(stage5_hongryun_actor_renderer.reset_round_fx_calls == 1, "Stage 5 score boundary should hide Hongryun detached inferno FX hosts")
 
 	var boss_stage_background := FakeStageBackground.new()

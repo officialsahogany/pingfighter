@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
 # Texture paths, atlas geometry, and pure atlas-region slicing for the
 # Stage 2 pillar background. Owner is `stage2_pillar_background.gd`; that
 # script still owns the loaded `Texture2D` references and the cached
@@ -76,9 +78,14 @@ const ROCK_DEBRIS_SOURCE_REGION_DATA := [
 static func slice_alpha_atlas_regions(path: String, columns: int, rows: int, padding: int = 2) -> Array:
 	if columns <= 0 or rows <= 0:
 		return []
-	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path)
+	if texture == null:
+		return []
+	var image: Image = texture.get_image()
 	if image == null or image.is_empty():
 		return []
+	if image.is_compressed():
+		image.decompress()
 	@warning_ignore("integer_division")
 	var cell_w: int = image.get_width() / columns
 	@warning_ignore("integer_division")

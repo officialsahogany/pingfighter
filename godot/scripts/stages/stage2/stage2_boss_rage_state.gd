@@ -17,6 +17,36 @@ static func should_trigger_crisis(
 	return player_score == crisis_player_score and boss_score <= crisis_player_score
 
 
+static func get_crisis_reservation(
+	context: Dictionary,
+	crisis_triggered: bool,
+	boss_rage_pending: bool,
+	boss_rage_active: bool,
+	crisis_player_score: int
+) -> Dictionary:
+	if not should_trigger_crisis(
+		context,
+		crisis_triggered,
+		boss_rage_pending,
+		boss_rage_active,
+		crisis_player_score
+	):
+		return {"triggered": false, "ai_mode": ""}
+	return {
+		"triggered": true,
+		"ai_mode": get_crisis_ai_mode(context),
+	}
+
+
+static func get_crisis_ai_mode(context: Dictionary) -> String:
+	var ai_mode: String = str(context.get("ai_mode", context.get("league_mode", "champion")))
+	return "mythic" if ai_mode == "mythic" else "champion"
+
+
+static func get_crisis_rock_count(ai_mode: String, champion_count: int, mythic_count: int) -> int:
+	return mythic_count if ai_mode == "mythic" else champion_count
+
+
 static func get_inactive_visuals(offset_y: float, tint: float, delta: float) -> Dictionary:
 	return {
 		"offset_y": move_toward(offset_y, 0.0, delta * 120.0),

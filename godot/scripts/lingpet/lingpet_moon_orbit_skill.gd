@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetMoonOrbitPayloadFactory := preload("res://scripts/lingpet/lingpet_moon_orbit_payload_factory.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PROJECTILE_SPEED := 620.0
@@ -150,29 +152,14 @@ func _spawn_orbit_field(owner: Object) -> void:
 
 
 func _spawn_burst_particles(origin: Vector2) -> void:
-	for i in range(SPARK_PARTICLES):
-		var angle: float = -PI * 0.5 + (randf() - 0.5) * PI * 1.35
-		var speed: float = randf_range(120.0, 310.0)
-		_add_particle(
-			origin + Vector2(randf_range(-9.0, 9.0), randf_range(-4.0, 5.0)),
-			Vector2(cos(angle), sin(angle)) * speed,
-			randf_range(0.28, 0.58),
-			randf_range(2.2, 5.2),
-			0
-		)
+	for _i in range(SPARK_PARTICLES):
+		_add_particle(LingpetMoonOrbitPayloadFactory.build_burst_particle(origin))
 
 
-func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float, kind: int) -> void:
+func _add_particle(particle: Dictionary) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
-	_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": life,
-		"max_life": maxf(0.01, life),
-		"size": size,
-		"kind": kind,
-	})
+	_particles.append(particle)
 
 
 func _update_particles(delta: float) -> void:
@@ -200,16 +187,13 @@ func _update_particles(delta: float) -> void:
 		_ambient_timer -= delta
 		if _ambient_timer <= 0.0:
 			_ambient_timer = AMBIENT_INTERVAL
-			for i in range(AMBIENT_BURST):
-				var ux: float = randf_range(-0.92, 0.92)
-				var uy: float = randf_range(-0.42, 0.42)
-				var spawn := _orbit_pos + Vector2(ux * ORBIT_HALF_WIDTH, uy * ORBIT_HALF_HEIGHT)
+			for _i in range(AMBIENT_BURST):
 				_add_particle(
-					spawn,
-					Vector2(randf_range(-22.0, 22.0), randf_range(-12.0, 8.0)),
-					randf_range(0.42, 0.82),
-					randf_range(1.8, 3.8),
-					1
+					LingpetMoonOrbitPayloadFactory.build_ambient_particle(
+						_orbit_pos,
+						ORBIT_HALF_WIDTH,
+						ORBIT_HALF_HEIGHT
+					)
 				)
 
 
@@ -223,12 +207,7 @@ func _apply_boss_slow(owner: Object, registry: Object) -> void:
 		"boss",
 		"slow",
 		SLOW_REFRESH_FRAMES,
-		{
-			"multiplier": SLOW_MULTIPLIER,
-			"cleansable": true,
-			"visual": "draft_bat_moon_orbit",
-			"suppress_legacy_boss_ai_slow": true,
-		},
+		LingpetMoonOrbitPayloadFactory.build_slow_status_data(SLOW_MULTIPLIER),
 		STATUS_SOURCE
 	)
 

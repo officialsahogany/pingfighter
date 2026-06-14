@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+const Stage1DaljiSpinningTopPayloadFactory := preload("res://scripts/stages/stage1/stage1_dalji_spinning_top_payload_factory.gd")
 
 const STAGE_ID := 1
 const GAUGE_COST := 150.0
@@ -86,22 +87,13 @@ func activate(context: Dictionary, deps: Dictionary = {}) -> bool:
 	)
 	var offsets: Array = ENRAGED_OFFSETS if bool(context.get("enraged_boss_active", false)) else NORMAL_OFFSETS
 	for i in range(offsets.size()):
-		tops.append({
-			"x": boss_center.x + float(offsets[i]),
-			"y": boss_center.y + 40.0,
-			"vx": randf_range(-0.5, 0.5),
-			"vy": INITIAL_DOWN_SPEED,
-			"rotation": randf_range(0.0, 360.0),
-			"rotation_speed": 20.0,
-			"tilt": 0.0,
-			"alpha": 255.0,
-			"whip_phase": "preparing",
-			"zigzag_timer": float(i * 10),
-			"speed_boost": 0.0,
-			"boost_timer": 0.0,
-			"is_golden": randf() < GOLDEN_TOP_CHANCE,
-			"star_spawned": false,
-		})
+		tops.append(Stage1DaljiSpinningTopPayloadFactory.build_top(
+			boss_center,
+			float(offsets[i]),
+			i,
+			INITIAL_DOWN_SPEED,
+			GOLDEN_TOP_CHANCE
+		))
 
 	_play_whip_sound()
 	return true

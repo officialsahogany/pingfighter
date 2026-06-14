@@ -311,9 +311,17 @@ Known repeats of this exact class include F3 mythic-management first icon
 creation, score-result texture ensure during draw, desktop mobile-touch first
 draw module creation, Stage 1 pillar mythic runtime lookup during draw,
 perk-debug overlay first visible draw, the modal-gate physics regression
-where closed overlay checks lazy-created modules for a 158ms spike, and the
+where closed overlay checks lazy-created modules for a 158ms spike, the
 lingpet skill runtime host lazy-creating the active skill module (1034-line
-doll curse script + 512px sheet) on its first per-frame update / first arm.
+doll curse script + 512px sheet) on its first per-frame update / first arm,
+and the match-reset deps build cold-instantiating ALL six stages' state
+modules through `registry.get_instance` on a stage-1 match end (370ms
+physics stall; the round-restart default deps path hit the same class at
+574ms). Reset / cleanup / "is it active?" consumers that only need EXISTING
+modules must look up through `registry.get_cached_instance` (the
+non-instantiating peek — a never-created module has no state to reset);
+reference: `battle_update_stage_runtime_deps_builder` include-all branch,
+sealed by `stage_runtime_deps_builder_smoke`'s cold-instantiation guard.
 The lingpet fix pattern is prewarming at the discrete loadout-apply / boot
 moment (`lingpet_egg_runtime._prewarm_current_skill_runtime`, sealed by
 `lingpet_egg_runtime_smoke._verify_loadout_apply_prewarms_active_skill_runtime`);
@@ -400,6 +408,25 @@ Standing rules:
   viewport screenshot, and confirm the layer actually reads on screen. The
   reference incident had `visible=true`, correct texture, correct modulate,
   and zero visible pixels.
+- When a previously-buried backdrop finally shows (or a new backplate lands),
+  re-QA the backdrop ART against the foreground figure before trusting old
+  "looked fine" reads — and treat new "character asset defect" reports with
+  suspicion. Reference: the chamber backplate's dark center-top ceiling band
+  read as a black nukki stain behind Io's head the day the burial fix landed
+  (2026-06-12), while the sheet alpha, every draw call, and every layer were
+  clean. Diagnose by pixel-DIFFING with-character vs without-character
+  captures of the same scene: if the "fringe" pixels equal the
+  backdrop-only render, the defect is the backdrop art (fix the art, e.g.
+  brighten the pocket / extend the beam), not the sprite or the renderer.
+- The same incident's second wave: RELIGHTING a backdrop invalidates every
+  dark overlay that was tuned against the old dark backdrop. The
+  thigh-cutline dissolve shroud (near-black pool, alpha 0.94, tuned the same
+  day against the pre-lit room) became a "black fog swallowing the legs"
+  stain the moment the bright summon column landed behind it — its bell
+  falloff leaves bright floor exposed on both sides, maximizing the
+  contrast. When a backdrop gets brighter, re-audit the shrouds / aprons /
+  contact shadows drawn over it and re-tint them as shadows OF the lit
+  scene (scene hue, moderate alpha), never neutral near-black.
 
 A sprite sheet with a lateral action (throw, strike, aim, lunge) is authored
 facing ONE direction, and that authored facing is invisible in code -- you
@@ -539,6 +566,68 @@ Standing rules for chance-gated per-frame gameplay effects:
   already-active replay branch must not grant) + battle-global caps in
   `lingpet_affinity_state` (round 2 / battle 5), sealed by
   `lingpet_affinity_state_smoke`'s same-round pet-switch cases.
+
+## Godot Companion Walk/Idle Ratio Trap (treadmill in place)
+
+`lingpet_companion_motion_state.motion_speed_ratio` is the companion
+renderer's walk/idle GATE and walk-anim speed
+(`lingpet_companion_renderer` picks the walk sheet when ratio > 0.01;
+`get_walk_frame` then cycles on WALL-CLOCK time). Any motion-state /
+override writer must therefore write the ACTUAL per-frame movement speed
+into it, never an intent / capability constant — a positive ratio on a
+stationary companion renders as full-speed walking in place, ships
+silently (no error, state smokes pass), and only shows in live play.
+Reference failure: the defense intercept set the ratio from the 225px/s
+guard-speed cap for the whole intercept-active window, but the
+anticipatory guard ARRIVES EARLY BY DESIGN and parks at the predicted
+landing X — so the parked guard treadmilled at max walk FPS. Fix = track
+the real step speed (`defense_intercept_step_speed`, 0 in the
+arrived-hold branch; `patrol_speed` alone is NOT enough — it retains the
+last chase speed on arrival), sealed by `lingpet_egg_runtime_smoke.
+_verify_maribo_defense_hold_stops_walk_animation` (verified to FAIL
+against the constant-ratio code).
+
+This trap has THREE distinct mechanisms; the defense-hold above is only
+one. The other two were the dominant cause in live play and are now fixed
+together:
+
+- **Mechanism A — skipped `update_lingpet` + wall-clock anim.** Every
+  early-return pause branch in `battle_frame_flow_controller.update()`
+  (Smasher power-smash freeze ~1.65s, mythic acquisition cinematic,
+  scoreboard fade-in, stage3 kuromi / psychoball hitstop) skips the
+  `update_lingpet` callback while still calling `queue_redraw`. The
+  companion is still drawn with its STALE `motion_speed_ratio` (> 0.01 if
+  it was mid-walk), and the walk frame used raw `Time.get_ticks_msec()`,
+  so it kept cycling — marching in place — while the frozen pet never
+  moved. Fix: drive the walk frame from an accumulator
+  (`LingpetCompanionSpriteAnimator.walk_phase`, advanced by
+  `advance_walk_phase()` which is called only inside the `update_lingpet`
+  tick) instead of wall-clock. A skipped tick freezes the phase → a still
+  frame, not a march. The wall-clock path stays as a fallback for any
+  animator instance that never calls `advance_walk_phase` (the soul-clone
+  has its OWN animator). Sealed by
+  `_verify_walk_animation_freezes_when_update_skipped`.
+- **Mechanism B — position-override forces draw ratio 1.0.**
+  `lingpet_egg_runtime._get_companion_draw_motion_speed_ratio()` hardcoded
+  `1.0` for the skill-host and starlight-tracking override branches,
+  regardless of whether the override actually MOVED the pet. The starlight
+  pickup-hold (~1s, common on ground pets like maribo that have
+  `lingpet_starlight_tracking`) and skill holds (doll-curse cast, headbutt
+  repeat-wait) park the pet → walked in place. Fix: the override branches
+  return a real **horizontal** movement ratio (`_companion_override_move_ratio`,
+  computed each tick in `_advance_companion_draw_anim` from the x-delta of
+  `_companion_pos`). A held override → 0 → idle; a moving one → walk. Use
+  x-delta, NOT vector length: the walk sheet is side-view locomotion, so a
+  pure vertical hop (the starlight pickup jump arc keeps x fixed) must read
+  as idle. Sealed by `_verify_starlight_pickup_hold_reads_idle`.
+
+Standing rule: the companion walk/idle gate must be driven by ACTUAL drawn
+movement (or 0 when held), and the walk-frame CLOCK must freeze whenever
+the companion's own update tick is skipped. Never feed it an intent /
+capability constant or a wall-clock timer that advances independently of
+the pet's real motion. When adding a new pause branch that skips
+`update_lingpet`, or a new override / skill that parks the companion,
+re-audit both mechanisms.
 
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
@@ -717,8 +806,11 @@ Keep the source guard too:
 `ball_motion_collision_detector.gd` must not branch on
 `lingpet_puppet_grab_active`. Reference:
 `lingpet_egg_runtime_smoke._verify_koyora_puppet_grab_skill`.
-A faithful port of a pure-CC skill must NOT read/write the ball, score, or
-damage — the smoke asserts the module never references `ball_vel`/`ball_pos`.
+Koyora Puppet Control is no longer pure-CC: by design it may read
+`ball_active` / `ball_pos` / `ball_pos_prev` / `ball_size` so the live ball can
+cut the puppet strings during PULLING / KISSING. It still must not read
+`ball_vel`, move the ball, change score, or apply damage; the smoke asserts
+those boundaries.
 
 ## Direct Draw Request Routing
 
@@ -1392,6 +1484,52 @@ checklist is open.
   by `stage5_hongryun_holy_barrier_motion_skip_smoke.gd`. Audit the same hole
   for horn-strawberry field and brick wall when porting future owned-ball
   boss skills.
+- **Owned-ball release handoffs must survive the update_effects-only pause
+  windows.** `battle_frame_flow_controller` has modal pause branches (mythic
+  acquisition cinematic / baal boots / pandora selection / horn strawberry via
+  `mythic_item_runtime.should_pause_game`, scoreboard active, stage3 kuromi
+  awakening, psychoball hitstop) that keep calling `update_effects` every
+  frame while skipping `update_ball`. A skill state machine ticked from the
+  effects path can therefore expire, queue its pending release, AND have a
+  later fade/reset wipe that pending token — all while the only
+  `skip_ball_motion_step=false` consumer (the ball-motion path) is paused.
+  The wiped release leaves the shared skip flag stuck true forever: frozen
+  un-hittable ball, no collision, no scoring, permanent softlock. Reference
+  failure: Chaos Spear blackhole × mythic acquisition cinematic (blackhole
+  180f + fade 25.2f ≈ 3.4s completes behind the cinematic; the fade-end reset
+  wiped `chaos_release_pending`, `needs_ball_motion_update()` then gated the
+  motion pass shut, and the paddle rescue was dead behind its
+  `chaos_state == "blackhole"` gate). Fix pattern = two layers. (1)
+  Self-healing ownership token (`chaos_ball_motion_owned`): set when the
+  skill emits skip=true from the ball path, added to the motion-pass
+  necessity gate, consumed on the next ball pass; the heal fires only when
+  the scene flag is actually still true. The token survives ONLY the
+  fade-end natural reset that wipes an unconsumed pending release
+  (clear_command=false AND pending armed — the pause-wipe case, where the
+  skill is provably the sole flag owner); every explicit round/context reset
+  (clear_command=true, even if a pending release was armed moments earlier)
+  and every early-hit release drops the token, so the heal can
+  never stomp a fresh serve or another concurrent owner's hold (Poseidon
+  capture / stage5 inferno — stage5's hijack also overwrites the flag BEFORE
+  the viper motion pass each frame, so a broadly-surviving token would steal
+  its hold). (2) Round normalize layer:
+  `ball_round_state.build_common_snapshot` resets
+  `skip_ball_motion_step = false` in every round reset/serve snapshot — no
+  hold may legitimately survive a round boundary, and owned-ball teardowns
+  can happen without their ball-path release ever running (this also covers
+  the poseidon `clear_runtime` latent leak class). Sealed by
+  `chaos_spear_hit_release_smoke._test_mythic_pause_expiry_self_heals_motion_skip`
+  + `_test_self_heal_noop_when_flag_already_released`
+  + `_test_round_reset_scopes_ownership_and_normalizes_skip`. When auditing a new
+  owned-ball skill against this trap, check the structurally-immune sibling
+  patterns first: (a) the state machine ticks only on the ball path (Smasher
+  ghost shot) or only on a driver that pauses together with the ball
+  (`update_lingpet` is skipped by every pause branch); (b) the release is
+  computed AND applied to the owner inside the same effects tick via the
+  effects result applier (Commando bowling trap, stage3 kuromi spit, stage5
+  hongryun); (c) the pending-release token survives until consumed and is
+  never wiped by an FX/timer cleanup (stage4 ponk meditation). A skill that
+  matches none of these needs the ownership-flag self-heal.
 - **Godot boss-side strong knockback handlers must signal
   `suppress_paddle_hit_knockback` on the same frame.** `boss_ai_state.start_paddle_hit_knockback`
   takes `replace_current=true` from every caller, so the regular paddle hit

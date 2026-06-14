@@ -60,6 +60,10 @@ func step_motion(fps_scale: float) -> bool:
 	return parabola_state.step(fps_scale)
 
 
+func notify_wall_bounce(side: String) -> void:
+	parabola_state.repoint_arc_away_from(side)
+
+
 func is_freeze_active() -> bool:
 	return freeze_state.is_active()
 

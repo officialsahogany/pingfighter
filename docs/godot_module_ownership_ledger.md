@@ -21,6 +21,24 @@ Read this as a ledger, not a rulebook:
 
 This section is intentionally long; use search to find the nearest owner.
 
+- `scripts/plaza/`
+  Owns the first Godot plaza shell for the DiskHearts - Ringpia port:
+  stage-theme fallback, accepted plaza floor/building asset loading and
+  prewarm, 760x750 side-scroll street rendering, S4.5 imagegen parallax
+  layers, S1 sidewalk/VR-strata ground strip reuse, player X-walk/X-camera
+  state, per-instance CPU emissive flicker, S5 building menu shells, S6a
+  `plaza_save_store.gd` persistent gold/AP ledger, S6b-1 bank deposit/withdraw/
+  stage-interest transactions, S6b-2 `plaza_shop_transactions.gd` active-item
+  shop buy/sell transactions, S6b-3 `plaza_blacksmith_transactions.gd`
+  active-slot enhancement attempts, S6b-4 `plaza_gacha_transactions.gd`
+  active-item capsule pulls, S6b-5 `plaza_lingpet_store_transactions.gd`
+  resonance-egg purchases that call `lingpet_egg_runtime` without directly
+  mutating lingpet ownership, and the EXIT-zone callback surface.
+  `stage_clear_result_screen.gd` only spawns `scenes/plaza.tscn` after
+  rewards are granted, transfers volatile `runtime_perk_gold` into
+  `plaza_save_store.gd` once, grants the stage-clear AP once, and delays the
+  existing next-stage reset callback until the plaza exits; plaza-local
+  movement, interaction, and save-ledger state stay under `scripts/plaza/`.
 - `scripts/characters/blacksmith_thor_shield_state.gd`
   Owns Kohaku / Baltor's first Godot combat slice for Thor Shield:
   shield open / retract timers, swing timing, movement slowdown, shield
@@ -157,6 +175,17 @@ This section is intentionally long; use search to find the nearest owner.
   through `lingpet_visual_texture_cache.gd`. `lingpet_egg_runtime.gd` should
   update this helper when the active pet id changes instead of querying
   `lingpet_catalog.gd` directly.
+- `scripts/lingpet/lingpet_affinity_feedback_state.gd`
+  Owns Ringpet affinity level-up and point-gain feedback state: level-up flash
+  timers, title / heart-tint state, point-popup coalescing, expiry, snapshot
+  payloads, and renderer-facing point-popup configs. Stored and draw-facing
+  popup payload dictionaries are delegated to
+  `lingpet_affinity_feedback_payload_factory.gd`.
+- `scripts/lingpet/lingpet_affinity_feedback_payload_factory.gd`
+  Owns pure Ringpet affinity feedback popup payload construction for stored
+  point-gain popups and renderer-facing ratio payloads. The feedback state
+  module should keep timers, coalescing, cap enforcement, labels, and snapshot
+  fanout.
 - `scripts/lingpet/lingpet_egg_field_state.gd`
   Owns Ringpet floor-egg field behavior: spawn position near the player paddle,
   player-contact nudge / wobble, egg ball-hit overlap state, player-serve
@@ -225,7 +254,13 @@ This section is intentionally long; use search to find the nearest owner.
   droplet particle sim, gauge feedback calls, and debug / UI snapshot fields.
   The visual envelope is decorative only and never gates the absorb gameplay.
   `lingpet_egg_runtime.gd` should only call spawn / advance / draw / reset and
-  should not inline residue math.
+  should not inline residue math. Residue, floor-splat, and particle payload
+  dictionaries are delegated to `lingpet_afterglow_leak_payload_factory.gd`.
+- `scripts/lingpet/lingpet_afterglow_leak_payload_factory.gd`
+  Owns pure Afterglow Leak payload construction for residue state dictionaries,
+  landed floor splats, and droplet / absorb-wisp particle entries. The state
+  module keeps absorption math, per-frame simulation, texture prewarm, gauge
+  feedback, and drawing.
 - `scripts/effects/afterglow_fluid_texture_cache.gd`
   Static lazy luminance-texture cache for the 잔광 유출 fluid VFX (glow / body /
   caustic / rim / droplet / vertical-rivulet streak), white-baked with alpha
@@ -311,21 +346,43 @@ This section is intentionally long; use search to find the nearest owner.
   ghost fallback drawing, and `ghost_summon_*` snapshot keys.
   `lingpet_skill_runtime_host.gd` dispatches this by the `ghost_summon`
   runtime kind while keeping the shared Ringpet lifecycle in
-  `lingpet_egg_runtime.gd`.
+  `lingpet_egg_runtime.gd`. Ghost state, dying-ghost, normal particle, and
+  teleport particle payload dictionaries are delegated to
+  `lingpet_ghost_summon_payload_factory.gd`.
+- `scripts/lingpet/lingpet_ghost_summon_payload_factory.gd`
+  Owns pure Rabi / Nekuring Ghost Summon payload construction for spawned
+  ghost state, dying ghost fade-outs, launch / death particles, and teleport
+  particles. `lingpet_ghost_summon_skill.gd` should keep capture timing,
+  teleport targeting, ball ownership, audio cues, and drawing.
 - `scripts/lingpet/lingpet_soul_clone_skill.gd`
   Owns Rabi's `rabi_soul_clone` / 영혼분신 active runtime: one 15-second
   translucent Rabi clone, lower-player-side free-flight movement, mini-paddle
   ball reflection without extra gauge gain, lightweight spirit particles, and
   `soul_clone_*` snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this
   by the `soul_clone` runtime kind while Rabi's visual identity remains
-  catalog-backed through existing `rabi_companion_walk` art.
+  catalog-backed through existing `rabi_companion_walk` art. Spirit particle
+  payload dictionaries are delegated to `lingpet_soul_clone_payload_factory.gd`.
+- `scripts/lingpet/lingpet_soul_clone_payload_factory.gd`
+  Owns pure Rabi Soul Clone particle payload construction for ambient wisps,
+  vanish bursts, and ball-hit bursts. `lingpet_soul_clone_skill.gd` should keep
+  clone movement, ball reflection, lifecycle, texture loading, and drawing.
 - `scripts/lingpet/lingpet_hydro_sphere_skill.gd`
   Owns Maribo Hydro Sphere's skill-specific runtime: projectile travel,
   opponent-wall impact, horizontal elliptical puddle, slow status refresh,
   splash / ambient droplet particles, procedural puddle texture drawing, and
   Hydro Sphere snapshot keys. `lingpet_skill_runtime_host.gd` calls this module
   instead of letting `lingpet_egg_runtime.gd` grow Maribo-specific projectile /
-  puddle code inline.
+  puddle code inline. Droplet particle payloads and slow-status data payloads
+  are delegated to `lingpet_hydro_sphere_payload_factory.gd`.
+- `scripts/lingpet/lingpet_hydro_sphere_payload_factory.gd`
+  Owns pure Maribo Hydro Sphere payload construction for splash droplets,
+  ambient puddle droplets, base particle dictionaries, and the boss slow
+  status data payload.
+- `scripts/lingpet/lingpet_moon_orbit_payload_factory.gd`
+  Owns pure Draft Bat / Orbi Moon Orbit payload construction for burst
+  particles, ambient orbit-field particles, base particle dictionaries, and
+  the boss slow status data payload. `lingpet_moon_orbit_skill.gd` should
+  keep projectile travel, field timing, overlap checks, and drawing.
 - `scripts/lingpet/lingpet_bubble_trap_skill.gd`
   Owns Maribo Bubble Trap's skill-specific runtime: slow forward bubble
   projectile travel, boss-paddle collision capture, 2.5-3.0-second bubble movement
@@ -333,7 +390,55 @@ This section is intentionally long; use search to find the nearest owner.
   procedural bubble burst VFX, reused hydro-water feedback, and Bubble Trap
   snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this module by the
   `bubble_trap` runtime kind so `lingpet_egg_runtime.gd` stays limited to the
-  common companion wind-up / launch lifecycle.
+  common companion wind-up / launch lifecycle. Projectile dictionaries, burst
+  particle payloads, and stun-status data are delegated to
+  `lingpet_bubble_trap_payload_factory.gd`.
+- `scripts/lingpet/lingpet_bubble_trap_payload_factory.gd`
+  Owns pure Maribo Bubble Trap payload construction for launched bubble
+  projectiles, burst particles, base particle dictionaries, and shared boss
+  stun status data.
+- `scripts/lingpet/lingpet_bomb_surprise_payload_factory.gd`
+  Owns pure Volty Bomb Surprise payload construction for boss / player stun
+  status data, clamped explosion particle dictionaries, and strong-vs-weak
+  explosion particle scatter. `lingpet_bomb_surprise_skill.gd` should keep
+  attachment state, fuse timing, detonation targeting, audio, screen shake,
+  knockback application, and rendering.
+- `scripts/lingpet/lingpet_dragon_wing_payload_factory.gd`
+  Owns pure Farukiras / Red Dragon Dragon Wing payload construction for the
+  flying-dragon state dictionary, warm wind-particle streaks, ball-swirl trail
+  entries, and dragon trail entries. `lingpet_dragon_wing_skill.gd` should
+  keep the vortex steering, bounded ball-speed policy, collision, audio,
+  texture prewarm, and draw pass.
+- `scripts/lingpet/lingpet_doll_curse_payload_factory.gd`
+  Owns pure Koyora Doll Curse payload construction for initial marionette doll
+  dictionaries, the boss-confusion status data payload, and wooden-doll
+  destroy particles. `lingpet_doll_curse_skill.gd` should keep phase timing,
+  beam sweep / homing logic, boss-contact checks, ball bounce behavior,
+  source-scoped status clear, audio, and drawing.
+- `scripts/lingpet/lingpet_puppet_grab_skill.gd`
+  Owns Koyora Puppet Control's runtime: snapshot lock-on, MISS / retry
+  sequencing, boss-position ownership, pull / kiss / return timing, companion
+  cast-pose override, audio edges, string drawing, and `puppet_grab_*`
+  snapshot keys. Kiss heart and sparkle payload dictionaries are delegated to
+  `lingpet_puppet_grab_payload_factory.gd`.
+- `scripts/lingpet/lingpet_puppet_grab_payload_factory.gd`
+  Owns pure Koyora Puppet Control heart and sparkle payload construction.
+  `lingpet_puppet_grab_skill.gd` should keep boss ownership, phase transitions,
+  retry gates, audio, and drawing.
+- `scripts/lingpet/lingpet_thunder_orb_payload_factory.gd`
+  Owns pure Lumion Thunder Orb payload construction for floating orb energy
+  motes, large / small explosion particles, clamped base particle dictionaries,
+  and the shared electric-stun status data. `lingpet_thunder_orb_skill.gd`
+  should keep projectile travel / deceleration, explosion timing, boss-center
+  hit geometry, electric-loop lifecycle, source-scoped status clear, and draw
+  composition.
+- `scripts/lingpet/lingpet_dragon_breath_payload_factory.gd`
+  Owns pure Red Dragon Dragon Breath payload construction for breath embers,
+  lingering fire-zone dictionaries, zone flame dictionaries, boss slow status
+  data, and molotov-renderer conversion payloads. `lingpet_dragon_breath_skill.gd`
+  should keep companion-origin tracking, heat-cone ball reflection, fire-zone
+  lifetime / boss push logic, molotov host lifecycle, audio, and draw
+  composition.
 - `scripts/lingpet/lingpet_save_store.gd`
   Owns the Ringpet save-file route: loading / saving the runtime snapshot
   from `user://lingpet_save.cfg`, restoring it during battle bootstrap,
@@ -1138,6 +1243,12 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Brick Wall visual particle state helpers: install dust,
   install-complete dust, hit dust, destruction fragments, cap enforcement,
   lifetime compaction, gravity / drag updates, and fragment rotation.
+  Individual particle payload dictionaries are delegated to
+  `active_item_brick_wall_particle_payload_factory.gd`.
+- `scripts/items/active_item_brick_wall_particle_payload_factory.gd`
+  Owns pure Brick Wall particle payload construction for install dust,
+  install-complete dust, hit dust, and destruction brick fragments, including
+  the legacy jitter ranges and fragment palette.
 - `scripts/items/active_item_stopwatch_recovery.gd`
   Owns Stopwatch's pure recovery calculations: remaining-frame-to-speed
   ratio, minimum resume speed, current-direction preference, original
@@ -1179,10 +1290,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_regeneration_potion_effect.gd`
   Owns Regeneration Potion's visual burst state: recovery ring spawning,
   golden particle spawning, particle drift / slowdown / gravity, lifetime
-  compaction, and ring expiration. Non-visual reset work is handled by
+  compaction, and ring expiration. Ring and particle payload dictionaries
+  are delegated to `active_item_regeneration_potion_payload_factory.gd`.
+  Non-visual reset work is handled by
   `active_item_regeneration_potion_runtime.gd`; activation-side spawning,
   audio, and feedback are handled by
   `active_item_regeneration_potion_actions.gd`.
+- `scripts/items/active_item_regeneration_potion_payload_factory.gd`
+  Owns pure Regeneration Potion ring and particle payload construction,
+  including radial spawn range, velocity range, lifetime defaults, and
+  gold particle palette.
 - `scripts/items/active_item_regeneration_potion_actions.gd`
   Owns Regeneration Potion's activation application: invoking the
   non-visual runtime reset helper, deriving the player effect anchor,
@@ -1197,8 +1314,14 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_pickup_effect_state.gd`
   Owns active-item pickup presentation state: item-data snapshot,
   display-name popup timer, HUD-target easing, fade alpha, balloon-pop
-  particle spawning, particle movement, and lifetime compaction. Trigger
-  application and pickup audio remain in `active_item_pickup_actions.gd`.
+  particle spawning, particle movement, and lifetime compaction. Pickup
+  effect and balloon-pop particle payload dictionaries are delegated to
+  `active_item_pickup_effect_payload_factory.gd`. Trigger application and
+  pickup audio remain in `active_item_pickup_actions.gd`.
+- `scripts/items/active_item_pickup_effect_payload_factory.gd`
+  Owns pure active-item pickup effect payload construction: popup item-data
+  snapshots, optional use-hint text, and balloon-pop particle velocity /
+  radius / lifetime / tint ranges.
 - `scripts/items/active_item_pickup_actions.gd`
   Owns active-item pickup trigger application: applying the pickup popup
   snapshot to the effect controller, preserving balloon-pop particles, and
@@ -1262,10 +1385,16 @@ This section is intentionally long; use search to find the nearest owner.
   math remains in `active_item_timed_paddle_effects.gd`.
 - `scripts/items/active_item_life_elixir_particles.gd`
   Owns Life Elixir's player-centered burst particle generation: reference
-  particle count, rainbow color sequence, center jitter, burst velocity,
-  draw radius, and lifetime. Gauge gain, audio, feedback, and burst
-  application remain in `active_item_gauge_actions.gd`; shared
-  pickup-particle lifecycle updates remain in the pickup effect helper.
+  particle count, center handoff, and factory fanout. Individual burst
+  particle payload dictionaries are delegated to
+  `active_item_life_elixir_particle_payload_factory.gd`. Gauge gain,
+  audio, feedback, and burst application remain in
+  `active_item_gauge_actions.gd`; shared pickup-particle lifecycle updates
+  remain in the pickup effect helper.
+- `scripts/items/active_item_life_elixir_particle_payload_factory.gd`
+  Owns pure Life Elixir burst particle payload construction, including
+  radial index spread, center jitter, burst velocity, draw radius,
+  lifetime, and rainbow color sequence.
 - `scripts/items/active_item_gauge_runtime.gd`
   Owns Energy Drink / Life Elixir gauge math: item-data gain defaults,
   Life Elixir full-gauge defaults, owner effective max clamping, Gold
@@ -1282,6 +1411,24 @@ This section is intentionally long; use search to find the nearest owner.
   feedback and audio calls: gauge flash, dash flash, screen shake,
   first-available audio fallback, and multi-cue audio playback. Gameplay
   state transitions remain in the effect controller and focused helpers.
+- `scripts/items/active_item_magnet_field_particles.gd`
+  Owns Magnet Field particle cadence and lifecycle updates: spawn
+  accumulator consumption, cap enforcement, fade compaction, and position
+  integration. Individual particle payload dictionaries are delegated to
+  `active_item_magnet_field_particle_payload_factory.gd`.
+- `scripts/items/active_item_magnet_field_particle_payload_factory.gd`
+  Owns pure Magnet Field particle payload construction, including the
+  orbit spawn range, upward velocity range, initial alpha, radius range,
+  and four-color palette.
+- `scripts/items/active_item_holy_barrier_particles.gd`
+  Owns Holy Barrier idle / hit particle cadence and lifecycle updates:
+  barrier-line spawn timing, inactive fade compaction, and position
+  integration. Individual hit / idle particle payload dictionaries are
+  delegated to `active_item_holy_barrier_particle_payload_factory.gd`.
+- `scripts/items/active_item_holy_barrier_particle_payload_factory.gd`
+  Owns pure Holy Barrier particle payload construction, including hit
+  burst jitter, idle barrier-line jitter, velocity ranges, alpha defaults,
+  and the idle shimmer palette.
 - `scripts/items/active_item_effect_context_builder.gd`
   Owns active consumable effect context snapshots consumed by item
   rendering, HUD timers, ball collision, and boss-returned ball processing:
@@ -1289,6 +1436,16 @@ This section is intentionally long; use search to find the nearest owner.
   Stopwatch / Magnet Field / Holy Barrier render contexts, Holy Barrier
   collision context, Brick wall context, and Stopwatch ball-freeze /
   recovery context.
+- `scripts/items/active_item_dash_boost_particles.gd`
+  Owns Dash Boost idle particle cadence and lifecycle updates: fallback
+  player-center selection, spawn accumulator consumption, fade compaction,
+  radius shrink, and position integration. Individual idle particle payload
+  dictionaries are delegated to
+  `active_item_dash_boost_particle_payload_factory.gd`.
+- `scripts/items/active_item_dash_boost_particle_payload_factory.gd`
+  Owns pure Dash Boost idle particle payload construction, including the
+  shipped jitter ranges, velocity ranges, alpha / shrink defaults, and
+  four-color palette.
 - `scripts/items/active_item_paddle_sync.gd`
   Owns active-item paddle scale composition and owner sync: runtime paddle
   scale, mythic paddle scale, active consumable scale, bottom alignment,
@@ -1371,13 +1528,26 @@ This section is intentionally long; use search to find the nearest owner.
   Registered as `match_scoreboard_flow_controller`.
 - `scripts/core/stage_clear_result_screen.gd`
   Owns the battle-flow handoff for the stage-clear result screen shown
-  after a player match win. It reads the scoreboard snapshot, builds the
-  reward-preview plan, instantiates `scenes/stage_clear_result.tscn` as a
+  after a player match win. It reads the scoreboard snapshot, asks the
+  reward-plan builder for the preview plan, instantiates `scenes/stage_clear_result.tscn` as a
   child of the battle scene, blocks battle update while active, forwards
   input, delegates reward rolls to `stage_clear_reward_resolver.gd`, grants
   resolved box rewards once on result confirmation, and delays the normal
   match-reset callback until confirmation.
   Registered as `stage_clear_result_screen`.
+- `scripts/core/stage_clear_result_reward_plan_builder.gd`
+  Owns stage-clear reward-preview plan construction for the result screen:
+  score-margin-to-box-count mapping, localized item-box summary text, box
+  list materialization, and normal / advanced / guaranteed-mythic box kind
+  odds. The result screen keeps only the public `get_reward_plan()` surface
+  and no longer owns box-count or odds calculation.
+- `scripts/core/stage_clear_result_stage_snapshot_builder.gd`
+  Owns stage-clear progress snapshot and stage-reward diff assembly for the
+  result screen: stage-start active slots, passive/mythic inventory, runtime
+  perk levels, remaining active-item reward rows, newly acquired passive /
+  mythic item rows, and gained perk rows. The result screen stores the
+  snapshots and passes them into the visible result scene, but no longer owns
+  item/perk inventory reads or stage-diff reward construction.
 - `scripts/core/stage_clear_reward_resolver.gd`
   Owns stage-clear chest reward selection and final grant dispatch. Normal
   chests use the active / passive / starpoint lanes, mythic chests use the
@@ -1608,6 +1778,13 @@ This section is intentionally long; use search to find the nearest owner.
   the result `Control` to the full visible viewport. The scene still owns when
   to request viewport sync and keeps thin wrapper methods for status builders
   and existing smoke tests.
+- `scripts/ui/stage_clear_result_scene_field_applier.gd`
+  Owns stage-clear result scene-field payload application: unwrapping nested
+  `field_payload` dictionaries from helper apply-results, caching valid scene
+  property names, rejecting unknown field keys, and writing approved values to
+  the result scene. The scene keeps only compatibility wrappers for direct
+  payloads and apply-results so existing focused helpers can return field
+  payloads without owning property writes.
 - `scripts/ui/stage_clear_result_config_reset_state_handler.gd`
     Owns configure-time result scene reset-state, reset apply payloads, and
     reset scene-field apply payloads: lid counter, starpoint gate fields, hover
@@ -1878,7 +2055,9 @@ This section is intentionally long; use search to find the nearest owner.
   erosion, and harvest/force-end hooks used by weather-absorbing items such
   as Baal's Boots. It also exposes weather particles and sand visual
   segments to the renderer; keep gameplay mutation here rather than in draw
-  code.
+  code. Fire-hit explosion, hail-impact, ice-slide, sand-erosion, and
+  sand-dissolve particle payload construction is delegated to
+  `weather_event_payload_factory.gd`.
 - `scripts/stages/common/weather_event_renderer.gd`
   Owns the common weather-event field VFX pass. It reads the weather state
   through public context / particle / sand-segment snapshots and draws
@@ -1887,21 +2066,93 @@ This section is intentionally long; use search to find the nearest owner.
   Future sprite-sheet or shader upgrades should replace this renderer's
   texture pieces without moving the gameplay rules out of
   `weather_event_state.gd`.
+- `scripts/stages/common/starpoint_bonus_drop_policy.gd`
+  Owns shared Star Detector bonus-drop policy for stage starpoint reward
+  sources: mythic item runtime lookup through direct deps, context registry,
+  or deps registry, one-call bonus-drop roll dispatch, missing-runtime
+  fallback, and negative-roll clamping. Stage 1 balloon, Stage 2 golden rock,
+  Stage 3 Menhera tail, and Stage 4 bird events keep their own spawn
+  positions, source tags, particle counts, collection rewards, and visual
+  styling, but no longer keep private Star Detector roll wrappers or mythic
+  runtime lookup copies.
+- `scripts/stages/common/starpoint_collection_compaction.gd`
+  Owns shared modal-open starpoint drop compaction helpers for Stage 1 through
+  Stage 4 collectors: in-place tail preservation for write-index loops and
+  kept-array tail preservation for Stage 3's `next_drops` loop. Stage owners
+  still decide when a starpoint is collected, whether a perk-choice modal
+  opened, normal no-modal survivor compaction, collection rewards, particles,
+  redraws, and audio.
+- `scripts/stages/common/starpoint_collection_reward_policy.gd`
+  Owns shared starpoint reward-collection glue for Stage 1 through Stage 4
+  collectors: runtime-perk-state lookup, character / catalog / owner /
+  registry payload construction, Stage 1's no-deps-registry compatibility
+  mode, opened-choice return value, and owner redraw requests. Stage owners
+  still own drop hit/delivery detection, collection particles, collect audio
+  routing, and survivor compaction.
+- `scripts/stages/common/starpoint_drop_motion_state.gd`
+  Owns shared starpoint drop per-frame motion for Stage 1 through Stage 4:
+  lifetime expiry, float wobble, horizontal drift / wall bounce, fall-speed
+  acceleration, floor-edge culling, rotation, glow timer, and glow intensity.
+  Stage owners keep spawn payloads, playfield-bound inputs, Starlight
+  Tracking delivery checks, collection rewards, particles, audio, and list
+  compaction.
+- `scripts/stages/common/starpoint_drop_overlap_query.gd`
+  Owns shared starpoint drop player-overlap queries for Stage 1 through
+  Stage 4: Stage 1's rectangle-intersection collection mode, Stage 2 through
+  Stage 4's circle-vs-player-rect collection mode, collect-radius scaling,
+  and zero-size rect rejection. Stage owners still own player-rect source
+  construction and the collection side effects after a hit is detected.
+- `scripts/stages/common/starpoint_payload_factory.gd`
+  Owns shared starpoint drop and pickup-particle payload construction for
+  Stage 1 through Stage 4: initial drop velocity / rotation / glow fields,
+  optional Star Detector size scaling, optional source tags, random-generator
+  or global random compatibility, and burst particle dictionaries. Stage
+  owners still own spawn positions, bonus-drop bounds clamps, particle caps,
+  draw fanout, collection rewards, redraw requests, and collect audio.
+- `scripts/stages/common/starpoint_particle_state.gd`
+  Owns shared starpoint pickup-particle mutation for Stage 1 through Stage 4:
+  position integration, gravity, alpha fade, lifetime decay, non-dictionary
+  payload defense, and survivor compaction. Stage owners still own per-stage
+  particle caps, draw fanout, and collection timing.
+- `scripts/stages/common/stage_player_interaction_rects.gd`
+  Owns shared player interaction rect assembly for stage event collision /
+  collection paths: context-to-player-rect conversion, empty-base rejection,
+  and Smasher Warp Gate mirror-rect expansion. Stage 1 balloon, Stage 2
+  collision geometry, Stage 3 Menhera tail, and Stage 4 bird event code call
+  this helper instead of carrying private Warp Gate mirror-rect copies.
+- `scripts/stages/common/stage_playfield_bounds.gd`
+  Owns shared playfield bounds lookup for stage event logic: left-edge
+  fallback, right-edge `play_right` / `width` / default-width fallback, and
+  height / default-height fallback. Stage 2 keeps a compatibility wrapper in
+  `stage2_playfield_bounds.gd`; Stage 3 Menhera tail and Stage 4 bird event
+  call the common helper directly for starpoint spawn clamps and drop motion
+  bounds.
 - `scripts/stages/stage1/stage1_pillar_background.gd`
   Owns the layered Stage 1 pillar background port: base hanji texture,
   texture loading, draw composition, and delegation to focused Stage 1
   pillar layer renderers / ambient state.
 - `scripts/stages/stage1/stage1_pillar_ambient_state.gd`
   Owns Stage 1 pillar ambient runtime state: butterflies, wall-impact
-  tree shakes, layout snapshots, and ambient update orchestration.
+  tree shakes, layout snapshots, and ambient update orchestration. Static
+  butterfly setup, trail snapshot entries, and butterfly absorption particle
+  payloads are delegated to `stage1_pillar_ambient_payload_factory.gd`.
+- `scripts/stages/stage1/stage1_pillar_ambient_payload_factory.gd`
+  Owns pure Stage 1 pillar ambient payload construction for idle butterflies,
+  in-game butterfly trail entries, and butterfly absorption particles.
 - `scripts/stages/stage1/stage1_pillar_petal_state.gd`
   Owns Stage 1 pillar ambient floating-petal runtime state: layout memory
   for pillar spawn regions, floating petal spawning, motion integration,
-  lifetime trimming, and delegation to the tree-drop petal state.
+  lifetime trimming, and delegation to the tree-drop petal state. Floating
+  petal payload construction is delegated to
+  `stage1_pillar_petal_payload_factory.gd`.
 - `scripts/stages/stage1/stage1_pillar_tree_drop_petal_state.gd`
   Owns Stage 1 wall-impact tree-drop petal bursts: tree-rect spawn
   positioning, burst velocity setup, gravity / sway motion integration,
-  lifetime trimming, and max-count capping.
+  lifetime trimming, and max-count capping. Tree-drop petal payload
+  construction is delegated to `stage1_pillar_petal_payload_factory.gd`.
+- `scripts/stages/stage1/stage1_pillar_petal_payload_factory.gd`
+  Owns pure Stage 1 pillar petal payload construction for floating ambient
+  petals and wall-impact tree-drop petals.
 - `scripts/stages/stage1/stage1_pillar_layer_renderer.gd`
   Owns the public Stage 1 layered-pillar draw helper API and delegates
   chrome, sprite layers, petals, butterflies, and shared geometry to
@@ -2030,7 +2281,7 @@ This section is intentionally long; use search to find the nearest owner.
   audio, falling quake-rock presentation / landed-only collision timing,
   crisis-score rage reservation, round-start boss stomp presentation,
   rage actor tint / offset draw context, defensive rock-wall drops, target
-  rock removal, golden-rock starpoint drops / Star Detector bonus drop
+  rock removal, golden-rock starpoint drops / Star Detector bonus spawn
   handoff, and the boss score-expression API exposed to the Stage 2 actor /
   playfield renderers. The short-lived boss score-expression state is
   delegated to `stage2_boss_expression_state.gd`. Actor draw-context payload
@@ -2097,12 +2348,13 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_rock_fragment_payload_config_builder.gd`; rock-fragment per-frame
   motion is delegated to `stage2_rock_fragment_motion_state.gd`.
   Starpoint drop / particle payload generation is delegated to
-  `stage2_starpoint_visual_factory.gd`; starpoint drop per-frame motion is
-  delegated to `stage2_starpoint_drop_motion_state.gd`; starpoint drop
-  player-overlap query is delegated to `stage2_starpoint_drop_query.gd`;
+  `scripts/stages/common/starpoint_payload_factory.gd`; starpoint drop per-frame motion is
+  delegated to `scripts/stages/common/starpoint_drop_motion_state.gd`;
+  starpoint drop player-overlap query is delegated to
+  `scripts/stages/common/starpoint_drop_overlap_query.gd`;
   starpoint particle
   per-frame physics / compacting is delegated to
-  `stage2_starpoint_particle_state.gd`.
+  `scripts/stages/common/starpoint_particle_state.gd`.
   Water-cannon fragment / splash payload generation is delegated to
   `stage2_water_cannon_payload_factory.gd`; water-cannon factory config
   payloads are delegated to
@@ -2177,14 +2429,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_collision_geometry.gd`
   Owns Stage 2 stateless collision geometry helpers: ball segment vs rock
   circle checks, circle-vs-player-rect checks, first overlapping rect
-  lookup, context-to-player-rect assembly, and Warp Gate mirror interaction
-  rect expansion.
+  lookup, and compatibility wrappers for context-to-player-rect assembly /
+  Warp Gate mirror interaction rect expansion delegated to
+  `scripts/stages/common/stage_player_interaction_rects.gd`.
   `stage2_pillar_background.gd` still owns collision timing, rock HP
   mutation, starpoint collection, water-fragment hit effects, and status
   immunity handling.
 - `scripts/stages/stage2/stage2_playfield_bounds.gd`
-  Owns Stage 2 stateless playfield bounds lookup from draw / update
-  context: left edge, right edge fallback, and height fallback.
+  Owns the Stage 2 compatibility wrapper for stateless playfield bounds
+  lookup, delegating left / right / height fallback policy to
+  `scripts/stages/common/stage_playfield_bounds.gd`.
   `stage2_pillar_background.gd` still owns starpoint bonus spawn clamp,
   drop physics, collection, and reward routing.
 - `scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd`
@@ -2253,9 +2507,14 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd`
   Owns Stage 2 water-fragment player-hit candidate resolution: hit-enabled
   filtering, per-splash cooldown decay, collision radius selection, first
-  overlapping player rect lookup, and hit payload construction. The
-  background module still owns player-rect context assembly, immunity,
-  flash, particles, audio, knockback, and splash handled-state side effects.
+  overlapping player rect lookup, and hit result fanout. Hit payload
+  dictionaries are delegated to
+  `stage2_water_fragment_hit_payload_factory.gd`. The background module still
+  owns player-rect context assembly, immunity, flash, particles, audio,
+  knockback, and splash handled-state side effects.
+- `scripts/stages/stage2/stage2_water_fragment_hit_payload_factory.gd`
+  Owns pure Stage 2 water-fragment hit payload construction for resolver
+  outputs consumed by `stage2_pillar_background.gd`.
 - `scripts/stages/stage2/stage2_water_trail_payload_factory.gd`
   Owns Stage 2 water-cannon trail payload construction: randomized offset,
   life fields, radius scaling by beam progress, and trail color. The
@@ -2392,6 +2651,13 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_pillar_background.gd` still owns rock list iteration, spawning,
   HP / collision, quake drop updates, golden-drop behavior, and renderer
   fanout.
+- `scripts/stages/stage2/stage2_pistol_rock_bounce_state.gd`
+  Owns pure Stage 2 pistol-vs-rock ricochet policy: the two-bounce limit,
+  contacted-side resolution for rect and swept-segment hits, reflected
+  projectile position / velocity damping, speed refresh, and hit-side
+  stamping. `stage2_pillar_background.gd` still owns rock iteration,
+  landed-rock filtering, collision probing, ricochet flash / audio side
+  effects, and the public Stage 2 bounce result payload.
 - `scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd`
   Owns Stage 2 normal rock-fragment payload construction after quake /
   crisis rocks break: fragment count, radial velocity, source sprite index,
@@ -2407,36 +2673,17 @@ This section is intentionally long; use search to find the nearest owner.
   floor bounce / horizontal damping, position, rotation, and survivor
   compaction. The background module still owns fragment spawning, list caps,
   renderer fanout, and rock break / reward side effects.
-- `scripts/stages/stage2/stage2_starpoint_visual_factory.gd`
-  Owns the Stage 2 starpoint payload factory: initial drop velocity /
-  rotation / glow fields and burst particle dictionaries. The background
-  module still owns golden-rock gating, Star Detector bonus count and
-  bounds clamp, drop collection, score/perk rewards,
-  redraw requests, and collect audio.
-- `scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd`
-  Owns Stage 2 starpoint drop per-frame mutation: lifetime decay, float
-  wobble, velocity / gravity, horizontal bounds bounce, rotation, glow
-  timing, and alive / expired return. The background module still owns
-  drop list compaction, collection rewards, redraw requests, and collect
-  audio.
-- `scripts/stages/stage2/stage2_starpoint_drop_query.gd`
-  Owns Stage 2 starpoint drop read-only query helpers: collect-radius
-  derivation and player-rect overlap checks through the shared collision
-  geometry helper. The background module still owns player-rect source
-  construction, drop list compaction, collection rewards, redraw requests,
-  and collect audio.
-- `scripts/stages/stage2/stage2_starpoint_particle_state.gd`
-  Owns Stage 2 starpoint particle per-frame mutation: position, gravity,
-  alpha fade, lifetime decay, and in-place survivor compaction. The
-  background module still owns particle spawning, drop collection timing,
-  render fanout, and audio / reward side effects.
 - `scripts/stages/stage2/stage2_chaos_rock_absorb_state.gd`
   Owns Stage 2 Chaos Spear rock-pull motion math: destroy-threshold checks,
   angular velocity, radial pull speed, next-center calculation, rotation /
   phase mutation, and destroyed/moved result payloads. The background module
   still owns landed-rock selection, center writes through `stage2_rock_query`,
   fragment / leaf / starpoint side effects, break audio, and absorbed-entry
-  emission.
+  emission. Absorbed splash / rock entry payload construction is delegated to
+  `stage2_chaos_absorb_payload_factory.gd`.
+- `scripts/stages/stage2/stage2_chaos_absorb_payload_factory.gd`
+  Owns pure Stage 2 Chaos Spear absorbed-entry payload construction for water
+  splash absorption and destroyed-rock absorption pulses.
 - `scripts/stages/stage2/stage2_monkey_banana_event.gd`
   Owns the Stage 2 original monkey-banana side event: first spawn after
   5-10 seconds, repeat spawns after 15-30 seconds, left/right outer-tree
@@ -2448,6 +2695,8 @@ This section is intentionally long; use search to find the nearest owner.
   flying and landed bananas draw in the transformed playfield pass. The
   climb path follows the same imagegen-tree alpha-median trunk sampling
   used by the Python reference, mapped through the live Stage 2 tree rect.
+  Monkey / banana initial payloads and banana burst-particle payloads are
+  delegated to `stage2_monkey_banana_payload_factory.gd`.
 - `scripts/stages/stage2/stage2_boss_skill_state.gd`
   Owns the first Stage 2 악어장군 boss-pattern scheduler: initial/repeat
   jungle-quake cooldown gating, boss-paddle-hit gauge gain / 500-point
@@ -2475,9 +2724,10 @@ This section is intentionally long; use search to find the nearest owner.
   crisis reservation, and renderer handoff.
 - `scripts/stages/stage2/stage2_boss_rage_state.gd`
   Owns stateless Stage 2 boss-rage predicates and visual timing math:
-  crisis trigger gating, inactive tint / offset decay, active rage tint /
-  offset calculation, buildup stomp-step windows / offsets, final-stomp
-  threshold checks, and finish checks.
+  crisis trigger gating, crisis reservation payloads, AI-mode
+  normalization, crisis rock-count policy, inactive tint / offset decay,
+  active rage tint / offset calculation, buildup stomp-step windows /
+  offsets, final-stomp threshold checks, and finish checks.
   `stage2_pillar_background.gd` keeps the mutable pending / active flags,
   timers, stomp / quake / rock-wall side effects, audio / feedback
   emission, and snapshot publication.
@@ -2561,7 +2811,10 @@ This section is intentionally long; use search to find the nearest owner.
   capped dash-open smoke particles and the two-second curse control-reversal
   timer, Kuromi score-2 awakening trigger with the
   three-second pause, screen shake, one-shot audio, tail timing, and actor/HUD
-  draw context. The Kuromi burst sound uses the
+  draw context. Falling-tear, curse-smoke / explosion, psycho-ball
+  neutralize, Kuromi mouth, Kuromi spit-trail, tail-hit burst, and prism-particle payload
+  construction is delegated to `stage3_boss_skill_payload_factory.gd`.
+  The Kuromi burst sound uses the
   original optional `sounds/stonebreak_large.wav` path and stays silent
   when that missing Python-reference asset is absent. It is reset from
   round, match, and stage-debug cleanup paths.
@@ -2603,6 +2856,11 @@ This section is intentionally long; use search to find the nearest owner.
   compatibility bird position / catch APIs. It now also forwards the
   generic stage-background ball-motion hook to Ponk's magnetic field and
   keeps magnetic-projectile collision on the same shared background path.
+  Wall-impact accent payload construction is delegated to
+  `stage4_pillar_background_payload_factory.gd`.
+- `scripts/stages/stage4/stage4_pillar_background_payload_factory.gd`
+  Owns pure Stage 4 pillar-background payload construction for transient
+  wall-impact shake accents.
 - `scripts/stages/stage4/stage4_pillar_scene_drawer.gd`
   Owns Stage 4 outer-scene composition. It draws the Stage 4 pillar
   background, reuses the current Stage 1 pillar HUD / active-item drawer,
@@ -2633,14 +2891,19 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage4/stage4_temple_destruction_event.gd`
   Owns the Stage 4 temple destruction state machine: moon turning red, red
   light, moon-shot wave, collapsing temple, ruins state, screen shake
-  context, and moon-shoot audio timing.
+  context, and moon-shoot audio timing. Destruction-wave initial payload,
+  trail particles, beam particles, and energy-ring payloads are delegated to
+  `stage4_destruction_wave_payload_factory.gd`; collapse debris, dust-cloud,
+  ground-fire particle, and falling-lantern payload defaults are delegated to
+  `stage4_temple_collapse_payload_factory.gd`.
 - `scripts/stages/stage4/stage4_moon_event.gd`
   Owns the Stage 4 right-pillar moon render surface and compatibility API:
   white idle, red transform, and red burst sheet selection, six-frame
   slicing, pulse scale, red-moon active state reporting, red moon fragment
   volley spawning, fragment trail / impact draw context, player burn /
   knockback / gauge-drain collision, dash deflection toward the boss, and
-  deflected-fragment boss stun / Ponk gauge damage.
+  deflected-fragment boss stun / Ponk gauge damage. Red moon fragment payload
+  construction is delegated to `stage4_moon_payload_factory.gd`.
 - `scripts/stages/stage4/stage4_ponk_boss_actor_renderer.gd`
   Owns the initial Stage 4 Ponk boss placeholder renderer so the Stage 4
   route never falls through to the Stage 1 Dalji actor while final Ponk
@@ -2665,8 +2928,14 @@ This section is intentionally long; use search to find the nearest owner.
   the magnetic-field sheet under `godot/assets/sprites/stage4/`. It keeps
   magnetic and meditation gameplay timing here while delegating the
   node-backed visual remasters to `stage4_ponk_magnetic_fx_host.gd` and
-  `stage4_ponk_meditation_fx_host.gd`. Loop sound cleanup stays
+  `stage4_ponk_meditation_fx_host.gd`. Meditation trail, particle, and
+  circle payload construction is delegated to
+  `stage4_ponk_skill_payload_factory.gd`. Loop sound cleanup stays
   registered through `gameplay_loop_audio_cleanup.gd`.
+- `scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd`
+  Owns pure Stage 4 Ponk boss-skill payload construction for meditation
+  trail, particle, and circle VFX dictionaries; gameplay timing remains in
+  `stage4_ponk_skill_state.gd`.
 - `scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd`
   Owns the Godot-native visual host for Ponk's refraction magnetic field:
   the Claude-provided charge glyph, shared `WritheEmberMaterial`
@@ -2707,6 +2976,26 @@ This section is intentionally long; use search to find the nearest owner.
   dragon-orb / inferno readiness state, ball-motion hijack query, boss-AI /
   actor-draw / boss-skill HUD context payloads, and the single cleanup core
   used by round-end, result-screen entry, and stage-leave reset paths.
+  Fireball projectile and impact-event payload construction is delegated to
+  `stage5_hongryun_payload_factory.gd`.
+- `scripts/stages/stage5/stage5_hongryun_payload_factory.gd`
+  Owns pure Stage 5 Hongryun boss-state payload construction for fireball
+  projectile dictionaries and transient fireball-impact events consumed by the
+  playfield renderer / VFX context.
+- `scripts/stages/stage5/stage5_hongryun_pillar_background.gd`
+  Owns the Stage 5 Hongryun pillar-background visual state: base / inferno
+  texture prewarm, inferno blend fade, spiral burst and fire-impact transient
+  lifetime updates, LOD-aware pillar heat tint, spiral arcs, fire impact arcs,
+  and vignette drawing. Spiral-burst and fire-impact initial payloads are
+  delegated to `stage5_hongryun_pillar_background_payload_factory.gd`.
+- `scripts/stages/stage5/stage5_hongryun_fire_machine_event.gd`
+  Owns the Stage 5 Hongryun fire-machine map event state: cooldown / phase
+  timing, dragon target locking, fire-stream progression, fire-zone lifetime,
+  player dash extinguish / immunity parry / knockback collision side effects,
+  audio cue dispatch, public update result fields, and actor-draw context
+  snapshots. Initial dragon, stream, zone, flame, stream-particle, and smoke
+  payload construction is delegated to
+  `stage5_hongryun_fire_machine_payload_factory.gd`.
 - `scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd`
   Owns Stage 5 Hongryun's boss skill-card HUD presentation: fireball /
   inferno card stacking, fallback skill-card textures, tooltip copy,
@@ -2778,12 +3067,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage4/stage4_bird_event.gd` and
   `scripts/stages/stage4/stage4_brazier_monk_event.gd`
   Own the first Stage 4 event runtime slice. `stage4_bird_event` handles
-  star-bird spawning, movement, gold-dust trails, catch positions, catch
-  explosions, crow starpoint drops / pickup particles, and draw-context
-  export. `stage4_brazier_monk_event` handles normal monk spawning, five
+  star-bird spawn timing / movement, gold-dust trail updates, catch
+  positions, catch side effects, crow starpoint drops / pickup particles, and
+  draw-context export; star-bird, gold-dust, fragment, and debris-particle
+  payload construction is delegated to `stage4_bird_payload_factory.gd`.
+  `stage4_brazier_monk_event` handles normal monk spawning, five
   smoke-grenade monks from the lit brazier, monk return timing, collapse
   cleanup explosions, staff-swing trigger / deflection timing, monk-hit
-  effects, and draw-context export. The map-state and pillar
+  effects, and draw-context export; monk default payloads, staff hit-effect
+  payloads, and monk explosion particle payloads are delegated to
+  `stage4_brazier_monk_payload_factory.gd`. The map-state and pillar
   background facades forward smoke / brazier, tear-gas expiry, star-bird
   collision, monk staff collision, moon-fragment collision, and draw-context
   access so shared active-item and ball-runtime code do not need to know the
@@ -3046,7 +3339,12 @@ This section is intentionally long; use search to find the nearest owner.
   repeatable instant activation, whip
   startup timing, two/four top spawning, top movement, top-to-top bounce,
   ball collision deflection, golden-top starpoint drop, impact feedback, and draw context for the
-  focused spinning-top renderer.
+  focused spinning-top renderer. Spawned top payload construction is
+  delegated to `stage1_dalji_spinning_top_payload_factory.gd`.
+- `scripts/stages/stage1/stage1_dalji_spinning_top_payload_factory.gd`
+  Owns pure Stage 1 Dalji spinning-top payload construction for spawned top
+  dictionaries; skill timing, collision, rewards, and audio remain in
+  `stage1_dalji_spinning_top_skill_state.gd`.
 - `scripts/stages/stage1/stage1_dalji_boss_skill_cooldown_state.gd`
   Owns the first Stage 1 boss-skill cooldown model: Dalji's immediate
   spinning-top trigger, boss-hit whip trigger, round-to-round cooldown
@@ -3069,7 +3367,9 @@ This section is intentionally long; use search to find the nearest owner.
   phase state, balloon sprite-sheet loading, balloon motion / wall and
   paddle interaction, ball collision deflection, pop-effect rendering, and
   golden-balloon starpoint drop / paddle collection handoff to the runtime
-  perk state.
+  perk state. Balloon spawn payloads, Chaos Spear absorb result payloads,
+  and sprite / fallback pop-effect payloads are delegated to
+  `stage1_balloon_payload_factory.gd`.
   Its raw PNG sheets live under
   `godot/assets/sprites/stage1/balloon/`, with event sounds under
   `godot/assets/sounds/`.
@@ -3160,6 +3460,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ball/ball_ghost_trail_state.gd`
   Owns ball ghost-trail runtime state: interpolation between ball
   positions, max-length trimming, alpha fade, point age, and trail reset.
+  Trail point payload dictionaries are delegated to
+  `ball_effect_payload_factory.gd`.
 - `scripts/ball/ball_intensity_effect_state.gd`
   Owns the public ball intensity effect facade: color fallback selection,
   low-intensity update gating, clear / update fanout, and renderer-facing
@@ -3167,11 +3469,17 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ball/ball_intensity_particle_state.gd`
   Owns ball intensity particle runtime state: speed-scaled particle spawn,
   low-intensity particle drift, flame / spark decay, and
-  intensity-dependent max-particle capping.
+  intensity-dependent max-particle capping. Particle payload dictionaries are
+  delegated to `ball_effect_payload_factory.gd`.
 - `scripts/ball/ball_intensity_trail_state.gd`
   Owns ball intensity trail runtime state: trail point sampling,
   spacing-based interpolation, trail length capping, alpha fade, and size
-  decay.
+  decay. Trail point payload dictionaries are delegated to
+  `ball_effect_payload_factory.gd`.
+- `scripts/ball/ball_effect_payload_factory.gd`
+  Owns pure ball VFX payload construction for ghost-trail points, intensity
+  trail points, and intensity flame / spark particles. The state modules keep
+  sampling, LOD, fade, simulation, and cap policy.
 - `scripts/ball/ball_effects_renderer.gd`
   Owns drawing orchestration for ball ghost trails, intensity effects,
   and energy-explosion particles. `battle_playfield_ball_drawer.gd` and
@@ -3434,13 +3742,22 @@ This section is intentionally long; use search to find the nearest owner.
   and delegates paddle-hit, wall-impact, and energy / Drive spark storage
   to focused effect-state modules.
 - `scripts/effects/impact_paddle_effect_state.gd`
-  Owns paddle-hit particles and their player / boss color palette.
+  Owns paddle-hit particle / ring / streak / flash lifetime updates and their
+  player / boss color palette. Payload dictionaries are delegated to
+  `impact_effect_payload_factory.gd`.
 - `scripts/effects/impact_wall_effect_state.gd`
   Owns wall-impact flash timing, wall-impact position, and wall-impact
-  particles.
+  particle / ring lifetime updates. Payload dictionaries are delegated to
+  `impact_effect_payload_factory.gd`.
 - `scripts/effects/impact_energy_effect_state.gd`
   Owns energy explosions and Drive spark particles shared by ball and
-  skill feedback paths.
+  skill feedback paths. Payload dictionaries are delegated to
+  `impact_effect_payload_factory.gd`.
+- `scripts/effects/impact_effect_payload_factory.gd`
+  Owns pure shared impact VFX payload construction for paddle sparks / rings /
+  streaks / flashes, wall rings / particles, energy bursts, and Drive sparks.
+  The state modules keep public spawn APIs, lifetime updates, caps, and
+  renderer-facing arrays.
 - `scripts/effects/battle_feedback_state.gd`
   Owns scene-level battle feedback timers: screen shake, gauge-gain flash,
   dash-token flash, dash-token divider animation, and controller rumble
@@ -4005,6 +4322,12 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_update_match_stage_runtime_deps_builder.gd`
   Keeps the match-flow stage-runtime dependency facade and delegates to
   the shared stage-runtime dependency builder.
+- `scripts/core/smasher_25d_sheet_override.gd`
+  Owns the experimental Smasher 2.5D prerender sheet toggle. It reads the
+  session-fixed env / flag switch, verifies the full pilot sheet set is
+  available, and exposes active sheet paths for `battle_resources.gd` so
+  staged prewarm and synchronous loading resolve the same idle / walk /
+  attack-left paths without changing gameplay collision state.
 - `scripts/resources/battle_resources.gd`
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher and Viper skill icon
@@ -5786,8 +6109,8 @@ This section is intentionally long; use search to find the nearest owner.
   surface and delegates startup here.
 - `scripts/core/stage_ball_spawn_intro_effect_factory.gd`
   Owns the opening ball-spawn intro's VFX entity dictionary factories:
-  quantum particles, vortex rings, lightning bolts and segments, electric
-  arcs, hologram rings, sparks, and energy rings. It receives the existing
+  quantum particles, vortex rings, starfield dots, haze clouds, lightning
+  bolts and segments, electric arcs, hologram rings, sparks, and energy rings. It receives the existing
   `RandomNumberGenerator` from the intro module so seeded visual behavior
   remains stable while factory code lives outside the large update / draw
   file.
@@ -6065,3 +6388,17 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
   helper methods for Ragnarok ball / impact state; do not reintroduce
   private runtime getter bridges for these read paths.
+- `scripts/lingpet/lingpet_banana_slice_payload_factory.gd`
+  Owns pure Monkeyring Banana Slice runtime payload construction for thrown
+  bananas, landed banana slip traps, and slip burst particles.
+  `scripts/lingpet/lingpet_banana_slice_skill.gd` should keep the skill
+  lifecycle, boss-slip state, collision checks, and rendering, but should not
+  reintroduce inline projectile / landed-banana / burst-particle dictionary
+  scaffolding.
+- `scripts/lingpet/lingpet_gatling_burst_payload_factory.gd`
+  Owns pure Volty Gatling Burst payload construction for bullets, AK-style
+  stun status data, hit particles, shell casings, and muzzle smoke.
+  `scripts/lingpet/lingpet_gatling_burst_skill.gd` should keep transform /
+  firing phase timing, aiming, hit detection, audio, loop cleanup, and
+  rendering, but should not reintroduce inline Gatling projectile / particle
+  dictionary scaffolding.

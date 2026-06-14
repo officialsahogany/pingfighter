@@ -1,0 +1,110 @@
+{
+  "asset_id": "koyora_companion_strike_rear_only_25f_v1",
+  "pet_id": "koyora",
+  "display_name": "Koyora",
+  "created_at": "2026-06-13",
+  "runtime_usage": "lingpet_companion_strike_rear_view_ball_hit_sheet",
+  "output_sheet": "res://assets/sprites/lingpet/koyora_companion_strike.png",
+  "autosprite": {
+    "character_id": "cmq3vc0na0028hw3s1u2pi0iq",
+    "character_name": "Koyora SD Rear Ringpet 20260607",
+    "kind": "custom",
+    "spritesheet_id": "cmqbdxw110028rr4vaniktko6",
+    "workflow_job_id": "wf_e76ee84d-c9e3-4caf-9fee-cbde15f25454",
+    "video_id": "cmqbdwfzl00d114fuyjh7hmbp",
+    "source_frame_size": [
+      256,
+      256
+    ],
+    "generated_frame_count": 25,
+    "remove_bg": "ultra",
+    "video_tier": "turbo",
+    "prompt_summary": "Back-view-only SD Koyora companion strike: rear hair, back robe, tail, rear puppet charms, string-tension windup, quick low forward snap, impact, and rear-stance return. Avoid face, front body, camera spin, rectangular glow, square aura, text, UI, and grid.",
+    "rejected_candidates": [
+      {
+        "spritesheet_id": "cmqbdu3jq00cf14fuzazuvhsi",
+        "video_id": "cmqbdqiwg00cn4c0eugsmb040",
+        "reason": "Rejected for rotating into a front-facing read during the attack branch."
+      }
+    ]
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "frame_interval": "one-shot strike; compatible with lingpet_companion_sprite_animator.gd 5x5 frame math",
+    "runtime_active_frames": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "sha256": "4eed31559d76223d632672c53754297efb6414ecf06c2bc85dc20a4167a1996a",
+    "bytes": 377391
+  },
+  "postprocess": {
+    "tool": "AutoSprite direct 256px sheet promotion with alpha QA",
+    "note": "The accepted rear-only candidate already matches Koyora idle/move cell scale, keeps whole-sheet edge alpha at zero, and places rear puppet-string strike poses in the runtime 18-24 frame window."
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels": 0,
+    "visible_green_pixels": 0,
+    "sample_bboxes": {
+      "0": [
+        26,
+        16,
+        231,
+        236
+      ],
+      "6": [
+        26,
+        16,
+        230,
+        236
+      ],
+      "12": [
+        26,
+        16,
+        233,
+        236
+      ],
+      "18": [
+        59,
+        16,
+        246,
+        236
+      ],
+      "22": [
+        7,
+        16,
+        233,
+        236
+      ],
+      "24": [
+        13,
+        16,
+        237,
+        236
+      ]
+    },
+    "comparison_preview": "godot/.tmp/koyora_companion_strike/koyora_rear_only_compare_gameplay.png",
+    "notes": [
+      "Gameplay-scale preview matches existing Koyora idle and move body class at companion_strike_draw_size 92.0.",
+      "No visible rectangular glow, square aura, magenta key, or green key pixels remain in non-transparent sprite pixels.",
+      "Attack branch keeps a rear or rear-three-quarter read; side mask flashes are consistent with the existing move-right sheet."
+    ]
+  }
+}

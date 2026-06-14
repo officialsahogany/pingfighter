@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Stage1PillarAmbientPayloadFactory := preload("res://scripts/stages/stage1/stage1_pillar_ambient_payload_factory.gd")
 const Stage1PillarPetalState := preload("res://scripts/stages/stage1/stage1_pillar_petal_state.gd")
 const Stage1PillarLayerGeometry := preload("res://scripts/stages/stage1/stage1_pillar_layer_geometry.gd")
 
@@ -46,18 +47,7 @@ func init_state() -> void:
 	gauge_recovered = false
 	absorbing_timer = 0.0
 	butterfly_cooldown = randf_range(BUTTERFLY_COOLDOWN_MIN, BUTTERFLY_COOLDOWN_MAX)
-	var color_indices: Array[int] = [0, 1, 2, 3]
-	var sides: Array[String] = ["left", "left", "right", "right"]
-	var y_ratios: Array[float] = [1.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0]
-	for i in range(4):
-		butterflies.append({
-			"side": sides[i],
-			"y_ratio": y_ratios[i],
-			"phase": randf_range(0.0, TAU),
-			"wing_speed": 10.0,
-			"color_index": color_indices[i],
-			"size": 1.0,
-		})
+	butterflies = Stage1PillarAmbientPayloadFactory.build_idle_butterflies()
 
 
 func reset() -> void:
@@ -127,10 +117,10 @@ func get_flying_trail() -> Array[Dictionary]:
 	var trail: Array[Dictionary] = []
 	for i in range(flying_trail.size()):
 		var age_ratio: float = float(i + 1) / float(max(1, flying_trail.size()))
-		trail.append({
-			"position": _view_to_game_pos(flying_trail[i]),
-			"alpha": age_ratio,
-		})
+		trail.append(Stage1PillarAmbientPayloadFactory.build_flying_trail_entry(
+			_view_to_game_pos(flying_trail[i]),
+			age_ratio
+		))
 	return trail
 
 
@@ -311,14 +301,7 @@ func _record_flying_trail(pos: Vector2) -> void:
 
 func _create_absorption_particles(center: Vector2, count: int) -> void:
 	for _i in range(count):
-		var angle: float = randf_range(0.0, TAU)
-		var speed: float = randf_range(35.0, 130.0)
-		absorption_particles.append({
-			"position": center,
-			"velocity": Vector2(cos(angle), sin(angle)) * speed,
-			"life": randf_range(0.45, 1.0),
-			"size": randf_range(2.0, 5.5),
-		})
+		absorption_particles.append(Stage1PillarAmbientPayloadFactory.build_absorption_particle(center))
 	while absorption_particles.size() > BUTTERFLY_PARTICLE_LIMIT:
 		absorption_particles.pop_front()
 

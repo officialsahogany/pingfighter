@@ -402,6 +402,12 @@ func _update_quantum_particle(p: Dictionary, progress: float, dt: float) -> void
 func _make_vortex_ring(radius: float) -> Dictionary:
 	return effect_factory.make_vortex_ring(rng, start_pos, radius)
 
+func _make_starfield_dot(game_width: float, game_height: float) -> Dictionary:
+	return effect_factory.make_starfield_dot(rng, game_width, game_height)
+
+func _make_haze_cloud(game_width: float, game_height: float) -> Dictionary:
+	return effect_factory.make_haze_cloud(rng, game_width, game_height)
+
 func _update_vortex_ring(r: Dictionary, progress: float, dt: float) -> void:
 	effect_updater.update_vortex_ring(r, progress, dt)
 

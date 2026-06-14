@@ -206,6 +206,10 @@ var chaos_locked_player_x := 0.0; var chaos_locked_player_x_valid := false; var 
 var chaos_cancel_flash_frames := 0.0; var chaos_absorb_poll_frames := 0.0; var chaos_gold_ticks_paid := 0; var chaos_explosion_shaken := false
 var chaos_fx_host: Node = null; var chaos_fx_host_add_pending := false; var chaos_fx_spawn_msec_seed: int = 0
 var emp_fx_host: Node = null; var emp_fx_host_add_pending := false; var chaos_release_pending := false; var chaos_release_velocity := Vector2.ZERO
+# 블랙홀이 공유 skip_ball_motion_step 플래그를 잡은 뒤 아직 ball 패스에서 풀지 못한 상태.
+# 연출 일시정지(신화 획득 시네마틱 등) 동안 update_effects만 돌아 만료->fade->reset이
+# pending 해제를 와이프해도, 이 플래그가 reset을 살아남아 다음 ball 패스가 자가 해제한다.
+var chaos_ball_motion_owned := false
 var viper_hologram_attack_left_sheet: Texture2D; var viper_hologram_attack_right_sheet: Texture2D
 var _asset_prewarm_step_index := 0
 func _init() -> void:
@@ -356,7 +360,10 @@ func _release_chaos_blackhole(early_hit: bool, context: Dictionary, deps: Dictio
 	if chaos_state != "blackhole":
 		return
 	if early_hit:
-		chaos_release_pending = false; chaos_release_velocity = Vector2.ZERO
+		# 히트 경로가 이 프레임에 skip=false와 공 속도를 직접 쓰므로 소유권을 즉시 끊는다.
+		# 남겨두면 같은 프레임에 다른 시스템(포세이돈 캡처 등)이 플래그를 잡았을 때
+		# 다음 ball 패스의 자가 해제가 남의 홀드를 풀어버릴 수 있다.
+		chaos_release_pending = false; chaos_release_velocity = Vector2.ZERO; chaos_ball_motion_owned = false
 	else:
 		var current_vel: Vector2 = _get_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO); var release_speed: float = max(max(16.0, 8.0 * 2.0), current_vel.length() * 1.6); var release_angle: float = randf_range(0.0, TAU)
 		chaos_release_velocity = Vector2(cos(release_angle), sin(release_angle)) * release_speed; chaos_release_pending = true
@@ -379,6 +386,14 @@ func _reset_dual_glitch_runtime(clear_command: bool = false) -> void:
 	if clear_command:
 		dual_glitch_cmd_buffer.clear()
 func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = {}) -> void:
+	# 소유권 토큰은 "미소비 pending 해제를 와이프하는 fade-end 자연 reset"에서만
+	# 살아남는다(clear_command=false + pending 잔존) — 연출 일시정지 창에서 update_ball이
+	# 멈춘 채 만료->fade가 끝난 케이스로, 그때만 chaos가 공유 skip 플래그의 유일한
+	# 소유자임이 보장된다. 명시적 라운드/컨텍스트 reset(clear_command=true)은 pending이
+	# 막 armed된 직후라도 토큰을 끊어 자가 해제가 다른 소유자의 홀드나 새 서브를
+	# 건드리지 못하게 하고, 잔류 플래그는 라운드 스냅샷 정규화(ball_round_state)가 치운다.
+	if clear_command or not chaos_release_pending:
+		chaos_ball_motion_owned = false
 	audio_router.stop_all_chaos_spear_sounds(deps)
 	chaos_state = "idle"; chaos_phase_frames = 0.0; chaos_origin = Vector2.ZERO; chaos_target = Vector2.ZERO; chaos_current = Vector2.ZERO; chaos_prev_ball_center = Vector2.ZERO; chaos_prev_ball_valid = false; chaos_blackhole_ball_origin = Vector2.ZERO; chaos_blackhole_origin_valid = false; chaos_base_radius = 52.0
 	chaos_orbit_seed = 0.0; chaos_flight_angle = 0.0; chaos_impact_seed = 0.0; chaos_locked_player_x = 0.0; chaos_locked_player_x_valid = false; chaos_absorb_pulses.clear(); chaos_cancel_flash_frames = 0.0; chaos_absorb_poll_frames = 0.0; chaos_gold_ticks_paid = 0

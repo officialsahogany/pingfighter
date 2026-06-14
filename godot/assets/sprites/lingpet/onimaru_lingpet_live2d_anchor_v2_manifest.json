@@ -1,0 +1,28 @@
+{
+  "asset_id": "onimaru_lingpet_live2d_anchor_v2",
+  "created_date": "2026-06-13",
+  "purpose": "Onimaru red oni Lingpet Live2D source anchor",
+  "source": {
+    "tool": "Codex built-in image_gen",
+    "raw_chromakey_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_magenta_source.png",
+    "raw_chromakey": "#ff00ff",
+    "notes": [
+      "Regenerated from Onimaru facecard identity as a cuter SD Lingpet.",
+      "No tail, wings, dragon scales, dinosaur silhouette, floating particles, or scenic background.",
+      "Raw background was normalized to exact #ff00ff after generation."
+    ]
+  },
+  "transparent_cutout": {
+    "path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+    "cleanup_method": "remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill --force",
+    "detected_key_color": "#ff00ff"
+  },
+  "qa": {
+    "raw_size": "1254x1254",
+    "raw_edge_samples_exact_ff00ff": true,
+    "cutout_corner_alpha": [0, 0, 0, 0],
+    "cutout_alpha_bbox": [166, 74, 958, 1126],
+    "cutout_alpha_bbox_touches_edge": false
+  },
+  "prompt_summary": "Cute full-body chibi red oni / dokkaebi Lingpet based on Onimaru: warm crimson skin, black side hair, small gold horns, golden eyes, playful small-tooth grin, gold ring collar, cyan gem accents, tiny toy kanabo, full body with separated limbs on perfectly flat #ff00ff magenta chroma-key background."
+}

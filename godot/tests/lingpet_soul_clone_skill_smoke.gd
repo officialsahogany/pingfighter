@@ -72,6 +72,7 @@ class FakeLingpetRuntime:
 func _init() -> void:
 	_verify_dispatcher_and_catalog()
 	_verify_runtime_hit_duration_and_reset()
+	_verify_level_scaling_clone_count_and_duration()
 	_verify_rail_card_casting_status()
 
 	if _failures.is_empty():
@@ -98,6 +99,18 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(LingpetCatalog.normalize_active_skill_id("rabi", "rabi_ghost_summon") == "rabi_ghost_summon", "legacy Rabi Ghost Summon loadouts should remain accepted")
 	_expect(FileAccess.file_exists(str(skill.get("card_texture_path", ""))), "Soul Clone should use an existing Rabi card texture")
 	_expect(FileAccess.file_exists(str(skill.get("icon_texture_path", ""))), "Soul Clone should use an existing Rabi icon texture")
+	var lv1: Dictionary = LingpetCatalog.get_active_skill("rabi", "rabi_soul_clone", 1)
+	var lv3: Dictionary = LingpetCatalog.get_active_skill("rabi", "rabi_soul_clone", 3)
+	var lv5: Dictionary = LingpetCatalog.get_active_skill("rabi", "rabi_soul_clone", 5)
+	_expect(int(lv1.get("clone_count", 0)) == 1, "Soul Clone Lv.1 should flatten to one clone")
+	_expect(int(lv3.get("clone_count", 0)) == 2, "Soul Clone Lv.3 should flatten to two clones")
+	_expect(int(lv5.get("clone_count", 0)) == 3, "Soul Clone Lv.5 should flatten to three clones")
+	_expect(is_equal_approx(float(lv1.get("duration_seconds", 0.0)), 15.0), "Soul Clone Lv.1 should keep the original 15-second duration")
+	_expect(is_equal_approx(float(lv3.get("duration_seconds", 0.0)), 17.0), "Soul Clone Lv.3 should extend to 17 seconds")
+	_expect(is_equal_approx(float(lv5.get("duration_seconds", 0.0)), 20.0), "Soul Clone Lv.5 should extend to 20 seconds")
+	_expect(str(skill.get("description", "")).find("Lv.3") >= 0 and str(skill.get("description", "")).find("Lv.5") >= 0, "Soul Clone description should expose the clone-count level breakpoints")
+	var egg_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(egg_source.find("\"clone_count\"") >= 0 and egg_source.find("\"duration_seconds\"") >= 0, "egg runtime should pass Soul Clone flattened level values into launch_context")
 
 
 func _verify_runtime_hit_duration_and_reset() -> void:
@@ -139,6 +152,32 @@ func _verify_runtime_hit_duration_and_reset() -> void:
 	snapshot = host.get_snapshot()
 	_expect(not bool(snapshot.get("soul_clone_active", false)), "Soul Clone reset should clear active clone state")
 	_expect(not host.has_visible_effects(), "Soul Clone reset should clear clone visuals and particles")
+
+
+func _verify_level_scaling_clone_count_and_duration() -> void:
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"game_audio": FakeAudio.new()})
+	var origin := Vector2(380.0, 650.0)
+	_expect(host.launch("rabi_soul_clone", origin, owner, {"companion_pos": origin, "active_skill_level": 3}), "Lv.3 Soul Clone should launch")
+	var snapshot: Dictionary = host.get_snapshot()
+	_expect(int(snapshot.get("soul_clone_active_skill_level", 0)) == 3, "Soul Clone should retain the launch active skill level")
+	_expect(int(snapshot.get("soul_clone_clone_count", 0)) == 2, "Soul Clone Lv.3 should spawn two active clones")
+	_expect((snapshot.get("soul_clone_positions", []) as Array).size() == 2, "Soul Clone Lv.3 snapshot should expose two clone positions")
+	_expect(is_equal_approx(float(snapshot.get("soul_clone_duration", 0.0)), 17.0), "Soul Clone Lv.3 should use the level-scaled 17-second duration")
+	host.update(16.95, owner, registry, "rabi_soul_clone")
+	snapshot = host.get_snapshot()
+	_expect(bool(snapshot.get("soul_clone_active", false)), "Soul Clone Lv.3 should still be active just before 17 seconds")
+	host.update(0.10, owner, registry, "rabi_soul_clone")
+	snapshot = host.get_snapshot()
+	_expect(not bool(snapshot.get("soul_clone_active", true)), "Soul Clone Lv.3 should expire after its level-scaled duration")
+
+	_expect(host.launch("rabi_soul_clone", origin, owner, {"companion_pos": origin, "active_skill_level": 5}), "Lv.5 Soul Clone should relaunch")
+	snapshot = host.get_snapshot()
+	_expect(int(snapshot.get("soul_clone_active_skill_level", 0)) == 5, "Soul Clone should expose Lv.5 in its snapshot")
+	_expect(int(snapshot.get("soul_clone_clone_count", 0)) == 3, "Soul Clone Lv.5 should spawn three active clones")
+	_expect((snapshot.get("soul_clone_positions", []) as Array).size() == 3, "Soul Clone Lv.5 snapshot should expose three clone positions")
+	_expect(is_equal_approx(float(snapshot.get("soul_clone_duration", 0.0)), 20.0), "Soul Clone Lv.5 should use the level-scaled 20-second duration")
 
 
 func _verify_rail_card_casting_status() -> void:

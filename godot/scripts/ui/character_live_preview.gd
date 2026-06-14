@@ -726,7 +726,7 @@ func _request_next_fullframe_sheet() -> bool:
 
 
 func _can_thread_load_texture(path: String) -> bool:
-	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+	return ProjectResourceLoader.can_thread_load_texture(path)
 
 
 func _poll_fullframe_sheet_load() -> void:
@@ -916,21 +916,6 @@ func _draw_preview_vfx_scan_sweep(accent: Color, glow: Color, floor_y: float) ->
 			Color(accent.r, accent.g, accent.b, trail_alpha * 0.55),
 			1.0
 		)
-	var ring_center := Vector2(size.x * 0.5, floor_y + size.y * 0.010)
-	var ring_radius := Vector2(min(size.x * 0.31, size.y * 0.34), size.y * 0.052)
-	for tick_index in range(10):
-		var phase: float = fposmod(elapsed * 0.26 + float(tick_index) / 10.0, 1.0)
-		var angle: float = phase * TAU
-		var point := ring_center + Vector2(cos(angle) * ring_radius.x, sin(angle) * ring_radius.y)
-		var tangent := Vector2(-sin(angle), cos(angle)).normalized()
-		var tick_alpha: float = (0.045 + interaction_hover_amount * 0.035) * (0.5 + 0.5 * sin(phase * PI))
-		draw_line(
-			point - tangent * size.x * 0.012,
-			point + tangent * size.x * 0.012,
-			Color(glow.r, glow.g, glow.b, tick_alpha),
-			1.4
-		)
-
 
 func _preview_vfx_hash(a: float, b: float) -> float:
 	var hashed := sin(a * 12.9898 + b * 78.233) * 43758.5453
@@ -964,7 +949,7 @@ func _draw_preview_card_frame(accent: Color, glow: Color) -> void:
 		draw_line(corner + Vector2(5.0 * sx, 5.0 * sy), corner + Vector2(corner_len * 0.55 * sx, 5.0 * sy), highlight, 1.0)
 
 
-func _draw_character_bottom_apron(accent: Color, glow: Color) -> void:
+func _draw_character_bottom_apron(accent: Color, _glow: Color) -> void:
 	var cutline_ratio: float = float(character.get("live2d_card_cutline_ratio", -1.0))
 	if cutline_ratio <= 0.0:
 		return
@@ -978,15 +963,6 @@ func _draw_character_bottom_apron(accent: Color, glow: Color) -> void:
 			Color(0.012, 0.016, 0.026, 0.34 + t * 0.08)
 		)
 	draw_rect(apron, Color(accent.r * 0.05, accent.g * 0.05, accent.b * 0.05, 0.34))
-	draw_line(Vector2(size.x * 0.08, cut_y), Vector2(size.x * 0.92, cut_y), Color(glow.r, glow.g, glow.b, 0.70), 2.0)
-	draw_line(Vector2(size.x * 0.18, cut_y + 7.0), Vector2(size.x * 0.82, cut_y + 7.0), Color(1.0, 1.0, 1.0, 0.12), 1.0)
-	_draw_ellipse(
-		Vector2(size.x * 0.5, cut_y + size.y * 0.036),
-		Vector2(min(size.x * 0.32, size.y * 0.34), size.y * 0.034),
-		Color(glow.r, glow.g, glow.b, 0.20),
-		false,
-		1.2
-	)
 
 
 func _character_bottom_cutline_y() -> float:
@@ -1084,8 +1060,6 @@ func _draw_fullframe_sheet_preview(art_rect: Rect2) -> void:
 		if aligned_rect.size.y > 1.0:
 			target_rect.position.y += _character_bottom_cutline_y() - aligned_rect.end.y
 	var fitted_rect := _live2d_stage_fit_rect(render_source_rect.size, target_rect)
-	var glow := _glow_color()
-	var pulse := 0.5 + sin(elapsed * 3.0) * 0.5
 	var current_modulate := Color.WHITE
 	if one_shot_active and one_shot_transition_texture != null and one_shot_transition_duration > 0.0:
 		var transition_progress: float = clamp(elapsed / one_shot_transition_duration, 0.0, 1.0)
@@ -1098,13 +1072,6 @@ func _draw_fullframe_sheet_preview(art_rect: Rect2) -> void:
 			var return_progress: float = clamp(elapsed_in_return / return_transition_duration, 0.0, 1.0)
 			return_progress = return_progress * return_progress * (3.0 - 2.0 * return_progress)
 			current_modulate.a = return_progress
-	_draw_ellipse(
-		Vector2(fitted_rect.get_center().x, _stage_floor_y() + size.y * 0.012),
-		Vector2(max(fitted_rect.size.x * 0.34, size.x * 0.12), size.y * 0.040),
-		Color(glow.r, glow.g, glow.b, 0.12 + pulse * 0.08),
-		false,
-		2.0
-	)
 	if deform_still:
 		_draw_texture_region_deformed(fullframe_sheet_texture, source_rect, target_rect, current_modulate)
 		if bool(character.get("live2d_motion_regions_enabled", false)):
@@ -1307,12 +1274,7 @@ func _draw_interaction_overlay(accent: Color, glow: Color) -> void:
 		return
 	var pulse := 0.5 + sin(elapsed * 6.4) * 0.5
 	var floor_y := _stage_floor_y()
-	var center := Vector2(size.x * 0.5, floor_y)
-	var base_radius := Vector2(min(size.x * 0.34, size.y * 0.38), size.y * 0.085)
-	var glow_alpha: float = clamp(0.18 * hover + 0.34 * flash + pulse * 0.10 * hover, 0.0, 0.75)
 	var line_alpha: float = clamp(0.38 * hover + 0.78 * flash + pulse * 0.14 * hover, 0.0, 1.0)
-	_draw_ellipse(center, base_radius * (1.08 + hover * 0.08 + flash * 0.10), Color(glow.r, glow.g, glow.b, glow_alpha), false, 4.0 + flash * 2.0)
-	_draw_ellipse(center, base_radius * (0.68 + flash * 0.06), Color(1.0, 1.0, 1.0, 0.18 * hover + 0.28 * flash), false, 1.2 + flash)
 	for side in [-1.0, 1.0]:
 		var x: float = size.x * (0.24 if side < 0.0 else 0.76)
 		var y0: float = size.y * 0.20

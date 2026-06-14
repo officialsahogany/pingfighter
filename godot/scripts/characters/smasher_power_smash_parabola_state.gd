@@ -1,10 +1,13 @@
 extends RefCounted
 
+const WALL_ARC_REPOINT_SCALE := 0.25
+
 var active: bool = false
 var elapsed: float = 0.0
 var direction: int = 0
 var arc_strength: float = 0.0
 var combo_consumed: int = 0
+var wall_repointed: bool = false
 
 
 func reset() -> void:
@@ -13,6 +16,7 @@ func reset() -> void:
 	direction = 0
 	arc_strength = 0.0
 	combo_consumed = 0
+	wall_repointed = false
 
 
 func prepare(new_direction: int, new_arc_strength: float, new_combo_consumed: int) -> void:
@@ -21,6 +25,7 @@ func prepare(new_direction: int, new_arc_strength: float, new_combo_consumed: in
 	combo_consumed = new_combo_consumed
 	active = false
 	elapsed = 0.0
+	wall_repointed = false
 
 
 func start() -> void:
@@ -38,6 +43,19 @@ func step(fps_scale: float) -> bool:
 		return false
 	elapsed += fps_scale / 60.0
 	return true
+
+
+func repoint_arc_away_from(side: String) -> void:
+	if not active:
+		return
+	if side != "left" and side != "right":
+		return
+	var away_sign: float = 1.0 if side == "left" else -1.0
+	if wall_repointed:
+		arc_strength = away_sign * abs(arc_strength)
+		return
+	arc_strength = away_sign * abs(arc_strength) * WALL_ARC_REPOINT_SCALE
+	wall_repointed = true
 
 
 func is_active() -> bool:

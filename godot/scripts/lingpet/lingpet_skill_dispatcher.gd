@@ -9,6 +9,7 @@ const SKILL_KIND_MOON_ORBIT := "moon_orbit"
 const SKILL_KIND_BUBBLE_TRAP := "bubble_trap"
 const SKILL_KIND_MILK_PRODUCTION := "milk_production"
 const SKILL_KIND_THUNDER_ORB := "thunder_orb"
+const SKILL_KIND_SOLAR_BOLT := "solar_bolt"
 const SKILL_KIND_BOMB_SURPRISE := "bomb_surprise"
 const SKILL_KIND_GATLING_BURST := "gatling_burst"
 const SKILL_KIND_DRAGON_BREATH := "dragon_breath"
@@ -18,12 +19,16 @@ const SKILL_KIND_SOUL_CLONE := "soul_clone"
 const SKILL_KIND_PUPPET_GRAB := "puppet_grab"
 const SKILL_KIND_DOLL_CURSE := "doll_curse"
 const SKILL_KIND_BANANA_SLICE := "banana_slice"
+const SKILL_KIND_WILD_ROAR := "wild_roar"
+const RESOURCE_CLASS_BALL_OWNER := "ball_owner"
+const RESOURCE_CLASS_POS_OVERRIDE := "pos_override"
 const HYDRO_SPHERE_SKILL_ID := "maribo_hydro_sphere"
 const HEADBUTT_SKILL_ID := "lunabi_headbutt"
 const MOON_ORBIT_SKILL_ID := "draft_bat_moon_orbit"
 const BUBBLE_TRAP_SKILL_ID := "maribo_bubble_trap"
 const MILK_PRODUCTION_SKILL_ID := "milkring_milk_production"
 const THUNDER_ORB_SKILL_ID := "lumion_thunder_orb"
+const SOLAR_BOLT_SKILL_ID := "lumion_solar_bolt"
 const BOMB_SURPRISE_SKILL_ID := "volty_bomb_surprise"
 const GATLING_BURST_SKILL_ID := "volty_gatling_burst"
 const DRAGON_BREATH_SKILL_ID := "red_dragon_dragon_breath"
@@ -33,6 +38,7 @@ const RABI_SOUL_CLONE_SKILL_ID := "rabi_soul_clone"
 const PUPPET_GRAB_SKILL_ID := "koyora_puppet_control"
 const DOLL_CURSE_SKILL_ID := "koyora_doll_curse"
 const BANANA_SLICE_SKILL_ID := "monkeyring_banana_slice"
+const WILD_ROAR_SKILL_ID := "monkeyring_wild_roar"
 const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_HYDRO_SPHERE: true,
 	SKILL_KIND_HEADBUTT: true,
@@ -40,6 +46,7 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_BUBBLE_TRAP: true,
 	SKILL_KIND_MILK_PRODUCTION: true,
 	SKILL_KIND_THUNDER_ORB: true,
+	SKILL_KIND_SOLAR_BOLT: true,
 	SKILL_KIND_BOMB_SURPRISE: true,
 	SKILL_KIND_GATLING_BURST: true,
 	SKILL_KIND_DRAGON_BREATH: true,
@@ -49,6 +56,7 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_PUPPET_GRAB: true,
 	SKILL_KIND_DOLL_CURSE: true,
 	SKILL_KIND_BANANA_SLICE: true,
+	SKILL_KIND_WILD_ROAR: true,
 }
 
 
@@ -72,6 +80,8 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_MILK_PRODUCTION
 		THUNDER_ORB_SKILL_ID:
 			return SKILL_KIND_THUNDER_ORB
+		SOLAR_BOLT_SKILL_ID:
+			return SKILL_KIND_SOLAR_BOLT
 		BOMB_SURPRISE_SKILL_ID:
 			return SKILL_KIND_BOMB_SURPRISE
 		GATLING_BURST_SKILL_ID:
@@ -90,6 +100,8 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_DOLL_CURSE
 		BANANA_SLICE_SKILL_ID:
 			return SKILL_KIND_BANANA_SLICE
+		WILD_ROAR_SKILL_ID:
+			return SKILL_KIND_WILD_ROAR
 		_:
 			return SKILL_KIND_NONE
 
@@ -116,6 +128,10 @@ static func is_milk_production(skill_id: String) -> bool:
 
 static func is_thunder_orb(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_THUNDER_ORB
+
+
+static func is_solar_bolt(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_SOLAR_BOLT
 
 
 static func is_bomb_surprise(skill_id: String) -> bool:
@@ -154,8 +170,49 @@ static func is_banana_slice(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_BANANA_SLICE
 
 
+static func is_wild_roar(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_WILD_ROAR
+
+
 static func has_supported_runtime(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) != SKILL_KIND_NONE
+
+
+static func would_share_module(first_skill_id: String, second_skill_id: String) -> bool:
+	var first_kind := get_skill_kind(first_skill_id)
+	if first_kind == SKILL_KIND_NONE:
+		return false
+	return first_kind == get_skill_kind(second_skill_id)
+
+
+static func get_exclusive_resource_classes(skill_id: String) -> Array[String]:
+	var classes: Array[String] = []
+	match get_skill_kind(skill_id):
+		SKILL_KIND_HYDRO_SPHERE, SKILL_KIND_SOLAR_BOLT, SKILL_KIND_GHOST_SUMMON:
+			classes.append(RESOURCE_CLASS_BALL_OWNER)
+		SKILL_KIND_HEADBUTT, SKILL_KIND_BOMB_SURPRISE, SKILL_KIND_GATLING_BURST, SKILL_KIND_PUPPET_GRAB, SKILL_KIND_DOLL_CURSE, SKILL_KIND_BANANA_SLICE:
+			classes.append(RESOURCE_CLASS_POS_OVERRIDE)
+		SKILL_KIND_WILD_ROAR:
+			classes.append(RESOURCE_CLASS_BALL_OWNER)
+			classes.append(RESOURCE_CLASS_POS_OVERRIDE)
+		_:
+			pass
+	return classes
+
+
+
+static func skills_share_exclusive_resource(first_skill_id: String, second_skill_id: String) -> bool:
+	var first_classes := get_exclusive_resource_classes(first_skill_id)
+	if first_classes.is_empty():
+		return false
+	for resource_class in get_exclusive_resource_classes(second_skill_id):
+		if first_classes.has(resource_class):
+			return true
+	return false
+
+
+static func has_exclusive_resource_class(skill_id: String, resource_class: String) -> bool:
+	return get_exclusive_resource_classes(skill_id).has(resource_class)
 
 
 static func is_supported_kind(skill_kind: String) -> bool:

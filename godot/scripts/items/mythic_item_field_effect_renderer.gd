@@ -57,6 +57,11 @@ var _poseidon_field_renderer: Object = PoseidonFieldRenderer.new()
 var _ragnarok_field_renderer: Object = RagnarokFieldRenderer.new()
 
 
+func tear_down_hermes_shoes_fx(free_host: bool = false) -> void:
+	if _hermes_field_renderer != null and _hermes_field_renderer.has_method("tear_down_hermes_shoes_fx"):
+		_hermes_field_renderer.tear_down_hermes_shoes_fx(free_host)
+
+
 func draw_field_effects(
 	runtime: Object,
 	canvas: CanvasItem,

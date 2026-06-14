@@ -187,12 +187,15 @@ func reset_round(deps: Dictionary = {}) -> void:
 	cancel_transient(deps)
 
 
-func cancel_transient(deps: Dictionary = {}) -> void:
+func cancel_transient(_deps: Dictionary = {}) -> void:
 	hold_time = 0.0
 	pending_hold_time = 0.0
 	radio_motion = false
 	radio_timer = 0.0
-	_stop_hold_radio_audio(deps)
+	# Python parity: releasing the hold never cuts a busy radio channel
+	# (non-forced stop_radio_loop skips a busy channel) -- the sample
+	# finishes naturally. Only round / battle cleanup force-stops.
+	_release_hold_radio_audio_gate()
 
 
 func update(delta: float, deps: Dictionary = {}) -> Dictionary:
@@ -204,6 +207,13 @@ func update(delta: float, deps: Dictionary = {}) -> Dictionary:
 		radio_timer = max(0.0, radio_timer - safe_delta)
 		if radio_timer <= 0.0:
 			radio_motion = false
+			# Python parity (supply_drop.py tick_radio_animation): tail expiry
+			# only re-arms the one-playback gate; the ~3.5s radio sample keeps
+			# playing to its natural end. During the hold phase
+			# _sync_hold_feedback re-arms radio_timer before this decrement,
+			# so gate on active.
+			if active:
+				_release_hold_radio_audio_gate()
 	if aircraft_crashing:
 		return _merge_update_results(_update_aircraft_crash(safe_delta, deps), _resolve_collectible_pickups(deps))
 	var lifecycle_result: Dictionary = {}
@@ -233,7 +243,6 @@ func update(delta: float, deps: Dictionary = {}) -> Dictionary:
 
 func update_input(input_snapshot: Dictionary, delta: float, special_gauge: float, skill_config: Object, skill_state: Object, deps: Dictionary = {}) -> Dictionary:
 	if active:
-		_stop_hold_radio_audio(deps)
 		return update(delta, deps)
 	var current_msec: int = _get_current_msec(deps)
 	var holding: bool = _is_supply_drop_hold_pressed(input_snapshot)
@@ -257,7 +266,6 @@ func update_input(input_snapshot: Dictionary, delta: float, special_gauge: float
 	if not _can_activate(special_gauge, skill_config, skill_state, current_msec):
 		cancel_transient(deps)
 		return update(delta, deps)
-	_stop_hold_radio_audio(deps)
 	hold_time = 0.0
 	pending_hold_time = 0.0
 	active = true
@@ -281,7 +289,12 @@ func update_input(input_snapshot: Dictionary, delta: float, special_gauge: float
 	pending_drop_delays = _build_pending_drop_delays(deps, pending_drops.size(), drop_timing_pattern)
 	flight_duration = _get_aircraft_travel_duration()
 	pending_drop = pending_drops[0].duplicate(true) if not pending_drops.is_empty() else {}
-	_play_audio_method(deps, "play_commando_supply_radio")
+	# Python parity (start_supply_radio_loop channel-busy dedupe): a hold radio
+	# sample that is already playing continues to its natural end; replaying
+	# the same radio.wav here made the radio cue audibly fire twice per
+	# activation.
+	if not hold_radio_audio_active:
+		_play_audio_method(deps, "play_commando_supply_radio")
 	if aircraft_arrival_delay <= 0.0:
 		_spawn_aircraft(deps)
 	return {
@@ -674,10 +687,10 @@ func _is_supply_drop_activation_ready(
 	return _can_activate(special_gauge, skill_config, skill_state, current_msec)
 
 
-func _accumulate_pending_hold(delta: float, deps: Dictionary) -> void:
+func _accumulate_pending_hold(delta: float, _deps: Dictionary) -> void:
 	pending_hold_time = min(HOLD_REQUIRED_SECONDS, max(pending_hold_time, hold_time) + max(0.0, delta))
 	hold_time = 0.0
-	_stop_hold_radio_audio(deps)
+	_release_hold_radio_audio_gate()
 
 
 func _can_activate(special_gauge: float, skill_config: Object, skill_state: Object, current_msec: int) -> bool:
@@ -1365,9 +1378,17 @@ func _start_hold_radio_audio(deps: Dictionary) -> void:
 	_play_first_audio_method(deps, ["play_commando_supply_radio_loop", "play_commando_supply_radio"])
 
 
+func _release_hold_radio_audio_gate() -> void:
+	# Python parity (supply_drop.py): a started radio sample always plays to
+	# its natural end; this only re-arms the one-playback-per-hold-session
+	# gate. Use _stop_hold_radio_audio for round / battle force-stops.
+	hold_radio_audio_active = false
+
+
 func _stop_hold_radio_audio(deps: Dictionary) -> void:
-	if not hold_radio_audio_active:
-		return
+	# Force-stop (Python stop_radio_loop force=True): cuts the channel even
+	# when the playback gate was already released, so a still-playing sample
+	# never leaks across round / save-load boundaries.
 	hold_radio_audio_active = false
 	_play_audio_method(deps, "stop_commando_supply_radio_loop")
 

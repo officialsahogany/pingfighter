@@ -198,11 +198,7 @@ func _prewarm_cutin_sheet_texture_threaded_step(path: String, label: String) -> 
 
 
 func _load_cutin_sheet_texture(path: String, label: String) -> Texture2D:
-	if (
-		not FileAccess.file_exists(path)
-		and not FileAccess.file_exists("%s.import" % path)
-		and not ResourceLoader.exists(path)
-	):
+	if not ProjectResourceLoader.texture_resource_exists(path):
 		return null
 	return ProjectResourceLoader.load_imported_texture(
 		path,

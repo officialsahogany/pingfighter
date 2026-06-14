@@ -1,5 +1,6 @@
 extends RefCounted
 
+const LingpetDollCursePayloadFactory := preload("res://scripts/lingpet/lingpet_doll_curse_payload_factory.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const FIELD_WIDTH := 760.0
@@ -318,26 +319,18 @@ func _spawn_dolls() -> void:
 			target_y
 		)
 		var spawn_pos := _get_doll_sky_spawn_pos(target)
-		var angle := _pick_beam_angle()
-		_dolls.append({
-			"alive": true,
-			"side": side,
-			"pos": spawn_pos,
-			"spawn_pos": spawn_pos,
-			"target_pos": target,
-			"emerge_progress": 0.0,
-			"marionette_rigging": true,
-			"beam_angle": angle,
-			"beam_target_angle": angle,
-			"beam_sweep_phase": BEAM_SWEEP_PHASE_SLOW,
-			"beam_sweep_timer": randf_range(BEAM_SLOW_SWEEP_MIN_SECONDS, BEAM_SLOW_SWEEP_MAX_SECONDS),
-			"beam_turn_rate": randf_range(BEAM_SLOW_TURN_RATE_MIN, BEAM_SLOW_TURN_RATE_MAX),
-			"beam_homing_targeted": false,
-			"beam_homing_focus_active": false,
-			"beam_on_boss": false,
-			"beam_boss_point": Vector2.ZERO,
-			"wobble": randf_range(0.0, TAU),
-		})
+		_dolls.append(LingpetDollCursePayloadFactory.build_doll(
+			int(side),
+			spawn_pos,
+			target,
+			BEAM_BASE_ANGLE,
+			BEAM_SWEEP_HALF_ANGLE,
+			BEAM_SWEEP_PHASE_SLOW,
+			BEAM_SLOW_SWEEP_MIN_SECONDS,
+			BEAM_SLOW_SWEEP_MAX_SECONDS,
+			BEAM_SLOW_TURN_RATE_MIN,
+			BEAM_SLOW_TURN_RATE_MAX
+		))
 
 
 func _get_doll_sky_spawn_pos(target: Vector2) -> Vector2:
@@ -556,10 +549,7 @@ func _apply_boss_confusion(registry: Object) -> void:
 		"boss",
 		"confusion",
 		STATUS_REFRESH_FRAMES,
-		{
-			"cleansable": true,
-			"visual": "koyora_doll_curse",
-		},
+		LingpetDollCursePayloadFactory.build_confusion_status_data(),
 		STATUS_SOURCE
 	)
 	_confusion_active = true
@@ -578,15 +568,7 @@ func _spawn_destroy_particles(pos: Vector2) -> void:
 	for _i in range(14):
 		if _destroy_particles.size() >= DOLL_DESTROY_PARTICLE_MAX:
 			break
-		var angle := randf_range(0.0, TAU)
-		var speed := randf_range(55.0, 180.0)
-		_destroy_particles.append({
-			"pos": pos + Vector2(randf_range(-8.0, 8.0), randf_range(-10.0, 10.0)),
-			"vel": Vector2(cos(angle), sin(angle)) * speed,
-			"life": randf_range(0.25, DOLL_DESTROY_PARTICLE_LIFE),
-			"max_life": DOLL_DESTROY_PARTICLE_LIFE,
-			"size": randf_range(2.0, 5.0),
-		})
+		_destroy_particles.append(LingpetDollCursePayloadFactory.build_destroy_particle(pos, DOLL_DESTROY_PARTICLE_LIFE))
 
 
 func _update_destroy_particles(delta: float) -> void:

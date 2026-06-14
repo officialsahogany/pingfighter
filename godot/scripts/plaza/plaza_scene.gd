@@ -8,6 +8,7 @@ const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpe
 const PlazaPlayerController := preload("res://scripts/plaza/plaza_player_controller.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const PlazaShopTransactions := preload("res://scripts/plaza/plaza_shop_transactions.gd")
+const PlazaTavernTransactions := preload("res://scripts/plaza/plaza_tavern_transactions.gd")
 const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
@@ -100,12 +101,14 @@ var _last_blacksmith_transaction_summary: Dictionary = {}
 var _last_gacha_transaction_summary: Dictionary = {}
 var _last_lingpet_store_transaction_summary: Dictionary = {}
 var _last_academy_transaction_summary: Dictionary = {}
+var _last_tavern_transaction_summary: Dictionary = {}
 var _plaza_save_store: Object = PlazaSaveStore.new()
 var _plaza_shop_transactions: Object = PlazaShopTransactions.new()
 var _plaza_blacksmith_transactions: Object = PlazaBlacksmithTransactions.new()
 var _plaza_gacha_transactions: Object = PlazaGachaTransactions.new()
 var _plaza_lingpet_store_transactions: Object = PlazaLingpetStoreTransactions.new()
 var _plaza_academy_transactions: Object = PlazaAcademyTransactions.new()
+var _plaza_tavern_transactions: Object = PlazaTavernTransactions.new()
 var _runtime_perk_overlay_renderer: Object = RuntimePerkOverlayRenderer.new()
 var _runtime_perk_icon_renderer: Object = RuntimePerkIconRenderer.new()
 var _plaza_save_snapshot: Dictionary = {}
@@ -264,12 +267,14 @@ func get_status() -> Dictionary:
 		"last_gacha_transaction_summary": _last_gacha_transaction_summary.duplicate(true),
 		"last_lingpet_store_transaction_summary": _last_lingpet_store_transaction_summary.duplicate(true),
 		"last_academy_transaction_summary": _last_academy_transaction_summary.duplicate(true),
+		"last_tavern_transaction_summary": _last_tavern_transaction_summary.duplicate(true),
 		"runtime_perk_choice_active": _is_runtime_perk_overlay_active(),
 		"runtime_perk_choice_count": _get_runtime_perk_choice_count(),
 		"runtime_perk_selected_index": _get_runtime_perk_selected_index(),
 		"plaza_gold": int(_plaza_save_snapshot.get("plaza_gold", 0)),
 		"ap_current": int(_plaza_save_snapshot.get("ap_current", 0)),
 		"bank_deposit_gold": int(_plaza_save_snapshot.get("bank_deposit_gold", 0)),
+		"tavern_active_quest": _get_tavern_active_quest_summary(),
 		"active_item_slot_count": _get_active_item_slot_count(),
 		"owned_lingpet_count": _get_owned_lingpet_count(),
 		"blacksmith_target_summary": _get_blacksmith_target_summary(),
@@ -789,6 +794,21 @@ func _draw_building_menu(font: Font, scale: float) -> void:
 		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, lingpet_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
 		var lingpet_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 알 뽑기 때 열쇠 1개를 사용합니다."
 		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, lingpet_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
+	elif _active_menu_type == "tavern":
+		var active_quest := _get_tavern_active_quest_summary()
+		var offered_quest := PlazaTavernTransactions.get_stage_offer(current_stage)
+		var visible_quest := active_quest if not active_quest.is_empty() else offered_quest
+		var quest_state := "진행 중" if not active_quest.is_empty() else "제안"
+		var tavern_ledger_text := "보유 %dG  |  행동력 %d  |  %s: %s +%dG" % [
+			int(_plaza_save_snapshot.get("plaza_gold", 0)),
+			int(_plaza_save_snapshot.get("ap_current", 0)),
+			quest_state,
+			str(visible_quest.get("name", "의뢰")),
+			int(visible_quest.get("reward_gold", 0)),
+		]
+		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, tavern_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
+		var tavern_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 의뢰 처리 때 행동력 1개를 사용합니다."
+		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, tavern_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
 	elif _active_menu_type == "academy":
 		var academy_ledger_text := "보유 %dG  |  행동력 %d  |  수업료 %dG" % [
 			int(_plaza_save_snapshot.get("plaza_gold", 0)),
@@ -930,6 +950,8 @@ func _open_building_menu(building: Dictionary) -> void:
 	_active_menu_actions = _get_string_array(spec.get("actions", []))
 	if building_type == "academy":
 		_active_menu_actions = PlazaAcademyTransactions.get_menu_action_labels()
+	if building_type == "tavern":
+		_active_menu_actions = PlazaTavernTransactions.get_menu_action_labels()
 	_active_menu_last_message = ""
 	_active_menu_visit_ap_consumed = false
 	_last_bank_transaction_summary = {}
@@ -938,6 +960,7 @@ func _open_building_menu(building: Dictionary) -> void:
 	_last_gacha_transaction_summary = {}
 	_last_lingpet_store_transaction_summary = {}
 	_last_academy_transaction_summary = {}
+	_last_tavern_transaction_summary = {}
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	queue_redraw()
@@ -966,6 +989,8 @@ func _trigger_menu_action(action_index: int) -> bool:
 			return _trigger_blacksmith_menu_action(action_index)
 		"academy":
 			return _trigger_academy_menu_action(action_index)
+		"tavern":
+			return _trigger_tavern_menu_action(action_index)
 		_:
 			_active_menu_last_message = "아직 준비 중입니다."
 			queue_redraw()
@@ -1103,6 +1128,26 @@ func _trigger_academy_menu_action(action_index: int) -> bool:
 		_update_runtime_perk_overlay(0.0)
 	else:
 		queue_redraw()
+	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+
+
+func _trigger_tavern_menu_action(action_index: int) -> bool:
+	if _plaza_tavern_transactions == null or not _plaza_tavern_transactions.has_method("perform_action"):
+		_active_menu_last_message = "선술집 의뢰 장치를 찾을 수 없습니다."
+		queue_redraw()
+		return false
+	var summary: Dictionary = _plaza_tavern_transactions.perform_action(
+		action_index,
+		_plaza_save_store,
+		current_stage,
+		not _active_menu_visit_ap_consumed
+	)
+	_last_tavern_transaction_summary = summary.duplicate(true)
+	if int(summary.get("ap_spent", 0)) > 0:
+		_active_menu_visit_ap_consumed = true
+	_active_menu_last_message = _format_tavern_transaction_message(summary)
+	_refresh_plaza_save_snapshot()
+	queue_redraw()
 	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
 
 
@@ -1271,6 +1316,37 @@ func _format_academy_transaction_message(summary: Dictionary) -> String:
 	return "수업료를 냈지만 선택지를 열지 못했습니다."
 
 
+func _format_tavern_transaction_message(summary: Dictionary) -> String:
+	var reason := str(summary.get("reason", ""))
+	var quest_name := str(summary.get("quest_name", "의뢰"))
+	if quest_name == "":
+		quest_name = "의뢰"
+	if not bool(summary.get("changed", false)):
+		match reason:
+			"no_ap":
+				return "행동력이 부족합니다."
+			"quest_already_active":
+				return "이미 진행 중인 의뢰가 있습니다."
+			"stage_already_accepted":
+				return "이번 스테이지의 의뢰는 이미 받았습니다."
+			"invalid_quest":
+				return "의뢰서가 손상되었습니다."
+			"no_active_quest":
+				return "보고할 의뢰가 없습니다."
+			"quest_in_progress":
+				return "다음 전투를 마친 뒤 보고할 수 있습니다."
+			"missing_plaza_save_store":
+				return "의뢰 장부를 찾을 수 없습니다."
+			_:
+				return "지금은 의뢰를 처리할 수 없습니다."
+	match str(summary.get("action", "")):
+		"accept":
+			return "%s 의뢰를 받았습니다." % quest_name
+		"complete":
+			return "%s 보고 완료. +%dG" % [quest_name, int(summary.get("delta_gold", 0))]
+	return "의뢰를 처리했습니다."
+
+
 func _close_building_menu() -> void:
 	_menu_open = false
 	_active_menu_type = ""
@@ -1283,11 +1359,12 @@ func _close_building_menu() -> void:
 	_last_blacksmith_transaction_summary = {}
 	_last_gacha_transaction_summary = {}
 	_last_lingpet_store_transaction_summary = {}
+	_last_tavern_transaction_summary = {}
 	queue_redraw()
 
 
 func _is_executable_menu_type(menu_type: String) -> bool:
-	return ["bank", "shop", "gacha", "lingpet_store", "blacksmith", "academy"].has(menu_type)
+	return ["bank", "shop", "gacha", "lingpet_store", "blacksmith", "academy", "tavern"].has(menu_type)
 
 
 func _get_string_array(value: Variant) -> Array[String]:
@@ -1304,6 +1381,13 @@ func _get_blacksmith_target_summary() -> Dictionary:
 	var result: Variant = _plaza_blacksmith_transactions.get_target_summary(_runtime_owner)
 	if result is Dictionary:
 		return result
+	return {}
+
+
+func _get_tavern_active_quest_summary() -> Dictionary:
+	var quest_value: Variant = _plaza_save_snapshot.get("tavern_active_quest", {})
+	if quest_value is Dictionary:
+		return (quest_value as Dictionary).duplicate(true)
 	return {}
 
 

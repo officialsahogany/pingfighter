@@ -1,0 +1,24 @@
+{
+  "asset": "monkeyring_wild_roar",
+  "created_at": "2026-06-12",
+  "generator": "Codex built-in imagegen",
+  "source_dir": "C:/Users/woduq/.codex/generated_images/019eb83d-445c-72c0-a9fa-c28b22ff3f02",
+  "outputs": {
+    "skill_card": {
+      "path": "res://assets/sprites/lingpet/monkeyring_wild_roar_skillcard_imagegen_v1.png",
+      "source": "ig_05bc87b965f4da6a016a2bda691d908191ae079adbb2d3eab7.png",
+      "size": [1720, 541],
+      "postprocess": "center-cropped and resized from 1815x867"
+    },
+    "skill_icon": {
+      "path": "res://assets/sprites/lingpet/monkeyring_wild_roar_skill_icon_imagegen_v1.png",
+      "source": "ig_05bc87b965f4da6a016a2bda067ccc819190c227943e26690a.png",
+      "size": [1254, 1254],
+      "postprocess": "copied without resize"
+    }
+  },
+  "prompts": {
+    "skill_card": "Ppanamong / Monkeyring active skill card for Wild Roar: cute fierce golden-brown monkey ringpet roaring forward, banana pouch hinted subtly, diamond ring tail tip, concentric golden shockwave rings bursting outward, diagonal motion rays, small energy ball repelled upward toward the right. Wide cinematic 2D arcade fantasy illustration, no text, no border, no watermark.",
+    "skill_icon": "Wild Roar icon for Ppanamong / Monkeyring: cute fierce golden-brown monkey face roaring, open mouth stylized as a bright golden shockwave, concentric rings, diamond ring tail-tip motif, small energy ball deflected upward. Square polished 2D fantasy arcade icon, no text, no border, no watermark."
+  }
+}

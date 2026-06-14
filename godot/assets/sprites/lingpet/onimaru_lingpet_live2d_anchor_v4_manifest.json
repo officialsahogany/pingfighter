@@ -1,0 +1,33 @@
+{
+  "asset_id": "onimaru_lingpet_live2d_anchor_v4",
+  "created_date": "2026-06-13",
+  "purpose": "Onimaru Lingpet Live2D source anchor: v2 cute style with original-card outfit and head ornament",
+  "source": {
+    "tool": "Codex built-in image_gen",
+    "raw_chromakey_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v4_magenta_source.png",
+    "raw_chromakey": "#ff00ff",
+    "style_reference": "onimaru_lingpet_live2d_anchor_v2_magenta_source.png",
+    "costume_reference": "User-provided original Onimaru pixel card and v3 costume pass",
+    "notes": [
+      "Keeps v2 cute chibi proportions, fluffy black hair, expressive golden eyes, soft cheeks, and fang smile.",
+      "Updates outfit and head ornament toward the original card: gold halo ring, dark shoulder pauldrons, pink-red chest armor, yellow armor skirt, dark red cape, red boots, and flower staff.",
+      "Raw generated background was normalized to exact #ff00ff after generation.",
+      "No tail, wings, dragon scales, dinosaur silhouette, large club, or scenic background."
+    ]
+  },
+  "transparent_cutout": {
+    "path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v4.png",
+    "cleanup_method": "remove_chroma_key.py --key-color #ff00ff --tolerance 3, followed by targeted 2px boundary removal for magenta-like edge pixels",
+    "detected_key_color": "#ff00ff",
+    "note": "Exact-key cleanup was used because the outfit intentionally contains warm pink-red armor and sleeves."
+  },
+  "qa": {
+    "raw_size": "1254x1254",
+    "raw_edge_samples_exact_ff00ff": true,
+    "cutout_corner_alpha": [0, 0, 0, 0],
+    "cutout_alpha_bbox": [279, 99, 1067, 1120],
+    "cutout_alpha_bbox_touches_edge": false,
+    "edge_magenta_pixels_removed": 2288
+  },
+  "prompt_summary": "Keep the v2 cute SD red oni Lingpet face, fluffy black hair, and proportions, but replace only the outfit and head ornament with original-card Onimaru details: gold halo ring, dark shoulder pauldrons, pink-red armor, yellow armor skirt, dark red cape, red boots, and flower staff on exact #ff00ff magenta chroma-key background."
+}

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetBubbleTrapPayloadFactory := preload("res://scripts/lingpet/lingpet_bubble_trap_payload_factory.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PROJECTILE_SPEED := 220.0
@@ -330,20 +332,16 @@ func _launch_next_projectile(origin: Vector2) -> void:
 		return
 	var offset_x: float = float(SHOT_X_OFFSETS[_shots_launched % SHOT_X_OFFSETS.size()])
 	var shot_origin := Vector2(clampf(origin.x + offset_x, PROJECTILE_RADIUS, FIELD_WIDTH - PROJECTILE_RADIUS), origin.y)
-	var trail: Array[Vector2] = []
-	trail.append(shot_origin)
 	var visual_seed := _seeded_unit(shot_origin.x + shot_origin.y, float(_shots_launched) + float(_capture_count + _pop_count) * 3.17)
 	var radius_scale := lerpf(0.92, 1.08, _seeded_unit(visual_seed, 5.0))
-	_projectiles.append({
-		"pos": shot_origin,
-		"vel": Vector2(0.0, -PROJECTILE_SPEED),
-		"trail": trail,
-		"age": 0.0,
-		"origin_x": shot_origin.x,
-		"phase": visual_seed * TAU,
-		"visual_seed": visual_seed,
-		"radius_scale": radius_scale,
-	})
+	_projectiles.append(
+		LingpetBubbleTrapPayloadFactory.build_projectile(
+			shot_origin,
+			PROJECTILE_SPEED,
+			visual_seed,
+			radius_scale
+		)
+	)
 	_shots_launched += 1
 	_last_launch_origin = shot_origin
 	_sync_primary_projectile()
@@ -418,11 +416,7 @@ func _apply_boss_stun(registry: Object) -> void:
 		"boss",
 		"stun",
 		CAPTURE_STATUS_REFRESH_FRAMES,
-		{
-			"cleansable": true,
-			"visual": "maribo_bubble_trap",
-			"suppress_stun_stars": true,
-		},
+		LingpetBubbleTrapPayloadFactory.build_stun_status_data(),
 		STATUS_SOURCE
 	)
 
@@ -436,26 +430,13 @@ func _clear_boss_stun(registry: Object) -> void:
 
 func _spawn_burst_particles(origin: Vector2, strength: float) -> void:
 	for _i in range(BURST_PARTICLES):
-		var angle: float = randf_range(0.0, TAU)
-		var speed: float = randf_range(70.0, 190.0) * maxf(0.1, strength)
-		_add_particle(
-			origin + Vector2(randf_range(-8.0, 8.0), randf_range(-8.0, 8.0)),
-			Vector2(cos(angle), sin(angle)) * speed,
-			randf_range(0.28, 0.62),
-			randf_range(2.4, 5.8)
-		)
+		_add_particle(LingpetBubbleTrapPayloadFactory.build_burst_particle(origin, strength))
 
 
-func _add_particle(pos: Vector2, vel: Vector2, life: float, size: float) -> void:
+func _add_particle(particle: Dictionary) -> void:
 	if _particles.size() >= PARTICLE_MAX:
 		return
-	_particles.append({
-		"pos": pos,
-		"vel": vel,
-		"life": life,
-		"max_life": maxf(0.01, life),
-		"size": size,
-	})
+	_particles.append(particle)
 
 
 func _update_particles(delta: float) -> void:

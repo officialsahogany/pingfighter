@@ -3,7 +3,7 @@
   "pet_id": "monkeyring",
   "display_name": "빠나몽",
   "generated_at": "2026-06-10",
-  "runtime_usage": "debug-only placeholder companion thumbnail/walk sheet until dedicated rear-view SD companion sheets are produced",
+  "runtime_usage": "superseded debug-only front-facing placeholder; not referenced by Monkeyring runtime visuals after dedicated rear-view SD companion sheets were accepted",
   "source_art": "res://assets/sprites/lingpet/monkeyring_cutin_art.png",
   "runtime_sheet": {
     "path": "res://assets/sprites/lingpet/monkeyring_companion_walk_placeholder.png",
@@ -21,7 +21,7 @@
     "sha256": "242a89cb45cd8c3f8fb5cb1098ab59a12daff83f9da939a0dedb01ebcf65175d",
     "bytes": 1360016
   },
-  "note": "Front-facing deterministic placeholder only. Do not treat this as the final player-perspective rear-view SD companion set required for production hatch-pool promotion.",
+  "note": "Front-facing deterministic placeholder only. Superseded by monkeyring_companion_idle.png, monkeyring_companion_move_left.png, and monkeyring_companion_move_right.png. Keep only as rollback/provenance material; do not route runtime visuals back to this placeholder.",
   "qa": {
     "whole_sheet_edge_alpha": 0,
     "cells_with_edge_touch": [],

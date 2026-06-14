@@ -1,0 +1,164 @@
+{
+  "asset_id": "monkeyring_companion_rear_3q_move_pair_25f_v1",
+  "pet_id": "monkeyring",
+  "display_name": "빠나몽",
+  "created_at": "2026-06-12T20:12:37Z",
+  "runtime_usage": "lingpet_companion_move_left_right_rear_three_quarter_sheet_pair",
+  "output_left_sheet": "res://assets/sprites/lingpet/monkeyring_companion_move_left.png",
+  "output_right_sheet": "res://assets/sprites/lingpet/monkeyring_companion_move_right.png",
+  "memorized_contract": "Left/right movement must stay rear/back-view based, but show a small Maribo-like rear-3Q side slice while moving. Avoid full front turns and full side-profile reads.",
+  "autosprite": {
+    "character_id": "cmqbcx75u000bch77g70bds58",
+    "character_name": "Monkeyring SD Companion 20260613",
+    "kind": "iso_walk_northeast",
+    "spritesheet_id": "cmqbd0um900bo1efgxg8uw4aq",
+    "workflow_job_id": "wf_2e2d681f-3728-4018-a5d4-a9652704432a",
+    "raw_sheet_local_path": "D:/main/bosspong/.tmp/monkeyring_companion_sd_20260613/monkeyring_rear3q_walk_right_autosprite_25f.png",
+    "raw_atlas_local_path": "D:/main/bosspong/.tmp/monkeyring_companion_sd_20260613/monkeyring_rear3q_walk_right_autosprite_25f_atlas.json",
+    "generated_frame_count": 25,
+    "remove_bg": "ultra",
+    "prompt": "Rear-right 3/4 in-game SD movement loop for Ppanamong / Monkeyring walking to the right. Mostly back view with a slight side slice visible like Maribo: one side ear/cheek/arm edge visible, but NOT front-facing. Clear alternating tiny steps, small body bounce, tail sways behind. Preserve brown fur, gold gear, cyan gems, curled tail gem. NO full profile, NO front turn, NO banana eating, transparent background, stable scale, seamless loop."
+  },
+  "postprocess": {
+    "tool": "Pillow AutoSprite-derived frame selection, center-bottom alignment, left mirror, 5x5 sheet assembly",
+    "selected_source_frame_indices": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "runtime_frame_source_sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      3,
+      2,
+      1,
+      0,
+      1,
+      2,
+      3,
+      4,
+      3,
+      2,
+      1,
+      0,
+      1,
+      2,
+      3,
+      4,
+      3,
+      2,
+      1,
+      0
+    ],
+    "left_sheet": "horizontal mirror of accepted right rear-3Q movement frames",
+    "rejected_raw_frames": "Frames after source index 4 rotate toward side/front and are intentionally excluded to preserve the requested rear/back-view basis.",
+    "alpha_cleanup": {
+      "threshold": 6
+    }
+  },
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "intended_visual_keys": [
+      "companion_move_left",
+      "companion_move_right"
+    ],
+    "frame_interval_owner": "res://scripts/lingpet/lingpet_companion_sprite_animator.gd"
+  },
+  "qa": {
+    "left": {
+      "sha256": "48de2b4f29619b4f302792df98666c40106568ec6e202a852c89dff8cacf7763",
+      "bytes": 735729,
+      "edge_alpha_max": 0,
+      "edge_touch_frames": [],
+      "visible_magenta_pixels": 0,
+      "visible_green_pixels": 0,
+      "sample_bboxes": {
+        "0": [
+          50,
+          12,
+          224,
+          225
+        ],
+        "6": [
+          51,
+          20,
+          223,
+          225
+        ],
+        "12": [
+          52,
+          21,
+          221,
+          225
+        ],
+        "18": [
+          51,
+          20,
+          223,
+          225
+        ],
+        "24": [
+          50,
+          12,
+          224,
+          225
+        ]
+      }
+    },
+    "right": {
+      "sha256": "37c6677ebf60a49e750a6d826e32463c74c4dbc3dc5e01d9ec1451ae2bfef02b",
+      "bytes": 733974,
+      "edge_alpha_max": 0,
+      "edge_touch_frames": [],
+      "visible_magenta_pixels": 0,
+      "visible_green_pixels": 0,
+      "sample_bboxes": {
+        "0": [
+          31,
+          12,
+          205,
+          225
+        ],
+        "6": [
+          32,
+          20,
+          204,
+          225
+        ],
+        "12": [
+          34,
+          21,
+          203,
+          225
+        ],
+        "18": [
+          32,
+          20,
+          204,
+          225
+        ],
+        "24": [
+          31,
+          12,
+          205,
+          225
+        ]
+      }
+    }
+  }
+}

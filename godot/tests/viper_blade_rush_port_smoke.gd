@@ -171,6 +171,7 @@ func _init() -> void:
 	_test_blade_prep_actor_spin_context()
 	_test_blade_amp_cost_homing_and_followup()
 	_test_air_blade_dash_after_launch_delay()
+	_test_air_blade_reset_round_stops_spin_sound()
 	print("viper_blade_rush_port_smoke: ok")
 	quit(0)
 
@@ -619,6 +620,33 @@ func _test_air_blade_dash_after_launch_delay() -> void:
 	_expect(player_pos.x > pre_dash_x + 10.0, "air blade dash cancel should move horizontally through the dash controller")
 	_expect(bool(snap.get("blade_motion_active", false)), "dash cancel should keep air blade landing motion alive")
 	_expect(player_pos.y < _get_blade_floor_y(config), "dash cancel should happen before Viper lands")
+
+
+func _test_air_blade_reset_round_stops_spin_sound() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var jetpack := FakeJetpack.new()
+	var perk_state := FakePerkState.new()
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, jetpack, perk_state)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 560.0)
+
+	input.snapshot["up_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	_expect(bool(result.get("activated", false)), "air blade should activate before the round-boundary reset smoke")
+	_expect(audio.blade_spin == 1, "air blade startup should play bladeafter.wav before reset")
+	_expect(audio.blade_spin_stops == 0, "air blade spin should still be active before reset")
+
+	runtime.reset_round(deps)
+	_expect(audio.blade_spin_stops == 1, "Viper reset_round should stop bladeafter.wav through the stored audio fallback")
+	_expect(not bool(runtime.get_snapshot().get("blade_motion_active", true)), "Viper reset_round should clear active blade motion")
+	_expect(not runtime.blade_spin_sound_active, "Viper reset_round should clear blade spin sound state")
+	_expect(runtime.blade_spin_audio == null, "Viper reset_round should release the stored blade spin audio owner")
 
 
 func _deps(

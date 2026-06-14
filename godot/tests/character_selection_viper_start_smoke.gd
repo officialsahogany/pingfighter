@@ -166,16 +166,18 @@ func _run() -> void:
 		"optimus preview still should use the accepted engineer glasses manual fishnet cutout"
 	)
 	_expect(
-		str(optimus.get("live2d_fullframe_sheet_path", "")).ends_with("optimus_engineer_glasses_manual_fishnet_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png"),
-		"optimus preview should use the Real-ESRGAN HQ engineer glasses manual fishnet AutoSprite loop first"
+		str(optimus.get("live2d_fullframe_sheet_path", "")).ends_with("optimus_io_magenta_onebounce_idle_loop64_autosprite_v5_realesrgan_animev3_hq1536_safe.png"),
+		"optimus preview should use the one-bounce magenta-clean engineer glasses book AutoSprite loop first"
 	)
-	_expect(int(optimus.get("live2d_fullframe_cols", 0)) == 7, "optimus preview should use the 7-column runtime sheet")
-	_expect(int(optimus.get("live2d_fullframe_rows", 0)) == 7, "optimus preview should use the 7-row runtime sheet")
-	_expect(int(optimus.get("live2d_fullframe_count", 0)) == 49, "optimus preview should expose the native 49-frame loop")
+	_expect(int(optimus.get("live2d_fullframe_cols", 0)) == 8, "optimus preview should use the 8-column smooth runtime sheet")
+	_expect(int(optimus.get("live2d_fullframe_rows", 0)) == 8, "optimus preview should use the 8-row smooth runtime sheet")
+	_expect(int(optimus.get("live2d_fullframe_count", 0)) == 64, "optimus preview should expose the native 64-frame loop")
+	_expect(is_equal_approx(float(optimus.get("live2d_fullframe_interval", 0.0)), 0.050), "optimus preview should use smooth 64-frame breathing cadence")
 	_expect(bool(optimus.get("live2d_trim_transparent_source", false)), "optimus cutout loop should trim its transparent source")
 	_expect(optimus.get("live2d_trim_rect", null) is Rect2, "optimus idle preview should have a precomputed trim rect")
 	var optimus_idle_trim: Rect2 = optimus.get("live2d_trim_rect", Rect2())
-	_expect(optimus_idle_trim.size.y >= 1460.0, "optimus HQ idle trim should use the 1536-cell Real-ESRGAN source")
+	_expect(optimus_idle_trim.size.y >= 1500.0, "optimus smooth idle trim should preserve the padded 1536-cell xfit67 source height")
+	_expect(optimus_idle_trim.size.x >= 970.0, "optimus one-bounce idle trim should keep side padding for the right hair tips")
 	var optimus_texture := load(str(optimus.get("portrait_path", ""))) as Texture2D
 	_expect(optimus_texture != null, "optimus engineer glasses manual cutout asset should load")
 	var optimus_sheet := load(str(optimus.get("live2d_fullframe_sheet_path", ""))) as Texture2D
@@ -202,19 +204,19 @@ func _run() -> void:
 		"character-select loading screen should prewarm the optimus full-body Live2D sheet"
 	)
 	_expect(
-		str(optimus.get("confirm_intro_sheet_path", "")).ends_with("optimus_select_confirm_glasses_book_mumble_happy_loop98_autosprite_v4_xfit73_realesrgan_animev3_hq1152_safe.png"),
-		"optimus confirm intro should use the glasses-book mumble happy 98-frame click one-shot"
+		str(optimus.get("confirm_intro_sheet_path", "")).ends_with("optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png"),
+		"optimus confirm intro should use the no-zoom talk read-too book 64-frame click one-shot"
 	)
-	_expect(int(optimus.get("confirm_intro_cols", 0)) == 14, "optimus confirm intro should use the 14-column runtime sheet")
-	_expect(int(optimus.get("confirm_intro_rows", 0)) == 7, "optimus confirm intro should use the 7-row runtime sheet")
-	_expect(int(optimus.get("confirm_intro_count", 0)) == 98, "optimus confirm intro should expose the held 49-frame AutoSprite motion")
-	_expect(float(optimus.get("confirm_intro_interval", 0.0)) <= 0.022, "optimus confirm intro should keep smasher-style duplicate-frame pacing")
-	_expect(float(optimus.get("confirm_intro_min_duration", 0.0)) >= 2.30, "optimus confirm intro should hold long enough for the glasses-book reaction")
+	_expect(int(optimus.get("confirm_intro_cols", 0)) == 8, "optimus confirm intro should use the 8-column smooth runtime sheet")
+	_expect(int(optimus.get("confirm_intro_rows", 0)) == 8, "optimus confirm intro should use the 8-row smooth runtime sheet")
+	_expect(int(optimus.get("confirm_intro_count", 0)) == 64, "optimus confirm intro should expose the native 64-frame AutoSprite motion")
+	_expect(is_equal_approx(float(optimus.get("confirm_intro_interval", 0.0)), 0.060), "optimus confirm intro should use smoother 64-frame click pacing")
+	_expect(float(optimus.get("confirm_intro_min_duration", 0.0)) >= 3.95, "optimus confirm intro should hold long enough for the smoother glasses-book reaction")
 	_expect(bool(optimus.get("confirm_intro_trim_transparent_source", false)), "optimus confirm intro should trim its transparent source for stable scale")
 	_expect(optimus.get("confirm_intro_trim_rect", null) is Rect2, "optimus confirm intro should use a precomputed trim rect")
 	var optimus_confirm_trim: Rect2 = optimus.get("confirm_intro_trim_rect", Rect2())
-	_expect(optimus_confirm_trim.size.x <= 620.0, "optimus confirm intro trim should keep the click art close to the idle preview width")
-	_expect(optimus_confirm_trim.size.y >= 1000.0, "optimus confirm intro trim should preserve the accepted tall card crop")
+	_expect(optimus_confirm_trim.size.x <= 700.0, "optimus confirm intro trim should keep no-zoom side padding without over-widening the click art")
+	_expect(optimus_confirm_trim.size.y >= 1110.0, "optimus confirm intro trim should preserve the padded 1152-cell click crop")
 	_expect(not bool(optimus.get("confirm_intro_float_motion_enabled", true)), "optimus confirm intro should not layer runtime bob over the AutoSprite motion")
 	_expect(float(optimus.get("confirm_intro_transition_duration", 0.0)) > 0.0, "optimus confirm intro should crossfade from idle")
 	_expect(abs(float(optimus.get("confirm_intro_stage_x_offset_ratio", 1.0))) <= 0.001, "optimus confirm intro should stay horizontally aligned with the idle preview")
@@ -223,13 +225,13 @@ func _run() -> void:
 		str(optimus.get("confirm_intro_voice_path", "")).ends_with("voice/optimusselect.mp3"),
 		"optimus confirm intro should use the accepted Io select voice"
 	)
-	_expect(is_equal_approx(float(optimus.get("confirm_intro_voice_delay", 0.0)), 0.80), "optimus confirm voice should wait for the mouth-open frames")
+	_expect(is_equal_approx(float(optimus.get("confirm_intro_voice_delay", 0.0)), 1.00), "optimus confirm voice should wait for the read-too book motion")
 	_expect(is_equal_approx(float(optimus.get("confirm_intro_voice_volume_db", 0.0)), -5.0), "optimus confirm voice should sit under the character-select BGM")
 	_expect(
 		str(optimus.get("click_motion_voice_path", "")).ends_with("voice/optimusselect.mp3"),
 		"optimus click Live2D should reuse the accepted Io select voice"
 	)
-	_expect(is_equal_approx(float(optimus.get("click_motion_voice_delay", 0.0)), 0.80), "optimus click Live2D voice should start 0.8 seconds after click")
+	_expect(is_equal_approx(float(optimus.get("click_motion_voice_delay", 0.0)), 1.00), "optimus click Live2D voice should start 1.0 seconds after click")
 	_expect(is_equal_approx(float(optimus.get("click_motion_voice_volume_db", 0.0)), -5.0), "optimus click Live2D voice should use the tuned select volume")
 	_expect(bool(optimus.get("confirm_intro_exit_flash_enabled", false)), "optimus confirm intro should hide the one-shot-to-battle cut with an exit flash")
 	var optimus_intro_sheet := load(str(optimus.get("confirm_intro_sheet_path", ""))) as Texture2D

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ActiveItemPickupEffectPayloadFactory := preload("res://scripts/items/active_item_pickup_effect_payload_factory.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PICKUP_EFFECT_DURATION_SEC := 2.0
@@ -10,21 +12,18 @@ const MAX_PICKUP_PARTICLES := 28
 
 
 func trigger_pickup_effect(field_item: Dictionary, display_name: String, item_color: Color, particles: Array[Dictionary]) -> Dictionary:
-	var item_data: Dictionary = _get_dictionary(field_item, "item_data").duplicate(true)
+	var item_data: Dictionary = _get_dictionary(field_item, "item_data")
 	var start_pos: Vector2 = _get_vector2(field_item, "position", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5))
 	_spawn_balloon_pop_particles(particles, start_pos, item_color)
-	var pickup_effect: Dictionary = {
-		"item_data": item_data,
-		"display_name": display_name,
-		"timer": PICKUP_EFFECT_DURATION_SEC,
-		"alpha": 180.0 / 255.0,
-		"position": start_pos,
-		"start_position": start_pos,
-	}
 	var use_hint_text: String = str(field_item.get("pickup_use_hint_text", "")).strip_edges()
-	if use_hint_text != "":
-		pickup_effect["use_hint_text"] = use_hint_text
-	return pickup_effect
+	return ActiveItemPickupEffectPayloadFactory.build_pickup_effect(
+		item_data,
+		display_name,
+		start_pos,
+		PICKUP_EFFECT_DURATION_SEC,
+		180.0 / 255.0,
+		use_hint_text
+	)
 
 
 func has_pickup_effect(pickup_effect: Dictionary) -> bool:
@@ -73,17 +72,7 @@ func _spawn_balloon_pop_particles(particles: Array[Dictionary], center: Vector2,
 	while particles.size() > keep_count:
 		particles.remove_at(0)
 	for _i in range(BALLOON_POP_PARTICLE_COUNT):
-		var angle: float = randf_range(0.0, TAU)
-		var speed: float = randf_range(90.0, 250.0)
-		var color := item_color.lerp(Color.WHITE, randf_range(0.15, 0.55))
-		particles.append({
-			"position": center,
-			"velocity": Vector2(cos(angle), sin(angle)) * speed,
-			"radius": randf_range(2.0, 4.5),
-			"age": 0.0,
-			"lifetime": randf_range(0.28, 0.62),
-			"color": color,
-		})
+		particles.append(ActiveItemPickupEffectPayloadFactory.build_balloon_pop_particle(center, item_color))
 
 
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
