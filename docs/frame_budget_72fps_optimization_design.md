@@ -152,6 +152,12 @@ Gap 라인 기반)는 폐기 — 0.1의 ">20ms 기준" 열은 베이스라인과
 
 ## 2. 슬라이스 (레버리지/위험 순)
 
+> 각 슬라이스의 **수정 기법 카탈로그**는 `docs/godot_perf_optimization_playbook.md`
+> (fable 24커밋 전수분석 — 6기법 + 봉인규율), **작업 자세**는
+> `docs/agent_operating_posture.md` 참고. 이 설계서는 측정 베이스라인·게이트·
+> 슬라이스 계획(=plan), 플레이북은 기법(=how), 세션 상태는
+> `docs/frame_budget_optimization_session_handoff.md`(=현재).
+
 ### S1. 스테이지 필러 HUD 정적 크롬 캐싱 (−0.4~0.7ms, 전 스테이지)
 - 대상: `stage2_pillar_scene_drawer.gd` / `stage3_pillar_scene_drawer.gd` 등
   `stageN.pillar.hud` 경로의 **프레임 불변 부분**(백플레이트, 칼라, 프레임 장식).
