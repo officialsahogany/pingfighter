@@ -93,17 +93,28 @@ physics 캐치업 8틱/프레임 시 per-tick redraw가 자기증폭 스파이�
 **안티패턴**: op 자체를 빠르게(faster _draw/save_png)만 하거나 캐치업을
 irreducible 엔진비용으로 오분류.
 
-### 5. Bake-once-then-budget — 정적 캐싱 + 예산 배칭
-**증상**: frame-invariant 출력을 매 프레임 재계산 / one-step-per-frame 로딩 루프.
-**기법**: frame-invariant vs frame-varying 분리. 불변은 **1회 bake**(지오메트리-키
-ImageTexture blit / 재사용 member dict), 가변(웨지/텍스트/리퀴드/LOD변형/진행중
-애니)만 즉시드로. bake는 prewarm 또는 shared per-frame USEC 예산(700us) 하에서,
-**첫 핫프레임 lazy bake 금지**. 남는 per-frame 루프는 시간예산+스텝캡으로
-페이스하되 **frame-gated 대기(스레디드 슬롯 / PSO 노드)마다 YIELD**(스핀폴 시
-MAX_POLLS 조기도달 → 동기폴백 강등).
-**증거**: `ec6fd5a30`(S1/S2 필러 정적레이어 + 스냅샷 재사용), `f3627a17e`(진입로딩
-36→9s, budgeted warmup + 메뉴 유휴 프리웜).
-**봉인**: 픽셀 패리티 + 예산/yield 스모크.
+### 5. Bake-once-then-budget — 두 문제 클래스(둘 다 "필요한 만큼만, 미리")
+이 기법은 *별개의 두 비용*을 같은 발상으로 친다. 증상이 다르니 하위로 분리한다.
+
+**5a. 정적 bake — 전투 중 프레임당 ms.** frame-invariant 출력을 매 프레임 재계산.
+frame-invariant vs frame-varying 분리: 불변은 **1회 bake**(지오메트리-키 ImageTexture
+blit / 재사용 member dict), 가변(웨지/텍스트/리퀴드/LOD변형/진행중 애니)만 즉시드로.
+bake는 prewarm 또는 shared per-frame USEC 예산(700us) 하에서, **첫 핫프레임 lazy bake
+금지**(준비 전 즉시 벡터 폴백). 증거: `ec6fd5a30`(S1/S2 필러 정적레이어 + 스냅샷
+재사용). 봉인: 픽셀 패리티.
+
+**5b. 로딩 시간 단축 — 벽시계 초 (진입/전환 로딩).** 두 레버를 함께:
+- **budgeted batching**: one-step-per-frame 로딩 루프를 시간예산+스텝캡으로 한 프레임에
+  여러 스텝 묶되, **frame-gated 대기(공유 스레디드 슬롯 / battle_resources 자체 슬롯 /
+  PSO 노드)마다 YIELD**(스핀폴 시 MAX_POLLS 조기도달→동기폴백 강등). *효과 36→26s.*
+- **★ 메뉴 유휴 백그라운드 프리웜 = 유휴 UI 시간 뒤로 로딩 숨기기/앞당기기 (지배 레버).**
+  캐릭선택 등 사용자가 유휴인 UI 화면에서 다음 씬 자산을 프레임당 1 threaded 로드로
+  정적 캐시에 선적재 → 부팅 스텝이 캐시 히트로 폴링 없이 즉시 완료 + cross-path
+  harvest로 고아 슬롯 회수. *효과 26→**9s**(전체 36→9s의 진짜 쾌거).*
+- 증거: `f3627a17e`. 봉인: 예산/yield 스모크 + 하베스트/잡커버리지 스모크.
+- 상세 케이스 스터디: [[stage1-entry-loading-optimization]](Claude memory).
+- AGENTS.md에 standing rule 있음(bounded threaded prewarm + one-step-per-frame
+  batching yield 가드) — 거긴 이미 상세하니 거기로.
 
 ### 6. Felt-verdict-gated budget + shallow-when-read-only
 **증상**: 지각적 목표(부드러움)인데 지표가 오염됨 / read-only 소비자에 딥카피.
@@ -127,7 +138,8 @@ effect + 지각 임계 아래 양자화 단발 스킵)임을 catch-22로 증명�
 | 상시 per-tick owner re-push | #2 last-pushed 게이팅 |
 | 첫 발생 수백ms stall | #3 peek / 이산 prewarm |
 | `draw == proc + phys` 증폭 / 동기 블로킹 burst | #4 coalesce / offload |
-| frame-invariant 매프레임 재계산 / 1-step/frame 로딩 | #5 bake-once + 예산배칭 |
+| frame-invariant 출력 매프레임 재계산(전투 중 ms) | #5a 정적 bake |
+| 긴 진입/전환 로딩(벽시계 초) | #5b budgeted batching + ★메뉴 유휴 프리웜 |
 | 오염된 페이싱 지표 / read-only 딥카피 | #6 felt 게이트 / 얕은카피 |
 
 어떤 기법이든 **봉인 규율 6개(특히 5번 반증검증 스모크)는 생략 금지.**
