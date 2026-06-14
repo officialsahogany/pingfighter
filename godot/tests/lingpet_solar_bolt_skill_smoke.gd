@@ -212,19 +212,25 @@ func _verify_launch_time_refire_preroll() -> void:
 	var lv3_skill := LingpetSolarBoltSkill.new()
 	lv3_skill.set_force_rolls_for_tests([0.0, 1.0])
 	lv3_skill.set_jitter_degrees_for_tests([0.0])
+	# Re-fire gap is now a per-follow-up 0.5..1.0s roll; force 0.6s to seal the
+	# delta-gated timing (and prove a sub-1.0s gap fires correctly).
+	lv3_skill.set_force_refire_delays_for_tests([0.6])
 	_expect(bool(lv3_skill.launch(Vector2(500.0, 610.0), lv3_owner, _launch_context(lv3_owner, lv3_registry, 3, 50.0))), "Lv.3 forced-success launch should schedule one follow-up")
 	_expect(lv3_skill.get_scheduled_refires_for_tests() == 1, "Lv.3 should schedule exactly one follow-up on success")
 	lv3_owner.ball_pos = Vector2(500.0, 300.0)
-	lv3_skill.update(0.99, lv3_owner, lv3_registry)
-	_expect(lv3_skill.get_strike_count_for_tests() == 1, "refire timer should be delta-based and not fire before 1.0s")
+	lv3_skill.update(0.59, lv3_owner, lv3_registry)
+	_expect(lv3_skill.get_strike_count_for_tests() == 1, "refire timer should be delta-based and not fire before the rolled 0.6s gap")
 	lv3_skill.update(0.02, lv3_owner, lv3_registry)
-	_expect(lv3_skill.get_strike_count_for_tests() == 2, "Lv.3 follow-up should fire once after the 1.0s delay without consuming a fire-time reroll")
+	_expect(lv3_skill.get_strike_count_for_tests() == 2, "Lv.3 follow-up should fire once after the 0.6s gap without consuming a fire-time reroll")
 	_expect(lv3_audio.solar_count == 1, "follow-up strike should play the dedicated Solar Bolt cue")
 
 	var lv5_owner := FakeOwner.new()
 	var lv5_skill := LingpetSolarBoltSkill.new()
 	lv5_skill.set_force_rolls_for_tests([0.0, 0.0])
 	lv5_skill.set_jitter_degrees_for_tests([0.0])
+	# Two follow-ups -> two independent gap rolls; force 1.0s each to keep the
+	# catch-up-clamp math deterministic (one re-fire per update + carry).
+	lv5_skill.set_force_refire_delays_for_tests([1.0, 1.0])
 	_expect(bool(lv5_skill.launch(Vector2(500.0, 610.0), lv5_owner, _launch_context(lv5_owner, null, 5, 50.0))), "Lv.5 forced-success launch should schedule two follow-ups")
 	_expect(lv5_skill.get_scheduled_refires_for_tests() == 2, "Lv.5 should cap at two extra strikes")
 	lv5_owner.ball_pos = Vector2(500.0, 300.0)

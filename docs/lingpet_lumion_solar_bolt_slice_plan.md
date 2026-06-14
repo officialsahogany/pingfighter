@@ -50,11 +50,11 @@
 | D5 | 요격 결과 | 확정 세이브(위치/적중 판정 없음). 단 D2 `_player_can_block` 게이트로 **플레이어가 못 막는 공만** | 원본은 조건 게이트 반사. `_player_can_block`은 defense_rate 인터셉트와의 이중발동·쿨다운 낭비 차단 |
 | D6 | 쿨타임(베이스) | **22.0s** (플레이스홀더; V3-6 income QA 확정). + 옵션: 실제 발사된 추가타마다 +4~6s 가산 | 확정 트리플세이브가 보스-스턴 형제(25s)보다 싸면 안 됨(리뷰). 원본 12.0은 패들스킬 기준 |
 | D7 | 레벨별 쿨타임 | 전역 감소 테이블(Lv.5 −12%) | 카탈로그 `cooldown` 베이스만 선언 |
-| D8 | 재발사 체인 (Lv.3+/Lv.5) | **launch 시 1회 프리롤**, 1.0s 간격 타이머 큐. Lv.<3 → 0 / Lv.3-4 → 50%×1 / Lv.5 → 50% **체인**×2 (총 ≤3타) | Q확정. **매-프레임 롤 금지(압축 트랩)**. 체인=첫 롤 실패 시 둘째 롤 없음 |
+| D8 | 재발사 체인 (Lv.3+/Lv.5) | **launch 시 1회 프리롤**, **후속타마다 0.5~1.0s 랜덤 간격**(v1.3, 후속타당 1회 롤). Lv.<3 → 0 / Lv.3-4 → 50%×1 / Lv.5 → 50% **체인**×2 (총 ≤3타) | Q확정. **매-프레임 롤 금지(압축 트랩) — 간격도 후속타당 1회만 롤**. 체인=첫 롤 실패 시 둘째 롤 없음 |
 | D9 | 재발사 동작 (v1.2 확정) | **launch-time 프리롤 후속타 — 각 후속타는 실행 순간 1회 재조준(현재 `ball_pos`→현재 `boss_center`). per-frame 추적(homing) 아님.** `dir = (boss_center - ball_pos).normalized()`(실패 시 `Vector2(0,-1)`), `ball_vel = dir * _speed_locked`(첫 타격 직전 크기, 체인 내내 보존) | Q2 "보스 방향 재타격" 확정. 상승공 no-op 회피. **'homing'(유도탄) 어휘 금지 — 1회 재조준임** |
 | D10 | 재충돌 방지 | 반사 프레임에 짧은 `player_collision_cooldown`(6프레임 floor) 세팅 + D2가 공을 패들 위(`y < player_y - margin`)에서만 잡음 | body-hit 선례는 `ball_vel`+`ball_pos`+쿨다운을 함께 씀. bare `ball_vel`만으론 저속 반사 시 패들 재포착 가능(리뷰) |
 | D11 | VFX 팔레트 | **금색** (태양신, 원본 `(255,230,100)`) | Q4 확정. 청백 천둥 뇌구와 구분 |
-| D12 | VFX 구현 | 절차적 즉시-draw(번개+플래시+스파크), 천둥 뇌구 `_build_bolt`/`_draw_lightning` 금색 변형 | 텍스처 불요 → `prewarm()` no-op |
+| D12 | VFX 구현 (v1.3 — 원본 문양 충실 포팅) | 절차적 즉시-draw. **원본 SolarBolt `_gen_lightning` 그대로**: 재귀 midpoint-displacement 볼트 + 3~5 분기(+40% 서브분기, **used_indices 중복 가드 포함**) + 4레이어(글로우/금코어/백코어/라벤더 분기) + 3중 시간차 폭발 링(금)·방사 아크(청백) + streak/dot/flash 스파크 22개. 강타 시 1회 생성·고정 경로 + 85% 플리커 | 텍스처 불요 → `prewarm()` no-op. **Godot 한계**: BLEND_ADD 글로우 → 알파-에뮬 와이드 라인 |
 | D13 | 공 소유권 (v1.1 신규) | 매 스트라이크에 `ball_intensity.register_contact("lingpet","player",{...})` 호출 | 점수/콤보/보스 재타격 귀속. **wild_roar 복사론 안 됨** — body-hit 가드의 `_register_ball_intensity_contact` 미러(리뷰) |
 | D14 | 레벨 공급 전제 (v1.1 신규) | solar_bolt는 **slot-1 액티브로 배정될 때만** Lv.3/5 재발사 스케일 | unlock-choice→`active_skill_id` 소비자 부재, 프로파일이 `active_skill_bonus`(slot1)만 읽음. slot-2 공급은 V3-2 선결(리뷰) |
 
@@ -70,7 +70,7 @@
 | ARM | 쿨타임 경과 + `can_arm`(D2) | 보편 `_should_arm` + D2 전체 게이트 | `hero_skills.py:16273` + wild_roar |
 | WINDUP | **0.0s** | 즉발 (D3) | — |
 | STRIKE #1 | 즉시(1프레임) | **콘 반사**(D4, 위로) + 번개/플래시/스파크 + `register_contact` + `player_collision_cooldown` + **체인 프리롤(D8)** | `_apply_effect:16378` |
-| RE-FIRE 대기 | 1.0s × N | delta 타이머. 예약된 후속타 대기 | 신규 |
+| RE-FIRE 대기 | 0.5~1.0s × N (후속타당 랜덤) | delta 타이머. 예약된 후속타 대기 | 신규 |
 | STRIKE #2/#3 | 즉시 | **보스 중심 재조준**(D9) + VFX 재스폰 + `register_contact` | 신규 (Q2/D9) |
 | VFX 페이드 | ~0.55s | 번개 0.20s / 폭발 0.38s / 스파크 0.55s TTL | `LIGHTNING_DISPLAY`/`EXPLOSION_DISPLAY` |
 
@@ -111,7 +111,8 @@ for _i in range(max_extra):
 		_scheduled_refires += 1
 	else:
 		break
-# _scheduled_refires 만큼 1.0s 간격 타이머로 예약. 타이머는 update(delta)에서만 감소(벽시계 금지).
+# _scheduled_refires 만큼 후속타당 0.5~1.0s 랜덤 간격(_roll_refire_delay, 후속타당 1회 롤)으로 예약.
+# 타이머는 update(delta)에서만 감소(벽시계 금지).
 ```
 
 > **프리롤이 "1초 뒤 50%"와 동등한 이유:** 각 잠재 재발사의 독립 50%(체인)를 굴리는 **시점만**
@@ -236,11 +237,14 @@ INF/미존재 센티넬은 launch_context-less 리셋/콜드 경로 가드용. �
   — body-hit 가드 `_register_ball_intensity_contact`(`lingpet_companion_body_hit_state.gd:176-179`) 미러.
   `ball_intensity.gd:56-68`이 `last_hit_by`/rally 갱신. **wild_roar reflect는 이걸 안 하므로 복사 금지.**
 
-### §6.5 오디오 `game_audio` (v1.2 — Codex Medium #1 확정)
-- 원본은 `devinethunder.wav`를 별도 로드/재생(`hero_skills.py:16260`). 오디오는 이 repo의 **1급
-  패리티 표면**이므로 **전용 경로 `play_solar_bolt_strike()` 추가가 기본**. 동일/유사 자산이 Godot에
-  있으면 그걸로 재생, 천둥 뇌구/라그나로크 사운드 **재사용은 의도적 차이로 부록 B에 명시**(단순 무음
-  금지). `trigger_launch_feedback`에서 호출.
+### §6.5 오디오 `game_audio` (RESOLVED — 원본 패리티 포팅 완료 2026-06-14)
+- 원본 `devinethunder.wav`(pygame volume 0.5, `hero_skills.py:16260`; 디바인쉴드 번개요격과 **동일 음원**
+  `SOUND_DIVINE_THUNDER`)를 **Godot로 바이트 동일 포팅**: `godot/assets/sounds/devinethunder.wav`
+  (+`.import` 사이드카), `SOLAR_BOLT_STRIKE_SOUND_PATH := "res://assets/sounds/devinethunder.wav"`,
+  gain **−6.0206dB(=원본 0.5 음량과 일치)**. `play_solar_bolt_strike()`가 **pitch 1.0(원본 `_sound.play()`
+  무변조 패리티)**로 재생, `trigger_launch_feedback`에서 호출. **이전 라그나로크샷 fallback + 피치 변조 폐기
+  — 이제 원본 음원·피치와 동일.**
+  검증: 헤드리스 로드(wav import)·solar_bolt 스모크·경고스캔 통과.
 
 ### §6.6 카탈로그 `lingpet_catalog.gd` — 루미온 풀 전환 + 해치 정책
 현재 단일 `active_skill`(466-477) → `active_skill_pool` 배열(maribo 154-185 패턴). solar_bolt를
@@ -307,7 +311,7 @@ func set_force_roll_for_tests(value: float) -> void
 
 | 자산 | 형식 | 비고 |
 |---|---|---|
-| 번개+플래시+스파크 | **절차적 즉시-draw (금색)** | 천둥 뇌구 `_build_bolt`/`_draw_lightning`/`_draw_explosion` 금색 변형. 매 프레임 Surface 할당·rotate 금지 |
+| 번개+플래시+스파크 | **절차적 즉시-draw — 원본 SolarBolt 문양 충실 포팅 (v1.3)** | `_gen_lightning`/`_subdivide`(재귀 분기) + `_draw_effect`(4레이어) + `_draw_explosion`(3링/방사아크) + streak/dot/flash 스파크. 메인 금색, 분기 라벤더, 폭발아크 청백(원본 색). 매 프레임 Surface 할당·rotate 없음(즉시 draw_polyline) |
 | 스킬 카드 | PNG (imagegen) | `lumion_solar_bolt_skillcard_imagegen_v1.png` |
 | 스킬 아이콘 | PNG (imagegen) | `lumion_solar_bolt_skill_icon_imagegen_v1.png`. 알파 코너/bbox QA |
 | 컴패니언 캐스트 포즈 | 기존 `lumion_companion_strike` 재사용 | 발동 시 스트라이크 애님(D3) |
@@ -388,7 +392,7 @@ func set_force_roll_for_tests(value: float) -> void
 **오픈(착수 시 확인):**
 1. 베이스 쿨타임 22s + 체인길이 가산(+4~6s/추가타) — V3-6 income/밸런스 QA 확정.
 2. `_player_can_block` 헬퍼 — ring_dash/motion_state 미러(slot 위치 무관 공용).
-3. 오디오 메서드 — 재사용 vs `play_solar_bolt_strike` 신설.
+3. ~~오디오 메서드~~ — **RESOLVED(2026-06-14):** `devinethunder.wav` 원본 패리티 포팅 완료(§6.5).
 4. 금색 카드/아이콘 imagegen + 네이밍 차별화(§7).
 5. 보스 중심(`_get_boss_rect`) 재사용 — thunder_orb 헬퍼 공유 or 복제.
 

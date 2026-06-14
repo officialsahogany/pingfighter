@@ -14,7 +14,8 @@ const FIRST_STRIKE_BASE_ANGLE := -PI * 0.5
 const FIRST_STRIKE_JITTER_RADIANS := PI * 0.25
 const MIN_UPWARD_VY := -1.0
 const DEFAULT_REFIRE_CHANCE_PCT := 50.0
-const REFIRE_DELAY_SECONDS := 1.0
+const REFIRE_DELAY_MIN := 0.5
+const REFIRE_DELAY_MAX := 1.0
 const LIGHTNING_SECONDS := 0.20
 const EXPLOSION_SECONDS := 0.38
 const SPARK_SECONDS := 0.55
@@ -22,15 +23,29 @@ const SPARK_COUNT := 22
 const PARTICLE_MAX := 72
 const SCREEN_FLASH_ALPHA := 0.16
 
-const BOLT_GLOW_COLOR := Color(1.0, 0.78, 0.18, 0.44)
-const BOLT_CORE_COLOR := Color(1.0, 0.96, 0.40, 0.96)
-const BOLT_WHITE_COLOR := Color(1.0, 1.0, 0.88, 0.92)
-const FLASH_COLOR := Color(1.0, 0.90, 0.38, 1.0)
+# Original PingFighter SolarBolt palette ported faithfully (gold main bolt =
+# 태양신; lavender branch cores + blue-white explosion arcs are the original's
+# accents). Glow alpha is bumped vs the original's BLEND_ADD surface because
+# Godot immediate draw_polyline has no per-call additive blend.
+const BOLT_GLOW_COLOR := Color(1.0, 0.706, 0.118, 0.34)   # GLOW_WIDE (255,180,30)
+const BOLT_CORE_COLOR := Color(1.0, 0.941, 0.549, 1.0)    # CORE_OUTER (255,240,140)
+const BOLT_WHITE_COLOR := Color(1.0, 1.0, 0.941, 1.0)     # CORE_INNER (255,255,240)
+const BRANCH_CORE_COLOR := Color(0.863, 0.863, 1.0, 1.0)  # BRANCH_CORE (220,220,255)
+const BRANCH_GLOW_COLOR := Color(0.784, 0.706, 1.0, 0.28) # BRANCH_GLOW (200,180,255)
+const FORK_GLOW_COLOR := Color(1.0, 1.0, 0.902, 0.63)     # fork point (255,255,230)
+const FLASH_COLOR := Color(1.0, 0.90, 0.39, 1.0)          # ScreenEffect flash (255,230,100)
+const EXPL_FLASH_COLOR := Color(1.0, 1.0, 0.941, 1.0)     # EXPLOSION_FLASH (255,255,240)
+const EXPL_CORE_COLOR := Color(1.0, 0.941, 0.588, 1.0)    # EXPLOSION_CORE (255,240,150)
+const EXPL_INNER_COLOR := Color(1.0, 1.0, 0.863, 1.0)     # EXPLOSION_INNER (255,255,220)
+const EXPL_RING_COLOR := Color(1.0, 0.784, 0.314, 1.0)    # EXPLOSION_RING (255,200,80)
+const EXPL_ARC_COLORS: Array[Color] = [                   # EXPLOSION_ARC + accents
+	Color(0.706, 0.824, 1.0), Color(1.0, 0.941, 0.706), Color(0.863, 0.902, 1.0),
+]
+const SPARK_GRAVITY := 288.0  # original vy += 0.08 px/frame^2 -> 0.08*60*60 px/sec^2
+const SPARK_TYPES: Array[String] = ["streak", "dot", "flash"]
 const SPARK_COLORS: Array[Color] = [
-	Color(1.0, 0.96, 0.35),
-	Color(1.0, 0.78, 0.18),
-	Color(1.0, 1.0, 0.72),
-	Color(0.95, 0.66, 0.10),
+	Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 0.784), Color(1.0, 0.902, 0.392),
+	Color(0.784, 0.863, 1.0), Color(1.0, 0.941, 0.627),
 ]
 
 var _scheduled_refires := 0
@@ -57,6 +72,7 @@ var _last_can_arm_reason := "idle"
 var _force_roll := -1.0
 var _force_rolls: Array[float] = []
 var _jitter_radians_for_tests: Array[float] = []
+var _force_refire_delays: Array[float] = []
 
 
 func reset() -> void:
@@ -232,6 +248,21 @@ func set_jitter_degrees_for_tests(values: Array) -> void:
 			_jitter_radians_for_tests.append(deg_to_rad(clampf(float(value), -45.0, 45.0)))
 
 
+func set_force_refire_delays_for_tests(values: Array) -> void:
+	_force_refire_delays.clear()
+	for value in values:
+		if value is int or value is float:
+			_force_refire_delays.append(maxf(0.0, float(value)))
+
+
+# Re-fire spacing is rolled ONCE per scheduled follow-up (at schedule / after a
+# fire) — NOT per frame — so it cannot compound. Each gap is a fresh 0.5..1.0s.
+func _roll_refire_delay() -> float:
+	if not _force_refire_delays.is_empty():
+		return maxf(0.0, _force_refire_delays.pop_front())
+	return randf_range(REFIRE_DELAY_MIN, REFIRE_DELAY_MAX)
+
+
 func _strike_ball(owner: Object, context: Dictionary, retarget_boss: bool) -> bool:
 	if owner == null:
 		_last_result = "missing_owner"
@@ -297,7 +328,7 @@ func _schedule_refires() -> void:
 			_scheduled_refires += 1
 		else:
 			break
-	_refire_timer = REFIRE_DELAY_SECONDS if _scheduled_refires > 0 else 0.0
+	_refire_timer = _roll_refire_delay() if _scheduled_refires > 0 else 0.0
 
 
 func _update_refires(delta: float, owner: Object, launch_context: Dictionary) -> void:
@@ -313,7 +344,7 @@ func _update_refires(delta: float, owner: Object, launch_context: Dictionary) ->
 		return
 	_scheduled_refires -= 1
 	if _scheduled_refires > 0:
-		_refire_timer = REFIRE_DELAY_SECONDS + timer_carry
+		_refire_timer = _roll_refire_delay() + timer_carry
 	else:
 		_refire_timer = 0.0
 
@@ -321,6 +352,7 @@ func _update_refires(delta: float, owner: Object, launch_context: Dictionary) ->
 func _spawn_strike_vfx(start: Vector2, end: Vector2, target: Vector2) -> void:
 	var safe_start := start if start != Vector2.ZERO else end + Vector2(0.0, 80.0)
 	var seed_value := safe_start.x * 0.37 + safe_start.y * 0.73 + end.x * 0.19 + end.y * 0.41 + float(_strike_count) * 11.0
+	var bolt := _gen_lightning(safe_start, end)
 	_effects.append({
 		"start": safe_start,
 		"end": end,
@@ -328,6 +360,8 @@ func _spawn_strike_vfx(start: Vector2, end: Vector2, target: Vector2) -> void:
 		"lightning": LIGHTNING_SECONDS,
 		"explosion": EXPLOSION_SECONDS,
 		"seed": seed_value,
+		"main": bolt["main"],
+		"branches": bolt["branches"],
 	})
 	_spawn_sparks(end, seed_value)
 
@@ -353,15 +387,20 @@ func _spawn_sparks(center: Vector2, seed_value: float) -> void:
 	for index in range(SPARK_COUNT):
 		if _particles.size() >= PARTICLE_MAX:
 			_particles.pop_front()
-		var unit := _seeded_unit(seed_value, float(index))
-		var angle := TAU * unit
-		var speed := lerpf(120.0, 380.0, _seeded_unit(seed_value, float(index) + 13.0))
+		var angle := TAU * _seeded_unit(seed_value, float(index))
+		var spark_type: String = SPARK_TYPES[index % SPARK_TYPES.size()]
+		var is_flash := spark_type == "flash"
+		# Original speeds are 2.5..9 px/frame; *60 -> px/sec for delta motion.
+		var speed := lerpf(2.5, 9.0, _seeded_unit(seed_value, float(index) + 13.0)) * 60.0
+		var size_unit := _seeded_unit(seed_value, float(index) + 7.0)
+		var size := lerpf(4.0, 7.0, size_unit) if is_flash else lerpf(1.5, 4.0, size_unit)
 		_particles.append({
-			"pos": center + Vector2(cos(angle), sin(angle)) * lerpf(3.0, 16.0, _seeded_unit(seed_value, float(index) + 3.0)),
+			"pos": center + Vector2(cos(angle), sin(angle)) * lerpf(2.0, 10.0, _seeded_unit(seed_value, float(index) + 3.0)),
 			"vel": Vector2(cos(angle), sin(angle)) * speed,
-			"life": SPARK_SECONDS,
+			"life": lerpf(0.25, 0.55, _seeded_unit(seed_value, float(index) + 9.0)),
 			"max_life": SPARK_SECONDS,
-			"size": lerpf(1.8, 5.8, _seeded_unit(seed_value, float(index) + 7.0)),
+			"size": size,
+			"type": spark_type,
 			"color": SPARK_COLORS[index % SPARK_COLORS.size()],
 		})
 
@@ -377,7 +416,7 @@ func _update_particles(delta: float) -> void:
 		var pos: Vector2 = particle.get("pos", Vector2.ZERO)
 		var vel: Vector2 = particle.get("vel", Vector2.ZERO)
 		pos += vel * delta
-		vel *= pow(0.11, delta)
+		vel.y += SPARK_GRAVITY * delta  # original gravity vy += 0.08 px/frame^2
 		particle["life"] = life
 		particle["pos"] = pos
 		particle["vel"] = vel
@@ -396,50 +435,163 @@ func _draw_screen_flash(canvas: CanvasItem) -> void:
 
 
 func _draw_effect(canvas: CanvasItem, effect: Dictionary, shake_offset: Vector2) -> void:
-	var start: Vector2 = effect.get("start", Vector2.ZERO)
 	var end: Vector2 = effect.get("end", Vector2.ZERO)
-	var lightning_ratio := clampf(float(effect.get("lightning", 0.0)) / LIGHTNING_SECONDS, 0.0, 1.0)
-	var explosion_ratio := clampf(float(effect.get("explosion", 0.0)) / EXPLOSION_SECONDS, 0.0, 1.0)
-	var seed_value := float(effect.get("seed", 0.0))
-	if lightning_ratio > 0.0:
-		var pts := _build_bolt(start + shake_offset, end + shake_offset, seed_value, 7, 16.0)
-		canvas.draw_polyline(pts, Color(BOLT_GLOW_COLOR.r, BOLT_GLOW_COLOR.g, BOLT_GLOW_COLOR.b, BOLT_GLOW_COLOR.a * lightning_ratio), 6.0, true)
-		canvas.draw_polyline(pts, Color(BOLT_CORE_COLOR.r, BOLT_CORE_COLOR.g, BOLT_CORE_COLOR.b, BOLT_CORE_COLOR.a * lightning_ratio), 2.6, true)
-		canvas.draw_polyline(pts, Color(BOLT_WHITE_COLOR.r, BOLT_WHITE_COLOR.g, BOLT_WHITE_COLOR.b, BOLT_WHITE_COLOR.a * lightning_ratio), 1.0, true)
-	if explosion_ratio > 0.0:
-		var progress := 1.0 - explosion_ratio
-		var center := end + shake_offset
-		canvas.draw_circle(center, lerpf(14.0, 58.0, progress), Color(1.0, 0.78, 0.12, 0.18 * explosion_ratio))
-		canvas.draw_arc(center, lerpf(20.0, 72.0, progress), 0.0, TAU, 52, Color(1.0, 0.94, 0.32, 0.72 * explosion_ratio), 3.0, true)
-		canvas.draw_circle(center, maxf(2.0, 12.0 * explosion_ratio), Color(1.0, 1.0, 0.82, 0.9 * explosion_ratio))
+	var lightning_left := float(effect.get("lightning", 0.0))
+	var explosion_left := float(effect.get("explosion", 0.0))
+	# Original SolarBolt: a fixed procedural path generated once at strike time,
+	# rendered as a 4-layer bolt + branches, flickering on/off (85%) over its life.
+	if lightning_left > 0.0 and randf() < 0.85:
+		var fade := minf(1.0, lightning_left / 0.06)
+		var main: PackedVector2Array = effect.get("main", PackedVector2Array())
+		var branches: Array = effect.get("branches", [])
+		if main.size() >= 2:
+			var main_pts := _shift_points(main, shake_offset)
+			# Layer 1 — wide soft glow (alpha-emulated additive).
+			canvas.draw_polyline(main_pts, Color(BOLT_GLOW_COLOR.r, BOLT_GLOW_COLOR.g, BOLT_GLOW_COLOR.b, BOLT_GLOW_COLOR.a * fade), 6.0, true)
+			for branch in branches:
+				var bg: PackedVector2Array = branch
+				if bg.size() >= 2:
+					canvas.draw_polyline(_shift_points(bg, shake_offset), Color(BRANCH_GLOW_COLOR.r, BRANCH_GLOW_COLOR.g, BRANCH_GLOW_COLOR.b, BRANCH_GLOW_COLOR.a * fade), 4.0, true)
+			# Layer 2 — cores: main gold, branches lavender.
+			canvas.draw_polyline(main_pts, Color(BOLT_CORE_COLOR.r, BOLT_CORE_COLOR.g, BOLT_CORE_COLOR.b, fade), 2.0, true)
+			for branch in branches:
+				var bc: PackedVector2Array = branch
+				if bc.size() >= 2:
+					canvas.draw_polyline(_shift_points(bc, shake_offset), Color(BRANCH_CORE_COLOR.r, BRANCH_CORE_COLOR.g, BRANCH_CORE_COLOR.b, fade), 1.0, true)
+			# Layer 3 — inner white core (main only).
+			canvas.draw_polyline(main_pts, Color(BOLT_WHITE_COLOR.r, BOLT_WHITE_COLOR.g, BOLT_WHITE_COLOR.b, fade), 1.0, true)
+			# Branch fork glow points.
+			for branch in branches:
+				var bf: PackedVector2Array = branch
+				if bf.size() >= 1:
+					canvas.draw_circle(bf[0] + shake_offset, 2.5, Color(FORK_GLOW_COLOR.r, FORK_GLOW_COLOR.g, FORK_GLOW_COLOR.b, FORK_GLOW_COLOR.a * fade))
+	if explosion_left > 0.0:
+		_draw_explosion(canvas, end + shake_offset, explosion_left, float(effect.get("seed", 0.0)))
+
+
+func _draw_explosion(canvas: CanvasItem, center: Vector2, explosion_left: float, seed_value: float) -> void:
+	var progress := clampf(1.0 - explosion_left / EXPLOSION_SECONDS, 0.0, 1.0)  # 0 -> 1
+	var life_ratio := 1.0 - progress
+	# Central flash (first 30%).
+	if progress < 0.3:
+		var flash_a := 1.0 - progress / 0.3
+		canvas.draw_circle(center, 12.0 + progress * 30.0, Color(EXPL_FLASH_COLOR.r, EXPL_FLASH_COLOR.g, EXPL_FLASH_COLOR.b, 0.85 * flash_a))
+	# Core glow.
+	var core_r := 6.0 + progress * 40.0
+	canvas.draw_circle(center, core_r * 0.6, Color(EXPL_CORE_COLOR.r, EXPL_CORE_COLOR.g, EXPL_CORE_COLOR.b, 0.78 * life_ratio))
+	canvas.draw_circle(center, core_r * 0.3, Color(EXPL_INNER_COLOR.r, EXPL_INNER_COLOR.g, EXPL_INNER_COLOR.b, 0.5 * life_ratio))
+	# 3 staggered shockwave rings (gold).
+	for ri in range(3):
+		var rd := float(ri) * 0.1
+		var rp := (progress - rd) / maxf(0.01, 1.0 - rd)
+		if rp <= 0.0 or rp > 1.0:
+			continue
+		var rr := EXPLOSION_SECONDS * 60.0 * rp * float(ri + 1) * 0.25
+		var ra := (0.63 - float(ri) * 0.16) * (1.0 - rp)
+		if ra <= 0.0 or rr <= 4.0:
+			continue
+		canvas.draw_arc(center, rr, 0.0, TAU, 48, Color(EXPL_RING_COLOR.r, EXPL_RING_COLOR.g, EXPL_RING_COLOR.b, ra), maxf(1.0, 3.0 - float(ri)), true)
+	# Radial lightning arcs (blue-white) — first 70%.
+	if progress < 0.7:
+		var arc_count := 5 + int(progress * 8.0)
+		var flick := floorf(_elapsed * 30.0)
+		for i in range(arc_count):
+			var a := (float(i) / float(arc_count)) * TAU + (_seeded_unit(seed_value + float(i), flick) - 0.5) * 0.4
+			var inner_r := 4.0 + progress * 15.0
+			var outer_r := inner_r + lerpf(15.0, 35.0, _seeded_unit(seed_value + float(i) + 5.0, flick)) * (1.0 + progress)
+			var dir := Vector2(cos(a), sin(a))
+			var arc_s := center + dir * inner_r
+			var arc_e := center + dir * outer_r
+			var arc_mid := (arc_s + arc_e) * 0.5 + Vector2((_seeded_unit(seed_value + float(i), flick + 3.0) - 0.5) * 12.0, (_seeded_unit(seed_value + float(i), flick + 7.0) - 0.5) * 12.0)
+			var col: Color = EXPL_ARC_COLORS[i % EXPL_ARC_COLORS.size()]
+			canvas.draw_polyline(PackedVector2Array([arc_s, arc_mid, arc_e]), Color(col.r, col.g, col.b, 0.9 * life_ratio), 1.0, true)
+
+
+func _shift_points(points: PackedVector2Array, offset: Vector2) -> PackedVector2Array:
+	if offset == Vector2.ZERO:
+		return points
+	var out := PackedVector2Array()
+	out.resize(points.size())
+	for i in range(points.size()):
+		out[i] = points[i] + offset
+	return out
 
 
 func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	for particle in _particles:
 		var max_life := maxf(0.01, float(particle.get("max_life", SPARK_SECONDS)))
 		var life_t := clampf(float(particle.get("life", 0.0)) / max_life, 0.0, 1.0)
+		var am := minf(1.0, life_t * 2.0)
 		var color: Color = particle.get("color", SPARK_COLORS[0])
-		canvas.draw_circle(
-			(particle.get("pos", Vector2.ZERO) as Vector2) + shake_offset,
-			maxf(0.75, float(particle.get("size", 2.0)) * (0.45 + life_t * 0.55)),
-			Color(color.r, color.g, color.b, color.a * life_t)
-		)
+		var pos: Vector2 = (particle.get("pos", Vector2.ZERO) as Vector2) + shake_offset
+		var vel: Vector2 = particle.get("vel", Vector2.ZERO)
+		var size := maxf(1.0, float(particle.get("size", 2.0)) * am)
+		var ptype: String = particle.get("type", "dot")
+		if ptype == "streak":
+			var tail := pos - vel * (0.8 / 60.0)  # original tail = velocity * 0.8 px/frame
+			canvas.draw_line(tail, pos, Color(color.r, color.g, color.b, am), maxf(1.0, size * 0.5), true)
+			canvas.draw_circle(pos, maxf(1.0, size * 0.34), Color(1.0, 1.0, 1.0, am))
+		elif ptype == "flash":
+			canvas.draw_circle(pos, size, Color(color.r, color.g, color.b, 0.7 * am))
+			canvas.draw_circle(pos, maxf(1.0, size * 0.5), Color(1.0, 1.0, 1.0, 0.6 * am))
+		else:
+			canvas.draw_circle(pos, maxf(1.0, size * 0.5), Color(color.r, color.g, color.b, am))
+			if size > 2.0:
+				canvas.draw_circle(pos, maxf(1.0, size * 0.25), Color(1.0, 1.0, 1.0, am))
 
 
-func _build_bolt(start: Vector2, end: Vector2, seed_value: float, segments: int, jitter: float) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var delta := end - start
-	var normal := delta.orthogonal()
-	if normal.length_squared() > 0.001:
-		normal = normal.normalized()
-	var safe_segments := maxi(2, segments)
-	var flicker := floorf(_elapsed * 18.0)
-	for index in range(safe_segments + 1):
-		var t := float(index) / float(safe_segments)
-		var taper := 1.0 - absf(t * 2.0 - 1.0) * 0.35
-		var offset := (_seeded_unit(seed_value + flicker, float(index) + 1.0) - 0.5) * jitter * taper
-		points.append(start.lerp(end, t) + normal * offset)
-	return points
+# Recursive midpoint-displacement bolt, ported from the original SolarBolt
+# `_gen_lightning` / `subdivide`: each pass inserts a perpendicular-offset
+# midpoint, then recurses with the displacement scaled by 0.52 until it falls
+# below min_disp. Produces the fractal jaggedness of the original.
+func _subdivide(points: PackedVector2Array, disp: float, min_disp: float) -> PackedVector2Array:
+	if disp < min_disp:
+		return points
+	var out := PackedVector2Array()
+	out.append(points[0])
+	for i in range(points.size() - 1):
+		var p1 := points[i]
+		var p2 := points[i + 1]
+		var mid := (p1 + p2) * 0.5
+		var seg := p2 - p1
+		var seg_len := seg.length()
+		if seg_len > 0.001:
+			var normal := Vector2(-seg.y, seg.x) / seg_len
+			mid += normal * randf_range(-disp, disp)
+		out.append(mid)
+		out.append(p2)
+	return _subdivide(out, disp * 0.52, min_disp)
+
+
+# Main fractal bolt + 3..5 branches (each 15..35% length, ±0.9 rad off the
+# bolt->ball direction) + 40%-chance sub-branches. Mirrors original lines
+# 16325-16358. Generated once per strike; the path is fixed for its lifetime.
+func _gen_lightning(start: Vector2, end: Vector2) -> Dictionary:
+	var total := start.distance_to(end)
+	var main := _subdivide(PackedVector2Array([start, end]), maxf(16.0, total * 0.12), 3.0)
+	var branches: Array[PackedVector2Array] = []
+	if main.size() > 4:
+		var branch_count := 3 + (randi() % 3)  # 3..5
+		var used_indices := {}
+		for _b in range(branch_count):
+			var idx := randi_range(maxi(1, int(float(main.size()) / 4.0)), main.size() - 2)
+			if used_indices.has(idx):
+				continue  # original used_indices guard: no duplicate branch root
+			used_indices[idx] = true
+			var bp := main[idx]
+			var blen := maxf(20.0, total * randf_range(0.15, 0.35))
+			var ang := (end - bp).angle() + randf_range(-0.9, 0.9)
+			var bend := bp + Vector2(cos(ang), sin(ang)) * blen
+			var branch := _subdivide(PackedVector2Array([bp, bend]), maxf(10.0, blen * 0.15), 4.0)
+			branches.append(branch)
+			if randf() < 0.4 and branch.size() > 3:
+				var sidx := randi_range(int(float(branch.size()) / 2.0), branch.size() - 2)
+				var sp := branch[sidx]
+				var slen := maxf(10.0, blen * 0.4)
+				var sang := ang + randf_range(-1.2, 1.2)
+				var send := sp + Vector2(cos(sang), sin(sang)) * slen
+				branches.append(_subdivide(PackedVector2Array([sp, send]), maxf(6.0, slen * 0.12), 5.0))
+	return {"main": main, "branches": branches}
 
 
 func _register_ball_intensity_contact(registry: Object) -> void:

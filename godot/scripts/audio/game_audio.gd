@@ -143,10 +143,10 @@ const THUNDER_ORB_SHOT_SOUND_PATH := "res://assets/sounds/thunderbolt.wav"
 const THUNDER_ORB_BOOM_SOUND_PATH := "res://assets/sounds/thunderboltboom.wav"
 const THUNDER_ORB_SHOT_GAIN_DB := -7.9588
 const THUNDER_ORB_BOOM_GAIN_DB := -6.0206
-# Original PingFighter SolarBolt used devinethunder.wav. That source asset is
-# not in the Godot tree yet, so keep a dedicated API/player and point it at the
-# closest one-shot electric cue until the parity asset lands.
-const SOLAR_BOLT_STRIKE_SOUND_PATH := RAGNAROK_SHOT_SOUND_PATH
+# Parity with original PingFighter SolarBolt (천둥 낙뢰): plays devinethunder.wav,
+# the same divine-thunder cue DivineShield's lightning interception uses. Gain
+# -6.0206 dB matches the original's pygame volume 0.5.
+const SOLAR_BOLT_STRIKE_SOUND_PATH := "res://assets/sounds/devinethunder.wav"
 const SOLAR_BOLT_STRIKE_GAIN_DB := -6.0206
 const POSEIDON_WAVE_SOUND_PATH := "res://assets/sounds/poseidon.wav"
 const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
@@ -1869,7 +1869,8 @@ func play_thunder_orb_boom() -> void:
 
 
 func play_solar_bolt_strike() -> void:
-	if not _play_with_pitch(solar_bolt_strike_sfx, randf_range(0.98, 1.02)):
+	# Parity: original SolarBolt _sound.play() plays at fixed pitch (no modulation).
+	if not _play_with_pitch(solar_bolt_strike_sfx, 1.0):
 		play_ragnarok_shot()
 
 
