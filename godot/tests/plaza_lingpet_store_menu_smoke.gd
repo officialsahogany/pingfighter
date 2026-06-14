@@ -1,7 +1,9 @@
 extends SceneTree
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 const PlazaScenePacked := preload("res://scenes/plaza.tscn")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 
@@ -165,7 +167,9 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_lingpet_egg_purchase_spawns_runtime_egg()
+	_verify_lingpet_ring_core_purchase_upgrades_account_cap()
 	_verify_failed_lingpet_store_actions_do_not_spend_ap()
+	_verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier()
 
 	if _failures.is_empty():
 		print("plaza_lingpet_store_menu_smoke: ok")
@@ -232,6 +236,75 @@ func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
 	_cleanup(save_path)
 
 
+func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
+	var save_path := "user://plaza_lingpet_store_ring_core_smoke.cfg"
+	var affinity_path := "user://plaza_lingpet_store_ring_core_affinity_smoke.cfg"
+	_cleanup(save_path)
+	_cleanup(affinity_path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(save_path)
+	store.apply_stage_clear_progress(1, 3000, true)
+	var affinity_store := LingpetAffinityStore.new()
+	affinity_store.set_save_path(affinity_path)
+	_expect(bool(affinity_store.set_ring_core_tier(0)), "ring-core fixture should start from explicit no-core tier")
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var lingpet_runtime: Object = LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({
+		"lingpet_egg_runtime": lingpet_runtime,
+		"lingpet_affinity_store": affinity_store,
+	})
+
+	var viewport := _build_viewport()
+	var scene := _build_scene(viewport, save_path, owner, registry)
+	if scene == null:
+		viewport.queue_free()
+		owner.queue_free()
+		_cleanup(save_path)
+		_cleanup(affinity_path)
+		return
+	_open_building(scene, "lingpet_store")
+	var status: Dictionary = scene.get_status()
+	var actions: Array = status.get("active_menu_actions", [])
+	_expect(actions.size() >= 2, "lingpet store should expose egg and ring-core actions")
+	_expect(str(actions[0]).find(str(PlazaLingpetStoreTransactions.EGG_COST)) >= 0, "dynamic lingpet labels should keep the egg purchase cost")
+	_expect(str(actions[1]).find("150") >= 0, "tier-1 ring-core action should show the standard price")
+
+	_expect(scene.trigger_menu_action_for_test(1), "standard ring-core purchase should execute")
+	status = scene.get_status()
+	var first_summary: Dictionary = status.get("last_lingpet_store_transaction_summary", {})
+	_expect(str(first_summary.get("action", "")) == "ring_core", "ring-core purchase should report the ring_core action")
+	_expect(str(first_summary.get("reason", "")) == "ok", "ring-core purchase should report ok")
+	_expect(int(first_summary.get("new_tier", 0)) == 1, "standard purchase should move to tier 1")
+	_expect(int(first_summary.get("new_cap", 0)) == 5, "standard purchase should unlock affinity cap 5")
+	_expect(int(first_summary.get("delta_gold", 0)) == -150, "standard purchase should subtract 150G")
+	_expect(int(first_summary.get("ap_spent", 0)) == 1, "first ring-core purchase should spend one AP")
+	_expect(int(status.get("plaza_gold", 0)) == 2850, "standard purchase should update plaza gold")
+	_expect(int(status.get("ap_current", 0)) == 3, "standard purchase should update AP")
+	_expect(bool(status.get("active_menu_visit_ap_consumed", false)), "ring-core purchase should mark the lingpet-store AP visit")
+	_expect(int(affinity_store.get_ring_core_tier()) == 1, "standard purchase should persist tier 1")
+	_expect(int(affinity_store.get_ring_core_cap()) == 5, "standard purchase should expose cap 5")
+	actions = status.get("active_menu_actions", [])
+	_expect(actions.size() >= 2 and str(actions[1]).find("300") >= 0, "post-purchase ring-core label should refresh to the boost price")
+
+	_expect(scene.trigger_menu_action_for_test(1), "same-visit boost ring-core purchase should execute")
+	status = scene.get_status()
+	var second_summary: Dictionary = status.get("last_lingpet_store_transaction_summary", {})
+	_expect(int(second_summary.get("new_tier", 0)) == 2, "second purchase should move to tier 2")
+	_expect(int(second_summary.get("new_cap", 0)) == 10, "boost purchase should unlock affinity cap 10")
+	_expect(int(second_summary.get("delta_gold", 0)) == -300, "boost purchase should subtract 300G")
+	_expect(int(second_summary.get("ap_spent", 0)) == 0, "same lingpet-store visit should not spend a second AP")
+	_expect(int(status.get("plaza_gold", 0)) == 2550, "boost purchase should update plaza gold")
+	_expect(int(status.get("ap_current", 0)) == 3, "boost purchase should keep AP after the first visit spend")
+	_expect(int(affinity_store.get_ring_core_tier()) == 2, "boost purchase should persist tier 2")
+	_expect(int(affinity_store.get_ring_core_cap()) == 10, "boost purchase should expose cap 10")
+
+	viewport.queue_free()
+	owner.queue_free()
+	_cleanup(save_path)
+	_cleanup(affinity_path)
+
+
 func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
 	var poor_path := "user://plaza_lingpet_store_menu_smoke_poor.cfg"
 	_cleanup(poor_path)
@@ -290,6 +363,94 @@ func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
 	_cleanup(full_path)
 
 
+func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> void:
+	var poor_save_path := "user://plaza_lingpet_store_ring_core_poor_smoke.cfg"
+	var poor_affinity_path := "user://plaza_lingpet_store_ring_core_poor_affinity_smoke.cfg"
+	_cleanup(poor_save_path)
+	_cleanup(poor_affinity_path)
+	var poor_store := PlazaSaveStore.new()
+	poor_store.set_save_path(poor_save_path)
+	poor_store.apply_stage_clear_progress(1, 100, true)
+	var poor_affinity := LingpetAffinityStore.new()
+	poor_affinity.set_save_path(poor_affinity_path)
+	poor_affinity.set_ring_core_tier(0)
+	var poor_owner := FakeOwner.new()
+	root.add_child(poor_owner)
+	var poor_registry := FakeRegistry.new({
+		"lingpet_egg_runtime": LingpetEggRuntime.new(),
+		"lingpet_affinity_store": poor_affinity,
+	})
+	var poor_viewport := _build_viewport()
+	var poor_scene := _build_scene(poor_viewport, poor_save_path, poor_owner, poor_registry)
+	if poor_scene != null:
+		_open_building(poor_scene, "lingpet_store")
+		_expect(not poor_scene.trigger_menu_action_for_test(1), "unaffordable ring-core purchase should fail")
+		var poor_status: Dictionary = poor_scene.get_status()
+		var poor_summary: Dictionary = poor_status.get("last_lingpet_store_transaction_summary", {})
+		_expect(str(poor_summary.get("reason", "")) == "not_enough_gold", "unaffordable ring-core purchase should report not_enough_gold")
+		_expect(int(poor_status.get("plaza_gold", 0)) == 100, "unaffordable ring-core purchase should leave gold unchanged")
+		_expect(int(poor_status.get("ap_current", 0)) == 4, "unaffordable ring-core purchase should not spend AP")
+		_expect(int(poor_affinity.get_ring_core_tier()) == 0, "unaffordable ring-core purchase should leave tier unchanged")
+	poor_viewport.queue_free()
+	poor_owner.queue_free()
+	_cleanup(poor_save_path)
+	_cleanup(poor_affinity_path)
+
+	var max_save_path := "user://plaza_lingpet_store_ring_core_max_smoke.cfg"
+	var max_affinity_path := "user://plaza_lingpet_store_ring_core_max_affinity_smoke.cfg"
+	_cleanup(max_save_path)
+	_cleanup(max_affinity_path)
+	var max_store := PlazaSaveStore.new()
+	max_store.set_save_path(max_save_path)
+	max_store.apply_stage_clear_progress(1, 3000, true)
+	var max_affinity := LingpetAffinityStore.new()
+	max_affinity.set_save_path(max_affinity_path)
+	max_affinity.set_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var max_owner := FakeOwner.new()
+	root.add_child(max_owner)
+	var max_registry := FakeRegistry.new({
+		"lingpet_egg_runtime": LingpetEggRuntime.new(),
+		"lingpet_affinity_store": max_affinity,
+	})
+	var max_viewport := _build_viewport()
+	var max_scene := _build_scene(max_viewport, max_save_path, max_owner, max_registry)
+	if max_scene != null:
+		_open_building(max_scene, "lingpet_store")
+		_expect(not max_scene.trigger_menu_action_for_test(1), "max-tier ring-core purchase should fail")
+		var max_status: Dictionary = max_scene.get_status()
+		var max_summary: Dictionary = max_status.get("last_lingpet_store_transaction_summary", {})
+		_expect(str(max_summary.get("reason", "")) == "max_ring_core_tier", "max-tier ring-core purchase should report max_ring_core_tier")
+		_expect(int(max_status.get("plaza_gold", 0)) == 3000, "max-tier ring-core purchase should leave gold unchanged")
+		_expect(int(max_status.get("ap_current", 0)) == 4, "max-tier ring-core purchase should not spend AP")
+		_expect(int(max_affinity.get_ring_core_tier()) == LingpetAffinityStore.MAX_RING_CORE_TIER, "max-tier ring-core purchase should leave tier unchanged")
+	max_viewport.queue_free()
+	max_owner.queue_free()
+	_cleanup(max_save_path)
+	_cleanup(max_affinity_path)
+
+	var missing_save_path := "user://plaza_lingpet_store_ring_core_missing_smoke.cfg"
+	_cleanup(missing_save_path)
+	var missing_store := PlazaSaveStore.new()
+	missing_store.set_save_path(missing_save_path)
+	missing_store.apply_stage_clear_progress(1, 3000, true)
+	var missing_owner := FakeOwner.new()
+	root.add_child(missing_owner)
+	var missing_registry := FakeRegistry.new({"lingpet_egg_runtime": LingpetEggRuntime.new()})
+	var missing_viewport := _build_viewport()
+	var missing_scene := _build_scene(missing_viewport, missing_save_path, missing_owner, missing_registry)
+	if missing_scene != null:
+		_open_building(missing_scene, "lingpet_store")
+		_expect(not missing_scene.trigger_menu_action_for_test(1), "missing affinity store should block ring-core purchase")
+		var missing_status: Dictionary = missing_scene.get_status()
+		var missing_summary: Dictionary = missing_status.get("last_lingpet_store_transaction_summary", {})
+		_expect(str(missing_summary.get("reason", "")) == "missing_affinity_store", "missing affinity store should report missing_affinity_store")
+		_expect(int(missing_status.get("plaza_gold", 0)) == 3000, "missing affinity store should leave gold unchanged")
+		_expect(int(missing_status.get("ap_current", 0)) == 4, "missing affinity store should not spend AP")
+	missing_viewport.queue_free()
+	missing_owner.queue_free()
+	_cleanup(missing_save_path)
+
+
 func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: int, registry: Object = null) -> void:
 	owner.ball_pos = egg_pos + Vector2(0.0, -90.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
@@ -331,6 +492,7 @@ func _build_scene(viewport: SubViewport, save_path: String, owner: Object, regis
 	scene.configure({
 		"current_stage": 1,
 		"plaza_save_path": save_path,
+		"full_layout_for_test": true,
 		"runtime_owner": owner,
 		"runtime_registry": registry,
 	}, Callable(), true)

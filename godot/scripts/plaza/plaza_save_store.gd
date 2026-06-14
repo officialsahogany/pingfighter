@@ -311,6 +311,36 @@ func perform_lingpet_egg_payment(cost: int, consume_ap: bool = true) -> Dictiona
 	return _build_lingpet_store_summary(-safe_cost, true, "ok", ap_spent)
 
 
+func perform_lingpet_ring_core_payment(cost: int, consume_ap: bool = true) -> Dictionary:
+	_ensure_loaded()
+	var safe_cost := maxi(1, cost)
+	if _plaza_gold < safe_cost:
+		last_save_summary = "skipped_not_enough_gold"
+		return _build_lingpet_store_summary(-safe_cost, false, "not_enough_gold", 0, "ring_core")
+	if consume_ap and _ap_current <= 0:
+		last_save_summary = "skipped_no_ap"
+		return _build_lingpet_store_summary(-safe_cost, false, "no_ap", 0, "ring_core")
+
+	var ap_spent := 0
+	if consume_ap:
+		_ap_current = maxi(0, _ap_current - 1)
+		ap_spent = 1
+	_plaza_gold = _sanitize_gold(_plaza_gold - safe_cost)
+	save()
+	return _build_lingpet_store_summary(-safe_cost, true, "ok", ap_spent, "ring_core")
+
+
+func refund_lingpet_ring_core_payment(cost: int, ap_spent: int = 0) -> Dictionary:
+	_ensure_loaded()
+	var safe_cost := maxi(1, cost)
+	var safe_ap := clampi(ap_spent, 0, MAX_AP)
+	_plaza_gold = _sanitize_gold(_plaza_gold + safe_cost)
+	if safe_ap > 0:
+		_ap_current = clampi(_ap_current + safe_ap, 0, MAX_AP)
+	save()
+	return _build_lingpet_store_summary(safe_cost, true, "refunded_ring_core_payment", safe_ap, "ring_core")
+
+
 func perform_blacksmith_enhancement_payment(cost: int, consume_ap: bool = true) -> Dictionary:
 	_ensure_loaded()
 	var safe_cost := maxi(1, cost)
@@ -695,11 +725,12 @@ func _build_lingpet_store_summary(
 	delta_gold: int,
 	changed: bool,
 	reason: String,
-	ap_spent: int = 0
+	ap_spent: int = 0,
+	action_id: String = "buy_egg"
 ) -> Dictionary:
 	return {
 		"save_path": save_path,
-		"action": "buy_egg",
+		"action": action_id,
 		"handled": true,
 		"changed": changed,
 		"reason": reason,

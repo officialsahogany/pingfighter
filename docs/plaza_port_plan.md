@@ -404,6 +404,12 @@ S6a 레저가 검증된 뒤 건물별로 stub→실거래 전환. 각 전환은 
   기존 **미확인 알 → 공 충돌 → 부화 → 소유/슬롯 반영** 흐름의 입구만 연다.
   pre-hatch owner sync는 `lingpet_id`/`active_lingpet_id`/`current_lingpet_id`를
   빈 값으로 유지해 숨은 링펫 정체성을 노출하지 않는다.
+- **V3-3c 링코어 강화 추가 (Codex, 2026-06-14 완료)**: 링펫스토어 액션 1을
+  `링코어 강화`로 교체. account-wide `lingpet_affinity_store` tier를 한 단계씩
+  구매해 cap 0→5→10→15→20→25→30을 연다. 가격은
+  150/300/600/1000/1500/2200G 플레이스홀더(V3-6 income QA에서 재튜닝).
+  첫 성공 링펫스토어 거래만 AP 1 소모, 같은 방문 후속 구매는 AP 0.
+  실패 시 gold/AP/tier 전부 불변.
 - `plaza_lingpet_store_transactions.gd`가 거래 규칙을 소유한다. 사전 검증은
   골드→AP→`lingpet_egg_runtime`→owner→hatch candidate 순서. 런타임 알 스폰 후
   결제 실패 시 `get_save_snapshot()`/`apply_save_snapshot()`로 알 상태를 롤백한다.

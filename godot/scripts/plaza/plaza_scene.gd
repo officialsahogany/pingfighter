@@ -950,6 +950,8 @@ func _open_building_menu(building: Dictionary) -> void:
 	_active_menu_actions = _get_string_array(spec.get("actions", []))
 	if building_type == "academy":
 		_active_menu_actions = PlazaAcademyTransactions.get_menu_action_labels()
+	if building_type == "lingpet_store":
+		_active_menu_actions = PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry)
 	if building_type == "tavern":
 		_active_menu_actions = PlazaTavernTransactions.get_menu_action_labels()
 	_active_menu_last_message = ""
@@ -1077,6 +1079,7 @@ func _trigger_lingpet_store_menu_action(action_index: int) -> bool:
 	if int(summary.get("ap_spent", 0)) > 0:
 		_active_menu_visit_ap_consumed = true
 	_active_menu_last_message = _format_lingpet_store_transaction_message(summary)
+	_active_menu_actions = PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry)
 	_refresh_plaza_save_snapshot()
 	queue_redraw()
 	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
@@ -1239,6 +1242,28 @@ func _format_gacha_transaction_message(summary: Dictionary) -> String:
 
 func _format_lingpet_store_transaction_message(summary: Dictionary) -> String:
 	var reason := str(summary.get("reason", ""))
+	if str(summary.get("action", "")) == "ring_core":
+		if not bool(summary.get("changed", false)):
+			match reason:
+				"no_ap":
+					return "행동력이 부족합니다."
+				"not_enough_gold":
+					return "링코어 강화 비용이 부족합니다."
+				"missing_affinity_store":
+					return "링코어 장부를 찾을 수 없습니다."
+				"max_ring_core_tier":
+					return "링코어가 이미 최대 단계입니다."
+				"missing_ring_core_price":
+					return "링코어 가격표가 비어 있습니다."
+				"ring_core_upgrade_failed":
+					return "링코어 강화에 실패했습니다."
+				_:
+					return "지금은 링코어를 강화할 수 없습니다."
+		return "%s 링코어가 친밀도 Lv.%d까지 열렸습니다. -%dG" % [
+			str(summary.get("ring_core_name", "링코어")),
+			int(summary.get("new_cap", 0)),
+			abs(int(summary.get("delta_gold", 0))),
+		]
 	if not bool(summary.get("changed", false)):
 		match reason:
 			"no_ap":

@@ -1075,8 +1075,13 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
   fail-open(MAX), explicit tier 0만 무코어. registry 없는 context sync는
   `RING_CORE_CAP_UNCHANGED`로 기존 cap 보존(매 owner snapshot/loadout apply가
   MAX로 덮는 회귀 봉인).
-- **V3-3b~d**: resolved choice persistence / 광장 골드샵 구매 / 미카
-  튜토리얼 기본 지급은 후속.
+- **V3-3c**: 광장 링펫스토어 골드샵 구매 **완료** — `공명 알 뽑기`
+  기존 액션을 유지하고 액션 1을 account-wide `링코어 강화`로 교체.
+  tier 0→1도 골드샵에서 구매 가능(스탠다드 150G; 이후 300/600/1000/1500/2200G
+  플레이스홀더, V3-6 income QA에서 재튜닝). 같은 링펫스토어 방문에서 첫
+  성공 거래만 AP 1 소모, 후속 링코어 구매는 AP 0. 실패(`not_enough_gold`,
+  `max_ring_core_tier`, `missing_affinity_store`)는 gold/AP/tier 전부 불변.
+- **V3-3b/d**: resolved choice persistence / 미카 튜토리얼 기본 지급은 후속.
 - **V3-4**: 강화칩 퍽(획득률 배율) + TAB 5눈금 UI.
 - **V3-5**: 먹이 액티브 아이템 (item_runtime_checklist 경로).
 - **V3-6**: 클릭 수치 + 앵커 재산정 (income 로그 실측 후, V2-6 통합).
