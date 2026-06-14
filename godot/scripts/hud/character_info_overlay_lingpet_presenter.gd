@@ -3,6 +3,7 @@ extends RefCounted
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayLingpetSnapshotBuilder := preload("res://scripts/hud/character_info_overlay_lingpet_snapshot_builder.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
+const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -486,6 +487,29 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			"icon_texture_id": icon_texture_id,
 			"card_texture_path": str(snapshot.get("companion_skill_card_path", "")),
 		})
+	var second_skill_id: String = str(snapshot.get("companion_skill_id_1", "")).strip_edges()
+	if second_skill_id != "":
+		var second_skill_name: String = str(snapshot.get("companion_skill_name_1", "")).strip_edges()
+		if second_skill_name == "":
+			second_skill_name = "2nd active"
+		var second_active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration_1", 0.0))
+		var second_skill_description: String = str(snapshot.get("companion_skill_description_1", "")).strip_edges()
+		if second_skill_description == "":
+			second_skill_description = "두 번째 액티브 슬롯에 장착된 링펫 스킬입니다."
+		var second_icon_texture_id := str(snapshot.get("companion_skill_icon_path_1", "")).strip_edges()
+		var second_skill_level: int = int(snapshot.get("companion_skill_level_1", 0))
+		var second_active_level_label := "Lv.%d / " % second_skill_level if second_skill_level > 0 else ""
+		specs.append({
+			"id": second_skill_id,
+			"title": second_skill_name,
+			"subtitle": "2nd active / %s%s" % [second_active_level_label, CharacterInfoOverlayFormatter.format_seconds_text(second_active_cooldown)],
+			"body": second_skill_description,
+			"color": Color(80.0 / 255.0, 220.0 / 255.0, 1.0),
+			"badge": "A",
+			"use_card": second_icon_texture_id == "",
+			"icon_texture_id": second_icon_texture_id,
+			"card_texture_path": str(snapshot.get("companion_skill_card_path_1", "")),
+		})
 	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 0.0))
 	var player_speed_bonus_pct: float = float(snapshot.get("companion_player_speed_bonus_pct", 0.0))
 	var starpoint_tracking_chance_pct: float = float(snapshot.get("companion_starpoint_tracking_chance_pct", 0.0))
@@ -542,6 +566,27 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			"badge": "P",
 			"icon_texture_id": fallback_icon_texture_id,
 		})
+	var second_passive_id: String = str(snapshot.get("companion_passive_skill_id_1", "")).strip_edges()
+	if second_passive_id != "":
+		var second_passive_name: String = str(snapshot.get("companion_passive_skill_name_1", "")).strip_edges()
+		if second_passive_name == "":
+			second_passive_name = "2nd passive"
+		var second_passive_description: String = str(snapshot.get("companion_passive_skill_description_1", "")).strip_edges()
+		if second_passive_description == "":
+			second_passive_description = "두 번째 패시브 슬롯에 장착된 링펫 스킬입니다."
+		var second_passive_subtitle := "2nd passive"
+		var second_passive_level: int = int(snapshot.get("companion_passive_skill_level_1", 0))
+		if second_passive_level > 0:
+			second_passive_subtitle += " / Lv.%d" % second_passive_level
+		specs.append({
+			"id": second_passive_id,
+			"title": second_passive_name,
+			"subtitle": second_passive_subtitle,
+			"body": second_passive_description,
+			"color": stat_buff_color,
+			"badge": "P",
+			"icon_texture_id": str(snapshot.get("companion_passive_skill_icon_path_1", "")),
+		})
 	return specs
 
 
@@ -556,7 +601,8 @@ static func build_stats(
 	stat_buff_color: Color,
 	speed_display_px_per_point: float,
 	hatch_required_hits: int,
-	defense_rate_tooltip: String
+	defense_rate_tooltip: String,
+	row_budget_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
 ) -> Array:
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "egg":
@@ -581,6 +627,11 @@ static func build_stats(
 	if skill_name == "":
 		skill_name = "액티브 스킬"
 	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
+	var second_skill_id: String = str(snapshot.get("companion_skill_id_1", "")).strip_edges()
+	var second_skill_name: String = str(snapshot.get("companion_skill_name_1", "")).strip_edges()
+	if second_skill_name == "":
+		second_skill_name = "2nd active"
+	var second_active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration_1", 0.0))
 	var defense_rate: float = float(snapshot.get("companion_defense_rate", 0.0))
 	var appearance_rate: float = float(snapshot.get("companion_appearance_rate", 0.0))
 	var speed_display: float = speed_default / speed_display_px_per_point
@@ -600,6 +651,10 @@ static func build_stats(
 		rows.append(make_display_stat_row("출현율", CharacterInfoOverlayFormatter.format_percent_text(appearance_rate * 100.0), stat_buff_color, "사라졌다 다시 나타나기까지의 대기가 짧아지는 정도입니다. 높을수록 더 자주 등장합니다."))
 	if skill_id != "":
 		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % skill_name))
+	if second_skill_id != "":
+		var projected_count_with_affinity := rows.size() + 2
+		if _lingpet_row_budget_can_fit(row_budget_rect, projected_count_with_affinity):
+			rows.insert(mini(4, rows.size()), make_display_stat_row("2nd 액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(second_active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % second_skill_name))
 	rows.append(make_display_stat_row("교감", "Lv.%d" % int(snapshot.get("affinity_level", 0)), stat_buff_color))
 	return rows
 
@@ -613,15 +668,20 @@ static func build_stats_cached(
 	stat_buff_color: Color,
 	speed_display_px_per_point: float,
 	hatch_required_hits: int,
-	defense_rate_tooltip: String
+	defense_rate_tooltip: String,
+	row_budget_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
 ) -> Dictionary:
-	var cache_hash: int = get_stats_cache_hash(snapshot, hatch_required_hits)
+	var cache_hash: int = hash([
+		get_stats_cache_hash(snapshot, hatch_required_hits),
+		int(round(row_budget_rect.size.x)),
+		int(round(row_budget_rect.size.y)),
+	])
 	if bool(cache.get("ready", false)) and int(cache.get("hash", 0)) == cache_hash:
 		return cache
 	return {
 		"ready": true,
 		"hash": cache_hash,
-		"rows": build_stats(snapshot, accent_gold, text_soft, empty_text_color, stat_buff_color, speed_display_px_per_point, hatch_required_hits, defense_rate_tooltip).duplicate(true),
+		"rows": build_stats(snapshot, accent_gold, text_soft, empty_text_color, stat_buff_color, speed_display_px_per_point, hatch_required_hits, defense_rate_tooltip, row_budget_rect).duplicate(true),
 	}
 
 
@@ -648,6 +708,11 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		str(snapshot.get("companion_skill_id", "")).strip_edges(),
 		str(snapshot.get("companion_skill_name", "")).strip_edges(),
 		float(snapshot.get("companion_skill_cooldown_duration", 40.0)),
+		str(snapshot.get("companion_skill_id_1", "")).strip_edges(),
+		str(snapshot.get("companion_skill_name_1", "")).strip_edges(),
+		float(snapshot.get("companion_skill_cooldown_duration_1", 0.0)),
+		str(snapshot.get("companion_passive_skill_id_1", "")).strip_edges(),
+		str(snapshot.get("companion_passive_skill_name_1", "")).strip_edges(),
 		float(snapshot.get("companion_defense_rate", 0.0)),
 		float(snapshot.get("companion_appearance_rate", 0.0)),
 		int(snapshot.get("affinity_level", 0)),
@@ -657,6 +722,15 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		int(snapshot.get("bond_points", 0)),
 		str(snapshot.get("bond_title", "")).strip_edges(),
 	])
+
+
+static func _lingpet_row_budget_can_fit(budget_rect: Rect2, projected_row_count: int) -> bool:
+	if projected_row_count <= 0:
+		return true
+	if budget_rect.size.x <= 0.0 or budget_rect.size.y <= 0.0:
+		return true
+	var lingpet_rect := CharacterInfoOverlayStatsPresenter.lingpet_stat_rect_for_sections(budget_rect)
+	return CharacterInfoOverlayStatsPresenter.lingpet_stat_rows_visible_capacity(lingpet_rect, projected_row_count) >= projected_row_count
 
 
 static func make_display_stat_row(label: String, value_text: String, color: Color, tooltip_body: String = "") -> Dictionary:

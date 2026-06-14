@@ -335,6 +335,7 @@ func _init() -> void:
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
 	_verify_affinity_values_reach_panel_through_schema_gated_owner()
 	_verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner()
+	_verify_second_slot_rows_reach_lingpet_tab()
 	_verify_snapshot_sync_keys_are_schema_declared()
 
 	ProjectResourceLoader.clear_caches()
@@ -485,6 +486,101 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	)
 
 
+func _verify_second_slot_rows_reach_lingpet_tab() -> void:
+	for key in [
+		"lingpet_second_skill_id",
+		"ringpet_second_skill_id",
+		"lingpet_second_skill_name",
+		"ringpet_second_skill_name",
+		"lingpet_second_skill_cooldown_duration",
+		"ringpet_second_skill_cooldown_duration",
+		"lingpet_second_active_skill_level",
+		"ringpet_second_active_skill_level",
+		"lingpet_second_passive_skill_id",
+		"ringpet_second_passive_skill_id",
+		"lingpet_second_passive_skill_level",
+		"ringpet_second_passive_skill_level",
+	]:
+		_expect(BattleSceneState.DEFAULT_VALUES.has(key), "BattleSceneState should declare %s for TAB slot-1 sync" % key)
+
+	var owner := SchemaGatedOwner.new()
+	owner.set("lingpet_id", "red_dragon")
+	owner.set("lingpet_state", "companion")
+	owner.set("lingpet_active_skill_id", "red_dragon_dragon_breath")
+	owner.set("lingpet_active_skill_level", 2)
+	owner.set("lingpet_skill_id", "red_dragon_dragon_breath")
+	owner.set("lingpet_skill_name", "Dragon Breath")
+	owner.set("lingpet_skill_cooldown_duration", 21.0)
+	owner.set("lingpet_passive_skill_id", "lingpet_resonance_boost")
+	owner.set("lingpet_passive_skill_level", 2)
+	owner.set("lingpet_companion_appearance_rate", 0.30)
+	owner.set("lingpet_second_skill_id", "red_dragon_dragon_wing")
+	owner.set("lingpet_second_skill_name", "Wing Live")
+	owner.set("lingpet_second_skill_cooldown_duration", 17.0)
+	owner.set("lingpet_second_active_skill_level", 3)
+	owner.set("lingpet_second_passive_skill_id", "lingpet_tailwind_steps")
+	owner.set("lingpet_second_passive_skill_level", 4)
+	owner.set("lingpet_affinity_level", 25)
+
+	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(str(snapshot.get("companion_skill_id_1", "")) == "red_dragon_dragon_wing", "TAB snapshot should read slot-1 active id from the raw owner key")
+	_expect(str(snapshot.get("companion_skill_name_1", "")) == "Wing Live", "TAB snapshot should prefer the live slot-1 active name over catalog text")
+	_expect(is_equal_approx(float(snapshot.get("companion_skill_cooldown_duration_1", 0.0)), 17.0), "TAB snapshot should read the live slot-1 active cooldown duration")
+	_expect(int(snapshot.get("companion_skill_level_1", 0)) == 3, "TAB snapshot should read the slot-1 active level")
+	_expect(str(snapshot.get("companion_passive_skill_id_1", "")) == "lingpet_tailwind_steps", "TAB snapshot should read slot-1 passive id through loadout owner sync")
+	_expect(int(snapshot.get("companion_passive_skill_level_1", 0)) == 4, "TAB snapshot should read the slot-1 passive level")
+	_expect(
+		str(snapshot.get("companion_passive_skill_icon_path_1", "")) == LingpetCatalog.get_passive_icon_path("red_dragon", "lingpet_tailwind_steps"),
+		"TAB snapshot should resolve slot-1 passive icon metadata from the catalog after the raw owner gate"
+	)
+
+	var specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
+	_expect(_has_skill_spec_id(specs, "red_dragon_dragon_breath"), "TAB skill rail should keep the primary active icon")
+	_expect(_has_skill_spec_id(specs, "red_dragon_dragon_wing"), "TAB skill rail should draw the slot-1 active icon")
+	_expect(_has_skill_spec_id(specs, "lingpet_resonance_boost"), "TAB skill rail should keep the primary passive icon")
+	_expect(_has_skill_spec_id(specs, "lingpet_tailwind_steps"), "TAB skill rail should draw the slot-1 passive icon")
+	_expect(str(_find_skill_spec(specs, "red_dragon_dragon_wing").get("badge", "")) == "A", "slot-1 active icon should use the active badge")
+	_expect(str(_find_skill_spec(specs, "lingpet_tailwind_steps").get("badge", "")) == "P", "slot-1 passive icon should use the passive badge")
+
+	var spacious_rect := Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
+	var spacious_rows: Array = _build_lingpet_rows_from_snapshot(snapshot, spacious_rect)
+	_expect(not _find_stat_label_contains(spacious_rows, "2nd").is_empty(), "TAB lingpet stats should include the slot-1 active cooldown row when the row budget fits")
+	_expect(str(_find_stat_label_contains(spacious_rows, "2nd").get("value", "")) == "17초", "slot-1 active cooldown row should show the live cooldown duration")
+
+	var tight_rect := Rect2(Vector2.ZERO, Vector2(560.0, 340.0))
+	var tight_rows: Array = _build_lingpet_rows_from_snapshot(snapshot, tight_rect)
+	var tight_lingpet_rect := CharacterInfoOverlayStatsPresenter.lingpet_stat_rect_for_sections(tight_rect)
+	var tight_visible_capacity := CharacterInfoOverlayStatsPresenter.lingpet_stat_rows_visible_capacity(tight_lingpet_rect, tight_rows.size())
+	_expect(_find_stat_label_contains(tight_rows, "2nd").is_empty(), "TAB lingpet stats should yield the slot-1 cooldown row at the seven-row budget cliff")
+	_expect(not _find_stat(tight_rows, "교감").is_empty(), "TAB lingpet stats should keep the affinity row when slot-1 cooldown yields")
+	_expect(tight_visible_capacity >= tight_rows.size(), "TAB lingpet stat row budget should keep every emitted row drawable")
+
+	var cache := {}
+	var spacious_cache: Dictionary = CharacterInfoOverlayLingpetPresenter.build_stats_cached(snapshot, cache, Color.WHITE, Color.WHITE, Color.WHITE, CharacterInfoOverlay.STAT_BUFF_COLOR, 60.0, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS, "", spacious_rect)
+	var tight_cache: Dictionary = CharacterInfoOverlayLingpetPresenter.build_stats_cached(snapshot, spacious_cache, Color.WHITE, Color.WHITE, Color.WHITE, CharacterInfoOverlay.STAT_BUFF_COLOR, 60.0, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS, "", tight_rect)
+	_expect(not _find_stat_label_contains(CharacterInfoOverlayValueUtils.get_array(spacious_cache.get("rows", [])), "2nd").is_empty(), "spacious cached TAB rows should keep the slot-1 active cooldown")
+	_expect(_find_stat_label_contains(CharacterInfoOverlayValueUtils.get_array(tight_cache.get("rows", [])), "2nd").is_empty(), "row budget rect should participate in the TAB stats cache hash")
+
+	var locked_owner := SchemaGatedOwner.new()
+	locked_owner.set("lingpet_id", "red_dragon")
+	locked_owner.set("lingpet_state", "companion")
+	locked_owner.set("lingpet_active_skill_id", "red_dragon_dragon_breath")
+	locked_owner.set("lingpet_active_skill_level", 2)
+	locked_owner.set("lingpet_skill_id", "red_dragon_dragon_breath")
+	locked_owner.set("lingpet_passive_skill_id", "lingpet_resonance_boost")
+	locked_owner.set("lingpet_passive_skill_level", 2)
+	var locked_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(locked_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var locked_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(locked_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
+	_expect(str(locked_snapshot.get("companion_skill_id_1", "")) == "", "locked slot-1 active should stay hidden instead of catalog-falling back")
+	_expect(str(locked_snapshot.get("companion_passive_skill_id_1", "")) == "", "locked slot-1 passive should stay hidden instead of catalog-falling back")
+	_expect(not _has_skill_spec_id(locked_specs, "red_dragon_dragon_wing"), "locked slot-1 active should not draw a rail icon")
+	_expect(not _has_skill_spec_id(locked_specs, "lingpet_tailwind_steps"), "locked slot-1 passive should not draw a rail icon")
+	_expect(
+		CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS) != CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(locked_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS),
+		"TAB lingpet stats cache hash should include slot-1 keys so lock/unlock changes cannot freeze"
+	)
+
+
 func _verify_snapshot_sync_keys_are_schema_declared() -> void:
 	# Structural seal for the owner-field schema trap: every lingpet_/ringpet_
 	# key the per-frame snapshot sync writes must be declared in
@@ -516,6 +612,32 @@ func _finish_active_runtime_initialization(runtime: Object) -> void:
 		return
 	while not bool(runtime.prewarm_initialization_step()):
 		pass
+
+
+func _build_lingpet_rows_from_snapshot(snapshot: Dictionary, row_budget_rect: Rect2) -> Array:
+	return CharacterInfoOverlayLingpetPresenter.build_stats(snapshot, Color.WHITE, Color.WHITE, Color.WHITE, CharacterInfoOverlay.STAT_BUFF_COLOR, 60.0, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS, "", row_budget_rect)
+
+
+func _find_skill_spec(specs: Array, id: String) -> Dictionary:
+	for value in specs:
+		if value is Dictionary:
+			var spec: Dictionary = value
+			if str(spec.get("id", "")) == id:
+				return spec
+	return {}
+
+
+func _has_skill_spec_id(specs: Array, id: String) -> bool:
+	return not _find_skill_spec(specs, id).is_empty()
+
+
+func _find_stat_label_contains(stats: Array, label_fragment: String) -> Dictionary:
+	for value in stats:
+		if value is Dictionary:
+			var stat: Dictionary = value
+			if str(stat.get("label", "")).find(label_fragment) >= 0:
+				return stat
+	return {}
 
 
 func _find_stat(stats: Array, label: String) -> Dictionary:

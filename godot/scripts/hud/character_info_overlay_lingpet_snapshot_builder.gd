@@ -84,6 +84,35 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			var catalog_player_speed_bonus := float(catalog_passive.get("player_speed_bonus_pct", 0.0)) if catalog_passive_enabled else 0.0
 			var catalog_starpoint_tracking_chance := float(catalog_passive.get("starpoint_tracking_chance_pct", 0.0)) if catalog_passive_enabled else 0.0
 			var catalog_ring_dash_chance := float(catalog_passive.get("ring_dash_chance_pct", 0.0)) if catalog_passive_enabled else 0.0
+			var owner_second_active_id := str(safe_owner_get.call(owner, "lingpet_second_skill_id", safe_owner_get.call(owner, "ringpet_second_skill_id", ""))).strip_edges()
+			var owner_second_active_level := int(safe_owner_get.call(owner, "lingpet_second_active_skill_level", safe_owner_get.call(owner, "ringpet_second_active_skill_level", 0)))
+			var catalog_second_skill := LingpetCatalog.get_active_skill(lingpet_id, owner_second_active_id, owner_second_active_level) if owner_second_active_id != "" else {}
+			var catalog_second_skill_enabled := owner_second_active_id != "" and bool(catalog_second_skill.get("enabled", true))
+			var catalog_second_skill_id := str(catalog_second_skill.get("id", "")) if catalog_second_skill_enabled else ""
+			var catalog_second_skill_name := str(catalog_second_skill.get("name", "")) if catalog_second_skill_enabled else ""
+			var catalog_second_skill_description := str(catalog_second_skill.get("description", "")) if catalog_second_skill_enabled else ""
+			var catalog_second_skill_card_path := str(catalog_second_skill.get("card_texture_path", "")) if catalog_second_skill_enabled else ""
+			var catalog_second_skill_icon_path := str(catalog_second_skill.get("icon_texture_path", "")) if catalog_second_skill_enabled else ""
+			var catalog_second_skill_cooldown := float(catalog_second_skill.get("cooldown", 0.0)) if catalog_second_skill_enabled else 0.0
+			var owner_second_skill_name := str(safe_owner_get.call(owner, "lingpet_second_skill_name", safe_owner_get.call(owner, "ringpet_second_skill_name", ""))).strip_edges()
+			var owner_second_skill_cooldown := float(safe_owner_get.call(owner, "lingpet_second_skill_cooldown_duration", safe_owner_get.call(owner, "ringpet_second_skill_cooldown_duration", 0.0)))
+			var owner_second_skill_max_level := int(safe_owner_get.call(owner, "lingpet_second_skill_max_level", safe_owner_get.call(owner, "ringpet_second_skill_max_level", 0)))
+			var panel_second_skill_name := ""
+			var panel_second_skill_cooldown := 0.0
+			var panel_second_skill_max_level := 0
+			if catalog_second_skill_id != "":
+				panel_second_skill_name = owner_second_skill_name if owner_second_skill_name != "" else catalog_second_skill_name
+				panel_second_skill_cooldown = owner_second_skill_cooldown if owner_second_skill_cooldown > 0.0 else catalog_second_skill_cooldown
+				panel_second_skill_max_level = owner_second_skill_max_level if owner_second_skill_max_level > 0 else int(catalog_second_skill.get("max_level", 5))
+			var owner_second_passive_id := str(safe_owner_get.call(owner, "lingpet_second_passive_skill_id", safe_owner_get.call(owner, "ringpet_second_passive_skill_id", ""))).strip_edges()
+			var owner_second_passive_level := int(safe_owner_get.call(owner, "lingpet_second_passive_skill_level", safe_owner_get.call(owner, "ringpet_second_passive_skill_level", 0)))
+			var catalog_second_passive := LingpetCatalog.get_passive_skill(lingpet_id, owner_second_passive_id, owner_second_passive_level) if owner_second_passive_id != "" else {}
+			var catalog_second_passive_raw_id := str(catalog_second_passive.get("id", "")).strip_edges()
+			var catalog_second_passive_enabled := owner_second_passive_id != "" and catalog_second_passive_raw_id == owner_second_passive_id and bool(catalog_second_passive.get("enabled", true))
+			var catalog_second_passive_id := catalog_second_passive_raw_id if catalog_second_passive_enabled else ""
+			var catalog_second_passive_name := str(catalog_second_passive.get("name", "")) if catalog_second_passive_enabled else ""
+			var catalog_second_passive_description := str(catalog_second_passive.get("description", "")) if catalog_second_passive_enabled else ""
+			var catalog_second_passive_icon_path := str(catalog_second_passive.get("icon_texture_path", "")) if catalog_second_passive_enabled else ""
 			var affinity_level := int(safe_owner_get.call(owner, "lingpet_affinity_level", safe_owner_get.call(owner, "ringpet_affinity_level", 0)))
 			var affinity_points := float(safe_owner_get.call(owner, "lingpet_affinity_points", safe_owner_get.call(owner, "ringpet_affinity_points", 0.0)))
 			var affinity_next_requirement := float(safe_owner_get.call(owner, "lingpet_affinity_next_requirement", safe_owner_get.call(owner, "ringpet_affinity_next_requirement", LingpetAffinityState.get_requirement_for_level(affinity_level))))
@@ -112,12 +141,26 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"companion_skill_cooldown_duration": float(safe_owner_get.call(owner, "lingpet_skill_cooldown_duration", safe_owner_get.call(owner, "ringpet_skill_cooldown_duration", catalog_skill_cooldown))),
 				"companion_skill_level": int(safe_owner_get.call(owner, "lingpet_active_skill_level", safe_owner_get.call(owner, "ringpet_active_skill_level", int(catalog_skill.get("level", 1))))),
 				"companion_skill_max_level": int(safe_owner_get.call(owner, "lingpet_active_skill_max_level", safe_owner_get.call(owner, "ringpet_active_skill_max_level", int(catalog_skill.get("max_level", 5))))),
+				"companion_skill_id_1": catalog_second_skill_id,
+				"companion_skill_name_1": panel_second_skill_name,
+				"companion_skill_description_1": catalog_second_skill_description,
+				"companion_skill_card_path_1": catalog_second_skill_card_path,
+				"companion_skill_icon_path_1": catalog_second_skill_icon_path,
+				"companion_skill_cooldown_duration_1": panel_second_skill_cooldown,
+				"companion_skill_level_1": owner_second_active_level if catalog_second_skill_id != "" else 0,
+				"companion_skill_max_level_1": panel_second_skill_max_level,
 				"companion_passive_skill_id": str(safe_owner_get.call(owner, "lingpet_passive_skill_id", safe_owner_get.call(owner, "ringpet_passive_skill_id", catalog_passive_id))),
 				"companion_passive_skill_name": str(safe_owner_get.call(owner, "lingpet_passive_skill_name", safe_owner_get.call(owner, "ringpet_passive_skill_name", catalog_passive_name))),
 				"companion_passive_skill_description": str(safe_owner_get.call(owner, "lingpet_passive_skill_description", safe_owner_get.call(owner, "ringpet_passive_skill_description", catalog_passive_description))),
 				"companion_passive_skill_icon_path": str(safe_owner_get.call(owner, "lingpet_passive_skill_icon_path", safe_owner_get.call(owner, "ringpet_passive_skill_icon_path", catalog_passive_icon_path))),
 				"companion_passive_skill_level": int(safe_owner_get.call(owner, "lingpet_passive_skill_level", safe_owner_get.call(owner, "ringpet_passive_skill_level", int(catalog_passive.get("level", 1))))),
 				"companion_passive_skill_max_level": int(safe_owner_get.call(owner, "lingpet_passive_skill_max_level", safe_owner_get.call(owner, "ringpet_passive_skill_max_level", int(catalog_passive.get("max_level", 5))))),
+				"companion_passive_skill_id_1": catalog_second_passive_id,
+				"companion_passive_skill_name_1": catalog_second_passive_name,
+				"companion_passive_skill_description_1": catalog_second_passive_description,
+				"companion_passive_skill_icon_path_1": catalog_second_passive_icon_path,
+				"companion_passive_skill_level_1": owner_second_passive_level if catalog_second_passive_id != "" else 0,
+				"companion_passive_skill_max_level_1": int(catalog_second_passive.get("max_level", 5)) if catalog_second_passive_id != "" else 0,
 				"companion_patrol_speed_default": float(safe_owner_get.call(owner, "lingpet_companion_patrol_speed_default", safe_owner_get.call(owner, "ringpet_companion_patrol_speed_default", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_default", 120.0)))),
 				"companion_patrol_speed_min": float(safe_owner_get.call(owner, "lingpet_companion_patrol_speed_min", safe_owner_get.call(owner, "ringpet_companion_patrol_speed_min", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_min", 70.0)))),
 				"companion_patrol_speed_max": float(safe_owner_get.call(owner, "lingpet_companion_patrol_speed_max", safe_owner_get.call(owner, "ringpet_companion_patrol_speed_max", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_max", 135.0)))),
