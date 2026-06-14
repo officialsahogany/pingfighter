@@ -584,6 +584,7 @@ func _init() -> void:
 	_verify_affinity_point_gain_popup()
 	_verify_lingpet_guard_label_feedback()
 	_verify_affinity_residue_store_and_headstart()
+	_verify_ring_core_cap_store_threading()
 	_verify_ineligible_conditions_do_not_spawn()
 
 	ProjectResourceLoader.clear_caches()
@@ -4812,8 +4813,9 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
 	_expect(store_source.find("SAVE_PATH := \"user://lingpet_affinity.cfg\"") >= 0, "affinity residue store should use its own user:// file")
-	_expect(store_source.find("SAVE_SCHEMA_VERSION := 2") >= 0 and store_source.find("schema_version") >= 0, "affinity residue store should stamp the v2 schema key")
+	_expect(store_source.find("SAVE_SCHEMA_VERSION := 3") >= 0 and store_source.find("schema_version") >= 0, "affinity residue store should stamp the v3 schema key")
 	_expect(store_source.find("BOND_POINTS_SECTION") >= 0 and store_source.find("add_bond_levels") >= 0, "affinity residue store should own the v2 bond-points section")
+	_expect(store_source.find("RING_CORE_SECTION") >= 0 and store_source.find("has_ring_core_tier") >= 0, "affinity residue store should own the v3 account-wide ring-core section")
 	_expect(store_source.find("affinity_points") < 0 and store_source.find("round_cap") < 0 and store_source.find("battle_cap") < 0, "affinity residue store should not persist volatile run points or cap counters")
 	_expect(store_source.find("bytes.slice(3)") >= 0, "affinity residue store should strip UTF-8 BOM before parsing")
 	_expect(runtime_source.find("_apply_affinity_headstart_from_store") >= 0, "runtime should apply store headstart through a focused helper")
@@ -4824,22 +4826,37 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	var run_save_path := "user://lingpet_save_store_residue_separation_smoke.cfg"
 	var bom_path := "user://lingpet_affinity_store_bom_smoke.cfg"
 	var v1_migration_path := "user://lingpet_affinity_store_v1_migration_smoke.cfg"
+	var v2_migration_path := "user://lingpet_affinity_store_v2_migration_smoke.cfg"
 	var corrupt_bond_path := "user://lingpet_affinity_store_corrupt_bond_smoke.cfg"
 	_remove_user_file(affinity_path)
 	_remove_user_file(run_save_path)
 	_remove_user_file(bom_path)
 	_remove_user_file(v1_migration_path)
+	_remove_user_file(v2_migration_path)
 	_remove_user_file(corrupt_bond_path)
 
 	var store: Object = LingpetAffinityStore.new()
 	store.set_save_path(affinity_path)
+	_expect(not bool(store.has_ring_core_tier()), "new affinity store should distinguish missing ring-core data from explicit no-core")
+	_expect_eq(int(store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "missing ring-core data should fail open to max cap for legacy saves")
 	_expect(bool(store.set_best_level("Maribo ", 11)), "affinity store should save a normalized best level")
 	_expect_eq(int(store.get_best_level("maribo")), 11, "affinity store should reload normalized Maribo best level")
 	_expect(not bool(store.set_best_level("maribo", 4)), "affinity store should not lower an existing best level")
 	_expect_eq(int(store.get_best_level("maribo")), 11, "lower residue writes should leave the previous best intact")
 	var saved_text := FileAccess.get_file_as_string(affinity_path)
-	_expect(saved_text.find("schema_version=2") >= 0 and saved_text.find("[best_levels]") >= 0, "affinity residue file should save the v2 schema and best-level section")
+	_expect(saved_text.find("schema_version=3") >= 0 and saved_text.find("[best_levels]") >= 0, "affinity residue file should save the v3 schema and best-level section")
 	_expect(saved_text.find("affinity_points") < 0 and saved_text.find("round_commit") < 0 and saved_text.find("hatch_bonus") < 0, "affinity residue file should contain only best-level style data")
+	_expect(bool(store.set_ring_core_tier(0)), "affinity store should persist explicit no-core tier 0")
+	_expect(bool(store.has_ring_core_tier()), "explicit no-core should count as stored ring-core data")
+	_expect_eq(int(store.get_ring_core_tier()), 0, "explicit no-core should roundtrip as tier 0")
+	_expect_eq(int(store.get_ring_core_cap()), 0, "explicit no-core should map to cap 0")
+	_expect(bool(store.upgrade_ring_core_tier(1)), "affinity store should upgrade to standard ring-core tier 1")
+	_expect_eq(int(store.get_ring_core_cap()), 5, "standard ring-core should map to cap 5")
+	_expect(not bool(store.upgrade_ring_core_tier(1)), "affinity store should skip same-tier ring-core upgrades")
+	_expect(bool(store.upgrade_ring_core_tier(6)), "affinity store should upgrade to zenith ring-core tier 6")
+	_expect_eq(int(store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "zenith ring-core should map to max cap")
+	var ring_core_saved_text := FileAccess.get_file_as_string(affinity_path)
+	_expect(ring_core_saved_text.find("[ring_core]") >= 0 and ring_core_saved_text.find("tier=6") >= 0, "affinity residue file should persist the v3 ring-core section")
 	_expect(bool(store.add_bond_levels("Maribo ", 3)), "affinity store should add normalized bond points")
 	_expect(bool(store.add_bond_levels("maribo", 4)), "affinity store should accumulate bond points instead of skip-not-higher semantics")
 	_expect_eq(int(store.get_bond_points("MARIBO")), 7, "affinity store should expose cumulative normalized bond points")
@@ -4851,19 +4868,35 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	_expect(bond_saved_text.find("[bond_points]") >= 0 and bond_saved_text.find("maribo=7") >= 0, "affinity residue file should persist the v2 bond-points section")
 	var reloaded_store: Object = LingpetAffinityStore.new()
 	reloaded_store.set_save_path(affinity_path)
-	_expect_eq(int(reloaded_store.get_best_level("maribo")), 11, "affinity best levels should roundtrip through the v2 store")
-	_expect_eq(int(reloaded_store.get_bond_points("maribo")), 7, "affinity bond points should roundtrip through the v2 store")
+	_expect_eq(int(reloaded_store.get_best_level("maribo")), 11, "affinity best levels should roundtrip through the v3 store")
+	_expect_eq(int(reloaded_store.get_bond_points("maribo")), 7, "affinity bond points should roundtrip through the v3 store")
 	_expect_eq(int(reloaded_store.get_bond_points("lunabi")), 30, "affinity bond points above the display cap should roundtrip")
+	_expect(bool(reloaded_store.has_ring_core_tier()), "ring-core tier should roundtrip through the v3 store")
+	_expect_eq(int(reloaded_store.get_ring_core_tier()), 6, "zenith ring-core tier should roundtrip through reload")
+	_expect_eq(int(reloaded_store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "reloaded zenith ring-core should expose max cap")
 
 	_write_affinity_store_v1_file(v1_migration_path)
 	var migrated_store: Object = LingpetAffinityStore.new()
 	migrated_store.set_save_path(v1_migration_path)
 	_expect_eq(int(migrated_store.get_best_level("maribo")), 9, "v1 affinity store migration should preserve best levels")
 	_expect_eq(int(migrated_store.get_bond_points("maribo")), 0, "v1 affinity store migration should initialize missing bond points to zero")
-	_expect_eq(int(migrated_store.get_schema_version()), 2, "v1 affinity store migration should expose the v2 in-memory schema")
-	_expect(bool(migrated_store.save()), "v1 affinity store migration should be able to stamp the v2 schema on save")
+	_expect(not bool(migrated_store.has_ring_core_tier()), "v1 affinity store migration should leave ring-core tier missing, not explicit no-core")
+	_expect_eq(int(migrated_store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "missing v1 ring-core data should fail open to max cap")
+	_expect_eq(int(migrated_store.get_schema_version()), 3, "v1 affinity store migration should expose the v3 in-memory schema")
+	_expect(bool(migrated_store.save()), "v1 affinity store migration should be able to stamp the v3 schema on save")
 	var migrated_text := FileAccess.get_file_as_string(v1_migration_path)
-	_expect(migrated_text.find("schema_version=2") >= 0 and migrated_text.find("version=1") < 0, "v1 affinity store migration should rewrite the meta schema key as v2")
+	_expect(migrated_text.find("schema_version=3") >= 0 and migrated_text.find("version=1") < 0, "v1 affinity store migration should rewrite the meta schema key as v3")
+
+	_write_affinity_store_v2_file(v2_migration_path)
+	var migrated_v2_store: Object = LingpetAffinityStore.new()
+	migrated_v2_store.set_save_path(v2_migration_path)
+	_expect_eq(int(migrated_v2_store.get_best_level("maribo")), 10, "v2 affinity store migration should preserve best levels")
+	_expect_eq(int(migrated_v2_store.get_bond_points("maribo")), 6, "v2 affinity store migration should preserve bond points")
+	_expect(not bool(migrated_v2_store.has_ring_core_tier()), "v2 affinity store migration should keep missing ring-core distinct from explicit tier 0")
+	_expect_eq(int(migrated_v2_store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "missing v2 ring-core data should fail open to max cap")
+	_expect(bool(migrated_v2_store.save()), "v2 affinity store migration should be able to stamp the v3 schema on save")
+	var migrated_v2_text := FileAccess.get_file_as_string(v2_migration_path)
+	_expect(migrated_v2_text.find("schema_version=3") >= 0 and migrated_v2_text.find("[ring_core]") < 0, "v2 migration should not invent an explicit ring-core tier")
 
 	_write_affinity_store_corrupt_bond_file(corrupt_bond_path)
 	var corrupt_store: Object = LingpetAffinityStore.new()
@@ -4983,12 +5016,14 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	_remove_user_file(run_save_path)
 	_remove_user_file(bom_path)
 	_remove_user_file(v1_migration_path)
+	_remove_user_file(v2_migration_path)
 	_remove_user_file(corrupt_bond_path)
 	_remove_user_file(recovery_path)
 	_remove_user_file(recovery_backup_path)
 	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
 	_remove_user_file(bom_path.trim_suffix(".cfg") + ".last_good.cfg")
 	_remove_user_file(v1_migration_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(v2_migration_path.trim_suffix(".cfg") + ".last_good.cfg")
 	_remove_user_file(corrupt_bond_path.trim_suffix(".cfg") + ".last_good.cfg")
 
 
@@ -5055,6 +5090,72 @@ func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _verify_ring_core_cap_store_threading() -> void:
+	var no_core_path := "user://lingpet_ring_core_no_core_smoke.cfg"
+	var standard_path := "user://lingpet_ring_core_standard_smoke.cfg"
+	var missing_path := "user://lingpet_ring_core_missing_smoke.cfg"
+	_remove_user_file(no_core_path)
+	_remove_user_file(standard_path)
+	_remove_user_file(missing_path)
+
+	var no_core_store: Object = LingpetAffinityStore.new()
+	no_core_store.set_save_path(no_core_path)
+	_expect(bool(no_core_store.set_best_level("maribo", 12)), "no-core fixture should store a previous best level")
+	_expect(bool(no_core_store.set_ring_core_tier(0)), "no-core fixture should persist explicit tier 0")
+	var no_core_runtime: Object = LingpetEggRuntime.new()
+	var no_core_owner := FakeOwner.new()
+	var no_core_registry := FakeRegistry.new({"lingpet_affinity_store": no_core_store})
+	_expect(no_core_runtime.debug_grant_and_activate_pet("maribo", no_core_owner, false, "", "", no_core_registry), "no-core fixture should activate Maribo")
+	no_core_runtime.update(0.0, no_core_owner, no_core_registry)
+	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "explicit no-core cap should block best-level headstart")
+	for _i in range(20):
+		no_core_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, no_core_registry)
+	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "explicit no-core cap should keep affinity at Lv0")
+	_expect(no_core_runtime.get_affinity_points("maribo") > 0.0, "explicit no-core cap should bank points instead of discarding them")
+
+	var standard_store: Object = LingpetAffinityStore.new()
+	standard_store.set_save_path(standard_path)
+	_expect(bool(standard_store.set_ring_core_tier(1)), "standard fixture should persist tier 1")
+	var standard_runtime: Object = LingpetEggRuntime.new()
+	var standard_owner := FakeOwner.new()
+	var standard_registry := FakeRegistry.new({"lingpet_affinity_store": standard_store})
+	_expect(standard_runtime.debug_grant_and_activate_pet("maribo", standard_owner, false, "", "", standard_registry), "standard fixture should activate Maribo")
+	standard_runtime.update(0.0, standard_owner, standard_registry)
+	for _i in range(200):
+		standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
+	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "registry-threaded standard ring-core should cap affinity at Lv5")
+	var banked_points: float = standard_runtime.get_affinity_points("maribo")
+	_expect(banked_points > 0.0, "standard ring-core cap should bank overflow points")
+	standard_runtime.update(0.0, standard_owner, standard_registry)
+	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
+	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "owner snapshot sync should not reset ring-core cap to fail-open MAX")
+	standard_runtime._invalidate_current_loadout_cache()
+	standard_runtime._apply_current_loadout(standard_owner, true, false)
+	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
+	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "loadout apply without registry should preserve the existing ring-core cap")
+	_expect(bool(standard_store.upgrade_ring_core_tier(2)), "standard fixture should upgrade to tier 2")
+	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
+	_expect_eq(standard_runtime.get_affinity_level("maribo"), 10, "upgrading ring-core cap should spend banked points on the next affinity grant")
+
+	var missing_store: Object = LingpetAffinityStore.new()
+	missing_store.set_save_path(missing_path)
+	_expect(bool(missing_store.set_best_level("maribo", 12)), "missing-tier fixture should store a previous best level")
+	var missing_runtime: Object = LingpetEggRuntime.new()
+	var missing_owner := FakeOwner.new()
+	var missing_registry := FakeRegistry.new({"lingpet_affinity_store": missing_store})
+	_expect(missing_runtime.debug_grant_and_activate_pet("maribo", missing_owner, false, "", "", missing_registry), "missing-tier fixture should activate Maribo")
+	missing_runtime.update(0.0, missing_owner, missing_registry)
+	_expect(not bool(missing_store.has_ring_core_tier()), "missing-tier fixture should keep ring-core absent")
+	_expect_eq(missing_runtime.get_affinity_level("maribo"), 4, "missing ring-core data should fail open and allow best-level headstart")
+
+	_remove_user_file(no_core_path)
+	_remove_user_file(standard_path)
+	_remove_user_file(missing_path)
+	_remove_user_file(no_core_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(standard_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(missing_path.trim_suffix(".cfg") + ".last_good.cfg")
 
 
 func _verify_ineligible_conditions_do_not_spawn() -> void:
@@ -5259,6 +5360,15 @@ func _write_affinity_store_v1_file(path: String) -> void:
 	if file == null:
 		return
 	file.store_string("[meta]\nversion=1\n[best_levels]\nmaribo=9\nlunabi=12\n")
+	file.close()
+
+
+func _write_affinity_store_v2_file(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	_expect(file != null, "test helper should open the affinity v2 migration fixture")
+	if file == null:
+		return
+	file.store_string("[meta]\nschema_version=2\n[best_levels]\nmaribo=10\n[bond_points]\nmaribo=6\n")
 	file.close()
 
 

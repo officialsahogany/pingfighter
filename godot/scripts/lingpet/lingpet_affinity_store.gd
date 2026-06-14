@@ -1,19 +1,24 @@
 extends RefCounted
 
 const SAVE_PATH := "user://lingpet_affinity.cfg"
-const SAVE_SCHEMA_VERSION := 2
+const SAVE_SCHEMA_VERSION := 3
 const MAX_BEST_LEVEL := 30 # Mirrors LingpetAffinityState.MAX_LEVEL without coupling the store to runtime state.
+const MAX_RING_CORE_TIER := 6
+const MISSING_RING_CORE_TIER := -1
 const META_SECTION := "meta"
 const META_SCHEMA_VERSION_KEY := "schema_version"
 const LEGACY_META_VERSION_KEY := "version"
 const BEST_LEVELS_SECTION := "best_levels"
 const BOND_POINTS_SECTION := "bond_points"
+const RING_CORE_SECTION := "ring_core"
+const RING_CORE_TIER_KEY := "tier"
 
 var save_path := SAVE_PATH
 var last_load_summary := "not_loaded"
 var last_save_summary := "not_saved"
 var _best_levels: Dictionary = {}
 var _bond_points: Dictionary = {}
+var _ring_core_tier := MISSING_RING_CORE_TIER
 var _loaded := false
 var _schema_version := SAVE_SCHEMA_VERSION
 var _recovery_blocked := false
@@ -27,6 +32,7 @@ func set_save_path(path: String) -> void:
 	_recovery_blocked = false
 	_best_levels.clear()
 	_bond_points.clear()
+	_ring_core_tier = MISSING_RING_CORE_TIER
 	_schema_version = SAVE_SCHEMA_VERSION
 
 
@@ -37,6 +43,7 @@ func get_backup_path() -> String:
 func load() -> bool:
 	_best_levels.clear()
 	_bond_points.clear()
+	_ring_core_tier = MISSING_RING_CORE_TIER
 	_schema_version = SAVE_SCHEMA_VERSION
 	_loaded = true
 	_recovery_blocked = false
@@ -58,8 +65,9 @@ func load() -> bool:
 	var stored_version := _read_schema_version(config)
 	_load_best_levels(config)
 	_load_bond_points(config)
+	_load_ring_core(config)
 	_schema_version = SAVE_SCHEMA_VERSION
-	if _best_levels.is_empty() and _bond_points.is_empty():
+	if _best_levels.is_empty() and _bond_points.is_empty() and not _has_loaded_ring_core_tier():
 		# An existing file with no residue data is a botched / partial write,
 		# not a new player (new players have no file at all). Repair from the
 		# backup when it holds data, and never let this empty state clobber
@@ -81,7 +89,8 @@ func _try_recover_from_backup() -> bool:
 		return false
 	_load_best_levels(backup)
 	_load_bond_points(backup)
-	if _best_levels.is_empty() and _bond_points.is_empty():
+	_load_ring_core(backup)
+	if _best_levels.is_empty() and _bond_points.is_empty() and not _has_loaded_ring_core_tier():
 		return false
 	last_load_summary = "recovered_last_good"
 	save()
@@ -101,6 +110,7 @@ func save() -> bool:
 func clear() -> bool:
 	_best_levels.clear()
 	_bond_points.clear()
+	_ring_core_tier = MISSING_RING_CORE_TIER
 	_schema_version = SAVE_SCHEMA_VERSION
 	_loaded = true
 	_recovery_blocked = false
@@ -139,6 +149,51 @@ func get_bond_points_map() -> Dictionary:
 func get_schema_version() -> int:
 	_ensure_loaded()
 	return _schema_version
+
+
+func has_ring_core_tier() -> bool:
+	_ensure_loaded()
+	return _has_loaded_ring_core_tier()
+
+
+func get_ring_core_tier() -> int:
+	_ensure_loaded()
+	return clampi(_ring_core_tier, 0, MAX_RING_CORE_TIER) if _has_loaded_ring_core_tier() else 0
+
+
+func get_ring_core_cap() -> int:
+	_ensure_loaded()
+	if not _has_loaded_ring_core_tier():
+		return MAX_BEST_LEVEL
+	return get_ring_core_cap_for_tier(_ring_core_tier)
+
+
+static func get_ring_core_cap_for_tier(tier: int) -> int:
+	var clamped_tier := clampi(tier, 0, MAX_RING_CORE_TIER)
+	if clamped_tier <= 0:
+		return 0
+	return clampi(clamped_tier * 5, 0, MAX_BEST_LEVEL)
+
+
+func set_ring_core_tier(tier: int) -> bool:
+	_ensure_loaded()
+	var clamped_tier := clampi(tier, 0, MAX_RING_CORE_TIER)
+	if _has_loaded_ring_core_tier() and _ring_core_tier == clamped_tier:
+		last_save_summary = "skipped_same_ring_core_tier"
+		return false
+	_ring_core_tier = clamped_tier
+	return save()
+
+
+func upgrade_ring_core_tier(tier: int) -> bool:
+	_ensure_loaded()
+	var clamped_tier := clampi(tier, 0, MAX_RING_CORE_TIER)
+	var previous_tier := get_ring_core_tier() if _has_loaded_ring_core_tier() else 0
+	if clamped_tier <= previous_tier:
+		last_save_summary = "skipped_not_higher_ring_core_tier"
+		return false
+	_ring_core_tier = clamped_tier
+	return save()
 
 
 func set_best_level(pet_id: String, best_level: int) -> bool:
@@ -195,6 +250,9 @@ func get_summary() -> Dictionary:
 		"schema_version": get_schema_version(),
 		"best_levels": get_best_levels(),
 		"bond_points": get_bond_points_map(),
+		"has_ring_core_tier": has_ring_core_tier(),
+		"ring_core_tier": get_ring_core_tier(),
+		"ring_core_cap": get_ring_core_cap(),
 	}
 
 
@@ -226,6 +284,8 @@ func _build_save_config() -> ConfigFile:
 		var bond_value := _sanitize_bond_points(_bond_points.get(raw_pet_id, 0))
 		if pet_id != "" and bond_value > 0:
 			config.set_value(BOND_POINTS_SECTION, pet_id, bond_value)
+	if _has_loaded_ring_core_tier():
+		config.set_value(RING_CORE_SECTION, RING_CORE_TIER_KEY, clampi(_ring_core_tier, 0, MAX_RING_CORE_TIER))
 	return config
 
 
@@ -260,6 +320,17 @@ func _load_bond_points(config: ConfigFile) -> void:
 		var bond_value := _sanitize_bond_points(config.get_value(BOND_POINTS_SECTION, raw_key, 0))
 		if bond_value > 0:
 			_bond_points[pet_id] = bond_value
+
+
+func _load_ring_core(config: ConfigFile) -> void:
+	_ring_core_tier = MISSING_RING_CORE_TIER
+	if not config.has_section_key(RING_CORE_SECTION, RING_CORE_TIER_KEY):
+		return
+	_ring_core_tier = clampi(int(config.get_value(RING_CORE_SECTION, RING_CORE_TIER_KEY, 0)), 0, MAX_RING_CORE_TIER)
+
+
+func _has_loaded_ring_core_tier() -> bool:
+	return _ring_core_tier >= 0
 
 
 func _sanitize_bond_points(value: Variant) -> int:

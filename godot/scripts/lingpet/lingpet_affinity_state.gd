@@ -27,6 +27,7 @@ const MAX_LEVEL := 30
 # starts conservatively.
 const HEADSTART_MAX_LEVEL := 4
 const SKILL_LEVEL_MAX := 5
+const RING_CORE_CAP_UNCHANGED := -1
 const MAX_MOBILITY_STACKS := 6
 const MAX_DEFENSE_STACKS := 2
 const MAX_GAUGE_STACKS := 4
@@ -171,7 +172,7 @@ func configure_reward_context(
 	passive_skill_base_level: int = 1,
 	reward_seed: int = 0,
 	force_rebuild: bool = false,
-	ring_core_cap: int = MAX_LEVEL
+	ring_core_cap: int = RING_CORE_CAP_UNCHANGED
 ) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
@@ -181,7 +182,8 @@ func configure_reward_context(
 	var next_motion_style := _normalize_motion_style(motion_style)
 	var next_active_base_level := clampi(active_skill_base_level, 1, SKILL_LEVEL_MAX)
 	var next_passive_base_level := clampi(passive_skill_base_level, 1, SKILL_LEVEL_MAX)
-	var next_ring_core_cap := clampi(ring_core_cap, 0, MAX_LEVEL)
+	var current_ring_core_cap := clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
+	var next_ring_core_cap := current_ring_core_cap if ring_core_cap < 0 else clampi(ring_core_cap, 0, MAX_LEVEL)
 	var context_changed := (
 		str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)) != next_motion_style
 		or int(pet_data.get("active_skill_base_level", 1)) != next_active_base_level

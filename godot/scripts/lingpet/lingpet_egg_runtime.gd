@@ -1053,7 +1053,7 @@ func _build_affinity_owner_snapshot(registry: Object = null) -> Dictionary:
 	var next_label := ""
 	var bond_points := 0
 	if _state == STATE_COMPANION:
-		_configure_affinity_reward_context(_pet_id)
+		_configure_affinity_reward_context(_pet_id, {}, registry)
 		level = _affinity_state.get_level(_pet_id)
 		points = _affinity_state.get_points(_pet_id)
 		next_requirement = _affinity_state.get_next_requirement(_pet_id)
@@ -2491,7 +2491,7 @@ func get_affinity_rewards_for_tests(pet_id: String = "") -> Dictionary:
 	return _affinity_state.get_cumulative_rewards(_resolve_affinity_pet_id(pet_id))
 
 
-func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}) -> void:
+func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}, registry: Object = null) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return
@@ -2507,8 +2507,25 @@ func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}
 		motion_style,
 		active_base_level,
 		passive_base_level,
-		_get_affinity_reward_seed(normalized_pet_id)
+		_get_affinity_reward_seed(normalized_pet_id),
+		false,
+		_resolve_affinity_ring_core_cap(registry)
 	)
+
+
+func _resolve_affinity_ring_core_cap(registry: Object = null) -> int:
+	var store: Object = _get_affinity_store(registry)
+	if store == null:
+		return LingpetAffinityState.RING_CORE_CAP_UNCHANGED
+	if store.has_method("has_ring_core_tier"):
+		if bool(store.has_ring_core_tier()):
+			if store.has_method("get_ring_core_cap"):
+				return clampi(int(store.get_ring_core_cap()), 0, LingpetAffinityState.MAX_LEVEL)
+			if store.has_method("get_ring_core_tier"):
+				return clampi(int(store.get_ring_core_tier()) * 5, 0, LingpetAffinityState.MAX_LEVEL)
+			return 0
+		return LingpetAffinityState.MAX_LEVEL
+	return LingpetAffinityState.RING_CORE_CAP_UNCHANGED
 
 
 func _get_affinity_reward_seed(pet_id: String) -> int:
@@ -2527,12 +2544,12 @@ func _resolve_affinity_motion_style(pet_id: String) -> String:
 	return _affinity_context_profile.get_affinity_motion_style()
 
 
-func _sync_current_profile_affinity(pet_id: String) -> void:
+func _sync_current_profile_affinity(pet_id: String, registry: Object = null) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
 		return
-	_configure_affinity_reward_context(normalized_pet_id)
+	_configure_affinity_reward_context(normalized_pet_id, {}, registry)
 	_current_profile.set_affinity_state(
 		_affinity_state.get_level(normalized_pet_id),
 		_affinity_state.get_cumulative_rewards(normalized_pet_id)
@@ -2551,12 +2568,12 @@ func _apply_affinity_headstart_from_store(pet_id: String, registry: Object = nul
 		_affinity_headstart_applied_pet_ids[normalized_pet_id] = true
 		return
 	var level_before: int = _affinity_state.get_level(normalized_pet_id)
-	_configure_affinity_reward_context(normalized_pet_id)
+	_configure_affinity_reward_context(normalized_pet_id, {}, registry)
 	_affinity_state.apply_headstart_from_best(normalized_pet_id, best_level)
 	var level_after: int = _affinity_state.get_level(normalized_pet_id)
 	_affinity_headstart_applied_pet_ids[normalized_pet_id] = true
 	if normalized_pet_id == _pet_id:
-		_sync_current_profile_affinity(normalized_pet_id)
+		_sync_current_profile_affinity(normalized_pet_id, registry)
 		_affinity_feedback_state.sync_for_level(level_after, LingpetAffinityState.MAX_LEVEL)
 		if level_after != level_before:
 			_invalidate_current_loadout_cache()
@@ -2599,7 +2616,7 @@ func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {},
 	if normalized_pet_id == "":
 		_last_affinity_result = {}
 		return {}
-	_configure_affinity_reward_context(normalized_pet_id)
+	_configure_affinity_reward_context(normalized_pet_id, {}, registry)
 	var best_before: int = _affinity_state.get_best_level(normalized_pet_id)
 	_last_affinity_result = _affinity_state.add_points(normalized_pet_id, source, tags)
 	_affinity_income_tracker.record(normalized_pet_id, source, _last_affinity_result, registry)
@@ -2608,7 +2625,7 @@ func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {},
 		_affinity_feedback_state.trigger_point_gain(float(_last_affinity_result.get("granted_points", 0.0)))
 	if normalized_pet_id == _pet_id and int(_last_affinity_result.get("levels_gained", 0)) > 0:
 		var level_after: int = _affinity_state.get_level(normalized_pet_id)
-		_sync_current_profile_affinity(normalized_pet_id)
+		_sync_current_profile_affinity(normalized_pet_id, registry)
 		_invalidate_current_loadout_cache()
 		_affinity_feedback_state.trigger_level_up(level_after, LingpetAffinityState.MAX_LEVEL, _affinity_next_label_for_pet(normalized_pet_id))
 	_record_affinity_best_level_if_needed(normalized_pet_id, best_before, registry)

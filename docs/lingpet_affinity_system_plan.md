@@ -583,10 +583,11 @@ v1 봉인 이후 확장. 합의 경로: 사용자 제안 → Claude 1차 설계 
 ⚠ **"런에서 올린 레벨을 영구 누적" 방식은 기각** — 짧은 런을 반복해
 Lv.1~2만 뽑는 쇼트런 파밍 루프가 열려 v1 anti-inflation 철학과 충돌.
 
-- 스토어 스키마 v2: `[meta] schema_version=2` / `[best_levels]`
-  (기존 그대로, **헤드스타트 전용 유지**) / `[bond_points]` 신규 분리.
-  v1 파일 마이그레이션: best_levels 보존, bond 0 초기화, 버전 스탬프
-  (battle_view_layout 마이그레이션 패턴).
+- 스토어 스키마 v3: `[meta] schema_version=3` / `[best_levels]`
+  (기존 그대로, **헤드스타트 전용 유지**) / `[bond_points]` /
+  `[ring_core] tier` 분리. v1/v2 파일 마이그레이션: best_levels 보존,
+  bond 0 또는 기존 bond 보존, ring_core는 **missing** 상태로 유지해
+  레거시 세이브를 fail-open(MAX cap) 처리. explicit tier 0만 무코어.
 - **적립 규칙 (확정, 2026-06-11)**: 전투 중 레벨업을 **펫별 pending
   원장**(battle-cap 스코프 `battle_level_ups_by_pet`)에 적립해 두고,
   **플레이어 승리 커밋 시점에만** 정산한다 — 정산 대상은 그 전투
@@ -1068,8 +1069,14 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
     단언으로 복원할 것** (본문 `pass` = grep 단일점). 교훈: V3-1 sign-off에서
     egg_runtime_smoke를 안 돌려 놓침 → affinity 변경 시 affinity를 굴리는
     모든 스모크(affinity_state + egg_runtime) 실행을 sign-off 체크리스트에 고정.
-- **V3-3**: 링코어 영구 스토어 + 광장 골드샵 구매 + 미카 튜토리얼 기본
-  지급. 상한 동기화.
+- **V3-3a**: 링코어 cap 토대 **완료** — `lingpet_affinity_store`
+  schema v3(`[ring_core] tier`) + account-wide tier→cap(0/5/10/15/20/25/30)
+  + `lingpet_egg_runtime` registry-threaded cap 주입. missing tier는
+  fail-open(MAX), explicit tier 0만 무코어. registry 없는 context sync는
+  `RING_CORE_CAP_UNCHANGED`로 기존 cap 보존(매 owner snapshot/loadout apply가
+  MAX로 덮는 회귀 봉인).
+- **V3-3b~d**: resolved choice persistence / 광장 골드샵 구매 / 미카
+  튜토리얼 기본 지급은 후속.
 - **V3-4**: 강화칩 퍽(획득률 배율) + TAB 5눈금 UI.
 - **V3-5**: 먹이 액티브 아이템 (item_runtime_checklist 경로).
 - **V3-6**: 클릭 수치 + 앵커 재산정 (income 로그 실측 후, V2-6 통합).
