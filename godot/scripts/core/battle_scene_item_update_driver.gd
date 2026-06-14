@@ -186,24 +186,12 @@ func _update_mythic_once(
 			frame_key = int(value)
 	if frame_key >= 0 and frame_key == _last_mythic_update_frame and not _is_pause_cinematic_active(mythic_item_runtime):
 		return
-	if _method_accepts_argument_count(mythic_item_runtime, "update", 4):
+	if _get_method_argument_count(mythic_item_runtime, "update") >= 4:
 		mythic_item_runtime.update(owner, registry, delta, perf_logger)
 	else:
 		mythic_item_runtime.update(owner, registry, delta)
 	if frame_key >= 0:
 		_last_mythic_update_frame = frame_key
-
-
-func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
-	if target == null:
-		return false
-	for method_value in target.get_method_list():
-		var method_info: Dictionary = method_value if method_value is Dictionary else {}
-		if str(method_info.get("name", "")) != method_name:
-			continue
-		var args: Array = method_info.get("args", [])
-		return args.size() >= argument_count
-	return false
 
 
 func _is_pause_cinematic_active(mythic_item_runtime: Object) -> bool:

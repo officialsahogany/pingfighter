@@ -88,6 +88,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_mythic_update_once_when_owner_frame_changes()
+	_verify_mythic_update_signature_check_is_cached()
 
 	var owner := FakeOwner.new()
 	var mythic := FakeMythicRuntime.new()
@@ -133,6 +134,22 @@ func _verify_mythic_update_once_when_owner_frame_changes() -> void:
 	driver.update_items(owner, registry, 1.0 / 60.0)
 
 	_expect(mythic.update_calls == 1, "mythic runtime should update once per physics tick even if owner gameplay_frame_counter changes mid-flow")
+
+
+func _verify_mythic_update_signature_check_is_cached() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_item_update_driver.gd")
+	_expect(
+		source.find("_get_method_argument_count(mythic_item_runtime, \"update\") >= 4") >= 0,
+		"mythic update signature check should use the cached method-argument helper"
+	)
+	_expect(
+		source.find("_method_accepts_argument_count(mythic_item_runtime, \"update\", 4)") < 0,
+		"mythic update must not scan get_method_list every physics tick"
+	)
+	_expect(
+		source.find("func _method_accepts_argument_count") < 0,
+		"item update driver should keep hot-path method signature checks on the cached helper"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
