@@ -82,7 +82,7 @@ func update_projectiles(controller: Object, registry: Object, fps_scale: float) 
 			landing_pos.y = land_y
 			land_soap(controller, landing_pos, registry)
 			continue
-		if pos.y > field_height - 50.0:
+		if pos.y > field_height + 50.0:
 			continue
 		projectiles[write_index] = projectile
 		write_index += 1

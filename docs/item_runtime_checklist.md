@@ -581,6 +581,28 @@ These are the bugs most likely to survive a "looks registered" pass:
   reset must all leave the loop silent. The canonical failure mode is a
   thrown boomerang or walking spider mine scoring while its loop is still
   active.
+- **Godot bottom-launched projectile off-screen culls must sit BELOW the
+  field, never above the spawn point.** Throw helpers that launch a
+  projectile upward from the player's floor band (`throw_*` items spawn at
+  `player_pos.y + 15` ≈ 715–725) keep a defensive "fell off the bottom"
+  cull. That threshold must be genuinely off-screen
+  (`field_height + N`, the molotov / dynamite / grenade_flare / tear_gas
+  convention), NOT `field_height - N` — a value like `field_height - 50`
+  (= 700) sits *inside* the visible playfield AND *above* the launch point,
+  so the cull check (which runs every frame, including the first) deletes a
+  freshly launched projectile before it has risen past the threshold. The
+  bug only manifests when a single update advances by less than the spawn
+  gap: at high refresh / sub-frame `fps_scale` (`delta * 60 < 1`) the first
+  frame's rise (`speed_per_frame * fps_scale`) is too small to clear the
+  band, so the projectile vanishes on launch with no error. This is a
+  copy-paste template trap — it shipped identically in both
+  `active_item_throw_soap.gd` and `active_item_throw_banana.gd`. Since these
+  upward projectiles monotonically rise to their land Y and never fall, the
+  below-cull is purely defensive; keep it correct (`+ N`) rather than
+  removing it. Seal with a fractional-frame regression that launches from
+  the floor band and asserts the projectile survives one `fps_scale = 0.25`
+  update (reference: `_verify_bottom_launch_survives_fractional_frame` in
+  `active_item_throw_soap_smoke.gd` / `active_item_throw_banana_smoke.gd`).
 - **Godot active-item renderer optimizations must preserve UV and
   transform contracts.** If a change touches shared item icon helpers,
   `draw_set_transform`, textured `draw_polygon()`,

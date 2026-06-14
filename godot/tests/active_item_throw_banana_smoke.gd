@@ -43,6 +43,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_helper_spawns_banana_projectile()
 	_verify_controller_windup_release_delegates_banana()
+	_verify_bottom_launch_survives_fractional_frame()
 	_verify_projectile_lands_banana()
 	_verify_projectile_lands_at_target_x_without_left_overshoot()
 	_verify_landed_banana_triggers_slip_and_particles()
@@ -95,6 +96,32 @@ func _verify_controller_windup_release_delegates_banana() -> void:
 	_expect(controller.get_pending_throws().is_empty(), "banana windup release should clear pending queue")
 	_expect(controller.get_banana_projectiles().size() == 1, "banana windup release should spawn projectile")
 	_expect(registry.audio.calls == ["play_throw", "play_banana_throw"], "banana windup release should play throw audio pair")
+
+
+func _verify_bottom_launch_survives_fractional_frame() -> void:
+	var helper: Object = ActiveItemThrowBanana.new()
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(300.0, 700.0)
+	var registry := FakeRegistry.new()
+	var pending_throw := {
+		"start_position": Vector2(377.5, 725.0),
+		"target_position": Vector2(390.0, controller.BANANA_LAND_Y),
+	}
+
+	helper.throw_banana(controller, owner, pending_throw, registry)
+	var start_pos: Vector2 = _get_vector2(controller.get_banana_projectiles()[0], "position")
+
+	controller._update_banana_projectiles(registry, 0.25)
+
+	_expect(controller.get_banana_projectiles().size() == 1, "bottom-launched banana should not be culled before it visibly rises")
+	_expect(controller.get_landed_bananas().is_empty(), "bottom-launched banana should not instantly become a landed banana")
+	if controller.get_banana_projectiles().is_empty():
+		return
+	var banana: Dictionary = controller.get_banana_projectiles()[0]
+	var pos: Vector2 = _get_vector2(banana, "position")
+	_expect(pos.y < start_pos.y, "bottom-launched banana should move upward during the first fractional frame")
+	_expect(pos.y < controller.FIELD_HEIGHT, "bottom-launched banana should remain inside the visible playfield")
 
 
 func _verify_projectile_lands_banana() -> void:

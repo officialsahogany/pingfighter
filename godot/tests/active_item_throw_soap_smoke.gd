@@ -45,6 +45,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_helper_spawns_soap_projectile()
 	_verify_controller_windup_release_delegates_soap()
+	_verify_bottom_launch_survives_fractional_frame()
 	_verify_projectile_lands_soap()
 	_verify_projectile_lands_at_target_x_without_left_overshoot()
 	_verify_landed_soap_triggers_debuff_and_particles()
@@ -97,6 +98,32 @@ func _verify_controller_windup_release_delegates_soap() -> void:
 	_expect(controller.get_pending_throws().is_empty(), "soap windup release should clear pending queue")
 	_expect(controller.get_soap_projectiles().size() == 1, "soap windup release should spawn projectile")
 	_expect(registry.audio.calls == ["play_throw", "play_soap_throw"], "soap windup release should play throw audio pair")
+
+
+func _verify_bottom_launch_survives_fractional_frame() -> void:
+	var helper: Object = ActiveItemThrowSoap.new()
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(300.0, 700.0)
+	var registry := FakeRegistry.new()
+	var pending_throw := {
+		"start_position": Vector2(377.5, 725.0),
+		"target_position": Vector2(390.0, controller.SOAP_LAND_Y),
+	}
+
+	helper.throw_soap(controller, owner, pending_throw, registry)
+	var start_pos: Vector2 = _get_vector2(controller.get_soap_projectiles()[0], "position")
+
+	controller._update_soap_projectiles(registry, 0.25)
+
+	_expect(controller.get_soap_projectiles().size() == 1, "bottom-launched soap should not be culled before it visibly rises")
+	_expect(controller.get_landed_soaps().is_empty(), "bottom-launched soap should not instantly become a landed soap")
+	if controller.get_soap_projectiles().is_empty():
+		return
+	var soap: Dictionary = controller.get_soap_projectiles()[0]
+	var pos: Vector2 = _get_vector2(soap, "position")
+	_expect(pos.y < start_pos.y, "bottom-launched soap should move upward during the first fractional frame")
+	_expect(pos.y < controller.FIELD_HEIGHT, "bottom-launched soap should remain inside the visible playfield")
 
 
 func _verify_projectile_lands_soap() -> void:
