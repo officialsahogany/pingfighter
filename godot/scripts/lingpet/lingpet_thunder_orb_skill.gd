@@ -23,6 +23,19 @@ const EXPLOSION_PARTICLES_LARGE := 20
 const EXPLOSION_PARTICLES_SMALL := 35
 const PARTICLE_MAX := 72
 const STATUS_SOURCE := "lumion_thunder_orb_electric_stun"
+# Lv.3+ post-explosion mini-sparks: after the blast, residual sparks crackle near
+# the explosion site at MINI_SPARK_INTERVAL spacing, count == active level
+# (Lv.3->3, Lv.4->4, Lv.5->5; none below Lv.3). Each is a brief radial CC zone:
+# the boss (CENTER distance, per the radial-CC rule) within MINI_SPARK_HIT_RADIUS
+# is stunned MINI_SPARK_STUN_SECONDS, but ONLY when no electric stun is currently
+# active (메인 감전 중엔 무효 — no double-application / extension).
+const MINI_SPARK_LEVEL_MIN := 3
+const MINI_SPARK_INTERVAL := 0.3
+const MINI_SPARK_STUN_SECONDS := 0.5
+const MINI_SPARK_SPAWN_DX := 50.0
+const MINI_SPARK_SPAWN_DY := 18.0
+const MINI_SPARK_HIT_RADIUS := 48.0
+const MINI_SPARK_PARTICLES := 8
 
 # Horus-parity visual identity: a BLUE-WHITE energy orb (gold only as a faint
 # outer-arc accent), ported from the original PingFighter hero "Horus" thunder
@@ -88,6 +101,13 @@ var _stun_duration_seconds := STUN_DURATION_SECONDS
 # can stop a live electric-shock loop and clear our stun source even though the
 # host reset path is registry-less.
 var _registry: Object = null
+var _mini_spark_total := 0
+var _mini_spark_started := false
+var _mini_spark_remaining := 0
+var _mini_spark_timer := 0.0
+var _mini_spark_index := 0
+var _mini_spark_applied_count := 0
+var _mini_spark_offset_scale := 1.0  # tests force 0.0 to spawn sparks at the blast center
 
 
 func reset() -> void:
@@ -118,6 +138,12 @@ func reset() -> void:
 	_orb_rotation = 0.0
 	_energy_particles.clear()
 	_stun_duration_seconds = STUN_DURATION_SECONDS
+	_mini_spark_total = 0
+	_mini_spark_started = false
+	_mini_spark_remaining = 0
+	_mini_spark_timer = 0.0
+	_mini_spark_index = 0
+	_mini_spark_applied_count = 0
 
 
 func prewarm() -> void:
@@ -147,6 +173,11 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 	if _phase == PHASE_STUN and remaining_delta > 0.0:
 		_update_electric_stun(remaining_delta, owner, registry)
 
+	# Mini-sparks run on their own schedule, independent of phase (they may fire
+	# while PHASE_STUN from the main blast or after it returns to IDLE).
+	if _mini_spark_remaining > 0:
+		_update_mini_sparks(safe_delta, owner, registry)
+
 	if not _explosion_particles.is_empty():
 		_update_particles(safe_delta)
 
@@ -155,6 +186,8 @@ func launch(origin: Vector2, owner: Object = null, launch_context: Dictionary = 
 	reset()
 	var ctx_stun := float(launch_context.get("stun_duration_seconds", 0.0))
 	_stun_duration_seconds = ctx_stun if ctx_stun > 0.0 else STUN_DURATION_SECONDS
+	var level := int(launch_context.get("active_skill_level", 1))
+	_mini_spark_total = level if level >= MINI_SPARK_LEVEL_MIN else 0
 	_phase = PHASE_TRAVELING
 	_orb_pos = Vector2(clampf(origin.x, ORB_RADIUS, FIELD_WIDTH - ORB_RADIUS), origin.y)
 	_launch_x = _orb_pos.x
@@ -185,11 +218,11 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 
 
 func has_visible_effects() -> bool:
-	return _phase != PHASE_IDLE or not _explosion_particles.is_empty()
+	return _phase != PHASE_IDLE or not _explosion_particles.is_empty() or _mini_spark_remaining > 0
 
 
 func is_active() -> bool:
-	return _phase != PHASE_IDLE
+	return _phase != PHASE_IDLE or _mini_spark_remaining > 0
 
 
 func is_projectile_active() -> bool:
@@ -212,6 +245,22 @@ func get_shock_applied_count_for_tests() -> int:
 	return _shock_applied_count
 
 
+func get_mini_spark_applied_count_for_tests() -> int:
+	return _mini_spark_applied_count
+
+
+func get_mini_spark_total_for_tests() -> int:
+	return _mini_spark_total
+
+
+func get_mini_spark_remaining_for_tests() -> int:
+	return _mini_spark_remaining
+
+
+func set_mini_spark_offset_scale_for_tests(value: float) -> void:
+	_mini_spark_offset_scale = maxf(0.0, value)
+
+
 func get_snapshot() -> Dictionary:
 	return {
 		"thunder_orb_projectile_active": _phase == PHASE_TRAVELING,
@@ -228,6 +277,8 @@ func get_snapshot() -> Dictionary:
 		"thunder_orb_electric_stun_timer": _electric_stun_timer,
 		"thunder_orb_shock_applied_count": _shock_applied_count,
 		"thunder_orb_particle_count": _explosion_particles.size(),
+		"thunder_orb_mini_spark_remaining": _mini_spark_remaining,
+		"thunder_orb_mini_spark_applied_count": _mini_spark_applied_count,
 	}
 
 
@@ -324,6 +375,9 @@ func _update_explosion(delta: float, owner: Object, registry: Object) -> float:
 		_phase = PHASE_STUN
 	else:
 		_phase = PHASE_IDLE
+		# No main stun caught the boss -> the lingering mini-sparks start right
+		# after the blast (there is no main stun to wait out).
+		_begin_mini_sparks()
 	return unused_delta
 
 
@@ -354,6 +408,61 @@ func _update_electric_stun(delta: float, owner: Object, registry: Object) -> voi
 	_clear_boss_electric_stun(registry)
 	_sync_electric_audio(registry, false)
 	_phase = PHASE_IDLE
+	# Main electric stun just ended -> begin the lingering mini-spark chain (once).
+	# A later mini-stun ending re-enters here, but _begin_mini_sparks no-ops after
+	# the first start (메인 감전중엔 무효 is satisfied because the chain starts only
+	# now, after the main stun is gone).
+	_begin_mini_sparks()
+
+
+func _begin_mini_sparks() -> void:
+	if _mini_spark_total <= 0 or _mini_spark_started:
+		return
+	_mini_spark_started = true
+	_mini_spark_remaining = _mini_spark_total
+	_mini_spark_timer = MINI_SPARK_INTERVAL
+	_mini_spark_index = 0
+
+
+func _update_mini_sparks(delta: float, owner: Object, registry: Object) -> void:
+	if _mini_spark_remaining <= 0:
+		return
+	_mini_spark_timer -= delta
+	if _mini_spark_timer > 0.0:
+		return
+	var carry := _mini_spark_timer
+	_fire_mini_spark(owner, registry)
+	_mini_spark_remaining -= 1
+	_mini_spark_index += 1
+	# At most one spark per update so a catch-up delta spike cannot collapse the
+	# whole 0.3s-spaced chain into a single frame.
+	_mini_spark_timer = (MINI_SPARK_INTERVAL + carry) if _mini_spark_remaining > 0 else 0.0
+
+
+func _fire_mini_spark(owner: Object, registry: Object) -> void:
+	var side := 1.0 if _mini_spark_index % 2 == 0 else -1.0  # alternate both sides (양쪽)
+	var dx := side * lerpf(20.0, MINI_SPARK_SPAWN_DX, _seeded_unit(_visual_seed + float(_mini_spark_index) * 3.3, 11.0)) * _mini_spark_offset_scale
+	var dy := (_seeded_unit(_visual_seed + float(_mini_spark_index) * 5.7, 23.0) - 0.5) * 2.0 * MINI_SPARK_SPAWN_DY * _mini_spark_offset_scale
+	var spark_pos := Vector2(
+		clampf(_explosion_pos.x + dx, ORB_RADIUS, FIELD_WIDTH - ORB_RADIUS),
+		clampf(_explosion_pos.y + dy, 0.0, FIELD_HEIGHT)
+	)
+	# Brief crackle visual (reuses the explosion particle system).
+	for _i in range(MINI_SPARK_PARTICLES):
+		_add_particle(LingpetThunderOrbPayloadFactory.build_small_explosion_particle(spark_pos, ENERGY_COLORS))
+	# Radial CC: boss CENTER within hit radius; only when no electric stun is
+	# active (메인 감전 중엔 무효 — no double-application / extension).
+	if _electric_stun_timer > 0.0:
+		return
+	var boss_center := _get_boss_rect(owner).get_center()
+	if spark_pos.distance_to(boss_center) > MINI_SPARK_HIT_RADIUS:
+		return
+	_electric_stun_center = boss_center
+	_electric_stun_timer = MINI_SPARK_STUN_SECONDS
+	_mini_spark_applied_count += 1
+	_phase = PHASE_STUN
+	_apply_boss_electric_stun(registry)
+	_sync_electric_audio(registry, true)
 
 
 func _apply_boss_electric_stun(registry: Object) -> void:

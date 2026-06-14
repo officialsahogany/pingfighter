@@ -6,6 +6,7 @@ const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dis
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LingpetThunderOrbSkill := preload("res://scripts/lingpet/lingpet_thunder_orb_skill.gd")
 
 var _failures: Array[String] = []
 
@@ -114,6 +115,9 @@ func _init() -> void:
 	_verify_edge_overlap_center_outside_does_not_stun()
 	_verify_reset_stops_electric_loop_and_clears_status()
 	_verify_rail_card_reads_thunder_casting()
+	_verify_mini_spark_count_scales_with_level()
+	_verify_mini_spark_stuns_after_main_stun_ends()
+	_verify_mini_spark_miss_does_not_stun()
 
 	if _failures.is_empty():
 		print("lingpet_thunder_orb_skill_smoke: ok")
@@ -337,6 +341,68 @@ func _verify_rail_card_reads_thunder_casting() -> void:
 	_expect(str(rail_entry.get("id", "")) == "lumion_thunder_orb", "shared rail-card entry should use the Lumion Thunder Orb skill id")
 	_expect(str(rail_entry.get("status", "")) == "casting", "Thunder Orb projectile/explosion/stun should read as casting on the shared rail")
 	_expect(absf(float(rail_entry.get("cooldown_total", 0.0)) - 25.0) <= 0.01, "Thunder Orb rail entry should carry its 25s cooldown")
+
+
+func _advance_module_to_explosion_end(skill: Object, owner: Object, registry: Object) -> void:
+	var safety := 0
+	while skill.is_projectile_active() and safety < 240:
+		skill.update(1.0 / 60.0, owner, registry)
+		safety += 1
+	skill.update(0.25, owner, registry)  # finish the 0.2s explosion -> judge the blast
+
+
+func _verify_mini_spark_count_scales_with_level() -> void:
+	# Lv.3+ schedules count == active level (Lv.3->3, Lv.4->4, Lv.5->5); none below.
+	for level_case in [{"level": 2, "expected": 0}, {"level": 3, "expected": 3}, {"level": 4, "expected": 4}, {"level": 5, "expected": 5}]:
+		var skill: Object = LingpetThunderOrbSkill.new()
+		var owner := FakeOwner.new()
+		skill.launch(Vector2(380.0, 700.0), owner, {"active_skill_level": int(level_case["level"])})
+		_expect(
+			int(skill.get_mini_spark_total_for_tests()) == int(level_case["expected"]),
+			"Thunder Orb Lv.%d should schedule %d mini-sparks" % [int(level_case["level"]), int(level_case["expected"])]
+		)
+
+
+func _verify_mini_spark_stuns_after_main_stun_ends() -> void:
+	# Boss centre sits inside the blast -> main stun triggers. Mini-sparks must NOT
+	# start during the main stun (메인 감전중엔 무효); only after it ends do they
+	# crackle and re-stun the still-near boss for 0.5s.
+	var skill: Object = LingpetThunderOrbSkill.new()
+	var owner := FakeOwner.new()
+	var status_state := FakeStatusEffectState.new()
+	var registry := FakeRegistry.new(status_state, FakeAudio.new())
+	skill.launch(Vector2(380.0, 700.0), owner, {"active_skill_level": 3, "stun_duration_seconds": 0.4})
+	skill.set_mini_spark_offset_scale_for_tests(0.0)  # sparks at the blast centre (deterministic hit)
+	_advance_module_to_explosion_end(skill, owner, registry)
+	_expect(skill.is_electric_stun_active(), "main stun should be active right after the blast")
+	_expect(int(skill.get_mini_spark_remaining_for_tests()) == 0, "mini-sparks must NOT start while the main stun is active (메인 감전중엔 무효)")
+	var safety := 0
+	while int(skill.get_mini_spark_applied_count_for_tests()) == 0 and safety < 150:
+		skill.update(1.0 / 60.0, owner, registry)
+		safety += 1
+	_expect(int(skill.get_mini_spark_applied_count_for_tests()) >= 1, "a mini-spark touching the boss after the main stun should apply a 0.5s stun")
+	_expect(skill.is_electric_stun_active(), "the mini-spark stun should re-stun the boss")
+	_expect(not status_state.get_calls_for_source("lumion_thunder_orb_electric_stun").is_empty(), "mini-spark stun should apply the thunder-orb stun source")
+
+
+func _verify_mini_spark_miss_does_not_stun() -> void:
+	# Boss far from the blast -> the main blast misses (no main stun), so the Lv.5
+	# chain starts right after the explosion; every spark still misses the distant boss.
+	var skill: Object = LingpetThunderOrbSkill.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(12.0, 25.0)
+	var status_state := FakeStatusEffectState.new()
+	var registry := FakeRegistry.new(status_state, FakeAudio.new())
+	skill.launch(Vector2(720.0, 700.0), owner, {"active_skill_level": 5})
+	_advance_module_to_explosion_end(skill, owner, registry)
+	_expect(not skill.is_electric_stun_active(), "a far boss should not be caught by the main blast")
+	_expect(int(skill.get_mini_spark_remaining_for_tests()) == 5, "with no main stun, the Lv.5 mini-spark chain starts right after the blast")
+	var safety := 0
+	while int(skill.get_mini_spark_remaining_for_tests()) > 0 and safety < 300:
+		skill.update(1.0 / 60.0, owner, registry)
+		safety += 1
+	_expect(int(skill.get_mini_spark_applied_count_for_tests()) == 0, "mini-sparks must not stun a boss far from the explosion site")
+	_expect(status_state.get_calls_for_source("lumion_thunder_orb_electric_stun").is_empty(), "a full miss chain should not apply the electric stun source")
 
 
 func _has_clear(clears: Array[Dictionary], source: String) -> bool:
