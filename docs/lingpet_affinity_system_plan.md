@@ -1006,12 +1006,53 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
     **2b-ii(충돌 중재) 봉인 완료(2026-06-14):** resource_class 집합 분류·arm-edge
     cross-slot 게이트(교집합·slot-0 우선)·within-frame 동기 mutate 순서(race 닫힘)·
     batch position-override owner query·draw active-visual-slot. 부수 reconcile-skip
-    1회 소비 수정 + 반증검증. 10-에이전트 리뷰 합격, 오탐 2건 기각. 다음=2b-iii
-    (owner/HUD `_second_skill_*` 노출).
+    1회 소비 수정 + 반증검증. 10-에이전트 리뷰 합격, 오탐 2건 기각.
+    **2b-iii(owner/HUD 노출) 봉인 완료(2026-06-14) → V3-2b 런타임 축(i/ii/iii) 전체
+    종료.** 8키 `_second_skill_*` 페어 DEFAULT_VALUES 선언 + locked unconditional 기본값
+    push(stale 차단) + scalar change-gated `_set_pair` + windup_ratio 0..1 + dead-data 없음.
+    schema seal 동적 소스 regex 스캔(미래 키 자동 커버·페어 양쪽). slot-0 bare 키 back-compat
+    보존. reconcile-skip 462 즉시 복원. 적대 리뷰 4축 직접 확인 합격. V3-2d 노트:
+    cooldown_duration 기본값 0.0 vs 40.0·winding_up 경로 비대칭. 다음=V3-2c(부화 2-of-1
+    점유)/V3-2d(TAB draw)/V3-3(링코어 상점) 중 택.
   - **V3-2c (부화 흐름 + 2중1 연동)**: `pick_skill_loadout` 자동 배정
     제거(부화 시 스킬 0), V3-1 `resolved_unlock_choices` → 로드아웃 슬롯 반영.
+    **상세 슬라이스 플랜 = `docs/lingpet_v3_2c_reconcile_hatch_slice_plan.md`**
+    (2026-06-14, 14-에이전트 워크플로 + Claude 직접 확정). 핵심: reconcile를
+    **4-key 확장**(active/passive/second_active/second_passive seed/auto-resolve/read/
+    **write-time would_share_module 억제**/set_pet_loadout) + `_loadout_matches` line 1634
+    hard-gate→매칭 교체(thrash 방지, co-load-bearing) → second-slot 점유로 slot-1 라이브.
+    affinity_state는 이미 4-key complete(변경 불필요). **hatch-zero는 이미 동작**
+    (`pick_skill_loadout`=`build_empty_loadout` slot_count=0 → fill_missing 스킵)이라
+    워크플로 "allow_empty threading" A안 불필요, 검증 smoke+trap#870 가드만. **확정 결정**:
+    second 점유 포함·단일 auto-resolve 임시 수용(5 single-active 펫)·마리보 hatch-zero+Lv.1
+    headstart starter·player picker는 V3-2c-UI 후속 분리. ⚠ 워크플로 환각("D9 second 금지
+    softlock") 적대 검증으로 제거 — V3-2b 봉인으로 second write 안전.
+    **2c-1(reconcile 4-key) 봉인 완료(2026-06-14):** red_dragon Lv.25→slot-1 실제 발동
+    (`_get_active_slot_count()==2`)·would_share_module same-kind 억제·`_loadout_matches` 매칭 교체
+    thrash 방지, 직접 확인 합격. **부수: reconcile-skip을 2b-iii one-shot→sticky 재판단**(F7/debug
+    강제 loadout 보호, 실플레이 부화는 non-forced라 정상 reconcile).
+    **2c-2(hatch-zero 검증+trap#870) 봉인 완료(2026-06-14) → V3-2c 전체 종료.** set_pet_loadout
+    `_slot_count_for_pair`로 빈 primary slot_count 0→fill_missing 스킵→default 재주입 0(trap#870 가드),
+    fresh hatch smoke는 진짜 ball-hit 부화 경로. slot-1 점유·발동 + hatch-zero 완성. 다음 후속=
+    V3-2c-UI(player picker)/V3-2d(TAB slot-1 draw)/V3-3(링코어 상점) 중 택.
   - **V3-2d (TAB UI)**: 2번째 스킬 아이콘·쿨다운, 링코어 cap-blocked
     다음 보상 표시(§13-8 이연분).
+    **상세 슬라이스 플랜 = `docs/lingpet_v3_2d_tab_slot1_row_slice_plan.md`**
+    (2026-06-14, 10-에이전트 워크플로[환각방지 지침]+Claude 직접 확정). 범위 확정:
+    **slot-1 active+passive 행 둘 다 draw**(순수 reader). snapshot_builder가 slot-1
+    active/passive 읽기(slot-0 미러), **게이트=raw owner read**(`lingpet_second_skill_id`/
+    `_second_passive_skill_id`, catalog fallback 금지—locked 시 행 숨김) + catalog
+    fallback(desc/card/icon). presenter get_skill_specs slot-1 icon(A/P, vertical budget 0),
+    build_stats slot-1 active 쿨타임 stat row +1 + **row budget 클램프**(7행 exact cliff,
+    초과 시 slot-1 stat yield·교감 보호) + get_stats_cache_hash slot-1 키. ⚠ 워크플로
+    "slot-1 passive dead UI" 오판 정정 — `lingpet_second_passive_skill_id`는 loadout_state.
+    sync_owner(243-254)가 write하므로 passive 행 가능. cooldown_duration 0.0/winding_up
+    비대칭은 패널이 label만·windup 미독이라 정리 불필요로 확정. rail slot-1 카드는 deferred.
+    **2d-1 봉인 완료(2026-06-14) → V3-2 전체(2b+2c+2d) 종료.** gate=raw owner read(locked 시
+    catalog-fallback 방지 574 봉인), row budget 클램프(tight cliff "2nd" yield+교감 보호 554-556),
+    slot-1 passive(loadout sync), cache hash slot-1+rect. 미세 노트: active gate=runtime key라
+    전투 외 TAB 비대칭(passive는 static, 봉인 blocker 아님). **링펫 2번째 슬롯 전 경로 닫힘**(Lv.22/25
+    unlock→2-of-1 reconcile 점유→런타임 발동→TAB 표시). 남은 후속=V3-2c-UI/V3-3.
   - ✅ **egg_runtime_smoke affinity 회귀 처리 완료 (2026-06-14, 리뷰 합격)**:
     순수 affinity_state 직접 단언을 V3 곡선으로 갱신 — 헤드스타트
     substitute 4→2(Lv1-4 = unlock 2 + 스탯 2), 245커밋 Lv.13→12,

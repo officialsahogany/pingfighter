@@ -189,9 +189,26 @@ DROPPED"(실제 line 1980 루프-내 슬롯별 호출).
 > owner pos 두 번 write, 무해). 미래 혼란 방지 차 정리 권장. smoke 갭(nice-to-have):
 > loser-resumes-after-release 멀티프레임, strike slot-1, BALL_OWNER loser cooldown 불변 명시.
 
-### 2b-iii — owner/HUD 노출 (라이브 값, draw는 2d)
+### 2b-iii — owner/HUD 노출 (라이브 값, draw는 2d) ✅ 봉인 완료 (2026-06-14)
 `get_snapshot(slot_suffix)` · internal `companion_skill_*_1` 키 · `lingpet_/ringpet_second_skill_*` 페어 DEFAULT_VALUES 선언 · `_sync_second_skill_owner`(unlock 게이트, 기본값 sync) · `_windup_ratio` 0..1.
 → **봉인 목표**: schema-gated owner로 slot-1 라이브 쿨다운(카탈로그 base와 divergent)이 패널에 도달, 미선언 키 제거 시 snapshot-sync seal FAIL. (트랩 — owner schema)
+
+**봉인 상태 (적대 리뷰 4축 직접 확인 합격):** ① owner sync — 8키 페어
+(id/name/max_level/cooldown/cooldown_duration/ready/winding_up/windup_ratio) 전부
+DEFAULT_VALUES 선언 + `_sync_second_skill_owner`가 **locked 시 unconditional 기본값
+push**(skip 아님 → Lv.22→sub-Lv.22 전환 stale 차단) + 전부 scalar `_set_pair`(change-gated,
+origin은 internal-only) + windup_ratio 0..1 + dead-data 없음(last_gain/trigger_count/origin의
+second owner 페어 미선언). ② schema seal `_verify_snapshot_sync_keys_are_schema_declared`는
+**동적 소스 regex 스캔**(하드코딩 리스트 아님 → 미래 키 자동 커버), lingpet_·ringpet_ 양쪽
+매칭(단일-키 페어 누락도 잡음), 미선언 제거 시 FAIL=반증검증. ③ back-compat — `get_snapshot(suffix="")`이
+slot-0 bare 키셋 완전 보존(키 변경/누락 0). ④ reconcile-skip sticky 수정(2b-ii 후속): debug_grant
+460 set→461 apply→**462 즉시 false 복원**, 460 유일 set + 462/555/1470 복원으로 모든 경로 stale
+차단, one-shot 반증검증 smoke(같은 펫 Lv.2 reconcile 재생).
+
+> **V3-2d 진입 시 체크 (봉인 blocker 아님)**: ① `second_skill_cooldown_duration` 기본값 0.0
+> (slot-0는 40.0) — locked 분모 0=행 숨김 의도이나 V3-2d가 두 슬롯 progress bar 분모를 같은
+> 방식으로 다루는지 확인. ② winding_up/windup_ratio 경로 비대칭 — slot-0는 internal snapshot만,
+> slot-1은 owner+internal. V3-2d가 두 슬롯 windup을 어느 경로로 읽는지 일치시킬 것.
 
 ---
 
