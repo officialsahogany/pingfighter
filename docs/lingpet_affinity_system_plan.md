@@ -1081,7 +1081,11 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
   플레이스홀더, V3-6 income QA에서 재튜닝). 같은 링펫스토어 방문에서 첫
   성공 거래만 AP 1 소모, 후속 링코어 구매는 AP 0. 실패(`not_enough_gold`,
   `max_ring_core_tier`, `missing_affinity_store`)는 gold/AP/tier 전부 불변.
-- **V3-3b/d**: resolved choice persistence / 미카 튜토리얼 기본 지급은 후속.
+- **V3-3d**: 미카 튜토리얼 스탠다드 링코어 기본 지급 **완료** — Junior
+  Mika 첫 튜토리얼 egg 스폰 시 registry `lingpet_affinity_store`를 통해
+  `upgrade_ring_core_tier(1)` 호출. hatch affinity보다 먼저 tier 1/cap 5를
+  저장하고, 이미 tier 1+인 계정은 하향/덮어쓰기 없이 유지.
+- **V3-3b**: resolved choice persistence는 후속.
 - **V3-4**: 강화칩 퍽(획득률 배율) + TAB 5눈금 UI.
 - **V3-5**: 먹이 액티브 아이템 (item_runtime_checklist 경로).
 - **V3-6**: 클릭 수치 + 앵커 재산정 (income 로그 실측 후, V2-6 통합).

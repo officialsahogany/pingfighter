@@ -36,6 +36,7 @@ const STATE_NONE := "none"
 const STATE_EGG := "egg"
 const STATE_COMPANION := "companion"
 const REQUIRED_HITS := 1
+const TUTORIAL_STANDARD_RING_CORE_TIER := 1
 const BALL_RADIUS_FALLBACK := 14.3
 const SAVE_SNAPSHOT_VERSION := 1
 const COMPANION_RADIUS := 16.0
@@ -255,7 +256,7 @@ func _update_none_state(owner: Object, registry: Object) -> bool:
 		_adopt_owned_pet(owner, owned_pet_id, registry)
 		return true
 	if _should_spawn_lingpet_egg(owner):
-		_spawn_egg(owner)
+		_spawn_egg(owner, registry)
 		return true
 	if not _has_synced_none:
 		_sync_owner(owner, registry)
@@ -932,7 +933,8 @@ func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
 	_reset_skill_runtime_transients()
 
 
-func _spawn_egg(owner: Object) -> void:
+func _spawn_egg(owner: Object, registry: Object = null) -> void:
+	_grant_tutorial_standard_ring_core_if_needed(owner, registry)
 	_state = STATE_EGG
 	_set_current_pet_id(_pick_hatch_pet_id(owner))
 	_egg_state.spawn(owner)
@@ -945,6 +947,26 @@ func _spawn_egg(owner: Object) -> void:
 	_has_synced_none = false
 	_prewarm_current_visuals()
 	_sync_owner(owner)
+
+
+func _grant_tutorial_standard_ring_core_if_needed(owner: Object, registry: Object = null) -> bool:
+	if not _is_tutorial_first_lingpet_egg(owner):
+		return false
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("upgrade_ring_core_tier"):
+		return false
+	if store.has_method("get_ring_core_tier") and int(store.get_ring_core_tier()) >= TUTORIAL_STANDARD_RING_CORE_TIER:
+		return false
+	return bool(store.upgrade_ring_core_tier(TUTORIAL_STANDARD_RING_CORE_TIER))
+
+
+func _is_tutorial_first_lingpet_egg(owner: Object) -> bool:
+	if owner == null:
+		return false
+	if not _collection_state.get_owned_pet_ids_from_owner(owner).is_empty():
+		return false
+	var hatch_context: Dictionary = _collection_state.get_hatch_context(owner)
+	return str(hatch_context.get("league_mode", "")) == "junior" and str(hatch_context.get("character_type", "")) == "smasher"
 
 
 func _resolve_ball_hit(owner: Object, registry: Object = null) -> bool:

@@ -527,6 +527,8 @@ func _init() -> void:
 	_verify_registry_and_frame_wiring()
 	_verify_lingpet_catalog_random_hatch_scaffold()
 	_verify_junior_mika_spawn_syncs_character_info_keys()
+	_verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch()
+	_verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility()
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
@@ -1332,6 +1334,67 @@ func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 	_expect(str(panel.get("state", "")) == "egg", "character-info ringpet panel should read the shared egg state")
 	_expect(str(panel.get("subtitle", "")).find("0 / 1") >= 0, "character-info panel should show hatch progress")
 	_expect(str(owner.lingpet_effect_text).find("미확인 알") >= 0, "egg effect text should describe an unidentified egg without spoiling the lingpet")
+
+
+func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> void:
+	var affinity_path := "user://lingpet_tutorial_ring_core_standard_smoke.cfg"
+	_remove_user_file(affinity_path)
+	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
+	var store: Object = LingpetAffinityStore.new()
+	store.set_save_path(affinity_path)
+	_expect(bool(store.set_ring_core_tier(0)), "tutorial ring-core fixture should start as explicit no-core")
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+
+	_expect(runtime.update(0.0, owner, registry), "Junior Mika tutorial should spawn the first egg with a registry")
+	_expect(str(owner.lingpet_state) == "egg", "tutorial ring-core grant should happen while the first lingpet is still an egg")
+	_expect_eq(int(store.get_ring_core_tier()), 1, "Junior Mika first egg should grant the standard ring-core before hatch")
+	_expect_eq(int(store.get_ring_core_cap()), 5, "standard tutorial ring-core should expose cap 5 before hatch affinity resolves")
+
+	var egg_pos: Vector2 = owner.lingpet_egg_pos
+	owner.ball_active = true
+	_register_hit(runtime, owner, egg_pos, 1, registry)
+	var hatched_id := str(owner.active_lingpet_id)
+	_expect(hatched_id != "", "tutorial ring-core hatch should reveal a concrete pet")
+	for _i in range(200):
+		runtime.debug_add_affinity_points_for_tests(hatched_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+	_expect_eq(runtime.get_affinity_level(hatched_id), 5, "tutorial standard ring-core should cap first-pet affinity at Lv5")
+	_expect(runtime.get_affinity_points(hatched_id) > 0.0, "tutorial standard ring-core should bank overflow points at the Lv5 cap")
+
+	_remove_user_file(affinity_path)
+	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
+
+
+func _verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility() -> void:
+	var higher_path := "user://lingpet_tutorial_ring_core_higher_smoke.cfg"
+	var viper_path := "user://lingpet_tutorial_ring_core_viper_smoke.cfg"
+	_remove_user_file(higher_path)
+	_remove_user_file(higher_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(viper_path)
+	_remove_user_file(viper_path.trim_suffix(".cfg") + ".last_good.cfg")
+
+	var higher_store: Object = LingpetAffinityStore.new()
+	higher_store.set_save_path(higher_path)
+	_expect(bool(higher_store.set_ring_core_tier(2)), "higher-tier fixture should start at tier 2")
+	var higher_owner := FakeOwner.new()
+	var higher_runtime: Object = LingpetEggRuntime.new()
+	_expect(higher_runtime.update(0.0, higher_owner, FakeRegistry.new({"lingpet_affinity_store": higher_store})), "higher-tier Junior Mika should still spawn the tutorial egg")
+	_expect_eq(int(higher_store.get_ring_core_tier()), 2, "tutorial grant should not lower an existing ring-core tier")
+
+	var viper_store: Object = LingpetAffinityStore.new()
+	viper_store.set_save_path(viper_path)
+	_expect(bool(viper_store.set_ring_core_tier(0)), "non-Mika fixture should start as explicit no-core")
+	var viper_owner := FakeOwner.new()
+	viper_owner.selected_character_type = "viper"
+	var viper_runtime: Object = LingpetEggRuntime.new()
+	_expect(not viper_runtime.update(0.0, viper_owner, FakeRegistry.new({"lingpet_affinity_store": viper_store})), "Junior non-Mika should not spawn the first tutorial egg")
+	_expect_eq(int(viper_store.get_ring_core_tier()), 0, "ineligible non-Mika owner should not receive the tutorial ring-core")
+
+	_remove_user_file(higher_path)
+	_remove_user_file(higher_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(viper_path)
+	_remove_user_file(viper_path.trim_suffix(".cfg") + ".last_good.cfg")
 
 
 func _verify_egg_player_contact_nudges_and_wobbles() -> void:
