@@ -82,12 +82,12 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 			"owned_pet_ids": [],
 			"battle_slot_pet_ids": ["", "", ""],
 			"active_slot_index": 0,
-		}, owner)
+		}, owner, registry)
 		reset_result["loaded_from_file"] = true
 		reset_result["load_summary"] = last_load_summary
 		reset_result["reason"] = "run_state_reset_on_entry"
 		return reset_result
-	var result: Dictionary = runtime.apply_save_snapshot(snapshot, owner)
+	var result: Dictionary = runtime.apply_save_snapshot(snapshot, owner, registry)
 	result["loaded_from_file"] = true
 	result["load_summary"] = last_load_summary
 	return result

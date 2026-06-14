@@ -216,7 +216,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		sample_start = _perf_begin(perf_logger)
 		_prewarm_click_reaction_visual_step()
 		if _applied_loadout_key == "":
-			_apply_current_loadout(owner, true, false)
+			_apply_current_loadout(owner, true, false, registry)
 		_perf_end(perf_logger, "physics.lingpet.prewarm_step", sample_start)
 		sample_start = _perf_begin(perf_logger)
 		_starlight_tracking_state.advance(delta, _get_current_passive_skill(), _state == STATE_COMPANION, _companion_pos)
@@ -459,7 +459,7 @@ func debug_grant_and_activate_pet(
 	_set_current_pet_id(normalized_pet_id)
 	_apply_affinity_headstart_from_store(normalized_pet_id, registry)
 	_skip_unlock_reconcile = active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != ""
-	_apply_current_loadout(owner, true, true)
+	_apply_current_loadout(owner, true, true, registry)
 	# Keep _skip_unlock_reconcile sticky for debug-forced loadouts so later
 	# same-pet unlock reconcile cannot overwrite an F7-selected skill.
 	_egg_state.set_hatched(_get_current_required_hits())
@@ -574,7 +574,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object
 	_switch_transition_state.begin(_pet_id, next_pet_id, COMPANION_SWITCH_TRANSITION_SECONDS)
 	_set_current_pet_id(next_pet_id)
 	_apply_affinity_headstart_from_store(next_pet_id, registry)
-	_apply_current_loadout(owner, true, false)
+	_apply_current_loadout(owner, true, false, registry)
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	_reset_companion_runtime_state()
@@ -809,12 +809,12 @@ func build_save_snapshot() -> Dictionary:
 	return get_save_snapshot()
 
 
-func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictionary:
+func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
 	reset_for_tests()
 	var restore_reason := "ok"
 	if snapshot.is_empty():
 		if owner != null:
-			_sync_owner(owner)
+			_sync_owner(owner, registry)
 		return {
 			"restored": false,
 			"reason": "empty_snapshot",
@@ -829,7 +829,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 	var target_state := str(restore_plan.get("target_state", STATE_NONE))
 	if target_state == STATE_COMPANION:
 		_state = STATE_COMPANION
-		_apply_current_loadout(owner, true, false)
+		_apply_current_loadout(owner, true, false, registry)
 		_egg_state.set_hatched(_get_current_required_hits())
 		var companion_fallback := Vector2.ZERO
 		_companion_pos = _get_vector2_from_variant(snapshot.get("companion_pos", companion_fallback), companion_fallback)
@@ -853,8 +853,8 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 	}
 
 
-func restore_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictionary:
-	return apply_save_snapshot(snapshot, owner)
+func restore_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
+	return apply_save_snapshot(snapshot, owner, registry)
 
 
 func reset_for_tests() -> void:
@@ -976,7 +976,7 @@ func _resolve_ball_hit(owner: Object, registry: Object = null) -> bool:
 
 	if bool(hit_result.get("hatched", false)):
 		_state = STATE_COMPANION
-		_apply_current_loadout(owner, true, true)
+		_apply_current_loadout(owner, true, true, registry)
 		_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 		_apply_affinity_headstart_from_store(_pet_id, registry)
 		_companion_pos = _egg_state.pos
@@ -1016,7 +1016,7 @@ func _play_ring_dash_audio(registry: Object = null) -> void:
 func _sync_owner(owner: Object, registry: Object = null) -> void:
 	if _state == STATE_COMPANION:
 		if _applied_loadout_key == "":
-			_apply_current_loadout(owner, true, false)
+			_apply_current_loadout(owner, true, false, registry)
 	else:
 		_loadout_state.sync_owner(owner, "")
 	var should_sync_loadouts := _state != STATE_COMPANION or _synced_owner_loadout_key != _applied_loadout_key
@@ -1112,7 +1112,7 @@ func _adopt_owned_pet(owner: Object, pet_id: String, registry: Object = null) ->
 	_state = STATE_COMPANION
 	_set_current_pet_id(pet_id)
 	_apply_affinity_headstart_from_store(pet_id, registry)
-	_apply_current_loadout(owner, true, false)
+	_apply_current_loadout(owner, true, false, registry)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_initialize_companion_patrol(owner, true)
@@ -1488,7 +1488,7 @@ func _normalize_pet_id(value: String) -> String:
 	return _current_profile.normalize_pet_id(value)
 
 
-func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool = false) -> void:
+func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool = false, registry: Object = null) -> void:
 	if _pet_id == "":
 		_skip_unlock_reconcile = false
 		if _applied_loadout_key != "":
@@ -1498,11 +1498,11 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 		return
 	var reconciled_unlocks := false
 	if not _skip_unlock_reconcile and _has_unlock_reconcile_work(_pet_id):
-		reconciled_unlocks = _reconcile_unlock_choices(owner)
+		reconciled_unlocks = _reconcile_unlock_choices(owner, registry)
 	if not randomize_missing and not reconciled_unlocks and _applied_loadout_key != "":
 		return
 	var loadout: Dictionary = _loadout_state.ensure_pet_loadout(owner, _pet_id, null, randomize_missing) if ensure else _loadout_state.get_loadout(_pet_id)
-	_configure_affinity_reward_context(_pet_id, loadout)
+	_configure_affinity_reward_context(_pet_id, loadout, registry)
 	var loadout_key := _build_loadout_key(_pet_id, loadout)
 	if not randomize_missing and loadout_key == _applied_loadout_key:
 		return
@@ -1522,11 +1522,11 @@ func _has_unlock_reconcile_work(pet_id: String) -> bool:
 	)
 
 
-func _reconcile_unlock_choices(owner: Object) -> bool:
+func _reconcile_unlock_choices(owner: Object, registry: Object = null) -> bool:
 	var pet_id := _normalize_pet_id(_pet_id)
 	if pet_id == "":
 		return false
-	_seed_unlock_choice_candidates(pet_id)
+	_seed_unlock_choice_candidates(pet_id, registry)
 	_auto_resolve_unlock_choices(pet_id)
 	var resolved: Dictionary = _affinity_state.get_resolved_unlock_choices(pet_id)
 	var active_id := _get_resolved_unlock_id(resolved, "active")
@@ -1552,7 +1552,7 @@ func _reconcile_unlock_choices(owner: Object) -> bool:
 	return true
 
 
-func _seed_unlock_choice_candidates(pet_id: String) -> void:
+func _seed_unlock_choice_candidates(pet_id: String, registry: Object = null) -> void:
 	var rewards: Dictionary = _affinity_state.get_cumulative_rewards(pet_id)
 	if bool(rewards.get("active_unlocked", false)):
 		_seed_unlock_candidates_for_type(
@@ -1566,6 +1566,7 @@ func _seed_unlock_choice_candidates(pet_id: String) -> void:
 			LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK,
 			_get_first_passive_unlock_candidate_ids(pet_id)
 		)
+	_apply_persisted_unlock_choices(pet_id, ["active", "passive"], registry)
 	_auto_resolve_unlock_choices(pet_id, ["active", "passive"])
 	if bool(rewards.get("second_active_unlocked", false)):
 		_seed_unlock_candidates_for_type(
@@ -1579,6 +1580,7 @@ func _seed_unlock_choice_candidates(pet_id: String) -> void:
 			LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK,
 			_get_second_passive_unlock_candidate_ids(pet_id)
 		)
+	_apply_persisted_unlock_choices(pet_id, ["second_active", "second_passive"], registry)
 
 
 func _seed_unlock_candidates_for_type(pet_id: String, reward_type: String, candidate_ids: Array[String]) -> void:
@@ -1606,6 +1608,42 @@ func _auto_resolve_unlock_choices(pet_id: String, choice_keys: Array[String] = [
 		if candidates.is_empty():
 			continue
 		_affinity_state.choose_skill_unlock(pet_id, str(choice.get("type", "")), str(candidates[0]))
+
+
+func _apply_persisted_unlock_choices(pet_id: String, choice_keys: Array[String], registry: Object = null) -> void:
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("get_resolved_unlock_choices"):
+		return
+	var stored: Dictionary = store.get_resolved_unlock_choices(pet_id)
+	if stored.is_empty():
+		return
+	var pending: Dictionary = _affinity_state.get_pending_unlock_choices(pet_id)
+	if pending.is_empty():
+		return
+	for raw_choice_key in choice_keys:
+		var choice_key := str(raw_choice_key).strip_edges().to_lower()
+		if not pending.has(choice_key):
+			continue
+		var selected_id := str(stored.get(choice_key, "")).strip_edges().to_lower()
+		if selected_id == "":
+			continue
+		var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
+		var candidates: Array = choice.get("candidates", []) as Array
+		if not _choice_candidates_include(candidates, selected_id):
+			if store.has_method("clear_resolved_unlock_choice"):
+				store.clear_resolved_unlock_choice(pet_id, choice_key)
+			continue
+		_affinity_state.choose_skill_unlock(pet_id, str(choice.get("type", "")), selected_id)
+
+
+func _choice_candidates_include(candidates: Array, selected_id: String) -> bool:
+	var normalized_selected := selected_id.strip_edges().to_lower()
+	if normalized_selected == "":
+		return false
+	for raw_candidate in candidates:
+		if str(raw_candidate).strip_edges().to_lower() == normalized_selected:
+			return true
+	return false
 
 
 func _get_active_unlock_candidate_ids(pet_id: String) -> Array[String]:

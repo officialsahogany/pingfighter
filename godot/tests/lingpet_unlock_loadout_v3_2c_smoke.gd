@@ -114,6 +114,9 @@ func _init() -> void:
 	_verify_second_unlock_flags_fill_slot_one()
 	_verify_debug_forced_skill_reconcile_stays_sticky()
 	_verify_headstart_rederives_primary_unlock()
+	_verify_persisted_unlock_choice_overrides_auto_resolve()
+	_verify_stale_persisted_unlock_choice_drops_to_auto_resolve()
+	_verify_resolved_unlock_choice_store_roundtrip_and_threading()
 	_verify_maribo_headstart_rederives_starter_unlock()
 	_cleanup_runtimes()
 	ProjectResourceLoader.clear_caches()
@@ -353,6 +356,72 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	store.clear()
 
 
+func _verify_persisted_unlock_choice_overrides_auto_resolve() -> void:
+	var store := LingpetAffinityStore.new()
+	store.set_save_path("user://lingpet_unlock_persisted_choice_smoke.cfg")
+	store.clear()
+	_expect(bool(store.set_best_level("lumion", 3)), "persisted-choice fixture should seed Lumion Lv.1 headstart")
+	_expect(bool(store.set_resolved_unlock_choice("lumion", "active", "lumion_solar_bolt")), "persisted-choice fixture should save a non-default active choice")
+
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "persisted-choice fixture should activate Lumion")
+	runtime.update(0.0, owner, registry)
+	_expect_eq(runtime.get_affinity_level("lumion"), 1, "best level 3 should rebuild the Lv.1 unlock before persisted choice reconcile")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "lumion_solar_bolt", "persisted active choice should beat temporary candidate[0] auto-resolve")
+	var resolved := _resolved_choice(runtime, "lumion", "active")
+	_expect_str(str(resolved.get("selected", "")), "lumion_solar_bolt", "affinity state should carry the persisted active choice after reconcile")
+	_expect_str(str(store.get_resolved_unlock_choices("lumion").get("active", "")), "lumion_solar_bolt", "reconcile should not rewrite an existing persisted choice")
+	store.clear()
+
+
+func _verify_stale_persisted_unlock_choice_drops_to_auto_resolve() -> void:
+	var store := LingpetAffinityStore.new()
+	store.set_save_path("user://lingpet_unlock_stale_choice_smoke.cfg")
+	store.clear()
+	_expect(bool(store.set_best_level("lumion", 3)), "stale-choice fixture should seed Lumion Lv.1 headstart")
+	_expect(bool(store.set_resolved_unlock_choice("lumion", "active", "missing_solar_bolt")), "stale-choice fixture should save an invalid active choice")
+
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "stale-choice fixture should activate Lumion")
+	runtime.update(0.0, owner, registry)
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "lumion_thunder_orb", "stale persisted active should be dropped before loadout write and fall back to candidate[0]")
+	_expect_str(str(store.get_resolved_unlock_choices("lumion").get("active", "")), "", "stale persisted active choice should be cleared from the permanent store")
+	store.clear()
+
+
+func _verify_resolved_unlock_choice_store_roundtrip_and_threading() -> void:
+	var store_path := "user://lingpet_unlock_choice_roundtrip_smoke.cfg"
+	_remove_user_file(store_path)
+	_remove_user_file(store_path.trim_suffix(".cfg") + ".last_good.cfg")
+	var store := LingpetAffinityStore.new()
+	store.set_save_path(store_path)
+	_expect(bool(store.set_resolved_unlock_choice("Lumion ", "ACTIVE", " Lumion_Solar_Bolt ")), "resolved choice store should accept normalized pet/key/skill ids")
+	var reloaded := LingpetAffinityStore.new()
+	reloaded.set_save_path(store_path)
+	_expect_eq(int(reloaded.get_schema_version()), 4, "resolved choice store should stamp the v4 schema")
+	_expect_str(str(reloaded.get_resolved_unlock_choices("lumion").get("active", "")), "lumion_solar_bolt", "resolved choice should roundtrip through the permanent store")
+	var saved_text := FileAccess.get_file_as_string(store_path)
+	_expect(saved_text.find("[resolved_unlock_choices]") >= 0 and saved_text.find("lumion.active=\"lumion_solar_bolt\"") >= 0, "resolved choice file should use the pet-scoped selected-only section")
+	_expect_str(str(reloaded.last_load_summary), "ok", "choice-only affinity store should not be treated as an empty/corrupt residue file")
+
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(runtime_source.find("_apply_current_loadout(owner, true, false, registry)") >= 0, "companion hot path should thread registry into unlock reconcile")
+	_expect(runtime_source.find("_apply_current_loadout(owner, true, true, registry)") >= 0, "hatch/debug paths should thread registry into unlock reconcile")
+	var save_store_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_save_store.gd")
+	_expect(save_store_source.find("apply_save_snapshot(snapshot, owner, registry)") >= 0, "lingpet save restore should thread registry into snapshot reconcile")
+	var plaza_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
+	_expect(plaza_source.find("apply_save_snapshot(snapshot, owner, registry)") >= 0, "plaza rollback restore should thread registry into snapshot reconcile")
+	reloaded.clear()
+	_remove_user_file(store_path)
+	_remove_user_file(store_path.trim_suffix(".cfg") + ".last_good.cfg")
+
+
 func _verify_maribo_headstart_rederives_starter_unlock() -> void:
 	var store := LingpetAffinityStore.new()
 	store.set_save_path("user://lingpet_unlock_v3_2c_maribo_headstart_smoke.cfg")
@@ -426,6 +495,12 @@ func _string_arrays_equal(left: Array, right: Array) -> bool:
 		if str(left[i]) != str(right[i]):
 			return false
 	return true
+
+
+func _remove_user_file(path: String) -> void:
+	var absolute_path := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(absolute_path)
 
 
 func _expect(condition: bool, message: String) -> void:

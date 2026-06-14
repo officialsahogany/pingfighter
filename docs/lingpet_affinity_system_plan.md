@@ -583,10 +583,10 @@ v1 봉인 이후 확장. 합의 경로: 사용자 제안 → Claude 1차 설계 
 ⚠ **"런에서 올린 레벨을 영구 누적" 방식은 기각** — 짧은 런을 반복해
 Lv.1~2만 뽑는 쇼트런 파밍 루프가 열려 v1 anti-inflation 철학과 충돌.
 
-- 스토어 스키마 v3: `[meta] schema_version=3` / `[best_levels]`
+- 스토어 스키마 v4: `[meta] schema_version=4` / `[best_levels]`
   (기존 그대로, **헤드스타트 전용 유지**) / `[bond_points]` /
-  `[ring_core] tier` 분리. v1/v2 파일 마이그레이션: best_levels 보존,
-  bond 0 또는 기존 bond 보존, ring_core는 **missing** 상태로 유지해
+  `[ring_core] tier` / `[resolved_unlock_choices]` 분리. v1/v2/v3 파일 마이그레이션:
+  best_levels 보존, bond 0 또는 기존 bond 보존, ring_core는 **missing** 상태로 유지해
   레거시 세이브를 fail-open(MAX cap) 처리. explicit tier 0만 무코어.
 - **적립 규칙 (확정, 2026-06-11)**: 전투 중 레벨업을 **펫별 pending
   원장**(battle-cap 스코프 `battle_level_ups_by_pet`)에 적립해 두고,
@@ -1070,7 +1070,7 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
     egg_runtime_smoke를 안 돌려 놓침 → affinity 변경 시 affinity를 굴리는
     모든 스모크(affinity_state + egg_runtime) 실행을 sign-off 체크리스트에 고정.
 - **V3-3a**: 링코어 cap 토대 **완료** — `lingpet_affinity_store`
-  schema v3(`[ring_core] tier`) + account-wide tier→cap(0/5/10/15/20/25/30)
+  schema v3(`[ring_core] tier`, 이후 V3-3b에서 store schema v4로 승격) + account-wide tier→cap(0/5/10/15/20/25/30)
   + `lingpet_egg_runtime` registry-threaded cap 주입. missing tier는
   fail-open(MAX), explicit tier 0만 무코어. registry 없는 context sync는
   `RING_CORE_CAP_UNCHANGED`로 기존 cap 보존(매 owner snapshot/loadout apply가
@@ -1085,7 +1085,12 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
   Mika 첫 튜토리얼 egg 스폰 시 registry `lingpet_affinity_store`를 통해
   `upgrade_ring_core_tier(1)` 호출. hatch affinity보다 먼저 tier 1/cap 5를
   저장하고, 이미 tier 1+인 계정은 하향/덮어쓰기 없이 유지.
-- **V3-3b**: resolved choice persistence는 후속.
+- **V3-3b**: resolved choice persistence **완료** — `lingpet_affinity_store`
+  schema v4(`[resolved_unlock_choices] pet.choice_key=selected_id`) + reconcile
+  persisted 우선 적용. 범위는 인프라만: auto-resolve는 store에 기본값을 쓰지 않고,
+  V3-2c-UI/player picker가 쓸 selected-only 저장 API와 reload 우선순위를 봉인.
+  registry threading은 `_apply_current_loadout` 7 호출자와 save/plaza restore 경로 전수.
+  stale persisted id는 candidate pool 검증에서 drop/clear 후 기존 auto fallback.
 - **V3-4**: 강화칩 퍽(획득률 배율) + TAB 5눈금 UI.
 - **V3-5**: 먹이 액티브 아이템 (item_runtime_checklist 경로).
 - **V3-6**: 클릭 수치 + 앵커 재산정 (income 로그 실측 후, V2-6 통합).

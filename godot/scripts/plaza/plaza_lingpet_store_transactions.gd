@@ -89,7 +89,7 @@ func _buy_resonance_egg(save_store: Object, owner: Object, registry: Object, con
 
 	var payment := _perform_egg_payment(save_store, EGG_COST, consume_ap)
 	if not bool(payment.get("changed", false)):
-		_restore_runtime_snapshot(lingpet_runtime, owner, rollback_snapshot)
+		_restore_runtime_snapshot(lingpet_runtime, owner, registry, rollback_snapshot)
 		return _merge_wallet_summary(
 			_merge_runtime_summary(
 				_build_summary("buy_egg", EGG_COST, false, str(payment.get("reason", "payment_failed"))),
@@ -175,11 +175,11 @@ func _capture_runtime_snapshot(lingpet_runtime: Object) -> Dictionary:
 	return {}
 
 
-func _restore_runtime_snapshot(lingpet_runtime: Object, owner: Object, snapshot: Dictionary) -> void:
+func _restore_runtime_snapshot(lingpet_runtime: Object, owner: Object, registry: Object, snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
 	if lingpet_runtime != null and lingpet_runtime.has_method("apply_save_snapshot"):
-		lingpet_runtime.apply_save_snapshot(snapshot, owner)
+		lingpet_runtime.apply_save_snapshot(snapshot, owner, registry)
 
 
 func _has_plaza_gold(save_store: Object, amount: int) -> bool:
