@@ -478,6 +478,13 @@ Standing rules:
 - Godot warning scan: from `godot/`, run `.\tools\run_warning_scan.ps1`.
 - Focused Godot smoke tests: prefer the repo-local wrappers under
   `godot/tools/` when available.
+- In Godot smoke scripts, do not rely on an early `quit(1)` alone when later
+  code can still reach a success `quit(0)`. `SceneTree.quit()` is deferred, so
+  fallible checks in multi-phase / `await`-driven tests must accumulate a
+  failure flag (or return immediately after fatal setup failures) and gate the
+  final success exit on that flag. Use
+  `project_resource_loader_import_preference_smoke.gd` as the reference
+  pattern.
 - Before making a Windows export that touches loading, runtime texture
   loading, Live2D-style sheets, lingpet cut-ins / click reactions, or
   stage-clear result visuals, run the focused export-regression smokes:
