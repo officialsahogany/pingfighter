@@ -578,7 +578,7 @@ func _init() -> void:
 	_verify_affinity_score_event_and_battle_reset()
 	_verify_affinity_reward_application()
 	_verify_second_active_slot_runtime_foundation()
-	_verify_debug_grant_unlock_reconcile_skip_is_one_shot()
+	_verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change()
 	_verify_second_active_resource_conflict_mediation()
 	_verify_affinity_level_up_feedback_and_income_log()
 	_verify_affinity_point_gain_popup()
@@ -4499,7 +4499,7 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	_expect_eq(int(legacy_stored.get("trigger_count", 0)), 3, "legacy flat skill snapshot should preserve shared trigger count")
 
 
-func _verify_debug_grant_unlock_reconcile_skip_is_one_shot() -> void:
+func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> void:
 	var owner := FakeOwner.new()
 	owner.ball_active = true
 	owner.ball_pos = Vector2(380.0, 260.0)
@@ -4510,7 +4510,7 @@ func _verify_debug_grant_unlock_reconcile_skip_is_one_shot() -> void:
 		runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry, 1, 1),
 		"explicit debug active fixture should activate Maribo"
 	)
-	_expect(not bool(runtime._skip_unlock_reconcile), "debug-grant unlock reconcile skip should be consumed after the forced loadout apply")
+	_expect(bool(runtime._skip_unlock_reconcile), "debug-grant unlock reconcile skip should stay sticky for the forced same-pet loadout")
 	var initial_loadout: Dictionary = runtime._loadout_state.get_loadout("maribo")
 	_expect_str(str(initial_loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "explicit debug grant should keep its forced active skill")
 	_expect_str(str(initial_loadout.get("passive_skill_id", "")), "", "explicit active-only debug grant should start without a passive skill")
@@ -4521,9 +4521,9 @@ func _verify_debug_grant_unlock_reconcile_skip_is_one_shot() -> void:
 	var reconciled_loadout: Dictionary = runtime._loadout_state.get_loadout("maribo")
 	var reconciled_passive_id := str(reconciled_loadout.get("passive_skill_id", ""))
 	_expect_str(str(reconciled_loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "same-pet reconcile should preserve the selected primary active")
-	_expect(reconciled_passive_id != "", "same-pet debug grant should resume unlock reconcile after the forced loadout apply")
-	_expect((reconciled_loadout.get("passive_skill_ids", []) as Array).size() > 0, "same-pet debug grant should auto-fill the primary passive slot after the one-shot skip")
-	_expect(str(owner.lingpet_passive_skill_id) != "", "owner sync should expose the reconciled passive after the one-shot skip")
+	_expect_str(reconciled_passive_id, "", "same-pet debug grant should keep unlock reconcile blocked for the forced loadout")
+	_expect_eq((reconciled_loadout.get("passive_skill_ids", []) as Array).size(), 0, "same-pet debug grant should not auto-fill a primary passive slot")
+	_expect_str(str(owner.lingpet_passive_skill_id), "", "owner sync should keep passive empty while the forced debug loadout is protected")
 
 	_expect(
 		runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry, 1, 1),
