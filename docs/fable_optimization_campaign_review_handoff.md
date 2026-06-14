@@ -7,10 +7,11 @@
 
 ## 0. 브랜치/HEAD 상태 (먼저)
 
-- 브랜치 `feature/plaza-hub-s4-s6b5`, HEAD `3833d8ad5`. 아래 24개 최적화 커밋 +
-  큐레이션 커밋(3833d8ad5)은 **전부 HEAD 조상으로 도달 가능**(검증됨). 그 위에
-  plaza/lingpet/lumion 신규 커밋이 쌓여 `git log -5` 상단엔 안 보일 수 있다 —
-  `git show <hash>`로 직접 리뷰.
+- 브랜치 `feature/plaza-hub-s4-s6b5`. 아래 24개 최적화 커밋 + 큐레이션 커밋
+  (`3833d8ad5`, `b1fa925de`) + mythic 핫패스 fix(`24de004fa`)는 **전부 HEAD
+  조상으로 도달 가능**(검증됨). HEAD 포인터는 세션 중 전진하니(이 문서 작성 후에도
+  커밋 누적) `git log -1`로 현재 HEAD를 확인하고, 위 해시들을
+  `git branch --contains <hash>`로 위치 재확인. `git show <hash>`로 diff 직접 리뷰.
 - **checkpoint 브랜치 HEAD 유동 + 메모리 동시편집 주의**: 이 repo는 외부 세션이
   브랜치 HEAD와 일부 진행 메모를 세션 중 전진/수정한다. 리뷰/체리픽 전
   `git branch --contains <hash>`로 위치 재확인.
@@ -105,10 +106,15 @@ reset/"활성?" 소비자는 `get_cached_instance()` peek, 진짜 첫 생성은 
 
 ## 3. open 항목 (Codex 진단 환영)
 
-- **★ stage1 viper `mythic_items` 0.67→3.04ms 회귀** (plaza/lingpet/lumion 신규
-  커밋 이후, 06-14 측정). 더블링 94%. detail 플래그 꺼져 per-item 미분해 —
-  기법1(계측 먼저)로 mythic 서브라벨 분해 후 기법2(last-pushed 게이팅) 적용이
-  자연스러운 다음 슬라이스. 상세: `frame_budget_optimization_session_handoff.md` §3.
+- **✅ [해결·커밋 `24de004fa`] stage1 viper `mythic_items` 0.67→3.04ms 회귀.**
+  근본원인은 내 추측(또 다른 last-pushed 캐시 미스)이 **아니었음** — 계측 커밋
+  `11f0a86bc`가 back-compat arg-count 체크를 **uncached `get_method_list()` 스캔으로
+  매 mythic 틱 실행**한 것(아이러니: "계측 먼저"가 리플렉션 오버헤드 주입). fix =
+  캐시된 `_get_method_argument_count`(instance_id:method 메모이즈, active-item 경로와
+  동일)로 라우팅 + uncached 헬퍼 제거. 가드 스모크
+  `item_update_boss_health_reset_smoke._verify_mythic_update_signature_check_is_cached`.
+  벤치 첫 lookup 2389us→캐시 22.2us. (교훈: 계측 플러밍의 리플렉션도 핫패스면 캐시할
+  것 — 플레이북 봉인규율 #1 "non-behavioral 계측"의 비용 함정.)
 - **트램펄린 묶음 미커밋** (active_item_* + 언트랙드 8파일 동반 필수 — 누락 시
   로드 실패). 이 묶음 커밋 전엔 effects 콜백 경로 엉킴.
 - **stage2 spike 소스**: commando(완료) 외 fresh 측정 필요(에이전트 attribution

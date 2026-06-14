@@ -78,12 +78,14 @@ plaza/ringcode/lumion(천둥낙뢰) 신규 커밋(`f241f66b0`…`a40485c33`) 이
 재발. 측정: `godot.log` 2026-06-14 11:06, **stage1 viper 140 윈도우**.
 
 - **더블링 94.3%(132/140), shell-over-budget 135/140** — 이전 stage1 11~20% 대비 폭증.
-- **상시 회귀(진짜 felt 주범): `physics.callback.mythic_items` 0.67→3.04ms,
-  123/140 윈도우.** `physics.items.mythic_total` 3.03ms. 이게 flow_update를
-  2~3ms→6ms로 끌어올려 더블링%의 본체. **내부 per-item 분해는 미완**(detail 플래그
-  꺼져 있어 mythic.gate 58us·once_from_active 11us 외 세부 미캡처) — 다음 측정 시
-  detail 플래그 켜고 mythic 서브라벨 분해 필요. lumion(루미온)이 mythic이 아니라
-  lingpet 스킬인데 mythic_items가 4.5배 뛴 인과는 미규명 → 신규 커밋 diff 의심.
+- **✅ [해결·커밋 `24de004fa`, Codex 진단] 상시 회귀 `physics.callback.mythic_items`
+  0.67→3.04ms (123/140 윈도우).** 근본원인은 per-item 가격이나 last-pushed 미스가
+  **아니라**, 계측 커밋 `11f0a86bc`가 perf_logger back-compat arg-count 체크를
+  **uncached `get_method_list()` 스캔으로 매 mythic 틱 실행**한 것. fix = 캐시된
+  `_get_method_argument_count`로 라우팅 + uncached 헬퍼 제거(active-item 경로와 동일).
+  가드 스모크 `item_update_boss_health_reset_smoke`. 벤치 첫 2389us→캐시 22.2us.
+  (lumion이 mythic 아닌 lingpet 스킬인데 mythic_items가 뛴 게 단서였음 — 비용이
+  per-item이 아니라 update 디스패치 리플렉션이었던 것.)
 - `physics.callback.lingpet` 1.18ms(123/140, worst 17.6ms): owner_sync 0.43 +
   skill_effects 0.21 + companion_motion 0.15 + ball_hit 0.13 + strike_arm 0.12.
 - **아티팩트(주범 아님, 혼동 주의)**: `draw.overlay.lingpet_debug` max 129.9ms는
@@ -114,10 +116,9 @@ plaza/ringcode/lumion(천둥낙뢰) 신규 커밋(`f241f66b0`…`a40485c33`) 이
 2. `798754ba1` F1: 라운드 경계 변경 owner 키가 `sync_transient_owner_state` 커버리지에
    다 들어가는지(누락 시 한 라운드 stale 패널). `mythic_item_owner_syncer.sync_transient_owner_state`
    vs `sync_owner` 키 delta 감사.
-3. ★ stage1 viper `mythic_items` 0.67→3.04ms 회귀의 **per-item 원인**:
-   `mythic_item_update_gate`/`update_runtime`/per-item runtime의 신규 커밋 diff에서
-   per-frame 비용 증가 지점(풀싱크 재도입? 신규 per-frame 파티클/owner.set?).
-   detail 플래그 켜고 재측정 권장.
+3. ✅ [해결 `24de004fa`] stage1 viper `mythic_items` 3ms 회귀 — uncached
+   `get_method_list()` per-tick 스캔(계측 커밋 `11f0a86bc` 도입), 캐시 헬퍼로 수정.
+   §3 참조. (재측정으로 mythic_items 회복 확인은 권장.)
 4. 트램펄린 묶음 커밋 스코프(언트랙드 8파일 동반) 확인.
 
 ## 6. 측정 재현
