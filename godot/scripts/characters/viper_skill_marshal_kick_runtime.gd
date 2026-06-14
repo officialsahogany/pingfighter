@@ -317,7 +317,7 @@ static func _apply_charge_hit(runtime: Object, next_pos: Vector2, ball_pos: Vect
 	var gold_award: int = int(constants.get("double_hit_gold", 50)) if runtime.marshal_is_double else int(constants.get("hit_gold", 30))
 	if runtime.shadow_was_airborne:
 		gold_award = int(float(gold_award) * float(constants.get("shadow_airborne_gold_mult", 1.5)))
-	hit_result.merge(runtime.runtime_action_router.award_skill_gold(deps, gold_award), true)
+	hit_result.merge(runtime.runtime_action_router.award_skill_gold(deps, gold_award, config), true)
 	result.merge(runtime._mark_result_released_chaos_hit(hit_result, released_chaos), true)
 	if runtime.marshal_is_double:
 		runtime.marshal_phase = 5

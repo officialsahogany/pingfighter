@@ -217,7 +217,7 @@ func apply_air_strike_post_hit(
 	result["paddle_hit_pulse_intensity"] = AIR_STRIKE_HIT_PULSE_INTENSITY
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	if runtime_perk_state != null and runtime_perk_state.has_method("award_gold"):
-		result["runtime_perk_gold"] = int(runtime_perk_state.award_gold(AIR_STRIKE_GOLD))
+		result["runtime_perk_gold"] = int(_call_award_gold(runtime_perk_state, AIR_STRIKE_GOLD, context, deps))
 	return result
 
 
@@ -398,3 +398,21 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _call_award_gold(runtime_perk_state: Object, amount: int, context: Dictionary, deps: Dictionary) -> int:
+	if _method_accepts_arg_count(runtime_perk_state, "award_gold", 3):
+		return int(runtime_perk_state.award_gold(amount, context, deps))
+	return int(runtime_perk_state.award_gold(amount))
+
+
+func _method_accepts_arg_count(target: Object, method_name: String, arg_count: int) -> bool:
+	if target == null:
+		return false
+	for method in target.get_method_list():
+		if str(method.get("name", "")) != method_name:
+			continue
+		var args: Variant = method.get("args", [])
+		if args is Array:
+			return (args as Array).size() >= arg_count
+	return false

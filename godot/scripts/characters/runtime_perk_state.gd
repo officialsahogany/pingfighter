@@ -31,6 +31,14 @@ const STARPOINT_ABSORPTION_SOURCE_PLAYFIELD_OFFSET_Y := -120.0
 const PERK_RESUME_FREEZE_FRAMES := 10.0
 const PERK_RESUME_RECOVERY_FRAMES := 60.0
 const PERK_RESUME_MIN_SPEED_RATIO := 0.30
+const RALLY_GOLD_BASE := 4
+const RALLY_GOLD_SPEED_BONUS_8 := 2
+const RALLY_GOLD_SPEED_BONUS_12 := 4
+const RALLY_GOLD_SPEED_BONUS_16 := 6
+const RALLY_GOLD_SPEED_BONUS_20 := 8
+const ENRAGED_BOSS_GOLD_MULTIPLIER := 1.50
+const SMASHER_COMBO_GOLD_BONUS_PER_STACK := 0.08
+const BLACKSMITH_STRUCTURE_GOLD_BONUS := 0.15
 const VIPER_IGNITION_AURA_LEVEL_BONUS := 2
 const VIPER_IGNITION_AURA_GOLD_BONUS := 50
 const ITEM_CAFFEINE_ID := "item_caffeine"
@@ -906,7 +914,12 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 		return false
 
 	if choice_id == "convert_to_gold":
-		var gold_amount: int = _apply_runtime_gold_gain_modifiers(int(choice.get("gold_amount", 500)))
+		var gold_context: Dictionary = _build_owner_gold_gain_context(owner, registry)
+		var gold_amount: int = _apply_runtime_gold_gain_modifiers(
+			int(choice.get("gold_amount", 500)),
+			gold_context,
+			{"registry": registry}
+		)
 		gold_from_perks += gold_amount
 		feedback_text = "골드 +%d" % gold_amount
 		feedback_timer = 1.2
@@ -1257,8 +1270,40 @@ func get_laurel_leaf_count(registry: Object = null) -> int:
 	return total_leaves
 
 
-func award_gold(amount: int) -> int:
-	var boosted_amount: int = _apply_runtime_gold_gain_modifiers(amount)
+func calculate_rally_gold(ball_vel: Vector2) -> int:
+	var speed: float = ball_vel.length()
+	var speed_bonus := 0
+	if speed < 8.0:
+		speed_bonus = 0
+	elif speed < 12.0:
+		speed_bonus = RALLY_GOLD_SPEED_BONUS_8
+	elif speed < 16.0:
+		speed_bonus = RALLY_GOLD_SPEED_BONUS_12
+	elif speed < 20.0:
+		speed_bonus = RALLY_GOLD_SPEED_BONUS_16
+	else:
+		speed_bonus = RALLY_GOLD_SPEED_BONUS_20
+	return RALLY_GOLD_BASE + speed_bonus
+
+
+func award_rally_gold(ball_vel: Vector2, context: Dictionary = {}, deps: Dictionary = {}) -> int:
+	if bool(context.get("arena_mode_enabled", false)):
+		return gold_from_perks
+	var amount: int = calculate_rally_gold(ball_vel)
+	var dash_state: Object = deps.get("dash_state", null)
+	if dash_state != null and dash_state.has_method("consume_next_rally_gold_multiplier"):
+		if bool(dash_state.consume_next_rally_gold_multiplier()):
+			amount *= 2
+	return award_gold(amount, context, deps)
+
+
+func award_gold(amount: int, context: Dictionary = {}, deps: Dictionary = {}) -> int:
+	var boosted_amount: int = _apply_runtime_gold_gain_modifiers(amount, context, deps)
+	return _store_gold_gain(boosted_amount, 1.0)
+
+
+func _store_gold_gain(boosted_amount: int, _feedback_duration: float) -> int:
+	boosted_amount = max(0, boosted_amount)
 	gold_from_perks += boosted_amount
 	if boosted_amount > 0:
 		feedback_text = "퍽 골드 +%d" % boosted_amount
@@ -1341,11 +1386,95 @@ func _apply_item_gold_gain_bonus(amount: int) -> int:
 	return int(floor(float(max(0, amount)) * item_gold_gain_multiplier))
 
 
-func _apply_runtime_gold_gain_modifiers(amount: int) -> int:
+func _apply_runtime_gold_gain_modifiers(amount: int, context: Dictionary = {}, deps: Dictionary = {}) -> int:
 	var base_amount: int = max(0, amount)
+	if base_amount <= 0:
+		return 0
+	if _is_enraged_gold_context(context):
+		base_amount = int(float(base_amount) * ENRAGED_BOSS_GOLD_MULTIPLIER)
 	if viper_ignition_aura_active and base_amount > 0:
 		base_amount += VIPER_IGNITION_AURA_GOLD_BONUS
-	return _apply_item_gold_gain_bonus(base_amount)
+	base_amount = _apply_item_gold_gain_bonus(base_amount)
+	var combo_count: int = _get_smasher_gold_combo_count(context, deps)
+	if combo_count >= 1:
+		base_amount = int(float(base_amount) * (1.0 + float(combo_count) * SMASHER_COMBO_GOLD_BONUS_PER_STACK))
+	var blacksmith_bonus: float = _get_blacksmith_structure_gold_bonus(context, deps)
+	if blacksmith_bonus > 0.0:
+		base_amount = int(float(base_amount) * (1.0 + blacksmith_bonus))
+	return base_amount
+
+
+func _is_enraged_gold_context(context: Dictionary) -> bool:
+	return bool(context.get("enraged_boss_active", context.get("boss_enraged", false)))
+
+
+func _get_smasher_gold_combo_count(context: Dictionary, deps: Dictionary = {}) -> int:
+	if str(context.get("selected_character_type", "")).strip_edges().to_lower() != "smasher":
+		return 0
+	if context.has("smasher_combo_count"):
+		return max(0, int(context.get("smasher_combo_count", 0)))
+	var combo_state: Object = deps.get("combo_state", null)
+	if combo_state != null and combo_state.has_method("get_combo_count"):
+		return max(0, int(combo_state.get_combo_count()))
+	return 0
+
+
+func _get_blacksmith_structure_gold_bonus(context: Dictionary, _deps: Dictionary = {}) -> float:
+	if str(context.get("selected_character_type", "")).strip_edges().to_lower() != "blacksmith":
+		return 0.0
+	var bonus := 0.0
+	if _has_gold_context_flag(context, [
+		"blacksmith_divine_stone_active",
+		"blacksmith_divine_active",
+		"blacksmith_divine_stone_state",
+	]):
+		bonus += BLACKSMITH_STRUCTURE_GOLD_BONUS
+	if _has_gold_context_flag(context, [
+		"blacksmith_turret_active",
+		"blacksmith_turret_state",
+	]):
+		bonus += BLACKSMITH_STRUCTURE_GOLD_BONUS
+	return bonus
+
+
+func _has_gold_context_flag(context: Dictionary, keys: Array) -> bool:
+	for key in keys:
+		var value: Variant = context.get(str(key), null)
+		if value == null:
+			continue
+		if value is bool:
+			if bool(value):
+				return true
+			continue
+		if value is Dictionary:
+			if not (value as Dictionary).is_empty():
+				return true
+			continue
+		return true
+	return false
+
+
+func _build_owner_gold_gain_context(owner: Object, registry: Object) -> Dictionary:
+	var context: Dictionary = {}
+	if owner != null:
+		for key in [
+			"selected_character_type",
+			"arena_mode_enabled",
+			"enraged_boss_active",
+			"boss_enraged",
+			"blacksmith_divine_stone_active",
+			"blacksmith_divine_active",
+			"blacksmith_divine_stone_state",
+			"blacksmith_turret_active",
+			"blacksmith_turret_state",
+		]:
+			var value: Variant = owner.get(str(key))
+			if value != null:
+				context[str(key)] = value
+	var combo_state: Object = _get_instance(registry, "smasher_combo_state")
+	if combo_state != null and combo_state.has_method("get_combo_count"):
+		context["smasher_combo_count"] = max(0, int(combo_state.get_combo_count()))
+	return context
 
 
 func _refresh_viper_ignition_aura_owner_sync_if_needed(owner: Object, registry: Object) -> void:

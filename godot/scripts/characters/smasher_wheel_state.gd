@@ -232,7 +232,7 @@ func consume_ball_hit(ball_pos: Vector2, ball_vel: Vector2, context: Dictionary,
 		"player_collision_cooldown": PLAYER_COLLISION_COOLDOWN_FRAMES,
 		"smasher_wheel_speed_cap": speed_cap,
 		"smasher_wheel_hit": true,
-		"runtime_perk_gold": _award_hit_gold(deps),
+		"runtime_perk_gold": _award_hit_gold(context, deps),
 	}
 
 
@@ -456,11 +456,29 @@ func _register_hit_feedback(ball_pos: Vector2, next_vel: Vector2, deps: Dictiona
 			feedback.set_screen_shake(0.12, 9.0)
 
 
-func _award_hit_gold(deps: Dictionary) -> int:
+func _award_hit_gold(context: Dictionary, deps: Dictionary) -> int:
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	if runtime_perk_state != null and runtime_perk_state.has_method("award_gold"):
-		return int(runtime_perk_state.award_gold(HIT_GOLD))
+		return int(_call_award_gold(runtime_perk_state, HIT_GOLD, context, deps))
 	return HIT_GOLD
+
+
+func _call_award_gold(runtime_perk_state: Object, amount: int, context: Dictionary, deps: Dictionary) -> int:
+	if _method_accepts_arg_count(runtime_perk_state, "award_gold", 3):
+		return int(runtime_perk_state.award_gold(amount, context, deps))
+	return int(runtime_perk_state.award_gold(amount))
+
+
+func _method_accepts_arg_count(target: Object, method_name: String, arg_count: int) -> bool:
+	if target == null:
+		return false
+	for method in target.get_method_list():
+		if str(method.get("name", "")) != method_name:
+			continue
+		var args: Variant = method.get("args", [])
+		if args is Array:
+			return (args as Array).size() >= arg_count
+	return false
 
 
 func _snap_ball_above_player(ball_pos: Vector2, context: Dictionary) -> Vector2:

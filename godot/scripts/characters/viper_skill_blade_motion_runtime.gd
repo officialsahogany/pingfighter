@@ -192,7 +192,7 @@ static func apply_hit(runtime: Object, scene: Dictionary, context: Dictionary, d
 		_try_append_followup_from_hit(runtime, context, dark_mode, deps, constants)
 	var result: Dictionary = {"ball_vel": next_vel, "ball_impact_boost": impact_boost, "player_collision_cooldown": max(float(constants.get("player_collision_cooldown", 6.0)), float(scene.get("player_collision_cooldown", 0.0)))}
 	if allow_gold:
-		result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 30))), true)
+		result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 30)), context), true)
 	return runtime._mark_result_released_chaos_hit(result, released_chaos)
 
 

@@ -55,7 +55,7 @@ static func apply_motion(runtime: Object, fps_scale: float, scene: Dictionary, c
 	if gold_award > 0:
 		var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 		if runtime_perk_state != null and runtime_perk_state.has_method("award_gold"):
-			result["runtime_perk_gold"] = int(runtime_perk_state.award_gold(gold_award))
+			result["runtime_perk_gold"] = int(_call_award_gold(runtime_perk_state, gold_award, context, deps))
 	return result
 
 
@@ -96,6 +96,24 @@ static func _collect_absorbed_objects(center: Vector2, deps: Dictionary, pull_ra
 				if absorb_entry is Dictionary:
 					absorbed_objects.append(absorb_entry)
 	return absorbed_objects
+
+
+static func _call_award_gold(runtime_perk_state: Object, amount: int, context: Dictionary, deps: Dictionary) -> int:
+	if _method_accepts_arg_count(runtime_perk_state, "award_gold", 3):
+		return int(runtime_perk_state.award_gold(amount, context, deps))
+	return int(runtime_perk_state.award_gold(amount))
+
+
+static func _method_accepts_arg_count(target: Object, method_name: String, arg_count: int) -> bool:
+	if target == null:
+		return false
+	for method in target.get_method_list():
+		if str(method.get("name", "")) != method_name:
+			continue
+		var args: Variant = method.get("args", [])
+		if args is Array:
+			return (args as Array).size() >= arg_count
+	return false
 
 
 static func _append_absorb_pulse(runtime: Object, absorb_entry: Dictionary, center: Vector2) -> void:

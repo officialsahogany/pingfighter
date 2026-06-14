@@ -179,7 +179,7 @@ static func _apply_kick_hit(runtime: Object, result: Dictionary, kick_center: Ve
 	runtime._mark_kick_skill_knockback_pending(deps)
 	_apply_core_flip_mythic_hit(runtime, deps)
 	var core_flip_hit_result: Dictionary = {"ball_vel": next_vel, "ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))), "player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0)))}
-	core_flip_hit_result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 30))), true)
+	core_flip_hit_result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 30)), config), true)
 	result.merge(runtime._mark_result_released_chaos_hit(core_flip_hit_result, released_chaos), true)
 	if runtime.visibility_query.is_skill_equipped(runtime.visibility_query.get_viper_skill_config(deps), dark_blade_name):
 		runtime._open_dark_blade_start_window()

@@ -120,7 +120,7 @@ static func apply_hit(runtime: Object, hit_center: Vector2, hit_size: Vector2, c
 	var gold_award: int = int(constants.get("hit_gold", 16))
 	if runtime.shadow_was_airborne:
 		gold_award = int(float(gold_award) * float(constants.get("airborne_gold_mult", 1.5)))
-	result.merge(runtime.runtime_action_router.award_skill_gold(deps, gold_award), true)
+	result.merge(runtime.runtime_action_router.award_skill_gold(deps, gold_award, context), true)
 	return runtime._mark_result_released_chaos_hit(result, released_chaos)
 
 

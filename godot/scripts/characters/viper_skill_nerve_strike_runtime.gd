@@ -155,21 +155,21 @@ static func _update_dash_phase(runtime: Object, result: Dictionary, config: Dict
 		runtime.nerve_strike_slash_triggered = false
 		runtime.nerve_strike_slash_center = get_boss_center(config)
 		if runtime.nerve_strike_hit_confirmed:
-			_apply_dash_hit(runtime, result, deps, constants)
+			_apply_dash_hit(runtime, result, config, deps, constants)
 		else:
 			runtime.nerve_strike_miss_text_timer = float(constants.get("miss_text_frames", 60.0))
 			runtime.nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(ViperSkillGeometry.nerve_strike_target_center(config, float(constants.get("target_y_offset", 0.0))), -20.0)
 			enter_return_phase(runtime, config, deps)
 
 
-static func _apply_dash_hit(runtime: Object, result: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
+static func _apply_dash_hit(runtime: Object, result: Dictionary, config: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
 	runtime.nerve_strike_freeze_active = true
 	runtime.audio_router.play_phantom_show_sound(deps)
 	runtime.runtime_action_router.trigger_feedback(deps, 0.18, 5.2)
 	var mythic_item_runtime: Object = runtime.visibility_query.get_mythic_item_runtime(deps)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_spawn_venom_mist_at_boss"):
 		mythic_item_runtime.try_spawn_venom_mist_at_boss(runtime.nerve_strike_slash_center, deps, false)
-	result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 60))), true)
+	result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 60)), config), true)
 
 
 static func _update_slash_phase(runtime: Object, config: Dictionary, deps: Dictionary, constants: Dictionary) -> void:

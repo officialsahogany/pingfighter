@@ -109,9 +109,51 @@ func _award_skill_gold(owner: Object, registry: Object, amount: int) -> void:
 		return
 	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
 	if runtime_perk_state != null and runtime_perk_state.has_method("award_gold"):
-		owner.set("runtime_perk_gold", int(runtime_perk_state.award_gold(amount)))
+		var gold_context: Dictionary = _build_owner_gold_gain_context(owner, registry)
+		owner.set("runtime_perk_gold", int(_call_award_gold(runtime_perk_state, amount, gold_context, {"registry": registry})))
 	else:
 		owner.set("runtime_perk_gold", int(_get_owner_value(owner, "runtime_perk_gold", 0)) + amount)
+
+
+func _call_award_gold(runtime_perk_state: Object, amount: int, context: Dictionary, deps: Dictionary) -> int:
+	if _method_accepts_arg_count(runtime_perk_state, "award_gold", 3):
+		return int(runtime_perk_state.award_gold(amount, context, deps))
+	return int(runtime_perk_state.award_gold(amount))
+
+
+func _method_accepts_arg_count(target: Object, method_name: String, arg_count: int) -> bool:
+	if target == null:
+		return false
+	for method in target.get_method_list():
+		if str(method.get("name", "")) != method_name:
+			continue
+		var args: Variant = method.get("args", [])
+		if args is Array:
+			return (args as Array).size() >= arg_count
+	return false
+
+
+func _build_owner_gold_gain_context(owner: Object, registry: Object) -> Dictionary:
+	var context: Dictionary = {}
+	if owner != null:
+		for key in [
+			"selected_character_type",
+			"arena_mode_enabled",
+			"enraged_boss_active",
+			"boss_enraged",
+			"blacksmith_divine_stone_active",
+			"blacksmith_divine_active",
+			"blacksmith_divine_stone_state",
+			"blacksmith_turret_active",
+			"blacksmith_turret_state",
+		]:
+			var value: Variant = owner.get(str(key))
+			if value != null:
+				context[str(key)] = value
+	var combo_state: Object = _get_instance(registry, "smasher_combo_state")
+	if combo_state != null and combo_state.has_method("get_combo_count"):
+		context["smasher_combo_count"] = max(0, int(combo_state.get_combo_count()))
+	return context
 
 
 func _apply_player_paddle_size_result(owner: Object, result: Dictionary) -> void:

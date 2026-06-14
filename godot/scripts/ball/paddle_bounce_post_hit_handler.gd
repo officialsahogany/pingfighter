@@ -54,6 +54,7 @@ func apply(
 	var shrapnel_armor_result: Dictionary = {}
 	var blacksmith_shield_result: Dictionary = {}
 	var runtime_perk_gold: int = -1
+	var pre_player_hit_combo_count: int = _get_smasher_gold_combo_count(context, deps) if is_player else 0
 	var clear_smasher_wheel_speed_cap := false
 	var speed_limit_disabled_override: Variant = null
 	if is_player:
@@ -232,6 +233,8 @@ func apply(
 				context,
 				deps
 			)
+		if runtime_perk_gold < 0:
+			runtime_perk_gold = _award_rally_gold(ball_vel, context, deps, pre_player_hit_combo_count)
 	else:
 		clear_smasher_wheel_speed_cap = true
 		var magnum_state: Object = deps.get("smasher_magnum_grip_state", null)
@@ -412,6 +415,31 @@ func apply(
 			result["boss_fire_knockback_vel"] = float(fire_hit_result.get("boss_fire_knockback_vel", 0.0))
 	_perf_end(perf_logger, "paddle_bounce.post_hit.total", total_start)
 	return result
+
+
+func _award_rally_gold(
+	ball_vel: Vector2,
+	context: Dictionary,
+	deps: Dictionary,
+	pre_player_hit_combo_count: int
+) -> int:
+	if bool(context.get("arena_mode_enabled", false)):
+		return -1
+	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
+	if runtime_perk_state == null or not runtime_perk_state.has_method("award_rally_gold"):
+		return -1
+	var gold_context: Dictionary = context.duplicate()
+	gold_context["smasher_combo_count"] = max(0, pre_player_hit_combo_count)
+	return int(runtime_perk_state.award_rally_gold(ball_vel, gold_context, deps))
+
+
+func _get_smasher_gold_combo_count(context: Dictionary, deps: Dictionary) -> int:
+	if str(context.get("selected_character_type", "")).strip_edges().to_lower() != "smasher":
+		return 0
+	var combo_state: Object = deps.get("combo_state", null)
+	if combo_state != null and combo_state.has_method("get_combo_count"):
+		return max(0, int(combo_state.get_combo_count()))
+	return max(0, int(context.get("smasher_combo_count", 0)))
 
 
 func _perf_begin(perf_logger: Object) -> int:

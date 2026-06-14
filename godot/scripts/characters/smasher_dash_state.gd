@@ -10,6 +10,7 @@ const DASH_BASE_RECHARGE_FRAMES := 300.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 
 var dash_key_released_since_last: bool = true
+var next_rally_gold_multiplier_armed := false
 var motion_state: Object = SmasherDashMotionState.new()
 var token_state: Object = SmasherDashTokenState.new()
 
@@ -19,11 +20,13 @@ func reset_round() -> void:
 	if token_state != null and token_state.has_method("reset_round_transients"):
 		token_state.reset_round_transients()
 	dash_key_released_since_last = true
+	next_rally_gold_multiplier_armed = false
 
 
 func cancel_until_key_release() -> void:
 	motion_state.reset_round()
 	dash_key_released_since_last = false
+	next_rally_gold_multiplier_armed = false
 
 
 func reset_full(max_tokens: int = 1) -> void:
@@ -115,6 +118,7 @@ func start(
 	):
 		return false
 	dash_key_released_since_last = false
+	next_rally_gold_multiplier_armed = true
 	if not is_half and consume_token and not _is_dash_cost_free(registry):
 		var token_consumed: bool = token_state.consume_full_dash_token(_get_dash_recharge_frames(runtime_perk_state, registry))
 		if token_consumed and token_state.try_arm_boost_charging(
@@ -153,7 +157,15 @@ func get_snapshot() -> Dictionary:
 	var snapshot: Dictionary = token_state.get_snapshot()
 	snapshot.merge(motion_state.get_snapshot(), true)
 	snapshot["key_released_since_last"] = dash_key_released_since_last
+	snapshot["next_rally_gold_multiplier_armed"] = next_rally_gold_multiplier_armed
 	return snapshot
+
+
+func consume_next_rally_gold_multiplier() -> bool:
+	if not next_rally_gold_multiplier_armed:
+		return false
+	next_rally_gold_multiplier_armed = false
+	return true
 
 
 func is_dash_acceleration_active() -> bool:

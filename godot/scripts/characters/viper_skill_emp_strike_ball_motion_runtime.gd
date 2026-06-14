@@ -33,7 +33,7 @@ static func _try_primary_dive_hit(runtime: Object, ball_pos: Vector2, scene: Dic
 	if not runtime._register_ball_hit_pulse(ball_pos, next_vel, deps, 0.92, "viper_emp_strike"):
 		runtime._spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(0.40, 0.90, 1.0, 1.0), 1.25, 0.86, 1.0)
 	var result := {"ball_vel": next_vel, "ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))), "player_collision_cooldown": max(float(constants.get("player_collision_cooldown", 6.0)), float(scene.get("player_collision_cooldown", 0.0)))}
-	result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 20))), true)
+	result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 20)), context), true)
 	return runtime._mark_result_released_chaos_hit(result, released_chaos)
 
 

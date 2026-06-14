@@ -472,7 +472,7 @@ func _start_return(data: Dictionary, missed: bool) -> void:
 	data["return_ramp_t"] = 0.6 if missed else 0.0
 
 
-func _apply_ball_hit(scene: Dictionary, _context: Dictionary, deps: Dictionary, result: Dictionary) -> void:
+func _apply_ball_hit(scene: Dictionary, context: Dictionary, deps: Dictionary, result: Dictionary) -> void:
 	_play_hit_sound(deps)
 	var hit_dir: Vector2 = _get_hit_direction(projectile)
 	if hit_dir.length_squared() <= 0.00001:
@@ -511,7 +511,7 @@ func _apply_ball_hit(scene: Dictionary, _context: Dictionary, deps: Dictionary, 
 		projectile["gold_awarded"] = true
 		var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 		if runtime_perk_state != null and runtime_perk_state.has_method("award_gold"):
-			result["runtime_perk_gold"] = int(runtime_perk_state.award_gold(HIT_GOLD))
+			result["runtime_perk_gold"] = int(_call_award_gold(runtime_perk_state, HIT_GOLD, context, deps))
 
 
 func _update_ball_tracking(data: Dictionary, ball_center: Vector2, dt: float) -> void:
@@ -828,3 +828,21 @@ func _as_array(value: Variant) -> Array:
 	if value is Array:
 		return value
 	return []
+
+
+func _call_award_gold(runtime_perk_state: Object, amount: int, context: Dictionary, deps: Dictionary) -> int:
+	if _method_accepts_arg_count(runtime_perk_state, "award_gold", 3):
+		return int(runtime_perk_state.award_gold(amount, context, deps))
+	return int(runtime_perk_state.award_gold(amount))
+
+
+func _method_accepts_arg_count(target: Object, method_name: String, arg_count: int) -> bool:
+	if target == null:
+		return false
+	for method in target.get_method_list():
+		if str(method.get("name", "")) != method_name:
+			continue
+		var args: Variant = method.get("args", [])
+		if args is Array:
+			return (args as Array).size() >= arg_count
+	return false
