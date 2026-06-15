@@ -108,6 +108,20 @@ func clear() -> bool:
 	return result == OK
 
 
+func reset_gold_and_ap_for_new_playthrough() -> void:
+	# Original PingFighter parity: plaza gold + AP are per-playthrough currency.
+	# A fresh new game (stage 1 from the main menu) zeroes gold and AP and clears
+	# the AP-awarded tracking so AP can be re-earned, while KEEPING the bank
+	# deposit, tavern quests, and stage map seeds. _ensure_loaded() runs first so
+	# save() rewrites the file with the non-reset sections intact.
+	_ensure_loaded()
+	_plaza_gold = 0
+	_ap_current = BASE_AP
+	_ap_is_first_stage = true
+	_ap_awarded_stages.clear()
+	save()
+
+
 func get_plaza_gold() -> int:
 	_ensure_loaded()
 	return _plaza_gold
