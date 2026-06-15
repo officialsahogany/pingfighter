@@ -32,6 +32,7 @@ const TEAR_GAS_PARTICLE_ALPHA_CUTOFF := 0.012
 const TEAR_GAS_PUFF_TEXTURE_SIZE := 96
 const DYNAMITE_DRAW_SIZE := 46.0
 const DYNAMITE_THROW_WINDUP_MSEC := 500
+const LOW_THROW_PREVIEW_Y_ADJUSTMENT := -10.0
 const MOLOTOV_DRAW_SIZE := 36.0
 const MOLOTOV_THROW_WINDUP_MSEC := 600
 const BOOMERANG_DRAW_SIZE := 42.0
@@ -239,11 +240,10 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 		var release_msec: int = int(pending_throw.get("release_msec", start_msec + fallback_duration_msec))
 		var duration_msec: int = max(1, release_msec - start_msec)
 		var progress: float = clamp(float(now_msec - start_msec) / float(duration_msec), 0.0, 1.0)
-		var start_pos: Vector2 = _get_vector2(pending_throw, "start_position", Vector2.ZERO) + shake_offset
-		var target_pos: Vector2 = _get_vector2(pending_throw, "target_position", start_pos) + shake_offset
-		var lift_pos: Vector2 = start_pos + Vector2(0.0, -34.0 - sin(progress * PI) * 12.0)
-		var throw_pos: Vector2 = lift_pos.lerp(target_pos, max(0.0, (progress - 0.72) / 0.28) * 0.18)
-		var angle: float = lerp(0.0, -35.0, progress)
+		var pending_start_pos: Vector2 = _get_vector2(pending_throw, "start_position", Vector2.ZERO) + shake_offset
+		var launch_pos: Vector2 = _get_windup_preview_launch_position(pending_start_pos, item_name)
+		var throw_pos: Vector2 = _get_windup_preview_position(launch_pos, progress)
+		var angle: float = _get_windup_preview_angle(progress)
 		var gauntlet_throw: bool = bool(pending_throw.get("gauntlet_equipped", false))
 		var texture: Texture2D = _get_throw_item_icon_texture(item_name, gauntlet_throw)
 		var draw_size: float = _get_throw_item_draw_size(item_name)
@@ -274,6 +274,29 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 			_spider_mine_renderer.draw_spider_mine_windup_fallback(canvas, throw_pos)
 		else:
 			_grenade_renderer.draw_grenade_fallback(canvas, throw_pos)
+
+
+func _get_windup_preview_position(start_pos: Vector2, progress: float) -> Vector2:
+	# The wind-up preview cocks the held item up and settles it back to the
+	# launch point by release (progress == 1.0), so the live projectile — which
+	# spawns at that same launch point — takes over with no visible snap. Do NOT
+	# drift toward the target here: the live projectile owns all forward travel,
+	# and any lead would teleport back to the hand the instant it spawns.
+	var clamped_progress: float = clamp(progress, 0.0, 1.0)
+	var lift: float = sin(clamped_progress * PI) * 40.0
+	return start_pos + Vector2(0.0, -lift)
+
+
+func _get_windup_preview_launch_position(start_pos: Vector2, item_name: String) -> Vector2:
+	if item_name == "banana" or item_name == "dynamite" or item_name == "soap":
+		return start_pos + Vector2(0.0, LOW_THROW_PREVIEW_Y_ADJUSTMENT)
+	return start_pos
+
+
+func _get_windup_preview_angle(progress: float) -> float:
+	# Returns to 0 at release to match the live projectile's initial rotation,
+	# keeping the hand-off seamless.
+	return sin(clamp(progress, 0.0, 1.0) * PI) * -35.0
 
 
 func _draw_rotated_texture_region(

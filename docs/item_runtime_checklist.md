@@ -603,6 +603,30 @@ These are the bugs most likely to survive a "looks registered" pass:
   the floor band and asserts the projectile survives one `fps_scale = 0.25`
   update (reference: `_verify_bottom_launch_survives_fractional_frame` in
   `active_item_throw_soap_smoke.gd` / `active_item_throw_banana_smoke.gd`).
+- **Godot wind-up / telegraph preview visuals must converge to the live spawn
+  point at release.** A throw / charge / telegraph that draws a *preview* of the
+  projectile during a wind-up window (e.g.
+  `active_item_throw_renderer._draw_grenade_throw_windups`) and then hands off to
+  a *separately spawned* live projectile must, at release (`progress == 1.0`),
+  have its preview END at the exact position AND rotation where the live
+  projectile BEGINS. The old throw preview lifted the held item and lerped it
+  ~18% toward the target by release, while every throw helper spawned the live
+  projectile back at the player's hand — so on EVERY throw item the projectile
+  visibly "flew a bit, then restarted from the hand" (~150px snap). This is
+  invisible to state / headless smokes (the projectile data is correct; only the
+  per-frame render position is discontinuous) and only shows in live play.
+  Standing rules: (a) compute the preview position / rotation from a pure,
+  testable helper whose value at `progress == 1.0` equals the spawn anchor and
+  whose rotation returns to the live projectile's initial rotation; (b) the
+  preview owns NO forward travel — the live projectile owns all of it, so any
+  lead / drift toward the target in the preview teleports back on spawn; (c) if
+  individual throw helpers intentionally use a different player offset from the
+  generic pending throw center, the preview anchor must apply the same item-
+  specific offset (current low-spawn cases: soap / banana / dynamite use `+15y`
+  while the default throw center is `+25y`); (d) seal with a behavioral smoke
+  that asserts the preview converges to the launch point, honors item-specific
+  launch anchors, and de-rotates at release while still animating mid-windup
+  (reference: `active_item_throw_windup_handoff_smoke.gd`).
 - **Godot active-item renderer optimizations must preserve UV and
   transform contracts.** If a change touches shared item icon helpers,
   `draw_set_transform`, textured `draw_polygon()`,
