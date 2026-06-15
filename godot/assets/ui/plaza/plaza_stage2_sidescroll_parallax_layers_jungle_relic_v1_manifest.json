@@ -1,0 +1,90 @@
+{
+    "asset_id": "plaza_stage2_sidescroll_parallax_layers_jungle_relic_v1",
+    "stage_theme": "stage2_jungle_relic",
+    "runtime_usage": "S2 side-scroll plaza jungle relic parallax art pass",
+    "generated_at": "2026-06-14T12:54:34+09:00",
+    "production_route": "Codex built-in image_gen source art plus local Pillow crop/resize/X-edge blend/emissive extraction",
+    "coordinate_contract": {
+        "game_size": [
+            760,
+            750
+        ],
+        "ground_world_rect": {
+            "x_repeat": 1140,
+            "y": 596,
+            "h": 154
+        },
+        "midground_world_rect": {
+            "x_repeat": 960,
+            "y": 388,
+            "h": 180,
+            "parallax": 0.48
+        },
+        "far_sky_screen_rect": {
+            "w": 1520,
+            "h": 430,
+            "parallax": 0.04
+        }
+    },
+    "assets": [
+        {
+            "id": "ground",
+            "res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_ground_strip_jungle_relic_imagegen_v1.png",
+            "width": 1140,
+            "height": 154,
+            "sha256": "87f5df9850682d96ed616b847ed87ede6f833eac71f5c34d7aa1d11931d049b8"
+        },
+        {
+            "id": "ground_emissive",
+            "res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_ground_strip_emissive_v1.png",
+            "width": 1140,
+            "height": 154,
+            "sha256": "3f2f76fdf0b90d43f24292925299235c430c96701df26130df4f6df37c9c4180",
+            "alpha_coverage_percent": 4.094,
+            "blend": "additive_runtime_flicker"
+        },
+        {
+            "id": "midground",
+            "res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_midground_wall_jungle_relic_imagegen_v1.png",
+            "width": 960,
+            "height": 180,
+            "sha256": "5d637738ca24820cebd06e59b6eb934781c0e9344ec35c07972ec556bc724e1f"
+        },
+        {
+            "id": "sky",
+            "res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_far_sky_moon_jungle_relic_imagegen_v1.png",
+            "width": 1520,
+            "height": 430,
+            "sha256": "d4c2fa35dab7a32c9f32ca2bf3e2ef0ae6ab1dbc36b9d0ba56d5a6d24ff4a1eb"
+        }
+    ],
+    "source_inputs": {
+        "generated_ground": "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_017c5c52d32bfd35016a2e2450b670819183257cd882c6b67b.png",
+        "generated_midground": "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_017c5c52d32bfd35016a2e247ff3308191b655c4b7f8d70f27.png",
+        "generated_sky": "C:\\Users\\woduq\\.codex\\generated_images\\019ebcd4-f654-78d0-96da-0bb1c17fe4b3\\ig_017c5c52d32bfd35016a2e24b710848191ac3d53227b46ad9a.png",
+        "source_ground_res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_ground_strip_jungle_relic_imagegen_v1_source.png",
+        "source_midground_res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_midground_wall_jungle_relic_imagegen_v1_source.png",
+        "source_sky_res_path": "res://assets/ui/plaza/plaza_stage2_sidescroll_far_sky_moon_jungle_relic_imagegen_v1_source.png"
+    },
+    "qa": {
+        "preview_dir": "d:\\tmp\\plaza_s2",
+        "previews": [
+            "plaza_s2_layer_stack_preview.png",
+            "plaza_s2_ground_2x_wrap.png",
+            "plaza_s2_midground_2x_wrap.png"
+        ],
+        "metrics": {
+            "ground_edge_delta": 0.0,
+            "ground_emissive_edge_delta": 0.0,
+            "midground_edge_delta": 0.0,
+            "ground_emissive_alpha_coverage_percent": 4.094
+        },
+        "notes": [
+            "Ground top band reskins S1 sidewalk grammar as mossy jungle slabs and root-eroded packed earth.",
+            "Ground cross-section exposes mint-cyan data vines/circuit roots as the S2 version of the VR substrate.",
+            "Midground is intentionally dark/desaturated to preserve foreground building hierarchy.",
+            "Far sky uses warm cream moon inside teal-green jungle mist; no lime moon or pill-shaped clouds.",
+            "Top-down floor tiles and cutouts intentionally remain S1 fallback in v1 scope."
+        ]
+    }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "plaza_stage1_interior_npc_imagegen_v1",
+  "stage": 1,
+  "theme": "cyber_joseon",
+  "panel_size_logical_px": [244, 420],
+  "final_source_size_px": [512, 880],
+  "key_color": "#ff00ff",
+  "cleanup": "remove_chroma_key.py --key-color #ff00ff --soft-matte --transparent-threshold 14 --opaque-threshold 215 --despill, then fit alpha bbox into 512x880 transparent canvas",
+  "qa_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_imagegen_v1_qa.json",
+  "assets": {
+    "shop": {
+      "npc_name": "상점주인 모라",
+      "identity": "shop owner, gold and item box",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_shop_mora_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_shop_mora_imagegen_v1_magenta_source.png"
+    },
+    "bank": {
+      "npc_name": "은행원 도윤",
+      "identity": "bank clerk, vault dial and ledger",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_bank_doyun_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_bank_doyun_imagegen_v1_magenta_source.png"
+    },
+    "gacha": {
+      "npc_name": "가챠 오퍼레이터 루미",
+      "identity": "gacha operator, capsule and machine lever",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_gacha_lumi_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_gacha_lumi_imagegen_v1_magenta_source.png"
+    },
+    "lingpet_store": {
+      "npc_name": "링펫 사육사 링링",
+      "identity": "ringpet keeper, glowing egg incubator",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_lingpet_store_lingling_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_lingpet_store_lingling_imagegen_v1_magenta_source.png"
+    },
+    "blacksmith": {
+      "npc_name": "대장장이 강철",
+      "identity": "blacksmith, hammer and forge gauntlet",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_blacksmith_gangcheol_imagegen_v1_magenta_source.png"
+    },
+    "tavern": {
+      "npc_name": "선술집 주인 하랑",
+      "identity": "tavern keeper, quest scroll and lantern",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_tavern_harang_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_tavern_harang_imagegen_v1_magenta_source.png"
+    },
+    "academy": {
+      "npc_name": "아카데미 교관 서율",
+      "identity": "academy instructor, book and skill orb",
+      "res_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_academy_seoyul_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_academy_seoyul_imagegen_v1_magenta_source.png"
+    }
+  }
+}

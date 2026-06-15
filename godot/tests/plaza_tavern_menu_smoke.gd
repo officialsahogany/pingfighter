@@ -103,7 +103,7 @@ func _build_scene(viewport: SubViewport, save_path: String, stage_id: int) -> Co
 	if scene == null:
 		return null
 	viewport.add_child(scene)
-	scene.configure({"current_stage": stage_id, "plaza_save_path": save_path}, Callable(), true)
+	scene.configure({"current_stage": stage_id, "plaza_save_path": save_path, "full_layout_for_test": true}, Callable(), true)
 	scene.update_plaza(1.0 / 60.0)
 	return scene
 

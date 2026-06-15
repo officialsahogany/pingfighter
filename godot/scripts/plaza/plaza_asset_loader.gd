@@ -20,6 +20,37 @@ const SIDESCROLL_ACCENT_CUTOUT_EMISSIVE := "res://assets/ui/plaza/plaza_stage1_s
 const SIDESCROLL_MEDALLION_CUTOUT := "res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_v1.png"
 const SIDESCROLL_MEDALLION_CUTOUT_EMISSIVE := "res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_emissive_v1.png"
 
+const INTERIOR_NPC_TEXTURE_PATHS := {
+	"shop": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_shop_mora_imagegen_v1.png",
+	"bank": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_bank_doyun_imagegen_v1.png",
+	"gacha": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_gacha_lumi_imagegen_v1.png",
+	"lingpet_store": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_lingpet_store_lingling_imagegen_v1.png",
+	"blacksmith": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
+	"tavern": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_tavern_harang_imagegen_v1.png",
+	"academy": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_academy_seoyul_imagegen_v1.png",
+}
+
+const PLAZA_PLAYER_GRID_COLS := 4
+const PLAZA_PLAYER_GRID_ROWS := 2
+const PLAZA_PLAYER_FRAME_COUNT := 8
+const PLAZA_PLAYER_SPRITE_PATHS := {
+	"smasher": {
+		"idle": "res://assets/sprites/characters/smasher/smasher_subculture_idle_sheet.png",
+		"walk_left": "res://assets/sprites/characters/smasher/smasher_subculture_left_walk_sheet.png",
+		"walk_right": "res://assets/sprites/characters/smasher/smasher_subculture_right_walk_sheet.png",
+	},
+	"viper": {
+		"idle": "res://assets/sprites/characters/viper/viper_subculture_idle_sheet.png",
+		"walk_left": "res://assets/sprites/characters/viper/viper_subculture_left_walk_sheet.png",
+		"walk_right": "res://assets/sprites/characters/viper/viper_subculture_right_walk_sheet.png",
+	},
+	"soldier": {
+		"idle": "res://assets/sprites/characters/commando/commando_subculture_idle_sheet.png",
+		"walk_left": "res://assets/sprites/characters/commando/commando_subculture_left_walk_sheet.png",
+		"walk_right": "res://assets/sprites/characters/commando/commando_subculture_right_walk_sheet.png",
+	},
+}
+
 const BUILDING_MANIFEST_PATHS := [
 	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_shop_v2_manifest.json",
 	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_bank_v1_manifest.json",
@@ -49,45 +80,97 @@ const FLOOR_KEYS := {
 	"medallion_cutout_emissive": SIDESCROLL_MEDALLION_CUTOUT_EMISSIVE,
 }
 
+const FLOOR_TEXTURE_ORDER := [
+	"base_01",
+	"base_02",
+	"accent",
+	"accent_emissive",
+	"border",
+	"border_emissive",
+	"medallion",
+	"medallion_emissive",
+	"ground_strip",
+	"ground_strip_emissive",
+	"midground_wall",
+	"far_sky",
+	"accent_cutout",
+	"accent_cutout_emissive",
+	"medallion_cutout",
+	"medallion_cutout_emissive",
+]
+
+const FLOOR_MANIFEST_KEYS := {
+	"base_01": "base_01",
+	"base_02": "base_02",
+	"accent_neon": "accent",
+	"border_dancheong": "border",
+	"special_medallion": "medallion",
+}
+
+const FLOOR_EMISSIVE_MANIFEST_KEYS := {
+	"accent_neon_emissive": "accent_emissive",
+	"border_dancheong_emissive": "border_emissive",
+	"special_medallion_emissive": "medallion_emissive",
+}
+
+const PARALLAX_MANIFEST_KEYS := {
+	"ground": "ground_strip",
+	"ground_emissive": "ground_strip_emissive",
+	"midground": "midground_wall",
+	"sky": "far_sky",
+	"accent_cutout": "accent_cutout",
+	"accent_cutout_emissive": "accent_cutout_emissive",
+	"medallion_cutout": "medallion_cutout",
+	"medallion_cutout_emissive": "medallion_cutout_emissive",
+}
+
 const BUILDING_BASELINE_Y := 640.0
 const BUILDING_INTERACTION_TOP := 570.0
 const BUILDING_INTERACTION_HEIGHT := 118.0
+const DEFAULT_WORLD_WIDTH := 1900.0
+const BUILDING_LEFT_MARGIN := 300.0
+const BUILDING_EXIT_BUFFER := 220.0
+const BUILDING_MIN_GAP := 32.0
+const BUILDING_MAX_GAP := 360.0
+const RANDOM_BUILDING_MIN_COUNT := 2
+const RANDOM_BUILDING_MAX_COUNT := 5
+const REQUIRED_BUILDING_TYPES := ["bank"]
+const CHANCE_BUILDING_TYPES := [
+	{"type": "academy", "chance": 0.50},
+	{"type": "shop", "chance": 0.40},
+	{"type": "gacha", "chance": 0.40},
+]
+const FILLER_BUILDING_TYPES := ["blacksmith", "tavern", "lingpet_store"]
+const FULL_LAYOUT_BUILDING_ORDER := ["shop", "bank", "gacha", "lingpet_store", "blacksmith", "tavern", "academy"]
 
 const BUILDING_LAYOUT := {
 	"shop": {
-		"pivot": Vector2(360.0, BUILDING_BASELINE_Y),
-		"display_height": 360.0,
-		"interaction_width": 180.0,
+		"display_height": 220.0,
+		"interaction_width": 150.0,
 	},
 	"bank": {
-		"pivot": Vector2(740.0, BUILDING_BASELINE_Y),
-		"display_height": 390.0,
-		"interaction_width": 190.0,
+		"display_height": 280.0,
+		"interaction_width": 170.0,
 	},
 	"gacha": {
-		"pivot": Vector2(1120.0, BUILDING_BASELINE_Y),
-		"display_height": 360.0,
-		"interaction_width": 190.0,
+		"display_height": 250.0,
+		"interaction_width": 165.0,
 	},
 	"lingpet_store": {
-		"pivot": Vector2(1510.0, BUILDING_BASELINE_Y),
-		"display_height": 370.0,
-		"interaction_width": 210.0,
+		"display_height": 250.0,
+		"interaction_width": 170.0,
 	},
 	"blacksmith": {
-		"pivot": Vector2(1900.0, BUILDING_BASELINE_Y),
-		"display_height": 400.0,
-		"interaction_width": 200.0,
+		"display_height": 300.0,
+		"interaction_width": 180.0,
 	},
 	"tavern": {
-		"pivot": Vector2(2290.0, BUILDING_BASELINE_Y),
-		"display_height": 350.0,
-		"interaction_width": 190.0,
+		"display_height": 220.0,
+		"interaction_width": 150.0,
 	},
 	"academy": {
-		"pivot": Vector2(2680.0, BUILDING_BASELINE_Y),
-		"display_height": 420.0,
-		"interaction_width": 220.0,
+		"display_height": 300.0,
+		"interaction_width": 180.0,
 	},
 }
 
@@ -96,6 +179,8 @@ static var _prewarm_stage_id := -1
 static var _prewarm_status: Dictionary = {}
 static var _manifest_cache: Dictionary = {}
 static var _building_specs_cache: Dictionary = {}
+static var _player_texture_cache: Dictionary = {}
+static var _interior_npc_texture_cache: Dictionary = {}
 
 
 static func reset_for_test() -> void:
@@ -104,6 +189,8 @@ static func reset_for_test() -> void:
 	_prewarm_status.clear()
 	_manifest_cache.clear()
 	_building_specs_cache.clear()
+	_player_texture_cache.clear()
+	_interior_npc_texture_cache.clear()
 
 
 static func get_prewarm_status() -> Dictionary:
@@ -143,7 +230,6 @@ static func prewarm_assets_step(stage_id: int = 1, use_threaded_texture_loads: b
 	_prewarm_status[path] = result.get("texture", null) is Texture2D
 	_prewarm_index += 1
 	if _prewarm_index >= paths.size():
-		_building_specs_cache[normalized_stage] = build_building_specs(normalized_stage)
 		_prewarm_status["stage_id"] = normalized_stage
 		_prewarm_status["complete"] = true
 		_prewarm_index = 0
@@ -154,8 +240,20 @@ static func prewarm_assets_step(stage_id: int = 1, use_threaded_texture_loads: b
 static func get_prewarm_texture_paths(stage_id: int = 1) -> Array[String]:
 	var _theme: Dictionary = PlazaThemeCatalog.get_theme(stage_id)
 	var paths: Array[String] = []
-	for key in FLOOR_KEYS.keys():
-		paths.append(str(FLOOR_KEYS[key]))
+	var floor_paths := resolve_floor_texture_paths(stage_id)
+	for key in FLOOR_TEXTURE_ORDER:
+		var path := str(floor_paths.get(key, ""))
+		if path != "":
+			paths.append(path)
+	for character_type in PLAZA_PLAYER_SPRITE_PATHS.keys():
+		var player_paths: Dictionary = PLAZA_PLAYER_SPRITE_PATHS.get(character_type, {})
+		for key in ["idle", "walk_left", "walk_right"]:
+			var path := str(player_paths.get(key, ""))
+			if path != "":
+				paths.append(path)
+	for path in INTERIOR_NPC_TEXTURE_PATHS.values():
+		if str(path) != "":
+			paths.append(str(path))
 	for manifest_path in BUILDING_MANIFEST_PATHS:
 		var manifest := load_manifest(str(manifest_path))
 		var layers: Dictionary = _get_dictionary(manifest.get("layers", {}))
@@ -167,18 +265,123 @@ static func get_prewarm_texture_paths(stage_id: int = 1) -> Array[String]:
 	return paths
 
 
-static func load_floor_textures(_stage_id: int = 1) -> Dictionary:
+static func load_floor_textures(stage_id: int = 1) -> Dictionary:
 	var textures: Dictionary = {}
-	for key in FLOOR_KEYS.keys():
-		textures[key] = ProjectResourceLoader.load_imported_texture(str(FLOOR_KEYS[key]))
+	var paths := resolve_floor_texture_paths(stage_id)
+	for key in FLOOR_TEXTURE_ORDER:
+		var path := str(paths.get(key, ""))
+		textures[key] = ProjectResourceLoader.load_imported_texture(path) if path != "" else null
 	return textures
 
 
-static func build_building_specs(stage_id: int = 1) -> Array[Dictionary]:
-	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
-	if _building_specs_cache.has(normalized_stage):
-		return _duplicate_spec_array(_building_specs_cache[normalized_stage])
+static func normalize_player_character_type(character_type: Variant) -> String:
+	var value := str(character_type).strip_edges().to_lower()
+	match value:
+		"", "mika", "미카", "smasher":
+			return "smasher"
+		"serin", "세린", "viper":
+			return "viper"
+		"rena", "레나", "commando", "soldier":
+			return "soldier"
+		"io", "이오", "optimus":
+			return "optimus"
+		"kohaku", "코하쿠", "baltor":
+			return "baltor"
+		_:
+			return value
 
+
+static func load_player_textures(character_type: Variant) -> Dictionary:
+	var normalized := normalize_player_character_type(character_type)
+	if _player_texture_cache.has(normalized):
+		return (_player_texture_cache.get(normalized, {}) as Dictionary).duplicate(false)
+	var paths: Dictionary = PLAZA_PLAYER_SPRITE_PATHS.get(normalized, {})
+	var textures := {
+		"character_type": normalized,
+		"idle": null,
+		"walk_left": null,
+		"walk_right": null,
+		"grid_cols": PLAZA_PLAYER_GRID_COLS,
+		"grid_rows": PLAZA_PLAYER_GRID_ROWS,
+		"frame_count": PLAZA_PLAYER_FRAME_COUNT,
+	}
+	for key in ["idle", "walk_left", "walk_right"]:
+		var path := str(paths.get(key, ""))
+		textures[key] = ProjectResourceLoader.load_texture(path) if path != "" else null
+	textures["has_sprite"] = (
+		textures.get("idle", null) is Texture2D
+		or textures.get("walk_left", null) is Texture2D
+		or textures.get("walk_right", null) is Texture2D
+	)
+	_player_texture_cache[normalized] = textures.duplicate(false)
+	return textures.duplicate(false)
+
+
+static func load_interior_npc_textures() -> Dictionary:
+	if not _interior_npc_texture_cache.is_empty():
+		return _interior_npc_texture_cache.duplicate(false)
+	var textures := {}
+	for building_type in INTERIOR_NPC_TEXTURE_PATHS.keys():
+		var path := str(INTERIOR_NPC_TEXTURE_PATHS.get(building_type, ""))
+		textures[building_type] = ProjectResourceLoader.load_imported_texture(path) if path != "" else null
+	_interior_npc_texture_cache = textures.duplicate(false)
+	return textures.duplicate(false)
+
+
+static func get_interior_npc_texture_paths_for_test() -> Dictionary:
+	return INTERIOR_NPC_TEXTURE_PATHS.duplicate(true)
+
+
+static func get_player_texture_paths_for_test(character_type: Variant) -> Dictionary:
+	var normalized := normalize_player_character_type(character_type)
+	var paths: Dictionary = PLAZA_PLAYER_SPRITE_PATHS.get(normalized, {})
+	var result := {"character_type": normalized}
+	for key in ["idle", "walk_left", "walk_right"]:
+		result[key] = str(paths.get(key, ""))
+	return result
+
+
+static func resolve_floor_texture_paths(stage_id: int = 1) -> Dictionary:
+	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
+	var paths := FLOOR_KEYS.duplicate(true)
+	_apply_manifest_assets_to_paths(
+		paths,
+		_get_stage_floor_manifest_path(normalized_stage),
+		"assets",
+		FLOOR_MANIFEST_KEYS
+	)
+	_apply_manifest_assets_to_paths(
+		paths,
+		_get_stage_floor_manifest_path(normalized_stage),
+		"emissive_overlays",
+		FLOOR_EMISSIVE_MANIFEST_KEYS
+	)
+	_apply_manifest_assets_to_paths(
+		paths,
+		_get_stage_parallax_manifest_path(normalized_stage),
+		"assets",
+		PARALLAX_MANIFEST_KEYS
+	)
+	return paths
+
+
+static func get_floor_texture_paths_for_test(stage_id: int = 1) -> Dictionary:
+	return resolve_floor_texture_paths(stage_id).duplicate(true)
+
+
+static func build_building_specs(
+	stage_id: int = 1,
+	map_seed: int = 0,
+	world_width: float = DEFAULT_WORLD_WIDTH,
+	full_layout_for_test: bool = false,
+	force_tavern: bool = false
+) -> Array[Dictionary]:
+	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
+	var cache_key := _building_specs_cache_key(normalized_stage, map_seed, world_width, full_layout_for_test, force_tavern)
+	if _building_specs_cache.has(cache_key):
+		return _duplicate_spec_array(_building_specs_cache[cache_key])
+
+	var selected_types := _select_building_types(normalized_stage, map_seed, full_layout_for_test, force_tavern)
 	var specs: Array[Dictionary] = []
 	for manifest_path in BUILDING_MANIFEST_PATHS:
 		var manifest := load_manifest(str(manifest_path))
@@ -187,41 +390,37 @@ static func build_building_specs(stage_id: int = 1) -> Array[Dictionary]:
 		var building_type := str(manifest.get("building_type", ""))
 		if not BUILDING_LAYOUT.has(building_type):
 			continue
+		if not selected_types.has(building_type):
+			continue
 		var layout: Dictionary = _get_dictionary(BUILDING_LAYOUT[building_type])
-		var pivot_pos := Vector2.ZERO
-		var pivot_value: Variant = layout.get("pivot", Vector2.ZERO)
-		if pivot_value is Vector2:
-			pivot_pos = pivot_value as Vector2
 		var source_size := _array_to_vector2(manifest.get("source_size", []), Vector2.ONE)
 		var origin_pivot := _array_to_vector2(manifest.get("origin_pivot", []), source_size * 0.5)
 		var fallback_display_height := float(manifest.get("display_height", round(source_size.y * float(manifest.get("display_scale", 1.0)))))
 		var display_height: float = float(layout.get("display_height", fallback_display_height))
 		var display_scale: float = display_height / max(1.0, source_size.y)
 		var interaction_width := float(layout.get("interaction_width", max(140.0, source_size.x * display_scale * 0.38)))
-		var interaction_rect := Rect2(
-			Vector2(pivot_pos.x - interaction_width * 0.5, BUILDING_INTERACTION_TOP),
-			Vector2(interaction_width, BUILDING_INTERACTION_HEIGHT)
-		)
 		var layers: Dictionary = _get_dictionary(manifest.get("layers", {}))
 		specs.append({
 			"type": building_type,
 			"display_name": get_building_display_name(building_type),
-			"pivot_pos": pivot_pos,
+			"pivot_pos": Vector2.ZERO,
 			"source_size": source_size,
 			"origin_pivot": origin_pivot,
 			"display_scale": display_scale,
 			"display_height": int(round(display_height)),
+			"interaction_width": interaction_width,
 			"collision_rect": Rect2(),
-			"interaction_rect": interaction_rect,
-			"visual_rect": Rect2(pivot_pos - origin_pivot * display_scale, source_size * display_scale),
+			"interaction_rect": Rect2(),
+			"visual_rect": Rect2(),
 			"y_sort_anchor": BUILDING_BASELINE_Y,
 			"base_texture": _load_layer_texture(layers, "base"),
 			"sign_texture": _load_layer_texture(layers, "sign_emissive"),
 			"window_texture": _load_layer_texture(layers, "window_glow_mask"),
 			"identity_emblem": _get_dictionary(manifest.get("identity_emblem", {})),
 		})
-	specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("y_sort_anchor", 0.0)) < float(b.get("y_sort_anchor", 0.0)))
-	_building_specs_cache[normalized_stage] = specs.duplicate(true)
+	specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return selected_types.find(str(a.get("type", ""))) < selected_types.find(str(b.get("type", ""))))
+	_apply_building_positions(specs, normalized_stage, map_seed, max(world_width, 760.0), full_layout_for_test)
+	_building_specs_cache[cache_key] = specs.duplicate(true)
 	return specs
 
 
@@ -238,6 +437,151 @@ static func load_manifest(path: String) -> Dictionary:
 		return {}
 	_manifest_cache[path] = (parsed as Dictionary).duplicate(true)
 	return (parsed as Dictionary).duplicate(true)
+
+
+static func _building_specs_cache_key(
+	stage_id: int,
+	map_seed: int,
+	world_width: float,
+	full_layout_for_test: bool,
+	force_tavern: bool
+) -> String:
+	return "%d:%d:%d:%d:%d" % [
+		stage_id,
+		map_seed,
+		int(round(world_width)),
+		1 if full_layout_for_test else 0,
+		1 if force_tavern else 0,
+	]
+
+
+static func _select_building_types(
+	stage_id: int,
+	map_seed: int,
+	full_layout_for_test: bool,
+	force_tavern: bool
+) -> Array:
+	if full_layout_for_test:
+		return FULL_LAYOUT_BUILDING_ORDER.duplicate()
+	var rng := _build_layout_rng(stage_id, map_seed)
+	var selected: Array = []
+	for building_type in REQUIRED_BUILDING_TYPES:
+		_append_unique(selected, str(building_type))
+	if force_tavern:
+		_append_unique(selected, "tavern")
+	var target_count := rng.randi_range(RANDOM_BUILDING_MIN_COUNT, RANDOM_BUILDING_MAX_COUNT)
+	target_count = clampi(maxi(target_count, selected.size()), RANDOM_BUILDING_MIN_COUNT, RANDOM_BUILDING_MAX_COUNT)
+	for chance_value in CHANCE_BUILDING_TYPES:
+		var chance: Dictionary = _get_dictionary(chance_value)
+		var building_type := str(chance.get("type", ""))
+		if building_type == "" or selected.has(building_type):
+			continue
+		if rng.randf() < float(chance.get("chance", 0.0)):
+			_append_unique(selected, building_type)
+	target_count = clampi(maxi(target_count, selected.size()), RANDOM_BUILDING_MIN_COUNT, RANDOM_BUILDING_MAX_COUNT)
+	var fillers: Array = FILLER_BUILDING_TYPES.duplicate()
+	_shuffle_array(fillers, rng)
+	for filler_value in fillers:
+		if selected.size() >= target_count:
+			break
+		_append_unique(selected, str(filler_value))
+	var remaining_pool: Array = []
+	for building_type in FULL_LAYOUT_BUILDING_ORDER:
+		if not selected.has(str(building_type)):
+			remaining_pool.append(str(building_type))
+	_shuffle_array(remaining_pool, rng)
+	for building_type in remaining_pool:
+		if selected.size() >= RANDOM_BUILDING_MIN_COUNT:
+			break
+		_append_unique(selected, str(building_type))
+	var bank_index := selected.find("bank")
+	if bank_index > 0:
+		selected.remove_at(bank_index)
+		selected.insert(0, "bank")
+	var rest := selected.slice(1)
+	_shuffle_array(rest, rng)
+	var ordered: Array = ["bank"]
+	for value in rest:
+		ordered.append(str(value))
+	return ordered
+
+
+static func _apply_building_positions(
+	specs: Array[Dictionary],
+	stage_id: int,
+	map_seed: int,
+	world_width: float,
+	full_layout_for_test: bool
+) -> void:
+	if specs.is_empty():
+		return
+	var rng: RandomNumberGenerator = _build_layout_rng(stage_id + 17, map_seed + (1 if full_layout_for_test else 0))
+	var left_margin: float = min(BUILDING_LEFT_MARGIN, max(180.0, world_width * 0.18))
+	var exit_buffer: float = min(BUILDING_EXIT_BUFFER, max(160.0, world_width * 0.12))
+	var usable_width: float = max(360.0, world_width - left_margin - exit_buffer)
+	var total_interaction_width := 0.0
+	for spec in specs:
+		total_interaction_width += float(spec.get("interaction_width", 160.0))
+	var gap_count := maxi(0, specs.size() - 1)
+	var gaps: Array[float] = []
+	if gap_count > 0:
+		var min_gap_total: float = BUILDING_MIN_GAP * float(gap_count)
+		var extra_gap: float = max(0.0, usable_width - total_interaction_width - min_gap_total)
+		var weights: Array[float] = []
+		var weight_total := 0.0
+		for _idx in range(gap_count):
+			var weight := rng.randf_range(0.35, 1.85)
+			weights.append(weight)
+			weight_total += weight
+		for idx in range(gap_count):
+			var organic_extra: float = extra_gap * float(weights[idx]) / max(0.001, weight_total)
+			gaps.append(clampf(BUILDING_MIN_GAP + organic_extra, BUILDING_MIN_GAP, BUILDING_MAX_GAP))
+	var total_gap := 0.0
+	for gap in gaps:
+		total_gap += float(gap)
+	var layout_width: float = total_interaction_width + total_gap
+	var start_x: float = left_margin
+	if layout_width < usable_width:
+		start_x += rng.randf_range(0.0, max(0.0, usable_width - layout_width) * 0.35)
+	var cursor_left: float = start_x
+	for idx in range(specs.size()):
+		var spec: Dictionary = specs[idx]
+		var interaction_width: float = float(spec.get("interaction_width", 160.0))
+		var pivot_pos := Vector2(cursor_left + interaction_width * 0.5, BUILDING_BASELINE_Y)
+		var source_size: Vector2 = spec.get("source_size", Vector2.ONE)
+		var origin_pivot: Vector2 = spec.get("origin_pivot", source_size * 0.5)
+		var display_scale: float = float(spec.get("display_scale", 1.0))
+		spec["pivot_pos"] = pivot_pos
+		spec["interaction_rect"] = Rect2(
+			Vector2(pivot_pos.x - interaction_width * 0.5, BUILDING_INTERACTION_TOP),
+			Vector2(interaction_width, BUILDING_INTERACTION_HEIGHT)
+		)
+		spec["visual_rect"] = Rect2(pivot_pos - origin_pivot * display_scale, source_size * display_scale)
+		spec["y_sort_anchor"] = BUILDING_BASELINE_Y
+		cursor_left += interaction_width
+		if idx < gaps.size():
+			cursor_left += float(gaps[idx])
+
+
+static func _build_layout_rng(stage_id: int, map_seed: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	var safe_seed := map_seed if map_seed > 0 else int(abs(hash("plaza:%d" % stage_id)))
+	rng.seed = int(abs(hash("%d:%d" % [stage_id, safe_seed])))
+	return rng
+
+
+static func _append_unique(target: Array, value: String) -> void:
+	if value == "" or target.has(value):
+		return
+	target.append(value)
+
+
+static func _shuffle_array(values: Array, rng: RandomNumberGenerator) -> void:
+	for idx in range(values.size() - 1, 0, -1):
+		var swap_idx := rng.randi_range(0, idx)
+		var temp: Variant = values[idx]
+		values[idx] = values[swap_idx]
+		values[swap_idx] = temp
 
 
 static func get_building_display_name(building_type: String) -> String:
@@ -257,6 +601,63 @@ static func get_building_display_name(building_type: String) -> String:
 		"academy":
 			return "아카데미"
 	return building_type
+
+
+static func _get_stage_floor_manifest_path(stage_id: int) -> String:
+	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
+	var slug := PlazaThemeCatalog.get_asset_slug(normalized_stage)
+	return "res://assets/ui/plaza/plaza_stage%d_floor_tiles_%s_v1_manifest.json" % [normalized_stage, slug]
+
+
+static func _get_stage_parallax_manifest_path(stage_id: int) -> String:
+	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
+	var slug := PlazaThemeCatalog.get_asset_slug(normalized_stage)
+	return "res://assets/ui/plaza/plaza_stage%d_sidescroll_parallax_layers_%s_v1_manifest.json" % [normalized_stage, slug]
+
+
+static func _apply_manifest_assets_to_paths(
+	paths: Dictionary,
+	manifest_path: String,
+	collection_key: String,
+	id_to_path_key: Dictionary
+) -> void:
+	var manifest := _load_optional_manifest(manifest_path)
+	if manifest.is_empty():
+		return
+	var entries: Variant = manifest.get(collection_key, [])
+	if not (entries is Array):
+		return
+	for entry_value in (entries as Array):
+		if not (entry_value is Dictionary):
+			continue
+		var entry := entry_value as Dictionary
+		var manifest_id := str(entry.get("id", ""))
+		if not id_to_path_key.has(manifest_id):
+			continue
+		var path_key := str(id_to_path_key[manifest_id])
+		var texture_path := str(entry.get("res_path", ""))
+		if texture_path == "":
+			continue
+		if not ProjectResourceLoader.texture_resource_exists(texture_path):
+			continue
+		paths[path_key] = texture_path
+
+
+static func _load_optional_manifest(path: String) -> Dictionary:
+	if _manifest_cache.has(path):
+		return (_manifest_cache[path] as Dictionary).duplicate(true)
+	if not FileAccess.file_exists(path):
+		return {}
+	var text := FileAccess.get_file_as_string(path)
+	if text == "":
+		push_warning("Empty plaza manifest: %s" % path)
+		return {}
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary):
+		push_warning("Invalid plaza manifest JSON: %s" % path)
+		return {}
+	_manifest_cache[path] = (parsed as Dictionary).duplicate(true)
+	return (parsed as Dictionary).duplicate(true)
 
 
 static func _load_layer_texture(layers: Dictionary, layer_key: String) -> Texture2D:

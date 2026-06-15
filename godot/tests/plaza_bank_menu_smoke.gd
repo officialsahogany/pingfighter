@@ -41,7 +41,7 @@ func _verify_bank_menu_transactions() -> void:
 		_cleanup(save_path)
 		return
 	viewport.add_child(scene)
-	scene.configure({"current_stage": 1, "plaza_save_path": save_path}, Callable(), true)
+	scene.configure({"current_stage": 1, "plaza_save_path": save_path, "full_layout_for_test": true}, Callable(), true)
 	scene.update_plaza(1.0 / 60.0)
 
 	var bank: Dictionary = _find_building(scene.get_building_specs_for_test(), "bank")

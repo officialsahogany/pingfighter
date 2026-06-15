@@ -31,9 +31,10 @@
 레퍼런스의 다층 플랫폼/사다리 구조는 v2+ 확장(스코프 폭발 방지).
 
 **뷰/맵 계약 (구 §6 렌더러·걷기·카메라 항을 대체)**
-- 캔버스 760x750 유지, 맵 가로 ~3040px(4스크린 분량), **카메라 X 스크롤**
-  (smoothing 0.08, lead_x 100 — 레거시 파라미터의 축 전환). 스폰 좌측,
-  EXIT 우측 끝(귀환 포털).
+- 캔버스 760x750 유지, **카메라 X 스크롤**(smoothing 0.08, lead_x 100 —
+  레거시 파라미터의 축 전환). 초기 S4 셸은 맵 가로 ~3040px였으나, Stage 1
+  정리 패스(§0.8) 이후 기본 런타임은 **1900px**(약 2.5스크린)로 축소. 스폰
+  좌측, EXIT 우측 끝(귀환 포털).
 - 워크라인: 지면 y ≈ 640~700 밴드, 좌우 이동(4px/frame-60, `delta*60` 필수),
   v1 점프 없음. 충돌 = 지면 라인 + 건물 출입 존(파사드 앞 X 구간).
 - 인터랙션: 건물 파사드 앞 X 구간 + ↑/Space → 다이얼로그 (사이드뷰 타운 표준).
@@ -43,18 +44,21 @@
 
 **기존 산출물 영향 분석**
 - **건물 7동 키트: 전부 생존, 적합도 상승.** 3/4 정면 파사드 = 사이드뷰 거리
-  문법 그 자체. 엠블럼 푯말·emissive 분리·manifest 그대로 유효. 표시 높이만
-  240 → **320~420 상향 후보** (소스가 917~1077px라 재생성 불필요 —
-  `display_height`/`display_scale` 필드 조정만; 횡스크롤에선 건물이 플레이어
-  대비 더 커야 거리로 읽힘, 레퍼런스 비율 참고).
+  문법 그 자체. 엠블럼 푯말·emissive 분리·manifest 그대로 유효. S4 전환 당시
+  표시 높이는 320~420px 후보였으나, Stage 1 실플레이 정리(§0.8)에서
+  **220~300px**로 재조정(소스가 917~1077px라 재생성 불필요 —
+  `display_height`/`display_scale` 필드 조정만).
 - **S1 바닥 미니셋: 역할 재정의 (폐기 아님).** 탑다운 전제였으므로:
   ①워크 밴드(완만한 탑다운 기울기의 보도 밴드)에 base_01/02·어도·메달리온
   재활용 — 횡스크롤에서도 보도는 약간 위에서 내려다보는 밴드로 그리는 게 표준,
   ②**신규 에셋 타입 "지면 크로스섹션"**(보도 전면 단면) 추가 — 단면에 VR
   데이터 지층(발광 회로 스트라타)을 노출하면 "가상세계 기저" 컨셉이 문자
   그대로 시각화된다(디제틱 강화 기회). 심리스 요구는 X축만으로 완화.
-- **S2(스테이지 2~6 바닥 전개): 일시정지** — 지면 스트립/단면 문법을 스테이지 1
-  에서 확정한 뒤 재정의해서 전개.
+- **S2(스테이지 2~6 바닥 전개): 런타임 슬롯 개방 / 아트 보류** — 지면
+  스트립/단면 문법은 스테이지 1에서 확정. 런타임 로더는 스테이지별
+  floor/parallax manifest(`plaza_stageN_*_<asset_slug>_v1_manifest.json`)가
+  있으면 해당 텍스처를 사용하고, 없거나 import되지 않은 항목은 S1 확정 에셋으로
+  fallback한다. 스테이지 2~6 실제 비트맵 생산은 이 슬롯에 꽂는 후속 아트 패스.
 - **§6.1 플로우 계약은 전부 생존**: 결과씬 3버튼·콜백 지연 원칙·프리웜 게이트
   스폰·owner 키 신설 금지·스모크 세트 모두 유효. §6.1의 렌더러/걷기/카메라
   항만 본 절이 대체한다. 트랩 체크리스트도 전부 유효 — 패럴랙스 도입으로
@@ -159,6 +163,13 @@ before/after 비교.
   메달리온/accent 사각 패치감을 제거.
 - 게이트 입력: `tools/plaza_scene_capture.gd` 5컷 재캡처(`d:/tmp/plaza_s4/`) 완료,
   `d:/tmp/plaza_s45/`에 asset/cutout contact board 보존. 스모크/경고/로드 검증 통과.
+
+**후속 런타임 보정 (2026-06-15)**:
+- 중경 담장 텍스처(S1/S2)가 상단 row 0부터 100% 불투명이라 지붕 봉우리가
+  `MIDGROUND_WALL_TOP`에서 평평하게 잘린 듯 보이는 이슈를 확인. 자산 재생성 전
+  공통 런타임 처리로 `_draw_midground_wall`에 상단 38px 알파 램프를 적용해 하늘에
+  안개처럼 섞이게 했다. 향후 S3~S6 중경 에셋은 지붕 위 투명 headroom을 두는 것이
+  정석이나, 이 보정은 테마 독립 fallback으로 유지.
 
 ## 6.2 S5 런타임 절반 — 발광 동적화 + 입장 다이얼로그 배선 계약 (Claude → Codex)
 
@@ -449,6 +460,431 @@ S6a 스모크: ①스토어 save→load 라운드트립(BOM 포함 파일도 복
 진입 edge 1회만(재드로우/재진입 무적립) ③AP +1이 스테이지 전진 1회만(재진입
 무지급) ④스타포인트/★ 단위가 plaza_gold에 안 섞임(골드 단위 불변) ⑤스키마
 손상 파일 → last_good 복구. 영속이라 **실제 파일 라운드트립**까지 확인.
+
+## 0.7 S2 첫 테마 — 스테이지 2 정글 유적 패럴랙스 아트 브리프 (Claude → Codex)
+
+S2 런타임 슬롯의 manifest 덮어쓰기 경로를 **첫 실테마로 검증**하는 슬라이스.
+생산 = Codex, 게이트 = Claude(5컷 캡처 + X심리스 정량 + 덮어쓰기 실발동 확인).
+**S1 제작 문법 그대로 재사용**(무장식 베이스 먼저 X심리스 → 발광 diff 분리 →
+하프롤/2x2 QA). 단지 팔레트/모티프만 정글로 리스킨.
+
+### 스코프 (v1 = 패럴랙스 4레이어)
+사용자 확정: `ground_strip` + `ground_strip_emissive` + `midground_wall` +
+`far_sky`. 탑다운 floor-tile 세트(base_01/02/accent/border/medallion)와 cutout은
+**S1 fallback 유지**(사이드뷰에서 주 가시면은 ground_strip이라 v1 우선순위 밖).
+**건물 7동은 S1 한옥 그대로** — 정글 바닥 위 한옥은 테마 불일치지만, 건물
+테마별 재생성은 별도 대형 슬라이스(6테마×7동)라 v1에서 의도적 보류(알려진 한계).
+
+### manifest 계약 (이 경로/키여야 슬롯이 발동)
+- 패럴랙스 manifest: `res://assets/ui/plaza/plaza_stage2_sidescroll_parallax_layers_jungle_relic_v1_manifest.json`
+- 스키마는 S1 패럴랙스 manifest와 동일(`assets`[] 각 항목 `{id, res_path, ...}`).
+- **id → 로더 키 매핑(PARALLAX_MANIFEST_KEYS)**: `ground`→ground_strip,
+  `ground_emissive`→ground_strip_emissive, `midground`→midground_wall,
+  `sky`→far_sky. (id가 정확히 이 문자열이어야 덮어쓰기됨.)
+- **발동 게이트**: 각 `res_path`는 `texture_resource_exists()` 통과해야(=Godot
+  import 완료, .ctex remap 유효) 덮어쓰기. import 안 되면 조용히 S1 fallback —
+  반입 시 import pass 필수(Solar Bolt sidecar 누락 사건의 교훈).
+
+### 좌표/사이즈 계약 (S1 확정값 그대로)
+- `ground_strip`: **X심리스, 런타임 1140×154**(=FLOOR_REPEAT 380×3). 상단 보도
+  밴드(y596~688) + 하단 단면(y688~750). 좌우 엣지 diff **0.00** 필수.
+- `ground_strip_emissive`: base와 diff로 추출한 발광 오버레이(런타임 additive +
+  flicker). 정글 단면의 데이터-덩굴 발광만 담음.
+- `midground_wall`: **X심리스, 960×180**(=tile 320×3), parallax 0.48. 좌우 0.00.
+- `far_sky`: ~1520×430 와이드 atlas, parallax 0.04(비타일 — edge delta 허용).
+
+### 정글 유적 아트 디렉션 (§3 매트릭스 기반)
+- 팔레트(실측): 딥그린 `(0.045,0.105,0.075)`, 모스 `(0.45,0.58,0.28)`, 흙그늘
+  `(0.02,0.05,0.02)`. 네온 액센트 = **민트-시안 `(42,214,214)` ≈ #2AD6D6**.
+- 지면(ground_strip 상단): 이끼 낀 석판 + 뿌리/덩굴 침식, 다진 흙 패치, 균열
+  암석 파편. S1의 박석→정글 석판으로 대비.
+- **단면(ground_strip 하단) = VR 기저의 정글판**: S1은 금/시안 회로 지층이었는데,
+  S2는 **민트-시안 "데이터 덩굴/회로 뿌리"** 가 흙 단면을 관통하는 형태. "가상세계
+  기저가 비쳐 보임"을 정글 관용구(뿌리=회로)로 표현 — 이게 S1 대비 핵심 대조 테스트.
+- 중경(midground_wall): 정글 유적 담장/이끼 낀 석조 + 늘어진 덩굴 실루엣, 어둡게
+  후퇴(시선 위계 건물 > 중경 유지), 민트-시안 트림 은은.
+- 원경(far_sky): 정글 야경 — 짙은 녹청 하늘 + 안개층, 달은 S1 웜톤 유지하되
+  녹빛 안개에 감싸이게. 알약형 구름 금지(S1 교훈).
+
+### 게이트 (Claude)
+`tools/plaza_scene_capture.gd`를 **stage 2로** 5컷 캡처 →
+①덮어쓰기 실발동 확인(ground/midground/sky가 S1이 아닌 stage2 자산으로 — 스모크
+fallback 단언의 반대 케이스) ②X심리스 정량 0.00(ground 1140×154, midground
+960×180) ③시선 위계(건물>중경>원경) ④단면 데이터-덩굴 디제틱 가독 ⑤S1 대비
+대조(정글이 사이버 조선과 확실히 구분되며 같은 문법으로 읽히는지). placeholder
+없이 실자산이라 import pass 후 캡처.
+
+**Codex 구현 결과 (2026-06-14)**:
+- `plaza_stage2_sidescroll_parallax_layers_jungle_relic_v1_manifest.json` 반입.
+  `assets` id는 계약대로 `ground` / `ground_emissive` / `midground` / `sky`.
+- 최종 PNG: ground 1140×154, ground_emissive 1140×154, midground 960×180,
+  far_sky 1520×430. 생성 원본 3장(`*_source.png`)도 보존.
+- Godot import pass로 PNG 7종 `.png.import` 생성 완료. `plaza_scene_smoke`가
+  stage2 prewarm status에서 stage2 ground/midground/sky 실제 로드를 단언.
+- QA 정량: ground edge delta 0.00, ground_emissive edge delta 0.00, midground
+  edge delta 0.00, emissive alpha coverage 4.094%.
+- QA 산출물: `d:/tmp/plaza_s2/plaza_s2_layer_stack_preview.png`,
+  `plaza_s2_ground_2x_wrap.png`, `plaza_s2_midground_2x_wrap.png`,
+  stage2 실화면 캡처 `d:/tmp/plaza_s2_capture/plaza_stage2_*.png`.
+
+**+Claude 게이트 통과 (2026-06-14)**: ①**덮어쓰기 실발동 정량 확정**(경로 프로브:
+ground/ground_emissive/midground/far_sky=stage2 jungle_relic, base/accent/
+medallion_cutout=stage1 fallback — v1 범위대로) ②X심리스 0.00(3레이어) ③단면
+**민트시안 데이터덩굴/회로뿌리 디제틱 가독** 확인(이끼 녹석판+흙단면 관통) ④S1
+대비 확실(웜크림 박석+금/시안 회로 ↔ 녹모스 석판+민트 덩굴, 같은 franchise 문법)
+⑤건물 S1 한옥 fallback(문서화된 v1 한계). 스코프 plaza만(링펫 미접촉). **결론:
+S2 슬롯+manifest 덮어쓰기 경로가 두 번째 실테마에서 검증됨 → S3~6 동일 문법 확장 가능.**
+
+### S3 네온시티 변주 (2026-06-14 착수) — S2 계약 상속 + 도시 델타만
+
+S2 모든 계약 그대로 상속(키 ground/ground_emissive/midground/sky, 사이즈
+ground 1140×154 / midground 960×180 / far_sky 1520×430, X심리스 0.00, 베이스
+먼저 심리스→발광 diff→texture_resource_exists 게이트→경로 프로브 5컷). 델타만:
+- manifest: `res://assets/ui/plaza/plaza_stage3_sidescroll_parallax_layers_neon_city_v1_manifest.json` (slug=`neon_city`).
+- **구조적 역전 (S3 고유)**: §3 매트릭스에서 스테이지 3은 "사이버 베이스가 전면에
+  드러나는 기준점". S1/S2는 문화스킨70/기저30이었으나 **네온시티는 비율 역전 허용**
+  — 도시 자체가 네온이라 데이터 단면이 "비쳐 보이는 기저"가 아니라 **"젖은
+  아스팔트에 반사되는 네온" 그 자체로 전면화**. ground_strip 하단 단면은 "기저
+  노출 데이터덩굴" 대신 젖은 아스팔트 측면 + 배수구/네온 누수광.
+- 캐논 근거: 레거시 `ui/space_map.py:4689` "멘헤라/아키하바라 행성 표면 — 더티
+  핑크+보라빛 도시 야경"(세로 네온 사인/간판 글리프). 배틀 내부 멘헤라 파스텔 룸이
+  아니라 **옥외 도시 야경**을 따른다.
+- 아트(§3): 젖은 아스팔트 + 네온 반사, 점자블록(노랑 텍타일), 맨홀/배수구, 파스텔
+  간판 빛 번짐. 팔레트 = 더티핑크+퍼플 야경, 파스텔핑크 `(255,182,193)`, 라벤더
+  `(230,190,255)`, 크림슨 `(220,20,60)`, 다크플럼 `(18,12,22)`. far_sky = 세로
+  네온 사인/간판 글리프 빽빽한 아키하바라풍 도시 스카이라인(S1/S2 자연 하늘과
+  대비 — 도시 실루엣), 달은 네온에 묻혀도 됨. midground = 네온 간판 걸린 뒷골목
+  빌딩 실루엣.
+- 게이트: stage 3 5컷 → 덮어쓰기 실발동 + X심리스 0.00 + **3테마 대조**(조선석/
+  정글모스/도시아스팔트가 한 문법으로 읽히는지) + 네온 전면화가 "기저 노출" 역전을
+  의도대로 보여주는지. 건물 S1 한옥 fallback 유지.
+
+## 0.8 Stage 1 정리(consolidation) 패스 (2026-06-14, 실플레이 QA 기반)
+
+사용자 실플레이 QA 4개 이슈. **S3~6 테마 양산 일시 보류** — Stage 1을 실제 플레이
+가능 수준으로 먼저 정리(양산 후 고치면 6배 비용). 코드만 vs 자산 필요로 분류.
+
+**① 캐릭터 + 링펫 팔로워 (대부분 배선 — 자산 거의 불요, 2026-06-14 재조사)**
+- 현재 플레이어 = `_draw_player`의 시안 placeholder 박스. 실 캐릭터 안 보임.
+- 페르소나↔클래스 (character_select_data.gd 확정): 미카=스매셔, 세린=바이퍼,
+  레나=코만도, 이오=옵티머스, 코하쿠=발토르.
+- **★재조사 결과: 미카/세린/레나 walk 시트가 이미 존재한다.** `{smasher,viper,
+  commando}_subculture_{left,right}_walk_sheet.png`(각 640×320), commando는 back도
+  있음. 이미 `battle_resources.gd`에 `*_PLAYER_WALK_*_SHEET_PATH`로 등록·전투
+  렌더 중(line 145 "subculture walk sprites에서 제작"). → **신규 AutoSprite 사이클
+  불필요.** ①은 "걷기 시트 제작"이 아니라 **기존 전투 walk 렌더 경로를 플라자에서
+  재사용하는 배선**으로 축소.
+  - 배선: 플라자 player를 선택 캐릭터의 left/right walk 시트로 그림(이동 방향별,
+    정지 시 idle 프레임). 슬라이스는 전투 player 렌더러 경로 재사용(시트 동일 자산,
+    그리드 재발명 금지 — atlas grid authority). 박스 placeholder 대체.
+- **이오/코하쿠는 walk 시트 없음** → P2 결정대로 중립 회색 실루엣 placeholder 유지.
+  그들의 walk 시트는 **나중에 AutoSprite로**(이건 Claude sprite-generation 도메인,
+  지연). 우선 3종으로 ① 닫고 2종은 후속.
+- **활성 링펫 팔로워**: `lingpet_companion` 걷기 자산 이미 존재 → 신규 자산 불요,
+  플레이어 뒤 trail-follow 배선만(레거시 `bodyguard_follower` 패턴).
+- **분담 변화**: ①이 AutoSprite 대작업(Claude)에서 → 배선(Codex/사용자) + Claude
+  게이트로 바뀜. 잔여 Claude 자산 = 이오/코하쿠 walk 시트(후속, 소규모).
+
+**② 건물 큼 + 크기 편차 + ②-b 맵 축소 (코드만) — 사용자 추가 지시**
+- 현재 BUILDING_LAYOUT display_height 360~400px(캔버스 750의 ~절반)라 압도적.
+  게다가 전부 360~400 구간이라 **건물 간 크기 차이가 안 느껴짐**.
+- 두 가지 동시: (a) **전체 대역 하향** — 제안 **220~300px**(캐릭터 191px의
+  1.15~1.55배, 거리감은 살되 안 압도). (b) **건물마다 크기 편차 확대** — 일률
+  축소가 아니라 건물별로 다르게: 예 상점/선술집 ~220, 가챠/링펫 ~250,
+  은행 ~280, 대장간/아카데미 ~300 (큰 건물 = 은행/대장간/아카데미 같은
+  "무게감 있는" 기능). 편차가 유기적 갭 배치(③)와 맞물려 거리가 자연스러워짐.
+  소스 PNG는 917~1077px라 재생성 불요 — display_height 필드 값만 조정.
+- **맵 폭 축소**: 현재 MAP_SIZE 3040px(4스크린, 끝까지 ~12.6초). 사용자 요구
+  "원본처럼 넓지 않게, 빠르게 건물 도달". 제안 **~1900px(2.5스크린, ~8초)** —
+  건물 2~5개 유기 배치에 충분하면서 빠른 도달. 캡처로 미세조정.
+
+**③ 랜덤 스폰 + 유기적 배치 (코드만) — 레거시 규칙 + 사용자 변형**
+- 건물 수: 레거시는 3~7개였으나 **사용자 지시 = 2~5개**(맵이 작으니 적게).
+  **은행 필수**, 아카데미 50%/상점 40%/가챠 40%, 나머지(대장간/선술집/링펫스토어)
+  셔플로 2~5 범위 채움. 스테이지 시드(`seed + stage*1000`)로 스테이지마다 다른
+  조합, 같은 스테이지는 안정.
+- **유기적 갭 배치 (사용자 지시 — 균일 pivot 금지)**: 현재 고정 pivot
+  (360/740/1120/…, 균일 ~380px)을 버리고, 좌→우로 건물 사이 갭을 랜덤
+  (min_gap=붙음 허용 ~30~60px ↔ max_gap=뜨문뜨문 ~400px+)으로 시드 생성.
+  "붙어있기도 뜨문뜨문 떨어져있기도" 룩. 은행은 스폰(좌측) 근처 우선. 겹침은
+  건물 폭 기반 min_gap으로만 방지(완전 분리 강제 X — 살짝 붙는 건 OK/예쁨).
+- 현재 Godot은 7동 항상 표시 → 매 방문(스테이지) 2~5 부분집합 + 유기 배치.
+  map_seed를 plaza_save_store에 영속(레거시 downtown_map_seed) 검토 — 이어하기
+  레이아웃 유지.
+- 주의: 맵 폭/건물 수가 줄면 카메라 lead_x(현 100), EXIT존 위치(현 맵 우측 끝),
+  interaction_rect 좌표가 새 MAP_SIZE 기준으로 재계산돼야 함(하드코딩 pivot 제거와
+  함께 spec 생성을 맵폭 비례로).
+
+**④ 미니맵 (코드 + 소량 자산)**
+- 레거시는 탑다운 90/180px 우상단. 사이드뷰 광장이라 **가로 스트립 미니맵**으로
+  재설계: 현재 `world_size.x`에 플레이어 위치 점 + 건물 마커 + EXIT 마커를
+  매핑한 수평 바.
+
+**실행 순서**: ③+②(코드만, 커플링·랜덤 스폰이 밀도 완화) → ④ 미니맵(코드만) →
+① 기존 캐릭터 walk 시트 배선+링펫 팔로워. ①은 재조사로 신규 AutoSprite 자산
+사이클이 사라져 코드 배선으로 축소. 전부 끝나면 S3 네온시티 양산 재개.
+
+### 0.8.1 Codex 리뷰 반영 — 구현 계약 확정 (2026-06-14)
+
+Codex 리뷰(P1×3 캐시/테스트/맵연쇄, P2×2 캐릭fallback/거래접근성, Open-Q×2)에
+대한 Claude 판정. 배선 전 이 결정대로:
+
+- **[P1 캐시·시드]** `build_building_specs(stage_id, map_seed)`로 시드 인자 추가,
+  specs 캐시 키 = `"%d:%d" % [stage_id, map_seed]`. 고정 BUILDING_LAYOUT pivot
+  제거, layout은 (map_seed + 맵폭)으로 유기 생성. 시드 출처 = plaza_save_store
+  스테이지별 영속 map_seed.
+- **[Open-Q2 시드 정책]** **스테이지 시드 고정**(방문마다 랜덤 아님). 첫 그 스테이지
+  광장 진입 시 map_seed 1회 롤 → plaza_save_store 영속(레거시 downtown_map_seed
+  대응) → 같은 세이브 내 같은 스테이지는 레이아웃 안정, 이어하기 화면 정합.
+  세이브별로는 다른 조합(원본 감성).
+- **[P1 테스트 분리]** `build_building_specs`에 `full_layout_for_test=false` 인자.
+  true = 7동 전부(기존 메뉴 셸 커버리지 스모크 유지). 랜덤 모드(false)는 **별도
+  단언**: 2≤count≤5, 은행 포함, 건물 rect가 min_gap 초과로 비중첩(살짝 붙음 허용은
+  min_gap 자체로 표현), EXIT 도달 가능(맵 우측 끝 도달).
+- **[P1 맵 축소 연쇄]** 하드코딩 3040·2980 전부 제거, `world_size.x` 기반 재계산:
+  MAP_SIZE, EXIT_ZONE(우측 끝), 카메라 clamp, 플레이어 clamp,
+  `plaza_scene_capture.gd` exit_right, 미니맵 스케일. 맵폭 = ~1900 시작,
+  **1900~2100 캡처 튜닝 범위**(5동 최대 + 220~300 크기 + 유기 갭이 빡빡하면 상향).
+- **[P2 캐릭 fallback]** 미카/세린/레나 실시트 우선. **이오/코하쿠 = 중립 걷기
+  실루엣 placeholder**(현 디버그 시안 박스 아님 — 회색 틴트 실루엣 한 종)로
+  시트 나올 때까지. 단계적 롤아웃.
+- **[P2 거래 접근성]** 대부분 랜덤 유지(원본 감성) + **보정 1개만**: 활성 퀘스트
+  보고가 due(accepted_stage < current_stage)면 **선술집 강제 포함**(단일 슬롯
+  소프트락 방지 — 들고 있는 퀘스트 보고처가 사라지면 새 퀘스트도 못 받음).
+  아카데미/상점 부재는 "다음 방문" 허용. 첫-광장 상점 튜토리얼 강제는 v1 스킵.
+  → 즉 스폰 필수 규칙 = 은행 항상 + (보고 due 시) 선술집.
+
+**구현 결과 (Codex, 2026-06-14)**:
+- `plaza_save_store` schema v4에 stage별 `map_seed` 영속을 추가했다. 첫 진입 시 1회
+  생성되고, 같은 세이브/같은 스테이지에서는 같은 랜덤 건물 배치가 유지된다.
+- `PlazaAssetLoader.build_building_specs(stage_id, map_seed, world_width,
+  full_layout_for_test, force_tavern)`로 전환했다. 일반 모드는 2~5동 랜덤, 은행 항상,
+  due 퀘스트가 있으면 선술집 강제 포함. 메뉴 스모크는 `full_layout_for_test=true`로
+  7동 전체 커버리지를 유지한다.
+- Stage 1 런타임 맵폭은 1900px로 축소했고, EXIT/카메라/플레이어 clamp/캡처 위치는
+  `world_size.x` 기반으로 갱신했다. 건물 표시 높이는 220~300px 범위로 낮춰 기능별
+  크기 편차를 만들었다.
+- ④ 미니맵은 새 자산 없이 `plaza_scene.gd` 오버레이 draw로 구현했다. 우상단
+  가로 스트립에 현재 카메라 창, 플레이어 점, 이번 seed에서 스폰된 건물 마커,
+  EXIT 마커를 `world_size.x`에 매핑한다. 메뉴가 열리면 모달 딤 아래에 남되 패널과
+  직접 충돌하지 않는다.
+- 캡처 하네스는 `--plaza-map-seed`와 임시 save path를 받아 재현 가능한 Stage 1
+  확인 이미지를 만든다. 기준 캡처: `d:/tmp/plaza_s1_compact/`.
+
+**+Claude 게이트 통과 (2026-06-14) — ③+②**: 40시드 불변식 프로브 **ALL PASS** —
+count 분포 2:6/3:14/4:12/5:8(전부 2~5, 고른 분산), 매 시드 은행 포함·전 건물
+월드 내(0~1900)·중심 간격 40px+(비중첩), `force_tavern=true`→선술집+은행 유지,
+`full_layout_for_test=true`→정확히 7동. display_height 실측 shop/tavern 220 /
+gacha/lingpet 250 / bank 280 / blacksmith/academy 300(360~400에서 하향+편차 적용).
+시드 7·99 캡처: 유기 갭(군집+희소) + 작아진 건물 + EXIT 우측 여백 정상, 7동 압박
+소멸. 당시 플레이어 placeholder는 ①에서 해소 예정. 비차단: 300px 건물(blacksmith/academy)이
+크기 천장 — felt-QA에서 더 줄이고 싶으면 그때 조정. dirty의 lingpet 파일들은
+③+②와 무관한 별도 진행 작업(향후 커밋 시 plaza만 격리).
+
+**+Claude 게이트 통과 (2026-06-14) — ④ 미니맵**: 시드 7 캡처 픽셀 검증 —
+스폰 위치=플레이어 점 좌측 끝+카메라 창 좌측, EXIT 위치=점이 우측 끝 EXIT
+게이트 마커로 이동+카메라 창 우측, 건물 마커 5개(색상별)는 고정 world 위치 유지.
+즉 player dot=위치 추적, camera window=뷰포트 추적, 건물/EXIT 마커=world_size.x
+고정 매핑이 정확. 우상단 가로 스트립 가독 양호, 하단 메뉴 패널과 비충돌.
+
+**+Codex 미니맵 품질 업그레이드 (2026-06-15)**: 기존 색상 막대 마커를 건물별
+canonical `identity_emblem.id` 기반 badge로 교체. track 위 실제 world 위치 tick은
+유지하고, 그 위에 금고/상점상자/가챠캡슐/링펫알/망치모루/의뢰서/책오브 픽토그램을
+그린다. 마커가 가까울 때도 badge가 겹치지 않도록 미니맵 내부에서 X 위치를
+최소 간격으로 정렬하고 tick→badge 연결선으로 실제 위치성을 보존한다. 실화면 캡처:
+`d:/tmp/plaza_minimap_emblems/`, 확대 검증 `minimap_zoom.png`.
+
+**+Codex 구현/게이트 통과 (2026-06-14) — ① 캐릭터+링펫 팔로워**: 플라자
+player 렌더가 선택 캐릭터를 읽어 미카/스매셔, 세린/바이퍼, 레나/코만도는 기존
+`*_subculture_idle_sheet.png` + left/right walk sheet(4×2, 8f)를 사용한다. 이오/
+옵티머스, 코하쿠/발토르/blacksmith 계열은 시트가 생길 때까지 중립 회색 실루엣
+fallback. 결과씬→광장 라우팅은 `selected_character_type`을 명시 전달한다. 활성
+링펫은 owner의 `active_lingpet_id`/`current_lingpet_id`/`lingpet_id`와 companion
+state를 읽어 `LingpetCatalog`의 `companion_walk` 시트로 플레이어 뒤를 trail-follow.
+캡처 하네스는 `--plaza-character`/`--plaza-lingpet` 인자를 지원한다. 스모크:
+`plaza_scene_smoke`가 3종 시트 로드, 2종 fallback, 링펫 follower 위치/추적을 단언하고
+`stage_clear_result_plaza_routing_smoke`가 결과씬 선택 캐릭터 전달을 단언.
+실화면 캡처: `d:/tmp/plaza_s1_player_smasher/`,
+`d:/tmp/plaza_s1_player_viper/`, `d:/tmp/plaza_s1_player_soldier/`.
+
+**+Claude 게이트 통과 (2026-06-14) — ①**: 캐릭터별 캡처 픽셀 검증 — 미카(smasher
+바이오닉)/세린(viper 보라)/레나(commando 군장) 전부 실 스프라이트 렌더(시안 박스
+대체 확인), 이오(optimus) = 중립 회색 실루엣 fallback(디버그 박스/크래시 아님),
+링펫 핑크 companion이 player 뒤 trail-follow(smasher·optimus 캡처 확인). 방향별
+walk 시트 우측 이동 렌더 정상. 비차단: player 스프라이트가 건물 대비 다소 작게
+읽힐 수 있음(필요 시 draw-scale 조정), 이오/코하쿠 실 walk 시트는 후속 AutoSprite
+(Claude 도메인, 지연).
+
+**+Codex 표시 스케일 튜닝 (2026-06-15)**: 640×320 sheet의 4×2 프레임(160px)을
+창 확대에서 억지로 키우지 않도록 plaza player draw size를 160→148px로 낮춤. 기존
+시트/atlas는 변경하지 않고 런타임 표시만 조정. 캡처: `d:/tmp/plaza_player_scale148/`.
+
+**→ Stage 1 정리 코드 4종(①②③④) 전부 게이트 통과 = Stage 1 광장 정리 패스 완료.**
+잔여(전부 후속): 이오/코하쿠 walk 시트(소규모 AutoSprite), S2 게이트 끝난
+S3~6 테마 양산 재개, 건물 테마별 재생성(6×7), 건물 v2 심화.
+
+## 0.9 건물 진입 워프 디졸브 + 인테리어 씬 (2026-06-15 착수)
+
+사용자 요구: 건물 상호작용 시 ①캐릭터(+링펫)가 ~1초간 제자리에서 빛으로 분해되며
+위로 올라가 사라짐 → ②씬이 해당 건물 인테리어로 전환(좌측에 건물별 NPC, 예 상점=
+상점주인 + 메뉴 UI) → ③나갔다 광장 복귀 시 빛이 다시 모여 캐릭터+링펫 재생성.
+레퍼런스: KOF식 상점 UI(좌측 매니저 캐릭터 + 우측 메뉴/그리드 + 하단 인사 말풍선).
+§8 "메뉴 다이얼로그 인테리어" 결정의 **시각 업그레이드** — 여전히 워커블 아님
+(정적 NPC), 현재 immediate-mode 메뉴 셸 룩을 NPC 인테리어 씬으로 대체.
+
+### 분담
+- **Claude**: 워프 VFX 아트 디렉션(레시피), 인테리어 씬 레이아웃 설계, NPC 7종
+  imagegen 브리프, 게이트.
+- **Codex**: 워프 VFX 배선, 인테리어 씬 배선, **NPC 7종 imagegen 제작**(사용자 확정),
+  스모크.
+
+### A. 워프 디졸브 VFX (~1초, in/out)
+- 상호작용 트리거 → 입력 freeze → 캐릭터 스프라이트(+활성 링펫)를 **상향 상승
+  빛 입자로 분해** → 페이드아웃 → 인테리어 전환. 복귀 시 역재생(빛 응집→캐릭터/
+  링펫 출현).
+- **실루엣 게이트 필수** (메모리 `feedback_godot_materialize_silhouette_gate`):
+  패딩 스프라이트 위 절차 디졸브는 베이크 알파 점유 마스크로 셀 게이팅 — 빈
+  패딩이 반짝이면 안 됨. 분해 중 소스 프레임 고정.
+- 재사용 패밀리: `smasher_warp_gate_fx_host`(GPUParticles aura/spark/streak) +
+  `lingpet_acquire_cutin`(디졸브/재조립) 패턴. 1회성 인라인 셰이더 금지, 패밀리
+  프리셋 공유. 신규 머터리얼은 PSO prewarmer 등록.
+- 시간 VFX 트랩(메모리 `feedback_godot_immediate_rotation_tumble`): 1초 효과는
+  t0 아니라 mid/late 캡처로 검증, 유계(상승량/입자수 bounded). plaza는 immediate
+  `_draw`라 음수 z 금지(상승 빛은 z 상위 단일 트리).
+- 링펫 포함: 활성 링펫 있으면 같이 분해/재생성(companion 위치에서 동일 디졸브).
+
+### B. 인테리어 씬 레이아웃
+- **풀스크린 오버레이(씬 체인지 아님)** 권장 — 워프아웃이 plaza를 가리고 인테리어
+  오버레이를 띄움, 워프인이 역. plaza 모듈 상태 보존, 재진입 비용 0. 현 메뉴 셸
+  오버레이의 확장.
+- 레이아웃: **좌측 NPC 포트레이트 + 인사 말풍선(하단), 우측 메뉴/거래 패널**(기존
+  bank/shop/blacksmith/gacha/lingpet/tavern/academy 트랜잭션 재사용 — 재배선 아니라
+  리스킨). v1은 레퍼런스의 탭/아이템 그리드 없이 액션 리스트로(그리드는 v2).
+- 모달 입력 계약 유지(인테리어 중 plaza 걷기/EXIT 차단, 닫기/ESC로만 복귀 →
+  워프인). 거래 원자성/AP 방문당 1회는 기존 그대로.
+- NPC 한글 이름/대사는 Godot 폰트(굽기 금지), 다국어 동기화 대상.
+
+### C. 건물 NPC 7종 imagegen 브리프 (Codex 제작)
+- 7종: 상점(상점주인)·은행(은행원)·가챠(가챠 오퍼레이터)·링펫스토어(링펫 사육사)·
+  대장간(대장장이)·선술집(선술집 주인)·아카데미(교관). 각 건물 기능/엠블럼과 정체성
+  연결(상점=금화/상자, 은행=금고, 대장간=망치·앞치마 …).
+- 스타일: 리포 핸드페인티드 아니메 + 링피아 가상세계 사이버 톤. 좌측 배치용 반신/
+  전신 포트레이트, 인사 포즈(손 흔들기 등 환영). 마젠타 크로마키 소스→누끼→알파 QA
+  (chroma_key.py, remove_bg 금지). 경로 `godot/assets/ui/plaza/interior/`.
+- 각 NPC manifest(정체성/포즈/소스/누끼 QA). 사이즈는 좌측 패널 표시 높이 기준
+  (인테리어 레이아웃 확정 후 수치 고정).
+
+### 슬라이스 순서 (권장)
+1. **B 인테리어 레이아웃** placeholder NPC(회색 실루엣)로 — 씬 전환/모달/거래
+   재사용 검증.
+2. **A 워프 VFX** in/out — 디졸브 레시피 + freeze + 링펫 포함.
+3. **C NPC 7종 imagegen** — 브리프대로 Codex 제작, placeholder 교체.
+순서상 B+A로 "경험"을 먼저 닫고 C로 아트 채움. 게이트: 워프 in/out 캡처(mid/late
+프레임, 실루엣 게이트·빈패딩 무반짝), 인테리어 NPC+메뉴 렌더, 모달 차단, 거래
+원자성 회귀, 복귀 재생성.
+
+### 0.9.1 v1 반영 — 워프 + placeholder 인테리어 (2026-06-15)
+
+- **A 워프 VFX v1 반영**: 건물 상호작용 시 즉시 메뉴를 열지 않고
+  `BUILDING_WARP_DURATION = 1.0s` 동안 `enter` 전환을 먼저 재생한다. 플레이어와
+  활성 링펫 companion 위치를 고정하고, 반투명 페이드 + 시안/마젠타 상승 광선/링으로
+  분해되는 느낌을 만든 뒤 기존 건물 메뉴를 연다. 닫기/ESC는 `return` 전환을 재생해
+  빛이 다시 모이는 식으로 복귀한다.
+- **입력 계약**: 전환 중 걷기/카메라/EXIT/건물 재상호작용을 모두 차단한다.
+  기존 거래 메뉴가 열린 뒤의 AP 방문당 1회, 거래 원자성, ESC 닫기 계약은 그대로 유지.
+- **B placeholder 인테리어 반영**: 현재 메뉴 셸을 중앙 작은 카드에서
+  레퍼런스식 **좌측 NPC 실루엣 + 하단 말풍선 + 우측 거래 패널** 오버레이로 승격했다.
+  NPC는 아직 회색 placeholder이며, 건물 타입별 이름/인사/색상만 다르게 표시한다.
+  C 단계에서 Codex imagegen NPC 7종으로 교체.
+- **게이트**: `plaza_scene_capture.gd`가
+  `plaza_stage1_warp_enter_bank_mid.png`, `plaza_stage1_menu_bank.png`,
+  `plaza_stage1_warp_return_bank_mid.png`를 남긴다. `plaza_scene_smoke`는
+  enter/return phase, 1초 완료, 메뉴 지연 오픈, 전환 중 이동 차단을 단언한다.
+
+**+Claude 게이트 통과 (2026-06-15) — B+A**: enter_mid 캡처=플레이어 위치 시안 링+
+상승 빛, 스프라이트 페이드, 사각 박스 반짝임 없음(실루엣 게이트 OK). menu 캡처=
+KOF 인테리어(좌 NPC placeholder "은행원 도우"+인사 말풍선, 우 은행 거래 패널+닫기+
+원장) 정확. return_mid=역워프 빛 응집. **링펫 포함 코드 확정**: `_draw_lingpet_follower`가
+actor_alpha로 페이드(line 896) + `_draw_building_warp_effect`가 링펫 위치에도 워프
+draw(line 1007, `_is_lingpet_companion_visible()` 가드로 비활성 시 유령 워프 없음).
+스모크 10/load check/경고 스캔 통과. NPC=의도된 placeholder(C 대기).
+
+### 0.9.2 C 단계 NPC imagegen 브리프 — 치수 확정 (Claude → Codex)
+인테리어 레이아웃 실측 후 C 브리프 수치 고정:
+- **NPC 패널 = `INTERIOR_NPC_RECT` 244×420 logical px**(좌측, portrait ~0.58 비율,
+  위치 (46,126)). 인사 말풍선 = `INTERIOR_SPEECH_RECT` 280×82 @ (40,584).
+- **NPC 아트 사이즈**: 244×420 패널에 맞춤. 게임캔버스 render_scale(~1.22x) + 선명도
+  고려 **소스 ≥2x(예 512×880 이상)로 제작 후 런타임 다운스케일**(캐릭터 선명도
+  교훈: 다운샘플이 선명). portrait 세로 구도.
+- 7종: 상점주인/은행원/가챠 오퍼레이터/링펫 사육사/대장장이/선술집 주인/교관.
+  핸드페인티드 아니메 + 링피아 사이버, 환영 포즈(손 흔들기 등), 건물 기능/엠블럼
+  정체성 결속. 마젠타 크로마키→`chroma_key.py` 누끼(remove_bg 금지)→알파 bbox/
+  프린지 QA. 경로 `godot/assets/ui/plaza/interior/`, NPC별 manifest.
+- 이름/인사는 현 `INTERIOR_NPC_NAMES`/`INTERIOR_GREETING_LINES` 사용(Godot 폰트,
+  다국어 동기화 대상) — 아트 교체 시 placeholder 실루엣→PNG만 스왑.
+
+### 0.9.3 C 단계 반영 — NPC 7종 imagegen 교체 (2026-06-15)
+
+- **산출물**: `godot/assets/ui/plaza/interior/`에 7종 최종 PNG +
+  `*_magenta_source.png` 원본 + `.import` sidecar + `plaza_stage1_interior_npc_imagegen_v1_manifest.json`
+  + QA JSON 반입.
+- **최종 PNG**: 512×880 알파 PNG. 244×420 logical 패널 안에서 런타임 다운스케일.
+  `visible_magenta_pixels = 0`, `corner_alpha_max = 0`, 알파 bbox 패널 내부.
+- **NPC 매핑**: 상점=모라, 은행=도윤, 가챠=루미, 링펫스토어=링링, 대장간=강철,
+  선술집=하랑, 아카데미=서율. 이름/인사는 Godot 폰트 렌더 유지(이미지에 굽지 않음).
+- **런타임**: `PlazaAssetLoader.INTERIOR_NPC_TEXTURE_PATHS`에서 PNG-first 로드/프리웜.
+  로드 실패 시 기존 회색 실루엣 placeholder fallback. `plaza_scene_smoke`가 7종 파일
+  존재, 512×880, 투명 모서리, QA의 마젠타 잔여 0, manifest 존재를 단언.
+
+### 0.9.4 워프 VFX 고퀄 재설계 — 빛기둥(light pillar) (2026-06-15, 사용자 요구)
+
+사용자 피드백: 현 워프(immediate-mode 절차 원/광선 = §0.9.1 v1)가 허접함. **빛기둥
+승천** 연출로 격상 — 리포 모듈러 VFX 스택(정적 텍스처 조각 + 셰이더 + GPUParticles +
+트윈) 사용. **타이밍/플로우 계약은 유지**(1초, 입력 freeze, 메뉴 지연 오픈, 복귀 시
+역재생, 링펫 포함) — **비주얼만 교체**. 생산=Codex, 게이트=Claude.
+
+**아키텍처 = 신규 `plaza_warp_pillar_fx_host.gd` (Node2D), `smasher_warp_gate_fx_host`
+구조 클론**: quad+ShaderMaterial(`_core_materials`) + GPUParticles2D(aura/spark/
+streak) + Tween(pulse/breath). 현 immediate `_draw_building_warp_effect` 대체. 액터
+스크린 위치에 호스트 배치(plaza는 `_world_to_local(actor_world, scale)`; 외부 캔버스
+자식이면 FX 호스트 공식 `game_offset+(playfield_pos+shake)*render_scale`). 플레이어+
+링펫 각각 기둥(링펫 작게, `_is_lingpet_companion_visible` 가드).
+
+**모듈러 4요소**:
+- **텍스처 조각(정적)**: ①세로 빔 그라데이션(밝은 코어→소프트 시안/마젠타 엣지) ②지면
+  임팩트 링/디스크 ③래디얼 글로우. VFX 프리미티브라 **베이크 그라데이션 허용**(writhe
+  ember처럼) — 더 리치하게 원하면 imagegen. 투명 마진 충분히.
+- **셰이더**: **`writhe_ember_material.gd` 패밀리 프리셋 재사용**(유니폼만 빛기둥 시안/
+  마젠타로 스왑 — 1회성 인라인 셰이더 금지, 메모리 규칙). 빔 UV 위로 스크롤=에너지 상승
+  읽기. 플리커=**이산시간 해시**(sin 금지, 전기/플라즈마 레시피). 액터는 노이즈
+  임계 디졸브 마스크 + **실루엣 게이트**(빈 패딩 무반짝). 신규 머터리얼 변형→
+  **battle_pso_prewarmer 등록**(첫-draw 히치).
+- **GPUParticles2D**: 기둥 따라 상승 모트(위 속도, 페이드, additive) + 진입 시 지면
+  버스트(외향). warp_gate aura/spark/streak 클론. **프리웜**.
+- **트윈/AnimationPlayer**: erupt(스케일업 ~0.25s)→peak/hold(~0.5s)→collapse(~0.25s)=
+  1초. 액터 살짝 상승+디졸브 동기. 강도 엔벨로프(메모리 mythic punch 트랩: phase_timer
+  히트스톱 금지, 비주얼 엔벨로프로만). 복귀=역재생(빔 강하→액터 재구성→붕괴).
+
+**트랩 체크리스트(메모리)**: 셰이더 패밀리 재사용 / PSO prewarmer 등록 / 파티클 프리웜 /
+이산해시 플리커(sin 금지) / 액터 디졸브 실루엣 게이트 / FX 호스트 world-pos 공식 /
+draw_set_transform 트랩(잔여 immediate 있으면) / 1초 시간VFX는 t0 아닌 mid·late 캡처 /
+링펫 포함.
+
+**게이트(Claude)**: 5컷 + warp enter/return **mid·late 프레임** 캡처 → ①빛기둥이 빔+
+상승에너지+지면링+모트로 읽힘(허접 원/광선 탈피) ②액터 디졸브 실루엣 게이트(빈 패딩
+무반짝) ③링펫 기둥 동반 ④1초 엔벨로프(erupt→peak→collapse) ⑤첫-draw 히치 없음(PSO
+prewarm) ⑥복귀 역재생. §0.9.1 타이밍/입력/메뉴 계약 회귀 없음.
+
+**Codex 반영 v1 (2026-06-15)**:
+- `plaza_warp_pillar_fx_host.gd` 추가. 기존 `_draw_building_warp_effect`의 즉석
+  원/광선 드로를 제거하고, `plaza_scene`은 transition actor state만 host에 전달.
+- 구성: 프리웜 생성 세로 beam texture + `writhe_ember_material` 2겹 beam sprite
+  + `ImpactShockwaveTextureCache` 지면 링 + `ImpactFlareTextureCache` core/glow
+  + 상승 `GPUParticles2D` motes/streaks + pulse Tween. 별도 PNG sidecar 없이 기존
+  effect cache 패턴으로 텍스처 조각을 런타임 프리웜 생성.
+- 플레이어/링펫은 전환 중 alpha와 함께 약간 위로 상승해 빛기둥으로 분해/재구성되는
+  느낌을 강화. `plaza_scene_smoke`는 transition 중 modular FX host 활성/actor slot
+  전달/종료 후 hide를 단언.
 
 ## 1. 레거시 광장 시스템 요약 (포팅 대상 정의)
 
@@ -852,9 +1288,9 @@ base_01의 심리스를 먼저 확정하고, 나머지 4종은 "돌 배치·줄�
 | 슬라이스 | 내용 | 산출물 |
 |---|---|---|
 | S1 바닥 파일럿 | ✅ **완료 (2026-06-13)** — Codex 5타일 미니셋 + emissive 3종 반입(`godot/assets/ui/plaza/` + manifest), Claude 4축 게이트 2라운드 통과(1차: accent/border 리젝→재작업), **바닥 문법 앵커 락**. 수락 보드 `d:/tmp/plaza_s1/claude_gate2/final_acceptance_board_760.png`. 타일 단독 표시 스케일은 380~512px/repeat 범위, 건물 목업 기준 런타임 기본값은 380px/repeat | 미니셋 5종 + 발광 3종 + 판정 보드 + 레시피 확정 |
-| S2 바닥 전개 | ⏸ **일시정지 (2026-06-13 횡스크롤 피벗)** — 지면 스트립/단면 문법(§0.5) 스테이지1 확정 후 재정의 | (재정의 예정) |
+| S2 바닥 전개 | 🟡 **런타임 슬롯 완료 + Stage2 패럴랙스 아트 반입 (2026-06-14)** — `plaza_theme_catalog`에 stage2~6 `asset_slug` 확정, `plaza_asset_loader`는 스테이지별 floor/parallax manifest 우선 + 누락/미import 항목 S1 fallback. Stage2 `jungle_relic` v1 패럴랙스 4레이어(ground/ground_emissive/midground/sky)와 manifest 반입, import sidecar 생성. `plaza_scene_smoke`가 stage2 manifest override와 실제 prewarm 로드를 검증. Stage3~6 지면 스트립/중경/원경 비트맵 제작은 후속 아트 패스 | manifest 슬롯 ✅ / Stage2 패럴랙스 ✅ / Stage3~6 미생산 |
 | S3 건물 키트 파일럿 | ✅ **완료 (2026-06-13)** — 상점 v2 키트(base+sign_emissive+window_glow+manifest) 게이트 합격, 재제출 목업 floor380 기준 ⑤건물-바닥 궁합 통과 → **건물 문법 앵커 락** (한옥 외관 + 공통 엠블럼 푯말 + 2-edit 발광 분리). **런타임 바닥 repeat 기본 = 380** — 512는 메달리온 주변 돌 이질감이 패치로 드러나고 필드 타일 혼합 불일치가 보여, 메달리온 surround를 base_01 스타일로 재파생하기 전까지 비권장 | 상점 앵커 키트 + 6종 양산 개시 가능 |
-| S4 광장 셸 | ✅ **횡스크롤 전환 완료 (2026-06-13)** — `plaza.tscn` 오버레이와 결과씬 3번째 버튼(`BUTTON_PLAZA → ACTION_ENTER_PLAZA`) 플로우는 보존. 렌더러는 패럴랙스 3층 + S1 보도 밴드 + VR 데이터 지층 단면으로 전환, 맵 3040x750 / X 카메라 / 좌우 이동 + 지면 Y 고정 적용. 건물 7동은 거리 X열 배치와 320~420px 표시 높이로 재스케일, 충돌 없는 배경 파사드 + interaction_rect 방식. 스모크: `plaza_scene_smoke`, `stage_clear_result_plaza_routing_smoke`, 결과 화면 계열 통과. **+Claude 픽셀 검증 통과 (2026-06-13)**: 윈도우드 5컷 캡처(`tools/plaza_scene_capture.gd` → `d:/tmp/plaza_s4/`)로 음수z 매몰 트랩 회피·건물-바닥 궁합 ⑤축·엠블럼+한글 폰트 라벨 동시 판독 확인. 미감 펀치리스트는 S4.5에서 전용 에셋으로 해소 | 걸어다닐 수 있는 횡스크롤 거리 ✅ |
+| S4 광장 셸 | ✅ **횡스크롤 전환 완료 (2026-06-13)** — `plaza.tscn` 오버레이와 결과씬 3번째 버튼(`BUTTON_PLAZA → ACTION_ENTER_PLAZA`) 플로우는 보존. 렌더러는 패럴랙스 3층 + S1 보도 밴드 + VR 데이터 지층 단면으로 전환, 초기 셸은 맵 3040x750 / X 카메라 / 좌우 이동 + 지면 Y 고정 적용. 건물 7동은 거리 X열 배치와 320~420px 표시 높이로 재스케일, 충돌 없는 배경 파사드 + interaction_rect 방식. 스모크: `plaza_scene_smoke`, `stage_clear_result_plaza_routing_smoke`, 결과 화면 계열 통과. **+Claude 픽셀 검증 통과 (2026-06-13)**: 윈도우드 5컷 캡처(`tools/plaza_scene_capture.gd` → `d:/tmp/plaza_s4/`)로 음수z 매몰 트랩 회피·건물-바닥 궁합 ⑤축·엠블럼+한글 폰트 라벨 동시 판독 확인. **Stage 1 정리 패스(2026-06-14)**에서 런타임 기본 맵폭은 1900px, 건물 표시 높이는 220~300px, 건물 수는 stage map_seed 기반 2~5동 랜덤(은행 항상, due 퀘스트 시 선술집 강제)으로 재조정. 미감 펀치리스트는 S4.5에서 전용 에셋으로 해소 | 걸어다닐 수 있는 횡스크롤 거리 ✅ |
 | S4.5 미감 패스 | ✅ **완료 (2026-06-13)** — §0.6 브리프 기준 절차 placeholder 4레이어를 전용 에셋으로 교체: 지면 스트립+VR 단면, 중경 한옥 담장, 원경 하늘/웜톤 달/구름. 기존 S1 medallion/accent는 side-scroll 투명 컷아웃으로 파생해 사각 패치감 제거. 배선은 fallback 유지 + 새 PNG 우선 로드. 5컷 재캡처 완료, `plaza_scene_smoke`/라우팅 스모크/경고 스캔/헤드리스 로드 통과. **+Claude 게이트 통과 (2026-06-13)**: 5컷 픽셀 검증 — 음수z회피·시선위계(건물>중경>원경)·VR단면 디제틱 가독↑·녹색달/알약구름 소멸·**X심리스 정량 0.00**(live ground 1140×154=FLOOR_REPEAT380×3, wall 960×180=tile320×3; far_sky 1520×430은 parallax0.04 비타일 atlas라 edge델타 3.5 무영향) | 룩 잡힌 거리 ✅ |
 | S5 건물 양산 / 런타임 절반 | ✅ **완료 (2026-06-13)** — 에셋: 6종 키트(은행·가챠샵·링펫스토어·대장간·선술집·아카데미) + 상점 포함 7동 게이트 합격. 런타임: 기존 `_discrete_flicker` CPU 경로를 지면/strata/cutout/건물 per-instance seed로 확장(shader/PSO 없음), placeholder 토스트를 7종 메뉴 셸로 교체(상점 구매/판매, 은행 예금/출금, 가챠 뽑기, 링펫 알/관리, 대장간 강화, 선술집 퀘스트, 아카데미 스킬 획득/교환). 메뉴 중 이동/EXIT 차단, ESC/닫기 복귀, 거래 action은 S6 전까지 disabled stub. 스모크/캡처/경고/로드 통과. **+Claude 게이트 통과 (2026-06-14)**: 메뉴 셸 픽셀 검증(상점 타이틀/서브/닫기/01구매·02판매 스텁/모달 딤 정상)·per-instance flicker 2틱 diff(건물 셀별 독립 변조, 지면 strip은 전폭 x279~1206 서브임계 잔잔 변조 — 시선위계 사인>지면 정합)·모달 입력 2겹 차단 코드 확인(update_plaza early-return + handle_plaza_input 라우팅) | 기능하는 광장 1차 ✅ |
 | S6 경제/세이브 | ✅ **S6a 완료 + S6b-1 은행 v1 + S6b-2 상점 v1 + S6b-3 대장간 v1 + S6b-4 가챠샵 v1 + S6b-5 링펫스토어 v1 + S6b-6 아카데미 v1 + S6b-7 선술집 v1 완료 (2026-06-14)** — S6a: `scripts/plaza/plaza_save_store.gd` 추가(`user://plaza_save.cfg`, schema v1, `.last_good`, BOM strip+무BOM 재저장, recovery_blocked, load/save summary). 결과씬 진행 edge에서 `runtime_perk_gold`를 `plaza_gold`로 1회 이관하고 owner 휘발 골드는 0으로 소비, AP는 BASE 3/MAX 10 기준 스테이지별 1회만 +1 기록. 광장 status가 `plaza_gold`/`ap_current`를 읽음. **S6b-1 은행**: store schema v2(`bank_deposit_gold`, `bank_interest_claimed_stages`), 은행 메뉴 stub 해제(예금/출금 100G, 이자 정산), 첫 성공 은행 처리만 AP 1 소모·같은 메뉴 방문 후속 처리 무소모, 이자 5% 스테이지당 1회. **S6b-2 상점**: `plaza_shop_transactions.gd` 추가, 결과씬→광장 owner/registry 전달, 액티브 아이템 `벽돌 80G`/`부메랑 120G` 구매 + 마지막 액티브 아이템 판매(구매가 50%, fallback 40G), 첫 성공 거래만 AP 1 소모. **S6b-3 대장간**: `plaza_blacksmith_transactions.gd` 추가, 마지막 액티브 아이템 +0~+10 강화 attempt(비용 100→900G, 성공률 80→23%, 실패/유지 시 아이템 유지+골드만 소모), 첫 성공 attempt만 AP 1 소모. **S6b-4 가챠샵**: `plaza_gacha_transactions.gd` 추가, active catalog field-spawn pool weight 기반 액티브 캡슐 뽑기 150G, 실제 `active_item_runtime.grant_item_to_slot(..., false)` 지급, 레전더리/미식/패시브/크레인/스테이지클리어 가챠 풀 미접촉. **S6b-5 링펫스토어**: `plaza_lingpet_store_transactions.gd` 추가, 공명 알 뽑기 250G, 직접 링펫 grant 없이 `lingpet_egg_runtime.spawn_plaza_resonance_egg()`로 미확인 알만 열고 공 충돌 부화 시 기존 런타임이 소유/슬롯 반영. **S6b-6 아카데미**: `plaza_academy_transactions.gd` 추가, `스킬 수업 200G` 성공 시 기존 `RuntimePerkState` 선택 모달을 `exclude_instant=true`로 열고 광장 메뉴/이동/EXIT를 차단, 스킬 교환은 v1 stub. **S6b-7 선술집**: `plaza_tavern_transactions.gd` 추가, `의뢰 받기`/`의뢰 보고` 2액션으로 현재 스테이지 수락→다음 스테이지 클리어 후 보고→보상 골드 지급을 `plaza_save_store` schema v3 영속 장부에 기록. 스모크: `plaza_save_store_smoke`, `plaza_bank_menu_smoke`, `plaza_shop_menu_smoke`, `plaza_blacksmith_menu_smoke`, `plaza_gacha_menu_smoke`, `plaza_lingpet_store_menu_smoke`, `plaza_academy_menu_smoke`, `plaza_tavern_menu_smoke`, `stage_clear_result_plaza_routing_smoke`, `plaza_scene_smoke`, `stage_clear_result_screen_smoke`, `stage_clear_result_navigation_action_handler_smoke` 통과. **후속**: 선술집 v2는 전투 목표 추적형 quest 도메인을 별도 체크리스트로 설계. **+Claude S6a 게이트 통과 (2026-06-14)**: 계약 §6.3 트랩 4종 코드 검증 — ①골드 이중카운트=`_stage_clear_gold_transfer_consumed` 1회 읽기+제로화, `show_from_scoreboard`에서 리셋(새 클리어마다 재이관 허용) ②AP 재진입 중복=**2겹**(결과씬 `_stage_clear_ap_grant_consumed` + 스토어 영속 `_ap_awarded_stages[stage]`), 스토어 층이 세이브 섹션이라 이어하기 재진입도 무지급=레거시 manager.py:441 버그 분기 수정 ③스타포인트 단위=이관이 `runtime_perk_gold`(골드 단위)만 읽음, ★/starpoint 미접촉 ④BOM=load strip+무BOM 재저장+last_good 복구+parse-break 가드 | 영속 진행 ✅ / 7동 실거래 ✅ / quest v2 후속 |

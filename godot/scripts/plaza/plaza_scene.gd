@@ -10,11 +10,14 @@ const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const PlazaShopTransactions := preload("res://scripts/plaza/plaza_shop_transactions.gd")
 const PlazaTavernTransactions := preload("res://scripts/plaza/plaza_tavern_transactions.gd")
 const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
+const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 
 const GAME_SIZE := Vector2(760.0, 750.0)
-const MAP_SIZE := Vector2(3040.0, 750.0)
+const MAP_SIZE := Vector2(1900.0, 750.0)
 const CAMERA_SMOOTHING := 0.08
 const CAMERA_LEAD_X := 100.0
 const FLOOR_REPEAT := 380.0
@@ -23,6 +26,9 @@ const GROUND_STRIP_HEIGHT := 154.0
 const MIDGROUND_WALL_REPEAT := 960.0
 const MIDGROUND_WALL_TOP := 388.0
 const MIDGROUND_WALL_HEIGHT := 180.0
+const MIDGROUND_WALL_ALPHA := 0.90
+const MIDGROUND_WALL_TOP_FADE_HEIGHT := 38.0
+const MIDGROUND_WALL_TOP_FADE_SLICE := 4.0
 const FAR_SKY_WIDTH := 1520.0
 const FAR_SKY_HEIGHT := 430.0
 const GROUND_Y := 666.0
@@ -32,12 +38,47 @@ const SIDEWALK_HEIGHT := 92.0
 const UNDERGROUND_TOP := 688.0
 const EXIT_ZONE := Rect2(Vector2(MAP_SIZE.x - 150.0, SIDEWALK_TOP), Vector2(120.0, 92.0))
 const DIALOG_DURATION := 2.25
-const MENU_PANEL_RECT := Rect2(Vector2(126.0, 216.0), Vector2(508.0, 352.0))
-const MENU_CLOSE_RECT := Rect2(Vector2(534.0, 232.0), Vector2(72.0, 34.0))
-const MENU_ACTION_ROW_START_Y := 108.0
-const MENU_ACTION_ROW_HEIGHT := 44.0
-const MENU_ACTION_ROW_STEP := 58.0
+const INTERIOR_NPC_RECT := Rect2(Vector2(46.0, 126.0), Vector2(244.0, 420.0))
+const INTERIOR_SPEECH_RECT := Rect2(Vector2(40.0, 584.0), Vector2(280.0, 82.0))
+const MENU_PANEL_RECT := Rect2(Vector2(326.0, 132.0), Vector2(390.0, 488.0))
+const MENU_CLOSE_RECT := Rect2(Vector2(630.0, 148.0), Vector2(58.0, 32.0))
+const MENU_ACTION_ROW_START_Y := 124.0
+const MENU_ACTION_ROW_HEIGHT := 48.0
+const MENU_ACTION_ROW_STEP := 56.0
 const BANK_ACTION_IDS := ["deposit", "withdraw", "interest"]
+const MINIMAP_PANEL_RECT := Rect2(Vector2(486.0, 18.0), Vector2(238.0, 58.0))
+const MINIMAP_TRACK_INSET := Vector2(18.0, 41.0)
+const MINIMAP_TRACK_SIZE := Vector2(202.0, 5.0)
+const MINIMAP_ICON_SIZE := 15.0
+const MINIMAP_ICON_MIN_GAP := 17.0
+const PLAYER_SPRITE_DRAW_SIZE := Vector2(148.0, 148.0)
+const PLAYER_SPRITE_FOOT_OFFSET := Vector2(0.0, 8.0)
+const LINGPET_FOLLOW_OFFSET_X := 58.0
+const LINGPET_FOLLOW_OFFSET_Y := -20.0
+const LINGPET_COMPANION_GRID_COLS := 5
+const LINGPET_COMPANION_GRID_ROWS := 5
+const LINGPET_COMPANION_FRAME_COUNT := 25
+const BUILDING_WARP_DURATION := 1.0
+
+const INTERIOR_NPC_NAMES := {
+	"shop": "상점주인 모라",
+	"bank": "은행원 도윤",
+	"gacha": "가챠 오퍼레이터 루미",
+	"lingpet_store": "링펫 사육사 링링",
+	"blacksmith": "대장장이 강철",
+	"tavern": "선술집 주인 하랑",
+	"academy": "아카데미 교관 서율",
+}
+
+const INTERIOR_GREETING_LINES := {
+	"shop": "어서오세요!|필요한 장비를 골라볼까요?",
+	"bank": "금고는 안전합니다.|맡기거나 찾아가세요.",
+	"gacha": "캡슐이 돌 준비를|마쳤어요.",
+	"lingpet_store": "공명 알이 오늘도|반짝이고 있어요.",
+	"blacksmith": "좋은 장비는|망치질을 버팁니다.",
+	"tavern": "의뢰서를|확인해 보시겠습니까?",
+	"academy": "새 기술을 익힐|준비가 됐나요?",
+}
 
 const BUILDING_MENU_SPECS := {
 	"shop": {
@@ -115,20 +156,40 @@ var _plaza_save_snapshot: Dictionary = {}
 var _runtime_owner: Object = null
 var _runtime_registry: Object = null
 var _hovered_building_type := ""
+var _map_seed := 0
+var _full_layout_for_test := false
+var _selected_character_type := "smasher"
+var _player_textures: Dictionary = {}
+var _interior_npc_textures: Dictionary = {}
+var _lingpet_companion_texture: Texture2D = null
+var _lingpet_companion_pet_id := ""
+var _lingpet_companion_draw_size := 92.0
+var _lingpet_follower_pos := Vector2.ZERO
+var _lingpet_follower_initialized := false
+var _building_transition_active := false
+var _building_transition_phase := ""
+var _building_transition_timer := 0.0
+var _building_transition_target: Dictionary = {}
+var _building_transition_player_pos := Vector2.ZERO
+var _building_transition_lingpet_pos := Vector2.ZERO
+var _warp_pillar_fx_host: Node = null
 var _last_input_dir := Vector2.RIGHT
 var _test_input_active := false
 var _test_input_dir := Vector2.ZERO
 
 
 static func prewarm_assets_step(stage_id: int = 1) -> bool:
+	PlazaWarpPillarFxHost.prewarm_assets()
 	return PlazaAssetLoader.prewarm_assets_step(stage_id, true)
 
 
 static func prewarm_assets_threaded_step(stage_id: int = 1) -> bool:
+	PlazaWarpPillarFxHost.prewarm_assets()
 	return PlazaAssetLoader.prewarm_assets_step(stage_id, true)
 
 
 static func prewarm_assets_blocking_step(stage_id: int = 1) -> bool:
+	PlazaWarpPillarFxHost.prewarm_assets()
 	return PlazaAssetLoader.prewarm_assets_step(stage_id, false)
 
 
@@ -146,6 +207,7 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	clip_contents = true
 	set_process(not _driven_by_controller)
+	_ensure_warp_pillar_fx_host()
 	if plaza_theme.is_empty():
 		configure({"current_stage": current_stage}, Callable(), false)
 	grab_focus()
@@ -159,15 +221,34 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	exit_callback = on_exit
 	_runtime_owner = data.get("runtime_owner", null) as Object
 	_runtime_registry = data.get("runtime_registry", null) as Object
+	_selected_character_type = PlazaAssetLoader.normalize_player_character_type(data.get("selected_character_type", _get_runtime_owner_selected_character_type()))
+	_player_textures = PlazaAssetLoader.load_player_textures(_selected_character_type)
+	_interior_npc_textures = PlazaAssetLoader.load_interior_npc_textures()
+	_refresh_lingpet_companion_visual()
 	var save_path := str(data.get("plaza_save_path", "")).strip_edges()
 	if save_path != "" and _plaza_save_store != null and _plaza_save_store.has_method("set_save_path"):
 		_plaza_save_store.set_save_path(save_path)
 	_floor_textures = PlazaAssetLoader.load_floor_textures(current_stage)
-	_building_specs = PlazaAssetLoader.build_building_specs(current_stage)
 	_refresh_plaza_save_snapshot()
+	_full_layout_for_test = bool(data.get("full_layout_for_test", false))
+	_map_seed = int(data.get("map_seed", 0))
+	if _map_seed <= 0 and not _full_layout_for_test:
+		_map_seed = _get_or_create_stage_map_seed(current_stage)
+		_refresh_plaza_save_snapshot()
+	var force_tavern := _should_force_tavern_for_current_stage()
+	_building_specs = PlazaAssetLoader.build_building_specs(
+		current_stage,
+		_map_seed,
+		MAP_SIZE.x,
+		_full_layout_for_test,
+		force_tavern
+	)
 	_player_pos = _normalize_player_pos(Vector2(120.0, GROUND_Y))
+	_lingpet_follower_initialized = false
+	_update_lingpet_follower(0.0)
 	_camera_x = _get_target_camera_x()
-	_close_building_menu()
+	_close_building_menu(false)
+	_clear_building_transition()
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_sync_game_rect()
@@ -178,6 +259,13 @@ func update_plaza(delta: float) -> void:
 	_sync_game_rect()
 	if _is_runtime_perk_overlay_active():
 		_update_runtime_perk_overlay(delta)
+		_dialog_timer = 0.0
+		_update_hovered_building()
+		queue_redraw()
+		return
+	if _building_transition_active:
+		_update_building_transition(delta)
+		_sync_warp_pillar_fx_host()
 		_dialog_timer = 0.0
 		_update_hovered_building()
 		queue_redraw()
@@ -198,6 +286,7 @@ func update_plaza(delta: float) -> void:
 		MAP_SIZE
 	)
 	_player_pos = _normalize_player_pos(move_result.get("player_pos", _player_pos))
+	_update_lingpet_follower(delta)
 	var target_camera_x := _get_target_camera_x()
 	var fps_scale: float = max(0.0, delta) * 60.0
 	var blend: float = clampf(CAMERA_SMOOTHING * fps_scale, 0.0, 1.0)
@@ -210,6 +299,8 @@ func update_plaza(delta: float) -> void:
 func handle_plaza_input(event: InputEvent) -> bool:
 	if _is_runtime_perk_overlay_active():
 		return _handle_runtime_perk_overlay_input(event)
+	if _building_transition_active:
+		return true
 	if _menu_open:
 		return _handle_menu_input(event)
 	if event is InputEventKey:
@@ -239,6 +330,7 @@ func handle_plaza_input(event: InputEvent) -> bool:
 
 func get_status() -> Dictionary:
 	var active_building := _get_interactable_building()
+	var warp_fx_status := _get_warp_pillar_fx_status()
 	return {
 		"current_stage": current_stage,
 		"theme_id": str(plaza_theme.get("id", "")),
@@ -249,18 +341,33 @@ func get_status() -> Dictionary:
 		"camera_y": 0.0,
 		"ground_y": GROUND_Y,
 		"world_size": MAP_SIZE,
+		"map_seed": _map_seed,
+		"full_layout_for_test": _full_layout_for_test,
+		"selected_character_type": _selected_character_type,
+		"player_sprite_loaded": bool(_player_textures.get("has_sprite", false)),
+		"player_sprite_mode": "sheet" if bool(_player_textures.get("has_sprite", false)) else "neutral_placeholder",
+		"player_sprite_frame": _get_player_sprite_frame(),
+		"lingpet_companion_visible": _is_lingpet_companion_visible(),
+		"lingpet_companion_pet_id": _lingpet_companion_pet_id,
+		"lingpet_follower_pos": _lingpet_follower_pos,
 		"building_count": _building_specs.size(),
 		"collision_rect_count": 0,
 		"hovered_building_type": _hovered_building_type,
 		"interactable_building_type": str(active_building.get("type", "")),
 		"dialog_text": _dialog_text if _dialog_timer > 0.0 else "",
 		"menu_open": _menu_open,
+		"building_transition_active": _building_transition_active,
+		"building_transition_phase": _building_transition_phase,
+		"building_transition_progress": _get_building_transition_progress(),
+		"building_warp_fx_active": bool(warp_fx_status.get("active", false)),
+		"building_warp_fx_actor_count": int(warp_fx_status.get("actor_count", 0)),
 		"active_menu_type": _active_menu_type,
 		"active_menu_title": _active_menu_title,
 		"active_menu_subtitle": _active_menu_subtitle,
 		"active_menu_actions": _active_menu_actions.duplicate(),
 		"active_menu_last_message": _active_menu_last_message,
 		"active_menu_visit_ap_consumed": _active_menu_visit_ap_consumed,
+		"interior_npc_texture_loaded": _get_interior_npc_texture(_active_menu_type) != null,
 		"last_bank_transaction_summary": _last_bank_transaction_summary.duplicate(true),
 		"last_shop_transaction_summary": _last_shop_transaction_summary.duplicate(true),
 		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary.duplicate(true),
@@ -279,6 +386,7 @@ func get_status() -> Dictionary:
 		"owned_lingpet_count": _get_owned_lingpet_count(),
 		"blacksmith_target_summary": _get_blacksmith_target_summary(),
 		"exit_zone": EXIT_ZONE,
+		"minimap_state": _build_minimap_state(),
 		"game_rect": get_global_rect(),
 	}
 
@@ -291,6 +399,8 @@ func set_plaza_save_path_for_test(path: String) -> void:
 
 func set_player_pos_for_test(pos: Vector2) -> void:
 	_player_pos = _normalize_player_pos(pos)
+	_lingpet_follower_initialized = false
+	_update_lingpet_follower(0.0)
 	_camera_x = _get_target_camera_x()
 	_update_hovered_building()
 	queue_redraw()
@@ -304,12 +414,41 @@ func move_player_for_test(input_dir: Vector2, delta: float) -> Dictionary:
 	return get_status()
 
 
-func trigger_interaction_for_test() -> bool:
-	return _try_interact()
+func trigger_interaction_for_test(complete_transition: bool = true) -> bool:
+	var handled := _try_interact()
+	if handled and complete_transition:
+		_complete_building_transition_for_test()
+	return handled
 
 
-func close_menu_for_test() -> void:
-	_close_building_menu()
+func get_building_at_world_pos_for_test(world_pos: Vector2) -> Dictionary:
+	return _get_building_at_world_pos(world_pos)
+
+
+func click_world_pos_for_test(world_pos: Vector2) -> bool:
+	# Mirrors the left-click branch of handle_plaza_input: pick a building at the
+	# world position and open its menu. Returns true if a building menu opened.
+	if _menu_open or _building_transition_active:
+		return false
+	var building := _get_building_at_world_pos(world_pos)
+	if building.is_empty():
+		return false
+	_show_building_dialog(building)
+	_complete_building_transition_for_test()
+	return _menu_open
+
+
+func close_menu_for_test(complete_transition: bool = true) -> void:
+	_close_building_menu(not complete_transition)
+	if complete_transition:
+		_complete_building_transition_for_test()
+
+
+func advance_building_transition_for_test(delta: float) -> Dictionary:
+	_update_building_transition(delta)
+	_sync_warp_pillar_fx_host()
+	queue_redraw()
+	return get_status()
 
 
 func trigger_menu_action_for_test(action_index: int = 0) -> bool:
@@ -391,9 +530,9 @@ func _get_input_dir() -> Vector2:
 	if _test_input_active:
 		return Vector2(signf(_test_input_dir.x), 0.0)
 	var dir_x := 0.0
-	if Input.is_action_pressed("ui_left"):
+	if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A):
 		dir_x -= 1.0
-	if Input.is_action_pressed("ui_right"):
+	if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
 		dir_x += 1.0
 	return Vector2(signf(dir_x), 0.0)
 
@@ -517,6 +656,100 @@ func _normalize_player_pos(pos: Vector2) -> Vector2:
 	)
 
 
+func _get_runtime_owner_selected_character_type() -> String:
+	if _runtime_owner == null:
+		return _selected_character_type
+	var value: Variant = _runtime_owner.get("selected_character_type")
+	if str(value).strip_edges() == "":
+		return _selected_character_type
+	return str(value)
+
+
+func _is_player_walking() -> bool:
+	if _test_input_active:
+		return absf(_test_input_dir.x) > 0.01
+	return absf(_get_input_dir().x) > 0.01
+
+
+func _get_player_facing_direction() -> int:
+	return -1 if _last_input_dir.x < -0.01 else 1
+
+
+func _get_player_sprite_frame() -> int:
+	var frame_count: int = max(1, int(_player_textures.get("frame_count", 8)))
+	var duration_msec: int = 760 if _is_player_walking() else 1040
+	return int(floor(float(Time.get_ticks_msec() % duration_msec) / float(duration_msec) * float(frame_count))) % frame_count
+
+
+func _get_sheet_frame_rect(texture: Texture2D, frame: int, grid_cols: int, grid_rows: int) -> Rect2:
+	if texture == null:
+		return Rect2()
+	var safe_cols: int = max(1, grid_cols)
+	var safe_rows: int = max(1, grid_rows)
+	var max_frame: int = max(0, safe_cols * safe_rows - 1)
+	var safe_frame: int = clampi(frame, 0, max_frame)
+	var texture_size: Vector2 = texture.get_size()
+	var cell_size := Vector2(texture_size.x / float(safe_cols), texture_size.y / float(safe_rows))
+	var col: int = safe_frame % safe_cols
+	@warning_ignore("integer_division")
+	var row: int = int(safe_frame / safe_cols)
+	return Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
+
+
+func _refresh_lingpet_companion_visual() -> void:
+	_lingpet_companion_pet_id = _get_active_lingpet_pet_id()
+	_lingpet_companion_texture = null
+	_lingpet_companion_draw_size = 92.0
+	_lingpet_follower_initialized = false
+	if _lingpet_companion_pet_id == "":
+		return
+	var path := LingpetCatalog.get_visual_path(_lingpet_companion_pet_id, "companion_walk")
+	if path == "":
+		return
+	_lingpet_companion_texture = ProjectResourceLoader.load_imported_texture(path, "", "")
+	_lingpet_companion_draw_size = max(44.0, LingpetCatalog.get_visual_layout_value(_lingpet_companion_pet_id, "companion_walk_draw_size", 92.0))
+	_update_lingpet_follower(0.0)
+
+
+func _get_active_lingpet_pet_id() -> String:
+	if _runtime_owner == null:
+		return ""
+	var state_value: String = str(_runtime_owner.get("lingpet_state")).strip_edges().to_lower()
+	var active_id := ""
+	for key in ["active_lingpet_id", "current_lingpet_id", "lingpet_id"]:
+		var value := str(_runtime_owner.get(str(key))).strip_edges()
+		if value != "":
+			active_id = value
+			break
+	if active_id == "":
+		return ""
+	if state_value != "" and state_value != "companion" and state_value != "active" and state_value != "동행":
+		return ""
+	return active_id
+
+
+func _is_lingpet_companion_visible() -> bool:
+	return _lingpet_companion_texture != null and _lingpet_companion_pet_id != ""
+
+
+func _update_lingpet_follower(delta: float) -> void:
+	if not _is_lingpet_companion_visible():
+		return
+	var facing := _get_player_facing_direction()
+	var target_x := clampf(
+		_player_pos.x - float(facing) * LINGPET_FOLLOW_OFFSET_X,
+		PlazaPlayerController.PLAYER_COLLISION_SIZE.x * 0.5,
+		MAP_SIZE.x - PlazaPlayerController.PLAYER_COLLISION_SIZE.x * 0.5
+	)
+	var target_pos := Vector2(target_x, GROUND_Y + LINGPET_FOLLOW_OFFSET_Y)
+	if not _lingpet_follower_initialized:
+		_lingpet_follower_pos = target_pos
+		_lingpet_follower_initialized = true
+		return
+	var blend := clampf(max(0.0, delta) * 60.0 * 0.12, 0.0, 1.0)
+	_lingpet_follower_pos = _lingpet_follower_pos.lerp(target_pos, blend)
+
+
 func _draw_parallax_background(scale: float) -> void:
 	_draw_sky_gradient(scale)
 	if not _draw_far_sky_asset(scale):
@@ -572,12 +805,7 @@ func _draw_midground_wall(scale: float) -> void:
 		var texture_offset := fposmod(-_camera_x * 0.48, MIDGROUND_WALL_REPEAT) - MIDGROUND_WALL_REPEAT
 		for idx in range(4):
 			var texture_x := texture_offset + float(idx) * MIDGROUND_WALL_REPEAT
-			draw_texture_rect(
-				wall_texture,
-				Rect2(Vector2(texture_x, MIDGROUND_WALL_TOP) * scale, Vector2(MIDGROUND_WALL_REPEAT, MIDGROUND_WALL_HEIGHT) * scale),
-				false,
-				Color(1.0, 1.0, 1.0, 0.90)
-			)
+			_draw_midground_wall_asset_tile(wall_texture, texture_x, scale)
 		return
 	var parallax := 0.48
 	var tile_width := 320.0
@@ -592,6 +820,48 @@ func _draw_midground_wall(scale: float) -> void:
 			var post_x := x + 28.0 + float(post_idx) * 68.0
 			draw_rect(Rect2(Vector2(post_x, wall_y - 24.0) * scale, Vector2(10.0, 122.0) * scale), Color(0.11, 0.095, 0.065, 0.95), true)
 			draw_circle(Vector2(post_x + 5.0, wall_y - 28.0) * scale, 9.0 * scale, Color(0.98, 0.72, 0.26, 0.68))
+
+
+func _draw_midground_wall_asset_tile(wall_texture: Texture2D, texture_x: float, scale: float) -> void:
+	var texture_size := wall_texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var fade_height := minf(MIDGROUND_WALL_TOP_FADE_HEIGHT, MIDGROUND_WALL_HEIGHT)
+	var y := 0.0
+	while y < fade_height:
+		var slice_height := minf(MIDGROUND_WALL_TOP_FADE_SLICE, fade_height - y)
+		var fade_t := (y + slice_height * 0.5) / maxf(1.0, fade_height)
+		_draw_midground_wall_asset_region(wall_texture, texture_size, texture_x, y, slice_height, _smooth_unit(fade_t) * MIDGROUND_WALL_ALPHA, scale)
+		y += slice_height
+	if fade_height < MIDGROUND_WALL_HEIGHT:
+		_draw_midground_wall_asset_region(
+			wall_texture,
+			texture_size,
+			texture_x,
+			fade_height,
+			MIDGROUND_WALL_HEIGHT - fade_height,
+			MIDGROUND_WALL_ALPHA,
+			scale
+		)
+
+
+func _draw_midground_wall_asset_region(
+	wall_texture: Texture2D,
+	texture_size: Vector2,
+	texture_x: float,
+	region_y: float,
+	region_height: float,
+	alpha: float,
+	scale: float
+) -> void:
+	var source_y := region_y / MIDGROUND_WALL_HEIGHT * texture_size.y
+	var source_height := region_height / MIDGROUND_WALL_HEIGHT * texture_size.y
+	draw_texture_rect_region(
+		wall_texture,
+		Rect2(Vector2(texture_x, MIDGROUND_WALL_TOP + region_y) * scale, Vector2(MIDGROUND_WALL_REPEAT, region_height) * scale),
+		Rect2(Vector2(0.0, source_y), Vector2(texture_size.x, source_height)),
+		Color(1.0, 1.0, 1.0, alpha)
+	)
 
 
 func _draw_ground_strip(scale: float) -> void:
@@ -672,6 +942,15 @@ func _draw_exit_zone(scale: float) -> void:
 func _draw_world_objects(scale: float) -> void:
 	for spec in _building_specs:
 		_draw_building(spec, scale)
+	if _building_transition_active:
+		var transition_progress := _get_building_transition_progress()
+		var actor_alpha := _get_building_transition_actor_alpha(transition_progress)
+		if actor_alpha > 0.01:
+			var actor_lift := _get_building_transition_actor_lift(transition_progress)
+			_draw_lingpet_follower(scale, actor_alpha, _building_transition_lingpet_pos + Vector2(0.0, actor_lift * 0.72))
+			_draw_player(scale, actor_alpha, _building_transition_player_pos + Vector2(0.0, actor_lift))
+		return
+	_draw_lingpet_follower(scale)
 	_draw_player(scale)
 
 
@@ -703,19 +982,164 @@ func _draw_building(spec: Dictionary, scale: float) -> void:
 		draw_texture_rect(window_texture, local_rect, false, Color(1.0, 0.93, 0.78, 0.56 + pulse * 0.12))
 
 
-func _draw_player(scale: float) -> void:
-	var local := _world_to_local(_player_pos, scale)
-	draw_circle(local + Vector2(0.0, 4.0) * scale, 21.0 * scale, Color(0.0, 0.0, 0.0, 0.24))
-	draw_rect(Rect2(local + Vector2(-14.0, -52.0) * scale, Vector2(28.0, 48.0) * scale), Color(0.08, 0.32, 0.46, 1.0), true)
-	draw_rect(Rect2(local + Vector2(-16.0, -54.0) * scale, Vector2(32.0, 52.0) * scale), Color(0.0, 0.9, 1.0, 0.74), false, max(1.0, 2.0 * scale))
-	draw_circle(local + Vector2(0.0, -70.0) * scale, 15.0 * scale, Color(1.0, 0.86, 0.64, 1.0))
-	draw_line(local + Vector2(-9.0, -4.0) * scale, local + Vector2(-15.0, 12.0) * scale, Color(0.0, 0.8, 1.0, 0.9), max(1.0, 3.0 * scale))
-	draw_line(local + Vector2(9.0, -4.0) * scale, local + Vector2(15.0, 12.0) * scale, Color(0.0, 0.8, 1.0, 0.9), max(1.0, 3.0 * scale))
+func _draw_player(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
+	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
+	if _draw_player_sheet(scale, alpha, draw_world_pos):
+		return
+	_draw_player_placeholder(scale, alpha, draw_world_pos)
+
+
+func _draw_player_sheet(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> bool:
+	if not bool(_player_textures.get("has_sprite", false)):
+		return false
+	var safe_alpha := clampf(alpha, 0.0, 1.0)
+	if safe_alpha <= 0.01:
+		return true
+	var moving := _is_player_walking()
+	var direction := _get_player_facing_direction()
+	var texture: Texture2D = null
+	if moving:
+		var key := "walk_left" if direction < 0 else "walk_right"
+		texture = _player_textures.get(key, null)
+	if texture == null:
+		texture = _player_textures.get("idle", null)
+	if texture == null:
+		texture = _player_textures.get("walk_left", null) if direction < 0 else _player_textures.get("walk_right", null)
+	if texture == null:
+		return false
+	var src_rect := _get_sheet_frame_rect(texture, _get_player_sprite_frame(), int(_player_textures.get("grid_cols", 4)), int(_player_textures.get("grid_rows", 2)))
+	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
+	var local := _world_to_local(draw_world_pos, scale)
+	var draw_size := PLAYER_SPRITE_DRAW_SIZE * scale
+	var draw_rect := Rect2(
+		local + (PLAYER_SPRITE_FOOT_OFFSET - Vector2(PLAYER_SPRITE_DRAW_SIZE.x * 0.5, PLAYER_SPRITE_DRAW_SIZE.y)) * scale,
+		draw_size
+	)
+	_draw_ground_shadow(local + Vector2(0.0, 6.0) * scale, 24.0 * scale, 8.5 * scale, safe_alpha)
+	draw_texture_rect_region(texture, draw_rect, src_rect, Color(1.0, 1.0, 1.0, safe_alpha))
+	return true
+
+
+func _draw_player_placeholder(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
+	var safe_alpha := clampf(alpha, 0.0, 1.0)
+	if safe_alpha <= 0.01:
+		return
+	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
+	var local := _world_to_local(draw_world_pos, scale)
+	_draw_ground_shadow(local + Vector2(0.0, 6.0) * scale, 23.0 * scale, 8.0 * scale, safe_alpha)
+	draw_rect(Rect2(local + Vector2(-15.0, -56.0) * scale, Vector2(30.0, 52.0) * scale), Color(0.30, 0.34, 0.38, 0.96 * safe_alpha), true)
+	draw_rect(Rect2(local + Vector2(-17.0, -58.0) * scale, Vector2(34.0, 56.0) * scale), Color(0.74, 0.82, 0.88, 0.55 * safe_alpha), false, max(1.0, 2.0 * scale))
+	draw_circle(local + Vector2(0.0, -74.0) * scale, 15.0 * scale, Color(0.68, 0.70, 0.72, safe_alpha))
+	draw_line(local + Vector2(-9.0, -6.0) * scale, local + Vector2(-16.0, 12.0) * scale, Color(0.66, 0.74, 0.78, 0.9 * safe_alpha), max(1.0, 3.0 * scale))
+	draw_line(local + Vector2(9.0, -6.0) * scale, local + Vector2(16.0, 12.0) * scale, Color(0.66, 0.74, 0.78, 0.9 * safe_alpha), max(1.0, 3.0 * scale))
+
+
+func _draw_lingpet_follower(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
+	if not _is_lingpet_companion_visible():
+		return
+	var safe_alpha := clampf(alpha, 0.0, 1.0)
+	if safe_alpha <= 0.01:
+		return
+	var draw_world_pos := _lingpet_follower_pos if world_pos == Vector2.INF else world_pos
+	var local := _world_to_local(draw_world_pos, scale)
+	var draw_size := Vector2(_lingpet_companion_draw_size, _lingpet_companion_draw_size) * scale
+	var draw_rect := Rect2(local + Vector2(-draw_size.x * 0.5, -draw_size.y + 8.0 * scale), draw_size)
+	_draw_ground_shadow(local + Vector2(0.0, 6.0) * scale, max(14.0, _lingpet_companion_draw_size * 0.26) * scale, max(5.0, _lingpet_companion_draw_size * 0.095) * scale, safe_alpha * 0.9)
+	var frame := int(floor(float(Time.get_ticks_msec() % 2000) / 2000.0 * float(LINGPET_COMPANION_FRAME_COUNT)))
+	var src_rect := _get_sheet_frame_rect(_lingpet_companion_texture, frame, LINGPET_COMPANION_GRID_COLS, LINGPET_COMPANION_GRID_ROWS)
+	draw_texture_rect_region(_lingpet_companion_texture, draw_rect, src_rect, Color(1.0, 1.0, 1.0, safe_alpha))
+
+
+# Soft flattened ground contact shadow. Drawn as 3 concentric ellipses (no
+# transform -- avoids the draw_set_transform trap) so the edge fades instead of
+# reading as a flat gray disc, and the wide/short ratio matches the slight
+# top-down plaza view. `intensity` scales with the actor alpha so the shadow
+# dissolves together with the warp.
+func _draw_ground_shadow(center: Vector2, radius_x: float, radius_y: float, intensity: float) -> void:
+	if intensity <= 0.01 or radius_x <= 0.5 or radius_y <= 0.5:
+		return
+	for layer in [[1.0, 0.06], [0.66, 0.08], [0.36, 0.10]]:
+		var s := float(layer[0])
+		var a := float(layer[1]) * intensity
+		if a <= 0.003:
+			continue
+		var pts := PackedVector2Array()
+		for i in range(24):
+			var ang := TAU * float(i) / 24.0
+			pts.append(center + Vector2(cos(ang) * radius_x * s, sin(ang) * radius_y * s))
+		draw_colored_polygon(pts, Color(0.0, 0.0, 0.0, a))
+
+
+func _get_building_transition_actor_alpha(progress: float) -> float:
+	var eased := _smooth_unit(progress)
+	if _building_transition_phase == "return":
+		return eased
+	return 1.0 - eased
+
+
+func _get_building_transition_actor_lift(progress: float) -> float:
+	var eased := _smooth_unit(progress)
+	if _building_transition_phase == "return":
+		return -34.0 * (1.0 - eased)
+	return -42.0 * eased
+
+
+func _ensure_warp_pillar_fx_host() -> void:
+	if _warp_pillar_fx_host != null and is_instance_valid(_warp_pillar_fx_host):
+		return
+	_warp_pillar_fx_host = PlazaWarpPillarFxHost.new()
+	_warp_pillar_fx_host.name = "PlazaWarpPillarFxHost"
+	_warp_pillar_fx_host.set_process(false)
+	add_child(_warp_pillar_fx_host)
+	_warp_pillar_fx_host.set_active(false)
+
+
+func _sync_warp_pillar_fx_host() -> void:
+	if not is_inside_tree():
+		return
+	_ensure_warp_pillar_fx_host()
+	if _warp_pillar_fx_host == null or not _warp_pillar_fx_host.has_method("sync_state"):
+		return
+	if not _building_transition_active:
+		_warp_pillar_fx_host.sync_state([], false)
+		return
+	var scale := _get_game_scale()
+	var progress := _get_building_transition_progress()
+	var actor_states: Array[Dictionary] = []
+	actor_states.append({
+		"screen_pos": _world_to_local(_building_transition_player_pos, scale),
+		"progress": progress,
+		"phase": _building_transition_phase,
+		"strength": 1.0,
+	})
+	if _is_lingpet_companion_visible():
+		actor_states.append({
+			"screen_pos": _world_to_local(_building_transition_lingpet_pos, scale),
+			"progress": progress,
+			"phase": _building_transition_phase,
+			"strength": 0.66,
+		})
+	_warp_pillar_fx_host.sync_state(actor_states, true)
+
+
+func _get_warp_pillar_fx_status() -> Dictionary:
+	if _warp_pillar_fx_host == null or not is_instance_valid(_warp_pillar_fx_host):
+		return {"active": false, "actor_count": 0}
+	var actor_count := 0
+	if _warp_pillar_fx_host.has_method("get_active_actor_count"):
+		actor_count = int(_warp_pillar_fx_host.get_active_actor_count())
+	return {
+		"active": bool(_warp_pillar_fx_host.visible),
+		"actor_count": actor_count,
+	}
 
 
 func _draw_overlay_ui(scale: float) -> void:
 	var font := ThemeDB.fallback_font
 	if font == null:
+		return
+	_draw_minimap(scale)
+	if _building_transition_active:
 		return
 	if _menu_open:
 		_draw_building_menu(font, scale)
@@ -735,10 +1159,21 @@ func _draw_overlay_ui(scale: float) -> void:
 
 
 func _draw_building_menu(font: Font, scale: float) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.38), true)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.54), true)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.18, 0.26, 0.12), true)
+	_draw_interior_npc_panel(font, scale)
+	_draw_interior_speech_panel(font, scale)
 	var panel := Rect2(MENU_PANEL_RECT.position * scale, MENU_PANEL_RECT.size * scale)
-	draw_rect(panel, Color(0.018, 0.023, 0.040, 0.95), true)
-	draw_rect(panel, Color(0.0, 0.86, 1.0, 0.48), false, max(1.0, 2.0 * scale))
+	var menu_color := _get_minimap_building_color(_active_menu_type)
+	draw_rect(panel, Color(0.014, 0.020, 0.038, 0.97), true)
+	draw_rect(panel, Color(menu_color.r * 0.12, menu_color.g * 0.12, menu_color.b * 0.12, 0.52), true)
+	draw_rect(panel, Color(0.0, 0.86, 1.0, 0.42), false, max(1.0, 2.0 * scale))
+	draw_line(
+		panel.position + Vector2(18.0, 18.0) * scale,
+		panel.position + Vector2(MENU_PANEL_RECT.size.x - 18.0, 18.0) * scale,
+		menu_color,
+		max(1.0, 1.5 * scale)
+	)
 	draw_line(
 		panel.position + Vector2(0.0, 70.0) * scale,
 		panel.position + Vector2(MENU_PANEL_RECT.size.x, 70.0) * scale,
@@ -839,8 +1274,94 @@ func _draw_building_menu(font: Font, scale: float) -> void:
 		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, "준비 중", int(16.0 * scale), Color(1.0, 0.72, 0.94, 0.88))
 
 
+func _draw_interior_npc_panel(font: Font, scale: float) -> void:
+	var npc_rect := Rect2(INTERIOR_NPC_RECT.position * scale, INTERIOR_NPC_RECT.size * scale)
+	var accent := _get_minimap_building_color(_active_menu_type)
+	draw_rect(npc_rect, Color(0.018, 0.025, 0.038, 0.95), true)
+	draw_rect(npc_rect, Color(accent.r * 0.10, accent.g * 0.10, accent.b * 0.10, 0.48), true)
+	draw_rect(npc_rect, accent, false, max(1.0, 2.0 * scale))
+	for idx in range(6):
+		var y := INTERIOR_NPC_RECT.position.y + 54.0 + float(idx) * 52.0
+		draw_line(
+			Vector2(INTERIOR_NPC_RECT.position.x + 14.0, y) * scale,
+			Vector2(INTERIOR_NPC_RECT.end.x - 14.0, y - 36.0) * scale,
+			Color(accent.r, accent.g, accent.b, 0.11),
+			max(1.0, 1.0 * scale)
+		)
+	var npc_texture := _get_interior_npc_texture(_active_menu_type)
+	if npc_texture != null:
+		_draw_interior_npc_texture(npc_texture, scale)
+	else:
+		_draw_interior_npc_placeholder(accent, scale)
+	var name_text := str(INTERIOR_NPC_NAMES.get(_active_menu_type, "광장 안내원"))
+	_draw_text_shadow(font, (INTERIOR_NPC_RECT.position + Vector2(22.0, INTERIOR_NPC_RECT.size.y - 18.0)) * scale, name_text, int(17.0 * scale), Color(0.94, 0.98, 1.0, 0.96))
+
+
+func _draw_interior_npc_texture(texture: Texture2D, scale: float) -> void:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var fit_rect := Rect2(
+		(INTERIOR_NPC_RECT.position + Vector2(8.0, 8.0)) * scale,
+		(INTERIOR_NPC_RECT.size - Vector2(16.0, 42.0)) * scale
+	)
+	var fit_scale: float = min(fit_rect.size.x / texture_size.x, fit_rect.size.y / texture_size.y)
+	var draw_size: Vector2 = texture_size * fit_scale
+	var draw_pos: Vector2 = Vector2(fit_rect.get_center().x - draw_size.x * 0.5, fit_rect.end.y - draw_size.y)
+	draw_texture_rect(texture, Rect2(draw_pos, draw_size), false)
+
+
+func _draw_interior_npc_placeholder(accent: Color, scale: float) -> void:
+	var badge_center := INTERIOR_NPC_RECT.position + Vector2(44.0, 44.0)
+	draw_circle(badge_center * scale, 23.0 * scale, Color(0.0, 0.0, 0.0, 0.34))
+	draw_circle(badge_center * scale, 20.0 * scale, Color(0.018, 0.032, 0.050, 0.94))
+	draw_arc(badge_center * scale, 20.0 * scale, 0.0, TAU, 30, accent, max(1.0, 2.0 * scale), true)
+	draw_circle(badge_center * scale, 5.8 * scale, accent)
+	var center_x := INTERIOR_NPC_RECT.position.x + INTERIOR_NPC_RECT.size.x * 0.52
+	var foot_y := INTERIOR_NPC_RECT.end.y - 38.0
+	var head_center := Vector2(center_x, foot_y - 248.0)
+	draw_circle(head_center * scale, 38.0 * scale, Color(0.78, 0.84, 0.88, 0.94))
+	draw_circle((head_center + Vector2(-11.0, -5.0)) * scale, 10.0 * scale, Color(accent.r, accent.g, accent.b, 0.64))
+	draw_circle((head_center + Vector2(13.0, -8.0)) * scale, 8.0 * scale, Color(accent.r, accent.g, accent.b, 0.48))
+	draw_rect(Rect2((head_center + Vector2(-8.0, 33.0)) * scale, Vector2(16.0, 30.0) * scale), Color(0.60, 0.68, 0.74, 0.92), true)
+	var body_rect := Rect2(Vector2(center_x - 48.0, foot_y - 186.0) * scale, Vector2(96.0, 138.0) * scale)
+	draw_rect(body_rect, Color(0.20, 0.24, 0.30, 0.96), true)
+	draw_rect(body_rect, Color(accent.r, accent.g, accent.b, 0.22), true)
+	draw_line(Vector2(center_x - 38.0, foot_y - 154.0) * scale, Vector2(center_x - 84.0, foot_y - 95.0) * scale, Color(0.62, 0.70, 0.76, 0.88), max(1.0, 9.0 * scale))
+	draw_line(Vector2(center_x + 38.0, foot_y - 154.0) * scale, Vector2(center_x + 82.0, foot_y - 104.0) * scale, Color(0.62, 0.70, 0.76, 0.88), max(1.0, 9.0 * scale))
+	draw_line(Vector2(center_x - 22.0, foot_y - 48.0) * scale, Vector2(center_x - 42.0, foot_y) * scale, Color(0.44, 0.52, 0.60, 0.90), max(1.0, 10.0 * scale))
+	draw_line(Vector2(center_x + 22.0, foot_y - 48.0) * scale, Vector2(center_x + 42.0, foot_y) * scale, Color(0.44, 0.52, 0.60, 0.90), max(1.0, 10.0 * scale))
+
+
+func _draw_interior_speech_panel(font: Font, scale: float) -> void:
+	var speech_rect := Rect2(INTERIOR_SPEECH_RECT.position * scale, INTERIOR_SPEECH_RECT.size * scale)
+	var accent := _get_minimap_building_color(_active_menu_type)
+	draw_rect(speech_rect, Color(0.96, 0.90, 0.82, 0.94), true)
+	draw_rect(speech_rect, Color(accent.r, accent.g, accent.b, 0.32), false, max(1.0, 2.0 * scale))
+	_draw_text_shadow(font, speech_rect.position + Vector2(16.0, 27.0) * scale, str(INTERIOR_NPC_NAMES.get(_active_menu_type, "광장 안내원")), int(15.0 * scale), Color(0.18, 0.12, 0.08, 1.0))
+	var greeting := str(INTERIOR_GREETING_LINES.get(_active_menu_type, "무엇을 도와드릴까요?"))
+	var greeting_lines := greeting.split("|", false)
+	for idx in range(min(2, greeting_lines.size())):
+		draw_string(
+			font,
+			speech_rect.position + Vector2(16.0, 54.0 + float(idx) * 21.0) * scale,
+			str(greeting_lines[idx]),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			int(16.0 * scale),
+			Color(0.10, 0.08, 0.07, 0.96)
+		)
+
+
+func _get_interior_npc_texture(building_type: String) -> Texture2D:
+	if building_type == "":
+		return null
+	var texture: Variant = _interior_npc_textures.get(building_type, null)
+	return texture if texture is Texture2D else null
+
+
 func _draw_menu_action_row(font: Font, scale: float, index: int, y: float, label: String) -> void:
-	var row := Rect2(Vector2(MENU_PANEL_RECT.position.x + 30.0, y) * scale, Vector2(MENU_PANEL_RECT.size.x - 60.0, 44.0) * scale)
+	var row := Rect2(Vector2(MENU_PANEL_RECT.position.x + 30.0, y) * scale, Vector2(MENU_PANEL_RECT.size.x - 60.0, MENU_ACTION_ROW_HEIGHT) * scale)
 	draw_rect(row, Color(0.06, 0.085, 0.115, 0.76), true)
 	draw_rect(row, Color(0.0, 0.76, 0.92, 0.22), false, max(1.0, 1.0 * scale))
 	var number_text := "%02d" % (index + 1)
@@ -849,6 +1370,229 @@ func _draw_menu_action_row(font: Font, scale: float, index: int, y: float, label
 	var state_text := "실행" if _is_executable_menu_type(_active_menu_type) else "준비 중"
 	var state_color := Color(0.72, 1.0, 0.86, 0.82) if _is_executable_menu_type(_active_menu_type) else Color(1.0, 0.72, 0.94, 0.70)
 	_draw_text_shadow(font, row.position + Vector2(row.size.x / scale - 86.0, 29.0) * scale, state_text, int(15.0 * scale), state_color)
+
+
+func _draw_minimap(scale: float) -> void:
+	var state := _build_minimap_state()
+	var panel_rect: Rect2 = state.get("panel_rect", MINIMAP_PANEL_RECT)
+	var track_rect: Rect2 = state.get("track_rect", _get_minimap_track_rect())
+	var camera_rect: Rect2 = state.get("camera_rect", Rect2())
+	var player_marker: Vector2 = state.get("player_marker", Vector2.ZERO)
+	var exit_marker: Vector2 = state.get("exit_marker", Vector2.ZERO)
+	var panel_px := Rect2(panel_rect.position * scale, panel_rect.size * scale)
+	var track_px := Rect2(track_rect.position * scale, track_rect.size * scale)
+	draw_rect(panel_px, Color(0.006, 0.014, 0.026, 0.82), true)
+	draw_rect(panel_px, Color(0.0, 0.82, 1.0, 0.46), false, max(1.0, 1.0 * scale))
+	draw_line(
+		(panel_rect.position + Vector2(10.0, 10.0)) * scale,
+		(panel_rect.position + Vector2(panel_rect.size.x - 10.0, 10.0)) * scale,
+		Color(0.0, 0.82, 1.0, 0.18),
+		max(1.0, 1.0 * scale)
+	)
+	draw_rect(track_px, Color(0.025, 0.050, 0.072, 0.92), true)
+	draw_rect(track_px, Color(0.0, 0.86, 1.0, 0.34), false, max(1.0, 1.0 * scale))
+	if camera_rect.size.x > 0.0:
+		draw_rect(Rect2(camera_rect.position * scale, camera_rect.size * scale), Color(0.30, 0.78, 1.0, 0.16), true)
+	var markers_value: Variant = state.get("building_markers", [])
+	if markers_value is Array:
+		for marker_value in markers_value:
+			if not (marker_value is Dictionary):
+				continue
+			var marker := marker_value as Dictionary
+			var marker_pos: Vector2 = marker.get("position", Vector2.ZERO)
+			var icon_pos: Vector2 = marker.get("icon_position", marker_pos + Vector2(0.0, -17.0))
+			var marker_color := _get_minimap_building_color(str(marker.get("type", "")))
+			draw_line(marker_pos * scale, icon_pos * scale, Color(marker_color.r, marker_color.g, marker_color.b, 0.34), max(1.0, 1.0 * scale))
+			draw_rect(Rect2((marker_pos + Vector2(-1.4, -5.0)) * scale, Vector2(2.8, 10.0) * scale), marker_color, true)
+			_draw_minimap_building_badge(marker, icon_pos, marker_color, scale)
+	draw_line(
+		(exit_marker + Vector2(0.0, -8.0)) * scale,
+		(exit_marker + Vector2(0.0, 8.0)) * scale,
+		Color(1.0, 0.80, 0.30, 0.94),
+		max(1.0, 2.0 * scale)
+	)
+	draw_line(
+		(exit_marker + Vector2(-5.0, -4.0)) * scale,
+		exit_marker * scale,
+		Color(1.0, 0.80, 0.30, 0.86),
+		max(1.0, 1.5 * scale)
+	)
+	draw_line(
+		(exit_marker + Vector2(-5.0, 4.0)) * scale,
+		exit_marker * scale,
+		Color(1.0, 0.80, 0.30, 0.86),
+		max(1.0, 1.5 * scale)
+	)
+	draw_circle(player_marker * scale, 4.6 * scale, Color(0.0, 0.96, 1.0, 0.96))
+	draw_circle(player_marker * scale, 2.0 * scale, Color(1.0, 1.0, 1.0, 0.92))
+
+
+func _build_minimap_state() -> Dictionary:
+	var track_rect := _get_minimap_track_rect()
+	var marker_y := track_rect.get_center().y
+	var camera_start_x := _world_x_to_minimap_x(_camera_x)
+	var camera_end_x := _world_x_to_minimap_x(_camera_x + GAME_SIZE.x)
+	var building_markers: Array[Dictionary] = []
+	for spec in _building_specs:
+		var pivot_pos: Vector2 = spec.get("pivot_pos", Vector2.ZERO)
+		if pivot_pos == Vector2.ZERO:
+			var interaction_rect: Rect2 = spec.get("interaction_rect", Rect2())
+			pivot_pos = interaction_rect.get_center()
+		var identity_emblem_value: Variant = spec.get("identity_emblem", {})
+		var identity_emblem: Dictionary = identity_emblem_value as Dictionary if identity_emblem_value is Dictionary else {}
+		building_markers.append({
+			"type": str(spec.get("type", "")),
+			"identity_emblem_id": str(identity_emblem.get("id", "")),
+			"world_x": pivot_pos.x,
+			"position": Vector2(_world_x_to_minimap_x(pivot_pos.x), marker_y),
+		})
+	building_markers = _resolve_minimap_icon_positions(building_markers, track_rect)
+	return {
+		"panel_rect": MINIMAP_PANEL_RECT,
+		"track_rect": track_rect,
+		"camera_rect": Rect2(
+			Vector2(camera_start_x, track_rect.position.y - 5.0),
+			Vector2(max(4.0, camera_end_x - camera_start_x), 15.0)
+		),
+		"player_marker": Vector2(_world_x_to_minimap_x(_player_pos.x), marker_y),
+		"exit_marker": Vector2(_world_x_to_minimap_x(EXIT_ZONE.get_center().x), marker_y),
+		"building_markers": building_markers,
+	}
+
+
+func _get_minimap_track_rect() -> Rect2:
+	return Rect2(MINIMAP_PANEL_RECT.position + MINIMAP_TRACK_INSET, MINIMAP_TRACK_SIZE)
+
+
+func _world_x_to_minimap_x(world_x: float) -> float:
+	var track_rect := _get_minimap_track_rect()
+	var ratio := clampf(world_x / max(1.0, MAP_SIZE.x), 0.0, 1.0)
+	return track_rect.position.x + ratio * track_rect.size.x
+
+
+func _resolve_minimap_icon_positions(markers: Array[Dictionary], track_rect: Rect2) -> Array[Dictionary]:
+	if markers.is_empty():
+		return markers
+	var resolved: Array[Dictionary] = markers.duplicate(true)
+	resolved.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("world_x", 0.0)) < float(b.get("world_x", 0.0)))
+	var icon_y: float = track_rect.position.y - 17.0
+	var left_limit: float = track_rect.position.x + MINIMAP_ICON_SIZE * 0.5
+	var right_limit: float = track_rect.end.x - MINIMAP_ICON_SIZE * 0.5
+	var icon_positions: Array[float] = []
+	for idx in range(resolved.size()):
+		var marker_pos: Vector2 = resolved[idx].get("position", Vector2.ZERO)
+		var icon_x := clampf(marker_pos.x, left_limit, right_limit)
+		if idx > 0:
+			icon_x = max(icon_x, icon_positions[idx - 1] + MINIMAP_ICON_MIN_GAP)
+		icon_positions.append(icon_x)
+	if not icon_positions.is_empty():
+		var overflow: float = float(icon_positions[icon_positions.size() - 1]) - right_limit
+		if overflow > 0.0:
+			for idx in range(icon_positions.size()):
+				icon_positions[idx] = float(icon_positions[idx]) - overflow
+		var underflow: float = left_limit - float(icon_positions[0])
+		if underflow > 0.0:
+			for idx in range(icon_positions.size()):
+				icon_positions[idx] = float(icon_positions[idx]) + underflow
+	for idx in range(resolved.size()):
+		resolved[idx]["icon_position"] = Vector2(float(icon_positions[idx]), icon_y)
+	return resolved
+
+
+func _get_minimap_building_color(building_type: String) -> Color:
+	match building_type:
+		"bank":
+			return Color(1.0, 0.78, 0.32, 0.96)
+		"tavern":
+			return Color(1.0, 0.50, 0.32, 0.92)
+		"academy":
+			return Color(0.72, 0.66, 1.0, 0.92)
+		"shop":
+			return Color(0.32, 0.92, 1.0, 0.92)
+		"gacha":
+			return Color(1.0, 0.32, 0.92, 0.92)
+		"lingpet_store":
+			return Color(0.45, 1.0, 0.72, 0.92)
+		"blacksmith":
+			return Color(1.0, 0.62, 0.24, 0.92)
+		_:
+			return Color(0.88, 0.96, 1.0, 0.86)
+
+
+func _draw_minimap_building_badge(marker: Dictionary, icon_pos: Vector2, marker_color: Color, scale: float) -> void:
+	var building_type := str(marker.get("type", ""))
+	var radius := MINIMAP_ICON_SIZE * 0.52
+	draw_circle(icon_pos * scale, (radius + 1.7) * scale, Color(0.0, 0.0, 0.0, 0.42))
+	draw_circle(icon_pos * scale, radius * scale, Color(0.018, 0.032, 0.050, 0.96))
+	draw_circle(icon_pos * scale, (radius - 1.5) * scale, Color(marker_color.r * 0.16, marker_color.g * 0.16, marker_color.b * 0.16, 0.92))
+	draw_arc(icon_pos * scale, radius * scale, 0.0, TAU, 20, marker_color, max(1.0, 1.1 * scale), true)
+	match building_type:
+		"bank":
+			_draw_minimap_bank_emblem(icon_pos, marker_color, scale)
+		"shop":
+			_draw_minimap_shop_emblem(icon_pos, marker_color, scale)
+		"gacha":
+			_draw_minimap_gacha_emblem(icon_pos, marker_color, scale)
+		"lingpet_store":
+			_draw_minimap_lingpet_emblem(icon_pos, marker_color, scale)
+		"blacksmith":
+			_draw_minimap_blacksmith_emblem(icon_pos, marker_color, scale)
+		"tavern":
+			_draw_minimap_tavern_emblem(icon_pos, marker_color, scale)
+		"academy":
+			_draw_minimap_academy_emblem(icon_pos, marker_color, scale)
+		_:
+			draw_circle(icon_pos * scale, 2.6 * scale, marker_color)
+
+
+func _draw_minimap_bank_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_circle((center + Vector2(-1.5, -0.5)) * scale, 3.4 * scale, Color(1.0, 0.82, 0.34, 0.96))
+	draw_arc((center + Vector2(-1.5, -0.5)) * scale, 3.4 * scale, 0.0, TAU, 12, Color(0.16, 0.08, 0.02, 0.92), max(1.0, 0.9 * scale), true)
+	draw_line((center + Vector2(-1.5, -3.6)) * scale, (center + Vector2(-1.5, 2.8)) * scale, Color(0.16, 0.08, 0.02, 0.82), max(1.0, 0.8 * scale))
+	draw_line((center + Vector2(-4.4, -0.4)) * scale, (center + Vector2(1.4, -0.4)) * scale, Color(0.16, 0.08, 0.02, 0.82), max(1.0, 0.8 * scale))
+	draw_line((center + Vector2(2.8, 3.0)) * scale, (center + Vector2(6.0, 3.0)) * scale, color, max(1.0, 1.2 * scale))
+	draw_line((center + Vector2(3.4, 0.8)) * scale, (center + Vector2(5.6, 0.8)) * scale, color, max(1.0, 1.2 * scale))
+
+
+func _draw_minimap_shop_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_circle((center + Vector2(-3.2, -1.8)) * scale, 2.6 * scale, Color(1.0, 0.78, 0.32, 0.96))
+	draw_rect(Rect2((center + Vector2(0.0, -2.8)) * scale, Vector2(5.4, 5.4) * scale), Color(color.r, color.g, color.b, 0.92), false, max(1.0, 1.1 * scale))
+	draw_line((center + Vector2(0.0, -0.2)) * scale, (center + Vector2(5.4, -0.2)) * scale, color, max(1.0, 0.8 * scale))
+
+
+func _draw_minimap_gacha_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_circle(center * scale, 4.0 * scale, Color(1.0, 1.0, 1.0, 0.16))
+	draw_arc(center * scale, 4.0 * scale, -0.15, TAU * 0.72, 16, color, max(1.0, 1.1 * scale), true)
+	draw_line((center + Vector2(2.8, -3.4)) * scale, (center + Vector2(5.3, -1.3)) * scale, color, max(1.0, 1.0 * scale))
+	draw_line((center + Vector2(-4.0, 0.0)) * scale, (center + Vector2(4.0, 0.0)) * scale, color, max(1.0, 1.0 * scale))
+
+
+func _draw_minimap_lingpet_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_circle((center + Vector2(0.0, 0.8)) * scale, 3.4 * scale, Color(0.92, 1.0, 0.88, 0.94))
+	draw_circle((center + Vector2(0.0, -2.6)) * scale, 2.4 * scale, Color(0.92, 1.0, 0.88, 0.94))
+	draw_arc(center * scale, 5.0 * scale, -0.55, 2.55, 18, color, max(1.0, 1.0 * scale), true)
+	draw_arc(center * scale, 5.0 * scale, 2.9, 5.55, 18, color, max(1.0, 1.0 * scale), true)
+
+
+func _draw_minimap_blacksmith_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_line((center + Vector2(-4.8, -4.0)) * scale, (center + Vector2(1.6, 2.4)) * scale, color, max(1.0, 1.8 * scale))
+	draw_rect(Rect2((center + Vector2(-6.0, -5.8)) * scale, Vector2(4.6, 3.0) * scale), Color(1.0, 0.80, 0.42, 0.96), true)
+	draw_line((center + Vector2(-3.8, 4.6)) * scale, (center + Vector2(5.2, 4.6)) * scale, color, max(1.0, 1.5 * scale))
+	draw_line((center + Vector2(-1.4, 2.4)) * scale, (center + Vector2(2.8, 2.4)) * scale, color, max(1.0, 1.2 * scale))
+
+
+func _draw_minimap_tavern_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_rect(Rect2((center + Vector2(-4.4, -3.8)) * scale, Vector2(6.2, 7.0) * scale), Color(0.96, 0.84, 0.62, 0.92), true)
+	draw_line((center + Vector2(-3.2, -1.6)) * scale, (center + Vector2(0.6, -1.6)) * scale, Color(0.18, 0.10, 0.04, 0.86), max(1.0, 0.8 * scale))
+	draw_circle((center + Vector2(4.0, 1.8)) * scale, 2.3 * scale, color)
+	draw_line((center + Vector2(4.0, 4.0)) * scale, (center + Vector2(4.0, 5.8)) * scale, color, max(1.0, 0.9 * scale))
+
+
+func _draw_minimap_academy_emblem(center: Vector2, color: Color, scale: float) -> void:
+	draw_rect(Rect2((center + Vector2(-5.6, -3.2)) * scale, Vector2(5.0, 6.0) * scale), Color(0.82, 0.86, 1.0, 0.88), false, max(1.0, 1.0 * scale))
+	draw_rect(Rect2((center + Vector2(0.6, -3.2)) * scale, Vector2(5.0, 6.0) * scale), Color(0.82, 0.86, 1.0, 0.88), false, max(1.0, 1.0 * scale))
+	draw_line(center * scale, (center + Vector2(0.0, 3.4)) * scale, color, max(1.0, 0.8 * scale))
+	draw_circle((center + Vector2(0.0, -5.0)) * scale, 2.1 * scale, color)
 
 
 func _draw_text_shadow(font: Font, pos: Vector2, text: String, font_size: int, color: Color) -> void:
@@ -909,10 +1653,17 @@ func _get_interactable_building() -> Dictionary:
 
 
 func _get_building_at_world_pos(world_pos: Vector2) -> Dictionary:
+	# Mouse picking hit-tests the full visible building (visual_rect) plus its
+	# ground entrance strip (interaction_rect), so clicking anywhere on the
+	# structure -- roof/walls included -- opens the menu, not just the base band.
+	# Reverse order = front-most (last-drawn) wins on overlapping/adjacent buildings.
 	for i in range(_building_specs.size() - 1, -1, -1):
 		var spec := _building_specs[i]
-		var rect: Rect2 = spec.get("interaction_rect", Rect2())
-		if rect.has_point(world_pos):
+		var visual_rect: Rect2 = spec.get("visual_rect", Rect2())
+		if visual_rect.size != Vector2.ZERO and visual_rect.has_point(world_pos):
+			return spec
+		var interaction_rect: Rect2 = spec.get("interaction_rect", Rect2())
+		if interaction_rect.has_point(world_pos):
 			return spec
 	return {}
 
@@ -923,7 +1674,7 @@ func _update_hovered_building() -> void:
 
 
 func _try_interact() -> bool:
-	if _menu_open:
+	if _menu_open or _building_transition_active:
 		return false
 	if EXIT_ZONE.has_point(_player_pos):
 		_exit_plaza()
@@ -936,7 +1687,7 @@ func _try_interact() -> bool:
 
 
 func _show_building_dialog(building: Dictionary) -> void:
-	_open_building_menu(building)
+	_start_building_enter_transition(building)
 
 
 func _open_building_menu(building: Dictionary) -> void:
@@ -968,11 +1719,89 @@ func _open_building_menu(building: Dictionary) -> void:
 	queue_redraw()
 
 
+func _start_building_enter_transition(building: Dictionary) -> void:
+	if _building_transition_active:
+		return
+	_building_transition_active = true
+	_building_transition_phase = "enter"
+	_building_transition_timer = 0.0
+	_building_transition_target = building.duplicate(true)
+	_building_transition_player_pos = _player_pos
+	_building_transition_lingpet_pos = _lingpet_follower_pos
+	_dialog_text = ""
+	_dialog_timer = 0.0
+	_sync_warp_pillar_fx_host()
+	queue_redraw()
+
+
+func _start_building_return_transition() -> void:
+	if _building_transition_active:
+		return
+	_building_transition_active = true
+	_building_transition_phase = "return"
+	_building_transition_timer = 0.0
+	_building_transition_target = {}
+	_building_transition_player_pos = _player_pos
+	_building_transition_lingpet_pos = _lingpet_follower_pos
+	_sync_warp_pillar_fx_host()
+	queue_redraw()
+
+
+func _update_building_transition(delta: float) -> void:
+	if not _building_transition_active:
+		return
+	_building_transition_timer = min(BUILDING_WARP_DURATION, _building_transition_timer + max(0.0, delta))
+	if _building_transition_timer < BUILDING_WARP_DURATION:
+		return
+	if _building_transition_phase == "enter":
+		var target := _building_transition_target.duplicate(true)
+		_clear_building_transition()
+		if not target.is_empty():
+			_open_building_menu(target)
+		return
+	_clear_building_transition()
+
+
+func _complete_building_transition_for_test() -> void:
+	if not _building_transition_active:
+		return
+	_update_building_transition(BUILDING_WARP_DURATION)
+
+
+func _clear_building_transition() -> void:
+	_building_transition_active = false
+	_building_transition_phase = ""
+	_building_transition_timer = 0.0
+	_building_transition_target = {}
+	_building_transition_player_pos = Vector2.ZERO
+	_building_transition_lingpet_pos = Vector2.ZERO
+	_sync_warp_pillar_fx_host()
+
+
+func _get_building_transition_progress() -> float:
+	if not _building_transition_active:
+		return 0.0
+	return clampf(_building_transition_timer / max(0.001, BUILDING_WARP_DURATION), 0.0, 1.0)
+
+
 func _refresh_plaza_save_snapshot() -> void:
 	if _plaza_save_store == null or not _plaza_save_store.has_method("get_summary"):
 		_plaza_save_snapshot = {}
 		return
 	_plaza_save_snapshot = _plaza_save_store.get_summary()
+
+
+func _get_or_create_stage_map_seed(stage_id: int) -> int:
+	if _plaza_save_store == null or not _plaza_save_store.has_method("get_or_create_stage_map_seed"):
+		return maxi(1, int(abs(hash("plaza_stage_%d" % stage_id))))
+	return int(_plaza_save_store.get_or_create_stage_map_seed(stage_id))
+
+
+func _should_force_tavern_for_current_stage() -> bool:
+	var active_quest: Dictionary = _plaza_save_snapshot.get("tavern_active_quest", {})
+	if active_quest.is_empty():
+		return false
+	return int(active_quest.get("accepted_stage", current_stage)) < current_stage
 
 
 func _trigger_menu_action(action_index: int) -> bool:
@@ -1124,7 +1953,7 @@ func _trigger_academy_menu_action(action_index: int) -> bool:
 	_refresh_plaza_save_snapshot()
 	if bool(summary.get("choice_opened", false)):
 		var message := _active_menu_last_message
-		_close_building_menu()
+		_close_building_menu(false)
 		_last_academy_transaction_summary = summary.duplicate(true)
 		_dialog_text = message
 		_dialog_timer = DIALOG_DURATION
@@ -1372,7 +2201,8 @@ func _format_tavern_transaction_message(summary: Dictionary) -> String:
 	return "의뢰를 처리했습니다."
 
 
-func _close_building_menu() -> void:
+func _close_building_menu(play_return_transition: bool = true) -> void:
+	var should_play_return := play_return_transition and _menu_open and not _building_transition_active
 	_menu_open = false
 	_active_menu_type = ""
 	_active_menu_title = ""
@@ -1385,6 +2215,8 @@ func _close_building_menu() -> void:
 	_last_gacha_transaction_summary = {}
 	_last_lingpet_store_transaction_summary = {}
 	_last_tavern_transaction_summary = {}
+	if should_play_return:
+		_start_building_return_transition()
 	queue_redraw()
 
 
@@ -1465,3 +2297,12 @@ func _discrete_flicker(seed_text: String) -> float:
 
 func _flicker_alpha(seed_text: String, base_alpha: float, amplitude: float) -> float:
 	return clampf(base_alpha + _discrete_flicker(seed_text) * amplitude, 0.0, 1.0)
+
+
+func _stable_hash_unit(seed_text: String) -> float:
+	return float(abs(int(hash(seed_text))) % 10000) / 10000.0
+
+
+func _smooth_unit(value: float) -> float:
+	var t := clampf(value, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)

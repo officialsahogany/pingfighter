@@ -1,7 +1,7 @@
 extends RefCounted
 
 const SAVE_PATH := "user://plaza_save.cfg"
-const SAVE_SCHEMA_VERSION := 3
+const SAVE_SCHEMA_VERSION := 4
 const BASE_AP := 3
 const MAX_AP := 10
 const BANK_TRANSACTION_AMOUNT := 100
@@ -16,6 +16,7 @@ const AP_AWARDED_STAGES_SECTION := "ap_awarded_stages"
 const BANK_INTEREST_CLAIMED_STAGES_SECTION := "bank_interest_claimed_stages"
 const TAVERN_ACCEPTED_STAGES_SECTION := "tavern_accepted_stages"
 const TAVERN_COMPLETED_QUESTS_SECTION := "tavern_completed_quests"
+const STAGE_MAP_SEEDS_SECTION := "stage_map_seeds"
 const PLAZA_GOLD_KEY := "plaza_gold"
 const AP_CURRENT_KEY := "ap_current"
 const AP_IS_FIRST_STAGE_KEY := "ap_is_first_stage"
@@ -41,6 +42,7 @@ var _ap_awarded_stages: Dictionary = {}
 var _bank_interest_claimed_stages: Dictionary = {}
 var _tavern_accepted_stages: Dictionary = {}
 var _tavern_completed_quests: Dictionary = {}
+var _stage_map_seeds: Dictionary = {}
 var _last_load_stripped_bom := false
 
 
@@ -129,6 +131,27 @@ func get_bank_deposit_gold() -> int:
 func get_tavern_active_quest() -> Dictionary:
 	_ensure_loaded()
 	return _tavern_active_quest.duplicate(true)
+
+
+func get_or_create_stage_map_seed(stage_id: int) -> int:
+	_ensure_loaded()
+	var stage_key := str(maxi(1, stage_id))
+	var existing_seed := int(_stage_map_seeds.get(stage_key, 0))
+	if existing_seed > 0:
+		return existing_seed
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var generated_seed := rng.randi_range(100000, 999999999)
+	_stage_map_seeds[stage_key] = generated_seed
+	save()
+	return generated_seed
+
+
+func set_stage_map_seed_for_test(stage_id: int, map_seed: int) -> void:
+	_ensure_loaded()
+	var stage_key := str(maxi(1, stage_id))
+	_stage_map_seeds[stage_key] = maxi(1, map_seed)
+	save()
 
 
 func add_plaza_gold(amount: int) -> Dictionary:
@@ -450,6 +473,7 @@ func get_summary() -> Dictionary:
 		"bank_interest_claimed_stages": _get_bank_interest_claimed_stages(),
 		"tavern_accepted_stages": _get_tavern_accepted_stages(),
 		"tavern_completed_quests": _get_tavern_completed_quests(),
+		"stage_map_seeds": _get_stage_map_seeds(),
 	}
 
 
@@ -480,6 +504,7 @@ func _reset_runtime_state() -> void:
 	_bank_interest_claimed_stages.clear()
 	_tavern_accepted_stages.clear()
 	_tavern_completed_quests.clear()
+	_stage_map_seeds.clear()
 
 
 func _try_recover_from_backup() -> bool:
@@ -534,6 +559,11 @@ func _build_save_config() -> ConfigFile:
 		var quest_id := str(raw_quest_id).strip_edges()
 		if quest_id != "" and bool(_tavern_completed_quests.get(raw_quest_id, false)):
 			config.set_value(TAVERN_COMPLETED_QUESTS_SECTION, quest_id, true)
+	for raw_stage in _stage_map_seeds.keys():
+		var stage_key := str(raw_stage).strip_edges()
+		var map_seed := maxi(1, int(_stage_map_seeds.get(raw_stage, 0)))
+		if stage_key != "" and map_seed > 0:
+			config.set_value(STAGE_MAP_SEEDS_SECTION, stage_key, map_seed)
 	return config
 
 
@@ -548,10 +578,12 @@ func _read_from_config(config: ConfigFile) -> void:
 	_bank_interest_claimed_stages.clear()
 	_tavern_accepted_stages.clear()
 	_tavern_completed_quests.clear()
+	_stage_map_seeds.clear()
 	_load_bool_section(config, AP_AWARDED_STAGES_SECTION, _ap_awarded_stages)
 	_load_bool_section(config, BANK_INTEREST_CLAIMED_STAGES_SECTION, _bank_interest_claimed_stages)
 	_load_bool_section(config, TAVERN_ACCEPTED_STAGES_SECTION, _tavern_accepted_stages)
 	_load_bool_section(config, TAVERN_COMPLETED_QUESTS_SECTION, _tavern_completed_quests)
+	_load_int_section(config, STAGE_MAP_SEEDS_SECTION, _stage_map_seeds)
 
 
 func _read_tavern_active_quest(config: ConfigFile) -> Dictionary:
@@ -595,6 +627,18 @@ func _load_bool_section(config: ConfigFile, section: String, target: Dictionary)
 			target[stage_key] = true
 
 
+func _load_int_section(config: ConfigFile, section: String, target: Dictionary) -> void:
+	if not config.has_section(section):
+		return
+	for raw_key in config.get_section_keys(section):
+		var stage_key := str(raw_key).strip_edges()
+		if stage_key == "":
+			continue
+		var int_value := maxi(0, int(config.get_value(section, raw_key, 0)))
+		if int_value > 0:
+			target[stage_key] = int_value
+
+
 func _read_schema_version(config: ConfigFile) -> int:
 	var raw_version: Variant = config.get_value(
 		META_SECTION,
@@ -634,6 +678,11 @@ func _get_tavern_accepted_stages() -> Dictionary:
 func _get_tavern_completed_quests() -> Dictionary:
 	_ensure_loaded()
 	return _tavern_completed_quests.duplicate(true)
+
+
+func _get_stage_map_seeds() -> Dictionary:
+	_ensure_loaded()
+	return _stage_map_seeds.duplicate(true)
 
 
 func _build_apply_summary(transferred_gold: int, granted_ap: int, ap_recorded: bool, save_summary: String) -> Dictionary:

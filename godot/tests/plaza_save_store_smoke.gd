@@ -13,6 +13,7 @@ func _run() -> void:
 	_verify_roundtrip_and_bom_rewrite()
 	_verify_stage_clear_progress_is_exact_gold_units()
 	_verify_stage_ap_records_once()
+	_verify_stage_map_seed_roundtrip()
 	_verify_bank_transactions_and_ap_consumption()
 	_verify_bank_interest_once_per_stage()
 	_verify_shop_wallet_transactions_and_ap_consumption()
@@ -85,6 +86,26 @@ func _verify_stage_ap_records_once() -> void:
 	_expect(int(second_summary.get("granted_ap", 0)) == 0, "same stage clear edge should not grant AP twice")
 	_expect(int(next_stage_summary.get("granted_ap", 0)) == 1, "next real stage advance should be able to grant AP")
 	_expect(int(next_stage_summary.get("ap_current", 0)) == PlazaSaveStore.BASE_AP + 2, "AP should persist cumulative stage advances")
+	_cleanup(path)
+
+
+func _verify_stage_map_seed_roundtrip() -> void:
+	var path := _test_path("map_seed")
+	_cleanup(path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(path)
+	var stage_one_seed := store.get_or_create_stage_map_seed(1)
+	var stage_one_repeat := store.get_or_create_stage_map_seed(1)
+	var stage_two_seed := store.get_or_create_stage_map_seed(2)
+	_expect(stage_one_seed > 0, "stage map seed should be positive")
+	_expect(stage_one_repeat == stage_one_seed, "stage map seed should be stable within the same store")
+	_expect(stage_two_seed > 0, "different stages should receive their own positive map seeds")
+	var loaded := PlazaSaveStore.new()
+	loaded.set_save_path(path)
+	var loaded_seed := loaded.get_or_create_stage_map_seed(1)
+	_expect(loaded_seed == stage_one_seed, "stage map seed should survive save/load roundtrip")
+	var seeds: Dictionary = loaded.get_summary().get("stage_map_seeds", {})
+	_expect(int(seeds.get("1", 0)) == stage_one_seed, "summary should expose persisted stage map seeds")
 	_cleanup(path)
 
 

@@ -1,0 +1,130 @@
+{
+  "assets": [
+    {
+      "file": "plaza_stage1_interior_npc_academy_seoyul_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_academy_seoyul_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        34,
+        32,
+        478,
+        842
+      ],
+      "visible_pixels": 206755,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5254
+    },
+    {
+      "file": "plaza_stage1_interior_npc_bank_doyun_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_bank_doyun_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        63,
+        26,
+        448,
+        842
+      ],
+      "visible_pixels": 148733,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5275
+    },
+    {
+      "file": "plaza_stage1_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_blacksmith_gangcheol_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        47,
+        26,
+        465,
+        842
+      ],
+      "visible_pixels": 184214,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5122
+    },
+    {
+      "file": "plaza_stage1_interior_npc_gacha_lumi_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_gacha_lumi_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        34,
+        79,
+        478,
+        842
+      ],
+      "visible_pixels": 124807,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.4639
+    },
+    {
+      "file": "plaza_stage1_interior_npc_lingpet_store_lingling_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_lingpet_store_lingling_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        53,
+        26,
+        458,
+        842
+      ],
+      "visible_pixels": 146948,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5053
+    },
+    {
+      "file": "plaza_stage1_interior_npc_shop_mora_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_shop_mora_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        35,
+        26,
+        477,
+        842
+      ],
+      "visible_pixels": 144287,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5299
+    },
+    {
+      "file": "plaza_stage1_interior_npc_tavern_harang_imagegen_v1.png",
+      "source": "plaza_stage1_interior_npc_tavern_harang_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        34,
+        45,
+        478,
+        842
+      ],
+      "visible_pixels": 146120,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.4994
+    }
+  ]
+}

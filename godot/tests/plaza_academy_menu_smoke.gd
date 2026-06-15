@@ -162,6 +162,7 @@ func _build_scene(viewport: SubViewport, save_path: String, owner: Object, regis
 	scene.configure({
 		"current_stage": 1,
 		"plaza_save_path": save_path,
+		"full_layout_for_test": true,
 		"runtime_owner": owner,
 		"runtime_registry": registry,
 	}, Callable(), true)

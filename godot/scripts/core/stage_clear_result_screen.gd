@@ -815,6 +815,7 @@ func _spawn_plaza_scene(owner: Object) -> bool:
 				"plaza_save_path": _get_plaza_save_path(),
 				"runtime_owner": _pending_owner,
 				"runtime_registry": _pending_registry,
+				"selected_character_type": _get_selected_character_type(_pending_owner),
 			},
 			Callable(self, "_finish_plaza_and_continue"),
 			true
