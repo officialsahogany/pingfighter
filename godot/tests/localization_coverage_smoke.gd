@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
@@ -167,6 +168,10 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 	_expect_no_hangul(LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text("기동 강화"), "LINGPET_SURFACE[%s] next reward line" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("액티브 · %s쿨타임 %s") % ["Lv.2 · ", LanguageSettings.translate_text("18초")], "LINGPET_SURFACE[%s] active skill subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % "X", "LINGPET_SURFACE[%s] cooldown tooltip" % language)
+	for picker_text in ["액티브 선택", "패시브 선택", "2nd 액티브 선택", "2nd 패시브 선택", "스킬 선택", "액티브 후보", "패시브 후보", "2nd 액티브 후보", "2nd 패시브 후보", "후보", "+%d 대기", "선택하면 이 스킬이 링펫 슬롯에 고정됩니다."]:
+		_expect_no_hangul(LanguageSettings.translate_text(picker_text), "LINGPET_PICKER_SURFACE[%s] %s" % [language, picker_text])
+	for skill_name in _lingpet_picker_candidate_names():
+		_expect_no_hangul(LanguageSettings.translate_text(skill_name), "LINGPET_PICKER_SKILL_NAME[%s] %s" % [language, skill_name])
 
 
 func _verify_active_item_catalog(language: String) -> void:
@@ -221,6 +226,20 @@ func _verify_skill_configs(language: String) -> void:
 	var viper := ViperSkillConfig.new()
 	for skill_id in ViperSkillConfig.SKILL_DATA.keys():
 		_scan_values(viper.get_skill_data(str(skill_id)), "viper skill %s[%s]" % [skill_id, language])
+
+
+func _lingpet_picker_candidate_names() -> Array[String]:
+	var names: Array[String] = []
+	for pet_id in LingpetCatalog.get_pet_ids(true):
+		for skill in LingpetCatalog.get_active_skill_pool(str(pet_id)):
+			var skill_name := str(skill.get("name", "")).strip_edges()
+			if skill_name != "" and not names.has(skill_name):
+				names.append(skill_name)
+	for passive in LingpetCatalog.get_passive_skill_pool("maribo"):
+		var passive_name := str(passive.get("name", "")).strip_edges()
+		if passive_name != "" and not names.has(passive_name):
+			names.append(passive_name)
+	return names
 
 
 func _verify_formatter_outputs(language: String) -> void:

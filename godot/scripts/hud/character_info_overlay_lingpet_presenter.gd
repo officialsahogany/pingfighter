@@ -31,6 +31,8 @@ const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 }
 const AFFINITY_BAND_HEIGHT := 32.0
 const AFFINITY_METER_HEIGHT := 8.0
+const UNLOCK_CHOICE_BAND_MIN_HEIGHT := 54.0
+const UNLOCK_CHOICE_BAND_MAX_HEIGHT := 76.0
 
 static func draw_panel(
 	canvas: CanvasItem,
@@ -40,6 +42,8 @@ static func draw_panel(
 	mouse_pos: Vector2,
 	hover_data: Dictionary,
 	skill_icon_rects: Array,
+	unlock_options: Array,
+	unlock_card_rects: Array,
 	art_texture_cache: Dictionary,
 	skill_icon_texture_cache: Dictionary,
 	section_color: Color,
@@ -58,13 +62,14 @@ static func draw_panel(
 	panel_animation_time: float = 0.0
 ) -> Dictionary:
 	skill_icon_rects.clear()
+	unlock_card_rects.clear()
 	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, section_color, section_border, 2.0)
 	_draw_text_xy(canvas, font, "링펫", rect.position.x + 12.0, rect.position.y + 24.0, 13, accent_blue, ui_text_scale)
 	var content_rect := Rect2(rect.position.x + 12.0, rect.position.y + 36.0, rect.size.x - 24.0, rect.size.y - 48.0)
 	canvas.draw_rect(content_rect, grid_fill)
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "companion":
-		return draw_companion_panel(canvas, font, content_rect, snapshot, mouse_pos, hover_data, skill_icon_rects, art_texture_cache, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale, panel_animation_time)
+		return draw_companion_panel(canvas, font, content_rect, snapshot, mouse_pos, hover_data, skill_icon_rects, unlock_options, unlock_card_rects, art_texture_cache, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale, panel_animation_time)
 	draw_non_companion_panel(canvas, font, content_rect, snapshot, hatch_required_hits, stat_buff_color, empty_text_color, accent_gold, text_soft, ring_segments, ui_text_scale, wrap_text_callable)
 	return hover_data
 
@@ -165,6 +170,8 @@ static func draw_companion_panel(
 	mouse_pos: Vector2,
 	hover_data: Dictionary,
 	skill_icon_rects: Array,
+	unlock_options: Array,
+	unlock_card_rects: Array,
 	art_texture_cache: Dictionary,
 	skill_icon_texture_cache: Dictionary,
 	stat_buff_color: Color,
@@ -181,11 +188,16 @@ static func draw_companion_panel(
 	var skill_specs: Array = get_skill_specs(snapshot, stat_buff_color)
 	var skill_row_h: float = clamp(content_rect.size.y * 0.22, 58.0, 78.0)
 	var affinity_band_h: float = AFFINITY_BAND_HEIGHT
+	var open_unlock_option := _first_open_unlock_option(unlock_options)
+	var open_unlock_count := _count_open_unlock_options(unlock_options)
+	var unlock_band_h: float = 0.0
+	if not open_unlock_option.is_empty():
+		unlock_band_h = clamp(content_rect.size.y * 0.18, UNLOCK_CHOICE_BAND_MIN_HEIGHT, UNLOCK_CHOICE_BAND_MAX_HEIGHT)
 	var title_y: float = content_rect.position.y + 26.0
 	_draw_centered_text(canvas, font, title, content_rect.get_center().x, title_y, 18, Color.WHITE, ui_text_scale)
 	_draw_centered_text(canvas, font, subtitle, content_rect.get_center().x, title_y + 23.0, 12, stat_buff_color, ui_text_scale)
 
-	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h, affinity_band_h)
+	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h + unlock_band_h, affinity_band_h)
 	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
 	var art_glow_center := art_rect.get_center()
 	var art_glow_radius: float = min(art_rect.size.x, art_rect.size.y) * 0.42
@@ -209,11 +221,100 @@ static func draw_companion_panel(
 	var icon_total_w: float = icon_size * float(icon_count) + icon_gap * float(icon_count - 1)
 	var icon_x: float = content_rect.get_center().x - icon_total_w * 0.5
 	var icon_y: float = content_rect.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
+	if not open_unlock_option.is_empty():
+		var unlock_rect := Rect2(art_rect.position.x, affinity_rect.end.y + 4.0, art_rect.size.x, max(0.0, icon_y - affinity_rect.end.y - 8.0))
+		if unlock_rect.size.y >= 42.0:
+			hover_data = draw_unlock_choice_band(canvas, font, unlock_rect, pet_id, open_unlock_option, maxi(0, open_unlock_count - 1), mouse_pos, hover_data, skill_icon_rects, unlock_card_rects, skill_icon_texture_cache, stat_buff_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 	for i in range(skill_specs.size()):
 		var icon_rect := Rect2(icon_x + float(i) * (icon_size + icon_gap), icon_y, icon_size, icon_size)
 		skill_icon_rects.append(icon_rect)
 		var spec: Dictionary = skill_specs[i]
 		hover_data = draw_skill_icon(canvas, font, icon_rect, spec, mouse_pos, hover_data, skill_icon_texture_cache, accent_blue, slot_fill, ring_segments, ui_text_scale)
+	return hover_data
+
+
+static func draw_unlock_choice_band(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	pet_id: String,
+	option: Dictionary,
+	waiting_count: int,
+	mouse_pos: Vector2,
+	hover_data: Dictionary,
+	skill_icon_rects: Array,
+	unlock_card_rects: Array,
+	skill_icon_texture_cache: Dictionary,
+	stat_buff_color: Color,
+	accent_blue: Color,
+	slot_fill: Color,
+	ring_segments: int,
+	ui_text_scale: float
+) -> Dictionary:
+	var choice_key := str(option.get("choice_key", "")).strip_edges().to_lower()
+	var candidates: Array = option.get("candidates", []) as Array
+	if choice_key == "" or candidates.size() < 2:
+		return hover_data
+	var title := LanguageSettings.translate_text(_unlock_choice_title(choice_key))
+	if waiting_count > 0:
+		title = "%s · %s" % [title, LanguageSettings.translate_text("+%d 대기") % waiting_count]
+	_draw_text_xy(canvas, font, title, rect.position.x + 2.0, rect.position.y + 13.0, 9, Color(1.0, 1.0, 1.0, 0.78), ui_text_scale)
+	var visible_candidates: int = mini(2, candidates.size())
+	var gap := 8.0
+	var card_y := rect.position.y + 18.0
+	var card_h: float = max(24.0, rect.end.y - card_y)
+	var card_w: float = max(54.0, (rect.size.x - gap * float(visible_candidates - 1)) / float(visible_candidates))
+	for i in range(visible_candidates):
+		var candidate_id := str(candidates[i]).strip_edges().to_lower()
+		var card_rect := Rect2(rect.position.x + float(i) * (card_w + gap), card_y, card_w, card_h)
+		unlock_card_rects.append({
+			"rect": card_rect,
+			"pet_id": pet_id,
+			"choice_key": choice_key,
+			"candidate_id": candidate_id,
+		})
+		skill_icon_rects.append(card_rect)
+		hover_data = draw_unlock_candidate_card(canvas, font, card_rect, pet_id, choice_key, candidate_id, mouse_pos, hover_data, skill_icon_texture_cache, stat_buff_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
+	return hover_data
+
+
+static func draw_unlock_candidate_card(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	pet_id: String,
+	choice_key: String,
+	candidate_id: String,
+	mouse_pos: Vector2,
+	hover_data: Dictionary,
+	skill_icon_texture_cache: Dictionary,
+	stat_buff_color: Color,
+	accent_blue: Color,
+	slot_fill: Color,
+	ring_segments: int,
+	ui_text_scale: float
+) -> Dictionary:
+	var spec: Dictionary = _unlock_candidate_spec(pet_id, choice_key, candidate_id, stat_buff_color, accent_blue)
+	var color: Color = _get_color(spec.get("color", accent_blue), accent_blue)
+	var hovered: bool = rect.has_point(mouse_pos)
+	canvas.draw_rect(rect, slot_fill)
+	canvas.draw_rect(rect, Color(color.r, color.g, color.b, 0.95 if hovered else 0.58), false, 2.0 if hovered else 1.0)
+	var icon_size: float = min(rect.size.y - 8.0, 36.0)
+	var icon_rect := Rect2(rect.position.x + 5.0, rect.position.y + (rect.size.y - icon_size) * 0.5, icon_size, icon_size)
+	var texture_path := str(spec.get("card_texture_path" if bool(spec.get("use_card", false)) else "icon_texture_id", "")).strip_edges()
+	var texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_skill_icon_texture(texture_path, skill_icon_texture_cache)
+	if texture != null and bool(spec.get("use_card", false)):
+		CharacterInfoOverlayTextureDrawer.draw_cover(canvas, texture, icon_rect, Color(1.0, 1.0, 1.0, 0.94))
+	elif texture != null:
+		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, texture, icon_rect, Color(1.0, 1.0, 1.0, 0.96))
+	else:
+		_draw_skill_symbol(canvas, font, icon_rect, candidate_id, color, ring_segments, ui_text_scale)
+	var text_x := icon_rect.end.x + 6.0
+	var text_w: float = max(20.0, rect.end.x - text_x - 5.0)
+	_draw_text_xy(canvas, font, _fit_text_to_width(font, str(spec.get("title", candidate_id)), 9, text_w, ui_text_scale), text_x, rect.position.y + 16.0, 9, Color.WHITE, ui_text_scale)
+	_draw_text_xy(canvas, font, _fit_text_to_width(font, str(spec.get("subtitle", "")), 8, text_w, ui_text_scale), text_x, rect.position.y + 31.0, 8, Color(color.r, color.g, color.b, 0.90), ui_text_scale)
+	if hovered:
+		_fill_hover_data(hover_data, str(spec.get("title", "")), str(spec.get("subtitle", "")), str(spec.get("body", "")), color, rect)
 	return hover_data
 
 
@@ -588,6 +689,84 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			"icon_texture_id": str(snapshot.get("companion_passive_skill_icon_path_1", "")),
 		})
 	return specs
+
+
+static func _first_open_unlock_option(unlock_options: Array) -> Dictionary:
+	for option in unlock_options:
+		if not (option is Dictionary):
+			continue
+		var choice: Dictionary = option
+		if bool(choice.get("locked", false)):
+			continue
+		var candidates: Array = choice.get("candidates", []) as Array
+		if candidates.size() >= 2:
+			return choice
+	return {}
+
+
+static func _count_open_unlock_options(unlock_options: Array) -> int:
+	var count := 0
+	for option in unlock_options:
+		if not (option is Dictionary):
+			continue
+		var choice: Dictionary = option
+		if bool(choice.get("locked", false)):
+			continue
+		var candidates: Array = choice.get("candidates", []) as Array
+		if candidates.size() >= 2:
+			count += 1
+	return count
+
+
+static func _unlock_candidate_spec(pet_id: String, choice_key: String, candidate_id: String, stat_buff_color: Color, accent_blue: Color) -> Dictionary:
+	var active_choice := choice_key == "active" or choice_key == "second_active"
+	var entry: Dictionary = LingpetCatalog.get_active_skill_entry(candidate_id) if active_choice else LingpetCatalog.get_passive_skill_entry(candidate_id)
+	var title := str(entry.get("name", "")).strip_edges()
+	if title == "":
+		title = candidate_id
+	var body := str(entry.get("description", "")).strip_edges()
+	if body == "":
+		body = "선택하면 이 스킬이 링펫 슬롯에 고정됩니다."
+	var icon_path := str(entry.get("icon_texture_path", "")).strip_edges()
+	if not active_choice and icon_path == "":
+		icon_path = LingpetCatalog.get_passive_icon_path(pet_id, candidate_id)
+	return {
+		"id": candidate_id,
+		"title": title,
+		"subtitle": _unlock_choice_subtitle(choice_key),
+		"body": body,
+		"color": accent_blue if active_choice else stat_buff_color,
+		"badge": "A" if active_choice else "P",
+		"use_card": active_choice and str(entry.get("card_texture_path", "")).strip_edges() != "",
+		"icon_texture_id": icon_path,
+		"card_texture_path": str(entry.get("card_texture_path", "")).strip_edges(),
+	}
+
+
+static func _unlock_choice_title(choice_key: String) -> String:
+	match choice_key:
+		"active":
+			return "액티브 선택"
+		"passive":
+			return "패시브 선택"
+		"second_active":
+			return "2nd 액티브 선택"
+		"second_passive":
+			return "2nd 패시브 선택"
+	return "스킬 선택"
+
+
+static func _unlock_choice_subtitle(choice_key: String) -> String:
+	match choice_key:
+		"active":
+			return "액티브 후보"
+		"passive":
+			return "패시브 후보"
+		"second_active":
+			return "2nd 액티브 후보"
+		"second_passive":
+			return "2nd 패시브 후보"
+	return "후보"
 
 
 static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_required_hits: int) -> Dictionary:

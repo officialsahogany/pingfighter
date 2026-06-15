@@ -136,6 +136,23 @@ func _try_handle_passive_inventory_context_click(mouse_pos: Vector2, owner: Obje
 func _try_handle_equipment_context_click(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
 	return CharacterInfoOverlayEquipmentDrawer.try_handle_context_click(mouse_pos, owner, registry, _last_equipment_rect, Callable(self, "_get_equipment_slot_key_at_mouse"))
 
+func _try_handle_lingpet_unlock_pick_click(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
+	for raw_entry in _last_lingpet_unlock_card_rects:
+		if not (raw_entry is Dictionary):
+			continue
+		var entry: Dictionary = raw_entry
+		var rect_value: Variant = entry.get("rect", Rect2())
+		if not (rect_value is Rect2):
+			continue
+		var rect: Rect2 = rect_value
+		if not rect.has_point(mouse_pos):
+			continue
+		var runtime: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "lingpet_egg_runtime")
+		if runtime == null or not runtime.has_method("commit_unlock_pick"):
+			return false
+		return bool(runtime.commit_unlock_pick(str(entry.get("pet_id", "")), str(entry.get("choice_key", "")), str(entry.get("candidate_id", "")), owner, registry))
+	return false
+
 func _prepare_passive_inventory_draw_cache(inventory_items: Array) -> Dictionary:
 	return CharacterInfoOverlayPassiveItemPresenter.prepare_overlay_inventory_draw_cache(self, inventory_items, _passive_inventory_draw_cache_items_hash, _passive_inventory_draw_cache_item_count, _passive_inventory_item_cache, _passive_inventory_draw_color_cache, _passive_inventory_border_color_cache, _passive_inventory_active_border_color_cache, _passive_inventory_equipped_cache, _passive_inventory_summary, _passive_inventory_summary_count, _passive_inventory_summary_equipped, Callable(CharacterInfoOverlayPassiveItemPresenter, "cached_frame_color").bind(_passive_item_frame_color_cache, PASSIVE_FRAME_COLOR_CACHE_LIMIT))
 

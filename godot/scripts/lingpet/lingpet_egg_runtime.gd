@@ -1610,6 +1610,69 @@ func _auto_resolve_unlock_choices(pet_id: String, choice_keys: Array[String] = [
 		_affinity_state.choose_skill_unlock(pet_id, str(choice.get("type", "")), str(candidates[0]))
 
 
+func get_unlock_choice_options(pet_id: String = "", registry: Object = null) -> Array:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		normalized_pet_id = _normalize_pet_id(_pet_id)
+	if normalized_pet_id == "":
+		return []
+	var rewards: Dictionary = _affinity_state.get_cumulative_rewards(normalized_pet_id)
+	var stored: Dictionary = _get_store_resolved_unlock_choices(normalized_pet_id, registry)
+	var options: Array = []
+	for choice_key in ["active", "passive", "second_active", "second_passive"]:
+		if not _is_unlock_choice_reward_available(rewards, choice_key):
+			continue
+		var candidates := _get_unlock_choice_candidate_ids(normalized_pet_id, choice_key, stored)
+		if candidates.size() < 2:
+			continue
+		var stored_id := str(stored.get(choice_key, "")).strip_edges().to_lower()
+		var locked := stored_id != "" and _choice_candidates_include(candidates, stored_id)
+		options.append({
+			"pet_id": normalized_pet_id,
+			"choice_key": choice_key,
+			"reward_type": _reward_type_for_unlock_choice_key(choice_key),
+			"candidates": candidates,
+			"selected": stored_id if locked else str(candidates[0]),
+			"locked": locked,
+		})
+	return options
+
+
+func commit_unlock_pick(pet_id: String, choice_key: String, candidate_id: String, owner: Object = null, registry: Object = null) -> bool:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		normalized_pet_id = _normalize_pet_id(_pet_id)
+	var normalized_choice_key := _normalize_unlock_choice_key(choice_key)
+	var normalized_candidate_id := str(candidate_id).strip_edges().to_lower()
+	if normalized_pet_id == "" or normalized_choice_key == "" or normalized_candidate_id == "":
+		return false
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("set_resolved_unlock_choice") or not store.has_method("get_resolved_unlock_choices"):
+		return false
+	var stored: Dictionary = store.get_resolved_unlock_choices(normalized_pet_id)
+	var selected_option: Dictionary = {}
+	for option in get_unlock_choice_options(normalized_pet_id, registry):
+		if not (option is Dictionary):
+			continue
+		var option_dict: Dictionary = option
+		if str(option_dict.get("choice_key", "")) == normalized_choice_key:
+			selected_option = option_dict
+			break
+	if selected_option.is_empty() or bool(selected_option.get("locked", false)):
+		return false
+	var candidates: Array = selected_option.get("candidates", []) as Array
+	if not _choice_candidates_include(candidates, normalized_candidate_id):
+		return false
+	if stored.has(normalized_choice_key) and store.has_method("clear_resolved_unlock_choice"):
+		store.clear_resolved_unlock_choice(normalized_pet_id, normalized_choice_key)
+	if not bool(store.set_resolved_unlock_choice(normalized_pet_id, normalized_choice_key, normalized_candidate_id)):
+		return false
+	_skip_unlock_reconcile = false
+	_invalidate_current_loadout_cache()
+	_apply_current_loadout(owner, true, false, registry)
+	return true
+
+
 func _apply_persisted_unlock_choices(pet_id: String, choice_keys: Array[String], registry: Object = null) -> void:
 	var store: Object = _get_affinity_store(registry)
 	if store == null or not store.has_method("get_resolved_unlock_choices"):
@@ -1618,22 +1681,34 @@ func _apply_persisted_unlock_choices(pet_id: String, choice_keys: Array[String],
 	if stored.is_empty():
 		return
 	var pending: Dictionary = _affinity_state.get_pending_unlock_choices(pet_id)
-	if pending.is_empty():
-		return
 	for raw_choice_key in choice_keys:
 		var choice_key := str(raw_choice_key).strip_edges().to_lower()
-		if not pending.has(choice_key):
-			continue
 		var selected_id := str(stored.get(choice_key, "")).strip_edges().to_lower()
 		if selected_id == "":
 			continue
+		var has_pending := pending.has(choice_key)
 		var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
-		var candidates: Array = choice.get("candidates", []) as Array
+		var candidates: Array = []
+		if has_pending:
+			candidates = choice.get("candidates", []) as Array
+		else:
+			candidates = _get_unlock_choice_candidate_ids(pet_id, choice_key, stored)
 		if not _choice_candidates_include(candidates, selected_id):
 			if store.has_method("clear_resolved_unlock_choice"):
 				store.clear_resolved_unlock_choice(pet_id, choice_key)
 			continue
-		_affinity_state.choose_skill_unlock(pet_id, str(choice.get("type", "")), selected_id)
+		var reward_type := str(choice.get("type", "")) if has_pending else _reward_type_for_unlock_choice_key(choice_key)
+		if has_pending:
+			_affinity_state.choose_skill_unlock(pet_id, reward_type, selected_id)
+		else:
+			_affinity_state.apply_resolved_unlock_choice(pet_id, reward_type, selected_id, candidates)
+
+
+func _get_store_resolved_unlock_choices(pet_id: String, registry: Object = null) -> Dictionary:
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("get_resolved_unlock_choices"):
+		return {}
+	return store.get_resolved_unlock_choices(pet_id)
 
 
 func _choice_candidates_include(candidates: Array, selected_id: String) -> bool:
@@ -1646,10 +1721,71 @@ func _choice_candidates_include(candidates: Array, selected_id: String) -> bool:
 	return false
 
 
+func _normalize_unlock_choice_key(choice_key: String) -> String:
+	match choice_key.strip_edges().to_lower():
+		"active":
+			return "active"
+		"passive":
+			return "passive"
+		"second_active":
+			return "second_active"
+		"second_passive":
+			return "second_passive"
+	return ""
+
+
+func _reward_type_for_unlock_choice_key(choice_key: String) -> String:
+	match _normalize_unlock_choice_key(choice_key):
+		"active":
+			return LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK
+		"passive":
+			return LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK
+		"second_active":
+			return LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK
+		"second_passive":
+			return LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK
+	return ""
+
+
+func _is_unlock_choice_reward_available(rewards: Dictionary, choice_key: String) -> bool:
+	match _normalize_unlock_choice_key(choice_key):
+		"active":
+			return bool(rewards.get("active_unlocked", false))
+		"passive":
+			return bool(rewards.get("passive_unlocked", false))
+		"second_active":
+			return bool(rewards.get("second_active_unlocked", false))
+		"second_passive":
+			return bool(rewards.get("second_passive_unlocked", false))
+	return false
+
+
+func _get_unlock_choice_candidate_ids(pet_id: String, choice_key: String, stored_choices: Dictionary = {}) -> Array[String]:
+	match _normalize_unlock_choice_key(choice_key):
+		"active":
+			return _get_active_unlock_candidate_ids(pet_id)
+		"passive":
+			return _get_first_passive_unlock_candidate_ids(pet_id)
+		"second_active":
+			return _get_second_active_unlock_candidate_ids_with_primary(pet_id, _get_primary_choice_id_for_options(pet_id, "active", stored_choices))
+		"second_passive":
+			return _get_second_passive_unlock_candidate_ids_with_primary(pet_id, _get_primary_choice_id_for_options(pet_id, "passive", stored_choices))
+	return []
+
+
+func _get_primary_choice_id_for_options(pet_id: String, choice_key: String, stored_choices: Dictionary) -> String:
+	var stored_id := str(stored_choices.get(choice_key, "")).strip_edges().to_lower()
+	var primary_candidates := _get_active_unlock_candidate_ids(pet_id) if choice_key == "active" else _get_first_passive_unlock_candidate_ids(pet_id)
+	if stored_id != "" and _choice_candidates_include(primary_candidates, stored_id):
+		return stored_id
+	return _get_resolved_unlock_id(_affinity_state.get_resolved_unlock_choices(pet_id), choice_key)
+
+
 func _get_active_unlock_candidate_ids(pet_id: String) -> Array[String]:
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
-	return _skill_ids_from_pool(profile.get_active_skill_pool())
+	var ids := _skill_ids_from_pool(profile.get_active_skill_pool())
+	return _first_raw_candidates(ids, 2)
 
 
 func _get_first_passive_unlock_candidate_ids(pet_id: String) -> Array[String]:
@@ -1660,20 +1796,26 @@ func _get_first_passive_unlock_candidate_ids(pet_id: String) -> Array[String]:
 
 
 func _get_second_active_unlock_candidate_ids(pet_id: String) -> Array[String]:
+	return _get_second_active_unlock_candidate_ids_with_primary(pet_id, _get_resolved_unlock_id(_affinity_state.get_resolved_unlock_choices(pet_id), "active"))
+
+
+func _get_second_active_unlock_candidate_ids_with_primary(pet_id: String, primary_id: String) -> Array[String]:
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
 	var ids := _skill_ids_from_pool(profile.get_active_skill_pool())
-	var primary_id := _get_resolved_unlock_id(_affinity_state.get_resolved_unlock_choices(pet_id), "active")
 	if primary_id != "":
 		ids.erase(primary_id)
 	return _first_seeded_candidates(ids, _candidate_seed_for_pet(pet_id, 31), 2)
 
 
 func _get_second_passive_unlock_candidate_ids(pet_id: String) -> Array[String]:
+	return _get_second_passive_unlock_candidate_ids_with_primary(pet_id, _get_resolved_unlock_id(_affinity_state.get_resolved_unlock_choices(pet_id), "passive"))
+
+
+func _get_second_passive_unlock_candidate_ids_with_primary(pet_id: String, primary_id: String) -> Array[String]:
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
 	var ids := _skill_ids_from_pool(profile.get_passive_skill_pool())
-	var primary_id := _get_resolved_unlock_id(_affinity_state.get_resolved_unlock_choices(pet_id), "passive")
 	if primary_id != "":
 		ids.erase(primary_id)
 	return _first_seeded_candidates(ids, _candidate_seed_for_pet(pet_id, 43), 2)
@@ -1699,6 +1841,15 @@ func _first_seeded_candidates(ids: Array[String], seed_value: int, count: int) -
 		shuffled[j] = tmp
 	var result: Array[String] = []
 	for skill_id in shuffled:
+		if result.size() >= count:
+			break
+		result.append(skill_id)
+	return result
+
+
+func _first_raw_candidates(ids: Array[String], count: int) -> Array[String]:
+	var result: Array[String] = []
+	for skill_id in ids:
 		if result.size() >= count:
 			break
 		result.append(skill_id)

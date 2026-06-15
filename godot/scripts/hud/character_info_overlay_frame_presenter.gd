@@ -28,6 +28,7 @@ static func draw_frame(
 	header_status_text_cache: Dictionary,
 	header_status_width_cache: Dictionary,
 	lingpet_skill_icon_rects: Array[Rect2],
+	lingpet_unlock_card_rects: Array,
 	lingpet_art_texture_cache: Dictionary,
 	lingpet_skill_icon_texture_cache: Dictionary,
 	open_animation_duration: float,
@@ -82,14 +83,14 @@ static func draw_frame(
 	stat_sources.append(lingpet_runtime)
 
 	hover_data.clear()
-	hover_data = _draw_sections(target, canvas, owner, registry, font, mouse_pos, hover_data, perf_logger, runtime_state, runtime_snapshot, active_item_runtime, mythic_item_runtime, active_item_hud_visuals, runtime_perk_icon_renderer, runtime_perk_catalog, skill_snapshot, character_type, active_item_slot_capacity, active_item_slots, stat_sources, layout_equipment_rect, layout_skill_rect, layout_active_items_rect, layout_perk_rect, layout_lingpet_rect, layout_stats_rect, layout_inventory_rect, lingpet_skill_icon_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, lingpet_hatch_required_hits, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale)
+	hover_data = _draw_sections(target, canvas, owner, registry, font, mouse_pos, hover_data, perf_logger, runtime_state, runtime_snapshot, active_item_runtime, mythic_item_runtime, active_item_hud_visuals, runtime_perk_icon_renderer, runtime_perk_catalog, skill_snapshot, character_type, active_item_slot_capacity, active_item_slots, stat_sources, layout_equipment_rect, layout_skill_rect, layout_active_items_rect, layout_perk_rect, layout_lingpet_rect, layout_stats_rect, layout_inventory_rect, lingpet_skill_icon_rects, lingpet_unlock_card_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, lingpet_hatch_required_hits, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale)
 	if not hover_data.is_empty():
 		sample_start = _perf_begin(perf_logger)
 		target.call("_draw_tooltip", canvas, hover_data, mouse_pos, view_size, font)
 		_perf_end(perf_logger, "character_info.tooltip", sample_start)
 
 
-static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, registry: Object, font: Font, mouse_pos: Vector2, hover_data: Dictionary, perf_logger: Object, runtime_state: Object, runtime_snapshot: Dictionary, active_item_runtime: Object, mythic_item_runtime: Object, active_item_hud_visuals: Object, runtime_perk_icon_renderer: Object, runtime_perk_catalog: Object, skill_snapshot: Dictionary, character_type: String, active_item_slot_capacity: int, active_item_slots: Array, stat_sources: Array, layout_equipment_rect: Rect2, layout_skill_rect: Rect2, layout_active_items_rect: Rect2, layout_perk_rect: Rect2, layout_lingpet_rect: Rect2, layout_stats_rect: Rect2, layout_inventory_rect: Rect2, lingpet_skill_icon_rects: Array[Rect2], lingpet_art_texture_cache: Dictionary, lingpet_skill_icon_texture_cache: Dictionary, lingpet_hatch_required_hits: int, section_color: Color, section_border: Color, overlay_grid_fill: Color, stat_buff_color: Color, overlay_grid_empty_text: Color, accent_blue: Color, accent_gold: Color, text_soft: Color, overlay_slot_fill: Color, fallback_symbol_ring_segments: int, ui_text_scale: float) -> Dictionary:
+static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, registry: Object, font: Font, mouse_pos: Vector2, hover_data: Dictionary, perf_logger: Object, runtime_state: Object, runtime_snapshot: Dictionary, active_item_runtime: Object, mythic_item_runtime: Object, active_item_hud_visuals: Object, runtime_perk_icon_renderer: Object, runtime_perk_catalog: Object, skill_snapshot: Dictionary, character_type: String, active_item_slot_capacity: int, active_item_slots: Array, stat_sources: Array, layout_equipment_rect: Rect2, layout_skill_rect: Rect2, layout_active_items_rect: Rect2, layout_perk_rect: Rect2, layout_lingpet_rect: Rect2, layout_stats_rect: Rect2, layout_inventory_rect: Rect2, lingpet_skill_icon_rects: Array[Rect2], lingpet_unlock_card_rects: Array, lingpet_art_texture_cache: Dictionary, lingpet_skill_icon_texture_cache: Dictionary, lingpet_hatch_required_hits: int, section_color: Color, section_border: Color, overlay_grid_fill: Color, stat_buff_color: Color, overlay_grid_empty_text: Color, accent_blue: Color, accent_gold: Color, text_soft: Color, overlay_slot_fill: Color, fallback_symbol_ring_segments: int, ui_text_scale: float) -> Dictionary:
 	var sample_start: int
 	var equipment_rect: Rect2 = layout_equipment_rect
 	if equipment_rect.size != Vector2.ZERO:
@@ -115,9 +116,13 @@ static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, re
 
 	sample_start = _perf_begin(perf_logger)
 	var lingpet_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), lingpet_hatch_required_hits)
+	var lingpet_unlock_options: Array = []
+	var lingpet_runtime: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime != null and lingpet_runtime.has_method("get_unlock_choice_options"):
+		lingpet_unlock_options = lingpet_runtime.get_unlock_choice_options(str(lingpet_snapshot.get("pet_id", "")), registry)
 	var lingpet_panel_live2d_active: bool = CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(lingpet_snapshot)
 	target.set("_lingpet_panel_live2d_redraw_active", lingpet_panel_live2d_active)
-	hover_data = CharacterInfoOverlayLingpetPresenter.draw_panel(canvas, font, layout_lingpet_rect, lingpet_snapshot, mouse_pos, hover_data, lingpet_skill_icon_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale, Callable(target, "_wrap_text_to_width"), lingpet_hatch_required_hits, float(target.get("lingpet_panel_live2d_time")))
+	hover_data = CharacterInfoOverlayLingpetPresenter.draw_panel(canvas, font, layout_lingpet_rect, lingpet_snapshot, mouse_pos, hover_data, lingpet_skill_icon_rects, lingpet_unlock_options, lingpet_unlock_card_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale, Callable(target, "_wrap_text_to_width"), lingpet_hatch_required_hits, float(target.get("lingpet_panel_live2d_time")))
 	_perf_end(perf_logger, "character_info.lingpet", sample_start)
 
 	sample_start = _perf_begin(perf_logger)

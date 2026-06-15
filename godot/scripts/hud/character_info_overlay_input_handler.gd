@@ -33,6 +33,10 @@ static func _handle_key(target: Object, event: InputEvent) -> bool:
 
 static func _handle_mouse_button(target: Object, event: InputEvent, owner: Object, registry: Object) -> bool:
 	var mouse_event: InputEventMouseButton = event
+	if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+		if bool(target.call("_try_handle_lingpet_unlock_pick_click", mouse_event.position, owner, registry)):
+			target.call("_reset_hover_and_request_redraw", true)
+			return true
 	if mouse_event.pressed and _handle_passive_inventory_mouse_button(target, mouse_event, owner, registry):
 		return true
 	if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_RIGHT:

@@ -283,6 +283,44 @@ func choose_skill_unlock(pet_id: String, reward_type: String, selected_id: Strin
 	return {"accepted": true, "choice": resolved.duplicate(true)}
 
 
+func apply_resolved_unlock_choice(pet_id: String, reward_type: String, selected_id: String, candidates: Array) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {"accepted": false, "blocked_reason": "missing_pet_id"}
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return {"accepted": false, "blocked_reason": "not_unlock_type"}
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	if pet_data.is_empty():
+		return {"accepted": false, "blocked_reason": "missing_pet"}
+	_ensure_unlock_state(normalized_pet_id, pet_data)
+	var normalized_candidates := _normalize_choice_candidates(candidates)
+	var normalized_selected := selected_id.strip_edges()
+	if normalized_selected == "" or not normalized_candidates.has(normalized_selected):
+		return {"accepted": false, "blocked_reason": "invalid_selection", "candidates": normalized_candidates.duplicate(true)}
+	var rejected: Array[String] = []
+	for raw_candidate in normalized_candidates:
+		var candidate := str(raw_candidate)
+		if candidate != normalized_selected:
+			rejected.append(candidate)
+	var resolved := {
+		"type": reward_type,
+		"choice_key": choice_key,
+		"selected": normalized_selected,
+		"rejected": rejected,
+		"candidates": normalized_candidates.duplicate(true),
+	}
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	pending.erase(choice_key)
+	var resolved_choices: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+	resolved_choices[choice_key] = resolved
+	pet_data["pending_unlock_choices"] = pending
+	pet_data["resolved_unlock_choices"] = resolved_choices
+	_pets[normalized_pet_id] = pet_data
+	_dirty = true
+	return {"accepted": true, "choice": resolved.duplicate(true)}
+
+
 func resolve_single_unlock(pet_id: String, reward_type: String, only_id: String) -> Dictionary:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":

@@ -5,6 +5,7 @@ const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_st
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
+const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
@@ -118,6 +119,10 @@ func _init() -> void:
 	_verify_stale_persisted_unlock_choice_drops_to_auto_resolve()
 	_verify_resolved_unlock_choice_store_roundtrip_and_threading()
 	_verify_maribo_headstart_rederives_starter_unlock()
+	_verify_active_unlock_options_use_raw_first_two_cap()
+	_verify_tab_unlock_options_sequential_queue_count()
+	_verify_tab_unlock_options_and_commit_lock()
+	_verify_tab_unlock_options_filter_single_candidate()
 	_cleanup_runtimes()
 	ProjectResourceLoader.clear_caches()
 
@@ -439,6 +444,85 @@ func _verify_maribo_headstart_rederives_starter_unlock() -> void:
 	store.clear()
 
 
+func _verify_active_unlock_options_use_raw_first_two_cap() -> void:
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	var three_ids: Array[String] = ["alpha", "beta", "gamma"]
+	_expect(_string_arrays_equal(runtime._first_raw_candidates(three_ids, 2), ["alpha", "beta"]), "active picker cap should keep the raw first two candidates without shuffling")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(runtime_source.find("return _first_raw_candidates(ids, 2)") >= 0, "active unlock candidate helper should use the raw first-two cap")
+
+
+func _verify_tab_unlock_options_sequential_queue_count() -> void:
+	var store := LingpetAffinityStore.new()
+	store.set_save_path("user://lingpet_unlock_picker_queue_smoke.cfg")
+	store.clear()
+	_expect(bool(store.set_best_level("lumion", 6)), "picker queue fixture should seed Lumion Lv.2 headstart")
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "picker queue fixture should activate Lumion")
+	runtime.update(0.0, owner, registry)
+	var options: Array = runtime.get_unlock_choice_options("lumion", registry)
+	_expect(not _find_unlock_option(options, "active").is_empty(), "picker queue fixture should expose an active option")
+	_expect(not _find_unlock_option(options, "passive").is_empty(), "picker queue fixture should expose a passive option")
+	_expect_eq(CharacterInfoOverlayLingpetPresenter._count_open_unlock_options(options), 2, "TAB picker should count both open choices for the waiting indicator")
+	_expect_str(str(CharacterInfoOverlayLingpetPresenter._first_open_unlock_option(options).get("choice_key", "")), "active", "TAB picker should reveal choices sequentially in canonical order")
+	store.clear()
+
+
+func _verify_tab_unlock_options_and_commit_lock() -> void:
+	var store := LingpetAffinityStore.new()
+	store.set_save_path("user://lingpet_unlock_picker_commit_smoke.cfg")
+	store.clear()
+	_expect(bool(store.set_best_level("lumion", 3)), "picker fixture should seed Lumion Lv.1 headstart")
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "picker fixture should activate Lumion")
+	runtime.update(0.0, owner, registry)
+
+	var active_option := _find_unlock_option(runtime.get_unlock_choice_options("lumion", registry), "active")
+	var lumion_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("lumion"))
+	_expect(not active_option.is_empty(), "TAB picker should expose an open active choice with two candidates")
+	_expect(_string_arrays_equal(active_option.get("candidates", []) as Array, lumion_active_ids), "TAB picker candidates should match reconcile candidates")
+	_expect_str(str(active_option.get("selected", "")), str(lumion_active_ids[0]), "TAB picker should show auto default without storing it")
+	_expect(not bool(active_option.get("locked", false)), "TAB picker should keep auto default unlocked before the player commits")
+
+	var picked_id := str(lumion_active_ids[1])
+	_expect(bool(store.set_resolved_unlock_choice("lumion", "active", picked_id)), "direct store write fixture should save the non-default pick")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(lumion_active_ids[0]), "direct store write alone should not silently reapply the live loadout")
+	_expect(bool(store.clear_resolved_unlock_choice("lumion", "active")), "direct store write fixture should clear before testing the public commit path")
+	_expect(bool(runtime.commit_unlock_pick("lumion", "active", picked_id, owner, registry)), "TAB picker commit should persist a valid open choice")
+	_expect_str(str(store.get_resolved_unlock_choices("lumion").get("active", "")), picked_id, "TAB picker commit should write the permanent store")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), picked_id, "TAB picker commit should immediately reapply the loadout")
+	var locked_option := _find_unlock_option(runtime.get_unlock_choice_options("lumion", registry), "active")
+	_expect(bool(locked_option.get("locked", false)), "TAB picker should lock a committed choice")
+	_expect_str(str(locked_option.get("selected", "")), picked_id, "TAB picker locked choice should show the stored id")
+	_expect(not bool(runtime.commit_unlock_pick("lumion", "active", str(lumion_active_ids[0]), owner, registry)), "TAB picker should reject reselect after the first committed pick")
+	_expect_str(str(store.get_resolved_unlock_choices("lumion").get("active", "")), picked_id, "TAB picker rejected reselect should preserve the original stored id")
+	store.clear()
+
+
+func _verify_tab_unlock_options_filter_single_candidate() -> void:
+	var store := LingpetAffinityStore.new()
+	store.set_save_path("user://lingpet_unlock_picker_single_candidate_smoke.cfg")
+	store.clear()
+	_expect(bool(store.set_best_level("milkring", 3)), "single-candidate picker fixture should seed Milkring Lv.1 headstart")
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var runtime: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(runtime)
+	_expect(runtime.debug_grant_and_activate_pet("milkring", owner, false, "", "", registry), "single-candidate picker fixture should activate Milkring")
+	runtime.update(0.0, owner, registry)
+	_expect(_find_unlock_option(runtime.get_unlock_choice_options("milkring", registry), "active").is_empty(), "TAB picker should hide single-candidate auto-resolved active choices")
+	_expect(not bool(runtime.commit_unlock_pick("milkring", "active", "milkring_milk_production", owner, registry)), "TAB picker commit should reject a single-candidate auto-resolved choice")
+	_expect(store.get_resolved_unlock_choices("milkring").is_empty(), "single-candidate auto-resolve should not become a stored player pick")
+	store.clear()
+
+
 func _activate_pet(pet_id: String) -> Dictionary:
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new({})
@@ -470,6 +554,16 @@ func _register_hit(runtime: Object, owner: FakeOwner, registry: Object, egg_pos:
 func _resolved_choice(runtime: Object, pet_id: String, choice_key: String) -> Dictionary:
 	var resolved: Dictionary = runtime._affinity_state.get_resolved_unlock_choices(pet_id)
 	return resolved.get(choice_key, {}) as Dictionary
+
+
+func _find_unlock_option(options: Array, choice_key: String) -> Dictionary:
+	for option in options:
+		if not (option is Dictionary):
+			continue
+		var option_dict: Dictionary = option
+		if str(option_dict.get("choice_key", "")) == choice_key:
+			return option_dict
+	return {}
 
 
 func _skill_ids(pool: Array[Dictionary]) -> Array[String]:
