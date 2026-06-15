@@ -17,14 +17,17 @@
     "cols": 4,
     "rows": 4,
     "frame_count": 16,
-    "cell_size": [2048, 2048],
-    "sheet_size": [8192, 8192],
+    "cell_size": [1024, 1024],
+    "sheet_size": [4096, 4096],
+    "runtime_downscale": "2026-06-15: downscaled from x2-upscaled 8192 (2048/cell) back to 4096 (1024/cell = native AutoSprite source). The x2 gave no benefit at the ~922px on-screen draw and cost ~256MB VRAM; alpha-correct premultiplied Lanczos, 8192 source backed up at d:/tmp/cutin_8192_backup/. The pre_downscale_* fields below describe the superseded 8192 sheet.",
+    "runtime_downscaled_sha256": "5d02ba5a2e0f59cf5354e2616d213488a094c9d1fe6a3d5670e84ddd16299f18",
+    "runtime_downscaled_file_size_bytes": 14725020,
     "frame_interval": "phantom-kick-freeze-synced; 16 frames play once across cut-in progress 0.11..0.82 (skill_cutin_standard_renderer._cutin_frame_index), so the energy burst lands early in 'main' and the held coil simmers through 'flash'.",
     "freeze_duration_seconds": "runtime.dmk_freeze_frames / 60.0 = 99 / 60 = 1.65s (matches Smasher power-smash POWER_SMASH_FREEZE_DURATION).",
     "blend_style": "Runtime procedural violet wipe, speed lines, ghost wisps, and charge aura over the alpha-preserved erupting wall-brace sheet. Dimensions unchanged so no runtime profile/host change.",
-    "upscale_scale": "4x on native crop, then sharp downscale into the 2048 cell",
-    "sha256": "5f292e9ce0d85aec0c33fbcc8dcf1bab8dba40a22bbcb2404a7ff80e2ffcf55f",
-    "file_size_bytes": 53967964
+    "upscale_scale": "4x on native crop, then sharp downscale into the 2048 cell (pre-downscale provenance)",
+    "pre_downscale_sha256": "5f292e9ce0d85aec0c33fbcc8dcf1bab8dba40a22bbcb2404a7ff80e2ffcf55f",
+    "pre_downscale_file_size_bytes": 53967964
   },
   "source_autosprite": {
     "character_id": "cmp3c535h00daf30y5vml5ly6",

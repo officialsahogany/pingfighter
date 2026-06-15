@@ -11,13 +11,16 @@
     "rows": 4,
     "frame_count": 16,
     "cell_size": [
-      2048,
-      2048
+      1024,
+      1024
     ],
     "sheet_size": [
-      8192,
-      8192
+      4096,
+      4096
     ],
+    "runtime_downscale": "2026-06-15: downscaled the runtime sheet from the x2-upscaled 8192x8192 (2048/cell) back to 4096x4096 (1024/cell = native AutoSprite source resolution). The Real-ESRGAN x2 added no visible detail at the ~922px on-screen cut-in draw while costing ~256MB VRAM (vs ~64MB at 4096). Alpha-correct premultiplied Lanczos downscale; pre-downscale 8192 source backed up at d:/tmp/cutin_8192_backup/. Fixes the first-use GPU-upload stall that made the cut-in render late/faint.",
+    "runtime_downscaled_sha256": "4568ca35b89ff400422150811e1bb1b0bbd8e2e4678f2fa082b11f4e3e6db006",
+    "runtime_downscaled_file_size_bytes": 13556925,
     "frame_interval": "freeze-synced",
     "freeze_duration_seconds": 1.65,
     "source_scale_repack": 0.84,
@@ -230,7 +233,7 @@
     ],
     "sha256": "7a959bd43f565de6e1e8ef1cbaebf9832f04dbad60d0072f2a4a331d48788f1c",
     "realesrgan_output_sha256": "7a959bd43f565de6e1e8ef1cbaebf9832f04dbad60d0072f2a4a331d48788f1c",
-    "notes": "Real-ESRGAN x2 pass over v2 impact cut-in. RGB was upscaled with realesr-animevideov3, alpha was preserved from the source sheet and resized to 2048 per cell before 4x4 reassembly.",
+    "notes": "PRE-DOWNSCALE PROVENANCE: this qa block (sha256 / realesrgan_output_sha256 / bboxes) describes the superseded 8192 Real-ESRGAN x2 output. The live 4096 runtime asset is described by runtime_sheet.runtime_downscaled_sha256. Real-ESRGAN x2 pass over v2 impact cut-in: RGB was upscaled with realesr-animevideov3, alpha was preserved from the source sheet and resized to 2048 per cell before 4x4 reassembly.",
     "realesrgan": {
       "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
       "model": "realesr-animevideov3",

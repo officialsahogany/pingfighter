@@ -14,7 +14,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const ViperPhantomKickCutinState := preload("res://scripts/characters/viper_phantom_kick_cutin_state.gd")
 
 const PHANTOM_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png"
-const PHANTOM_CUTIN_SHEET_SIZE := 8192
+const PHANTOM_CUTIN_SHEET_SIZE := 4096
 
 
 class FakeInput:

@@ -317,10 +317,18 @@ func has_blocking_activity(module_getter: Callable) -> bool:
 
 
 func _has_process_overlay_activity(module_getter: Callable) -> bool:
+	# This gate is consumed ONLY by the skill / drive cut-in draws
+	# (battle_scene_frame_controller._draw_skill_cutin_if_active /
+	# _draw_drive_cutin_if_active) to suppress the cut-in while a real blocking
+	# MODAL is up. It must NOT include runtime perk FEEDBACK: that is a transient,
+	# non-modal notification that does not pause battle physics, and a skill
+	# activation routinely raises it on the same frame the freeze cut-in starts.
+	# Including it here blanked the headline power-smash / drive cut-in for the
+	# ~1s the feedback lingered ("invisible early, only the fade-out tail at the
+	# end"). Perk CHOICE (the real fullscreen selection modal) stays gated.
 	var modal_gate: Object = BattleSceneOverlayFrameUtils.get_modal_gate(module_getter)
 	return (
 		_is_runtime_perk_choice_active(module_getter, modal_gate)
-		or _is_runtime_perk_feedback_active(module_getter, modal_gate)
 		or _get_blocking_process_overlay_activity(module_getter, modal_gate) != ""
 	)
 

@@ -14,6 +14,7 @@ extends Node2D
 #   - Pillar HUD / overlay primitives, frame textures, orb liquid, and text
 #   - Stage 1 playfield texture+primitive combos
 #   - Stage 1 round-result player / Dalji pose texture-region uploads
+#   - Skill cut-in sheets (power-smash / ghost-smash / phantom-kick) VRAM upload
 #   - Stage 2 center playfield and falling-leaf polygon/line primitives
 #   - Weather particles / warning panel primitives
 #   - Timer-stack first-use script path plus common timer-bar primitives
@@ -34,6 +35,7 @@ const ActiveItemThrowMolotovRenderer := preload("res://scripts/items/active_item
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
 const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
 const Stage3PillarBackground := preload("res://scripts/stages/stage3/stage3_pillar_background.gd")
+const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
 const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
 
 const VIPER_HOVER_LEFT_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_hover_sheet.png"
@@ -46,7 +48,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 15
+const WARMUP_DRAW_STEPS := 16
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -187,6 +189,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_character_topdown_rim_shader()
 		14:
 			_prewarm_stage1_result_pose_textures()
+		15:
+			_prewarm_skill_cutin_sheets()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -790,6 +794,35 @@ func _prewarm_stage1_result_pose_textures() -> void:
 		Rect2(0.0, 0.0, 384.0, 512.0),
 		Rect2(106.0, 2250.0, 96.0, 112.0)
 	)
+
+
+# Force the first textured-quad PSO compile + VRAM upload of the large skill
+# cut-in sheets offscreen at boot, so the first real Power Smashing / Ghost
+# Smashing / Phantom Kick freeze does not stall on the cut-in sheet's first
+# draw_texture_rect_region. The selected-character cut-in host asset prewarm
+# (stage-runtime common step 6) runs and fully completes BEFORE this final PSO
+# step, so the sheets it cached are already in ProjectResourceLoader here; a
+# sheet not prewarmed for the selected character returns null and is skipped
+# (per-character scope flows naturally through the cache).
+func _prewarm_skill_cutin_sheets() -> void:
+	var paths: Array = [
+		SkillCutinOverlayHost.POWER_SMASHING_CUTIN_SHEET_PATH,
+		SkillCutinOverlayHost.GHOST_SMASHING_CUTIN_SHEET_PATH,
+		SkillCutinOverlayHost.VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH,
+	]
+	for index in range(paths.size()):
+		var path := str(paths[index])
+		var texture: Texture2D = _get_texture(path)
+		if texture == null:
+			continue
+		var cell: Vector2 = texture.get_size() / 4.0
+		if cell.x <= 1.0 or cell.y <= 1.0:
+			continue
+		_prewarm_cached_texture_region(
+			path,
+			Rect2(Vector2.ZERO, cell),
+			Rect2(Vector2(float(index) * 44.0, 2450.0), Vector2(40.0, 40.0))
+		)
 
 
 func _prewarm_cached_texture_region(path: String, source_rect: Rect2, dest_rect: Rect2) -> void:

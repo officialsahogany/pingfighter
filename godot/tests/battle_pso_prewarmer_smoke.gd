@@ -139,6 +139,18 @@ func _verify_second_pass_warmup_scope() -> void:
 			and source.find("DALJI_BOSS_DEFEAT_PATH") >= 0,
 		"PSO prewarmer should draw cached Stage 1 result pose sheets before the first scoreboard"
 	)
+	# The large skill cut-in sheets must be force-uploaded offscreen at boot so
+	# the first Power Smashing / Ghost Smashing / Phantom Kick freeze does not
+	# stall on the cut-in sheet's first draw_texture_rect_region.
+	_expect(
+		prewarmer.has_method("_prewarm_skill_cutin_sheets"),
+		"prewarmer should warm the large skill cut-in sheets (power/ghost/phantom) so the first cut-in freeze does not stall on first draw"
+	)
+	_expect(
+		source.find("POWER_SMASHING_CUTIN_SHEET_PATH") >= 0
+			and source.find("VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH") >= 0,
+		"PSO prewarmer should draw the skill cut-in sheets to force their VRAM upload offscreen at boot"
+	)
 	prewarmer.free()
 
 

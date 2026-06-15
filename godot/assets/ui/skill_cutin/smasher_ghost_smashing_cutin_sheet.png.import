@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ioy6e7ohyfbs"
-path="res://.godot/imported/smasher_ghost_smashing_cutin_sheet.png-8fc6213b2212fd7fe4e9cb7889314863.ctex"
+path.bptc="res://.godot/imported/smasher_ghost_smashing_cutin_sheet.png-8fc6213b2212fd7fe4e9cb7889314863.bptc.ctex"
+path.astc="res://.godot/imported/smasher_ghost_smashing_cutin_sheet.png-8fc6213b2212fd7fe4e9cb7889314863.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
-dest_files=["res://.godot/imported/smasher_ghost_smashing_cutin_sheet.png-8fc6213b2212fd7fe4e9cb7889314863.ctex"]
+dest_files=["res://.godot/imported/smasher_ghost_smashing_cutin_sheet.png-8fc6213b2212fd7fe4e9cb7889314863.bptc.ctex", "res://.godot/imported/smasher_ghost_smashing_cutin_sheet.png-8fc6213b2212fd7fe4e9cb7889314863.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

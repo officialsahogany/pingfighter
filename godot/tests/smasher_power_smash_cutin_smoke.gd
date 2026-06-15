@@ -9,6 +9,7 @@ const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_c
 
 const CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
 const GHOST_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
+const VIPER_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png"
 const CUTIN_VOICE_PATHS := [
 	"res://assets/sounds/voice/mika_power_smashing_cutin_v1.mp3",
 	"res://assets/sounds/voice/mika_power_smashing_cutin_v2.mp3",
@@ -21,8 +22,8 @@ const GHOST_CUTIN_VOICE_PATHS := [
 	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v3.mp3",
 	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v4.wav",
 ]
-const CUTIN_SHEET_SIZE := 8192
-const GHOST_CUTIN_SHEET_SIZE := 8192
+const CUTIN_SHEET_SIZE := 4096
+const GHOST_CUTIN_SHEET_SIZE := 4096
 const FREEZE_DURATION := 1.65
 
 var _failures: Array[String] = []
@@ -87,6 +88,7 @@ func _init() -> void:
 	_test_cutin_host_draw_guards()
 	_test_cutin_host_prewarms_sheet()
 	_test_ghost_cutin_host_prewarms_sheet()
+	_test_cutin_sheets_use_vram_compression()
 	_test_cutin_voice_asset_loads()
 	_test_ghost_cutin_voice_asset_loads()
 	_test_power_smash_freeze_config_is_extended()
@@ -260,6 +262,26 @@ func _test_ghost_cutin_host_prewarms_sheet() -> void:
 	if texture != null:
 		_expect(texture.get_width() == GHOST_CUTIN_SHEET_SIZE, "ghost cutin sheet width should be %d" % GHOST_CUTIN_SHEET_SIZE)
 		_expect(texture.get_height() == GHOST_CUTIN_SHEET_SIZE, "ghost cutin sheet height should be %d" % GHOST_CUTIN_SHEET_SIZE)
+
+
+func _test_cutin_sheets_use_vram_compression() -> void:
+	for sheet_path in [CUTIN_SHEET_PATH, GHOST_CUTIN_SHEET_PATH, VIPER_CUTIN_SHEET_PATH]:
+		var import_config := ConfigFile.new()
+		var import_path := "%s.import" % sheet_path
+		_expect(import_config.load(import_path) == OK, "cut-in sheet should have an import sidecar: %s" % import_path)
+		var metadata_value: Variant = import_config.get_value("remap", "metadata", {})
+		var vram_texture := false
+		if metadata_value is Dictionary:
+			vram_texture = bool((metadata_value as Dictionary).get("vram_texture", false))
+		_expect(vram_texture, "cut-in sheet should be marked as a VRAM texture: %s" % sheet_path)
+		_expect(
+			int(import_config.get_value("params", "compress/mode", -1)) == 2,
+			"cut-in sheet should import as VRAM Compressed: %s" % sheet_path
+		)
+		_expect(
+			bool(import_config.get_value("params", "compress/high_quality", false)),
+			"cut-in sheet should use high-quality BPTC/ASTC VRAM compression: %s" % sheet_path
+		)
 
 
 func _test_cutin_voice_asset_loads() -> void:

@@ -10,8 +10,11 @@
     "cols": 4,
     "rows": 4,
     "frame_count": 16,
-    "cell_size": [2048, 2048],
-    "sheet_size": [8192, 8192],
+    "cell_size": [1024, 1024],
+    "sheet_size": [4096, 4096],
+    "runtime_downscale": "2026-06-15: downscaled from x2-upscaled 8192 (2048/cell) back to 4096 (1024/cell = native AutoSprite source). The x2 gave no benefit at the ~922px on-screen draw and cost ~256MB VRAM; alpha-correct premultiplied Lanczos, 8192 source backed up at d:/tmp/cutin_8192_backup/.",
+    "runtime_downscaled_sha256": "8b448cf114b653e129a768c26519a91f283cf4cdb12a4fe09ce6a14d3525392d",
+    "runtime_downscaled_file_size_bytes": 15220337,
     "frame_interval": "freeze-synced",
     "freeze_duration_seconds": 1.65,
     "source_scale_repack": 0.84,
@@ -65,7 +68,7 @@
       "alpha_preservation": "Split each 1024 feathered cell into alpha-bleed RGB + source alpha. Upscaled RGB with realesr-animevideov3 -s 2, resized the feathered source alpha to 2048 per cell (LANCZOS), recombined RGBA, then reassembled the 4x4 grid to 8192x8192.",
       "preview": ".tmp/smasher_ghost_cutin_realesrgan_v1/ghost_cutin_realesrgan_x2_preview.jpg"
     },
-    "runtime_output_sha256": "d43504245f7c8150d670ae5c805dadbbdf59ad0fdc8b9e031ed18c27d9979753",
+    "pre_downscale_runtime_output_sha256": "d43504245f7c8150d670ae5c805dadbbdf59ad0fdc8b9e031ed18c27d9979753",
     "raw_source_sha256": "3f86096187ac0a9f22cc47939ec91e9ac4d07628af7ba4ebb4ea8004989fb514",
     "preview": ".tmp/smasher_ghost_cutin_realesrgan_v1/ghost_cutin_realesrgan_x2_preview.jpg"
   },
