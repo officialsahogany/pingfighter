@@ -2769,6 +2769,10 @@ This section is intentionally long; use search to find the nearest owner.
   right-pillar status panel for 정글지진 / 물대포 readiness, cooldown, and
   active-cast copy. It draws only from the scheduler's HUD context so the
   scene drawer stays as composition glue.
+- `scripts/stages/stage2/stage2_boss_skill_hud_assets.gd`
+  Owns Stage 2 boss skill-card HUD asset metadata: skill-card PNG paths and
+  staged prewarm skill ids. The renderer keeps texture caching, card layout,
+  tooltip, and draw behavior.
 - `scripts/stages/stage2/stage2_pillar_scene_drawer.gd`
   Owns Stage 2 outer-scene pillar composition for the initial port slice.
   It draws the Stage 2 pillar background, temporarily reuses the current
@@ -3408,6 +3412,10 @@ This section is intentionally long; use search to find the nearest owner.
   feedback, compact hover tooltips for trigger / cooldown / effect text,
   left-pillar-preferred tooltip anchoring, and fixed screen-space placement
   outside the transformed central playfield.
+- `scripts/stages/stage1/stage1_dalji_boss_skill_hud_assets.gd`
+  Owns Stage 1 Dalji boss skill-card HUD asset metadata: whip and spinning-top
+  skill-card PNG paths. The renderer keeps texture caching, prewarm sequencing,
+  queue animation, card layout, tooltip, and draw behavior.
 - `scripts/stages/stage1/stage1_dalji_spinning_top_renderer.gd`
   Owns the procedural Stage 1 Dalji spinning-top skill rendering:
   startup whip curves, wooden top bodies, rotating color discs, golden-top

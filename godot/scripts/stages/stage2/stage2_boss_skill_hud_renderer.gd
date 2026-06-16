@@ -4,11 +4,12 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const Stage2BossSkillHudAssets := preload("res://scripts/stages/stage2/stage2_boss_skill_hud_assets.gd")
 
-const JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_jungle_quake_skillcard_imagegen_v1.png"
-const SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_speed_defense_skillcard_imagegen_v3.png"
-const WATER_CANNON_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_water_cannon_skillcard_imagegen_v1.png"
-const SKILLCARD_PREWARM_IDS := ["jungle_quake", "speed_defense", "water_cannon"]
+const JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH := Stage2BossSkillHudAssets.JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH
+const SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH := Stage2BossSkillHudAssets.SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH
+const WATER_CANNON_SKILLCARD_TEXTURE_PATH := Stage2BossSkillHudAssets.WATER_CANNON_SKILLCARD_TEXTURE_PATH
+const SKILLCARD_PREWARM_IDS := Stage2BossSkillHudAssets.SKILLCARD_PREWARM_IDS
 
 var _skillcard_textures := {}
 var _prewarm_done := false

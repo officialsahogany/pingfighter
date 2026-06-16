@@ -5,9 +5,10 @@ const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_ca
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const Stage1DaljiBossSkillHudUtils := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_utils.gd")
+const Stage1DaljiBossSkillHudAssets := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_assets.gd")
 
-const WHIP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_whip_skillcard_imagegen_v1.png"
-const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_spinning_top_skillcard_imagegen_v1.png"
+const WHIP_SKILLCARD_TEXTURE_PATH := Stage1DaljiBossSkillHudAssets.WHIP_SKILLCARD_TEXTURE_PATH
+const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := Stage1DaljiBossSkillHudAssets.SPINNING_TOP_SKILLCARD_TEXTURE_PATH
 const QUEUE_LERP_SPEED := 8.0
 const SIDE_STRIP_BASE := 2.0
 const TOOLTIP_WIDTH_BASE := 168.0
