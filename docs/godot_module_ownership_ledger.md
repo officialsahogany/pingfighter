@@ -4417,6 +4417,11 @@ This section is intentionally long; use search to find the nearest owner.
   frames, player skill-cluster frames, and Stage 1 center background / border.
   `battle_resources.gd` keeps public aliases plus loading, caching, and staged
   prewarm sequencing.
+- `scripts/resources/battle_boss_sprite_paths.gd`
+  Owns read-only battle boss sprite sheet paths for Stage 1 Dalji, Stage 2,
+  Stage 3 Menhera, and the current Godot Stage 5 Hongryun route.
+  `battle_resources.gd` keeps public aliases plus boss texture loading,
+  compatibility keys, and staged prewarm sequencing.
 - `scripts/resources/battle_skill_cutin_paths.gd`
   Owns read-only skill-presentation texture paths for Smasher / Viper cut-in
   sheets, Drive cut-in pieces, Shield Kiting cut-in art, and the Lingpet
