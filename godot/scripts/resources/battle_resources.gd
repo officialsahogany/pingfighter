@@ -699,6 +699,12 @@ func _load_texture_spec(spec: Dictionary) -> void:
 	_store_texture_spec(spec, texture)
 
 
+func _load_texture_specs(specs: Array) -> void:
+	for spec_value in specs:
+		if spec_value is Dictionary:
+			_load_texture_spec(spec_value)
+
+
 func _store_texture_spec(spec: Dictionary, texture: Texture2D) -> void:
 	var keys_value: Variant = spec.get("keys", [])
 	if not (keys_value is Array):
@@ -733,15 +739,7 @@ func _prewarm_core_texture_step(step_index: int) -> bool:
 
 
 func _load_core_textures() -> void:
-	_resource_cache["pingpong_ball_texture"] = _load_texture_resource(PINGPONG_BALL_TEXTURE_PATH)
-	_resource_cache["gauge_orb_frame_texture"] = _load_texture_resource(GAUGE_ORB_FRAME_TEXTURE_PATH)
-	_resource_cache["dash_token_frame_texture"] = _load_texture_resource(DASH_TOKEN_FRAME_TEXTURE_PATH)
-	_resource_cache["skill_orb_frame_texture"] = _load_texture_resource(SKILL_ORB_FRAME_TEXTURE_PATH)
-	_resource_cache["smasher_skill_cluster_frame_texture"] = _load_texture_resource(SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH)
-	_resource_cache["viper_skill_cluster_frame_texture"] = _load_texture_resource(VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH)
-	_resource_cache["stage1_center_background_texture"] = _load_texture_resource(STAGE1_CENTER_BACKGROUND_PATH)
-	_resource_cache["stage1_center_border_texture"] = _load_texture_resource(STAGE1_CENTER_BORDER_PATH)
-	_resource_cache["lingpet_acquire_resonance_portal"] = _load_imported_texture_resource(LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH)
+	_load_texture_specs(_get_core_texture_specs())
 
 
 func _load_player_textures(character_type: String, include_all_characters: bool, include_result_sheets: bool) -> void:
@@ -1125,52 +1123,15 @@ func _load_stage_boss_textures(stage_id: int, include_result_sheets: bool) -> vo
 
 
 func _load_stage1_boss_textures(include_result_sheets: bool) -> void:
-	var dalji_walk_left: Texture2D = _load_texture_resource(DALJI_BOSS_WALK_LEFT_PATH)
-	var dalji_walk_right: Texture2D = _load_texture_resource(DALJI_BOSS_WALK_RIGHT_PATH)
-	var dalji_attack: Texture2D = _load_texture_resource(DALJI_BOSS_ATTACK_PATH)
-	_resource_cache["boss_walk_left_sheet"] = dalji_walk_left
-	_resource_cache["boss_walk_right_sheet"] = dalji_walk_right
-	_resource_cache["boss_idle_sheet"] = _load_texture_resource(DALJI_BOSS_IDLE_PATH)
-	_resource_cache["boss_attack_sheet"] = dalji_attack
-	_resource_cache["boss_dash_sheet"] = _load_texture_resource(DALJI_BOSS_DASH_PATH)
-	_resource_cache["boss_stun_sheet"] = _load_texture_resource(DALJI_BOSS_STUN_PATH)
-	_resource_cache["boss_whip_sheet"] = _load_texture_resource(DALJI_BOSS_WHIP_PATH)
-	_resource_cache["boss_paengi_top_whip_sheet"] = _load_texture_resource(DALJI_BOSS_PAENGI_TOP_WHIP_PATH)
-	if include_result_sheets:
-		_resource_cache["boss_victory_sheet"] = _load_texture_resource(DALJI_BOSS_VICTORY_PATH)
-		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(DALJI_BOSS_DEFEAT_PATH)
-	# Legacy keys preserved so non-renderer call sites (boss_has_sprite check,
-	# hit-trigger predicate) keep working without per-call updates.
-	_resource_cache["boss_sprite_sheet"] = dalji_walk_right
-	_resource_cache["boss_hit_sprite_sheet"] = dalji_attack
+	_load_texture_specs(_get_stage1_boss_texture_specs(include_result_sheets))
 
 
 func _load_stage2_boss_textures(include_result_sheets: bool = false) -> void:
-	var walk_left: Texture2D = _load_texture_resource(STAGE2_BOSS_WALK_LEFT_PATH)
-	var walk_right: Texture2D = _load_texture_resource(STAGE2_BOSS_WALK_RIGHT_PATH)
-	var attack: Texture2D = _load_texture_resource(STAGE2_BOSS_ATTACK_PATH)
-	_resource_cache["boss_walk_left_sheet"] = walk_left
-	_resource_cache["boss_walk_right_sheet"] = walk_right
-	_resource_cache["boss_idle_sheet"] = _load_texture_resource(STAGE2_BOSS_IDLE_PATH)
-	_resource_cache["boss_attack_sheet"] = attack
-	_resource_cache["boss_quake_stomp_sheet"] = _load_texture_resource(STAGE2_BOSS_QUAKE_STOMP_PATH)
-	if include_result_sheets:
-		_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE2_BOSS_VICTORY_PATH)
-		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE2_BOSS_DEFEAT_PATH)
-	_resource_cache["boss_sprite_sheet"] = walk_right
-	_resource_cache["boss_hit_sprite_sheet"] = attack
+	_load_texture_specs(_get_stage2_boss_texture_specs(include_result_sheets))
 
 
 func _load_stage3_boss_textures(include_result_sheets: bool = false) -> void:
-	var walk: Texture2D = _load_texture_resource(STAGE3_MENHERA_BOSS_WALK_PATH)
-	var attack: Texture2D = _load_texture_resource(STAGE3_MENHERA_BOSS_ATTACK_PATH)
-	_resource_cache["boss_sprite_sheet"] = walk
-	_resource_cache["boss_attack_sheet"] = attack
-	_resource_cache["boss_hit_sprite_sheet"] = attack
-	_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DASH_PATH)
-	if include_result_sheets:
-		_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_VICTORY_PATH)
-		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DEFEAT_PATH)
+	_load_texture_specs(_get_stage3_boss_texture_specs(include_result_sheets))
 
 
 func _get_stage_boss_texture_specs(stage_id: int, include_result_sheets: bool) -> Array:
@@ -1250,15 +1211,7 @@ func _prewarm_stage_boss_texture_step(stage_id: int, include_result_sheets: bool
 
 
 func _load_stage5_hongryun_boss_textures() -> void:
-	var walk: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_SHEET_PATH)
-	var attack: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_ATTACK_PATH)
-	_resource_cache["boss_walk_left_sheet"] = walk
-	_resource_cache["boss_walk_right_sheet"] = walk
-	_resource_cache["boss_sprite_sheet"] = walk
-	_resource_cache["boss_attack_sheet"] = attack
-	_resource_cache["boss_hit_sprite_sheet"] = attack
-	_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_DASH_PATH)
-	_resource_cache["boss_turn_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_TURN_PATH)
+	_load_texture_specs(_get_stage5_hongryun_boss_texture_specs())
 
 
 func _load_skill_icon_textures(character_type: String, include_all_characters: bool) -> void:
