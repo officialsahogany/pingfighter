@@ -4490,6 +4490,11 @@ This section is intentionally long; use search to find the nearest owner.
   badge, mouse-wheel hint, and weapon-specific ammo icon styles such as Fire
   Support radio-call markers; it must not reintroduce per-weapon stacked
   pillar cards.
+- `scripts/hud/commando_firearm_selector_assets.gd`
+  Owns the Commando firearm selector HUD asset manifest: frame/icon/recoil
+  sheet resource paths, renderer prewarm order, and panel-state asset-path
+  defaults. The selector renderer keeps layout, draw ordering, and runtime
+  state derivation.
 - `scripts/hud/commando_firearm_tooltip_renderer.gd`
   Owns the Commando current-firearm panel tooltip surface: Korean title,
   ammo/status text, base/permanent/rental ownership, reload eligibility,
