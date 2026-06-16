@@ -2799,6 +2799,11 @@ This section is intentionally long; use search to find the nearest owner.
   Python reference imagegen assets copied under `godot/assets/sprites/hud/`,
   composes the full-screen cyber-menhera base, ambient sprite atlas, center
   frame pieces outside the live field, and floating side-pillar hearts.
+- `scripts/stages/stage3/stage3_pillar_background_assets.gd`
+  Owns Stage 3 pillar-background asset metadata: Menhera base / ambient /
+  center-frame resource paths, baked ambient atlas regions, center-frame
+  window rect, and staged prewarm count. `stage3_pillar_background.gd`
+  keeps texture caches, LOD policy, floating hearts, and draw composition.
 - `scripts/stages/stage3/stage3_pillar_scene_drawer.gd`
   Owns Stage 3 outer-scene pillar composition for the map port. It draws
   the Stage 3 pillar background and reuses the current Stage 1 pillar HUD
