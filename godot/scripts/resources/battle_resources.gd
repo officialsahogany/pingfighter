@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const BattleBlacksmithSpritePaths := preload("res://scripts/resources/battle_blacksmith_sprite_paths.gd")
 const BattleBossSpritePaths := preload("res://scripts/resources/battle_boss_sprite_paths.gd")
 const BattleCommandoSpritePaths := preload("res://scripts/resources/battle_commando_sprite_paths.gd")
@@ -133,11 +134,11 @@ const COMMANDO_WEAPON_B2V2_BAZOOKA_PATH := BattleCommandoSpritePaths.COMMANDO_WE
 const COMMANDO_WEAPON_B2V2_NET_GUN_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_NET_GUN_PATH
 const COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH
 const COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH
-const DEFAULT_CHARACTER_TYPE := "smasher"
-const VIPER_CHARACTER_TYPE := "viper"
-const COMMANDO_CHARACTER_TYPE := "soldier"
-const OPTIMUS_CHARACTER_TYPE := "optimus"
-const BLACKSMITH_CHARACTER_TYPE := "blacksmith"
+const DEFAULT_CHARACTER_TYPE := PlayerCharacterRuntime.DEFAULT_CHARACTER
+const VIPER_CHARACTER_TYPE := PlayerCharacterRuntime.VIPER
+const COMMANDO_CHARACTER_TYPE := PlayerCharacterRuntime.COMMANDO
+const OPTIMUS_CHARACTER_TYPE := PlayerCharacterRuntime.OPTIMUS
+const BLACKSMITH_CHARACTER_TYPE := PlayerCharacterRuntime.BLACKSMITH
 const BLACKSMITH_PLAYER_IDLE_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_IDLE_SHEET_PATH
 const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH
 const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH
@@ -194,6 +195,7 @@ const SMASHER_SKILL_ICON_PATHS := BattleSkillIconPaths.SMASHER_SKILL_ICON_PATHS
 const VIPER_SKILL_ICON_PATHS := BattleSkillIconPaths.VIPER_SKILL_ICON_PATHS
 const COMMANDO_SKILL_ICON_PATHS := BattleSkillIconPaths.COMMANDO_SKILL_ICON_PATHS
 
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 var _resource_cache: Dictionary = {}
 var _transition_texture_prewarm_key: String = ""
 var _transition_texture_prewarm_step_index: int = 0
@@ -1345,16 +1347,7 @@ func _get_dictionary(value: Variant) -> Dictionary:
 
 
 func _normalize_character_type(value: Variant) -> String:
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == COMMANDO_CHARACTER_TYPE or normalized == "commando":
-		return COMMANDO_CHARACTER_TYPE
-	if normalized == OPTIMUS_CHARACTER_TYPE or normalized == "io":
-		return OPTIMUS_CHARACTER_TYPE
-	if normalized == BLACKSMITH_CHARACTER_TYPE or normalized == "baltor" or normalized == "kohaku":
-		return BLACKSMITH_CHARACTER_TYPE
-	if normalized == VIPER_CHARACTER_TYPE:
-		return VIPER_CHARACTER_TYPE
-	return DEFAULT_CHARACTER_TYPE
+	return _character_runtime.normalize(value)
 
 
 func _should_include_all_characters(context: Dictionary) -> bool:
