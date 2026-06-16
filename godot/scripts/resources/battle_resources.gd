@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
+const BattleSkillCutinPaths := preload("res://scripts/resources/battle_skill_cutin_paths.gd")
 const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
 const Smasher25DSheetOverride := preload("res://scripts/core/smasher_25d_sheet_override.gd")
 
@@ -180,15 +181,15 @@ const STAGE5_HONGRYUN_BOSS_SHEET_PATH := "res://assets/sprites/stage5/stage5_hon
 const STAGE5_HONGRYUN_BOSS_ATTACK_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_attack.png"
 const STAGE5_HONGRYUN_BOSS_DASH_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_dash.png"
 const STAGE5_HONGRYUN_BOSS_TURN_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_turn.png"
-const SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
-const SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_ghost_smashing_cutin_sheet.png"
-const VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/viper_phantom_kick_cutin_sheet.png"
-const SMASHER_DRIVE_CUTIN_BACKPLATE_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_backplate.png"
-const SMASHER_DRIVE_CUTIN_ARC_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_arc.png"
-const SMASHER_DRIVE_CUTIN_CHARACTER_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_character.png"
-const SMASHER_DRIVE_CUTIN_PARTICLE_PATH := "res://assets/ui/skill_cutin/drive/drive_cutin_particle.png"
-const SMASHER_SHIELD_KITING_CUTIN_CHARACTER_PATH := "res://assets/ui/skill_cutin/smasher_shield_kiting_cutin_character.png"
-const LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH := "res://assets/sprites/lingpet/effects/lingpet_acquire_resonance_backplate_imagegen_v1.png"
+const SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH := BattleSkillCutinPaths.SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH
+const SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH := BattleSkillCutinPaths.SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH
+const VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH := BattleSkillCutinPaths.VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH
+const SMASHER_DRIVE_CUTIN_BACKPLATE_PATH := BattleSkillCutinPaths.SMASHER_DRIVE_CUTIN_BACKPLATE_PATH
+const SMASHER_DRIVE_CUTIN_ARC_PATH := BattleSkillCutinPaths.SMASHER_DRIVE_CUTIN_ARC_PATH
+const SMASHER_DRIVE_CUTIN_CHARACTER_PATH := BattleSkillCutinPaths.SMASHER_DRIVE_CUTIN_CHARACTER_PATH
+const SMASHER_DRIVE_CUTIN_PARTICLE_PATH := BattleSkillCutinPaths.SMASHER_DRIVE_CUTIN_PARTICLE_PATH
+const SMASHER_SHIELD_KITING_CUTIN_CHARACTER_PATH := BattleSkillCutinPaths.SMASHER_SHIELD_KITING_CUTIN_CHARACTER_PATH
+const LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH := BattleSkillCutinPaths.LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH
 
 const SMASHER_SKILL_ICON_PATHS := BattleSkillIconPaths.SMASHER_SKILL_ICON_PATHS
 const VIPER_SKILL_ICON_PATHS := BattleSkillIconPaths.VIPER_SKILL_ICON_PATHS
