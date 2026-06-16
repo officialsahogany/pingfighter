@@ -2951,6 +2951,13 @@ This section is intentionally long; use search to find the nearest owner.
   circle payload construction is delegated to
   `stage4_ponk_skill_payload_factory.gd`. Loop sound cleanup stays
   registered through `gameplay_loop_audio_cleanup.gd`.
+- `scripts/stages/stage4/stage4_ponk_magnetic_assets.gd`
+  Owns shared Stage 4 Ponk magnetic-field asset metadata: the retained
+  16-frame sheet path / grid / frame interval plus magnetic FX host texture
+  paths for glyph, lattice, shard, ribbon, collapse, projectile, trail, and
+  impact pieces. `stage4_ponk_skill_state.gd` and
+  `stage4_ponk_magnetic_fx_host.gd` keep their public aliases and runtime
+  cache / prewarm sequencing.
 - `scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd`
   Owns pure Stage 4 Ponk boss-skill payload construction for meditation
   trail, particle, and circle VFX dictionaries; gameplay timing remains in

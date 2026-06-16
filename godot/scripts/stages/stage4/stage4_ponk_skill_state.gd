@@ -1,15 +1,16 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage4PonkMagneticAssets := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_assets.gd")
 const Stage4PonkMagneticFxHost := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd")
 const Stage4PonkMeditationFxHost := preload("res://scripts/stages/stage4/stage4_ponk_meditation_fx_host.gd")
 const Stage4PonkSkillPayloadFactory := preload("res://scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd")
 
-const MAGNETIC_FIELD_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_refraction_magnetic_field_sheet_imagegen_v3_soft.png"
-const MAGNETIC_FIELD_COLS := 4
-const MAGNETIC_FIELD_ROWS := 4
-const MAGNETIC_FIELD_FRAME_COUNT := MAGNETIC_FIELD_COLS * MAGNETIC_FIELD_ROWS
-const MAGNETIC_FIELD_FRAME_INTERVAL := 0.055
+const MAGNETIC_FIELD_SHEET_PATH := Stage4PonkMagneticAssets.MAGNETIC_FIELD_SHEET_PATH
+const MAGNETIC_FIELD_COLS := Stage4PonkMagneticAssets.MAGNETIC_FIELD_COLS
+const MAGNETIC_FIELD_ROWS := Stage4PonkMagneticAssets.MAGNETIC_FIELD_ROWS
+const MAGNETIC_FIELD_FRAME_COUNT := Stage4PonkMagneticAssets.MAGNETIC_FIELD_FRAME_COUNT
+const MAGNETIC_FIELD_FRAME_INTERVAL := Stage4PonkMagneticAssets.MAGNETIC_FIELD_FRAME_INTERVAL
 
 const STAGE_ID := 4
 const FIELD_WIDTH := 760.0
