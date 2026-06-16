@@ -725,13 +725,6 @@ func _get_core_texture_step_count() -> int:
 	return _get_core_texture_specs().size()
 
 
-func _load_core_texture_step(step_index: int) -> void:
-	var specs := _get_core_texture_specs()
-	if step_index < 0 or step_index >= specs.size():
-		return
-	_load_texture_spec(specs[step_index])
-
-
 func _prewarm_core_texture_step(step_index: int) -> bool:
 	var specs := _get_core_texture_specs()
 	if step_index < 0 or step_index >= specs.size():
@@ -769,13 +762,6 @@ func _load_player_textures(character_type: String, include_all_characters: bool,
 
 func _get_player_texture_step_count(character_type: String, include_result_sheets: bool) -> int:
 	return _get_player_texture_specs(character_type, include_result_sheets).size()
-
-
-func _load_player_texture_step(character_type: String, include_result_sheets: bool, step_index: int) -> void:
-	var specs := _get_player_texture_specs(character_type, include_result_sheets)
-	if step_index < 0 or step_index >= specs.size():
-		return
-	_load_texture_spec(specs[step_index])
 
 
 func _prewarm_player_texture_step(character_type: String, include_result_sheets: bool, step_index: int) -> bool:
@@ -1256,113 +1242,11 @@ func _get_stage_boss_texture_step_count(stage_id: int, include_result_sheets: bo
 	return _get_stage_boss_texture_specs(stage_id, include_result_sheets).size()
 
 
-func _load_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, step_index: int) -> void:
-	match stage_id:
-		1:
-			_load_stage1_boss_texture_step(include_result_sheets, step_index)
-		2:
-			_load_stage2_boss_texture_step(include_result_sheets, step_index)
-		3:
-			_load_stage3_boss_texture_step(include_result_sheets, step_index)
-		5:
-			_load_stage5_hongryun_boss_texture_step(include_result_sheets, step_index)
-
-
 func _prewarm_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, step_index: int) -> bool:
 	var specs := _get_stage_boss_texture_specs(stage_id, include_result_sheets)
 	if step_index < 0 or step_index >= specs.size():
 		return true
 	return _prewarm_texture_spec_step(specs[step_index])
-
-
-func _load_stage1_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:
-	match step_index:
-		0:
-			_resource_cache["boss_walk_left_sheet"] = _load_texture_resource(DALJI_BOSS_WALK_LEFT_PATH)
-		1:
-			var walk_right: Texture2D = _load_texture_resource(DALJI_BOSS_WALK_RIGHT_PATH)
-			_resource_cache["boss_walk_right_sheet"] = walk_right
-			_resource_cache["boss_sprite_sheet"] = walk_right
-		2:
-			_resource_cache["boss_idle_sheet"] = _load_texture_resource(DALJI_BOSS_IDLE_PATH)
-		3:
-			var attack: Texture2D = _load_texture_resource(DALJI_BOSS_ATTACK_PATH)
-			_resource_cache["boss_attack_sheet"] = attack
-			_resource_cache["boss_hit_sprite_sheet"] = attack
-		4:
-			_resource_cache["boss_dash_sheet"] = _load_texture_resource(DALJI_BOSS_DASH_PATH)
-		5:
-			_resource_cache["boss_stun_sheet"] = _load_texture_resource(DALJI_BOSS_STUN_PATH)
-		6:
-			_resource_cache["boss_whip_sheet"] = _load_texture_resource(DALJI_BOSS_WHIP_PATH)
-		7:
-			_resource_cache["boss_paengi_top_whip_sheet"] = _load_texture_resource(DALJI_BOSS_PAENGI_TOP_WHIP_PATH)
-		8:
-			if include_result_sheets:
-				_resource_cache["boss_victory_sheet"] = _load_texture_resource(DALJI_BOSS_VICTORY_PATH)
-		9:
-			if include_result_sheets:
-				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(DALJI_BOSS_DEFEAT_PATH)
-
-
-func _load_stage2_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:
-	match step_index:
-		0:
-			_resource_cache["boss_walk_left_sheet"] = _load_texture_resource(STAGE2_BOSS_WALK_LEFT_PATH)
-		1:
-			var walk_right: Texture2D = _load_texture_resource(STAGE2_BOSS_WALK_RIGHT_PATH)
-			_resource_cache["boss_walk_right_sheet"] = walk_right
-			_resource_cache["boss_sprite_sheet"] = walk_right
-		2:
-			_resource_cache["boss_idle_sheet"] = _load_texture_resource(STAGE2_BOSS_IDLE_PATH)
-		3:
-			var attack: Texture2D = _load_texture_resource(STAGE2_BOSS_ATTACK_PATH)
-			_resource_cache["boss_attack_sheet"] = attack
-			_resource_cache["boss_hit_sprite_sheet"] = attack
-		4:
-			_resource_cache["boss_quake_stomp_sheet"] = _load_texture_resource(STAGE2_BOSS_QUAKE_STOMP_PATH)
-		5:
-			if include_result_sheets:
-				_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE2_BOSS_VICTORY_PATH)
-		6:
-			if include_result_sheets:
-				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE2_BOSS_DEFEAT_PATH)
-
-
-func _load_stage3_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:
-	match step_index:
-		0:
-			var walk: Texture2D = _load_texture_resource(STAGE3_MENHERA_BOSS_WALK_PATH)
-			_resource_cache["boss_sprite_sheet"] = walk
-		1:
-			var attack: Texture2D = _load_texture_resource(STAGE3_MENHERA_BOSS_ATTACK_PATH)
-			_resource_cache["boss_attack_sheet"] = attack
-			_resource_cache["boss_hit_sprite_sheet"] = attack
-		2:
-			_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DASH_PATH)
-		3:
-			if include_result_sheets:
-				_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_VICTORY_PATH)
-		4:
-			if include_result_sheets:
-				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DEFEAT_PATH)
-
-
-func _load_stage5_hongryun_boss_texture_step(_include_result_sheets: bool, step_index: int) -> void:
-	match step_index:
-		0:
-			var walk: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_SHEET_PATH)
-			_resource_cache["boss_walk_left_sheet"] = walk
-			_resource_cache["boss_walk_right_sheet"] = walk
-			_resource_cache["boss_sprite_sheet"] = walk
-		1:
-			var attack: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_ATTACK_PATH)
-			_resource_cache["boss_attack_sheet"] = attack
-			_resource_cache["boss_hit_sprite_sheet"] = attack
-		2:
-			_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_DASH_PATH)
-		3:
-			_resource_cache["boss_turn_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_TURN_PATH)
 
 
 func _load_stage5_hongryun_boss_textures() -> void:
