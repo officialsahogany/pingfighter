@@ -1,22 +1,24 @@
 extends RefCounted
 
+const WeatherEventRenderBudget := preload("res://scripts/stages/common/weather_event_render_budget.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
-const WEATHER_RENDER_PARTICLE_LIMIT := 72
-const WIND_RENDER_PARTICLE_LIMIT := 32
+const WEATHER_RENDER_PARTICLE_LIMIT := WeatherEventRenderBudget.WEATHER_RENDER_PARTICLE_LIMIT
+const WIND_RENDER_PARTICLE_LIMIT := WeatherEventRenderBudget.WIND_RENDER_PARTICLE_LIMIT
 const FIRE_RENDER_PARTICLE_LIMIT := 48
 const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT := 8
 const FIRE_DETAILED_SPARK_RENDER_LIMIT := 8
 const FIRE_OVERLAY_HEAT_LINE_COUNT := 4
-const LOD_ACTIVE_THRESHOLD := 0.99
-const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
-const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 36
-const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 24
+const LOD_ACTIVE_THRESHOLD := WeatherEventRenderBudget.LOD_ACTIVE_THRESHOLD
+const SEVERE_LOD_ACTIVE_THRESHOLD := WeatherEventRenderBudget.SEVERE_LOD_ACTIVE_THRESHOLD
+const WEATHER_RENDER_PARTICLE_LIMIT_LOD := WeatherEventRenderBudget.WEATHER_RENDER_PARTICLE_LIMIT_LOD
+const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := WeatherEventRenderBudget.WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD
 # Wind is the cheapest weather effect (one textured rect per particle), so keep it
 # near-full even under render LOD. Decimating wind to ~12 made the flow read as a few
 # blinking streaks ("뚝뚝 끊김") for no measurable perf gain.
-const WIND_RENDER_PARTICLE_LIMIT_LOD := 32
-const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 28
+const WIND_RENDER_PARTICLE_LIMIT_LOD := WeatherEventRenderBudget.WIND_RENDER_PARTICLE_LIMIT_LOD
+const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := WeatherEventRenderBudget.WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD
 const FIRE_RENDER_PARTICLE_LIMIT_LOD := 24
 const FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 18
 const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD := 3
@@ -28,10 +30,10 @@ const FIRE_OVERLAY_HEAT_LINE_COUNT_SEVERE_LOD := 1
 const ICE_OVERLAY_LINE_COUNT := 10
 const ICE_OVERLAY_LINE_COUNT_LOD := 4
 const ICE_OVERLAY_LINE_COUNT_SEVERE_LOD := 2
-const PARTICLE_RENDER_STRIDE_LOD := 2
-const PARTICLE_RENDER_STRIDE_SEVERE_LOD := 3
-const SAND_POLYGON_STRIDE_LOD := 3
-const SAND_POLYGON_STRIDE_SEVERE_LOD := 5
+const PARTICLE_RENDER_STRIDE_LOD := WeatherEventRenderBudget.PARTICLE_RENDER_STRIDE_LOD
+const PARTICLE_RENDER_STRIDE_SEVERE_LOD := WeatherEventRenderBudget.PARTICLE_RENDER_STRIDE_SEVERE_LOD
+const SAND_POLYGON_STRIDE_LOD := WeatherEventRenderBudget.SAND_RENDER_STRIDE_LOD
+const SAND_POLYGON_STRIDE_SEVERE_LOD := WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD
 const SAND_RENDER_SEGMENT_BUCKET_SIZE := 4
 const SAND_RENDER_SEGMENT_LIMIT_PER_SIDE := 18
 const SAND_VERTICAL_START := 60.0
@@ -745,58 +747,41 @@ func _get_particles(weather: Object) -> Array:
 func _get_render_particle_limit(context: Dictionary, effect_lod_scale: float = 1.0) -> int:
 	var weather_type: String = str(context.get("type", ""))
 	if weather_type == "fire":
-		return _get_lod_count(FIRE_RENDER_PARTICLE_LIMIT, FIRE_RENDER_PARTICLE_LIMIT_LOD, FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
-	if weather_type == "breeze" or weather_type == "gust":
-		return _get_lod_count(WIND_RENDER_PARTICLE_LIMIT, WIND_RENDER_PARTICLE_LIMIT_LOD, WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
-	return _get_lod_count(WEATHER_RENDER_PARTICLE_LIMIT, WEATHER_RENDER_PARTICLE_LIMIT_LOD, WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
+		return WeatherEventRenderBudget.get_lod_count(
+			FIRE_RENDER_PARTICLE_LIMIT,
+			FIRE_RENDER_PARTICLE_LIMIT_LOD,
+			FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD,
+			effect_lod_scale
+		)
+	return WeatherEventRenderBudget.get_weather_particle_limit(weather_type, effect_lod_scale)
 
 
 func _get_detailed_render_limit(base_count: int, lod_count: int, severe_lod_count: int, effect_lod_scale: float) -> int:
-	return _get_lod_count(base_count, lod_count, severe_lod_count, effect_lod_scale)
+	return WeatherEventRenderBudget.get_lod_count(base_count, lod_count, severe_lod_count, effect_lod_scale)
 
 
 func _get_particle_render_stride(effect_lod_scale: float) -> int:
-	if _is_severe_lod_active(effect_lod_scale):
-		return PARTICLE_RENDER_STRIDE_SEVERE_LOD
-	if _is_lod_active(effect_lod_scale):
-		return PARTICLE_RENDER_STRIDE_LOD
-	return 1
+	return WeatherEventRenderBudget.get_particle_render_stride(effect_lod_scale)
 
 
 func _get_particle_render_stride_for_context(context: Dictionary, effect_lod_scale: float) -> int:
-	var weather_type: String = str(context.get("type", ""))
-	if weather_type == "breeze" or weather_type == "gust":
-		# Index-based stride drops a different subset of particles each frame as wind
-		# ribbons spawn and expire, so the sparse wind flow visibly flickers. Wind is
-		# cheap enough to always render every particle (no stride decimation).
-		return 1
-	return _get_particle_render_stride(effect_lod_scale)
+	return WeatherEventRenderBudget.get_particle_render_stride_for_context(context, effect_lod_scale)
 
 
 func _get_sand_polygon_stride(effect_lod_scale: float) -> int:
-	if _is_severe_lod_active(effect_lod_scale):
-		return SAND_POLYGON_STRIDE_SEVERE_LOD
-	if _is_lod_active(effect_lod_scale):
-		return SAND_POLYGON_STRIDE_LOD
-	return 1
+	return WeatherEventRenderBudget.get_sand_render_stride(effect_lod_scale)
 
 
 func _get_lod_count(base_count: int, lod_count: int, severe_lod_count: int, effect_lod_scale: float) -> int:
-	if base_count <= 0:
-		return 0
-	if _is_severe_lod_active(effect_lod_scale):
-		return clampi(severe_lod_count, 0, base_count)
-	if _is_lod_active(effect_lod_scale):
-		return clampi(lod_count, 0, base_count)
-	return base_count
+	return WeatherEventRenderBudget.get_lod_count(base_count, lod_count, severe_lod_count, effect_lod_scale)
 
 
 func _is_lod_active(effect_lod_scale: float) -> bool:
-	return effect_lod_scale < LOD_ACTIVE_THRESHOLD
+	return WeatherEventRenderBudget.is_lod_active(effect_lod_scale)
 
 
 func _is_severe_lod_active(effect_lod_scale: float) -> bool:
-	return effect_lod_scale <= SEVERE_LOD_ACTIVE_THRESHOLD
+	return WeatherEventRenderBudget.is_severe_lod_active(effect_lod_scale)
 
 
 func _get_sand_segments(weather: Object) -> Array:

@@ -2062,7 +2062,15 @@ This section is intentionally long; use search to find the nearest owner.
   segments to the renderer; keep gameplay mutation here rather than in draw
   code. Fire-hit explosion, hail-impact, ice-slide, sand-erosion, and
   sand-dissolve particle payload construction is delegated to
-  `weather_event_payload_factory.gd`.
+  `weather_event_payload_factory.gd`; shared fallback-render LOD budgets are
+  delegated to `weather_event_render_budget.gd`.
+- `scripts/stages/common/weather_event_render_budget.gd`
+  Owns the shared weather render-budget policy used by the state fallback draw
+  and texture renderer: LOD / severe-LOD thresholds, generic weather particle
+  caps, wind particle caps, particle stride values, sand stride values, and the
+  sparse-wind exception that prevents index-based stride flicker for breeze /
+  gust ribbons. Keep gameplay state, particle payload generation, and texture
+  drawing outside this helper.
 - `scripts/stages/common/weather_event_renderer.gd`
   Owns the common weather-event field VFX pass. It reads the weather state
   through public context / particle / sand-segment snapshots and draws
@@ -2070,7 +2078,8 @@ This section is intentionally long; use search to find the nearest owner.
   glints, hail shards, scanline messages, and sand-wall texture fills.
   Future sprite-sheet or shader upgrades should replace this renderer's
   texture pieces without moving the gameplay rules out of
-  `weather_event_state.gd`.
+  `weather_event_state.gd`; shared render-budget thresholds come from
+  `weather_event_render_budget.gd`.
 - `scripts/stages/common/starpoint_bonus_drop_policy.gd`
   Owns shared Star Detector bonus-drop policy for stage starpoint reward
   sources: mythic item runtime lookup through direct deps, context registry,

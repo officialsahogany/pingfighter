@@ -13,6 +13,10 @@ const MODULES := {
 		"path": "res://scripts/stages/common/weather_event_payload_factory.gd",
 		"label": "common weather event payload factory",
 	},
+	"weather_event_render_budget": {
+		"path": "res://scripts/stages/common/weather_event_render_budget.gd",
+		"label": "common weather event render budget",
+	},
 	"weather_event_renderer": {
 		"path": "res://scripts/stages/common/weather_event_renderer.gd",
 		"label": "common weather event renderer",
