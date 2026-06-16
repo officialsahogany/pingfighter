@@ -4,23 +4,23 @@ const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_tex
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
-const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage1CommandoFirearmAssets := preload("res://scripts/stages/stage1/stage1_commando_firearm_assets.gd")
 const Stage1CommandoFirearmFxHost := preload("res://scripts/stages/stage1/stage1_commando_firearm_fx_host.gd")
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 
-const SLINGSHOT_STONE_SHEET_PATH := "res://assets/sprites/effects/commando_slingshot_stone_projectile_sheet_imagegen_v1.png"
-const SLINGSHOT_STONE_SHEET_COLS := 4
-const SLINGSHOT_STONE_SHEET_ROWS := 3
-const SLINGSHOT_STONE_VARIANTS_PER_LEVEL := 4
-const SLINGSHOT_STONE_MIN_DRAW_DIAMETERS := {1: 22.0, 2: 27.0, 3: 32.0}
-const BOWLING_TRAP_INSTALLED_TEXTURE_PATH := "res://assets/sprites/effects/commando_bowling_trap_installed_imagegen_v1.png"
-const BOWLING_TRAP_CAPTURE_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png"
-const BOWLING_TRAP_LAUNCH_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_launch_sheet_autosprite_v1.png"
-const BOWLING_TRAP_SHEET_COLS := 4
-const BOWLING_TRAP_SHEET_ROWS := 4
-const BOWLING_TRAP_SHEET_FRAME_COUNT := 16
-const SUPPORT_AIRCRAFT_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_aircraft_stealth_imagegen_v1.png"
-const SUPPORT_BOMB_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png"
+const SLINGSHOT_STONE_SHEET_PATH := Stage1CommandoFirearmAssets.SLINGSHOT_STONE_SHEET_PATH
+const SLINGSHOT_STONE_SHEET_COLS := Stage1CommandoFirearmAssets.SLINGSHOT_STONE_SHEET_COLS
+const SLINGSHOT_STONE_SHEET_ROWS := Stage1CommandoFirearmAssets.SLINGSHOT_STONE_SHEET_ROWS
+const SLINGSHOT_STONE_VARIANTS_PER_LEVEL := Stage1CommandoFirearmAssets.SLINGSHOT_STONE_VARIANTS_PER_LEVEL
+const SLINGSHOT_STONE_MIN_DRAW_DIAMETERS := Stage1CommandoFirearmAssets.SLINGSHOT_STONE_MIN_DRAW_DIAMETERS
+const BOWLING_TRAP_INSTALLED_TEXTURE_PATH := Stage1CommandoFirearmAssets.BOWLING_TRAP_INSTALLED_TEXTURE_PATH
+const BOWLING_TRAP_CAPTURE_SHEET_PATH := Stage1CommandoFirearmAssets.BOWLING_TRAP_CAPTURE_SHEET_PATH
+const BOWLING_TRAP_LAUNCH_SHEET_PATH := Stage1CommandoFirearmAssets.BOWLING_TRAP_LAUNCH_SHEET_PATH
+const BOWLING_TRAP_SHEET_COLS := Stage1CommandoFirearmAssets.BOWLING_TRAP_SHEET_COLS
+const BOWLING_TRAP_SHEET_ROWS := Stage1CommandoFirearmAssets.BOWLING_TRAP_SHEET_ROWS
+const BOWLING_TRAP_SHEET_FRAME_COUNT := Stage1CommandoFirearmAssets.BOWLING_TRAP_SHEET_FRAME_COUNT
+const SUPPORT_AIRCRAFT_TEXTURE_PATH := Stage1CommandoFirearmAssets.SUPPORT_AIRCRAFT_TEXTURE_PATH
+const SUPPORT_BOMB_TEXTURE_PATH := Stage1CommandoFirearmAssets.SUPPORT_BOMB_TEXTURE_PATH
 const SUPPORT_AIRCRAFT_SOURCE_RECT := Rect2(Vector2(270.0, 41.0), Vector2(483.0, 430.0))
 const SUPPORT_AIRCRAFT_DRAW_SIZE := Vector2(90.0, 80.4)
 const SUPPORT_AIRCRAFT_TRAIL_COUNT := 4
@@ -30,29 +30,8 @@ const SUPPORT_BOMB_DRAW_WIDTH_SCALE := 4.3
 const SUPPORT_MISSILE_LAUNCH_FLASH_FRAMES := 12.0
 const SUPPORT_MISSILE_SMOKE_PUFFS := 5
 
-const REMASTER_TEXTURE_FAMILIES := [
-	"muzzle_glow",
-	"impact_burst",
-	"impact_ring",
-	"lingering_field_glow",
-	"projectile_silhouette",
-	"bowling_trap_claw",
-	"drone_rotor",
-	"support_aircraft",
-	"support_bomb_projectile",
-	"support_airstrike_explosion",
-]
-
-const REQUIRED_VISUAL_FAMILIES := [
-	"pistol",
-	"commando_pistol",
-	"ak47",
-	"bazooka",
-	"net_gun",
-	"fire_support",
-	"bowling_trap",
-	"suicide_drone",
-]
+const REMASTER_TEXTURE_FAMILIES := Stage1CommandoFirearmAssets.REMASTER_TEXTURE_FAMILIES
+const REQUIRED_VISUAL_FAMILIES := Stage1CommandoFirearmAssets.REQUIRED_VISUAL_FAMILIES
 
 var fx_host: Node = null
 var fx_host_add_pending := false
@@ -821,66 +800,42 @@ func _get_slingshot_stone_variant(projectile: Dictionary) -> int:
 static func _get_slingshot_stone_texture() -> Texture2D:
 	if slingshot_stone_texture != null:
 		return slingshot_stone_texture
-	slingshot_stone_texture = ProjectResourceLoader.load_texture(
-		SLINGSHOT_STONE_SHEET_PATH,
-		"Missing Commando slingshot stone sheet at %s",
-		"Failed to load Commando slingshot stone sheet at %s"
-	)
+	slingshot_stone_texture = Stage1CommandoFirearmAssets.load_slingshot_stone_texture()
 	return slingshot_stone_texture
 
 
 static func _get_bowling_trap_installed_texture() -> Texture2D:
 	if bowling_trap_installed_texture != null:
 		return bowling_trap_installed_texture
-	bowling_trap_installed_texture = ProjectResourceLoader.load_texture(
-		BOWLING_TRAP_INSTALLED_TEXTURE_PATH,
-		"Missing Commando bowling trap installed texture at %s",
-		"Failed to load Commando bowling trap installed texture at %s"
-	)
+	bowling_trap_installed_texture = Stage1CommandoFirearmAssets.load_bowling_trap_installed_texture()
 	return bowling_trap_installed_texture
 
 
 static func _get_bowling_trap_capture_sheet_texture() -> Texture2D:
 	if bowling_trap_capture_sheet_texture != null:
 		return bowling_trap_capture_sheet_texture
-	bowling_trap_capture_sheet_texture = ProjectResourceLoader.load_texture(
-		BOWLING_TRAP_CAPTURE_SHEET_PATH,
-		"Missing Commando bowling trap capture sheet at %s",
-		"Failed to load Commando bowling trap capture sheet at %s"
-	)
+	bowling_trap_capture_sheet_texture = Stage1CommandoFirearmAssets.load_bowling_trap_capture_sheet_texture()
 	return bowling_trap_capture_sheet_texture
 
 
 static func _get_bowling_trap_launch_sheet_texture() -> Texture2D:
 	if bowling_trap_launch_sheet_texture != null:
 		return bowling_trap_launch_sheet_texture
-	bowling_trap_launch_sheet_texture = ProjectResourceLoader.load_texture(
-		BOWLING_TRAP_LAUNCH_SHEET_PATH,
-		"Missing Commando bowling trap launch sheet at %s",
-		"Failed to load Commando bowling trap launch sheet at %s"
-	)
+	bowling_trap_launch_sheet_texture = Stage1CommandoFirearmAssets.load_bowling_trap_launch_sheet_texture()
 	return bowling_trap_launch_sheet_texture
 
 
 static func _get_support_aircraft_texture() -> Texture2D:
 	if support_aircraft_texture != null:
 		return support_aircraft_texture
-	support_aircraft_texture = ProjectResourceLoader.load_texture(
-		SUPPORT_AIRCRAFT_TEXTURE_PATH,
-		"Missing Commando fire-support stealth aircraft texture at %s",
-		"Failed to load Commando fire-support stealth aircraft texture at %s"
-	)
+	support_aircraft_texture = Stage1CommandoFirearmAssets.load_support_aircraft_texture()
 	return support_aircraft_texture
 
 
 static func _get_support_bomb_texture() -> Texture2D:
 	if support_bomb_texture != null:
 		return support_bomb_texture
-	support_bomb_texture = ProjectResourceLoader.load_texture(
-		SUPPORT_BOMB_TEXTURE_PATH,
-		"Missing Commando fire-support bomb projectile texture at %s",
-		"Failed to load Commando fire-support bomb projectile texture at %s"
-	)
+	support_bomb_texture = Stage1CommandoFirearmAssets.load_support_bomb_texture()
 	return support_bomb_texture
 
 

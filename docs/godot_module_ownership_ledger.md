@@ -2249,6 +2249,11 @@ This section is intentionally long; use search to find the nearest owner.
   harpoon rope, aircraft marker, bomb projectile, trap claw, and drone rotor.
   Direct draw remains the fallback/detail layer while the host carries the
   Godot-native remaster path.
+- `scripts/stages/stage1/stage1_commando_firearm_assets.gd`
+  Owns the Stage 1 Commando firearm renderer asset manifest: projectile /
+  trap / fire-support texture paths, texture-load warning text, sprite-sheet
+  frame metadata, and visual-family QA lists. The renderer keeps public cache
+  fields, prewarm step sequencing, draw layout, and FX-host sync.
 - `scripts/stages/stage1/stage1_commando_firearm_fx_host.gd`
   Owns the node-backed Stage 1 Commando firearm FX host: a `ShaderMaterial`
   core glow, muzzle and impact `GPUParticles2D` layers, shared procedural
