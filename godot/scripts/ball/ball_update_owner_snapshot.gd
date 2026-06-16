@@ -1,9 +1,13 @@
 extends RefCounted
 
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+var _character_runtime: Object = PlayerCharacterRuntime.new()
+
 
 func build(owner: Object) -> Dictionary:
 	var textures: Dictionary = _get_owner_dict(owner, "battle_textures")
-	var character_type: String = _normalize_character_type(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var character_type: String = _character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	return {
 		"ball_pos": _get_owner_vector2(owner, "ball_pos", Vector2.ZERO),
 		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
@@ -80,19 +84,6 @@ func _has_player_hit_sprite(textures: Dictionary, character_type: String) -> boo
 		or _has_texture(textures, "player_hit_left_strip_texture")
 		or _has_texture(textures, "player_hit_right_strip_texture")
 	)
-
-
-func _normalize_character_type(value: Variant) -> String:
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
-		return "blacksmith"
-	if normalized == "viper":
-		return "viper"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	return "smasher"
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
