@@ -8,6 +8,7 @@ const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_tex
 const BattleOptimusSpritePaths := preload("res://scripts/resources/battle_optimus_sprite_paths.gd")
 const BattleSkillCutinPaths := preload("res://scripts/resources/battle_skill_cutin_paths.gd")
 const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
+const BattleSmasherSpritePaths := preload("res://scripts/resources/battle_smasher_sprite_paths.gd")
 const Smasher25DSheetOverride := preload("res://scripts/core/smasher_25d_sheet_override.gd")
 
 const PINGPONG_BALL_TEXTURE_PATH := BattleCoreTexturePaths.PINGPONG_BALL_TEXTURE_PATH
@@ -18,14 +19,14 @@ const SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SMASHER
 const VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
 const STAGE1_CENTER_BACKGROUND_PATH := BattleCoreTexturePaths.STAGE1_CENTER_BACKGROUND_PATH
 const STAGE1_CENTER_BORDER_PATH := BattleCoreTexturePaths.STAGE1_CENTER_BORDER_PATH
-const PLAYER_SPRITE_PATH := "res://assets/sprites/smasher_walk_strip.png"
-const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
-const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_glide_bodyweight_v9_4x2_160_clean.png"
-const PLAYER_DASH_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_dash_left_rugby_shoulder_charge_autosprite_v4_mirror_from_right_4x2_160_clean.png"
-const PLAYER_DASH_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_dash_right_rugby_shoulder_charge_autosprite_v4_4x2_160_clean.png"
-const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
-const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
-const SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH := "res://assets/sprites/characters/smasher/customization_debug/smasher_debug_paddle_overlay_sheet.png"
+const PLAYER_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_SPRITE_PATH
+const PLAYER_WALK_LEFT_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_WALK_LEFT_SPRITE_PATH
+const PLAYER_WALK_RIGHT_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_WALK_RIGHT_SPRITE_PATH
+const PLAYER_DASH_LEFT_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_DASH_LEFT_SPRITE_PATH
+const PLAYER_DASH_RIGHT_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_DASH_RIGHT_SPRITE_PATH
+const SMASHER_IDLE_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_IDLE_SHEET_PATH
+const PLAYER_IDLE_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_IDLE_SPRITE_PATH
+const SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH
 const OPTIMUS_PLAYER_IDLE_SHEET_PATH := BattleOptimusSpritePaths.OPTIMUS_PLAYER_IDLE_SHEET_PATH
 const OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH := BattleOptimusSpritePaths.OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH
 const OPTIMUS_PLAYER_WALK_RIGHT_SHEET_PATH := BattleOptimusSpritePaths.OPTIMUS_PLAYER_WALK_RIGHT_SHEET_PATH
@@ -36,12 +37,12 @@ const OPTIMUS_OVERLAY_CORE_GLOW_PATH := BattleOptimusSpritePaths.OPTIMUS_OVERLAY
 const OPTIMUS_OVERLAY_BACK_PATH := BattleOptimusSpritePaths.OPTIMUS_OVERLAY_BACK_PATH
 const OPTIMUS_OVERLAY_ACCESSORY_PATH := BattleOptimusSpritePaths.OPTIMUS_OVERLAY_ACCESSORY_PATH
 const OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH := BattleOptimusSpritePaths.OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH
-const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_victory_joydance_64f_autosprite_v6.png"
-const SMASHER_WHEEL_BODY_SHEET_PATH := "res://assets/sprites/smasher/smasher_wheel_flame_blade_spin_16f_autosprite_v3.png"
-const SMASHER_DEFEAT_SHEET_PATH := "res://assets/sprites/smasher/smasher_defeat_sad_expression_16f_autosprite_v4_scale80.png"
-const PLAYER_HIT_SPRITE_PATH := "res://assets/sprites/smasher_hit_pose.png"
-const PLAYER_HIT_LEFT_STRIP_PATH := "res://assets/sprites/smasher_hit_left_strip.png"
-const PLAYER_HIT_RIGHT_STRIP_PATH := "res://assets/sprites/smasher_hit_right_strip.png"
+const SMASHER_VICTORY_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_VICTORY_SHEET_PATH
+const SMASHER_WHEEL_BODY_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_WHEEL_BODY_SHEET_PATH
+const SMASHER_DEFEAT_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_DEFEAT_SHEET_PATH
+const PLAYER_HIT_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_HIT_SPRITE_PATH
+const PLAYER_HIT_LEFT_STRIP_PATH := BattleSmasherSpritePaths.PLAYER_HIT_LEFT_STRIP_PATH
+const PLAYER_HIT_RIGHT_STRIP_PATH := BattleSmasherSpritePaths.PLAYER_HIT_RIGHT_STRIP_PATH
 const VIPER_PLAYER_SPRITE_PATH := "res://assets/sprites/viper_walk_strip.png"
 const VIPER_PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/viper_idle_strip.png"
 const VIPER_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_idle_sheet.png"
@@ -147,14 +148,9 @@ const BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH := BattleBlacksmithSpritePaths
 const BLACKSMITH_PLAYER_VICTORY_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_VICTORY_SHEET_PATH
 const BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH
 
-# Smasher directional attack sheets: 4x4 grids, 16 frames, cell 160x160.
-# Authored from the current subculture left/right walk sprites so colors,
-# proportions, hover-board, shield, and paddle stay consistent.
-const SMASHER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/smasher/smasher_attack_left_sheet_16f.png"
-const SMASHER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/smasher/smasher_attack_right_sheet_16f.png"
-
-# Legacy fallback: 4x2 grid, 8 frames, cell 344x384.
-const SMASHER_ATTACK_SHEET_PATH := "res://assets/sprites/smasher/smasher_attack_sheet.png"
+const SMASHER_ATTACK_LEFT_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_ATTACK_LEFT_SHEET_PATH
+const SMASHER_ATTACK_RIGHT_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_ATTACK_RIGHT_SHEET_PATH
+const SMASHER_ATTACK_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_ATTACK_SHEET_PATH
 
 const DALJI_BOSS_WALK_LEFT_PATH := BattleBossSpritePaths.DALJI_BOSS_WALK_LEFT_PATH
 const DALJI_BOSS_WALK_RIGHT_PATH := BattleBossSpritePaths.DALJI_BOSS_WALK_RIGHT_PATH

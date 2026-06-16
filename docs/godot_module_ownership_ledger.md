@@ -4430,6 +4430,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns read-only Optimus player sprite and overlay paths. `battle_resources.gd`
   keeps public aliases plus optional texture loading, cache keys, and staged
   prewarm sequencing.
+- `scripts/resources/battle_smasher_sprite_paths.gd`
+  Owns read-only Smasher player sprite paths, including idle / walk / dash /
+  attack / hit / wheel / result sheets and the customization-debug overlay.
+  `battle_resources.gd` keeps public aliases plus texture loading, 2.5D
+  override fallback integration, cache keys, and staged prewarm sequencing.
 - `scripts/resources/battle_skill_cutin_paths.gd`
   Owns read-only skill-presentation texture paths for Smasher / Viper cut-in
   sheets, Drive cut-in pieces, Shield Kiting cut-in art, and the Lingpet
