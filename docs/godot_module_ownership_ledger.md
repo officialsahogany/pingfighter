@@ -5067,12 +5067,9 @@ This section is intentionally long; use search to find the nearest owner.
   for owned / rental weapon state and ammo mutation.
 - `scripts/characters/commando_supply_drop_state.gd`
   Owns the first Commando `supply_drop` runtime slice: down-plus-action hold
-  timing, radio-call transient state, delayed drop resolution, rental weapon
-  candidate filtering, Godot-ported field-item candidate weights, Python
-  `ammo_box` / `doping_potion` candidate eligibility rules, 1-3 payload
-  queueing with duplicate rental reservation prevention, fallback field-item
-  identity, supply-position collectible parachute boxes, direct player pickup,
-  active-item pickup / slot-store handoff for field items,
+  timing, radio-call transient state, delayed drop resolution, supply-position
+  collectible parachute boxes, direct player pickup, active-item pickup /
+  slot-store handoff for field items,
   rejected-pickup retention, the aircraft / parachute / crash texture-piece
   remaster layers, `commando_supply_drop_fx_host.gd` shader /
   `GPUParticles2D` / pulse-Tween host synchronization, radio / aircraft /
@@ -5083,6 +5080,15 @@ This section is intentionally long; use search to find the nearest owner.
   loop. Its save-snapshot surface restores active aircraft state, crash
   state, pending payload queues, and collectible parachute drops so a future
   integrated save file can resume the in-flight supply flow.
+- `scripts/characters/commando_supply_drop_payload_resolver.gd`
+  Owns the pure payload planning slice for Commando `supply_drop`: 1-3
+  payload queue construction, Python parity delay schedules, rental weapon
+  candidate filtering, Godot-ported field-item candidate weights,
+  `ammo_box` / `doping_potion` candidate eligibility rules, duplicate rental
+  reservation prevention, configured forced-payload handling, and fallback
+  field-item identity. `commando_supply_drop_state.gd` keeps compatibility
+  wrappers for the existing smoke-test/private helper surface while delegating
+  these calculations here.
 - `scripts/items/active_item_commando_supply_actions.gd`
   Owns the Commando-specific active-item effects that entered through the
   `supply_drop` table: `ammo_box` refills all non-rental permanent firearms
