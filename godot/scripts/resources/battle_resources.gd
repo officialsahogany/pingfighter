@@ -4,6 +4,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 const BattleBlacksmithSpritePaths := preload("res://scripts/resources/battle_blacksmith_sprite_paths.gd")
 const BattleBossSpritePaths := preload("res://scripts/resources/battle_boss_sprite_paths.gd")
+const BattleCommandoSpritePaths := preload("res://scripts/resources/battle_commando_sprite_paths.gd")
 const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
 const BattleOptimusSpritePaths := preload("res://scripts/resources/battle_optimus_sprite_paths.gd")
 const BattleSkillCutinPaths := preload("res://scripts/resources/battle_skill_cutin_paths.gd")
@@ -82,56 +83,56 @@ const VIPER_VICTORY_SHEET_PATH := BattleViperSpritePaths.VIPER_VICTORY_SHEET_PAT
 const VIPER_DEFEAT_SHEET_PATH := BattleViperSpritePaths.VIPER_DEFEAT_SHEET_PATH
 const VIPER_PLAYER_HIT_LEFT_STRIP_PATH := BattleViperSpritePaths.VIPER_PLAYER_HIT_LEFT_STRIP_PATH
 const VIPER_PLAYER_HIT_RIGHT_STRIP_PATH := BattleViperSpritePaths.VIPER_PLAYER_HIT_RIGHT_STRIP_PATH
-const COMMANDO_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_idle_sheet.png"
-const COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_left_walk_sheet.png"
-const COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_right_walk_sheet.png"
-const COMMANDO_PLAYER_WALK_BACK_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_back_walk_sheet.png"
-const COMMANDO_PLAYER_BASE_GRIP_IDLE_BACK_SHEET_PATH := "res://assets/sprites/characters/commando/base_grip/commando_base_grip_idle_back_gemini_v1.png"
-const COMMANDO_PLAYER_BASE_GRIP_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/commando/base_grip/commando_base_grip_walk_left_gemini_v1.png"
-const COMMANDO_PLAYER_BASE_GRIP_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/commando/base_grip/commando_base_grip_walk_right_gemini_v1.png"
+const COMMANDO_PLAYER_IDLE_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_IDLE_SHEET_PATH
+const COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH
+const COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH
+const COMMANDO_PLAYER_WALK_BACK_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_WALK_BACK_SHEET_PATH
+const COMMANDO_PLAYER_BASE_GRIP_IDLE_BACK_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_BASE_GRIP_IDLE_BACK_SHEET_PATH
+const COMMANDO_PLAYER_BASE_GRIP_WALK_LEFT_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_BASE_GRIP_WALK_LEFT_SHEET_PATH
+const COMMANDO_PLAYER_BASE_GRIP_WALK_RIGHT_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_BASE_GRIP_WALK_RIGHT_SHEET_PATH
 # Commando pistol-fire animation sheet: 1264x848 PNG, 4x2 grid, 8 frames,
 # back view. Frames 0..3 = windup (driven by pistol_fire_delay_frames),
 # frames 4..7 = post-shot muzzle / smoke / lower / ready (driven by
 # pistol_post_fire_animation_frames). Frame 4 (muzzle flash) plays the
 # moment `_play_fire_audio()` triggers gunshot.wav.
-const COMMANDO_PLAYER_PISTOL_FIRE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_pistol_fire_sheet.png"
+const COMMANDO_PLAYER_PISTOL_FIRE_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_PISTOL_FIRE_SHEET_PATH
 # Commando weapon-action sheets: 640x320 PNGs, 4x2 grids, 8 frames. Idle /
 # walk remains empty-handed; these sheets appear only during the matching
 # firing / placement / control trigger window.
-const COMMANDO_PLAYER_AK47_FIRE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_ak47_fire_sheet.png"
-const COMMANDO_PLAYER_BAZOOKA_FIRE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_bazooka_fire_sheet.png"
-const COMMANDO_PLAYER_NET_GUN_FIRE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_net_gun_fire_sheet.png"
-const COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_bowling_trap_place_sheet.png"
-const COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_suicide_drone_control_sheet.png"
+const COMMANDO_PLAYER_AK47_FIRE_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_AK47_FIRE_SHEET_PATH
+const COMMANDO_PLAYER_BAZOOKA_FIRE_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_BAZOOKA_FIRE_SHEET_PATH
+const COMMANDO_PLAYER_NET_GUN_FIRE_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_NET_GUN_FIRE_SHEET_PATH
+const COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH
+const COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH
 # Commando ball-strike attack sheet: 640x320 PNG, 4x2 grid, 8 frames, back
 # view. Muay-Thai clothesline-style squat-uppercut: F0 standing ready,
 # F1-F3 squat coil, F4-F5 rising uppercut (F5 = ball-contact peak),
 # F6-F7 follow-through and recover. Pistol holstered on right hip,
 # both hands free. Frame index is driven by `player_hit_timer` /
 # `player_effective_hit_duration` mapped onto frames 0..7.
-const COMMANDO_PLAYER_ATTACK_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_attack_sheet.png"
+const COMMANDO_PLAYER_ATTACK_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_ATTACK_SHEET_PATH
 # Commando per-firearm weapon overlay sprites. The base sheet (idle / walk_*)
 # already shows the pistol in the right hand, so "pistol" needs no overlay —
 # it is the default visual. For every other equipped firearm, the matching
 # overlay PNG is drawn on top of the base character at a per-direction anchor
 # so the rifle / launcher / trap / drone replaces the visible pistol.
-const COMMANDO_WEAPON_OVERLAY_AK47_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_ak47.png"
-const COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_bazooka.png"
-const COMMANDO_WEAPON_OVERLAY_NET_GUN_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_net_gun.png"
-const COMMANDO_WEAPON_OVERLAY_BOWLING_TRAP_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_bowling_trap.png"
-const COMMANDO_WEAPON_OVERLAY_SUICIDE_DRONE_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_suicide_drone.png"
-const COMMANDO_WEAPON_B2_PISTOL_PATH := "res://assets/sprites/characters/commando/weapons_b2/commando_weapon_b2_pistol.png"
-const COMMANDO_WEAPON_B2_AK47_PATH := "res://assets/sprites/characters/commando/weapons_b2/commando_weapon_b2_ak47.png"
-const COMMANDO_WEAPON_B2_BAZOOKA_PATH := "res://assets/sprites/characters/commando/weapons_b2/commando_weapon_b2_bazooka.png"
-const COMMANDO_WEAPON_B2_NET_GUN_PATH := "res://assets/sprites/characters/commando/weapons_b2/commando_weapon_b2_net_gun.png"
-const COMMANDO_WEAPON_B2_BOWLING_TRAP_PATH := "res://assets/sprites/characters/commando/weapons_b2/commando_weapon_b2_bowling_trap.png"
-const COMMANDO_WEAPON_B2_SUICIDE_DRONE_PATH := "res://assets/sprites/characters/commando/weapons_b2/commando_weapon_b2_suicide_drone.png"
-const COMMANDO_WEAPON_B2V2_PISTOL_PATH := "res://assets/sprites/characters/commando/weapons_b2_perspective/commando_weapon_b2v2_pistol.png"
-const COMMANDO_WEAPON_B2V2_AK47_PATH := "res://assets/sprites/characters/commando/weapons_b2_perspective/commando_weapon_b2v2_ak47.png"
-const COMMANDO_WEAPON_B2V2_BAZOOKA_PATH := "res://assets/sprites/characters/commando/weapons_b2_perspective/commando_weapon_b2v2_bazooka.png"
-const COMMANDO_WEAPON_B2V2_NET_GUN_PATH := "res://assets/sprites/characters/commando/weapons_b2_perspective/commando_weapon_b2v2_net_gun.png"
-const COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH := "res://assets/sprites/characters/commando/weapons_b2_perspective/commando_weapon_b2v2_bowling_trap.png"
-const COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH := "res://assets/sprites/characters/commando/weapons_b2_perspective/commando_weapon_b2v2_suicide_drone.png"
+const COMMANDO_WEAPON_OVERLAY_AK47_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_OVERLAY_AK47_PATH
+const COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH
+const COMMANDO_WEAPON_OVERLAY_NET_GUN_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_OVERLAY_NET_GUN_PATH
+const COMMANDO_WEAPON_OVERLAY_BOWLING_TRAP_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_OVERLAY_BOWLING_TRAP_PATH
+const COMMANDO_WEAPON_OVERLAY_SUICIDE_DRONE_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_OVERLAY_SUICIDE_DRONE_PATH
+const COMMANDO_WEAPON_B2_PISTOL_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2_PISTOL_PATH
+const COMMANDO_WEAPON_B2_AK47_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2_AK47_PATH
+const COMMANDO_WEAPON_B2_BAZOOKA_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2_BAZOOKA_PATH
+const COMMANDO_WEAPON_B2_NET_GUN_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2_NET_GUN_PATH
+const COMMANDO_WEAPON_B2_BOWLING_TRAP_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2_BOWLING_TRAP_PATH
+const COMMANDO_WEAPON_B2_SUICIDE_DRONE_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2_SUICIDE_DRONE_PATH
+const COMMANDO_WEAPON_B2V2_PISTOL_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_PISTOL_PATH
+const COMMANDO_WEAPON_B2V2_AK47_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_AK47_PATH
+const COMMANDO_WEAPON_B2V2_BAZOOKA_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_BAZOOKA_PATH
+const COMMANDO_WEAPON_B2V2_NET_GUN_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_NET_GUN_PATH
+const COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH
+const COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH := BattleCommandoSpritePaths.COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH
 const DEFAULT_CHARACTER_TYPE := "smasher"
 const VIPER_CHARACTER_TYPE := "viper"
 const COMMANDO_CHARACTER_TYPE := "soldier"

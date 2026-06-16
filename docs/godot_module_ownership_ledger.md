@@ -4426,6 +4426,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns read-only Blacksmith / Baltor player sprite paths, including Thor
   Shield presentation textures and result sheets. `battle_resources.gd` keeps
   public aliases plus texture loading, cache keys, and staged prewarm sequencing.
+- `scripts/resources/battle_commando_sprite_paths.gd`
+  Owns read-only Commando / Soldier player sprite, firearm action-sheet, and
+  weapon overlay paths. `battle_resources.gd` keeps public aliases plus texture
+  loading, cache keys, and staged prewarm sequencing.
 - `scripts/resources/battle_optimus_sprite_paths.gd`
   Owns read-only Optimus player sprite and overlay paths. `battle_resources.gd`
   keeps public aliases plus optional texture loading, cache keys, and staged
