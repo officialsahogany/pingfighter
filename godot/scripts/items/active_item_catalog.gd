@@ -35,9 +35,11 @@ const SPIDER_MINE_ICON_PATH := "res://assets/sprites/items/spider_mine.png"
 const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery.png"
 const MILK_BOTTLE_ICON_PATH := "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png"
 const MILK_BOTTLE_FIELD_ICON_PATH := "res://assets/sprites/items/milk_bottle_field_imagegen_v1.png"
+const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
+	"lingpet_feed",
 	"life_elixir",
 	"vitamin_pill",
 	"strange_vial",
@@ -68,6 +70,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 	match item_name:
 		"gauge_charge":
 			item_data = _build_gauge_charge()
+		"lingpet_feed":
+			item_data = _build_lingpet_feed()
 		"life_elixir":
 			item_data = _build_life_elixir()
 		"ammo_box":
@@ -164,6 +168,23 @@ func _build_gauge_charge() -> Dictionary:
 		"description": "게이지를 220 충전합니다.",
 		"icon_path": GAUGE_CHARGE_ICON_PATH,
 		"color": Color(1.0, 100.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
+func _build_lingpet_feed() -> Dictionary:
+	return {
+		"name": "lingpet_feed",
+		"display_name": "링펫 먹이",
+		"type": "active",
+		"effect": "lingpet_feed",
+		"chance": 0.010,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"feed_amount": 35.0,
+		"description": "활성 링펫에게 먹이를 줘 친밀도를 35 올립니다. 한 런에 3번, 친밀도 Lv.15까지만 효과가 있습니다.",
+		"icon_path": LINGPET_FEED_ICON_PATH,
+		"color": Color(0.45, 0.95, 0.88),
 		"consumable": true,
 	}
 

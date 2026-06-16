@@ -56,6 +56,28 @@ func apply_life_elixir(
 	)
 
 
+func apply_lingpet_feed(
+	_target: Object,
+	_item_data: Dictionary,
+	owner: Object,
+	registry: Object,
+	effect_feedback: Object
+) -> bool:
+	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime == null or not lingpet_runtime.has_method("feed_lingpet"):
+		return false
+	var result: Variant = lingpet_runtime.feed_lingpet(owner, registry)
+	if not (result is Dictionary):
+		return false
+	var feed_result: Dictionary = result
+	if not bool(feed_result.get("accepted", false)):
+		return false
+	if effect_feedback != null:
+		effect_feedback.play_first_audio(registry, ["play_active_item"])
+		effect_feedback.trigger_registry_feedback(registry, false, false, 0.015, 0.18)
+	return true
+
+
 func apply_ammo_box(
 	target: Object,
 	item_data: Dictionary,
@@ -321,6 +343,12 @@ func _read_player_center(player_center_reader: Object, owner: Object, fallback: 
 	if owner == null:
 		return fallback
 	return player_center_reader.get_player_center(owner)
+
+
+func _get_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance(key)
 
 
 func _get_array_property(target: Object, key: String) -> Array[Dictionary]:

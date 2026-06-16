@@ -18,6 +18,7 @@ const LANGUAGE_NATIVE_NAMES := {
 }
 
 const ITEM_DISPLAY_EN := {
+	"lingpet_feed": "Lingpet Feed",
 	"gauge_charge": "Energy Drink",
 	"life_elixir": "Life Elixir",
 	"ammo_box": "Ammo Box",
@@ -97,6 +98,7 @@ const ITEM_DISPLAY_EN := {
 }
 
 const ITEM_DISPLAY_ZH := {
+	"lingpet_feed": "Lingpet Feed",
 	"gauge_charge": "能量饮料",
 	"life_elixir": "生命灵药",
 	"ammo_box": "弹药箱",
@@ -176,6 +178,7 @@ const ITEM_DISPLAY_ZH := {
 }
 
 const ITEM_DISPLAY_JA := {
+	"lingpet_feed": "Lingpet Feed",
 	"gauge_charge": "エナジードリンク",
 	"life_elixir": "生命水",
 	"ammo_box": "弾薬箱",
@@ -255,6 +258,7 @@ const ITEM_DISPLAY_JA := {
 }
 
 const ITEM_DISPLAY_ES := {
+	"lingpet_feed": "Lingpet Feed",
 	"gauge_charge": "Bebida energética",
 	"life_elixir": "Elixir de vida",
 	"ammo_box": "Caja de munición",
@@ -334,6 +338,7 @@ const ITEM_DISPLAY_ES := {
 }
 
 const ITEM_DISPLAY_PT_BR := {
+	"lingpet_feed": "Lingpet Feed",
 	"gauge_charge": "Energético",
 	"life_elixir": "Elixir da Vida",
 	"ammo_box": "Caixa de Munição",
@@ -413,6 +418,7 @@ const ITEM_DISPLAY_PT_BR := {
 }
 
 const ITEM_DISPLAY_RU := {
+	"lingpet_feed": "Lingpet Feed",
 	"gauge_charge": "Энергетик",
 	"life_elixir": "Эликсир жизни",
 	"ammo_box": "Ящик патронов",
@@ -492,6 +498,7 @@ const ITEM_DISPLAY_RU := {
 }
 
 const ACTIVE_ITEM_DESCRIPTION_EN := {
+	"lingpet_feed": "Feeds the active Lingpet for 35 affinity. Works up to three times per run and only until affinity Lv.15.",
 	"gauge_charge": "Charges 220 gauge.",
 	"life_elixir": "Fully charges the gauge.",
 	"ammo_box": "Restocks ammunition for the currently selected rental firearm.",

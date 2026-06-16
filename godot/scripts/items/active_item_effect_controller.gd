@@ -203,6 +203,16 @@ func apply_life_elixir(item_data: Dictionary, owner: Object, registry: Object) -
 	)
 
 
+func apply_lingpet_feed(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.apply_lingpet_feed(
+		self,
+		item_data,
+		owner,
+		registry,
+		_effect_feedback
+	)
+
+
 func apply_ammo_box(item_data: Dictionary, owner: Object, registry: Object) -> bool:
 	return _effect_action_facade.apply_ammo_box(
 		self,

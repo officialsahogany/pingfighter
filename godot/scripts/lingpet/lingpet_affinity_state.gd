@@ -5,6 +5,7 @@ const SOURCE_BALL_HIT := "ball_hit"
 const SOURCE_CLICK := "click"
 const SOURCE_HATCH := "hatch"
 const SOURCE_VICTORY := "victory"
+const SOURCE_FEED := "feed"
 
 const REWARD_TYPE_ACTIVE_UNLOCK := "active_unlock"
 const REWARD_TYPE_PASSIVE_UNLOCK := "passive_unlock"
@@ -28,6 +29,8 @@ const MAX_LEVEL := 30
 const HEADSTART_MAX_LEVEL := 4
 const MAX_ENHANCEMENT_CHIPS := 5
 const ENHANCEMENT_CHIP_BONUS := 0.20
+const MAX_FEED_USES_PER_RUN := 3
+const LINGPET_FEED_MAX_LEVEL := 15
 const SKILL_LEVEL_MAX := 5
 const RING_CORE_CAP_UNCHANGED := -1
 const MAX_MOBILITY_STACKS := 6
@@ -117,6 +120,7 @@ const GAIN_TABLE := {
 	},
 	SOURCE_HATCH: {"points": 25.0},
 	SOURCE_VICTORY: {"points": 20.0},
+	SOURCE_FEED: {"points": 35.0},
 }
 
 const ROUND_CAP_BALL_HIT_COUNT := "ball_hit_count"
@@ -132,6 +136,7 @@ var _pets: Dictionary = {}
 var _round_caps: Dictionary = {}
 var _battle_caps: Dictionary = {}
 var _enhancement_chips := 0
+var _feed_uses_this_run := 0
 var _dirty := false
 
 
@@ -140,6 +145,7 @@ var _dirty := false
 func reset_all() -> void:
 	_pets.clear()
 	_enhancement_chips = 0
+	_feed_uses_this_run = 0
 	reset_battle_caps()
 	_dirty = false
 
@@ -184,6 +190,10 @@ func get_enhancement_chips() -> int:
 
 func get_enhancement_chip_multiplier() -> float:
 	return 1.0 + float(get_enhancement_chips()) * ENHANCEMENT_CHIP_BONUS
+
+
+func get_feed_uses_this_run() -> int:
+	return clampi(_feed_uses_this_run, 0, MAX_FEED_USES_PER_RUN)
 
 
 func configure_reward_context(
@@ -409,7 +419,7 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	var granted_points := float(gain_result.get("points", 0.0))
 	var bonus_points := float(gain_result.get("bonus_points", 0.0))
 	var blocked_reason := str(gain_result.get("blocked_reason", ""))
-	var enhancement_multiplier := get_enhancement_chip_multiplier()
+	var enhancement_multiplier := 1.0 if source == SOURCE_FEED else get_enhancement_chip_multiplier()
 	granted_points *= enhancement_multiplier
 	bonus_points *= enhancement_multiplier
 	if granted_points <= 0.0:
@@ -420,6 +430,8 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	var level_rewards: Array[Dictionary] = _apply_level_ups(normalized_pet_id, pet_data)
 	if level_rewards.size() > 0:
 		_record_bond_level_ups(normalized_pet_id, level_rewards.size())
+	if source == SOURCE_FEED:
+		_feed_uses_this_run = mini(_feed_uses_this_run + 1, MAX_FEED_USES_PER_RUN)
 	_update_best_level(pet_data)
 	_pets[normalized_pet_id] = pet_data
 	_dirty = true
@@ -671,6 +683,8 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 			return _resolve_hatch_gain(pet_id, pet_data)
 		SOURCE_VICTORY:
 			return _resolve_victory_gain(pet_id, tags)
+		SOURCE_FEED:
+			return _resolve_feed_gain(pet_data)
 	return {"points": 0.0, "blocked_reason": "unknown_source"}
 
 
@@ -741,6 +755,18 @@ func _resolve_hatch_gain(_pet_id: String, pet_data: Dictionary) -> Dictionary:
 		return {"points": 0.0, "blocked_reason": "hatch_bonus_granted"}
 	pet_data["hatch_bonus_granted"] = true
 	return {"points": _get_gain_value(SOURCE_HATCH, "points")}
+
+
+func _resolve_feed_gain(pet_data: Dictionary) -> Dictionary:
+	if _feed_uses_this_run >= MAX_FEED_USES_PER_RUN:
+		return {"points": 0.0, "blocked_reason": "max_feed_uses"}
+	var level := int(pet_data.get("affinity_level", 0))
+	var points := float(pet_data.get("affinity_points", 0.0))
+	var remaining_to_feed_cap := _points_remaining_until_level(level, points, LINGPET_FEED_MAX_LEVEL)
+	if remaining_to_feed_cap <= 0.0:
+		return {"points": 0.0, "blocked_reason": "max_feed_level"}
+	var feed_points := minf(_get_gain_value(SOURCE_FEED, "points"), remaining_to_feed_cap)
+	return {"points": feed_points}
 
 
 func _apply_level_ups(pet_id: String, pet_data: Dictionary) -> Array[Dictionary]:
@@ -1135,6 +1161,17 @@ func _sum_int_values(values: Dictionary) -> int:
 	for raw_value in values.values():
 		total += int(raw_value)
 	return total
+
+
+func _points_remaining_until_level(current_level: int, current_points: float, target_level: int) -> float:
+	var clamped_current := clampi(current_level, 0, MAX_LEVEL)
+	var clamped_target := clampi(target_level, 0, MAX_LEVEL)
+	if clamped_current >= clamped_target:
+		return 0.0
+	var total := -maxf(0.0, current_points)
+	for level in range(clamped_current, clamped_target):
+		total += get_requirement_for_level(level)
+	return maxf(0.0, total)
 
 
 func _update_best_level(pet_data: Dictionary) -> void:

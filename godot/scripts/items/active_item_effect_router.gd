@@ -14,6 +14,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "apply_gauge_charge", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "life_elixir"):
 		return _call_bool(effect_controller, "apply_life_elixir", [item_data, owner, registry])
+	if _matches(item_name, effect_name, "lingpet_feed"):
+		return _call_bool(effect_controller, "apply_lingpet_feed", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "ammo_box"):
 		return _call_bool(effect_controller, "apply_ammo_box", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "doping_potion"):

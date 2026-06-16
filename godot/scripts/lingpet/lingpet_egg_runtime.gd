@@ -2682,6 +2682,19 @@ func add_enhancement_chip(_owner: Object = null, _registry: Object = null) -> Di
 	}
 
 
+func feed_lingpet(_owner: Object = null, registry: Object = null) -> Dictionary:
+	var affinity_pet_id := _get_active_affinity_pet_id()
+	if affinity_pet_id == "":
+		return {
+			"accepted": false,
+			"granted_points": 0.0,
+			"blocked_reason": "missing_lingpet",
+		}
+	var result := _add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_FEED, {}, registry)
+	result["accepted"] = float(result.get("granted_points", 0.0)) > 0.0
+	return result
+
+
 func get_enhancement_chips() -> int:
 	return _affinity_state.get_enhancement_chips()
 

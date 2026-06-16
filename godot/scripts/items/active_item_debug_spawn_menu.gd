@@ -21,6 +21,7 @@ const DEBUG_ACTION_BUTTON_GAP := 8.0
 
 const DEBUG_ENTRY_ORDER := [
 	"gauge_charge",
+	"lingpet_feed",
 	"life_elixir",
 	"vitamin_pill",
 	"strange_vial",
