@@ -4422,6 +4422,10 @@ This section is intentionally long; use search to find the nearest owner.
   Stage 3 Menhera, and the current Godot Stage 5 Hongryun route.
   `battle_resources.gd` keeps public aliases plus boss texture loading,
   compatibility keys, and staged prewarm sequencing.
+- `scripts/resources/battle_optimus_sprite_paths.gd`
+  Owns read-only Optimus player sprite and overlay paths. `battle_resources.gd`
+  keeps public aliases plus optional texture loading, cache keys, and staged
+  prewarm sequencing.
 - `scripts/resources/battle_skill_cutin_paths.gd`
   Owns read-only skill-presentation texture paths for Smasher / Viper cut-in
   sheets, Drive cut-in pieces, Shield Kiting cut-in art, and the Lingpet
