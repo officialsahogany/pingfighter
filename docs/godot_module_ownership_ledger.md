@@ -6235,7 +6235,9 @@ This section is intentionally long; use search to find the nearest owner.
   character detail panel, bottom card row, mouse / keyboard selection,
   bottom Champion / Mythic league buttons, content-area-safe responsive
   layout, preview-click confirmation, and handoff to `main.tscn` from
-  either the app-root flow or direct scene execution.
+  either the app-root flow or direct scene execution. Full-frame confirm /
+  preview-click motion config dictionaries are assembled by
+  `scripts/ui/character_select_motion_config_builder.gd`.
 - `scripts/characters/optimus_energy_state.gd`
   Owns the initial Godot Optimus / Io core battery mechanic: full starting
   battery, per-second drain, gauge-ratio paddle shrink, movement-speed
