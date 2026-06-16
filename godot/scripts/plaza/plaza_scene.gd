@@ -10,6 +10,7 @@ const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const PlazaShopTransactions := preload("res://scripts/plaza/plaza_shop_transactions.gd")
 const PlazaTavernTransactions := preload("res://scripts/plaza/plaza_tavern_transactions.gd")
 const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
+const PlazaInteriorView := preload("res://scripts/plaza/plaza_interior_view.gd")
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -162,6 +163,8 @@ var _full_layout_for_test := false
 var _selected_character_type := "smasher"
 var _player_textures: Dictionary = {}
 var _interior_npc_textures: Dictionary = {}
+var _interior_room_textures: Dictionary = {}
+var _interior_object_textures: Dictionary = {}
 var _lingpet_companion_texture: Texture2D = null
 var _lingpet_companion_pet_id := ""
 var _lingpet_companion_draw_size := 92.0
@@ -177,6 +180,7 @@ var _plaza_warp_active := false
 var _plaza_warp_phase := ""
 var _plaza_warp_timer := 0.0
 var _warp_pillar_fx_host: Node = null
+var _interior_view: Control = null
 var _last_input_dir := Vector2.RIGHT
 var _test_input_active := false
 var _test_input_dir := Vector2.ZERO
@@ -229,6 +233,8 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_selected_character_type = PlazaAssetLoader.normalize_player_character_type(data.get("selected_character_type", _get_runtime_owner_selected_character_type()))
 	_player_textures = PlazaAssetLoader.load_player_textures(_selected_character_type)
 	_interior_npc_textures = PlazaAssetLoader.load_interior_npc_textures()
+	_interior_room_textures = PlazaAssetLoader.load_interior_room_textures()
+	_interior_object_textures = PlazaAssetLoader.load_interior_object_textures()
 	_refresh_lingpet_companion_visual()
 	var save_path := str(data.get("plaza_save_path", "")).strip_edges()
 	if save_path != "" and _plaza_save_store != null and _plaza_save_store.has_method("set_save_path"):
@@ -317,6 +323,8 @@ func handle_plaza_input(event: InputEvent) -> bool:
 	if _building_transition_active:
 		return true
 	if _menu_open:
+		if _is_interior_view_active():
+			return _interior_view.handle_input(_localize_interior_event(event))
 		return _handle_menu_input(event)
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
@@ -346,6 +354,7 @@ func handle_plaza_input(event: InputEvent) -> bool:
 func get_status() -> Dictionary:
 	var active_building := _get_interactable_building()
 	var warp_fx_status := _get_warp_pillar_fx_status()
+	var interior_status := _get_interior_view_status()
 	return {
 		"current_stage": current_stage,
 		"theme_id": str(plaza_theme.get("id", "")),
@@ -385,7 +394,15 @@ func get_status() -> Dictionary:
 		"active_menu_actions": _active_menu_actions.duplicate(),
 		"active_menu_last_message": _active_menu_last_message,
 		"active_menu_visit_ap_consumed": _active_menu_visit_ap_consumed,
+		"interior_view_active": _is_interior_view_active(),
+		"interior_view_status": interior_status.duplicate(true),
+		"interior_room_replaces_plaza": bool(interior_status.get("room_replaces_plaza", false)),
+		"interior_panel_open": bool(interior_status.get("panel_open", false)),
+		"interior_hovered_object_id": str(interior_status.get("hovered_object_id", "")),
+		"interior_selected_object_id": str(interior_status.get("selected_object_id", "")),
 		"interior_npc_texture_loaded": _get_interior_npc_texture(_active_menu_type) != null,
+		"interior_room_texture_loaded": _get_interior_room_texture(_active_menu_type) != null,
+		"interior_object_texture_count": int(interior_status.get("object_texture_count", 0)),
 		"last_bank_transaction_summary": _last_bank_transaction_summary.duplicate(true),
 		"last_shop_transaction_summary": _last_shop_transaction_summary.duplicate(true),
 		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary.duplicate(true),
@@ -475,7 +492,41 @@ func advance_plaza_warp_transition_for_test(delta: float) -> Dictionary:
 
 
 func trigger_menu_action_for_test(action_index: int = 0) -> bool:
+	if _is_interior_view_active():
+		return _trigger_interior_action(action_index)
 	return _trigger_menu_action(action_index)
+
+
+func hover_interior_object_for_test(object_id: String) -> Dictionary:
+	if not _is_interior_view_active():
+		return get_status()
+	if _interior_view.has_method("hover_object_for_test"):
+		_interior_view.hover_object_for_test(object_id)
+	return get_status()
+
+
+func click_interior_object_for_test(object_id: String) -> Dictionary:
+	if not _is_interior_view_active():
+		return get_status()
+	if _interior_view.has_method("click_object_for_test"):
+		_interior_view.click_object_for_test(object_id)
+	return get_status()
+
+
+func confirm_interior_object_for_test() -> bool:
+	if not _is_interior_view_active():
+		return false
+	if _interior_view.has_method("confirm_selected_object_for_test"):
+		return bool(_interior_view.confirm_selected_object_for_test())
+	return false
+
+
+func click_interior_action_for_test(action_index: int = 0) -> bool:
+	if not _is_interior_view_active():
+		return false
+	if _interior_view.has_method("click_action_for_test"):
+		return bool(_interior_view.click_action_for_test(action_index))
+	return false
 
 
 func get_flicker_samples_for_test() -> Dictionary:
@@ -539,6 +590,9 @@ func _sync_game_rect() -> void:
 	var scale: float = min(view_size.x / GAME_SIZE.x, view_size.y / GAME_SIZE.y)
 	size = GAME_SIZE * scale
 	position = (view_size - size) * 0.5
+	if _is_interior_view_active():
+		_interior_view.position = Vector2.ZERO
+		_interior_view.size = size
 
 
 func _get_game_scale() -> float:
@@ -599,6 +653,16 @@ func _handle_runtime_perk_overlay_input(event: InputEvent) -> bool:
 
 
 func _localize_runtime_perk_event(event: InputEvent) -> InputEvent:
+	if not (event is InputEventMouse):
+		return event
+	var duplicated := event.duplicate()
+	if duplicated is InputEventMouse:
+		var mouse_event := duplicated as InputEventMouse
+		mouse_event.position = (event as InputEventMouse).position - get_global_rect().position
+	return duplicated
+
+
+func _localize_interior_event(event: InputEvent) -> InputEvent:
 	if not (event is InputEventMouse):
 		return event
 	var duplicated := event.duplicate()
@@ -1189,6 +1253,8 @@ func _draw_overlay_ui(scale: float) -> void:
 	if _building_transition_active:
 		return
 	if _menu_open:
+		if _is_interior_view_active():
+			return
 		_draw_building_menu(font, scale)
 		return
 	var active_building := _get_interactable_building()
@@ -1404,6 +1470,13 @@ func _get_interior_npc_texture(building_type: String) -> Texture2D:
 	if building_type == "":
 		return null
 	var texture: Variant = _interior_npc_textures.get(building_type, null)
+	return texture if texture is Texture2D else null
+
+
+func _get_interior_room_texture(building_type: String) -> Texture2D:
+	if building_type == "":
+		return null
+	var texture: Variant = _interior_room_textures.get(building_type, null)
 	return texture if texture is Texture2D else null
 
 
@@ -1763,7 +1836,73 @@ func _open_building_menu(building: Dictionary) -> void:
 	_last_tavern_transaction_summary = {}
 	_dialog_text = ""
 	_dialog_timer = 0.0
+	_open_interior_view()
 	queue_redraw()
+
+
+func _open_interior_view() -> void:
+	_free_interior_view()
+	var view := PlazaInteriorView.new()
+	_interior_view = view
+	view.name = "PlazaInteriorView"
+	view.position = Vector2.ZERO
+	view.size = size
+	view.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(view)
+	view.configure(
+		_build_interior_view_data(),
+		Callable(self, "_close_building_menu"),
+		Callable(self, "_trigger_interior_action")
+	)
+
+
+func _sync_interior_view_state() -> void:
+	if not _is_interior_view_active():
+		return
+	_interior_view.size = size
+	if _interior_view.has_method("update_state"):
+		_interior_view.update_state(_build_interior_view_data())
+
+
+func _free_interior_view() -> void:
+	if _interior_view != null and is_instance_valid(_interior_view):
+		_interior_view.queue_free()
+	_interior_view = null
+
+
+func _is_interior_view_active() -> bool:
+	return _interior_view != null and is_instance_valid(_interior_view)
+
+
+func _get_interior_view_status() -> Dictionary:
+	if not _is_interior_view_active() or not _interior_view.has_method("get_status"):
+		return {}
+	var value: Variant = _interior_view.get_status()
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	return {}
+
+
+func _build_interior_view_data() -> Dictionary:
+	return {
+		"building_type": _active_menu_type,
+		"title": _active_menu_title,
+		"subtitle": _active_menu_subtitle,
+		"actions": _active_menu_actions.duplicate(),
+		"last_message": _active_menu_last_message,
+		"npc_name": str(INTERIOR_NPC_NAMES.get(_active_menu_type, "")),
+		"npc_texture": _get_interior_npc_texture(_active_menu_type),
+		"room_texture": _get_interior_room_texture(_active_menu_type),
+		"object_textures": _interior_object_textures.duplicate(false),
+		"accent_color": _get_minimap_building_color(_active_menu_type),
+		"save_snapshot": _plaza_save_snapshot.duplicate(true),
+	}
+
+
+func _trigger_interior_action(action_index: int) -> bool:
+	var handled := _trigger_menu_action(action_index)
+	_sync_interior_view_state()
+	return handled
 
 
 func _start_building_enter_transition(building: Dictionary) -> void:
@@ -2285,6 +2424,7 @@ func _format_tavern_transaction_message(summary: Dictionary) -> String:
 
 func _close_building_menu(play_return_transition: bool = true) -> void:
 	var should_play_return := play_return_transition and _menu_open and not _building_transition_active
+	_free_interior_view()
 	_menu_open = false
 	_active_menu_type = ""
 	_active_menu_title = ""

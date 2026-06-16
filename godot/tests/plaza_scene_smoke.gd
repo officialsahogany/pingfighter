@@ -51,6 +51,8 @@ func _run() -> void:
 	_verify_stage_two_manifest_override_contract()
 	_verify_player_sprite_loader_contract()
 	_verify_interior_npc_texture_contract()
+	_verify_interior_room_texture_contract()
+	_verify_interior_object_texture_contract()
 	_verify_plaza_warp_pso_prewarm_contract()
 	_prewarm_stage_one()
 	_prewarm_stage_two_with_manifest_override()
@@ -113,6 +115,34 @@ func _verify_interior_npc_texture_contract() -> void:
 			_expect(image.get_pixel(0, 0).a < 0.001, "%s interior NPC PNG should have transparent corners" % building_type)
 			_expect(image.get_pixel(image.get_width() - 1, image.get_height() - 1).a < 0.001, "%s interior NPC PNG should have transparent corners" % building_type)
 	_verify_interior_npc_qa_file()
+
+
+func _verify_interior_room_texture_contract() -> void:
+	var paths: Dictionary = PlazaAssetLoader.get_interior_room_texture_paths_for_test()
+	var shop_path := str(paths.get("shop", ""))
+	_expect(shop_path == "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_room_imagegen_v1.png", "shop interior should expose the accepted room backdrop path")
+	_expect(FileAccess.file_exists(shop_path), "shop interior room backdrop PNG should exist")
+	var image := Image.load_from_file(ProjectSettings.globalize_path(shop_path))
+	_expect(image != null and not image.is_empty(), "shop interior room backdrop PNG should load as an image")
+	if image != null and not image.is_empty():
+		_expect(image.get_width() >= 1000 and image.get_height() >= 1000, "shop interior room backdrop should keep the high-resolution imagegen source")
+		var sample := image.get_pixel(image.get_width() / 2, image.get_height() / 2)
+		_expect(sample.a > 0.99, "shop interior room backdrop should be an opaque background")
+
+
+func _verify_interior_object_texture_contract() -> void:
+	var paths: Dictionary = PlazaAssetLoader.get_interior_object_texture_paths_for_test()
+	for object_kind in ["crystal", "capsule", "sell"]:
+		var path := str(paths.get(object_kind, ""))
+		_expect(path == "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_%s_imagegen_v1.png" % ("sell_device" if object_kind == "sell" else object_kind), "%s shop object should expose the accepted imagegen v1 path" % object_kind)
+		_expect(FileAccess.file_exists(path), "%s shop object PNG should exist" % object_kind)
+		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+		_expect(image != null and not image.is_empty(), "%s shop object PNG should load as an image" % object_kind)
+		if image != null and not image.is_empty():
+			_expect(image.get_size() == Vector2i(512, 512), "%s shop object should keep the normalized 512px transparent cutout" % object_kind)
+			_expect(image.get_pixel(0, 0).a < 0.001, "%s shop object should have transparent corners" % object_kind)
+			var sample := image.get_pixel(image.get_width() / 2, image.get_height() / 2)
+			_expect(sample.a > 0.05, "%s shop object should occupy the center of its normalized cutout" % object_kind)
 
 
 func _verify_interior_npc_qa_file() -> void:
@@ -488,6 +518,8 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		_expect(scene.trigger_interaction_for_test(), "%s interaction should open a menu shell" % building_type)
 		var status: Dictionary = scene.get_status()
 		_expect(bool(status.get("menu_open", false)), "%s menu shell should report open" % building_type)
+		_expect(bool(status.get("interior_view_active", false)), "%s menu shell should open the dedicated interior view" % building_type)
+		_expect(bool(status.get("interior_room_replaces_plaza", false)), "%s interior view should replace the plaza street visually" % building_type)
 		_expect(str(status.get("active_menu_type", "")) == str(building_type), "%s menu shell should report the active menu type" % building_type)
 		_expect(str(status.get("active_menu_title", "")) == str(expected_titles[building_type]), "%s menu shell should use the expected title" % building_type)
 		var expected_action_labels: Array = expected_actions[building_type]
@@ -498,6 +530,14 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		if str(building_type) == "tavern":
 			expected_action_labels = ["의뢰 받기", "의뢰 보고"]
 		_expect(_string_arrays_equal(status.get("active_menu_actions", []), expected_action_labels), "%s menu shell should expose the expected action stubs" % building_type)
+		if str(building_type) == "shop":
+			_expect(bool(status.get("interior_room_texture_loaded", false)), "shop interior should load the generated room backdrop texture")
+			_expect(int(status.get("interior_object_texture_count", 0)) >= 3, "shop interior should load the generated trade object textures")
+			var hover_status: Dictionary = scene.hover_interior_object_for_test("shop_action_0")
+			_expect(str(hover_status.get("interior_hovered_object_id", "")) == "shop_action_0", "shop interior should hover the first trade object")
+			var click_status: Dictionary = scene.click_interior_object_for_test("shop_action_0")
+			_expect(bool(click_status.get("interior_panel_open", false)), "shop interior object click should open the transaction panel")
+			_expect(str(click_status.get("interior_selected_object_id", "")) == "shop_action_0", "shop interior panel should stay bound to the clicked object")
 		scene.close_menu_for_test()
 
 

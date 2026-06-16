@@ -45,6 +45,8 @@ func _run() -> void:
 	var out_dir: String = _get_string_arg("--plaza-out=", DEFAULT_OUT_DIR)
 	var character_type: String = _get_string_arg("--plaza-character=", "smasher")
 	var lingpet_id: String = _get_string_arg("--plaza-lingpet=", "")
+	var menu_type_arg: String = _get_string_arg("--plaza-menu-type=", "bank")
+	var full_layout: bool = _get_bool_arg("--plaza-full-layout=", false)
 	DirAccess.make_dir_recursive_absolute(out_dir)
 
 	var viewport := SubViewport.new()
@@ -65,6 +67,7 @@ func _run() -> void:
 		"runtime_owner": capture_owner,
 		"selected_character_type": character_type,
 		"play_arrival_transition": true,
+		"full_layout_for_test": full_layout,
 	}
 	if map_seed > 0:
 		configure_data["map_seed"] = map_seed
@@ -117,7 +120,7 @@ func _run() -> void:
 	flicker_b.save_png(flicker_b_path)
 	print("[PlazaCapture] flicker ticks -> %s / %s" % [flicker_a_path, flicker_b_path])
 
-	var menu_target: Dictionary = _get_capture_menu_target(plaza)
+	var menu_target: Dictionary = _get_capture_menu_target(plaza, menu_type_arg)
 	if not menu_target.is_empty():
 		var interaction_rect: Rect2 = menu_target.get("interaction_rect", Rect2())
 		var menu_type: String = str(menu_target.get("type", "building"))
@@ -139,6 +142,15 @@ func _run() -> void:
 		var menu_path: String = "%s/plaza_stage%d_menu_%s.png" % [out_dir, stage_id, menu_type]
 		menu_image.save_png(menu_path)
 		print("[PlazaCapture] menu_%s -> %s" % [menu_type, menu_path])
+		if menu_type == "shop":
+			plaza.call("click_interior_object_for_test", "shop_action_0")
+			plaza.queue_redraw()
+			await process_frame
+			await process_frame
+			var shop_panel_image: Image = viewport.get_texture().get_image()
+			var shop_panel_path: String = "%s/plaza_stage%d_menu_%s_panel.png" % [out_dir, stage_id, menu_type]
+			shop_panel_image.save_png(shop_panel_path)
+			print("[PlazaCapture] menu_%s_panel -> %s" % [menu_type, shop_panel_path])
 		plaza.call("close_menu_for_test", false)
 		plaza.call("advance_building_transition_for_test", 0.50)
 		plaza.queue_redraw()
@@ -178,9 +190,14 @@ func _get_int_arg(prefix: String, fallback: int) -> int:
 	return int(_get_string_arg(prefix, str(fallback)))
 
 
-func _get_capture_menu_target(plaza: Control) -> Dictionary:
+func _get_bool_arg(prefix: String, fallback: bool) -> bool:
+	var value := _get_string_arg(prefix, "1" if fallback else "0").to_lower()
+	return ["1", "true", "yes", "on"].has(value)
+
+
+func _get_capture_menu_target(plaza: Control, desired_type: String) -> Dictionary:
 	var specs: Array[Dictionary] = plaza.call("get_building_specs_for_test")
 	for spec in specs:
-		if str(spec.get("type", "")) == "bank":
+		if str(spec.get("type", "")) == desired_type:
 			return spec
 	return specs[0] if not specs.is_empty() else {}

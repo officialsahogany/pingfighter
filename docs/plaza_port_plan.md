@@ -995,6 +995,214 @@ headless load 통과. 정확성: step 16 디스패치 확인(`WARMUP_DRAW_STEPS=
   `WARMUP_DRAW_STEPS := 16` 임시 토글 시 해당 assert가 RED, 즉시 `17` 복구 후
   `battle_pso_prewarmer_smoke` GREEN 및 check-only 파스 클린.
 
+## 0.10 건물 인테리어 격상 — 샵 우선 수직 슬라이스 (2026-06-16, 사용자 요구 + VR샵 레퍼런스)
+
+사용자 요구(5): ①건물 입장 = plaza 위 오버레이가 아니라 **별도 씬(플라자 거리 완전 대체)**
+②리치한 방(장식+그림) + **핵심 오브젝트 마우스 호버 시 애니메이션** ③좌측에 **건물 주인 NPC**
+④오브젝트 **클릭 시 더 역동적 애니 + 그 오브젝트의 기능 창이 열림** ⑤예: 샵에서 '거래' 오브젝트
+클릭→아이템 매매. 첨부 레퍼런스 = 사이버펑크 VR 정크샵(보라/마젠타 네온+청록, NPC 좌측, 테이블
+위 발광 오브젝트, 우상단 골드, 좌하단 나가기).
+
+### 0.10.0 결정 (확정)
+- **스코프 = 샵 우선 수직 슬라이스** (사용자 선택). 끝까지 완성 후 나머지 6건물로 템플릿 복제.
+- **아트 = 건물별 전용 룸, 스테이지 무관** (사용자 선택). 룸은 스테이지 테마로 재단장 안 함
+  (건물 정체성이 인테리어 결정 — 기존 "엠블럼 테마 공통" 결정과 일치). NPC 7종 아트 이미 존재(재사용).
+- **오브젝트 모델 = 액션 직매핑 + 거래 패널 (Model A+, 슬라이스 v1)**: 샵 테이블의 오브젝트 =
+  기존 샵 액션(벽돌 구매/부메랑 구매/판매), 호버=애니, **클릭→그 오브젝트가 플레어→소형 거래
+  패널(아이템/가격 + 확인·취소 → 결과)**이 "창이 열림"(req4)을 만족하고 기존 one-shot
+  `_trigger_menu_action(index)`를 그대로 재사용(거래 리팩터 0). *Model B(단일 '거래' 오브젝트→
+  멀티아이템 매매 리스트 패널)는 v2 진화로 보류* — 신규 리스트 패널 + 거래 list-driven 리팩터
+  필요. **이 한 가지가 유일한 잔여 fork → 사용자 확인 후 확정.**
+
+### 0.10.1 아키텍처 (신호 계약) — 배선=Codex
+- **새 `plaza_interior_view.gd` (Control 오버레이 호스트)**. 스카우트 권장(Option 1): 독립 호스트가
+  가장 깨끗(자체 입력 라우팅·프리캐시·plaza 미오염). **컨트롤러(stage_clear_result_screen) 소유
+  sibling**으로 plaza의 dual-node 패턴(`_scene_node`/`_plaza_node`) 확장 = `_interior_node`(z=1201,
+  PROCESS_MODE_ALWAYS), 또는 입력 단순화를 위해 **plaza_node의 child**로(트리 순서상 자연 차단).
+  Codex가 둘 중 입력/생명주기 깔끔한 쪽 선택(권장: 컨트롤러 sibling + plaza 숨김).
+- **흐름**: 건물 walk-in(글라이드+페이드, 기출시) **완료 시** — 현 `_update_building_transition`
+  enter 완료가 `_open_building_menu` 호출하던 자리에서 — **인테리어 오픈 시그널**(plaza→컨트롤러
+  콜백 또는 child 생성). 인테리어 표시 + **plaza 거리 비활성/숨김**(`plaza_node.visible=false`,
+  update 조기반환). **나가기/ESC → 인테리어 free + plaza 복귀 + 건물 return walk-in** 재생.
+- **게이팅**: 인테리어 활성 중 plaza 미니맵/거리/world/hover 드로 전부 suppress(`_draw_overlay_ui`
+  에서 인테리어 활성이면 조기반환, 또는 `plaza_node.visible=false`). 인테리어가 입력 점유
+  (sibling이면 `accept_event()` + 트리 순서). 카메라는 plaza update 조기반환으로 자동 freeze.
+- **트랜지션 핸드오프 트랩**: 인테리어는 walk-in **완료 후** 스폰(전환 active 중 스폰 금지 — 액터
+  글라이드/인테리어 bg 충돌, 스카우트 risk).
+
+### 0.10.2 레이아웃 계약 (760×750 게임뷰 기준; 풀 1488×918 스케일)
+- **룸 백드롭**: 풀스크린 페인티드 일러스트(불투명/근불투명).
+- **NPC**: 좌측 `INTERIOR_NPC_RECT=Rect2(46,126,244,420)` 재사용. 기존 `plaza_stage1_interior_npc_
+  shop_mora_imagegen_v1.png`(512×880 소스, magenta키, `load_imported_texture`) 런타임 합성.
+  이름 "상점주인 모라". NPC 대사 라인(기존 `INTERIOR_GREETING_LINES`).
+- **테이블 오브젝트**: 받침대 위 발광체 N개(샵=3: 벽돌/부메랑/판매), 이름+가격 라벨(레퍼런스처럼).
+- **골드 카운터**: 우상단 `◎ {plaza_gold}` (스냅샷서 매프레임 읽기, 캐시 금지). AP 표시.
+- **타이틀**: 좌상단 "VR 상점"(건물명, 폰트). **나가기 버튼**: 좌하단. **갱신 안내**: 우하단
+  "상품은 매일 00:00에 갱신됩니다". 모두 폰트(베이크 금지) + 다국어 동기화 + 리브랜딩(핑파이터 금지).
+
+### 0.10.3 인터랙티브 오브젝트 시스템 — 배선=Codex
+- **FX 호스트 = `plaza_warp_pillar_fx_host.gd` 클론**(idle 펄스 tween + `sync_state` actor 슬롯 +
+  Sprite2D+ShaderMaterial 풀). MAX_ACTOR→오브젝트 수, 펄스 ~0.18s로 스내피.
+  `WritheEmberMaterial` 프리셋(앰비언트 글로우용 신규 프리셋 or 기존 튜닝).
+- **호버**: hit-test = `_get_building_at_world_pos` 패턴 미러(오브젝트별 Rect2 배열, 역순 hit-test,
+  hovered_id 캐시). 호버 시 부유+확대+글로우펄스 강화(스크린 좌표).
+- **클릭**: 오브젝트 플레어(역동 애니) → **소형 거래 패널**(아이템·가격·확인/취소) 오픈 →
+  확인 → `_trigger_menu_action(action_index)`(기존 one-shot) → 결과 메시지 + 골드 갱신.
+- **AP**: 방문당 1회 소모(`_active_menu_visit_ap_consumed`) — 오브젝트가 perform_action 직접 호출
+  금지, 반드시 `_trigger_menu_action` 경유(중복 차감 방지, 스카우트 trap).
+
+### 0.10.4 아트 디렉션 (imagegen 레시피) — Claude 디렉션 / **생성=Codex imagegen** (2026-06-16 사용자 결정)
+자산 생성은 CLAUDE.md §0.1 분담대로 **Codex의 imagegen이 최종 생성 + repo 복사 + 로더/배선**.
+Claude는 아래 검증된 프롬프트/스펙/시각 타깃 제공 + 픽셀 게이트.
+
+- **타입 = 불투명 base 백드롭** (투명 홀 없음 → 크로마키/누끼 불필요; 런타임이 NPC·오브젝트·HUD를
+  위에 합성 = 스카우트 Option B). 라우팅은 `ui-hud-generation`(풀스크린 룸 일러스트).
+- **캔버스/구도 = 뷰에 맞춤**: 인테리어 뷰 `GAME_SIZE=760×750`(근정사각). 1:1 생성 후 760:750로
+  채움(1.3% 스퀘시 무시 가능). **구도는 레퍼런스의 탑다운 테이블이 아니라 런타임 레이아웃에 맞춤**:
+  좌측=세로 NPC 포트레잇 존(인물 없음), 중앙-하단=상품 카운터에 **빈 받침대 3개**(샵 3액션), 벽=네온 정크.
+- **해상도**: 1K 후보로 구도/무드 확정 후 **최종은 2K 생성 또는 Real-ESRGAN 2× 업스케일**(풀스크린
+  ~1500px 확대 대비 선명도). 1K 그대로 쓰면 소프트.
+- **시각 타깃(품질/방향 기준) = Claude Gemini 후보 v1**: `d:/tmp/plaza_shop_room/shop_room_
+  direction_target_v1.jpeg`. Codex imagegen이 이 구성/무드/품질을 매치. **Codex imagegen이 타깃을
+  못 따라오면 이 Gemini 후보를 그대로 자산으로 채택**(이미 계약 충족·게이트 통과 수준).
+- **검증된 copy-paste 프롬프트**(1:1, style="cyberpunk, detailed digital painting, atmospheric
+  anime game background art"):
+  > Fullscreen BACKGROUND illustration for a cyberpunk VR junk-shop interior in a video game.
+  > Moody, atmospheric, highly detailed digital painting, eye-level three-quarter interior view.
+  > This is a BACKDROP layer — leave specific zones open for game elements drawn on top later.
+  > LEFT THIRD: a shopkeeper's station — worn brass-and-steel counter corner, an empty padded
+  > stool, shelves of mechanical junk and coiled cables behind it; this left area MUST be free of
+  > any person/character (a portrait is placed here separately), readable not over-busy.
+  > CENTER and LOWER-CENTER: a large cluttered brass/steel shop counter covered with gears, tools,
+  > coins, wires and gadgets, BUT with THREE empty round metal display pedestals in a row across
+  > the open center — each pedestal completely EMPTY, nothing displayed.
+  > UPPER WALLS: dense cyberpunk clutter — CRT monitors with faint static, tangled cables/pipes,
+  > gauges, hanging tools, a glowing pink neon cat-face sign upper-right, a small holographic
+  > terminal, mugs, posters. FLOOR/counter: faint glowing purple data-glyph/circuit/arcane-circle
+  > pattern (virtual-reality substrate). PALETTE/LIGHTING: deep dark base, dramatic low-key,
+  > purple/magenta neon + cyan accents, warm amber rim light on counter edges, soft volumetric haze.
+  > STRICT EXCLUSIONS: no people/characters/shopkeeper; the three pedestals EMPTY (no crystals,
+  > capsules, glowing products, merchandise); no UI, no readable text labels, no numbers, no price
+  > tags, no health bars, no cursor, no watermark, no logo, no border frame. Single full-bleed
+  > opaque scene filling the entire near-square frame.
+
+- **통합 스펙(Codex)**:
+  - repo 경로 `godot/assets/ui/plaza/interior/plaza_stage1_interior_shop_room_imagegen_v1.png`,
+    PNG-first 로더 + **`load_imported_texture`**(raw `load_texture` 금지), `_draw_room_background`
+    의 절차 드로를 이 텍스처 draw로 교체(폴백=현 절차 룸). **`.import` 사이드카 게이트**(PNG 스테이지
+    시 import 패스 → `.png.import`+`.ctex` 생성 확인 후 함께 커밋; headless load 통과 ≠ 증거).
+  - **단일 이미지(아틀라스 아님)** → grid 선언 N/A.
+  - **받침대 정합**: 베이크된 받침대 3개 중심을 최종 PNG에서 측정 → 런타임 object rect를 그 위로
+    맞추고 `_draw_object`의 자체 펜데스탈 드로는 끄거나 미세 글로우링으로(이중 받침대 방지).
+    다른 건물 룸은 그 건물 액션 수에 맞춘 받침대 수로 생성.
+  - **NPC 합성**: 룸은 NPC 안 구움. 좌측 `NPC_RECT(26,118,236,500)`에 기존 portrait 합성.
+  - **PSO/픽셀 트랩**: 룸은 셰이더 없는 PNG라 PSO 추가 불필요(오브젝트 글로우 셰이더만 §0.10.6대로
+    prewarmer 등록). 룸 relight로 밝아졌으니 NPC magenta 프린지/룸-NPC 라이팅 정합 픽셀 QA.
+
+- **Codex imagegen 최종 반입 (2026-06-17)**:
+  - 채택 자산: `godot/assets/ui/plaza/interior/plaza_stage1_interior_shop_room_imagegen_v1.png`
+    (Codex built-in imagegen source 1254×1254 RGB → `tools/realesrgan/realesrgan-ncnn-vulkan.exe`
+    `realesr-animevideov3 -s 2` 업스케일 → runtime 2508×2508 RGB, 불투명 base 백드롭).
+    원본 보존: `d:/tmp/plaza_shop_room/shop_room_codex_imagegen_v1_source_1254.png`.
+  - import pass 완료: `plaza_stage1_interior_shop_room_imagegen_v1.png.import` + `.godot/imported/*ctex`
+    생성 확인.
+  - 배선: `PlazaAssetLoader.INTERIOR_ROOM_TEXTURE_PATHS["shop"]` → `load_interior_room_textures()`
+    → `plaza_scene.gd` → `plaza_interior_view.gd`의 `room_texture`로 전달. 내부 뷰는 texture가 있으면
+    cover-fit draw 후 절차형 룸/테이블 드로는 fallback으로만 사용.
+  - object rect는 생성 이미지의 3개 받침대에 맞춰 shop+room_texture일 때 별도 좌표 사용.
+  - 캡처 게이트 산출물: `d:/tmp/plaza_shop_room/codex_backdrop_v1/plaza_stage1_menu_shop.png`,
+    `.../plaza_stage1_menu_shop_panel.png`.
+- **오브젝트 발광체 아트**: 받침대 위 부유 발광체(데이터 결정/캡슐류), 투명 마진 충분
+  (글로우 엣지터치 금지), 호버/클릭은 셰이더/트윈 담당(아트는 정적 베이스).
+- **오브젝트 발광체 아트 반입 완료 (2026-06-17, Codex imagegen)**:
+  - source atlas: built-in imagegen, flat `#00ff00` chroma-key, 3종 row atlas(데이터 결정/부메랑 캡슐/
+    판매 교환 디바이스). source 보존: `d:/tmp/plaza_shop_objects/shop_objects_atlas_source_chromakey.png`.
+  - nukki: imagegen skill `remove_chroma_key.py` + soft matte/despill/edge-contract → 투명 atlas
+    `d:/tmp/plaza_shop_objects/shop_objects_atlas_alpha.png` → 512×512 정규화 컷아웃 3장.
+  - final assets:
+    `plaza_stage1_interior_shop_object_crystal_imagegen_v1.png`,
+    `plaza_stage1_interior_shop_object_capsule_imagegen_v1.png`,
+    `plaza_stage1_interior_shop_object_sell_device_imagegen_v1.png`
+    (+ `.import`/`.ctex` import pass 확인).
+  - 배선: `PlazaAssetLoader.INTERIOR_OBJECT_TEXTURE_PATHS` → `load_interior_object_textures()` →
+    `plaza_scene.gd`의 `object_textures` → `plaza_interior_view.gd`의 kind별 텍스처 draw. 텍스처 누락 시
+    기존 절차형 오브젝트 드로로 fallback.
+  - 픽셀 게이트: `d:/tmp/plaza_shop_objects/capture_v1/_object_zoom.png` 확인. 3 발광체가 베이크 받침대
+    위에 정렬되고 라벨/패널과 충돌 없음. 판매 디바이스는 큼직하지만 기능 정체성(교환/판매)이 뚜렷해 통과.
+
+- **Claude 게이트 (오브젝트 발광체 반입) = PASS (2026-06-17)**. 직접 재검증(보고 미신뢰).
+  - 픽셀: 컨택트시트(3종 512² 투명 컷아웃, 코너 alpha 0·중앙 불투명, 글로우 마진 OK, 프린지 0,
+    룸 팔레트 보라/시안/황동 일치) + 신규 합성 캡처 `d:/tmp/plaza_shop_objects/capture_v1/
+    plaza_stage1_menu_shop.png`(04:45, 오브젝트 PNG 04:40 이후 = 최신) 줌 = 3 imagegen 발광체
+    (크리스탈/캡슐/판매)가 베이크 받침대에 정렬, 런타임 글로우링이 디스크에 자연 합치, 라벨 충돌 0.
+    **주의: 구 룸 캡처(codex_backdrop_v1*, 02:48)는 절차형 오브젝트라 게이트 부적격 — 04:45 신규 캡처로
+    판정.**
+  - 코드: 3 PNG `.import`+`.ctex` 존재, `load_imported_texture`(raw 금지)+텍스처 캐시, interior_view
+    `_draw_object_icon`→`_draw_object_texture(kind)` 우선 + 절차형 폴백 유지. 스모크 씰
+    `_verify_interior_object_texture_contract`(경로/존재/512²/코너 alpha<0.001/중앙 occupy).
+  - 실행: parse(3) OK, plaza_scene_smoke/routing PASS, warning 0, headless load, git-check/오염 클린.
+  - 커밋 스코프 = **15 경로**(기존 9 + 오브젝트 PNG3 + .import3), 누출 0(lingpet/F7/audio 없음).
+
+- **Claude 게이트 (룸 백드롭 반입) = PASS (2026-06-17)**. 직접 재검증(보고 미신뢰).
+  - 픽셀(윈도우드 캡처 + 원자산 2508² 확대): 리치 사이버펑크 정크샵 룸, **3 오브젝트가 베이크
+    받침대 3개에 정렬**(런타임 글로우링이 디스크에 얹힘, 이중 받침대 추함 0), NPC 좌측·라벨(벽돌80/
+    부메랑120/판매)·HUD·확인패널 가독. 폴백(Gemini 후보 채택) **불필요** — Codex 룸이 타깃 동급
+    (작은 합성 캡처가 과소평가했으나 원자산은 받침대3+클러터+보라네온+회로바닥 충실).
+  - 코드: `.import` 사이드카 + `.ctex` 존재(export-drop 회피), `load_imported_texture`(raw 금지),
+    `_draw_room_backdrop_texture` cover-fit center-crop + 절차 룸 폴백 유지, 인테리어 뷰=plaza child
+    (입력 자연 차단), `_trigger_interior_action→_trigger_menu_action` 재사용(AP per-visit).
+  - 게이트 실행: parse(4파일) OK, plaza_scene_smoke/routing PASS, warning scan 0, headless load,
+    git diff --check/오염스캔 클린.
+  - 참고(버그 아님): 캡처 "0G"=하베스트 세이브 미로드(런타임은 스냅샷 실골드). 룸 약간 어두우나 OK.
+    NPC magenta 프린지=**풀해상도 확인 완료(프린지 0·실루엣 클린·라이팅 룸과 호환·전신 클립0)**.
+
+### 0.10.5 재사용 매트릭스 (신규 작성 최소화)
+- 거래: `plaza_{shop,...}_transactions.gd` perform_action + 결과 dict **그대로**. `_open_building
+  _menu`/`_trigger_menu_action` 진입점 재사용.
+- 상태: `_refresh_plaza_save_snapshot`/`_plaza_save_snapshot`(골드/AP). 결과 포맷 `_format_shop
+  _transaction_message`.
+- 자산: `PlazaAssetLoader.load_interior_npc_textures`(NPC), `INTERIOR_NPC_NAMES/RECT`.
+- 비주얼: 빛기둥 FX 호스트 클론, 호버 hit-test 패턴, WritheEmberMaterial 프리셋.
+
+### 0.10.6 트랩 체크리스트 (메모리/스카우트)
+- **PSO 프리웜**: 신규 오브젝트-글로우 셰이더/머터리얼 → `battle_pso_prewarmer` 오프스크린 draw
+  step 등록 **필수**(방금 빛기둥 선례 §0.9.6). 안 하면 인테리어 첫 진입 hitch. 디스패치까지 씰.
+- **load_imported_texture**(raw `load_texture` 금지): NPC + 룸 PNG 큰 텍스처 VRAM 포맷.
+- **음수-z/조상 불투명 풀필**: 룸 백드롭 뒤 레이어링 시 픽셀 QA(상태 스모크론 못 잡음).
+- **크로마 알파 블리드**: NPC를 밝은 룸 위 합성 시 magenta 프린지 — aggressive 클린업 + 합성
+  방식. 룸 relight 시 NPC 위 그림자/슈라우드 재틴트.
+- **호버 비용**: 오브젝트 N~3-5 역순 hit-test, 인테리어 활성 시에만(per-frame O(N) 게이트).
+- **AP 중복차감**: `_trigger_menu_action` 경유 강제.
+- **골드/AP 스테일**: 스냅샷 매프레임 읽기(캐시 금지).
+- **입력 순서**: sibling 호스트면 `accept_event()`+트리순서; child면 자연 차단.
+- **다국어/리브랜딩**: 모든 노출 문구 폰트+language_settings_data 동기화, "디스크하츠 - 링피아".
+
+### 0.10.7 슬라이스 백본 + 스모크 씰 (Codex)
+1. `plaza_interior_view.gd` 호스트 + 컨트롤러/plaza 핸드오프(walk-in 완료→인테리어, 나가기→복귀).
+2. 룸 백드롭 + NPC 합성 + 골드/타이틀/대사/나가기/갱신안내 레이아웃.
+3. 오브젝트 FX 호스트(빛기둥 클론) + 호버/클릭 애니 + 오브젝트→`_trigger_menu_action` + 거래 패널.
+4. 오브젝트-글로우 셰이더 PSO 프리웜 등록(+디스패치 씰, §0.9.6 패턴).
+- **스모크**: 인테리어 open/close 생명주기 + plaza 거리 숨김/복귀, 오브젝트 호버 상태/클릭→
+  action_index 매핑, AP 방문당 1회(중복차감 0), 골드 스냅샷 반영, PSO 프리웜 디스패치+WARMUP.
+- **v1 구현 결과 (2026-06-16, Codex)**: `plaza_interior_view.gd` Control 호스트를 추가해 walk-in 완료 후
+  광장 거리 위 메뉴 패널 대신 풀스크린 내부 뷰를 띄움. 상점은 좌측 NPC + 절차형 사이버펑크 룸 백드롭 +
+  3개 거래 오브젝트(벽돌/부메랑/판매) + 호버 lift/glow + 클릭 플레어 + 확인/취소 패널로 닫음.
+  v1은 셰이더/파티클 없이 즉시 드로잉만 사용하므로 신규 PSO 프리웜은 없음. 향후 imagegen 룸 백드롭 또는
+  오브젝트 전용 glow shader를 넣는 순간 §0.10.6 PSO 계약을 다시 활성화.
+
+### 0.10.8 게이트 기준 (Claude)
+- **픽셀**: 윈도우드 캡처 — ①별도 씬(플라자 거리 안 보임) ②리치 룸+NPC 좌측 ③오브젝트 호버 시
+  부유/확대/글로우(정지프레임 비교) ④클릭→플레어+거래 패널 ⑤골드/나가기/갱신안내 가독. NPC
+  magenta 프린지 0, 룸-NPC 라이팅 정합.
+- **코드/스모크**: 위 스모크 GREEN + PSO 디스패치 반증검증 + warning/load/parse 클린.
+- **기능**: 벽돌/부메랑 구매·판매가 실제 골드/인벤 반영, AP 방문당 1회, 나가기→plaza 복귀+return
+  walk-in.
+
+### 0.10.9 분담
+- **Claude**: 아트 디렉션(룸 imagegen 레시피·QA), 설계 노트(이 §), 적대적 게이트(픽셀+코드+스모크).
+- **Codex/사용자**: GDScript 배선(인테리어 뷰·핸드오프·오브젝트 시스템·거래 패널·PSO 등록·스모크).
+- **imagegen**: 샵 룸 백드롭(ui-hud-generation), 오브젝트 발광체 베이스 — Claude 디렉션 하에 생성.
+
 ## 1. 레거시 광장 시스템 요약 (포팅 대상 정의)
 
 소스: `downtown/` (manager/renderer/map_generator/building_designs/player/npc 등),

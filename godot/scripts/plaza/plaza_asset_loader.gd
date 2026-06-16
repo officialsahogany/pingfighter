@@ -30,6 +30,16 @@ const INTERIOR_NPC_TEXTURE_PATHS := {
 	"academy": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_academy_seoyul_imagegen_v1.png",
 }
 
+const INTERIOR_ROOM_TEXTURE_PATHS := {
+	"shop": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_room_imagegen_v1.png",
+}
+
+const INTERIOR_OBJECT_TEXTURE_PATHS := {
+	"crystal": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_crystal_imagegen_v1.png",
+	"capsule": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_capsule_imagegen_v1.png",
+	"sell": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_sell_device_imagegen_v1.png",
+}
+
 const PLAZA_PLAYER_GRID_COLS := 4
 const PLAZA_PLAYER_GRID_ROWS := 2
 const PLAZA_PLAYER_FRAME_COUNT := 8
@@ -181,6 +191,8 @@ static var _manifest_cache: Dictionary = {}
 static var _building_specs_cache: Dictionary = {}
 static var _player_texture_cache: Dictionary = {}
 static var _interior_npc_texture_cache: Dictionary = {}
+static var _interior_room_texture_cache: Dictionary = {}
+static var _interior_object_texture_cache: Dictionary = {}
 
 
 static func reset_for_test() -> void:
@@ -191,6 +203,8 @@ static func reset_for_test() -> void:
 	_building_specs_cache.clear()
 	_player_texture_cache.clear()
 	_interior_npc_texture_cache.clear()
+	_interior_room_texture_cache.clear()
+	_interior_object_texture_cache.clear()
 
 
 static func get_prewarm_status() -> Dictionary:
@@ -252,6 +266,12 @@ static func get_prewarm_texture_paths(stage_id: int = 1) -> Array[String]:
 			if path != "":
 				paths.append(path)
 	for path in INTERIOR_NPC_TEXTURE_PATHS.values():
+		if str(path) != "":
+			paths.append(str(path))
+	for path in INTERIOR_ROOM_TEXTURE_PATHS.values():
+		if str(path) != "":
+			paths.append(str(path))
+	for path in INTERIOR_OBJECT_TEXTURE_PATHS.values():
 		if str(path) != "":
 			paths.append(str(path))
 	for manifest_path in BUILDING_MANIFEST_PATHS:
@@ -328,8 +348,38 @@ static func load_interior_npc_textures() -> Dictionary:
 	return textures.duplicate(false)
 
 
+static func load_interior_room_textures() -> Dictionary:
+	if not _interior_room_texture_cache.is_empty():
+		return _interior_room_texture_cache.duplicate(false)
+	var textures := {}
+	for building_type in INTERIOR_ROOM_TEXTURE_PATHS.keys():
+		var path := str(INTERIOR_ROOM_TEXTURE_PATHS.get(building_type, ""))
+		textures[building_type] = ProjectResourceLoader.load_imported_texture(path) if path != "" else null
+	_interior_room_texture_cache = textures.duplicate(false)
+	return textures.duplicate(false)
+
+
+static func load_interior_object_textures() -> Dictionary:
+	if not _interior_object_texture_cache.is_empty():
+		return _interior_object_texture_cache.duplicate(false)
+	var textures := {}
+	for object_kind in INTERIOR_OBJECT_TEXTURE_PATHS.keys():
+		var path := str(INTERIOR_OBJECT_TEXTURE_PATHS.get(object_kind, ""))
+		textures[object_kind] = ProjectResourceLoader.load_imported_texture(path) if path != "" else null
+	_interior_object_texture_cache = textures.duplicate(false)
+	return textures.duplicate(false)
+
+
 static func get_interior_npc_texture_paths_for_test() -> Dictionary:
 	return INTERIOR_NPC_TEXTURE_PATHS.duplicate(true)
+
+
+static func get_interior_room_texture_paths_for_test() -> Dictionary:
+	return INTERIOR_ROOM_TEXTURE_PATHS.duplicate(true)
+
+
+static func get_interior_object_texture_paths_for_test() -> Dictionary:
+	return INTERIOR_OBJECT_TEXTURE_PATHS.duplicate(true)
 
 
 static func get_player_texture_paths_for_test(character_type: Variant) -> Dictionary:
