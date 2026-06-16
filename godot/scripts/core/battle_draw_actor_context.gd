@@ -1,29 +1,11 @@
 extends RefCounted
 
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
+const ResultContext := preload("res://scripts/core/battle_draw_actor_result_context.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const CommandoWeaponAnchorTable := preload("res://scripts/characters/commando_weapon_anchor_table.gd")
 const ViperHoverSheetOverride := preload("res://scripts/core/viper_hover_sheet_override.gd")
 
-const BOSS_RESULT_FRAME_SPEED := 0.18
-const BOSS_RESULT_FRAME_COUNT := 8
-const BOSS_STAGE2_VICTORY_FRAME_SPEED := 0.040
-const BOSS_STAGE2_VICTORY_FRAME_COUNT := 64
-const BOSS_STAGE2_DEFEAT_FRAME_SPEED := 0.025
-const BOSS_STAGE2_DEFEAT_FRAME_COUNT := 64
-const PLAYER_VICTORY_FRAME_SPEED := 0.020
-const PLAYER_VICTORY_FRAME_COUNT := 64
-const PLAYER_VICTORY_GRID_COLS := 8
-const BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT := 49
-const BLACKSMITH_PLAYER_VICTORY_GRID_COLS := 7
-const BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT := 49
-const BLACKSMITH_PLAYER_DEFEAT_GRID_COLS := 7
-const PLAYER_DEFEAT_FRAME_SPEED := 0.09
-const PLAYER_DEFEAT_FRAME_COUNT := 16
-const PLAYER_DEFEAT_GRID_COLS := 4
-const PLAYER_DEFEAT_64_FRAME_SPEED := 0.025
-const PLAYER_DEFEAT_64_FRAME_COUNT := 64
-const PLAYER_DEFEAT_64_GRID_COLS := 8
 const PLAYER_DIRECTIONAL_WALK_FRAME_COUNT := 8
 const PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
 const PLAYER_DIRECTIONAL_DASH_FRAME_COUNT := 8
@@ -164,12 +146,12 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var texture_sample_start: int = _perf_begin(perf_logger)
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
-	var boss_result_context: Dictionary = _get_boss_result_context(deps, current_stage)
-	var result_state_active: bool = _has_result_state(boss_result_context)
+	var boss_result_context: Dictionary = ResultContext.get_boss_result_context(deps, current_stage)
+	var result_state_active: bool = ResultContext.has_result_state(boss_result_context)
 	_perf_end(perf_logger, "context.actor.textures.base", texture_sample_start)
 	if result_state_active:
 		texture_sample_start = _perf_begin(perf_logger)
-		textures = _sync_cached_result_textures(
+		textures = ResultContext.sync_cached_result_textures(
 			textures,
 			deps.get("battle_resources", null),
 			character_type,
@@ -427,11 +409,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	)
 	var player_default_draw_size := Vector2(160.0, 160.0)
 	var player_runtime_draw_size: Vector2 = BLACKSMITH_PLAYER_DRAW_SIZE if is_blacksmith else player_default_draw_size
-	var _player_victory_frame_count: int = BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT if is_blacksmith else PLAYER_VICTORY_FRAME_COUNT
-	var _player_victory_grid_cols: int = BLACKSMITH_PLAYER_VICTORY_GRID_COLS if is_blacksmith else PLAYER_VICTORY_GRID_COLS
-	var _player_defeat_frame_count: int = BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT if is_blacksmith else (PLAYER_DEFEAT_64_FRAME_COUNT if is_viper else PLAYER_DEFEAT_FRAME_COUNT)
-	var _player_defeat_grid_cols: int = BLACKSMITH_PLAYER_DEFEAT_GRID_COLS if is_blacksmith else (PLAYER_DEFEAT_64_GRID_COLS if is_viper else PLAYER_DEFEAT_GRID_COLS)
-	var _player_defeat_frame_key := "player_defeat_frame_64" if is_viper else "player_defeat_frame"
+	var _player_victory_frame_count: int = ResultContext.get_player_victory_frame_count(is_blacksmith)
+	var _player_victory_grid_cols: int = ResultContext.get_player_victory_grid_cols(is_blacksmith)
+	var _player_defeat_frame_count: int = ResultContext.get_player_defeat_frame_count(is_blacksmith, is_viper)
+	var _player_defeat_grid_cols: int = ResultContext.get_player_defeat_grid_cols(is_blacksmith, is_viper)
+	var _player_defeat_frame_key: String = ResultContext.get_player_defeat_frame_key(is_viper)
 	_perf_end(perf_logger, "context.actor.customization", actor_sample_start)
 
 	actor_sample_start = _perf_begin(perf_logger)
@@ -1072,93 +1054,6 @@ func _get_boss_health_ratio(context: Dictionary) -> float:
 		return 0.0
 	var current_health: int = clamp(int(context.get("boss_current_health", max_health)), 0, max_health)
 	return clamp(float(current_health) / float(max_health), 0.0, 1.0)
-
-
-func _has_result_state(result_context: Dictionary) -> bool:
-	return (
-		bool(result_context.get("boss_defeat_active", false))
-		or bool(result_context.get("boss_victory_active", false))
-		or bool(result_context.get("player_victory_active", false))
-		or bool(result_context.get("player_defeat_active", false))
-	)
-
-
-func _ensure_result_textures(
-	textures: Dictionary,
-	resources: Variant,
-	character_type: String,
-	current_stage: int,
-	result_context: Dictionary
-) -> Dictionary:
-	if resources == null or not resources.has_method("ensure_result_textures"):
-		return textures
-	var ensured: Variant = resources.ensure_result_textures(character_type, current_stage, result_context)
-	if ensured is Dictionary:
-		return ensured
-	return textures
-
-
-func _sync_cached_result_textures(
-	textures: Dictionary,
-	resources: Variant,
-	character_type: String,
-	current_stage: int,
-	result_context: Dictionary
-) -> Dictionary:
-	if resources == null or not resources.has_method("sync_cached_result_textures"):
-		return textures
-	var synced: Variant = resources.sync_cached_result_textures(character_type, current_stage, result_context)
-	if synced is Dictionary:
-		return synced
-	return textures
-
-
-func _get_boss_result_context(deps: Dictionary, current_stage: int) -> Dictionary:
-	var scoreboard_state = deps.get("scoreboard_state", null)
-	if scoreboard_state == null:
-		return {}
-	if not scoreboard_state.has_method("is_active") or not scoreboard_state.is_active():
-		return {}
-
-	var scoring_side: String = ""
-	if scoreboard_state.has_method("get_last_scoring_side"):
-		scoring_side = str(scoreboard_state.get_last_scoring_side())
-
-	var player_points: int = 0
-	var boss_points: int = 0
-	if scoreboard_state.has_method("get_player_points"):
-		player_points = int(scoreboard_state.get_player_points())
-	if scoreboard_state.has_method("get_boss_points"):
-		boss_points = int(scoreboard_state.get_boss_points())
-	if scoring_side != "player" and scoring_side != "boss":
-		if player_points > boss_points:
-			scoring_side = "player"
-		elif boss_points > player_points:
-			scoring_side = "boss"
-	if scoring_side != "player" and scoring_side != "boss":
-		return {}
-
-	var timer: float = 0.0
-	if scoreboard_state.has_method("get_timer"):
-		timer = max(0.0, float(scoreboard_state.get_timer()))
-	var frame: int = min(BOSS_RESULT_FRAME_COUNT - 1, int(floor(timer / BOSS_RESULT_FRAME_SPEED)))
-	var stage2_victory_frame: int = int(floor(timer / BOSS_STAGE2_VICTORY_FRAME_SPEED)) % BOSS_STAGE2_VICTORY_FRAME_COUNT
-	var stage2_defeat_frame: int = min(BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1, int(floor(timer / BOSS_STAGE2_DEFEAT_FRAME_SPEED)))
-	var player_victory_frame: int = min(PLAYER_VICTORY_FRAME_COUNT - 1, int(floor(timer / PLAYER_VICTORY_FRAME_SPEED)))
-	var player_defeat_frame: int = min(PLAYER_DEFEAT_FRAME_COUNT - 1, int(floor(timer / PLAYER_DEFEAT_FRAME_SPEED)))
-	var player_defeat_frame_64: int = min(PLAYER_DEFEAT_64_FRAME_COUNT - 1, int(floor(timer / PLAYER_DEFEAT_64_FRAME_SPEED)))
-	return {
-		"boss_defeat_active": scoring_side == "player",
-		"boss_victory_active": scoring_side == "boss",
-		"boss_result_frame": frame,
-		"boss_defeat_frame": stage2_defeat_frame if current_stage == 2 else frame,
-		"boss_victory_frame": stage2_victory_frame if current_stage == 2 else frame,
-		"player_victory_active": scoring_side == "player",
-		"player_victory_frame": player_victory_frame,
-		"player_defeat_active": scoring_side == "boss",
-		"player_defeat_frame": player_defeat_frame,
-		"player_defeat_frame_64": player_defeat_frame_64,
-	}
 
 
 func _get_commando_b2_animation_state(

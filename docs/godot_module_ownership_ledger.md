@@ -4224,7 +4224,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_draw_actor_context.gd`
   Owns Stage 1 actor draw snapshots: animation-state draw data, dash
   status, player / boss positions, paddle sizes / scale, and player / boss
-  sprite texture references.
+  sprite texture references. Result scoreboard-to-actor draw state,
+  result-frame constants, and cached result texture sync are delegated to
+  `scripts/core/battle_draw_actor_result_context.gd`.
 - `scripts/core/battle_draw_ball_context.gd`
   Owns ball draw snapshots: ball effect trails / particles, current
   intensity colors, serve-wait draw placement, current ball renderer flags,
