@@ -11,21 +11,22 @@ const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoin
 const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
 const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
 const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
+const Stage1BalloonEventAssets := preload("res://scripts/stages/stage1/stage1_balloon_event_assets.gd")
 const Stage1BalloonPayloadFactory := preload("res://scripts/stages/stage1/stage1_balloon_payload_factory.gd")
 
 const STAGE_ID := 1
 const WIDTH := 760.0
 const HEIGHT := 750.0
-const NORMAL_BALLOON_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_balloon_sheet_imagegen_v1.png"
-const SPECIAL_BALLOON_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_star_balloon_gold_sheet_v1.png"
-const NORMAL_BALLOON_BODY_YAW_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_balloon_body_yaw_sheet_imagegen_v4.png"
-const SPECIAL_BALLOON_BODY_YAW_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_star_balloon_gold_body_yaw_sheet_v1.png"
-const BALLOON_POP_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_balloon_pop_sheet_imagegen_v1.png"
-const BALLOON_TEXTURE_PREWARM_STEPS := 5
-const NORMAL_BALLOON_FRAME_COUNT := 8
-const SPECIAL_BALLOON_FRAME_COUNT := 4
-const BALLOON_YAW_FRAME_COUNT := 16
-const BALLOON_POP_FRAME_COUNT := 6
+const NORMAL_BALLOON_SHEET_PATH := Stage1BalloonEventAssets.NORMAL_BALLOON_SHEET_PATH
+const SPECIAL_BALLOON_SHEET_PATH := Stage1BalloonEventAssets.SPECIAL_BALLOON_SHEET_PATH
+const NORMAL_BALLOON_BODY_YAW_SHEET_PATH := Stage1BalloonEventAssets.NORMAL_BALLOON_BODY_YAW_SHEET_PATH
+const SPECIAL_BALLOON_BODY_YAW_SHEET_PATH := Stage1BalloonEventAssets.SPECIAL_BALLOON_BODY_YAW_SHEET_PATH
+const BALLOON_POP_SHEET_PATH := Stage1BalloonEventAssets.BALLOON_POP_SHEET_PATH
+const BALLOON_TEXTURE_PREWARM_STEPS := Stage1BalloonEventAssets.BALLOON_TEXTURE_PREWARM_STEPS
+const NORMAL_BALLOON_FRAME_COUNT := Stage1BalloonEventAssets.NORMAL_BALLOON_FRAME_COUNT
+const SPECIAL_BALLOON_FRAME_COUNT := Stage1BalloonEventAssets.SPECIAL_BALLOON_FRAME_COUNT
+const BALLOON_YAW_FRAME_COUNT := Stage1BalloonEventAssets.BALLOON_YAW_FRAME_COUNT
+const BALLOON_POP_FRAME_COUNT := Stage1BalloonEventAssets.BALLOON_POP_FRAME_COUNT
 const BALLOON_POP_FRAME_DURATION := 4.0
 const BALLOON_SPRITE_VISUAL_SCALE := 0.8
 const BALLOON_MIN_RADIUS := 25
@@ -68,16 +69,8 @@ const MACHINE_CORE_ARC_SEGMENTS := 14
 const MACHINE_JOINT_ARC_SEGMENTS := 6
 const MACHINE_BARREL_COUNT := 4
 const MACHINE_BARREL_ARC_SEGMENTS := 6
-const NORMAL_BALLOON_COLORS := [
-	Color(1.0, 100.0 / 255.0, 100.0 / 255.0),
-	Color(100.0 / 255.0, 1.0, 100.0 / 255.0),
-	Color(100.0 / 255.0, 100.0 / 255.0, 1.0),
-	Color(1.0, 100.0 / 255.0, 1.0),
-	Color(100.0 / 255.0, 1.0, 1.0),
-	Color(1.0, 200.0 / 255.0, 100.0 / 255.0),
-	Color(200.0 / 255.0, 100.0 / 255.0, 1.0),
-]
-const STARPOINT_BALLOON_COLOR := Color(1.0, 232.0 / 255.0, 88.0 / 255.0)
+const NORMAL_BALLOON_COLORS := Stage1BalloonEventAssets.NORMAL_BALLOON_COLORS
+const STARPOINT_BALLOON_COLOR := Stage1BalloonEventAssets.STARPOINT_BALLOON_COLOR
 
 var active := false
 var phase := "idle"

@@ -3392,6 +3392,11 @@ This section is intentionally long; use search to find the nearest owner.
   Its raw PNG sheets live under
   `godot/assets/sprites/stage1/balloon/`, with event sounds under
   `godot/assets/sounds/`.
+- `scripts/stages/stage1/stage1_balloon_event_assets.gd`
+  Owns Stage 1 balloon-event asset metadata: balloon sheet resource paths,
+  sheet frame counts, texture prewarm step count, and balloon color palette.
+  `stage1_balloon_event.gd` keeps texture cache fields, staged load order,
+  gameplay state, draw paths, and collision / reward handoff.
 - `scripts/stages/stage1/stage1_context_reader.gd`
   Owns typed reads for Stage 1 renderer dictionaries: Vector2 and Color
   fallback coercion used by playfield, player, boss, and sprite fallback
