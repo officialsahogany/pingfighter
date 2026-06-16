@@ -448,6 +448,11 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/mythic_item_catalog.gd` and
   `scripts/items/mythic_item_runtime.gd`
   Own the first mythic/passive equipment slice in the Godot port. The
+  static mythic item ids, base field/gauge values, shared helper context
+  dictionaries, and Ragnarok / Poseidon / Baal / field-effect constant
+  bundles are owned by `scripts/items/mythic_item_runtime_constants.gd` so
+  `mythic_item_runtime.gd` can stay focused on facade state and delegation.
+  The
   current shipped equipment includes Speed Boots, Speed Gear, Danger Sensor Belt,
   Revival Charm, Spike Boots,
   Dowsing Pendulum, Backpack (`slot_add`), Charge Bag (`chargebag`),
