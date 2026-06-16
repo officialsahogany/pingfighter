@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const MOVE_MESSAGE := "방향키 ← / → 또는 A / D - 이동"
 const DASH_MESSAGE := "← / → 이동 중 ↓ / S - 대쉬"
@@ -31,6 +32,7 @@ var _dash_tutorial_completed := false
 var _grip_style := ""
 var _text_size_cache: Dictionary = {}
 var _last_language := ""
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func update(delta: float, owner: Object, registry: Object = null) -> bool:
@@ -156,7 +158,7 @@ func _should_start(owner: Object) -> bool:
 		return false
 	return (
 		_normalize_league_mode(str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))) == "junior"
-		and _normalize_character_type(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")) == "smasher"
+		and _character_runtime.normalize(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")) == "smasher"
 		and _get_grip_style(owner) != ""
 	)
 
@@ -168,17 +170,6 @@ func _normalize_league_mode(mode: String) -> String:
 	if normalized == "mythic" or normalized == "mythicleague":
 		return "mythic"
 	return "champion"
-
-
-func _normalize_character_type(value: Variant) -> String:
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == "viper":
-		return "viper"
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	return "smasher"
 
 
 func _get_grip_style(owner: Object) -> String:
