@@ -12,6 +12,7 @@ const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_
 const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
 const StagePlayfieldBounds := preload("res://scripts/stages/common/stage_playfield_bounds.gd")
 const Stage3BossSkillPayloadFactory := preload("res://scripts/stages/stage3/stage3_boss_skill_payload_factory.gd")
+const Stage3KuromiFractureParticles := preload("res://scripts/stages/stage3/stage3_kuromi_fracture_particles.gd")
 
 const STAGE_ID := 3
 const WIDTH := 760.0
@@ -91,8 +92,6 @@ const STARPOINT_PARTICLE_LIFE := 60.0
 const STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES := [-36.0, -24.0, 24.0, 36.0]
 const MAX_STAGE3_STARPOINT_DROPS := 10
 const MAX_STAGE3_STARPOINT_PARTICLES := 120
-const MAX_KUROMI_CRACK_PARTICLES := 96
-const KUROMI_FRAGMENT_SPAWN_BUDGET_PER_FRAME := 16
 const MAX_CURSE_SMOKE_PARTICLES := 240
 const MAX_KUROMI_EATING_PARTICLES := 80
 
@@ -163,10 +162,7 @@ var kuromi_ball_on_tongue := false
 var kuromi_eat_source_pos := Vector2.ZERO
 var kuromi_swallow_sound_played := false
 var kuromi_eating_particles: Array = []
-var kuromi_crack_particles: Array = []
-var kuromi_crack_particles_draw_order: Array = []
-var kuromi_pending_large_fragments := 0
-var kuromi_pending_small_fragments := 0
+var _kuromi_fracture: Stage3KuromiFractureParticles
 var kuromi_spit_trail: Array = []
 var kuromi_spit_trail_phase := 0.0
 var kuromi_spit_trail_frame := 0.0
@@ -177,6 +173,7 @@ var starpoint_particles: Array = []
 
 func _init() -> void:
 	rng.seed = 3303
+	_kuromi_fracture = Stage3KuromiFractureParticles.new(rng)
 
 
 func reset() -> void:
@@ -194,10 +191,7 @@ func reset() -> void:
 	kuromi_awakening_timer = 0.0
 	kuromi_awakening_explosion_spawned = false
 	kuromi_awakened = false
-	kuromi_crack_particles.clear()
-	kuromi_crack_particles_draw_order.clear()
-	kuromi_pending_large_fragments = 0
-	kuromi_pending_small_fragments = 0
+	_kuromi_fracture.clear()
 
 
 func reset_round() -> void:
@@ -285,8 +279,7 @@ func force_kuromi_awake() -> void:
 	kuromi_awakening_timer = 0.0
 	kuromi_awakening_explosion_spawned = true
 	kuromi_awakened = true
-	kuromi_pending_large_fragments = 0
-	kuromi_pending_small_fragments = 0
+	_kuromi_fracture.clear_pending()
 
 
 func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}) -> Dictionary:
@@ -357,8 +350,8 @@ func get_actor_draw_context(copy_arrays: bool = false) -> Dictionary:
 		"stage3_kuromi_ball_tongue_pos": kuromi_ball_tongue_pos,
 		"stage3_kuromi_ball_on_tongue": kuromi_ball_on_tongue,
 		"stage3_kuromi_eating_particles": _draw_array(kuromi_eating_particles, copy_arrays, true),
-		"stage3_kuromi_crack_particles": _draw_array(kuromi_crack_particles, copy_arrays, false),
-		"stage3_kuromi_crack_particles_draw_order": _draw_array(kuromi_crack_particles_draw_order, copy_arrays, false),
+		"stage3_kuromi_crack_particles": _draw_array(_kuromi_fracture.particles, copy_arrays, false),
+		"stage3_kuromi_crack_particles_draw_order": _draw_array(_kuromi_fracture.particles_draw_order, copy_arrays, false),
 		"stage3_kuromi_spit_trail": _draw_array(kuromi_spit_trail, copy_arrays, true),
 		"stage3_kuromi_spit_trail_phase": kuromi_spit_trail_phase,
 		"stage3_prism_particles": _draw_array(prism_particles, copy_arrays, true),
@@ -406,14 +399,12 @@ func _maybe_start_kuromi_awakening(player_score: int, deps: Dictionary = {}) -> 
 	kuromi_awakening = true
 	kuromi_awakening_timer = KUROMI_AWAKENING_SEC
 	kuromi_awakening_explosion_spawned = false
-	kuromi_crack_particles.clear()
-	kuromi_pending_large_fragments = 0
-	kuromi_pending_small_fragments = 0
+	_kuromi_fracture.clear()
 	_play_audio(deps, "play_stage3_kuromi_awake")
 
 
 func _update_kuromi_awakening(delta: float, deps: Dictionary) -> void:
-	_update_kuromi_crack_particles(delta)
+	_kuromi_fracture.update(delta)
 	if not kuromi_awakening:
 		return
 	kuromi_awakening_timer = max(0.0, kuromi_awakening_timer - delta)
@@ -442,105 +433,7 @@ func _spawn_kuromi_awakening_fragments() -> void:
 	if kuromi_awakening_explosion_spawned:
 		return
 	kuromi_awakening_explosion_spawned = true
-	kuromi_pending_large_fragments = rng.randi_range(36, 48)
-	kuromi_pending_small_fragments = 24
-	_spawn_pending_kuromi_fragments(KUROMI_FRAGMENT_SPAWN_BUDGET_PER_FRAME)
-
-
-func _spawn_pending_kuromi_fragments(budget: int = KUROMI_FRAGMENT_SPAWN_BUDGET_PER_FRAME) -> void:
-	if budget <= 0 or (kuromi_pending_large_fragments <= 0 and kuromi_pending_small_fragments <= 0):
-		return
-	var center := Vector2(WIDTH * 0.5, HEIGHT * 0.5)
-	var remaining_budget: int = budget
-	while remaining_budget > 0 and kuromi_pending_large_fragments > 0:
-		kuromi_pending_large_fragments -= 1
-		remaining_budget -= 1
-		kuromi_crack_particles.append(_make_kuromi_fragment(
-			center + Vector2(rng.randi_range(-30, 30), rng.randi_range(-30, 30)),
-			rng.randf_range(15.0, 40.0),
-			3.0,
-			rng.randi_range(3, 25),
-			rng.randf_range(0.5, 2.0),
-			true
-		))
-	while remaining_budget > 0 and kuromi_pending_small_fragments > 0:
-		kuromi_pending_small_fragments -= 1
-		remaining_budget -= 1
-		kuromi_crack_particles.append(_make_kuromi_fragment(
-			center + Vector2(rng.randi_range(-40, 40), rng.randi_range(-40, 40)),
-			rng.randf_range(10.0, 30.0),
-			80.0 / 60.0,
-			rng.randi_range(2, 5),
-			rng.randf_range(0.3, 1.0),
-			false
-		))
-	_trim_kuromi_crack_particles()
-	_refresh_kuromi_crack_particle_draw_order()
-
-
-func _make_kuromi_fragment(pos: Vector2, speed: float, life: float, initial_size: int, z_vel: float, large: bool) -> Dictionary:
-	var angle: float = rng.randf_range(0.0, TAU)
-	var edge_boost: float = 1.0
-	if large and (abs(cos(angle)) > 0.7 or abs(sin(angle)) > 0.7):
-		edge_boost = rng.randf_range(1.2, 1.8)
-	var boosted_speed: float = speed * edge_boost
-	var colors := [
-		Color(180.0 / 255.0, 180.0 / 255.0, 180.0 / 255.0, 1.0),
-		Color(150.0 / 255.0, 150.0 / 255.0, 150.0 / 255.0, 1.0),
-		Color(120.0 / 255.0, 120.0 / 255.0, 120.0 / 255.0, 1.0),
-		Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0, 1.0),
-		Color(100.0 / 255.0, 100.0 / 255.0, 100.0 / 255.0, 1.0),
-		Color(160.0 / 255.0, 140.0 / 255.0, 120.0 / 255.0, 1.0),
-	]
-	return {
-		"x": pos.x,
-		"y": pos.y,
-		"vx": cos(angle) * boosted_speed,
-		"vy": sin(angle) * boosted_speed - rng.randf_range(-2.0, 8.0),
-		"life": life,
-		"max_life": life,
-		"initial_size": float(initial_size),
-		"size": float(initial_size),
-		"z_vel": z_vel,
-		"z_pos": 0.0,
-		"rotation": rng.randf_range(0.0, 360.0),
-		"angular_vel": rng.randf_range(-30.0, 30.0) if large else rng.randf_range(-40.0, 40.0),
-		"color": colors[rng.randi_range(0, colors.size() - 1)],
-		"seed": rng.randi(),
-	}
-
-
-func _update_kuromi_crack_particles(delta: float) -> void:
-	_spawn_pending_kuromi_fragments(KUROMI_FRAGMENT_SPAWN_BUDGET_PER_FRAME)
-	if kuromi_crack_particles.is_empty():
-		kuromi_crack_particles_draw_order.clear()
-		return
-	var fps_scale: float = delta * 60.0
-	var write_idx: int = 0
-	for idx in range(kuromi_crack_particles.size()):
-		var particle: Dictionary = kuromi_crack_particles[idx]
-		particle["x"] = float(particle.get("x", 0.0)) + float(particle.get("vx", 0.0)) * fps_scale
-		particle["y"] = float(particle.get("y", 0.0)) + float(particle.get("vy", 0.0)) * fps_scale
-		particle["vy"] = float(particle.get("vy", 0.0)) + 0.2 * fps_scale
-		particle["vx"] = float(particle.get("vx", 0.0)) * pow(0.99, fps_scale)
-		particle["z_pos"] = float(particle.get("z_pos", 0.0)) + float(particle.get("z_vel", 1.0)) * fps_scale
-		particle["size"] = float(particle.get("initial_size", 10.0)) * (1.0 + float(particle.get("z_pos", 0.0)) / 50.0)
-		if float(particle.get("z_pos", 0.0)) > 30.0:
-			particle["vx"] = float(particle.get("vx", 0.0)) * pow(1.02, fps_scale)
-			particle["vy"] = float(particle.get("vy", 0.0)) * pow(1.02, fps_scale)
-		particle["rotation"] = float(particle.get("rotation", 0.0)) + float(particle.get("angular_vel", 0.0)) * fps_scale
-		particle["life"] = float(particle.get("life", 0.0)) - delta
-		if float(particle.get("life", 0.0)) <= 0.0:
-			continue
-		kuromi_crack_particles[write_idx] = particle
-		write_idx += 1
-	if write_idx < kuromi_crack_particles.size():
-		kuromi_crack_particles.resize(write_idx)
-	_refresh_kuromi_crack_particle_draw_order()
-
-
-func _trim_kuromi_crack_particles() -> void:
-	_trim_array_from_front(kuromi_crack_particles, MAX_KUROMI_CRACK_PARTICLES)
+	_kuromi_fracture.spawn_explosion()
 
 
 func _trim_array_from_front(source: Array, max_size: int) -> void:
@@ -552,19 +445,6 @@ func _trim_array_from_front(source: Array, max_size: int) -> void:
 		source[write_idx] = source[read_idx]
 		write_idx += 1
 	source.resize(write_idx)
-
-
-func _refresh_kuromi_crack_particle_draw_order() -> void:
-	kuromi_crack_particles_draw_order.clear()
-	if kuromi_crack_particles.is_empty():
-		return
-	for particle in kuromi_crack_particles:
-		kuromi_crack_particles_draw_order.append(particle)
-	kuromi_crack_particles_draw_order.sort_custom(Callable(self, "_sort_kuromi_fragment_z"))
-
-
-func _sort_kuromi_fragment_z(a: Dictionary, b: Dictionary) -> bool:
-	return float(a.get("z_pos", 0.0)) < float(b.get("z_pos", 0.0))
 
 
 func _reset_round_effects() -> void:
@@ -612,8 +492,7 @@ func _reset_round_effects() -> void:
 	kuromi_eat_source_pos = Vector2.ZERO
 	kuromi_swallow_sound_played = false
 	kuromi_eating_particles.clear()
-	kuromi_pending_large_fragments = 0
-	kuromi_pending_small_fragments = 0
+	_kuromi_fracture.clear_pending()
 	kuromi_spit_trail.clear()
 	kuromi_spit_trail_phase = 0.0
 	kuromi_spit_trail_frame = 0.0
