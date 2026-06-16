@@ -2145,6 +2145,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the layered Stage 1 pillar background port: base hanji texture,
   texture loading, draw composition, and delegation to focused Stage 1
   pillar layer renderers / ambient state.
+- `scripts/stages/stage1/stage1_pillar_background_assets.gd`
+  Owns Stage 1 pillar-background asset metadata: layered texture resource
+  paths, butterfly sheet frame / color counts, and bounded threaded prewarm
+  fallback values. `stage1_pillar_background.gd` keeps texture caches,
+  staged prewarm order, ambient state, and draw composition.
 - `scripts/stages/stage1/stage1_pillar_ambient_state.gd`
   Owns Stage 1 pillar ambient runtime state: butterflies, wall-impact
   tree shakes, layout snapshots, and ambient update orchestration. Static

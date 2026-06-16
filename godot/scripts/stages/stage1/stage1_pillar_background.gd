@@ -2,16 +2,17 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage1PillarAmbientState := preload("res://scripts/stages/stage1/stage1_pillar_ambient_state.gd")
+const Stage1PillarBackgroundAssets := preload("res://scripts/stages/stage1/stage1_pillar_background_assets.gd")
 const Stage1PillarLayerRenderer := preload("res://scripts/stages/stage1/stage1_pillar_layer_renderer.gd")
 
-const HANJI_TEXTURE_PATH := "res://assets/sprites/hud/stage1_layered_cyber_hanji_base_imagegen_v1.png"
-const TREE_SPRITE_TEXTURE_PATH := "res://assets/sprites/hud/stage1_layered_tree_sidewallroot_imagegen_v3.png"
-const CLOUD_SPRITE_TEXTURE_PATH := "res://assets/sprites/hud/stage1_layered_cloud_sprites_imagegen_v1.png"
-const BUTTERFLY_SHEET_TEXTURE_PATH := "res://assets/sprites/hud/stage1_butterfly_sheet_v1.png"
-const BUTTERFLY_FRAME_COUNT := 4
-const BUTTERFLY_COLOR_COUNT := 4
-const PREWARM_TEXTURE_FALLBACK_MSEC := 1800
-const PREWARM_TEXTURE_FALLBACK_POLLS := 240
+const HANJI_TEXTURE_PATH := Stage1PillarBackgroundAssets.HANJI_TEXTURE_PATH
+const TREE_SPRITE_TEXTURE_PATH := Stage1PillarBackgroundAssets.TREE_SPRITE_TEXTURE_PATH
+const CLOUD_SPRITE_TEXTURE_PATH := Stage1PillarBackgroundAssets.CLOUD_SPRITE_TEXTURE_PATH
+const BUTTERFLY_SHEET_TEXTURE_PATH := Stage1PillarBackgroundAssets.BUTTERFLY_SHEET_TEXTURE_PATH
+const BUTTERFLY_FRAME_COUNT := Stage1PillarBackgroundAssets.BUTTERFLY_FRAME_COUNT
+const BUTTERFLY_COLOR_COUNT := Stage1PillarBackgroundAssets.BUTTERFLY_COLOR_COUNT
+const PREWARM_TEXTURE_FALLBACK_MSEC := Stage1PillarBackgroundAssets.PREWARM_TEXTURE_FALLBACK_MSEC
+const PREWARM_TEXTURE_FALLBACK_POLLS := Stage1PillarBackgroundAssets.PREWARM_TEXTURE_FALLBACK_POLLS
 const MOOD_GRADE_COLOR := Color(4.0 / 255.0, 8.0 / 255.0, 22.0 / 255.0, 88.0 / 255.0)
 const MOOD_INK_COLOR := Color(0.0, 1.0 / 255.0, 7.0 / 255.0, 52.0 / 255.0)
 const MOOD_EDGE_STEPS := 6
