@@ -4422,6 +4422,10 @@ This section is intentionally long; use search to find the nearest owner.
   Stage 3 Menhera, and the current Godot Stage 5 Hongryun route.
   `battle_resources.gd` keeps public aliases plus boss texture loading,
   compatibility keys, and staged prewarm sequencing.
+- `scripts/resources/battle_blacksmith_sprite_paths.gd`
+  Owns read-only Blacksmith / Baltor player sprite paths, including Thor
+  Shield presentation textures and result sheets. `battle_resources.gd` keeps
+  public aliases plus texture loading, cache keys, and staged prewarm sequencing.
 - `scripts/resources/battle_optimus_sprite_paths.gd`
   Owns read-only Optimus player sprite and overlay paths. `battle_resources.gd`
   keeps public aliases plus optional texture loading, cache keys, and staged

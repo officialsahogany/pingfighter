@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
+const BattleBlacksmithSpritePaths := preload("res://scripts/resources/battle_blacksmith_sprite_paths.gd")
 const BattleBossSpritePaths := preload("res://scripts/resources/battle_boss_sprite_paths.gd")
 const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
 const BattleOptimusSpritePaths := preload("res://scripts/resources/battle_optimus_sprite_paths.gd")
@@ -134,17 +135,17 @@ const VIPER_CHARACTER_TYPE := "viper"
 const COMMANDO_CHARACTER_TYPE := "soldier"
 const OPTIMUS_CHARACTER_TYPE := "optimus"
 const BLACKSMITH_CHARACTER_TYPE := "blacksmith"
-const BLACKSMITH_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_idle_back_autosprite_v3_custom_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_sprint_dash_left_25deg_custom_v3_selected_mirror_from_right_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_sprint_dash_right_25deg_custom_v3_selected_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_dash_slide_tackle_rear_left_hold_v4_mirror_from_right_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_dash_slide_tackle_rear_right_hold_v4_4x2_160_clean.png"
-const BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_left_shield_bash_autosprite_v2_16f_4x4_160_clean.png"
-const BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_attack_right_hammer_smash_autosprite_v4_16f_4x4_160_clean.png"
-const BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_thor_shield_overhead_autosprite_v3_hybrid_4x4_160_clean.png"
-const BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_thor_shield_stretch_imagegen_v1.png"
-const BLACKSMITH_PLAYER_VICTORY_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_victory_rear_autosprite_v1_49f_7x7_160_clean.png"
-const BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH := "res://assets/sprites/characters/blacksmith/blacksmith_defeat_rear_autosprite_v1_49f_7x7_160_clean.png"
+const BLACKSMITH_PLAYER_IDLE_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_IDLE_SHEET_PATH
+const BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH
+const BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH
+const BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH
+const BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH
+const BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH
+const BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH
+const BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH
+const BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH
+const BLACKSMITH_PLAYER_VICTORY_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_VICTORY_SHEET_PATH
+const BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH := BattleBlacksmithSpritePaths.BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH
 
 # Smasher directional attack sheets: 4x4 grids, 16 frames, cell 160x160.
 # Authored from the current subculture left/right walk sprites so colors,
