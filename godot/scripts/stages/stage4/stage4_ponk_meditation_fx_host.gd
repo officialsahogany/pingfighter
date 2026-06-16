@@ -3,13 +3,14 @@ extends Node2D
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const WritheEmber := preload("res://scripts/effects/writhe_ember_material.gd")
+const Stage4PonkMeditationAssets := preload("res://scripts/stages/stage4/stage4_ponk_meditation_assets.gd")
 
-const MANDALA_TEXTURE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_meditation_mandala_imagegen_v1.png"
-const LOTUS_PETAL_TEXTURE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_meditation_lotus_petal_imagegen_v1.png"
-const SUTRA_SHARD_TEXTURE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_meditation_sutra_shard_imagegen_v1.png"
-const LOCK_BURST_TEXTURE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_meditation_lock_burst_imagegen_v1.png"
-const RELEASE_BURST_TEXTURE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_meditation_release_burst_imagegen_v1.png"
-const RELEASE_TRAIL_TEXTURE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_meditation_release_trail_imagegen_v1.png"
+const MANDALA_TEXTURE_PATH := Stage4PonkMeditationAssets.MANDALA_TEXTURE_PATH
+const LOTUS_PETAL_TEXTURE_PATH := Stage4PonkMeditationAssets.LOTUS_PETAL_TEXTURE_PATH
+const SUTRA_SHARD_TEXTURE_PATH := Stage4PonkMeditationAssets.SUTRA_SHARD_TEXTURE_PATH
+const LOCK_BURST_TEXTURE_PATH := Stage4PonkMeditationAssets.LOCK_BURST_TEXTURE_PATH
+const RELEASE_BURST_TEXTURE_PATH := Stage4PonkMeditationAssets.RELEASE_BURST_TEXTURE_PATH
+const RELEASE_TRAIL_TEXTURE_PATH := Stage4PonkMeditationAssets.RELEASE_TRAIL_TEXTURE_PATH
 const TRAIL_POINT_LIMIT := 32
 const TRAIL_GLOW_WIDTH := 30.0
 const TRAIL_CORE_WIDTH := 11.0

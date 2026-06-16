@@ -3002,6 +3002,11 @@ This section is intentionally long; use search to find the nearest owner.
   `stage4_ponk_meditation_release_burst_imagegen_v1.png`, and
   `stage4_ponk_meditation_release_trail_imagegen_v1.png`; gameplay timing
   remains in `stage4_ponk_skill_state.gd`.
+- `scripts/stages/stage4/stage4_ponk_meditation_assets.gd`
+  Owns shared Stage 4 Ponk meditation FX texture-path metadata for mandala,
+  lotus, sutra, lock-burst, release-burst, and release-trail PNG slots.
+  `stage4_ponk_meditation_fx_host.gd` keeps public aliases, texture caches,
+  prewarm sequencing, shader setup, particles, and lifecycle tweens.
 - `scripts/stages/stage5/stage5_hongryun_state.gd`
   Owns the first Stage 5 Hongryun runtime slice: Hongryun fireball counters,
   dragon-orb / inferno readiness state, ball-motion hijack query, boss-AI /
