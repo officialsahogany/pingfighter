@@ -241,10 +241,10 @@ func _handle_options_gamepad_input(event: InputEvent, owner: Object, registry: O
 
 func _handle_sound_key_input(key_event: InputEventKey, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_UP):
-		options_focus = (options_focus + SOUND_FOCUS_COUNT - 1) % SOUND_FOCUS_COUNT
+		_move_options_focus(-1, SOUND_FOCUS_COUNT)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		options_focus = (options_focus + 1) % SOUND_FOCUS_COUNT
+		_move_options_focus(1, SOUND_FOCUS_COUNT)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
 		_adjust_focused_volume(registry, -VOLUME_STEP)
@@ -261,10 +261,10 @@ func _handle_sound_key_input(key_event: InputEventKey, registry: Object) -> Dict
 
 func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_UP):
-		options_focus = (options_focus + DISPLAY_FOCUS_COUNT - 1) % DISPLAY_FOCUS_COUNT
+		_move_options_focus(-1, DISPLAY_FOCUS_COUNT)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		options_focus = (options_focus + 1) % DISPLAY_FOCUS_COUNT
+		_move_options_focus(1, DISPLAY_FOCUS_COUNT)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT) or _is_key(key_event, KEY_RIGHT):
 		if options_focus == 0:
@@ -303,10 +303,10 @@ func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry
 func _handle_controls_key_input(key_event: InputEventKey) -> Dictionary:
 	var focus_count := _get_controls_focus_count()
 	if _is_key(key_event, KEY_UP):
-		options_focus = (options_focus + focus_count - 1) % focus_count
+		_move_options_focus(-1, focus_count)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		options_focus = (options_focus + 1) % focus_count
+		_move_options_focus(1, focus_count)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
 		_adjust_controls_focus(-1)
@@ -327,10 +327,10 @@ func _handle_controls_key_input(key_event: InputEventKey) -> Dictionary:
 
 func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dictionary:
 	if _is_key(key_event, KEY_UP):
-		options_focus = (options_focus + LANGUAGE_FOCUS_COUNT - 1) % LANGUAGE_FOCUS_COUNT
+		_move_options_focus(-1, LANGUAGE_FOCUS_COUNT)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		options_focus = (options_focus + 1) % LANGUAGE_FOCUS_COUNT
+		_move_options_focus(1, LANGUAGE_FOCUS_COUNT)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
 		if options_focus < LANGUAGE_FOCUS_COUNT - 1:
@@ -348,7 +348,7 @@ func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dict
 func _handle_sound_gamepad_input(event: InputEvent, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		options_focus = (options_focus + vertical_direction + SOUND_FOCUS_COUNT) % SOUND_FOCUS_COUNT
+		_move_options_focus(vertical_direction, SOUND_FOCUS_COUNT)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
@@ -362,7 +362,7 @@ func _handle_sound_gamepad_input(event: InputEvent, registry: Object) -> Diction
 func _handle_display_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		options_focus = (options_focus + vertical_direction + DISPLAY_FOCUS_COUNT) % DISPLAY_FOCUS_COUNT
+		_move_options_focus(vertical_direction, DISPLAY_FOCUS_COUNT)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
@@ -377,7 +377,7 @@ func _handle_controls_gamepad_input(event: InputEvent) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
 		var focus_count := _get_controls_focus_count()
-		options_focus = (options_focus + vertical_direction + focus_count) % focus_count
+		_move_options_focus(vertical_direction, focus_count)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
@@ -397,7 +397,7 @@ func _handle_controls_gamepad_input(event: InputEvent) -> Dictionary:
 func _handle_language_gamepad_input(event: InputEvent, owner: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		options_focus = (options_focus + vertical_direction + LANGUAGE_FOCUS_COUNT) % LANGUAGE_FOCUS_COUNT
+		_move_options_focus(vertical_direction, LANGUAGE_FOCUS_COUNT)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
@@ -612,6 +612,12 @@ func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2)
 func _move_selection(delta: int) -> void:
 	var count := 3
 	selected_index = (selected_index + delta + count) % count
+
+
+func _move_options_focus(delta: int, focus_count: int) -> void:
+	if focus_count <= 0:
+		return
+	options_focus = (options_focus + delta + focus_count) % focus_count
 
 
 func _activate_selected(owner: Object, registry: Object) -> Dictionary:
