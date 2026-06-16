@@ -4407,6 +4407,11 @@ This section is intentionally long; use search to find the nearest owner.
   shared resource map. Boss texture keys must keep attack and stun semantics
   separate; `boss_hit_sprite_sheet` is a legacy ball-contact attack alias,
   not a stun key.
+- `scripts/resources/battle_skill_icon_paths.gd`
+  Owns the read-only Smasher / Viper / Commando player skill-orb PNG path
+  dictionaries. `battle_resources.gd` keeps the public `*_SKILL_ICON_PATHS`
+  aliases plus all texture loading, caching, normalization, and prewarm
+  sequencing.
 - `scripts/resources/project_resource_loader.gd`
   Owns clean-clone-safe resource loading helpers: raw source PNG and WAV
   files are loaded directly when present, while imported Godot resources
