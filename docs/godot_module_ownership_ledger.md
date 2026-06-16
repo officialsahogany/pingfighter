@@ -4412,6 +4412,11 @@ This section is intentionally long; use search to find the nearest owner.
   dictionaries. `battle_resources.gd` keeps the public `*_SKILL_ICON_PATHS`
   aliases plus all texture loading, caching, normalization, and prewarm
   sequencing.
+- `scripts/resources/battle_core_texture_paths.gd`
+  Owns read-only core battle texture paths for the runtime ball, orb / dash
+  frames, player skill-cluster frames, and Stage 1 center background / border.
+  `battle_resources.gd` keeps public aliases plus loading, caching, and staged
+  prewarm sequencing.
 - `scripts/resources/project_resource_loader.gd`
   Owns clean-clone-safe resource loading helpers: raw source PNG and WAV
   files are loaded directly when present, while imported Godot resources

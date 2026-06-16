@@ -2,17 +2,18 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
+const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
 const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
 const Smasher25DSheetOverride := preload("res://scripts/core/smasher_25d_sheet_override.gd")
 
-const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball_runtime_128.png"
-const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v1.png"
-const DASH_TOKEN_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_frame_imagegen_v2.png"
-const SKILL_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/skill_orb_frame_imagegen_v1.png"
-const SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := "res://assets/sprites/hud/player_skill_gauge_full_frame_165_33_5_imagegen_v1.png"
-const VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := "res://assets/sprites/hud/player_skill_gauge_full_frame_155_32_5_imagegen_v1.png"
-const STAGE1_CENTER_BACKGROUND_PATH := "res://assets/sprites/stage1/stage1_center_background_python_v1.png"
-const STAGE1_CENTER_BORDER_PATH := "res://assets/sprites/stage1/stage1_center_danjeong_border_overlay_v1.png"
+const PINGPONG_BALL_TEXTURE_PATH := BattleCoreTexturePaths.PINGPONG_BALL_TEXTURE_PATH
+const GAUGE_ORB_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.GAUGE_ORB_FRAME_TEXTURE_PATH
+const DASH_TOKEN_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.DASH_TOKEN_FRAME_TEXTURE_PATH
+const SKILL_ORB_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SKILL_ORB_FRAME_TEXTURE_PATH
+const SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
+const VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
+const STAGE1_CENTER_BACKGROUND_PATH := BattleCoreTexturePaths.STAGE1_CENTER_BACKGROUND_PATH
+const STAGE1_CENTER_BORDER_PATH := BattleCoreTexturePaths.STAGE1_CENTER_BORDER_PATH
 const PLAYER_SPRITE_PATH := "res://assets/sprites/smasher_walk_strip.png"
 const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
 const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_glide_bodyweight_v9_4x2_160_clean.png"

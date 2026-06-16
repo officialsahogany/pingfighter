@@ -56,9 +56,14 @@ func _verify_stage1_smasher_transition_prewarm_is_fine_grained() -> void:
 		source.find("_clear_transition_skill_icon_temp_keys()") >= 0,
 		"transition prewarm reset should discard temporary skill icon texture cache keys"
 	)
+	var core_paths_source := FileAccess.get_file_as_string("res://scripts/resources/battle_core_texture_paths.gd")
 	_expect(
-		source.find("const PINGPONG_BALL_TEXTURE_PATH := \"res://assets/sprites/ball_runtime_128.png\"") >= 0,
-		"battle transition prewarm should use the small runtime pingpong ball texture"
+		source.find("PINGPONG_BALL_TEXTURE_PATH := BattleCoreTexturePaths.PINGPONG_BALL_TEXTURE_PATH") >= 0,
+		"battle resources should expose the public pingpong ball path alias from the core manifest"
+	)
+	_expect(
+		core_paths_source.find("const PINGPONG_BALL_TEXTURE_PATH := \"res://assets/sprites/ball_runtime_128.png\"") >= 0,
+		"battle transition prewarm should use the small runtime pingpong ball texture from the core manifest"
 	)
 	var ball_texture := load("res://assets/sprites/ball_runtime_128.png") as Texture2D
 	_expect(
