@@ -82,6 +82,7 @@ class FakeBondStore:
 	extends RefCounted
 
 	var bond_points: Dictionary = {}
+	var ring_core_tier: int = 0
 
 	func _init(initial_points: Dictionary = {}) -> void:
 		for raw_pet_id in initial_points.keys():
@@ -97,6 +98,12 @@ class FakeBondStore:
 		var normalized_pet_id := pet_id.strip_edges().to_lower()
 		if normalized_pet_id != "":
 			bond_points[normalized_pet_id] = maxi(0, points)
+
+	func get_ring_core_tier() -> int:
+		return ring_core_tier
+
+	func set_ring_core_tier(tier: int) -> void:
+		ring_core_tier = clampi(tier, 0, 6)
 
 
 class FakeRegistry:
@@ -386,6 +393,10 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 		"ringpet_affinity_next_requirement",
 		"lingpet_affinity_next_label",
 		"ringpet_affinity_next_label",
+		"lingpet_ring_core_tier",
+		"ringpet_ring_core_tier",
+		"lingpet_affinity_chip_count",
+		"ringpet_affinity_chip_count",
 		"lingpet_bond_points",
 		"ringpet_bond_points",
 		"lingpet_bond_title",
@@ -404,6 +415,7 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
 	var bond_store := FakeBondStore.new({"maribo": 21})
+	bond_store.set_ring_core_tier(3)
 	runtime.set_affinity_store_for_tests(bond_store)
 	_expect(
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
@@ -413,6 +425,8 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	var before_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	var before_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(before_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(int(before_snapshot.get("bond_points", 0)) == 21, "TAB panel snapshot should read permanent bond points through the schema-gated owner")
+	_expect(int(before_snapshot.get("ring_core_tier", 0)) == 3, "TAB panel snapshot should read ring-core tier through the schema-gated owner")
+	_expect(int(before_snapshot.get("affinity_chip_count", -1)) == 0, "TAB panel snapshot should start with zero affinity chips")
 	_expect(str(before_snapshot.get("bond_title", "")) == "영혼의 단짝", "TAB panel snapshot should resolve the permanent top title through the shared helper")
 	_expect(str(before_snapshot.get("subtitle", "")) == "동행 중 · 친밀도 영혼의 단짝", "TAB art-panel subtitle should show the permanent 친밀도 title without adding a stat row")
 	for _i in range(25):
@@ -425,6 +439,12 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(is_equal_approx(float(after_snapshot.get("affinity_next_requirement", 0.0)), 100.0), "TAB panel snapshot should read the Lv.2 next requirement")
 	_expect(str(after_snapshot.get("affinity_next_label", "")) != "", "TAB panel snapshot should read the next affinity reward label")
 	_expect(after_hash != before_hash, "lingpet stat cache hash should change when affinity level changes")
+	runtime.add_enhancement_chip(owner, registry)
+	runtime.update(0.0, owner, registry)
+	var chip_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	var chip_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(chip_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(int(chip_snapshot.get("affinity_chip_count", 0)) == 1, "TAB panel snapshot should read affinity chip count through the schema-gated owner")
+	_expect(chip_hash != after_hash, "lingpet stat cache hash should change when affinity chip count changes")
 	bond_store.set_bond_points("maribo", 6)
 	runtime.update(0.0, owner, registry)
 	var bond_changed_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)

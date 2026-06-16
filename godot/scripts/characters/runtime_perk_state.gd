@@ -5,6 +5,8 @@ const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const Stage1PillarUILayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -57,6 +59,8 @@ const DOWNTOWN_TREASURE_MAP_ID := "downtown_treasure_map"
 const TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL := 1.50
 const TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL := 0.03
 const TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL := 0.03
+const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
+const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := {
 	"unlock_magnum_grip": true,
 	"unlock_plasma": true,
@@ -217,7 +221,7 @@ func open_next_choice(
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.item_bonus", sample_start)
 	var target_choice_count: int = max(0, BASE_PERK_CHOICE_COUNT + item_bonus_choice_count)
 	sample_start = _perf_begin(perf_logger)
-	current_choices = catalog.get_choices(character_type, runtime_skill_levels, exclude_instant, target_choice_count)
+	current_choices = catalog.get_choices(character_type, runtime_skill_levels, exclude_instant, target_choice_count, owner, registry)
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.catalog", sample_start)
 	if current_choices.is_empty():
 		pending_skill_choices = max(0, pending_skill_choices - 1)
@@ -964,6 +968,29 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 		feedback_timer = 1.6
 		return true
 
+	if choice_id == LINGPET_AFFINITY_CHIP_CHOICE_ID:
+		var chip_result := _apply_lingpet_affinity_chip(owner, registry)
+		if not bool(chip_result.get("accepted", false)):
+			return false
+		feedback_text = "%s %d/%d" % [
+			str(choice.get("name", choice_id)),
+			int(chip_result.get("chip_count", 0)),
+			int(chip_result.get("max_chips", 0)),
+		]
+		feedback_timer = 1.1
+		return true
+
+	if choice_id == LINGPET_RING_CORE_UPGRADE_CHOICE_ID:
+		var ring_core_result := _apply_lingpet_ring_core_upgrade(owner, registry, int(choice.get("next_tier", 0)))
+		if not bool(ring_core_result.get("accepted", false)):
+			return false
+		feedback_text = "%s %s" % [
+			str(choice.get("name", choice_id)),
+			str(ring_core_result.get("ring_core_name", "")),
+		]
+		feedback_timer = 1.1
+		return true
+
 	if choice_id == "common_refresh":
 		runtime_skill_levels[choice_id] = int(runtime_skill_levels.get(choice_id, 0)) + 1
 		pending_skill_choices += 1
@@ -1495,6 +1522,14 @@ func debug_set_perk_level(perk_id: String, target_level: int, owner: Object, reg
 		return false
 	data["id"] = clean_id
 
+	if clean_id == LINGPET_RING_CORE_UPGRADE_CHOICE_ID:
+		data["next_tier"] = clampi(target_level, 1, int(data.get("max_level", 1)))
+		if not apply_choice(data, owner, registry):
+			return false
+		last_selected_id = clean_id
+		_sync_owner(owner)
+		return true
+
 	if bool(data.get("is_instant", false)) or clean_id == "convert_to_gold" or int(data.get("max_level", 1)) <= 0:
 		data["current_level"] = 0
 		data["next_level"] = 0
@@ -1864,6 +1899,84 @@ func _apply_treasure_hunt(owner: Object, registry: Object) -> Dictionary:
 	if treasure_runtime == null or not treasure_runtime.has_method("start"):
 		return {"ok": false}
 	return treasure_runtime.start(owner, registry)
+
+
+func _apply_lingpet_affinity_chip(owner: Object, registry: Object) -> Dictionary:
+	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("add_enhancement_chip"):
+		return {"accepted": false, "blocked_reason": "missing_lingpet_runtime"}
+	var result: Variant = runtime.add_enhancement_chip(owner, registry)
+	if result is Dictionary:
+		return result
+	return {"accepted": bool(result)}
+
+
+func _apply_lingpet_ring_core_upgrade(_owner: Object, registry: Object, requested_tier: int = 0) -> Dictionary:
+	var store: Object = _get_instance(registry, "lingpet_affinity_store")
+	if store == null or not store.has_method("upgrade_ring_core_tier"):
+		return {"accepted": false, "blocked_reason": "missing_affinity_store"}
+	var max_tier := LingpetAffinityStore.MAX_RING_CORE_TIER
+	var current_tier := 0
+	if store.has_method("get_ring_core_tier"):
+		current_tier = clampi(int(store.get_ring_core_tier()), 0, max_tier)
+	var target_tier := requested_tier if requested_tier > 0 else current_tier + 1
+	target_tier = clampi(target_tier, 1, max_tier)
+	if target_tier <= current_tier:
+		return {
+			"accepted": false,
+			"blocked_reason": "max_ring_core_tier" if current_tier >= max_tier else "not_higher_ring_core_tier",
+			"current_tier": current_tier,
+			"target_tier": target_tier,
+			"max_tier": max_tier,
+		}
+	if not bool(store.upgrade_ring_core_tier(target_tier)):
+		return {
+			"accepted": false,
+			"blocked_reason": "ring_core_upgrade_failed",
+			"current_tier": current_tier,
+			"target_tier": target_tier,
+			"max_tier": max_tier,
+		}
+	return {
+		"accepted": true,
+		"current_tier": current_tier,
+		"new_tier": target_tier,
+		"max_tier": max_tier,
+		"ring_core_name": _get_lingpet_ring_core_tier_name(target_tier),
+	}
+
+
+func _get_lingpet_ring_core_tier_name(tier: int) -> String:
+	var clamped_tier := clampi(tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
+		match clamped_tier:
+			1:
+				return "Standard"
+			2:
+				return "Boost"
+			3:
+				return "Hyper"
+			4:
+				return "Overdrive"
+			5:
+				return "Ultimate"
+			6:
+				return "Zenith"
+		return ""
+	match clamped_tier:
+		1:
+			return "스탠다드"
+		2:
+			return "부스트"
+		3:
+			return "하이퍼"
+		4:
+			return "오버드라이브"
+		5:
+			return "얼티밋"
+		6:
+			return "제니스"
+	return ""
 
 
 func _reset_megingjord_extra_pick_count(owner: Object, registry: Object) -> void:

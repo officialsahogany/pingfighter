@@ -846,6 +846,8 @@ const MYTHIC_DESCRIPTION_RU := {
 }
 
 const PERK_NAME_EN := {
+	"lingpet_affinity_chip": "Affinity Chip",
+	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Lightweight",
 	"dash_module_control": "Module Control",
 	"dash_jump": "Leap",
@@ -903,6 +905,8 @@ const PERK_NAME_EN := {
 }
 
 const PERK_NAME_ZH := {
+	"lingpet_affinity_chip": "Affinity Chip",
+	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "轻量化",
 	"dash_module_control": "模块控制",
 	"dash_jump": "跃进",
@@ -960,6 +964,8 @@ const PERK_NAME_ZH := {
 }
 
 const PERK_NAME_JA := {
+	"lingpet_affinity_chip": "Affinity Chip",
+	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "軽量化",
 	"dash_module_control": "モジュール制御",
 	"dash_jump": "リープ",
@@ -1017,6 +1023,8 @@ const PERK_NAME_JA := {
 }
 
 const PERK_NAME_ES := {
+	"lingpet_affinity_chip": "Chip de Afinidad",
+	"lingpet_ring_core_upgrade": "Mejora de Ring Core",
 	"dash_lightweight": "Ligereza",
 	"dash_module_control": "Control de módulo",
 	"dash_jump": "Salto",
@@ -1074,6 +1082,8 @@ const PERK_NAME_ES := {
 }
 
 const PERK_NAME_PT_BR := {
+	"lingpet_affinity_chip": "Chip de Afinidade",
+	"lingpet_ring_core_upgrade": "Melhoria de Ring Core",
 	"dash_lightweight": "Leveza",
 	"dash_module_control": "Controle de Módulo",
 	"dash_jump": "Salto",
@@ -1131,6 +1141,8 @@ const PERK_NAME_PT_BR := {
 }
 
 const PERK_NAME_RU := {
+	"lingpet_affinity_chip": "Affinity Chip",
+	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Легкость",
 	"dash_module_control": "Контроль модуля",
 	"dash_jump": "Прыжок",
@@ -1188,6 +1200,8 @@ const PERK_NAME_RU := {
 }
 
 const PERK_SUMMARY_EN := {
+	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
+	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
 	"dash_lightweight": "Dash cooldown reduced.",
 	"dash_module_control": "Dash recovery reduced.",
 	"dash_jump": "Dash distance increased.",
@@ -1245,6 +1259,8 @@ const PERK_SUMMARY_EN := {
 }
 
 const PERK_SUMMARY_ZH := {
+	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
+	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
 	"dash_lightweight": "减少冲刺冷却。",
 	"dash_module_control": "减少冲刺后摇。",
 	"dash_jump": "增加冲刺距离。",
@@ -1302,6 +1318,8 @@ const PERK_SUMMARY_ZH := {
 }
 
 const PERK_SUMMARY_JA := {
+	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
+	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
 	"dash_lightweight": "ダッシュのクールタイムが短縮されます。",
 	"dash_module_control": "ダッシュ後隙が短縮されます。",
 	"dash_jump": "ダッシュ距離が伸びます。",
@@ -1359,6 +1377,8 @@ const PERK_SUMMARY_JA := {
 }
 
 const PERK_SUMMARY_ES := {
+	"lingpet_affinity_chip": "Aumenta la afinidad de Lingpet ganada en esta partida. Se acumula hasta 5.",
+	"lingpet_ring_core_upgrade": "Mejora permanentemente el Ring Core compartido en un nivel sin gastar oro.",
 	"dash_lightweight": "Reduce la recarga del dash.",
 	"dash_module_control": "Reduce la recuperación del dash.",
 	"dash_jump": "Aumenta la distancia de dash.",
@@ -1416,6 +1436,8 @@ const PERK_SUMMARY_ES := {
 }
 
 const PERK_SUMMARY_PT_BR := {
+	"lingpet_affinity_chip": "Aumenta a afinidade de Lingpet recebida nesta run. Acumula até 5.",
+	"lingpet_ring_core_upgrade": "Melhora permanentemente o Ring Core compartilhado em um tier sem gastar ouro.",
 	"dash_lightweight": "Reduz a recarga do dash.",
 	"dash_module_control": "Reduz a recuperação do dash.",
 	"dash_jump": "Aumenta a distância do dash.",
@@ -1473,6 +1495,8 @@ const PERK_SUMMARY_PT_BR := {
 }
 
 const PERK_SUMMARY_RU := {
+	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
+	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
 	"dash_lightweight": "Сокращает перезарядку рывка.",
 	"dash_module_control": "Сокращает восстановление рывка.",
 	"dash_jump": "Увеличивает дистанцию рывка.",

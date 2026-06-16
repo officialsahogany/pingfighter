@@ -166,6 +166,10 @@ const DEFAULT_VALUES: Dictionary = {
 	"ringpet_affinity_next_requirement": 0.0,
 	"lingpet_affinity_next_label": "",
 	"ringpet_affinity_next_label": "",
+	"lingpet_ring_core_tier": 0,
+	"ringpet_ring_core_tier": 0,
+	"lingpet_affinity_chip_count": 0,
+	"ringpet_affinity_chip_count": 0,
 	# Permanent bond title ("친밀도" in collection/panel strings). Kept separate
 	# from run-scoped affinity so the TAB panel can show the residue title without
 	# adding another stat row.

@@ -117,6 +117,8 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			var affinity_points := float(safe_owner_get.call(owner, "lingpet_affinity_points", safe_owner_get.call(owner, "ringpet_affinity_points", 0.0)))
 			var affinity_next_requirement := float(safe_owner_get.call(owner, "lingpet_affinity_next_requirement", safe_owner_get.call(owner, "ringpet_affinity_next_requirement", LingpetAffinityState.get_requirement_for_level(affinity_level))))
 			var affinity_next_label := str(safe_owner_get.call(owner, "lingpet_affinity_next_label", safe_owner_get.call(owner, "ringpet_affinity_next_label", _default_affinity_next_label(affinity_level))))
+			var ring_core_tier := int(safe_owner_get.call(owner, "lingpet_ring_core_tier", safe_owner_get.call(owner, "ringpet_ring_core_tier", 0)))
+			var affinity_chip_count := int(safe_owner_get.call(owner, "lingpet_affinity_chip_count", safe_owner_get.call(owner, "ringpet_affinity_chip_count", 0)))
 			var bond_points := maxi(0, int(safe_owner_get.call(owner, "lingpet_bond_points", safe_owner_get.call(owner, "ringpet_bond_points", 0))))
 			var bond_title := str(safe_owner_get.call(owner, "lingpet_bond_title", safe_owner_get.call(owner, "ringpet_bond_title", LingpetAffinityState.get_bond_title_for_points(bond_points))))
 			if bond_title.strip_edges() == "":
@@ -172,6 +174,8 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"affinity_points": affinity_points,
 				"affinity_next_requirement": affinity_next_requirement,
 				"affinity_next_label": affinity_next_label,
+				"ring_core_tier": ring_core_tier,
+				"affinity_chip_count": affinity_chip_count,
 				"bond_points": bond_points,
 				"bond_title": bond_title,
 				"hatch_hits": required_hits,

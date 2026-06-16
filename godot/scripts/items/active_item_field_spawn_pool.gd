@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 
 const LUCKY_COIN_ITEM_NAME := "lucky_coin"
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
@@ -19,6 +20,9 @@ const ONE_TIME_PASSIVE_SPAWN_NAMES := {
 }
 const VIPER_ONLY_PASSIVE_SPAWN_NAMES := {
 	"venom_mist_gauntlet": true,
+}
+const LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES := {
+	"lingpet_feed": true,
 }
 
 var item_catalog: Object = ActiveItemCatalog.new()
@@ -286,6 +290,8 @@ func build_spawn_candidates(
 	var candidates: Array[Dictionary] = []
 	var sample_start: int = _perf_begin(perf_logger)
 	for active_template in _get_active_spawn_candidate_templates():
+		if _should_skip_active_spawn_candidate(active_template, owner):
+			continue
 		# _apply_passive_spawn_weight returns the original template unchanged for
 		# every name except wall/boomerang/aipill; only those three allocate a
 		# duplicate. The downstream weighted picker reads candidates without
@@ -478,6 +484,13 @@ func _apply_passive_spawn_weight(item_data: Dictionary, registry: Object) -> Dic
 	var adjusted := item_data.duplicate(true)
 	adjusted["chance"] = float(mythic_item_runtime.call(method_name, float(item_data.get("chance", 0.0))))
 	return adjusted
+
+
+func _should_skip_active_spawn_candidate(item_data: Dictionary, owner: Object = null) -> bool:
+	var item_name: String = str(item_data.get("name", ""))
+	if not LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES.has(item_name):
+		return false
+	return LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
 
 
 func _should_skip_passive_spawn_candidate(item_data: Dictionary, registry: Object, owner: Object = null) -> bool:

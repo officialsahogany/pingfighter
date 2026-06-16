@@ -1509,6 +1509,7 @@ save/load state, and smoke test before deciding the feature is complete.
 | 26 | `perk_id -> skill_id` icon alias pairs (`unlock_*` id plus equipped orb id) | Same accepted motif in perk-choice / academy / NPC / swap-card path and 5-orb HUD path |
 | 27 | Godot `runtime_perk_icon_renderer.gd` `UNLOCK_ALIASES` / `COMMANDO_UNLOCK_BADGE_IDS` | Godot perk-card alias to real skill-orb PNG path plus unlock-badge policy |
 | 28 | Godot firearm owner stack: `commando_skill_config.gd`, `commando_weapon_controller.gd`, `commando_firearm_runtime.gd`, `commando_firearm_selector_renderer.gd`, `commando_firearm_audio_resolver.gd`, generated firearm asset manifest | Permanent firearm controller, HUD art / AutoSprite sheets, audio phase routing, lifecycle, and smoke-test ownership |
+| 29 | Godot `runtime_perk_catalog.gd` `LINGPET_GATED_CHOICE_IDS` | Lingpet-owned gate for shared lingpet perk cards; keep runtime-choice modal and plaza academy offer paths threaded with owner / registry before shuffle / truncate |
 
 If you added a new hardcoded list not present here, add it to this table
 in the same PR.

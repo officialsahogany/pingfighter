@@ -1098,7 +1098,7 @@ func _ease_in_out_cubic(t: float) -> float:
 
 
 func _draw_icon(canvas: CanvasItem, icon_renderer: Object, skill: Dictionary, rect: Rect2, alpha: float) -> void:
-	var skill_id: String = str(skill.get("id", ""))
+	var skill_id: String = str(skill.get("icon_id", skill.get("id", "")))
 	if icon_renderer != null and icon_renderer.has_method("draw_icon"):
 		if bool(icon_renderer.draw_icon(canvas, skill_id, rect, alpha, true)):
 			return
@@ -1174,6 +1174,9 @@ func _sort_perks_by_level(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _level_text(choice: Dictionary) -> String:
+	var override := str(choice.get("level_text", ""))
+	if override != "":
+		return override
 	if bool(choice.get("is_gold_conversion", false)):
 		return "골드"
 	if bool(choice.get("is_instant", false)):
@@ -1184,6 +1187,9 @@ func _level_text(choice: Dictionary) -> String:
 
 
 func _long_level_text(choice: Dictionary) -> String:
+	var override := str(choice.get("long_level_text", ""))
+	if override != "":
+		return override
 	if bool(choice.get("is_gold_conversion", false)):
 		return "  (500골드)"
 	if bool(choice.get("is_instant", false)):

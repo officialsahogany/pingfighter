@@ -1,8 +1,50 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
 const BASE_CHOICE_COUNT := 3
+const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
+const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
+const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
+const LINGPET_GATED_CHOICE_IDS := {
+	LINGPET_AFFINITY_CHIP_CHOICE_ID: true,
+	LINGPET_RING_CORE_UPGRADE_CHOICE_ID: true,
+}
+const LINGPET_RING_CORE_UPGRADE_PERK := {
+	"name": "링코어 강화",
+	"max_level": LingpetAffinityStore.MAX_RING_CORE_TIER,
+	"descriptions": {
+		1: "링코어를 스탠다드로 강화합니다.",
+		2: "링코어를 부스트로 강화합니다.",
+		3: "링코어를 하이퍼로 강화합니다.",
+		4: "링코어를 오버드라이브로 강화합니다.",
+		5: "링코어를 얼티밋으로 강화합니다.",
+		6: "링코어를 제니스로 강화합니다.",
+	},
+	"detail": "골드 없이 링코어를 다음 티어로 영구 강화합니다. 친밀도 임시 상한이 5레벨씩 올라갑니다.",
+	"icon_color": Color(1.0, 210.0 / 255.0, 82.0 / 255.0),
+	"tree": "lingpet",
+	"is_lingpet_ring_core_upgrade": true,
+}
+const LINGPET_AFFINITY_CHIP_PERK := {
+	"name": "강화칩",
+	"max_level": LingpetAffinityState.MAX_ENHANCEMENT_CHIPS,
+	"descriptions": {
+		1: "이번 런의 링펫 친밀도 획득량 +20%",
+		2: "이번 런의 링펫 친밀도 획득량 +40%",
+		3: "이번 런의 링펫 친밀도 획득량 +60%",
+		4: "이번 런의 링펫 친밀도 획득량 +80%",
+		5: "이번 런의 링펫 친밀도 획득량 +100%",
+	},
+	"detail": "링펫과 함께 싸우는 동안 친밀도 수입을 증폭합니다. 최대 5개까지 누적되며 새 런에서 초기화됩니다.",
+	"icon_color": Color(90.0 / 255.0, 220.0 / 255.0, 1.0),
+	"tree": "lingpet",
+	"is_lingpet_affinity_chip": true,
+}
 
 const COMMON_PERKS := {
 	"dash_lightweight": {
@@ -685,7 +727,9 @@ func get_choices(
 	character_type: String,
 	runtime_levels: Dictionary,
 	exclude_instant: bool = false,
-	base_choice_count: int = BASE_CHOICE_COUNT
+	base_choice_count: int = BASE_CHOICE_COUNT,
+	owner: Object = null,
+	_registry: Object = null
 ) -> Array:
 	var target_choice_count: int = max(0, int(base_choice_count))
 	var choices: Array = []
@@ -700,9 +744,12 @@ func get_choices(
 		_append_pool_choices(choices, SOLDIER_PERKS, runtime_levels, "soldier")
 
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
+	_append_lingpet_affinity_chip_choice(choices, owner, _registry)
+	_append_lingpet_ring_core_upgrade_choice(choices, owner, _registry)
 	if not exclude_instant:
 		_append_instant_choices(choices)
 
+	choices = _filter_lingpet_owned_gate(choices, owner)
 	choices.shuffle()
 	var result: Array = []
 	for choice in choices:
@@ -713,6 +760,7 @@ func get_choices(
 	if not exclude_instant and result.size() < target_choice_count:
 		var filler: Array = []
 		_append_instant_choices(filler)
+		filler = _filter_lingpet_owned_gate(filler, owner)
 		filler.shuffle()
 		for instant_choice in filler:
 			if result.size() >= target_choice_count:
@@ -758,6 +806,14 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		var gold_choice := GOLD_CHOICE.duplicate(true)
 		gold_choice["id"] = "convert_to_gold"
 		return LanguageSettings.localize_perk_data(gold_choice)
+	if skill_id == LINGPET_AFFINITY_CHIP_CHOICE_ID:
+		var chip_choice := LINGPET_AFFINITY_CHIP_PERK.duplicate(true)
+		chip_choice["id"] = LINGPET_AFFINITY_CHIP_CHOICE_ID
+		return LanguageSettings.localize_perk_data(chip_choice)
+	if skill_id == LINGPET_RING_CORE_UPGRADE_CHOICE_ID:
+		var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+		ring_core_choice["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
+		return LanguageSettings.localize_perk_data(ring_core_choice)
 	return {}
 
 
@@ -772,6 +828,9 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	gold_choice["id"] = "convert_to_gold"
 	gold_choice["debug_group"] = "instant"
 	entries.append(LanguageSettings.localize_perk_data(gold_choice))
+	var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	ring_core_choice["debug_group"] = "lingpet"
+	entries.append(LanguageSettings.localize_perk_data(ring_core_choice))
 	entries.sort_custom(func(a, b): return _debug_sort_key(a) < _debug_sort_key(b))
 	return entries
 
@@ -798,6 +857,65 @@ func _append_instant_choices(output: Array) -> void:
 		choice["max_level"] = 0
 		choice["character_restriction"] = ""
 		output.append(LanguageSettings.localize_perk_data(choice))
+
+
+func _append_lingpet_affinity_chip_choice(output: Array, owner: Object, registry: Object) -> void:
+	if not _has_lingpet_owned_gate(owner):
+		return
+	var chip_count := _get_lingpet_affinity_chip_count(registry)
+	var max_chips := int(LINGPET_AFFINITY_CHIP_PERK.get("max_level", LingpetAffinityState.MAX_ENHANCEMENT_CHIPS))
+	if chip_count >= max_chips:
+		return
+	var next_level := clampi(chip_count + 1, 1, max_chips)
+	var choice := _build_level_choice(
+		LINGPET_AFFINITY_CHIP_CHOICE_ID,
+		LINGPET_AFFINITY_CHIP_PERK,
+		chip_count,
+		next_level,
+		""
+	)
+	choice["is_lingpet_affinity_chip"] = true
+	choice["chip_count"] = chip_count
+	output.append(LanguageSettings.localize_perk_data(choice))
+
+
+func _append_lingpet_ring_core_upgrade_choice(output: Array, owner: Object, registry: Object) -> void:
+	if not _has_lingpet_owned_gate(owner):
+		return
+	var store: Object = _get_lingpet_affinity_store(registry)
+	if store == null:
+		return
+	var max_tier := _get_lingpet_ring_core_max_tier(store)
+	var current_tier := _get_lingpet_ring_core_tier(store, max_tier)
+	if current_tier >= max_tier:
+		return
+	var next_tier := clampi(current_tier + 1, 1, max_tier)
+	output.append(LanguageSettings.localize_perk_data(_build_lingpet_ring_core_upgrade_data(current_tier, next_tier, max_tier)))
+
+
+func _build_lingpet_ring_core_upgrade_data(current_tier: int, next_tier: int, max_tier: int) -> Dictionary:
+	var clamped_next := clampi(next_tier, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var clamped_max := clampi(max_tier, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var tier_name := _get_lingpet_ring_core_tier_name(clamped_next)
+	var next_cap := LingpetAffinityStore.get_ring_core_cap_for_tier(clamped_next)
+	var data: Dictionary = LINGPET_RING_CORE_UPGRADE_PERK.duplicate(true)
+	data["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
+	data["name"] = "링코어 강화: %s" % tier_name
+	data["description"] = "링코어를 %s로 영구 강화합니다. 친밀도 상한 Lv.%d." % [tier_name, next_cap]
+	data["detail"] = "이번 선택으로 골드 지불 없이 계정 공용 링코어가 %s 티어로 올라갑니다. 골드샵 강화와 같은 영구 저장 경로를 사용합니다." % tier_name
+	data["current_level"] = clampi(current_tier, 0, clamped_max)
+	data["next_level"] = clamped_next
+	data["max_level"] = clamped_max
+	data["current_tier"] = clampi(current_tier, 0, clamped_max)
+	data["next_tier"] = clamped_next
+	data["ring_core_tier"] = clamped_next
+	data["ring_core_name"] = tier_name
+	data["next_cap"] = next_cap
+	data["level_text"] = "Tier %d" % clamped_next
+	data["long_level_text"] = "  (Tier %d -> cap Lv.%d)" % [clamped_next, next_cap]
+	data["icon_id"] = "%s%d" % [LINGPET_RING_CORE_ICON_ID_PREFIX, clamped_next]
+	data["is_lingpet_ring_core_upgrade"] = true
+	return data
 
 
 func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: String) -> void:
@@ -859,6 +977,78 @@ func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_
 		if str(choice.get("unlocks_skill", "")) == "":
 			filtered.append(choice)
 	return filtered
+
+
+func _filter_lingpet_owned_gate(choices: Array, owner: Object) -> Array:
+	if _has_lingpet_owned_gate(owner):
+		return choices
+	var filtered: Array = []
+	for value in choices:
+		if not (value is Dictionary):
+			filtered.append(value)
+			continue
+		var choice: Dictionary = value
+		if bool(LINGPET_GATED_CHOICE_IDS.get(str(choice.get("id", "")), false)):
+			continue
+		filtered.append(choice)
+	return filtered
+
+
+func _has_lingpet_owned_gate(owner: Object) -> bool:
+	return not LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
+
+
+func _get_lingpet_affinity_chip_count(registry: Object) -> int:
+	var runtime: Object = _get_lingpet_runtime(registry)
+	if runtime == null or not runtime.has_method("get_enhancement_chips"):
+		return 0
+	return clampi(int(runtime.get_enhancement_chips()), 0, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
+
+
+func _get_lingpet_runtime(registry: Object) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance("lingpet_egg_runtime")
+
+
+func _get_lingpet_affinity_store(registry: Object) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance("lingpet_affinity_store")
+
+
+func _get_lingpet_ring_core_tier(store: Object, max_tier: int) -> int:
+	if store == null or not store.has_method("get_ring_core_tier"):
+		return 0
+	return clampi(int(store.get_ring_core_tier()), 0, max_tier)
+
+
+func _get_lingpet_ring_core_max_tier(store: Object) -> int:
+	if store != null:
+		var value: Variant = store.get("MAX_RING_CORE_TIER")
+		if value != null:
+			return clampi(int(value), 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	return LingpetAffinityStore.MAX_RING_CORE_TIER
+
+
+func _get_lingpet_ring_core_tier_name(tier: int) -> String:
+	var clamped_tier := clampi(tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
+		return PlazaLingpetStoreTransactions.get_ring_core_tier_name(clamped_tier)
+	match clamped_tier:
+		1:
+			return "Standard"
+		2:
+			return "Boost"
+		3:
+			return "Hyper"
+		4:
+			return "Overdrive"
+		5:
+			return "Ultimate"
+		6:
+			return "Zenith"
+	return ""
 
 
 func _has_choice_id(choices: Array, skill_id: String) -> bool:

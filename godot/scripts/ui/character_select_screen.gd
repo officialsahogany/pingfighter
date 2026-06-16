@@ -14,6 +14,8 @@ const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_conf
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const BattleEntryBackgroundPrewarm := preload("res://scripts/ui/battle_entry_background_prewarm.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 const BGM_BUS_NAME := "BGM"
@@ -50,6 +52,9 @@ var preview_rect_cache := Rect2()
 var animation_time: float = 0.0
 var preview: Control = null
 var selected_league_mode: String = DEFAULT_LEAGUE_MODE
+var _lingpet_affinity_store: Object = null
+var _cached_lingpet_ring_core_tier: int = 0
+var _lingpet_ring_core_icon_renderer: Object = RuntimePerkIconRenderer.new()
 
 var character_select_bgm_player: AudioStreamPlayer = null
 var character_select_bgm_loop_enabled: bool = false
@@ -83,6 +88,8 @@ func _ready() -> void:
 	_refresh_visible_indices()
 	_load_selection_state()
 	_prepare_hover_state()
+	_refresh_lingpet_ring_core_cache()
+	_prewarm_lingpet_ring_core_icons()
 	_load_portraits()
 	_restore_character_select_bgm_muted()
 	preview = get_node_or_null("LivePreview")
@@ -96,6 +103,25 @@ func _ready() -> void:
 	_sync_preview()
 	_update_preview_layout()
 	queue_redraw()
+
+
+func _refresh_lingpet_ring_core_cache() -> void:
+	_cached_lingpet_ring_core_tier = 0
+	if Engine.is_editor_hint():
+		return
+	if _lingpet_affinity_store == null:
+		_lingpet_affinity_store = LingpetAffinityStore.new()
+	if _lingpet_affinity_store.has_method("load"):
+		_lingpet_affinity_store.load()
+	if _lingpet_affinity_store.has_method("get_ring_core_tier"):
+		_cached_lingpet_ring_core_tier = clampi(int(_lingpet_affinity_store.get_ring_core_tier()), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+
+
+func _prewarm_lingpet_ring_core_icons() -> void:
+	if Engine.is_editor_hint() or _lingpet_ring_core_icon_renderer == null:
+		return
+	for tier in range(1, LingpetAffinityStore.MAX_RING_CORE_TIER + 1):
+		_lingpet_ring_core_icon_renderer.has_icon("lingpet_ring_core_upgrade_tier_%d" % tier)
 
 
 func _exit_tree() -> void:
@@ -1197,7 +1223,9 @@ func _draw_info_panel(rect: Rect2) -> void:
 	_draw_difficulty(layout.get("difficulty_top_left", rect.position), int(character.get("difficulty_stars", 1)), accent)
 	if unlocked:
 		_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), layout.get("skills_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
+		_draw_text_left(font, _lingpet_ring_core_label(), layout.get("ring_core_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
 		_draw_skill_icons(layout.get("skill_rect", Rect2()), selected_index, character, accent, glow)
+		_draw_lingpet_ring_core_slot(layout.get("ring_core_rect", Rect2()), accent, glow)
 	else:
 		skill_icon_rects.clear()
 		_draw_locked_info_status(layout.get("locked_status_rect", Rect2()), character, accent)
@@ -1255,9 +1283,15 @@ func _build_info_panel_layout(rect: Rect2, character: Dictionary, font: Font) ->
 
 	if _is_character_unlocked(character):
 		var skills_label_top_left := Vector2(content_left, y + 2.0)
-		var skill_rect := Rect2(Vector2(content_left, skills_label_top_left.y + 26.0), Vector2(content_width, 56.0))
+		var ring_core_size := 50.0
+		var ring_core_gap := 18.0
+		var skill_row_width := maxf(174.0, content_width - ring_core_size - ring_core_gap)
+		var skill_rect := Rect2(Vector2(content_left, skills_label_top_left.y + 26.0), Vector2(skill_row_width, 56.0))
+		var ring_core_rect := Rect2(Vector2(content_right - ring_core_size, skill_rect.position.y), Vector2(ring_core_size, ring_core_size))
 		layout["skills_label_top_left"] = skills_label_top_left
 		layout["skill_rect"] = skill_rect
+		layout["ring_core_label_top_left"] = Vector2(ring_core_rect.position.x, skills_label_top_left.y)
+		layout["ring_core_rect"] = ring_core_rect
 		y = skill_rect.end.y
 	else:
 		var locked_status_rect := Rect2(Vector2(content_left, y + 4.0), Vector2(content_width, 76.0))
@@ -1414,6 +1448,47 @@ func _draw_skill_icons(rect: Rect2, character_index: int, character: Dictionary,
 			draw_circle(icon_rect.get_center(), 14.0, Color(accent.r, accent.g, accent.b, 0.22))
 			draw_circle(icon_rect.get_center(), 6.0, Color(accent.r, accent.g, accent.b, 0.75))
 		draw_rect(icon_rect, Color(accent.r, accent.g, accent.b, 0.96 if hovered else 0.86), false, 2.0 if hovered else 1.0)
+
+
+func _draw_lingpet_ring_core_slot(rect: Rect2, accent: Color, glow: Color) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var tier := clampi(_cached_lingpet_ring_core_tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	draw_rect(rect.grow(4.0), Color(glow.r, glow.g, glow.b, 0.12 if tier > 0 else 0.06))
+	draw_rect(rect, Color(0.008, 0.010, 0.016, 0.95))
+	if tier > 0 and _lingpet_ring_core_icon_renderer != null:
+		var icon_id := "lingpet_ring_core_upgrade_tier_%d" % tier
+		if not bool(_lingpet_ring_core_icon_renderer.draw_icon(self, icon_id, rect.grow(-4.0), 1.0, true)):
+			_draw_lingpet_ring_core_fallback(rect.grow(-7.0), accent)
+	else:
+		_draw_empty_lingpet_ring_core_slot(rect.grow(-7.0), accent)
+	var border_alpha := 0.94 if tier > 0 else 0.42
+	draw_rect(rect, Color(accent.r, accent.g, accent.b, border_alpha), false, 2.0 if tier > 0 else 1.0)
+	var badge_rect := Rect2(rect.position + Vector2(4.0, rect.size.y - 17.0), Vector2(30.0, 13.0))
+	draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
+	var badge_text := "T%d" % tier if tier > 0 else "T-"
+	_draw_text_center(ThemeDB.fallback_font, badge_text, badge_rect.get_center() + Vector2(0.0, 1.0), 8, Color.WHITE if tier > 0 else Color(0.72, 0.78, 0.84, 0.88))
+
+
+func _draw_lingpet_ring_core_fallback(rect: Rect2, accent: Color) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.32
+	draw_circle(center, radius + 7.0, Color(accent.r, accent.g, accent.b, 0.10))
+	draw_circle(center, radius, Color(accent.r, accent.g, accent.b, 0.24))
+	draw_arc(center, radius, 0.0, TAU, 32, Color(accent.r, accent.g, accent.b, 0.90), 2.0)
+	draw_circle(center, radius * 0.40, Color(1.0, 0.78, 0.34, 0.82))
+
+
+func _draw_empty_lingpet_ring_core_slot(rect: Rect2, accent: Color) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.34
+	draw_circle(center, radius, Color(accent.r, accent.g, accent.b, 0.08))
+	draw_arc(center, radius, 0.0, TAU, 32, Color(accent.r, accent.g, accent.b, 0.34), 1.4)
+	draw_line(center + Vector2(-radius * 0.58, radius * 0.58), center + Vector2(radius * 0.58, -radius * 0.58), Color(0.70, 0.76, 0.82, 0.48), 1.6)
+
+
+func _lingpet_ring_core_label() -> String:
+	return "링코어" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN else "Ring Core"
 
 
 func _draw_skill_hover_tooltip(view_size: Vector2) -> void:

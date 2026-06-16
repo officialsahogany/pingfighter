@@ -38,7 +38,7 @@ func _buy_skill_lesson(save_store: Object, owner: Object, registry: Object, cons
 		return _build_summary("lesson", LESSON_COST, false, "choice_already_active")
 
 	var character_type := _get_character_type(owner)
-	var preview_choices := _get_lesson_choices(catalog, character_type, runtime_state)
+	var preview_choices := _get_lesson_choices(catalog, character_type, runtime_state, owner, registry)
 	if preview_choices.is_empty():
 		return _build_summary("lesson", LESSON_COST, false, "no_academy_choices")
 
@@ -97,11 +97,11 @@ func _get_runtime_perk_catalog(registry: Object) -> Object:
 	return registry.get_instance("runtime_perk_catalog")
 
 
-func _get_lesson_choices(catalog: Object, character_type: String, runtime_state: Object) -> Array:
+func _get_lesson_choices(catalog: Object, character_type: String, runtime_state: Object, owner: Object, registry: Object) -> Array:
 	var snapshot := _get_runtime_snapshot(runtime_state)
 	var runtime_levels_value: Variant = snapshot.get("runtime_skill_levels", {})
 	var runtime_levels: Dictionary = runtime_levels_value if runtime_levels_value is Dictionary else {}
-	var result_value: Variant = catalog.get_choices(character_type, runtime_levels, true, 3)
+	var result_value: Variant = catalog.get_choices(character_type, runtime_levels, true, 3, owner, registry)
 	var result: Array = result_value if result_value is Array else []
 	var filtered: Array = []
 	for choice_value in result:

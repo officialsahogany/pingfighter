@@ -1062,6 +1062,8 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_points", "ringpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_requirement", "ringpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_label", "ringpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_ring_core_tier", "ringpet_ring_core_tier", int(affinity_snapshot.get("ring_core_tier", 0)))
+	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_chip_count", "ringpet_affinity_chip_count", int(affinity_snapshot.get("chip_count", 0)))
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_points", "ringpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_title", "ringpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
 	if should_sync_loadouts:
@@ -1074,6 +1076,8 @@ func _build_affinity_owner_snapshot(registry: Object = null) -> Dictionary:
 	var next_requirement := 0.0
 	var next_label := ""
 	var bond_points := 0
+	var ring_core_tier := 0
+	var chip_count := 0
 	if _state == STATE_COMPANION:
 		_configure_affinity_reward_context(_pet_id, {}, registry)
 		level = _affinity_state.get_level(_pet_id)
@@ -1081,14 +1085,25 @@ func _build_affinity_owner_snapshot(registry: Object = null) -> Dictionary:
 		next_requirement = _affinity_state.get_next_requirement(_pet_id)
 		next_label = _affinity_next_label_for_pet(_pet_id)
 		bond_points = _get_affinity_bond_points(_pet_id, registry)
+		ring_core_tier = _get_display_ring_core_tier(registry)
+		chip_count = _affinity_state.get_enhancement_chips()
 	return {
 		"level": level,
 		"points": points,
 		"next_requirement": next_requirement,
 		"next_label": next_label,
+		"ring_core_tier": ring_core_tier,
+		"chip_count": chip_count,
 		"bond_points": bond_points,
 		"bond_title": LingpetAffinityState.get_bond_title_for_points(bond_points),
 	}
+
+
+func _get_display_ring_core_tier(registry: Object = null) -> int:
+	var store: Object = _get_affinity_store(registry)
+	if store == null or not store.has_method("get_ring_core_tier"):
+		return 0
+	return clampi(int(store.get_ring_core_tier()), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
 
 
 func _get_affinity_bond_points(pet_id: String, registry: Object = null) -> int:
@@ -2653,6 +2668,26 @@ func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: D
 
 func add_affinity_points(source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
 	return _add_affinity_points(_pet_id, source, tags, registry)
+
+
+func add_enhancement_chip(_owner: Object = null, _registry: Object = null) -> Dictionary:
+	var before: int = int(_affinity_state.get_enhancement_chips())
+	var after: int = int(_affinity_state.add_enhancement_chip())
+	return {
+		"accepted": after > before,
+		"chip_count": after,
+		"max_chips": LingpetAffinityState.MAX_ENHANCEMENT_CHIPS,
+		"multiplier": _affinity_state.get_enhancement_chip_multiplier(),
+		"blocked_reason": "" if after > before else "max_chips",
+	}
+
+
+func get_enhancement_chips() -> int:
+	return _affinity_state.get_enhancement_chips()
+
+
+func get_enhancement_chip_multiplier() -> float:
+	return _affinity_state.get_enhancement_chip_multiplier()
 
 
 func reset_affinity_for_new_battle() -> void:

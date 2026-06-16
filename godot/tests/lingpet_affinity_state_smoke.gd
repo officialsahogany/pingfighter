@@ -21,6 +21,7 @@ func _init() -> void:
 	_verify_hatch_bonus_is_per_pet_once()
 	_verify_headstart_preserves_previous_best()
 	_verify_reset_lifecycle()
+	_verify_enhancement_chip_multiplier_lifecycle()
 	_verify_dirty_flag()
 	_verify_scalar_getters_do_not_create_entries()
 	_verify_bond_pending_ledger_and_settlement()
@@ -409,6 +410,38 @@ func _verify_reset_lifecycle() -> void:
 	_expect(not hatch_state.is_dirty(), "reset_all should leave a clean run state")
 	var fresh_hatch: Dictionary = hatch_state.add_points("maribo", LingpetAffinityState.SOURCE_HATCH)
 	_expect_float(float(fresh_hatch.get("granted_points", 0.0)), 25.0, "run reset should allow fresh hatch bonus")
+
+
+func _verify_enhancement_chip_multiplier_lifecycle() -> void:
+	var base_state := LingpetAffinityState.new()
+	var base_gain: Dictionary = base_state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
+	_expect_eq(base_state.get_enhancement_chips(), 0, "new run should start with zero enhancement chips")
+	_expect_float(base_state.get_enhancement_chip_multiplier(), 1.0, "zero chips should keep the affinity multiplier at 1.0")
+	_expect_float(float(base_gain.get("granted_points", 0.0)), 5.0, "zero chips should keep round commit gain at 5")
+
+	var boosted_state := LingpetAffinityState.new()
+	for _i in range(5):
+		boosted_state.add_enhancement_chip()
+	_expect_eq(boosted_state.get_enhancement_chips(), 5, "enhancement chips should stack up to five")
+	_expect_eq(boosted_state.add_enhancement_chip(), 5, "enhancement chips should clamp above five")
+	_expect_float(boosted_state.get_enhancement_chip_multiplier(), 2.0, "five chips should double affinity income")
+	var boosted_gain: Dictionary = boosted_state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
+	_expect_float(float(boosted_gain.get("granted_points", 0.0)), 10.0, "five chips should double round commit gain")
+	_expect(not boosted_state.get_pet_data("maribo").has("enhancement_chips"), "enhancement chips should stay run-scoped, not per-pet data")
+
+	var reset_state := LingpetAffinityState.new()
+	reset_state.set_enhancement_chips(3)
+	reset_state.reset_for_new_battle()
+	_expect_eq(reset_state.get_enhancement_chips(), 3, "new battle should preserve run-scoped enhancement chips")
+	reset_state.reset_for_new_run()
+	_expect_eq(reset_state.get_enhancement_chips(), 0, "new run should clear enhancement chips")
+
+	var max_state := LingpetAffinityState.new()
+	max_state.set_enhancement_chips(5)
+	max_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	_grant_round_commits(max_state, "maribo", 900)
+	var blocked_max: Dictionary = max_state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
+	_expect_float(float(blocked_max.get("granted_points", 0.0)), 0.0, "max-level grants should stay blocked even with enhancement chips")
 
 
 func _verify_dirty_flag() -> void:

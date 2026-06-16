@@ -74,7 +74,9 @@ class FakeRuntimePerkCatalog:
 		_character_type: String,
 		_runtime_skill_levels: Dictionary,
 		_exclude_instant: bool = false,
-		_target_choice_count: int = 3
+		_target_choice_count: int = 3,
+		_owner: Object = null,
+		_registry: Object = null
 	) -> Array:
 		return [
 			{

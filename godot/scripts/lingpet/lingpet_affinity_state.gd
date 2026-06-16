@@ -26,6 +26,8 @@ const MAX_LEVEL := 30
 # tuning pass. The store may remember a higher best level, but a new run still
 # starts conservatively.
 const HEADSTART_MAX_LEVEL := 4
+const MAX_ENHANCEMENT_CHIPS := 5
+const ENHANCEMENT_CHIP_BONUS := 0.20
 const SKILL_LEVEL_MAX := 5
 const RING_CORE_CAP_UNCHANGED := -1
 const MAX_MOBILITY_STACKS := 6
@@ -129,6 +131,7 @@ const BATTLE_CAP_BOND_LEVEL_UPS_BY_PET := "bond_level_ups_by_pet"
 var _pets: Dictionary = {}
 var _round_caps: Dictionary = {}
 var _battle_caps: Dictionary = {}
+var _enhancement_chips := 0
 var _dirty := false
 
 
@@ -136,6 +139,7 @@ var _dirty := false
 # hatch_bonus_granted and deliberately allows a fresh run to receive hatch bonuses again.
 func reset_all() -> void:
 	_pets.clear()
+	_enhancement_chips = 0
 	reset_battle_caps()
 	_dirty = false
 
@@ -163,6 +167,23 @@ func is_dirty() -> bool:
 
 func clear_dirty() -> void:
 	_dirty = false
+
+
+func set_enhancement_chips(value: int) -> int:
+	_enhancement_chips = clampi(value, 0, MAX_ENHANCEMENT_CHIPS)
+	return _enhancement_chips
+
+
+func add_enhancement_chip(amount: int = 1) -> int:
+	return set_enhancement_chips(_enhancement_chips + maxi(0, amount))
+
+
+func get_enhancement_chips() -> int:
+	return clampi(_enhancement_chips, 0, MAX_ENHANCEMENT_CHIPS)
+
+
+func get_enhancement_chip_multiplier() -> float:
+	return 1.0 + float(get_enhancement_chips()) * ENHANCEMENT_CHIP_BONUS
 
 
 func configure_reward_context(
@@ -388,6 +409,9 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	var granted_points := float(gain_result.get("points", 0.0))
 	var bonus_points := float(gain_result.get("bonus_points", 0.0))
 	var blocked_reason := str(gain_result.get("blocked_reason", ""))
+	var enhancement_multiplier := get_enhancement_chip_multiplier()
+	granted_points *= enhancement_multiplier
+	bonus_points *= enhancement_multiplier
 	if granted_points <= 0.0:
 		_pets[normalized_pet_id] = pet_data
 		return _build_result(normalized_pet_id, source, level_before, points_before, 0.0, bonus_points, [], blocked_reason)

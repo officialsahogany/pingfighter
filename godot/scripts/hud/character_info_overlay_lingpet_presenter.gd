@@ -8,6 +8,8 @@ const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
 
 const PANEL_LIVE2D_COLS_BY_PET_ID := {
 	"lunabi": 14,
@@ -344,8 +346,10 @@ static func draw_affinity_status(
 	var level_text := LanguageSettings.translate_text("교감 Lv.%d") % level
 	var value_text := LanguageSettings.translate_text(next_label) if maxed and next_label != "" else "%d / %d" % [int(round(points)), int(round(requirement))]
 	var value_w := _text_size(font, value_text, 11, ui_text_scale).x
+	var level_w := _text_size(font, level_text, 11, ui_text_scale).x
 	_draw_text_xy(canvas, font, level_text, rect.position.x, rect.position.y + 11.0, 11, Color.WHITE, ui_text_scale)
 	_draw_text_xy(canvas, font, value_text, rect.end.x - value_w, rect.position.y + 11.0, 11, stat_buff_color if maxed else empty_text_color, ui_text_scale)
+	_draw_ring_core_and_chip_status(canvas, font, rect, rect.position.x + level_w + 8.0, rect.end.x - value_w - 8.0, snapshot, stat_buff_color, empty_text_color, ui_text_scale)
 
 	var meter_w: float = clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
 	var meter_rect := Rect2(rect.position.x, rect.position.y + 18.0, meter_w, AFFINITY_METER_HEIGHT)
@@ -898,6 +902,8 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		float(snapshot.get("affinity_points", 0.0)),
 		float(snapshot.get("affinity_next_requirement", 0.0)),
 		str(snapshot.get("affinity_next_label", "")).strip_edges(),
+		int(snapshot.get("ring_core_tier", 0)),
+		int(snapshot.get("affinity_chip_count", 0)),
 		int(snapshot.get("bond_points", 0)),
 		str(snapshot.get("bond_title", "")).strip_edges(),
 	])
@@ -923,3 +929,40 @@ static func make_display_stat_row(label: String, value_text: String, color: Colo
 		row["tooltip_subtitle"] = LanguageSettings.translate_text(value_text)
 		row["tooltip_body"] = LanguageSettings.translate_text(tooltip_body)
 	return row
+
+
+static func _draw_ring_core_and_chip_status(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	left_x: float,
+	right_x: float,
+	snapshot: Dictionary,
+	stat_buff_color: Color,
+	empty_text_color: Color,
+	ui_text_scale: float
+) -> void:
+	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var chip_count := clampi(int(snapshot.get("affinity_chip_count", 0)), 0, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
+	var max_chips := LingpetAffinityState.MAX_ENHANCEMENT_CHIPS
+	var pip_w := 5.0
+	var pip_gap := 2.0
+	var pip_h := 7.0
+	var pips_w := float(max_chips) * pip_w + float(maxi(0, max_chips - 1)) * pip_gap
+	var tier_text := "T%d" % tier if tier > 0 else "T-"
+	var tier_size := _text_size(font, tier_text, 9, ui_text_scale)
+	var total_w := tier_size.x + 6.0 + pips_w
+	var start_x := maxf(left_x, right_x - total_w)
+	if start_x + total_w > right_x:
+		return
+	var tier_color := stat_buff_color if tier > 0 else empty_text_color
+	_draw_text_xy(canvas, font, tier_text, start_x, rect.position.y + 11.0, 9, tier_color, ui_text_scale)
+	var pip_x := start_x + tier_size.x + 6.0
+	var pip_y := rect.position.y + 4.0
+	for i in range(max_chips):
+		var filled := i < chip_count
+		var pip_rect := Rect2(pip_x + float(i) * (pip_w + pip_gap), pip_y, pip_w, pip_h)
+		var fill := Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88) if filled else Color(empty_text_color.r, empty_text_color.g, empty_text_color.b, 0.18)
+		var border := Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.68) if filled else Color(empty_text_color.r, empty_text_color.g, empty_text_color.b, 0.42)
+		canvas.draw_rect(pip_rect, fill)
+		canvas.draw_rect(pip_rect, border, false, 1.0)

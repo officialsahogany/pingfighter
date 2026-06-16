@@ -35,7 +35,14 @@ class FakeRuntimePerkCatalog:
 
 	var choices: Array = []
 
-	func get_choices(_character_type: String, _levels: Dictionary, _exclude_instant: bool, _target_count: int) -> Array:
+	func get_choices(
+		_character_type: String,
+		_levels: Dictionary,
+		_exclude_instant: bool,
+		_target_count: int,
+		_owner: Object = null,
+		_registry: Object = null
+	) -> Array:
 		return choices.duplicate(true)
 
 
