@@ -2866,6 +2866,10 @@ This section is intentionally long; use search to find the nearest owner.
   cooldown-only skill model. The HUD loads the generated
   `assets/sprites/stage3/menhera_boss_skill_cards_imagegen_v1.png` atlas
   first and falls back to procedural cards only if that PNG is missing.
+- `scripts/stages/stage3/stage3_boss_skill_hud_assets.gd`
+  Owns Stage 3 boss skill-card HUD asset metadata: Menhera skill-card atlas
+  path, skill-id-to-atlas-index mapping, and atlas column count. The renderer
+  keeps atlas caching, layout, tooltip, and draw behavior.
 - `scripts/stages/common/boss_skill_card_hud_spec.gd`
   Owns the shared Godot boss skill-card HUD sizing contract. Stage 1
   Dalji's compact card metrics are the canonical size: base pillar width

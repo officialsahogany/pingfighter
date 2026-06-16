@@ -3,14 +3,11 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const Stage3BossSkillHudAssets := preload("res://scripts/stages/stage3/stage3_boss_skill_hud_assets.gd")
 
-const SKILLCARD_ATLAS_PATH := "res://assets/sprites/stage3/menhera_boss_skill_cards_imagegen_v1.png"
-const SKILLCARD_ID_TO_INDEX := {
-	"tear_shower": 0,
-	"curse_chest": 1,
-	"psycho_ball": 2,
-}
-const SKILLCARD_ATLAS_COLUMNS := 4
+const SKILLCARD_ATLAS_PATH := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_PATH
+const SKILLCARD_ID_TO_INDEX := Stage3BossSkillHudAssets.SKILLCARD_ID_TO_INDEX
+const SKILLCARD_ATLAS_COLUMNS := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_COLUMNS
 
 var _skillcard_atlas: Texture2D = null
 var _metrics_cache_pillar_width := -1.0
