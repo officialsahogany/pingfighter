@@ -64,11 +64,21 @@ func _run() -> void:
 		"plaza_save_path": "user://plaza_scene_capture_stage%d.cfg" % stage_id,
 		"runtime_owner": capture_owner,
 		"selected_character_type": character_type,
+		"play_arrival_transition": true,
 	}
 	if map_seed > 0:
 		configure_data["map_seed"] = map_seed
 	plaza.configure(configure_data, Callable(), true)
 	plaza.call("_sync_game_rect")
+	plaza.call("advance_plaza_warp_transition_for_test", 0.50)
+	plaza.queue_redraw()
+	await process_frame
+	await process_frame
+	var arrive_image: Image = viewport.get_texture().get_image()
+	var arrive_path: String = "%s/plaza_stage%d_warp_arrive_mid.png" % [out_dir, stage_id]
+	arrive_image.save_png(arrive_path)
+	print("[PlazaCapture] warp_arrive_mid -> %s" % arrive_path)
+	plaza.call("advance_plaza_warp_transition_for_test", 0.60)
 	var status: Dictionary = plaza.call("get_status")
 	var world_size: Vector2 = status.get("world_size", Vector2(1900.0, 750.0))
 	var world_width: float = max(760.0, world_size.x)
@@ -117,10 +127,10 @@ func _run() -> void:
 		plaza.queue_redraw()
 		await process_frame
 		await process_frame
-		var warp_enter_image: Image = viewport.get_texture().get_image()
-		var warp_enter_path: String = "%s/plaza_stage%d_warp_enter_%s_mid.png" % [out_dir, stage_id, menu_type]
-		warp_enter_image.save_png(warp_enter_path)
-		print("[PlazaCapture] warp_enter_%s_mid -> %s" % [menu_type, warp_enter_path])
+		var building_enter_image: Image = viewport.get_texture().get_image()
+		var building_enter_path: String = "%s/plaza_stage%d_building_enter_%s_mid.png" % [out_dir, stage_id, menu_type]
+		building_enter_image.save_png(building_enter_path)
+		print("[PlazaCapture] building_enter_%s_mid -> %s" % [menu_type, building_enter_path])
 		plaza.call("advance_building_transition_for_test", 0.60)
 		plaza.queue_redraw()
 		await process_frame
@@ -134,10 +144,22 @@ func _run() -> void:
 		plaza.queue_redraw()
 		await process_frame
 		await process_frame
-		var warp_return_image: Image = viewport.get_texture().get_image()
-		var warp_return_path: String = "%s/plaza_stage%d_warp_return_%s_mid.png" % [out_dir, stage_id, menu_type]
-		warp_return_image.save_png(warp_return_path)
-		print("[PlazaCapture] warp_return_%s_mid -> %s" % [menu_type, warp_return_path])
+		var building_return_image: Image = viewport.get_texture().get_image()
+		var building_return_path: String = "%s/plaza_stage%d_building_return_%s_mid.png" % [out_dir, stage_id, menu_type]
+		building_return_image.save_png(building_return_path)
+		print("[PlazaCapture] building_return_%s_mid -> %s" % [menu_type, building_return_path])
+		plaza.call("advance_building_transition_for_test", 0.60)
+
+	plaza.call("set_player_pos_for_test", Vector2(world_width - 75.0, 666.0))
+	plaza.call("trigger_interaction_for_test", false)
+	plaza.call("advance_plaza_warp_transition_for_test", 0.50)
+	plaza.queue_redraw()
+	await process_frame
+	await process_frame
+	var exit_warp_image: Image = viewport.get_texture().get_image()
+	var exit_warp_path: String = "%s/plaza_stage%d_warp_exit_mid.png" % [out_dir, stage_id]
+	exit_warp_image.save_png(exit_warp_path)
+	print("[PlazaCapture] warp_exit_mid -> %s" % exit_warp_path)
 
 	print("[PlazaCapture] done")
 	quit(0)

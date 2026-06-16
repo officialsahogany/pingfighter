@@ -221,6 +221,12 @@ func get_plaza_save_summary() -> Dictionary:
 	return _plaza_save_store.get_summary()
 
 
+func get_cached_plaza_save_summary() -> Dictionary:
+	if not _last_plaza_progress_summary.is_empty():
+		return _last_plaza_progress_summary.duplicate(true)
+	return {}
+
+
 func prewarm_assets(_owner: Object = null, _registry: Object = null) -> Dictionary:
 	while not prewarm_assets_step(_owner, _registry):
 		pass
@@ -816,6 +822,7 @@ func _spawn_plaza_scene(owner: Object) -> bool:
 				"runtime_owner": _pending_owner,
 				"runtime_registry": _pending_registry,
 				"selected_character_type": _get_selected_character_type(_pending_owner),
+				"play_arrival_transition": true,
 			},
 			Callable(self, "_finish_plaza_and_continue"),
 			true

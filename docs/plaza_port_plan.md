@@ -786,7 +786,7 @@ S3~6 테마 양산 재개, 건물 테마별 재생성(6×7), 건물 v2 심화.
 ### 0.9.1 v1 반영 — 워프 + placeholder 인테리어 (2026-06-15)
 
 - **A 워프 VFX v1 반영**: 건물 상호작용 시 즉시 메뉴를 열지 않고
-  `BUILDING_WARP_DURATION = 1.0s` 동안 `enter` 전환을 먼저 재생한다. 플레이어와
+  `BUILDING_ENTRY_DURATION = 1.0s` 동안 `enter` 전환을 먼저 재생한다. 플레이어와
   활성 링펫 companion 위치를 고정하고, 반투명 페이드 + 시안/마젠타 상승 광선/링으로
   분해되는 느낌을 만든 뒤 기존 건물 메뉴를 연다. 닫기/ESC는 `return` 전환을 재생해
   빛이 다시 모이는 식으로 복귀한다.
@@ -797,8 +797,8 @@ S3~6 테마 양산 재개, 건물 테마별 재생성(6×7), 건물 v2 심화.
   NPC는 아직 회색 placeholder이며, 건물 타입별 이름/인사/색상만 다르게 표시한다.
   C 단계에서 Codex imagegen NPC 7종으로 교체.
 - **게이트**: `plaza_scene_capture.gd`가
-  `plaza_stage1_warp_enter_bank_mid.png`, `plaza_stage1_menu_bank.png`,
-  `plaza_stage1_warp_return_bank_mid.png`를 남긴다. `plaza_scene_smoke`는
+  `plaza_stage1_building_enter_bank_mid.png`, `plaza_stage1_menu_bank.png`,
+  `plaza_stage1_building_return_bank_mid.png`를 남긴다. `plaza_scene_smoke`는
   enter/return phase, 1초 완료, 메뉴 지연 오픈, 전환 중 이동 차단을 단언한다.
 
 **+Claude 게이트 통과 (2026-06-15) — B+A**: enter_mid 캡처=플레이어 위치 시안 링+
@@ -885,6 +885,115 @@ prewarm) ⑥복귀 역재생. §0.9.1 타이밍/입력/메뉴 계약 회귀 없�
 - 플레이어/링펫은 전환 중 alpha와 함께 약간 위로 상승해 빛기둥으로 분해/재구성되는
   느낌을 강화. `plaza_scene_smoke`는 transition 중 modular FX host 활성/actor slot
   전달/종료 후 hide를 단언.
+
+### 0.9.5 빛기둥 재배치 — 건물=walk-in, 빛기둥=광장 도착/퇴장 only (2026-06-16, 사용자 결정)
+
+**배경(사용자 관찰 + 코드 확인)**: 현재 건물 진입은 캐릭터가 입구 쪽으로 **글라이드 +
+페이드아웃**되어 *걸어들어가는 느낌*으로 읽힌다(텔레포트 느낌 0, 빛기둥 미가시). 코드상
+`_update_building_transition`에는 공/캐릭터를 건물로 이동시키는 로직이 없고, "살살 이동+
+페이드"는 `_draw`가 transition progress로 캐릭터를 입구로 미끄러뜨리며 알파를 빼는 연출.
+빛기둥 fx 호스트는 §0.9.4 v1에서 건물 전환에 붙었으나, §0.9.5에서 광장 도착/퇴장
+전용으로 재배치한다.
+
+**결정**:
+1. **건물 진입/복귀 = 현 글라이드+페이드 유지(walk-in으로 확정)**. 별도 walk 시트
+   auto-walk **만들지 않음**. 시간/입력 freeze/메뉴 지연 오픈 계약(§0.9.1) 그대로.
+2. **빛기둥(`plaza_warp_pillar_fx_host`)은 광장 "도착"(처음 진입) + 광장 "퇴장"(나가기)
+   에서만** 재생. 텔레포트 연출이 맞아떨어지는 맥락. fx 호스트는 그대로 재사용, **트리거
+   지점만 건물 전환 → 광장 도착/퇴장으로 이동**.
+
+**배선(Codex), 게이트(Claude)**:
+- **A. 건물 전환에서 빛기둥 호출 제거**: `_start_building_enter_transition` /
+  `_start_building_return_transition`에서 `_sync_warp_pillar_fx_host()` 호출 제거(또는
+  건물 전환에는 actor state를 host에 넘기지 않음). `_draw`의 글라이드+페이드는 유지.
+  건물 진입/복귀 중 빛기둥 actor_count=0이어야 함.
+- **B. 광장 도착 빛기둥**: 신규 전환 phase `"plaza_arrive"`. 광장 스폰(`_ready` 직후,
+  최초 1회) 시 캐릭터가 빛기둥으로 **등장(materialize, alpha fade-in + 빔 강하/지면링/
+  모트)**. 도착 중 입력 freeze. 약 1.0~1.4s 후 정상 조작.
+- **C. 광장 퇴장 빛기둥**: `_exit_plaza()`가 현재 `exit_callback`을 **즉시** 호출 →
+  신규 전환 phase `"plaza_exit"`로 캐릭터 **분해(dissolve)** 후 완료 시 `exit_callback`
+  호출. EXIT존 도달/EXIT 클릭 양 경로 모두 이 phase를 거치게.
+- **링펫**: 도착/퇴장 빛기둥도 `_is_lingpet_companion_visible()`면 링펫 기둥 동반.
+- **스모크 수정**: 현 `plaza_scene_smoke`는 *건물 전환* 중 빛기둥 host 활성/actor slot
+  전달을 단언 → 이를 뒤집어 ①건물 전환 중 빛기둥 actor_count=0 ②`plaza_arrive`/
+  `plaza_exit` phase 중 host 활성+actor slot 전달+종료 후 hide를 단언. 퇴장 phase가
+  완료돼야 `exit_callback`이 호출됨을 단언(즉시 호출 회귀 가드).
+
+**게이트(Claude)**: enter/return(건물)·arrive/exit(광장) **mid·late 프레임** 캡처 →
+①건물 진입은 글라이드+페이드만(빛기둥 0) ②광장 도착에서 빛기둥 등장(빔+지면링+모트+
+캐릭터 재구성) ③광장 퇴장에서 빛기둥 분해 후 콜백 ④링펫 동반 ⑤PSO prewarm 첫-draw
+히치 없음 ⑥건물 walk-in 시간/입력/메뉴 계약 회귀 없음.
+
+**Codex 반영 v1 (2026-06-16)**:
+- `plaza_scene`에 `plaza_warp_active/phase/progress`를 추가. 건물 `enter/return`
+  전환에서는 `_sync_warp_pillar_fx_host()` 호출을 제거해 글라이드+페이드만 유지.
+- 결과씬→광장 스폰 시 `play_arrival_transition=true`를 전달해 arrival 빛기둥을 재생.
+  `_exit_plaza()`는 콜백을 즉시 호출하지 않고 `exit` 빛기둥 1초 완료 후
+  `_finish_plaza_exit()`에서 1회 호출.
+- 캡처 도구는 `warp_arrive_mid`, `building_enter_mid`, `building_return_mid`,
+  `warp_exit_mid`를 저장하도록 갱신. `plaza_scene_smoke`/라우팅 스모크는 건물 FX=off,
+  arrival/exit FX=on, exit callback 지연을 단언.
+
+**게이트 결과 (Claude, 2026-06-16)**: 픽셀 게이트 통과(도착=좌 빛기둥/건물진입=빛기둥0
+글라이드+페이드/퇴장=우 빛기둥, brightest-column 크롭). 적대 검증 워크플로 7차원 =
+**6 PASS + 1 NIT + 1 RISK**.
+- PASS: arrival-once(opt-in `play_arrival_transition`, 프로덕션 set 1곳·매진입 fresh
+  spawn·재진입가드 3중·인플레이스 스테이지동기는 GameSelectionState만), exit-paths(키보드/
+  ESC/마우스 3경로 전부 `_exit_plaza`→워프→`_finish_plaza_exit` 단일·더블파이어0),
+  smoke-rigor(**반증검증 실측**: 토글3종(옛 빌딩-빛기둥/옛 즉시-exit/arrival-off)으로 옛
+  동작 복원→해당 assert 전부 FAIL 확인·진공assert 0), stale-refs(`BUILDING_WARP_DURATION`
+  트리 0건), contract(입력차단/메뉴타이밍/드로스킵/링펫/host-hide/exit재시작 6계약 유지).
+- NIT(low): 옛 status키 `building_warp_fx_active`/`building_warp_fx_actor_count`
+  (plaza_scene get_status:382-383)가 새 `warp_pillar_fx_*` 중복·소비자0·`building_`
+  접두 오해소지 → 2줄 삭제 권장. (`get_cached_plaza_save_summary`는 stage1_pillar_hud
+  _scene_drawer가 쓰는 live, dead 아님—오진.)
+- 🔴 **RISK(medium, 적대검증 확정) = PSO 프리웜**: 빛기둥을 광장 **도착(첫 프레임)**으로
+  옮기며 신규 hitch. 플라자 프리웜은 **리소스 레벨만**(`WritheEmberMaterial.prewarm()`
+  =Shader 리소스 생성·빔텍스처), **오프스크린 draw-pass 없음** → writhe-ember 셰이더+
+  additive GPUParticles2D PSO가 **도착 빛기둥 첫 draw 때 컴파일**(30~300ms).
+  `battle_pso_prewarmer`는 배틀전용·writhe-ember를 draw 안 함(인게임 inferno/EMP draw
+  의존). Stage1 클리어 직후 첫 플라자에선 그 셰이더 콜드 → 광장 여는 가장 눈에 띄는
+  순간 hitch. 디스크 셰이더 캐시로 2회차+ 완화되나 첫실행/캐시클리어 땐 무조건.
+  **§(이 문서) 새 셰이더→PSO prewarmer 등록 규칙 위반**. **Codex 후속 브리프**:
+  `plaza_warp_pillar_fx_host.prewarm_assets()`에서 리소스 생성 후 `electrocution_field`/
+  `electrocution_field_peak` Sprite2D 2개 + additive GPUParticles2D 2개를 오프스크린
+  (near-zero alpha) 1~2 flush 프레임 draw 후 free(battle_pso_prewarmer 오프스크린 패턴
+  미러), 또는 battle_pso_prewarmer에 writhe-ember draw step 추가(배틀부트=Stage1클리어
+  前 실행이라 콜드 inferno/EMP까지 커버). 씰=plaza_scene_smoke에 "prewarm-precedes
+  -arrival"(첫 arrival sync_state(true) 전 빛기둥 머터리얼/오프스크린 렌더 완료) assert +
+  반증검증.
+
+**교훈(트랩 강화)**: 기존 셰이더 효과를 **더 이르고/콜드한 트리거 경로로 재배치**하면
+(여기선 건물상호작용=나중·은밀 → 광장도착=첫프레임·전면) PSO prewarm 선행이 **다시
+검증 대상**이 된다. "옛 트리거에선 괜찮았다"가 새 트리거의 PSO 콜드 여부를 보장하지 않음.
+배치만 바꾼 효과도 PSO 프리웜 선행 + 씰을 재확인할 것.
+
+**Codex 후속 반영 (2026-06-16)**:
+- PSO RISK 해소: `battle_pso_prewarmer.gd`에 `PlazaWarpPillarFxHost`를 직접 소유하는
+  오프스크린 draw step `_prewarm_plaza_warp_pillar_shader_states()` 추가. boot PSO
+  prewarmer가 `arrive`/`exit` 더미 actor 2개를 `sync_state(..., true)`로 실제 호스트
+  경로에 태워 writhe-ember beam + additive ring/glow + GPUParticles2D 조합을 광장 첫
+  도착 전에 그린다.
+- 씰: `battle_pso_prewarmer_smoke`가 plaza warp FX host child와 draw step을 단언하고,
+  `plaza_scene_smoke`도 `PlazaWarpPillarFxHost`/`sync_state`/`arrive`/`exit` 계약을
+  소스 레벨로 확인한다.
+- NIT 해소: `plaza_scene.get_status()`의 옛 `building_warp_fx_active`/
+  `building_warp_fx_actor_count` alias 삭제. 새 canonical key는 `warp_pillar_fx_active`/
+  `warp_pillar_fx_actor_count`.
+
+**PSO 수정 게이트 (Claude, 2026-06-16) = PASS + 1 minor should-fix**. 직접 재검증(보고
+미신뢰): check-only 파스(2파일)·git diff --check·오염스캔 클린, 스모크 4개(battle_pso
+_prewarmer/plaza_scene/routing/battle_boot_resource_prewarm) PASS, warning scan 0경고,
+headless load 통과. 정확성: step 16 디스패치 확인(`WARMUP_DRAW_STEPS=17`, `_draw`가
+0..16 실행 +2 flush 후 free), 타이밍 확인(배틀부트 자식→Stage1 진행 중→첫 플라자 도착
+前 컴파일), 더미 `sync_state([arrive,exit],true)`가 라이브와 동일 셰이더/머터리얼/파티클
+조합을 그림. line26 오염 수정 유지.
+- **minor should-fix 해소 (Codex, 2026-06-16)**: `battle_pso_prewarmer_smoke`가 이제
+  `_prewarm_draw_step` 본문에 `_prewarm_plaza_warp_pillar_shader_states` 디스패치가 있고
+  `WARMUP_DRAW_STEPS >= 17`인지까지 단언한다. 메서드만 남고 case 16 호출이 빠지는
+  사일런트 PSO 회귀도 RED로 잡히도록 씰 강화. Claude 게이트에서 반증검증 완료:
+  `WARMUP_DRAW_STEPS := 16` 임시 토글 시 해당 assert가 RED, 즉시 `17` 복구 후
+  `battle_pso_prewarmer_smoke` GREEN 및 check-only 파스 클린.
 
 ## 1. 레거시 광장 시스템 요약 (포팅 대상 정의)
 

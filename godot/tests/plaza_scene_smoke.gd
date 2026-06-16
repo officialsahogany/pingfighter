@@ -51,6 +51,7 @@ func _run() -> void:
 	_verify_stage_two_manifest_override_contract()
 	_verify_player_sprite_loader_contract()
 	_verify_interior_npc_texture_contract()
+	_verify_plaza_warp_pso_prewarm_contract()
 	_prewarm_stage_one()
 	_prewarm_stage_two_with_manifest_override()
 	await _verify_plaza_scene_runtime()
@@ -138,6 +139,16 @@ func _verify_interior_npc_qa_file() -> void:
 		_expect(int(entry.get("corner_alpha_max", 255)) == 0, "%s should keep transparent corners" % str(entry.get("file", "npc")))
 
 
+func _verify_plaza_warp_pso_prewarm_contract() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/core/battle_pso_prewarmer.gd")
+	_expect(source.find("PlazaWarpPillarFxHost") >= 0, "battle PSO prewarmer should own the plaza warp pillar host before plaza arrival")
+	_expect(source.find("_prewarm_plaza_warp_pillar_shader_states") >= 0, "battle PSO prewarmer should expose a plaza warp pillar draw warmup step")
+	var body := _function_body(source, "func _prewarm_plaza_warp_pillar_shader_states")
+	_expect(body.find("sync_state") >= 0, "plaza warp pillar warmup should issue the real host sync_state path")
+	_expect(body.find("\"phase\": \"arrive\"") >= 0, "plaza warp pillar warmup should cover the arrival phase")
+	_expect(body.find("\"phase\": \"exit\"") >= 0, "plaza warp pillar warmup should cover the exit phase")
+
+
 func _prewarm_stage_one() -> void:
 	PlazaScene.reset_prewarm_assets_for_test()
 	var guard := 0
@@ -223,30 +234,30 @@ func _verify_plaza_scene_runtime() -> void:
 		_expect(not bool(status.get("menu_open", true)), "ESC should close the building menu shell")
 
 		scene.set_player_pos_for_test(Vector2(interaction_rect.get_center().x, float(status.get("ground_y", 0.0))))
-		_expect(scene.trigger_interaction_for_test(false), "building interaction should start the warp transition")
+		_expect(scene.trigger_interaction_for_test(false), "building interaction should start the entry transition")
 		status = scene.get_status()
-		_expect(bool(status.get("building_transition_active", false)), "building interaction should keep the menu closed during the warp")
-		_expect(str(status.get("building_transition_phase", "")) == "enter", "building warp should start in enter phase")
-		_expect(bool(status.get("building_warp_fx_active", false)), "building warp should activate the modular light-pillar FX host")
-		_expect(int(status.get("building_warp_fx_actor_count", 0)) >= 1, "building warp FX should receive at least the player actor slot")
-		_expect(not bool(status.get("menu_open", false)), "building menu should wait for the enter warp to finish")
+		_expect(bool(status.get("building_transition_active", false)), "building interaction should keep the menu closed during the entry transition")
+		_expect(str(status.get("building_transition_phase", "")) == "enter", "building entry should start in enter phase")
+		_expect(not bool(status.get("warp_pillar_fx_active", true)), "building entry should not activate the plaza light-pillar FX host")
+		_expect(int(status.get("warp_pillar_fx_actor_count", -1)) == 0, "building entry should not send actor slots to the light-pillar FX host")
+		_expect(not bool(status.get("menu_open", false)), "building menu should wait for the entry transition to finish")
 		before_pos = scene.get_status().get("player_pos", Vector2.ZERO)
 		scene.move_player_for_test(Vector2.RIGHT, 1.0 / 60.0)
 		after_pos = scene.get_status().get("player_pos", Vector2.ZERO)
-		_expect(after_pos.is_equal_approx(before_pos), "building warp should block player walking")
+		_expect(after_pos.is_equal_approx(before_pos), "building entry should block player walking")
 		scene.advance_building_transition_for_test(1.0)
 		status = scene.get_status()
-		_expect(not bool(status.get("building_transition_active", true)), "enter warp should finish after its one-second budget")
-		_expect(bool(status.get("menu_open", false)), "building menu should open after the enter warp")
+		_expect(not bool(status.get("building_transition_active", true)), "building entry should finish after its one-second budget")
+		_expect(bool(status.get("menu_open", false)), "building menu should open after the entry transition")
 		scene.close_menu_for_test(false)
 		status = scene.get_status()
-		_expect(bool(status.get("building_transition_active", false)), "closing the menu should start the return warp")
-		_expect(str(status.get("building_transition_phase", "")) == "return", "return warp should report return phase")
-		_expect(bool(status.get("building_warp_fx_active", false)), "return warp should reuse the modular light-pillar FX host")
+		_expect(bool(status.get("building_transition_active", false)), "closing the menu should start the return entry transition")
+		_expect(str(status.get("building_transition_phase", "")) == "return", "building return should report return phase")
+		_expect(not bool(status.get("warp_pillar_fx_active", true)), "building return should keep the plaza light-pillar FX host off")
 		scene.advance_building_transition_for_test(1.0)
 		status = scene.get_status()
-		_expect(not bool(status.get("building_transition_active", true)), "return warp should finish after its one-second budget")
-		_expect(not bool(status.get("building_warp_fx_active", true)), "warp FX host should hide after the transition budget")
+		_expect(not bool(status.get("building_transition_active", true)), "building return should finish after its one-second budget")
+		_expect(not bool(status.get("warp_pillar_fx_active", true)), "light-pillar FX host should stay hidden after building return")
 
 		# Mouse click on the building BODY (visual_rect center, above the base
 		# entrance strip) must open the menu -- not only the narrow interaction_rect.
@@ -277,7 +288,15 @@ func _verify_plaza_scene_runtime() -> void:
 	var exit_zone: Rect2 = scene.get_status().get("exit_zone", Rect2())
 	scene.set_player_pos_for_test(Vector2(exit_zone.get_center().x, float(status.get("ground_y", 0.0))))
 	_expect(scene.trigger_interaction_for_test(), "player in the plaza exit zone should trigger exit")
-	_expect(sink.exit_calls == 1, "plaza exit should invoke the delayed stage-transition callback exactly once")
+	status = scene.get_status()
+	_expect(bool(status.get("plaza_warp_active", false)), "plaza exit should start the light-pillar exit phase")
+	_expect(str(status.get("plaza_warp_phase", "")) == "exit", "plaza exit should report exit phase")
+	_expect(bool(status.get("warp_pillar_fx_active", false)), "plaza exit should activate the light-pillar FX host")
+	_expect(sink.exit_calls == 0, "plaza exit should delay the stage-transition callback until the light pillar finishes")
+	scene.advance_plaza_warp_transition_for_test(1.0)
+	status = scene.get_status()
+	_expect(not bool(status.get("plaza_warp_active", true)), "plaza exit light pillar should finish after its one-second budget")
+	_expect(sink.exit_calls == 1, "plaza exit should invoke the delayed stage-transition callback exactly once after the light pillar")
 
 	for _idx in range(4):
 		await process_frame
@@ -566,6 +585,16 @@ func _status_has_loaded_path(status: Dictionary, path_fragment: String) -> bool:
 		if str(key).find(path_fragment) >= 0 and bool(status.get(key, false)):
 			return true
 	return false
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
 
 
 func _send_key(scene: Control, keycode: Key) -> void:

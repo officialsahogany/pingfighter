@@ -70,6 +70,15 @@ func _verify_prewarmer_offscreen_position() -> void:
 			prewarmer._starpoint_fx_host.get_parent() == prewarmer,
 			"prewarmer's starpoint FX host must be a direct child so its slot quads inherit the offscreen modulate"
 		)
+	_expect(
+		prewarmer._plaza_warp_fx_host != null and is_instance_valid(prewarmer._plaza_warp_fx_host),
+		"prewarmer should own a plaza warp pillar FX host child so the first plaza-arrival pillar compiles off-screen"
+	)
+	if prewarmer._plaza_warp_fx_host != null and is_instance_valid(prewarmer._plaza_warp_fx_host):
+		_expect(
+			prewarmer._plaza_warp_fx_host.get_parent() == prewarmer,
+			"prewarmer's plaza warp FX host must be a direct child so its pillar quads inherit the offscreen transform"
+		)
 	prewarmer.queue_free()
 
 
@@ -89,10 +98,18 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_common_starpoint_drop_shader"), "prewarmer should cover common starpoint drop shader PSOs")
 	_expect(prewarmer.has_method("_prewarm_character_topdown_rim_shader"), "prewarmer should cover the player topdown rim shader PSO")
 	_expect(prewarmer.has_method("_prewarm_stage1_result_pose_textures"), "prewarmer should cover Stage 1 round-result pose texture uploads")
+	_expect(prewarmer.has_method("_prewarm_plaza_warp_pillar_shader_states"), "prewarmer should cover plaza arrival/exit warp pillar shader states")
 	_expect(prewarmer.has_method("_prewarm_draw_step"), "prewarmer should stage warmup families across multiple draw frames")
 	_expect(prewarmer._weather_renderer != null, "prewarmer should own a weather renderer for weather PSO warmup")
 	_expect(prewarmer._status_orb_renderer != null, "prewarmer should own the pillar status orb renderer for real HUD warmup")
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_pso_prewarmer.gd")
+	var draw_step_body: String = _function_body(source, "func _prewarm_draw_step")
+	_expect(
+		BattlePsoPrewarmer.WARMUP_DRAW_STEPS >= 17
+			and draw_step_body.find("16:") >= 0
+			and draw_step_body.find("_prewarm_plaza_warp_pillar_shader_states") >= 0,
+		"PSO prewarmer should dispatch the plaza warp pillar warmup before its staged draw loop finishes"
+	)
 	_expect(source.find("compact_fallback_frame") >= 0, "prewarmer should exercise the compact boss-dash fallback frame")
 	_expect(source.find("VIPER_SKILL_ICON_PATHS") >= 0, "prewarmer should draw selected-character skill icon texture families")
 	_expect(source.find("draw_mesh") >= 0 and source.find("ActiveItemThrowMolotovRenderer._get_filled_ellipse_mesh") >= 0, "prewarmer should exercise the active-item molotov filled ellipse mesh path")
@@ -150,6 +167,14 @@ func _verify_second_pass_warmup_scope() -> void:
 		source.find("POWER_SMASHING_CUTIN_SHEET_PATH") >= 0
 			and source.find("VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH") >= 0,
 		"PSO prewarmer should draw the skill cut-in sheets to force their VRAM upload offscreen at boot"
+	)
+	var plaza_warp_body: String = _function_body(source, "func _prewarm_plaza_warp_pillar_shader_states")
+	_expect(
+		source.find("PlazaWarpPillarFxHost") >= 0
+			and plaza_warp_body.find("sync_state") >= 0
+			and plaza_warp_body.find("\"phase\": \"arrive\"") >= 0
+			and plaza_warp_body.find("\"phase\": \"exit\"") >= 0,
+		"PSO prewarmer should draw plaza warp pillar arrive+exit states off-screen before the first plaza arrival"
 	)
 	prewarmer.free()
 

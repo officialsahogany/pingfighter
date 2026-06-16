@@ -72,6 +72,7 @@ func _verify_three_button_action_route() -> void:
 func _verify_plaza_delays_result_reset_callback() -> void:
 	var owner := FakeOwner.new()
 	owner.runtime_perk_gold = 321
+	owner.selected_character_type = "viper"
 	root.add_child(owner)
 	var sink := CallbackSink.new()
 	var screen := StageClearResultScreen.new()
@@ -106,6 +107,10 @@ func _verify_plaza_delays_result_reset_callback() -> void:
 	var plaza_status: Dictionary = status.get("plaza_status", {}) if status.get("plaza_status", {}) is Dictionary else {}
 	_expect(int(plaza_status.get("plaza_gold", 0)) == 321, "spawned plaza should read the same plaza save gold")
 	_expect(int(plaza_status.get("ap_current", 0)) == 4, "spawned plaza should read the same plaza save AP")
+	_expect(str(plaza_status.get("selected_character_type", "")) == "viper", "result-screen plaza route should pass the selected character through to the plaza")
+	_expect(bool(plaza_status.get("player_sprite_loaded", false)), "result-screen plaza route should load the selected character plaza sheet")
+	_expect(bool(plaza_status.get("plaza_warp_active", false)), "result-screen plaza route should start the arrival light-pillar phase")
+	_expect(str(plaza_status.get("plaza_warp_phase", "")) == "arrive", "result-screen plaza route should mark the arrival light-pillar phase")
 
 	screen.call("_finish_plaza_and_continue")
 	_expect(not screen.is_active(), "leaving the plaza should close the result screen controller")

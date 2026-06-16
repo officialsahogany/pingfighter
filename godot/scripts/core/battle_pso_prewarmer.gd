@@ -18,6 +18,7 @@ extends Node2D
 #   - Stage 2 center playfield and falling-leaf polygon/line primitives
 #   - Weather particles / warning panel primitives
 #   - Timer-stack first-use script path plus common timer-bar primitives
+#   - Plaza arrival/exit warp pillar shader, additive sprites, and particles
 #
 # Deliberately out of scope:
 #   - character_info / perk_debug overlay UI
@@ -48,13 +49,14 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 16
+const WARMUP_DRAW_STEPS := 17
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
+const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
 
 var _frames_remaining: int = LIFETIME_FRAMES
 var _warmup_step_index: int = 0
@@ -67,6 +69,7 @@ var _weather_renderer: Object = WeatherEventRenderer.new()
 var _weather_state: Object = PsoWeatherWarmupState.new()
 var _boost_fx_host: Node = null
 var _starpoint_fx_host: Node = null
+var _plaza_warp_fx_host: Node = null
 
 
 class PsoWeatherWarmupState:
@@ -128,6 +131,10 @@ func _ready() -> void:
 	# PSOs are already warmed by the inferno / EMP hosts, so a resource prewarm
 	# (no extra offscreen draw pass) is enough to avoid a first-shock hitch.
 	BossElectrocutionFieldHost.prewarm_assets()
+	# Plaza arrival/exit can be the first visible moment after the result scene,
+	# so its pillar shader/particle combo needs an actual offscreen draw pass
+	# here rather than only a static texture/material cache warmup.
+	PlazaWarpPillarFxHost.prewarm_assets()
 	_boost_fx_host = DashTokenBoostFxHost.new()
 	_boost_fx_host.name = "BoostFxHost_pso"
 	add_child(_boost_fx_host)
@@ -137,6 +144,9 @@ func _ready() -> void:
 	_starpoint_fx_host = CommonStarpointVisualHost.new()
 	_starpoint_fx_host.name = "StarpointFxHost_pso"
 	add_child(_starpoint_fx_host)
+	_plaza_warp_fx_host = PlazaWarpPillarFxHost.new()
+	_plaza_warp_fx_host.name = "PlazaWarpPillarFxHost_pso"
+	add_child(_plaza_warp_fx_host)
 	queue_redraw()
 
 
@@ -191,6 +201,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_stage1_result_pose_textures()
 		15:
 			_prewarm_skill_cutin_sheets()
+		16:
+			_prewarm_plaza_warp_pillar_shader_states()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -483,6 +495,30 @@ func _prewarm_skill_icon_textures() -> void:
 			false,
 			Color(1.0, 1.0, 1.0, 0.82)
 		)
+
+
+func _prewarm_plaza_warp_pillar_shader_states() -> void:
+	if _plaza_warp_fx_host == null or not is_instance_valid(_plaza_warp_fx_host):
+		return
+	if not _plaza_warp_fx_host.has_method("sync_state"):
+		return
+	_plaza_warp_fx_host.sync_state(
+		[
+			{
+				"screen_pos": Vector2(40.0, 40.0),
+				"progress": 0.50,
+				"phase": "arrive",
+				"strength": 1.0,
+			},
+			{
+				"screen_pos": Vector2(134.0, 40.0),
+				"progress": 0.50,
+				"phase": "exit",
+				"strength": 0.66,
+			},
+		],
+		true
+	)
 
 
 func _prewarm_pillar_hud_primitives() -> void:

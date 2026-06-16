@@ -58,7 +58,8 @@ const LINGPET_FOLLOW_OFFSET_Y := -20.0
 const LINGPET_COMPANION_GRID_COLS := 5
 const LINGPET_COMPANION_GRID_ROWS := 5
 const LINGPET_COMPANION_FRAME_COUNT := 25
-const BUILDING_WARP_DURATION := 1.0
+const BUILDING_ENTRY_DURATION := 1.0
+const PLAZA_WARP_DURATION := 1.0
 
 const INTERIOR_NPC_NAMES := {
 	"shop": "상점주인 모라",
@@ -172,6 +173,9 @@ var _building_transition_timer := 0.0
 var _building_transition_target: Dictionary = {}
 var _building_transition_player_pos := Vector2.ZERO
 var _building_transition_lingpet_pos := Vector2.ZERO
+var _plaza_warp_active := false
+var _plaza_warp_phase := ""
+var _plaza_warp_timer := 0.0
 var _warp_pillar_fx_host: Node = null
 var _last_input_dir := Vector2.RIGHT
 var _test_input_active := false
@@ -210,6 +214,7 @@ func _ready() -> void:
 	_ensure_warp_pillar_fx_host()
 	if plaza_theme.is_empty():
 		configure({"current_stage": current_stage}, Callable(), false)
+	_sync_warp_pillar_fx_host()
 	grab_focus()
 
 
@@ -249,6 +254,9 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_camera_x = _get_target_camera_x()
 	_close_building_menu(false)
 	_clear_building_transition()
+	_clear_plaza_warp_transition()
+	if bool(data.get("play_arrival_transition", false)):
+		_start_plaza_warp_transition("arrive")
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_sync_game_rect()
@@ -263,9 +271,14 @@ func update_plaza(delta: float) -> void:
 		_update_hovered_building()
 		queue_redraw()
 		return
+	if _plaza_warp_active:
+		_update_plaza_warp_transition(delta)
+		_dialog_timer = 0.0
+		_update_hovered_building()
+		queue_redraw()
+		return
 	if _building_transition_active:
 		_update_building_transition(delta)
-		_sync_warp_pillar_fx_host()
 		_dialog_timer = 0.0
 		_update_hovered_building()
 		queue_redraw()
@@ -299,6 +312,8 @@ func update_plaza(delta: float) -> void:
 func handle_plaza_input(event: InputEvent) -> bool:
 	if _is_runtime_perk_overlay_active():
 		return _handle_runtime_perk_overlay_input(event)
+	if _plaza_warp_active:
+		return true
 	if _building_transition_active:
 		return true
 	if _menu_open:
@@ -359,8 +374,11 @@ func get_status() -> Dictionary:
 		"building_transition_active": _building_transition_active,
 		"building_transition_phase": _building_transition_phase,
 		"building_transition_progress": _get_building_transition_progress(),
-		"building_warp_fx_active": bool(warp_fx_status.get("active", false)),
-		"building_warp_fx_actor_count": int(warp_fx_status.get("actor_count", 0)),
+		"plaza_warp_active": _plaza_warp_active,
+		"plaza_warp_phase": _plaza_warp_phase,
+		"plaza_warp_progress": _get_plaza_warp_progress(),
+		"warp_pillar_fx_active": bool(warp_fx_status.get("active", false)),
+		"warp_pillar_fx_actor_count": int(warp_fx_status.get("actor_count", 0)),
 		"active_menu_type": _active_menu_type,
 		"active_menu_title": _active_menu_title,
 		"active_menu_subtitle": _active_menu_subtitle,
@@ -428,7 +446,7 @@ func get_building_at_world_pos_for_test(world_pos: Vector2) -> Dictionary:
 func click_world_pos_for_test(world_pos: Vector2) -> bool:
 	# Mirrors the left-click branch of handle_plaza_input: pick a building at the
 	# world position and open its menu. Returns true if a building menu opened.
-	if _menu_open or _building_transition_active:
+	if _menu_open or _building_transition_active or _plaza_warp_active:
 		return false
 	var building := _get_building_at_world_pos(world_pos)
 	if building.is_empty():
@@ -446,7 +464,12 @@ func close_menu_for_test(complete_transition: bool = true) -> void:
 
 func advance_building_transition_for_test(delta: float) -> Dictionary:
 	_update_building_transition(delta)
-	_sync_warp_pillar_fx_host()
+	queue_redraw()
+	return get_status()
+
+
+func advance_plaza_warp_transition_for_test(delta: float) -> Dictionary:
+	_update_plaza_warp_transition(delta)
 	queue_redraw()
 	return get_status()
 
@@ -942,6 +965,14 @@ func _draw_exit_zone(scale: float) -> void:
 func _draw_world_objects(scale: float) -> void:
 	for spec in _building_specs:
 		_draw_building(spec, scale)
+	if _plaza_warp_active:
+		var plaza_warp_progress := _get_plaza_warp_progress()
+		var plaza_actor_alpha := _get_plaza_warp_actor_alpha(plaza_warp_progress)
+		if plaza_actor_alpha > 0.01:
+			var plaza_actor_lift := _get_plaza_warp_actor_lift(plaza_warp_progress)
+			_draw_lingpet_follower(scale, plaza_actor_alpha, _lingpet_follower_pos + Vector2(0.0, plaza_actor_lift * 0.72))
+			_draw_player(scale, plaza_actor_alpha, _player_pos + Vector2(0.0, plaza_actor_lift))
+		return
 	if _building_transition_active:
 		var transition_progress := _get_building_transition_progress()
 		var actor_alpha := _get_building_transition_actor_alpha(transition_progress)
@@ -1084,6 +1115,20 @@ func _get_building_transition_actor_lift(progress: float) -> float:
 	return -42.0 * eased
 
 
+func _get_plaza_warp_actor_alpha(progress: float) -> float:
+	var eased := _smooth_unit(progress)
+	if _plaza_warp_phase == "arrive":
+		return eased
+	return 1.0 - eased
+
+
+func _get_plaza_warp_actor_lift(progress: float) -> float:
+	var eased := _smooth_unit(progress)
+	if _plaza_warp_phase == "arrive":
+		return -42.0 * (1.0 - eased)
+	return -48.0 * eased
+
+
 func _ensure_warp_pillar_fx_host() -> void:
 	if _warp_pillar_fx_host != null and is_instance_valid(_warp_pillar_fx_host):
 		return
@@ -1100,23 +1145,23 @@ func _sync_warp_pillar_fx_host() -> void:
 	_ensure_warp_pillar_fx_host()
 	if _warp_pillar_fx_host == null or not _warp_pillar_fx_host.has_method("sync_state"):
 		return
-	if not _building_transition_active:
+	if not _plaza_warp_active:
 		_warp_pillar_fx_host.sync_state([], false)
 		return
 	var scale := _get_game_scale()
-	var progress := _get_building_transition_progress()
+	var progress := _get_plaza_warp_progress()
 	var actor_states: Array[Dictionary] = []
 	actor_states.append({
-		"screen_pos": _world_to_local(_building_transition_player_pos, scale),
+		"screen_pos": _world_to_local(_player_pos, scale),
 		"progress": progress,
-		"phase": _building_transition_phase,
+		"phase": _plaza_warp_phase,
 		"strength": 1.0,
 	})
 	if _is_lingpet_companion_visible():
 		actor_states.append({
-			"screen_pos": _world_to_local(_building_transition_lingpet_pos, scale),
+			"screen_pos": _world_to_local(_lingpet_follower_pos, scale),
 			"progress": progress,
-			"phase": _building_transition_phase,
+			"phase": _plaza_warp_phase,
 			"strength": 0.66,
 		})
 	_warp_pillar_fx_host.sync_state(actor_states, true)
@@ -1139,6 +1184,8 @@ func _draw_overlay_ui(scale: float) -> void:
 	if font == null:
 		return
 	_draw_minimap(scale)
+	if _plaza_warp_active:
+		return
 	if _building_transition_active:
 		return
 	if _menu_open:
@@ -1674,7 +1721,7 @@ func _update_hovered_building() -> void:
 
 
 func _try_interact() -> bool:
-	if _menu_open or _building_transition_active:
+	if _menu_open or _building_transition_active or _plaza_warp_active:
 		return false
 	if EXIT_ZONE.has_point(_player_pos):
 		_exit_plaza()
@@ -1730,7 +1777,6 @@ func _start_building_enter_transition(building: Dictionary) -> void:
 	_building_transition_lingpet_pos = _lingpet_follower_pos
 	_dialog_text = ""
 	_dialog_timer = 0.0
-	_sync_warp_pillar_fx_host()
 	queue_redraw()
 
 
@@ -1743,15 +1789,14 @@ func _start_building_return_transition() -> void:
 	_building_transition_target = {}
 	_building_transition_player_pos = _player_pos
 	_building_transition_lingpet_pos = _lingpet_follower_pos
-	_sync_warp_pillar_fx_host()
 	queue_redraw()
 
 
 func _update_building_transition(delta: float) -> void:
 	if not _building_transition_active:
 		return
-	_building_transition_timer = min(BUILDING_WARP_DURATION, _building_transition_timer + max(0.0, delta))
-	if _building_transition_timer < BUILDING_WARP_DURATION:
+	_building_transition_timer = min(BUILDING_ENTRY_DURATION, _building_transition_timer + max(0.0, delta))
+	if _building_transition_timer < BUILDING_ENTRY_DURATION:
 		return
 	if _building_transition_phase == "enter":
 		var target := _building_transition_target.duplicate(true)
@@ -1765,7 +1810,7 @@ func _update_building_transition(delta: float) -> void:
 func _complete_building_transition_for_test() -> void:
 	if not _building_transition_active:
 		return
-	_update_building_transition(BUILDING_WARP_DURATION)
+	_update_building_transition(BUILDING_ENTRY_DURATION)
 
 
 func _clear_building_transition() -> void:
@@ -1775,13 +1820,50 @@ func _clear_building_transition() -> void:
 	_building_transition_target = {}
 	_building_transition_player_pos = Vector2.ZERO
 	_building_transition_lingpet_pos = Vector2.ZERO
-	_sync_warp_pillar_fx_host()
 
 
 func _get_building_transition_progress() -> float:
 	if not _building_transition_active:
 		return 0.0
-	return clampf(_building_transition_timer / max(0.001, BUILDING_WARP_DURATION), 0.0, 1.0)
+	return clampf(_building_transition_timer / max(0.001, BUILDING_ENTRY_DURATION), 0.0, 1.0)
+
+
+func _start_plaza_warp_transition(phase: String) -> void:
+	if _plaza_warp_active:
+		return
+	_plaza_warp_active = true
+	_plaza_warp_phase = phase
+	_plaza_warp_timer = 0.0
+	_dialog_text = ""
+	_dialog_timer = 0.0
+	_sync_warp_pillar_fx_host()
+	queue_redraw()
+
+
+func _update_plaza_warp_transition(delta: float) -> void:
+	if not _plaza_warp_active:
+		return
+	_plaza_warp_timer = min(PLAZA_WARP_DURATION, _plaza_warp_timer + max(0.0, delta))
+	_sync_warp_pillar_fx_host()
+	if _plaza_warp_timer < PLAZA_WARP_DURATION:
+		return
+	var completed_phase := _plaza_warp_phase
+	_clear_plaza_warp_transition()
+	if completed_phase == "exit":
+		_finish_plaza_exit()
+
+
+func _clear_plaza_warp_transition() -> void:
+	_plaza_warp_active = false
+	_plaza_warp_phase = ""
+	_plaza_warp_timer = 0.0
+	_sync_warp_pillar_fx_host()
+
+
+func _get_plaza_warp_progress() -> float:
+	if not _plaza_warp_active:
+		return 0.0
+	return clampf(_plaza_warp_timer / max(0.001, PLAZA_WARP_DURATION), 0.0, 1.0)
 
 
 func _refresh_plaza_save_snapshot() -> void:
@@ -2285,6 +2367,12 @@ func _get_owned_lingpet_count() -> int:
 
 
 func _exit_plaza() -> void:
+	if _plaza_warp_active:
+		return
+	_start_plaza_warp_transition("exit")
+
+
+func _finish_plaza_exit() -> void:
 	if exit_callback.is_valid():
 		exit_callback.call()
 
