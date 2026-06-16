@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
 const PLAYER_DIRECTIONAL_ATTACK_ANIM_DURATION: float = 0.72
 const PLAYER_LEGACY_ATTACK_ANIM_DURATION: float = 0.40
 const SMASHER_DIRECTIONAL_WALK_FRAME_COUNT: int = 8
@@ -14,12 +16,14 @@ const BOSS_LEGACY_HIT_FRAME_SPEED: float = 0.075
 const BOSS_4X4_HIT_FRAME_COUNT: int = 16
 const BOSS_4X4_HIT_FRAME_SPEED: float = 0.045
 
+var _character_runtime: Object = PlayerCharacterRuntime.new()
+
 
 func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
-	var normalized_character: String = _normalize_character_type(character_type)
-	var is_viper: bool = normalized_character == "viper"
-	var is_commando: bool = normalized_character == "soldier"
-	var is_blacksmith: bool = normalized_character == "blacksmith"
+	var normalized_character: String = _character_runtime.normalize(character_type)
+	var is_viper: bool = _character_runtime.is_viper(normalized_character)
+	var is_commando: bool = _character_runtime.is_commando(normalized_character)
+	var is_blacksmith: bool = _character_runtime.is_blacksmith(normalized_character)
 	var has_directional_attack_sheet: bool = not is_commando and (
 		(is_viper and (_has_texture(textures, "viper_player_attack_left_sheet") or _has_texture(textures, "viper_player_attack_right_sheet")))
 		or (is_blacksmith and (_has_texture(textures, "blacksmith_player_attack_left_sheet") or _has_texture(textures, "blacksmith_player_attack_right_sheet")))
@@ -144,16 +148,3 @@ func _is_4x4_boss_attack_sheet(texture: Texture2D) -> bool:
 		and int(texture_size.x) % 4 == 0
 		and int(texture_size.y) % 4 == 0
 	)
-
-
-func _normalize_character_type(value: Variant) -> String:
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
-		return "blacksmith"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	if normalized == "viper":
-		return "viper"
-	return "smasher"
