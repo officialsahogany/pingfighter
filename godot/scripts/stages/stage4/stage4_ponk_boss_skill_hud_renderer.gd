@@ -3,13 +3,14 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const Stage4PonkBossSkillHudAssets := preload("res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_assets.gd")
 
-const MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage4_ponk_refraction_magnetic_field_skillcard_imagegen_v1.png"
-const MEDITATION_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage4_ponk_vipassana_meditation_skillcard_imagegen_v1.png"
-const MAGNETIC_FIELD_FALLBACK_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_refraction_magnetic_field_sheet_imagegen_v3_soft.png"
-const MEDITATION_FALLBACK_SHEET_PATH := "res://assets/sprites/hud/stage4_floating_temple_aura_sheet_imagegen_v1.png"
-const CARD_TEXTURE_COLS := 4
-const CARD_TEXTURE_ROWS := 4
+const MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH := Stage4PonkBossSkillHudAssets.MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH
+const MEDITATION_SKILLCARD_TEXTURE_PATH := Stage4PonkBossSkillHudAssets.MEDITATION_SKILLCARD_TEXTURE_PATH
+const MAGNETIC_FIELD_FALLBACK_SHEET_PATH := Stage4PonkBossSkillHudAssets.MAGNETIC_FIELD_FALLBACK_SHEET_PATH
+const MEDITATION_FALLBACK_SHEET_PATH := Stage4PonkBossSkillHudAssets.MEDITATION_FALLBACK_SHEET_PATH
+const CARD_TEXTURE_COLS := Stage4PonkBossSkillHudAssets.CARD_TEXTURE_COLS
+const CARD_TEXTURE_ROWS := Stage4PonkBossSkillHudAssets.CARD_TEXTURE_ROWS
 const SIDE_STRIP_BASE := 2.0
 const WIDE_SKILLCARD_ASPECT_MIN := 2.5
 

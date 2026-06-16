@@ -2949,6 +2949,11 @@ This section is intentionally long; use search to find the nearest owner.
   `stage4_ponk_vipassana_meditation_skillcard_imagegen_v1.png` before
   falling back to the ported magnetic-field sheet / floating-temple aura
   sheet and then procedural fills.
+- `scripts/stages/stage4/stage4_ponk_boss_skill_hud_assets.gd`
+  Owns Stage 4 Ponk boss skill-card HUD asset metadata: skill-card PNG
+  paths, fallback sheet paths, and fallback sheet grid dimensions. The
+  renderer keeps texture caching, prewarm sequencing, card layout, and draw
+  composition.
 - `scripts/stages/stage4/stage4_ponk_skill_state.gd`
   Owns the first Stage 4 Ponk skill runtime slice: boss-hit gauge fill,
   meditation trigger / orbit / release, refraction magnetic-field loop,
