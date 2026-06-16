@@ -4435,6 +4435,11 @@ This section is intentionally long; use search to find the nearest owner.
   attack / hit / wheel / result sheets and the customization-debug overlay.
   `battle_resources.gd` keeps public aliases plus texture loading, 2.5D
   override fallback integration, cache keys, and staged prewarm sequencing.
+- `scripts/resources/battle_viper_sprite_paths.gd`
+  Owns read-only Viper player sprite paths, including idle / walk / attack /
+  airborne / wall / Venom Edge / hit / result sheets. `battle_resources.gd`
+  keeps public aliases plus texture loading, cache keys, and staged prewarm
+  sequencing.
 - `scripts/resources/battle_skill_cutin_paths.gd`
   Owns read-only skill-presentation texture paths for Smasher / Viper cut-in
   sheets, Drive cut-in pieces, Shield Kiting cut-in art, and the Lingpet

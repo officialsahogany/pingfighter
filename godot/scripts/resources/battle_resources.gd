@@ -9,6 +9,7 @@ const BattleOptimusSpritePaths := preload("res://scripts/resources/battle_optimu
 const BattleSkillCutinPaths := preload("res://scripts/resources/battle_skill_cutin_paths.gd")
 const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
 const BattleSmasherSpritePaths := preload("res://scripts/resources/battle_smasher_sprite_paths.gd")
+const BattleViperSpritePaths := preload("res://scripts/resources/battle_viper_sprite_paths.gd")
 const Smasher25DSheetOverride := preload("res://scripts/core/smasher_25d_sheet_override.gd")
 
 const PINGPONG_BALL_TEXTURE_PATH := BattleCoreTexturePaths.PINGPONG_BALL_TEXTURE_PATH
@@ -43,44 +44,44 @@ const SMASHER_DEFEAT_SHEET_PATH := BattleSmasherSpritePaths.SMASHER_DEFEAT_SHEET
 const PLAYER_HIT_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_HIT_SPRITE_PATH
 const PLAYER_HIT_LEFT_STRIP_PATH := BattleSmasherSpritePaths.PLAYER_HIT_LEFT_STRIP_PATH
 const PLAYER_HIT_RIGHT_STRIP_PATH := BattleSmasherSpritePaths.PLAYER_HIT_RIGHT_STRIP_PATH
-const VIPER_PLAYER_SPRITE_PATH := "res://assets/sprites/viper_walk_strip.png"
-const VIPER_PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/viper_idle_strip.png"
-const VIPER_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_idle_sheet.png"
-const VIPER_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_walk_sheet.png"
-const VIPER_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_walk_sheet.png"
-const VIPER_PLAYER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_attack_sheet.png"
-const VIPER_PLAYER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_attack_sheet.png"
-const VIPER_PLAYER_WALL_CLING_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_wall_cling_sheet.png"
-const VIPER_PLAYER_WALL_CLING_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_wall_cling_sheet.png"
-const VIPER_PLAYER_WALL_FLIGHT_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_wall_flight_sheet.png"
-const VIPER_PLAYER_WALL_FLIGHT_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_wall_flight_sheet.png"
-const VIPER_PLAYER_FLYING_KICK_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_flying_kick_sheet.png"
-const VIPER_PLAYER_FLYING_KICK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_flying_kick_sheet.png"
-const VIPER_PLAYER_TUMBLE_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_tumble_sheet.png"
-const VIPER_PLAYER_BLADE_FIRE_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_blade_fire_sheet.png"
-const VIPER_PLAYER_THROW_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_throw_sheet.png"
-const VIPER_PLAYER_HOVER_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_hover_sheet.png"
-const VIPER_PLAYER_HOVER_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_hover_sheet.png"
-const VIPER_PLAYER_UP_KICK_LEFT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_up_kick_sheet.png"
-const VIPER_PLAYER_UP_KICK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_up_kick_sheet.png"
-const VIPER_PLAYER_STUN_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_stun_sheet.png"
-const VIPER_PLAYER_CONFUSION_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_confusion_sheet.png"
+const VIPER_PLAYER_SPRITE_PATH := BattleViperSpritePaths.VIPER_PLAYER_SPRITE_PATH
+const VIPER_PLAYER_IDLE_SPRITE_PATH := BattleViperSpritePaths.VIPER_PLAYER_IDLE_SPRITE_PATH
+const VIPER_PLAYER_IDLE_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_IDLE_SHEET_PATH
+const VIPER_PLAYER_WALK_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_WALK_LEFT_SHEET_PATH
+const VIPER_PLAYER_WALK_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_WALK_RIGHT_SHEET_PATH
+const VIPER_PLAYER_ATTACK_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_ATTACK_LEFT_SHEET_PATH
+const VIPER_PLAYER_ATTACK_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_ATTACK_RIGHT_SHEET_PATH
+const VIPER_PLAYER_WALL_CLING_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_WALL_CLING_LEFT_SHEET_PATH
+const VIPER_PLAYER_WALL_CLING_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_WALL_CLING_RIGHT_SHEET_PATH
+const VIPER_PLAYER_WALL_FLIGHT_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_WALL_FLIGHT_LEFT_SHEET_PATH
+const VIPER_PLAYER_WALL_FLIGHT_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_WALL_FLIGHT_RIGHT_SHEET_PATH
+const VIPER_PLAYER_FLYING_KICK_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_FLYING_KICK_LEFT_SHEET_PATH
+const VIPER_PLAYER_FLYING_KICK_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_FLYING_KICK_RIGHT_SHEET_PATH
+const VIPER_PLAYER_TUMBLE_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_TUMBLE_SHEET_PATH
+const VIPER_PLAYER_BLADE_FIRE_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_BLADE_FIRE_SHEET_PATH
+const VIPER_PLAYER_THROW_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_THROW_SHEET_PATH
+const VIPER_PLAYER_HOVER_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_HOVER_LEFT_SHEET_PATH
+const VIPER_PLAYER_HOVER_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_HOVER_RIGHT_SHEET_PATH
+const VIPER_PLAYER_UP_KICK_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_UP_KICK_LEFT_SHEET_PATH
+const VIPER_PLAYER_UP_KICK_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_UP_KICK_RIGHT_SHEET_PATH
+const VIPER_PLAYER_STUN_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_STUN_SHEET_PATH
+const VIPER_PLAYER_CONFUSION_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_CONFUSION_SHEET_PATH
 # Venom Edge dash sheet: 640x320 PNG, 4x2 grid, 8 frames, cell 160x160.
 # Back-view forward-launch with both arm-blades spread wide ("wings out").
 # Body size varies per cell to read the depth-into-screen burst toward boss.
 # Center-anchor (no foot baseline) since character is fully airborne.
-const VIPER_PLAYER_VENOM_EDGE_DASH_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_venom_edge_dash_sheet.png"
+const VIPER_PLAYER_VENOM_EDGE_DASH_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_VENOM_EDGE_DASH_SHEET_PATH
 # Venom Edge strike sheet: 640x320 PNG, 4x2 grid, 8 frames, cell 160x160.
 # UNIQUE FRONT-VIEW sheet — viper has appeared behind the boss and is turned
 # toward the camera/player to slash the boss's eyes from behind. Face, fierce
 # eyes, V-chevron on chest are visible. Cells 4-5 contain the bright cyan X-cut
 # afterimage at peak slash. Foot-anchored (feet planted) since the strike is
 # delivered from a standing pose behind the boss.
-const VIPER_PLAYER_VENOM_EDGE_STRIKE_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_venom_edge_strike_sheet.png"
-const VIPER_VICTORY_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_victory_gemini_v4_64f.png"
-const VIPER_DEFEAT_SHEET_PATH := "res://assets/sprites/characters/viper/viper_subculture_defeat_autosprite_v2_64f.png"
-const VIPER_PLAYER_HIT_LEFT_STRIP_PATH := "res://assets/sprites/viper_hit_left_strip.png"
-const VIPER_PLAYER_HIT_RIGHT_STRIP_PATH := "res://assets/sprites/viper_hit_right_strip.png"
+const VIPER_PLAYER_VENOM_EDGE_STRIKE_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_VENOM_EDGE_STRIKE_SHEET_PATH
+const VIPER_VICTORY_SHEET_PATH := BattleViperSpritePaths.VIPER_VICTORY_SHEET_PATH
+const VIPER_DEFEAT_SHEET_PATH := BattleViperSpritePaths.VIPER_DEFEAT_SHEET_PATH
+const VIPER_PLAYER_HIT_LEFT_STRIP_PATH := BattleViperSpritePaths.VIPER_PLAYER_HIT_LEFT_STRIP_PATH
+const VIPER_PLAYER_HIT_RIGHT_STRIP_PATH := BattleViperSpritePaths.VIPER_PLAYER_HIT_RIGHT_STRIP_PATH
 const COMMANDO_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_idle_sheet.png"
 const COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_left_walk_sheet.png"
 const COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_right_walk_sheet.png"
