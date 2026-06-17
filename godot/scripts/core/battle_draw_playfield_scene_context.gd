@@ -25,7 +25,7 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 
 func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var current_msec: int = Time.get_ticks_msec()
-	var selected_character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var selected_character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", PlayerCharacterRuntime.SMASHER))
 	var player_paddle_width: float = max(1.0, float(_get_owner_value(owner, "player_paddle_width", PADDLE_WIDTH)))
 	var player_paddle_height: float = max(1.0, float(_get_owner_value(owner, "player_paddle_height", PADDLE_HEIGHT)))
 	var runtime_paddle_base_width: float = max(1.0, float(_get_owner_value(owner, "runtime_paddle_base_width", player_paddle_width)))
@@ -44,7 +44,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var viper_jetpack_active: bool = false
 	var viper_jetpack_airborne: bool = false
 	var viper_air_strike_flash_timer: float = 0.0
-	if selected_character_type == "viper":
+	if selected_character_type == PlayerCharacterRuntime.VIPER:
 		var viper_skill_runtime: Object = registry.get_instance("viper_skill_runtime") if registry != null and registry.has_method("get_instance") else null
 		if viper_skill_runtime != null and viper_skill_runtime.has_method("is_kick_skill_knockback_ball_active"):
 			viper_knockback_overlay_active = viper_knockback_overlay_active or bool(viper_skill_runtime.is_kick_skill_knockback_ball_active())
@@ -205,7 +205,7 @@ func _get_empty_dash_snapshot() -> Dictionary:
 
 
 func _merge_blacksmith_thor_shield_state_context(context: Dictionary, character_type: String, registry) -> void:
-	if character_type != "blacksmith":
+	if character_type != PlayerCharacterRuntime.BLACKSMITH:
 		return
 	var shield_state: Object = registry.get_instance("blacksmith_thor_shield_state") if registry != null and registry.has_method("get_instance") else null
 	if shield_state == null or not shield_state.has_method("get_snapshot"):
