@@ -21,7 +21,7 @@ const JUNIOR_STARTING_DASH_TOKENS := 2
 
 
 func build_startup_context(owner: Object) -> Dictionary:
-	var ai_mode := _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	var ai_mode := normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
 	var league_boss_paddle_scale: float = get_league_boss_paddle_scale_for_mode(ai_mode)
 	return {
 		"width": WIDTH,
@@ -53,34 +53,34 @@ func build_draw_context() -> Dictionary:
 
 
 func get_starting_dash_tokens(owner: Object) -> int:
-	var ai_mode := _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	var ai_mode := normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
 	return get_starting_dash_tokens_for_mode(ai_mode)
 
 
 func get_starting_dash_tokens_for_mode(mode: String) -> int:
-	var ai_mode := _normalize_league_mode(mode)
+	var ai_mode := normalize_league_mode(mode)
 	if ai_mode == "junior":
 		return JUNIOR_STARTING_DASH_TOKENS
 	return DEFAULT_STARTING_DASH_TOKENS
 
 
 func get_league_player_paddle_scale(owner: Object) -> float:
-	var ai_mode := _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	var ai_mode := normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
 	return get_league_player_paddle_scale_for_mode(ai_mode)
 
 
 func get_league_player_paddle_scale_for_mode(mode: String) -> float:
-	var ai_mode := _normalize_league_mode(mode)
+	var ai_mode := normalize_league_mode(mode)
 	return JUNIOR_PLAYER_PADDLE_SCALE if ai_mode == "junior" else 1.0
 
 
 func get_league_boss_paddle_scale(owner: Object) -> float:
-	var ai_mode := _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	var ai_mode := normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
 	return get_league_boss_paddle_scale_for_mode(ai_mode)
 
 
 func get_league_boss_paddle_scale_for_mode(mode: String) -> float:
-	var ai_mode := _normalize_league_mode(mode)
+	var ai_mode := normalize_league_mode(mode)
 	return MYTHIC_BOSS_PADDLE_SCALE if ai_mode == "mythic" else 1.0
 
 
@@ -88,7 +88,7 @@ func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 	return BattleSceneOwnerReader.get_value(owner, key, fallback)
 
 
-func _normalize_league_mode(mode: String) -> String:
+static func normalize_league_mode(mode: String) -> String:
 	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
 	if normalized == "junior" or normalized == "juniorleague":
 		return "junior"

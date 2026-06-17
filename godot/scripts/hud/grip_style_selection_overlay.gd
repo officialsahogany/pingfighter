@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const GripStyleSelectionOverlayRenderer := preload("res://scripts/hud/grip_style_selection_overlay_renderer.gd")
 
@@ -239,7 +240,7 @@ func _should_open(owner: Object, _registry: Object, module_getter: Callable) -> 
 func _is_junior_mika(owner: Object) -> bool:
 	if owner == null:
 		return false
-	var ai_mode: String = _normalize_league_mode(str(owner.get("ai_mode")))
+	var ai_mode: String = BattleSceneConfig.normalize_league_mode(str(owner.get("ai_mode")))
 	var character_type: String = str(owner.get("selected_character_type")).strip_edges().to_lower()
 	return ai_mode == "junior" and (character_type == "smasher" or character_type == "mika")
 
@@ -402,13 +403,6 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
-
-
-func _normalize_league_mode(mode: String) -> String:
-	var normalized := mode.strip_edges().to_lower().replace("_", "").replace("-", "").replace(" ", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	return normalized
 
 
 func _normalize_grip_style(value: String) -> String:

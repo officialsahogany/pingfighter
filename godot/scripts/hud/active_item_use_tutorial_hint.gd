@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const ActiveItemHudLayout := preload("res://scripts/hud/active_item_hud_layout.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -183,7 +184,9 @@ func _delay_prerequisites_met(owner: Object, module_getter: Callable) -> bool:
 	if not _has_completed_skill_tooltip_tutorials(module_getter):
 		return false
 	return (
-		_normalize_league_mode(str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))) == "junior"
+		BattleSceneConfig.normalize_league_mode(
+			str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))
+		) == "junior"
 		and _character_runtime.normalize(
 			BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")
 		) == "smasher"
@@ -345,15 +348,6 @@ func _normalize_grip_style(value: String) -> String:
 	if normalized in ["gamepad", "xbox", "controller", "pad"]:
 		return "gamepad"
 	return ""
-
-
-func _normalize_league_mode(mode: String) -> String:
-	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
 
 
 func _refresh_language_state() -> bool:

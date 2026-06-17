@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
@@ -157,19 +158,12 @@ func _should_start(owner: Object) -> bool:
 	if owner == null:
 		return false
 	return (
-		_normalize_league_mode(str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))) == "junior"
+		BattleSceneConfig.normalize_league_mode(
+			str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))
+		) == "junior"
 		and _character_runtime.normalize(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")) == "smasher"
 		and _get_grip_style(owner) != ""
 	)
-
-
-func _normalize_league_mode(mode: String) -> String:
-	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
 
 
 func _get_grip_style(owner: Object) -> String:

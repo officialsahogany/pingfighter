@@ -1,8 +1,10 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const SkillOrbTooltipTutorialHintGeometry := preload("res://scripts/hud/skill_orb_tooltip_tutorial_hint_geometry.gd")
@@ -21,6 +23,7 @@ const QUICK_POINTER_SKILLS := {
 
 var layout_helper: Object = Stage1PillarUiLayout.new()
 var fallback_orb_renderer: Object = SmasherSkillOrbRenderer.new()
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 var _shown_skills: Dictionary = {}
 var _completed_skills: Dictionary = {}
 var _active := false
@@ -272,8 +275,12 @@ func _should_start(owner: Object, module_getter: Callable) -> bool:
 	if _is_junior_mika_tutorial_blocking(module_getter):
 		return false
 	return (
-		_normalize_league_mode(str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))) == "junior"
-		and _normalize_character_type(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")) == "smasher"
+		BattleSceneConfig.normalize_league_mode(
+			str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))
+		) == "junior"
+		and _character_runtime.normalize(
+			BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")
+		) == "smasher"
 		and _get_grip_style(owner) != ""
 	)
 
@@ -419,26 +426,6 @@ func _normalize_grip_style(value: String) -> String:
 	if normalized in ["gamepad", "xbox", "controller", "pad"]:
 		return "gamepad"
 	return ""
-
-
-func _normalize_league_mode(mode: String) -> String:
-	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
-
-
-func _normalize_character_type(value: Variant) -> String:
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == "viper":
-		return "viper"
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	return "smasher"
 
 
 func _refresh_language_state() -> bool:
