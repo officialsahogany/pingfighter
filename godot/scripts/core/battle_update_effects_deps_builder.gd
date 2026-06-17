@@ -3,10 +3,12 @@ extends RefCounted
 const BattleUpdateEffectsCharacterDepsBuilder := preload("res://scripts/core/battle_update_effects_character_deps_builder.gd")
 const BattleUpdateEffectsCoreDepsBuilder := preload("res://scripts/core/battle_update_effects_core_deps_builder.gd")
 const BattleUpdateStageRuntimeDepsBuilder := preload("res://scripts/core/battle_update_stage_runtime_deps_builder.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 var character_deps_builder: Object = BattleUpdateEffectsCharacterDepsBuilder.new()
 var core_deps_builder: Object = BattleUpdateEffectsCoreDepsBuilder.new()
 var stage_runtime_deps_builder: Object = BattleUpdateStageRuntimeDepsBuilder.new()
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 var _cached_registry: Object = null
 var _cached_stage: int = -1
@@ -16,7 +18,8 @@ var _has_cached_deps: bool = false
 
 
 func build_deps(registry: Object, current_stage: int = 1, character_type: String = "") -> Dictionary:
-	var cache_character_type: String = character_type.strip_edges().to_lower()
+	var trimmed_character_type: String = character_type.strip_edges()
+	var cache_character_type: String = "" if trimmed_character_type == "" else _character_runtime.normalize(trimmed_character_type)
 	if (
 		_has_cached_deps
 		and registry == _cached_registry

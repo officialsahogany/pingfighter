@@ -189,6 +189,20 @@ func _verify_scoped_cache_deps() -> void:
 	_expect(commando_deps.get("commando_reload_delivery_state", null) == registry.instances["commando_reload_delivery_state"], "scoped Commando effects deps should include reload delivery state")
 	_expect(not commando_deps.has("viper_skill_runtime"), "scoped Commando effects deps should not expose Viper runtime")
 
+	registry.requested_keys.clear()
+	var commando_alias_deps: Dictionary = builder.build_deps(registry, 2, " Commando ")
+	_expect(registry.requested_keys.is_empty(), "normalized Commando aliases should reuse the Soldier scoped effects deps cache")
+	_expect(commando_alias_deps.get("commando_firearm_runtime", null) == registry.instances["commando_firearm_runtime"], "cached Commando alias deps should keep firearm runtime")
+
+	var legacy_builder: Object = EffectsDepsBuilder.new()
+	var legacy_registry := FakeRegistry.new()
+	var legacy_deps: Dictionary = legacy_builder.build_deps(legacy_registry, 2, "")
+	_expect(legacy_deps.has("viper_skill_runtime") and legacy_deps.has("commando_firearm_runtime"), "blank character deps should keep the legacy all-character dependency set")
+	legacy_registry.requested_keys.clear()
+	var smasher_deps: Dictionary = legacy_builder.build_deps(legacy_registry, 2, " Smasher ")
+	_expect(not legacy_registry.requested_keys.is_empty(), "scoped Smasher deps must not reuse the blank legacy cache")
+	_expect(not smasher_deps.has("viper_skill_runtime") and not smasher_deps.has("commando_firearm_runtime"), "scoped Smasher deps should stay narrower than blank legacy deps")
+
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
