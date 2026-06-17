@@ -64,8 +64,11 @@ func _init() -> void:
 	_verify_scoped_smasher_deps(builder, registry)
 	_verify_scoped_viper_deps(builder, registry)
 	_verify_scoped_commando_deps(builder, registry)
+	_verify_scoped_commando_deps(builder, registry, " Soldier ")
 	_verify_scoped_optimus_deps(builder, registry)
+	_verify_scoped_optimus_deps(builder, registry, " IO ")
 	_verify_scoped_blacksmith_deps(builder, registry)
+	_verify_scoped_blacksmith_deps(builder, registry, " Kohaku ")
 	_verify_scoped_stage_deps(registry)
 
 	var null_deps: Dictionary = builder.build_deps(null)
@@ -196,9 +199,9 @@ func _verify_scoped_viper_deps(builder: Object, registry: FakeRegistry) -> void:
 	_expect(not registry.requested_keys.has("commando_supply_drop_state"), "scoped Viper deps should not wake Commando supply runtime")
 
 
-func _verify_scoped_commando_deps(builder: Object, registry: FakeRegistry) -> void:
+func _verify_scoped_commando_deps(builder: Object, registry: FakeRegistry, character_type: String = "commando") -> void:
 	registry.requested_keys.clear()
-	var deps: Dictionary = builder.build_deps(registry, "commando")
+	var deps: Dictionary = builder.build_deps(registry, character_type)
 	var skill_states: Array = deps.get("skill_states", [])
 	var skill_configs: Array = deps.get("skill_configs", [])
 	_expect(deps.get("skill_state", null) == registry.instances["commando_skill_state"], "scoped Commando deps should expose Commando primary skill state")
@@ -227,9 +230,9 @@ func _verify_scoped_commando_deps(builder: Object, registry: FakeRegistry) -> vo
 	_expect(not registry.requested_keys.has("blacksmith_skill_config"), "scoped Commando deps should not wake Blacksmith skill config")
 
 
-func _verify_scoped_optimus_deps(builder: Object, registry: FakeRegistry) -> void:
+func _verify_scoped_optimus_deps(builder: Object, registry: FakeRegistry, character_type: String = "optimus") -> void:
 	registry.requested_keys.clear()
-	var deps: Dictionary = builder.build_deps(registry, "optimus")
+	var deps: Dictionary = builder.build_deps(registry, character_type)
 	var skill_states: Array = deps.get("skill_states", [])
 	var skill_configs: Array = deps.get("skill_configs", [])
 	_expect(deps.get("skill_state", null) == registry.instances["optimus_energy_state"], "scoped Optimus deps should expose Optimus energy as primary skill state")
@@ -257,9 +260,9 @@ func _verify_scoped_optimus_deps(builder: Object, registry: FakeRegistry) -> voi
 	_expect(not registry.requested_keys.has("commando_supply_drop_state"), "scoped Optimus deps should not wake Commando supply runtime")
 
 
-func _verify_scoped_blacksmith_deps(builder: Object, registry: FakeRegistry) -> void:
+func _verify_scoped_blacksmith_deps(builder: Object, registry: FakeRegistry, character_type: String = "blacksmith") -> void:
 	registry.requested_keys.clear()
-	var deps: Dictionary = builder.build_deps(registry, "blacksmith")
+	var deps: Dictionary = builder.build_deps(registry, character_type)
 	var skill_states: Array = deps.get("skill_states", [])
 	var skill_configs: Array = deps.get("skill_configs", [])
 	_expect(deps.get("skill_state", null) == registry.instances["blacksmith_skill_state"], "scoped Blacksmith deps should expose Blacksmith primary skill state")

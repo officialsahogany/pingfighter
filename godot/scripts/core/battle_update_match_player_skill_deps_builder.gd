@@ -2,19 +2,31 @@ extends RefCounted
 
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
-const CHARACTER_SKILL_ORDER := ["smasher", "viper", "commando", "optimus", "blacksmith"]
+const CHARACTER_KEY_SMASHER := PlayerCharacterRuntime.SMASHER
+const CHARACTER_KEY_VIPER := PlayerCharacterRuntime.VIPER
+const CHARACTER_KEY_COMMANDO := "commando"
+const CHARACTER_KEY_OPTIMUS := PlayerCharacterRuntime.OPTIMUS
+const CHARACTER_KEY_BLACKSMITH := PlayerCharacterRuntime.BLACKSMITH
+
+const CHARACTER_SKILL_ORDER := [
+	CHARACTER_KEY_SMASHER,
+	CHARACTER_KEY_VIPER,
+	CHARACTER_KEY_COMMANDO,
+	CHARACTER_KEY_OPTIMUS,
+	CHARACTER_KEY_BLACKSMITH,
+]
 const CHARACTER_SKILL_KEYS := {
-	"smasher": {
+	CHARACTER_KEY_SMASHER: {
 		"state": "smasher_skill_state",
 		"config": "smasher_skill_config",
 		"runtimes": [],
 	},
-	"viper": {
+	CHARACTER_KEY_VIPER: {
 		"state": "viper_skill_state",
 		"config": "viper_skill_config",
 		"runtimes": ["viper_skill_runtime"],
 	},
-	"commando": {
+	CHARACTER_KEY_COMMANDO: {
 		"state": "commando_skill_state",
 		"config": "commando_skill_config",
 		"runtimes": [
@@ -23,12 +35,12 @@ const CHARACTER_SKILL_KEYS := {
 			"commando_supply_drop_state",
 		],
 	},
-	"optimus": {
+	CHARACTER_KEY_OPTIMUS: {
 		"state": "optimus_energy_state",
 		"config": "",
 		"runtimes": [],
 	},
-	"blacksmith": {
+	CHARACTER_KEY_BLACKSMITH: {
 		"state": "blacksmith_skill_state",
 		"config": "blacksmith_skill_config",
 		"runtimes": [],
@@ -43,9 +55,9 @@ func build_deps(registry: Object, character_type: String = "") -> Dictionary:
 	var scoped := not raw_character.is_empty()
 	var normalized_character: String = character_runtime.normalize(raw_character) if scoped else ""
 	var character_key := _get_character_skill_key(normalized_character) if scoped else ""
-	var include_smasher := _should_include_character(scoped, character_key, "smasher")
-	var include_optimus := _should_include_character(scoped, character_key, "optimus")
-	var include_blacksmith := _should_include_character(scoped, character_key, "blacksmith")
+	var include_smasher := _should_include_character(scoped, character_key, CHARACTER_KEY_SMASHER)
+	var include_optimus := _should_include_character(scoped, character_key, CHARACTER_KEY_OPTIMUS)
+	var include_blacksmith := _should_include_character(scoped, character_key, CHARACTER_KEY_BLACKSMITH)
 	var skill_states: Array = _build_skill_states(registry, scoped, character_key)
 	var skill_configs: Array = _build_skill_configs(registry, scoped, character_key)
 	return {
@@ -75,14 +87,14 @@ func build_deps(registry: Object, character_type: String = "") -> Dictionary:
 
 func _get_character_skill_key(normalized_character: String) -> String:
 	if character_runtime.is_viper(normalized_character):
-		return "viper"
+		return CHARACTER_KEY_VIPER
 	if character_runtime.is_commando(normalized_character):
-		return "commando"
+		return CHARACTER_KEY_COMMANDO
 	if character_runtime.is_optimus(normalized_character):
-		return "optimus"
+		return CHARACTER_KEY_OPTIMUS
 	if character_runtime.is_blacksmith(normalized_character):
-		return "blacksmith"
-	return "smasher"
+		return CHARACTER_KEY_BLACKSMITH
+	return CHARACTER_KEY_SMASHER
 
 
 func _should_include_character(scoped: bool, selected_character_key: String, character_key: String) -> bool:
@@ -98,7 +110,7 @@ func _get_character_registry_key(character_key: String, field: String) -> String
 
 
 func _build_primary_skill_state(registry: Object, scoped: bool, selected_character_key: String) -> Object:
-	var character_key := selected_character_key if scoped else "smasher"
+	var character_key := selected_character_key if scoped else CHARACTER_KEY_SMASHER
 	var state_key := _get_character_registry_key(character_key, "state")
 	return _get_instance(registry, state_key) if state_key != "" else null
 
