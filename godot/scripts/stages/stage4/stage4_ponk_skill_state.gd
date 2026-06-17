@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const StageActorDrawContextArrays := preload("res://scripts/stages/common/stage_actor_draw_context_arrays.gd")
 const Stage4PonkMagneticAssets := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_assets.gd")
 const Stage4PonkMagneticFxHost := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd")
 const Stage4PonkMeditationFxHost := preload("res://scripts/stages/stage4/stage4_ponk_meditation_fx_host.gd")
@@ -462,9 +463,9 @@ func get_actor_draw_context(copy_arrays: bool = false) -> Dictionary:
 		"stage4_meditation_cooldown_total": MEDITATION_COOLDOWN_SEC,
 		"stage4_meditation_angle": meditation_angle_degrees,
 		"stage4_meditation_ball_pos": meditation_ball_pos,
-		"stage4_meditation_trails": meditation_trails.duplicate(true) if copy_arrays else meditation_trails,
-		"stage4_meditation_particles": meditation_particles.duplicate(true) if copy_arrays else meditation_particles,
-		"stage4_meditation_circles": meditation_circles.duplicate(true) if copy_arrays else meditation_circles,
+		"stage4_meditation_trails": StageActorDrawContextArrays.snapshot(meditation_trails, copy_arrays),
+		"stage4_meditation_particles": StageActorDrawContextArrays.snapshot(meditation_particles, copy_arrays),
+		"stage4_meditation_circles": StageActorDrawContextArrays.snapshot(meditation_circles, copy_arrays),
 		"stage4_meditation_release_fx_active": meditation_release_fx_timer_frames > 0.0,
 		"stage4_meditation_release_fx_timer": meditation_release_fx_timer_frames,
 		"stage4_meditation_release_fx_total": MEDITATION_RELEASE_FX_FRAMES,
@@ -472,7 +473,7 @@ func get_actor_draw_context(copy_arrays: bool = false) -> Dictionary:
 		"stage4_meditation_release_fx_pos": meditation_release_fx_pos,
 		"stage4_meditation_release_fx_velocity": meditation_release_fx_velocity,
 		"stage4_meditation_release_fx_id": meditation_release_fx_id,
-		"stage4_meditation_release_fx_trails": meditation_release_fx_trails.duplicate(true) if copy_arrays else meditation_release_fx_trails,
+		"stage4_meditation_release_fx_trails": StageActorDrawContextArrays.snapshot(meditation_release_fx_trails, copy_arrays),
 	}
 
 
