@@ -1,9 +1,12 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
+
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func apply_player_result(owner: Object, registry: Object, result: Dictionary) -> void:
@@ -166,7 +169,7 @@ func _apply_player_paddle_size_result(owner: Object, result: Dictionary) -> void
 		owner.set("player_paddle_height", next_height)
 		return
 	var player_pos: Vector2 = _get_owner_vector2(owner, "player_pos", Vector2.ZERO)
-	var is_optimus: bool = str(_get_owner_value(owner, "selected_character_type", "")).strip_edges().to_lower() == "optimus"
+	var is_optimus: bool = _character_runtime.is_optimus(_get_owner_value(owner, "selected_character_type", ""))
 	var center_x: float = player_pos.x + current_width * 0.5
 	var bottom_y: float = FIELD_HEIGHT if is_optimus else player_pos.y + current_height
 	player_pos.x = clamp(center_x - next_width * 0.5, 0.0, max(0.0, FIELD_WIDTH - next_width))
