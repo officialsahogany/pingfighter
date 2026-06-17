@@ -10,6 +10,7 @@ const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_
 const MotionConfigBuilder := preload("res://scripts/ui/character_select_motion_config_builder.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
@@ -773,12 +774,7 @@ func _find_character_index(character_id: String, runtime_character_id: String) -
 
 
 func _normalize_league_mode(mode: String) -> String:
-	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(mode)
 
 
 func _try_begin_confirm_intro(character: Dictionary, next_scene_path: String) -> bool:
