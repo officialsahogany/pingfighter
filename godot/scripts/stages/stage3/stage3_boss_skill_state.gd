@@ -9,6 +9,7 @@ const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint
 const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
 const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
 const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
+const StageActorDrawContextArrays := preload("res://scripts/stages/common/stage_actor_draw_context_arrays.gd")
 const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
 const StagePlayfieldBounds := preload("res://scripts/stages/common/stage_playfield_bounds.gd")
 const Stage3BossSkillPayloadFactory := preload("res://scripts/stages/stage3/stage3_boss_skill_payload_factory.gd")
@@ -361,9 +362,7 @@ func get_actor_draw_context(copy_arrays: bool = false) -> Dictionary:
 
 
 func _draw_array(source: Array, copy_arrays: bool, deep: bool) -> Array:
-	if copy_arrays:
-		return source.duplicate(deep)
-	return source
+	return StageActorDrawContextArrays.snapshot(source, copy_arrays, deep)
 
 
 func get_boss_gauge_progress() -> float:
