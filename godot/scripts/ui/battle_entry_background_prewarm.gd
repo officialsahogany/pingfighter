@@ -20,6 +20,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const Stage1PillarBackground := preload("res://scripts/stages/stage1/stage1_pillar_background.gd")
 const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
@@ -41,6 +42,7 @@ var _jobs: Array = []
 var _job_index: int = 0
 var _built_for_character := ""
 var _built_for_stage: int = 0
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func is_finished() -> bool:
@@ -57,9 +59,7 @@ func get_job_count() -> int:
 # real battle startup source (GameSelectionState.stage_id) -- a fixed Stage 1
 # target wastes IO and static cache whenever the entry stage is 2+.
 func update(character_type: String, stage_id: int = ENTRY_PREWARM_DEFAULT_STAGE) -> bool:
-	var normalized := str(character_type).strip_edges().to_lower()
-	if normalized == "":
-		normalized = "smasher"
+	var normalized: String = _character_runtime.normalize(character_type)
 	var normalized_stage: int = max(1, stage_id)
 	if _built_for_character != normalized or _built_for_stage != normalized_stage:
 		_build_jobs(normalized, normalized_stage)
@@ -136,9 +136,9 @@ func _get_stage_runtime_threaded_paths(character_type: String, stage_id: int) ->
 	]
 	# Mirror skill_cutin_overlay_host._build_asset_prewarm_steps: only smasher
 	# and viper own cut-in sheets; other characters prewarm none.
-	if character_type == "viper":
+	if character_type == PlayerCharacterRuntime.VIPER:
 		paths.append(SkillCutinOverlayHost.VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH)
-	elif character_type == "smasher":
+	elif character_type == PlayerCharacterRuntime.SMASHER:
 		paths.append(SkillCutinOverlayHost.POWER_SMASHING_CUTIN_SHEET_PATH)
 		paths.append(SkillCutinOverlayHost.GHOST_SMASHING_CUTIN_SHEET_PATH)
 		paths.append(SkillCutinOverlayHost.DRIVE_BACKPLATE_PATH)

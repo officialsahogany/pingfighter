@@ -216,6 +216,9 @@ func _verify_character_switch_rebuilds_jobs() -> void:
 	var viper_probe := BattleEntryBackgroundPrewarm.new()
 	viper_probe.call("_build_jobs", "viper", 1)
 	_fake_cache_paths(viper_probe.get("_jobs"))
+	var optimus_probe := BattleEntryBackgroundPrewarm.new()
+	optimus_probe.call("_build_jobs", "optimus", 1)
+	_fake_cache_paths(optimus_probe.get("_jobs"))
 
 	var prewarmer := BattleEntryBackgroundPrewarm.new()
 	prewarmer.call("_build_jobs", "smasher", 1)
@@ -232,6 +235,14 @@ func _verify_character_switch_rebuilds_jobs() -> void:
 		guard += 1
 	_expect(str(prewarmer.get("_built_for_character")) == "viper", "switching characters should rebuild the job list")
 	_expect(finished, "rebuilt viper jobs should finish from the faked cache")
+
+	finished = false
+	guard = 0
+	while not finished and guard < 64:
+		finished = bool(prewarmer.update(" IO "))
+		guard += 1
+	_expect(str(prewarmer.get("_built_for_character")) == "optimus", "entry prewarm should normalize character aliases through the shared runtime")
+	_expect(finished, "rebuilt Optimus alias jobs should finish from the faked cache")
 
 
 func _verify_character_select_screen_wires_idle_prewarm() -> void:
