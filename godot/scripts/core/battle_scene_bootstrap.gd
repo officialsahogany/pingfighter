@@ -1,8 +1,10 @@
 extends RefCounted
 
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 var _fallback_boss_health_flow: Object = BattleSceneBossHealthFlow.new()
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
@@ -18,7 +20,7 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var player_paddle_visual_scale_override: float = -1.0
 	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
 	var boss_hitbox_height: float = float(context.get("boss_hitbox_height", 40.0))
-	var selected_character_type: String = str(context.get("selected_character_type", "smasher")).strip_edges().to_lower()
+	var selected_character_type: String = _character_runtime.normalize(context.get("selected_character_type", "smasher"))
 	var current_stage: int = int(context.get("current_stage", 1))
 	var special_gauge := 0.0
 	var special_gauge_max := 500.0
