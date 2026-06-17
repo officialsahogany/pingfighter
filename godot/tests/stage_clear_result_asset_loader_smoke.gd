@@ -103,8 +103,9 @@ func _verify_texture_bundle_load() -> void:
 func _verify_asset_path_resolution() -> void:
 	var path_config: Dictionary = StageClearResultAssetLoader.get_default_result_asset_path_config()
 	_expect(str(path_config.get("background_texture", "")) == StageClearResultAssetLoader.STAGE1_BACKGROUND_PATH, "asset loader should own the default result background path config")
-	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("commando") == "soldier", "asset loader should normalize Commando result character ids")
-	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("optimus") == "optimus", "asset loader should normalize Optimus result character ids")
+	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type(" Commando ") == "soldier", "asset loader should normalize Commando result character ids")
+	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("io") == "optimus", "asset loader should normalize Optimus result character aliases")
+	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("kohaku") == "smasher", "asset loader should default unsupported dedicated result characters to Smasher")
 	_expect(StageClearResultAssetLoader.normalize_player_victory_character_type("unknown") == "smasher", "asset loader should default unknown result character ids to Smasher")
 	var commando_paths: Dictionary = StageClearResultAssetLoader.get_result_asset_paths("commando", 1)
 	_expect(

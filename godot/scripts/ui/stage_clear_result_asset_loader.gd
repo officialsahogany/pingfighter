@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_host.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
@@ -126,12 +127,12 @@ static func get_result_asset_paths(character_type: String, stage_id: int, path_c
 
 
 static func normalize_player_victory_character_type(character_type: String) -> String:
-	var normalized: String = str(character_type).strip_edges().to_lower()
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	return "smasher"
+	var normalized: String = PlayerCharacterRuntime.new().normalize(character_type)
+	if normalized == PlayerCharacterRuntime.COMMANDO:
+		return PlayerCharacterRuntime.COMMANDO
+	if normalized == PlayerCharacterRuntime.OPTIMUS:
+		return PlayerCharacterRuntime.OPTIMUS
+	return PlayerCharacterRuntime.SMASHER
 
 
 static func get_player_victory_sheet_path_for_character(character_type: String, path_config: Dictionary = {}) -> String:
