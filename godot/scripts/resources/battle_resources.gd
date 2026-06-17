@@ -1047,38 +1047,14 @@ func _load_commando_player_textures() -> void:
 
 
 func _load_optimus_player_textures(clear_generic_player_fallbacks: bool) -> void:
-	_resource_cache["optimus_player_idle_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_IDLE_SHEET_PATH)
-	_resource_cache["optimus_player_walk_left_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH)
-	_resource_cache["optimus_player_walk_right_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_WALK_RIGHT_SHEET_PATH)
-	_resource_cache["optimus_player_attack_left_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_ATTACK_LEFT_SHEET_PATH)
-	_resource_cache["optimus_player_attack_right_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_ATTACK_RIGHT_SHEET_PATH)
-	_resource_cache["optimus_overlay_paddle"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_PADDLE_PATH)
-	_resource_cache["optimus_overlay_core_glow"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_CORE_GLOW_PATH)
-	_resource_cache["optimus_overlay_back"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_BACK_PATH)
-	_resource_cache["optimus_overlay_accessory"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_ACCESSORY_PATH)
-	_resource_cache["optimus_overlay_outfit_accent"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH)
-	if clear_generic_player_fallbacks:
-		_clear_smasher_player_fallback_textures()
+	_load_texture_specs(_get_optimus_player_texture_specs(clear_generic_player_fallbacks))
 
 
 func _load_blacksmith_player_textures(
 	clear_generic_player_fallbacks: bool,
 	include_result_sheets: bool = false
 ) -> void:
-	_resource_cache["blacksmith_player_idle_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_IDLE_SHEET_PATH)
-	_resource_cache["blacksmith_player_walk_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_LEFT_SHEET_PATH)
-	_resource_cache["blacksmith_player_walk_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_WALK_RIGHT_SHEET_PATH)
-	_resource_cache["blacksmith_player_dash_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_DASH_LEFT_SHEET_PATH)
-	_resource_cache["blacksmith_player_dash_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_DASH_RIGHT_SHEET_PATH)
-	_resource_cache["blacksmith_player_attack_left_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_ATTACK_LEFT_SHEET_PATH)
-	_resource_cache["blacksmith_player_attack_right_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_ATTACK_RIGHT_SHEET_PATH)
-	_resource_cache["blacksmith_player_thor_shield_deploy_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_THOR_SHIELD_DEPLOY_SHEET_PATH)
-	_resource_cache["blacksmith_thor_shield_stretch_texture"] = _load_texture_resource(BLACKSMITH_THOR_SHIELD_STRETCH_TEXTURE_PATH)
-	if include_result_sheets:
-		_resource_cache["player_victory_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_VICTORY_SHEET_PATH)
-		_resource_cache["player_defeat_sheet"] = _load_texture_resource(BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH)
-	if clear_generic_player_fallbacks:
-		_clear_smasher_player_fallback_textures()
+	_load_texture_specs(_get_blacksmith_player_texture_specs(clear_generic_player_fallbacks, include_result_sheets))
 
 
 func _clear_smasher_player_fallback_textures() -> void:

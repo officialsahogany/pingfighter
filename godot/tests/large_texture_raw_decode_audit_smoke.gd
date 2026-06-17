@@ -144,8 +144,9 @@ func _verify_skill_cutin_transition_prewarm(battle_resources_source: String, war
 	var load_core_body := _function_body(battle_resources_source, "func _load_core_textures(")
 	_expect(
 		core_specs.find("LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH") >= 0
-			and load_core_body.find("_load_imported_texture_resource(LINGPET_ACQUIRE_RESONANCE_PORTAL_PATH") >= 0,
-		"lingpet acquire portal should be warmed through the character-common imported texture path"
+			and core_specs.find("_imported_texture_spec") >= 0
+			and load_core_body.find("_load_texture_specs(_get_core_texture_specs())") >= 0,
+		"lingpet acquire portal should be warmed through the character-common imported texture spec path"
 	)
 	_expect(
 		smasher_specs.find("SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH") >= 0
