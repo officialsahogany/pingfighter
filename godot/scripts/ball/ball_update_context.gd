@@ -3,6 +3,7 @@ extends RefCounted
 const BallDependencyContext := preload("res://scripts/ball/ball_dependency_context.gd")
 const BallUpdateOwnerSnapshot := preload("res://scripts/ball/ball_update_owner_snapshot.gd")
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 
 const MYTHIC_BOSS_PADDLE_SCALE := 1.15
 
@@ -155,9 +156,4 @@ func _is_fire_weather_active(context: Dictionary) -> bool:
 
 
 func _normalize_league_mode(mode: String) -> String:
-	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(mode)

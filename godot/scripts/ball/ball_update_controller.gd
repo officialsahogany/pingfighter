@@ -4,6 +4,7 @@ const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion_controller.gd")
 const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
 const BallRenderInterpolation := preload("res://scripts/ball/ball_render_interpolation.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 
 const STAGE5_HONGRYUN_GUARD_X_SHRINK := 24.0
@@ -692,12 +693,7 @@ func _get_power_smash_effective_speed_cap(scene: Dictionary, context: Dictionary
 
 
 func _normalize_league_mode(ai_mode: String) -> String:
-	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(ai_mode)
 
 
 func _is_speed_limit_disabled(context: Dictionary) -> bool:

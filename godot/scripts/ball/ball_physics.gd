@@ -2,6 +2,7 @@ extends RefCounted
 
 const BallImpactBoostPolicy := preload("res://scripts/ball/ball_impact_boost_policy.gd")
 const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 
 const BALL_BASE_SPEED := 7.65
 const COMPANION_GUARD_CENTER_HIT_ACCEL_MULT := 0.03
@@ -29,14 +30,7 @@ func configure_context(
 
 
 func normalize_league_mode(league_mode: String) -> String:
-	var normalized: String = league_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "champion" or normalized == "championleague" or normalized == "pro":
-		return "champion"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(league_mode)
 
 
 func build_serve_velocity(player_serves: bool) -> Vector2:
