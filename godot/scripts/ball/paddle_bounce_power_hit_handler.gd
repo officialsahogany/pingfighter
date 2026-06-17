@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 
 const JUNIOR_POWER_SMASH_LAUNCH_SPEED_MULT := 1.30
 
@@ -38,11 +39,5 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 
 
 func _get_power_smash_launch_speed_multiplier(context: Dictionary) -> float:
-	return JUNIOR_POWER_SMASH_LAUNCH_SPEED_MULT if _normalize_league_mode(str(context.get("ai_mode", "champion"))) == "junior" else 1.0
-
-
-func _normalize_league_mode(ai_mode: String) -> String:
-	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	return "champion"
+	var ai_mode: String = BattleSceneConfig.normalize_league_mode(str(context.get("ai_mode", "champion")))
+	return JUNIOR_POWER_SMASH_LAUNCH_SPEED_MULT if ai_mode == "junior" else 1.0
