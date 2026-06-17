@@ -1,6 +1,9 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func build_deps(owner: Object, registry: Object) -> Dictionary:
@@ -9,7 +12,7 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var total_start: int = _perf_begin(perf_logger)
 	var sample_start: int = _perf_begin(perf_logger)
-	var character_type: String = str(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var character_type: String = _character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	_perf_end(perf_logger, "physics.deps.character_type", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	var skill_orb_tooltip_state := _get_skill_orb_tooltip_hover_state(owner, registry)
@@ -22,7 +25,7 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
 		"stage3_boss_skill_state": _get_instance(registry, "stage3_boss_skill_state"),
-		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == "smasher" else null,
+		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == PlayerCharacterRuntime.SMASHER else null,
 		"round_state": _get_instance(registry, "round_flow_state"),
 		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
 		"serve_flow_controller": _get_instance(registry, "serve_flow_controller"),

@@ -60,9 +60,10 @@ func _init() -> void:
 		"match_score_state": score_state,
 	})
 
+	owner.selected_character_type = " Smasher "
 	var deps: Dictionary = builder.build_deps(owner, registry)
 	_expect(deps.get("scoreboard_state") == scoreboard, "deps should include scoreboard state")
-	_expect(deps.get("power_state") == power_state, "smasher deps should include power smash state")
+	_expect(deps.get("power_state") == power_state, "smasher deps should include power smash state after character normalization")
 	_expect(deps.get("round_state") == round_state, "deps should include round flow state")
 	_expect(deps.get("serve_flow_controller") == serve_flow, "deps should include serve flow controller")
 	_expect(int(deps.get("serve_context", {}).get("current_stage", 0)) == 4, "serve context should include current stage")
@@ -85,6 +86,10 @@ func _init() -> void:
 	_expect(not bool(stakes.get("deuce_mode", true)), "frame deps should clear deuce stakes when score leaves deuce")
 	_expect(not bool(stakes.get("player_can_win", true)), "frame deps should clear player match point when score leaves match point")
 	_expect(not bool(stakes.get("boss_can_win", true)), "frame deps should clear boss match point when score leaves match point")
+
+	owner.selected_character_type = " IO "
+	deps = builder.build_deps(owner, registry)
+	_expect(deps.get("power_state") == null, "Optimus aliases should not include Smasher power smash state")
 
 	var missing_score_intensity := BallIntensity.new()
 	var missing_score_registry := FakeRegistry.new({
