@@ -1,6 +1,9 @@
 extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dictionary) -> void:
@@ -481,10 +484,10 @@ func _get_battle_resources(deps: Dictionary) -> Object:
 
 
 func _get_selected_character_type(deps: Dictionary) -> String:
-	var explicit_value: String = str(deps.get("selected_character_type", "")).strip_edges().to_lower()
+	var explicit_value: String = str(deps.get("selected_character_type", "")).strip_edges()
 	if explicit_value != "":
-		return explicit_value
-	return str(_get_owner_value(deps, "selected_character_type", "smasher")).strip_edges().to_lower()
+		return _character_runtime.normalize(explicit_value)
+	return _character_runtime.normalize(_get_owner_value(deps, "selected_character_type", "smasher"))
 
 
 func _get_current_stage(deps: Dictionary) -> int:

@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MatchFlowController := preload("res://scripts/core/match_flow_controller.gd")
+const MatchScoreEventController := preload("res://scripts/core/match_score_event_controller.gd")
 
 var _failures: Array[String] = []
 var _reset_ball_calls := 0
@@ -107,6 +108,15 @@ class FakeBattleResources:
 		character_type = new_character_type
 		current_stage = new_current_stage
 		result_context = new_result_context.duplicate(true)
+
+
+class FakeCharacterOwner:
+	extends RefCounted
+
+	var selected_character_type := ""
+
+	func _init(new_character_type: String) -> void:
+		selected_character_type = new_character_type
 
 
 class FakeLingpetRuntime:
@@ -379,6 +389,7 @@ func _init() -> void:
 	_expect(null_score_audio.play_round_set_calls == 0, "missing score state should skip score event side effects")
 	_expect(_reset_ball_calls == 1, "missing score state should not reset ball")
 
+	_verify_selected_character_type_uses_runtime_normalization()
 	_verify_lingpet_affinity_skips_score_cancel_paths(controller)
 
 	if _failures.is_empty():
@@ -392,6 +403,19 @@ func _init() -> void:
 
 func _record_reset_ball() -> void:
 	_reset_ball_calls += 1
+
+
+func _verify_selected_character_type_uses_runtime_normalization() -> void:
+	var controller: Object = MatchScoreEventController.new()
+	_expect(controller._get_selected_character_type({"selected_character_type": "commando"}) == "soldier", "score result prewarm should normalize Commando aliases")
+	_expect(controller._get_selected_character_type({"selected_character_type": "io"}) == "optimus", "score result prewarm should normalize Optimus aliases")
+	_expect(
+		controller._get_selected_character_type({
+			"selected_character_type": " ",
+			"owner": FakeCharacterOwner.new("viper"),
+		}) == "viper",
+		"blank explicit score deps should still fall back to owner selected character"
+	)
 
 
 func _verify_lingpet_affinity_skips_score_cancel_paths(controller: Object) -> void:
