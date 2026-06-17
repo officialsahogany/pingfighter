@@ -1,6 +1,7 @@
 extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const STAGE_OPTIONS := [
 	{"id": 1, "name": "스테이지 1", "desc": "달지"},
@@ -66,6 +67,7 @@ const EFFECT_CLEAR_MODULE_KEYS := [
 
 var open := false
 var selected_index := 0
+var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func toggle(owner: Object = null) -> void:
@@ -431,12 +433,12 @@ func _get_current_stage(owner: Object) -> int:
 
 
 func _get_selected_character_type(owner: Object) -> String:
-	var value: String = str(_safe_owner_get(owner, "selected_character_type", "smasher")).strip_edges().to_lower()
-	if value == "soldier" or value == "commando":
-		return "soldier"
-	if value == "viper":
-		return "viper"
-	return "smasher"
+	var normalized: String = character_runtime.normalize(_safe_owner_get(owner, "selected_character_type", PlayerCharacterRuntime.SMASHER))
+	if normalized == PlayerCharacterRuntime.COMMANDO:
+		return PlayerCharacterRuntime.COMMANDO
+	if normalized == PlayerCharacterRuntime.VIPER:
+		return PlayerCharacterRuntime.VIPER
+	return PlayerCharacterRuntime.SMASHER
 
 
 func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:

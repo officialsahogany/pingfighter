@@ -218,6 +218,7 @@ func _init() -> void:
 	_expect(owner.redraw_count == 1, "stage debug reset should queue one redraw")
 
 	var stage1_owner := FakeOwner.new()
+	stage1_owner.selected_character_type = " Commando "
 	var stage1_registry := FakeRegistry.new()
 	picker.toggle(stage1_owner)
 	picker.selected_index = 0
