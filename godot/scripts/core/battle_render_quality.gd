@@ -2,11 +2,14 @@ extends RefCounted
 
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const FPS_CAP_EFFECT_SCALE := ViperAirborneLod.FPS_CAP_EFFECT_SCALE
 const FPS_CAP_LOD_MAX_FPS := ViperAirborneLod.FPS_CAP_LOD_MAX_FPS
 const HIGH_REFRESH_EFFECT_SCALE := ViperAirborneLod.GLIDE_EFFECT_SCALE
 const HIGH_REFRESH_LOD_MIN_FPS := 120
+
+static var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 static func effect_scale(context: Dictionary = {}) -> float:
 	var scale := 1.0
@@ -44,4 +47,4 @@ static func _get_configured_max_fps() -> int:
 
 
 static func _is_viper_selected(context: Dictionary) -> bool:
-	return str(context.get("selected_character_type", "")).strip_edges().to_lower() == "viper"
+	return _character_runtime.is_viper(context.get("selected_character_type", ""))

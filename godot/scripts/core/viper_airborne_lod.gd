@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const LOD_EFFECT_SCALE := 0.48
 const GLIDE_EFFECT_SCALE := 0.58
@@ -14,6 +15,7 @@ const GLIDE_SEVERE_EXIT_HOLD_MSEC := 128
 static var _glide_candidate_started_msec := -1
 static var _glide_severe_hold_until_msec := -1
 static var _glide_severe_lod_active := false
+static var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 static func is_airborne_lod_active(context: Dictionary) -> bool:
@@ -90,7 +92,7 @@ static func _get_configured_max_fps() -> int:
 
 
 static func _is_viper_selected(context: Dictionary) -> bool:
-	return str(context.get("selected_character_type", "")).strip_edges().to_lower() == "viper"
+	return _character_runtime.is_viper(context.get("selected_character_type", ""))
 
 
 static func _get_context_msec(context: Dictionary) -> int:
