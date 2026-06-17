@@ -20,7 +20,7 @@ var _cached_skill_lock_mythic_item_runtime: Object = null
 var _cached_skill_lock_input_proxy: Object = null
 
 
-func build_config(character_type: String = "smasher") -> Dictionary:
+func build_config(character_type: String = PlayerCharacterRuntime.SMASHER) -> Dictionary:
 	var config := {
 		"play_left": PLAY_LEFT,
 		"play_right": PLAY_RIGHT,
@@ -31,7 +31,7 @@ func build_config(character_type: String = "smasher") -> Dictionary:
 	return config
 
 
-func build_deps(registry: Object, character_type: String = "smasher") -> Dictionary:
+func build_deps(registry: Object, character_type: String = PlayerCharacterRuntime.SMASHER) -> Dictionary:
 	var is_viper: bool = character_runtime.is_viper(character_type)
 	var is_commando: bool = character_runtime.is_commando(character_type)
 	var is_optimus: bool = character_runtime.is_optimus(character_type)
