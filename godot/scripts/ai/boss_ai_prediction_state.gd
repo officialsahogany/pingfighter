@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+
 const BOSS_ACCURACY: float = 1.0
 const BOSS_ACCURACY_ERROR: float = 60.0
 const BOSS_MISTAKE_CHANCE: float = 0.10
@@ -126,12 +128,7 @@ func _is_junior_power_smash_active(context: Dictionary) -> bool:
 
 
 func _normalize_league_mode(ai_mode: String) -> String:
-	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(ai_mode)
 
 
 func _predict_arrival_x(

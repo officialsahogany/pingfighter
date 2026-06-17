@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const WIDTH: float = 760.0
@@ -287,12 +288,7 @@ func _is_boss_dash_chain_enabled(ai_mode: String, current_stage: int) -> bool:
 
 
 func _normalize_league_mode(ai_mode: String) -> String:
-	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(ai_mode)
 
 
 func _build_boss_dash_profile(current_stage: int) -> Dictionary:
