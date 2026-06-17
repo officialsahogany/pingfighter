@@ -11,6 +11,7 @@ const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint
 const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
 const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
 const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
+const StageActorDrawContextArrays := preload("res://scripts/stages/common/stage_actor_draw_context_arrays.gd")
 const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
 const StagePlayfieldBounds := preload("res://scripts/stages/common/stage_playfield_bounds.gd")
 const Stage4BirdPayloadFactory := preload("res://scripts/stages/stage4/stage4_bird_payload_factory.gd")
@@ -734,7 +735,7 @@ func _draw_ellipse_polygon(canvas: CanvasItem, center: Vector2, radius: Vector2,
 
 
 func _draw_array(source: Array, copy_arrays: bool) -> Array:
-	return source.duplicate(true) if copy_arrays else source
+	return StageActorDrawContextArrays.snapshot(source, copy_arrays)
 
 
 func _recent_start(source: Array, render_limit: int) -> int:

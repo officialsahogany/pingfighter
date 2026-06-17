@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const StageActorDrawContextArrays := preload("res://scripts/stages/common/stage_actor_draw_context_arrays.gd")
 const Stage4MoonPayloadFactory := preload("res://scripts/stages/stage4/stage4_moon_payload_factory.gd")
 
 const MOON_WHITE_SHEET_PATH := "res://assets/sprites/hud/stage4_moon_white_idle_sheet_imagegen_v1.png"
@@ -537,7 +538,7 @@ func _get_player_burn_ratio() -> float:
 
 
 func _draw_array(source: Array, copy_arrays: bool) -> Array:
-	return source.duplicate(true) if copy_arrays else source
+	return StageActorDrawContextArrays.snapshot(source, copy_arrays)
 
 
 func _play_fragment_shoot_audio(deps: Dictionary) -> void:

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const StageActorDrawContextArrays := preload("res://scripts/stages/common/stage_actor_draw_context_arrays.gd")
 const Stage4BrazierMonkPayloadFactory := preload("res://scripts/stages/stage4/stage4_brazier_monk_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
@@ -836,7 +837,7 @@ func _count_smoke_returning_monks() -> int:
 
 
 func _draw_array(source: Array, copy_arrays: bool) -> Array:
-	return source.duplicate(true) if copy_arrays else source
+	return StageActorDrawContextArrays.snapshot(source, copy_arrays)
 
 
 func _recent_start(source: Array, render_limit: int) -> int:
