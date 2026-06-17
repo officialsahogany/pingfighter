@@ -135,6 +135,7 @@ func _verify_update_callbacks_route_health_defeat_to_score() -> void:
 
 func _verify_score_reset_restores_round_health() -> void:
 	var owner := FakeOwner.new()
+	owner.data["selected_character_type"] = " Commando "
 	owner.data["boss_current_health"] = 0
 	owner.data["boss_health_damage_units"] = 5
 	owner.data["boss_last_damage_source"] = "commando_firearm_bazooka"
@@ -148,7 +149,7 @@ func _verify_score_reset_restores_round_health() -> void:
 	BattleSceneMatchEventDriver.new().handle_score_event("player", owner, registry)
 	_expect(match_flow.score_calls == ["player"], "match event driver should forward health score side")
 	_expect(ball_driver.reset_calls == 1, "score reset callback should reset the ball")
-	_expect(int(owner.data.get("boss_current_health", -1)) == 5, "score reset should restore configured boss health")
+	_expect(int(owner.data.get("boss_current_health", -1)) == 5, "score reset should restore configured boss health for Commando aliases")
 	_expect(int(owner.data.get("boss_health_damage_units", -1)) == 0, "score reset should clear boss health damage counter")
 	_expect(str(owner.data.get("boss_last_damage_source", "x")) == "", "score reset should clear last boss damage source")
 	_expect(not bool(owner.data.get("boss_defeated_by_health", true)), "score reset should clear health defeat flag")

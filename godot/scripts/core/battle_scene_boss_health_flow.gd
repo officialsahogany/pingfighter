@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const DEFAULT_BOSS_MAX_HEALTH := 15
 const HEALTH_STAGE_MAX_HEALTH := {
@@ -8,6 +9,8 @@ const HEALTH_STAGE_MAX_HEALTH := {
 	16: DEFAULT_BOSS_MAX_HEALTH,
 	21: DEFAULT_BOSS_MAX_HEALTH,
 }
+
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func build_stage_health_snapshot(current_stage: int) -> Dictionary:
@@ -77,8 +80,7 @@ func _has_any_health_state(owner: Object) -> bool:
 
 
 func _uses_configured_owner_health(owner: Object) -> bool:
-	var character_type := str(_get_owner_value(owner, "selected_character_type", "")).to_lower()
-	return character_type == "soldier" or character_type == "commando"
+	return _character_runtime.is_commando(_get_owner_value(owner, "selected_character_type", ""))
 
 
 func _apply_snapshot(owner: Object, snapshot: Dictionary) -> void:
