@@ -73,12 +73,20 @@ func _init() -> void:
 	_expect(registry.requested_keys.has("commando_supply_drop_state"), "Commando alias should still request supply-drop state")
 
 	registry.requested_keys.clear()
+	drawer.draw_blacksmith_thor_shield_effects(null, registry, Vector2.ZERO, {"selected_character_type": " Kohaku "})
+	_expect(registry.requested_keys.has("blacksmith_thor_shield_state"), "Kohaku alias should still request Blacksmith shield state")
+
+	registry.requested_keys.clear()
 	drawer.draw_smasher_wheel_effects(null, registry, Vector2.ZERO, smasher_context)
 	_expect(registry.requested_keys.has("smasher_wheel_state"), "Smasher context should still request Smasher wheel state")
 
 	registry.requested_keys.clear()
 	drawer.draw_smasher_wheel_effects(null, registry, Vector2.ZERO, {"selected_character_type": "optimus"})
 	_expect(not registry.requested_keys.has("smasher_wheel_state"), "explicit non-Smasher characters should skip Smasher wheel state")
+
+	registry.requested_keys.clear()
+	drawer.draw_smasher_wheel_effects(null, registry, Vector2.ZERO, {"selected_character_type": "unknown"})
+	_expect(not registry.requested_keys.has("smasher_wheel_state"), "unknown nonblank character ids should keep skipping Smasher wheel state")
 	_verify_draw_arity_cache(drawer)
 
 	if _failures.is_empty():

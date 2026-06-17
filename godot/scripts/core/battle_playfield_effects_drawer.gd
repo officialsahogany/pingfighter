@@ -2,6 +2,7 @@ extends RefCounted
 
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const INACTIVE_ACTOR_TRANSIENT_CLEANUP_FRAMES := 2
 
@@ -10,6 +11,7 @@ var _method_acceptance_cache: Dictionary = {}
 var _last_actor_stage_for_transient_cleanup: int = -1
 var _last_actor_renderer_id_for_transient_cleanup: int = 0
 var _inactive_actor_transient_cleanup_frames_remaining: int = 0
+var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func draw_actors(
@@ -254,7 +256,7 @@ func draw_viper_skill_effects(
 	draw_context: Dictionary = {},
 	perf_logger: Object = null
 ) -> void:
-	if not _is_character_context(draw_context, "viper"):
+	if not _is_character_context(draw_context, PlayerCharacterRuntime.VIPER):
 		return
 	var viper_skill_runtime: Object = _get_instance(registry, "viper_skill_runtime")
 	if _has_visible_effects(viper_skill_runtime) and viper_skill_runtime.has_method("draw"):
@@ -275,7 +277,7 @@ func draw_commando_supply_drop_effects(
 	shake_offset: Vector2,
 	draw_context: Dictionary = {}
 ) -> void:
-	if not _is_character_context(draw_context, "soldier"):
+	if not _is_character_context(draw_context, PlayerCharacterRuntime.COMMANDO):
 		return
 	var supply_state: Object = _get_instance(registry, "commando_supply_drop_state")
 	if _has_visible_effects(supply_state) and supply_state.has_method("draw"):
@@ -314,7 +316,7 @@ func draw_blacksmith_thor_shield_effects(
 	shake_offset: Vector2,
 	draw_context: Dictionary = {}
 ) -> void:
-	if not _is_character_context(draw_context, "blacksmith"):
+	if not _is_character_context(draw_context, PlayerCharacterRuntime.BLACKSMITH):
 		return
 	var blacksmith_thor_shield_state: Object = _get_instance(registry, "blacksmith_thor_shield_state")
 	if _has_visible_effects(blacksmith_thor_shield_state) and blacksmith_thor_shield_state.has_method("draw"):
@@ -637,7 +639,7 @@ func _has_combo_effects(combo_state: Object) -> bool:
 
 
 func _is_smasher_context(context: Dictionary) -> bool:
-	return _character_type(context) == "smasher"
+	return _character_type(context) == PlayerCharacterRuntime.SMASHER
 
 
 func _is_character_context(context: Dictionary, expected_character_type: String) -> bool:
@@ -646,12 +648,11 @@ func _is_character_context(context: Dictionary, expected_character_type: String)
 
 func _character_type(context: Dictionary) -> String:
 	if context.is_empty() or not context.has("selected_character_type"):
-		return "smasher"
+		return PlayerCharacterRuntime.SMASHER
 	var character_type: String = str(context.get("selected_character_type", "smasher")).strip_edges().to_lower()
 	if character_type == "":
-		return "smasher"
-	if character_type == "commando":
-		return "soldier"
-	if character_type == "baltor" or character_type == "kohaku":
-		return "blacksmith"
-	return character_type
+		return PlayerCharacterRuntime.SMASHER
+	var normalized_character: String = character_runtime.normalize(character_type)
+	if normalized_character == PlayerCharacterRuntime.SMASHER and character_type != PlayerCharacterRuntime.SMASHER:
+		return character_type
+	return normalized_character
