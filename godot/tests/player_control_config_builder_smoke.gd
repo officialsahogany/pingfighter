@@ -198,8 +198,11 @@ func _verify_optimus_config_prepares_energy() -> void:
 		"optimus_energy_state": optimus_energy_state,
 	}
 	var builder: Object = PlayerControlConfigBuilder.new()
-	var config: Dictionary = builder.build_config(owner, registry, "optimus", FakeContextBuilder.new())
+	var context_builder := FakeContextBuilder.new()
+	var config: Dictionary = builder.build_config(owner, registry, " IO ", context_builder)
 
+	_expect(context_builder.config_character == "optimus", "Optimus alias should request normalized base config")
+	_expect(str(config.get("selected_character_type", "")) == "optimus", "Optimus alias should expose normalized character type")
 	_expect(optimus_energy_state.prepare_calls == 1, "Optimus config should prepare energy state")
 	_expect_close(owner.player_paddle_width, 296.0, "Optimus config should apply energy paddle width to owner")
 	_expect_close(owner.player_paddle_height, 147.0, "Optimus config should apply energy paddle height to owner")
@@ -222,7 +225,9 @@ func _verify_viper_skips_smasher_recovery() -> void:
 		"mythic_item_runtime": FakeMultiplier.new(0.5),
 	}
 	var builder: Object = PlayerControlConfigBuilder.new()
-	var config: Dictionary = builder.build_config(owner, registry, "viper", FakeContextBuilder.new())
+	var context_builder := FakeContextBuilder.new()
+	var config: Dictionary = builder.build_config(owner, registry, " VIPER ", context_builder)
+	_expect(context_builder.config_character == "viper", "Viper alias should request normalized base config")
 	_expect(str(config.get("selected_character_type", "")) == "viper", "config builder should preserve non-Smasher character type")
 	_expect_close(float(config.get("paddle_speed", 0.0)), 9.0, "Viper speed should skip Smasher recovery multiplier")
 

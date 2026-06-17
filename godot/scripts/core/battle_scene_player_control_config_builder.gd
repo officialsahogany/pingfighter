@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const ViperHoverSheetOverride := preload("res://scripts/core/viper_hover_sheet_override.gd")
 
 const BOSS_PADDLE_WIDTH := 100.0
@@ -18,14 +19,17 @@ const MOVEMENT_SPEED_KEYS := [
 	"paddle_turn_decel",
 ]
 
+var character_runtime: Object = PlayerCharacterRuntime.new()
+
 
 func build_config(owner: Object, registry: Object, character_type: String, context_builder: Object) -> Dictionary:
 	if owner == null or context_builder == null or not context_builder.has_method("build_player_control_config"):
 		return {}
 
-	var config: Dictionary = context_builder.build_player_control_config(character_type)
-	config["selected_character_type"] = character_type
-	if character_type == "optimus":
+	var normalized_character_type: String = character_runtime.normalize(character_type)
+	var config: Dictionary = context_builder.build_player_control_config(normalized_character_type)
+	config["selected_character_type"] = normalized_character_type
+	if normalized_character_type == PlayerCharacterRuntime.OPTIMUS:
 		var previous_paddle_size := Vector2(
 			max(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0))),
 			max(1.0, float(_get_owner_value(owner, "player_paddle_height", 50.0)))
@@ -55,7 +59,7 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	config["boss_visual_center_y_offset"] = _get_boss_visual_center_y_offset(int(config["current_stage"]))
 	config["gauge_max"] = float(_get_owner_value(owner, "special_gauge_max", 500.0))
 	config["player_floor_y"] = 750.0 - paddle_height
-	if character_type == "viper":
+	if normalized_character_type == PlayerCharacterRuntime.VIPER:
 		var textures: Dictionary = BattleSceneOwnerReader.get_dictionary(owner, "battle_textures")
 		var hover_sheet_loaded: bool = (
 			textures.get("viper_player_hover_left_sheet", null) is Texture2D
@@ -64,7 +68,7 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 		config["viper_jetpack_hover_sheet_fx"] = hover_sheet_loaded and not ViperHoverSheetOverride.is_hover_sheet_force_disabled()
 
 	_apply_speed_multiplier(config, _get_instance(registry, "runtime_perk_state"))
-	if character_type == "smasher":
+	if normalized_character_type == PlayerCharacterRuntime.SMASHER:
 		_apply_speed_multiplier(config, _get_instance(registry, "smasher_recovery_state"))
 	var weather: Object = _get_instance(registry, "weather_event_state")
 	if weather != null and weather.has_method("apply_player_movement_config"):
