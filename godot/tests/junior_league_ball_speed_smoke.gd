@@ -2,6 +2,7 @@ extends SceneTree
 
 const BallImpactBoostPolicy := preload("res://scripts/ball/ball_impact_boost_policy.gd")
 const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
+const BallSceneBridge := preload("res://scripts/ball/ball_scene_bridge.gd")
 const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
 
 const EXPECTED_JUNIOR_SPEED_RATIO := 0.85
@@ -11,6 +12,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_junior_speed_ratio()
+	_verify_scene_bridge_fallback_normalizes_league_mode()
 
 	if _failures.is_empty():
 		print("junior_league_ball_speed_smoke: ok")
@@ -78,6 +80,21 @@ func _verify_junior_speed_ratio() -> void:
 		1.0,
 		"junior impact boost scale should preserve the configured 15 percent ball-speed ratio"
 	)
+
+
+func _verify_scene_bridge_fallback_normalizes_league_mode() -> void:
+	var bridge := BallSceneBridge.new()
+	var context: Dictionary = bridge.configure_physics_context(null, 1, "junior league")
+	_expect(
+		str(context.get("ai_mode", "")) == "junior",
+		"ball scene bridge fallback should normalize league aliases without a physics module"
+	)
+
+
+func _expect(condition: bool, message: String) -> void:
+	if condition:
+		return
+	_failures.append(message)
 
 
 func _expect_close(actual: float, expected: float, message: String) -> void:

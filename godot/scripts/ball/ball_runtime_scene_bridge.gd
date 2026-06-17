@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+
 
 func configure_physics_context(
 	registry: Object,
@@ -90,9 +92,4 @@ func _get_module(registry: Object, key: String) -> Object:
 func _normalize_league_mode(physics: Object, league_mode: String) -> String:
 	if physics != null and physics.has_method("normalize_league_mode"):
 		return str(physics.normalize_league_mode(league_mode))
-	var normalized: String = league_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(league_mode)
