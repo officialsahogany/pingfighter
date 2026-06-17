@@ -37,6 +37,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_three_button_action_route()
+	_verify_result_character_type_normalization()
 	_verify_plaza_delays_result_reset_callback()
 
 	if _failures.is_empty():
@@ -67,6 +68,20 @@ func _verify_three_button_action_route() -> void:
 		StageClearResultNavigationActionHandler.get_scroll_button_action(clicked) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
 		"plaza result button should map to the plaza entry action"
 	)
+
+
+func _verify_result_character_type_normalization() -> void:
+	var owner := FakeOwner.new()
+	var screen := StageClearResultScreen.new()
+	owner.selected_character_type = " IO "
+	_expect(screen._get_selected_character_type(owner) == "optimus", "result screen should normalize Optimus aliases")
+	_expect(screen._get_result_victory_character_type(owner) == "smasher", "Optimus should keep the shared Smasher victory result fallback")
+	owner.selected_character_type = " Commando "
+	_expect(screen._get_selected_character_type(owner) == "soldier", "result screen should normalize Commando aliases")
+	_expect(screen._get_result_victory_character_type(owner) == "soldier", "Commando should keep its dedicated victory result assets")
+	owner.selected_character_type = " Kohaku "
+	_expect(screen._get_selected_character_type(owner) == "blacksmith", "result screen should normalize Blacksmith aliases")
+	_expect(screen._get_result_victory_character_type(owner) == "blacksmith", "Blacksmith should keep its dedicated victory result assets")
 
 
 func _verify_plaza_delays_result_reset_callback() -> void:

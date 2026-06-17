@@ -5,6 +5,7 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const StageClearResultRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 const StageClearResultStageSnapshotBuilder := preload("res://scripts/core/stage_clear_result_stage_snapshot_builder.gd")
 
@@ -24,6 +25,7 @@ var _scene_node: Control
 var _spawn_pending: bool = false
 var _reward_resolver: Object = StageClearRewardResolver.new()
 var _perk_catalog: Object = RuntimePerkCatalog.new()
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 var _reward_plan_builder: Object = StageClearResultRewardPlanBuilder.new()
 var _stage_snapshot_builder: Object = StageClearResultStageSnapshotBuilder.new()
 var _rewards_granted: bool = false
@@ -965,28 +967,18 @@ func _owner_has_runtime_perk_gold(owner: Object) -> bool:
 
 func _get_selected_character_type(owner: Object) -> String:
 	if owner == null:
-		return "smasher"
+		return PlayerCharacterRuntime.SMASHER
 	var value: Variant = owner.get("selected_character_type")
-	if value == null:
-		return "smasher"
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == "viper":
-		return "viper"
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
-		return "blacksmith"
-	return "smasher"
+	return _character_runtime.normalize(value if value != null else PlayerCharacterRuntime.SMASHER)
 
 
 func _get_result_victory_character_type(owner: Object) -> String:
-	if _get_selected_character_type(owner) == "soldier":
-		return "soldier"
-	if _get_selected_character_type(owner) == "blacksmith":
-		return "blacksmith"
-	return "smasher"
+	var selected_character_type: String = _get_selected_character_type(owner)
+	if _character_runtime.is_commando(selected_character_type):
+		return PlayerCharacterRuntime.COMMANDO
+	if _character_runtime.is_blacksmith(selected_character_type):
+		return PlayerCharacterRuntime.BLACKSMITH
+	return PlayerCharacterRuntime.SMASHER
 
 
 func _get_instance(registry: Object, key: String) -> Object:
