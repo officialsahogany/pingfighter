@@ -4,6 +4,7 @@ const BattlePlayfieldBallDrawer := preload("res://scripts/core/battle_playfield_
 const BattlePlayfieldEffectsDrawer := preload("res://scripts/core/battle_playfield_effects_drawer.gd")
 const BattlePlayfieldOverlayDrawer := preload("res://scripts/core/battle_playfield_overlay_drawer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const BLOCKING_OVERLAY_LOD_METHODS := [
 	"is_runtime_perk_choice_active",
 	"is_runtime_perk_feedback_active",
@@ -27,6 +28,7 @@ var _mythic_draw_field_effects_accepts_timer_stack: int = -1
 var _mythic_draw_field_effects_accepts_draw_context: int = -1
 var _method_argument_count_cache: Dictionary = {}
 var _method_accepts_argument_count_cache: Dictionary = {}
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func draw(
@@ -214,7 +216,7 @@ func _get_cached_instance(registry: Object, key: String) -> Object:
 
 
 func _get_smasher_power_state_for_draw(registry: Object, draw_context: Dictionary) -> Object:
-	if _get_draw_character_type(draw_context) != "smasher":
+	if _get_draw_character_type(draw_context) != PlayerCharacterRuntime.SMASHER:
 		return null
 	return _get_cached_instance(registry, "smasher_power_smash_state")
 
@@ -222,14 +224,7 @@ func _get_smasher_power_state_for_draw(registry: Object, draw_context: Dictionar
 func _get_draw_character_type(draw_context: Dictionary) -> String:
 	# Live draw contexts are already normalized; keep aliases here for direct tests
 	# or older callers while preserving a conservative Smasher fallback.
-	var character_type := str(draw_context.get("selected_character_type", "smasher")).strip_edges().to_lower()
-	if character_type == "commando":
-		return "soldier"
-	if character_type == "baltor" or character_type == "kohaku":
-		return "blacksmith"
-	if character_type == "":
-		return "smasher"
-	return character_type
+	return _character_runtime.normalize(draw_context.get("selected_character_type", PlayerCharacterRuntime.SMASHER))
 
 
 func _get_registry_module(key: String, registry: Object) -> Object:

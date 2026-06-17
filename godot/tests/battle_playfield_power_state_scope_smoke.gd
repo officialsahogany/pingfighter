@@ -81,7 +81,10 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_non_smasher_draw_does_not_wake_smasher_power_state("soldier")
+	_verify_non_smasher_draw_does_not_wake_smasher_power_state("commando")
 	_verify_non_smasher_draw_does_not_wake_smasher_power_state("viper")
+	_verify_non_smasher_draw_does_not_wake_smasher_power_state("io")
+	_verify_non_smasher_draw_does_not_wake_smasher_power_state("kohaku")
 	_verify_smasher_draw_uses_cached_power_state_only()
 
 	if _failures.is_empty():
