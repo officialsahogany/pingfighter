@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const DEFAULT_LEAGUE_MODE := "junior"
@@ -52,12 +53,7 @@ func _default_plaza_save_path(owner: Object) -> String:
 
 
 func normalize_league_mode(mode: String) -> String:
-	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
-	if normalized == "junior" or normalized == "juniorleague":
-		return "junior"
-	if normalized == "mythic" or normalized == "mythicleague":
-		return "mythic"
-	return "champion"
+	return BattleSceneConfig.normalize_league_mode(mode)
 
 
 func normalize_runtime_character_id(value: Variant) -> String:
