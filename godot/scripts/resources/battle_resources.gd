@@ -1062,26 +1062,7 @@ func _load_stage_textures(current_stage: int, include_all_stages: bool, include_
 
 
 func _load_stage_boss_textures(stage_id: int, include_result_sheets: bool) -> void:
-	if stage_id == 1:
-		_load_stage1_boss_textures(include_result_sheets)
-	elif stage_id == 2:
-		_load_stage2_boss_textures(include_result_sheets)
-	elif stage_id == 3:
-		_load_stage3_boss_textures(include_result_sheets)
-	elif stage_id == 5:
-		_load_stage5_hongryun_boss_textures()
-
-
-func _load_stage1_boss_textures(include_result_sheets: bool) -> void:
-	_load_texture_specs(_get_stage1_boss_texture_specs(include_result_sheets))
-
-
-func _load_stage2_boss_textures(include_result_sheets: bool = false) -> void:
-	_load_texture_specs(_get_stage2_boss_texture_specs(include_result_sheets))
-
-
-func _load_stage3_boss_textures(include_result_sheets: bool = false) -> void:
-	_load_texture_specs(_get_stage3_boss_texture_specs(include_result_sheets))
+	_load_texture_specs(_get_stage_boss_texture_specs(stage_id, include_result_sheets))
 
 
 func _get_stage_boss_texture_specs(stage_id: int, include_result_sheets: bool) -> Array:
@@ -1158,10 +1139,6 @@ func _prewarm_stage_boss_texture_step(stage_id: int, include_result_sheets: bool
 	if step_index < 0 or step_index >= specs.size():
 		return true
 	return _prewarm_texture_spec_step(specs[step_index])
-
-
-func _load_stage5_hongryun_boss_textures() -> void:
-	_load_texture_specs(_get_stage5_hongryun_boss_texture_specs())
 
 
 func _load_skill_icon_textures(character_type: String, include_all_characters: bool) -> void:
