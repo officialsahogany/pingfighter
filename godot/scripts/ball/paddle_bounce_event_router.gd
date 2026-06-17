@@ -2,6 +2,7 @@ extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const PaddleBounceRallyFeedbackRouter := preload("res://scripts/ball/paddle_bounce_rally_feedback_router.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const POWER_COUNTER_BASE_KNOCKBACK: float = 2.4 * 2.0
 const POWER_COUNTER_KNOCKBACK_FRAMES: float = 18.0
@@ -18,6 +19,7 @@ const PLAYER_HIT_INTENSITY_DRIVE: float = 1.5
 const PLAYER_HIT_INTENSITY_POWER_SMASH: float = 2.0
 
 var rally_feedback_router: Object = PaddleBounceRallyFeedbackRouter.new()
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func register_player_hit(
@@ -70,9 +72,16 @@ func register_player_hit(
 
 
 func _get_smasher_combo_state(context: Dictionary, deps: Dictionary) -> Object:
-	if str(context.get("selected_character_type", "smasher")).strip_edges().to_lower() != "smasher":
+	if not _is_selected_character(context, "smasher", "smasher"):
 		return null
 	return deps.get("combo_state", null)
+
+
+func _is_selected_character(context: Dictionary, fallback: String, target: String) -> bool:
+	var value: Variant = context.get("selected_character_type", fallback)
+	if str(value).strip_edges() == "":
+		return false
+	return _character_runtime.normalize(value) == target
 
 
 func _is_horn_strawberry_transformed(deps: Dictionary) -> bool:

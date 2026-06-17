@@ -5,11 +5,13 @@ const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event
 const PaddleBounceBossPostHitHandler := preload("res://scripts/ball/paddle_bounce_boss_post_hit_handler.gd")
 const PaddleBouncePlayerPostHitHandler := preload("res://scripts/ball/paddle_bounce_player_post_hit_handler.gd")
 const PaddleBouncePowerHitHandler := preload("res://scripts/ball/paddle_bounce_power_hit_handler.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 var boss_post_hit_handler: Object = PaddleBounceBossPostHitHandler.new()
 var event_router: Object = PaddleBounceEventRouter.new()
 var player_post_hit_handler: Object = PaddleBouncePlayerPostHitHandler.new()
 var power_hit_handler: Object = PaddleBouncePowerHitHandler.new()
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func apply(
@@ -112,7 +114,7 @@ func apply(
 			ball_vel = cleanse_state.apply_counter_speed_bonus(ball_vel)
 		var wheel_state: Object = deps.get("smasher_wheel_state", null)
 		if (
-			str(context.get("selected_character_type", "smasher")) == "smasher"
+			_is_selected_character(context, "smasher", "smasher")
 			and wheel_state != null
 			and wheel_state.has_method("consume_ball_hit")
 		):
@@ -142,7 +144,7 @@ func apply(
 			viper_skill_runtime.register_player_ball_contact(deps, context)
 		if (
 			not dual_glitch_clone_hit
-			and str(context.get("selected_character_type", "smasher")) == "viper"
+			and _is_selected_character(context, "smasher", "viper")
 			and viper_skill_runtime != null
 			and viper_skill_runtime.has_method("apply_shadow_step_paddle_hit")
 		):
@@ -165,7 +167,7 @@ func apply(
 		var viper_jetpack_state: Object = deps.get("viper_jetpack_state", null)
 		if (
 			not dual_glitch_clone_hit
-			and str(context.get("selected_character_type", "smasher")) == "viper"
+			and _is_selected_character(context, "smasher", "viper")
 			and viper_jetpack_state != null
 			and viper_jetpack_state.has_method("apply_air_strike_post_hit")
 		):
@@ -434,12 +436,19 @@ func _award_rally_gold(
 
 
 func _get_smasher_gold_combo_count(context: Dictionary, deps: Dictionary) -> int:
-	if str(context.get("selected_character_type", "")).strip_edges().to_lower() != "smasher":
+	if not _is_selected_character(context, "", "smasher"):
 		return 0
 	var combo_state: Object = deps.get("combo_state", null)
 	if combo_state != null and combo_state.has_method("get_combo_count"):
 		return max(0, int(combo_state.get_combo_count()))
 	return max(0, int(context.get("smasher_combo_count", 0)))
+
+
+func _is_selected_character(context: Dictionary, fallback: String, target: String) -> bool:
+	var value: Variant = context.get("selected_character_type", fallback)
+	if str(value).strip_edges() == "":
+		return false
+	return _character_runtime.normalize(value) == target
 
 
 func _perf_begin(perf_logger: Object) -> int:

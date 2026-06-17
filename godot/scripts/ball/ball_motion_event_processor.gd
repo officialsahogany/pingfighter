@@ -1,6 +1,9 @@
 extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func step_motion(
@@ -100,7 +103,7 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 	var viper_skill_runtime: Object = deps.get("viper_skill_runtime", null)
 	if (
 		not step_context.has("viper_dual_glitch_clone_rects")
-		and str(context.get("selected_character_type", "smasher")) == "viper"
+		and _is_selected_character(context, "smasher", "viper")
 		and viper_skill_runtime != null
 		and viper_skill_runtime.has_method("get_ball_collision_context")
 	):
@@ -109,11 +112,18 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 			step_context["viper_dual_glitch_state"] = str(viper_collision_context.get("viper_dual_glitch_state", "idle"))
 		if viper_collision_context.has("viper_dual_glitch_clone_rects"):
 			step_context["viper_dual_glitch_clone_rects"] = viper_collision_context.get("viper_dual_glitch_clone_rects", [])
-	if str(context.get("selected_character_type", "smasher")).strip_edges().to_lower() == "blacksmith":
+	if _is_selected_character(context, "smasher", "blacksmith"):
 		var blacksmith_shield_state: Object = deps.get("blacksmith_thor_shield_state", null)
 		if blacksmith_shield_state != null and blacksmith_shield_state.has_method("get_ball_collision_context"):
 			step_context.merge(blacksmith_shield_state.get_ball_collision_context(step_context), true)
 	return step_context
+
+
+func _is_selected_character(context: Dictionary, fallback: String, target: String) -> bool:
+	var value: Variant = context.get("selected_character_type", fallback)
+	if str(value).strip_edges() == "":
+		return false
+	return _character_runtime.normalize(value) == target
 
 
 func _process_wall(step_result: Dictionary, scene: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
