@@ -1013,37 +1013,7 @@ func _load_viper_player_textures(include_result_sheets: bool = false) -> void:
 
 
 func _load_commando_player_textures() -> void:
-	_resource_cache["commando_player_legacy_idle_sheet"] = _load_texture_resource(COMMANDO_PLAYER_IDLE_SHEET_PATH)
-	_resource_cache["commando_player_legacy_walk_left_sheet"] = _load_texture_resource(COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH)
-	_resource_cache["commando_player_legacy_walk_right_sheet"] = _load_texture_resource(COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH)
-	_resource_cache["commando_player_idle_sheet"] = _load_texture_resource(COMMANDO_PLAYER_BASE_GRIP_IDLE_BACK_SHEET_PATH)
-	_resource_cache["commando_player_walk_left_sheet"] = _load_texture_resource(COMMANDO_PLAYER_BASE_GRIP_WALK_LEFT_SHEET_PATH)
-	_resource_cache["commando_player_walk_right_sheet"] = _load_texture_resource(COMMANDO_PLAYER_BASE_GRIP_WALK_RIGHT_SHEET_PATH)
-	_resource_cache["commando_player_walk_back_sheet"] = _load_texture_resource(COMMANDO_PLAYER_WALK_BACK_SHEET_PATH)
-	_resource_cache["commando_player_pistol_fire_sheet"] = _load_texture_resource(COMMANDO_PLAYER_PISTOL_FIRE_SHEET_PATH)
-	_resource_cache["commando_player_ak47_fire_sheet"] = _load_texture_resource(COMMANDO_PLAYER_AK47_FIRE_SHEET_PATH)
-	_resource_cache["commando_player_bazooka_fire_sheet"] = _load_texture_resource(COMMANDO_PLAYER_BAZOOKA_FIRE_SHEET_PATH)
-	_resource_cache["commando_player_net_gun_fire_sheet"] = _load_texture_resource(COMMANDO_PLAYER_NET_GUN_FIRE_SHEET_PATH)
-	_resource_cache["commando_player_bowling_trap_place_sheet"] = _load_texture_resource(COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH)
-	_resource_cache["commando_player_suicide_drone_control_sheet"] = _load_texture_resource(COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH)
-	_resource_cache["commando_player_attack_sheet"] = _load_texture_resource(COMMANDO_PLAYER_ATTACK_SHEET_PATH)
-	_resource_cache["commando_weapon_overlay_ak47"] = _load_texture_resource(COMMANDO_WEAPON_OVERLAY_AK47_PATH)
-	_resource_cache["commando_weapon_overlay_bazooka"] = _load_texture_resource(COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH)
-	_resource_cache["commando_weapon_overlay_net_gun"] = _load_texture_resource(COMMANDO_WEAPON_OVERLAY_NET_GUN_PATH)
-	_resource_cache["commando_weapon_overlay_bowling_trap"] = _load_texture_resource(COMMANDO_WEAPON_OVERLAY_BOWLING_TRAP_PATH)
-	_resource_cache["commando_weapon_overlay_suicide_drone"] = _load_texture_resource(COMMANDO_WEAPON_OVERLAY_SUICIDE_DRONE_PATH)
-	_resource_cache["commando_weapon_b2_pistol"] = _load_texture_resource(COMMANDO_WEAPON_B2_PISTOL_PATH)
-	_resource_cache["commando_weapon_b2_ak47"] = _load_texture_resource(COMMANDO_WEAPON_B2_AK47_PATH)
-	_resource_cache["commando_weapon_b2_bazooka"] = _load_texture_resource(COMMANDO_WEAPON_B2_BAZOOKA_PATH)
-	_resource_cache["commando_weapon_b2_net_gun"] = _load_texture_resource(COMMANDO_WEAPON_B2_NET_GUN_PATH)
-	_resource_cache["commando_weapon_b2_bowling_trap"] = _load_texture_resource(COMMANDO_WEAPON_B2_BOWLING_TRAP_PATH)
-	_resource_cache["commando_weapon_b2_suicide_drone"] = _load_texture_resource(COMMANDO_WEAPON_B2_SUICIDE_DRONE_PATH)
-	_resource_cache["commando_weapon_b2v2_pistol"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_PISTOL_PATH)
-	_resource_cache["commando_weapon_b2v2_ak47"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_AK47_PATH)
-	_resource_cache["commando_weapon_b2v2_bazooka"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_BAZOOKA_PATH)
-	_resource_cache["commando_weapon_b2v2_net_gun"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_NET_GUN_PATH)
-	_resource_cache["commando_weapon_b2v2_bowling_trap"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH)
-	_resource_cache["commando_weapon_b2v2_suicide_drone"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH)
+	_load_texture_specs(_get_commando_player_texture_specs())
 
 
 func _load_optimus_player_textures(clear_generic_player_fallbacks: bool) -> void:
