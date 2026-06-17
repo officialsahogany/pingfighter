@@ -31,7 +31,7 @@ var commando_weapon_anchor_table: Object = CommandoWeaponAnchorTable.new()
 func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) -> Dictionary:
 	var actor_sample_start: int = _perf_begin(perf_logger)
 	var current_stage: int = int(context.get("current_stage", 1))
-	var character_type: String = character_runtime.normalize(context.get("selected_character_type", "smasher"))
+	var character_type: String = character_runtime.normalize(context.get("selected_character_type", PlayerCharacterRuntime.SMASHER))
 	var is_viper: bool = character_type == PlayerCharacterRuntime.VIPER
 	var is_commando: bool = character_type == PlayerCharacterRuntime.COMMANDO
 	var is_smasher: bool = character_type == PlayerCharacterRuntime.SMASHER
@@ -771,9 +771,9 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	actor_context.merge(mythic_item_context, true)
 	actor_context.merge(status_effect_context, true)
 	actor_context.merge(warp_gate_context, true)
-	if character_type == "soldier":
+	if is_commando:
 		actor_context.merge(commando_firearm_context, true)
-	if character_type == "viper":
+	if is_viper:
 		actor_context.merge(viper_jetpack_context, true)
 		actor_context.merge(viper_skill_context, true)
 	if _is_stage2_speed_defense_status_immune(actor_context):
@@ -863,11 +863,11 @@ func _get_player_customization_overlay_slots(
 	character_type: String
 ) -> Dictionary:
 	var overlay_slots: Dictionary = _get_dict(context.get("player_customization_overlay_slots", {})).duplicate(true)
-	if character_type == "optimus":
+	if character_type == PlayerCharacterRuntime.OPTIMUS:
 		_inject_optimus_default_overlay_slots(overlay_slots, overlay_textures)
 	if not bool(context.get("player_customization_debug_overlay_enabled", false)):
 		return overlay_slots
-	if character_type != "smasher":
+	if character_type != PlayerCharacterRuntime.SMASHER:
 		return overlay_slots
 	if overlay_slots.has("paddle"):
 		return overlay_slots
