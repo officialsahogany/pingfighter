@@ -55,7 +55,7 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 
 func build_context(owner: Object, registry: Object) -> Dictionary:
 	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
-	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", PlayerCharacterRuntime.SMASHER))
 	var context: Dictionary = _build_base_context(owner, registry, current_stage, character_type)
 	_merge_shared_context(context, registry, character_type)
 	_merge_stage_context(context, registry, current_stage)
@@ -177,7 +177,7 @@ func _merge_character_context(context: Dictionary, registry: Object, character_t
 
 
 func _is_smasher(character_type: String) -> bool:
-	return character_type == "smasher"
+	return character_type == PlayerCharacterRuntime.SMASHER
 
 
 func _get_boss_paddle_width(owner: Object, ai_mode: String) -> float:
