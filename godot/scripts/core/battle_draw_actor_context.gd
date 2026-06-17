@@ -32,11 +32,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var actor_sample_start: int = _perf_begin(perf_logger)
 	var current_stage: int = int(context.get("current_stage", 1))
 	var character_type: String = character_runtime.normalize(context.get("selected_character_type", "smasher"))
-	var is_viper: bool = character_type == "viper"
-	var is_commando: bool = character_type == "soldier"
-	var is_smasher: bool = character_type == "smasher"
-	var is_optimus: bool = character_type == "optimus"
-	var is_blacksmith: bool = character_type == "blacksmith"
+	var is_viper: bool = character_type == PlayerCharacterRuntime.VIPER
+	var is_commando: bool = character_type == PlayerCharacterRuntime.COMMANDO
+	var is_smasher: bool = character_type == PlayerCharacterRuntime.SMASHER
+	var is_optimus: bool = character_type == PlayerCharacterRuntime.OPTIMUS
+	var is_blacksmith: bool = character_type == PlayerCharacterRuntime.BLACKSMITH
 	var animation_state = deps.get("animation_state", null)
 	var animation_context: Dictionary = animation_state.get_draw_context() if animation_state != null else {}
 	var boss_ai_state = deps.get("boss_ai_state", null)
