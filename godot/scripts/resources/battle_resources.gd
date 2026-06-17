@@ -233,17 +233,19 @@ func prewarm_boss_textures(context: Dictionary = {}) -> void:
 
 
 func prewarm_smasher_skill_icons() -> void:
-	for path in SMASHER_SKILL_ICON_PATHS.values():
-		_load_texture_resource(str(path))
+	_prewarm_skill_icon_paths(SMASHER_SKILL_ICON_PATHS)
 
 
 func prewarm_viper_skill_icons() -> void:
-	for path in VIPER_SKILL_ICON_PATHS.values():
-		_load_texture_resource(str(path))
+	_prewarm_skill_icon_paths(VIPER_SKILL_ICON_PATHS)
 
 
 func prewarm_commando_skill_icons() -> void:
-	for path in COMMANDO_SKILL_ICON_PATHS.values():
+	_prewarm_skill_icon_paths(COMMANDO_SKILL_ICON_PATHS)
+
+
+func _prewarm_skill_icon_paths(paths: Dictionary) -> void:
+	for path in paths.values():
 		_load_texture_resource(str(path))
 
 
@@ -1163,18 +1165,39 @@ func _load_stage5_hongryun_boss_textures() -> void:
 
 
 func _load_skill_icon_textures(character_type: String, include_all_characters: bool) -> void:
-	if include_all_characters or character_type == DEFAULT_CHARACTER_TYPE:
-		_resource_cache["smasher_skill_icon_textures"] = _load_skill_icon_map(SMASHER_SKILL_ICON_PATHS)
-	elif not _resource_cache.has("smasher_skill_icon_textures"):
-		_resource_cache["smasher_skill_icon_textures"] = {}
-	if include_all_characters or character_type == VIPER_CHARACTER_TYPE:
-		_resource_cache["viper_skill_icon_textures"] = _load_skill_icon_map(VIPER_SKILL_ICON_PATHS)
-	elif not _resource_cache.has("viper_skill_icon_textures"):
-		_resource_cache["viper_skill_icon_textures"] = {}
-	if include_all_characters or character_type == COMMANDO_CHARACTER_TYPE:
-		_resource_cache["commando_skill_icon_textures"] = _load_skill_icon_map(COMMANDO_SKILL_ICON_PATHS)
-	elif not _resource_cache.has("commando_skill_icon_textures"):
-		_resource_cache["commando_skill_icon_textures"] = {}
+	_load_skill_icon_textures_for_character(
+		DEFAULT_CHARACTER_TYPE,
+		SMASHER_SKILL_ICON_PATHS,
+		character_type,
+		include_all_characters
+	)
+	_load_skill_icon_textures_for_character(
+		VIPER_CHARACTER_TYPE,
+		VIPER_SKILL_ICON_PATHS,
+		character_type,
+		include_all_characters
+	)
+	_load_skill_icon_textures_for_character(
+		COMMANDO_CHARACTER_TYPE,
+		COMMANDO_SKILL_ICON_PATHS,
+		character_type,
+		include_all_characters
+	)
+
+
+func _load_skill_icon_textures_for_character(
+	icon_character_type: String,
+	paths: Dictionary,
+	selected_character_type: String,
+	include_all_characters: bool
+) -> void:
+	var cache_key := _get_selected_skill_icon_cache_key(icon_character_type)
+	if cache_key == "":
+		return
+	if include_all_characters or selected_character_type == icon_character_type:
+		_resource_cache[cache_key] = _load_skill_icon_map(paths)
+	elif not _resource_cache.has(cache_key):
+		_resource_cache[cache_key] = {}
 
 
 func _load_skill_icon_map(paths: Dictionary) -> Dictionary:
@@ -1261,21 +1284,25 @@ func _get_selected_skill_icon_paths(character_type: String) -> Dictionary:
 func _get_selected_skill_icon_cache_key(character_type: String) -> String:
 	match character_type:
 		DEFAULT_CHARACTER_TYPE:
-			return "smasher_skill_icon_textures"
+			return str(_character_runtime.get_skill_icon_texture_key(character_type))
 		VIPER_CHARACTER_TYPE:
-			return "viper_skill_icon_textures"
+			return str(_character_runtime.get_skill_icon_texture_key(character_type))
 		COMMANDO_CHARACTER_TYPE:
-			return "commando_skill_icon_textures"
+			return str(_character_runtime.get_skill_icon_texture_key(character_type))
 	return ""
 
 
 func _ensure_inactive_skill_icon_maps(character_type: String) -> void:
-	if character_type != DEFAULT_CHARACTER_TYPE and not _resource_cache.has("smasher_skill_icon_textures"):
-		_resource_cache["smasher_skill_icon_textures"] = {}
-	if character_type != VIPER_CHARACTER_TYPE and not _resource_cache.has("viper_skill_icon_textures"):
-		_resource_cache["viper_skill_icon_textures"] = {}
-	if character_type != COMMANDO_CHARACTER_TYPE and not _resource_cache.has("commando_skill_icon_textures"):
-		_resource_cache["commando_skill_icon_textures"] = {}
+	_ensure_inactive_skill_icon_map(DEFAULT_CHARACTER_TYPE, character_type)
+	_ensure_inactive_skill_icon_map(VIPER_CHARACTER_TYPE, character_type)
+	_ensure_inactive_skill_icon_map(COMMANDO_CHARACTER_TYPE, character_type)
+
+
+func _ensure_inactive_skill_icon_map(icon_character_type: String, selected_character_type: String) -> void:
+	var cache_key := _get_selected_skill_icon_cache_key(icon_character_type)
+	if cache_key != "" and selected_character_type != icon_character_type \
+			and not _resource_cache.has(cache_key):
+		_resource_cache[cache_key] = {}
 
 
 func _get_selected_character_type(context: Dictionary) -> String:
