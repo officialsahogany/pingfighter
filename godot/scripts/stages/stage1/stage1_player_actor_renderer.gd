@@ -721,6 +721,10 @@ func _as_vector2(value, fallback: Vector2) -> Vector2:
 	return Stage1ContextReader.as_vector2(value, fallback)
 
 
+func _as_rect2(value, fallback: Rect2) -> Rect2:
+	return value if value is Rect2 else fallback
+
+
 func _as_dictionary(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
