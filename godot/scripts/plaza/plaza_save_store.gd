@@ -1,9 +1,10 @@
 extends RefCounted
 
 const SAVE_PATH := "user://plaza_save.cfg"
-const SAVE_SCHEMA_VERSION := 4
+const SAVE_SCHEMA_VERSION := 5
 const BASE_AP := 3
 const MAX_AP := 10
+const MAX_CHANCE_GEMS := 3
 const BANK_TRANSACTION_AMOUNT := 100
 const BANK_INTEREST_BPS := 500
 const META_SECTION := "meta"
@@ -20,6 +21,7 @@ const STAGE_MAP_SEEDS_SECTION := "stage_map_seeds"
 const PLAZA_GOLD_KEY := "plaza_gold"
 const AP_CURRENT_KEY := "ap_current"
 const AP_IS_FIRST_STAGE_KEY := "ap_is_first_stage"
+const CHANCE_GEMS_KEY := "chance_gems"
 const BANK_DEPOSIT_GOLD_KEY := "bank_deposit_gold"
 const TAVERN_ACTIVE_QUEST_ID_KEY := "active_quest_id"
 const TAVERN_ACTIVE_QUEST_NAME_KEY := "active_quest_name"
@@ -34,6 +36,7 @@ var _loaded := false
 var _schema_version := SAVE_SCHEMA_VERSION
 var _recovery_blocked := false
 var _plaza_gold := 0
+var _chance_gems := MAX_CHANCE_GEMS
 var _ap_current := BASE_AP
 var _ap_is_first_stage := true
 var _bank_deposit_gold := 0
@@ -80,6 +83,7 @@ func load() -> bool:
 	if stripped_bom or stored_version < SAVE_SCHEMA_VERSION:
 		save()
 	else:
+		_ensure_save_parent_dir(get_backup_path())
 		_build_save_config().save(get_backup_path())
 	return true
 
@@ -87,9 +91,11 @@ func load() -> bool:
 func save() -> bool:
 	_ensure_loaded()
 	var config := _build_save_config()
+	_ensure_save_parent_dir(save_path)
 	var result: int = config.save(save_path)
 	last_save_summary = "ok" if result == OK else "save_error_%d" % result
 	if result == OK and not _recovery_blocked:
+		_ensure_save_parent_dir(get_backup_path())
 		config.save(get_backup_path())
 	return result == OK
 
@@ -110,21 +116,48 @@ func clear() -> bool:
 
 func reset_gold_and_ap_for_new_playthrough() -> void:
 	# Original PingFighter parity: plaza gold + AP are per-playthrough currency.
-	# A fresh new game (stage 1 from the main menu) zeroes gold and AP and clears
-	# the AP-awarded tracking so AP can be re-earned, while KEEPING the bank
-	# deposit, tavern quests, and stage map seeds. _ensure_loaded() runs first so
-	# save() rewrites the file with the non-reset sections intact.
+	# A fresh new game (stage 1 from the main menu) zeroes gold, restores AP,
+	# refills chance gems, and clears AP-awarded tracking so AP can be re-earned,
+	# while KEEPING the bank deposit, tavern quests, and stage map seeds.
+	# _ensure_loaded() runs first so save() rewrites the file with the non-reset
+	# sections intact.
 	_ensure_loaded()
 	_plaza_gold = 0
+	_chance_gems = MAX_CHANCE_GEMS
 	_ap_current = BASE_AP
 	_ap_is_first_stage = true
 	_ap_awarded_stages.clear()
 	save()
 
 
+func reset_chance_gems_for_new_playthrough() -> void:
+	_ensure_loaded()
+	_chance_gems = MAX_CHANCE_GEMS
+	save()
+
+
 func get_plaza_gold() -> int:
 	_ensure_loaded()
 	return _plaza_gold
+
+
+func get_chance_gems() -> int:
+	_ensure_loaded()
+	return _chance_gems
+
+
+func get_max_chance_gems() -> int:
+	return MAX_CHANCE_GEMS
+
+
+func consume_chance_gem() -> int:
+	_ensure_loaded()
+	if _chance_gems <= 0:
+		last_save_summary = "skipped_no_chance_gems"
+		return 0
+	_chance_gems = maxi(0, _chance_gems - 1)
+	save()
+	return _chance_gems
 
 
 func get_ap_current() -> int:
@@ -479,6 +512,8 @@ func get_summary() -> Dictionary:
 		"save": last_save_summary,
 		"schema_version": get_schema_version(),
 		"plaza_gold": get_plaza_gold(),
+		"chance_gems": get_chance_gems(),
+		"chance_gems_max": get_max_chance_gems(),
 		"ap_current": get_ap_current(),
 		"ap_is_first_stage": get_ap_is_first_stage(),
 		"bank_deposit_gold": get_bank_deposit_gold(),
@@ -502,6 +537,14 @@ func _ensure_loaded() -> void:
 	self.load()
 
 
+func _ensure_save_parent_dir(path: String) -> void:
+	var global_path := ProjectSettings.globalize_path(path)
+	var parent_dir := global_path.get_base_dir()
+	if parent_dir == "" or DirAccess.dir_exists_absolute(parent_dir):
+		return
+	DirAccess.make_dir_recursive_absolute(parent_dir)
+
+
 func _reset_runtime_state() -> void:
 	last_load_summary = "not_loaded"
 	last_save_summary = "not_saved"
@@ -509,6 +552,7 @@ func _reset_runtime_state() -> void:
 	_schema_version = SAVE_SCHEMA_VERSION
 	_recovery_blocked = false
 	_plaza_gold = 0
+	_chance_gems = MAX_CHANCE_GEMS
 	_ap_current = BASE_AP
 	_ap_is_first_stage = true
 	_bank_deposit_gold = 0
@@ -548,6 +592,7 @@ func _build_save_config() -> ConfigFile:
 	var config := ConfigFile.new()
 	config.set_value(META_SECTION, META_SCHEMA_VERSION_KEY, SAVE_SCHEMA_VERSION)
 	config.set_value(WALLET_SECTION, PLAZA_GOLD_KEY, _sanitize_gold(_plaza_gold))
+	config.set_value(WALLET_SECTION, CHANCE_GEMS_KEY, _sanitize_chance_gems(_chance_gems))
 	config.set_value(WALLET_SECTION, AP_CURRENT_KEY, clampi(_ap_current, 0, MAX_AP))
 	config.set_value(WALLET_SECTION, AP_IS_FIRST_STAGE_KEY, _ap_is_first_stage)
 	config.set_value(BANK_SECTION, BANK_DEPOSIT_GOLD_KEY, _sanitize_gold(_bank_deposit_gold))
@@ -584,6 +629,7 @@ func _build_save_config() -> ConfigFile:
 func _read_from_config(config: ConfigFile) -> void:
 	_schema_version = _read_schema_version(config)
 	_plaza_gold = _sanitize_gold(config.get_value(WALLET_SECTION, PLAZA_GOLD_KEY, 0))
+	_chance_gems = _sanitize_chance_gems(config.get_value(WALLET_SECTION, CHANCE_GEMS_KEY, MAX_CHANCE_GEMS))
 	_ap_current = clampi(int(config.get_value(WALLET_SECTION, AP_CURRENT_KEY, BASE_AP)), 0, MAX_AP)
 	_ap_is_first_stage = bool(config.get_value(WALLET_SECTION, AP_IS_FIRST_STAGE_KEY, true))
 	_bank_deposit_gold = _sanitize_gold(config.get_value(BANK_SECTION, BANK_DEPOSIT_GOLD_KEY, 0))
@@ -664,6 +710,10 @@ func _read_schema_version(config: ConfigFile) -> int:
 
 func _sanitize_gold(value: Variant) -> int:
 	return maxi(0, int(value))
+
+
+func _sanitize_chance_gems(value: Variant) -> int:
+	return clampi(int(value), 0, MAX_CHANCE_GEMS)
 
 
 func _has_obvious_config_parse_break(text: String) -> bool:

@@ -1,11 +1,13 @@
 extends SceneTree
 
+const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MatchFlowDriver := preload("res://scripts/core/battle_scene_match_flow_driver.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
 var _failures: Array[String] = []
 var _drive_reset_calls := 0
 var _ball_reset_calls := 0
+var _reset_game_callback_calls := 0
 
 
 class FakeOwner:
@@ -34,6 +36,37 @@ class FakeOwner:
 	var equipped_passive_items := {"belt": "old_belt"}
 	var mythic_item_state := {"old": true}
 	var megingjord_equipped := true
+	var chance_gems_count := 0
+	var chance_gems_max := 3
+
+
+class SchemaGatedChanceOwner:
+	extends RefCounted
+
+	var scene_state: Object = BattleSceneState.new()
+	var rejected_keys: Array[String] = []
+
+	func _init() -> void:
+		scene_state.reset()
+
+	func _get(property: StringName) -> Variant:
+		var key := str(property)
+		if scene_state.has_key(key):
+			return scene_state.get_value(key)
+		return null
+
+	func _set(property: StringName, value: Variant) -> bool:
+		var key := str(property)
+		if not scene_state.has_key(key):
+			rejected_keys.append(key)
+			return false
+		scene_state.set_value(key, value)
+		return true
+
+	func value_of(key: String) -> Variant:
+		if scene_state.has_key(key):
+			return scene_state.get_value(key)
+		return null
 
 
 class FakeContextBuilder:
@@ -142,10 +175,26 @@ class FakeScoreboardState:
 
 	var update_calls := 0
 	var next_result := ScoreboardState.UPDATE_NONE
+	var player_points := 0
+	var boss_points := 0
+	var win_goal := 5
+	var last_scoring_side := "player"
 
 	func update_scoreboard(_delta: float) -> int:
 		update_calls += 1
 		return next_result
+
+	func get_player_points() -> int:
+		return player_points
+
+	func get_boss_points() -> int:
+		return boss_points
+
+	func get_win_goal() -> int:
+		return win_goal
+
+	func get_last_scoring_side() -> String:
+		return last_scoring_side
 
 
 class FakeRoundState:
@@ -170,6 +219,30 @@ class FakeMythicItemRuntime:
 		saw_registry = registry != null
 
 
+class FakeChanceGemStore:
+	extends RefCounted
+
+	var chance_gems := 0
+	var max_chance_gems := 3
+	var consume_calls := 0
+	var get_calls := 0
+
+	func _init(next_chance_gems: int = 0) -> void:
+		chance_gems = max(0, next_chance_gems)
+
+	func get_chance_gems() -> int:
+		get_calls += 1
+		return chance_gems
+
+	func get_max_chance_gems() -> int:
+		return max_chance_gems
+
+	func consume_chance_gem() -> int:
+		consume_calls += 1
+		chance_gems = max(0, chance_gems - 1)
+		return chance_gems
+
+
 class FakeStage4MapState:
 	extends RefCounted
 
@@ -183,6 +256,69 @@ class FakeStage4MapState:
 		saw_current_stage = int(deps.get("current_stage", 0)) == 4
 		saw_audio = deps.get("audio", null) != null
 		saw_event = deps.get("stage4_temple_destruction_event", null) != null
+
+
+class FakeDefeatSettlementScreen:
+	extends RefCounted
+
+	var show_calls := 0
+	var saw_owner := false
+	var saw_registry := false
+	var saw_exit_callback := false
+
+	func show(owner: Object, registry: Object, exit_callback: Callable) -> bool:
+		show_calls += 1
+		saw_owner = owner != null
+		saw_registry = registry != null
+		saw_exit_callback = exit_callback.is_valid()
+		return true
+
+
+class FakeDefeatContinueScreen:
+	extends RefCounted
+
+	var show_calls := 0
+	var saw_owner := false
+	var saw_registry := false
+	var saw_continue_callback := false
+	var confirm_calls := 0
+	var _continue_callback: Callable = Callable()
+
+	func show(owner: Object, registry: Object, continue_callback: Callable) -> bool:
+		show_calls += 1
+		saw_owner = owner != null
+		saw_registry = registry != null
+		saw_continue_callback = continue_callback.is_valid()
+		_continue_callback = continue_callback
+		return true
+
+	func confirm_continue() -> void:
+		confirm_calls += 1
+		if _continue_callback.is_valid():
+			_continue_callback.call()
+
+
+class FakeStageClearResultScreen:
+	extends RefCounted
+
+	var show_calls := 0
+	var saw_owner := false
+	var saw_registry := false
+	var saw_reset_callback := false
+	var saw_exit_callback := false
+
+	func show_from_scoreboard(
+		owner: Object,
+		registry: Object,
+		reset_game_callback: Callable,
+		exit_callback: Callable
+	) -> bool:
+		show_calls += 1
+		saw_owner = owner != null
+		saw_registry = registry != null
+		saw_reset_callback = reset_game_callback.is_valid()
+		saw_exit_callback = exit_callback.is_valid()
+		return true
 
 
 class FakePerfLogger:
@@ -213,6 +349,10 @@ class FakeRegistry:
 	var stage4_temple_destruction_event: Object = null
 	var game_audio: Object = null
 	var battle_perf_logger: Object = null
+	var defeat_settlement_screen: Object = null
+	var defeat_continue_screen: Object = null
+	var stage_clear_result_screen: Object = null
+	var plaza_save_store: Object = null
 
 	func _init(next_context_builder: Object, next_controller: Object) -> void:
 		context_builder = next_context_builder
@@ -240,6 +380,14 @@ class FakeRegistry:
 				return game_audio
 			"battle_perf_logger":
 				return battle_perf_logger
+			"defeat_settlement_screen":
+				return defeat_settlement_screen
+			"defeat_chance_gems_continue_screen":
+				return defeat_continue_screen
+			"stage_clear_result_screen":
+				return stage_clear_result_screen
+			"plaza_save_store":
+				return plaza_save_store
 			_:
 				return null
 
@@ -323,10 +471,126 @@ func _init() -> void:
 	_expect(perf_logger.has_label("physics.scoreboard_result.stage4_prepare"), "scoreboard completion should profile stage 4 prepare separately")
 	_expect(perf_logger.has_label("physics.scoreboard_result.total"), "scoreboard completion should profile total result handling")
 
+	_expect(BattleSceneState.DEFAULT_VALUES.has("chance_gems_count"), "chance gem count must be declared in the owner schema")
+	_expect(BattleSceneState.DEFAULT_VALUES.has("chance_gems_max"), "chance gem max must be declared in the owner schema")
+	var continue_owner := SchemaGatedChanceOwner.new()
+	var chance_store := FakeChanceGemStore.new(2)
+	var continue_screen := FakeDefeatContinueScreen.new()
+	registry.plaza_save_store = chance_store
+	registry.defeat_continue_screen = continue_screen
+	scoreboard.next_result = ScoreboardState.UPDATE_RESET_GAME
+	scoreboard.player_points = 1
+	scoreboard.boss_points = 5
+	scoreboard.win_goal = 5
+	scoreboard.last_scoring_side = "boss"
+	var transition_resets_before: int = controller.stage_transition_reset_calls
+	var drive_resets_before: int = _drive_reset_calls
+	ball_resets_before = _ball_reset_calls
+	_reset_game_callback_calls = 0
+	driver.update_scoreboard(
+		registry,
+		2.0,
+		Callable(self, "_record_reset_game_callback"),
+		Callable(self, "_record_ball_reset"),
+		continue_owner,
+		Callable(self, "_record_drive_reset")
+	)
+	_expect(chance_store.get_calls > 0, "defeat resolver should read chance gems from the plaza save store")
+	_expect(chance_store.consume_calls == 1 and chance_store.chance_gems == 1, "defeat resolver should consume exactly one chance gem through the store")
+	_expect(int(continue_owner.value_of("chance_gems_count")) == 1, "defeat resolver should mirror remaining chance gems to the owner")
+	_expect(int(continue_owner.value_of("chance_gems_max")) == 3, "defeat resolver should mirror chance gem capacity to the owner")
+	_expect(
+		continue_owner.rejected_keys.is_empty(),
+		"schema-gated owner should accept chance gem mirrors; rejected=%s" % ", ".join(continue_owner.rejected_keys)
+	)
+	_expect(continue_screen.show_calls == 1 and continue_screen.saw_owner and continue_screen.saw_registry, "defeat resolver should open the chance gem continue screen")
+	_expect(continue_screen.saw_continue_callback, "chance gem continue screen should receive the preserving reset callback")
+	_expect(controller.stage_transition_reset_calls == transition_resets_before, "defeat resolver must wait for confirmation before continuing")
+	_expect(_drive_reset_calls == drive_resets_before and _ball_reset_calls == ball_resets_before, "chance gem screen should delay drive and ball reset until confirm")
+	_expect(_reset_game_callback_calls == 0, "defeat continue must not call the full reset callback")
+	continue_screen.confirm_continue()
+	_expect(continue_screen.confirm_calls == 1, "test setup should confirm the chance gem screen once")
+	_expect(controller.stage_transition_reset_calls == transition_resets_before + 1, "defeat confirmation should continue through the preserving reset")
+	_expect(_drive_reset_calls == drive_resets_before + 1 and _ball_reset_calls == ball_resets_before + 1, "defeat confirmation should reset drive and ball")
+	_expect(_reset_game_callback_calls == 0, "defeat confirmation must not call the full reset callback")
+
+	var win_owner := FakeOwner.new()
+	win_owner.chance_gems_count = 2
+	registry.plaza_save_store = null
+	registry.defeat_continue_screen = FakeDefeatContinueScreen.new()
+	var win_defeat_settlement_screen := FakeDefeatSettlementScreen.new()
+	var stage_clear_screen := FakeStageClearResultScreen.new()
+	registry.defeat_settlement_screen = win_defeat_settlement_screen
+	registry.stage_clear_result_screen = stage_clear_screen
+	transition_resets_before = controller.stage_transition_reset_calls
+	_reset_game_callback_calls = 0
+	scoreboard.next_result = ScoreboardState.UPDATE_RESET_GAME
+	scoreboard.player_points = 5
+	scoreboard.boss_points = 3
+	scoreboard.win_goal = 5
+	scoreboard.last_scoring_side = "player"
+	driver.update_scoreboard(
+		registry,
+		2.0,
+		Callable(self, "_record_reset_game_callback"),
+		Callable(self, "_record_ball_reset"),
+		win_owner,
+		Callable(self, "_record_drive_reset")
+	)
+	_expect(int(win_owner.chance_gems_count) == 2, "match win must not consume a chance gem")
+	_expect(controller.stage_transition_reset_calls == transition_resets_before, "match win must not run continue reset")
+	_expect((registry.defeat_continue_screen as FakeDefeatContinueScreen).show_calls == 0, "match win must not open chance gem continue")
+	_expect(win_defeat_settlement_screen.show_calls == 0, "match win must not open defeat settlement")
+	_expect(stage_clear_screen.show_calls == 1 and stage_clear_screen.saw_owner and stage_clear_screen.saw_registry, "match win should continue into stage-clear result")
+	_expect(stage_clear_screen.saw_reset_callback and stage_clear_screen.saw_exit_callback, "stage-clear result should receive reset and exit callbacks")
+	_expect(_reset_game_callback_calls == 0, "stage-clear result should block the full reset fallback while open")
+	registry.defeat_continue_screen = null
+	registry.stage_clear_result_screen = null
+
+	var settlement_screen := FakeDefeatSettlementScreen.new()
+	var final_defeat_owner := FakeOwner.new()
+	final_defeat_owner.chance_gems_count = 2
+	registry.plaza_save_store = FakeChanceGemStore.new(0)
+	registry.defeat_settlement_screen = settlement_screen
+	transition_resets_before = controller.stage_transition_reset_calls
+	_reset_game_callback_calls = 0
+	scoreboard.next_result = ScoreboardState.UPDATE_RESET_GAME
+	scoreboard.player_points = 1
+	scoreboard.boss_points = 5
+	scoreboard.win_goal = 5
+	scoreboard.last_scoring_side = "boss"
+	driver.update_scoreboard(
+		registry,
+		2.0,
+		Callable(self, "_record_reset_game_callback"),
+		Callable(self, "_record_ball_reset"),
+		final_defeat_owner,
+		Callable(self, "_record_drive_reset")
+	)
+	_expect(int(final_defeat_owner.chance_gems_count) == 0, "final defeat should mirror store-empty chance gems to the owner")
+	_expect(controller.stage_transition_reset_calls == transition_resets_before, "final defeat without gems should not continue reset")
+	_expect(settlement_screen.show_calls == 1 and settlement_screen.saw_owner and settlement_screen.saw_registry, "final defeat should open the settlement screen when it is registered")
+	_expect(settlement_screen.saw_exit_callback, "final defeat settlement should receive an exit callback")
+	_expect(_reset_game_callback_calls == 0, "final defeat settlement should block the full reset callback")
+
+	registry.defeat_settlement_screen = null
+	registry.plaza_save_store = null
+	_reset_game_callback_calls = 0
+	driver.update_scoreboard(
+		registry,
+		2.0,
+		Callable(self, "_record_reset_game_callback"),
+		Callable(self, "_record_ball_reset"),
+		final_defeat_owner,
+		Callable(self, "_record_drive_reset")
+	)
+	_expect(_reset_game_callback_calls == 1, "final defeat without a settlement screen should fall through to the existing reset path")
+
 	var active_item_runtime := FakeStageTransitionActiveItemRuntime.new()
 	registry.active_item_runtime = active_item_runtime
 	owner.active_item_slots = [{"item_id": "reward_item", "last_use_msec": 45678}]
-	var drive_resets_before: int = _drive_reset_calls
+	transition_resets_before = controller.stage_transition_reset_calls
+	drive_resets_before = _drive_reset_calls
 	ball_resets_before = _ball_reset_calls
 	driver.reset_for_stage_transition(
 		owner,
@@ -334,7 +598,7 @@ func _init() -> void:
 		Callable(self, "_record_drive_reset"),
 		Callable(self, "_record_ball_reset")
 	)
-	_expect(controller.stage_transition_reset_calls == 1, "stage transition should use the preserving reset path")
+	_expect(controller.stage_transition_reset_calls == transition_resets_before + 1, "stage transition should use the preserving reset path")
 	_expect(controller.stage_transition_starting_dash_tokens == 2, "stage transition deps should keep Junior League starting dash tokens")
 	_expect(_drive_reset_calls == drive_resets_before + 1 and _ball_reset_calls == ball_resets_before + 1, "stage transition should forward reset callbacks")
 	_expect(active_item_runtime.reset_for_stage_transition_calls == 1 and active_item_runtime.saw_registry, "stage transition should reset active item transient runtime state")
@@ -357,6 +621,10 @@ func _record_drive_reset() -> void:
 
 func _record_ball_reset() -> void:
 	_ball_reset_calls += 1
+
+
+func _record_reset_game_callback() -> void:
+	_reset_game_callback_calls += 1
 
 
 func _expect(condition: bool, message: String) -> void:

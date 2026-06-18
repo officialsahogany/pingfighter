@@ -66,6 +66,7 @@ class FakeMatchFlowDriver:
 	var restart_reason := ""
 	var scoreboard_delta := 0.0
 	var reset_game_calls := 0
+	var saw_scoreboard_drive_reset_callback := false
 
 	func handle_score_event(_registry: Object, scoring_side: String, reset_ball_callback: Callable, current_stage: int = 1) -> void:
 		score_side = scoring_side
@@ -76,8 +77,16 @@ class FakeMatchFlowDriver:
 		restart_reason = reason
 		reset_ball_callback.call()
 
-	func update_scoreboard(_registry: Object, delta: float, reset_game_callback: Callable, reset_ball_callback: Callable) -> void:
+	func update_scoreboard(
+		_registry: Object,
+		delta: float,
+		reset_game_callback: Callable,
+		reset_ball_callback: Callable,
+		_owner: Object = null,
+		reset_drive_input_callback: Callable = Callable()
+	) -> void:
 		scoreboard_delta = delta
+		saw_scoreboard_drive_reset_callback = reset_drive_input_callback.is_valid()
 		reset_game_callback.call()
 		reset_ball_callback.call()
 
@@ -131,6 +140,7 @@ func _init() -> void:
 	owner.data["boss_defeated_by_health"] = true
 	driver.update_scoreboard(0.25, owner, registry)
 	_expect(abs(match_flow.scoreboard_delta - 0.25) <= 0.001, "scoreboard update should forward delta")
+	_expect(match_flow.saw_scoreboard_drive_reset_callback, "scoreboard update should thread the continue reset Drive callback")
 	_expect(match_flow.reset_game_calls == 1, "scoreboard reset-game callback should route through match event driver")
 	_expect(ball.drive_reset_calls == 1, "reset-game callback should reset Drive input frames")
 	_expect(ball.reset_calls == 4, "scoreboard reset callbacks should reset ball through reset-game and direct reset")

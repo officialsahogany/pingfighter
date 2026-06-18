@@ -25,7 +25,9 @@ func apply_selection_state(owner: Object) -> void:
 	owner.set("selected_character_type", runtime_character_id)
 	owner.set("selected_character_name", str(selection.get("character_name", "\uc2a4\ub9e4\uc154")))
 	owner.set("ai_mode", normalize_league_mode(str(selection.get("league_mode", DEFAULT_LEAGUE_MODE))))
-	reset_plaza_progress_if_new_game(entry_stage, _default_plaza_save_path(owner))
+	var plaza_save_path := _default_plaza_save_path(owner)
+	reset_plaza_progress_if_new_game(entry_stage, plaza_save_path)
+	sync_chance_gems_from_plaza_store(owner, plaza_save_path)
 
 
 func reset_plaza_progress_if_new_game(entry_stage: int, save_path: String) -> void:
@@ -41,6 +43,27 @@ func reset_plaza_progress_if_new_game(entry_stage: int, save_path: String) -> vo
 	var store: Object = PlazaSaveStore.new()
 	store.set_save_path(save_path)
 	store.reset_gold_and_ap_for_new_playthrough()
+
+
+func sync_chance_gems_from_plaza_store(owner: Object, save_path: String) -> void:
+	if owner == null or save_path.strip_edges() == "":
+		return
+	var store: Object = PlazaSaveStore.new()
+	store.set_save_path(save_path)
+	var count := PlazaSaveStore.MAX_CHANCE_GEMS
+	if store.has_method("get_chance_gems"):
+		count = maxi(0, int(store.get_chance_gems()))
+	var max_count := PlazaSaveStore.MAX_CHANCE_GEMS
+	if store.has_method("get_max_chance_gems"):
+		max_count = maxi(1, int(store.get_max_chance_gems()))
+	_sync_owner_chance_gems(owner, count, max_count)
+
+
+func _sync_owner_chance_gems(owner: Object, count: int, max_count: int = PlazaSaveStore.MAX_CHANCE_GEMS) -> void:
+	if owner == null:
+		return
+	owner.set("chance_gems_count", clampi(count, 0, max_count))
+	owner.set("chance_gems_max", max_count)
 
 
 func _default_plaza_save_path(owner: Object) -> String:

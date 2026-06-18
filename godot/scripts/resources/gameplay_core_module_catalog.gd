@@ -109,6 +109,18 @@ const MODULES := {
 		"path": "res://scripts/core/stage_clear_result_screen.gd",
 		"label": "stage clear result screen",
 	},
+	"defeat_chance_gems_continue_screen": {
+		"path": "res://scripts/core/defeat_chance_gems_continue_screen.gd",
+		"label": "defeat chance gems continue screen",
+	},
+	"defeat_settlement_screen": {
+		"path": "res://scripts/core/defeat_settlement_screen.gd",
+		"label": "defeat settlement screen",
+	},
+	"plaza_save_store": {
+		"path": "res://scripts/plaza/plaza_save_store.gd",
+		"label": "plaza save store",
+	},
 	"stage_clear_reward_resolver": {
 		"path": "res://scripts/core/stage_clear_reward_resolver.gd",
 		"label": "stage clear reward resolver",

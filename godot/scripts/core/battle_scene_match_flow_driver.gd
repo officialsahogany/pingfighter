@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
+const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
 var _fallback_scene_config: Object = BattleSceneConfig.new()
@@ -56,7 +57,8 @@ func update_scoreboard(
 	delta: float,
 	reset_game_callback: Callable,
 	reset_ball_callback: Callable,
-	owner: Object = null
+	owner: Object = null,
+	reset_drive_input_callback: Callable = Callable()
 ) -> void:
 	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
 	if scoreboard_state != null and scoreboard_state.has_method("update_scoreboard"):
@@ -68,7 +70,8 @@ func update_scoreboard(
 			registry,
 			owner,
 			reset_game_callback,
-			reset_ball_callback
+			reset_ball_callback,
+			reset_drive_input_callback
 		)
 		return
 
@@ -81,6 +84,12 @@ func update_scoreboard(
 		{
 			"reset_game": reset_game_callback,
 			"reset_ball": reset_ball_callback,
+			"resolve_match_defeat": Callable(self, "_resolve_match_defeat").bind(
+				registry,
+				owner,
+				reset_drive_input_callback,
+				reset_ball_callback
+			),
 			"show_stage_clear_result": Callable(self, "_show_stage_clear_result").bind(registry, reset_game_callback, owner),
 		},
 		{
@@ -95,14 +104,16 @@ func apply_scoreboard_update_result(
 	registry: Object,
 	owner: Object,
 	reset_game_callback: Callable,
-	reset_ball_callback: Callable
+	reset_ball_callback: Callable,
+	reset_drive_input_callback: Callable = Callable()
 ) -> void:
 	_apply_scoreboard_update_result(
 		update_result,
 		registry,
 		owner,
 		reset_game_callback,
-		reset_ball_callback
+		reset_ball_callback,
+		reset_drive_input_callback
 	)
 
 
@@ -111,11 +122,18 @@ func _apply_scoreboard_update_result(
 	registry: Object,
 	owner: Object,
 	reset_game_callback: Callable,
-	reset_ball_callback: Callable
+	reset_ball_callback: Callable,
+	reset_drive_input_callback: Callable = Callable()
 ) -> void:
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var total_start: int = _perf_begin(perf_logger)
 	if update_result == ScoreboardState.UPDATE_RESET_GAME:
+		var defeat_start: int = _perf_begin(perf_logger)
+		if _resolve_match_defeat(registry, owner, reset_drive_input_callback, reset_ball_callback):
+			_perf_end(perf_logger, "physics.scoreboard_result.resolve_defeat", defeat_start)
+			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
+			return
+		_perf_end(perf_logger, "physics.scoreboard_result.resolve_defeat", defeat_start)
 		var show_result_start: int = _perf_begin(perf_logger)
 		if _show_stage_clear_result(registry, reset_game_callback, owner):
 			_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
@@ -150,6 +168,122 @@ func _apply_scoreboard_update_result(
 func _call_callback(callback: Callable) -> void:
 	if callback.is_valid():
 		callback.call()
+
+
+func _resolve_match_defeat(
+	registry: Object,
+	owner: Object,
+	reset_drive_input_callback: Callable,
+	reset_ball_callback: Callable
+) -> bool:
+	if owner == null or not _is_scoreboard_player_defeat(registry):
+		return false
+	var chance_gems_count: int = _get_chance_gems_count(owner, registry)
+	if chance_gems_count <= 0:
+		return _show_defeat_settlement(registry, owner)
+	_consume_chance_gem(owner, registry, chance_gems_count)
+	if _show_defeat_continue_screen(registry, owner, reset_drive_input_callback, reset_ball_callback):
+		return true
+	reset_for_continue(owner, registry, reset_drive_input_callback, reset_ball_callback)
+	return true
+
+
+func _show_defeat_continue_screen(
+	registry: Object,
+	owner: Object,
+	reset_drive_input_callback: Callable,
+	reset_ball_callback: Callable
+) -> bool:
+	var continue_screen: Object = _get_instance(registry, "defeat_chance_gems_continue_screen")
+	if continue_screen == null:
+		continue_screen = _get_instance(registry, "defeat_chance_gems_soft_defeat_screen")
+	if continue_screen == null:
+		return false
+	var continue_callback := Callable(self, "reset_for_continue").bind(
+		owner,
+		registry,
+		reset_drive_input_callback,
+		reset_ball_callback
+	)
+	if continue_screen.has_method("show"):
+		var show_result: Variant = continue_screen.show(owner, registry, continue_callback)
+		return true if show_result == null else bool(show_result)
+	return false
+
+
+func _show_defeat_settlement(registry: Object, owner: Object) -> bool:
+	var settlement_screen: Object = _get_instance(registry, "defeat_settlement_screen")
+	if settlement_screen == null:
+		settlement_screen = _get_instance(registry, "defeat_chance_gems_settlement_screen")
+	if settlement_screen == null:
+		return false
+	var exit_callback := Callable(self, "_exit_to_main_menu").bind(owner)
+	if settlement_screen.has_method("show"):
+		var show_result: Variant = settlement_screen.show(owner, registry, exit_callback)
+		return true if show_result == null else bool(show_result)
+	if settlement_screen.has_method("show_from_scoreboard"):
+		return bool(settlement_screen.show_from_scoreboard(owner, registry, exit_callback))
+	return false
+
+
+func _is_scoreboard_player_defeat(registry: Object) -> bool:
+	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
+	if scoreboard_state == null:
+		return false
+	var player_points: int = _call_scoreboard_int(scoreboard_state, "get_player_points", 0)
+	var boss_points: int = _call_scoreboard_int(scoreboard_state, "get_boss_points", 0)
+	var win_goal: int = max(1, _call_scoreboard_int(scoreboard_state, "get_win_goal", 5))
+	if boss_points < win_goal:
+		return false
+	if scoreboard_state.has_method("get_last_scoring_side"):
+		return str(scoreboard_state.get_last_scoring_side()) == "boss"
+	return boss_points >= player_points
+
+
+func _get_chance_gems_count(owner: Object, registry: Object = null) -> int:
+	var store: Object = _get_chance_gem_store(registry)
+	if store != null and store.has_method("get_chance_gems"):
+		var count: int = maxi(0, int(store.get_chance_gems()))
+		_sync_owner_chance_gems(owner, count, _get_chance_gems_max(store))
+		return count
+	return max(0, int(_get_owner_value(owner, "chance_gems_count", 0)))
+
+
+func _consume_chance_gem(owner: Object, registry: Object, current_count: int) -> int:
+	var store: Object = _get_chance_gem_store(registry)
+	if store != null and store.has_method("consume_chance_gem"):
+		var remaining: int = maxi(0, int(store.consume_chance_gem()))
+		_sync_owner_chance_gems(owner, remaining, _get_chance_gems_max(store))
+		return remaining
+	var fallback_remaining: int = maxi(0, current_count - 1)
+	_sync_owner_chance_gems(owner, fallback_remaining)
+	return fallback_remaining
+
+
+func _get_chance_gem_store(registry: Object) -> Object:
+	var store: Object = _get_instance(registry, "plaza_save_store")
+	if store != null:
+		return store
+	return null
+
+
+func _get_chance_gems_max(store: Object = null) -> int:
+	if store != null and store.has_method("get_max_chance_gems"):
+		return maxi(1, int(store.get_max_chance_gems()))
+	return PlazaSaveStore.MAX_CHANCE_GEMS
+
+
+func _sync_owner_chance_gems(owner: Object, count: int, max_count: int = PlazaSaveStore.MAX_CHANCE_GEMS) -> void:
+	if owner == null:
+		return
+	owner.set("chance_gems_count", clampi(count, 0, max_count))
+	owner.set("chance_gems_max", max_count)
+
+
+func _call_scoreboard_int(scoreboard_state: Object, method_name: String, fallback: int) -> int:
+	if scoreboard_state != null and scoreboard_state.has_method(method_name):
+		return int(scoreboard_state.call(method_name))
+	return fallback
 
 
 func _start_pending_pandora_legacy_selection(deps: Dictionary) -> void:
@@ -242,6 +376,29 @@ func reset_for_stage_transition(
 	_get_reset_result_applier(registry).apply_reset_result(owner, result)
 	_reset_active_item_cooldowns_for_stage_transition(owner, registry)
 	_notify_mythic_stage_advance(owner, registry)
+
+
+func reset_for_continue(
+	owner: Object,
+	registry: Object,
+	reset_drive_input_callback: Callable,
+	reset_ball_callback: Callable
+) -> void:
+	var controller: Object = _get_instance(registry, "match_flow_controller")
+	if controller == null or owner == null:
+		return
+	if not controller.has_method("reset_for_stage_transition"):
+		return
+	var result: Dictionary = controller.reset_for_stage_transition(_get_match_flow_deps(
+		registry,
+		int(_get_owner_value(owner, "current_stage", 1)),
+		owner
+	), {
+		"reset_drive_input": reset_drive_input_callback,
+		"reset_ball": reset_ball_callback,
+	})
+	_get_reset_result_applier(registry).apply_reset_result(owner, result)
+	_reset_active_item_cooldowns_for_stage_transition(owner, registry)
 
 
 func _get_match_flow_deps(

@@ -8,6 +8,8 @@ func update_scoreboard(delta: float, deps: Dictionary, callbacks: Dictionary, co
 
 	var update_result: int = scoreboard_state.update_scoreboard(delta)
 	if update_result == int(config.get("update_reset_game", -1)):
+		if _call_callback_bool(callbacks, "resolve_match_defeat"):
+			return
 		if _call_callback_bool(callbacks, "show_stage_clear_result"):
 			return
 		_call_callback(callbacks, "reset_game")

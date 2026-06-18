@@ -45,6 +45,10 @@ func handle_unhandled_input(
 
 	if _handle_lingpet_acquire_cutin_input(event, owner, registry, module_getter):
 		return
+	if _handle_defeat_chance_gems_continue_input(event, owner, registry, module_getter):
+		return
+	if _handle_defeat_settlement_input(event, owner, registry, module_getter):
+		return
 	if _handle_stage_clear_result_input(event, owner, registry, module_getter):
 		return
 	if _handle_runtime_perk_choice_input(event, owner, registry, module_getter):
@@ -205,6 +209,28 @@ func _handle_stage_clear_result_input(event: InputEvent, owner: Object, registry
 		return true
 	if result_screen.has_method("handle_input"):
 		result_screen.handle_input(event, owner, registry, _get_view_size(owner))
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_defeat_chance_gems_continue_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	var continue_screen: Object = _get_module(module_getter, "defeat_chance_gems_continue_screen")
+	if continue_screen == null or not continue_screen.has_method("is_active") or not bool(continue_screen.is_active()):
+		return false
+	if continue_screen.has_method("handle_input"):
+		continue_screen.handle_input(event, owner, registry, _get_view_size(owner))
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_defeat_settlement_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	var settlement_screen: Object = _get_module(module_getter, "defeat_settlement_screen")
+	if settlement_screen == null or not settlement_screen.has_method("is_active") or not bool(settlement_screen.is_active()):
+		return false
+	if settlement_screen.has_method("handle_input"):
+		settlement_screen.handle_input(event, owner, registry, _get_view_size(owner))
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true

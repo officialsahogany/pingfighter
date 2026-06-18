@@ -11,6 +11,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_roundtrip_and_bom_rewrite()
+	_verify_chance_gems_roundtrip_consume_and_v5_migration()
 	_verify_stage_clear_progress_is_exact_gold_units()
 	_verify_stage_ap_records_once()
 	_verify_stage_map_seed_roundtrip()
@@ -60,6 +61,40 @@ func _verify_roundtrip_and_bom_rewrite() -> void:
 	_expect(int(bom_summary.get("plaza_gold", 0)) == 123, "BOM load should preserve plaza gold")
 	_expect(not _file_starts_with_bom(path), "BOM load should rewrite the primary save without BOM")
 	_cleanup(path)
+
+
+func _verify_chance_gems_roundtrip_consume_and_v5_migration() -> void:
+	var path := _test_path("chance_gems")
+	_cleanup(path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(path)
+	_expect(store.get_schema_version() == PlazaSaveStore.SAVE_SCHEMA_VERSION, "plaza save should expose the current schema")
+	_expect(store.get_max_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "chance gem max should be the shared store constant")
+	_expect(store.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "new saves should start with full chance gems")
+	_expect(store.consume_chance_gem() == PlazaSaveStore.MAX_CHANCE_GEMS - 1, "first chance gem consume should decrement by one")
+	_expect(store.consume_chance_gem() == PlazaSaveStore.MAX_CHANCE_GEMS - 2, "second chance gem consume should persist another decrement")
+
+	var reloaded := PlazaSaveStore.new()
+	reloaded.set_save_path(path)
+	_expect(reloaded.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS - 2, "chance gems should survive save/load roundtrip")
+	_expect(int(reloaded.get_summary().get("chance_gems", -1)) == PlazaSaveStore.MAX_CHANCE_GEMS - 2, "summary should expose current chance gems")
+	_expect(int(reloaded.get_summary().get("chance_gems_max", -1)) == PlazaSaveStore.MAX_CHANCE_GEMS, "summary should expose chance gem capacity")
+	_expect(reloaded.consume_chance_gem() == 0, "third consume should reach zero")
+	_expect(reloaded.consume_chance_gem() == 0, "empty chance gem consume should stay at zero")
+	reloaded.reset_chance_gems_for_new_playthrough()
+	_expect(reloaded.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "chance gem reset should refill to max")
+
+	var legacy_path := _test_path("chance_gems_v4")
+	_cleanup(legacy_path)
+	_write_plain_text(legacy_path, "[meta]\nschema_version=4\n[wallet]\nplaza_gold=77\nap_current=4\nap_is_first_stage=false\n")
+	var migrated := PlazaSaveStore.new()
+	migrated.set_save_path(legacy_path)
+	_expect(migrated.load(), "v4 plaza save without chance gems should migrate")
+	_expect(migrated.get_schema_version() == PlazaSaveStore.SAVE_SCHEMA_VERSION, "v4 migration should stamp the v5 schema")
+	_expect(migrated.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "v4 migration should refill missing chance gems to max")
+	_expect(migrated.get_plaza_gold() == 77, "v4 migration should preserve existing plaza gold")
+	_cleanup(path)
+	_cleanup(legacy_path)
 
 
 func _verify_stage_clear_progress_is_exact_gold_units() -> void:
@@ -361,7 +396,11 @@ func _verify_corrupt_primary_recovers_last_good() -> void:
 
 
 func _test_path(label: String) -> String:
-	return "user://plaza_save_store_smoke_%s.cfg" % label
+	return "res://.tmp/plaza_save_store_smoke_%s_%d_%d.cfg" % [
+		label,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _cleanup(path: String) -> void:

@@ -6,10 +6,40 @@ extends SceneTree
 # transitions (stage > 1) must NOT reset, and the real save must never be
 # touched by the selection-startup unit tests (empty save path => no-op).
 
+const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const BattleSceneSelectionStartupLifecycle := preload("res://scripts/core/battle_scene_selection_startup_lifecycle.gd")
 
 var _failures: Array[String] = []
+
+
+class SchemaGatedOwner:
+	extends RefCounted
+
+	var scene_state: Object = BattleSceneState.new()
+	var rejected_keys: Array[String] = []
+
+	func _init() -> void:
+		scene_state.reset()
+
+	func _get(property: StringName) -> Variant:
+		var key := str(property)
+		if scene_state.has_key(key):
+			return scene_state.get_value(key)
+		return null
+
+	func _set(property: StringName, value: Variant) -> bool:
+		var key := str(property)
+		if not scene_state.has_key(key):
+			rejected_keys.append(key)
+			return false
+		scene_state.set_value(key, value)
+		return true
+
+	func value_of(key: String) -> Variant:
+		if scene_state.has_key(key):
+			return scene_state.get_value(key)
+		return null
 
 
 func _init() -> void:
@@ -18,6 +48,7 @@ func _init() -> void:
 	_verify_persistence_is_default_without_reset()
 	_verify_lifecycle_resets_on_stage_one_entry()
 	_verify_lifecycle_skips_reset_on_stage_transition()
+	_verify_lifecycle_syncs_chance_gems_to_schema_owner()
 	_verify_lifecycle_skips_reset_when_no_save_path()
 	_verify_default_save_path_resolution()
 
@@ -37,12 +68,16 @@ func _verify_reset_zeroes_gold_and_ap_keeps_bank_and_seed() -> void:
 	store.set_save_path(path)
 	store.apply_stage_clear_progress(1, 3703, true)            # gold 3703, ap BASE+1
 	store.perform_bank_transaction("deposit", 1, 500, false)  # bank 500, gold 3203
+	store.consume_chance_gem()
+	store.consume_chance_gem()
 	store.set_stage_map_seed_for_test(2, 424242)
 	_expect(store.get_plaza_gold() == 3203, "setup: plaza gold should be 3203 after deposit")
 	_expect(store.get_bank_deposit_gold() == 500, "setup: bank deposit should be 500")
+	_expect(store.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS - 2, "setup: chance gems should be partially consumed")
 
 	store.reset_gold_and_ap_for_new_playthrough()
 	_expect(store.get_plaza_gold() == 0, "reset should zero plaza gold")
+	_expect(store.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "reset should refill chance gems")
 	_expect(store.get_ap_current() == PlazaSaveStore.BASE_AP, "reset should restore AP to base")
 	_expect(store.get_ap_is_first_stage(), "reset should restore the first-stage AP flag")
 	_expect(store.get_bank_deposit_gold() == 500, "reset should keep bank deposit")
@@ -52,6 +87,7 @@ func _verify_reset_zeroes_gold_and_ap_keeps_bank_and_seed() -> void:
 	var reloaded := PlazaSaveStore.new()
 	reloaded.set_save_path(path)
 	_expect(reloaded.get_plaza_gold() == 0, "reset should persist zero gold to the save file")
+	_expect(reloaded.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "reset should persist refilled chance gems to the save file")
 	_expect(reloaded.get_bank_deposit_gold() == 500, "reset should persist the preserved bank to the save file")
 	_cleanup(path)
 
@@ -92,6 +128,8 @@ func _verify_lifecycle_resets_on_stage_one_entry() -> void:
 	var store := PlazaSaveStore.new()
 	store.set_save_path(path)
 	store.apply_stage_clear_progress(1, 3703, true)
+	store.consume_chance_gem()
+	store.consume_chance_gem()
 
 	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
 	lifecycle.reset_plaza_progress_if_new_game(1, path)
@@ -99,6 +137,7 @@ func _verify_lifecycle_resets_on_stage_one_entry() -> void:
 	var reloaded := PlazaSaveStore.new()
 	reloaded.set_save_path(path)
 	_expect(reloaded.get_plaza_gold() == 0, "lifecycle stage-1 entry should reset plaza gold")
+	_expect(reloaded.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS, "lifecycle stage-1 entry should refill chance gems")
 	_cleanup(path)
 
 
@@ -108,6 +147,8 @@ func _verify_lifecycle_skips_reset_on_stage_transition() -> void:
 	var store := PlazaSaveStore.new()
 	store.set_save_path(path)
 	store.apply_stage_clear_progress(1, 3703, true)
+	store.consume_chance_gem()
+	store.consume_chance_gem()
 
 	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
 	lifecycle.reset_plaza_progress_if_new_game(3, path)
@@ -115,6 +156,29 @@ func _verify_lifecycle_skips_reset_on_stage_transition() -> void:
 	var reloaded := PlazaSaveStore.new()
 	reloaded.set_save_path(path)
 	_expect(reloaded.get_plaza_gold() == 3703, "stage transition (stage > 1) must not reset plaza gold")
+	_expect(reloaded.get_chance_gems() == PlazaSaveStore.MAX_CHANCE_GEMS - 2, "stage transition (stage > 1) must preserve consumed chance gems")
+	_cleanup(path)
+
+
+func _verify_lifecycle_syncs_chance_gems_to_schema_owner() -> void:
+	var path := _test_path("lifecycle_chance_mirror")
+	_cleanup(path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(path)
+	store.consume_chance_gem()
+
+	var owner := SchemaGatedOwner.new()
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	_expect(BattleSceneState.DEFAULT_VALUES.has("chance_gems_count"), "chance gem count must be declared in the owner schema")
+	_expect(BattleSceneState.DEFAULT_VALUES.has("chance_gems_max"), "chance gem max must be declared in the owner schema")
+	lifecycle.sync_chance_gems_from_plaza_store(owner, path)
+	_expect(int(owner.value_of("chance_gems_count")) == PlazaSaveStore.MAX_CHANCE_GEMS - 1, "lifecycle should mirror persisted chance gems to the owner")
+	_expect(int(owner.value_of("chance_gems_max")) == PlazaSaveStore.MAX_CHANCE_GEMS, "lifecycle should mirror chance gem capacity to the owner")
+	_expect(owner.rejected_keys.is_empty(), "schema-gated owner should accept chance gem lifecycle mirrors")
+
+	lifecycle.reset_plaza_progress_if_new_game(1, path)
+	lifecycle.sync_chance_gems_from_plaza_store(owner, path)
+	_expect(int(owner.value_of("chance_gems_count")) == PlazaSaveStore.MAX_CHANCE_GEMS, "stage-1 lifecycle reset should mirror refilled chance gems")
 	_cleanup(path)
 
 
@@ -141,7 +205,11 @@ func _verify_default_save_path_resolution() -> void:
 
 
 func _test_path(label: String) -> String:
-	return "user://plaza_new_playthrough_gold_reset_smoke_%s.cfg" % label
+	return "res://.tmp/plaza_new_playthrough_gold_reset_smoke_%s_%d_%d.cfg" % [
+		label,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _cleanup(path: String) -> void:

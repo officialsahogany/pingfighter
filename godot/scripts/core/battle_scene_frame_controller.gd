@@ -90,6 +90,26 @@ func process_idle(
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
 
+	var defeat_continue_screen: Object = _get_defeat_chance_gems_continue_screen(module_getter)
+	if _is_defeat_chance_gems_continue_active(defeat_continue_screen):
+		if defeat_continue_screen.has_method("update"):
+			sample_start = _perf_begin(perf_logger)
+			defeat_continue_screen.update(delta)
+			_perf_end(perf_logger, "process.frame.defeat_chance_gems_continue", sample_start)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+
+	var defeat_settlement_screen: Object = _get_defeat_settlement_screen(module_getter)
+	if _is_defeat_settlement_active(defeat_settlement_screen):
+		if defeat_settlement_screen.has_method("update"):
+			sample_start = _perf_begin(perf_logger)
+			defeat_settlement_screen.update(delta)
+			_perf_end(perf_logger, "process.frame.defeat_settlement", sample_start)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
 	if overlay_frame != null and overlay_frame.has_method("process_idle"):
 		sample_start = _perf_begin(perf_logger)
@@ -205,6 +225,20 @@ func process_physics(
 		_perf_end(perf_logger, "physics.frame.total", total_start)
 		return
 	_perf_end(perf_logger, "physics.frame.gate.stage_clear_result", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _is_defeat_chance_gems_continue_active(_get_defeat_chance_gems_continue_screen(module_getter)):
+		_perf_end(perf_logger, "physics.frame.gate.defeat_chance_gems_continue", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.defeat_chance_gems_continue", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _is_defeat_settlement_active(_get_defeat_settlement_screen(module_getter)):
+		_perf_end(perf_logger, "physics.frame.gate.defeat_settlement", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.defeat_settlement", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	if _process_grip_selection_physics_gate(delta, owner, registry, module_getter):
@@ -357,6 +391,24 @@ func draw(
 	_draw_skill_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
 	_draw_drive_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
 	_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
+
+	var defeat_continue_screen: Object = _get_defeat_chance_gems_continue_screen(module_getter)
+	if _is_defeat_chance_gems_continue_active(defeat_continue_screen):
+		var defeat_continue_start: int = _perf_begin(perf_logger)
+		if defeat_continue_screen.has_method("draw"):
+			defeat_continue_screen.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.defeat_chance_gems_continue", defeat_continue_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		return
+
+	var defeat_settlement_screen: Object = _get_defeat_settlement_screen(module_getter)
+	if _is_defeat_settlement_active(defeat_settlement_screen):
+		var defeat_settlement_start: int = _perf_begin(perf_logger)
+		if defeat_settlement_screen.has_method("draw"):
+			defeat_settlement_screen.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.defeat_settlement", defeat_settlement_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		return
 
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
 	if overlay_frame != null and overlay_frame.has_method("draw"):
@@ -610,8 +662,24 @@ func _get_stage_clear_result_screen(module_getter: Callable) -> Object:
 	return _get_module(module_getter, "stage_clear_result_screen")
 
 
+func _get_defeat_chance_gems_continue_screen(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "defeat_chance_gems_continue_screen")
+
+
+func _get_defeat_settlement_screen(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "defeat_settlement_screen")
+
+
 func _is_stage_clear_result_active(result_screen: Object) -> bool:
 	return result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active())
+
+
+func _is_defeat_chance_gems_continue_active(screen: Object) -> bool:
+	return screen != null and screen.has_method("is_active") and bool(screen.is_active())
+
+
+func _is_defeat_settlement_active(screen: Object) -> bool:
+	return screen != null and screen.has_method("is_active") and bool(screen.is_active())
 
 
 func _is_runtime_perk_choice_active(module_getter: Callable) -> bool:

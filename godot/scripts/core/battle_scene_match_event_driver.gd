@@ -60,7 +60,17 @@ func update_scoreboard(delta: float, owner: Object, registry: Object) -> void:
 	if match_flow_driver != null and match_flow_driver.has_method("update_scoreboard"):
 		var reset_game_callback := Callable(self, "_reset_game").bind(owner, registry)
 		var reset_ball_callback := Callable(self, "_reset_ball").bind(owner, registry)
-		if _method_accepts_argument_count(match_flow_driver, "update_scoreboard", 5):
+		var reset_drive_input_callback := Callable(self, "_reset_drive_input_frames").bind(registry)
+		if _method_accepts_argument_count(match_flow_driver, "update_scoreboard", 6):
+			match_flow_driver.update_scoreboard(
+				registry,
+				delta,
+				reset_game_callback,
+				reset_ball_callback,
+				owner,
+				reset_drive_input_callback
+			)
+		elif _method_accepts_argument_count(match_flow_driver, "update_scoreboard", 5):
 			match_flow_driver.update_scoreboard(
 				registry,
 				delta,
@@ -83,7 +93,17 @@ func handle_scoreboard_update_result(update_result: int, owner: Object, registry
 		return
 	var reset_game_callback := Callable(self, "_reset_game").bind(owner, registry)
 	var reset_ball_callback := Callable(self, "_reset_ball").bind(owner, registry)
-	if _method_accepts_argument_count(match_flow_driver, "apply_scoreboard_update_result", 5):
+	var reset_drive_input_callback := Callable(self, "_reset_drive_input_frames").bind(registry)
+	if _method_accepts_argument_count(match_flow_driver, "apply_scoreboard_update_result", 6):
+		match_flow_driver.apply_scoreboard_update_result(
+			update_result,
+			registry,
+			owner,
+			reset_game_callback,
+			reset_ball_callback,
+			reset_drive_input_callback
+		)
+	elif _method_accepts_argument_count(match_flow_driver, "apply_scoreboard_update_result", 5):
 		match_flow_driver.apply_scoreboard_update_result(
 			update_result,
 			registry,
