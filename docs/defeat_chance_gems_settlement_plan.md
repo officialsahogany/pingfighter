@@ -78,9 +78,13 @@ UPDATE_RESET_GAME (= match_finished, 전광판 ~1.5s 종료 후)
   살려줬어도, 보석이 최후 floor가 됨 — D2 일관).
 
 ### 1.3 메뉴 복귀 경로 (확정)
-`battle_scene_match_flow_driver.gd:181-191` `_exit_to_main_menu()` →
-`tree.change_scene_to_file("res://scenes/character_select.tscn")`.
-→ 결산 dismiss 시 이 콜백을 재사용. (프로젝트 관례상 패배도 character_select로.)
+`battle_scene_match_flow_driver.gd` `_exit_to_main_menu()` →
+`change_scene_to_file("res://scenes/main_menu.tscn")`.
+★정정(2026-06-19 라이브 QA): 찐패배는 **진짜 메인 메뉴(main_menu.tscn)**로 복귀.
+초기엔 `_exit_to_main_menu`가 이름과 달리 `character_select`를 여는 misnomer였고
+QA에서 패배 후 char_select로 가는 버그로 발견 → 함수를 main_menu로 정정, 승리 exit는
+`_exit_to_character_select()`로 분리(동작 불변, 공유 헬퍼 `_change_to_scene`). 결산
+dismiss 시 이 콜백 재사용.
 
 ### 1.4 상태 수명 (확정)
 - **골드** = `plaza_save_store.gd` (`user://plaza_save.cfg`, 스키마 v4). 런 스코프.
@@ -120,7 +124,7 @@ UPDATE_RESET_GAME (= match_finished, 전광판 ~1.5s 종료 후)
             │             ▶ 확인 → reset_for_continue()  (★reset_game 아님 — 진행상태
             │                보존; 같은 보스 0-0, 아이템·퍽·골드·장비·mythic 유지)
             └ gems == 0:  ▶ 「최종 결산(찐패배)」 오버레이 (런 스냅샷)
-                          ▶ dismiss(입력) → _exit_to_main_menu()  (character_select, 전체 리셋)
+                          ▶ dismiss(입력) → _exit_to_main_menu()  (main_menu.tscn, 전체 리셋)
 ```
 
 ---
@@ -307,7 +311,7 @@ else:
   (골드/스코어 타일), `..._shape_helper`/`..._text_layout_helper`/`..._font_cache`.
   무드만 다크·레드 계열로(승리 시안 팔레트 대비).
 - 동작: **입력(ESC/SPACE/클릭) 1회 → dismiss → `_exit_to_main_menu()`**
-  (character_select, 전체 리셋). 원본은 any-input 즉시 dismiss.
+  (main_menu.tscn, 전체 리셋). 원본은 any-input 즉시 dismiss.
 - v1 범위: 골드 / 스테이지·보스 / 패시브·액티브 아이템 / 퍽 / 스코어.
   플레이타임·처치보스 썸네일은 v2(또는 보스명 텍스트로 축약).
 - **트랩(행 예산)**: CLAUDE.md "Stats-Panel Row Budget" — 결산 섹션이 rect를

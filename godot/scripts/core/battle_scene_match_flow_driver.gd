@@ -308,20 +308,29 @@ func _show_stage_clear_result(registry: Object, reset_game_callback: Callable, o
 	var result_screen: Object = _get_instance(registry, "stage_clear_result_screen")
 	if result_screen == null or not result_screen.has_method("show_from_scoreboard"):
 		return false
-	var exit_callback := Callable(self, "_exit_to_main_menu").bind(owner)
+	# Stage-clear (win) exit returns to character select to start the next run.
+	var exit_callback := Callable(self, "_exit_to_character_select").bind(owner)
 	return bool(result_screen.show_from_scoreboard(owner, registry, reset_game_callback, exit_callback))
 
 
 func _exit_to_main_menu(owner: Object) -> void:
+	# True defeat (chance gems exhausted) returns to the main menu / title.
+	_change_to_scene(owner, "res://scenes/main_menu.tscn")
+
+
+func _exit_to_character_select(owner: Object) -> void:
+	_change_to_scene(owner, "res://scenes/character_select.tscn")
+
+
+func _change_to_scene(owner: Object, scene_path: String) -> void:
 	if not (owner is Node):
 		return
-	var owner_node: Node = owner as Node
-	var tree: SceneTree = owner_node.get_tree()
+	var tree: SceneTree = (owner as Node).get_tree()
 	if tree == null:
 		return
-	var error: int = tree.change_scene_to_file("res://scenes/character_select.tscn")
+	var error: int = tree.change_scene_to_file(scene_path)
 	if error != OK:
-		push_warning("Failed to change scene to character_select.tscn (error %d)" % error)
+		push_warning("Failed to change scene to %s (error %d)" % [scene_path, error])
 
 
 func reset_game(

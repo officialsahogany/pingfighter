@@ -265,12 +265,14 @@ class FakeDefeatSettlementScreen:
 	var saw_owner := false
 	var saw_registry := false
 	var saw_exit_callback := false
+	var exit_callback_method := ""
 
 	func show(owner: Object, registry: Object, exit_callback: Callable) -> bool:
 		show_calls += 1
 		saw_owner = owner != null
 		saw_registry = registry != null
 		saw_exit_callback = exit_callback.is_valid()
+		exit_callback_method = str(exit_callback.get_method())
 		return true
 
 
@@ -306,6 +308,7 @@ class FakeStageClearResultScreen:
 	var saw_registry := false
 	var saw_reset_callback := false
 	var saw_exit_callback := false
+	var exit_callback_method := ""
 
 	func show_from_scoreboard(
 		owner: Object,
@@ -318,6 +321,7 @@ class FakeStageClearResultScreen:
 		saw_registry = registry != null
 		saw_reset_callback = reset_game_callback.is_valid()
 		saw_exit_callback = exit_callback.is_valid()
+		exit_callback_method = str(exit_callback.get_method())
 		return true
 
 
@@ -543,6 +547,7 @@ func _init() -> void:
 	_expect(win_defeat_settlement_screen.show_calls == 0, "match win must not open defeat settlement")
 	_expect(stage_clear_screen.show_calls == 1 and stage_clear_screen.saw_owner and stage_clear_screen.saw_registry, "match win should continue into stage-clear result")
 	_expect(stage_clear_screen.saw_reset_callback and stage_clear_screen.saw_exit_callback, "stage-clear result should receive reset and exit callbacks")
+	_expect(stage_clear_screen.exit_callback_method == "_exit_to_character_select", "stage-clear result should exit to character select, not the main menu")
 	_expect(_reset_game_callback_calls == 0, "stage-clear result should block the full reset fallback while open")
 	registry.defeat_continue_screen = null
 	registry.stage_clear_result_screen = null
@@ -571,7 +576,18 @@ func _init() -> void:
 	_expect(controller.stage_transition_reset_calls == transition_resets_before, "final defeat without gems should not continue reset")
 	_expect(settlement_screen.show_calls == 1 and settlement_screen.saw_owner and settlement_screen.saw_registry, "final defeat should open the settlement screen when it is registered")
 	_expect(settlement_screen.saw_exit_callback, "final defeat settlement should receive an exit callback")
+	_expect(settlement_screen.exit_callback_method == "_exit_to_main_menu", "final defeat settlement should exit to the real main menu")
 	_expect(_reset_game_callback_calls == 0, "final defeat settlement should block the full reset callback")
+
+	var flow_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_match_flow_driver.gd")
+	_expect(
+		flow_source.find("_change_to_scene(owner, \"res://scenes/main_menu.tscn\")") >= 0,
+		"final defeat _exit_to_main_menu should target main_menu.tscn"
+	)
+	_expect(
+		flow_source.find("_change_to_scene(owner, \"res://scenes/character_select.tscn\")") >= 0,
+		"stage-clear _exit_to_character_select should target character_select.tscn"
+	)
 
 	registry.defeat_settlement_screen = null
 	registry.plaza_save_store = null
