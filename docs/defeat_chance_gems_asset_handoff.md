@@ -18,6 +18,33 @@ black pixel outline, NO painterly`를 강제(SKILL.md:279)하므로 이번 페�
 
 ---
 
+## 0. 교체 대상 — 현 절차적 placeholder (S3/S4 배선 완료·커밋됨)
+
+로직·게이트는 완성, **비주얼만 절차적 placeholder**. Codex가 PNG로 교체할 정확한 지점:
+
+| 화면 | 모듈 (커밋 3876aa5c0) | 현 placeholder | 우선순위 |
+|---|---|---|---|
+| A 소프트 패배(컨티뉴) | `godot/scripts/core/defeat_chance_gems_continue_screen.gd` `draw()` | 전면 dark rect + 패널 `draw_rect` + `_draw_gem_slot()` 절차적 보석 (시길 없음) | **최우선** (목업 타겟) |
+| B 찐패배 결산 | `godot/scripts/core/defeat_settlement_screen.gd` `draw()` | 절차적 stat box / 섹션 | 낮음 (v1 절차적 유지 가능, 라이트 폴리시만) |
+
+- 둘 다 `extends RefCounted` 즉시-draw 모듈(노드 아님). PNG는 `draw()` 안에서
+  `canvas.draw_texture_rect`로 블릿하되, 텍스처 로드/캐시는 모듈 생성·프리웜 시점에
+  (draw에서 lazy 로드 금지 — Hot-Path Lazy 트랩).
+- **보석 PNG가 최우선 자산**(화면 A 게이지 + 향후 전투 HUD 공유). 포털·시길은 화면 A
+  프리미엄용. 결산(B)은 보석만 PNG로 받고 나머지는 절차적 유지해도 v1 OK.
+- **작업 트리거: S5 라이브 QA green 이후 착수**(로직 확정 후 비주얼 → 회귀 비혼입).
+  두 모듈은 이미 커밋(`3876aa5c0`)·라우팅 픽스(`521d1d654`) → Codex는 그 위에 비주얼만 추가.
+
+### 0.1 보석 게이지 소진 방향 정렬 (런타임, Codex)
+`defeat_chance_gems_continue_screen.gd` `draw()`의 `for i in range(max_gems)`는 현재
+`broken = i >= remaining_gems`라 **오른쪽 칸부터** 깨진다(우→좌). 목업은 **왼쪽부터** 깨짐.
+PNG 교체 시 목업에 맞춰 좌→우로 정렬: `var consumed := max_gems - remaining_gems` →
+`broken = i < consumed`, `breaking = i == consumed - 1`. (순수 레이아웃 변경, 아트와
+독립이나 같은 작업에서 함께. match_flow_driver 회귀 스모크와 무관 — 화면 내부 draw라
+별도 시각 QA로만 확인.)
+
+---
+
 ## 자산 1 — 기회의 보석 아이콘 (온전/깨짐 2상태, 매칭 페어)
 
 용도: HUD 게이지 + 패배 오버레이 게이지 **공유**. 작게(HUD)도 크게(오버레이)도 또렷해야 함.
@@ -69,6 +96,10 @@ QA 게이트(Claude 리뷰): 코너 완전 투명 / 알파 bbox 가장자리 비
 런타임(Codex): 포털 PNG를 그린 뒤 그 중앙 영역에 **현재 `current_stage`→보스 시트**를
 어둡게(디머/실루엣 톤) 합성. 보스 시트는 기존 `godot/assets/sprites/bosses/...` 또는
 스테이지 오너 폴더 재사용. 보스 베이크 금지(동적이어야 함).
+보스 로스터(Godot 매핑, `defeat_settlement_screen.STAGE_BOSS_NAMES`와 동일):
+1=달지 / 2=악어장군 / 3=멘헤라걸 / 4=폰크 / 5=홍련 / 6=테트리서. Python 번호 베끼기
+금지(Nemesis 없음). `current_stage`로 인덱싱. (v1은 포털만 PNG로 받고 보스 합성은
+후속으로 미뤄도 됨 — 보석 게이지 다음 우선순위.)
 
 QA: 내부가 정말 비어 있고 림 글로우가 읽히는가 / 보스 합성 시 가독성(어둡되 형태 보임).
 
