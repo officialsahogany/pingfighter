@@ -182,7 +182,9 @@ func _update_effects(delta: float, owner: Object, registry: Object) -> void:
 	var effects_driver: Object = _get_effects_driver(registry)
 	if effects_driver != null and effects_driver.has_method("update_effects"):
 		effects_driver.update_effects(owner, registry, delta)
+	var defeat_sample_start: int = _perf_begin(perf_logger)
 	_consume_boss_health_defeat(owner, registry)
+	_perf_end(perf_logger, "physics.effects.consume_boss_health_defeat", defeat_sample_start)
 	_perf_end(perf_logger, "physics.callback.effects", sample_start)
 
 

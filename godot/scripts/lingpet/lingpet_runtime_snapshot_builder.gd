@@ -14,11 +14,22 @@ const STATE_COMPANION := "companion"
 # external mutation of an owner-held array/dict can never alias the cache.
 var _pushed_owner_id := 0
 var _pushed_values: Dictionary = {}
+var _owner_static_surface_key: Array = []
+var _owner_static_surface_build_count_for_tests := 0
 
 
 func invalidate_sync_cache() -> void:
 	_pushed_owner_id = 0
 	_pushed_values = {}
+	_owner_static_surface_key = []
+
+
+func reset_owner_sync_build_counters_for_tests() -> void:
+	_owner_static_surface_build_count_for_tests = 0
+
+
+func get_owner_static_surface_build_count_for_tests() -> int:
+	return _owner_static_surface_build_count_for_tests
 
 
 # Public gated setters for owner keys that the egg runtime computes itself
@@ -44,6 +55,7 @@ func _rebase_for_owner(owner: Object) -> void:
 	if owner_id != _pushed_owner_id:
 		_pushed_owner_id = owner_id
 		_pushed_values = {}
+		_owner_static_surface_key = []
 
 
 func build_runtime_snapshot(
@@ -267,33 +279,148 @@ func sync_owner(
 	var second_skill_max_level := int(second_active_skill.get("max_level", 5)) if second_skill_active else 0
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
-	_set_single(owner, "lingpet_id", public_pet_id)
-	_set_single(owner, "active_lingpet_id", public_pet_id if companion_active else "")
-	_set_single(owner, "current_lingpet_id", public_pet_id)
-	_set_pair(owner, "lingpet_slots", "ringpet_slots", battle_slot_pet_ids)
-	_set_pair(owner, "lingpet_slot_pet_ids", "ringpet_slot_pet_ids", battle_slot_pet_ids)
-	if sync_loadouts:
-		_set_pair(owner, "lingpet_loadouts", "ringpet_loadouts", loadouts_by_pet_id)
-	_set_pair(owner, "lingpet_active_slot_index", "ringpet_active_slot_index", active_slot_index)
-	_set_pair(owner, "lingpet_state", "ringpet_state", state)
-	_set_pair(owner, "lingpet_hatch_hits", "ringpet_hatch_hits", hatch_hits)
-	_set_pair(owner, "lingpet_hatch_required_hits", "ringpet_hatch_required_hits", required_hits)
-	_set_single(owner, "lingpet_egg_pos", egg_pos)
+	var player_speed_bonus_pct := maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if companion_active else 0.0
+	var static_surface_key := _build_owner_static_surface_key(
+		public_pet_id,
+		state,
+		hatch_hits,
+		required_hits,
+		egg_pos,
+		patrol_speed_default,
+		patrol_speed_min,
+		patrol_speed_max,
+		catch_width,
+		catch_height,
+		defense_rate if companion_active else 0.0,
+		battle_slot_pet_ids,
+		active_slot_index,
+		skill_id,
+		skill_name,
+		skill_cooldown,
+		skill_level,
+		skill_max_level,
+		second_skill_id,
+		second_skill_name,
+		second_skill_cooldown,
+		second_skill_max_level,
+		passive_id,
+		passive_skill,
+		passive_enabled,
+		gauge_gain_bonus_pct if companion_active else 0.0,
+		player_speed_bonus_pct,
+		effect_text,
+		loadouts_by_pet_id if sync_loadouts else {},
+		sync_loadouts
+	)
+	if _should_sync_owner_static_surface(static_surface_key):
+		_set_single(owner, "lingpet_id", public_pet_id)
+		_set_single(owner, "active_lingpet_id", public_pet_id if companion_active else "")
+		_set_single(owner, "current_lingpet_id", public_pet_id)
+		_set_pair(owner, "lingpet_slots", "ringpet_slots", battle_slot_pet_ids)
+		_set_pair(owner, "lingpet_slot_pet_ids", "ringpet_slot_pet_ids", battle_slot_pet_ids)
+		if sync_loadouts:
+			_set_pair(owner, "lingpet_loadouts", "ringpet_loadouts", loadouts_by_pet_id)
+		_set_pair(owner, "lingpet_active_slot_index", "ringpet_active_slot_index", active_slot_index)
+		_set_pair(owner, "lingpet_state", "ringpet_state", state)
+		_set_pair(owner, "lingpet_hatch_hits", "ringpet_hatch_hits", hatch_hits)
+		_set_pair(owner, "lingpet_hatch_required_hits", "ringpet_hatch_required_hits", required_hits)
+		_set_single(owner, "lingpet_egg_pos", egg_pos)
+		_set_pair(owner, "lingpet_companion_patrol_speed_default", "ringpet_companion_patrol_speed_default", patrol_speed_default)
+		_set_pair(owner, "lingpet_companion_patrol_speed_min", "ringpet_companion_patrol_speed_min", patrol_speed_min)
+		_set_pair(owner, "lingpet_companion_patrol_speed_max", "ringpet_companion_patrol_speed_max", patrol_speed_max)
+		_set_pair(owner, "lingpet_companion_catch_width", "ringpet_companion_catch_width", catch_width)
+		_set_pair(owner, "lingpet_companion_catch_height", "ringpet_companion_catch_height", catch_height)
+		_set_pair(owner, "lingpet_companion_defense_rate", "ringpet_companion_defense_rate", defense_rate if companion_active else 0.0)
+		_sync_skill_static_owner(owner, skill_id, skill_name, skill_cooldown, skill_active, skill_level, skill_max_level)
+		_sync_second_skill_static_owner(owner, second_skill_id, second_skill_name, second_skill_cooldown, second_skill_active, second_skill_max_level)
+		_sync_passive_owner(owner, passive_id, passive_skill, passive_enabled)
+		_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
+		_set_pair(owner, "lingpet_player_speed_bonus_pct", "ringpet_player_speed_bonus_pct", player_speed_bonus_pct)
+		_set_single(owner, "lingpet_effect_text", effect_text)
 	_set_pair(owner, "lingpet_companion_pos", "ringpet_companion_pos", companion_pos)
-	_set_pair(owner, "lingpet_companion_patrol_speed_default", "ringpet_companion_patrol_speed_default", patrol_speed_default)
-	_set_pair(owner, "lingpet_companion_patrol_speed_min", "ringpet_companion_patrol_speed_min", patrol_speed_min)
-	_set_pair(owner, "lingpet_companion_patrol_speed_max", "ringpet_companion_patrol_speed_max", patrol_speed_max)
-	_set_pair(owner, "lingpet_companion_catch_width", "ringpet_companion_catch_width", catch_width)
-	_set_pair(owner, "lingpet_companion_catch_height", "ringpet_companion_catch_height", catch_height)
-	_set_pair(owner, "lingpet_companion_defense_rate", "ringpet_companion_defense_rate", defense_rate if companion_active else 0.0)
 	_sync_motion_owner(owner, motion_state)
 	_sync_body_hit_owner(owner, body_hit_state, hit_gauge_gain if companion_active else 0.0)
-	_sync_skill_owner(owner, skill_state, skill_id, skill_name, skill_cooldown, skill_active, skill_level, skill_max_level)
-	_sync_second_skill_owner(owner, second_skill_state, second_skill_id, second_skill_name, second_skill_cooldown, second_skill_active, second_skill_max_level, second_skill_windup_seconds)
-	_sync_passive_owner(owner, passive_id, passive_skill, passive_enabled)
-	_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
-	_set_pair(owner, "lingpet_player_speed_bonus_pct", "ringpet_player_speed_bonus_pct", maxf(0.0, float(passive_skill.get("player_speed_bonus_pct", 0.0))) if companion_active else 0.0)
-	_set_single(owner, "lingpet_effect_text", effect_text)
+	_sync_skill_runtime_owner(owner, skill_state, skill_id, skill_active)
+	_sync_second_skill_runtime_owner(owner, second_skill_state, second_skill_id, second_skill_active, second_skill_windup_seconds)
+
+
+func _build_owner_static_surface_key(
+	public_pet_id: String,
+	state: String,
+	hatch_hits: int,
+	required_hits: int,
+	egg_pos: Vector2,
+	patrol_speed_default: float,
+	patrol_speed_min: float,
+	patrol_speed_max: float,
+	catch_width: float,
+	catch_height: float,
+	defense_rate: float,
+	battle_slot_pet_ids: Array,
+	active_slot_index: int,
+	skill_id: String,
+	skill_name: String,
+	skill_cooldown_duration: float,
+	skill_level: int,
+	skill_max_level: int,
+	second_skill_id: String,
+	second_skill_name: String,
+	second_skill_cooldown_duration: float,
+	second_skill_max_level: int,
+	passive_id: String,
+	passive_skill: Dictionary,
+	passive_enabled: bool,
+	gauge_gain_bonus_pct: float,
+	player_speed_bonus_pct: float,
+	effect_text: String,
+	loadouts_by_pet_id: Dictionary,
+	sync_loadouts: bool
+) -> Array:
+	return [
+		public_pet_id,
+		state,
+		hatch_hits,
+		required_hits,
+		egg_pos,
+		patrol_speed_default,
+		patrol_speed_min,
+		patrol_speed_max,
+		catch_width,
+		catch_height,
+		defense_rate,
+		battle_slot_pet_ids,
+		active_slot_index,
+		skill_id,
+		skill_name,
+		skill_cooldown_duration,
+		skill_level,
+		skill_max_level,
+		second_skill_id,
+		second_skill_name,
+		second_skill_cooldown_duration,
+		second_skill_max_level,
+		passive_id,
+		int(passive_skill.get("level", 1)) if passive_enabled else 0,
+		int(passive_skill.get("max_level", 5)) if passive_enabled else 0,
+		str(passive_skill.get("name", "")) if passive_enabled else "",
+		str(passive_skill.get("description", "")) if passive_enabled else "",
+		str(passive_skill.get("icon_texture_path", "")) if passive_enabled else "",
+		maxf(0.0, float(passive_skill.get("starpoint_tracking_chance_pct", 0.0))) if passive_enabled else 0.0,
+		maxf(0.0, float(passive_skill.get("ring_dash_chance_pct", 0.0))) if passive_enabled else 0.0,
+		gauge_gain_bonus_pct,
+		player_speed_bonus_pct,
+		effect_text,
+		sync_loadouts,
+		loadouts_by_pet_id if sync_loadouts else {},
+	]
+
+
+func _should_sync_owner_static_surface(static_surface_key: Array) -> bool:
+	if not _owner_static_surface_key.is_empty() and _owner_static_surface_key == static_surface_key:
+		return false
+	_owner_static_surface_key = static_surface_key.duplicate(true)
+	_owner_static_surface_build_count_for_tests += 1
+	return true
 
 
 func _sync_motion_owner(owner: Object, motion_state: Object) -> void:
@@ -322,15 +449,28 @@ func _sync_body_hit_owner(owner: Object, body_hit_state: Object, hit_gauge_gain:
 	_set_pair(owner, "lingpet_companion_hit_gauge_trigger_count", "ringpet_companion_hit_gauge_trigger_count", body_hit_state.gauge_trigger_count)
 
 
-func _sync_skill_owner(
+func _sync_skill_static_owner(
 	owner: Object,
-	skill_state: Object,
 	skill_id: String,
 	skill_name: String,
 	skill_cooldown_duration: float,
-	companion_active: bool,
+	skill_active: bool,
 	skill_level: int,
 	skill_max_level: int
+) -> void:
+	_set_pair(owner, "lingpet_skill_id", "ringpet_skill_id", skill_id)
+	_set_pair(owner, "lingpet_active_skill_id", "ringpet_active_skill_id", skill_id)
+	_set_pair(owner, "lingpet_active_skill_level", "ringpet_active_skill_level", skill_level if skill_active else 0)
+	_set_pair(owner, "lingpet_active_skill_max_level", "ringpet_active_skill_max_level", skill_max_level if skill_active else 0)
+	_set_pair(owner, "lingpet_skill_name", "ringpet_skill_name", skill_name)
+	_set_pair(owner, "lingpet_skill_cooldown_duration", "ringpet_skill_cooldown_duration", skill_cooldown_duration)
+
+
+func _sync_skill_runtime_owner(
+	owner: Object,
+	skill_state: Object,
+	skill_id: String,
+	skill_active: bool
 ) -> void:
 	var cooldown := 0.0
 	var ready := false
@@ -338,29 +478,34 @@ func _sync_skill_owner(
 	var trigger_count := 0
 	if skill_state != null:
 		cooldown = skill_state.cooldown
-		ready = companion_active and skill_id != "" and skill_state.cooldown <= 0.0
+		ready = skill_active and skill_id != "" and skill_state.cooldown <= 0.0
 		last_gain = skill_state.last_gain
 		trigger_count = skill_state.trigger_count
-	_set_pair(owner, "lingpet_skill_id", "ringpet_skill_id", skill_id)
-	_set_pair(owner, "lingpet_active_skill_id", "ringpet_active_skill_id", skill_id)
-	_set_pair(owner, "lingpet_active_skill_level", "ringpet_active_skill_level", skill_level if companion_active else 0)
-	_set_pair(owner, "lingpet_active_skill_max_level", "ringpet_active_skill_max_level", skill_max_level if companion_active else 0)
-	_set_pair(owner, "lingpet_skill_name", "ringpet_skill_name", skill_name)
 	_set_pair(owner, "lingpet_skill_cooldown", "ringpet_skill_cooldown", cooldown)
-	_set_pair(owner, "lingpet_skill_cooldown_duration", "ringpet_skill_cooldown_duration", skill_cooldown_duration)
 	_set_pair(owner, "lingpet_skill_ready", "ringpet_skill_ready", ready)
 	_set_pair(owner, "lingpet_skill_last_gain", "ringpet_skill_last_gain", last_gain)
 	_set_pair(owner, "lingpet_skill_trigger_count", "ringpet_skill_trigger_count", trigger_count)
 
 
-func _sync_second_skill_owner(
+func _sync_second_skill_static_owner(
 	owner: Object,
-	skill_state: Object,
 	skill_id: String,
 	skill_name: String,
 	skill_cooldown_duration: float,
 	skill_active: bool,
-	skill_max_level: int,
+	skill_max_level: int
+) -> void:
+	_set_pair(owner, "lingpet_second_skill_id", "ringpet_second_skill_id", skill_id if skill_active else "")
+	_set_pair(owner, "lingpet_second_skill_name", "ringpet_second_skill_name", skill_name if skill_active else "")
+	_set_pair(owner, "lingpet_second_skill_max_level", "ringpet_second_skill_max_level", skill_max_level if skill_active else 0)
+	_set_pair(owner, "lingpet_second_skill_cooldown_duration", "ringpet_second_skill_cooldown_duration", skill_cooldown_duration if skill_active else 0.0)
+
+
+func _sync_second_skill_runtime_owner(
+	owner: Object,
+	skill_state: Object,
+	skill_id: String,
+	skill_active: bool,
 	skill_windup_seconds: float
 ) -> void:
 	var cooldown := 0.0
@@ -372,11 +517,7 @@ func _sync_second_skill_owner(
 		ready = skill_id != "" and skill_state.cooldown <= 0.0
 		winding_up = bool(skill_state.windup_active)
 		windup_ratio = _skill_windup_ratio(skill_state, skill_windup_seconds, skill_active)
-	_set_pair(owner, "lingpet_second_skill_id", "ringpet_second_skill_id", skill_id if skill_active else "")
-	_set_pair(owner, "lingpet_second_skill_name", "ringpet_second_skill_name", skill_name if skill_active else "")
-	_set_pair(owner, "lingpet_second_skill_max_level", "ringpet_second_skill_max_level", skill_max_level if skill_active else 0)
 	_set_pair(owner, "lingpet_second_skill_cooldown", "ringpet_second_skill_cooldown", cooldown)
-	_set_pair(owner, "lingpet_second_skill_cooldown_duration", "ringpet_second_skill_cooldown_duration", skill_cooldown_duration if skill_active else 0.0)
 	_set_pair(owner, "lingpet_second_skill_ready", "ringpet_second_skill_ready", ready)
 	_set_pair(owner, "lingpet_second_skill_winding_up", "ringpet_second_skill_winding_up", winding_up)
 	_set_pair(owner, "lingpet_second_skill_windup_ratio", "ringpet_second_skill_windup_ratio", windup_ratio)

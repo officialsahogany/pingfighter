@@ -13,6 +13,7 @@ const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingp
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetAffinityFeedbackState := preload("res://scripts/lingpet/lingpet_affinity_feedback_state.gd")
 const LingpetAffinityIncomeTracker := preload("res://scripts/lingpet/lingpet_affinity_income_tracker.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
@@ -166,6 +167,12 @@ var _acquire_cutin_assets_prewarm_done_for := ""
 var _applied_loadout_key := ""
 var _synced_owner_loadout_key := ""
 var _skip_unlock_reconcile := false
+var _owner_affinity_surface_owner_id := 0
+var _owner_affinity_surface_key: Array = []
+var _owner_affinity_surface_build_count_for_tests := 0
+var _skill_effect_update_counters_enabled_for_tests := false
+var _skill_effect_idle_skip_count_for_tests := 0
+var _skill_effect_runtime_update_count_for_tests := 0
 
 
 func _init() -> void:
@@ -307,27 +314,14 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 	if _state == STATE_EGG:
 		_draw_egg(canvas, _egg_state.pos + shake_offset)
 	elif _state == STATE_COMPANION:
-		_skill_runtime_host.draw(canvas, shake_offset)
+		_skill_runtime_host.draw(canvas, shake_offset, _get_draw_perf_logger(_draw_context))
 		_afterglow_leak_state.draw(canvas, shake_offset)
-		var companion_body_draw_suppressed := _is_companion_body_draw_suppressed(_get_companion_body_skill_id())
-		var click_reaction_texture: Texture2D = null
-		if _companion_click_reaction_state.is_active():
-			click_reaction_texture = _get_current_cached_visual_texture(
-				LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY,
-				null
-			)
-		var click_reaction_visible: bool = bool(_companion_click_reaction_state.is_active()) and click_reaction_texture != null and not _ring_dash_state.is_companion_visual_hidden()
-		if companion_body_draw_suppressed:
-			pass
-		elif not click_reaction_visible:
-			_draw_companion(canvas, _companion_pos + shake_offset)
-		else:
-			_companion_click_reaction_state.draw(
-				canvas,
-				_companion_pos + shake_offset,
-				click_reaction_texture,
-				_get_companion_click_reaction_draw_size()
-			)
+		# The companion BODY sprite is intentionally NOT drawn here. It renders earlier,
+		# BEHIND the player, via draw_companion_body_behind_actors() (invoked from the
+		# shared player actor renderer). Keeping it out of this post-actor front pass is
+		# what makes an overlapping player render in front of the companion. Only the
+		# companion's emanating VFX stay in front (ring dash / ghost blink / affinity
+		# feedback) plus the hatch flash.
 		if _ring_dash_vfx.has_visible_effects():
 			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _ghost_blink_vfx.has_visible_effects():
@@ -336,6 +330,45 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 			_draw_affinity_feedback(canvas, _companion_pos + shake_offset, shake_offset)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
+
+
+# Draws ONLY the companion BODY sprite, intended to run BEHIND the player actor.
+# The shared player actor renderer invokes this (through a hook the battle scene drawer
+# injects into the actor context) right before it draws the player sprite -- after the
+# opaque stage background, before the player -- so an overlapping companion renders
+# behind the player. Skill VFX, ring-dash / ghost / affinity feedback, and the hatch
+# flash stay in draw() (the post-actor front pass). Mirrors the body-draw branch that
+# used to live inside draw().
+func draw_companion_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+	if canvas == null or _state != STATE_COMPANION:
+		return
+	if _is_companion_body_draw_suppressed(_get_companion_body_skill_id()):
+		return
+	var click_reaction_texture: Texture2D = null
+	if _companion_click_reaction_state.is_active():
+		click_reaction_texture = _get_current_cached_visual_texture(
+			LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY,
+			null
+		)
+		if click_reaction_texture == null:
+			click_reaction_texture = _ensure_companion_click_reaction_texture_ready()
+	var click_reaction_visible: bool = bool(_companion_click_reaction_state.is_active()) and click_reaction_texture != null and not _ring_dash_state.is_companion_visual_hidden()
+	if not click_reaction_visible:
+		_draw_companion(canvas, _companion_pos + shake_offset)
+	else:
+		_companion_click_reaction_state.draw(
+			canvas,
+			_companion_pos + shake_offset,
+			click_reaction_texture,
+			_get_companion_click_reaction_draw_size()
+		)
+
+
+func _get_draw_perf_logger(draw_context: Dictionary) -> Object:
+	var value: Variant = draw_context.get("battle_perf_logger", null)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
 
 
 func has_visible_effects() -> bool:
@@ -361,6 +394,51 @@ func get_boss_ai_context() -> Dictionary:
 	if context is Dictionary:
 		return context
 	return {}
+
+
+func get_ball_collision_context() -> Dictionary:
+	if _state != STATE_COMPANION or _skill_runtime_host == null:
+		return {}
+	if not _skill_runtime_host.has_method("get_ball_collision_context"):
+		return {}
+	var context: Variant = _skill_runtime_host.get_ball_collision_context()
+	if context is Dictionary:
+		return context
+	return {}
+
+
+func notify_lingpet_bone_barrier_hit(
+	barrier_id: int,
+	impact_pos: Vector2,
+	next_ball_vel: Vector2,
+	built: bool = true,
+	registry: Object = null
+) -> bool:
+	if _skill_runtime_host == null or not _skill_runtime_host.has_method("notify_lingpet_bone_barrier_hit"):
+		return false
+	return bool(_skill_runtime_host.notify_lingpet_bone_barrier_hit(barrier_id, impact_pos, next_ball_vel, built, registry))
+
+
+func reset_skill_effect_update_counters_for_tests() -> void:
+	_skill_effect_update_counters_enabled_for_tests = true
+	_skill_effect_idle_skip_count_for_tests = 0
+	_skill_effect_runtime_update_count_for_tests = 0
+
+
+func get_skill_effect_idle_skip_count_for_tests() -> int:
+	return _skill_effect_idle_skip_count_for_tests
+
+
+func get_skill_effect_runtime_update_count_for_tests() -> int:
+	return _skill_effect_runtime_update_count_for_tests
+
+
+func reset_owner_affinity_surface_counters_for_tests() -> void:
+	_owner_affinity_surface_build_count_for_tests = 0
+
+
+func get_owner_affinity_surface_build_count_for_tests() -> int:
+	return _owner_affinity_surface_build_count_for_tests
 
 
 func is_acquire_cutin_active() -> bool:
@@ -557,6 +635,9 @@ func _set_current_pet_id(value: String) -> void:
 		_skip_unlock_reconcile = false
 		_affinity_feedback_state.reset_transients()
 		_invalidate_current_loadout_cache()
+		_click_reaction_visual_prewarm_pet_id = ""
+		_click_reaction_visual_prewarm_done_for = ""
+		_acquire_cutin_assets_prewarm_done_for = ""
 	_affinity_feedback_state.sync_for_level(_affinity_state.get_level(_pet_id), LingpetAffinityState.MAX_LEVEL)
 
 
@@ -1013,6 +1094,14 @@ func _play_ring_dash_audio(registry: Object = null) -> void:
 		audio.play_lingpet_ring_dash()
 
 
+func _play_affinity_level_up_audio(registry: Object = null) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var audio: Object = registry.get_instance("game_audio")
+	if audio != null and audio.has_method("play_lingpet_affinity_level_up"):
+		audio.play_lingpet_affinity_level_up()
+
+
 func _sync_owner(owner: Object, registry: Object = null) -> void:
 	if _state == STATE_COMPANION:
 		if _applied_loadout_key == "":
@@ -1057,17 +1146,54 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 	# share the change-gated last-pushed cache (F-lingpet-1).
 	var appearance_rate: float = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_companion_appearance_rate", "ringpet_companion_appearance_rate", appearance_rate)
-	var affinity_snapshot := _build_affinity_owner_snapshot(registry)
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_level", "ringpet_affinity_level", int(affinity_snapshot.get("level", 0)))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_points", "ringpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_requirement", "ringpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_label", "ringpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_ring_core_tier", "ringpet_ring_core_tier", int(affinity_snapshot.get("ring_core_tier", 0)))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_chip_count", "ringpet_affinity_chip_count", int(affinity_snapshot.get("chip_count", 0)))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_points", "ringpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_title", "ringpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
+	var affinity_surface_key := _build_affinity_owner_surface_key(registry)
+	if _should_sync_affinity_owner_surface(owner, affinity_surface_key):
+		var affinity_snapshot := _build_affinity_owner_snapshot(registry)
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_level", "ringpet_affinity_level", int(affinity_snapshot.get("level", 0)))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_points", "ringpet_affinity_points", float(affinity_snapshot.get("points", 0.0)))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_requirement", "ringpet_affinity_next_requirement", float(affinity_snapshot.get("next_requirement", 0.0)))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_label", "ringpet_affinity_next_label", str(affinity_snapshot.get("next_label", "")))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_ring_core_tier", "ringpet_ring_core_tier", int(affinity_snapshot.get("ring_core_tier", 0)))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_chip_count", "ringpet_affinity_chip_count", int(affinity_snapshot.get("chip_count", 0)))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_points", "ringpet_bond_points", int(affinity_snapshot.get("bond_points", 0)))
+		_snapshot_builder.set_owner_pair_gated(owner, "lingpet_bond_title", "ringpet_bond_title", str(affinity_snapshot.get("bond_title", "")))
 	if should_sync_loadouts:
 		_synced_owner_loadout_key = _applied_loadout_key
+
+
+func _build_affinity_owner_surface_key(registry: Object = null) -> Array:
+	if _state != STATE_COMPANION:
+		return [_state, "", 0, 0.0, 0, 0, 0, 0, ""]
+	var store: Object = _get_affinity_store(registry)
+	var ring_core_tier := 0
+	var bond_points := 0
+	if store != null:
+		if store.has_method("get_ring_core_tier"):
+			ring_core_tier = clampi(int(store.get_ring_core_tier()), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+		if store.has_method("get_bond_points"):
+			bond_points = maxi(0, int(store.get_bond_points(_pet_id)))
+	return [
+		_state,
+		_pet_id,
+		_affinity_state.get_level(_pet_id),
+		_affinity_state.get_points(_pet_id),
+		_affinity_state.get_enhancement_chips(),
+		ring_core_tier,
+		bond_points,
+		_current_profile.affinity_reward_signature,
+	]
+
+
+func _should_sync_affinity_owner_surface(owner: Object, affinity_surface_key: Array) -> bool:
+	var owner_id := owner.get_instance_id()
+	if owner_id != _owner_affinity_surface_owner_id:
+		_owner_affinity_surface_owner_id = owner_id
+		_owner_affinity_surface_key = []
+	if not _owner_affinity_surface_key.is_empty() and _owner_affinity_surface_key == affinity_surface_key:
+		return false
+	_owner_affinity_surface_key = affinity_surface_key.duplicate(true)
+	_owner_affinity_surface_build_count_for_tests += 1
+	return true
 
 
 func _build_affinity_owner_snapshot(registry: Object = null) -> Dictionary:
@@ -2166,6 +2292,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		_is_any_companion_skill_winding_up(),
 		_get_current_defense_rate(),
 		_companion_skill_trigger_count,
+		_get_current_patrol_speed("patrol_speed_default", COMPANION_PATROL_SPEED),
 		_get_current_patrol_speed("patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
 		_get_current_patrol_speed("patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
 		_get_current_motion_style(),
@@ -2260,6 +2387,15 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	if not _is_companion_body_available_for_hit():
 		_companion_body_hit_state.ball_was_inside = false
 		return false
+	# Player-priority: when the player paddle can reach this ball, defer to the player
+	# instead of letting the companion steal the bounce (the "overlapping pet shouldn't
+	# take the player's ball" rule). The companion still GUARDS balls the player CANNOT
+	# reach -- this mirrors the defense-intercept / ring-dash `_player_can_block` gate, so
+	# a far guard (e.g. the maribo defense smoke's x=650 ball) is unaffected. Geometric,
+	# not probabilistic: clearing ball_was_inside keeps it per-entry, not per-frame.
+	if _player_can_block_companion_ball(owner):
+		_companion_body_hit_state.ball_was_inside = false
+		return false
 
 	var affinity_hit_tags := _merge_affinity_hit_tags(captured_affinity_hit_tags, _capture_affinity_hit_tags())
 	var hit_result: Dictionary = _companion_body_hit_state.resolve_ball_hit(
@@ -2294,25 +2430,60 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	return true
 
 
+# True when the player paddle can reach the ball at its current X, in which case the
+# companion must NOT bounce it (the player takes priority). Mirrors
+# lingpet_companion_motion_state._player_can_block / lingpet_ring_dash_state._player_can_block
+# (the defense/ring-dash gates that already skip player-reachable balls), so the only new
+# behavior is making the raw proximity body-hit consistent with them. Returns false when
+# player_pos is unset so a missing player never silently disables the companion guard.
+func _player_can_block_companion_ball(owner: Object) -> bool:
+	if owner == null:
+		return false
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2.ZERO)
+	if player_pos == Vector2.ZERO:
+		return false
+	var ball_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "ball_pos", Vector2.ZERO)
+	var ball_radius: float = maxf(1.0, float(_get_owner_value(owner, "ball_size", BALL_RADIUS_FALLBACK * 2.0)) * 0.5)
+	var player_width: float = maxf(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0)))
+	return ball_pos.x >= player_pos.x - ball_radius and ball_pos.x <= player_pos.x + player_width + ball_radius
+
+
 func _update_companion_skill_effects(delta: float, owner: Object, registry: Object = null) -> void:
+	var ball_active := bool(_get_owner_value(owner, "ball_active", false))
+	var ball_context_ready := false
+	var ball_pos := Vector2.ZERO
+	var ball_vel := Vector2.ZERO
+	var ball_size := 28.6
 	for slot in range(_get_active_slot_count()):
 		var skill_id := _get_skill_id_for_slot(slot)
 		if skill_id == "":
 			continue
+		var skill_state: Object = _get_companion_skill_state_for_slot(slot)
+		if _can_skip_companion_skill_effect_idle(skill_id, skill_state, ball_active):
+			if _skill_effect_update_counters_enabled_for_tests:
+				_skill_effect_idle_skip_count_for_tests += 1
+			continue
+		if not ball_context_ready:
+			ball_pos = _get_owner_value(owner, "ball_pos", Vector2.ZERO)
+			ball_vel = _get_owner_value(owner, "ball_vel", Vector2.ZERO)
+			ball_size = float(_get_owner_value(owner, "ball_size", 28.6))
+			ball_context_ready = true
 		var current_active_skill := _get_active_skill_for_slot(slot)
+		if _skill_effect_update_counters_enabled_for_tests:
+			_skill_effect_runtime_update_count_for_tests += 1
 		var decision: Dictionary = _companion_skill_controller.update(delta, {
 			"state": _state,
 			"companion_state": STATE_COMPANION,
 			"owner": owner,
 			"registry": registry,
 			"skill_id": skill_id,
-			"skill_state": _get_companion_skill_state_for_slot(slot),
+			"skill_state": skill_state,
 			"skill_runtime_host": _skill_runtime_host,
 			"windup_seconds": _get_skill_windup_seconds_for_slot(slot),
-			"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
-			"ball_pos": _get_owner_value(owner, "ball_pos", Vector2.ZERO),
-			"ball_vel": _get_owner_value(owner, "ball_vel", Vector2.ZERO),
-			"ball_size": float(_get_owner_value(owner, "ball_size", 28.6)),
+			"ball_active": ball_active,
+			"ball_pos": ball_pos,
+			"ball_vel": ball_vel,
+			"ball_size": ball_size,
 			"switch_transition_active": _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0,
 			"companion_visible": _companion_motion_state.motion_visible,
 			"companion_pos": _companion_pos,
@@ -2332,6 +2503,17 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 				pass
 		_trigger_companion_skill_strike_if_requested(skill_id)
 	_apply_active_companion_skill_position_override()
+
+
+func _can_skip_companion_skill_effect_idle(skill_id: String, skill_state: Object, ball_active: bool) -> bool:
+	if skill_state == null or bool(skill_state.windup_active):
+		return false
+	if _skill_runtime_host != null and _skill_runtime_host.has_method("has_visible_effects_for_skill"):
+		if bool(_skill_runtime_host.has_visible_effects_for_skill(skill_id)):
+			return false
+	if float(skill_state.cooldown) > 0.0:
+		return true
+	return not ball_active
 
 
 func _can_arm_companion_skill_slot(slot_index: int, skill_id: String) -> bool:
@@ -2397,6 +2579,13 @@ func _launch_companion_skill(owner: Object, registry: Object, slot_index: int = 
 			"roar_radius": float(current_active_skill.get("roar_radius", -1.0)),
 			"ball_boost": float(current_active_skill.get("ball_boost", -1.0)),
 			"stun_duration_seconds": float(current_active_skill.get("stun_duration_seconds", 0.0)),
+			"arrow_draw_time": float(current_active_skill.get("arrow_draw_time", -1.0)),
+			"arrow_cooldown_min": float(current_active_skill.get("arrow_cooldown_min", -1.0)),
+			"arrow_cooldown_max": float(current_active_skill.get("arrow_cooldown_max", -1.0)),
+			"golden_chance_pct": float(current_active_skill.get("golden_chance_pct", -1.0)),
+			"bonus_summon_chance_pct": float(current_active_skill.get("bonus_summon_chance_pct", -1.0)),
+			"barrier_width": float(current_active_skill.get("barrier_width", -1.0)),
+			"bonus_barrier_chance_pct": float(current_active_skill.get("bonus_barrier_chance_pct", -1.0)),
 		}
 	)
 	if launched:
@@ -2520,11 +2709,16 @@ func _advance_companion_draw_anim(delta: float) -> void:
 	# reflects the whole frame.
 	var speed_max: float = maxf(1.0, _get_current_patrol_speed("patrol_speed_max", COMPANION_PATROL_SPEED_MAX))
 	if _companion_draw_pos_prev == Vector2.ZERO:
-		_companion_override_move_ratio = 0.0
+		# Seed frame (companion just adopted / reset): no previous position to diff against yet,
+		# so fall back to the motion state's intended ratio for this one frame rather than
+		# forcing a spurious idle on the first visible frame.
+		_companion_override_move_ratio = maxf(0.0, float(_companion_motion_state.motion_speed_ratio))
 	else:
 		# HORIZONTAL travel only: the walk sheet is side-view locomotion, so a held override
 		# that only hops vertically (the starlight pickup jump arc keeps x fixed) must read as
-		# idle, not walking. A real horizontal chase still reads as walking.
+		# idle, not walking. A real horizontal chase still reads as walking. This real-movement
+		# signal is also the patrol/free-flight walk-idle gate (see
+		# _get_companion_draw_motion_speed_ratio), so a genuinely static companion reads idle.
 		var moved_x: float = absf(_companion_pos.x - _companion_draw_pos_prev.x)
 		var safe_delta: float = maxf(0.0001, delta)
 		_companion_override_move_ratio = clampf((moved_x / safe_delta) / speed_max, 0.0, 1.0)
@@ -2546,10 +2740,17 @@ func _get_companion_draw_motion_speed_ratio() -> float:
 		return _companion_override_move_ratio
 	if not _companion_motion_state.motion_visible:
 		return 0.0
-	var speed_ratio: float = maxf(0.0, float(_companion_motion_state.motion_speed_ratio))
-	if _get_current_motion_style() != "sortie_flight":
-		return speed_ratio
-	return maxf(COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO, _companion_motion_state.motion_speed_ratio)
+	if _get_current_motion_style() == "sortie_flight":
+		return maxf(COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO, _companion_motion_state.motion_speed_ratio)
+	# Patrol / free-flight walk-idle gate: drive it from the ACTUAL drawn horizontal movement,
+	# NOT the motion state's INTENDED speed. motion_speed_ratio (derived from patrol_speed /
+	# defense step speed) can stay > 0.01 on a frame where the position does NOT actually
+	# advance — defense intercept arriving at a lane-clamped target, a zero/negative-delta tick,
+	# sub-tolerance re-anchoring — which marches the move sheet in place. _companion_override_move_ratio
+	# is the real per-frame x-travel of _companion_pos, so a genuinely static companion reads idle
+	# while real patrol/defense travel still reads as walking. (Sortie flight keeps its wing-flap
+	# floor above; ring-dash / not-visible already returned 0 above.)
+	return _companion_override_move_ratio
 
 
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
@@ -2621,6 +2822,8 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object
 	if _companion_click_reaction_state.is_active():
 		_play_click_reaction_audio(registry)
 		return true
+	if _ensure_companion_click_reaction_texture_ready() == null:
+		return false
 	_companion_click_reaction_state.start()
 	if _can_grant_click_affinity():
 		_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_CLICK, {}, registry)
@@ -2646,6 +2849,19 @@ func _play_acquire_click_reaction_backing_audio(registry: Object = null) -> void
 
 func is_companion_click_reaction_active() -> bool:
 	return _companion_click_reaction_state.is_active()
+
+
+func _ensure_companion_click_reaction_texture_ready() -> Texture2D:
+	var texture: Texture2D = _get_current_cached_visual_texture(
+		LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY,
+		null
+	)
+	if texture != null:
+		return texture
+	return _get_current_visual_texture(
+		LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY,
+		null
+	)
 
 
 func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
@@ -2887,6 +3103,7 @@ func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {},
 		_sync_current_profile_affinity(normalized_pet_id, registry)
 		_invalidate_current_loadout_cache()
 		_affinity_feedback_state.trigger_level_up(level_after, LingpetAffinityState.MAX_LEVEL, _affinity_next_label_for_pet(normalized_pet_id))
+		_play_affinity_level_up_audio(registry)
 	_record_affinity_best_level_if_needed(normalized_pet_id, best_before, registry)
 	return _last_affinity_result.duplicate(true)
 

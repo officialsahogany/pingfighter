@@ -15,6 +15,8 @@ const SKILL_KIND_GATLING_BURST := "gatling_burst"
 const SKILL_KIND_DRAGON_BREATH := "dragon_breath"
 const SKILL_KIND_DRAGON_WING := "dragon_wing"
 const SKILL_KIND_GHOST_SUMMON := "ghost_summon"
+const SKILL_KIND_SKELETON_ARCHER := "skeleton_archer"
+const SKILL_KIND_BONE_BARRIER := "bone_barrier"
 const SKILL_KIND_SOUL_CLONE := "soul_clone"
 const SKILL_KIND_PUPPET_GRAB := "puppet_grab"
 const SKILL_KIND_DOLL_CURSE := "doll_curse"
@@ -34,6 +36,8 @@ const GATLING_BURST_SKILL_ID := "volty_gatling_burst"
 const DRAGON_BREATH_SKILL_ID := "red_dragon_dragon_breath"
 const DRAGON_WING_SKILL_ID := "red_dragon_dragon_wing"
 const RABI_GHOST_SUMMON_SKILL_ID := "rabi_ghost_summon"
+const NEKURING_SKELETON_ARCHER_SKILL_ID := "nekuring_skeleton_archer"
+const NEKURING_BONE_BARRIER_SKILL_ID := "nekuring_bone_barrier"
 const RABI_SOUL_CLONE_SKILL_ID := "rabi_soul_clone"
 const PUPPET_GRAB_SKILL_ID := "koyora_puppet_control"
 const DOLL_CURSE_SKILL_ID := "koyora_doll_curse"
@@ -52,6 +56,8 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_DRAGON_BREATH: true,
 	SKILL_KIND_DRAGON_WING: true,
 	SKILL_KIND_GHOST_SUMMON: true,
+	SKILL_KIND_SKELETON_ARCHER: true,
+	SKILL_KIND_BONE_BARRIER: true,
 	SKILL_KIND_SOUL_CLONE: true,
 	SKILL_KIND_PUPPET_GRAB: true,
 	SKILL_KIND_DOLL_CURSE: true,
@@ -92,6 +98,10 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_DRAGON_WING
 		RABI_GHOST_SUMMON_SKILL_ID:
 			return SKILL_KIND_GHOST_SUMMON
+		NEKURING_SKELETON_ARCHER_SKILL_ID:
+			return SKILL_KIND_SKELETON_ARCHER
+		NEKURING_BONE_BARRIER_SKILL_ID:
+			return SKILL_KIND_BONE_BARRIER
 		RABI_SOUL_CLONE_SKILL_ID:
 			return SKILL_KIND_SOUL_CLONE
 		PUPPET_GRAB_SKILL_ID:
@@ -152,6 +162,14 @@ static func is_dragon_wing(skill_id: String) -> bool:
 
 static func is_ghost_summon(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_GHOST_SUMMON
+
+
+static func is_skeleton_archer(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_SKELETON_ARCHER
+
+
+static func is_bone_barrier(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_BONE_BARRIER
 
 
 static func is_soul_clone(skill_id: String) -> bool:

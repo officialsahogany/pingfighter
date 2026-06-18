@@ -23,6 +23,10 @@ const STRIKE_DRAW_SIZE := Vector2(104.0, 104.0)
 const STRIKE_Y_OFFSET := -12.0
 const CAST_DRAW_SIZE := Vector2(104.0, 104.0)
 const CAST_Y_OFFSET := -12.0
+# Walk/idle gate threshold. MUST match the companion renderer's "moving" check
+# (lingpet_companion_renderer: moving := motion_speed_ratio > 0.01): below it the renderer
+# shows the IDLE texture, so the frame must be the static IDLE_FRAME, not a cycling walk frame.
+const MOVING_RATIO_THRESHOLD := 0.01
 
 var strike_active := false
 var strike_elapsed := 0.0
@@ -97,7 +101,7 @@ func advance_walk_phase(delta: float, speed_ratio: float) -> void:
 
 func get_walk_frame(patrol_pause: float, ticks_msec: int = -1, speed_ratio: float = 0.0) -> int:
 	var ratio := clampf(speed_ratio, 0.0, 1.0)
-	if ratio <= 0.0:
+	if ratio <= MOVING_RATIO_THRESHOLD:
 		return clampi(IDLE_FRAME, 0, SHEET_FRAME_COUNT - 1)
 	if _walk_phase_driven:
 		return int(walk_phase) % SHEET_FRAME_COUNT

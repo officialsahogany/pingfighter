@@ -14,6 +14,8 @@ const GATLING_BURST_SKILL_PATH := "res://scripts/lingpet/lingpet_gatling_burst_s
 const DRAGON_BREATH_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_breath_skill.gd"
 const DRAGON_WING_SKILL_PATH := "res://scripts/lingpet/lingpet_dragon_wing_skill.gd"
 const GHOST_SUMMON_SKILL_PATH := "res://scripts/lingpet/lingpet_ghost_summon_skill.gd"
+const SKELETON_ARCHER_SKILL_PATH := "res://scripts/lingpet/lingpet_skeleton_archer_skill.gd"
+const BONE_BARRIER_SKILL_PATH := "res://scripts/lingpet/lingpet_bone_barrier_skill.gd"
 const SOUL_CLONE_SKILL_PATH := "res://scripts/lingpet/lingpet_soul_clone_skill.gd"
 const PUPPET_GRAB_SKILL_PATH := "res://scripts/lingpet/lingpet_puppet_grab_skill.gd"
 const DOLL_CURSE_SKILL_PATH := "res://scripts/lingpet/lingpet_doll_curse_skill.gd"
@@ -32,6 +34,8 @@ var _gatling_burst_skill: Object = null
 var _dragon_breath_skill: Object = null
 var _dragon_wing_skill: Object = null
 var _ghost_summon_skill: Object = null
+var _skeleton_archer_skill: Object = null
+var _bone_barrier_skill: Object = null
 var _soul_clone_skill: Object = null
 var _puppet_grab_skill: Object = null
 var _doll_curse_skill: Object = null
@@ -52,6 +56,8 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_dragon_breath_skill, owner, registry)
 	_reset_skill(_dragon_wing_skill, owner, registry)
 	_reset_skill(_ghost_summon_skill, owner, registry)
+	_reset_skill(_skeleton_archer_skill, owner, registry)
+	_reset_skill(_bone_barrier_skill, owner, registry)
 	_reset_skill(_soul_clone_skill, owner, registry)
 	_reset_skill(_puppet_grab_skill, owner, registry)
 	_reset_skill(_doll_curse_skill, owner, registry)
@@ -86,6 +92,10 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_dragon_wing_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
 			_get_ghost_summon_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			_get_skeleton_archer_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			_get_bone_barrier_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			_get_soul_clone_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
@@ -100,7 +110,7 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			pass
 
 
-func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger: Object = null) -> void:
 	_draw_skill(_hydro_sphere_skill, canvas, shake_offset)
 	_draw_skill(_headbutt_skill, canvas, shake_offset)
 	_draw_skill(_moon_orbit_skill, canvas, shake_offset)
@@ -113,6 +123,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_draw_skill(_dragon_breath_skill, canvas, shake_offset)
 	_draw_skill(_dragon_wing_skill, canvas, shake_offset)
 	_draw_skill(_ghost_summon_skill, canvas, shake_offset)
+	_draw_skeleton_archer_skill(canvas, shake_offset, perf_logger)
+	_draw_bone_barrier_skill(canvas, shake_offset, perf_logger)
 	_draw_skill(_soul_clone_skill, canvas, shake_offset)
 	_draw_skill(_puppet_grab_skill, canvas, shake_offset)
 	_draw_skill(_doll_curse_skill, canvas, shake_offset)
@@ -134,12 +146,58 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_dragon_breath_skill)
 		or _skill_has_visible_effects(_dragon_wing_skill)
 		or _skill_has_visible_effects(_ghost_summon_skill)
+		or _skill_has_visible_effects(_skeleton_archer_skill)
+		or _skill_has_visible_effects(_bone_barrier_skill)
 		or _skill_has_visible_effects(_soul_clone_skill)
 		or _skill_has_visible_effects(_puppet_grab_skill)
 		or _skill_has_visible_effects(_doll_curse_skill)
 		or _skill_has_visible_effects(_banana_slice_skill)
 		or _skill_has_visible_effects(_wild_roar_skill)
 	)
+
+
+func has_visible_effects_for_skill(skill_id: String) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return _skill_has_visible_effects(_hydro_sphere_skill)
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _skill_has_visible_effects(_headbutt_skill)
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return _skill_has_visible_effects(_moon_orbit_skill)
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return _skill_has_visible_effects(_bubble_trap_skill)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return _skill_has_visible_effects(_milk_production_skill)
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return _skill_has_visible_effects(_thunder_orb_skill)
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return _skill_has_visible_effects(_solar_bolt_skill)
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _skill_has_visible_effects(_bomb_surprise_skill)
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _skill_has_visible_effects(_gatling_burst_skill)
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			return _skill_has_visible_effects(_dragon_breath_skill)
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return _skill_has_visible_effects(_dragon_wing_skill)
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return _skill_has_visible_effects(_ghost_summon_skill)
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			return _skill_has_visible_effects(_skeleton_archer_skill)
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			return _skill_has_visible_effects(_bone_barrier_skill)
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			return _skill_has_visible_effects(_soul_clone_skill)
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return _skill_has_visible_effects(_puppet_grab_skill)
+		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
+			return _skill_has_visible_effects(_doll_curse_skill)
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return _skill_has_visible_effects(_banana_slice_skill)
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return _skill_has_visible_effects(_wild_roar_skill)
+		_:
+			return false
 
 
 func prewarm(skill_id: String) -> void:
@@ -186,6 +244,10 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _dragon_wing_skill != null and bool(_dragon_wing_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
 			return _ghost_summon_skill != null and bool(_ghost_summon_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			return false
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			return false
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return _soul_clone_skill != null and bool(_soul_clone_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
@@ -248,6 +310,10 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
 			return bool(_get_ghost_summon_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			return bool(_get_skeleton_archer_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			return bool(_get_bone_barrier_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return bool(_get_soul_clone_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
@@ -287,6 +353,10 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return companion_pos
@@ -431,6 +501,10 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_dragon_wing_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
 			_play_ghost_summon_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			_play_skeleton_archer_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			_play_bone_barrier_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			_play_soul_clone_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
@@ -470,6 +544,8 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _dragon_breath_skill)
 	_merge_skill_snapshot(snapshot, _dragon_wing_skill)
 	_merge_skill_snapshot(snapshot, _ghost_summon_skill)
+	_merge_skill_snapshot(snapshot, _skeleton_archer_skill)
+	_merge_skill_snapshot(snapshot, _bone_barrier_skill)
 	_merge_skill_snapshot(snapshot, _soul_clone_skill)
 	_merge_skill_snapshot(snapshot, _puppet_grab_skill)
 	_merge_skill_snapshot(snapshot, _doll_curse_skill)
@@ -570,6 +646,65 @@ func get_ghost_summon_release_count_for_tests() -> int:
 	return int(_get_ghost_summon_skill().get_release_count_for_tests())
 
 
+func get_skeleton_archer_archer_count_for_tests() -> int:
+	return int(_get_skeleton_archer_skill().get_archer_count_for_tests())
+
+
+func get_skeleton_archer_arrow_count_for_tests() -> int:
+	return int(_get_skeleton_archer_skill().get_arrow_count_for_tests())
+
+
+func get_skeleton_archer_arrow_hit_count_for_tests() -> int:
+	return int(_get_skeleton_archer_skill().get_arrow_hit_count_for_tests())
+
+
+func get_skeleton_archer_death_count_for_tests() -> int:
+	return int(_get_skeleton_archer_skill().get_archer_death_count_for_tests())
+
+
+func get_skeleton_archer_snapshot_for_tests() -> Dictionary:
+	return _get_skeleton_archer_skill().get_snapshot()
+
+
+func get_bone_barrier_barrier_count_for_tests() -> int:
+	return int(_get_bone_barrier_skill().get_barrier_count_for_tests())
+
+
+func get_bone_barrier_reflect_count_for_tests() -> int:
+	return int(_get_bone_barrier_skill().get_reflect_count_for_tests())
+
+
+func get_bone_barrier_build_break_count_for_tests() -> int:
+	return int(_get_bone_barrier_skill().get_build_break_count_for_tests())
+
+
+func get_bone_barrier_snapshot_for_tests() -> Dictionary:
+	return _get_bone_barrier_skill().get_snapshot()
+
+
+func set_bone_barrier_x_values_for_tests(values: Array) -> void:
+	_get_bone_barrier_skill().set_barrier_x_values_for_tests(values)
+
+
+func get_ball_collision_context() -> Dictionary:
+	var context: Dictionary = {}
+	if _bone_barrier_skill != null and _bone_barrier_skill.has_method("get_ball_collision_context"):
+		context.merge(_bone_barrier_skill.get_ball_collision_context(), true)
+	return context
+
+
+func notify_lingpet_bone_barrier_hit(
+	barrier_id: int,
+	impact_pos: Vector2,
+	next_ball_vel: Vector2,
+	built: bool = true,
+	registry: Object = null
+) -> bool:
+	if _bone_barrier_skill == null or not _bone_barrier_skill.has_method("notify_ball_collision"):
+		return false
+	return bool(_bone_barrier_skill.notify_ball_collision(barrier_id, impact_pos, next_ball_vel, built, registry))
+
+
 func get_soul_clone_hit_count_for_tests() -> int:
 	return int(_get_soul_clone_skill().get_hit_count_for_tests())
 
@@ -640,6 +775,10 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_dragon_wing_skill()
 		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
 			return _get_ghost_summon_skill()
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			return _get_skeleton_archer_skill()
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			return _get_bone_barrier_skill()
 		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
 			return _get_soul_clone_skill()
 		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
@@ -726,6 +865,18 @@ func _get_ghost_summon_skill() -> Object:
 	return _ghost_summon_skill
 
 
+func _get_skeleton_archer_skill() -> Object:
+	if _skeleton_archer_skill == null:
+		_skeleton_archer_skill = _new_skill(SKELETON_ARCHER_SKILL_PATH)
+	return _skeleton_archer_skill
+
+
+func _get_bone_barrier_skill() -> Object:
+	if _bone_barrier_skill == null:
+		_bone_barrier_skill = _new_skill(BONE_BARRIER_SKILL_PATH)
+	return _bone_barrier_skill
+
+
 func _get_soul_clone_skill() -> Object:
 	if _soul_clone_skill == null:
 		_soul_clone_skill = _new_skill(SOUL_CLONE_SKILL_PATH)
@@ -776,6 +927,70 @@ func _reset_skill(skill: Object, owner: Object = null, registry: Object = null) 
 func _draw_skill(skill: Object, canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if skill != null and skill.has_method("draw"):
 		skill.draw(canvas, shake_offset)
+
+
+func _draw_skeleton_archer_skill(canvas: CanvasItem, shake_offset: Vector2, perf_logger: Object = null) -> void:
+	var skill: Object = _skeleton_archer_skill
+	if skill == null or not skill.has_method("draw"):
+		return
+	if not _skill_has_visible_effects(skill):
+		return
+	_record_skeleton_archer_draw_counters(skill, perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
+	skill.draw(canvas, shake_offset)
+	_perf_end(perf_logger, "draw.lingpet.skeleton_archer", sample_start)
+
+
+func _draw_bone_barrier_skill(canvas: CanvasItem, shake_offset: Vector2, perf_logger: Object = null) -> void:
+	var skill: Object = _bone_barrier_skill
+	if skill == null or not skill.has_method("draw"):
+		return
+	if not _skill_has_visible_effects(skill):
+		return
+	_record_bone_barrier_draw_counters(skill, perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
+	skill.draw(canvas, shake_offset)
+	_perf_end(perf_logger, "draw.lingpet.bone_barrier", sample_start)
+
+
+func _record_skeleton_archer_draw_counters(skill: Object, perf_logger: Object) -> void:
+	if perf_logger == null or not perf_logger.has_method("record_counter_sample"):
+		return
+	if skill == null or not skill.has_method("get_snapshot"):
+		return
+	var raw_snapshot: Variant = skill.get_snapshot()
+	if not (raw_snapshot is Dictionary):
+		return
+	var snapshot: Dictionary = raw_snapshot as Dictionary
+	perf_logger.record_counter_sample("lingpet.skeleton_archer.archers", float(snapshot.get("skeleton_archer_archer_count", 0)))
+	perf_logger.record_counter_sample("lingpet.skeleton_archer.arrows", float(snapshot.get("skeleton_archer_arrow_count", 0)))
+	perf_logger.record_counter_sample("lingpet.skeleton_archer.dying", float(snapshot.get("skeleton_archer_dying_count", 0)))
+	perf_logger.record_counter_sample("lingpet.skeleton_archer.particles", float(snapshot.get("skeleton_archer_particle_count", 0)))
+
+
+func _record_bone_barrier_draw_counters(skill: Object, perf_logger: Object) -> void:
+	if perf_logger == null or not perf_logger.has_method("record_counter_sample"):
+		return
+	if skill == null or not skill.has_method("get_snapshot"):
+		return
+	var raw_snapshot: Variant = skill.get_snapshot()
+	if not (raw_snapshot is Dictionary):
+		return
+	var snapshot: Dictionary = raw_snapshot as Dictionary
+	perf_logger.record_counter_sample("lingpet.bone_barrier.barriers", float(snapshot.get("bone_barrier_barrier_count", 0)))
+	perf_logger.record_counter_sample("lingpet.bone_barrier.dying", float(snapshot.get("bone_barrier_dying_count", 0)))
+	perf_logger.record_counter_sample("lingpet.bone_barrier.particles", float(snapshot.get("bone_barrier_particle_count", 0)))
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
 
 
 func _skill_has_visible_effects(skill: Object) -> bool:
@@ -884,6 +1099,36 @@ func _play_ghost_summon_feedback(registry: Object) -> void:
 		audio.play_lingpet_ghost_summon()
 	elif audio.has_method("play_stage3_kuromi_tongue"):
 		audio.play_stage3_kuromi_tongue()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_skeleton_archer_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	# Original PingFighter summon cue is bonemake2.wav (bones assembling), matching the
+	# visible bone-assembly emerge animation -- not the borrowed ghost-summon whoosh.
+	if audio.has_method("play_lingpet_skeleton_archer_summon"):
+		audio.play_lingpet_skeleton_archer_summon()
+	elif audio.has_method("play_lingpet_ghost_summon"):
+		audio.play_lingpet_ghost_summon()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_bone_barrier_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_bone_barrier_build"):
+		audio.play_lingpet_bone_barrier_build()
+	elif audio.has_method("play_lingpet_skeleton_archer_summon"):
+		audio.play_lingpet_skeleton_archer_summon()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
 
