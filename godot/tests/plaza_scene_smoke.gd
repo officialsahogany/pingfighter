@@ -18,6 +18,8 @@ const PIXEL_SAMPLE_PATHS := [
 	"res://assets/ui/plaza/plaza_stage1_sidescroll_accent_neon_cutout_v1.png",
 	"res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_v1.png",
 	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_shop_v2_building_base.png",
+	"res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_static_v1.png",
+	"res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_anim_sheet_v1.png",
 ]
 
 var _failures: Array[String] = []
@@ -120,7 +122,7 @@ func _verify_interior_npc_texture_contract() -> void:
 func _verify_interior_room_texture_contract() -> void:
 	var paths: Dictionary = PlazaAssetLoader.get_interior_room_texture_paths_for_test()
 	var shop_path := str(paths.get("shop", ""))
-	_expect(shop_path == "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_room_imagegen_v1.png", "shop interior should expose the accepted room backdrop path")
+	_expect(shop_path == "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_room_topview_imagegen_v2.png", "shop interior should expose the accepted top-view room backdrop path")
 	_expect(FileAccess.file_exists(shop_path), "shop interior room backdrop PNG should exist")
 	var image := Image.load_from_file(ProjectSettings.globalize_path(shop_path))
 	_expect(image != null and not image.is_empty(), "shop interior room backdrop PNG should load as an image")
@@ -216,7 +218,7 @@ func _verify_plaza_scene_runtime() -> void:
 
 	var sink := CallbackSink.new()
 	var scene := PlazaScenePacked.instantiate() as Control
-	var save_path := "user://plaza_scene_smoke.cfg"
+	var save_path := _smoke_save_path("runtime")
 	_cleanup_save(save_path)
 	_expect(scene != null, "plaza scene should instantiate")
 	if scene == null:
@@ -234,6 +236,7 @@ func _verify_plaza_scene_runtime() -> void:
 	_expect(int(status.get("building_count", 0)) == 7, "Stage 1 full-layout test mode should load the seven accepted building kits")
 	_expect(int(status.get("collision_rect_count", -1)) == 0, "side-scroll plaza should keep buildings as background storefronts without blocking footprints")
 	_verify_flicker_samples_are_instance_seeded(scene)
+	_verify_character_info_tab_toggle(scene, "plaza street")
 	_verify_building_menu_shells(scene)
 
 	var bank: Dictionary = _find_building(scene.get_building_specs_for_test(), "bank")
@@ -336,7 +339,7 @@ func _verify_plaza_scene_runtime() -> void:
 
 
 func _verify_random_building_layout_runtime() -> void:
-	var save_path := "user://plaza_scene_random_layout_smoke.cfg"
+	var save_path := _smoke_save_path("random_layout")
 	_cleanup_save(save_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
@@ -367,7 +370,7 @@ func _verify_random_building_layout_runtime() -> void:
 	viewport.queue_free()
 	_cleanup_save(save_path)
 
-	var due_path := "user://plaza_scene_due_tavern_smoke.cfg"
+	var due_path := _smoke_save_path("due_tavern")
 	_cleanup_save(due_path)
 	var due_store := PlazaSaveStore.new()
 	due_store.set_save_path(due_path)
@@ -391,7 +394,7 @@ func _verify_random_building_layout_runtime() -> void:
 
 
 func _verify_player_sprite_and_lingpet_runtime() -> void:
-	var save_path := "user://plaza_scene_player_sprite_smoke.cfg"
+	var save_path := _smoke_save_path("player_sprite")
 	_cleanup_save(save_path)
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(760, 750)
@@ -499,7 +502,7 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		"academy": "아카데미",
 	}
 	var expected_actions := {
-		"shop": ["벽돌 구매 80G", "부메랑 구매 120G", "마지막 아이템 판매"],
+		"shop": [],
 		"bank": ["예금 100G", "출금 100G", "이자 정산"],
 		"gacha": ["액티브 캡슐 뽑기 150G"],
 		"lingpet_store": ["공명 알 뽑기 250G", "링펫 관리"],
@@ -522,6 +525,7 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		_expect(bool(status.get("interior_room_replaces_plaza", false)), "%s interior view should replace the plaza street visually" % building_type)
 		_expect(str(status.get("active_menu_type", "")) == str(building_type), "%s menu shell should report the active menu type" % building_type)
 		_expect(str(status.get("active_menu_title", "")) == str(expected_titles[building_type]), "%s menu shell should use the expected title" % building_type)
+		_verify_character_info_tab_toggle(scene, "%s interior" % str(building_type))
 		var expected_action_labels: Array = expected_actions[building_type]
 		if str(building_type) == "academy":
 			expected_action_labels = ["스킬 수업 200G", "스킬 교환"]
@@ -532,12 +536,22 @@ func _verify_building_menu_shells(scene: Control) -> void:
 		_expect(_string_arrays_equal(status.get("active_menu_actions", []), expected_action_labels), "%s menu shell should expose the expected action stubs" % building_type)
 		if str(building_type) == "shop":
 			_expect(bool(status.get("interior_room_texture_loaded", false)), "shop interior should load the generated room backdrop texture")
-			_expect(int(status.get("interior_object_texture_count", 0)) >= 3, "shop interior should load the generated trade object textures")
-			var hover_status: Dictionary = scene.hover_interior_object_for_test("shop_action_0")
-			_expect(str(hover_status.get("interior_hovered_object_id", "")) == "shop_action_0", "shop interior should hover the first trade object")
-			var click_status: Dictionary = scene.click_interior_object_for_test("shop_action_0")
-			_expect(bool(click_status.get("interior_panel_open", false)), "shop interior object click should open the transaction panel")
-			_expect(str(click_status.get("interior_selected_object_id", "")) == "shop_action_0", "shop interior panel should stay bound to the clicked object")
+			_expect(int(status.get("interior_object_texture_count", 0)) >= 15, "shop interior should load generated trade, strewn static, and AutoSprite animation textures")
+			_expect(int(status.get("shop_inventory_count", 0)) >= 5, "shop menu should roll a passive/legendary stock inventory on open")
+			_expect(int(status.get("interior_shop_inventory_count", 0)) >= 5, "shop interior should receive the rolled stock inventory")
+			var interior_status: Dictionary = status.get("interior_view_status", {})
+			_expect(int(interior_status.get("object_count", 0)) == 1, "shop interior should expose exactly one tabletop trade object")
+			var removed_hover_status: Dictionary = scene.hover_interior_object_for_test("shop_strewn_money_bundle")
+			_expect(str(removed_hover_status.get("interior_hovered_object_id", "")) == "", "shop interior should not expose extra tabletop props")
+			var hover_status: Dictionary = scene.hover_interior_object_for_test("shop_strewn_coin_pile")
+			_expect(str(hover_status.get("interior_hovered_object_id", "")) == "shop_strewn_coin_pile", "shop interior should hover the coin pile trade entry")
+			var click_status: Dictionary = scene.click_interior_object_for_test("shop_strewn_coin_pile")
+			_expect(bool(click_status.get("interior_shop_click_animation_active", false)), "shop strewn item click should start the tabletop click animation")
+			_expect(str(click_status.get("interior_selected_object_id", "")) == "shop_strewn_coin_pile", "shop click animation should stay bound to the clicked coin pile")
+			var trade_status: Dictionary = scene.advance_interior_view_for_test(0.75)
+			_expect(bool(trade_status.get("trade_ui_open", false)), "shop strewn item animation should open the trade UI")
+			status = scene.get_status()
+			_expect(bool(status.get("interior_trade_ui_open", false)), "shop interior status should expose the open trade UI")
 		scene.close_menu_for_test()
 
 
@@ -644,12 +658,30 @@ func _send_key(scene: Control, keycode: Key) -> void:
 	scene.handle_plaza_input(event)
 
 
+func _verify_character_info_tab_toggle(scene: Control, context: String) -> void:
+	_send_key(scene, KEY_TAB)
+	var status: Dictionary = scene.get_status()
+	_expect(bool(status.get("character_info_overlay_active", false)), "%s Tab should open character info overlay" % context)
+	_expect(bool(status.get("character_info_overlay_visible", false)), "%s character info overlay should be visible" % context)
+	_send_key(scene, KEY_TAB)
+	status = scene.get_status()
+	_expect(not bool(status.get("character_info_overlay_active", true)), "%s second Tab should close character info overlay" % context)
+
+
 func _cleanup_save(path: String) -> void:
 	var backup_path := path.trim_suffix(".cfg") + ".last_good.cfg"
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	if FileAccess.file_exists(backup_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+
+
+func _smoke_save_path(slug: String) -> String:
+	return "res://.tmp/plaza_scene_smoke_%s_%d_%d.cfg" % [
+		slug,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _string_arrays_equal(left_value: Variant, right_value: Variant) -> bool:

@@ -1,0 +1,15 @@
+{
+  "kind": "money_bundle",
+  "asset_id": "cmqh8ubl6005si3ev88izzvsj",
+  "job_id": "wf_a1cc42fb-8fd0-4a2e-b603-9b4751cc7f4d",
+  "spritesheet_id": "cmqh8xfj7003f4i2rc5lj8w6z",
+  "sheet": "res://assets/ui/plaza/interior/plaza_shop_strewn_money_bundle_autosprite_anim_sheet_v1.png",
+  "static": "res://assets/ui/plaza/interior/plaza_shop_strewn_money_bundle_autosprite_static_v1.png",
+  "atlas": "res://assets/ui/plaza/interior/plaza_shop_strewn_money_bundle_autosprite_atlas_v1.json",
+  "cols": 5,
+  "rows": 5,
+  "frame_count": 25,
+  "frame_size": 512,
+  "duration_s": 2.042,
+  "runtime_duration_s": 0.72
+}

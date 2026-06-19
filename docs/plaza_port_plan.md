@@ -1203,6 +1203,50 @@ Claude는 아래 검증된 프롬프트/스펙/시각 타깃 제공 + 픽셀 게
 - **Codex/사용자**: GDScript 배선(인테리어 뷰·핸드오프·오브젝트 시스템·거래 패널·PSO 등록·스모크).
 - **imagegen**: 샵 룸 백드롭(ui-hud-generation), 오브젝트 발광체 베이스 — Claude 디렉션 하에 생성.
 
+## 0.11 나머지 6건물 인테리어 템플릿 복제 (2026-06-17, 샵 패턴 §0.10 계승)
+
+샵 슬라이스 게이트 통과(커밋 e26ca5bf4) 후 나머지 6건물로 복제. **풀 레시피(건물별 verbatim
+룸 프롬프트 + 액션별 오브젝트 + 통합 노트)는 컴패니언 문서 `docs/plaza_6building_interior_
+recipes.md`** (6에이전트 병렬 설계, 실 repo 그라운딩). 생성=Codex imagegen / 디렉션·게이트=Claude.
+
+### 0.11.1 건물 요약 (NPC·액션수·받침대·오브젝트 kind)
+| 건물 | NPC | 액션(순서) | 받침대 | 오브젝트 kind(idx) |
+|---|---|---|---|---|
+| bank | 은행원 도윤 | 예금/출금/이자 정산 | 3 | deposit_vault/withdraw_coins/interest_growth |
+| gacha | 가챠 오퍼레이터 루미 | 액티브 캡슐 뽑기 | 1 | capsule |
+| blacksmith | 대장장이 강철 | 마지막 아이템 강화 | 1 | enhance |
+| academy | 아카데미 교관 서율 | 스킬 수업 200G/스킬 교환 | 2 | lesson_scroll/exchange_prism |
+| lingpet_store | 링펫 사육사 링링 | 공명 알 뽑기 250G/링코어 강화(동적) | 2 | resonance_egg/ring_core |
+| tavern | 선술집 주인 하랑 | 의뢰 받기/의뢰 보고 | 2 | quest_scroll/reward_stamp |
+
+### 0.11.2 ⚠️ 핵심 통합 함정 (Codex 필수 — 적대 검토로 확인)
+1. **건물별·인덱스별 오브젝트 kind 매핑 필요.** 현 `_get_object_kind`(plaza_interior_view.gd:
+   615-618)는 lingpet_store 2개를 둘 다 `capsule`, tavern fallback을 `crystal`로 매핑 →
+   동일/엉뚱 오브젝트. (building,index)→kind→텍스처 매핑 추가(특히 lingpet idx0=resonance_egg/
+   idx1=ring_core).
+2. **tavern 정적-런타임 카운트 불일치.** `BUILDING_MENU_SPECS["tavern"]`(plaza_scene.gd:111-115)
+   정적=1, 런타임 오버라이드(plaza_scene.gd:1826-1827 `PlazaTavernTransactions.get_menu_action
+   _labels`)=2["의뢰 받기","의뢰 보고"]. **실 카운트=2 → 받침대 2개.** transactions 신뢰.
+3. **bank 잔액 HUD 라인**(plaza_scene.gd:1308 "보유%dG|예금%dG|열쇠%d") 하단중앙 → bank 룸
+   하단중앙 저대비.
+4. **lingpet_store ring_core 라벨 동적**(transactions.gd:252-265 tier+cost/capped/loading) —
+   받침대 슬롯은 그대로 1.
+5. **받침대 정합**(샵 §0.10.4): 최종 PNG에서 받침대 중심 측정→런타임 object rect 정렬→절차
+   펜데스탈 드로 끄기. count==1 rect (438,392,126,132); count==2/3 plaza_interior_view.gd:584-588.
+
+### 0.11.3 라우팅 / 슬라이스 순서 / 게이트
+- 자산: 건물당 룸 PNG 1 + 오브젝트 PNG N(액션수) = 룸 6 + 오브젝트 11. NPC 7종은 이미 존재(재사용).
+  경로 `plaza_stage1_interior_<bld>_room_imagegen_v1.png` / `..._<bld>_object_<kind>_imagegen_v1.png`,
+  `.import`+`.ctex` 커밋, `load_imported_texture`.
+- 배선(Codex): 룸=`INTERIOR_ROOM_TEXTURE_PATHS[bld]`+cover-fit(샵과 동일), 오브젝트=`INTERIOR_
+  OBJECT_TEXTURE_PATHS`+per-(building,index) kind 매핑, 받침대 정합. 스모크=건물별 룸/오브젝트
+  컷아웃(512²·코너alpha0)·카운트·kind 매핑 씰.
+- **권장 순서**: 건물 1개씩 슬라이스(생성→배선→Claude 게이트→커밋) 권장 — 한 번에 6건물 미커밋
+  덩어리는 무빙 HEAD 브랜치에서 위험(샵 경험). 또는 자산만 6건물 배치 생성 후 배선/게이트는 순차.
+- 게이트(Claude): 건물별 픽셀(별도씬/룸 정체성 distinct/받침대 정렬/오브젝트 kind 정확/NPC
+  프린지0·라이팅/HUD 가독) + 코드(.import/load_imported_texture/kind 매핑/스모크) + 반증검증.
+- **시각 타깃**: 필요 시 Claude가 건물별 Gemini 후보 생성(샵처럼). Codex 출력이 드리프트하면 요청.
+
 ## 1. 레거시 광장 시스템 요약 (포팅 대상 정의)
 
 소스: `downtown/` (manager/renderer/map_generator/building_designs/player/npc 등),

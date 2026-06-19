@@ -1,0 +1,15 @@
+{
+  "kind": "gear",
+  "asset_id": "cmqh8uela005wi3evr46t6ox8",
+  "job_id": "wf_2de2d250-df24-4fd4-8f4d-ddf997d62d05",
+  "spritesheet_id": "cmqh8xd1o00374i2rhktw55v3",
+  "sheet": "res://assets/ui/plaza/interior/plaza_shop_strewn_gear_autosprite_anim_sheet_v1.png",
+  "static": "res://assets/ui/plaza/interior/plaza_shop_strewn_gear_autosprite_static_v1.png",
+  "atlas": "res://assets/ui/plaza/interior/plaza_shop_strewn_gear_autosprite_atlas_v1.json",
+  "cols": 5,
+  "rows": 5,
+  "frame_count": 25,
+  "frame_size": 512,
+  "duration_s": 2.042,
+  "runtime_duration_s": 0.72
+}

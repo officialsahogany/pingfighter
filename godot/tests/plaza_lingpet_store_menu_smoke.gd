@@ -181,7 +181,7 @@ func _run() -> void:
 
 
 func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
-	var save_path := "user://plaza_lingpet_store_menu_smoke.cfg"
+	var save_path := _smoke_save_path("egg_purchase")
 	_cleanup(save_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
@@ -237,8 +237,8 @@ func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
 
 
 func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
-	var save_path := "user://plaza_lingpet_store_ring_core_smoke.cfg"
-	var affinity_path := "user://plaza_lingpet_store_ring_core_affinity_smoke.cfg"
+	var save_path := _smoke_save_path("ring_core")
+	var affinity_path := _smoke_save_path("ring_core_affinity")
 	_cleanup(save_path)
 	_cleanup(affinity_path)
 	var store := PlazaSaveStore.new()
@@ -306,7 +306,7 @@ func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
 
 
 func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
-	var poor_path := "user://plaza_lingpet_store_menu_smoke_poor.cfg"
+	var poor_path := _smoke_save_path("poor")
 	_cleanup(poor_path)
 	var poor_store := PlazaSaveStore.new()
 	poor_store.set_save_path(poor_path)
@@ -332,7 +332,7 @@ func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
 	poor_owner.queue_free()
 	_cleanup(poor_path)
 
-	var full_path := "user://plaza_lingpet_store_menu_smoke_full_collection.cfg"
+	var full_path := _smoke_save_path("full_collection")
 	_cleanup(full_path)
 	var full_store := PlazaSaveStore.new()
 	full_store.set_save_path(full_path)
@@ -364,8 +364,8 @@ func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
 
 
 func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> void:
-	var poor_save_path := "user://plaza_lingpet_store_ring_core_poor_smoke.cfg"
-	var poor_affinity_path := "user://plaza_lingpet_store_ring_core_poor_affinity_smoke.cfg"
+	var poor_save_path := _smoke_save_path("ring_core_poor")
+	var poor_affinity_path := _smoke_save_path("ring_core_poor_affinity")
 	_cleanup(poor_save_path)
 	_cleanup(poor_affinity_path)
 	var poor_store := PlazaSaveStore.new()
@@ -396,8 +396,8 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 	_cleanup(poor_save_path)
 	_cleanup(poor_affinity_path)
 
-	var max_save_path := "user://plaza_lingpet_store_ring_core_max_smoke.cfg"
-	var max_affinity_path := "user://plaza_lingpet_store_ring_core_max_affinity_smoke.cfg"
+	var max_save_path := _smoke_save_path("ring_core_max")
+	var max_affinity_path := _smoke_save_path("ring_core_max_affinity")
 	_cleanup(max_save_path)
 	_cleanup(max_affinity_path)
 	var max_store := PlazaSaveStore.new()
@@ -428,7 +428,7 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 	_cleanup(max_save_path)
 	_cleanup(max_affinity_path)
 
-	var missing_save_path := "user://plaza_lingpet_store_ring_core_missing_smoke.cfg"
+	var missing_save_path := _smoke_save_path("ring_core_missing")
 	_cleanup(missing_save_path)
 	var missing_store := PlazaSaveStore.new()
 	missing_store.set_save_path(missing_save_path)
@@ -524,6 +524,14 @@ func _cleanup(path: String) -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	if FileAccess.file_exists(backup_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+
+
+func _smoke_save_path(slug: String) -> String:
+	return "res://.tmp/plaza_lingpet_store_menu_smoke_%s_%d_%d.cfg" % [
+		slug,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _expect(condition: bool, message: String) -> void:

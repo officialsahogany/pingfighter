@@ -43,7 +43,7 @@ func _run() -> void:
 
 
 func _verify_blacksmith_success_fail_and_maintain() -> void:
-	var save_path := "user://plaza_blacksmith_menu_smoke.cfg"
+	var save_path := _smoke_save_path("success")
 	_cleanup(save_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
@@ -106,7 +106,7 @@ func _verify_blacksmith_success_fail_and_maintain() -> void:
 
 
 func _verify_failed_blacksmith_action_does_not_spend_ap() -> void:
-	var save_path := "user://plaza_blacksmith_menu_smoke_fail.cfg"
+	var save_path := _smoke_save_path("fail")
 	_cleanup(save_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
@@ -191,6 +191,14 @@ func _cleanup(path: String) -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	if FileAccess.file_exists(backup_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+
+
+func _smoke_save_path(slug: String) -> String:
+	return "res://.tmp/plaza_blacksmith_menu_smoke_%s_%d_%d.cfg" % [
+		slug,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _expect(condition: bool, message: String) -> void:

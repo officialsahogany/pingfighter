@@ -7,11 +7,13 @@ const PlazaGachaTransactions := preload("res://scripts/plaza/plaza_gacha_transac
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 const PlazaPlayerController := preload("res://scripts/plaza/plaza_player_controller.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
-const PlazaShopTransactions := preload("res://scripts/plaza/plaza_shop_transactions.gd")
+const PlazaShopPricing := preload("res://scripts/plaza/plaza_shop_pricing.gd")
+const PlazaShopStock := preload("res://scripts/plaza/plaza_shop_stock.gd")
 const PlazaTavernTransactions := preload("res://scripts/plaza/plaza_tavern_transactions.gd")
 const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
 const PlazaInteriorView := preload("res://scripts/plaza/plaza_interior_view.gd")
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
+const PlazaCharacterInfoOverlayHost := preload("res://scripts/plaza/plaza_character_info_overlay_host.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
@@ -86,7 +88,7 @@ const BUILDING_MENU_SPECS := {
 	"shop": {
 		"title": "상점",
 		"subtitle": "골드로 아이템을 사고파는 곳",
-		"actions": ["벽돌 구매 80G", "부메랑 구매 120G", "마지막 아이템 판매"],
+		"actions": [],
 	},
 	"bank": {
 		"title": "은행",
@@ -146,7 +148,7 @@ var _last_lingpet_store_transaction_summary: Dictionary = {}
 var _last_academy_transaction_summary: Dictionary = {}
 var _last_tavern_transaction_summary: Dictionary = {}
 var _plaza_save_store: Object = PlazaSaveStore.new()
-var _plaza_shop_transactions: Object = PlazaShopTransactions.new()
+var _plaza_shop_stock: Object = PlazaShopStock.new()
 var _plaza_blacksmith_transactions: Object = PlazaBlacksmithTransactions.new()
 var _plaza_gacha_transactions: Object = PlazaGachaTransactions.new()
 var _plaza_lingpet_store_transactions: Object = PlazaLingpetStoreTransactions.new()
@@ -155,6 +157,7 @@ var _plaza_tavern_transactions: Object = PlazaTavernTransactions.new()
 var _runtime_perk_overlay_renderer: Object = RuntimePerkOverlayRenderer.new()
 var _runtime_perk_icon_renderer: Object = RuntimePerkIconRenderer.new()
 var _plaza_save_snapshot: Dictionary = {}
+var _shop_inventory: Array = []
 var _runtime_owner: Object = null
 var _runtime_registry: Object = null
 var _hovered_building_type := ""
@@ -180,6 +183,7 @@ var _plaza_warp_active := false
 var _plaza_warp_phase := ""
 var _plaza_warp_timer := 0.0
 var _warp_pillar_fx_host: Node = null
+var _character_info_overlay_host: Control = null
 var _interior_view: Control = null
 var _last_input_dir := Vector2.RIGHT
 var _test_input_active := false
@@ -210,15 +214,22 @@ static func reset_prewarm_assets_for_test() -> void:
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	# When driven by the result-screen controller, live mouse input arrives via
+	# battle_scene_shell._unhandled_input -> handle_plaza_input (global coords). A STOP
+	# filter consumes GUI mouse events and starves that path (which left the shop interior
+	# un-clickable). Stay IGNORE while driven so mouse falls through; keyboard still reaches
+	# _gui_input through focus. Standalone (non-driven) keeps STOP for its own _gui_input.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE if _driven_by_controller else Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	clip_contents = true
 	set_process(not _driven_by_controller)
 	_ensure_warp_pillar_fx_host()
+	_ensure_character_info_overlay_host()
 	if plaza_theme.is_empty():
 		configure({"current_stage": current_stage}, Callable(), false)
 	_sync_warp_pillar_fx_host()
+	_sync_character_info_overlay_host()
 	grab_focus()
 
 
@@ -259,6 +270,7 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_update_lingpet_follower(0.0)
 	_camera_x = _get_target_camera_x()
 	_close_building_menu(false)
+	_close_character_info_overlay(false)
 	_clear_building_transition()
 	_clear_plaza_warp_transition()
 	if bool(data.get("play_arrival_transition", false)):
@@ -266,6 +278,7 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_sync_game_rect()
+	_sync_character_info_overlay_host()
 	queue_redraw()
 
 
@@ -273,6 +286,12 @@ func update_plaza(delta: float) -> void:
 	_sync_game_rect()
 	if _is_runtime_perk_overlay_active():
 		_update_runtime_perk_overlay(delta)
+		_dialog_timer = 0.0
+		_update_hovered_building()
+		queue_redraw()
+		return
+	if _is_character_info_overlay_active():
+		_update_character_info_overlay(delta)
 		_dialog_timer = 0.0
 		_update_hovered_building()
 		queue_redraw()
@@ -318,17 +337,25 @@ func update_plaza(delta: float) -> void:
 func handle_plaza_input(event: InputEvent) -> bool:
 	if _is_runtime_perk_overlay_active():
 		return _handle_runtime_perk_overlay_input(event)
+	if _is_character_info_overlay_active():
+		return _handle_character_info_overlay_input(event)
 	if _plaza_warp_active:
 		return true
 	if _building_transition_active:
 		return true
 	if _menu_open:
+		if _is_character_info_tab_event(event):
+			_open_character_info_overlay()
+			return true
 		if _is_interior_view_active():
 			return _interior_view.handle_input(_localize_interior_event(event))
 		return _handle_menu_input(event)
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
+			return true
+		if _is_character_info_tab_event(event):
+			_open_character_info_overlay()
 			return true
 		if key_event.keycode == KEY_ESCAPE:
 			_exit_plaza()
@@ -354,6 +381,7 @@ func handle_plaza_input(event: InputEvent) -> bool:
 func get_status() -> Dictionary:
 	var active_building := _get_interactable_building()
 	var warp_fx_status := _get_warp_pillar_fx_status()
+	var character_info_status := _get_character_info_overlay_status()
 	var interior_status := _get_interior_view_status()
 	return {
 		"current_stage": current_stage,
@@ -388,6 +416,9 @@ func get_status() -> Dictionary:
 		"plaza_warp_progress": _get_plaza_warp_progress(),
 		"warp_pillar_fx_active": bool(warp_fx_status.get("active", false)),
 		"warp_pillar_fx_actor_count": int(warp_fx_status.get("actor_count", 0)),
+		"character_info_overlay_active": bool(character_info_status.get("active", false)),
+		"character_info_overlay_visible": bool(character_info_status.get("visible", false)),
+		"character_info_overlay_status": character_info_status.duplicate(true),
 		"active_menu_type": _active_menu_type,
 		"active_menu_title": _active_menu_title,
 		"active_menu_subtitle": _active_menu_subtitle,
@@ -398,11 +429,15 @@ func get_status() -> Dictionary:
 		"interior_view_status": interior_status.duplicate(true),
 		"interior_room_replaces_plaza": bool(interior_status.get("room_replaces_plaza", false)),
 		"interior_panel_open": bool(interior_status.get("panel_open", false)),
+		"interior_trade_ui_open": bool(interior_status.get("trade_ui_open", false)),
+		"interior_shop_click_animation_active": bool(interior_status.get("shop_click_animation_active", false)),
 		"interior_hovered_object_id": str(interior_status.get("hovered_object_id", "")),
 		"interior_selected_object_id": str(interior_status.get("selected_object_id", "")),
 		"interior_npc_texture_loaded": _get_interior_npc_texture(_active_menu_type) != null,
 		"interior_room_texture_loaded": _get_interior_room_texture(_active_menu_type) != null,
 		"interior_object_texture_count": int(interior_status.get("object_texture_count", 0)),
+		"interior_player_inventory_count": int(interior_status.get("player_inventory_count", 0)),
+		"interior_shop_inventory_count": int(interior_status.get("shop_inventory_count", 0)),
 		"last_bank_transaction_summary": _last_bank_transaction_summary.duplicate(true),
 		"last_shop_transaction_summary": _last_shop_transaction_summary.duplicate(true),
 		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary.duplicate(true),
@@ -414,6 +449,7 @@ func get_status() -> Dictionary:
 		"runtime_perk_choice_count": _get_runtime_perk_choice_count(),
 		"runtime_perk_selected_index": _get_runtime_perk_selected_index(),
 		"plaza_gold": int(_plaza_save_snapshot.get("plaza_gold", 0)),
+		"shop_inventory_count": _shop_inventory.size(),
 		"ap_current": int(_plaza_save_snapshot.get("ap_current", 0)),
 		"bank_deposit_gold": int(_plaza_save_snapshot.get("bank_deposit_gold", 0)),
 		"tavern_active_quest": _get_tavern_active_quest_summary(),
@@ -529,6 +565,47 @@ func click_interior_action_for_test(action_index: int = 0) -> bool:
 	return false
 
 
+func advance_interior_view_for_test(delta: float) -> Dictionary:
+	if not _is_interior_view_active():
+		return {}
+	if _interior_view.has_method("advance_time_for_test"):
+		var result: Variant = _interior_view.advance_time_for_test(delta)
+		if result is Dictionary:
+			return (result as Dictionary).duplicate(true)
+	return _get_interior_view_status()
+
+
+func trade_interior_item_for_test(panel: String, index: int) -> Dictionary:
+	if _active_menu_type != "shop":
+		return get_status()
+	_trigger_interior_action({
+		"type": "shop_trade",
+		"panel": panel,
+		"index": index,
+	})
+	return get_status()
+
+
+func get_interior_trade_item_price_for_test(panel: String, index: int) -> int:
+	if not _is_interior_view_active():
+		return -1
+	if _interior_view.has_method("get_trade_item_price_for_test"):
+		return int(_interior_view.get_trade_item_price_for_test(panel, index))
+	return -1
+
+
+func reorder_interior_trade_item_for_test(panel: String, from_index: int, to_index: int) -> Dictionary:
+	if _active_menu_type != "shop":
+		return get_status()
+	_trigger_interior_action({
+		"type": "shop_trade_reorder",
+		"panel": panel,
+		"from_index": from_index,
+		"to_index": to_index,
+	})
+	return get_status()
+
+
 func get_flicker_samples_for_test() -> Dictionary:
 	return {
 		"ground_0": _discrete_flicker("ground:0"),
@@ -593,6 +670,7 @@ func _sync_game_rect() -> void:
 	if _is_interior_view_active():
 		_interior_view.position = Vector2.ZERO
 		_interior_view.size = size
+	_sync_character_info_overlay_host()
 
 
 func _get_game_scale() -> float:
@@ -642,12 +720,28 @@ func _handle_menu_input(event: InputEvent) -> bool:
 	return true
 
 
+func _is_character_info_tab_event(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return false
+	var key_event := event as InputEventKey
+	if not key_event.pressed or key_event.echo:
+		return false
+	return key_event.keycode == KEY_TAB or key_event.physical_keycode == KEY_TAB
+
+
 func _handle_runtime_perk_overlay_input(event: InputEvent) -> bool:
 	var runtime_state := _get_runtime_perk_state()
 	if runtime_state == null or not runtime_state.has_method("handle_input"):
 		return true
 	var overlay_event := _localize_runtime_perk_event(event)
 	runtime_state.handle_input(overlay_event, _runtime_owner, _runtime_registry, size)
+	queue_redraw()
+	return true
+
+
+func _handle_character_info_overlay_input(event: InputEvent) -> bool:
+	if _character_info_overlay_host != null and is_instance_valid(_character_info_overlay_host) and _character_info_overlay_host.has_method("handle_overlay_input"):
+		_character_info_overlay_host.handle_overlay_input(_localize_character_info_event(event))
 	queue_redraw()
 	return true
 
@@ -660,6 +754,10 @@ func _localize_runtime_perk_event(event: InputEvent) -> InputEvent:
 		var mouse_event := duplicated as InputEventMouse
 		mouse_event.position = (event as InputEventMouse).position - get_global_rect().position
 	return duplicated
+
+
+func _localize_character_info_event(event: InputEvent) -> InputEvent:
+	return _localize_interior_event(event)
 
 
 func _localize_interior_event(event: InputEvent) -> InputEvent:
@@ -676,6 +774,13 @@ func _update_runtime_perk_overlay(delta: float) -> void:
 	var runtime_state := _get_runtime_perk_state()
 	if runtime_state != null and runtime_state.has_method("update"):
 		runtime_state.update(max(0.0, delta), size, _runtime_owner, _runtime_registry)
+
+
+func _update_character_info_overlay(delta: float) -> void:
+	if _character_info_overlay_host == null or not is_instance_valid(_character_info_overlay_host):
+		return
+	if _character_info_overlay_host.has_method("update_overlay"):
+		_character_info_overlay_host.update_overlay(maxf(0.0, delta))
 
 
 func _draw_runtime_perk_overlay() -> void:
@@ -1191,6 +1296,62 @@ func _get_plaza_warp_actor_lift(progress: float) -> float:
 	if _plaza_warp_phase == "arrive":
 		return -42.0 * (1.0 - eased)
 	return -48.0 * eased
+
+
+func _ensure_character_info_overlay_host() -> void:
+	if _character_info_overlay_host != null and is_instance_valid(_character_info_overlay_host):
+		return
+	var host := PlazaCharacterInfoOverlayHost.new()
+	host.name = "PlazaCharacterInfoOverlayHost"
+	host.position = Vector2.ZERO
+	host.size = size
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.z_as_relative = false
+	host.z_index = 120
+	add_child(host)
+	_character_info_overlay_host = host
+	_sync_character_info_overlay_host()
+
+
+func _sync_character_info_overlay_host() -> void:
+	if _character_info_overlay_host == null or not is_instance_valid(_character_info_overlay_host):
+		return
+	_character_info_overlay_host.position = Vector2.ZERO
+	_character_info_overlay_host.size = size
+	if _character_info_overlay_host.has_method("configure"):
+		_character_info_overlay_host.configure(_runtime_owner, _runtime_registry, Callable(self, "_get_runtime_instance"))
+
+
+func _open_character_info_overlay() -> void:
+	_ensure_character_info_overlay_host()
+	_sync_character_info_overlay_host()
+	if _character_info_overlay_host != null and _character_info_overlay_host.has_method("open"):
+		_character_info_overlay_host.open(_runtime_owner, _runtime_registry, Callable(self, "_get_runtime_instance"))
+	queue_redraw()
+
+
+func _close_character_info_overlay(from_input: bool = false) -> void:
+	if _character_info_overlay_host == null or not is_instance_valid(_character_info_overlay_host):
+		return
+	if _character_info_overlay_host.has_method("close"):
+		_character_info_overlay_host.close(from_input)
+
+
+func _is_character_info_overlay_active() -> bool:
+	return _character_info_overlay_host != null and is_instance_valid(_character_info_overlay_host) and _character_info_overlay_host.has_method("is_active") and bool(_character_info_overlay_host.is_active())
+
+
+func _get_character_info_overlay_status() -> Dictionary:
+	if _character_info_overlay_host == null or not is_instance_valid(_character_info_overlay_host):
+		return {"active": false, "visible": false}
+	if _character_info_overlay_host.has_method("get_status"):
+		var value: Variant = _character_info_overlay_host.get_status()
+		if value is Dictionary:
+			return (value as Dictionary).duplicate(true)
+	return {
+		"active": _is_character_info_overlay_active(),
+		"visible": bool(_character_info_overlay_host.visible),
+	}
 
 
 func _ensure_warp_pillar_fx_host() -> void:
@@ -1825,6 +1986,8 @@ func _open_building_menu(building: Dictionary) -> void:
 		_active_menu_actions = PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry)
 	if building_type == "tavern":
 		_active_menu_actions = PlazaTavernTransactions.get_menu_action_labels()
+	if building_type == "shop":
+		_refresh_shop_inventory_for_visit()
 	_active_menu_last_message = ""
 	_active_menu_visit_ap_consumed = false
 	_last_bank_transaction_summary = {}
@@ -1847,7 +2010,8 @@ func _open_interior_view() -> void:
 	view.name = "PlazaInteriorView"
 	view.position = Vector2.ZERO
 	view.size = size
-	view.mouse_filter = Control.MOUSE_FILTER_STOP
+	# IGNORE so the view never consumes GUI mouse: input is forwarded via handle_plaza_input.
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(view)
 	view.configure(
 		_build_interior_view_data(),
@@ -1896,11 +2060,184 @@ func _build_interior_view_data() -> Dictionary:
 		"object_textures": _interior_object_textures.duplicate(false),
 		"accent_color": _get_minimap_building_color(_active_menu_type),
 		"save_snapshot": _plaza_save_snapshot.duplicate(true),
+		"player_inventory": _get_passive_inventory_snapshot(),
+		"shop_inventory": _get_shop_inventory_snapshot(),
+		"last_trade_summary": _last_shop_transaction_summary.duplicate(true),
 	}
 
 
-func _trigger_interior_action(action_index: int) -> bool:
-	var handled := _trigger_menu_action(action_index)
+func _refresh_shop_inventory_for_visit() -> void:
+	if _plaza_shop_stock == null or not _plaza_shop_stock.has_method("build_inventory"):
+		_shop_inventory = []
+		return
+	var catalog := _get_runtime_instance("mythic_item_catalog")
+	var value: Variant = _plaza_shop_stock.build_inventory(catalog)
+	_shop_inventory = _duplicate_dictionary_array(value)
+
+
+func _get_passive_inventory_snapshot() -> Array:
+	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
+	if mythic_item_runtime == null:
+		return []
+	var items_value: Variant = mythic_item_runtime.get("inventory_items")
+	if not (items_value is Array) and mythic_item_runtime.has_method("get_snapshot"):
+		var snapshot_value: Variant = mythic_item_runtime.get_snapshot()
+		if snapshot_value is Dictionary:
+			items_value = (snapshot_value as Dictionary).get("inventory_items", [])
+	return _with_shop_icon_paths(_duplicate_dictionary_array(items_value), true)
+
+
+func _get_shop_inventory_snapshot() -> Array:
+	return _with_shop_icon_paths(_duplicate_dictionary_array(_shop_inventory))
+
+
+func _with_shop_icon_paths(items: Array, include_sell_price: bool = false) -> Array:
+	var catalog := _get_runtime_instance("mythic_item_catalog")
+	var result: Array = []
+	for item_value in items:
+		var item_data := _get_dict(item_value).duplicate(true)
+		if item_data.is_empty():
+			continue
+		var item_name := _get_item_identity(item_data)
+		if item_name != "" and catalog != null:
+			if str(item_data.get("icon_path", "")) == "" and catalog.has_method("get_icon_path"):
+				item_data["icon_path"] = str(catalog.get_icon_path(item_name))
+			if str(item_data.get("icon_sheet_path", "")) == "" and catalog.has_method("get_icon_sheet_path"):
+				item_data["icon_sheet_path"] = str(catalog.get_icon_sheet_path(item_name))
+		if include_sell_price and item_name != "":
+			item_data["shop_base_price"] = PlazaShopPricing.get_base_price(item_name)
+			item_data["shop_sell_price"] = PlazaShopPricing.get_sell_price(item_data)
+		result.append(item_data)
+	return result
+
+
+func _get_passive_inventory_item(index: int) -> Dictionary:
+	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_inventory_item"):
+		var value: Variant = mythic_item_runtime.get_inventory_item(index)
+		if value is Dictionary:
+			return (value as Dictionary).duplicate(true)
+	var snapshot := _get_passive_inventory_snapshot()
+	if index >= 0 and index < snapshot.size():
+		return _get_dict(snapshot[index]).duplicate(true)
+	return {}
+
+
+func _relist_sold_shop_item(item_data: Dictionary) -> void:
+	var relisted := item_data.duplicate(true)
+	var item_name := _get_item_identity(relisted)
+	if item_name == "":
+		return
+	var buy_price := PlazaShopPricing.get_buy_price(relisted)
+	relisted["shop_stock_id"] = "shop_resale_%02d_%s" % [_shop_inventory.size(), item_name]
+	relisted["shop_base_price"] = PlazaShopPricing.get_base_price(item_name)
+	relisted["shop_original_price"] = buy_price
+	relisted["shop_price"] = buy_price
+	relisted["shop_sell_price"] = PlazaShopPricing.get_sell_price(relisted)
+	relisted["shop_featured"] = false
+	relisted["shop_discount_rate"] = 0.0
+	_shop_inventory.append(relisted)
+
+
+func _perform_shop_wallet_transaction(action_id: String, amount: int, consume_ap: bool) -> Dictionary:
+	if _plaza_save_store == null or not _plaza_save_store.has_method("perform_shop_wallet_transaction"):
+		return _build_shop_wallet_fallback(action_id, false, "missing_plaza_save_store")
+	var result: Variant = _plaza_save_store.perform_shop_wallet_transaction(action_id, amount, consume_ap)
+	if result is Dictionary:
+		return (result as Dictionary).duplicate(true)
+	return _build_shop_wallet_fallback(action_id, false, "invalid_wallet_result")
+
+
+func _merge_shop_trade_wallet_summary(summary: Dictionary, wallet_summary: Dictionary) -> Dictionary:
+	summary["wallet_summary"] = wallet_summary.duplicate(true)
+	summary["delta_gold"] = int(wallet_summary.get("delta_gold", summary.get("delta_gold", 0)))
+	summary["ap_spent"] = int(wallet_summary.get("ap_spent", summary.get("ap_spent", 0)))
+	summary["plaza_gold"] = int(wallet_summary.get("plaza_gold", summary.get("plaza_gold", 0)))
+	summary["ap_current"] = int(wallet_summary.get("ap_current", summary.get("ap_current", 0)))
+	summary["reason"] = str(wallet_summary.get("reason", summary.get("reason", "")))
+	summary["changed"] = bool(wallet_summary.get("changed", summary.get("changed", false)))
+	return summary
+
+
+func _build_shop_trade_summary(action_id: String, item_data: Dictionary, price: int, sell_price: int, changed: bool, reason: String) -> Dictionary:
+	var item_name := _get_item_identity(item_data)
+	return {
+		"action": action_id,
+		"item_name": item_name,
+		"display_name": _get_shop_display_name(item_data),
+		"price": price,
+		"sell_price": sell_price,
+		"handled": ["purchase", "sale"].has(action_id),
+		"changed": changed,
+		"reason": reason,
+		"delta_gold": 0,
+		"ap_spent": 0,
+	}
+
+
+func _build_shop_wallet_fallback(action_id: String, changed: bool, reason: String) -> Dictionary:
+	return {
+		"action": action_id,
+		"handled": ["purchase", "sale"].has(action_id),
+		"changed": changed,
+		"reason": reason,
+		"delta_gold": 0,
+		"ap_spent": 0,
+	}
+
+
+func _get_shop_display_name(item_data: Dictionary) -> String:
+	for key in ["qualified_display_name", "display_name", "korean_name", "name"]:
+		var value := str(item_data.get(str(key), "")).strip_edges()
+		if value != "":
+			return value
+	return ""
+
+
+func _get_item_identity(item_data: Dictionary) -> String:
+	for key in ["name", "effect", "item_name", "item_id"]:
+		var value := str(item_data.get(str(key), "")).strip_edges()
+		if value != "":
+			return value
+	return ""
+
+
+func _has_plaza_gold(amount: int) -> bool:
+	return _plaza_save_store != null and _plaza_save_store.has_method("get_plaza_gold") and int(_plaza_save_store.get_plaza_gold()) >= amount
+
+
+func _is_shop_ap_blocked(consume_ap: bool) -> bool:
+	return consume_ap and (_plaza_save_store == null or not _plaza_save_store.has_method("get_ap_current") or int(_plaza_save_store.get_ap_current()) <= 0)
+
+
+func _get_runtime_instance(key: String) -> Object:
+	if _runtime_registry == null or not _runtime_registry.has_method("get_instance"):
+		return null
+	return _runtime_registry.get_instance(key)
+
+
+func _duplicate_dictionary_array(value: Variant) -> Array:
+	var result: Array = []
+	if not (value is Array):
+		return result
+	for item_value in value as Array:
+		if item_value is Dictionary:
+			result.append((item_value as Dictionary).duplicate(true))
+	return result
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
+
+
+func _trigger_interior_action(action_value: Variant) -> bool:
+	var handled := false
+	if action_value is Dictionary:
+		handled = _trigger_shop_trade_action(action_value as Dictionary)
+	else:
+		handled = _trigger_menu_action(int(action_value))
 	_sync_interior_view_state()
 	return handled
 
@@ -2031,8 +2368,6 @@ func _trigger_menu_action(action_index: int) -> bool:
 	match _active_menu_type:
 		"bank":
 			return _trigger_bank_menu_action(action_index)
-		"shop":
-			return _trigger_shop_menu_action(action_index)
 		"gacha":
 			return _trigger_gacha_menu_action(action_index)
 		"lingpet_store":
@@ -2070,26 +2405,164 @@ func _trigger_bank_menu_action(action_index: int) -> bool:
 	queue_redraw()
 	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
 
-
-func _trigger_shop_menu_action(action_index: int) -> bool:
-	if _plaza_shop_transactions == null or not _plaza_shop_transactions.has_method("perform_action"):
-		_active_menu_last_message = "상점 장부를 찾을 수 없습니다."
-		queue_redraw()
+func _trigger_shop_trade_action(action: Dictionary) -> bool:
+	if _active_menu_type != "shop":
 		return false
-	var summary: Dictionary = _plaza_shop_transactions.perform_action(
-		action_index,
-		_plaza_save_store,
-		_runtime_owner,
-		_runtime_registry,
-		not _active_menu_visit_ap_consumed
-	)
+	var action_type := str(action.get("type", "shop_trade"))
+	if action_type == "shop_trade_reorder":
+		return _trigger_shop_trade_reorder_action(action)
+	if action_type != "shop_trade":
+		return false
+	var panel := str(action.get("panel", ""))
+	var index := int(action.get("index", -1))
+	var stock_id := str(action.get("stock_id", ""))
+	var summary := _build_shop_trade_summary("", {}, 0, 0, false, "unknown_shop_action")
+	match panel:
+		"shop":
+			if stock_id != "":
+				index = _find_shop_stock_index(stock_id)
+			summary = _buy_shop_stock_item(index)
+		"player":
+			summary = _sell_player_passive_item(index)
+		_:
+			summary = _build_shop_trade_summary("", {}, 0, 0, false, "unknown_shop_action")
 	_last_shop_transaction_summary = summary.duplicate(true)
+	_play_shop_trade_audio(summary)
 	if int(summary.get("ap_spent", 0)) > 0:
 		_active_menu_visit_ap_consumed = true
 	_active_menu_last_message = _format_shop_transaction_message(summary)
 	_refresh_plaza_save_snapshot()
 	queue_redraw()
 	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+
+
+func _trigger_shop_trade_reorder_action(action: Dictionary) -> bool:
+	var panel := str(action.get("panel", ""))
+	var from_index := int(action.get("from_index", -1))
+	var to_index := int(action.get("to_index", -1))
+	var changed := _reorder_shop_trade_item(panel, from_index, to_index)
+	if changed:
+		_active_menu_last_message = "아이템 순서를 바꿨습니다."
+		_refresh_plaza_save_snapshot()
+		queue_redraw()
+	return changed
+
+
+func _find_shop_stock_index(stock_id: String) -> int:
+	if stock_id == "":
+		return -1
+	for idx in range(_shop_inventory.size()):
+		var item_data := _get_dict(_shop_inventory[idx])
+		if str(item_data.get("shop_stock_id", "")) == stock_id:
+			return idx
+	return -1
+
+
+func _reorder_shop_trade_item(panel: String, from_index: int, to_index: int) -> bool:
+	if panel == "shop":
+		return _move_array_item(_shop_inventory, from_index, to_index)
+	if panel == "player":
+		return _reorder_player_passive_inventory_item(from_index, to_index)
+	return false
+
+
+func _reorder_player_passive_inventory_item(from_index: int, to_index: int) -> bool:
+	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
+	if mythic_item_runtime == null:
+		return false
+	var items_value: Variant = mythic_item_runtime.get("inventory_items")
+	if not (items_value is Array):
+		return false
+	var items: Array = items_value
+	if not _move_array_item(items, from_index, to_index):
+		return false
+	if mythic_item_runtime.has_method("_sync_owner"):
+		mythic_item_runtime.call("_sync_owner", _runtime_owner, _runtime_registry)
+	return true
+
+
+func _move_array_item(items: Array, from_index: int, to_index: int) -> bool:
+	if from_index < 0 or from_index >= items.size() or items.is_empty():
+		return false
+	var insert_index := clampi(to_index, 0, items.size() - 1)
+	if from_index == insert_index:
+		return false
+	var item: Variant = items[from_index]
+	items.remove_at(from_index)
+	insert_index = clampi(insert_index, 0, items.size())
+	items.insert(insert_index, item)
+	return true
+
+
+func _buy_shop_stock_item(index: int) -> Dictionary:
+	if index < 0 or index >= _shop_inventory.size():
+		return _build_shop_trade_summary("purchase", {}, 0, 0, false, "unknown_shop_item")
+	var item_data := _get_dict(_shop_inventory[index]).duplicate(true)
+	var item_name := _get_item_identity(item_data)
+	var price := maxi(1, int(item_data.get("shop_price", PlazaShopPricing.get_buy_price(item_data))))
+	if item_name == "":
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "unknown_shop_item")
+	if not _has_plaza_gold(price):
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "not_enough_gold")
+	if _is_shop_ap_blocked(not _active_menu_visit_ap_consumed):
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "no_ap")
+	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("acquire_item"):
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_item_runtime")
+	if _runtime_owner == null:
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_owner")
+	var grant_index := int(mythic_item_runtime.acquire_item(item_name, _runtime_owner, _runtime_registry, {}, false, false, item_data))
+	if grant_index < 0:
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "inventory_full")
+	var payment := _perform_shop_wallet_transaction("purchase", price, not _active_menu_visit_ap_consumed)
+	if not bool(payment.get("changed", false)):
+		if mythic_item_runtime.has_method("discard_inventory_item"):
+			mythic_item_runtime.discard_inventory_item(grant_index, _runtime_owner, _runtime_registry)
+		return _merge_shop_trade_wallet_summary(
+			_build_shop_trade_summary("purchase", item_data, price, 0, false, str(payment.get("reason", "payment_failed"))),
+			payment
+		)
+	_shop_inventory.remove_at(index)
+	return _merge_shop_trade_wallet_summary(
+		_build_shop_trade_summary("purchase", item_data, price, 0, true, "ok"),
+		payment
+	)
+
+
+func _sell_player_passive_item(index: int) -> Dictionary:
+	if _is_shop_ap_blocked(not _active_menu_visit_ap_consumed):
+		return _build_shop_trade_summary("sale", {}, 0, 0, false, "no_ap")
+	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("discard_inventory_item"):
+		return _build_shop_trade_summary("sale", {}, 0, 0, false, "missing_item_runtime")
+	if _runtime_owner == null:
+		return _build_shop_trade_summary("sale", {}, 0, 0, false, "missing_owner")
+	var item_data := _get_passive_inventory_item(index)
+	if item_data.is_empty():
+		return _build_shop_trade_summary("sale", {}, 0, 0, false, "no_passive_item")
+	var sell_price := PlazaShopPricing.get_sell_price(item_data)
+	if not bool(mythic_item_runtime.discard_inventory_item(index, _runtime_owner, _runtime_registry)):
+		return _build_shop_trade_summary("sale", item_data, 0, sell_price, false, "no_passive_item")
+	var payment := _perform_shop_wallet_transaction("sale", sell_price, not _active_menu_visit_ap_consumed)
+	if bool(payment.get("changed", false)):
+		_relist_sold_shop_item(item_data)
+	return _merge_shop_trade_wallet_summary(
+		_build_shop_trade_summary("sale", item_data, 0, sell_price, bool(payment.get("changed", false)), str(payment.get("reason", "ok"))),
+		payment
+	)
+
+
+func _play_shop_trade_audio(summary: Dictionary) -> void:
+	if not bool(summary.get("changed", false)):
+		return
+	var game_audio := _get_runtime_instance("game_audio")
+	if game_audio == null:
+		return
+	var action := str(summary.get("action", ""))
+	if action in ["purchase", "sale"] and game_audio.has_method("play_trade"):
+		game_audio.play_trade()
+	elif game_audio.has_method("play_item_get"):
+		game_audio.play_item_get()
 
 
 func _trigger_gacha_menu_action(action_index: int) -> bool:
@@ -2256,6 +2729,10 @@ func _format_shop_transaction_message(summary: Dictionary) -> String:
 				return "액티브 슬롯이 가득 찼습니다."
 			"no_active_item":
 				return "판매할 액티브 아이템이 없습니다."
+			"no_passive_item":
+				return "판매할 패시브 아이템이 없습니다."
+			"inventory_full":
+				return "인벤토리가 가득 찼습니다."
 			"missing_item_runtime", "missing_owner":
 				return "아이템 가방을 찾을 수 없습니다."
 			_:
@@ -2424,6 +2901,7 @@ func _format_tavern_transaction_message(summary: Dictionary) -> String:
 
 func _close_building_menu(play_return_transition: bool = true) -> void:
 	var should_play_return := play_return_transition and _menu_open and not _building_transition_active
+	_close_character_info_overlay(false)
 	_free_interior_view()
 	_menu_open = false
 	_active_menu_type = ""

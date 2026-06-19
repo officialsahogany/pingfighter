@@ -23,7 +23,7 @@ func _run() -> void:
 
 
 func _verify_tavern_accept_and_report_flow() -> void:
-	var save_path := "user://plaza_tavern_menu_smoke.cfg"
+	var save_path := _smoke_save_path("tavern")
 	_cleanup(save_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
@@ -132,6 +132,14 @@ func _cleanup(path: String) -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	if FileAccess.file_exists(backup_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+
+
+func _smoke_save_path(slug: String) -> String:
+	return "res://.tmp/plaza_tavern_menu_smoke_%s_%d_%d.cfg" % [
+		slug,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _string_arrays_equal(left_value: Variant, right_value: Variant) -> bool:

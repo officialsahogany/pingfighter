@@ -31,13 +31,25 @@ const INTERIOR_NPC_TEXTURE_PATHS := {
 }
 
 const INTERIOR_ROOM_TEXTURE_PATHS := {
-	"shop": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_room_imagegen_v1.png",
+	"shop": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_room_topview_imagegen_v2.png",
 }
 
 const INTERIOR_OBJECT_TEXTURE_PATHS := {
 	"crystal": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_crystal_imagegen_v1.png",
 	"capsule": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_capsule_imagegen_v1.png",
 	"sell": "res://assets/ui/plaza/interior/plaza_stage1_interior_shop_object_sell_device_imagegen_v1.png",
+	"money_bundle": "res://assets/ui/plaza/interior/plaza_shop_strewn_money_bundle_autosprite_static_v1.png",
+	"coin_pile": "res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_static_v1.png",
+	"gear": "res://assets/ui/plaza/interior/plaza_shop_strewn_gear_autosprite_static_v1.png",
+	"wrench_tool": "res://assets/ui/plaza/interior/plaza_shop_strewn_wrench_tool_autosprite_static_v1.png",
+	"data_cube": "res://assets/ui/plaza/interior/plaza_shop_strewn_data_cube_autosprite_static_v1.png",
+	"circuit_gadget": "res://assets/ui/plaza/interior/plaza_shop_strewn_circuit_gadget_autosprite_static_v1.png",
+	"money_bundle_anim": "res://assets/ui/plaza/interior/plaza_shop_strewn_money_bundle_autosprite_anim_sheet_v1.png",
+	"coin_pile_anim": "res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_anim_sheet_v1.png",
+	"gear_anim": "res://assets/ui/plaza/interior/plaza_shop_strewn_gear_autosprite_anim_sheet_v1.png",
+	"wrench_tool_anim": "res://assets/ui/plaza/interior/plaza_shop_strewn_wrench_tool_autosprite_anim_sheet_v1.png",
+	"data_cube_anim": "res://assets/ui/plaza/interior/plaza_shop_strewn_data_cube_autosprite_anim_sheet_v1.png",
+	"circuit_gadget_anim": "res://assets/ui/plaza/interior/plaza_shop_strewn_circuit_gadget_autosprite_anim_sheet_v1.png",
 }
 
 const PLAZA_PLAYER_GRID_COLS := 4

@@ -145,6 +145,34 @@ const PRESETS := {
 		"ember_color": Color(1.0, 0.92, 0.62, 1.0),
 		"amethyst_color": Color(0.65, 0.50, 0.85, 1.0),
 	},
+	# Plaza VR shop coin-pile trade affordance. Warm, soft, and slow so it reads
+	# as a premium UI aura instead of a hard warning ring.
+	"shop_coin_trade_aura": {
+		"distort_strength": 0.022,
+		"lateral_strength": 0.018,
+		"jitter_strength": 0.007,
+		"bolt_flow_speed": 0.7,
+		"flicker_speed": 4.0,
+		"pulse_speed": 0.9,
+		"breath_amp": 0.12,
+		"hot_color": Color(1.0, 0.86, 0.42, 1.0),
+		"ember_color": Color(1.0, 0.92, 0.60, 1.0),
+		"amethyst_color": Color(0.30, 0.85, 0.95, 1.0),
+	},
+	# Short click envelope for the same shop coin trade FX. Same shader family,
+	# only stronger flow/flicker uniforms.
+	"shop_coin_trade_burst": {
+		"distort_strength": 0.036,
+		"lateral_strength": 0.030,
+		"jitter_strength": 0.012,
+		"bolt_flow_speed": 2.2,
+		"flicker_speed": 8.5,
+		"pulse_speed": 1.8,
+		"breath_amp": 0.18,
+		"hot_color": Color(1.0, 0.94, 0.62, 1.0),
+		"ember_color": Color(1.0, 0.72, 0.24, 1.0),
+		"amethyst_color": Color(0.26, 0.95, 1.0, 1.0),
+	},
 	"magnetic_lattice": {
 		"distort_strength": 0.045,
 		"lateral_strength": 0.040,
