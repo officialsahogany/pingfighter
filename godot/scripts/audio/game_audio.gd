@@ -299,13 +299,14 @@ const STAGE6_BGM_GAIN := 0.9
 const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
 const BGM_BUS_NAME := "BGM"
 const SFX_BUS_NAME := "SFX"
+const SFX_PAN_PADDLE_BUS_NAME := "SFXPanPaddle"
+const SFX_PAN_WALL_BUS_NAME := "SFXPanWall"
 const AUDIO_SETUP_STEP_COUNT := 7
 const BGM_SETUP_STEP_COUNT := 9
 const PLAYFIELD_LEFT_X := 0.0
 const PLAYFIELD_RIGHT_X := 760.0
 const PLAYFIELD_CENTER_X := 380.0
-const PLAYFIELD_CENTER_Y := 375.0
-const HIT_PAN_STRENGTH := 0.4
+const HIT_PAN_STRENGTH := 0.6
 
 var owner_node: Node
 var player_factory: Object = GameAudioPlayerFactory.new()
@@ -318,10 +319,10 @@ var sfx_volume := DEFAULT_SFX_VOLUME
 var audio_bus_volumes_adopted := false
 var bgm_muted := false
 var muted_bgm_name := ""
-var paddle_hit_sfx: AudioStreamPlayer2D
+var paddle_hit_sfx: AudioStreamPlayer
 var serve_sfx: AudioStreamPlayer
 var pingpong_serve_sfx: AudioStreamPlayer
-var wall_hit_sfx: AudioStreamPlayer2D
+var wall_hit_sfx: AudioStreamPlayer
 var dash_sfx: AudioStreamPlayer
 var half_dash_sfx: AudioStreamPlayer
 var dash_delay_sfx: AudioStreamPlayer
@@ -534,7 +535,8 @@ var _audio_setup_step := 0
 var _audio_setup_stream_prewarm_group := -1
 var _audio_setup_stream_prewarm_index := 0
 var _bgm_setup_step := 0
-var hit_audio_listener: AudioListener2D
+var paddle_hit_panner: AudioEffectPanner
+var wall_hit_panner: AudioEffectPanner
 
 
 func setup(parent: Node) -> void:
@@ -590,11 +592,11 @@ func setup_step(parent: Node) -> bool:
 
 
 func _setup_core_ball_sfx() -> void:
-	_ensure_hit_audio_listener()
-	paddle_hit_sfx = player_factory.create_positional(owner_node, "PaddleHitSfx", PADDLE_HIT_SOUND_PATH, -5.0, _get_centered_hit_audio_position(), HIT_PAN_STRENGTH)
+	_ensure_hit_pan_buses()
+	paddle_hit_sfx = player_factory.create(owner_node, "PaddleHitSfx", PADDLE_HIT_SOUND_PATH, -5.0)
 	serve_sfx = player_factory.create(owner_node, "ServeSfx", SERVE_SOUND_PATH, -5.0)
 	pingpong_serve_sfx = player_factory.create(owner_node, "PingpongServeSfx", PINGPONG_SERVE_SOUND_PATH, -5.0)
-	wall_hit_sfx = player_factory.create_positional(owner_node, "WallHitSfx", WALL_HIT_SOUND_PATH, -7.0, _get_centered_hit_audio_position(), HIT_PAN_STRENGTH)
+	wall_hit_sfx = player_factory.create(owner_node, "WallHitSfx", WALL_HIT_SOUND_PATH, -7.0)
 	dash_sfx = player_factory.create(owner_node, "DashSfx", DASH_SOUND_PATH, -6.0)
 	half_dash_sfx = player_factory.create(owner_node, "HalfDashSfx", HALF_DASH_SOUND_PATH, -6.0)
 	dash_delay_sfx = player_factory.create(owner_node, "DashDelaySfx", DASH_DELAY_SOUND_PATH, 0.0)
@@ -604,24 +606,6 @@ func _setup_core_ball_sfx() -> void:
 	boost_charging_sfx = player_factory.create(owner_node, "BoostChargingSfx", BOOST_CHARGING_SOUND_PATH, -5.0)
 	soul_burst_dash_sfx = player_factory.create(owner_node, "SoulBurstDashSfx", SOUL_BURST_DASH_SOUND_PATH, -5.0)
 	dash_spirit_delete_sfx = player_factory.create(owner_node, "DashSpiritDeleteSfx", DASH_SPIRIT_DELETE_SOUND_PATH, -5.0)
-
-
-func _ensure_hit_audio_listener() -> void:
-	if owner_node == null:
-		return
-	if hit_audio_listener != null and is_instance_valid(hit_audio_listener) and hit_audio_listener.get_parent() == owner_node:
-		hit_audio_listener.position = _get_centered_hit_audio_position()
-		hit_audio_listener.make_current()
-		return
-	hit_audio_listener = AudioListener2D.new()
-	hit_audio_listener.name = "HitAudioListener"
-	hit_audio_listener.position = _get_centered_hit_audio_position()
-	owner_node.add_child(hit_audio_listener)
-	hit_audio_listener.make_current()
-
-
-func _get_centered_hit_audio_position() -> Vector2:
-	return Vector2(PLAYFIELD_CENTER_X, PLAYFIELD_CENTER_Y)
 
 
 func _setup_smasher_skill_sfx() -> void:
@@ -2314,14 +2298,16 @@ func play_power_smash_launch() -> void:
 func play_paddle_hit(source_x: float = PLAYFIELD_CENTER_X) -> void:
 	if paddle_sound_cooldown > 0.0:
 		return
-	if _play_with_pitch_at(paddle_hit_sfx, randf_range(0.98, 1.02), source_x):
+	_ensure_hit_pan_buses()
+	if _play_with_pitch_at(paddle_hit_sfx, randf_range(0.98, 1.02), source_x, paddle_hit_panner):
 		paddle_sound_cooldown = PADDLE_HIT_SOUND_COOLDOWN
 
 
 func play_rally_tier_accent(tier: int, source_x: float = PLAYFIELD_CENTER_X) -> void:
 	var clamped_tier: int = clampi(tier, 1, 5)
 	var pitch: float = 1.08 + float(clamped_tier) * 0.035
-	_play_with_pitch_at(wall_hit_sfx, pitch, source_x)
+	_ensure_hit_pan_buses()
+	_play_with_pitch_at(wall_hit_sfx, pitch, source_x, wall_hit_panner)
 
 
 func play_serve(ball_visual_type: String = "") -> void:
@@ -2384,18 +2370,21 @@ func play_wall_hit(impact_speed: float = 0.0, source_x: float = PLAYFIELD_CENTER
 	if wall_sound_cooldown > 0.0:
 		return
 	var pitch: float = clamp(0.94 + impact_speed / 90.0, 0.94, 1.22) * randf_range(0.98, 1.02)
-	if _play_with_pitch_at(wall_hit_sfx, pitch, source_x):
+	_ensure_hit_pan_buses()
+	if _play_with_pitch_at(wall_hit_sfx, pitch, source_x, wall_hit_panner):
 		wall_sound_cooldown = WALL_HIT_SOUND_COOLDOWN
 
 
 func play_trampoline_bounce(impact_speed: float = 0.0) -> void:
 	var pitch: float = clamp(1.20 + impact_speed / 60.0, 1.20, 1.48) * randf_range(0.97, 1.03)
-	if not _play_with_pitch_at(wall_hit_sfx, pitch, PLAYFIELD_CENTER_X):
+	_ensure_hit_pan_buses()
+	if not _play_with_pitch_at(wall_hit_sfx, pitch, PLAYFIELD_CENTER_X, wall_hit_panner):
 		play_wall_hit(impact_speed)
 
 
 func play_trampoline_catch() -> void:
-	_play_with_pitch_at(wall_hit_sfx, 0.68 * randf_range(0.96, 1.04), PLAYFIELD_CENTER_X)
+	_ensure_hit_pan_buses()
+	_play_with_pitch_at(wall_hit_sfx, 0.68 * randf_range(0.96, 1.04), PLAYFIELD_CENTER_X, wall_hit_panner)
 
 
 func play_round_set() -> void:
@@ -2883,15 +2872,23 @@ func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	return true
 
 
-func _play_with_pitch_at(player: AudioStreamPlayer2D, pitch: float, source_x: float) -> bool:
+func _play_with_pitch_at(player: AudioStreamPlayer, pitch: float, source_x: float, panner: AudioEffectPanner) -> bool:
 	if player == null or player.stream == null:
 		return false
-	player.position = Vector2(clampf(source_x, PLAYFIELD_LEFT_X, PLAYFIELD_RIGHT_X), PLAYFIELD_CENTER_Y)
+	if panner != null:
+		panner.set_pan(_get_hit_pan_from_source_x(source_x))
 	player.pitch_scale = pitch
 	if player.playing:
 		player.stop()
 	player.play()
 	return true
+
+
+func _get_hit_pan_from_source_x(source_x: float) -> float:
+	var clamped_x: float = clampf(source_x, PLAYFIELD_LEFT_X, PLAYFIELD_RIGHT_X)
+	var half_width: float = maxf((PLAYFIELD_RIGHT_X - PLAYFIELD_LEFT_X) * 0.5, 1.0)
+	var normalized_x: float = (clamped_x - PLAYFIELD_CENTER_X) / half_width
+	return clampf(normalized_x * HIT_PAN_STRENGTH, -1.0, 1.0)
 
 
 func _play_random_stream_with_pitch(player: AudioStreamPlayer, streams: Array[AudioStream], pitch: float) -> bool:
@@ -3113,6 +3110,7 @@ func _apply_audio_buses_and_volumes() -> void:
 	_adopt_existing_audio_bus_volumes()
 	_ensure_audio_bus(BGM_BUS_NAME)
 	_ensure_audio_bus(SFX_BUS_NAME)
+	_ensure_hit_pan_buses()
 	_apply_bgm_bus_to_players()
 	_apply_sfx_bus_to_players()
 	_apply_bgm_bus_volume()
@@ -3145,10 +3143,42 @@ func _apply_bgm_bus_to_players() -> void:
 
 func _apply_sfx_bus_to_players() -> void:
 	for player in _get_sfx_players():
-		if player is AudioStreamPlayer:
+		if player == null:
+			continue
+		if player == paddle_hit_sfx:
+			(player as AudioStreamPlayer).bus = SFX_PAN_PADDLE_BUS_NAME
+		elif player == wall_hit_sfx:
+			(player as AudioStreamPlayer).bus = SFX_PAN_WALL_BUS_NAME
+		elif player is AudioStreamPlayer:
 			(player as AudioStreamPlayer).bus = SFX_BUS_NAME
-		elif player is AudioStreamPlayer2D:
-			(player as AudioStreamPlayer2D).bus = SFX_BUS_NAME
+
+
+func _ensure_hit_pan_buses() -> void:
+	if AudioServer.get_bus_index(SFX_BUS_NAME) < 0:
+		_ensure_audio_bus(SFX_BUS_NAME)
+	paddle_hit_panner = _ensure_sfx_pan_bus(SFX_PAN_PADDLE_BUS_NAME, paddle_hit_panner)
+	wall_hit_panner = _ensure_sfx_pan_bus(SFX_PAN_WALL_BUS_NAME, wall_hit_panner)
+
+
+func _ensure_sfx_pan_bus(bus_name: String, current_panner: AudioEffectPanner) -> AudioEffectPanner:
+	var bus_index: int = _ensure_audio_bus(bus_name)
+	if bus_index < 0:
+		return current_panner
+	AudioServer.set_bus_send(bus_index, SFX_BUS_NAME)
+	AudioServer.set_bus_volume_db(bus_index, 0.0)
+	if current_panner != null:
+		return current_panner
+	var effect_count: int = AudioServer.get_bus_effect_count(bus_index)
+	for effect_index in range(effect_count):
+		var effect: AudioEffect = AudioServer.get_bus_effect(bus_index, effect_index)
+		if effect is AudioEffectPanner:
+			var existing_panner: AudioEffectPanner = effect as AudioEffectPanner
+			existing_panner.set_pan(0.0)
+			return existing_panner
+	var panner := AudioEffectPanner.new()
+	panner.set_pan(0.0)
+	AudioServer.add_bus_effect(bus_index, panner)
+	return panner
 
 
 func _configure_sfx_player(player: AudioStreamPlayer) -> AudioStreamPlayer:

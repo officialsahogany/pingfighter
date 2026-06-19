@@ -1,11 +1,35 @@
 # SFX 위치 기반 스테레오 패닝 — 슬라이스 플랜 (단일 소스)
 
-작성: 2026-06-20 · 상태: 설계 확정(리뷰 1회 반영), 배선 대기
+작성: 2026-06-20 · 상태: Arch B(AudioEffectPanner) 재배선 완료, S3 모니터 재청취 대기
 
 > **리뷰 반영 (2026-06-20):** ① 버스 분기·타입정리(이미 §2.2/§4.2). ② **테스트 더블
 > 깨짐** 신규 갭 → §4.4 / 트랩 #8 추가. ③ play_wall_hit 넓은 사용 → impact 경로만
 > source_x(§4.3 강화). ④ `max_distance`만으론 원음량 미보장 → **`attenuation = 0.0`
 > 명시**(§4.1) + `2d_panning_strength` 프로젝트 기본값 의존 명시.
+
+> ## ⛔ S3 QA 결과 (2026-06-20) — Arch A(2D 위치 패닝) 모니터에서 실패 → Arch B로 전환
+>
+> **증상:** Genelec 모니터링 스피커에서 좌/우 패닝이 들리지 않고 **볼륨만 매우
+> 작아짐**. **근본 원인(Godot 4 공식 문서 확인):**
+> 1. **유효 강도 0.2.** `2d_panning_strength` 프로젝트 **기본값은 0.5**(1.0 아님 —
+>    리뷰 ④의 "기본 1.0" 가정은 오류). 최종 = 노드 `HIT_PAN_STRENGTH`(0.4) ×
+>    0.5 = **0.2**로 매우 약함.
+> 2. **2D 패닝은 헤드폰 튜닝.** 문서: *"default 0.5 is tuned for headphones, lower
+>    values may be better for speakers due to their lower stereo separation."*
+>    떨어진 모니터에서 약한 선형 팬이 좌우 이동이 아니라 **중앙 레벨 딥**으로
+>    들린다. = 플랜 트랩 #5/#6이 경고한 패닝-레벨 커플링.
+>
+> **결정:** AudioStreamPlayer2D 위치 패닝(§4.1~§4.3, S1+S2 구현분 b893c44bb)을
+> **폐기**하고 **§8.2 AudioEffectPanner(Arch B)로 전환**. 문서가 명시: 2D 노드는
+> "tracking the source on screen"으로 자동 패닝하지만 **AudioEffectPanner는 "manual
+> control when needed"** — -1~+1 직접 지정, 거리/볼륨 커플링 없음, 리스너 불필요,
+> 모니터 예측 가능. 아래 §1~§7은 Arch A 기준 역사 기록으로 보존(타입함정/호출부/
+> fake/스모크 자산 상당 부분 재사용); **실제 구현 기준은 §8.2.**
+>
+> **선택적 빠른 확인(1줄, 폐기 전 검증용):** `HIT_PAN_STRENGTH`를 0.4→4.0으로
+> 임시 크랭크(유효 ~1.0 → 문서상 한쪽 채널 거의 뮤트). 좌타격이 왼쪽 스피커에서만
+> 또렷이 나면 "그냥 너무 약했음"(2D 유지 + 강도 상향 가능), **여전히 볼륨만
+> 작아지면** 2D가 이 모니터에서 스테레오 분리를 못 만드는 것 → 전환 확정.
 
 이 문서는 "효과음을 소리 나는 위치(playfield X)에 따라 좌우로 패닝"하는
 기능의 단일 소스 설계서다. 실제 GDScript 배선은 Codex/소유자가 하고
@@ -244,9 +268,11 @@ func create_positional(parent: Node, name: String, path: String, volume_db: floa
 - **S2 — X 배선.** 호출부 2곳(`paddle_bounce_rally_feedback_router`,
   `wall_bounce_controller`)에서 X 전달. director_smoke FakeAudio는 X 캡처+단언(선택).
   → 여기서 처음으로 패닝이 들림.
-- **S3 — 튜닝 + 라이브 QA.** `HIT_PAN_STRENGTH` 인게임 청취 조절. 가장자리 타격이
-  자연스럽게 살짝 쏠리는지, 중앙이 기존과 같은지, **가장자리/중앙 음량 동일**(리뷰 ④)인지,
-  멀티볼 동시 타격이 각자 패닝되는지 확인.
+- **S3 — 튜닝 + 라이브 QA.** `HIT_PAN_STRENGTH` 인게임 청취 조절.
+  **튜닝 레시피(소유자 권장):** `0.4`로 시작 → **헤드폰** 기준 좌/중/우 타격을 들어보고
+  **과하면 0.3, 약하면 0.5** 정도만 비교(미세 스윕 불필요). 함께 확인:
+  중앙이 기존과 같은지, **가장자리/중앙 음량 동일**(리뷰 ④, attenuation=0 실측)인지,
+  멀티볼 동시 타격이 각자 패닝되는지. 강도 레버는 노드 `HIT_PAN_STRENGTH` 한 곳뿐.
 
 ---
 
@@ -308,23 +334,58 @@ func create_positional(parent: Node, name: String, path: String, volume_db: floa
 ## §8 범위 밖 / 후속 / 대안
 
 ### §8.1 스킬·이펙트 확장 (후속 슬라이스)
+
+**원칙(소유자 합의):** 같은 기반(§8.2 팬 버스 / `AudioEffectPanner` / `_play_with_pitch_at`)을
+**재사용**하되, **위치 의미가 분명한 사운드부터 작은 슬라이스로** 확장한다. 한 번에
+전부 패닝하지 말 것 — 위치 의미가 모호한 음(UI·전역 스팅어·앰비언트)은 중앙 유지가
+기본이고, "이 음은 화면 어디서 났다"가 명확한 것만 골라 옮긴다(§4.3 wall_hit 교훈 동일).
+
 - 스킬: `viper_skill_audio_router` 등 stateless `deps`-only 라우터 → 소유 런타임에서
-  X를 한 단계 내려줘야 함. 백본(create_positional/리스너/`_play_with_pitch_at`)은 재사용.
+  X를 한 단계 내려줘야 함. 백본(§8.2 팬 버스 + `_play_with_pitch_at`)은 재사용.
 - 이펙트: 벽돌파괴(impact_pos 보유) 쉬움 / 투척 폭발(모듈 상태) 중간 /
   `mythic_item_audio_router`(stateless) X 배선 필요.
-- 확장 시 해당 플레이어만 추가로 2D화 + §2.2 타입 체크리스트 반복.
+- 확장 시 **동시 독립 패닝 수만큼 팬 버스 풀**(§8.2)을 라운드로빈으로 키운다
+  (AK-47 보이스 풀과 동형). 2개(타격) → N개.
 
-### §8.2 Arch B — 경량 대안 (단일 패닝 버스)
-노드 타입 안 바꿈. `SFX` 자식으로 `SFX_PAN` 버스 + `AudioEffectPanner` 하나,
-타격 2개 플레이어를 거기로 상시 라우팅, 재생 직전 `panner.set_pan((x-380)/380 * 강도)`.
-- 장점: 타입 함정 전무, 변경 최소(~1시간).
-- 단점: 동시 타격이 다른 X로 겹치면 **마지막 pan을 둘 다 공유**(아직 울리는 음이
-  점프). 은은한 강도 + 짧은 타격음이라 대체로 가려지지만 깨끗하진 않음. 스킬/이펙트
-  다수 독립 패닝으로 확장 불가.
-- 권장: Arch A를 선호. 단 "최소 위험·hits-only"만 원하면 Arch B.
+### §8.2 ✅ Arch B — AudioEffectPanner (S3 QA 후 채택된 실제 구현 기준)
+
+**왜 이게 정답인가:** AudioStreamPlayer2D의 2D 위치 패닝은 화면추적·헤드폰 튜닝·
+거리/레벨 커플링이라 **모니터에서 볼륨 딥으로 번역됨(S3 QA 실패)**. AudioEffectPanner는
+버스 이펙트로 **pan(-1~+1)을 직접 지정**, 거리/볼륨 커플링 0, 리스너 0, 모니터 예측 가능.
+
+**백본 (per-player 팬 버스 — 타격 2개 독립 패닝):**
+- 타격 2개 플레이어를 **일반 `AudioStreamPlayer`로 되돌림** (Arch A의 2D 노드화·리스너·
+  `_ensure_hit_audio_listener`·`_get_centered_hit_audio_position`·`create_positional`
+  전부 제거/롤백). `_apply_sfx_bus_to_players`의 2D 분기도 제거(원복).
+- **팬 버스 2개 생성** (런타임, 기존 `_ensure_audio_bus` 패턴): `SFXPanPaddle`,
+  `SFXPanWall`. 각 버스에 `AudioEffectPanner` 1개 추가
+  (`AudioServer.add_bus_effect(idx, AudioEffectPanner.new())`), 핸들 보관.
+  **두 버스의 send를 `SFX`로** (`AudioServer.set_bus_send(idx, "SFX")`) → SFX 볼륨
+  슬라이더/뮤트가 그대로 적용(SFX→Master 체인 유지).
+- 라우팅: `paddle_hit_sfx.bus = "SFXPanPaddle"`, `wall_hit_sfx.bus = "SFXPanWall"`.
+  (rally_accent·트램펄린은 wall_hit_sfx 재사용 → 같은 팬 버스, 같은 플레이어라 restart로
+  충돌 없음.)
+- 재생 헬퍼: `_play_with_pitch_at(player, pitch, source_x, panner)` →
+  `panner.set_pan(clampf((source_x - 380.0) / 380.0 * HIT_PAN_STRENGTH, -1.0, 1.0))`
+  후 pitch + stop/play. **`HIT_PAN_STRENGTH`는 이제 직접 팬 배수**(2D의 0.4×0.5
+  아님). "은은하게" = 약 **0.5~0.7**에서 시작(가장자리 → pan ±0.5~0.7), S3 청취 튜닝.
+- 공개 함수 시그니처(`play_paddle_hit(source_x=380)` 등)·호출부 2곳(ball_pos.x/
+  impact_pos.x)·fake 옵셔널 인자(§4.4)·디렉터 스모크 X단언은 **그대로 재사용**.
+
+**장점:** 거리/볼륨 커플링 0 → 볼륨 딥 없음. 명시 -1~+1 팬 → 모니터 예측 가능.
+per-player 버스라 타격 2개 **독립 패닝**(단일 버스의 overlap pan 공유 문제 없음).
+**단점/주의:** 버스 send 체인(팬버스→SFX) 검증 필수(볼륨/뮤트 전파). 확장은 §8.1대로
+버스 풀. 단일 버스(1개)로 더 줄일 수도 있으나 paddle/wall 동시 타격 시 pan 공유 → 2개 권장.
+
+**스모크 갱신:** §7을 팬 버스 기준으로 — `paddle_hit_sfx`가 일반 `AudioStreamPlayer`
+복귀 단언, 팬 버스 2개 존재 + send==SFX 단언, `play_paddle_hit(120.0)` 후
+**해당 팬 버스의 `AudioEffectPanner.get_pan()`이 음수**(좌측)인지 단언, 중앙(380)→pan≈0,
+우측(700)→양수. (위치 매핑 → 팬 값 매핑으로 교체.)
 
 ---
 
 ## 다음 단계
-배선은 Codex/소유자, 리뷰는 Claude. S1(백본, 동작 변화 0) → S2(X 배선) →
-S3(튜닝·라이브 청취) 순. 첫 PR은 S1+S2 묶고 §7 스모크 동봉 권장.
+배선은 Codex/소유자, 리뷰는 Claude. **현재 상태: Arch A(2D) S1+S2는 b893c44bb에
+들어갔으나 S3 QA로 폐기했고, §8.2 AudioEffectPanner 백본 재배선까지 완료.**
+남은 일은 S3 모니터 재청취(현재 직접 팬 배수 `HIT_PAN_STRENGTH = 0.6`,
+필요 시 0.5~0.7 범위 튜닝).

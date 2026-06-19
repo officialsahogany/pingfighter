@@ -53,7 +53,7 @@ func _run() -> void:
 	_expect(AudioServer.get_bus_index("BGM") >= 0, "BGM bus should exist for option sliders")
 	_expect(AudioServer.get_bus_index("SFX") >= 0, "SFX bus should exist for option sliders")
 	_expect(audio.stage1_bgm != null and audio.stage1_bgm.bus == "BGM", "BGM players should route through the BGM bus")
-	_expect(audio.paddle_hit_sfx != null and audio.paddle_hit_sfx.bus == "SFX", "SFX players should route through the SFX bus")
+	_expect(audio.paddle_hit_sfx != null and audio.paddle_hit_sfx.bus == GameAudio.SFX_PAN_PADDLE_BUS_NAME, "hit SFX players should route through panner buses")
 	_verify_hit_sfx_uses_positional_panning(audio)
 	_expect(float(audio.set_bgm_volume(4.0)) == 1.0, "BGM setter should clamp high values")
 	_expect(float(audio.set_sfx_volume(-1.0)) == 0.0, "SFX setter should clamp low values")
@@ -128,33 +128,37 @@ func _cleanup_player_2d(player: AudioStreamPlayer2D) -> void:
 
 
 func _verify_hit_sfx_uses_positional_panning(target_audio: Object) -> void:
-	var paddle_player := target_audio.paddle_hit_sfx as AudioStreamPlayer2D
-	var wall_player := target_audio.wall_hit_sfx as AudioStreamPlayer2D
-	_expect(paddle_player != null, "paddle hit SFX should use AudioStreamPlayer2D for positional panning")
-	_expect(wall_player != null, "wall hit SFX should use AudioStreamPlayer2D for positional panning")
+	var paddle_player := target_audio.paddle_hit_sfx as AudioStreamPlayer
+	var wall_player := target_audio.wall_hit_sfx as AudioStreamPlayer
+	_expect(paddle_player != null, "paddle hit SFX should use a regular AudioStreamPlayer with a panner bus")
+	_expect(wall_player != null, "wall hit SFX should use a regular AudioStreamPlayer with a panner bus")
 	if paddle_player == null or wall_player == null:
 		return
-	for player in [paddle_player, wall_player]:
-		_expect(player.bus == "SFX", "positional hit SFX should still route through the SFX bus")
-		_expect(is_equal_approx(player.panning_strength, GameAudio.HIT_PAN_STRENGTH), "positional hit SFX should use the shared hit-pan strength")
-		_expect(is_equal_approx(player.attenuation, 0.0), "positional hit SFX should disable distance-based volume attenuation")
-		_expect(player.max_distance >= 100000.0, "positional hit SFX should keep a wide max distance safety value")
-		_expect(is_equal_approx(player.position.x, GameAudio.PLAYFIELD_CENTER_X), "positional hit SFX should start centered on the playfield")
-		_expect(is_equal_approx(player.position.y, GameAudio.PLAYFIELD_CENTER_Y), "positional hit SFX should keep the listener-height Y anchor")
-	_expect(target_audio._get_sfx_players().has(paddle_player), "paddle hit positional player should participate in SFX volume updates")
-	_expect(target_audio._get_sfx_players().has(wall_player), "wall hit positional player should participate in SFX volume updates")
+	_expect(paddle_player.bus == GameAudio.SFX_PAN_PADDLE_BUS_NAME, "paddle hit SFX should route through its panner bus")
+	_expect(wall_player.bus == GameAudio.SFX_PAN_WALL_BUS_NAME, "wall hit SFX should route through its panner bus")
+	_expect(_pan_bus_sends_to_sfx(GameAudio.SFX_PAN_PADDLE_BUS_NAME), "paddle panner bus should send to the SFX bus")
+	_expect(_pan_bus_sends_to_sfx(GameAudio.SFX_PAN_WALL_BUS_NAME), "wall panner bus should send to the SFX bus")
+	_expect(target_audio.paddle_hit_panner is AudioEffectPanner, "paddle hit panner effect should exist")
+	_expect(target_audio.wall_hit_panner is AudioEffectPanner, "wall hit panner effect should exist")
+	_expect(target_audio._get_sfx_players().has(paddle_player), "paddle hit player should participate in SFX volume updates")
+	_expect(target_audio._get_sfx_players().has(wall_player), "wall hit player should participate in SFX volume updates")
 	target_audio.paddle_sound_cooldown = 0.0
 	target_audio.play_paddle_hit(120.0)
-	_expect(is_equal_approx(paddle_player.position.x, 120.0), "paddle hit source X should map to the positional player X")
+	_expect(target_audio.paddle_hit_panner.get_pan() < 0.0, "paddle hit source X left of center should set a negative pan")
 	paddle_player.stop()
 	target_audio.wall_sound_cooldown = 0.0
 	target_audio.play_wall_hit(20.0, 700.0)
-	_expect(is_equal_approx(wall_player.position.x, 700.0), "wall hit source X should map to the positional player X")
+	_expect(target_audio.wall_hit_panner.get_pan() > 0.0, "wall hit source X right of center should set a positive pan")
 	wall_player.stop()
 	target_audio.wall_sound_cooldown = 0.0
 	target_audio.play_wall_hit(20.0)
-	_expect(is_equal_approx(wall_player.position.x, GameAudio.PLAYFIELD_CENTER_X), "wall hit without source X should keep the centered fallback")
+	_expect(is_equal_approx(target_audio.wall_hit_panner.get_pan(), 0.0), "wall hit without source X should keep centered pan")
 	wall_player.stop()
+
+
+func _pan_bus_sends_to_sfx(bus_name: String) -> bool:
+	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	return bus_index >= 0 and str(AudioServer.get_bus_send(bus_index)) == GameAudio.SFX_BUS_NAME
 
 
 func _verify_setup_step_completes_from_cold_cache() -> void:
