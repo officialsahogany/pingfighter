@@ -266,6 +266,7 @@ func get_performance_snapshot() -> Dictionary:
 		"kuromi_spit_warning_contrast_stroke": true,
 		"kuromi_crack_particle_draw_limit": KUROMI_CRACK_PARTICLE_DRAW_LIMIT,
 		"kuromi_crack_particle_detailed_draw_limit": KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT,
+		"kuromi_crack_particle_polygon_guard": true,
 		"viper_airborne_lod_supported": true,
 		"heart_particle_draw_limit_lod": HEART_PARTICLE_DRAW_LIMIT_LOD,
 		"heart_particle_draw_limit_severe_lod": HEART_PARTICLE_DRAW_LIMIT_SEVERE_LOD,
@@ -668,20 +669,17 @@ func _draw_kuromi_stone_fragment(canvas: CanvasItem, particle: Dictionary, shake
 	var seed: int = absi(int(particle.get("seed", 1)))
 	var num_points: int = 5 + seed % 3
 	var rotation: float = deg_to_rad(float(particle.get("rotation", 0.0)))
-	var points := PackedVector2Array()
-	for idx in range(num_points):
-		var base_angle: float = rotation + float(idx) * TAU / float(num_points)
-		var angle_variation: float = float((seed + idx * 137) % 100) / 100.0 * 0.8 - 0.4
-		var dist_factor: float = 0.8 + float((seed + idx * 71) % 100) / 150.0 if idx % 2 == 0 else 0.4 + float((seed + idx * 53) % 100) / 300.0
-		points.append(center + Vector2(cos(base_angle + angle_variation), sin(base_angle + angle_variation)) * size * dist_factor)
-	if points.size() < 3:
+	var points: PackedVector2Array = _build_kuromi_stone_fragment_points(center, size, seed, rotation, num_points)
+	if not _is_polygon_triangulable(points):
+		_draw_simple_kuromi_stone_fragment(canvas, center, size, z_pos, alpha, base_color)
 		return
 	if z_pos > 20.0:
 		var shadow_offset := Vector2(z_pos / 10.0, z_pos / 10.0)
 		var shadow_points := PackedVector2Array()
 		for point in points:
 			shadow_points.append(point + shadow_offset)
-		canvas.draw_colored_polygon(shadow_points, Color(0.0, 0.0, 0.0, 0.30 * alpha))
+		if _is_polygon_triangulable(shadow_points):
+			canvas.draw_colored_polygon(shadow_points, Color(0.0, 0.0, 0.0, 0.30 * alpha))
 	var body_color := Color(
 		minf(1.0, base_color.r + minf(30.0, size / 2.0) / 255.0),
 		minf(1.0, base_color.g + minf(30.0, size / 2.0) / 255.0),
@@ -695,8 +693,34 @@ func _draw_kuromi_stone_fragment(canvas: CanvasItem, particle: Dictionary, shake
 		var highlight_points := PackedVector2Array()
 		for idx in range(highlight_count):
 			highlight_points.append(points[idx])
-		canvas.draw_colored_polygon(highlight_points, Color(minf(1.0, base_color.r + 60.0 / 255.0), minf(1.0, base_color.g + 60.0 / 255.0), minf(1.0, base_color.b + 60.0 / 255.0), 0.48 * alpha))
+		if _is_polygon_triangulable(highlight_points):
+			canvas.draw_colored_polygon(highlight_points, Color(minf(1.0, base_color.r + 60.0 / 255.0), minf(1.0, base_color.g + 60.0 / 255.0), minf(1.0, base_color.b + 60.0 / 255.0), 0.48 * alpha))
 	canvas.draw_polyline(points, Color(maxf(0.0, base_color.r - 70.0 / 255.0), maxf(0.0, base_color.g - 70.0 / 255.0), maxf(0.0, base_color.b - 70.0 / 255.0), alpha), 2.0, true)
+
+
+func _build_kuromi_stone_fragment_points(
+	center: Vector2,
+	size: float,
+	seed: int,
+	rotation: float,
+	num_points: int
+) -> PackedVector2Array:
+	var safe_count: int = clampi(num_points, 3, 8)
+	var angle_step: float = TAU / float(safe_count)
+	var angle_jitter_limit: float = minf(0.22, angle_step * 0.24)
+	var points := PackedVector2Array()
+	for idx in range(safe_count):
+		var base_angle: float = rotation + float(idx) * angle_step
+		var jitter_unit: float = float((seed + idx * 137) % 100) / 99.0 * 2.0 - 1.0
+		var angle_variation: float = jitter_unit * angle_jitter_limit
+		var radius_unit: float = float((seed + idx * 71) % 100) / 99.0
+		var dist_factor: float = 0.74 + radius_unit * 0.22
+		points.append(center + Vector2(cos(base_angle + angle_variation), sin(base_angle + angle_variation)) * size * dist_factor)
+	return points
+
+
+func _is_polygon_triangulable(points: PackedVector2Array) -> bool:
+	return points.size() >= 3 and not Geometry2D.triangulate_polygon(points).is_empty()
 
 
 func _draw_simple_kuromi_stone_fragment(canvas: CanvasItem, center: Vector2, size: float, z_pos: float, alpha: float, base_color: Color) -> void:

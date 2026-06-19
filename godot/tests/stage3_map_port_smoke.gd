@@ -263,6 +263,8 @@ func _init() -> void:
 	_expect(bool(playfield_perf.get("kuromi_spit_warning_contrast_stroke", false)), "Stage 3 Kuromi spit direction warning should use a contrast stroke")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit", 999)) <= 36, "Stage 3 Kuromi crack particles should cap per-frame drawing")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_detailed_draw_limit", 999)) <= 10, "Stage 3 Kuromi crack particles should cap detailed polygon drawing")
+	_expect(bool(playfield_perf.get("kuromi_crack_particle_polygon_guard", false)), "Stage 3 Kuromi crack fragments should guard against degenerate polygon fills")
+	_verify_kuromi_fragment_polygon_stability(direct_playfield)
 	_expect(bool(playfield_perf.get("viper_airborne_lod_supported", false)), "Stage 3 playfield should expose shared Viper airborne LOD support")
 	_expect(bool(playfield_perf.get("shared_render_quality_lod_supported", false)), "Stage 3 playfield should expose shared render-quality LOD support")
 	_expect(int(playfield_perf.get("stadium_circle_segments_severe_lod", 0)) >= 16, "Stage 3 stadium rings should preserve a round silhouette in severe Viper LOD")
@@ -561,6 +563,33 @@ func _expect_stage3_asset(path: String, expected_size: Vector2, message: String)
 	var texture: Texture2D = ProjectResourceLoader.load_texture(path)
 	_expect(texture != null, message)
 	_expect(texture.get_size() == expected_size, "%s with original source dimensions" % message)
+
+
+func _verify_kuromi_fragment_polygon_stability(renderer: Object) -> void:
+	var center := Vector2(380.0, 360.0)
+	for seed in range(1, 161):
+		for point_count in [5, 6, 7]:
+			for size in [8.0, 12.0, 24.0]:
+				var rotation: float = deg_to_rad(float((seed * 17) % 360))
+				var points: PackedVector2Array = renderer._build_kuromi_stone_fragment_points(
+					center,
+					float(size),
+					int(seed),
+					rotation,
+					int(point_count)
+				)
+				_expect(
+					not Geometry2D.triangulate_polygon(points).is_empty(),
+					"Stage 3 Kuromi fragment polygon should stay triangulable"
+				)
+				var highlight_count: int = max(3, floori(float(points.size()) / 3.0))
+				var highlight_points := PackedVector2Array()
+				for idx in range(highlight_count):
+					highlight_points.append(points[idx])
+				_expect(
+					not Geometry2D.triangulate_polygon(highlight_points).is_empty(),
+					"Stage 3 Kuromi fragment highlight polygon should stay triangulable"
+				)
 
 
 func _expect(condition: bool, message: String) -> void:
