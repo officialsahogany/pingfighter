@@ -21,12 +21,21 @@ class PhysicsProbe:
 		pass
 
 
+class HeaderOwner:
+	extends Node
+
+	var current_stage := 1
+	var selected_character_type := "smasher"
+	var weather_type := ""
+
+
 func _init() -> void:
 	_verify_catalog_registration()
 	_verify_sample_collection()
 	_verify_boundary_summary()
 	_verify_gap_summary()
 	_verify_status_contract()
+	_verify_live_owner_header_context()
 	_verify_process_node_summary()
 	_verify_jetpack_state_label()
 	_verify_physics_monitor_summary()
@@ -253,6 +262,30 @@ func _verify_status_contract() -> void:
 	logger.sample_summary_enabled = true
 	var sample_status: Dictionary = logger.get_status()
 	_expect(bool(sample_status.get("samples_enabled", false)), "status should report full sample-summary logging when forced on")
+
+
+func _verify_live_owner_header_context() -> void:
+	var logger := BattlePerfLogger.new()
+	var owner := HeaderOwner.new()
+	owner.current_stage = 2
+	owner.selected_character_type = "viper"
+	owner.weather_type = "storm"
+	logger.set_scene_owner(owner)
+	logger.remember_context({
+		"current_stage": 1,
+		"selected_character_type": "smasher",
+		"active_weather_type": "rain",
+	})
+	var header_context: Dictionary = logger._build_header_context({})
+	_expect(int(header_context.get("current_stage", 0)) == 2, "battle perf header should prefer the live owner stage over stale remembered context")
+	_expect(str(header_context.get("selected_character_type", "")) == "viper", "battle perf header should prefer the live owner character")
+	_expect(str(header_context.get("active_weather_type", "")) == "storm", "battle perf header should mirror owner weather_type when active_weather_type is absent")
+	var header: String = logger._build_log_header({"current_stage": 1})
+	_expect(header.find("stage=2") >= 0, "battle perf header string should not stay on a stale stage")
+	owner.current_stage = 3
+	var advanced_header: String = logger._build_log_header({})
+	_expect(advanced_header.find("stage=3") >= 0, "battle perf header should follow later stage transitions even with an empty maybe_log context")
+	owner.free()
 
 
 func _verify_process_node_summary() -> void:

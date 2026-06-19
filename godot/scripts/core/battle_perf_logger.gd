@@ -182,13 +182,7 @@ func maybe_log(context: Dictionary = {}) -> void:
 	if now_msec < next_log_msec:
 		return
 	next_log_msec = now_msec + int(_get_log_interval_sec() * 1000.0)
-	var header_context: Dictionary = context if not context.is_empty() else last_context
-	var header := "stage=%d char=%s weather=%s%s" % [
-		int(header_context.get("current_stage", 1)),
-		str(header_context.get("selected_character_type", "smasher")),
-		str(header_context.get("active_weather_type", "")),
-		_build_jetpack_label(),
-	]
+	var header := _build_log_header(context)
 	print("[BattlePerf-Boundary] ", header, " ", _build_boundary_summary())
 	var gap_summary: String = _build_gap_summary()
 	if gap_summary != "":
@@ -207,6 +201,49 @@ func maybe_log(context: Dictionary = {}) -> void:
 	samples.clear()
 	counters.clear()
 	_reset_jetpack_state_counts()
+
+
+func _build_log_header(context: Dictionary = {}) -> String:
+	var header_context: Dictionary = _build_header_context(context)
+	return "stage=%d char=%s weather=%s%s" % [
+		int(header_context.get("current_stage", 1)),
+		str(header_context.get("selected_character_type", "smasher")),
+		str(header_context.get("active_weather_type", "")),
+		_build_jetpack_label(),
+	]
+
+
+func _build_header_context(context: Dictionary = {}) -> Dictionary:
+	var header_context: Dictionary = {}
+	if not last_context.is_empty():
+		header_context = last_context.duplicate(true)
+	for key_value in context.keys():
+		header_context[key_value] = context.get(key_value)
+	_merge_scene_owner_header_context(header_context)
+	return header_context
+
+
+func _merge_scene_owner_header_context(header_context: Dictionary) -> void:
+	var stage_value: Variant = _get_scene_owner_value("current_stage", null)
+	if stage_value != null:
+		header_context["current_stage"] = int(stage_value)
+	var character_value: Variant = _get_scene_owner_value("selected_character_type", null)
+	if character_value != null:
+		header_context["selected_character_type"] = str(character_value)
+	var weather_value: Variant = _get_scene_owner_value("active_weather_type", null)
+	if weather_value == null:
+		weather_value = _get_scene_owner_value("weather_type", null)
+	if weather_value != null:
+		header_context["active_weather_type"] = str(weather_value)
+
+
+func _get_scene_owner_value(key: String, fallback: Variant) -> Variant:
+	if scene_owner == null or not is_instance_valid(scene_owner):
+		return fallback
+	var value: Variant = scene_owner.get(key)
+	if value == null:
+		return fallback
+	return value
 
 
 func get_status() -> Dictionary:

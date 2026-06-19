@@ -22,9 +22,7 @@ func process_idle(
 			_perf_end(perf_logger, "process.intro.logo_update", sample_start)
 		if logo_intro.has_method("is_active") and not bool(logo_intro.is_active()):
 			if not _is_boot_warmup_finished(module_getter):
-				sample_start = _perf_begin(perf_logger)
-				_call(callbacks, "run_boot_warmup_step")
-				_perf_end(perf_logger, "process.intro.boot_warmup_step", sample_start)
+				_run_boot_warmup_step_with_perf(owner, module_getter, callbacks, perf_logger)
 				_queue_redraw(owner)
 				return true
 		else:
@@ -35,9 +33,7 @@ func process_idle(
 		return true
 
 	if not _is_boot_warmup_finished(module_getter):
-		sample_start = _perf_begin(perf_logger)
-		_call(callbacks, "run_boot_warmup_step")
-		_perf_end(perf_logger, "process.intro.boot_warmup_step", sample_start)
+		_run_boot_warmup_step_with_perf(owner, module_getter, callbacks, perf_logger)
 		if not _is_boot_warmup_finished(module_getter):
 			_queue_redraw(owner)
 			return true
@@ -177,6 +173,75 @@ func _call_bool(callbacks: Dictionary, key: String) -> bool:
 	if not callback.is_valid():
 		return false
 	return bool(callback.call())
+
+
+func _run_boot_warmup_step_with_perf(
+	_owner: Object,
+	module_getter: Callable,
+	callbacks: Dictionary,
+	perf_logger: Object
+) -> void:
+	var warmup: Object = _get_module(module_getter, "battle_boot_warmup_controller")
+	var start_step := _get_int_property(warmup, "boot_warmup_step", -1)
+	var start_detail_label := _get_boot_warmup_detail_label(warmup, _owner, module_getter)
+	var sample_start: int = _perf_begin(perf_logger)
+	_call(callbacks, "run_boot_warmup_step")
+	var end_step := _get_int_property(warmup, "boot_warmup_step", -1)
+	_perf_end(perf_logger, "process.intro.boot_warmup_step", sample_start)
+	var batch_label := _build_boot_warmup_batch_sample_label(start_step, end_step)
+	if batch_label == "":
+		return
+	_perf_end(perf_logger, batch_label, sample_start)
+	var detail_batch_label := _build_boot_warmup_batch_detail_sample_label(start_step, end_step, start_detail_label)
+	if detail_batch_label != "":
+		_perf_end(perf_logger, detail_batch_label, sample_start)
+	_record_counter(perf_logger, "boot_warmup.batch.start_step", float(start_step))
+	_record_counter(perf_logger, "boot_warmup.batch.end_step", float(end_step))
+	_record_counter(perf_logger, "boot_warmup.batch.steps_advanced", float(max(0, end_step - start_step)))
+
+
+func _build_boot_warmup_batch_sample_label(start_step: int, end_step: int) -> String:
+	if start_step < 0 or end_step < 0:
+		return ""
+	return "process.intro.boot_warmup_batch.step_%02d_to_%02d" % [start_step, end_step]
+
+
+func _build_boot_warmup_batch_detail_sample_label(start_step: int, end_step: int, detail_label: String) -> String:
+	if detail_label == "":
+		return ""
+	if start_step < 0 or end_step < 0:
+		return ""
+	return "process.intro.boot_warmup_batch_detail.step_%02d_to_%02d.%s" % [
+		start_step,
+		end_step,
+		_sanitize_sample_token(detail_label),
+	]
+
+
+func _get_boot_warmup_detail_label(warmup: Object, owner: Object, module_getter: Callable) -> String:
+	if warmup != null and warmup.has_method("get_current_sample_detail_label"):
+		return str(warmup.get_current_sample_detail_label(owner, module_getter))
+	return ""
+
+
+func _get_int_property(source: Object, property_name: String, fallback: int) -> int:
+	if source == null:
+		return fallback
+	var value: Variant = source.get(property_name)
+	if typeof(value) == TYPE_INT:
+		return int(value)
+	if typeof(value) == TYPE_FLOAT:
+		return int(value)
+	return fallback
+
+
+func _sanitize_sample_token(value: String) -> String:
+	return value.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "_")
+
+
+func _record_counter(perf_logger: Object, label: String, value: float) -> void:
+	if perf_logger != null and perf_logger.has_method("record_counter_sample"):
+		perf_logger.record_counter_sample(label, value)
 
 
 func _queue_redraw(owner: Object) -> void:
