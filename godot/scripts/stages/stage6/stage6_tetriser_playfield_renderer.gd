@@ -153,9 +153,16 @@ func _draw_cube(canvas: CanvasItem, cube: Dictionary, shake_offset: Vector2) -> 
 func _draw_wall_cell(canvas: CanvasItem, wall_cell: Dictionary, cell_vec: Vector2, shake_offset: Vector2) -> void:
 	var rect := Rect2(_as_vector2(wall_cell.get("origin", Vector2.ZERO)) + shake_offset, cell_vec)
 	var fill: Color = wall_cell.get("color", Color(0.6, 0.7, 1.0))
+	fill.a *= clampf(float(wall_cell.get("alpha", 1.0)), 0.0, 1.0)
+	if fill.a <= 0.0:
+		return
 	canvas.draw_rect(rect, fill)
-	canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
-	canvas.draw_rect(rect, BORDER_COLOR, false, 2.0)
+	var highlight := INNER_HIGHLIGHT
+	highlight.a *= fill.a
+	var border := BORDER_COLOR
+	border.a *= fill.a
+	canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), highlight)
+	canvas.draw_rect(rect, border, false, 2.0)
 
 
 func _draw_debris(canvas: CanvasItem, debris: Dictionary, shake_offset: Vector2) -> void:

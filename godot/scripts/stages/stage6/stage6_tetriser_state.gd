@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CrystalShieldState := preload("res://scripts/stages/stage6/stage6_tetriser_crystal_shield_state.gd")
+const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
 
 # Stage 6 Tetriser boss state.
 #
@@ -38,6 +39,14 @@ const TETRO_FALL_SPEED := 82.0           # ≈ 9px / 0.110s (원본 110ms 스텝
 const TETRO_DRIFT_CHANCE := 0.40         # 낙하 중 수평 드리프트 확률
 const TETRO_ROTATE_CHANCE := 0.35        # 낙하 중 회전 확률
 const TETRO_EVENT_CHECK_INTERVAL_SEC := 0.45
+const TETRO_SETTLED_LIFETIME_SEC := 1.5
+const TETRO_EVAPORATE_CELL_INTERVAL_SEC := 0.16
+const TETRO_EXPLOSION_BASE_RADIUS := 80.0
+const TETRO_EXPLOSION_KNOCKBACK := 12.0
+const TETRO_EXPLOSION_STUN_FRAMES := 30.0
+const TETRO_SUPER_EXPLOSION_STUN_FRAMES := 54.0
+const TETRO_EXPLOSION_KNOCKBACK_FRAMES := 18.0
+const TETRO_EXPLOSION_KNOCKBACK_DECAY := 0.88
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const SPAWN_TOP_Y := 92.0                # 보스 hitbox(~65) 아래에서 조립 시작
@@ -69,8 +78,8 @@ const WALL_INTERVAL_SEC := 30.0
 const WALL_COST := 50.0
 const WALL_COLS := 4                     # grid_w = 4*20 = 80px (좌 x=0 / 우 x=WIDTH-80)
 const WALL_PIECES_PER_SIDE := 10         # 측면당 10조각 = 40셀 = 10행
-const WALL_ROWS_PER_SIDE := 10           # 40셀 / 4열
 const WALL_LIFETIME_SEC := 6.0           # 원본 installed_duration_ms=6000
+const WALL_HIT_EVAPORATE_CELL_INTERVAL_SEC := 0.111
 
 # === 초인테트리서 (원본 update_stage7_super_state) ===
 # 게이지 500 도달 → 발동, 발동 중 25/초 드레인 → 0이면 종료(표기 "15초"는 사문화
@@ -135,7 +144,6 @@ var _debris: Array[Dictionary] = []
 var _spawn_timer_sec: float = 0.0
 var _guard_timer_sec: float = 0.0
 var _wall_timer_sec: float = 0.0
-var _wall_life_sec: float = 0.0
 var _super_active: bool = false
 var _super_intro_timer: float = 0.0
 var _super_scale: float = 1.0
@@ -189,7 +197,6 @@ func _clear_combat_state(clear_match_state: bool = false) -> void:
 	_guard_blocks.clear()
 	_wall_blocks.clear()
 	_debris.clear()
-	_wall_life_sec = 0.0
 	_super_active = false
 	_super_intro_timer = 0.0
 	_super_scale = 1.0
@@ -235,7 +242,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	_update_spawn_scheduler(clamped_delta)
 	_update_guard_scheduler(clamped_delta, context)
 	_update_wall_scheduler(clamped_delta)
-	_update_tetrominoes(clamped_delta)
+	_update_tetrominoes(clamped_delta, context, deps)
 	_update_guard_blocks(clamped_delta)
 	_update_wall_lifetime(clamped_delta)
 	_apply_player_attack_destruction(context, deps)
@@ -417,9 +424,16 @@ func _update_wall_scheduler(delta: float) -> void:
 func _update_wall_lifetime(delta: float) -> void:
 	if _wall_blocks.is_empty():
 		return
-	_wall_life_sec -= delta
-	if _wall_life_sec <= 0.0:
-		_wall_blocks.clear()
+	for block in _wall_blocks.duplicate():
+		if not _wall_blocks.has(block):
+			continue
+		match String(block.get("state", "")):
+			"assembling":
+				_update_wall_assembling(block, delta)
+			"installed":
+				_update_wall_installed(block, delta)
+			"evaporating":
+				_update_wall_evaporating(block, delta)
 
 
 # 좌(x=0) / 우(x=WIDTH-grid_w) 벽을 각 10행(=10조각) 쌓는다. 벽 셀은 단일-셀
@@ -430,23 +444,120 @@ func _spawn_tetro_wall() -> void:
 	var grid_w: float = float(WALL_COLS) * TETRO_CELL_SIZE
 	_spawn_wall_side(0.0)
 	_spawn_wall_side(FIELD_WIDTH - grid_w)
-	_wall_life_sec = WALL_LIFETIME_SEC
 	_sfx_wall_pending = true   # tetriswall
 
 
 func _spawn_wall_side(origin_x: float) -> void:
-	for r in range(WALL_ROWS_PER_SIDE):
+	var occupied := {}
+	var rows: int = maxi(1, int(FIELD_HEIGHT / TETRO_CELL_SIZE))
+	var origin_bottom_y: float = FIELD_HEIGHT - TETRO_CELL_SIZE
+	for _piece_index in range(WALL_PIECES_PER_SIDE):
 		var shape_name: String = String(_shape_keys[_rng.randi_range(0, _shape_keys.size() - 1)])
-		var color: Color = TETRO_COLORS.get(shape_name, Color(0.6, 0.7, 1.0))
-		var cell_top: float = FIELD_HEIGHT - float(r + 1) * TETRO_CELL_SIZE
-		for col in range(WALL_COLS):
-			_wall_blocks.append({
-				"kind": "wall",
-				"state": "active",
-				"cells": [Vector2(0, 0)],
-				"origin": Vector2(origin_x + float(col) * TETRO_CELL_SIZE, cell_top),
-				"color": color,
-			})
+		var base_cells: Array = TETRO_SHAPES.get(shape_name, TETRO_SHAPES["T"])
+		var cells: Array = _rotate_cells(base_cells, _rng.randi_range(0, 3))
+		var dims: Vector2 = _cells_dims(cells)
+		var width_cells: int = maxi(1, int(dims.x))
+		var max_y: int = maxi(0, int(dims.y) - 1)
+		var start_col: int = _rng.randi_range(0, maxi(0, WALL_COLS - width_cells))
+		var row: int = 0
+		while true:
+			var blocked := false
+			for cell in cells:
+				var nx: int = start_col + int(cell.x)
+				var ny: int = row + int(cell.y) + 1
+				if ny >= rows or occupied.has(_wall_grid_key(nx, ny)):
+					blocked = true
+					break
+			if blocked:
+				break
+			row += 1
+			if row + max_y >= rows - 1:
+				break
+		for cell in cells:
+			occupied[_wall_grid_key(start_col + int(cell.x), row + int(cell.y))] = true
+		var screen_cells: Array = _wall_screen_cells(cells, max_y)
+		var origin := Vector2(
+			origin_x + float(start_col) * TETRO_CELL_SIZE,
+			origin_bottom_y - float(row + max_y) * TETRO_CELL_SIZE - TETRO_CELL_SIZE
+		)
+		_wall_blocks.append({
+			"kind": "wall",
+			"wall_generated": true,
+			"shape": shape_name,
+			"state": "assembling",
+			"cells": screen_cells,
+			"origin": origin,
+			"assembly_elapsed": 0.0,
+			"settled_elapsed": 0.0,
+			"evaporate_elapsed": 0.0,
+			"visible_cells": 0,
+			"cell_size": TETRO_CELL_SIZE,
+			"color": TETRO_COLORS.get(shape_name, Color(0.6, 0.7, 1.0)),
+		})
+
+
+func _wall_grid_key(col: int, row: int) -> String:
+	return "%d:%d" % [col, row]
+
+
+func _wall_screen_cells(cells: Array, max_y: int) -> Array:
+	var out: Array = []
+	for cell in cells:
+		out.append(Vector2(cell.x, float(max_y) - cell.y))
+	return out
+
+
+func _update_wall_assembling(block: Dictionary, delta: float) -> void:
+	var elapsed: float = float(block.get("assembly_elapsed", 0.0)) + delta
+	block["assembly_elapsed"] = elapsed
+	var cell_count: int = (block.get("cells", []) as Array).size()
+	block["visible_cells"] = clampi(int(elapsed / TETRO_ASSEMBLY_STEP_SEC), 0, cell_count)
+	if elapsed >= TETRO_ASSEMBLY_TOTAL_SEC:
+		block["state"] = "installed"
+		block["visible_cells"] = cell_count
+		block["settled_elapsed"] = 0.0
+
+
+func _update_wall_installed(block: Dictionary, delta: float) -> void:
+	var elapsed: float = float(block.get("settled_elapsed", 0.0)) + delta
+	block["settled_elapsed"] = elapsed
+	if elapsed >= WALL_LIFETIME_SEC:
+		_begin_wall_evaporation(block, false)
+
+
+func _begin_wall_evaporation(block: Dictionary, fast: bool) -> void:
+	if String(block.get("state", "")) == "evaporating":
+		return
+	block["state"] = "evaporating"
+	block["evaporate_elapsed"] = 0.0
+	block["evaporate_interval"] = WALL_HIT_EVAPORATE_CELL_INTERVAL_SEC if fast else TETRO_EVAPORATE_CELL_INTERVAL_SEC
+	block["visible_cells"] = (block.get("cells", []) as Array).size()
+	if fast:
+		_sfx_break_pending = true
+
+
+func _update_wall_evaporating(block: Dictionary, delta: float) -> void:
+	var cells: Array = block.get("cells", [])
+	if cells.is_empty():
+		_wall_blocks.erase(block)
+		return
+	var cell_size: float = float(block.get("cell_size", TETRO_CELL_SIZE))
+	var interval: float = maxf(0.001, float(block.get("evaporate_interval", TETRO_EVAPORATE_CELL_INTERVAL_SEC)))
+	var elapsed: float = float(block.get("evaporate_elapsed", 0.0)) + delta
+	while elapsed >= interval and not cells.is_empty():
+		elapsed -= interval
+		var evaporated_cell: Vector2 = cells.pop_front()
+		_emit_debris(
+			block.get("origin", Vector2.ZERO) + evaporated_cell * cell_size,
+			[Vector2.ZERO],
+			_block_color(block),
+			cell_size
+		)
+	block["cells"] = cells
+	block["visible_cells"] = min(int(block.get("visible_cells", cells.size())), cells.size())
+	block["evaporate_elapsed"] = elapsed
+	if cells.is_empty():
+		_wall_blocks.erase(block)
 
 
 func _spawn_tetromino() -> void:
@@ -470,15 +581,21 @@ func _spawn_tetromino() -> void:
 	})
 
 
-func _update_tetrominoes(delta: float) -> void:
+func _update_tetrominoes(delta: float, context: Dictionary, deps: Dictionary) -> void:
 	var settled_rects: Array = _collect_settled_cell_rects()
-	for tetro in _tetrominoes:
+	for tetro in _tetrominoes.duplicate():
+		if not _tetrominoes.has(tetro):
+			continue
 		match String(tetro.get("state", "")):
 			"assembling":
 				_update_assembling(tetro, delta)
 			"falling":
-				_update_falling(tetro, delta, settled_rects)
-			# "settled": 정착 후 정지(파괴는 2b 공 충돌 / step4 큐브에서).
+				_update_falling(tetro, delta, settled_rects, context, deps)
+			"settled":
+				_update_settled(tetro, delta)
+			"evaporating":
+				_update_evaporating(tetro, delta)
+			# Falling tetros now keep their original installed -> evaporating lifecycle.
 
 
 func _update_assembling(tetro: Dictionary, delta: float) -> void:
@@ -491,7 +608,7 @@ func _update_assembling(tetro: Dictionary, delta: float) -> void:
 		tetro["visible_cells"] = cell_count
 
 
-func _update_falling(tetro: Dictionary, delta: float, settled_rects: Array) -> void:
+func _update_falling(tetro: Dictionary, delta: float, settled_rects: Array, context: Dictionary, deps: Dictionary) -> void:
 	var event_timer: float = float(tetro["event_timer"]) - delta
 	if event_timer <= 0.0:
 		event_timer = TETRO_EVENT_CHECK_INTERVAL_SEC
@@ -502,9 +619,128 @@ func _update_falling(tetro: Dictionary, delta: float, settled_rects: Array) -> v
 	var origin: Vector2 = tetro["origin"]
 	var next_origin: Vector2 = origin + Vector2(0.0, TETRO_FALL_SPEED * delta)
 	if _would_settle(tetro, next_origin, settled_rects):
+		if bool(tetro.get("super", false)):
+			_explode_landed_tetromino(tetro, context, deps)
+			return
+		_mark_tetromino_settled(tetro)
 		tetro["state"] = "settled"   # 마지막 유효 위치(current origin)에서 정착
 	else:
 		tetro["origin"] = next_origin
+
+
+func _mark_tetromino_settled(tetro: Dictionary) -> void:
+	tetro["state"] = "settled"
+	tetro["settled_elapsed"] = 0.0
+	tetro["evaporate_elapsed"] = 0.0
+	tetro["visible_cells"] = (tetro.get("cells", []) as Array).size()
+
+
+func _update_settled(tetro: Dictionary, delta: float) -> void:
+	var elapsed: float = float(tetro.get("settled_elapsed", 0.0)) + delta
+	tetro["settled_elapsed"] = elapsed
+	if elapsed >= TETRO_SETTLED_LIFETIME_SEC:
+		_begin_tetromino_evaporation(tetro)
+
+
+func _begin_tetromino_evaporation(tetro: Dictionary) -> void:
+	tetro["state"] = "evaporating"
+	tetro["evaporate_elapsed"] = 0.0
+	tetro["visible_cells"] = (tetro.get("cells", []) as Array).size()
+
+
+func _update_evaporating(tetro: Dictionary, delta: float) -> void:
+	var cells: Array = tetro.get("cells", [])
+	if cells.is_empty():
+		_tetrominoes.erase(tetro)
+		return
+	var cell_size: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
+	var elapsed: float = float(tetro.get("evaporate_elapsed", 0.0)) + delta
+	while elapsed >= TETRO_EVAPORATE_CELL_INTERVAL_SEC and not cells.is_empty():
+		elapsed -= TETRO_EVAPORATE_CELL_INTERVAL_SEC
+		var evaporated_cell: Vector2 = cells.pop_front()
+		_emit_debris(
+			tetro.get("origin", Vector2.ZERO) + evaporated_cell * cell_size,
+			[Vector2.ZERO],
+			_block_color(tetro),
+			cell_size
+		)
+	tetro["cells"] = cells
+	tetro["visible_cells"] = min(int(tetro.get("visible_cells", cells.size())), cells.size())
+	tetro["evaporate_elapsed"] = elapsed
+	if cells.is_empty():
+		_tetrominoes.erase(tetro)
+
+
+func _explode_landed_tetromino(tetro: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+	var cells: Array = tetro.get("cells", [])
+	if cells.is_empty():
+		_tetrominoes.erase(tetro)
+		return
+	var origin: Vector2 = tetro.get("origin", Vector2.ZERO)
+	var cell_size: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
+	var color: Color = _block_color(tetro)
+	var center: Vector2 = _block_cells_center(origin, cells, cell_size)
+	_emit_debris(origin, cells, color, cell_size)
+	_emit_emp(center)
+	_sfx_break_pending = true
+	_apply_tetromino_explosion_to_player(center, cell_size, true, context, deps)
+	_tetrominoes.erase(tetro)
+
+
+func _block_cells_center(origin: Vector2, cells: Array, cell_size: float) -> Vector2:
+	var center := Vector2.ZERO
+	for cell in cells:
+		center += origin + cell * cell_size + Vector2(cell_size * 0.5, cell_size * 0.5)
+	return center / maxf(1.0, float(cells.size()))
+
+
+func _apply_tetromino_explosion_to_player(center: Vector2, cell_size: float, super_explosion: bool, context: Dictionary, deps: Dictionary) -> void:
+	var player_pos: Vector2 = context.get("player_pos", Vector2(302.5, 690.0))
+	var player_size: Vector2 = context.get("player_paddle_size", Vector2(155.0, 50.0))
+	var player_center: Vector2 = Rect2(player_pos, player_size).get_center()
+	var radius: float = TETRO_EXPLOSION_BASE_RADIUS * maxf(0.1, cell_size / TETRO_CELL_SIZE)
+	if player_center.distance_to(center) > radius:
+		return
+	if _is_player_status_immune(deps, context):
+		return
+	var direction := -1.0 if player_center.x < center.x else 1.0
+	var knock_scale := 2.0 if super_explosion else 1.0
+	var knockback_vel: float = TETRO_EXPLOSION_KNOCKBACK * knock_scale * direction
+	var stun_frames: float = TETRO_SUPER_EXPLOSION_STUN_FRAMES if super_explosion else TETRO_EXPLOSION_STUN_FRAMES
+	var status_state: Object = deps.get("status_effect_state", null)
+	if status_state != null and status_state.has_method("apply_status"):
+		status_state.apply_status(
+			"player",
+			"stun",
+			stun_frames,
+			{"cleansable": true, "visual": "stage6_tetro_explosion"},
+			"stage6_tetro_explosion"
+		)
+	var movement_state: Object = deps.get("movement_state", null)
+	if movement_state != null and movement_state.has_method("start_knockback"):
+		movement_state.start_knockback(
+			knockback_vel,
+			TETRO_EXPLOSION_KNOCKBACK_FRAMES,
+			TETRO_EXPLOSION_KNOCKBACK_DECAY,
+			true,
+			true
+		)
+
+
+func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> bool:
+	var cleanse_state: Object = deps.get("smasher_cleanse_state", null)
+	if cleanse_state != null and cleanse_state.has_method("is_immune"):
+		if bool(cleanse_state.is_immune()):
+			return true
+	var mythic_item_runtime: Object = StarpointBonusDropPolicy.get_mythic_item_runtime(deps, context)
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_consume_celestial_armor_immunity"):
+		var status_deps: Dictionary = deps.duplicate()
+		status_deps["context"] = context
+		if context.get("owner", null) is Object:
+			status_deps["owner"] = context.get("owner", null)
+		if bool(mythic_item_runtime.try_consume_celestial_armor_immunity("stage6_tetro_explosion", "stun", status_deps)):
+			return true
+	return false
 
 
 func _would_settle(tetro: Dictionary, next_origin: Vector2, settled_rects: Array) -> bool:
@@ -588,11 +824,11 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 		return true
 
 	# 3) 테트로 벽 (좌우 가장자리). 셀 단위 파괴(단일-셀 블록).
-	var wall_hit: Dictionary = _find_block_cell_hit(_wall_blocks, ball_rect, ["active"])
+	var wall_hit: Dictionary = _find_block_cell_hit(_wall_blocks, ball_rect, ["installed"])
 	if not wall_hit.is_empty():
 		_apply_cell_reflection(scene, context, radius, wall_hit["cell_rect"])
-		var wall_cell: Dictionary = wall_hit["item"]
-		_destroy_block_group(_wall_blocks, wall_cell, wall_cell.get("color", Color(0.6, 0.7, 1.0)))
+		var wall_piece: Dictionary = wall_hit["item"]
+		_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)))
 		return true
 
 	return false
@@ -660,6 +896,9 @@ func _choose_reflection_axis(prev_rect: Rect2, cur_rect: Rect2, block: Rect2) ->
 
 # 블록 그룹 전체 파괴(테트로/가드/벽 단일셀) + 파편 플래시.
 func _destroy_block_group(blocks: Array, block: Dictionary, color: Color) -> void:
+	if String(block.get("kind", "")) == "wall":
+		_begin_wall_evaporation(block, true)
+		return
 	_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), color, float(block.get("cell_size", TETRO_CELL_SIZE)))
 	var is_tetromino: bool = not block.has("kind")   # 가드/벽은 "kind" 보유, 테트로미노는 없음
 	blocks.erase(block)
@@ -725,7 +964,7 @@ func _destroy_solid_obstacles(test: Callable) -> int:
 	var destroyed: int = 0
 	destroyed += _sweep_destroy(_tetrominoes, ["falling", "settled"], test)
 	destroyed += _sweep_destroy(_guard_blocks, ["active"], test)
-	destroyed += _sweep_destroy(_wall_blocks, ["active"], test)
+	destroyed += _sweep_destroy(_wall_blocks, ["installed"], test)
 	return destroyed
 
 
@@ -1047,10 +1286,17 @@ func get_actor_draw_context() -> Dictionary:
 func _build_wall_draw_list() -> Array:
 	var out: Array = []
 	for block in _wall_blocks:
-		out.append({
-			"origin": block.get("origin", Vector2.ZERO),
-			"color": block.get("color", Color(0.6, 0.7, 1.0)),
-		})
+		var cells: Array = block.get("cells", [])
+		var visible_cells: int = mini(int(block.get("visible_cells", cells.size())), cells.size())
+		var cell_size: float = float(block.get("cell_size", TETRO_CELL_SIZE))
+		var alpha: float = 0.5 if String(block.get("state", "")) == "assembling" else 1.0
+		for i in range(visible_cells):
+			out.append({
+				"origin": block.get("origin", Vector2.ZERO) + cells[i] * cell_size,
+				"color": block.get("color", Color(0.6, 0.7, 1.0)),
+				"state": block.get("state", "installed"),
+				"alpha": alpha,
+			})
 	return out
 
 
@@ -1196,10 +1442,35 @@ func debug_get_guard_count() -> int:
 
 
 func debug_get_wall_cell_count() -> int:
+	var count := 0
+	for block in _wall_blocks:
+		count += (block.get("cells", []) as Array).size()
+	return count
+
+
+func debug_get_wall_collidable_cell_count() -> int:
+	var count := 0
+	for block in _wall_blocks:
+		if String(block.get("state", "")) != "installed":
+			continue
+		count += (block.get("cells", []) as Array).size()
+	return count
+
+
+func debug_get_wall_piece_count() -> int:
 	return _wall_blocks.size()
 
 
-func debug_force_spawn_wall() -> void:
+func debug_get_wall_states() -> Array:
+	var out: Array = []
+	for block in _wall_blocks:
+		out.append(String(block.get("state", "")))
+	return out
+
+
+func debug_force_spawn_wall(seed: int = -1) -> void:
+	if seed >= 0:
+		_rng.seed = seed
 	_spawn_tetro_wall()
 
 
@@ -1207,9 +1478,12 @@ func debug_force_spawn_wall() -> void:
 func debug_spawn_wall_cell_at(origin: Vector2) -> void:
 	_wall_blocks.append({
 		"kind": "wall",
-		"state": "active",
+		"wall_generated": true,
+		"state": "installed",
 		"cells": [Vector2(0, 0)],
 		"origin": origin,
+		"visible_cells": 1,
+		"cell_size": TETRO_CELL_SIZE,
 		"color": Color(0.6, 0.7, 1.0),
 	})
 

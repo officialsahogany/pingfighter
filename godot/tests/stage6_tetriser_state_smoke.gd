@@ -37,6 +37,58 @@ class FakeAudio:
 		calls.append("super")
 
 
+class FakeStatusEffectState:
+	extends RefCounted
+	var calls: Array = []
+
+	func apply_status(target: String, status_id: String, duration_frames: float, data: Dictionary = {}, source: String = "") -> Dictionary:
+		calls.append({
+			"target": target,
+			"status_id": status_id,
+			"duration_frames": duration_frames,
+			"data": data,
+			"source": source,
+		})
+		return {}
+
+
+class FakeMovementState:
+	extends RefCounted
+	var calls: Array = []
+
+	func start_knockback(velocity: float, frames: float, decay: float, interrupt_dash: bool = false, stun_locked: bool = false) -> void:
+		calls.append({
+			"velocity": velocity,
+			"frames": frames,
+			"decay": decay,
+			"interrupt_dash": interrupt_dash,
+			"stun_locked": stun_locked,
+		})
+
+
+class FakeCleanseState:
+	extends RefCounted
+	var immune := false
+
+	func is_immune() -> bool:
+		return immune
+
+
+class FakeMythicItemRuntime:
+	extends RefCounted
+	var should_consume_celestial_armor := false
+	var calls: Array = []
+
+	func try_consume_celestial_armor_immunity(source: String, effect_type: String, deps: Dictionary) -> bool:
+		calls.append({
+			"source": source,
+			"effect_type": effect_type,
+			"context": deps.get("context", {}),
+			"has_owner": deps.has("owner"),
+		})
+		return should_consume_celestial_armor
+
+
 class FakeScoreState:
 	extends RefCounted
 	var player_score := 0
@@ -62,13 +114,17 @@ func _init() -> void:
 	_test_gauge_persist_across_reset()
 	_test_pause_when_not_active()
 	_test_tetromino_lifecycle()
+	_test_settled_tetromino_evaporates_after_lifetime()
 	_test_actor_draw_context()
 	_test_ball_reflects_and_destroys()
 	_test_super_tetromino_immune_to_ball()
+	_test_super_tetromino_explodes_on_landing()
+	_test_super_tetromino_explosion_radius_gate()
+	_test_super_tetromino_explosion_respects_player_immunity()
 	_test_guard_scheduler_spawns()
 	_test_guard_ball_collision()
-	_test_wall_spawn_and_ball_destroys_cell()
-	_test_wall_lifetime_clears()
+	_test_wall_spawn_uses_tetromino_pieces_and_collision_gate()
+	_test_wall_lifetime_evaporates_piecewise()
 	_test_dash_destroys_obstacle()
 	_test_dash_destroys_super_tetromino()
 	_test_smoke_and_explosion_destroy_obstacles()
@@ -76,6 +132,7 @@ func _init() -> void:
 	_test_super_scale_and_tetromino()
 	_test_cube_solve_clears_field()
 	_test_cube_rebuild_reactivates()
+	_test_natural_evaporation_does_not_rebuild_cube()
 	_test_super_laser_melts_cube()
 	_test_crystal_shield_score_schedules_and_starts()
 	_test_crystal_shield_collision_and_reset()
@@ -150,6 +207,29 @@ func _test_tetromino_lifecycle() -> void:
 	_expect(settled, "tetromino settles on the floor after falling")
 
 
+func _test_settled_tetromino_evaporates_after_lifetime() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	var settled := false
+	for _i in range(6):
+		state.update(0.1, _active_context())
+		if state.debug_get_tetromino_states().has("settled"):
+			settled = true
+			break
+	_expect(settled, "normal tetromino settles before its expiry timer starts")
+
+	var evaporating := false
+	for _i in range(18):
+		state.update(0.1, _active_context())
+		if state.debug_get_tetromino_states().has("evaporating"):
+			evaporating = true
+			break
+	_expect(evaporating, "settled tetromino enters evaporation after 1.5 seconds")
+	for _i in range(12):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_tetromino_count() == 0, "evaporating tetromino removes itself cell-by-cell")
+
+
 func _test_actor_draw_context() -> void:
 	var state: Object = Stage6TetriserState.new()
 	state.debug_force_spawn_tetromino()
@@ -200,6 +280,126 @@ func _test_super_tetromino_immune_to_ball() -> void:
 	_expect(state.debug_get_tetromino_count() == 1, "super tetromino is NOT destroyed by a normal ball hit (codex review §2.5)")
 
 
+func _test_super_tetromino_explodes_on_landing() -> void:
+	var state: Object = Stage6TetriserState.new()
+	var status_state := FakeStatusEffectState.new()
+	var movement_state := FakeMovementState.new()
+	var audio := FakeAudio.new()
+	var ctx := _active_context()
+	ctx["player_pos"] = Vector2(302.0, 700.0)
+	ctx["player_paddle_size"] = Vector2(60.0, 30.0)
+	state.debug_spawn_tetromino_at(Vector2(300.0, 670.0), "O", true)
+
+	for _i in range(12):
+		state.update(0.1, ctx, {
+			"status_effect_state": status_state,
+			"movement_state": movement_state,
+			"audio": audio,
+		})
+		if state.debug_get_tetromino_count() == 0:
+			break
+
+	_expect(state.debug_get_tetromino_count() == 0, "super tetromino explodes instead of settling on landing")
+	_expect(not state.debug_get_tetromino_states().has("settled"), "super landing must not leave a permanent settled block")
+	_expect(state.debug_get_debris_count() > 0, "super landing explosion emits tetromino debris")
+	_expect(state.debug_get_emp_count() > 0, "super landing explosion emits a shockwave/EMP ripple")
+	_expect(audio.calls.has("break"), "super landing explosion flushes the break sound")
+	_expect(status_state.calls.size() == 1, "super landing explosion applies one player stun")
+	if status_state.calls.size() == 1:
+		var stun_call: Dictionary = status_state.calls[0]
+		_expect(stun_call.get("target", "") == "player", "super landing stun targets the player")
+		_expect(stun_call.get("status_id", "") == "stun", "super landing applies stun status")
+		_expect(is_equal_approx(float(stun_call.get("duration_frames", 0.0)), 54.0), "super landing stun lasts 0.9 seconds")
+	_expect(movement_state.calls.size() == 1, "super landing explosion starts player knockback")
+	if movement_state.calls.size() == 1:
+		var knock_call: Dictionary = movement_state.calls[0]
+		_expect(is_equal_approx(absf(float(knock_call.get("velocity", 0.0))), 24.0), "super landing knockback maps base 12px to doubled 24px speed")
+		_expect(is_equal_approx(float(knock_call.get("frames", 0.0)), 18.0), "super landing knockback uses the stage knockback window")
+		_expect(is_equal_approx(float(knock_call.get("decay", 0.0)), 0.88), "super landing knockback uses the legacy decay curve")
+		_expect(bool(knock_call.get("interrupt_dash", false)), "super landing knockback replaces current paddle knockback")
+		_expect(bool(knock_call.get("stun_locked", false)), "super landing knockback is cleansable/stun-coupled")
+
+
+func _test_super_tetromino_explosion_radius_gate() -> void:
+	var origin := Vector2(300.0, 690.0)
+	var super_cell_size := 34.0
+	var explosion_center := origin + Vector2(super_cell_size, super_cell_size)
+	var explosion_radius := 80.0 * (super_cell_size / 20.0)
+	var player_size := Vector2(20.0, 20.0)
+
+	var inside_status := FakeStatusEffectState.new()
+	var inside_movement := FakeMovementState.new()
+	var inside_ctx := _active_context()
+	inside_ctx["player_pos"] = explosion_center + Vector2(explosion_radius - 0.25, 0.0) - player_size * 0.5
+	inside_ctx["player_paddle_size"] = player_size
+	var inside_state: Object = Stage6TetriserState.new()
+	inside_state.debug_spawn_tetromino_at(origin, "O", true)
+	inside_state.update(0.1, inside_ctx, {
+		"status_effect_state": inside_status,
+		"movement_state": inside_movement,
+	})
+	_expect(inside_status.calls.size() == 1, "super explosion applies stun when the player center is just inside radius")
+	_expect(inside_movement.calls.size() == 1, "super explosion applies knockback when the player center is just inside radius")
+
+	var outside_status := FakeStatusEffectState.new()
+	var outside_movement := FakeMovementState.new()
+	var outside_ctx := _active_context()
+	outside_ctx["player_pos"] = explosion_center + Vector2(explosion_radius + 0.25, 0.0) - player_size * 0.5
+	outside_ctx["player_paddle_size"] = player_size
+	var outside_state: Object = Stage6TetriserState.new()
+	outside_state.debug_spawn_tetromino_at(origin, "O", true)
+	outside_state.update(0.1, outside_ctx, {
+		"status_effect_state": outside_status,
+		"movement_state": outside_movement,
+	})
+	_expect(outside_status.calls.is_empty(), "super explosion does not stun when the player center is just outside radius")
+	_expect(outside_movement.calls.is_empty(), "super explosion does not knock back when the player center is just outside radius")
+
+
+func _test_super_tetromino_explosion_respects_player_immunity() -> void:
+	var origin := Vector2(300.0, 690.0)
+	var ctx := _active_context()
+	ctx["player_pos"] = Vector2(302.0, 700.0)
+	ctx["player_paddle_size"] = Vector2(60.0, 30.0)
+
+	var cleanse_status := FakeStatusEffectState.new()
+	var cleanse_movement := FakeMovementState.new()
+	var cleanse_state := FakeCleanseState.new()
+	cleanse_state.immune = true
+	var cleanse_mythic := FakeMythicItemRuntime.new()
+	var cleanse_tetro: Object = Stage6TetriserState.new()
+	cleanse_tetro.debug_spawn_tetromino_at(origin, "O", true)
+	cleanse_tetro.update(0.1, ctx, {
+		"status_effect_state": cleanse_status,
+		"movement_state": cleanse_movement,
+		"smasher_cleanse_state": cleanse_state,
+		"mythic_item_runtime": cleanse_mythic,
+	})
+	_expect(cleanse_status.calls.is_empty(), "cleanse immunity blocks super explosion stun")
+	_expect(cleanse_movement.calls.is_empty(), "cleanse immunity blocks super explosion knockback")
+	_expect(cleanse_mythic.calls.is_empty(), "cleanse immunity short-circuits before Celestial Armor consumption")
+
+	var mythic_status := FakeStatusEffectState.new()
+	var mythic_movement := FakeMovementState.new()
+	var mythic_state := FakeMythicItemRuntime.new()
+	mythic_state.should_consume_celestial_armor = true
+	var mythic_tetro: Object = Stage6TetriserState.new()
+	mythic_tetro.debug_spawn_tetromino_at(origin, "O", true)
+	mythic_tetro.update(0.1, ctx, {
+		"status_effect_state": mythic_status,
+		"movement_state": mythic_movement,
+		"mythic_item_runtime": mythic_state,
+	})
+	_expect(mythic_status.calls.is_empty(), "Celestial Armor blocks super explosion stun")
+	_expect(mythic_movement.calls.is_empty(), "Celestial Armor blocks super explosion knockback")
+	_expect(mythic_state.calls.size() == 1, "super explosion asks Celestial Armor to consume one proc")
+	if mythic_state.calls.size() == 1:
+		var call: Dictionary = mythic_state.calls[0]
+		_expect(str(call.get("source", "")) == "stage6_tetro_explosion", "Celestial Armor source identifies the tetro explosion")
+		_expect(str(call.get("effect_type", "")) == "stun", "Celestial Armor consumes the stun half of the tetro explosion")
+		_expect((call.get("context", {}) as Dictionary) == ctx, "Celestial Armor receives the live explosion context")
+
+
 func _test_guard_scheduler_spawns() -> void:
 	var state: Object = Stage6TetriserState.new()
 	state.boss_gauge = 200.0   # 가드 전개에 충분한 게이지 시드
@@ -229,9 +429,10 @@ func _test_guard_ball_collision() -> void:
 
 func _test_wall_spawn_and_ball_destroys_cell() -> void:
 	var state: Object = Stage6TetriserState.new()
-	state.debug_force_spawn_wall()
+	state.debug_force_spawn_wall(4242)
 	# 좌우 각 10행 x 4열 = 80셀.
-	_expect(state.debug_get_wall_cell_count() == 80, "wall spawns 80 cells (2 sides x 10 rows x 4 cols), got %d" % state.debug_get_wall_cell_count())
+	_expect(state.debug_get_wall_piece_count() == 20, "wall spawns 10 tetromino pieces per side")
+	_expect(state.debug_get_wall_cell_count() == state.debug_get_wall_piece_count() * 4, "wall pieces keep 4-cell tetromino chunks")
 
 	# 단일 셀 충돌 → 셀 단위 파괴.
 	var single: Object = Stage6TetriserState.new()
@@ -246,16 +447,82 @@ func _test_wall_spawn_and_ball_destroys_cell() -> void:
 	var hit: bool = single.resolve_ball_collision(scene, ctx, {})
 	_expect(hit, "ball hits wall cell")
 	_expect(scene["ball_vel"].x > 0.0, "ball reflects rightward off wall edge (vx=%f)" % scene["ball_vel"].x)
-	_expect(single.debug_get_wall_cell_count() == 0, "wall destroyed per-cell by ball")
+	_expect(single.debug_get_wall_collidable_cell_count() == 0, "wall hit disables the whole owning piece from collision")
 
 
 func _test_wall_lifetime_clears() -> void:
 	var state: Object = Stage6TetriserState.new()
-	state.debug_force_spawn_wall()
+	state.debug_force_spawn_wall(4242)
 	_expect(state.debug_get_wall_cell_count() > 0, "precondition: wall present")
 	for _i in range(70):   # ~7초 > 수명 6초
 		state.update(0.1, _active_context())
-	_expect(state.debug_get_wall_cell_count() == 0, "wall clears after its lifetime expires")
+	_expect(state.debug_get_wall_piece_count() > 0, "wall lifetime no longer clears every piece in one frame")
+
+
+func _test_wall_spawn_uses_tetromino_pieces_and_collision_gate() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_wall(4242)
+	_expect(state.debug_get_wall_piece_count() == 20, "wall spawns 10 tetromino pieces per side")
+	_expect(state.debug_get_wall_cell_count() == state.debug_get_wall_piece_count() * 4, "wall pieces keep tetromino-sized 4-cell chunks")
+	_expect(state.debug_get_wall_collidable_cell_count() == 0, "assembling wall pieces are not collidable")
+
+	for _i in range(5):
+		state.update(0.1, _active_context())
+	var assembling_draw: Array = state.get_actor_draw_context().get("stage6_tetriser_wall_cells", [])
+	_expect(assembling_draw.size() > 0 and assembling_draw.size() < state.debug_get_wall_cell_count(), "wall assembly reveals cells before collision activates")
+	var ctx := {"current_stage": 6, "ball_size": 20.0}
+	_expect(not state.resolve_ball_collision(_wall_hit_scene(_first_wall_cell_origin(state)), ctx, {}), "ball does not collide with assembling wall pieces")
+
+	for _i in range(7):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_wall_states().has("installed"), "wall pieces become installed after assembly")
+	_expect(state.debug_get_wall_collidable_cell_count() == state.debug_get_wall_cell_count(), "installed wall pieces expose all cells to collision")
+
+	var before_cells: int = state.debug_get_wall_cell_count()
+	var before_collidable: int = state.debug_get_wall_collidable_cell_count()
+	var scene := _wall_hit_scene(_first_wall_cell_origin(state))
+	var hit: bool = state.resolve_ball_collision(scene, ctx, {})
+	_expect(hit, "ball hits installed wall piece")
+	_expect(scene["ball_vel"].x > 0.0, "ball reflects rightward off wall edge (vx=%f)" % scene["ball_vel"].x)
+	_expect(state.debug_get_wall_collidable_cell_count() == before_collidable - 4, "one hit removes the whole tetromino piece from collision")
+	_expect(state.debug_get_wall_states().has("evaporating"), "hit wall piece fast-evaporates instead of erasing one cell")
+	for _i in range(2):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_wall_cell_count() < before_cells, "fast evaporation removes the hit piece cell-by-cell after collision is disabled")
+
+
+func _test_wall_lifetime_evaporates_piecewise() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_wall(4242)
+	_expect(state.debug_get_wall_cell_count() > 0, "precondition: wall present")
+	for _i in range(11):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_wall_collidable_cell_count() == state.debug_get_wall_cell_count(), "precondition: assembled wall is collidable")
+	for _i in range(59):
+		state.update(0.1, _active_context())
+	_expect(not state.debug_get_wall_states().has("evaporating"), "wall remains installed before the 6s lifetime expires")
+	for _i in range(2):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_wall_states().has("evaporating"), "wall enters piecewise evaporation at lifetime expiry")
+	_expect(state.debug_get_wall_piece_count() > 0, "wall does not clear all pieces in the expiry frame")
+	for _i in range(12):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_wall_cell_count() == 0, "wall evaporation eventually removes every wall piece")
+
+
+func _first_wall_cell_origin(state: Object) -> Vector2:
+	var cells: Array = state.get_actor_draw_context().get("stage6_tetriser_wall_cells", [])
+	if cells.is_empty():
+		return Vector2.ZERO
+	return (cells[0] as Dictionary).get("origin", Vector2.ZERO)
+
+
+func _wall_hit_scene(cell_origin: Vector2) -> Dictionary:
+	return {
+		"ball_pos": cell_origin + Vector2(15.0, 10.0),
+		"previous_ball_pos": cell_origin + Vector2(35.0, 10.0),
+		"ball_vel": Vector2(-5.0, 0.0),
+	}
 
 
 func _test_dash_destroys_obstacle() -> void:
@@ -366,6 +633,32 @@ func _test_cube_rebuild_reactivates() -> void:
 		state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
 		state.update(0.05, dash_ctx)
 	_expect(state.debug_is_cube_active(), "cube re-activates after 5 tetromino kills during rebuild")
+
+
+func _test_natural_evaporation_does_not_rebuild_cube() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_cube_solve_pending()
+	for _i in range(25):
+		state.update(0.05, _active_context())
+	_expect(state.debug_is_cube_rebuild(), "precondition: cube is waiting for player-caused tetromino kills")
+	_expect(state.debug_get_cube_rebuild_progress() == 0, "precondition: rebuild progress starts at 0")
+
+	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	var settled := false
+	for _i in range(6):
+		state.update(0.1, _active_context())
+		if state.debug_get_tetromino_states().has("settled"):
+			settled = true
+			break
+	_expect(settled, "normal tetromino settles while cube is rebuilding")
+
+	for _i in range(40):
+		state.update(0.1, _active_context())
+		if state.debug_get_tetromino_count() == 0:
+			break
+	_expect(state.debug_get_tetromino_count() == 0, "natural evaporation removes the settled tetromino")
+	_expect(state.debug_is_cube_rebuild(), "natural evaporation does not reactivate the cube")
+	_expect(state.debug_get_cube_rebuild_progress() == 0, "natural evaporation does not count as a rebuild kill")
 
 
 func _test_super_laser_melts_cube() -> void:
