@@ -81,7 +81,11 @@ const BOWLING_TRAP_CAPTURE_BALL_OFFSET := Vector2(0.0, -15.0)
 const BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER := 4.0
 const BOWLING_TRAP_LAUNCH_ANGLE_STEP := PI / 8.0
 const BOWLING_TRAP_MIN_FIELD_Y_RATIO := 0.6
-const BOWLING_TRAP_GUARD_KNOCKBACK_POWER := ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_POWER
+# Python parity: item_effects/bowling_trap.py KNOCKBACK_POWER = 22.0 ("라그나로크 수준의 긴
+# 넉백" — long but controlled, ~146px boss travel at 60fps with 0.85 decay). Do NOT reuse
+# DYNAMITE_BOSS_KNOCKBACK_POWER (104.0): that launched the boss ~660-780px (the full field
+# width) so the guard hit slammed the boss all the way into the wall instead of nudging it.
+const BOWLING_TRAP_GUARD_KNOCKBACK_POWER := 22.0
 const BOWLING_TRAP_GUARD_STUN_FRAMES := 60.0
 const BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES := ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_FRAMES
 const BOWLING_TRAP_GUARD_SPEED_REDUCTION := 0.7

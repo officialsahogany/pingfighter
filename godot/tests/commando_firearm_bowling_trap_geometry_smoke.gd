@@ -4,6 +4,8 @@ const ActiveItemThrowController := preload("res://scripts/items/active_item_thro
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
+const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 
 var _failures: Array[String] = []
 
@@ -89,6 +91,7 @@ func _init() -> void:
 	_verify_direct_bowling_trap_guard_state()
 	_verify_runtime_delegates_bowling_trap_geometry()
 	_verify_removed_runtime_bowling_trap_geometry_bridges()
+	_verify_bowling_trap_guard_knockback_stays_bounded()
 
 	if _failures.is_empty():
 		print("commando_firearm_bowling_trap_geometry_smoke: ok")
@@ -597,6 +600,64 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		runtime_source.find("bowling_trap_launch") == -1,
 		"runtime should not keep bowling-trap launch event pulse dispatch inline"
 	)
+
+
+# OUTCOME seal: the bowling-trap guard hit must NUDGE the boss, not launch it across the
+# field. Drives the real runtime path (status stun + knockback decay -> boss-AI grenade-style
+# motion) and asserts total boss travel stays well under the field width. Reverse-verified:
+# restoring the dynamite power (104.0) drives the boss ~610px into the wall and FAILS the
+# upper bound. Python parity target: item_effects/bowling_trap.py ~146px travel.
+func _verify_bowling_trap_guard_knockback_stays_bounded() -> void:
+	var travel: float = _simulate_bowling_trap_guard_boss_travel(
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER
+	)
+	_expect(
+		travel > 60.0,
+		"bowling-trap guard should still knock the boss back a meaningful distance (got %.1fpx)" % travel
+	)
+	_expect(
+		travel < 300.0,
+		"bowling-trap guard knockback must stay bounded near Python parity (~146px), not slam the boss across the field (got %.1fpx)" % travel
+	)
+	# Reverse-verify the seal: the retired dynamite power must trip the upper bound.
+	var dynamite_travel: float = _simulate_bowling_trap_guard_boss_travel(
+		ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_POWER
+	)
+	_expect(
+		dynamite_travel >= 300.0,
+		"regression guard sanity: dynamite-power knockback (104) should overshoot the bound (got %.1fpx)" % dynamite_travel
+	)
+
+
+func _simulate_bowling_trap_guard_boss_travel(knockback_power: float) -> float:
+	var status := StatusEffectState.new()
+	var ai := BossAiState.new()
+	# Boss parked near the left wall so a rightward knockback has the full field to travel.
+	var boss_pos := Vector2(50.0, 25.0)
+	var start_x: float = boss_pos.x
+	status.apply_status(
+		"boss",
+		"stun",
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES,
+		{
+			"knockback_vel": knockback_power,
+			"knockback_active": true,
+			"knockback_frames": CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
+			"knockback_decay_per_frame": CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_DECAY,
+			"knockback_stop_threshold": 0.3,
+		},
+		"commando_bowling_trap_guard"
+	)
+	for _frame in range(40):
+		status.update(1.0, {}, {})
+		var ctx: Dictionary = status.get_boss_ai_context()
+		ctx["width"] = 760.0
+		ctx["play_left"] = 0.0
+		ctx["play_right"] = 760.0
+		ctx["boss_paddle_width"] = 100.0
+		var ai_result: Dictionary = ai.update(1.0 / 60.0, boss_pos, 0.0, ctx)
+		boss_pos = _get_vector2(ai_result.get("boss_pos", boss_pos), boss_pos)
+	return absf(boss_pos.x - start_x)
 
 
 func _get_dict(value: Variant) -> Dictionary:
