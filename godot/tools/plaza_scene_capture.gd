@@ -143,14 +143,22 @@ func _run() -> void:
 		menu_image.save_png(menu_path)
 		print("[PlazaCapture] menu_%s -> %s" % [menu_type, menu_path])
 		if menu_type == "shop":
-			plaza.call("click_interior_object_for_test", "shop_action_0")
+			plaza.call("click_interior_object_for_test", "shop_strewn_coin_pile")
 			plaza.queue_redraw()
 			await process_frame
 			await process_frame
-			var shop_panel_image: Image = viewport.get_texture().get_image()
-			var shop_panel_path: String = "%s/plaza_stage%d_menu_%s_panel.png" % [out_dir, stage_id, menu_type]
-			shop_panel_image.save_png(shop_panel_path)
-			print("[PlazaCapture] menu_%s_panel -> %s" % [menu_type, shop_panel_path])
+			var shop_click_image: Image = viewport.get_texture().get_image()
+			var shop_click_path: String = "%s/plaza_stage%d_menu_%s_click.png" % [out_dir, stage_id, menu_type]
+			shop_click_image.save_png(shop_click_path)
+			print("[PlazaCapture] menu_%s_click -> %s" % [menu_type, shop_click_path])
+			plaza.call("advance_interior_view_for_test", 0.75)
+			plaza.queue_redraw()
+			await process_frame
+			await process_frame
+			var shop_trade_image: Image = viewport.get_texture().get_image()
+			var shop_trade_path: String = "%s/plaza_stage%d_menu_%s_trade.png" % [out_dir, stage_id, menu_type]
+			shop_trade_image.save_png(shop_trade_path)
+			print("[PlazaCapture] menu_%s_trade -> %s" % [menu_type, shop_trade_path])
 		plaza.call("close_menu_for_test", false)
 		plaza.call("advance_building_transition_for_test", 0.50)
 		plaza.queue_redraw()
@@ -178,7 +186,8 @@ func _run() -> void:
 
 
 func _get_string_arg(prefix: String, fallback: String) -> String:
-	for arg in OS.get_cmdline_args():
+	var all_args: Array = OS.get_cmdline_user_args() + OS.get_cmdline_args()
+	for arg in all_args:
 		var text: String = str(arg)
 		if text.begins_with(prefix):
 			var value: String = text.substr(prefix.length()).strip_edges()
