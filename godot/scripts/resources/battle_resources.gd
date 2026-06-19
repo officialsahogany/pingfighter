@@ -20,6 +20,10 @@ const DASH_TOKEN_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.DASH_TOKEN_FRAME_T
 const SKILL_ORB_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SKILL_ORB_FRAME_TEXTURE_PATH
 const SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
 const VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
+const CHANCE_GEM_FULL_TEXTURE_PATH := BattleCoreTexturePaths.CHANCE_GEM_FULL_TEXTURE_PATH
+const CHANCE_GEM_BROKEN_TEXTURE_PATH := BattleCoreTexturePaths.CHANCE_GEM_BROKEN_TEXTURE_PATH
+const CHANCE_GEM_SHATTER_SHEET_TEXTURE_PATH := BattleCoreTexturePaths.CHANCE_GEM_SHATTER_SHEET_TEXTURE_PATH
+const DEFEAT_CONTINUE_BACKDROP_TEXTURE_PATH := BattleCoreTexturePaths.DEFEAT_CONTINUE_BACKDROP_TEXTURE_PATH
 const STAGE1_CENTER_BACKGROUND_PATH := BattleCoreTexturePaths.STAGE1_CENTER_BACKGROUND_PATH
 const STAGE1_CENTER_BORDER_PATH := BattleCoreTexturePaths.STAGE1_CENTER_BORDER_PATH
 const PLAYER_SPRITE_PATH := BattleSmasherSpritePaths.PLAYER_SPRITE_PATH
@@ -553,10 +557,16 @@ func _get_result_texture_specs(character_type: String, current_stage: int, resul
 		bool(result_context.get("player_defeat_active", false))
 		or bool(result_context.get("boss_victory_active", false))
 	)
+	var chance_gem_specs: Array = []
+	if boss_scored:
+		chance_gem_specs.append(_imported_texture_spec(["defeat_continue_backdrop_texture"], DEFEAT_CONTINUE_BACKDROP_TEXTURE_PATH))
+		chance_gem_specs.append(_imported_texture_spec(["chance_gem_full_texture"], CHANCE_GEM_FULL_TEXTURE_PATH))
+		chance_gem_specs.append(_imported_texture_spec(["chance_gem_broken_texture"], CHANCE_GEM_BROKEN_TEXTURE_PATH))
+		chance_gem_specs.append(_imported_texture_spec(["chance_gem_shatter_sheet_texture"], CHANCE_GEM_SHATTER_SHEET_TEXTURE_PATH))
 	if player_scored:
 		return player_victory_specs + boss_defeat_specs + player_defeat_specs + boss_victory_specs
 	if boss_scored:
-		return player_defeat_specs + boss_victory_specs + player_victory_specs + boss_defeat_specs
+		return chance_gem_specs + player_defeat_specs + boss_victory_specs + player_victory_specs + boss_defeat_specs
 	return player_victory_specs + player_defeat_specs + boss_victory_specs + boss_defeat_specs
 
 
