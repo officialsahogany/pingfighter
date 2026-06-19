@@ -50,30 +50,46 @@ func _verify_host_sync_and_cleanup() -> void:
 	host.sync_state({
 		"view_size": Vector2(1280.0, 720.0),
 		"gem_center": Vector2(640.0, 540.0),
-		"progress": 0.22,
-		"elapsed": 0.44,
+		"progress": 0.10,
+		"elapsed": 0.20,
 		"quality_scale": 1.0,
 	}, true)
-	var active_status := host.get_debug_status()
-	_expect(bool(active_status.get("active", false)), "active shatter sync should make the host visible")
-	_expect(bool(active_status.get("burst_visible", false)), "active shatter sync should show the masked burst layer")
-	_expect(bool(active_status.get("particles_emitting", false)), "active sustain sync should emit cyan spark particles")
-	_expect(int(active_status.get("particle_amount", 0)) == 40, "active host should keep its 40-particle cap")
-	_expect(int(active_status.get("particle_fixed_fps", 0)) == 30, "active host should keep fixed_fps 30")
-	_expect(_vector_close(active_status.get("position", Vector2.ZERO), Vector2(640.0, 540.0)), "host should position itself at the screen-space gem center")
-	_expect(_vector_close(active_status.get("scale", Vector2.ZERO), Vector2.ONE), "720p sync should keep host scale at 1.0")
-	_expect(float(active_status.get("intensity", 0.0)) > 0.1, "active sustain sync should drive nonzero WritheEmber intensity")
+	var peak_status := host.get_debug_status()
+	_expect(bool(peak_status.get("active", false)), "fracture peak sync should make the host visible")
+	_expect(bool(peak_status.get("burst_visible", false)), "fracture peak sync should show the masked burst layer")
+	_expect(bool(peak_status.get("particles_emitting", false)), "fracture peak should emit cyan spark particles")
+	_expect(int(peak_status.get("particle_amount", 0)) == 40, "active host should keep its 40-particle cap")
+	_expect(int(peak_status.get("particle_fixed_fps", 0)) == 30, "active host should keep fixed_fps 30")
+	_expect(float(peak_status.get("particle_explosiveness", 0.0)) >= 0.80, "spark particles should burst instead of dribbling continuously")
+	_expect(float(peak_status.get("particle_gravity_y", 0.0)) >= 120.0, "spark particles should fall after the burst")
+	_expect(absf(float(peak_status.get("particle_tangential_max", 1.0))) <= 0.001, "spark particles should not swirl like a forming vortex")
+	_expect(is_equal_approx(float(peak_status.get("burst_rotation", 1.0)), 0.0), "burst ring should not rotate like a summon vortex")
+	_expect(_vector_close(peak_status.get("position", Vector2.ZERO), Vector2(640.0, 540.0)), "host should position itself at the screen-space gem center")
+	_expect(_vector_close(peak_status.get("scale", Vector2.ZERO), Vector2.ONE), "720p sync should keep host scale at 1.0")
+	_expect(float(peak_status.get("intensity", 0.0)) > 0.8, "fracture peak should drive a strong but brief WritheEmber burst")
 
 	host.sync_state({
 		"view_size": Vector2(1280.0, 720.0),
 		"gem_center": Vector2(640.0, 540.0),
-		"progress": 0.90,
-		"elapsed": 1.80,
+		"progress": 0.25,
+		"elapsed": 0.50,
+		"quality_scale": 1.0,
+	}, true)
+	var release_status := host.get_debug_status()
+	_expect(bool(release_status.get("active", false)), "post-peak release should remain visible while fading")
+	_expect(not bool(release_status.get("particles_emitting", true)), "post-peak release should stop emitting new sparks")
+	_expect(float(release_status.get("intensity", 1.0)) < float(peak_status.get("intensity", 0.0)), "post-peak release should decay instead of holding a bright sustain")
+
+	host.sync_state({
+		"view_size": Vector2(1280.0, 720.0),
+		"gem_center": Vector2(640.0, 540.0),
+		"progress": 0.85,
+		"elapsed": 1.70,
 		"quality_scale": 1.0,
 	}, true)
 	var collapse_status := host.get_debug_status()
 	_expect(bool(collapse_status.get("active", false)), "collapse sync should stay visible until the handoff reaches the broken gem")
-	_expect(float(collapse_status.get("intensity", 1.0)) < float(active_status.get("intensity", 0.0)), "collapse sync should reduce intensity instead of hard-popping")
+	_expect(float(collapse_status.get("intensity", 1.0)) < float(release_status.get("intensity", 0.0)), "collapse sync should continue the monotonic fade instead of re-brightening")
 
 	host.sync_state({
 		"view_size": Vector2(1280.0, 720.0),
@@ -118,6 +134,14 @@ func _verify_source_contracts() -> void:
 	_expect(source.find("_smoothstep") >= 0, "WritheEmber input mask should keep a feathered radial edge")
 	_expect(source.find("ACTIVE_SYNC_GRACE_MSEC") >= 0 and source.find("set_active(false)") >= 0, "shatter host should own a single cleanup and self-timeout path")
 	_expect(source.find("local_coords = true") >= 0, "spark particles should remain centered on the gem")
+	_expect(source.find("FRACTURE_PEAK") >= 0 and source.find("FRACTURE_DECAY_POWER") >= 0, "shatter energy should be front-loaded as a fracture, not a long sustain")
+	_expect(source.find("0.88 + 0.08") < 0 and source.find("COLLAPSE_START") < 0, "shatter host should not keep the old bright sustain envelope")
+	_expect(source.find("progress <= SPARK_EMIT_END") >= 0 and source.find("progress <= 0.92") < 0, "spark emission should be limited to the fracture burst window")
+	_expect(
+		source.find("_burst_sprite.rotation = 0.0") >= 0
+			and source.find("elapsed\", 0.0)) * 0.42") < 0,
+		"burst layer should expand and fade without summon-style rotation"
+	)
 
 
 func _function_body(source: String, signature: String) -> String:

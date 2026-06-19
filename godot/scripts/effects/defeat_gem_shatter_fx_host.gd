@@ -20,8 +20,9 @@ const ENERGY_ASPECT := Vector2(1.08, 0.86)
 const BURST_ASPECT := Vector2(1.12, 0.78)
 const PARTICLE_AMOUNT := 40
 const PARTICLE_FIXED_FPS := 30
-const ERUPT_END := 0.15
-const COLLAPSE_START := 0.70
+const FRACTURE_PEAK := 0.10
+const SPARK_EMIT_END := 0.18
+const FRACTURE_DECAY_POWER := 2.25
 
 static var _prewarmed := false
 static var _quad_texture: ImageTexture = null
@@ -122,23 +123,22 @@ func sync_state(state: Dictionary, active: bool) -> void:
 	position = gem_center
 	var s := view_size.y / REF_HEIGHT
 	scale = Vector2(s, s)
-	var erupt := 1.0 - clampf(progress / ERUPT_END, 0.0, 1.0)
-	var collapse := clampf((progress - COLLAPSE_START) / (1.0 - COLLAPSE_START), 0.0, 1.0)
-	var quad_scale := QUAD_BASE_SCALE + envelope * 0.28 + erupt * 0.24 - collapse * 0.10
+	var release := _fracture_release(progress)
+	var quad_scale := QUAD_BASE_SCALE * (0.82 + release * 0.78)
 	if _energy_sprite != null:
 		_energy_sprite.scale = ENERGY_ASPECT * quad_scale
-		_energy_sprite.modulate = Color(1.0, 1.0, 1.0, clampf(0.22 + intensity * 0.78 + erupt * 0.10, 0.0, 0.85))
+		_energy_sprite.modulate = Color(1.0, 1.0, 1.0, clampf(0.08 + intensity * 0.62, 0.0, 0.68))
 	if _burst_sprite != null:
-		var burst_alpha := clampf(0.08 + intensity * 0.34 + erupt * 0.20, 0.0, 0.48)
-		var burst_scale := quad_scale * (1.12 + envelope * 0.20 + erupt * 0.14)
+		var burst_alpha := clampf(intensity * 0.32, 0.0, 0.34)
+		var burst_scale := quad_scale * (0.94 + release * 0.50)
 		_burst_sprite.scale = BURST_ASPECT * burst_scale
-		_burst_sprite.rotation = float(state.get("elapsed", 0.0)) * 0.42
+		_burst_sprite.rotation = 0.0
 		_burst_sprite.modulate = Color(0.44, 0.82, 1.0, burst_alpha)
 	if _energy_material != null:
 		_energy_material.set_shader_parameter("elapsed", float(state.get("elapsed", 0.0)))
 		_energy_material.set_shader_parameter("intensity", intensity)
 	if _spark_particles != null:
-		_spark_particles.emitting = progress >= 0.035 and progress <= 0.92 and intensity > 0.045
+		_spark_particles.emitting = progress <= SPARK_EMIT_END and intensity > 0.045
 
 
 func _process(_delta: float) -> void:
@@ -174,14 +174,21 @@ func tear_down(free_self: bool = false) -> void:
 
 
 func get_debug_status() -> Dictionary:
+	var spark_material: ParticleProcessMaterial = null
+	if _spark_particles != null and _spark_particles.process_material is ParticleProcessMaterial:
+		spark_material = _spark_particles.process_material as ParticleProcessMaterial
 	return {
 		"active": visible,
 		"burst_visible": _burst_sprite != null and _burst_sprite.visible,
+		"burst_rotation": _burst_sprite.rotation if _burst_sprite != null else 0.0,
 		"z_as_relative": z_as_relative,
 		"z_index": z_index,
 		"particles_emitting": _spark_particles != null and _spark_particles.emitting,
 		"particle_amount": _spark_particles.amount if _spark_particles != null else 0,
 		"particle_fixed_fps": _spark_particles.fixed_fps if _spark_particles != null else 0,
+		"particle_explosiveness": _spark_particles.explosiveness if _spark_particles != null else 0.0,
+		"particle_gravity_y": spark_material.gravity.y if spark_material != null else 0.0,
+		"particle_tangential_max": spark_material.tangential_accel_max if spark_material != null else 0.0,
 		"local_coords": _spark_particles.local_coords if _spark_particles != null else false,
 		"preset_ready": WritheEmber.has_preset(PRESET_NAME),
 		"intensity": _last_intensity,
@@ -224,9 +231,9 @@ func _build_children() -> void:
 		_spark_particles = GPUParticles2D.new()
 		_spark_particles.name = "CyanGemShatterSparks"
 		_spark_particles.amount = PARTICLE_AMOUNT
-		_spark_particles.lifetime = 0.48
+		_spark_particles.lifetime = 0.42
 		_spark_particles.one_shot = false
-		_spark_particles.explosiveness = 0.18
+		_spark_particles.explosiveness = 0.85
 		_spark_particles.randomness = 0.82
 		_spark_particles.fixed_fps = PARTICLE_FIXED_FPS
 		_spark_particles.local_coords = true
@@ -241,17 +248,17 @@ func _build_children() -> void:
 
 static func _build_spark_process_material() -> ParticleProcessMaterial:
 	var mat := ParticleProcessMaterial.new()
-	mat.direction = Vector3(0.0, -1.0, 0.0)
+	mat.direction = Vector3(1.0, 0.0, 0.0)
 	mat.spread = 180.0
-	mat.gravity = Vector3(0.0, 18.0, 0.0)
+	mat.gravity = Vector3(0.0, 140.0, 0.0)
 	mat.initial_velocity_min = 54.0
 	mat.initial_velocity_max = 150.0
-	mat.radial_accel_min = 28.0
-	mat.radial_accel_max = 110.0
-	mat.tangential_accel_min = -64.0
-	mat.tangential_accel_max = 64.0
-	mat.damping_min = 18.0
-	mat.damping_max = 42.0
+	mat.radial_accel_min = 70.0
+	mat.radial_accel_max = 160.0
+	mat.tangential_accel_min = 0.0
+	mat.tangential_accel_max = 0.0
+	mat.damping_min = 26.0
+	mat.damping_max = 54.0
 	mat.scale_min = 0.026
 	mat.scale_max = 0.078
 	mat.color = Color(0.58, 0.92, 1.0, 1.0)
@@ -282,12 +289,15 @@ static func _smoothstep(edge0: float, edge1: float, value: float) -> float:
 
 static func _energy_envelope(progress: float) -> float:
 	var p := clampf(progress, 0.0, 1.0)
-	if p < ERUPT_END:
-		return _ease_out_cubic(p / ERUPT_END)
-	if p < COLLAPSE_START:
-		var sustain := (p - ERUPT_END) / (COLLAPSE_START - ERUPT_END)
-		return 0.88 + 0.08 * sin(sustain * PI * 3.0)
-	return 1.0 - _ease_in_out_cubic((p - COLLAPSE_START) / (1.0 - COLLAPSE_START))
+	if p < FRACTURE_PEAK:
+		return _ease_out_cubic(p / FRACTURE_PEAK)
+	var decay := clampf((p - FRACTURE_PEAK) / maxf(1.0 - FRACTURE_PEAK, 0.001), 0.0, 1.0)
+	return pow(1.0 - decay, FRACTURE_DECAY_POWER)
+
+
+static func _fracture_release(progress: float) -> float:
+	var p := clampf(progress, 0.0, 1.0)
+	return _ease_out_cubic(p)
 
 
 static func _ease_out_cubic(value: float) -> float:
