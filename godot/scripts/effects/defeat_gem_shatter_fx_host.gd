@@ -15,8 +15,8 @@ const REF_HEIGHT := 720.0
 const QUALITY_GATE := 0.45
 const ACTIVE_SYNC_GRACE_MSEC := 160
 const QUAD_TEXTURE_SIZE := 128
-const QUAD_BASE_SCALE := 1.08
-const PARTICLE_AMOUNT := 24
+const QUAD_BASE_SCALE := 1.34
+const PARTICLE_AMOUNT := 40
 const PARTICLE_FIXED_FPS := 30
 const ERUPT_END := 0.15
 const COLLAPSE_START := 0.70
@@ -24,9 +24,11 @@ const COLLAPSE_START := 0.70
 static var _prewarmed := false
 static var _quad_texture: ImageTexture = null
 static var _spark_texture: Texture2D = null
+static var _burst_texture: Texture2D = null
 static var _prewarm_material: ShaderMaterial = null
 static var _spark_process_material: ParticleProcessMaterial = null
 
+var _burst_sprite: Sprite2D = null
 var _energy_sprite: Sprite2D = null
 var _spark_particles: GPUParticles2D = null
 var _energy_material: ShaderMaterial = null
@@ -43,6 +45,7 @@ static func prewarm_assets() -> void:
 	ImpactFlareTextureCache.prewarm()
 	_quad_texture = _get_quad_texture()
 	_spark_texture = ImpactFlareTextureCache.get_sparkle_texture()
+	_burst_texture = ImpactFlareTextureCache.get_burst_texture()
 	_prewarm_material = WritheEmber.build_material(PRESET_NAME)
 	_spark_process_material = _build_spark_process_material()
 	_prewarmed = true
@@ -54,6 +57,7 @@ static func build_pipeline_status() -> Dictionary:
 		"preset_ready": WritheEmber.has_preset(PRESET_NAME),
 		"quad_texture_ready": _quad_texture != null,
 		"spark_texture_ready": _spark_texture != null,
+		"burst_texture_ready": _burst_texture != null,
 		"spark_amount": PARTICLE_AMOUNT,
 		"fixed_fps": PARTICLE_FIXED_FPS,
 		"z_index": Z_INDEX,
@@ -78,8 +82,8 @@ static func _get_quad_texture() -> ImageTexture:
 			var inner_fade := _smoothstep(0.10, 0.24, dist)
 			var branch_a := pow(maxf(0.0, 0.5 + 0.5 * sin(angle * 9.0 + dist * 18.0)), 6.0)
 			var branch_b := pow(maxf(0.0, 0.5 + 0.5 * sin(angle * 15.0 - dist * 24.0)), 9.0)
-			var core := pow(1.0 - dist, 2.8) * 0.28
-			var alpha := clampf((core + (branch_a * 0.58 + branch_b * 0.42) * inner_fade) * edge_fade, 0.0, 1.0)
+			var core := pow(1.0 - dist, 2.8) * 0.34
+			var alpha := clampf((core + (branch_a * 0.72 + branch_b * 0.55) * inner_fade) * edge_fade, 0.0, 1.0)
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	_quad_texture = ImageTexture.create_from_image(image)
 	return _quad_texture
@@ -105,7 +109,7 @@ func sync_state(state: Dictionary, active: bool) -> void:
 	var quality_scale := clampf(float(state.get("quality_scale", 1.0)), 0.0, 1.0)
 	var progress := clampf(float(state.get("progress", 0.0)), 0.0, 1.0)
 	var envelope := _energy_envelope(progress)
-	var intensity := envelope * (0.64 + quality_scale * 0.24)
+	var intensity := envelope * (0.80 + quality_scale * 0.28)
 	var allow := active and quality_scale >= QUALITY_GATE and intensity > 0.01 and progress < 1.0
 	set_active(allow)
 	if not visible:
@@ -118,10 +122,16 @@ func sync_state(state: Dictionary, active: bool) -> void:
 	scale = Vector2(s, s)
 	var erupt := 1.0 - clampf(progress / ERUPT_END, 0.0, 1.0)
 	var collapse := clampf((progress - COLLAPSE_START) / (1.0 - COLLAPSE_START), 0.0, 1.0)
-	var quad_scale := QUAD_BASE_SCALE + envelope * 0.22 + erupt * 0.18 - collapse * 0.12
+	var quad_scale := QUAD_BASE_SCALE + envelope * 0.28 + erupt * 0.24 - collapse * 0.10
 	if _energy_sprite != null:
 		_energy_sprite.scale = Vector2(quad_scale, quad_scale)
-		_energy_sprite.modulate = Color(1.0, 1.0, 1.0, clampf(0.14 + intensity * 0.58, 0.0, 0.62))
+		_energy_sprite.modulate = Color(1.0, 1.0, 1.0, clampf(0.22 + intensity * 0.78 + erupt * 0.10, 0.0, 0.85))
+	if _burst_sprite != null:
+		var burst_alpha := clampf(0.08 + intensity * 0.34 + erupt * 0.20, 0.0, 0.48)
+		var burst_scale := quad_scale * (1.12 + envelope * 0.20 + erupt * 0.14)
+		_burst_sprite.scale = Vector2(burst_scale, burst_scale)
+		_burst_sprite.rotation = float(state.get("elapsed", 0.0)) * 0.42
+		_burst_sprite.modulate = Color(0.44, 0.82, 1.0, burst_alpha)
 	if _energy_material != null:
 		_energy_material.set_shader_parameter("elapsed", float(state.get("elapsed", 0.0)))
 		_energy_material.set_shader_parameter("intensity", intensity)
@@ -138,12 +148,18 @@ func _process(_delta: float) -> void:
 
 
 func set_active(active: bool) -> void:
+	var was_active := visible
 	visible = active
 	set_process(active)
+	if _burst_sprite != null:
+		_burst_sprite.visible = active
 	if _energy_sprite != null:
 		_energy_sprite.visible = active
 	if _spark_particles != null and not active:
 		_spark_particles.emitting = false
+	if _spark_particles != null and active and not was_active:
+		_spark_particles.restart()
+		_spark_particles.emitting = true
 	if not active:
 		_last_intensity = 0.0
 		_last_progress = 0.0
@@ -158,6 +174,7 @@ func tear_down(free_self: bool = false) -> void:
 func get_debug_status() -> Dictionary:
 	return {
 		"active": visible,
+		"burst_visible": _burst_sprite != null and _burst_sprite.visible,
 		"z_as_relative": z_as_relative,
 		"z_index": z_index,
 		"particles_emitting": _spark_particles != null and _spark_particles.emitting,
@@ -181,6 +198,15 @@ func _build_children() -> void:
 	prewarm_assets()
 	if _additive_material == null:
 		_additive_material = _make_additive_material()
+	if _burst_sprite == null:
+		_burst_sprite = Sprite2D.new()
+		_burst_sprite.name = "CyanGemShatterBurst"
+		_burst_sprite.centered = true
+		_burst_sprite.texture = _burst_texture
+		_burst_sprite.material = _additive_material
+		_burst_sprite.visible = false
+		_burst_sprite.z_index = -1
+		add_child(_burst_sprite)
 	if _energy_sprite == null:
 		_energy_sprite = Sprite2D.new()
 		_energy_sprite.name = "CyanGemShatterWritheQuad"
@@ -216,19 +242,19 @@ static func _build_spark_process_material() -> ParticleProcessMaterial:
 	mat.direction = Vector3(0.0, -1.0, 0.0)
 	mat.spread = 180.0
 	mat.gravity = Vector3(0.0, 18.0, 0.0)
-	mat.initial_velocity_min = 46.0
-	mat.initial_velocity_max = 128.0
-	mat.radial_accel_min = 20.0
-	mat.radial_accel_max = 84.0
+	mat.initial_velocity_min = 54.0
+	mat.initial_velocity_max = 150.0
+	mat.radial_accel_min = 28.0
+	mat.radial_accel_max = 110.0
 	mat.tangential_accel_min = -64.0
 	mat.tangential_accel_max = 64.0
 	mat.damping_min = 18.0
 	mat.damping_max = 42.0
-	mat.scale_min = 0.020
-	mat.scale_max = 0.060
-	mat.color = Color(0.48, 0.86, 1.0, 0.92)
+	mat.scale_min = 0.026
+	mat.scale_max = 0.078
+	mat.color = Color(0.58, 0.92, 1.0, 1.0)
 	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	mat.emission_sphere_radius = 34.0
+	mat.emission_sphere_radius = 38.0
 	var ramp := Gradient.new()
 	ramp.set_color(0, Color(1.0, 1.0, 1.0, 0.0))
 	ramp.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
