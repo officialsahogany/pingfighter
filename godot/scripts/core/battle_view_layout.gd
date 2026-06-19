@@ -72,6 +72,30 @@ static var _last_settings_save_summary := "not_saved"
 static var _settings_load_count := 0
 static var _last_settings_load_summary := "not_loaded"
 static var _last_good_backup_written := false
+static var _settings_path_override := ""
+static var _settings_backup_path_override := ""
+
+
+static func set_settings_paths_for_test(settings_path: String, backup_path: String = "") -> void:
+	_settings_path_override = settings_path
+	_settings_backup_path_override = backup_path
+	_last_good_backup_written = false
+
+
+static func reset_settings_paths_for_test() -> void:
+	_settings_path_override = ""
+	_settings_backup_path_override = ""
+	_last_good_backup_written = false
+
+
+static func _get_settings_path() -> String:
+	return _settings_path_override if _settings_path_override != "" else SETTINGS_PATH
+
+
+static func _get_settings_backup_path() -> String:
+	if _settings_backup_path_override != "":
+		return _settings_backup_path_override
+	return SETTINGS_BACKUP_PATH
 
 
 func configure_window(window: Window) -> void:
@@ -201,7 +225,7 @@ func save_display_mode_default(mode: String, remember_default: bool) -> bool:
 		config.set_value("graphics", "display_mode", normalized_mode)
 	elif config.has_section_key("graphics", "display_mode"):
 		config.erase_section_key("graphics", "display_mode")
-	var result := config.save(SETTINGS_PATH)
+	var result := config.save(_get_settings_path())
 	_record_settings_save("display", config, result)
 	if result == OK:
 		_save_last_good_display_settings(config)
@@ -264,7 +288,7 @@ func save_render_fps_cap_default(cap: int) -> bool:
 	var config := _load_display_settings()
 	_stamp_display_settings_schema(config)
 	config.set_value("graphics", "render_fps_cap", normalized_cap)
-	var result := config.save(SETTINGS_PATH)
+	var result := config.save(_get_settings_path())
 	_record_settings_save("render_cap", config, result)
 	if result == OK:
 		_save_last_good_display_settings(config)
@@ -294,7 +318,7 @@ func save_vsync_mode_default(mode: int) -> bool:
 	var config := _load_display_settings()
 	_stamp_display_settings_schema(config)
 	config.set_value("graphics", "vsync_mode", _normalize_vsync_mode(mode))
-	var result := config.save(SETTINGS_PATH)
+	var result := config.save(_get_settings_path())
 	_record_settings_save("vsync", config, result)
 	if result == OK:
 		_save_last_good_display_settings(config)
@@ -326,7 +350,7 @@ func save_auto_refresh_rate_default(enabled: bool, window: Window = null) -> boo
 	var config := _load_display_settings()
 	_stamp_display_settings_schema(config)
 	config.set_value("graphics", "auto_60hz_refresh_rate", enabled)
-	var result := config.save(SETTINGS_PATH)
+	var result := config.save(_get_settings_path())
 	_record_settings_save("auto_refresh", config, result)
 	if result == OK:
 		_save_last_good_display_settings(config)
@@ -589,10 +613,12 @@ static func resolve_stable_cap_for_monitor_rate(monitor_rate: int) -> int:
 func _load_display_settings() -> ConfigFile:
 	var config := ConfigFile.new()
 	_settings_load_count += 1
-	var exists := FileAccess.file_exists(SETTINGS_PATH)
+	var settings_path := _get_settings_path()
+	var settings_backup_path := _get_settings_backup_path()
+	var exists := FileAccess.file_exists(settings_path)
 	if not exists:
 		_set_default_display_settings_payload(config)
-		var default_save_result := config.save(SETTINGS_PATH)
+		var default_save_result := config.save(settings_path)
 		_record_settings_save("missing_defaults", config, default_save_result)
 		if default_save_result == OK:
 			_save_last_good_display_settings(config)
@@ -612,11 +638,11 @@ func _load_display_settings() -> ConfigFile:
 	var completion_reason := _complete_missing_display_settings(config)
 	if repair_reason != "" or completion_reason != "":
 		var reason := repair_reason if repair_reason != "" else completion_reason
-		var repair_result := config.save(SETTINGS_PATH)
+		var repair_result := config.save(settings_path)
 		_record_settings_save(reason, config, repair_result)
 		if repair_result == OK:
 			_save_last_good_display_settings(config)
-	elif not _last_good_backup_written and not FileAccess.file_exists(SETTINGS_BACKUP_PATH):
+	elif not _last_good_backup_written and not FileAccess.file_exists(settings_backup_path):
 		_save_last_good_display_settings(config)
 	if repair_reason != "":
 		load_state = "%s_%s" % [load_state, repair_reason]
@@ -661,7 +687,7 @@ func _migrate_display_settings(config: ConfigFile) -> void:
 	_stamp_display_settings_schema(config)
 	changed = true
 	if changed:
-		var result := config.save(SETTINGS_PATH)
+		var result := config.save(_get_settings_path())
 		_record_settings_save("migrate", config, result)
 
 
@@ -687,13 +713,14 @@ func _record_settings_save(reason: String, config: ConfigFile, result: int) -> v
 
 
 func _load_config_file(config: ConfigFile) -> Dictionary:
-	var raw_bytes := FileAccess.get_file_as_bytes(SETTINGS_PATH)
+	var settings_path := _get_settings_path()
+	var raw_bytes := FileAccess.get_file_as_bytes(settings_path)
 	if _has_utf8_bom(raw_bytes):
 		var clean_bytes := raw_bytes.slice(3)
 		var clean_text := clean_bytes.get_string_from_utf8()
 		var parse_result := config.parse(clean_text)
 		if parse_result == OK:
-			var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+			var file := FileAccess.open(settings_path, FileAccess.WRITE)
 			if file != null:
 				file.store_string(clean_text)
 				file.close()
@@ -701,7 +728,7 @@ func _load_config_file(config: ConfigFile) -> Dictionary:
 			"result": parse_result,
 			"state": "ok_clean_bom" if parse_result == OK else "error_clean_bom",
 		}
-	var result := config.load(SETTINGS_PATH)
+	var result := config.load(settings_path)
 	return {
 		"result": result,
 		"state": "ok" if result == OK else "error",
@@ -716,7 +743,8 @@ func _repair_empty_display_settings_payload(config: ConfigFile) -> String:
 	if _has_display_settings_payload(config):
 		return ""
 	var backup_config := ConfigFile.new()
-	if FileAccess.file_exists(SETTINGS_BACKUP_PATH) and backup_config.load(SETTINGS_BACKUP_PATH) == OK:
+	var settings_backup_path := _get_settings_backup_path()
+	if FileAccess.file_exists(settings_backup_path) and backup_config.load(settings_backup_path) == OK:
 		if _has_display_settings_payload(backup_config):
 			_copy_display_settings_payload(backup_config, config)
 			return "repair_backup"
@@ -774,7 +802,7 @@ func _save_last_good_display_settings(config: ConfigFile) -> void:
 	var backup_config := ConfigFile.new()
 	_copy_display_settings_payload(config, backup_config)
 	_stamp_display_settings_schema(backup_config)
-	if backup_config.save(SETTINGS_BACKUP_PATH) == OK:
+	if backup_config.save(_get_settings_backup_path()) == OK:
 		_last_good_backup_written = true
 
 

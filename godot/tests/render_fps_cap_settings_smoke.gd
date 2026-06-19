@@ -4,13 +4,15 @@ const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
-const SETTINGS_PATH := "user://display_settings.cfg"
-const SETTINGS_BACKUP_PATH := "user://display_settings.last_good.cfg"
+
+var SETTINGS_PATH := ""
+var SETTINGS_BACKUP_PATH := ""
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
+	_configure_test_settings_paths()
 	var original_cap: int = int(Engine.get("max_fps"))
 	var original_physics_ticks: int = int(Engine.physics_ticks_per_second)
 	var original_vsync_mode: int = int(DisplayServer.window_get_vsync_mode())
@@ -28,6 +30,8 @@ func _init() -> void:
 	Engine.set("max_fps", original_cap)
 	Engine.physics_ticks_per_second = original_physics_ticks
 	DisplayServer.window_set_vsync_mode(original_vsync_mode)
+	_clear_display_settings_files()
+	BattleViewLayout.reset_settings_paths_for_test()
 
 	if _failures.is_empty():
 		print("render_fps_cap_settings_smoke: ok")
@@ -36,6 +40,18 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _configure_test_settings_paths() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://.tmp"))
+	var slug := "render_fps_cap_settings_smoke_%d_%d" % [
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
+	SETTINGS_PATH = "res://.tmp/%s.cfg" % slug
+	SETTINGS_BACKUP_PATH = "res://.tmp/%s.last_good.cfg" % slug
+	BattleViewLayout.set_settings_paths_for_test(SETTINGS_PATH, SETTINGS_BACKUP_PATH)
+	_clear_display_settings_files()
 
 
 func _verify_render_fps_cap_runtime_options() -> void:
