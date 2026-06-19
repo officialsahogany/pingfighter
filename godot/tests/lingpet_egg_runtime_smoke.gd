@@ -894,14 +894,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(live_catalog_issues.is_empty(), "live lingpet catalog should validate cleanly: %s" % str(live_catalog_issues))
 	var all_catalog_pet_ids: Array[String] = LingpetCatalog.get_pet_ids(true)
 	var enabled_catalog_pet_ids: Array[String] = LingpetCatalog.get_pet_ids()
-	_expect(all_catalog_pet_ids.has("draft_bat"), "catalog should keep the draft Bat lingpet metadata")
-	_expect(not enabled_catalog_pet_ids.has("draft_bat"), "draft Bat should stay out of enabled pet ids until hatch-pool approval")
-	_expect(not candidates.has("draft_bat"), "draft Bat should stay out of the random hatch pool until hatch-pool approval")
-	_expect(not LingpetCatalog.is_pet_enabled("draft_bat"), "draft Bat should remain a parked draft pet")
-	_expect(all_catalog_pet_ids.has("nekuring"), "catalog should keep the Nekuring debug lingpet metadata")
-	_expect(not enabled_catalog_pet_ids.has("nekuring"), "Nekuring should stay out of enabled pet ids until full runtime assets ship")
-	_expect(not candidates.has("nekuring"), "Nekuring should stay out of the random hatch pool while it is debug-only")
-	_expect(not LingpetCatalog.is_pet_enabled("nekuring"), "Nekuring should remain a debug-only pet")
+	_expect(all_catalog_pet_ids.has("nekuring"), "catalog should keep the Nekuring lingpet metadata")
+	_expect(enabled_catalog_pet_ids.has("nekuring"), "Nekuring should appear in enabled pet ids after production promotion")
+	_expect(candidates.has("nekuring"), "Nekuring should enter the random hatch pool after production promotion")
+	_expect(LingpetCatalog.is_pet_enabled("nekuring"), "Nekuring should be treated as a live pet")
 	_expect(all_catalog_pet_ids.has("milkring"), "catalog should keep the Milkring lingpet metadata")
 	_expect(enabled_catalog_pet_ids.has("milkring"), "Milkring should appear in enabled pet ids after companion/cut-in/click assets ship")
 	_expect(candidates.has("milkring"), "Milkring should enter the random hatch pool after live catalog integration")
@@ -914,13 +910,6 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(enabled_catalog_pet_ids.has("orbi"), "Serabi should appear in enabled pet ids after companion/cut-in/click assets ship")
 	_expect(candidates.has("orbi"), "Serabi should enter the random hatch pool after live catalog integration")
 	_expect(LingpetCatalog.is_pet_enabled("orbi"), "Serabi should be treated as a live pet")
-	var draft_bat_entry: Dictionary = LingpetCatalog.get_entry("draft_bat")
-	var draft_bat_concept_path := str(draft_bat_entry.get("concept_art_path", ""))
-	var draft_bat_chromakey_path := str(draft_bat_entry.get("concept_chromakey_path", ""))
-	var draft_bat_magenta_path := str(draft_bat_entry.get("concept_magenta_source_path", ""))
-	_expect(FileAccess.file_exists(draft_bat_concept_path), "draft Bat concept art should stay parked under the lingpet asset tree")
-	_expect(FileAccess.file_exists(draft_bat_chromakey_path), "draft Bat chromakey source should stay parked under the lingpet asset tree")
-	_expect(FileAccess.file_exists(draft_bat_magenta_path), "draft Bat magenta source should stay parked under the lingpet asset tree")
 	for live_pet_id in LingpetCatalog.get_pet_ids():
 		var live_skill: Dictionary = LingpetCatalog.get_active_skill(live_pet_id)
 		var live_skill_id := str(live_skill.get("id", "")).strip_edges()
@@ -1079,7 +1068,6 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var nekuring_click_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f_manifest.json")
 	_expect(nekuring_click_manifest_source.find("\"frame_count\": 98") >= 0 and nekuring_click_manifest_source.find("\"final_cell_size\": [") >= 0 and nekuring_click_manifest_source.find("1152") >= 0 and nekuring_click_manifest_source.find("\"realesrgan_upscale\"") >= 0 and nekuring_click_manifest_source.find("\"final_cells_with_edge_touch\": []") >= 0, "Nekuring full click Live2D manifest should pin the 98-frame clean-edge HQ runtime grid")
 	_expect(is_equal_approx(LingpetCatalog.get_visual_layout_value("maribo", "companion_walk_draw_size", 0.0), 104.0), "catalog should upscale Maribo's refreshed walk sheet to match strike/cast scale")
-	_expect(is_equal_approx(LingpetCatalog.get_visual_layout_value("draft_bat", "companion_walk_draw_size", 82.0), 82.0), "catalog walk-size override should be per-pet, not a global companion scale")
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_bubble_trap").get("runtime_kind", "")) == "bubble_trap", "catalog should expose Maribo Bubble Trap runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("lunabi_headbutt").get("runtime_kind", "")) == "headbutt", "catalog should expose Lunabi headbutt runtime kind by skill id")
@@ -1846,20 +1834,20 @@ func _verify_companion_patrol_ignores_viper_airborne_y() -> void:
 
 func _verify_companion_initial_facing_uses_patrol_dir() -> void:
 	var owner := FakeOwner.new()
-	owner.lingpet_owned_pet_ids = ["draft_bat"]
+	owner.lingpet_owned_pet_ids = ["maribo"]
 	owner.owned_lingpet_ids = owner.lingpet_owned_pet_ids.duplicate()
 	owner.owned_ringpet_ids = owner.lingpet_owned_pet_ids.duplicate()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.apply_save_snapshot({
-		"pet_id": "draft_bat",
+		"pet_id": "maribo",
 		"state": "companion",
-		"owned_pet_ids": ["draft_bat"],
+		"owned_pet_ids": ["maribo"],
 		"companion_pos": Vector2.ZERO,
 		"companion_patrol_dir": -1.0,
 		"companion_patrol_seed": 24680,
 		"companion_patrol_speed": 216.0,
 	}, owner)
-	_expect(owner.lingpet_companion_pos != Vector2.ZERO, "Draft Bat companion should initialize from a zero saved position")
+	_expect(owner.lingpet_companion_pos != Vector2.ZERO, "Maribo companion should initialize from a zero saved position")
 	_expect(bool(runtime.is_companion_facing_left_for_tests()), "companion first-spawn facing should use restored patrol_dir, not the zero-to-spawn placement dx")
 
 

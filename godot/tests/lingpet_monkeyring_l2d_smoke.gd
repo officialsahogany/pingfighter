@@ -24,8 +24,8 @@ func _init() -> void:
 
 func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.has_pet("monkeyring"), "Monkeyring should be debug-activatable through the lingpet catalog")
-	_expect(not LingpetCatalog.is_pet_enabled("monkeyring"), "Monkeyring should stay out of the normal hatch pool")
-	_expect(LingpetCatalog.is_pet_debug_enabled("monkeyring"), "Monkeyring should be visible in the F7 debug picker")
+	_expect(LingpetCatalog.is_pet_enabled("monkeyring"), "Monkeyring should now be a live hatch-pool pet")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("monkeyring"), "Monkeyring should still be reachable from the F7 picker")
 	_expect(LingpetCatalog.get_display_name("monkeyring") == "빠나몽", "Monkeyring display name should be Korean")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_art") == "res://assets/sprites/lingpet/monkeyring_cutin_art.png", "Monkeyring should own the accepted cutin art")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_anim") == "res://assets/sprites/lingpet/monkeyring_cutin_anim.png", "Monkeyring should own the 16f acquisition Live2D sheet")

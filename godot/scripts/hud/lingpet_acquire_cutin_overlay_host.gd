@@ -33,7 +33,6 @@ const CUTIN_ANIM_FPS := 16.0
 const CUTIN_ANIM_COLS_OVERRIDES := {
 	"maribo": 4,
 	"lunabi": 4,
-	"draft_bat": 4,
 	"milkring": 4,
 	"volty": 4,
 	"lumion": 4,
@@ -47,7 +46,6 @@ const CUTIN_ANIM_COLS_OVERRIDES := {
 const CUTIN_ANIM_ROWS_OVERRIDES := {
 	"maribo": 4,
 	"lunabi": 4,
-	"draft_bat": 4,
 	"milkring": 4,
 	"volty": 4,
 	"lumion": 4,
@@ -61,7 +59,6 @@ const CUTIN_ANIM_ROWS_OVERRIDES := {
 const CUTIN_ANIM_FRAMES_OVERRIDES := {
 	"maribo": 16,
 	"lunabi": 16,
-	"draft_bat": 16,
 	"milkring": 16,
 	"volty": 16,
 	"lumion": 16,

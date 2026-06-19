@@ -86,28 +86,27 @@ func _init() -> void:
 
 func _verify_dispatcher_and_catalog_scaffold() -> void:
 	_expect(LingpetSkillDispatcher.is_supported_kind("moon_orbit"), "moon_orbit should be a supported lingpet runtime kind")
-	_expect(LingpetSkillDispatcher.has_supported_runtime("draft_bat_moon_orbit"), "draft_bat_moon_orbit should route to a supported runtime")
-	_expect(LingpetSkillDispatcher.is_moon_orbit("draft_bat_moon_orbit"), "dispatcher should expose a moon_orbit helper")
+	_expect(LingpetSkillDispatcher.has_supported_runtime("orbi_ring_orbit"), "orbi_ring_orbit should route to a supported runtime")
+	_expect(LingpetSkillDispatcher.is_moon_orbit("orbi_ring_orbit"), "dispatcher should expose a moon_orbit helper")
 
-	var skill: Dictionary = LingpetCatalog.get_active_skill_entry("draft_bat_moon_orbit")
-	_expect(not skill.is_empty(), "draft_bat catalog entry should expose the Moon Orbit skill metadata")
-	_expect(str(skill.get("runtime_kind", "")) == "moon_orbit", "draft_bat skill metadata should use the moon_orbit runtime kind")
-	_expect(str(skill.get("card_texture_path", "")).ends_with("draft_bat_moon_orbit_skillcard_imagegen_v1.png"), "draft_bat skill metadata should point at the accepted skill-card art")
-	_expect(str(skill.get("icon_texture_path", "")).ends_with("draft_bat_moon_orbit_skill_icon_imagegen_v1.png"), "draft_bat skill metadata should point at the accepted skill icon")
-	_expect(LingpetRailCard.is_lingpet_skill({"id": "draft_bat_moon_orbit"}), "shared rail-card helper should recognize draft_bat Moon Orbit as a lingpet skill")
+	var skill: Dictionary = LingpetCatalog.get_active_skill_entry("orbi_ring_orbit")
+	_expect(not skill.is_empty(), "orbi catalog entry should expose the Moon Orbit skill metadata")
+	_expect(str(skill.get("runtime_kind", "")) == "moon_orbit", "orbi skill metadata should use the moon_orbit runtime kind")
+	_expect(str(skill.get("card_texture_path", "")).ends_with("orbi_ring_orbit_skillcard_imagegen_v1.png"), "orbi skill metadata should point at the accepted skill-card art")
+	_expect(str(skill.get("icon_texture_path", "")).ends_with("orbi_ring_orbit_skill_icon_imagegen_v1.png"), "orbi skill metadata should point at the accepted skill icon")
+	_expect(LingpetRailCard.is_lingpet_skill({"id": "orbi_ring_orbit"}), "shared rail-card helper should recognize Orbi Moon Orbit as a lingpet skill")
 	for visual_key in ["cutin_art", "cutin_anim", "cutin_dismiss_anim", "click_reaction_anim"]:
-		var visual_path: String = LingpetCatalog.get_visual_path("draft_bat", visual_key)
-		_expect(visual_path != "", "draft_bat should keep %s visual metadata while parked" % visual_key)
-		_expect(FileAccess.file_exists(visual_path), "draft_bat visual file should exist for %s" % visual_key)
-	_expect(not LingpetCatalog.get_pet_ids().has("draft_bat"), "draft_bat should stay out of the enabled lingpet id list until hatch-pool approval")
-	_expect(LingpetCatalog.get_pet_ids(true).has("draft_bat"), "draft_bat should remain discoverable for tooling and future enablement")
+		var visual_path: String = LingpetCatalog.get_visual_path("orbi", visual_key)
+		_expect(visual_path != "", "orbi should keep %s visual metadata" % visual_key)
+		_expect(FileAccess.file_exists(visual_path), "orbi visual file should exist for %s" % visual_key)
+	_expect(LingpetCatalog.get_pet_ids().has("orbi"), "orbi should be in the enabled lingpet id list")
 	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates({"league_mode": "junior", "character_type": "smasher"}, [])
-	_expect(not candidates.has("draft_bat"), "draft_bat should stay out of the unidentified Junior Smasher hatch pool")
-	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "parked draft_bat metadata should validate cleanly")
+	_expect(candidates.has("orbi"), "orbi should be in the unidentified Junior Smasher hatch pool")
+	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "orbi moon-orbit metadata should validate cleanly")
 
 	var runtime := FakeLingpetRuntime.new()
 	runtime.snapshot = {
-		"companion_skill_id": "draft_bat_moon_orbit",
+		"companion_skill_id": "orbi_ring_orbit",
 		"companion_skill_name": "월영 궤도",
 		"companion_skill_description": "월영장을 만듭니다.",
 		"companion_skill_card_path": str(skill.get("card_texture_path", "")),
@@ -118,7 +117,7 @@ func _verify_dispatcher_and_catalog_scaffold() -> void:
 		"moon_orbit_field_active": true,
 	}
 	var rail_entry: Dictionary = LingpetRailCard.build_entry(FakeRegistry.new(null, runtime))
-	_expect(str(rail_entry.get("id", "")) == "draft_bat_moon_orbit", "shared rail-card entry should use the Moon Orbit skill id")
+	_expect(str(rail_entry.get("id", "")) == "orbi_ring_orbit", "shared rail-card entry should use the Orbi Moon Orbit skill id")
 	_expect(str(rail_entry.get("status", "")) == "casting", "Moon Orbit projectile/field should read as casting on the shared rail")
 
 
@@ -127,11 +126,11 @@ func _verify_runtime_host_moon_orbit_flow() -> void:
 	var owner := FakeOwner.new()
 	var status_state := FakeStatusEffectState.new()
 	var registry := FakeRegistry.new(status_state)
-	var skill_id := "draft_bat_moon_orbit"
+	var skill_id := "orbi_ring_orbit"
 	var launch_origin := Vector2(380.0, 560.0)
 
 	_expect(not host.has_visible_effects(), "fresh runtime host should not show Moon Orbit effects")
-	_expect(host.launch(skill_id, launch_origin, owner), "runtime host should launch draft_bat Moon Orbit")
+	_expect(host.launch(skill_id, launch_origin, owner), "runtime host should launch Orbi Moon Orbit")
 	_expect(host.is_launch_blocked(skill_id), "Moon Orbit should block relaunch while its projectile is in flight")
 	_expect(host.has_visible_effects(), "Moon Orbit projectile should mark the runtime host as visible")
 
@@ -151,7 +150,7 @@ func _verify_runtime_host_moon_orbit_flow() -> void:
 		_expect(is_equal_approx(float(first_slow.get("duration_frames", 0.0)), 4.0), "Moon Orbit slow should refresh with a short 4-frame duration")
 		var data: Dictionary = first_slow.get("data", {}) as Dictionary
 		_expect(is_equal_approx(float(data.get("multiplier", 0.0)), 0.72), "Moon Orbit slow should use the tuned 72 percent multiplier")
-		_expect(str(data.get("visual", "")) == "draft_bat_moon_orbit", "Moon Orbit slow should tag its own visual id")
+		_expect(str(data.get("visual", "")) == "draft_bat_moon_orbit", "Moon Orbit slow should keep the shared draft_bat visual id")
 
 	host.update(4.3, owner, registry, skill_id)
 	snapshot = host.get_snapshot()
