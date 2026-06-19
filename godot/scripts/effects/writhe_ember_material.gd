@@ -273,13 +273,13 @@ const PRESETS := {
 	# distortion and fast flicker make the tendrils feel alive, while the
 	# host's intensity envelope keeps it from burying the gem core.
 	"chance_gem_shatter_cyan": {
-		"distort_strength": 0.070,
-		"lateral_strength": 0.060,
-		"jitter_strength": 0.024,
-		"bolt_flow_speed": 5.6,
-		"flicker_speed": 15.0,
-		"pulse_speed": 3.2,
-		"breath_amp": 0.32,
+		"distort_strength": 0.110,
+		"lateral_strength": 0.090,
+		"jitter_strength": 0.035,
+		"bolt_flow_speed": 7.0,
+		"flicker_speed": 20.0,
+		"pulse_speed": 4.0,
+		"breath_amp": 0.40,
 		"hot_color": Color(0.82, 1.00, 1.00, 1.0),
 		"ember_color": Color(0.16, 0.42, 1.00, 1.0),
 		"amethyst_color": Color(0.04, 0.14, 0.54, 1.0),
