@@ -38,7 +38,18 @@ const VIPER_DUAL_GLITCH_FADE_FRAMES := 18.0
 const VIPER_DUAL_GLITCH_EVAPORATION_FRAMES := 13.2
 const VIPER_DUAL_GLITCH_ALPHA := 0.63
 const VIPER_DUAL_GLITCH_WIGGLE_AMPLITUDE := 3.0
-const VIPER_DUAL_GLITCH_GHOST_SHIFT_X := 4.0
+# 원본 VIPER_DUAL_GLITCH_WIGGLE_HZ = 12.0 — startup 동안 본체 렌더 rect만 ±3px / 12Hz 좌우 흔들림.
+const VIPER_DUAL_GLITCH_STARTUP_WIGGLE_HZ := 12.0
+# 원본 chromatic split: active ±2px, spawn 동안 ~10px까지 확장 후 수렴. + spawn 에코 잔상 3개.
+const VIPER_DUAL_GLITCH_SPLIT_BASE_SHIFT := 2.0
+const VIPER_DUAL_GLITCH_SPAWN_ECHO_COUNT := 3
+const VIPER_DUAL_GLITCH_TIMEOUT_DISPEL_SLICE_COUNT := 8
+const VIPER_DUAL_GLITCH_TIMEOUT_DISPEL_PARTICLE_COUNT := 16
+const VIPER_DUAL_GLITCH_RGB_SPLIT: Array[Color] = [
+	Color(1.0, 0.275, 0.471),
+	Color(0.275, 1.0, 0.588),
+	Color(0.275, 0.706, 1.0),
+]
 const PLAYER_GROUND_SHADOW_BASE_WIDTH := 225.0
 const PLAYER_GROUND_SHADOW_BASE_HEIGHT := 22.0
 const PLAYER_GROUND_SHADOW_ALPHA := 0.26
@@ -98,6 +109,14 @@ func draw(
 	shake_offset: Vector2,
 	perf_logger: Object = null
 ) -> void:
+	# Draw the lingpet companion BODY behind the player. The battle scene drawer injects
+	# this hook into the actor context; running it here (after the opaque stage
+	# background, before the player sprite) makes an overlapping companion render behind
+	# the player. Runs BEFORE the player-hidden early returns below (intro hologram /
+	# ghost possession) so the companion never vanishes while the paddle is hidden.
+	var companion_body_hook: Variant = context.get("lingpet_companion_body_draw", null)
+	if companion_body_hook is Callable and (companion_body_hook as Callable).is_valid():
+		(companion_body_hook as Callable).call(canvas)
 	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
 		sprite_renderer.clear_transient_canvas_items()
 	# Ball-spawn-intro paddle hologram gate. Mirrors Python's
@@ -283,6 +302,9 @@ func draw(
 		player_draw_size.x,
 		player_draw_size.y
 	)
+	# 원본 _get_viper_dual_glitch_startup_offset_px(): startup 동안 실제 위치는 고정하고
+	# 본체 렌더 rect만 ±3px / 12Hz 좌우로 흔든다. (clones / 물리 위치에는 미적용)
+	player_visual_rect = apply_dual_glitch_startup_body_wiggle(player_visual_rect, context)
 	var player_slow_ratio: float = clamp(float(context.get("status_player_slow_ratio", 0.0)), 0.0, 1.0)
 	var player_slow_active: bool = bool(context.get("status_player_slow_active", false)) or player_slow_ratio > 0.001
 	if player_slow_active and player_slow_ratio <= 0.001:
@@ -416,6 +438,106 @@ func draw(
 		_perf_end(perf_logger, "actors.stage1.player.hologram_overlay", sample_start)
 
 
+static func compute_dual_glitch_startup_wiggle_x(state: String, phase_frames: float) -> float:
+	# 원본: wave = sin((elapsed_s) * tau * 12); offset = round(3 * wave). startup에서만.
+	if state != "startup":
+		return 0.0
+	return roundf(VIPER_DUAL_GLITCH_WIGGLE_AMPLITUDE * sin((phase_frames / 60.0) * TAU * VIPER_DUAL_GLITCH_STARTUP_WIGGLE_HZ))
+
+
+static func compute_dual_glitch_spawn_alpha_factor(phase_frames: float, spawn_frames: float = VIPER_DUAL_GLITCH_SPAWN_FRAMES) -> float:
+	var progress: float = clamp(phase_frames / max(1.0, spawn_frames), 0.0, 1.0)
+	var pulse_amp: float = pow(1.0 - progress, 0.7) * 0.7
+	var pulse: float = abs(sin(progress * TAU * 2.0))
+	return clamp(progress * (1.0 - pulse_amp * (1.0 - pulse)), 0.0, 1.0)
+
+
+static func apply_dual_glitch_startup_body_wiggle(rect: Rect2, context: Dictionary) -> Rect2:
+	var wiggle_x: float = compute_dual_glitch_startup_wiggle_x(
+		str(context.get("viper_dual_glitch_state", "idle")),
+		float(context.get("viper_dual_glitch_phase_frames", 0.0))
+	)
+	if wiggle_x != 0.0:
+		rect.position += Vector2(wiggle_x, 0.0)
+	return rect
+
+
+static func compute_dual_glitch_spawn_progress(state: String, phase_frames: float, spawn_frames: float) -> float:
+	if state != "spawn":
+		return 1.0
+	return clamp(phase_frames / max(1.0, spawn_frames), 0.0, 1.0)
+
+
+static func compute_dual_glitch_split_shift(state: String, spawn_progress: float) -> float:
+	# 원본: active=2px; spawn = 2 + (1-p)*8*(0.4 + 0.6*abs(sin(p*tau*2))).
+	if state != "spawn":
+		return VIPER_DUAL_GLITCH_SPLIT_BASE_SHIFT
+	var wobble: float = abs(sin(spawn_progress * TAU * 2.0))
+	return VIPER_DUAL_GLITCH_SPLIT_BASE_SHIFT + (1.0 - spawn_progress) * 8.0 * (0.4 + 0.6 * wobble)
+
+
+static func compute_dual_glitch_split_alpha_boost(state: String, spawn_progress: float) -> float:
+	# 원본: spawn 동안 split 고스트 알파 1 + (1-p)*0.6 부스트, active/fade=1.
+	if state != "spawn":
+		return 1.0
+	return 1.0 + (1.0 - spawn_progress) * 0.6
+
+
+static func compute_dual_glitch_echo_t(echo_idx: int, spawn_progress: float) -> float:
+	return fmod(spawn_progress + float(echo_idx) * 0.22, 1.0)
+
+
+static func compute_dual_glitch_echo_alpha(echo_idx: int, spawn_progress: float, base_alpha: float) -> float:
+	# 원본: phase=(p+idx*0.22)%1; pulse=sin(phase*PI)^2; residual=(1-p)^0.6; a=ALPHA*0.42*pulse*residual.
+	var echo_phase: float = compute_dual_glitch_echo_t(echo_idx, spawn_progress)
+	var pulse: float = pow(sin(echo_phase * PI), 2.0)
+	var residual: float = pow(max(0.0, 1.0 - spawn_progress), 0.6)
+	return base_alpha * 0.42 * pulse * residual
+
+
+static func compute_dual_glitch_steam_puff_alpha(puff_idx: int, evaporation_progress: float, base_alpha: float) -> float:
+	# 원본: alpha = clone_alpha*(0.55 - idx*0.12)*(1-evap).
+	return max(0.0, base_alpha * (0.55 - float(puff_idx) * 0.12) * (1.0 - evaporation_progress))
+
+
+static func compute_dual_glitch_timeout_drift_y(fade_progress: float) -> float:
+	return 6.0 + 18.0 * fade_progress
+
+
+static func compute_dual_glitch_timeout_slice_alpha(slice_idx: int, fade_progress: float, clone_alpha: float) -> float:
+	return max(0.0, clone_alpha * (0.85 - fade_progress * 0.55) * (1.0 - float(slice_idx) * 0.04))
+
+
+static func compute_dual_glitch_timeout_slice_offset(slice_idx: int, clone_idx: int, side: int, fade_progress: float, tick_msec: float) -> Vector2:
+	var drift_y: float = compute_dual_glitch_timeout_drift_y(fade_progress)
+	var drift_x_base: float = float(side) * (2.0 + 5.0 * fade_progress)
+	var wave: float = sin(tick_msec * 0.028 + float(slice_idx) * 1.17 + float(clone_idx) * 0.73)
+	return Vector2(
+		drift_x_base + wave * (2.0 + 8.0 * fade_progress),
+		(float(slice_idx) - 3.0) * 0.8 * fade_progress - drift_y
+	)
+
+
+static func compute_dual_glitch_timeout_ghost_alpha(fade_progress: float, clone_alpha: float) -> float:
+	return max(10.0 / 255.0, clone_alpha * (0.18 + 0.08 * (1.0 - fade_progress)))
+
+
+static func compute_dual_glitch_timeout_ghost_offset(side_sign: int, fade_progress: float) -> Vector2:
+	var drift_y: float = compute_dual_glitch_timeout_drift_y(fade_progress)
+	var sign_value: float = -1.0 if side_sign < 0 else 1.0
+	var x_offset: float = sign_value * (2.0 + 4.0 * fade_progress)
+	var y_divisor: float = 2.0 if side_sign < 0 else 3.0
+	return Vector2(x_offset, -floor(drift_y / y_divisor) - drift_y)
+
+
+static func _dual_glitch_split_modulate(color: Color, alpha: float) -> Color:
+	return Color(lerp(color.r, 1.0, 0.25), lerp(color.g, 1.0, 0.25), lerp(color.b, 1.0, 0.25), alpha)
+
+
+static func _dual_glitch_echo_modulate(color: Color, alpha: float) -> Color:
+	return Color(lerp(color.r, 1.0, 0.3), lerp(color.g, 1.0, 0.3), lerp(color.b, 1.0, 0.3), alpha)
+
+
 func _draw_viper_dual_glitch_clone_sprites(
 	canvas: CanvasItem,
 	sprite_context: Dictionary,
@@ -437,29 +559,55 @@ func _draw_viper_dual_glitch_clone_sprites(
 		if not (draw_value is Dictionary):
 			continue
 		var draw_info: Dictionary = draw_value
+		if bool(draw_info.get("steam_puff", false)):
+			_draw_dual_glitch_steam_puff(canvas, draw_info)
+			continue
+		if bool(draw_info.get("timeout_dispel", false)):
+			_draw_dual_glitch_timeout_dispel(canvas, draw_info, sprite_context, player_move_active, paddle_size, shake_offset)
+			continue
 		var clone_visual_rect: Rect2 = draw_info.get("visual_rect", Rect2())
 		var clone_pos: Vector2 = _as_vector2(draw_info.get("player_pos", player_pos), player_pos)
-		var ghost_shift_x: float = float(draw_info.get("ghost_shift_x", VIPER_DUAL_GLITCH_GHOST_SHIFT_X))
-		var cyan_context: Dictionary = _build_viper_dual_glitch_clone_sprite_context(
+		var ghost_shift_x: float = float(draw_info.get("ghost_shift_x", VIPER_DUAL_GLITCH_SPLIT_BASE_SHIFT))
+		# 에코 잔상(spawn 전용): 메인/스플릿 뒤에 먼저 그려 플레이어 -> 클론으로 미끄러지는 고스트.
+		for echo_value in draw_info.get("echoes", []):
+			if not (echo_value is Dictionary):
+				continue
+			var echo: Dictionary = echo_value
+			var echo_rect: Rect2 = echo.get("rect", clone_visual_rect)
+			var echo_context: Dictionary = _build_viper_dual_glitch_clone_sprite_context(
+				sprite_context,
+				_as_color(echo.get("modulate", Color.WHITE), Color.WHITE)
+			)
+			sprite_renderer.draw(
+				canvas,
+				echo_context,
+				echo_rect,
+				player_move_active,
+				clone_pos,
+				paddle_size,
+				shake_offset
+			)
+		# 원본 chromatic split: 왼쪽 핑크(RGB_SPLIT[0]) / 오른쪽 블루(RGB_SPLIT[2]).
+		var left_split_context: Dictionary = _build_viper_dual_glitch_clone_sprite_context(
 			sprite_context,
-			_as_color(draw_info.get("cyan_modulate", Color.WHITE), Color.WHITE)
+			_as_color(draw_info.get("left_split_modulate", Color.WHITE), Color.WHITE)
 		)
 		sprite_renderer.draw(
 			canvas,
-			cyan_context,
+			left_split_context,
 			Rect2(clone_visual_rect.position + Vector2(-ghost_shift_x, 0.0), clone_visual_rect.size),
 			player_move_active,
 			clone_pos,
 			paddle_size,
 			shake_offset
 		)
-		var magenta_context: Dictionary = _build_viper_dual_glitch_clone_sprite_context(
+		var right_split_context: Dictionary = _build_viper_dual_glitch_clone_sprite_context(
 			sprite_context,
-			_as_color(draw_info.get("magenta_modulate", Color.WHITE), Color.WHITE)
+			_as_color(draw_info.get("right_split_modulate", Color.WHITE), Color.WHITE)
 		)
 		sprite_renderer.draw(
 			canvas,
-			magenta_context,
+			right_split_context,
 			Rect2(clone_visual_rect.position + Vector2(ghost_shift_x, 0.0), clone_visual_rect.size),
 			player_move_active,
 			clone_pos,
@@ -479,6 +627,130 @@ func _draw_viper_dual_glitch_clone_sprites(
 			paddle_size,
 			shake_offset
 		)
+
+
+func _draw_dual_glitch_steam_puff(canvas: CanvasItem, draw_info: Dictionary) -> void:
+	# 원본 분신 파괴 증발: 흰/보라/청록 퍼프 3개가 떠오르며 줄어들고 페이드.
+	var evap: float = float(draw_info.get("evaporation_progress", 0.0))
+	var center: Vector2 = _as_vector2(draw_info.get("clone_center", Vector2.ZERO), Vector2.ZERO)
+	var size: Vector2 = _as_vector2(draw_info.get("clone_size", Vector2(160.0, 160.0)), Vector2(160.0, 160.0))
+	var base_alpha: float = float(draw_info.get("base_alpha", VIPER_DUAL_GLITCH_ALPHA))
+	var idx: int = int(draw_info.get("clone_index", 0))
+	var steam_h: float = max(18.0, size.y * 0.72)
+	var tick: float = float(Time.get_ticks_msec())
+	var center_y_local: float = steam_h * (0.62 - evap * 0.18)
+	var puff_colors: Array[Color] = [Color(1.0, 1.0, 1.0), Color(0.765, 0.471, 1.0), Color(0.471, 1.0, 0.824)]
+	for puff_idx in range(puff_colors.size()):
+		var alpha: float = compute_dual_glitch_steam_puff_alpha(puff_idx, evap, base_alpha)
+		if alpha <= 0.0:
+			continue
+		var radius: float = max(4.0, (steam_h * (0.16 + float(puff_idx) * 0.05)) * (1.0 - evap * 0.4))
+		var px: float = center.x + sin((float(idx) + float(puff_idx)) * 0.9 + tick * 0.01) * (6.0 + float(puff_idx) * 4.0)
+		var py: float = center.y - steam_h * 0.5 + center_y_local - float(puff_idx) * 6.0 - evap * 10.0
+		var c: Color = puff_colors[puff_idx]
+		canvas.draw_circle(Vector2(px, py), radius, Color(c.r, c.g, c.b, alpha))
+
+
+func _draw_dual_glitch_timeout_dispel(
+	canvas: CanvasItem,
+	draw_info: Dictionary,
+	sprite_context: Dictionary,
+	player_move_active: bool,
+	paddle_size: Vector2,
+	shake_offset: Vector2
+) -> void:
+	var visual_rect: Rect2 = draw_info.get("visual_rect", Rect2())
+	var clone_pos: Vector2 = _as_vector2(draw_info.get("player_pos", visual_rect.position), visual_rect.position)
+	for ghost_value in draw_info.get("ghosts", []):
+		if not (ghost_value is Dictionary):
+			continue
+		var ghost: Dictionary = ghost_value
+		var offset: Vector2 = _as_vector2(ghost.get("offset", Vector2.ZERO), Vector2.ZERO)
+		var ghost_context: Dictionary = _build_viper_dual_glitch_clone_sprite_context(
+			sprite_context,
+			_as_color(ghost.get("modulate", Color.WHITE), Color.WHITE)
+		)
+		sprite_renderer.draw(
+			canvas,
+			ghost_context,
+			Rect2(visual_rect.position + offset, visual_rect.size),
+			player_move_active,
+			clone_pos + offset,
+			paddle_size,
+			shake_offset
+		)
+
+	# 원본은 실제 스프라이트를 8조각으로 자른다. resolve 훅으로 현재 (texture, region)을
+	# 회수해 가로 슬라이스를 draw_texture_rect_region으로 그린다. 회수 실패/플립 시 컬러 밴드 폴백.
+	var resolved: Dictionary = sprite_renderer.resolve_current_sprite(
+		sprite_context, visual_rect, player_move_active, clone_pos, paddle_size, shake_offset
+	)
+	var tex_value: Variant = resolved.get("texture", null)
+	var sprite_texture: Texture2D = tex_value if tex_value is Texture2D else null
+	var sprite_region: Rect2 = _as_rect2(resolved.get("region", Rect2()), Rect2())
+	var can_slice: bool = (
+		sprite_texture != null
+		and sprite_region.size.x > 0.0
+		and sprite_region.size.y > 0.0
+		and not bool(resolved.get("flip_h", false))
+	)
+	for slice_value in draw_info.get("slice_specs", []):
+		if not (slice_value is Dictionary):
+			continue
+		var slice_spec: Dictionary = slice_value
+		var slice_rect: Rect2 = slice_spec.get("rect", Rect2())
+		if can_slice:
+			var src_band := Rect2(
+				sprite_region.position.x,
+				sprite_region.position.y + float(slice_spec.get("src_frac_y", 0.0)) * sprite_region.size.y,
+				sprite_region.size.x,
+				max(1.0, float(slice_spec.get("src_frac_h", 0.125)) * sprite_region.size.y)
+			)
+			canvas.draw_texture_rect_region(
+				sprite_texture,
+				slice_rect,
+				src_band,
+				_as_color(slice_spec.get("modulate", Color.WHITE), Color.WHITE),
+				false,
+				true
+			)
+		else:
+			var color: Color = _as_color(slice_spec.get("color", Color.WHITE), Color.WHITE)
+			canvas.draw_rect(slice_rect, color, true)
+			canvas.draw_line(slice_rect.position, slice_rect.position + Vector2(slice_rect.size.x, 0.0), Color(1.0, 1.0, 1.0, color.a * 0.42), 1.0, true)
+
+	for particle_value in draw_info.get("particles", []):
+		if not (particle_value is Dictionary):
+			continue
+		var particle: Dictionary = particle_value
+		var particle_pos: Vector2 = _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO)
+		var particle_size: float = float(particle.get("size", 1.0))
+		var particle_color: Color = _as_color(particle.get("color", Color.WHITE), Color.WHITE)
+		canvas.draw_rect(Rect2(particle_pos, Vector2(particle_size, particle_size)), particle_color, true)
+
+	# CLAUDE.md "Transparent-canvas overlay box" 트랩: 디졸브 스캔라인을 전체 바운딩 rect에
+	# 흰 가로선(draw_line)으로 그리면 스프라이트 투명 여백까지 덮어 네모박스가 보인다.
+	# resolve된 (texture, region)에서 각 라인 행을 1px 텍스처 밴드로 샘플해 실루엣(알파)에만
+	# 입힌다 -> 투명 텍셀은 아무것도 안 그려져 박스가 사라진다. 텍스처를 회수 못 하면
+	# (can_slice=false) 스캔라인을 생략한다(폴백 full-rect 라인 금지 = 박스 재발 방지).
+	var spacing: int = max(1, int(draw_info.get("scanline_spacing", 3)))
+	var scan_alpha: float = float(draw_info.get("scanline_alpha", 0.0))
+	if scan_alpha > 0.0 and can_slice:
+		var scan_drift_y: float = float(draw_info.get("drift_y", 0.0))
+		var scan_modulate := Color(1.0, 1.0, 1.0, scan_alpha)
+		var scan_src_h: float = max(1.0, sprite_region.size.y / max(1.0, visual_rect.size.y))
+		for y in range(0, int(visual_rect.size.y), spacing):
+			var src_band := Rect2(
+				sprite_region.position.x,
+				sprite_region.position.y + (float(y) / max(1.0, visual_rect.size.y)) * sprite_region.size.y,
+				sprite_region.size.x,
+				scan_src_h
+			)
+			var dest_band := Rect2(
+				Vector2(visual_rect.position.x, visual_rect.position.y + float(y) - scan_drift_y),
+				Vector2(visual_rect.size.x, 1.0)
+			)
+			canvas.draw_texture_rect_region(sprite_texture, dest_band, src_band, scan_modulate, false, true)
 
 
 func build_viper_dual_glitch_clone_sprite_draws(
@@ -503,6 +775,18 @@ func build_viper_dual_glitch_clone_sprite_draws(
 
 	var visual_offset: Vector2 = player_visual_rect.position - (player_pos + shake_offset)
 	var tick: float = float(Time.get_ticks_msec())
+	var phase_frames: float = float(context.get("viper_dual_glitch_phase_frames", 0.0))
+	var spawn_frames: float = float(context.get("viper_dual_glitch_spawn_frames", VIPER_DUAL_GLITCH_SPAWN_FRAMES))
+	var spawn_progress: float = compute_dual_glitch_spawn_progress(state, phase_frames, spawn_frames)
+	var split_shift: float = compute_dual_glitch_split_shift(state, spawn_progress)
+	var split_alpha_boost: float = compute_dual_glitch_split_alpha_boost(state, spawn_progress)
+	var base_alpha: float = float(context.get("viper_dual_glitch_alpha", VIPER_DUAL_GLITCH_ALPHA))
+	var fade_reason: String = str(context.get("viper_dual_glitch_fade_reason", ""))
+	var fade_progress: float = clamp(
+		phase_frames / max(1.0, float(context.get("viper_dual_glitch_fade_frames", VIPER_DUAL_GLITCH_FADE_FRAMES))),
+		0.0,
+		1.0
+	) if state == "fade" else 0.0
 	var clone_draws: Array = []
 	for entry_value in entries:
 		if not (entry_value is Dictionary):
@@ -510,6 +794,22 @@ func build_viper_dual_glitch_clone_sprite_draws(
 		var entry: Dictionary = entry_value
 		var rect: Rect2 = entry.get("rect", Rect2())
 		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+			continue
+		if max(0, int(entry.get("hp", 0))) <= 0 and bool(entry.get("evaporating", false)):
+			# 원본: 공에 맞아 파괴된 분신은 스팀 퍼프로 증발(스프라이트 미렌더).
+			var evap_progress: float = clamp(
+				float(entry.get("evaporation_frames", 0.0)) / max(1.0, float(context.get("viper_dual_glitch_evaporation_frames", VIPER_DUAL_GLITCH_EVAPORATION_FRAMES))),
+				0.0, 1.0
+			)
+			if evap_progress < 1.0:
+				clone_draws.append({
+					"steam_puff": true,
+					"evaporation_progress": evap_progress,
+					"clone_center": (rect.position + shake_offset + visual_offset) + player_visual_rect.size * 0.5,
+					"clone_size": player_visual_rect.size,
+					"clone_index": int(entry.get("index", 0)),
+					"base_alpha": base_alpha,
+				})
 			continue
 		var state_alpha: float = _get_viper_dual_glitch_clone_alpha(context, entry, state)
 		if state_alpha <= 0.02:
@@ -525,17 +825,105 @@ func build_viper_dual_glitch_clone_sprite_draws(
 			clone_pos + shake_offset + visual_offset,
 			player_visual_rect.size
 		)
+		if state == "fade" and fade_reason == "timeout":
+			var timeout_drift_y: float = compute_dual_glitch_timeout_drift_y(fade_progress)
+			var slice_specs: Array = []
+			var slice_height: float = max(3.0, clone_visual_rect.size.y / float(VIPER_DUAL_GLITCH_TIMEOUT_DISPEL_SLICE_COUNT))
+			for slice_idx in range(VIPER_DUAL_GLITCH_TIMEOUT_DISPEL_SLICE_COUNT):
+				var local_y: float = min(clone_visual_rect.size.y, float(slice_idx) * slice_height)
+				if local_y >= clone_visual_rect.size.y:
+					break
+				var current_slice_h: float = min(slice_height, clone_visual_rect.size.y - local_y)
+				var slice_alpha: float = compute_dual_glitch_timeout_slice_alpha(slice_idx, fade_progress, state_alpha)
+				if slice_alpha <= 0.0:
+					continue
+				var slice_offset: Vector2 = compute_dual_glitch_timeout_slice_offset(slice_idx, index, side, fade_progress, tick)
+				var slice_color: Color = VIPER_DUAL_GLITCH_RGB_SPLIT[(slice_idx + index) % VIPER_DUAL_GLITCH_RGB_SPLIT.size()]
+				slice_specs.append({
+					"rect": Rect2(
+						clone_visual_rect.position + Vector2(slice_offset.x, local_y + slice_offset.y - timeout_drift_y),
+						Vector2(clone_visual_rect.size.x, current_slice_h)
+					),
+					"color": Color(slice_color.r, slice_color.g, slice_color.b, slice_alpha * 0.44),
+					"modulate": Color(lerp(1.0, slice_color.r, 0.5), lerp(1.0, slice_color.g, 0.5), lerp(1.0, slice_color.b, 0.5), slice_alpha),
+					"src_frac_y": local_y / max(1.0, clone_visual_rect.size.y),
+					"src_frac_h": current_slice_h / max(1.0, clone_visual_rect.size.y),
+					"offset": slice_offset,
+					"slice_index": slice_idx,
+				})
+
+			var particles: Array = []
+			var rng := RandomNumberGenerator.new()
+			rng.seed = int(9000 + index * 131 + (17 if side > 0 else 0))
+			for particle_idx in range(VIPER_DUAL_GLITCH_TIMEOUT_DISPEL_PARTICLE_COUNT):
+				var particle_alpha: float = max(
+					0.0,
+					state_alpha * (0.55 - fade_progress * 0.35) * (1.0 - float(particle_idx) / float(VIPER_DUAL_GLITCH_TIMEOUT_DISPEL_PARTICLE_COUNT + 2))
+				)
+				if particle_alpha <= 0.0:
+					continue
+				var base_px: float = rng.randf_range(2.0, max(2.0, clone_visual_rect.size.x - 3.0))
+				var base_py: float = rng.randf_range(2.0, max(2.0, clone_visual_rect.size.y - 3.0))
+				var drift_x: float = rng.randf_range(-10.0, 10.0) + float(side) * 4.0
+				var drift_y_local: float = rng.randf_range(-36.0, -12.0)
+				var particle_color: Color = VIPER_DUAL_GLITCH_RGB_SPLIT[particle_idx % VIPER_DUAL_GLITCH_RGB_SPLIT.size()]
+				var particle_local_offset := Vector2(base_px + drift_x * fade_progress, base_py + drift_y_local * fade_progress)
+				particles.append({
+					"pos": clone_visual_rect.position + particle_local_offset - Vector2(0.0, timeout_drift_y),
+					"local_offset": particle_local_offset,
+					"size": 2.0 if particle_idx < 8 else 1.0,
+					"color": Color(particle_color.r, particle_color.g, particle_color.b, particle_alpha),
+				})
+
+			var ghost_alpha: float = compute_dual_glitch_timeout_ghost_alpha(fade_progress, state_alpha)
+			var ghosts: Array = []
+			for ghost_side in [-1, 1]:
+				var ghost_color: Color = VIPER_DUAL_GLITCH_RGB_SPLIT[0 if ghost_side < 0 else 2]
+				ghosts.append({
+					"offset": compute_dual_glitch_timeout_ghost_offset(ghost_side, fade_progress),
+					"modulate": _dual_glitch_split_modulate(ghost_color, ghost_alpha),
+				})
+			clone_draws.append({
+				"timeout_dispel": true,
+				"entry": entry,
+				"visual_rect": clone_visual_rect,
+				"player_pos": clone_pos,
+				"alpha": state_alpha,
+				"fade_progress": fade_progress,
+				"drift_y": timeout_drift_y,
+				"slice_specs": slice_specs,
+				"particles": particles,
+				"ghosts": ghosts,
+				"scanline_spacing": max(3, int(4.0 - min(0.8, fade_progress) * 1.5)),
+				"scanline_alpha": (40.0 / 255.0) * (1.0 - fade_progress * 0.4),
+			})
+			continue
 		var hp: int = max(0, int(entry.get("hp", 0)))
 		var weakened: bool = hp == 1
+		var split_alpha: float = max(18.0 / 255.0, state_alpha * 0.33 * split_alpha_boost)
+		var echoes: Array = []
+		if state == "spawn":
+			for echo_idx in range(VIPER_DUAL_GLITCH_SPAWN_ECHO_COUNT):
+				var echo_alpha: float = compute_dual_glitch_echo_alpha(echo_idx, spawn_progress, base_alpha)
+				if echo_alpha <= 6.0 / 255.0:
+					continue
+				var echo_t: float = compute_dual_glitch_echo_t(echo_idx, spawn_progress)
+				var echo_pos: Vector2 = player_visual_rect.position.lerp(clone_visual_rect.position, echo_t)
+				var echo_color: Color = VIPER_DUAL_GLITCH_RGB_SPLIT[echo_idx % VIPER_DUAL_GLITCH_RGB_SPLIT.size()]
+				echoes.append({
+					"rect": Rect2(echo_pos, player_visual_rect.size),
+					"modulate": _dual_glitch_echo_modulate(echo_color, echo_alpha),
+				})
 		clone_draws.append({
 			"entry": entry,
 			"visual_rect": clone_visual_rect,
 			"player_pos": clone_pos,
 			"alpha": state_alpha,
-			"ghost_shift_x": VIPER_DUAL_GLITCH_GHOST_SHIFT_X,
+			"ghost_shift_x": split_shift,
+			"echoes": echoes,
 			"main_modulate": _get_viper_dual_glitch_clone_modulate(side, state_alpha, weakened, "main"),
-			"cyan_modulate": _get_viper_dual_glitch_clone_modulate(side, state_alpha, weakened, "cyan"),
-			"magenta_modulate": _get_viper_dual_glitch_clone_modulate(side, state_alpha, weakened, "magenta"),
+			"left_split_modulate": _dual_glitch_split_modulate(VIPER_DUAL_GLITCH_RGB_SPLIT[0], split_alpha),
+			"right_split_modulate": _dual_glitch_split_modulate(VIPER_DUAL_GLITCH_RGB_SPLIT[2], split_alpha),
 		})
 	return clone_draws
 
@@ -544,10 +932,9 @@ func _get_viper_dual_glitch_clone_alpha(context: Dictionary, entry: Dictionary, 
 	var state_alpha: float = float(context.get("viper_dual_glitch_alpha", VIPER_DUAL_GLITCH_ALPHA))
 	var phase_frames: float = float(context.get("viper_dual_glitch_phase_frames", 0.0))
 	if state == "spawn":
-		state_alpha *= clamp(
-			phase_frames / max(1.0, float(context.get("viper_dual_glitch_spawn_frames", VIPER_DUAL_GLITCH_SPAWN_FRAMES))),
-			0.0,
-			1.0
+		state_alpha *= compute_dual_glitch_spawn_alpha_factor(
+			phase_frames,
+			float(context.get("viper_dual_glitch_spawn_frames", VIPER_DUAL_GLITCH_SPAWN_FRAMES))
 		)
 	elif state == "fade":
 		state_alpha *= 1.0 - clamp(

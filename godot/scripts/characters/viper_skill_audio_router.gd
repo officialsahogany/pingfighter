@@ -196,3 +196,23 @@ func play_kick_guard_knockback_sound(deps: Dictionary) -> void:
 		audio.play_viper_kick_guard_knockback()
 	elif audio.has_method("play_stage2_speed_defense_hit"):
 		audio.play_stage2_speed_defense_hit()
+
+
+func play_dual_glitch_windup_sound(deps: Dictionary) -> void:
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("play_viper_dual_glitch_windup"):
+		audio.play_viper_dual_glitch_windup()
+
+
+func stop_dual_glitch_windup_sound(deps: Dictionary) -> void:
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("stop_viper_dual_glitch_windup"):
+		audio.stop_viper_dual_glitch_windup()
+
+
+func play_dual_glitch_split_sound(deps: Dictionary) -> void:
+	# 분신이 갈라져 분리되는 순간: windup(dualglitch1) 정지 후 split(dualglitch2) 1회 재생.
+	stop_dual_glitch_windup_sound(deps)
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("play_viper_dual_glitch_split"):
+		audio.play_viper_dual_glitch_split()

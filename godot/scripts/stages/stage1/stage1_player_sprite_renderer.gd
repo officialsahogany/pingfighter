@@ -22,6 +22,10 @@ static var _character_rim_shader_ready: bool = false
 var customization_overlay_renderer: Object = PlayerCustomizationOverlayRenderer.new()
 var _wheel_spin_prewarmed_texture: Texture2D
 var _silhouette_rim_material: ShaderMaterial
+# resolve-only 훅: 현재 컨텍스트가 그릴 base 스프라이트의 (texture, region, flip)을
+# 그리지 않고 회수한다(듀얼 글리치 분신 글리치 슬라이스 디졸브용).
+var _resolve_only := false
+var _resolved_sprite: Dictionary = {}
 
 
 static func prewarm_assets() -> void:
@@ -38,6 +42,23 @@ static func _prewarm_shared_assets() -> void:
 
 func clear_transient_canvas_items() -> void:
 	pass
+
+
+func resolve_current_sprite(
+	context: Dictionary,
+	player_visual_rect: Rect2,
+	player_move_active: bool,
+	player_pos: Vector2,
+	paddle_size: Vector2,
+	shake_offset: Vector2
+) -> Dictionary:
+	# draw()의 분기 로직을 그대로 타되, 단일 funnel(_draw_texture_region)에서
+	# {texture, region, flip_h}만 기록하고 캔버스 그리기는 건너뛴다.
+	_resolve_only = true
+	_resolved_sprite = {}
+	draw(null, context, player_visual_rect, player_move_active, player_pos, paddle_size, shake_offset)
+	_resolve_only = false
+	return _resolved_sprite
 
 
 func draw(
@@ -528,6 +549,8 @@ func draw_fallback(
 	paddle_size: Vector2,
 	shake_offset: Vector2
 ) -> void:
+	if _resolve_only:
+		return
 	var player_color: Color = _as_color(context.get("player_color", Color(0.25, 0.45, 1.0)), Color(0.25, 0.45, 1.0))
 	var player_color_light: Color = _as_color(context.get("player_color_light", Color(0.40, 0.60, 1.0)), Color(0.40, 0.60, 1.0))
 	if bool(context.get("dash_recovering", false)):
@@ -1057,6 +1080,9 @@ func _draw_texture_with_customization_overlays(
 	metadata: Dictionary,
 	enable_silhouette_rim: bool = false
 ) -> void:
+	if _resolve_only:
+		_draw_texture_region(canvas, texture, dest_rect, source_rect, context, false, enable_silhouette_rim)
+		return
 	var overlay_metadata: Dictionary = metadata.duplicate(true)
 	overlay_metadata["direction"] = direction
 	var base_plan: Dictionary = customization_overlay_renderer.build_base_plan(
@@ -1093,6 +1119,9 @@ func _draw_texture_region(
 	flip_h: bool = false,
 	enable_silhouette_rim: bool = false
 ) -> void:
+	if _resolve_only:
+		_resolved_sprite = {"texture": texture, "region": source_rect, "flip_h": flip_h}
+		return
 	var sprite_modulate: Color = _get_player_sprite_modulate(context)
 	var angle_degrees: float = float(context.get("player_sprite_rotation_degrees", 0.0))
 	if bool(context.get("active_item_aipill_active", false)) and abs(angle_degrees) <= 0.01 and not flip_h:

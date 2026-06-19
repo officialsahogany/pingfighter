@@ -302,7 +302,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	if cutin_state.is_active():
 		cutin_state.update(fps_scale / 60.0)
 	ViperSkillIgnitionAuraRuntime.update_effects(self, fps_scale, context, deps, {"ember_interval_frames": IGNITION_EMBER_INTERVAL_FRAMES, "ember_limit": IGNITION_EMBER_LIMIT})
-	ViperSkillDualGlitchCloneRuntime.update_clone_lifecycle(self, fps_scale, context, {"startup_frames": DUAL_GLITCH_STARTUP_FRAMES, "spawn_frames": DUAL_GLITCH_SPAWN_FRAMES, "fade_frames": DUAL_GLITCH_FADE_FRAMES, "evaporation_frames": DUAL_GLITCH_EVAPORATION_FRAMES})
+	ViperSkillDualGlitchCloneRuntime.update_clone_lifecycle(self, fps_scale, context, deps, {"startup_frames": DUAL_GLITCH_STARTUP_FRAMES, "spawn_frames": DUAL_GLITCH_SPAWN_FRAMES, "fade_frames": DUAL_GLITCH_FADE_FRAMES, "evaporation_frames": DUAL_GLITCH_EVAPORATION_FRAMES})
 	ViperSkillDualGlitchCloneRuntime.update_clone_dive_entries(self, fps_scale, deps, {"telegraph_frames": DUAL_GLITCH_DIVE_TELEGRAPH_FRAMES, "shockwave_frames": DIVE_SHOCKWAVE_FRAMES, "particle_limit": DIVE_PARTICLE_LIMIT})
 	return ViperSkillChaosSpearRuntime.update_effects(self, fps_scale, context, deps, {"startup_frames": CHAOS_STARTUP_FRAMES, "travel_frames": CHAOS_TRAVEL_FRAMES, "impact_frames": CHAOS_IMPACT_FRAMES, "blackhole_frames": CHAOS_BLACKHOLE_FRAMES, "fade_frames": CHAOS_FADE_FRAMES, "prep_reduction_values": FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL, "prep_reduction_cap": FOUR_POISONS_PREP_REDUCTION_PCT_CAP, "prep_reduction_per_extra": FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL})
 func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:

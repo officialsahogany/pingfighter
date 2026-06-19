@@ -33,10 +33,12 @@ static func try_command_activation(runtime: Object, player_pos: Vector2, special
 	runtime.runtime_action_router.trigger_viper_runtime_cooldown(skill_name, now_msec, dual_glitch_skill_config, deps, cooldown_seconds, runtime.visibility_query)
 	runtime._trigger_orb_gauge_spin(deps, now_msec)
 	runtime.runtime_action_router.trigger_feedback(deps, 0.09, 3.2)
+	# 발동 직후 startup(부르르 떠는) 단계 진입 큐: 분신이 갈라지기 전 dualglitch1.wav 1회.
+	runtime.audio_router.play_dual_glitch_windup_sound(deps)
 	return {"handled": true, "activated": true, "skill_name": skill_name, "player_pos": Vector2(runtime.dual_glitch_locked_player_x, player_pos.y), "player_speed": 0.0, "special_gauge": dual_glitch_next_gauge, "locked_player_x": runtime.dual_glitch_locked_player_x}
 
 
-static func update_clone_lifecycle(runtime: Object, fps_scale: float, context: Dictionary, constants: Dictionary) -> void:
+static func update_clone_lifecycle(runtime: Object, fps_scale: float, context: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
 	if runtime.dual_glitch_state == "idle":
 		return
 	if _should_hard_stop_dual_glitch_context(context):
@@ -48,7 +50,7 @@ static func update_clone_lifecycle(runtime: Object, fps_scale: float, context: D
 		return
 	runtime.dual_glitch_phase_frames += fps_scale
 	_update_clone_evaporation(runtime, fps_scale)
-	_update_lifecycle_state(runtime, constants)
+	_update_lifecycle_state(runtime, deps, constants)
 	_prune_finished_clones(runtime, float(constants.get("evaporation_frames", 13.2)))
 
 
@@ -74,11 +76,13 @@ static func _update_clone_evaporation(runtime: Object, fps_scale: float) -> void
 			clone["evaporation_frames"] = evaporation_frames + fps_scale; runtime.dual_glitch_clones[index] = clone
 
 
-static func _update_lifecycle_state(runtime: Object, constants: Dictionary) -> void:
+static func _update_lifecycle_state(runtime: Object, deps: Dictionary, constants: Dictionary) -> void:
 	match runtime.dual_glitch_state:
 		"startup":
 			if runtime.dual_glitch_phase_frames >= float(constants.get("startup_frames", 48.0)):
 				runtime.dual_glitch_state = "spawn"; runtime.dual_glitch_phase_frames = 0.0; runtime.dual_glitch_locked_player_x_valid = false
+				# 분신이 몸에서 갈라져 분리되기 시작: dualglitch2(split) 재생 + dualglitch1(windup) 정지.
+				runtime.audio_router.play_dual_glitch_split_sound(deps)
 		"spawn":
 			if runtime.dual_glitch_phase_frames >= float(constants.get("spawn_frames", 22.8)):
 				runtime.dual_glitch_state = "active"; runtime.dual_glitch_phase_frames = 0.0

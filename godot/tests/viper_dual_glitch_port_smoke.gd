@@ -8,6 +8,7 @@ const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_col
 const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
 const TooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+const DualGlitchEffectRenderer := preload("res://scripts/characters/viper_skill_dual_glitch_effect_renderer.gd")
 
 
 class FakeInput:
@@ -91,9 +92,21 @@ class FakeFeedback:
 
 class FakeAudio:
 	var blade_fire := 0
+	var dual_glitch_windup := 0
+	var dual_glitch_split := 0
+	var dual_glitch_windup_stopped := 0
 
 	func play_viper_blade() -> void:
 		blade_fire += 1
+
+	func play_viper_dual_glitch_windup() -> void:
+		dual_glitch_windup += 1
+
+	func stop_viper_dual_glitch_windup() -> void:
+		dual_glitch_windup_stopped += 1
+
+	func play_viper_dual_glitch_split() -> void:
+		dual_glitch_split += 1
 
 
 class FakeOwner:
@@ -162,7 +175,16 @@ class FakePaddleController:
 func _init() -> void:
 	_test_catalog_unlock_wiring()
 	_test_command_activation_clone_collision_and_hp()
+	_test_dual_glitch_activation_plays_windup_sound()
+	_test_dual_glitch_spawn_plays_split_sound()
 	_test_actor_context_and_sprite_clone_geometry()
+	_test_dual_glitch_startup_body_wiggle()
+	_test_dual_glitch_spawn_alpha_flicker()
+	_test_dual_glitch_spawn_echo_and_split()
+	_test_dual_glitch_clone_steam_puff()
+	_test_dual_glitch_timeout_dispel_slices()
+	_test_dual_glitch_dispel_real_sprite_slicing()
+	_test_dual_glitch_effect_renderer_startup_parity_source()
 	_test_round_boundary_preserves_active_dual_glitch()
 	_test_startup_cancel_and_four_poisons_super_armor()
 	_test_four_poisons_duration_cooldown_and_replication()
@@ -244,6 +266,54 @@ func _test_command_activation_clone_collision_and_hp() -> void:
 	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "fade", "Dual Glitch should fade after all clones are destroyed")
 
 
+func _test_dual_glitch_activation_plays_windup_sound() -> void:
+	# 발동 → startup(부르르 떠는) 단계 진입 시 dualglitch1.wav가 정확히 1회 재생되어야 한다.
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var audio := FakeAudio.new()
+	var deps := _deps(input, FakeSkillConfig.new(), FakeSkillState.new(), FakePerkState.new(), FakeOrbHud.new(), FakeFeedback.new(), audio)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 680.0)
+	var result: Dictionary = _activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
+	_expect(bool(result.get("activated", false)), "A-D-A-D should activate Dual Glitch")
+	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "startup", "activation should enter the startup trembling phase")
+	_expect(audio.dual_glitch_windup == 1, "Dual Glitch startup should play the dualglitch1 windup cue exactly once")
+
+	# 게이지 부족으로 발동이 막히면 windup 큐는 울리지 않아야 한다(가드 이후에만 재생).
+	var blocked_runtime: Object = ViperSkillRuntime.new()
+	var blocked_input := FakeInput.new()
+	var blocked_audio := FakeAudio.new()
+	var blocked_deps := _deps(blocked_input, FakeSkillConfig.new(), FakeSkillState.new(), FakePerkState.new(), FakeOrbHud.new(), FakeFeedback.new(), blocked_audio)
+	var blocked: Dictionary = _activate_dual_glitch(blocked_runtime, blocked_input, player_pos, 10.0, config, blocked_deps)
+	_expect(not bool(blocked.get("activated", false)), "insufficient gauge should not activate Dual Glitch")
+	_expect(blocked_audio.dual_glitch_windup == 0, "a blocked Dual Glitch activation must not play the windup trembling cue")
+
+
+func _test_dual_glitch_spawn_plays_split_sound() -> void:
+	# 분신이 몸에서 갈라져 분리되는 순간(startup -> spawn)에 dualglitch2(split)가 1회 재생되고,
+	# 그때 dualglitch1(windup)은 정지되어야 한다.
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var audio := FakeAudio.new()
+	var deps := _deps(input, FakeSkillConfig.new(), FakeSkillState.new(), FakePerkState.new(), FakeOrbHud.new(), FakeFeedback.new(), audio)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 680.0)
+	_activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
+	_expect(audio.dual_glitch_windup == 1, "activation should play the dualglitch1 windup")
+	_expect(audio.dual_glitch_split == 0, "split cue must not play during startup, before the clones separate")
+	_expect(audio.dual_glitch_windup_stopped == 0, "windup should not stop before the split moment")
+
+	# startup(48f)을 지나 spawn 진입 = 분리 시작 순간.
+	_advance_dual(runtime, config, deps, player_pos, 49)
+	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "spawn", "should reach the spawn split phase")
+	_expect(audio.dual_glitch_split == 1, "clone separation (startup -> spawn) should play dualglitch2 exactly once")
+	_expect(audio.dual_glitch_windup_stopped == 1, "dualglitch1 windup should stop when dualglitch2 plays")
+
+	# spawn 내에서 더 진행해도 split 큐가 반복 재생되면 안 된다.
+	_advance_dual(runtime, config, deps, player_pos, 6)
+	_expect(audio.dual_glitch_split == 1, "split cue should fire once at the transition, not every spawn frame")
+
+
 func _test_actor_context_and_sprite_clone_geometry() -> void:
 	var runtime: Object = ViperSkillRuntime.new()
 	var input := FakeInput.new()
@@ -282,6 +352,273 @@ func _test_actor_context_and_sprite_clone_geometry() -> void:
 	_expect(abs(first_visual_rect.position.x - (first_rect.position.x - 2.5)) < 0.01, "clone sprite should preserve the player sprite offset from the paddle rect")
 	var main_modulate: Color = first_draw.get("main_modulate", Color.WHITE)
 	_expect(main_modulate.a < 1.0, "clone sprite pass should render as a ghosted copied sprite")
+
+
+func _test_dual_glitch_startup_body_wiggle() -> void:
+	# 원본 _get_viper_dual_glitch_startup_offset_px(): startup 동안 본체 렌더 rect만
+	# ±3px / 12Hz 좌우 흔들림. phase 1.25 = sin(pi/2) -> +3px 피크.
+	var renderer: Object = Stage1PlayerActorRenderer.new()
+	_expect(abs(renderer.compute_dual_glitch_startup_wiggle_x("idle", 1.25)) < 0.0001, "wiggle must be zero outside startup (idle)")
+	_expect(abs(renderer.compute_dual_glitch_startup_wiggle_x("active", 1.25)) < 0.0001, "wiggle must be zero outside startup (active)")
+	_expect(abs(renderer.compute_dual_glitch_startup_wiggle_x("startup", 1.25) - 3.0) < 0.0001, "startup wiggle should peak at +3px at phase 1.25 (sin(pi/2))")
+	var base_rect := Rect2(Vector2(100.0, 600.0), Vector2(160.0, 160.0))
+	var shifted: Rect2 = renderer.apply_dual_glitch_startup_body_wiggle(
+		base_rect, {"viper_dual_glitch_state": "startup", "viper_dual_glitch_phase_frames": 1.25}
+	)
+	_expect(abs(shifted.position.x - (base_rect.position.x + 3.0)) < 0.0001, "startup wiggle should shift the body rect X by the wiggle amount")
+	_expect(abs(shifted.position.y - base_rect.position.y) < 0.0001, "startup wiggle must leave the body rect Y unchanged")
+	var unchanged: Rect2 = renderer.apply_dual_glitch_startup_body_wiggle(base_rect, {"viper_dual_glitch_state": "idle"})
+	_expect(unchanged == base_rect, "no wiggle outside startup must leave the body rect untouched")
+
+
+func _test_dual_glitch_spawn_alpha_flicker() -> void:
+	var spawn_frames := 22.8
+	var quarter_phase := spawn_frames * 0.25
+	var quarter_expected: float = 0.25 * (1.0 - pow(0.75, 0.7) * 0.7)
+	var quarter_actor: float = Stage1PlayerActorRenderer.compute_dual_glitch_spawn_alpha_factor(quarter_phase, spawn_frames)
+	var quarter_effect: float = DualGlitchEffectRenderer.compute_dual_glitch_spawn_alpha_factor(quarter_phase, spawn_frames)
+	_expect(abs(quarter_actor - quarter_expected) < 0.0001, "spawn alpha at 25% should use Python pulse-dim ramp, not a linear 0.25")
+	_expect(abs(quarter_effect - quarter_expected) < 0.0001, "effect renderer spawn alpha should match the actor sprite alpha ramp")
+	_expect(quarter_actor < 0.14, "spawn alpha 25% pulse-dim trough should stay visibly below the linear ramp")
+
+	var half_phase := spawn_frames * 0.5
+	var half_expected: float = 0.5 * (1.0 - pow(0.5, 0.7) * 0.7)
+	var half_actor: float = Stage1PlayerActorRenderer.compute_dual_glitch_spawn_alpha_factor(half_phase, spawn_frames)
+	var half_effect: float = DualGlitchEffectRenderer.compute_dual_glitch_spawn_alpha_factor(half_phase, spawn_frames)
+	_expect(abs(half_actor - half_expected) < 0.0001, "spawn alpha at 50% should keep the second Python pulse-dim trough")
+	_expect(abs(half_effect - half_expected) < 0.0001, "effect renderer should keep the second Python pulse-dim trough")
+	_expect(half_actor < 0.32, "spawn alpha 50% trough should remain below the old linear 0.5 ramp")
+
+
+func _test_dual_glitch_spawn_echo_and_split() -> void:
+	# 원본 spawn 잔상(echo afterimage) + chromatic split 확장 패리티.
+	# split shift: active 2px 수렴, spawn 동안 확장.
+	_expect(abs(Stage1PlayerActorRenderer.compute_dual_glitch_split_shift("active", 1.0) - 2.0) < 0.0001, "active chromatic split should settle to the 2px base")
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_split_shift("spawn", 0.125) > 6.0, "spawn chromatic split should widen well past the 2px base")
+	# split alpha boost: active 1.0, spawn 시작에서 밝아짐.
+	_expect(abs(Stage1PlayerActorRenderer.compute_dual_glitch_split_alpha_boost("active", 1.0) - 1.0) < 0.0001, "active split alpha boost should be 1.0")
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_split_alpha_boost("spawn", 0.0) > 1.5, "spawn split alpha boost should brighten ghosts at spawn start")
+	# echo alpha: 중간 펄스 피크에서 보이고 spawn 완료 시 0.
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_echo_alpha(0, 0.5, 0.63) > 0.1, "echo should be clearly visible at its mid-spawn pulse peak")
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_echo_alpha(0, 1.0, 0.63) <= 0.0001, "echoes must fade out by spawn completion (residual -> 0)")
+	_expect(abs(Stage1PlayerActorRenderer.compute_dual_glitch_echo_t(0, 0.5) - 0.5) < 0.0001, "echo_t for idx0 at mid-spawn should be 0.5 (halfway player -> clone)")
+
+	# build 배선: spawn은 echoes + 확장 shift, active는 echoes 없음 + 2px base.
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var deps := _deps(input, skill_config, FakeSkillState.new(), FakePerkState.new(), FakeOrbHud.new(), FakeFeedback.new(), FakeAudio.new())
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 680.0)
+	_activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
+	_advance_dual(runtime, config, deps, player_pos, 54)  # startup(48) 지나 spawn 중반
+	var renderer_inst: Object = Stage1PlayerActorRenderer.new()
+	var spawn_ctx: Dictionary = runtime.get_actor_draw_context()
+	spawn_ctx["selected_character_type"] = "viper"
+	spawn_ctx["viper_dual_glitch_wiggle_amplitude"] = 0.0
+	_expect(str(spawn_ctx.get("viper_dual_glitch_state", "")) == "spawn", "test setup should land in spawn")
+	var visual_rect := Rect2(Vector2(300.0, 582.0), Vector2(160.0, 160.0))
+	var spawn_draws: Array = renderer_inst.build_viper_dual_glitch_clone_sprite_draws(spawn_ctx, visual_rect, false, player_pos, Vector2(155.0, 50.0), Vector2.ZERO)
+	_expect(spawn_draws.size() == 2, "spawn build should still produce two clone draws")
+	var spawn_first: Dictionary = spawn_draws[0]
+	var spawn_echoes: Array = spawn_first.get("echoes", [])
+	_expect(spawn_echoes.size() >= 1, "spawn clone draw should carry echo afterimage passes")
+	_expect(float(spawn_first.get("ghost_shift_x", 0.0)) > 2.0, "spawn clone split shift should be widened above the 2px base")
+	var echo0: Dictionary = spawn_echoes[0]
+	var echo_x: float = (echo0.get("rect", Rect2()) as Rect2).position.x
+	var clone_x: float = (spawn_first.get("visual_rect", Rect2()) as Rect2).position.x
+	var lo: float = min(visual_rect.position.x, clone_x) - 0.5
+	var hi: float = max(visual_rect.position.x, clone_x) + 0.5
+	_expect(echo_x >= lo and echo_x <= hi, "echo should sit between the player body and the clone position")
+
+	_advance_dual(runtime, config, deps, player_pos, 24)  # spawn -> active
+	var active_ctx: Dictionary = runtime.get_actor_draw_context()
+	active_ctx["selected_character_type"] = "viper"
+	active_ctx["viper_dual_glitch_wiggle_amplitude"] = 0.0
+	_expect(str(active_ctx.get("viper_dual_glitch_state", "")) == "active", "test setup should reach active")
+	var active_draws: Array = renderer_inst.build_viper_dual_glitch_clone_sprite_draws(active_ctx, visual_rect, false, player_pos, Vector2(155.0, 50.0), Vector2.ZERO)
+	_expect((active_draws[0] as Dictionary).get("echoes", []).size() == 0, "active clones must have no echo afterimages")
+	_expect(abs(float((active_draws[0] as Dictionary).get("ghost_shift_x", 0.0)) - 2.0) < 0.0001, "active clone split should settle to the 2px base")
+
+
+func _test_dual_glitch_clone_steam_puff() -> void:
+	# 원본: 공에 맞아 파괴된 분신(hp<=0 + evaporating)은 스프라이트 대신 스팀 퍼프로 증발.
+	# 퍼프 알파: idx 클수록 어둡고, evaporation 끝에서 0.
+	_expect(
+		Stage1PlayerActorRenderer.compute_dual_glitch_steam_puff_alpha(0, 0.0, 0.63) > Stage1PlayerActorRenderer.compute_dual_glitch_steam_puff_alpha(2, 0.0, 0.63),
+		"steam puff 0 should be brighter than puff 2"
+	)
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_steam_puff_alpha(0, 1.0, 0.63) <= 0.0001, "steam should fully fade at evaporation end")
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_steam_puff_alpha(0, 0.0, 0.63) > 0.2, "steam puff 0 should start clearly visible")
+
+	# build: 파괴/증발 중 분신 -> steam_puff draw spec(스프라이트 패스 없음), 생존 분신은 스프라이트 유지.
+	var renderer_inst: Object = Stage1PlayerActorRenderer.new()
+	var ctx := {
+		"selected_character_type": "viper",
+		"viper_dual_glitch_state": "active",
+		"viper_dual_glitch_alpha": 0.63,
+		"viper_dual_glitch_wiggle_amplitude": 0.0,
+		"viper_dual_glitch_evaporation_frames": 13.2,
+		"viper_dual_glitch_clone_rects": [
+			{"rect": Rect2(Vector2(160.0, 560.0), Vector2(155.0, 50.0)), "index": 0, "side": -1, "hp": 0, "evaporating": true, "evaporation_frames": 5.0},
+			{"rect": Rect2(Vector2(445.0, 560.0), Vector2(155.0, 50.0)), "index": 1, "side": 1, "hp": 2},
+		],
+	}
+	var visual_rect := Rect2(Vector2(300.0, 472.0), Vector2(160.0, 160.0))
+	var draws: Array = renderer_inst.build_viper_dual_glitch_clone_sprite_draws(ctx, visual_rect, false, Vector2(302.5, 560.0), Vector2(155.0, 50.0), Vector2.ZERO)
+	_expect(draws.size() == 2, "build should emit a draw for the steaming clone and the live clone")
+	var steam_found := false
+	var live_has_sprite := false
+	for d_value in draws:
+		var d: Dictionary = d_value
+		if bool(d.get("steam_puff", false)):
+			steam_found = true
+			_expect(not d.has("main_modulate"), "steam clone must not carry sprite passes")
+			_expect(float(d.get("evaporation_progress", -1.0)) > 0.0, "steam clone should carry its evaporation progress")
+		elif d.has("main_modulate"):
+			live_has_sprite = true
+	_expect(steam_found, "destroyed/evaporating clone should produce a steam_puff draw spec")
+	_expect(live_has_sprite, "the surviving clone should still draw its sprite")
+
+
+func _test_dual_glitch_timeout_dispel_slices() -> void:
+	_expect(abs(Stage1PlayerActorRenderer.compute_dual_glitch_timeout_drift_y(0.0) - 6.0) < 0.0001, "timeout dispel should start with Python's 6px upward drift")
+	_expect(abs(Stage1PlayerActorRenderer.compute_dual_glitch_timeout_drift_y(1.0) - 24.0) < 0.0001, "timeout dispel should end with Python's 24px upward drift")
+	var early_slice_alpha: float = Stage1PlayerActorRenderer.compute_dual_glitch_timeout_slice_alpha(0, 0.0, 0.63)
+	var late_slice_alpha: float = Stage1PlayerActorRenderer.compute_dual_glitch_timeout_slice_alpha(0, 0.8, 0.63)
+	var lower_slice_alpha: float = Stage1PlayerActorRenderer.compute_dual_glitch_timeout_slice_alpha(7, 0.0, 0.63)
+	_expect(early_slice_alpha > late_slice_alpha, "timeout slice alpha should fade as the dispel progresses")
+	_expect(early_slice_alpha > lower_slice_alpha, "later horizontal slices should be dimmer like the Python slice_index falloff")
+	_expect(Stage1PlayerActorRenderer.compute_dual_glitch_timeout_ghost_alpha(0.0, 0.63) > Stage1PlayerActorRenderer.compute_dual_glitch_timeout_ghost_alpha(1.0, 0.63), "timeout split ghosts should dim over the dispel")
+	var offset_start: Vector2 = Stage1PlayerActorRenderer.compute_dual_glitch_timeout_slice_offset(3, 0, -1, 0.0, 0.0)
+	var offset_end: Vector2 = Stage1PlayerActorRenderer.compute_dual_glitch_timeout_slice_offset(3, 0, -1, 1.0, 0.0)
+	_expect(offset_end.y < offset_start.y, "timeout slices should drift upward as fade progresses")
+
+	var renderer_inst: Object = Stage1PlayerActorRenderer.new()
+	var ctx := {
+		"selected_character_type": "viper",
+		"viper_dual_glitch_state": "fade",
+		"viper_dual_glitch_fade_reason": "timeout",
+		"viper_dual_glitch_phase_frames": 9.0,
+		"viper_dual_glitch_fade_frames": 18.0,
+		"viper_dual_glitch_alpha": 0.63,
+		"viper_dual_glitch_wiggle_amplitude": 0.0,
+		"viper_dual_glitch_clone_rects": [
+			{"rect": Rect2(Vector2(160.0, 560.0), Vector2(155.0, 50.0)), "index": 0, "side": -1, "hp": 2},
+			{"rect": Rect2(Vector2(445.0, 560.0), Vector2(155.0, 50.0)), "index": 1, "side": 1, "hp": 2},
+		],
+	}
+	var visual_rect := Rect2(Vector2(300.0, 472.0), Vector2(160.0, 160.0))
+	var timeout_draws: Array = renderer_inst.build_viper_dual_glitch_clone_sprite_draws(ctx, visual_rect, false, Vector2(302.5, 560.0), Vector2(155.0, 50.0), Vector2.ZERO)
+	_expect(timeout_draws.size() == 2, "timeout fade should keep both clones visible as dispel specs")
+	var first_timeout: Dictionary = timeout_draws[0]
+	_expect(bool(first_timeout.get("timeout_dispel", false)), "timeout fade clone should use the dispel draw path")
+	_expect(not first_timeout.has("main_modulate"), "timeout dispel must replace the normal sprite clone pass")
+	_expect((first_timeout.get("slice_specs", []) as Array).size() == 8, "timeout dispel should emit the Python-style 8 horizontal slices")
+	_expect((first_timeout.get("particles", []) as Array).size() == 16, "timeout dispel should emit the Python-style 16 particles")
+	_expect((first_timeout.get("ghosts", []) as Array).size() == 2, "timeout dispel should emit the two chromatic split ghosts")
+	_expect(float(first_timeout.get("drift_y", 0.0)) > 6.0, "mid-fade timeout dispel should have upward drift beyond the starting offset")
+	var timeout_drift_y: float = float(first_timeout.get("drift_y", 0.0))
+	var first_slice: Dictionary = (first_timeout.get("slice_specs", []) as Array)[0]
+	var first_slice_rect: Rect2 = first_slice.get("rect", Rect2())
+	var first_slice_offset: Vector2 = first_slice.get("offset", Vector2.ZERO)
+	_expect(
+		abs(first_slice_rect.position.y - (visual_rect.position.y + first_slice_offset.y - timeout_drift_y)) < 0.01,
+		"timeout slice rect should include both Python vertical offsets: slice offset -drift_y plus whole glitch surface -drift_y"
+	)
+	var first_particle: Dictionary = (first_timeout.get("particles", []) as Array)[0]
+	var first_particle_pos: Vector2 = first_particle.get("pos", Vector2.ZERO)
+	var first_particle_local_offset: Vector2 = first_particle.get("local_offset", Vector2.ZERO)
+	var first_visual_rect: Rect2 = first_timeout.get("visual_rect", Rect2())
+	_expect(
+		abs(first_particle_pos.y - (first_visual_rect.position.y + first_particle_local_offset.y - timeout_drift_y)) < 0.01,
+		"timeout particles should inherit the whole glitch surface -drift_y upward blit offset"
+	)
+
+	ctx["viper_dual_glitch_fade_reason"] = "destroyed"
+	var destroyed_draws: Array = renderer_inst.build_viper_dual_glitch_clone_sprite_draws(ctx, visual_rect, false, Vector2(302.5, 560.0), Vector2(155.0, 50.0), Vector2.ZERO)
+	_expect(destroyed_draws.size() == 2, "destroyed fade with living entries should still build regular clone draws")
+	_expect(not bool((destroyed_draws[0] as Dictionary).get("timeout_dispel", false)), "destroyed fade must not use timeout-only slice dispel")
+
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var deps := _deps(input, FakeSkillConfig.new(), FakeSkillState.new(), FakePerkState.new(), FakeOrbHud.new(), FakeFeedback.new(), FakeAudio.new())
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 680.0)
+	_activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
+	_advance_dual(runtime, config, deps, player_pos, 49)
+	_advance_dual(runtime, config, deps, player_pos, 24)
+	runtime.dual_glitch_active_total_frames = 0.0
+	_advance_dual(runtime, config, deps, player_pos, 1)
+	var actor_ctx: Dictionary = runtime.get_actor_draw_context()
+	_expect(str(actor_ctx.get("viper_dual_glitch_state", "")) == "fade", "timeout setup should enter Dual Glitch fade")
+	_expect(str(actor_ctx.get("viper_dual_glitch_fade_reason", "")) == "timeout", "actor draw context should expose timeout fade reason for dispel rendering")
+
+
+func _test_dual_glitch_dispel_real_sprite_slicing() -> void:
+	# resolve 훅: 현재 컨텍스트가 그릴 base 스프라이트의 (texture, region, flip)을
+	# 캔버스에 그리지 않고 회수해야 한다(디졸브 슬라이스가 실제 스프라이트를 자르기 위함).
+	var renderer_inst: Object = Stage1PlayerActorRenderer.new()
+	var sr: Object = renderer_inst.sprite_renderer
+	var img := Image.create_empty(64, 96, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.4, 0.6, 1.0, 1.0))
+	var tex := ImageTexture.create_from_image(img)
+	var sprite_ctx := {
+		"selected_character_type": "viper",
+		"player_sprite_texture": tex,
+		"player_sprite_frame_count": 1,
+		"player_sprite_frame_width": 64.0,
+		"player_sprite_frame_height": 96.0,
+	}
+	var resolved: Dictionary = sr.resolve_current_sprite(
+		sprite_ctx, Rect2(Vector2.ZERO, Vector2(160.0, 160.0)), false, Vector2.ZERO, Vector2(155.0, 50.0), Vector2.ZERO
+	)
+	_expect(resolved.get("texture", null) == tex, "resolve hook should return the live sprite texture without drawing")
+	var region: Rect2 = resolved.get("region", Rect2())
+	_expect(region.size.x > 0.0 and region.size.y > 0.0, "resolve hook should return a non-empty source region")
+	_expect(not bool(resolved.get("flip_h", true)), "directional viper walk sprite should resolve unflipped")
+
+	# slice_specs가 실제 텍스처 슬라이싱용 source-band 분수(src_frac_y/h)와 틴트 modulate를 운반.
+	var ctx := {
+		"selected_character_type": "viper",
+		"viper_dual_glitch_state": "fade",
+		"viper_dual_glitch_fade_reason": "timeout",
+		"viper_dual_glitch_alpha": 0.63,
+		"viper_dual_glitch_wiggle_amplitude": 0.0,
+		"viper_dual_glitch_fade_frames": 18.0,
+		"viper_dual_glitch_phase_frames": 6.0,
+		"viper_dual_glitch_clone_rects": [
+			{"rect": Rect2(Vector2(160.0, 560.0), Vector2(155.0, 50.0)), "index": 0, "side": -1, "hp": 2},
+		],
+	}
+	var draws: Array = renderer_inst.build_viper_dual_glitch_clone_sprite_draws(
+		ctx, Rect2(Vector2(300.0, 472.0), Vector2(160.0, 160.0)), false, Vector2(302.5, 560.0), Vector2(155.0, 50.0), Vector2.ZERO
+	)
+	_expect(draws.size() == 1, "timeout dispel build should produce one dispel draw")
+	var specs: Array = (draws[0] as Dictionary).get("slice_specs", [])
+	_expect(specs.size() == 8, "dispel should emit 8 horizontal slices")
+	var s0: Dictionary = specs[0]
+	_expect(abs(float(s0.get("src_frac_y", -1.0))) < 0.001, "slice 0 source band starts at the top of the sprite region")
+	_expect(abs(float(s0.get("src_frac_h", 0.0)) - 0.125) < 0.01, "each slice covers ~1/8 of the sprite region height")
+	_expect((s0.get("modulate", Color.WHITE) as Color).a > 0.0, "slice carries a tint modulate alpha for the textured strip")
+	var s4: Dictionary = specs[4]
+	_expect(abs(float(s4.get("src_frac_y", -1.0)) - 0.5) < 0.02, "slice 4 source band starts ~halfway down the sprite region")
+
+
+func _test_dual_glitch_effect_renderer_startup_parity_source() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_dual_glitch_effect_renderer.gd")
+	_expect(
+		source.find("var ring_center: Vector2 = foot + Vector2(0.0, 10.0)") >= 0,
+		"Dual Glitch startup ring center should match Python's foot_y + 10 center: blit -ring_r + 6 plus local ring_r + 4"
+	)
+	_expect(
+		source.find("shock_t") < 0 and source.find("shock_center") < 0,
+		"Dual Glitch startup should not draw the dormant Python spawn_shockwave dead-call as a live green shockwave"
+	)
+	_expect(
+		source.find("DUAL_GLITCH_RGB_SPLIT") >= 0 and source.find("for spark_idx in range(8)") >= 0,
+		"Dual Glitch startup should keep the Python RGB split rings and 8-spark loop"
+	)
 
 
 func _test_round_boundary_preserves_active_dual_glitch() -> void:

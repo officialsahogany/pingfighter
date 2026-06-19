@@ -52,6 +52,7 @@ func build_actor_draw_context(runtime: Object) -> Dictionary:
 		"viper_venom_edge_stationary_active": runtime.venom_edge_stationary_active,
 		"viper_dual_glitch_state": runtime.dual_glitch_state,
 		"viper_dual_glitch_phase_frames": runtime.dual_glitch_phase_frames,
+		"viper_dual_glitch_fade_reason": runtime.dual_glitch_fade_reason,
 		"viper_dual_glitch_clone_rects": runtime._get_dual_glitch_clone_rect_entries(false, true),
 		"viper_dark_blade_chain_glow_ratio": clamp(runtime.dark_blade_window_frames / runtime.DARK_BLADE_WINDOW_FRAMES, 0.0, 1.0) if runtime.dark_blade_window else 0.0,
 	}

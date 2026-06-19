@@ -52,6 +52,11 @@ const VIPER_VENOM_MOVING_SOUND_PATH := "res://assets/sounds/venommoving.wav"
 const VIPER_VENOM_ATTACK_SOUND_PATH := "res://assets/sounds/venomattack.wav"
 const VIPER_HWARANG_KICK_SOUND_PATH := "res://assets/sounds/hwarangkick.wav"
 const VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH := "res://assets/sounds/nuckbackball.wav"
+const VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH := "res://assets/sounds/dualglitch1.wav"
+const VIPER_DUAL_GLITCH_WINDUP_GAIN_DB := -13.5
+# ??? ??? ??? ???? ??(startup -> spawn) ??. windup(dualglitch1)? ?? ??.
+const VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH := "res://assets/sounds/dualglitch2.wav"
+const VIPER_DUAL_GLITCH_SPLIT_GAIN_DB := 0.0
 const CHAOS_SPEAR_WINDUP_SOUND_PATH := "res://assets/sounds/chaosphase1.wav"
 const CHAOS_SPEAR_FLYING_SOUND_PATH := "res://assets/sounds/chaosphase2.wav"
 const CHAOS_SPEAR_IMPACT_SOUND_PATH := "res://assets/sounds/chaosphase3.wav"
@@ -338,6 +343,8 @@ var viper_venom_moving_sfx: AudioStreamPlayer
 var viper_venom_attack_sfx: AudioStreamPlayer
 var viper_hwarang_kick_sfx: AudioStreamPlayer
 var viper_kick_guard_knockback_sfx: AudioStreamPlayer
+var viper_dual_glitch_windup_sfx: AudioStreamPlayer
+var viper_dual_glitch_split_sfx: AudioStreamPlayer
 var chaos_spear_windup_sfx: AudioStreamPlayer
 var chaos_spear_flying_sfx: AudioStreamPlayer
 var chaos_spear_impact_sfx: AudioStreamPlayer
@@ -609,6 +616,8 @@ func _setup_smasher_skill_sfx() -> void:
 	viper_venom_attack_sfx = player_factory.create(owner_node, "ViperVenomAttackSfx", VIPER_VENOM_ATTACK_SOUND_PATH, -4.4)
 	viper_hwarang_kick_sfx = player_factory.create(owner_node, "ViperHwarangKickSfx", VIPER_HWARANG_KICK_SOUND_PATH, -3.2)
 	viper_kick_guard_knockback_sfx = player_factory.create(owner_node, "ViperKickGuardKnockbackSfx", VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH, -4.0)
+	viper_dual_glitch_windup_sfx = player_factory.create(owner_node, "ViperDualGlitchWindupSfx", VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH, VIPER_DUAL_GLITCH_WINDUP_GAIN_DB)
+	viper_dual_glitch_split_sfx = player_factory.create(owner_node, "ViperDualGlitchSplitSfx", VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH, VIPER_DUAL_GLITCH_SPLIT_GAIN_DB)
 	chaos_spear_windup_sfx = player_factory.create(owner_node, "ChaosSpearWindupSfx", CHAOS_SPEAR_WINDUP_SOUND_PATH, -4.4)
 	chaos_spear_flying_sfx = player_factory.create(owner_node, "ChaosSpearFlyingSfx", CHAOS_SPEAR_FLYING_SOUND_PATH, -4.4)
 	chaos_spear_impact_sfx = player_factory.create(owner_node, "ChaosSpearImpactSfx", CHAOS_SPEAR_IMPACT_SOUND_PATH, -4.4)
@@ -922,6 +931,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				VIPER_VENOM_ATTACK_SOUND_PATH,
 				VIPER_HWARANG_KICK_SOUND_PATH,
 				VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH,
+				VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH,
+				VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH,
 				CHAOS_SPEAR_WINDUP_SOUND_PATH,
 				CHAOS_SPEAR_FLYING_SOUND_PATH,
 				CHAOS_SPEAR_IMPACT_SOUND_PATH,
@@ -1416,6 +1427,19 @@ func play_viper_hwarang_kick() -> void:
 func play_viper_kick_guard_knockback() -> void:
 	if not _play_with_pitch(viper_kick_guard_knockback_sfx, randf_range(0.98, 1.02)):
 		play_stage2_speed_defense_hit()
+
+
+func play_viper_dual_glitch_windup() -> void:
+	_play_with_pitch(viper_dual_glitch_windup_sfx, randf_range(0.98, 1.02))
+
+
+func stop_viper_dual_glitch_windup() -> void:
+	if viper_dual_glitch_windup_sfx != null:
+		viper_dual_glitch_windup_sfx.stop()
+
+
+func play_viper_dual_glitch_split() -> void:
+	_play_with_pitch(viper_dual_glitch_split_sfx, randf_range(0.98, 1.02))
 
 
 func play_chaos_spear_windup() -> void:
@@ -3099,6 +3123,8 @@ func _get_sfx_players() -> Array:
 		viper_venom_attack_sfx,
 		viper_hwarang_kick_sfx,
 		viper_kick_guard_knockback_sfx,
+		viper_dual_glitch_windup_sfx,
+		viper_dual_glitch_split_sfx,
 		chaos_spear_windup_sfx,
 		chaos_spear_flying_sfx,
 		chaos_spear_impact_sfx,
