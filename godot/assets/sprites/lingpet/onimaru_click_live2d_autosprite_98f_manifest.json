@@ -1,0 +1,90 @@
+{
+  "pet_id": "onimaru",
+  "display_name_ascii": "Onimaru",
+  "created_at": "2026-06-15",
+  "purpose": "Onimaru click Live2D 98-frame one-shot for panel click and acquisition dismiss",
+  "source": {
+    "autosprite_asset_id": "cmqdy4nq800io9fwlj456pk6n",
+    "source_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+    "source_magenta_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_magenta_source.png",
+    "source_anchor_manifest": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json",
+    "autosprite_job_id": "wf_3f351afa-c850-4f8d-8bcb-c51b0d76c0de",
+    "autosprite_spritesheet_id": "cmqdy6tdd004elrvvl6q2xy53",
+    "autosprite_prompt": "cute click reaction one-shot: surprised squish, hop forward, big blink then happy grin, ring parts sparkle, crown and kanabo staff wobble, settle back to neutral, no camera turn",
+    "raw_downloaded_sheet": ".tmp/onimaru_live2d_autosprite_20260615/onimaru_click_autosprite_raw_49f.png",
+    "raw_downloaded_atlas": ".tmp/onimaru_live2d_autosprite_20260615/onimaru_click_autosprite_raw_49f_atlas.json"
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite-derived safe-margin repack",
+    "operation": "Scaled each AutoSprite 49f source cell from 512 to 480 px inside a 512 px transparent cell to remove edge touches, then assembled forward + reversed forward frames into a 14x7/98f pingpong one-shot.",
+    "raw_forward_frames": 49,
+    "safe_margin_px": 16,
+    "final_pingpong_frames": 98,
+    "exact_key_color_scrub": "Visible exact #ff00ff/#00ff00 pixels from sparkle/jewel colors were nudged by 1 RGB step after repack to avoid chroma-key confusion."
+  },
+  "runtime_usage": "lingpet_click_reaction_anim_and_acquisition_dismiss_anim",
+  "output_sheet": "res://assets/sprites/lingpet/onimaru_click_live2d_autosprite_98f.png",
+  "grid": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      7168,
+      3584
+    ],
+    "repeated_static_frame": false,
+    "frame_interval": "49 AutoSprite frames + deterministic reverse to 98 frames"
+  },
+  "qa": {
+    "image_size": [
+      7168,
+      3584
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "sample_bboxes": {
+      "0": [
+        77,
+        42,
+        386,
+        450
+      ],
+      "24": [
+        69,
+        56,
+        390,
+        449
+      ],
+      "49": [
+        81,
+        40,
+        395,
+        450
+      ],
+      "97": [
+        77,
+        42,
+        386,
+        450
+      ]
+    },
+    "adjacent_delta_min": 0,
+    "adjacent_delta_median": 8.9392,
+    "adjacent_delta_max": 17.234
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/onimaru_click_live2d_autosprite_98f.png",
+    "sha256": "1094122316727503c3ccc31aa0dec8784ce9f062ff4425ac4b635bf08a95f888",
+    "bytes": 15992819
+  }
+}

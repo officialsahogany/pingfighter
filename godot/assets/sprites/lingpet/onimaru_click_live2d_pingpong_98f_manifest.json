@@ -1,0 +1,142 @@
+{
+  "pet_id": "onimaru",
+  "display_name_ascii": "Onimaru",
+  "created_at": "2026-06-14",
+  "source_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+  "source_magenta_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_magenta_source.png",
+  "source_anchor_manifest": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json",
+  "source_autosprite": {
+    "status": "not_used_for_this_onimaru_click_sheet",
+    "reason": "AutoSprite MCP was reachable, but no Onimaru character asset was found by searches for onimaru / oni / Korean oni names, and the current exposed tool set has no create-character entrypoint. This runtime sheet is a deterministic Live2D-style deformation pass from the user-accepted v2 anchor, not an AutoSprite-generated motion source.",
+    "checked_on": "2026-06-14"
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic anchor deformation",
+    "operation": "Generated 49 forward click frames from the accepted v2 transparent anchor using press, bounce, row-wobble, tiny eye-blink cap, and cyan/gold ring sparkle overlays, then assembled deterministic forward+reverse 98f pingpong runtime sheets.",
+    "motion_channels": [
+      "press-down anticipation",
+      "upward cute bounce",
+      "hair/kanabo row wobble",
+      "subtle body squash/stretch",
+      "short closed-eye squeeze during press",
+      "gold/cyan ring-part sparkle pulse"
+    ],
+    "source_alpha_bbox": [
+      166,
+      74,
+      958,
+      1126
+    ],
+    "crop_box": [
+      146,
+      54,
+      978,
+      1146
+    ],
+    "target_forward_frames": 49,
+    "final_pingpong_frames": 98
+  },
+  "asset_id": "onimaru_click_live2d_pingpong_98f_v1_anchor_deform",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/onimaru_click_live2d_pingpong_98f.png",
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/onimaru_click_live2d_pingpong_98f.png",
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      7168,
+      3584
+    ],
+    "frame_interval": "intended one-shot pingpong; 49 deterministic anchor-deformation frames + reverse 48..0",
+    "sha256": "250e883ea0cb8967a6de7c065d05b0f81d27b50a62ce4e26fe8c5047fe08b03f",
+    "bytes": 15334829,
+    "source_scale_repack": 0.40293,
+    "content_height_px": 440
+  },
+  "grid": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      7168,
+      3584
+    ],
+    "repeated_static_frame": false
+  },
+  "qa": {
+    "raw_forward_frame_count": 49,
+    "final_frame_count": 98,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "pingpong_loop_closure": "frame0 returns at frame97 and frame48 is held at frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [
+        94,
+        46,
+        417,
+        474
+      ],
+      "8": [
+        91,
+        72,
+        426,
+        483
+      ],
+      "16": [
+        94,
+        51,
+        418,
+        474
+      ],
+      "24": [
+        95,
+        28,
+        403,
+        463
+      ],
+      "36": [
+        101,
+        13,
+        402,
+        454
+      ],
+      "48": [
+        94,
+        18,
+        395,
+        457
+      ],
+      "49": [
+        94,
+        18,
+        395,
+        457
+      ],
+      "72": [
+        96,
+        27,
+        402,
+        461
+      ],
+      "97": [
+        94,
+        46,
+        417,
+        474
+      ]
+    },
+    "preview_path": ".tmp/onimaru_click_live2d_pingpong_98f_preview.png",
+    "status": "Accepted runtime candidate from the v2 Onimaru anchor: cute click squeeze, bounce, ring sparkle, and kanabo/hair wobble. AutoSprite regeneration should replace this if an Onimaru AutoSprite character asset is later created."
+  }
+}

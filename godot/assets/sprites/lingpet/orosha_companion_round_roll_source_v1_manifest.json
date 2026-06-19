@@ -1,0 +1,51 @@
+{
+  "asset_id": "orosha_companion_round_roll_source_v1",
+  "autosprite": {
+    "character_id": "cmqk40id600igdr8dd7rj5xv7",
+    "pose_id": "cmqk41vqd00crzdcew6lbj2cd",
+    "job_id": "cf_e3bcbf2f-bbce-4f54-aac5-e15b67d6a0b7",
+    "pose_label": "Round Hoop",
+    "credits_used": 5
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_back_clean_v2.png",
+    "role": "reference uploaded to AutoSprite for complete circular rolling-hoop redraw"
+  },
+  "raw_generated": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_round_roll_source_v1_autosprite_raw.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  "output": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_round_roll_source_v1.png",
+    "size": [
+      1024,
+      1024
+    ],
+    "md5": "06a04f88a93f018ab0a945803f89344b"
+  },
+  "postprocess": {
+    "method": "neutral checkerboard connected-component background removal plus true circular outer clip",
+    "center": [
+      511.5,
+      507.0
+    ],
+    "outer_radius": 427.5,
+    "edge_feather_px": 1.75
+  },
+  "qa": {
+    "edge_alpha_max": 0,
+    "alpha_bbox": [
+      83,
+      78,
+      941,
+      937
+    ],
+    "outer_radius_min": 427.369,
+    "outer_radius_max": 428.182,
+    "outer_radius_sample_count": 360,
+    "visible_pixels": 361031
+  }
+}

@@ -190,7 +190,7 @@ func _verify_defense_intercept_disarms_after_reflect() -> void:
 	skill.set_jitter_degrees_for_tests([0.0])
 	_expect(bool(skill.launch(Vector2(500.0, 610.0), owner, _launch_context(owner, null, 2, 50.0))), "S15 Solar Bolt launch should reflect the descending ball")
 	_expect(owner.ball_vel.y < 0.0, "S15 Solar Bolt launch should leave the ball traveling upward")
-	motion.update(1.0 / 60.0, owner, false, 1.0, 1, 80.0, 160.0)
+	motion.update(1.0 / 60.0, owner, false, 1.0, 1, 120.0, 80.0, 160.0)
 	var disarmed_snapshot: Dictionary = motion.get_snapshot(120.0, 80.0, 160.0, 1.0)
 	_expect(not bool(disarmed_snapshot.get("companion_defense_intercept_active", true)), "S15 reflected upward ball should disarm the companion defense intercept on the next motion tick")
 	_expect(float(disarmed_snapshot.get("companion_defense_decision_timer", 1.0)) <= 0.001, "S15 reflected upward ball should clear the defense decision timer")

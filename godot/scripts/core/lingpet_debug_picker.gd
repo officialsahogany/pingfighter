@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const COLUMNS := 3
 const CARD_SIZE := Vector2(214.0, 112.0)
@@ -26,6 +27,10 @@ const SKILL_LEVEL_BUTTON_SIZE := Vector2(18.0, 18.0)
 const SKILL_LEVEL_LABEL_SIZE := Vector2(36.0, 18.0)
 const SKILL_LEVEL_CONTROL_GAP := 3.0
 const APPLY_BUTTON_SIZE := Vector2(200.0, 34.0)
+const THUMBNAIL_SHEET_COLS := 5
+const THUMBNAIL_SHEET_ROWS := 5
+const THUMBNAIL_FRAME_COUNT := 25
+const THUMBNAIL_FRAME_INTERVAL := 0.08
 # Header stat-override slider. override < 0 = "기본" (use the pet's catalog value);
 # 0..1 forces the stat for feel testing. The forced stat follows the SELECTED pet's
 # motion style: patrol pets force defense_rate (방어율), flight pets (sortie_flight /
@@ -430,9 +435,26 @@ func _draw_pet_thumbnail(canvas: CanvasItem, rect: Rect2, entry: Dictionary) -> 
 	if texture == null:
 		canvas.draw_circle(rect.position + rect.size * 0.5, rect.size.x * 0.32, Color(0.75, 0.82, 0.92, 0.70))
 		return
-	var frame_size := Vector2(texture.get_width() / 5.0, texture.get_height() / 5.0)
-	var region := Rect2(Vector2.ZERO, frame_size)
+	var frame_size := Vector2(
+		float(texture.get_width()) / float(THUMBNAIL_SHEET_COLS),
+		float(texture.get_height()) / float(THUMBNAIL_SHEET_ROWS)
+	)
+	var frame := _get_thumbnail_frame()
+	var row := floori(float(frame) / float(THUMBNAIL_SHEET_COLS))
+	var region := Rect2(
+		Vector2(
+			float(frame % THUMBNAIL_SHEET_COLS) * frame_size.x,
+			float(row) * frame_size.y
+		),
+		frame_size
+	)
 	canvas.draw_texture_rect_region(texture, rect.grow(-3.0), region, Color(1.0, 1.0, 1.0, 1.0))
+
+
+func _get_thumbnail_frame(ticks_msec: int = -1) -> int:
+	var current_ticks := Time.get_ticks_msec() if ticks_msec < 0 else ticks_msec
+	var frame := int(floor(float(maxi(0, current_ticks)) / 1000.0 / THUMBNAIL_FRAME_INTERVAL))
+	return frame % THUMBNAIL_FRAME_COUNT
 
 
 func _draw_skill_selection(canvas: CanvasItem, font: Font, view_size: Vector2, pet_id: String, entry_count: int) -> void:
@@ -1186,7 +1208,7 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 		"volty":
 			return "볼탄"
 		"orbi":
-			return "오르비"
+			return "세라비"
 		"koyora":
 			return "코요라"
 		"nekuring":
@@ -1195,6 +1217,10 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 			return "빠나몽"
 		"rabi":
 			return "모락모랑"
+		"onimaru":
+			return "오니마루"
+		"rahoset":
+			return "라호세트"
 	var fallback := str(entry.get("display_name", pet_id))
 	return fallback if fallback.strip_edges() != "" else "\ubbf8\ud655\uc778 \ub9c1\ud3ab"
 
@@ -1229,6 +1255,10 @@ func _get_summary_text(pet_id: String) -> String:
 			return "바나나 주머니와 꼬리 다이아 링파츠 라투디 후보"
 		"rabi":
 			return "\uc720\ub839\ube5b \ud68d\ub4dd \ub77c\ud22c\ub514 \ub514\ubc84\uadf8 \ud6c4\ubcf4"
+		"onimaru":
+			return "붉은 도깨비 원화 앵커 라투디 디버그 후보"
+		"rahoset":
+			return "사막 신 가면과 호루스 날개 라투디 디버그 후보"
 	return "\uc804\ud22c \ubcf4\uc870 \ub9c1\ud3ab"
 
 
@@ -1252,6 +1282,10 @@ func _get_card_color(pet_id: String) -> Color:
 			return Color(1.0, 0.76, 0.24)
 		"rabi":
 			return Color(0.66, 0.88, 1.0)
+		"onimaru":
+			return Color(1.0, 0.34, 0.20)
+		"rahoset":
+			return Color(1.0, 0.68, 0.16)
 	return Color(0.70, 0.82, 0.92)
 
 
@@ -1263,7 +1297,7 @@ func _get_texture(path: String) -> Texture2D:
 		if cached is Texture2D:
 			return cached
 		return null
-	var loaded: Variant = ResourceLoader.load(path)
+	var loaded: Variant = ProjectResourceLoader.load_texture(path)
 	if loaded is Texture2D:
 		_texture_cache[path] = loaded
 		return loaded

@@ -227,7 +227,9 @@ func configure_reward_context(
 	pet_data["passive_skill_base_level"] = next_passive_base_level
 	pet_data["ring_core_cap"] = next_ring_core_cap
 	if reward_seed > 0:
-		pet_data["reward_seed"] = maxi(1, reward_seed % REWARD_DECK_SEED_MOD)
+		var normalized_seed := maxi(1, reward_seed % REWARD_DECK_SEED_MOD)
+		pet_data["reward_seed"] = normalized_seed
+		pet_data["unlock_choice_seed_base"] = normalized_seed
 	if force_rebuild or not _has_reward_deck(pet_data) or (context_changed and history.is_empty()):
 		_build_reward_deck(normalized_pet_id, pet_data)
 	_pets[normalized_pet_id] = pet_data
@@ -254,6 +256,9 @@ func set_unlock_choice_candidates(pet_id: String, reward_type: String, candidate
 		choice["candidates"] = normalized_candidates.duplicate(true)
 		pending[choice_key] = choice
 		pet_data["pending_unlock_choices"] = pending
+		var resolve_result := _resolve_random_unlock_choice(pet_data, choice)
+		if bool(resolve_result.get("accepted", false)):
+			_dirty = true
 	_pets[normalized_pet_id] = pet_data
 
 
@@ -387,6 +392,24 @@ func resolve_single_unlock(pet_id: String, reward_type: String, only_id: String)
 	return {"accepted": true, "choice": resolved.duplicate(true)}
 
 
+func resolve_random_unlock(pet_id: String, reward_type: String) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {"accepted": false, "blocked_reason": "missing_pet_id"}
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return {"accepted": false, "blocked_reason": "not_unlock_type"}
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	if pet_data.is_empty():
+		return {"accepted": false, "blocked_reason": "missing_pet"}
+	_ensure_unlock_state(normalized_pet_id, pet_data)
+	var result := _resolve_random_unlock_choice(pet_data, {"type": reward_type, "choice_key": choice_key})
+	_pets[normalized_pet_id] = pet_data
+	if bool(result.get("accepted", false)):
+		_dirty = true
+	return result
+
+
 func set_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
@@ -394,6 +417,7 @@ func set_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
 	var pet_data := _get_or_create_pet_data(normalized_pet_id)
 	_ensure_unlock_state(normalized_pet_id, pet_data)
 	pet_data["reward_seed"] = maxi(1, reward_seed % REWARD_DECK_SEED_MOD)
+	pet_data["unlock_choice_seed_base"] = int(pet_data.get("reward_seed", 0))
 	_build_reward_deck(normalized_pet_id, pet_data)
 	_award_missing_rewards_up_to_level(pet_data, int(pet_data.get("affinity_level", 0)))
 	_pets[normalized_pet_id] = pet_data
@@ -1070,7 +1094,11 @@ func _record_pending_unlock_choice(pet_data: Dictionary, reward: Dictionary) -> 
 	var resolved: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
 	if pending.has(choice_key) or resolved.has(choice_key):
 		return
-	var candidates := _get_unlock_candidates(pet_data, reward_type)
+	var pool: Dictionary = pet_data.get("unlock_candidate_pool", {}) as Dictionary
+	var pooled: Variant = pool.get(choice_key, [])
+	var candidates: Array[String] = []
+	if pooled is Array:
+		candidates = _normalize_choice_candidates(pooled as Array)
 	pending[choice_key] = {
 		"type": reward_type,
 		"choice_key": choice_key,
@@ -1079,6 +1107,56 @@ func _record_pending_unlock_choice(pet_data: Dictionary, reward: Dictionary) -> 
 		"rejected": [],
 	}
 	pet_data["pending_unlock_choices"] = pending
+	if candidates.size() >= 2:
+		_resolve_random_unlock_choice(pet_data, reward)
+
+
+func _resolve_random_unlock_choice(pet_data: Dictionary, reward: Dictionary) -> Dictionary:
+	var reward_type := str(reward.get("type", ""))
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		choice_key = str(reward.get("choice_key", ""))
+		reward_type = _reward_type_for_unlock_choice_key(choice_key)
+	if choice_key == "" or reward_type == "":
+		return {"accepted": false, "blocked_reason": "not_unlock_type"}
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	var resolved: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+	if resolved.has(choice_key):
+		if pending.has(choice_key):
+			pending.erase(choice_key)
+			pet_data["pending_unlock_choices"] = pending
+		return {"accepted": false, "blocked_reason": "already_resolved", "choice": (resolved.get(choice_key, {}) as Dictionary).duplicate(true)}
+	var candidates: Array[String] = []
+	if pending.has(choice_key):
+		var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
+		var choice_candidates: Array = choice.get("candidates", []) as Array
+		candidates = _normalize_choice_candidates(choice_candidates)
+	if candidates.size() < 2:
+		candidates = _get_unlock_candidates(pet_data, reward_type)
+	if candidates.is_empty():
+		return {"accepted": false, "blocked_reason": "missing_candidates"}
+	var pick_seed := _next_unlock_choice_seed(pet_data, choice_key)
+	var selected_index := pick_seed % candidates.size()
+	var selected := str(candidates[selected_index])
+	var rejected: Array[String] = []
+	for candidate in candidates:
+		if candidate != selected:
+			rejected.append(candidate)
+	var resolved_choice := {
+		"type": reward_type,
+		"choice_key": choice_key,
+		"selected": selected,
+		"rejected": rejected,
+		"candidates": candidates.duplicate(true),
+		"auto": true,
+		"random": candidates.size() > 1,
+	}
+	resolved[choice_key] = resolved_choice
+	if pending.has(choice_key):
+		pending.erase(choice_key)
+	pet_data["pending_unlock_choices"] = pending
+	pet_data["resolved_unlock_choices"] = resolved
+	return {"accepted": true, "choice": resolved_choice.duplicate(true)}
 
 
 func _get_unlock_candidates(pet_data: Dictionary, reward_type: String) -> Array[String]:
@@ -1130,6 +1208,19 @@ func _unlock_choice_key(reward_type: String) -> String:
 			return "second_active"
 		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
 			return "second_passive"
+	return ""
+
+
+func _reward_type_for_unlock_choice_key(choice_key: String) -> String:
+	match choice_key:
+		"active":
+			return REWARD_TYPE_ACTIVE_UNLOCK
+		"passive":
+			return REWARD_TYPE_PASSIVE_UNLOCK
+		"second_active":
+			return REWARD_TYPE_SECOND_ACTIVE_UNLOCK
+		"second_passive":
+			return REWARD_TYPE_SECOND_PASSIVE_UNLOCK
 	return ""
 
 
@@ -1196,6 +1287,7 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"passive_skill_base_level": 1,
 		"ring_core_cap": MAX_LEVEL,
 		"reward_seed": 0,
+		"unlock_choice_seed_base": 0,
 		"reward_deck": [],
 		"reward_history": [],
 		"reward_counts": get_empty_reward_counts(),
@@ -1239,6 +1331,25 @@ func _ensure_unlock_state(pet_id: String, pet_data: Dictionary) -> void:
 		pet_data["resolved_unlock_choices"] = {}
 	if not pet_data.has("pet_id") or str(pet_data.get("pet_id", "")) == "":
 		pet_data["pet_id"] = _normalize_pet_id(pet_id)
+	_migrate_seeded_pending_unlock_choices_to_random_resolved(pet_data)
+
+
+func _migrate_seeded_pending_unlock_choices_to_random_resolved(pet_data: Dictionary) -> void:
+	var pending: Dictionary = pet_data.get("pending_unlock_choices", {}) as Dictionary
+	if pending.is_empty():
+		return
+	for raw_choice_key in pending.keys().duplicate():
+		var choice_key := str(raw_choice_key)
+		var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
+		var candidates: Array = choice.get("candidates", []) as Array
+		if _normalize_choice_candidates(candidates).size() < 2:
+			continue
+		var reward_type := str(choice.get("type", ""))
+		if reward_type == "":
+			reward_type = _reward_type_for_unlock_choice_key(choice_key)
+		var resolve_result := _resolve_random_unlock_choice(pet_data, {"type": reward_type, "choice_key": choice_key})
+		if bool(resolve_result.get("accepted", false)):
+			_dirty = true
 
 
 static func _empty_reward_signature() -> String:
@@ -1326,6 +1437,15 @@ func _build_default_reward_seed(pet_id: String, motion_style: String) -> int:
 
 func _advance_reward_seed(seed: int) -> int:
 	return maxi(1, int((seed * 1103515245 + 12345) % REWARD_DECK_SEED_MOD))
+
+
+func _next_unlock_choice_seed(pet_data: Dictionary, choice_key: String) -> int:
+	var seed := int(pet_data.get("unlock_choice_seed_base", 0))
+	if seed <= 0:
+		seed = _build_default_reward_seed(str(pet_data.get("pet_id", "")), str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)))
+	for i in range(choice_key.length()):
+		seed = int((seed * 131 + choice_key.unicode_at(i)) % REWARD_DECK_SEED_MOD)
+	return _advance_reward_seed(seed)
 
 
 func _normalize_pet_id(value: String) -> String:

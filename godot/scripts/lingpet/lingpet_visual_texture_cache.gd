@@ -11,6 +11,7 @@ const DEFAULT_PREWARM_KEYS := [
 	"companion_move_left",
 	"companion_move_right",
 	"companion_walk",
+	"companion_distance_roll_source",
 	"companion_strike",
 	"companion_cast",
 	"companion_puppet_control",

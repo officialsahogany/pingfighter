@@ -8,11 +8,11 @@
     "magenta_source": "res://assets/sprites/lingpet/orbi_companion_idle_back_base_magenta_source.png",
     "transparent_base": "res://assets/sprites/lingpet/orbi_companion_idle_back_base.png",
     "generator": "built_in_imagegen",
-    "prompt_summary": "Orbi rear 3/4 SD companion base, Maribo-style mostly back view, flat magenta chroma-key background."
+    "prompt_summary": "Serabi rear 3/4 SD companion base, Maribo-style mostly back view, flat magenta chroma-key background."
   },
   "source_autosprite": {
     "asset_id": "cmpwzxo0c004u2ozr4dn3ek5q",
-    "asset_name": "Orbi Companion Back Idle Base 20260603",
+    "asset_name": "Serabi Companion Back Idle Base 20260603",
     "spritesheet_id": "cmpwzzfww006j2ozrf0tth9jt",
     "job_id": "wf_ac54216b-b707-48d3-b75f-7b5cdf9e73ab",
     "raw_sheet_local_path": ".tmp/orbi_companion_idle_back/orbi_companion_idle_back_raw_25f.png",

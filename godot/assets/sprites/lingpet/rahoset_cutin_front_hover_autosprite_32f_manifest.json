@@ -1,0 +1,91 @@
+{
+  "asset": "rahoset_cutin_front_hover_autosprite_32f.png",
+  "pet_id": "rahoset",
+  "generation_mode": "autosprite_front_hover_runtime_pack_v2",
+  "created_at_utc": "2026-06-16T00:29:31.237084+00:00",
+  "runtime_use": "acquisition cut-in AutoSprite front hover loop",
+  "grid": {
+    "cols": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      4096,
+      2048
+    ],
+    "repeated_static_frame": false
+  },
+  "frame_map": {
+    "source_frame_count": 49,
+    "source_grid": [
+      7,
+      7
+    ],
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "source_indices": [
+      0,
+      2,
+      3,
+      5,
+      6,
+      8,
+      9,
+      11,
+      12,
+      14,
+      15,
+      17,
+      19,
+      20,
+      22,
+      23,
+      25,
+      26,
+      28,
+      29,
+      31,
+      33,
+      34,
+      36,
+      37,
+      39,
+      40,
+      42,
+      43,
+      45,
+      46,
+      48
+    ],
+    "pingpong_expanded": false
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
+    "md5": "7435111f590ab8cc94fbd7269bd04bf0"
+  },
+  "source_autosprite": {
+    "character_id": "cmqft7tkw000bu4oril1pprqj",
+    "spritesheet_id": "cmqfvnogp0002wp5i4g8b6l4r",
+    "video_id": "cmqfvkxo0000ltpaw54b6a1ot",
+    "workflow_job_id": "wf_a9dd787b-7afd-4ebe-b873-2deb4eb3c386",
+    "kind": "iso_idle_down",
+    "source_download": ".tmp/rahoset_autosprite_l2d_v2_front/rahoset_front_hover_autosprite_raw_49f.png",
+    "source_atlas": ".tmp/rahoset_autosprite_l2d_v2_front/rahoset_front_hover_autosprite_raw_49f_atlas.json",
+    "rejected_prior_spritesheet_id": "cmqfta0bc000fay80n4wmaj4d",
+    "rejected_prior_workflow_job_id": "wf_f6459b05-7ba7-4528-ae2f-0889be095a1a",
+    "rejected_prior_reason": "Persistent right-facing / 3-4 right drift compared with the accepted Rahoset source illustration."
+  },
+  "qa": {
+    "perceptual_frontal_neutrality": "accepted: the retry reads front-facing instead of right-facing in side-by-side strip QA",
+    "right_facing_drift_rejected": true,
+    "unique_frame_hashes": 32,
+    "repeated_static_frame": false,
+    "notes": "AutoSprite retry selected over the deterministic source-locked fallback because it preserves front-facing read while providing generated motion frames."
+  },
+  "output_md5": "2d9114a5baa2a086bc813d868faa9353"
+}

@@ -1,0 +1,89 @@
+{
+  "pet_id": "onimaru",
+  "display_name_ascii": "Onimaru",
+  "created_at": "2026-06-15",
+  "purpose": "Onimaru acquisition Live2D 32-frame loop with amber/gold ring-part gem palette",
+  "source": {
+    "parent_manifest": "res://assets/sprites/lingpet/onimaru_cutin_live2d_autosprite_32f_manifest.json",
+    "parent_image": "res://assets/sprites/lingpet/onimaru_cutin_live2d_autosprite_32f.png",
+    "source_anchor": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+    "source_anchor_manifest": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json"
+  },
+  "postprocess": {
+    "tool": "Pillow + NumPy deterministic palette remap",
+    "operation": "Selected cyan/turquoise ring-part, jewel, and accent pixels were hue-remapped to an amber/gold palette while preserving alpha, frame layout, timing, and original silhouette.",
+    "selector": "alpha>0, HSV hue 165..215 degrees, saturation>=0.22, value>=0.18; exact magenta chroma background preserved for magenta source exports",
+    "target_palette": {
+      "concept": "amber/gold first-choice Onimaru ring-parts palette",
+      "main_hex": "#F6B63A",
+      "highlight_hex": "#FFCF5A",
+      "soft_highlight_hex": "#FFE89A",
+      "remap_hue_degrees": 42.0
+    }
+  },
+  "runtime_usage": "lingpet_acquisition_cutin_anim",
+  "output_sheet": "res://assets/sprites/lingpet/onimaru_cutin_live2d_autosprite_32f_amber.png",
+  "qa": {
+    "image_size": [
+      4096,
+      2048
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "sample_bboxes": {
+      "0": [
+        66,
+        31,
+        393,
+        461
+      ],
+      "8": [
+        66,
+        28,
+        392,
+        461
+      ],
+      "16": [
+        54,
+        32,
+        405,
+        461
+      ],
+      "31": [
+        66,
+        31,
+        394,
+        461
+      ]
+    },
+    "cyan_palette_pixels_before": 16808,
+    "cyan_palette_pixels_after": 0,
+    "amber_palette_pixels_after": 168502,
+    "palette_recolored_pixels": 16808
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/onimaru_cutin_live2d_autosprite_32f_amber.png",
+    "sha256": "914d2e0292efacb295a7fdff04f3847438c05a036ea28c930483e04bb874a15f",
+    "bytes": 2693717
+  },
+  "grid": {
+    "cols": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      4096,
+      2048
+    ],
+    "repeated_static_frame": false
+  }
+}

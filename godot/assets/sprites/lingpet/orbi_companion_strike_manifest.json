@@ -7,11 +7,11 @@
   "source_art": {
     "transparent_base": "res://assets/sprites/lingpet/orbi_companion_idle_back_base.png",
     "base_manifest": "res://assets/sprites/lingpet/orbi_companion_idle_back_base_manifest.json",
-    "note": "Reused the Orbi rear 3/4 SD base to keep the battle companion direction consistent with walk/idle."
+    "note": "Reused the Serabi rear 3/4 SD base to keep the battle companion direction consistent with walk/idle."
   },
   "source_autosprite": {
     "asset_id": "cmpwzxo0c004u2ozr4dn3ek5q",
-    "asset_name": "Orbi Companion Back Idle Base 20260603",
+    "asset_name": "Serabi Companion Back Idle Base 20260603",
     "spritesheet_id": "cmpx1e0ow001qidpvis5d2whf",
     "job_id": "wf_a9faa481-0134-4a54-a381-9332f59ca855",
     "raw_sheet_local_path": ".tmp/orbi_companion_strike/orbi_companion_strike_raw_25f.png",

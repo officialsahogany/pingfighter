@@ -25,7 +25,10 @@ const CAST_DRAW_SIZE := Vector2(104.0, 104.0)
 const CAST_Y_OFFSET := -12.0
 # Walk/idle gate threshold. MUST match the companion renderer's "moving" check
 # (lingpet_companion_renderer: moving := motion_speed_ratio > 0.01): below it the renderer
-# shows the IDLE texture, so the frame must be the static IDLE_FRAME, not a cycling walk frame.
+# usually shows the IDLE texture, so the frame must be the static IDLE_FRAME, not a cycling
+# walk frame. Special stop-freeze pets may ask the renderer to pass a synthetic above-threshold
+# draw ratio while their real motion ratio stays 0, which freezes the current phase on a
+# movement sheet without advancing it.
 const MOVING_RATIO_THRESHOLD := 0.01
 
 var strike_active := false
@@ -79,12 +82,13 @@ func get_strike_frame() -> int:
 	return clampi(strike_start_frame + advanced, strike_start_frame, last_frame)
 
 
-func get_cast_frame(windup_elapsed: float, windup_seconds: float) -> int:
-	var max_frame: int = maxi(0, SHEET_FRAME_COUNT - 1)
+func get_cast_frame(windup_elapsed: float, windup_seconds: float, sheet_meta: Dictionary = {}) -> int:
+	var frame_count: int = _resolve_frame_count(sheet_meta)
+	var max_frame: int = maxi(0, frame_count - 1)
 	if windup_seconds <= 0.0:
 		return max_frame
 	var progress: float = clampf(windup_elapsed / windup_seconds, 0.0, 1.0)
-	return clampi(int(progress * float(SHEET_FRAME_COUNT)), 0, max_frame)
+	return clampi(int(progress * float(frame_count)), 0, max_frame)
 
 
 func advance_walk_phase(delta: float, speed_ratio: float) -> void:
@@ -99,16 +103,17 @@ func advance_walk_phase(delta: float, speed_ratio: float) -> void:
 	walk_phase += maxf(0.0, delta) * fps
 
 
-func get_walk_frame(patrol_pause: float, ticks_msec: int = -1, speed_ratio: float = 0.0) -> int:
+func get_walk_frame(patrol_pause: float, ticks_msec: int = -1, speed_ratio: float = 0.0, sheet_meta: Dictionary = {}) -> int:
+	var frame_count: int = _resolve_frame_count(sheet_meta)
 	var ratio := clampf(speed_ratio, 0.0, 1.0)
 	if ratio <= MOVING_RATIO_THRESHOLD:
-		return clampi(IDLE_FRAME, 0, SHEET_FRAME_COUNT - 1)
+		return clampi(IDLE_FRAME, 0, frame_count - 1)
 	if _walk_phase_driven:
-		return int(walk_phase) % SHEET_FRAME_COUNT
+		return int(walk_phase) % frame_count
 	var current_ticks: int = Time.get_ticks_msec() if ticks_msec < 0 else ticks_msec
 	var elapsed: float = float(current_ticks) / 1000.0
 	var fps: float = lerpf(FLIGHT_FPS_MIN, FLIGHT_FPS_MAX, ratio)
-	return int(elapsed * fps) % SHEET_FRAME_COUNT
+	return int(elapsed * fps) % frame_count
 
 
 func get_strike_start_frame(frames_to_contact: float) -> int:
@@ -131,40 +136,58 @@ func build_draw_rects(
 	windup_elapsed: float,
 	windup_seconds: float,
 	speed_ratio: float = 0.0,
-	draw_size_override: Vector2 = Vector2.ZERO
+	draw_size_override: Vector2 = Vector2.ZERO,
+	sheet_meta: Dictionary = {}
 ) -> Dictionary:
 	if texture == null:
 		return {}
-	var frame: int = get_frame(mode, patrol_pause, windup_elapsed, windup_seconds, speed_ratio)
+	var frame: int = get_frame(mode, patrol_pause, windup_elapsed, windup_seconds, speed_ratio, sheet_meta)
 	var draw_size: Vector2 = _resolve_draw_size(mode, draw_size_override)
 	return {
 		"frame": frame,
-		"source": get_source_rect(texture, frame),
+		"source": get_source_rect(texture, frame, sheet_meta),
 		"dest": Rect2(center - draw_size * 0.5 + Vector2(0.0, get_y_offset(mode)), draw_size),
 	}
 
 
-func get_frame(mode: String, patrol_pause: float, windup_elapsed: float, windup_seconds: float, speed_ratio: float = 0.0) -> int:
+func get_frame(mode: String, patrol_pause: float, windup_elapsed: float, windup_seconds: float, speed_ratio: float = 0.0, sheet_meta: Dictionary = {}) -> int:
 	match mode:
 		MODE_CAST:
-			return get_cast_frame(windup_elapsed, windup_seconds)
+			return get_cast_frame(windup_elapsed, windup_seconds, sheet_meta)
 		MODE_STRIKE:
 			return get_strike_frame()
 		_:
-			return get_walk_frame(patrol_pause, -1, speed_ratio)
+			return get_walk_frame(patrol_pause, -1, speed_ratio, sheet_meta)
 
 
-func get_source_rect(texture: Texture2D, frame: int) -> Rect2:
+func get_source_rect(texture: Texture2D, frame: int, sheet_meta: Dictionary = {}) -> Rect2:
 	if texture == null:
 		return Rect2()
-	var cols: int = maxi(1, SHEET_COLS)
-	var rows: int = maxi(1, SHEET_ROWS)
-	var safe_frame: int = clampi(frame, 0, SHEET_FRAME_COUNT - 1)
+	var cols: int = _resolve_sheet_cols(sheet_meta)
+	var rows: int = _resolve_sheet_rows(sheet_meta)
+	var frame_count: int = _resolve_frame_count(sheet_meta)
+	var safe_frame: int = clampi(frame, 0, frame_count - 1)
 	var cell_w: float = float(texture.get_width()) / float(cols)
 	var cell_h: float = float(texture.get_height()) / float(rows)
 	var col: int = safe_frame % cols
 	var row: int = floori(float(safe_frame) / float(cols))
 	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _resolve_sheet_cols(sheet_meta: Dictionary) -> int:
+	return maxi(1, int(sheet_meta.get("cols", SHEET_COLS)))
+
+
+func _resolve_sheet_rows(sheet_meta: Dictionary) -> int:
+	return maxi(1, int(sheet_meta.get("rows", SHEET_ROWS)))
+
+
+func _resolve_frame_count(sheet_meta: Dictionary) -> int:
+	var cols: int = _resolve_sheet_cols(sheet_meta)
+	var rows: int = _resolve_sheet_rows(sheet_meta)
+	var grid_capacity: int = maxi(1, cols * rows)
+	var raw_count: int = int(sheet_meta.get("frame_count", min(SHEET_FRAME_COUNT, grid_capacity)))
+	return clampi(raw_count, 1, grid_capacity)
 
 
 func get_draw_size(mode: String) -> Vector2:

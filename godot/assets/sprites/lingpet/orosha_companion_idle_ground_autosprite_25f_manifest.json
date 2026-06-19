@@ -1,0 +1,228 @@
+{
+  "asset": "orosha_companion_idle_ground_autosprite_25f.png",
+  "pet_id": "orosha",
+  "generation_mode": "autosprite_orosha_back_ground_idle_v1",
+  "created_at_utc": "2026-06-18T11:03:16.512901+00:00",
+  "runtime_use": "Orosha rear-view grounded companion idle sheet.",
+  "grid": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "repeated_static_frame": false
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_back_clean_v2.png",
+    "cleaned_external_filename": "orosha_back_view_two_pearls_clean_alpha_v1.png",
+    "external_source_filename": "orosha_back_view_two_pearls_magenta_v154.png",
+    "external_source_folder_note": "C:/Users/woduq/Downloads/orosha (Korean folder name)",
+    "role": "rear/back view, two pearls, grounded rolling-hoop pet identity anchor"
+  },
+  "source_autosprite": {
+    "character_id": "cmqjdua8u00mm81qpusgbpcif",
+    "workflow_job_id": "wf_4ba37ed0-d476-4abd-b789-1e17741828be",
+    "spritesheet_id": "cmqje3kla00lklrsnhw4hio5o",
+    "video_id": "cmqje045800o981qpeq9sq2vq",
+    "source_download": "tmp/orosha_idle_v1/orosha_back_stationary_idle_autosprite_raw_25f.png",
+    "source_atlas": "tmp/orosha_idle_v1/orosha_back_stationary_idle_autosprite_raw_25f_atlas.json",
+    "rejected_candidate": {
+      "workflow_job_id": "wf_5e97c92b-a74e-4e9d-9e7d-81045ca38ef7",
+      "spritesheet_id": "cmqjdxvxg0009n628ep3pioln",
+      "video_id": "cmqjdv2vs007q6eaq162kwbuh",
+      "reason": "Too much rolling for a stationary rear-view idle; head travelled around the ring."
+    }
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite cleanup",
+    "operation": "Kept the selected AutoSprite 25-frame sheet intact, removed exact magenta/green residue pixels, normalized fully transparent RGB.",
+    "cleaned_exact_magenta_pixels": 450,
+    "cleaned_exact_green_pixels": 8
+  },
+  "qa": {
+    "image_size": [
+      1280,
+      1280
+    ],
+    "cell_size": [
+      256,
+      256
+    ],
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "unique_frame_hashes": 25,
+    "sample_bboxes": {
+      "0": [
+        19,
+        17,
+        241,
+        238
+      ],
+      "5": [
+        20,
+        17,
+        241,
+        238
+      ],
+      "10": [
+        19,
+        17,
+        241,
+        238
+      ],
+      "15": [
+        20,
+        16,
+        242,
+        238
+      ],
+      "20": [
+        19,
+        17,
+        241,
+        238
+      ],
+      "24": [
+        19,
+        17,
+        241,
+        238
+      ]
+    },
+    "bbox_x_range": [
+      19,
+      242
+    ],
+    "bbox_y_range": [
+      16,
+      238
+    ],
+    "visual_review": "Accepted second constrained AutoSprite result: rear view remains stable, head stays lower-left, motion reads as stationary grounded idle with light shimmer/wobble."
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_idle_ground_autosprite_25f.png",
+    "md5": "af3d290a1514590498b55f04da9d1586",
+    "sha256": "fa9aba8f8b189e0425a44e12dfb3dd7a72b573fa8647b87659e48a0f9a8f18db",
+    "bytes": 2092734
+  },
+  "reconstruction_frame0": {
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "alpha_bbox": [
+      0.074219,
+      0.066406,
+      0.941406,
+      0.929688
+    ]
+  }
+}

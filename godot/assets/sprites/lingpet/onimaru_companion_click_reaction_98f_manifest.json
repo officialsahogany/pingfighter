@@ -1,0 +1,142 @@
+{
+  "pet_id": "onimaru",
+  "display_name_ascii": "Onimaru",
+  "created_at": "2026-06-14",
+  "source_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+  "source_magenta_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_magenta_source.png",
+  "source_anchor_manifest": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json",
+  "source_autosprite": {
+    "status": "not_used_for_this_onimaru_click_sheet",
+    "reason": "AutoSprite MCP was reachable, but no Onimaru character asset was found by searches for onimaru / oni / Korean oni names, and the current exposed tool set has no create-character entrypoint. This runtime sheet is a deterministic Live2D-style deformation pass from the user-accepted v2 anchor, not an AutoSprite-generated motion source.",
+    "checked_on": "2026-06-14"
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic anchor deformation",
+    "operation": "Generated 49 forward click frames from the accepted v2 transparent anchor using press, bounce, row-wobble, tiny eye-blink cap, and cyan/gold ring sparkle overlays, then assembled deterministic forward+reverse 98f pingpong runtime sheets.",
+    "motion_channels": [
+      "press-down anticipation",
+      "upward cute bounce",
+      "hair/kanabo row wobble",
+      "subtle body squash/stretch",
+      "short closed-eye squeeze during press",
+      "gold/cyan ring-part sparkle pulse"
+    ],
+    "source_alpha_bbox": [
+      166,
+      74,
+      958,
+      1126
+    ],
+    "crop_box": [
+      146,
+      54,
+      978,
+      1146
+    ],
+    "target_forward_frames": 49,
+    "final_pingpong_frames": 98
+  },
+  "asset_id": "onimaru_companion_click_reaction_98f_v1_anchor_deform",
+  "runtime_usage": "lingpet_companion_click_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/onimaru_companion_click_reaction_98f.png",
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/onimaru_companion_click_reaction_98f.png",
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      128,
+      128
+    ],
+    "sheet_size": [
+      1792,
+      896
+    ],
+    "frame_interval": "intended one-shot pingpong; downscaled from the panel click sheet frames",
+    "sha256": "794a89316b7c2eff9f003373f78592a4620990bbd31979938291a7aff1c8f732",
+    "bytes": 1397181,
+    "source_scale_repack": 0.10073,
+    "content_height_px": 110.0
+  },
+  "grid": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      128,
+      128
+    ],
+    "sheet_size": [
+      1792,
+      896
+    ],
+    "repeated_static_frame": false
+  },
+  "qa": {
+    "raw_forward_frame_count": 49,
+    "final_frame_count": 98,
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "pingpong_loop_closure": "frame0 returns at frame97 and frame48 is held at frame49 by deterministic reverse assembly",
+    "sample_bboxes": {
+      "0": [
+        22,
+        10,
+        106,
+        120
+      ],
+      "8": [
+        21,
+        18,
+        109,
+        123
+      ],
+      "16": [
+        22,
+        12,
+        106,
+        120
+      ],
+      "24": [
+        22,
+        5,
+        103,
+        118
+      ],
+      "36": [
+        23,
+        3,
+        102,
+        116
+      ],
+      "48": [
+        22,
+        4,
+        101,
+        116
+      ],
+      "49": [
+        22,
+        4,
+        101,
+        116
+      ],
+      "72": [
+        22,
+        7,
+        103,
+        117
+      ],
+      "97": [
+        22,
+        10,
+        106,
+        120
+      ]
+    },
+    "source_full_sheet": "res://assets/sprites/lingpet/onimaru_click_live2d_pingpong_98f.png",
+    "status": "Accepted downscaled in-battle companion click reaction sheet from the v2 Onimaru anchor deformation frames."
+  }
+}

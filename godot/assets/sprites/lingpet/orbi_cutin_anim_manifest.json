@@ -5,7 +5,7 @@
   "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
   "source_autosprite": {
     "asset_id": "cmpwy9k5k000nkav91p9e9sko",
-    "asset_name": "Orbi Acquire Cutin Base 20260603",
+    "asset_name": "Serabi Acquire Cutin Base 20260603",
     "base_source_path": "godot/assets/sprites/lingpet/orbi_cutin_art.png",
     "acquire_job_id": "wf_ba34009e-c7a0-4de5-9bc4-2d01d5cb091c",
     "acquire_spritesheet_id": "cmpwybckk0034a3qc5eulmckm",
@@ -241,7 +241,7 @@
       0.7446,
       0.8794
     ],
-    "note": "Frame-0 alpha occupancy for the acquisition reconstruction shards; generated for Orbi cutin_anim.",
+    "note": "Frame-0 alpha occupancy for the acquisition reconstruction shards; generated for Serabi cutin_anim.",
     "occupancy": [
       0,
       0,

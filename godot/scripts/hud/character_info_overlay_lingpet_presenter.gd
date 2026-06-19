@@ -15,24 +15,37 @@ const PANEL_LIVE2D_COLS_BY_PET_ID := {
 	"lunabi": 14,
 	"nekuring": 14,
 	"monkeyring": 14,
+	"onimaru": 14,
+	"orosha": 14,
+	"rahoset": 14,
 }
 const PANEL_LIVE2D_ROWS_BY_PET_ID := {
 	"lunabi": 7,
 	"nekuring": 7,
 	"monkeyring": 7,
+	"onimaru": 7,
+	"orosha": 7,
+	"rahoset": 7,
 }
 const PANEL_LIVE2D_FRAME_COUNT_BY_PET_ID := {
 	"lunabi": 98,
 	"nekuring": 98,
 	"monkeyring": 98,
+	"onimaru": 98,
+	"orosha": 98,
+	"rahoset": 98,
 }
 const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 	"lunabi": 1.0 / 16.0,
 	"nekuring": 1.0 / 16.0,
 	"monkeyring": 1.0 / 16.0,
+	"onimaru": 1.0 / 16.0,
+	"orosha": 1.0 / 16.0,
+	"rahoset": 1.0 / 16.0,
 }
-const AFFINITY_BAND_HEIGHT := 32.0
+const AFFINITY_BAND_HEIGHT := 34.0
 const AFFINITY_METER_HEIGHT := 8.0
+const RING_CORE_ROW_HEIGHT := 64.0
 const UNLOCK_CHOICE_BAND_MIN_HEIGHT := 54.0
 const UNLOCK_CHOICE_BAND_MAX_HEIGHT := 76.0
 
@@ -190,6 +203,7 @@ static func draw_companion_panel(
 	var skill_specs: Array = get_skill_specs(snapshot, stat_buff_color)
 	var skill_row_h: float = clamp(content_rect.size.y * 0.22, 58.0, 78.0)
 	var affinity_band_h: float = AFFINITY_BAND_HEIGHT
+	var ring_core_row_h: float = RING_CORE_ROW_HEIGHT
 	var open_unlock_option := _first_open_unlock_option(unlock_options)
 	var open_unlock_count := _count_open_unlock_options(unlock_options)
 	var unlock_band_h: float = 0.0
@@ -199,7 +213,7 @@ static func draw_companion_panel(
 	_draw_centered_text(canvas, font, title, content_rect.get_center().x, title_y, 18, Color.WHITE, ui_text_scale)
 	_draw_centered_text(canvas, font, subtitle, content_rect.get_center().x, title_y + 23.0, 12, stat_buff_color, ui_text_scale)
 
-	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h + unlock_band_h, affinity_band_h)
+	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h + unlock_band_h + ring_core_row_h, affinity_band_h)
 	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
 	var art_glow_center := art_rect.get_center()
 	var art_glow_radius: float = min(art_rect.size.x, art_rect.size.y) * 0.42
@@ -216,6 +230,8 @@ static func draw_companion_panel(
 
 	var affinity_rect := Rect2(art_rect.position.x, art_rect.end.y + 4.0, art_rect.size.x, max(24.0, affinity_band_h - 6.0))
 	draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale)
+	var ring_core_row_rect := Rect2(affinity_rect.position.x, affinity_rect.end.y + 4.0, affinity_rect.size.x, ring_core_row_h)
+	hover_data = _draw_lingpet_ring_core_row(canvas, font, ring_core_row_rect, snapshot, mouse_pos, hover_data, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 
 	var icon_count: int = max(1, skill_specs.size())
 	var icon_gap: float = 9.0
@@ -224,7 +240,7 @@ static func draw_companion_panel(
 	var icon_x: float = content_rect.get_center().x - icon_total_w * 0.5
 	var icon_y: float = content_rect.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
 	if not open_unlock_option.is_empty():
-		var unlock_rect := Rect2(art_rect.position.x, affinity_rect.end.y + 4.0, art_rect.size.x, max(0.0, icon_y - affinity_rect.end.y - 8.0))
+		var unlock_rect := Rect2(art_rect.position.x, ring_core_row_rect.end.y + 4.0, art_rect.size.x, max(0.0, icon_y - ring_core_row_rect.end.y - 8.0))
 		if unlock_rect.size.y >= 42.0:
 			hover_data = draw_unlock_choice_band(canvas, font, unlock_rect, pet_id, open_unlock_option, maxi(0, open_unlock_count - 1), mouse_pos, hover_data, skill_icon_rects, unlock_card_rects, skill_icon_texture_cache, stat_buff_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 	for i in range(skill_specs.size()):
@@ -346,10 +362,8 @@ static func draw_affinity_status(
 	var level_text := LanguageSettings.translate_text("교감 Lv.%d") % level
 	var value_text := LanguageSettings.translate_text(next_label) if maxed and next_label != "" else "%d / %d" % [int(round(points)), int(round(requirement))]
 	var value_w := _text_size(font, value_text, 11, ui_text_scale).x
-	var level_w := _text_size(font, level_text, 11, ui_text_scale).x
 	_draw_text_xy(canvas, font, level_text, rect.position.x, rect.position.y + 11.0, 11, Color.WHITE, ui_text_scale)
 	_draw_text_xy(canvas, font, value_text, rect.end.x - value_w, rect.position.y + 11.0, 11, stat_buff_color if maxed else empty_text_color, ui_text_scale)
-	_draw_ring_core_and_chip_status(canvas, font, rect, rect.position.x + level_w + 8.0, rect.end.x - value_w - 8.0, snapshot, stat_buff_color, empty_text_color, ui_text_scale)
 
 	var meter_w: float = clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
 	var meter_rect := Rect2(rect.position.x, rect.position.y + 18.0, meter_w, AFFINITY_METER_HEIGHT)
@@ -931,37 +945,101 @@ static func make_display_stat_row(label: String, value_text: String, color: Colo
 	return row
 
 
-static func _draw_ring_core_and_chip_status(
+static func _draw_lingpet_ring_core_row(
 	canvas: CanvasItem,
 	font: Font,
 	rect: Rect2,
-	left_x: float,
-	right_x: float,
 	snapshot: Dictionary,
+	mouse_pos: Vector2,
+	hover_data: Dictionary,
+	skill_icon_texture_cache: Dictionary,
 	stat_buff_color: Color,
 	empty_text_color: Color,
+	accent_blue: Color,
+	slot_fill: Color,
+	ring_segments: int,
 	ui_text_scale: float
-) -> void:
+) -> Dictionary:
 	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
 	var chip_count := clampi(int(snapshot.get("affinity_chip_count", 0)), 0, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
+	var slot_size: float = clampf(rect.size.y - 6.0, 42.0, 58.0)
+	var ring_core_rect := Rect2(rect.position + Vector2(0.0, (rect.size.y - slot_size) * 0.5), Vector2(slot_size, slot_size))
+	hover_data = _draw_lingpet_ring_core_slot(canvas, font, ring_core_rect, snapshot, mouse_pos, hover_data, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
+	var chip_pips_x := ring_core_rect.end.x + 7.0
+	_draw_vertical_affinity_chip_pips(canvas, Rect2(chip_pips_x, rect.position.y, _affinity_chip_pips_width(), rect.size.y), chip_count, stat_buff_color, empty_text_color)
+	var text_x := chip_pips_x + _affinity_chip_pips_width() + 11.0
+	var text_w: float = maxf(32.0, rect.end.x - text_x)
+	var title_text := LanguageSettings.translate_text("링코어")
+	var tier_text := "T%d" % tier if tier > 0 else LanguageSettings.translate_text("미장착")
+	var chip_text := LanguageSettings.translate_text("강화칩 %d / %d") % [chip_count, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS]
+	_draw_text_xy(canvas, font, _fit_text_to_width(font, title_text, 11, text_w, ui_text_scale), text_x, rect.position.y + 18.0, 11, Color.WHITE, ui_text_scale)
+	_draw_text_xy(canvas, font, _fit_text_to_width(font, tier_text, 10, text_w, ui_text_scale), text_x, rect.position.y + 36.0, 10, stat_buff_color if tier > 0 else empty_text_color, ui_text_scale)
+	_draw_text_xy(canvas, font, _fit_text_to_width(font, chip_text, 9, text_w, ui_text_scale), text_x, rect.position.y + 52.0, 9, empty_text_color, ui_text_scale)
+	return hover_data
+
+
+static func _draw_lingpet_ring_core_slot(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	snapshot: Dictionary,
+	mouse_pos: Vector2,
+	hover_data: Dictionary,
+	skill_icon_texture_cache: Dictionary,
+	stat_buff_color: Color,
+	empty_text_color: Color,
+	accent_blue: Color,
+	slot_fill: Color,
+	ring_segments: int,
+	ui_text_scale: float
+) -> Dictionary:
+	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var hovered := rect.has_point(mouse_pos)
+	canvas.draw_rect(rect, slot_fill)
+	var border_color := Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.96 if tier > 0 else 0.42)
+	canvas.draw_rect(rect, border_color, false, 2.0 if hovered else 1.0)
+	var icon_rect := Rect2(rect.position + Vector2(5.0, 5.0), Vector2(maxf(12.0, rect.size.x - 17.0), maxf(12.0, rect.size.y - 10.0)))
+	var texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(tier, skill_icon_texture_cache)
+	if texture != null:
+		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, texture, icon_rect, Color(1.0, 1.0, 1.0, 0.96))
+	else:
+		_draw_empty_lingpet_ring_core_slot(canvas, icon_rect, accent_blue, ring_segments)
+	if tier > 0:
+		var badge_rect := Rect2(rect.position + Vector2(3.0, rect.size.y - 16.0), Vector2(22.0, 12.0))
+		canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
+		canvas.draw_rect(badge_rect, Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.72), false, 1.0)
+		_draw_centered_text(canvas, font, "T%d" % tier, badge_rect.get_center().x, badge_rect.position.y + 9.0, 7, Color.WHITE, ui_text_scale)
+	return hover_data
+
+
+static func _draw_empty_lingpet_ring_core_slot(canvas: CanvasItem, rect: Rect2, accent_blue: Color, ring_segments: int) -> void:
+	var center := rect.get_center()
+	var radius: float = min(rect.size.x, rect.size.y) * 0.34
+	canvas.draw_circle(center, radius, Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.08))
+	canvas.draw_arc(center, radius, 0.0, TAU, ring_segments, Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.34), 1.4)
+	canvas.draw_line(center + Vector2(-radius * 0.58, radius * 0.58), center + Vector2(radius * 0.58, -radius * 0.58), Color(0.70, 0.76, 0.82, 0.48), 1.6)
+
+
+static func _affinity_chip_pips_width() -> float:
 	var max_chips := LingpetAffinityState.MAX_ENHANCEMENT_CHIPS
-	var pip_w := 5.0
-	var pip_gap := 2.0
-	var pip_h := 7.0
-	var pips_w := float(max_chips) * pip_w + float(maxi(0, max_chips - 1)) * pip_gap
-	var tier_text := "T%d" % tier if tier > 0 else "T-"
-	var tier_size := _text_size(font, tier_text, 9, ui_text_scale)
-	var total_w := tier_size.x + 6.0 + pips_w
-	var start_x := maxf(left_x, right_x - total_w)
-	if start_x + total_w > right_x:
+	if max_chips <= 0:
+		return 0.0
+	return 8.0
+
+
+static func _draw_vertical_affinity_chip_pips(canvas: CanvasItem, rect: Rect2, chip_count: int, stat_buff_color: Color, empty_text_color: Color) -> void:
+	var max_chips := LingpetAffinityState.MAX_ENHANCEMENT_CHIPS
+	if max_chips <= 0:
 		return
-	var tier_color := stat_buff_color if tier > 0 else empty_text_color
-	_draw_text_xy(canvas, font, tier_text, start_x, rect.position.y + 11.0, 9, tier_color, ui_text_scale)
-	var pip_x := start_x + tier_size.x + 6.0
-	var pip_y := rect.position.y + 4.0
+	var pip_w := 8.0
+	var pip_h := 7.0
+	var pip_gap := 2.0
+	var total_h := float(max_chips) * pip_h + float(maxi(0, max_chips - 1)) * pip_gap
+	var pip_x := rect.position.x + (rect.size.x - pip_w) * 0.5
+	var pip_y := rect.position.y + (rect.size.y - total_h) * 0.5
 	for i in range(max_chips):
 		var filled := i < chip_count
-		var pip_rect := Rect2(pip_x + float(i) * (pip_w + pip_gap), pip_y, pip_w, pip_h)
+		var pip_rect := Rect2(pip_x, pip_y + float(i) * (pip_h + pip_gap), pip_w, pip_h)
 		var fill := Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88) if filled else Color(empty_text_color.r, empty_text_color.g, empty_text_color.b, 0.18)
 		var border := Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.68) if filled else Color(empty_text_color.r, empty_text_color.g, empty_text_color.b, 0.42)
 		canvas.draw_rect(pip_rect, fill)

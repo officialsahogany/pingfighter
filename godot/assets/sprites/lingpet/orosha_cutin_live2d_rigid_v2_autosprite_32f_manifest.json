@@ -1,0 +1,403 @@
+{
+  "asset": "orosha_cutin_live2d_rigid_v2_autosprite_32f.png",
+  "pet_id": "orosha",
+  "generation_mode": "autosprite_orosha_acquire_rigid_v2",
+  "created_at_utc": "2026-06-18T12:35:27.870537+00:00",
+  "runtime_use": "Orosha acquisition Live2D cut-in replacement with rigid connected head/body motion.",
+  "grid": {
+    "cols": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      4096,
+      2048
+    ],
+    "repeated_static_frame": false
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/orosha_lingpet_live2d_anchor_v1.png",
+    "cleaned_external_filename": "orosha_existing_front_clean_alpha_v1.png",
+    "external_source_filename": "orosha_existing_front_magenta_v142.png",
+    "external_source_folder_note": "C:/Users/woduq/Downloads/orosha (Korean folder name)",
+    "role": "front acquisition Live2D identity anchor"
+  },
+  "source_autosprite": {
+    "character_id": "cmqjc18a4008d81qp4rffcey5",
+    "workflow_job_id": "wf_367d7252-da98-459f-a453-c1c54075eed5",
+    "spritesheet_id": "cmqjhbu6z0087l53tmwqk4sj5",
+    "video_id": "cmqjh9eec00t4kk669kl8ygil",
+    "source_download": "tmp/orosha_acquire_rigid_v2/orosha_acquire_rigid_autosprite_raw_32f_6col.png",
+    "source_atlas": "tmp/orosha_acquire_rigid_v2/orosha_acquire_rigid_autosprite_raw_32f_6col_atlas.json",
+    "original_autosprite_grid": {
+      "cols": 6,
+      "rows": 6,
+      "frame_count": 32,
+      "cell_size": [
+        512,
+        512
+      ],
+      "sheet_size": [
+        3072,
+        3072
+      ]
+    },
+    "rejected_previous_runtime_sheet": {
+      "path": "res://assets/sprites/lingpet/orosha_cutin_live2d_autosprite_32f.png",
+      "workflow_job_id": "wf_1af8e290-0467-43ff-b632-92068fa9ad21",
+      "spritesheet_id": "cmqjc7jz600av81qp8yss3zhv",
+      "reason": "Acquisition playback made the face/head rotate while the hoop body stayed too still, which read as uncanny."
+    }
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite repack and cleanup",
+    "operation": "Repacked the accepted AutoSprite 6-column / 32-frame sheet into the runtime 8x4 / 4096x2048 contract without adding non-AutoSprite imagery; removed exact magenta/green residue and normalized transparent RGB.",
+    "source_frame_map": [
+      {
+        "runtime_frame": 0,
+        "raw_x": 0,
+        "raw_y": 0
+      },
+      {
+        "runtime_frame": 1,
+        "raw_x": 512,
+        "raw_y": 0
+      },
+      {
+        "runtime_frame": 2,
+        "raw_x": 1024,
+        "raw_y": 0
+      },
+      {
+        "runtime_frame": 3,
+        "raw_x": 1536,
+        "raw_y": 0
+      },
+      {
+        "runtime_frame": 4,
+        "raw_x": 2048,
+        "raw_y": 0
+      },
+      {
+        "runtime_frame": 5,
+        "raw_x": 2560,
+        "raw_y": 0
+      },
+      {
+        "runtime_frame": 6,
+        "raw_x": 0,
+        "raw_y": 512
+      },
+      {
+        "runtime_frame": 7,
+        "raw_x": 512,
+        "raw_y": 512
+      },
+      {
+        "runtime_frame": 8,
+        "raw_x": 1024,
+        "raw_y": 512
+      },
+      {
+        "runtime_frame": 9,
+        "raw_x": 1536,
+        "raw_y": 512
+      },
+      {
+        "runtime_frame": 10,
+        "raw_x": 2048,
+        "raw_y": 512
+      },
+      {
+        "runtime_frame": 11,
+        "raw_x": 2560,
+        "raw_y": 512
+      },
+      {
+        "runtime_frame": 12,
+        "raw_x": 0,
+        "raw_y": 1024
+      },
+      {
+        "runtime_frame": 13,
+        "raw_x": 512,
+        "raw_y": 1024
+      },
+      {
+        "runtime_frame": 14,
+        "raw_x": 1024,
+        "raw_y": 1024
+      },
+      {
+        "runtime_frame": 15,
+        "raw_x": 1536,
+        "raw_y": 1024
+      },
+      {
+        "runtime_frame": 16,
+        "raw_x": 2048,
+        "raw_y": 1024
+      },
+      {
+        "runtime_frame": 17,
+        "raw_x": 2560,
+        "raw_y": 1024
+      },
+      {
+        "runtime_frame": 18,
+        "raw_x": 0,
+        "raw_y": 1536
+      },
+      {
+        "runtime_frame": 19,
+        "raw_x": 512,
+        "raw_y": 1536
+      },
+      {
+        "runtime_frame": 20,
+        "raw_x": 1024,
+        "raw_y": 1536
+      },
+      {
+        "runtime_frame": 21,
+        "raw_x": 1536,
+        "raw_y": 1536
+      },
+      {
+        "runtime_frame": 22,
+        "raw_x": 2048,
+        "raw_y": 1536
+      },
+      {
+        "runtime_frame": 23,
+        "raw_x": 2560,
+        "raw_y": 1536
+      },
+      {
+        "runtime_frame": 24,
+        "raw_x": 0,
+        "raw_y": 2048
+      },
+      {
+        "runtime_frame": 25,
+        "raw_x": 512,
+        "raw_y": 2048
+      },
+      {
+        "runtime_frame": 26,
+        "raw_x": 1024,
+        "raw_y": 2048
+      },
+      {
+        "runtime_frame": 27,
+        "raw_x": 1536,
+        "raw_y": 2048
+      },
+      {
+        "runtime_frame": 28,
+        "raw_x": 2048,
+        "raw_y": 2048
+      },
+      {
+        "runtime_frame": 29,
+        "raw_x": 2560,
+        "raw_y": 2048
+      },
+      {
+        "runtime_frame": 30,
+        "raw_x": 0,
+        "raw_y": 2560
+      },
+      {
+        "runtime_frame": 31,
+        "raw_x": 512,
+        "raw_y": 2560
+      }
+    ],
+    "cleaned_exact_magenta_pixels": 0,
+    "cleaned_exact_green_pixels": 0,
+    "cleaned_hidden_rgb_pixels": 42168
+  },
+  "qa": {
+    "image_size": [
+      4096,
+      2048
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "unique_frame_hashes": 32,
+    "sample_bboxes": {
+      "0": [
+        35,
+        44,
+        479,
+        468
+      ],
+      "8": [
+        58,
+        36,
+        479,
+        463
+      ],
+      "16": [
+        58,
+        40,
+        482,
+        464
+      ],
+      "24": [
+        57,
+        39,
+        479,
+        466
+      ],
+      "31": [
+        35,
+        43,
+        480,
+        468
+      ]
+    },
+    "bbox_x_range": [
+      35,
+      482
+    ],
+    "bbox_y_range": [
+      35,
+      468
+    ],
+    "adjacent_rms_min_max": [
+      16.304,
+      46.127
+    ],
+    "loop_seam_rms": 24.78,
+    "visual_review": "Accepted v2 rigid acquisition cut-in: face/head no longer reads as a separate rotating part; the hoop body and head move together as a connected rolling-hoop object."
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orosha_cutin_live2d_rigid_v2_autosprite_32f.png",
+    "md5": "ecdae86e9480aa4db977cf29e898cdd6",
+    "sha256": "c2f2a3b8d449efb25920145d511006c635755d4222c9a702660bd2814ca588f4",
+    "bytes": 9054194
+  },
+  "reconstruction_frame0": {
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "alpha_bbox": [
+      0.068359,
+      0.085938,
+      0.935547,
+      0.914062
+    ]
+  }
+}

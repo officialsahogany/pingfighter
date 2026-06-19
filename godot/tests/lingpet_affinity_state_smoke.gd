@@ -104,32 +104,53 @@ func _verify_unlock_cards_and_choice_state() -> void:
 	_grant_round_commits(state, "maribo", 10)
 	_expect_eq(state.get_level("maribo"), 1, "ten round commits should reach Lv1")
 	var pending := state.get_pending_unlock_choices("maribo")
-	_expect(pending.has("active"), "Lv1 active unlock should create a pending 2-of-1 choice")
-	var active_choice: Dictionary = pending.get("active", {}) as Dictionary
-	var candidates: Array = active_choice.get("candidates", []) as Array
-	_expect_eq(candidates.size(), 2, "active unlock choice should expose two candidates")
-	_expect_str(str(candidates[0]), "hydro", "active unlock should preserve candidate order")
+	_expect(not pending.has("active"), "Lv1 active unlock should auto-resolve instead of leaving a pending picker choice")
+	var resolved := state.get_resolved_unlock_choices("maribo")
+	_expect(resolved.has("active"), "active unlock should move directly to the resolved choice map")
+	var resolved_active: Dictionary = resolved.get("active", {}) as Dictionary
+	var candidates: Array = resolved_active.get("candidates", []) as Array
+	_expect_eq(candidates.size(), 2, "active auto-resolve should record both original candidates")
+	_expect_str(str(candidates[0]), "hydro", "active auto-resolve should preserve candidate order")
+	_expect(candidates.has(str(resolved_active.get("selected", ""))), "active auto-resolve should select one recorded candidate")
+	_expect_eq((resolved_active.get("rejected", []) as Array).size(), 1, "active auto-resolve should record the one rejected candidate")
+	_expect(bool(resolved_active.get("auto", false)), "active auto-resolve should mark the choice as automatic")
+	_expect(bool(resolved_active.get("random", false)), "active auto-resolve should mark two-candidate choices as random")
 	var wrong_type_result: Dictionary = state.choose_skill_unlock("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, "hydro")
 	_expect(not bool(wrong_type_result.get("accepted", false)), "non-unlock reward type should not resolve a choice")
 	_expect_str(str(wrong_type_result.get("blocked_reason", "")), "not_unlock_type", "non-unlock reward type should report not_unlock_type")
 	var invalid_result: Dictionary = state.choose_skill_unlock("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "outside")
-	_expect(not bool(invalid_result.get("accepted", false)), "candidate outside the two-choice pool should be rejected")
-	_expect_str(str(invalid_result.get("blocked_reason", "")), "invalid_selection", "outside candidate should report invalid_selection")
-	_expect(state.get_pending_unlock_choices("maribo").has("active"), "invalid selection should keep the pending active choice")
-	var choose_result: Dictionary = state.choose_skill_unlock("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "bubble")
-	_expect(bool(choose_result.get("accepted", false)), "valid active unlock selection should be accepted")
-	var resolved := state.get_resolved_unlock_choices("maribo")
-	_expect(resolved.has("active"), "active unlock selection should move to the resolved choice map")
-	var resolved_active: Dictionary = resolved.get("active", {}) as Dictionary
-	_expect_str(str(resolved_active.get("selected", "")), "bubble", "resolved choice should record the selected skill")
-	_expect((resolved_active.get("rejected", []) as Array).has("hydro"), "resolved choice should record the rejected candidate")
-	_expect(not state.get_pending_unlock_choices("maribo").has("active"), "resolved active choice should leave no active pending choice")
+	_expect(not bool(invalid_result.get("accepted", false)), "manual selection should be rejected after auto-resolve")
+	_expect_str(str(invalid_result.get("blocked_reason", "")), "missing_choice", "manual selection should report missing_choice after auto-resolve")
 	var repeat_result: Dictionary = state.choose_skill_unlock("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "hydro")
 	_expect(not bool(repeat_result.get("accepted", false)), "resolved unlock choice should not be selectable a second time")
 	_expect_str(str(repeat_result.get("blocked_reason", "")), "missing_choice", "resolved unlock choice should report missing_choice on repeat")
 	var repeat_resolved := state.get_resolved_unlock_choices("maribo")
 	var repeat_active: Dictionary = repeat_resolved.get("active", {}) as Dictionary
-	_expect_str(str(repeat_active.get("selected", "")), "bubble", "repeat selection should not overwrite the original selected skill")
+	_expect_str(str(repeat_active.get("selected", "")), str(resolved_active.get("selected", "")), "repeat selection should not overwrite the automatic selected skill")
+
+	var same_seed := LingpetAffinityState.new()
+	same_seed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	same_seed.set_unlock_choice_candidates("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, ["hydro", "bubble"])
+	_grant_round_commits(same_seed, "maribo", 10)
+	var same_seed_active: Dictionary = same_seed.get_resolved_unlock_choices("maribo").get("active", {}) as Dictionary
+	_expect_str(str(same_seed_active.get("selected", "")), str(resolved_active.get("selected", "")), "same reward seed should auto-resolve the same active candidate")
+
+	var migration := LingpetAffinityState.new()
+	migration.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	var migrate_data: Dictionary = migration.call("_get_or_create_pet_data", "maribo") as Dictionary
+	migrate_data["pending_unlock_choices"] = {
+		"active": {
+			"type": LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+			"choice_key": "active",
+			"candidates": ["hydro", "bubble"],
+			"selected": "",
+			"rejected": [],
+		},
+	}
+	migration.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 0, false, 30)
+	_expect(not migration.get_pending_unlock_choices("maribo").has("active"), "seeded legacy pending active choice should migrate to automatic resolved state")
+	var migrated_active: Dictionary = migration.get_resolved_unlock_choices("maribo").get("active", {}) as Dictionary
+	_expect((migrated_active.get("candidates", []) as Array).has(str(migrated_active.get("selected", ""))), "migrated automatic choice should select one of the legacy candidates")
 
 
 func _verify_reward_deck_determinism_and_bands() -> void:

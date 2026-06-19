@@ -61,6 +61,14 @@ const MODULES := {
 		"path": "res://scripts/lingpet/lingpet_ghost_summon_payload_factory.gd",
 		"label": "lingpet Ghost Summon payload factory",
 	},
+	"lingpet_skeleton_archer_payload_factory": {
+		"path": "res://scripts/lingpet/lingpet_skeleton_archer_payload_factory.gd",
+		"label": "lingpet Skeleton Archer payload factory",
+	},
+	"lingpet_bone_barrier_payload_factory": {
+		"path": "res://scripts/lingpet/lingpet_bone_barrier_payload_factory.gd",
+		"label": "lingpet Bone Barrier payload factory",
+	},
 	"lingpet_puppet_grab_payload_factory": {
 		"path": "res://scripts/lingpet/lingpet_puppet_grab_payload_factory.gd",
 		"label": "lingpet Puppet Grab payload factory",

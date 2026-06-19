@@ -1,0 +1,60 @@
+{
+  "asset": "rahoset_cutin_acquire_ready_v2_autosprite_32f.png",
+  "pet_id": "rahoset",
+  "generation_mode": "autosprite_linked_acquire_to_ritual_ready_v2",
+  "created_at_utc": "2026-06-18T09:30:31.075737+00:00",
+  "runtime_use": "Rahoset acquisition Live2D. Ends on the shared Ritual Ready pose used as click frame 0.",
+  "grid": {
+    "cols": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      4096,
+      2048
+    ],
+    "repeated_static_frame": false
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
+    "md5": "7435111f590ab8cc94fbd7269bd04bf0"
+  },
+  "source_autosprite": {
+    "character_id": "cmqft7tkw000bu4oril1pprqj",
+    "pose_id_shared_ritual_ready": "cmqjagc45002113ggi1ny82xi",
+    "pose_job_id": "cf_2251fa00-b308-49c3-840e-46ccdbc0dab1",
+    "created_from_existing_rahoset_character": true,
+    "workflow_job_id": "wf_ee5ded0c-6d7b-468e-8857-19d6d7ac353b",
+    "spritesheet_id": "cmqjajxk40012xjwou1f5ikb3",
+    "video_id": "cmqjahgob005fqz6rodyuewid",
+    "source_download": "tmp/rahoset_l2d_v2/rahoset_acquire_ready_v2_autosprite_raw_32f.png",
+    "source_atlas": "tmp/rahoset_l2d_v2/rahoset_acquire_ready_v2_autosprite_raw_32f_atlas.json"
+  },
+  "linked_pair": {
+    "click_asset": "rahoset_click_ritual_linked_v2_autosprite_98f.png",
+    "seam_preview": "tmp/rahoset_l2d_v2/rahoset_acquire_click_v2_seam_preview.png"
+  },
+  "qa": {
+    "source_frame_count": 32,
+    "runtime_frame_count": 32,
+    "safe_inset_scale": 0.92,
+    "unique_frame_hashes": 32,
+    "edge_alpha_max": 0,
+    "acquisition_last_to_click_first_downsampled_diff": 7.561,
+    "acquisition_first_to_last_downsampled_diff": 26.92,
+    "ends_on_shared_ritual_ready_pose": true,
+    "right_facing_drift_rejected": true,
+    "alpha_bbox_center_x_range": 18.0,
+    "alpha_bbox_center_y_range": 21.0,
+    "alpha_bbox_width_range": 158,
+    "alpha_bbox_height_range": 41,
+    "min_left_margin": 20,
+    "min_top_margin": 36,
+    "min_right_margin": 21,
+    "min_bottom_margin": 61
+  },
+  "output_md5": "2296060748611317153fa5dc1475e272"
+}

@@ -1,0 +1,94 @@
+{
+  "pet_id": "rahoset",
+  "display_name_ascii": "Rahoset",
+  "created_at": "2026-06-16",
+  "purpose": "Rahoset debug Live2D-style runtime sheet generated through AutoSprite to replace the former static placeholder.",
+  "runtime_usage": "lingpet_companion_hover_5x5_25f",
+  "output_sheet": "res://assets/sprites/lingpet/rahoset_companion_desert_hover_autosprite_25f.png",
+  "source_autosprite": {
+    "character_id": "cmqft7tkw000bu4oril1pprqj",
+    "character_name": "Rahoset Lingpet Live2D Anchor 20260616",
+    "spritesheet_id": "cmqfta0bc000fay80n4wmaj4d",
+    "video_id": "cmqft867z000mzgdfdbe7mrnm",
+    "workflow_job_id": "wf_f6459b05-7ba7-4528-ae2f-0889be095a1a",
+    "source_sheet": ".tmp/rahoset_autosprite_l2d_v1/rahoset_desert_hover_raw_49f.png",
+    "source_atlas": ".tmp/rahoset_autosprite_l2d_v1/rahoset_desert_hover_raw_49f_atlas.json",
+    "prompt": "Looping Live2D-style idle hover. Rahoset stays the exact same character and outfit. Gentle breathing, mask and head subtly tilt, hair and cloth sway, gold teal ornaments glint, small desert sand motes swirl around the body. Keep body centered and full character visible, no camera zoom, no redesign, no extra characters, no text.",
+    "source_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    }
+  },
+  "grid": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "repeated_static_frame": false
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite repacker",
+    "operation": "Sampled 25 frames evenly from the 49-frame AutoSprite hover source and downscaled each cell to 256px for the existing companion animator.",
+    "source_indices": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32,
+      34,
+      36,
+      38,
+      40,
+      42,
+      44,
+      46,
+      48
+    ],
+    "alpha_preserved": true
+  },
+  "qa": {
+    "image_size": [
+      1280,
+      1280
+    ],
+    "edge_alpha_max": 0,
+    "visible_exact_magenta_pixels": 71,
+    "frame0_alpha_bbox": [
+      42,
+      34,
+      442,
+      469
+    ],
+    "frame_mid_alpha_bbox": [
+      36,
+      34,
+      435,
+      469
+    ]
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/rahoset_companion_desert_hover_autosprite_25f.png",
+    "sha256": "70219a2ec00f75eaefc646b78452dea10e3c8f5f0b2eba09c57f7950c8cea933",
+    "bytes": 1747000
+  }
+}

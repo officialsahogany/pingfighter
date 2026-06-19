@@ -1,12 +1,12 @@
 {
   "asset_id": "orbi_companion_idle_back_base",
   "pet_id": "orbi",
-  "display_name": "오르비",
+  "display_name": "세라비",
   "asset_type": "lingpet_companion_sd_back_idle_source_art",
   "generator": {
     "mode": "built_in_imagegen",
     "source_image": "C:/Users/woduq/.codex/generated_images/019e8975-7829-7cc3-8ac7-d9a272f4fa11/ig_000c12d50a4bba41016a1f25b6341c81919f0052ee139f1e0f.png",
-    "prompt_summary": "Orbi in-game SD companion base art, mostly rear 3/4 view like Maribo, white/navy mechanical fox-cat Ringpet, flat magenta chroma-key background."
+    "prompt_summary": "Serabi in-game SD companion base art, mostly rear 3/4 view like Maribo, white/navy mechanical fox-cat Ringpet, flat magenta chroma-key background."
   },
   "outputs": {
     "magenta_source": "res://assets/sprites/lingpet/orbi_companion_idle_back_base_magenta_source.png",

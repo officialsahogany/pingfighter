@@ -12,6 +12,8 @@ extends RefCounted
 # Art uses each pet's catalog cut-in, not the SD walk sheet. The primary cut-in
 # visual is the upscaled AutoSprite Live2D-style sheet; the crisp outsourced PNG
 # remains as fallback/reference if the sheet is disabled.
+# Default acquisition Live2D sheet contract is 8x4 / 32 frames. Older 4x4 / 16f
+# sheets stay on explicit per-pet overrides until they are regenerated.
 # Maribo provenance: v003 magenta -> magenta-key nukki -> maribo_cutin_art.png (static)
 #   -> AutoSprite character pose + custom cut-in loop (legendary, 1024px/16)
 #   -> deterministic 84% safe-margin repack -> Real-ESRGAN x2 per cell
@@ -24,26 +26,63 @@ const DEFAULT_PET_ID := "maribo"
 const FALLBACK_CUTIN_ART_PATH := "res://assets/sprites/lingpet/maribo_cutin_art.png"
 const FALLBACK_CUTIN_ANIM_SHEET_PATH := "res://assets/sprites/lingpet/maribo_cutin_anim.png"
 const FALLBACK_CUTIN_ANIM_MANIFEST := "res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"
-const CUTIN_ANIM_COLS := 4
+const CUTIN_ANIM_COLS := 8
 const CUTIN_ANIM_ROWS := 4
-const CUTIN_ANIM_FRAMES := 16
+const CUTIN_ANIM_FRAMES := 32
 const CUTIN_ANIM_FPS := 16.0
 const CUTIN_ANIM_COLS_OVERRIDES := {
+	"maribo": 4,
+	"lunabi": 4,
+	"draft_bat": 4,
+	"milkring": 4,
+	"volty": 4,
+	"lumion": 4,
+	"orbi": 4,
+	"koyora": 4,
+	"nekuring": 4,
+	"monkeyring": 4,
 	"red_dragon": 8,
 	"rabi": 6,
 }
 const CUTIN_ANIM_ROWS_OVERRIDES := {
+	"maribo": 4,
+	"lunabi": 4,
+	"draft_bat": 4,
+	"milkring": 4,
+	"volty": 4,
+	"lumion": 4,
+	"orbi": 4,
+	"koyora": 4,
+	"nekuring": 4,
+	"monkeyring": 4,
 	"red_dragon": 4,
 	"rabi": 6,
 }
 const CUTIN_ANIM_FRAMES_OVERRIDES := {
+	"maribo": 16,
+	"lunabi": 16,
+	"draft_bat": 16,
+	"milkring": 16,
+	"volty": 16,
+	"lumion": 16,
+	"orbi": 16,
+	"koyora": 16,
+	"nekuring": 16,
+	"monkeyring": 16,
 	"red_dragon": 32,
 	"rabi": 32,
 }
 const CUTIN_ANIM_FPS_OVERRIDES := {
+	"onimaru": 32.0,
 	"red_dragon": 16.0,
 	"rabi": 32.0,
 }
+const CUTIN_VFX_COLS := 4
+const CUTIN_VFX_ROWS := 4
+const CUTIN_VFX_FRAMES := 16
+const CUTIN_VFX_FPS := 16.0
+const CUTIN_VFX_VIEW_H_RATIO := 0.95
+const CUTIN_VFX_ALPHA := 0.82
 const USE_ANIMATED_CUTIN := true
 # Click-triggered EXIT ACTION sheet: the current pet plays its catalog dismiss
 # animation, then the overlay fades out and resumes gameplay. Driven by
@@ -56,18 +95,27 @@ const CUTIN_DISMISS_COLS_OVERRIDES := {
 	"koyora": 14,
 	"nekuring": 14,
 	"monkeyring": 14,
+	"onimaru": 14,
+	"orosha": 14,
+	"rahoset": 14,
 	"rabi": 14,
 }
 const CUTIN_DISMISS_ROWS_OVERRIDES := {
 	"koyora": 7,
 	"nekuring": 7,
 	"monkeyring": 7,
+	"onimaru": 7,
+	"orosha": 7,
+	"rahoset": 7,
 	"rabi": 7,
 }
 const CUTIN_DISMISS_FRAMES_OVERRIDES := {
 	"koyora": 98,
 	"nekuring": 98,
 	"monkeyring": 98,
+	"onimaru": 98,
+	"orosha": 98,
+	"rahoset": 98,
 	"rabi": 98,
 }
 # Frames play over the first DISMISS_ACTION_PORTION of the dismiss window, then the
@@ -124,7 +172,7 @@ const DATA_CORE := Color(0.80, 1.0, 1.0)
 const DATA_HOT := Color(0.34, 0.96, 1.0)
 const DATA_MAGENTA := Color(1.0, 0.36, 0.82)
 const GRID_COLOR := Color(0.24, 0.78, 1.0)
-const CUTIN_PREWARM_VISUAL_KEYS := ["cutin_art", "cutin_anim", "cutin_dismiss_anim"]
+const CUTIN_PREWARM_VISUAL_KEYS := ["cutin_art", "cutin_anim", "cutin_dismiss_anim", "cutin_vfx_anim"]
 
 # Phase breakpoints over normalized reveal progress (0..1). Progress is clamped
 # at 1.0 by the runtime, so progress >= HOLD_PROGRESS means the reveal finished
@@ -156,6 +204,7 @@ var _cutin_art: Texture2D = null
 var _cutin_anim_sheet: Texture2D = null
 var _cutin_anim_manifest := FALLBACK_CUTIN_ANIM_MANIFEST
 var _cutin_dismiss_sheet: Texture2D = null
+var _cutin_vfx_sheet: Texture2D = null
 var _portal_texture: Texture2D = null
 var _portal_prewarm_attempted := false
 
@@ -378,6 +427,9 @@ func _sync_assets_for_pet(pet_id: String) -> void:
 	_cutin_art = _get_cached_cutin_texture(normalized, "cutin_art")
 	_cutin_anim_sheet = _get_cached_cutin_texture(normalized, "cutin_anim")
 	_cutin_dismiss_sheet = _get_cached_cutin_texture(normalized, "cutin_dismiss_anim")
+	_cutin_vfx_sheet = _get_cached_cutin_texture(normalized, "cutin_vfx_anim")
+	if _cutin_vfx_sheet == null:
+		_cutin_vfx_sheet = _load_catalog_texture(normalized, "cutin_vfx_anim")
 	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
 	_cutin_anim_manifest = _manifest_path_from_anim_path(anim_path)
 	if _cutin_anim_manifest == "" or not FileAccess.file_exists(_cutin_anim_manifest):
@@ -395,6 +447,10 @@ func _refresh_deferred_cutin_sheets(pet_id: String) -> void:
 		_cutin_anim_sheet = _get_cached_cutin_texture(pet_id, "cutin_anim")
 	if _cutin_dismiss_sheet == null:
 		_cutin_dismiss_sheet = _get_cached_cutin_texture(pet_id, "cutin_dismiss_anim")
+	if _cutin_vfx_sheet == null:
+		_cutin_vfx_sheet = _get_cached_cutin_texture(pet_id, "cutin_vfx_anim")
+	if _cutin_vfx_sheet == null:
+		_cutin_vfx_sheet = _load_catalog_texture(pet_id, "cutin_vfx_anim")
 
 
 func _get_cached_cutin_texture(pet_id: String, visual_key: String) -> Texture2D:
@@ -420,7 +476,12 @@ func is_pet_cutin_anim_ready(pet_id: String) -> bool:
 	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
 	if anim_path == "":
 		return true
-	return ProjectResourceLoader.get_cached_texture(anim_path) != null
+	if ProjectResourceLoader.get_cached_texture(anim_path) != null:
+		return true
+	prewarm_pet_assets_step(normalized)
+	if ProjectResourceLoader.get_cached_texture(anim_path) != null:
+		return true
+	return ProjectResourceLoader.load_imported_texture(anim_path, "", "") != null
 
 
 func _get_runtime_pet_id(runtime: Object) -> String:
@@ -604,10 +665,40 @@ func _draw_art(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
 	var t: float = float(Time.get_ticks_msec()) / 1000.0
 	var entrance: float = _ease_out_back(rise_raw)
 	var restore_progress: float = clampf((progress - INTRO_END) / maxf(0.01, TEXT_START - INTRO_END), 0.0, 1.0)
+	_draw_cutin_vfx_anim(canvas, view_size, t, entrance, alpha)
 	if USE_ANIMATED_CUTIN and _cutin_anim_sheet != null and _cutin_anim_sheet.get_width() > 1:
 		_draw_art_animated(canvas, view_size, t, entrance, rise_raw, alpha, restore_progress)
 	else:
 		_draw_art_static(canvas, view_size, t, entrance, rise_raw, alpha, restore_progress)
+
+
+func _draw_cutin_vfx_anim(canvas: CanvasItem, view_size: Vector2, t: float, entrance: float, alpha: float) -> void:
+	var sheet: Texture2D = _cutin_vfx_sheet
+	if sheet == null or sheet.get_width() <= 1 or sheet.get_height() <= 1:
+		return
+	var cols: int = _get_cutin_vfx_cols()
+	var rows: int = _get_cutin_vfx_rows()
+	var frame_count: int = clampi(_get_cutin_vfx_frame_count(), 1, cols * rows)
+	var cw: float = float(sheet.get_width()) / float(cols)
+	var ch: float = float(sheet.get_height()) / float(rows)
+	if cw <= 1.0 or ch <= 1.0:
+		return
+	var frame: int = int(t * _get_cutin_vfx_fps()) % frame_count
+	var col: int = frame % cols
+	var row: int = int(floor(float(frame) / float(cols)))
+	var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
+	var target_h: float = view_size.y * _get_cutin_vfx_view_h_ratio() * minf(1.06, entrance)
+	var scale: float = target_h / ch
+	var max_w: float = view_size.x * 1.10
+	if cw * scale > max_w:
+		scale = max_w / cw
+	var draw_size := Vector2(cw * scale, ch * scale)
+	var center := Vector2(view_size.x * 0.5, view_size.y * 0.46)
+	var pos := center - draw_size * 0.5
+	var sheet_alpha: float = alpha * _get_cutin_vfx_alpha()
+	if sheet_alpha <= 0.01:
+		return
+	canvas.draw_texture_rect_region(sheet, Rect2(pos, draw_size), src, Color(1.0, 1.0, 1.0, sheet_alpha))
 
 
 func _draw_art_animated(
@@ -678,6 +769,30 @@ func _get_cutin_anim_frame_count() -> int:
 
 func _get_cutin_anim_view_h_ratio() -> float:
 	return maxf(0.01, LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_anim_view_h_ratio", ANIM_CELL_VIEW_H_RATIO))
+
+
+func _get_cutin_vfx_cols() -> int:
+	return maxi(1, int(roundf(LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_vfx_cols", float(CUTIN_VFX_COLS)))))
+
+
+func _get_cutin_vfx_rows() -> int:
+	return maxi(1, int(roundf(LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_vfx_rows", float(CUTIN_VFX_ROWS)))))
+
+
+func _get_cutin_vfx_frame_count() -> int:
+	return maxi(1, int(roundf(LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_vfx_frame_count", float(CUTIN_VFX_FRAMES)))))
+
+
+func _get_cutin_vfx_fps() -> float:
+	return maxf(1.0, LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_vfx_fps", CUTIN_VFX_FPS))
+
+
+func _get_cutin_vfx_view_h_ratio() -> float:
+	return maxf(0.01, LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_vfx_view_h_ratio", CUTIN_VFX_VIEW_H_RATIO))
+
+
+func _get_cutin_vfx_alpha() -> float:
+	return clampf(LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_vfx_alpha", CUTIN_VFX_ALPHA), 0.0, 1.0)
 
 
 func _get_cutin_dismiss_view_h_ratio() -> float:

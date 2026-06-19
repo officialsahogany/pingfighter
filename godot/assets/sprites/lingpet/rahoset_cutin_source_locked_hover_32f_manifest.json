@@ -1,0 +1,66 @@
+{
+  "asset": "rahoset_cutin_source_locked_hover_32f.png",
+  "pet_id": "rahoset",
+  "generation_mode": "deterministic_source_locked_hover_after_autosprite_identity_reject",
+  "created_at_utc": "2026-06-16T00:05:27.305726+00:00",
+  "runtime_use": "acquisition cut-in Live2D hover loop",
+  "grid": {
+    "cols": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      4096,
+      2048
+    ],
+    "repeated_static_frame": false
+  },
+  "motion": {
+    "frame_interval": 0.0625,
+    "channels": [
+      "whole-body vertical hover",
+      "subtle breathing scale",
+      "tiny horizontal sway",
+      "very small horizontal band sway with reduced face/eye movement"
+    ],
+    "rotation_degrees": 0.0,
+    "right_facing_turn_added": false,
+    "front_facing_source_lock": true
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
+    "magenta_source_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1_magenta_source.png",
+    "source_size": [
+      1212,
+      1297
+    ],
+    "visible_bbox": [
+      96,
+      95,
+      1140,
+      1161
+    ],
+    "md5": "7435111f590ab8cc94fbd7269bd04bf0"
+  },
+  "source_autosprite": {
+    "character_id": "cmqft7tkw000bu4oril1pprqj",
+    "rejected_spritesheet_id": "cmqfta0bc000fay80n4wmaj4d",
+    "rejected_workflow_job_id": "wf_f6459b05-7ba7-4528-ae2f-0889be095a1a",
+    "reject_reason": "Animated branch drifted from the accepted illustration into a persistent right-facing / 3-4 right read.",
+    "front_retry_workflow_job_id": "wf_a9dd787b-7afd-4ebe-b873-2deb4eb3c386",
+    "front_retry_video_id": "cmqfvkxo0000ltpaw54b6a1ot",
+    "front_retry_status_at_fix_time": "Queued retry did not attach a replacement spritesheet during local checks, so runtime was source-locked to preserve the accepted original facing."
+  },
+  "qa": {
+    "source_front_lock": true,
+    "perceptual_frontal_neutrality": "preserved by rendering the exact accepted source anchor without rotation or redraw",
+    "right_facing_drift_rejected": true,
+    "unique_frame_hashes": 32,
+    "repeated_static_frame": false,
+    "notes": "This is an executable debug/runtime fallback to restore original Rahoset facing after AutoSprite identity drift. It is not described as a new AutoSprite acting pass."
+  },
+  "output_md5": "f03024218827de87e103da1b2443be2f"
+}

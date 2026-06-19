@@ -54,7 +54,7 @@ const VIPER_HWARANG_KICK_SOUND_PATH := "res://assets/sounds/hwarangkick.wav"
 const VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH := "res://assets/sounds/nuckbackball.wav"
 const VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH := "res://assets/sounds/dualglitch1.wav"
 const VIPER_DUAL_GLITCH_WINDUP_GAIN_DB := -13.5
-# ??? ??? ??? ???? ??(startup -> spawn) ??. windup(dualglitch1)? ?? ??.
+# 분신이 몸에서 갈라져 분리되는 순간(startup -> spawn) 재생. windup(dualglitch1)은 이때 정지.
 const VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH := "res://assets/sounds/dualglitch2.wav"
 const VIPER_DUAL_GLITCH_SPLIT_GAIN_DB := 0.0
 const CHAOS_SPEAR_WINDUP_SOUND_PATH := "res://assets/sounds/chaosphase1.wav"
@@ -118,6 +118,7 @@ const LINGPET_PUPPET_GRAB_KISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet
 const LINGPET_PUPPET_GRAB_MISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
 const LINGPET_WILD_ROAR_SOUND_PATH := "res://assets/sounds/lingpet/monkeyshouting.wav"
 const LINGPET_RING_DASH_SOUND_PATH := "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav"
+const LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH := "res://assets/sounds/lingpet/affinity_level_up_chime.wav"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
 const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
 const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
@@ -137,6 +138,7 @@ const LINGPET_PUPPET_GRAB_KISS_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_MISS_GAIN_DB := -5.0
 const LINGPET_WILD_ROAR_GAIN_DB := -4.0
 const LINGPET_RING_DASH_GAIN_DB := -5.0
+const LINGPET_AFFINITY_LEVEL_UP_GAIN_DB := -4.0
 const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
 const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
 const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
@@ -246,6 +248,16 @@ const STAGE3_KUROMI_TONGUE_SOUND_PATH := "res://assets/sounds/kuromitongue.wav"
 const STAGE3_KUROMI_SWALLOW_SOUND_PATH := "res://assets/sounds/kuromiswallow.wav"
 const LINGPET_GHOST_SUMMON_SOUND_PATH := "res://assets/sounds/bencyghost.wav"
 const LINGPET_GHOST_SUMMON_OUT_SOUND_PATH := "res://assets/sounds/bencyghostout.wav"
+# Nekuring Skeleton Archer (네크로 해골궁수) original PingFighter SFX, ported 1:1 from
+# downtown/hero_skills.py SkeletonArcher. dB values mirror the original pygame
+# set_volume() (0.6 -> -4.4, 0.3 -> -10.5, 0.7 -> -3.1; played at native pitch).
+const LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH := "res://assets/sounds/bonemake2.wav"
+const LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH := "res://assets/sounds/skulldead.wav"
+const LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
+const LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
+const LINGPET_BONE_BARRIER_BUILD_SOUND_PATH := "res://assets/sounds/bonemake3.wav"
+const LINGPET_BONE_BARRIER_BREAK_SOUND_PATH := "res://assets/sounds/bonebreak.wav"
+const LINGPET_BONE_BARRIER_BUILD_BREAK_SOUND_PATH := "res://assets/sounds/shurikenhit.wav"
 const STAGE4_MOON_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot.wav"
 const STAGE4_FRAGMENT_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot2.wav"
 const STAGE4_TEMPLE_HIT_SOUND_PATH := "res://assets/sounds/stage4hitting.wav"
@@ -396,6 +408,7 @@ var lingpet_puppet_grab_kiss_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_miss_sfx: AudioStreamPlayer
 var lingpet_wild_roar_sfx: AudioStreamPlayer
 var lingpet_ring_dash_sfx: AudioStreamPlayer
+var lingpet_affinity_level_up_sfx: AudioStreamPlayer
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
 var lingpet_gatling_loop_sfx: AudioStreamPlayer
 var lingpet_gatling_fire_sfx: AudioStreamPlayer
@@ -480,6 +493,13 @@ var stage3_kuromi_tongue_sfx: AudioStreamPlayer
 var stage3_kuromi_swallow_sfx: AudioStreamPlayer
 var lingpet_ghost_summon_sfx: AudioStreamPlayer
 var lingpet_ghost_summon_out_sfx: AudioStreamPlayer
+var lingpet_skeleton_archer_summon_sfx: AudioStreamPlayer
+var lingpet_skeleton_archer_death_sfx: AudioStreamPlayer
+var lingpet_skeleton_archer_arrow_fire_sfx: AudioStreamPlayer
+var lingpet_skeleton_archer_arrow_hit_sfx: AudioStreamPlayer
+var lingpet_bone_barrier_build_sfx: AudioStreamPlayer
+var lingpet_bone_barrier_break_sfx: AudioStreamPlayer
+var lingpet_bone_barrier_build_break_sfx: AudioStreamPlayer
 var stage4_moon_shoot_sfx: AudioStreamPlayer
 var stage4_fragment_shoot_sfx: AudioStreamPlayer
 var stage4_temple_hit_sfx: AudioStreamPlayer
@@ -683,6 +703,7 @@ func _setup_item_command_sfx() -> void:
 	lingpet_puppet_grab_miss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabMissSfx", LINGPET_PUPPET_GRAB_MISS_SOUND_PATH, LINGPET_PUPPET_GRAB_MISS_GAIN_DB)
 	lingpet_wild_roar_sfx = player_factory.create(owner_node, "LingpetWildRoarSfx", LINGPET_WILD_ROAR_SOUND_PATH, LINGPET_WILD_ROAR_GAIN_DB)
 	lingpet_ring_dash_sfx = player_factory.create(owner_node, "LingpetRingDashSfx", LINGPET_RING_DASH_SOUND_PATH, LINGPET_RING_DASH_GAIN_DB)
+	lingpet_affinity_level_up_sfx = player_factory.create(owner_node, "LingpetAffinityLevelUpSfx", LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH, LINGPET_AFFINITY_LEVEL_UP_GAIN_DB)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
@@ -778,6 +799,13 @@ func _setup_stage_feedback_sfx() -> void:
 	stage3_kuromi_swallow_sfx = player_factory.create(owner_node, "Stage3KuromiSwallowSfx", STAGE3_KUROMI_SWALLOW_SOUND_PATH, -5.0)
 	lingpet_ghost_summon_sfx = player_factory.create(owner_node, "LingpetGhostSummonSfx", LINGPET_GHOST_SUMMON_SOUND_PATH, -5.0)
 	lingpet_ghost_summon_out_sfx = player_factory.create(owner_node, "LingpetGhostSummonOutSfx", LINGPET_GHOST_SUMMON_OUT_SOUND_PATH, -5.0)
+	lingpet_skeleton_archer_summon_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherSummonSfx", LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH, -4.4)
+	lingpet_skeleton_archer_death_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherDeathSfx", LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH, -10.5)
+	lingpet_skeleton_archer_arrow_fire_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherArrowFireSfx", LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH, -3.1)
+	lingpet_skeleton_archer_arrow_hit_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherArrowHitSfx", LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH, -3.1)
+	lingpet_bone_barrier_build_sfx = player_factory.create(owner_node, "LingpetBoneBarrierBuildSfx", LINGPET_BONE_BARRIER_BUILD_SOUND_PATH, -3.1)
+	lingpet_bone_barrier_break_sfx = player_factory.create(owner_node, "LingpetBoneBarrierBreakSfx", LINGPET_BONE_BARRIER_BREAK_SOUND_PATH, -3.1)
+	lingpet_bone_barrier_build_break_sfx = player_factory.create(owner_node, "LingpetBoneBarrierBuildBreakSfx", LINGPET_BONE_BARRIER_BUILD_BREAK_SOUND_PATH, -10.5)
 	stage4_moon_shoot_sfx = player_factory.create(owner_node, "Stage4MoonShootSfx", STAGE4_MOON_SHOOT_SOUND_PATH, -4.0)
 	stage4_fragment_shoot_sfx = player_factory.create(owner_node, "Stage4FragmentShootSfx", STAGE4_FRAGMENT_SHOOT_SOUND_PATH, -5.0)
 	stage4_temple_hit_sfx = player_factory.create(owner_node, "Stage4TempleHitSfx", STAGE4_TEMPLE_HIT_SOUND_PATH, -5.0)
@@ -984,6 +1012,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_PUPPET_GRAB_MISS_SOUND_PATH,
 				LINGPET_WILD_ROAR_SOUND_PATH,
 				LINGPET_RING_DASH_SOUND_PATH,
+				LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH,
 				LEGENDARY_AFTER_SOUND_PATH,
 				LEGENDARY_ENDING_SOUND_PATH,
 				RAGNAROK_SHOT_SOUND_PATH,
@@ -1059,6 +1088,13 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				STAGE3_KUROMI_SWALLOW_SOUND_PATH,
 				LINGPET_GHOST_SUMMON_SOUND_PATH,
 				LINGPET_GHOST_SUMMON_OUT_SOUND_PATH,
+				LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH,
+				LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH,
+				LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH,
+				LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH,
+				LINGPET_BONE_BARRIER_BUILD_SOUND_PATH,
+				LINGPET_BONE_BARRIER_BREAK_SOUND_PATH,
+				LINGPET_BONE_BARRIER_BUILD_BREAK_SOUND_PATH,
 				STAGE4_MOON_SHOOT_SOUND_PATH,
 				STAGE4_FRAGMENT_SHOOT_SOUND_PATH,
 				STAGE4_TEMPLE_HIT_SOUND_PATH,
@@ -1846,6 +1882,11 @@ func play_lingpet_ring_dash() -> void:
 		play_active_item()
 
 
+func play_lingpet_affinity_level_up() -> void:
+	if not _play_with_pitch(lingpet_affinity_level_up_sfx, randf_range(0.99, 1.01)):
+		play_item_get()
+
+
 func play_lingpet_doll_curse() -> void:
 	if not _play_with_pitch(stage3_dollcurse_sfx, randf_range(0.97, 1.03)):
 		play_active_item()
@@ -2490,6 +2531,36 @@ func play_lingpet_ghost_summon() -> void:
 
 func play_lingpet_ghost_summon_out() -> void:
 	_play_with_pitch(lingpet_ghost_summon_out_sfx, randf_range(0.97, 1.03))
+
+
+# Skeleton Archer cues play at native pitch (1.0) to match the original pygame
+# Sound.play(), which applies no pitch variation.
+func play_lingpet_skeleton_archer_summon() -> void:
+	_play_with_pitch(lingpet_skeleton_archer_summon_sfx, 1.0)
+
+
+func play_lingpet_skeleton_archer_death() -> void:
+	_play_with_pitch(lingpet_skeleton_archer_death_sfx, 1.0)
+
+
+func play_lingpet_skeleton_archer_arrow_fire() -> void:
+	_play_with_pitch(lingpet_skeleton_archer_arrow_fire_sfx, 1.0)
+
+
+func play_lingpet_skeleton_archer_arrow_hit() -> void:
+	_play_with_pitch(lingpet_skeleton_archer_arrow_hit_sfx, 1.0)
+
+
+func play_lingpet_bone_barrier_build() -> void:
+	_play_with_pitch(lingpet_bone_barrier_build_sfx, 1.0)
+
+
+func play_lingpet_bone_barrier_break() -> void:
+	_play_with_pitch(lingpet_bone_barrier_break_sfx, 1.0)
+
+
+func play_lingpet_bone_barrier_build_break() -> void:
+	_play_with_pitch(lingpet_bone_barrier_build_break_sfx, 1.0)
 
 
 func play_stage3_psychoball_loop() -> void:
@@ -3173,6 +3244,7 @@ func _get_sfx_players() -> Array:
 		lingpet_puppet_grab_miss_sfx,
 		lingpet_wild_roar_sfx,
 		lingpet_ring_dash_sfx,
+		lingpet_affinity_level_up_sfx,
 		lingpet_gatling_transform_sfx,
 		lingpet_gatling_loop_sfx,
 		lingpet_gatling_fire_sfx,

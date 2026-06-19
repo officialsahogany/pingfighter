@@ -6,6 +6,7 @@ extends SceneTree
 # every stage, so its card must ride every stage's rail, not just Stage 1).
 
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
@@ -50,12 +51,14 @@ func _run() -> void:
 	_verify_append_entry_noop_when_inactive()
 	_verify_tooltip_info()
 	_verify_all_stage_rails_wire_shared_helper()
+	_seed_lingpet_skillcard_texture_cache()
 	_verify_staged_prewarm()
 	_verify_prewarm_registered()
 
-	LingpetRailCard.clear_caches()
-	ProjectResourceLoader.clear_caches()
-	await process_frame
+	for _cleanup_frame in range(4):
+		LingpetRailCard.clear_caches()
+		ProjectResourceLoader.clear_caches()
+		await process_frame
 	if _failures.is_empty():
 		print("lingpet_rail_card_shared_smoke: ok")
 		call_deferred("_quit_with_code", 0)
@@ -288,11 +291,46 @@ func _verify_prewarm_registered() -> void:
 func _verify_staged_prewarm() -> void:
 	_expect(not bool(LingpetRailCard.prewarm_step()), "first lingpet rail card prewarm step should only build the path list")
 	var guard := 0
-	while not bool(LingpetRailCard.prewarm_step()) and guard < 80:
+	var max_steps: int = max(80, _expected_lingpet_skillcard_path_count() * 8 + 8)
+	while not bool(LingpetRailCard.prewarm_step()) and guard < max_steps:
 		guard += 1
-	_expect(guard < 80, "lingpet rail card staged prewarm should complete within a bounded number of steps")
+	_expect(guard < max_steps, "lingpet rail card staged prewarm should complete within a bounded number of steps")
 	var source: String = FileAccess.get_file_as_string("res://scripts/stages/common/lingpet_rail_card.gd")
 	_expect(source.find("prewarm_texture_threaded_step") >= 0, "lingpet rail card prewarm should use the threaded texture path")
+
+
+func _expected_lingpet_skillcard_path_count() -> int:
+	return _expected_lingpet_skillcard_paths().size()
+
+
+func _seed_lingpet_skillcard_texture_cache() -> void:
+	var image := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.9, 1.0, 1.0))
+	var texture := ImageTexture.create_from_image(image)
+	for card_path in _expected_lingpet_skillcard_paths():
+		ProjectResourceLoader.store_texture(card_path, texture)
+
+
+func _expected_lingpet_skillcard_paths() -> Array[String]:
+	var seen: Dictionary = {}
+	var paths: Array[String] = []
+	_append_expected_lingpet_skillcard_path(str(LingpetRailCard.TEXTURE_PATH), seen, paths)
+	for pet_id in LingpetCatalog.get_pet_ids(true):
+		for active_skill in LingpetCatalog.get_active_skill_pool(str(pet_id)):
+			if not bool(active_skill.get("enabled", true)):
+				continue
+			_append_expected_lingpet_skillcard_path(str(active_skill.get("card_texture_path", "")), seen, paths)
+	return paths
+
+
+func _append_expected_lingpet_skillcard_path(path: String, seen: Dictionary, paths: Array[String]) -> void:
+	var resolved_path := path.strip_edges()
+	if resolved_path == "":
+		return
+	if seen.has(resolved_path):
+		return
+	seen[resolved_path] = true
+	paths.append(resolved_path)
 
 
 func _expect(condition: bool, message: String) -> void:

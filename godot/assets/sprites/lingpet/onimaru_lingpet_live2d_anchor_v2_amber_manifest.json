@@ -1,0 +1,55 @@
+{
+  "pet_id": "onimaru",
+  "display_name_ascii": "Onimaru",
+  "created_at": "2026-06-15",
+  "purpose": "Onimaru red oni Lingpet Live2D source anchor with amber/gold ring-part gem palette",
+  "source": {
+    "parent_manifest": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json",
+    "parent_image": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+    "source_anchor": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+    "source_anchor_manifest": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json"
+  },
+  "postprocess": {
+    "tool": "Pillow + NumPy deterministic palette remap",
+    "operation": "Selected cyan/turquoise ring-part, jewel, and accent pixels were hue-remapped to an amber/gold palette while preserving alpha, frame layout, timing, and original silhouette.",
+    "selector": "alpha>0, HSV hue 165..215 degrees, saturation>=0.22, value>=0.18; exact magenta chroma background preserved for magenta source exports",
+    "target_palette": {
+      "concept": "amber/gold first-choice Onimaru ring-parts palette",
+      "main_hex": "#F6B63A",
+      "highlight_hex": "#FFCF5A",
+      "soft_highlight_hex": "#FFE89A",
+      "remap_hue_degrees": 42.0
+    }
+  },
+  "runtime_usage": "lingpet_live2d_source_anchor",
+  "output_image": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
+  "qa": {
+    "image_size": [
+      1254,
+      1254
+    ],
+    "edge_alpha_max": 0,
+    "alpha_bbox": [
+      166,
+      74,
+      957,
+      1125
+    ],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "cyan_palette_pixels_before": 3661,
+    "cyan_palette_pixels_after": 0,
+    "amber_palette_pixels_after": 34424,
+    "palette_recolored_pixels": 3661
+  },
+  "runtime_image": {
+    "path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
+    "sha256": "b1e15ccb0d75849eb3ad88c82987ba0b7ee19b1d581e4f09e72639be1f8a9d28",
+    "bytes": 875236
+  },
+  "transparent_cutout": {
+    "path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
+    "parent_cutout": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
+    "palette_variant": "amber_gold"
+  }
+}

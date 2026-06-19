@@ -1,0 +1,65 @@
+{
+  "pet_id": "rahoset",
+  "display_name_ascii": "Rahoset",
+  "created_at": "2026-06-15",
+  "source_generation": {
+    "codex_generated_image": "C:\\Users\\woduq\\.codex\\generated_images\\019ec734-6add-73c2-a3d6-ddc352ec5c82\\ig_07678cb36e47aa07016a2f2ffb08b08191af6b96a7a78a0f79.png",
+    "raw_qa_copy": "tmp/rahoset_nukki_qa/rahoset_latest_magenta_source.png",
+    "normalized_magenta_source": "tmp/rahoset_nukki_qa/rahoset_latest_magenta_normalized_from_alpha.png",
+    "clean_alpha_source": "tmp/rahoset_nukki_qa/rahoset_alpha_ff_t150_contract1_despill.png"
+  },
+  "nukki_qa": {
+    "raw_background_note": "Original border was visually magenta but not exact #FF00FF; normalized source was rebuilt over exact #FF00FF from the accepted alpha cutout.",
+    "clean_alpha_bbox": [
+      104,
+      103,
+      1132,
+      1153
+    ],
+    "clean_alpha_margins": [
+      104,
+      103,
+      80,
+      144
+    ],
+    "edge_alpha_max": 0,
+    "visible_exact_magenta_pixels": 0,
+    "key_color": "#FF00FF",
+    "remove_chroma_key_args": "--key-color #ff00ff --soft-matte --transparent-threshold 50 --opaque-threshold 150 --edge-contract 1 --despill"
+  },
+  "purpose": "Rahoset debug-only static placeholder sheet generated from the accepted Live2D anchor until dedicated acquisition/click/companion Live2D sheets are produced.",
+  "runtime_usage": "lingpet_companion_5x5_static_placeholder",
+  "output_sheet": "res://assets/sprites/lingpet/rahoset_companion_static_25f.png",
+  "grid": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ]
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic sheet packer",
+    "operation": "Cropped alpha subject, scaled into each transparent cell, and added only subtle sinusoidal bob/scale so F7 debug can preview the pet without final animation assets."
+  },
+  "qa": {
+    "image_size": [
+      1280,
+      1280
+    ],
+    "edge_alpha_max": 0,
+    "visible_exact_magenta_pixels": 2,
+    "source_alpha_bbox": [
+      104,
+      103,
+      1132,
+      1153
+    ]
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/rahoset_companion_static_25f.png",
+    "sha256": "61913d225f4553febbb9f7f4fa64c3a562c3eb5fa6133adc5bf82089bd682368",
+    "bytes": 1377916
+  }
+}

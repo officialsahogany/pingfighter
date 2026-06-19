@@ -1,0 +1,240 @@
+{
+  "asset": "orosha_companion_move_right_ground_roll_autosprite_48f.png",
+  "pet_id": "orosha",
+  "direction": "right",
+  "generation_mode": "autosprite_orosha_ground_roll_right_48f_v1",
+  "created_at_utc": "2026-06-18T20:23:46.931604+00:00",
+  "runtime_use": "Orosha native grounded rolling companion move_right sheet, upgraded to 48 frames for smoother rolling.",
+  "grid": {
+    "cols": 8,
+    "rows": 6,
+    "frame_count": 48,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      2048,
+      1536
+    ],
+    "repeated_static_frame": false
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_back_clean_v2.png",
+    "accepted_idle_path": "res://assets/sprites/lingpet/orosha_companion_idle_ground_autosprite_25f.png",
+    "previous_move_25f_path": "res://assets/sprites/lingpet/orosha_companion_move_right_ground_roll_autosprite_25f.png",
+    "external_source_filename": "orosha_back_view_two_pearls_magenta_v154.png",
+    "external_source_folder_note": "C:/Users/woduq/Downloads/orosha (Korean folder name)",
+    "role": "grounded rolling-hoop pet movement identity anchor"
+  },
+  "source_autosprite": {
+    "character_id": "cmqjdua8u00mm81qpusgbpcif",
+    "workflow_job_id": "wf_42dc34b9-f4a1-4ed9-ad84-d0112eba61fc",
+    "spritesheet_id": "cmqjy2mcr009l86f0mhgigebs",
+    "video_id": "cmqjxzm92007zn36l6zur2edr",
+    "prompt_role": "viewer-right ground roll",
+    "autosprite_reported_direction": "right",
+    "source_download": "tmp/orosha_move_48f_v1/orosha_roll_right_48f_autosprite_raw_7col.png",
+    "source_atlas": "tmp/orosha_move_48f_v1/orosha_roll_right_48f_autosprite_raw_atlas.json",
+    "source_grid_cols": 7,
+    "source_grid_rows": 7,
+    "source_frame_count": 48,
+    "native_separate_direction_generation": true
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite cleanup/repack",
+    "operation": "Repacked AutoSprite 7-column 48-frame source sheet into an 8x6 runtime grid, removed exact magenta/green residue pixels, normalized fully transparent RGB.",
+    "cleaned_exact_magenta_pixels": 699,
+    "cleaned_exact_green_pixels": 24,
+    "cleaned_hidden_rgb_pixels": 14615
+  },
+  "qa": {
+    "image_size": [
+      2048,
+      1536
+    ],
+    "cell_size": [
+      256,
+      256
+    ],
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "unique_frame_hashes": 48,
+    "sample_bboxes": {
+      "0": [
+        18,
+        17,
+        240,
+        237
+      ],
+      "8": [
+        22,
+        18,
+        242,
+        237
+      ],
+      "16": [
+        33,
+        22,
+        244,
+        238
+      ],
+      "24": [
+        25,
+        30,
+        237,
+        238
+      ],
+      "32": [
+        24,
+        21,
+        235,
+        241
+      ],
+      "40": [
+        22,
+        17,
+        238,
+        237
+      ],
+      "47": [
+        18,
+        17,
+        240,
+        237
+      ]
+    },
+    "bbox_x_range": [
+      18,
+      245
+    ],
+    "bbox_y_range": [
+      16,
+      248
+    ],
+    "adjacent_frame_delta_mean": 15.3306,
+    "adjacent_frame_delta_max": 21.352,
+    "loop_seam_delta": 10.6208,
+    "visual_review": "Accepted native right-roll 48-frame AutoSprite result: closed hoop stays inside cells and the body rolls through a full circular cycle without tail stretching."
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orosha_companion_move_right_ground_roll_autosprite_48f.png",
+    "md5": "c8e022fc29ea7f56e8e2698a4fa488f3",
+    "sha256": "bd6b67a9b0d4854b77b704758dab8264ea48905859de49df8eb86e5c15112d75",
+    "bytes": 3932984
+  },
+  "reconstruction_frame0": {
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "occupancy": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "alpha_bbox": [
+      0.070312,
+      0.066406,
+      0.941406,
+      0.929688
+    ]
+  }
+}

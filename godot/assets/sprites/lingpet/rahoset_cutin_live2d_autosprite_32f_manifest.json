@@ -1,0 +1,101 @@
+{
+  "pet_id": "rahoset",
+  "display_name_ascii": "Rahoset",
+  "created_at": "2026-06-16",
+  "purpose": "Rahoset debug Live2D-style runtime sheet generated through AutoSprite to replace the former static placeholder.",
+  "runtime_usage": "lingpet_acquisition_cutin_8x4_32f",
+  "output_sheet": "res://assets/sprites/lingpet/rahoset_cutin_live2d_autosprite_32f.png",
+  "source_autosprite": {
+    "character_id": "cmqft7tkw000bu4oril1pprqj",
+    "character_name": "Rahoset Lingpet Live2D Anchor 20260616",
+    "spritesheet_id": "cmqfta0bc000fay80n4wmaj4d",
+    "video_id": "cmqft867z000mzgdfdbe7mrnm",
+    "workflow_job_id": "wf_f6459b05-7ba7-4528-ae2f-0889be095a1a",
+    "source_sheet": ".tmp/rahoset_autosprite_l2d_v1/rahoset_desert_hover_raw_49f.png",
+    "source_atlas": ".tmp/rahoset_autosprite_l2d_v1/rahoset_desert_hover_raw_49f_atlas.json",
+    "prompt": "Looping Live2D-style idle hover. Rahoset stays the exact same character and outfit. Gentle breathing, mask and head subtly tilt, hair and cloth sway, gold teal ornaments glint, small desert sand motes swirl around the body. Keep body centered and full character visible, no camera zoom, no redesign, no extra characters, no text.",
+    "source_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        512,
+        512
+      ]
+    }
+  },
+  "grid": {
+    "cols": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "cell_size": [
+      512,
+      512
+    ],
+    "repeated_static_frame": false
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite repacker",
+    "operation": "Sampled 32 frames evenly from the 49-frame AutoSprite hover source for the acquisition cut-in grid.",
+    "source_indices": [
+      0,
+      2,
+      3,
+      5,
+      6,
+      8,
+      9,
+      11,
+      12,
+      14,
+      15,
+      17,
+      19,
+      20,
+      22,
+      23,
+      25,
+      26,
+      28,
+      29,
+      31,
+      33,
+      34,
+      36,
+      37,
+      39,
+      40,
+      42,
+      43,
+      45,
+      46,
+      48
+    ],
+    "alpha_preserved": true
+  },
+  "qa": {
+    "image_size": [
+      4096,
+      2048
+    ],
+    "edge_alpha_max": 0,
+    "visible_exact_magenta_pixels": 0,
+    "frame0_alpha_bbox": [
+      42,
+      34,
+      442,
+      469
+    ],
+    "frame_mid_alpha_bbox": [
+      38,
+      34,
+      436,
+      469
+    ]
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/rahoset_cutin_live2d_autosprite_32f.png",
+    "sha256": "875f28e27d430773817cd45affb291a03e7ee5a09cf898946e813c221c946203",
+    "bytes": 6827924
+  }
+}

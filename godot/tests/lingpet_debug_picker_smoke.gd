@@ -253,9 +253,13 @@ func _verify_catalog_and_source_wiring() -> void:
 	var input_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_input_controller.gd")
 	var frame_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_frame_controller.gd")
 	var gate_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_modal_gate_controller.gd")
+	var picker_source := FileAccess.get_file_as_string("res://scripts/core/lingpet_debug_picker.gd")
 	_expect(input_source.find("KEY_F7") >= 0 and input_source.find("DEBUG_MENU_LINGPET_PICKER") >= 0, "overlay input should wire F7 to the lingpet debug menu")
 	_expect(frame_source.find("draw.overlay.lingpet_debug") >= 0, "overlay frame controller should draw the lingpet debug menu")
+	_expect(frame_source.find("process.overlay.lingpet_debug_queue_redraw") >= 0, "overlay frame controller should redraw F7 lingpet debug for animated thumbnails")
 	_expect(gate_source.find("is_lingpet_debug_picker_open") >= 0 and gate_source.find("physics.modal_gate.lingpet_debug") >= 0, "modal gate should expose lingpet debug as a blocking modal")
+	_expect(picker_source.find("_get_thumbnail_frame") >= 0 and picker_source.find("Time.get_ticks_msec") >= 0, "lingpet debug cards should advance companion-sheet thumbnails instead of pinning frame 0")
+	_expect(picker_source.find("ProjectResourceLoader.load_texture(path)") >= 0, "lingpet debug picker thumbnails should use the central loader fallback for newly generated PNGs")
 
 
 func _verify_red_dragon_click_live2d_catalog_wiring() -> void:
@@ -378,12 +382,14 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(picker.is_open(), "F7 should open the lingpet debug picker")
 	_expect(_find_pet_index(picker, "milkring") >= 0, "F7 lingpet debug picker should list Milkring")
 	_expect(_find_pet_index(picker, "volty") >= 0, "F7 lingpet debug picker should list Volty")
-	_expect(_find_pet_index(picker, "orbi") >= 0, "F7 lingpet debug picker should list Orbi")
+	_expect(_find_pet_index(picker, "orbi") >= 0, "F7 lingpet debug picker should list Serabi")
 	_expect(_find_pet_index(picker, "red_dragon") >= 0, "F7 lingpet debug picker should list Red Dragon")
 	_expect(_find_pet_index(picker, "koyora") >= 0, "F7 lingpet debug picker should list debug-only Koyora")
 	_expect(_find_pet_index(picker, "nekuring") >= 0, "F7 lingpet debug picker should list debug-only Nekuring")
 	_expect(_find_pet_index(picker, "monkeyring") >= 0, "F7 lingpet debug picker should list debug-only Monkeyring")
 	_expect(_find_pet_index(picker, "rabi") >= 0, "F7 lingpet debug picker should list debug-only Rabi")
+	_expect(_find_pet_index(picker, "onimaru") >= 0, "F7 lingpet debug picker should list debug-only Onimaru")
+	_expect(_find_pet_index(picker, "rahoset") >= 0, "F7 lingpet debug picker should list debug-only Rahoset")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("koyora"), "Koyora should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("koyora"), "Koyora should be accepted by runtime helpers for F7 debug activation")
 	_expect(not LingpetCatalog.get_pet_ids().has("koyora"), "Koyora should stay out of the enabled hatch pet id list until final runtime assets ship")
@@ -396,6 +402,12 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(LingpetCatalog.get_debug_pet_ids().has("rabi"), "Rabi should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("rabi"), "Rabi should be accepted by runtime helpers for F7 debug activation")
 	_expect(not LingpetCatalog.get_pet_ids().has("rabi"), "Rabi should stay out of the enabled hatch pet id list until final runtime assets ship")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("onimaru"), "Onimaru should be included in the debug-only lingpet picker list")
+	_expect(LingpetCatalog.has_pet("onimaru"), "Onimaru should be accepted by runtime helpers for F7 debug activation")
+	_expect(not LingpetCatalog.get_pet_ids().has("onimaru"), "Onimaru should stay out of the enabled hatch pet id list until dedicated motion sheets ship")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("rahoset"), "Rahoset should be included in the debug-only lingpet picker list")
+	_expect(LingpetCatalog.has_pet("rahoset"), "Rahoset should be accepted by runtime helpers for F7 debug activation")
+	_expect(not LingpetCatalog.get_pet_ids().has("rahoset"), "Rahoset should stay out of the enabled hatch pet id list until final runtime assets ship")
 	var hatch_candidates := LingpetCatalog.get_hatch_candidates({
 		"league_mode": "junior",
 		"character_type": "smasher",
@@ -403,7 +415,29 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(not hatch_candidates.has("koyora"), "Koyora should not enter the random hatch pool while it is debug-only")
 	_expect(not hatch_candidates.has("nekuring"), "Nekuring should not enter the random hatch pool while it is debug-only")
 	_expect(not hatch_candidates.has("monkeyring"), "Monkeyring should not enter the random hatch pool while it is debug-only")
+	_expect(not hatch_candidates.has("onimaru"), "Onimaru should not enter the random hatch pool while it is debug-only")
 	_expect(not hatch_candidates.has("rabi"), "Rabi should not enter the random hatch pool while it is debug-only")
+	_expect(not hatch_candidates.has("rahoset"), "Rahoset should not enter the random hatch pool while it is debug-only")
+	_expect(LingpetCatalog.get_display_name("rahoset") == "라호세트", "Rahoset catalog display name should use the accepted Korean name")
+	_expect(LingpetCatalog.get_motion_style("rahoset") == "sortie_flight", "Rahoset should use the airborne sortie-flight movement style")
+	_expect(
+		LingpetCatalog.get_visual_path("rahoset", "cutin_art") == "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png"
+		and LingpetCatalog.get_visual_path("rahoset", "cutin_anim") == "res://assets/sprites/lingpet/rahoset_cutin_acquire_ready_v2_autosprite_32f.png"
+		and LingpetCatalog.get_visual_path("rahoset", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png"
+		and LingpetCatalog.get_visual_path("rahoset", "click_reaction_anim") == "res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png"
+		and LingpetCatalog.get_visual_path("rahoset", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/rahoset_companion_click_ritual_linked_v2_autosprite_98f.png"
+		and LingpetCatalog.get_visual_path("rahoset", "companion_walk") == "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
+		"Rahoset F7 debug visuals should route acquisition hover and angle-matched click action to distinct AutoSprite-derived sheets"
+	)
+	_expect(
+		FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1_magenta_source.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_cutin_acquire_ready_v2_autosprite_32f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_click_ritual_linked_v2_autosprite_98f.png"),
+		"Rahoset source, exact-magenta source, and distinct F7 debug AutoSprite click-transition sheets should ship under the lingpet asset tree"
+	)
 	_expect(LingpetCatalog.get_display_name("koyora") == "코요라", "Koyora catalog display name should use the accepted Korean name")
 	_expect(
 		LingpetCatalog.get_visual_path("koyora", "cutin_art") == "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
@@ -756,10 +790,20 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"Nekuring acquisition and companion Live2D should keep the accepted smaller scale while using the original fast click timing"
 	)
 	var nekuring_active_pool := LingpetCatalog.get_active_skill_pool("nekuring")
-	_expect(_active_pool_has(nekuring_active_pool, "nekuring_ghost_summon"), "Nekuring debug loadout should expose 해골소환")
+	_expect(not _active_pool_has(nekuring_active_pool, "nekuring_ghost_summon"), "Nekuring debug loadout should not expose removed 해골소환")
+	_expect(_active_pool_has(nekuring_active_pool, "nekuring_skeleton_archer"), "Nekuring debug loadout should expose 해골궁수")
+	_expect(_active_pool_has(nekuring_active_pool, "nekuring_bone_barrier"), "Nekuring debug loadout should expose Bone Barrier")
 	_expect(
-		LingpetCatalog.get_active_skill_runtime_kind("nekuring_ghost_summon") == "ghost_summon",
-		"Nekuring 해골소환 should route through the existing ghost_summon runtime"
+		LingpetCatalog.get_active_skill_runtime_kind("nekuring_ghost_summon") == "",
+		"Nekuring 해골소환 should be removed from active skill routing"
+	)
+	_expect(
+		LingpetCatalog.get_active_skill_runtime_kind("nekuring_skeleton_archer") == "skeleton_archer",
+		"Nekuring 해골궁수 should route through the Skeleton Archer runtime"
+	)
+	_expect(
+		LingpetCatalog.get_active_skill_runtime_kind("nekuring_bone_barrier") == "bone_barrier",
+		"Nekuring Bone Barrier should route through the Bone Barrier runtime"
 	)
 	var nekuring_cutin_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_cutin_anim_manifest.json")
 	var nekuring_click_manifest := FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f_manifest.json")
@@ -1104,9 +1148,17 @@ func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
 	_expect(str(koyora_doll_loadout.get("active_skill_id", "")) == "koyora_doll_curse", "explicit Koyora Doll Curse debug grant should persist active skill in loadouts")
 	var nekuring_runtime := LingpetEggRuntime.new()
 	var nekuring_owner := FakeOwner.new()
-	_expect(nekuring_runtime.debug_grant_and_activate_pet("nekuring", nekuring_owner, false, "nekuring_ghost_summon", "lingpet_resonance_boost"), "debug grant should accept debug-only Nekuring")
+	_expect(nekuring_runtime.debug_grant_and_activate_pet("nekuring", nekuring_owner, false, "nekuring_ghost_summon", "lingpet_resonance_boost"), "debug grant should keep Nekuring activatable even if removed 해골소환 is requested")
 	_expect(nekuring_owner.active_lingpet_id == "nekuring", "debug-only Nekuring should activate when granted through the F7 debug path")
-	_expect(nekuring_owner.lingpet_active_skill_id == "nekuring_ghost_summon", "debug-only Nekuring should persist its 해골소환 active skill")
+	_expect(nekuring_owner.lingpet_active_skill_id != "nekuring_ghost_summon", "debug-only Nekuring should not persist removed 해골소환 as its active skill")
+	var nekuring_archer_runtime := LingpetEggRuntime.new()
+	var nekuring_archer_owner := FakeOwner.new()
+	_expect(nekuring_archer_runtime.debug_grant_and_activate_pet("nekuring", nekuring_archer_owner, false, "nekuring_skeleton_archer", "lingpet_resonance_boost"), "debug grant should accept Nekuring Skeleton Archer as an explicit active skill")
+	_expect(nekuring_archer_owner.lingpet_active_skill_id == "nekuring_skeleton_archer", "debug-only Nekuring should persist Skeleton Archer as its explicit active skill")
+	var nekuring_barrier_runtime := LingpetEggRuntime.new()
+	var nekuring_barrier_owner := FakeOwner.new()
+	_expect(nekuring_barrier_runtime.debug_grant_and_activate_pet("nekuring", nekuring_barrier_owner, false, "nekuring_bone_barrier", "lingpet_resonance_boost"), "debug grant should accept Nekuring Bone Barrier as an explicit active skill")
+	_expect(nekuring_barrier_owner.lingpet_active_skill_id == "nekuring_bone_barrier", "debug-only Nekuring should persist Bone Barrier as its explicit active skill")
 
 
 func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:

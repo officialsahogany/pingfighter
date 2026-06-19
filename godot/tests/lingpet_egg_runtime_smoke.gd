@@ -564,11 +564,17 @@ func _init() -> void:
 	_verify_maribo_companion_gauge_bonus()
 	_verify_maribo_defense_rate_intercepts_descending_ball()
 	_verify_maribo_defense_actually_blocks_reachable_ball()
+	_verify_player_takes_ball_priority_when_companion_overlaps()
+	_verify_companion_body_draws_behind_player()
 	_verify_lingpet_defense_guard_chase_feedback()
 	_verify_maribo_defense_anticipates_moderate_distance_ball()
+	_verify_maribo_high_defense_reaches_widened_zone()
 	_verify_maribo_defense_hold_stops_walk_animation()
 	_verify_walk_animation_freezes_when_update_skipped()
 	_verify_starlight_pickup_hold_reads_idle()
+	_verify_patrol_static_frame_reads_idle()
+	_verify_orosha_distance_roll_angle_tracks_horizontal_travel()
+	_verify_patrol_dir_recovers_after_defense_park()
 	_verify_rabi_ghost_blink_cycle()
 	_verify_ghost_blink_vfx()
 	_verify_lunabi_free_flight_profile()
@@ -706,8 +712,14 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(FileAccess.file_exists("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd"), "lingpet acquisition cut-in overlay host should exist")
 	var cutin_host_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
 	_expect(cutin_host_source.find("USE_ANIMATED_CUTIN := true") >= 0, "cut-in host should default to the upscaled Live2D-style animation sheet")
-	_expect(cutin_host_source.find("CUTIN_ANIM_COLS := 4") >= 0, "cut-in host should use the 4x4 Maribo acquisition cut-in sheet")
-	_expect(cutin_host_source.find("CUTIN_ANIM_FRAMES := 16") >= 0, "cut-in host should use the 16-frame Maribo acquisition cut-in sheet")
+	_expect(cutin_host_source.find("CUTIN_ANIM_COLS := 8") >= 0, "cut-in host should default to the 8x4 / 32-frame acquisition Live2D sheet contract")
+	_expect(cutin_host_source.find("CUTIN_ANIM_ROWS := 4") >= 0, "cut-in host should default to the 8x4 / 32-frame acquisition Live2D sheet contract")
+	_expect(cutin_host_source.find("CUTIN_ANIM_FRAMES := 32") >= 0, "cut-in host should default to the 32-frame acquisition Live2D sheet contract")
+	_expect(
+		cutin_host_source.find("\"maribo\": 4") >= 0
+		and cutin_host_source.find("\"maribo\": 16") >= 0,
+		"Maribo's legacy 4x4 / 16-frame acquisition cut-in should stay protected by an explicit override"
+	)
 	_expect(cutin_host_source.find("CUTIN_ANIM_SHEET") >= 0, "cut-in host should reference the Live2D-style animation sheet")
 	_expect(cutin_host_source.find("draw_texture_rect_region") >= 0, "cut-in host should frame-step the animation sheet")
 	_expect(cutin_host_source.find("RESTORE_VOXEL_COLS") >= 0, "cut-in host should assemble Maribo from a virtual data-fragment grid")
@@ -898,10 +910,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(enabled_catalog_pet_ids.has("volty"), "Volty should appear in enabled pet ids after companion/cut-in/click assets ship")
 	_expect(candidates.has("volty"), "Volty should enter the random hatch pool after live catalog integration")
 	_expect(LingpetCatalog.is_pet_enabled("volty"), "Volty should be treated as a live pet")
-	_expect(all_catalog_pet_ids.has("orbi"), "catalog should keep the Orbi lingpet metadata")
-	_expect(enabled_catalog_pet_ids.has("orbi"), "Orbi should appear in enabled pet ids after companion/cut-in/click assets ship")
-	_expect(candidates.has("orbi"), "Orbi should enter the random hatch pool after live catalog integration")
-	_expect(LingpetCatalog.is_pet_enabled("orbi"), "Orbi should be treated as a live pet")
+	_expect(all_catalog_pet_ids.has("orbi"), "catalog should keep the Serabi lingpet metadata")
+	_expect(enabled_catalog_pet_ids.has("orbi"), "Serabi should appear in enabled pet ids after companion/cut-in/click assets ship")
+	_expect(candidates.has("orbi"), "Serabi should enter the random hatch pool after live catalog integration")
+	_expect(LingpetCatalog.is_pet_enabled("orbi"), "Serabi should be treated as a live pet")
 	var draft_bat_entry: Dictionary = LingpetCatalog.get_entry("draft_bat")
 	var draft_bat_concept_path := str(draft_bat_entry.get("concept_art_path", ""))
 	var draft_bat_chromakey_path := str(draft_bat_entry.get("concept_chromakey_path", ""))
@@ -1055,8 +1067,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/volty_cutin_dismiss_anim.png"), "Volty cut-in should ship a dedicated click-dismiss action sheet")
 	var volty_dismiss_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/volty_cutin_dismiss_anim_manifest.json")
 	_expect(volty_dismiss_manifest_source.find("\"cols\": 5") >= 0 and volty_dismiss_manifest_source.find("\"frame_count\": 25") >= 0, "Volty click-dismiss manifest should pin the 5x5/25 runtime grid")
-	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("orbi_companion_walk.png"), "catalog should own Orbi companion walk visual path")
-	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")).ends_with("orbi_companion_strike.png"), "catalog should own Orbi companion strike visual path")
+	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("orbi_companion_walk.png"), "catalog should own Serabi companion walk visual path")
+	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")).ends_with("orbi_companion_strike.png"), "catalog should own Serabi companion strike visual path")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "cutin_dismiss_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's acquisition click-dismiss cut-in to the full 98-frame click sheet")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's panel click Live2D to the full 98-frame click sheet")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim")).ends_with("nekuring_companion_click_reaction_98f.png"), "catalog should route Nekuring's in-battle companion click to the downscaled 98-frame sheet")
@@ -1083,8 +1095,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_active_skill_entry("volty_gatling_burst").get("runtime_kind", "")) == "gatling_burst", "catalog should expose Volty's Gatling Burst runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("runtime_kind", "")) == "dragon_breath", "catalog should expose Red Dragon's Dragon Breath runtime kind by skill id")
 	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("cooldown", 0.0)), 40.0), "Red Dragon Dragon Breath should use the requested 40-second cooldown")
-	_expect(str(LingpetCatalog.get_active_skill_entry("orbi_ring_orbit").get("runtime_kind", "")) == "moon_orbit", "catalog should expose Orbi's temporary ring-orbit runtime kind by skill id")
-	_expect(str(LingpetCatalog.get_active_skill_entry("nekuring_ghost_summon").get("runtime_kind", "")) == "ghost_summon", "catalog should expose Nekuring's Ghost Summon runtime kind by skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("orbi_ring_orbit").get("runtime_kind", "")) == "moon_orbit", "catalog should expose Serabi's temporary ring-orbit runtime kind by skill id")
+	_expect(LingpetCatalog.get_active_skill_entry("nekuring_ghost_summon").is_empty(), "catalog should no longer expose Nekuring's removed Skeleton Summon skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("nekuring_skeleton_archer").get("runtime_kind", "")) == "skeleton_archer", "catalog should expose Nekuring's Skeleton Archer runtime kind by skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("nekuring_bone_barrier").get("runtime_kind", "")) == "bone_barrier", "catalog should expose Nekuring's Bone Barrier runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("monkeyring_banana_slice").get("runtime_kind", "")) == "banana_slice", "catalog should expose Ppanamong's Banana Slice runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
 	_expect(str(LingpetCatalog.get_passive_skill("maribo", "maribo_resonance_boost").get("id", "")) == "lingpet_resonance_boost", "catalog should resolve legacy passive-skill ids to Resonance Boost metadata")
@@ -1097,8 +1111,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetSkillDispatcher.is_bomb_surprise("volty_bomb_surprise"), "skill dispatcher should route Volty's Bomb Surprise skill through the bomb_surprise runtime")
 	_expect(LingpetSkillDispatcher.is_gatling_burst("volty_gatling_burst"), "skill dispatcher should route Volty's Gatling Burst skill through the gatling_burst runtime")
 	_expect(LingpetSkillDispatcher.is_dragon_breath("red_dragon_dragon_breath"), "skill dispatcher should route Red Dragon's Dragon Breath skill through the dragon_breath runtime")
-	_expect(LingpetSkillDispatcher.is_moon_orbit("orbi_ring_orbit"), "skill dispatcher should route Orbi's temporary ring-orbit skill through the moon-orbit runtime")
-	_expect(LingpetSkillDispatcher.is_ghost_summon("nekuring_ghost_summon"), "skill dispatcher should route Nekuring's Ghost Summon skill through the ghost_summon runtime")
+	_expect(LingpetSkillDispatcher.is_moon_orbit("orbi_ring_orbit"), "skill dispatcher should route Serabi's temporary ring-orbit skill through the moon-orbit runtime")
+	_expect(not LingpetSkillDispatcher.is_ghost_summon("nekuring_ghost_summon"), "skill dispatcher should not route Nekuring's removed Skeleton Summon skill through ghost_summon")
+	_expect(LingpetSkillDispatcher.is_skeleton_archer("nekuring_skeleton_archer"), "skill dispatcher should route Nekuring's Skeleton Archer skill through the skeleton_archer runtime")
+	_expect(LingpetSkillDispatcher.is_bone_barrier("nekuring_bone_barrier"), "skill dispatcher should route Nekuring's Bone Barrier skill through the bone_barrier runtime")
 	_expect(LingpetSkillDispatcher.is_banana_slice("monkeyring_banana_slice"), "skill dispatcher should route Ppanamong's Banana Slice skill through the banana_slice runtime")
 	_expect(LingpetSkillDispatcher.is_supported_kind("hydro_sphere"), "skill dispatcher should expose supported runtime kinds for future lingpet skill modules")
 	_expect(LingpetSkillDispatcher.is_supported_kind("headbutt"), "skill dispatcher should expose the Lunabi headbutt runtime kind")
@@ -1107,6 +1123,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetSkillDispatcher.is_supported_kind("bomb_surprise"), "skill dispatcher should expose Volty's Bomb Surprise runtime kind")
 	_expect(LingpetSkillDispatcher.is_supported_kind("gatling_burst"), "skill dispatcher should expose Volty's Gatling Burst runtime kind")
 	_expect(LingpetSkillDispatcher.is_supported_kind("dragon_breath"), "skill dispatcher should expose Red Dragon's Dragon Breath runtime kind")
+	_expect(LingpetSkillDispatcher.is_supported_kind("bone_barrier"), "skill dispatcher should expose Nekuring's bone-barrier runtime kind")
 	_expect(LingpetSkillDispatcher.is_supported_kind("banana_slice"), "skill dispatcher should expose Ppanamong's banana-slice runtime kind")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var dispatcher_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
@@ -1337,7 +1354,7 @@ func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 
 
 func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> void:
-	var affinity_path := "user://lingpet_tutorial_ring_core_standard_smoke.cfg"
+	var affinity_path := _smoke_save_path("tutorial_ring_core_standard")
 	_remove_user_file(affinity_path)
 	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
 	var store: Object = LingpetAffinityStore.new()
@@ -1367,8 +1384,8 @@ func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> vo
 
 
 func _verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility() -> void:
-	var higher_path := "user://lingpet_tutorial_ring_core_higher_smoke.cfg"
-	var viper_path := "user://lingpet_tutorial_ring_core_viper_smoke.cfg"
+	var higher_path := _smoke_save_path("tutorial_ring_core_higher")
+	var viper_path := _smoke_save_path("tutorial_ring_core_viper")
 	_remove_user_file(higher_path)
 	_remove_user_file(higher_path.trim_suffix(".cfg") + ".last_good.cfg")
 	_remove_user_file(viper_path)
@@ -2452,6 +2469,7 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 		_expect(is_equal_approx(float(first_slow.get("duration_frames", 0.0)), 4.0), "Hydro Sphere puddle should refresh a short slow while touched")
 		_expect(is_equal_approx(float((first_slow.get("data", {}) as Dictionary).get("multiplier", 0.0)), 0.65), "Hydro Sphere puddle should use the intended slow multiplier")
 
+	owner.player_pos = Vector2(40.0, owner.player_pos.y)
 	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -90.0)
 	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
 	_expect(int(owner.lingpet_companion_contact_count) >= 1, "Maribo body should keep colliding while the skill is on cooldown")
@@ -2607,7 +2625,7 @@ func _verify_save_snapshot_roundtrip() -> void:
 
 
 func _verify_save_store_persists_and_restores_maribo() -> void:
-	var companion_path := "user://lingpet_save_store_companion_smoke.cfg"
+	var companion_path := _smoke_save_path("save_store_companion")
 	_remove_user_file(companion_path)
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
@@ -2643,7 +2661,7 @@ func _verify_save_store_persists_and_restores_maribo() -> void:
 	_expect(is_equal_approx(float(restored_runtime.get_gauge_gain_per_hit(50.0)), 50.0), "reset saved Maribo should not keep the companion gauge bonus")
 	_remove_user_file(companion_path)
 
-	var egg_path := "user://lingpet_save_store_egg_smoke.cfg"
+	var egg_path := _smoke_save_path("save_store_egg")
 	_remove_user_file(egg_path)
 	var egg_owner := FakeOwner.new()
 	var egg_runtime: Object = LingpetEggRuntime.new()
@@ -2692,7 +2710,7 @@ func _verify_save_store_persists_and_restores_maribo() -> void:
 
 
 func _verify_battle_lifecycle_restores_lingpet_save() -> void:
-	var save_path := "user://lingpet_lifecycle_restore_smoke.cfg"
+	var save_path := _smoke_save_path("lifecycle_restore")
 	_remove_user_file(save_path)
 	var save_store: Object = LingpetSaveStore.new()
 	save_store.set_save_path(save_path)
@@ -2773,6 +2791,9 @@ func _verify_maribo_defense_rate_intercepts_descending_ball() -> void:
 	# It aims at the PREDICTED landing X. FakeOwner's player paddle covers ~x[249,511]
 	# (pos 263.75, width 232.5, ball r 14.3), so x=650 is a ball the player can't
 	# block and x=420 is one the player CAN block.
+	_expect_float(LingpetCompanionMotionState.get_defense_local_zone(0.0), 150.0, "defense local zone should start at 150px at 0 percent")
+	_expect_float(LingpetCompanionMotionState.get_defense_local_zone(0.30), 210.0, "Maribo 30 percent defense should use a 210px local zone")
+	_expect_float(LingpetCompanionMotionState.get_defense_local_zone(1.0), 350.0, "defense local zone should reach 350px at 100 percent")
 	# --- near but PLAYER CAN block: must NOT arm (a guard the player could make is
 	#     pointless) -----------------------------------------------------------------
 	var block_owner := FakeOwner.new()
@@ -2883,18 +2904,101 @@ func _verify_maribo_defense_actually_blocks_reachable_ball() -> void:
 	_expect(float(owner.ball_vel.y) < 0.0, "a guarded ball should be bounced upward (ball_vel.y < 0)")
 	_expect_float(runtime.get_affinity_points("maribo"), 13.0, "defense intercept should grant direct-hit affinity plus one defense bonus captured before resolve")
 	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "defense guard aura should clear immediately after the guarded hit")
+	_expect_float(float(runtime.get_player_speed_multiplier()), 1.0, "defense guard should leave the player movement speed at the passive-only baseline after the guarded hit")
 	_expect((runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).get("text", "") == "방어", "defense intercept should spawn the guard label at the hit moment")
 
 
+func _verify_player_takes_ball_priority_when_companion_overlaps() -> void:
+	# When the companion stands over the player paddle and a descending ball is within
+	# the PLAYER's reach, the player must take the hit -- the companion must NOT bounce it.
+	# When the player CANNOT reach the ball, the companion still guards it (control case
+	# below; mirrors _verify_maribo_defense_actually_blocks_reachable_ball at x=650).
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	# Clear the maribo Hydro Sphere auto-cast wind-up (freezes companion motion) by
+	# letting the initial cast LAUNCH (parked ball away from the lane), then proceed.
+	owner.ball_active = true
+	owner.ball_pos = Vector2(60.0, 120.0)
+	owner.ball_vel = Vector2(0.0, 0.0)
+	for _w in range(10):
+		runtime.update(0.2, owner, registry)
+	_expect(not bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "initial Hydro Sphere wind-up should be finished before the priority scenario")
+	var lane_y: float = owner.lingpet_companion_pos.y
+
+	# --- Case 1: companion overlaps the player; ball within the player's reach -> the
+	#     companion must NOT bounce it (player priority) -------------------------------
+	owner.player_paddle_width = 170.0
+	owner.player_pos = Vector2(300.0, owner.player_pos.y)  # paddle x[300,470], reach ~[285,485]
+	runtime.configure_companion_motion_for_tests(Vector2(385.0, lane_y), 2, 0.0, false)  # over the paddle
+	owner.ball_active = true
+	owner.ball_pos = Vector2(385.0, lane_y)  # inside the companion catch box AND within player reach
+	owner.ball_vel = Vector2(0.0, 12.0)
+	var prev_contacts: int = int(owner.lingpet_companion_contact_count)
+	runtime.update(0.05, owner, registry)
+	_expect(int(owner.lingpet_companion_contact_count) == prev_contacts, "companion must NOT steal a ball the player can reach while overlapping the player")
+	_expect(float(owner.ball_vel.y) > 0.0, "the ball should keep descending toward the player (companion did not bounce it)")
+
+	# --- Case 2 (control): same companion, player paddle moved away -> companion guards
+	owner.player_pos = Vector2(40.0, owner.player_pos.y)  # paddle x[40,210], reach ~[25,224]
+	runtime.configure_companion_motion_for_tests(Vector2(385.0, lane_y), 2, 0.0, false)
+	owner.ball_active = true
+	owner.ball_pos = Vector2(385.0, lane_y)  # in the companion catch box, OUTSIDE the player's reach
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.05, owner, registry)
+	_expect(int(owner.lingpet_companion_contact_count) >= prev_contacts + 1, "companion must still guard a ball the player CANNOT reach (defense feature intact)")
+	_expect(float(owner.ball_vel.y) < 0.0, "a guarded (player-unreachable) ball should still be bounced upward")
+
+
+func _verify_companion_body_draws_behind_player() -> void:
+	# Draw order: the companion BODY must render behind the player. The body draw was
+	# moved out of the post-actor draw() into draw_companion_body_behind_actors(), which
+	# the shared player actor renderer invokes (via a scene-drawer-injected hook) BEFORE
+	# it draws the player sprite. Reverse-check: if _draw_companion( leaks back into
+	# draw(), an overlapping companion would again cover the player.
+	var runtime_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var draw_fn_start: int = runtime_src.find("\nfunc draw(canvas: CanvasItem")
+	_expect(draw_fn_start >= 0, "egg runtime should define draw(canvas: CanvasItem, ...)")
+	var draw_fn_end: int = runtime_src.find("\nfunc ", draw_fn_start + 1)
+	var draw_fn_body: String = runtime_src.substr(draw_fn_start, draw_fn_end - draw_fn_start)
+	_expect(draw_fn_body.find("_draw_companion(") < 0, "main draw() must NOT draw the companion body (it renders behind the player instead)")
+	var behind_fn_start: int = runtime_src.find("func draw_companion_body_behind_actors(")
+	_expect(behind_fn_start >= 0, "egg runtime should expose draw_companion_body_behind_actors() for the behind-player body pass")
+	var behind_fn_end: int = runtime_src.find("\nfunc ", behind_fn_start + 1)
+	var behind_fn_body: String = runtime_src.substr(behind_fn_start, behind_fn_end - behind_fn_start)
+	_expect(behind_fn_body.find("_draw_companion(") >= 0, "draw_companion_body_behind_actors() should draw the companion body")
+	# The shared player actor renderer must invoke the hook BEFORE the player sprite.
+	var player_src: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+	var hook_idx: int = player_src.find("lingpet_companion_body_draw")
+	var first_sprite_draw_idx: int = player_src.find("sprite_renderer.draw(")
+	_expect(hook_idx >= 0, "shared player actor renderer should invoke the companion body hook")
+	_expect(first_sprite_draw_idx < 0 or hook_idx < first_sprite_draw_idx, "companion body hook must run before the player sprite is drawn")
+	# The scene drawer must inject the hook into the actor context.
+	var scene_src: String = FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
+	_expect(scene_src.find("\"lingpet_companion_body_draw\"") >= 0, "scene drawer should inject the companion body draw hook into the actor context")
+
+
 func _verify_lingpet_defense_guard_chase_feedback() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
-	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_MULT := 1.25") >= 0, "defense guard chase speed should be a single 1.25 multiplier on the saga-capped intercept speed")
+	_expect(runtime_source.find("COMPANION_DEFENSE_GUARD_PLAYER_SPEED_BONUS_PCT") < 0, "defense guard should not smuggle an undocumented player speed bonus into the runtime")
+	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN") >= 0, "defense guard chase speed should scale with defense_rate through a single rate-gain lever, not a fixed multiplier")
+	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS") >= 0, "every defending lingpet must get the universal +30% guard-speed floor (not a maribo-only value)")
 	_expect(renderer_source.find("defense_guard_aura_ratio") >= 0 and renderer_source.find("_resolve_aura_color") >= 0, "companion renderer should tint the soft aura through a guard ratio")
 	_expect(draw_context_source.find("\"defense_guard_active\"") >= 0 and draw_context_source.find("\"defense_guard_aura_ratio\"") >= 0, "draw context should expose guard chase aura fields")
-	var guard_speed: float = LingpetCompanionMotionState.COMPANION_DEFENSE_INTERCEPT_SPEED * LingpetCompanionMotionState.COMPANION_DEFENSE_GUARD_SPEED_MULT
-	_expect_float(guard_speed, 225.0, "guard chase speed should be 25 percent above the 180px/s intercept baseline")
+	var guard_speed: float = LingpetCompanionMotionState.get_defense_guard_speed(120.0, 0.30)
+	_expect_float(guard_speed, 156.0, "Maribo (0.30 rate) sits exactly on the +30% floor: pet_speed * 1.30 = 156")
+	# Universal +30% FLOOR: every defending lingpet -- not just maribo -- gets at least
+	# +30%, regardless of its (possibly lower) defense_rate, and for ANY base move speed.
+	_expect_float(LingpetCompanionMotionState.get_defense_guard_speed(120.0, 0.10), 156.0, "a LOW 0.10-rate defending pet still gets the +30% floor (156), not +10% (132)")
+	_expect_float(LingpetCompanionMotionState.get_defense_guard_speed(200.0, 0.16), 260.0, "the +30% floor applies to ANY pet's own move speed (200px/s pet -> 260), so the buff is universal not maribo-specific")
+	var guard_speed_max: float = LingpetCompanionMotionState.get_defense_guard_speed(120.0, 1.0)
+	_expect_float(guard_speed_max, 240.0, "above the floor, a higher defense rate scales the chase speed up (rate 1.0 -> pet_speed * 2.0 = 240) so the widened zone stays reachable")
+	_expect(guard_speed_max > guard_speed, "a defense rate above 0.30 must raise the guard CHASE SPEED beyond the +30% floor, not only the commit zone")
 
 	var registry := FakeRegistry.new({})
 	var owner := FakeOwner.new()
@@ -2914,6 +3018,7 @@ func _verify_lingpet_defense_guard_chase_feedback() -> void:
 	runtime.update(step_delta, owner, registry)
 	var first_snapshot: Dictionary = runtime.get_snapshot()
 	_expect(bool(first_snapshot.get("companion_defense_intercept_active", false)), "guard chase fixture should arm the defense intercept")
+	_expect_float(float(runtime.get_player_speed_multiplier()), 1.0, "active defense guard should leave player movement speed to equipped passive bonuses")
 	var first_aura := float(first_snapshot.get("companion_defense_guard_aura_ratio", 0.0))
 	_expect(first_aura > 0.0 and first_aura < 1.0, "guard aura should ramp in instead of popping instantly")
 	ball_y += step_drop
@@ -2923,8 +3028,8 @@ func _verify_lingpet_defense_guard_chase_feedback() -> void:
 		runtime.update(step_delta, owner, registry)
 		ball_y += step_drop
 	var fast_snapshot: Dictionary = runtime.get_snapshot()
-	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) <= guard_speed + 0.001, "guard chase must not exceed the 225px/s cap")
-	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) >= guard_speed - 0.001, "guard chase should ramp up to the 225px/s cap")
+	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) <= guard_speed + 0.001, "guard chase must not exceed the lingpet movement baseline plus 30 percent")
+	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) >= guard_speed - 0.001, "guard chase should ramp up to the lingpet movement baseline plus 30 percent")
 	_expect_float(float(fast_snapshot.get("companion_defense_guard_aura_ratio", 0.0)), 1.0, "guard aura should reach full red after the short ramp")
 
 	var builder_config: Dictionary = LingpetCompanionDrawContextBuilder.new().build_config({
@@ -2948,14 +3053,42 @@ func _verify_maribo_defense_anticipates_moderate_distance_ball() -> void:
 	var start_pos: Vector2 = owner.lingpet_companion_pos
 	runtime.configure_companion_motion_for_tests(Vector2(420.0, start_pos.y), 2, 0.0, false)
 	owner.ball_active = true
-	# 180px aside: inside the local commit zone (220) but well beyond a single-frame
-	# reach, and beyond the player paddle (x[249,511]) so the player cannot block it.
+	# 180px aside: inside Maribo's 30 percent local commit zone (210) but well beyond
+	# a single-frame reach, and beyond the player paddle (x[249,511]) so the player
+	# cannot block it.
 	owner.ball_pos = Vector2(600.0, start_pos.y - 300.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.05, owner)
 	_expect(bool(owner.lingpet_companion_defense_intercept_active), "defense should anticipatorily arm for a moderate-distance ball inside the local zone (not wait until it is one-frame reachable)")
 	_expect(owner.lingpet_companion_pos.x > 420.0, "an anticipatory guard should start easing toward the predicted X early")
 	_expect(float(owner.lingpet_companion_defense_intercept_target_x) > 560.0, "the anticipatory anchor should be the predicted landing X (~600), not the lingpet's current spot")
+
+	# 330px aside: outside Maribo's base 210px zone, but inside the 100 percent 350px
+	# zone. Defense rate should therefore widen the commit distance, not only the roll.
+	var base_owner := FakeOwner.new()
+	base_owner.lingpet_owned_pet_ids = ["maribo"]
+	var base_runtime: Object = LingpetEggRuntime.new()
+	base_runtime.update(0.0, base_owner)
+	var base_start: Vector2 = base_owner.lingpet_companion_pos
+	base_runtime.configure_companion_motion_for_tests(Vector2(220.0, base_start.y), 2, 0.0, false)
+	base_owner.ball_active = true
+	base_owner.ball_pos = Vector2(550.0, base_start.y - 300.0)
+	base_owner.ball_vel = Vector2(0.0, 12.0)
+	base_runtime.update(0.05, base_owner)
+	_expect(not bool(base_owner.lingpet_companion_defense_intercept_active), "base 30 percent defense should ignore a 330px predicted gap outside its scaled zone")
+
+	var max_owner := FakeOwner.new()
+	max_owner.lingpet_owned_pet_ids = ["maribo"]
+	var max_runtime: Object = LingpetEggRuntime.new()
+	max_runtime.set_debug_defense_rate_override(1.0)
+	max_runtime.update(0.0, max_owner)
+	var max_start: Vector2 = max_owner.lingpet_companion_pos
+	max_runtime.configure_companion_motion_for_tests(Vector2(220.0, max_start.y), 2, 0.0, false)
+	max_owner.ball_active = true
+	max_owner.ball_pos = Vector2(550.0, max_start.y - 300.0)
+	max_owner.ball_vel = Vector2(0.0, 12.0)
+	max_runtime.update(0.05, max_owner)
+	_expect(bool(max_owner.lingpet_companion_defense_intercept_active), "100 percent defense should cover a 330px predicted gap inside its widened 350px zone")
 
 	# A ball beyond the local zone must still be ignored (no field sprint).
 	var far_owner := FakeOwner.new()
@@ -2969,6 +3102,54 @@ func _verify_maribo_defense_anticipates_moderate_distance_ball() -> void:
 	far_owner.ball_vel = Vector2(0.0, 12.0)
 	far_runtime.update(0.05, far_owner)
 	_expect(not bool(far_owner.lingpet_companion_defense_intercept_active), "a ball beyond the local zone must not arm the anticipatory guard")
+
+
+func _verify_maribo_high_defense_reaches_widened_zone() -> void:
+	# OUTCOME seal (saga rule: assert the BOUNCE, not the armed flag). A HIGH defense
+	# rate widens the local commit zone to 350px, so the guard must actually REACH and
+	# BOUNCE a ball well past the ~64px body catch -- ~230px aside here, far beyond the
+	# trivial 80px case in _verify_maribo_defense_actually_blocks_reachable_ball. Ball
+	# descends at the real fps_scale rate (ball_vel * delta * 60); a raw-ball_vel step
+	# would inflate the guard window. NOTE: the SPEED-coupling regression is sealed
+	# deterministically by get_defense_guard_speed's 156->240 assertions in
+	# _verify_lingpet_defense_guard_chase_feedback (verified to FAIL on a rate-independent
+	# speed). This case is the "widened reach yields a real bounce" half, not the
+	# speed-regression seal: at this gap/descent the old fixed 156px/s would also catch,
+	# so do not read a pass here as proof the coupling is active.
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.set_debug_defense_rate_override(1.0)
+	runtime.update(0.0, owner, registry)
+	_prepare_maribo_guard_after_windup(runtime, owner, registry)
+	var lane_y: float = owner.lingpet_companion_pos.y
+	runtime.configure_companion_motion_for_tests(Vector2(350.0, lane_y), 2, 0.0, false)
+	var step_delta := 0.05
+	var ball_vy := 6.0
+	var step_drop := ball_vy * step_delta * 60.0  # 18px/step (real fps_scale descent)
+	# Start just inside the 320px vertical lookahead so the guard can commit, with a
+	# generous descent runway to the lane (the lookahead caps reach independently of
+	# speed -- a ball far above the lane cannot be armed for yet at any chase speed).
+	var ball_y: float = lane_y - 345.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(580.0, ball_y)  # 230px aside, beyond player reach (~x[249,511])
+	owner.ball_vel = Vector2(0.0, ball_vy)
+	var armed := false
+	var blocked := false
+	for _i in range(40):
+		owner.ball_pos = Vector2(580.0, ball_y)
+		owner.ball_vel = Vector2(0.0, ball_vy)
+		runtime.update(step_delta, owner, registry)
+		if bool(owner.lingpet_companion_defense_intercept_active):
+			armed = true
+		if int(owner.lingpet_companion_contact_count) >= 1:
+			blocked = true
+			break
+		ball_y += step_drop
+	_expect(armed, "100 percent defense should arm for the 230px ball inside its widened 350px zone")
+	_expect(blocked, "the rate-scaled chase speed must actually REACH and bounce the far widened-zone ball, not merely arm for it")
+	_expect(float(owner.ball_vel.y) < 0.0, "the widened-zone guard hit should bounce the ball upward")
 
 
 func _verify_maribo_defense_hold_stops_walk_animation() -> void:
@@ -3076,6 +3257,85 @@ func _verify_starlight_pickup_hold_reads_idle() -> void:
 		_expect_float(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()), 0.0, "a position-held starlight override must read as idle (no in-place walk animation)")
 
 
+func _verify_patrol_static_frame_reads_idle() -> void:
+	# The patrol/free-flight draw walk-idle gate must reflect ACTUAL drawn movement, not the
+	# motion state's INTENDED speed. On a zero-delta tick (and other "pos did not advance" frames
+	# such as a defense intercept arriving at a lane-clamped target) motion_state recomputes
+	# motion_speed_ratio = _speed_ratio(patrol_speed) > 0.01 while the position stays put, which
+	# would march the move sheet in place. Reference: nekuring (patrol, defense_rate 0.14) 제자리걸음.
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 1), "static-frame smoke should activate a patrol pet")
+	var lane_y: float = owner.lingpet_companion_pos.y
+	runtime.configure_companion_motion_for_tests(Vector2(300.0, lane_y), 7, 0.0, false)
+	# A real moving frame: seeds the draw-anim prev-pos and reads as walking.
+	runtime.update(0.05, owner, registry)
+	_expect(float(runtime.get_snapshot().get("companion_patrol_pause", 1.0)) <= 0.0, "fixture should leave the pet mid-stride (no patrol pause) before the static tick")
+	_expect(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()) > 0.01, "a genuinely moving patrol pet should read as walking")
+	# Zero-delta tick: motion_speed_ratio is recomputed positive from patrol_speed, but the
+	# position does NOT advance. The draw gate must read idle because no real movement happened.
+	var pos_before: Vector2 = owner.lingpet_companion_pos
+	runtime.update(0.0, owner, registry)
+	_expect(absf(owner.lingpet_companion_pos.x - pos_before.x) <= 0.001, "a zero-delta tick must not advance the companion position")
+	_expect(float(runtime.get_snapshot().get("companion_motion_speed_ratio", 0.0)) > 0.01, "the zero-delta tick should leave the INTENDED motion_speed_ratio positive (the trap input)")
+	_expect_float(float(runtime.get_companion_draw_motion_speed_ratio_for_tests()), 0.0, "a patrol companion that did not actually move must read idle, even when intended motion_speed_ratio is positive (nekuring 제자리걸음)")
+
+
+func _verify_orosha_distance_roll_angle_tracks_horizontal_travel() -> void:
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("orosha", owner, false, "", "", registry, 1, 1), "Orosha distance-roll smoke should activate the debug pet")
+	_expect_float(float(runtime.get_companion_roll_angle_for_tests()), 0.0, "Orosha roll angle should start upright after activation")
+	var base_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.configure_companion_motion_for_tests(base_pos, 2, 0.0, false)
+	runtime.advance_companion_draw_anim_for_tests(0.05)
+	runtime.configure_companion_motion_for_tests(base_pos + Vector2(12.0, 0.0), 2, 0.0, false)
+	runtime.advance_companion_draw_anim_for_tests(0.05)
+	var right_angle: float = float(runtime.get_companion_roll_angle_for_tests())
+	var right_draw_angle: float = float(runtime.get_companion_roll_draw_angle_for_tests())
+	var right_velocity: float = float(runtime.get_companion_roll_angular_velocity_for_tests())
+	_expect(right_angle > 0.20, "Orosha should rotate forward when its drawn companion position moves right")
+	_expect(is_equal_approx(right_draw_angle, right_angle), "Orosha should full-rotate the complete circular roll source instead of using the rejected limited-tilt fallback")
+	_expect(right_velocity > 0.0, "Orosha should remember a positive visual roll velocity after moving right")
+	runtime.advance_companion_draw_anim_for_tests(0.05)
+	var coast_angle: float = float(runtime.get_companion_roll_angle_for_tests())
+	var coast_velocity: float = float(runtime.get_companion_roll_angular_velocity_for_tests())
+	_expect(coast_angle > right_angle, "Orosha should keep rolling briefly after its position stops instead of snapping to a hard stop")
+	_expect(coast_velocity > 0.0 and coast_velocity < right_velocity, "Orosha stop coast should decelerate the remembered roll velocity")
+	for _i in range(12):
+		runtime.advance_companion_draw_anim_for_tests(0.05)
+	_expect(is_zero_approx(float(runtime.get_companion_roll_angular_velocity_for_tests())), "Orosha visual roll coast should settle to rest after a short deceleration")
+	var settled_angle: float = float(runtime.get_companion_roll_angle_for_tests())
+	runtime.configure_companion_motion_for_tests(base_pos, 2, 0.0, false)
+	runtime.advance_companion_draw_anim_for_tests(0.05)
+	var left_angle: float = float(runtime.get_companion_roll_angle_for_tests())
+	_expect(left_angle < settled_angle - 0.20, "Orosha should rotate back the opposite way when its drawn companion position moves left")
+	_expect(float(runtime.get_companion_roll_angular_velocity_for_tests()) < 0.0, "Orosha should remember a negative visual roll velocity after moving left")
+
+
+func _verify_patrol_dir_recovers_after_defense_park() -> void:
+	# ROOT-CAUSE regression: the defense intercept parks patrol_dir at 0 on arrival, and nothing
+	# restores it once the guard clears (flip = -1 * 0 = 0, and a heading-less pet can never reach
+	# a lane edge to be re-aimed) — so the pet sits frozen in place until a round reset. That is
+	# the real lingpet "제자리걸음" / barely-moving bug; the earlier animation fixes only changed
+	# whether the frozen pet showed a walk or an idle frame. Drive the motion state directly so no
+	# ball ever re-arms defense.
+	var motion: Object = LingpetCompanionMotionState.new()
+	var owner := FakeOwner.new()  # no active ball -> defense never arms
+	# One real frame initializes the patrol lane + a heading.
+	motion.update(0.05, owner, false, 0.0, 0, 150.0, 96.0, 204.0, "patrol", 0.0)
+	# Simulate the leftover state after a defense intercept arrived and then cleared.
+	motion.patrol_dir = 0.0
+	motion.patrol_pause = 0.0
+	var x_before: float = motion.pos.x
+	for _i in range(16):
+		motion.update(0.05, owner, false, 0.0, 0, 150.0, 96.0, 204.0, "patrol", 0.0)
+	_expect(not is_zero_approx(motion.patrol_dir), "patrol must recover a non-zero heading after a defense park left patrol_dir at 0")
+	_expect(absf(motion.pos.x - x_before) > 1.0, "a patrol pet must resume travelling after the defense guard clears, not sit frozen in place (제자리걸음 root cause)")
+
+
 func _verify_rabi_ghost_blink_cycle() -> void:
 	# rabi (free_flight) is a GHOST: it must VANISH in place then REAPPEAR at a NEW spot
 	# (not roam continuously), and a higher appearance_rate (출현율) must shorten the
@@ -3126,18 +3386,18 @@ func _measure_ghost_hidden_wait(rate: float) -> Dictionary:
 	motion.pos = Vector2.ZERO   # appearance_rate scaling differs, not the random rolls
 	var dt := 0.1
 	# First update initializes the ghost (spawn spot, visible).
-	motion.update(dt, owner, false, 0.0, 0, 70.0, 200.0, "free_flight", rate)
+	motion.update(dt, owner, false, 0.0, 0, 120.0, 70.0, 200.0, "free_flight", rate)
 	var spawn_pos: Vector2 = motion.pos
 	# Advance through the visible phase (drifting) until the ghost first vanishes.
 	var visible_elapsed := 0.0
 	while bool(motion.motion_visible) and visible_elapsed < 25.0:
-		motion.update(dt, owner, false, 0.0, 0, 70.0, 200.0, "free_flight", rate)
+		motion.update(dt, owner, false, 0.0, 0, 120.0, 70.0, 200.0, "free_flight", rate)
 		visible_elapsed += dt
 	var vanish_pos: Vector2 = motion.pos
 	# Advance through the hidden wait until it reappears.
 	var hidden := 0.0
 	while not bool(motion.motion_visible) and hidden < 40.0:
-		motion.update(dt, owner, false, 0.0, 0, 70.0, 200.0, "free_flight", rate)
+		motion.update(dt, owner, false, 0.0, 0, 120.0, 70.0, 200.0, "free_flight", rate)
 		hidden += dt
 	return {"hidden": hidden, "spawn_pos": spawn_pos, "vanish_pos": vanish_pos, "reappear_pos": motion.pos}
 
@@ -3229,6 +3489,11 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var idle_frame_a: int = int(animator.get_walk_frame(0.0, 1000, 0.0))
 	var idle_frame_b: int = int(animator.get_walk_frame(0.0, 1800, 0.0))
 	_expect(idle_frame_a == LingpetCompanionSpriteAnimator.IDLE_FRAME and idle_frame_b == LingpetCompanionSpriteAnimator.IDLE_FRAME, "Companion walk sheet should not keep cycling while the body has zero motion speed")
+	# A sub-"moving"-threshold ratio (renderer treats ratio <= 0.01 as idle) must ALSO show the
+	# static IDLE_FRAME, not cycle the idle sheet in place — otherwise a tiny stale ratio marches.
+	var tiny_frame_a: int = int(animator.get_walk_frame(0.0, 1000, 0.005))
+	var tiny_frame_b: int = int(animator.get_walk_frame(0.0, 9000, 0.005))
+	_expect(tiny_frame_a == LingpetCompanionSpriteAnimator.IDLE_FRAME and tiny_frame_b == LingpetCompanionSpriteAnimator.IDLE_FRAME, "a sub-0.01 ratio must read the static idle frame, matching the renderer's moving gate")
 	var slow_frame: int = int(animator.get_walk_frame(0.0, 1000, 0.20))
 	var fast_frame: int = int(animator.get_walk_frame(0.0, 1000, 1.0))
 	_expect(fast_frame != slow_frame and fast_frame > slow_frame, "Lunabi wing-flap frame cadence should increase with flight speed")
@@ -3242,6 +3507,7 @@ func _verify_lunabi_free_flight_profile() -> void:
 
 	var forced_companion_pos := Vector2(380.0, 310.0)
 	runtime.configure_companion_motion_for_tests(forced_companion_pos, 2, 0.0, false)
+	owner.player_pos = Vector2(40.0, owner.player_pos.y)
 	owner.ball_active = true
 	owner.ball_pos = forced_companion_pos + Vector2(0.0, -6.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
@@ -4069,6 +4335,30 @@ func _verify_companion_click_reaction() -> void:
 	_expect(bool(nekuring_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0), nekuring_registry)), "Nekuring companion click reaction should start from the companion tap zone")
 	_expect(nekuring_audio.lingpet_click_reaction_pet_ids == ["nekuring"], "Nekuring companion click reaction should request the pet-agnostic click voice hook once")
 
+	ProjectResourceLoader.clear_caches()
+	var onimaru_click_path := LingpetCatalog.get_visual_path("onimaru", "companion_click_reaction_anim")
+	var onimaru_owner := FakeOwner.new()
+	onimaru_owner.lingpet_owned_pet_ids = ["onimaru"]
+	onimaru_owner.lingpet_slots = ["onimaru", "", ""]
+	var onimaru_runtime: Object = LingpetEggRuntime.new()
+	onimaru_runtime.update(0.0, onimaru_owner)
+	onimaru_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	_expect(ProjectResourceLoader.get_cached_texture(onimaru_click_path) == null, "Onimaru click sheet should start cold for the first-click visibility guard")
+	_expect(bool(onimaru_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0))), "Onimaru companion click reaction should start even when the click sheet was not prewarmed")
+	_expect(ProjectResourceLoader.get_cached_texture(onimaru_click_path) != null, "Onimaru first companion click should synchronously secure the downscaled click Live2D sheet")
+
+	ProjectResourceLoader.clear_caches()
+	var rahoset_click_path := LingpetCatalog.get_visual_path("rahoset", "companion_click_reaction_anim")
+	var rahoset_owner := FakeOwner.new()
+	rahoset_owner.lingpet_owned_pet_ids = ["rahoset"]
+	rahoset_owner.lingpet_slots = ["rahoset", "", ""]
+	var rahoset_runtime: Object = LingpetEggRuntime.new()
+	rahoset_runtime.update(0.0, rahoset_owner)
+	rahoset_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	_expect(ProjectResourceLoader.get_cached_texture(rahoset_click_path) == null, "Rahoset click sheet should start cold for the first-click visibility guard")
+	_expect(bool(rahoset_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0))), "Rahoset companion click reaction should start even when the click sheet was not prewarmed")
+	_expect(ProjectResourceLoader.get_cached_texture(rahoset_click_path) != null, "Rahoset first companion click should synchronously secure the downscaled click Live2D sheet")
+
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var click_reaction_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
 	var profile_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_profile.gd")
@@ -4303,7 +4593,7 @@ func _verify_affinity_reward_application() -> void:
 	bench_flight.debug_add_affinity_points_for_tests("rabi", LingpetAffinityState.SOURCE_HATCH)
 	_expect_eq(_deck_type_count(bench_flight.get_affinity_reward_deck_for_tests("rabi"), LingpetAffinityState.REWARD_TYPE_DEFENSE), 0, "bench flight pets should use their catalog-profile flight deck, not the patrol fallback")
 
-	var high_store_path := "user://lingpet_affinity_high_base_headstart_smoke.cfg"
+	var high_store_path := _smoke_save_path("affinity_high_base_headstart")
 	_remove_user_file(high_store_path)
 	var high_store: Object = LingpetAffinityStore.new()
 	high_store.set_save_path(high_store_path)
@@ -4886,12 +5176,12 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	_expect(runtime_source.find("_record_affinity_best_level_if_needed") >= 0, "runtime should save residue only when a best level increases")
 	_expect(input_source.find("cycle_lingpet_slot(cycle_direction, owner, registry)") >= 0, "lingpet slot input should thread registry into residue-aware switching")
 
-	var affinity_path := "user://lingpet_affinity_store_smoke.cfg"
-	var run_save_path := "user://lingpet_save_store_residue_separation_smoke.cfg"
-	var bom_path := "user://lingpet_affinity_store_bom_smoke.cfg"
-	var v1_migration_path := "user://lingpet_affinity_store_v1_migration_smoke.cfg"
-	var v2_migration_path := "user://lingpet_affinity_store_v2_migration_smoke.cfg"
-	var corrupt_bond_path := "user://lingpet_affinity_store_corrupt_bond_smoke.cfg"
+	var affinity_path := _smoke_save_path("affinity_store")
+	var run_save_path := _smoke_save_path("save_store_residue_separation")
+	var bom_path := _smoke_save_path("affinity_store_bom")
+	var v1_migration_path := _smoke_save_path("affinity_store_v1_migration")
+	var v2_migration_path := _smoke_save_path("affinity_store_v2_migration")
+	var corrupt_bond_path := _smoke_save_path("affinity_store_corrupt_bond")
 	_remove_user_file(affinity_path)
 	_remove_user_file(run_save_path)
 	_remove_user_file(bom_path)
@@ -5027,7 +5317,7 @@ func _verify_affinity_residue_store_and_headstart() -> void:
 	# silently resetting. Expected engine parse errors are muted via
 	# Engine.print_error_messages so the smoke runner's error gate only sees
 	# intentional output.
-	var recovery_path := "user://lingpet_affinity_store_recovery_smoke.cfg"
+	var recovery_path := _smoke_save_path("affinity_store_recovery")
 	var recovery_store: Object = LingpetAffinityStore.new()
 	recovery_store.set_save_path(recovery_path)
 	var recovery_backup_path := str(recovery_store.get_backup_path())
@@ -5157,9 +5447,9 @@ func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 
 
 func _verify_ring_core_cap_store_threading() -> void:
-	var no_core_path := "user://lingpet_ring_core_no_core_smoke.cfg"
-	var standard_path := "user://lingpet_ring_core_standard_smoke.cfg"
-	var missing_path := "user://lingpet_ring_core_missing_smoke.cfg"
+	var no_core_path := _smoke_save_path("ring_core_no_core")
+	var standard_path := _smoke_save_path("ring_core_standard")
+	var missing_path := _smoke_save_path("ring_core_missing")
 	_remove_user_file(no_core_path)
 	_remove_user_file(standard_path)
 	_remove_user_file(missing_path)
@@ -5443,6 +5733,14 @@ func _write_affinity_store_corrupt_bond_file(path: String) -> void:
 		return
 	file.store_string("[meta]\nschema_version=2\n[best_levels]\nmaribo=9\n[bond_points]\nmaribo=-5\nlunabi=\"oops\"\nrabi=30\n")
 	file.close()
+
+
+func _smoke_save_path(slug: String) -> String:
+	return "res://.tmp/lingpet_egg_runtime_smoke_%s_%d_%d.cfg" % [
+		slug,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _remove_user_file(path: String) -> void:

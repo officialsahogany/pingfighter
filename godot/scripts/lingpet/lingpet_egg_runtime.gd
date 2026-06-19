@@ -160,6 +160,8 @@ var _companion_skill_state_by_pet_id: Dictionary = {}
 # read as idle and a moving one read as walking.
 var _companion_draw_pos_prev := Vector2.ZERO
 var _companion_override_move_ratio := 0.0
+var _companion_roll_angle := 0.0
+var _companion_roll_angular_velocity := 0.0
 var _has_synced_none := false
 var _click_reaction_visual_prewarm_pet_id := ""
 var _click_reaction_visual_prewarm_done_for := ""
@@ -633,6 +635,8 @@ func _set_current_pet_id(value: String) -> void:
 	_sync_current_profile_affinity(_pet_id)
 	if _pet_id != previous_pet_id:
 		_skip_unlock_reconcile = false
+		_companion_roll_angle = 0.0
+		_companion_roll_angular_velocity = 0.0
 		_affinity_feedback_state.reset_transients()
 		_invalidate_current_loadout_cache()
 		_click_reaction_visual_prewarm_pet_id = ""
@@ -741,6 +745,22 @@ func is_ring_dash_visual_hidden_for_tests() -> bool:
 
 func get_companion_draw_motion_speed_ratio_for_tests() -> float:
 	return _get_companion_draw_motion_speed_ratio()
+
+
+func get_companion_roll_angle_for_tests() -> float:
+	return _companion_roll_angle
+
+
+func get_companion_roll_draw_angle_for_tests() -> float:
+	return _get_companion_roll_draw_angle()
+
+
+func get_companion_roll_angular_velocity_for_tests() -> float:
+	return _companion_roll_angular_velocity
+
+
+func advance_companion_draw_anim_for_tests(delta: float) -> void:
+	_advance_companion_draw_anim(delta)
 
 
 func get_headbutt_hit_count_for_tests() -> int:
@@ -1001,6 +1021,8 @@ func _clear_lingpet_field_state() -> void:
 
 func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
 	_companion_sprite_animator.reset_all()
+	_companion_roll_angle = 0.0
+	_companion_roll_angular_velocity = 0.0
 	_companion_body_hit_state.reset_all()
 	_afterglow_leak_state.reset_all()
 	_ring_dash_state.reset_all()
@@ -1748,35 +1770,11 @@ func _auto_resolve_unlock_choices(pet_id: String, choice_keys: Array[String] = [
 		var candidates: Array = choice.get("candidates", []) as Array
 		if candidates.is_empty():
 			continue
-		_affinity_state.choose_skill_unlock(pet_id, str(choice.get("type", "")), str(candidates[0]))
+		_affinity_state.resolve_random_unlock(pet_id, str(choice.get("type", "")))
 
 
-func get_unlock_choice_options(pet_id: String = "", registry: Object = null) -> Array:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		normalized_pet_id = _normalize_pet_id(_pet_id)
-	if normalized_pet_id == "":
-		return []
-	var rewards: Dictionary = _affinity_state.get_cumulative_rewards(normalized_pet_id)
-	var stored: Dictionary = _get_store_resolved_unlock_choices(normalized_pet_id, registry)
-	var options: Array = []
-	for choice_key in ["active", "passive", "second_active", "second_passive"]:
-		if not _is_unlock_choice_reward_available(rewards, choice_key):
-			continue
-		var candidates := _get_unlock_choice_candidate_ids(normalized_pet_id, choice_key, stored)
-		if candidates.size() < 2:
-			continue
-		var stored_id := str(stored.get(choice_key, "")).strip_edges().to_lower()
-		var locked := stored_id != "" and _choice_candidates_include(candidates, stored_id)
-		options.append({
-			"pet_id": normalized_pet_id,
-			"choice_key": choice_key,
-			"reward_type": _reward_type_for_unlock_choice_key(choice_key),
-			"candidates": candidates,
-			"selected": stored_id if locked else str(candidates[0]),
-			"locked": locked,
-		})
-	return options
+func get_unlock_choice_options(_pet_id: String = "", _registry: Object = null) -> Array:
+	return []
 
 
 func commit_unlock_pick(pet_id: String, choice_key: String, candidate_id: String, owner: Object = null, registry: Object = null) -> bool:
@@ -2345,6 +2343,8 @@ func _reset_companion_patrol() -> void:
 	_companion_facing_left = false
 	_companion_draw_pos_prev = Vector2.ZERO
 	_companion_override_move_ratio = 0.0
+	_companion_roll_angle = 0.0
+	_companion_roll_angular_velocity = 0.0
 
 
 func _reset_companion_defense() -> void:
@@ -2719,9 +2719,11 @@ func _advance_companion_draw_anim(delta: float) -> void:
 		# idle, not walking. A real horizontal chase still reads as walking. This real-movement
 		# signal is also the patrol/free-flight walk-idle gate (see
 		# _get_companion_draw_motion_speed_ratio), so a genuinely static companion reads idle.
-		var moved_x: float = absf(_companion_pos.x - _companion_draw_pos_prev.x)
+		var moved_dx: float = _companion_pos.x - _companion_draw_pos_prev.x
+		var moved_x: float = absf(moved_dx)
 		var safe_delta: float = maxf(0.0001, delta)
 		_companion_override_move_ratio = clampf((moved_x / safe_delta) / speed_max, 0.0, 1.0)
+		_advance_companion_distance_roll(moved_dx, delta)
 	_companion_draw_pos_prev = _companion_pos
 	# Drive the walk animation from an accumulator that only advances on this
 	# (update_lingpet) tick, NOT raw wall-clock. When a pause branch in
@@ -2753,6 +2755,67 @@ func _get_companion_draw_motion_speed_ratio() -> float:
 	return _companion_override_move_ratio
 
 
+func _advance_companion_distance_roll(moved_dx: float, delta: float) -> void:
+	if not _is_companion_distance_roll_enabled():
+		return
+	var safe_delta: float = maxf(0.0, delta)
+	if absf(moved_dx) <= 0.001:
+		_advance_companion_distance_roll_coast(safe_delta)
+		return
+	var angular_delta: float = moved_dx / _get_companion_distance_roll_radius()
+	_companion_roll_angle = wrapf(_companion_roll_angle + angular_delta, -TAU, TAU)
+	if safe_delta > 0.0001:
+		var max_velocity: float = _get_companion_distance_roll_max_angular_velocity()
+		_companion_roll_angular_velocity = clampf(angular_delta / safe_delta, -max_velocity, max_velocity)
+
+
+func _advance_companion_distance_roll_coast(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	if absf(_companion_roll_angular_velocity) <= 0.001:
+		_companion_roll_angular_velocity = 0.0
+		return
+	var deceleration: float = _get_companion_distance_roll_stop_deceleration()
+	var next_velocity: float = move_toward(_companion_roll_angular_velocity, 0.0, deceleration * delta)
+	var average_velocity: float = (_companion_roll_angular_velocity + next_velocity) * 0.5
+	_companion_roll_angle = wrapf(_companion_roll_angle + average_velocity * delta, -TAU, TAU)
+	_companion_roll_angular_velocity = next_velocity
+
+
+func _is_companion_distance_roll_enabled() -> bool:
+	if _current_profile == null or not _current_profile.has_method("get_visual_layout_value"):
+		return false
+	return float(_current_profile.get_visual_layout_value("companion_distance_roll_enabled", 0.0)) > 0.0
+
+
+func _get_companion_distance_roll_radius() -> float:
+	var configured: float = float(_current_profile.get_visual_layout_value("companion_distance_roll_radius", 0.0))
+	if configured > 0.0:
+		return maxf(1.0, configured)
+	var draw_size: float = float(_current_profile.get_visual_layout_value("companion_walk_draw_size", LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x))
+	return maxf(1.0, draw_size * 0.5)
+
+
+func _get_companion_distance_roll_stop_deceleration() -> float:
+	var configured: float = float(_current_profile.get_visual_layout_value("companion_distance_roll_stop_deceleration", 0.0))
+	return maxf(0.1, configured if configured > 0.0 else 16.0)
+
+
+func _get_companion_distance_roll_max_angular_velocity() -> float:
+	var configured: float = float(_current_profile.get_visual_layout_value("companion_distance_roll_max_angular_velocity", 0.0))
+	return maxf(0.1, configured if configured > 0.0 else 6.0)
+
+
+func _get_companion_roll_draw_angle() -> float:
+	if not _is_companion_distance_roll_enabled():
+		return _companion_roll_angle
+	var visual_tilt: float = float(_current_profile.get_visual_layout_value("companion_distance_roll_visual_tilt_radians", 0.0))
+	if visual_tilt > 0.0:
+		return sin(_companion_roll_angle) * visual_tilt
+	var visual_scale: float = maxf(0.0, float(_current_profile.get_visual_layout_value("companion_distance_roll_visual_angle_scale", 1.0)))
+	return wrapf(_companion_roll_angle * visual_scale, -TAU, TAU)
+
+
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 	var visual_slot := _get_active_visual_slot_index()
 	var visual_skill_id := _get_skill_id_for_slot(visual_slot)
@@ -2773,6 +2836,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"face_left": _companion_facing_left,
 		"motion_speed_ratio": _get_companion_draw_motion_speed_ratio(),
+		"companion_roll_angle": _get_companion_roll_draw_angle(),
 		"defense_guard_active": _companion_motion_state.defense_intercept_active,
 		"defense_guard_aura_ratio": _companion_motion_state.defense_guard_aura_ratio,
 		"companion_visible": _is_companion_body_visible_for_draw(),

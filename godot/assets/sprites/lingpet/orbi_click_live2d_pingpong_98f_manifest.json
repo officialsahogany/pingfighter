@@ -1,13 +1,13 @@
 {
   "asset_id": "orbi_click_live2d_pingpong_98f",
   "pet_id": "orbi",
-  "display_name": "오르비",
+  "display_name": "세라비",
   "generated_at": "2026-06-03",
   "runtime_usage": "lingpet_click_live2d_reaction_asset",
   "output_sheet": "res://assets/sprites/lingpet/orbi_click_live2d_pingpong_98f.png",
   "source_autosprite": {
     "asset_id": "cmpwy9k5k000nkav91p9e9sko",
-    "asset_name": "Orbi Acquire Cutin Base 20260603",
+    "asset_name": "Serabi Acquire Cutin Base 20260603",
     "base_source_path": "godot/assets/sprites/lingpet/orbi_cutin_art.png",
     "spritesheet_id": "cmpwzd7820057gvn94xaj3umm",
     "spritesheet_job_id": "wf_6a2215bb-9152-4822-9106-9f7de582bcf1",

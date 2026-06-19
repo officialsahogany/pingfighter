@@ -7,11 +7,11 @@
   "source_art": {
     "transparent_base": "res://assets/sprites/lingpet/orbi_companion_idle_back_base.png",
     "base_manifest": "res://assets/sprites/lingpet/orbi_companion_idle_back_base_manifest.json",
-    "note": "Reused the Orbi rear 3/4 SD base so the walk sheet keeps a Maribo-style slight face-edge view."
+    "note": "Reused the Serabi rear 3/4 SD base so the walk sheet keeps a Maribo-style slight face-edge view."
   },
   "source_autosprite": {
     "asset_id": "cmpwzxo0c004u2ozr4dn3ek5q",
-    "asset_name": "Orbi Companion Back Idle Base 20260603",
+    "asset_name": "Serabi Companion Back Idle Base 20260603",
     "spritesheet_id": "cmpx0vqhm004je1az4ki3cez7",
     "job_id": "wf_a060b07e-7df7-484b-b72a-8a49610a493c",
     "raw_sheet_local_path": ".tmp/orbi_companion_walk/orbi_companion_walk_raw_25f.png",

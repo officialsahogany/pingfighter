@@ -166,39 +166,30 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 	var animator: Object = config.get("animator", null) as Object
 	if animator == null:
 		return
-	var mode: String = LingpetCompanionSpriteAnimator.MODE_WALK
-	var tex: Texture2D = config.get("walk_texture", null) as Texture2D
-	var facing_left := bool(config.get("face_left", false))
-	var should_flip_sprite := false
-	if bool(config.get("casting_windup", false)):
-		mode = LingpetCompanionSpriteAnimator.MODE_CAST
-		tex = config.get("cast_texture", null) as Texture2D
-		should_flip_sprite = facing_left
-	elif bool(config.get("attacking", false)):
-		mode = LingpetCompanionSpriteAnimator.MODE_STRIKE
-		tex = config.get("strike_texture", null) as Texture2D
-		should_flip_sprite = facing_left
-	else:
-		var moving := float(config.get("motion_speed_ratio", 0.0)) > 0.01
-		if not moving:
-			var idle_tex: Texture2D = config.get("idle_texture", null) as Texture2D
-			if idle_tex != null:
-				tex = idle_tex
-			else:
-				should_flip_sprite = facing_left
-		elif facing_left:
-			var move_left_tex: Texture2D = config.get("move_left_texture", null) as Texture2D
-			if move_left_tex != null:
-				tex = move_left_tex
-			else:
-				should_flip_sprite = true
-		else:
-			var move_right_tex: Texture2D = config.get("move_right_texture", null) as Texture2D
-			if move_right_tex != null:
-				tex = move_right_tex
+	var sprite_state: Dictionary = _resolve_companion_sprite_state(config)
+	var mode: String = str(sprite_state.get("mode", LingpetCompanionSpriteAnimator.MODE_WALK))
+	var tex: Texture2D = sprite_state.get("texture", null) as Texture2D
+	var visual_key := str(sprite_state.get("visual_key", "companion_walk"))
+	var should_flip_sprite := bool(sprite_state.get("flip", false))
+	var render_speed_ratio := float(sprite_state.get("speed_ratio", config.get("motion_speed_ratio", 0.0)))
+	var distance_roll_sprite := bool(sprite_state.get("distance_roll", false))
 	if tex == null:
 		return
+	var modulate := Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
 	var draw_size_override: Vector2 = _get_draw_size_override(config, mode)
+	if distance_roll_sprite:
+		_draw_distance_roll_texture_region(
+			canvas,
+			tex,
+			center,
+			mode,
+			draw_size_override,
+			modulate,
+			float(sprite_state.get("rotation", config.get("companion_roll_angle", 0.0))),
+			should_flip_sprite
+		)
+		return
+	var sheet_meta := _get_sheet_meta(config, visual_key)
 	var rects: Dictionary = animator.build_draw_rects(
 		tex,
 		mode,
@@ -206,14 +197,14 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		float(config.get("patrol_pause", 0.0)),
 		float(config.get("windup_elapsed", 0.0)),
 		float(config.get("windup_seconds", 0.0)),
-		float(config.get("motion_speed_ratio", 0.0)),
-		draw_size_override
+		render_speed_ratio,
+		draw_size_override,
+		sheet_meta
 	)
 	if rects.is_empty():
 		return
 	var dest_rect: Rect2 = rects.get("dest", Rect2())
 	var source_rect: Rect2 = rects.get("source", Rect2())
-	var modulate := Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
 	# Dedicated movement sheets render as-authored. Legacy sheets mirror through
 	# UVs for left-facing walk / strike / cast fallbacks. Passing a negative Rect2
 	# width to
@@ -223,6 +214,117 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		_draw_flipped_texture_region(canvas, tex, source_rect, dest_rect, modulate)
 	else:
 		canvas.draw_texture_rect_region(tex, dest_rect, source_rect, modulate, false, true)
+
+
+func resolve_companion_sprite_state_for_tests(config: Dictionary) -> Dictionary:
+	return _resolve_companion_sprite_state(config)
+
+
+func _resolve_companion_sprite_state(config: Dictionary) -> Dictionary:
+	var mode := LingpetCompanionSpriteAnimator.MODE_WALK
+	var tex: Texture2D = config.get("walk_texture", null) as Texture2D
+	var visual_key := "companion_walk"
+	var facing_left := bool(config.get("face_left", false))
+	var should_flip_sprite := false
+	var render_speed_ratio := float(config.get("motion_speed_ratio", 0.0))
+	var distance_roll_sprite := false
+	if bool(config.get("casting_windup", false)):
+		mode = LingpetCompanionSpriteAnimator.MODE_CAST
+		tex = config.get("cast_texture", null) as Texture2D
+		visual_key = "companion_puppet_control" if bool(config.get("skill_cast_pose_active", false)) else "companion_cast"
+		should_flip_sprite = facing_left
+	else:
+		var distance_roll_state := _get_distance_roll_texture_state(config)
+		if not distance_roll_state.is_empty():
+			tex = distance_roll_state.get("texture", null) as Texture2D
+			visual_key = str(distance_roll_state.get("visual_key", visual_key))
+			should_flip_sprite = bool(distance_roll_state.get("flip", false))
+			distance_roll_sprite = true
+		elif bool(config.get("attacking", false)):
+			mode = LingpetCompanionSpriteAnimator.MODE_STRIKE
+			tex = config.get("strike_texture", null) as Texture2D
+			visual_key = "companion_strike"
+			should_flip_sprite = facing_left
+		else:
+			var moving := render_speed_ratio > LingpetCompanionSpriteAnimator.MOVING_RATIO_THRESHOLD
+			if not moving:
+				var freeze_move_frame := float(config.get("companion_stop_freeze_move_frame", 0.0)) > 0.0
+				if freeze_move_frame:
+					var move_state := _get_movement_texture_state(config, facing_left)
+					if not move_state.is_empty():
+						tex = move_state.get("texture", null) as Texture2D
+						visual_key = str(move_state.get("visual_key", visual_key))
+						should_flip_sprite = bool(move_state.get("flip", false))
+						render_speed_ratio = maxf(render_speed_ratio, LingpetCompanionSpriteAnimator.MOVING_RATIO_THRESHOLD + 0.001)
+					else:
+						var idle_tex: Texture2D = config.get("idle_texture", null) as Texture2D
+						if idle_tex != null:
+							tex = idle_tex
+							visual_key = "companion_idle"
+						else:
+							should_flip_sprite = facing_left
+				else:
+					var idle_tex: Texture2D = config.get("idle_texture", null) as Texture2D
+					if idle_tex != null:
+						tex = idle_tex
+						visual_key = "companion_idle"
+					else:
+						should_flip_sprite = facing_left
+			else:
+				var moving_state := _get_movement_texture_state(config, facing_left)
+				if not moving_state.is_empty():
+					tex = moving_state.get("texture", null) as Texture2D
+					visual_key = str(moving_state.get("visual_key", visual_key))
+					should_flip_sprite = bool(moving_state.get("flip", false))
+	return {
+		"mode": mode,
+		"texture": tex,
+		"visual_key": visual_key,
+		"flip": should_flip_sprite,
+		"speed_ratio": render_speed_ratio,
+		"distance_roll": distance_roll_sprite,
+		"rotation": float(config.get("companion_roll_angle", 0.0)),
+	}
+
+
+func _get_distance_roll_texture_state(config: Dictionary) -> Dictionary:
+	if float(config.get("companion_distance_roll_enabled", 0.0)) <= 0.0:
+		return {}
+	var roll_tex: Texture2D = config.get("distance_roll_source_texture", null) as Texture2D
+	if roll_tex == null:
+		return {}
+	return {
+		"texture": roll_tex,
+		"visual_key": "companion_distance_roll_source",
+		"flip": false,
+	}
+
+
+func _get_movement_texture_state(config: Dictionary, facing_left: bool) -> Dictionary:
+	if facing_left:
+		var move_left_tex: Texture2D = config.get("move_left_texture", null) as Texture2D
+		if move_left_tex != null:
+			return {
+				"texture": move_left_tex,
+				"visual_key": "companion_move_left",
+				"flip": false,
+			}
+	else:
+		var move_right_tex: Texture2D = config.get("move_right_texture", null) as Texture2D
+		if move_right_tex != null:
+			return {
+				"texture": move_right_tex,
+				"visual_key": "companion_move_right",
+				"flip": false,
+			}
+	var walk_tex: Texture2D = config.get("walk_texture", null) as Texture2D
+	if walk_tex == null:
+		return {}
+	return {
+		"texture": walk_tex,
+		"visual_key": "companion_walk",
+		"flip": facing_left,
+	}
 
 
 func _get_draw_size_override(config: Dictionary, mode: String) -> Vector2:
@@ -236,6 +338,109 @@ func _get_draw_size_override(config: Dictionary, mode: String) -> Vector2:
 	if draw_size <= 0.0:
 		return Vector2.ZERO
 	return Vector2(draw_size, draw_size)
+
+
+func _draw_distance_roll_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	center: Vector2,
+	mode: String,
+	draw_size_override: Vector2,
+	modulate: Color,
+	rotation_radians: float,
+	flip_h: bool = false
+) -> void:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var draw_size: Vector2 = draw_size_override
+	if draw_size == Vector2.ZERO:
+		draw_size = _get_default_draw_size_for_mode(mode)
+	var dest_rect := Rect2(center - draw_size * 0.5 + Vector2(0.0, _get_y_offset_for_mode(mode)), draw_size)
+	var source_rect := Rect2(Vector2.ZERO, texture_size)
+	_draw_texture_rect_region_rotated(canvas, texture, source_rect, dest_rect, modulate, rotation_radians, flip_h)
+
+
+func _get_default_draw_size_for_mode(mode: String) -> Vector2:
+	match mode:
+		LingpetCompanionSpriteAnimator.MODE_CAST:
+			return LingpetCompanionSpriteAnimator.CAST_DRAW_SIZE
+		LingpetCompanionSpriteAnimator.MODE_STRIKE:
+			return LingpetCompanionSpriteAnimator.STRIKE_DRAW_SIZE
+		_:
+			return LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE
+
+
+func _get_y_offset_for_mode(mode: String) -> float:
+	match mode:
+		LingpetCompanionSpriteAnimator.MODE_CAST:
+			return LingpetCompanionSpriteAnimator.CAST_Y_OFFSET
+		LingpetCompanionSpriteAnimator.MODE_STRIKE:
+			return LingpetCompanionSpriteAnimator.STRIKE_Y_OFFSET
+		_:
+			return LingpetCompanionSpriteAnimator.WALK_Y_OFFSET
+
+
+func _get_sheet_meta(config: Dictionary, visual_key: String) -> Dictionary:
+	var cols := int(config.get("%s_cols" % visual_key, 0))
+	var rows := int(config.get("%s_rows" % visual_key, 0))
+	var frame_count := int(config.get("%s_frame_count" % visual_key, 0))
+	if cols <= 0 and rows <= 0 and frame_count <= 0:
+		return {}
+	var meta: Dictionary = {}
+	if cols > 0:
+		meta["cols"] = cols
+	if rows > 0:
+		meta["rows"] = rows
+	if frame_count > 0:
+		meta["frame_count"] = frame_count
+	return meta
+
+
+func _draw_texture_rect_region_rotated(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	target_rect: Rect2,
+	modulate: Color,
+	rotation_radians: float,
+	flip_h: bool = false
+) -> void:
+	if absf(rotation_radians) <= 0.0001:
+		if flip_h:
+			_draw_flipped_texture_region(canvas, texture, source_rect, target_rect, modulate)
+		else:
+			canvas.draw_texture_rect_region(texture, target_rect, source_rect, modulate, false, true)
+		return
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var pivot := target_rect.position + target_rect.size * 0.5
+	var cos_r: float = cos(rotation_radians)
+	var sin_r: float = sin(rotation_radians)
+	var corners := [
+		target_rect.position,
+		Vector2(target_rect.end.x, target_rect.position.y),
+		target_rect.end,
+		Vector2(target_rect.position.x, target_rect.end.y),
+	]
+	var points := PackedVector2Array()
+	for corner in corners:
+		var offset: Vector2 = corner - pivot
+		points.append(pivot + Vector2(
+			offset.x * cos_r - offset.y * sin_r,
+			offset.x * sin_r + offset.y * cos_r
+		))
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var uvs := PackedVector2Array([
+		Vector2(uv_max.x if flip_h else uv_min.x, uv_min.y),
+		Vector2(uv_min.x if flip_h else uv_max.x, uv_min.y),
+		Vector2(uv_min.x if flip_h else uv_max.x, uv_max.y),
+		Vector2(uv_max.x if flip_h else uv_min.x, uv_max.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _draw_flipped_texture_region(

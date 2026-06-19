@@ -1,0 +1,202 @@
+{
+  "asset": "orosha_acquire_vfx_autosprite_16f.png",
+  "pet_id": "orosha",
+  "generation_mode": "autosprite_orosha_l2d_v1",
+  "created_at_utc": "2026-06-18T10:13:11.628965+00:00",
+  "runtime_use": "Orosha acquisition-only animated VFX layer drawn separately from the character Live2D sheet.",
+  "grid": {
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      512,
+      512
+    ],
+    "sheet_size": [
+      2048,
+      2048
+    ],
+    "repeated_static_frame": false
+  },
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/orosha_lingpet_live2d_anchor_v1.png",
+    "cleaned_external_filename": "orosha_existing_front_clean_alpha_v1.png",
+    "external_source_folder_note": "C:/Users/woduq/Downloads/orosha (Korean folder name)"
+  },
+  "source_autosprite": {
+    "asset_id": "cmqjc24r7009881qpcbhf24w8",
+    "workflow_job_id": "wf_b8a5c74b-700e-4b02-8591-a97f0846d05f",
+    "spritesheet_id": "cmqjc7ne4006f14pejvdqnb41",
+    "source_download": "tmp/orosha_l2d_v1/orosha_acquire_vfx_autosprite_raw_16f.png",
+    "source_atlas": "tmp/orosha_l2d_v1/orosha_acquire_vfx_autosprite_raw_16f_atlas.json"
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic AutoSprite-derived cleanup",
+    "operation": "Copied the AutoSprite 16-frame acquisition VFX asset sheet into the runtime grid and removed exact chroma residue only."
+  },
+  "qa": {
+    "image_size": [
+      2048,
+      2048
+    ],
+    "cell_size": [
+      512,
+      512
+    ],
+    "edge_alpha_max": 0,
+    "edge_touch_frames": [],
+    "visible_magenta_pixels_exact": 0,
+    "visible_green_pixels_exact": 0,
+    "unique_frame_hashes": 16,
+    "sample_bboxes": {
+      "0": [
+        160,
+        75,
+        286,
+        361
+      ],
+      "4": [
+        142,
+        46,
+        206,
+        350
+      ],
+      "8": [
+        99,
+        93,
+        173,
+        197
+      ],
+      "12": [
+        158,
+        82,
+        134,
+        180
+      ],
+      "15": [
+        172,
+        97,
+        96,
+        165
+      ]
+    }
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/orosha_acquire_vfx_autosprite_16f.png",
+    "md5": "f033a5e84f61affa7470798f1243d3dd",
+    "sha256": "7ee5f7f2f2a4042c10a0d94d4124445128295a4434047092cfbf5ffdb1706667",
+    "bytes": 364103
+  },
+  "reconstruction_frame0": {
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "alpha_bbox": [
+      0.3125,
+      0.146484,
+      0.558594,
+      0.705078
+    ]
+  }
+}

@@ -119,7 +119,7 @@ func _verify_runtime_multiplier_and_reset_boundary() -> void:
 
 func _verify_chip_source_contracts() -> void:
 	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
-	_expect(affinity_source.find("var enhancement_multiplier := get_enhancement_chip_multiplier()") >= 0, "affinity state should read the chip multiplier once at the point-grant chokepoint")
+	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_FEED else get_enhancement_chip_multiplier()") >= 0, "affinity state should exempt feed while keeping the chip multiplier at the point-grant chokepoint")
 	_expect(affinity_source.find("granted_points *= enhancement_multiplier") >= 0, "affinity state should multiply granted_points at the single chokepoint")
 	_expect(affinity_source.find("bonus_points *= enhancement_multiplier") >= 0, "affinity state should keep reported bonus_points scaled with granted_points")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
