@@ -28,6 +28,7 @@ func build_scene_context(
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"selected_character_type": character_type,
 		"active_item_slots": _get_owner_array(owner, "active_item_slots"),
+		"runtime_perk_gold": int(_get_owner_value(owner, "runtime_perk_gold", 0)),
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"gauge_max": max(1.0, float(_get_owner_value(owner, "special_gauge_max", GAUGE_MAX))),
 		"textures": _get_owner_dict(owner, "battle_textures"),
