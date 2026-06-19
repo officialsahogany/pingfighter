@@ -71,6 +71,12 @@ AI 에이전트는 종종 있을 법한 메서드명이나 시그니처를 추�
 - [ ] 호출 인자 개수와 타입이 실제 선언과 맞는지 확인한다.
 - [ ] 반환값 타입과 실패 시 동작을 확인한다.
 
+- [ ] When a Python reference call is wrapped in broad `try/except` or points
+      through a module alias, verify the callee exists in the imported live
+      module and is actually rendered / updated before porting it as a visible
+      Godot effect. Treat missing callees as dormant dead-calls unless the
+      design explicitly asks to revive the intended effect.
+
 ## 2. 모달 / 시네마틱 / 전투 루프 연결
 
 - [ ] 모달 또는 시네마틱 상태가 `battle_scene_modal_gate_controller.gd`의

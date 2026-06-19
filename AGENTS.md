@@ -218,6 +218,16 @@ Godot port routing:
   spread across multiple frames, or a documented low-cost lazy path. A cache
   that improves steady-state draw time but creates a stage-entry hitch is not
   complete integration.
+- Large battle-entry or prewarm-visible sprite sheets (roughly 4096^2 or
+  multiple fullscreen cut-in sheets) must not ship with lossless import
+  settings when they are loaded before battle. Use VRAM compressed import
+  settings (`compress/mode=2`, `compress/high_quality=true`,
+  `metadata.vram_texture=true`) or a documented smaller import / size limit
+  before routing them through owner-module prewarm. Threaded prewarm hides disk
+  decode only; the first GPU upload of an uncompressed 4096^2 sheet can still
+  stall a frame. Reference incident 2026-06-16: Smasher / Phantom skill cut-in
+  4096^2 sheets caused boot warmup step 17 selected-character freezes up to
+  618ms, then dropped to zero `proc > 100ms` frames after BPTC / ASTC import.
 - Controller-driven FX / loading / result / overlay hosts should default to
   `set_process(false)` and advance from the owning controller sync path.
   Enable a host's own `_process()` only when it truly owns timing independent
@@ -1426,7 +1436,11 @@ status as of 2026-05-11 so the provenance of early decisions is auditable.
 | `scripts/ui/` | 6 | UI utilities |
 | **Total** | **582** | |
 
-Smoke tests: **299** `.gd` files under `godot/tests/`.
+Smoke tests: **701** `*_smoke.gd` files under `godot/tests/` (verified
+2026-06-16). NOTE: only a 5-test focused subset runs in the automatic
+pre-push / CI gate; the full discovered suite runs only when
+`tools/run_smoke_tests.ps1` is invoked manually with no `-Tests`. Do not
+assume "smoke pass" means the full suite ran.
 
 ### Stage Porting Status
 
@@ -1455,7 +1469,8 @@ Passive/legendary/mythic item runtimes implemented as separate modules.
 ### Dev Tools
 
 - `tools/run_headless_load_check.ps1` — headless load verification (run before sign-off)
-- `tools/run_smoke_tests.ps1` — runs all 299 smoke tests
+- `tools/run_smoke_tests.ps1` — runs the full discovered smoke suite when
+  called with no `-Tests`; the pre-push / CI gate passes only a 5-test focused subset
 - `tools/run_warning_scan.ps1` — GDScript warning scan (run after any `.gd` edit)
 - `tools/build_windows.ps1` — Windows export build
 

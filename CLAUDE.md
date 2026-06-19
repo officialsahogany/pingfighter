@@ -328,6 +328,18 @@ moment (`lingpet_egg_runtime._prewarm_current_skill_runtime`, sealed by
 a new lingpet skill gets the sheet half of this for free only if it
 implements `prewarm()` for its heavy textures.
 
+## Godot Animated Polygon Triangulation Trap
+
+Any Godot `draw_colored_polygon()` point set built from jitter, sag,
+shrink/dissolve, sine waves, or other animated offsets must prove the fill is
+triangulable before shipping. Prefer geometry that cannot self-intersect
+(bounded angle jitter, nonzero area, stable point order); otherwise guard only
+the fill with `Geometry2D.triangulate_polygon(points)` and keep outlines or
+safe fallbacks visible. Add a sweep smoke for the builder, and treat repeated
+`Invalid polygon data` log lines as a frame-budget regression signal. The full
+runtime rule lives in `AGENTS.md` under "Godot Degenerate
+`draw_colored_polygon` Trap".
+
 ## Godot Effect Drawer Static-Frame Trap
 
 When a Godot effect zone drawer reads its life/elapsed from a different key
@@ -569,6 +581,28 @@ Standing rules for chance-gated per-frame gameplay effects:
 
 ## Godot Companion Walk/Idle Ratio Trap (treadmill in place)
 
+**ROOT-CAUSE WARNING — a stationary "marching in place" companion is usually a
+POSITION-stuck bug, not an animation bug. Chase the motion first.** The lingpet
+"제자리걸음" saga: the companion appeared to march in place; several animation-side
+fixes (the mechanisms below) only changed WHETHER the stuck pet showed a walk or
+an idle frame — they never made it move. The real cause was that the defense
+intercept parks `patrol_dir = 0` when it arrives at the guard point
+(`lingpet_companion_motion_state._advance_defense_intercept`), and NOTHING
+restores it once the guard clears: `clear_defense_intercept` does not touch
+`patrol_dir`, a flip is `-1 * 0 = 0`, and a heading-less pet can never reach a
+lane edge to be re-aimed — so `next_x = pos.x + 0 * speed = pos.x` froze the pet
+in place until a round reset re-`initialize`d it ("게임 진행하다보면 풀린다").
+With the INTENDED `motion_speed_ratio` still > 0 this read as a walk treadmill;
+after the actual-movement gate (Mechanism C) it read as a frozen idle — SAME
+bug. Fix: re-seed `patrol_dir` to ±1 in the patrol movement section whenever it
+is zero (that section only runs once the defense guard is inactive). Sealed by
+`lingpet_egg_runtime_smoke._verify_patrol_dir_recovers_after_defense_park`
+(reverse-verified: the pet stays frozen without the re-seed). Lesson: when a
+companion "walks in place", first prove whether `_companion_pos` actually
+advances frame-to-frame; if not, the animation gate is downstream of the real
+(motion) bug. Any code that zeroes `patrol_dir` mid-game (defense park, future
+grab/displace skills) must restore a heading on release.
+
 `lingpet_companion_motion_state.motion_speed_ratio` is the companion
 renderer's walk/idle GATE and walk-anim speed
 (`lingpet_companion_renderer` picks the walk sheet when ratio > 0.01;
@@ -620,14 +654,37 @@ together:
   x-delta, NOT vector length: the walk sheet is side-view locomotion, so a
   pure vertical hop (the starlight pickup jump arc keeps x fixed) must read
   as idle. Sealed by `_verify_starlight_pickup_hold_reads_idle`.
+- **Mechanism C — PATROL/defense path used INTENDED speed, not real movement.**
+  Mechanism B fixed only the override branches; the patrol/free-flight branch of
+  `_get_companion_draw_motion_speed_ratio()` still returned
+  `motion_speed_ratio` (the motion state's INTENDED speed, derived from
+  `patrol_speed` / defense step speed). That intended ratio can stay > 0.01 on a
+  frame where the drawn position does NOT actually advance — defense intercept
+  arriving at a lane-clamped target, a zero/negative-delta tick recomputing
+  `_speed_ratio(patrol_speed)`, sub-tolerance re-anchoring — so a stationary
+  patrol pet (nekuring: patrol + `defense_rate` 0.14, no starlight) marched in
+  place. Fix: the patrol/free-flight branch now ALSO returns
+  `_companion_override_move_ratio` (real per-frame x-travel), so a genuinely
+  static companion reads idle no matter WHICH path left the intended ratio
+  positive. The seed frame (just adopted, `_companion_draw_pos_prev == ZERO`)
+  falls back to the intended ratio for that one frame so the first visible frame
+  isn't a spurious idle. Sealed by `_verify_patrol_static_frame_reads_idle`
+  (a zero-delta tick: intended ratio positive, position unchanged → draw idle).
+- **Threshold parity.** `LingpetCompanionSpriteAnimator.get_walk_frame` idled
+  only at `ratio <= 0.0`, but the renderer's "moving" gate is `ratio > 0.01`. A
+  ratio in (0, 0.01] therefore made the renderer pick the IDLE texture while
+  `get_walk_frame` still CYCLED it — the idle sheet marched in place. Both now
+  use `MOVING_RATIO_THRESHOLD = 0.01`; keep them in lockstep.
 
 Standing rule: the companion walk/idle gate must be driven by ACTUAL drawn
-movement (or 0 when held), and the walk-frame CLOCK must freeze whenever
-the companion's own update tick is skipped. Never feed it an intent /
-capability constant or a wall-clock timer that advances independently of
-the pet's real motion. When adding a new pause branch that skips
-`update_lingpet`, or a new override / skill that parks the companion,
-re-audit both mechanisms.
+movement (or 0 when held), for EVERY non-flight path (overrides AND patrol/
+defense) — never by an intent / capability constant (`motion_speed_ratio`,
+guard-speed cap, hardcoded 1.0) that can diverge from real displacement. The
+walk-frame CLOCK must freeze whenever the companion's own update tick is
+skipped, and the renderer's "moving" threshold and the animator's idle
+threshold must match. When adding a new pause branch that skips
+`update_lingpet`, a new override / skill that parks the companion, or any new
+`motion_speed_ratio` writer, re-audit all of these mechanisms.
 
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
