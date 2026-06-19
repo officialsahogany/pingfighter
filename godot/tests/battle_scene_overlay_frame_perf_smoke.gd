@@ -229,7 +229,7 @@ func _init() -> void:
 	_verify_open_debug_overlays_are_timed()
 	_verify_runtime_perk_update_receives_perf_logger()
 	_verify_character_info_idle_redraw_is_opt_in()
-	_verify_lingpet_debug_idle_redraw_is_static()
+	_verify_lingpet_debug_idle_redraw_animates()
 	_verify_clean_capture_closes_debug_overlays()
 	OS.set_environment("PINGFIGHTER_BATTLE_PERF_CLEAN_CAPTURE", "0")
 
@@ -388,7 +388,7 @@ func _verify_character_info_idle_redraw_is_opt_in() -> void:
 	_expect(perf_logger.labels.has("process.overlay.character_info_queue_redraw"), "dirty character info overlay should emit a redraw queue sublabel")
 
 
-func _verify_lingpet_debug_idle_redraw_is_static() -> void:
+func _verify_lingpet_debug_idle_redraw_animates() -> void:
 	var controller := BattleSceneOverlayFrameController.new()
 	var modal_gate := FakeModalGate.new()
 	var perf_logger := FakePerfLogger.new()
@@ -404,9 +404,9 @@ func _verify_lingpet_debug_idle_redraw_is_static() -> void:
 
 	var handled: bool = bool(controller.process_idle(0.016, owner, null, Callable(self, "_get_module")))
 	_expect(handled, "open lingpet debug overlay should still block the gameplay frame")
-	_expect(owner.redraw_count == 0, "static lingpet debug overlay should not redraw every idle frame")
-	_expect(perf_logger.labels.has("process.overlay.lingpet_debug_static"), "static lingpet debug overlay should emit a cheap idle label")
-	_expect(not perf_logger.labels.has("process.overlay.lingpet_debug"), "static lingpet debug overlay should not emit the old redraw queue label")
+	_expect(owner.redraw_count == 1, "animated lingpet debug thumbnails should request one redraw each idle frame")
+	_expect(perf_logger.labels.has("process.overlay.lingpet_debug_queue_redraw"), "animated lingpet debug overlay should emit the redraw queue label")
+	_expect(not perf_logger.labels.has("process.overlay.lingpet_debug_static"), "animated lingpet debug overlay should not use the old static idle label")
 
 
 func _verify_clean_capture_closes_debug_overlays() -> void:

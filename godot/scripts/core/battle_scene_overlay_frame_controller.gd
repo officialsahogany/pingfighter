@@ -75,7 +75,8 @@ func process_idle(
 			return true
 		"lingpet_debug":
 			sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
-			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.lingpet_debug_static", sample_start)
+			BattleSceneOverlayFrameUtils.queue_redraw(owner)
+			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.lingpet_debug_queue_redraw", sample_start)
 			return true
 		"mythic_management":
 			sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
