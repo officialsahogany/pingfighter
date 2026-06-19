@@ -80,6 +80,14 @@ static func prewarm_assets() -> void:
 	_build_spark_particle_material()
 
 
+static func reset_prewarm_assets_for_test() -> void:
+	_backplate_common_texture = null
+	_backplate_mythic_texture = null
+	_ribbon_trail_texture = null
+	ImpactFlareTextureCache.reset_for_test()
+	WritheEmber.reset_for_test()
+
+
 static func build_pipeline_status() -> Dictionary:
 	prewarm_assets()
 	return {

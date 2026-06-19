@@ -444,6 +444,10 @@ static func prewarm() -> void:
 	get_shader()
 
 
+static func reset_for_test() -> void:
+	_shader = null
+
+
 static func get_shader() -> Shader:
 	if _shader != null:
 		return _shader

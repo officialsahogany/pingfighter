@@ -15,6 +15,12 @@ static func prewarm() -> void:
 		pass
 
 
+static func reset_for_test() -> void:
+	_glow_texture = null
+	_burst_texture = null
+	_sparkle_texture = null
+
+
 static func prewarm_step() -> bool:
 	if _glow_texture == null:
 		get_glow_texture()
