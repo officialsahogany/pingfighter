@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const DefeatGemShatterFxHost := preload("res://scripts/effects/defeat_gem_shatter_fx_host.gd")
 
 const BUTTON_SIZE := Vector2(330.0, 50.0)
 const GEM_COUNT := 3
@@ -11,6 +12,8 @@ const GEM_SHATTER_SHEET_COLS := 8
 const GEM_SHATTER_SHEET_ROWS := 8
 const GEM_SHATTER_FRAME_COUNT := 64
 const GEM_SHATTER_DURATION_SEC := 2.0
+const GEM_SHATTER_HANDOFF_SEC := 0.28
+const GEM_SHATTER_FALLBACK_FRAME_SIZE := Vector2(623.0, 1082.0)
 const REVEAL_DURATION_SEC := 1.05
 const GEM_IMPACT_DURATION_SEC := 0.42
 const CHANCE_GEM_FULL_TEXTURE_PATH := BattleCoreTexturePaths.CHANCE_GEM_FULL_TEXTURE_PATH
@@ -27,6 +30,7 @@ var _pending_continue_callback: Callable = Callable()
 var _pending_owner: Object = null
 var _pending_registry: Object = null
 var _prewarm_assets_step_index: int = 0
+var _gem_shatter_fx_host: Node = null
 
 
 func show(owner: Object, registry: Object, continue_callback: Callable) -> bool:
@@ -40,6 +44,8 @@ func show(owner: Object, registry: Object, continue_callback: Callable) -> bool:
 	elapsed_sec = 0.0
 	reveal_elapsed = 0.0
 	active = true
+	_ensure_gem_shatter_fx_host(owner)
+	_sync_gem_shatter_fx_host(owner, _get_owner_view_size(owner), true)
 	_queue_redraw(owner)
 	return true
 
@@ -48,6 +54,7 @@ func prewarm_assets() -> void:
 	while not prewarm_assets_step():
 		pass
 	_prewarm_liveliness_effects()
+	DefeatGemShatterFxHost.prewarm_assets()
 
 
 func prewarm_assets_step() -> bool:
@@ -55,6 +62,7 @@ func prewarm_assets_step() -> bool:
 	if _prewarm_assets_step_index >= paths.size():
 		_prewarm_assets_step_index = 0
 		_prewarm_liveliness_effects()
+		DefeatGemShatterFxHost.prewarm_assets()
 		return true
 	var path := str(paths[_prewarm_assets_step_index])
 	ProjectResourceLoader.load_imported_texture(
@@ -66,6 +74,7 @@ func prewarm_assets_step() -> bool:
 	if _prewarm_assets_step_index >= paths.size():
 		_prewarm_assets_step_index = 0
 		_prewarm_liveliness_effects()
+		DefeatGemShatterFxHost.prewarm_assets()
 		return true
 	return false
 
@@ -75,6 +84,7 @@ func prewarm_assets_threaded_step() -> bool:
 	if _prewarm_assets_step_index >= paths.size():
 		_prewarm_assets_step_index = 0
 		_prewarm_liveliness_effects()
+		DefeatGemShatterFxHost.prewarm_assets()
 		return true
 	var path := str(paths[_prewarm_assets_step_index])
 	var result := ProjectResourceLoader.prewarm_texture_threaded_step(
@@ -92,6 +102,7 @@ func prewarm_assets_threaded_step() -> bool:
 	if _prewarm_assets_step_index >= paths.size():
 		_prewarm_assets_step_index = 0
 		_prewarm_liveliness_effects()
+		DefeatGemShatterFxHost.prewarm_assets()
 		return true
 	return false
 
@@ -110,6 +121,7 @@ func is_active() -> bool:
 
 
 func reset() -> void:
+	_set_gem_shatter_fx_active(false)
 	active = false
 	remaining_gems = 0
 	max_gems = GEM_COUNT
@@ -126,6 +138,7 @@ func update(delta: float) -> void:
 	var safe_delta: float = maxf(0.0, delta)
 	elapsed_sec += safe_delta
 	reveal_elapsed = minf(REVEAL_DURATION_SEC, reveal_elapsed + safe_delta)
+	_sync_gem_shatter_fx_host(_pending_owner, _get_owner_view_size(_pending_owner), false)
 
 
 func get_reveal_progress() -> float:
@@ -175,6 +188,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var gem_gap := minf(view_size.x * 0.095, 122.0)
 	var first_x := center.x - gem_gap
 	_draw_gem_rail(canvas, center.x, gem_center_y, gem_gap, accent)
+	_sync_gem_shatter_fx_host(owner, view_size, false)
 	var consumed: int = max_gems - remaining_gems
 	for i in range(max_gems):
 		var gem_center := Vector2(first_x + float(i) * gem_gap, gem_center_y)
@@ -461,7 +475,8 @@ func _draw_gem_slot(canvas: CanvasItem, center: Vector2, _radius: float, broken:
 	if breaking:
 		var glow_alpha := 0.10 + pulse * 0.10
 		canvas.draw_circle(center, maxf(rect.size.x, rect.size.y) * 0.55, Color(0.20, 0.68, 1.0, glow_alpha))
-	canvas.draw_texture_rect(texture, rect, false, Color.WHITE if not broken else Color(0.82, 0.90, 1.0, 0.76))
+	var color := Color.WHITE if not broken else Color(0.82, 0.90, 1.0, 0.76)
+	canvas.draw_texture_rect(texture, rect, false, color)
 
 
 func _draw_gem_break_impact(canvas: CanvasItem, center: Vector2) -> void:
@@ -517,9 +532,31 @@ func _draw_gem_shatter_sheet(canvas: CanvasItem, center: Vector2) -> bool:
 	var col := frame % GEM_SHATTER_SHEET_COLS
 	var row := int(floor(float(frame) / float(GEM_SHATTER_SHEET_COLS)))
 	var source_rect := Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
-	var draw_rect := _fit_size_rect(cell_size, center, GEM_TEXTURE_BOX_SIZE)
-	canvas.draw_texture_rect_region(sheet, draw_rect, source_rect, Color.WHITE, false, true)
+	var draw_rect := _fit_size_rect(_get_static_gem_frame_size(), center, GEM_TEXTURE_BOX_SIZE)
+	var handoff_start := maxf(GEM_SHATTER_DURATION_SEC - GEM_SHATTER_HANDOFF_SEC, 0.0)
+	var handoff_progress := 0.0
+	if elapsed_sec > handoff_start:
+		handoff_progress = _ease_in_out_cubic((elapsed_sec - handoff_start) / maxf(GEM_SHATTER_HANDOFF_SEC, 0.001))
+	var sheet_alpha := 1.0 - handoff_progress
+	if sheet_alpha > 0.01:
+		canvas.draw_texture_rect_region(sheet, draw_rect, source_rect, Color(1.0, 1.0, 1.0, sheet_alpha), false, true)
+	if handoff_progress > 0.0:
+		var glow_alpha := 0.08 * (1.0 - handoff_progress)
+		if glow_alpha > 0.001:
+			canvas.draw_circle(center, maxf(draw_rect.size.x, draw_rect.size.y) * 0.48, Color(0.20, 0.68, 1.0, glow_alpha))
+		_draw_static_gem_texture(canvas, center, true, handoff_progress)
 	return true
+
+
+func _draw_static_gem_texture(canvas: CanvasItem, center: Vector2, broken: bool, alpha: float) -> Rect2:
+	var texture: Texture2D = _get_cached_gem_texture(broken)
+	if texture == null or alpha <= 0.0:
+		return Rect2(center, Vector2.ZERO)
+	var rect := _fit_texture_rect(texture, center, GEM_TEXTURE_BOX_SIZE)
+	var color := Color.WHITE if not broken else Color(0.82, 0.90, 1.0, 0.76)
+	color.a *= clampf(alpha, 0.0, 1.0)
+	canvas.draw_texture_rect(texture, rect, false, color)
+	return rect
 
 
 func _get_texture_paths() -> Array:
@@ -533,6 +570,80 @@ func _get_texture_paths() -> Array:
 
 func _prewarm_liveliness_effects() -> void:
 	ImpactFlareTextureCache.prewarm()
+
+
+func _ensure_gem_shatter_fx_host(owner: Object) -> Node:
+	if _is_valid_gem_shatter_fx_host(_gem_shatter_fx_host):
+		return _gem_shatter_fx_host
+	if not (owner is Node):
+		return null
+	var parent := owner as Node
+	var existing := parent.get_node_or_null(DefeatGemShatterFxHost.HOST_NAME)
+	if _is_valid_gem_shatter_fx_host(existing):
+		_gem_shatter_fx_host = existing
+		return _gem_shatter_fx_host
+	var host := DefeatGemShatterFxHost.new()
+	host.name = DefeatGemShatterFxHost.HOST_NAME
+	host.visible = false
+	parent.add_child(host)
+	_gem_shatter_fx_host = host
+	return _gem_shatter_fx_host
+
+
+func _is_valid_gem_shatter_fx_host(host: Node) -> bool:
+	return host != null and is_instance_valid(host) and not host.is_queued_for_deletion()
+
+
+func _set_gem_shatter_fx_active(enabled: bool) -> void:
+	if _is_valid_gem_shatter_fx_host(_gem_shatter_fx_host) and _gem_shatter_fx_host.has_method("set_active"):
+		_gem_shatter_fx_host.set_active(enabled)
+
+
+func _sync_gem_shatter_fx_host(owner: Object, view_size: Vector2, allow_create: bool) -> void:
+	var host := _gem_shatter_fx_host
+	if allow_create:
+		host = _ensure_gem_shatter_fx_host(owner)
+	if not _is_valid_gem_shatter_fx_host(host):
+		return
+	if view_size.x <= 1.0 or view_size.y <= 1.0:
+		if host.has_method("set_active"):
+			host.set_active(false)
+		return
+	var consumed: int = max_gems - remaining_gems
+	var is_breaking := active and consumed > 0 and elapsed_sec < GEM_SHATTER_DURATION_SEC
+	if not is_breaking:
+		if host.has_method("set_active"):
+			host.set_active(false)
+		return
+	if host.has_method("sync_state"):
+		host.sync_state({
+			"view_size": view_size,
+			"gem_center": _get_consumed_gem_center(view_size, consumed),
+			"progress": clampf(elapsed_sec / maxf(GEM_SHATTER_DURATION_SEC, 0.001), 0.0, 1.0),
+			"elapsed": elapsed_sec,
+			"quality_scale": 1.0,
+		}, true)
+
+
+func _get_consumed_gem_center(view_size: Vector2, consumed: int) -> Vector2:
+	var center := view_size * 0.5
+	var gem_center_y := _scaled_y(view_size, 540.0)
+	var gem_gap := minf(view_size.x * 0.095, 122.0)
+	var first_x := center.x - gem_gap
+	var index := clampi(consumed - 1, 0, max_gems - 1)
+	return Vector2(first_x + float(index) * gem_gap, gem_center_y)
+
+
+func _get_owner_view_size(owner: Object) -> Vector2:
+	if owner is CanvasItem:
+		var canvas_item := owner as CanvasItem
+		if canvas_item.is_inside_tree() and canvas_item.get_viewport() != null:
+			return canvas_item.get_viewport_rect().size
+	if owner is Node:
+		var node := owner as Node
+		if node.is_inside_tree() and node.get_viewport() != null:
+			return node.get_viewport().get_visible_rect().size
+	return Vector2.ZERO
 
 
 func _draw_ellipse_arc(canvas: CanvasItem, rect: Rect2, start_angle: float, end_angle: float, color: Color, width: float) -> void:
@@ -558,6 +669,18 @@ func _get_cached_gem_texture(broken: bool) -> Texture2D:
 
 func _get_cached_gem_shatter_texture() -> Texture2D:
 	return ProjectResourceLoader.get_cached_texture(CHANCE_GEM_SHATTER_SHEET_TEXTURE_PATH)
+
+
+func _get_static_gem_frame_size() -> Vector2:
+	var texture := _get_cached_gem_texture(false)
+	if texture == null:
+		texture = _get_cached_gem_texture(true)
+	if texture == null:
+		return GEM_SHATTER_FALLBACK_FRAME_SIZE
+	var texture_size := texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return GEM_SHATTER_FALLBACK_FRAME_SIZE
+	return texture_size
 
 
 func _fit_texture_rect(texture: Texture2D, center: Vector2, max_size: Vector2) -> Rect2:
@@ -637,6 +760,13 @@ func _scaled_font(view_size: Vector2, base_size: int) -> int:
 func _ease_out_cubic(value: float) -> float:
 	var t := clampf(value, 0.0, 1.0)
 	return 1.0 - pow(1.0 - t, 3.0)
+
+
+func _ease_in_out_cubic(value: float) -> float:
+	var t := clampf(value, 0.0, 1.0)
+	if t < 0.5:
+		return 4.0 * t * t * t
+	return 1.0 - pow(-2.0 * t + 2.0, 3.0) * 0.5
 
 
 func _get_ui_font() -> Font:

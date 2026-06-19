@@ -269,6 +269,21 @@ const PRESETS := {
 		"ember_color": Color(1.00, 0.82, 0.30, 1.0),
 		"amethyst_color": Color(0.92, 0.62, 1.00, 1.0),
 	},
+	# Defeat chance-gem shatter burst: cold cyan/blue only. High lateral
+	# distortion and fast flicker make the tendrils feel alive, while the
+	# host's intensity envelope keeps it from burying the gem core.
+	"chance_gem_shatter_cyan": {
+		"distort_strength": 0.070,
+		"lateral_strength": 0.060,
+		"jitter_strength": 0.024,
+		"bolt_flow_speed": 5.6,
+		"flicker_speed": 15.0,
+		"pulse_speed": 3.2,
+		"breath_amp": 0.32,
+		"hot_color": Color(0.82, 1.00, 1.00, 1.0),
+		"ember_color": Color(0.16, 0.42, 1.00, 1.0),
+		"amethyst_color": Color(0.04, 0.14, 0.54, 1.0),
+	},
 	"hongryun_inferno_charge": {
 		"distort_strength": 0.040,
 		"lateral_strength": 0.030,
