@@ -4,6 +4,7 @@ const Stage1ActiveItemHudSceneDrawer := preload("res://scripts/stages/stage1/sta
 const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 
 const BASE_PREWARM_MODULE_KEYS := [
 	"scoreboard_renderer",
@@ -34,6 +35,11 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 var _prewarm_step_index := 0
 var _prewarm_character_type := ""
 var _prewarm_finished_for := ""
+var _plaza_gold_store: Object = PlazaSaveStore.new()
+var _plaza_gold_cache_loaded := false
+var _plaza_gold_cache_stage := -1
+var _plaza_gold_cache_save_path := ""
+var _plaza_gold_cache_value := 0
 # _draw_stage1_pillar_ui가 매 프레임 렌더러에 넘기는 ~40키 컨텍스트 재사용 버퍼.
 # 키 집합은 고정이고 매 프레임 전 키를 다시 쓴다. 렌더러 체인
 # (stage1_pillar_ui_renderer / stage1_pillar_ui_layout /
@@ -106,6 +112,8 @@ func prewarm_assets_step(module_getter: Callable, selected_character_type: Strin
 			if pillar_orb_drawer != null and pillar_orb_drawer.has_method("prewarm_static_layers_step"):
 				if not bool(pillar_orb_drawer.prewarm_static_layers_step()):
 					return false
+		6:
+			_refresh_plaza_gold_cache_from_module_getter(module_getter)
 		_:
 			_prewarm_finished_for = character_type
 			_prewarm_step_index = 0
@@ -118,6 +126,14 @@ func reset_prewarm_cache() -> void:
 	_prewarm_step_index = 0
 	_prewarm_character_type = ""
 	_prewarm_finished_for = ""
+
+
+func sync_plaza_gold_cache(context: Dictionary, registry: Object, allow_load: bool = true) -> void:
+	var result_screen: Object = _get_result_screen_from_registry(registry, allow_load)
+	if result_screen == null:
+		return
+	var stage_id: int = int(context.get("current_stage", _plaza_gold_cache_stage))
+	_sync_plaza_gold_cache_from_result_screen(result_screen, stage_id, allow_load)
 
 
 func draw(
@@ -151,6 +167,9 @@ func draw_active_item_hud(
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
 	_sync_commando_firearm_panel_rect_for_boss_hud(context, registry, game_offset, game_size)
 	var sample_start: int = _perf_begin(perf_logger)
+	_draw_gold_hud(canvas, context, registry, game_offset, game_size)
+	_perf_end(perf_logger, "stage1.pillar.gold_hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	active_item_drawer.draw(canvas, context, registry, view_size, game_offset, game_size)
 	_perf_end(perf_logger, "stage1.pillar.active_item_hud", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -305,6 +324,23 @@ func _draw_stage1_dalji_boss_skill_hud(
 	renderer.draw(canvas, hud_context)
 
 
+func _draw_gold_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	game_offset: Vector2,
+	game_size: Vector2
+) -> void:
+	var renderer: Object = _get_cached_module(registry, "stage1_pillar_ui_renderer")
+	if renderer == null or not renderer.has_method("draw_gold_hud"):
+		return
+	var hud_context: Dictionary = {
+		"height": float(context.get("height", 750.0)),
+		"gold_hud_amount": _build_gold_hud_amount(context, registry),
+	}
+	renderer.draw_gold_hud(canvas, game_offset, game_size, hud_context)
+
+
 func build_commando_firearm_panel_state_for_boss_hud(
 	context: Dictionary,
 	registry: Object,
@@ -398,6 +434,89 @@ func _get_horn_strawberry_context(registry: Object) -> Dictionary:
 		if value is Dictionary:
 			return value
 	return {}
+
+
+func _build_gold_hud_amount(context: Dictionary, registry: Object) -> int:
+	return maxi(0, _get_cached_plaza_gold(context, registry) + _get_runtime_gold(context, registry))
+
+
+func _get_cached_plaza_gold(context: Dictionary, registry: Object) -> int:
+	var stage_id: int = int(context.get("current_stage", 1))
+	var result_screen: Object = _get_result_screen_from_registry(registry, false)
+	if result_screen != null:
+		_sync_plaza_gold_cache_from_result_screen(result_screen, stage_id, false)
+	if _plaza_gold_cache_loaded:
+		_plaza_gold_cache_stage = stage_id
+	return _plaza_gold_cache_value
+
+
+func _refresh_plaza_gold_cache_from_module_getter(module_getter: Callable) -> void:
+	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
+	if result_screen == null:
+		return
+	_sync_plaza_gold_cache_from_result_screen(result_screen, _plaza_gold_cache_stage, true)
+
+
+func _sync_plaza_gold_cache_from_result_screen(result_screen: Object, stage_id: int, allow_load: bool) -> bool:
+	var summary: Dictionary = {}
+	if result_screen.has_method("get_cached_plaza_save_summary"):
+		summary = _get_dict(result_screen.get_cached_plaza_save_summary())
+	if allow_load and result_screen.has_method("get_plaza_save_summary"):
+		summary = _get_dict(result_screen.get_plaza_save_summary())
+		var save_path: String = str(summary.get("save_path", _plaza_gold_cache_save_path)).strip_edges()
+		if save_path != "":
+			_reload_plaza_gold_cache(save_path, stage_id)
+			return true
+	return _apply_plaza_gold_cache_summary(summary, stage_id)
+
+
+func _apply_plaza_gold_cache_summary(summary: Dictionary, stage_id: int) -> bool:
+	if summary.is_empty() or not summary.has("plaza_gold"):
+		return false
+	_plaza_gold_cache_loaded = true
+	_plaza_gold_cache_stage = stage_id
+	_plaza_gold_cache_save_path = str(summary.get("save_path", "")).strip_edges()
+	_plaza_gold_cache_value = maxi(0, int(summary.get("plaza_gold", 0)))
+	return true
+
+
+func _reload_plaza_gold_cache(save_path: String, stage_id: int) -> void:
+	_plaza_gold_cache_loaded = true
+	_plaza_gold_cache_stage = stage_id
+	_plaza_gold_cache_save_path = save_path
+	_plaza_gold_cache_value = 0
+	if _plaza_gold_store == null:
+		_plaza_gold_store = PlazaSaveStore.new()
+	if save_path != "" and _plaza_gold_store.has_method("set_save_path"):
+		_plaza_gold_store.set_save_path(save_path)
+	if _plaza_gold_store.has_method("load"):
+		_plaza_gold_store.load()
+	if _plaza_gold_store.has_method("get_summary"):
+		var summary: Dictionary = _get_dict(_plaza_gold_store.get_summary())
+		_plaza_gold_cache_value = maxi(0, int(summary.get("plaza_gold", 0)))
+
+
+func _get_result_screen_from_registry(registry: Object, allow_lazy_create: bool) -> Object:
+	if registry == null:
+		return null
+	if not allow_lazy_create:
+		return _get_cached_module(registry, "stage_clear_result_screen")
+	if registry.has_method("get_instance"):
+		var instance: Variant = registry.get_instance("stage_clear_result_screen")
+		if typeof(instance) == TYPE_OBJECT and is_instance_valid(instance):
+			return instance as Object
+	return _get_cached_module(registry, "stage_clear_result_screen")
+
+
+func _get_runtime_gold(context: Dictionary, registry: Object) -> int:
+	if context.has("runtime_perk_gold"):
+		return maxi(0, int(context.get("runtime_perk_gold", 0)))
+	var runtime_gold := 0
+	var runtime_perk_state: Object = _get_cached_module(registry, "runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_snapshot"):
+		var snapshot: Dictionary = _get_dict(runtime_perk_state.get_snapshot())
+		runtime_gold = maxi(0, int(snapshot.get("gold_from_perks", 0)))
+	return runtime_gold
 
 
 func _skill_snapshot_has_skill(skill_config_snapshot: Dictionary, skill_id: String) -> bool:

@@ -7,6 +7,15 @@ const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_hos
 const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
 
 const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
+const GOLD_HUD_MIN_SOURCE_SIZE := Vector2(100.0, 40.0)
+const GOLD_HUD_TOP_MARGIN := 8.0
+const GOLD_HUD_SIDE_MARGIN := 8.0
+const GOLD_HUD_PILLAR_GAP := 12.0
+const GOLD_HUD_COIN_SIZE := 28.0
+const GOLD_HUD_FONT_SIZE := 24
+const GOLD_HUD_MIN_FONT_SIZE := 13
+const GOLD_HUD_TEXT_GAP := 8.0
+const GOLD_HUD_TEXT_RIGHT_PAD := 12.0
 const SENSOR_FRAME_ARC_SEGMENTS := 16
 const SENSOR_FRAME_ARC_SEGMENTS_LOD := 12
 const SENSOR_PROGRESS_ARC_SEGMENTS := 16
@@ -21,6 +30,7 @@ var layout_helper: Object = Stage1PillarUiLayout.new()
 var status_context_builder: Object = Stage1PillarStatusOrbContextBuilder.new()
 var _boost_fx_host_pending: Node = null
 var _firearm_rainbow_fx_host_pending: Node = null
+var _gold_text_size_cache: Dictionary = {}
 
 
 func build_commando_firearm_panel_state(game_offset: Vector2, game_size: Vector2, context: Dictionary) -> Dictionary:
@@ -233,6 +243,114 @@ func _draw_commando_firearm_selector(
 			var weapon_id: String = str(highlight_state.get("weapon_id", panel_state.get("current_weapon_id", "")))
 			firearm_rainbow_fx_host.sync_panel(panel_rect, ratio, weapon_id, time_seconds)
 	renderer.draw(canvas, panel_center, scale_factor, context)
+
+
+func build_gold_hud_rect(game_offset: Vector2, game_size: Vector2, context: Dictionary = {}) -> Rect2:
+	var scale_factor: float = _get_gold_hud_scale(game_size, context)
+	var text: String = format_gold_amount(int(context.get("gold_hud_amount", 0)))
+	var font_size: int = max(1, int(round(float(GOLD_HUD_FONT_SIZE) * scale_factor)))
+	var text_width: float = _get_gold_text_size(text, font_size).x
+	var coin_size: float = GOLD_HUD_COIN_SIZE * scale_factor
+	var min_size: Vector2 = GOLD_HUD_MIN_SOURCE_SIZE * scale_factor
+	var wanted_width: float = max(
+		min_size.x,
+		GOLD_HUD_SIDE_MARGIN * scale_factor + coin_size + GOLD_HUD_TEXT_GAP * scale_factor + text_width + GOLD_HUD_TEXT_RIGHT_PAD * scale_factor
+	)
+	var wanted_height: float = min_size.y
+	var top_margin: float = GOLD_HUD_TOP_MARGIN * scale_factor
+	var side_margin: float = GOLD_HUD_SIDE_MARGIN * scale_factor
+	var gap: float = GOLD_HUD_PILLAR_GAP * scale_factor
+	var rect_x: float
+	if game_offset.x >= wanted_width + gap + side_margin:
+		rect_x = game_offset.x - wanted_width - gap
+	else:
+		var max_inside_width: float = max(64.0 * scale_factor, game_size.x - side_margin * 2.0)
+		wanted_width = min(wanted_width, max_inside_width)
+		rect_x = game_offset.x + side_margin
+	return Rect2(Vector2(rect_x, game_offset.y + top_margin), Vector2(wanted_width, wanted_height))
+
+
+func format_gold_amount(amount: int) -> String:
+	var raw := str(maxi(0, amount))
+	var formatted := ""
+	while raw.length() > 3:
+		formatted = "," + raw.substr(raw.length() - 3, 3) + formatted
+		raw = raw.substr(0, raw.length() - 3)
+	return raw + formatted
+
+
+func draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, context: Dictionary) -> void:
+	_draw_gold_hud(canvas, game_offset, game_size, context)
+
+
+func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, context: Dictionary) -> void:
+	if canvas == null:
+		return
+	var amount: int = int(context.get("gold_hud_amount", 0))
+	var text: String = format_gold_amount(amount)
+	var rect: Rect2 = build_gold_hud_rect(game_offset, game_size, context)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var scale_factor: float = _get_gold_hud_scale(game_size, context)
+	canvas.draw_rect(rect, Color(0.05, 0.045, 0.035, 0.62), true)
+	canvas.draw_rect(rect, Color(0.62, 0.48, 0.20, 0.55), false, max(1.0, scale_factor))
+
+	var coin_size: float = GOLD_HUD_COIN_SIZE * scale_factor
+	var coin_center := Vector2(rect.position.x + GOLD_HUD_SIDE_MARGIN * scale_factor + coin_size * 0.5, rect.get_center().y)
+	_draw_gold_coin_icon(canvas, coin_center, coin_size, scale_factor)
+
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var text_left: float = coin_center.x + coin_size * 0.5 + GOLD_HUD_TEXT_GAP * scale_factor
+	var max_text_width: float = max(8.0, rect.end.x - text_left - GOLD_HUD_TEXT_RIGHT_PAD * scale_factor)
+	var font_size: int = _fit_gold_font_size(font, text, int(round(float(GOLD_HUD_FONT_SIZE) * scale_factor)), max_text_width)
+	var text_size: Vector2 = _get_gold_text_size(text, font_size)
+	var baseline := Vector2(
+		text_left,
+		rect.position.y + (rect.size.y - text_size.y) * 0.5 + font.get_ascent(font_size)
+	)
+	var text_shadow_offset := Vector2(0.0, max(1.0, 1.0 * scale_factor))
+	canvas.draw_string(font, baseline + text_shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.30))
+	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.86, 0.32, 1.0))
+
+
+func _draw_gold_coin_icon(canvas: CanvasItem, center: Vector2, size: float, scale_factor: float) -> void:
+	# Clean flat coin: gold rim, gold face, one subtle inner edge ring and a
+	# single soft highlight. No drop shadow / busy crescent so it reads tidy at
+	# HUD scale.
+	var radius: float = max(4.0, size * 0.5)
+	canvas.draw_circle(center, radius, Color(0.78, 0.55, 0.14, 1.0))
+	canvas.draw_circle(center, max(1.0, radius - 1.8 * scale_factor), Color(1.0, 0.82, 0.26, 1.0))
+	canvas.draw_arc(center, max(1.0, radius - 3.0 * scale_factor), 0.0, TAU, 20, Color(0.80, 0.56, 0.16, 0.45), max(1.0, 1.0 * scale_factor), true)
+	canvas.draw_circle(center + Vector2(-radius * 0.26, -radius * 0.30), max(1.0, radius * 0.26), Color(1.0, 0.95, 0.66, 0.55))
+
+
+func _fit_gold_font_size(font: Font, text: String, base_size: int, max_width: float) -> int:
+	var size: int = max(GOLD_HUD_MIN_FONT_SIZE, base_size)
+	while size > GOLD_HUD_MIN_FONT_SIZE and _get_gold_text_size(text, size).x > max_width:
+		size -= 1
+	return size
+
+
+func _get_gold_text_size(text: String, font_size: int) -> Vector2:
+	var cache_key := "%s|%d" % [text, font_size]
+	var cached: Variant = _gold_text_size_cache.get(cache_key, null)
+	if cached is Vector2:
+		return cached
+	var font: Font = ThemeDB.fallback_font
+	var text_size := Vector2(float(text.length() * font_size) * 0.58, float(font_size))
+	if font != null:
+		text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	if _gold_text_size_cache.size() >= 32:
+		_gold_text_size_cache.clear()
+	_gold_text_size_cache[cache_key] = text_size
+	return text_size
+
+
+func _get_gold_hud_scale(game_size: Vector2, context: Dictionary) -> float:
+	var height: float = max(1.0, float(context.get("height", 750.0)))
+	return clamp(game_size.y / height, 0.45, 3.0)
 
 
 func _get_commando_firearm_panel_center(
