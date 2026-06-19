@@ -37,6 +37,8 @@ func step_motion(
 		_process_trampoline(step_result, scene, context, deps)
 	elif event == "horn_strawberry_field":
 		_process_horn_strawberry_field(step_result, scene, deps)
+	elif event == "lingpet_bone_barrier":
+		_process_lingpet_bone_barrier(step_result, scene, deps)
 	elif event == "holy_barrier":
 		_process_holy_barrier(step_result, scene, context, deps)
 	elif event == "adversity_armor":
@@ -96,6 +98,9 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_ball_collision_context"):
 		step_context.merge(mythic_item_runtime.get_ball_collision_context(), true)
+	var lingpet_egg_runtime: Object = deps.get("lingpet_egg_runtime", null)
+	if lingpet_egg_runtime != null and lingpet_egg_runtime.has_method("get_ball_collision_context"):
+		step_context.merge(lingpet_egg_runtime.get_ball_collision_context(), true)
 	if context.has("viper_dual_glitch_state"):
 		step_context["viper_dual_glitch_state"] = str(context.get("viper_dual_glitch_state", "idle"))
 	if context.has("viper_dual_glitch_clone_rects"):
@@ -192,6 +197,25 @@ func _process_horn_strawberry_field(step_result: Dictionary, scene: Dictionary, 
 			deps
 		)
 	_register_ball_hit_pulse(step_result, scene, deps, "horn_strawberry_field", 0.72)
+
+
+func _process_lingpet_bone_barrier(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
+	var original_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var built := bool(step_result.get("built", true))
+	var next_vel := _get_vector2(step_result, "ball_vel", original_vel)
+	scene["ball_vel"] = next_vel
+	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
+
+	var lingpet_runtime: Object = deps.get("lingpet_egg_runtime", null)
+	if lingpet_runtime != null and lingpet_runtime.has_method("notify_lingpet_bone_barrier_hit"):
+		lingpet_runtime.notify_lingpet_bone_barrier_hit(
+			int(step_result.get("barrier_id", 0)),
+			_get_vector2(step_result, "impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
+			next_vel,
+			built,
+			deps.get("registry", null)
+		)
+	_register_ball_hit_pulse(step_result, scene, deps, "lingpet_bone_barrier", 0.72 if built else 0.38)
 
 
 func _process_adversity_armor(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:

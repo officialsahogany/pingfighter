@@ -7,6 +7,7 @@ const EVENT_PLAYER_PADDLE := "player_paddle"
 const EVENT_BOSS_PADDLE := "boss_paddle"
 const EVENT_HOLY_BARRIER := "holy_barrier"
 const EVENT_HORN_STRAWBERRY_FIELD := "horn_strawberry_field"
+const EVENT_LINGPET_BONE_BARRIER := "lingpet_bone_barrier"
 const EVENT_BRICK_WALL := "brick_wall"
 const EVENT_TRAMPOLINE := "trampoline"
 const EVENT_SAND_TERRAIN := "sand_terrain"
@@ -340,6 +341,56 @@ func check_horn_strawberry_field(ball_pos: Vector2, ball_vel: Vector2, ball_size
 			"impact_pos": Vector2(ball_pos.x, barrier_rect.position.y),
 			"barrier_id": int(barrier.get("id", 0)),
 			"reflect_speed_mult": max(1.0, float(barrier.get("reflect_speed_mult", 1.05))),
+		}
+	return {}
+
+
+func check_lingpet_bone_barrier(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, context: Dictionary) -> Dictionary:
+	if not bool(context.get("lingpet_bone_barrier_active", false)):
+		return {}
+	var barriers: Array = context.get("lingpet_bone_barrier_barriers", [])
+	if barriers.is_empty():
+		return {}
+	var ball_rect := Rect2(
+		ball_pos.x - ball_size * 0.5,
+		ball_pos.y - ball_size * 0.5,
+		ball_size,
+		ball_size
+	)
+	for barrier_value in barriers:
+		if not (barrier_value is Dictionary):
+			continue
+		var barrier: Dictionary = barrier_value
+		var barrier_rect: Rect2 = _as_rect2(barrier.get("rect", Rect2()), Rect2())
+		if barrier_rect.size.x <= 0.0 or barrier_rect.size.y <= 0.0:
+			continue
+		if not barrier_rect.intersects(ball_rect):
+			continue
+		var built := bool(barrier.get("built", false))
+		var reflect_speed_mult := maxf(1.0, float(barrier.get("reflect_speed_mult", 1.05)))
+		var hit_offset_vel_scale := float(barrier.get("hit_offset_vel_scale", 0.03))
+		var next_vel := ball_vel
+		var impact_y := clampf(ball_pos.y, barrier_rect.position.y, barrier_rect.end.y)
+		if built:
+			var reflect_down := ball_pos.y >= barrier_rect.get_center().y
+			var reflected_y := absf(ball_vel.y) * reflect_speed_mult
+			if not reflect_down:
+				reflected_y = -reflected_y
+				ball_pos.y = barrier_rect.position.y - ball_size * 0.5
+				impact_y = barrier_rect.position.y
+			else:
+				ball_pos.y = barrier_rect.end.y + ball_size * 0.5
+				impact_y = barrier_rect.end.y
+			var hit_offset := ball_pos.x - barrier_rect.get_center().x
+			next_vel = Vector2(ball_vel.x + hit_offset * hit_offset_vel_scale, reflected_y)
+		return {
+			"event": EVENT_LINGPET_BONE_BARRIER,
+			"ball_pos": ball_pos,
+			"ball_vel": next_vel,
+			"impact_pos": Vector2(ball_pos.x, impact_y),
+			"barrier_id": int(barrier.get("id", 0)),
+			"built": built,
+			"reflect_speed_mult": reflect_speed_mult,
 		}
 	return {}
 

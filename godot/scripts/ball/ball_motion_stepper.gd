@@ -43,6 +43,11 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 			horn_strawberry_field_result["ball_pos"] = horn_strawberry_field_result.get("ball_pos", ball_pos)
 			return horn_strawberry_field_result
 
+		var lingpet_bone_barrier_result: Dictionary = collision_detector.check_lingpet_bone_barrier(ball_pos, ball_vel, ball_size, context)
+		if not lingpet_bone_barrier_result.is_empty():
+			lingpet_bone_barrier_result["ball_pos"] = lingpet_bone_barrier_result.get("ball_pos", ball_pos)
+			return lingpet_bone_barrier_result
+
 		var trampoline_result: Dictionary = collision_detector.check_trampoline(ball_pos, ball_vel, ball_size, context)
 		if not trampoline_result.is_empty():
 			trampoline_result["ball_pos"] = trampoline_result.get("ball_pos", ball_pos)
