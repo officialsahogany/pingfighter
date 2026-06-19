@@ -131,10 +131,22 @@ func _exit_tree() -> void:
 	character_select_bgm_loop_enabled = false
 	_stop_click_motion_voice()
 	_stop_confirm_intro_voice()
-	if character_select_bgm_player != null:
-		character_select_bgm_player.stop()
-		character_select_bgm_player.stream = null
-		character_select_bgm_player = null
+	_dispose_audio_player(
+		character_select_bgm_player,
+		Callable(self, "_on_character_select_bgm_finished")
+	)
+	character_select_bgm_player = null
+	_dispose_audio_player(click_motion_voice_player)
+	click_motion_voice_player = null
+	_dispose_audio_player(confirm_intro_voice_player)
+	confirm_intro_voice_player = null
+	if confirm_intro_exit_flash_overlay != null:
+		var flash_finished_callback := Callable(self, "_on_confirm_intro_exit_flash_finished")
+		if confirm_intro_exit_flash_overlay.has_signal("finished") and confirm_intro_exit_flash_overlay.is_connected("finished", flash_finished_callback):
+			confirm_intro_exit_flash_overlay.disconnect("finished", flash_finished_callback)
+		if confirm_intro_exit_flash_overlay.has_method("cancel"):
+			confirm_intro_exit_flash_overlay.call("cancel")
+		confirm_intro_exit_flash_overlay = null
 	if preview != null:
 		var one_shot_callback := Callable(self, "_on_preview_one_shot_finished")
 		if preview.has_signal("one_shot_finished") and preview.is_connected("one_shot_finished", one_shot_callback):
@@ -142,6 +154,10 @@ func _exit_tree() -> void:
 		if preview.has_method("clear_runtime_state"):
 			preview.call("clear_runtime_state")
 	preview = null
+	characters.clear()
+	visible_indices.clear()
+	hover_lifts.clear()
+	hover_scales.clear()
 	portrait_textures.clear()
 	skill_icon_textures.clear()
 	full_body_live2d_textures.clear()
@@ -150,6 +166,11 @@ func _exit_tree() -> void:
 	skill_icon_rects.clear()
 	skill_config_instances.clear()
 	confirm_intro_character.clear()
+	_lingpet_affinity_store = null
+	_lingpet_ring_core_icon_renderer = null
+	if entry_background_prewarm != null and entry_background_prewarm.has_method("clear_runtime_state"):
+		entry_background_prewarm.clear_runtime_state()
+	entry_background_prewarm = null
 
 
 func _process(delta: float) -> void:
@@ -977,6 +998,19 @@ func _stop_confirm_intro_voice() -> void:
 	if confirm_intro_voice_player != null:
 		confirm_intro_voice_player.stop()
 		confirm_intro_voice_player.stream = null
+
+
+func _dispose_audio_player(player: AudioStreamPlayer, finished_callback: Callable = Callable()) -> void:
+	if player == null:
+		return
+	if finished_callback.is_valid() and player.is_connected("finished", finished_callback):
+		player.disconnect("finished", finished_callback)
+	if player.playing:
+		player.stop()
+	player.stream = null
+	if player.get_parent() != null:
+		player.get_parent().remove_child(player)
+	player.free()
 
 
 func _draw_background(view_size: Vector2, backdrop_hole: Rect2 = Rect2()) -> void:

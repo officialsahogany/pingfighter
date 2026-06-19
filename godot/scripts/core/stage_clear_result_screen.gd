@@ -42,6 +42,7 @@ var _plaza_node: Control
 var _plaza_scene_packed: PackedScene
 var _plaza_prewarm_complete: bool = false
 var _plaza_prewarm_stage: int = -1
+var _background_plaza_prewarm_enabled: bool = true
 var _plaza_save_store: Object = PlazaSaveStore.new()
 var _stage_clear_gold_transfer_consumed: bool = false
 var _stage_clear_ap_grant_consumed: bool = false
@@ -64,6 +65,7 @@ func show_from_scoreboard(
 
 	current_stage = _get_current_stage(owner)
 	_reset_stage5_for_result(registry, current_stage)
+	_reset_stage6_for_result(registry, current_stage)
 	_pending_reset_callback = reset_game_callback
 	_pending_exit_callback = exit_to_menu_callback
 	_pending_owner = owner
@@ -121,9 +123,7 @@ func reset() -> void:
 	_last_plaza_progress_summary = {}
 	_clear_pending_starpoint_choice()
 	_clear_active_starpoint_choice_tracking()
-	if _scene_node != null and is_instance_valid(_scene_node):
-		_scene_node.queue_free()
-	_scene_node = null
+	_free_result_scene()
 	_free_plaza_scene()
 	_plaza_prewarm_complete = false
 	_plaza_prewarm_stage = -1
@@ -164,7 +164,8 @@ func handle_input(event: InputEvent, _owner: Object, _registry: Object, _view_si
 		return true
 	if _scene_node.has_method("handle_result_input"):
 		_scene_node.handle_result_input(event)
-		_sync_box_perk_choice_rewards()
+		if active and _has_result_scene():
+			_sync_box_perk_choice_rewards()
 	return true
 
 
@@ -215,6 +216,13 @@ func prepare_stage_start(owner: Object, registry: Object, stage_id: int = -1) ->
 func set_plaza_save_path_for_test(path: String) -> void:
 	if _plaza_save_store != null and _plaza_save_store.has_method("set_save_path"):
 		_plaza_save_store.set_save_path(path)
+
+
+func set_background_plaza_prewarm_enabled_for_test(enabled: bool) -> void:
+	_background_plaza_prewarm_enabled = enabled
+	if not enabled:
+		_plaza_prewarm_complete = false
+		_plaza_prewarm_stage = -1
 
 
 func get_plaza_save_summary() -> Dictionary:
@@ -283,8 +291,7 @@ func _spawn_result_scene(owner: Object) -> bool:
 	if not (owner is Node):
 		return false
 	if _scene_node != null and is_instance_valid(_scene_node):
-		_scene_node.queue_free()
-		_scene_node = null
+		_free_result_scene()
 
 	var packed: PackedScene = _get_result_scene_packed()
 	if packed == null:
@@ -401,6 +408,8 @@ func _get_plaza_scene_packed() -> PackedScene:
 
 
 func _prewarm_plaza_assets_step() -> bool:
+	if not _background_plaza_prewarm_enabled:
+		return false
 	if _plaza_prewarm_complete and _plaza_prewarm_stage == current_stage:
 		return true
 	_plaza_prewarm_stage = current_stage
@@ -856,7 +865,7 @@ func _finish_exit_to_menu() -> void:
 	_apply_stage_clear_progress_once(false)
 	active = false
 	var exit_cb: Callable = _pending_exit_callback
-	var reset_cb: Callable = _pending_reset_callback
+	var reset_cb: Callable = _pending_reset_callback if not exit_cb.is_valid() else Callable()
 	_pending_reset_callback = Callable()
 	_pending_exit_callback = Callable()
 	_pending_owner = null
@@ -868,6 +877,8 @@ func _finish_exit_to_menu() -> void:
 		exit_cb.call()
 	elif reset_cb.is_valid():
 		reset_cb.call()
+	exit_cb = Callable()
+	reset_cb = Callable()
 
 
 func _apply_stage_clear_progress_once(grant_ap: bool) -> Dictionary:
@@ -906,6 +917,8 @@ func _get_plaza_save_path() -> String:
 
 func _free_result_scene() -> void:
 	if _scene_node != null and is_instance_valid(_scene_node):
+		if _scene_node.has_method("clear_runtime_references"):
+			_scene_node.clear_runtime_references()
 		_scene_node.queue_free()
 	_scene_node = null
 
@@ -1002,6 +1015,14 @@ func _reset_stage5_for_result(registry: Object, stage_id: int) -> void:
 			stage5_hongryun_actor_renderer.reset_round_fx()
 		elif stage5_hongryun_actor_renderer.has_method("reset"):
 			stage5_hongryun_actor_renderer.reset()
+
+
+func _reset_stage6_for_result(registry: Object, stage_id: int) -> void:
+	if stage_id != 6:
+		return
+	var stage6_tetriser_state: Object = _get_instance(registry, "stage6_tetriser_state")
+	if stage6_tetriser_state != null and stage6_tetriser_state.has_method("reset_for_result"):
+		stage6_tetriser_state.reset_for_result()
 
 
 func _get_array(value: Variant) -> Array:

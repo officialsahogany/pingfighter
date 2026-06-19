@@ -9,17 +9,9 @@ const BGM_BUS_NAME := "BGM"
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
-class QuitRequestSink:
-	extends RefCounted
-
-	var quit_calls: int = 0
-
-	func request_quit() -> void:
-		quit_calls += 1
-
-
 var failure_count: int = 0
 var menu: Control = null
+var quit_calls: int = 0
 
 
 func _init() -> void:
@@ -211,8 +203,8 @@ func _run() -> void:
 			settings_overlay != null and settings_overlay.has_method("is_active") and not bool(settings_overlay.is_active()),
 			"ESC from main-menu settings should close the settings overlay instead of showing the pause panel"
 		)
-	var quit_sink := QuitRequestSink.new()
-	menu.set("application_quit_callback", Callable(quit_sink, "request_quit"))
+	quit_calls = 0
+	menu.set("application_quit_callback", Callable(self, "_request_quit"))
 	if quit_button != null and quit_overlay != null:
 		quit_button.pressed.emit()
 		await process_frame
@@ -230,11 +222,10 @@ func _run() -> void:
 			quit_yes_button.pressed.emit()
 		await process_frame
 		_expect(not quit_overlay.visible, "yes button should close the quit confirmation overlay before quitting")
-		_expect(quit_sink.quit_calls == 1, "yes button should trigger exactly one quit request")
+		_expect(quit_calls == 1, "yes button should trigger exactly one quit request")
 		_expect(bool(menu.get("transitioning")), "confirmed quit should lock the menu transition state")
 		menu.set("transitioning", false)
 	menu.set("application_quit_callback", Callable())
-	quit_sink = null
 	if bgm_player != null:
 		_send_b_to_menu()
 		await process_frame
@@ -286,9 +277,16 @@ func _run() -> void:
 				character_bgm_player.playing,
 				"B key should resume BGM from the character-select screen"
 			)
+			for _i in range(30):
+				await process_frame
 	await _cleanup_main_menu_reference()
 	await _cleanup_current_scene()
 	ProjectResourceLoader.clear_caches()
+	for _i in range(120):
+		ProjectResourceLoader.try_resolve_finished_threaded_prewarm()
+		await process_frame
+	ProjectResourceLoader.clear_caches()
+	_clear_root_bgm_meta()
 	_finish()
 
 
@@ -301,7 +299,7 @@ func _finish() -> void:
 
 
 func _quit_with_code(exit_code: int) -> void:
-	for _i in range(6):
+	for _i in range(60):
 		await process_frame
 	quit(exit_code)
 
@@ -359,6 +357,10 @@ func _finish_intro_reveal() -> void:
 		reveal.call("_finish_reveal")
 
 
+func _request_quit() -> void:
+	quit_calls += 1
+
+
 func _cleanup_current_scene() -> void:
 	var scene := current_scene
 	if scene == null:
@@ -384,6 +386,9 @@ func _cleanup_main_menu_reference() -> void:
 		_cleanup_audio_player(menu.get("main_menu_bgm_player") as AudioStreamPlayer)
 		_cleanup_audio_player(menu.get("start_transition_sfx_player") as AudioStreamPlayer)
 		menu.set("application_quit_callback", Callable())
+		var overlay: Object = menu.get("main_menu_settings_overlay")
+		if overlay != null and overlay.has_method("close"):
+			overlay.close()
 		var registry: Object = menu.get("main_menu_settings_registry")
 		if registry != null:
 			if "audio_settings" in registry:
@@ -407,6 +412,16 @@ func _cleanup_audio_player(player: AudioStreamPlayer) -> void:
 	if player.playing:
 		player.stop()
 	player.stream = null
+
+
+func _clear_root_bgm_meta() -> void:
+	var tree_root := get_root()
+	if tree_root == null:
+		return
+	if tree_root.has_meta("bgm_muted"):
+		tree_root.remove_meta("bgm_muted")
+	if tree_root.has_meta("main_menu_bgm_muted"):
+		tree_root.remove_meta("main_menu_bgm_muted")
 
 
 func _expect_background_rect_fills_viewport(rect: Rect2, view_size: Vector2, label: String) -> void:

@@ -761,8 +761,12 @@ func _drain_fullframe_sheet_load() -> void:
 		return
 	var progress_values: Array = []
 	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	var resource: Resource = null
 	if status == ResourceLoader.THREAD_LOAD_LOADED:
-		ResourceLoader.load_threaded_get(path)
+		resource = ResourceLoader.load_threaded_get(path)
+	var texture := resource as Texture2D
+	if texture != null:
+		ProjectResourceLoader.store_texture(path, texture)
 
 
 func _finish_fullframe_sheet_load(path: String, config: Dictionary, texture: Texture2D) -> void:
@@ -869,17 +873,17 @@ func _draw_preview_vfx_data_motes(accent: Color, glow: Color, floor_y: float) ->
 	var travel_h: float = max(1.0, floor_y - top_y)
 	var mote_count := 30
 	for mote_index in range(mote_count):
-		var seed := float(mote_index)
-		var speed: float = 0.045 + _preview_vfx_hash(seed, 1.3) * 0.040
-		var phase: float = fposmod(elapsed * speed + _preview_vfx_hash(seed, 4.7), 1.0)
+		var mote_seed := float(mote_index)
+		var speed: float = 0.045 + _preview_vfx_hash(mote_seed, 1.3) * 0.040
+		var phase: float = fposmod(elapsed * speed + _preview_vfx_hash(mote_seed, 4.7), 1.0)
 		var y: float = floor_y - travel_h * phase
-		var base_x: float = size.x * lerp(0.18, 0.82, _preview_vfx_hash(seed, 9.1))
-		var sway: float = sin(elapsed * (0.62 + _preview_vfx_hash(seed, 2.1) * 0.55) + seed) * size.x * 0.020
+		var base_x: float = size.x * lerp(0.18, 0.82, _preview_vfx_hash(mote_seed, 9.1))
+		var sway: float = sin(elapsed * (0.62 + _preview_vfx_hash(mote_seed, 2.1) * 0.55) + mote_seed) * size.x * 0.020
 		var point := Vector2(base_x + sway, y)
 		var fade: float = sin(phase * PI)
-		var radius: float = 1.0 + _preview_vfx_hash(seed, 6.2) * 1.8
+		var radius: float = 1.0 + _preview_vfx_hash(mote_seed, 6.2) * 1.8
 		var alpha: float = fade * (0.10 + interaction_hover_amount * 0.055)
-		var mote_color := glow.lerp(accent, _preview_vfx_hash(seed, 3.4))
+		var mote_color := glow.lerp(accent, _preview_vfx_hash(mote_seed, 3.4))
 		draw_circle(point, radius + 1.8, Color(mote_color.r, mote_color.g, mote_color.b, alpha * 0.22), true)
 		draw_circle(point, radius, Color(mote_color.r, mote_color.g, mote_color.b, alpha), true)
 		if mote_index % 5 == 0:

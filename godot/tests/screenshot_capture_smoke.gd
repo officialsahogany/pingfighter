@@ -48,11 +48,16 @@ func _run() -> void:
 	# back through the deferred completion path while the node is alive.
 	var image := Image.create(4, 4, false, Image.FORMAT_RGB8)
 	image.fill(Color(0.2, 0.4, 0.6))
-	var absolute_path: String = OS.get_user_data_dir() + "/screenshot_capture_smoke.png"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://.tmp"))
+	var target_path := "res://.tmp/screenshot_capture_smoke_%d_%d.png" % [
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
+	var absolute_path: String = ProjectSettings.globalize_path(target_path)
 	if FileAccess.file_exists(absolute_path):
 		DirAccess.remove_absolute(absolute_path)
 	var task_id: int = WorkerThreadPool.add_task(
-		Callable(capture, "_save_image_task").bind(image, absolute_path, absolute_path),
+		Callable(capture, "_save_image_task").bind(image, target_path, absolute_path),
 		false,
 		"screenshot smoke save"
 	)
@@ -60,7 +65,7 @@ func _run() -> void:
 	await process_frame
 	_expect(FileAccess.file_exists(absolute_path), "background save task should write the PNG")
 	_expect(
-		capture.last_saved_path == absolute_path,
+		capture.last_saved_path == target_path,
 		"deferred completion should record last_saved_path on the main thread"
 	)
 	var loaded: Image = Image.load_from_file(absolute_path)

@@ -6,6 +6,7 @@ const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_screen.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
 class FakeOwner:
@@ -44,26 +45,24 @@ class FakeRegistry:
 		return null
 
 
-class ResetSink:
-	extends RefCounted
-
-	var reset_calls := 0
-	var exit_calls := 0
-
-	func reset_game() -> void:
-		reset_calls += 1
-
-	func exit_to_menu() -> void:
-		exit_calls += 1
-
-
 var registry := FakeRegistry.new()
+var reset_calls := 0
+var exit_calls := 0
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_f9_forces_player_stage_clear()
 	_verify_f9_exit_to_menu_from_visible_scroll()
 	_verify_f9_is_blocked_during_stage_transition_loading()
+	registry = null
+	StageClearResultScene.reset_prewarm_assets_for_test()
+	ProjectResourceLoader.clear_caches()
+	for _i in range(20):
+		await process_frame
 	print("stage_clear_f9_shortcut_smoke: ok")
 	quit(0)
 
@@ -72,7 +71,8 @@ func _verify_f9_forces_player_stage_clear() -> void:
 	registry = FakeRegistry.new()
 	var owner := FakeOwner.new()
 	var input := BattleSceneInputController.new()
-	var sink := ResetSink.new()
+	reset_calls = 0
+	exit_calls = 0
 	var event := InputEventKey.new()
 	event.pressed = true
 	event.keycode = KEY_F9
@@ -87,8 +87,8 @@ func _verify_f9_forces_player_stage_clear() -> void:
 			"battle_initialized": true,
 			"stage_landing_intro_started": true,
 			"mobile_touch_scene_ready": false,
-			"reset_game_after_stage_clear": Callable(sink, "reset_game"),
-			"exit_to_menu_after_stage_clear": Callable(sink, "exit_to_menu"),
+			"reset_game_after_stage_clear": Callable(self, "_reset_game"),
+			"exit_to_menu_after_stage_clear": Callable(self, "_exit_to_menu"),
 		}
 	)
 
@@ -114,7 +114,7 @@ func _verify_f9_forces_player_stage_clear() -> void:
 			registry.result_screen.handle_input(enter_event, owner, registry, Vector2(1920.0, 1080.0)),
 			"Enter during box phase should be consumed (advance opens next box)"
 		)
-	_expect(sink.reset_calls == 0, "Enter during box phase must not yet reset the game")
+	_expect(reset_calls == 0, "Enter during box phase must not yet reset the game")
 
 	for _i in range(80):
 		registry.result_screen.update(0.05)
@@ -123,15 +123,16 @@ func _verify_f9_forces_player_stage_clear() -> void:
 		registry.result_screen.handle_input(enter_event, owner, registry, Vector2(1920.0, 1080.0)),
 		"Enter on visible scroll should be consumed"
 	)
-	_expect(sink.reset_calls == 1, "Enter on visible scroll should invoke the provided reset callback once")
-	owner.free()
+	_expect(reset_calls == 1, "Enter on visible scroll should invoke the provided reset callback once")
+	_cleanup_owner(owner)
 
 
 func _verify_f9_exit_to_menu_from_visible_scroll() -> void:
 	registry = FakeRegistry.new()
 	var owner := FakeOwner.new()
 	var input := BattleSceneInputController.new()
-	var sink := ResetSink.new()
+	reset_calls = 0
+	exit_calls = 0
 	var event := InputEventKey.new()
 	event.pressed = true
 	event.keycode = KEY_F9
@@ -146,8 +147,8 @@ func _verify_f9_exit_to_menu_from_visible_scroll() -> void:
 			"battle_initialized": true,
 			"stage_landing_intro_started": true,
 			"mobile_touch_scene_ready": false,
-			"reset_game_after_stage_clear": Callable(sink, "reset_game"),
-			"exit_to_menu_after_stage_clear": Callable(sink, "exit_to_menu"),
+			"reset_game_after_stage_clear": Callable(self, "_reset_game"),
+			"exit_to_menu_after_stage_clear": Callable(self, "_exit_to_menu"),
 		}
 	)
 	_ensure_result_scene_spawned(owner)
@@ -170,9 +171,9 @@ func _verify_f9_exit_to_menu_from_visible_scroll() -> void:
 		registry.result_screen.handle_input(escape_event, owner, registry, Vector2(1920.0, 1080.0)),
 		"ESC on a debug-opened visible scroll should be consumed"
 	)
-	_expect(sink.exit_calls == 1, "ESC on a debug-opened visible scroll should invoke the exit callback once")
-	_expect(sink.reset_calls == 0, "ESC on a debug-opened visible scroll must not reset the game")
-	owner.free()
+	_expect(exit_calls == 1, "ESC on a debug-opened visible scroll should invoke the exit callback once")
+	_expect(reset_calls == 0, "ESC on a debug-opened visible scroll must not reset the game")
+	_cleanup_owner(owner)
 
 
 func _verify_f9_is_blocked_during_stage_transition_loading() -> void:
@@ -201,11 +202,19 @@ func _verify_f9_is_blocked_during_stage_transition_loading() -> void:
 	_expect(int(score_snapshot.get("player_score", 0)) == 0, "F9 should not force score during stage-transition loading")
 	_expect(not registry.scoreboard_state.is_active(), "stage-transition loading should block debug scoreboard snapshots")
 	_expect(not registry.result_screen.is_active(), "stage-transition loading should block opening the result screen")
-	owner.free()
+	_cleanup_owner(owner)
 
 
 func _get_module(key: String) -> Object:
 	return registry.get_instance(key)
+
+
+func _reset_game() -> void:
+	reset_calls += 1
+
+
+func _exit_to_menu() -> void:
+	exit_calls += 1
 
 
 func _ensure_result_scene_spawned(owner: Node) -> void:
@@ -215,6 +224,13 @@ func _ensure_result_scene_spawned(owner: Node) -> void:
 			return
 		registry.result_screen.update(0.016)
 	_expect(owner.get_child_count() > 0, "stage-clear debug result scene should attach after staged prewarm")
+
+
+func _cleanup_owner(owner: Node) -> void:
+	if registry != null and registry.result_screen != null and registry.result_screen.has_method("reset"):
+		registry.result_screen.reset()
+	if owner != null and is_instance_valid(owner):
+		owner.free()
 
 
 func _expect(condition: bool, message: String) -> void:

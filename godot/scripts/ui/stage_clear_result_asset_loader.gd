@@ -224,6 +224,7 @@ static func reset_result_prewarm_assets_for_test() -> void:
 	_prewarm_result_asset_status.clear()
 	_prewarm_result_asset_character_type = "smasher"
 	_prewarm_result_asset_stage_id = 1
+	ResultBoxOpenFxHost.reset_prewarm_assets_for_test()
 
 
 static func get_result_prewarm_asset_status() -> Dictionary:

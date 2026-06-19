@@ -6,6 +6,8 @@ const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_s
 const StageClearResultRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
 
 
 class FakeOwner:
@@ -339,6 +341,10 @@ class FakeRewardResolver:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_module_registration()
 	_verify_stage_clear_box_kind_odds()
 	_verify_scene_shell_prewarm_is_light()
@@ -352,18 +358,29 @@ func _init() -> void:
 	_verify_starpoint_choice_waits_on_result_screen()
 	_verify_mythic_box_starts_result_screen_acquisition_cinematic()
 	_verify_advance_through_boxes_to_next_stage()
-	_verify_exit_to_menu_from_visible_scroll()
 	_verify_escape_ignored_while_boxes_remain()
+	_verify_exit_to_menu_from_visible_scroll()
 	_verify_scoreboard_flow_waits_for_result_screen()
 	_verify_scoreboard_flow_falls_back_to_reset()
 
+	StageClearResultScene.reset_prewarm_assets_for_test()
+	PlazaScene.reset_prewarm_assets_for_test()
+	ProjectResourceLoader.clear_caches()
+	for _i in range(120):
+		ProjectResourceLoader.try_resolve_finished_threaded_prewarm()
+		await process_frame
+	ProjectResourceLoader.clear_caches()
+	for _i in range(60):
+		await process_frame
 	print("stage_clear_result_screen_smoke: ok")
 	quit(0)
 
 
 func _verify_module_registration() -> void:
-	var spec: Dictionary = GameplayCoreModuleCatalog.new().get_spec("stage_clear_result_screen")
+	var catalog := GameplayCoreModuleCatalog.new()
+	var spec: Dictionary = catalog.get_spec("stage_clear_result_screen")
 	_expect(str(spec.get("path", "")) == "res://scripts/core/stage_clear_result_screen.gd", "result screen should be registered in the core module catalog")
+	catalog = null
 
 
 func _verify_stage_clear_box_kind_odds() -> void:
@@ -375,9 +392,16 @@ func _verify_stage_clear_box_kind_odds() -> void:
 	_expect(builder.roll_stage_clear_box_kind(0.23) == "normal", "normal boxes should occupy the remaining 77 percent")
 
 
+func _make_result_screen() -> Object:
+	var screen: Object = StageClearResultScreen.new()
+	if screen.has_method("set_background_plaza_prewarm_enabled_for_test"):
+		screen.set_background_plaza_prewarm_enabled_for_test(false)
+	return screen
+
+
 func _verify_scene_shell_prewarm_is_light() -> void:
 	StageClearResultScene.reset_prewarm_assets_for_test()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	_expect(screen.prewarm_scene_shell(), "result screen shell prewarm should load the packed scene")
 	var status: Dictionary = screen.get("_prewarm_assets_status")
 	_expect(bool(status.get("result_scene_packed", false)), "result screen shell prewarm should mark the scene packed")
@@ -390,7 +414,7 @@ func _verify_scene_shell_prewarm_is_light() -> void:
 
 func _verify_prewarm_assets_are_staged() -> void:
 	StageClearResultScene.reset_prewarm_assets_for_test()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var calls := 0
 	while not bool(screen.prewarm_assets_step()):
 		calls += 1
@@ -423,12 +447,12 @@ func _verify_prewarm_assets_are_staged() -> void:
 	_expect(bool(status.get("stage2_boss_defeat_click_reaction_sheet", false)), "Stage 2 result prewarm should load the Stage 2 boss click sheet")
 	_expect(not status.has("dalji_defeat_sheet"), "Stage 2 result prewarm should skip the Dalji base sheet")
 	_expect(not status.has("dalji_click_reaction_sheet"), "Stage 2 result prewarm should skip the Dalji click sheet")
-	stage2_owner.free()
+	_cleanup_result_screen(screen, stage2_owner)
 
 
 func _verify_prewarm_assets_follow_selected_character() -> void:
 	StageClearResultScene.reset_prewarm_assets_for_test()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var owner := FakeOwner.new()
 	owner.selected_character_type = "soldier"
 	var calls := 0
@@ -446,7 +470,7 @@ func _verify_prewarm_assets_follow_selected_character() -> void:
 		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "unsupported result victory characters should complete fallback prewarm")
 	status = screen.get("_prewarm_assets_status")
 	_expect(str(status.get("selected_character_type", "")) == "smasher", "unsupported result victory characters should prewarm the Smasher fallback sheet")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_screen_defers_unwarmed_scene_spawn() -> void:
@@ -454,7 +478,7 @@ func _verify_screen_defers_unwarmed_scene_spawn() -> void:
 	var score_state := FakeScoreState.new()
 	var registry := FakeRegistry.new(score_state)
 	var owner := FakeOwner.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 
 	_expect(
 		screen.show_from_scoreboard(owner, registry, Callable()),
@@ -473,7 +497,7 @@ func _verify_screen_defers_unwarmed_scene_spawn() -> void:
 	status = screen.get_status()
 	_expect(bool(status.get("scene_ready", false)), "staged result screen should report readiness after spawn")
 	_expect(not bool(status.get("spawn_pending", true)), "staged result screen should clear pending spawn after attach")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_screen_opens_for_player_win() -> void:
@@ -482,7 +506,7 @@ func _verify_screen_opens_for_player_win() -> void:
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sink := CallbackSink.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
 	screen.set("_reward_resolver", reward_resolver)
 
@@ -517,7 +541,7 @@ func _verify_screen_opens_for_player_win() -> void:
 	_expect(screen.handle_input(key_event, owner, registry, Vector2(1920.0, 1080.0)), "Enter should be consumed by the result screen")
 	_expect(screen.is_active(), "Enter while boxes remain should keep the result screen active (advance opens boxes)")
 	_expect(sink.reset_calls == 0, "Enter during the box phase must not invoke the next-stage callback yet")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_box_open_audio_routes_from_screen() -> void:
@@ -527,7 +551,7 @@ func _verify_box_open_audio_routes_from_screen() -> void:
 	var registry := FakeRegistry.new(score_state, null, null, audio)
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 
 	_expect(
 		screen.show_from_scoreboard(owner, registry, Callable()),
@@ -540,21 +564,21 @@ func _verify_box_open_audio_routes_from_screen() -> void:
 	_expect(bool(scene_status.get("box_open_audio_ready", false)), "result screen should pass game audio into the result scene")
 	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
 	_expect(audio.result_box_open_calls == 1, "opening a result box should play the routed box-open SFX")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_screen_ignores_boss_win() -> void:
 	var score_state := FakeScoreState.new()
 	score_state.player_score = 2
 	score_state.boss_score = 5
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var owner := FakeOwner.new()
 	_expect(
 		not screen.show_from_scoreboard(owner, FakeRegistry.new(score_state), Callable()),
 		"stage clear result screen should not open for a boss match win"
 	)
 	_expect(not screen.is_active(), "boss win should leave result screen inactive")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_stage_summary_includes_stage_inventory() -> void:
@@ -585,7 +609,7 @@ func _verify_stage_summary_includes_stage_inventory() -> void:
 		"dash_lightweight": 1,
 	}
 	var sink := CallbackSink.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	screen.prepare_stage_start(owner, registry, 2)
 
 	owner.passive_item_inventory.append({
@@ -610,7 +634,7 @@ func _verify_stage_summary_includes_stage_inventory() -> void:
 	_expect(int(scene_status.get("stage_perk_count", 0)) == 1, "result scroll should include perks acquired during this stage")
 	_expect(int(scene_status.get("item_reward_count", 0)) == 2, "item summary should combine stage passive items and remaining active items")
 	_expect(int(scene_status.get("perk_reward_count", 0)) == 1, "perk summary should include stage perk gains before box rewards")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_starpoint_choice_waits_on_result_screen() -> void:
@@ -623,7 +647,7 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sink := CallbackSink.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
 	screen.set("_reward_resolver", reward_resolver)
 
@@ -684,7 +708,7 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	_expect(int(perk_source_counts.get("box", 0)) == 1, "selected result-screen perks should keep the box reward source")
 	var perk_info: Dictionary = scene_status.get("perk_info", {}) if scene_status.get("perk_info", {}) is Dictionary else {}
 	_expect(str(perk_info.get("kind", "")) == "perk", "result perk info should describe the selected perk after a box starpoint choice")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_mythic_box_starts_result_screen_acquisition_cinematic() -> void:
@@ -694,7 +718,7 @@ func _verify_mythic_box_starts_result_screen_acquisition_cinematic() -> void:
 	var registry := FakeRegistry.new(score_state, null, null, null, mythic_runtime)
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
 	reward_resolver.reward_type = "mythic"
 	screen.set("_reward_resolver", reward_resolver)
@@ -733,7 +757,7 @@ func _verify_mythic_box_starts_result_screen_acquisition_cinematic() -> void:
 	mythic_runtime.acquisition_active = true
 	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
 	_expect(mythic_runtime.input_calls == 2, "result screen should route controller input to the mythic acquisition cinematic first")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_advance_through_boxes_to_next_stage() -> void:
@@ -742,7 +766,7 @@ func _verify_advance_through_boxes_to_next_stage() -> void:
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sink := CallbackSink.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
 	screen.set("_reward_resolver", reward_resolver)
 
@@ -775,7 +799,7 @@ func _verify_advance_through_boxes_to_next_stage() -> void:
 	var grant_summary: Dictionary = status.get("last_grant_summary", {}) if status.get("last_grant_summary", {}) is Dictionary else {}
 	_expect(bool(status.get("rewards_granted", false)), "next-stage confirmation should mark rewards granted")
 	_expect(int(grant_summary.get("attempted", 0)) == box_count, "grant summary should include all opened box rewards")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_exit_to_menu_from_visible_scroll() -> void:
@@ -784,7 +808,7 @@ func _verify_exit_to_menu_from_visible_scroll() -> void:
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sink := CallbackSink.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
 	screen.set("_reward_resolver", reward_resolver)
 
@@ -806,7 +830,7 @@ func _verify_exit_to_menu_from_visible_scroll() -> void:
 	_expect(sink.exit_calls == 1, "ESC on visible scroll must invoke the exit-to-menu callback exactly once")
 	_expect(sink.reset_calls == 0, "ESC on visible scroll must not invoke the next-stage callback")
 	_expect(reward_resolver.grant_calls == box_count, "exit confirmation should not re-grant immediately handled starpoints")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _verify_escape_ignored_while_boxes_remain() -> void:
@@ -815,7 +839,7 @@ func _verify_escape_ignored_while_boxes_remain() -> void:
 	var owner := FakeOwner.new()
 	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sink := CallbackSink.new()
-	var screen: Object = StageClearResultScreen.new()
+	var screen: Object = _make_result_screen()
 
 	screen.show_from_scoreboard(
 		owner, registry,
@@ -828,7 +852,7 @@ func _verify_escape_ignored_while_boxes_remain() -> void:
 	_expect(screen.is_active(), "ESC during box phase must not close the result screen")
 	_expect(sink.reset_calls == 0, "ESC during box phase must not invoke the next-stage callback")
 	_expect(sink.exit_calls == 0, "ESC during box phase must not invoke the exit callback")
-	owner.free()
+	_cleanup_result_screen(screen, owner)
 
 
 func _make_key_event(keycode: Key) -> InputEventKey:
@@ -837,6 +861,13 @@ func _make_key_event(keycode: Key) -> InputEventKey:
 	event.keycode = keycode
 	event.physical_keycode = keycode
 	return event
+
+
+func _cleanup_result_screen(screen: Object, owner: Node = null) -> void:
+	if screen != null and screen.has_method("reset"):
+		screen.reset()
+	if owner != null and is_instance_valid(owner):
+		owner.free()
 
 
 func _ensure_result_scene_spawned(screen: Object, owner: Node) -> void:
@@ -850,9 +881,11 @@ func _ensure_result_scene_spawned(screen: Object, owner: Node) -> void:
 
 func _verify_scoreboard_flow_waits_for_result_screen() -> void:
 	var sink := CallbackSink.new()
-	MatchScoreboardFlowController.new().update_scoreboard(
+	var controller := MatchScoreboardFlowController.new()
+	var scoreboard := FakeScoreboard.new()
+	controller.update_scoreboard(
 		0.0,
-		{"scoreboard_state": FakeScoreboard.new()},
+		{"scoreboard_state": scoreboard},
 		{
 			"show_stage_clear_result": Callable(sink, "show_stage_clear_result"),
 			"reset_game": Callable(sink, "reset_game"),
@@ -861,14 +894,19 @@ func _verify_scoreboard_flow_waits_for_result_screen() -> void:
 	)
 	_expect(sink.show_calls == 1, "scoreboard reset result should ask the result screen to open")
 	_expect(sink.reset_calls == 0, "scoreboard flow should not reset while the result screen is open")
+	scoreboard = null
+	controller = null
+	sink = null
 
 
 func _verify_scoreboard_flow_falls_back_to_reset() -> void:
 	var sink := CallbackSink.new()
 	sink.show_result = false
-	MatchScoreboardFlowController.new().update_scoreboard(
+	var controller := MatchScoreboardFlowController.new()
+	var scoreboard := FakeScoreboard.new()
+	controller.update_scoreboard(
 		0.0,
-		{"scoreboard_state": FakeScoreboard.new()},
+		{"scoreboard_state": scoreboard},
 		{
 			"show_stage_clear_result": Callable(sink, "show_stage_clear_result"),
 			"reset_game": Callable(sink, "reset_game"),
@@ -877,6 +915,9 @@ func _verify_scoreboard_flow_falls_back_to_reset() -> void:
 	)
 	_expect(sink.show_calls == 1, "scoreboard flow should try the result screen before fallback reset")
 	_expect(sink.reset_calls == 1, "scoreboard flow should reset when no result screen opens")
+	scoreboard = null
+	controller = null
+	sink = null
 
 
 func _expect(condition: bool, message: String) -> void:

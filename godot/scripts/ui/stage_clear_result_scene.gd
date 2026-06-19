@@ -261,7 +261,34 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
-	_fx_host_pool.tear_down()
+	set_process(false)
+	if _fx_host_pool != null:
+		_fx_host_pool.tear_down()
+	clear_runtime_references()
+	_perk_catalog = null
+	_perk_icon_renderer = null
+	_runtime_perk_overlay_renderer = null
+	_font_cache = null
+	_fx_host_pool = null
+
+
+func clear_runtime_references() -> void:
+	set_process(false)
+	_stop_dalji_click_voice()
+	confirmed_callback = Callable()
+	exit_to_menu_callback = Callable()
+	reward_roll_callback = Callable()
+	immediate_reward_callback = Callable()
+	enter_plaza_callback = Callable()
+	_runtime_perk_state = null
+	_runtime_perk_catalog = null
+	_runtime_perk_icon_renderer = null
+	_runtime_perk_owner = null
+	_runtime_perk_registry = null
+	_mythic_item_runtime = null
+	_treasure_hunt_runtime = null
+	_game_audio = null
+	_dalji_click_voice_stream = null
 
 
 func update_result_scene(delta: float) -> void:
@@ -432,12 +459,20 @@ func _open_next_idle_box() -> bool:
 
 func _exit_to_menu() -> void:
 	_stop_dalji_click_voice()
-	StageClearResultCallbackHandler.invoke_exit_to_menu(exit_to_menu_callback, confirmed_callback)
+	var exit_callback := exit_to_menu_callback
+	var fallback_confirm_callback := confirmed_callback if not exit_callback.is_valid() else Callable()
+	exit_to_menu_callback = Callable()
+	confirmed_callback = Callable()
+	StageClearResultCallbackHandler.invoke_exit_to_menu(exit_callback, fallback_confirm_callback)
+	exit_callback = Callable()
+	fallback_confirm_callback = Callable()
 
 
 func _enter_plaza() -> void:
 	_stop_dalji_click_voice()
-	StageClearResultCallbackHandler.invoke_enter_plaza(enter_plaza_callback)
+	var plaza_callback := enter_plaza_callback
+	enter_plaza_callback = Callable()
+	StageClearResultCallbackHandler.invoke_enter_plaza(plaza_callback)
 
 
 func _handle_button_click(mouse_position: Vector2) -> bool:
@@ -1049,7 +1084,9 @@ func _stop_dalji_click_voice() -> void:
 
 func _confirm() -> void:
 	_stop_dalji_click_voice()
-	StageClearResultCallbackHandler.invoke_confirm(confirmed_callback)
+	var confirm_callback := confirmed_callback
+	confirmed_callback = Callable()
+	StageClearResultCallbackHandler.invoke_confirm(confirm_callback)
 
 
 func _apply_standalone_preview_defaults() -> void:

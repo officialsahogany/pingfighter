@@ -136,6 +136,7 @@ var start_transition_elapsed: float = 0.0
 var start_prompt_ribbon: Control = null
 var start_prompt_label: Label = null
 var application_quit_callback: Callable = Callable()
+var _start_transition_tweens: Array[Tween] = []
 
 
 func _ready() -> void:
@@ -177,7 +178,16 @@ func _ensure_main_menu_background() -> void:
 
 
 func _exit_tree() -> void:
+	set_process(false)
+	start_transition_active = false
+	_kill_start_transition_tweens()
+	application_quit_callback = Callable()
+	if main_menu_settings_overlay != null and main_menu_settings_overlay.has_method("close"):
+		main_menu_settings_overlay.close()
+	main_menu_settings_overlay = null
+	main_menu_settings_registry = null
 	_stop_main_menu_bgm()
+	_stop_start_transition_sfx()
 
 
 func _process(delta: float) -> void:
@@ -332,6 +342,8 @@ func _change_to_character_select() -> void:
 	if tree == null:
 		transitioning = false
 		return
+	_stop_start_transition_sfx()
+	_stop_main_menu_bgm()
 	var next_scene_path := character_select_scene_path
 	if next_scene_path == "":
 		next_scene_path = DEFAULT_CHARACTER_SELECT_SCENE_PATH
@@ -631,6 +643,7 @@ func _start_character_select_entry_transition() -> void:
 	start_transition_active = true
 	start_transition_elapsed = 0.0
 	_set_menu_buttons_disabled(true)
+	_kill_start_transition_tweens()
 	_start_background_zoom_tween()
 	_start_button_stack_fade_tween()
 	_start_ambient_layer_fade_tween()
@@ -655,6 +668,7 @@ func _start_background_zoom_tween() -> void:
 		bg_size = get_viewport_rect().size
 	background_rect.pivot_offset = bg_size * 0.5
 	var tween: Tween = create_tween()
+	_track_start_transition_tween(tween)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_CUBIC)
 	tween.tween_property(
@@ -670,6 +684,7 @@ func _start_button_stack_fade_tween() -> void:
 		return
 	button_stack.modulate = Color(1.0, 1.0, 1.0, button_stack.modulate.a)
 	var tween: Tween = create_tween()
+	_track_start_transition_tween(tween)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.tween_property(
@@ -684,6 +699,7 @@ func _start_ambient_layer_fade_tween() -> void:
 	if ambient_layer == null:
 		return
 	var tween: Tween = create_tween()
+	_track_start_transition_tween(tween)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.tween_property(
@@ -699,6 +715,7 @@ func _start_bgm_duck_tween() -> void:
 		return
 	var current_db: float = main_menu_bgm_player.volume_db
 	var tween: Tween = create_tween()
+	_track_start_transition_tween(tween)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.tween_property(
@@ -910,17 +927,40 @@ func _play_start_transition_sound() -> void:
 	start_transition_sfx_player.play()
 
 
+func _track_start_transition_tween(tween: Tween) -> void:
+	if tween == null:
+		return
+	_start_transition_tweens.append(tween)
+
+
+func _kill_start_transition_tweens() -> void:
+	for tween in _start_transition_tweens:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_start_transition_tweens.clear()
+
+
 func _stop_main_menu_bgm() -> void:
 	if main_menu_bgm_player == null:
 		return
 	if main_menu_bgm_player.playing:
 		main_menu_bgm_player.stop()
+	main_menu_bgm_player.stream = null
 	# If this player was the boot-flow preload (parented to the SceneTree
 	# root rather than the menu), free it so it does not linger.
 	var tree: SceneTree = get_tree()
 	if tree != null and main_menu_bgm_player.get_parent() == tree.root:
 		main_menu_bgm_player.queue_free()
-		main_menu_bgm_player = null
+	main_menu_bgm_player = null
+
+
+func _stop_start_transition_sfx() -> void:
+	if start_transition_sfx_player == null:
+		return
+	if start_transition_sfx_player.playing:
+		start_transition_sfx_player.stop()
+	start_transition_sfx_player.stream = null
+	start_transition_sfx_player = null
 
 
 func _handle_bgm_toggle_input(event: InputEvent) -> bool:

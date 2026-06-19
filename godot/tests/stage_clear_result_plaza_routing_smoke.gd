@@ -91,7 +91,7 @@ func _verify_plaza_delays_result_reset_callback() -> void:
 	root.add_child(owner)
 	var sink := CallbackSink.new()
 	var screen := StageClearResultScreen.new()
-	var save_path := "user://stage_clear_result_plaza_routing_smoke.cfg"
+	var save_path := _smoke_save_path("routing")
 	_cleanup_save(save_path)
 	screen.set_plaza_save_path_for_test(save_path)
 	var fake_result := FakeResultScene.new()
@@ -140,6 +140,14 @@ func _cleanup_save(path: String) -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	if FileAccess.file_exists(backup_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+
+
+func _smoke_save_path(slug: String) -> String:
+	return "res://.tmp/stage_clear_result_plaza_routing_smoke_%s_%d_%d.cfg" % [
+		slug,
+		OS.get_process_id(),
+		Time.get_ticks_usec(),
+	]
 
 
 func _expect(condition: bool, message: String) -> void:

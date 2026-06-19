@@ -5,8 +5,10 @@ const ActiveItemEffectController := preload("res://scripts/items/active_item_eff
 const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
 const ActiveItemPickupRouter := preload("res://scripts/items/active_item_pickup_router.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
+const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 var _pickup_feedback_count := 0
@@ -46,10 +48,17 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_store_field_item_routes()
 	_verify_collect_field_item_routes()
 	_verify_pickup_feedback_handoff()
 	_verify_mythic_pickup_starts_cinematic()
+	await _drain_frames(8)
+	_clear_runtime_caches_for_test()
+	await _drain_frames(30)
 
 	if _failures.is_empty():
 		print("active_item_pickup_router_smoke: ok")
@@ -70,6 +79,7 @@ func _verify_store_field_item_routes() -> void:
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new(mythic_runtime)
 	var active_slots: Array = []
+	root.add_child(owner)
 
 	var banana_item: Dictionary = active_catalog.build_item_by_name("banana")
 	_expect(router.store_field_item(
@@ -130,7 +140,9 @@ func _verify_store_field_item_routes() -> void:
 	_expect(str(stored_gold_digger.get("qualified_display_name", "")) == "필드고정 골드디거", "inventory should preserve the qualified display name")
 	var routed_gold_digger: Dictionary = gold_digger_field_item.get("item_data", {})
 	_expect(str(routed_gold_digger.get("qualified_display_name", "")) == str(stored_gold_digger.get("qualified_display_name", "")), "stored field item should keep the exact inventory display identity")
-	owner.free()
+	mythic_runtime.reset_round(registry)
+	effect_controller.reset()
+	owner.queue_free()
 
 
 func _verify_collect_field_item_routes() -> void:
@@ -142,6 +154,7 @@ func _verify_collect_field_item_routes() -> void:
 
 	var active_owner := FakeOwner.new()
 	var active_registry := FakeRegistry.new(MythicItemRuntime.new())
+	root.add_child(active_owner)
 	var banana_item: Dictionary = active_catalog.build_item_by_name("banana")
 	_expect(router.collect_field_item_to_owner_slots(
 		{"item_data": banana_item},
@@ -158,6 +171,7 @@ func _verify_collect_field_item_routes() -> void:
 	var passive_owner := FakeOwner.new()
 	var passive_runtime: Object = MythicItemRuntime.new()
 	var passive_registry := FakeRegistry.new(passive_runtime)
+	root.add_child(passive_owner)
 	var lucky_item: Dictionary = mythic_catalog.build_item_by_name("lucky_coin")
 	lucky_item["rolls"] = {"double_spawn_pct": 12.0}
 	lucky_item = mythic_catalog.sync_roll_fields(lucky_item, false)
@@ -173,8 +187,11 @@ func _verify_collect_field_item_routes() -> void:
 	_expect(passive_owner.lucky_coin_equipped, "boomerang passive pickup should auto-equip")
 	_expect(_inventory_has_item(passive_runtime, "lucky_coin"), "boomerang passive pickup should be owned")
 	_expect(_pickup_feedback_count == 2, "boomerang passive pickup should trigger pickup feedback")
-	active_owner.free()
-	passive_owner.free()
+	active_registry.mythic_runtime.reset_round(active_registry)
+	passive_runtime.reset_round(passive_registry)
+	effect_controller.reset()
+	active_owner.queue_free()
+	passive_owner.queue_free()
 
 
 func _verify_pickup_feedback_handoff() -> void:
@@ -192,6 +209,7 @@ func _verify_pickup_feedback_handoff() -> void:
 		effect_controller
 	)
 	_expect(effect_controller.has_pickup_effect(), "pickup router should hand pickup feedback into the effect controller")
+	effect_controller.reset()
 
 	var passive_effect_controller: Object = ActiveItemEffectController.new()
 	var gold_digger_item: Dictionary = mythic_catalog.build_item_by_name("gold_digger")
@@ -205,6 +223,7 @@ func _verify_pickup_feedback_handoff() -> void:
 		passive_effect_controller
 	)
 	_expect(passive_effect_controller.pickup_effect.get("display_name", "") == "골드디거", "passive pickup effect should hide the quality prefix")
+	passive_effect_controller.reset()
 
 
 func _verify_mythic_pickup_starts_cinematic() -> void:
@@ -215,6 +234,7 @@ func _verify_mythic_pickup_starts_cinematic() -> void:
 	var runtime: Object = MythicItemRuntime.new()
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new(runtime)
+	root.add_child(owner)
 	var cape_item: Dictionary = mythic_catalog.build_item_by_name("heavenly_cape")
 	cape_item["rolls"] = {"cooldown_reduction": 12.0}
 	cape_item = mythic_catalog.sync_roll_fields(cape_item, false)
@@ -230,7 +250,19 @@ func _verify_mythic_pickup_starts_cinematic() -> void:
 	), "mythic pickup should route into mythic runtime")
 	_expect(runtime.is_acquisition_cinematic_active(), "mythic field pickup should start the acquisition cinematic")
 	_expect(_pickup_feedback_count == before_pickup_count, "mythic field pickup should suppress the small pickup feedback popup")
-	owner.free()
+	runtime.reset_round(registry)
+	effect_controller.reset()
+	owner.queue_free()
+
+
+func _drain_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await process_frame
+
+
+func _clear_runtime_caches_for_test() -> void:
+	MythicAcquisitionCinematic.reset_for_test()
+	ProjectResourceLoader.clear_caches()
 
 
 func _record_pickup_feedback(_field_item: Dictionary, _registry: Object) -> void:
