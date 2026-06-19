@@ -199,6 +199,8 @@ func _show_defeat_continue_screen(
 		continue_screen = _get_instance(registry, "defeat_chance_gems_soft_defeat_screen")
 	if continue_screen == null:
 		return false
+	if continue_screen.has_method("prewarm_assets"):
+		continue_screen.prewarm_assets()
 	var continue_callback := Callable(self, "reset_for_continue").bind(
 		owner,
 		registry,
