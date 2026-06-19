@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SkillOrbTooltipPreviewDrawPrimitives := preload("res://scripts/hud/skill_orb_tooltip_preview_draw_primitives.gd")
+
 const SMASHER_EFFECT_PREVIEW_TYPES := {
 	"drive_curve": true,
 	"smash_orange": true,
@@ -49,6 +51,8 @@ const VIPER_EFFECT_INPUT_OVERLAY := {
 }
 const VIPER_INPUT_CYCLE_MS := 2400.0
 const VIPER_INPUT_VISIBLE_RATIO := 0.45
+
+var _draw_primitives: Object = SkillOrbTooltipPreviewDrawPrimitives.new()
 
 func draw(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color, progress: float) -> void:
 	_draw_effect_preview(canvas, rect, effect_type, color, progress)
@@ -241,16 +245,16 @@ func _draw_projectile_cyan_preview(canvas: CanvasItem, rect: Rect2, color: Color
 	if local_progress < 0.35:
 		var phase: float = local_progress / 0.35
 		var anchors: Dictionary = _draw_smasher_mini_character(canvas, center_x, char_y, {"block": block, "paddle_lift": phase * 0.6})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
 		if not paddle.is_empty():
-			var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+			var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 			var p_radius: float = float(paddle.get("radius", 6.0))
 			var charge := p_center + Vector2(0.0, -p_radius - 6.0)
 			var core_r: float = max(1.0, 2.0 + phase * 5.0)
 			for ring_idx in range(3):
 				var ring_r: float = core_r + float(3 - ring_idx) * 2.0
 				var ring_alpha: float = max(40.0 / 255.0, (90.0 - float(ring_idx) * 25.0) * phase / 255.0)
-				canvas.draw_arc(charge, ring_r, 0.0, TAU, 36, _alpha(color, ring_alpha), 1.0)
+				canvas.draw_arc(charge, ring_r, 0.0, TAU, 36, _draw_primitives.alpha(color, ring_alpha), 1.0)
 			canvas.draw_circle(charge, core_r, color)
 			canvas.draw_circle(charge + Vector2(-1.0, -1.0), max(1.0, core_r * 0.5), Color(220.0 / 255.0, 250.0 / 255.0, 1.0))
 			for spark_idx in range(6):
@@ -258,18 +262,18 @@ func _draw_projectile_cyan_preview(canvas: CanvasItem, rect: Rect2, color: Color
 				var spark_dist: float = max(2.0, 14.0 - phase * 12.0)
 				var spark_pos: Vector2 = charge + Vector2(cos(spark_angle), sin(spark_angle)) * spark_dist
 				var spark_alpha: float = max(60.0, 180.0 * (1.0 - phase) + 120.0 * phase) / 255.0
-				canvas.draw_circle(spark_pos, 2.0, _alpha(color, spark_alpha))
+				canvas.draw_circle(spark_pos, 2.0, _draw_primitives.alpha(color, spark_alpha))
 	elif local_progress < 0.55:
 		var anchors: Dictionary = _draw_smasher_mini_character(canvas, center_x, char_y, {"block": block, "paddle_lift": 0.6})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
 		if not paddle.is_empty():
-			var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+			var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 			var p_radius: float = float(paddle.get("radius", 6.0))
 			var charge := p_center + Vector2(0.0, -p_radius - 6.0)
 			var pulse: float = 1.0 + 0.18 * sin(float(time_ms) * 0.025)
 			var core_r: float = max(2.0, 7.0 * pulse)
 			for ring_idx in range(4):
-				canvas.draw_arc(charge, core_r + float(ring_idx) * 3.0, 0.0, TAU, 36, _alpha(color, max(30.0, 130.0 - float(ring_idx) * 26.0) / 255.0), 1.0)
+				canvas.draw_arc(charge, core_r + float(ring_idx) * 3.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(30.0, 130.0 - float(ring_idx) * 26.0) / 255.0), 1.0)
 			canvas.draw_circle(charge, core_r, color)
 			canvas.draw_circle(charge + Vector2(-1.0, -1.0), 3.0, Color(235.0 / 255.0, 1.0, 1.0))
 		_draw_preview_keycap(canvas, Vector2(center_x - 55.0, char_y - 2.0 * block), "W")
@@ -280,8 +284,8 @@ func _draw_projectile_cyan_preview(canvas: CanvasItem, rect: Rect2, color: Color
 			"swing_ratio": min(1.0, phase * 1.8),
 			"paddle_lift": max(0.0, 0.6 - phase),
 		})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
-		var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
+		var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 		var p_radius: float = float(paddle.get("radius", 6.0))
 		var start := p_center + Vector2(0.0, -p_radius - 4.0)
 		var end_y: float = preview_top + 6.0
@@ -293,9 +297,9 @@ func _draw_projectile_cyan_preview(canvas: CanvasItem, rect: Rect2, color: Color
 			if t <= 0.0:
 				continue
 			var trail_pos := Vector2(start.x + sin(t * TAU) * 5.0, start.y + (end_y - start.y) * t)
-			canvas.draw_circle(trail_pos, max(2.0, 6.0 - float(trail_idx) * 0.5), _alpha(color, max(40.0, 200.0 - float(trail_idx) * 22.0) / 255.0))
-		canvas.draw_arc(ball_pos, 12.0, 0.0, TAU, 36, _alpha(color, max(30.0, 120.0 * (1.0 - phase * 0.6)) / 255.0), 1.0)
-		canvas.draw_arc(ball_pos, 18.0, 0.0, TAU, 36, _alpha(color, max(20.0, 90.0 * (1.0 - phase * 0.6)) / 255.0), 1.0)
+			canvas.draw_circle(trail_pos, max(2.0, 6.0 - float(trail_idx) * 0.5), _draw_primitives.alpha(color, max(40.0, 200.0 - float(trail_idx) * 22.0) / 255.0))
+		canvas.draw_arc(ball_pos, 12.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(30.0, 120.0 * (1.0 - phase * 0.6)) / 255.0), 1.0)
+		canvas.draw_arc(ball_pos, 18.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(20.0, 90.0 * (1.0 - phase * 0.6)) / 255.0), 1.0)
 		_draw_preview_ball(canvas, ball_pos, 6.0, [Color(0.0, 200.0 / 255.0, 1.0), Color(140.0 / 255.0, 235.0 / 255.0, 1.0), Color(235.0 / 255.0, 1.0, 1.0)], color)
 
 
@@ -330,16 +334,16 @@ func _draw_heal_green_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> 
 			var ring_r: float = 8.0 + phase * 18.0 + float(ring_idx) * 4.0
 			var ring_alpha: float = max(0.0, 180.0 * (1.0 - phase) - float(ring_idx) * 30.0) / 255.0
 			if ring_alpha > 0.0:
-				canvas.draw_arc(burst, ring_r, 0.0, TAU, 36, _alpha(color, ring_alpha), 2.0)
+				canvas.draw_arc(burst, ring_r, 0.0, TAU, 36, _draw_primitives.alpha(color, ring_alpha), 2.0)
 		for p_idx in range(8):
 			var p_angle: float = TAU * float(p_idx) / 8.0 + float(time_ms) * 0.003
 			var p_dist: float = 12.0 + phase * 18.0
 			var p_pos := burst + Vector2(cos(p_angle) * p_dist, sin(p_angle) * p_dist * 0.5 - phase * 12.0)
-			canvas.draw_circle(p_pos, 3.0, _alpha(color, max(60.0, 220.0 * (1.0 - phase * 0.5)) / 255.0))
+			canvas.draw_circle(p_pos, 3.0, _draw_primitives.alpha(color, max(60.0, 220.0 * (1.0 - phase * 0.5)) / 255.0))
 		var cross_size: float = 6.0 + phase * 4.0
 		var cross_alpha: float = max(120.0, 255.0 * (1.0 - phase * 0.4)) / 255.0
-		canvas.draw_line(burst + Vector2(0.0, -cross_size - 6.0), burst + Vector2(0.0, cross_size - 6.0), _alpha(color, cross_alpha), 3.0)
-		canvas.draw_line(burst + Vector2(-cross_size, -6.0), burst + Vector2(cross_size, -6.0), _alpha(color, cross_alpha), 3.0)
+		canvas.draw_line(burst + Vector2(0.0, -cross_size - 6.0), burst + Vector2(0.0, cross_size - 6.0), _draw_primitives.alpha(color, cross_alpha), 3.0)
+		canvas.draw_line(burst + Vector2(-cross_size, -6.0), burst + Vector2(cross_size, -6.0), _draw_primitives.alpha(color, cross_alpha), 3.0)
 		_draw_preview_keycap(canvas, Vector2(center_x - 55.0, char_y - 8.0), "W")
 	else:
 		var phase: float = (local_progress - 0.55) / 0.45
@@ -361,8 +365,8 @@ func _draw_heal_green_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> 
 				continue
 			var lx: float = start_x + (end_x - start_x) * line_t
 			var ly: float = char_y - 6.0 - float(line_idx) * 5.0
-			canvas.draw_line(Vector2(lx - 12.0 - float(line_idx) * 3.0, ly), Vector2(lx, ly), _alpha(color, max(40.0, 200.0 - float(line_idx) * 32.0) / 255.0), 2.0)
-		_draw_ellipse(canvas, Rect2(Vector2(char_x - 12.0, char_y - 4.0), Vector2(24.0, 6.0)), _alpha(color, max(30.0, 120.0 * (1.0 - phase * 0.5)) / 255.0), true)
+			canvas.draw_line(Vector2(lx - 12.0 - float(line_idx) * 3.0, ly), Vector2(lx, ly), _draw_primitives.alpha(color, max(40.0, 200.0 - float(line_idx) * 32.0) / 255.0), 2.0)
+		_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(char_x - 12.0, char_y - 4.0), Vector2(24.0, 6.0)), _draw_primitives.alpha(color, max(30.0, 120.0 * (1.0 - phase * 0.5)) / 255.0), true)
 
 
 func _draw_cleanse_light_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
@@ -391,7 +395,7 @@ func _draw_cleanse_light_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 			var rr: float = burst_r - float(ring_idx) * 6.0
 			if rr <= 0.0:
 				continue
-			canvas.draw_arc(burst, rr, 0.0, TAU, 36, _alpha(color, max(30.0, 220.0 * (1.0 - phase * 0.4) - float(ring_idx) * 30.0) / 255.0), 2.0)
+			canvas.draw_arc(burst, rr, 0.0, TAU, 36, _draw_primitives.alpha(color, max(30.0, 220.0 * (1.0 - phase * 0.4) - float(ring_idx) * 30.0) / 255.0), 2.0)
 		for i in range(10):
 			var ang: float = TAU * float(i) / 10.0 + float(time_ms) * 0.004
 			canvas.draw_line(burst + Vector2(cos(ang), sin(ang)) * 8.0, burst + Vector2(cos(ang), sin(ang)) * (8.0 + phase * 32.0), Color(1.0, 1.0, 220.0 / 255.0, max(80.0, 255.0 * (1.0 - phase * 0.6)) / 255.0), 2.0)
@@ -405,7 +409,7 @@ func _draw_cleanse_light_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 		for ring_idx in range(3):
 			var rx: float = (22.0 + float(ring_idx) * 4.0) * aura_pulse
 			var ry: float = (28.0 + float(ring_idx) * 5.0) * aura_pulse
-			_draw_ellipse(canvas, Rect2(Vector2(aura.x - rx, aura.y - ry), Vector2(rx * 2.0, ry * 2.0)), _alpha(color, max(30.0, 140.0 - float(ring_idx) * 38.0) / 255.0), false, 2.0)
+			_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(aura.x - rx, aura.y - ry), Vector2(rx * 2.0, ry * 2.0)), _draw_primitives.alpha(color, max(30.0, 140.0 - float(ring_idx) * 38.0) / 255.0), false, 2.0)
 		for star_idx in range(5):
 			var ang: float = TAU * float(star_idx) / 5.0 + float(time_ms) * 0.002
 			_draw_mini_star_gd(canvas, aura + Vector2(cos(ang) * 24.0, sin(ang) * 28.0 - phase * 6.0), 2.0, Color(1.0, 245.0 / 255.0, 200.0 / 255.0))
@@ -425,13 +429,13 @@ func _draw_shield_kiting_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 	var shield_r := 12.0
 	var floor_y: float = preview_bottom - 2.0
 	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), Color(90.0 / 255.0, 110.0 / 255.0, 145.0 / 255.0, 45.0 / 255.0), 2.0)
-	_draw_round_rect(canvas, Rect2(player + Vector2(-10.0, -18.0), Vector2(20.0, 22.0)), Color(78.0 / 255.0, 112.0 / 255.0, 168.0 / 255.0, 90.0 / 255.0), 5.0)
-	_draw_round_rect(canvas, Rect2(player + Vector2(4.0, -18.0), Vector2(7.0, 22.0)), Color(190.0 / 255.0, 220.0 / 255.0, 1.0, 120.0 / 255.0), 4.0)
+	_draw_primitives.draw_round_rect(canvas, Rect2(player + Vector2(-10.0, -18.0), Vector2(20.0, 22.0)), Color(78.0 / 255.0, 112.0 / 255.0, 168.0 / 255.0, 90.0 / 255.0), 5.0)
+	_draw_primitives.draw_round_rect(canvas, Rect2(player + Vector2(4.0, -18.0), Vector2(7.0, 22.0)), Color(190.0 / 255.0, 220.0 / 255.0, 1.0, 120.0 / 255.0), 4.0)
 	var shield_pos: Vector2
 	if local_progress < 0.2:
 		shield_pos = player + Vector2(16.0 - (1.0 - wind_up_ratio) * 8.0, -18.0 - sin(wind_up_ratio * PI) * 3.0)
 		for ring_idx in range(2):
-			canvas.draw_arc(shield_pos, shield_r + float(ring_idx) * 5.0 + wind_up_ratio * 6.0, 0.0, TAU, 36, _alpha(color, max(30.0, 120.0 - float(ring_idx) * 28.0) / 255.0), 1.0)
+			canvas.draw_arc(shield_pos, shield_r + float(ring_idx) * 5.0 + wind_up_ratio * 6.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(30.0, 120.0 - float(ring_idx) * 28.0) / 255.0), 1.0)
 	else:
 		var travel_t: float = clamp((local_progress - 0.2) / 0.8, 0.0, 1.0)
 		var eased: float = 1.0 - pow(1.0 - travel_t, 3.0)
@@ -442,12 +446,12 @@ func _draw_shield_kiting_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 			var e_step: float = 1.0 - pow(1.0 - t_step, 3.0)
 			trail_pts.append((player + Vector2(16.0, -18.0)).lerp(ball, e_step) + Vector2(0.0, -sin(t_step * PI) * 26.0))
 		for idx in range(trail_pts.size() - 1):
-			canvas.draw_line(trail_pts[idx], trail_pts[idx + 1], _alpha(color, max(30.0, 160.0 - float(idx) * 18.0) / 255.0), max(1.0, 3.0 - float(idx) * 0.4))
+			canvas.draw_line(trail_pts[idx], trail_pts[idx + 1], _draw_primitives.alpha(color, max(30.0, 160.0 - float(idx) * 18.0) / 255.0), max(1.0, 3.0 - float(idx) * 0.4))
 		if travel_t > 0.55:
 			var return_progress: float = (travel_t - 0.55) / 0.45
 			canvas.draw_arc(player + Vector2(0.0, -16.0), 18.0 + return_progress * 12.0, deg_to_rad(240.0), deg_to_rad(345.0), 24, Color(210.0 / 255.0, 240.0 / 255.0, 1.0), 2.0)
-	_draw_preview_pentagon(canvas, shield_pos, shield_r, -90.0 + local_progress * 360.0, _alpha(color, 200.0 / 255.0), Color(210.0 / 255.0, 245.0 / 255.0, 1.0), 2.0)
-	_draw_preview_pentagon(canvas, shield_pos, shield_r * 0.45, -90.0, Color.WHITE, Color.WHITE, 0.0)
+	_draw_primitives.draw_preview_pentagon(canvas, shield_pos, shield_r, -90.0 + local_progress * 360.0, _draw_primitives.alpha(color, 200.0 / 255.0), Color(210.0 / 255.0, 245.0 / 255.0, 1.0), 2.0)
+	_draw_primitives.draw_preview_pentagon(canvas, shield_pos, shield_r * 0.45, -90.0, Color.WHITE, Color.WHITE, 0.0)
 	_draw_preview_ball(canvas, ball, 6.0, [Color(110.0 / 255.0, 150.0 / 255.0, 1.0), Color(175.0 / 255.0, 220.0 / 255.0, 1.0), Color(1.0, 250.0 / 255.0, 1.0)])
 	if local_progress > 0.45:
 		canvas.draw_arc(ball, 14.0, 0.0, TAU, 36, Color(1.0, 240.0 / 255.0, 220.0 / 255.0, max(50.0, 120.0 + 90.0 * sin(local_progress * TAU)) / 255.0), 2.0)
@@ -494,9 +498,9 @@ func _draw_drive_curve_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -
 			if t <= 0.0:
 				continue
 			var trail_pos := Vector2(center_x + curve_direction * 40.0 * sin(t * PI), start_y + (end_y - start_y) * t)
-			canvas.draw_circle(trail_pos, max(2.0, ball_radius - float(i) * 0.4), _rainbow_color(float(time_ms) * 0.003 + float(i) * 0.1))
+			canvas.draw_circle(trail_pos, max(2.0, ball_radius - float(i) * 0.4), _draw_primitives.rainbow_color(float(time_ms) * 0.003 + float(i) * 0.1))
 		for i in range(4):
-			canvas.draw_circle(ball_pos, ball_radius + 5.0 - float(i), _rainbow_color(float(time_ms) * 0.005 + float(i) * 0.1))
+			canvas.draw_circle(ball_pos, ball_radius + 5.0 - float(i), _draw_primitives.rainbow_color(float(time_ms) * 0.005 + float(i) * 0.1))
 		canvas.draw_circle(ball_pos, ball_radius - 1.0, Color.WHITE)
 		canvas.draw_circle(ball_pos + Vector2(-1.0, -1.0), 2.0, Color(1.0, 1.0, 230.0 / 255.0))
 
@@ -589,15 +593,15 @@ func _draw_magnetic_pull_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 	if local_progress < 0.30:
 		var phase: float = local_progress / 0.30
 		var anchors: Dictionary = _draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
-		var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
+		var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 		var p_radius: float = float(paddle.get("radius", 6.0))
 		for ring_idx in range(3):
-			canvas.draw_arc(p_center, p_radius * 1.6 + float(ring_idx) * 6.0 + phase * 14.0, 0.0, TAU, 36, _alpha(color, max(40.0, 180.0 * (1.0 - phase * 0.4) - float(ring_idx) * 35.0) / 255.0), 1.0)
+			canvas.draw_arc(p_center, p_radius * 1.6 + float(ring_idx) * 6.0 + phase * 14.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(40.0, 180.0 * (1.0 - phase * 0.4) - float(ring_idx) * 35.0) / 255.0), 1.0)
 		for spark_idx in range(8):
 			var ang: float = TAU * float(spark_idx) / 8.0 + float(time_ms) * 0.005
 			var sd: float = p_radius * 1.2 + sin(float(time_ms) * 0.01 + float(spark_idx)) * 3.0
-			canvas.draw_circle(p_center + Vector2(cos(ang), sin(ang)) * sd, 2.0, _alpha(color, 200.0 / 255.0))
+			canvas.draw_circle(p_center + Vector2(cos(ang), sin(ang)) * sd, 2.0, _draw_primitives.alpha(color, 200.0 / 255.0))
 		_draw_preview_ball(canvas, Vector2(center_x, ball_top_y), 6.0, [color, Color(180.0 / 255.0, 230.0 / 255.0, 1.0), Color.WHITE], Color(1.0, 240.0 / 255.0, 180.0 / 255.0))
 		_draw_preview_keycap(canvas, Vector2(center_x - 60.0, char_y - 8.0), "A")
 		_draw_preview_keycap(canvas, Vector2(center_x - 36.0, char_y - 8.0), "D")
@@ -607,8 +611,8 @@ func _draw_magnetic_pull_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 		@warning_ignore("shadowed_global_identifier")
 		var ease: float = pow(phase, 1.5)
 		var anchors: Dictionary = _draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
-		var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
+		var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 		var p_radius: float = float(paddle.get("radius", 6.0))
 		var target := p_center + Vector2(0.0, -p_radius - 4.0)
 		var ball_pos := Vector2(center_x + sin(phase * PI * 3.0) * (12.0 - phase * 10.0), ball_top_y + (target.y - ball_top_y) * ease)
@@ -619,26 +623,26 @@ func _draw_magnetic_pull_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 			var la: float = TAU * float(line_idx) / 5.0 + float(time_ms) * 0.006
 			var start := p_center + Vector2(cos(la), sin(la)) * (p_radius + 2.0)
 			var finish := ball_pos + Vector2(cos(la + PI), sin(la + PI)) * 6.0
-			_draw_bezier_polyline(canvas, start, finish, 6.0, _alpha(color, max(60.0, 160.0 * (1.0 - phase * 0.4)) / 255.0), 2.0)
+			_draw_bezier_polyline(canvas, start, finish, 6.0, _draw_primitives.alpha(color, max(60.0, 160.0 * (1.0 - phase * 0.4)) / 255.0), 2.0)
 		for trail_idx in range(6):
 			var t_t: float = max(0.0, ease - float(trail_idx) * 0.1)
 			if t_t <= 0.0:
 				continue
 			var tx: float = center_x + sin(phase * PI * 3.0 - float(trail_idx) * 0.3) * (12.0 - t_t * 10.0)
 			var ty: float = ball_top_y + (target.y - ball_top_y) * t_t
-			canvas.draw_circle(Vector2(tx, ty), max(2.0, 5.0 - float(trail_idx)), _alpha(color, max(40.0, 180.0 - float(trail_idx) * 28.0) / 255.0))
+			canvas.draw_circle(Vector2(tx, ty), max(2.0, 5.0 - float(trail_idx)), _draw_primitives.alpha(color, max(40.0, 180.0 - float(trail_idx) * 28.0) / 255.0))
 		_draw_preview_ball(canvas, ball_pos, 6.0, [color, Color(180.0 / 255.0, 230.0 / 255.0, 1.0), Color.WHITE], Color(1.0, 240.0 / 255.0, 180.0 / 255.0))
 	else:
 		var phase: float = (local_progress - 0.85) / 0.15
 		var anchors: Dictionary = _draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
-		var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
+		var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 		var p_radius: float = float(paddle.get("radius", 6.0))
 		var burst := p_center + Vector2(0.0, -p_radius - 4.0)
-		canvas.draw_arc(burst, p_radius * 1.4 + phase * 18.0, 0.0, TAU, 36, _alpha(color, max(60.0, 220.0 * (1.0 - phase)) / 255.0), 2.0)
+		canvas.draw_arc(burst, p_radius * 1.4 + phase * 18.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(60.0, 220.0 * (1.0 - phase)) / 255.0), 2.0)
 		for spark_idx in range(8):
 			var ang: float = TAU * float(spark_idx) / 8.0
-			canvas.draw_line(burst, burst + Vector2(cos(ang), sin(ang)) * ((p_radius * 1.4 + phase * 18.0) * 0.7), _alpha(color, max(80.0, 220.0 * (1.0 - phase * 0.7)) / 255.0), 2.0)
+			canvas.draw_line(burst, burst + Vector2(cos(ang), sin(ang)) * ((p_radius * 1.4 + phase * 18.0) * 0.7), _draw_primitives.alpha(color, max(80.0, 220.0 * (1.0 - phase * 0.7)) / 255.0), 2.0)
 
 
 func _draw_ghost_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
@@ -665,8 +669,8 @@ func _draw_ghost_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) -
 	else:
 		var phase: float = (local_progress - 0.50) / 0.50
 		var anchors: Dictionary = _draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "direction": int(cycle_dir), "swing_ratio": min(1.0, phase * 1.6)})
-		var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
-		var p_center: Vector2 = _get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+		var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
+		var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
 		var p_radius: float = float(paddle.get("radius", 6.0))
 		var start := p_center + Vector2(0.0, -p_radius - 4.0)
 		var end_y: float = preview_top + 6.0
@@ -678,7 +682,7 @@ func _draw_ghost_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) -
 			if t <= 0.0:
 				continue
 			var trail_pos := Vector2(start.x + sin(phase * PI * 5.0 - float(trail_idx) * 0.4) * 18.0 * cycle_dir * t, start.y + (end_y - start.y) * t)
-			canvas.draw_circle(trail_pos, max(2.0, 6.0 - float(trail_idx) * 0.5), _alpha(color, max(40.0, 200.0 - float(trail_idx) * 18.0) / 255.0))
+			canvas.draw_circle(trail_pos, max(2.0, 6.0 - float(trail_idx) * 0.5), _draw_primitives.alpha(color, max(40.0, 200.0 - float(trail_idx) * 18.0) / 255.0))
 		var ghost_t: float = max(0.0, ease - 0.18)
 		if ghost_t > 0.0:
 			var ghost_pos := Vector2(start.x + sin(phase * PI * 5.0 - 0.9) * 18.0 * cycle_dir * ghost_t, start.y + (end_y - start.y) * ghost_t)
@@ -705,7 +709,7 @@ func _draw_portal_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 		for ring_idx in range(3):
 			var rx: float = 12.0 - float(ring_idx) * 3.0
 			var ry: float = 18.0 - float(ring_idx) * 4.0
-			_draw_ellipse(canvas, Rect2(portal - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), _alpha(color, max(80.0, 220.0 - float(ring_idx) * 50.0) / 255.0), false, 2.0)
+			_draw_primitives.draw_ellipse(canvas, Rect2(portal - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), _draw_primitives.alpha(color, max(80.0, 220.0 - float(ring_idx) * 50.0) / 255.0), false, 2.0)
 		for swirl_idx in range(5):
 			var spin_dir: float = 1.0 if side_idx == 0 else -1.0
 			var ang: float = TAU * float(swirl_idx) / 5.0 + float(time_ms) * 0.006 * spin_dir
@@ -724,17 +728,17 @@ func _draw_portal_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 		ball_pos = portal_right + Vector2(0.0, -2.0)
 		ball_alpha = max(0.0, 1.0 - phase)
 		ball_visible = ball_alpha > 0.0
-		canvas.draw_arc(portal_right, 14.0 + phase * 8.0, 0.0, TAU, 36, _alpha(color, 0.70 * (1.0 - phase)), 2.0)
+		canvas.draw_arc(portal_right, 14.0 + phase * 8.0, 0.0, TAU, 36, _draw_primitives.alpha(color, 0.70 * (1.0 - phase)), 2.0)
 	elif local_progress < 0.60:
 		var phase: float = (local_progress - 0.50) / 0.10
 		ball_pos = portal_left + Vector2(0.0, -2.0)
 		ball_alpha = min(1.0, phase)
-		canvas.draw_arc(portal_left, 14.0 + phase * 8.0, 0.0, TAU, 36, _alpha(color, 0.70 * (1.0 - phase)), 2.0)
+		canvas.draw_arc(portal_left, 14.0 + phase * 8.0, 0.0, TAU, 36, _draw_primitives.alpha(color, 0.70 * (1.0 - phase)), 2.0)
 	else:
 		var phase: float = (local_progress - 0.60) / 0.40
 		ball_pos = Vector2(portal_left.x + phase * (center_x - portal_left.x), portal_left.y - 2.0)
 	if ball_visible:
-		_draw_preview_ball(canvas, ball_pos, 6.0, [_alpha(color, ball_alpha), _alpha(Color(235.0 / 255.0, 200.0 / 255.0, 1.0), ball_alpha), _alpha(Color.WHITE, ball_alpha)], _alpha(Color(235.0 / 255.0, 200.0 / 255.0, 1.0), ball_alpha))
+		_draw_preview_ball(canvas, ball_pos, 6.0, [_draw_primitives.alpha(color, ball_alpha), _draw_primitives.alpha(Color(235.0 / 255.0, 200.0 / 255.0, 1.0), ball_alpha), _draw_primitives.alpha(Color.WHITE, ball_alpha)], _draw_primitives.alpha(Color(235.0 / 255.0, 200.0 / 255.0, 1.0), ball_alpha))
 
 
 func _draw_wheel_spin_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
@@ -761,13 +765,13 @@ func _draw_wheel_spin_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> 
 	for trail_idx in range(5):
 		var trail_t: float = max(0.0, eased - float(trail_idx) * 0.10)
 		var tx: float = start_x + (end_x - start_x) * trail_t
-		_draw_ellipse(canvas, Rect2(Vector2(tx - 23.0, floor_y - 30.0), Vector2(46.0, 30.0)), Color(1.0, 155.0 / 255.0, 58.0 / 255.0, max(18.0, 115.0 - float(trail_idx) * 18.0) / 255.0), false, max(1.0, 3.0 - float(trail_idx) * 0.4))
+		_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(tx - 23.0, floor_y - 30.0), Vector2(46.0, 30.0)), Color(1.0, 155.0 / 255.0, 58.0 / 255.0, max(18.0, 115.0 - float(trail_idx) * 18.0) / 255.0), false, max(1.0, 3.0 - float(trail_idx) * 0.4))
 	var spin: float = phase * TAU * 3.0 * direction
 	for ring_idx in range(3):
 		var rx: float = 28.0 + float(ring_idx) * 7.0
 		var ry: float = 16.0 + float(ring_idx) * 4.0
 		var ring_center := Vector2(char_x, floor_y - 44.0)
-		_draw_ellipse_arc(canvas, Rect2(ring_center - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), spin + float(ring_idx) * 0.8, spin + float(ring_idx) * 0.8 + deg_to_rad(235.0), Color(1.0, 214.0 / 255.0, 116.0 / 255.0, max(70.0, 170.0 - float(ring_idx) * 38.0) / 255.0), max(2.0, 4.0 - float(ring_idx)))
+		_draw_primitives.draw_ellipse_arc(canvas, Rect2(ring_center - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), spin + float(ring_idx) * 0.8, spin + float(ring_idx) * 0.8 + deg_to_rad(235.0), Color(1.0, 214.0 / 255.0, 116.0 / 255.0, max(70.0, 170.0 - float(ring_idx) * 38.0) / 255.0), max(2.0, 4.0 - float(ring_idx)))
 	_draw_smasher_mini_character(canvas, char_x, floor_y + 1.0, {"block": 4.0, "direction": int(direction), "swing_ratio": 0.6, "rotation": -spin * 0.28, "rotation_center": Vector2(char_x, floor_y - 28.0)})
 	var hit_t: float = clamp((phase - 0.38) / 0.62, 0.0, 1.0)
 	var ball_start := Vector2(char_x + direction * 18.0, floor_y - 30.0)
@@ -801,7 +805,7 @@ func _draw_viper_shadow_teleport_preview(canvas: CanvasItem, rect: Rect2, _color
 		var ring_phase: float = local_progress if portal_idx == 0 else fposmod(local_progress + 0.35, 1.0)
 		for ring_idx in range(3):
 			var ring_r: float = 10.0 + float(ring_idx) * 6.0 + sin((ring_phase + float(ring_idx) * 0.12) * TAU) * 2.0
-			canvas.draw_arc(Vector2(portal_x, char_y - 6.0), ring_r, 0.0, TAU, 36, _color8(120, 60, 220, max(30.0, 120.0 - float(ring_idx) * 28.0)), 2.0)
+			canvas.draw_arc(Vector2(portal_x, char_y - 6.0), ring_r, 0.0, TAU, 36, _draw_primitives.color8(120, 60, 220, max(30.0, 120.0 - float(ring_idx) * 28.0)), 2.0)
 	for block_idx in range(10):
 		var t: float = float(block_idx) / 9.0
 		var px: float = lerp(start_x, end_x, t)
@@ -810,24 +814,24 @@ func _draw_viper_shadow_teleport_preview(canvas: CanvasItem, rect: Rect2, _color
 		var py: float = char_y - 18.0 + noise
 		var block_w: float = 6.0 + float(block_idx % 3) * 3.0
 		var block_h: float = 2.0 + float(block_idx % 2)
-		var block_color: Color = _color8(110, 255, 205, 62) if block_idx % 2 == 0 else _color8(185, 90, 255, 62)
+		var block_color: Color = _draw_primitives.color8(110, 255, 205, 62) if block_idx % 2 == 0 else _draw_primitives.color8(185, 90, 255, 62)
 		canvas.draw_rect(Rect2(Vector2(px - block_w * 0.5, py), Vector2(block_w, block_h)), block_color, true)
 	for ghost_idx in range(4):
 		var ghost_t: float = max(0.0, teleport_ease - float(ghost_idx) * 0.14)
 		var ghost_x: float = lerp(start_x, end_x, ghost_t)
 		var ghost_y: float = char_y - sin(ghost_t * PI) * 6.0
-		var ghost_tint: Color = _color8(120, 255, 205) if ghost_idx % 2 == 0 else _color8(185, 90, 255)
+		var ghost_tint: Color = _draw_primitives.color8(120, 255, 205) if ghost_idx % 2 == 0 else _draw_primitives.color8(185, 90, 255)
 		_draw_viper_mini_character(canvas, ghost_x, ghost_y, {"pose": "kick_left", "direction": -1, "alpha": max(0.15, (150.0 - float(ghost_idx) * 28.0) / 255.0), "tint": ghost_tint})
 	_draw_viper_mini_character(canvas, current_x, current_y, {"pose": "kick_left", "direction": -1})
 	if local_progress > 0.62:
-		_draw_viper_mini_character(canvas, start_x, char_y - 1.0, {"pose": "kick_left", "direction": -1, "alpha": 96.0 / 255.0, "tint": _color8(190, 90, 255)})
+		_draw_viper_mini_character(canvas, start_x, char_y - 1.0, {"pose": "kick_left", "direction": -1, "alpha": 96.0 / 255.0, "tint": _draw_primitives.color8(190, 90, 255)})
 	var ball_pos := Vector2(center_x + 16.0, preview_top + 21.0 + sin(local_progress * TAU * 2.0) * 2.0)
 	_draw_preview_ball(canvas, ball_pos, 6.0)
 	if local_progress > 0.58:
 		var hit_ring: float = 8.0 + (local_progress - 0.58) / 0.42 * 18.0
-		canvas.draw_arc(ball_pos, hit_ring, 0.0, TAU, 36, _color8(180, 90, 255, 170), 2.0)
-		canvas.draw_line(ball_pos + Vector2(-16.0, 7.0), ball_pos + Vector2(18.0, -6.0), _color8(210, 200, 255), 2.0)
-		canvas.draw_line(ball_pos + Vector2(-12.0, -9.0), ball_pos + Vector2(10.0, 9.0), _color8(120, 255, 205), 1.0)
+		canvas.draw_arc(ball_pos, hit_ring, 0.0, TAU, 36, _draw_primitives.color8(180, 90, 255, 170), 2.0)
+		canvas.draw_line(ball_pos + Vector2(-16.0, 7.0), ball_pos + Vector2(18.0, -6.0), _draw_primitives.color8(210, 200, 255), 2.0)
+		canvas.draw_line(ball_pos + Vector2(-12.0, -9.0), ball_pos + Vector2(10.0, 9.0), _draw_primitives.color8(120, 255, 205), 1.0)
 
 
 func _draw_viper_blade_preview(canvas: CanvasItem, rect: Rect2, _color: Color, dark_mode: bool) -> void:
@@ -840,14 +844,14 @@ func _draw_viper_blade_preview(canvas: CanvasItem, rect: Rect2, _color: Color, d
 	var preview_bottom: float = float(metrics["bottom"])
 	var caster_x: float = center_x - 2.0 if dark_mode else center_x - 4.0
 	var caster_y: float = preview_bottom - 18.0 - sin(local_progress * TAU) * 2.0
-	var glow_color: Color = _color8(165, 24, 32) if dark_mode else _color8(186, 98, 255)
+	var glow_color: Color = _draw_primitives.color8(165, 24, 32) if dark_mode else _draw_primitives.color8(186, 98, 255)
 	_draw_viper_mini_character(canvas, caster_x + 2.0, caster_y + 1.0, {"alpha": 165.0 / 255.0, "tint": glow_color})
 	_draw_viper_mini_character(canvas, caster_x, caster_y)
 	var halo_center := Vector2(caster_x, caster_y - 14.0)
 	if dark_mode:
 		var halo_r: float = 18.0 + 4.0 * sin(local_progress * TAU * 2.0)
-		canvas.draw_circle(halo_center, halo_r, _color8(90, 8, 14, 55))
-		canvas.draw_circle(halo_center, max(8.0, halo_r - 7.0), _color8(185, 34, 42, 80))
+		canvas.draw_circle(halo_center, halo_r, _draw_primitives.color8(90, 8, 14, 55))
+		canvas.draw_circle(halo_center, max(8.0, halo_r - 7.0), _draw_primitives.color8(185, 34, 42, 80))
 	else:
 		var flame_base_y: float = caster_y + 4.0
 		for flame_idx in range(3):
@@ -858,25 +862,25 @@ func _draw_viper_blade_preview(canvas: CanvasItem, rect: Rect2, _color: Color, d
 				Vector2(caster_x, flame_base_y - flame_h),
 				Vector2(caster_x + flame_w * 0.5, flame_base_y + float(flame_idx) * 3.0),
 			])
-			canvas.draw_colored_polygon(flame_points, _color8(110 + flame_idx * 40, 50 + flame_idx * 25, 180 + flame_idx * 18, 92 - flame_idx * 18))
+			canvas.draw_colored_polygon(flame_points, _draw_primitives.color8(110 + flame_idx * 40, 50 + flame_idx * 25, 180 + flame_idx * 18, 92 - flame_idx * 18))
 		var charge_t: float = min(1.0, local_progress / 0.34)
 		for ring_idx in range(2):
-			canvas.draw_arc(halo_center - Vector2(0.0, 8.0), 9.0 + float(ring_idx) * 7.0 + charge_t * 10.0, 0.0, TAU, 36, _color8(196, 110, 255, max(26.0, 110.0 - float(ring_idx) * 34.0)), 1.0)
+			canvas.draw_arc(halo_center - Vector2(0.0, 8.0), 9.0 + float(ring_idx) * 7.0 + charge_t * 10.0, 0.0, TAU, 36, _draw_primitives.color8(196, 110, 255, max(26.0, 110.0 - float(ring_idx) * 34.0)), 1.0)
 	var wave_t: float = clamp((local_progress - (0.12 if dark_mode else 0.18)) / (0.88 if dark_mode else 0.82), 0.0, 1.0)
 	var wave_tip_y: float = caster_y - (16.0 if dark_mode else 18.0) - wave_t * (38.0 if dark_mode else 34.0)
 	var wave_tip_x: float = center_x + 10.0 if dark_mode else center_x + 8.0 + sin(local_progress * TAU) * 2.0
 	_draw_viper_blade_wave(canvas, Vector2(wave_tip_x, wave_tip_y), wave_t, dark_mode)
 	var ball_pos := Vector2(center_x + 16.0 if dark_mode else center_x + 14.0, preview_top + 16.0 if dark_mode else preview_top + 15.0)
-	var glow_colors: Array = [_color8(80, 8, 18), _color8(185, 42, 52), _color8(255, 196, 170)] if dark_mode else []
-	_draw_preview_ball(canvas, ball_pos, 6.0, glow_colors, _color8(255, 242, 225) if dark_mode else Color.WHITE)
+	var glow_colors: Array = [_draw_primitives.color8(80, 8, 18), _draw_primitives.color8(185, 42, 52), _draw_primitives.color8(255, 196, 170)] if dark_mode else []
+	_draw_preview_ball(canvas, ball_pos, 6.0, glow_colors, _draw_primitives.color8(255, 242, 225) if dark_mode else Color.WHITE)
 	if wave_t > 0.52:
 		var ring_radius: float = 12.0 + (wave_t - 0.52) / 0.48 * 12.0
-		var ring_color: Color = _color8(235, 62, 60, 190) if dark_mode else _color8(210, 170, 255, 180)
+		var ring_color: Color = _draw_primitives.color8(235, 62, 60, 190) if dark_mode else _draw_primitives.color8(210, 170, 255, 180)
 		canvas.draw_arc(ball_pos, ring_radius, 0.0, TAU, 36, ring_color, 2.0)
 		for spark_idx in range(6 if not dark_mode else 0):
 			var spark_angle: float = float(spark_idx) / 6.0 * TAU + local_progress * PI
 			var spark_len: float = 10.0 + float(spark_idx)
-			canvas.draw_line(ball_pos, ball_pos + Vector2(cos(spark_angle), sin(spark_angle)) * spark_len, _color8(250, 238, 255), 1.0)
+			canvas.draw_line(ball_pos, ball_pos + Vector2(cos(spark_angle), sin(spark_angle)) * spark_len, _draw_primitives.color8(250, 238, 255), 1.0)
 
 
 func _draw_viper_stun_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
@@ -891,7 +895,7 @@ func _draw_viper_stun_preview(canvas: CanvasItem, rect: Rect2, _color: Color) ->
 	var target_x: float = center_x + 22.0
 	var target_base_y: float = preview_bottom - 6.0
 	var stun_phase: float = max(0.0, (local_progress - 0.34) / 0.66)
-	_draw_viper_target_dummy(canvas, Vector2(target_x, target_base_y), _color8(190, 90, 255), stun_phase)
+	_draw_viper_target_dummy(canvas, Vector2(target_x, target_base_y), _draw_primitives.color8(190, 90, 255), stun_phase)
 	var char_x: float
 	var char_y: float
 	var pose := "fly_right"
@@ -903,15 +907,15 @@ func _draw_viper_stun_preview(canvas: CanvasItem, rect: Rect2, _color: Color) ->
 		char_y = preview_bottom - 8.0 - sin(move_t * PI) * 12.0
 		for ghost_idx in range(4):
 			var ghost_t: float = max(0.0, move_ease - float(ghost_idx) * 0.12)
-			_draw_viper_mini_character(canvas, lerp(start_x, strike_x, ghost_t), preview_bottom - 8.0 - sin(ghost_t * PI) * 12.0, {"pose": pose, "direction": direction, "alpha": max(0.13, (125.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _color8(186, 98, 255)})
+			_draw_viper_mini_character(canvas, lerp(start_x, strike_x, ghost_t), preview_bottom - 8.0 - sin(ghost_t * PI) * 12.0, {"pose": pose, "direction": direction, "alpha": max(0.13, (125.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _draw_primitives.color8(186, 98, 255)})
 	elif local_progress < 0.74:
 		char_x = strike_x
 		char_y = preview_bottom - 12.0
 		for slash_idx in range(3):
 			var slash_offset: float = float(slash_idx) * 3.0
-			var slash_color: Color = [_color8(255, 215, 250, 210), _color8(186, 98, 255, 168), _color8(120, 255, 205, 126)][slash_idx]
+			var slash_color: Color = [_draw_primitives.color8(255, 215, 250, 210), _draw_primitives.color8(186, 98, 255, 168), _draw_primitives.color8(120, 255, 205, 126)][slash_idx]
 			canvas.draw_line(Vector2(target_x - 18.0 - slash_offset, target_base_y - 44.0 + slash_offset), Vector2(target_x + 20.0 + slash_offset, target_base_y - 6.0 - slash_offset), slash_color, max(1.0, 3.0 - float(slash_idx)))
-			canvas.draw_line(Vector2(target_x + 18.0 + slash_offset, target_base_y - 44.0 + slash_offset), Vector2(target_x - 20.0 - slash_offset, target_base_y - 4.0 - slash_offset), _alpha(slash_color, 0.85), max(1.0, 2.0 - float(slash_idx) * 0.4))
+			canvas.draw_line(Vector2(target_x + 18.0 + slash_offset, target_base_y - 44.0 + slash_offset), Vector2(target_x - 20.0 - slash_offset, target_base_y - 4.0 - slash_offset), _draw_primitives.alpha(slash_color, 0.85), max(1.0, 2.0 - float(slash_idx) * 0.4))
 	else:
 		var return_t: float = (local_progress - 0.74) / 0.26
 		var return_ease: float = return_t * return_t * (3.0 - 2.0 * return_t)
@@ -921,7 +925,7 @@ func _draw_viper_stun_preview(canvas: CanvasItem, rect: Rect2, _color: Color) ->
 		char_y = preview_bottom - 8.0 - sin((1.0 - return_t) * PI) * 6.0
 		for ghost_idx in range(4):
 			var ghost_t: float = max(0.0, return_ease - float(ghost_idx) * 0.12)
-			_draw_viper_mini_character(canvas, lerp(strike_x, return_x, ghost_t), preview_bottom - 8.0 - sin((1.0 - ghost_t) * PI) * 6.0, {"pose": pose, "direction": direction, "alpha": max(0.11, (120.0 - float(ghost_idx) * 22.0) / 255.0), "tint": _color8(120, 255, 205)})
+			_draw_viper_mini_character(canvas, lerp(strike_x, return_x, ghost_t), preview_bottom - 8.0 - sin((1.0 - ghost_t) * PI) * 6.0, {"pose": pose, "direction": direction, "alpha": max(0.11, (120.0 - float(ghost_idx) * 22.0) / 255.0), "tint": _draw_primitives.color8(120, 255, 205)})
 	_draw_viper_mini_character(canvas, char_x, char_y, {"pose": pose, "direction": direction})
 
 
@@ -936,7 +940,7 @@ func _draw_viper_dive_impact_preview(canvas: CanvasItem, rect: Rect2, _color: Co
 	var air_start_y: float = preview_top + 18.0
 	var ground_y: float = preview_bottom - 6.0
 	var ball_pos := Vector2(center_x + 20.0, preview_top + 18.0)
-	_draw_preview_ball(canvas, ball_pos, 6.0, [_color8(110, 110, 255), _color8(170, 180, 255), _color8(255, 245, 255)])
+	_draw_preview_ball(canvas, ball_pos, 6.0, [_draw_primitives.color8(110, 110, 255), _draw_primitives.color8(170, 180, 255), _draw_primitives.color8(255, 245, 255)])
 	if local_progress < 0.5:
 		var dive_t: float = local_progress / 0.5
 		var dive_ease: float = dive_t * dive_t * (3.0 - 2.0 * dive_t)
@@ -944,7 +948,7 @@ func _draw_viper_dive_impact_preview(canvas: CanvasItem, rect: Rect2, _color: Co
 		_draw_viper_mini_character(canvas, impact_x, char_y, {"pose": "fly_down"})
 		for line_idx in range(4):
 			var lx: float = impact_x - 18.0 + float(line_idx) * 12.0
-			canvas.draw_line(Vector2(lx, char_y - 36.0 + float(line_idx) * 3.0), Vector2(lx, char_y - 8.0 + float(line_idx) * 6.0), _color8(200, 160, 255, 90), 1.0)
+			canvas.draw_line(Vector2(lx, char_y - 36.0 + float(line_idx) * 3.0), Vector2(lx, char_y - 8.0 + float(line_idx) * 6.0), _draw_primitives.color8(200, 160, 255, 90), 1.0)
 		for flame_idx in range(3):
 			var flame_h: float = 16.0 + float(flame_idx) * 4.0 + dive_t * 7.0
 			var flame_w: float = 10.0 + float(flame_idx) * 4.0
@@ -953,23 +957,23 @@ func _draw_viper_dive_impact_preview(canvas: CanvasItem, rect: Rect2, _color: Co
 				Vector2(impact_x, char_y + flame_h),
 				Vector2(impact_x + flame_w * 0.5, char_y + 3.0 + float(flame_idx) * 2.0),
 			])
-			canvas.draw_colored_polygon(flame_points, _color8(255, 142 + flame_idx * 20, 78 + flame_idx * 25, 92 - flame_idx * 18))
+			canvas.draw_colored_polygon(flame_points, _draw_primitives.color8(255, 142 + flame_idx * 20, 78 + flame_idx * 25, 92 - flame_idx * 18))
 	else:
 		_draw_viper_mini_character(canvas, impact_x, ground_y + 1.0)
 		var burst_t: float = (local_progress - 0.5) / 0.5
 		var ring_radius: float = 18.0 + burst_t * 34.0
 		var ring_alpha: float = max(24.0, 180.0 - burst_t * 120.0)
-		canvas.draw_arc(Vector2(impact_x, ground_y - 2.0), ring_radius, 0.0, TAU, 36, _color8(255, 175, 88, ring_alpha), 3.0)
-		canvas.draw_arc(Vector2(impact_x, ground_y - 2.0), max(10.0, ring_radius - 9.0), 0.0, TAU, 36, _color8(190, 130, 255, max(20.0, ring_alpha - 36.0)), 1.0)
+		canvas.draw_arc(Vector2(impact_x, ground_y - 2.0), ring_radius, 0.0, TAU, 36, _draw_primitives.color8(255, 175, 88, ring_alpha), 3.0)
+		canvas.draw_arc(Vector2(impact_x, ground_y - 2.0), max(10.0, ring_radius - 9.0), 0.0, TAU, 36, _draw_primitives.color8(190, 130, 255, max(20.0, ring_alpha - 36.0)), 1.0)
 		for shock_idx in range(5):
 			var offset: float = 8.0 + float(shock_idx) * 10.0
 			var y_line: float = ground_y + 4.0 + float(shock_idx) * 2.0
-			canvas.draw_line(Vector2(impact_x - offset, y_line), Vector2(impact_x + offset, y_line), _color8(255, 185, 112, max(18.0, 110.0 - float(shock_idx) * 18.0)), max(1.0, 3.0 - float(shock_idx) * 0.45))
+			canvas.draw_line(Vector2(impact_x - offset, y_line), Vector2(impact_x + offset, y_line), _draw_primitives.color8(255, 185, 112, max(18.0, 110.0 - float(shock_idx) * 18.0)), max(1.0, 3.0 - float(shock_idx) * 0.45))
 		for smoke in [[-28.0, -2.0, 10.0], [-12.0, -9.0, 13.0], [14.0, -6.0, 12.0], [30.0, 0.0, 9.0]]:
 			var puff_alpha: float = max(24.0, 95.0 - burst_t * 36.0)
-			canvas.draw_circle(Vector2(impact_x + float(smoke[0]), ground_y + float(smoke[1])), float(smoke[2]), _color8(115, 126, 150, puff_alpha))
-			canvas.draw_circle(Vector2(impact_x + float(smoke[0]) - 2.0, ground_y + float(smoke[1]) - 2.0), max(2.0, float(smoke[2]) - 4.0), _color8(215, 230, 255, max(10.0, puff_alpha - 30.0)))
-		canvas.draw_arc(ball_pos, 9.0 + burst_t * 10.0, 0.0, TAU, 36, _color8(190, 150, 255, 140), 2.0)
+			canvas.draw_circle(Vector2(impact_x + float(smoke[0]), ground_y + float(smoke[1])), float(smoke[2]), _draw_primitives.color8(115, 126, 150, puff_alpha))
+			canvas.draw_circle(Vector2(impact_x + float(smoke[0]) - 2.0, ground_y + float(smoke[1]) - 2.0), max(2.0, float(smoke[2]) - 4.0), _draw_primitives.color8(215, 230, 255, max(10.0, puff_alpha - 30.0)))
+		canvas.draw_arc(ball_pos, 9.0 + burst_t * 10.0, 0.0, TAU, 36, _draw_primitives.color8(190, 150, 255, 140), 2.0)
 
 
 func _draw_viper_core_flip_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
@@ -989,25 +993,25 @@ func _draw_viper_core_flip_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 	var wall_left_x: float = preview_left + 18.0
 	var wall_right_x: float = preview_right - 18.0
 	var ball_pos := Vector2(center_x + dash_dir * 8.0, preview_top + 16.0)
-	_draw_preview_ball(canvas, ball_pos, 6.0, [_color8(92, 110, 255), _color8(188, 126, 255), _color8(255, 240, 255)])
+	_draw_preview_ball(canvas, ball_pos, 6.0, [_draw_primitives.color8(92, 110, 255), _draw_primitives.color8(188, 126, 255), _draw_primitives.color8(255, 240, 255)])
 	for wx in [wall_left_x, wall_right_x]:
-		canvas.draw_line(Vector2(wx, preview_top + 6.0), Vector2(wx, preview_bottom - 2.0), _color8(255, 150, 220, 115), 2.0)
+		canvas.draw_line(Vector2(wx, preview_top + 6.0), Vector2(wx, preview_bottom - 2.0), _draw_primitives.color8(255, 150, 220, 115), 2.0)
 		for mark_idx in range(3):
 			var my: float = preview_top + 20.0 + float(mark_idx) * 16.0
-			canvas.draw_line(Vector2(wx - 8.0, my), Vector2(wx + 8.0, my + 5.0), _color8(255, 180, 235, 115), 1.0)
+			canvas.draw_line(Vector2(wx - 8.0, my), Vector2(wx + 8.0, my + 5.0), _draw_primitives.color8(255, 180, 235, 115), 1.0)
 	var activation := Vector2(center_x, floor_y - 8.0)
-	canvas.draw_arc(activation, 14.0 + sin(cycle_progress * TAU * 2.0) * 2.0, 0.0, TAU, 36, _color8(255, 138, 208, 95), 2.0)
+	canvas.draw_arc(activation, 14.0 + sin(cycle_progress * TAU * 2.0) * 2.0, 0.0, TAU, 36, _draw_primitives.color8(255, 138, 208, 95), 2.0)
 	for arrow_sign in [-1.0, 1.0]:
 		var arrow_y: float = floor_y - 18.0
 		var tail_x: float = center_x + arrow_sign * 34.0
 		var tip_x: float = center_x + arrow_sign * 10.0
-		canvas.draw_line(Vector2(tail_x, arrow_y), Vector2(tip_x, arrow_y), _color8(255, 220, 242, 150), 2.0)
+		canvas.draw_line(Vector2(tail_x, arrow_y), Vector2(tip_x, arrow_y), _draw_primitives.color8(255, 220, 242, 150), 2.0)
 		var head := PackedVector2Array([
 			Vector2(tip_x, arrow_y),
 			Vector2(tip_x + arrow_sign * 5.0, arrow_y - 4.0),
 			Vector2(tip_x + arrow_sign * 5.0, arrow_y + 4.0),
 		])
-		canvas.draw_colored_polygon(head, _color8(255, 220, 242, 170))
+		canvas.draw_colored_polygon(head, _draw_primitives.color8(255, 220, 242, 170))
 	if cycle_progress < 0.22:
 		var dash_t: float = cycle_progress / 0.22
 		var dash_ease: float = 1.0 - pow(1.0 - dash_t, 2.0)
@@ -1016,7 +1020,7 @@ func _draw_viper_core_flip_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 		var char_y: float = floor_y - sin(dash_t * PI) * 10.0
 		for ghost_idx in range(4):
 			var ghost_t: float = max(0.0, dash_ease - float(ghost_idx) * 0.16)
-			_draw_viper_mini_character(canvas, lerp(start_x, center_x, ghost_t), floor_y - sin(ghost_t * PI) * 10.0, {"pose": "fly_right" if dash_dir > 0.0 else "fly_left", "direction": int(dash_dir), "alpha": max(0.12, (122.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _color8(255, 120, 210)})
+			_draw_viper_mini_character(canvas, lerp(start_x, center_x, ghost_t), floor_y - sin(ghost_t * PI) * 10.0, {"pose": "fly_right" if dash_dir > 0.0 else "fly_left", "direction": int(dash_dir), "alpha": max(0.12, (122.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _draw_primitives.color8(255, 120, 210)})
 		_draw_viper_mini_character(canvas, char_x, char_y, {"pose": "fly_right" if dash_dir > 0.0 else "fly_left", "direction": int(dash_dir)})
 	elif cycle_progress < 0.74:
 		var climb_t: float = (cycle_progress - 0.22) / 0.52
@@ -1027,7 +1031,7 @@ func _draw_viper_core_flip_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 			Vector2(wall_left_x if start_from_left else wall_right_x, preview_top + 28.0),
 		]
 		for idx in range(path.size() - 1):
-			canvas.draw_line(path[idx], path[idx + 1], _color8(255, 148, 220, 58), 1.0)
+			canvas.draw_line(path[idx], path[idx + 1], _draw_primitives.color8(255, 148, 220, 58), 1.0)
 		var path_pos: float = climb_t * float(path.size() - 1)
 		var path_idx: int = min(path.size() - 2, int(path_pos))
 		var seg_t: float = path_pos - float(path_idx)
@@ -1035,7 +1039,7 @@ func _draw_viper_core_flip_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 		var pos: Vector2 = (path[path_idx] as Vector2).lerp(path[path_idx + 1], seg_ease)
 		var current_wall_left: bool = pos.x < center_x
 		var tether_x: float = wall_left_x if current_wall_left else wall_right_x
-		canvas.draw_line(Vector2(tether_x, pos.y - 8.0), Vector2(pos.x, pos.y - 22.0), _color8(255, 200, 238, 145), 2.0)
+		canvas.draw_line(Vector2(tether_x, pos.y - 8.0), Vector2(pos.x, pos.y - 22.0), _draw_primitives.color8(255, 200, 238, 145), 2.0)
 		_draw_viper_mini_character(canvas, pos.x, pos.y, {"pose": "wall_left" if current_wall_left else "wall_right", "direction": -1 if current_wall_left else 1})
 	else:
 		var kick_t: float = (cycle_progress - 0.74) / 0.26
@@ -1046,10 +1050,10 @@ func _draw_viper_core_flip_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 		for ghost_idx in range(4):
 			var ghost_t: float = max(0.0, kick_ease - float(ghost_idx) * 0.16)
 			var ghost_pos: Vector2 = start.lerp(finish, ghost_t)
-			_draw_viper_mini_character(canvas, ghost_pos.x, ghost_pos.y, {"pose": "fly_right" if dash_dir > 0.0 else "fly_left", "direction": int(dash_dir), "alpha": max(0.11, (128.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _color8(255, 118, 210)})
+			_draw_viper_mini_character(canvas, ghost_pos.x, ghost_pos.y, {"pose": "fly_right" if dash_dir > 0.0 else "fly_left", "direction": int(dash_dir), "alpha": max(0.11, (128.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _draw_primitives.color8(255, 118, 210)})
 		_draw_viper_mini_character(canvas, char_pos.x, char_pos.y, {"pose": "fly_right" if dash_dir > 0.0 else "fly_left", "direction": int(dash_dir)})
-		canvas.draw_arc(ball_pos, 14.0 + kick_t * 12.0, 0.0, TAU, 36, _color8(255, 190, 236, 180), 2.0)
-		canvas.draw_line(ball_pos, Vector2(ball_pos.x - dash_dir * 48.0, preview_top + 8.0), _color8(255, 240, 248), 2.0)
+		canvas.draw_arc(ball_pos, 14.0 + kick_t * 12.0, 0.0, TAU, 36, _draw_primitives.color8(255, 190, 236, 180), 2.0)
+		canvas.draw_line(ball_pos, Vector2(ball_pos.x - dash_dir * 48.0, preview_top + 8.0), _draw_primitives.color8(255, 240, 248), 2.0)
 
 
 func _draw_viper_wall_dive_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
@@ -1067,15 +1071,15 @@ func _draw_viper_wall_dive_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 	var wall_x: float = preview_left + 14.0 if is_left_wall else preview_right - 14.0
 	var wall_side: float = -1.0 if is_left_wall else 1.0
 	var ball_pos := Vector2(center_x, center_y + 4.0)
-	_draw_preview_ball(canvas, ball_pos, 6.0, [_color8(80, 120, 255), _color8(142, 180, 255), _color8(255, 245, 255)])
-	canvas.draw_line(Vector2(wall_x, preview_top + 8.0), Vector2(wall_x, preview_bottom - 4.0), _color8(95, 88, 136, 160), 3.0)
+	_draw_preview_ball(canvas, ball_pos, 6.0, [_draw_primitives.color8(80, 120, 255), _draw_primitives.color8(142, 180, 255), _draw_primitives.color8(255, 245, 255)])
+	canvas.draw_line(Vector2(wall_x, preview_top + 8.0), Vector2(wall_x, preview_bottom - 4.0), _draw_primitives.color8(95, 88, 136, 160), 3.0)
 	for mark_idx in range(3):
 		var my: float = preview_top + 20.0 + float(mark_idx) * 16.0
-		canvas.draw_line(Vector2(wall_x, my), Vector2(wall_x - wall_side * 12.0, my + 6.0), _color8(185, 98, 255, 130), 1.0)
+		canvas.draw_line(Vector2(wall_x, my), Vector2(wall_x - wall_side * 12.0, my + 6.0), _draw_primitives.color8(185, 98, 255, 130), 1.0)
 	if local_progress < 0.36:
 		var char_y: float = preview_bottom - 7.0 - sin(local_progress * PI) * 5.0
 		_draw_viper_mini_character(canvas, wall_x - wall_side * 10.0, char_y, {"pose": "wall_left" if is_left_wall else "wall_right", "direction": int(wall_side)})
-		canvas.draw_arc(Vector2(wall_x - wall_side * 12.0, char_y - 18.0), 10.0 + local_progress * 15.0, 0.0, TAU, 36, _color8(190, 98, 255, 110), 2.0)
+		canvas.draw_arc(Vector2(wall_x - wall_side * 12.0, char_y - 18.0), 10.0 + local_progress * 15.0, 0.0, TAU, 36, _draw_primitives.color8(190, 98, 255, 110), 2.0)
 	elif local_progress < 0.86:
 		var move_t: float = (local_progress - 0.36) / 0.50
 		var move_ease: float = move_t * move_t * (3.0 - 2.0 * move_t)
@@ -1085,16 +1089,16 @@ func _draw_viper_wall_dive_preview(canvas: CanvasItem, rect: Rect2, _color: Colo
 		var char_y: float = preview_bottom - 8.0 - sin(move_t * PI) * 26.0
 		for ghost_idx in range(4):
 			var ghost_t: float = max(0.0, move_ease - float(ghost_idx) * 0.14)
-			_draw_viper_mini_character(canvas, lerp(start_x, end_x, ghost_t), preview_bottom - 8.0 - sin(ghost_t * PI) * 26.0, {"pose": "fly_right" if is_left_wall else "fly_left", "direction": int(wall_side), "alpha": max(0.11, (126.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _color8(185, 98, 255)})
+			_draw_viper_mini_character(canvas, lerp(start_x, end_x, ghost_t), preview_bottom - 8.0 - sin(ghost_t * PI) * 26.0, {"pose": "fly_right" if is_left_wall else "fly_left", "direction": int(wall_side), "alpha": max(0.11, (126.0 - float(ghost_idx) * 24.0) / 255.0), "tint": _draw_primitives.color8(185, 98, 255)})
 		_draw_viper_mini_character(canvas, char_x, char_y, {"pose": "fly_right" if is_left_wall else "fly_left", "direction": int(wall_side)})
 	else:
 		var exit_dir: float = -wall_side
 		_draw_viper_mini_character(canvas, ball_pos.x + wall_side * 8.0, center_y + 18.0, {"pose": "fly_right" if is_left_wall else "fly_left", "direction": int(wall_side)})
-		_draw_viper_mini_character(canvas, ball_pos.x + exit_dir * 20.0, center_y + 10.0, {"pose": "fly_left" if is_left_wall else "fly_right", "direction": int(exit_dir), "alpha": 92.0 / 255.0, "tint": _color8(185, 98, 255)})
+		_draw_viper_mini_character(canvas, ball_pos.x + exit_dir * 20.0, center_y + 10.0, {"pose": "fly_left" if is_left_wall else "fly_right", "direction": int(exit_dir), "alpha": 92.0 / 255.0, "tint": _draw_primitives.color8(185, 98, 255)})
 		var burst_r: float = 14.0 + (local_progress - 0.86) / 0.14 * 16.0
-		canvas.draw_arc(ball_pos, burst_r, 0.0, TAU, 36, _color8(210, 176, 255, 175), 2.0)
-		canvas.draw_line(ball_pos, Vector2(ball_pos.x + exit_dir * 54.0, preview_top + 10.0), _color8(255, 230, 255), 2.0)
-		canvas.draw_line(ball_pos + Vector2(4.0, 4.0), Vector2(ball_pos.x + exit_dir * 42.0, preview_top + 18.0), _color8(185, 98, 255), 1.0)
+		canvas.draw_arc(ball_pos, burst_r, 0.0, TAU, 36, _draw_primitives.color8(210, 176, 255, 175), 2.0)
+		canvas.draw_line(ball_pos, Vector2(ball_pos.x + exit_dir * 54.0, preview_top + 10.0), _draw_primitives.color8(255, 230, 255), 2.0)
+		canvas.draw_line(ball_pos + Vector2(4.0, 4.0), Vector2(ball_pos.x + exit_dir * 42.0, preview_top + 18.0), _draw_primitives.color8(185, 98, 255), 1.0)
 
 
 func _draw_viper_chaos_vortex_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
@@ -1109,21 +1113,21 @@ func _draw_viper_chaos_vortex_preview(canvas: CanvasItem, rect: Rect2, _color: C
 	for ring_idx in range(5):
 		var r: float = 16.0 + float(ring_idx) * 7.0 + sin(local_progress * TAU + float(ring_idx)) * 2.0
 		var start_angle: float = local_progress * TAU * (1.0 + float(ring_idx) * 0.12) + float(ring_idx) * 0.55
-		canvas.draw_arc(vortex, r, start_angle, start_angle + PI * 1.45, 42, _color8(96 + ring_idx * 20, 42 + ring_idx * 12, 210 + ring_idx * 8, max(40.0, 150.0 - float(ring_idx) * 20.0)), max(1.0, 4.0 - float(ring_idx) * 0.45))
-	canvas.draw_circle(vortex, 13.0, _color8(14, 6, 28, 220))
-	canvas.draw_circle(vortex, 7.0 + sin(local_progress * TAU * 2.0) * 2.0, _color8(72, 26, 130, 180))
+		canvas.draw_arc(vortex, r, start_angle, start_angle + PI * 1.45, 42, _draw_primitives.color8(96 + ring_idx * 20, 42 + ring_idx * 12, 210 + ring_idx * 8, max(40.0, 150.0 - float(ring_idx) * 20.0)), max(1.0, 4.0 - float(ring_idx) * 0.45))
+	canvas.draw_circle(vortex, 13.0, _draw_primitives.color8(14, 6, 28, 220))
+	canvas.draw_circle(vortex, 7.0 + sin(local_progress * TAU * 2.0) * 2.0, _draw_primitives.color8(72, 26, 130, 180))
 	for orb_idx in range(4):
 		var angle: float = local_progress * TAU + float(orb_idx) * PI * 0.5
 		var orbit_r: float = 42.0 - float(orb_idx % 2) * 9.0
 		var pos := vortex + Vector2(cos(angle) * orbit_r, sin(angle) * orbit_r * 0.52)
-		_draw_preview_ball(canvas, pos, 4.0, [_color8(100, 84, 255), _color8(210, 170, 255)])
-		canvas.draw_line(pos, vortex, _color8(160, 120, 255, 52), 1.0)
+		_draw_preview_ball(canvas, pos, 4.0, [_draw_primitives.color8(100, 84, 255), _draw_primitives.color8(210, 170, 255)])
+		canvas.draw_line(pos, vortex, _draw_primitives.color8(160, 120, 255, 52), 1.0)
 	_draw_viper_mini_character(canvas, center_x - 58.0, preview_bottom - 6.0, {"pose": "idle", "direction": 1})
-	canvas.draw_line(Vector2(center_x - 42.0, preview_bottom - 30.0), vortex, _color8(220, 190, 255, 145), 2.0)
+	canvas.draw_line(Vector2(center_x - 42.0, preview_bottom - 30.0), vortex, _draw_primitives.color8(220, 190, 255, 145), 2.0)
 	for spark_idx in range(8):
 		var spark_angle: float = local_progress * TAU * 1.5 + float(spark_idx) * TAU / 8.0
 		var spark_pos := vortex + Vector2(cos(spark_angle) * (20.0 + float(spark_idx % 3) * 10.0), sin(spark_angle) * (10.0 + float(spark_idx % 4) * 5.0))
-		canvas.draw_circle(spark_pos, 2.0, _color8(210, 180, 255, 150))
+		canvas.draw_circle(spark_pos, 2.0, _draw_primitives.color8(210, 180, 255, 150))
 
 
 func _draw_viper_glitch_clone_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
@@ -1137,7 +1141,7 @@ func _draw_viper_glitch_clone_preview(canvas: CanvasItem, rect: Rect2, _color: C
 	var preview_bottom: float = float(metrics["bottom"])
 	var base_y: float = preview_bottom - 6.0
 	for scan_y in range(int(preview_top + 2.0), int(preview_bottom), 6):
-		canvas.draw_line(Vector2(preview_left + 4.0, float(scan_y)), Vector2(preview_right - 4.0, float(scan_y)), _color8(255, 255, 255, 14), 1.0)
+		canvas.draw_line(Vector2(preview_left + 4.0, float(scan_y)), Vector2(preview_right - 4.0, float(scan_y)), _draw_primitives.color8(255, 255, 255, 14), 1.0)
 	for block_idx in range(12):
 		var block_w: float = 8.0 + float(block_idx % 3) * 4.0
 		var block_h: float = 2.0 + float(block_idx % 2)
@@ -1147,22 +1151,22 @@ func _draw_viper_glitch_clone_preview(canvas: CanvasItem, rect: Rect2, _color: C
 		var block_x: float = lerp(preview_left + 8.0, preview_right - block_w - 8.0, fposmod(seed * 0.5 + 0.5 + float(block_idx) * 0.173, 1.0))
 		@warning_ignore("integer_division")
 		var block_y: float = lerp(preview_top + 6.0, preview_bottom - block_h - 6.0, fposmod(cos(float(time_ms / 41 + block_idx * 11)) * 0.5 + 0.5, 1.0))
-		var block_color: Color = [_color8(255, 70, 140, 55), _color8(80, 230, 255, 55), _color8(255, 240, 120, 55)][block_idx % 3]
+		var block_color: Color = [_draw_primitives.color8(255, 70, 140, 55), _draw_primitives.color8(80, 230, 255, 55), _draw_primitives.color8(255, 240, 120, 55)][block_idx % 3]
 		canvas.draw_rect(Rect2(Vector2(block_x, block_y), Vector2(block_w, block_h)), block_color, true)
 	var clone_gap: float = 48.0 + sin(local_progress * TAU * 2.0) * 4.0
 	for side in [-1.0, 1.0]:
-		var tint_color: Color = _color8(255, 90, 190) if side < 0.0 else _color8(80, 235, 255)
+		var tint_color: Color = _draw_primitives.color8(255, 90, 190) if side < 0.0 else _draw_primitives.color8(80, 235, 255)
 		_draw_viper_mini_character(canvas, center_x + side * clone_gap, base_y, {"alpha": (128.0 + 36.0 * sin(local_progress * TAU + side)) / 255.0, "tint": tint_color})
 	var split_shift: float = 2.0 + 2.0 * sin(local_progress * TAU * 2.0)
-	_draw_viper_mini_character(canvas, center_x - split_shift, base_y, {"alpha": 112.0 / 255.0, "tint": _color8(255, 70, 140)})
-	_draw_viper_mini_character(canvas, center_x + split_shift, base_y, {"alpha": 112.0 / 255.0, "tint": _color8(80, 230, 255)})
+	_draw_viper_mini_character(canvas, center_x - split_shift, base_y, {"alpha": 112.0 / 255.0, "tint": _draw_primitives.color8(255, 70, 140)})
+	_draw_viper_mini_character(canvas, center_x + split_shift, base_y, {"alpha": 112.0 / 255.0, "tint": _draw_primitives.color8(80, 230, 255)})
 	_draw_viper_mini_character(canvas, center_x, base_y)
 	for band_idx in range(3):
-		var band_color: Color = [_color8(255, 70, 140, 95), _color8(80, 230, 255, 95), _color8(120, 255, 205, 95)][band_idx]
+		var band_color: Color = [_draw_primitives.color8(255, 70, 140, 95), _draw_primitives.color8(80, 230, 255, 95), _draw_primitives.color8(120, 255, 205, 95)][band_idx]
 		canvas.draw_rect(Rect2(Vector2(center_x - 3.0 + float(band_idx - 1) * 4.0, preview_top + 6.0), Vector2(4.0, preview_bottom - preview_top - 12.0)), band_color, true)
-	_draw_preview_ball(canvas, Vector2(center_x, preview_top + 16.0), 6.0, [_color8(52, 95, 255), _color8(130, 205, 255), _color8(255, 250, 255)])
-	canvas.draw_arc(Vector2(center_x, base_y - 6.0), 12.0 + local_progress * 14.0, 0.0, TAU, 36, _color8(60, 220, 150, 90), 2.0)
-	canvas.draw_arc(Vector2(center_x, base_y - 6.0), max(8.0, 6.0 + local_progress * 10.0), 0.0, TAU, 36, _color8(255, 80, 160, 70), 1.0)
+	_draw_preview_ball(canvas, Vector2(center_x, preview_top + 16.0), 6.0, [_draw_primitives.color8(52, 95, 255), _draw_primitives.color8(130, 205, 255), _draw_primitives.color8(255, 250, 255)])
+	canvas.draw_arc(Vector2(center_x, base_y - 6.0), 12.0 + local_progress * 14.0, 0.0, TAU, 36, _draw_primitives.color8(60, 220, 150, 90), 2.0)
+	canvas.draw_arc(Vector2(center_x, base_y - 6.0), max(8.0, 6.0 + local_progress * 10.0), 0.0, TAU, 36, _draw_primitives.color8(255, 80, 160, 70), 1.0)
 
 
 func _draw_viper_ignition_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
@@ -1174,12 +1178,12 @@ func _draw_viper_ignition_preview(canvas: CanvasItem, rect: Rect2, _color: Color
 	var preview_bottom: float = float(metrics["bottom"])
 	var caster_x: float = center_x
 	var caster_y: float = preview_bottom - 6.0 - pulse * 3.0
-	_draw_viper_mini_character(canvas, caster_x + 2.0, caster_y + 1.0, {"alpha": 170.0 / 255.0, "tint": _color8(255, 138, 58)})
+	_draw_viper_mini_character(canvas, caster_x + 2.0, caster_y + 1.0, {"alpha": 170.0 / 255.0, "tint": _draw_primitives.color8(255, 138, 58)})
 	_draw_viper_mini_character(canvas, caster_x, caster_y)
 	var aura_center := Vector2(caster_x, caster_y - 14.0)
-	canvas.draw_circle(aura_center, 18.0 + pulse * 8.0, _color8(255, 114, 36, 88))
-	canvas.draw_circle(aura_center, 11.0 + pulse * 5.0, _color8(255, 176, 92, 112))
-	canvas.draw_circle(aura_center, max(5.0, 5.0 + pulse * 3.0), _color8(255, 244, 180, 120))
+	canvas.draw_circle(aura_center, 18.0 + pulse * 8.0, _draw_primitives.color8(255, 114, 36, 88))
+	canvas.draw_circle(aura_center, 11.0 + pulse * 5.0, _draw_primitives.color8(255, 176, 92, 112))
+	canvas.draw_circle(aura_center, max(5.0, 5.0 + pulse * 3.0), _draw_primitives.color8(255, 244, 180, 120))
 	for flame_idx in range(4):
 		var flame_angle: float = local_progress * TAU * 0.8 + float(flame_idx) * PI * 0.5 + PI * 0.25
 		var base_r: float = 16.0 + pulse * 6.0
@@ -1192,10 +1196,10 @@ func _draw_viper_ignition_preview(canvas: CanvasItem, rect: Rect2, _color: Color
 			base + Vector2(cos(perp), sin(perp)) * half_w,
 			base - Vector2(cos(perp), sin(perp)) * half_w,
 		])
-		canvas.draw_colored_polygon(flame_points, _color8(255, 132, 48, 158))
+		canvas.draw_colored_polygon(flame_points, _draw_primitives.color8(255, 132, 48, 158))
 		var outline := PackedVector2Array(flame_points)
 		outline.append(tip)
-		canvas.draw_polyline(outline, _color8(255, 226, 164, 115), 1.0)
+		canvas.draw_polyline(outline, _draw_primitives.color8(255, 226, 164, 115), 1.0)
 	for ember_idx in range(14):
 		@warning_ignore("integer_division")
 		var ember_x: float = caster_x + sin(float(time_ms / 42 + ember_idx * 19)) * 34.0
@@ -1203,12 +1207,12 @@ func _draw_viper_ignition_preview(canvas: CanvasItem, rect: Rect2, _color: Color
 		var ember_y: float = caster_y - 40.0 + cos(float(time_ms / 47 + ember_idx * 13)) * 16.0
 		var ember_r: float = 2.0 if ember_idx < 5 else 1.0
 		var ember_alpha: float = 90.0 + float(ember_idx % 4) * 20.0
-		var ember_color: Color = _color8(255, 220, 120, ember_alpha) if ember_idx % 3 == 0 else _color8(255, 145, 64, ember_alpha)
+		var ember_color: Color = _draw_primitives.color8(255, 220, 120, ember_alpha) if ember_idx % 3 == 0 else _draw_primitives.color8(255, 145, 64, ember_alpha)
 		canvas.draw_circle(Vector2(ember_x, ember_y), ember_r, ember_color)
 	for ray_idx in range(6):
 		var ray_angle: float = float(ray_idx) / 6.0 * TAU + local_progress * PI * 0.4
 		var ray_len: float = 14.0 + float(ray_idx) * 2.0
-		canvas.draw_line(aura_center, aura_center + Vector2(cos(ray_angle) * ray_len, sin(ray_angle) * ray_len * 0.7), _color8(255, 204, 122, 70), 2.0)
+		canvas.draw_line(aura_center, aura_center + Vector2(cos(ray_angle) * ray_len, sin(ray_angle) * ray_len * 0.7), _draw_primitives.color8(255, 204, 122, 70), 2.0)
 
 
 func _draw_viper_input_overlay(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color, time_ms: int) -> void:
@@ -1242,18 +1246,18 @@ func _draw_viper_input_overlay(canvas: CanvasItem, rect: Rect2, effect_type: Str
 func _draw_viper_hold_keycap(canvas: CanvasItem, center: Vector2, letter: String, color: Color, pulse_phase: float) -> void:
 	_draw_preview_keycap(canvas, center, letter)
 	var pulse: float = 0.5 + 0.5 * sin(pulse_phase * TAU)
-	_draw_round_rect_outline(canvas, Rect2(center - Vector2(10.0, 9.0), Vector2(20.0, 18.0)), _alpha(color, max(60.0, 180.0 * pulse + 60.0) / 255.0), 4.0, 1.0)
+	_draw_primitives.draw_round_rect_outline(canvas, Rect2(center - Vector2(10.0, 9.0), Vector2(20.0, 18.0)), _draw_primitives.alpha(color, max(60.0, 180.0 * pulse + 60.0) / 255.0), 4.0, 1.0)
 	for dot_idx in range(3):
-		canvas.draw_circle(center + Vector2(-2.0 + float(dot_idx) * 2.0, 10.0 + float(dot_idx)), 1.0, _alpha(color, 200.0 / 255.0))
+		canvas.draw_circle(center + Vector2(-2.0 + float(dot_idx) * 2.0, 10.0 + float(dot_idx)), 1.0, _draw_primitives.alpha(color, 200.0 / 255.0))
 
 
 func _draw_viper_combo_keycap(canvas: CanvasItem, center: Vector2, letter: String, color: Color) -> void:
 	_draw_preview_keycap(canvas, center, letter)
 	var cb_x: float = center.x + 11.0
-	canvas.draw_line(Vector2(cb_x, center.y - 3.0), Vector2(cb_x + 3.0, center.y), _alpha(color, 220.0 / 255.0), 1.0)
-	canvas.draw_line(Vector2(cb_x + 3.0, center.y), Vector2(cb_x, center.y + 3.0), _alpha(color, 220.0 / 255.0), 1.0)
-	canvas.draw_line(Vector2(cb_x + 3.0, center.y - 3.0), Vector2(cb_x + 6.0, center.y), _alpha(color, 220.0 / 255.0), 1.0)
-	canvas.draw_line(Vector2(cb_x + 6.0, center.y), Vector2(cb_x + 3.0, center.y + 3.0), _alpha(color, 220.0 / 255.0), 1.0)
+	canvas.draw_line(Vector2(cb_x, center.y - 3.0), Vector2(cb_x + 3.0, center.y), _draw_primitives.alpha(color, 220.0 / 255.0), 1.0)
+	canvas.draw_line(Vector2(cb_x + 3.0, center.y), Vector2(cb_x, center.y + 3.0), _draw_primitives.alpha(color, 220.0 / 255.0), 1.0)
+	canvas.draw_line(Vector2(cb_x + 3.0, center.y - 3.0), Vector2(cb_x + 6.0, center.y), _draw_primitives.alpha(color, 220.0 / 255.0), 1.0)
+	canvas.draw_line(Vector2(cb_x + 6.0, center.y), Vector2(cb_x + 3.0, center.y + 3.0), _draw_primitives.alpha(color, 220.0 / 255.0), 1.0)
 
 
 func _draw_commando_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color) -> void:
@@ -1280,17 +1284,17 @@ func _draw_commando_supply_drop_preview(canvas: CanvasItem, rect: Rect2, color: 
 	var plane_x: float = preview_left + 12.0 + fposmod(local_progress * 240.0, preview_right - preview_left - 24.0)
 	var crate_phase: float = clamp((local_progress - 0.18) / 0.70, 0.0, 1.0)
 	var crate_pos := Vector2(center_x + 36.0 * sin(crate_phase * PI), preview_top + 12.0 + (floor_y - preview_top - 20.0) * crate_phase)
-	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _color8(82, 130, 80, 54), 2.0)
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _draw_primitives.color8(82, 130, 80, 54), 2.0)
 	_draw_commando_mini_character(canvas, soldier_pos.x, soldier_pos.y, {"pose": "radio"})
 	for signal_idx in range(3):
 		var signal_radius: float = 14.0 + float(signal_idx) * 9.0 + sin(float(time_ms) * 0.006) * 2.0
-		canvas.draw_arc(soldier_pos + Vector2(9.0, -32.0), signal_radius, -PI * 0.75, -PI * 0.22, 18, _alpha(color, max(45.0, 160.0 - float(signal_idx) * 40.0) / 255.0), 1.5)
+		canvas.draw_arc(soldier_pos + Vector2(9.0, -32.0), signal_radius, -PI * 0.75, -PI * 0.22, 18, _draw_primitives.alpha(color, max(45.0, 160.0 - float(signal_idx) * 40.0) / 255.0), 1.5)
 	_draw_commando_plane(canvas, Vector2(plane_x, preview_top + 10.0), color)
 	_draw_commando_parachute_crate(canvas, crate_pos, color, crate_phase)
 	for sparkle_idx in range(6):
 		var sparkle_angle: float = float(sparkle_idx) * TAU / 6.0 + local_progress * TAU
 		var sparkle_pos := crate_pos + Vector2(cos(sparkle_angle) * 22.0, sin(sparkle_angle) * 10.0)
-		canvas.draw_circle(sparkle_pos, 1.8, _alpha(color, 150.0 / 255.0))
+		canvas.draw_circle(sparkle_pos, 1.8, _draw_primitives.alpha(color, 150.0 / 255.0))
 	_draw_preview_keycap(canvas, Vector2(preview_left + 22.0, preview_top + 14.0), "S")
 	_draw_preview_mouse(canvas, Vector2(preview_left + 44.0, preview_top + 14.0), false)
 
@@ -1307,20 +1311,20 @@ func _draw_commando_emergency_reload_preview(canvas: CanvasItem, rect: Rect2, co
 	var floor_y: float = preview_bottom - 2.0
 	var soldier_pos := Vector2(center_x - 44.0, floor_y)
 	var magazine_pos := Vector2(center_x + 30.0, floor_y - 26.0)
-	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _color8(130, 72, 64, 54), 2.0)
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _draw_primitives.color8(130, 72, 64, 54), 2.0)
 	_draw_commando_mini_character(canvas, soldier_pos.x, soldier_pos.y, {"pose": "reload"})
 	_draw_commando_pistol(canvas, soldier_pos + Vector2(25.0, -31.0), color, local_progress)
 	var filled_rounds: int = clampi(int(floor(local_progress * 6.0)), 0, 5)
 	_draw_commando_magazine(canvas, magazine_pos, color, filled_rounds)
 	for arc_idx in range(3):
 		var radius: float = 17.0 + float(arc_idx) * 8.0 + sin(local_progress * TAU) * 2.0
-		canvas.draw_arc(magazine_pos, radius, -PI * 0.20, PI * 1.25, 26, _alpha(color, max(45.0, 160.0 - float(arc_idx) * 38.0) / 255.0), 2.0)
+		canvas.draw_arc(magazine_pos, radius, -PI * 0.20, PI * 1.25, 26, _draw_primitives.alpha(color, max(45.0, 160.0 - float(arc_idx) * 38.0) / 255.0), 2.0)
 	for round_idx in range(5):
 		var round_phase: float = clamp(local_progress * 1.4 - float(round_idx) * 0.13, 0.0, 1.0)
 		var start := Vector2(preview_right - 30.0 - float(round_idx) * 8.0, preview_top + 14.0)
 		var finish := magazine_pos + Vector2(-5.0 + float(round_idx) * 3.0, -9.0)
 		var pos: Vector2 = start.lerp(finish, 1.0 - pow(1.0 - round_phase, 2.0))
-		canvas.draw_rect(Rect2(pos - Vector2(2.0, 5.0), Vector2(4.0, 10.0)), _color8(255, 215, 115, 180), true)
+		canvas.draw_rect(Rect2(pos - Vector2(2.0, 5.0), Vector2(4.0, 10.0)), _draw_primitives.color8(255, 215, 115, 180), true)
 	_draw_preview_keycap(canvas, Vector2(preview_left + 24.0, preview_top + 14.0), "↓")
 	_draw_preview_arrow(canvas, Vector2(preview_left + 42.0, preview_top + 14.0))
 	_draw_preview_keycap(canvas, Vector2(preview_left + 60.0, preview_top + 14.0), "↓")
@@ -1338,7 +1342,7 @@ func _draw_commando_firearm_preview(canvas: CanvasItem, rect: Rect2, effect_type
 	var soldier_pos := Vector2(preview_left + 56.0, floor_y)
 	var muzzle := soldier_pos + Vector2(31.0, -32.0)
 	var target := Vector2(preview_right - 36.0, preview_top + 26.0)
-	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _color8(92, 104, 80, 50), 2.0)
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _draw_primitives.color8(92, 104, 80, 50), 2.0)
 	_draw_commando_mini_character(canvas, soldier_pos.x, soldier_pos.y, {"pose": "fire"})
 	_draw_commando_pistol(canvas, muzzle - Vector2(8.0, 0.0), color, local_progress)
 	match effect_type:
@@ -1360,77 +1364,77 @@ func _draw_commando_firearm_preview(canvas: CanvasItem, rect: Rect2, effect_type
 
 func _draw_commando_plane(canvas: CanvasItem, center: Vector2, color: Color) -> void:
 	var body := Rect2(center + Vector2(-20.0, -4.0), Vector2(34.0, 8.0))
-	canvas.draw_rect(body, _color8(58, 76, 64, 220), true)
-	canvas.draw_rect(Rect2(body.position + Vector2(4.0, -3.0), Vector2(10.0, 4.0)), _color8(176, 205, 168, 230), true)
+	canvas.draw_rect(body, _draw_primitives.color8(58, 76, 64, 220), true)
+	canvas.draw_rect(Rect2(body.position + Vector2(4.0, -3.0), Vector2(10.0, 4.0)), _draw_primitives.color8(176, 205, 168, 230), true)
 	var wing := PackedVector2Array([
 		center + Vector2(-4.0, -3.0),
 		center + Vector2(18.0, -17.0),
 		center + Vector2(10.0, -2.0),
 		center + Vector2(-5.0, 10.0),
 	])
-	canvas.draw_colored_polygon(wing, _alpha(color, 170.0 / 255.0))
-	canvas.draw_line(center + Vector2(-20.0, 3.0), center + Vector2(-28.0, 10.0), _color8(58, 76, 64, 210), 3.0)
+	canvas.draw_colored_polygon(wing, _draw_primitives.alpha(color, 170.0 / 255.0))
+	canvas.draw_line(center + Vector2(-20.0, 3.0), center + Vector2(-28.0, 10.0), _draw_primitives.color8(58, 76, 64, 210), 3.0)
 
 
 func _draw_commando_parachute_crate(canvas: CanvasItem, center: Vector2, color: Color, phase: float) -> void:
 	var canopy_center := center + Vector2(0.0, -20.0)
 	var canopy_rect := Rect2(canopy_center - Vector2(22.0, 13.0), Vector2(44.0, 24.0))
-	_draw_ellipse_arc(canvas, canopy_rect, PI, TAU, _alpha(color, 185.0 / 255.0), 2.0)
-	canvas.draw_line(canopy_center + Vector2(-18.0, 0.0), center + Vector2(-9.0, -7.0), _color8(210, 226, 204, 150), 1.0)
-	canvas.draw_line(canopy_center + Vector2(18.0, 0.0), center + Vector2(9.0, -7.0), _color8(210, 226, 204, 150), 1.0)
-	canvas.draw_line(canopy_center, center + Vector2(0.0, -7.0), _color8(210, 226, 204, 150), 1.0)
+	_draw_primitives.draw_ellipse_arc(canvas, canopy_rect, PI, TAU, _draw_primitives.alpha(color, 185.0 / 255.0), 2.0)
+	canvas.draw_line(canopy_center + Vector2(-18.0, 0.0), center + Vector2(-9.0, -7.0), _draw_primitives.color8(210, 226, 204, 150), 1.0)
+	canvas.draw_line(canopy_center + Vector2(18.0, 0.0), center + Vector2(9.0, -7.0), _draw_primitives.color8(210, 226, 204, 150), 1.0)
+	canvas.draw_line(canopy_center, center + Vector2(0.0, -7.0), _draw_primitives.color8(210, 226, 204, 150), 1.0)
 	var crate_rect := Rect2(center - Vector2(12.0, 8.0), Vector2(24.0, 16.0))
-	_draw_panel(canvas, crate_rect, _color8(96, 84, 54, 230), _alpha(color, 190.0 / 255.0), 2.0, 2.0)
-	canvas.draw_line(crate_rect.position + Vector2(3.0, 3.0), crate_rect.end - Vector2(3.0, 3.0), _color8(196, 166, 92, 170), 1.0)
-	canvas.draw_line(Vector2(crate_rect.end.x - 3.0, crate_rect.position.y + 3.0), Vector2(crate_rect.position.x + 3.0, crate_rect.end.y - 3.0), _color8(196, 166, 92, 170), 1.0)
+	_draw_primitives.draw_panel(canvas, crate_rect, _draw_primitives.color8(96, 84, 54, 230), _draw_primitives.alpha(color, 190.0 / 255.0), 2.0, 2.0)
+	canvas.draw_line(crate_rect.position + Vector2(3.0, 3.0), crate_rect.end - Vector2(3.0, 3.0), _draw_primitives.color8(196, 166, 92, 170), 1.0)
+	canvas.draw_line(Vector2(crate_rect.end.x - 3.0, crate_rect.position.y + 3.0), Vector2(crate_rect.position.x + 3.0, crate_rect.end.y - 3.0), _draw_primitives.color8(196, 166, 92, 170), 1.0)
 	if phase >= 0.94:
-		canvas.draw_arc(center, 20.0 + (phase - 0.94) * 80.0, 0.0, TAU, 28, _alpha(color, 120.0 / 255.0), 2.0)
+		canvas.draw_arc(center, 20.0 + (phase - 0.94) * 80.0, 0.0, TAU, 28, _draw_primitives.alpha(color, 120.0 / 255.0), 2.0)
 
 
 func _draw_commando_pistol(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
 	var body := Rect2(center + Vector2(-8.0, -4.0), Vector2(20.0, 7.0))
-	canvas.draw_rect(body, _color8(35, 38, 36, 235), true)
-	canvas.draw_rect(Rect2(body.position + Vector2(2.0, 1.0), Vector2(9.0, 2.0)), _alpha(color, 150.0 / 255.0), true)
-	canvas.draw_rect(Rect2(center + Vector2(-7.0, 2.0), Vector2(5.0, 10.0)), _color8(64, 54, 42, 235), true)
+	canvas.draw_rect(body, _draw_primitives.color8(35, 38, 36, 235), true)
+	canvas.draw_rect(Rect2(body.position + Vector2(2.0, 1.0), Vector2(9.0, 2.0)), _draw_primitives.alpha(color, 150.0 / 255.0), true)
+	canvas.draw_rect(Rect2(center + Vector2(-7.0, 2.0), Vector2(5.0, 10.0)), _draw_primitives.color8(64, 54, 42, 235), true)
 	if progress > 0.45:
-		canvas.draw_line(center + Vector2(13.0, -1.0), center + Vector2(23.0, -1.0), _alpha(color, 170.0 / 255.0), 2.0)
+		canvas.draw_line(center + Vector2(13.0, -1.0), center + Vector2(23.0, -1.0), _draw_primitives.alpha(color, 170.0 / 255.0), 2.0)
 
 
 func _draw_commando_magazine(canvas: CanvasItem, center: Vector2, color: Color, filled_rounds: int) -> void:
 	var mag_rect := Rect2(center - Vector2(9.0, 18.0), Vector2(18.0, 36.0))
-	_draw_panel(canvas, mag_rect, _color8(34, 37, 34, 232), _alpha(color, 120.0 / 255.0), 2.0, 3.0)
+	_draw_primitives.draw_panel(canvas, mag_rect, _draw_primitives.color8(34, 37, 34, 232), _draw_primitives.alpha(color, 120.0 / 255.0), 2.0, 3.0)
 	for round_idx in range(5):
 		var slot_y: float = mag_rect.end.y - 6.0 - float(round_idx) * 6.0
-		var round_color: Color = _color8(255, 216, 118, 220) if round_idx < filled_rounds else _color8(80, 82, 76, 190)
+		var round_color: Color = _draw_primitives.color8(255, 216, 118, 220) if round_idx < filled_rounds else _draw_primitives.color8(80, 82, 76, 190)
 		canvas.draw_rect(Rect2(Vector2(center.x - 5.0, slot_y - 2.0), Vector2(10.0, 3.0)), round_color, true)
 
 
 func _draw_commando_support_marker(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
-	canvas.draw_arc(center, 18.0 + sin(progress * TAU) * 3.0, 0.0, TAU, 36, _alpha(color, 180.0 / 255.0), 2.0)
-	canvas.draw_line(center + Vector2(-16.0, 0.0), center + Vector2(16.0, 0.0), _alpha(color, 190.0 / 255.0), 1.5)
-	canvas.draw_line(center + Vector2(0.0, -16.0), center + Vector2(0.0, 16.0), _alpha(color, 190.0 / 255.0), 1.5)
+	canvas.draw_arc(center, 18.0 + sin(progress * TAU) * 3.0, 0.0, TAU, 36, _draw_primitives.alpha(color, 180.0 / 255.0), 2.0)
+	canvas.draw_line(center + Vector2(-16.0, 0.0), center + Vector2(16.0, 0.0), _draw_primitives.alpha(color, 190.0 / 255.0), 1.5)
+	canvas.draw_line(center + Vector2(0.0, -16.0), center + Vector2(0.0, 16.0), _draw_primitives.alpha(color, 190.0 / 255.0), 1.5)
 	for shell_idx in range(3):
 		var shell_pos := center + Vector2(-14.0 + float(shell_idx) * 14.0, -42.0 + progress * 38.0)
-		canvas.draw_line(shell_pos, shell_pos + Vector2(0.0, 13.0), _color8(255, 138, 76, 170), 3.0)
+		canvas.draw_line(shell_pos, shell_pos + Vector2(0.0, 13.0), _draw_primitives.color8(255, 138, 76, 170), 3.0)
 
 
 func _draw_commando_trap_marker(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
 	var trap_rect := Rect2(center - Vector2(18.0, 7.0), Vector2(36.0, 14.0))
-	_draw_panel(canvas, trap_rect, _color8(56, 46, 40, 230), _alpha(color, 130.0 / 255.0), 2.0, 5.0)
+	_draw_primitives.draw_panel(canvas, trap_rect, _draw_primitives.color8(56, 46, 40, 230), _draw_primitives.alpha(color, 130.0 / 255.0), 2.0, 5.0)
 	for tooth_idx in range(5):
 		var tooth_x: float = trap_rect.position.x + 5.0 + float(tooth_idx) * 6.0
-		canvas.draw_line(Vector2(tooth_x, trap_rect.position.y + 2.0), Vector2(tooth_x + 3.0, trap_rect.position.y - 8.0 - sin(progress * TAU) * 3.0), _color8(220, 224, 210, 190), 1.5)
-	canvas.draw_circle(center + Vector2(-26.0 + progress * 52.0, -16.0), 7.0, _alpha(color, 190.0 / 255.0))
+		canvas.draw_line(Vector2(tooth_x, trap_rect.position.y + 2.0), Vector2(tooth_x + 3.0, trap_rect.position.y - 8.0 - sin(progress * TAU) * 3.0), _draw_primitives.color8(220, 224, 210, 190), 1.5)
+	canvas.draw_circle(center + Vector2(-26.0 + progress * 52.0, -16.0), 7.0, _draw_primitives.alpha(color, 190.0 / 255.0))
 
 
 func _draw_commando_drone(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
 	var hover: float = sin(progress * TAU) * 5.0
 	var body_center := center + Vector2(0.0, hover)
-	_draw_panel(canvas, Rect2(body_center - Vector2(12.0, 6.0), Vector2(24.0, 12.0)), _color8(44, 50, 48, 230), _alpha(color, 130.0 / 255.0), 2.0, 4.0)
+	_draw_primitives.draw_panel(canvas, Rect2(body_center - Vector2(12.0, 6.0), Vector2(24.0, 12.0)), _draw_primitives.color8(44, 50, 48, 230), _draw_primitives.alpha(color, 130.0 / 255.0), 2.0, 4.0)
 	for arm_dir in [-1.0, 1.0]:
-		canvas.draw_line(body_center + Vector2(arm_dir * 10.0, -2.0), body_center + Vector2(arm_dir * 24.0, -8.0), _color8(90, 110, 90, 190), 2.0)
-		canvas.draw_arc(body_center + Vector2(arm_dir * 28.0, -10.0), 7.0, 0.0, TAU, 18, _alpha(color, 150.0 / 255.0), 1.5)
-	canvas.draw_circle(body_center, 3.0, _color8(255, 96, 70, 220))
+		canvas.draw_line(body_center + Vector2(arm_dir * 10.0, -2.0), body_center + Vector2(arm_dir * 24.0, -8.0), _draw_primitives.color8(90, 110, 90, 190), 2.0)
+		canvas.draw_arc(body_center + Vector2(arm_dir * 28.0, -10.0), 7.0, 0.0, TAU, 18, _draw_primitives.alpha(color, 150.0 / 255.0), 1.5)
+	canvas.draw_circle(body_center, 3.0, _draw_primitives.color8(255, 96, 70, 220))
 
 
 func _draw_commando_net_projectile(canvas: CanvasItem, start: Vector2, target: Vector2, color: Color, progress: float) -> void:
@@ -1438,13 +1442,13 @@ func _draw_commando_net_projectile(canvas: CanvasItem, start: Vector2, target: V
 	for trail_idx in range(6):
 		var trail_phase: float = max(0.0, progress - float(trail_idx) * 0.08)
 		var trail_pos: Vector2 = start.lerp(target, trail_phase)
-		canvas.draw_circle(trail_pos, max(1.0, 4.0 - float(trail_idx) * 0.4), _alpha(color, max(35.0, 150.0 - float(trail_idx) * 20.0) / 255.0))
+		canvas.draw_circle(trail_pos, max(1.0, 4.0 - float(trail_idx) * 0.4), _draw_primitives.alpha(color, max(35.0, 150.0 - float(trail_idx) * 20.0) / 255.0))
 	var net_rect := Rect2(net_center - Vector2(18.0, 12.0), Vector2(36.0, 24.0))
 	for line_idx in range(4):
 		var x: float = net_rect.position.x + float(line_idx) * net_rect.size.x / 3.0
-		canvas.draw_line(Vector2(x, net_rect.position.y), Vector2(x, net_rect.end.y), _alpha(color, 170.0 / 255.0), 1.0)
+		canvas.draw_line(Vector2(x, net_rect.position.y), Vector2(x, net_rect.end.y), _draw_primitives.alpha(color, 170.0 / 255.0), 1.0)
 		var y: float = net_rect.position.y + float(line_idx) * net_rect.size.y / 3.0
-		canvas.draw_line(Vector2(net_rect.position.x, y), Vector2(net_rect.end.x, y), _alpha(color, 170.0 / 255.0), 1.0)
+		canvas.draw_line(Vector2(net_rect.position.x, y), Vector2(net_rect.end.x, y), _draw_primitives.alpha(color, 170.0 / 255.0), 1.0)
 
 
 func _draw_commando_rocket(canvas: CanvasItem, start: Vector2, target: Vector2, color: Color, progress: float) -> void:
@@ -1456,12 +1460,12 @@ func _draw_commando_rocket(canvas: CanvasItem, start: Vector2, target: Vector2, 
 		rocket_pos - dir * 10.0 + side * 5.0,
 		rocket_pos - dir * 7.0,
 		rocket_pos - dir * 10.0 - side * 5.0,
-	]), _color8(88, 92, 86, 230))
+	]), _draw_primitives.color8(88, 92, 86, 230))
 	for flame_idx in range(4):
 		var flame_pos := rocket_pos - dir * (12.0 + float(flame_idx) * 5.0)
-		canvas.draw_circle(flame_pos, max(2.0, 6.0 - float(flame_idx)), _color8(255, 154, 58, max(70.0, 190.0 - float(flame_idx) * 34.0)))
+		canvas.draw_circle(flame_pos, max(2.0, 6.0 - float(flame_idx)), _draw_primitives.color8(255, 154, 58, max(70.0, 190.0 - float(flame_idx) * 34.0)))
 	if progress > 0.82:
-		canvas.draw_arc(target, 28.0 * ((progress - 0.82) / 0.18), 0.0, TAU, 32, _alpha(color, 180.0 / 255.0), 2.0)
+		canvas.draw_arc(target, 28.0 * ((progress - 0.82) / 0.18), 0.0, TAU, 32, _draw_primitives.alpha(color, 180.0 / 255.0), 2.0)
 
 
 func _draw_commando_bullets(canvas: CanvasItem, start: Vector2, target: Vector2, color: Color, progress: float, rapid: bool) -> void:
@@ -1469,29 +1473,29 @@ func _draw_commando_bullets(canvas: CanvasItem, start: Vector2, target: Vector2,
 	for bullet_idx in range(burst_count):
 		var bullet_phase: float = fposmod(progress + float(bullet_idx) * (0.16 if rapid else 0.34), 1.0)
 		var pos: Vector2 = start.lerp(target, bullet_phase)
-		canvas.draw_line(pos - Vector2(10.0, 0.0), pos + Vector2(6.0, 0.0), _color8(255, 214, 105, 210), 2.0)
-		canvas.draw_circle(pos + Vector2(7.0, 0.0), 2.0, _alpha(color, 160.0 / 255.0))
+		canvas.draw_line(pos - Vector2(10.0, 0.0), pos + Vector2(6.0, 0.0), _draw_primitives.color8(255, 214, 105, 210), 2.0)
+		canvas.draw_circle(pos + Vector2(7.0, 0.0), 2.0, _draw_primitives.alpha(color, 160.0 / 255.0))
 
 
 func _draw_commando_mini_character(canvas: CanvasItem, cx: float, cy: float, options: Dictionary = {}) -> void:
 	var pose: String = str(options.get("pose", "idle"))
 	var alpha: float = float(options.get("alpha", 1.0))
-	var tint: Color = _get_color(options.get("tint", Color.WHITE), Color.WHITE)
-	var armor := _tint(_color8(78, 112, 58, 235.0 * alpha), tint)
-	var armor_dark := _tint(_color8(44, 66, 42, 235.0 * alpha), tint)
-	var trim := _tint(_color8(154, 188, 104, 225.0 * alpha), tint)
-	var skin := _tint(_color8(218, 176, 128, 235.0 * alpha), tint)
-	canvas.draw_circle(Vector2(cx, cy - 2.0), 16.0, _alpha(Color.BLACK, 0.22 * alpha))
+	var tint: Color = _draw_primitives.get_color(options.get("tint", Color.WHITE), Color.WHITE)
+	var armor: Color = _draw_primitives.tint(_draw_primitives.color8(78, 112, 58, 235.0 * alpha), tint)
+	var armor_dark: Color = _draw_primitives.tint(_draw_primitives.color8(44, 66, 42, 235.0 * alpha), tint)
+	var trim: Color = _draw_primitives.tint(_draw_primitives.color8(154, 188, 104, 225.0 * alpha), tint)
+	var skin: Color = _draw_primitives.tint(_draw_primitives.color8(218, 176, 128, 235.0 * alpha), tint)
+	canvas.draw_circle(Vector2(cx, cy - 2.0), 16.0, _draw_primitives.alpha(Color.BLACK, 0.22 * alpha))
 	canvas.draw_line(Vector2(cx - 6.0, cy - 12.0), Vector2(cx - 11.0, cy - 2.0), armor_dark, 4.0)
 	canvas.draw_line(Vector2(cx + 6.0, cy - 12.0), Vector2(cx + 11.0, cy - 2.0), armor_dark, 4.0)
-	_draw_panel(canvas, Rect2(Vector2(cx - 11.0, cy - 39.0), Vector2(22.0, 28.0)), armor, Color.TRANSPARENT, 0.0, 5.0)
+	_draw_primitives.draw_panel(canvas, Rect2(Vector2(cx - 11.0, cy - 39.0), Vector2(22.0, 28.0)), armor, Color.TRANSPARENT, 0.0, 5.0)
 	canvas.draw_rect(Rect2(Vector2(cx - 6.0, cy - 34.0), Vector2(12.0, 6.0)), trim, true)
-	_draw_ellipse(canvas, Rect2(Vector2(cx - 11.0, cy - 56.0), Vector2(22.0, 18.0)), armor_dark, true)
-	_draw_ellipse(canvas, Rect2(Vector2(cx - 8.0, cy - 51.0), Vector2(16.0, 8.0)), skin, true)
-	canvas.draw_rect(Rect2(Vector2(cx - 8.0, cy - 49.0), Vector2(16.0, 3.0)), _color8(42, 52, 48, 230.0 * alpha), true)
+	_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(cx - 11.0, cy - 56.0), Vector2(22.0, 18.0)), armor_dark, true)
+	_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(cx - 8.0, cy - 51.0), Vector2(16.0, 8.0)), skin, true)
+	canvas.draw_rect(Rect2(Vector2(cx - 8.0, cy - 49.0), Vector2(16.0, 3.0)), _draw_primitives.color8(42, 52, 48, 230.0 * alpha), true)
 	if pose == "radio":
 		canvas.draw_line(Vector2(cx - 9.0, cy - 33.0), Vector2(cx - 23.0, cy - 43.0), armor_dark, 3.0)
-		canvas.draw_rect(Rect2(Vector2(cx - 27.0, cy - 47.0), Vector2(7.0, 11.0)), _color8(28, 34, 30, 235.0 * alpha), true)
+		canvas.draw_rect(Rect2(Vector2(cx - 27.0, cy - 47.0), Vector2(7.0, 11.0)), _draw_primitives.color8(28, 34, 30, 235.0 * alpha), true)
 		canvas.draw_line(Vector2(cx - 24.0, cy - 47.0), Vector2(cx - 29.0, cy - 55.0), trim, 1.0)
 	elif pose == "reload":
 		canvas.draw_line(Vector2(cx + 9.0, cy - 33.0), Vector2(cx + 22.0, cy - 29.0), armor_dark, 3.0)
@@ -1523,19 +1527,19 @@ func _draw_viper_blade_wave(canvas: CanvasItem, tip: Vector2, travel_phase: floa
 
 func _draw_viper_blade_fan(canvas: CanvasItem, tip: Vector2, fan_w: float, fan_h: float, dark_mode: bool, alpha_scale: float) -> void:
 	var layer_specs: Array = [
-		[1.10, _color8(14, 0, 2, 36)],
-		[0.94, _color8(46, 2, 8, 68)],
-		[0.78, _color8(136, 14, 22, 132)],
-		[0.52, _color8(242, 84, 64, 198)],
+		[1.10, _draw_primitives.color8(14, 0, 2, 36)],
+		[0.94, _draw_primitives.color8(46, 2, 8, 68)],
+		[0.78, _draw_primitives.color8(136, 14, 22, 132)],
+		[0.52, _draw_primitives.color8(242, 84, 64, 198)],
 	] if dark_mode else [
-		[1.00, _color8(52, 28, 92, 28)],
-		[0.82, _color8(82, 40, 128, 52)],
-		[0.62, _color8(154, 98, 210, 112)],
-		[0.40, _color8(204, 170, 240, 148)],
+		[1.00, _draw_primitives.color8(52, 28, 92, 28)],
+		[0.82, _draw_primitives.color8(82, 40, 128, 52)],
+		[0.62, _draw_primitives.color8(154, 98, 210, 112)],
+		[0.40, _draw_primitives.color8(204, 170, 240, 148)],
 	]
 	for spec in layer_specs:
 		var scale: float = float(spec[0])
-		var c: Color = _alpha(_get_color(spec[1], Color.WHITE), alpha_scale)
+		var c: Color = _draw_primitives.alpha(_draw_primitives.get_color(spec[1], Color.WHITE), alpha_scale)
 		var points := PackedVector2Array([
 			tip,
 			tip + Vector2(-fan_w * 0.5 * scale, fan_h * scale),
@@ -1543,31 +1547,31 @@ func _draw_viper_blade_fan(canvas: CanvasItem, tip: Vector2, fan_w: float, fan_h
 			tip + Vector2(fan_w * 0.5 * scale, fan_h * scale),
 		])
 		canvas.draw_colored_polygon(points, c)
-	var edge_color: Color = _color8(255, 105, 90) if dark_mode else _color8(210, 182, 255)
-	canvas.draw_line(tip, tip + Vector2(-fan_w * 0.48, fan_h), _alpha(edge_color, alpha_scale), 2.0)
-	canvas.draw_line(tip, tip + Vector2(fan_w * 0.48, fan_h), _alpha(edge_color, alpha_scale), 2.0)
+	var edge_color: Color = _draw_primitives.color8(255, 105, 90) if dark_mode else _draw_primitives.color8(210, 182, 255)
+	canvas.draw_line(tip, tip + Vector2(-fan_w * 0.48, fan_h), _draw_primitives.alpha(edge_color, alpha_scale), 2.0)
+	canvas.draw_line(tip, tip + Vector2(fan_w * 0.48, fan_h), _draw_primitives.alpha(edge_color, alpha_scale), 2.0)
 
 
 func _draw_viper_target_dummy(canvas: CanvasItem, base: Vector2, accent_color: Color, stun_phase: float) -> void:
 	var body_rect := Rect2(Vector2(base.x - 14.0, base.y - 42.0), Vector2(28.0, 38.0))
 	var head_rect := Rect2(Vector2(base.x - 12.0, body_rect.position.y - 12.0), Vector2(24.0, 18.0))
-	_draw_panel(canvas, body_rect, _color8(18, 22, 34, 220), _alpha(accent_color, 85.0 / 255.0), 2.0, 8.0)
-	_draw_panel(canvas, body_rect.grow_individual(-6.0, -6.0, -6.0, -6.0), _color8(70, 88, 118, 220), Color.TRANSPARENT, 0.0, 6.0)
-	_draw_ellipse(canvas, head_rect, _color8(28, 34, 48, 230), true)
-	_draw_ellipse(canvas, head_rect.grow_individual(-4.0, -5.0, -4.0, -5.0), _color8(120, 140, 185, 220), true)
-	canvas.draw_line(Vector2(head_rect.position.x + 6.0, head_rect.get_center().y), Vector2(head_rect.end.x - 6.0, head_rect.get_center().y), _color8(255, 235, 245), 2.0)
-	canvas.draw_line(Vector2(base.x - 7.0, body_rect.position.y + 15.0), Vector2(base.x + 7.0, body_rect.position.y + 15.0), _color8(138, 165, 215), 2.0)
-	canvas.draw_line(Vector2(base.x, body_rect.position.y + 9.0), Vector2(base.x, body_rect.position.y + 23.0), _color8(138, 165, 215), 2.0)
+	_draw_primitives.draw_panel(canvas, body_rect, _draw_primitives.color8(18, 22, 34, 220), _draw_primitives.alpha(accent_color, 85.0 / 255.0), 2.0, 8.0)
+	_draw_primitives.draw_panel(canvas, body_rect.grow_individual(-6.0, -6.0, -6.0, -6.0), _draw_primitives.color8(70, 88, 118, 220), Color.TRANSPARENT, 0.0, 6.0)
+	_draw_primitives.draw_ellipse(canvas, head_rect, _draw_primitives.color8(28, 34, 48, 230), true)
+	_draw_primitives.draw_ellipse(canvas, head_rect.grow_individual(-4.0, -5.0, -4.0, -5.0), _draw_primitives.color8(120, 140, 185, 220), true)
+	canvas.draw_line(Vector2(head_rect.position.x + 6.0, head_rect.get_center().y), Vector2(head_rect.end.x - 6.0, head_rect.get_center().y), _draw_primitives.color8(255, 235, 245), 2.0)
+	canvas.draw_line(Vector2(base.x - 7.0, body_rect.position.y + 15.0), Vector2(base.x + 7.0, body_rect.position.y + 15.0), _draw_primitives.color8(138, 165, 215), 2.0)
+	canvas.draw_line(Vector2(base.x, body_rect.position.y + 9.0), Vector2(base.x, body_rect.position.y + 23.0), _draw_primitives.color8(138, 165, 215), 2.0)
 	for arm_dir in [-1.0, 1.0]:
-		canvas.draw_line(Vector2(base.x + arm_dir * 10.0, body_rect.position.y + 11.0), Vector2(base.x + arm_dir * 19.0, body_rect.position.y + 24.0), _color8(65, 80, 110), 3.0)
-		canvas.draw_line(Vector2(base.x + arm_dir * 5.0, body_rect.end.y - 4.0), Vector2(base.x + arm_dir * 9.0, body_rect.end.y + 10.0), _color8(55, 65, 98), 3.0)
+		canvas.draw_line(Vector2(base.x + arm_dir * 10.0, body_rect.position.y + 11.0), Vector2(base.x + arm_dir * 19.0, body_rect.position.y + 24.0), _draw_primitives.color8(65, 80, 110), 3.0)
+		canvas.draw_line(Vector2(base.x + arm_dir * 5.0, body_rect.end.y - 4.0), Vector2(base.x + arm_dir * 9.0, body_rect.end.y + 10.0), _draw_primitives.color8(55, 65, 98), 3.0)
 	if stun_phase > 0.0:
 		var orb_radius: float = 16.0 + stun_phase * 3.0
 		for orb_idx in range(3):
 			var orb_angle: float = stun_phase * TAU + float(orb_idx) * TAU / 3.0
 			var orb_pos := Vector2(base.x + cos(orb_angle) * orb_radius, head_rect.position.y - 2.0 + sin(orb_angle * 1.2) * 6.0)
-			canvas.draw_circle(orb_pos, 3.0, accent_color if orb_idx != 1 else _color8(255, 220, 180))
-			canvas.draw_arc(orb_pos, 4.0, 0.0, TAU, 18, _alpha(accent_color, 170.0 / 255.0), 1.0)
+			canvas.draw_circle(orb_pos, 3.0, accent_color if orb_idx != 1 else _draw_primitives.color8(255, 220, 180))
+			canvas.draw_arc(orb_pos, 4.0, 0.0, TAU, 18, _draw_primitives.alpha(accent_color, 170.0 / 255.0), 1.0)
 
 
 func _draw_viper_mini_character(canvas: CanvasItem, cx: float, cy: float, options: Dictionary = {}) -> void:
@@ -1577,7 +1581,7 @@ func _draw_viper_mini_character(canvas: CanvasItem, cx: float, cy: float, option
 	if direction == 0:
 		direction = 1
 	var alpha: float = float(options.get("alpha", 1.0))
-	var tint: Color = _get_color(options.get("tint", Color.WHITE), Color.WHITE)
+	var tint: Color = _draw_primitives.get_color(options.get("tint", Color.WHITE), Color.WHITE)
 	var palette: Dictionary = _viper_palette(alpha, tint)
 	var core := Vector2(cx, cy - 22.0)
 	var lean: float = 0.0
@@ -1587,7 +1591,7 @@ func _draw_viper_mini_character(canvas: CanvasItem, cx: float, cy: float, option
 		lean = 0.0
 	elif pose in ["kick_left", "kick_right"]:
 		lean = float(direction) * 4.0
-	_draw_ellipse(canvas, Rect2(Vector2(cx - 18.0, cy - 2.0), Vector2(36.0, 6.0)), _alpha(Color.BLACK, 0.22 * alpha), true)
+	_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(cx - 18.0, cy - 2.0), Vector2(36.0, 6.0)), _draw_primitives.alpha(Color.BLACK, 0.22 * alpha), true)
 	if pose in ["wall_left", "wall_right"]:
 		var wall_dir: float = -1.0 if pose == "wall_left" else 1.0
 		core = Vector2(cx - wall_dir * 2.0, cy - 23.0)
@@ -1614,8 +1618,8 @@ func _draw_viper_mini_character(canvas: CanvasItem, cx: float, cy: float, option
 	canvas.draw_line(core + Vector2(11.0, -4.0), core + Vector2(20.0 + float(direction) * 7.0, -1.0), palette["limb"], 3.0)
 	canvas.draw_line(core + Vector2(20.0 + float(direction) * 7.0, -1.0), core + Vector2(29.0 * float(direction), -9.0), palette["blade"], 2.0)
 	var head_center := core + Vector2(lean * 0.2, -20.0)
-	_draw_ellipse(canvas, Rect2(head_center - Vector2(8.0, 9.0), Vector2(16.0, 18.0)), palette["hood"], true)
-	_draw_ellipse(canvas, Rect2(head_center - Vector2(5.0, 4.0), Vector2(10.0, 7.0)), palette["visor"], true)
+	_draw_primitives.draw_ellipse(canvas, Rect2(head_center - Vector2(8.0, 9.0), Vector2(16.0, 18.0)), palette["hood"], true)
+	_draw_primitives.draw_ellipse(canvas, Rect2(head_center - Vector2(5.0, 4.0), Vector2(10.0, 7.0)), palette["visor"], true)
 	canvas.draw_line(head_center + Vector2(-4.0, -1.0), head_center + Vector2(4.0, -1.0), palette["visor_core"], 2.0)
 	var scarf_dir: float = -float(direction)
 	if pose in ["wall_left", "wall_right"]:
@@ -1630,14 +1634,14 @@ func _draw_viper_mini_character(canvas: CanvasItem, cx: float, cy: float, option
 
 func _viper_palette(alpha: float, tint: Color) -> Dictionary:
 	return {
-		"hood": _tint(_color8(34, 12, 54, 255.0 * alpha), tint),
-		"visor": _tint(_color8(108, 248, 214, 235.0 * alpha), tint),
-		"visor_core": _tint(_color8(225, 255, 246, 255.0 * alpha), tint),
-		"suit": _tint(_color8(54, 18, 88, 235.0 * alpha), tint),
-		"chest": _tint(_color8(122, 48, 184, 230.0 * alpha), tint),
-		"limb": _tint(_color8(164, 96, 232, 225.0 * alpha), tint),
-		"blade": _tint(_color8(214, 188, 255, 245.0 * alpha), tint),
-		"scarf": _tint(_color8(88, 255, 210, 210.0 * alpha), tint),
+		"hood": _draw_primitives.tint(_draw_primitives.color8(34, 12, 54, 255.0 * alpha), tint),
+		"visor": _draw_primitives.tint(_draw_primitives.color8(108, 248, 214, 235.0 * alpha), tint),
+		"visor_core": _draw_primitives.tint(_draw_primitives.color8(225, 255, 246, 255.0 * alpha), tint),
+		"suit": _draw_primitives.tint(_draw_primitives.color8(54, 18, 88, 235.0 * alpha), tint),
+		"chest": _draw_primitives.tint(_draw_primitives.color8(122, 48, 184, 230.0 * alpha), tint),
+		"limb": _draw_primitives.tint(_draw_primitives.color8(164, 96, 232, 225.0 * alpha), tint),
+		"blade": _draw_primitives.tint(_draw_primitives.color8(214, 188, 255, 245.0 * alpha), tint),
+		"scarf": _draw_primitives.tint(_draw_primitives.color8(88, 255, 210, 210.0 * alpha), tint),
 	}
 
 
@@ -1662,43 +1666,43 @@ func _draw_smasher_mini_character(canvas: CanvasItem, cx: float, cy: float, opti
 	var show_shield: bool = bool(options.get("show_shield", true))
 	var paddle_lift: float = float(options.get("paddle_lift", 0.0))
 	var alpha: float = float(options.get("alpha", 1.0))
-	var tint: Color = _get_color(options.get("tint", Color.WHITE), Color.WHITE)
+	var tint: Color = _draw_primitives.get_color(options.get("tint", Color.WHITE), Color.WHITE)
 	var rotation: float = float(options.get("rotation", 0.0))
-	var rotation_center: Vector2 = _get_vector2(options, "rotation_center", Vector2(cx, cy - 28.0))
+	var rotation_center: Vector2 = _draw_primitives.get_vector2(options, "rotation_center", Vector2(cx, cy - 28.0))
 	var torso_y: float = cy - 1.5 * b
 	var arm_swing: float = swing_ratio * 1.2 * b
 	var palette: Dictionary = _smasher_palette(alpha, tint)
 
 	var helmet_rect := Rect2(Vector2(cx - 2.7 * b * 0.5, torso_y - 3.1 * b + head_offset_y), Vector2(2.7 * b, 2.2 * b))
-	_draw_ellipse_xf(canvas, helmet_rect, palette["helmet"], true, 1.0, rotation, rotation_center)
-	_draw_ellipse_xf(canvas, Rect2(Vector2(helmet_rect.position.x - 0.5 * b, helmet_rect.get_center().y - 0.5 * b), Vector2(0.8 * b, 1.4 * b)), palette["helmet_side"], true, 1.0, rotation, rotation_center)
-	_draw_ellipse_xf(canvas, Rect2(Vector2(helmet_rect.end.x - 0.3 * b, helmet_rect.get_center().y - 0.5 * b), Vector2(0.8 * b, 1.4 * b)), palette["helmet_side"], true, 1.0, rotation, rotation_center)
+	_draw_primitives.draw_ellipse_xf(canvas, helmet_rect, palette["helmet"], true, 1.0, rotation, rotation_center)
+	_draw_primitives.draw_ellipse_xf(canvas, Rect2(Vector2(helmet_rect.position.x - 0.5 * b, helmet_rect.get_center().y - 0.5 * b), Vector2(0.8 * b, 1.4 * b)), palette["helmet_side"], true, 1.0, rotation, rotation_center)
+	_draw_primitives.draw_ellipse_xf(canvas, Rect2(Vector2(helmet_rect.end.x - 0.3 * b, helmet_rect.get_center().y - 0.5 * b), Vector2(0.8 * b, 1.4 * b)), palette["helmet_side"], true, 1.0, rotation, rotation_center)
 	var visor_rect := Rect2(Vector2(cx - 0.9 * b, helmet_rect.get_center().y - 0.1 * b), Vector2(1.8 * b, 0.9 * b))
-	_draw_ellipse_xf(canvas, visor_rect, palette["visor"], true, 1.0, rotation, rotation_center)
-	_draw_ellipse_xf(canvas, visor_rect.grow_individual(-0.4 * b, -0.3 * b, -0.4 * b, -0.3 * b), palette["visor_core"], true, 1.0, rotation, rotation_center)
-	_draw_ellipse_xf(canvas, helmet_rect.grow_individual(-0.6 * b, -0.5 * b, -0.6 * b, -0.5 * b), palette["helmet_high"], false, 1.0, rotation, rotation_center)
-	_draw_rect_xf(canvas, Rect2(Vector2(cx - 0.2 * b, helmet_rect.position.y + 0.2 * b), Vector2(max(1.0, 0.4 * b), 1.5 * b)), palette["helmet_high"], rotation, rotation_center)
+	_draw_primitives.draw_ellipse_xf(canvas, visor_rect, palette["visor"], true, 1.0, rotation, rotation_center)
+	_draw_primitives.draw_ellipse_xf(canvas, visor_rect.grow_individual(-0.4 * b, -0.3 * b, -0.4 * b, -0.3 * b), palette["visor_core"], true, 1.0, rotation, rotation_center)
+	_draw_primitives.draw_ellipse_xf(canvas, helmet_rect.grow_individual(-0.6 * b, -0.5 * b, -0.6 * b, -0.5 * b), palette["helmet_high"], false, 1.0, rotation, rotation_center)
+	_draw_primitives.draw_rect_xf(canvas, Rect2(Vector2(cx - 0.2 * b, helmet_rect.position.y + 0.2 * b), Vector2(max(1.0, 0.4 * b), 1.5 * b)), palette["helmet_high"], rotation, rotation_center)
 
 	var chest_rect := Rect2(Vector2(cx - 3.4 * b * 0.5, torso_y - 0.4 * b), Vector2(3.4 * b, 2.2 * b))
-	_draw_rect_xf(canvas, chest_rect, palette["armor_outer"], rotation, rotation_center)
+	_draw_primitives.draw_rect_xf(canvas, chest_rect, palette["armor_outer"], rotation, rotation_center)
 	var mid_rect: Rect2 = chest_rect.grow_individual(-0.5 * b, -0.4 * b, -0.5 * b, -0.4 * b)
-	_draw_rect_xf(canvas, mid_rect, palette["armor_mid"], rotation, rotation_center)
+	_draw_primitives.draw_rect_xf(canvas, mid_rect, palette["armor_mid"], rotation, rotation_center)
 	var inner_panel: Rect2 = mid_rect.grow_individual(-0.5 * b, -0.3 * b, -0.5 * b, -0.3 * b)
-	_draw_rect_xf(canvas, inner_panel, palette["armor_inner"], rotation, rotation_center)
-	_draw_rect_outline_xf(canvas, chest_rect, palette["trim"], 1.0, rotation, rotation_center)
-	_draw_line_xf(canvas, Vector2(cx, inner_panel.position.y + 0.2 * b), Vector2(cx, inner_panel.end.y - 0.2 * b), palette["accent"], max(1.0, 0.15 * b), rotation, rotation_center)
+	_draw_primitives.draw_rect_xf(canvas, inner_panel, palette["armor_inner"], rotation, rotation_center)
+	_draw_primitives.draw_rect_outline_xf(canvas, chest_rect, palette["trim"], 1.0, rotation, rotation_center)
+	_draw_primitives.draw_line_xf(canvas, Vector2(cx, inner_panel.position.y + 0.2 * b), Vector2(cx, inner_panel.end.y - 0.2 * b), palette["accent"], max(1.0, 0.15 * b), rotation, rotation_center)
 
 	var abs_rect := Rect2(Vector2(cx - 1.1 * b, inner_panel.end.y - 0.1 * b), Vector2(2.2 * b, 1.2 * b))
-	_draw_rect_xf(canvas, abs_rect, palette["undersuit"], rotation, rotation_center)
+	_draw_primitives.draw_rect_xf(canvas, abs_rect, palette["undersuit"], rotation, rotation_center)
 	var belt_rect := Rect2(Vector2(cx - 1.8 * b, abs_rect.end.y - 0.1 * b), Vector2(3.6 * b, 0.7 * b))
-	_draw_rect_xf(canvas, belt_rect, palette["belt"], rotation, rotation_center)
+	_draw_primitives.draw_rect_xf(canvas, belt_rect, palette["belt"], rotation, rotation_center)
 
 	var left_pauldron := [Vector2(cx - 2.0 * b, torso_y - 0.4 * b), Vector2(cx - 1.1 * b, torso_y - 0.8 * b), Vector2(cx - 0.8 * b, torso_y + 0.7 * b), Vector2(cx - 1.9 * b, torso_y + 0.8 * b)]
 	var right_pauldron := [Vector2(cx + 2.0 * b, torso_y - 0.4 * b), Vector2(cx + 1.1 * b, torso_y - 0.8 * b), Vector2(cx + 0.8 * b, torso_y + 0.7 * b), Vector2(cx + 1.9 * b, torso_y + 0.8 * b)]
-	_draw_poly_xf(canvas, left_pauldron, palette["armor_mid"], rotation, rotation_center)
-	_draw_poly_xf(canvas, right_pauldron, palette["armor_mid"], rotation, rotation_center)
-	_draw_line_xf(canvas, left_pauldron[0], left_pauldron[1], palette["trim"], 1.0, rotation, rotation_center)
-	_draw_line_xf(canvas, right_pauldron[0], right_pauldron[1], palette["trim"], 1.0, rotation, rotation_center)
+	_draw_primitives.draw_poly_xf(canvas, left_pauldron, palette["armor_mid"], rotation, rotation_center)
+	_draw_primitives.draw_poly_xf(canvas, right_pauldron, palette["armor_mid"], rotation, rotation_center)
+	_draw_primitives.draw_line_xf(canvas, left_pauldron[0], left_pauldron[1], palette["trim"], 1.0, rotation, rotation_center)
+	_draw_primitives.draw_line_xf(canvas, right_pauldron[0], right_pauldron[1], palette["trim"], 1.0, rotation, rotation_center)
 
 	var left_shoulder := Vector2(cx - 1.6 * b, torso_y)
 	var left_offset: float = arm_swing if direction == -1 else 0.0
@@ -1710,60 +1714,60 @@ func _draw_smasher_mini_character(canvas: CanvasItem, cx: float, cy: float, opti
 	var right_wrist := Vector2(right_elbow.x + 0.7 * b + right_offset, torso_y - 0.3 * b - (0.8 * b if direction == 1 and swing_ratio > 0.0 else 0.0))
 
 	for limb in [[left_shoulder, left_elbow], [left_elbow, left_wrist], [right_shoulder, right_elbow], [right_elbow, right_wrist]]:
-		_draw_line_xf(canvas, limb[0], limb[1], palette["arm_light"], max(2.0, 0.8 * b), rotation, rotation_center)
-		_draw_line_xf(canvas, limb[0], limb[1], palette["armor_mid"], max(1.0, 0.55 * b), rotation, rotation_center)
-	_draw_circle_xf(canvas, left_wrist, max(2.0, 0.4 * b), palette["glove"], rotation, rotation_center)
-	_draw_circle_xf(canvas, right_wrist, max(2.0, 0.4 * b), palette["glove"], rotation, rotation_center)
+		_draw_primitives.draw_line_xf(canvas, limb[0], limb[1], palette["arm_light"], max(2.0, 0.8 * b), rotation, rotation_center)
+		_draw_primitives.draw_line_xf(canvas, limb[0], limb[1], palette["armor_mid"], max(1.0, 0.55 * b), rotation, rotation_center)
+	_draw_primitives.draw_circle_xf(canvas, left_wrist, max(2.0, 0.4 * b), palette["glove"], rotation, rotation_center)
+	_draw_primitives.draw_circle_xf(canvas, right_wrist, max(2.0, 0.4 * b), palette["glove"], rotation, rotation_center)
 
 	if show_shield:
 		var shield_center := right_wrist + Vector2(0.5 * b, -0.3 * b)
-		_draw_preview_pentagon_xf(canvas, shield_center, 1.8 * b * 1.1, -90.0, palette["shield_glow"], rotation, rotation_center)
-		_draw_preview_pentagon_xf(canvas, shield_center, 1.8 * b, -90.0, Color(0.0, 0.0, 0.0, 0.0), rotation, rotation_center, palette["shield_ring"], max(1.0, 0.3 * b))
-		_draw_preview_pentagon_xf(canvas, shield_center, 1.8 * b * 0.5, -90.0, palette["shield_core"], rotation, rotation_center)
+		_draw_primitives.draw_preview_pentagon_xf(canvas, shield_center, 1.8 * b * 1.1, -90.0, palette["shield_glow"], rotation, rotation_center)
+		_draw_primitives.draw_preview_pentagon_xf(canvas, shield_center, 1.8 * b, -90.0, Color(0.0, 0.0, 0.0, 0.0), rotation, rotation_center, palette["shield_ring"], max(1.0, 0.3 * b))
+		_draw_primitives.draw_preview_pentagon_xf(canvas, shield_center, 1.8 * b * 0.5, -90.0, palette["shield_core"], rotation, rotation_center)
 
 	var paddle_pos: Dictionary = {}
 	if show_paddle:
 		var handle_end := left_wrist + Vector2(-0.3 * b, -1.0 * b - (0.5 * b if swing_ratio > 0.0 else 0.0) - paddle_lift * 4.0)
-		_draw_line_xf(canvas, left_wrist, handle_end, palette["handle"], max(2.0, 0.35 * b), rotation, rotation_center)
+		_draw_primitives.draw_line_xf(canvas, left_wrist, handle_end, palette["handle"], max(2.0, 0.35 * b), rotation, rotation_center)
 		var paddle_center := handle_end + Vector2(-0.8 * b, -0.3 * b)
 		var paddle_r: float = 1.5 * b
-		_draw_circle_xf(canvas, paddle_center + Vector2(1.0, 1.0), paddle_r, palette["paddle_shadow"], rotation, rotation_center)
-		_draw_circle_xf(canvas, paddle_center, paddle_r, palette["paddle"], rotation, rotation_center)
-		_draw_circle_xf(canvas, paddle_center, max(1.0, paddle_r - 0.25 * b), palette["paddle_core"], rotation, rotation_center)
-		paddle_pos = {"center": _rotate_point(paddle_center, rotation, rotation_center), "radius": paddle_r}
+		_draw_primitives.draw_circle_xf(canvas, paddle_center + Vector2(1.0, 1.0), paddle_r, palette["paddle_shadow"], rotation, rotation_center)
+		_draw_primitives.draw_circle_xf(canvas, paddle_center, paddle_r, palette["paddle"], rotation, rotation_center)
+		_draw_primitives.draw_circle_xf(canvas, paddle_center, max(1.0, paddle_r - 0.25 * b), palette["paddle_core"], rotation, rotation_center)
+		paddle_pos = {"center": _draw_primitives.rotate_point(paddle_center, rotation, rotation_center), "radius": paddle_r}
 
 	return {
 		"char_top": cy - 4.5 * b,
-		"helmet_top": _rotate_point(Vector2(cx, helmet_rect.position.y), rotation, rotation_center).y,
-		"left_wrist": _rotate_point(left_wrist, rotation, rotation_center),
-		"right_wrist": _rotate_point(right_wrist, rotation, rotation_center),
+		"helmet_top": _draw_primitives.rotate_point(Vector2(cx, helmet_rect.position.y), rotation, rotation_center).y,
+		"left_wrist": _draw_primitives.rotate_point(left_wrist, rotation, rotation_center),
+		"right_wrist": _draw_primitives.rotate_point(right_wrist, rotation, rotation_center),
 		"paddle_pos": paddle_pos,
 	}
 
 
 func _smasher_palette(alpha: float, tint: Color) -> Dictionary:
 	return {
-		"helmet": _tint(Color(70.0 / 255.0, 102.0 / 255.0, 162.0 / 255.0, alpha), tint),
-		"helmet_side": _tint(Color(58.0 / 255.0, 82.0 / 255.0, 136.0 / 255.0, alpha), tint),
-		"helmet_high": _tint(Color(148.0 / 255.0, 182.0 / 255.0, 236.0 / 255.0, alpha), tint),
-		"visor": _tint(Color(170.0 / 255.0, 224.0 / 255.0, 1.0, alpha), tint),
-		"visor_core": _tint(Color(126.0 / 255.0, 192.0 / 255.0, 246.0 / 255.0, alpha), tint),
-		"armor_outer": _tint(Color(80.0 / 255.0, 96.0 / 255.0, 150.0 / 255.0, alpha), tint),
-		"armor_mid": _tint(Color(60.0 / 255.0, 76.0 / 255.0, 120.0 / 255.0, alpha), tint),
-		"armor_inner": _tint(Color(46.0 / 255.0, 58.0 / 255.0, 92.0 / 255.0, alpha), tint),
-		"trim": _tint(Color(190.0 / 255.0, 206.0 / 255.0, 236.0 / 255.0, alpha), tint),
-		"accent": _tint(Color(118.0 / 255.0, 214.0 / 255.0, 1.0, alpha), tint),
-		"undersuit": _tint(Color(36.0 / 255.0, 40.0 / 255.0, 58.0 / 255.0, alpha), tint),
-		"arm_light": _tint(Color(132.0 / 255.0, 152.0 / 255.0, 204.0 / 255.0, alpha), tint),
-		"glove": _tint(Color(198.0 / 255.0, 182.0 / 255.0, 164.0 / 255.0, alpha), tint),
-		"paddle": _tint(Color(220.0 / 255.0, 56.0 / 255.0, 74.0 / 255.0, alpha), tint),
-		"paddle_core": _tint(Color(244.0 / 255.0, 116.0 / 255.0, 132.0 / 255.0, alpha), tint),
-		"paddle_shadow": _tint(Color(154.0 / 255.0, 42.0 / 255.0, 58.0 / 255.0, alpha), tint),
-		"handle": _tint(Color(174.0 / 255.0, 132.0 / 255.0, 98.0 / 255.0, alpha), tint),
-		"belt": _tint(Color(88.0 / 255.0, 78.0 / 255.0, 108.0 / 255.0, alpha), tint),
-		"shield_glow": _tint(Color(70.0 / 255.0, 160.0 / 255.0, 1.0, alpha), tint),
-		"shield_ring": _tint(Color(120.0 / 255.0, 210.0 / 255.0, 1.0, alpha), tint),
-		"shield_core": _tint(Color(200.0 / 255.0, 252.0 / 255.0, 1.0, alpha), tint),
+		"helmet": _draw_primitives.tint(Color(70.0 / 255.0, 102.0 / 255.0, 162.0 / 255.0, alpha), tint),
+		"helmet_side": _draw_primitives.tint(Color(58.0 / 255.0, 82.0 / 255.0, 136.0 / 255.0, alpha), tint),
+		"helmet_high": _draw_primitives.tint(Color(148.0 / 255.0, 182.0 / 255.0, 236.0 / 255.0, alpha), tint),
+		"visor": _draw_primitives.tint(Color(170.0 / 255.0, 224.0 / 255.0, 1.0, alpha), tint),
+		"visor_core": _draw_primitives.tint(Color(126.0 / 255.0, 192.0 / 255.0, 246.0 / 255.0, alpha), tint),
+		"armor_outer": _draw_primitives.tint(Color(80.0 / 255.0, 96.0 / 255.0, 150.0 / 255.0, alpha), tint),
+		"armor_mid": _draw_primitives.tint(Color(60.0 / 255.0, 76.0 / 255.0, 120.0 / 255.0, alpha), tint),
+		"armor_inner": _draw_primitives.tint(Color(46.0 / 255.0, 58.0 / 255.0, 92.0 / 255.0, alpha), tint),
+		"trim": _draw_primitives.tint(Color(190.0 / 255.0, 206.0 / 255.0, 236.0 / 255.0, alpha), tint),
+		"accent": _draw_primitives.tint(Color(118.0 / 255.0, 214.0 / 255.0, 1.0, alpha), tint),
+		"undersuit": _draw_primitives.tint(Color(36.0 / 255.0, 40.0 / 255.0, 58.0 / 255.0, alpha), tint),
+		"arm_light": _draw_primitives.tint(Color(132.0 / 255.0, 152.0 / 255.0, 204.0 / 255.0, alpha), tint),
+		"glove": _draw_primitives.tint(Color(198.0 / 255.0, 182.0 / 255.0, 164.0 / 255.0, alpha), tint),
+		"paddle": _draw_primitives.tint(Color(220.0 / 255.0, 56.0 / 255.0, 74.0 / 255.0, alpha), tint),
+		"paddle_core": _draw_primitives.tint(Color(244.0 / 255.0, 116.0 / 255.0, 132.0 / 255.0, alpha), tint),
+		"paddle_shadow": _draw_primitives.tint(Color(154.0 / 255.0, 42.0 / 255.0, 58.0 / 255.0, alpha), tint),
+		"handle": _draw_primitives.tint(Color(174.0 / 255.0, 132.0 / 255.0, 98.0 / 255.0, alpha), tint),
+		"belt": _draw_primitives.tint(Color(88.0 / 255.0, 78.0 / 255.0, 108.0 / 255.0, alpha), tint),
+		"shield_glow": _draw_primitives.tint(Color(70.0 / 255.0, 160.0 / 255.0, 1.0, alpha), tint),
+		"shield_ring": _draw_primitives.tint(Color(120.0 / 255.0, 210.0 / 255.0, 1.0, alpha), tint),
+		"shield_core": _draw_primitives.tint(Color(200.0 / 255.0, 252.0 / 255.0, 1.0, alpha), tint),
 	}
 
 
@@ -1779,8 +1783,8 @@ func _draw_preview_ball(canvas: CanvasItem, pos: Vector2, radius: float = 6.0, g
 	if colors.is_empty():
 		colors = [Color(36.0 / 255.0, 92.0 / 255.0, 210.0 / 255.0), Color(88.0 / 255.0, 164.0 / 255.0, 1.0), Color(220.0 / 255.0, 242.0 / 255.0, 1.0)]
 	for idx in range(colors.size()):
-		var c: Color = _get_color(colors[idx], Color.WHITE)
-		canvas.draw_circle(pos, radius + float(colors.size() - idx) * 2.0, _alpha(c, min(1.0, (48.0 + float(idx) * 36.0) / 255.0)))
+		var c: Color = _draw_primitives.get_color(colors[idx], Color.WHITE)
+		canvas.draw_circle(pos, radius + float(colors.size() - idx) * 2.0, _draw_primitives.alpha(c, min(1.0, (48.0 + float(idx) * 36.0) / 255.0)))
 	canvas.draw_circle(pos, radius, core_color)
 	canvas.draw_circle(pos + Vector2(-1.0, -1.0), max(1.0, radius / 3.0), Color.WHITE)
 
@@ -1796,7 +1800,7 @@ func _draw_preview_keycap_row(canvas: CanvasItem, center: Vector2, letters: Arra
 		var kx: float = start_x + float(i) * (keycap_w + sep_w)
 		_draw_preview_keycap(canvas, Vector2(kx, center.y), str(letters[i]))
 		if active_idx == i:
-			_draw_round_rect_outline(canvas, Rect2(Vector2(kx - 9.0, center.y - 8.0), Vector2(18.0, 16.0)), _alpha(accent_color, 220.0 / 255.0), 3.0, 1.0)
+			_draw_primitives.draw_round_rect_outline(canvas, Rect2(Vector2(kx - 9.0, center.y - 8.0), Vector2(18.0, 16.0)), _draw_primitives.alpha(accent_color, 220.0 / 255.0), 3.0, 1.0)
 		if i < letters.size() - 1:
 			var sx: float = kx + keycap_w * 0.5 + sep_w * 0.5
 			if separator == "arrow":
@@ -1807,9 +1811,9 @@ func _draw_preview_keycap_row(canvas: CanvasItem, center: Vector2, letters: Arra
 
 func _draw_preview_keycap(canvas: CanvasItem, center: Vector2, letter: String) -> void:
 	var rect := Rect2(center - Vector2(8.0, 7.0), Vector2(16.0, 14.0))
-	_draw_round_rect(canvas, rect, Color(25.0 / 255.0, 30.0 / 255.0, 40.0 / 255.0), 3.0)
-	_draw_round_rect_outline(canvas, rect, Color(70.0 / 255.0, 75.0 / 255.0, 85.0 / 255.0), 3.0, 1.0)
-	_draw_round_rect(canvas, Rect2(rect.position + Vector2(2.0, 2.0), Vector2(12.0, 8.0)), Color(45.0 / 255.0, 50.0 / 255.0, 60.0 / 255.0), 2.0)
+	_draw_primitives.draw_round_rect(canvas, rect, Color(25.0 / 255.0, 30.0 / 255.0, 40.0 / 255.0), 3.0)
+	_draw_primitives.draw_round_rect_outline(canvas, rect, Color(70.0 / 255.0, 75.0 / 255.0, 85.0 / 255.0), 3.0, 1.0)
+	_draw_primitives.draw_round_rect(canvas, Rect2(rect.position + Vector2(2.0, 2.0), Vector2(12.0, 8.0)), Color(45.0 / 255.0, 50.0 / 255.0, 60.0 / 255.0), 2.0)
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
 		var size := 9
@@ -1819,10 +1823,10 @@ func _draw_preview_keycap(canvas: CanvasItem, center: Vector2, letter: String) -
 
 func _draw_preview_mouse(canvas: CanvasItem, center: Vector2, button_left: bool = true) -> void:
 	var rect := Rect2(center + Vector2(-5.0, -6.0), Vector2(10.0, 14.0))
-	_draw_round_rect(canvas, rect, Color(35.0 / 255.0, 40.0 / 255.0, 50.0 / 255.0), 3.0)
-	_draw_round_rect_outline(canvas, rect, Color(75.0 / 255.0, 80.0 / 255.0, 90.0 / 255.0), 3.0, 1.0)
-	_draw_round_rect(canvas, Rect2(center + Vector2(-4.0, -5.0), Vector2(4.0, 5.0)), Color(1.0, 200.0 / 255.0, 80.0 / 255.0) if button_left else Color(55.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0), 1.0)
-	_draw_round_rect(canvas, Rect2(center + Vector2(0.0, -5.0), Vector2(4.0, 5.0)), Color(55.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0) if button_left else Color(1.0, 200.0 / 255.0, 80.0 / 255.0), 1.0)
+	_draw_primitives.draw_round_rect(canvas, rect, Color(35.0 / 255.0, 40.0 / 255.0, 50.0 / 255.0), 3.0)
+	_draw_primitives.draw_round_rect_outline(canvas, rect, Color(75.0 / 255.0, 80.0 / 255.0, 90.0 / 255.0), 3.0, 1.0)
+	_draw_primitives.draw_round_rect(canvas, Rect2(center + Vector2(-4.0, -5.0), Vector2(4.0, 5.0)), Color(1.0, 200.0 / 255.0, 80.0 / 255.0) if button_left else Color(55.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0), 1.0)
+	_draw_primitives.draw_round_rect(canvas, Rect2(center + Vector2(0.0, -5.0), Vector2(4.0, 5.0)), Color(55.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0) if button_left else Color(1.0, 200.0 / 255.0, 80.0 / 255.0), 1.0)
 	canvas.draw_line(center + Vector2(-1.0, -5.0), center + Vector2(-1.0, 3.0), Color(45.0 / 255.0, 50.0 / 255.0, 60.0 / 255.0), 1.0)
 
 
@@ -1839,35 +1843,35 @@ func _draw_preview_arrow(canvas: CanvasItem, center: Vector2) -> void:
 
 
 func _draw_ghost_charge(canvas: CanvasItem, anchors: Dictionary, color: Color, phase: float, time_ms: int) -> void:
-	var paddle: Dictionary = _get_dictionary(anchors.get("paddle_pos", {}))
+	var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
 	if paddle.is_empty():
 		return
-	var p_center: Vector2 = _get_vector2(paddle, "center", Vector2.ZERO)
+	var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2.ZERO)
 	var p_radius: float = float(paddle.get("radius", 6.0))
 	var charge := p_center + Vector2(0.0, -p_radius - 6.0)
 	var pulse: float = 1.0 + 0.18 * sin(float(time_ms) * 0.025)
 	var core_r: float = max(2.0, (3.0 + phase * 5.0) * pulse)
 	for ring_idx in range(4):
-		canvas.draw_arc(charge, core_r + float(ring_idx) * 3.0, 0.0, TAU, 36, _alpha(color, max(30.0, (150.0 - float(ring_idx) * 30.0) * phase) / 255.0), 1.0)
+		canvas.draw_arc(charge, core_r + float(ring_idx) * 3.0, 0.0, TAU, 36, _draw_primitives.alpha(color, max(30.0, (150.0 - float(ring_idx) * 30.0) * phase) / 255.0), 1.0)
 	canvas.draw_circle(charge, core_r, color)
 	canvas.draw_circle(charge + Vector2(-1.0, -1.0), max(1.0, core_r * 0.5), Color(235.0 / 255.0, 200.0 / 255.0, 1.0))
 	for ghost_idx in range(3):
 		var ga: float = TAU * float(ghost_idx) / 3.0 + float(time_ms) * 0.004
 		var gd: float = 12.0 + sin(float(time_ms) * 0.008 + float(ghost_idx)) * 3.0
 		var gpos: Vector2 = charge + Vector2(cos(ga), sin(ga)) * gd
-		canvas.draw_circle(gpos, 3.0, _alpha(color, 160.0 / 255.0))
+		canvas.draw_circle(gpos, 3.0, _draw_primitives.alpha(color, 160.0 / 255.0))
 		canvas.draw_circle(gpos + Vector2(0.0, -1.0), 2.0, Color(220.0 / 255.0, 200.0 / 255.0, 1.0))
 
 
 func _draw_small_ghost(canvas: CanvasItem, pos: Vector2, color: Color, time_ms: int) -> void:
-	canvas.draw_circle(pos + Vector2(0.0, -4.0), 7.0, _alpha(color, 200.0 / 255.0))
+	canvas.draw_circle(pos + Vector2(0.0, -4.0), 7.0, _draw_primitives.alpha(color, 200.0 / 255.0))
 	canvas.draw_circle(pos + Vector2(-2.0, -6.0), 2.0, Color(220.0 / 255.0, 200.0 / 255.0, 1.0, 200.0 / 255.0))
 	canvas.draw_circle(pos + Vector2(2.0, -6.0), 2.0, Color(220.0 / 255.0, 200.0 / 255.0, 1.0, 200.0 / 255.0))
 	canvas.draw_line(pos + Vector2(-2.0, -1.0), pos + Vector2(2.0, -1.0), Color(40.0 / 255.0, 0.0, 60.0 / 255.0), 1.0)
 	for tail_idx in range(3):
 		var tx: float = pos.x + sin(float(time_ms) * 0.005 + float(tail_idx)) * 3.0
 		var ty: float = pos.y + 4.0 + float(tail_idx) * 4.0
-		canvas.draw_circle(Vector2(tx, ty), max(2.0, 6.0 - float(tail_idx)), _alpha(color, max(40.0, 140.0 - float(tail_idx) * 35.0) / 255.0))
+		canvas.draw_circle(Vector2(tx, ty), max(2.0, 6.0 - float(tail_idx)), _draw_primitives.alpha(color, max(40.0, 140.0 - float(tail_idx) * 35.0) / 255.0))
 
 
 func _draw_bezier_polyline(canvas: CanvasItem, start: Vector2, finish: Vector2, lift: float, color: Color, width: float) -> void:
@@ -1886,155 +1890,3 @@ func _draw_mini_star_gd(canvas: CanvasItem, center: Vector2, size: float, color:
 		points.append(center + Vector2(cos(outer_angle), sin(outer_angle)) * size)
 		points.append(center + Vector2(cos(inner_angle), sin(inner_angle)) * size * 0.4)
 	canvas.draw_colored_polygon(points, color)
-
-
-func _draw_preview_pentagon(canvas: CanvasItem, center: Vector2, radius: float, rotation_deg: float, fill_color: Color, outline_color: Color = Color(0.0, 0.0, 0.0, 0.0), outline_width: float = 0.0) -> void:
-	_draw_preview_pentagon_xf(canvas, center, radius, rotation_deg, fill_color, 0.0, center, outline_color, outline_width)
-
-
-func _draw_preview_pentagon_xf(canvas: CanvasItem, center: Vector2, radius: float, rotation_deg: float, fill_color: Color, rotation: float, rotation_center: Vector2, outline_color: Color = Color(0.0, 0.0, 0.0, 0.0), outline_width: float = 0.0) -> void:
-	var points := PackedVector2Array()
-	for i in range(5):
-		var angle: float = deg_to_rad(rotation_deg + float(i) * 72.0)
-		points.append(_rotate_point(center + Vector2(cos(angle), sin(angle)) * radius, rotation, rotation_center))
-	if fill_color.a > 0.0:
-		canvas.draw_colored_polygon(points, fill_color)
-	if outline_width > 0.0 and outline_color.a > 0.0:
-		var outline := PackedVector2Array(points)
-		outline.append(points[0])
-		canvas.draw_polyline(outline, outline_color, outline_width)
-
-
-func _draw_ellipse(canvas: CanvasItem, rect: Rect2, color: Color, filled: bool, width: float = 1.0) -> void:
-	var points := _ellipse_points(rect, 32)
-	if filled:
-		canvas.draw_colored_polygon(points, color)
-	else:
-		points.append(points[0])
-		canvas.draw_polyline(points, color, width)
-
-
-func _draw_ellipse_xf(canvas: CanvasItem, rect: Rect2, color: Color, filled: bool, width: float, rotation: float, rotation_center: Vector2) -> void:
-	var points := _ellipse_points(rect, 32)
-	for i in range(points.size()):
-		points[i] = _rotate_point(points[i], rotation, rotation_center)
-	if filled:
-		canvas.draw_colored_polygon(points, color)
-	else:
-		points.append(points[0])
-		canvas.draw_polyline(points, color, width)
-
-
-func _draw_ellipse_arc(canvas: CanvasItem, rect: Rect2, start_angle: float, end_angle: float, color: Color, width: float) -> void:
-	var points := PackedVector2Array()
-	var center: Vector2 = rect.get_center()
-	var rx: float = rect.size.x * 0.5
-	var ry: float = rect.size.y * 0.5
-	for i in range(28):
-		var t: float = float(i) / 27.0
-		var angle: float = start_angle + (end_angle - start_angle) * t
-		points.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
-	canvas.draw_polyline(points, color, width)
-
-
-func _ellipse_points(rect: Rect2, segments: int) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var center: Vector2 = rect.get_center()
-	var rx: float = rect.size.x * 0.5
-	var ry: float = rect.size.y * 0.5
-	for i in range(segments):
-		var angle: float = TAU * float(i) / float(segments)
-		points.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
-	return points
-
-
-func _draw_rect_xf(canvas: CanvasItem, rect: Rect2, color: Color, rotation: float, rotation_center: Vector2) -> void:
-	_draw_poly_xf(canvas, [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)], color, rotation, rotation_center)
-
-
-func _draw_rect_outline_xf(canvas: CanvasItem, rect: Rect2, color: Color, width: float, rotation: float, rotation_center: Vector2) -> void:
-	var points := PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y), rect.position])
-	for i in range(points.size()):
-		points[i] = _rotate_point(points[i], rotation, rotation_center)
-	canvas.draw_polyline(points, color, width)
-
-
-func _draw_poly_xf(canvas: CanvasItem, points_array: Array, color: Color, rotation: float, rotation_center: Vector2) -> void:
-	var points := PackedVector2Array()
-	for p in points_array:
-		if p is Vector2:
-			points.append(_rotate_point(p, rotation, rotation_center))
-	canvas.draw_colored_polygon(points, color)
-
-
-func _draw_line_xf(canvas: CanvasItem, start: Vector2, finish: Vector2, color: Color, width: float, rotation: float, rotation_center: Vector2) -> void:
-	canvas.draw_line(_rotate_point(start, rotation, rotation_center), _rotate_point(finish, rotation, rotation_center), color, width)
-
-
-func _draw_circle_xf(canvas: CanvasItem, center: Vector2, radius: float, color: Color, rotation: float, rotation_center: Vector2) -> void:
-	canvas.draw_circle(_rotate_point(center, rotation, rotation_center), radius, color)
-
-
-func _rotate_point(point: Vector2, angle: float, pivot: Vector2) -> Vector2:
-	if is_zero_approx(angle):
-		return point
-	return pivot + (point - pivot).rotated(angle)
-
-
-func _draw_round_rect(canvas: CanvasItem, rect: Rect2, color: Color, corner_radius: float) -> void:
-	_draw_panel(canvas, rect, color, Color(0.0, 0.0, 0.0, 0.0), 0.0, corner_radius)
-
-
-func _draw_round_rect_outline(canvas: CanvasItem, rect: Rect2, color: Color, corner_radius: float, width: float) -> void:
-	_draw_panel(canvas, rect, Color(0.0, 0.0, 0.0, 0.0), color, width, corner_radius)
-
-
-func _rainbow_color(t: float) -> Color:
-	return Color.from_hsv(fposmod(t, 1.0), 1.0, 1.0)
-
-
-func _color8(r: float, g: float, b: float, a: float = 255.0) -> Color:
-	return Color(r / 255.0, g / 255.0, b / 255.0, clamp(a, 0.0, 255.0) / 255.0)
-
-
-func _alpha(color: Color, alpha: float) -> Color:
-	return Color(color.r, color.g, color.b, color.a * clamp(alpha, 0.0, 1.0))
-
-
-func _tint(color: Color, tint: Color) -> Color:
-	return Color(color.r * tint.r, color.g * tint.g, color.b * tint.b, color.a)
-
-func _draw_panel(canvas: CanvasItem, rect: Rect2, fill_color: Color, border_color: Color, border_width: float, corner_radius: float) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
-	style.border_color = border_color
-	var width: int = max(0, int(round(border_width)))
-	style.border_width_left = width
-	style.border_width_top = width
-	style.border_width_right = width
-	style.border_width_bottom = width
-	var radius: int = max(0, int(round(corner_radius)))
-	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
-	style.corner_radius_bottom_right = radius
-	canvas.draw_style_box(style, rect)
-
-
-func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
-
-
-func _get_dictionary(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_color(value: Variant, fallback: Color) -> Color:
-	if value is Color:
-		return value
-	return fallback
