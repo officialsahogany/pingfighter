@@ -1,6 +1,7 @@
 extends RefCounted
 
 const DRIVE_SPIN_FORCE := 3.5
+const DRIVE_ACTIVE_SPIN_FORCE_MULT := 1.25
 const DEFAULT_SPIN_DECAY := 0.98
 
 
@@ -13,7 +14,8 @@ func apply_spin(
 ) -> Dictionary:
 	var result: Dictionary = {}
 	if spin_strength > 0.01:
-		ball_velocity.x += spin_strength * float(spin_direction) * DRIVE_SPIN_FORCE * fps_scale
+		var spin_force_mult: float = DRIVE_ACTIVE_SPIN_FORCE_MULT if drive_ball_active else 1.0
+		ball_velocity.x += spin_strength * float(spin_direction) * DRIVE_SPIN_FORCE * spin_force_mult * fps_scale
 		spin_strength *= pow(DEFAULT_SPIN_DECAY, fps_scale)
 	else:
 		spin_strength = 0.0
