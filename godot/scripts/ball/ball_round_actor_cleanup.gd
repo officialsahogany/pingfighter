@@ -93,6 +93,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if stage5_hongryun_state != null and stage5_hongryun_state.has_method("reset_round"):
 		stage5_hongryun_state.reset_round()
 
+	var stage6_tetriser_state = deps.get("stage6_tetriser_state", null)
+	if stage6_tetriser_state != null and stage6_tetriser_state.has_method("reset_round"):
+		stage6_tetriser_state.reset_round()
+
 	var stage5_hongryun_fire_machine_event = deps.get("stage5_hongryun_fire_machine_event", null)
 	if stage5_hongryun_fire_machine_event != null and stage5_hongryun_fire_machine_event.has_method("reset_round"):
 		stage5_hongryun_fire_machine_event.reset_round()

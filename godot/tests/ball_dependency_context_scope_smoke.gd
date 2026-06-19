@@ -18,6 +18,8 @@ class FakeStageRouter:
 				return "stage3_pillar_background"
 			4:
 				return "stage4_pillar_background"
+			6:
+				return "stage6_tetriser_pillar_background"
 		return "stage1_pillar_background"
 
 
@@ -109,6 +111,8 @@ class FakeRegistry:
 			"stage4_brazier_monk_event",
 			"stage4_ponk_skill_state",
 			"stage5_hongryun_state",
+			"stage6_tetriser_state",
+			"stage6_tetriser_pillar_background",
 		]
 
 
@@ -116,6 +120,8 @@ func _init() -> void:
 	_verify_smasher_stage1_scope()
 	_verify_viper_stage4_scope_and_cache()
 	_verify_commando_stage2_scope()
+	_verify_smasher_stage6_scope()
+	_verify_legacy_update_deps_keep_stage6()
 
 	if _failures.is_empty():
 		print("ball_dependency_context_scope_smoke: ok")
@@ -184,6 +190,24 @@ func _verify_commando_stage2_scope() -> void:
 	_expect(not _requested(registry, "smasher_wheel_state"), "Commando scope should not request Smasher wheel state")
 	_expect(not _requested(registry, "stage4_ponk_skill_state"), "Stage 2 scope should not request Stage 4 boss skill state")
 	_expect(not _requested(registry, "stage5_hongryun_state"), "Stage 2 scope should not request Stage 5 Hongryun state")
+
+
+func _verify_smasher_stage6_scope() -> void:
+	var registry := FakeRegistry.new()
+	var deps: Dictionary = BallDependencyContext.new().build_update_deps(registry, {
+		"selected_character_type": "smasher",
+		"current_stage": 6,
+	})
+	_expect(deps.get("stage6_tetriser_state", null) == registry.instances["stage6_tetriser_state"], "Stage 6 scope should include Tetriser collision state")
+	_expect(deps.get("stage_background", null) == registry.instances["stage6_tetriser_pillar_background"], "Stage 6 scope should route the Stage 6 background")
+	_expect(not _requested(registry, "stage5_hongryun_state"), "Stage 6 scope should not request Stage 5 Hongryun state")
+	_expect(not _requested(registry, "stage4_ponk_skill_state"), "Stage 6 scope should not request Stage 4 boss skill state")
+
+
+func _verify_legacy_update_deps_keep_stage6() -> void:
+	var registry := FakeRegistry.new()
+	var deps: Dictionary = BallDependencyContext.new().build_update_deps(registry)
+	_expect(deps.get("stage6_tetriser_state", null) == registry.instances["stage6_tetriser_state"], "legacy ball update deps should include Stage 6 Tetriser state")
 
 
 func _requested(registry: FakeRegistry, key: String) -> bool:

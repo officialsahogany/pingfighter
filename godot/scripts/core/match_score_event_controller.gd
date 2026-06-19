@@ -68,6 +68,9 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_clear_stage5_round_boundary_fx(deps)
 	_perf_end(perf_logger, "physics.score_event.round_boundary.stage5_fx", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_clear_stage6_round_boundary_fx(deps)
+	_perf_end(perf_logger, "physics.score_event.round_boundary.stage6_fx", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_start_score_result_texture_prewarm(scoring_side, deps)
 	_perf_end(perf_logger, "physics.score_event.result_texture_queue", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -467,6 +470,14 @@ func _clear_stage5_round_boundary_fx(deps: Dictionary) -> void:
 		stage5_hongryun_actor_renderer.reset_round_fx()
 	elif stage5_hongryun_actor_renderer.has_method("reset"):
 		stage5_hongryun_actor_renderer.reset()
+
+
+func _clear_stage6_round_boundary_fx(deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 6:
+		return
+	var stage6_tetriser_state: Object = deps.get("stage6_tetriser_state", null)
+	if stage6_tetriser_state != null and stage6_tetriser_state.has_method("reset_round"):
+		stage6_tetriser_state.reset_round()
 
 
 func _get_battle_resources(deps: Dictionary) -> Object:

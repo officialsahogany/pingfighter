@@ -117,6 +117,7 @@ func _init() -> void:
 	_verify_round_deps_use_current_smasher_stage()
 	_verify_round_deps_use_current_viper_stage()
 	_verify_round_deps_use_current_stage5()
+	_verify_round_deps_use_current_stage6()
 	_verify_round_deps_cache_reuses_current_context()
 	_verify_round_deps_exposes_per_key_perf()
 	_verify_empty_context_keeps_legacy_full_deps()
@@ -178,6 +179,19 @@ func _verify_round_deps_use_current_stage5() -> void:
 	_expect(not registry.requested_keys.has("stage4_ponk_skill_state"), "stage 5 round deps should not wake Stage 4 Ponk state")
 
 
+func _verify_round_deps_use_current_stage6() -> void:
+	var deps_context := BallDependencyContext.new()
+	var registry := FakeRegistry.new()
+	deps_context.build_round_deps(registry, {
+		"current_stage": 6,
+		"selected_character_type": "smasher",
+	})
+
+	_expect(registry.requested_keys.has("stage6_tetriser_state"), "stage 6 round deps should request Tetriser state")
+	_expect(not registry.requested_keys.has("stage5_hongryun_state"), "stage 6 round deps should not wake Stage 5 Hongryun state")
+	_expect(not registry.requested_keys.has("stage4_ponk_skill_state"), "stage 6 round deps should not wake Stage 4 Ponk state")
+
+
 func _verify_round_deps_cache_reuses_current_context() -> void:
 	var deps_context := BallDependencyContext.new()
 	var registry := FakeRegistry.new()
@@ -233,6 +247,7 @@ func _verify_empty_context_keeps_legacy_full_deps() -> void:
 	_expect(registry.requested_keys.has("stage5_hongryun_state"), "empty round context should keep stage 5 legacy deps")
 	_expect(registry.requested_keys.has("stage5_hongryun_fire_machine_event"), "empty round context should keep Stage 5 fire-machine cleanup deps")
 	_expect(registry.requested_keys.has("stage5_hongryun_actor_renderer"), "empty round context should keep stage 5 actor renderer cleanup deps")
+	_expect(registry.requested_keys.has("stage6_tetriser_state"), "empty round context should keep Stage 6 Tetriser cleanup deps")
 
 	var perf_only_registry := FakeRegistry.new()
 	deps_context.build_round_deps(perf_only_registry, {
