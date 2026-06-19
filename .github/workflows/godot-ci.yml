@@ -43,9 +43,13 @@ concurrency:
 env:
   GODOT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.godot_version || '4.6.2-stable' }}
   SMOKE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_mode || 'focused' }}
+  # Keep this list in lockstep with $focusedSmoke in
+  # godot/tools/run_pre_push_checks.ps1 (the local pre-push gate). The two are
+  # separate literal copies; if you add/remove a focused smoke, edit BOTH.
   FOCUSED_SMOKE_TESTS: >-
     res://tests/project_resource_loader_import_preference_smoke.gd
     res://tests/battle_boot_resource_prewarm_smoke.gd
+    res://tests/match_player_skill_deps_builder_smoke.gd
     res://tests/battle_scene_overlay_frame_perf_smoke.gd
     res://tests/weather_event_render_budget_smoke.gd
 

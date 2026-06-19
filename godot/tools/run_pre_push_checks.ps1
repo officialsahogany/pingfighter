@@ -20,7 +20,10 @@
     $env:GODOT_EXE / PATH / disk search via resolve_godot_exe.ps1.
 
 .PARAMETER Mode
-    full  (default) -> load check + warning scan + focused smokes
+    full  (default) -> load check + warning scan + focused (5) smokes
+    all              -> load check + warning scan + FULL smoke suite (all
+                        tests/*_smoke.gd discovered by run_smoke_tests.ps1;
+                        slow, opt-in -- intended for big refactors before a push)
     light            -> load check + focused smokes (skip warning scan)
     load             -> load check only
     Also read from $env:GODOT_PREPUSH_MODE.
@@ -36,10 +39,13 @@ $tools = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($Mode)) { $Mode = $env:GODOT_PREPUSH_MODE }
 if ([string]::IsNullOrWhiteSpace($Mode)) { $Mode = "full" }
 $Mode = $Mode.ToLowerInvariant()
-if ($Mode -notin @("full", "light", "load")) {
-    throw "Unknown GODOT_PREPUSH_MODE '$Mode' (expected full | light | load)"
+if ($Mode -notin @("full", "all", "light", "load")) {
+    throw "Unknown GODOT_PREPUSH_MODE '$Mode' (expected full | all | light | load)"
 }
 
+# Keep this list in lockstep with FOCUSED_SMOKE_TESTS in
+# .github/workflows/godot-ci.yml. The two are separate literal copies; if you
+# add/remove a focused smoke, edit BOTH.
 $focusedSmoke = @(
     "res://tests/project_resource_loader_import_preference_smoke.gd",
     "res://tests/battle_boot_resource_prewarm_smoke.gd",
@@ -71,7 +77,7 @@ try {
         & (Join-Path $tools "run_headless_load_check.ps1") -GodotExe $godot
     }
 
-    if ($Mode -eq "full") {
+    if ($Mode -eq "full" -or $Mode -eq "all") {
         Invoke-Step "warning scan" {
             & (Join-Path $tools "run_warning_scan.ps1") -GodotExe $godot
         }
@@ -80,7 +86,12 @@ try {
         Write-Host "--- warning scan SKIPPED (mode=$Mode) ---"
     }
 
-    if ($Mode -ne "load") {
+    if ($Mode -eq "all") {
+        Invoke-Step "full smoke suite (all *_smoke.gd)" {
+            # No -Tests -> run_smoke_tests.ps1 globs every tests/*_smoke.gd.
+            & (Join-Path $tools "run_smoke_tests.ps1") -GodotExe $godot
+        }
+    } elseif ($Mode -ne "load") {
         Invoke-Step ("focused smoke ({0})" -f $focusedSmoke.Count) {
             & (Join-Path $tools "run_smoke_tests.ps1") -GodotExe $godot -Tests $focusedSmoke
         }
