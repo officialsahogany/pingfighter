@@ -23,6 +23,7 @@ const BOOT_WARMUP_TOTAL_STEPS := 21
 const BOOT_WARMUP_FRAME_BUDGET_USEC := 24000
 const BOOT_WARMUP_MAX_STEPS_PER_FRAME := 128
 const PSO_PREWARMER_NODE_NAME := "BattlePsoPrewarmer"
+const BOOT_WARMUP_SAMPLE_PREFIX := "process.intro.boot_warmup_step."
 const BOOT_WARMUP_STATUS_BY_STEP := {
 	0: "전투 화면 준비 중",
 	1: "인트로 리소스 확인 중",
@@ -89,6 +90,13 @@ func get_status_text() -> String:
 
 func get_total_steps() -> int:
 	return BOOT_WARMUP_TOTAL_STEPS
+
+
+func get_current_sample_detail_label(owner: Object, module_getter: Callable) -> String:
+	var sample_label := _get_boot_warmup_sample_label(owner, module_getter)
+	if sample_label.begins_with(BOOT_WARMUP_SAMPLE_PREFIX):
+		return sample_label.substr(BOOT_WARMUP_SAMPLE_PREFIX.length())
+	return sample_label
 
 
 func _get_current_step_progress(module_getter: Callable) -> float:
@@ -421,10 +429,23 @@ func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> St
 				label += ".%s" % BattleBootWarmupSampleLabels.get_stage_intro_sample_label(stage_intro_step)
 		17:
 			var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
-			var stage_step := _get_int_property(resource_prewarm, "stage_runtime_prewarm_step_index", -1)
-			if stage_step >= 0:
-				label += ".%s" % BattleBootWarmupSampleLabels.get_stage_runtime_sample_label(_get_current_stage(owner), stage_step)
+			var stage_detail_label := _get_stage_runtime_prewarm_detail_label(owner, resource_prewarm)
+			if stage_detail_label != "":
+				label += ".%s" % stage_detail_label
 	return "process.intro.boot_warmup_step.%s" % label
+
+
+func _get_stage_runtime_prewarm_detail_label(owner: Object, resource_prewarm: Object) -> String:
+	if resource_prewarm == null:
+		return ""
+	if resource_prewarm.has_method("get_stage_runtime_prewarm_debug_label"):
+		var debug_label := str(resource_prewarm.get_stage_runtime_prewarm_debug_label(owner))
+		if debug_label != "":
+			return debug_label
+	var stage_step := _get_int_property(resource_prewarm, "stage_runtime_prewarm_step_index", -1)
+	if stage_step >= 0:
+		return BattleBootWarmupSampleLabels.get_stage_runtime_sample_label(_get_current_stage(owner), stage_step)
+	return ""
 
 
 func _get_module_group_sample_suffix(owner: Object, module_getter: Callable, group_name: String) -> String:

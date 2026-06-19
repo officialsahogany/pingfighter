@@ -17,14 +17,14 @@ func prewarm(runtime: Object, owner: Object = null, registry: Object = null) -> 
 
 
 # Warms the per-item mythic icon sheets into the ProjectResourceLoader path
-# cache so trigger()'s _load_item_texture does not pay a cold raw-PNG decode
+# cache so trigger()'s _load_item_texture does not pay a cold texture load
 # inside the first-pickup store sample. Sheets are 7~39KB each; the whole
 # batch is a few ms on a loading/intro frame.
 func prewarm_item_textures() -> void:
 	for path_value in MythicItemCatalogIconMetadata.MYTHIC_ICON_SHEET_PATHS.values():
 		var path: String = str(path_value)
 		if path != "":
-			ProjectResourceLoader.load_texture(path)
+			ProjectResourceLoader.load_imported_texture(path)
 
 
 func reset(runtime: Object, registry: Object = null) -> void:

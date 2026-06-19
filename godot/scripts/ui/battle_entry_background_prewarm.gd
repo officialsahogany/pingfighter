@@ -43,6 +43,16 @@ var _job_index: int = 0
 var _built_for_character := ""
 var _built_for_stage: int = 0
 var _character_runtime: Object = PlayerCharacterRuntime.new()
+var _battle_resources: Object = BattleResources.new()
+
+
+func clear_runtime_state() -> void:
+	_jobs.clear()
+	_job_index = 0
+	_built_for_character = ""
+	_built_for_stage = 0
+	_character_runtime = null
+	_battle_resources = null
 
 
 func is_finished() -> bool:
@@ -96,8 +106,9 @@ func _build_jobs(character_type: String, stage_id: int) -> void:
 	# Boot-order priority: transition texture specs (boot step 02) -> stage
 	# pillar background (step 10, stage 1 only) -> stage-clear result sheets
 	# (step 18).
-	var battle_resources := BattleResources.new()
-	var transition_jobs: Array = battle_resources.get_transition_texture_prewarm_jobs({
+	if _battle_resources == null:
+		_battle_resources = BattleResources.new()
+	var transition_jobs: Array = _battle_resources.get_transition_texture_prewarm_jobs({
 		"selected_character_type": character_type,
 		"current_stage": stage_id,
 		"include_result_sheets": false,

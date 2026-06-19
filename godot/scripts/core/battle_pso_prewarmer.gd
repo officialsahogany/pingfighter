@@ -19,6 +19,7 @@ extends Node2D
 #   - Weather particles / warning panel primitives
 #   - Timer-stack first-use script path plus common timer-bar primitives
 #   - Plaza arrival/exit warp pillar shader, additive sprites, and particles
+#   - Defeat chance-gem cyan shatter host shader, additive sprites, and particles
 #
 # Deliberately out of scope:
 #   - character_info / perk_debug overlay UI
@@ -49,7 +50,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 17
+const WARMUP_DRAW_STEPS := 18
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -57,6 +58,7 @@ const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_hos
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
+const DefeatGemShatterFxHost := preload("res://scripts/effects/defeat_gem_shatter_fx_host.gd")
 
 var _frames_remaining: int = LIFETIME_FRAMES
 var _warmup_step_index: int = 0
@@ -70,6 +72,7 @@ var _weather_state: Object = PsoWeatherWarmupState.new()
 var _boost_fx_host: Node = null
 var _starpoint_fx_host: Node = null
 var _plaza_warp_fx_host: Node = null
+var _defeat_gem_shatter_fx_host: Node = null
 
 
 class PsoWeatherWarmupState:
@@ -135,6 +138,7 @@ func _ready() -> void:
 	# so its pillar shader/particle combo needs an actual offscreen draw pass
 	# here rather than only a static texture/material cache warmup.
 	PlazaWarpPillarFxHost.prewarm_assets()
+	DefeatGemShatterFxHost.prewarm_assets()
 	_boost_fx_host = DashTokenBoostFxHost.new()
 	_boost_fx_host.name = "BoostFxHost_pso"
 	add_child(_boost_fx_host)
@@ -147,6 +151,9 @@ func _ready() -> void:
 	_plaza_warp_fx_host = PlazaWarpPillarFxHost.new()
 	_plaza_warp_fx_host.name = "PlazaWarpPillarFxHost_pso"
 	add_child(_plaza_warp_fx_host)
+	_defeat_gem_shatter_fx_host = DefeatGemShatterFxHost.new()
+	_defeat_gem_shatter_fx_host.name = "DefeatGemShatterFxHost_pso"
+	add_child(_defeat_gem_shatter_fx_host)
 	queue_redraw()
 
 
@@ -203,6 +210,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_skill_cutin_sheets()
 		16:
 			_prewarm_plaza_warp_pillar_shader_states()
+		17:
+			_prewarm_defeat_gem_shatter_shader_state()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -519,6 +528,20 @@ func _prewarm_plaza_warp_pillar_shader_states() -> void:
 		],
 		true
 	)
+
+
+func _prewarm_defeat_gem_shatter_shader_state() -> void:
+	if _defeat_gem_shatter_fx_host == null or not is_instance_valid(_defeat_gem_shatter_fx_host):
+		return
+	if not _defeat_gem_shatter_fx_host.has_method("sync_state"):
+		return
+	_defeat_gem_shatter_fx_host.sync_state({
+		"view_size": Vector2(1280.0, 720.0),
+		"gem_center": Vector2(120.0, 72.0),
+		"progress": 0.42,
+		"elapsed": 0.84,
+		"quality_scale": 1.0,
+	}, true)
 
 
 func _prewarm_pillar_hud_primitives() -> void:

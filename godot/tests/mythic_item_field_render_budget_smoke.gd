@@ -260,8 +260,10 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var ragnarok_stun_body := _function_body(ragnarok_source, "func draw_ragnarok_electric_stun_overlay")
 	_expect(ragnarok_stun_body.find("randf") < 0, "Ragnarok electric stun draw should not call random float helpers during draw")
 	_expect(ragnarok_stun_body.find("randi") < 0, "Ragnarok electric stun draw should not call random integer helpers during draw")
-	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
-	_expect(runtime_source.find("const RAGNAROK_SPARK_COUNT := 12") >= 0, "Ragnarok runtime spark count should stay capped")
+	var runtime_constants_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime_constants.gd")
+	_expect(runtime_constants_source != "", "mythic item runtime constants source should be readable")
+	_expect(runtime_constants_source.find("const RAGNAROK_SPARK_COUNT := 12") >= 0, "Ragnarok runtime spark count should stay capped")
+	_expect(runtime_constants_source.find("\"spark_count\": RAGNAROK_SPARK_COUNT") >= 0, "Ragnarok runtime constants should feed the spark-count budget")
 	_expect(source.find("const RAGNAROK_ELECTRIC_ELLIPSE_SEGMENTS := 16") >= 0, "Ragnarok electric ellipse should use the reduced segment budget")
 
 

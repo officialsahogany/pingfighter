@@ -79,6 +79,15 @@ func _verify_prewarmer_offscreen_position() -> void:
 			prewarmer._plaza_warp_fx_host.get_parent() == prewarmer,
 			"prewarmer's plaza warp FX host must be a direct child so its pillar quads inherit the offscreen transform"
 		)
+	_expect(
+		prewarmer._defeat_gem_shatter_fx_host != null and is_instance_valid(prewarmer._defeat_gem_shatter_fx_host),
+		"prewarmer should own a defeat gem shatter FX host child so the first cyan burst compiles off-screen"
+	)
+	if prewarmer._defeat_gem_shatter_fx_host != null and is_instance_valid(prewarmer._defeat_gem_shatter_fx_host):
+		_expect(
+			prewarmer._defeat_gem_shatter_fx_host.get_parent() == prewarmer,
+			"prewarmer's defeat gem shatter FX host must be a direct child so its quad and particles inherit the offscreen transform"
+		)
 	prewarmer.queue_free()
 
 
@@ -99,6 +108,7 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_character_topdown_rim_shader"), "prewarmer should cover the player topdown rim shader PSO")
 	_expect(prewarmer.has_method("_prewarm_stage1_result_pose_textures"), "prewarmer should cover Stage 1 round-result pose texture uploads")
 	_expect(prewarmer.has_method("_prewarm_plaza_warp_pillar_shader_states"), "prewarmer should cover plaza arrival/exit warp pillar shader states")
+	_expect(prewarmer.has_method("_prewarm_defeat_gem_shatter_shader_state"), "prewarmer should cover defeat chance-gem shatter shader states")
 	_expect(prewarmer.has_method("_prewarm_draw_step"), "prewarmer should stage warmup families across multiple draw frames")
 	_expect(prewarmer._weather_renderer != null, "prewarmer should own a weather renderer for weather PSO warmup")
 	_expect(prewarmer._status_orb_renderer != null, "prewarmer should own the pillar status orb renderer for real HUD warmup")
@@ -109,6 +119,12 @@ func _verify_second_pass_warmup_scope() -> void:
 			and draw_step_body.find("16:") >= 0
 			and draw_step_body.find("_prewarm_plaza_warp_pillar_shader_states") >= 0,
 		"PSO prewarmer should dispatch the plaza warp pillar warmup before its staged draw loop finishes"
+	)
+	_expect(
+		BattlePsoPrewarmer.WARMUP_DRAW_STEPS >= 18
+			and draw_step_body.find("17:") >= 0
+			and draw_step_body.find("_prewarm_defeat_gem_shatter_shader_state") >= 0,
+		"PSO prewarmer should dispatch the defeat gem shatter warmup before its staged draw loop finishes"
 	)
 	_expect(source.find("compact_fallback_frame") >= 0, "prewarmer should exercise the compact boss-dash fallback frame")
 	_expect(source.find("VIPER_SKILL_ICON_PATHS") >= 0, "prewarmer should draw selected-character skill icon texture families")
@@ -175,6 +191,14 @@ func _verify_second_pass_warmup_scope() -> void:
 			and plaza_warp_body.find("\"phase\": \"arrive\"") >= 0
 			and plaza_warp_body.find("\"phase\": \"exit\"") >= 0,
 		"PSO prewarmer should draw plaza warp pillar arrive+exit states off-screen before the first plaza arrival"
+	)
+	var defeat_gem_body: String = _function_body(source, "func _prewarm_defeat_gem_shatter_shader_state")
+	_expect(
+		source.find("DefeatGemShatterFxHost") >= 0
+			and source.find("DefeatGemShatterFxHost.prewarm_assets()") >= 0
+			and defeat_gem_body.find("sync_state") >= 0
+			and defeat_gem_body.find("\"progress\": 0.42") >= 0,
+		"PSO prewarmer should draw the defeat chance-gem cyan shatter state off-screen before the first live defeat"
 	)
 	prewarmer.free()
 

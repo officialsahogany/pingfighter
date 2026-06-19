@@ -25,6 +25,7 @@ func _init() -> void:
 	_verify_cached_jobs_finish_in_batches()
 	_verify_character_switch_rebuilds_jobs()
 	_verify_character_select_screen_wires_idle_prewarm()
+	ProjectResourceLoader.clear_caches()
 
 	if _failures.is_empty():
 		print("battle_entry_background_prewarm_smoke: ok")
@@ -131,6 +132,7 @@ func _verify_job_list_covers_entry_loading_sources() -> void:
 		paths.has(str(StageLandingIntro.STAGE_BACKGROUND_PATHS.get(1, ""))),
 		"entry prewarm should cover the stage1 landing intro background (boot step 16)"
 	)
+	_dispose_prewarmer(prewarmer)
 
 	var viper_probe := BattleEntryBackgroundPrewarm.new()
 	viper_probe.call("_build_jobs", "viper", 1)
@@ -146,6 +148,7 @@ func _verify_job_list_covers_entry_loading_sources() -> void:
 		not viper_paths.has(SkillCutinOverlayHost.POWER_SMASHING_CUTIN_SHEET_PATH),
 		"viper entry prewarm should not waste IO on smasher-only cut-in sheets"
 	)
+	_dispose_prewarmer(viper_probe)
 
 
 # The real battle startup reads its entry stage from GameSelectionState, so a
@@ -191,6 +194,7 @@ func _verify_stage_aware_job_list() -> void:
 		int(prewarmer.get("_built_for_stage")) == 1,
 		"stage change should rebuild the entry prewarm job list"
 	)
+	_dispose_prewarmer(prewarmer)
 
 
 func _verify_cached_jobs_finish_in_batches() -> void:
@@ -210,6 +214,7 @@ func _verify_cached_jobs_finish_in_batches() -> void:
 		updates <= max_updates,
 		"cached jobs should skip in per-frame batches instead of one job per frame"
 	)
+	_dispose_prewarmer(prewarmer)
 
 
 func _verify_character_switch_rebuilds_jobs() -> void:
@@ -243,6 +248,9 @@ func _verify_character_switch_rebuilds_jobs() -> void:
 		guard += 1
 	_expect(str(prewarmer.get("_built_for_character")) == "optimus", "entry prewarm should normalize character aliases through the shared runtime")
 	_expect(finished, "rebuilt Optimus alias jobs should finish from the faked cache")
+	_dispose_prewarmer(viper_probe)
+	_dispose_prewarmer(optimus_probe)
+	_dispose_prewarmer(prewarmer)
 
 
 func _verify_character_select_screen_wires_idle_prewarm() -> void:
@@ -279,6 +287,11 @@ func _fake_cache_paths(jobs: Array) -> void:
 		var path := str((job_value as Dictionary).get("path", ""))
 		if path != "" and ProjectResourceLoader.get_cached_texture(path) == null:
 			ProjectResourceLoader.store_texture(path, fake)
+
+
+func _dispose_prewarmer(prewarmer: Object) -> void:
+	if prewarmer != null and prewarmer.has_method("clear_runtime_state"):
+		prewarmer.clear_runtime_state()
 
 
 func _expect(condition: bool, message: String) -> void:

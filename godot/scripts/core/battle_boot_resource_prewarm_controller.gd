@@ -300,6 +300,17 @@ func prewarm_stage_runtime_resources(owner: Object, module_getter: Callable) -> 
 	_attach_battle_pso_prewarmer(owner)
 
 
+func get_stage_runtime_prewarm_debug_label(owner: Object) -> String:
+	var current_stage: int = _get_current_stage(owner)
+	var step_index := stage_runtime_prewarm_step_index
+	var step_label := _get_stage_runtime_prewarm_step_label(owner, current_stage, step_index)
+	var label := "%02d_%s" % [step_index, step_label]
+	if step_label == "selected_character":
+		var character_type := _get_selected_character_type(owner)
+		label += ".%s" % _get_selected_character_runtime_prewarm_debug_label(character_type)
+	return label
+
+
 func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable, wait_for_frame_gated_pso: bool = true) -> bool:
 	var current_stage: int = _get_current_stage(owner)
 	if stage_runtime_resources_prewarmed_for_stage == current_stage:
@@ -964,6 +975,19 @@ func _prewarm_selected_character_runtime_nodes_step(owner: Object, module: Objec
 	if module.has_method("prewarm_runtime_nodes"):
 		module.prewarm_runtime_nodes(owner)
 	return true
+
+
+func _get_selected_character_runtime_prewarm_debug_label(character_type: String) -> String:
+	var debug_character := character_type
+	if selected_character_runtime_prewarm_step_character != "":
+		debug_character = selected_character_runtime_prewarm_step_character
+	var module_keys: Array[String] = _get_selected_character_runtime_module_keys(debug_character)
+	var module_index := selected_character_runtime_prewarm_step_index
+	if module_index < 0:
+		return "%s.unknown" % debug_character
+	if module_index >= module_keys.size():
+		return "%s.done" % debug_character
+	return "%s.%02d_%s" % [debug_character, module_index, module_keys[module_index]]
 
 
 func _mark_selected_character_runtime_prewarmed(character_type: String) -> void:

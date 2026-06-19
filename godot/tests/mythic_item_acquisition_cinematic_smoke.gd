@@ -2,6 +2,7 @@ extends SceneTree
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
+const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const BattleSceneItemUpdateDriver := preload("res://scripts/core/battle_scene_item_update_driver.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -65,15 +66,9 @@ func _run() -> void:
 	_verify_cinematic_phase_lifecycle()
 	_verify_cinematic_updates_while_gameplay_frame_is_frozen()
 	_verify_cinematic_reset_round_cleanup()
-
-	# Release the sheet textures the prewarm parked in the static loader
-	# cache so test-time statics do not accumulate across asserts. Note: the
-	# raw-decode load path can still print one "ObjectDB instances leaked"
-	# warning at exit (a single zero-refcount RefCounted — engine
-	# static-teardown-order artifact, verified via --verbose; not a gameplay
-	# leak and not matched by the runner's error gates).
-	for sheet_path_value in MythicItemCatalogIconMetadata.MYTHIC_ICON_SHEET_PATHS.values():
-		ProjectResourceLoader._texture_cache.erase(str(sheet_path_value))
+	await _drain_frames(8)
+	_clear_runtime_caches_for_test()
+	await _drain_frames(30)
 
 	if _failures.is_empty():
 		print("mythic_item_acquisition_cinematic_smoke: ok")
@@ -107,7 +102,7 @@ func _verify_cinematic_host_prewarm_reused() -> void:
 
 	_expect(runtime.start_acquisition_cinematic(item_data, Vector2(220.0, 330.0), owner, registry), "prewarmed runtime should still start the acquisition cinematic")
 	_expect(runtime.acquisition_cinematic == prewarmed_host, "field pickup should reuse the prewarmed acquisition cinematic host")
-	owner.queue_free()
+	_cleanup_runtime_owner(runtime, registry, owner)
 
 
 func _verify_cinematic_phase_lifecycle() -> void:
@@ -153,7 +148,7 @@ func _verify_cinematic_phase_lifecycle() -> void:
 	runtime.acquisition_cinematic.update(0.51, registry)
 	_expect(not runtime.is_acquisition_cinematic_active(), "acquisition cinematic should finish after the absorb and paddle-glow phases")
 	_expect(audio.calls.has("stop_legendary_after"), "after cue should be stopped during the click acquisition phase")
-	owner.queue_free()
+	_cleanup_runtime_owner(runtime, registry, owner)
 
 
 func _verify_cinematic_updates_while_gameplay_frame_is_frozen() -> void:
@@ -173,7 +168,7 @@ func _verify_cinematic_updates_while_gameplay_frame_is_frozen() -> void:
 	item_driver.update_mythic_items(owner, registry, 0.25)
 	var next_elapsed: float = float(runtime.get_acquisition_cinematic_snapshot().get("elapsed", 0.0))
 	_expect(next_elapsed > first_elapsed + 0.20, "pause cinematic should keep updating even when gameplay_frame_counter is frozen")
-	owner.queue_free()
+	_cleanup_runtime_owner(runtime, registry, owner)
 
 
 func _verify_cinematic_reset_round_cleanup() -> void:
@@ -190,7 +185,25 @@ func _verify_cinematic_reset_round_cleanup() -> void:
 	runtime.reset_round(registry)
 	_expect(not runtime.is_acquisition_cinematic_active(), "reset_round() should hide and deactivate the acquisition cinematic host")
 	_expect(audio.calls.has("stop_legendary_after"), "reset_round() should stop the acquisition after cue")
-	owner.queue_free()
+	_cleanup_runtime_owner(runtime, registry, owner)
+
+
+func _cleanup_runtime_owner(runtime: Object, registry: Object, owner: Node) -> void:
+	if runtime != null and runtime.has_method("reset_round"):
+		runtime.reset_round(registry)
+		runtime.acquisition_cinematic = null
+	if owner != null:
+		owner.queue_free()
+
+
+func _clear_runtime_caches_for_test() -> void:
+	MythicAcquisitionCinematic.reset_for_test()
+	ProjectResourceLoader.clear_caches()
+
+
+func _drain_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await process_frame
 
 
 func _expect(condition: bool, message: String) -> void:

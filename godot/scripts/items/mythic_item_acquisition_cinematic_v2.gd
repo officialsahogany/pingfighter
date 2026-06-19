@@ -117,6 +117,20 @@ static var _white_flash_prewarm_data := PackedByteArray()
 static var _white_flash_prewarm_y := 0
 
 
+static func reset_for_test() -> void:
+	_assets_prewarmed = false
+	_prewarm_assets_step_index = 0
+	_shared_icon_backdrop_texture = null
+	_shared_vignette_texture = null
+	_shared_white_flash_texture = null
+	_icon_backdrop_prewarm_data = PackedByteArray()
+	_icon_backdrop_prewarm_y = 0
+	_vignette_prewarm_data = PackedByteArray()
+	_vignette_prewarm_y = 0
+	_white_flash_prewarm_data = PackedByteArray()
+	_white_flash_prewarm_y = 0
+
+
 static func should_use_item_data(source: Dictionary) -> bool:
 	var item_type: String = str(source.get("type", "")).to_lower()
 	var rarity: String = str(source.get("rarity", "")).to_lower()
@@ -1289,7 +1303,7 @@ func _load_item_texture() -> void:
 		path = str(item_data.get("icon_path", ""))
 	if path == "":
 		return
-	item_texture = ProjectResourceLoader.load_texture(path)
+	item_texture = ProjectResourceLoader.load_imported_texture(path)
 
 
 func _get_icon_source_rect() -> Rect2:

@@ -3,6 +3,9 @@ extends SceneTree
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
 const BattleBootWarmupPlan := preload("res://scripts/core/battle_boot_warmup_plan.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
 class FakeOwner:
@@ -212,7 +215,7 @@ class FakeBattleResources:
 	var last_context: Dictionary = {}
 	var cache: Dictionary = {
 		"loaded_stage": 1,
-		"smasher_skill_icon_textures": {"wheel": RefCounted.new()},
+		"smasher_skill_icon_textures": {"wheel": true},
 		"viper_skill_icon_textures": {},
 		"commando_skill_icon_textures": {},
 	}
@@ -311,11 +314,11 @@ class FakeRegistry:
 	var weather := FakePrewarmModule.new()
 	var active_item_runtime := FakeActiveItemRuntime.new()
 	var mythic_item_runtime := FakeMythicItemRuntime.new()
-	var active_item_hud_visuals := RefCounted.new()
+	var active_item_hud_visuals := FakePrewarmModule.new()
 	var perk_icon_renderer := FakePrewarmModule.new()
 	var perk_overlay_renderer := FakePrewarmModule.new()
 	var perk_debug_picker := FakePerkDebugPicker.new()
-	var perk_catalog := RefCounted.new()
+	var perk_catalog := FakePrewarmModule.new()
 	var character_info := FakeCharacterInfo.new()
 	var result_screen := FakeStagedResultScreen.new()
 	var monkey_blessing_delivery_state := FakeStagedPrewarmModule.new()
@@ -357,6 +360,79 @@ class FakeRegistry:
 	var stage5_actor_renderer := FakeStagedPrewarmModule.new()
 	var stage5_pillar_scene := FakeStagedPillarSceneModule.new()
 	var stage5_skill_hud := FakeStagedPrewarmModule.new()
+
+	func clear_refs() -> void:
+		if battle_resources != null:
+			battle_resources.cache.clear()
+		if perk_debug_picker != null:
+			perk_debug_picker.last_catalog = null
+			perk_debug_picker.last_owner = null
+			perk_debug_picker.last_icon_renderer = null
+		if character_info != null:
+			character_info.last_owner = null
+			character_info.last_registry = null
+		if ball_renderer != null:
+			ball_renderer.last_runtime_owner = null
+		if skill_cutin_overlay_host != null:
+			skill_cutin_overlay_host.last_runtime_owner = null
+		for property_name in [
+			"warmup_plan",
+			"resource_prewarm",
+			"battle_perf_logger",
+			"battle_resources",
+			"ball_renderer",
+			"game_audio",
+			"weather",
+			"active_item_runtime",
+			"mythic_item_runtime",
+			"active_item_hud_visuals",
+			"perk_icon_renderer",
+			"perk_overlay_renderer",
+			"perk_debug_picker",
+			"perk_catalog",
+			"character_info",
+			"result_screen",
+			"monkey_blessing_delivery_state",
+			"commando_reload_delivery_state",
+			"stage1_bg",
+			"stage1_pillar_scene",
+			"stage1_balloon_event",
+			"stage1_skill_hud",
+			"stage1_actor_renderer",
+			"commando_firearm_selector",
+			"skill_cutin_overlay_host",
+			"smasher_plasma_state",
+			"smasher_recovery_state",
+			"smasher_warp_gate_state",
+			"smasher_wheel_state",
+			"smasher_shield_kiting_state",
+			"viper_input_reader",
+			"viper_skill_runtime",
+			"viper_skill_state",
+			"viper_skill_config",
+			"viper_jetpack_state",
+			"stage2_bg",
+			"stage2_pillar_scene",
+			"stage2_actor_renderer",
+			"stage2_skill_hud",
+			"stage2_monkey_event",
+			"stage3_bg",
+			"stage3_actor_renderer",
+			"stage3_skill_hud",
+			"stage4_bg",
+			"stage4_actor_renderer",
+			"stage4_gauge_hud",
+			"stage4_bird_event",
+			"stage4_brazier_monk_event",
+			"stage4_moon_event",
+			"stage4_ponk_skill_state",
+			"stage4_boss_skill_hud",
+			"stage5_bg",
+			"stage5_actor_renderer",
+			"stage5_pillar_scene",
+			"stage5_skill_hud",
+		]:
+			set(property_name, null)
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -480,6 +556,11 @@ var _boot_redraw_calls := 0
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
+	_seed_lingpet_skillcard_texture_cache()
 	var controller := BattleBootResourcePrewarmController.new()
 	var owner := FakeOwner.new()
 
@@ -536,6 +617,7 @@ func _init() -> void:
 	_verify_stage5_visual_shell_prewarm()
 	_verify_battle_texture_prewarm_is_staged()
 	_verify_viper_runtime_node_prewarm()
+	_verify_boot_warmup_detail_label_names_selected_character_module()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
 	_verify_boot_warmup_result_step_uses_result_prewarm_signature()
 	_verify_full_boot_warmup_finishes_without_stalling()
@@ -547,13 +629,21 @@ func _init() -> void:
 	_verify_budgeted_boot_warmup_bounds_non_advancing_spin()
 	_verify_shell_wires_budgeted_boot_warmup()
 
+	for _cleanup_frame in range(4):
+		_cleanup()
+		await process_frame
 	if _failures.is_empty():
 		print("battle_boot_resource_prewarm_smoke: ok")
-		quit(0)
+		call_deferred("_quit_with_code", 0)
 	else:
 		for failure in _failures:
 			push_error(failure)
-		quit(1)
+		call_deferred("_quit_with_code", 1)
+
+
+func _quit_with_code(exit_code: int) -> void:
+	await process_frame
+	quit(exit_code)
 
 
 func _get_module(key: String) -> Object:
@@ -566,6 +656,44 @@ func _mark_boot_initialized(_play_stage_bgm: bool = true) -> void:
 
 func _mark_boot_redraw_requested() -> void:
 	_boot_redraw_calls += 1
+
+
+func _cleanup() -> void:
+	if _registry != null:
+		_registry.clear_refs()
+		_registry = null
+	LingpetRailCard.clear_caches()
+	ProjectResourceLoader.clear_caches()
+
+
+func _seed_lingpet_skillcard_texture_cache() -> void:
+	var image := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.9, 1.0, 1.0))
+	var texture := ImageTexture.create_from_image(image)
+	for card_path in _expected_lingpet_skillcard_paths():
+		ProjectResourceLoader.store_texture(card_path, texture)
+
+
+func _expected_lingpet_skillcard_paths() -> Array[String]:
+	var seen: Dictionary = {}
+	var paths: Array[String] = []
+	_append_expected_lingpet_skillcard_path(str(LingpetRailCard.TEXTURE_PATH), seen, paths)
+	for pet_id in LingpetCatalog.get_pet_ids(true):
+		for active_skill in LingpetCatalog.get_active_skill_pool(str(pet_id)):
+			if not bool(active_skill.get("enabled", true)):
+				continue
+			_append_expected_lingpet_skillcard_path(str(active_skill.get("card_texture_path", "")), seen, paths)
+	return paths
+
+
+func _append_expected_lingpet_skillcard_path(path: String, seen: Dictionary, paths: Array[String]) -> void:
+	var resolved_path := path.strip_edges()
+	if resolved_path == "":
+		return
+	if seen.has(resolved_path):
+		return
+	seen[resolved_path] = true
+	paths.append(resolved_path)
 
 
 func _verify_full_stage_clear_result_prewarm_remains_staged() -> void:
@@ -849,6 +977,29 @@ func _verify_viper_runtime_node_prewarm() -> void:
 	_expect(_registry.skill_cutin_overlay_host.prewarm_count == 1, "Viper runtime prewarm should warm the shared skill cut-in assets once")
 	_expect(_registry.skill_cutin_overlay_host.runtime_node_calls == 1, "Viper runtime prewarm should run shared skill cut-in runtime node prewarm once")
 	_expect(_registry.skill_cutin_overlay_host.last_runtime_owner == owner, "Viper skill cut-in runtime node prewarm should receive the battle owner")
+
+
+func _verify_boot_warmup_detail_label_names_selected_character_module() -> void:
+	_registry = FakeRegistry.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 3
+	owner.selected_character_type = "smasher"
+	var resource_prewarm: Object = _registry.resource_prewarm
+	resource_prewarm.set("stage_runtime_prewarm_step_index", 6)
+	resource_prewarm.set("selected_character_runtime_prewarm_step_character", "smasher")
+	resource_prewarm.set("selected_character_runtime_prewarm_step_index", 4)
+	_expect(
+		str(resource_prewarm.get_stage_runtime_prewarm_debug_label(owner)) == "06_selected_character.smasher.04_skill_cutin_overlay_host",
+		"stage runtime debug label should name the active selected-character module"
+	)
+
+	var warmup := BattleBootWarmupController.new()
+	warmup.set("boot_warmup_step", 17)
+	_expect(
+		str(warmup.get_current_sample_detail_label(owner, Callable(self, "_get_module"))) ==
+			"17_stage_runtime_resources.06_selected_character.smasher.04_skill_cutin_overlay_host",
+		"boot warmup detail label should carry the selected-character module through step 17"
+	)
 
 
 func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:

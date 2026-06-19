@@ -94,6 +94,22 @@ class FakeLoadingRenderer:
 		return hold_completion
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+	var counters: Dictionary = {}
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+	func record_counter_sample(label: String, value: float) -> void:
+		counters[label] = value
+
+
 class FakeIntroModule:
 	extends RefCounted
 
@@ -118,6 +134,7 @@ func _init() -> void:
 	_verify_completion_hold_does_not_block_started_intros()
 	_verify_loading_snapshot_uses_warmup_status()
 	_verify_warmup_progress_contract()
+	_verify_boot_warmup_process_perf_batch_label()
 	_verify_stage1_stained_glass_loading_path()
 	_verify_stage2_stained_glass_loading_path()
 	_verify_stage3_stained_glass_loading_path()
@@ -317,6 +334,55 @@ func _verify_warmup_progress_contract() -> void:
 	warmup.set("boot_warmup_finished", true)
 	_expect(is_equal_approx(float(warmup.get_progress()), 1.0), "finished warmup should report full progress")
 	_expect(str(warmup.get_status_text()) == "전투 준비 완료", "finished warmup should expose completion text")
+
+
+func _verify_boot_warmup_process_perf_batch_label() -> void:
+	var controller: Object = BattleSceneIntroFrameController.new()
+	var warmup: Object = BattleBootWarmupController.new()
+	warmup.set("boot_warmup_step", 2)
+	var readiness := FakeReadiness.new()
+	readiness.warmup_finished = false
+	var perf_logger := FakePerfLogger.new()
+	_modules = {
+		"battle_boot_warmup_controller": warmup,
+		"battle_perf_logger": perf_logger,
+		"battle_scene_readiness_controller": readiness,
+	}
+
+	var consumed: bool = bool(controller.process_idle(
+		0.016,
+		FakeOwner.new(),
+		null,
+		Callable(self, "_get_module"),
+		{
+			"run_boot_warmup_step": Callable(self, "_advance_fake_warmup_to_five"),
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_false_callback"),
+		}
+	))
+
+	_expect(consumed, "boot warmup process gate should consume idle frames while loading")
+	_expect(perf_logger.labels.has("process.intro.boot_warmup_step"), "boot warmup should keep the legacy aggregate perf label")
+	_expect(
+		perf_logger.labels.has("process.intro.boot_warmup_batch.step_02_to_05"),
+		"boot warmup should expose the budgeted batch start/end step in the perf label"
+	)
+	_expect(
+		perf_logger.labels.has("process.intro.boot_warmup_batch_detail.step_02_to_05.02_texture_resources"),
+		"boot warmup should expose the starting warmup detail in a batch-detail perf label"
+	)
+	_expect(
+		is_equal_approx(float(perf_logger.counters.get("boot_warmup.batch.start_step", -1.0)), 2.0),
+		"boot warmup perf counters should record the batch start step"
+	)
+	_expect(
+		is_equal_approx(float(perf_logger.counters.get("boot_warmup.batch.end_step", -1.0)), 5.0),
+		"boot warmup perf counters should record the batch end step"
+	)
+	_expect(
+		is_equal_approx(float(perf_logger.counters.get("boot_warmup.batch.steps_advanced", -1.0)), 3.0),
+		"boot warmup perf counters should record how many boot steps advanced"
+	)
 
 
 func _verify_stage1_stained_glass_loading_path() -> void:
@@ -554,6 +620,12 @@ func _true_callback() -> bool:
 
 func _false_callback() -> bool:
 	return false
+
+
+func _advance_fake_warmup_to_five() -> void:
+	var warmup: Object = _get_module("battle_boot_warmup_controller")
+	if warmup != null:
+		warmup.set("boot_warmup_step", 5)
 
 
 func _get_module(key: String) -> Object:

@@ -493,10 +493,14 @@ static func _drain_threaded_texture_prewarm() -> void:
 	var path := _threaded_texture_prewarm_path
 	var progress_values: Array = []
 	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	var resource: Resource = null
 	if status == ResourceLoader.THREAD_LOAD_LOADED:
-		ResourceLoader.load_threaded_get(path)
+		resource = ResourceLoader.load_threaded_get(path)
 	elif status != ResourceLoader.THREAD_LOAD_FAILED and status != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-		ResourceLoader.load_threaded_get(path)
+		resource = ResourceLoader.load_threaded_get(path)
+	var texture := resource as Texture2D
+	if texture != null:
+		store_texture(path, texture)
 	_clear_threaded_texture_prewarm()
 
 
@@ -521,10 +525,14 @@ static func _drain_threaded_audio_prewarm() -> void:
 	var path := _threaded_audio_prewarm_path
 	var progress_values: Array = []
 	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	var resource: Resource = null
 	if status == ResourceLoader.THREAD_LOAD_LOADED:
-		ResourceLoader.load_threaded_get(path)
+		resource = ResourceLoader.load_threaded_get(path)
 	elif status != ResourceLoader.THREAD_LOAD_FAILED and status != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-		ResourceLoader.load_threaded_get(path)
+		resource = ResourceLoader.load_threaded_get(path)
+	var stream := resource as AudioStream
+	if stream != null:
+		store_audio_stream(path, stream)
 	_clear_threaded_audio_prewarm()
 
 
