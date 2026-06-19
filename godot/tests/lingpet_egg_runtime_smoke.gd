@@ -565,7 +565,7 @@ func _init() -> void:
 	_verify_maribo_defense_rate_intercepts_descending_ball()
 	_verify_maribo_defense_actually_blocks_reachable_ball()
 	_verify_player_takes_ball_priority_when_companion_overlaps()
-	_verify_companion_body_draws_behind_player()
+	_verify_lingpet_body_draws_behind_player()
 	_verify_lingpet_defense_guard_chase_feedback()
 	_verify_maribo_defense_anticipates_moderate_distance_ball()
 	_verify_maribo_high_defense_reaches_widened_zone()
@@ -2952,32 +2952,35 @@ func _verify_player_takes_ball_priority_when_companion_overlaps() -> void:
 	_expect(float(owner.ball_vel.y) < 0.0, "a guarded (player-unreachable) ball should still be bounced upward")
 
 
-func _verify_companion_body_draws_behind_player() -> void:
-	# Draw order: the companion BODY must render behind the player. The body draw was
-	# moved out of the post-actor draw() into draw_companion_body_behind_actors(), which
-	# the shared player actor renderer invokes (via a scene-drawer-injected hook) BEFORE
-	# it draws the player sprite. Reverse-check: if _draw_companion( leaks back into
-	# draw(), an overlapping companion would again cover the player.
+func _verify_lingpet_body_draws_behind_player() -> void:
+	# Draw order: the lingpet BODY (egg sprite AND companion sprite) must render behind
+	# the player. Both body draws were moved out of the post-actor draw() into
+	# draw_lingpet_body_behind_actors(), which the shared player actor renderer invokes
+	# (via a scene-drawer-injected hook) BEFORE it draws the player sprite. Reverse-check:
+	# if _draw_companion( or _draw_egg( leaks back into draw(), an overlapping lingpet
+	# would again cover the player.
 	var runtime_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var draw_fn_start: int = runtime_src.find("\nfunc draw(canvas: CanvasItem")
 	_expect(draw_fn_start >= 0, "egg runtime should define draw(canvas: CanvasItem, ...)")
 	var draw_fn_end: int = runtime_src.find("\nfunc ", draw_fn_start + 1)
 	var draw_fn_body: String = runtime_src.substr(draw_fn_start, draw_fn_end - draw_fn_start)
 	_expect(draw_fn_body.find("_draw_companion(") < 0, "main draw() must NOT draw the companion body (it renders behind the player instead)")
-	var behind_fn_start: int = runtime_src.find("func draw_companion_body_behind_actors(")
-	_expect(behind_fn_start >= 0, "egg runtime should expose draw_companion_body_behind_actors() for the behind-player body pass")
+	_expect(draw_fn_body.find("_draw_egg(") < 0, "main draw() must NOT draw the egg body (it renders behind the player instead)")
+	var behind_fn_start: int = runtime_src.find("func draw_lingpet_body_behind_actors(")
+	_expect(behind_fn_start >= 0, "egg runtime should expose draw_lingpet_body_behind_actors() for the behind-player body pass")
 	var behind_fn_end: int = runtime_src.find("\nfunc ", behind_fn_start + 1)
 	var behind_fn_body: String = runtime_src.substr(behind_fn_start, behind_fn_end - behind_fn_start)
-	_expect(behind_fn_body.find("_draw_companion(") >= 0, "draw_companion_body_behind_actors() should draw the companion body")
+	_expect(behind_fn_body.find("_draw_companion(") >= 0, "draw_lingpet_body_behind_actors() should draw the companion body")
+	_expect(behind_fn_body.find("_draw_egg(") >= 0, "draw_lingpet_body_behind_actors() should draw the egg body")
 	# The shared player actor renderer must invoke the hook BEFORE the player sprite.
 	var player_src: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
-	var hook_idx: int = player_src.find("lingpet_companion_body_draw")
+	var hook_idx: int = player_src.find("lingpet_body_draw")
 	var first_sprite_draw_idx: int = player_src.find("sprite_renderer.draw(")
-	_expect(hook_idx >= 0, "shared player actor renderer should invoke the companion body hook")
-	_expect(first_sprite_draw_idx < 0 or hook_idx < first_sprite_draw_idx, "companion body hook must run before the player sprite is drawn")
+	_expect(hook_idx >= 0, "shared player actor renderer should invoke the lingpet body hook")
+	_expect(first_sprite_draw_idx < 0 or hook_idx < first_sprite_draw_idx, "lingpet body hook must run before the player sprite is drawn")
 	# The scene drawer must inject the hook into the actor context.
 	var scene_src: String = FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
-	_expect(scene_src.find("\"lingpet_companion_body_draw\"") >= 0, "scene drawer should inject the companion body draw hook into the actor context")
+	_expect(scene_src.find("\"lingpet_body_draw\"") >= 0, "scene drawer should inject the lingpet body draw hook into the actor context")
 
 
 func _verify_lingpet_defense_guard_chase_feedback() -> void:

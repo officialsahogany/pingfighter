@@ -109,14 +109,14 @@ func draw(
 	shake_offset: Vector2,
 	perf_logger: Object = null
 ) -> void:
-	# Draw the lingpet companion BODY behind the player. The battle scene drawer injects
-	# this hook into the actor context; running it here (after the opaque stage
-	# background, before the player sprite) makes an overlapping companion render behind
-	# the player. Runs BEFORE the player-hidden early returns below (intro hologram /
-	# ghost possession) so the companion never vanishes while the paddle is hidden.
-	var companion_body_hook: Variant = context.get("lingpet_companion_body_draw", null)
-	if companion_body_hook is Callable and (companion_body_hook as Callable).is_valid():
-		(companion_body_hook as Callable).call(canvas)
+	# Draw the lingpet BODY (egg / companion) behind the player. The battle scene drawer
+	# injects this hook into the actor context; running it here (after the opaque stage
+	# background, before the player sprite) makes an overlapping lingpet render behind the
+	# player. Runs BEFORE the player-hidden early returns below (intro hologram / ghost
+	# possession) so the lingpet never vanishes while the paddle is hidden.
+	var lingpet_body_hook: Variant = context.get("lingpet_body_draw", null)
+	if lingpet_body_hook is Callable and (lingpet_body_hook as Callable).is_valid():
+		(lingpet_body_hook as Callable).call(canvas)
 	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
 		sprite_renderer.clear_transient_canvas_items()
 	# Ball-spawn-intro paddle hologram gate. Mirrors Python's

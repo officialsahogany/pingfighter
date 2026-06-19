@@ -80,6 +80,16 @@ func draw(
 	# render-budget smoke tests that exercise them directly.
 	var decorative_lod := false
 	var stage_background: Object = _get_stage_background(registry, draw_context)
+	# Draw the lingpet BODY (egg / companion) behind the player: inject a hook the shared
+	# player actor renderer invokes just before it draws the player sprite. That is the
+	# only Z-slot between the opaque stage background (drawn first inside draw_actors) and
+	# the player, so an overlapping lingpet renders behind the player. The companion's
+	# skill VFX / feedback stay in the post-actor pass (_draw_lingpet_runtime below).
+	if not actor_context.is_empty():
+		var lingpet_body_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+		if lingpet_body_runtime != null and lingpet_body_runtime.has_method("draw_lingpet_body_behind_actors"):
+			actor_context["lingpet_body_draw"] = func(body_canvas: CanvasItem) -> void:
+				lingpet_body_runtime.draw_lingpet_body_behind_actors(body_canvas, shake_offset)
 	var sample_start: int = _perf_begin(perf_logger)
 	effects_drawer.draw_actors(canvas, registry, draw_context, actor_context, perf_logger)
 	_perf_end(perf_logger, "01.actors.total", sample_start)

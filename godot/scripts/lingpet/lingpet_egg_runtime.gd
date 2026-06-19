@@ -313,17 +313,15 @@ func prewarm_assets() -> void:
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_context: Dictionary = {}) -> void:
 	if canvas == null:
 		return
-	if _state == STATE_EGG:
-		_draw_egg(canvas, _egg_state.pos + shake_offset)
-	elif _state == STATE_COMPANION:
+	if _state == STATE_COMPANION:
 		_skill_runtime_host.draw(canvas, shake_offset, _get_draw_perf_logger(_draw_context))
 		_afterglow_leak_state.draw(canvas, shake_offset)
-		# The companion BODY sprite is intentionally NOT drawn here. It renders earlier,
-		# BEHIND the player, via draw_companion_body_behind_actors() (invoked from the
-		# shared player actor renderer). Keeping it out of this post-actor front pass is
-		# what makes an overlapping player render in front of the companion. Only the
-		# companion's emanating VFX stay in front (ring dash / ghost blink / affinity
-		# feedback) plus the hatch flash.
+		# The lingpet BODY (egg sprite / companion sprite) is intentionally NOT drawn
+		# here. It renders earlier, BEHIND the player, via draw_lingpet_body_behind_actors()
+		# (invoked from the shared player actor renderer). Keeping it out of this
+		# post-actor front pass is what makes an overlapping player render in front of the
+		# lingpet. Only the companion's emanating VFX stay in front (ring dash / ghost
+		# blink / affinity feedback) plus the hatch flash.
 		if _ring_dash_vfx.has_visible_effects():
 			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _ghost_blink_vfx.has_visible_effects():
@@ -334,15 +332,20 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
 
-# Draws ONLY the companion BODY sprite, intended to run BEHIND the player actor.
-# The shared player actor renderer invokes this (through a hook the battle scene drawer
-# injects into the actor context) right before it draws the player sprite -- after the
-# opaque stage background, before the player -- so an overlapping companion renders
-# behind the player. Skill VFX, ring-dash / ghost / affinity feedback, and the hatch
-# flash stay in draw() (the post-actor front pass). Mirrors the body-draw branch that
-# used to live inside draw().
-func draw_companion_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null or _state != STATE_COMPANION:
+# Draws ONLY the lingpet BODY (egg sprite in STATE_EGG, companion sprite in
+# STATE_COMPANION), intended to run BEHIND the player actor. The shared player actor
+# renderer invokes this (through a hook the battle scene drawer injects into the actor
+# context) right before it draws the player sprite -- after the opaque stage background,
+# before the player -- so an overlapping player renders in front of the lingpet. Skill
+# VFX, ring-dash / ghost / affinity feedback, and the hatch flash stay in draw() (the
+# post-actor front pass). Mirrors the body-draw branches that used to live inside draw().
+func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+	if canvas == null:
+		return
+	if _state == STATE_EGG:
+		_draw_egg(canvas, _egg_state.pos + shake_offset)
+		return
+	if _state != STATE_COMPANION:
 		return
 	if _is_companion_body_draw_suppressed(_get_companion_body_skill_id()):
 		return
