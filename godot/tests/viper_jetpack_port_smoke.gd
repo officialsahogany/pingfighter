@@ -56,7 +56,7 @@ class FakeAudio:
 		else:
 			stop_count += 1
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(_source_x: float = 380.0) -> void:
 		paddle_hit_count += 1
 
 

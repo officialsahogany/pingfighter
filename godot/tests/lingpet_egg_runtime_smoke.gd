@@ -393,7 +393,7 @@ class FakePaddleAudio:
 	var puppet_grab_kiss_count := 0
 	var puppet_grab_miss_count := 0
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(_source_x: float = 380.0) -> void:
 		paddle_hits += 1
 
 	func play_boomerang_hit() -> void:
@@ -4928,7 +4928,13 @@ func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> v
 	_grant_affinity_round_commits(runtime, "lumion", 10)
 	runtime.update(0.0, owner, registry)
 	var lumion_loadout: Dictionary = runtime._loadout_state.get_loadout("lumion")
-	_expect_str(str(lumion_loadout.get("active_skill_id", "")), "lumion_thunder_orb", "unforced pet after a debug switch should reconcile its primary active unlock")
+	var lumion_active_id := str(lumion_loadout.get("active_skill_id", ""))
+	var lumion_active_candidates: Array[String] = runtime._get_active_unlock_candidate_ids("lumion")
+	_expect(lumion_active_id != "", "unforced pet after a debug switch should reconcile a primary active unlock")
+	_expect(lumion_active_candidates.has(lumion_active_id), "unforced Lumion active unlock should resolve to one of the current active candidates")
+	var lumion_resolved: Dictionary = runtime._affinity_state.get_resolved_unlock_choices("lumion")
+	var lumion_active_choice: Dictionary = lumion_resolved.get("active", {}) as Dictionary
+	_expect_str(str(lumion_active_choice.get("selected", "")), lumion_active_id, "Lumion loadout should mirror the resolved active unlock choice")
 
 
 func _verify_second_active_resource_conflict_mediation() -> void:

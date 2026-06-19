@@ -28,7 +28,7 @@ class FakeAudio:
 	func play_stage2_speed_defense_block() -> void:
 		block_count += 1
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(_source_x: float = 380.0) -> void:
 		paddle_hit_count += 1
 
 

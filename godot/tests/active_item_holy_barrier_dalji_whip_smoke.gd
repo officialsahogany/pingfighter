@@ -30,7 +30,7 @@ class FakeAudio:
 
 	var wall_hit_count := 0
 
-	func play_wall_hit(_speed: float) -> void:
+	func play_wall_hit(_speed: float = 0.0, _source_x: float = 380.0) -> void:
 		wall_hit_count += 1
 
 

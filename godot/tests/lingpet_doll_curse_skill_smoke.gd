@@ -43,7 +43,7 @@ class FakeAudio:
 	func play_dragon_breath_ball_hit() -> void:
 		hit_count += 1
 
-	func play_wall_hit(_impact_speed: float) -> void:
+	func play_wall_hit(_impact_speed: float = 0.0, _source_x: float = 380.0) -> void:
 		hit_count += 1
 
 

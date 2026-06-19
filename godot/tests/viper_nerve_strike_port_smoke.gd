@@ -118,7 +118,7 @@ class FakeAudio:
 	func stop_viper_blade_spin() -> void:
 		blade_spin_stopped += 1
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(_source_x: float = 380.0) -> void:
 		pass
 
 

@@ -41,7 +41,7 @@ class FakeBrickAudio:
 	var wall_hit_count := 0
 	var brick_destroy_count := 0
 
-	func play_wall_hit(_impact_speed: float) -> void:
+	func play_wall_hit(_impact_speed: float = 0.0, _source_x: float = 380.0) -> void:
 		wall_hit_count += 1
 
 	func play_brick_wall_destroy() -> void:

@@ -19,7 +19,7 @@ class AudioProbe:
 	func sync_stage3_psychoball_loop(active: bool) -> void:
 		calls.append("sync_stage3_psychoball_loop:%s" % str(active))
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(_source_x: float = 380.0) -> void:
 		calls.append("play_paddle_hit")
 
 
