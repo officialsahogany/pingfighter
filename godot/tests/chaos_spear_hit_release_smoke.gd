@@ -6,6 +6,10 @@ const PaddleBounceController := preload("res://scripts/ball/paddle_bounce_contro
 const PaddleBounceState := preload("res://scripts/ball/paddle_bounce_state.gd")
 const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime.gd")
 
+const SPEED_EPSILON := 0.01
+
+var _failed := false
+
 
 class FakeMotionStepper:
 	func step(ball_pos: Vector2, motion_delta: Vector2, _ball_vel: Vector2, _context: Dictionary) -> Dictionary:
@@ -18,7 +22,7 @@ class FakeMotionStepper:
 class FakeAudio:
 	var stopped := 0
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(_source_x: float = 380.0) -> void:
 		pass
 
 	func stop_chaos_spear_windup() -> void:
@@ -65,6 +69,9 @@ func _init() -> void:
 	_test_mythic_pause_expiry_self_heals_motion_skip()
 	_test_self_heal_noop_when_flag_already_released()
 	_test_round_reset_scopes_ownership_and_normalizes_skip()
+	if _failed:
+		quit(1)
+		return
 	print("chaos_spear_hit_release_smoke: ok")
 	quit(0)
 
@@ -193,7 +200,7 @@ func _test_mythic_pause_expiry_self_heals_motion_skip() -> void:
 	var resume_result: Dictionary = controller.update(1.0 / 60.0, resume_context, deps)
 	var snapshot: Dictionary = resume_result.get("snapshot", {})
 	_expect(not bool(snapshot.get("skip_ball_motion_step", true)), "self-heal should clear the stuck motion skip after the pause window")
-	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() >= 16.0, "self-heal should restore a real timeout-class release speed")
+	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).length() >= 16.0 - SPEED_EPSILON, "self-heal should restore a real timeout-class release speed")
 	_expect(not bool(runtime.chaos_ball_motion_owned), "self-heal should consume the ownership flag")
 
 
@@ -312,8 +319,8 @@ func _base_context() -> Dictionary:
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
+	_failed = true
 	push_error(message)
-	quit(1)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

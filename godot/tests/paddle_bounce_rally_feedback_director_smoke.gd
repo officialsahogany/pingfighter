@@ -59,21 +59,27 @@ class FakeAudio:
 
 	var paddle_hit_count := 0
 	var rally_accent_tiers: Array[int] = []
+	var paddle_hit_source_xs: Array[float] = []
+	var rally_accent_source_xs: Array[float] = []
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(source_x: float = 380.0) -> void:
 		paddle_hit_count += 1
+		paddle_hit_source_xs.append(source_x)
 
-	func play_rally_tier_accent(tier: int) -> void:
+	func play_rally_tier_accent(tier: int, source_x: float = 380.0) -> void:
 		rally_accent_tiers.append(tier)
+		rally_accent_source_xs.append(source_x)
 
 
 class FakeBaseAudioOnly:
 	extends RefCounted
 
 	var paddle_hit_count := 0
+	var paddle_hit_source_xs: Array[float] = []
 
-	func play_paddle_hit() -> void:
+	func play_paddle_hit(source_x: float = 380.0) -> void:
 		paddle_hit_count += 1
+		paddle_hit_source_xs.append(source_x)
 
 
 class FakeStage2SkillState:
@@ -142,9 +148,12 @@ func _verify_tier_accent_fires_only_on_real_tier_edges() -> void:
 		is_player = not is_player
 	_expect(audio.paddle_hit_count == 6, "base paddle hit should still play on every non-suppressed rally hit")
 	_expect(audio.rally_accent_tiers == [1], "rally accent should fire once on the tier 1 edge only")
+	_expect(_all_source_x_values_match(audio.paddle_hit_source_xs, 320.0), "paddle hit audio should receive the ball X as its source position")
+	_expect(_all_source_x_values_match(audio.rally_accent_source_xs, 320.0), "rally tier accent should receive the ball X as its source position")
 	router.register(Vector2(320.0, 600.0), Vector2(0.0, -18.0), is_player, false, deps, {})
 	_expect(audio.paddle_hit_count == 7, "base paddle hit should continue after tier edge")
 	_expect(audio.rally_accent_tiers == [1], "rally accent should not repeat on non-edge hits")
+	_expect(_all_source_x_values_match(audio.paddle_hit_source_xs, 320.0), "continued paddle hit audio should keep receiving the ball X")
 
 
 func _verify_audio_gates_suppress_base_and_accent_together() -> void:
@@ -178,6 +187,7 @@ func _verify_no_accent_without_audio_method() -> void:
 		"ball_intensity": ball_intensity,
 	}, Vector2(0.0, -20.0))
 	_expect(audio_without_accent.paddle_hit_count == 1, "audio without rally accent method should still play base paddle hit")
+	_expect(_all_source_x_values_match(audio_without_accent.paddle_hit_source_xs, 320.0), "base-only audio should still receive source X")
 
 
 func _register_with(
@@ -188,6 +198,15 @@ func _register_with(
 	context: Dictionary = {}
 ) -> void:
 	PaddleBounceRallyFeedbackRouter.new().register(Vector2(320.0, 600.0), ball_vel, is_player, power_activated, deps, context)
+
+
+func _all_source_x_values_match(values: Array[float], expected: float) -> bool:
+	if values.is_empty():
+		return false
+	for value in values:
+		if not is_equal_approx(value, expected):
+			return false
+	return true
 
 
 func _expect(condition: bool, message: String) -> void:

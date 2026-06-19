@@ -55,9 +55,9 @@ func register(
 	if not power_activated and not _should_suppress_paddle_hit_audio(is_player, context, deps):
 		var audio = deps.get("audio", null)
 		if audio != null:
-			audio.play_paddle_hit()
+			audio.play_paddle_hit(ball_pos.x)
 			if _did_rally_tier_advance(ball_intensity) and audio.has_method("play_rally_tier_accent"):
-				audio.play_rally_tier_accent(_get_rally_tier(ball_intensity))
+				audio.play_rally_tier_accent(_get_rally_tier(ball_intensity), ball_pos.x)
 
 
 func _should_suppress_paddle_hit_audio(is_player: bool, context: Dictionary, deps: Dictionary) -> bool:

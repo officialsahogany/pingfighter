@@ -37,7 +37,7 @@ func process(
 	var impact_speed: float = float(bounce_result.get("impact_speed", 0.0))
 	var audio = deps.get("audio", null)
 	if audio != null:
-		audio.play_wall_hit(impact_speed)
+		audio.play_wall_hit(impact_speed, impact_pos.x)
 
 	var impact_effects = deps.get("impact_effects", null)
 	if impact_effects != null:
