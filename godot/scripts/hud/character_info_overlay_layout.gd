@@ -29,7 +29,7 @@ static func update_frame_layout(target: Object, view_size: Vector2, current_view
 	var right_top_rect := section_rect(right_rect, 0.0, 0.58)
 	var right_top_gap := 12.0
 	if right_top_rect.size.x >= 560.0:
-		var lingpet_w: float = clamp(right_top_rect.size.x * 0.34, 230.0, 320.0)
+		var lingpet_w: float = clamp(right_top_rect.size.x * 0.45, 250.0, 360.0)
 		var perk_rect := Rect2(right_top_rect.position, Vector2(right_top_rect.size.x - lingpet_w - right_top_gap, right_top_rect.size.y))
 		target.set("_layout_perk_rect", perk_rect)
 		target.set("_layout_lingpet_rect", Rect2(perk_rect.end.x + right_top_gap, right_top_rect.position.y, lingpet_w, right_top_rect.size.y))

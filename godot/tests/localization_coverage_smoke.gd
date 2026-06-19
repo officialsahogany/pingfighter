@@ -31,6 +31,8 @@ func _init() -> void:
 		_verify_translation_maps_have_no_hangul(language)
 		_verify_runtime_surfaces_have_no_hangul(language)
 
+	_verify_skill_label_not_english_fallback()
+
 	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
@@ -52,6 +54,27 @@ func _get_non_korean_languages() -> Array[String]:
 		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL,
 		LanguageSettings.LANGUAGE_RUSSIAN,
 	]
+
+
+# Regression seal for the localization-copy-sync trap. The no-Hangul scan cannot
+# catch an English fallthrough (English has no Hangul), and EXACT_TEXT_PT_BR /
+# EXACT_TEXT_RU are aliases of EXACT_TEXT_EN whose *_OVERRIDES dicts are
+# intentionally partial, so _verify_same_keys never notices a dropped skill label.
+# These locales DO localize skill/item terms (정화/회복/플라즈마/...), so a skill
+# label that exists in the full locales must not silently revert to English here.
+func _verify_skill_label_not_english_fallback() -> void:
+	var labels := ["해골장막"]
+	for korean in labels:
+		LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+		var english: String = LanguageSettings.translate_text(korean)
+		_expect(english != korean and not english.is_empty(), "EN should translate skill label %s" % korean)
+		for language in _get_non_korean_languages():
+			if language == LanguageSettings.LANGUAGE_ENGLISH:
+				continue
+			LanguageSettings.set_language(language)
+			var localized: String = LanguageSettings.translate_text(korean)
+			_expect(localized != korean, "%s should not leave %s untranslated (raw Korean)" % [language, korean])
+			_expect(localized != english, "%s should localize %s, not fall back to English '%s'" % [language, korean, english])
 
 
 func _verify_translation_map_coverage() -> void:
@@ -144,6 +167,7 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 		"링펫", "링펫 알", "링펫 없음", "링펫 알 없음", "미해금", "미획득",
 		"동행 중", "하트 공명", "액티브 스킬", "패시브 스킬", "다음 보상 준비 중",
 		"방어", "방어율", "출현율", "액티브 쿨타임", "받아치기", "이동", "추적", "전이",
+		"링코어", "강화칩 %d / %d", "미장착",
 		"공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
 		"주니어리그에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
 		"링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다.",
@@ -166,6 +190,7 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 	_expect_no_hangul(LanguageSettings.translate_text("동행 중 · 친밀도 %s") % LanguageSettings.translate_text(LingpetAffinityState.BOND_TITLE_AWKWARD), "LINGPET_SURFACE[%s] companion subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("공 충돌 %s") % "1 / 3", "LINGPET_SURFACE[%s] egg subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text("기동 강화"), "LINGPET_SURFACE[%s] next reward line" % language)
+	_expect_no_hangul(LanguageSettings.translate_text("강화칩 %d / %d") % [3, 5], "LINGPET_SURFACE[%s] ring core chip count line" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("액티브 · %s쿨타임 %s") % ["Lv.2 · ", LanguageSettings.translate_text("18초")], "LINGPET_SURFACE[%s] active skill subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % "X", "LINGPET_SURFACE[%s] cooldown tooltip" % language)
 	for picker_text in ["액티브 선택", "패시브 선택", "2nd 액티브 선택", "2nd 패시브 선택", "스킬 선택", "액티브 후보", "패시브 후보", "2nd 액티브 후보", "2nd 패시브 후보", "후보", "+%d 대기", "선택하면 이 스킬이 링펫 슬롯에 고정됩니다."]:
