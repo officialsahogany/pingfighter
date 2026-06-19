@@ -88,6 +88,8 @@ const COMMANDO_SUICIDE_DRONE_GAIN_DB := 0.0
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
 const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
 const ACTIVE_ITEM_SOUND_PATH := "res://assets/sounds/activeitem.wav"
+const TRADE_SOUND_PATH := "res://assets/sounds/trade.wav"
+const TRADE_SOUND_GAIN_DB := -4.4370
 const BRICK_WALL_DESTROY_SOUND_PATH := "res://assets/sounds/stonebreak2.wav"
 const BRICK_WALL_DESTROY_GAIN_DB := -5.0
 const TREASURE_HUNT_MINING_SOUND_PATH := "res://assets/sounds/mining.wav"
@@ -364,6 +366,7 @@ var commando_suicide_drone_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
 var drink_sfx: AudioStreamPlayer
 var active_item_sfx: AudioStreamPlayer
+var trade_sfx: AudioStreamPlayer
 var brick_wall_destroy_sfx: AudioStreamPlayer
 var treasure_hunt_mining_sfx: AudioStreamPlayer
 var alchemy_sfx: AudioStreamPlayer
@@ -648,6 +651,7 @@ func _setup_item_command_sfx() -> void:
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
 	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
 	active_item_sfx = player_factory.create(owner_node, "ActiveItemSfx", ACTIVE_ITEM_SOUND_PATH, -5.0)
+	trade_sfx = player_factory.create(owner_node, "TradeSfx", TRADE_SOUND_PATH, TRADE_SOUND_GAIN_DB)
 	brick_wall_destroy_sfx = player_factory.create(owner_node, "BrickWallDestroySfx", BRICK_WALL_DESTROY_SOUND_PATH, BRICK_WALL_DESTROY_GAIN_DB)
 	treasure_hunt_mining_sfx = player_factory.create(owner_node, "TreasureHuntMiningSfx", TREASURE_HUNT_MINING_SOUND_PATH, -6.0)
 	alchemy_sfx = player_factory.create(owner_node, "AlchemySfx", ALCHEMY_SOUND_PATH, -4.5)
@@ -946,6 +950,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				ITEM_GET_SOUND_PATH,
 				DRINK_SOUND_PATH,
 				ACTIVE_ITEM_SOUND_PATH,
+				TRADE_SOUND_PATH,
 				BRICK_WALL_DESTROY_SOUND_PATH,
 				TREASURE_HUNT_MINING_SOUND_PATH,
 				ALCHEMY_SOUND_PATH,
@@ -1706,6 +1711,10 @@ func play_drink() -> void:
 
 func play_active_item() -> void:
 	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
+
+
+func play_trade() -> void:
+	_play_with_pitch(trade_sfx, randf_range(0.98, 1.02))
 
 
 func play_brick_wall_destroy() -> void:
@@ -3115,6 +3124,7 @@ func _get_sfx_players() -> Array:
 		item_get_sfx,
 		drink_sfx,
 		active_item_sfx,
+		trade_sfx,
 		brick_wall_destroy_sfx,
 		treasure_hunt_mining_sfx,
 		alchemy_sfx,
