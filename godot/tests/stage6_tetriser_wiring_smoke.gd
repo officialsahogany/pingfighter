@@ -125,8 +125,43 @@ class FakeScoreState:
 		}
 
 
+class FakeBallIntensity:
+	extends RefCounted
+
+	var rally_count := 0
+	var last_hit_by := ""
+
+	func _init(new_rally_count: int = 0, new_last_hit_by: String = "") -> void:
+		rally_count = new_rally_count
+		last_hit_by = new_last_hit_by
+
+	func get_rally_count() -> int:
+		return rally_count
+
+	func get_last_hit_by() -> String:
+		return last_hit_by
+
+
+class FakePowerState:
+	extends RefCounted
+
+	var parabola_active := false
+
+	func _init(new_parabola_active: bool = false) -> void:
+		parabola_active = new_parabola_active
+
+	func is_freeze_active() -> bool:
+		return false
+
+	func is_parabola_active() -> bool:
+		return parabola_active
+
+
 func _init() -> void:
 	_verify_stage6_ball_update_deps_drive_tetriser_collision()
+	_verify_stage6_live_boss_serve_penetrates_from_ball_intensity()
+	_verify_stage6_live_post_rally_collides_from_ball_intensity()
+	_verify_stage6_live_power_smash_reaches_tetriser()
 	_verify_stage6_effect_deps_feed_immunity_gate()
 	_verify_stage6_draw_deps_feed_actor_context()
 	_verify_stage6_round_deps_feed_round_cleanup()
@@ -169,6 +204,37 @@ func _verify_stage6_ball_update_deps_drive_tetriser_collision() -> void:
 	)
 	_expect(state.debug_get_tetromino_count() == 0, "ball controller should destroy a Stage 6 tetromino through built deps")
 	_expect((scene.get("ball_vel", Vector2.ZERO) as Vector2).y < 0.0, "ball controller should reflect the ball off a Stage 6 tetromino")
+
+
+func _verify_stage6_live_boss_serve_penetrates_from_ball_intensity() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var deps := _stage6_live_ball_deps(state, FakeBallIntensity.new(0, "boss"))
+	var result: Dictionary = BallUpdateController.new().update(0.0, _stage6_live_ball_context(), deps)
+	_expect(not result.is_empty(), "live ball update should produce a snapshot for the Stage 6 serve-penetration smoke")
+	_expect(state.debug_get_tetromino_count() == 1, "live boss serve should penetrate Stage 6 tetrominoes through ball_intensity context")
+	if result.has("snapshot"):
+		var snapshot: Dictionary = result["snapshot"]
+		_expect((snapshot.get("ball_vel", Vector2.ZERO) as Vector2) == Vector2(0.0, 8.0), "live boss serve penetration should not reflect the ball")
+
+
+func _verify_stage6_live_post_rally_collides_from_ball_intensity() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var deps := _stage6_live_ball_deps(state, FakeBallIntensity.new(1, "player"))
+	BallUpdateController.new().update(0.0, _stage6_live_ball_context(), deps)
+	_expect(state.debug_get_tetromino_count() == 0, "live post-rally ball should collide with and destroy Stage 6 tetrominoes")
+
+
+func _verify_stage6_live_power_smash_reaches_tetriser() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", true)
+	var deps := _stage6_live_ball_deps(state, FakeBallIntensity.new(1, "player"), FakePowerState.new(true))
+	var result: Dictionary = BallUpdateController.new().update(0.0, _stage6_live_ball_context(), deps)
+	_expect(state.debug_get_tetromino_count() == 0, "live power smash should destroy even super Stage 6 tetrominoes")
+	if result.has("snapshot"):
+		var snapshot: Dictionary = result["snapshot"]
+		_expect((snapshot.get("ball_vel", Vector2.ZERO) as Vector2) == Vector2(0.0, 8.0), "live power smash tetromino hit should not reflect the ball")
 
 
 func _verify_stage6_effect_deps_feed_immunity_gate() -> void:
@@ -324,6 +390,39 @@ func _explosion_context() -> Dictionary:
 		"player_pos": Vector2(302.0, 700.0),
 		"player_paddle_size": Vector2(60.0, 30.0),
 	}
+
+
+func _stage6_live_ball_context() -> Dictionary:
+	return {
+		"current_stage": 6,
+		"selected_character_type": "smasher",
+		"ball_active": true,
+		"ball_size": 20.0,
+		"ball_pos": Vector2(310.0, 305.0),
+		"ball_pos_prev": Vector2(310.0, 280.0),
+		"ball_vel": Vector2(0.0, 8.0),
+		"player_pos": Vector2(300.0, 700.0),
+		"player_paddle_size": Vector2(60.0, 30.0),
+		"boss_pos": Vector2(330.0, 30.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+	}
+
+
+func _stage6_live_ball_deps(state: Object, ball_intensity: Object, power_state: Object = null) -> Dictionary:
+	var registry := FakeRegistry.new()
+	registry.instances["stage6_tetriser_state"] = state
+	registry.instances["ball_intensity"] = ball_intensity
+	if power_state != null:
+		registry.instances["smasher_power_smash_state"] = power_state
+	var deps: Dictionary = BallDependencyContext.new().build_update_deps(registry, {
+		"selected_character_type": "smasher",
+		"current_stage": 6,
+	})
+	_expect(deps.get("stage6_tetriser_state", null) == state, "live Stage 6 update deps should include Tetriser state")
+	_expect(deps.get("ball_intensity", null) == ball_intensity, "live Stage 6 update deps should include ball intensity")
+	if power_state != null:
+		_expect(deps.get("power_state", null) == power_state, "live Stage 6 update deps should include power smash state")
+	return deps
 
 
 func _expect(condition: bool, message: String) -> void:

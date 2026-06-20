@@ -50,6 +50,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	_apply_stage5_ball_motion_hijack(scene, frame_context, frame_deps)
 
 	var power_smashing_parabola_active: bool = power_state != null and power_state.is_parabola_active()
+	frame_context["power_smashing_parabola_active"] = power_smashing_parabola_active
 	var ball_speed_recovery_active: bool = (
 		bool(frame_context.get("stopwatch_recovery_active", false))
 		or bool(frame_context.get("perk_resume_recovery_active", false))
@@ -582,6 +583,13 @@ func _build_frame_context(context: Dictionary, deps: Dictionary) -> Dictionary:
 			_get_vector2(frame_context, "player_pos", Vector2.ZERO),
 			_get_vector2(frame_context, "player_paddle_size", Vector2(155.0, 50.0))
 		), true)
+	var ball_intensity: Object = deps.get("ball_intensity", null)
+	if ball_intensity != null:
+		if ball_intensity.has_method("get_rally_count"):
+			frame_context["ball_rally_count"] = int(ball_intensity.get_rally_count())
+			frame_context["rally_count"] = int(ball_intensity.get_rally_count())
+		if ball_intensity.has_method("get_last_hit_by"):
+			frame_context["last_hit_by"] = str(ball_intensity.get_last_hit_by())
 	return frame_context
 
 

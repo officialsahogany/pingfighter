@@ -956,13 +956,20 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 	var ball_pos: Vector2 = scene.get("ball_pos", Vector2.ZERO)
 	var radius: float = maxf(1.0, float(context.get("ball_size", 28.6)) * 0.5)
 	var ball_rect: Rect2 = Rect2(ball_pos - Vector2(radius, radius), Vector2(radius * 2.0, radius * 2.0))
+	var penetrates_tetro: bool = _should_ball_penetrate_tetromino(context)
+	var power_smash: bool = bool(context.get("power_smashing_parabola_active", false))
 
 	# 1) 낙하/정착 테트로미노 (조립 중 셀은 아직 solid 아님).
 	var tetro_hit: Dictionary = _find_block_cell_hit(_tetrominoes, ball_rect, ["falling", "settled"])
 	if not tetro_hit.is_empty():
+		if penetrates_tetro:
+			return false
+		var tetro: Dictionary = tetro_hit["item"]
+		if power_smash:
+			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)))
+			return true
 		_apply_cell_reflection(scene, context, radius, tetro_hit["cell_rect"])
 		# 파괴 매트릭스(코덱스 §2.5): 일반 공은 super 테트로를 파괴하지 않고 튕기기만.
-		var tetro: Dictionary = tetro_hit["item"]
 		if not bool(tetro.get("super", false)):
 			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)))
 		return true
@@ -977,12 +984,27 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 	# 3) 테트로 벽 (좌우 가장자리). 셀 단위 파괴(단일-셀 블록).
 	var wall_hit: Dictionary = _find_block_cell_hit(_wall_blocks, ball_rect, ["installed"])
 	if not wall_hit.is_empty():
-		_apply_cell_reflection(scene, context, radius, wall_hit["cell_rect"])
+		if penetrates_tetro:
+			return false
 		var wall_piece: Dictionary = wall_hit["item"]
+		if power_smash:
+			_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)))
+			return true
+		_apply_cell_reflection(scene, context, radius, wall_hit["cell_rect"])
 		_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)))
 		return true
 
 	return false
+
+
+func _should_ball_penetrate_tetromino(context: Dictionary) -> bool:
+	var has_rally_key: bool = context.has("ball_rally_count") or context.has("rally_count")
+	var has_last_hit_key: bool = context.has("last_hit_by")
+	if not has_rally_key and not has_last_hit_key:
+		return false
+	var rally_count: int = int(context.get("ball_rally_count", context.get("rally_count", 0)))
+	var last_hit_by: String = str(context.get("last_hit_by", ""))
+	return rally_count == 0 and (last_hit_by == "boss" or last_hit_by == "")
 
 
 # 셀 묶음(블록) 목록에서 공이 처음 겹치는 셀을 찾는다.

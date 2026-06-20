@@ -122,6 +122,9 @@ func _init() -> void:
 	_test_settled_tetromino_evaporates_after_lifetime()
 	_test_actor_draw_context()
 	_test_ball_reflects_and_destroys()
+	_test_boss_serve_penetrates_tetromino_and_wall()
+	_test_player_rally_after_serve_collides_with_tetromino()
+	_test_power_smash_destroys_tetromino_and_wall_without_reflection()
 	_test_super_tetromino_immune_to_ball()
 	_test_super_tetromino_explodes_on_landing()
 	_test_super_tetromino_explosion_radius_gate()
@@ -356,6 +359,67 @@ func _test_ball_reflects_and_destroys() -> void:
 	_expect(absf(scene["ball_vel"].y) >= 6.0, "vertical reflection enforces min speed (vy=%f)" % scene["ball_vel"].y)
 	_expect(state.debug_get_tetromino_count() == 0, "normal tetromino destroyed by ball")
 	_expect(state.debug_get_debris_count() == 1, "destroyed tetromino leaves a debris flash")
+
+
+func _test_boss_serve_penetrates_tetromino_and_wall() -> void:
+	var tetro_state: Object = Stage6TetriserState.new()
+	tetro_state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var tetro_scene := {
+		"ball_pos": Vector2(310.0, 305.0),
+		"previous_ball_pos": Vector2(310.0, 280.0),
+		"ball_vel": Vector2(1.0, 8.0),
+	}
+	var serve_ctx := {"current_stage": 6, "ball_size": 20.0, "ball_rally_count": 0, "last_hit_by": "boss"}
+	var tetro_hit: bool = tetro_state.resolve_ball_collision(tetro_scene, serve_ctx, {})
+	_expect(not tetro_hit, "boss serve at rally 0 penetrates falling tetrominoes")
+	_expect(tetro_state.debug_get_tetromino_count() == 1, "boss serve penetration does not destroy the tetromino")
+	_expect((tetro_scene["ball_vel"] as Vector2) == Vector2(1.0, 8.0), "boss serve penetration does not reflect the ball")
+
+	var wall_state: Object = Stage6TetriserState.new()
+	wall_state.debug_spawn_wall_cell_at(Vector2(0.0, 400.0))
+	var wall_scene := _wall_hit_scene(Vector2(0.0, 400.0))
+	var wall_hit: bool = wall_state.resolve_ball_collision(wall_scene, serve_ctx, {})
+	_expect(not wall_hit, "boss serve at rally 0 penetrates tetro walls")
+	_expect(wall_state.debug_get_wall_collidable_cell_count() == 1, "boss serve penetration does not destroy wall cells")
+	_expect((wall_scene["ball_vel"] as Vector2) == Vector2(-5.0, 0.0), "boss serve wall penetration does not reflect the ball")
+
+
+func _test_player_rally_after_serve_collides_with_tetromino() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var scene := {
+		"ball_pos": Vector2(310.0, 305.0),
+		"previous_ball_pos": Vector2(310.0, 280.0),
+		"ball_vel": Vector2(1.0, 8.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0, "ball_rally_count": 1, "last_hit_by": "player"}
+	var hit: bool = state.resolve_ball_collision(scene, ctx, {})
+	_expect(hit, "player rally after serve collides with Stage 6 tetrominoes")
+	_expect((scene["ball_vel"] as Vector2).y < 0.0, "post-serve tetromino hit reflects the ball")
+	_expect(state.debug_get_tetromino_count() == 0, "post-serve tetromino hit destroys normal tetrominoes")
+
+
+func _test_power_smash_destroys_tetromino_and_wall_without_reflection() -> void:
+	var tetro_state: Object = Stage6TetriserState.new()
+	tetro_state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", true)
+	var tetro_scene := {
+		"ball_pos": Vector2(310.0, 305.0),
+		"previous_ball_pos": Vector2(310.0, 280.0),
+		"ball_vel": Vector2(2.0, 9.0),
+	}
+	var power_ctx := {"current_stage": 6, "ball_size": 20.0, "power_smashing_parabola_active": true, "ball_rally_count": 1, "last_hit_by": "player"}
+	var tetro_hit: bool = tetro_state.resolve_ball_collision(tetro_scene, power_ctx, {})
+	_expect(tetro_hit, "power smash reports tetromino contact")
+	_expect(tetro_state.debug_get_tetromino_count() == 0, "power smash destroys even super tetrominoes")
+	_expect((tetro_scene["ball_vel"] as Vector2) == Vector2(2.0, 9.0), "power smash tetromino contact does not reflect the ball")
+
+	var wall_state: Object = Stage6TetriserState.new()
+	wall_state.debug_spawn_wall_cell_at(Vector2(0.0, 400.0))
+	var wall_scene := _wall_hit_scene(Vector2(0.0, 400.0))
+	var wall_hit: bool = wall_state.resolve_ball_collision(wall_scene, power_ctx, {})
+	_expect(wall_hit, "power smash reports wall contact")
+	_expect(wall_state.debug_get_wall_collidable_cell_count() == 0, "power smash removes the whole owning wall piece from collision")
+	_expect((wall_scene["ball_vel"] as Vector2) == Vector2(-5.0, 0.0), "power smash wall contact does not reflect the ball")
 
 
 func _test_super_tetromino_immune_to_ball() -> void:
