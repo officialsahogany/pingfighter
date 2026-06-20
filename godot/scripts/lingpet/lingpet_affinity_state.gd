@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+
 const SOURCE_ROUND_COMMIT := "round_commit"
 const SOURCE_BALL_HIT := "ball_hit"
 const SOURCE_CLICK := "click"
@@ -137,6 +139,7 @@ var _round_caps: Dictionary = {}
 var _battle_caps: Dictionary = {}
 var _enhancement_chips := 0
 var _feed_uses_this_run := 0
+var _run_ring_core_tier := 0
 var _dirty := false
 
 
@@ -146,6 +149,7 @@ func reset_all() -> void:
 	_pets.clear()
 	_enhancement_chips = 0
 	_feed_uses_this_run = 0
+	_run_ring_core_tier = 0
 	reset_battle_caps()
 	_dirty = false
 
@@ -194,6 +198,28 @@ func get_enhancement_chip_multiplier() -> float:
 
 func get_feed_uses_this_run() -> int:
 	return clampi(_feed_uses_this_run, 0, MAX_FEED_USES_PER_RUN)
+
+
+func get_run_ring_core_tier() -> int:
+	return clampi(_run_ring_core_tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+
+
+func set_run_ring_core_tier(tier: int) -> void:
+	_run_ring_core_tier = clampi(tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+
+
+func upgrade_run_ring_core_tier(target_tier: int = 0) -> bool:
+	var current_tier := get_run_ring_core_tier()
+	var next_tier := target_tier if target_tier > 0 else current_tier + 1
+	next_tier = clampi(next_tier, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	if next_tier <= current_tier:
+		return false
+	_run_ring_core_tier = next_tier
+	return true
+
+
+func get_run_ring_core_cap() -> int:
+	return LingpetAffinityStore.get_ring_core_cap_for_tier(get_run_ring_core_tier())
 
 
 func configure_reward_context(

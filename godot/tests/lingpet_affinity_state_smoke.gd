@@ -1,6 +1,7 @@
 extends SceneTree
 
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
 
 var _failures: Array[String] = []
 
@@ -25,6 +26,7 @@ func _init() -> void:
 	_verify_dirty_flag()
 	_verify_scalar_getters_do_not_create_entries()
 	_verify_bond_pending_ledger_and_settlement()
+	_verify_run_ring_core_tier_api()
 
 	if _failures.is_empty():
 		print("lingpet_affinity_state_smoke: ok")
@@ -685,6 +687,49 @@ func _history_has_replacement_for(history: Array, reward_type: String) -> bool:
 		if raw_card is Dictionary and str((raw_card as Dictionary).get("replaced_type", "")) == reward_type:
 			return true
 	return false
+
+
+func _verify_run_ring_core_tier_api() -> void:
+	var state := LingpetAffinityState.new()
+	_expect_eq(state.get_run_ring_core_tier(), 0, "fresh state run ring core tier should default to 0")
+	_expect_eq(state.get_run_ring_core_cap(), 0, "fresh state run ring core cap should be 0 (T0 = cap 0)")
+
+	state.set_run_ring_core_tier(3)
+	_expect_eq(state.get_run_ring_core_tier(), 3, "set_run_ring_core_tier(3) should set tier 3")
+	_expect_eq(state.get_run_ring_core_cap(), LingpetAffinityStore.get_ring_core_cap_for_tier(3), "run ring core cap should reuse the store tier->cap map")
+
+	state.set_run_ring_core_tier(-99)
+	_expect_eq(state.get_run_ring_core_tier(), 0, "set_run_ring_core_tier(-99) should clamp to 0")
+	state.set_run_ring_core_tier(999)
+	_expect_eq(state.get_run_ring_core_tier(), LingpetAffinityStore.MAX_RING_CORE_TIER, "set_run_ring_core_tier(999) should clamp to max tier")
+
+	var climber := LingpetAffinityState.new()
+	_expect(climber.upgrade_run_ring_core_tier(), "upgrade from tier 0 should succeed")
+	_expect_eq(climber.get_run_ring_core_tier(), 1, "first upgrade should reach tier 1")
+	_expect(climber.upgrade_run_ring_core_tier(), "upgrade from tier 1 should succeed")
+	_expect_eq(climber.get_run_ring_core_tier(), 2, "second upgrade should reach tier 2")
+	while climber.get_run_ring_core_tier() < LingpetAffinityStore.MAX_RING_CORE_TIER:
+		_expect(climber.upgrade_run_ring_core_tier(), "upgrade below max tier should succeed")
+	_expect_eq(climber.get_run_ring_core_tier(), LingpetAffinityStore.MAX_RING_CORE_TIER, "sequential upgrades should reach max tier")
+	_expect(not climber.upgrade_run_ring_core_tier(), "upgrade at max tier should return false")
+	_expect_eq(climber.get_run_ring_core_tier(), LingpetAffinityStore.MAX_RING_CORE_TIER, "tier should not exceed max after a blocked upgrade")
+
+	var target_state := LingpetAffinityState.new()
+	target_state.set_run_ring_core_tier(3)
+	_expect(not target_state.upgrade_run_ring_core_tier(2), "upgrade to a lower target tier should fail (no downgrade)")
+	_expect_eq(target_state.get_run_ring_core_tier(), 3, "a rejected lower-target upgrade should keep the tier at 3")
+	_expect(not target_state.upgrade_run_ring_core_tier(3), "upgrade to the same target tier should fail (not higher)")
+	_expect_eq(target_state.get_run_ring_core_tier(), 3, "a rejected same-target upgrade should keep the tier at 3")
+	_expect(target_state.upgrade_run_ring_core_tier(4), "upgrade to a higher target tier should succeed")
+	_expect_eq(target_state.get_run_ring_core_tier(), 4, "a higher-target upgrade should reach tier 4")
+
+	var reset_state := LingpetAffinityState.new()
+	reset_state.set_run_ring_core_tier(5)
+	reset_state.reset_all()
+	_expect_eq(reset_state.get_run_ring_core_tier(), 0, "reset_all should reset run ring core tier to 0")
+	_expect_eq(reset_state.get_run_ring_core_cap(), 0, "reset_all should reset run ring core cap to 0")
+
+	_expect_eq(LingpetAffinityState.new().get_run_ring_core_tier(), 0, "a new state instance should always start at run ring core tier 0")
 
 
 func _expect(condition: bool, message: String) -> void:
