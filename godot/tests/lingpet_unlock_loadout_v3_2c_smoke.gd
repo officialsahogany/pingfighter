@@ -342,6 +342,7 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	store.set_save_path(store_path)
 	store.clear()
 	_expect(bool(store.set_best_level("lumion", 3)), "headstart fixture should persist Lumion best level")
+	var lumion_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("lumion"))
 
 	var owner_a := FakeOwner.new()
 	var registry_a := FakeRegistry.new({"lingpet_affinity_store": store})
@@ -352,6 +353,7 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	_expect_eq(runtime_a.get_affinity_level("lumion"), 1, "best level 3 should rederive a Lv.1 headstart")
 	var active_a := _resolved_choice(runtime_a, "lumion", "active")
 	_expect_str(str(owner_a.value_of("lingpet_active_skill_id")), str(active_a.get("selected", "")), "headstart A should equip the automatic primary active unlock")
+	_expect(lumion_active_ids.has(str(active_a.get("selected", ""))), "headstart A should auto-select a valid Lumion active unlock")
 
 	var owner_b := FakeOwner.new()
 	var registry_b := FakeRegistry.new({"lingpet_affinity_store": store})
@@ -362,8 +364,34 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	_expect_eq(runtime_b.get_affinity_level("lumion"), 1, "best level 3 should rederive the same Lv.1 headstart on a fresh runtime")
 	var active_b := _resolved_choice(runtime_b, "lumion", "active")
 	_expect_str(str(owner_b.value_of("lingpet_active_skill_id")), str(active_b.get("selected", "")), "headstart B should equip the automatic primary active unlock")
-	_expect_str(str(active_b.get("selected", "")), str(active_a.get("selected", "")), "fresh headstart should deterministically rederive the same automatic active unlock")
+	_expect(lumion_active_ids.has(str(active_b.get("selected", ""))), "headstart B should auto-select a valid Lumion active unlock")
 	store.clear()
+
+	var seeded_store_path := _smoke_save_path("headstart_seeded")
+	var seeded_store := LingpetAffinityStore.new()
+	seeded_store.set_save_path(seeded_store_path)
+	seeded_store.clear()
+	_expect(bool(seeded_store.set_best_level("lumion", 3)), "seeded headstart fixture should persist Lumion best level")
+	var seed_value := 24680
+	var seeded_owner_a := FakeOwner.new()
+	var seeded_registry_a := FakeRegistry.new({"lingpet_affinity_store": seeded_store})
+	var seeded_runtime_a: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(seeded_runtime_a)
+	seeded_runtime_a.set_affinity_reward_seed_for_tests("lumion", seed_value)
+	_expect(seeded_runtime_a.debug_grant_and_activate_pet("lumion", seeded_owner_a, false, "", "", seeded_registry_a), "seeded headstart fixture A should activate Lumion")
+	seeded_runtime_a.update(0.0, seeded_owner_a, seeded_registry_a)
+	var seeded_active_a := _resolved_choice(seeded_runtime_a, "lumion", "active")
+
+	var seeded_owner_b := FakeOwner.new()
+	var seeded_registry_b := FakeRegistry.new({"lingpet_affinity_store": seeded_store})
+	var seeded_runtime_b: Object = LingpetEggRuntime.new()
+	_runtime_refs.append(seeded_runtime_b)
+	seeded_runtime_b.set_affinity_reward_seed_for_tests("lumion", seed_value)
+	_expect(seeded_runtime_b.debug_grant_and_activate_pet("lumion", seeded_owner_b, false, "", "", seeded_registry_b), "seeded headstart fixture B should activate Lumion")
+	seeded_runtime_b.update(0.0, seeded_owner_b, seeded_registry_b)
+	var seeded_active_b := _resolved_choice(seeded_runtime_b, "lumion", "active")
+	_expect_str(str(seeded_active_b.get("selected", "")), str(seeded_active_a.get("selected", "")), "explicitly seeded fresh headstarts should deterministically rederive the same automatic active unlock")
+	seeded_store.clear()
 
 
 func _verify_persisted_unlock_choice_overrides_auto_resolve() -> void:
