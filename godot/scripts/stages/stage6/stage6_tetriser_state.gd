@@ -35,10 +35,13 @@ const TETRO_GAUGE_COST := 30.0
 const TETRO_CELL_SIZE := 20.0
 const TETRO_ASSEMBLY_TOTAL_SEC := 1.0    # 원본 1000ms
 const TETRO_ASSEMBLY_STEP_SEC := 0.25    # 4셀, 250ms 간격 등장
-const TETRO_FALL_SPEED := 82.0           # ≈ 9px / 0.110s (원본 110ms 스텝). 인게임 튜닝 대상.
-const TETRO_DRIFT_CHANCE := 0.40         # 낙하 중 수평 드리프트 확률
-const TETRO_ROTATE_CHANCE := 0.35        # 낙하 중 회전 확률
-const TETRO_EVENT_CHECK_INTERVAL_SEC := 0.45
+const TETRO_FALL_STEP_SEC := 0.110       # 원본 STAGE7_TETRO_STEP_MS=110, 셀 단위 스냅 낙하
+const TETRO_DRIFT_CHANCE := 0.40         # 스폰 시 1회 롤: 수평 드리프트 예산 부여
+const TETRO_ROTATE_CHANCE := 0.35        # 스폰 시 1회 롤: 회전 예산 부여
+const TETRO_MOTION_START_MIN_SEC := 0.5
+const TETRO_MOTION_START_MAX_SEC := 1.2
+const TETRO_ROTATE_INTERVAL_MIN_SEC := 0.200
+const TETRO_ROTATE_INTERVAL_MAX_SEC := 0.340
 const TETRO_SETTLED_LIFETIME_SEC := 1.5
 const TETRO_EVAPORATE_CELL_INTERVAL_SEC := 0.16
 const TETRO_EXPLOSION_BASE_RADIUS := 80.0
@@ -575,9 +578,18 @@ func _spawn_tetromino() -> void:
 		"origin": Vector2(_rng.randf_range(min_x, max_x), SPAWN_TOP_Y),
 		"assembly_elapsed": 0.0,
 		"visible_cells": 1,
-		"event_timer": TETRO_EVENT_CHECK_INTERVAL_SEC,
+		"step_accum": 0.0,
 		"cell_size": cell_size,
 		"super": _super_active,
+		"drift_cells_remaining": _roll_drift_budget(),
+		"drift_start_delay": 0.0,
+		"drift_elapsed": 0.0,
+		"drift_cooldown_steps": 0,
+		"rotate_times_remaining": _roll_rotate_budget(),
+		"rotate_start_delay": 0.0,
+		"rotate_timer_sec": 0.0,
+		"rotate_interval_sec": _random_rotate_interval(),
+		"rotate_dir": _random_rotate_dir(),
 	})
 
 
@@ -604,28 +616,46 @@ func _update_assembling(tetro: Dictionary, delta: float) -> void:
 	var cell_count: int = (tetro["cells"] as Array).size()
 	tetro["visible_cells"] = clampi(int(elapsed / TETRO_ASSEMBLY_STEP_SEC) + 1, 1, cell_count)
 	if elapsed >= TETRO_ASSEMBLY_TOTAL_SEC:
-		tetro["state"] = "falling"
+		_begin_tetromino_falling(tetro)
 		tetro["visible_cells"] = cell_count
 
 
 func _update_falling(tetro: Dictionary, delta: float, settled_rects: Array, context: Dictionary, deps: Dictionary) -> void:
-	var event_timer: float = float(tetro["event_timer"]) - delta
-	if event_timer <= 0.0:
-		event_timer = TETRO_EVENT_CHECK_INTERVAL_SEC
-		_maybe_drift(tetro)
-		_maybe_rotate(tetro)
-	tetro["event_timer"] = event_timer
-
-	var origin: Vector2 = tetro["origin"]
-	var next_origin: Vector2 = origin + Vector2(0.0, TETRO_FALL_SPEED * delta)
-	if _would_settle(tetro, next_origin, settled_rects):
-		if bool(tetro.get("super", false)):
-			_explode_landed_tetromino(tetro, context, deps)
+	var step_accum: float = float(tetro.get("step_accum", 0.0)) + delta
+	while step_accum >= TETRO_FALL_STEP_SEC and String(tetro.get("state", "")) == "falling":
+		step_accum -= TETRO_FALL_STEP_SEC
+		_advance_falling_motion_budget(tetro, TETRO_FALL_STEP_SEC)
+		_try_step_drift(tetro, settled_rects)
+		_try_step_rotation(tetro, settled_rects)
+		var origin: Vector2 = tetro["origin"]
+		var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
+		var next_origin: Vector2 = origin + Vector2(0.0, cs)
+		var settle_result: Dictionary = _fall_step_settle_result(tetro, origin, next_origin, settled_rects)
+		if bool(settle_result.get("settle", false)):
+			tetro["origin"] = settle_result.get("origin", origin)
+			tetro["step_accum"] = step_accum
+			if bool(tetro.get("super", false)):
+				_explode_landed_tetromino(tetro, context, deps)
+				return
+			_mark_tetromino_settled(tetro)
 			return
-		_mark_tetromino_settled(tetro)
-		tetro["state"] = "settled"   # 마지막 유효 위치(current origin)에서 정착
-	else:
 		tetro["origin"] = next_origin
+	tetro["step_accum"] = step_accum
+
+
+func _begin_tetromino_falling(tetro: Dictionary) -> void:
+	tetro["state"] = "falling"
+	tetro["step_accum"] = 0.0
+	tetro["drift_elapsed"] = 0.0
+	tetro["rotate_timer_sec"] = 0.0
+	if int(tetro.get("drift_cells_remaining", 0)) != 0:
+		tetro["drift_start_delay"] = _rng.randf_range(TETRO_MOTION_START_MIN_SEC, TETRO_MOTION_START_MAX_SEC)
+	else:
+		tetro["drift_start_delay"] = 0.0
+	if int(tetro.get("rotate_times_remaining", 0)) > 0:
+		tetro["rotate_start_delay"] = _rng.randf_range(TETRO_MOTION_START_MIN_SEC, TETRO_MOTION_START_MAX_SEC)
+	else:
+		tetro["rotate_start_delay"] = 0.0
 
 
 func _mark_tetromino_settled(tetro: Dictionary) -> void:
@@ -743,33 +773,137 @@ func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> boo
 	return false
 
 
-func _would_settle(tetro: Dictionary, next_origin: Vector2, settled_rects: Array) -> bool:
+func _fall_step_settle_result(tetro: Dictionary, origin: Vector2, next_origin: Vector2, settled_rects: Array) -> Dictionary:
 	var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
+	var bottom_now: float = -INF
+	for cell in tetro["cells"]:
+		bottom_now = maxf(bottom_now, origin.y + cell.y * cs + cs)
 	for cell in tetro["cells"]:
 		var rect: Rect2 = Rect2(next_origin + cell * cs, Vector2(cs, cs))
 		if rect.position.y + rect.size.y >= FIELD_HEIGHT:
-			return true
+			var dy: float = maxf(0.0, FIELD_HEIGHT - bottom_now)
+			return {"settle": true, "origin": origin + Vector2(0.0, dy)}
 		for settled in settled_rects:
 			if rect.intersects(settled):
-				return true
-	return false
+				return {"settle": true, "origin": origin}
+	return {"settle": false, "origin": next_origin}
 
 
-func _maybe_drift(tetro: Dictionary) -> void:
-	if _rng.randf() >= TETRO_DRIFT_CHANCE:
+func _advance_falling_motion_budget(tetro: Dictionary, step_sec: float) -> void:
+	tetro["drift_elapsed"] = float(tetro.get("drift_elapsed", 0.0)) + step_sec
+	if int(tetro.get("rotate_times_remaining", 0)) > 0:
+		tetro["rotate_timer_sec"] = float(tetro.get("rotate_timer_sec", 0.0)) + step_sec
+
+
+func _try_step_drift(tetro: Dictionary, settled_rects: Array) -> void:
+	var drift: int = int(tetro.get("drift_cells_remaining", 0))
+	if drift == 0:
+		return
+	if float(tetro.get("drift_elapsed", 0.0)) < float(tetro.get("drift_start_delay", 0.0)):
+		return
+	var cooldown: int = int(tetro.get("drift_cooldown_steps", 0))
+	if cooldown > 0:
+		tetro["drift_cooldown_steps"] = max(0, cooldown - 1)
 		return
 	var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
-	var dir: float = -1.0 if _rng.randf() < 0.5 else 1.0
-	var dx: float = dir * float(_rng.randi_range(1, 2)) * cs
-	tetro["origin"] = _clamp_origin_x(tetro["origin"] + Vector2(dx, 0.0), tetro["cells"], cs)
+	var dx: float = (-cs if drift < 0 else cs)
+	var next_origin: Vector2 = tetro["origin"] + Vector2(dx, 0.0)
+	if _is_cell_layout_valid(next_origin, tetro["cells"], cs, settled_rects):
+		tetro["origin"] = next_origin
+		tetro["drift_cells_remaining"] = drift - (-1 if drift < 0 else 1)
+		tetro["drift_cooldown_steps"] = 1
+	else:
+		tetro["drift_cells_remaining"] = 0
 
 
-func _maybe_rotate(tetro: Dictionary) -> void:
-	if _rng.randf() >= TETRO_ROTATE_CHANCE:
+func _try_step_rotation(tetro: Dictionary, settled_rects: Array) -> void:
+	var remaining: int = int(tetro.get("rotate_times_remaining", 0))
+	if remaining <= 0:
 		return
-	var rotated: Array = _rotate_cells(tetro["cells"], _rng.randi_range(1, 2))
-	tetro["cells"] = rotated
-	tetro["origin"] = _clamp_origin_x(tetro["origin"], rotated, float(tetro.get("cell_size", TETRO_CELL_SIZE)))
+	if float(tetro.get("drift_elapsed", 0.0)) < float(tetro.get("rotate_start_delay", 0.0)):
+		return
+	var timer: float = float(tetro.get("rotate_timer_sec", 0.0))
+	var interval: float = maxf(0.001, float(tetro.get("rotate_interval_sec", TETRO_ROTATE_INTERVAL_MIN_SEC)))
+	if timer < interval:
+		return
+	var rotated: Dictionary = _rotate_cells_around_center(
+		tetro["origin"],
+		tetro["cells"],
+		float(tetro.get("cell_size", TETRO_CELL_SIZE)),
+		int(tetro.get("rotate_dir", 1))
+	)
+	var next_origin: Vector2 = rotated.get("origin", tetro["origin"])
+	var next_cells: Array = rotated.get("cells", tetro["cells"])
+	if _is_cell_layout_valid(next_origin, next_cells, float(tetro.get("cell_size", TETRO_CELL_SIZE)), settled_rects):
+		tetro["origin"] = next_origin
+		tetro["cells"] = next_cells
+		tetro["rotate_times_remaining"] = remaining - 1
+		tetro["rotate_interval_sec"] = _random_rotate_interval()
+		tetro["rotate_dir"] = _random_rotate_dir()
+		tetro["rotate_timer_sec"] = 0.0
+	else:
+		tetro["rotate_timer_sec"] = maxf(0.0, timer - interval * 0.5)
+
+
+func _rotate_cells_around_center(origin: Vector2, cells: Array, cell_size: float, dir_sign: int) -> Dictionary:
+	if cells.is_empty():
+		return {"origin": origin, "cells": cells}
+	var center := Vector2.ZERO
+	for cell in cells:
+		center += origin + cell * cell_size + Vector2(cell_size * 0.5, cell_size * 0.5)
+	center /= float(cells.size())
+	var top_lefts: Array = []
+	var min_pos := Vector2(INF, INF)
+	for cell in cells:
+		var cell_center: Vector2 = origin + cell * cell_size + Vector2(cell_size * 0.5, cell_size * 0.5)
+		var offset: Vector2 = cell_center - center
+		var rotated_offset := Vector2(offset.y, -offset.x) if dir_sign >= 0 else Vector2(-offset.y, offset.x)
+		var top_left: Vector2 = center + rotated_offset - Vector2(cell_size * 0.5, cell_size * 0.5)
+		top_left = Vector2(round(top_left.x), round(top_left.y))
+		top_lefts.append(top_left)
+		min_pos.x = minf(min_pos.x, top_left.x)
+		min_pos.y = minf(min_pos.y, top_left.y)
+	var rotated_cells: Array = []
+	for top_left in top_lefts:
+		rotated_cells.append(Vector2(
+			round((top_left.x - min_pos.x) / cell_size),
+			round((top_left.y - min_pos.y) / cell_size)
+		))
+	return {"origin": min_pos, "cells": rotated_cells}
+
+
+func _is_cell_layout_valid(origin: Vector2, cells: Array, cell_size: float, settled_rects: Array) -> bool:
+	for cell in cells:
+		var rect: Rect2 = Rect2(origin + cell * cell_size, Vector2(cell_size, cell_size))
+		if rect.position.x < 0.0 or rect.position.x + rect.size.x > FIELD_WIDTH:
+			return false
+		if rect.position.y < 0.0 or rect.position.y + rect.size.y > FIELD_HEIGHT:
+			return false
+		for settled in settled_rects:
+			if rect.intersects(settled):
+				return false
+	return true
+
+
+func _roll_drift_budget() -> int:
+	if _rng.randf() >= TETRO_DRIFT_CHANCE:
+		return 0
+	var choices := [-2, -1, 1, 2]
+	return int(choices[_rng.randi_range(0, choices.size() - 1)])
+
+
+func _roll_rotate_budget() -> int:
+	if _rng.randf() >= TETRO_ROTATE_CHANCE:
+		return 0
+	return _rng.randi_range(1, 2)
+
+
+func _random_rotate_interval() -> float:
+	return _rng.randf_range(TETRO_ROTATE_INTERVAL_MIN_SEC, TETRO_ROTATE_INTERVAL_MAX_SEC)
+
+
+func _random_rotate_dir() -> int:
+	return -1 if _rng.randf() < 0.5 else 1
 
 
 func _clamp_origin_x(origin: Vector2, cells: Array, cell_size: float) -> Vector2:
@@ -787,6 +921,13 @@ func _collect_settled_cell_rects() -> Array:
 		var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
 		for cell in tetro["cells"]:
 			rects.append(Rect2(origin + cell * cs, Vector2(cs, cs)))
+	for wall in _wall_blocks:
+		if String(wall.get("state", "")) != "installed":
+			continue
+		var wall_origin: Vector2 = wall["origin"]
+		var wall_cs: float = float(wall.get("cell_size", TETRO_CELL_SIZE))
+		for cell in wall["cells"]:
+			rects.append(Rect2(wall_origin + cell * wall_cs, Vector2(wall_cs, wall_cs)))
 	return rects
 
 
@@ -1427,10 +1568,51 @@ func debug_spawn_tetromino_at(origin: Vector2, shape: String = "O", super_flag: 
 		"origin": origin,
 		"assembly_elapsed": TETRO_ASSEMBLY_TOTAL_SEC,
 		"visible_cells": cells.size(),
-		"event_timer": TETRO_EVENT_CHECK_INTERVAL_SEC,
+		"step_accum": 0.0,
 		"cell_size": TETRO_CELL_SIZE * (SUPER_TETRO_CELL_SCALE if super_flag else 1.0),
 		"super": super_flag,
+		"drift_cells_remaining": 0,
+		"drift_start_delay": 0.0,
+		"drift_elapsed": 0.0,
+		"drift_cooldown_steps": 0,
+		"rotate_times_remaining": 0,
+		"rotate_start_delay": 0.0,
+		"rotate_timer_sec": 0.0,
+		"rotate_interval_sec": TETRO_ROTATE_INTERVAL_MIN_SEC,
+		"rotate_dir": 1,
 	})
+
+
+func debug_configure_first_tetromino_motion(motion: Dictionary) -> void:
+	if _tetrominoes.is_empty():
+		return
+	var tetro: Dictionary = _tetrominoes[0]
+	for key in motion.keys():
+		tetro[key] = motion[key]
+
+
+func debug_get_first_tetromino_origin() -> Vector2:
+	if _tetrominoes.is_empty():
+		return Vector2.ZERO
+	return _tetrominoes[0].get("origin", Vector2.ZERO)
+
+
+func debug_get_first_tetromino_cells() -> Array:
+	if _tetrominoes.is_empty():
+		return []
+	return (_tetrominoes[0].get("cells", []) as Array).duplicate()
+
+
+func debug_get_first_tetromino_motion() -> Dictionary:
+	if _tetrominoes.is_empty():
+		return {}
+	var tetro: Dictionary = _tetrominoes[0]
+	return {
+		"step_accum": float(tetro.get("step_accum", 0.0)),
+		"drift_cells_remaining": int(tetro.get("drift_cells_remaining", 0)),
+		"rotate_times_remaining": int(tetro.get("rotate_times_remaining", 0)),
+		"rotate_timer_sec": float(tetro.get("rotate_timer_sec", 0.0)),
+	}
 
 
 func debug_get_debris_count() -> int:

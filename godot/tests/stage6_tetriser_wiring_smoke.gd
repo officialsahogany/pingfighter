@@ -194,7 +194,7 @@ func _verify_stage6_effect_deps_feed_immunity_gate() -> void:
 	_expect(cleanse_deps.get("registry", null) == cleanse_registry, "Stage 6 effects deps should include the registry fallback")
 
 	cleanse_state.debug_spawn_tetromino_at(Vector2(300.0, 690.0), "O", true)
-	BattleEffectsUpdateController.new().update(0.1, _explosion_context(), cleanse_deps)
+	_advance_effects(0.110, _explosion_context(), cleanse_deps)
 	_expect(cleanse_state.debug_get_tetromino_count() == 0, "effects controller should drive the Stage 6 landing explosion")
 	_expect(cleanse_status.calls.is_empty(), "live effects deps should let cleanse immunity block explosion stun")
 	_expect(cleanse_movement.calls.is_empty(), "live effects deps should let cleanse immunity block explosion knockback")
@@ -214,7 +214,7 @@ func _verify_stage6_effect_deps_feed_immunity_gate() -> void:
 	var mythic_deps: Dictionary = BattleUpdateEffectsDepsBuilder.new().build_deps(mythic_registry, 6, "smasher")
 	_expect(mythic_deps.get("mythic_item_runtime", null) == mythic_runtime, "Stage 6 effects deps should carry Celestial Armor runtime")
 	mythic_state.debug_spawn_tetromino_at(Vector2(300.0, 690.0), "O", true)
-	BattleEffectsUpdateController.new().update(0.1, _explosion_context(), mythic_deps)
+	_advance_effects(0.110, _explosion_context(), mythic_deps)
 	_expect(mythic_status.calls.is_empty(), "live effects deps should let Celestial Armor block explosion stun")
 	_expect(mythic_movement.calls.is_empty(), "live effects deps should let Celestial Armor block explosion knockback")
 	_expect(mythic_runtime.calls.size() == 1, "Stage 6 live explosion should ask Celestial Armor to consume once")
@@ -304,6 +304,15 @@ func _verify_stage6_full_and_result_resets_clear_match_state() -> void:
 	StageClearResultScreen.new()._reset_stage6_for_result(registry, 6)
 	_expect(state.debug_get_tetromino_count() == 0, "stage-clear result reset should clear Stage 6 tetrominoes")
 	_expect(state.debug_get_gauge() == 0.0, "stage-clear result reset should clear Stage 6 gauge")
+
+
+func _advance_effects(seconds: float, context: Dictionary, deps: Dictionary) -> void:
+	var controller := BattleEffectsUpdateController.new()
+	var remaining: float = seconds
+	while remaining > 0.0001:
+		var step: float = minf(0.100, remaining)
+		controller.update(step, context, deps)
+		remaining -= step
 
 
 func _explosion_context() -> Dictionary:

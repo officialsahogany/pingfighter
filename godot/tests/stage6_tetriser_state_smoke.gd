@@ -114,6 +114,9 @@ func _init() -> void:
 	_test_gauge_persist_across_reset()
 	_test_pause_when_not_active()
 	_test_tetromino_lifecycle()
+	_test_falling_tetromino_uses_discrete_step_drop()
+	_test_falling_rotation_uses_spawn_budget()
+	_test_falling_rotation_rejects_wall_overlap()
 	_test_settled_tetromino_evaporates_after_lifetime()
 	_test_actor_draw_context()
 	_test_ball_reflects_and_destroys()
@@ -205,6 +208,61 @@ func _test_tetromino_lifecycle() -> void:
 			settled = true
 			break
 	_expect(settled, "tetromino settles on the floor after falling")
+
+
+func _test_falling_tetromino_uses_discrete_step_drop() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var start: Vector2 = state.debug_get_first_tetromino_origin()
+	state.update(0.100, _active_context())
+	state.update(0.009, _active_context())
+	_expect(state.debug_get_first_tetromino_origin() == start, "falling tetromino does not slide before the 110ms step")
+	state.update(0.001, _active_context())
+	_expect(is_equal_approx(state.debug_get_first_tetromino_origin().y, start.y + 20.0), "falling tetromino drops exactly one 20px cell at 110ms")
+	_advance_fall_steps(state, 1)
+	_expect(is_equal_approx(state.debug_get_first_tetromino_origin().y, start.y + 40.0), "falling tetromino drops exactly two cells at 220ms")
+
+
+func _test_falling_rotation_uses_spawn_budget() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 100.0), "L", false)
+	state.debug_configure_first_tetromino_motion({
+		"rotate_times_remaining": 1,
+		"rotate_start_delay": 0.5,
+		"rotate_interval_sec": 0.2,
+		"rotate_timer_sec": 0.0,
+		"rotate_dir": 1,
+		"drift_cells_remaining": 0,
+	})
+	var initial_cells: String = _cells_signature(state.debug_get_first_tetromino_cells())
+	for _i in range(4):
+		_advance_fall_steps(state, 1)
+	_expect(_cells_signature(state.debug_get_first_tetromino_cells()) == initial_cells, "rotation waits for its falling-start delay")
+	_advance_fall_steps(state, 1)
+	var rotated_cells: String = _cells_signature(state.debug_get_first_tetromino_cells())
+	_expect(rotated_cells != initial_cells, "rotation consumes the once-at-spawn budget after the delay")
+	_expect(int(state.debug_get_first_tetromino_motion().get("rotate_times_remaining", -1)) == 0, "rotation budget is consumed once")
+	_advance_fall_steps(state, 5)
+	_expect(_cells_signature(state.debug_get_first_tetromino_cells()) == rotated_cells, "rotation does not reroll every 0.45 seconds after its budget is spent")
+
+
+func _test_falling_rotation_rejects_wall_overlap() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_wall_cell_at(Vector2(330.0, 90.0))
+	state.debug_spawn_tetromino_at(Vector2(300.0, 100.0), "I", false)
+	state.debug_configure_first_tetromino_motion({
+		"rotate_times_remaining": 1,
+		"rotate_start_delay": 0.0,
+		"rotate_interval_sec": 0.110,
+		"rotate_timer_sec": 0.0,
+		"rotate_dir": 1,
+		"drift_cells_remaining": 0,
+	})
+	var initial_cells: String = _cells_signature(state.debug_get_first_tetromino_cells())
+	_advance_fall_steps(state, 1)
+	_expect(_cells_signature(state.debug_get_first_tetromino_cells()) == initial_cells, "rotation is rejected when the rotated cells would overlap a wall/installed cell")
+	_expect(int(state.debug_get_first_tetromino_motion().get("rotate_times_remaining", 0)) == 1, "rejected rotation does not consume the remaining budget")
+	_expect(is_equal_approx(state.debug_get_first_tetromino_origin().y, 120.0), "rejected rotation still allows the normal 20px fall step")
 
 
 func _test_settled_tetromino_evaporates_after_lifetime() -> void:
@@ -334,7 +392,7 @@ func _test_super_tetromino_explosion_radius_gate() -> void:
 	inside_ctx["player_paddle_size"] = player_size
 	var inside_state: Object = Stage6TetriserState.new()
 	inside_state.debug_spawn_tetromino_at(origin, "O", true)
-	inside_state.update(0.1, inside_ctx, {
+	_advance_time(inside_state, 0.110, inside_ctx, {
 		"status_effect_state": inside_status,
 		"movement_state": inside_movement,
 	})
@@ -348,7 +406,7 @@ func _test_super_tetromino_explosion_radius_gate() -> void:
 	outside_ctx["player_paddle_size"] = player_size
 	var outside_state: Object = Stage6TetriserState.new()
 	outside_state.debug_spawn_tetromino_at(origin, "O", true)
-	outside_state.update(0.1, outside_ctx, {
+	_advance_time(outside_state, 0.110, outside_ctx, {
 		"status_effect_state": outside_status,
 		"movement_state": outside_movement,
 	})
@@ -369,7 +427,7 @@ func _test_super_tetromino_explosion_respects_player_immunity() -> void:
 	var cleanse_mythic := FakeMythicItemRuntime.new()
 	var cleanse_tetro: Object = Stage6TetriserState.new()
 	cleanse_tetro.debug_spawn_tetromino_at(origin, "O", true)
-	cleanse_tetro.update(0.1, ctx, {
+	_advance_time(cleanse_tetro, 0.110, ctx, {
 		"status_effect_state": cleanse_status,
 		"movement_state": cleanse_movement,
 		"smasher_cleanse_state": cleanse_state,
@@ -385,7 +443,7 @@ func _test_super_tetromino_explosion_respects_player_immunity() -> void:
 	mythic_state.should_consume_celestial_armor = true
 	var mythic_tetro: Object = Stage6TetriserState.new()
 	mythic_tetro.debug_spawn_tetromino_at(origin, "O", true)
-	mythic_tetro.update(0.1, ctx, {
+	_advance_time(mythic_tetro, 0.110, ctx, {
 		"status_effect_state": mythic_status,
 		"movement_state": mythic_movement,
 		"mythic_item_runtime": mythic_state,
@@ -846,6 +904,29 @@ func _test_wrong_stage_resets() -> void:
 	state.update(0.1, {"current_stage": 1, "ball_active": true, "waiting_for_serve": false})
 	_expect(state.debug_get_tetromino_count() == 0, "wrong-stage update clears tetrominoes")
 	_expect(state.debug_get_gauge() == 0.0, "wrong-stage update clears gauge")
+
+
+func _advance_fall_steps(state: Object, steps: int) -> void:
+	for _i in range(steps):
+		state.update(0.100, _active_context())
+		state.update(0.010, _active_context())
+
+
+func _advance_time(state: Object, seconds: float, context: Dictionary, deps: Dictionary = {}) -> void:
+	var remaining: float = seconds
+	while remaining > 0.0001:
+		var step: float = minf(0.100, remaining)
+		state.update(step, context, deps)
+		remaining -= step
+
+
+func _cells_signature(cells: Array) -> String:
+	var parts: Array[String] = []
+	for cell in cells:
+		var p: Vector2 = cell
+		parts.append("%d,%d" % [int(round(p.x)), int(round(p.y))])
+	parts.sort()
+	return "|".join(parts)
 
 
 func _expect(condition: bool, message: String) -> void:
