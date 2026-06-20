@@ -1587,8 +1587,14 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	_expect(audio.lingpet_acquire_click_backing_count == 1, "re-clicking during the acquisition Live2D exit action should not replay backing SFX")
 	_expect(audio.lingpet_click_reaction_pet_ids == [hatched_pet_id], "re-clicking during the acquisition Live2D exit action should not replay voice")
 	_expect(float(runtime.get_acquire_cutin_dismiss_progress()) >= 0.0, "exit action should expose a dismiss progress for the host")
-	# Advancing through the exit action + fade auto-closes the cut-in and resumes play.
-	runtime.advance_acquire_cutin(2.0)
+	# Advance through the exit action + fade until the cut-in auto-closes. Dismiss durations
+	# vary by pet (cutin_dismiss_seconds, up to ~4.25s for Koyora) and the random hatch may
+	# pick any live pet, so loop to completion instead of assuming a fixed advance budget.
+	var dismiss_guard := 0
+	while bool(runtime.is_acquire_cutin_active()) and dismiss_guard < 600:
+		runtime.advance_acquire_cutin(0.1)
+		dismiss_guard += 1
+	_expect(dismiss_guard < 600, "the acquisition cut-in exit action should auto-complete within the guard budget")
 	_expect(not bool(runtime.is_acquire_cutin_active()), "exit action completing should resume battle physics on its own")
 	_expect(not bool(runtime.is_acquire_cutin_dismissing()), "dismissing state should clear once the exit action finishes")
 	_expect(not bool(runtime.begin_acquire_cutin_dismiss(registry)), "starting the exit action on an inactive cut-in should be a no-op")
