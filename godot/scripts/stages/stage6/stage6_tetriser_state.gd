@@ -136,6 +136,7 @@ const TETRO_COLORS := {
 	"J": Color(0.36, 0.50, 0.93),
 	"L": Color(0.95, 0.58, 0.27),
 }
+const FALLING_TETRO_SHAPE_KEYS := ["T", "L", "Z", "I", "O"]
 
 var boss_gauge: float = 0.0
 var status: String = "charging"
@@ -161,7 +162,8 @@ var _crystal_shield: Object = CrystalShieldState.new()
 var _sfx_break_pending: bool = false
 var _sfx_wall_pending: bool = false
 var _sfx_super_pending: bool = false
-var _shape_keys: Array = TETRO_SHAPES.keys()
+var _falling_shape_keys: Array = FALLING_TETRO_SHAPE_KEYS.duplicate()
+var _wall_shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
 
 
@@ -242,7 +244,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	_update_super_state(clamped_delta)
 	if not _super_active:
 		_charge_gauge(clamped_delta)   # 초인테트리서 발동 중에는 충전 정지(드레인만)
-	_update_spawn_scheduler(clamped_delta)
+	_update_spawn_scheduler(clamped_delta, context)
 	_update_guard_scheduler(clamped_delta, context)
 	_update_wall_scheduler(clamped_delta)
 	_update_tetrominoes(clamped_delta, context, deps)
@@ -301,14 +303,14 @@ func _update_super_state(delta: float) -> void:
 	_super_scale = move_toward(_super_scale, _super_target_scale, SUPER_SCALE_LERP_PER_SEC * delta)
 
 
-func _update_spawn_scheduler(delta: float) -> void:
+func _update_spawn_scheduler(delta: float, context: Dictionary) -> void:
 	_spawn_timer_sec -= delta
 	if _spawn_timer_sec > 0.0:
 		return
 	if boss_gauge < TETRO_GAUGE_COST or _tetrominoes.size() >= MAX_ACTIVE_TETROMINOS:
 		_spawn_timer_sec = 1.0   # 게이지 부족 / 캡 도달 → 짧게 재시도
 		return
-	_spawn_tetromino()
+	_spawn_tetromino(context)
 	boss_gauge -= TETRO_GAUGE_COST
 	_arm_spawn_timer()
 
@@ -319,6 +321,12 @@ func _arm_spawn_timer() -> void:
 
 func _arm_guard_timer() -> void:
 	_guard_timer_sec = _rng.randf_range(GUARD_MIN_INTERVAL_SEC, GUARD_MAX_INTERVAL_SEC)
+
+
+func _boss_center_x_from_context(context: Dictionary) -> float:
+	var boss_pos: Vector2 = context.get("boss_pos", Vector2(330.0, 25.0))
+	var boss_size: Vector2 = context.get("boss_paddle_size", Vector2(100.0, 40.0))
+	return boss_pos.x + boss_size.x * 0.5
 
 
 # 가드 블록 스케줄러: 게이지 보유 시 보스 좌우로 4셀 바를 1~2개 전개(최대 4).
@@ -455,7 +463,7 @@ func _spawn_wall_side(origin_x: float) -> void:
 	var rows: int = maxi(1, int(FIELD_HEIGHT / TETRO_CELL_SIZE))
 	var origin_bottom_y: float = FIELD_HEIGHT - TETRO_CELL_SIZE
 	for _piece_index in range(WALL_PIECES_PER_SIDE):
-		var shape_name: String = String(_shape_keys[_rng.randi_range(0, _shape_keys.size() - 1)])
+		var shape_name: String = String(_wall_shape_keys[_rng.randi_range(0, _wall_shape_keys.size() - 1)])
 		var base_cells: Array = TETRO_SHAPES.get(shape_name, TETRO_SHAPES["T"])
 		var cells: Array = _rotate_cells(base_cells, _rng.randi_range(0, 3))
 		var dims: Vector2 = _cells_dims(cells)
@@ -563,19 +571,21 @@ func _update_wall_evaporating(block: Dictionary, delta: float) -> void:
 		_wall_blocks.erase(block)
 
 
-func _spawn_tetromino() -> void:
-	var shape_name: String = String(_shape_keys[_rng.randi_range(0, _shape_keys.size() - 1)])
+func _spawn_tetromino(context: Dictionary = {}) -> void:
+	var shape_name: String = String(_falling_shape_keys[_rng.randi_range(0, _falling_shape_keys.size() - 1)])
 	var cells: Array = _rotate_cells(TETRO_SHAPES[shape_name], _rng.randi_range(0, 3))
 	# 초인테트리서 발동 중 스폰되면 super(공 면역) + 1.7× 셀.
 	var cell_size: float = TETRO_CELL_SIZE * (SUPER_TETRO_CELL_SCALE if _super_active else 1.0)
 	var width_px: float = _cells_dims(cells).x * cell_size
 	var min_x: float = SPAWN_MARGIN_X
 	var max_x: float = maxf(min_x, FIELD_WIDTH - width_px - SPAWN_MARGIN_X)
+	var boss_center_x: float = _boss_center_x_from_context(context)
+	var origin_x: float = clampf(boss_center_x - width_px * 0.5, min_x, max_x)
 	_tetrominoes.append({
 		"shape": shape_name,
 		"state": "assembling",
 		"cells": cells,
-		"origin": Vector2(_rng.randf_range(min_x, max_x), SPAWN_TOP_Y),
+		"origin": Vector2(origin_x, SPAWN_TOP_Y),
 		"assembly_elapsed": 0.0,
 		"visible_cells": 1,
 		"step_accum": 0.0,
@@ -1554,8 +1564,16 @@ func get_status() -> String:
 # Debug / test hooks
 # ============================================================================
 
-func debug_force_spawn_tetromino() -> void:
-	_spawn_tetromino()
+func debug_force_spawn_tetromino(context: Dictionary = {}) -> void:
+	_spawn_tetromino(context)
+
+
+func debug_set_spawn_timer(value: float) -> void:
+	_spawn_timer_sec = value
+
+
+func debug_set_rng_seed(seed: int) -> void:
+	_rng.seed = seed
 
 
 # 결정론적 충돌 테스트용: 지정 위치에 즉시 'falling' 테트로미노 배치.

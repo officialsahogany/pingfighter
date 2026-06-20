@@ -117,6 +117,8 @@ func _init() -> void:
 	_test_falling_tetromino_uses_discrete_step_drop()
 	_test_falling_rotation_uses_spawn_budget()
 	_test_falling_rotation_rejects_wall_overlap()
+	_test_tetromino_spawn_uses_boss_center_and_legacy_shape_pool()
+	_test_tetromino_scheduler_passes_boss_context()
 	_test_settled_tetromino_evaporates_after_lifetime()
 	_test_actor_draw_context()
 	_test_ball_reflects_and_destroys()
@@ -263,6 +265,39 @@ func _test_falling_rotation_rejects_wall_overlap() -> void:
 	_expect(_cells_signature(state.debug_get_first_tetromino_cells()) == initial_cells, "rotation is rejected when the rotated cells would overlap a wall/installed cell")
 	_expect(int(state.debug_get_first_tetromino_motion().get("rotate_times_remaining", 0)) == 1, "rejected rotation does not consume the remaining budget")
 	_expect(is_equal_approx(state.debug_get_first_tetromino_origin().y, 120.0), "rejected rotation still allows the normal 20px fall step")
+
+
+func _test_tetromino_spawn_uses_boss_center_and_legacy_shape_pool() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_set_rng_seed(24680)
+	var ctx := _active_context()
+	ctx["boss_pos"] = Vector2(250.0, 45.0)
+	ctx["boss_paddle_size"] = Vector2(160.0, 40.0)
+	var boss_center_x: float = 330.0
+	var allowed := {"T": true, "L": true, "Z": true, "I": true, "O": true}
+	for _i in range(60):
+		state.debug_force_spawn_tetromino(ctx)
+	var spawned: Array = state.get_actor_draw_context().get("stage6_tetriser_tetrominoes", [])
+	_expect(spawned.size() == 60, "precondition: debug force spawned tetrominoes")
+	for entry in spawned:
+		var shape := str((entry as Dictionary).get("shape", ""))
+		_expect(allowed.has(shape), "falling tetromino spawn uses only T/L/Z/I/O shapes (got %s)" % shape)
+		_expect(is_equal_approx(_tetromino_center_x(entry), boss_center_x), "falling tetromino spawn centers on boss paddle x")
+
+
+func _test_tetromino_scheduler_passes_boss_context() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_set_rng_seed(13579)
+	state.debug_set_gauge(40.0)
+	state.debug_set_spawn_timer(0.0)
+	var ctx := _active_context()
+	ctx["boss_pos"] = Vector2(420.0, 45.0)
+	ctx["boss_paddle_size"] = Vector2(120.0, 40.0)
+	state.update(0.05, ctx)
+	var spawned: Array = state.get_actor_draw_context().get("stage6_tetriser_tetrominoes", [])
+	_expect(spawned.size() == 1, "live scheduler spawns one tetromino when the timer and gauge are ready")
+	if spawned.size() == 1:
+		_expect(is_equal_approx(_tetromino_center_x(spawned[0]), 480.0), "live scheduler passes boss context into tetromino spawn")
 
 
 func _test_settled_tetromino_evaporates_after_lifetime() -> void:
@@ -918,6 +953,21 @@ func _advance_time(state: Object, seconds: float, context: Dictionary, deps: Dic
 		var step: float = minf(0.100, remaining)
 		state.update(step, context, deps)
 		remaining -= step
+
+
+func _tetromino_center_x(entry: Dictionary) -> float:
+	var origin: Vector2 = entry.get("origin", Vector2.ZERO)
+	var cells: Array = entry.get("cells", [])
+	var cell_size: float = float(entry.get("cell_size", 20.0))
+	var min_x: float = INF
+	var max_x: float = -INF
+	for cell in cells:
+		var p: Vector2 = cell
+		min_x = minf(min_x, origin.x + p.x * cell_size)
+		max_x = maxf(max_x, origin.x + p.x * cell_size + cell_size)
+	if cells.is_empty():
+		return origin.x
+	return (min_x + max_x) * 0.5
 
 
 func _cells_signature(cells: Array) -> String:
