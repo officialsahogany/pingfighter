@@ -595,7 +595,7 @@ func _init() -> void:
 	_verify_affinity_level_up_feedback_and_income_log()
 	_verify_affinity_point_gain_popup()
 	_verify_lingpet_guard_label_feedback()
-	_verify_affinity_residue_store_and_headstart()
+	_verify_affinity_store_v5_meta_only()
 	_verify_ring_core_cap_run_state_source()
 	_verify_ineligible_conditions_do_not_spawn()
 
@@ -1351,7 +1351,7 @@ func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> vo
 	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
 	var store: Object = LingpetAffinityStore.new()
 	store.set_save_path(affinity_path)
-	_expect(bool(store.set_ring_core_tier(0)), "tutorial ring-core fixture should start as explicit no-core")
+	# R3 / v5: store no longer persists ring-core; the tutorial grant is run-state.
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
@@ -1394,17 +1394,17 @@ func _verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility() -> 
 
 	var higher_store: Object = LingpetAffinityStore.new()
 	higher_store.set_save_path(higher_path)
-	_expect(bool(higher_store.set_ring_core_tier(2)), "higher-tier fixture should start at tier 2")
+	# R3 / v5: store no longer persists ring-core; seed the run tier directly below.
 	var higher_owner := FakeOwner.new()
 	var higher_runtime: Object = LingpetEggRuntime.new()
 	higher_runtime._affinity_state.set_run_ring_core_tier(2)
 	_expect(higher_runtime.update(0.0, higher_owner, FakeRegistry.new({"lingpet_affinity_store": higher_store})), "higher-tier Junior Mika should still spawn the tutorial egg")
 	_expect_eq(int(higher_runtime._affinity_state.get_run_ring_core_tier()), 2, "tutorial grant should not lower an existing run ring-core tier")
-	_expect_eq(int(higher_store.get_ring_core_tier()), 2, "tutorial grant should not write or lower the permanent ring-core store")
+	_expect_eq(int(higher_store.get_ring_core_tier()), 0, "tutorial grant should not write the permanent ring-core store (run-state only)")
 
 	var viper_store: Object = LingpetAffinityStore.new()
 	viper_store.set_save_path(viper_path)
-	_expect(bool(viper_store.set_ring_core_tier(0)), "non-Mika fixture should start as explicit no-core")
+	# R3 / v5: store no longer persists ring-core; non-Mika simply never grants.
 	var viper_owner := FakeOwner.new()
 	viper_owner.selected_character_type = "viper"
 	var viper_runtime: Object = LingpetEggRuntime.new()
@@ -1520,7 +1520,7 @@ func _verify_one_ball_hit_hatches_unidentified_egg() -> void:
 	_expect(int(runtime_snapshot.get("passive_skill_level", 0)) == 0, "runtime snapshot should expose passive skill level 0 before unlock resolve")
 	var panel: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(str(panel.get("title", "")) == LingpetCatalog.get_display_name(hatched_id), "character-info panel should reveal the hatched lingpet after hatching")
-	_expect(str(panel.get("subtitle", "")).find("동행 중") >= 0 and str(panel.get("subtitle", "")).find("친밀도 어색함") >= 0, "character-info panel should show companion status with the default permanent affinity title after hatching")
+	_expect(str(panel.get("subtitle", "")) == "동행 중", "character-info panel should show the plain 동행 중 companion status after hatching (R3b: permanent affinity title removed)")
 
 
 func _verify_affinity_hatch_bonus_hook() -> void:
@@ -4553,7 +4553,8 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	var gated_settlement: Dictionary = gated_runtime.get_last_affinity_bond_settlement_for_tests()
 	_expect_eq(int((gated_settlement.get("discarded", {}) as Dictionary).get("maribo", 0)), 1, "below-50-percent pending pet should not settle bond levels")
 	_expect_eq(gated_store.get_bond_level("maribo"), 0, "below-50-percent pending pet should not write bond levels")
-	_expect_eq(gated_store.get_bond_level("lunabi"), 1, "eligible active pet should write its pending bond level")
+	_expect_eq(int((gated_settlement.get("settled", {}) as Dictionary).get("lunabi", 0)), 1, "eligible active pet should settle its pending bond level (run-state, not store)")
+	_expect_eq(gated_store.get_bond_level("lunabi"), 0, "settled bond levels must not be written to the permanent store")
 
 	var swap_store := FakeAffinityBondStore.new()
 	var swap_registry := FakeRegistry.new({"lingpet_affinity_store": swap_store})
@@ -4567,8 +4568,9 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	swap_runtime.handle_score_event("player", {"match_finished": true}, {"registry": swap_registry})
 	var swap_settlement: Dictionary = swap_runtime.get_last_affinity_bond_settlement_for_tests()
 	_expect_eq(int((swap_settlement.get("settled", {}) as Dictionary).get("maribo", 0)), 1, "inactive swapped pet with 50-percent attendance should settle its own pending bond level")
-	_expect_eq(swap_store.get_bond_level("maribo"), 1, "inactive swapped pet should write bond levels when attendance-eligible")
-	_expect_eq(swap_store.get_bond_level("lunabi"), 1, "final active pet should also write its own eligible pending bond level")
+	_expect_eq(int((swap_settlement.get("settled", {}) as Dictionary).get("lunabi", 0)), 1, "final active pet should settle its own eligible pending bond level (run-state)")
+	_expect_eq(swap_store.get_bond_level("maribo"), 0, "settled bond levels are run-state only and must not be written to the permanent store")
+	_expect_eq(swap_store.get_bond_level("lunabi"), 0, "final active pet bond settlement must not be written to the permanent store either")
 
 
 func _verify_affinity_reward_application() -> void:
@@ -4610,25 +4612,10 @@ func _verify_affinity_reward_application() -> void:
 	bench_flight.debug_add_affinity_points_for_tests("rabi", LingpetAffinityState.SOURCE_HATCH)
 	_expect_eq(_deck_type_count(bench_flight.get_affinity_reward_deck_for_tests("rabi"), LingpetAffinityState.REWARD_TYPE_DEFENSE), 0, "bench flight pets should use their catalog-profile flight deck, not the patrol fallback")
 
-	var high_store_path := _smoke_save_path("affinity_high_base_headstart")
-	_remove_user_file(high_store_path)
-	var high_store: Object = LingpetAffinityStore.new()
-	high_store.set_save_path(high_store_path)
-	high_store.set_best_level("maribo", 12)
-	var high_owner := FakeOwner.new()
-	high_owner.lingpet_owned_pet_ids = ["maribo"]
-	high_owner.lingpet_slots = ["maribo", "", ""]
-	var high_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(high_runtime)
-	high_runtime.set_affinity_reward_seed_for_tests("maribo", 777)
-	var high_registry := FakeRegistry.new({"lingpet_affinity_store": high_store})
-	_expect(high_runtime.debug_grant_and_activate_pet("maribo", high_owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", high_registry, 5, 5), "high-base loadout fixture should activate Maribo")
-	var high_rewards: Dictionary = high_runtime.get_affinity_rewards_for_tests("maribo")
-	_expect_eq(high_runtime.get_affinity_level("maribo"), 4, "previous best 12 should headstart to Lv4")
-	_expect_eq(int(high_rewards.get("active_skill_bonus", 0)), 0, "headstart should respect high active base level before dealing rewards")
-	_expect_eq(int(high_rewards.get("passive_skill_bonus", 0)), 0, "headstart should respect high passive base level before dealing rewards")
-	_expect_eq(int(high_rewards.get("mobility_stacks", 0)) + int(high_rewards.get("defense_stacks", 0)) + int(high_rewards.get("gauge_stacks", 0)), 2, "V3 Lv1-4 headstart should count unlock cards separately from two stat cards")
-	_remove_user_file(high_store_path)
+	# R3 / v5: the store-headstart "high base" reward scenario (previous best ->
+	# floor(best/3) headstart) was removed. No-headstart is sealed by
+	# _verify_affinity_store_v5_meta_only; the reward dealer's deck composition is
+	# covered by the run-state cases above.
 
 	var skill_owner := FakeOwner.new()
 	skill_owner.lingpet_owned_pet_ids = ["maribo"]
@@ -5192,225 +5179,93 @@ func _verify_lingpet_guard_label_feedback() -> void:
 	_expect((runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).is_empty(), "round reset should clear a lingering guard label without relying on draw")
 
 
-func _verify_affinity_residue_store_and_headstart() -> void:
+func _verify_affinity_store_v5_meta_only() -> void:
+	# R3 / per-run: LingpetAffinityStore is meta-only (v5). Legacy v4 sections
+	# ([best_levels]/[bond_points]/[ring_core]/[resolved_unlock_choices]) are
+	# ignored on load and never re-persisted; affinity lives in run-state only.
 	var store_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_store.gd")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
-	_expect(store_source.find("SAVE_PATH := \"user://lingpet_affinity.cfg\"") >= 0, "affinity residue store should use its own user:// file")
-	_expect(store_source.find("SAVE_SCHEMA_VERSION := 4") >= 0 and store_source.find("schema_version") >= 0, "affinity residue store should stamp the v4 schema key")
-	_expect(store_source.find("BOND_POINTS_SECTION") >= 0 and store_source.find("add_bond_levels") >= 0, "affinity residue store should own the v2 bond-points section")
-	_expect(store_source.find("RING_CORE_SECTION") >= 0 and store_source.find("has_ring_core_tier") >= 0, "affinity residue store should own the v3 account-wide ring-core section")
-	_expect(store_source.find("RESOLVED_UNLOCK_CHOICES_SECTION") >= 0 and store_source.find("set_resolved_unlock_choice") >= 0, "affinity residue store should own the v4 per-pet resolved-unlock section")
-	_expect(store_source.find("affinity_points") < 0 and store_source.find("round_cap") < 0 and store_source.find("battle_cap") < 0, "affinity residue store should not persist volatile run points or cap counters")
-	_expect(store_source.find("bytes.slice(3)") >= 0, "affinity residue store should strip UTF-8 BOM before parsing")
-	_expect(runtime_source.find("_apply_affinity_headstart_from_store") >= 0, "runtime should apply store headstart through a focused helper")
-	_expect(runtime_source.find("_record_affinity_best_level_if_needed") >= 0, "runtime should save residue only when a best level increases")
-	_expect(input_source.find("cycle_lingpet_slot(cycle_direction, owner, registry)") >= 0, "lingpet slot input should thread registry into residue-aware switching")
+	_expect(store_source.find("SAVE_SCHEMA_VERSION := 5") >= 0, "affinity store should stamp the v5 meta-only schema")
+	_expect(store_source.find("bytes.slice(3)") >= 0, "affinity store should still strip UTF-8 BOM before parsing")
+	for store_needle in ["store.get_best_level", "store.set_best_level", "store.add_bond_levels", "store.get_bond_points", "store.get_resolved_unlock_choices", "store.set_resolved_unlock_choice", "store.clear_resolved_unlock_choice", "store.get_ring_core_tier", "store.set_ring_core_tier", "store.upgrade_ring_core_tier", "store.get_ring_core_cap"]:
+		_expect(runtime_source.find(store_needle) < 0, "egg_runtime must not touch the persisted affinity axis (%s)" % store_needle)
 
-	var affinity_path := _smoke_save_path("affinity_store")
-	var run_save_path := _smoke_save_path("save_store_residue_separation")
-	var bom_path := _smoke_save_path("affinity_store_bom")
-	var v1_migration_path := _smoke_save_path("affinity_store_v1_migration")
-	var v2_migration_path := _smoke_save_path("affinity_store_v2_migration")
-	var corrupt_bond_path := _smoke_save_path("affinity_store_corrupt_bond")
-	_remove_user_file(affinity_path)
-	_remove_user_file(run_save_path)
-	_remove_user_file(bom_path)
-	_remove_user_file(v1_migration_path)
-	_remove_user_file(v2_migration_path)
-	_remove_user_file(corrupt_bond_path)
+	var legacy_text := "[meta]\nschema_version=4\n\n[best_levels]\nmaribo=30\n\n[bond_points]\nmaribo=18\n\n[ring_core]\ntier=6\n\n[resolved_unlock_choices]\n\"maribo.active\"=\"legacy_skill\"\n"
+	var legacy_path := _smoke_save_path("affinity_store_v5_legacy")
+	var legacy_backup := legacy_path.trim_suffix(".cfg") + ".last_good.cfg"
+	_remove_user_file(legacy_path)
+	_remove_user_file(legacy_backup)
+	var legacy_file := FileAccess.open(legacy_path, FileAccess.WRITE)
+	_expect(legacy_file != null, "v5 legacy fixture should open the main file")
+	if legacy_file != null:
+		legacy_file.store_string(legacy_text)
+		legacy_file.close()
+	var legacy_backup_file := FileAccess.open(legacy_backup, FileAccess.WRITE)
+	_expect(legacy_backup_file != null, "v5 legacy fixture should open the backup file")
+	if legacy_backup_file != null:
+		legacy_backup_file.store_string(legacy_text)
+		legacy_backup_file.close()
 
 	var store: Object = LingpetAffinityStore.new()
-	store.set_save_path(affinity_path)
-	_expect(not bool(store.has_ring_core_tier()), "new affinity store should distinguish missing ring-core data from explicit no-core")
-	_expect_eq(int(store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "missing ring-core data should fail open to max cap for legacy saves")
-	_expect(bool(store.set_best_level("Maribo ", 11)), "affinity store should save a normalized best level")
-	_expect_eq(int(store.get_best_level("maribo")), 11, "affinity store should reload normalized Maribo best level")
-	_expect(not bool(store.set_best_level("maribo", 4)), "affinity store should not lower an existing best level")
-	_expect_eq(int(store.get_best_level("maribo")), 11, "lower residue writes should leave the previous best intact")
-	var saved_text := FileAccess.get_file_as_string(affinity_path)
-	_expect(saved_text.find("schema_version=4") >= 0 and saved_text.find("[best_levels]") >= 0, "affinity residue file should save the v4 schema and best-level section")
-	_expect(saved_text.find("affinity_points") < 0 and saved_text.find("round_commit") < 0 and saved_text.find("hatch_bonus") < 0, "affinity residue file should contain only best-level style data")
-	_expect(bool(store.set_ring_core_tier(0)), "affinity store should persist explicit no-core tier 0")
-	_expect(bool(store.has_ring_core_tier()), "explicit no-core should count as stored ring-core data")
-	_expect_eq(int(store.get_ring_core_tier()), 0, "explicit no-core should roundtrip as tier 0")
-	_expect_eq(int(store.get_ring_core_cap()), 0, "explicit no-core should map to cap 0")
-	_expect(bool(store.upgrade_ring_core_tier(1)), "affinity store should upgrade to standard ring-core tier 1")
-	_expect_eq(int(store.get_ring_core_cap()), 5, "standard ring-core should map to cap 5")
-	_expect(not bool(store.upgrade_ring_core_tier(1)), "affinity store should skip same-tier ring-core upgrades")
-	_expect(bool(store.upgrade_ring_core_tier(6)), "affinity store should upgrade to zenith ring-core tier 6")
-	_expect_eq(int(store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "zenith ring-core should map to max cap")
-	var ring_core_saved_text := FileAccess.get_file_as_string(affinity_path)
-	_expect(ring_core_saved_text.find("[ring_core]") >= 0 and ring_core_saved_text.find("tier=6") >= 0, "affinity residue file should persist the v3 ring-core section")
-	_expect(bool(store.add_bond_levels("Maribo ", 3)), "affinity store should add normalized bond points")
-	_expect(bool(store.add_bond_levels("maribo", 4)), "affinity store should accumulate bond points instead of skip-not-higher semantics")
-	_expect_eq(int(store.get_bond_points("MARIBO")), 7, "affinity store should expose cumulative normalized bond points")
-	_expect(not bool(store.add_bond_levels("maribo", 0)), "affinity store should skip non-positive bond writes")
-	_expect_eq(int(store.get_bond_points("maribo")), 7, "non-positive bond writes should not mutate stored bond points")
-	_expect(bool(store.add_bond_levels("lunabi", 30)), "affinity store should preserve raw bond totals above the title display cap")
-	_expect_eq(int(store.get_bond_points("lunabi")), 30, "bond points should not be clamped to the current 25-title display cap")
-	var bond_saved_text := FileAccess.get_file_as_string(affinity_path)
-	_expect(bond_saved_text.find("[bond_points]") >= 0 and bond_saved_text.find("maribo=7") >= 0, "affinity residue file should persist the v2 bond-points section")
-	var reloaded_store: Object = LingpetAffinityStore.new()
-	reloaded_store.set_save_path(affinity_path)
-	_expect_eq(int(reloaded_store.get_best_level("maribo")), 11, "affinity best levels should roundtrip through the v4 store")
-	_expect_eq(int(reloaded_store.get_bond_points("maribo")), 7, "affinity bond points should roundtrip through the v4 store")
-	_expect_eq(int(reloaded_store.get_bond_points("lunabi")), 30, "affinity bond points above the display cap should roundtrip")
-	_expect(bool(reloaded_store.has_ring_core_tier()), "ring-core tier should roundtrip through the v4 store")
-	_expect_eq(int(reloaded_store.get_ring_core_tier()), 6, "zenith ring-core tier should roundtrip through reload")
-	_expect_eq(int(reloaded_store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "reloaded zenith ring-core should expose max cap")
+	store.set_save_path(legacy_path)
+	# Legacy sections are ignored -> every getter returns the safe v5 default.
+	_expect_eq(int(store.get_best_level("maribo")), 0, "v5 store should ignore the legacy [best_levels] section")
+	_expect_eq(int(store.get_bond_points("maribo")), 0, "v5 store should ignore the legacy [bond_points] section")
+	_expect_eq(int(store.get_ring_core_tier()), 0, "v5 store should ignore the legacy [ring_core] tier")
+	_expect_eq(int(store.get_ring_core_cap()), 0, "v5 store ring-core cap should be 0 (never fail open to MAX)")
+	_expect(store.get_resolved_unlock_choices("maribo").is_empty(), "v5 store should ignore the legacy [resolved_unlock_choices] section")
 
-	_write_affinity_store_v1_file(v1_migration_path)
-	var migrated_store: Object = LingpetAffinityStore.new()
-	migrated_store.set_save_path(v1_migration_path)
-	_expect_eq(int(migrated_store.get_best_level("maribo")), 9, "v1 affinity store migration should preserve best levels")
-	_expect_eq(int(migrated_store.get_bond_points("maribo")), 0, "v1 affinity store migration should initialize missing bond points to zero")
-	_expect(not bool(migrated_store.has_ring_core_tier()), "v1 affinity store migration should leave ring-core tier missing, not explicit no-core")
-	_expect_eq(int(migrated_store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "missing v1 ring-core data should fail open to max cap")
-	_expect_eq(int(migrated_store.get_schema_version()), 4, "v1 affinity store migration should expose the v4 in-memory schema")
-	_expect(bool(migrated_store.save()), "v1 affinity store migration should be able to stamp the v4 schema on save")
-	var migrated_text := FileAccess.get_file_as_string(v1_migration_path)
-	_expect(migrated_text.find("schema_version=4") >= 0 and migrated_text.find("version=1") < 0, "v1 affinity store migration should rewrite the meta schema key as v4")
+	# Writers are no-op false so plaza/perk store upgrades fail safely until R4/R5.
+	_expect(not bool(store.set_best_level("maribo", 12)), "v5 set_best_level should no-op false")
+	_expect(not bool(store.add_bond_levels("maribo", 5)), "v5 add_bond_levels should no-op false")
+	_expect(not bool(store.set_ring_core_tier(3)), "v5 set_ring_core_tier should no-op false")
+	_expect(not bool(store.upgrade_ring_core_tier(2)), "v5 upgrade_ring_core_tier should no-op false")
+	_expect(not bool(store.set_resolved_unlock_choice("maribo", "active", "x")), "v5 set_resolved_unlock_choice should no-op false")
 
-	_write_affinity_store_v2_file(v2_migration_path)
-	var migrated_v2_store: Object = LingpetAffinityStore.new()
-	migrated_v2_store.set_save_path(v2_migration_path)
-	_expect_eq(int(migrated_v2_store.get_best_level("maribo")), 10, "v2 affinity store migration should preserve best levels")
-	_expect_eq(int(migrated_v2_store.get_bond_points("maribo")), 6, "v2 affinity store migration should preserve bond points")
-	_expect(not bool(migrated_v2_store.has_ring_core_tier()), "v2 affinity store migration should keep missing ring-core distinct from explicit tier 0")
-	_expect_eq(int(migrated_v2_store.get_ring_core_cap()), LingpetAffinityState.MAX_LEVEL, "missing v2 ring-core data should fail open to max cap")
-	_expect(bool(migrated_v2_store.save()), "v2 affinity store migration should be able to stamp the v4 schema on save")
-	var migrated_v2_text := FileAccess.get_file_as_string(v2_migration_path)
-	_expect(migrated_v2_text.find("schema_version=4") >= 0 and migrated_v2_text.find("[ring_core]") < 0, "v2 migration should not invent an explicit ring-core tier")
+	# An explicit save() must drop every legacy section -> meta-only file.
+	_expect(bool(store.save()), "v5 store save should succeed")
+	var saved_text := FileAccess.get_file_as_string(legacy_path)
+	_expect(saved_text.find("schema_version=5") >= 0, "saved v5 file should stamp schema_version=5")
+	for legacy_section in ["[best_levels]", "[bond_points]", "[ring_core]", "[resolved_unlock_choices]"]:
+		_expect(saved_text.find(legacy_section) < 0, "saved v5 file should not re-create the legacy section %s" % legacy_section)
 
-	_write_affinity_store_corrupt_bond_file(corrupt_bond_path)
-	var corrupt_store: Object = LingpetAffinityStore.new()
-	corrupt_store.set_save_path(corrupt_bond_path)
-	_expect_eq(int(corrupt_store.get_best_level("maribo")), 9, "corrupt bond fixture should still preserve valid best levels")
-	_expect_eq(int(corrupt_store.get_bond_points("maribo")), 0, "negative bond values should be floored to zero")
-	_expect_eq(int(corrupt_store.get_bond_points("lunabi")), 0, "non-numeric bond values should be treated as zero")
-	_expect_eq(int(corrupt_store.get_bond_points("rabi")), 30, "valid bond values in a corrupt file should survive load")
+	# Reload of the now meta-only file stays default, and the legacy backup must
+	# not resurrect old sections through the recovery path.
+	var reloaded: Object = LingpetAffinityStore.new()
+	reloaded.set_save_path(legacy_path)
+	_expect_eq(int(reloaded.get_best_level("maribo")), 0, "reloaded v5 store should not resurrect best levels from backup")
+	_expect_eq(int(reloaded.get_ring_core_tier()), 0, "reloaded v5 store should not resurrect ring-core tier from backup")
+	_expect(reloaded.get_resolved_unlock_choices("maribo").is_empty(), "reloaded v5 store should not resurrect resolved choices from backup")
 
-	var candidate_best_levels := {}
-	for pet_id in LingpetCatalog.get_pet_ids():
-		candidate_best_levels[pet_id] = 11
-	_expect(bool(store.merge_best_levels(candidate_best_levels)), "affinity store should seed all hatch candidates for the headstart fixture")
-
-	_write_lingpet_snapshot(run_save_path, {
-		"version": 1,
-		"pet_id": "maribo",
-		"state": "companion",
-		"hatch_hits": 3,
-		"required_hits": 3,
-		"owned_pet_ids": ["maribo"],
-		"active_pet_id": "maribo",
-	})
-	var save_store: Object = LingpetSaveStore.new()
-	save_store.set_save_path(run_save_path)
-	_expect(bool(save_store.clear_snapshot("separation_smoke")), "volatile lingpet save clear should succeed")
-	_expect(not FileAccess.file_exists(run_save_path), "volatile run save file should be removed by clear_snapshot")
-	_expect(FileAccess.file_exists(affinity_path), "volatile clear_snapshot should not touch the affinity residue file")
-	var separated_store: Object = LingpetAffinityStore.new()
-	separated_store.set_save_path(affinity_path)
-	_expect_eq(int(separated_store.get_best_level("maribo")), 11, "affinity residue should survive lingpet_save_store.clear_snapshot")
-	_expect_eq(int(separated_store.get_bond_points("maribo")), 7, "bond residue should survive lingpet_save_store.clear_snapshot")
-
-	_write_affinity_store_bom_file(bom_path)
-	var bom_store: Object = LingpetAffinityStore.new()
-	bom_store.set_save_path(bom_path)
-	_expect_eq(int(bom_store.get_best_level("maribo")), 9, "affinity residue store should parse BOM-prefixed config files")
-	_expect_eq(int(bom_store.get_best_level("lunabi")), 12, "affinity residue store should clamp and read multiple best levels")
-
+	# Runtime: a legacy store best=30 / ring tier 6 must NOT headstart or open the
+	# affinity cap. The run starts fresh at tier 0 / level 0.
+	var headstart_path := _smoke_save_path("affinity_store_v5_headstart")
+	var headstart_backup := headstart_path.trim_suffix(".cfg") + ".last_good.cfg"
+	_remove_user_file(headstart_path)
+	_remove_user_file(headstart_backup)
+	var headstart_file := FileAccess.open(headstart_path, FileAccess.WRITE)
+	if headstart_file != null:
+		headstart_file.store_string(legacy_text)
+		headstart_file.close()
+	var hs_store: Object = LingpetAffinityStore.new()
+	hs_store.set_save_path(headstart_path)
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(runtime)
-	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var registry := FakeRegistry.new({"lingpet_affinity_store": hs_store})
 	runtime.update(0.0, owner, registry)
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	owner.ball_active = true
 	_register_hit(runtime, owner, egg_pos, 1, registry)
 	var hatched_pet_id := str(owner.active_lingpet_id)
-	_expect(hatched_pet_id != "", "residue headstart fixture should hatch a concrete pet")
-	_expect_eq(runtime.get_affinity_level(hatched_pet_id), 3, "hatching with previous best 11 should headstart to floor(best/3)")
-	_expect_float(runtime.get_affinity_points(hatched_pet_id), 25.0, "hatch +25 and residue headstart should stack on separate axes")
-	_expect_eq(int(runtime.get_affinity_data(hatched_pet_id).get("best_level", 0)), 11, "headstart should seed previous best for anti-inflation")
-	_expect_eq(int(store.get_best_level(hatched_pet_id)), 11, "headstart alone should not rewrite the residue store")
-	for _i in range(10):
-		runtime.debug_add_affinity_points_for_tests(hatched_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
-	_expect_eq(int(store.get_best_level(hatched_pet_id)), 11, "a headstarted run below the previous best should not rewrite residue")
-	for _i in range(775):
-		runtime.debug_add_affinity_points_for_tests(hatched_pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
-	_expect_eq(runtime.get_affinity_level(hatched_pet_id), LingpetAffinityState.MAX_LEVEL, "headstarted run should be able to exceed the previous best")
-	_expect_eq(int(store.get_best_level(hatched_pet_id)), LingpetAffinityState.MAX_LEVEL, "only a real best-level increase should persist residue")
+	_expect(hatched_pet_id != "", "v5 headstart fixture should hatch a concrete pet")
+	_expect_eq(runtime.get_affinity_level(hatched_pet_id), 0, "legacy store best=30 must NOT headstart a v5 run (affinity starts at Lv0)")
+	_expect_eq(int(hs_store.get_best_level(hatched_pet_id)), 0, "v5 store must not record a best level on hatch")
+	_expect(int(owner.lingpet_ring_core_tier) != 6, "owner/TAB ring-core tier should ignore the legacy store tier 6 (run-state, not store)")
 
-	# Permanent-ledger corruption recovery (CLAUDE.md ConfigFile trap): the
-	# affinity residue is a player-facing permanent save, so a corrupted or
-	# emptied main file must repair from the last-good backup instead of
-	# silently resetting. Expected engine parse errors are muted via
-	# Engine.print_error_messages so the smoke runner's error gate only sees
-	# intentional output.
-	var recovery_path := _smoke_save_path("affinity_store_recovery")
-	var recovery_store: Object = LingpetAffinityStore.new()
-	recovery_store.set_save_path(recovery_path)
-	var recovery_backup_path := str(recovery_store.get_backup_path())
-	_expect(recovery_backup_path.ends_with(".last_good.cfg") and recovery_backup_path != recovery_path, "affinity store should derive a sibling last-good backup path")
-	_remove_user_file(recovery_path)
-	_remove_user_file(recovery_backup_path)
-	_expect(bool(recovery_store.set_best_level("maribo", 8)), "recovery fixture should persist an initial best level")
-	_expect(FileAccess.file_exists(recovery_backup_path), "every successful residue save should refresh the last-good backup")
-
-	var empty_file := FileAccess.open(recovery_path, FileAccess.WRITE)
-	_expect(empty_file != null, "test helper should open the empty residue fixture")
-	if empty_file != null:
-		empty_file.store_string("[meta]\nschema_version=2\n")
-		empty_file.close()
-	var empty_recovered_store: Object = LingpetAffinityStore.new()
-	empty_recovered_store.set_save_path(recovery_path)
-	_expect_eq(int(empty_recovered_store.get_best_level("maribo")), 8, "an existing-but-empty residue file should recover from the last-good backup")
-	_expect_str(str(empty_recovered_store.last_load_summary), "recovered_last_good", "empty-file recovery should report the last-good summary")
-
-	_write_affinity_store_broken_file(recovery_path)
-	Engine.print_error_messages = false
-	var recovered_store: Object = LingpetAffinityStore.new()
-	recovered_store.set_save_path(recovery_path)
-	var recovered_best := int(recovered_store.get_best_level("maribo"))
-	var recovered_summary := str(recovered_store.last_load_summary)
-	Engine.print_error_messages = true
-	_expect_eq(recovered_best, 8, "a corrupted residue file should recover from the last-good backup instead of resetting")
-	_expect_str(recovered_summary, "recovered_last_good", "corruption recovery should report the last-good summary")
-	var repaired_store: Object = LingpetAffinityStore.new()
-	repaired_store.set_save_path(recovery_path)
-	_expect_eq(int(repaired_store.get_best_level("maribo")), 8, "recovery should rewrite the corrupted main file with the recovered residue")
-	_expect_str(str(repaired_store.last_load_summary), "ok", "the repaired main file should load cleanly afterwards")
-
-	_write_affinity_store_broken_file(recovery_path)
-	_write_affinity_store_broken_file(recovery_backup_path)
-	Engine.print_error_messages = false
-	var double_corrupt_store: Object = LingpetAffinityStore.new()
-	double_corrupt_store.set_save_path(recovery_path)
-	var double_corrupt_best := int(double_corrupt_store.get_best_level("maribo"))
-	var double_corrupt_saved := bool(double_corrupt_store.set_best_level("maribo", 2))
-	Engine.print_error_messages = true
-	_expect_eq(double_corrupt_best, 0, "double corruption should fall back to defaults instead of crashing")
-	_expect(double_corrupt_saved, "post-corruption saves should still persist new residue")
-	_expect(FileAccess.get_file_as_string(recovery_backup_path).find("maribo=:::") >= 0, "a save after double corruption must keep the broken backup inspectable instead of clobbering it")
-	_expect(bool(double_corrupt_store.clear()), "clear should remove the residue main file")
-	_expect(not FileAccess.file_exists(recovery_path), "clear should remove the residue main file from disk")
-	_expect(not FileAccess.file_exists(recovery_backup_path), "clear should remove the last-good backup so cleared residue cannot resurrect")
-
-	_remove_user_file(affinity_path)
-	_remove_user_file(run_save_path)
-	_remove_user_file(bom_path)
-	_remove_user_file(v1_migration_path)
-	_remove_user_file(v2_migration_path)
-	_remove_user_file(corrupt_bond_path)
-	_remove_user_file(recovery_path)
-	_remove_user_file(recovery_backup_path)
-	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(bom_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(v1_migration_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(v2_migration_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(corrupt_bond_path.trim_suffix(".cfg") + ".last_good.cfg")
+	_remove_user_file(legacy_path)
+	_remove_user_file(legacy_backup)
+	_remove_user_file(headstart_path)
+	_remove_user_file(headstart_backup)
 
 
 func _grant_affinity_round_commits(runtime: Object, pet_id: String, count: int) -> void:
@@ -5497,15 +5352,14 @@ func _verify_ring_core_cap_run_state_source() -> void:
 
 	var ignored_store: Object = LingpetAffinityStore.new()
 	ignored_store.set_save_path(ignored_store_path)
-	_expect(bool(ignored_store.set_best_level("maribo", 12)), "ignored-store fixture should store a previous best level")
-	_expect(bool(ignored_store.set_ring_core_tier(6)), "ignored-store fixture should persist legacy zenith tier")
+	# R3 / v5: store no longer persists best/ring-core; this is an empty store.
 	var no_core_runtime: Object = LingpetEggRuntime.new()
 	var no_core_owner := FakeOwner.new()
 	var no_core_registry := FakeRegistry.new({"lingpet_affinity_store": ignored_store})
 	_expect(no_core_runtime.debug_grant_and_activate_pet("maribo", no_core_owner, false, "", "", no_core_registry), "run-tier fixture should activate Maribo")
 	no_core_runtime.update(0.0, no_core_owner, no_core_registry)
 	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "legacy store T6 should not open this-run ring-core cap")
-	_expect_eq(int(no_core_owner.lingpet_ring_core_tier), 0, "owner/TAB ring-core tier should use run tier 0 instead of legacy store T6")
+	_expect_eq(int(no_core_owner.lingpet_ring_core_tier), 0, "owner/TAB ring-core tier should use run tier 0 (no store fallback)")
 	for _i in range(20):
 		no_core_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, no_core_registry)
 	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "run tier 0 should keep affinity at Lv0")
@@ -5513,7 +5367,7 @@ func _verify_ring_core_cap_run_state_source() -> void:
 
 	var standard_store: Object = LingpetAffinityStore.new()
 	standard_store.set_save_path(standard_path)
-	_expect(bool(standard_store.set_ring_core_tier(6)), "standard fixture should keep a legacy store tier that must be ignored")
+	# R3 / v5: store no longer persists ring-core; the run tier is seeded directly.
 	var standard_runtime: Object = LingpetEggRuntime.new()
 	var standard_owner := FakeOwner.new()
 	var standard_registry := FakeRegistry.new({"lingpet_affinity_store": standard_store})
@@ -5523,7 +5377,7 @@ func _verify_ring_core_cap_run_state_source() -> void:
 	for _i in range(200):
 		standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
 	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "this-run standard ring-core should cap affinity at Lv5")
-	_expect_eq(int(standard_owner.lingpet_ring_core_tier), 1, "owner/TAB ring-core tier should show this-run tier 1 instead of store T6")
+	_expect_eq(int(standard_owner.lingpet_ring_core_tier), 1, "owner/TAB ring-core tier should show this-run tier 1")
 	var banked_points: float = standard_runtime.get_affinity_points("maribo")
 	_expect(banked_points > 0.0, "this-run standard ring-core cap should bank overflow points")
 	standard_runtime.update(0.0, standard_owner, standard_registry)
@@ -5536,11 +5390,11 @@ func _verify_ring_core_cap_run_state_source() -> void:
 	_expect(standard_runtime._affinity_state.upgrade_run_ring_core_tier(2), "run-state ring-core upgrade should move the cap to tier 2")
 	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
 	_expect_eq(standard_runtime.get_affinity_level("maribo"), 10, "upgrading this-run ring-core cap should spend banked points on the next affinity grant")
-	_expect_eq(int(standard_store.get_ring_core_tier()), 6, "run-state cap upgrades should not mutate the permanent ring-core store")
+	_expect_eq(int(standard_store.get_ring_core_tier()), 0, "run-state cap upgrades must not write the permanent ring-core store (always 0 in v5)")
 
 	var missing_store: Object = LingpetAffinityStore.new()
 	missing_store.set_save_path(missing_path)
-	_expect(bool(missing_store.set_best_level("maribo", 12)), "missing-tier fixture should store a previous best level")
+	# R3 / v5: store no longer persists best levels; this is an empty store.
 	var missing_runtime: Object = LingpetEggRuntime.new()
 	var missing_owner := FakeOwner.new()
 	var missing_registry := FakeRegistry.new({"lingpet_affinity_store": missing_store})

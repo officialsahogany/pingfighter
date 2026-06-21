@@ -233,6 +233,8 @@
 - 강화칩: 현재 런 chip count 표시
 - 후보 대기 UI: 폐쇄 유지. 스킬 해금은 자동 결정.
 - bond/호칭 subtitle은 영구 `[bond_points]`를 읽지 않게 한다. 제거하거나 현재 런 친밀도에서 파생되는 임시 표기로만 남긴다.
+  → **R3b에서 제거 완료**: subtitle은 companion일 때 "동행 중" 고정,
+  영구 bond/title 잔향은 snapshot_builder/presenter/schema에서 삭제.
 
 ## 5. 마이그레이션 정책
 
@@ -305,18 +307,35 @@
 
 ## 7. 권장 구현 순서
 
-1. **R1: state run-tier API**
+1. **R1: state run-tier API** ✅ 완료 (commit 26d352aed)
    - `LingpetAffinityState`에 run ring core tier/cap 추가.
    - reset smoke.
 
-2. **R2: runtime cap source switch**
+2. **R2: runtime cap source switch** ✅ 완료 (commit eee6077b3)
    - `egg_runtime` cap 주입을 store에서 state로 이동.
    - tutorial grant를 run-state로 이동.
    - best/bond/resolved-choice store read/write를 끊는다.
 
-3. **R3: store v5 migration/drop**
+3. **R3: store v5 migration/drop** ✅ 완료
    - v4 progression residue 무시/제거.
    - old save T6 resurrection 방지.
+   - egg_runtime source-seal(store best/bond/resolved read/write 0) +
+     egg_runtime_smoke(5함수 flip)/v3_2c_smoke(5 run-state rework + 3 삭제) GREEN.
+
+3b. **R3b: character_info 영구 bond/title 패널 표시 제거** ✅ 완료
+   - per-run에서 영구 친밀도 축이 사라졌으므로, TAB 패널의 store-backed
+     영구 bond/title 잔향을 제거(누락 touchpoint를 R3 직후에 닫음).
+   - `character_info_overlay_lingpet_snapshot_builder.gd`: bond read + 호칭
+     subtitle 제거 → subtitle "동행 중". `_companion_subtitle_for_bond` 삭제.
+   - `character_info_overlay_lingpet_presenter.gd`: stats cache-hash의 bond 제거.
+   - `battle_scene_state.gd`: DEFAULT_VALUES에서
+     `lingpet/ringpet_bond_points` + `lingpet/ringpet_bond_title` 제거.
+   - run-state 표시(level/points/ring-core/chip/교감행)와 인게임 교감 피드백
+     호칭(`egg_runtime.gd:1245` run-state)은 **분리 보존**.
+   - character_info_live_stats_smoke + egg_runtime_smoke 패널 subtitle 어서션
+     flip → GREEN. warning_scan 전역 클린.
+   - 선택적 후속 정리(미적용): 미사용된 `"동행 중 · 친밀도 %s"` 로컬라이즈
+     문자열(localization_coverage_smoke는 여전히 통과).
 
 4. **R4: plaza shop transaction switch**
    - gold/AP 결제는 유지, upgrade target만 run state로 변경.

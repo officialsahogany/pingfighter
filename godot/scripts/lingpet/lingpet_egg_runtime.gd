@@ -754,6 +754,10 @@ func get_companion_roll_angle_for_tests() -> float:
 	return _companion_roll_angle
 
 
+func signed_roll_distance_for_tests(moved: Vector2) -> float:
+	return _signed_roll_distance(moved)
+
+
 func get_companion_roll_draw_angle_for_tests() -> float:
 	return _get_companion_roll_draw_angle()
 
@@ -1183,15 +1187,12 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		_synced_owner_loadout_key = _applied_loadout_key
 
 
-func _build_affinity_owner_surface_key(registry: Object = null) -> Array:
+func _build_affinity_owner_surface_key(_registry: Object = null) -> Array:
 	if _state != STATE_COMPANION:
 		return [_state, "", 0, 0.0, 0, 0, 0, 0, ""]
-	var store: Object = _get_affinity_store(registry)
 	var ring_core_tier: int = _affinity_state.get_run_ring_core_tier()
+	# v5 / per-run: bond points are no longer persisted (run-state has no bond axis).
 	var bond_points := 0
-	if store != null:
-		if store.has_method("get_bond_points"):
-			bond_points = maxi(0, int(store.get_bond_points(_pet_id)))
 	return [
 		_state,
 		_pet_id,
@@ -1249,14 +1250,9 @@ func _get_display_ring_core_tier(_registry: Object = null) -> int:
 	return _affinity_state.get_run_ring_core_tier()
 
 
-func _get_affinity_bond_points(pet_id: String, registry: Object = null) -> int:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return 0
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("get_bond_points"):
-		return 0
-	return maxi(0, int(store.get_bond_points(normalized_pet_id)))
+func _get_affinity_bond_points(_pet_id: String, _registry: Object = null) -> int:
+	# v5 / per-run: bond points are no longer persisted; bond axis is dropped.
+	return 0
 
 
 func _affinity_next_label_for_pet(pet_id: String) -> String:
@@ -1772,77 +1768,21 @@ func get_unlock_choice_options(_pet_id: String = "", _registry: Object = null) -
 	return []
 
 
-func commit_unlock_pick(pet_id: String, choice_key: String, candidate_id: String, owner: Object = null, registry: Object = null) -> bool:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		normalized_pet_id = _normalize_pet_id(_pet_id)
-	var normalized_choice_key := _normalize_unlock_choice_key(choice_key)
-	var normalized_candidate_id := str(candidate_id).strip_edges().to_lower()
-	if normalized_pet_id == "" or normalized_choice_key == "" or normalized_candidate_id == "":
-		return false
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("set_resolved_unlock_choice") or not store.has_method("get_resolved_unlock_choices"):
-		return false
-	var stored: Dictionary = store.get_resolved_unlock_choices(normalized_pet_id)
-	var selected_option: Dictionary = {}
-	for option in get_unlock_choice_options(normalized_pet_id, registry):
-		if not (option is Dictionary):
-			continue
-		var option_dict: Dictionary = option
-		if str(option_dict.get("choice_key", "")) == normalized_choice_key:
-			selected_option = option_dict
-			break
-	if selected_option.is_empty() or bool(selected_option.get("locked", false)):
-		return false
-	var candidates: Array = selected_option.get("candidates", []) as Array
-	if not _choice_candidates_include(candidates, normalized_candidate_id):
-		return false
-	if stored.has(normalized_choice_key) and store.has_method("clear_resolved_unlock_choice"):
-		store.clear_resolved_unlock_choice(normalized_pet_id, normalized_choice_key)
-	if not bool(store.set_resolved_unlock_choice(normalized_pet_id, normalized_choice_key, normalized_candidate_id)):
-		return false
-	_skip_unlock_reconcile = false
-	_invalidate_current_loadout_cache()
-	_apply_current_loadout(owner, true, false, registry)
-	return true
+func commit_unlock_pick(_pet_id_arg: String, _choice_key: String, _candidate_id: String, _owner: Object = null, _registry: Object = null) -> bool:
+	# v5 / per-run: unlock choices auto-resolve into run-state (no player pick UI,
+	# no store persistence). This store-backed commit is disabled.
+	return false
 
 
-func _apply_persisted_unlock_choices(pet_id: String, choice_keys: Array[String], registry: Object = null) -> void:
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("get_resolved_unlock_choices"):
-		return
-	var stored: Dictionary = store.get_resolved_unlock_choices(pet_id)
-	if stored.is_empty():
-		return
-	var pending: Dictionary = _affinity_state.get_pending_unlock_choices(pet_id)
-	for raw_choice_key in choice_keys:
-		var choice_key := str(raw_choice_key).strip_edges().to_lower()
-		var selected_id := str(stored.get(choice_key, "")).strip_edges().to_lower()
-		if selected_id == "":
-			continue
-		var has_pending := pending.has(choice_key)
-		var choice: Dictionary = pending.get(choice_key, {}) as Dictionary
-		var candidates: Array = []
-		if has_pending:
-			candidates = choice.get("candidates", []) as Array
-		else:
-			candidates = _get_unlock_choice_candidate_ids(pet_id, choice_key, stored)
-		if not _choice_candidates_include(candidates, selected_id):
-			if store.has_method("clear_resolved_unlock_choice"):
-				store.clear_resolved_unlock_choice(pet_id, choice_key)
-			continue
-		var reward_type := str(choice.get("type", "")) if has_pending else _reward_type_for_unlock_choice_key(choice_key)
-		if has_pending:
-			_affinity_state.choose_skill_unlock(pet_id, reward_type, selected_id)
-		else:
-			_affinity_state.apply_resolved_unlock_choice(pet_id, reward_type, selected_id, candidates)
+func _apply_persisted_unlock_choices(_pet_id_arg: String, _choice_keys: Array[String], _registry: Object = null) -> void:
+	# v5 / per-run: no store-persisted unlock choices to apply. Run-state owns
+	# resolved choices (auto-resolved on grant), so this restore path is disabled.
+	pass
 
 
-func _get_store_resolved_unlock_choices(pet_id: String, registry: Object = null) -> Dictionary:
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("get_resolved_unlock_choices"):
-		return {}
-	return store.get_resolved_unlock_choices(pet_id)
+func _get_store_resolved_unlock_choices(_pet_id_arg: String, _registry: Object = null) -> Dictionary:
+	# v5 / per-run: the store no longer persists resolved unlock choices.
+	return {}
 
 
 func _choice_candidates_include(candidates: Array, selected_id: String) -> bool:
@@ -2258,7 +2198,8 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 			_state == STATE_COMPANION,
 			_companion_pos,
 			_get_current_stat("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0),
-			_get_current_stat("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0)
+			_get_current_stat("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0),
+			_get_current_motion_style()
 		)
 		if _ring_dash_state.has_companion_position_override():
 			_companion_pos = _ring_dash_state.get_companion_position_override(_companion_pos)
@@ -2570,10 +2511,20 @@ func _launch_companion_skill(owner: Object, registry: Object, slot_index: int = 
 			"banana_count": float(current_active_skill.get("banana_count", -1.0)),
 			"clone_count": float(current_active_skill.get("clone_count", -1.0)),
 			"duration_seconds": float(current_active_skill.get("duration_seconds", -1.0)),
+			"slip_seconds": float(current_active_skill.get("slip_seconds", -1.0)),
 			"slip_speed": float(current_active_skill.get("slip_speed", -1.0)),
 			"roar_radius": float(current_active_skill.get("roar_radius", -1.0)),
 			"ball_boost": float(current_active_skill.get("ball_boost", -1.0)),
+			"slow_duration": float(current_active_skill.get("slow_duration", -1.0)),
+			"slow_multiplier": float(current_active_skill.get("slow_multiplier", -1.0)),
 			"stun_duration_seconds": float(current_active_skill.get("stun_duration_seconds", 0.0)),
+			"explosion_radius": float(current_active_skill.get("explosion_radius", 0.0)),
+			"knockback_power": float(current_active_skill.get("knockback_power", -1.0)),
+			"projectile_count": float(current_active_skill.get("projectile_count", -1.0)),
+			"fire_duration_seconds": float(current_active_skill.get("fire_duration_seconds", -1.0)),
+			"mega_chance": float(current_active_skill.get("mega_chance", -1.0)),
+			"mega_projectile_count": float(current_active_skill.get("mega_projectile_count", -1.0)),
+			"mega_duration_seconds": float(current_active_skill.get("mega_duration_seconds", -1.0)),
 			"arrow_draw_time": float(current_active_skill.get("arrow_draw_time", -1.0)),
 			"arrow_cooldown_min": float(current_active_skill.get("arrow_cooldown_min", -1.0)),
 			"arrow_cooldown_max": float(current_active_skill.get("arrow_cooldown_max", -1.0)),
@@ -2714,11 +2665,14 @@ func _advance_companion_draw_anim(delta: float) -> void:
 		# idle, not walking. A real horizontal chase still reads as walking. This real-movement
 		# signal is also the patrol/free-flight walk-idle gate (see
 		# _get_companion_draw_motion_speed_ratio), so a genuinely static companion reads idle.
-		var moved_dx: float = _companion_pos.x - _companion_draw_pos_prev.x
+		var moved: Vector2 = _companion_pos - _companion_draw_pos_prev
+		var moved_dx: float = moved.x
 		var moved_x: float = absf(moved_dx)
 		var safe_delta: float = maxf(0.0001, delta)
 		_companion_override_move_ratio = clampf((moved_x / safe_delta) / speed_max, 0.0, 1.0)
-		_advance_companion_distance_roll(moved_dx, delta)
+		# Roll uses PATH distance (incl. vertical) so a rolling-hoop pet keeps spinning during a
+		# pure-vertical wall climb/descend; the walk/idle ratio above stays x-only (starlight trap).
+		_advance_companion_distance_roll(_signed_roll_distance(moved), delta)
 	_companion_draw_pos_prev = _companion_pos
 	# Drive the walk animation from an accumulator that only advances on this
 	# (update_lingpet) tick, NOT raw wall-clock. When a pause branch in
@@ -2748,6 +2702,20 @@ func _get_companion_draw_motion_speed_ratio() -> float:
 	# while real patrol/defense travel still reads as walking. (Sortie flight keeps its wing-flap
 	# floor above; ring-dash / not-visible already returned 0 above.)
 	return _companion_override_move_ratio
+
+
+func _signed_roll_distance(moved: Vector2) -> float:
+	# Rolling-hoop pets (distance_roll) spin by linear distance / radius. Horizontal travel keeps
+	# the original signed-x behavior; a pure-vertical wall climb/descend (x≈0) must still roll, so
+	# advance by the full path length, preserving the current spin direction (momentum) so the hoop
+	# keeps turning the way it was when it hit the wall. No-op for non-distance-roll pets
+	# (_advance_companion_distance_roll early-returns on companion_distance_roll_enabled).
+	if absf(moved.x) >= absf(moved.y):
+		return moved.x
+	var spin_sign: float = signf(_companion_roll_angular_velocity)
+	if spin_sign == 0.0:
+		spin_sign = 1.0
+	return spin_sign * moved.length()
 
 
 func _advance_companion_distance_roll(moved_dx: float, delta: float) -> void:
@@ -3079,50 +3047,21 @@ func _sync_current_profile_affinity(pet_id: String, registry: Object = null) -> 
 	)
 
 
-func _apply_affinity_headstart_from_store(pet_id: String, registry: Object = null) -> void:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "" or _affinity_headstart_applied_pet_ids.has(normalized_pet_id):
-		return
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("get_best_level"):
-		return
-	var best_level := clampi(int(store.get_best_level(normalized_pet_id)), 0, LingpetAffinityState.MAX_LEVEL)
-	if best_level <= 0:
-		_affinity_headstart_applied_pet_ids[normalized_pet_id] = true
-		return
-	var level_before: int = _affinity_state.get_level(normalized_pet_id)
-	_configure_affinity_reward_context(normalized_pet_id, {}, registry)
-	_affinity_state.apply_headstart_from_best(normalized_pet_id, best_level)
-	var level_after: int = _affinity_state.get_level(normalized_pet_id)
-	_affinity_headstart_applied_pet_ids[normalized_pet_id] = true
-	if normalized_pet_id == _pet_id:
-		_sync_current_profile_affinity(normalized_pet_id, registry)
-		_affinity_feedback_state.sync_for_level(level_after, LingpetAffinityState.MAX_LEVEL)
-		if level_after != level_before:
-			_invalidate_current_loadout_cache()
+func _apply_affinity_headstart_from_store(_headstart_pet_id: String, _registry: Object = null) -> void:
+	# v5 / per-run: no best-level headstart. Affinity starts fresh each run; the
+	# store best-level read is removed (run-state owns affinity now).
+	pass
 
 
-func _record_affinity_best_level_if_needed(pet_id: String, best_before: int, registry: Object = null) -> void:
-	var best_after: int = _affinity_state.get_best_level(pet_id)
-	if best_after <= best_before:
-		return
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("set_best_level"):
-		return
-	store.set_best_level(pet_id, best_after)
+func _record_affinity_best_level_if_needed(_best_pet_id: String, _best_before: int, _registry: Object = null) -> void:
+	# v5 / per-run: best level is run-state only; never persisted (store write removed).
+	pass
 
 
-func _settle_affinity_bond_level_ups(registry: Object = null) -> void:
+func _settle_affinity_bond_level_ups(_registry: Object = null) -> void:
+	# v5 / per-run: bond settlement is still recorded for the victory result /
+	# feedback, but no longer persisted to the store (add_bond_levels removed).
 	_last_affinity_bond_settlement = _affinity_state.settle_bond_level_ups_for_victory()
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("add_bond_levels"):
-		return
-	var settled: Dictionary = _last_affinity_bond_settlement.get("settled", {}) as Dictionary
-	for raw_pet_id in settled.keys():
-		var pet_id := str(raw_pet_id)
-		var amount := int(settled.get(raw_pet_id, 0))
-		if amount > 0:
-			store.add_bond_levels(pet_id, amount)
 
 
 func _get_affinity_store(registry: Object = null) -> Object:

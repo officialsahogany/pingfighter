@@ -918,8 +918,6 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		str(snapshot.get("affinity_next_label", "")).strip_edges(),
 		int(snapshot.get("ring_core_tier", 0)),
 		int(snapshot.get("affinity_chip_count", 0)),
-		int(snapshot.get("bond_points", 0)),
-		str(snapshot.get("bond_title", "")).strip_edges(),
 	])
 
 

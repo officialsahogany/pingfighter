@@ -23,15 +23,6 @@ static func _default_affinity_next_label(level: int) -> String:
 	return ""
 
 
-static func _companion_subtitle_for_bond(title: String) -> String:
-	var bond_title := title.strip_edges()
-	if bond_title == "":
-		bond_title = LingpetAffinityState.get_bond_title_for_points(0)
-	# Composed strings never exact-match the translation maps, so translate the
-	# template and the bond title separately before joining.
-	return LanguageSettings.translate_text("동행 중 · 친밀도 %s") % LanguageSettings.translate_text(bond_title)
-
-
 static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_required_hits: int) -> Dictionary:
 	var lingpet_id: String = str(safe_owner_get.call(owner, "lingpet_id", ""))
 	if lingpet_id == "":
@@ -119,15 +110,12 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			var affinity_next_label := str(safe_owner_get.call(owner, "lingpet_affinity_next_label", safe_owner_get.call(owner, "ringpet_affinity_next_label", _default_affinity_next_label(affinity_level))))
 			var ring_core_tier := int(safe_owner_get.call(owner, "lingpet_ring_core_tier", safe_owner_get.call(owner, "ringpet_ring_core_tier", 0)))
 			var affinity_chip_count := int(safe_owner_get.call(owner, "lingpet_affinity_chip_count", safe_owner_get.call(owner, "ringpet_affinity_chip_count", 0)))
-			var bond_points := maxi(0, int(safe_owner_get.call(owner, "lingpet_bond_points", safe_owner_get.call(owner, "ringpet_bond_points", 0))))
-			var bond_title := str(safe_owner_get.call(owner, "lingpet_bond_title", safe_owner_get.call(owner, "ringpet_bond_title", LingpetAffinityState.get_bond_title_for_points(bond_points))))
-			if bond_title.strip_edges() == "":
-				bond_title = LingpetAffinityState.get_bond_title_for_points(bond_points)
+			# R3b / per-run: permanent bond points + chinmildo title residue removed.
 			return {
 				"state": "companion",
 				"pet_id": lingpet_id,
 				"title": display_name,
-				"subtitle": _companion_subtitle_for_bond(bond_title),
+				"subtitle": LanguageSettings.translate_text("동행 중"),
 				"body": str(safe_owner_get.call(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
 				"gauge_gain_bonus_pct": float(safe_owner_get.call(owner, "lingpet_gauge_gain_bonus_pct", safe_owner_get.call(owner, "ringpet_gauge_gain_bonus_pct", catalog_gauge_bonus))),
 				"companion_player_speed_bonus_pct": float(safe_owner_get.call(owner, "lingpet_player_speed_bonus_pct", safe_owner_get.call(owner, "ringpet_player_speed_bonus_pct", catalog_player_speed_bonus))),
@@ -176,8 +164,6 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"affinity_next_label": affinity_next_label,
 				"ring_core_tier": ring_core_tier,
 				"affinity_chip_count": affinity_chip_count,
-				"bond_points": bond_points,
-				"bond_title": bond_title,
 				"hatch_hits": required_hits,
 				"required_hits": required_hits,
 			}

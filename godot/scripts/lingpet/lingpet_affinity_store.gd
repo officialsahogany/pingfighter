@@ -1,7 +1,7 @@
 extends RefCounted
 
 const SAVE_PATH := "user://lingpet_affinity.cfg"
-const SAVE_SCHEMA_VERSION := 4
+const SAVE_SCHEMA_VERSION := 5
 const MAX_BEST_LEVEL := 30 # Mirrors LingpetAffinityState.MAX_LEVEL without coupling the store to runtime state.
 const MAX_RING_CORE_TIER := 6
 const MISSING_RING_CORE_TIER := -1
@@ -69,40 +69,20 @@ func load() -> bool:
 		last_load_summary = "load_error_%d" % result
 		return false
 	var stored_version := _read_schema_version(config)
-	_load_best_levels(config)
-	_load_bond_points(config)
-	_load_ring_core(config)
-	_load_resolved_unlock_choices(config)
 	_schema_version = SAVE_SCHEMA_VERSION
-	if not _has_any_loaded_residue():
-		# An existing file with no residue data is a botched / partial write,
-		# not a new player (new players have no file at all). Repair from the
-		# backup when it holds data, and never let this empty state clobber
-		# the last-good backup below.
-		if _try_recover_from_backup():
-			return true
-		last_load_summary = "ok_empty"
-		return true
+	# v5 is meta-only: legacy affinity sections ([best_levels] / [bond_points] /
+	# [ring_core] / [resolved_unlock_choices]) are intentionally ignored. Run-state
+	# (LingpetAffinityState) owns affinity now, so a file with no residue is the
+	# normal v5 shape, not a botched write — never trigger backup recovery here.
 	last_load_summary = "migrated_v%d" % stored_version if stored_version < SAVE_SCHEMA_VERSION else "ok"
 	_build_save_config().save(get_backup_path())
 	return true
 
 
 func _try_recover_from_backup() -> bool:
-	if not FileAccess.file_exists(get_backup_path()):
-		return false
-	var backup := ConfigFile.new()
-	if _load_config_file(backup, get_backup_path()) != OK:
-		return false
-	_load_best_levels(backup)
-	_load_bond_points(backup)
-	_load_ring_core(backup)
-	_load_resolved_unlock_choices(backup)
-	if not _has_any_loaded_residue():
-		return false
-	last_load_summary = "recovered_last_good"
-	save()
-	return true
+	# v5 is meta-only: there is no persisted affinity residue to recover, and a
+	# legacy backup's old sections must never resurrect into run-state.
+	return false
 
 
 func save() -> bool:
@@ -169,48 +149,16 @@ func get_all_resolved_unlock_choices() -> Dictionary:
 	return _resolved_unlock_choices.duplicate(true)
 
 
-func set_resolved_unlock_choice(pet_id: String, choice_key: String, selected_id: String) -> bool:
-	_ensure_loaded()
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		last_save_summary = "skipped_missing_pet_id"
-		return false
-	var normalized_choice_key := _normalize_choice_key(choice_key)
-	if normalized_choice_key == "":
-		last_save_summary = "skipped_invalid_choice_key"
-		return false
-	var normalized_selected_id := _normalize_selected_skill_id(selected_id)
-	if normalized_selected_id == "":
-		return clear_resolved_unlock_choice(normalized_pet_id, normalized_choice_key)
-	var choices: Dictionary = _resolved_unlock_choices.get(normalized_pet_id, {}) as Dictionary
-	if str(choices.get(normalized_choice_key, "")) == normalized_selected_id:
-		last_save_summary = "skipped_same_resolved_unlock_choice"
-		return false
-	choices[normalized_choice_key] = normalized_selected_id
-	_resolved_unlock_choices[normalized_pet_id] = choices
-	return save()
+func set_resolved_unlock_choice(_pet_id: String, _choice_key: String, _selected_id: String) -> bool:
+	# v5 meta-only: resolved unlock choices are run-state only, never persisted.
+	last_save_summary = "v5_meta_only_skipped_resolved_unlock_choice"
+	return false
 
 
-func clear_resolved_unlock_choice(pet_id: String, choice_key: String) -> bool:
-	_ensure_loaded()
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	var normalized_choice_key := _normalize_choice_key(choice_key)
-	if normalized_pet_id == "" or normalized_choice_key == "":
-		last_save_summary = "skipped_invalid_resolved_unlock_choice_clear"
-		return false
-	if not _resolved_unlock_choices.has(normalized_pet_id):
-		last_save_summary = "skipped_missing_resolved_unlock_choice"
-		return false
-	var choices: Dictionary = _resolved_unlock_choices.get(normalized_pet_id, {}) as Dictionary
-	if not choices.has(normalized_choice_key):
-		last_save_summary = "skipped_missing_resolved_unlock_choice"
-		return false
-	choices.erase(normalized_choice_key)
-	if choices.is_empty():
-		_resolved_unlock_choices.erase(normalized_pet_id)
-	else:
-		_resolved_unlock_choices[normalized_pet_id] = choices
-	return save()
+func clear_resolved_unlock_choice(_pet_id: String, _choice_key: String) -> bool:
+	# v5 meta-only: resolved unlock choices are run-state only, nothing to clear.
+	last_save_summary = "v5_meta_only_skipped_resolved_unlock_choice_clear"
+	return false
 
 
 func get_schema_version() -> int:
@@ -229,10 +177,9 @@ func get_ring_core_tier() -> int:
 
 
 func get_ring_core_cap() -> int:
-	_ensure_loaded()
-	if not _has_loaded_ring_core_tier():
-		return MAX_BEST_LEVEL
-	return get_ring_core_cap_for_tier(_ring_core_tier)
+	# v5: the store no longer drives the affinity cap (run-state owns it). Never
+	# fail open to MAX — return 0 so any stale store read cannot unlock affinity.
+	return 0
 
 
 static func get_ring_core_cap_for_tier(tier: int) -> int:
@@ -242,71 +189,36 @@ static func get_ring_core_cap_for_tier(tier: int) -> int:
 	return clampi(clamped_tier * 5, 0, MAX_BEST_LEVEL)
 
 
-func set_ring_core_tier(tier: int) -> bool:
-	_ensure_loaded()
-	var clamped_tier := clampi(tier, 0, MAX_RING_CORE_TIER)
-	if _has_loaded_ring_core_tier() and _ring_core_tier == clamped_tier:
-		last_save_summary = "skipped_same_ring_core_tier"
-		return false
-	_ring_core_tier = clamped_tier
-	return save()
+func set_ring_core_tier(_tier: int) -> bool:
+	# v5 meta-only: ring core tier is run-state only (LingpetAffinityState).
+	# No-op so plaza/perk store upgrades fail safely (payment refunds) until R4/R5.
+	last_save_summary = "v5_meta_only_skipped_ring_core_tier"
+	return false
 
 
-func upgrade_ring_core_tier(tier: int) -> bool:
-	_ensure_loaded()
-	var clamped_tier := clampi(tier, 0, MAX_RING_CORE_TIER)
-	var previous_tier := get_ring_core_tier() if _has_loaded_ring_core_tier() else 0
-	if clamped_tier <= previous_tier:
-		last_save_summary = "skipped_not_higher_ring_core_tier"
-		return false
-	_ring_core_tier = clamped_tier
-	return save()
+func upgrade_ring_core_tier(_tier: int) -> bool:
+	# v5 meta-only: ring core tier is run-state only (LingpetAffinityState).
+	# No-op so plaza/perk store upgrades fail safely (payment refunds) until R4/R5.
+	last_save_summary = "v5_meta_only_skipped_ring_core_tier_upgrade"
+	return false
 
 
-func set_best_level(pet_id: String, best_level: int) -> bool:
-	_ensure_loaded()
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		last_save_summary = "skipped_missing_pet_id"
-		return false
-	var clamped_best := clampi(best_level, 0, MAX_BEST_LEVEL)
-	var previous_best := int(_best_levels.get(normalized_pet_id, 0))
-	if clamped_best <= previous_best:
-		last_save_summary = "skipped_not_higher"
-		return false
-	_best_levels[normalized_pet_id] = clamped_best
-	return save()
+func set_best_level(_pet_id: String, _best_level: int) -> bool:
+	# v5 meta-only: best levels / headstart are gone; affinity is pure run-state.
+	last_save_summary = "v5_meta_only_skipped_best_level"
+	return false
 
 
-func add_bond_levels(pet_id: String, amount: int) -> bool:
-	_ensure_loaded()
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		last_save_summary = "skipped_missing_pet_id"
-		return false
-	if amount <= 0:
-		last_save_summary = "skipped_non_positive_bond"
-		return false
-	var previous_points := _sanitize_bond_points(_bond_points.get(normalized_pet_id, 0))
-	_bond_points[normalized_pet_id] = previous_points + amount
-	return save()
+func add_bond_levels(_pet_id: String, _amount: int) -> bool:
+	# v5 meta-only: bond points are no longer persisted (run-state / no remnant).
+	last_save_summary = "v5_meta_only_skipped_bond"
+	return false
 
 
-func merge_best_levels(best_levels: Dictionary) -> bool:
-	_ensure_loaded()
-	var changed := false
-	for raw_pet_id in best_levels.keys():
-		var pet_id := _normalize_pet_id(str(raw_pet_id))
-		if pet_id == "":
-			continue
-		var best_level := clampi(int(best_levels.get(raw_pet_id, 0)), 0, MAX_BEST_LEVEL)
-		if best_level > int(_best_levels.get(pet_id, 0)):
-			_best_levels[pet_id] = best_level
-			changed = true
-	if not changed:
-		last_save_summary = "skipped_not_higher"
-		return false
-	return save()
+func merge_best_levels(_best_levels: Dictionary) -> bool:
+	# v5 meta-only: best levels / headstart are gone; affinity is pure run-state.
+	last_save_summary = "v5_meta_only_skipped_best_level_merge"
+	return false
 
 
 func get_summary() -> Dictionary:
@@ -342,27 +254,8 @@ func _load_config_file(config: ConfigFile, path: String) -> int:
 func _build_save_config() -> ConfigFile:
 	var config := ConfigFile.new()
 	config.set_value(META_SECTION, META_SCHEMA_VERSION_KEY, SAVE_SCHEMA_VERSION)
-	for raw_pet_id in _best_levels.keys():
-		var pet_id := _normalize_pet_id(str(raw_pet_id))
-		var best_level := clampi(int(_best_levels.get(raw_pet_id, 0)), 0, MAX_BEST_LEVEL)
-		if pet_id != "" and best_level > 0:
-			config.set_value(BEST_LEVELS_SECTION, pet_id, best_level)
-	for raw_pet_id in _bond_points.keys():
-		var pet_id := _normalize_pet_id(str(raw_pet_id))
-		var bond_value := _sanitize_bond_points(_bond_points.get(raw_pet_id, 0))
-		if pet_id != "" and bond_value > 0:
-			config.set_value(BOND_POINTS_SECTION, pet_id, bond_value)
-	if _has_loaded_ring_core_tier():
-		config.set_value(RING_CORE_SECTION, RING_CORE_TIER_KEY, clampi(_ring_core_tier, 0, MAX_RING_CORE_TIER))
-	for raw_pet_id in _resolved_unlock_choices.keys():
-		var pet_id := _normalize_pet_id(str(raw_pet_id))
-		if pet_id == "":
-			continue
-		var choices: Dictionary = _resolved_unlock_choices.get(raw_pet_id, {}) as Dictionary
-		for choice_key in RESOLVED_UNLOCK_CHOICE_KEYS:
-			var selected_id := _normalize_selected_skill_id(choices.get(choice_key, ""))
-			if selected_id != "":
-				config.set_value(RESOLVED_UNLOCK_CHOICES_SECTION, "%s%s%s" % [pet_id, RESOLVED_UNLOCK_CHOICE_KEY_SEPARATOR, choice_key], selected_id)
+	# v5 is meta-only: legacy affinity sections ([best_levels] / [bond_points] /
+	# [ring_core] / [resolved_unlock_choices]) are no longer persisted.
 	return config
 
 

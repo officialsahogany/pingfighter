@@ -56,6 +56,8 @@ const DEFAULT_VALUES: Dictionary = {
 	# scripted by the lingpet skill, so the boss AI must not move it. Ball
 	# collision stays live, and the puppet rope can break when touched.
 	"lingpet_puppet_grab_active": false,
+	"lingpet_star_coil_boss_slow_active": false,
+	"lingpet_star_coil_boss_slow_multiplier": 1.0,
 	"boss_paddle_width": 100.0,
 	"boss_hitbox_height": 40.0,
 	"boss_interp_last_physics_usec": 0,
@@ -79,6 +81,10 @@ const DEFAULT_VALUES: Dictionary = {
 	"selected_character_name": "스매셔",
 	"chance_gems_count": 3,
 	"chance_gems_max": 3,
+	"defeat_continue_revival_beat_active": false,
+	"defeat_continue_revival_beat_phase": "",
+	"defeat_continue_revival_beat_elapsed": 0.0,
+	"defeat_continue_revival_beat_full_pose": false,
 	"active_item_slots": [],
 	"equipment_slots": {},
 	"passive_item_inventory": [],
@@ -176,10 +182,6 @@ const DEFAULT_VALUES: Dictionary = {
 	# Permanent bond title ("친밀도" in collection/panel strings). Kept separate
 	# from run-scoped affinity so the TAB panel can show the residue title without
 	# adding another stat row.
-	"lingpet_bond_points": 0,
-	"ringpet_bond_points": 0,
-	"lingpet_bond_title": "",
-	"ringpet_bond_title": "",
 	"lingpet_companion_contact_count": 0,
 	"ringpet_companion_contact_count": 0,
 	"lingpet_companion_last_contact_pos": Vector2.ZERO,
