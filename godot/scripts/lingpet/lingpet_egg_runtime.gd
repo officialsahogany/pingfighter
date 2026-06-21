@@ -1055,15 +1055,12 @@ func _spawn_egg(owner: Object, registry: Object = null) -> void:
 	_sync_owner(owner)
 
 
-func _grant_tutorial_standard_ring_core_if_needed(owner: Object, registry: Object = null) -> bool:
+func _grant_tutorial_standard_ring_core_if_needed(owner: Object, _registry: Object = null) -> bool:
 	if not _is_tutorial_first_lingpet_egg(owner):
 		return false
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("upgrade_ring_core_tier"):
+	if _affinity_state.get_run_ring_core_tier() >= TUTORIAL_STANDARD_RING_CORE_TIER:
 		return false
-	if store.has_method("get_ring_core_tier") and int(store.get_ring_core_tier()) >= TUTORIAL_STANDARD_RING_CORE_TIER:
-		return false
-	return bool(store.upgrade_ring_core_tier(TUTORIAL_STANDARD_RING_CORE_TIER))
+	return bool(_affinity_state.upgrade_run_ring_core_tier(TUTORIAL_STANDARD_RING_CORE_TIER))
 
 
 func _is_tutorial_first_lingpet_egg(owner: Object) -> bool:
@@ -1190,11 +1187,9 @@ func _build_affinity_owner_surface_key(registry: Object = null) -> Array:
 	if _state != STATE_COMPANION:
 		return [_state, "", 0, 0.0, 0, 0, 0, 0, ""]
 	var store: Object = _get_affinity_store(registry)
-	var ring_core_tier := 0
+	var ring_core_tier: int = _affinity_state.get_run_ring_core_tier()
 	var bond_points := 0
 	if store != null:
-		if store.has_method("get_ring_core_tier"):
-			ring_core_tier = clampi(int(store.get_ring_core_tier()), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
 		if store.has_method("get_bond_points"):
 			bond_points = maxi(0, int(store.get_bond_points(_pet_id)))
 	return [
@@ -1250,11 +1245,8 @@ func _build_affinity_owner_snapshot(registry: Object = null) -> Dictionary:
 	}
 
 
-func _get_display_ring_core_tier(registry: Object = null) -> int:
-	var store: Object = _get_affinity_store(registry)
-	if store == null or not store.has_method("get_ring_core_tier"):
-		return 0
-	return clampi(int(store.get_ring_core_tier()), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+func _get_display_ring_core_tier(_registry: Object = null) -> int:
+	return _affinity_state.get_run_ring_core_tier()
 
 
 func _get_affinity_bond_points(pet_id: String, registry: Object = null) -> int:
@@ -3055,19 +3047,8 @@ func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}
 	)
 
 
-func _resolve_affinity_ring_core_cap(registry: Object = null) -> int:
-	var store: Object = _get_affinity_store(registry)
-	if store == null:
-		return LingpetAffinityState.RING_CORE_CAP_UNCHANGED
-	if store.has_method("has_ring_core_tier"):
-		if bool(store.has_ring_core_tier()):
-			if store.has_method("get_ring_core_cap"):
-				return clampi(int(store.get_ring_core_cap()), 0, LingpetAffinityState.MAX_LEVEL)
-			if store.has_method("get_ring_core_tier"):
-				return clampi(int(store.get_ring_core_tier()) * 5, 0, LingpetAffinityState.MAX_LEVEL)
-			return 0
-		return LingpetAffinityState.MAX_LEVEL
-	return LingpetAffinityState.RING_CORE_CAP_UNCHANGED
+func _resolve_affinity_ring_core_cap(_registry: Object = null) -> int:
+	return clampi(_affinity_state.get_run_ring_core_cap(), 0, LingpetAffinityState.MAX_LEVEL)
 
 
 func _get_affinity_reward_seed(pet_id: String) -> int:

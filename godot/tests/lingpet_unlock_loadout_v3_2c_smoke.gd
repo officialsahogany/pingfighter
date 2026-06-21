@@ -326,6 +326,7 @@ func _verify_debug_forced_skill_reconcile_stays_sticky() -> void:
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(
 		runtime.debug_grant_and_activate_pet("lumion", owner, false, "lumion_thunder_orb", "", registry, 1, 1),
 		"debug forced Thunder Orb grant should activate Lumion"
@@ -348,6 +349,7 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	var registry_a := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime_a: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime_a)
+	_set_run_ring_core_tier_for_smoke(runtime_a)
 	_expect(runtime_a.debug_grant_and_activate_pet("lumion", owner_a, false, "", "", registry_a), "headstart fixture A should activate Lumion")
 	runtime_a.update(0.0, owner_a, registry_a)
 	_expect_eq(runtime_a.get_affinity_level("lumion"), 1, "best level 3 should rederive a Lv.1 headstart")
@@ -359,6 +361,7 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	var registry_b := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime_b: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime_b)
+	_set_run_ring_core_tier_for_smoke(runtime_b)
 	_expect(runtime_b.debug_grant_and_activate_pet("lumion", owner_b, false, "", "", registry_b), "headstart fixture B should activate Lumion")
 	runtime_b.update(0.0, owner_b, registry_b)
 	_expect_eq(runtime_b.get_affinity_level("lumion"), 1, "best level 3 should rederive the same Lv.1 headstart on a fresh runtime")
@@ -377,6 +380,7 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	var seeded_registry_a := FakeRegistry.new({"lingpet_affinity_store": seeded_store})
 	var seeded_runtime_a: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(seeded_runtime_a)
+	_set_run_ring_core_tier_for_smoke(seeded_runtime_a)
 	seeded_runtime_a.set_affinity_reward_seed_for_tests("lumion", seed_value)
 	_expect(seeded_runtime_a.debug_grant_and_activate_pet("lumion", seeded_owner_a, false, "", "", seeded_registry_a), "seeded headstart fixture A should activate Lumion")
 	seeded_runtime_a.update(0.0, seeded_owner_a, seeded_registry_a)
@@ -386,6 +390,7 @@ func _verify_headstart_rederives_primary_unlock() -> void:
 	var seeded_registry_b := FakeRegistry.new({"lingpet_affinity_store": seeded_store})
 	var seeded_runtime_b: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(seeded_runtime_b)
+	_set_run_ring_core_tier_for_smoke(seeded_runtime_b)
 	seeded_runtime_b.set_affinity_reward_seed_for_tests("lumion", seed_value)
 	_expect(seeded_runtime_b.debug_grant_and_activate_pet("lumion", seeded_owner_b, false, "", "", seeded_registry_b), "seeded headstart fixture B should activate Lumion")
 	seeded_runtime_b.update(0.0, seeded_owner_b, seeded_registry_b)
@@ -406,6 +411,7 @@ func _verify_persisted_unlock_choice_overrides_auto_resolve() -> void:
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "persisted-choice fixture should activate Lumion")
 	runtime.update(0.0, owner, registry)
 	_expect_eq(runtime.get_affinity_level("lumion"), 1, "best level 3 should rebuild the Lv.1 unlock before persisted choice reconcile")
@@ -428,6 +434,7 @@ func _verify_stale_persisted_unlock_choice_drops_to_auto_resolve() -> void:
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "stale-choice fixture should activate Lumion")
 	runtime.update(0.0, owner, registry)
 	var resolved := _resolved_choice(runtime, "lumion", "active")
@@ -473,6 +480,7 @@ func _verify_maribo_headstart_rederives_starter_unlock() -> void:
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry), "Maribo headstart fixture should activate with an empty hatch-zero loadout")
 	runtime.update(0.0, owner, registry)
 	_expect_eq(runtime.get_affinity_level("maribo"), 1, "Maribo best level 3 should rederive a Lv.1 headstart")
@@ -501,6 +509,7 @@ func _verify_tab_unlock_options_sequential_queue_count() -> void:
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "picker queue fixture should activate Lumion")
 	runtime.update(0.0, owner, registry)
 	var options: Array = runtime.get_unlock_choice_options("lumion", registry)
@@ -520,6 +529,7 @@ func _verify_tab_unlock_options_and_commit_lock() -> void:
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry), "picker fixture should activate Lumion")
 	runtime.update(0.0, owner, registry)
 
@@ -552,6 +562,7 @@ func _verify_tab_unlock_options_filter_single_candidate() -> void:
 	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet("milkring", owner, false, "", "", registry), "single-candidate picker fixture should activate Milkring")
 	runtime.update(0.0, owner, registry)
 	_expect(_find_unlock_option(runtime.get_unlock_choice_options("milkring", registry), "active").is_empty(), "TAB picker should hide single-candidate auto-resolved active choices")
@@ -565,6 +576,7 @@ func _activate_pet(pet_id: String) -> Dictionary:
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
+	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet(pet_id, owner, false, "", "", registry), "%s fixture should activate" % pet_id)
 	return {"runtime": runtime, "owner": owner, "registry": registry}
 
@@ -579,6 +591,10 @@ func _cleanup_runtimes() -> void:
 func _grant_round_commits(runtime: Object, pet_id: String, count: int, registry: Object = null) -> void:
 	for _i in range(count):
 		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+
+
+func _set_run_ring_core_tier_for_smoke(runtime: Object, tier: int = LingpetAffinityStore.MAX_RING_CORE_TIER) -> void:
+	runtime._affinity_state.set_run_ring_core_tier(tier)
 
 
 func _register_hit(runtime: Object, owner: FakeOwner, registry: Object, egg_pos: Vector2) -> void:

@@ -418,8 +418,9 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
 	var bond_store := FakeBondStore.new({"maribo": 21})
-	bond_store.set_ring_core_tier(3)
+	bond_store.set_ring_core_tier(6)
 	runtime.set_affinity_store_for_tests(bond_store)
+	runtime._affinity_state.set_run_ring_core_tier(3)
 	_expect(
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
 		"schema-gated owner should accept a Maribo debug grant for affinity panel sync"
@@ -501,6 +502,7 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	var owner := SchemaGatedOwner.new()
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
+	runtime._affinity_state.set_run_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
 	_expect(
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
 		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
