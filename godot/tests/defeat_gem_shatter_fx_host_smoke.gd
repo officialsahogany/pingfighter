@@ -32,7 +32,7 @@ func _verify_pipeline_status() -> void:
 	_expect(bool(status.get("quad_texture_ready", false)), "shatter host prewarm should create the masked WritheEmber input texture")
 	_expect(bool(status.get("spark_texture_ready", false)), "shatter host prewarm should create the cyan sparkle texture")
 	_expect(bool(status.get("burst_texture_ready", false)), "shatter host prewarm should create the cyan burst texture")
-	_expect(int(status.get("spark_amount", 0)) == 40, "shatter host should keep the bounded 40-spark particle budget")
+	_expect(int(status.get("spark_amount", 0)) == 56, "shatter host should keep the bounded 56-spark particle budget")
 	_expect(int(status.get("fixed_fps", 0)) == 30, "shatter host particles should run at fixed_fps 30")
 	_expect(int(status.get("z_index", 0)) >= 40, "shatter host should render above the immediate-draw overlay")
 
@@ -58,7 +58,7 @@ func _verify_host_sync_and_cleanup() -> void:
 	_expect(bool(peak_status.get("active", false)), "fracture peak sync should make the host visible")
 	_expect(bool(peak_status.get("burst_visible", false)), "fracture peak sync should show the masked burst layer")
 	_expect(bool(peak_status.get("particles_emitting", false)), "fracture peak should emit cyan spark particles")
-	_expect(int(peak_status.get("particle_amount", 0)) == 40, "active host should keep its 40-particle cap")
+	_expect(int(peak_status.get("particle_amount", 0)) == 56, "active host should keep its 56-particle cap")
 	_expect(int(peak_status.get("particle_fixed_fps", 0)) == 30, "active host should keep fixed_fps 30")
 	_expect(float(peak_status.get("particle_explosiveness", 0.0)) >= 0.80, "spark particles should burst instead of dribbling continuously")
 	_expect(float(peak_status.get("particle_gravity_y", 0.0)) >= 120.0, "spark particles should fall after the burst")

@@ -20,6 +20,7 @@ extends Node2D
 #   - Timer-stack first-use script path plus common timer-bar primitives
 #   - Plaza arrival/exit warp pillar shader, additive sprites, and particles
 #   - Defeat chance-gem cyan shatter host shader, additive sprites, and particles
+#   - Defeat continue color-restore screen-read shader and BackBufferCopy path
 #
 # Deliberately out of scope:
 #   - character_info / perk_debug overlay UI
@@ -50,7 +51,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 18
+const WARMUP_DRAW_STEPS := 19
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -59,6 +60,7 @@ const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoi
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
 const DefeatGemShatterFxHost := preload("res://scripts/effects/defeat_gem_shatter_fx_host.gd")
+const DefeatContinueColorRestoreFxHost := preload("res://scripts/effects/defeat_continue_color_restore_fx_host.gd")
 
 var _frames_remaining: int = LIFETIME_FRAMES
 var _warmup_step_index: int = 0
@@ -73,6 +75,7 @@ var _boost_fx_host: Node = null
 var _starpoint_fx_host: Node = null
 var _plaza_warp_fx_host: Node = null
 var _defeat_gem_shatter_fx_host: Node = null
+var _defeat_color_restore_fx_host: Node = null
 
 
 class PsoWeatherWarmupState:
@@ -139,6 +142,7 @@ func _ready() -> void:
 	# here rather than only a static texture/material cache warmup.
 	PlazaWarpPillarFxHost.prewarm_assets()
 	DefeatGemShatterFxHost.prewarm_assets()
+	DefeatContinueColorRestoreFxHost.prewarm_assets()
 	_boost_fx_host = DashTokenBoostFxHost.new()
 	_boost_fx_host.name = "BoostFxHost_pso"
 	add_child(_boost_fx_host)
@@ -154,6 +158,9 @@ func _ready() -> void:
 	_defeat_gem_shatter_fx_host = DefeatGemShatterFxHost.new()
 	_defeat_gem_shatter_fx_host.name = "DefeatGemShatterFxHost_pso"
 	add_child(_defeat_gem_shatter_fx_host)
+	_defeat_color_restore_fx_host = DefeatContinueColorRestoreFxHost.new()
+	_defeat_color_restore_fx_host.name = "DefeatContinueColorRestoreFxHost_pso"
+	add_child(_defeat_color_restore_fx_host)
 	queue_redraw()
 
 
@@ -212,6 +219,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_plaza_warp_pillar_shader_states()
 		17:
 			_prewarm_defeat_gem_shatter_shader_state()
+		18:
+			_prewarm_defeat_color_restore_shader_state()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -540,6 +549,22 @@ func _prewarm_defeat_gem_shatter_shader_state() -> void:
 		"gem_center": Vector2(120.0, 72.0),
 		"progress": 0.42,
 		"elapsed": 0.84,
+		"quality_scale": 1.0,
+	}, true)
+
+
+func _prewarm_defeat_color_restore_shader_state() -> void:
+	if _defeat_color_restore_fx_host == null or not is_instance_valid(_defeat_color_restore_fx_host):
+		return
+	if not _defeat_color_restore_fx_host.has_method("sync_state"):
+		return
+	_defeat_color_restore_fx_host.sync_state({
+		"active": true,
+		"view_size_px": Vector2(128.0, 72.0),
+		"center_px": Vector2(64.0, 36.0),
+		"restore_radius_px": 18.0,
+		"feather_px": 8.0,
+		"desaturate_amount": 1.0,
 		"quality_scale": 1.0,
 	}, true)
 

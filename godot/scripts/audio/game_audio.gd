@@ -105,6 +105,8 @@ const FOUL_WHISTLE_SOUND_PATH := "res://assets/sounds/foul_whistle.wav"
 const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
 const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
 const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
+const DEFEAT_JEWEL_SOUND_PATH := "res://assets/sounds/defeatjewel1.wav"
+const DEFEAT_GEM_SHATTER_SOUND_PATH := "res://assets/sounds/defeat_gem_shatter.wav"
 const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
 const LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"
 const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"
@@ -401,6 +403,8 @@ var foul_whistle_sfx: AudioStreamPlayer
 var megingjord_sfx: AudioStreamPlayer
 var legendary_open_sfx: AudioStreamPlayer
 var result_box_open_sfx: AudioStreamPlayer
+var defeat_jewel_sfx: AudioStreamPlayer
+var defeat_gem_shatter_sfx: AudioStreamPlayer
 var lingpet_acquire_cutin_sfx: AudioStreamPlayer
 var lingpet_acquire_click_deep_bass_sfx: AudioStreamPlayer
 var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer
@@ -699,6 +703,8 @@ func _setup_item_command_sfx() -> void:
 	megingjord_sfx = player_factory.create(owner_node, "MegingjordSfx", MEGINGJORD_SOUND_PATH, -5.0)
 	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
 	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
+	defeat_jewel_sfx = player_factory.create(owner_node, "DefeatJewelSfx", DEFEAT_JEWEL_SOUND_PATH, -4.0)
+	defeat_gem_shatter_sfx = player_factory.create(owner_node, "DefeatGemShatterSfx", DEFEAT_GEM_SHATTER_SOUND_PATH, -3.0)
 	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
 	lingpet_acquire_click_deep_bass_sfx = player_factory.create(owner_node, "LingpetAcquireClickDeepBassSfx", LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH, LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB)
 	lingpet_acquire_click_crackle_sweep_sfx = player_factory.create(owner_node, "LingpetAcquireClickCrackleSweepSfx", LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH, LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB)
@@ -1008,6 +1014,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				MEGINGJORD_SOUND_PATH,
 				LEGENDARY_OPEN_SOUND_PATH,
 				RESULT_BOX_OPEN_SOUND_PATH,
+				DEFEAT_JEWEL_SOUND_PATH,
+				DEFEAT_GEM_SHATTER_SOUND_PATH,
 				LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
 				LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH,
 				LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH,
@@ -1289,6 +1297,14 @@ func sync_plasma_shock(active: bool) -> void:
 
 func play_recovery() -> void:
 	_play_with_pitch(recovery_sfx, randf_range(0.98, 1.02))
+
+
+func play_defeat_jewel() -> void:
+	_play_with_pitch(defeat_jewel_sfx, randf_range(0.98, 1.02))
+
+
+func play_defeat_gem_shatter() -> void:
+	_play_with_pitch(defeat_gem_shatter_sfx, randf_range(0.97, 1.03))
 
 
 func play_cleanse() -> void:
@@ -3299,6 +3315,8 @@ func _get_sfx_players() -> Array:
 		megingjord_sfx,
 		legendary_open_sfx,
 		result_box_open_sfx,
+		defeat_jewel_sfx,
+		defeat_gem_shatter_sfx,
 		lingpet_acquire_cutin_sfx,
 		lingpet_acquire_click_deep_bass_sfx,
 		lingpet_acquire_click_crackle_sweep_sfx,
