@@ -1,0 +1,58 @@
+{
+  "asset_id": "maribo_cutin_dismiss_anim",
+  "character": "maribo",
+  "display_name": "마리보",
+  "generated_at": "2026-06-21",
+  "runtime_usage": "lingpet acquire cut-in DISMISS animation (the 획득→클릭 'click' reaction). Resolved by lingpet_acquire_cutin_overlay_host via FALLBACK_CUTIN_DISMISS_SHEET_PATH (maribo has no catalog cutin_dismiss_anim key). Runtime grid: CUTIN_DISMISS_COLS=5, ROWS=5, FRAMES=25. One-shot forward over DISMISS_ACTION_PORTION (0.74), then final frame holds while the overlay fades; host draws a procedural water-spray peaking at DISMISS_SPRAY_PEAK 0.56.",
+  "output_sheet": "res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png",
+  "runtime_sheet": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [1024, 1024],
+    "sheet_size": [5120, 5120],
+    "sha256": "d0d8d212096ef8e1f37a2b262fcfba283ee7e1b4d16c8de4e44dbf0ee2845fea"
+  },
+  "match_to_reveal_contract": {
+    "must_match": "maribo_cutin_anim.png (acquire reveal) in SIZE, POSITION, MOTION, TEXTURE, and COLOR — the reveal->click handoff must read as one continuous shot.",
+    "size_position": "frame0 alpha bbox aligned to the reveal frame0 bbox [0.252,0.1997,0.7759,0.7983]; single fixed transform across all frames.",
+    "motion": "starts at the reveal hold pose (trident diagonal across body), contained flourish (raise trident overhead, feet planted), NO spin / NO size change / NO step toward viewer.",
+    "texture": "Real-ESRGAN realesr-animevideov3 x2 (SAME model as the reveal) — NOT x4plus-anime, which gave a crisper anime-line texture that did not match the reveal's smooth painterly look.",
+    "color": "single Reinhard color transform (body mean+std -> reveal body mean+std, std ratio clamped 0.7-1.4). NO value-contrast punch — the reveal is not punched, so matching means matching its statistics, not boosting. Reveal body mean ~ (181,162,201); matched dismiss body avg ~ (188,169,206) vs the prior x4anime+punch (192,181,216) which read paler/cooler."
+  },
+  "source_autosprite": {
+    "reason": "Regenerated 2026-06-21 (v2 connected take). Native AutoSprite from the reveal's hold pose so the click reaction connects to the acquire reveal. The first take (v1) spun and reframed; this v2 take constrains start pose and motion. See postprocess for the texture/color matching applied so it reads identical to the reveal in-game.",
+    "character_id": "cmpvvuv3p00hbpf2widl8v49q",
+    "character_name": "Maribo Lingpet Clean (click react)",
+    "first_frame_pose_id": "cmpvwk9k5001fg2qefwq4qzdj",
+    "first_frame_pose_name": "Acquire Cutin (same pose the reveal holds on)",
+    "spritesheet_id": "cmqn9h2f6002or3bef1uwup19",
+    "spritesheet_job_id": "wf_979722d4-dd94-4258-9f22-3b920e9efabb",
+    "source_video_id": "cmqn9f04e001ur3bew5k2vi48",
+    "kind": "custom",
+    "name": "Dismiss Contained Flourish",
+    "video_tier": "pro",
+    "remove_bg": "ultra",
+    "native_grid": {"cols": 5, "rows": 5, "frame_count": 25, "cell_size": [1024, 1024]},
+    "raw_sheet_local_path": ".tmp/maribo_optionA/dismiss_autosprite_v2_connected/dismiss2_raw_sheet.png",
+    "raw_atlas_local_path": ".tmp/maribo_optionA/dismiss_autosprite_v2_connected/dismiss2_raw_atlas.json",
+    "motion_note": "Contained flourish: reveal hold (trident diagonal) -> raise trident overhead with both hands at apex (~f18, small water splash, feet planted) -> settle. Connects seamlessly out of the acquire reveal."
+  },
+  "postprocess": {
+    "tool": "reveal-matched pipeline: per-cell alpha-bleed RGB -> realesr-animevideov3 x2 -> recombine source alpha -> Reinhard color match to reveal -> single fixed geom transform (frame0 -> reveal bbox) -> assemble 5x5/25. NO punch.",
+    "texture_match": {"model": "realesr-animevideov3", "scale": 2, "why": "same upscale model as maribo_cutin_anim (the reveal) so surface texture matches; x4plus-anime was rejected for texture mismatch"},
+    "color_match": {"method": "Reinhard per-channel (mean+std), std ratio clamped [0.7,1.4]", "reveal_body_mean": [181.25, 162.51, 200.61], "reveal_body_std": [68.98, 47.2, 32.3], "dismiss_body_mean_before": [169.81, 157.46, 184.11], "result_body_avg_after": [188, 169, 206]},
+    "geom": {"fixed_transform": true, "frame0_target_bbox_frac": [0.252, 0.1997, 0.7759, 0.7983], "result_frame0_bbox_frac": [0.252, 0.1992, 0.7773, 0.7979]},
+    "punch": "none (removed; color is matched to the reveal instead of boosted)",
+    "scripts": [".tmp/maribo_optionA/dismiss_autosprite_v2_connected/dismiss_extract_cells.py", ".tmp/maribo_optionA/dismiss_autosprite_v2_connected/reveal_color_stats.py", ".tmp/maribo_optionA/dismiss_autosprite_v2_connected/dismiss_finalize_colormatch.py"],
+    "pre_change_backup": ".tmp/maribo_optionA/maribo_cutin_dismiss_anim_PRE_AUTOSPRITE.png (original soft 684 dismiss)"
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "grid_matches_runtime": true,
+    "frame0_aligned_to_reveal": true,
+    "color_matches_reveal": true,
+    "texture_model_matches_reveal": true
+  },
+  "status": "Accepted runtime asset (2026-06-21, v2 connected + reveal-matched): native AutoSprite dismiss started from the reveal hold pose (contained flourish, no spin), processed with the SAME animevideo x2 texture and color-matched to the acquire reveal, frame0 aligned to the reveal. The acquire-reveal -> click-dismiss now reads as one continuous shot in size, position, motion, texture, and color. Identity preserved."
+}
