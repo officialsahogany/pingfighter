@@ -2925,6 +2925,24 @@ func add_enhancement_chip(_owner: Object = null, _registry: Object = null) -> Di
 	}
 
 
+func upgrade_run_ring_core_tier(target_tier: int = 0, _owner: Object = null, _registry: Object = null) -> Dictionary:
+	# R4 / per-run: plaza + perk ring-core upgrades target this run's tier, not the
+	# permanent store. Mirrors add_enhancement_chip (run-state, owner surfaces on the
+	# next battle sync). accepted=false on no-higher/max so callers can refund.
+	var accepted: bool = _affinity_state.upgrade_run_ring_core_tier(target_tier)
+	return {
+		"accepted": accepted,
+		"new_tier": int(_affinity_state.get_run_ring_core_tier()),
+		"new_cap": int(_affinity_state.get_run_ring_core_cap()),
+		"max_tier": LingpetAffinityStore.MAX_RING_CORE_TIER,
+		"blocked_reason": "" if accepted else "ring_core_upgrade_failed",
+	}
+
+
+func get_run_ring_core_tier() -> int:
+	return _affinity_state.get_run_ring_core_tier()
+
+
 func feed_lingpet(_owner: Object = null, registry: Object = null) -> Dictionary:
 	var affinity_pet_id := _get_active_affinity_pet_id()
 	if affinity_pet_id == "":

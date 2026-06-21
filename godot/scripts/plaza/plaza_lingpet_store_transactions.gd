@@ -25,11 +25,11 @@ static func get_menu_action_labels(registry: Object = null) -> Array[String]:
 
 
 static func get_ring_core_upgrade_offer(registry: Object) -> Dictionary:
-	var affinity_store := _get_affinity_store(registry)
-	if affinity_store == null:
-		return _build_ring_core_offer(0, 0, 0, false, "missing_affinity_store")
-	var current_tier := _get_ring_core_tier(affinity_store)
-	var max_tier := _get_max_ring_core_tier(affinity_store)
+	# R4 / per-run: read the current run tier (run-state) instead of the permanent store.
+	var current_tier := _get_run_ring_core_tier(registry)
+	if current_tier < 0:
+		return _build_ring_core_offer(0, 0, 0, false, "missing_lingpet_runtime")
+	var max_tier := RING_CORE_TIER_NAMES.size() - 1
 	if current_tier >= max_tier:
 		return _build_ring_core_offer(current_tier, 0, 0, false, "max_ring_core_tier")
 	var next_tier := clampi(current_tier + 1, 1, max_tier)
@@ -127,15 +127,16 @@ func _buy_ring_core_upgrade(save_store: Object, registry: Object, consume_ap: bo
 			payment
 		)
 
-	var affinity_store := _get_affinity_store(registry)
-	if affinity_store == null or not affinity_store.has_method("upgrade_ring_core_tier"):
+	var lingpet_runtime := _get_lingpet_runtime(registry)
+	if lingpet_runtime == null or not lingpet_runtime.has_method("upgrade_run_ring_core_tier"):
 		var refund := _refund_ring_core_payment(save_store, cost, int(payment.get("ap_spent", 0)))
 		return _merge_refund_summary(
-			_merge_ring_core_offer(_build_summary("ring_core", cost, false, "missing_affinity_store"), offer),
+			_merge_ring_core_offer(_build_summary("ring_core", cost, false, "missing_lingpet_runtime"), offer),
 			payment,
 			refund
 		)
-	if not bool(affinity_store.upgrade_ring_core_tier(next_tier)):
+	var upgrade_result: Dictionary = lingpet_runtime.upgrade_run_ring_core_tier(next_tier, null, registry)
+	if not bool(upgrade_result.get("accepted", false)):
 		var refund := _refund_ring_core_payment(save_store, cost, int(payment.get("ap_spent", 0)))
 		return _merge_refund_summary(
 			_merge_ring_core_offer(_build_summary("ring_core", cost, false, "ring_core_upgrade_failed"), offer),
@@ -143,8 +144,8 @@ func _buy_ring_core_upgrade(save_store: Object, registry: Object, consume_ap: bo
 			refund
 		)
 
-	offer["new_tier"] = next_tier
-	offer["new_cap"] = _get_ring_core_cap_for_tier(affinity_store, next_tier)
+	offer["new_tier"] = int(upgrade_result.get("new_tier", next_tier))
+	offer["new_cap"] = int(upgrade_result.get("new_cap", 0))
 	return _merge_wallet_summary(
 		_merge_ring_core_offer(_build_summary("ring_core", cost, true, "ok"), offer),
 		payment
@@ -223,30 +224,15 @@ func _get_lingpet_runtime(registry: Object) -> Object:
 	return registry.get_instance("lingpet_egg_runtime")
 
 
-static func _get_affinity_store(registry: Object) -> Object:
+static func _get_run_ring_core_tier(registry: Object) -> int:
+	# R4 / per-run: current ring-core tier lives in the run-state (egg_runtime),
+	# not the permanent store. Returns -1 when no runtime is reachable.
 	if registry == null or not registry.has_method("get_instance"):
-		return null
-	return registry.get_instance("lingpet_affinity_store")
-
-
-static func _get_ring_core_tier(affinity_store: Object) -> int:
-	if affinity_store == null or not affinity_store.has_method("get_ring_core_tier"):
-		return 0
-	return clampi(int(affinity_store.get_ring_core_tier()), 0, RING_CORE_TIER_NAMES.size() - 1)
-
-
-static func _get_max_ring_core_tier(affinity_store: Object) -> int:
-	if affinity_store != null:
-		var value: Variant = affinity_store.get("MAX_RING_CORE_TIER")
-		if value != null:
-			return clampi(int(value), 1, RING_CORE_TIER_NAMES.size() - 1)
-	return RING_CORE_TIER_NAMES.size() - 1
-
-
-static func _get_ring_core_cap_for_tier(affinity_store: Object, tier: int) -> int:
-	if affinity_store != null and affinity_store.has_method("get_ring_core_cap_for_tier"):
-		return int(affinity_store.get_ring_core_cap_for_tier(tier))
-	return clampi(tier * 5, 0, 30)
+		return -1
+	var lingpet_runtime: Object = registry.get_instance("lingpet_egg_runtime")
+	if lingpet_runtime == null or not lingpet_runtime.has_method("get_run_ring_core_tier"):
+		return -1
+	return clampi(int(lingpet_runtime.get_run_ring_core_tier()), 0, RING_CORE_TIER_NAMES.size() - 1)
 
 
 static func _build_ring_core_action_label(registry: Object) -> String:
@@ -259,7 +245,7 @@ static func _build_ring_core_action_label(registry: Object) -> String:
 	match str(offer.get("reason", "")):
 		"max_ring_core_tier":
 			return "링코어 최대 단계"
-		"missing_affinity_store":
+		"missing_lingpet_runtime":
 			return "링코어 강화 준비 중"
 		_:
 			return "링코어 강화"

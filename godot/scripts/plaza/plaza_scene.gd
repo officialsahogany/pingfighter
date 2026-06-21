@@ -2776,7 +2776,7 @@ func _format_lingpet_store_transaction_message(summary: Dictionary) -> String:
 					return "행동력이 부족합니다."
 				"not_enough_gold":
 					return "링코어 강화 비용이 부족합니다."
-				"missing_affinity_store":
+				"missing_lingpet_runtime", "missing_affinity_store":
 					return "링코어 장부를 찾을 수 없습니다."
 				"max_ring_core_tier":
 					return "링코어가 이미 최대 단계입니다."

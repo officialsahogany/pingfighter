@@ -161,15 +161,28 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class FakeRingCoreFailRuntime:
+	extends RefCounted
+
+	# R4 refund-branch fixture: the offer sees an upgradeable tier 0, but the
+	# upgrade fails AFTER payment, exercising the post-payment refund pin.
+	func get_run_ring_core_tier() -> int:
+		return 0
+
+	func upgrade_run_ring_core_tier(_target_tier: int = 0, _owner: Object = null, _registry: Object = null) -> Dictionary:
+		return {"accepted": false, "new_tier": 0, "new_cap": 0, "blocked_reason": "ring_core_upgrade_failed"}
+
+
 func _init() -> void:
 	_run()
 
 
 func _run() -> void:
 	_verify_lingpet_egg_purchase_spawns_runtime_egg()
-	_verify_lingpet_ring_core_purchase_upgrades_account_cap()
+	_verify_lingpet_ring_core_purchase_upgrades_run_cap()
 	_verify_failed_lingpet_store_actions_do_not_spend_ap()
 	_verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier()
+	_verify_ring_core_post_payment_refund_restores_wallet()
 
 	if _failures.is_empty():
 		print("plaza_lingpet_store_menu_smoke: ok")
@@ -236,7 +249,7 @@ func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
 	_cleanup(save_path)
 
 
-func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
+func _verify_lingpet_ring_core_purchase_upgrades_run_cap() -> void:
 	var save_path := _smoke_save_path("ring_core")
 	var affinity_path := _smoke_save_path("ring_core_affinity")
 	_cleanup(save_path)
@@ -246,7 +259,6 @@ func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
 	store.apply_stage_clear_progress(1, 3000, true)
 	var affinity_store := LingpetAffinityStore.new()
 	affinity_store.set_save_path(affinity_path)
-	_expect(bool(affinity_store.set_ring_core_tier(0)), "ring-core fixture should start from explicit no-core tier")
 	var owner := FakeOwner.new()
 	root.add_child(owner)
 	var lingpet_runtime: Object = LingpetEggRuntime.new()
@@ -282,8 +294,7 @@ func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
 	_expect(int(status.get("plaza_gold", 0)) == 2850, "standard purchase should update plaza gold")
 	_expect(int(status.get("ap_current", 0)) == 3, "standard purchase should update AP")
 	_expect(bool(status.get("active_menu_visit_ap_consumed", false)), "ring-core purchase should mark the lingpet-store AP visit")
-	_expect(int(affinity_store.get_ring_core_tier()) == 1, "standard purchase should persist tier 1")
-	_expect(int(affinity_store.get_ring_core_cap()) == 5, "standard purchase should expose cap 5")
+	_expect(int(lingpet_runtime.get_run_ring_core_tier()) == 1, "standard purchase should set this run ring-core tier 1")
 	actions = status.get("active_menu_actions", [])
 	_expect(actions.size() >= 2 and str(actions[1]).find("300") >= 0, "post-purchase ring-core label should refresh to the boost price")
 
@@ -296,8 +307,9 @@ func _verify_lingpet_ring_core_purchase_upgrades_account_cap() -> void:
 	_expect(int(second_summary.get("ap_spent", 0)) == 0, "same lingpet-store visit should not spend a second AP")
 	_expect(int(status.get("plaza_gold", 0)) == 2550, "boost purchase should update plaza gold")
 	_expect(int(status.get("ap_current", 0)) == 3, "boost purchase should keep AP after the first visit spend")
-	_expect(int(affinity_store.get_ring_core_tier()) == 2, "boost purchase should persist tier 2")
-	_expect(int(affinity_store.get_ring_core_cap()) == 10, "boost purchase should expose cap 10")
+	_expect(int(lingpet_runtime.get_run_ring_core_tier()) == 2, "boost purchase should set this run ring-core tier 2")
+	lingpet_runtime._affinity_state.reset_for_new_run()
+	_expect(int(lingpet_runtime.get_run_ring_core_tier()) == 0, "a new run should reset the purchased ring-core tier (per-run, not permanent)")
 
 	viewport.queue_free()
 	owner.queue_free()
@@ -373,11 +385,11 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 	poor_store.apply_stage_clear_progress(1, 100, true)
 	var poor_affinity := LingpetAffinityStore.new()
 	poor_affinity.set_save_path(poor_affinity_path)
-	poor_affinity.set_ring_core_tier(0)
 	var poor_owner := FakeOwner.new()
 	root.add_child(poor_owner)
+	var poor_runtime: Object = LingpetEggRuntime.new()
 	var poor_registry := FakeRegistry.new({
-		"lingpet_egg_runtime": LingpetEggRuntime.new(),
+		"lingpet_egg_runtime": poor_runtime,
 		"lingpet_affinity_store": poor_affinity,
 	})
 	var poor_viewport := _build_viewport()
@@ -390,7 +402,7 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 		_expect(str(poor_summary.get("reason", "")) == "not_enough_gold", "unaffordable ring-core purchase should report not_enough_gold")
 		_expect(int(poor_status.get("plaza_gold", 0)) == 100, "unaffordable ring-core purchase should leave gold unchanged")
 		_expect(int(poor_status.get("ap_current", 0)) == 4, "unaffordable ring-core purchase should not spend AP")
-		_expect(int(poor_affinity.get_ring_core_tier()) == 0, "unaffordable ring-core purchase should leave tier unchanged")
+		_expect(int(poor_runtime.get_run_ring_core_tier()) == 0, "unaffordable ring-core purchase should leave the run tier unchanged")
 	poor_viewport.queue_free()
 	poor_owner.queue_free()
 	_cleanup(poor_save_path)
@@ -405,11 +417,12 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 	max_store.apply_stage_clear_progress(1, 3000, true)
 	var max_affinity := LingpetAffinityStore.new()
 	max_affinity.set_save_path(max_affinity_path)
-	max_affinity.set_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
 	var max_owner := FakeOwner.new()
 	root.add_child(max_owner)
+	var max_runtime: Object = LingpetEggRuntime.new()
+	max_runtime._affinity_state.set_run_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
 	var max_registry := FakeRegistry.new({
-		"lingpet_egg_runtime": LingpetEggRuntime.new(),
+		"lingpet_egg_runtime": max_runtime,
 		"lingpet_affinity_store": max_affinity,
 	})
 	var max_viewport := _build_viewport()
@@ -422,7 +435,7 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 		_expect(str(max_summary.get("reason", "")) == "max_ring_core_tier", "max-tier ring-core purchase should report max_ring_core_tier")
 		_expect(int(max_status.get("plaza_gold", 0)) == 3000, "max-tier ring-core purchase should leave gold unchanged")
 		_expect(int(max_status.get("ap_current", 0)) == 4, "max-tier ring-core purchase should not spend AP")
-		_expect(int(max_affinity.get_ring_core_tier()) == LingpetAffinityStore.MAX_RING_CORE_TIER, "max-tier ring-core purchase should leave tier unchanged")
+		_expect(int(max_runtime.get_run_ring_core_tier()) == LingpetAffinityStore.MAX_RING_CORE_TIER, "max-tier ring-core purchase should leave the run tier unchanged")
 	max_viewport.queue_free()
 	max_owner.queue_free()
 	_cleanup(max_save_path)
@@ -435,20 +448,49 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 	missing_store.apply_stage_clear_progress(1, 3000, true)
 	var missing_owner := FakeOwner.new()
 	root.add_child(missing_owner)
-	var missing_registry := FakeRegistry.new({"lingpet_egg_runtime": LingpetEggRuntime.new()})
+	var missing_registry := FakeRegistry.new({})
 	var missing_viewport := _build_viewport()
 	var missing_scene := _build_scene(missing_viewport, missing_save_path, missing_owner, missing_registry)
 	if missing_scene != null:
 		_open_building(missing_scene, "lingpet_store")
-		_expect(not missing_scene.trigger_menu_action_for_test(1), "missing affinity store should block ring-core purchase")
+		_expect(not missing_scene.trigger_menu_action_for_test(1), "missing lingpet runtime should block ring-core purchase")
 		var missing_status: Dictionary = missing_scene.get_status()
 		var missing_summary: Dictionary = missing_status.get("last_lingpet_store_transaction_summary", {})
-		_expect(str(missing_summary.get("reason", "")) == "missing_affinity_store", "missing affinity store should report missing_affinity_store")
+		_expect(str(missing_summary.get("reason", "")) == "missing_lingpet_runtime", "missing lingpet runtime should report missing_lingpet_runtime")
 		_expect(int(missing_status.get("plaza_gold", 0)) == 3000, "missing affinity store should leave gold unchanged")
 		_expect(int(missing_status.get("ap_current", 0)) == 4, "missing affinity store should not spend AP")
 	missing_viewport.queue_free()
 	missing_owner.queue_free()
 	_cleanup(missing_save_path)
+
+
+func _verify_ring_core_post_payment_refund_restores_wallet() -> void:
+	var save_path := _smoke_save_path("ring_core_refund")
+	_cleanup(save_path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(save_path)
+	store.apply_stage_clear_progress(1, 3000, true)
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var fail_runtime := FakeRingCoreFailRuntime.new()
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": fail_runtime})
+	var viewport := _build_viewport()
+	var scene := _build_scene(viewport, save_path, owner, registry)
+	if scene != null:
+		_open_building(scene, "lingpet_store")
+		var before_status: Dictionary = scene.get_status()
+		var before_gold := int(before_status.get("plaza_gold", 0))
+		var before_ap := int(before_status.get("ap_current", 0))
+		_expect(not scene.trigger_menu_action_for_test(1), "post-payment upgrade failure should fail the purchase")
+		var status: Dictionary = scene.get_status()
+		var summary: Dictionary = status.get("last_lingpet_store_transaction_summary", {})
+		_expect(str(summary.get("reason", "")) == "ring_core_upgrade_failed", "post-payment upgrade failure should report ring_core_upgrade_failed")
+		_expect(summary.has("refund_summary"), "post-payment refund should attach a refund_summary")
+		_expect(int(status.get("plaza_gold", 0)) == before_gold, "post-payment refund should restore plaza gold")
+		_expect(int(status.get("ap_current", 0)) == before_ap, "post-payment refund should restore AP")
+	viewport.queue_free()
+	owner.queue_free()
+	_cleanup(save_path)
 
 
 func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: int, registry: Object = null) -> void:

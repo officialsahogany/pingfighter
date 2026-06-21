@@ -337,8 +337,12 @@
    - 선택적 후속 정리(미적용): 미사용된 `"동행 중 · 친밀도 %s"` 로컬라이즈
      문자열(localization_coverage_smoke는 여전히 통과).
 
-4. **R4: plaza shop transaction switch**
+4. **R4: plaza shop transaction switch** ✅ 완료
    - gold/AP 결제는 유지, upgrade target만 run state로 변경.
+   - egg_runtime `upgrade_run_ring_core_tier`/`get_run_ring_core_tier`
+     (add_enhancement_chip 미러) + plaza offer/buy run-state repoint +
+     죽은 store 헬퍼 제거 + plaza_scene 실패 토스트 `missing_lingpet_runtime`.
+   - smoke: run-state 구매 + 새-런 리셋 seal + post-payment refund 반증검증.
 
 5. **R5: perk ring-core transaction switch**
    - 런 퍽의 ring-core upgrade target을 store에서 run state로 변경.
