@@ -226,6 +226,12 @@ Stage 6 기준 봉인 예:
   수명 만료 시 조각별 셀단위 증발. 벽 셀 하나가 맞으면 해당 rect를 소유한 조각 전체가 빠른 증발로 전환되고
   그 조각의 모든 셀이 즉시 충돌에서 빠진다([pingfighter.py:116237](../pingfighter.py#L116237)).
   스모크는 "80셀 solid rectangle"이 아니라 "20조각, 빈틈 있는 실루엣, 조각 단위 피격 증발"을 고정한다.
+  **위치 정책 확정:** Python 백업 원본(`d:\백업\260429\main\bosspong\pingfighter.py`)과 Godot 모두
+  현재 `origin_bottom_y = HEIGHT - tile`,
+  `final_top = origin_bottom_y - r * tile - tile` 계열 공식을 써서 벽 더미가 상단 필드에 앵커되고
+  일부 seed에서 최상단 셀이 y<0으로 클립된다. 백업 원본도 draw-time y 보정 없이 rect.topleft에 그대로 blit하므로
+  Godot 단독 회귀가 아니라 원본 quirk 충실 포팅으로 판정한다. `origin_bottom_y` 이름과 실제 상단/클립 결과는 충돌하지만,
+  포팅 기준은 원본 quirk 유지다.
 - **보스중심 스폰 + 5모양:** 원본은 `BOSS.centerx`에서 T/L/Z/I/O 5종
   ([pingfighter.py:117052](../pingfighter.py#L117052), [:117058](../pingfighter.py#L117058)).
   Godot는 화면 x 랜덤 + 7종(S/J 추가) ([stage6_tetriser_state.gd:118-161](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L118),
@@ -250,6 +256,8 @@ Stage 6 기준 봉인 예:
 - **벽 더미:** 결정 seed로 벽을 스폰해 좌우 각 10조각/총 20조각, 조립 중 draw cell은 보이지만 collidable cell은 0,
   조립 후 collidable cell 활성, solid rectangle이 아닌 빈틈 있는 실루엣, 한 셀 피격 시 소유 조각 전체가
   fast-evaporating으로 빠짐을 assert. 단일셀 삭제/80셀 직사각형 구현을 되살리면 실패해야 한다.
+  y-band 스모크는 원본 quirk 기준으로 상단 앵커/클립 허용을 고정한다. floor-anchor 개선 분기를 되살려
+  벽이 하단 밴드로 내려가면 실패해야 한다.
 - **스폰/관통:** 스폰 X가 보스 centerx±오차 내이고 모양이 5종 집합인지 assert. rally 0 + boss 서브는 테트로/벽 통과,
   플레이어 반격 후에는 충돌. 파워스매시 공은 테트로/벽/super를 반사 없이 제거.
 
@@ -257,6 +265,7 @@ Stage 6 기준 봉인 예:
 - windowed capture 또는 trace harness로 낙하 y 좌표가 프레임마다 미끄러지지 않고 110ms 간격으로 계단식 이동하는지 확인.
 - 회전은 셀스냅 낙하 사이에서 90도 단위로만 바뀌고, 설치셀/벽과 겹친 프레임이 없어야 한다.
 - 벽은 양쪽 모두 불규칙 테트로 더미 실루엣이어야 하며, 꽉 찬 4열×10행 판처럼 보이면 실패.
+  캡처/trace에서는 원본 quirk인 상단 밴드와 y<0 상단 클립 허용이 유지되는지도 같이 기록한다.
 
 ### 트랩 브리프
 - **연속낙하 잔재 제거:** `TETRO_FALL_SPEED`를 물리 이동에 계속 쓰면 속도와 손맛이 모두 틀어진다. 보존하더라도

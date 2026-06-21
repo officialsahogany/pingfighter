@@ -132,6 +132,7 @@ func _init() -> void:
 	_test_guard_scheduler_spawns()
 	_test_guard_ball_collision()
 	_test_wall_spawn_uses_tetromino_pieces_and_collision_gate()
+	_test_wall_position_preserves_original_top_anchor()
 	_test_wall_lifetime_evaporates_piecewise()
 	_test_dash_destroys_obstacle()
 	_test_dash_destroys_super_tetromino()
@@ -646,6 +647,25 @@ func _test_wall_spawn_uses_tetromino_pieces_and_collision_gate() -> void:
 	for _i in range(2):
 		state.update(0.1, _active_context())
 	_expect(state.debug_get_wall_cell_count() < before_cells, "fast evaporation removes the hit piece cell-by-cell after collision is disabled")
+
+
+func _test_wall_position_preserves_original_top_anchor() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_wall(4242)
+	for _i in range(11):
+		state.update(0.1, _active_context())
+	var actor_context: Dictionary = state.get_actor_draw_context()
+	var cells: Array = actor_context.get("stage6_tetriser_wall_cells", [])
+	_expect(cells.size() == state.debug_get_wall_cell_count(), "precondition: all seeded wall cells are visible after assembly")
+	var cell_size: float = float(actor_context.get("stage6_tetriser_cell_size", 20.0))
+	var min_top: float = INF
+	var max_bottom: float = -INF
+	for cell_entry in cells:
+		var origin: Vector2 = (cell_entry as Dictionary).get("origin", Vector2.ZERO)
+		min_top = minf(min_top, origin.y)
+		max_bottom = maxf(max_bottom, origin.y + cell_size)
+	_expect(min_top < 0.0, "wall preserves original top-clipped quirk (min_top=%f)" % min_top)
+	_expect(max_bottom < 450.0, "wall stays in the original upper-field band, not floor anchored (max_bottom=%f)" % max_bottom)
 
 
 func _test_wall_lifetime_evaporates_piecewise() -> void:
