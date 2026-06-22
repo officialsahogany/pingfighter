@@ -29,7 +29,7 @@ func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.get_display_name("monkeyring") == "빠나몽", "Monkeyring display name should be Korean")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_art") == "res://assets/sprites/lingpet/monkeyring_cutin_art.png", "Monkeyring should own the accepted cutin art")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_anim") == "res://assets/sprites/lingpet/monkeyring_cutin_anim.png", "Monkeyring should own the 16f acquisition Live2D sheet")
-	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png", "Monkeyring should use the 98f click sheet for acquisition dismiss")
+	_expect(LingpetCatalog.get_visual_path("monkeyring", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/monkeyring_cutin_dismiss_anim.png", "Monkeyring acquisition dismiss should use the dedicated capped dismiss sheet (decoupled 2026-06-21 from the full-res click sheet so the hatch prewarm stays small)")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "click_reaction_anim") == "res://assets/sprites/lingpet/monkeyring_click_live2d_pingpong_98f.png", "Monkeyring should use the 98f click sheet for panel click reactions")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/monkeyring_companion_click_reaction_98f.png", "Monkeyring should use the downscaled battle click reaction sheet")
 	_expect(LingpetCatalog.get_visual_path("monkeyring", "companion_idle") == "res://assets/sprites/lingpet/monkeyring_companion_idle.png", "Monkeyring should use the accepted rear-view idle companion sheet")

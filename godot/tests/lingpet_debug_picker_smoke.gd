@@ -448,9 +448,9 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		"Koyora F7 acquisition cut-in should use the 4x4 / 16-frame AutoSprite sheet"
 	)
 	_expect(
-		LingpetCatalog.get_visual_path("koyora", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png"
+		LingpetCatalog.get_visual_path("koyora", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/koyora_cutin_dismiss_anim.png"
 		and LingpetCatalog.get_visual_path("koyora", "click_reaction_anim") == "res://assets/sprites/lingpet/koyora_click_live2d_pingpong_98f.png",
-		"Koyora acquisition click-dismiss and full click reaction should route to the 98-frame full-size click Live2D sheet"
+		"Koyora acquisition dismiss should route to the dedicated capped dismiss sheet while the full click reaction keeps the full-res 98-frame click Live2D (decoupled 2026-06-21)"
 	)
 	_expect(
 		LingpetCatalog.get_visual_path("koyora", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/koyora_companion_click_reaction_98f.png",
@@ -736,25 +736,25 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	)
 	_expect(
 		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
-		and cutin_host_source.find("\"koyora\": 14") >= 0
-		and cutin_host_source.find("\"koyora\": 7") >= 0
-		and cutin_host_source.find("\"koyora\": 98") >= 0,
-		"Koyora acquisition click-dismiss cut-in should register 14x7 / 98-frame playback overrides"
+		and cutin_host_source.find("\"koyora\": 14") < 0
+		and cutin_host_source.find("\"koyora\": 7") < 0
+		and cutin_host_source.find("\"koyora\": 98") < 0,
+		"Koyora should NOT register a 14x7/98 click-grid dismiss override -- it renders a dedicated 5x5/25 dismiss sheet via the default grid (decoupled 2026-06-21..23)"
 	)
 	_expect(
 		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
-		and cutin_host_source.find("\"nekuring\": 14") >= 0
-		and cutin_host_source.find("\"nekuring\": 7") >= 0
-		and cutin_host_source.find("\"nekuring\": 98") >= 0,
-		"Nekuring acquisition click-dismiss cut-in should register 14x7 / 98-frame playback overrides"
+		and cutin_host_source.find("\"nekuring\": 14") < 0
+		and cutin_host_source.find("\"nekuring\": 7") < 0
+		and cutin_host_source.find("\"nekuring\": 98") < 0,
+		"Nekuring should NOT register a 14x7/98 click-grid dismiss override -- it renders its dedicated bespoke 5x5/25 dismiss sheet via the default grid (decoupled 2026-06-21)"
 	)
 	_expect(LingpetCatalog.get_display_name("nekuring") == "네쿠링", "Nekuring catalog display name should use the accepted Korean name")
 	_expect(
 		LingpetCatalog.get_visual_path("nekuring", "cutin_art") == "res://assets/sprites/lingpet/nekuring_cutin_art.png"
 		and LingpetCatalog.get_visual_path("nekuring", "cutin_anim") == "res://assets/sprites/lingpet/nekuring_cutin_anim.png"
-		and LingpetCatalog.get_visual_path("nekuring", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png"
+		and LingpetCatalog.get_visual_path("nekuring", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/nekuring_cutin_dismiss_anim.png"
 		and LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim") == "res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png",
-		"Nekuring acquisition cut-in should use the accepted static, 4x4 loop, and 98-frame click/dismiss sheets"
+		"Nekuring acquisition cut-in should use the accepted static + 4x4 loop, a dedicated capped dismiss sheet, and the full-res 98-frame click sheet (dismiss decoupled 2026-06-21)"
 	)
 	_expect(
 		LingpetCatalog.get_visual_path("nekuring", "companion_idle") == "res://assets/sprites/lingpet/nekuring_companion_idle.png"

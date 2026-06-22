@@ -53,7 +53,7 @@ func _verify_visual_paths() -> void:
 		"cutin_art": "res://assets/sprites/lingpet/orosha_lingpet_live2d_anchor_v1.png",
 		"cutin_anim": "res://assets/sprites/lingpet/orosha_cutin_live2d_rigid_v2_autosprite_32f.png",
 		"cutin_vfx_anim": "res://assets/sprites/lingpet/orosha_acquire_vfx_autosprite_16f.png",
-		"cutin_dismiss_anim": "res://assets/sprites/lingpet/orosha_click_rolling_autosprite_98f.png",
+		"cutin_dismiss_anim": "res://assets/sprites/lingpet/orosha_cutin_dismiss_anim.png",
 		"click_reaction_anim": "res://assets/sprites/lingpet/orosha_click_rolling_autosprite_98f.png",
 		"companion_click_reaction_anim": "res://assets/sprites/lingpet/orosha_companion_click_reaction_rolling_98f.png",
 		"companion_idle": "res://assets/sprites/lingpet/orosha_companion_idle_ground_autosprite_25f.png",
@@ -232,9 +232,9 @@ func _verify_acquire_live2d_sheet_contracts() -> void:
 	_expect(host._get_cutin_anim_cols() == 8, "Orosha acquisition Live2D should use the 8-column sheet")
 	_expect(host._get_cutin_anim_rows() == 4, "Orosha acquisition Live2D should use the 4-row sheet")
 	_expect(host._get_cutin_anim_frame_count() == 32, "Orosha acquisition Live2D should play all 32 frames")
-	_expect(host._get_cutin_dismiss_cols() == 14, "Orosha acquisition click dismiss should use the 14-column click grid")
-	_expect(host._get_cutin_dismiss_rows() == 7, "Orosha acquisition click dismiss should use the 7-row click grid")
-	_expect(host._get_cutin_dismiss_frame_count() == 98, "Orosha acquisition click dismiss should play the full 98-frame click sheet")
+	_expect(host._get_cutin_dismiss_cols() == 5, "Orosha acquisition click dismiss should use the dedicated 5-column dismiss grid (decoupled to a repacked 5x5/25 sheet)")
+	_expect(host._get_cutin_dismiss_rows() == 5, "Orosha acquisition click dismiss should use the dedicated 5-row dismiss grid")
+	_expect(host._get_cutin_dismiss_frame_count() == 25, "Orosha acquisition click dismiss should play the repacked 25-frame dismiss sheet")
 
 
 func _verify_acquire_host_loads_visible_cutin_textures() -> void:

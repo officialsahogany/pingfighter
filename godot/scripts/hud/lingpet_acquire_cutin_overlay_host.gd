@@ -89,29 +89,20 @@ const CUTIN_DISMISS_COLS := 5
 const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
 const CUTIN_DISMISS_COLS_OVERRIDES := {
-	"koyora": 14,
-	"nekuring": 14,
-	"monkeyring": 14,
+	# koyora / nekuring / monkeyring / orosha render dedicated 5x5/25 dismiss sheets (default grid),
+	# decoupled from the full-res 14x7/98 click sheet. onimaru / rahoset / rabi still reuse their
+	# 14x7/98 click sheet as the dismiss (backlog), so they keep the override.
 	"onimaru": 14,
-	"orosha": 14,
 	"rahoset": 14,
 	"rabi": 14,
 }
 const CUTIN_DISMISS_ROWS_OVERRIDES := {
-	"koyora": 7,
-	"nekuring": 7,
-	"monkeyring": 7,
 	"onimaru": 7,
-	"orosha": 7,
 	"rahoset": 7,
 	"rabi": 7,
 }
 const CUTIN_DISMISS_FRAMES_OVERRIDES := {
-	"koyora": 98,
-	"nekuring": 98,
-	"monkeyring": 98,
 	"onimaru": 98,
-	"orosha": 98,
 	"rahoset": 98,
 	"rabi": 98,
 }
