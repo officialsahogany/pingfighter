@@ -344,9 +344,17 @@
      죽은 store 헬퍼 제거 + plaza_scene 실패 토스트 `missing_lingpet_runtime`.
    - smoke: run-state 구매 + 새-런 리셋 seal + post-payment refund 반증검증.
 
-5. **R5: perk ring-core transaction switch**
-   - 런 퍽의 ring-core upgrade target을 store에서 run state로 변경.
-   - V3-4 링코어 퍽 smoke 갱신.
+5. **R5: perk ring-core transaction switch** ✅ 완료
+   - 런 퍽의 ring-core upgrade target을 store에서 run state로 변경
+     (`runtime_perk_state._apply_lingpet_ring_core_upgrade` →
+     `egg_runtime.upgrade_run_ring_core_tier`, catalog offer도 run-state).
+   - **false-green 깸**: 기존 smoke가 `FakeAffinityStore`(작동하는 가짜)로
+     R3 store no-op을 마스킹 → 실제 `LingpetEggRuntime` run-state로 교체 +
+     new-run reset seal. FIX 반증검증(run-state upgrade 깨면 smoke FAIL).
+   - 비-KR 노출 정합: PERK_SUMMARY EN/ZH/JA/ES/PT_BR/RU의 "permanent/shared"
+     → "this run / resets each run"(localize_perk_data override 경로) + scan seal.
+   - 죽은 store 헬퍼 제거. 커밋 `edf00ff8a`(pistol_enhance·외부 localization
+     WIP는 hunk 분리로 unstaged 보존).
 
 6. **R6: UI smoke/pixel QA**
    - TAB row, 캐릭터 정보창, ring core labels.
