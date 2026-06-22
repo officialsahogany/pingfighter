@@ -290,7 +290,7 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 | **S5-1 사운드 3종** | ✅ | 완료 | bigtetromino / tetrominoshield / characterlazer 배선 + 스모크 반증검증 |
 | **S5-2 가드 조립 페이즈** | ✅ | 완료 | 1000ms 셀별 조립 → 320ms 슬라이드 → active 충돌 게이트 |
 | **S5-3 큐브 재조립 카운트** | ✅ | 완료 | authored intent: `{player,dash}`만 rebuild 카운트 |
-| **S5-4 보상/스타 드롭** | 🟠 | gap | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 통째 포팅 + 단위트랩 |
+| **S5-4 보상/스타 드롭** | ✅ | 완료 | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 포팅 + 단위/deps 반증검증 |
 | **S5-5 크리스탈 실드** | ⚪ | (미재감사) | freeze/persist 의도 결정 |
 
 권장 순서(공수↑): **S5-1(작고 기계적) → S5-2(중, 기존 패턴 미러) → S5-3(설계결정 먼저) → S5-4(가장 큼)**.
@@ -369,9 +369,11 @@ true 유지. 기존 dash 카운트 케이스와 페어로 SOURCE 분리 증명. 
 일반 공 반사는 `"ball"`로 미카운트, 파워스매시는 `"player"`로 +1, 대시는 `"dash"`로 +1, 연막/폭발은 `"smoke"`/`"explosion"`으로
 미카운트. 검증: 상태/배선 스모크 green, reason 게이트 제거 시 공-반사 +1로 실패, 허용 set을 `["dash"]`로 줄이면 파워스매시 테스트 실패.
 
-### S5-4 — 보상/스타 드롭 (🟠 가장 큰 항목)
-큐브 솔브-폭발 스타 드롭 + golden(3%) 테트로/벽 스타 + 수류탄 VFX 전부 미구현(TODO live
-[:1277](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L1277)). **핵심: stage6엔 starpoint 드롭 생애주기 자체가 없음**
+### S5-4 — 보상/스타 드롭 (완료: 2026-06-23)
+구현(2026-06-23): 큐브 솔브-폭발 스타 드롭 + golden(3%) 테트로/벽 스타를 `stage6_tetriser_state` 소유
+starpoint 드롭 생애주기로 포팅. 수집은 `StarpointCollectionRewardPolicy.collect_starpoint_reward` 경유로
+`collect_star_points(1)` 단위를 고정하고, `BattleUpdateEffectsDepsBuilder` live deps 경로를 wiring smoke로 봉인.
+단위 반증(`collect_star_points(200)`) 및 deps 반증(`runtime_perk_catalog=null`) 시 스모크 실패 확인.
 (스폰 배열/낙하 모션/획득/렌더/정리 전무). 작업 대부분은 explode 훅이 아니라 **stage2의 드롭 생애주기 통째 포팅**이다:
 `spawn_starpoint_drop → StarpointDropMotionState → 플레이어 overlap → StarpointCollectionRewardPolicy.collect_starpoint_reward`
 (stage2_pillar_background.gd:1683-1811 참조), + 스테이지 이탈 정리.
@@ -383,6 +385,20 @@ Python ★80-200 raw 수치를 collect에 직결 금지. 큐브 솔브 1드롭, 
 schema-gated FakeOwner의 collect_star_points가 **amount==1**로 호출(★80-200 아님). 반증: raw ★ 전달 경로면 실패.
 **트랩:** explode-time spawn만 넣고 update/collect/draw 루프를 안 만들면 "보이지도 못 줍지도 않는 드롭" — 스모크는 collect까지
 OUTCOME으로 단언, 라이브 QA로 별이 떨어지고 주워지는지 확인(stage2 미러). 수류탄 VFX는 폴리시(현 debris+EMP 유지 가능).
+
+#### 확정 신호계약 (재고정, 2026-06-23 — 착수 전 못박음)
+stage2를 코드로 매핑해 5-조각 생애주기와 ownership/단위/deps를 고정. **착수 전 이 5개를 모두 배선해야 함**(일부만 = invisible 드롭).
+1. **Ownership:** `var _starpoint_drops: Array = []`를 `stage6_tetriser_state`가 소유. `_clear_combat_state`에서 `clear()`(라운드/결과/이탈 전부 — 드롭은 transient 필드). stage2 `starpoint_drops`([stage2_pillar_background.gd:231](../godot/scripts/stages/stage2/stage2_pillar_background.gd#L231), reset clear :300) 미러.
+2. **Spawn:** `StarpointPayloadFactory.build_drop(pos, _rng, false, SIZE, LIFETIME)` → `_starpoint_drops.append`. 사이트: `_explode_cube`(CUBE_CENTER 1드롭), golden 제거 경로(`_clear_blocks_with_debris`/`_explode_landed_tetromino`/`_melt_cube_by_laser`)에서 `block.golden and not block.star_dropped` → centroid 1드롭 + `star_dropped=true`. stage2 `_spawn_starpoint_drop_at`([:1693](../godot/scripts/stages/stage2/stage2_pillar_background.gd#L1693)) 미러.
+3. **Motion+Collect:** 신규 `_update_starpoint_drops(fps_scale, context, deps)`를 `update()` 매틱 호출. per-drop `StarpointDropMotionState.update_drop(d, fps_scale, play_l/r/h, SIZE, MAX_FALL, ACCEL, BOUNCE)`(낙하/수명) → `StarpointDropOverlapQuery.overlaps_any_circle_player(d, player_rects, SIZE)` → overlap 시 `StarpointCollectionRewardPolicy.collect_starpoint_reward(context, deps)`. `current_stage != 6`이면 drops clear(이탈 정리). stage2 `_update_starpoint_drops`([:1730](../godot/scripts/stages/stage2/stage2_pillar_background.gd#L1730)) 미러.
+4. **Draw:** `get_actor_draw_context`에 `stage6_tetriser_starpoint_drops` 노출 → `stage6_tetriser_playfield_renderer`에 **자체 draw 메서드 추가**(stage2 `obstacle_visual_renderer.draw_starpoint_drops`는 stage2 전용 → 재사용 불가).
+5. **Golden flag:** 테트로/벽 dict에 `golden = _rng.randf() < 0.03`, `star_dropped = false` 추가(원본 3% — [pingfighter.py:115555](../pingfighter.py#L115555)).
+
+🔴 **단위 트랩 앵커(확정):** 수집은 **반드시 `StarpointCollectionRewardPolicy.collect_starpoint_reward(context, deps)` 경유**. 그 내부가 `runtime_perk_state.collect_star_points(**1**, …)` 하드코딩이라([starpoint_collection_reward_policy.gd:18](../godot/scripts/stages/common/starpoint_collection_reward_policy.gd#L18)) **드롭1=별1**이 구조적으로 보장됨. **`collect_star_points`를 직접 호출 금지**(Python ★80-200 raw 전달 = 트랩). 정책만 경유하면 단위는 자동 안전.
+
+🔴 **S0 deps 트랩(collect 경로):** `collect_starpoint_reward`는 `deps.runtime_perk_state` + `deps.runtime_perk_catalog` + `context.owner`/`registry`를 읽는다. **stage6 `update()`가 받는 effects-deps에 이 키들이 실제로 도달하는지 wiring smoke로 봉인**(없으면 collect가 조용히 `false` no-op = S1/S3-class 사망). FakeOwner 주입만으로 끝내지 말고 **실 effects-deps 빌더 경로**(BattleUpdateEffectsDepsBuilder)로 1건 검증.
+
+회귀 스모크(위 (a)(b)(c)에 추가): (d) **collectability** — 드롭을 플레이어와 overlap시켜 `collect_starpoint_reward`가 호출되는지(spawn-only 반파동 차단), (e) **이탈 정리** — `current_stage != 6` 업데이트 시 `_starpoint_drops` 비워짐.
 
 ### S5-5 — 크리스탈 실드 freeze/persist (⚪ 미재감사, 별도)
 형성 중 게임정지 없음(원본 ~8.5s) + 라운드마다 초기화(원본 라운드 persist) — 의도/복원 결정. 이번 5-항목 재감사 범위 밖이라

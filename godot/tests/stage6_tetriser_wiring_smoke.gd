@@ -157,12 +157,40 @@ class FakePowerState:
 		return parabola_active
 
 
+class FakeRuntimePerkState:
+	extends RefCounted
+
+	var calls: Array = []
+	var expected_catalog: Object = null
+	var expected_owner: Object = null
+
+	func collect_star_points(amount: int, character_type: String, runtime_perk_catalog: Object, owner: Object, registry: Object) -> bool:
+		calls.append({
+			"amount": amount,
+			"character_type": character_type,
+			"catalog_matches": runtime_perk_catalog == expected_catalog,
+			"owner_matches": owner == expected_owner,
+			"registry_owns_runtime_state": registry != null and registry.has_method("get_instance") and registry.get_instance("runtime_perk_state") == self,
+		})
+		return true
+
+
+class FakeOwner:
+	extends RefCounted
+
+	var redraws := 0
+
+	func queue_redraw() -> void:
+		redraws += 1
+
+
 func _init() -> void:
 	_verify_stage6_ball_update_deps_drive_tetriser_collision()
 	_verify_stage6_live_boss_serve_penetrates_from_ball_intensity()
 	_verify_stage6_live_post_rally_collides_from_ball_intensity()
 	_verify_stage6_live_power_smash_reaches_tetriser()
 	_verify_stage6_effect_deps_feed_immunity_gate()
+	_verify_stage6_starpoint_collect_uses_live_effect_deps()
 	_verify_stage6_draw_deps_feed_actor_context()
 	_verify_stage6_round_deps_feed_round_cleanup()
 	_verify_stage6_score_boundary_clears_round_state()
@@ -290,6 +318,42 @@ func _verify_stage6_effect_deps_feed_immunity_gate() -> void:
 		_expect(str(call.get("effect_type", "")) == "stun", "Stage 6 live explosion should consume Celestial Armor with the stun key")
 
 
+func _verify_stage6_starpoint_collect_uses_live_effect_deps() -> void:
+	var state := Stage6TetriserState.new()
+	state.debug_spawn_starpoint_drop_at(Vector2(380.0, 705.0))
+	var runtime_state := FakeRuntimePerkState.new()
+	var runtime_catalog := RefCounted.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	runtime_state.expected_catalog = runtime_catalog
+	runtime_state.expected_owner = owner
+	registry.instances["stage6_tetriser_state"] = state
+	registry.instances["runtime_perk_state"] = runtime_state
+	registry.instances["runtime_perk_catalog"] = runtime_catalog
+
+	var deps: Dictionary = BattleUpdateEffectsDepsBuilder.new().build_deps(registry, 6, "smasher")
+	_expect(deps.get("stage6_tetriser_state", null) == state, "Stage 6 effects deps should include Tetriser state for starpoint collection")
+	_expect(deps.get("runtime_perk_state", null) == runtime_state, "Stage 6 effects deps should include runtime perk state for starpoint collection")
+	_expect(deps.get("runtime_perk_catalog", null) == runtime_catalog, "Stage 6 effects deps should include runtime perk catalog for starpoint collection")
+	_expect(deps.get("registry", null) == registry, "Stage 6 effects deps should include registry fallback for starpoint collection")
+
+	var context := _explosion_context()
+	context["owner"] = owner
+	context["registry"] = registry
+	context["player_pos"] = Vector2(350.0, 690.0)
+	context["player_paddle_size"] = Vector2(70.0, 40.0)
+	_advance_effects(0.016, context, deps)
+	_expect(state.debug_get_starpoint_drop_count() == 0, "live effects path should collect overlapping Stage 6 starpoint drops")
+	_expect(runtime_state.calls.size() == 1, "live Stage 6 starpoint collection should call runtime perk state once")
+	if runtime_state.calls.size() == 1:
+		var call: Dictionary = runtime_state.calls[0]
+		_expect(int(call.get("amount", 0)) == 1, "live Stage 6 starpoint collection should grant exactly one star")
+		_expect(bool(call.get("catalog_matches", false)), "live Stage 6 starpoint collection should forward catalog from deps builder")
+		_expect(bool(call.get("owner_matches", false)), "live Stage 6 starpoint collection should forward owner from context")
+		_expect(bool(call.get("registry_owns_runtime_state", false)), "live Stage 6 starpoint collection should forward the live registry from deps builder/context")
+	_expect(owner.redraws == 1, "live Stage 6 starpoint collection should request owner redraw")
+
+
 func _verify_stage6_draw_deps_feed_actor_context() -> void:
 	var state: Object = Stage6TetriserState.new()
 	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
@@ -297,6 +361,7 @@ func _verify_stage6_draw_deps_feed_actor_context() -> void:
 	state.debug_force_spawn_wall()
 	for _i in range(12):
 		state.update(0.1, {"current_stage": 6, "ball_active": true, "waiting_for_serve": false})
+	state.debug_spawn_starpoint_drop_at(Vector2(380.0, 375.0))
 	var registry := FakeRegistry.new()
 	registry.instances["stage6_tetriser_state"] = state
 
@@ -316,6 +381,7 @@ func _verify_stage6_draw_deps_feed_actor_context() -> void:
 	_expect((actor_context.get("stage6_tetriser_guard_blocks", []) as Array).size() == 1, "Stage 6 actor draw context should expose guard blocks")
 	_expect((actor_context.get("stage6_tetriser_wall_cells", []) as Array).size() > 0, "Stage 6 actor draw context should expose wall cells")
 	_expect(not (actor_context.get("stage6_tetriser_cube", {}) as Dictionary).is_empty(), "Stage 6 actor draw context should expose the center cube")
+	_expect((actor_context.get("stage6_tetriser_starpoint_drops", []) as Array).size() == 1, "Stage 6 actor draw context should expose starpoint drops")
 
 	var full_draw_deps: Dictionary = draw_context_builder.build_scene_deps(registry, null, null)
 	_expect(full_draw_deps.get("stage6_tetriser_state", null) == state, "full draw deps should include Stage 6 Tetriser state")

@@ -1,7 +1,11 @@
 extends RefCounted
 
 const CrystalShieldState := preload("res://scripts/stages/stage6/stage6_tetriser_crystal_shield_state.gd")
+const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
+const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint_drop_motion_state.gd")
+const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
 const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
+const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
 
 # Stage 6 Tetriser boss state.
 #
@@ -121,6 +125,15 @@ const LASER_CHARGE_SEC := 0.8        # STAGE7_TETRO_LASER_CHARGE_MS=800
 const LASER_DURATION_SEC := 1.2      # STAGE7_TETRO_LASER_DURATION_MS=1200
 const EMP_LIFE_SEC := 0.6
 
+# Stage 6 starpoint drops mirror the Stage 2 drop payload/motion policy, but are
+# owned and drawn by Tetriser so rewards survive no Stage 2 dependencies.
+const STARPOINT_DROP_SIZE := 12.0
+const STARPOINT_DROP_LIFETIME := 600.0
+const STARPOINT_DROP_ACCELERATION := 0.25
+const STARPOINT_DROP_MAX_FALL_SPEED := 12.0
+const STARPOINT_DROP_BOUNCE_DAMPING := 0.7
+const GOLDEN_STARPOINT_CHANCE := 0.03
+
 # 표준 7종 테트로미노 셀 오프셋 (원본 game_logic/_tetro_wall_shapes 동일).
 const TETRO_SHAPES := {
 	"I": [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)],
@@ -149,6 +162,7 @@ var _tetrominoes: Array[Dictionary] = []
 var _guard_blocks: Array[Dictionary] = []
 var _wall_blocks: Array[Dictionary] = []
 var _debris: Array[Dictionary] = []
+var _starpoint_drops: Array[Dictionary] = []
 var _spawn_timer_sec: float = 0.0
 var _guard_timer_sec: float = 0.0
 var _wall_timer_sec: float = 0.0
@@ -209,6 +223,7 @@ func _clear_combat_state(clear_match_state: bool = false) -> void:
 	_guard_blocks.clear()
 	_wall_blocks.clear()
 	_debris.clear()
+	_starpoint_drops.clear()
 	_super_active = false
 	_super_intro_timer = 0.0
 	_super_scale = 1.0
@@ -236,11 +251,12 @@ func _clear_combat_state(clear_match_state: bool = false) -> void:
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
-		if not _tetrominoes.is_empty() or boss_gauge > 0.0 or _crystal_shield.has_runtime_state():
+		if not _tetrominoes.is_empty() or not _starpoint_drops.is_empty() or boss_gauge > 0.0 or _crystal_shield.has_runtime_state():
 			reset()
 		return _build_result()
 
 	var clamped_delta: float = clampf(delta, 0.0, 0.1)
+	var fps_scale: float = clamped_delta * 60.0
 	_crystal_shield.update(clamped_delta, context)
 
 	# 비활성 / 서브 대기 / 시간 정지 중에는 게이지·스폰·낙하 모두 정지(블록 동결, 게이지 유지).
@@ -265,6 +281,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	_update_laser(clamped_delta)
 	_update_emp(clamped_delta)
 	_update_debris(clamped_delta)
+	_update_starpoint_drops(fps_scale, context, deps)
 	_flush_sounds(deps)
 	return _build_result()
 
@@ -560,6 +577,8 @@ func _spawn_wall_side(origin_x: float) -> void:
 			"visible_cells": 0,
 			"cell_size": TETRO_CELL_SIZE,
 			"color": TETRO_COLORS.get(shape_name, Color(0.6, 0.7, 1.0)),
+			"golden": _rng.randf() < GOLDEN_STARPOINT_CHANCE,
+			"star_dropped": false,
 		})
 
 
@@ -656,6 +675,8 @@ func _spawn_tetromino(context: Dictionary = {}) -> void:
 		"rotate_timer_sec": 0.0,
 		"rotate_interval_sec": _random_rotate_interval(),
 		"rotate_dir": _random_rotate_dir(),
+		"golden": _rng.randf() < GOLDEN_STARPOINT_CHANCE,
+		"star_dropped": false,
 	})
 
 
@@ -776,6 +797,7 @@ func _explode_landed_tetromino(tetro: Dictionary, context: Dictionary, deps: Dic
 	var cell_size: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
 	var color: Color = _block_color(tetro)
 	var center: Vector2 = _block_cells_center(origin, cells, cell_size)
+	_maybe_spawn_starpoint_for_block(tetro)
 	_emit_debris(origin, cells, color, cell_size)
 	_emit_emp(center)
 	_sfx_break_pending = true
@@ -1127,6 +1149,7 @@ func _choose_reflection_axis(prev_rect: Rect2, cur_rect: Rect2, block: Rect2) ->
 
 # 블록 그룹 전체 파괴(테트로/가드/벽 단일셀) + 파편 플래시.
 func _destroy_block_group(blocks: Array, block: Dictionary, color: Color, reason: String = "") -> void:
+	_maybe_spawn_starpoint_for_block(block)
 	if String(block.get("kind", "")) == "wall":
 		_begin_wall_evaporation(block, true)
 		return
@@ -1249,6 +1272,82 @@ func _update_debris(delta: float) -> void:
 	_debris = alive
 
 
+func _spawn_starpoint_drop(pos: Vector2) -> void:
+	_starpoint_drops.append(StarpointPayloadFactory.build_drop(
+		pos,
+		_rng,
+		false,
+		STARPOINT_DROP_SIZE,
+		STARPOINT_DROP_LIFETIME,
+		0.05,
+		0.1,
+		"stage6_tetriser"
+	))
+
+
+func _maybe_spawn_starpoint_for_block(block: Dictionary) -> void:
+	if not bool(block.get("golden", false)):
+		return
+	if bool(block.get("star_dropped", false)):
+		return
+	block["star_dropped"] = true
+	var cells: Array = block.get("cells", [])
+	var cell_size: float = float(block.get("cell_size", TETRO_CELL_SIZE))
+	if cells.is_empty():
+		_spawn_starpoint_drop(block.get("origin", CUBE_CENTER))
+		return
+	_spawn_starpoint_drop(_block_cells_center(block.get("origin", Vector2.ZERO), cells, cell_size))
+
+
+func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
+		_starpoint_drops.clear()
+		return
+	if _starpoint_drops.is_empty():
+		return
+
+	var player_rects: Array[Rect2] = _get_player_interaction_rects(context)
+	var write_index := 0
+	var drop_count := _starpoint_drops.size()
+	for index in range(drop_count):
+		var drop: Dictionary = _starpoint_drops[index]
+		if not StarpointDropMotionState.update_drop(
+			drop,
+			fps_scale,
+			0.0,
+			FIELD_WIDTH,
+			FIELD_HEIGHT,
+			STARPOINT_DROP_SIZE,
+			STARPOINT_DROP_MAX_FALL_SPEED,
+			STARPOINT_DROP_ACCELERATION,
+			STARPOINT_DROP_BOUNCE_DAMPING
+		):
+			continue
+		if StarpointDropOverlapQuery.overlaps_any_circle_player(drop, player_rects, STARPOINT_DROP_SIZE):
+			if _collect_starpoint_drop(drop, context, deps):
+				continue
+		_starpoint_drops[write_index] = drop
+		write_index += 1
+	if write_index < drop_count:
+		_starpoint_drops.resize(write_index)
+
+
+func _collect_starpoint_drop(_drop: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
+	var collected: bool = StarpointCollectionRewardPolicy.collect_starpoint_reward(context, deps)
+	if collected:
+		StarpointCollectionRewardPolicy.request_owner_redraw(context)
+		return true
+	# Without the real runtime perk deps the policy intentionally no-ops; keep
+	# the drop alive so wiring smokes catch the missing live dependency path.
+	return false
+
+
+func _get_player_interaction_rects(context: Dictionary) -> Array[Rect2]:
+	var player_pos: Vector2 = context.get("player_pos", Vector2(302.5, 690.0))
+	var player_size: Vector2 = context.get("player_paddle_size", Vector2(155.0, 50.0))
+	return [Rect2(player_pos, player_size)]
+
+
 # ============================================================================
 # 중앙 큐브 (2D 논리 큐브)
 # ============================================================================
@@ -1324,6 +1423,7 @@ func _on_ball_enter_cube() -> void:
 func _explode_cube() -> void:
 	_clear_blocks_with_debris(_tetrominoes)
 	_clear_blocks_with_debris(_wall_blocks)
+	_spawn_starpoint_drop(CUBE_CENTER)
 	# 큐브 폭발 플래시(단일 큰 셀 2*radius). 파편 시스템이 확장/페이드 처리.
 	_emit_debris(CUBE_CENTER - Vector2(CUBE_RADIUS, CUBE_RADIUS), [Vector2.ZERO], Color(1.0, 0.85, 0.4), CUBE_RADIUS * 2.0)
 	_emit_emp(CUBE_CENTER)
@@ -1339,6 +1439,7 @@ func _clear_blocks_with_debris(blocks: Array, play_break_sound: bool = true) -> 
 	if blocks.is_empty():
 		return
 	for block in blocks:
+		_maybe_spawn_starpoint_for_block(block)
 		_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), _block_color(block), float(block.get("cell_size", TETRO_CELL_SIZE)))
 	blocks.clear()
 	if play_break_sound:
@@ -1513,6 +1614,7 @@ func get_actor_draw_context() -> Dictionary:
 		"stage6_tetriser_cube": _build_cube_draw_data(),
 		"stage6_tetriser_laser": _build_laser_draw_data(),
 		"stage6_tetriser_emp": _build_emp_draw_list(),
+		"stage6_tetriser_starpoint_drops": _build_starpoint_drop_draw_list(),
 	}
 	context.merge(_crystal_shield.get_actor_draw_context(), true)
 	return context
@@ -1557,6 +1659,13 @@ func _build_debris_draw_list() -> Array:
 			"color": d.get("color", Color(1.0, 1.0, 1.0)),
 			"progress": clampf(1.0 - float(d.get("life", 0.0)) / max_life, 0.0, 1.0),
 		})
+	return out
+
+
+func _build_starpoint_drop_draw_list() -> Array:
+	var out: Array = []
+	for drop in _starpoint_drops:
+		out.append(drop.duplicate(true))
 	return out
 
 
@@ -1662,7 +1771,7 @@ func debug_set_rng_seed(seed: int) -> void:
 
 
 # 결정론적 충돌 테스트용: 지정 위치에 즉시 'falling' 테트로미노 배치.
-func debug_spawn_tetromino_at(origin: Vector2, shape: String = "O", super_flag: bool = false) -> void:
+func debug_spawn_tetromino_at(origin: Vector2, shape: String = "O", super_flag: bool = false, golden: bool = false) -> void:
 	var cells: Array = (TETRO_SHAPES.get(shape, TETRO_SHAPES["O"]) as Array).duplicate()
 	_tetrominoes.append({
 		"shape": shape,
@@ -1683,6 +1792,8 @@ func debug_spawn_tetromino_at(origin: Vector2, shape: String = "O", super_flag: 
 		"rotate_timer_sec": 0.0,
 		"rotate_interval_sec": TETRO_ROTATE_INTERVAL_MIN_SEC,
 		"rotate_dir": 1,
+		"golden": golden,
+		"star_dropped": false,
 	})
 
 
@@ -1720,6 +1831,18 @@ func debug_get_first_tetromino_motion() -> Dictionary:
 
 func debug_get_debris_count() -> int:
 	return _debris.size()
+
+
+func debug_spawn_starpoint_drop_at(pos: Vector2) -> void:
+	_spawn_starpoint_drop(pos)
+
+
+func debug_get_starpoint_drop_count() -> int:
+	return _starpoint_drops.size()
+
+
+func debug_get_starpoint_drops_snapshot() -> Array:
+	return _starpoint_drops.duplicate(true)
 
 
 func debug_get_guard_count() -> int:
@@ -1783,7 +1906,7 @@ func debug_force_spawn_wall(seed: int = -1) -> void:
 
 
 # 결정론적 테스트용: 지정 위치에 단일 벽 셀 배치.
-func debug_spawn_wall_cell_at(origin: Vector2) -> void:
+func debug_spawn_wall_cell_at(origin: Vector2, golden: bool = false) -> void:
 	_wall_blocks.append({
 		"kind": "wall",
 		"wall_generated": true,
@@ -1793,6 +1916,8 @@ func debug_spawn_wall_cell_at(origin: Vector2) -> void:
 		"visible_cells": 1,
 		"cell_size": TETRO_CELL_SIZE,
 		"color": Color(0.6, 0.7, 1.0),
+		"golden": golden,
+		"star_dropped": false,
 	})
 
 

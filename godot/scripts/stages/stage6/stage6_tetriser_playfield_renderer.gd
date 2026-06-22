@@ -46,6 +46,9 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_
 		_draw_wall_cell(canvas, wall_cell, cell_vec, shake_offset)
 	for debris in context.get("stage6_tetriser_debris", []):
 		_draw_debris(canvas, debris, shake_offset)
+	for drop in context.get("stage6_tetriser_starpoint_drops", []):
+		if drop is Dictionary:
+			_draw_starpoint_drop(canvas, drop, shake_offset)
 	_draw_laser(canvas, context, shake_offset)
 	for emp in context.get("stage6_tetriser_emp", []):
 		_draw_emp(canvas, emp, shake_offset)
@@ -179,6 +182,24 @@ func _draw_debris(canvas: CanvasItem, debris: Dictionary, shake_offset: Vector2)
 	for r in debris.get("rects", []):
 		var rect: Rect2 = r
 		canvas.draw_rect(Rect2(rect.position - grow_vec + shake_offset, rect.size + grow_vec * 2.0), color)
+
+
+func _draw_starpoint_drop(canvas: CanvasItem, drop: Dictionary, shake_offset: Vector2) -> void:
+	var pos: Vector2 = _as_vector2(drop.get("pos", Vector2.ZERO)) + shake_offset
+	var size: float = maxf(4.0, float(drop.get("size", 12.0)))
+	var glow: float = clampf(float(drop.get("glow_intensity", 1.0)), 0.0, 1.4)
+	var life: float = maxf(0.0, float(drop.get("life", 600.0)))
+	var alpha: float = clampf(life / 60.0, 0.0, 1.0)
+	var rotation: float = float(drop.get("rotation", 0.0))
+	var core := Color(1.0, 0.94, 0.36, 0.92 * alpha)
+	var rim := Color(1.0, 0.62, 0.12, 0.78 * alpha)
+	canvas.draw_circle(pos, size * (1.35 + 0.15 * glow), Color(1.0, 0.78, 0.18, 0.13 * glow * alpha))
+	canvas.draw_circle(pos, size * 0.44, core)
+	for i in range(5):
+		var angle: float = rotation + float(i) * TAU / 5.0
+		var tip: Vector2 = pos + Vector2(cos(angle), sin(angle)) * size
+		canvas.draw_line(pos, tip, rim, 2.2, true)
+		canvas.draw_circle(tip, size * 0.16, core)
 
 
 func _draw_crystal_shield(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:

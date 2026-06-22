@@ -111,6 +111,31 @@ class FakeScoreState:
 		return player_in_danger
 
 
+class FakeRuntimePerkState:
+	extends RefCounted
+	var calls: Array = []
+	var expected_catalog: Object = null
+	var expected_owner: Object = null
+
+	func collect_star_points(amount: int, character_type: String, runtime_perk_catalog: Object, owner: Object, registry: Object) -> bool:
+		calls.append({
+			"amount": amount,
+			"character_type": character_type,
+			"catalog_matches": runtime_perk_catalog == expected_catalog,
+			"owner_matches": owner == expected_owner,
+			"registry_present": registry != null,
+		})
+		return true
+
+
+class FakeOwner:
+	extends RefCounted
+	var redraws := 0
+
+	func queue_redraw() -> void:
+		redraws += 1
+
+
 func _active_context() -> Dictionary:
 	return {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}
 
@@ -147,6 +172,9 @@ func _init() -> void:
 	_test_super_activation_and_drain()
 	_test_super_scale_and_tetromino()
 	_test_cube_solve_clears_field()
+	_test_cube_explosion_spawns_collectable_starpoint()
+	_test_golden_block_spawns_single_starpoint()
+	_test_starpoint_drops_clear_on_stage_leave()
 	_test_cube_rebuild_reactivates()
 	_test_ball_reflection_does_not_count_rebuild()
 	_test_power_smash_counts_rebuild_progress()
@@ -861,6 +889,67 @@ func _test_cube_solve_clears_field() -> void:
 	_expect(state.debug_get_tetromino_count() == 0, "cube explosion clears tetrominoes")
 	_expect(state.debug_get_wall_cell_count() == 0, "cube explosion clears walls")
 	_expect(state.debug_is_cube_rebuild() and not state.debug_is_cube_active(), "cube enters rebuild mode after explosion")
+
+
+func _test_cube_explosion_spawns_collectable_starpoint() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_cube_solve_pending()
+	for _i in range(25):
+		state.update(0.05, _active_context())
+	_expect(state.debug_get_starpoint_drop_count() == 1, "cube explosion spawns exactly one Stage 6 starpoint drop")
+	_expect((state.get_actor_draw_context().get("stage6_tetriser_starpoint_drops", []) as Array).size() == 1, "actor draw context exposes the Stage 6 starpoint drop")
+	var drop_snapshot: Array = state.debug_get_starpoint_drops_snapshot()
+	var drop_pos: Vector2 = (drop_snapshot[0] as Dictionary).get("pos", Vector2(380.0, 375.0)) if not drop_snapshot.is_empty() else Vector2(380.0, 375.0)
+
+	var runtime_state := FakeRuntimePerkState.new()
+	var catalog := RefCounted.new()
+	var owner := FakeOwner.new()
+	var registry := RefCounted.new()
+	runtime_state.expected_catalog = catalog
+	runtime_state.expected_owner = owner
+	var collect_ctx := _active_context()
+	collect_ctx["selected_character_type"] = "smasher"
+	collect_ctx["player_pos"] = drop_pos - Vector2(45.0, 45.0)
+	collect_ctx["player_paddle_size"] = Vector2(90.0, 90.0)
+	collect_ctx["owner"] = owner
+	collect_ctx["registry"] = registry
+	state.update(0.016, collect_ctx, {
+		"runtime_perk_state": runtime_state,
+		"runtime_perk_catalog": catalog,
+		"registry": registry,
+	})
+	_expect(state.debug_get_starpoint_drop_count() == 0, "overlapping player collects the Stage 6 starpoint drop")
+	_expect(runtime_state.calls.size() == 1, "starpoint collection goes through the runtime perk policy once")
+	if runtime_state.calls.size() == 1:
+		var call: Dictionary = runtime_state.calls[0]
+		_expect(int(call.get("amount", 0)) == 1, "Stage 6 starpoint drop grants exactly one star point")
+		_expect(bool(call.get("catalog_matches", false)), "Stage 6 starpoint collection forwards runtime perk catalog")
+		_expect(bool(call.get("owner_matches", false)), "Stage 6 starpoint collection forwards owner")
+		_expect(bool(call.get("registry_present", false)), "Stage 6 starpoint collection forwards registry")
+	_expect(owner.redraws == 1, "collecting a Stage 6 starpoint requests a redraw")
+
+
+func _test_golden_block_spawns_single_starpoint() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_wall_cell_at(Vector2(300.0, 300.0), true)
+	var scene := {
+		"ball_pos": Vector2(310.0, 310.0),
+		"previous_ball_pos": Vector2(280.0, 310.0),
+		"ball_vel": Vector2(8.0, 0.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0, "ball_rally_count": 1, "last_hit_by": "player"}
+	_expect(state.resolve_ball_collision(scene, ctx, {}), "precondition: ball destroys the golden wall piece")
+	_expect(state.debug_get_starpoint_drop_count() == 1, "golden wall piece spawns exactly one starpoint drop")
+	_expect(not state.resolve_ball_collision(scene, ctx, {}), "evaporating golden wall piece is no longer collidable")
+	_expect(state.debug_get_starpoint_drop_count() == 1, "golden star_dropped flag prevents duplicate starpoint drops")
+
+
+func _test_starpoint_drops_clear_on_stage_leave() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_starpoint_drop_at(Vector2(380.0, 375.0))
+	_expect(state.debug_get_starpoint_drop_count() == 1, "precondition: Stage 6 starpoint drop exists")
+	state.update(0.016, {"current_stage": 5, "ball_active": true, "waiting_for_serve": false})
+	_expect(state.debug_get_starpoint_drop_count() == 0, "leaving Stage 6 clears transient starpoint drops")
 
 
 func _test_cube_rebuild_reactivates() -> void:
