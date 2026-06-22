@@ -446,6 +446,10 @@ func get_owner_affinity_surface_build_count_for_tests() -> int:
 	return _owner_affinity_surface_build_count_for_tests
 
 
+func set_headbutt_force_mega_roll_for_tests(value: float) -> void:
+	_skill_runtime_host.set_headbutt_force_mega_roll_for_tests(value)
+
+
 func is_acquire_cutin_active() -> bool:
 	return _acquire_cutin_state.active
 
@@ -2532,6 +2536,10 @@ func _launch_companion_skill(owner: Object, registry: Object, slot_index: int = 
 			"bonus_summon_chance_pct": float(current_active_skill.get("bonus_summon_chance_pct", -1.0)),
 			"barrier_width": float(current_active_skill.get("barrier_width", -1.0)),
 			"bonus_barrier_chance_pct": float(current_active_skill.get("bonus_barrier_chance_pct", -1.0)),
+			"knockback_scale": float(current_active_skill.get("knockback_scale", -1.0)),
+			"headbutt_count": float(current_active_skill.get("headbutt_count", -1.0)),
+			"mega_knockback_bonus_pct": float(current_active_skill.get("mega_knockback_bonus_pct", -1.0)),
+			"mega_stun_seconds": float(current_active_skill.get("mega_stun_seconds", -1.0)),
 		}
 	)
 	if launched:

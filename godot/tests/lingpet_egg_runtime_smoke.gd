@@ -583,6 +583,8 @@ func _init() -> void:
 	_verify_ghost_blink_vfx()
 	_verify_lunabi_free_flight_profile()
 	_verify_lunabi_headbutt_skill()
+	_verify_lunabi_headbutt_level_scaling()
+	_verify_lunabi_headbutt_mega()
 	_verify_koyora_puppet_grab_skill()
 	_verify_loadout_apply_prewarms_active_skill_runtime()
 	_verify_companion_click_reaction()
@@ -3530,6 +3532,130 @@ func _verify_lunabi_free_flight_profile() -> void:
 	_expect(bool(runtime.is_companion_striking_for_tests()), "Lunabi should play the ball-swoop strike sheet on contact")
 
 
+func _verify_lunabi_headbutt_mega() -> void:
+	var HeadbuttSkill := load("res://scripts/lingpet/lingpet_headbutt_skill.gd")
+
+	# Lv.5 forced mega: 2s charge -> single dash -> compounded knockback + stun + mega impact flag.
+	var skill = HeadbuttSkill.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(330.0, 25.0)
+	owner.boss_vel = 0.0
+	var boss_ai := FakeBossAiState.new()
+	var status_state := FakeStatusEffectState.new()
+	var registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new(), "boss_ai_state": boss_ai, "status_effect_state": status_state})
+	var ctx := {
+		"active_skill_level": 5,
+		"knockback_scale": 1.40,
+		"headbutt_count": 3,
+		"mega_chance": 0.25,
+		"mega_knockback_bonus_pct": 0.50,
+		"mega_stun_seconds": 1.5,
+		"headbutt_mega_roll": 0.0,
+	}
+	_expect(skill.launch(Vector2(380.0, 600.0), owner, ctx), "forced mega roll should launch the headbutt")
+	var launch_snap: Dictionary = skill.get_snapshot()
+	_expect(bool(launch_snap.get("headbutt_is_mega", false)), "roll 0.0 < 0.25 should trigger Mega Headbutt at Lv.5")
+	_expect(bool(launch_snap.get("headbutt_mega_charging", false)), "Mega Headbutt should enter the 2s charge before dashing")
+	_expect(not bool(launch_snap.get("headbutt_active", false)), "Mega Headbutt should not dash during the charge")
+	_expect(int(launch_snap.get("headbutt_combo_total", 0)) == 1, "Mega Headbutt should be a single hit (combo 1)")
+	_expect(is_equal_approx(float(launch_snap.get("headbutt_mega_charge_seconds", 0.0)), 2.0), "Mega Headbutt charge should last 2 seconds")
+
+	skill.update(1.0, owner, registry)
+	_expect(bool(skill.get_snapshot().get("headbutt_mega_charging", false)), "Mega Headbutt should still be charging at 1.0s")
+	_expect(int(skill.get_hit_count_for_tests()) == 0, "Mega Headbutt should not hit during the charge")
+
+	var hit := false
+	for _i in range(60):
+		skill.update(0.05, owner, registry)
+		if int(skill.get_hit_count_for_tests()) > 0:
+			hit = true
+			break
+	_expect(hit, "Mega Headbutt should dash and hit after the charge")
+	var hit_snap: Dictionary = skill.get_snapshot()
+	_expect(str(hit_snap.get("headbutt_last_result", "")) == "mega_hit", "Mega Headbutt hit should report the mega result")
+	_expect(bool(hit_snap.get("headbutt_mega_impact", false)), "Mega Headbutt hit should flag the stronger impact VFX")
+	_expect(boss_ai.knockback_calls == 0, "Mega Headbutt must NOT queue the paddle-hit knockback channel (the boss stun branch bypasses it); the knockback rides the stun instead")
+	var stun_calls := status_state.get_calls_for_source("lingpet_headbutt_mega")
+	_expect(stun_calls.size() == 1, "Mega Headbutt should apply exactly one boss stun")
+	var stun_data: Dictionary = stun_calls[0].get("data", {})
+	_expect(str(stun_calls[0].get("target", "")) == "boss", "Mega Headbutt stun should target the boss")
+	_expect(str(stun_calls[0].get("status_id", "")) == "stun", "Mega Headbutt should apply a stun status")
+	_expect(is_equal_approx(float(stun_calls[0].get("duration_frames", 0.0)), 90.0), "Mega Headbutt Lv.5 stun should be 1.5s (90 frames)")
+	_expect(bool(stun_data.get("knockback_active", false)), "Mega Headbutt stun MUST carry an active knockback so the stunned boss actually slides back")
+	_expect(is_equal_approx(absf(float(stun_data.get("knockback_vel", 0.0))), 13.0 * 1.40 * 1.50), "Mega Headbutt Lv.5 stun knockback should compound normal scale (1.40) x mega bonus (1.50)")
+	_expect(is_equal_approx(float(stun_data.get("knockback_frames", 0.0)), 30.0), "Mega Headbutt stun knockback should run for the 30-frame headbutt window")
+	_expect(is_equal_approx(float(stun_data.get("knockback_decay_per_frame", 0.0)), 0.91), "Mega Headbutt stun knockback should use the headbutt knockback decay")
+
+	# Lv.3 mega tuning: knockback 1.25 x 1.30, stun 1.0s (60 frames).
+	var skill3 = HeadbuttSkill.new()
+	var owner3 := FakeOwner.new()
+	owner3.boss_pos = Vector2(330.0, 25.0)
+	owner3.boss_vel = 0.0
+	var boss_ai3 := FakeBossAiState.new()
+	var status3 := FakeStatusEffectState.new()
+	var registry3 := FakeRegistry.new({"game_audio": FakePaddleAudio.new(), "boss_ai_state": boss_ai3, "status_effect_state": status3})
+	var ctx3 := {"active_skill_level": 3, "knockback_scale": 1.25, "headbutt_count": 2, "mega_chance": 0.20, "mega_knockback_bonus_pct": 0.30, "mega_stun_seconds": 1.0, "headbutt_mega_roll": 0.1}
+	_expect(skill3.launch(Vector2(380.0, 600.0), owner3, ctx3), "Lv.3 forced mega should launch")
+	for _i in range(60):
+		skill3.update(0.05, owner3, registry3)
+		if int(skill3.get_hit_count_for_tests()) > 0:
+			break
+	_expect(boss_ai3.knockback_calls == 0, "Mega Headbutt Lv.3 should route knockback through the stun, not the paddle-hit channel")
+	var stun3 := status3.get_calls_for_source("lingpet_headbutt_mega")
+	_expect(stun3.size() == 1, "Mega Headbutt Lv.3 should apply one boss stun")
+	_expect(is_equal_approx(float(stun3[0].get("duration_frames", 0.0)), 60.0), "Mega Headbutt Lv.3 stun should be 1.0s (60 frames)")
+	_expect(is_equal_approx(absf(float(stun3[0].get("data", {}).get("knockback_vel", 0.0))), 13.0 * 1.25 * 1.30), "Mega Headbutt Lv.3 stun knockback should compound 1.25 x 1.30")
+	_expect(bool(stun3[0].get("data", {}).get("knockback_active", false)), "Mega Headbutt Lv.3 stun knockback should be active")
+
+	# Non-mega roll: normal multi-hit combo, no mega charge, no mega stun.
+	var skill2 = HeadbuttSkill.new()
+	var owner2 := FakeOwner.new()
+	owner2.boss_pos = Vector2(330.0, 25.0)
+	owner2.boss_vel = 0.0
+	var status2 := FakeStatusEffectState.new()
+	var registry2 := FakeRegistry.new({"game_audio": FakePaddleAudio.new(), "boss_ai_state": FakeBossAiState.new(), "status_effect_state": status2})
+	var ctx2 := {"active_skill_level": 5, "knockback_scale": 1.40, "headbutt_count": 3, "mega_chance": 0.25, "mega_knockback_bonus_pct": 0.50, "mega_stun_seconds": 1.5, "headbutt_mega_roll": 0.99}
+	_expect(skill2.launch(Vector2(380.0, 600.0), owner2, ctx2), "non-mega roll should still launch the headbutt")
+	var snap2: Dictionary = skill2.get_snapshot()
+	_expect(not bool(snap2.get("headbutt_is_mega", false)), "roll 0.99 >= 0.25 should NOT trigger Mega Headbutt")
+	_expect(not bool(snap2.get("headbutt_mega_charging", false)), "non-mega cast should not charge")
+	_expect(int(snap2.get("headbutt_combo_total", 0)) == 3, "non-mega Lv.5 cast should keep the 3-hit combo")
+	for _i in range(20):
+		skill2.update(0.05, owner2, registry2)
+		if int(skill2.get_hit_count_for_tests()) > 0:
+			break
+	_expect(status2.get_calls_for_source("lingpet_headbutt_mega").size() == 0, "non-mega headbutt should not apply a mega stun")
+
+
+func _verify_lunabi_headbutt_level_scaling() -> void:
+	var cases := [
+		{"level": 1, "combo": 1, "scale": 1.10},
+		{"level": 3, "combo": 2, "scale": 1.25},
+		{"level": 5, "combo": 3, "scale": 1.40},
+	]
+	for case in cases:
+		var level := int(case.get("level", 1))
+		var expected_combo := int(case.get("combo", 0))
+		var expected_scale := float(case.get("scale", 0.0))
+		var owner := FakeOwner.new()
+		owner.boss_pos = Vector2(320.0, 25.0)
+		owner.boss_vel = 0.0
+		owner.ball_active = true
+		var runtime: Object = LingpetEggRuntime.new()
+		var registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new(), "boss_ai_state": FakeBossAiState.new()})
+		_expect(runtime.debug_grant_and_activate_pet("lunabi", owner, false, "lunabi_headbutt", "", registry, level, 1), "Headbutt level fixture should equip Lv.%d" % level)
+		runtime.set_headbutt_force_mega_roll_for_tests(1.0)
+		runtime.update(0.0, owner, registry)
+		runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+		runtime.update(0.0, owner, registry)
+		runtime.update(0.50, owner, registry)
+		var snap: Dictionary = runtime.get_snapshot()
+		_expect(bool(snap.get("headbutt_active", false)), "Headbutt Lv.%d should launch after its wind-up" % level)
+		_expect(int(snap.get("headbutt_active_skill_level", 0)) == level, "Headbutt should publish the active skill level %d" % level)
+		_expect(int(snap.get("headbutt_combo_total", 0)) == expected_combo, "Headbutt Lv.%d should perform %d total dashes" % [level, expected_combo])
+		_expect(is_equal_approx(float(snap.get("headbutt_knockback_scale", 0.0)), expected_scale), "Headbutt Lv.%d knockback distance scale should be %.3f" % [level, expected_scale])
+
+
 func _verify_lunabi_headbutt_skill() -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi Headbutt skill card should ship as an imagegen PNG")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi Headbutt skill icon should ship as an imagegen PNG")
@@ -3542,8 +3668,6 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(headbutt_source.find("COMBO_MAX_COUNT := 3") >= 0 and headbutt_source.find("REPEAT_DELAY_MIN_SECONDS := 1.0") >= 0, "Lunabi Headbutt should support 1-3 dashes with 1-2 second repeat waits")
 
 	var owner := FakeOwner.new()
-	owner.lingpet_owned_pet_ids = ["lunabi"]
-	owner.lingpet_slots = ["lunabi", "", ""]
 	owner.boss_pos = Vector2(320.0, 25.0)
 	owner.boss_vel = 0.0
 	owner.ball_active = true
@@ -3551,6 +3675,8 @@ func _verify_lunabi_headbutt_skill() -> void:
 	var audio := FakePaddleAudio.new()
 	var boss_ai := FakeBossAiState.new()
 	var registry := FakeRegistry.new({"game_audio": audio, "boss_ai_state": boss_ai})
+	_expect(runtime.debug_grant_and_activate_pet("lunabi", owner, false, "lunabi_headbutt", "", registry, 5, 1), "Lunabi Headbutt fixture should equip the Lv.5 three-hit combo")
+	runtime.set_headbutt_force_mega_roll_for_tests(1.0)
 	runtime.update(0.0, owner, registry)
 
 	runtime.configure_companion_motion_for_tests(Vector2(-72.0, 245.0), 2, 0.0, false)
@@ -3574,7 +3700,7 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(combo_total >= 2, "the Lunabi Headbutt smoke fixture should exercise a repeat-capable combo")
 	_expect(int(launched_snap.get("headbutt_combo_index", 0)) == 1, "Lunabi Headbutt should publish the first dash as combo index 1")
 	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Lunabi Headbutt should count one launch")
-	_expect(owner.lingpet_skill_cooldown > 29.0, "Lunabi Headbutt should enter a 30-second cooldown at launch")
+	_expect(owner.lingpet_skill_cooldown > 25.0 and owner.lingpet_skill_cooldown <= 26.5, "Lunabi Headbutt Lv.5 should enter the level-reduced ~26.4s cooldown (30s base - 12% global level reduction)")
 	_expect(not bool(owner.lingpet_skill_ready), "Lunabi Headbutt should not be ready during cooldown")
 
 	var boss_x_before := owner.boss_pos.x

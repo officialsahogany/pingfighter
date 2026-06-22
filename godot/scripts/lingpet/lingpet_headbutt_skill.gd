@@ -24,8 +24,13 @@ const MISS_TEXT_FLOAT_Y := 34.0
 const TRAIL_MAX_POINTS := 12
 const COMBO_MIN_COUNT := 1
 const COMBO_MAX_COUNT := 3
-const COMBO_SINGLE_ROLL := 0.42
-const COMBO_DOUBLE_ROLL := 0.78
+const COMBO_COUNT_BY_LEVEL := [1, 1, 2, 2, 3]
+const KNOCKBACK_SCALE_BY_LEVEL := [1.10, 1.175, 1.25, 1.325, 1.40]
+const MEGA_CHANCE_BY_LEVEL := [0.0, 0.0, 0.20, 0.20, 0.25]
+const MEGA_KNOCKBACK_BONUS_PCT_BY_LEVEL := [0.0, 0.0, 0.30, 0.30, 0.50]
+const MEGA_STUN_SECONDS_BY_LEVEL := [0.0, 0.0, 1.0, 1.0, 1.5]
+const MEGA_CHARGE_SECONDS := 2.0
+const MEGA_STUN_SOURCE := "lingpet_headbutt_mega"
 const REPEAT_DELAY_MIN_SECONDS := 1.0
 const REPEAT_DELAY_MAX_SECONDS := 2.0
 const REPEAT_RECOIL_DISTANCE_Y := 92.0
@@ -54,6 +59,17 @@ var _repeat_wait_duration := 0.0
 var _repeat_loiter_phase := 0.0
 var _combo_total := 0
 var _combo_index := 0
+var _active_skill_level := 1
+var _knockback_scale := 1.0
+var _is_mega := false
+var _mega_charge_timer := 0.0
+var _mega_charge_origin := Vector2.ZERO
+var _mega_stun_seconds := 0.0
+var _mega_knockback_bonus := 0.0
+var _mega_chance := 0.0
+var _last_mega_roll := 1.0
+var _force_mega_roll := -1.0
+var _mega_impact := false
 var _strike_request_count := 0
 var _last_result := ""
 var _last_miss_reason := ""
@@ -83,6 +99,16 @@ func reset() -> void:
 	_repeat_loiter_phase = 0.0
 	_combo_total = 0
 	_combo_index = 0
+	_active_skill_level = 1
+	_knockback_scale = 1.0
+	_is_mega = false
+	_mega_charge_timer = 0.0
+	_mega_charge_origin = Vector2.ZERO
+	_mega_stun_seconds = 0.0
+	_mega_knockback_bonus = 0.0
+	_mega_chance = 0.0
+	_last_mega_roll = 1.0
+	_mega_impact = false
 	_strike_request_count = 0
 	_last_result = ""
 	_last_miss_reason = ""
@@ -102,11 +128,16 @@ func can_arm(params: Dictionary) -> bool:
 	return _is_companion_onscreen(companion_pos)
 
 
-func launch(origin: Vector2, owner: Object) -> bool:
+func launch(origin: Vector2, owner: Object, launch_context: Dictionary = {}) -> bool:
 	if owner == null:
 		return false
-	var boss_rect: Rect2 = _get_boss_rect(owner)
-	_combo_total = _pick_combo_total(origin, boss_rect.position)
+	_active_skill_level = _get_active_skill_level(launch_context)
+	_knockback_scale = _resolve_knockback_scale(launch_context)
+	_is_mega = _roll_mega(launch_context)
+	_mega_stun_seconds = _resolve_mega_stun_seconds(launch_context) if _is_mega else 0.0
+	_mega_knockback_bonus = _resolve_mega_knockback_bonus(launch_context) if _is_mega else 0.0
+	_mega_impact = false
+	_combo_total = 1 if _is_mega else _resolve_combo_total(launch_context)
 	_combo_index = 1
 	_repeat_wait_timer = 0.0
 	_repeat_anchor_pos = origin
@@ -114,6 +145,13 @@ func launch(origin: Vector2, owner: Object) -> bool:
 	_repeat_wait_duration = 0.0
 	_repeat_loiter_phase = 0.0
 	_strike_request_count = 0
+	if _is_mega:
+		_mega_charge_origin = origin
+		_mega_charge_timer = MEGA_CHARGE_SECONDS
+		_pos = origin
+		_last_result = "mega_charging"
+		_remember_boss_pos(_get_boss_rect(owner).position)
+		return true
 	return _begin_dash(origin, owner)
 
 
@@ -157,7 +195,14 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 	_impact_timer = maxf(0.0, _impact_timer - safe_delta)
 	_miss_timer = maxf(0.0, _miss_timer - safe_delta)
 	_miss_text_timer = maxf(0.0, _miss_text_timer - safe_delta)
-	if _active:
+	if _mega_charge_timer > 0.0:
+		_mega_charge_timer = maxf(0.0, _mega_charge_timer - safe_delta)
+		if _mega_charge_timer <= 0.0:
+			_begin_dash(_mega_charge_origin, owner)
+		else:
+			_pos = _mega_charge_origin
+			_remember_boss_pos(_get_boss_rect(owner).position)
+	elif _active:
 		_step_dash(safe_delta, owner, registry)
 	elif _repeat_wait_timer > 0.0:
 		_repeat_wait_timer = maxf(0.0, _repeat_wait_timer - safe_delta)
@@ -176,10 +221,14 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
+	if _mega_charge_timer > 0.0:
+		_draw_mega_charge(canvas, _mega_charge_origin + shake_offset)
 	if _active:
 		_draw_dash(canvas, shake_offset)
 	if _impact_timer > 0.0:
 		_draw_impact(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS, true)
+		if _mega_impact:
+			_draw_mega_impact(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS)
 	if _miss_timer > 0.0:
 		_draw_impact(canvas, _impact_pos + shake_offset, _miss_timer / MISS_FLASH_SECONDS, false)
 	if _miss_text_timer > 0.0:
@@ -187,18 +236,20 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 
 
 func has_visible_effects() -> bool:
-	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _miss_text_timer > 0.0 or _repeat_wait_timer > 0.0
+	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _miss_text_timer > 0.0 or _repeat_wait_timer > 0.0 or _mega_charge_timer > 0.0
 
 
 func is_active() -> bool:
-	return _active or _repeat_wait_timer > 0.0
+	return _active or _repeat_wait_timer > 0.0 or _mega_charge_timer > 0.0
 
 
 func has_companion_position_override() -> bool:
-	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _repeat_wait_timer > 0.0
+	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _repeat_wait_timer > 0.0 or _mega_charge_timer > 0.0
 
 
 func get_companion_position_override(fallback: Vector2 = Vector2.ZERO) -> Vector2:
+	if _mega_charge_timer > 0.0:
+		return _mega_charge_origin
 	if _active:
 		return _pos
 	if _repeat_wait_timer > 0.0:
@@ -217,6 +268,10 @@ func consume_companion_strike_request() -> bool:
 
 func get_hit_count_for_tests() -> int:
 	return _hit_count
+
+
+func set_force_mega_roll_for_tests(value: float) -> void:
+	_force_mega_roll = value
 
 
 func get_miss_count_for_tests() -> int:
@@ -261,6 +316,17 @@ func get_snapshot() -> Dictionary:
 		"headbutt_knockback_velocity": _last_knockback_velocity,
 		"headbutt_knockback_frames": KNOCKBACK_FRAMES,
 		"headbutt_knockback_decay": KNOCKBACK_DECAY,
+		"headbutt_active_skill_level": _active_skill_level,
+		"headbutt_knockback_scale": _knockback_scale,
+		"headbutt_is_mega": _is_mega,
+		"headbutt_mega_charging": _mega_charge_timer > 0.0,
+		"headbutt_mega_charge_timer": _mega_charge_timer,
+		"headbutt_mega_charge_seconds": MEGA_CHARGE_SECONDS,
+		"headbutt_mega_chance": _mega_chance,
+		"headbutt_mega_last_roll": _last_mega_roll,
+		"headbutt_mega_stun_seconds": _mega_stun_seconds,
+		"headbutt_mega_knockback_bonus": _mega_knockback_bonus,
+		"headbutt_mega_impact": _mega_impact,
 		"headbutt_moving_miss_speed_threshold": MOVING_MISS_SPEED_THRESHOLD,
 		"headbutt_guaranteed_miss_speed": GUARANTEED_MISS_SPEED,
 		"headbutt_moving_miss_chance": MOVING_MISS_CHANCE,
@@ -299,7 +365,8 @@ func _resolve_hit(owner: Object, registry: Object, boss_rect: Rect2) -> void:
 	_impact_pos = _pos
 	_impact_timer = IMPACT_SECONDS
 	_miss_timer = 0.0
-	_last_result = "hit"
+	_last_result = "mega_hit" if _is_mega else "hit"
+	_mega_impact = _is_mega
 	_last_miss_reason = ""
 	_hit_count += 1
 	var boss_pos: Vector2 = boss_rect.position
@@ -308,9 +375,19 @@ func _resolve_hit(owner: Object, registry: Object, boss_rect: Rect2) -> void:
 	if absf(direction) <= 0.01:
 		direction = 1.0 if boss_rect.get_center().x <= FIELD_WIDTH * 0.5 else -1.0
 	var next_pos := boss_pos
-	_last_knockback_velocity = direction * KNOCKBACK_VELOCITY
-	var ai_knockback_applied := _apply_ai_knockback(registry, _last_knockback_velocity)
-	var impact_nudge := direction * (IMPACT_NUDGE_DISTANCE if ai_knockback_applied else KNOCKBACK_DISTANCE)
+	var effective_scale := _knockback_scale * (1.0 + maxf(0.0, _mega_knockback_bonus))
+	_last_knockback_velocity = direction * KNOCKBACK_VELOCITY * effective_scale
+	var impact_nudge := 0.0
+	if _is_mega and _mega_stun_seconds > 0.0:
+		# Mega: the boss is stunned, and boss_ai's stun branch OWNS boss movement and
+		# returns BEFORE the paddle-hit knockback channel. So the strong knockback must
+		# ride the stun status (knockback_vel/frames/decay) like milk_shot/gatling -- the
+		# separate paddle-hit channel would be silently bypassed here. Keep a small nudge.
+		_apply_boss_stun(registry, _mega_stun_seconds, _last_knockback_velocity)
+		impact_nudge = direction * IMPACT_NUDGE_DISTANCE
+	else:
+		var ai_knockback_applied := _apply_ai_knockback(registry, _last_knockback_velocity)
+		impact_nudge = direction * (IMPACT_NUDGE_DISTANCE if ai_knockback_applied else KNOCKBACK_DISTANCE * effective_scale)
 	next_pos.x = clampf(boss_pos.x + impact_nudge, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
 	if owner != null:
 		owner.set("boss_pos", next_pos)
@@ -427,13 +504,85 @@ func _should_miss_moving_target(origin: Vector2, boss_pos: Vector2, moving_speed
 	return roll < miss_chance
 
 
-func _pick_combo_total(origin: Vector2, boss_pos: Vector2) -> int:
-	var roll := _deterministic_unit(origin + Vector2(31.0, -17.0), boss_pos, 5.0)
-	if roll < COMBO_SINGLE_ROLL:
-		return 1
-	if roll < COMBO_DOUBLE_ROLL:
-		return 2
-	return 3
+func _get_active_skill_level(launch_context: Dictionary) -> int:
+	return clampi(int(launch_context.get("active_skill_level", launch_context.get("skill_level", 1))), 1, 5)
+
+
+func _resolve_combo_total(launch_context: Dictionary) -> int:
+	var provided := int(round(float(launch_context.get("headbutt_count", -1.0))))
+	if provided >= COMBO_MIN_COUNT:
+		return clampi(provided, COMBO_MIN_COUNT, COMBO_MAX_COUNT)
+	return clampi(int(round(_get_level_array_value(COMBO_COUNT_BY_LEVEL, 1.0))), COMBO_MIN_COUNT, COMBO_MAX_COUNT)
+
+
+func _resolve_knockback_scale(launch_context: Dictionary) -> float:
+	var provided := float(launch_context.get("knockback_scale", -1.0))
+	if provided > 0.0:
+		return provided
+	return _get_level_array_value(KNOCKBACK_SCALE_BY_LEVEL, 1.0)
+
+
+func _get_level_array_value(values: Array, fallback: float) -> float:
+	if values.is_empty():
+		return fallback
+	var index := clampi(_active_skill_level, 1, values.size()) - 1
+	return float(values[index])
+
+
+func _roll_mega(launch_context: Dictionary) -> bool:
+	_mega_chance = _resolve_mega_chance(launch_context)
+	if _mega_chance <= 0.0:
+		_last_mega_roll = 1.0
+		return false
+	_last_mega_roll = _consume_mega_roll(launch_context)
+	return _last_mega_roll < _mega_chance
+
+
+func _resolve_mega_chance(launch_context: Dictionary) -> float:
+	var provided := float(launch_context.get("mega_chance", -1.0))
+	if provided >= 0.0:
+		return clampf(provided, 0.0, 1.0)
+	return clampf(_get_level_array_value(MEGA_CHANCE_BY_LEVEL, 0.0), 0.0, 1.0)
+
+
+func _resolve_mega_stun_seconds(launch_context: Dictionary) -> float:
+	var provided := float(launch_context.get("mega_stun_seconds", -1.0))
+	if provided >= 0.0:
+		return provided
+	return _get_level_array_value(MEGA_STUN_SECONDS_BY_LEVEL, 0.0)
+
+
+func _resolve_mega_knockback_bonus(launch_context: Dictionary) -> float:
+	var provided := float(launch_context.get("mega_knockback_bonus_pct", -1.0))
+	if provided >= 0.0:
+		return provided
+	return _get_level_array_value(MEGA_KNOCKBACK_BONUS_PCT_BY_LEVEL, 0.0)
+
+
+func _consume_mega_roll(launch_context: Dictionary) -> float:
+	if _force_mega_roll >= 0.0:
+		return clampf(_force_mega_roll, 0.0, 1.0)
+	if launch_context.has("headbutt_mega_roll"):
+		return clampf(float(launch_context.get("headbutt_mega_roll", 1.0)), 0.0, 1.0)
+	return randf()
+
+
+func _apply_boss_stun(registry: Object, seconds: float, knockback_velocity: float = 0.0) -> void:
+	if seconds <= 0.0:
+		return
+	var status_state := _get_registry_instance(registry, "status_effect_state")
+	if status_state == null or not status_state.has_method("apply_status"):
+		return
+	# Carry the knockback on the stun itself: boss_ai applies the stun-owned knockback
+	# (decayed over knockback_frames) while the boss is stunned, instead of the bypassed
+	# paddle-hit channel. Mirrors milk_shot / gatling boss-CC.
+	var data := {"source": MEGA_STUN_SOURCE}
+	if absf(knockback_velocity) > 0.001:
+		data["knockback_vel"] = knockback_velocity
+		data["knockback_active"] = true
+		data["knockback_frames"] = KNOCKBACK_FRAMES
+		data["knockback_decay_per_frame"] = KNOCKBACK_DECAY
+	status_state.apply_status("boss", "stun", maxf(1.0, seconds * 60.0), data, MEGA_STUN_SOURCE)
 
 
 func _pick_repeat_delay() -> float:
@@ -577,3 +726,31 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 			return value as Object
 	return null
+
+func _draw_mega_charge(canvas: CanvasItem, center: Vector2) -> void:
+	var ratio := clampf(1.0 - _mega_charge_timer / maxf(0.001, MEGA_CHARGE_SECONDS), 0.0, 1.0)
+	var swell := lerpf(26.0, 46.0, ratio)
+	canvas.draw_circle(center, swell, Color(0.62, 0.30, 1.0, 0.10 + 0.16 * ratio))
+	canvas.draw_arc(center, swell, 0.0, TAU, 36, Color(0.92, 0.66, 1.0, 0.34 + 0.40 * ratio), 2.0 + 1.5 * ratio, true)
+	for i in range(8):
+		var angle := TAU * float(i) / 8.0 + ratio * 4.0
+		var conv := lerpf(64.0, 10.0, ratio)
+		var spark := center + Vector2(cos(angle), sin(angle)) * conv
+		canvas.draw_circle(spark, lerpf(2.0, 5.5, ratio), Color(1.0, 0.92, 0.55, 0.45 + 0.45 * ratio))
+		canvas.draw_line(spark, center, Color(0.84, 0.55, 1.0, 0.18 + 0.30 * ratio), 1.4, true)
+	var core := lerpf(4.0, 12.0, ratio)
+	canvas.draw_circle(center, core, Color(1.0, 0.98, 0.86, 0.60 + 0.35 * ratio))
+
+
+func _draw_mega_impact(canvas: CanvasItem, pos: Vector2, ratio: float) -> void:
+	var clamped := clampf(ratio, 0.0, 1.0)
+	var expansion := 1.0 - clamped
+	var radius := lerpf(30.0, 104.0, expansion)
+	canvas.draw_circle(pos, radius, Color(1.0, 0.52, 0.16, 0.22 * clamped))
+	canvas.draw_circle(pos, radius * 0.6, Color(1.0, 0.86, 0.42, 0.30 * clamped))
+	canvas.draw_arc(pos, radius * 0.9, 0.0, TAU, 40, Color(1.0, 0.78, 0.36, 0.72 * clamped), 3.4, true)
+	for i in range(14):
+		var angle := TAU * float(i) / 14.0 + expansion * 0.7
+		var start := pos + Vector2(cos(angle), sin(angle)) * radius * 0.22
+		var end := pos + Vector2(cos(angle), sin(angle)) * radius * (1.0 + 0.18 * sin(float(i) * 1.7))
+		canvas.draw_line(start, end, Color(1.0, 0.95, 0.7, 0.5 * clamped), 2.2, true)

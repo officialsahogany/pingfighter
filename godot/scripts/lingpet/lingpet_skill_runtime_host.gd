@@ -284,7 +284,7 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			_get_hydro_sphere_skill().launch(origin)
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return bool(_get_headbutt_skill().launch(origin, owner))
+			return bool(_get_headbutt_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
 			_get_moon_orbit_skill().launch(origin)
 			return true
@@ -560,6 +560,10 @@ func get_hydro_puddle_particle_count_for_tests() -> int:
 
 func get_headbutt_hit_count_for_tests() -> int:
 	return int(_get_headbutt_skill().get_hit_count_for_tests())
+
+
+func set_headbutt_force_mega_roll_for_tests(value: float) -> void:
+	_get_headbutt_skill().set_force_mega_roll_for_tests(value)
 
 
 func get_headbutt_miss_count_for_tests() -> int:
