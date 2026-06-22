@@ -184,6 +184,7 @@ func _verify_direct_projectile_payloads() -> void:
 		6,
 		2.0,
 		1.25,
+		1.0,
 		4,
 		750.0,
 		180.0,

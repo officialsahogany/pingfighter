@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5vr25lbfmxx4"
-path="res://.godot/imported/nekuring_ghost_summon_skill_icon_imagegen_v1.png-7c749c895ecaa4db15443e290982c53a.ctex"
+uid="uid://uxtdspwh8u0q"
+path="res://.godot/imported/nekuring_skeleton_archer_skill_icon_imagegen_v1.png-b132a3e9512b5452f620cbd1e10a954d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/lingpet/nekuring_ghost_summon_skill_icon_imagegen_v1.png"
-dest_files=["res://.godot/imported/nekuring_ghost_summon_skill_icon_imagegen_v1.png-7c749c895ecaa4db15443e290982c53a.ctex"]
+source_file="res://assets/sprites/lingpet/nekuring_skeleton_archer_skill_icon_imagegen_v1.png"
+dest_files=["res://.godot/imported/nekuring_skeleton_archer_skill_icon_imagegen_v1.png-b132a3e9512b5452f620cbd1e10a954d.ctex"]
 
 [params]
 

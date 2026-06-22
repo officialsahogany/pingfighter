@@ -8,6 +8,8 @@ const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const ActiveItemRuntimeLifecycleFacade := preload("res://scripts/items/active_item_runtime_lifecycle_facade.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
+const CharacterInfoOverlayActiveItemPresenter := preload("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -29,6 +31,8 @@ class FakeOwner:
 	var runtime_paddle_base_height := 50.0
 	var runtime_paddle_scale := 1.0
 	var dash_active := false
+	var special_gauge := 0.0
+	var special_gauge_max := 500.0
 
 
 class FakeDashState:
@@ -52,6 +56,15 @@ class FakeActiveItemRuntime:
 		spawn_calls.append({
 			"name": item_name,
 			"position": position,
+		})
+		return true
+
+	func spawn_field_item_data(item_data: Dictionary, position: Variant = null) -> bool:
+		spawn_calls.append({
+			"name": str(item_data.get("name", "")),
+			"item_data": item_data.duplicate(true),
+			"position": position,
+			"used_data_spawn": true,
 		})
 		return true
 
@@ -107,12 +120,16 @@ class FakeSkillState:
 
 func _init() -> void:
 	_verify_catalog_and_assets()
+	_verify_cheese_catalog_and_assets()
+	_verify_milk_production_level_catalog()
 	_verify_stationary_field_motion()
 	_verify_runtime_spawn_entrypoint()
 	_verify_pickup_and_dash_destruction()
 	_verify_dash_break_effect_lifecycle()
 	_verify_dash_break_render_wiring()
 	_verify_milk_bottle_use_and_stage_reset()
+	_verify_milk_bottle_stacking_and_collectable()
+	_verify_cheese_gauge_restore()
 	_verify_lingpet_skill_host_spawns_milk_bottle()
 
 	if _failures.is_empty():
@@ -136,6 +153,42 @@ func _verify_catalog_and_assets() -> void:
 	_expect(is_equal_approx(float(item_data.get("paddle_scale_multiplier", 0.0)), 1.20), "milk bottle should scale the player paddle by 20 percent")
 	_expect(ProjectResourceLoader.load_texture(str(item_data.get("icon_path", ""))) != null, "milk bottle active-slot icon should load")
 	_expect(ProjectResourceLoader.load_texture(str(item_data.get("field_icon_path", ""))) != null, "milk bottle field icon should load")
+
+
+func _verify_cheese_catalog_and_assets() -> void:
+	var catalog := ActiveItemCatalog.new()
+	var expected_gain := {
+		"cheddar_cheese": 300.0,
+		"camembert_cheese": 400.0,
+		"emmental_cheese": 500.0,
+	}
+	for item_name in expected_gain.keys():
+		var item_data: Dictionary = catalog.build_item_by_name(str(item_name))
+		_expect(not item_data.is_empty(), "%s should build from the active item catalog" % item_name)
+		_expect(str(item_data.get("type", "")) == "active", "%s should be an active item" % item_name)
+		_expect(str(item_data.get("effect", "")) == "cheese", "%s should route to the cheese effect" % item_name)
+		_expect(bool(item_data.get("stationary_field_item", false)), "%s should stand still on the field" % item_name)
+		_expect(bool(item_data.get("dash_destroy_on_player_contact", false)), "%s should break on dash contact" % item_name)
+		_expect(bool(item_data.get("lingpet_generated_only", false)), "%s should remain lingpet-generated only" % item_name)
+		_expect(not item_data.has("paddle_scale_multiplier"), "%s should not carry the milk-bottle size effect" % item_name)
+		_expect(is_equal_approx(float(item_data.get("gauge_gain", 0.0)), float(expected_gain[item_name])), "%s should carry its configured gauge restore amount" % item_name)
+		_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has(item_name), "%s should not enter the random field-spawn pool" % item_name)
+		_expect(ProjectResourceLoader.load_texture(str(item_data.get("icon_path", ""))) != null, "%s active-slot icon should load" % item_name)
+		_expect(ProjectResourceLoader.load_texture(str(item_data.get("field_icon_path", ""))) != null, "%s field icon should load" % item_name)
+
+
+func _verify_milk_production_level_catalog() -> void:
+	var expected_cooldowns := [50.0, 47.0, 44.0, 41.0, 37.0]
+	var expected_scales := [1.12, 1.14, 1.16, 1.18, 1.20]
+	var expected_cheese_chances := [0.0, 0.0, 0.30, 0.30, 0.30]
+	for index in range(expected_cooldowns.size()):
+		var level := index + 1
+		var skill_data: Dictionary = LingpetCatalog.get_active_skill("milkring", "milkring_milk_production", level)
+		_expect(is_equal_approx(float(skill_data.get("cooldown", -1.0)), float(expected_cooldowns[index])), "milk production Lv.%d cooldown should use the explicit user value" % level)
+		_expect(is_equal_approx(float(skill_data.get("paddle_scale_multiplier", -1.0)), float(expected_scales[index])), "milk production Lv.%d should expose the milk-bottle scale multiplier" % level)
+		_expect(is_equal_approx(float(skill_data.get("cheese_chance", -1.0)), float(expected_cheese_chances[index])), "milk production Lv.%d should expose the cheese chance" % level)
+		_expect(is_equal_approx(float(skill_data.get("active_skill_level_cooldown_reduction_pct", -1.0)), 0.0), "milk production Lv.%d should not double-apply the universal cooldown tax" % level)
+		_expect(bool(skill_data.get("cooldown_by_level_authoritative", false)), "milk production Lv.%d should mark cooldown_by_level authoritative" % level)
 
 
 func _verify_stationary_field_motion() -> void:
@@ -265,6 +318,56 @@ func _verify_milk_bottle_use_and_stage_reset() -> void:
 	_expect(is_equal_approx(owner.player_paddle_height, 50.0), "stage transition reset should restore owner paddle height after milk bottle")
 
 
+func _verify_milk_bottle_stacking_and_collectable() -> void:
+	var catalog := ActiveItemCatalog.new()
+	var item_data: Dictionary = catalog.build_item_by_name("milk_bottle")
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(200.0, 700.0)
+	owner.player_paddle_width = 155.0
+	owner.player_paddle_height = 50.0
+	var effect_controller: Object = ActiveItemEffectController.new()
+	var registry := FakeRegistry.new()
+
+	# First use: base 1.0 + 0.20 increment = 1.20.
+	_expect(effect_controller.activate_milk_bottle(item_data, owner, registry), "first milk bottle use should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.20), "first milk use should set paddle scale to 1.20")
+
+	# Regression: a second milk bottle must remain collectable while the buff is active.
+	# The old can_store gate returned false here, breaking Milku's continuous production.
+	_expect(effect_controller.can_store_item("milk_bottle"), "milk bottle must stay collectable while milk_bottle_active is true")
+
+	# Second use stacks: 1.20 + 0.20 = 1.40.
+	_expect(effect_controller.activate_milk_bottle(item_data, owner, registry), "second milk bottle use should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.40), "second milk use should stack paddle scale to 1.40")
+
+	# Third use reaches the +60% cap: 1.40 + 0.20 clamped to 1.60.
+	_expect(effect_controller.activate_milk_bottle(item_data, owner, registry), "third milk bottle use should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.60), "third milk use should reach the +60% cap (1.60)")
+
+	# Fourth use stays capped (no overflow past +60%).
+	_expect(effect_controller.activate_milk_bottle(item_data, owner, registry), "fourth milk bottle use should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.60), "milk paddle scale must not exceed the +60% cap")
+
+
+func _verify_cheese_gauge_restore() -> void:
+	var catalog := ActiveItemCatalog.new()
+	var effect_controller: Object = ActiveItemEffectController.new()
+	var registry := FakeRegistry.new()
+	var cases := [
+		{"name": "cheddar_cheese", "start": 20.0, "expected": 320.0},
+		{"name": "camembert_cheese", "start": 50.0, "expected": 450.0},
+		{"name": "emmental_cheese", "start": 0.0, "expected": 500.0},
+		{"name": "cheddar_cheese", "start": 450.0, "expected": 500.0},
+	]
+	for spec in cases:
+		var owner := FakeOwner.new()
+		owner.special_gauge = float(spec.get("start", 0.0))
+		var item_data: Dictionary = catalog.build_item_by_name(str(spec.get("name", "")))
+		_expect(effect_controller.activate_cheese(item_data, owner, registry), "%s should activate through the cheese effect controller path" % str(spec.get("name", "")))
+		_expect(is_equal_approx(owner.special_gauge, float(spec.get("expected", 0.0))), "%s should restore gauge to the expected clamped value" % str(spec.get("name", "")))
+		_expect(not effect_controller.is_milk_bottle_active(), "%s should not activate milk-bottle size state" % str(spec.get("name", "")))
+
+
 func _verify_lingpet_skill_host_spawns_milk_bottle() -> void:
 	var host: Object = LingpetSkillRuntimeHost.new()
 	var active_runtime := FakeActiveItemRuntime.new()
@@ -297,14 +400,86 @@ func _verify_lingpet_skill_host_spawns_milk_bottle() -> void:
 		{
 			"registry": registry,
 			"companion_pos": Vector2(320.0, 620.0),
+			"active_skill_level": 2,
+			"paddle_scale_multiplier": 1.14,
+			"milk_production_cheese_roll": 0.95,
 		}
 	)
 	_expect(launched, "Milkring milk-production launch should spawn a milk bottle through active item runtime")
 	_expect(active_runtime.spawn_calls.size() == 1, "Milkring milk-production should request exactly one field milk bottle")
 	var spawn_call: Dictionary = active_runtime.spawn_calls[0]
 	_expect(str(spawn_call.get("name", "")) == "milk_bottle", "Milkring milk-production should spawn the milk bottle item id")
+	_expect(bool(spawn_call.get("used_data_spawn", false)), "Milkring milk-production should use item-data spawn for level-specific milk bottle data")
+	_expect(is_equal_approx(float(_get_dictionary(spawn_call, "item_data").get("paddle_scale_multiplier", 0.0)), 1.14), "Milkring milk-production should inject the level-specific milk-bottle scale")
 	_expect(is_equal_approx(_get_vector2(spawn_call, "position").y, 725.0), "Milkring milk-production should stand the bottle on the player floor")
 	_expect(host.get_milk_production_spawn_count_for_tests() == 1, "Milkring skill host should expose milk production spawn count for tests")
+	_verify_level_milk_bottle_slot_tooltip_and_use(spawn_call)
+
+	var cheese_runtime := FakeActiveItemRuntime.new()
+	var cheese_registry := FakeRegistry.new(null, cheese_runtime)
+	var cheese_launched: bool = host.launch(
+		"milkring_milk_production",
+		Vector2(300.0, 620.0),
+		owner,
+		{
+			"registry": cheese_registry,
+			"companion_pos": Vector2(300.0, 620.0),
+			"active_skill_level": 3,
+			"cheese_chance": 0.30,
+			"milk_production_cheese_roll": 0.10,
+		}
+	)
+	_expect(cheese_launched, "Milkring milk-production Lv.3 should launch when the forced cheese roll succeeds")
+	_expect(cheese_runtime.spawn_calls.size() == 1, "Milkring milk-production should request exactly one cheese field item")
+	if not cheese_runtime.spawn_calls.is_empty():
+		_expect(str(cheese_runtime.spawn_calls[0].get("name", "")) == "cheddar_cheese", "Milkring milk-production Lv.3 should spawn Cheddar Cheese on a successful cheese roll")
+
+	var failed_roll_runtime := FakeActiveItemRuntime.new()
+	var failed_roll_registry := FakeRegistry.new(null, failed_roll_runtime)
+	var failed_roll_launched: bool = host.launch(
+		"milkring_milk_production",
+		Vector2(300.0, 620.0),
+		owner,
+		{
+			"registry": failed_roll_registry,
+			"companion_pos": Vector2(300.0, 620.0),
+			"active_skill_level": 5,
+			"cheese_chance": 0.30,
+			"milk_production_cheese_roll": 0.90,
+		}
+	)
+	_expect(failed_roll_launched, "Milkring milk-production Lv.5 should launch when the forced cheese roll fails")
+	_expect(failed_roll_runtime.spawn_calls.size() == 1, "Milkring milk-production failed cheese roll should still request one field item")
+	if not failed_roll_runtime.spawn_calls.is_empty():
+		_expect(str(failed_roll_runtime.spawn_calls[0].get("name", "")) == "milk_bottle", "Milkring milk-production failed cheese roll should spawn a milk bottle instead")
+
+
+func _verify_level_milk_bottle_slot_tooltip_and_use(spawn_call: Dictionary) -> void:
+	var spawned_item_data: Dictionary = _get_dictionary(spawn_call, "item_data")
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(200.0, 700.0)
+	owner.player_paddle_width = 155.0
+	owner.player_paddle_height = 50.0
+	var slot_controller: Object = ActiveItemSlotController.new()
+	var field_item := {
+		"item_data": spawned_item_data.duplicate(true),
+		"position": _get_vector2(spawn_call, "position"),
+	}
+	_expect(slot_controller.store_active_item(field_item, owner.active_item_slots, FakeRegistry.new(), Callable(), owner), "level-scaled milk bottle should store through the real active-slot controller")
+	_expect(owner.active_item_slots.size() == 1, "level-scaled milk bottle should occupy one active slot")
+	if owner.active_item_slots.is_empty():
+		return
+	var stored_item: Dictionary = owner.active_item_slots[0]
+	_expect(str(stored_item.get("name", "")) == "milk_bottle", "level-scaled slot item should keep the milk bottle id")
+	_expect(is_equal_approx(float(stored_item.get("paddle_scale_multiplier", 0.0)), 1.14), "level-scaled slot item should preserve the Lv.2 scale multiplier")
+	var tooltip_body: String = CharacterInfoOverlayActiveItemPresenter.build_body(stored_item, int(stored_item.get("cooldown_msec", ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC)))
+	_expect(tooltip_body.find("14%") >= 0, "level-scaled slot tooltip should keep the Lv.2 milk-bottle percent")
+	_expect(tooltip_body.find("20%") < 0, "level-scaled slot tooltip should not fall back to the catalog Lv.5 milk-bottle percent")
+	var effect_controller: Object = ActiveItemEffectController.new()
+	_expect(effect_controller.activate_milk_bottle(stored_item, owner, FakeRegistry.new()), "stored level-scaled milk bottle should activate through the normal effect controller")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.14), "stored level-scaled milk bottle should apply its preserved scale")
+	_expect(is_equal_approx(owner.player_paddle_width, 176.7), "stored level-scaled milk bottle should resize paddle width by 14 percent")
+	_expect(is_equal_approx(owner.player_paddle_height, 57.0), "stored level-scaled milk bottle should resize paddle height by 14 percent")
 
 
 func _run_pickup_update(owner: Object, registry: Object, include_break_callback: bool = false) -> Array[Dictionary]:

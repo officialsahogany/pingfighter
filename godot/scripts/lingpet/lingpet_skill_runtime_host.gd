@@ -7,6 +7,7 @@ const HEADBUTT_SKILL_PATH := "res://scripts/lingpet/lingpet_headbutt_skill.gd"
 const MOON_ORBIT_SKILL_PATH := "res://scripts/lingpet/lingpet_moon_orbit_skill.gd"
 const BUBBLE_TRAP_SKILL_PATH := "res://scripts/lingpet/lingpet_bubble_trap_skill.gd"
 const MILK_PRODUCTION_SKILL_PATH := "res://scripts/lingpet/lingpet_milk_production_skill.gd"
+const MILK_SHOT_SKILL_PATH := "res://scripts/lingpet/lingpet_milk_shot_skill.gd"
 const THUNDER_ORB_SKILL_PATH := "res://scripts/lingpet/lingpet_thunder_orb_skill.gd"
 const SOLAR_BOLT_SKILL_PATH := "res://scripts/lingpet/lingpet_solar_bolt_skill.gd"
 const BOMB_SURPRISE_SKILL_PATH := "res://scripts/lingpet/lingpet_bomb_surprise_skill.gd"
@@ -21,12 +22,34 @@ const PUPPET_GRAB_SKILL_PATH := "res://scripts/lingpet/lingpet_puppet_grab_skill
 const DOLL_CURSE_SKILL_PATH := "res://scripts/lingpet/lingpet_doll_curse_skill.gd"
 const BANANA_SLICE_SKILL_PATH := "res://scripts/lingpet/lingpet_banana_slice_skill.gd"
 const WILD_ROAR_SKILL_PATH := "res://scripts/lingpet/lingpet_wild_roar_skill.gd"
+const STAR_COIL_SKILL_PATH := "res://scripts/lingpet/lingpet_star_coil_skill.gd"
+
+const SKELETON_ARCHER_DRAW_COUNTERS := [
+	{"counter_name": "lingpet.skeleton_archer.archers", "snapshot_key": "skeleton_archer_archer_count"},
+	{"counter_name": "lingpet.skeleton_archer.arrows", "snapshot_key": "skeleton_archer_arrow_count"},
+	{"counter_name": "lingpet.skeleton_archer.dying", "snapshot_key": "skeleton_archer_dying_count"},
+	{"counter_name": "lingpet.skeleton_archer.particles", "snapshot_key": "skeleton_archer_particle_count"},
+]
+const BONE_BARRIER_DRAW_COUNTERS := [
+	{"counter_name": "lingpet.bone_barrier.barriers", "snapshot_key": "bone_barrier_barrier_count"},
+	{"counter_name": "lingpet.bone_barrier.dying", "snapshot_key": "bone_barrier_dying_count"},
+	{"counter_name": "lingpet.bone_barrier.particles", "snapshot_key": "bone_barrier_particle_count"},
+]
+const MILK_SHOT_DRAW_COUNTERS := [
+	{"counter_name": "lingpet.milk_shot.projectiles", "snapshot_key": "milk_shot_projectile_count"},
+	{"counter_name": "lingpet.milk_shot.particles", "snapshot_key": "milk_shot_particle_count"},
+]
+const STAR_COIL_DRAW_COUNTERS := [
+	{"counter_name": "lingpet.star_coil.trail", "snapshot_key": "star_coil_trail_count"},
+	{"counter_name": "lingpet.star_coil.sparks", "snapshot_key": "star_coil_spark_count"},
+]
 
 var _hydro_sphere_skill: Object = null
 var _headbutt_skill: Object = null
 var _moon_orbit_skill: Object = null
 var _bubble_trap_skill: Object = null
 var _milk_production_skill: Object = null
+var _milk_shot_skill: Object = null
 var _thunder_orb_skill: Object = null
 var _solar_bolt_skill: Object = null
 var _bomb_surprise_skill: Object = null
@@ -41,6 +64,7 @@ var _puppet_grab_skill: Object = null
 var _doll_curse_skill: Object = null
 var _banana_slice_skill: Object = null
 var _wild_roar_skill: Object = null
+var _star_coil_skill: Object = null
 
 
 func reset(owner: Object = null, registry: Object = null) -> void:
@@ -49,6 +73,7 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_moon_orbit_skill, owner, registry)
 	_reset_skill(_bubble_trap_skill, owner, registry)
 	_reset_skill(_milk_production_skill, owner, registry)
+	_reset_skill(_milk_shot_skill, owner, registry)
 	_reset_skill(_thunder_orb_skill, owner, registry)
 	_reset_skill(_solar_bolt_skill, owner, registry)
 	_reset_skill(_bomb_surprise_skill, owner, registry)
@@ -63,6 +88,34 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_doll_curse_skill, owner, registry)
 	_reset_skill(_banana_slice_skill, owner, registry)
 	_reset_skill(_wild_roar_skill, owner, registry)
+	_reset_skill(_star_coil_skill, owner, registry)
+
+
+# Per-round reset. Skills that implement reset_round() persist their state
+# across the round boundary (e.g. Bone Barrier keeps its installed barriers);
+# every other skill takes a full reset, identical to reset().
+func reset_round(owner: Object = null, registry: Object = null) -> void:
+	_reset_skill_round(_hydro_sphere_skill, owner, registry)
+	_reset_skill_round(_headbutt_skill, owner, registry)
+	_reset_skill_round(_moon_orbit_skill, owner, registry)
+	_reset_skill_round(_bubble_trap_skill, owner, registry)
+	_reset_skill_round(_milk_production_skill, owner, registry)
+	_reset_skill_round(_milk_shot_skill, owner, registry)
+	_reset_skill_round(_thunder_orb_skill, owner, registry)
+	_reset_skill_round(_solar_bolt_skill, owner, registry)
+	_reset_skill_round(_bomb_surprise_skill, owner, registry)
+	_reset_skill_round(_gatling_burst_skill, owner, registry)
+	_reset_skill_round(_dragon_breath_skill, owner, registry)
+	_reset_skill_round(_dragon_wing_skill, owner, registry)
+	_reset_skill_round(_ghost_summon_skill, owner, registry)
+	_reset_skill_round(_skeleton_archer_skill, owner, registry)
+	_reset_skill_round(_bone_barrier_skill, owner, registry)
+	_reset_skill_round(_soul_clone_skill, owner, registry)
+	_reset_skill_round(_puppet_grab_skill, owner, registry)
+	_reset_skill_round(_doll_curse_skill, owner, registry)
+	_reset_skill_round(_banana_slice_skill, owner, registry)
+	_reset_skill_round(_wild_roar_skill, owner, registry)
+	_reset_skill_round(_star_coil_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -78,6 +131,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_bubble_trap_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			_get_milk_production_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			_get_milk_shot_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			_get_thunder_orb_skill().update(safe_delta, owner, registry)
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
@@ -106,6 +161,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_banana_slice_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			_get_wild_roar_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			_get_star_coil_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -116,6 +173,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger:
 	_draw_skill(_moon_orbit_skill, canvas, shake_offset)
 	_draw_skill(_bubble_trap_skill, canvas, shake_offset)
 	_draw_skill(_milk_production_skill, canvas, shake_offset)
+	_draw_skill_instrumented(_milk_shot_skill, canvas, shake_offset, "draw.lingpet.milk_shot", perf_logger, MILK_SHOT_DRAW_COUNTERS)
 	_draw_skill(_thunder_orb_skill, canvas, shake_offset)
 	_draw_skill(_solar_bolt_skill, canvas, shake_offset)
 	_draw_skill(_bomb_surprise_skill, canvas, shake_offset)
@@ -123,13 +181,14 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger:
 	_draw_skill(_dragon_breath_skill, canvas, shake_offset)
 	_draw_skill(_dragon_wing_skill, canvas, shake_offset)
 	_draw_skill(_ghost_summon_skill, canvas, shake_offset)
-	_draw_skeleton_archer_skill(canvas, shake_offset, perf_logger)
-	_draw_bone_barrier_skill(canvas, shake_offset, perf_logger)
+	_draw_skill_instrumented(_skeleton_archer_skill, canvas, shake_offset, "draw.lingpet.skeleton_archer", perf_logger, SKELETON_ARCHER_DRAW_COUNTERS)
+	_draw_skill_instrumented(_bone_barrier_skill, canvas, shake_offset, "draw.lingpet.bone_barrier", perf_logger, BONE_BARRIER_DRAW_COUNTERS)
 	_draw_skill(_soul_clone_skill, canvas, shake_offset)
 	_draw_skill(_puppet_grab_skill, canvas, shake_offset)
 	_draw_skill(_doll_curse_skill, canvas, shake_offset)
 	_draw_skill(_banana_slice_skill, canvas, shake_offset)
 	_draw_skill(_wild_roar_skill, canvas, shake_offset)
+	_draw_skill_instrumented(_star_coil_skill, canvas, shake_offset, "draw.lingpet.star_coil", perf_logger, STAR_COIL_DRAW_COUNTERS)
 
 
 func has_visible_effects() -> bool:
@@ -139,6 +198,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_moon_orbit_skill)
 		or _skill_has_visible_effects(_bubble_trap_skill)
 		or _skill_has_visible_effects(_milk_production_skill)
+		or _skill_has_visible_effects(_milk_shot_skill)
 		or _skill_has_visible_effects(_thunder_orb_skill)
 		or _skill_has_visible_effects(_solar_bolt_skill)
 		or _skill_has_visible_effects(_bomb_surprise_skill)
@@ -153,6 +213,7 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_doll_curse_skill)
 		or _skill_has_visible_effects(_banana_slice_skill)
 		or _skill_has_visible_effects(_wild_roar_skill)
+		or _skill_has_visible_effects(_star_coil_skill)
 	)
 
 
@@ -168,6 +229,8 @@ func has_visible_effects_for_skill(skill_id: String) -> bool:
 			return _skill_has_visible_effects(_bubble_trap_skill)
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return _skill_has_visible_effects(_milk_production_skill)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			return _skill_has_visible_effects(_milk_shot_skill)
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			return _skill_has_visible_effects(_thunder_orb_skill)
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
@@ -196,6 +259,8 @@ func has_visible_effects_for_skill(skill_id: String) -> bool:
 			return _skill_has_visible_effects(_banana_slice_skill)
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return _skill_has_visible_effects(_wild_roar_skill)
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return _skill_has_visible_effects(_star_coil_skill)
 		_:
 			return false
 
@@ -230,6 +295,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _bubble_trap_skill != null and (bool(_bubble_trap_skill.is_projectile_active()) or bool(_bubble_trap_skill.is_capture_active()) or bool(_bubble_trap_skill.is_shot_sequence_active()))
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return _milk_production_skill != null and bool(_milk_production_skill.is_producing())
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			return _milk_shot_skill != null and bool(_milk_shot_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			return _thunder_orb_skill != null and bool(_thunder_orb_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
@@ -258,6 +325,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _banana_slice_skill != null and bool(_banana_slice_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return _wild_roar_skill != null and bool(_wild_roar_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return _star_coil_skill != null and bool(_star_coil_skill.is_active())
 		_:
 			return false
 
@@ -274,6 +343,8 @@ func can_arm(skill_id: String, params: Dictionary) -> bool:
 			return bool(_get_wild_roar_skill().can_arm(params))
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
 			return bool(_get_solar_bolt_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return bool(_get_star_coil_skill().can_arm(params))
 		_:
 			return true
 
@@ -293,6 +364,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return bool(_get_milk_production_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			return bool(_get_milk_shot_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			_get_thunder_orb_skill().launch(origin, owner, launch_context)
 			return true
@@ -324,6 +397,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_banana_slice_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return bool(_get_wild_roar_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return bool(_get_star_coil_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -340,6 +415,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) * 0.35)
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
@@ -368,6 +445,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return companion_pos
 		_:
 			return companion_pos
 
@@ -388,6 +467,8 @@ func has_companion_position_override(skill_id: String) -> bool:
 			return _banana_slice_skill != null and bool(_banana_slice_skill.has_companion_position_override())
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return _wild_roar_skill != null and bool(_wild_roar_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return _star_coil_skill != null and bool(_star_coil_skill.has_companion_position_override())
 		_:
 			return false
 
@@ -408,6 +489,8 @@ func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vec
 			return _banana_slice_skill.get_companion_position_override(fallback) if _banana_slice_skill != null else fallback
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return _wild_roar_skill.get_companion_position_override(fallback) if _wild_roar_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return _star_coil_skill.get_companion_position_override(fallback) if _star_coil_skill != null else fallback
 		_:
 			return fallback
 
@@ -487,6 +570,9 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			_play_hydro_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			_play_active_item_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			# Milk Shot plays its fire cadence from the projectile runtime.
+			pass
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			_play_thunder_orb_feedback(registry)
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
@@ -517,6 +603,8 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			# Wild Roar plays its one-shot roar from the launch module itself.
 			pass
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			_play_active_item_feedback(registry)
 		_:
 			pass
 
@@ -537,6 +625,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _moon_orbit_skill)
 	_merge_skill_snapshot(snapshot, _bubble_trap_skill)
 	_merge_skill_snapshot(snapshot, _milk_production_skill)
+	_merge_skill_snapshot(snapshot, _milk_shot_skill)
 	_merge_skill_snapshot(snapshot, _thunder_orb_skill)
 	_merge_skill_snapshot(snapshot, _solar_bolt_skill)
 	_merge_skill_snapshot(snapshot, _bomb_surprise_skill)
@@ -551,6 +640,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _doll_curse_skill)
 	_merge_skill_snapshot(snapshot, _banana_slice_skill)
 	_merge_skill_snapshot(snapshot, _wild_roar_skill)
+	_merge_skill_snapshot(snapshot, _star_coil_skill)
 	return snapshot
 
 
@@ -584,6 +674,22 @@ func get_bubble_trap_pop_count_for_tests() -> int:
 
 func get_milk_production_spawn_count_for_tests() -> int:
 	return int(_get_milk_production_skill().get_spawn_count_for_tests())
+
+
+func get_milk_shot_shot_count_for_tests() -> int:
+	return int(_get_milk_shot_skill().get_shot_count_for_tests())
+
+
+func get_milk_shot_hit_count_for_tests() -> int:
+	return int(_get_milk_shot_skill().get_hit_count_for_tests())
+
+
+func get_milk_shot_projectile_count_for_tests() -> int:
+	return int(_get_milk_shot_skill().get_projectile_count_for_tests())
+
+
+func get_milk_shot_snapshot_for_tests() -> Dictionary:
+	return _get_milk_shot_skill().get_snapshot()
 
 
 func get_thunder_orb_shock_count_for_tests() -> int:
@@ -753,6 +859,14 @@ func get_wild_roar_snapshot_for_tests() -> Dictionary:
 	return _get_wild_roar_skill().get_snapshot()
 
 
+func get_star_coil_snapshot_for_tests() -> Dictionary:
+	return _get_star_coil_skill().get_snapshot()
+
+
+func get_star_coil_phase_for_tests() -> String:
+	return str(_get_star_coil_skill().get_phase_for_tests())
+
+
 func _get_skill_for_kind(skill_kind: String) -> Object:
 	match skill_kind:
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
@@ -765,6 +879,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_bubble_trap_skill()
 		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
 			return _get_milk_production_skill()
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			return _get_milk_shot_skill()
 		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
 			return _get_thunder_orb_skill()
 		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
@@ -793,6 +909,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_banana_slice_skill()
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			return _get_wild_roar_skill()
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return _get_star_coil_skill()
 		_:
 			return null
 
@@ -825,6 +943,12 @@ func _get_milk_production_skill() -> Object:
 	if _milk_production_skill == null:
 		_milk_production_skill = _new_skill(MILK_PRODUCTION_SKILL_PATH)
 	return _milk_production_skill
+
+
+func _get_milk_shot_skill() -> Object:
+	if _milk_shot_skill == null:
+		_milk_shot_skill = _new_skill(MILK_SHOT_SKILL_PATH)
+	return _milk_shot_skill
 
 
 func _get_thunder_orb_skill() -> Object:
@@ -911,6 +1035,29 @@ func _get_wild_roar_skill() -> Object:
 	return _wild_roar_skill
 
 
+func _get_star_coil_skill() -> Object:
+	if _star_coil_skill == null:
+		_star_coil_skill = _new_skill(STAR_COIL_SKILL_PATH)
+	return _star_coil_skill
+
+
+# Companion-renderer hook: when Star Coil is in its BIND phase, the orosha body sheet replaces
+# the rolling-hoop sprite (the bind motion IS orosha wrapping the boss). Peeks the existing module
+# only (no lazy create from the draw/config path); returns {} when not binding.
+func get_companion_bind_sheet_state(skill_id: String) -> Dictionary:
+	if LingpetSkillDispatcher.get_skill_kind(skill_id) != LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+		return {}
+	if _star_coil_skill == null:
+		return {}
+	var snap: Dictionary = _star_coil_skill.get_snapshot()
+	if not bool(snap.get("star_coil_bind_active", false)):
+		return {}
+	return {
+		"active": true,
+		"frame": int(snap.get("star_coil_bind_frame", 0)),
+	}
+
+
 func _new_skill(path: String) -> Object:
 	var script_resource: Variant = load(path)
 	if script_resource == null:
@@ -928,62 +1075,58 @@ func _reset_skill(skill: Object, owner: Object = null, registry: Object = null) 
 		skill.reset()
 
 
+func _reset_skill_round(skill: Object, owner: Object = null, registry: Object = null) -> void:
+	if skill == null:
+		return
+	if skill.has_method("reset_round"):
+		skill.reset_round()
+	else:
+		_reset_skill(skill, owner, registry)
+
+
 func _draw_skill(skill: Object, canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if skill != null and skill.has_method("draw"):
 		skill.draw(canvas, shake_offset)
 
 
-func _draw_skeleton_archer_skill(canvas: CanvasItem, shake_offset: Vector2, perf_logger: Object = null) -> void:
-	var skill: Object = _skeleton_archer_skill
+func _draw_skill_instrumented(
+	skill: Object,
+	canvas: CanvasItem,
+	shake_offset: Vector2,
+	label: String,
+	perf_logger: Object = null,
+	counter_specs: Array = []
+) -> void:
 	if skill == null or not skill.has_method("draw"):
 		return
 	if not _skill_has_visible_effects(skill):
 		return
-	_record_skeleton_archer_draw_counters(skill, perf_logger)
+	_record_draw_counters(skill, perf_logger, counter_specs)
 	var sample_start: int = _perf_begin(perf_logger)
 	skill.draw(canvas, shake_offset)
-	_perf_end(perf_logger, "draw.lingpet.skeleton_archer", sample_start)
+	_perf_end(perf_logger, label, sample_start)
 
 
-func _draw_bone_barrier_skill(canvas: CanvasItem, shake_offset: Vector2, perf_logger: Object = null) -> void:
-	var skill: Object = _bone_barrier_skill
-	if skill == null or not skill.has_method("draw"):
-		return
-	if not _skill_has_visible_effects(skill):
-		return
-	_record_bone_barrier_draw_counters(skill, perf_logger)
-	var sample_start: int = _perf_begin(perf_logger)
-	skill.draw(canvas, shake_offset)
-	_perf_end(perf_logger, "draw.lingpet.bone_barrier", sample_start)
-
-
-func _record_skeleton_archer_draw_counters(skill: Object, perf_logger: Object) -> void:
+func _record_draw_counters(skill: Object, perf_logger: Object, counter_specs: Array) -> void:
 	if perf_logger == null or not perf_logger.has_method("record_counter_sample"):
 		return
 	if skill == null or not skill.has_method("get_snapshot"):
+		return
+	if counter_specs.is_empty():
 		return
 	var raw_snapshot: Variant = skill.get_snapshot()
 	if not (raw_snapshot is Dictionary):
 		return
 	var snapshot: Dictionary = raw_snapshot as Dictionary
-	perf_logger.record_counter_sample("lingpet.skeleton_archer.archers", float(snapshot.get("skeleton_archer_archer_count", 0)))
-	perf_logger.record_counter_sample("lingpet.skeleton_archer.arrows", float(snapshot.get("skeleton_archer_arrow_count", 0)))
-	perf_logger.record_counter_sample("lingpet.skeleton_archer.dying", float(snapshot.get("skeleton_archer_dying_count", 0)))
-	perf_logger.record_counter_sample("lingpet.skeleton_archer.particles", float(snapshot.get("skeleton_archer_particle_count", 0)))
-
-
-func _record_bone_barrier_draw_counters(skill: Object, perf_logger: Object) -> void:
-	if perf_logger == null or not perf_logger.has_method("record_counter_sample"):
-		return
-	if skill == null or not skill.has_method("get_snapshot"):
-		return
-	var raw_snapshot: Variant = skill.get_snapshot()
-	if not (raw_snapshot is Dictionary):
-		return
-	var snapshot: Dictionary = raw_snapshot as Dictionary
-	perf_logger.record_counter_sample("lingpet.bone_barrier.barriers", float(snapshot.get("bone_barrier_barrier_count", 0)))
-	perf_logger.record_counter_sample("lingpet.bone_barrier.dying", float(snapshot.get("bone_barrier_dying_count", 0)))
-	perf_logger.record_counter_sample("lingpet.bone_barrier.particles", float(snapshot.get("bone_barrier_particle_count", 0)))
+	for raw_spec in counter_specs:
+		if not (raw_spec is Dictionary):
+			continue
+		var spec: Dictionary = raw_spec as Dictionary
+		var counter_name := str(spec.get("counter_name", ""))
+		var snapshot_key := str(spec.get("snapshot_key", ""))
+		if counter_name == "" or snapshot_key == "":
+			continue
+		perf_logger.record_counter_sample(counter_name, float(snapshot.get(snapshot_key, 0)))
 
 
 func _perf_begin(perf_logger: Object) -> int:

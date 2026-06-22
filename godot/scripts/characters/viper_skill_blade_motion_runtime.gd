@@ -11,30 +11,35 @@ static func try_phase2_followup_activation(runtime: Object, up_edge: bool, playe
 	var nerve_strike: String = str(constants.get("nerve_strike", "nerve_strike"))
 	if not runtime.blade_dark_mode:
 		var air_blade_combo_skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
-		var air_blade_has_nerve_and_dark: bool = runtime.visibility_query.is_skill_equipped(air_blade_combo_skill_config, nerve_strike) and runtime.visibility_query.is_skill_equipped(air_blade_combo_skill_config, dark_blade)
-		var air_blade_nerve_window_end_frame: float = float(constants.get("nerve_dark_blade_split_frames", 84.0)) if air_blade_has_nerve_and_dark else float(constants.get("nerve_window_end_frames", 102.0))
-		var air_blade_nerve_combo_window_active: bool = not runtime.nerve_strike_combo_used and not runtime.nerve_strike_active and runtime.blade_motion_total_frames >= float(constants.get("nerve_window_start_frames", 66.0)) and runtime.blade_motion_total_frames < air_blade_nerve_window_end_frame
-		var air_blade_skip_dark_combo := false
-		if air_blade_nerve_combo_window_active:
-			var air_blade_can_start_nerve_combo := false
-			if not (runtime.visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))):
-				var air_blade_nerve_skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
-				if runtime.visibility_query.is_skill_equipped(air_blade_nerve_skill_config, nerve_strike):
-					if special_gauge >= runtime._get_skill_cost_with_fallback(air_blade_nerve_skill_config, nerve_strike, float(constants.get("nerve_fallback_cost", 90.0))):
-						var air_blade_nerve_skill_state: Object = runtime.visibility_query.get_viper_skill_state(deps)
-						if air_blade_nerve_skill_state == null:
-							air_blade_can_start_nerve_combo = true
-						elif air_blade_nerve_skill_state.has_method("get_cooldown_remaining"):
-							air_blade_can_start_nerve_combo = air_blade_nerve_skill_state.get_cooldown_remaining(nerve_strike, now_msec, runtime._get_four_poisons_additive_cooldown_seconds(nerve_strike, air_blade_nerve_skill_config, deps, float(constants.get("nerve_cooldown_base", 35.0)))) <= 0.0
-						else:
-							air_blade_can_start_nerve_combo = runtime.visibility_query.is_configured_skill_ready(nerve_strike, deps, now_msec)
-			if air_blade_can_start_nerve_combo:
+		var air_blade_has_nerve: bool = runtime.visibility_query.is_skill_equipped(air_blade_combo_skill_config, nerve_strike)
+		var air_blade_has_dark: bool = runtime.visibility_query.is_skill_equipped(air_blade_combo_skill_config, dark_blade)
+		var air_blade_input_blocked: bool = runtime.visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))
+		var air_blade_window_start: float = float(constants.get("nerve_window_start_frames", 66.0))
+		var air_blade_split_frame: float = float(constants.get("nerve_dark_blade_split_frames", 84.0))
+		var air_blade_window_end: float = float(constants.get("nerve_window_end_frames", 102.0))
+		var air_blade_total_frames: float = runtime.blade_motion_total_frames
+		if air_blade_has_nerve and air_blade_has_dark:
+			# Flipped follow-up split (user design 2026-06-21): a single W after Air Blade is
+			# Dark Blade in the EARLY window [start, split) and Venom Edge in the LATE window
+			# [split, end]. Each window is owned by exactly one skill — if the owner cannot
+			# fire, W is consumed with no fall-through to the other skill in that window
+			# (mirrors the original window-ownership semantic; only the owners are swapped).
+			if air_blade_total_frames >= air_blade_window_start and air_blade_total_frames < air_blade_split_frame:
+				if not air_blade_input_blocked and special_gauge >= runtime._get_blade_skill_cost(air_blade_combo_skill_config, deps, dark_blade) and runtime.visibility_query.is_configured_skill_ready(dark_blade, deps, -1):
+					runtime._clear_blade_projectile()
+					return runtime._start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
+				return {}
+			if not runtime.nerve_strike_combo_used and not runtime.nerve_strike_active and air_blade_total_frames >= air_blade_split_frame and air_blade_total_frames <= air_blade_window_end and _can_start_nerve_combo(runtime, air_blade_combo_skill_config, special_gauge, config, deps, now_msec, constants):
 				runtime._clear_blade_projectile()
 				return runtime._start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
-			if air_blade_has_nerve_and_dark and runtime.blade_motion_total_frames < float(constants.get("nerve_dark_blade_split_frames", 84.0)):
-				air_blade_skip_dark_combo = true
-		var air_blade_dark_split_combo_window_active: bool = air_blade_has_nerve_and_dark and runtime.blade_motion_total_frames >= float(constants.get("nerve_dark_blade_split_frames", 84.0)) and runtime.blade_motion_total_frames <= float(constants.get("nerve_window_end_frames", 102.0))
-		if not air_blade_skip_dark_combo and (air_blade_dark_split_combo_window_active or runtime.blade_air_combo_window) and not runtime.visibility_query.is_control_locked(deps) and bool(config.get("ball_active", true)) and runtime.visibility_query.is_skill_equipped(air_blade_combo_skill_config, dark_blade) and special_gauge >= runtime._get_blade_skill_cost(air_blade_combo_skill_config, deps, dark_blade) and runtime.visibility_query.is_configured_skill_ready(dark_blade, deps, -1):
+			return {}
+		# Single follow-up equipped: the one equipped skill may fire across the whole
+		# [start, end] window (Venom Edge via its frame window, Dark Blade via the air combo
+		# window). This preserves the original single-equipped behavior unchanged.
+		if air_blade_has_nerve and not runtime.nerve_strike_combo_used and not runtime.nerve_strike_active and air_blade_total_frames >= air_blade_window_start and air_blade_total_frames < air_blade_window_end and _can_start_nerve_combo(runtime, air_blade_combo_skill_config, special_gauge, config, deps, now_msec, constants):
+			runtime._clear_blade_projectile()
+			return runtime._start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
+		if air_blade_has_dark and runtime.blade_air_combo_window and not air_blade_input_blocked and special_gauge >= runtime._get_blade_skill_cost(air_blade_combo_skill_config, deps, dark_blade) and runtime.visibility_query.is_configured_skill_ready(dark_blade, deps, -1):
 			runtime._clear_blade_projectile()
 			return runtime._start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
 	elif runtime.blade_dark_combo_window and not (runtime.visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))):
@@ -43,6 +48,22 @@ static func try_phase2_followup_activation(runtime: Object, up_edge: bool, playe
 			runtime._clear_blade_projectile()
 			return runtime._start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
 	return {}
+
+
+static func _can_start_nerve_combo(runtime: Object, skill_config: Object, special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int, constants: Dictionary) -> bool:
+	if runtime.visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true)):
+		return false
+	var nerve_strike: String = str(constants.get("nerve_strike", "nerve_strike"))
+	if not runtime.visibility_query.is_skill_equipped(skill_config, nerve_strike):
+		return false
+	if special_gauge < runtime._get_skill_cost_with_fallback(skill_config, nerve_strike, float(constants.get("nerve_fallback_cost", 90.0))):
+		return false
+	var nerve_skill_state: Object = runtime.visibility_query.get_viper_skill_state(deps)
+	if nerve_skill_state == null:
+		return true
+	if nerve_skill_state.has_method("get_cooldown_remaining"):
+		return nerve_skill_state.get_cooldown_remaining(nerve_strike, now_msec, runtime._get_four_poisons_additive_cooldown_seconds(nerve_strike, skill_config, deps, float(constants.get("nerve_cooldown_base", 35.0)))) <= 0.0
+	return runtime.visibility_query.is_configured_skill_ready(nerve_strike, deps, now_msec)
 
 
 static func start_motion(runtime: Object, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, dark_mode: bool, now_msec: int, trigger_cooldown: bool, pop_up_from_combo: bool, constants: Dictionary) -> Dictionary:
@@ -278,7 +299,12 @@ static func _get_horizontal_motion(runtime: Object, player_pos: Vector2, fps_sca
 		var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
 		var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
 		direction = 0.0 if left_pressed == right_pressed else (-1.0 if left_pressed else 1.0)
-	return ViperSkillGeometry.blade_horizontal_control_motion(player_pos, float(config.get("player_speed", 0.0)), direction, fps_scale, config, ViperSkillGeometry.player_floor_y(config), ViperSkillGeometry.get_paddle_size(config).x, float(constants.get("jetpack_max_height", 200.0)), float(constants.get("airborne_move_bonus_max", 2.15)), runtime.blade_dark_mode)
+	# Dark Blade's projectile fires at the phase 1->2 boundary, so phase >= 2 is "after fire":
+	# damp the post-fire lateral steering by the configured scale (air blade keeps full control).
+	var lateral_speed_scale: float = 1.0
+	if runtime.blade_dark_mode and runtime.blade_motion_phase >= 2:
+		lateral_speed_scale = float(constants.get("dark_post_fire_lateral_scale", 0.5))
+	return ViperSkillGeometry.blade_horizontal_control_motion(player_pos, float(config.get("player_speed", 0.0)), direction, fps_scale, config, ViperSkillGeometry.player_floor_y(config), ViperSkillGeometry.get_paddle_size(config).x, float(constants.get("jetpack_max_height", 200.0)), float(constants.get("airborne_move_bonus_max", 2.15)), runtime.blade_dark_mode, lateral_speed_scale)
 
 
 static func _spawn_dual_glitch_replicas(runtime: Object, size_mult: float, range_mult: float, constants: Dictionary) -> void:

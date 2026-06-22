@@ -7,6 +7,7 @@ const LingpetRingDashState := preload("res://scripts/lingpet/lingpet_ring_dash_s
 const LingpetRingDashVfx := preload("res://scripts/lingpet/lingpet_ring_dash_vfx.gd")
 const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
+const LingpetFeedBowlState := preload("res://scripts/lingpet/lingpet_feed_bowl_state.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
@@ -108,6 +109,9 @@ var _ghost_blink_vfx: Object = LingpetGhostBlinkVfx.new()
 # can fire the ghost blink "퐁" VFX once per transition.
 var _prev_ghost_visible := true
 var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
+var _feed_bowl_state: Object = LingpetFeedBowlState.new()
+var _pending_feed_pet_id := ""
+var _pending_feed_registry: Object = null
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
@@ -229,6 +233,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_perf_end(perf_logger, "physics.lingpet.prewarm_step", sample_start)
 		sample_start = _perf_begin(perf_logger)
 		_starlight_tracking_state.advance(delta, _get_current_passive_skill(), _state == STATE_COMPANION, _companion_pos)
+		_advance_feed_bowl_state(delta, registry)
 		_ring_dash_vfx.advance(delta)
 		_ghost_blink_vfx.advance(delta)
 		_perf_end(perf_logger, "physics.lingpet.vfx_states", sample_start)
@@ -314,6 +319,11 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 	if canvas == null:
 		return
 	if _state == STATE_COMPANION:
+		# Star Coil BIND: the orosha coil body wraps the boss, so render it in this post-actor
+		# FRONT pass (over the boss) instead of the behind-actors pass — body first, then the
+		# skill's own sparks/VFX on top.
+		if _is_companion_body_drawn_in_front():
+			_draw_companion(canvas, _companion_pos + shake_offset)
 		_skill_runtime_host.draw(canvas, shake_offset, _get_draw_perf_logger(_draw_context))
 		_afterglow_leak_state.draw(canvas, shake_offset)
 		# The lingpet BODY (egg sprite / companion sprite) is intentionally NOT drawn
@@ -332,6 +342,16 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
 
+# True only while the active companion skill is in its bind sheet phase (Star Coil BIND): the
+# coil body must render in the post-actor FRONT pass so it wraps OVER the boss, not behind it.
+func _is_companion_body_drawn_in_front() -> bool:
+	if _state != STATE_COMPANION or _skill_runtime_host == null:
+		return false
+	if not _skill_runtime_host.has_method("get_companion_bind_sheet_state"):
+		return false
+	return bool(_skill_runtime_host.get_companion_bind_sheet_state(_get_companion_body_skill_id()).get("active", false))
+
+
 # Draws ONLY the lingpet BODY (egg sprite in STATE_EGG, companion sprite in
 # STATE_COMPANION), intended to run BEHIND the player actor. The shared player actor
 # renderer invokes this (through a hook the battle scene drawer injects into the actor
@@ -347,7 +367,13 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 		return
 	if _state != STATE_COMPANION:
 		return
+	if _feed_bowl_state.has_visible_effects():
+		_feed_bowl_state.draw(canvas, shake_offset)
 	if _is_companion_body_draw_suppressed(_get_companion_body_skill_id()):
+		return
+	# Star Coil BIND draws the companion body in the FRONT pass (draw()) so its coils wrap OVER
+	# the boss; skip the behind-actors draw here so it does not also render behind the boss.
+	if _is_companion_body_drawn_in_front():
 		return
 	var click_reaction_texture: Texture2D = null
 	if _companion_click_reaction_state.is_active():
@@ -385,6 +411,7 @@ func has_visible_effects() -> bool:
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
+		or _feed_bowl_state.has_visible_effects()
 		or _affinity_feedback_state.has_visible_effects(_state == STATE_COMPANION)
 		or _skill_runtime_host.has_visible_effects()
 	)
@@ -820,6 +847,8 @@ func get_player_speed_multiplier() -> float:
 func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_seconds: float, context: Dictionary = {}) -> Dictionary:
 	if drop.is_empty() or _state != STATE_COMPANION:
 		return {}
+	if _feed_bowl_state.is_active():
+		return {}
 	if _has_active_companion_position_override():
 		_starlight_tracking_state.reset_round_transients()
 		return {}
@@ -889,6 +918,7 @@ func get_snapshot() -> Dictionary:
 	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
+	snapshot.merge(_feed_bowl_state.get_snapshot(), true)
 	snapshot["companion_appearance_rate"] = _get_current_appearance_rate() if _state == STATE_COMPANION else 0.0
 	var affinity_snapshot := _build_affinity_owner_snapshot()
 	snapshot["affinity_level"] = int(affinity_snapshot.get("level", 0))
@@ -991,11 +1021,12 @@ func reset_for_tests() -> void:
 	_companion_skill_state_by_pet_id.clear()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
+	_reset_feed_bowl_state()
 	_has_synced_none = false
 
 
 func reset_round(deps: Dictionary = {}) -> void:
-	_reset_skill_runtime_transients(deps.get("owner", null) as Object, deps.get("registry", null) as Object)
+	_reset_skill_runtime_transients(deps.get("owner", null) as Object, deps.get("registry", null) as Object, true)
 	_affinity_state.reset_round_caps()
 	_affinity_feedback_state.reset_round_transients()
 	_reset_companion_defense()
@@ -1007,11 +1038,24 @@ func reset_round(deps: Dictionary = {}) -> void:
 	_ring_dash_vfx.reset()
 	_ghost_blink_vfx.reset()
 	_starlight_tracking_state.reset_round_transients()
+	_reset_feed_bowl_state()
 
 
-func _reset_skill_runtime_transients(owner: Object = null, registry: Object = null) -> void:
+func _reset_feed_bowl_state() -> void:
+	_feed_bowl_state.reset_all()
+	_pending_feed_pet_id = ""
+	_pending_feed_registry = null
+
+
+func _reset_skill_runtime_transients(owner: Object = null, registry: Object = null, round_scope: bool = false) -> void:
+	# round_scope (per-round) lets skills that implement reset_round() persist
+	# across the round boundary (Bone Barrier keeps installed barriers). The
+	# full path (companion change / hatch / new battle / tests) still wipes all.
 	_cancel_companion_skill_windups()
-	_skill_runtime_host.reset(owner, registry)
+	if round_scope:
+		_skill_runtime_host.reset_round(owner, registry)
+	else:
+		_skill_runtime_host.reset(owner, registry)
 
 
 func _clear_lingpet_field_state() -> void:
@@ -1028,6 +1072,7 @@ func _clear_lingpet_field_state() -> void:
 	_ghost_blink_vfx.reset()
 	_prev_ghost_visible = true
 	_starlight_tracking_state.reset_all()
+	_reset_feed_bowl_state()
 
 
 func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
@@ -1041,6 +1086,7 @@ func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
 	_ghost_blink_vfx.reset()
 	_prev_ghost_visible = true
 	_starlight_tracking_state.reset_all()
+	_reset_feed_bowl_state()
 	_reset_companion_skill_states()
 	if reset_defense:
 		_reset_companion_defense()
@@ -2187,6 +2233,27 @@ func _get_starlight_tracking_delivery_pos(context: Dictionary) -> Vector2:
 	return player_pos + player_size * 0.5
 
 
+func _advance_feed_bowl_state(delta: float, registry: Object = null) -> void:
+	if not _feed_bowl_state.is_active():
+		return
+	var result: Dictionary = _feed_bowl_state.advance(delta, _companion_pos, _get_current_motion_style())
+	if result.has("companion_pos"):
+		var next_pos: Variant = result.get("companion_pos", _companion_pos)
+		if next_pos is Vector2:
+			_companion_pos = next_pos
+			_companion_motion_state.pos = _companion_pos
+	if not bool(result.get("completed", false)):
+		return
+	var feed_pet_id := _pending_feed_pet_id
+	var feed_registry := _pending_feed_registry if _pending_feed_registry != null else registry
+	_pending_feed_pet_id = ""
+	_pending_feed_registry = null
+	if feed_pet_id == "":
+		return
+	var feed_result := _add_affinity_points(feed_pet_id, LingpetAffinityState.SOURCE_FEED, {}, feed_registry)
+	feed_result["accepted"] = float(feed_result.get("granted_points", 0.0)) > 0.0
+
+
 func _update_companion_motion(delta: float, owner: Object, registry: Object = null) -> void:
 	var prev_pos: Vector2 = _companion_pos
 	var skill_position_override := _get_active_position_override_owner()
@@ -2218,6 +2285,11 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 			return
 		if ring_dash_was_active:
 			_resume_companion_motion_after_ring_dash(owner)
+	if _feed_bowl_state.has_companion_position_override() and not bool(skill_position_override.get("has", false)):
+		_companion_pos = _feed_bowl_state.get_companion_position_override(_companion_pos)
+		_companion_motion_state.pos = _companion_pos
+		_update_companion_facing_after_motion(prev_pos)
+		return
 	if _starlight_tracking_state.has_companion_position_override() and not bool(skill_position_override.get("has", false)):
 		_companion_pos = _starlight_tracking_state.get_companion_position_override(_companion_pos)
 		_companion_motion_state.pos = _companion_pos
@@ -2627,6 +2699,8 @@ func _is_companion_body_available_for_hit() -> bool:
 		return not _ring_dash_state.is_companion_visual_hidden()
 	if _has_active_companion_position_override():
 		return true
+	if _feed_bowl_state.has_companion_position_override():
+		return true
 	if _starlight_tracking_state.has_companion_position_override():
 		return true
 	return bool(_companion_motion_state.motion_visible)
@@ -2695,6 +2769,8 @@ func _get_companion_draw_motion_speed_ratio() -> float:
 		return _companion_override_move_ratio
 	if _ring_dash_state.has_companion_position_override():
 		return 0.0
+	if _feed_bowl_state.has_companion_position_override():
+		return _companion_override_move_ratio
 	if _starlight_tracking_state.has_companion_position_override():
 		return _companion_override_move_ratio
 	if not _companion_motion_state.motion_visible:
@@ -2837,6 +2913,7 @@ func _is_companion_body_visible_for_draw() -> bool:
 		_companion_motion_state.motion_visible
 		or _has_active_companion_position_override()
 		or _ring_dash_state.has_companion_position_override()
+		or _feed_bowl_state.has_companion_position_override()
 		or _starlight_tracking_state.has_companion_position_override()
 	)
 
@@ -2951,17 +3028,63 @@ func get_run_ring_core_tier() -> int:
 	return _affinity_state.get_run_ring_core_tier()
 
 
-func feed_lingpet(_owner: Object = null, registry: Object = null) -> Dictionary:
+func feed_lingpet(owner: Object = null, registry: Object = null) -> Dictionary:
 	var affinity_pet_id := _get_active_affinity_pet_id()
 	if affinity_pet_id == "":
-		return {
-			"accepted": false,
-			"granted_points": 0.0,
-			"blocked_reason": "missing_lingpet",
-		}
-	var result := _add_affinity_points(affinity_pet_id, LingpetAffinityState.SOURCE_FEED, {}, registry)
-	result["accepted"] = float(result.get("granted_points", 0.0)) > 0.0
+		return _build_feed_request_result(false, "missing_lingpet", affinity_pet_id)
+	var blocked_reason := _get_feed_request_blocked_reason(affinity_pet_id)
+	if blocked_reason != "":
+		return _build_feed_request_result(false, blocked_reason, affinity_pet_id)
+	if _has_active_companion_position_override() or _ring_dash_state.has_companion_position_override() or _starlight_tracking_state.has_companion_position_override():
+		return _build_feed_request_result(false, "companion_busy", affinity_pet_id)
+	if _companion_pos == Vector2.ZERO:
+		_initialize_companion_patrol(owner, true)
+	var bowl_pos := _resolve_feed_bowl_pos(owner)
+	if not _feed_bowl_state.arm(bowl_pos, _companion_pos, _get_current_motion_style()):
+		return _build_feed_request_result(false, "feed_in_progress", affinity_pet_id)
+	_pending_feed_pet_id = affinity_pet_id
+	_pending_feed_registry = registry
+	var result := _build_feed_request_result(true, "", affinity_pet_id)
+	result["pending"] = true
+	result["bowl_pos"] = bowl_pos
+	_last_affinity_result = result.duplicate(true)
 	return result
+
+
+func _get_feed_request_blocked_reason(pet_id: String) -> String:
+	if _feed_bowl_state.is_active():
+		return "feed_in_progress"
+	if _affinity_state.get_feed_uses_this_run() >= LingpetAffinityState.MAX_FEED_USES_PER_RUN:
+		return "max_feed_uses"
+	if _affinity_state.get_level(pet_id) >= LingpetAffinityState.LINGPET_FEED_MAX_LEVEL:
+		return "max_feed_level"
+	return ""
+
+
+func _build_feed_request_result(accepted: bool, blocked_reason: String, pet_id: String) -> Dictionary:
+	var result := {
+		"accepted": accepted,
+		"pending": false,
+		"pet_id": pet_id,
+		"source": LingpetAffinityState.SOURCE_FEED,
+		"granted_points": 0.0,
+		"blocked_reason": blocked_reason,
+	}
+	_last_affinity_result = result.duplicate(true)
+	return result
+
+
+func _resolve_feed_bowl_pos(owner: Object = null) -> Vector2:
+	var field_width := 760.0
+	var field_height := 750.0
+	var player_pos := BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2(field_width * 0.5 - 77.5, field_height - 50.0))
+	var player_width := maxf(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", 155.0)))
+	var player_height := maxf(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_height", 50.0)))
+	var player_center_x := player_pos.x + player_width * 0.5
+	var side := -1.0 if _companion_pos.x <= player_center_x else 1.0
+	var x := clampf(player_center_x + side * 48.0, 24.0, field_width - 24.0)
+	var y := clampf(player_pos.y + player_height - 18.0, 36.0, field_height - 20.0)
+	return Vector2(x, y)
 
 
 func get_enhancement_chips() -> int:

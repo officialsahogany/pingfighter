@@ -22,6 +22,9 @@ class FakeOwner:
 	var ringpet_slot_pet_ids: Array = []
 	var lingpet_active_slot_index := -1
 	var ringpet_active_slot_index := -1
+	var player_pos := Vector2(302.5, 700.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
 
 
 func _init() -> void:
@@ -114,11 +117,17 @@ func _verify_runtime_feed_lingpet_entrypoint() -> void:
 
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner), "fixture should activate a lingpet companion")
 	var first: Dictionary = runtime.feed_lingpet(owner, null)
-	_expect(bool(first.get("accepted", false)), "feed_lingpet should apply through the active companion")
-	_expect_float(float(first.get("granted_points", 0.0)), 35.0, "runtime feed_lingpet should grant the feed amount")
-	_expect_eq(runtime.get_affinity_level("maribo"), 0, "one feed should stay below the first affinity level")
+	_expect(bool(first.get("accepted", false)), "feed_lingpet should arm a feed bowl through the active companion")
+	_expect(bool(first.get("pending", false)), "feed_lingpet should report pending while the companion walks to the bowl")
+	_expect_float(float(first.get("granted_points", 0.0)), 0.0, "runtime feed_lingpet should not grant feed affinity immediately")
+	_expect(bool(runtime.get_snapshot().get("feed_bowl_active", false)), "feed_lingpet should expose an active feed bowl before completion")
+	_verify_feed_bowl_eating_y_stays_bounded(runtime, owner)
+	_advance_feed_until_complete(runtime, owner)
+	_expect_float(runtime.get_affinity_points("maribo"), 35.0, "runtime feed_lingpet should grant the feed amount after the eating animation")
+	_expect_eq(runtime.get_affinity_level("maribo"), 0, "one completed feed should stay below the first affinity level")
 	for _i in range(2):
 		runtime.feed_lingpet(owner, null)
+		_advance_feed_until_complete(runtime, owner)
 	var blocked: Dictionary = runtime.feed_lingpet(owner, null)
 	_expect(not bool(blocked.get("accepted", true)), "runtime feed_lingpet should expose blocked feed results")
 	_expect_str(str(blocked.get("blocked_reason", "")), "max_feed_uses", "runtime feed_lingpet should share the state run-use cap")
@@ -136,11 +145,52 @@ func _verify_feed_source_contracts() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(runtime_source.find("func feed_lingpet") >= 0, "lingpet runtime should expose a feed_lingpet entrypoint")
 	_expect(runtime_source.find("LingpetAffinityState.SOURCE_FEED") >= 0, "feed_lingpet should route through the feed affinity source")
+	_expect(runtime_source.find("LingpetFeedBowlState") >= 0, "feed_lingpet should stage the visible feed-bowl approach before granting affinity")
+	_expect(runtime_source.find("\"pending\"") >= 0, "feed_lingpet should report a pending visual feed instead of immediate affinity")
 
 
 func _grant_round_commits(state: Object, pet_id: String, count: int) -> void:
 	for _i in range(count):
 		state.add_points(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT)
+
+
+func _advance_feed_until_complete(runtime: Object, owner: Object) -> void:
+	for _i in range(260):
+		runtime.update(1.0 / 60.0, owner, null)
+		if not bool(runtime.get_snapshot().get("feed_bowl_active", false)):
+			return
+	_expect(false, "feed bowl should complete within the smoke time budget")
+
+
+func _verify_feed_bowl_eating_y_stays_bounded(runtime: Object, owner: Object) -> void:
+	var eating_snapshot := _advance_feed_until_eating(runtime, owner)
+	var initial_pos: Variant = eating_snapshot.get("feed_bowl_companion_pos", Vector2.ZERO)
+	if not (initial_pos is Vector2):
+		_expect(false, "feed bowl eating snapshot should expose a companion position")
+		return
+	var base_y := (initial_pos as Vector2).y
+	var min_y := base_y
+	var max_y := base_y
+	for _i in range(45):
+		runtime.update(1.0 / 60.0, owner, null)
+		var snapshot: Dictionary = runtime.get_snapshot()
+		if str(snapshot.get("feed_bowl_phase", "")) != "eating":
+			break
+		var pos: Variant = snapshot.get("feed_bowl_companion_pos", Vector2.ZERO)
+		if pos is Vector2:
+			min_y = minf(min_y, (pos as Vector2).y)
+			max_y = maxf(max_y, (pos as Vector2).y)
+	_expect(max_y - min_y <= 8.0, "ground feed eating bob should stay bounded instead of accumulating vertical drift")
+
+
+func _advance_feed_until_eating(runtime: Object, owner: Object) -> Dictionary:
+	for _i in range(180):
+		runtime.update(1.0 / 60.0, owner, null)
+		var snapshot: Dictionary = runtime.get_snapshot()
+		if str(snapshot.get("feed_bowl_phase", "")) == "eating":
+			return snapshot
+	_expect(false, "feed bowl should reach the eating phase within the smoke time budget")
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

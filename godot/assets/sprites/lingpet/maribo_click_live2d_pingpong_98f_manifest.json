@@ -44,42 +44,49 @@
       8064
     ],
     "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
-    "source_scale_repack": 0.84,
-    "sha256": "6427b4173d21a537ce4a5280c3d9b4d6b48fcc32b13ca2aa1b9acfe5c684b0b4",
-    "bytes": 56482603
+    "source_scale_repack": "1024 raw cell premultiplied-alpha resized to 968px content centered in 1152px cell (offset 92), matching Koyora/Lunabi near-native footprint",
+    "sha256": "952ddc4030a5036a7df7f40168c360d05ac6bd9ac2b48ad14a62635fe6ac8a02",
+    "bytes": 49800217
   },
   "postprocess": {
-    "tool": "AutoSprite-derived per-cell Real-ESRGAN animev3 x2 RGB/alpha split + 0.84 safe-margin pingpong repack",
-    "operation": "New HQ-readable AutoSprite 49f source cells were alpha-bleed RGB upscaled through Real-ESRGAN animev3 x2, recombined with separately resized source alpha, safe-margin repacked at 0.84 into 1152px cells, then deterministic forward+reverse 98f pingpong reassembly.",
-    "script": ".tmp/maribo_click_hq/rebuild_maribo_click_sheet.py",
-    "realesrgan_upscale": {
-      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
-      "model": "realesr-animevideov3",
-      "scale": 2,
-      "source_raw": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_raw_49f.png",
-      "rgb_alpha_split": true,
-      "rgb_upscale": "per-cell alpha-bleed RGB through Real-ESRGAN",
-      "alpha_recombine": "source alpha resized separately, alpha<=15 clipped after recombine",
-      "target_cell_size": [
-        1152,
-        1152
-      ],
-      "content_scale": 0.84,
-      "qc_path": ".tmp/maribo_lunabi_grade/maribo_click_hq_readable_realesrgan_animev3_hq1152_safe084.qc.json"
-    },
+    "tool": "Near-native AutoSprite premultiplied-alpha safe-margin repack + mild unsharp + deterministic pingpong reassembly (NO Real-ESRGAN upscale)",
+    "operation": "2026-06-20 re-repack: the clean HQ-readable AutoSprite 49f source cells (1024px) were premultiplied-alpha resized DOWN to 968px (near-native, like Koyora), given a single mild RGB unsharp pass, alpha<=15 clipped, centered in 1152px cells at offset 92, then assembled as deterministic forward frames 0..48 plus reverse frames 48..0 (98f). This REPLACES the prior Real-ESRGAN animev3 x2 + strong unsharp pipeline, which had pushed Maribo's edge energy to an artificial ~2377 lapVar (highest of all pets) on top of an inherently soft native render, producing an over-processed 'AI-upscaled' texture that read visibly different from the natural-soft sibling pets.",
+    "script": ".tmp/maribo_optionA/maribo_repack_optionA.py (mirror of d:/tmp/maribo_repack_optionA.py)",
+    "upscale": "none; raw AutoSprite 1024px cells were preserved near-native by resizing DOWN to 968px inside 1152px runtime cells (Koyora pipeline parity).",
     "unsharp_mask": {
       "tool": "PIL ImageFilter.UnsharpMask",
       "params": {
-        "radius": 1.1,
-        "percent": 70,
+        "radius": 1.0,
+        "percent": 45,
         "threshold": 3
       },
-      "mode": "per-cell RGB unsharp after Real-ESRGAN upscale and before safe-margin alpha recombine."
+      "mode": "single mild per-cell RGB unsharp tuned so the result lands in the natural-soft peer band (lapVar ~1023, vs Lunabi 1051 / Nekuring 1158) instead of the artificial 2377."
     },
     "alpha_cleanup": {
-      "operation": "Post-upscale alpha cleanup: source alpha resized separately and pixels with alpha <= 15 set fully transparent after recombine.",
+      "operation": "Pixels with alpha <= 15 set fully transparent after premultiplied resize.",
       "threshold": 15,
       "a1_15_after": 0
+    },
+    "sharpness_metric": {
+      "metric": "variance of Laplacian over alpha-masked luma, content normalized to 500px tall",
+      "prior_shipped_realesrgan": 2376.6,
+      "new_near_native": 1022.8,
+      "source_illustration": 1055.4,
+      "peer_band": {
+        "lunabi": 1051.1,
+        "nekuring": 1157.6,
+        "koyora_detailed_outlier": 2340.4
+      },
+      "rationale": "near-native repack places Maribo at its OWN source-illustration sharpness (1023 vs source 1055) and in the natural-soft peer band. This proved the residual 'graphics not good' complaint was NOT a sharpness/resolution problem (a follow-up realesrgan-x4plus-anime test measured 1504, OVER-sharpening past the source, and was rejected)."
+    },
+    "value_contrast_punch": {
+      "applied": "2026-06-20 (after Option A), user-approved 'med punch'",
+      "reason": "Root of the residual complaint was Maribo's pale pastel palette (pink body + pale cyan armor) = weak value contrast, reading flat/washed next to high-contrast peers (lunabi dark-purple, koyora red/gold). NOT sharpness. Fixed by a value-contrast/saturation pass, not by sharpening.",
+      "params": {"contrast": 1.22, "saturation": 1.18, "brightness": 0.98, "local_contrast_unsharp": {"radius": 6, "percent": 35, "threshold": 2}},
+      "scope": "applied to RGB of all 98 cells, alpha preserved exactly; RGB re-zeroed where alpha<=15. whole-sheet edge alpha 0.",
+      "script": ".tmp/maribo_optionA/apply_punch.py (mirror of d:/tmp/apply_punch.py)",
+      "pre_punch_backup": ".tmp/maribo_optionA/maribo_click_live2d_pingpong_98f_OPTIONA_PRE_PUNCH.png",
+      "rejected_alt": "mild/strong punch variants tested; strong (contrast 1.34/sat 1.28) read candy/artificial, mild too subtle; med chosen."
     }
   },
   "qa": {
@@ -188,6 +195,6 @@
     "candidate_reject_note": "Compact no-platform candidate cmpwryl8l00282lxhm7i0qlp5 was rejected for intermittent crop/edge-touch and weaker mid-motion face read before postprocess."
   },
   "root_cause_note": "Maribo previously read lower-quality than Lunabi because (1) the v003 magenta source was NOT a flat #ff00ff chroma key (corners ranged R218-235, G10-36, B185-209), so chroma removal could never be clean; and (2) maribo's body is pink, which is close in hue to magenta, so AutoSprite removeBg left magenta/pink edge fringe. Per the CLAUDE.md chroma-key rule, a pink character should use a green (#00ff00) key, not magenta. Lunabi's dark-purple body + perfectly flat #ff00ff source avoided both problems. This asset fixes (1)+(2) by despilling to a clean transparent base before upload.",
-  "status": "Accepted runtime asset: new HQ-readable AutoSprite 49f click reaction, Real-ESRGAN animev3 x2 per-cell RGB/alpha split, 1152px safe-margin repack at 0.84, deterministic 98f pingpong return to frame 0. Applied to the Godot lingpet click-reaction path for Lunabi-level small-size readability.",
-  "sharpen_status": "Replaced previous HQ1152 upscale of the older motion with a new HQ-readable AutoSprite reshoot plus mild unsharp and alpha<=15 cleanup. Edge-touch QA: 0 cells."
+  "status": "Accepted runtime asset (2026-06-20, two passes): (1) re-repacked the SAME clean HQ-readable AutoSprite 49f click reaction near-native (no Real-ESRGAN) into 968px content / 1152px cells, deterministic 98f pingpong -> natural-soft peer band (lapVar 1023, matching Lunabi 1051); then (2) applied a user-approved value-contrast/saturation 'med punch' pass because the residual 'graphics not good' complaint was the pale pastel palette's weak value contrast, NOT sharpness (Option A already matched the 1055 source). Identity and pose unchanged. Backups: pre-Real-ESRGAN-removal at .tmp/maribo_optionA/maribo_click_live2d_pingpong_98f_PRE_OPTIONA_BACKUP.png; pre-punch (Option A) at .tmp/maribo_optionA/maribo_click_live2d_pingpong_98f_OPTIONA_PRE_PUNCH.png.",
+  "sharpen_status": "Real-ESRGAN animev3 x2 + strong unsharp pipeline REMOVED. The artificial edge energy it added (lapVar ~2377, highest of all pets, on a soft native render) was the cause of Maribo's over-processed look. New pipeline = near-native downsize + single mild unsharp -> lapVar 1023 (natural-soft peer band). Edge-touch QA: 0 cells, whole-sheet edge alpha: 0."
 }

@@ -868,6 +868,32 @@ Current Godot-first rule:
       Any future stage-transition reset path that wants to keep current
       progression must call the same cooldown-reset helper, or it will
       regress this trap.
+- [ ] **A forced / automatic active-item use (`ignore_cooldown = true`) must
+      stay cooldown-NEUTRAL toward the player's MANUAL slots.** The Smartphone
+      passive (`active_item_smartphone_auto_use.gd` → `use_first_matching_item(
+      ..., ignore_cooldown = true)`) is currently the only caller that bypasses
+      the readiness check, and it is rate-limited separately by its own
+      `smartphone_cooldown_frames`. Inside `_try_use_slot`, the post-apply block
+      bumps the shared global anchor `last_item_use_msec` AND the per-item
+      `last_use_msec` of every remaining slot. If an `ignore_cooldown` use is
+      allowed to run that block, then the instant the Smartphone auto-consumes
+      one item (gauge_charge / life_elixir / stopwatch / holy_barrier), the
+      player's remaining slots — often a single lone item — are blocked by the
+      global cooldown for the **full cooldown of whatever item the player then
+      tries** (`now - last_item_use_msec < cooldown_msec`, e.g. dash_boost 7s).
+      The symptom is exactly "the first / lone active item does nothing, but
+      after I pick up another item it works" — the second item is a red herring;
+      the real fix was time elapsing. Live `godot.log` proof: `USED slot=1
+      item=gauge_charge` (Smartphone auto-use) immediately followed by `BLOCKED
+      global-cooldown item=dash_boost now=569798 anchor=569781`. Fix: gate BOTH
+      shared-cooldown writes in `_try_use_slot` on `if not ignore_cooldown`
+      (the used item's OWN `last_use_msec` may still be set — it is removed if
+      consumable). Manual uses (`ignore_cooldown = false`) keep imposing the
+      shared global cooldown as before. Regression smoke:
+      `active_item_slot_controller_smartphone_cooldown_smoke.gd` (asserts the
+      auto-use leaves the lone item usable AND that a manual use still blocks the
+      others). Any future AI-assist / auto-cast item that fires through an
+      `ignore_cooldown` path must keep this neutrality.
 
 ---
 

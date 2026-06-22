@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c1cdfat888vbq"
-path="res://.godot/imported/nekuring_ghost_summon_skillcard_imagegen_v1.png-9eb569ec07424383ee4724f2cabd381d.ctex"
+uid="uid://jg23pseunis4"
+path="res://.godot/imported/nekuring_bone_barrier_skill_icon_imagegen_v1.png-676a3a98a116ee119ad6ed4d0a965846.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/lingpet/nekuring_ghost_summon_skillcard_imagegen_v1.png"
-dest_files=["res://.godot/imported/nekuring_ghost_summon_skillcard_imagegen_v1.png-9eb569ec07424383ee4724f2cabd381d.ctex"]
+source_file="res://assets/sprites/lingpet/nekuring_bone_barrier_skill_icon_imagegen_v1.png"
+dest_files=["res://.godot/imported/nekuring_bone_barrier_skill_icon_imagegen_v1.png-676a3a98a116ee119ad6ed4d0a965846.ctex"]
 
 [params]
 

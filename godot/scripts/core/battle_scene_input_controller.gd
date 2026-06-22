@@ -219,7 +219,8 @@ func _handle_defeat_chance_gems_continue_input(event: InputEvent, owner: Object,
 	if continue_screen == null or not continue_screen.has_method("is_active") or not bool(continue_screen.is_active()):
 		return false
 	if continue_screen.has_method("handle_input"):
-		continue_screen.handle_input(event, owner, registry, _get_view_size(owner))
+		if not bool(continue_screen.handle_input(event, owner, registry, _get_view_size(owner))):
+			return false
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true

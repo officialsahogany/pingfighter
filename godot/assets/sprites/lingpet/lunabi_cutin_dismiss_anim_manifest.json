@@ -1,0 +1,43 @@
+{
+  "asset_id": "lunabi_cutin_dismiss_anim",
+  "character": "lunabi",
+  "display_name": "달벳",
+  "generated_at": "2026-06-21",
+  "runtime_usage": "lingpet acquire cut-in DISMISS animation (획득→클릭 reaction) for lunabi. Catalog key cutin_dismiss_anim. Runtime grid 5x5/25f, 1024 cells (lunabi uses the host default CUTIN_DISMISS grid).",
+  "output_sheet": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
+  "runtime_sheet": {"cols": 5, "rows": 5, "frame_count": 25, "cell_size": [1024, 1024], "sheet_size": [5120, 5120], "sha256": "1a8fdd19d2c2553b12187764fdf3decd223f31cf42ca9bc7fc8f644e69df2849"},
+  "reason": "Regenerated 2026-06-21. The shipped dismiss had baked nukki defects: white-halo fringe around the dark-purple body/face (halo% ~3.0) and alpha tears on the gold bow weapon (user-reported '금색 링쪽이 막 투명', '얼굴주변에 흰색 불량누끼 자국'). halo_strip alone was only a partial fix and cannot repair the gold-bow alpha tears, so the dismiss was regenerated natively with removeBg ultra (clean alpha) per CLAUDE.md.",
+  "source_autosprite": {
+    "character_id": "cmpvprmun008w828nzjzqegwg",
+    "character_name": "Lunabi (lingpet)",
+    "spritesheet_id": "cmqniopxp0076maimv7uxx7rz",
+    "spritesheet_job_id": "wf_1cf5878a-da46-49ab-8f90-ed31a4e7c465",
+    "source_video_id": "cmqnimqju00br5h1d22q28lsa",
+    "kind": "custom", "name": "Dismiss Contained Cheer",
+    "video_tier": "pro", "remove_bg": "ultra",
+    "native_grid": {"cols": 5, "rows": 5, "frame_count": 25, "cell_size": [1024, 1024]},
+    "first_frame_pose_id": null,
+    "note": "No lunabi reveal pose_id on record, so the start pose was described in the prompt (calm hold, gold bow across body) and frame0 was aligned in repack to the lunabi reveal frame0 bbox. f0 lands close to the reveal hold (connection was NOT a user complaint for lunabi).",
+    "raw_sheet_local_path": ".tmp/lunabi_dismiss_fix/raw_sheet.png",
+    "raw_atlas_local_path": ".tmp/lunabi_dismiss_fix/raw_atlas.json"
+  },
+  "postprocess": {
+    "tool": "removeBg-ultra clean source -> animevideo x2 (texture match to lunabi reveal) -> Reinhard color match to lunabi reveal body stats -> frame0-align to reveal bbox -> assemble 5x5/25 -> halo_strip safety pass",
+    "texture_match": {"model": "realesr-animevideov3", "scale": 2, "why": "same model as lunabi reveal (cutin_anim)"},
+    "color_match": {"method": "Reinhard per-channel mean+std (std ratio clamped 0.7-1.4), excluding halo (min<150) from body stats", "reveal_body_mean": [94.0, 41.7, 106.4], "reveal_body_std": [47.4, 33.2, 49.0]},
+    "geom": {"fixed_transform": true, "frame0_target_bbox_frac": [0.1147, 0.1484, 0.9009, 0.8018], "result_frame0_bbox_frac": [0.1396, 0.1484, 0.877, 0.8018]},
+    "halo_strip": {"tool": ".claude/skills/sprite-generation/halo_strip.py", "stripped_px": 55045, "why": "remove residual bright white-halo fringe (gold/purple preserved by the saturation guard)"},
+    "scripts": [".tmp/lunabi_dismiss_fix/lunabi_extract.py", ".tmp/lunabi_dismiss_fix/lunabi_finalize.py", ".tmp/lunabi_dismiss_fix/lunabi_reveal_stats.py"],
+    "pre_change_backup": ".tmp/lunabi_dismiss_fix/lunabi_cutin_dismiss_anim_PRE_FIX.png"
+  },
+  "sharpness_color_metric": {
+    "halo_pct_old_f14": 3.02,
+    "halo_pct_new_f14": 0.96,
+    "halo_pct_new_f8": 1.40,
+    "halo_pct_reveal_f0": 2.56,
+    "note": "new dismiss white-halo is below the old dismiss AND the reveal. Gold bow preserved (no tears, fresh removeBg ultra)."
+  },
+  "qa": {"whole_sheet_edge_alpha": 0, "grid_matches_runtime": true},
+  "known_remaining": "The lunabi reveal (cutin_anim) and click_live2d still carry the same ~2.5% white-halo from their original removeBg. Per user choice (2026-06-21) only the dismiss was regenerated first; reveal/click can get the same treatment later if desired.",
+  "status": "Accepted runtime asset (2026-06-21): native AutoSprite removeBg-ultra regeneration of the lunabi acquire-cut-in dismiss, animevideo texture + reveal color match + frame0 align + halo_strip. Fixes the white-halo fringe and gold-bow alpha tears. Identity preserved (dark-purple bat, gold bow, gem, wings)."
+}

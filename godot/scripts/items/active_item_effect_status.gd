@@ -8,8 +8,9 @@ func can_store_item(item_name: String, active_flags: Dictionary) -> bool:
 		return false
 	if item_name == "long_boost" and bool(active_flags.get("long_boost_active", false)):
 		return false
-	if item_name == "milk_bottle" and bool(active_flags.get("milk_bottle_active", false)):
-		return false
+	# milk_bottle intentionally has NO active-state store gate: Milku continuously
+	# produces milk, and the paddle buff now stacks (capped) per use, so a second+
+	# bottle must remain collectable while milk_bottle_active is true.
 	if item_name == "vitamin_pill" and bool(active_flags.get("vitamin_pill_active", false)):
 		return false
 	if item_name == "strange_vial" and bool(active_flags.get("strange_vial_active", false)):

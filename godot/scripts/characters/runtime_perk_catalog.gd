@@ -653,6 +653,21 @@ const SOLDIER_PERKS := {
 		"weapon_name": "commando_pistol",
 		"unlocks_skill": "commando_pistol",
 	},
+	"pistol_enhance": {
+		"name": "권총강화",
+		"max_level": 5,
+		"descriptions": {
+			1: "기본권총 정확도 ±12°, 탄속·넉백 +10%, 탄창 5발",
+			2: "기본권총 정확도 ±9°, 탄속·넉백 +20%, 탄창 5발",
+			3: "기본권총 정확도 ±6°, 탄속·넉백 +30%, 탄창 6발",
+			4: "기본권총 정확도 ±3°, 탄속·넉백 +40%, 탄창 6발",
+			5: "기본권총 정확도 ±1°, 탄속·넉백 +50%, 탄창 7발",
+		},
+		"detail": "기본권총 전용 강화입니다. 베레타는 영향을 받지 않습니다.\n레벨이 오를수록 기본권총 탄퍼짐이 줄고 탄속과 정상타 넉백이 10%씩 증가하며, Lv.3/Lv.5에 탄창이 늘어납니다.\n효과 레벨이 Lv.6 이상이면 정확도는 ±1°, 탄속과 넉백은 +50%에 머물고 탄창만 레벨마다 1발씩 계속 늘어납니다.",
+		"icon_color": Color(210.0 / 255.0, 175.0 / 255.0, 92.0 / 255.0),
+		"tree": "soldier",
+		"character_restriction": "soldier",
+	},
 }
 
 const INSTANT_PERKS := {

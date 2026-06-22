@@ -9,6 +9,26 @@ const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geomet
 const ViperSkillIgnitionAuraRuntime := preload("res://scripts/characters/viper_skill_ignition_aura_runtime.gd")
 const ViperSkillShadowStepRuntime := preload("res://scripts/characters/viper_skill_shadow_step_runtime.gd")
 
+# [EMP-DBG] temporary instrumentation — remove after diagnosing EMP dive freeze
+static var _dbg_emp_probe_last_msec: int = 0
+
+
+static func _dbg_emp_probe(runtime: Object, down_pressed: bool, player_pos: Vector2, config: Dictionary, deps: Dictionary, input_snapshot: Dictionary) -> void:
+	if not (down_pressed or bool(runtime.dive_active)):
+		return
+	var now: int = Time.get_ticks_msec()
+	if now - _dbg_emp_probe_last_msec < 150:
+		return
+	_dbg_emp_probe_last_msec = now
+	var airborne: float = float(runtime.runtime_action_router.get_viper_airborne_height(deps, config, player_pos))
+	var ctrl_lock: bool = bool(runtime.visibility_query.is_control_locked(deps))
+	var lateral: bool = bool(runtime._has_lateral_skill_input(input_snapshot))
+	var dash_busy: bool = bool(runtime.visibility_query.is_dash_motion_busy(deps))
+	var serve_wait: bool = bool(runtime.visibility_query.is_round_waiting_for_serve(deps))
+	var weather: Object = deps.get("weather_event_state", null)
+	var wtype: String = str(weather.get("weather_event_type")) if weather != null else "n/a"
+	print("[EMP-DBG] probe down=%s dive_active=%s phase=%s pframes=%.1f hold_start=%s ratio=%.2f | nerve=%s dg=%s attack_motion=%s airborne=%.1f ctrl_lock=%s lateral=%s ball_active=%s dash_busy=%s serve_wait=%s wtype=%s stage=%s" % [str(down_pressed), str(runtime.dive_active), str(runtime.dive_phase), float(runtime.dive_phase_frames), str(runtime.dive_hold_start_msec), float(runtime.dive_hold_ratio), str(runtime.nerve_strike_active), str(runtime.dual_glitch_state), str(runtime._has_viper_attack_motion_active(false)), airborne, str(ctrl_lock), str(lateral), str(bool(config.get("ball_active", true))), str(dash_busy), str(serve_wait), wtype, str(config.get("current_stage", 0))])
+
 
 static func try_activate_before_movement(runtime: Object, delta: float, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, constants: Dictionary) -> Dictionary:
 	var input_reader: Object = deps.get("input_reader", null)
@@ -20,6 +40,8 @@ static func try_activate_before_movement(runtime: Object, delta: float, player_p
 	var pressed_edge: bool = bool(input_state.get("pressed_edge", false))
 	var up_pressed: bool = bool(input_state.get("up_pressed", false))
 	var up_edge: bool = bool(input_state.get("up_edge", false))
+	if bool(constants.get("debug_emp", false)):
+		_dbg_emp_probe(runtime, down_pressed, player_pos, config, deps, input_snapshot)
 	if runtime.nerve_strike_active:
 		return runtime._update_nerve_strike(delta, player_pos, special_gauge, config, deps)
 	if runtime.dual_glitch_state == "startup":
@@ -109,7 +131,7 @@ static func _ignition_constants(constants: Dictionary) -> Dictionary:
 
 
 static func _dive_constants(constants: Dictionary) -> Dictionary:
-	return {"skill_name": str(constants.get("dive_strike", "dive_strike")), "gauge_cost": float(constants.get("dive_gauge_cost", 150.0)), "hold_required_msec": int(constants.get("dive_hold_required_msec", 300)), "charge_particle_limit": int(constants.get("dive_charge_particle_limit", 80)), "min_airborne_height": float(constants.get("dive_min_airborne_height", 20.0))}
+	return {"skill_name": str(constants.get("dive_strike", "dive_strike")), "gauge_cost": float(constants.get("dive_gauge_cost", 150.0)), "hold_required_msec": int(constants.get("dive_hold_required_msec", 300)), "charge_particle_limit": int(constants.get("dive_charge_particle_limit", 80)), "min_airborne_height": float(constants.get("dive_min_airborne_height", 20.0)), "debug_emp": bool(constants.get("debug_emp", false))}
 
 
 static func _shadow_step_constants(constants: Dictionary) -> Dictionary:

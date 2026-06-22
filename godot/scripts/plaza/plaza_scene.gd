@@ -18,6 +18,7 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const GAME_SIZE := Vector2(760.0, 750.0)
 const MAP_SIZE := Vector2(1900.0, 750.0)
@@ -2715,34 +2716,56 @@ func _format_bank_transaction_message(summary: Dictionary) -> String:
 
 
 func _format_shop_transaction_message(summary: Dictionary) -> String:
+	# i18n: stable-key templates (TEXT["plaza.msg.shop.*"]); the item name is localized
+	# before substitution so non-Korean locales never leak the raw Korean display_name.
 	var reason := str(summary.get("reason", ""))
-	var display_name := str(summary.get("display_name", summary.get("item_name", "")))
-	if display_name == "":
-		display_name = "아이템"
 	if not bool(summary.get("changed", false)):
 		match reason:
 			"no_ap":
-				return "열쇠가 부족합니다."
+				return LanguageSettings.translate("plaza.msg.shop.no_ap")
 			"not_enough_gold":
-				return "골드가 부족합니다."
+				return LanguageSettings.translate("plaza.msg.shop.not_enough_gold")
 			"active_slots_full":
-				return "액티브 슬롯이 가득 찼습니다."
+				return LanguageSettings.translate("plaza.msg.shop.active_slots_full")
 			"no_active_item":
-				return "판매할 액티브 아이템이 없습니다."
+				return LanguageSettings.translate("plaza.msg.shop.no_active_item")
 			"no_passive_item":
-				return "판매할 패시브 아이템이 없습니다."
+				return LanguageSettings.translate("plaza.msg.shop.no_passive_item")
 			"inventory_full":
-				return "인벤토리가 가득 찼습니다."
+				return LanguageSettings.translate("plaza.msg.shop.inventory_full")
 			"missing_item_runtime", "missing_owner":
-				return "아이템 가방을 찾을 수 없습니다."
+				return LanguageSettings.translate("plaza.msg.shop.missing_item_bag")
 			_:
-				return "지금은 거래할 수 없습니다."
+				return LanguageSettings.translate("plaza.msg.shop.default_blocked")
+	var localized_name := _localize_shop_item_name(summary)
 	match str(summary.get("action", "")):
 		"purchase":
-			return "%s을(를) 구매했습니다. %dG" % [display_name, int(summary.get("delta_gold", 0))]
+			return LanguageSettings.translate("plaza.msg.shop.purchase") % [localized_name, int(summary.get("delta_gold", 0))]
 		"sale":
-			return "%s을(를) 판매했습니다. +%dG" % [display_name, int(summary.get("sell_price", 0))]
-	return "거래했습니다."
+			return LanguageSettings.translate("plaza.msg.shop.sale") % [localized_name, int(summary.get("sell_price", 0))]
+	return LanguageSettings.translate("plaza.msg.shop.traded")
+
+
+# Localizes the shop item name for the current language before it is substituted into a
+# message template. Korean keeps the stored display name; other locales resolve the base
+# name through the canonical ITEM_DISPLAY map keyed by item id (every shop item id is
+# covered there, so no raw Korean leaks). Quality-prefix localization (e.g. "전설") is a
+# follow-up: the prefix is dropped in non-Korean locales for now rather than risk a leak.
+func _localize_shop_item_name(summary: Dictionary) -> String:
+	var korean_display := str(summary.get("display_name", "")).strip_edges()
+	var item_id := str(summary.get("item_name", "")).strip_edges()
+	if korean_display == "" and item_id == "":
+		return LanguageSettings.translate("plaza.msg.shop.fallback_item")
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
+		return korean_display if korean_display != "" else LanguageSettings.translate("plaza.msg.shop.fallback_item")
+	var item_data := {"name": item_id}
+	if korean_display != "":
+		item_data["display_name"] = korean_display
+	var localized: Dictionary = LanguageSettings.localize_item_data(item_data)
+	var localized_name := str(localized.get("display_name", "")).strip_edges()
+	if localized_name == "":
+		localized_name = LanguageSettings.translate("plaza.msg.shop.fallback_item")
+	return localized_name
 
 
 func _format_gacha_transaction_message(summary: Dictionary) -> String:

@@ -58,6 +58,7 @@ class FakeAudio:
 
 	var shot_count := 0
 	var boom_count := 0
+	var mini_spark_plays := 0
 	var electric_syncs: Array[bool] = []
 
 	func play_thunder_orb_shot() -> void:
@@ -65,6 +66,9 @@ class FakeAudio:
 
 	func play_thunder_orb_boom() -> void:
 		boom_count += 1
+
+	func play_mini_spark() -> void:
+		mini_spark_plays += 1
 
 	func sync_electric_shock_loop(active: bool) -> void:
 		electric_syncs.append(active)
@@ -111,6 +115,7 @@ func _init() -> void:
 	_verify_dispatcher_and_catalog()
 	_verify_runtime_physics_and_electric_stun()
 	_verify_stun_duration_honors_launch_context()
+	_verify_explosion_radius_honors_launch_context()
 	_verify_spark_miss_does_not_stun()
 	_verify_edge_overlap_center_outside_does_not_stun()
 	_verify_reset_stops_electric_loop_and_clears_status()
@@ -144,6 +149,12 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 1).get("stun_duration_seconds", 0.0)), 0.8), "Thunder Orb Lv.1 should stun for 0.8s")
 	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 4).get("stun_duration_seconds", 0.0)), 1.4), "Thunder Orb Lv.4 should stun for the current 1.4s baseline")
 	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 5).get("stun_duration_seconds", 0.0)), 1.6), "Thunder Orb Lv.5 should stun for 1.6s")
+	# Main blast range also scales with level: Lv.1 is 20% narrower (136px), growing
+	# linearly to the full 170px at Lv.5 (this radius is BOTH the visual blast and
+	# the boss-center CC reach, so low levels reach less).
+	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 1).get("explosion_radius", 0.0)), 136.0), "Thunder Orb Lv.1 explosion radius should be 20% narrower (136px)")
+	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 3).get("explosion_radius", 0.0)), 153.0), "Thunder Orb Lv.3 explosion radius should be the mid step (153px)")
+	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill("lumion", "lumion_thunder_orb", 5).get("explosion_radius", 0.0)), 170.0), "Thunder Orb Lv.5 explosion radius should reach the full 170px")
 	_expect(LingpetRailCard.is_lingpet_skill({"id": "lumion_thunder_orb"}), "shared rail-card helper should recognize Lumion Thunder Orb as a lingpet skill")
 	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "live lingpet catalog should validate after wiring Thunder Orb")
 	_expect(FileAccess.file_exists(GameAudio.THUNDER_ORB_SHOT_SOUND_PATH), "Thunder Orb should include the original thunderbolt.wav launch sound")
@@ -255,6 +266,42 @@ func _verify_stun_duration_honors_launch_context() -> void:
 	# Past the full 3.0s window it must expire.
 	host.update(1.2, owner, registry, skill_id)
 	_expect(not bool(host.get_snapshot().get("thunder_orb_electric_stun_active", true)), "the launch-context stun should expire after its own duration")
+
+
+func _verify_explosion_radius_honors_launch_context() -> void:
+	# The companion launch path forwards the level-scaled `explosion_radius`
+	# (Lv.1 136px -> Lv.5 170px). A SMALL override must shrink BOTH the reported
+	# blast radius and the boss-CENTER CC reach, proving the runtime reads the
+	# per-launch radius instead of the 170px const.
+	# --- Boss inside the default 170px blast but OUTSIDE a 100px override: NOT stunned ---
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(480.0, 25.0)  # centre (530,45) ~151px from the blast at (380,65)
+	var status_state := FakeStatusEffectState.new()
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(status_state, audio)
+	var skill_id := "lumion_thunder_orb"
+	host.launch(skill_id, Vector2(380.0, 700.0), owner, {"explosion_radius": 100.0})
+	var safety := 0
+	while bool(host.get_snapshot().get("thunder_orb_projectile_active", false)) and safety < 180:
+		host.update(1.0 / 60.0, owner, registry, skill_id)
+		safety += 1
+	_expect(is_equal_approx(float(host.get_snapshot().get("thunder_orb_explosion_radius", 0.0)), 100.0), "Thunder Orb should report the launch-context explosion radius, not the 170px const")
+	host.update(0.25, owner, registry, skill_id)
+	_expect(int(host.get_thunder_orb_shock_count_for_tests()) == 0, "a ~151px boss is inside the default 170px blast but OUTSIDE a 100px override -> must NOT be stunned")
+
+	# --- Same 100px override, a boss well inside it IS stunned (override shrinks, not disables) ---
+	var host2: Object = LingpetSkillRuntimeHost.new()
+	var owner2 := FakeOwner.new()  # default centre (380,45), ~20px from the blast
+	var status2 := FakeStatusEffectState.new()
+	var registry2 := FakeRegistry.new(status2, FakeAudio.new())
+	host2.launch(skill_id, Vector2(380.0, 700.0), owner2, {"explosion_radius": 100.0})
+	var safety2 := 0
+	while bool(host2.get_snapshot().get("thunder_orb_projectile_active", false)) and safety2 < 180:
+		host2.update(1.0 / 60.0, owner2, registry2, skill_id)
+		safety2 += 1
+	host2.update(0.25, owner2, registry2, skill_id)
+	_expect(int(host2.get_thunder_orb_shock_count_for_tests()) == 1, "a boss well inside the 100px override should still be stunned (the override shrinks, not disables, the reach)")
 
 
 func _verify_spark_miss_does_not_stun() -> void:
@@ -392,7 +439,8 @@ func _verify_mini_spark_miss_does_not_stun() -> void:
 	var owner := FakeOwner.new()
 	owner.boss_pos = Vector2(12.0, 25.0)
 	var status_state := FakeStatusEffectState.new()
-	var registry := FakeRegistry.new(status_state, FakeAudio.new())
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(status_state, audio)
 	skill.launch(Vector2(720.0, 700.0), owner, {"active_skill_level": 5})
 	_advance_module_to_explosion_end(skill, owner, registry)
 	_expect(not skill.is_electric_stun_active(), "a far boss should not be caught by the main blast")
@@ -403,6 +451,7 @@ func _verify_mini_spark_miss_does_not_stun() -> void:
 		safety += 1
 	_expect(int(skill.get_mini_spark_applied_count_for_tests()) == 0, "mini-sparks must not stun a boss far from the explosion site")
 	_expect(status_state.get_calls_for_source("lumion_thunder_orb_electric_stun").is_empty(), "a full miss chain should not apply the electric stun source")
+	_expect(int(audio.mini_spark_plays) == 5, "each of the 5 mini-sparks should play a spark sound on appearance, even on a CC miss")
 
 
 func _has_clear(clears: Array[Dictionary], source: String) -> bool:

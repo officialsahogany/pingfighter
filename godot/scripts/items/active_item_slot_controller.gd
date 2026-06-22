@@ -18,7 +18,7 @@ var cooldown_pause_started_msec := -1
 # [AIDBG] manual diagnostic toggle for "active item unusable after stage transition".
 # Keep false in committed code; flip to true locally only while diagnosing.
 # Gated as a const so real-play and perf-capture logs stay clean by default.
-const _AIDBG := true
+const _AIDBG := false
 
 
 func reset() -> void:
@@ -399,7 +399,17 @@ func _try_use_slot(
 		pending_use_backup_callback.call(item_data.duplicate(true), slot_index, owner, registry)
 
 	item_data["last_use_msec"] = now_msec
-	last_item_use_msec = now_msec
+	# An ignore_cooldown use is a forced / automatic use (the Smartphone passive,
+	# the only caller that passes ignore_cooldown = true). It bypasses its own
+	# readiness check above and is rate-limited separately (smartphone_cooldown_frames),
+	# so it must stay cooldown-NEUTRAL toward the player's manual slots: it must not
+	# bump the shared global cooldown anchor, nor the per-item cooldown of the other
+	# slots. Otherwise the instant the Smartphone auto-consumes one item, the player's
+	# remaining (often lone) item is blocked for the full checked-item cooldown and
+	# reads as "the first item does nothing" (live godot.log: a gauge_charge auto-use
+	# left a lone dash_boost BLOCKED by global-cooldown for the next ~7s).
+	if not ignore_cooldown:
+		last_item_use_msec = now_msec
 	if recycle_triggered:
 		_mark_alchemy_notice(item_data, now_msec)
 		active_item_slots[slot_index] = item_data
@@ -409,12 +419,13 @@ func _try_use_slot(
 		_select_slot(registry, max(0, min(slot_index, active_item_slots.size() - 1)))
 	else:
 		active_item_slots[slot_index] = item_data
-	for i in range(active_item_slots.size()):
-		var other_value: Variant = active_item_slots[i]
-		if other_value is Dictionary:
-			var other_item: Dictionary = other_value
-			other_item["last_use_msec"] = now_msec
-			active_item_slots[i] = other_item
+	if not ignore_cooldown:
+		for i in range(active_item_slots.size()):
+			var other_value: Variant = active_item_slots[i]
+			if other_value is Dictionary:
+				var other_item: Dictionary = other_value
+				other_item["last_use_msec"] = now_msec
+				active_item_slots[i] = other_item
 	return true
 
 

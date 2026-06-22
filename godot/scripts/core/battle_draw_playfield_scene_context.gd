@@ -66,6 +66,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"render_scale": max(0.001, float(layout.get("render_scale", 1.0))),
 		"selected_character_type": selected_character_type,
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"weather_type": str(_get_owner_value(owner, "weather_type", "")),
 		"weather_active": bool(_get_owner_value(owner, "weather_event_active", false)),
 		"weather_event_active": bool(_get_owner_value(owner, "weather_event_active", false)),

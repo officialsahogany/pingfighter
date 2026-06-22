@@ -18,22 +18,26 @@ black pixel outline, NO painterly`를 강제(SKILL.md:279)하므로 이번 페�
 
 ---
 
-## 0. 교체 대상 — 현 절차적 placeholder (S3/S4 배선 완료·커밋됨)
+## 0. 배선 현황 — Screen A 프리미엄 / Screen B v1
 
-로직·게이트는 완성, **비주얼만 절차적 placeholder**. Codex가 PNG로 교체할 정확한 지점:
+로직·게이트는 유지한다. Screen A(컨티뉴)는 절차적 placeholder 단계가 끝났고,
+현재는 full-screen backdrop, chance-gem PNG, shatter sheet, boss-victory portal
+합성을 쓰는 premium 배선이다. Screen B(최종 결산)는 v1 절차식 stat/list 구성을 유지할 수 있다.
 
-| 화면 | 모듈 (커밋 3876aa5c0) | 현 placeholder | 우선순위 |
+| 화면 | 모듈 | 현재 상태 | 남은 우선순위 |
 |---|---|---|---|
-| A 소프트 패배(컨티뉴) | `godot/scripts/core/defeat_chance_gems_continue_screen.gd` `draw()` | 전면 dark rect + 패널 `draw_rect` + `_draw_gem_slot()` 절차적 보석 (시길 없음) | **최우선** (목업 타겟) |
-| B 찐패배 결산 | `godot/scripts/core/defeat_settlement_screen.gd` `draw()` | 절차적 stat box / 섹션 | 낮음 (v1 절차적 유지 가능, 라이트 폴리시만) |
+| A 소프트 패배(컨티뉴) | `godot/scripts/core/defeat_chance_gems_continue_screen.gd` `draw()` | `defeat_continue_backdrop.png`, `chance_gem_full/broken`, `chance_gem_shatter_sheet`, result-prewarmed `boss_victory_sheet` portal 합성 | stage별 live QA, 폰트/텍스트 최종 사인오프 |
+| B 찐패배 결산 | `godot/scripts/core/defeat_settlement_screen.gd` `draw()` | 절차식 stat box / 텍스트 섹션 | 낮음 (v1 유지 가능, 일러스트 레이어링은 후속) |
 
 - 둘 다 `extends RefCounted` 즉시-draw 모듈(노드 아님). PNG는 `draw()` 안에서
-  `canvas.draw_texture_rect`로 블릿하되, 텍스처 로드/캐시는 모듈 생성·프리웜 시점에
+  `canvas.draw_texture_rect`로 블릿하되, 텍스처 로드/캐시는 모듈 생성·프리웜 시점에 둔다
   (draw에서 lazy 로드 금지 — Hot-Path Lazy 트랩).
-- **보석 PNG가 최우선 자산**(화면 A 게이지 + 향후 전투 HUD 공유). 포털·시길은 화면 A
-  프리미엄용. 결산(B)은 보석만 PNG로 받고 나머지는 절차적 유지해도 v1 OK.
-- **작업 트리거: S5 라이브 QA green 이후 착수**(로직 확정 후 비주얼 → 회귀 비혼입).
-  두 모듈은 이미 커밋(`3876aa5c0`)·라우팅 픽스(`521d1d654`) → Codex는 그 위에 비주얼만 추가.
+- 2026-06-22 Codex 배선: `stage4_ponk_boss_victory.png`,
+  `stage5_hongryun_boss_victory.png`, `stage6_tetriser_boss_victory_4x2.png`를
+  result-prewarm `boss_victory_sheet`로 연결했다. 세 자산은 1536x768 4x2라서
+  `defeat_chance_gems_continue_screen.gd`의 non-square 4x2 source-rect 분기를 그대로 탄다.
+- 보석 PNG는 Screen A와 전투 HUD 공유 자산이다. 결산(B)은 보석만 PNG로 받고 나머지는
+  절차식을 유지해도 v1 OK.
 
 ### 0.1 보석 게이지 소진 방향 정렬 (런타임, Codex)
 `defeat_chance_gems_continue_screen.gd` `draw()`의 `for i in range(max_gems)`는 현재

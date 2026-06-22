@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 
 const PASSIVE_ID := "lingpet_ring_dash"
+const MOTION_STYLE_PATROL := "patrol"
 const FORCE_ROLL_OWNER_KEY := "lingpet_ring_dash_force_roll_pct"
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -33,7 +34,8 @@ func advance(
 	companion_active: bool,
 	current_companion_pos: Vector2,
 	catch_width: float,
-	catch_height: float
+	catch_height: float,
+	motion_style: String = MOTION_STYLE_PATROL
 ) -> Dictionary:
 	var safe_delta := maxf(0.0, delta)
 	_cooldown = maxf(0.0, _cooldown - safe_delta)
@@ -49,7 +51,8 @@ func advance(
 		return _advance_active_dash(safe_delta, owner, passive_skill, current_companion_pos, catch_width, catch_height)
 	if _cooldown > 0.0:
 		return {}
-	var target_data := _build_target_data(owner, passive_skill, current_companion_pos, catch_width, catch_height, true)
+	var is_ground_pet := motion_style.strip_edges().to_lower() == MOTION_STYLE_PATROL
+	var target_data := _build_target_data(owner, passive_skill, current_companion_pos, catch_width, catch_height, true, is_ground_pet)
 	if target_data.is_empty():
 		return {}
 	if _rolled_this_descent:
@@ -155,7 +158,8 @@ func _build_target_data(
 	current_companion_pos: Vector2,
 	catch_width: float,
 	catch_height: float,
-	require_emergency: bool
+	require_emergency: bool,
+	is_ground_pet: bool
 ) -> Dictionary:
 	if not bool(BattleSceneOwnerReader.get_value(owner, "ball_active", false)):
 		return {}
@@ -165,7 +169,12 @@ func _build_target_data(
 	var ball_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "ball_pos", Vector2.ZERO)
 	var ball_radius := maxf(1.0, float(BattleSceneOwnerReader.get_value(owner, "ball_size", BALL_RADIUS_FALLBACK * 2.0)) * 0.5)
 	var half_height := maxf(1.0, catch_height * 0.5)
-	var target_y := _resolve_player_guard_center_y(owner, catch_height, ball_radius)
+	# Ground (patrol) lingpets cannot move into the air, so the Linkport teleport must keep
+	# the companion's own ground-lane Y and only shift X. Diving to the player guard-center Y
+	# pops the pet upward by guard_y - patrol_lane_y -- negligible at the 50px base paddle but
+	# a visible upward jump once a paddle-height perk/item raises the paddle. Flight pets keep
+	# the guard-center dive because they can legitimately move to the ball.
+	var target_y := current_companion_pos.y if is_ground_pet else _resolve_player_guard_center_y(owner, catch_height, ball_radius)
 	var vertical_gap := (target_y - half_height) - (ball_pos.y + ball_radius)
 	if vertical_gap < -ball_radius:
 		return {}

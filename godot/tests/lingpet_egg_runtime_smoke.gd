@@ -556,6 +556,7 @@ func _init() -> void:
 	_verify_starlight_tracking_passive()
 	_verify_ring_dash_passive()
 	_verify_ring_dash_single_roll_per_descent()
+	_verify_ring_dash_ground_pet_keeps_y_on_teleport()
 	_verify_companion_paddle_hit_width()
 	_verify_companion_guards_dalji_whip()
 	_verify_companion_skill_card_hydro_sphere()
@@ -2294,6 +2295,11 @@ func _verify_ring_dash_passive() -> void:
 	runtime3.update(0.12, owner3, registry)
 	var flight_hidden_dash: Dictionary = runtime3.get_snapshot()
 	_expect(bool(flight_hidden_dash.get("ring_dash_active", false)), "Linkport should start even if a sortie-flight companion was offscreen")
+	# Flight pets CAN move to the ball, so Linkport still dives them to the player guard-center
+	# Y (~704 for lunabi's 58px catch height at player_pos.y 675), far from the offscreen
+	# ingress Y (245). The ground-pet Y-lock must NOT touch flight behavior.
+	_expect(absf(owner3.lingpet_companion_pos.y - 704.0) < 2.0, "Linkport should still dive a flight companion to the player guard-center Y")
+	_expect(owner3.lingpet_companion_pos.y > 600.0, "Linkport flight dive should pull the offscreen companion down into the guard band, not keep its ingress Y")
 	_expect(bool(flight_hidden_dash.get("ring_dash_visual_hidden", false)), "Linkport should keep the flight companion hidden for the vanish beat")
 	_expect(int(flight_hidden_dash.get("companion_contact_count", 0)) == 0, "Linkport should not let an invisible flight companion hit the ball before it reappears")
 	runtime3.update(0.05, owner3, registry)
@@ -2350,6 +2356,43 @@ func _verify_ring_dash_single_roll_per_descent() -> void:
 	runtime.update(0.05, owner, registry)
 	_expect(bool(runtime.is_ring_dash_active_for_tests()), "a fresh descent should re-arm the single Linkport roll")
 	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 1, "the fresh descent should produce exactly one successful trigger")
+
+
+func _verify_ring_dash_ground_pet_keeps_y_on_teleport() -> void:
+	# 지상형(patrol) 링펫은 공중으로 이동할 수 없으므로, 링크포트(Linkport) 순간이동은 X만
+	# 바꾸고 Y(지상 레인)는 유지해야 한다. 가드 센터 Y로 내려보내면 패들 높이만큼 위로
+	# 튀어오르는데, 50px 기본 패들에선 미미하지만 패들 높이 증가 퍽/아이템이 켜지면 눈에
+	# 보일 만큼 커진다. 여기서는 패들 높이 75로 그 분기(rest Y ~712.5 vs 옛 guard Y ~697)를
+	# 키운 뒤 Y 유지 + X 이동을 단언한다. 반증검증: 옛 가드-다이브 코드는 Y를 ~697로 만들어
+	# 마지막 두 단언에서 실패한다.
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_ring_dash_force_roll_pct = 0.0  # guaranteed roll success
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "ground-pet Y-lock smoke should equip Ring Dash Lv.5 on a patrol pet")
+	owner.player_pos = Vector2(240.0, 675.0)  # tall paddle baseline (height 75)
+	owner.player_paddle_width = 170.0
+	owner.player_paddle_height = 75.0
+	# Settle the patrol pet onto its low ground lane with no ball present.
+	owner.ball_active = false
+	for i in range(6):
+		runtime.update(0.05, owner, registry)
+	var rest_y: float = owner.lingpet_companion_pos.y
+	_expect(rest_y > 705.0, "patrol pet should rest on its low ground lane (paddle 75 -> ~712.5)")
+	# Pin the pet far from the predicted ball X so the min-distance emergency gate passes.
+	runtime.configure_companion_motion_for_tests(Vector2(120.0, rest_y), 2, 0.0, false)
+	# Descending, unblockable ball in the lower emergency band.
+	owner.ball_active = true
+	owner.ball_pos = Vector2(640.0, owner.player_pos.y - 40.0)
+	owner.ball_pos_prev = owner.ball_pos
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.05, owner, registry)
+	_expect(bool(runtime.is_ring_dash_active_for_tests()), "Linkport should fire for the far, unblockable descending ball")
+	_expect(is_equal_approx(owner.lingpet_companion_pos.x, 640.0), "Linkport should teleport the ground pet's X to the predicted ball X")
+	_expect(absf(owner.lingpet_companion_pos.y - rest_y) < 1.0, "Linkport must KEEP the ground pet's ground-lane Y (only X teleports, no upward pop)")
+	# Reverse guard: the old guard-center dive would land Y at ~697 (15px up). Prove the pet
+	# is NOT popped up, so any regression that re-introduces the dive fails here.
+	_expect(owner.lingpet_companion_pos.y > 705.0, "Linkport ground pet must not pop up toward the guard-center Y")
 
 
 func _verify_companion_strike_anticipates_contact() -> void:

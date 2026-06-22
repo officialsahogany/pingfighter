@@ -143,16 +143,59 @@ class FakeChanceGemStore:
 		return chance_gems
 
 
+class FakeContextBuilder:
+	extends RefCounted
+
+	func build_match_flow_deps(_registry: Object, _current_stage: int) -> Dictionary:
+		return {}
+
+
+class FakeMatchFlowController:
+	extends RefCounted
+
+	var reset_for_continue_calls := 0
+
+	func reset_for_stage_transition(_deps: Dictionary, callbacks: Dictionary = {}) -> Dictionary:
+		reset_for_continue_calls += 1
+		var reset_drive: Callable = callbacks.get("reset_drive_input", Callable())
+		if reset_drive.is_valid():
+			reset_drive.call()
+		var reset_ball: Callable = callbacks.get("reset_ball", Callable())
+		if reset_ball.is_valid():
+			reset_ball.call()
+		return {}
+
+
 class FakeContinueScreen:
 	extends RefCounted
 
 	var show_calls := 0
 	var saw_continue_callback := false
+	var saw_consume_callback := false
+	var confirm_calls := 0
+	var _consume_callback: Callable = Callable()
+	var _continue_callback: Callable = Callable()
 
 	func show(_owner: Object, _registry: Object, continue_callback: Callable) -> bool:
 		show_calls += 1
 		saw_continue_callback = continue_callback.is_valid()
+		_continue_callback = continue_callback
 		return true
+
+	func show_with_consume(_owner: Object, _registry: Object, continue_callback: Callable, consume_callback: Callable) -> bool:
+		show_calls += 1
+		saw_continue_callback = continue_callback.is_valid()
+		saw_consume_callback = consume_callback.is_valid()
+		_consume_callback = consume_callback
+		_continue_callback = continue_callback
+		return true
+
+	func confirm_continue() -> void:
+		confirm_calls += 1
+		if _consume_callback.is_valid():
+			_consume_callback.call()
+		if _continue_callback.is_valid():
+			_continue_callback.call()
 
 
 class FakeRegistry:
@@ -185,11 +228,15 @@ func _verify_odins_eye_revive_is_free_then_death_finalize_consumes_one_gem() -> 
 	var scoreboard_state := FakeScoreboardState.new()
 	var mythic_runtime := FakeMythicItemRuntime.new()
 	var chance_store := FakeChanceGemStore.new()
+	var context_builder := FakeContextBuilder.new()
+	var match_flow_controller := FakeMatchFlowController.new()
 	var continue_screen := FakeContinueScreen.new()
 	var registry := FakeRegistry.new({
 		"scoreboard_state": scoreboard_state,
 		"plaza_save_store": chance_store,
 		"defeat_chance_gems_continue_screen": continue_screen,
+		"battle_update_context": context_builder,
+		"match_flow_controller": match_flow_controller,
 	})
 	var deps := {
 		"owner": owner,
@@ -230,11 +277,19 @@ func _verify_odins_eye_revive_is_free_then_death_finalize_consumes_one_gem() -> 
 	)
 
 	_expect(chance_store.get_calls > 0, "match-flow defeat resolver should read the persisted chance gem count")
-	_expect(chance_store.consume_calls == 1 and chance_store.chance_gems == 1, "Odin death finalize should consume exactly one chance gem when it reaches the defeat floor")
-	_expect(owner.chance_gems_count == 1 and owner.chance_gems_max == 3, "defeat resolver should mirror the remaining chance gem count to the owner")
-	_expect(continue_screen.show_calls == 1 and continue_screen.saw_continue_callback, "Odin death finalize should open the chance-gem continue screen after consuming one gem")
+	_expect(chance_store.consume_calls == 0 and chance_store.chance_gems == 2, "Odin death finalize should not consume a chance gem before the continue confirmation")
+	_expect(owner.chance_gems_count == 2 and owner.chance_gems_max == 3, "defeat resolver should mirror the pre-confirm chance gem count to the owner")
+	_expect(continue_screen.show_calls == 1 and continue_screen.saw_continue_callback and continue_screen.saw_consume_callback, "Odin death finalize should open the chance-gem continue screen with consume and continue callbacks")
 	_expect(_reset_game_calls == 0, "Odin death finalize continue path must not fall through to the full reset callback")
 	_expect(_reset_ball_calls == 0 and _reset_drive_calls == 0, "continue reset should wait for the player confirmation")
+
+	continue_screen.confirm_continue()
+	_expect(continue_screen.confirm_calls == 1, "test setup should confirm the chance gem continue screen once")
+	_expect(chance_store.consume_calls == 1 and chance_store.chance_gems == 1, "Odin continue confirmation should consume exactly one chance gem")
+	_expect(owner.chance_gems_count == 1 and owner.chance_gems_max == 3, "continue confirmation should mirror the remaining chance gem count to the owner")
+	_expect(match_flow_controller.reset_for_continue_calls == 1, "Odin continue confirmation should enter the preserving continue reset once")
+	_expect(_reset_game_calls == 0, "Odin continue confirmation must not call the full reset callback")
+	_expect(_reset_ball_calls == 1 and _reset_drive_calls == 1, "Odin continue confirmation should run the preserving reset callbacks once")
 
 
 func _record_reset_game() -> void:

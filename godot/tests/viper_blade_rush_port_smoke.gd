@@ -7,6 +7,7 @@ const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_co
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
+const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
@@ -172,6 +173,8 @@ func _init() -> void:
 	_test_blade_amp_cost_homing_and_followup()
 	_test_air_blade_dash_after_launch_delay()
 	_test_air_blade_reset_round_stops_spin_sound()
+	_test_dark_blade_post_fire_lateral_scale_geometry()
+	_test_dark_blade_post_fire_lateral_halved_runtime()
 	print("viper_blade_rush_port_smoke: ok")
 	quit(0)
 
@@ -647,6 +650,99 @@ func _test_air_blade_reset_round_stops_spin_sound() -> void:
 	_expect(not bool(runtime.get_snapshot().get("blade_motion_active", true)), "Viper reset_round should clear active blade motion")
 	_expect(not runtime.blade_spin_sound_active, "Viper reset_round should clear blade spin sound state")
 	_expect(runtime.blade_spin_audio == null, "Viper reset_round should release the stored blade spin audio owner")
+
+
+func _test_dark_blade_post_fire_lateral_scale_geometry() -> void:
+	# The geometry damp must scale BOTH cap and accel, so from rest the realized speed is
+	# exactly 50% at every frame (saturated cap is exactly halved).
+	var config := {
+		"paddle_max_speed": 4.0,
+		"paddle_speed": 4.0,
+		"paddle_accel": 0.38,
+		"paddle_decel": 0.38,
+		"paddle_turn_decel": 1.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"width": 760.0,
+	}
+	var floor_y := 680.0
+	var airborne_y := floor_y - 320.0  # Dark Blade jump peak, above the 200 jetpack ceiling
+	var speed_full: float = _blade_lateral_speed_after(config, floor_y, airborne_y, 1.0, 40)
+	var speed_half: float = _blade_lateral_speed_after(config, floor_y, airborne_y, 0.5, 40)
+	_expect(speed_full > 30.0, "dark airborne lateral cap should saturate near the ~37.8px/frame stack")
+	_expect(speed_half < speed_full, "post-fire scale 0.5 must reduce the dark lateral cap")
+	_expect(abs(speed_half - speed_full * 0.5) < 0.001, "dark post-fire lateral cap should be exactly 50% of unscaled")
+
+
+func _blade_lateral_speed_after(config: Dictionary, floor_y: float, y: float, scale: float, frames: int) -> float:
+	var player_speed := 0.0
+	var pos := Vector2(380.0, y)
+	for _i in range(frames):
+		var result: Dictionary = ViperSkillGeometry.blade_horizontal_control_motion(
+			pos, player_speed, 1.0, 1.0, config, floor_y, 155.0, 200.0, 2.15, true, scale
+		)
+		player_speed = float(result.get("player_speed", player_speed))
+	return player_speed
+
+
+func _test_dark_blade_post_fire_lateral_halved_runtime() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var jetpack := FakeJetpack.new()
+	var perk_state := FakePerkState.new()
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, jetpack, perk_state)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 560.0)
+	var result: Dictionary = runtime._start_blade_motion(player_pos, 500.0, config, deps, true, Time.get_ticks_msec())
+	player_pos = _get_vector2(result, "player_pos", player_pos)
+	var player_speed := 0.0
+	# Advance until the projectile has fired and the blade is in phase 2 (the "after fire" window).
+	for _i in range(120):
+		config["player_speed"] = player_speed
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 300.0)), config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		player_speed = float(result.get("player_speed", player_speed))
+		var snap: Dictionary = runtime.get_snapshot()
+		if int(snap.get("blade_motion_phase", -1)) == 2 and float(snap.get("blade_motion_frames", 0.0)) > 1.0:
+			break
+	var phase_snap: Dictionary = runtime.get_snapshot()
+	_expect(int(phase_snap.get("blade_motion_phase", -1)) == 2, "dark blade should reach the post-fire phase 2")
+	_expect(bool(phase_snap.get("blade_dark_mode", false)), "scenario should run in dark blade mode")
+	_expect(bool(phase_snap.get("blade_projectile_active", false)), "dark blade should fire its projectile before lateral steering is measured")
+
+	# Hold right for one frame and compare the realized lateral step against the scaled vs
+	# unscaled geometry expectation for the exact same (pos, speed, height).
+	input.snapshot["right_pressed"] = true
+	input.snapshot["direction"] = 1.0
+	var pos_before := player_pos
+	var speed_before := player_speed
+	config["player_speed"] = speed_before
+	result = runtime.try_activate_before_movement(1.0 / 60.0, pos_before, float(result.get("special_gauge", 300.0)), config, deps)
+	var realized_dx: float = _get_vector2(result, "player_pos", pos_before).x - pos_before.x
+	input.snapshot["right_pressed"] = false
+	input.snapshot["direction"] = 0.0
+
+	var geom_config := {
+		"paddle_max_speed": 4.0, "paddle_speed": 4.0, "paddle_accel": 0.38, "paddle_decel": 0.38,
+		"paddle_turn_decel": 1.0, "play_left": 0.0, "play_right": 760.0, "width": 760.0,
+	}
+	var floor_y := float(config.get("player_floor_y", 680.0))
+	var full: Dictionary = ViperSkillGeometry.blade_horizontal_control_motion(pos_before, speed_before, 1.0, 1.0, geom_config, floor_y, 155.0, 200.0, 2.15, true, 1.0)
+	var half: Dictionary = ViperSkillGeometry.blade_horizontal_control_motion(pos_before, speed_before, 1.0, 1.0, geom_config, floor_y, 155.0, 200.0, 2.15, true, 0.5)
+	var full_dx: float = _get_vector2(full, "player_pos", pos_before).x - pos_before.x
+	var half_dx: float = _get_vector2(half, "player_pos", pos_before).x - pos_before.x
+	_expect(full_dx > half_dx + 0.01, "unscaled vs scaled geometry expectations must diverge for a valid wiring check")
+	_expect(abs(realized_dx - half_dx) < 0.05, "dark post-fire lateral step should match the 50%-scaled geometry, not full speed")
+	_expect(abs(realized_dx - full_dx) > 0.05, "dark post-fire lateral step must NOT use the full (unscaled) lateral speed")
+
+	# Gate guard: the damp must be scoped to dark mode AND phase 2 so air blade keeps full control.
+	var motion_source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_blade_motion_runtime.gd")
+	_expect(motion_source.find("runtime.blade_dark_mode and runtime.blade_motion_phase >= 2") >= 0, "post-fire lateral damp must be gated on dark mode AND phase 2 (air blade unaffected)")
 
 
 func _deps(

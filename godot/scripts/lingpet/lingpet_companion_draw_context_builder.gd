@@ -29,6 +29,9 @@ func build_config(params: Dictionary) -> Dictionary:
 		var puppet_control_draw_size := _get_visual_layout_value(current_profile, "companion_puppet_control_draw_size")
 		if puppet_control_draw_size > 0.0:
 			cast_draw_size = puppet_control_draw_size
+	var bind_sheet_state: Dictionary = {}
+	if skill_runtime_host != null and skill_runtime_host.has_method("get_companion_bind_sheet_state"):
+		bind_sheet_state = skill_runtime_host.get_companion_bind_sheet_state(skill_id)
 	return {
 		"radius": float(params.get("radius", 16.0)),
 		"burst_particles": int(params.get("burst_particles", 8)),
@@ -65,6 +68,13 @@ func build_config(params: Dictionary) -> Dictionary:
 		"move_right_texture": _get_visual_texture(current_profile, "companion_move_right"),
 		"walk_texture": _get_visual_texture(current_profile, "companion_walk"),
 		"distance_roll_source_texture": _get_visual_texture(current_profile, "companion_distance_roll_source"),
+		"bind_sheet_texture": _get_visual_texture(current_profile, "companion_star_coil_bind"),
+		"bind_sheet_active": bool(bind_sheet_state.get("active", false)),
+		"bind_sheet_frame": int(bind_sheet_state.get("frame", 0)),
+		"companion_star_coil_bind_cols": _get_visual_layout_value(current_profile, "companion_star_coil_bind_cols"),
+		"companion_star_coil_bind_rows": _get_visual_layout_value(current_profile, "companion_star_coil_bind_rows"),
+		"companion_star_coil_bind_frame_count": _get_visual_layout_value(current_profile, "companion_star_coil_bind_frame_count"),
+		"companion_star_coil_bind_draw_size": _get_visual_layout_value(current_profile, "companion_star_coil_bind_draw_size"),
 		"strike_texture": _get_visual_texture(current_profile, "companion_strike"),
 		"cast_texture": cast_texture,
 		"walk_draw_size": _get_visual_layout_value(current_profile, "companion_walk_draw_size"),

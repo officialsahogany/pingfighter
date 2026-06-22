@@ -38,6 +38,7 @@ func build_startup_context(owner: Object) -> Dictionary:
 		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
 		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"ai_mode": ai_mode,
 		"arena_mode_enabled": bool(_get_owner_value(owner, "arena_mode_enabled", false)),
 		"weather_type": str(_get_owner_value(owner, "weather_type", "")),

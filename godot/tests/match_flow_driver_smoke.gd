@@ -283,8 +283,10 @@ class FakeDefeatContinueScreen:
 	var saw_owner := false
 	var saw_registry := false
 	var saw_continue_callback := false
+	var saw_consume_callback := false
 	var confirm_calls := 0
 	var _continue_callback: Callable = Callable()
+	var _consume_callback: Callable = Callable()
 
 	func show(owner: Object, registry: Object, continue_callback: Callable) -> bool:
 		show_calls += 1
@@ -294,8 +296,20 @@ class FakeDefeatContinueScreen:
 		_continue_callback = continue_callback
 		return true
 
+	func show_with_consume(owner: Object, registry: Object, continue_callback: Callable, consume_callback: Callable) -> bool:
+		show_calls += 1
+		saw_owner = owner != null
+		saw_registry = registry != null
+		saw_continue_callback = continue_callback.is_valid()
+		saw_consume_callback = consume_callback.is_valid()
+		_continue_callback = continue_callback
+		_consume_callback = consume_callback
+		return true
+
 	func confirm_continue() -> void:
 		confirm_calls += 1
+		if _consume_callback.is_valid():
+			_consume_callback.call()
 		if _continue_callback.is_valid():
 			_continue_callback.call()
 
@@ -500,8 +514,8 @@ func _init() -> void:
 		Callable(self, "_record_drive_reset")
 	)
 	_expect(chance_store.get_calls > 0, "defeat resolver should read chance gems from the plaza save store")
-	_expect(chance_store.consume_calls == 1 and chance_store.chance_gems == 1, "defeat resolver should consume exactly one chance gem through the store")
-	_expect(int(continue_owner.value_of("chance_gems_count")) == 1, "defeat resolver should mirror remaining chance gems to the owner")
+	_expect(chance_store.consume_calls == 0 and chance_store.chance_gems == 2, "defeat resolver should not consume a chance gem before the continue screen confirmation")
+	_expect(int(continue_owner.value_of("chance_gems_count")) == 2, "defeat resolver should mirror pre-confirm chance gems to the owner")
 	_expect(int(continue_owner.value_of("chance_gems_max")) == 3, "defeat resolver should mirror chance gem capacity to the owner")
 	_expect(
 		continue_owner.rejected_keys.is_empty(),
@@ -509,11 +523,14 @@ func _init() -> void:
 	)
 	_expect(continue_screen.show_calls == 1 and continue_screen.saw_owner and continue_screen.saw_registry, "defeat resolver should open the chance gem continue screen")
 	_expect(continue_screen.saw_continue_callback, "chance gem continue screen should receive the preserving reset callback")
+	_expect(continue_screen.saw_consume_callback, "chance gem continue screen should receive the confirm-time consume callback")
 	_expect(controller.stage_transition_reset_calls == transition_resets_before, "defeat resolver must wait for confirmation before continuing")
 	_expect(_drive_reset_calls == drive_resets_before and _ball_reset_calls == ball_resets_before, "chance gem screen should delay drive and ball reset until confirm")
 	_expect(_reset_game_callback_calls == 0, "defeat continue must not call the full reset callback")
 	continue_screen.confirm_continue()
 	_expect(continue_screen.confirm_calls == 1, "test setup should confirm the chance gem screen once")
+	_expect(chance_store.consume_calls == 1 and chance_store.chance_gems == 1, "defeat confirmation should consume exactly one chance gem through the store")
+	_expect(int(continue_owner.value_of("chance_gems_count")) == 1, "defeat confirmation should mirror remaining chance gems to the owner")
 	_expect(controller.stage_transition_reset_calls == transition_resets_before + 1, "defeat confirmation should continue through the preserving reset")
 	_expect(_drive_reset_calls == drive_resets_before + 1 and _ball_reset_calls == ball_resets_before + 1, "defeat confirmation should reset drive and ball")
 	_expect(_reset_game_callback_calls == 0, "defeat confirmation must not call the full reset callback")

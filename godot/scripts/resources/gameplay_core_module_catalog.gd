@@ -113,6 +113,10 @@ const MODULES := {
 		"path": "res://scripts/core/defeat_chance_gems_continue_screen.gd",
 		"label": "defeat chance gems continue screen",
 	},
+	"defeat_continue_revival_beat_state": {
+		"path": "res://scripts/core/defeat_continue_revival_beat_state.gd",
+		"label": "defeat continue revival beat state",
+	},
 	"defeat_settlement_screen": {
 		"path": "res://scripts/core/defeat_settlement_screen.gd",
 		"label": "defeat settlement screen",

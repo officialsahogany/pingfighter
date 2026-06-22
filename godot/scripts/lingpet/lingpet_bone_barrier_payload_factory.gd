@@ -52,7 +52,7 @@ static func build_build_particle(position: Vector2) -> Dictionary:
 		"age": 0.0,
 		"life": randf_range(0.34, 0.82),
 		"size": randf_range(1.5, 4.2),
-		"color": Color(0.50, 0.92, 0.78, randf_range(0.30, 0.66)),
+		"color": Color(0.85, 0.86, 0.74, randf_range(0.30, 0.66)),
 	}
 
 
@@ -66,7 +66,7 @@ static func build_hit_particle(position: Vector2, incoming_velocity: Vector2, in
 		"age": 0.0,
 		"life": randf_range(0.20, 0.48),
 		"size": randf_range(2.0, 5.2),
-		"color": Color(0.75, 0.95, 0.86, randf_range(0.48, 0.88)),
+		"color": Color(0.86, 0.82, 0.70, randf_range(0.48, 0.88)),
 	}
 
 

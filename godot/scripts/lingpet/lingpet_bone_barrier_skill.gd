@@ -6,9 +6,11 @@ const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const GAME_LEFT := 0.0
 const GAME_RIGHT := FIELD_WIDTH
-const BARRIER_WIDTH_BY_LEVEL := [120.0, 140.0, 160.0, 180.0, 200.0]
+# Widths are the original Necro BoneBarrier values scaled to 60% (-40%):
+# original [120, 140, 160, 180, 200] -> [72, 84, 96, 108, 120].
+const BARRIER_WIDTH_BY_LEVEL := [72.0, 84.0, 96.0, 108.0, 120.0]
 const BONUS_BARRIER_CHANCE_BY_LEVEL := [0.0, 0.0, 0.20, 0.30, 0.40]
-const BARRIER_WIDTH := 120.0
+const BARRIER_WIDTH := 72.0
 const BARRIER_HEIGHT := 12.0
 const BUILD_TIME := 3.0
 const DEATH_DURATION := 0.6
@@ -16,15 +18,23 @@ const MIN_SPACING := 110.0
 const BOTTOM_BARRIER_Y := 738.0
 const TOP_BARRIER_Y := 8.0
 const PARTICLE_MAX := 96
+const MAX_ACTIVE_BARRIERS := 8
 const REFLECT_SPEED_MULTIPLIER := 1.05
 const HIT_OFFSET_VEL_SCALE := 0.03
 const NO_FORCED_X := -999999.0
 
-const BONE_COLOR := Color(0.82, 0.88, 0.78, 1.0)
-const BONE_HILITE := Color(0.94, 1.0, 0.89, 1.0)
-const BONE_SHADOW := Color(0.10, 0.17, 0.15, 0.70)
-const SOUL_COLOR := Color(0.40, 1.0, 0.78, 1.0)
-const CRACK_COLOR := Color(0.24, 0.35, 0.31, 1.0)
+# Warm ivory bone palette ported 1:1 from the original Necro BoneBarrier
+# (downtown/hero_skills.py). Green (SOUL_COLOR / necro_glow) is reserved for
+# spike poison wisps and the shatter shockwave only.
+const BONE_COLOR := Color(0.824, 0.784, 0.686, 1.0)    # bone_c  (210, 200, 175)
+const BONE_DARK := Color(0.627, 0.588, 0.471, 1.0)     # bone_dk (160, 150, 120)
+const BONE_HILITE := Color(0.902, 0.882, 0.784, 1.0)   # bone_br (230, 225, 200)
+const BONE_SHADOW := Color(0.471, 0.431, 0.333, 1.0)   # bone_sh (120, 110,  85)
+const BONE_CREAM := Color(0.922, 0.894, 0.824, 1.0)    # bone_cream (235, 228, 210)
+const SPIKE_COLOR := Color(0.784, 0.745, 0.627, 1.0)   # spike_c (200, 190, 160)
+const SPIKE_HILITE := Color(0.882, 0.855, 0.765, 1.0)  # spike_br (225, 218, 195)
+const SOUL_COLOR := Color(0.314, 1.0, 0.471, 1.0)      # necro_glow (80, 255, 120)
+const CRACK_COLOR := Color(0.471, 0.431, 0.333, 1.0)   # micro-cracks (= bone_sh)
 
 var _barriers: Array[Dictionary] = []
 var _dying_barriers: Array[Dictionary] = []
@@ -70,6 +80,16 @@ func cancel(_owner: Object = null, registry: Object = null) -> void:
 	reset()
 
 
+# Round-boundary reset: installed barriers persist into the next round
+# (matches the original Necro BoneBarrier reset_for_new_round), so only the
+# transient shatter fragments and spark particles are cleared. A full reset()
+# (companion change / hatch / new battle) still wipes everything.
+func reset_round() -> void:
+	_dying_barriers.clear()
+	_particles.clear()
+	_active = not _barriers.is_empty()
+
+
 func prewarm() -> void:
 	pass
 
@@ -104,6 +124,7 @@ func launch(_origin: Vector2, _owner: Object = null, launch_context: Dictionary 
 			_bonus_barrier_count += 1
 		_barriers.append(barrier)
 		_spawn_build_particles(Vector2(x + _barrier_width * 0.5, y + BARRIER_HEIGHT * 0.5))
+	_limit_barriers()
 	return true
 
 
@@ -185,6 +206,7 @@ func get_snapshot() -> Dictionary:
 		"bone_barrier_active": _active,
 		"bone_barrier_active_skill_level": _active_skill_level,
 		"bone_barrier_barrier_count": _barriers.size(),
+		"bone_barrier_barrier_ids": _get_barrier_ids(),
 		"bone_barrier_barrier_positions": _get_barrier_positions(),
 		"bone_barrier_built_count": _get_built_count(),
 		"bone_barrier_dying_count": _dying_barriers.size(),
@@ -337,36 +359,65 @@ static func _get_build_segment_adjusted_progress(build_timer: float, delay: floa
 
 
 func _draw_built_barrier(canvas: CanvasItem, barrier: Dictionary, rect: Rect2, _progress: float) -> void:
-	canvas.draw_rect(Rect2(rect.position + Vector2(0.0, 3.0), rect.size), BONE_SHADOW, true)
-	canvas.draw_rect(rect, BONE_COLOR, true)
-	canvas.draw_rect(Rect2(rect.position, Vector2(rect.size.x, 3.0)), BONE_HILITE, true)
-	var crack_count := 9
+	# Animation clock is the barrier's own build timer (keeps advancing post-build),
+	# so subtle pulses freeze with the skill tick instead of free-running on wall clock.
+	var t := float(barrier.get("timer", 0.0))
 	var phase := float(barrier.get("phase", 0.0))
-	for index in range(crack_count):
-		var x := rect.position.x + (float(index) + 0.5) * rect.size.x / float(crack_count)
-		var crack_sway := sin(float(index) * 12.9898 + phase) * 3.0
-		canvas.draw_line(Vector2(x, rect.position.y + 2.0), Vector2(x + crack_sway, rect.end.y - 2.0), CRACK_COLOR, 1.0, true)
+	var is_top := bool(barrier.get("caster_is_top", false))
+	var w := rect.size.x
+	var h := rect.size.y
+	var center_y := rect.position.y + h * 0.5
+	# Drop shadow.
+	canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size), BONE_SHADOW, true)
+	# 3-layer gradient body: dark base -> bone mid -> cream inner.
+	canvas.draw_rect(rect, BONE_DARK, true)
+	canvas.draw_rect(Rect2(rect.position + Vector2(1.0, 1.0), rect.size - Vector2(2.0, 2.0)), BONE_COLOR, true)
+	var inner_h := maxf(1.0, h - 4.0)
+	canvas.draw_rect(Rect2(rect.position + Vector2(3.0, (h - inner_h) * 0.5), Vector2(maxf(1.0, w - 6.0), inner_h)), BONE_CREAM, true)
+	# Bone segment texture: separator lines, joint bumps, marrow, micro-cracks.
+	var seg_count := maxi(1, int(w / 10.0))
+	for i in range(seg_count):
+		var lx := rect.position.x + w * 0.5
+		if seg_count > 1:
+			lx = rect.position.x + 5.0 + float(i) * (w - 10.0) / float(seg_count - 1)
+		canvas.draw_line(Vector2(lx, rect.position.y + 1.0), Vector2(lx, rect.end.y - 1.0), BONE_DARK, 1.0)
+		canvas.draw_circle(Vector2(lx, center_y), 3.0, BONE_HILITE)
+		canvas.draw_arc(Vector2(lx, center_y), 3.0, 0.0, TAU, 12, BONE_COLOR, 1.0, true)
+		canvas.draw_circle(Vector2(lx, center_y), 1.0, BONE_DARK)
+		if i < seg_count - 1:
+			var next_lx := rect.position.x + 5.0 + float(i + 1) * (w - 10.0) / float(maxi(1, seg_count - 1))
+			var marrow_a := 0.16 * (0.8 + 0.2 * sin(t * 2.0 + float(i) * 0.8))
+			canvas.draw_line(Vector2(lx + 3.0, center_y), Vector2(next_lx - 3.0, center_y), Color(BONE_CREAM.r, BONE_CREAM.g, BONE_CREAM.b, marrow_a), 1.0)
+		if i % 3 == 1:
+			var crack_y := rect.position.y + 2.0
+			canvas.draw_line(Vector2(lx + 2.0, crack_y), Vector2(lx + 4.0, crack_y + 3.0), CRACK_COLOR, 1.0)
+	# Sharp spikes: shadow + body + bright facet + ridge, with a green poison wisp.
 	var spike_heights: Array = barrier.get("spike_heights", []) as Array
-	if spike_heights.is_empty():
-		return
-	var spike_width := rect.size.x / float(spike_heights.size())
-	var spike_dir := 1.0 if bool(barrier.get("caster_is_top", false)) else -1.0
-	var base_y := rect.end.y if spike_dir > 0.0 else rect.position.y
-	for index in range(spike_heights.size()):
-		var x0 := rect.position.x + float(index) * spike_width
-		var x1 := x0 + spike_width
-		var tip_x := (x0 + x1) * 0.5
-		var tip_y := base_y + spike_dir * float(spike_heights[index])
-		var points := PackedVector2Array([
-			Vector2(x0 + 1.0, base_y),
-			Vector2(x1 - 1.0, base_y),
-			Vector2(tip_x, tip_y),
-		])
-		canvas.draw_polygon(points, PackedColorArray([BONE_HILITE, BONE_HILITE, BONE_COLOR]))
-	for index in range(7):
-		var joint_x := rect.position.x + (float(index) + 0.5) * rect.size.x / 7.0
-		canvas.draw_circle(Vector2(joint_x, rect.position.y + rect.size.y * 0.5), 4.0, BONE_HILITE)
-		canvas.draw_circle(Vector2(joint_x, rect.position.y + rect.size.y * 0.5), 2.0, CRACK_COLOR)
+	var num_spikes := spike_heights.size() if not spike_heights.is_empty() else maxi(1, int(w / 14.0))
+	var dir := 1.0 if is_top else -1.0
+	var base_y := rect.end.y if is_top else rect.position.y
+	for i in range(num_spikes):
+		var sx := rect.position.x + (float(i) + 0.5) * w / float(num_spikes)
+		var sh := float(spike_heights[i]) if i < spike_heights.size() else 7.0
+		var wobble := sin(t * 4.0 + float(i) * 1.5)
+		var tip_y := base_y + dir * (sh + wobble)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			Vector2(sx - 3.0, base_y + dir), Vector2(sx + 1.0, tip_y + dir), Vector2(sx + 4.0, base_y + dir),
+		]), BONE_SHADOW)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			Vector2(sx - 3.0, base_y), Vector2(sx, tip_y), Vector2(sx + 3.0, base_y),
+		]), SPIKE_COLOR)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			Vector2(sx - 2.0, base_y), Vector2(sx, tip_y), Vector2(sx, base_y),
+		]), SPIKE_HILITE)
+		canvas.draw_line(Vector2(sx, base_y), Vector2(sx, tip_y), BONE_DARK, 1.0)
+		var poison := sin(t * 5.0 + float(i) * 2.3 + phase)
+		if poison > 0.6:
+			var pa := (poison - 0.6) / 0.4 * 0.55
+			canvas.draw_circle(Vector2(sx, tip_y + dir * 2.0), 1.4, Color(SOUL_COLOR.r, SOUL_COLOR.g, SOUL_COLOR.b, pa))
+	# Top-edge highlight + bottom-edge shadow lines.
+	canvas.draw_line(Vector2(rect.position.x + 3.0, rect.position.y + 1.0), Vector2(rect.end.x - 3.0, rect.position.y + 1.0), BONE_HILITE, 1.0)
+	canvas.draw_line(Vector2(rect.position.x + 3.0, rect.end.y - 1.0), Vector2(rect.end.x - 3.0, rect.end.y - 1.0), BONE_SHADOW, 1.0)
 
 
 func _draw_dying_barrier(canvas: CanvasItem, dying: Dictionary, shake_offset: Vector2) -> void:
@@ -393,11 +444,20 @@ func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
 
 func _draw_bone_segment(canvas: CanvasItem, pos: Vector2, length: float, rotation: float, color: Color) -> void:
 	var axis := Vector2(cos(rotation), sin(rotation))
-	var p0 := pos - axis * length * 0.5
-	var p1 := pos + axis * length * 0.5
-	canvas.draw_line(p0, p1, color, 3.0, true)
-	canvas.draw_circle(p0, 2.2, color)
-	canvas.draw_circle(p1, 2.2, color)
+	var half := length * 0.5
+	var p0 := pos - axis * half
+	var p1 := pos + axis * half
+	var a := color.a
+	# shadow
+	canvas.draw_line(p0 + Vector2(1.0, 1.0), p1 + Vector2(1.0, 1.0), Color(BONE_SHADOW.r, BONE_SHADOW.g, BONE_SHADOW.b, a * 0.4), 3.0, true)
+	# body
+	canvas.draw_line(p0, p1, color, 2.5, true)
+	# highlight (head half)
+	var mid := (p0 + p1) * 0.5
+	canvas.draw_line(p0, mid, Color(BONE_HILITE.r, BONE_HILITE.g, BONE_HILITE.b, a * 0.6), 1.5, true)
+	# joints
+	canvas.draw_circle(p0, 2.0, Color(BONE_HILITE.r, BONE_HILITE.g, BONE_HILITE.b, a))
+	canvas.draw_circle(p1, 2.0, Color(BONE_DARK.r, BONE_DARK.g, BONE_DARK.b, a))
 
 
 func _spawn_build_particles(pos: Vector2) -> void:
@@ -415,6 +475,11 @@ func _spawn_hit_particles(pos: Vector2, velocity: Vector2) -> void:
 func _limit_particles() -> void:
 	while _particles.size() > PARTICLE_MAX:
 		_particles.remove_at(0)
+
+
+func _limit_barriers() -> void:
+	while _barriers.size() > MAX_ACTIVE_BARRIERS:
+		_barriers.remove_at(0)
 
 
 func _choose_barrier_x(width: float) -> float:
@@ -451,6 +516,13 @@ func _get_barrier_positions() -> Array[Vector2]:
 	for barrier in _barriers:
 		positions.append(_get_barrier_rect(barrier).get_center())
 	return positions
+
+
+func _get_barrier_ids() -> Array[int]:
+	var ids: Array[int] = []
+	for barrier in _barriers:
+		ids.append(int(barrier.get("id", 0)))
+	return ids
 
 
 func _get_barrier_widths() -> Array[float]:

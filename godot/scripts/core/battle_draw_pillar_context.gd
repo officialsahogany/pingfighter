@@ -26,6 +26,7 @@ func build_scene_context(
 		"width": WIDTH,
 		"height": HEIGHT,
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"selected_character_type": character_type,
 		"active_item_slots": _get_owner_array(owner, "active_item_slots"),
 		"runtime_perk_gold": int(_get_owner_value(owner, "runtime_perk_gold", 0)),

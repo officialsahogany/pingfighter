@@ -46,6 +46,7 @@ const PERK_ICON_PATHS := {
 	"kick_enhance": "res://assets/sprites/perks/viper_kick_enhance_perk_icon.png",
 	"blade_amp": "res://assets/sprites/perks/viper_blade_amp_perk_icon.png",
 	"four_poisons": "res://assets/sprites/perks/viper_four_poisons_perk_icon.png",
+	"pistol_enhance": "res://assets/sprites/perks/soldier_pistol_enhance_perk_icon.png",
 }
 
 const PERK_SHEET_PATHS := {
@@ -134,6 +135,7 @@ const DRAW_SCALE := {
 	"kick_enhance": 1.06,
 	"blade_amp": 1.06,
 	"four_poisons": 1.06,
+	"pistol_enhance": 1.06,
 }
 
 const PREWARM_ASSET_BATCH_SIZE := 1

@@ -27,7 +27,12 @@ const STAGE3_MENHERA_BOSS_DASH_PATH := "res://assets/sprites/stage3/menhera_boss
 const STAGE3_MENHERA_BOSS_VICTORY_PATH := "res://assets/sprites/stage3/menhera_boss_victory.png"
 const STAGE3_MENHERA_BOSS_DEFEAT_PATH := "res://assets/sprites/stage3/menhera_boss_defeat.png"
 
+const STAGE4_PONK_BOSS_VICTORY_PATH := "res://assets/sprites/stage4/stage4_ponk_boss_victory.png"
+
 const STAGE5_HONGRYUN_BOSS_SHEET_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_sheet.png"
 const STAGE5_HONGRYUN_BOSS_ATTACK_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_attack.png"
 const STAGE5_HONGRYUN_BOSS_DASH_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_dash.png"
 const STAGE5_HONGRYUN_BOSS_TURN_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_turn.png"
+const STAGE5_HONGRYUN_BOSS_VICTORY_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_victory.png"
+
+const STAGE6_TETRISER_BOSS_VICTORY_PATH := "res://assets/sprites/bosses/stage6_tetriser/stage6_tetriser_boss_victory_4x2.png"

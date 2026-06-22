@@ -10,6 +10,7 @@ static var _threaded_texture_prewarm_stale_warning_sent: bool = false
 static var _threaded_audio_prewarm_path: String = ""
 static var _threaded_audio_prewarm_started_msec: int = 0
 static var _threaded_audio_prewarm_poll_count: int = 0
+static var _warned_paths: Dictionary = {}
 
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
@@ -390,8 +391,30 @@ static func load_font(path: String, missing_warning: String = "", failed_warning
 
 
 static func _push_path_warning(template: String, path: String) -> void:
-	if template != "":
+	if _claim_path_warning(template, path):
 		push_warning(template % path)
+
+
+static func _claim_path_warning(template: String, path: String) -> bool:
+	if template == "":
+		return false
+	var key := "%s|%s" % [template, path]
+	if _warned_paths.has(key):
+		return false
+	_warned_paths[key] = true
+	return true
+
+
+static func clear_warning_dedup_for_tests() -> void:
+	_warned_paths.clear()
+
+
+static func get_warning_dedup_count_for_tests() -> int:
+	return _warned_paths.size()
+
+
+static func claim_path_warning_for_tests(template: String, path: String) -> bool:
+	return _claim_path_warning(template, path)
 
 
 static func _can_load_imported_resource(path: String) -> bool:

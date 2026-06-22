@@ -164,6 +164,8 @@ static func _update_prep_phase(runtime: Object, player_pos: Vector2, fps_scale: 
 	if runtime.dive_phase_frames >= runtime.dive_prep_frames_snapshot:
 		runtime.dive_phase = 1
 		runtime.dive_phase_frames = 0.0
+		if bool(constants.get("debug_emp", false)):
+			print("[EMP-DBG] PREP->FALL pos_y=%.1f floor=%.1f" % [float(runtime.dive_player_pos.y), float(runtime.dive_floor_y)])
 
 
 static func _update_fall_phase(runtime: Object, player_pos: Vector2, fps_scale: float, config: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
@@ -178,6 +180,8 @@ static func _update_fall_phase(runtime: Object, player_pos: Vector2, fps_scale: 
 
 
 static func _enter_shockwave_phase(runtime: Object, config: Dictionary, deps: Dictionary, constants: Dictionary) -> void:
+	if bool(constants.get("debug_emp", false)):
+		print("[EMP-DBG] FALL->SHOCKWAVE (phase2/SLAM) pos_y=%.1f floor=%.1f stage=%s" % [float(runtime.dive_player_pos.y), float(ViperSkillGeometry.player_floor_y(config)), str(config.get("current_stage", 0))])
 	runtime.dive_phase = 2
 	runtime.dive_phase_frames = 0.0
 	runtime.dive_floor_y = ViperSkillGeometry.player_floor_y(config)

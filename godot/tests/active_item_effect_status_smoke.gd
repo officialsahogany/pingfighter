@@ -26,6 +26,7 @@ func _verify_direct_status_queries() -> void:
 	_expect(not status.can_store_item("long_boost", {"long_boost_active": true}), "matching active duration item should block duplicate storage")
 	_expect(status.can_store_item("wall", {"long_boost_active": true}), "unrelated active duration item should not block wall storage")
 	_expect(not status.can_store_item("wall", {"brick_wall_installing": true}), "wall installation should block wall storage")
+	_expect(status.can_store_item("milk_bottle", {"milk_bottle_active": true}), "milk bottle must stay collectable while active so Milku's stacking production keeps working")
 
 	_expect(not status.has_field_effects({}), "empty effect flags should report no field effects")
 	_expect(status.has_field_effects({"has_brick_particles": true}), "effect particles should report field effects")

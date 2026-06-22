@@ -181,10 +181,13 @@ const STAGE3_MENHERA_BOSS_ATTACK_PATH := BattleBossSpritePaths.STAGE3_MENHERA_BO
 const STAGE3_MENHERA_BOSS_DASH_PATH := BattleBossSpritePaths.STAGE3_MENHERA_BOSS_DASH_PATH
 const STAGE3_MENHERA_BOSS_VICTORY_PATH := BattleBossSpritePaths.STAGE3_MENHERA_BOSS_VICTORY_PATH
 const STAGE3_MENHERA_BOSS_DEFEAT_PATH := BattleBossSpritePaths.STAGE3_MENHERA_BOSS_DEFEAT_PATH
+const STAGE4_PONK_BOSS_VICTORY_PATH := BattleBossSpritePaths.STAGE4_PONK_BOSS_VICTORY_PATH
 const STAGE5_HONGRYUN_BOSS_SHEET_PATH := BattleBossSpritePaths.STAGE5_HONGRYUN_BOSS_SHEET_PATH
 const STAGE5_HONGRYUN_BOSS_ATTACK_PATH := BattleBossSpritePaths.STAGE5_HONGRYUN_BOSS_ATTACK_PATH
 const STAGE5_HONGRYUN_BOSS_DASH_PATH := BattleBossSpritePaths.STAGE5_HONGRYUN_BOSS_DASH_PATH
 const STAGE5_HONGRYUN_BOSS_TURN_PATH := BattleBossSpritePaths.STAGE5_HONGRYUN_BOSS_TURN_PATH
+const STAGE5_HONGRYUN_BOSS_VICTORY_PATH := BattleBossSpritePaths.STAGE5_HONGRYUN_BOSS_VICTORY_PATH
+const STAGE6_TETRISER_BOSS_VICTORY_PATH := BattleBossSpritePaths.STAGE6_TETRISER_BOSS_VICTORY_PATH
 const SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH := BattleSkillCutinPaths.SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH
 const SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH := BattleSkillCutinPaths.SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH
 const VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH := BattleSkillCutinPaths.VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH
@@ -548,6 +551,12 @@ func _get_result_texture_specs(character_type: String, current_stage: int, resul
 	elif current_stage == 3:
 		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE3_MENHERA_BOSS_VICTORY_PATH))
 		boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], STAGE3_MENHERA_BOSS_DEFEAT_PATH))
+	elif current_stage == 4:
+		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE4_PONK_BOSS_VICTORY_PATH))
+	elif current_stage == 5:
+		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE5_HONGRYUN_BOSS_VICTORY_PATH))
+	elif current_stage == 6:
+		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE6_TETRISER_BOSS_VICTORY_PATH))
 
 	var player_scored: bool = (
 		bool(result_context.get("player_victory_active", false))

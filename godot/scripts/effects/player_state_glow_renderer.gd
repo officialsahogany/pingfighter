@@ -21,6 +21,7 @@ const STATE_NONE := ""
 const STATE_DANGER := "danger"
 const STATE_CHAIN := "chain"
 const STATE_TRANSFORM := "transform"
+const STATE_ABSORB := "absorb"
 
 
 func prewarm() -> void:
@@ -32,7 +33,7 @@ func draw(canvas: CanvasItem, visual_rect: Rect2, context: Dictionary, now_ms: f
 		return
 	# Skip during the defeat sequence so the match-point red aura does not bleed
 	# into the lose animation.
-	if bool(context.get("player_defeat_active", false)):
+	if bool(context.get("player_defeat_active", false)) and float(context.get("player_continue_absorb_glow_ratio", 0.0)) <= 0.001:
 		return
 	var state: String = resolve_state(context)
 	if state == STATE_NONE:
@@ -52,6 +53,8 @@ func draw(canvas: CanvasItem, visual_rect: Rect2, context: Dictionary, now_ms: f
 	var amp: float = float(palette.get("amp", 1.0))
 	if state == STATE_CHAIN:
 		amp *= 0.4 + 0.6 * clampf(float(context.get("viper_dark_blade_chain_glow_ratio", 0.0)), 0.0, 1.0)
+	elif state == STATE_ABSORB:
+		amp *= clampf(float(context.get("player_continue_absorb_glow_ratio", 0.0)), 0.0, 1.0)
 	var rate: float = float(palette.get("rate", 0.0020))
 	var breath: float = 0.5 + 0.5 * sin(now_ms * rate)
 	var outer_r: float = body_r + lerpf(40.0, 48.0, breath)
@@ -69,6 +72,8 @@ func resolve_state(context: Dictionary) -> String:
 	# Precedence: a match-point danger read matters more than the transform buff,
 	# so danger wins when both are active. The chain prompt is a short actionable
 	# window, so it outranks the long-lived transform aura.
+	if float(context.get("player_continue_absorb_glow_ratio", 0.0)) > 0.001:
+		return STATE_ABSORB
 	if bool(context.get("player_in_danger", false)):
 		return STATE_DANGER
 	if float(context.get("viper_dark_blade_chain_glow_ratio", 0.0)) > 0.001:
@@ -86,6 +91,8 @@ func _state_palette(state: String) -> Dictionary:
 		# Dark blade chain prompt: deep crimson with an urgent pulse; the draw
 		# path additionally fades amp with the remaining window ratio.
 		return {"tint": Color(0.98, 0.12, 0.30), "amp": 1.1, "rate": 0.0048}
+	if state == STATE_ABSORB:
+		return {"tint": Color(0.34, 0.86, 1.0), "amp": 1.45, "rate": 0.0052}
 	# Transform: warm strawberry-pink "empowered" aura, distinct from danger red.
 	return {"tint": Color(1.0, 0.46, 0.74), "amp": 1.0, "rate": 0.0020}
 

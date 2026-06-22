@@ -28,6 +28,9 @@ class FakeOwner:
 	var ringpet_slot_pet_ids: Array = []
 	var lingpet_active_slot_index := -1
 	var ringpet_active_slot_index := -1
+	var player_pos := Vector2(302.5, 700.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
 
 	func queue_redraw() -> void:
 		pass
@@ -153,13 +156,17 @@ func _verify_lingpet_feed_active_item_use_and_blocked_preservation() -> void:
 	_clear_active_item_cooldown(runtime, owner)
 	_expect(runtime.use_slot(0, owner, registry), "lingpet_feed should apply through the active item runtime once a lingpet is active")
 	_expect(owner.active_item_slots.is_empty(), "successful consumable lingpet_feed should leave the active slot")
-	_expect(lingpet_runtime.get_affinity_points("maribo") == 35.0, "successful lingpet_feed item use should grant feed affinity")
+	_expect(lingpet_runtime.get_affinity_points("maribo") == 0.0, "successful lingpet_feed item use should not grant feed affinity until the bowl animation completes")
+	_expect(bool(lingpet_runtime.get_snapshot().get("feed_bowl_active", false)), "successful lingpet_feed should spawn a visible feed bowl")
+	_advance_feed_until_complete(lingpet_runtime, owner, registry)
+	_expect(lingpet_runtime.get_affinity_points("maribo") == 35.0, "completed feed bowl animation should grant feed affinity")
 	_expect(registry.audio.active_item_count == 1, "successful lingpet_feed should play active item feedback")
 
 	for _i in range(2):
 		_expect(runtime.grant_item_to_slot("lingpet_feed", owner, registry, false), "fixture should grant another feed item before the cap")
 		_clear_active_item_cooldown(runtime, owner)
 		_expect(runtime.use_slot(0, owner, registry), "feed item use before the run cap should apply")
+		_advance_feed_until_complete(lingpet_runtime, owner, registry)
 	_expect(runtime.grant_item_to_slot("lingpet_feed", owner, registry, false), "fixture should grant a fourth feed item")
 	_clear_active_item_cooldown(runtime, owner)
 	_expect(not runtime.use_slot(0, owner, registry), "fourth feed item in one run should be blocked by the affinity counter")
@@ -180,6 +187,7 @@ func _verify_lingpet_feed_source_contracts() -> void:
 	var facade_source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_action_facade.gd")
 	_expect(controller_source.find("func apply_lingpet_feed") >= 0, "effect controller should expose apply_lingpet_feed")
 	_expect(facade_source.find("feed_lingpet(owner, registry)") >= 0, "effect facade should call the lingpet runtime feed_lingpet entrypoint")
+	_expect(FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_feed_bowl_state.gd").find("lingpet_feed_bowl.png") >= 0, "feed bowl state should draw the dedicated bowl icon")
 
 	var debug_source := FileAccess.get_file_as_string("res://scripts/items/active_item_debug_spawn_menu.gd")
 	_expect(debug_source.find("\"lingpet_feed\"") >= 0, "debug active item menu should expose lingpet_feed")
@@ -204,6 +212,14 @@ func _clear_active_item_cooldown(runtime: Object, owner: Object) -> void:
 			var item_data: Dictionary = item_value
 			item_data["last_use_msec"] = -999999
 			owner.active_item_slots[index] = item_data
+
+
+func _advance_feed_until_complete(lingpet_runtime: Object, owner: Object, registry: Object) -> void:
+	for _i in range(260):
+		lingpet_runtime.update(1.0 / 60.0, owner, registry)
+		if not bool(lingpet_runtime.get_snapshot().get("feed_bowl_active", false)):
+			return
+	_expect(false, "feed bowl active item animation should complete within the smoke time budget")
 
 
 func _expect(condition: bool, message: String) -> void:

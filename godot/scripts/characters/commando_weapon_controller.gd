@@ -139,6 +139,43 @@ func get_snapshot() -> Dictionary:
 	}
 
 
+func set_base_pistol_ammo_max(ammo_max: int) -> bool:
+	var next_max: int = max(1, int(ammo_max))
+	var data: Dictionary = _get_weapon_runtime_data(BASE_WEAPON)
+	if data.is_empty():
+		data = _get_base_weapon_data(BASE_WEAPON)
+	var previous_max: int = max(1, int(data.get("ammo_max", PISTOL_AMMO_MAX)))
+	var previous_current: int = int(data.get("ammo_current", previous_max))
+	var previous_display: int = int(data.get("reload_display_ammo", previous_current))
+	var changed: bool = previous_max != next_max
+
+	data["ammo_max"] = next_max
+	data["reload_total_frames"] = PISTOL_RELOAD_FRAMES
+	if next_max > previous_max:
+		if previous_current != next_max or previous_display != next_max:
+			changed = true
+		if bool(data.get("reloading", false)) or float(data.get("reload_timer_frames", 0.0)) > 0.0:
+			changed = true
+		data["ammo_current"] = next_max
+		data["reload_display_ammo"] = next_max
+		data["reloading"] = false
+		data["reload_timer_frames"] = 0.0
+	else:
+		var clamped_current: int = clampi(previous_current, 0, next_max)
+		var clamped_display: int = clampi(previous_display, 0, next_max)
+		if clamped_current != previous_current or clamped_display != previous_display:
+			changed = true
+		data["ammo_current"] = clamped_current
+		data["reload_display_ammo"] = clamped_display
+		if clamped_current >= next_max:
+			if bool(data.get("reloading", false)) or float(data.get("reload_timer_frames", 0.0)) > 0.0:
+				changed = true
+			data["reloading"] = false
+			data["reload_timer_frames"] = 0.0
+	_set_weapon_runtime_data(BASE_WEAPON, data)
+	return changed
+
+
 func get_save_snapshot() -> Dictionary:
 	return {
 		"version": SAVE_SNAPSHOT_VERSION,

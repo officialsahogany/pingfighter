@@ -44,7 +44,8 @@ static func build_projectile(
 	default_smoke_trail_limit: int,
 	default_rope_trail_limit: int,
 	default_doping_head_leg_multiplier: float,
-	default_doping_pistol_speed_multiplier: float
+	default_doping_pistol_speed_multiplier: float,
+	base_pistol_knockback_mult: float = 1.0
 ) -> Dictionary:
 	var projectile := {
 		"id": projectile_id,
@@ -75,6 +76,8 @@ static func build_projectile(
 		projectile["charge_level"] = charge_level
 		projectile["slingshot_stone_variant"] = stone_variant
 		projectile["slingshot_stone_frame"] = (charge_level - 1) * 4 + stone_variant
+	elif weapon_id == "pistol":
+		projectile["pistol_enhance_knockback_mult"] = max(0.0, base_pistol_knockback_mult)
 	if profile.has("explosion_radius"):
 		projectile["explosion_radius"] = float(profile.get("explosion_radius", float(profile.get("impact_radius", 18.0))))
 	if profile.has("acceleration"):
@@ -110,6 +113,7 @@ static func append_runtime_projectile(
 	default_rope_trail_limit: int,
 	default_doping_head_leg_multiplier: float,
 	default_doping_pistol_speed_multiplier: float,
+	base_pistol_knockback_mult: float,
 	projectile_limit: int,
 	field_height: float,
 	ak47_shell_lifetime_frames: float,
@@ -133,7 +137,8 @@ static func append_runtime_projectile(
 		default_smoke_trail_limit,
 		default_rope_trail_limit,
 		default_doping_head_leg_multiplier,
-		default_doping_pistol_speed_multiplier
+		default_doping_pistol_speed_multiplier,
+		base_pistol_knockback_mult
 	)
 	CommandoFirearmValueUtils.append_limited(projectiles, projectile, projectile_limit)
 	var shell_appended: bool = CommandoFirearmShellCasingState.append_runtime_shell(

@@ -37,6 +37,32 @@ func _verify_direct_pistol_hit_state() -> void:
 	_expect(is_equal_approx(float(normal_fields.get("knockback_power", 0.0)), 8.0), "normal pistol hit should carry knockback power")
 	_expect(int(normal_payload.get("damage_units_delta", -1)) == 0, "normal non-combo pistol hit should not emit damage")
 
+	var enhanced_base_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
+		"pistol",
+		0,
+		0.99,
+		0.0,
+		0.0,
+		1.0,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		1.5
+	)
+	var enhanced_base_fields: Dictionary = _get_dict(enhanced_base_payload.get("result_fields", {}))
+	_expect(is_equal_approx(float(enhanced_base_fields.get("knockback_power", 0.0)), 12.0), "base pistol normal hit should scale pistol_enhance knockback power")
+
+	var beretta_with_enhance_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
+		"commando_pistol",
+		0,
+		0.99,
+		0.0,
+		0.0,
+		1.0,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		1.5
+	)
+	var beretta_with_enhance_fields: Dictionary = _get_dict(beretta_with_enhance_payload.get("result_fields", {}))
+	_expect(is_equal_approx(float(beretta_with_enhance_fields.get("knockback_power", 0.0)), 8.0), "Beretta normal hit should ignore pistol_enhance knockback power")
+
 	var head_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
 		"commando_pistol",
 		2,
@@ -118,6 +144,53 @@ func _verify_direct_pistol_hit_state() -> void:
 	_expect(str(runtime_result.get("pistol_hit_kind", "")) == "legshot", "runtime pistol hit owner should apply doped hit chances")
 	_expect(is_equal_approx(float(runtime_result.get("pistol_head_chance", 0.0)), 0.20), "runtime pistol hit owner should expose doped head chance")
 	_expect(runtime_feedbacks.size() == 1, "runtime pistol hit owner should append feedback")
+
+	var enhanced_runtime_result := {}
+	var enhanced_runtime_feedbacks: Array = []
+	var enhanced_runtime_apply_result: Dictionary = CommandoFirearmPistolHitState.apply_runtime_hit_effects(
+		"pistol",
+		{"pistol_enhance_knockback_mult": 1.5},
+		_boss_context().merged({"commando_pistol_shot_roll": 0.99}, true),
+		enhanced_runtime_result,
+		0,
+		enhanced_runtime_feedbacks,
+		"pistol",
+		2.0,
+		0.0,
+		0.0,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		760.0,
+		750.0,
+		60.0,
+		"head",
+		"leg",
+		4
+	)
+	_expect(int(enhanced_runtime_apply_result.get("next_hit_count", -1)) == 1, "runtime base pistol knockback owner should return hit count")
+	_expect(is_equal_approx(float(enhanced_runtime_result.get("knockback_power", 0.0)), 12.0), "runtime base pistol normal hit should consume pistol_enhance knockback multiplier")
+
+	var beretta_runtime_result := {}
+	var beretta_runtime_feedbacks: Array = []
+	CommandoFirearmPistolHitState.apply_runtime_hit_effects(
+		"commando_pistol",
+		{"pistol_enhance_knockback_mult": 1.5},
+		_boss_context().merged({"commando_pistol_shot_roll": 0.99}, true),
+		beretta_runtime_result,
+		0,
+		beretta_runtime_feedbacks,
+		"pistol",
+		2.0,
+		0.0,
+		0.0,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		760.0,
+		750.0,
+		60.0,
+		"head",
+		"leg",
+		4
+	)
+	_expect(is_equal_approx(float(beretta_runtime_result.get("knockback_power", 0.0)), 8.0), "runtime Beretta normal hit should ignore pistol_enhance knockback multiplier")
 
 
 func _verify_runtime_delegates_pistol_hit_state() -> void:

@@ -35,7 +35,17 @@ const MINI_SPARK_STUN_SECONDS := 0.5
 const MINI_SPARK_SPAWN_DX := 50.0
 const MINI_SPARK_SPAWN_DY := 18.0
 const MINI_SPARK_HIT_RADIUS := 48.0
-const MINI_SPARK_PARTICLES := 8
+const MINI_SPARK_PARTICLES := 12
+# Mini-spark burst visuals. The gameplay constants above (hit radius / count /
+# stun / interval) are UNCHANGED — only the on-screen read is beefed up so the
+# post-stun sparks are actually noticeable instead of a near-invisible particle
+# puff. MINI_SPARK_VISUAL_RADIUS == MINI_SPARK_HIT_RADIUS so the crackle reads the
+# real CC zone, while staying clearly smaller than the 170px main blast.
+const MINI_SPARK_LARGE_PARTICLES := 5
+const MINI_SPARK_FLASH_SECONDS := 0.24
+const MINI_SPARK_VISUAL_RADIUS := 48.0  # scatter bound for the random sparks (== hit radius)
+const MINI_SPARK_BOLT_COUNT := 10
+const MINI_SPARK_DOT_COUNT := 6
 
 # Horus-parity visual identity: a BLUE-WHITE energy orb (gold only as a faint
 # outer-arc accent), ported from the original PingFighter hero "Horus" thunder
@@ -97,6 +107,10 @@ var _energy_particles: Array = []
 # launch path overrides it from the level-scaled `stun_duration_seconds`
 # (Lv.1 0.8s -> Lv.5 1.6s) so higher active-skill levels stun longer.
 var _stun_duration_seconds := STUN_DURATION_SECONDS
+# Per-launch main-blast radius (BOTH the visual blast and the boss-CENTER CC
+# reach). Defaults to the const, overridden from the level-scaled
+# `explosion_radius` (Lv.1 136px = 20% narrower -> Lv.5 170px full).
+var _explosion_radius := EXPLOSION_RADIUS
 # Last registry seen during update(), cached so reset() (round / pet transition)
 # can stop a live electric-shock loop and clear our stun source even though the
 # host reset path is registry-less.
@@ -108,6 +122,10 @@ var _mini_spark_timer := 0.0
 var _mini_spark_index := 0
 var _mini_spark_applied_count := 0
 var _mini_spark_offset_scale := 1.0  # tests force 0.0 to spawn sparks at the blast center
+# Active mini-spark burst visuals: [{pos: Vector2, timer: float, seed: float}, ...].
+# Outlives _mini_spark_remaining by up to MINI_SPARK_FLASH_SECONDS so the final
+# spark's crackle finishes drawing even after the chain count hits 0.
+var _mini_spark_flashes: Array = []
 
 
 func reset() -> void:
@@ -138,12 +156,14 @@ func reset() -> void:
 	_orb_rotation = 0.0
 	_energy_particles.clear()
 	_stun_duration_seconds = STUN_DURATION_SECONDS
+	_explosion_radius = EXPLOSION_RADIUS
 	_mini_spark_total = 0
 	_mini_spark_started = false
 	_mini_spark_remaining = 0
 	_mini_spark_timer = 0.0
 	_mini_spark_index = 0
 	_mini_spark_applied_count = 0
+	_mini_spark_flashes.clear()
 
 
 func prewarm() -> void:
@@ -181,11 +201,16 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 	if not _explosion_particles.is_empty():
 		_update_particles(safe_delta)
 
+	if not _mini_spark_flashes.is_empty():
+		_update_mini_spark_flashes(safe_delta)
+
 
 func launch(origin: Vector2, owner: Object = null, launch_context: Dictionary = {}) -> void:
 	reset()
 	var ctx_stun := float(launch_context.get("stun_duration_seconds", 0.0))
 	_stun_duration_seconds = ctx_stun if ctx_stun > 0.0 else STUN_DURATION_SECONDS
+	var ctx_radius := float(launch_context.get("explosion_radius", 0.0))
+	_explosion_radius = ctx_radius if ctx_radius > 0.0 else EXPLOSION_RADIUS
 	var level := int(launch_context.get("active_skill_level", 1))
 	_mini_spark_total = level if level >= MINI_SPARK_LEVEL_MIN else 0
 	_phase = PHASE_TRAVELING
@@ -207,6 +232,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_particles(canvas, shake_offset)
 	if _explosion_timer > 0.0:
 		_draw_explosion(canvas, _explosion_pos + shake_offset)
+	if not _mini_spark_flashes.is_empty():
+		_draw_mini_spark_flashes(canvas, shake_offset)
 	# The on-boss electric arcs during the stun are now drawn by the shared,
 	# source-agnostic BossElectrocutionFieldHost (driven from the boss actor
 	# renderer via the central `electric_stun` -> `boss_electric_stun_active`
@@ -218,7 +245,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 
 
 func has_visible_effects() -> bool:
-	return _phase != PHASE_IDLE or not _explosion_particles.is_empty() or _mini_spark_remaining > 0
+	return _phase != PHASE_IDLE or not _explosion_particles.is_empty() or _mini_spark_remaining > 0 or not _mini_spark_flashes.is_empty()
 
 
 func is_active() -> bool:
@@ -271,7 +298,7 @@ func get_snapshot() -> Dictionary:
 		"thunder_orb_decel_timer": _decel_timer,
 		"thunder_orb_explosion_active": _phase == PHASE_EXPLODING,
 		"thunder_orb_explosion_pos": _explosion_pos,
-		"thunder_orb_explosion_radius": EXPLOSION_RADIUS,
+		"thunder_orb_explosion_radius": _explosion_radius,
 		"thunder_orb_explosion_count": _explosion_count,
 		"thunder_orb_electric_stun_active": _electric_stun_timer > 0.0,
 		"thunder_orb_electric_stun_timer": _electric_stun_timer,
@@ -388,7 +415,7 @@ func _try_begin_electric_stun(owner: Object, registry: Object) -> void:
 	# Original Horus geometry: pure boss-CENTER distance <= EXPLOSION_RADIUS, NOT
 	# a circle-vs-rect overlap. A boss merely clipping the blast edge must not be
 	# stunned (CLAUDE.md radial-CC geometry rule).
-	if _explosion_pos.distance_to(boss_center) > EXPLOSION_RADIUS:
+	if _explosion_pos.distance_to(boss_center) > _explosion_radius:
 		return
 	_electric_stun_center = boss_center
 	_shock_applied_this_explosion = true
@@ -440,6 +467,9 @@ func _update_mini_sparks(delta: float, owner: Object, registry: Object) -> void:
 
 
 func _fire_mini_spark(owner: Object, registry: Object) -> void:
+	# A spark "appears" this call — play one of the random spark zaps per spark
+	# instance, regardless of whether it lands a CC hit below.
+	_play_mini_spark_sound(registry)
 	var side := 1.0 if _mini_spark_index % 2 == 0 else -1.0  # alternate both sides (양쪽)
 	var dx := side * lerpf(20.0, MINI_SPARK_SPAWN_DX, _seeded_unit(_visual_seed + float(_mini_spark_index) * 3.3, 11.0)) * _mini_spark_offset_scale
 	var dy := (_seeded_unit(_visual_seed + float(_mini_spark_index) * 5.7, 23.0) - 0.5) * 2.0 * MINI_SPARK_SPAWN_DY * _mini_spark_offset_scale
@@ -447,7 +477,17 @@ func _fire_mini_spark(owner: Object, registry: Object) -> void:
 		clampf(_explosion_pos.x + dx, ORB_RADIUS, FIELD_WIDTH - ORB_RADIUS),
 		clampf(_explosion_pos.y + dy, 0.0, FIELD_HEIGHT)
 	)
-	# Brief crackle visual (reuses the explosion particle system).
+	# Crackle visual: scattered RANDOM electric sparks (drawn in
+	# _draw_mini_spark_flashes — no central orb / ring / flash) plus a beefier
+	# particle puff. Far stronger read than the old 8-particle-only spark.
+	# Registered even on a CC miss so the spark is always visible where it lands.
+	_mini_spark_flashes.append({
+		"pos": spark_pos,
+		"timer": MINI_SPARK_FLASH_SECONDS,
+		"seed": _seeded_unit(_visual_seed + float(_mini_spark_index) * 4.1, 31.0),
+	})
+	for _i in range(MINI_SPARK_LARGE_PARTICLES):
+		_add_particle(LingpetThunderOrbPayloadFactory.build_large_explosion_particle(spark_pos, LARGE_PARTICLE_COLORS))
 	for _i in range(MINI_SPARK_PARTICLES):
 		_add_particle(LingpetThunderOrbPayloadFactory.build_small_explosion_particle(spark_pos, ENERGY_COLORS))
 	# Radial CC: boss CENTER within hit radius; only when no electric stun is
@@ -463,6 +503,57 @@ func _fire_mini_spark(owner: Object, registry: Object) -> void:
 	_phase = PHASE_STUN
 	_apply_boss_electric_stun(registry)
 	_sync_electric_audio(registry, true)
+
+
+func _update_mini_spark_flashes(delta: float) -> void:
+	var kept: Array = []
+	for flash in _mini_spark_flashes:
+		var timer: float = float(flash["timer"]) - delta
+		if timer <= 0.0:
+			continue
+		flash["timer"] = timer
+		kept.append(flash)
+	_mini_spark_flashes = kept
+
+
+func _draw_mini_spark_flashes(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	# Chaotic SCATTERED electric sparks — deliberately NO central orb / ring /
+	# flash core. Each short zig-zag bolt jumps between two RANDOM points inside
+	# the spark radius (not radiating from one centre), re-rolled per discrete
+	# tick and randomly skipped, so the whole thing snaps and scatters like a
+	# live short-circuit. A few tiny spark dots flick on/off at random spots.
+	for flash in _mini_spark_flashes:
+		var life_t: float = clampf(float(flash["timer"]) / MINI_SPARK_FLASH_SECONDS, 0.0, 1.0)  # 1 -> 0
+		var center: Vector2 = (flash["pos"] as Vector2) + shake_offset
+		var seed_v: float = float(flash["seed"])
+		var progress: float = 1.0 - life_t  # 0 -> 1
+		var tick: float = floorf(progress * 13.0)  # discrete electric flicker
+
+		for i in range(MINI_SPARK_BOLT_COUNT):
+			# Re-roll this bolt each tick; randomly skip some for a flickery scatter.
+			if _seeded_unit(seed_v + float(i) * 7.3, tick + 5.0) > 0.66:
+				continue
+			var rng_base: float = seed_v + float(i) * 3.1 + tick
+			var anchor_ang: float = _seeded_unit(rng_base, 1.0) * TAU
+			var anchor_rad: float = MINI_SPARK_VISUAL_RADIUS * (0.10 + 0.78 * _seeded_unit(rng_base, 2.0))
+			var bolt_start: Vector2 = center + Vector2(cos(anchor_ang), sin(anchor_ang)) * anchor_rad
+			var jump_ang: float = _seeded_unit(rng_base, 3.0) * TAU
+			var jump_len: float = MINI_SPARK_VISUAL_RADIUS * (0.16 + 0.36 * _seeded_unit(rng_base, 4.0))
+			var bolt_end: Vector2 = bolt_start + Vector2(cos(jump_ang), sin(jump_ang)) * jump_len
+			var bolt_pts: PackedVector2Array = _build_bolt(bolt_start, bolt_end, rng_base, 3, 8.0)
+			var glow: Color = OUTER_ARC_COLORS[i % OUTER_ARC_COLORS.size()]
+			canvas.draw_polyline(bolt_pts, Color(glow.r, glow.g, glow.b, 0.40 * life_t), 2.5, true)
+			canvas.draw_polyline(bolt_pts, Color(1.0, 1.0, 1.0, 0.88 * life_t), 1.0, true)
+
+		# Tiny scattered spark dots (random flicker) — sparks, not an orb.
+		for j in range(MINI_SPARK_DOT_COUNT):
+			if _seeded_unit(seed_v + float(j) * 5.7, tick + 11.0) > 0.5:
+				continue
+			var dot_ang: float = _seeded_unit(seed_v + float(j) * 5.7, tick + 1.0) * TAU
+			var dot_rad: float = MINI_SPARK_VISUAL_RADIUS * _seeded_unit(seed_v + float(j) * 5.7, tick + 2.0)
+			var dot_pos: Vector2 = center + Vector2(cos(dot_ang), sin(dot_ang)) * dot_rad
+			var dot_r: float = 1.0 + _seeded_unit(seed_v + float(j) * 5.7, tick + 3.0) * 1.4
+			canvas.draw_circle(dot_pos, dot_r, Color(1.0, 1.0, 0.9, 0.9 * life_t))
 
 
 func _apply_boss_electric_stun(registry: Object) -> void:
@@ -587,7 +678,7 @@ func _draw_orb(canvas: CanvasItem, pos: Vector2, shake_offset: Vector2) -> void:
 func _draw_explosion(canvas: CanvasItem, center: Vector2) -> void:
 	var ratio := clampf(_explosion_timer / EXPLOSION_DURATION_SECONDS, 0.0, 1.0)  # 1 -> 0
 	var progress := 1.0 - ratio  # 0 -> 1
-	var current_r := EXPLOSION_RADIUS * clampf(progress * 1.1, 0.0, 1.0)
+	var current_r := _explosion_radius * clampf(progress * 1.1, 0.0, 1.0)
 	var flick := floorf(progress * 60.0)  # discrete per-frame re-seed for the web
 
 	# Initial flash (outer blue glow + white centre) — first 40% of the burst.
@@ -602,7 +693,7 @@ func _draw_explosion(canvas: CanvasItem, center: Vector2) -> void:
 		var ring_prog := progress - ring_delay
 		if ring_prog <= 0.0:
 			continue
-		var ring_r := EXPLOSION_RADIUS * minf(1.0, ring_prog * 1.4)
+		var ring_r := _explosion_radius * minf(1.0, ring_prog * 1.4)
 		var ring_a := (0.86 - float(ring_idx) * 0.12) * (1.0 - minf(1.0, ring_prog))
 		if ring_r <= 0.0 or ring_a <= 0.0:
 			continue
@@ -782,6 +873,12 @@ func _play_explosion_feedback(registry: Object) -> void:
 		audio.play_ragnarok_boom()
 	elif audio.has_method("play_grenade_explosion"):
 		audio.play_grenade_explosion()
+
+
+func _play_mini_spark_sound(registry: Object) -> void:
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_mini_spark"):
+		audio.play_mini_spark()
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

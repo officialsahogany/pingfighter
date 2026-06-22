@@ -12,7 +12,8 @@ static func build_hit_payload(
 	head_chance: float,
 	leg_chance: float,
 	doping_multiplier: float,
-	tuning: Dictionary
+	tuning: Dictionary,
+	base_pistol_knockback_mult: float = 1.0
 ) -> Dictionary:
 	var result_fields: Dictionary = {}
 	var next_hit_count: int = max(0, current_hit_count) + 1
@@ -46,7 +47,10 @@ static func build_hit_payload(
 		result_fields["knockback_frames"] = 18.0
 		result_fields["commando_firearm_pistol_feedback_timer_frames"] = float(tuning.get("hit_text_timer_frames", 60.0))
 	else:
-		result_fields["knockback_power"] = float(tuning.get("normal_knockback_power", 8.0))
+		var knockback_mult := 1.0
+		if weapon_id != "commando_pistol":
+			knockback_mult = max(0.0, base_pistol_knockback_mult)
+		result_fields["knockback_power"] = float(tuning.get("normal_knockback_power", 8.0)) * knockback_mult
 		result_fields["knockback_velocity_scale"] = 0.0
 		result_fields["knockback_frames"] = float(tuning.get("normal_knockback_frames", 18.0))
 		result_fields["knockback_decay_per_frame"] = float(tuning.get("normal_knockback_decay_per_frame", 0.85))
@@ -138,6 +142,7 @@ static func apply_runtime_hit_effects(
 		context,
 		doping_head_leg_multiplier
 	)
+	var base_pistol_knockback_mult: float = max(0.0, float(projectile.get("pistol_enhance_knockback_mult", 1.0)))
 	var hit_chances: Dictionary = CommandoFirearmValueUtils.get_pistol_hit_chances(
 		context,
 		doping_multiplier,
@@ -151,7 +156,8 @@ static func apply_runtime_hit_effects(
 		float(hit_chances.get("head_chance", 0.0)),
 		float(hit_chances.get("leg_chance", 0.0)),
 		doping_multiplier,
-		tuning
+		tuning,
+		base_pistol_knockback_mult
 	)
 	return apply_hit_payload(
 		hit_payload,

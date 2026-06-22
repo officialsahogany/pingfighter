@@ -119,6 +119,12 @@ const LINGPET_PUPPET_GRAB_PULL_SOUND_PATH := "res://assets/sounds/lingpet/puppet
 const LINGPET_PUPPET_GRAB_KISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_kissing.wav"
 const LINGPET_PUPPET_GRAB_MISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
 const LINGPET_WILD_ROAR_SOUND_PATH := "res://assets/sounds/lingpet/monkeyshouting.wav"
+# Orosha 별똬리(star_coil) BIND squish: plays while the star coil-snake constricts the
+# boss (one-shot at bind start, stopped on release so the wet squish does not trail
+# into the roll-away). Source is the ESM "Juicy Wet Squish" foley, re-mastered louder
+# (soft-clip makeup gain so its quiet body lifts from ~-30 to ~-21 dBFS RMS) and
+# trimmed to ~3.6s so the audible squish lands on the bind window (1.5~3.5s).
+const LINGPET_STAR_COIL_BIND_SOUND_PATH := "res://assets/sounds/lingpet/orosha_star_coil_bind.wav"
 const LINGPET_RING_DASH_SOUND_PATH := "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav"
 const LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH := "res://assets/sounds/lingpet/affinity_level_up_chime.wav"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
@@ -139,6 +145,7 @@ const LINGPET_PUPPET_GRAB_PULL_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_KISS_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_MISS_GAIN_DB := -5.0
 const LINGPET_WILD_ROAR_GAIN_DB := -4.0
+const LINGPET_STAR_COIL_BIND_GAIN_DB := -2.0
 const LINGPET_RING_DASH_GAIN_DB := -5.0
 const LINGPET_AFFINITY_LEVEL_UP_GAIN_DB := -4.0
 const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
@@ -158,6 +165,17 @@ const THUNDER_ORB_BOOM_GAIN_DB := -6.0206
 # the same divine-thunder cue DivineShield's lightning interception uses. Gain
 # -6.0206 dB matches the original's pygame volume 0.5.
 const SOLAR_BOLT_STRIKE_SOUND_PATH := "res://assets/sounds/devinethunder.wav"
+# Lumion Thunder Orb (천둥 뇌구) Lv.3+ mini-spark crackle. Each spark instance plays
+# a RANDOM one of these three short zaps (pitch-jittered) so the scattered
+# post-stun sparks read audibly distinct. Streams are loaded eagerly at setup via
+# _load_audio_stream_candidates and retained in mini_spark_streams (no hot-path
+# lazy load), mirroring the mika_*_voice multi-variant pattern.
+const MINI_SPARK_SOUND_PATHS := [
+	"res://assets/sounds/spark1.wav",
+	"res://assets/sounds/spark2.wav",
+	"res://assets/sounds/spark3.wav",
+]
+const MINI_SPARK_GAIN_DB := -11.0
 const SOLAR_BOLT_STRIKE_GAIN_DB := -6.0206
 const POSEIDON_WAVE_SOUND_PATH := "res://assets/sounds/poseidon.wav"
 const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
@@ -420,6 +438,7 @@ var lingpet_puppet_grab_pull_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_kiss_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_miss_sfx: AudioStreamPlayer
 var lingpet_wild_roar_sfx: AudioStreamPlayer
+var lingpet_star_coil_bind_sfx: AudioStreamPlayer
 var lingpet_ring_dash_sfx: AudioStreamPlayer
 var lingpet_affinity_level_up_sfx: AudioStreamPlayer
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
@@ -435,6 +454,8 @@ var electric_shock_sfx: AudioStreamPlayer
 var thunder_orb_shot_sfx: AudioStreamPlayer
 var thunder_orb_boom_sfx: AudioStreamPlayer
 var solar_bolt_strike_sfx: AudioStreamPlayer
+var mini_spark_sfx: AudioStreamPlayer
+var mini_spark_streams: Array[AudioStream] = []
 var poseidon_wave_sfx: AudioStreamPlayer
 var poseidon_charge_sfx: AudioStreamPlayer
 var timewatch_sfx: AudioStreamPlayer
@@ -723,6 +744,7 @@ func _setup_item_command_sfx() -> void:
 	lingpet_puppet_grab_kiss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabKissSfx", LINGPET_PUPPET_GRAB_KISS_SOUND_PATH, LINGPET_PUPPET_GRAB_KISS_GAIN_DB)
 	lingpet_puppet_grab_miss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabMissSfx", LINGPET_PUPPET_GRAB_MISS_SOUND_PATH, LINGPET_PUPPET_GRAB_MISS_GAIN_DB)
 	lingpet_wild_roar_sfx = player_factory.create(owner_node, "LingpetWildRoarSfx", LINGPET_WILD_ROAR_SOUND_PATH, LINGPET_WILD_ROAR_GAIN_DB)
+	lingpet_star_coil_bind_sfx = player_factory.create(owner_node, "LingpetStarCoilBindSfx", LINGPET_STAR_COIL_BIND_SOUND_PATH, LINGPET_STAR_COIL_BIND_GAIN_DB)
 	lingpet_ring_dash_sfx = player_factory.create(owner_node, "LingpetRingDashSfx", LINGPET_RING_DASH_SOUND_PATH, LINGPET_RING_DASH_GAIN_DB)
 	lingpet_affinity_level_up_sfx = player_factory.create(owner_node, "LingpetAffinityLevelUpSfx", LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH, LINGPET_AFFINITY_LEVEL_UP_GAIN_DB)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
@@ -734,6 +756,8 @@ func _setup_item_command_sfx() -> void:
 	thunder_orb_shot_sfx = player_factory.create(owner_node, "ThunderOrbShotSfx", THUNDER_ORB_SHOT_SOUND_PATH, THUNDER_ORB_SHOT_GAIN_DB)
 	thunder_orb_boom_sfx = player_factory.create(owner_node, "ThunderOrbBoomSfx", THUNDER_ORB_BOOM_SOUND_PATH, THUNDER_ORB_BOOM_GAIN_DB)
 	solar_bolt_strike_sfx = player_factory.create(owner_node, "SolarBoltStrikeSfx", SOLAR_BOLT_STRIKE_SOUND_PATH, SOLAR_BOLT_STRIKE_GAIN_DB)
+	mini_spark_sfx = player_factory.create(owner_node, "MiniSparkSfx", str(MINI_SPARK_SOUND_PATHS[0]), MINI_SPARK_GAIN_DB)
+	mini_spark_streams = _load_audio_stream_candidates(MINI_SPARK_SOUND_PATHS)
 	poseidon_wave_sfx = player_factory.create(owner_node, "PoseidonWaveSfx", POSEIDON_WAVE_SOUND_PATH, -5.0)
 	poseidon_charge_sfx = player_factory.create(owner_node, "PoseidonChargeSfx", POSEIDON_CHARGE_SOUND_PATH, -5.0)
 	_enable_loop(ragnarok_shock_sfx)
@@ -1037,6 +1061,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_PUPPET_GRAB_KISS_SOUND_PATH,
 				LINGPET_PUPPET_GRAB_MISS_SOUND_PATH,
 				LINGPET_WILD_ROAR_SOUND_PATH,
+				LINGPET_STAR_COIL_BIND_SOUND_PATH,
 				LINGPET_RING_DASH_SOUND_PATH,
 				LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH,
 				LEGENDARY_AFTER_SOUND_PATH,
@@ -1911,6 +1936,16 @@ func play_lingpet_wild_roar() -> void:
 		play_active_item()
 
 
+func play_lingpet_star_coil_bind() -> void:
+	if not _play_with_pitch(lingpet_star_coil_bind_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
+func stop_lingpet_star_coil_bind() -> void:
+	if lingpet_star_coil_bind_sfx != null and lingpet_star_coil_bind_sfx.playing:
+		lingpet_star_coil_bind_sfx.stop()
+
+
 func play_lingpet_ring_dash() -> void:
 	if not _play_with_pitch(lingpet_ring_dash_sfx, randf_range(0.97, 1.03)):
 		play_active_item()
@@ -1980,6 +2015,12 @@ func play_solar_bolt_strike() -> void:
 	# Parity: original SolarBolt _sound.play() plays at fixed pitch (no modulation).
 	if not _play_with_pitch(solar_bolt_strike_sfx, 1.0):
 		play_ragnarok_shot()
+
+
+func play_mini_spark() -> void:
+	# One random spark zap (spark1/2/3) per mini-spark appearance, lightly
+	# pitch-jittered so consecutive sparks in a chain do not sound identical.
+	_play_random_stream_with_pitch(mini_spark_sfx, mini_spark_streams, randf_range(0.92, 1.08))
 
 
 func play_ragnarok_shock_loop() -> void:
@@ -3350,6 +3391,7 @@ func _get_sfx_players() -> Array:
 		lingpet_puppet_grab_kiss_sfx,
 		lingpet_puppet_grab_miss_sfx,
 		lingpet_wild_roar_sfx,
+		lingpet_star_coil_bind_sfx,
 		lingpet_ring_dash_sfx,
 		lingpet_affinity_level_up_sfx,
 		lingpet_gatling_transform_sfx,
@@ -3365,6 +3407,7 @@ func _get_sfx_players() -> Array:
 		thunder_orb_shot_sfx,
 		thunder_orb_boom_sfx,
 		solar_bolt_strike_sfx,
+		mini_spark_sfx,
 		poseidon_wave_sfx,
 		poseidon_charge_sfx,
 		timewatch_sfx,

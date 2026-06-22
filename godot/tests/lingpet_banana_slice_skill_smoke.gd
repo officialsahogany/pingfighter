@@ -118,6 +118,7 @@ func _verify_catalog_dispatcher_and_assets() -> void:
 	_expect(str(skill.get("description", "")).find("바나나 두 개를 꺼내") < 0, "Banana Slice description should not claim Lv.1 always throws two bananas")
 	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 18.0), "Banana Slice should keep the original 18-second cooldown")
 	_expect(is_equal_approx(float(skill.get("windup_seconds", 0.0)), 0.45), "Banana Slice should use the Ppanamong 0.45-second windup")
+	_expect(is_equal_approx(float(skill.get("slip_seconds", 0.0)), 0.45), "Banana Slice Lv.1 catalog should expose the tuned 0.45-second slip")
 	_expect(LingpetSkillDispatcher.is_banana_slice(SKILL_ID), "dispatcher should expose Banana Slice helper")
 	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "lingpet catalog should validate with Banana Slice card/icon art")
 
@@ -134,6 +135,9 @@ func _verify_level_scaling_tables_and_launch_context() -> void:
 	_expect(is_equal_approx(float(lv1.get("slip_speed", 0.0)), 15.0), "Banana Slice Lv.1 should keep original 15 px/frame slip speed")
 	_expect(is_equal_approx(float(lv3.get("slip_speed", 0.0)), 17.5), "Banana Slice Lv.3 should flatten to 17.5 px/frame slip speed")
 	_expect(is_equal_approx(float(lv5.get("slip_speed", 0.0)), 20.0), "Banana Slice Lv.5 should flatten to 20 px/frame slip speed")
+	_expect(is_equal_approx(float(lv1.get("slip_seconds", 0.0)), 0.45), "Banana Slice Lv.1 should use the shortest boss slip duration")
+	_expect(is_equal_approx(float(lv3.get("slip_seconds", 0.0)), 0.65), "Banana Slice Lv.3 should scale boss slip duration")
+	_expect(is_equal_approx(float(lv5.get("slip_seconds", 0.0)), 0.80), "Banana Slice Lv.5 should restore the original 0.8s boss slip duration")
 
 	_expect(_projectile_count_after_prepare(1) == 1, "Banana Slice Lv.1 default launch should throw exactly one banana")
 	_expect(_projectile_count_after_prepare(2) == 1, "Banana Slice Lv.2 launch should throw exactly one banana")
@@ -148,6 +152,15 @@ func _verify_level_scaling_tables_and_launch_context() -> void:
 	lv5_skill.update(1.0 / 60.0, owner, registry)
 	var lv5_context := lv5_skill.get_boss_ai_context()
 	_expect(is_equal_approx(float(lv5_context.get("lingpet_banana_slice_boss_slip_speed", 0.0)), 20.0), "Banana Slice Lv.5 slip should begin at 20 px/frame")
+	_expect(is_equal_approx(float(lv5_skill.get_snapshot().get("banana_slice_slip_seconds", 0.0)), 0.80), "Banana Slice Lv.5 runtime should arm the original 0.8s boss slip")
+
+	var lv1_skill := LingpetBananaSliceSkill.new()
+	_expect(bool(lv1_skill.launch(Vector2(300.0, 610.0), owner, {"active_skill_level": 1})), "Banana Slice Lv.1 launch should accept active_skill_level context")
+	_expect(is_equal_approx(float(lv1_skill.get_snapshot().get("banana_slice_slip_seconds", 0.0)), 0.45), "Banana Slice Lv.1 launch should resolve the tuned 0.45s slip through level scaling, not a flat constant")
+
+	var override_skill := LingpetBananaSliceSkill.new()
+	_expect(bool(override_skill.launch(Vector2(300.0, 610.0), owner, {"active_skill_level": 1, "slip_seconds": 0.32})), "Banana Slice launch should accept explicit slip duration context")
+	_expect(is_equal_approx(float(override_skill.get_snapshot().get("banana_slice_slip_seconds", 0.0)), 0.32), "Banana Slice launch context should override slip duration for catalog-driven launches")
 
 
 func _verify_prepare_throw_delay_and_audio() -> void:
@@ -209,11 +222,14 @@ func _verify_landed_banana_triggers_boss_slip() -> void:
 	_expect(bool(context.get("lingpet_banana_slice_boss_slip_active", false)), "stepping on Banana Slice should expose an active boss slip context")
 	_expect(is_equal_approx(float(context.get("lingpet_banana_slice_boss_slip_direction", 0.0)), 1.0), "centered Banana Slice slip should use the injected random direction")
 	_expect(is_equal_approx(float(context.get("lingpet_banana_slice_boss_slip_speed", 0.0)), 15.0), "Banana Slice slip should begin at 15 px/frame")
+	_expect(is_equal_approx(float(skill.get_snapshot().get("banana_slice_slip_seconds", 0.0)), 0.45), "Banana Slice Lv.1 runtime should arm the tuned shorter slip duration")
 	_expect(audio.banana_slip_count == 1, "Banana Slice should play the slip cue when the boss steps on it")
 	_expect(skill.get_landed_count_for_tests() == 0, "triggered Banana Slice banana should disappear after one slip")
-	skill.update(0.40, owner, registry)
+	skill.update(0.225, owner, registry)
 	var half_context := skill.get_boss_ai_context()
 	_expect(absf(float(half_context.get("lingpet_banana_slice_boss_slip_speed", 0.0)) - 7.5) <= 0.35, "Banana Slice slip speed should decay linearly near half duration")
+	skill.update(0.24, owner, registry)
+	_expect(skill.get_boss_ai_context().is_empty(), "Banana Slice Lv.1 slip context should clear after the tuned 0.45s duration")
 	skill.cancel(null, null)
 	_expect(skill.get_boss_ai_context().is_empty(), "Banana Slice cancel should clear the boss slip context")
 

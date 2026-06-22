@@ -29,6 +29,9 @@ const EXPECTED_DISPLAY_NAMES := {
 	"soap": "비누",
 	"spider_mine": "스파이더지뢰",
 	"milk_bottle": "우유병",
+	"cheddar_cheese": "체다치즈",
+	"camembert_cheese": "까망베르치즈",
+	"emmental_cheese": "에멘탈치즈",
 }
 
 var _failures: Array[String] = []
@@ -94,17 +97,25 @@ func _verify_duplicate_active_item_descriptions() -> void:
 		str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.ACTIVE_ITEM_DESCRIPTION_EN["milk_bottle"]),
 		"English active catalog should use the active milk-bottle description"
 	)
+	_expect(str(catalog.build_item_by_name("cheddar_cheese").get("description", "")) == str(LanguageSettings.ACTIVE_ITEM_DESCRIPTION_EN["cheddar_cheese"]), "English active catalog should use the active Cheddar Cheese description")
+	_expect(str(catalog.build_item_by_name("camembert_cheese").get("description", "")) == str(LanguageSettings.ACTIVE_ITEM_DESCRIPTION_EN["camembert_cheese"]), "English active catalog should use the active Camembert Cheese description")
+	_expect(str(catalog.build_item_by_name("emmental_cheese").get("description", "")) == str(LanguageSettings.ACTIVE_ITEM_DESCRIPTION_EN["emmental_cheese"]), "English active catalog should use the active Emmental Cheese description")
 
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_CHINESE)
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_ZH["milk_bottle"]), "Chinese active catalog should keep the localized milk-bottle description")
+	_expect(str(catalog.build_item_by_name("cheddar_cheese").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_ZH["cheddar_cheese"]), "Chinese active catalog should keep the localized Cheddar Cheese description")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_JA["milk_bottle"]), "Japanese active catalog should keep the localized milk-bottle description")
+	_expect(str(catalog.build_item_by_name("camembert_cheese").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_JA["camembert_cheese"]), "Japanese active catalog should keep the localized Camembert Cheese description")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_ES["milk_bottle"]), "Spanish active catalog should keep the localized milk-bottle description")
+	_expect(str(catalog.build_item_by_name("emmental_cheese").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_ES["emmental_cheese"]), "Spanish active catalog should keep the localized Emmental Cheese description")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_PT_BR["milk_bottle"]), "Brazilian Portuguese active catalog should keep the localized milk-bottle description")
+	_expect(str(catalog.build_item_by_name("cheddar_cheese").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_PT_BR["cheddar_cheese"]), "Brazilian Portuguese active catalog should keep the localized Cheddar Cheese description")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_RU["milk_bottle"]), "Russian active catalog should keep the localized milk-bottle description")
+	_expect(str(catalog.build_item_by_name("emmental_cheese").get("description", "")) == str(LanguageSettings.MYTHIC_DESCRIPTION_RU["emmental_cheese"]), "Russian active catalog should keep the localized Emmental Cheese description")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
@@ -124,6 +135,7 @@ func _verify_english_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Grenade", "English active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Elixir of Mastery", "English active item catalog should localize Elixir of Mastery")
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("display_name", "")) == "Milk Bottle", "English active item catalog should localize Milk Bottle")
+	_expect(str(catalog.build_item_by_name("cheddar_cheese").get("display_name", "")) == "Cheddar Cheese", "English active item catalog should localize Cheddar Cheese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
@@ -134,6 +146,7 @@ func _verify_chinese_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "手榴弹", "Chinese active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "精通灵药", "Chinese active item catalog should localize Elixir of Mastery")
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("display_name", "")) == "牛奶瓶", "Chinese active item catalog should localize Milk Bottle")
+	_expect(str(catalog.build_item_by_name("camembert_cheese").get("display_name", "")) == "卡芒贝尔奶酪", "Chinese active item catalog should localize Camembert Cheese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
@@ -144,6 +157,7 @@ func _verify_japanese_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "手榴弾", "Japanese active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "熟練のエリクサー", "Japanese active item catalog should localize Elixir of Mastery")
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("display_name", "")) == "ミルクボトル", "Japanese active item catalog should localize Milk Bottle")
+	_expect(str(catalog.build_item_by_name("emmental_cheese").get("display_name", "")) == "エメンタールチーズ", "Japanese active item catalog should localize Emmental Cheese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
@@ -154,6 +168,7 @@ func _verify_spanish_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Granada", "Spanish active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Elixir de maestría", "Spanish active item catalog should localize Elixir of Mastery")
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("display_name", "")) == "Botella de leche", "Spanish active item catalog should localize Milk Bottle")
+	_expect(str(catalog.build_item_by_name("cheddar_cheese").get("display_name", "")) == "Queso cheddar", "Spanish active item catalog should localize Cheddar Cheese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
@@ -164,6 +179,7 @@ func _verify_portuguese_brazil_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Granada", "Brazilian Portuguese active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Elixir de Maestria", "Brazilian Portuguese active item catalog should localize Elixir of Mastery")
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("display_name", "")) == "Garrafa de leite", "Brazilian Portuguese active item catalog should localize Milk Bottle")
+	_expect(str(catalog.build_item_by_name("camembert_cheese").get("display_name", "")) == "Queijo Camembert", "Brazilian Portuguese active item catalog should localize Camembert Cheese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
@@ -174,6 +190,7 @@ func _verify_russian_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Граната", "Russian active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Эликсир мастерства", "Russian active item catalog should localize Elixir of Mastery")
 	_expect(str(catalog.build_item_by_name("milk_bottle").get("display_name", "")) == "Бутылка молока", "Russian active item catalog should localize Milk Bottle")
+	_expect(str(catalog.build_item_by_name("emmental_cheese").get("display_name", "")) == "Сыр эмменталь", "Russian active item catalog should localize Emmental Cheese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

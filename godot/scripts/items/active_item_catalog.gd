@@ -35,6 +35,9 @@ const SPIDER_MINE_ICON_PATH := "res://assets/sprites/items/spider_mine.png"
 const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery.png"
 const MILK_BOTTLE_ICON_PATH := "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png"
 const MILK_BOTTLE_FIELD_ICON_PATH := "res://assets/sprites/items/milk_bottle_field_imagegen_v1.png"
+const CHEDDAR_CHEESE_ICON_PATH := "res://assets/sprites/items/cheddar_cheese_icon_imagegen_v1.png"
+const CAMEMBERT_CHEESE_ICON_PATH := "res://assets/sprites/items/camembert_cheese_icon_imagegen_v1.png"
+const EMMENTAL_CHEESE_ICON_PATH := "res://assets/sprites/items/emmental_cheese_icon_imagegen_v1.png"
 const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.png"
 
 const FIELD_SPAWN_ORDER := [
@@ -124,6 +127,30 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_elixir_of_mastery()
 		"milk_bottle":
 			item_data = _build_milk_bottle()
+		"cheddar_cheese":
+			item_data = _build_cheese(
+				"cheddar_cheese",
+				"체다치즈",
+				300.0,
+				CHEDDAR_CHEESE_ICON_PATH,
+				Color(1.0, 0.64, 0.18)
+			)
+		"camembert_cheese":
+			item_data = _build_cheese(
+				"camembert_cheese",
+				"까망베르치즈",
+				400.0,
+				CAMEMBERT_CHEESE_ICON_PATH,
+				Color(0.96, 0.92, 0.80)
+			)
+		"emmental_cheese":
+			item_data = _build_cheese(
+				"emmental_cheese",
+				"에멘탈치즈",
+				500.0,
+				EMMENTAL_CHEESE_ICON_PATH,
+				Color(1.0, 0.82, 0.24)
+			)
 	if item_data.is_empty():
 		return {}
 	return LanguageSettings.localize_item_data(item_data)
@@ -633,4 +660,26 @@ func _build_milk_bottle() -> Dictionary:
 		"stage_persistent": true,
 		"lingpet_generated_only": true,
 		"description": "사용 시 스테이지 종료까지 플레이어 패들과 이미지 크기가 20% 증가합니다.",
+	}
+
+
+func _build_cheese(item_name: String, display_name: String, gauge_gain: float, icon_path: String, item_color: Color) -> Dictionary:
+	return {
+		"name": item_name,
+		"display_name": display_name,
+		"type": "active",
+		"effect": "cheese",
+		"chance": 0.0,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": icon_path,
+		"field_icon_path": icon_path,
+		"color": item_color,
+		"consumable": true,
+		"stationary_field_item": true,
+		"dash_destroy_on_player_contact": true,
+		"lingpet_generated_only": true,
+		"gauge_gain": gauge_gain,
+		"gauge_max": GAUGE_MAX,
+		"description": "사용 시 왼쪽 파란 게이지구슬을 즉시 %d 회복합니다." % int(round(gauge_gain)),
 	}

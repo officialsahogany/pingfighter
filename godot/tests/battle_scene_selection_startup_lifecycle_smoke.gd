@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BattleSceneSelectionStartupLifecycle := preload("res://scripts/core/battle_scene_selection_startup_lifecycle.gd")
+const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const BattleSceneStartupController := preload("res://scripts/core/battle_scene_startup_controller.gd")
 
 var _failures: Array[String] = []
@@ -56,6 +57,7 @@ func _init() -> void:
 	_verify_selection_startup_lifecycle_defaults_missing_league_to_junior()
 	_verify_selection_startup_lifecycle_accepts_junior()
 	_verify_selection_startup_lifecycle_accepts_optimus()
+	_verify_selection_startup_lifecycle_applies_stage1_boss_variant()
 	_verify_startup_controller_delegates_selection_surface()
 
 	if _failures.is_empty():
@@ -150,6 +152,34 @@ func _verify_selection_startup_lifecycle_accepts_optimus() -> void:
 
 	_expect(str(owner.data.get("selected_runtime_character_id", "")) == "optimus", "selection startup should preserve Optimus runtime id")
 	_expect(str(owner.data.get("selected_character_type", "")) == "optimus", "selection startup should mirror Optimus runtime type")
+
+
+func _verify_selection_startup_lifecycle_applies_stage1_boss_variant() -> void:
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	var owner := FakeOwner.new()
+	owner.selection_state.selection = {
+		"stage_id": 1,
+		"stage1_boss_variant": "gaksital",
+		"character_id": "ufo_player",
+		"runtime_character_id": "smasher",
+	}
+
+	lifecycle.apply_selection_state(owner)
+
+	_expect(str(owner.data.get("stage1_boss_variant", "")) == "gaksi", "selection startup should normalize the Gaksital Stage 1 variant")
+	_expect(str(BattleSceneState.DEFAULT_VALUES.get("stage1_boss_variant", "")) == "dalji", "battle state defaults should keep Dalji as the Stage 1 variant")
+
+	var stage2_owner := FakeOwner.new()
+	stage2_owner.selection_state.selection = {
+		"stage_id": 2,
+		"stage1_boss_variant": "gaksi",
+		"character_id": "ufo_player",
+		"runtime_character_id": "smasher",
+	}
+
+	lifecycle.apply_selection_state(stage2_owner)
+
+	_expect(str(stage2_owner.data.get("stage1_boss_variant", "")) == "dalji", "non-Stage 1 startup should discard the Stage 1 boss variant")
 
 
 func _verify_startup_controller_delegates_selection_surface() -> void:

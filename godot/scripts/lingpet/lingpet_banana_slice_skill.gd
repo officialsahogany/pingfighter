@@ -34,7 +34,9 @@ const WALL_RIGHT := 750.0
 const WALL_BOUNCE_SCALE := 0.70
 const PROJECTILE_CULL_TOP := -50.0
 const PROJECTILE_CULL_BOTTOM := 800.0
-const SLIP_SECONDS := 0.80
+# Lv.1 intentionally starts below the legacy 0.8s banana slip, then scales
+# back to the original parity duration by Lv.5.
+const SLIP_SECONDS_BY_LEVEL := [0.45, 0.55, 0.65, 0.72, 0.80]
 const SLIP_SPEED_BY_LEVEL := [15.0, 16.25, 17.5, 18.75, 20.0]
 const SLIP_CENTER_EPSILON := 10.0
 const BURST_PARTICLE_COUNT := 12
@@ -52,6 +54,7 @@ var _slip_timer := 0.0
 var _slip_direction := 0.0
 var _active_skill_level := 1
 var _banana_count := 1
+var _slip_seconds := 0.45
 var _slip_speed_per_frame := 15.0
 var _banana_texture: Texture2D = null
 var _ellipse_mesh: ArrayMesh = null
@@ -73,6 +76,7 @@ func reset() -> void:
 	_slip_direction = 0.0
 	_active_skill_level = 1
 	_banana_count = _get_banana_count_for_level(_active_skill_level)
+	_slip_seconds = _get_slip_seconds_for_level(_active_skill_level)
 	_slip_speed_per_frame = _get_slip_speed_for_level(_active_skill_level)
 	_throw_sound_count = 0
 	_slip_sound_count = 0
@@ -96,6 +100,7 @@ func launch(origin: Vector2, _owner: Object = null, launch_context: Dictionary =
 		_registry = ctx_registry as Object
 	_active_skill_level = _get_active_skill_level(launch_context)
 	_banana_count = _get_banana_count_for_context(launch_context, _active_skill_level)
+	_slip_seconds = _get_slip_seconds_for_context(launch_context, _active_skill_level)
 	_slip_speed_per_frame = _get_slip_speed_for_context(launch_context, _active_skill_level)
 	_origin = Vector2(clampf(origin.x, 32.0, FIELD_WIDTH - 32.0), clampf(origin.y, 80.0, FIELD_HEIGHT - 32.0))
 	_phase = PHASE_PREPARE
@@ -176,7 +181,7 @@ func get_boss_ai_context() -> Dictionary:
 	return {
 		"lingpet_banana_slice_boss_slip_active": true,
 		"lingpet_banana_slice_boss_slip_direction": _slip_direction,
-		"lingpet_banana_slice_boss_slip_speed": _slip_speed_per_frame * clampf(_slip_timer / SLIP_SECONDS, 0.0, 1.0),
+		"lingpet_banana_slice_boss_slip_speed": _slip_speed_per_frame * clampf(_slip_timer / maxf(0.001, _slip_seconds), 0.0, 1.0),
 	}
 
 
@@ -194,6 +199,8 @@ func get_snapshot() -> Dictionary:
 		"banana_slice_landed_count": _landed_bananas.size(),
 		"banana_slice_particle_count": _particles.size(),
 		"banana_slice_slip_active": _slip_timer > 0.0,
+		"banana_slice_slip_seconds": _slip_seconds,
+		"banana_slice_slip_seconds_by_level": SLIP_SECONDS_BY_LEVEL.duplicate(),
 		"banana_slice_slip_timer": _slip_timer,
 		"banana_slice_slip_direction": _slip_direction,
 		"banana_slice_slip_initial_speed": _slip_speed_per_frame,
@@ -352,7 +359,7 @@ func _update_landed(delta: float, owner: Object) -> void:
 
 
 func _start_boss_slip(owner: Object, banana_pos: Vector2) -> void:
-	_slip_timer = SLIP_SECONDS
+	_slip_timer = _slip_seconds
 	var boss_rect := _get_boss_rect(owner)
 	var paddle_cx := boss_rect.position.x + boss_rect.size.x * 0.5
 	var delta_x := paddle_cx - banana_pos.x
@@ -434,6 +441,15 @@ func _get_banana_count_for_context(launch_context: Dictionary, active_skill_leve
 	return fallback
 
 
+func _get_slip_seconds_for_context(launch_context: Dictionary, active_skill_level: int) -> float:
+	var fallback := _get_slip_seconds_for_level(active_skill_level)
+	if launch_context.has("slip_seconds"):
+		var context_seconds := float(launch_context.get("slip_seconds", -1.0))
+		if context_seconds > 0.0:
+			return context_seconds
+	return fallback
+
+
 func _get_slip_speed_for_context(launch_context: Dictionary, active_skill_level: int) -> float:
 	var fallback := _get_slip_speed_for_level(active_skill_level)
 	if launch_context.has("slip_speed"):
@@ -446,6 +462,11 @@ func _get_slip_speed_for_context(launch_context: Dictionary, active_skill_level:
 func _get_banana_count_for_level(active_skill_level: int) -> int:
 	var index := clampi(active_skill_level, 1, BANANA_COUNT_BY_LEVEL.size()) - 1
 	return clampi(int(BANANA_COUNT_BY_LEVEL[index]), 1, 4)
+
+
+func _get_slip_seconds_for_level(active_skill_level: int) -> float:
+	var index := clampi(active_skill_level, 1, SLIP_SECONDS_BY_LEVEL.size()) - 1
+	return maxf(0.001, float(SLIP_SECONDS_BY_LEVEL[index]))
 
 
 func _get_slip_speed_for_level(active_skill_level: int) -> float:

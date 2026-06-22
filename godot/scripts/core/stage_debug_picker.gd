@@ -4,7 +4,8 @@ const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_aud
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const STAGE_OPTIONS := [
-	{"id": 1, "name": "스테이지 1", "desc": "달지"},
+	{"id": 1, "variant": "dalji", "name": "스테이지 1", "desc": "달지"},
+	{"id": 1, "variant": "gaksi", "name": "스테이지 1-B", "desc": "각시탈"},
 	{"id": 2, "name": "스테이지 2", "desc": "정글"},
 	{"id": 3, "name": "스테이지 3", "desc": "멘헤라"},
 	{"id": 4, "name": "스테이지 4", "desc": "소림사"},
@@ -73,7 +74,7 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 func toggle(owner: Object = null) -> void:
 	open = not open
 	if open:
-		selected_index = _get_stage_index(_get_current_stage(owner))
+		selected_index = _get_stage_index(_get_current_stage(owner), _get_stage1_boss_variant(owner))
 
 
 func close() -> void:
@@ -157,17 +158,26 @@ func draw(canvas: CanvasItem, owner: Object, view_size: Vector2) -> void:
 
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 32.0), "F5 디버그 스테이지 선택", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, Color(0.88, 0.97, 1.0))
 	var current_stage: int = _get_current_stage(owner)
+	var current_stage1_boss_variant: String = _get_stage1_boss_variant(owner)
 	var info := "현재 스테이지 %d  /  방향키·WASD 이동, Enter·Space 이동, Esc 취소" % current_stage
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 58.0), info, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 13, Color(0.72, 0.80, 0.88))
 
 	for index in range(STAGE_OPTIONS.size()):
-		_draw_card(canvas, font, _get_card_rect(index, panel_rect), STAGE_OPTIONS[index], index == selected_index, current_stage)
+		var option: Dictionary = STAGE_OPTIONS[index]
+		_draw_card(
+			canvas,
+			font,
+			_get_card_rect(index, panel_rect),
+			option,
+			index == selected_index,
+			_is_current_option(option, current_stage, current_stage1_boss_variant)
+		)
 
 	var foot := "스테이지 5는 홍련, 6번은 테트리서 포팅 슬롯입니다(스캐폴드 단계)."
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, panel_rect.size.y - 18.0), foot, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 12, Color(0.58, 0.66, 0.74))
 
 
-func _draw_card(canvas: CanvasItem, font: Font, rect: Rect2, option: Dictionary, selected: bool, current_stage: int) -> void:
+func _draw_card(canvas: CanvasItem, font: Font, rect: Rect2, option: Dictionary, selected: bool, is_current: bool) -> void:
 	var stage_id: int = int(option.get("id", 1))
 	var implemented: bool = stage_id <= 6
 	var base := Color(0.10, 0.13, 0.18, 0.96)
@@ -175,7 +185,7 @@ func _draw_card(canvas: CanvasItem, font: Font, rect: Rect2, option: Dictionary,
 	if implemented:
 		base = Color(0.10, 0.18, 0.15, 0.96)
 		border = Color(0.25, 0.68, 0.52, 0.82)
-	if stage_id == current_stage:
+	if is_current:
 		base = base.lerp(Color(0.22, 0.24, 0.12, 1.0), 0.45)
 		border = Color(1.0, 0.83, 0.28, 0.95)
 	if selected:
@@ -195,9 +205,12 @@ func _draw_card(canvas: CanvasItem, font: Font, rect: Rect2, option: Dictionary,
 func _apply_selected_stage(owner: Object, registry: Object) -> void:
 	if owner == null:
 		return
-	var stage_id: int = int(STAGE_OPTIONS[selected_index].get("id", 1))
+	var selected_option: Dictionary = STAGE_OPTIONS[selected_index]
+	var stage_id: int = int(selected_option.get("id", 1))
+	var stage1_boss_variant: String = _get_option_stage1_boss_variant(selected_option)
 	owner.set("current_stage", stage_id)
-	_sync_selection_state(owner, stage_id)
+	owner.set("stage1_boss_variant", stage1_boss_variant if stage_id == 1 else "dalji")
+	_sync_selection_state(owner, stage_id, stage1_boss_variant)
 	_reset_runtime_for_stage(owner, registry, stage_id)
 	close()
 	if owner.has_method("queue_redraw"):
@@ -363,12 +376,12 @@ func _prewarm_stage6_selected_modules(owner: Object, registry: Object) -> void:
 		skill_hud.prewarm_assets()
 
 
-func _sync_selection_state(owner: Object, stage_id: int) -> void:
+func _sync_selection_state(owner: Object, stage_id: int, stage1_boss_variant: String = "dalji") -> void:
 	if owner == null or not owner.has_method("get_node_or_null"):
 		return
-	var selection_state: Node = owner.get_node_or_null("/root/GameSelectionState")
+	var selection_state: Object = owner.get_node_or_null("/root/GameSelectionState")
 	if selection_state != null and selection_state.has_method("set_stage"):
-		selection_state.set_stage(stage_id)
+		selection_state.set_stage(stage_id, stage1_boss_variant if stage_id == 1 else "dalji")
 
 
 func _move_selection(dx: int, dy: int) -> void:
@@ -390,8 +403,19 @@ func _digit_to_index(key_event: InputEventKey) -> int:
 
 
 func _find_stage_index(stage_id: int) -> int:
+	return _find_stage_variant_index(stage_id, "dalji")
+
+
+func _find_stage_variant_index(stage_id: int, stage1_boss_variant: String = "dalji") -> int:
 	for index in range(STAGE_OPTIONS.size()):
-		if int(STAGE_OPTIONS[index].get("id", 1)) == stage_id:
+		var option: Dictionary = STAGE_OPTIONS[index]
+		if (
+			int(option.get("id", 1)) == stage_id
+			and (
+				stage_id != 1
+				or _get_option_stage1_boss_variant(option) == _normalize_stage1_boss_variant(stage1_boss_variant)
+			)
+		):
 			return index
 	return -1
 
@@ -421,15 +445,37 @@ func _get_card_index_at(position: Vector2, view_size: Vector2) -> int:
 	return -1
 
 
-func _get_stage_index(stage_id: int) -> int:
-	for index in range(STAGE_OPTIONS.size()):
-		if int(STAGE_OPTIONS[index].get("id", 1)) == stage_id:
-			return index
-	return 0
+func _get_stage_index(stage_id: int, stage1_boss_variant: String = "dalji") -> int:
+	var found_index: int = _find_stage_variant_index(stage_id, stage1_boss_variant)
+	return found_index if found_index >= 0 else 0
 
 
 func _get_current_stage(owner: Object) -> int:
 	return int(_safe_owner_get(owner, "current_stage", 1))
+
+
+func _get_stage1_boss_variant(owner: Object) -> String:
+	return _normalize_stage1_boss_variant(str(_safe_owner_get(owner, "stage1_boss_variant", "dalji")))
+
+
+func _get_option_stage1_boss_variant(option: Dictionary) -> String:
+	return _normalize_stage1_boss_variant(str(option.get("variant", "dalji")))
+
+
+func _normalize_stage1_boss_variant(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	if normalized == "gaksi" or normalized == "gaksital" or normalized == "talkwangdae":
+		return "gaksi"
+	return "dalji"
+
+
+func _is_current_option(option: Dictionary, current_stage: int, current_stage1_boss_variant: String) -> bool:
+	var stage_id: int = int(option.get("id", 1))
+	if stage_id != current_stage:
+		return false
+	if stage_id != 1:
+		return true
+	return _get_option_stage1_boss_variant(option) == _normalize_stage1_boss_variant(current_stage1_boss_variant)
 
 
 func _get_selected_character_type(owner: Object) -> String:

@@ -1,10 +1,11 @@
 extends RefCounted
 
 const SAVE_PATH := "user://plaza_save.cfg"
-const SAVE_SCHEMA_VERSION := 5
+const SAVE_SCHEMA_VERSION := 6
 const BASE_AP := 3
 const MAX_AP := 10
 const MAX_CHANCE_GEMS := 3
+const MAX_DECODER_LEVEL := 5
 const BANK_TRANSACTION_AMOUNT := 100
 const BANK_INTEREST_BPS := 500
 const META_SECTION := "meta"
@@ -12,6 +13,7 @@ const META_SCHEMA_VERSION_KEY := "schema_version"
 const LEGACY_META_VERSION_KEY := "version"
 const WALLET_SECTION := "wallet"
 const BANK_SECTION := "bank"
+const PROGRESSION_SECTION := "progression"
 const TAVERN_SECTION := "tavern"
 const AP_AWARDED_STAGES_SECTION := "ap_awarded_stages"
 const BANK_INTEREST_CLAIMED_STAGES_SECTION := "bank_interest_claimed_stages"
@@ -22,6 +24,7 @@ const PLAZA_GOLD_KEY := "plaza_gold"
 const AP_CURRENT_KEY := "ap_current"
 const AP_IS_FIRST_STAGE_KEY := "ap_is_first_stage"
 const CHANCE_GEMS_KEY := "chance_gems"
+const DECODER_LEVEL_KEY := "decoder_level"
 const BANK_DEPOSIT_GOLD_KEY := "bank_deposit_gold"
 const TAVERN_ACTIVE_QUEST_ID_KEY := "active_quest_id"
 const TAVERN_ACTIVE_QUEST_NAME_KEY := "active_quest_name"
@@ -37,6 +40,7 @@ var _schema_version := SAVE_SCHEMA_VERSION
 var _recovery_blocked := false
 var _plaza_gold := 0
 var _chance_gems := MAX_CHANCE_GEMS
+var _decoder_level := 0
 var _ap_current := BASE_AP
 var _ap_is_first_stage := true
 var _bank_deposit_gold := 0
@@ -150,6 +154,23 @@ func get_max_chance_gems() -> int:
 	return MAX_CHANCE_GEMS
 
 
+func get_decoder_level() -> int:
+	_ensure_loaded()
+	return _sanitize_decoder_level(_decoder_level)
+
+
+func unlock_decoder_level(level: int) -> bool:
+	_ensure_loaded()
+	var current_level := get_decoder_level()
+	var next_level := _sanitize_decoder_level(level)
+	if next_level <= current_level:
+		last_save_summary = "skipped_decoder_level_not_higher"
+		return false
+	_decoder_level = next_level
+	save()
+	return true
+
+
 func consume_chance_gem() -> int:
 	_ensure_loaded()
 	if _chance_gems <= 0:
@@ -248,9 +269,10 @@ func apply_stage_clear_progress(stage_id: int, gold_amount: int, grant_ap: bool)
 			_ap_is_first_stage = false
 			_ap_awarded_stages[stage_key] = true
 			ap_recorded = true
-	if transferred_gold > 0 or ap_recorded:
+	var decoder_unlocked := unlock_decoder_level(clampi(stage_id, 1, MAX_DECODER_LEVEL))
+	if (transferred_gold > 0 or ap_recorded) and not decoder_unlocked:
 		save()
-	else:
+	elif not (transferred_gold > 0 or ap_recorded or decoder_unlocked):
 		last_save_summary = "skipped_no_progress_delta"
 	return _build_apply_summary(transferred_gold, granted_ap, ap_recorded, last_save_summary)
 
@@ -514,6 +536,7 @@ func get_summary() -> Dictionary:
 		"plaza_gold": get_plaza_gold(),
 		"chance_gems": get_chance_gems(),
 		"chance_gems_max": get_max_chance_gems(),
+		"decoder_level": get_decoder_level(),
 		"ap_current": get_ap_current(),
 		"ap_is_first_stage": get_ap_is_first_stage(),
 		"bank_deposit_gold": get_bank_deposit_gold(),
@@ -553,6 +576,7 @@ func _reset_runtime_state() -> void:
 	_recovery_blocked = false
 	_plaza_gold = 0
 	_chance_gems = MAX_CHANCE_GEMS
+	_decoder_level = 0
 	_ap_current = BASE_AP
 	_ap_is_first_stage = true
 	_bank_deposit_gold = 0
@@ -595,6 +619,7 @@ func _build_save_config() -> ConfigFile:
 	config.set_value(WALLET_SECTION, CHANCE_GEMS_KEY, _sanitize_chance_gems(_chance_gems))
 	config.set_value(WALLET_SECTION, AP_CURRENT_KEY, clampi(_ap_current, 0, MAX_AP))
 	config.set_value(WALLET_SECTION, AP_IS_FIRST_STAGE_KEY, _ap_is_first_stage)
+	config.set_value(PROGRESSION_SECTION, DECODER_LEVEL_KEY, _sanitize_decoder_level(_decoder_level))
 	config.set_value(BANK_SECTION, BANK_DEPOSIT_GOLD_KEY, _sanitize_gold(_bank_deposit_gold))
 	if not _tavern_active_quest.is_empty():
 		config.set_value(TAVERN_SECTION, TAVERN_ACTIVE_QUEST_ID_KEY, str(_tavern_active_quest.get("id", "")))
@@ -630,6 +655,7 @@ func _read_from_config(config: ConfigFile) -> void:
 	_schema_version = _read_schema_version(config)
 	_plaza_gold = _sanitize_gold(config.get_value(WALLET_SECTION, PLAZA_GOLD_KEY, 0))
 	_chance_gems = _sanitize_chance_gems(config.get_value(WALLET_SECTION, CHANCE_GEMS_KEY, MAX_CHANCE_GEMS))
+	_decoder_level = _sanitize_decoder_level(config.get_value(PROGRESSION_SECTION, DECODER_LEVEL_KEY, 0))
 	_ap_current = clampi(int(config.get_value(WALLET_SECTION, AP_CURRENT_KEY, BASE_AP)), 0, MAX_AP)
 	_ap_is_first_stage = bool(config.get_value(WALLET_SECTION, AP_IS_FIRST_STAGE_KEY, true))
 	_bank_deposit_gold = _sanitize_gold(config.get_value(BANK_SECTION, BANK_DEPOSIT_GOLD_KEY, 0))
@@ -714,6 +740,10 @@ func _sanitize_gold(value: Variant) -> int:
 
 func _sanitize_chance_gems(value: Variant) -> int:
 	return clampi(int(value), 0, MAX_CHANCE_GEMS)
+
+
+func _sanitize_decoder_level(value: Variant) -> int:
+	return clampi(int(value), 0, MAX_DECODER_LEVEL)
 
 
 func _has_obvious_config_parse_break(text: String) -> bool:

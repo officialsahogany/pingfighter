@@ -326,6 +326,10 @@ func _test_edge_boss_arrival_ignores_player_clamp() -> void:
 
 
 func _test_dark_blade_split_window() -> void:
+	# Flipped follow-up split (user design 2026-06-21): with both Venom Edge AND Dark Blade
+	# equipped, a single W after Air Blade resolves to Dark Blade in the EARLY window
+	# [66,84) and to Venom Edge in the LATE window [84,102]. (Previously the owners were
+	# reversed; the early-W default was Venom Edge, which made Dark Blade feel unreachable.)
 	var bundle: Dictionary = _make_bundle(0)
 	var runtime: Object = bundle["runtime"]
 	var input = bundle["input"]
@@ -345,7 +349,7 @@ func _test_dark_blade_split_window() -> void:
 	_prime_air_blade_combo(runtime, 70.0)
 	input.snapshot["up_pressed"] = true
 	result = runtime.try_activate_before_movement(1.0 / 60.0, Vector2(302.5, 610.0), 500.0, config, bundle["deps"])
-	_expect(str(result.get("skill_name", "")) == "nerve_strike", "both unlocked: W+1.1s-W+1.4s should belong to Venom Edge")
+	_expect(str(result.get("skill_name", "")) == "dark_blade", "both unlocked: early W (W+1.1s-W+1.4s) should fire Dark Blade after the 2026-06-21 flip")
 
 	bundle = _make_bundle(0)
 	runtime = bundle["runtime"]
@@ -355,7 +359,7 @@ func _test_dark_blade_split_window() -> void:
 	_prime_air_blade_combo(runtime, 90.0)
 	input.snapshot["up_pressed"] = true
 	result = runtime.try_activate_before_movement(1.0 / 60.0, Vector2(302.5, 610.0), 500.0, config, bundle["deps"])
-	_expect(str(result.get("skill_name", "")) == "dark_blade", "both unlocked: W+1.4s-W+1.7s should hand off to Dark Blade")
+	_expect(str(result.get("skill_name", "")) == "nerve_strike", "both unlocked: late W (W+1.4s-W+1.7s) should fire Venom Edge after the 2026-06-21 flip")
 
 
 func _test_dual_glitch_clone_venom_slashes() -> void:

@@ -64,6 +64,13 @@ func is_defeat_chance_gems_continue_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "defeat_chance_gems_continue_screen", "is_active")
 
 
+func does_defeat_chance_gems_continue_block_battle(module_getter: Callable) -> bool:
+	var screen := _get_module(module_getter, "defeat_chance_gems_continue_screen")
+	if screen != null and screen.has_method("blocks_battle_physics"):
+		return bool(screen.blocks_battle_physics())
+	return _module_bool(module_getter, "defeat_chance_gems_continue_screen", "is_active")
+
+
 func is_defeat_settlement_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "defeat_settlement_screen", "is_active")
 
@@ -115,7 +122,7 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.pause_menu", module_getter, "pause_menu_overlay", "is_active"):
 		return true
-	if _timed_module_bool(perf_logger, "physics.modal_gate.defeat_chance_gems_continue", module_getter, "defeat_chance_gems_continue_screen", "is_active"):
+	if _timed_bool(perf_logger, "physics.modal_gate.defeat_chance_gems_continue", Callable(self, "does_defeat_chance_gems_continue_block_battle").bind(module_getter)):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.defeat_settlement", module_getter, "defeat_settlement_screen", "is_active"):
 		return true
@@ -141,6 +148,15 @@ func _timed_module_bool(
 ) -> bool:
 	var sample_start: int = _perf_begin(perf_logger)
 	var result: bool = _module_bool(module_getter, key, method_name)
+	_perf_end(perf_logger, label, sample_start)
+	return result
+
+
+func _timed_bool(perf_logger: Object, label: String, callback: Callable) -> bool:
+	var sample_start: int = _perf_begin(perf_logger)
+	var result := false
+	if callback.is_valid():
+		result = bool(callback.call())
 	_perf_end(perf_logger, label, sample_start)
 	return result
 

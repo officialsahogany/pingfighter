@@ -147,7 +147,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
 	var boss_result_context: Dictionary = ResultContext.get_boss_result_context(deps, current_stage)
-	var result_state_active: bool = ResultContext.has_result_state(boss_result_context)
+	var revival_beat_state = deps.get("defeat_continue_revival_beat_state", null)
+	var revival_result_context: Dictionary = revival_beat_state.get_actor_draw_context() if _should_read_actor_draw_context(revival_beat_state) else {}
+	var combined_result_context := boss_result_context.duplicate(true)
+	combined_result_context.merge(revival_result_context, true)
+	var result_state_active: bool = ResultContext.has_result_state(combined_result_context)
 	_perf_end(perf_logger, "context.actor.textures.base", texture_sample_start)
 	if result_state_active:
 		texture_sample_start = _perf_begin(perf_logger)
@@ -156,7 +160,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 			deps.get("battle_resources", null),
 			character_type,
 			current_stage,
-			boss_result_context
+			combined_result_context
 		)
 		_perf_end(perf_logger, "context.actor.textures.result_cache", texture_sample_start)
 	texture_sample_start = _perf_begin(perf_logger)
@@ -429,6 +433,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"game_size": _get_vector2(context, "game_size", Vector2(float(context.get("width", 760.0)), float(context.get("height", 750.0)))),
 		"render_scale": max(0.001, float(context.get("render_scale", 1.0))),
 		"current_stage": int(context.get("current_stage", 1)),
+		"stage1_boss_variant": str(context.get("stage1_boss_variant", "dalji")),
 		"play_left": float(context.get("play_left", 0.0)),
 		"play_right": float(context.get("play_right", 760.0)),
 		"ball_active": bool(context.get("ball_active", false)),
@@ -749,6 +754,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 
 	actor_sample_start = _perf_begin(perf_logger)
 	actor_context.merge(boss_result_context, true)
+	actor_context.merge(revival_result_context, true)
 	actor_context.merge(boss_dash_context, true)
 	actor_context.merge(whip_context, true)
 	actor_context.merge(spinning_top_context, true)

@@ -1102,6 +1102,8 @@ func _get_active_item_slow_multiplier(context: Dictionary) -> float:
 		multiplier *= clamp(float(context.get("venom_mist_boss_slow_multiplier", 0.3)), 0.05, 1.0)
 	if bool(context.get("baal_boots_boss_slow_active", false)):
 		multiplier *= clamp(float(context.get("baal_boots_boss_slow_multiplier", 0.7)), 0.05, 1.0)
+	if bool(context.get("lingpet_star_coil_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("lingpet_star_coil_boss_slow_multiplier", 0.4)), 0.05, 1.0)
 	return clamp(multiplier, 0.05, 1.0)
 
 

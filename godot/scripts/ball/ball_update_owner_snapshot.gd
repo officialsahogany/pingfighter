@@ -45,6 +45,7 @@ func build(owner: Object) -> Dictionary:
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"gameplay_frame_counter": int(_get_owner_value(owner, "gameplay_frame_counter", 0)),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"ai_mode": str(_get_owner_value(owner, "ai_mode", "champion")),
 		"arena_mode_enabled": bool(_get_owner_value(owner, "arena_mode_enabled", false)),
 		"weather_type": str(_get_owner_value(owner, "weather_type", "")),

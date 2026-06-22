@@ -5,6 +5,64 @@ Run these checks after any sheet generation + nukki. If any row fails,
 
 ---
 
+## 0.00. Pre-flight: edit the asset the user ACTUALLY sees
+
+Before regenerating / repacking / "fixing" any reaction or cut-in asset,
+trace the runtime consumer and confirm WHICH file the user's described visual
+maps to. One user phrase can map to DIFFERENT files per character, and an
+obvious-looking catalog mapping can be unused for the very character you are
+fixing. Editing the wrong file wastes a full iteration and the user still
+sees no change.
+
+Reference failure (lingpet click/cut-in reactions, 2026-06-21): a request to
+fix maribo's "클릭 라투디" was first applied to `maribo_click_live2d_pingpong_98f.png`
+(the `click_reaction_anim` catalog key) — but that key is consumed only by the
+character-info panel loader (`PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID`) for SIX pets
+(lunabi/nekuring/monkeyring/onimaru/orosha/rahoset) and is **unused for maribo**
+(maribo's panel falls back to `cutin_art`). What the user actually saw was the
+**acquire cut-in DISMISS** (`획득 라투디 → 클릭`), which for maribo is
+`maribo_cutin_dismiss_anim.png` resolved via `lingpet_acquire_cutin_overlay_host`'s
+`FALLBACK_CUTIN_DISMISS_SHEET_PATH` (maribo has NO catalog `cutin_dismiss_anim`
+key), at the 5x5/25f default grid — a different file, grid, and code path than the
+shared `click_live2d` sheet that koyora/nekuring reuse for their dismiss.
+
+Pre-flight checklist:
+- Grep the asset filename and the catalog visual-key across `godot/scripts` and
+  confirm a real consumer reads it FOR THIS character (not just that it exists in
+  the catalog). A key present in the catalog but absent from every consumer's
+  per-pet allow-list is dead for that pet.
+- Identify the exact screen/flow the user named (acquire cut-in reveal vs
+  acquire-dismiss vs in-battle companion click vs character-info panel). These
+  are SEPARATE assets: `cutin_anim` (reveal), `cutin_dismiss_anim`/FALLBACK
+  (dismiss), `companion_click_reaction_anim` (battle), `click_reaction_anim`
+  (panel, 6 pets only).
+- Watch for FALLBACK_* constants in the host: a pet with no catalog key may still
+  draw a dedicated fallback file. Check the host's resolve/fallback path, not just
+  the catalog.
+- When in doubt, confirm the displayed grid (cols/rows/frame count) in the host
+  matches the file you intend to edit before touching it.
+
+Paired cut-in match contract (reveal <-> dismiss, or any two clips that play
+back-to-back as ONE shot): the second clip must match the first in SIX axes —
+size, position, motion-continuity (start from the first clip's hold pose),
+TEXTURE, and COLOR. Texture and color are easy to miss and were the last
+regression in the maribo acquire-cutin work (2026-06-21):
+- TEXTURE: process the new clip with the SAME upscale model as the reference
+  clip. The maribo reveal used `realesr-animevideov3` (smooth/painterly);
+  rebuilding the dismiss with `realesrgan-x4plus-anime` (crisp anime lines) read
+  as a different surface even at matched size/color. Match the model, don't mix.
+- COLOR: a separate AutoSprite generation of the same character can land on a
+  different color cast (the dismiss came out paler/cooler than the reveal). Do
+  NOT fix this with a value-contrast punch (that boosts past the reference and
+  still mismatches) — color-MATCH it: Reinhard transfer of the new clip's body
+  mean+std to the reference clip's body mean+std (clamp the std ratio ~0.7-1.4),
+  one fixed transform for all frames. Verify by measuring alpha-masked body
+  avg-RGB of both clips, not by eyeballing on a dark editor bg.
+- Drop any independent "punch"/grade on a clip that must match a reference — the
+  reference defines the target; matching means matching its statistics.
+
+---
+
 ## 0. AutoSprite source gate
 
 Run this first for every new or regenerated sprite sheet, including boss /
@@ -70,6 +128,55 @@ busts, icons) — distinct from animated VFX frames:
   improves lines but cannot invent face detail. If maximum crispness
   matters more than tightness, widen the framing (more native pixels per
   displayed area) or regenerate the source at higher native detail.
+- **If the final content size is <= the native AutoSprite cell, do NOT
+  Real-ESRGAN at all — use a plain near-native downsize.** Real-ESRGAN
+  only earns its keep when you are magnifying (final displayed pixels >
+  native pixels for that region). When the source cell already meets or
+  exceeds the final cell content (e.g. a 1024 AutoSprite cell repacked
+  into a 968 content area), an "upscale x2 then downscale back below
+  native" pass gains zero real resolution and only adds the model's
+  smoothing plus unsharp ringing — a soft interior + crunchy edge halo
+  that reads as the uncanny "AI-upscaled" look. Repack near-native
+  instead: premultiplied-alpha resize the native cell straight down to
+  the content size (the Koyora / Lunabi lingpet click-reaction pipeline),
+  optional single MILD unsharp only. Reference failure: `maribo_click_live2d_pingpong_98f`
+  was the lone lingpet click sheet pushed through `realesr-animevideov3`
+  x2 (1024 -> 2048 -> 968) + strong unsharp on top of an already-soft
+  native render; it shipped looking visibly "different" from its
+  natural-soft siblings and was re-repacked near-native on 2026-06-20.
+- **Sibling-family sharpness-band QA (sheets that ship as a SET).** When
+  an asset belongs to a family rendered the same way and shown side by
+  side over time (lingpet click reactions / cut-ins, per-character skill
+  cut-ins, a boss motion set), do not judge sharpness in isolation — an
+  asset that is the lone Real-ESRGAN'd / lone heavily-unsharped member
+  reads "off" even if it looks fine alone. Measure an objective
+  edge-energy proxy (variance-of-Laplacian over the alpha-masked,
+  size-normalized content) for the new asset AND a few shipped siblings,
+  and confirm the new one lands inside the sibling band rather than
+  spiking far above it. Reference: the maribo click sheet measured ~2377
+  vs the natural-soft peer band (lunabi 1051 / nekuring 1158); the lone
+  spike WAS the "different quality" the player noticed. A genuinely
+  detail-dense subject (koyora ~2340, busy fox-miko) may legitimately sit
+  high — judge against same-style siblings, and prefer raising soft
+  members by regenerating a higher-detail native source over faking edge
+  energy with Real-ESRGAN + unsharp.
+- **"Looks low quality" is not always a sharpness problem — measure
+  before you sharpen.** When a finished asset reads "graphics not good,"
+  do NOT reflexively reach for upscaling / Real-ESRGAN / unsharp. First
+  measure the asset's edge energy against (a) its OWN source illustration
+  and (b) same-style siblings. If the asset already matches its source's
+  sharpness (and sits in the sibling band), the complaint is NOT
+  resolution/sharpness — sharpening can only over-process it. The usual
+  real culprit for a pale / pastel / low-contrast subject is weak VALUE
+  CONTRAST (light-on-light, e.g. pink body + pale cyan armor) reading
+  flat next to high-contrast siblings (dark/saturated subjects). The fix
+  is a value-contrast / saturation / local-contrast pass (RGB only, alpha
+  preserved), NOT a sharpen. Reference: the maribo click sheet measured
+  1023 vs its own source 1055 and peers ~1050-1158 — already at source
+  sharpness — yet still read "not good"; a user-approved mild
+  contrast/saturation "punch" (contrast ~1.2 / sat ~1.18 / gentle local
+  contrast), not any upscale, resolved it. Keep the punch tasteful: a
+  strong boost reads candy/artificial and fights a pastel pet's identity.
 
 ---
 

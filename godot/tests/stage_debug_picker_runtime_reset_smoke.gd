@@ -3,20 +3,35 @@ extends SceneTree
 const StageDebugPicker := preload("res://scripts/core/stage_debug_picker.gd")
 
 
+class FakeSelectionState:
+	extends RefCounted
+
+	var stage_id := 1
+	var stage1_boss_variant := "dalji"
+
+	func set_stage(stage: int, stage1_variant: String = "dalji") -> void:
+		stage_id = stage
+		stage1_boss_variant = stage1_variant if stage_id == 1 else "dalji"
+
+
 class FakeOwner:
 	var current_stage := 1
+	var stage1_boss_variant := "dalji"
 	var selected_character_type := "soldier"
 	var ai_mode := "champion"
 	var arena_mode_enabled := false
 	var weather_type := "rain"
 	var weather_event_active := true
 	var weather_event_context := {"kind": "rain"}
+	var selection_state: Object = null
 	var redraw_count := 0
 
 	func queue_redraw() -> void:
 		redraw_count += 1
 
-	func get_node_or_null(_path: NodePath) -> Node:
+	func get_node_or_null(path: NodePath) -> Object:
+		if str(path) == "/root/GameSelectionState":
+			return selection_state
 		return null
 
 
@@ -186,7 +201,7 @@ func _init() -> void:
 	var registry := FakeRegistry.new()
 
 	picker.toggle(owner)
-	picker.selected_index = 1
+	picker.selected_index = picker._find_stage_index(2)
 
 	var event := InputEventKey.new()
 	event.pressed = true
@@ -221,8 +236,9 @@ func _init() -> void:
 	stage1_owner.selected_character_type = " Commando "
 	var stage1_registry := FakeRegistry.new()
 	picker.toggle(stage1_owner)
-	picker.selected_index = 0
+	picker.selected_index = picker._find_stage_variant_index(1, "dalji")
 	_expect(picker.handle_input(event, stage1_owner, stage1_registry, Vector2(1280.0, 720.0)), "Enter should apply Stage 1")
+	_expect(stage1_owner.stage1_boss_variant == "dalji", "Stage 1 Dalji debug route should keep the default boss variant")
 	_expect(stage1_registry.stage1_bg.prewarm_count == 1, "stage debug reset should prewarm the selected Stage 1 background")
 	_expect(stage1_registry.stage1_pillar_scene.prewarm_count == 1, "stage debug reset should prewarm the selected Stage 1 pillar scene")
 	_expect(stage1_registry.stage1_pillar_scene.module_getter_valid, "Stage 1 pillar scene prewarm should receive a module getter")
@@ -230,6 +246,18 @@ func _init() -> void:
 	_expect(stage1_registry.stage1_balloon.prewarm_count == 1, "stage debug reset should prewarm Stage 1 balloon runtime assets")
 	_expect(stage1_registry.stage1_skill_hud.prewarm_count == 1, "stage debug reset should prewarm Stage 1 skill HUD assets")
 	_expect(stage1_registry.active_item_runtime.prewarm_count == 1, "Stage 1 debug reset should prewarm active item runtime assets")
+
+	var gaksi_owner := FakeOwner.new()
+	gaksi_owner.selection_state = FakeSelectionState.new()
+	var gaksi_registry := FakeRegistry.new()
+	picker.toggle(gaksi_owner)
+	picker.selected_index = picker._find_stage_variant_index(1, "gaksi")
+	_expect(picker.handle_input(event, gaksi_owner, gaksi_registry, Vector2(1280.0, 720.0)), "Enter should apply Stage 1 Gaksital")
+	_expect(gaksi_owner.current_stage == 1, "Gaksital debug route should remain Stage 1")
+	_expect(gaksi_owner.stage1_boss_variant == "gaksi", "Gaksital debug route should set the Stage 1 boss variant")
+	_expect(gaksi_owner.selection_state.stage_id == 1, "Gaksital debug route should sync selected Stage 1")
+	_expect(gaksi_owner.selection_state.stage1_boss_variant == "gaksi", "Gaksital debug route should sync selected boss variant")
+	_expect(gaksi_registry.stage1_bg.prewarm_count == 1, "Gaksital debug route should still prewarm shared Stage 1 background")
 
 	print("stage_debug_picker_runtime_reset_smoke: ok")
 	quit(0)

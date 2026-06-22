@@ -19,7 +19,9 @@ func apply_selection_state(owner: Object) -> void:
 		selection.get("runtime_character_id", selection.get("character_id", "smasher"))
 	)
 	var entry_stage: int = max(1, int(selection.get("stage_id", 1)))
+	var stage1_boss_variant: String = normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
 	owner.set("current_stage", entry_stage)
+	owner.set("stage1_boss_variant", stage1_boss_variant if entry_stage == 1 else "dalji")
 	owner.set("selected_character_id", str(selection.get("character_id", "ufo_player")))
 	owner.set("selected_runtime_character_id", runtime_character_id)
 	owner.set("selected_character_type", runtime_character_id)
@@ -86,3 +88,10 @@ func normalize_runtime_character_id(value: Variant) -> String:
 	if normalized == "viper":
 		return "viper"
 	return "smasher"
+
+
+func normalize_stage1_boss_variant(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	if normalized == "gaksi" or normalized == "gaksital" or normalized == "talkwangdae":
+		return "gaksi"
+	return "dalji"

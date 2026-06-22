@@ -1,0 +1,50 @@
+{
+  "asset_id": "orosha_star_coil_bind_autosprite_16f",
+  "character": "orosha",
+  "display_name": "오로샤",
+  "generated_at": "2026-06-21",
+  "runtime_usage": "lingpet_star_coil_bind_motion_sheet",
+  "intent": "별똬리(star_coil) BIND 페이즈에서 오로샤 본체가 보스를 직접 휘감아 조이는 모션. 기존 절차적 코일 VFX(_draw_bind_coil)를 대체한다. 컴패니언 렌더러가 BIND 동안 이 시트를 _companion_pos(=보스 중심)에 그린다.",
+  "output_sheet": "res://assets/sprites/lingpet/orosha_star_coil_bind_autosprite_16f.png",
+  "source_autosprite": {
+    "character_id": "cmqjc18a4008d81qp4rffcey5",
+    "character_name": "Orosha Ringpet Front Clean v1",
+    "pose_id": "cmqop4xes000oc9yasf2s8bb4",
+    "pose_label": "Bind Torso Wrap",
+    "spritesheet_id": "cmqop9lfr002j645ovfacc5ue",
+    "spritesheet_job_id": "wf_817f212e-3a06-4a84-bc08-fa0a9ac1e7fd",
+    "video_id": "cmqop6iyu000pjnmagmvkrgvp",
+    "kind": "custom",
+    "loop": true,
+    "remove_bg": "default (AutoSprite native transparent output; corner alpha=0, no offline nukki needed)",
+    "with_sound": false,
+    "prompt": "Very subtle squeeze on the loose torso coil band: the two or three relaxed loops cinch in slightly then ease, the snake head resting forward and looking up with its gem pendant hanging bobs and presses gently, gold constellation lines and teal gems flare softly. KEEP it SHORT and LOOSE — do NOT add loops, do NOT stack into a tall tower, do NOT fill the center with smoke, cloud, or white puff, do NOT unravel to a flat ring, no drift or travel. Centered, same identity and scale every frame. Seamless gentle squeeze loop.",
+    "selection_note": "v6 (SHORT LOOSE TORSO BAND, 'Bind Torso Wrap' pose) chosen 2026-06-22 per user reference: orosha wraps the captive's MIDDLE in just 2-3 loose organic loops (a short wide band, NOT a tall neat stack), snake head resting forward and looking up with the gem pendant hanging, tail to the side. Fixes v5b feedback ('too neatly coiled / too long'). Live per-stage boss shows above/through; head rests on the boss's chest area. Clean (no white puff). Alternatives kept: v5b tall open-top barrel spritesheet cmqom63l600l5la1fljfuf1ih (too long/neat); v4 closed stack cmqol8jx20075bdb8fh83layn; v5 puffy cmqom18qz008hs6683sspe3vq; v3 cmqojnk0h001k2maghvvj3qgl; v2 cmqnb23zp001g6holc0lu90pz; v1 cmqnavniz00c8r3bejjtcwac7."
+  },
+  "runtime_sheet": {
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [512, 512],
+    "sheet_size": [2048, 2048],
+    "read_order": "left-to-right, top-to-bottom",
+    "loop": true,
+    "frame_interval": "intended ~14-16 fps seamless loop over the BIND duration (1.5s..3.5s by level)",
+    "transparent": true,
+    "sha256": "25b23ca140dbb286fd39520928ef5b5817c48370c1a04b0e28678b3233759e87",
+    "bytes": 1223645
+  },
+  "postprocess": {
+    "tool": "none",
+    "operation": "AutoSprite native transparent output used as-is. No Real-ESRGAN, no repack, no nukki. removeBg was AutoSprite default; corner alpha verified 0.",
+    "alpha_qa": "alpha extrema (0,255), corner px alpha 0 (transparent)"
+  },
+  "wiring_todo": {
+    "owner": "user/Codex (renderer wiring), Claude (review)",
+    "catalog": "orosha visuals + visual_layout: add star_coil_bind sheet path + grid (cols 4, rows 4, frame_count 16). Per atlas-grid-authority, record (cols, rows) explicitly — do NOT assume a shared SHEET_COLS default.",
+    "renderer": "lingpet_companion_renderer: add a BIND visual-state branch (gated on the active star_coil skill reporting PHASE_BIND, e.g. snapshot star_coil_bind_active) that draws the bind sheet cell at the companion position with a wall-clock/accumulator-driven frame index, like the cast/strike/distance_roll branches.",
+    "skill": "lingpet_star_coil_skill._draw_bind_coil procedural ellipse coil REMOVED (user: 'not a separate effect'). Optional: keep faint star sparks only.",
+    "loader": "load + prewarm the bind texture via the lingpet visual loader/prewarm path (size_limit-aware; 2048px sheet).",
+    "qa": "pixel-level in-game QA at the bind position over a real bind (boss encircled, loop reads as constrict, no double-draw of the rolling sprite + bind sheet)."
+  }
+}

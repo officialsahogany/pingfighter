@@ -173,10 +173,24 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 	var should_flip_sprite := bool(sprite_state.get("flip", false))
 	var render_speed_ratio := float(sprite_state.get("speed_ratio", config.get("motion_speed_ratio", 0.0)))
 	var distance_roll_sprite := bool(sprite_state.get("distance_roll", false))
+	var bind_sheet := bool(sprite_state.get("bind_sheet", false))
 	if tex == null:
 		return
 	var modulate := Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
 	var draw_size_override: Vector2 = _get_draw_size_override(config, mode)
+	if bind_sheet:
+		_draw_bind_sheet_region(
+			canvas,
+			tex,
+			center,
+			_get_bind_sheet_draw_size(config),
+			modulate,
+			int(sprite_state.get("bind_cols", 4)),
+			int(sprite_state.get("bind_rows", 4)),
+			int(sprite_state.get("bind_frame", 0)),
+			int(sprite_state.get("bind_frame_count", 16))
+		)
+		return
 	if distance_roll_sprite:
 		_draw_distance_roll_texture_region(
 			canvas,
@@ -228,11 +242,18 @@ func _resolve_companion_sprite_state(config: Dictionary) -> Dictionary:
 	var should_flip_sprite := false
 	var render_speed_ratio := float(config.get("motion_speed_ratio", 0.0))
 	var distance_roll_sprite := false
+	var bind_sheet := false
 	if bool(config.get("casting_windup", false)):
 		mode = LingpetCompanionSpriteAnimator.MODE_CAST
 		tex = config.get("cast_texture", null) as Texture2D
 		visual_key = "companion_puppet_control" if bool(config.get("skill_cast_pose_active", false)) else "companion_cast"
 		should_flip_sprite = facing_left
+	elif bool(config.get("bind_sheet_active", false)) and config.get("bind_sheet_texture", null) != null:
+		# Star Coil BIND: orosha body itself wraps the boss (animated bind sheet) instead of the
+		# rolling-hoop sprite. Takes priority over distance_roll while binding.
+		tex = config.get("bind_sheet_texture", null) as Texture2D
+		visual_key = "companion_star_coil_bind"
+		bind_sheet = true
 	else:
 		var distance_roll_state := _get_distance_roll_texture_state(config)
 		if not distance_roll_state.is_empty():
@@ -284,6 +305,11 @@ func _resolve_companion_sprite_state(config: Dictionary) -> Dictionary:
 		"speed_ratio": render_speed_ratio,
 		"distance_roll": distance_roll_sprite,
 		"rotation": float(config.get("companion_roll_angle", 0.0)),
+		"bind_sheet": bind_sheet,
+		"bind_cols": int(config.get("companion_star_coil_bind_cols", 0)),
+		"bind_rows": int(config.get("companion_star_coil_bind_rows", 0)),
+		"bind_frame": int(config.get("bind_sheet_frame", 0)),
+		"bind_frame_count": int(config.get("companion_star_coil_bind_frame_count", 0)),
 	}
 
 
@@ -298,6 +324,31 @@ func _get_distance_roll_texture_state(config: Dictionary) -> Dictionary:
 		"visual_key": "companion_distance_roll_source",
 		"flip": false,
 	}
+
+
+func _get_bind_sheet_draw_size(config: Dictionary) -> Vector2:
+	var s: float = float(config.get("companion_star_coil_bind_draw_size", 0.0))
+	if s <= 0.0:
+		return LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE
+	return Vector2(s, s)
+
+
+func _draw_bind_sheet_region(canvas: CanvasItem, texture: Texture2D, center: Vector2, draw_size: Vector2, modulate: Color, cols: int, rows: int, frame: int, frame_count: int) -> void:
+	var tex_size: Vector2 = texture.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or cols <= 0 or rows <= 0:
+		return
+	var total: int = frame_count if frame_count > 0 else cols * rows
+	if total <= 0:
+		total = 1
+	var idx: int = ((frame % total) + total) % total
+	var cell_w: float = tex_size.x / float(cols)
+	var cell_h: float = tex_size.y / float(rows)
+	var cx: int = idx % cols
+	var cy: int = floori(float(idx) / float(cols))
+	var source_rect := Rect2(float(cx) * cell_w, float(cy) * cell_h, cell_w, cell_h)
+	var dest_size: Vector2 = draw_size if draw_size != Vector2.ZERO else LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE
+	var dest_rect := Rect2(center - dest_size * 0.5, dest_size)
+	canvas.draw_texture_rect_region(texture, dest_rect, source_rect, modulate, false, true)
 
 
 func _get_movement_texture_state(config: Dictionary, facing_left: bool) -> Dictionary:

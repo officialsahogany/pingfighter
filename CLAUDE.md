@@ -686,6 +686,38 @@ threshold must match. When adding a new pause branch that skips
 `update_lingpet`, a new override / skill that parks the companion, or any new
 `motion_speed_ratio` writer, re-audit all of these mechanisms.
 
+## Godot Companion Teleport/Reposition Locomotion Trap (ground pet keeps Y)
+
+Any lingpet skill / passive that SCRIPTS a companion's position (teleport, blink,
+dash, recall, vacuum, future reposition skills) must respect the pet's
+locomotion style when choosing the target Y. **Ground (`patrol`) lingpets cannot
+move into the air**, so a position override for a patrol pet must keep the pet's
+current ground-lane Y and only change X. Flight pets (`sortie_flight` /
+`free_flight`) may move freely in Y. Reference failure: Linkport
+(`lingpet_ring_dash`) teleported a descending-ball interceptor to the player
+guard-center Y (`_resolve_player_guard_center_y`) for ALL pets. For a patrol pet
+that Y differs from its patrol lane Y by `guard_y - patrol_lane_y`, which is
+**paddle-height dependent**: ≈0px at the 50px base paddle (so state smokes that
+use the base paddle never caught it) but a clearly visible upward pop once a
+paddle-height perk/item raises the paddle (≈15px at 75, ≈38px at 120). The pet
+appeared to jump up into the air to hit the ball. Fix: pass the motion style into
+the position-scripting state and branch the target Y — `current_companion_pos.y`
+for ground pets, the guard-center dive only for flight pets
+(`lingpet_ring_dash_state.advance`'s `motion_style` arg →
+`_build_target_data`'s `is_ground_pet`).
+
+Standing rules:
+- A companion position override's target Y must be chosen by locomotion style,
+  not a single field-wide anchor (guard line, ball Y, player center). Ground =
+  keep current lane Y; flight = free.
+- The regression smoke MUST use a **non-base paddle height** (the divergence is
+  ~0 at the 50px base, so a base-paddle test passes even with the bug) and assert
+  the OUTCOME pair: ground pet Y stays on its lane (only X teleports) AND a flight
+  pet still dives to the guard line. Reference:
+  `lingpet_egg_runtime_smoke._verify_ring_dash_ground_pet_keeps_y_on_teleport`
+  (paddle 75; reverse-verified to FAIL on the old guard-dive code) plus the flight
+  guard-Y assert added to `_verify_ring_dash_passive`.
+
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
 The battle `owner` (`battle_scene_shell`) routes `owner.set(key, value)` /

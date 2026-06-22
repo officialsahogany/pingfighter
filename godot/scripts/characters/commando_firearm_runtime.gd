@@ -81,11 +81,13 @@ const BOWLING_TRAP_CAPTURE_BALL_OFFSET := Vector2(0.0, -15.0)
 const BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER := 4.0
 const BOWLING_TRAP_LAUNCH_ANGLE_STEP := PI / 8.0
 const BOWLING_TRAP_MIN_FIELD_Y_RATIO := 0.6
-# Python parity: item_effects/bowling_trap.py KNOCKBACK_POWER = 22.0 ("라그나로크 수준의 긴
-# 넉백" — long but controlled, ~146px boss travel at 60fps with 0.85 decay). Do NOT reuse
-# DYNAMITE_BOSS_KNOCKBACK_POWER (104.0): that launched the boss ~660-780px (the full field
-# width) so the guard hit slammed the boss all the way into the wall instead of nudging it.
-const BOWLING_TRAP_GUARD_KNOCKBACK_POWER := 22.0
+# Intentional +30% buff over Python parity (per design request): base = item_effects/
+# bowling_trap.py KNOCKBACK_POWER 22.0 ("라그나로크 수준의 긴 넉백"), now 22.0 * 1.3 = 28.6
+# for ~30% more boss travel (~146px -> ~190px at 60fps with 0.85 decay; distance scales
+# linearly with initial knockback velocity). This deliberately exceeds the Python source value.
+# Do NOT reuse DYNAMITE_BOSS_KNOCKBACK_POWER (104.0): that launched the boss ~660-780px (the
+# full field width) so the guard hit slammed the boss all the way into the wall.
+const BOWLING_TRAP_GUARD_KNOCKBACK_POWER := 28.6
 const BOWLING_TRAP_GUARD_STUN_FRAMES := 60.0
 const BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES := ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_FRAMES
 const BOWLING_TRAP_GUARD_SPEED_REDUCTION := 0.7
@@ -162,6 +164,10 @@ const COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE := Vector2(160.0, 160.0)
 const COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET := 12.0
 const PISTOL_SPREAD_RADIANS := PI / 12.0
 const BERETTA_SPREAD_RADIANS := PISTOL_SPREAD_RADIANS * 0.70
+const PISTOL_ENHANCE_PERK_ID := "pistol_enhance"
+const PISTOL_ENHANCE_SPREAD_DEGREES := [0.0, 12.0, 9.0, 6.0, 3.0, 1.0]
+const PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL := 0.10
+const PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL := 0.10
 const PISTOL_WALL_BOUNCE_MARGIN := 10.0
 const PISTOL_WALL_BOUNCE_MAX := 1
 const PISTOL_WALL_BOUNCE_DAMPING := 0.85
@@ -580,10 +586,70 @@ var weapon_fire_sheet_max_frames := 0.0
 var serve_wait_fire_suppressed_until_release := false
 
 
+static func get_pistol_enhance_ammo_bonus(level: int) -> int:
+	if level <= 2:
+		return 0
+	if level <= 4:
+		return 1
+	return level - 3
+
+
+static func get_pistol_enhance_spread_radians(level: int) -> float:
+	if level <= 0:
+		return PISTOL_SPREAD_RADIANS
+	var index: int = clampi(level, 1, PISTOL_ENHANCE_SPREAD_DEGREES.size() - 1)
+	return deg_to_rad(float(PISTOL_ENHANCE_SPREAD_DEGREES[index]))
+
+
+static func get_pistol_enhance_speed_multiplier(level: int) -> float:
+	return 1.0 + float(clampi(level, 0, 5)) * PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL
+
+
+static func get_pistol_enhance_knockback_multiplier(level: int) -> float:
+	return 1.0 + float(clampi(level, 0, 5)) * PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL
+
+
+func _get_runtime_perk_level(deps: Dictionary, perk_id: String) -> int:
+	var perk_state: Object = deps.get("runtime_perk_state", null)
+	if perk_state == null or not perk_state.has_method("get_runtime_skill_level"):
+		return 0
+	return max(0, int(perk_state.call("get_runtime_skill_level", perk_id)))
+
+
+func _get_effective_base_pistol_spread_radians(deps: Dictionary) -> float:
+	return get_pistol_enhance_spread_radians(_get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID))
+
+
+func _get_effective_base_pistol_speed_multiplier(deps: Dictionary) -> float:
+	return get_pistol_enhance_speed_multiplier(_get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID))
+
+
+func _get_effective_base_pistol_knockback_multiplier(deps: Dictionary) -> float:
+	return get_pistol_enhance_knockback_multiplier(_get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID))
+
+
+func _sync_base_pistol_enhance_ammo(deps: Dictionary, weapon_controller: Object) -> void:
+	if weapon_controller == null or not weapon_controller.has_method("set_base_pistol_ammo_max"):
+		return
+	var level: int = _get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID)
+	var ammo_max: int = PISTOL_AMMO_MAX + get_pistol_enhance_ammo_bonus(level)
+	weapon_controller.call("set_base_pistol_ammo_max", ammo_max)
+
+
+func _build_firearm_spawn_options(deps: Dictionary) -> Dictionary:
+	return {
+		"pistol_spread_radians": _get_effective_base_pistol_spread_radians(deps),
+		"base_pistol_speed_mult": _get_effective_base_pistol_speed_multiplier(deps),
+		"base_pistol_knockback_mult": _get_effective_base_pistol_knockback_multiplier(deps),
+		"beretta_spread_radians": BERETTA_SPREAD_RADIANS,
+	}
+
+
 func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dictionary, deps: Dictionary) -> Dictionary:
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
 	if weapon_controller == null or not weapon_controller.has_method("get_snapshot"):
 		return {}
+	_sync_base_pistol_enhance_ammo(deps, weapon_controller)
 	var now_msec: int = Time.get_ticks_msec()
 	var net_constrict_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_constrict_input(
 		lingering_effects,
@@ -1199,6 +1265,7 @@ func _update_active_suicide_drone_input(
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
+	var spawn_options: Dictionary = _build_firearm_spawn_options(deps)
 	CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect(
 		self,
 		weapon_id,
@@ -1223,8 +1290,10 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			"pistol_bullet_speed": PISTOL_BULLET_SPEED,
 			"doping_potion_head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
 			"doping_potion_pistol_speed_multiplier": DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
-			"pistol_spread_radians": PISTOL_SPREAD_RADIANS,
-			"beretta_spread_radians": BERETTA_SPREAD_RADIANS,
+			"pistol_spread_radians": float(spawn_options.get("pistol_spread_radians", PISTOL_SPREAD_RADIANS)),
+			"base_pistol_speed_mult": float(spawn_options.get("base_pistol_speed_mult", 1.0)),
+			"base_pistol_knockback_mult": float(spawn_options.get("base_pistol_knockback_mult", 1.0)),
+			"beretta_spread_radians": float(spawn_options.get("beretta_spread_radians", BERETTA_SPREAD_RADIANS)),
 			"flash_limit": FLASH_LIMIT,
 			"support_call_limit": SUPPORT_CALL_LIMIT,
 			"support_call_delay_min_frames": SUPPORT_CALL_DELAY_MIN_FRAMES,

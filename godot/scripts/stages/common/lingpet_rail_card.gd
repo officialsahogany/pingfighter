@@ -198,6 +198,8 @@ static func build_entry(registry: Object) -> Dictionary:
 		or bool(snapshot.get("solar_bolt_vfx_active", false))
 		or bool(snapshot.get("soul_clone_active", false))
 		or bool(snapshot.get("ghost_summon_active", false))
+		or bool(snapshot.get("star_coil_active", false))
+		or bool(snapshot.get("star_coil_visible", false))
 		or bool(snapshot.get("companion_skill_winding_up", false))
 	)
 	var status: String = "casting" if casting else ("ready" if ready else "charging")

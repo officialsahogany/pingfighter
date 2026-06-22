@@ -965,6 +965,10 @@ static func _draw_lingpet_ring_core_row(
 	hover_data = _draw_lingpet_ring_core_slot(canvas, font, ring_core_rect, snapshot, mouse_pos, hover_data, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 	var chip_pips_x := ring_core_rect.end.x + 7.0
 	_draw_vertical_affinity_chip_pips(canvas, Rect2(chip_pips_x, rect.position.y, _affinity_chip_pips_width(), rect.size.y), chip_count, stat_buff_color, empty_text_color)
+	var chip_pips_hover_rect := Rect2(chip_pips_x - 3.0, rect.position.y, _affinity_chip_pips_width() + 6.0, rect.size.y)
+	if chip_pips_hover_rect.has_point(mouse_pos):
+		var chip_body := LanguageSettings.translate_text("친밀도 획득량 +%d%%") % (chip_count * 20)
+		_fill_hover_data(hover_data, LanguageSettings.translate_text("강화칩 %d / %d") % [chip_count, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS], "", chip_body, stat_buff_color, chip_pips_hover_rect)
 	var text_x := chip_pips_x + _affinity_chip_pips_width() + 11.0
 	var text_w: float = maxf(32.0, rect.end.x - text_x)
 	var title_text := LanguageSettings.translate_text("링코어")
@@ -1007,6 +1011,11 @@ static func _draw_lingpet_ring_core_slot(
 		canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
 		canvas.draw_rect(badge_rect, Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.72), false, 1.0)
 		_draw_centered_text(canvas, font, "T%d" % tier, badge_rect.get_center().x, badge_rect.position.y + 9.0, 7, Color.WHITE, ui_text_scale)
+	if hovered:
+		var rc_subtitle := ("T%d" % tier) if tier > 0 else LanguageSettings.translate_text("미장착")
+		var rc_cap := LingpetAffinityStore.get_ring_core_cap_for_tier(tier)
+		var rc_body := LanguageSettings.translate_text("친밀도 상한 Lv.%d") % rc_cap
+		_fill_hover_data(hover_data, LanguageSettings.translate_text("링코어"), rc_subtitle, rc_body, accent_blue, rect)
 	return hover_data
 
 

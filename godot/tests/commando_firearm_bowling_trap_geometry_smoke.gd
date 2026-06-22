@@ -606,7 +606,8 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 # field. Drives the real runtime path (status stun + knockback decay -> boss-AI grenade-style
 # motion) and asserts total boss travel stays well under the field width. Reverse-verified:
 # restoring the dynamite power (104.0) drives the boss ~610px into the wall and FAILS the
-# upper bound. Python parity target: item_effects/bowling_trap.py ~146px travel.
+# upper bound. Target: intentional +30% buff over Python parity (22.0 -> 28.6 power), so the
+# boss now travels ~190px (was ~146px at the Python source value) — still well inside the bound.
 func _verify_bowling_trap_guard_knockback_stays_bounded() -> void:
 	var travel: float = _simulate_bowling_trap_guard_boss_travel(
 		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER
@@ -617,7 +618,7 @@ func _verify_bowling_trap_guard_knockback_stays_bounded() -> void:
 	)
 	_expect(
 		travel < 300.0,
-		"bowling-trap guard knockback must stay bounded near Python parity (~146px), not slam the boss across the field (got %.1fpx)" % travel
+		"bowling-trap guard knockback must stay bounded (~190px after the +30%% buff), not slam the boss across the field (got %.1fpx)" % travel
 	)
 	# Reverse-verify the seal: the retired dynamite power must trip the upper bound.
 	var dynamite_travel: float = _simulate_bowling_trap_guard_boss_travel(

@@ -49,7 +49,7 @@ func build_tooltip_state(panel_state: Dictionary, view_size: Vector2, scale_fact
 		"alias_text": _get_alias_text(weapon_id, title),
 		"cooldown_seconds": cooldown_seconds,
 		"cooldown_text": _format_cooldown(cooldown_seconds),
-		"description": _get_description(weapon_id, skill_config_snapshot),
+		"description": _get_description(weapon_id, skill_config_snapshot, weapon),
 		"control_text": _get_control_text(weapon_id),
 		"can_fire": can_fire,
 		"color": _get_weapon_color(weapon_id),
@@ -127,16 +127,17 @@ func _get_cooldown_seconds(weapon_id: String, skill_config_snapshot: Dictionary)
 	return float(skill_data.get("cooldown", 0.0))
 
 
-func _get_description(weapon_id: String, skill_config_snapshot: Dictionary) -> String:
+func _get_description(weapon_id: String, skill_config_snapshot: Dictionary, weapon: Dictionary = {}) -> String:
 	if weapon_id == "pistol":
+		var ammo_max: int = max(1, int(weapon.get("ammo_max", 5)))
 		return _pick_language_text(
-			"기본 권총은 5발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다.",
-			"The basic pistol uses a 5-round magazine and fires after a ready sound and aim delay.",
-			"基础手枪使用5发弹匣，在准备音和瞄准延迟后开火。",
-			"基本拳銃は5発マガジンを使い、準備音と照準遅延の後に発射します。",
-			"La pistola básica usa un cargador de 5 balas y dispara tras el sonido de preparación y la demora de apuntado.",
-			"A pistola básica usa um carregador de 5 balas e dispara após o som de preparo e a demora de mira.",
-			"Базовый пистолет использует магазин на 5 патронов и стреляет после звука готовности и задержки прицеливания."
+			"기본 권총은 %d발 탄창을 사용하며 준비음 뒤 조준 지연 후 발사합니다." % ammo_max,
+			"The basic pistol uses a %d-round magazine and fires after a ready sound and aim delay." % ammo_max,
+			"基础手枪使用%d发弹匣，并在准备音和瞄准延迟后开火。" % ammo_max,
+			"基本拳銃は%d発マガジンを使い、準備音と照準遅延の後に発射します。" % ammo_max,
+			"La pistola básica usa un cargador de %d balas y dispara tras el sonido de preparación y la demora de apuntado." % ammo_max,
+			"A pistola básica usa um carregador de %d balas e dispara após o som de preparo e a demora de mira." % ammo_max,
+			"Базовый пистолет использует магазин на %d патронов и стреляет после звука готовности и задержки прицеливания." % ammo_max
 		)
 	var skill_data: Dictionary = _get_dict(_get_dict(skill_config_snapshot.get("skill_data", {})).get(weapon_id, {}))
 	var description: String = str(skill_data.get("description", ""))

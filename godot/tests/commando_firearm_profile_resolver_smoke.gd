@@ -126,8 +126,85 @@ func _verify_spawn_profile_state() -> void:
 	var override_profile: Dictionary = _get_dict(override_state.get("profile", {}))
 	_expect(is_equal_approx(float(override_profile.get("angle_offset", 0.0)), 0.25), "spawn profile should preserve explicit angle offsets")
 
+	var enhanced_base_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+		"pistol",
+		{},
+		weapon_profiles,
+		{},
+		{},
+		{},
+		"pistol",
+		25.0,
+		1.2,
+		PI / 12.0,
+		(PI / 12.0) * 0.70,
+		1.5
+	)
+	var enhanced_base_profile: Dictionary = _get_dict(enhanced_base_state.get("profile", {}))
+	_expect(is_equal_approx(float(enhanced_base_profile.get("speed", 0.0)), 37.5), "base pistol spawn profile should apply pistol_enhance speed multiplier")
+
+	var slingshot_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+		"pistol",
+		{"kind": "bullet", "speed": 18.0, "slingshot": true},
+		weapon_profiles,
+		{},
+		{},
+		{},
+		"pistol",
+		25.0,
+		1.2,
+		PI / 12.0,
+		(PI / 12.0) * 0.70,
+		1.5
+	)
+	var slingshot_profile: Dictionary = _get_dict(slingshot_state.get("profile", {}))
+	_expect(is_equal_approx(float(slingshot_profile.get("speed", 0.0)), 18.0), "slingshot override should ignore pistol_enhance speed multiplier")
+
+	var unchanged_beretta_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+		"commando_pistol",
+		{},
+		weapon_profiles,
+		{},
+		{},
+		{},
+		"pistol",
+		25.0,
+		1.2,
+		PI / 12.0,
+		(PI / 12.0) * 0.70,
+		1.5
+	)
+	var unchanged_beretta_profile: Dictionary = _get_dict(unchanged_beretta_state.get("profile", {}))
+	_expect(is_equal_approx(float(unchanged_beretta_profile.get("speed", 0.0)), 30.0), "Beretta spawn profile should ignore pistol_enhance speed multiplier")
+
+	var base_spread: float = deg_to_rad(15.0)
+	var beretta_spread: float = deg_to_rad(10.5)
+	seed(930105)
+	var beretta_max_offset: float = _sample_max_abs_spawn_angle(
+		"commando_pistol",
+		weapon_profiles,
+		base_spread,
+		beretta_spread
+	)
+	_expect(beretta_max_offset <= beretta_spread, "Commando pistol should draw spread from the Beretta band, not the base pistol band")
+	_expect(beretta_max_offset > deg_to_rad(1.0), "seeded Beretta spread samples should prove the band is wider than the enhanced base pistol cap")
+
+	var tight_base_spread: float = deg_to_rad(1.0)
+	seed(930105)
+	var base_max_offset: float = _sample_max_abs_spawn_angle(
+		"pistol",
+		weapon_profiles,
+		tight_base_spread,
+		beretta_spread
+	)
+	_expect(base_max_offset <= tight_base_spread, "base pistol should honor the supplied tight enhanced spread band")
+
 
 func _verify_runtime_profile_constants() -> void:
+	_expect(
+		is_equal_approx(CommandoFirearmRuntime.BERETTA_SPREAD_RADIANS, CommandoFirearmRuntime.PISTOL_SPREAD_RADIANS * 0.70),
+		"Beretta spread should stay derived from the base pistol constant"
+	)
 	var pistol: Dictionary = _get_runtime_weapon_profile("unknown_weapon")
 	_expect(str(pistol.get("kind", "")) == "bullet", "runtime weapon profile constants should keep pistol fallback")
 	pistol["kind"] = "mutated"
@@ -172,6 +249,33 @@ func _verify_removed_runtime_profile_bridges() -> void:
 		fire_spawn_source.find("CommandoFirearmProfileResolver.build_spawn_profile_state") >= 0,
 		"fire-spawn owner should delegate spawn profile preparation to the profile resolver"
 	)
+
+
+func _sample_max_abs_spawn_angle(
+	weapon_id: String,
+	weapon_profiles: Dictionary,
+	pistol_spread_radians: float,
+	beretta_spread_radians: float
+) -> float:
+	var max_offset := 0.0
+	for _index in range(96):
+		var state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+			weapon_id,
+			{},
+			weapon_profiles,
+			{},
+			{},
+			{},
+			"pistol",
+			25.0,
+			1.2,
+			pistol_spread_radians,
+			beretta_spread_radians
+		)
+		var profile: Dictionary = _get_dict(state.get("profile", {}))
+		_expect(profile.has("angle_offset"), "%s spawn profile should emit an angle_offset sample" % weapon_id)
+		max_offset = maxf(max_offset, absf(float(profile.get("angle_offset", 0.0))))
+	return max_offset
 
 
 func _get_runtime_weapon_profile(weapon_id: String) -> Dictionary:

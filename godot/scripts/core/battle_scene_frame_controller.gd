@@ -97,8 +97,9 @@ func process_idle(
 			defeat_continue_screen.update(delta)
 			_perf_end(perf_logger, "process.frame.defeat_chance_gems_continue", sample_start)
 		_queue_redraw(owner)
-		_perf_end(perf_logger, "process.frame.total", total_start)
-		return
+		if _does_defeat_chance_gems_continue_block_battle(defeat_continue_screen):
+			_perf_end(perf_logger, "process.frame.total", total_start)
+			return
 
 	var defeat_settlement_screen: Object = _get_defeat_settlement_screen(module_getter)
 	if _is_defeat_settlement_active(defeat_settlement_screen):
@@ -227,7 +228,7 @@ func process_physics(
 	_perf_end(perf_logger, "physics.frame.gate.stage_clear_result", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	if _is_defeat_chance_gems_continue_active(_get_defeat_chance_gems_continue_screen(module_getter)):
+	if _does_defeat_chance_gems_continue_block_battle(_get_defeat_chance_gems_continue_screen(module_getter)):
 		_perf_end(perf_logger, "physics.frame.gate.defeat_chance_gems_continue", sample_start)
 		_perf_end(perf_logger, "physics.frame.total", total_start)
 		return
@@ -676,6 +677,14 @@ func _is_stage_clear_result_active(result_screen: Object) -> bool:
 
 func _is_defeat_chance_gems_continue_active(screen: Object) -> bool:
 	return screen != null and screen.has_method("is_active") and bool(screen.is_active())
+
+
+func _does_defeat_chance_gems_continue_block_battle(screen: Object) -> bool:
+	if screen == null:
+		return false
+	if screen.has_method("blocks_battle_physics"):
+		return bool(screen.blocks_battle_physics())
+	return _is_defeat_chance_gems_continue_active(screen)
 
 
 func _is_defeat_settlement_active(screen: Object) -> bool:

@@ -187,7 +187,8 @@ static func blade_horizontal_control_motion(
 	paddle_width: float,
 	jetpack_max_height: float,
 	airborne_bonus_max: float,
-	dark_mode: bool
+	dark_mode: bool,
+	lateral_speed_scale: float = 1.0
 ) -> Dictionary:
 	var max_speed: float = max(0.0, float(config.get("paddle_max_speed", config.get("paddle_speed", 4.0))))
 	var accel: float = max(0.0, float(config.get("paddle_accel", 0.38)))
@@ -202,6 +203,11 @@ static func blade_horizontal_control_motion(
 	if dark_mode:
 		max_speed *= 3.0
 		accel *= 3.0
+	# Post-fire steering damp (Dark Blade phase 2): scales BOTH cap and accel so the
+	# airborne x3.15 * dark x3.0 stack does not read as a too-fast left/right slide.
+	var safe_lateral_scale: float = max(0.0, lateral_speed_scale)
+	max_speed *= safe_lateral_scale
+	accel *= safe_lateral_scale
 	if direction < 0.0:
 		var target_left: float = -max_speed
 		if player_speed > target_left:

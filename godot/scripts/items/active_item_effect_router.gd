@@ -52,6 +52,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_long_boost", [owner, registry])
 	if _matches(item_name, effect_name, "milk_bottle"):
 		return _call_bool(effect_controller, "activate_milk_bottle", [item_data, owner, registry])
+	if _matches(item_name, effect_name, "cheese"):
+		return _call_bool(effect_controller, "activate_cheese", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "regeneration_potion"):
 		return _call_bool(effect_controller, "apply_regeneration_potion", [owner, registry])
 	if _matches(item_name, effect_name, "holy_barrier"):

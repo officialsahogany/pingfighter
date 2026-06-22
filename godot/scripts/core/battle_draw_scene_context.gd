@@ -81,6 +81,7 @@ func _build_full_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"viper_jetpack_state": _get_instance(registry, "viper_jetpack_state"),
 		"viper_skill_runtime": _get_instance(registry, "viper_skill_runtime"),
 		"stage_ball_spawn_intro": _get_instance(registry, "stage_ball_spawn_intro"),
+		"defeat_continue_revival_beat_state": _get_instance(registry, "defeat_continue_revival_beat_state"),
 	}
 
 
@@ -101,6 +102,7 @@ func _build_common_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
 		"status_effect_state": _get_instance(registry, "status_effect_state"),
 		"stage_ball_spawn_intro": _get_instance(registry, "stage_ball_spawn_intro"),
+		"defeat_continue_revival_beat_state": _get_instance(registry, "defeat_continue_revival_beat_state"),
 	}
 
 

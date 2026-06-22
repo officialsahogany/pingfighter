@@ -65,11 +65,34 @@ func _verify_catalog_choices() -> void:
 	var choices: Array = catalog.get_choices("soldier", {}, true, 200)
 	_expect(_has_choice(choices, "soldier_unlock_net_gun"), "soldier choices should include net gun unlock")
 	_expect(_has_choice(choices, "soldier_pistol_perk"), "soldier choices should include Commando pistol unlock")
+	_expect(_has_choice(choices, "pistol_enhance"), "soldier choices should include pistol_enhance")
 	_expect(not _has_choice(choices, "unlock_plasma"), "soldier choices should not include Smasher unlocks")
 	_expect(not _has_choice(choices, "kick_enhance"), "soldier choices should not include Viper perks")
 
 	var debug_entries: Array = catalog.get_debug_perk_entries()
 	_expect(_has_choice(debug_entries, "soldier_unlock_bazooka"), "debug picker should expose soldier unlocks")
+	_expect(_has_choice(debug_entries, "pistol_enhance"), "debug picker should expose pistol_enhance")
+
+	var pistol_enhance_value: Variant = RuntimePerkCatalog.SOLDIER_PERKS.get("pistol_enhance", {})
+	var pistol_enhance: Dictionary = pistol_enhance_value if pistol_enhance_value is Dictionary else {}
+	var descriptions_value: Variant = pistol_enhance.get("descriptions", {})
+	var descriptions: Dictionary = descriptions_value if descriptions_value is Dictionary else {}
+	_expect(int(pistol_enhance.get("max_level", 0)) == 5, "pistol_enhance should be a five-level invested perk")
+	_expect(not bool(pistol_enhance.get("is_weapon_unlock", false)), "pistol_enhance should not be a weapon unlock")
+	_expect(not pistol_enhance.has("weapon_name"), "pistol_enhance should not carry a weapon_name field")
+	_expect(not pistol_enhance.has("unlocks_skill"), "pistol_enhance should not unlock a Commando skill orb")
+	_expect(str(pistol_enhance.get("character_restriction", "")) == "soldier", "pistol_enhance should stay Soldier-only")
+	_expect(str(descriptions.get(3, "")) != str(descriptions.get(1, "")), "pistol_enhance Lv.3 copy should differ from Lv.1")
+	_expect(str(descriptions.get(5, "")) != str(descriptions.get(1, "")), "pistol_enhance Lv.5 copy should differ from Lv.1")
+	_expect(str(descriptions.get(3, "")).contains("탄창") and str(descriptions.get(5, "")).contains("탄창"), "pistol_enhance descriptions should mention the magazine lane")
+	_expect(str(descriptions.get(1, "")).contains("탄속") and str(descriptions.get(5, "")).contains("+50%"), "pistol_enhance descriptions should mention the bullet-speed lane")
+	_expect(str(descriptions.get(1, "")).contains("넉백") and str(descriptions.get(5, "")).contains("넉백"), "pistol_enhance descriptions should mention the knockback lane")
+	_expect(str(pistol_enhance.get("detail", "")).contains("탄속과 넉백은 +50%"), "pistol_enhance detail should document the Lv.6+ bullet-speed and knockback cap")
+	for level in range(1, 6):
+		_expect(
+			_fits_choice_card_description_budget(str(descriptions.get(level, "")), 48, 2),
+			"pistol_enhance Lv.%d description should fit the runtime choice-card 2-line budget" % level
+		)
 
 
 func _verify_unlock_side_effects() -> void:
@@ -157,6 +180,18 @@ func _choice(catalog: Object, choice_id: String) -> Dictionary:
 	var choice: Dictionary = catalog.get_perk_data(choice_id)
 	choice["id"] = choice_id
 	return choice
+
+
+func _fits_choice_card_description_budget(text: String, max_chars: int, max_lines: int) -> bool:
+	var remaining := text.strip_edges()
+	var line_count := 0
+	while remaining.length() > max_chars and line_count < max_lines:
+		line_count += 1
+		remaining = remaining.substr(max_chars).strip_edges()
+	if remaining != "" and line_count < max_lines:
+		line_count += 1
+		remaining = ""
+	return remaining == "" and line_count <= max_lines
 
 
 func _has_choice(choices: Array, choice_id: String) -> bool:

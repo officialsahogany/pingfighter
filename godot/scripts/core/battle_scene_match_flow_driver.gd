@@ -181,9 +181,9 @@ func _resolve_match_defeat(
 	var chance_gems_count: int = _get_chance_gems_count(owner, registry)
 	if chance_gems_count <= 0:
 		return _show_defeat_settlement(registry, owner)
-	_consume_chance_gem(owner, registry, chance_gems_count)
 	if _show_defeat_continue_screen(registry, owner, reset_drive_input_callback, reset_ball_callback):
 		return true
+	_consume_chance_gem(owner, registry, chance_gems_count)
 	reset_for_continue(owner, registry, reset_drive_input_callback, reset_ball_callback)
 	return true
 
@@ -207,7 +207,12 @@ func _show_defeat_continue_screen(
 		reset_drive_input_callback,
 		reset_ball_callback
 	)
+	var consume_callback := Callable(self, "_consume_chance_gem_for_continue").bind(owner, registry)
+	if continue_screen.has_method("show_with_consume"):
+		var show_with_consume_result: Variant = continue_screen.show_with_consume(owner, registry, continue_callback, consume_callback)
+		return true if show_with_consume_result == null else bool(show_with_consume_result)
 	if continue_screen.has_method("show"):
+		_consume_chance_gem_for_continue(owner, registry)
 		var show_result: Variant = continue_screen.show(owner, registry, continue_callback)
 		return true if show_result == null else bool(show_result)
 	return false
@@ -260,6 +265,13 @@ func _consume_chance_gem(owner: Object, registry: Object, current_count: int) ->
 	var fallback_remaining: int = maxi(0, current_count - 1)
 	_sync_owner_chance_gems(owner, fallback_remaining)
 	return fallback_remaining
+
+
+func _consume_chance_gem_for_continue(owner: Object, registry: Object) -> int:
+	var current_count := _get_chance_gems_count(owner, registry)
+	if current_count <= 0:
+		return 0
+	return _consume_chance_gem(owner, registry, current_count)
 
 
 func _get_chance_gem_store(registry: Object) -> Object:

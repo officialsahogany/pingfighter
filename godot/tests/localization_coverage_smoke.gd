@@ -16,6 +16,9 @@ const ACTIVE_ITEM_EXTRAS := [
 	"doping_potion",
 	"elixir_of_mastery",
 	"milk_bottle",
+	"cheddar_cheese",
+	"camembert_cheese",
+	"emmental_cheese",
 ]
 
 var _failures: Array[String] = []
@@ -77,6 +80,75 @@ func _verify_skill_label_not_english_fallback() -> void:
 			_expect(localized != english, "%s should localize %s, not fall back to English '%s'" % [language, korean, english])
 
 
+func _verify_pistol_enhance_summary_copy() -> void:
+	var entries := [
+		{
+			"label": "EN",
+			"text": str(LanguageSettings.PERK_SUMMARY_EN.get("pistol_enhance", "")),
+			"accuracy": ["accuracy"],
+			"speed": ["bullet speed"],
+			"knockback": ["knockback"],
+			"magazine": ["magazine"],
+		},
+		{
+			"label": "ZH",
+			"text": str(LanguageSettings.PERK_SUMMARY_ZH.get("pistol_enhance", "")),
+			"accuracy": ["精度"],
+			"speed": ["弹速"],
+			"knockback": ["击退"],
+			"magazine": ["弹匣"],
+		},
+		{
+			"label": "JA",
+			"text": str(LanguageSettings.PERK_SUMMARY_JA.get("pistol_enhance", "")),
+			"accuracy": ["精度"],
+			"speed": ["弾速"],
+			"knockback": ["ノックバック"],
+			"magazine": ["マガジン"],
+		},
+		{
+			"label": "ES",
+			"text": str(LanguageSettings.PERK_SUMMARY_ES.get("pistol_enhance", "")),
+			"accuracy": ["precisión"],
+			"speed": ["velocidad de bala"],
+			"knockback": ["retroceso"],
+			"magazine": ["cargador"],
+		},
+		{
+			"label": "PT_BR",
+			"text": str(LanguageSettings.PERK_SUMMARY_PT_BR.get("pistol_enhance", "")),
+			"accuracy": ["precisão"],
+			"speed": ["velocidade dos projéteis"],
+			"knockback": ["recuo"],
+			"magazine": ["carregador"],
+		},
+		{
+			"label": "RU",
+			"text": str(LanguageSettings.PERK_SUMMARY_RU.get("pistol_enhance", "")),
+			"accuracy": ["точность"],
+			"speed": ["скорость пули"],
+			"knockback": ["отбрасывание"],
+			"magazine": ["магазина"],
+		},
+	]
+	for entry in entries:
+		var label: String = str(entry.get("label", "unknown"))
+		var summary: String = str(entry.get("text", "")).to_lower()
+		_expect(_contains_any_token(summary, entry.get("accuracy", [])), "PERK_SUMMARY_%s pistol_enhance should mention accuracy/spread" % label)
+		_expect(_contains_any_token(summary, entry.get("speed", [])), "PERK_SUMMARY_%s pistol_enhance should mention bullet speed" % label)
+		_expect(_contains_any_token(summary, entry.get("knockback", [])), "PERK_SUMMARY_%s pistol_enhance should mention normal-hit knockback" % label)
+		_expect(_contains_any_token(summary, entry.get("magazine", [])), "PERK_SUMMARY_%s pistol_enhance should mention magazine/ammo" % label)
+
+
+func _contains_any_token(text: String, tokens: Variant) -> bool:
+	if not (tokens is Array):
+		return false
+	for token in tokens:
+		if text.find(str(token).to_lower()) >= 0:
+			return true
+	return false
+
+
 func _verify_translation_map_coverage() -> void:
 	var korean_text: Dictionary = LanguageSettings.TEXT.get(LanguageSettings.LANGUAGE_KOREAN, {})
 	for language in LanguageSettings.get_language_options():
@@ -103,6 +175,7 @@ func _verify_translation_map_coverage() -> void:
 	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_ES, "PERK_SUMMARY_ES")
 	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_PT_BR, "PERK_SUMMARY_PT_BR")
 	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_RU, "PERK_SUMMARY_RU")
+	_verify_pistol_enhance_summary_copy()
 	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_ZH, "CHARACTER_ZH")
 	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_JA, "CHARACTER_JA")
 	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_ES, "CHARACTER_ES")

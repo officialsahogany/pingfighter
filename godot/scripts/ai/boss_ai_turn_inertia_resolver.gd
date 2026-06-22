@@ -35,13 +35,39 @@ func update_velocity(
 		)
 
 	if target_dir < 0:
-		boss_vel = _accelerate_left(boss_vel, fps_scale, accel, max_speed)
+		boss_vel = _approach_target(future_x, boss_center, boss_vel, fps_scale, accel, decel, max_speed, true)
 	elif target_dir > 0:
-		boss_vel = _accelerate_right(boss_vel, fps_scale, accel, max_speed)
+		boss_vel = _approach_target(future_x, boss_center, boss_vel, fps_scale, accel, decel, max_speed, false)
 	else:
 		boss_vel = _decelerate_to_stop(boss_vel, fps_scale, decel)
 
 	return _sanitize_velocity(boss_vel, max_speed)
+
+
+# Accelerate toward the target, but start braking once the boss is within its own
+# stopping distance so it SETTLES on the predicted x instead of blowing past it.
+# Without this predictive brake the resolver only ever decelerates AFTER overshoot
+# (via _brake_through_reversal), and the weak reversal brake (< 1.0 mult) leaves a
+# sustained limit-cycle oscillation after any large displacement (banana slip /
+# knockback slam to a wall). Braking distance is the standard v^2/(2*decel) stop
+# distance; fps_scale cancels out of that integral so it is not a factor here.
+func _approach_target(
+	future_x: float,
+	boss_center: float,
+	boss_vel: float,
+	fps_scale: float,
+	accel: float,
+	decel: float,
+	max_speed: float,
+	going_left: bool
+) -> float:
+	var distance_to_target: float = abs(future_x - boss_center)
+	var braking_distance: float = (boss_vel * boss_vel) / (2.0 * max(0.001, decel))
+	if braking_distance >= distance_to_target:
+		return _decelerate_to_stop(boss_vel, fps_scale, decel)
+	if going_left:
+		return _accelerate_left(boss_vel, fps_scale, accel, max_speed)
+	return _accelerate_right(boss_vel, fps_scale, accel, max_speed)
 
 
 func _brake_through_reversal(

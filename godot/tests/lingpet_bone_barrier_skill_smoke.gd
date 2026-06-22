@@ -70,6 +70,7 @@ func _init() -> void:
 	_verify_building_barrier_breaks_without_reflection()
 	_verify_built_barrier_reflects_and_notifies_audio()
 	_verify_ball_motion_collision_context()
+	_verify_barrier_count_is_capped_with_silent_oldest_eviction()
 
 	if _failures.is_empty():
 		print("lingpet_bone_barrier_skill_smoke: ok")
@@ -130,8 +131,14 @@ func _verify_catalog_dispatcher_audio_and_host_wiring() -> void:
 	host.update(0.02, owner, registry, SKILL_ID)
 	snapshot = host.get_bone_barrier_snapshot_for_tests()
 	_expect(int(snapshot.get("bone_barrier_built_count", 0)) == 1, "Bone Barrier should become built after 3s")
+	# Round boundary preserves installed barriers (original reset_for_new_round parity).
+	host.reset_round(owner, registry)
+	snapshot = host.get_bone_barrier_snapshot_for_tests()
+	_expect(int(snapshot.get("bone_barrier_barrier_count", 0)) == 1, "round-boundary reset should keep the installed Bone Barrier so it persists into the next round")
+	_expect(host.has_visible_effects(), "Bone Barrier should still be visible after a round-boundary reset")
+	# A full reset (companion change / hatch / new battle) still wipes everything.
 	host.reset(owner, registry)
-	_expect(not host.has_visible_effects(), "runtime host reset should clear live Bone Barrier visuals at round boundaries")
+	_expect(not host.has_visible_effects(), "full runtime host reset should clear all live Bone Barrier visuals")
 
 
 func _verify_level_scaling_widths_and_bonus_barrier_chance() -> void:
@@ -140,11 +147,11 @@ func _verify_level_scaling_widths_and_bonus_barrier_chance() -> void:
 	var lv3: Dictionary = LingpetCatalog.get_active_skill("nekuring", SKILL_ID, 3)
 	var lv4: Dictionary = LingpetCatalog.get_active_skill("nekuring", SKILL_ID, 4)
 	var lv5: Dictionary = LingpetCatalog.get_active_skill("nekuring", SKILL_ID, 5)
-	_expect(is_equal_approx(float(lv1.get("barrier_width", 0.0)), 120.0), "Bone Barrier Lv.1 width should keep the original 120px width")
+	_expect(is_equal_approx(float(lv1.get("barrier_width", 0.0)), 72.0), "Bone Barrier Lv.1 width should be the -40% scaled 72px width")
 	_expect(float(lv2.get("barrier_width", 0.0)) > float(lv1.get("barrier_width", 0.0)), "Bone Barrier Lv.2 width should be wider than Lv.1")
 	_expect(float(lv3.get("barrier_width", 0.0)) > float(lv2.get("barrier_width", 0.0)), "Bone Barrier Lv.3 width should be wider than Lv.2")
 	_expect(float(lv4.get("barrier_width", 0.0)) > float(lv3.get("barrier_width", 0.0)), "Bone Barrier Lv.4 width should be wider than Lv.3")
-	_expect(is_equal_approx(float(lv5.get("barrier_width", 0.0)), 200.0), "Bone Barrier Lv.5 width should reach 200px")
+	_expect(is_equal_approx(float(lv5.get("barrier_width", 0.0)), 120.0), "Bone Barrier Lv.5 width should reach the -40% scaled 120px width")
 	_expect(is_equal_approx(float(lv1.get("bonus_barrier_chance_pct", -1.0)), 0.0), "Bone Barrier Lv.1 should not roll a bonus barrier")
 	_expect(is_equal_approx(float(lv2.get("bonus_barrier_chance_pct", -1.0)), 0.0), "Bone Barrier Lv.2 should not roll a bonus barrier")
 	_expect(is_equal_approx(float(lv3.get("bonus_barrier_chance_pct", -1.0)), 20.0), "Bone Barrier Lv.3 should roll a 20 percent bonus barrier")
@@ -158,7 +165,7 @@ func _verify_level_scaling_widths_and_bonus_barrier_chance() -> void:
 	_expect(no_bonus_skill.launch(Vector2(380.0, 680.0), owner, {"active_skill_level": 5}), "Lv.5 no-bonus fixture should launch")
 	var no_bonus_snapshot := no_bonus_skill.get_snapshot()
 	_expect(int(no_bonus_snapshot.get("bone_barrier_barrier_count", 0)) == 1, "Lv.5 should install one barrier when the 40 percent roll fails")
-	_expect(is_equal_approx(float(no_bonus_snapshot.get("bone_barrier_width", 0.0)), 200.0), "Lv.5 runtime snapshot should expose the widened 200px barrier width")
+	_expect(is_equal_approx(float(no_bonus_snapshot.get("bone_barrier_width", 0.0)), 120.0), "Lv.5 runtime snapshot should expose the -40% scaled 120px barrier width")
 	_expect(is_equal_approx(float(no_bonus_snapshot.get("bone_barrier_bonus_chance_pct", -1.0)), 40.0), "Lv.5 runtime snapshot should expose the 40 percent bonus barrier chance")
 
 	var bonus_skill := LingpetBoneBarrierSkill.new()
@@ -169,7 +176,7 @@ func _verify_level_scaling_widths_and_bonus_barrier_chance() -> void:
 	_expect(int(bonus_snapshot.get("bone_barrier_barrier_count", 0)) == 2, "Lv.5 should install two barriers when the 40 percent roll succeeds")
 	_expect(int(bonus_snapshot.get("bone_barrier_bonus_barrier_count", 0)) == 1, "Lv.5 successful roll should count exactly one bonus barrier")
 	var widths: Array = bonus_snapshot.get("bone_barrier_widths", []) as Array
-	_expect(widths.size() == 2 and is_equal_approx(float(widths[0]), 200.0) and is_equal_approx(float(widths[1]), 200.0), "bonus barrier should use the same level-scaled width as the primary barrier")
+	_expect(widths.size() == 2 and is_equal_approx(float(widths[0]), 120.0) and is_equal_approx(float(widths[1]), 120.0), "bonus barrier should use the same level-scaled width as the primary barrier")
 
 
 func _verify_build_animation_progress_spans_full_duration() -> void:
@@ -264,6 +271,37 @@ func _verify_ball_motion_collision_context() -> void:
 	var egg_runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(event_processor_source.find("notify_lingpet_bone_barrier_hit") >= 0, "ball event processor should notify the lingpet runtime when the barrier is hit")
 	_expect(egg_runtime_source.find("func get_ball_collision_context") >= 0, "lingpet runtime should publish skill collision context to the ball step")
+
+
+func _verify_barrier_count_is_capped_with_silent_oldest_eviction() -> void:
+	var cap := int(LingpetBoneBarrierSkill.MAX_ACTIVE_BARRIERS)
+	_expect(cap == 8, "Bone Barrier active cap should stay locked to the approved 8-barrier limit")
+	var skill := LingpetBoneBarrierSkill.new()
+	var owner := FakeOwner.new()
+	var casts := cap + 12
+	var forced_xs: Array[float] = []
+	for index in range(casts):
+		forced_xs.append(40.0 + float(index % cap) * 82.0)
+	skill.set_barrier_x_values_for_tests(forced_xs)
+	for index in range(casts):
+		_expect(
+			skill.launch(Vector2(380.0, 680.0), owner, {"active_skill_level": 1}),
+			"Bone Barrier over-cap cast %d should launch" % index
+		)
+	var snapshot := skill.get_snapshot()
+	_expect(int(snapshot.get("bone_barrier_barrier_count", 0)) == cap, "Bone Barrier should silently cap live installed barriers at 8")
+	_expect(int(snapshot.get("bone_barrier_build_count", 0)) == casts, "silent cap eviction should still count every successful cast")
+	_expect(int(snapshot.get("bone_barrier_dying_count", -1)) == 0, "silent cap eviction should not create death fragments")
+	var ids: Array = snapshot.get("bone_barrier_barrier_ids", []) as Array
+	_expect(ids.size() == cap, "Bone Barrier snapshot should expose the capped live ids")
+	if ids.size() == cap:
+		_expect(int(ids[0]) == casts - cap + 1, "Bone Barrier cap should evict the oldest barrier first")
+		_expect(int(ids[ids.size() - 1]) == casts, "Bone Barrier cap should keep the newest barrier")
+	skill.reset_round()
+	snapshot = skill.get_snapshot()
+	_expect(int(snapshot.get("bone_barrier_barrier_count", 0)) == cap, "round-boundary reset should preserve only the capped barrier set")
+	skill.reset()
+	_expect(int(skill.get_snapshot().get("bone_barrier_barrier_count", -1)) == 0, "full reset should still clear capped barriers")
 
 
 func _skill_ids(pool: Array[Dictionary]) -> Array[String]:

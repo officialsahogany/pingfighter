@@ -40,7 +40,8 @@ static func spawn_runtime_firearm_effect(
 		float(options.get("pistol_bullet_speed", 25.0)),
 		float(options.get("doping_potion_pistol_speed_multiplier", 1.0)),
 		float(options.get("pistol_spread_radians", 0.0)),
-		float(options.get("beretta_spread_radians", 0.0))
+		float(options.get("beretta_spread_radians", 0.0)),
+		float(options.get("base_pistol_speed_mult", 1.0))
 	)
 	var profile: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("profile", {}))
 	var doping_context: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("doping_context", {}))
@@ -147,6 +148,7 @@ static func spawn_runtime_firearm_effect(
 		int(options.get("net_gun_rope_trail_limit", 0)),
 		float(options.get("doping_potion_head_leg_multiplier", 1.0)),
 		float(options.get("doping_potion_pistol_speed_multiplier", 1.0)),
+		float(options.get("base_pistol_knockback_mult", 1.0)),
 		int(options.get("projectile_limit", 36)),
 		float(options.get("field_height", 750.0)),
 		float(options.get("ak47_shell_lifetime_frames", 180.0)),
