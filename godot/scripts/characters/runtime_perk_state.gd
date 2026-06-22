@@ -1912,13 +1912,16 @@ func _apply_lingpet_affinity_chip(owner: Object, registry: Object) -> Dictionary
 
 
 func _apply_lingpet_ring_core_upgrade(_owner: Object, registry: Object, requested_tier: int = 0) -> Dictionary:
-	var store: Object = _get_instance(registry, "lingpet_affinity_store")
-	if store == null or not store.has_method("upgrade_ring_core_tier"):
-		return {"accepted": false, "blocked_reason": "missing_affinity_store"}
+	# R5 / per-run: the ring-core perk upgrades THIS run's tier (run-state) through
+	# the egg_runtime, not the dropped permanent store. Mirrors the plaza
+	# transaction (R4); the store path was a no-op after R3.
+	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("upgrade_run_ring_core_tier"):
+		return {"accepted": false, "blocked_reason": "missing_lingpet_runtime"}
 	var max_tier := LingpetAffinityStore.MAX_RING_CORE_TIER
 	var current_tier := 0
-	if store.has_method("get_ring_core_tier"):
-		current_tier = clampi(int(store.get_ring_core_tier()), 0, max_tier)
+	if runtime.has_method("get_run_ring_core_tier"):
+		current_tier = clampi(int(runtime.get_run_ring_core_tier()), 0, max_tier)
 	var target_tier := requested_tier if requested_tier > 0 else current_tier + 1
 	target_tier = clampi(target_tier, 1, max_tier)
 	if target_tier <= current_tier:
@@ -1929,10 +1932,11 @@ func _apply_lingpet_ring_core_upgrade(_owner: Object, registry: Object, requeste
 			"target_tier": target_tier,
 			"max_tier": max_tier,
 		}
-	if not bool(store.upgrade_ring_core_tier(target_tier)):
+	var upgrade_result: Dictionary = runtime.upgrade_run_ring_core_tier(target_tier, _owner, registry)
+	if not bool(upgrade_result.get("accepted", false)):
 		return {
 			"accepted": false,
-			"blocked_reason": "ring_core_upgrade_failed",
+			"blocked_reason": str(upgrade_result.get("blocked_reason", "ring_core_upgrade_failed")),
 			"current_tier": current_tier,
 			"target_tier": target_tier,
 			"max_tier": max_tier,
@@ -1940,7 +1944,7 @@ func _apply_lingpet_ring_core_upgrade(_owner: Object, registry: Object, requeste
 	return {
 		"accepted": true,
 		"current_tier": current_tier,
-		"new_tier": target_tier,
+		"new_tier": int(upgrade_result.get("new_tier", target_tier)),
 		"max_tier": max_tier,
 		"ring_core_name": _get_lingpet_ring_core_tier_name(target_tier),
 	}

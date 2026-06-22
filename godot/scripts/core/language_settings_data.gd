@@ -1208,7 +1208,7 @@ const PERK_NAME_RU := {
 
 const PERK_SUMMARY_EN := {
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
+	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Dash cooldown reduced.",
 	"dash_module_control": "Dash recovery reduced.",
 	"dash_jump": "Dash distance increased.",
@@ -1267,7 +1267,7 @@ const PERK_SUMMARY_EN := {
 
 const PERK_SUMMARY_ZH := {
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
+	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "减少冲刺冷却。",
 	"dash_module_control": "减少冲刺后摇。",
 	"dash_jump": "增加冲刺距离。",
@@ -1326,7 +1326,7 @@ const PERK_SUMMARY_ZH := {
 
 const PERK_SUMMARY_JA := {
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
+	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "ダッシュのクールタイムが短縮されます。",
 	"dash_module_control": "ダッシュ後隙が短縮されます。",
 	"dash_jump": "ダッシュ距離が伸びます。",
@@ -1385,7 +1385,7 @@ const PERK_SUMMARY_JA := {
 
 const PERK_SUMMARY_ES := {
 	"lingpet_affinity_chip": "Aumenta la afinidad de Lingpet ganada en esta partida. Se acumula hasta 5.",
-	"lingpet_ring_core_upgrade": "Mejora permanentemente el Ring Core compartido en un nivel sin gastar oro.",
+	"lingpet_ring_core_upgrade": "Mejora el Ring Core de esta partida en un nivel sin gastar oro. Se reinicia cada partida.",
 	"dash_lightweight": "Reduce la recarga del dash.",
 	"dash_module_control": "Reduce la recuperación del dash.",
 	"dash_jump": "Aumenta la distancia de dash.",
@@ -1444,7 +1444,7 @@ const PERK_SUMMARY_ES := {
 
 const PERK_SUMMARY_PT_BR := {
 	"lingpet_affinity_chip": "Aumenta a afinidade de Lingpet recebida nesta run. Acumula até 5.",
-	"lingpet_ring_core_upgrade": "Melhora permanentemente o Ring Core compartilhado em um tier sem gastar ouro.",
+	"lingpet_ring_core_upgrade": "Melhora o Ring Core desta partida em um tier sem gastar ouro. Reinicia a cada partida.",
 	"dash_lightweight": "Reduz a recarga do dash.",
 	"dash_module_control": "Reduz a recuperação do dash.",
 	"dash_jump": "Aumenta a distância do dash.",
@@ -1503,7 +1503,7 @@ const PERK_SUMMARY_PT_BR := {
 
 const PERK_SUMMARY_RU := {
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Permanently upgrades the shared Ring Core by one tier without spending gold.",
+	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Сокращает перезарядку рывка.",
 	"dash_module_control": "Сокращает восстановление рывка.",
 	"dash_jump": "Увеличивает дистанцию рывка.",

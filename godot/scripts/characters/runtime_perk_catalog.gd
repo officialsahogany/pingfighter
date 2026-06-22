@@ -25,7 +25,7 @@ const LINGPET_RING_CORE_UPGRADE_PERK := {
 		5: "링코어를 얼티밋으로 강화합니다.",
 		6: "링코어를 제니스로 강화합니다.",
 	},
-	"detail": "골드 없이 링코어를 다음 티어로 영구 강화합니다. 친밀도 임시 상한이 5레벨씩 올라갑니다.",
+	"detail": "골드 없이 이번 런의 링코어를 다음 티어로 강화합니다. 친밀도 임시 상한이 5레벨씩 올라가며, 새 런에서 초기화됩니다.",
 	"icon_color": Color(1.0, 210.0 / 255.0, 82.0 / 255.0),
 	"tree": "lingpet",
 	"is_lingpet_ring_core_upgrade": true,
@@ -882,11 +882,13 @@ func _append_lingpet_affinity_chip_choice(output: Array, owner: Object, registry
 func _append_lingpet_ring_core_upgrade_choice(output: Array, owner: Object, registry: Object) -> void:
 	if not _has_lingpet_owned_gate(owner):
 		return
-	var store: Object = _get_lingpet_affinity_store(registry)
-	if store == null:
+	# R5 / per-run: read THIS run's ring-core tier (run-state via egg_runtime),
+	# not the dropped permanent store.
+	var runtime: Object = _get_lingpet_runtime(registry)
+	if runtime == null or not runtime.has_method("get_run_ring_core_tier"):
 		return
-	var max_tier := _get_lingpet_ring_core_max_tier(store)
-	var current_tier := _get_lingpet_ring_core_tier(store, max_tier)
+	var max_tier := LingpetAffinityStore.MAX_RING_CORE_TIER
+	var current_tier := clampi(int(runtime.get_run_ring_core_tier()), 0, max_tier)
 	if current_tier >= max_tier:
 		return
 	var next_tier := clampi(current_tier + 1, 1, max_tier)
@@ -901,8 +903,8 @@ func _build_lingpet_ring_core_upgrade_data(current_tier: int, next_tier: int, ma
 	var data: Dictionary = LINGPET_RING_CORE_UPGRADE_PERK.duplicate(true)
 	data["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
 	data["name"] = "링코어 강화: %s" % tier_name
-	data["description"] = "링코어를 %s로 영구 강화합니다. 친밀도 상한 Lv.%d." % [tier_name, next_cap]
-	data["detail"] = "이번 선택으로 골드 지불 없이 계정 공용 링코어가 %s 티어로 올라갑니다. 골드샵 강화와 같은 영구 저장 경로를 사용합니다." % tier_name
+	data["description"] = "이번 런의 링코어를 %s로 강화합니다. 친밀도 상한 Lv.%d." % [tier_name, next_cap]
+	data["detail"] = "이번 선택으로 골드 지불 없이 이번 런의 링코어가 %s 티어로 올라갑니다. 골드샵 강화와 같은 런 강화이며, 새 런에서 초기화됩니다." % tier_name
 	data["current_level"] = clampi(current_tier, 0, clamped_max)
 	data["next_level"] = clamped_next
 	data["max_level"] = clamped_max
@@ -1009,26 +1011,6 @@ func _get_lingpet_runtime(registry: Object) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance("lingpet_egg_runtime")
-
-
-func _get_lingpet_affinity_store(registry: Object) -> Object:
-	if registry == null or not registry.has_method("get_instance"):
-		return null
-	return registry.get_instance("lingpet_affinity_store")
-
-
-func _get_lingpet_ring_core_tier(store: Object, max_tier: int) -> int:
-	if store == null or not store.has_method("get_ring_core_tier"):
-		return 0
-	return clampi(int(store.get_ring_core_tier()), 0, max_tier)
-
-
-func _get_lingpet_ring_core_max_tier(store: Object) -> int:
-	if store != null:
-		var value: Variant = store.get("MAX_RING_CORE_TIER")
-		if value != null:
-			return clampi(int(value), 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
-	return LingpetAffinityStore.MAX_RING_CORE_TIER
 
 
 func _get_lingpet_ring_core_tier_name(tier: int) -> String:
