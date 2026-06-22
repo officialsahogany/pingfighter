@@ -280,25 +280,90 @@ Stage 6 기준 봉인 예:
 
 ---
 
-## S5 — 디테일/패리티 (MEDIUM/LOW)
+## S5 — 디테일/패리티 (MEDIUM/LOW) — 현재상태 재감사 완료 (2026-06-20, 워크플로 5-항목)
 
-- **가드 1000ms 조립/홀로그램 단계** 미포팅(곧장 320ms 슬라이드) — 원본
-  [pingfighter.py:115521-115523](../pingfighter.py#L115521). 조립 페이즈 추가.
-- **레이저 발사 조건:** Godot는 일반 초인에서 발사, 원본은 광폭화 전용. 광폭화 미포팅 동안의 의도적 분기로
-  둘지(현 상태 유지) 명시 결정 — `docs/stage6_tetriser_port_plan.md §2.9`에 결정 기록.
-- **중앙 큐브 재조립 카운트:** Godot는 공-반사 파괴도 +1, 원본은 player/dash만
-  ([stage6_tetriser_state.gd:877-882](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L877)). 카운트 소스를
-  player/dash 한정으로(S3 증발-제거 제외와 함께).
-- **사운드 3종:** `bigtetromino`(super 튕김 [pingfighter.py:170584](../pingfighter.py#L170584)),
-  `tetrominoshield`(가드 스폰 [:170713](../pingfighter.py#L170713)), `characterlazer`(레이저). Godot엔
-  break/wall/super_roar만 ([game_audio.gd:268-270](../godot/scripts/audio/game_audio.gd#L268)). 자산 복사+배선
-  (가드 스폰음·super 튕김음·레이저음). super 튕김음은 S1 이후 super 충돌이 살아야 의미 있음.
-- **중앙 큐브 폭발 보상/VFX:** 수류탄식 폭발 + 스타 드롭이 TODO
-  ([stage6_tetriser_state.gd:865](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L865)). 원본 golden(3%) +
-  `_maybe_drop_star_for_tetro`([pingfighter.py:117090](../pingfighter.py#L117090), [:117336](../pingfighter.py#L117336)).
-  **주의: 스타포인트 단위 트랩**(메모리 `project_godot_starpoint_unit_trap`) — 결과화면 placeholder ★수치를
-  collect에 직결 금지. 별도 결산 재화/소량 단위로.
-- **크리스탈 실드:** 형성 중 게임정지 없음(원본 ~8.5s) + 라운드마다 초기화(원본 라운드 persist) — 의도/복원 결정.
+S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read 방지). 결과:
+
+| 서브 | 등급 | 현재상태 | 한 줄 |
+|---|---|---|---|
+| **레이저 발사 조건** | — | ✅ **완료(충실 적응)** | 갭 아님 — 아래 참조 |
+| **S5-1 사운드 3종** | ✅ | 완료 | bigtetromino / tetrominoshield / characterlazer 배선 + 스모크 반증검증 |
+| **S5-2 가드 조립 페이즈** | 🟡 | partial | 320ms 슬라이드 → 1000ms 셀별 조립(벽/테트로 패턴 미러) |
+| **S5-3 큐브 재조립 카운트** | ⚪ | **결정필요** | 원본 카운터가 dead code → "큐브가 재조립하나" 자체가 설계 질문 |
+| **S5-4 보상/스타 드롭** | 🟠 | gap | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 통째 포팅 + 단위트랩 |
+| **S5-5 크리스탈 실드** | ⚪ | (미재감사) | freeze/persist 의도 결정 |
+
+권장 순서(공수↑): **S5-1(작고 기계적) → S5-2(중, 기존 패턴 미러) → S5-3(설계결정 먼저) → S5-4(가장 큼)**.
+
+> **레이저 = 완료(갭 아님).** Python 레이저는 `is_berserk`(광폭화) 전용 호출이고 일반 super엔 레이저가 없다
+> ([pingfighter.py:118358-118387](../pingfighter.py#L118358), cooldown 주석 "광폭화 모드에서만"). Godot은 광폭화
+> 미포팅이라 유일한 super(드레인형)에서 `_laser_fired_this_super`로 1회 발사 — charge 0.8/beam 1.2 일치, 메커닉
+> 정신에 충실한 적응. **현 상태 유지**, `docs/stage6_tetriser_port_plan.md §2.9`에 "enraged 미포팅 → 레이저 normal-super
+> once 적응" 기록.
+
+### S5-1 — 사운드 3종 (완료)
+세 트리거 **코드 분기는 이미 존재**, emission만 빠짐:
+- `bigtetromino`: super 테트로가 공에 튕기되 파괴 안 되는 분기([stage6_tetriser_state.gd:971-975](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L971) super else) — 원본 [pingfighter.py:170580-170586](../pingfighter.py#L170580).
+- `tetrominoshield`: **공-vs-크리스탈실드 충돌**([:951-953](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L951), 현재 `_sfx_break_pending` 오용) — 원본 [:170711-170714](../pingfighter.py#L170711). ("가드 스폰"이 아니라 공-충돌 시점.)
+- `characterlazer`: 레이저 charging→firing 전이([:1329-1335](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L1329)) — 원본 [:116740-116768](../pingfighter.py#L116740).
+
+구현(2026-06-22): `sounds/{bigtetromino,tetrominoshield,characterlazer}.wav`를
+`godot/assets/sounds/stage6_tetriser_{big,shield,laser}.wav`로 복사하고, `game_audio.gd` const/field/factory/play 및
+`stage6_tetriser_state.gd`의 `_sfx_big_pending` / `_sfx_shield_pending` / `_sfx_laser_pending` flush를 배선했다.
+레이저 melt의 기존 break 대용음은 `_clear_blocks_with_debris(..., false)`로 제거.
+
+신호계약: `_sfx_big_pending` / `_sfx_shield_pending` / `_sfx_laser_pending` 3플래그 + `_flush_sounds` 디스패치
+(기존 break/wall/super 패턴 동일, 프레임당 1회 coalesce). 자산은 `sounds/{bigtetromino,tetrominoshield,characterlazer}.wav`
+→ `godot/assets/sounds/stage6_tetriser_{big,shield,laser}.wav`(홍련식 rename) + game_audio.gd consts/field/factory/play/flush.
+회귀 스모크(FakeAudio에 big/shield/laser 추가): (a) super 튕김 → `has("big")` AND **`not has("break")`**, count==1;
+(b) 플레이어 공 실드충돌 → `has("shield")`, **보스 공은 미발생**; (c) 레이저 firing 전이 → `has("laser")`. 각 플래그-set 한 줄
+주석처리로 반증.
+검증: `stage6_tetriser_state_smoke.gd` / `stage6_tetriser_wiring_smoke.gd` green, big/shield/laser 각 플래그 제거 반증 실패 확인,
+초기 laser break 대용음 잔존도 스모크가 실패로 포착.
+**트랩:** 실드 경로의 기존 `_sfx_break_pending`은 **swap**(제거+shield로 교체)해야 함 — 추가만 하면 break+shield 동시발생.
+characterlazer를 캐릭선택 UFO 빔([pingfighter.py:152969](../pingfighter.py#L152969))에 잘못 배선 금지(범위 밖).
+
+### S5-2 — 가드 조립 페이즈 (partial)
+현재 가드는 1000ms 조립 없이 곧장 320ms 슬라이드 → 사전-collidable 시간 ~320ms vs 원본 ~1320ms. 충돌 게이트(state=="active"
+한정)는 **이미 정확**, 조립 텔레그래프만 없음(벽/테트로는 조립 페이즈 보유, 가드만 누락). 원본
+[pingfighter.py:115516-115523](../pingfighter.py#L115516)(ASSEMBLY_TOTAL 1000/STEP 250/MOVE 200), 셀별 reveal.
+신호계약: `_spawn_guard_block`에 `state:"assembling"`+`assembly_elapsed`+`visible_cells:0` 시드, `GUARD_ASSEMBLY_TOTAL_SEC:=1.0`
+/`STEP_SEC:=0.25`/`MOVE_SEC:=0.20`(테트로 상수 재사용 금지, 250ms 명시 포팅). `_update_guard_blocks`에 `assembling`
+분기 추가(`_update_wall_assembling` [:521](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L521) 미러) → sliding(320) → active.
+충돌 `_find_block_cell_hit(...,["active"])` 그대로 → 게이트 자동 확장. 렌더러는 `visible_cells`만 그림.
+회귀 스모크: **실 스케줄러 경로로 스폰**(❗`debug_spawn_guard_at`는 즉시 active라 무의미 — `debug_force_spawn_guard` 신설 필요),
+t=0.1s에 state=="assembling" AND 공 미충돌 AND revealed<4, t>1.0s에 active+충돌+파괴. 조립 토글 제거 시 실패(반증).
+
+### S5-3 — 큐브 재조립 카운트 (⚪ 설계 결정 선행)
+**중요:** 원본의 카운트 헬퍼 `stage7_cube_notify_tetro_evaporated`([pingfighter.py:116457](../pingfighter.py#L116457))는
+**호출부 0개 = dead code**(repo·백업 동일 확인). 즉 **원본은 큐브가 폭발 후 사실상 재조립하지 않는다**(rebuild_progress 증가
+경로가 죽어 있음). Godot은 working rebuild(아무 파괴나 +1, 5에서 재활성)를 **추가**한 상태 — 원본보다 기능이 많음.
+→ 이건 "카운트 소스 버그"가 아니라 **"큐브가 재조립해야 하는가" 설계 질문**이다. 선택지:
+- (a) Godot 현 rebuild 유지(합리적 게임플레이 추가) — 가장 적은 변경,
+- (b) authored intent대로 player/dash 한정 카운트(공-반사 제외),
+- (c) 관측 원본대로 rebuild 제거(폭발 1회 후 큐브 없음).
+**설계 owner 결정 필요. 저우선 — 결정 전엔 손대지 말 것.** (b) 선택 시에만 contract: `_destroy_block_group(...,reason)`로
+원인 전달, `_on_tetromino_destroyed(reason)`이 {player,dash}만 카운트, 스모크 "공-반사는 rebuild +0" 반증. **트랩:** 파워스매시는
+'dash' 아님 — `reason=="dash"` 단순체크 시 순수-공 플레이에서 rebuild 영영 미완성.
+
+### S5-4 — 보상/스타 드롭 (🟠 가장 큰 항목)
+큐브 솔브-폭발 스타 드롭 + golden(3%) 테트로/벽 스타 + 수류탄 VFX 전부 미구현(TODO live
+[:1277](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L1277)). **핵심: stage6엔 starpoint 드롭 생애주기 자체가 없음**
+(스폰 배열/낙하 모션/획득/렌더/정리 전무). 작업 대부분은 explode 훅이 아니라 **stage2의 드롭 생애주기 통째 포팅**이다:
+`spawn_starpoint_drop → StarpointDropMotionState → 플레이어 overlap → StarpointCollectionRewardPolicy.collect_starpoint_reward`
+(stage2_pillar_background.gd:1683-1811 참조), + 스테이지 이탈 정리.
+🔴 **스타포인트 단위 트랩**(메모리 `project_godot_starpoint_unit_trap`): **드롭 1개 = 스타 1개 = collect_star_points(1)**.
+Python ★80-200 raw 수치를 collect에 직결 금지. 큐브 솔브 1드롭, golden 블록 1드롭, 절대 ×N 금지.
+신호계약: golden(`rng<0.03`)+`star_dropped` 멱등 가드를 테트로/벽 dict에 추가; `_explode_cube`/`_clear_blocks_with_debris`/
+`_explode_landed_tetromino`/`_melt_cube_by_laser`에서 golden·미드롭이면 1드롭 enqueue(CUBE_CENTER / 셀 centroid).
+회귀 스모크: (a) 큐브 솔브 → 드롭 정확히 1개, (b) golden 블록 → `star_dropped` 가드로 정확히 1개(2회 파괴해도 1), (c) **OUTCOME**:
+schema-gated FakeOwner의 collect_star_points가 **amount==1**로 호출(★80-200 아님). 반증: raw ★ 전달 경로면 실패.
+**트랩:** explode-time spawn만 넣고 update/collect/draw 루프를 안 만들면 "보이지도 못 줍지도 않는 드롭" — 스모크는 collect까지
+OUTCOME으로 단언, 라이브 QA로 별이 떨어지고 주워지는지 확인(stage2 미러). 수류탄 VFX는 폴리시(현 debris+EMP 유지 가능).
+
+### S5-5 — 크리스탈 실드 freeze/persist (⚪ 미재감사, 별도)
+형성 중 게임정지 없음(원본 ~8.5s) + 라운드마다 초기화(원본 라운드 persist) — 의도/복원 결정. 이번 5-항목 재감사 범위 밖이라
+필요 시 별도 재검증 후 계약화.
 
 ---
 

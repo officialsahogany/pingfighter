@@ -162,6 +162,9 @@ var _crystal_shield: Object = CrystalShieldState.new()
 var _sfx_break_pending: bool = false
 var _sfx_wall_pending: bool = false
 var _sfx_super_pending: bool = false
+var _sfx_big_pending: bool = false
+var _sfx_shield_pending: bool = false
+var _sfx_laser_pending: bool = false
 var _falling_shape_keys: Array = FALLING_TETRO_SHAPE_KEYS.duplicate()
 var _wall_shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
@@ -213,6 +216,9 @@ func _clear_combat_state(clear_match_state: bool = false) -> void:
 	_sfx_break_pending = false
 	_sfx_wall_pending = false
 	_sfx_super_pending = false
+	_sfx_big_pending = false
+	_sfx_shield_pending = false
+	_sfx_laser_pending = false
 	_crystal_shield.reset(clear_match_state)
 	_arm_spawn_timer()
 	_arm_guard_timer()
@@ -261,7 +267,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 
 # 프레임당 누적된 사운드 플래그를 deps.audio로 1회씩 재생(과다 호출 방지).
 func _flush_sounds(deps: Dictionary) -> void:
-	if not (_sfx_break_pending or _sfx_wall_pending or _sfx_super_pending):
+	if not (_sfx_break_pending or _sfx_wall_pending or _sfx_super_pending or _sfx_big_pending or _sfx_shield_pending or _sfx_laser_pending):
 		return
 	var audio = deps.get("audio", null)
 	if audio != null:
@@ -271,9 +277,18 @@ func _flush_sounds(deps: Dictionary) -> void:
 			audio.play_stage6_tetriser_wall()
 		if _sfx_super_pending and audio.has_method("play_stage6_tetriser_super"):
 			audio.play_stage6_tetriser_super()
+		if _sfx_big_pending and audio.has_method("play_stage6_tetriser_big"):
+			audio.play_stage6_tetriser_big()
+		if _sfx_shield_pending and audio.has_method("play_stage6_tetriser_shield"):
+			audio.play_stage6_tetriser_shield()
+		if _sfx_laser_pending and audio.has_method("play_stage6_tetriser_laser"):
+			audio.play_stage6_tetriser_laser()
 	_sfx_break_pending = false
 	_sfx_wall_pending = false
 	_sfx_super_pending = false
+	_sfx_big_pending = false
+	_sfx_shield_pending = false
+	_sfx_laser_pending = false
 
 
 func _charge_gauge(delta: float) -> void:
@@ -949,7 +964,7 @@ func _collect_settled_cell_rects() -> Array:
 # 테트로미노 → 가드 블록 순으로 첫 충돌 셀을 찾아 반사 + 파괴한다.
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
 	if _crystal_shield.resolve_ball_collision(scene, context, _deps):
-		_sfx_break_pending = true
+		_sfx_shield_pending = true
 		return true
 	if _tetrominoes.is_empty() and _guard_blocks.is_empty() and _wall_blocks.is_empty():
 		return false
@@ -972,6 +987,8 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 		# 파괴 매트릭스(코덱스 §2.5): 일반 공은 super 테트로를 파괴하지 않고 튕기기만.
 		if not bool(tetro.get("super", false)):
 			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)))
+		else:
+			_sfx_big_pending = true
 		return true
 
 	# 2) 가드 블록 (보스 좌우 4셀 바, 슬라이드 완료 후 collidable).
@@ -1277,13 +1294,14 @@ func _explode_cube() -> void:
 	# TODO(폴리시): grenade-style 폭발 VFX, 스타포인트 스폰.
 
 
-func _clear_blocks_with_debris(blocks: Array) -> void:
+func _clear_blocks_with_debris(blocks: Array, play_break_sound: bool = true) -> void:
 	if blocks.is_empty():
 		return
 	for block in blocks:
 		_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), _block_color(block), float(block.get("cell_size", TETRO_CELL_SIZE)))
 	blocks.clear()
-	_sfx_break_pending = true
+	if play_break_sound:
+		_sfx_break_pending = true
 
 
 func _on_tetromino_destroyed() -> void:
@@ -1332,6 +1350,7 @@ func _update_laser(delta: float) -> void:
 				_laser_state = "firing"
 				_laser_timer = LASER_DURATION_SEC
 				_laser_fired_this_super = true
+				_sfx_laser_pending = true
 				_melt_cube_by_laser()
 		"firing":
 			_laser_timer -= delta
@@ -1343,8 +1362,8 @@ func _update_laser(delta: float) -> void:
 func _melt_cube_by_laser() -> void:
 	if _cube.is_empty() or not bool(_cube.get("active", false)):
 		return
-	_clear_blocks_with_debris(_tetrominoes)
-	_clear_blocks_with_debris(_wall_blocks)
+	_clear_blocks_with_debris(_tetrominoes, false)
+	_clear_blocks_with_debris(_wall_blocks, false)
 	_emit_emp(CUBE_CENTER)
 	_cube["active"] = false
 	_cube["rebuild"] = true

@@ -273,6 +273,9 @@ const STAGE5_HONGRYUN_SHOOT_SOUND_PATH := "res://assets/sounds/stage5_hongryun_s
 const STAGE6_TETRISER_BREAK_SOUND_PATH := "res://assets/sounds/stage6_tetriser_break.wav"
 const STAGE6_TETRISER_WALL_SOUND_PATH := "res://assets/sounds/stage6_tetriser_wall.wav"
 const STAGE6_TETRISER_SUPER_ROAR_SOUND_PATH := "res://assets/sounds/stage6_tetriser_super_roar.wav"
+const STAGE6_TETRISER_BIG_SOUND_PATH := "res://assets/sounds/stage6_tetriser_big.wav"
+const STAGE6_TETRISER_SHIELD_SOUND_PATH := "res://assets/sounds/stage6_tetriser_shield.wav"
+const STAGE6_TETRISER_LASER_SOUND_PATH := "res://assets/sounds/stage6_tetriser_laser.wav"
 const STAGE5_HONGRYUN_HURT_SOUND_PATHS := [
 	"res://assets/sounds/stage5_hongryun_hurt_1.wav",
 	"res://assets/sounds/stage5_hongryun_hurt_2.wav",
@@ -523,6 +526,9 @@ var stage5_hongryun_shoot_sfx: AudioStreamPlayer
 var stage6_tetriser_break_sfx: AudioStreamPlayer
 var stage6_tetriser_wall_sfx: AudioStreamPlayer
 var stage6_tetriser_super_sfx: AudioStreamPlayer
+var stage6_tetriser_big_sfx: AudioStreamPlayer
+var stage6_tetriser_shield_sfx: AudioStreamPlayer
+var stage6_tetriser_laser_sfx: AudioStreamPlayer
 var stage5_hongryun_hurt_sfx: Array = []
 var leaf_shield_sfx: AudioStreamPlayer
 var stage1_bgm: AudioStreamPlayer
@@ -834,6 +840,9 @@ func _setup_stage_feedback_sfx() -> void:
 	stage6_tetriser_break_sfx = player_factory.create(owner_node, "Stage6TetriserBreakSfx", STAGE6_TETRISER_BREAK_SOUND_PATH, -6.0)
 	stage6_tetriser_wall_sfx = player_factory.create(owner_node, "Stage6TetriserWallSfx", STAGE6_TETRISER_WALL_SOUND_PATH, -6.0)
 	stage6_tetriser_super_sfx = player_factory.create(owner_node, "Stage6TetriserSuperSfx", STAGE6_TETRISER_SUPER_ROAR_SOUND_PATH, -4.0)
+	stage6_tetriser_big_sfx = player_factory.create(owner_node, "Stage6TetriserBigSfx", STAGE6_TETRISER_BIG_SOUND_PATH, -4.0)
+	stage6_tetriser_shield_sfx = player_factory.create(owner_node, "Stage6TetriserShieldSfx", STAGE6_TETRISER_SHIELD_SOUND_PATH, -5.0)
+	stage6_tetriser_laser_sfx = player_factory.create(owner_node, "Stage6TetriserLaserSfx", STAGE6_TETRISER_LASER_SOUND_PATH, -4.0)
 	stage5_hongryun_hurt_sfx.clear()
 	for index in range(STAGE5_HONGRYUN_HURT_SOUND_PATHS.size()):
 		stage5_hongryun_hurt_sfx.append(player_factory.create(
@@ -2698,6 +2707,18 @@ func play_stage6_tetriser_super() -> void:
 	_play_with_pitch(stage6_tetriser_super_sfx, 1.0)
 
 
+func play_stage6_tetriser_big() -> void:
+	_play_with_pitch(stage6_tetriser_big_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage6_tetriser_shield() -> void:
+	_play_with_pitch(stage6_tetriser_shield_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage6_tetriser_laser() -> void:
+	_play_with_pitch(stage6_tetriser_laser_sfx, 1.0)
+
+
 func play_stage5_hongryun_hurt() -> void:
 	var valid_players: Array[AudioStreamPlayer] = []
 	for value in stage5_hongryun_hurt_sfx:
@@ -3426,6 +3447,9 @@ func _get_sfx_players() -> Array:
 		stage6_tetriser_break_sfx,
 		stage6_tetriser_wall_sfx,
 		stage6_tetriser_super_sfx,
+		stage6_tetriser_big_sfx,
+		stage6_tetriser_shield_sfx,
+		stage6_tetriser_laser_sfx,
 		leaf_shield_sfx,
 	] + commando_ak47_fire_sfx_layers + stage5_hongryun_hurt_sfx
 

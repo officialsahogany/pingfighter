@@ -35,6 +35,12 @@ class FakeAudio:
 		calls.append("wall")
 	func play_stage6_tetriser_super() -> void:
 		calls.append("super")
+	func play_stage6_tetriser_big() -> void:
+		calls.append("big")
+	func play_stage6_tetriser_shield() -> void:
+		calls.append("shield")
+	func play_stage6_tetriser_laser() -> void:
+		calls.append("laser")
 
 
 class FakeStatusEffectState:
@@ -840,15 +846,18 @@ func _test_natural_evaporation_does_not_rebuild_cube() -> void:
 
 func _test_super_laser_melts_cube() -> void:
 	var state: Object = Stage6TetriserState.new()
+	var audio := FakeAudio.new()
 	state.debug_spawn_tetromino_at(Vector2(300.0, 400.0), "O", false)
 	state.debug_set_gauge(500.0)
 	# 초인 발동 → 광선 충전(0.8s) → 발사 → 큐브 melt.
 	for _i in range(25):   # 1.25s > 0.8s charge
-		state.update(0.05, _active_context())
+		state.update(0.05, _active_context(), {"audio": audio})
 	_expect(state.debug_is_cube_rebuild(), "super laser melts cube into rebuild")
 	_expect(state.debug_get_tetromino_count() == 0, "laser melt clears tetrominoes")
 	_expect(state.debug_get_laser_state() == "firing", "laser is firing after charge (state=%s)" % state.debug_get_laser_state())
 	_expect(state.debug_get_emp_count() > 0, "EMP ripple emitted on laser melt")
+	_expect(audio.calls.has("laser"), "laser firing transition plays character laser sound")
+	_expect(not audio.calls.has("break"), "laser melt does not reuse the tetromino break sound")
 
 
 func _test_crystal_shield_score_schedules_and_starts() -> void:
@@ -1012,6 +1021,39 @@ func _test_sound_events() -> void:
 		"player_paddle_size": Vector2(60.0, 30.0),
 	}, {"audio": break_audio})
 	_expect(break_audio.calls.has("break"), "destroying a block plays break sound")
+
+	var big_audio := FakeAudio.new()
+	var big_state: Object = Stage6TetriserState.new()
+	big_state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", true)
+	var big_scene := {
+		"ball_pos": Vector2(320.0, 320.0),
+		"previous_ball_pos": Vector2(320.0, 290.0),
+		"ball_vel": Vector2(0.0, 12.0),
+	}
+	var big_ctx := {"current_stage": 6, "ball_size": 20.0}
+	_expect(big_state.resolve_ball_collision(big_scene, big_ctx, {}), "super tetromino ball bounce collides")
+	big_state.update(0.0, _active_context(), {"audio": big_audio})
+	_expect(big_audio.calls.has("big"), "super tetromino ball bounce plays bigtetromino sound")
+	_expect(not big_audio.calls.has("break"), "super tetromino ball bounce does not reuse break sound")
+	_expect(big_state.debug_get_tetromino_count() == 1, "super tetromino bounce keeps the block alive")
+
+	var shield_audio := FakeAudio.new()
+	var shield_state: Object = Stage6TetriserState.new()
+	shield_state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
+	var shield_blocks: Array = shield_state.get_actor_draw_context().get("stage6_tetriser_crystal_shield_blocks", [])
+	_expect(not shield_blocks.is_empty(), "precondition: crystal shield blocks exist for sound check")
+	if not shield_blocks.is_empty():
+		var shield_pos: Vector2 = (shield_blocks[0] as Dictionary).get("position", Vector2.ZERO)
+		var shield_scene := {
+			"ball_pos": shield_pos,
+			"previous_ball_pos": shield_pos - Vector2(0.0, 30.0),
+			"ball_vel": Vector2(0.0, 12.0),
+		}
+		var shield_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": "player"}
+		_expect(shield_state.resolve_ball_collision(shield_scene, shield_ctx, {}), "player ball collides with crystal shield")
+		shield_state.update(0.0, _active_context(), {"audio": shield_audio})
+		_expect(shield_audio.calls.has("shield"), "crystal shield hit plays tetrominoshield sound")
+		_expect(not shield_audio.calls.has("break"), "crystal shield hit does not reuse break sound")
 
 
 func _test_wrong_stage_resets() -> void:
