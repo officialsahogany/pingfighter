@@ -148,6 +148,8 @@ func _init() -> void:
 	_test_super_scale_and_tetromino()
 	_test_cube_solve_clears_field()
 	_test_cube_rebuild_reactivates()
+	_test_ball_reflection_does_not_count_rebuild()
+	_test_power_smash_counts_rebuild_progress()
 	_test_natural_evaporation_does_not_rebuild_cube()
 	_test_super_laser_melts_cube()
 	_test_crystal_shield_score_schedules_and_starts()
@@ -878,6 +880,44 @@ func _test_cube_rebuild_reactivates() -> void:
 		state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
 		state.update(0.05, dash_ctx)
 	_expect(state.debug_is_cube_active(), "cube re-activates after 5 tetromino kills during rebuild")
+
+
+func _test_ball_reflection_does_not_count_rebuild() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_cube_solve_pending()
+	for _i in range(25):
+		state.update(0.05, _active_context())
+	_expect(state.debug_is_cube_rebuild(), "precondition: cube in rebuild before ball-reflect kill")
+	_expect(state.debug_get_cube_rebuild_progress() == 0, "precondition: rebuild progress starts at 0")
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var scene := {
+		"ball_pos": Vector2(320.0, 320.0),
+		"previous_ball_pos": Vector2(320.0, 290.0),
+		"ball_vel": Vector2(0.0, 12.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0, "ball_rally_count": 1, "last_hit_by": "player"}
+	_expect(state.resolve_ball_collision(scene, ctx, {}), "normal ball reflection destroys a normal tetromino")
+	_expect(state.debug_get_tetromino_count() == 0, "ball-reflect tetromino kill removes the block")
+	_expect(state.debug_is_cube_rebuild(), "ball-reflect kill keeps cube in rebuild mode")
+	_expect(state.debug_get_cube_rebuild_progress() == 0, "ball-reflect tetromino kill does not count toward cube rebuild")
+
+
+func _test_power_smash_counts_rebuild_progress() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_cube_solve_pending()
+	for _i in range(25):
+		state.update(0.05, _active_context())
+	_expect(state.debug_is_cube_rebuild(), "precondition: cube in rebuild before power-smash kill")
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	var scene := {
+		"ball_pos": Vector2(320.0, 320.0),
+		"previous_ball_pos": Vector2(320.0, 290.0),
+		"ball_vel": Vector2(0.0, 12.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0, "power_smashing_parabola_active": true, "ball_rally_count": 1, "last_hit_by": "player"}
+	_expect(state.resolve_ball_collision(scene, ctx, {}), "power smash destroys a tetromino during rebuild")
+	_expect(state.debug_get_tetromino_count() == 0, "power-smash tetromino kill removes the block")
+	_expect(state.debug_get_cube_rebuild_progress() == 1, "power-smash tetromino kill counts as player-driven rebuild progress")
 
 
 func _test_natural_evaporation_does_not_rebuild_cube() -> void:

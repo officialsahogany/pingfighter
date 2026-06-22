@@ -106,6 +106,7 @@ const CUBE_RADIUS := 90.0                    # STAGE7_CUBE_RADIUS
 const CUBE_GRID := 3
 const CUBE_SOLVE_DELAY_SEC := 1.0            # STAGE7_CUBE_SOLVE_DELAY_MS=1000
 const CUBE_REBUILD_NEEDED := 5
+const CUBE_REBUILD_COUNT_REASONS := ["player", "dash"]
 const CUBE_PASS_MIN := 10
 const CUBE_PASS_MAX := 14
 const CUBE_PALETTE := [
@@ -1021,12 +1022,12 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 			return false
 		var tetro: Dictionary = tetro_hit["item"]
 		if power_smash:
-			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)))
+			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)), "player")
 			return true
 		_apply_cell_reflection(scene, context, radius, tetro_hit["cell_rect"])
 		# 파괴 매트릭스(코덱스 §2.5): 일반 공은 super 테트로를 파괴하지 않고 튕기기만.
 		if not bool(tetro.get("super", false)):
-			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)))
+			_destroy_block_group(_tetrominoes, tetro, TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0)), "ball")
 		else:
 			_sfx_big_pending = true
 		return true
@@ -1035,7 +1036,7 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 	var guard_hit: Dictionary = _find_block_cell_hit(_guard_blocks, ball_rect, ["active"])
 	if not guard_hit.is_empty():
 		_apply_cell_reflection(scene, context, radius, guard_hit["cell_rect"])
-		_destroy_block_group(_guard_blocks, guard_hit["item"], GUARD_COLOR)
+		_destroy_block_group(_guard_blocks, guard_hit["item"], GUARD_COLOR, "ball")
 		return true
 
 	# 3) 테트로 벽 (좌우 가장자리). 셀 단위 파괴(단일-셀 블록).
@@ -1045,10 +1046,10 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 			return false
 		var wall_piece: Dictionary = wall_hit["item"]
 		if power_smash:
-			_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)))
+			_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)), "player")
 			return true
 		_apply_cell_reflection(scene, context, radius, wall_hit["cell_rect"])
-		_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)))
+		_destroy_block_group(_wall_blocks, wall_piece, wall_piece.get("color", Color(0.6, 0.7, 1.0)), "ball")
 		return true
 
 	return false
@@ -1125,7 +1126,7 @@ func _choose_reflection_axis(prev_rect: Rect2, cur_rect: Rect2, block: Rect2) ->
 
 
 # 블록 그룹 전체 파괴(테트로/가드/벽 단일셀) + 파편 플래시.
-func _destroy_block_group(blocks: Array, block: Dictionary, color: Color) -> void:
+func _destroy_block_group(blocks: Array, block: Dictionary, color: Color, reason: String = "") -> void:
 	if String(block.get("kind", "")) == "wall":
 		_begin_wall_evaporation(block, true)
 		return
@@ -1134,7 +1135,7 @@ func _destroy_block_group(blocks: Array, block: Dictionary, color: Color) -> voi
 	blocks.erase(block)
 	_sfx_break_pending = true   # tetrisbreak (프레임당 1회 flush)
 	if is_tetromino:
-		_on_tetromino_destroyed()   # 큐브 재조립 진행(rebuild 모드일 때만)
+		_on_tetromino_destroyed(reason)   # 큐브 재조립 진행(rebuild 모드일 때만)
 
 
 func _emit_debris(origin: Vector2, cells: Array, color: Color, cell_size: float) -> void:
@@ -1160,7 +1161,7 @@ func _apply_player_attack_destruction(context: Dictionary, deps: Dictionary) -> 
 		var player_pos: Vector2 = context.get("player_pos", Vector2.ZERO)
 		var paddle_size: Vector2 = context.get("player_paddle_size", Vector2(155.0, 50.0))
 		var paddle_rect: Rect2 = Rect2(player_pos, paddle_size)
-		_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return paddle_rect.intersects(cell_rect))
+		_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return paddle_rect.intersects(cell_rect), "dash")
 
 	# 연막 / 폭발: active_item_runtime의 throw_controller zone 소비(item 코드 비침투).
 	var active_item_runtime = deps.get("active_item_runtime", null)
@@ -1178,7 +1179,7 @@ func _apply_player_attack_destruction(context: Dictionary, deps: Dictionary) -> 
 			var gas_rx: float = float(zone.get("radius_x", zone.get("radius", 0.0)))
 			var gas_ry: float = float(zone.get("radius", 0.0))
 			if gas_rx > 0.0 and gas_ry > 0.0:
-				_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return _rect_in_ellipse(cell_rect, gas_center, gas_rx, gas_ry))
+				_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return _rect_in_ellipse(cell_rect, gas_center, gas_rx, gas_ry), "smoke")
 
 	if throw_controller.has_method("get_explosion_zones"):
 		for zone in throw_controller.get_explosion_zones():
@@ -1187,18 +1188,18 @@ func _apply_player_attack_destruction(context: Dictionary, deps: Dictionary) -> 
 			var blast_center: Vector2 = zone.get("position", Vector2.ZERO)
 			var blast_radius: float = float(zone.get("radius", 0.0))
 			if blast_radius > 0.0:
-				_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return _rect_in_circle(cell_rect, blast_center, blast_radius))
+				_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return _rect_in_circle(cell_rect, blast_center, blast_radius), "explosion")
 
 
-func _destroy_solid_obstacles(test: Callable) -> int:
+func _destroy_solid_obstacles(test: Callable, reason: String) -> int:
 	var destroyed: int = 0
-	destroyed += _sweep_destroy(_tetrominoes, ["falling", "settled"], test)
-	destroyed += _sweep_destroy(_guard_blocks, ["active"], test)
-	destroyed += _sweep_destroy(_wall_blocks, ["installed"], test)
+	destroyed += _sweep_destroy(_tetrominoes, ["falling", "settled"], test, reason)
+	destroyed += _sweep_destroy(_guard_blocks, ["active"], test, reason)
+	destroyed += _sweep_destroy(_wall_blocks, ["installed"], test, reason)
 	return destroyed
 
 
-func _sweep_destroy(blocks: Array, solid_states: Array, test: Callable) -> int:
+func _sweep_destroy(blocks: Array, solid_states: Array, test: Callable, reason: String) -> int:
 	var doomed: Array = []
 	for block in blocks:
 		if not solid_states.has(String(block.get("state", ""))):
@@ -1211,7 +1212,7 @@ func _sweep_destroy(blocks: Array, solid_states: Array, test: Callable) -> int:
 				doomed.append(block)
 				break
 	for block in doomed:
-		_destroy_block_group(blocks, block, _block_color(block))
+		_destroy_block_group(blocks, block, _block_color(block), reason)
 	return doomed.size()
 
 
@@ -1344,7 +1345,9 @@ func _clear_blocks_with_debris(blocks: Array, play_break_sound: bool = true) -> 
 		_sfx_break_pending = true
 
 
-func _on_tetromino_destroyed() -> void:
+func _on_tetromino_destroyed(reason: String) -> void:
+	if not CUBE_REBUILD_COUNT_REASONS.has(reason):
+		return
 	if not bool(_cube.get("rebuild", false)):
 		return
 	_cube["rebuild_progress"] = int(_cube["rebuild_progress"]) + 1

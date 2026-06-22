@@ -289,7 +289,7 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 | **레이저 발사 조건** | — | ✅ **완료(충실 적응)** | 갭 아님 — 아래 참조 |
 | **S5-1 사운드 3종** | ✅ | 완료 | bigtetromino / tetrominoshield / characterlazer 배선 + 스모크 반증검증 |
 | **S5-2 가드 조립 페이즈** | ✅ | 완료 | 1000ms 셀별 조립 → 320ms 슬라이드 → active 충돌 게이트 |
-| **S5-3 큐브 재조립 카운트** | ⚪ | **결정필요** | 원본 카운터가 dead code → "큐브가 재조립하나" 자체가 설계 질문 |
+| **S5-3 큐브 재조립 카운트** | ✅ | 완료 | authored intent: `{player,dash}`만 rebuild 카운트 |
 | **S5-4 보상/스타 드롭** | 🟠 | gap | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 통째 포팅 + 단위트랩 |
 | **S5-5 크리스탈 실드** | ⚪ | (미재감사) | freeze/persist 의도 결정 |
 
@@ -340,17 +340,34 @@ t=0.1s에 state=="assembling" AND 공 미충돌 AND revealed<4, t≈1.0s에 slid
 slice와 조립/슬라이드 반투명을 소비한다. 검증: 상태 스모크 green, 스폰 상태를 `sliding`으로 되돌리면 실패, 충돌 게이트를
 `assembling/sliding/active`로 열면 실패.
 
-### S5-3 — 큐브 재조립 카운트 (⚪ 설계 결정 선행)
-**중요:** 원본의 카운트 헬퍼 `stage7_cube_notify_tetro_evaporated`([pingfighter.py:116457](../pingfighter.py#L116457))는
-**호출부 0개 = dead code**(repo·백업 동일 확인). 즉 **원본은 큐브가 폭발 후 사실상 재조립하지 않는다**(rebuild_progress 증가
-경로가 죽어 있음). Godot은 working rebuild(아무 파괴나 +1, 5에서 재활성)를 **추가**한 상태 — 원본보다 기능이 많음.
-→ 이건 "카운트 소스 버그"가 아니라 **"큐브가 재조립해야 하는가" 설계 질문**이다. 선택지:
-- (a) Godot 현 rebuild 유지(합리적 게임플레이 추가) — 가장 적은 변경,
-- (b) authored intent대로 player/dash 한정 카운트(공-반사 제외),
-- (c) 관측 원본대로 rebuild 제거(폭발 1회 후 큐브 없음).
-**설계 owner 결정 필요. 저우선 — 결정 전엔 손대지 말 것.** (b) 선택 시에만 contract: `_destroy_block_group(...,reason)`로
-원인 전달, `_on_tetromino_destroyed(reason)`이 {player,dash}만 카운트, 스모크 "공-반사는 rebuild +0" 반증. **트랩:** 파워스매시는
-'dash' 아님 — `reason=="dash"` 단순체크 시 순수-공 플레이에서 rebuild 영영 미완성.
+### S5-3 — 큐브 재조립 카운트 (완료: (b) authored intent, 2026-06-23)
+배경: 원본 카운트 헬퍼 `stage7_cube_notify_tetro_evaporated`([pingfighter.py:116457](../pingfighter.py#L116457))는
+**호출부 0개 = dead code**(repo·백업 동일) → shipped 원본은 큐브가 폭발 후 재조립 안 함(one-shot). 단 개발자는 재조립 로직
+전부를 작성해둠(배선만 누락). Godot엔 이미 working rebuild가 있음.
+**결정:** (b) **재조립 유지 + authored 카운트 규칙 `{player, dash}` 복원**(수동 공-반사 제외). shipped 버그(one-shot)를
+재현(c)하지 않고, 작동하는 Godot 기능을 살리되 카운트 소스만 개발자 설계대로 좁힌다.
+
+신호계약:
+- `_destroy_block_group(blocks, block, color, reason := "")` — `reason` 인자 추가.
+- 호출부 매핑: 일반 공-반사(tetro hit [stage6_tetriser_state.gd:987 부근](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L987))
+  → `"ball"`(**미카운트**); 파워스매시 분기 → `"player"`(카운트); 대시 sweep(`_apply_player_attack_destruction`→`_sweep_destroy`)
+  → `"dash"`(카운트); 연막/폭발 zone sweep → `"smoke"`/`"explosion"`(authored 리터럴 `{player,dash}` 기준 **미카운트**).
+- `_on_tetromino_destroyed(reason)`: `if reason not in ["player","dash"]: return` 후 기존 rebuild_progress 증가. `CUBE_REBUILD_NEEDED=5` 불변.
+- S3 자연증발·super-landing explode는 `_destroy_block_group` 미경유 → 이미 미카운트(유지 확인만).
+
+회귀 스모크(`stage6_tetriser_state_smoke.gd`): `_test_ball_reflection_does_not_count_rebuild()` — 큐브를 rebuild 모드로
+(debug_force_cube_solve_pending + 폭발까지 advance) → `debug_get_cube_rebuild_progress()`==0 확인, 그다음 **일반 공-반사로
+테트로 1개 파괴**(player rally, `last_hit_by="player"`, rally>=1로 관통 안 함) → progress **0 유지** AND `debug_is_cube_rebuild()`
+true 유지. 기존 dash 카운트 케이스와 페어로 SOURCE 분리 증명. **반증검증:** reason 게이트를 in-place로 제거하면 공-반사가
++1 되어 실패(`git reset`/`checkout`/`stash` 금지).
+
+트랩: **파워스매시는 'dash'가 아니다** — `reason=="dash"` 단순체크 시 파워스매시·player 카운트가 전부 누락되어 순수-공/스매시
+플레이에서 rebuild가 영영 미완성. 반드시 set `["player","dash"]` 사용. (연막/폭발 active item을 카운트에 넣고 싶으면 set에
+추가 — 현 결정은 authored 리터럴 따라 제외.)
+
+구현(2026-06-23): `CUBE_REBUILD_COUNT_REASONS := ["player", "dash"]` + `_destroy_block_group(..., reason)` 배선 완료.
+일반 공 반사는 `"ball"`로 미카운트, 파워스매시는 `"player"`로 +1, 대시는 `"dash"`로 +1, 연막/폭발은 `"smoke"`/`"explosion"`으로
+미카운트. 검증: 상태/배선 스모크 green, reason 게이트 제거 시 공-반사 +1로 실패, 허용 set을 `["dash"]`로 줄이면 파워스매시 테스트 실패.
 
 ### S5-4 — 보상/스타 드롭 (🟠 가장 큰 항목)
 큐브 솔브-폭발 스타 드롭 + golden(3%) 테트로/벽 스타 + 수류탄 VFX 전부 미구현(TODO live
