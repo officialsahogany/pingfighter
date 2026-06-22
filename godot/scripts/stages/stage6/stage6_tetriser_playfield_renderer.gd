@@ -109,15 +109,18 @@ func _draw_guard_block(canvas: CanvasItem, block: Dictionary, cell_size: float, 
 	if cells.is_empty():
 		return
 	var origin: Vector2 = _as_vector2(block.get("origin", Vector2.ZERO)) + shake_offset
-	var sliding: bool = String(block.get("state", "")) == "sliding"
+	var state: String = String(block.get("state", ""))
+	var visible: int = mini(int(block.get("visible_cells", cells.size())), cells.size())
+	var translucent: bool = state == "assembling" or state == "sliding"
 	var fill: Color = block.get("color", Color(0.58, 0.66, 0.78))
-	if sliding:
+	if translucent:
 		fill.a = 0.6
 	var cell_vec := Vector2(cell_size, cell_size)
-	for cell in cells:
-		var rect := Rect2(origin + _as_vector2(cell) * cell_size, cell_vec)
+	for idx in range(visible):
+		var rect := Rect2(origin + _as_vector2(cells[idx]) * cell_size, cell_vec)
 		canvas.draw_rect(rect, fill)
-		canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
+		if state == "active":
+			canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
 		canvas.draw_rect(rect, BORDER_COLOR, false, 2.0)
 
 

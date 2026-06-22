@@ -288,7 +288,7 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 |---|---|---|---|
 | **레이저 발사 조건** | — | ✅ **완료(충실 적응)** | 갭 아님 — 아래 참조 |
 | **S5-1 사운드 3종** | ✅ | 완료 | bigtetromino / tetrominoshield / characterlazer 배선 + 스모크 반증검증 |
-| **S5-2 가드 조립 페이즈** | 🟡 | partial | 320ms 슬라이드 → 1000ms 셀별 조립(벽/테트로 패턴 미러) |
+| **S5-2 가드 조립 페이즈** | ✅ | 완료 | 1000ms 셀별 조립 → 320ms 슬라이드 → active 충돌 게이트 |
 | **S5-3 큐브 재조립 카운트** | ⚪ | **결정필요** | 원본 카운터가 dead code → "큐브가 재조립하나" 자체가 설계 질문 |
 | **S5-4 보상/스타 드롭** | 🟠 | gap | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 통째 포팅 + 단위트랩 |
 | **S5-5 크리스탈 실드** | ⚪ | (미재감사) | freeze/persist 의도 결정 |
@@ -323,7 +323,7 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 **트랩:** 실드 경로의 기존 `_sfx_break_pending`은 **swap**(제거+shield로 교체)해야 함 — 추가만 하면 break+shield 동시발생.
 characterlazer를 캐릭선택 UFO 빔([pingfighter.py:152969](../pingfighter.py#L152969))에 잘못 배선 금지(범위 밖).
 
-### S5-2 — 가드 조립 페이즈 (partial)
+### S5-2 — 가드 조립 페이즈 (완료)
 현재 가드는 1000ms 조립 없이 곧장 320ms 슬라이드 → 사전-collidable 시간 ~320ms vs 원본 ~1320ms. 충돌 게이트(state=="active"
 한정)는 **이미 정확**, 조립 텔레그래프만 없음(벽/테트로는 조립 페이즈 보유, 가드만 누락). 원본
 [pingfighter.py:115516-115523](../pingfighter.py#L115516)(ASSEMBLY_TOTAL 1000/STEP 250/MOVE 200), 셀별 reveal.
@@ -332,7 +332,13 @@ characterlazer를 캐릭선택 UFO 빔([pingfighter.py:152969](../pingfighter.py
 분기 추가(`_update_wall_assembling` [:521](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L521) 미러) → sliding(320) → active.
 충돌 `_find_block_cell_hit(...,["active"])` 그대로 → 게이트 자동 확장. 렌더러는 `visible_cells`만 그림.
 회귀 스모크: **실 스케줄러 경로로 스폰**(❗`debug_spawn_guard_at`는 즉시 active라 무의미 — `debug_force_spawn_guard` 신설 필요),
-t=0.1s에 state=="assembling" AND 공 미충돌 AND revealed<4, t>1.0s에 active+충돌+파괴. 조립 토글 제거 시 실패(반증).
+t=0.1s에 state=="assembling" AND 공 미충돌 AND revealed<4, t≈1.0s에 sliding+비충돌, t>1.32s에 active+충돌+파괴.
+조립 토글 제거 시 실패(반증).
+구현(2026-06-22): `debug_force_spawn_guard()`가 `_update_guard_scheduler()` 실경로를 강제하고, 스폰은 `assembling`
+(`visible_cells=0`)으로 시작한다. 250ms 단위 reveal, 1.0s 후 기존 320ms `sliding`, 이후 `active` 전환.
+`resolve_ball_collision()`은 기존처럼 `["active"]`만 검사하므로 조립/슬라이드 중 비충돌. 렌더러는 guard `visible_cells`
+slice와 조립/슬라이드 반투명을 소비한다. 검증: 상태 스모크 green, 스폰 상태를 `sliding`으로 되돌리면 실패, 충돌 게이트를
+`assembling/sliding/active`로 열면 실패.
 
 ### S5-3 — 큐브 재조립 카운트 (⚪ 설계 결정 선행)
 **중요:** 원본의 카운트 헬퍼 `stage7_cube_notify_tetro_evaporated`([pingfighter.py:116457](../pingfighter.py#L116457))는

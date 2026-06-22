@@ -71,6 +71,9 @@ const GUARD_COST_SINGLE := 50.0          # 1개 50
 const GUARD_COST_PAIR := 100.0           # 2개 100
 const GUARD_MAX_ACTIVE := 4
 const GUARD_SLIDE_SEC := 0.32            # STAGE7_GUARD_MOVEMENT_DURATION_MS=320
+const GUARD_ASSEMBLY_TOTAL_SEC := 1.0    # STAGE7_GUARD_ASSEMBLY_TOTAL_MS=1000
+const GUARD_ASSEMBLY_STEP_SEC := 0.25    # STAGE7_GUARD_ASSEMBLY_STEP_MS=250
+const GUARD_ASSEMBLY_MOVE_SEC := 0.20    # STAGE7_GUARD_ASSEMBLY_MOVE_MS=200
 const GUARD_GAP_Y := 40.0                # STAGE7_GUARD_GAP_Y (층 쌓기 간격)
 const GUARD_SPAWN_OFFSET_Y := 8.0
 const GUARD_CELLS := [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)]  # 4x1 가로 바
@@ -394,14 +397,22 @@ func _spawn_guard_block(side: String, context: Dictionary) -> void:
 	else:
 		start_origin = Vector2(center_x, top)
 		final_origin = Vector2(minf(FIELD_WIDTH - cell * 4.0 - 12.0, boss_pos.x + boss_size.x + 6.0), top)
+	var assembly_cells: Array = []
+	for guard_cell in GUARD_CELLS:
+		var cell_pos: Vector2 = guard_cell
+		assembly_cells.append(cell_pos + Vector2(_rng.randf_range(-8.0, 8.0) / cell, 0.0))
 	_guard_blocks.append({
 		"kind": "guard",
-		"state": "sliding",
+		"state": "assembling",
 		"side": side,
-		"cells": GUARD_CELLS.duplicate(),
+		"cells": assembly_cells,
+		"assembly_start_cells": assembly_cells.duplicate(),
+		"final_cells": GUARD_CELLS.duplicate(),
+		"visible_cells": 0,
 		"origin": start_origin,
 		"start_origin": start_origin,
 		"final_origin": final_origin,
+		"assembly_elapsed": 0.0,
 		"slide_elapsed": 0.0,
 	})
 
@@ -416,18 +427,47 @@ func _count_guard_side(side: String) -> int:
 
 func _update_guard_blocks(delta: float) -> void:
 	for block in _guard_blocks:
-		if String(block.get("state", "")) != "sliding":
-			continue
-		var elapsed: float = float(block["slide_elapsed"]) + delta
-		block["slide_elapsed"] = elapsed
-		var t: float = clampf(elapsed / GUARD_SLIDE_SEC, 0.0, 1.0)
-		var ease_t: float = 1.0 - (1.0 - t) * (1.0 - t)   # ease-out quad
-		var start_origin: Vector2 = block["start_origin"]
-		var final_origin: Vector2 = block["final_origin"]
-		block["origin"] = start_origin.lerp(final_origin, ease_t)
-		if t >= 1.0:
-			block["state"] = "active"
-			block["origin"] = final_origin
+		match String(block.get("state", "")):
+			"assembling":
+				_update_guard_assembling(block, delta)
+			"sliding":
+				_update_guard_sliding(block, delta)
+
+
+func _update_guard_assembling(block: Dictionary, delta: float) -> void:
+	var final_cells: Array = block.get("final_cells", GUARD_CELLS)
+	var start_cells: Array = block.get("assembly_start_cells", block.get("cells", final_cells))
+	var cell_count: int = final_cells.size()
+	var elapsed: float = float(block.get("assembly_elapsed", 0.0)) + delta
+	block["assembly_elapsed"] = elapsed
+	block["visible_cells"] = clampi(int(elapsed / GUARD_ASSEMBLY_STEP_SEC), 0, cell_count)
+	var current_cells: Array = []
+	for idx in range(cell_count):
+		var start_cell: Vector2 = start_cells[idx]
+		var final_cell: Vector2 = final_cells[idx]
+		var move_start: float = float(idx + 1) * GUARD_ASSEMBLY_STEP_SEC - GUARD_ASSEMBLY_MOVE_SEC
+		var move_t: float = clampf((elapsed - move_start) / GUARD_ASSEMBLY_MOVE_SEC, 0.0, 1.0)
+		current_cells.append(start_cell.lerp(final_cell, move_t))
+	block["cells"] = current_cells
+	if elapsed >= GUARD_ASSEMBLY_TOTAL_SEC:
+		block["state"] = "sliding"
+		block["visible_cells"] = cell_count
+		block["cells"] = final_cells.duplicate()
+		block["slide_elapsed"] = 0.0
+
+
+func _update_guard_sliding(block: Dictionary, delta: float) -> void:
+	var elapsed: float = float(block["slide_elapsed"]) + delta
+	block["slide_elapsed"] = elapsed
+	var t: float = clampf(elapsed / GUARD_SLIDE_SEC, 0.0, 1.0)
+	var ease_t: float = 1.0 - (1.0 - t) * (1.0 - t)   # ease-out quad
+	var start_origin: Vector2 = block["start_origin"]
+	var final_origin: Vector2 = block["final_origin"]
+	block["origin"] = start_origin.lerp(final_origin, ease_t)
+	if t >= 1.0:
+		block["state"] = "active"
+		block["origin"] = final_origin
+		block["cells"] = block.get("final_cells", GUARD_CELLS).duplicate()
 
 
 func _arm_wall_timer() -> void:
@@ -1499,6 +1539,7 @@ func _build_guard_draw_list() -> Array:
 			"state": block.get("state", "active"),
 			"origin": block.get("origin", Vector2.ZERO),
 			"cells": (block.get("cells", []) as Array).duplicate(),
+			"visible_cells": int(block.get("visible_cells", (block.get("cells", []) as Array).size())),
 			"color": GUARD_COLOR,
 		})
 	return out
@@ -1682,6 +1723,29 @@ func debug_get_guard_count() -> int:
 	return _guard_blocks.size()
 
 
+func debug_get_guard_states() -> Array:
+	var out: Array = []
+	for block in _guard_blocks:
+		out.append(String(block.get("state", "")))
+	return out
+
+
+func debug_get_guard_visible_counts() -> Array:
+	var out: Array = []
+	for block in _guard_blocks:
+		out.append(int(block.get("visible_cells", (block.get("cells", []) as Array).size())))
+	return out
+
+
+func debug_force_spawn_guard(context: Dictionary = {}) -> void:
+	_guard_timer_sec = 0.0
+	_update_guard_scheduler(0.0, context if not context.is_empty() else {
+		"current_stage": STAGE_ID,
+		"ball_active": true,
+		"waiting_for_serve": false,
+	})
+
+
 func debug_get_wall_cell_count() -> int:
 	var count := 0
 	for block in _wall_blocks:
@@ -1736,6 +1800,8 @@ func debug_spawn_guard_at(origin: Vector2, side: String = "left") -> void:
 		"state": "active",
 		"side": side,
 		"cells": GUARD_CELLS.duplicate(),
+		"final_cells": GUARD_CELLS.duplicate(),
+		"visible_cells": GUARD_CELLS.size(),
 		"origin": origin,
 		"start_origin": origin,
 		"final_origin": origin,

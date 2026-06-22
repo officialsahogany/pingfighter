@@ -136,6 +136,7 @@ func _init() -> void:
 	_test_super_tetromino_explosion_radius_gate()
 	_test_super_tetromino_explosion_respects_player_immunity()
 	_test_guard_scheduler_spawns()
+	_test_guard_scheduler_uses_assembly_phase()
 	_test_guard_ball_collision()
 	_test_wall_spawn_uses_tetromino_pieces_and_collision_gate()
 	_test_wall_position_preserves_original_top_anchor()
@@ -571,6 +572,67 @@ func _test_guard_scheduler_spawns() -> void:
 		state.update(0.1, _active_context())
 	var gc: int = state.debug_get_guard_count()
 	_expect(gc >= 1 and gc <= 4, "guard scheduler spawns 1..4 guard blocks over time (got %d)" % gc)
+
+
+func _test_guard_scheduler_uses_assembly_phase() -> void:
+	var state: Object = Stage6TetriserState.new()
+	var ctx := _active_context()
+	ctx["boss_pos"] = Vector2(330.0, 45.0)
+	ctx["boss_paddle_size"] = Vector2(100.0, 40.0)
+	state.debug_set_gauge(50.0)
+	state.debug_force_spawn_guard(ctx)
+	_expect(state.debug_get_guard_count() == 1, "forced guard scheduler path spawns one guard")
+	_expect(_first_guard_state(state) == "assembling", "scheduled guard starts in assembling state")
+	_expect(_first_guard_visible_count(state) == 0, "scheduled guard starts with no visible cells")
+
+	_advance_time(state, 0.10, ctx)
+	_expect(_first_guard_state(state) == "assembling", "guard remains assembling at 0.10s")
+	_expect(_first_guard_visible_count(state) < 4, "guard is not fully revealed at 0.10s")
+	var assembling_draw: Array = state.get_actor_draw_context().get("stage6_tetriser_guard_blocks", [])
+	_expect(not assembling_draw.is_empty(), "assembling guard is exposed to draw context")
+	if not assembling_draw.is_empty():
+		var assembling_guard: Dictionary = assembling_draw[0]
+		var assembling_origin: Vector2 = assembling_guard.get("origin", Vector2.ZERO)
+		var assembling_scene := {
+			"ball_pos": assembling_origin + Vector2(10.0, 10.0),
+			"previous_ball_pos": assembling_origin + Vector2(10.0, 40.0),
+			"ball_vel": Vector2(0.0, -8.0),
+		}
+		_expect(not state.resolve_ball_collision(assembling_scene, {"current_stage": 6, "ball_size": 20.0}, {}), "assembling guard is not collidable")
+
+	_advance_time(state, 0.25, ctx)
+	_expect(_first_guard_state(state) == "assembling", "guard is still assembling before 1.0s")
+	var mid_visible: int = _first_guard_visible_count(state)
+	_expect(mid_visible >= 1 and mid_visible < 4, "guard reveals cells gradually before slide (visible=%d)" % mid_visible)
+
+	_advance_time(state, 0.70, ctx)
+	_expect(_first_guard_state(state) == "sliding", "guard switches to sliding after 1.0s assembly")
+	_expect(_first_guard_visible_count(state) == 4, "sliding guard has all cells visible")
+	var sliding_draw: Array = state.get_actor_draw_context().get("stage6_tetriser_guard_blocks", [])
+	if not sliding_draw.is_empty():
+		var sliding_guard: Dictionary = sliding_draw[0]
+		var sliding_origin: Vector2 = sliding_guard.get("origin", Vector2.ZERO)
+		var sliding_scene := {
+			"ball_pos": sliding_origin + Vector2(10.0, 10.0),
+			"previous_ball_pos": sliding_origin + Vector2(10.0, 40.0),
+			"ball_vel": Vector2(0.0, -8.0),
+		}
+		_expect(not state.resolve_ball_collision(sliding_scene, {"current_stage": 6, "ball_size": 20.0}, {}), "sliding guard is not collidable before active")
+
+	_advance_time(state, 0.34, ctx)
+	_expect(_first_guard_state(state) == "active", "guard becomes active after assembly plus slide")
+	var active_draw: Array = state.get_actor_draw_context().get("stage6_tetriser_guard_blocks", [])
+	_expect(not active_draw.is_empty(), "active guard remains in draw context")
+	if not active_draw.is_empty():
+		var active_guard: Dictionary = active_draw[0]
+		var active_origin: Vector2 = active_guard.get("origin", Vector2.ZERO)
+		var active_scene := {
+			"ball_pos": active_origin + Vector2(10.0, 10.0),
+			"previous_ball_pos": active_origin + Vector2(10.0, 40.0),
+			"ball_vel": Vector2(0.0, -8.0),
+		}
+		_expect(state.resolve_ball_collision(active_scene, {"current_stage": 6, "ball_size": 20.0}, {}), "active guard becomes collidable")
+		_expect(state.debug_get_guard_count() == 0, "active guard is destroyed by ball after assembly")
 
 
 func _test_guard_ball_collision() -> void:
@@ -1103,6 +1165,16 @@ func _cells_signature(cells: Array) -> String:
 		parts.append("%d,%d" % [int(round(p.x)), int(round(p.y))])
 	parts.sort()
 	return "|".join(parts)
+
+
+func _first_guard_state(state: Object) -> String:
+	var states: Array = state.debug_get_guard_states()
+	return "" if states.is_empty() else str(states[0])
+
+
+func _first_guard_visible_count(state: Object) -> int:
+	var counts: Array = state.debug_get_guard_visible_counts()
+	return -1 if counts.is_empty() else int(counts[0])
 
 
 func _expect(condition: bool, message: String) -> void:
