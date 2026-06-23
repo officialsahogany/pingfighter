@@ -463,6 +463,18 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(texture_loader_source.find("get_ring_core_icon_texture") >= 0, "TAB lingpet texture loader should expose ring-core tier icon loading")
 	_expect(texture_loader_source.find("RuntimePerkIconRenderer.PERK_ICON_PATHS") >= 0, "TAB lingpet ring-core icon loading should reuse the perk-card tier art family")
 	_expect(texture_loader_source.find("LingpetAffinityStore.MAX_RING_CORE_TIER + 1") >= 0, "TAB lingpet prewarm should iterate every ring-core tier art")
+	# Behavioral seal for the whole-row hover. The icon-only (~50px) and pips-only (~15px)
+	# hit rects were tiny on a ~200px row, so hovering the large "링코어 / 미장착 / 강화칩"
+	# LABEL text showed no tooltip. _ring_core_row_hover_target is pure (no draw context), so
+	# the hover decision is exercised directly: the whole row resolves to ring_core except the
+	# narrow chip-pips column, which resolves to chip.
+	_expect(presenter_source.find("_ring_core_row_hover_target(rect, chip_pips_hover_rect, mouse_pos)") >= 0, "TAB lingpet ring-core row should resolve hover through the whole-row helper, not an icon-only rect")
+	var hover_row_rect := Rect2(40.0, 200.0, 200.0, 64.0)
+	var hover_pips_rect := Rect2(95.0, 200.0, 16.0, 64.0)
+	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(180.0, 230.0))) == "ring_core", "hovering the ring-core row LABEL area should show the ring-core tooltip (whole-row hover), not nothing")
+	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(55.0, 225.0))) == "ring_core", "hovering the ring-core icon should show the ring-core tooltip")
+	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(102.0, 230.0))) == "chip", "hovering the chip pips column should show the chip-income tooltip")
+	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(400.0, 230.0))) == "", "hovering outside the ring-core row should show no tooltip")
 	var ring_core_icon_cache := {}
 	for tier in range(1, LingpetAffinityStore.MAX_RING_CORE_TIER + 1):
 		var tier_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(tier, ring_core_icon_cache)

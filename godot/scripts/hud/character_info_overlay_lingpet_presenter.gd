@@ -962,13 +962,15 @@ static func _draw_lingpet_ring_core_row(
 	var chip_count := clampi(int(snapshot.get("affinity_chip_count", 0)), 0, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
 	var slot_size: float = clampf(rect.size.y - 6.0, 42.0, 58.0)
 	var ring_core_rect := Rect2(rect.position + Vector2(0.0, (rect.size.y - slot_size) * 0.5), Vector2(slot_size, slot_size))
-	hover_data = _draw_lingpet_ring_core_slot(canvas, font, ring_core_rect, snapshot, mouse_pos, hover_data, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 	var chip_pips_x := ring_core_rect.end.x + 7.0
-	_draw_vertical_affinity_chip_pips(canvas, Rect2(chip_pips_x, rect.position.y, _affinity_chip_pips_width(), rect.size.y), chip_count, stat_buff_color, empty_text_color)
 	var chip_pips_hover_rect := Rect2(chip_pips_x - 3.0, rect.position.y, _affinity_chip_pips_width() + 6.0, rect.size.y)
-	if chip_pips_hover_rect.has_point(mouse_pos):
-		var chip_body := LanguageSettings.translate_text("친밀도 획득량 +%d%%") % (chip_count * 20)
-		_fill_hover_data(hover_data, LanguageSettings.translate_text("강화칩 %d / %d") % [chip_count, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS], "", chip_body, stat_buff_color, chip_pips_hover_rect)
+	# Whole-row hover: the narrow chip-pips column shows the chip income tooltip; everything
+	# else on the row (icon, labels, gaps) shows the ring-core cap tooltip. The icon-only and
+	# pips-only hit rects were tiny (~50px / ~15px on a ~200px row), so hovering the large
+	# label text showed nothing. The entire row is now a hover target.
+	var hover_target := _ring_core_row_hover_target(rect, chip_pips_hover_rect, mouse_pos)
+	_draw_lingpet_ring_core_slot(canvas, font, ring_core_rect, snapshot, hover_target == &"ring_core", skill_icon_texture_cache, accent_blue, slot_fill, ring_segments, ui_text_scale)
+	_draw_vertical_affinity_chip_pips(canvas, Rect2(chip_pips_x, rect.position.y, _affinity_chip_pips_width(), rect.size.y), chip_count, stat_buff_color, empty_text_color)
 	var text_x := chip_pips_x + _affinity_chip_pips_width() + 11.0
 	var text_w: float = maxf(32.0, rect.end.x - text_x)
 	var title_text := LanguageSettings.translate_text("링코어")
@@ -977,7 +979,27 @@ static func _draw_lingpet_ring_core_row(
 	_draw_text_xy(canvas, font, _fit_text_to_width(font, title_text, 11, text_w, ui_text_scale), text_x, rect.position.y + 18.0, 11, Color.WHITE, ui_text_scale)
 	_draw_text_xy(canvas, font, _fit_text_to_width(font, tier_text, 10, text_w, ui_text_scale), text_x, rect.position.y + 36.0, 10, stat_buff_color if tier > 0 else empty_text_color, ui_text_scale)
 	_draw_text_xy(canvas, font, _fit_text_to_width(font, chip_text, 9, text_w, ui_text_scale), text_x, rect.position.y + 52.0, 9, empty_text_color, ui_text_scale)
+	if hover_target == &"chip":
+		var chip_body := LanguageSettings.translate_text("친밀도 획득량 +%d%%") % (chip_count * 20)
+		_fill_hover_data(hover_data, LanguageSettings.translate_text("강화칩 %d / %d") % [chip_count, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS], "", chip_body, stat_buff_color, chip_pips_hover_rect)
+	elif hover_target == &"ring_core":
+		var rc_subtitle := ("T%d" % tier) if tier > 0 else LanguageSettings.translate_text("미장착")
+		var rc_cap := LingpetAffinityStore.get_ring_core_cap_for_tier(tier)
+		var rc_body := LanguageSettings.translate_text("친밀도 상한 Lv.%d") % rc_cap
+		_fill_hover_data(hover_data, LanguageSettings.translate_text("링코어"), rc_subtitle, rc_body, accent_blue, rect)
 	return hover_data
+
+
+# Returns which ring-core-row sub-region the mouse is over: the narrow chip-pips column
+# (&"chip"), the rest of the row (&"ring_core"), or nothing (&""). Pips win where they
+# overlap so the chip-income tooltip stays reachable. Pure + side-effect-free so the hover
+# decision can be sealed by a smoke without a live draw context.
+static func _ring_core_row_hover_target(row_rect: Rect2, pips_rect: Rect2, mouse_pos: Vector2) -> StringName:
+	if pips_rect.has_point(mouse_pos):
+		return &"chip"
+	if row_rect.has_point(mouse_pos):
+		return &"ring_core"
+	return &""
 
 
 static func _draw_lingpet_ring_core_slot(
@@ -985,18 +1007,14 @@ static func _draw_lingpet_ring_core_slot(
 	font: Font,
 	rect: Rect2,
 	snapshot: Dictionary,
-	mouse_pos: Vector2,
-	hover_data: Dictionary,
+	hovered: bool,
 	skill_icon_texture_cache: Dictionary,
-	stat_buff_color: Color,
-	empty_text_color: Color,
 	accent_blue: Color,
 	slot_fill: Color,
 	ring_segments: int,
 	ui_text_scale: float
-) -> Dictionary:
+) -> void:
 	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
-	var hovered := rect.has_point(mouse_pos)
 	canvas.draw_rect(rect, slot_fill)
 	var border_color := Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.96 if tier > 0 else 0.42)
 	canvas.draw_rect(rect, border_color, false, 2.0 if hovered else 1.0)
@@ -1011,12 +1029,6 @@ static func _draw_lingpet_ring_core_slot(
 		canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
 		canvas.draw_rect(badge_rect, Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.72), false, 1.0)
 		_draw_centered_text(canvas, font, "T%d" % tier, badge_rect.get_center().x, badge_rect.position.y + 9.0, 7, Color.WHITE, ui_text_scale)
-	if hovered:
-		var rc_subtitle := ("T%d" % tier) if tier > 0 else LanguageSettings.translate_text("미장착")
-		var rc_cap := LingpetAffinityStore.get_ring_core_cap_for_tier(tier)
-		var rc_body := LanguageSettings.translate_text("친밀도 상한 Lv.%d") % rc_cap
-		_fill_hover_data(hover_data, LanguageSettings.translate_text("링코어"), rc_subtitle, rc_body, accent_blue, rect)
-	return hover_data
 
 
 static func _draw_empty_lingpet_ring_core_slot(canvas: CanvasItem, rect: Rect2, accent_blue: Color, ring_segments: int) -> void:
