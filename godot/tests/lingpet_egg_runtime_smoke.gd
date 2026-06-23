@@ -3054,19 +3054,20 @@ func _verify_player_takes_ball_priority_when_companion_overlaps() -> void:
 
 
 func _verify_lingpet_body_draws_behind_player() -> void:
-	# Draw order: the lingpet BODY (egg sprite AND companion sprite) must render behind
-	# the player. Both body draws were moved out of the post-actor draw() into
-	# draw_lingpet_body_behind_actors(), which the shared player actor renderer invokes
-	# (via a scene-drawer-injected hook) BEFORE it draws the player sprite. Reverse-check:
-	# if _draw_companion( or _draw_egg( leaks back into draw(), an overlapping lingpet
-	# would again cover the player.
+	# Draw order: the default lingpet BODY (egg sprite AND patrol companion sprite) must render
+	# behind the player through draw_lingpet_body_behind_actors(). The only front-pass exception
+	# is the explicit bind-sheet gate, where the companion body has to wrap over a target.
+	# Reverse-check: a raw _draw_companion( leak into draw() would cover the player again.
 	var runtime_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var draw_fn_start: int = runtime_src.find("\nfunc draw(canvas: CanvasItem")
 	_expect(draw_fn_start >= 0, "egg runtime should define draw(canvas: CanvasItem, ...)")
 	var draw_fn_end: int = runtime_src.find("\nfunc ", draw_fn_start + 1)
 	var draw_fn_body: String = runtime_src.substr(draw_fn_start, draw_fn_end - draw_fn_start)
-	_expect(draw_fn_body.find("_draw_companion(") < 0, "main draw() must NOT draw the companion body (it renders behind the player instead)")
+	var front_gate_idx: int = draw_fn_body.find("if _is_companion_body_drawn_in_front():")
+	var front_companion_idx: int = draw_fn_body.find("_draw_companion(")
+	_expect(front_companion_idx < 0 or (front_gate_idx >= 0 and front_gate_idx < front_companion_idx), "main draw() may draw the companion body only behind the explicit bind-sheet front-pass gate")
 	_expect(draw_fn_body.find("_draw_egg(") < 0, "main draw() must NOT draw the egg body (it renders behind the player instead)")
+	_expect(runtime_src.find("func _is_companion_body_drawn_in_front()") >= 0, "front-pass companion draw should stay guarded by a named bind-sheet predicate")
 	var behind_fn_start: int = runtime_src.find("func draw_lingpet_body_behind_actors(")
 	_expect(behind_fn_start >= 0, "egg runtime should expose draw_lingpet_body_behind_actors() for the behind-player body pass")
 	var behind_fn_end: int = runtime_src.find("\nfunc ", behind_fn_start + 1)
