@@ -427,14 +427,14 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(int(before_snapshot.get("ring_core_tier", 0)) == 3, "TAB panel snapshot should read ring-core tier through the schema-gated owner")
 	_expect(int(before_snapshot.get("affinity_chip_count", -1)) == 0, "TAB panel snapshot should start with zero affinity chips")
 	_expect(str(before_snapshot.get("subtitle", "")) == "동행 중", "companion panel subtitle should stay the plain 동행 중 status after R3b")
-	for _i in range(25):
+	for _i in range(20):
 		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
 	runtime.update(0.0, owner, registry)
 	var after_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	var after_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(after_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(int(after_snapshot.get("affinity_level", 0)) == 2, "TAB panel snapshot should read affinity Lv.2 through the schema-gated owner after a live level-up")
 	_expect(is_equal_approx(float(after_snapshot.get("affinity_points", -1.0)), 0.0), "TAB panel snapshot should read post-level-up affinity points")
-	_expect(is_equal_approx(float(after_snapshot.get("affinity_next_requirement", 0.0)), 100.0), "TAB panel snapshot should read the Lv.2 next requirement")
+	_expect(is_equal_approx(float(after_snapshot.get("affinity_next_requirement", 0.0)), 50.0), "TAB panel snapshot should read the Lv.2 next requirement (flat 50)")
 	_expect(str(after_snapshot.get("affinity_next_label", "")) != "", "TAB panel snapshot should read the next affinity reward label")
 	_expect(after_hash != before_hash, "lingpet stat cache hash should change when affinity level changes")
 	runtime.add_enhancement_chip(owner, registry)

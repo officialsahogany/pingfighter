@@ -8,7 +8,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_requirement_curve_and_30_level_track()
-	_verify_ring_core_cap_bank_and_release()
+	_verify_ring_core_cap_clamps_overflow()
 	_verify_unlock_cards_and_choice_state()
 	_verify_reward_deck_determinism_and_bands()
 	_verify_skill_level_up_cards_require_unlocks()
@@ -40,19 +40,9 @@ func _init() -> void:
 func _verify_requirement_curve_and_30_level_track() -> void:
 	_expect_eq(LingpetAffinityState.MAX_LEVEL, 30, "V3 affinity max level should be 30")
 	_expect_float(LingpetAffinityState.get_requirement_for_level(0), 50.0, "Lv0 should need 50 for the first level")
-	_expect_float(LingpetAffinityState.get_requirement_for_level(1), 75.0, "Lv1 should need 75 for the second level")
-	_expect_float(LingpetAffinityState.get_requirement_for_level(2), 100.0, "Lv2 should start the 100-point placeholder band")
-	_expect_float(LingpetAffinityState.get_requirement_for_level(10), 125.0, "Lv10 should start the 125-point placeholder band")
-	_expect_float(LingpetAffinityState.get_requirement_for_level(15), 150.0, "Lv15 should start the 150-point placeholder band")
-	_expect_float(LingpetAffinityState.get_requirement_for_level(20), 175.0, "Lv20 should start the 175-point placeholder band")
-	_expect_float(LingpetAffinityState.get_requirement_for_level(25), 200.0, "Lv25 should start the 200-point placeholder band")
+	_expect_requirement_slice(0, 30, 50.0, "flat 50-point affinity requirement across every level")
 	_expect_float(LingpetAffinityState.get_requirement_for_level(30), 0.0, "Lv30 should have no next requirement")
-	_expect_float(_requirement_sum_to_max(), 4175.0, "placeholder 30-level requirement sum should be 4,175")
-	_expect_requirement_slice(2, 10, 100.0, "100-point placeholder band")
-	_expect_requirement_slice(10, 15, 125.0, "125-point placeholder band")
-	_expect_requirement_slice(15, 20, 150.0, "150-point placeholder band")
-	_expect_requirement_slice(20, 25, 175.0, "175-point placeholder band")
-	_expect_requirement_slice(25, 30, 200.0, "200-point placeholder band")
+	_expect_float(_requirement_sum_to_max(), 1500.0, "flat 50 over 30 levels should sum to 1,500")
 
 	var state := LingpetAffinityState.new()
 	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
@@ -76,27 +66,36 @@ func _verify_requirement_curve_and_30_level_track() -> void:
 	_expect_float(state.get_points("maribo"), 0.0, "max-level blocked grant should preserve zero points")
 
 
-func _verify_ring_core_cap_bank_and_release() -> void:
+func _verify_ring_core_cap_clamps_overflow() -> void:
+	# No ring-core (T0 = cap 0): the bar must read 50/50, not overshoot to 1054/50.
+	# Affinity earned beyond the next-level requirement is intentionally wasted so the
+	# ring-core stays the investment that makes affinity count.
+	var no_core := LingpetAffinityState.new()
+	no_core.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 0)
+	_grant_round_commits(no_core, "maribo", 200)
+	_expect_eq(no_core.get_level("maribo"), 0, "ring-core cap Lv0 should keep the pet at Lv0")
+	_expect_float(no_core.get_points("maribo"), 50.0, "cap Lv0 should clamp banked points at the Lv1 requirement (50/50), never overshoot")
+
 	var capped := LingpetAffinityState.new()
 	capped.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 5)
 	_grant_round_commits(capped, "maribo", 200)
 	_expect_eq(capped.get_level("maribo"), 5, "ring-core cap Lv5 should stop level-ups at Lv5")
-	_expect_float(capped.get_points("maribo"), 575.0, "temporary cap should bank overflow instead of discarding it")
+	_expect_float(capped.get_points("maribo"), 50.0, "temporary cap should clamp overflow at the next-level requirement (Lv5->Lv6 = 50), not bank it unbounded")
 	var capped_data: Dictionary = capped.get_pet_data("maribo")
 	_expect_eq((capped_data.get("reward_history", []) as Array).size(), 5, "temporary cap should award only up to the capped level")
 
 	capped.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, false, 10)
 	capped.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	_expect_eq(capped.get_level("maribo"), 10, "raising cap to Lv10 should spend banked points on the next grant")
-	_expect_float(capped.get_points("maribo"), 80.0, "cap release should retain only post-level-up remainder")
+	_expect_eq(capped.get_level("maribo"), 6, "raising the cap should release only the clamped ceiling (bounded head start), not a banked level burst")
+	_expect_float(capped.get_points("maribo"), 5.0, "cap release should retain only the post-level-up remainder of the clamped ceiling")
 	var released_data: Dictionary = capped.get_pet_data("maribo")
-	_expect_eq((released_data.get("reward_history", []) as Array).size(), 10, "cap release should fill reward history through Lv10")
+	_expect_eq((released_data.get("reward_history", []) as Array).size(), 6, "cap release should fill reward history only through the bounded head-start level")
 
 	var maxed := LingpetAffinityState.new()
 	maxed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
 	_grant_round_commits(maxed, "maribo", 900)
 	_expect_eq(maxed.get_level("maribo"), 30, "cap 30 fixture should reach max")
-	_expect_float(maxed.get_points("maribo"), 0.0, "absolute max should discard overflow, unlike temporary caps")
+	_expect_float(maxed.get_points("maribo"), 0.0, "absolute max should discard overflow entirely")
 
 
 func _verify_unlock_cards_and_choice_state() -> void:
@@ -216,7 +215,7 @@ func _verify_skill_level_up_cards_require_unlocks() -> void:
 func _verify_dead_draw_does_not_block_unlocks() -> void:
 	var state := LingpetAffinityState.new()
 	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 5, 5, 777, true, 30)
-	_grant_round_commits(state, "maribo", 85)
+	_grant_round_commits(state, "maribo", 50)
 	_expect_eq(state.get_level("maribo"), 5, "dead-draw fixture should reach the first five-card band")
 	var rewards := state.get_cumulative_rewards("maribo")
 	_expect(bool(rewards.get("active_unlocked", false)), "active unlock should apply even when base active level is already capped")
@@ -392,7 +391,7 @@ func _verify_headstart_preserves_previous_best() -> void:
 	_expect(state.get_pending_bond_level_ups().is_empty(), "headstart reward history should not enter the pending bond ledger")
 	_grant_round_commits(state, "maribo", 10)
 	_expect_eq(state.get_best_level("maribo"), 11, "run below previous best should not rewrite best level")
-	_grant_round_commits(state, "maribo", 180)
+	_grant_round_commits(state, "maribo", 80)
 	_expect_eq(state.get_best_level("maribo"), 12, "only exceeding previous best should raise best level")
 
 	var no_core := LingpetAffinityState.new()

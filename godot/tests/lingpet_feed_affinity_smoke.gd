@@ -72,9 +72,9 @@ func _verify_feed_use_counter_and_reset_boundary() -> void:
 func _verify_feed_level_cap_and_clamp() -> void:
 	var clamp_state := LingpetAffinityState.new()
 	clamp_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	_grant_round_commits(clamp_state, "maribo", 309)
+	_grant_round_commits(clamp_state, "maribo", 149)
 	_expect_eq(clamp_state.get_level("maribo"), 14, "clamp fixture should start at Lv14")
-	_expect_float(clamp_state.get_points("maribo"), 120.0, "clamp fixture should sit five points below Lv15")
+	_expect_float(clamp_state.get_points("maribo"), 45.0, "clamp fixture should sit five points below Lv15 (flat 50 requirement)")
 	var clamped: Dictionary = clamp_state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
 	_expect_float(float(clamped.get("granted_points", 0.0)), 5.0, "feed should clamp at the Lv15 ceiling instead of crossing to Lv16")
 	_expect_eq(clamp_state.get_level("maribo"), LingpetAffinityState.LINGPET_FEED_MAX_LEVEL, "clamped feed should reach exactly Lv15")

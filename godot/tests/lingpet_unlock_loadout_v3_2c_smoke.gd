@@ -303,7 +303,7 @@ func _verify_second_unlock_flags_fill_slot_one() -> void:
 	var runtime: Object = fixture.get("runtime")
 	var owner: FakeOwner = fixture.get("owner")
 	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "red_dragon", 635, registry)
+	_grant_round_commits(runtime, "red_dragon", 250, registry)
 	runtime.update(0.0, owner, registry)
 	_expect_eq(runtime.get_affinity_level("red_dragon"), 25, "fixture should reach Lv.25")
 	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")

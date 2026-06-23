@@ -47,13 +47,9 @@ const BOND_TITLE_BEST_FRIEND := "단짝"
 const BOND_TITLE_SOULMATE := "영혼의 단짝"
 
 const REQUIREMENT_BY_CURRENT_LEVEL := [
-	50.0,
-	75.0,
-	100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0,
-	125.0, 125.0, 125.0, 125.0, 125.0,
-	150.0, 150.0, 150.0, 150.0, 150.0,
-	175.0, 175.0, 175.0, 175.0, 175.0,
-	200.0, 200.0, 200.0, 200.0, 200.0,
+	50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
+	50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
+	50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
 ]
 
 const REWARD_DECK_SEED_MOD := 2147483647
@@ -832,10 +828,16 @@ func _apply_level_ups(pet_id: String, pet_data: Dictionary) -> Array[Dictionary]
 		points -= requirement
 		level += 1
 		rewards.append(_award_reward_for_level(pet_data, level))
-	# Temporary ring-core caps preserve overflow for the next cap upgrade. Only the
-	# absolute Lv.30 cap discards overflow so long runs cannot bank beyond max.
+	# Clamp banked points at the ring-core cap ceiling: at a temporary cap the affinity
+	# points must NOT overshoot the next (locked) level's requirement -- the bar shows
+	# 50/50, not 1054/50. Affinity earned beyond the ceiling is intentionally wasted so
+	# the ring-core stays the investment that makes affinity count (a cap upgrade then
+	# grants only a bounded head start, not a banked level burst). The absolute Lv.30
+	# cap still discards all overflow.
 	if level >= MAX_LEVEL:
 		points = 0.0
+	elif level >= level_cap:
+		points = minf(points, get_requirement_for_level(level))
 	pet_data["affinity_level"] = level
 	pet_data["affinity_points"] = points
 	return rewards
