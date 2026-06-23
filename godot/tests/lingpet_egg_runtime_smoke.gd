@@ -798,6 +798,18 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 		and cutin_host_dynamic_source.find("cutin_dismiss_fade_start") >= 0,
 		"acquisition click-dismiss host should support per-pet action/fade pacing for longer 98-frame Live2D sheets"
 	)
+	_expect(
+		cutin_host_dynamic_source.find("_get_cutin_dismiss_frame_blend_alpha") >= 0
+		and cutin_host_dynamic_source.find("_resolve_dismiss_frame_blend") >= 0
+		and cutin_host_dynamic_source.find("next_frame") >= 0,
+		"acquisition click-dismiss host should crossfade toward the next frame for long 25-frame dismiss sheets"
+	)
+	var no_blend_sample: Dictionary = host.call("_resolve_dismiss_frame_blend", 0.236, 25, 0.0)
+	_expect(int(no_blend_sample.get("frame", -1)) == 5 and int(no_blend_sample.get("next_frame", -1)) == 6 and is_zero_approx(float(no_blend_sample.get("next_alpha", -1.0))), "dismiss frame blend should preserve the old stepped frame when the catalog blend is zero")
+	var blend_sample: Dictionary = host.call("_resolve_dismiss_frame_blend", 0.236, 25, 0.38)
+	_expect(int(blend_sample.get("frame", -1)) == 5 and int(blend_sample.get("next_frame", -1)) == 6 and float(blend_sample.get("next_alpha", 0.0)) > 0.5, "dismiss frame blend should ramp into the next frame near the end of a 25-frame hold")
+	var end_blend_sample: Dictionary = host.call("_resolve_dismiss_frame_blend", 1.0, 25, 0.38)
+	_expect(int(end_blend_sample.get("frame", -1)) == 24 and int(end_blend_sample.get("next_frame", -1)) == 24 and is_zero_approx(float(end_blend_sample.get("next_alpha", -1.0))), "dismiss frame blend should hold the final frame without reading past the sheet")
 	_expect(host.has_method("prewarm_assets_step"), "lingpet acquisition cut-in host should expose staged prewarm for hatch-time cut-in assets")
 	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
 	_expect(host.has_method("prewarm_pet_assets_step"), "lingpet acquisition cut-in host should expose per-pet texture prewarm instead of warming every pet during boot")
@@ -1091,6 +1103,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		_expect(_dc_dismiss_tex != null and _dc_w == _dc_h and _dc_w >= 2560 and _dc_w <= 4096, "%s dismiss must be a square display-matched 5x5 sheet (2560-4096px -> 512-819px cells), not the tiny 14x7 downscale (274px cells) nor the full-res click sheet" % _dc_pet)
 		_expect(str(LingpetCatalog.get_visual_path(_dc_pet, "click_reaction_anim")).ends_with("%s.png" % _dc_click), "catalog should keep %s's panel click on the full-res click sheet" % _dc_pet)
 		_expect(FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _dc_click).find("process/size_limit=0") >= 0, "%s full click Live2D import should stay uncapped (size_limit=0) for panel-click quality" % _dc_pet)
+		_expect(float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_frame_blend_alpha", 0.0)) > 0.0, "%s long 25-frame dismiss should enable next-frame blending instead of holding each frame for 7-9 renders" % _dc_pet)
 	# All four decoupled pets render dedicated 5x5/25 dismiss sheets, so NONE may carry the 14x7/98
 	# click-grid dismiss override (they use the 5x5/25 default -- a stale 14x7 override would slice the
 	# 5x5 sheet into wrong frames). The backlog pets still reusing their 14x7/98 click sheet as the dismiss
