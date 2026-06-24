@@ -54,7 +54,7 @@ static func draw_frame(
 	var alpha: float = clamp(float(target.get("animation_time")) / open_animation_duration, 0.0, 1.0)
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
 
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, panel_rect, panel_color, panel_border, 3.0)
+	CharacterInfoOverlayTextureDrawer.draw_main_panel(canvas, panel_rect, panel_color, panel_border, 3.0)
 	var runtime_state: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "runtime_perk_state")
 	var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method("get_snapshot") else {}
 	var character_runtime: Object = target.get("_character_runtime")

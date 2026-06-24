@@ -4,6 +4,7 @@ const Overlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 const READOUT_MAX_WIDTH := 491.0
 const DESC_LANGUAGES := [
 	LanguageSettingsData.LANGUAGE_KOREAN,
@@ -205,6 +206,12 @@ func _verify_contract() -> void:
 	_expect(_color_equal(Overlay.NEON_CYAN, Color(0.36, 0.78, 0.98)), "settings UI neon cyan token should stay stable")
 	_expect(_probe != null and _probe.draw_count > 0, "settings UI neon line probe should draw through a live _draw callback")
 	_expect(_probe != null and _probe.component_draw_count > 0, "settings UI neon component probe should draw through a live _draw callback")
+	var pause_source := FileAccess.get_file_as_string("res://scripts/hud/pause_menu_overlay.gd")
+	_expect(PremiumPanelFrame.configure_box_for_tests(PremiumPanelFrame.KIND_MAIN, Overlay.PANEL_COLOR, Overlay.PANEL_BORDER) != null, "settings UI should preload the shared premium panel frame")
+	_expect(pause_source.find("PremiumPanelFrame.draw_panel") >= 0, "settings UI panel wrapper should delegate to the shared premium panel frame")
+	_expect(pause_source.find("PremiumPanelFrame.KIND_MAIN") >= 0, "settings UI should route the pause shell through the main frame kind")
+	_expect(pause_source.find("PremiumPanelFrame.KIND_SECTION") >= 0, "settings UI should route the options content through the section frame kind")
+	_expect(pause_source.find("PremiumPanelFrame.draw_corner_brackets") >= 0, "settings UI focus brackets should use the shared corner helper")
 	var pulse: float = overlay._focus_pulse_alpha()
 	_expect(pulse >= 0.0 and pulse <= 1.0, "settings UI focus pulse alpha should remain normalized")
 	_expect(overlay._get_focused_option_description(Overlay.OPTIONS_TAB_DISPLAY, 1) != "", "display fps focus should yield a readout description")

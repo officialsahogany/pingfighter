@@ -3,6 +3,7 @@ extends RefCounted
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 const FONT_BODY: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 const FONT_TECH: Font = preload("res://assets/fonts/NeoDunggeunmoPro.ttf")
 
@@ -167,7 +168,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
 
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
-	_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0, true, true)
+	_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0, true, true, PremiumPanelFrame.KIND_MAIN)
 	if options_open:
 		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry, owner)
 	else:
@@ -1119,8 +1120,7 @@ func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_po
 
 
 func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
-	var header_rect := Rect2(panel_rect.position, Vector2(panel_rect.size.x, 62.0))
-	canvas.draw_rect(header_rect, HEADER_COLOR)
+	_draw_options_header(canvas, panel_rect)
 	_draw_neon_line(canvas, panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), NEON_CYAN, 1.5)
 	_draw_text(canvas, font, _text("settings.title"), panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
 	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), _text("settings.tab.sound"), options_tab == OPTIONS_TAB_SOUND, "sound")
@@ -1130,7 +1130,7 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	_draw_button(canvas, font, _get_reset_button_rect(panel_rect), _text("settings.reset", "초기화"), false, mouse_pos)
 
 	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
-	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0)
+	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0, false, false, PremiumPanelFrame.KIND_SECTION)
 	_draw_scanlines(canvas, content_rect)
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry, owner)
@@ -1146,6 +1146,13 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 		var back_rect: Rect2 = _get_back_button_rect(panel_rect)
 		_draw_button(canvas, font, back_rect, _get_options_back_label(), options_focus == 2, mouse_pos)
 	_draw_hud_readout_bar(canvas, font, panel_rect, _get_focused_option_description(options_tab, options_focus))
+
+
+func _draw_options_header(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	var top_rect := Rect2(panel_rect.position + Vector2(12.0, 3.0), Vector2(maxf(0.0, panel_rect.size.x - 24.0), 59.0))
+	var body_rect := Rect2(panel_rect.position + Vector2(3.0, 12.0), Vector2(maxf(0.0, panel_rect.size.x - 6.0), 50.0))
+	canvas.draw_rect(top_rect, HEADER_COLOR)
+	canvas.draw_rect(body_rect, HEADER_COLOR)
 
 
 func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool, icon_kind: String = "") -> void:
@@ -1609,15 +1616,18 @@ func _draw_toggle_leader(canvas: CanvasItem, font: Font, row_rect: Rect2, checkb
 		)
 
 
-func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float, double_line: bool = false, glow: bool = false) -> void:
-	canvas.draw_rect(rect, fill)
-	if border_width > 0.0:
-		if glow:
-			canvas.draw_rect(rect, Color(border.r, border.g, border.b, border.a * 0.18), false, border_width * 3.0)
-			canvas.draw_rect(rect, Color(border.r, border.g, border.b, border.a * 0.35), false, border_width * 2.0)
-		canvas.draw_rect(rect, border, false, border_width)
-		if double_line and rect.size.x > 6.0 and rect.size.y > 6.0:
-			canvas.draw_rect(rect.grow(-3.0), Color(border.r, border.g, border.b, border.a * 0.45), false, 1.0)
+func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float, double_line: bool = false, glow: bool = false, frame_kind: int = PremiumPanelFrame.KIND_SLOT) -> void:
+	var kind := PremiumPanelFrame.KIND_MAIN if glow else frame_kind
+	PremiumPanelFrame.draw_panel(canvas, rect, kind, fill, border, border_width)
+	if border_width > 0.0 and double_line and rect.size.x > 6.0 and rect.size.y > 6.0:
+		PremiumPanelFrame.draw_panel(
+			canvas,
+			rect.grow(-3.0),
+			PremiumPanelFrame.KIND_SLOT,
+			Color.TRANSPARENT,
+			Color(border.r, border.g, border.b, border.a * 0.45),
+			1.0
+		)
 
 
 func _draw_neon_line(canvas: CanvasItem, start: Vector2, finish: Vector2, color: Color, core_width: float = 1.0) -> void:
@@ -1632,25 +1642,12 @@ func _draw_holo_focus_frame(canvas: CanvasItem, rect: Rect2, pulse_alpha: float 
 	if rect.size.x <= 8.0 or rect.size.y <= 8.0:
 		return
 	var inner_rect := rect.grow(-3.0)
-	canvas.draw_rect(inner_rect, Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.50), false, 1.0)
+	PremiumPanelFrame.draw_panel(canvas, inner_rect, PremiumPanelFrame.KIND_SLOT, Color.TRANSPARENT, Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.50), 1.0)
 
 	var alpha := clampf(pulse_alpha, 0.0, 1.0)
 	var magenta := Color(RESONANCE_MAG.r, RESONANCE_MAG.g, RESONANCE_MAG.b, alpha)
 	var frame_rect := rect.grow(-1.0)
-	var arm: float = minf(14.0, minf(frame_rect.size.x, frame_rect.size.y) * 0.45)
-	var width := 2.0
-	var top_left := frame_rect.position
-	var top_right := Vector2(frame_rect.end.x, frame_rect.position.y)
-	var bottom_left := Vector2(frame_rect.position.x, frame_rect.end.y)
-	var bottom_right := frame_rect.end
-	canvas.draw_line(top_left, top_left + Vector2(arm, 0.0), magenta, width)
-	canvas.draw_line(top_left, top_left + Vector2(0.0, arm), magenta, width)
-	canvas.draw_line(top_right, top_right + Vector2(-arm, 0.0), magenta, width)
-	canvas.draw_line(top_right, top_right + Vector2(0.0, arm), magenta, width)
-	canvas.draw_line(bottom_left, bottom_left + Vector2(arm, 0.0), magenta, width)
-	canvas.draw_line(bottom_left, bottom_left + Vector2(0.0, -arm), magenta, width)
-	canvas.draw_line(bottom_right, bottom_right + Vector2(-arm, 0.0), magenta, width)
-	canvas.draw_line(bottom_right, bottom_right + Vector2(0.0, -arm), magenta, width)
+	PremiumPanelFrame.draw_corner_brackets(canvas, frame_rect, magenta, 1.0, 0.45, 14.0)
 
 
 func _get_ui_font(tech: bool = false) -> Font:

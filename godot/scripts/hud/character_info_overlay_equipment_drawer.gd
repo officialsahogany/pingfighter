@@ -5,6 +5,7 @@ const CharacterInfoOverlayHoverGeometry := preload("res://scripts/hud/character_
 const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 
 
 static func ensure_slot_metadata_cache(definitions: Array, keys: Array[String], labels: Array[String], compact_labels: Array[String], bases: Array[String], accessory_numbers: Array[int], empty_colors: Array[Color], empty_border_colors: Array[Color], index_cache: Dictionary, equipment_color_head: Color, equipment_color_top: Color, equipment_color_arm: Color, equipment_color_belt: Color, equipment_color_back: Color, equipment_color_knee: Color, equipment_color_shoes: Color, equipment_color_accessory: Color) -> void:
@@ -322,21 +323,11 @@ static func draw_slot_frame(
 	hovered: bool,
 	empty_ring_segments: int
 ) -> void:
-	canvas.draw_rect(slot_rect, fill_color)
-	canvas.draw_rect(slot_rect, border_color, false, border_width)
+	CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, fill_color, border_color, border_width)
 	if not hovered:
 		return
-	var corner: float = min(slot_rect.size.x, slot_rect.size.y) * 0.24
 	var corner_color := Color(color.r, color.g, color.b, min(1.0, border_color.a + 0.14))
-	var corner_weight := 1.6
-	canvas.draw_line(slot_rect.position, slot_rect.position + Vector2(corner, 0.0), corner_color, corner_weight)
-	canvas.draw_line(Vector2(slot_rect.end.x, slot_rect.position.y), Vector2(slot_rect.end.x - corner, slot_rect.position.y), corner_color, corner_weight)
-	canvas.draw_line(Vector2(slot_rect.position.x, slot_rect.end.y), Vector2(slot_rect.position.x + corner, slot_rect.end.y), corner_color, corner_weight)
-	canvas.draw_line(slot_rect.end, slot_rect.end - Vector2(corner, 0.0), corner_color, corner_weight)
-	canvas.draw_line(slot_rect.position, slot_rect.position + Vector2(0.0, corner), corner_color, corner_weight)
-	canvas.draw_line(Vector2(slot_rect.end.x, slot_rect.position.y), Vector2(slot_rect.end.x, slot_rect.position.y + corner), corner_color, corner_weight)
-	canvas.draw_line(Vector2(slot_rect.position.x, slot_rect.end.y), Vector2(slot_rect.position.x, slot_rect.end.y - corner), corner_color, corner_weight)
-	canvas.draw_line(slot_rect.end, slot_rect.end - Vector2(0.0, corner), corner_color, corner_weight)
+	PremiumPanelFrame.draw_corner_brackets(canvas, slot_rect, corner_color)
 	if not has_item and enabled:
 		var empty_center := slot_rect.get_center()
 		canvas.draw_circle(empty_center, slot_rect.size.x * 0.28, Color(color.r, color.g, color.b, 0.09 if enabled else 0.04))

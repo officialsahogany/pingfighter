@@ -94,8 +94,7 @@ static func draw_slots(
 ) -> Dictionary:
 	for i in range(max_slots):
 		var slot_rect: Rect2 = slot_rect_cache[i]
-		canvas.draw_rect(slot_rect, slot_fill)
-		canvas.draw_rect(slot_rect, slot_border, false, 1.5)
+		CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)
 		var has_active_slot: bool = slot_has_item_cache[i]
 		if not has_active_slot:
 			var empty_slot_hovered: bool = i == hovered_active_slot

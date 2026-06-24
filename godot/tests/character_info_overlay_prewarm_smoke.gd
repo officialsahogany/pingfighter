@@ -811,12 +811,12 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info empty skill hover fill should be a shared constant"
 	)
 	_expect(
-		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, slot_fill)") >= 0,
-		"character info skill presenter should reuse the fixed slot fill constant"
+		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)") >= 0,
+		"character info skill presenter should route empty slots through the shared slot panel helper"
 	)
 	_expect(
-		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, slot_border, false, 1.5)") >= 0,
-		"character info skill presenter should reuse the fixed slot border constant"
+		texture_drawer_source.find("static func draw_slot_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:") >= 0,
+		"character info texture drawer should expose the shared slot panel helper"
 	)
 	_expect(
 		skill_cache_body.find("slot_fill_color.r * 0.88 + color.r * 0.12") >= 0,
@@ -867,12 +867,12 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill presenter draw loop should not rebuild tinted fill colors"
 	)
 	_expect(
-		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, fill_color_cache[i])") >= 0,
-		"character info skill presenter should draw cached tinted fills"
+		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, fill_color_cache[i], border_color_cache[i], 2.0)") >= 0,
+		"character info skill presenter should draw cached tinted fills through the shared slot panel helper"
 	)
 	_expect(
-		skill_slot_draw_body.find("canvas.draw_rect(slot_rect, border_color_cache[i], false, 2.0)") >= 0,
-		"character info skill presenter should draw cached border colors"
+		texture_drawer_source.find("PremiumPanelFrame.KIND_SLOT") >= 0,
+		"character info texture drawer should route slot borders to the premium frame slot kind"
 	)
 	_expect(
 		skill_slot_draw_body.find("var skill_id: String = id_cache[i]") >= 0,

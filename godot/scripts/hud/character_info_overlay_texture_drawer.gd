@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 
 
 static func touch_texture(texture: Texture2D) -> void:
@@ -8,9 +9,20 @@ static func touch_texture(texture: Texture2D) -> void:
 		texture.get_size()
 
 
-static func draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
-	canvas.draw_rect(rect, fill)
-	canvas.draw_rect(rect, border, false, border_width)
+static func draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float, frame_kind: int = PremiumPanelFrame.KIND_SECTION) -> void:
+	PremiumPanelFrame.draw_panel(canvas, rect, frame_kind, fill, border, border_width)
+
+
+static func draw_main_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
+	PremiumPanelFrame.draw_panel(canvas, rect, PremiumPanelFrame.KIND_MAIN, fill, border, border_width)
+
+
+static func draw_slot_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
+	PremiumPanelFrame.draw_panel(canvas, rect, PremiumPanelFrame.KIND_SLOT, fill, border, border_width)
+
+
+static func draw_cell_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
+	PremiumPanelFrame.draw_panel(canvas, rect, PremiumPanelFrame.KIND_CELL, fill, border, border_width)
 
 
 static func draw_scrollbar(canvas: CanvasItem, track_rect: Rect2, thumb_rect: Rect2, track_color: Color, thumb_color: Color) -> void:

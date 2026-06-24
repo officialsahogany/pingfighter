@@ -298,8 +298,7 @@ static func draw_grid_cells(
 		var border_color: Color = border_color_cache[i]
 		if hovered:
 			border_color = hover_border_color_cache[i]
-		canvas.draw_rect(cell_rect, grid_cell_fill)
-		canvas.draw_rect(cell_rect, border_color, false, 2.0 if hovered else 1.0)
+		CharacterInfoOverlayTextureDrawer.draw_cell_panel(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered else 1.0)
 		var perk_id: String = draw_id_cache[i]
 		if not can_draw_perk_icon or not bool(icon_renderer.draw_icon(canvas, perk_id, icon_rect_cache[i], 1.0, true)):
 			CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, icon_rect_cache[i], color, perk_id, letter_cache, letter_cache_limit, ring_segments, draw_text_centered_xy_callable)

@@ -62,8 +62,7 @@ static func draw_inventory_cells(
 		var border_color: Color = border_color_cache[i]
 		if hovered or equipped:
 			border_color = active_border_color_cache[i]
-		canvas.draw_rect(cell_rect, grid_cell_fill)
-		canvas.draw_rect(cell_rect, border_color, false, 2.0 if hovered or equipped else 1.0)
+		CharacterInfoOverlayTextureDrawer.draw_cell_panel(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered or equipped else 1.0)
 		if can_draw_passive_item_icon:
 			icon_renderer.draw_icon(canvas, icon_rect_cache[i], item_data, 1.0, visuals)
 		else:

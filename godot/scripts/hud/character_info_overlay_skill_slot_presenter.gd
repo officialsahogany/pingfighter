@@ -86,8 +86,7 @@ static func draw_slots(
 		var slot_rect: Rect2 = slot_rect_cache[i]
 		var has_skill_slot: bool = i < equipped_count
 		if not has_skill_slot:
-			canvas.draw_rect(slot_rect, slot_fill)
-			canvas.draw_rect(slot_rect, slot_border, false, 1.5)
+			CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)
 			var hovered_empty: bool = i == hovered_skill_slot
 			if hovered_empty:
 				canvas.draw_circle(center_cache[i], slot_size * 0.22, empty_hover_fill)
@@ -95,8 +94,7 @@ static func draw_slots(
 		var skill_id: String = id_cache[i]
 		var data: Dictionary = data_cache[i]
 		var color: Color = color_cache[i]
-		canvas.draw_rect(slot_rect, fill_color_cache[i])
-		canvas.draw_rect(slot_rect, border_color_cache[i], false, 2.0)
+		CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, fill_color_cache[i], border_color_cache[i], 2.0)
 		if not can_draw_skill_icon or not bool(icon_renderer.draw_icon(canvas, skill_id, icon_rect_cache[i], 1.0, true)):
 			CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, fallback_rect_cache[i], color, skill_id, letter_cache, letter_cache_limit, ring_segments, draw_text_centered_xy_callable)
 		var label: String = label_cache[i]
