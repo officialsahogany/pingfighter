@@ -182,6 +182,7 @@ func _init() -> void:
 	_test_super_laser_melts_cube()
 	_test_crystal_shield_score_schedules_and_starts()
 	_test_crystal_shield_collision_and_reset()
+	_test_crystal_shield_persists_across_reset_round()
 	_test_stage6_score_context_reaches_crystal_shield()
 	_test_boss_skill_hud()
 	_test_pillar_scene_drawer_routes_background()
@@ -1108,9 +1109,22 @@ func _test_crystal_shield_collision_and_reset() -> void:
 	for _i in range(5):
 		state.update(0.1, _active_context())
 	_expect((state.get_actor_draw_context().get("stage6_tetriser_crystal_shield_blocks", []) as Array).size() == 21, "evaporated shield blocks are removed after fade")
+	state.reset()
+	_expect(not state.debug_is_crystal_shield_active(), "full reset clears active crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 0, "full reset removes crystal shield blocks")
+
+
+func _test_crystal_shield_persists_across_reset_round() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
+	_expect(state.debug_is_crystal_shield_active(), "precondition: crystal shield is active before round reset")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "precondition: active crystal shield has 24 blocks")
 	state.reset_round()
-	_expect(not state.debug_is_crystal_shield_active(), "round reset clears active crystal shield")
-	_expect(state.debug_get_crystal_shield_block_count() == 0, "round reset removes crystal shield blocks")
+	_expect(state.debug_is_crystal_shield_active(), "reset_round preserves active crystal shield across Stage 6 rounds")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "reset_round preserves crystal shield blocks")
+	state.reset()
+	_expect(not state.debug_is_crystal_shield_active(), "full reset clears persisted crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 0, "full reset removes persisted crystal shield blocks")
 
 
 func _test_stage6_score_context_reaches_crystal_shield() -> void:

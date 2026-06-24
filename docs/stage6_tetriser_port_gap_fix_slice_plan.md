@@ -291,7 +291,7 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 | **S5-2 가드 조립 페이즈** | ✅ | 완료 | 1000ms 셀별 조립 → 320ms 슬라이드 → active 충돌 게이트 |
 | **S5-3 큐브 재조립 카운트** | ✅ | 완료 | authored intent: `{player,dash}`만 rebuild 카운트 |
 | **S5-4 보상/스타 드롭** | ✅ | 완료 | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 포팅 + 단위/deps 반증검증 |
-| **S5-5 크리스탈 실드** | ⚪ | (미재감사) | freeze/persist 의도 결정 |
+| **S5-5 크리스탈 실드** | ✅ | 완료(핵심) | no-halt 유지, 라운드 persist 복원; 궤도 반경 110은 선택 마이너 |
 
 권장 순서(공수↑): **S5-1(작고 기계적) → S5-2(중, 기존 패턴 미러) → S5-3(설계결정 먼저) → S5-4(가장 큼)**.
 
@@ -400,9 +400,17 @@ stage2를 코드로 매핑해 5-조각 생애주기와 ownership/단위/deps를 
 
 회귀 스모크(위 (a)(b)(c)에 추가): (d) **collectability** — 드롭을 플레이어와 overlap시켜 `collect_starpoint_reward`가 호출되는지(spawn-only 반파동 차단), (e) **이탈 정리** — `current_stage != 6` 업데이트 시 `_starpoint_drops` 비워짐.
 
-### S5-5 — 크리스탈 실드 freeze/persist (⚪ 미재감사, 별도)
-형성 중 게임정지 없음(원본 ~8.5s) + 라운드마다 초기화(원본 라운드 persist) — 의도/복원 결정. 이번 5-항목 재감사 범위 밖이라
-필요 시 별도 재검증 후 계약화.
+### S5-5 — 크리스탈 실드 (✅ 재감사 완료 2026-06-23, S5-5a 배선 완료 2026-06-24)
+현재 Godot(`stage6_tetriser_crystal_shield_state.gd`) vs Python `CrystalShieldSystem`(`pillar_tetriser.py`) 직접 대조 판정:
+
+- ✅ **이미 충실:** 24블록(`FINAL_SHIELD_COUNT=24`↔`BLOCK_COUNT=24`), 플레이어 4점 트리거, 피격+양옆 증발, player-ball only, serve-wait 형성.
+- 🔵 **의도 차이(문서화, 무액션):** 형성 중 게임정지 — Python `freeze_screen`은 형성 동안 **게임루프 전체 halt**(set [pillar_tetriser.py:359](../pillar_tetriser.py#L359) / clear [:925](../pillar_tetriser.py#L925) / return [:935](../pillar_tetriser.py#L935)). Godot은 serve-wait 중 `FORMATION_FREEZE_SEC=1.8` forming(skip_ball_motion_step false 유지, 게임 미정지). serve-wait에 형성하니 halt 불필요 — 아키텍처 적응. duration 압축(~8.5s→1.8s)도 적응. **no-halt 유지가 정답**; 드라마틱 연출 원하면 duration만 조정(선택, 무필수).
+- ✅ **완료 — S5-5a 라운드 persist:** Python 실드는 **스테이지 내 라운드 간 유지**. `reset_crystal_shield` 호출부 3곳([pingfighter.py:181436](../pingfighter.py#L181436)/[:181747](../pingfighter.py#L181747)=스테이지 cleanup 컨텍스트, [:184217](../pingfighter.py#L184217)=메인루프)이 전부 스테이지/게임 경계이고 `go_to_next_round`엔 없음. Godot도 게이지 persist(S2)와 동일하게 `_crystal_shield.reset(false)`는 no-op, `reset()`/`reset_for_result()`/stage leave의 full reset만 wipe하도록 복원.
+  - 배선: `_crystal_shield.reset(clear_match_state)`의 블록/phase/pending clear를 **`clear_match_state`일 때만** 수행. `score_trigger_consumed`도 full reset에서만 초기화. 스테이지 이탈 self-reset([:254](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L254))은 `has_runtime_state()`에 실드 포함되어 이미 커버.
+  - 회귀 스모크: 실드 형성 → `reset_round`/score boundary/round actor cleanup → 블록·active **유지**; `reset()`/result/full reset → 블록 0. 반증검증: 라운드에서도 wipe로 되돌리면 "라운드 후 실드 유지" 단언 실패 확인.
+- 🟡 **마이너 갭 — S5-5b 궤도 반경(선택):** Python normal = `BASE_ORBIT_RADIUS(100) × radius_multiplier(1.1)` = **110**([pillar_tetriser.py:252,318-320](../pillar_tetriser.py#L318)); Godot `ORBIT_RADIUS=100`(flat, 1.1× 누락). 정확 패리티 원하면 110. enraged 1.3×(=130)는 enraged 미포팅이라 N/A. 저영향.
+
+**현 상태:** S5-5a(라운드 persist)는 완료. S5-5b(반경 110)는 선택 마이너, freeze는 무액션 유지.
 
 ---
 

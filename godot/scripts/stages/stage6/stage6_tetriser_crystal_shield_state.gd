@@ -27,15 +27,16 @@ var hit_cooldown_sec: float = 0.0
 var _boss_center: Vector2 = DEFAULT_BOSS_POS + DEFAULT_BOSS_SIZE * 0.5
 
 
-func reset(clear_score_trigger: bool = false) -> void:
+func reset(clear_match_state: bool = false) -> void:
+	if not clear_match_state:
+		return
 	pending_activation = false
 	phase = "idle"
 	animation_timer = 0.0
 	shield_blocks.clear()
 	hit_cooldown_sec = 0.0
 	_boss_center = DEFAULT_BOSS_POS + DEFAULT_BOSS_SIZE * 0.5
-	if clear_score_trigger:
-		score_trigger_consumed = false
+	score_trigger_consumed = false
 
 
 func update(delta: float, context: Dictionary) -> Dictionary:

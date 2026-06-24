@@ -402,15 +402,19 @@ func _verify_stage6_round_deps_feed_round_cleanup() -> void:
 
 	state.debug_set_gauge(240.0)
 	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
 	BallRoundActorCleanup.new().reset_actor_round_state({"stage6_tetriser_state": state})
 	_expect(state.debug_get_tetromino_count() == 0, "round actor cleanup should clear Stage 6 tetrominoes")
 	_expect(is_equal_approx(state.debug_get_gauge(), 240.0), "round actor cleanup should preserve Stage 6 gauge")
+	_expect(state.debug_is_crystal_shield_active(), "round actor cleanup should preserve active Stage 6 crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "round actor cleanup should preserve crystal shield blocks")
 
 
 func _verify_stage6_score_boundary_clears_round_state() -> void:
 	var state: Object = Stage6TetriserState.new()
 	state.debug_set_gauge(180.0)
 	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
 
 	MatchScoreEventController.new().handle_score_event("player", {
 		"current_stage": 6,
@@ -419,23 +423,31 @@ func _verify_stage6_score_boundary_clears_round_state() -> void:
 	}, {})
 	_expect(state.debug_get_tetromino_count() == 0, "score boundary should clear Stage 6 tetrominoes")
 	_expect(is_equal_approx(state.debug_get_gauge(), 180.0), "score boundary should preserve Stage 6 gauge")
+	_expect(state.debug_is_crystal_shield_active(), "score boundary should preserve active Stage 6 crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "score boundary should preserve crystal shield blocks")
 
 
 func _verify_stage6_full_and_result_resets_clear_match_state() -> void:
 	var state: Object = Stage6TetriserState.new()
 	state.debug_set_gauge(210.0)
 	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
 	MatchResetController.new().reset_stage_state({"stage6_tetriser_state": state})
 	_expect(state.debug_get_tetromino_count() == 0, "full stage reset should clear Stage 6 tetrominoes")
 	_expect(state.debug_get_gauge() == 0.0, "full stage reset should clear Stage 6 gauge")
+	_expect(not state.debug_is_crystal_shield_active(), "full stage reset should clear Stage 6 crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 0, "full stage reset should remove crystal shield blocks")
 
 	state.debug_set_gauge(210.0)
 	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
 	var registry := FakeRegistry.new()
 	registry.instances["stage6_tetriser_state"] = state
 	StageClearResultScreen.new()._reset_stage6_for_result(registry, 6)
 	_expect(state.debug_get_tetromino_count() == 0, "stage-clear result reset should clear Stage 6 tetrominoes")
 	_expect(state.debug_get_gauge() == 0.0, "stage-clear result reset should clear Stage 6 gauge")
+	_expect(not state.debug_is_crystal_shield_active(), "stage-clear result reset should clear Stage 6 crystal shield")
+	_expect(state.debug_get_crystal_shield_block_count() == 0, "stage-clear result reset should remove crystal shield blocks")
 
 
 func _advance_effects(seconds: float, context: Dictionary, deps: Dictionary) -> void:
