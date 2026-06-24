@@ -311,6 +311,12 @@ const STAGE6_BGM_PATH := "res://assets/bgm/stage6_tetriser_bgm.ogg"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
+const UI_MOVE_SOUND_PATH := "res://assets/sounds/ui_move.wav"
+const UI_CONFIRM_SOUND_PATH := "res://assets/sounds/ui_confirm.wav"
+const UI_BACK_SOUND_PATH := "res://assets/sounds/ui_back.wav"
+const UI_MOVE_GAIN_DB := -9.0
+const UI_CONFIRM_GAIN_DB := -7.0
+const UI_BACK_GAIN_DB := -8.0
 const DEFAULT_BGM_VOLUME := 0.4
 const DEFAULT_SFX_VOLUME := 0.7
 const STAGE1_BGM_GAIN := 0.75
@@ -342,6 +348,9 @@ var sfx_volume := DEFAULT_SFX_VOLUME
 var audio_bus_volumes_adopted := false
 var bgm_muted := false
 var muted_bgm_name := ""
+var ui_move_sfx: AudioStreamPlayer
+var ui_confirm_sfx: AudioStreamPlayer
+var ui_back_sfx: AudioStreamPlayer
 var paddle_hit_sfx: AudioStreamPlayer
 var serve_sfx: AudioStreamPlayer
 var pingpong_serve_sfx: AudioStreamPlayer
@@ -624,6 +633,9 @@ func setup_step(parent: Node) -> bool:
 
 func _setup_core_ball_sfx() -> void:
 	_ensure_hit_pan_buses()
+	ui_move_sfx = player_factory.create(owner_node, "UiMoveSfx", UI_MOVE_SOUND_PATH, UI_MOVE_GAIN_DB)
+	ui_confirm_sfx = player_factory.create(owner_node, "UiConfirmSfx", UI_CONFIRM_SOUND_PATH, UI_CONFIRM_GAIN_DB)
+	ui_back_sfx = player_factory.create(owner_node, "UiBackSfx", UI_BACK_SOUND_PATH, UI_BACK_GAIN_DB)
 	paddle_hit_sfx = player_factory.create(owner_node, "PaddleHitSfx", PADDLE_HIT_SOUND_PATH, -5.0)
 	serve_sfx = player_factory.create(owner_node, "ServeSfx", SERVE_SOUND_PATH, -5.0)
 	pingpong_serve_sfx = player_factory.create(owner_node, "PingpongServeSfx", PINGPONG_SERVE_SOUND_PATH, -5.0)
@@ -963,6 +975,9 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 	match step:
 		0:
 			return [
+				UI_MOVE_SOUND_PATH,
+				UI_CONFIRM_SOUND_PATH,
+				UI_BACK_SOUND_PATH,
 				PADDLE_HIT_SOUND_PATH,
 				SERVE_SOUND_PATH,
 				PINGPONG_SERVE_SOUND_PATH,
@@ -2940,6 +2955,18 @@ func set_sfx_volume(value: float) -> float:
 	return sfx_volume
 
 
+func play_ui_move() -> void:
+	_play_with_pitch(ui_move_sfx, randf_range(0.96, 1.05))
+
+
+func play_ui_confirm() -> void:
+	_play_with_pitch(ui_confirm_sfx, 1.0)
+
+
+func play_ui_back() -> void:
+	_play_with_pitch(ui_back_sfx, 1.0)
+
+
 func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	if player == null or player.stream == null:
 		return false
@@ -3298,6 +3325,9 @@ func _volume_to_db(volume: float) -> float:
 
 func _get_sfx_players() -> Array:
 	return [
+		ui_move_sfx,
+		ui_confirm_sfx,
+		ui_back_sfx,
 		paddle_hit_sfx,
 		serve_sfx,
 		pingpong_serve_sfx,
