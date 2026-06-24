@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dokca64aaeeil"
-path="res://.godot/imported/koyora_cutin_dismiss_anim.png-40ef6a4b4121c25c93dd108935338ac3.ctex"
+path.bptc="res://.godot/imported/koyora_cutin_dismiss_anim.png-40ef6a4b4121c25c93dd108935338ac3.bptc.ctex"
+path.astc="res://.godot/imported/koyora_cutin_dismiss_anim.png-40ef6a4b4121c25c93dd108935338ac3.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/lingpet/koyora_cutin_dismiss_anim.png"
-dest_files=["res://.godot/imported/koyora_cutin_dismiss_anim.png-40ef6a4b4121c25c93dd108935338ac3.ctex"]
+dest_files=["res://.godot/imported/koyora_cutin_dismiss_anim.png-40ef6a4b4121c25c93dd108935338ac3.bptc.ctex", "res://.godot/imported/koyora_cutin_dismiss_anim.png-40ef6a4b4121c25c93dd108935338ac3.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
@@ -36,5 +38,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=3840
+process/size_limit=0
 detect_3d/compress_to=1

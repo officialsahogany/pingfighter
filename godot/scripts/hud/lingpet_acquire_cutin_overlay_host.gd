@@ -89,19 +89,31 @@ const CUTIN_DISMISS_COLS := 5
 const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
 const CUTIN_DISMISS_COLS_OVERRIDES := {
-	# koyora / nekuring / monkeyring / orosha render dedicated 5x5/25 dismiss sheets (default grid),
-	# decoupled from the full-res 14x7/98 click sheet. onimaru / rahoset / rabi still reuse their
-	# 14x7/98 click sheet as the dismiss (backlog), so they keep the override.
+	# These pets use 14x7/98 dismiss sheets. Koyora / Nekuring / Monkeyring / Orosha
+	# are dedicated medium-res dismiss sheets; Onimaru / Rahoset / Rabi still reuse
+	# their click sheets as the dismiss path.
+	"koyora": 14,
+	"nekuring": 14,
+	"monkeyring": 14,
+	"orosha": 14,
 	"onimaru": 14,
 	"rahoset": 14,
 	"rabi": 14,
 }
 const CUTIN_DISMISS_ROWS_OVERRIDES := {
+	"koyora": 7,
+	"nekuring": 7,
+	"monkeyring": 7,
+	"orosha": 7,
 	"onimaru": 7,
 	"rahoset": 7,
 	"rabi": 7,
 }
 const CUTIN_DISMISS_FRAMES_OVERRIDES := {
+	"koyora": 98,
+	"nekuring": 98,
+	"monkeyring": 98,
+	"orosha": 98,
 	"onimaru": 98,
 	"rahoset": 98,
 	"rabi": 98,
@@ -816,14 +828,6 @@ func _get_cutin_dismiss_fade_start() -> float:
 	)
 
 
-func _get_cutin_dismiss_frame_blend_alpha() -> float:
-	return clampf(
-		LingpetCatalog.get_visual_layout_value(_asset_pet_id, "cutin_dismiss_frame_blend_alpha", 0.0),
-		0.0,
-		1.0
-	)
-
-
 func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progress: float) -> void:
 	# Overlay fades out over [DISMISS_FADE_START, 1.0] so the screen closes naturally.
 	var out_fade: float = 1.0 - _smoothstep_range(_get_cutin_dismiss_fade_start(), 1.0, dismiss_progress)
@@ -853,15 +857,7 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 		var cw: float = float(sheet.get_width()) / float(cols)
 		var ch: float = float(sheet.get_height()) / float(rows)
 		if cw > 1.0 and ch > 1.0:
-			var frame_blend: Dictionary = _resolve_dismiss_frame_blend(
-				action_t,
-				frame_count,
-				_get_cutin_dismiss_frame_blend_alpha()
-			)
-			var frame: int = int(frame_blend.get("frame", 0))
-			var next_frame: int = int(frame_blend.get("next_frame", frame))
-			var next_alpha: float = clampf(float(frame_blend.get("next_alpha", 0.0)), 0.0, 1.0)
-			var current_alpha: float = 1.0 - next_alpha
+			var frame: int = clampi(int(action_t * float(frame_count)), 0, frame_count - 1)
 			var col: int = frame % cols
 			var row: int = int(floor(float(frame) / float(cols)))
 			var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
@@ -877,13 +873,7 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 			_draw_art_aura(canvas, center, char_radius * 1.18, t, out_fade, 1.0)
 			canvas.draw_circle(center, char_radius, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.18 * out_fade))
 			var dst := Rect2(pos, Vector2(dw, dh))
-			if current_alpha > 0.001:
-				canvas.draw_texture_rect_region(sheet, dst, src, Color(1.0, 1.0, 1.0, out_fade * current_alpha))
-			if next_alpha > 0.001 and next_frame != frame:
-				var next_col: int = next_frame % cols
-				var next_row: int = int(floor(float(next_frame) / float(cols)))
-				var next_src := Rect2(float(next_col) * cw, float(next_row) * ch, cw, ch)
-				canvas.draw_texture_rect_region(sheet, dst, next_src, Color(1.0, 1.0, 1.0, out_fade * next_alpha))
+			canvas.draw_texture_rect_region(sheet, dst, src, Color(1.0, 1.0, 1.0, out_fade))
 			# (Removed) The old turquoise mouth/spear-tip water spray read as an
 			# awkward "water cannon from the mouth". The dismiss is now a spear
 			# swing flourish (sheet motion only), so no procedural spray overlay.
@@ -1283,23 +1273,6 @@ func _smoothstep_range(edge0: float, edge1: float, value: float) -> float:
 	var span: float = maxf(0.0001, edge1 - edge0)
 	var x: float = clampf((value - edge0) / span, 0.0, 1.0)
 	return x * x * (3.0 - 2.0 * x)
-
-
-func _resolve_dismiss_frame_blend(action_t: float, frame_count: int, blend_alpha: float) -> Dictionary:
-	var safe_frame_count := maxi(1, frame_count)
-	var frame_float: float = clampf(action_t, 0.0, 1.0) * float(safe_frame_count)
-	var frame: int = clampi(int(floor(frame_float)), 0, safe_frame_count - 1)
-	var next_frame: int = mini(frame + 1, safe_frame_count - 1)
-	var next_alpha := 0.0
-	var blend_window: float = clampf(blend_alpha, 0.0, 1.0)
-	if next_frame != frame and blend_window > 0.0:
-		var fraction: float = frame_float - floor(frame_float)
-		next_alpha = _smoothstep_range(1.0 - blend_window, 1.0, fraction)
-	return {
-		"frame": frame,
-		"next_frame": next_frame,
-		"next_alpha": next_alpha,
-	}
 
 
 func _hash01(a: int, b: int, salt: int) -> float:

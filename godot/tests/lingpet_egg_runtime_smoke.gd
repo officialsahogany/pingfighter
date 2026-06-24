@@ -798,18 +798,6 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 		and cutin_host_dynamic_source.find("cutin_dismiss_fade_start") >= 0,
 		"acquisition click-dismiss host should support per-pet action/fade pacing for longer 98-frame Live2D sheets"
 	)
-	_expect(
-		cutin_host_dynamic_source.find("_get_cutin_dismiss_frame_blend_alpha") >= 0
-		and cutin_host_dynamic_source.find("_resolve_dismiss_frame_blend") >= 0
-		and cutin_host_dynamic_source.find("next_frame") >= 0,
-		"acquisition click-dismiss host should crossfade toward the next frame for long 25-frame dismiss sheets"
-	)
-	var no_blend_sample: Dictionary = host.call("_resolve_dismiss_frame_blend", 0.236, 25, 0.0)
-	_expect(int(no_blend_sample.get("frame", -1)) == 5 and int(no_blend_sample.get("next_frame", -1)) == 6 and is_zero_approx(float(no_blend_sample.get("next_alpha", -1.0))), "dismiss frame blend should preserve the old stepped frame when the catalog blend is zero")
-	var blend_sample: Dictionary = host.call("_resolve_dismiss_frame_blend", 0.236, 25, 0.38)
-	_expect(int(blend_sample.get("frame", -1)) == 5 and int(blend_sample.get("next_frame", -1)) == 6 and float(blend_sample.get("next_alpha", 0.0)) > 0.5, "dismiss frame blend should ramp into the next frame near the end of a 25-frame hold")
-	var end_blend_sample: Dictionary = host.call("_resolve_dismiss_frame_blend", 1.0, 25, 0.38)
-	_expect(int(end_blend_sample.get("frame", -1)) == 24 and int(end_blend_sample.get("next_frame", -1)) == 24 and is_zero_approx(float(end_blend_sample.get("next_alpha", -1.0))), "dismiss frame blend should hold the final frame without reading past the sheet")
 	_expect(host.has_method("prewarm_assets_step"), "lingpet acquisition cut-in host should expose staged prewarm for hatch-time cut-in assets")
 	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
 	_expect(host.has_method("prewarm_pet_assets_step"), "lingpet acquisition cut-in host should expose per-pet texture prewarm instead of warming every pet during boot")
@@ -1077,13 +1065,11 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(volty_dismiss_manifest_source.find("\"cols\": 5") >= 0 and volty_dismiss_manifest_source.find("\"frame_count\": 25") >= 0, "Volty click-dismiss manifest should pin the 5x5/25 runtime grid")
 	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("orbi_companion_walk.png"), "catalog should own Serabi companion walk visual path")
 	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")).ends_with("orbi_companion_strike.png"), "catalog should own Serabi companion strike visual path")
-	# Decoupled (2026-06-21..23): koyora / nekuring / monkeyring / orosha each reused one huge 98-frame
-	# 14x7 click sheet that ALSO fed the hatch-prewarmed cutin_dismiss. One file could not satisfy both
-	# roles -- the dismiss must read SHARP at its ~700-820px on-screen draw height (view_size.y 1246 x
-	# the ~0.56-0.66 dismiss ratio) AND keep the hatch prewarm small, while the panel click stays full-res.
-	# Each pet now has a DEDICATED 5x5/25 dismiss sheet (nekuring = its bespoke hop-wave sheet; the other
-	# three = click frames decimated 98->25 and repacked at display-matched 512-768px cells). So the
-	# dismiss is both sharp (>=512px cells) and small (square sheet <= 4096px). Click stays uncapped (0).
+	# Decoupled (2026-06-24): koyora / nekuring / monkeyring / orosha use dedicated
+	# 14x7/98 dismiss sheets at 512px cells. The previous 5x5/25 sheets were small
+	# but only played at ~7fps over the long dismiss window; next-frame blending hid
+	# nothing and introduced visible alpha flicker. The panel click sheet stays
+	# full-res and uncapped, while hatch prewarm gets a medium-res dismiss-only sheet.
 	for _dc_entry in [
 		{"pet": "nekuring", "click": "nekuring_click_live2d_pingpong_98f"},
 		{"pet": "koyora", "click": "koyora_click_live2d_pingpong_98f"},
@@ -1097,20 +1083,21 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		var _dc_dismiss_tex: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/%s_cutin_dismiss_anim.png" % _dc_pet)
 		var _dc_w: int = _dc_dismiss_tex.get_width() if _dc_dismiss_tex != null else 0
 		var _dc_h: int = _dc_dismiss_tex.get_height() if _dc_dismiss_tex != null else 0
-		# Square 5x5 sheet, 2560-4096px -> 512-819px cells: big enough to read sharp at the ~700-820px
-		# draw height, small enough to keep the hatch prewarm light. The pre-fix regression (a 3840x1920
-		# sheet still sliced on the 14x7 grid = 274px cells) fails both the square check and the floor.
-		_expect(_dc_dismiss_tex != null and _dc_w == _dc_h and _dc_w >= 2560 and _dc_w <= 4096, "%s dismiss must be a square display-matched 5x5 sheet (2560-4096px -> 512-819px cells), not the tiny 14x7 downscale (274px cells) nor the full-res click sheet" % _dc_pet)
+		_expect(_dc_dismiss_tex != null and _dc_w == 7168 and _dc_h == 3584, "%s dismiss must be a dedicated 14x7 / 98-frame 512-cell sheet, not the old 5x5/25 low-fps sheet nor the full-res click sheet" % _dc_pet)
+		var _dc_dismiss_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s_cutin_dismiss_anim.png.import" % _dc_pet)
+		_expect(_dc_dismiss_import.find("process/size_limit=0") >= 0, "%s dedicated dismiss import should not be downscaled after the 512-cell repack" % _dc_pet)
+		_expect(_dc_dismiss_import.find("compress/mode=2") >= 0 and _dc_dismiss_import.find("\"vram_texture\": true") >= 0, "%s dedicated 98-frame dismiss sheet should be VRAM-compressed for hatch prewarm" % _dc_pet)
 		_expect(str(LingpetCatalog.get_visual_path(_dc_pet, "click_reaction_anim")).ends_with("%s.png" % _dc_click), "catalog should keep %s's panel click on the full-res click sheet" % _dc_pet)
 		_expect(FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _dc_click).find("process/size_limit=0") >= 0, "%s full click Live2D import should stay uncapped (size_limit=0) for panel-click quality" % _dc_pet)
-		_expect(float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_frame_blend_alpha", 0.0)) > 0.0, "%s long 25-frame dismiss should enable next-frame blending instead of holding each frame for 7-9 renders" % _dc_pet)
-	# All four decoupled pets render dedicated 5x5/25 dismiss sheets, so NONE may carry the 14x7/98
-	# click-grid dismiss override (they use the 5x5/25 default -- a stale 14x7 override would slice the
-	# 5x5 sheet into wrong frames). The backlog pets still reusing their 14x7/98 click sheet as the dismiss
-	# (onimaru / rahoset / rabi) must keep the override, so assert rabi still carries it.
+		var _dc_seconds: float = float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_seconds", 3.35))
+		var _dc_action_portion: float = float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_action_portion", 0.74))
+		var _dc_effective_fps: float = 98.0 / maxf(0.01, _dc_seconds * _dc_action_portion)
+		_expect(_dc_effective_fps >= 22.0, "%s dismiss should have enough source frames for the long action window (effective fps %.2f)" % [_dc_pet, _dc_effective_fps])
+	# These four dedicated sheets are 14x7/98, so they must carry the same grid override
+	# as the backlog 98-frame dismiss pets. A stale default would slice them as 5x5/25.
 	var _dismiss_host_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
-	for _dc_5x5_pet in ["koyora", "nekuring", "monkeyring", "orosha"]:
-		_expect(_dismiss_host_source.find("\"%s\": 14" % _dc_5x5_pet) < 0 and _dismiss_host_source.find("\"%s\": 98" % _dc_5x5_pet) < 0, "%s must not carry the 14x7/98 click-grid dismiss override (it renders a dedicated 5x5/25 dismiss via the default grid)" % _dc_5x5_pet)
+	for _dc_98_pet in ["koyora", "nekuring", "monkeyring", "orosha"]:
+		_expect(_dismiss_host_source.find("\"%s\": 14" % _dc_98_pet) >= 0 and _dismiss_host_source.find("\"%s\": 98" % _dc_98_pet) >= 0, "%s must carry the 14x7/98 dismiss override for its dedicated 98-frame sheet" % _dc_98_pet)
 	_expect(_dismiss_host_source.find("\"rabi\": 14") >= 0 and _dismiss_host_source.find("\"rabi\": 98") >= 0, "rabi (still reusing its 14x7/98 click sheet as the dismiss) should keep the 14x7/98 override")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's panel click Live2D to the full 98-frame click sheet")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim")).ends_with("nekuring_companion_click_reaction_98f.png"), "catalog should route Nekuring's in-battle companion click to the downscaled 98-frame sheet")
