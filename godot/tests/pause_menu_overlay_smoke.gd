@@ -40,6 +40,9 @@ class FakeCharacterInfo:
 class FakeAudio:
 	var bgm_volume := 0.4
 	var sfx_volume := 0.7
+	var ui_move_count := 0
+	var ui_confirm_count := 0
+	var ui_back_count := 0
 
 	func get_bgm_volume() -> float:
 		return bgm_volume
@@ -54,6 +57,15 @@ class FakeAudio:
 	func set_sfx_volume(value: float) -> float:
 		sfx_volume = clampf(value, 0.0, 1.0)
 		return sfx_volume
+
+	func play_ui_move() -> void:
+		ui_move_count += 1
+
+	func play_ui_confirm() -> void:
+		ui_confirm_count += 1
+
+	func play_ui_back() -> void:
+		ui_back_count += 1
 
 
 class FakeViewLayout:
@@ -214,9 +226,24 @@ func _init() -> void:
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should open the pause menu")
 	_expect(registry.pause_menu.is_active(), "pause menu should become active")
 	_expect(registry.modal_gate.should_block_battle_physics(Callable(self, "_get_module")), "pause menu should block battle physics")
+	var move_count_before := registry.audio.ui_move_count
+	_expect(_press(input, owner, KEY_DOWN), "pause menu down should be handled")
+	_expect(registry.pause_menu.selected_index == 1, "pause menu down should move to the character info entry")
+	_expect(registry.pause_menu._selection_feedback_scope == "main", "main menu movement should use main feedback scope")
+	_expect(registry.pause_menu._selection_from_index == 0 and registry.pause_menu._selection_to_index == 1, "main menu movement should record from and to indices")
+	_expect(registry.pause_menu._selection_slide_time == 0.0 and registry.pause_menu._selection_pop_time == 0.0, "main menu movement should reset the selection feedback timers")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "main menu movement should play one UI move sound")
+	registry.pause_menu.update(0.05)
+	_expect(registry.pause_menu._selection_slide_time > 0.0, "selection feedback timer should advance while paused")
+	move_count_before = registry.audio.ui_move_count
+	_expect(_press(input, owner, KEY_UP), "pause menu up should be handled")
+	_expect(registry.pause_menu.selected_index == 0, "pause menu up should return to continue")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "main menu reverse movement should play one UI move sound")
 
+	var back_count_before := registry.audio.ui_back_count
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should close the active pause menu")
 	_expect(not registry.pause_menu.is_active(), "pause menu should close on second ESC")
+	_expect(registry.audio.ui_back_count == back_count_before + 1, "closing the main pause menu should play one UI back sound")
 
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should reopen pause menu for button flow")
 	_expect(_click(input, owner, Vector2(640.0, 401.0)), "character info button click should be handled")
@@ -233,9 +260,27 @@ func _init() -> void:
 	_expect(abs(registry.audio.bgm_volume - 0.25) <= 0.01, "BGM slider should set the runtime BGM volume")
 	_expect(_click(input, owner, sfx_slider.position + Vector2(sfx_slider.size.x * 0.85, 3.0)), "SFX slider click should be handled")
 	_expect(abs(registry.audio.sfx_volume - 0.85) <= 0.01, "SFX slider should set the runtime SFX volume")
+	move_count_before = registry.audio.ui_move_count
 	_expect(_press(input, owner, KEY_DOWN), "options focus should move from SFX to back")
+	_expect(registry.pause_menu._selection_feedback_scope == "options:sound", "sound options movement should use the sound feedback scope")
+	_expect(registry.pause_menu._selection_from_index == 1 and registry.pause_menu._selection_to_index == 2, "sound options movement should record from and to focus indices")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "sound options movement should play one UI move sound")
+	back_count_before = registry.audio.ui_back_count
 	_expect(_press(input, owner, KEY_ENTER), "back button should be handled")
 	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "back should return to the main pause menu")
+	_expect(registry.audio.ui_back_count == back_count_before + 1, "options back should play one UI back sound")
+
+	var no_op_options := PauseMenuOverlay.new()
+	no_op_options.open_options(owner, registry, true)
+	move_count_before = registry.audio.ui_move_count
+	_expect(not no_op_options._move_options_focus(1, 0, registry), "zero-count options focus movement should be a no-op")
+	_expect(registry.audio.ui_move_count == move_count_before, "zero-count options focus movement should not play UI move sound")
+	var confirm_overlay := PauseMenuOverlay.new()
+	confirm_overlay.open()
+	var confirm_count_before := registry.audio.ui_confirm_count
+	var confirm_result: Dictionary = confirm_overlay._activate_selected(owner, registry)
+	_expect(bool(confirm_result.get("handled", false)), "direct confirm action should be handled")
+	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "main menu confirm should play one UI confirm sound")
 
 	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen the pause options page")
 	var options_panel: Rect2 = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)

@@ -49,6 +49,10 @@ const DISPLAY_FOCUS_COUNT := 9
 const CONTROLS_BASE_FOCUS_COUNT := 2
 const CONTROLS_JOYPAD_FOCUS_COUNT := 3
 const LANGUAGE_FOCUS_COUNT := 8
+const SELECTION_SLIDE_DURATION := 0.09
+const SELECTION_POP_DURATION := 0.12
+const SELECTION_POP_SCALE := 0.045
+const SELECTION_SCOPE_MAIN := "main"
 
 const PANEL_COLOR := Color(0.04, 0.06, 0.10, 0.92)
 const PANEL_BORDER := Color(0.36, 0.78, 0.98, 0.90)
@@ -90,6 +94,11 @@ var _synced_display_mode := DISPLAY_MODE_WINDOWED
 var _synced_remember_display_mode := false
 var _synced_auto_refresh_rate_60hz := false
 var _display_preference_dirty := false
+var _selection_feedback_scope := SELECTION_SCOPE_MAIN
+var _selection_from_index := 0
+var _selection_to_index := 0
+var _selection_slide_time := SELECTION_SLIDE_DURATION
+var _selection_pop_time := SELECTION_POP_DURATION
 
 
 func is_active() -> bool:
@@ -110,6 +119,7 @@ func open() -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 
 
 func close() -> void:
@@ -121,6 +131,7 @@ func close() -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 
 
 func toggle() -> void:
@@ -135,12 +146,15 @@ func open_options(owner: Object, registry: Object, direct_options_only: bool = f
 	options_only = direct_options_only
 	animation_time = 0.0
 	_open_options(owner, registry)
+	_reset_selection_feedback(_get_options_feedback_scope(), options_focus)
 
 
 func update(delta: float) -> void:
 	if not active:
 		return
 	animation_time += delta
+	_selection_slide_time = minf(SELECTION_SLIDE_DURATION, _selection_slide_time + delta)
+	_selection_pop_time = minf(SELECTION_POP_DURATION, _selection_pop_time + delta)
 
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> Dictionary:
@@ -181,13 +195,14 @@ func _handle_key_input(key_event: InputEventKey, owner: Object, registry: Object
 	if options_open:
 		return _handle_options_key_input(key_event, owner, registry)
 	if _is_key(key_event, KEY_ESCAPE):
+		_play_ui_back(registry)
 		close()
 		return {"handled": true, "action": MENU_CONTINUE}
 	if _is_key(key_event, KEY_UP):
-		_move_selection(-1)
+		_move_selection(-1, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		_move_selection(1)
+		_move_selection(1, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
 		return _activate_selected(owner, registry)
@@ -196,16 +211,18 @@ func _handle_key_input(key_event: InputEventKey, owner: Object, registry: Object
 
 func _handle_options_key_input(key_event: InputEventKey, owner: Object, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_ESCAPE):
+		_play_ui_back(registry)
 		return _close_options_page()
 	if _is_key(key_event, KEY_TAB):
 		_switch_options_tab(1, owner, registry)
+		_play_ui_move(registry)
 		return {"handled": true}
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		return _handle_display_key_input(key_event, owner, registry)
 	if options_tab == OPTIONS_TAB_CONTROLS:
-		return _handle_controls_key_input(key_event)
+		return _handle_controls_key_input(key_event, registry)
 	if options_tab == OPTIONS_TAB_LANGUAGE:
-		return _handle_language_key_input(key_event, owner)
+		return _handle_language_key_input(key_event, owner, registry)
 	return _handle_sound_key_input(key_event, registry)
 
 
@@ -213,11 +230,12 @@ func _handle_gamepad_input(event: InputEvent, owner: Object, registry: Object) -
 	if options_open:
 		return _handle_options_gamepad_input(event, owner, registry)
 	if GamepadInput.is_cancel_event(event) or GamepadInput.is_pause_event(event):
+		_play_ui_back(registry)
 		close()
 		return {"handled": true, "action": MENU_CONTINUE}
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		_move_selection(vertical_direction)
+		_move_selection(vertical_direction, registry)
 		return {"handled": true}
 	if GamepadInput.is_confirm_event(event):
 		return _activate_selected(owner, registry)
@@ -226,26 +244,28 @@ func _handle_gamepad_input(event: InputEvent, owner: Object, registry: Object) -
 
 func _handle_options_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
 	if GamepadInput.is_cancel_event(event) or GamepadInput.is_pause_event(event):
+		_play_ui_back(registry)
 		return _close_options_page()
 	var tab_direction: int = GamepadInput.get_tab_direction_event(event)
 	if tab_direction != 0:
 		_switch_options_tab(tab_direction, owner, registry)
+		_play_ui_move(registry)
 		return {"handled": true}
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		return _handle_display_gamepad_input(event, owner, registry)
 	if options_tab == OPTIONS_TAB_CONTROLS:
-		return _handle_controls_gamepad_input(event)
+		return _handle_controls_gamepad_input(event, registry)
 	if options_tab == OPTIONS_TAB_LANGUAGE:
-		return _handle_language_gamepad_input(event, owner)
+		return _handle_language_gamepad_input(event, owner, registry)
 	return _handle_sound_gamepad_input(event, registry)
 
 
 func _handle_sound_key_input(key_event: InputEventKey, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_UP):
-		_move_options_focus(-1, SOUND_FOCUS_COUNT)
+		_move_options_focus(-1, SOUND_FOCUS_COUNT, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		_move_options_focus(1, SOUND_FOCUS_COUNT)
+		_move_options_focus(1, SOUND_FOCUS_COUNT, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
 		_adjust_focused_volume(registry, -VOLUME_STEP)
@@ -255,17 +275,19 @@ func _handle_sound_key_input(key_event: InputEventKey, registry: Object) -> Dict
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
 		if options_focus == 2:
+			_play_ui_back(registry)
 			return _close_options_page()
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	return {"handled": true}
 
 
 func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_UP):
-		_move_options_focus(-1, DISPLAY_FOCUS_COUNT)
+		_move_options_focus(-1, DISPLAY_FOCUS_COUNT, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		_move_options_focus(1, DISPLAY_FOCUS_COUNT)
+		_move_options_focus(1, DISPLAY_FOCUS_COUNT, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT) or _is_key(key_event, KEY_RIGHT):
 		if options_focus == 0:
@@ -276,6 +298,10 @@ func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry
 			_cycle_vsync_mode(-1 if _is_key(key_event, KEY_LEFT) else 1, owner, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
+		if options_focus == 8:
+			_play_ui_back(registry)
+			return _close_options_page()
+		_play_ui_confirm(registry)
 		match options_focus:
 			0:
 				_cycle_display_mode(1)
@@ -295,43 +321,46 @@ func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry
 				_apply_60hz_now(owner, registry)
 			7:
 				_save_display_options(owner, registry)
-			8:
-				return _close_options_page()
 		return {"handled": true}
 	return {"handled": true}
 
 
-func _handle_controls_key_input(key_event: InputEventKey) -> Dictionary:
+func _handle_controls_key_input(key_event: InputEventKey, registry: Object) -> Dictionary:
 	var focus_count := _get_controls_focus_count()
 	if _is_key(key_event, KEY_UP):
-		_move_options_focus(-1, focus_count)
+		_move_options_focus(-1, focus_count, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		_move_options_focus(1, focus_count)
+		_move_options_focus(1, focus_count, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
-		_adjust_controls_focus(-1)
+		if _adjust_controls_focus(-1):
+			_play_ui_move(registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_RIGHT):
-		_adjust_controls_focus(1)
+		if _adjust_controls_focus(1):
+			_play_ui_move(registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
 		if options_focus == 0:
 			_cycle_control_device_view(1)
+			_play_ui_confirm(registry)
 			return {"handled": true}
 		if _is_controls_vibration_focus():
 			_adjust_gamepad_vibration_level(1)
+			_play_ui_confirm(registry)
 			return {"handled": true}
+		_play_ui_back(registry)
 		return _close_options_page()
 	return {"handled": true}
 
 
-func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dictionary:
+func _handle_language_key_input(key_event: InputEventKey, owner: Object, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_UP):
-		_move_options_focus(-1, LANGUAGE_FOCUS_COUNT)
+		_move_options_focus(-1, LANGUAGE_FOCUS_COUNT, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_DOWN):
-		_move_options_focus(1, LANGUAGE_FOCUS_COUNT)
+		_move_options_focus(1, LANGUAGE_FOCUS_COUNT, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
 		if options_focus < LANGUAGE_FOCUS_COUNT - 1:
@@ -342,6 +371,10 @@ func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dict
 			_cycle_language(1, owner)
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
+		if options_focus == LANGUAGE_FOCUS_COUNT - 1:
+			_play_ui_back(registry)
+		else:
+			_play_ui_confirm(registry)
 		return _activate_language_focus(owner)
 	return {"handled": true}
 
@@ -349,56 +382,67 @@ func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dict
 func _handle_sound_gamepad_input(event: InputEvent, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		_move_options_focus(vertical_direction, SOUND_FOCUS_COUNT)
+		_move_options_focus(vertical_direction, SOUND_FOCUS_COUNT, registry)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
 		_adjust_focused_volume(registry, float(horizontal_direction) * VOLUME_STEP)
 		return {"handled": true}
 	if GamepadInput.is_confirm_event(event) and options_focus == 2:
+		_play_ui_back(registry)
 		return _close_options_page()
+	if GamepadInput.is_confirm_event(event):
+		_play_ui_confirm(registry)
 	return {"handled": true}
 
 
 func _handle_display_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		_move_options_focus(vertical_direction, DISPLAY_FOCUS_COUNT)
+		_move_options_focus(vertical_direction, DISPLAY_FOCUS_COUNT, registry)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
 		_handle_display_focus_delta(horizontal_direction, owner, registry)
 		return {"handled": true}
 	if GamepadInput.is_confirm_event(event):
+		if options_focus == 8:
+			_play_ui_back(registry)
+		else:
+			_play_ui_confirm(registry)
 		return _activate_display_focus(owner, registry)
 	return {"handled": true}
 
 
-func _handle_controls_gamepad_input(event: InputEvent) -> Dictionary:
+func _handle_controls_gamepad_input(event: InputEvent, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
 		var focus_count := _get_controls_focus_count()
-		_move_options_focus(vertical_direction, focus_count)
+		_move_options_focus(vertical_direction, focus_count, registry)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
-		_adjust_controls_focus(horizontal_direction)
+		if _adjust_controls_focus(horizontal_direction):
+			_play_ui_move(registry)
 		return {"handled": true}
 	if GamepadInput.is_confirm_event(event):
 		if options_focus == 0:
 			_cycle_control_device_view(1)
+			_play_ui_confirm(registry)
 			return {"handled": true}
 		if _is_controls_vibration_focus():
 			_adjust_gamepad_vibration_level(1)
+			_play_ui_confirm(registry)
 			return {"handled": true}
+		_play_ui_back(registry)
 		return _close_options_page()
 	return {"handled": true}
 
 
-func _handle_language_gamepad_input(event: InputEvent, owner: Object) -> Dictionary:
+func _handle_language_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
-		_move_options_focus(vertical_direction, LANGUAGE_FOCUS_COUNT)
+		_move_options_focus(vertical_direction, LANGUAGE_FOCUS_COUNT, registry)
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
@@ -406,6 +450,10 @@ func _handle_language_gamepad_input(event: InputEvent, owner: Object) -> Diction
 			_cycle_language(horizontal_direction, owner)
 		return {"handled": true}
 	if GamepadInput.is_confirm_event(event):
+		if options_focus == LANGUAGE_FOCUS_COUNT - 1:
+			_play_ui_back(registry)
+		else:
+			_play_ui_confirm(registry)
 		return _activate_language_focus(owner)
 	return {"handled": true}
 
@@ -610,21 +658,34 @@ func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2)
 	return {"handled": true}
 
 
-func _move_selection(delta: int) -> void:
+func _move_selection(delta: int, registry: Object = null) -> bool:
 	var count := 3
+	var previous_index := selected_index
 	selected_index = (selected_index + delta + count) % count
+	if selected_index == previous_index:
+		return false
+	_begin_selection_feedback(SELECTION_SCOPE_MAIN, previous_index, selected_index)
+	_play_ui_move(registry)
+	return true
 
 
-func _move_options_focus(delta: int, focus_count: int) -> void:
+func _move_options_focus(delta: int, focus_count: int, registry: Object = null) -> bool:
 	if focus_count <= 0:
-		return
+		return false
+	var previous_focus := options_focus
 	options_focus = (options_focus + delta + focus_count) % focus_count
+	if options_focus == previous_focus:
+		return false
+	_begin_selection_feedback(_get_options_feedback_scope(), previous_focus, options_focus)
+	_play_ui_move(registry)
+	return true
 
 
 func _activate_selected(owner: Object, registry: Object) -> Dictionary:
 	var entries: Array = _get_main_entries()
 	var index: int = clamp(selected_index, 0, entries.size() - 1)
 	selected_index = index
+	_play_ui_confirm(registry)
 	return _activate_entry(str(entries[index].get("action", "")), owner, registry)
 
 
@@ -649,6 +710,7 @@ func _open_options(owner: Object, registry: Object) -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+	_reset_selection_feedback(_get_options_feedback_scope(), options_focus)
 	_sync_display_settings(owner, registry)
 	_sync_controls_settings()
 	_sync_language_settings()
@@ -659,6 +721,7 @@ func _close_options_page() -> Dictionary:
 	selected_index = 0
 	options_focus = 0
 	dragging_slider = ""
+	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 	if options_only:
 		close()
 	return {"handled": true}
@@ -673,6 +736,7 @@ func _switch_options_tab(direction: int = 1, owner: Object = null, registry: Obj
 	options_tab = tabs[(index + step + tabs.size()) % tabs.size()]
 	options_focus = 0
 	dragging_slider = ""
+	_reset_selection_feedback(_get_options_feedback_scope(), options_focus)
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		_sync_display_settings(owner, registry)
 	elif options_tab == OPTIONS_TAB_CONTROLS:
@@ -735,23 +799,28 @@ func _activate_display_focus(owner: Object, registry: Object) -> Dictionary:
 	return {"handled": true}
 
 
-func _cycle_control_device_view(direction: int) -> void:
+func _cycle_control_device_view(direction: int) -> bool:
 	if direction == 0:
-		return
+		return false
 	var views: Array[String] = [CONTROL_DEVICE_KEYBOARD_MOUSE, CONTROL_DEVICE_JOYPAD]
 	var index: int = views.find(controls_device_view)
 	if index < 0:
 		index = 0
 	var step: int = 1 if direction >= 0 else -1
+	var previous_view := controls_device_view
 	controls_device_view = views[(index + step + views.size()) % views.size()]
 	options_focus = clampi(options_focus, 0, _get_controls_focus_count() - 1)
+	return controls_device_view != previous_view
 
 
-func _adjust_controls_focus(direction: int) -> void:
+func _adjust_controls_focus(direction: int) -> bool:
 	if options_focus == 0:
-		_cycle_control_device_view(direction)
+		return _cycle_control_device_view(direction)
 	elif _is_controls_vibration_focus():
+		var previous_level := gamepad_vibration_level
 		_adjust_gamepad_vibration_level(direction)
+		return gamepad_vibration_level != previous_level
+	return false
 
 
 func _adjust_gamepad_vibration_level(direction: int) -> void:
@@ -1093,6 +1162,24 @@ func _get_owner_window(owner: Object) -> Object:
 	return null
 
 
+func _play_ui_move(registry: Object) -> void:
+	_play_ui_feedback(registry, "play_ui_move")
+
+
+func _play_ui_confirm(registry: Object) -> void:
+	_play_ui_feedback(registry, "play_ui_confirm")
+
+
+func _play_ui_back(registry: Object) -> void:
+	_play_ui_feedback(registry, "play_ui_back")
+
+
+func _play_ui_feedback(registry: Object, method_name: String) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null and audio.has_method(method_name):
+		audio.call(method_name)
+
+
 func _adjust_focused_volume(registry: Object, delta: float) -> void:
 	if options_focus == 0:
 		_set_bgm_volume(registry, _get_bgm_volume(registry) + delta)
@@ -1117,6 +1204,7 @@ func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_po
 	var entries: Array = _get_main_entries()
 	for index in range(entries.size()):
 		_draw_button(canvas, font, _get_button_rect(panel_rect, index, entries.size()), str(entries[index].get("label", "")), index == selected_index, mouse_pos)
+	_draw_selection_feedback(canvas, panel_rect, SELECTION_SCOPE_MAIN, selected_index)
 
 
 func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
@@ -1145,6 +1233,7 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	if options_tab == OPTIONS_TAB_SOUND:
 		var back_rect: Rect2 = _get_back_button_rect(panel_rect)
 		_draw_button(canvas, font, back_rect, _get_options_back_label(), options_focus == 2, mouse_pos)
+	_draw_selection_feedback(canvas, panel_rect, _get_options_feedback_scope(), options_focus)
 	_draw_hud_readout_bar(canvas, font, panel_rect, _get_focused_option_description(options_tab, options_focus))
 
 
@@ -1675,6 +1764,176 @@ func _needs_cjk_fallback_font(text: String) -> bool:
 
 func _focus_pulse_alpha() -> float:
 	return 0.55 + 0.45 * sin(animation_time * TAU / 2.85)
+
+
+func _begin_selection_feedback(scope: String, from_index: int, to_index: int) -> void:
+	_selection_feedback_scope = scope
+	_selection_from_index = from_index
+	_selection_to_index = to_index
+	_selection_slide_time = 0.0
+	_selection_pop_time = 0.0
+
+
+func _reset_selection_feedback(scope: String, index: int) -> void:
+	_selection_feedback_scope = scope
+	_selection_from_index = index
+	_selection_to_index = index
+	_selection_slide_time = SELECTION_SLIDE_DURATION
+	_selection_pop_time = SELECTION_POP_DURATION
+
+
+func _get_options_feedback_scope() -> String:
+	if options_tab == OPTIONS_TAB_CONTROLS:
+		return "options:%s:%s" % [options_tab, controls_device_view]
+	return "options:%s" % options_tab
+
+
+func _draw_selection_feedback(canvas: CanvasItem, panel_rect: Rect2, scope: String, current_index: int) -> void:
+	var target_rect: Rect2 = _get_selection_feedback_rect(panel_rect, scope, current_index)
+	if not _has_feedback_rect(target_rect):
+		return
+
+	var draw_rect := target_rect
+	if _selection_feedback_scope == scope and _selection_slide_time < SELECTION_SLIDE_DURATION:
+		var from_rect: Rect2 = _get_selection_feedback_rect(panel_rect, scope, _selection_from_index)
+		var to_rect: Rect2 = _get_selection_feedback_rect(panel_rect, scope, _selection_to_index)
+		if _has_feedback_rect(from_rect) and _has_feedback_rect(to_rect):
+			var slide_t: float = clampf(_selection_slide_time / SELECTION_SLIDE_DURATION, 0.0, 1.0)
+			draw_rect = _lerp_rect(from_rect, to_rect, _ease_out_back(slide_t))
+
+	var pop_amount := 0.0
+	var flash_alpha := 0.0
+	if _selection_feedback_scope == scope and _selection_pop_time < SELECTION_POP_DURATION:
+		var pop_t: float = clampf(_selection_pop_time / SELECTION_POP_DURATION, 0.0, 1.0)
+		pop_amount = sin(pop_t * PI) * SELECTION_POP_SCALE
+		flash_alpha = 0.28 * (1.0 - pop_t)
+	if pop_amount > 0.0:
+		draw_rect = _scale_rect_from_center(draw_rect, 1.0 + pop_amount)
+
+	var fill := Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.04 + flash_alpha * 0.42)
+	var border := Color(NEON_CYAN_HOT.r, NEON_CYAN_HOT.g, NEON_CYAN_HOT.b, 0.52 + flash_alpha)
+	PremiumPanelFrame.draw_panel(canvas, draw_rect, PremiumPanelFrame.KIND_SLOT, fill, border, 1.0)
+	_draw_holo_focus_frame(canvas, draw_rect, clampf(_focus_pulse_alpha() + flash_alpha, 0.0, 1.0))
+
+
+func _get_selection_feedback_rect(panel_rect: Rect2, scope: String, index: int) -> Rect2:
+	if scope == SELECTION_SCOPE_MAIN:
+		var entries: Array = _get_main_entries()
+		if entries.is_empty():
+			return Rect2()
+		return _get_button_rect(panel_rect, clampi(index, 0, entries.size() - 1), entries.size())
+	if not scope.begins_with("options:"):
+		return Rect2()
+	var parts := scope.split(":")
+	if parts.size() < 2:
+		return Rect2()
+	var tab := str(parts[1])
+	match tab:
+		OPTIONS_TAB_SOUND:
+			return _get_sound_focus_rect(panel_rect, index)
+		OPTIONS_TAB_DISPLAY:
+			return _get_display_focus_rect(panel_rect, index)
+		OPTIONS_TAB_CONTROLS:
+			var device := CONTROL_DEVICE_JOYPAD if parts.size() >= 3 and str(parts[2]) == CONTROL_DEVICE_JOYPAD else CONTROL_DEVICE_KEYBOARD_MOUSE
+			return _get_controls_focus_rect(panel_rect, index, device)
+		OPTIONS_TAB_LANGUAGE:
+			return _get_language_focus_rect(panel_rect, index)
+	return Rect2()
+
+
+func _get_sound_focus_rect(panel_rect: Rect2, index: int) -> Rect2:
+	match index:
+		0:
+			return _get_slider_hit_rect_from_panel(SOUND_SLIDER_BGM, panel_rect).grow(3.0)
+		1:
+			return _get_slider_hit_rect_from_panel(SOUND_SLIDER_SFX, panel_rect).grow(3.0)
+		2:
+			return _get_back_button_rect(panel_rect)
+	return Rect2()
+
+
+func _get_display_focus_rect(panel_rect: Rect2, index: int) -> Rect2:
+	match index:
+		0:
+			return _span_rect(_get_display_fullscreen_rect(panel_rect), _get_display_windowed_rect(panel_rect))
+		1:
+			return _get_display_fps_cap_row_rect(panel_rect)
+		2:
+			return _get_display_vsync_row_rect(panel_rect)
+		3:
+			return _get_display_default_row_rect(panel_rect)
+		4:
+			return _get_display_auto_refresh_row_rect(panel_rect)
+		5:
+			return _get_display_recommended_button_rect(panel_rect)
+		6:
+			return _get_display_apply_60hz_button_rect(panel_rect)
+		7:
+			return _get_display_save_button_rect(panel_rect)
+		8:
+			return _get_display_back_button_rect(panel_rect)
+	return Rect2()
+
+
+func _get_controls_focus_rect(panel_rect: Rect2, index: int, device: String) -> Rect2:
+	match index:
+		0:
+			return _span_rect(_get_controls_keyboard_mouse_rect(panel_rect), _get_controls_joypad_rect(panel_rect))
+		1:
+			if device == CONTROL_DEVICE_JOYPAD:
+				return _get_controls_vibration_row_rect(panel_rect)
+			return _get_controls_back_button_rect(panel_rect)
+		2:
+			if device == CONTROL_DEVICE_JOYPAD:
+				return _get_controls_back_button_rect(panel_rect)
+	return Rect2()
+
+
+func _get_language_focus_rect(panel_rect: Rect2, index: int) -> Rect2:
+	match index:
+		0:
+			return _get_language_korean_rect(panel_rect)
+		1:
+			return _get_language_english_rect(panel_rect)
+		2:
+			return _get_language_chinese_rect(panel_rect)
+		3:
+			return _get_language_japanese_rect(panel_rect)
+		4:
+			return _get_language_spanish_rect(panel_rect)
+		5:
+			return _get_language_portuguese_brazil_rect(panel_rect)
+		6:
+			return _get_language_russian_rect(panel_rect)
+		7:
+			return _get_language_back_button_rect(panel_rect)
+	return Rect2()
+
+
+func _span_rect(first_rect: Rect2, last_rect: Rect2) -> Rect2:
+	var start := Vector2(minf(first_rect.position.x, last_rect.position.x), minf(first_rect.position.y, last_rect.position.y))
+	var finish := Vector2(maxf(first_rect.end.x, last_rect.end.x), maxf(first_rect.end.y, last_rect.end.y))
+	return Rect2(start, finish - start)
+
+
+func _lerp_rect(from_rect: Rect2, to_rect: Rect2, weight: float) -> Rect2:
+	return Rect2(from_rect.position.lerp(to_rect.position, weight), from_rect.size.lerp(to_rect.size, weight))
+
+
+func _scale_rect_from_center(rect: Rect2, scale: float) -> Rect2:
+	var scaled_size: Vector2 = rect.size * scale
+	return Rect2(rect.get_center() - scaled_size * 0.5, scaled_size)
+
+
+func _ease_out_back(value: float) -> float:
+	var clamped_value := clampf(value, 0.0, 1.0)
+	var c1 := 1.70158
+	var c3 := c1 + 1.0
+	return 1.0 + c3 * pow(clamped_value - 1.0, 3.0) + c1 * pow(clamped_value - 1.0, 2.0)
+
+
+func _has_feedback_rect(rect: Rect2) -> bool:
+	return rect.size.x > 1.0 and rect.size.y > 1.0
 
 
 func _get_focused_option_description(tab: String, focus: int) -> String:
