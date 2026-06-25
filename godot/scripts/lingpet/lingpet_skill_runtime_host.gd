@@ -352,7 +352,7 @@ func can_arm(skill_id: String, params: Dictionary) -> bool:
 func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_context: Dictionary = {}) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			_get_hydro_sphere_skill().launch(origin)
+			_get_hydro_sphere_skill().launch(origin, launch_context)
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			return bool(_get_headbutt_skill().launch(origin, owner, launch_context))

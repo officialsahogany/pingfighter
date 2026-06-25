@@ -560,6 +560,7 @@ func _init() -> void:
 	_verify_companion_paddle_hit_width()
 	_verify_companion_guards_dalji_whip()
 	_verify_companion_skill_card_hydro_sphere()
+	_verify_hydro_sphere_scales_with_level()
 	_verify_lingpet_skill_cooldown_survives_slot_switch()
 	_verify_lingpet_skill_waits_for_switch_transition()
 	_verify_hydro_puddle_vfx()
@@ -2548,6 +2549,8 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	var puddle_hh: float = float(skill_snapshot.get("hydro_sphere_puddle_half_height", 0.0))
 	_expect(puddle_hw > 0.0 and puddle_hh > 0.0, "Hydro Sphere puddle should expose its ellipse half-extents")
 	_expect(puddle_hw > puddle_hh * 1.5, "Hydro Sphere puddle should be a WIDE horizontal ellipse (width >> height)")
+	_expect_float(puddle_hw, 94.08, "Hydro Sphere Lv.1 puddle should shrink X half-width by 30%")
+	_expect_float(puddle_hh, 33.6, "Hydro Sphere level scaling should not change the puddle Y half-height")
 	var slow_calls: Array[Dictionary] = status_state.get_calls_for_source("maribo_hydro_sphere_puddle")
 	_expect(not slow_calls.is_empty(), "Hydro Sphere puddle should apply boss slow while the boss touches it")
 	if not slow_calls.is_empty():
@@ -2555,7 +2558,7 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 		_expect(str(first_slow.get("target", "")) == "boss", "Hydro Sphere puddle slow should target the boss")
 		_expect(str(first_slow.get("status_id", "")) == "slow", "Hydro Sphere puddle should apply the slow status")
 		_expect(is_equal_approx(float(first_slow.get("duration_frames", 0.0)), 4.0), "Hydro Sphere puddle should refresh a short slow while touched")
-		_expect(is_equal_approx(float((first_slow.get("data", {}) as Dictionary).get("multiplier", 0.0)), 0.65), "Hydro Sphere puddle should use the intended slow multiplier")
+		_expect_float(float((first_slow.get("data", {}) as Dictionary).get("multiplier", 0.0)), 0.80, "Hydro Sphere Lv.1 puddle should apply the weak slow multiplier")
 
 	owner.player_pos = Vector2(40.0, owner.player_pos.y)
 	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -90.0)
@@ -2573,6 +2576,56 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Hydro Sphere should not relaunch until the re-armed wind-up completes")
 	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Hydro Sphere should relaunch after its 40-second cooldown plus the wind-up")
+
+
+func _verify_hydro_sphere_scales_with_level() -> void:
+	var lv1_result: Dictionary = _run_hydro_sphere_host_launch_for_level(1)
+	var lv5_result: Dictionary = _run_hydro_sphere_host_launch_for_level(5)
+	var lv1_snapshot: Dictionary = lv1_result.get("snapshot", {}) as Dictionary
+	var lv5_snapshot: Dictionary = lv5_result.get("snapshot", {}) as Dictionary
+	_expect_eq(int(lv1_snapshot.get("hydro_sphere_active_skill_level", 0)), 1, "Hydro Sphere should capture Lv.1 from launch context")
+	_expect_eq(int(lv5_snapshot.get("hydro_sphere_active_skill_level", 0)), 5, "Hydro Sphere should capture Lv.5 from launch context")
+	_expect_float(float(lv1_snapshot.get("hydro_sphere_puddle_half_width", 0.0)), 94.08, "Hydro Sphere Lv.1 should use the -30% X half-width")
+	_expect_float(float(lv5_snapshot.get("hydro_sphere_puddle_half_width", 0.0)), 174.72, "Hydro Sphere Lv.5 should use the +30% X half-width")
+	_expect_float(float(lv1_snapshot.get("hydro_sphere_puddle_half_height", 0.0)), 33.6, "Hydro Sphere Lv.1 should keep the base Y half-height")
+	_expect_float(float(lv5_snapshot.get("hydro_sphere_puddle_half_height", 0.0)), 33.6, "Hydro Sphere Lv.5 should keep the base Y half-height")
+	var lv1_slow: float = _get_first_hydro_slow_multiplier(lv1_result.get("slow_calls", []) as Array)
+	var lv5_slow: float = _get_first_hydro_slow_multiplier(lv5_result.get("slow_calls", []) as Array)
+	_expect_float(lv1_slow, 0.80, "Hydro Sphere Lv.1 should apply weak boss slow")
+	_expect_float(lv5_slow, 0.45, "Hydro Sphere Lv.5 should apply strong boss slow")
+	_expect(lv5_slow < lv1_slow, "Hydro Sphere slow multiplier should get lower, therefore stronger, from Lv.1 to Lv.5")
+
+
+func _run_hydro_sphere_host_launch_for_level(active_skill_level: int) -> Dictionary:
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(330.0, 25.0)
+	var status_state := FakeStatusEffectState.new()
+	var registry := FakeRegistry.new({
+		"status_effect_state": status_state,
+	})
+	var runtime_host: Object = LingpetSkillRuntimeHost.new()
+	var launch_context := {"active_skill_level": active_skill_level}
+	_expect(
+		bool(runtime_host.launch("maribo_hydro_sphere", Vector2(380.0, 90.0), owner, launch_context)),
+		"Hydro Sphere host should launch with active skill Lv.%d context" % active_skill_level
+	)
+	runtime_host.update(0.4, owner, registry, "maribo_hydro_sphere")
+	var snapshot: Dictionary = runtime_host.get_snapshot()
+	_expect(bool(snapshot.get("hydro_sphere_puddle_active", false)), "Hydro Sphere Lv.%d host smoke should spawn a puddle" % active_skill_level)
+	var slow_calls: Array[Dictionary] = status_state.get_calls_for_source("maribo_hydro_sphere_puddle")
+	_expect(not slow_calls.is_empty(), "Hydro Sphere Lv.%d host smoke should apply boss slow" % active_skill_level)
+	return {
+		"snapshot": snapshot,
+		"slow_calls": slow_calls,
+	}
+
+
+func _get_first_hydro_slow_multiplier(slow_calls: Array) -> float:
+	if slow_calls.is_empty():
+		return 0.0
+	var first_slow: Dictionary = slow_calls[0] as Dictionary
+	var data: Dictionary = first_slow.get("data", {}) as Dictionary
+	return float(data.get("multiplier", 0.0))
 
 
 func _verify_lingpet_skill_cooldown_survives_slot_switch() -> void:

@@ -10,9 +10,11 @@ const PROJECTILE_RADIUS := 8.0
 const WALL_Y := 12.0
 const PUDDLE_DROP_Y := 62.0
 const PUDDLE_HALF_WIDTH := 134.4
+const PUDDLE_HALF_WIDTH_BY_LEVEL := [94.08, 114.24, 134.4, 154.56, 174.72]
 const PUDDLE_HALF_HEIGHT := 33.6
 const PUDDLE_DURATION_SECONDS := 5.0
 const SLOW_MULTIPLIER := 0.65
+const SLOW_MULTIPLIER_BY_LEVEL := [0.80, 0.80, 0.65, 0.65, 0.45]
 const SLOW_REFRESH_FRAMES := 4.0
 const SPLASH_FLASH_SECONDS := 0.48
 const TRAIL_MAX_POINTS := 10
@@ -31,6 +33,9 @@ var _puddle_pos := Vector2.ZERO
 var _puddle_timer := 0.0
 var _splash_timer := 0.0
 var _puddle_seed := 0
+var _active_skill_level := 1
+var _puddle_half_width := PUDDLE_HALF_WIDTH
+var _slow_multiplier := SLOW_MULTIPLIER
 var _particles: Array = []
 var _ambient_timer := 0.0
 var _textures_prewarmed := false
@@ -45,6 +50,9 @@ func reset() -> void:
 	_puddle_timer = 0.0
 	_splash_timer = 0.0
 	_puddle_seed = 0
+	_active_skill_level = 1
+	_puddle_half_width = PUDDLE_HALF_WIDTH
+	_slow_multiplier = SLOW_MULTIPLIER
 	_particles.clear()
 	_ambient_timer = 0.0
 
@@ -87,7 +95,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 		_update_particles(safe_delta)
 
 
-func launch(origin: Vector2) -> void:
+func launch(origin: Vector2, launch_context: Dictionary = {}) -> void:
+	_active_skill_level = _get_active_skill_level(launch_context)
+	_puddle_half_width = _get_level_float(PUDDLE_HALF_WIDTH_BY_LEVEL, _active_skill_level, PUDDLE_HALF_WIDTH)
+	_slow_multiplier = _get_level_float(SLOW_MULTIPLIER_BY_LEVEL, _active_skill_level, SLOW_MULTIPLIER)
 	prewarm()
 	_projectile_active = true
 	_projectile_pos = origin
@@ -127,14 +138,15 @@ func get_particle_count_for_tests() -> int:
 
 func get_snapshot() -> Dictionary:
 	return {
+		"hydro_sphere_active_skill_level": _active_skill_level,
 		"hydro_sphere_projectile_active": _projectile_active,
 		"hydro_sphere_projectile_pos": _projectile_pos,
 		"hydro_sphere_puddle_active": _puddle_timer > 0.0,
 		"hydro_sphere_puddle_pos": _puddle_pos,
 		"hydro_sphere_puddle_timer": _puddle_timer,
-		"hydro_sphere_puddle_half_width": PUDDLE_HALF_WIDTH,
+		"hydro_sphere_puddle_half_width": _puddle_half_width,
 		"hydro_sphere_puddle_half_height": PUDDLE_HALF_HEIGHT,
-		"hydro_sphere_slow_multiplier": SLOW_MULTIPLIER,
+		"hydro_sphere_slow_multiplier": _slow_multiplier,
 	}
 
 
@@ -197,7 +209,7 @@ func _update_particles(delta: float) -> void:
 				_add_particle(
 					LingpetHydroSpherePayloadFactory.build_ambient_particle(
 						_puddle_pos,
-						PUDDLE_HALF_WIDTH,
+						_puddle_half_width,
 						PUDDLE_HALF_HEIGHT
 					)
 				)
@@ -213,7 +225,7 @@ func _apply_boss_slow(owner: Object, registry: Object) -> void:
 		"boss",
 		"slow",
 		SLOW_REFRESH_FRAMES,
-		LingpetHydroSpherePayloadFactory.build_slow_status_data(SLOW_MULTIPLIER),
+		LingpetHydroSpherePayloadFactory.build_slow_status_data(_slow_multiplier),
 		STATUS_SOURCE
 	)
 
@@ -228,7 +240,7 @@ func _is_boss_touching_puddle(owner: Object) -> bool:
 	)
 	var dx: float = closest.x - _puddle_pos.x
 	var dy: float = closest.y - _puddle_pos.y
-	var rx: float = maxf(1.0, PUDDLE_HALF_WIDTH)
+	var rx: float = maxf(1.0, _puddle_half_width)
 	var ry: float = maxf(1.0, PUDDLE_HALF_HEIGHT)
 	return (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1.0
 
@@ -278,7 +290,7 @@ func _draw_puddle(canvas: CanvasItem, center: Vector2) -> void:
 	if alpha <= 0.01:
 		return
 	var grow: float = 0.72 + 0.28 * appear
-	var rx: float = PUDDLE_HALF_WIDTH * grow
+	var rx: float = _puddle_half_width * grow
 	var ry: float = PUDDLE_HALF_HEIGHT * grow
 	var pulse: float = 0.92 + 0.08 * sin(time_seconds * 2.3)
 	var surface: Texture2D = HydroPuddleTextureCache.get_surface_texture()
@@ -349,6 +361,17 @@ func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
 	var value: Variant = _get_owner_value(owner, key, fallback)
 	return value if value is Vector2 else fallback
+
+
+func _get_active_skill_level(launch_context: Dictionary) -> int:
+	return clampi(int(launch_context.get("active_skill_level", launch_context.get("skill_level", 1))), 1, PUDDLE_HALF_WIDTH_BY_LEVEL.size())
+
+
+func _get_level_float(values: Array, active_skill_level: int, fallback: float) -> float:
+	if values.is_empty():
+		return fallback
+	var index := clampi(active_skill_level, 1, values.size()) - 1
+	return float(values[index])
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:
