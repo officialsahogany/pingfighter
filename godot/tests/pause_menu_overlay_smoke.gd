@@ -213,6 +213,7 @@ class FakeRegistry:
 var registry := FakeRegistry.new()
 var _vibration_settings_snapshot: Dictionary = {}
 var _language_settings_snapshot: Dictionary = {}
+var _failed := false
 
 
 func _init() -> void:
@@ -281,6 +282,100 @@ func _init() -> void:
 	var confirm_result: Dictionary = confirm_overlay._activate_selected(owner, registry)
 	_expect(bool(confirm_result.get("handled", false)), "direct confirm action should be handled")
 	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "main menu confirm should play one UI confirm sound")
+
+	var view_size := owner.get_viewport_rect().size
+	var mouse_hover_overlay := PauseMenuOverlay.new()
+	mouse_hover_overlay.open()
+	var mouse_main_panel: Rect2 = mouse_hover_overlay._get_main_panel_rect(view_size)
+	var mouse_character_rect: Rect2 = mouse_hover_overlay._get_button_rect(mouse_main_panel, 1, 3)
+	move_count_before = registry.audio.ui_move_count
+	_expect(_motion_overlay(mouse_hover_overlay, owner, mouse_character_rect.get_center()), "main menu hover should be handled")
+	_expect(mouse_hover_overlay.selected_index == 1, "main menu hover should select the hovered entry")
+	_expect(mouse_hover_overlay._selection_feedback_scope == "main", "main menu hover should use main feedback scope")
+	_expect(mouse_hover_overlay._selection_from_index == 0 and mouse_hover_overlay._selection_to_index == 1, "main menu hover should record from and to indices")
+	_expect(mouse_hover_overlay._selection_slide_time == 0.0 and mouse_hover_overlay._selection_pop_time == 0.0, "main menu hover should reset selection feedback timers")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "main menu hover entry should play one UI move sound")
+	move_count_before = registry.audio.ui_move_count
+	_expect(_motion_overlay(mouse_hover_overlay, owner, mouse_character_rect.get_center() + Vector2(1.0, 0.0)), "same-entry mouse jitter should be handled")
+	_expect(registry.audio.ui_move_count == move_count_before, "same-entry mouse jitter should not replay UI move")
+	_expect(mouse_hover_overlay._move_selection(1, registry), "keyboard movement should still work after mouse hover")
+	_expect(mouse_hover_overlay.selected_index == 2, "keyboard movement should advance beyond the hovered entry")
+	move_count_before = registry.audio.ui_move_count
+	_expect(_motion_overlay(mouse_hover_overlay, owner, mouse_character_rect.get_center() + Vector2(2.0, 0.0)), "stationary mouse jitter after keyboard movement should be handled")
+	_expect(mouse_hover_overlay.selected_index == 2, "stationary mouse jitter should not steal selection back from keyboard navigation")
+	_expect(registry.audio.ui_move_count == move_count_before, "anti-fight mouse jitter should not replay UI move")
+	_expect(_motion_overlay(mouse_hover_overlay, owner, Vector2.ZERO), "moving into empty menu space should be handled")
+	move_count_before = registry.audio.ui_move_count
+	_expect(_motion_overlay(mouse_hover_overlay, owner, mouse_character_rect.get_center()), "re-entering a menu entry should be handled")
+	_expect(mouse_hover_overlay.selected_index == 1, "re-entering a menu entry should select it")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "re-entering from empty space should replay UI move once")
+
+	var selected_hover_overlay := PauseMenuOverlay.new()
+	selected_hover_overlay.open()
+	var selected_main_panel: Rect2 = selected_hover_overlay._get_main_panel_rect(view_size)
+	var selected_main_rect: Rect2 = selected_hover_overlay._get_button_rect(selected_main_panel, 0, 3)
+	move_count_before = registry.audio.ui_move_count
+	_expect(_motion_overlay(selected_hover_overlay, owner, selected_main_rect.get_center()), "hovering the already selected entry should be handled")
+	_expect(registry.audio.ui_move_count == move_count_before, "hovering the already selected entry should not replay UI move")
+
+	var mouse_confirm_overlay := PauseMenuOverlay.new()
+	mouse_confirm_overlay.open()
+	var mouse_confirm_panel: Rect2 = mouse_confirm_overlay._get_main_panel_rect(view_size)
+	confirm_count_before = registry.audio.ui_confirm_count
+	_expect(_left_click_overlay(mouse_confirm_overlay, owner, mouse_confirm_overlay._get_button_rect(mouse_confirm_panel, 0, 3).get_center()), "main menu left click should be handled")
+	_expect(not mouse_confirm_overlay.is_active(), "main menu left click should activate and close the continue entry")
+	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "main menu left click should play one UI confirm sound")
+
+	var mouse_back_overlay := PauseMenuOverlay.new()
+	mouse_back_overlay.open()
+	back_count_before = registry.audio.ui_back_count
+	_expect(_right_click_overlay(mouse_back_overlay, owner, Vector2.ZERO), "main menu right click should be handled")
+	_expect(not mouse_back_overlay.is_active(), "main menu right click should close the pause menu")
+	_expect(registry.audio.ui_back_count == back_count_before + 1, "main menu right click should play one UI back sound")
+
+	var options_hover_overlay := PauseMenuOverlay.new()
+	options_hover_overlay.open_options(owner, registry, true)
+	var options_hover_panel: Rect2 = options_hover_overlay._get_options_panel_rect(view_size)
+	move_count_before = registry.audio.ui_move_count
+	_expect(_motion_overlay(options_hover_overlay, owner, options_hover_overlay._get_back_button_rect(options_hover_panel).get_center()), "options row hover should be handled")
+	_expect(options_hover_overlay.options_focus == 2, "options hover should select the hovered back row")
+	_expect(options_hover_overlay._selection_feedback_scope == "options:sound", "options hover should use the active tab feedback scope")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "options hover entry should play one UI move sound")
+
+	var slider_mouse_overlay := PauseMenuOverlay.new()
+	slider_mouse_overlay.open_options(owner, registry, true)
+	var slider_mouse_rect: Rect2 = slider_mouse_overlay._get_slider_hit_rect("bgm", view_size)
+	move_count_before = registry.audio.ui_move_count
+	_expect(_left_click_overlay(slider_mouse_overlay, owner, slider_mouse_rect.get_center()), "slider mouse grab should be handled")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "slider mouse grab should play UI move once")
+	_expect(_motion_overlay(slider_mouse_overlay, owner, slider_mouse_rect.get_center() + Vector2(12.0, 0.0)), "slider drag motion should be handled")
+	_expect(_motion_overlay(slider_mouse_overlay, owner, slider_mouse_rect.get_center() + Vector2(24.0, 0.0)), "continued slider drag motion should be handled")
+	_expect(registry.audio.ui_move_count == move_count_before + 1, "slider drag ticks should not replay UI move")
+
+	var options_click_overlay := PauseMenuOverlay.new()
+	options_click_overlay.open_options(owner, registry, true)
+	var options_click_panel: Rect2 = options_click_overlay._get_options_panel_rect(view_size)
+	confirm_count_before = registry.audio.ui_confirm_count
+	_expect(_left_click_overlay(options_click_overlay, owner, options_click_overlay._get_reset_button_rect(options_click_panel).get_center()), "options reset click should be handled")
+	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "options reset click should play one UI confirm sound")
+	confirm_count_before = registry.audio.ui_confirm_count
+	_expect(_left_click_overlay(options_click_overlay, owner, options_click_overlay._get_display_tab_rect(options_click_panel).get_center()), "options tab click should be handled")
+	_expect(options_click_overlay.options_tab == "display", "options tab click should switch tabs")
+	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "options tab switch should play one UI confirm sound")
+	confirm_count_before = registry.audio.ui_confirm_count
+	_expect(_left_click_overlay(options_click_overlay, owner, options_click_overlay._get_display_fullscreen_rect(options_click_panel).get_center()), "display value click should be handled")
+	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "display value click should play one UI confirm sound")
+	back_count_before = registry.audio.ui_back_count
+	_expect(_left_click_overlay(options_click_overlay, owner, options_click_overlay._get_display_back_button_rect(options_click_panel).get_center()), "options back click should be handled")
+	_expect(not options_click_overlay.is_active(), "options-only back click should close the overlay")
+	_expect(registry.audio.ui_back_count == back_count_before + 1, "options back click should play one UI back sound")
+
+	var options_right_click_overlay := PauseMenuOverlay.new()
+	options_right_click_overlay.open_options(owner, registry, true)
+	back_count_before = registry.audio.ui_back_count
+	_expect(_right_click_overlay(options_right_click_overlay, owner, Vector2.ZERO), "options right click should be handled")
+	_expect(not options_right_click_overlay.is_active(), "options right click should close the options-only overlay")
+	_expect(registry.audio.ui_back_count == back_count_before + 1, "options right click should play one UI back sound")
 
 	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen the pause options page")
 	var options_panel: Rect2 = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)
@@ -463,6 +558,9 @@ func _init() -> void:
 
 	_expect(owner.redraw_count >= 6, "pause menu input should queue redraws")
 	_restore_settings_snapshots()
+	if _failed:
+		quit(1)
+		return
 	print("pause_menu_overlay_smoke: ok")
 	quit(0)
 
@@ -483,6 +581,30 @@ func _click(input: Object, owner: Object, position: Vector2) -> bool:
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.position = position
 	return bool(input.handle_input(event, owner, registry, Callable(self, "_get_module"), {}))
+
+
+func _motion_overlay(overlay: Object, owner: Object, position: Vector2) -> bool:
+	var event := InputEventMouseMotion.new()
+	event.position = position
+	var result: Dictionary = overlay.handle_input(event, owner, registry, owner.get_viewport_rect().size)
+	return bool(result.get("handled", false))
+
+
+func _left_click_overlay(overlay: Object, owner: Object, position: Vector2) -> bool:
+	return _mouse_button_overlay(overlay, owner, position, MOUSE_BUTTON_LEFT)
+
+
+func _right_click_overlay(overlay: Object, owner: Object, position: Vector2) -> bool:
+	return _mouse_button_overlay(overlay, owner, position, MOUSE_BUTTON_RIGHT)
+
+
+func _mouse_button_overlay(overlay: Object, owner: Object, position: Vector2, button_index: MouseButton) -> bool:
+	var event := InputEventMouseButton.new()
+	event.pressed = true
+	event.button_index = button_index
+	event.position = position
+	var result: Dictionary = overlay.handle_input(event, owner, registry, owner.get_viewport_rect().size)
+	return bool(result.get("handled", false))
 
 
 func _joy_button(button_index: JoyButton) -> InputEventJoypadButton:
@@ -547,6 +669,7 @@ func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByte
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
+	_failed = true
 	_restore_settings_snapshots()
 	push_error(message)
 	quit(1)

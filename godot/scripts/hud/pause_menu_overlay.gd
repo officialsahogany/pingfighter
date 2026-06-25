@@ -99,6 +99,8 @@ var _selection_from_index := 0
 var _selection_to_index := 0
 var _selection_slide_time := SELECTION_SLIDE_DURATION
 var _selection_pop_time := SELECTION_POP_DURATION
+var _last_hover_scope := ""
+var _last_hover_index := -1
 
 
 func is_active() -> bool:
@@ -120,6 +122,7 @@ func open() -> void:
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
+	_reset_hover_tracking()
 
 
 func close() -> void:
@@ -132,6 +135,7 @@ func close() -> void:
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
+	_reset_hover_tracking()
 
 
 func toggle() -> void:
@@ -463,6 +467,7 @@ func _handle_mouse_button(mouse_event: InputEventMouseButton, owner: Object, reg
 		dragging_slider = ""
 		return {"handled": true}
 	if mouse_event.button_index == MOUSE_BUTTON_RIGHT:
+		_play_ui_back(registry)
 		if options_open:
 			return _close_options_page()
 		close()
@@ -477,13 +482,14 @@ func _handle_mouse_button(mouse_event: InputEventMouseButton, owner: Object, reg
 		var rect: Rect2 = _get_button_rect(panel_rect, index, entries.size())
 		if rect.has_point(mouse_event.position):
 			selected_index = index
-			return _activate_entry(str(entries[index].get("action", "")), owner, registry)
+			return _activate_selected(owner, registry)
 	return {"handled": true}
 
 
 func _handle_mouse_motion(mouse_event: InputEventMouseMotion, registry: Object, view_size: Vector2) -> Dictionary:
 	if options_open and not dragging_slider.is_empty():
 		_set_volume_from_slider(dragging_slider, mouse_event.position.x, registry, view_size)
+	_update_hover_feedback(mouse_event.position, registry, view_size)
 	return {"handled": true}
 
 
@@ -491,51 +497,48 @@ func _handle_options_click(position: Vector2, owner: Object, registry: Object, v
 	var panel_rect: Rect2 = _get_options_panel_rect(view_size)
 	if _get_reset_button_rect(panel_rect).has_point(position):
 		_reset_current_tab_to_defaults(owner, registry)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_sound_tab_rect(panel_rect).has_point(position):
-		options_tab = OPTIONS_TAB_SOUND
-		options_focus = 0
-		dragging_slider = ""
+		if _select_options_tab(OPTIONS_TAB_SOUND, owner, registry):
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_tab_rect(panel_rect).has_point(position):
-		options_tab = OPTIONS_TAB_DISPLAY
-		options_focus = 0
-		dragging_slider = ""
-		_sync_display_settings(owner, registry)
+		if _select_options_tab(OPTIONS_TAB_DISPLAY, owner, registry):
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_controls_tab_rect(panel_rect).has_point(position):
-		options_tab = OPTIONS_TAB_CONTROLS
-		options_focus = 0
-		dragging_slider = ""
-		_sync_controls_settings()
+		if _select_options_tab(OPTIONS_TAB_CONTROLS, owner, registry):
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_tab_rect(panel_rect).has_point(position):
-		options_tab = OPTIONS_TAB_LANGUAGE
-		options_focus = 0
-		dragging_slider = ""
-		_sync_language_settings()
+		if _select_options_tab(OPTIONS_TAB_LANGUAGE, owner, registry):
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		return _handle_display_click(position, owner, registry, panel_rect)
 	if options_tab == OPTIONS_TAB_CONTROLS:
-		return _handle_controls_click(position, panel_rect)
+		return _handle_controls_click(position, panel_rect, registry)
 	if options_tab == OPTIONS_TAB_LANGUAGE:
-		return _handle_language_click(position, owner, panel_rect)
+		return _handle_language_click(position, owner, panel_rect, registry)
 	return _handle_sound_click(position, registry, view_size, panel_rect)
 
 
 func _handle_sound_click(position: Vector2, registry: Object, view_size: Vector2, panel_rect: Rect2) -> Dictionary:
 	if _get_back_button_rect(panel_rect).has_point(position):
+		_play_ui_back(registry)
 		return _close_options_page()
 	if _get_slider_hit_rect(SOUND_SLIDER_BGM, view_size).has_point(position):
 		options_focus = 0
 		dragging_slider = SOUND_SLIDER_BGM
 		_set_volume_from_slider(SOUND_SLIDER_BGM, position.x, registry, view_size)
+		_play_ui_move(registry)
 		return {"handled": true}
 	if _get_slider_hit_rect(SOUND_SLIDER_SFX, view_size).has_point(position):
 		options_focus = 1
 		dragging_slider = SOUND_SLIDER_SFX
 		_set_volume_from_slider(SOUND_SLIDER_SFX, position.x, registry, view_size)
+		_play_ui_move(registry)
 		return {"handled": true}
 	return {"handled": true}
 
@@ -544,14 +547,17 @@ func _handle_display_click(position: Vector2, owner: Object, registry: Object, p
 	if _get_display_fullscreen_rect(panel_rect).has_point(position):
 		_set_display_mode_option(DISPLAY_MODE_FULLSCREEN)
 		options_focus = 0
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_exclusive_fullscreen_rect(panel_rect).has_point(position):
 		_set_display_mode_option(DISPLAY_MODE_EXCLUSIVE_FULLSCREEN)
 		options_focus = 0
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_windowed_rect(panel_rect).has_point(position):
 		_set_display_mode_option(DISPLAY_MODE_WINDOWED)
 		options_focus = 0
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_fps_cap_row_rect(panel_rect).has_point(position):
 		options_focus = 1
@@ -560,8 +566,10 @@ func _handle_display_click(position: Vector2, owner: Object, registry: Object, p
 		var right_rect: Rect2 = chevrons["right"]
 		if left_rect.has_point(position):
 			_cycle_render_fps_cap(-1, owner, registry)
+			_play_ui_confirm(registry)
 		elif right_rect.has_point(position):
 			_cycle_render_fps_cap(1, owner, registry)
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_vsync_row_rect(panel_rect).has_point(position):
 		options_focus = 2
@@ -570,44 +578,54 @@ func _handle_display_click(position: Vector2, owner: Object, registry: Object, p
 		var right_rect: Rect2 = chevrons["right"]
 		if left_rect.has_point(position):
 			_cycle_vsync_mode(-1, owner, registry)
+			_play_ui_confirm(registry)
 		elif right_rect.has_point(position):
 			_cycle_vsync_mode(1, owner, registry)
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_default_row_rect(panel_rect).has_point(position):
 		remember_display_mode = not remember_display_mode
 		_display_preference_dirty = true
 		options_focus = 3
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_auto_refresh_row_rect(panel_rect).has_point(position):
 		auto_refresh_rate_60hz = not auto_refresh_rate_60hz
 		_display_preference_dirty = true
 		options_focus = 4
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_recommended_button_rect(panel_rect).has_point(position):
 		options_focus = 5
 		_apply_recommended_display_settings(owner, registry)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_apply_60hz_button_rect(panel_rect).has_point(position):
 		options_focus = 6
 		_apply_60hz_now(owner, registry)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_save_button_rect(panel_rect).has_point(position):
 		options_focus = 7
 		_save_display_options(owner, registry)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_display_back_button_rect(panel_rect).has_point(position):
+		_play_ui_back(registry)
 		return _close_options_page()
 	return {"handled": true}
 
 
-func _handle_controls_click(position: Vector2, panel_rect: Rect2) -> Dictionary:
+func _handle_controls_click(position: Vector2, panel_rect: Rect2, registry: Object = null) -> Dictionary:
 	if _get_controls_keyboard_mouse_rect(panel_rect).has_point(position):
 		controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 		options_focus = 0
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_controls_joypad_rect(panel_rect).has_point(position):
 		controls_device_view = CONTROL_DEVICE_JOYPAD
 		options_focus = 0
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if controls_device_view == CONTROL_DEVICE_JOYPAD and _get_controls_vibration_row_rect(panel_rect).has_point(position):
 		options_focus = 1
@@ -616,44 +634,55 @@ func _handle_controls_click(position: Vector2, panel_rect: Rect2) -> Dictionary:
 		var right_rect: Rect2 = chevrons["right"]
 		if left_rect.has_point(position):
 			_adjust_gamepad_vibration_level(-1)
+			_play_ui_confirm(registry)
 		elif right_rect.has_point(position):
 			_adjust_gamepad_vibration_level(1)
+			_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_controls_back_button_rect(panel_rect).has_point(position):
+		_play_ui_back(registry)
 		return _close_options_page()
 	return {"handled": true}
 
 
-func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2) -> Dictionary:
+func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2, registry: Object = null) -> Dictionary:
 	if _get_language_korean_rect(panel_rect).has_point(position):
 		options_focus = 0
 		_set_language_option(LanguageSettings.LANGUAGE_KOREAN, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_english_rect(panel_rect).has_point(position):
 		options_focus = 1
 		_set_language_option(LanguageSettings.LANGUAGE_ENGLISH, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_chinese_rect(panel_rect).has_point(position):
 		options_focus = 2
 		_set_language_option(LanguageSettings.LANGUAGE_CHINESE, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_japanese_rect(panel_rect).has_point(position):
 		options_focus = 3
 		_set_language_option(LanguageSettings.LANGUAGE_JAPANESE, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_spanish_rect(panel_rect).has_point(position):
 		options_focus = 4
 		_set_language_option(LanguageSettings.LANGUAGE_SPANISH, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_portuguese_brazil_rect(panel_rect).has_point(position):
 		options_focus = 5
 		_set_language_option(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_russian_rect(panel_rect).has_point(position):
 		options_focus = 6
 		_set_language_option(LanguageSettings.LANGUAGE_RUSSIAN, owner)
+		_play_ui_confirm(registry)
 		return {"handled": true}
 	if _get_language_back_button_rect(panel_rect).has_point(position):
+		_play_ui_back(registry)
 		return _close_options_page()
 	return {"handled": true}
 
@@ -711,6 +740,7 @@ func _open_options(owner: Object, registry: Object) -> void:
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 	_reset_selection_feedback(_get_options_feedback_scope(), options_focus)
+	_reset_hover_tracking()
 	_sync_display_settings(owner, registry)
 	_sync_controls_settings()
 	_sync_language_settings()
@@ -722,6 +752,7 @@ func _close_options_page() -> Dictionary:
 	options_focus = 0
 	dragging_slider = ""
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
+	_reset_hover_tracking()
 	if options_only:
 		close()
 	return {"handled": true}
@@ -733,16 +764,23 @@ func _switch_options_tab(direction: int = 1, owner: Object = null, registry: Obj
 	if index < 0:
 		index = 0
 	var step: int = 1 if direction >= 0 else -1
-	options_tab = tabs[(index + step + tabs.size()) % tabs.size()]
+	_select_options_tab(tabs[(index + step + tabs.size()) % tabs.size()], owner, registry)
+
+
+func _select_options_tab(tab: String, owner: Object = null, registry: Object = null) -> bool:
+	var previous_tab := options_tab
+	options_tab = tab
 	options_focus = 0
 	dragging_slider = ""
 	_reset_selection_feedback(_get_options_feedback_scope(), options_focus)
+	_reset_hover_tracking()
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		_sync_display_settings(owner, registry)
 	elif options_tab == OPTIONS_TAB_CONTROLS:
 		_sync_controls_settings()
 	elif options_tab == OPTIONS_TAB_LANGUAGE:
 		_sync_language_settings()
+	return options_tab != previous_tab
 
 
 func _cycle_display_mode(direction: int) -> void:
@@ -1780,6 +1818,62 @@ func _reset_selection_feedback(scope: String, index: int) -> void:
 	_selection_to_index = index
 	_selection_slide_time = SELECTION_SLIDE_DURATION
 	_selection_pop_time = SELECTION_POP_DURATION
+
+
+func _reset_hover_tracking() -> void:
+	_last_hover_scope = ""
+	_last_hover_index = -1
+
+
+func _update_hover_feedback(position: Vector2, registry: Object, view_size: Vector2) -> void:
+	var scope := _get_options_feedback_scope() if options_open else SELECTION_SCOPE_MAIN
+	var panel_rect := _get_options_panel_rect(view_size) if options_open else _get_active_panel_rect(view_size)
+	var hovered_index := _hovered_index_at(panel_rect, scope, position)
+	if scope == _last_hover_scope and hovered_index == _last_hover_index:
+		return
+	_last_hover_scope = scope
+	_last_hover_index = hovered_index
+	if hovered_index < 0:
+		return
+	var current_index := options_focus if options_open else selected_index
+	if hovered_index == current_index:
+		return
+	if options_open:
+		options_focus = hovered_index
+	else:
+		selected_index = hovered_index
+	_begin_selection_feedback(scope, current_index, hovered_index)
+	_play_ui_move(registry)
+
+
+func _hovered_index_at(panel_rect: Rect2, scope: String, position: Vector2) -> int:
+	var focus_count := _get_selection_feedback_count(scope)
+	for index in range(focus_count):
+		if _get_selection_feedback_rect(panel_rect, scope, index).has_point(position):
+			return index
+	return -1
+
+
+func _get_selection_feedback_count(scope: String) -> int:
+	if scope == SELECTION_SCOPE_MAIN:
+		return _get_main_entries().size()
+	if not scope.begins_with("options:"):
+		return 0
+	var parts := scope.split(":")
+	if parts.size() < 2:
+		return 0
+	match str(parts[1]):
+		OPTIONS_TAB_SOUND:
+			return SOUND_FOCUS_COUNT
+		OPTIONS_TAB_DISPLAY:
+			return DISPLAY_FOCUS_COUNT
+		OPTIONS_TAB_CONTROLS:
+			if parts.size() >= 3 and str(parts[2]) == CONTROL_DEVICE_JOYPAD:
+				return CONTROLS_JOYPAD_FOCUS_COUNT
+			return CONTROLS_BASE_FOCUS_COUNT
+		OPTIONS_TAB_LANGUAGE:
+			return LANGUAGE_FOCUS_COUNT
+	return 0
 
 
 func _get_options_feedback_scope() -> String:
