@@ -11,7 +11,19 @@ const ASSEMBLING_ALPHA := 0.5
 const BORDER_COLOR := Color(1.0, 1.0, 1.0, 0.22)
 const BORDER_COLOR_ASSEMBLING := Color(1.0, 1.0, 1.0, 0.12)
 const INNER_HIGHLIGHT := Color(1.0, 1.0, 1.0, 0.14)
-const SUPER_BORDER_COLOR := Color(1.0, 0.45, 0.18, 0.95)   # 초인 테트로 강조 테두리
+const SUPER_BORDER_COLOR := Color(1.0, 0.45, 0.18, 0.95)
+const CRYSTAL_SHIELD_ORBIT_RADIUS_FALLBACK := 110.0
+const CUBE_VISUAL_REFERENCE_MIN := 750.0
+const CUBE_VISUAL_SIZE_RATIO := 0.09
+const CUBE_VISUAL_SCALE := 0.00972
+const CUBE_CAMERA_DISTANCE := 3.2
+const CUBE_FOV := 360.0
+const CUBE_LIGHT_DIR := Vector3(0.4, -0.7, 0.6)
+const CUBE_FACE_BLUE := Color(100.0 / 255.0, 170.0 / 255.0, 255.0 / 255.0, 1.0)
+const CUBE_FACE_RED := Color(1.0, 80.0 / 255.0, 80.0 / 255.0, 1.0)
+const CUBE_FACE_PURPLE := Color(200.0 / 255.0, 80.0 / 255.0, 1.0, 1.0)
+const CUBE_EDGE_GLOW := Color(120.0 / 255.0, 200.0 / 255.0, 1.0, 1.0)
+const CUBE_EDGE_MAIN := Color(220.0 / 255.0, 240.0 / 255.0, 1.0, 1.0)
 
 
 func prewarm_assets() -> void:
@@ -134,19 +146,18 @@ func _draw_cube(canvas: CanvasItem, cube: Dictionary, shake_offset: Vector2) -> 
 	var ring_alpha: float = 0.25 if rebuild else 0.5
 	canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(0.5, 0.7, 0.95, ring_alpha), 2.0, true)
 
-	var grid: Array = cube.get("grid", [])
-	var n: int = int(cube.get("grid_size", 3))
-	if n > 0 and grid.size() >= n * n:
-		var side: float = radius * 1.25
-		var cell: float = side / float(n)
-		var top_left: Vector2 = center - Vector2(side, side) * 0.5
-		var cell_alpha: float = 0.35 if rebuild else 1.0
-		for r in range(n):
-			for c in range(n):
-				var col: Color = grid[r * n + c]
-				col.a = cell_alpha
-				var rect := Rect2(top_left + Vector2(float(c) * cell, float(r) * cell) + Vector2(1.0, 1.0), Vector2(cell - 2.0, cell - 2.0))
-				canvas.draw_rect(rect, col)
+	var spin: float = float(cube.get("spin", 0.0))
+	var hit_progress: float = clampf(float(cube.get("hit_progress", 0.0)), 0.0, 1.0)
+	var melt_progress: float = clampf(float(cube.get("melt_progress", 0.0)), 0.0, 1.0)
+	var glow_radius: float = radius * (0.42 - 0.12 * melt_progress)
+	canvas.draw_circle(center, glow_radius * 1.55, Color(0.35, 0.75, 1.0, 0.16 * (1.0 - melt_progress * 0.7)))
+	canvas.draw_circle(center, glow_radius, Color(0.72, 0.90, 1.0, 0.16 * (1.0 - melt_progress * 0.7)))
+	for face in _build_cube_projected_faces(center, radius, spin, hit_progress, melt_progress):
+		var points: PackedVector2Array = face.get("points", PackedVector2Array())
+		if Geometry2D.triangulate_polygon(points).is_empty():
+			continue
+		canvas.draw_colored_polygon(points, face.get("color", Color(0.5, 0.7, 1.0, 0.8)))
+	_draw_cube_edges(canvas, center, radius, spin, melt_progress)
 
 	if bool(cube.get("solve_pending", false)):
 		var prog: float = float(cube.get("solve_progress", 0.0))
@@ -154,6 +165,135 @@ func _draw_cube(canvas: CanvasItem, cube: Dictionary, shake_offset: Vector2) -> 
 	elif rebuild:
 		var rp: float = float(cube.get("rebuild_progress", 0)) / maxf(1.0, float(cube.get("rebuild_needed", 5)))
 		canvas.draw_arc(center, radius + 4.0, -PI * 0.5, -PI * 0.5 + TAU * rp, 48, Color(0.4, 0.9, 0.6, 0.7), 3.0, true)
+
+
+func debug_build_cube_projected_faces(spin: float, radius: float = 90.0, hit_progress: float = 0.0, melt_progress: float = 0.0) -> Array:
+	return _build_cube_projected_faces(Vector2.ZERO, radius, spin, hit_progress, melt_progress)
+
+
+func _build_cube_projected_faces(center: Vector2, radius: float, spin: float, hit_progress: float, melt_progress: float) -> Array:
+	var ang_y: float = spin * 0.55
+	var ang_x: float = spin * 0.35
+	var visual_size: float = _cube_visual_size(melt_progress)
+	var vertices: Array = []
+	for vertex in _cube_vertices():
+		vertices.append(_rotate_cube_vector(vertex, ang_x, ang_y))
+	var normals := _cube_normals()
+	var faces: Array = []
+	var face_index := 0
+	for indices in _cube_faces():
+		var points := PackedVector2Array()
+		var depth := 0.0
+		for index in indices:
+			var rotated: Vector3 = vertices[int(index)]
+			depth += rotated.z
+			points.append(_project_cube_vertex(rotated, center, visual_size))
+		depth /= maxf(1.0, float(indices.size()))
+		var normal: Vector3 = _rotate_cube_vector(normals[face_index], ang_x, ang_y).normalized()
+		faces.append({
+			"points": points,
+			"depth": depth,
+			"color": _cube_face_color(normal, hit_progress, melt_progress),
+		})
+		face_index += 1
+	faces.sort_custom(Callable(self, "_sort_cube_faces_far_first"))
+	return faces
+
+
+func _draw_cube_edges(canvas: CanvasItem, center: Vector2, radius: float, spin: float, melt_progress: float) -> void:
+	var ang_y: float = spin * 0.55
+	var ang_x: float = spin * 0.35
+	var visual_size: float = _cube_visual_size(melt_progress)
+	var projected: Array = []
+	for vertex in _cube_vertices():
+		projected.append(_project_cube_vertex(_rotate_cube_vector(vertex, ang_x, ang_y), center, visual_size))
+	var fade: float = 1.0 - melt_progress * 0.85
+	if fade <= 0.02:
+		return
+	var glow := CUBE_EDGE_GLOW
+	glow.a = 0.44 * fade
+	var main := CUBE_EDGE_MAIN
+	main.a = 0.74 * fade
+	var glow_width: float = 4.0 if radius >= 60.0 else 2.0
+	var main_width: float = 2.0 if radius >= 60.0 else 1.0
+	for edge in _cube_edges():
+		var a: Vector2 = projected[int(edge[0])]
+		var b: Vector2 = projected[int(edge[1])]
+		canvas.draw_line(a, b, glow, glow_width, true)
+		canvas.draw_line(a, b, main, main_width, true)
+
+
+func _cube_face_color(normal: Vector3, hit_progress: float, melt_progress: float) -> Color:
+	var base: Color = CUBE_FACE_BLUE.lerp(CUBE_FACE_RED, clampf(hit_progress, 0.0, 1.0))
+	base = base.lerp(CUBE_FACE_PURPLE, clampf(melt_progress, 0.0, 1.0))
+	var light: float = maxf(0.0, normal.dot(CUBE_LIGHT_DIR.normalized()))
+	var shade: float = 0.35 + 0.65 * light
+	return Color(base.r * shade, base.g * shade, base.b * shade, clampf(1.0 - melt_progress * 0.85, 0.0, 1.0))
+
+
+func _cube_visual_size(melt_progress: float) -> float:
+	var cube_size: float = CUBE_VISUAL_REFERENCE_MIN * CUBE_VISUAL_SIZE_RATIO
+	var shrink: float = 1.0 - clampf(melt_progress, 0.0, 1.0) * 0.6
+	return maxf(0.05, cube_size * CUBE_VISUAL_SCALE * shrink)
+
+
+func _rotate_cube_vector(value: Vector3, ang_x: float, ang_y: float) -> Vector3:
+	var cy: float = cos(ang_y)
+	var sy: float = sin(ang_y)
+	var x1: float = value.x * cy + value.z * sy
+	var z1: float = -value.x * sy + value.z * cy
+	var cx: float = cos(ang_x)
+	var sx: float = sin(ang_x)
+	var y2: float = value.y * cx - z1 * sx
+	var z2: float = value.y * sx + z1 * cx
+	return Vector3(x1, y2, z2)
+
+
+func _project_cube_vertex(value: Vector3, center: Vector2, visual_size: float) -> Vector2:
+	var zc: float = value.z + CUBE_CAMERA_DISTANCE
+	var factor: float = CUBE_FOV / maxf(0.001, zc)
+	return center + Vector2(value.x, value.y) * factor * (visual_size * 0.5)
+
+
+func _sort_cube_faces_far_first(a: Dictionary, b: Dictionary) -> bool:
+	return float(a.get("depth", 0.0)) > float(b.get("depth", 0.0))
+
+
+func _cube_vertices() -> Array:
+	return [
+		Vector3(-1.0, -1.0, -1.0), Vector3(1.0, -1.0, -1.0), Vector3(1.0, 1.0, -1.0), Vector3(-1.0, 1.0, -1.0),
+		Vector3(-1.0, -1.0, 1.0), Vector3(1.0, -1.0, 1.0), Vector3(1.0, 1.0, 1.0), Vector3(-1.0, 1.0, 1.0),
+	]
+
+
+func _cube_faces() -> Array:
+	return [
+		[0, 1, 2, 3],
+		[4, 5, 6, 7],
+		[0, 1, 5, 4],
+		[3, 2, 6, 7],
+		[1, 2, 6, 5],
+		[0, 3, 7, 4],
+	]
+
+
+func _cube_normals() -> Array:
+	return [
+		Vector3(0.0, 0.0, -1.0),
+		Vector3(0.0, 0.0, 1.0),
+		Vector3(0.0, -1.0, 0.0),
+		Vector3(0.0, 1.0, 0.0),
+		Vector3(1.0, 0.0, 0.0),
+		Vector3(-1.0, 0.0, 0.0),
+	]
+
+
+func _cube_edges() -> Array:
+	return [
+		[0, 1], [1, 2], [2, 3], [3, 0],
+		[4, 5], [5, 6], [6, 7], [7, 4],
+		[0, 4], [1, 5], [2, 6], [3, 7],
+	]
 
 
 func _draw_wall_cell(canvas: CanvasItem, wall_cell: Dictionary, cell_vec: Vector2, shake_offset: Vector2) -> void:
@@ -207,7 +347,7 @@ func _draw_crystal_shield(canvas: CanvasItem, context: Dictionary, shake_offset:
 	if blocks.is_empty():
 		return
 	var center: Vector2 = _as_vector2(context.get("stage6_tetriser_crystal_shield_center", Vector2.ZERO)) + shake_offset
-	var radius: float = float(context.get("stage6_tetriser_crystal_shield_radius", 100.0))
+	var radius: float = float(context.get("stage6_tetriser_crystal_shield_radius", CRYSTAL_SHIELD_ORBIT_RADIUS_FALLBACK))
 	var progress: float = clampf(float(context.get("stage6_tetriser_crystal_shield_progress", 0.0)), 0.0, 1.0)
 	if bool(context.get("stage6_tetriser_crystal_shield_freeze_active", false)):
 		canvas.draw_arc(center, radius + 14.0 + sin(progress * TAU) * 6.0, 0.0, TAU, 64, Color(0.55, 0.92, 1.0, 0.28), 3.0, true)

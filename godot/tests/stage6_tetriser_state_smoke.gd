@@ -4,9 +4,11 @@ extends SceneTree
 # (스폰/조립→낙하→정착) + actor draw context 노출 검증.
 
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
+const Stage6TetriserPlayfieldRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_playfield_renderer.gd")
 const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
 const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
 const STAGE6_PILLAR_SCENE_DRAWER_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd"
+const EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS := 110.0
 
 var _failures: Array[String] = []
 
@@ -180,6 +182,8 @@ func _init() -> void:
 	_test_power_smash_counts_rebuild_progress()
 	_test_natural_evaporation_does_not_rebuild_cube()
 	_test_super_laser_melts_cube()
+	_test_center_cube_draw_data_tracks_3d_visual_state()
+	_test_center_cube_renderer_uses_3d_projected_faces()
 	_test_crystal_shield_score_schedules_and_starts()
 	_test_crystal_shield_collision_and_reset()
 	_test_crystal_shield_persists_across_reset_round()
@@ -890,6 +894,8 @@ func _test_cube_solve_clears_field() -> void:
 	_expect(state.debug_get_tetromino_count() == 0, "cube explosion clears tetrominoes")
 	_expect(state.debug_get_wall_cell_count() == 0, "cube explosion clears walls")
 	_expect(state.debug_is_cube_rebuild() and not state.debug_is_cube_active(), "cube enters rebuild mode after explosion")
+	var cube_draw: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(is_equal_approx(float(cube_draw.get("melt_progress", -1.0)), 0.0), "normal cube explosion does not use the laser melt visual")
 
 
 func _test_cube_explosion_spawns_collectable_starpoint() -> void:
@@ -1050,6 +1056,50 @@ func _test_super_laser_melts_cube() -> void:
 	_expect(state.debug_get_emp_count() > 0, "EMP ripple emitted on laser melt")
 	_expect(audio.calls.has("laser"), "laser firing transition plays character laser sound")
 	_expect(not audio.calls.has("break"), "laser melt does not reuse the tetromino break sound")
+	var cube_draw: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(float(cube_draw.get("melt_progress", 0.0)) > 0.0, "laser melt drives the purple/shrink center cube visual")
+
+
+func _test_center_cube_draw_data_tracks_3d_visual_state() -> void:
+	var state: Object = Stage6TetriserState.new()
+	var initial_cube: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(initial_cube.has("spin"), "center cube draw data exposes deterministic 3D spin")
+	_expect(initial_cube.has("hit_progress"), "center cube draw data exposes 3D face hit progress")
+	_expect(initial_cube.has("melt_progress"), "center cube draw data exposes melt visual progress")
+	var spin0: float = float(initial_cube.get("spin", -1.0))
+	state.update(0.1, {"current_stage": 6, "ball_active": false, "waiting_for_serve": false})
+	var paused_cube: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(is_equal_approx(float(paused_cube.get("spin", -99.0)), spin0), "center cube spin stays deterministic and does not use wall-clock while paused")
+	state.update(0.1, _active_context())
+	var active_cube: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(float(active_cube.get("spin", -1.0)) > spin0, "center cube spin advances from state delta during active updates")
+	var hit0: float = float(active_cube.get("hit_progress", -1.0))
+	state.debug_pass_ball_through_cube()
+	var hit_cube: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(float(hit_cube.get("hit_progress", -1.0)) > hit0, "center cube hit progress rises when the ball passes through")
+	for _i in range(20):
+		state.debug_pass_ball_through_cube()
+	var solved_cube: Dictionary = state.get_actor_draw_context().get("stage6_tetriser_cube", {})
+	_expect(is_equal_approx(float(solved_cube.get("hit_progress", 0.0)), 1.0), "center cube hit progress clamps to red/solved at 1.0")
+
+
+func _test_center_cube_renderer_uses_3d_projected_faces() -> void:
+	var renderer: Object = Stage6TetriserPlayfieldRenderer.new()
+	for spin in [0.0, 0.13, 0.77, 1.8, 4.2, 9.5, 16.0]:
+		var faces: Array = renderer.debug_build_cube_projected_faces(float(spin), 90.0, 0.55, 0.0)
+		_expect(faces.size() == 6, "center cube 3D renderer builds 6 projected faces")
+		for face in faces:
+			var points: PackedVector2Array = face.get("points", PackedVector2Array())
+			_expect(points.size() == 4, "center cube projected face is a quad")
+			_expect(not Geometry2D.triangulate_polygon(points).is_empty(), "center cube projected quad stays triangulable")
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/stages/stage6/stage6_tetriser_playfield_renderer.gd")
+	var draw_start: int = renderer_source.find("func _draw_cube")
+	var draw_end: int = renderer_source.find("func debug_build_cube_projected_faces")
+	_expect(draw_start >= 0 and draw_end > draw_start, "center cube renderer source section is locatable")
+	if draw_start >= 0 and draw_end > draw_start:
+		var draw_body: String = renderer_source.substr(draw_start, draw_end - draw_start)
+		_expect(not draw_body.contains("draw_rect"), "center cube draw path removed the dead flat 3x3 rect renderer")
+		_expect(not draw_body.contains("draw_set_transform"), "center cube draw path uses per-vertex projection, not draw_set_transform")
 
 
 func _test_crystal_shield_score_schedules_and_starts() -> void:
@@ -1071,6 +1121,7 @@ func _test_crystal_shield_score_schedules_and_starts() -> void:
 	_expect(not bool(waiting_result.get("skip_ball_motion_step", true)), "crystal shield freeze flag must not set skip_ball_motion_step")
 	var draw_context: Dictionary = state.get_actor_draw_context()
 	_expect((draw_context.get("stage6_tetriser_crystal_shield_blocks", []) as Array).size() == 24, "crystal shield exposes 24 draw blocks")
+	_expect(is_equal_approx(float(draw_context.get("stage6_tetriser_crystal_shield_radius", -1.0)), EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS), "crystal shield draw context exposes the Python 1.1x orbit radius")
 
 	for _i in range(24):
 		state.update(0.1, active_ctx)
@@ -1088,6 +1139,7 @@ func _test_crystal_shield_collision_and_reset() -> void:
 		return
 	var target_block: Dictionary = blocks[0]
 	var hit_pos: Vector2 = target_block.get("position", Vector2.ZERO)
+	_expect(is_equal_approx(hit_pos.distance_to(Vector2(380.0, 75.0)), EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS), "crystal shield active blocks orbit at the Python 1.1x radius")
 	var boss_scene := {
 		"ball_pos": hit_pos,
 		"previous_ball_pos": hit_pos - Vector2(0.0, 30.0),

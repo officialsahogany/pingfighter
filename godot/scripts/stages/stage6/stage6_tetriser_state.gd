@@ -113,6 +113,7 @@ const CUBE_REBUILD_NEEDED := 5
 const CUBE_REBUILD_COUNT_REASONS := ["player", "dash"]
 const CUBE_PASS_MIN := 10
 const CUBE_PASS_MAX := 14
+const CUBE_MELT_VISUAL_SEC := 1.2
 const CUBE_PALETTE := [
 	Color(1.0, 0.31, 0.31), Color(0.31, 0.70, 1.0), Color(1.0, 0.78, 0.24),
 	Color(0.31, 0.90, 0.47), Color(1.0, 0.59, 0.0), Color(0.94, 0.94, 0.94),
@@ -171,6 +172,8 @@ var _super_intro_timer: float = 0.0
 var _super_scale: float = 1.0
 var _super_target_scale: float = 1.0
 var _cube: Dictionary = {}
+var _cube_visual_spin: float = 0.0
+var _cube_melt_visual_timer: float = 0.0
 var _laser_state: String = "idle"     # idle / charging / firing
 var _laser_timer: float = 0.0
 var _laser_fired_this_super: bool = false
@@ -1364,6 +1367,8 @@ func _init_cube() -> void:
 		"solve_pending": false,
 		"solve_timer": 0.0,
 	}
+	_cube_visual_spin = 0.0
+	_cube_melt_visual_timer = 0.0
 
 
 func _random_cube_grid() -> Array:
@@ -1395,6 +1400,9 @@ func _grid_uniform(grid: Array) -> bool:
 func _update_cube(delta: float, context: Dictionary) -> void:
 	if _cube.is_empty():
 		_init_cube()
+	_cube_visual_spin += maxf(0.0, delta)
+	if _cube_melt_visual_timer > 0.0:
+		_cube_melt_visual_timer = maxf(0.0, _cube_melt_visual_timer - delta)
 	if bool(_cube.get("solve_pending", false)):
 		_cube["solve_timer"] = float(_cube["solve_timer"]) - delta
 		if float(_cube["solve_timer"]) <= 0.0:
@@ -1432,6 +1440,7 @@ func _explode_cube() -> void:
 	_cube["rebuild_progress"] = 0
 	_cube["solve_pending"] = false
 	_cube["solve_timer"] = 0.0
+	_cube_melt_visual_timer = 0.0
 	# TODO(폴리시): grenade-style 폭발 VFX, 스타포인트 스폰.
 
 
@@ -1462,9 +1471,19 @@ func _build_cube_draw_data() -> Dictionary:
 	var solve_progress: float = 0.0
 	if bool(_cube.get("solve_pending", false)):
 		solve_progress = clampf(1.0 - float(_cube.get("solve_timer", 0.0)) / CUBE_SOLVE_DELAY_SEC, 0.0, 1.0)
+	var passes_to_solve: int = maxi(1, int(_cube.get("passes_to_solve", CUBE_PASS_MAX)))
+	var hit_progress: float = clampf(float(_cube.get("passes", 0)) / float(passes_to_solve), 0.0, 1.0)
+	if bool(_cube.get("solve_pending", false)):
+		hit_progress = 1.0
+	var melt_progress: float = 0.0
+	if _cube_melt_visual_timer > 0.0:
+		melt_progress = clampf(1.0 - _cube_melt_visual_timer / CUBE_MELT_VISUAL_SEC, 0.0, 1.0)
 	return {
 		"center": CUBE_CENTER,
 		"radius": CUBE_RADIUS,
+		"spin": _cube_visual_spin,
+		"hit_progress": hit_progress,
+		"melt_progress": melt_progress,
 		"grid": (_cube.get("grid", []) as Array).duplicate(),
 		"grid_size": CUBE_GRID,
 		"active": bool(_cube.get("active", false)),
@@ -1514,6 +1533,7 @@ func _melt_cube_by_laser() -> void:
 	_cube["rebuild_progress"] = 0
 	_cube["solve_pending"] = false
 	_cube["solve_timer"] = 0.0
+	_cube_melt_visual_timer = CUBE_MELT_VISUAL_SEC
 
 
 func _emit_emp(center: Vector2) -> void:

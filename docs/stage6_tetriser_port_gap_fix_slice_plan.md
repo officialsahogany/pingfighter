@@ -291,7 +291,8 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 | **S5-2 가드 조립 페이즈** | ✅ | 완료 | 1000ms 셀별 조립 → 320ms 슬라이드 → active 충돌 게이트 |
 | **S5-3 큐브 재조립 카운트** | ✅ | 완료 | authored intent: `{player,dash}`만 rebuild 카운트 |
 | **S5-4 보상/스타 드롭** | ✅ | 완료 | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 포팅 + 단위/deps 반증검증 |
-| **S5-5 크리스탈 실드** | ✅ | 완료(핵심) | no-halt 유지, 라운드 persist 복원; 궤도 반경 110은 선택 마이너 |
+| **S5-5 크리스탈 실드** | ✅ | 완료 | no-halt 유지, 라운드 persist 복원, 궤도 반경 110 패리티 |
+| **S6 센터 큐브 3D** | ✅ | 완료 (리뷰+픽셀QA 통과) | **죽은 큐브 A(평면 3×3) 포팅 발견** → 실제 큐브 B(의사3D 회전) 시각 포팅(범위 A: 시각만, 메커닉/S5-3 유지). 픽셀 QA 4종 통과 |
 
 권장 순서(공수↑): **S5-1(작고 기계적) → S5-2(중, 기존 패턴 미러) → S5-3(설계결정 먼저) → S5-4(가장 큼)**.
 
@@ -400,7 +401,7 @@ stage2를 코드로 매핑해 5-조각 생애주기와 ownership/단위/deps를 
 
 회귀 스모크(위 (a)(b)(c)에 추가): (d) **collectability** — 드롭을 플레이어와 overlap시켜 `collect_starpoint_reward`가 호출되는지(spawn-only 반파동 차단), (e) **이탈 정리** — `current_stage != 6` 업데이트 시 `_starpoint_drops` 비워짐.
 
-### S5-5 — 크리스탈 실드 (✅ 재감사 완료 2026-06-23, S5-5a 배선 완료 2026-06-24)
+### S5-5 — 크리스탈 실드 (✅ 재감사 완료 2026-06-23, S5-5a 배선 완료 2026-06-24, S5-5b 반경 완료 2026-06-25)
 현재 Godot(`stage6_tetriser_crystal_shield_state.gd`) vs Python `CrystalShieldSystem`(`pillar_tetriser.py`) 직접 대조 판정:
 
 - ✅ **이미 충실:** 24블록(`FINAL_SHIELD_COUNT=24`↔`BLOCK_COUNT=24`), 플레이어 4점 트리거, 피격+양옆 증발, player-ball only, serve-wait 형성.
@@ -408,9 +409,46 @@ stage2를 코드로 매핑해 5-조각 생애주기와 ownership/단위/deps를 
 - ✅ **완료 — S5-5a 라운드 persist:** Python 실드는 **스테이지 내 라운드 간 유지**. `reset_crystal_shield` 호출부 3곳([pingfighter.py:181436](../pingfighter.py#L181436)/[:181747](../pingfighter.py#L181747)=스테이지 cleanup 컨텍스트, [:184217](../pingfighter.py#L184217)=메인루프)이 전부 스테이지/게임 경계이고 `go_to_next_round`엔 없음. Godot도 게이지 persist(S2)와 동일하게 `_crystal_shield.reset(false)`는 no-op, `reset()`/`reset_for_result()`/stage leave의 full reset만 wipe하도록 복원.
   - 배선: `_crystal_shield.reset(clear_match_state)`의 블록/phase/pending clear를 **`clear_match_state`일 때만** 수행. `score_trigger_consumed`도 full reset에서만 초기화. 스테이지 이탈 self-reset([:254](../godot/scripts/stages/stage6/stage6_tetriser_state.gd#L254))은 `has_runtime_state()`에 실드 포함되어 이미 커버.
   - 회귀 스모크: 실드 형성 → `reset_round`/score boundary/round actor cleanup → 블록·active **유지**; `reset()`/result/full reset → 블록 0. 반증검증: 라운드에서도 wipe로 되돌리면 "라운드 후 실드 유지" 단언 실패 확인.
-- 🟡 **마이너 갭 — S5-5b 궤도 반경(선택):** Python normal = `BASE_ORBIT_RADIUS(100) × radius_multiplier(1.1)` = **110**([pillar_tetriser.py:252,318-320](../pillar_tetriser.py#L318)); Godot `ORBIT_RADIUS=100`(flat, 1.1× 누락). 정확 패리티 원하면 110. enraged 1.3×(=130)는 enraged 미포팅이라 N/A. 저영향.
+- ✅ **완료 — S5-5b 궤도 반경:** Python normal = `BASE_ORBIT_RADIUS(100) × radius_multiplier(1.1)` = **110**([pillar_tetriser.py:252,318-320](../pillar_tetriser.py#L318)). Godot `ORBIT_RADIUS=110`으로 맞췄고, draw context 반경 노출 + 실제 활성 블록의 보스중심 거리 ≈110을 `stage6_tetriser_state_smoke.gd`가 단언한다. renderer fallback도 110으로 동기화. enraged 1.3×(=130)는 광폭화 트리거 매핑이 §2.9 deferred라 N/A.
 
-**현 상태:** S5-5a(라운드 persist)는 완료. S5-5b(반경 110)는 선택 마이너, freeze는 무액션 유지.
+**현 상태:** S5-5a(라운드 persist)와 S5-5b(반경 110)는 완료. freeze는 무액션 유지. Python `BASE_MERGE_RADIUS(60) × radius_multiplier`는 긴 gathering 연출의 중간 타겟 반경이며, Godot은 serve-wait no-halt 형성으로 압축 적응했으므로 현재 활성 실드 패리티 범위 밖이다.
+
+---
+
+## S6 — 센터 큐브 3D 비주얼 포팅 (🟠 결정 2026-06-25: 범위 A = 시각만)
+
+### 배경 (3-에이전트 재감사 확정)
+**Godot 센터 큐브는 Python의 dead-code 큐브 A(`stage7_center_cube_state`, 평면 3×3 + passes-to-solve)를 통째 포팅**한 것. 큐브 A의 4개 진입점(`_stage7_init_center_cube`/`update_stage7_center_cube`/`draw_stage7_center_cube`/`stage7_cube_notify_tetro_evaporated`)은 **repo·백업 모두 호출부 0개 = 절대 실행 안 됨**. 실제 보이는·게임플레이 주도 큐브는 **큐브 B(`AnimatedBackgroundStage7`)** = 의사3D 회전 정육면체(8정점/6면, 공 링-진입마다 면 파랑→빨강, `_hit_to_explode=10` → 진동 1s → 폭발 → 테트로 전체 제거; live trigger [pingfighter.py:162625](../pingfighter.py#L162625) draw / [:162631-162633](../pingfighter.py#L162631) explode). → 사용자 신고("평면 3×3, 원본과 다름")가 정확. **§7의 "3D 큐브=코스메틱" 가정은 오류였음(정정함).**
+
+### 결정: (A) 시각만 3D 포팅
+평면 3×3 렌더 → 의사3D 회전 큐브 렌더로 교체. **메커닉(passes-to-solve→폭발→테트로제거)·S5-3 카운트게이트·폭발 outcome(debris/EMP/스타)은 유지**(passes-count vs hit-count는 기능 동일). 면 reddening은 기존 pass 진행으로 구동. (B 전체 메커닉 포팅은 S5-3 무효화 비용 때문에 보류.)
+
+### 신호계약 (state → draw context)
+- `_build_cube_draw_data`에 추가: `spin`(누적 회전 phase — `_update_cube`에서 **delta 누적**, wall-clock 금지=일시정지 시 동결), `hit_progress`(=`clampf(passes / passes_to_solve, 0, 1)` → 파랑→빨강), `melt_progress`(레이저 melt 0..1, 없으면 0). 기존 center/radius/active/solve_pending/rebuild 유지.
+- 평면 3×3 grid/`CUBE_PALETTE` draw는 제거(3D 면이 대체) — 잔존 시 3D 위에 평면 겹침.
+
+### 렌더 스펙 (`stage6_tetriser_playfield_renderer._draw_cube` 재작성, Python `_draw_center_cube` 포팅)
+- 8정점 단위큐브, 6면 quad(back/front/top/bottom/right/left) + 고정 모델노멀.
+- 회전 `ang_y=spin*0.55`, `ang_x=spin*0.35`(rot_y 먼저→rot_x). **per-vertex 행렬회전 + `draw_colored_polygon`로 면 그리기 — `draw_set_transform` 쓰지 말 것**(메모리 `feedback_godot_draw_set_transform_trap` + 연속회전 텀블 회피; per-vertex 수학은 stateless라 텀블 없음).
+- 투영 `zc=z_rot+3.2`; `f=360/max(0.001,zc)`; `px=cx+x_rot*f*(size*0.5)`, `py=cy+y_rot*f*(size*0.5)`. `size=max(0.05, cube_size*0.00972*shrink)`, `cube_size=min(W,H)*0.09`, `shrink=1-melt_progress*0.6`, cx/cy=CUBE_CENTER(380,375).
+- painter: 면 평균 투영 z 내림차순(먼 면 먼저).
+- 면색: blue(100,170,255)→red(255,80,80) by hit_progress, melt 시 purple(200,80,255) 추가 lerp. shade=0.35+0.65·max(0, dot(회전노멀, normalize(0.4,-0.7,0.6))). alpha=255·(1-melt_progress·0.85). **quad는 볼록=triangulable 안전**(jitter 자기교차 아님).
+- 엣지: 네온 더블라인(main 220,240,255 / glow 120,200,255, melt fade).
+- 링: 큐브 투영 크기가 작아 링 반경(90) 내 수렴 → 즉시모드 원형 하드클립은 비싸니 생략, 기존 링 arc는 프레임으로 유지(면이 새면 클램프).
+
+### 회귀 스모크 + QA
+- 상태 스모크: `_build_cube_draw_data`가 `spin`/`hit_progress`/`melt_progress` 노출, hit_progress가 pass 진행에 0→1, spin이 update로 증가(일시정지 미증가)를 단언. (렌더는 픽셀.)
+- **픽셀 QA(필수, 가시 요소):** 윈도우드 캡처 — ① 회전하는 3D 정육면체(평면 3×3 아님) ② hit 누적 시 면 빨강 ③ **t>10s에도 정상 회전**(시간VFX 텀블/degenerate 늦게 확인) ④ melt 시 보라+축소. 반증: spin=0 고정 시 회전 정지 캡처.
+
+### 현 상태 (배선 완료 2026-06-25)
+- `stage6_tetriser_state.gd`: 기존 pass/rebuild/S5-3 메커닉 유지, draw context에 deterministic `spin` + `hit_progress` + `melt_progress` 추가.
+- `stage6_tetriser_playfield_renderer.gd`: flat 3×3 rect 렌더 제거, 8정점/6면 의사3D 큐브 + face painter + neon edge + triangulation guard로 교체.
+- `stage6_tetriser_state_smoke.gd`: draw data, 6-face triangulable geometry, `draw_rect`/`draw_set_transform` 잔존 금지 스모크 추가. 반증검증: `_draw_cube`에 `draw_rect` sentinel 추가 시 실패 확인.
+- ✅ **픽셀 QA 통과 (Claude, 2026-06-25):** SubViewport 네이티브 캡처로 4종 검증 — 파랑(hit=0)/빨강(hit=1) 3D 정육면체(평면 아님), spin=16(t>10s) 깔끔한 회전(텀블/degenerate 없음), melt=0.85 보라+축소(shrink 0.49)+반투명. painter 가림·네온 엣지·링 프레임 정상. 같은 draw 경로(평면 3×3가 인게임에 떴던 경로)에 키만 추가됐으므로 라이브 큐브도 3D 렌더.
+- ✅ **적대적 리뷰 통과:** 정점/면/노멀/엣지 Python 1:1, 회전 rot_y→rot_x, 투영 fov/(z+3.2), painter far-first(큰 z=먼 면 먼저), triangulation guard는 fill만 가드, draw_set_transform 부재. spin은 early-return 이전 누적(solve/rebuild/active 무관 항상 회전), hit_progress=passes/passes_to_solve, melt는 super-laser→active 큐브 1.2s 윈도우 배선. 두 스모크 독립 실행 exit 0.
+
+### 트랩
+① `draw_set_transform` 금지(per-vertex 수학). ② spin=state delta 누적(wall-clock 아님). ③ quad 면만(볼록). ④ 평면 3×3/CUBE_PALETTE draw 제거. ⑤ **S5-3/메커닉/explode outcome 건드리지 말 것**(시각만). ⑥ 기존 큐브 스모크의 `debug_force_cube_solve_pending`/grid 단언은 유지(메커닉 불변).
 
 ---
 
@@ -427,6 +465,6 @@ stage2를 코드로 매핑해 5-조각 생애주기와 ownership/단위/deps를 
 
 ## 7. 범위 밖 (백로그)
 - 광폭화(enraged) 트리거 매핑(리그 시스템 부재) — 기획서 §2.9 deferred 유지.
-- 3D 배경 큐브 melt(1200)/rebuild(1400) **연출**(로직은 2D 큐브로 흡수됨) — 코스메틱.
+- ~~3D 배경 큐브 melt/rebuild 연출 — 코스메틱.~~ **정정(2026-06-25): 오류였음.** 3D 큐브가 실제 보이는·게임플레이 주도 큐브(B)였고 Godot은 죽은 큐브 A(평면 3×3)를 포팅한 것 → **S6로 승격**(시각만 3D 포팅, 위 S6 섹션).
 - 초인 오라 파티클/테트로 파편/EMP 풀룩 — 코스메틱.
 - 로딩/결과 화면 이미지·스킬카드 텍스처(현 절차적).
