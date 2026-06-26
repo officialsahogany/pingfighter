@@ -799,18 +799,20 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 	return {"points": 0.0, "blocked_reason": "unknown_source"}
 
 
-# Flight pets double the points of the opportunity-based sources (ball hit / click).
-# Applied to the resolved gain BEFORE the enhancement-chip multiplier in add_points, so a
-# chipped flight pet stacks both (intended). bonus_points (defense) is patrol-only so it is
-# always 0 here for a flight pet; multiplying it is a harmless no-op kept for symmetry.
+# Flight pets double ordinary opportunity-based sources (ball hit / click). ONLY the
+# base/reduced hit points scale -- the defense/guard bonus (defense_intercept OR
+# ring_dash_block, which flight pets CAN earn via Linkport/ring-dash) is not an
+# opportunity reward, so it stays flat. A flight guard hit therefore pays base*2 + bonus
+# (e.g. 8*2 + 5 = 21), never (base+bonus)*2 = 26 and never base+bonus = 13 (multiplier off).
+# Applied BEFORE the enhancement-chip multiplier in add_points, so chips stack on top.
 func _apply_opportunity_multiplier(result: Dictionary, pet_data: Dictionary) -> Dictionary:
 	var multiplier := _opportunity_multiplier_for_pet(pet_data)
 	if is_equal_approx(multiplier, 1.0):
 		return result
 	if result.has("points"):
-		result["points"] = float(result.get("points", 0.0)) * multiplier
-	if result.has("bonus_points"):
-		result["bonus_points"] = float(result.get("bonus_points", 0.0)) * multiplier
+		var bonus_points := float(result.get("bonus_points", 0.0))
+		var base_points := float(result.get("points", 0.0)) - bonus_points
+		result["points"] = base_points * multiplier + bonus_points
 	return result
 
 

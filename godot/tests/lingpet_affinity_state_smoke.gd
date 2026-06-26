@@ -392,6 +392,21 @@ func _verify_flight_opportunity_multiplier() -> void:
 	_expect_float(float(third_click.get("granted_points", 0.0)), 0.0, "flight third click should hit the unchanged count-based round cap")
 	_expect_str(str(third_click.get("blocked_reason", "")), "round_cap", "flight click cap should stay by count, not doubled")
 
+	# The defense/guard bonus is NOT doubled. A flight pet that blocks with Linkport/ring-dash
+	# (ring_dash_block fires on flight pets) doubles ONLY the base 8 and keeps the flat +5 guard
+	# bonus -> 8*2 + 5 = 21. Pins the policy against both the over-pay ((8+5)*2 = 26) and the
+	# under-pay (multiplier fully disabled when tagged -> 8+5 = 13) regressions.
+	var flight_guard := LingpetAffinityState.new()
+	flight_guard.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true, 30)
+	var flight_guard_hit: Dictionary = flight_guard.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT, {"ring_dash_block": true})
+	_expect_float(float(flight_guard_hit.get("granted_points", 0.0)), 21.0, "flight ring-dash guard hit should double only the base (8*2) and keep the flat +5 guard bonus")
+
+	# Patrol guard hit baseline: base 8 + guard bonus 5 = 13, unchanged (patrol gets no multiplier).
+	var patrol_guard := LingpetAffinityState.new()
+	patrol_guard.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 555, true, 30)
+	var patrol_guard_hit: Dictionary = patrol_guard.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT, {"defense_intercept": true})
+	_expect_float(float(patrol_guard_hit.get("granted_points", 0.0)), 13.0, "patrol guard hit stays at base 8 + guard bonus 5 = 13")
+
 
 func _verify_hatch_bonus_is_per_pet_once() -> void:
 	var state := LingpetAffinityState.new()
