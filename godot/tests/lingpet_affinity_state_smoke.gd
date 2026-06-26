@@ -19,6 +19,7 @@ func _init() -> void:
 	_verify_same_round_caps_are_battle_global()
 	_verify_defense_bonus_is_tagged_and_capped()
 	_verify_click_caps_are_battle_global()
+	_verify_flight_opportunity_multiplier()
 	_verify_hatch_bonus_is_per_pet_once()
 	_verify_headstart_preserves_previous_best()
 	_verify_reset_lifecycle()
@@ -360,6 +361,36 @@ func _verify_click_caps_are_battle_global() -> void:
 	_expect_float(lunabi_total, 15.0, "battle-global click cap should stop at five total clicks across pets")
 	_expect_float(state.get_points("maribo"), 10.0, "first pet click points should be unchanged")
 	_expect_float(state.get_points("lunabi"), 15.0, "second pet should receive only the remaining battle click budget")
+
+
+func _verify_flight_opportunity_multiplier() -> void:
+	# Same pet id, two states differing ONLY by configured motion style, so the doubling is
+	# proven motion-style-driven (not pet-driven). Patrol = base GAIN_TABLE values.
+	var patrol := LingpetAffinityState.new()
+	patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 555, true, 30)
+	_expect_float(float(patrol.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT).get("granted_points", 0.0)), 8.0, "patrol ball-hit stays at the base 8 (no flight multiplier)")
+	_expect_float(float(patrol.add_points("maribo", LingpetAffinityState.SOURCE_CLICK).get("granted_points", 0.0)), 5.0, "patrol click stays at the base 5")
+	_expect_float(float(patrol.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT).get("granted_points", 0.0)), 5.0, "patrol round commit stays at the base 5")
+
+	# Flight: the opportunity sources (ball hit, click) double; the style-agnostic floor
+	# (round commit) stays flat.
+	var flight := LingpetAffinityState.new()
+	flight.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true, 30)
+	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT).get("granted_points", 0.0)), 16.0, "flight ball-hit should double to 16")
+	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_CLICK).get("granted_points", 0.0)), 10.0, "flight click should double to 10")
+	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT).get("granted_points", 0.0)), 5.0, "flight round commit should stay flat (style-agnostic floor)")
+
+	# Caps stay by COUNT, not value: after four full hits the flight pet drops to the reduced
+	# tier, and that reduced value is doubled too (2 -> 4) -- the cap COUNT is unchanged.
+	for _i in range(3):
+		flight.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT)
+	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT).get("granted_points", 0.0)), 4.0, "flight 5th ball-hit should be the doubled reduced value (2*2)")
+
+	# Flight click cap is still two per round (count-based), even at double value.
+	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_CLICK).get("granted_points", 0.0)), 10.0, "flight second click should still pay double")
+	var third_click: Dictionary = flight.add_points("maribo", LingpetAffinityState.SOURCE_CLICK)
+	_expect_float(float(third_click.get("granted_points", 0.0)), 0.0, "flight third click should hit the unchanged count-based round cap")
+	_expect_str(str(third_click.get("blocked_reason", "")), "round_cap", "flight click cap should stay by count, not doubled")
 
 
 func _verify_hatch_bonus_is_per_pet_once() -> void:

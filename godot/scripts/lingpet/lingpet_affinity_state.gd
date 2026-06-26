@@ -121,6 +121,14 @@ const GAIN_TABLE := {
 	SOURCE_FEED: {"points": 35.0},
 }
 
+# Flight-style companions get fewer ball-hit / click opportunities than patrol pets
+# (no patrol defense-intercept and often hidden / airborne), so the OPPORTUNITY-BASED
+# sources (ball hit, click) pay double for them. The style-agnostic floor sources
+# (round commit / victory / hatch / feed) stay flat. The caps stay by COUNT — only the
+# per-event points double, so a rarer flight hit/click feels proportionally rewarding.
+# Placeholder magnitude — tuned in the V3-6 income-log pass with the rest of GAIN_TABLE.
+const FLIGHT_OPPORTUNITY_MULTIPLIER := 2.0
+
 const ROUND_CAP_BALL_HIT_COUNT := "ball_hit_count"
 const ROUND_CAP_DEFENSE_BONUS_COUNT := "defense_bonus_count"
 const ROUND_CAP_CLICK_COUNT := "click_count"
@@ -779,9 +787,9 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 		SOURCE_ROUND_COMMIT:
 			return _resolve_round_commit_gain(pet_id)
 		SOURCE_BALL_HIT:
-			return _resolve_ball_hit_gain(tags)
+			return _apply_opportunity_multiplier(_resolve_ball_hit_gain(tags), pet_data)
 		SOURCE_CLICK:
-			return _resolve_click_gain()
+			return _apply_opportunity_multiplier(_resolve_click_gain(), pet_data)
 		SOURCE_HATCH:
 			return _resolve_hatch_gain(pet_id, pet_data)
 		SOURCE_VICTORY:
@@ -789,6 +797,26 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 		SOURCE_FEED:
 			return _resolve_feed_gain(pet_data)
 	return {"points": 0.0, "blocked_reason": "unknown_source"}
+
+
+# Flight pets double the points of the opportunity-based sources (ball hit / click).
+# Applied to the resolved gain BEFORE the enhancement-chip multiplier in add_points, so a
+# chipped flight pet stacks both (intended). bonus_points (defense) is patrol-only so it is
+# always 0 here for a flight pet; multiplying it is a harmless no-op kept for symmetry.
+func _apply_opportunity_multiplier(result: Dictionary, pet_data: Dictionary) -> Dictionary:
+	var multiplier := _opportunity_multiplier_for_pet(pet_data)
+	if is_equal_approx(multiplier, 1.0):
+		return result
+	if result.has("points"):
+		result["points"] = float(result.get("points", 0.0)) * multiplier
+	if result.has("bonus_points"):
+		result["bonus_points"] = float(result.get("bonus_points", 0.0)) * multiplier
+	return result
+
+
+func _opportunity_multiplier_for_pet(pet_data: Dictionary) -> float:
+	var motion_style := _normalize_motion_style(str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)))
+	return FLIGHT_OPPORTUNITY_MULTIPLIER if motion_style == MOTION_STYLE_FLIGHT else 1.0
 
 
 func _resolve_round_commit_gain(pet_id: String) -> Dictionary:
