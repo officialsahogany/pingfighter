@@ -227,6 +227,20 @@ func _init() -> void:
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should open the pause menu")
 	_expect(registry.pause_menu.is_active(), "pause menu should become active")
 	_expect(registry.modal_gate.should_block_battle_physics(Callable(self, "_get_module")), "pause menu should block battle physics")
+	_expect(registry.pause_menu._ringcore_crystal_texture != null, "pause menu should prewarm the ringcore crystal sheet on open")
+	var main_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(owner.get_viewport_rect().size)
+	_expect(registry.pause_menu._uses_main_split_layout(main_panel_rect), "wide pause menu should use the left crystal and right command split")
+	_expect(registry.pause_menu._get_main_crystal_draw_rect(main_panel_rect).end.x < registry.pause_menu._get_button_rect(main_panel_rect, 0, 3).position.x, "ringcore crystal should stay left of the command buttons")
+	registry.pause_menu.update(0.20)
+	_expect(registry.pause_menu._get_ringcore_crystal_frame_index() > 0, "ringcore crystal frame should advance from the dedicated pause timer")
+	var crystal_source_rect: Rect2 = registry.pause_menu._get_ringcore_crystal_source_rect(31)
+	_expect(crystal_source_rect.end.x <= 1536.0 and crystal_source_rect.end.y <= 1536.0, "last ringcore frame source rect should stay inside the 6x6 sheet")
+	registry.pause_menu._ringcore_crystal_time = registry.pause_menu._get_ringcore_crystal_loop_seconds() + 0.125
+	_expect(registry.pause_menu._get_ringcore_crystal_frame_index() == 1, "ringcore crystal frame index should wrap inside the 32-frame loop")
+	var compact_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(Vector2(360.0, 640.0))
+	_expect(not registry.pause_menu._uses_main_split_layout(compact_panel_rect), "narrow pause menu should fall back to the compact centered layout")
+	var pause_source := FileAccess.get_file_as_string("res://scripts/hud/pause_menu_overlay.gd")
+	_expect(pause_source.find("draw_set_transform") < 0, "pause menu ringcore should use a baked sprite sheet instead of immediate-mode transform rotation")
 	var move_count_before := registry.audio.ui_move_count
 	_expect(_press(input, owner, KEY_DOWN), "pause menu down should be handled")
 	_expect(registry.pause_menu.selected_index == 1, "pause menu down should move to the character info entry")
@@ -247,13 +261,13 @@ func _init() -> void:
 	_expect(registry.audio.ui_back_count == back_count_before + 1, "closing the main pause menu should play one UI back sound")
 
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should reopen pause menu for button flow")
-	_expect(_click(input, owner, Vector2(640.0, 401.0)), "character info button click should be handled")
+	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 1)), "character info button click should be handled")
 	_expect(not registry.pause_menu.is_active(), "character info button should close pause menu")
 	_expect(registry.character_info.is_active(), "character info button should open character info overlay")
 	registry.character_info.close()
 
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should reopen pause menu for options")
-	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button click should be handled")
+	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 2)), "options button click should be handled")
 	_expect(registry.pause_menu.is_options_open(), "options button should open the pause options page")
 	var bgm_slider: Rect2 = registry.pause_menu._get_slider_rect("bgm", owner.get_viewport_rect().size)
 	var sfx_slider: Rect2 = registry.pause_menu._get_slider_rect("sfx", owner.get_viewport_rect().size)
@@ -377,7 +391,7 @@ func _init() -> void:
 	_expect(not options_right_click_overlay.is_active(), "options right click should close the options-only overlay")
 	_expect(registry.audio.ui_back_count == back_count_before + 1, "options right click should play one UI back sound")
 
-	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen the pause options page")
+	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 2)), "options button should reopen the pause options page")
 	var options_panel: Rect2 = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)
 	_expect(_click(input, owner, registry.pause_menu._get_display_tab_rect(options_panel).get_center()), "display tab click should be handled")
 	_expect(registry.pause_menu.is_options_open(), "display tab should keep the options page open")
@@ -405,7 +419,7 @@ func _init() -> void:
 	_expect(_click(input, owner, registry.pause_menu._get_display_back_button_rect(options_panel).get_center()), "display back button should be handled")
 	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "display back should return to the main pause menu")
 
-	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen for controls tab")
+	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 2)), "options button should reopen for controls tab")
 	options_panel = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)
 	_expect(_click(input, owner, registry.pause_menu._get_controls_tab_rect(options_panel).get_center()), "controls tab click should be handled")
 	_expect(registry.pause_menu.options_tab == "controls", "controls tab should become active")
@@ -417,7 +431,7 @@ func _init() -> void:
 	_expect(_click(input, owner, registry.pause_menu._get_controls_back_button_rect(options_panel).get_center()), "controls back button should be handled")
 	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "controls back should return to the main pause menu")
 
-	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen for language tab")
+	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 2)), "options button should reopen for language tab")
 	options_panel = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)
 	_expect(_click(input, owner, registry.pause_menu._get_language_tab_rect(options_panel).get_center()), "language tab click should be handled")
 	_expect(registry.pause_menu.options_tab == "language", "language tab should become active")
@@ -581,6 +595,12 @@ func _click(input: Object, owner: Object, position: Vector2) -> bool:
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.position = position
 	return bool(input.handle_input(event, owner, registry, Callable(self, "_get_module"), {}))
+
+
+func _main_button_center(overlay: Object, owner: Object, index: int) -> Vector2:
+	var panel_rect: Rect2 = overlay._get_main_panel_rect(owner.get_viewport_rect().size)
+	var entry_count: int = overlay._get_main_entries().size()
+	return overlay._get_button_rect(panel_rect, index, entry_count).get_center()
 
 
 func _motion_overlay(overlay: Object, owner: Object, position: Vector2) -> bool:

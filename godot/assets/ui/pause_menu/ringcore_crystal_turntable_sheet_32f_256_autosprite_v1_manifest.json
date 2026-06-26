@@ -1,0 +1,21 @@
+{
+  "asset_id": "cmqtbu6k90046pofy2u03mr9t",
+  "autosprite_job_id": "wf_9d81e721-e84a-49a2-8a4c-4542fb64d5c7",
+  "asset_name": "Lingpia Ringcore Crystal v1",
+  "sheet": "ringcore_crystal_turntable_sheet_32f_256_autosprite_v1.png",
+  "atlas": "ringcore_crystal_turntable_sheet_32f_256_autosprite_v1_atlas.json",
+  "frame_count": 32,
+  "columns": 6,
+  "rows": 6,
+  "frame_width": 256,
+  "frame_height": 256,
+  "runtime_path": "res://assets/ui/pause_menu/ringcore_crystal_turntable_sheet_32f_256_autosprite_v1.png",
+  "source_sheet_sha256": "66e9262d948d686dc1dc3bf82cbe937c23d4d2cc1d645a2ed918786b61ac1460",
+  "source_atlas_sha256": "28421d3cef0a3d574acf87461cecc69856bc414cab933afc60ec09acc6de73e8",
+  "qa": {
+    "white_matte_fringe_percent": 0.0,
+    "loop_seam_mean_abs_diff_255": 1.37,
+    "adjacent_mean_abs_diff_255": [0.48, 0.54],
+    "notes": "AutoSprite 360-degree turntable loop. Cyan faceted core rotates inside a stable gold ring; intended for pause menu baked-sheet playback, not runtime transform rotation."
+  }
+}

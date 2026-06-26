@@ -4,6 +4,7 @@ const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const FONT_BODY: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 const FONT_TECH: Font = preload("res://assets/fonts/NeoDunggeunmoPro.ttf")
 
@@ -33,11 +34,20 @@ const VSYNC_MODE_DISABLED := 0
 const VSYNC_MODE_ENABLED := 1
 const VSYNC_MODE_MAILBOX := 3
 
-const MAIN_PANEL_SIZE := Vector2(360.0, 320.0)
+const RINGCORE_CRYSTAL_SHEET_PATH := "res://assets/ui/pause_menu/ringcore_crystal_turntable_sheet_32f_256_autosprite_v1.png"
+const RINGCORE_CRYSTAL_FRAME_SIZE := Vector2(256.0, 256.0)
+const RINGCORE_CRYSTAL_FRAME_COUNT := 32
+const RINGCORE_CRYSTAL_COLS := 6
+const RINGCORE_CRYSTAL_FPS := 8.0
+
+const MAIN_PANEL_SIZE := Vector2(580.0, 320.0)
 const OPTIONS_PANEL_SIZE := Vector2(900.0, 500.0)
 const BUTTON_SIZE := Vector2(250.0, 48.0)
 const BUTTON_GAP := 14.0
 const TITLE_HEIGHT := 82.0
+const MAIN_SPLIT_MIN_WIDTH := 520.0
+const MAIN_COMMAND_COLUMN_WIDTH := 284.0
+const MAIN_PANEL_SIDE_PADDING := 24.0
 const SLIDER_HEIGHT := 10.0
 const SLIDER_HIT_HEIGHT := 34.0
 const SLIDER_HANDLE_RADIUS := 8.0
@@ -101,6 +111,8 @@ var _selection_slide_time := SELECTION_SLIDE_DURATION
 var _selection_pop_time := SELECTION_POP_DURATION
 var _last_hover_scope := ""
 var _last_hover_index := -1
+var _ringcore_crystal_time := 0.0
+var _ringcore_crystal_texture: Texture2D
 
 
 func is_active() -> bool:
@@ -121,6 +133,8 @@ func open() -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+	_ringcore_crystal_time = 0.0
+	prewarm_assets()
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 	_reset_hover_tracking()
 
@@ -134,6 +148,7 @@ func close() -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+	_ringcore_crystal_time = 0.0
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 	_reset_hover_tracking()
 
@@ -157,6 +172,9 @@ func update(delta: float) -> void:
 	if not active:
 		return
 	animation_time += delta
+	var crystal_loop_seconds := _get_ringcore_crystal_loop_seconds()
+	if crystal_loop_seconds > 0.0:
+		_ringcore_crystal_time = fposmod(_ringcore_crystal_time + delta, crystal_loop_seconds)
 	_selection_slide_time = minf(SELECTION_SLIDE_DURATION, _selection_slide_time + delta)
 	_selection_pop_time = minf(SELECTION_POP_DURATION, _selection_pop_time + delta)
 
@@ -1218,6 +1236,21 @@ func _play_ui_feedback(registry: Object, method_name: String) -> void:
 		audio.call(method_name)
 
 
+func prewarm_assets() -> void:
+	_load_ringcore_crystal_texture()
+
+
+func _load_ringcore_crystal_texture() -> Texture2D:
+	if _ringcore_crystal_texture != null:
+		return _ringcore_crystal_texture
+	_ringcore_crystal_texture = ProjectResourceLoader.load_texture(
+		RINGCORE_CRYSTAL_SHEET_PATH,
+		"Missing pause menu ringcore crystal sheet: %s",
+		"Failed to load pause menu ringcore crystal sheet: %s"
+	)
+	return _ringcore_crystal_texture
+
+
 func _adjust_focused_volume(registry: Object, delta: float) -> void:
 	if options_focus == 0:
 		_set_bgm_volume(registry, _get_bgm_volume(registry) + delta)
@@ -1237,12 +1270,60 @@ func _set_volume_from_slider(slider_key: String, mouse_x: float, registry: Objec
 
 
 func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	_draw_text_centered(canvas, font, _text("pause.title"), panel_rect.position + Vector2(panel_rect.size.x * 0.5, 47.0), 28, Color.WHITE)
-	_draw_text_centered(canvas, font, _text("app.title"), panel_rect.position + Vector2(panel_rect.size.x * 0.5, 72.0), 12, TEXT_DIM)
+	var title_center_x: float = _get_main_title_center_x(panel_rect)
+	_draw_text_centered(canvas, font, _text("pause.title"), Vector2(title_center_x, panel_rect.position.y + 47.0), 28, Color.WHITE)
+	_draw_text_centered(canvas, font, _text("app.title"), Vector2(title_center_x, panel_rect.position.y + 72.0), 12, TEXT_DIM)
+	if _uses_main_split_layout(panel_rect):
+		_draw_ringcore_crystal(canvas, panel_rect)
 	var entries: Array = _get_main_entries()
 	for index in range(entries.size()):
 		_draw_button(canvas, font, _get_button_rect(panel_rect, index, entries.size()), str(entries[index].get("label", "")), index == selected_index, mouse_pos)
 	_draw_selection_feedback(canvas, panel_rect, SELECTION_SCOPE_MAIN, selected_index)
+
+
+func _draw_ringcore_crystal(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	var crystal_area := _get_main_crystal_area_rect(panel_rect)
+	if crystal_area.size.x <= 1.0 or crystal_area.size.y <= 1.0:
+		return
+	var divider_x := crystal_area.end.x + 12.0
+	_draw_neon_line(
+		canvas,
+		Vector2(divider_x, panel_rect.position.y + 28.0),
+		Vector2(divider_x, panel_rect.end.y - 28.0),
+		Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.36),
+		1.0
+	)
+	PremiumPanelFrame.draw_corner_brackets(
+		canvas,
+		crystal_area.grow(-5.0),
+		Color(RESONANCE_MAG.r, RESONANCE_MAG.g, RESONANCE_MAG.b, 0.40 + _focus_pulse_alpha() * 0.16),
+		1.0,
+		0.46,
+		18.0
+	)
+	var crystal_texture := _load_ringcore_crystal_texture()
+	if crystal_texture == null:
+		return
+	var draw_rect := _get_main_crystal_draw_rect(panel_rect)
+	if draw_rect.size.x <= 1.0 or draw_rect.size.y <= 1.0:
+		return
+	var glow_rect := draw_rect.grow(draw_rect.size.x * 0.08)
+	canvas.draw_texture_rect_region(
+		crystal_texture,
+		glow_rect,
+		_get_ringcore_crystal_source_rect(_get_ringcore_crystal_frame_index()),
+		Color(0.34, 0.86, 1.0, 0.17),
+		false,
+		true
+	)
+	canvas.draw_texture_rect_region(
+		crystal_texture,
+		draw_rect,
+		_get_ringcore_crystal_source_rect(_get_ringcore_crystal_frame_index()),
+		Color.WHITE,
+		false,
+		true
+	)
 
 
 func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
@@ -2096,6 +2177,65 @@ func _draw_text_in_rect(canvas: CanvasItem, font: Font, text: String, rect: Rect
 	canvas.draw_string(draw_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
 
 
+func _uses_main_split_layout(panel_rect: Rect2) -> bool:
+	return panel_rect.size.x >= MAIN_SPLIT_MIN_WIDTH
+
+
+func _get_main_title_center_x(panel_rect: Rect2) -> float:
+	if not _uses_main_split_layout(panel_rect):
+		return panel_rect.get_center().x
+	return _get_main_command_column_rect(panel_rect).get_center().x
+
+
+func _get_main_command_column_rect(panel_rect: Rect2) -> Rect2:
+	if not _uses_main_split_layout(panel_rect):
+		return panel_rect
+	var width: float = minf(MAIN_COMMAND_COLUMN_WIDTH, maxf(BUTTON_SIZE.x, panel_rect.size.x - MAIN_PANEL_SIDE_PADDING * 2.0))
+	return Rect2(
+		Vector2(panel_rect.end.x - MAIN_PANEL_SIDE_PADDING - width, panel_rect.position.y),
+		Vector2(width, panel_rect.size.y)
+	)
+
+
+func _get_main_crystal_area_rect(panel_rect: Rect2) -> Rect2:
+	if not _uses_main_split_layout(panel_rect):
+		return Rect2()
+	var command_rect := _get_main_command_column_rect(panel_rect)
+	var area_x := panel_rect.position.x + MAIN_PANEL_SIDE_PADDING
+	var area_width := maxf(1.0, command_rect.position.x - area_x - 28.0)
+	return Rect2(
+		Vector2(area_x, panel_rect.position.y + TITLE_HEIGHT + 4.0),
+		Vector2(area_width, maxf(1.0, panel_rect.size.y - TITLE_HEIGHT - 34.0))
+	)
+
+
+func _get_main_crystal_draw_rect(panel_rect: Rect2) -> Rect2:
+	var area := _get_main_crystal_area_rect(panel_rect)
+	if area.size.x <= 1.0 or area.size.y <= 1.0:
+		return Rect2()
+	var size := minf(minf(area.size.x - 16.0, area.size.y - 18.0), 174.0)
+	size = maxf(1.0, size)
+	return Rect2(area.get_center() - Vector2(size, size) * 0.5, Vector2(size, size))
+
+
+func _get_ringcore_crystal_loop_seconds() -> float:
+	return float(RINGCORE_CRYSTAL_FRAME_COUNT) / maxf(RINGCORE_CRYSTAL_FPS, 0.001)
+
+
+func _get_ringcore_crystal_frame_index() -> int:
+	return posmod(int(floor(_ringcore_crystal_time * RINGCORE_CRYSTAL_FPS)), RINGCORE_CRYSTAL_FRAME_COUNT)
+
+
+func _get_ringcore_crystal_source_rect(frame_index: int) -> Rect2:
+	var safe_frame := posmod(frame_index, RINGCORE_CRYSTAL_FRAME_COUNT)
+	var col := safe_frame % RINGCORE_CRYSTAL_COLS
+	var row := int(floor(float(safe_frame) / float(RINGCORE_CRYSTAL_COLS)))
+	return Rect2(
+		Vector2(float(col) * RINGCORE_CRYSTAL_FRAME_SIZE.x, float(row) * RINGCORE_CRYSTAL_FRAME_SIZE.y),
+		RINGCORE_CRYSTAL_FRAME_SIZE
+	)
+
+
 func _get_active_panel_rect(view_size: Vector2) -> Rect2:
 	return _get_options_panel_rect(view_size) if options_open else _get_main_panel_rect(view_size)
 
@@ -2133,8 +2273,11 @@ func _get_reset_button_rect(panel_rect: Rect2) -> Rect2:
 func _get_button_rect(panel_rect: Rect2, index: int, count: int) -> Rect2:
 	var total_height: float = BUTTON_SIZE.y * float(count) + BUTTON_GAP * float(max(0, count - 1))
 	var start_y: float = panel_rect.position.y + TITLE_HEIGHT + (panel_rect.size.y - TITLE_HEIGHT - total_height) * 0.5
+	var button_center_x := panel_rect.get_center().x
+	if count == _get_main_entries().size() and _uses_main_split_layout(panel_rect):
+		button_center_x = _get_main_command_column_rect(panel_rect).get_center().x
 	return Rect2(
-		Vector2(panel_rect.get_center().x - BUTTON_SIZE.x * 0.5, start_y + float(index) * (BUTTON_SIZE.y + BUTTON_GAP)),
+		Vector2(button_center_x - BUTTON_SIZE.x * 0.5, start_y + float(index) * (BUTTON_SIZE.y + BUTTON_GAP)),
 		BUTTON_SIZE
 	)
 
