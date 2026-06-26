@@ -22,6 +22,7 @@ const TOP_BOTTOM_MARGIN := 100.0
 const TOP_SIDE_MARGIN := 40.0
 const BALL_HIT_PUSH_SPEED := 12.0
 const TOP_HIT_BOOST_FRAMES := 12.0
+const MOVEMENT_FREEZE_FRAMES := 60.0
 const TOP_HIT_SPEED_BOOST := 3.0
 const TOP_TO_TOP_BOOST_SPEED := 8.0
 const TOP_TO_TOP_BOOST_FRAMES := 18.0
@@ -37,6 +38,7 @@ var tops: Array = []
 var whip_animation_timer := 0.0
 var top_collision_cooldown := 0.0
 var golden_top_star_cooldown := 0.0
+var freeze_timer := 0.0
 var top_audio: Object = null
 
 
@@ -51,6 +53,7 @@ func reset_round() -> void:
 	whip_animation_timer = 0.0
 	top_collision_cooldown = 0.0
 	golden_top_star_cooldown = 0.0
+	freeze_timer = 0.0
 	top_audio = null
 
 
@@ -76,6 +79,7 @@ func activate(context: Dictionary, deps: Dictionary = {}) -> bool:
 	whip_animation_timer = WHIP_ANIMATION_FRAMES
 	top_collision_cooldown = 0.0
 	golden_top_star_cooldown = 0.0
+	freeze_timer = MOVEMENT_FREEZE_FRAMES
 	top_audio = deps.get("audio", null)
 	tops.clear()
 
@@ -108,6 +112,7 @@ func update_and_collide(fps_scale: float, scene: Dictionary, context: Dictionary
 
 	top_collision_cooldown = max(0.0, top_collision_cooldown - fps_scale)
 	golden_top_star_cooldown = max(0.0, golden_top_star_cooldown - fps_scale)
+	freeze_timer = max(0.0, freeze_timer - fps_scale)
 
 	if timer_frames > 0.0:
 		timer_frames = max(0.0, timer_frames - fps_scale)
@@ -133,6 +138,12 @@ func get_draw_context() -> Dictionary:
 		"stage1_spinning_top_timer": timer_frames,
 		"boss_paengi_top_whip_active": whip_animation_timer > 0.0,
 		"boss_paengi_top_whip_frame": get_paengi_sprite_frame_index(),
+	}
+
+
+func get_ai_context() -> Dictionary:
+	return {
+		"stage1_dalji_spinning_top_freeze_active": active and freeze_timer > 0.0,
 	}
 
 

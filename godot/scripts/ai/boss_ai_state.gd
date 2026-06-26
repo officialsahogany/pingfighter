@@ -204,6 +204,12 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 			"boss_vel": 0.0,
 		}
 
+	if bool(context.get("stage1_dalji_spinning_top_freeze_active", false)):
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": 0.0,
+		}
+
 	if boss_dash_active:
 		return _update_boss_dash_motion(boss_pos, context, fps_scale)
 

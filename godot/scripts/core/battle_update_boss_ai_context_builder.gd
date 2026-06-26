@@ -147,6 +147,9 @@ func _merge_stage_context(context: Dictionary, registry: Object, current_stage: 
 		var whip_state: Object = _get_instance(registry, "stage1_dalji_whip_skill_state")
 		if whip_state != null and whip_state.has_method("get_ai_context"):
 			context.merge(whip_state.get_ai_context(), true)
+		var spinning_top_state: Object = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
+		if spinning_top_state != null and spinning_top_state.has_method("get_ai_context"):
+			context.merge(spinning_top_state.get_ai_context(), true)
 		return
 	if current_stage == 5:
 		var stage5_hongryun_state: Object = _get_instance(registry, "stage5_hongryun_state")
