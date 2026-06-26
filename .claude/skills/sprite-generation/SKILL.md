@@ -322,6 +322,49 @@ per-frame bbox drift on the SOURCE (cx/cy span small, no back-and-forth)
 before reframing. Record the fixed-transform values, frame order, and
 bottom-fade px in the sheet manifest.
 
+### 2.3.3. Lingpet acquire cut-in DISMISS must share the loop's base pose
+
+A lingpet's acquire cut-in is a family of three sheets that the player
+reads in sequence: the fullscreen **reveal loop** (`*_cutin_anim`), the
+**dismiss** exit (`*_cutin_dismiss_anim`, the literal "획득→클릭" bridge),
+and later the **click reaction** (`*_click_live2d_pingpong_98f`, also reused
+as the info-panel idle). The reveal and click are usually generated from
+ONE shared AutoSprite base pose, so they already read as the same character.
+The dismiss is the one most likely to break continuity, because it is easy
+to generate it from a fresh, unrelated AutoSprite action whose resting pose
+(wing/limb state, framing, energy) does not match the reveal's resting hold.
+
+Standing rule: generate the dismiss from the **SAME `first_frame_pose_id`**
+as the reveal+click base pose, so dismiss frame 0 starts exactly at the
+reveal's resting hold and the signature silhouette (e.g. wings spread, ring
+orbit, held prop) is preserved across every dismiss frame. Keep the
+signature prop — do NOT drop it (a "NoOrb" dismiss that removes the gold
+ring breaks identity). Then run the established dismiss postprocess so it
+sits in the same texture/color/edge family as the reveal: per-cell
+alpha-bleed → Real-ESRGAN `realesr-animevideov3` x2 (texture match to the
+reveal) → Reinhard color-match to the reveal body stats → frame0-align to
+the reveal frame0 bbox → assemble the runtime grid → `halo_strip`.
+
+Failure reference (lunabi / 달벳, 2026-06-24): four successive dismiss
+attempts ("Acquire Dismiss", "Dismiss Cheer 49 Anchored", "Dismiss
+Contained Cheer", "Dismiss NoOrb 49") were each generated from a NON-shared
+pose; the shipped "Dismiss Contained Cheer" had FOLDED wings + a smaller,
+right-offset framing, so the silhouette popped between the wings-spread
+reveal and the wings-spread click and the player reported "획득 라투디와
+클릭 라투디가 자연스럽게 연결감이 없다". Fix = regenerate the dismiss with
+`first_frame_pose_id` = the reveal's "Acquire Cutin" pose, prompt the wings
+to stay open/spread the whole time, keep the gold ring, then the standard
+postprocess. QA gate: a frame0 silhouette/identity comparison of NEW dismiss
+f0 vs reveal f0 (must match), and a wings/prop-persistence check across the
+dismiss (f0→mid→last), not just an isolated "the dismiss looks fine" read.
+
+Runtime reimport note: these dismiss/reveal/click sheets are loaded via
+`ProjectResourceLoader.load_imported_texture` (the size_limit'd `.ctex`),
+NOT raw `load_texture`. Replacing the source PNG alone is invisible in-game
+until Godot reimports the `.ctex` — the open editor auto-reimports on focus
+(then restart the play session); do NOT run a competing headless `--import`
+while the editor is open.
+
 ### 2.4. Character Live2D source-art background rule
 
 For character Live2D source illustrations / 원화 / full-body anchors that will
@@ -1375,6 +1418,57 @@ nukki + halo_strip 만 거친 결과를 인게임에서 QA 하고, 잔여가 발
 의도적 panel 이 살아있는지 별도 점검하지 않으면 등 흰 spine / 호버
 글로우 / 패들 face 가 통째 날아가는 회귀가 발생한다.**
 
+### 11.8. White AA-matte edge fringe on removeBg output — un-matte recolor, not threshold-kill
+
+AutoSprite `removeBg` (and Gemini JPEG nukki) frequently leave a thin
+**white anti-aliased matte fringe** along the silhouette edge: the
+semi-transparent edge pixels (0<alpha<250) carry near-white RGB
+(~[225,210,225]) instead of the body color, because the matte was not
+premultiplied correctly. On a white editor background this is invisible;
+on a dark / colored in-game background (the teal resonance portal, a stage
+floor) it reads as a bright **white rim** around the character. This is a
+separate failure from §11.6 (pastel halo blobs) and §11.7 (enclosed
+pockets) — here the offending pixels are the body's own AA edge, not a
+detached blob.
+
+Diagnose forensically, not by eye on white: composite the asset over a
+dark/teal bg and measure the semi-transparent edge ring (0<a<250). If a
+large fraction of it is bright + low-chroma (e.g. V>=190, range<=90), the
+white matte fringe is real. (Reference: lunabi cutin_anim edge was 35.7%
+near-white, click 44.6%; cutin_art was 0% = already clean, do NOT touch a
+clean asset.)
+
+Two fixes, in order of preference:
+
+1. **Un-matte recolor (preferred — non-destructive).** For semi-transparent
+   edge pixels within a few px of opaque body (a>=200) that are light/low-
+   chroma, replace their RGB with the **nearest opaque-body RGB** (scipy
+   `distance_transform_edt(return_indices=True)`), leaving **alpha
+   unchanged**. The AA gradient then fades body-color→transparent instead
+   of white→transparent, so the white rim disappears while the silhouette,
+   frame motion, and intentional white sparkles / glints / twinkles are
+   fully preserved (they are detached from the body, so the body-adjacency
+   gate skips them). This is strictly better than threshold-killing.
+2. **`halo_strip` (partial).** Killing bright+low-chroma pixels reachable
+   from outside transparent removes the outermost ring but leaves a
+   sub-threshold [190,220) rim AND deletes intentional edge sparkles
+   (they are bright+low-chroma+exterior-reachable). Use it only as a
+   safety pass after a fresh removeBg, or when a quick partial reduction
+   is acceptable — not as the primary fix for a baked white rim.
+
+For a brand-new asset where you control generation, the cleanest result is
+still a fresh `removeBg: "ultra"` AutoSprite export (what fixed the lunabi
+dismiss) — but for ALREADY-SHIPPED sheets you do not want to regenerate
+(motion would drift), the un-matte recolor cleans the rim in place with no
+behavioral change. QA the result on a dark/teal bg across several frames
+(not just f0) and confirm sparkles / gold trim / gem glints survived.
+
+Reimport note: these cut-in sheets load via
+`ProjectResourceLoader.load_imported_texture` (the size_limit'd `.ctex`),
+so an in-place PNG edit is invisible until Godot reimports. The open editor
+auto-reimports on focus (verified 2026-06-24); restart the play session to
+see it. Do NOT run a competing headless `--import` while the editor is open.
+
 ---
 
 ## 12. Gemini content-filter bypass vocabulary
@@ -1489,6 +1583,29 @@ Prompt-family rule:
 Do NOT use the deprecated single-sheet + runtime-flip pattern for new
 work. Existing shipped sheets that still use the old pattern remain as
 historical record until they are individually regenerated.
+
+### 13.1.1. Deterministic mirror export must be PER-CELL, never whole-sheet
+
+When a left (or right) walk sheet is produced by deterministically mirroring
+the opposite-direction sheet (a baked mirror PNG, NOT runtime flipping --
+acceptable for a fan-less / symmetric-prop walk where native L/R generation
+keeps facing the same way), the mirror MUST be applied **per cell**: crop each
+frame cell, `FLIP_LEFT_RIGHT` it, and paste it back at the SAME grid position
+so the frame/grid order is preserved (`left[i] == hflip(right[i])`).
+
+A whole-sheet `transpose(FLIP_LEFT_RIGHT)` is WRONG for any multi-row sheet:
+it reverses the COLUMN order within each row, so reading the mirrored sheet in
+index order plays the walk cycle scrambled (`3,2,1,0, 7,6,5,4, ...`), producing
+a janky walk that jumps at every row boundary. This passes alpha / corner
+checks, `--import`, and headless load checks silently -- only frame-order
+analysis catches it. (Reference incident: Gaksital walk_left, 2026-06-23,
+caught in review and fixed to per-cell.)
+
+Verification gate before accepting a baked mirror: for several indices `i`,
+assert `mean_abs_diff(left_cell[i], hflip(right_cell[i])) ~= 0` AND that the
+whole-sheet-flip hypothesis does NOT match. A single-row (1xN) sheet is the
+only case where whole-sheet flip is harmless (it reverses the lone row, which
+for a flipped-direction cycle may even be intended) -- multi-row never.
 
 ---
 

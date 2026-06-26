@@ -38,8 +38,15 @@
     "frame_interval": "looped at 16 fps",
     "source_scale_repack": 0.84,
     "upscale_scale": 2.0,
-    "sha256": "3d218696de31f6891b560105329c262842b2d6fc744b25770d312359c7005216",
-    "bytes": 30244241
+    "sha256": "059ecce6bfb00d54d26173ea773bf3d734bc5a46ff2a692f1c4998a4c6ca3cc6",
+    "bytes": 30036244,
+    "halo_cleanup_20260624": {
+      "operation": "Edge un-matte recolor: semi-transparent edge pixels (0<a<250) within 4px of opaque body and light/low-chroma (V>=170, range<=120) had their RGB replaced with the nearest opaque-body RGB. Alpha is UNCHANGED, so silhouette, frame motion, and intentional white sparkles/glints are preserved; only the white AA matte fringe (35.7% of edge near-white pre-fix) is removed so the bat no longer shows a white rim over the teal resonance portal. Forensic before/after on teal verified across f0/f4/f8/f12.",
+      "tool": "d:/tmp/edge_unmatte.py (scipy distance_transform_edt nearest-opaque recolor)",
+      "recolored_px": 323213,
+      "pre_change_backup": ".tmp/lunabi_halo_clean_20260624/lunabi_cutin_anim_PRE.png",
+      "why": "halo_strip alone was only a partial fix (left a sub-threshold [190,220) rim and trimmed intentional sparkles); un-matte recolor removes the white look without deleting pixels. cutin_art was already clean (0 edge fringe) and was NOT touched."
+    }
   },
   "dismiss_sheet": {
     "path": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
@@ -54,9 +61,10 @@
       5120,
       5120
     ],
-    "source_scale_repack": 0.84,
-    "sha256": "2324b3d070764e586857943bc2893950acc25cbc53fd22ab2c8dd095eb7a8bb4",
-    "bytes": 14595944
+    "sha256": "87351ada770e519af2d21bc25cd2fecfbd6e1099a4d0ae92a9c5e655b855afec",
+    "bytes": 11926579,
+    "owner_manifest": "lunabi_cutin_dismiss_anim_manifest.json",
+    "note": "Dismiss is owned/regenerated separately. Regenerated 2026-06-24 from the SHARED 'Acquire Cutin' base pose (wings-spread, gold ring) to restore acquisition↔click continuity; see lunabi_cutin_dismiss_anim_manifest.json. The earlier 0.84 source_scale_repack and 2324b3d0… sha are obsolete provenance."
   },
   "postprocess": {
     "main_operation": "AutoSprite 1024 cells were premultiplied-alpha resized to 84 percent and centered back into each 1024 cell, then each cell was upscaled to 2048 with source alpha recombined.",

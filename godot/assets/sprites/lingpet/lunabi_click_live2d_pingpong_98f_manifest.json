@@ -33,8 +33,15 @@
     ],
     "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
     "source_scale_repack": 0.92,
-    "sha256": "3ff42c5e5e377f31fbdfecdf93654ad176cbb1e5d4637db7aeff7b913c573be0",
-    "bytes": 69517572
+    "sha256": "d4eff8789bd35ed652afb05cb72702e4b589fb8197b57f0836377faa0414f384",
+    "bytes": 69388718,
+    "halo_cleanup_20260624": {
+      "operation": "Edge un-matte recolor: semi-transparent edge pixels (0<a<250) within 4px of opaque body and light/low-chroma (V>=170, range<=120) had their RGB replaced with the nearest opaque-body RGB. Alpha is UNCHANGED, so silhouette, pingpong frame motion, and intentional white twinkle sparkles / gold-ring glints are preserved; only the white AA matte fringe (44.6% of edge near-white pre-fix) is removed so the bat no longer shows a white rim over the teal resonance portal / info panel. Forensic before/after on teal verified across f0/f12/f24/f48.",
+      "tool": "d:/tmp/edge_unmatte.py (scipy distance_transform_edt nearest-opaque recolor)",
+      "recolored_px": 925104,
+      "pre_change_backup": ".tmp/lunabi_halo_clean_20260624/lunabi_click_live2d_pingpong_98f_PRE.png",
+      "why": "halo_strip alone was only a partial fix (left a sub-threshold rim and trimmed intentional sparkles); un-matte recolor removes the white look without deleting pixels."
+    }
   },
   "qa": {
     "raw_frame_count": 49,
