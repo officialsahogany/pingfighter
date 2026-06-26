@@ -4,6 +4,8 @@ const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpe
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
+const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
+const LingpetUnlockLoadoutReconciler := preload("res://scripts/lingpet/lingpet_unlock_loadout_reconciler.gd")
 
 var _failures: Array[String] = []
 
@@ -94,9 +96,14 @@ func _verify_present_skill_conditions_first_unlock() -> void:
 	_expect_str(str(first_reward.get("replaced_type", "")), LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "Lv1 active unlock should dead-draw when the hatch skill is already present")
 	_expect(str(first_reward.get("type", "")) != LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "present active skill should not award a duplicate first unlock card")
 
-	var resolved_after_dead_draw: Dictionary = state.get_resolved_unlock_choices("maribo")
-	var active_after_dead_draw: Dictionary = resolved_after_dead_draw.get("active", {}) as Dictionary
-	_expect_str(str(active_after_dead_draw.get("selected", "")), "maribo_hydro_sphere", "dead-drawn first active unlock should preserve the hatch-present resolved skill")
+	var loadout_state := LingpetLoadoutState.new()
+	loadout_state.set_pet_loadout(null, "maribo", "maribo_hydro_sphere", "", 2, 0)
+	var reconciler := LingpetUnlockLoadoutReconciler.new()
+	var changed := reconciler.reconcile(null, "maribo", state, loadout_state, null)
+	var loadout := loadout_state.get_loadout("maribo")
+	_expect(not changed, "reconciler should not rewrite a hatch-present first active skill")
+	_expect_str(str(loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "hatch-present first active id should survive reconcile")
+	_expect_eq(int(loadout.get("active_skill_level", 0)), 2, "hatch-present first active level should survive reconcile")
 
 	var no_skill_state := LingpetAffinityState.new()
 	no_skill_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
