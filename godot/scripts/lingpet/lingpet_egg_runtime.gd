@@ -566,14 +566,20 @@ func debug_grant_and_activate_pet(
 	if normalized_pet_id == "":
 		return false
 	_save_current_companion_skill_state()
-	if active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != "":
+	var has_explicit_loadout := active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != ""
+	if has_explicit_loadout:
 		_loadout_state.set_pet_loadout(owner, normalized_pet_id, active_skill_id, passive_skill_id, active_skill_level, passive_skill_level)
 		_invalidate_current_loadout_cache()
+	else:
+		_loadout_state.sync_from_owner(owner)
+		if not _loadout_state.get_loadouts().has(normalized_pet_id):
+			_loadout_state.set_pet_loadout(owner, normalized_pet_id, "", "", 0, 0)
+			_invalidate_current_loadout_cache()
 	_state = STATE_COMPANION
 	_set_current_pet_id(normalized_pet_id)
 	_apply_affinity_headstart_from_store(normalized_pet_id, registry)
-	_skip_unlock_reconcile = active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != ""
-	_apply_current_loadout(owner, true, true, registry)
+	_skip_unlock_reconcile = has_explicit_loadout
+	_apply_current_loadout(owner, true, false, registry)
 	# Keep _skip_unlock_reconcile sticky for debug-forced loadouts so later
 	# same-pet unlock reconcile cannot overwrite an F7-selected skill.
 	_egg_state.set_hatched(_get_current_required_hits())
@@ -1697,6 +1703,7 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 		_skip_unlock_reconcile = false
 		if _applied_loadout_key != "":
 			_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
+			_current_profile.set_hatch_stat_roll(0.0, 0.0)
 			_current_profile.set_loadout("", "")
 			_invalidate_current_loadout_cache()
 		return
@@ -1706,6 +1713,8 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 	if not randomize_missing and not reconciled_unlocks and _applied_loadout_key != "":
 		return
 	var loadout: Dictionary = _loadout_state.ensure_pet_loadout(owner, _pet_id, null, randomize_missing) if ensure else _loadout_state.get_loadout(_pet_id)
+	if randomize_missing:
+		_ensure_hatch_stat_roll(_pet_id)
 	_configure_affinity_reward_context(_pet_id, loadout, registry)
 	var loadout_key := _build_loadout_key(_pet_id, loadout)
 	if not randomize_missing and loadout_key == _applied_loadout_key:
@@ -1714,6 +1723,19 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 	_sync_current_profile_affinity(_pet_id)
 	_applied_loadout_key = loadout_key
 	_prewarm_current_skill_runtime()
+
+
+func _ensure_hatch_stat_roll(pet_id: String) -> void:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "" or bool(_affinity_state.has_hatch_stat_roll(normalized_pet_id)):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var mobility_headstart := rng.randf()
+	var defense_headstart := rng.randf()
+	if _current_profile.get_affinity_motion_style() != LingpetAffinityState.MOTION_STYLE_PATROL:
+		defense_headstart = 0.0
+	_affinity_state.set_hatch_stat_roll(normalized_pet_id, mobility_headstart, defense_headstart)
 
 
 func _has_unlock_reconcile_work(pet_id: String) -> bool:
@@ -3148,10 +3170,14 @@ func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}
 		return
 	var active_base_level := int(loadout.get("active_skill_level", 1))
 	var passive_base_level := int(loadout.get("passive_skill_level", 1))
+	var active_present_id := str(loadout.get("active_skill_id", "")).strip_edges()
+	var passive_present_id := str(loadout.get("passive_skill_id", "")).strip_edges()
 	if loadout.is_empty():
 		var existing_loadout: Dictionary = _loadout_state.get_loadout(normalized_pet_id)
 		active_base_level = int(existing_loadout.get("active_skill_level", active_base_level))
 		passive_base_level = int(existing_loadout.get("passive_skill_level", passive_base_level))
+		active_present_id = str(existing_loadout.get("active_skill_id", active_present_id)).strip_edges()
+		passive_present_id = str(existing_loadout.get("passive_skill_id", passive_present_id)).strip_edges()
 	var motion_style: String = _resolve_affinity_motion_style(normalized_pet_id)
 	_affinity_state.configure_reward_context(
 		normalized_pet_id,
@@ -3160,7 +3186,9 @@ func _configure_affinity_reward_context(pet_id: String, loadout: Dictionary = {}
 		passive_base_level,
 		_get_affinity_reward_seed(normalized_pet_id),
 		false,
-		_resolve_affinity_ring_core_cap(registry)
+		_resolve_affinity_ring_core_cap(registry),
+		active_present_id,
+		passive_present_id
 	)
 
 
@@ -3188,11 +3216,17 @@ func _sync_current_profile_affinity(pet_id: String, registry: Object = null) -> 
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
+		_current_profile.set_hatch_stat_roll(0.0, 0.0)
 		return
 	_configure_affinity_reward_context(normalized_pet_id, {}, registry)
 	_current_profile.set_affinity_state(
 		_affinity_state.get_level(normalized_pet_id),
 		_affinity_state.get_cumulative_rewards(normalized_pet_id)
+	)
+	var hatch_roll: Dictionary = _affinity_state.get_hatch_stat_roll(normalized_pet_id)
+	_current_profile.set_hatch_stat_roll(
+		float(hatch_roll.get("mobility", 0.0)),
+		float(hatch_roll.get("defense", 0.0))
 	)
 
 

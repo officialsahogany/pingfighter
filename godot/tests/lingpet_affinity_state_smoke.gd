@@ -169,8 +169,12 @@ func _verify_reward_deck_determinism_and_bands() -> void:
 	_expect_eq(first_deck.size(), LingpetAffinityState.MAX_LEVEL, "reward deck should cover every V3 level")
 	_expect_str(str((first_deck[0] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "Lv1 should be fixed to first active unlock")
 	_expect_str(str((first_deck[1] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK, "Lv2 should be fixed to first passive unlock")
-	_expect_str(str((first_deck[21] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK, "Lv22 should be fixed to second active unlock")
-	_expect_str(str((first_deck[24] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK, "Lv25 should be fixed to second passive unlock")
+	var second_active_level := _reward_type_first_level(first_deck, LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK)
+	var second_passive_level := _reward_type_first_level(first_deck, LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK)
+	_expect(second_active_level >= 16 and second_active_level <= 25, "second active unlock should land inside the Lv16-25 shuffled hatch band")
+	_expect(second_passive_level >= 16 and second_passive_level <= 25, "second passive unlock should land inside the Lv16-25 shuffled hatch band")
+	_expect_slot2_cards_after_unlock(first_deck, LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, second_active_level, "second active")
+	_expect_slot2_cards_after_unlock(first_deck, LingpetAffinityState.REWARD_TYPE_PASSIVE_SKILL, second_passive_level, "second passive")
 	_expect_eq(_reward_type_count(first_deck, LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK), 1, "deck should contain exactly one first active unlock")
 	_expect_eq(_reward_type_count(first_deck, LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK), 1, "deck should contain exactly one first passive unlock")
 	_expect_eq(_reward_type_count(first_deck, LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK), 1, "deck should contain exactly one second active unlock")
@@ -567,8 +571,12 @@ func _expect_reward_deck_bands(deck: Array, label: String, early_support_type: S
 		return
 	_expect_str(str((deck[0] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "%s Lv1 should stay fixed to first active unlock" % label)
 	_expect_str(str((deck[1] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK, "%s Lv2 should stay fixed to first passive unlock" % label)
-	_expect_str(str((deck[21] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK, "%s Lv22 should stay fixed to second active unlock" % label)
-	_expect_str(str((deck[24] as Dictionary).get("type", "")), LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK, "%s Lv25 should stay fixed to second passive unlock" % label)
+	var second_active_level := _reward_type_first_level(deck, LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK)
+	var second_passive_level := _reward_type_first_level(deck, LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK)
+	_expect(second_active_level >= 16 and second_active_level <= 25, "%s second active unlock should land inside Lv16-25" % label)
+	_expect(second_passive_level >= 16 and second_passive_level <= 25, "%s second passive unlock should land inside Lv16-25" % label)
+	_expect_slot2_cards_after_unlock(deck, LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, second_active_level, "%s second active" % label)
+	_expect_slot2_cards_after_unlock(deck, LingpetAffinityState.REWARD_TYPE_PASSIVE_SKILL, second_passive_level, "%s second passive" % label)
 	_expect_reward_band_multiset(deck, 0, 5, _expected_cards([
 		[LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, 0, 1],
 		[LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK, 0, 1],
@@ -590,20 +598,18 @@ func _expect_reward_deck_bands(deck: Array, label: String, early_support_type: S
 		[LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, 1, 1],
 		[LingpetAffinityState.REWARD_TYPE_MOBILITY, 0, 1],
 	]), "%s Lv11-15" % label)
-	_expect_reward_band_multiset(deck, 15, 20, _expected_cards([
+	_expect_reward_band_multiset(deck, 15, 25, _expected_cards([
 		[LingpetAffinityState.REWARD_TYPE_PASSIVE_SKILL, 1, 1],
 		[LingpetAffinityState.REWARD_TYPE_GAUGE, 0, 1],
 		[early_support_type, 0, 1],
 		[LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, 1, 1],
 		[LingpetAffinityState.REWARD_TYPE_MOBILITY, 0, 1],
-	]), "%s Lv16-20" % label)
-	_expect_reward_band_multiset(deck, 20, 25, _expected_cards([
 		[LingpetAffinityState.REWARD_TYPE_PASSIVE_SKILL, 1, 1],
 		[LingpetAffinityState.REWARD_TYPE_GAUGE, 0, 1],
 		[LingpetAffinityState.REWARD_TYPE_MOBILITY, 0, 1],
 		[LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK, 0, 1],
 		[LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK, 0, 1],
-	]), "%s Lv21-25" % label)
+	]), "%s Lv16-25" % label)
 	_expect_reward_band_multiset(deck, 25, 30, _expected_cards([
 		[LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, 2, 2],
 		[LingpetAffinityState.REWARD_TYPE_PASSIVE_SKILL, 2, 2],
@@ -664,6 +670,24 @@ func _reward_type_count(deck: Array, reward_type: String, start_index: int = 0, 
 		if raw_card is Dictionary and str((raw_card as Dictionary).get("type", "")) == reward_type:
 			count += 1
 	return count
+
+
+func _reward_type_first_level(deck: Array, reward_type: String) -> int:
+	for index in range(deck.size()):
+		var raw_card: Variant = deck[index]
+		if raw_card is Dictionary and str((raw_card as Dictionary).get("type", "")) == reward_type:
+			return index + 1
+	return 0
+
+
+func _expect_slot2_cards_after_unlock(deck: Array, reward_type: String, unlock_level: int, label: String) -> void:
+	for index in range(deck.size()):
+		var raw_card: Variant = deck[index]
+		if not (raw_card is Dictionary):
+			continue
+		var card: Dictionary = raw_card as Dictionary
+		if str(card.get("type", "")) == reward_type and int(card.get("skill_slot", 0)) == 2:
+			_expect(index + 1 > unlock_level, "%s slot-2 level-up card should appear after its unlock" % label)
 
 
 func _reward_band_size(deck: Array, start_index: int, end_index: int) -> int:

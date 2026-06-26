@@ -1440,8 +1440,28 @@ static func get_passive_skill_entry(passive_id: String) -> Dictionary:
 
 
 static func pick_skill_loadout(pet_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
-	var _unused_rng := rng
-	return build_empty_loadout(pet_id)
+	var roll_rng: RandomNumberGenerator = rng
+	if roll_rng == null:
+		roll_rng = RandomNumberGenerator.new()
+		roll_rng.randomize()
+	var active_skill := get_active_skill(pet_id)
+	var active_id := str(active_skill.get("id", "")).strip_edges()
+	var active_level := _roll_hatch_skill_level(roll_rng) if active_id != "" else 0
+	var passive_skill := get_passive_skill(pet_id)
+	var passive_id := str(passive_skill.get("id", "")).strip_edges()
+	var passive_level := _roll_hatch_skill_level(roll_rng) if passive_id != "" else 0
+	return {
+		"active_skill_id": active_id if active_level > 0 else "",
+		"active_skill_level": active_level,
+		"active_slot_count": DEFAULT_ACTIVE_SLOT_COUNT if active_level > 0 else 0,
+		"active_skill_ids": [active_id] if active_level > 0 else [],
+		"active_skill_levels": {active_id: active_level} if active_level > 0 else {},
+		"passive_skill_id": passive_id if passive_level > 0 else "",
+		"passive_skill_level": passive_level,
+		"passive_slot_count": DEFAULT_PASSIVE_SLOT_COUNT if passive_level > 0 else 0,
+		"passive_skill_ids": [passive_id] if passive_level > 0 else [],
+		"passive_skill_levels": {passive_id: passive_level} if passive_level > 0 else {},
+	}
 
 
 static func build_empty_loadout(_pet_id: String = "") -> Dictionary:
@@ -1475,6 +1495,10 @@ static func build_default_loadout(pet_id: String) -> Dictionary:
 		"passive_skill_ids": [passive_id] if passive_id != "" else [],
 		"passive_skill_levels": {passive_id: DEFAULT_PASSIVE_SKILL_LEVEL} if passive_id != "" else {},
 	}
+
+
+static func _roll_hatch_skill_level(rng: RandomNumberGenerator) -> int:
+	return clampi(rng.randi_range(0, 3), 0, 3)
 
 
 static func normalize_active_skill_id(pet_id: String, skill_id: String) -> String:

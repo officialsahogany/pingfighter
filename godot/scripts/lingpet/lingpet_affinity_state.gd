@@ -225,7 +225,9 @@ func configure_reward_context(
 	passive_skill_base_level: int = 1,
 	reward_seed: int = 0,
 	force_rebuild: bool = false,
-	ring_core_cap: int = RING_CORE_CAP_UNCHANGED
+	ring_core_cap: int = RING_CORE_CAP_UNCHANGED,
+	active_present_id: String = "",
+	passive_present_id: String = ""
 ) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
@@ -255,6 +257,48 @@ func configure_reward_context(
 	if force_rebuild or not _has_reward_deck(pet_data) or (context_changed and history.is_empty()):
 		_build_reward_deck(normalized_pet_id, pet_data)
 	_pets[normalized_pet_id] = pet_data
+	_resolve_present_unlock_if_needed(normalized_pet_id, REWARD_TYPE_ACTIVE_UNLOCK, active_present_id)
+	_resolve_present_unlock_if_needed(normalized_pet_id, REWARD_TYPE_PASSIVE_UNLOCK, passive_present_id)
+
+
+func set_hatch_stat_roll(pet_id: String, mobility_headstart: float, defense_headstart: float) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return get_empty_hatch_stat_roll()
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	pet_data["hatch_mobility_headstart"] = clampf(mobility_headstart, 0.0, 1.0)
+	pet_data["hatch_defense_headstart"] = clampf(defense_headstart, 0.0, 1.0)
+	pet_data["hatch_stat_roll_set"] = true
+	_pets[normalized_pet_id] = pet_data
+	_dirty = true
+	return get_hatch_stat_roll(normalized_pet_id)
+
+
+func has_hatch_stat_roll(pet_id: String) -> bool:
+	return bool(get_hatch_stat_roll(pet_id).get("has_roll", false))
+
+
+func get_hatch_stat_roll(pet_id: String) -> Dictionary:
+	var pet_data := _get_existing_pet_data(_normalize_pet_id(pet_id))
+	if pet_data.is_empty():
+		return get_empty_hatch_stat_roll()
+	var has_roll := bool(pet_data.get(
+		"hatch_stat_roll_set",
+		pet_data.has("hatch_mobility_headstart") or pet_data.has("hatch_defense_headstart")
+	))
+	return {
+		"mobility": clampf(float(pet_data.get("hatch_mobility_headstart", 0.0)), 0.0, 1.0),
+		"defense": clampf(float(pet_data.get("hatch_defense_headstart", 0.0)), 0.0, 1.0),
+		"has_roll": has_roll,
+	}
+
+
+static func get_empty_hatch_stat_roll() -> Dictionary:
+	return {
+		"mobility": 0.0,
+		"defense": 0.0,
+		"has_roll": false,
+	}
 
 
 func set_unlock_choice_candidates(pet_id: String, reward_type: String, candidates: Array) -> void:
@@ -282,6 +326,19 @@ func set_unlock_choice_candidates(pet_id: String, reward_type: String, candidate
 		if bool(resolve_result.get("accepted", false)):
 			_dirty = true
 	_pets[normalized_pet_id] = pet_data
+
+
+func _resolve_present_unlock_if_needed(pet_id: String, reward_type: String, present_id: String) -> void:
+	var normalized_present_id := present_id.strip_edges()
+	if normalized_present_id == "":
+		return
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key == "":
+		return
+	var resolved: Dictionary = get_resolved_unlock_choices(pet_id)
+	if resolved.has(choice_key):
+		return
+	resolve_single_unlock(pet_id, reward_type, normalized_present_id)
 
 
 func get_pending_unlock_choices(pet_id: String) -> Dictionary:
@@ -1014,17 +1071,12 @@ func _build_reward_deck(pet_id: String, pet_data: Dictionary) -> void:
 		_make_reward_card(support_card_type),
 		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
 		_make_reward_card(REWARD_TYPE_MOBILITY),
-	], seed, 16))
-	var pre_second_unlock_band := _shuffle_reward_card_band([
 		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
 		_make_reward_card(REWARD_TYPE_GAUGE),
 		_make_reward_card(REWARD_TYPE_MOBILITY),
-	], seed, 21)
-	level_cards.append(pre_second_unlock_band[0])
-	level_cards.append(_make_reward_card(REWARD_TYPE_SECOND_ACTIVE_UNLOCK))
-	level_cards.append(pre_second_unlock_band[1])
-	level_cards.append(pre_second_unlock_band[2])
-	level_cards.append(_make_reward_card(REWARD_TYPE_SECOND_PASSIVE_UNLOCK))
+		_make_reward_card(REWARD_TYPE_SECOND_ACTIVE_UNLOCK),
+		_make_reward_card(REWARD_TYPE_SECOND_PASSIVE_UNLOCK),
+	], seed, 16))
 	var final_band: Array[Dictionary] = [
 		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 2),
 		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 2),
