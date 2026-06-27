@@ -1,0 +1,10 @@
+{
+  "asset": "pause_system_editorial_map_bg_cyberpunk_v2.png",
+  "purpose": "Slice E cyberpunk-dark recolor: dark editorial pause menu/options background plate (deep navy faint cyan map). Replaces the bright v1.",
+  "source": "Gemini MCP gemini-generate-image",
+  "aspect": "16:9",
+  "generated": "2026-06-28",
+  "runtime_path": "res://assets/ui/pause_menu/pause_system_editorial_map_bg_cyberpunk_v2.png",
+  "prompt_summary": "very dark cyberpunk top-down stylized city map, deep navy ~#0A0E18, faint glowing cyan/blue hairlines (roads/blocks/arcs), clean dark center-left, no text/no bright areas.",
+  "supersedes": "pause_system_editorial_map_bg_gemini_v1.png (bright; remove on commit)"
+}

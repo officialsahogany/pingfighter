@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ciu2riykgvs0r"
-path="res://.godot/imported/pause_system_editorial_map_bg_gemini_v1.png-852ef929451fb5edb54e7c97c804c7e6.ctex"
+uid="uid://c8fhb2nw7afde"
+path="res://.godot/imported/pause_system_editorial_map_bg_cyberpunk_v2.png-f363e2ae3cc880e233a25256f8c2e43d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/pause_menu/pause_system_editorial_map_bg_gemini_v1.png"
-dest_files=["res://.godot/imported/pause_system_editorial_map_bg_gemini_v1.png-852ef929451fb5edb54e7c97c804c7e6.ctex"]
+source_file="res://assets/ui/pause_menu/pause_system_editorial_map_bg_cyberpunk_v2.png"
+dest_files=["res://.godot/imported/pause_system_editorial_map_bg_cyberpunk_v2.png-f363e2ae3cc880e233a25256f8c2e43d.ctex"]
 
 [params]
 

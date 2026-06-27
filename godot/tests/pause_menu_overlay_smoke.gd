@@ -230,7 +230,7 @@ func _init() -> void:
 	_expect(registry.modal_gate.should_block_battle_physics(Callable(self, "_get_module")), "pause menu should block battle physics")
 	var main_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(owner.get_viewport_rect().size)
 	_expect(main_panel_rect.position == Vector2.ZERO and main_panel_rect.size == owner.get_viewport_rect().size, "bright pause menu should use the full view as the main surface")
-	_expect(registry.pause_menu.PAPER_BG.r > 0.85 and registry.pause_menu.INK.r < 0.2, "bright pause menu should use light paper and dark ink tokens")
+	_expect(registry.pause_menu.PAPER_BG.r < 0.2 and registry.pause_menu.INK.r > 0.7, "cyberpunk pause menu should use dark navy bg and light text tokens")
 	_expect(registry.pause_menu.TITLE_ON_GRAPHIC_INK.r > registry.pause_menu.GRAPHIC_INK.r + 0.70, "bright pause SYSTEM title should stay readable on the black editorial wedge")
 	_expect(FileAccess.file_exists(registry.pause_menu.MAIN_EDITORIAL_BG_PATH), "D2 pause menu should ship the editorial map background PNG")
 	_expect(FileAccess.file_exists(registry.pause_menu.MAIN_EDITORIAL_BG_PATH + ".import"), "D2 pause menu should ship the export-safe editorial map background import file")
@@ -281,7 +281,7 @@ func _init() -> void:
 	_expect(background_body.find("panel_rect.size.y * 1.06") < 0, "D2 pause menu should remove the duplicate procedural sweeping arc over the background art")
 	_expect(pause_source.find("needle_points") >= 0, "bright pause main should keep the solid compass-star dial motif")
 	# --- D-options bright editorial re-skin seals ---
-	_expect(registry.pause_menu.OPT_PANEL.r > 0.85 and registry.pause_menu.OPT_CARD.r > 0.9 and registry.pause_menu.OPT_TRACK.r > 0.7, "D-options should use bright light surface tokens")
+	_expect(registry.pause_menu.OPT_PANEL.r < 0.2 and registry.pause_menu.OPT_CARD.r < 0.25 and registry.pause_menu.OPT_TRACK.r < 0.25, "D-options should use dark cyberpunk surface tokens")
 	var draw_body := _source_function_body(pause_source, "func draw(")
 	_expect(draw_body.find("_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size))") >= 0, "D-options should draw the shared bright editorial base instead of the dark dim panel")
 	_expect(draw_body.find("0.0, 0.0, 0.0, 0.58") < 0, "D-options should not draw the old black dim behind the options panel")

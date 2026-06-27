@@ -33,7 +33,7 @@ const VSYNC_MODE_AUTO := -1
 const VSYNC_MODE_DISABLED := 0
 const VSYNC_MODE_ENABLED := 1
 const VSYNC_MODE_MAILBOX := 3
-const MAIN_EDITORIAL_BG_PATH := "res://assets/ui/pause_menu/pause_system_editorial_map_bg_gemini_v1.png"
+const MAIN_EDITORIAL_BG_PATH := "res://assets/ui/pause_menu/pause_system_editorial_map_bg_cyberpunk_v2.png"
 
 const OPTIONS_PANEL_SIZE := Vector2(900.0, 500.0)
 const BUTTON_SIZE := Vector2(250.0, 48.0)
@@ -85,23 +85,25 @@ const RESONANCE_MAG := Color(0.72, 0.50, 1.00)
 const NEON_GREEN := Color(0.00, 1.00, 0.47)
 const WARM_GOLD := Color(1.00, 0.80, 0.20)
 const TEXT_WARM := Color(0.94, 0.99, 1.00)
-const PAPER_BG := Color(0.93, 0.94, 0.96)
-const INK := Color(0.10, 0.12, 0.16)
-const INK_DIM := Color(0.42, 0.45, 0.52)
-const SELECT_BLUE := Color(0.49, 0.71, 0.90)
-const SELECT_SUBINK := Color(0.10, 0.16, 0.24)
-const GRAPHIC_INK := Color(0.07, 0.08, 0.10)
-const TITLE_ON_GRAPHIC_INK := Color(0.86, 0.89, 0.94)
-const DIAMOND_GRAY := Color(0.55, 0.60, 0.68)
-const SPINE_LINE := Color(0.0, 0.0, 0.0, 0.12)
-# D-options bright editorial tokens (options pages only; dark tokens above stay for any dark reuse).
-const OPT_PANEL := Color(0.95, 0.96, 0.98, 0.96)
-const OPT_HEADER := Color(0.90, 0.92, 0.96, 0.92)
-const OPT_CARD := Color(0.985, 0.99, 1.0, 0.96)
-const OPT_CARD_HOVER := Color(0.90, 0.94, 0.99, 0.98)
-const OPT_BORDER := Color(0.10, 0.12, 0.16, 0.18)
-const OPT_TRACK := Color(0.84, 0.87, 0.91)
-const OPT_CHECK_ON := Color(0.20, 0.62, 0.42)
+# Editorial pause menu tokens — CYBERPUNK DARK recolor (Slice E). Names kept from the
+# earlier bright pass to avoid churn: PAPER_BG now holds the DARK navy bg, INK holds the
+# LIGHT text. Deep navy + neon cyan = the game's existing cyberpunk identity.
+const PAPER_BG := Color(0.04, 0.055, 0.09)
+const INK := Color(0.85, 0.92, 1.0)
+const INK_DIM := Color(0.55, 0.66, 0.80)
+const SELECT_BLUE := Color(0.36, 0.78, 0.98)
+const SELECT_SUBINK := Color(0.04, 0.10, 0.16)
+const GRAPHIC_INK := Color(0.02, 0.03, 0.05)
+const TITLE_ON_GRAPHIC_INK := Color(0.82, 0.93, 1.0)
+const DIAMOND_GRAY := Color(0.40, 0.66, 0.86)
+const SPINE_LINE := Color(0.36, 0.78, 0.98, 0.22)
+const OPT_PANEL := Color(0.06, 0.09, 0.15, 0.92)
+const OPT_HEADER := Color(0.08, 0.12, 0.19, 0.94)
+const OPT_CARD := Color(0.09, 0.13, 0.21, 0.95)
+const OPT_CARD_HOVER := Color(0.14, 0.20, 0.31, 0.98)
+const OPT_BORDER := Color(0.36, 0.78, 0.98, 0.30)
+const OPT_TRACK := Color(0.10, 0.14, 0.21)
+const OPT_CHECK_ON := Color(0.0, 0.82, 0.46)
 
 var active := false
 var options_open := false
@@ -1314,8 +1316,8 @@ func _draw_main_editorial_background(canvas: CanvasItem, panel_rect: Rect2) -> v
 	canvas.draw_arc(top_left + Vector2(98.0, 68.0), 54.0, 0.16 * PI, 1.08 * PI, 28, line_color, 1.4, true)
 	canvas.draw_line(top_left + Vector2(138.0, 118.0), top_left + Vector2(238.0, 42.0), Color(1.0, 1.0, 1.0, 0.36), 1.2, true)
 	_draw_main_editorial_dial(canvas, panel_rect)
-	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 92.0, panel_rect.size.y - 82.0), 9.0, Color(0.0, 0.0, 0.0, 0.22))
-	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 168.0, 54.0), 6.0, Color(0.0, 0.0, 0.0, 0.16))
+	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 92.0, panel_rect.size.y - 82.0), 9.0, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.32))
+	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 168.0, 54.0), 6.0, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.24))
 
 
 func _draw_main_editorial_base(canvas: CanvasItem, panel_rect: Rect2) -> void:
@@ -1329,8 +1331,8 @@ func _draw_main_editorial_base(canvas: CanvasItem, panel_rect: Rect2) -> void:
 
 
 func _draw_main_map_texture(canvas: CanvasItem, panel_rect: Rect2) -> void:
-	var map_color := Color(0.0, 0.0, 0.0, 0.035)
-	var street_color := Color(0.0, 0.0, 0.0, 0.055)
+	var map_color := Color(0.36, 0.78, 0.98, 0.05)
+	var street_color := Color(0.36, 0.78, 0.98, 0.07)
 	var origin := panel_rect.position
 	for i in range(5):
 		var x := origin.x + panel_rect.size.x * (0.36 + float(i) * 0.105)
@@ -1383,8 +1385,8 @@ func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2) -> void:
 func _draw_main_editorial_dial(canvas: CanvasItem, panel_rect: Rect2) -> void:
 	var center := panel_rect.position + Vector2(panel_rect.size.x - minf(88.0, panel_rect.size.x * 0.09), maxf(52.0, panel_rect.size.y * 0.10))
 	var radius := clampf(minf(panel_rect.size.x, panel_rect.size.y) * 0.105, 46.0, 84.0)
-	canvas.draw_arc(center, radius, 0.42 * PI, 1.34 * PI, 64, Color(0.0, 0.0, 0.0, 0.72), 2.0, true)
-	canvas.draw_arc(center, radius * 0.56, 0.20 * PI, 0.72 * PI, 36, Color(0.0, 0.0, 0.0, 0.42), 1.6, true)
+	canvas.draw_arc(center, radius, 0.42 * PI, 1.34 * PI, 64, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.78), 2.0, true)
+	canvas.draw_arc(center, radius * 0.56, 0.20 * PI, 0.72 * PI, 36, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.45), 1.6, true)
 	var angle := fposmod(-0.92 * PI + _main_dial_time * MAIN_DIAL_ROTATIONS_PER_SECOND * TAU, TAU)
 	var dir := Vector2(cos(angle), sin(angle))
 	var tangent := dir.rotated(PI * 0.5)
@@ -1600,7 +1602,7 @@ func _draw_volume_slider(
 	var fill_rect := Rect2(slider_rect.position, Vector2(slider_rect.size.x * clampf(value, 0.0, 1.0), slider_rect.size.y))
 	canvas.draw_rect(fill_rect, accent)
 	var handle_x: float = slider_rect.position.x + slider_rect.size.x * clampf(value, 0.0, 1.0)
-	var handle_color := SELECT_BLUE if focused or _get_slider_hit_rect_from_panel(slider_key, panel_rect).has_point(mouse_pos) else Color(0.45, 0.50, 0.58)
+	var handle_color := SELECT_BLUE if focused or _get_slider_hit_rect_from_panel(slider_key, panel_rect).has_point(mouse_pos) else Color(0.55, 0.62, 0.72)
 	canvas.draw_circle(Vector2(handle_x, row_center_y), SLIDER_HANDLE_RADIUS + (2.0 if focused else 0.0), handle_color)
 	var percent := "%d%%" % int(round(value * 100.0))
 	_draw_text(canvas, font, percent, Vector2(slider_rect.end.x + 18.0, row_center_y + 6.0), 15, INK)
@@ -1887,7 +1889,7 @@ func _draw_toggle_setting_row(
 	var fill := OPT_CARD_HOVER if hovered or focused else OPT_CARD
 	var border := SELECT_BLUE if hovered or focused else OPT_BORDER
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
-	var checkbox_fill := OPT_CHECK_ON if enabled else Color(0.90, 0.92, 0.95)
+	var checkbox_fill := OPT_CHECK_ON if enabled else Color(0.12, 0.16, 0.22)
 	var checkbox_border := OPT_CHECK_ON if enabled else OPT_BORDER
 	_draw_panel(canvas, checkbox_rect, checkbox_fill, checkbox_border, 1.0)
 	if enabled:
@@ -1915,7 +1917,7 @@ func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, sel
 
 
 func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, text: String) -> void:
-	_draw_panel(canvas, rect, Color(1.0, 0.985, 0.93, 0.95), Color(0.78, 0.60, 0.20, 0.55), 1.0)
+	_draw_panel(canvas, rect, Color(0.16, 0.13, 0.05, 0.92), Color(0.78, 0.60, 0.20, 0.55), 1.0)
 	var lines := text.split("\n", false)
 	for index in range(min(lines.size(), 2)):
 		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(14.0, 19.0 + float(index) * 18.0), 12, INK)
