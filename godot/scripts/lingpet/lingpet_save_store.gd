@@ -79,6 +79,7 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 			"state": "egg",
 			"hatch_hits": 0,
 			"required_hits": LingpetCatalog.get_required_hits(LingpetCatalog.get_default_pet_id()),
+			"egg_color_index": -1,
 			"owned_pet_ids": [],
 			"battle_slot_pet_ids": ["", "", ""],
 			"active_slot_index": 0,

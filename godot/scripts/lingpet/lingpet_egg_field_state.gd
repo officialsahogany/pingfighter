@@ -15,6 +15,7 @@ const EGG_PLAYER_NUDGE_DAMPING := 0.62
 const EGG_PLAYER_WOBBLE_DAMPING := 0.72
 const EGG_PLAYER_WOBBLE_SPRING := 0.35
 const EGG_PLAYER_WOBBLE_MAX_DEGREES := 8.0
+const EGG_TINT_COUNT := 5
 const BALL_RADIUS_FALLBACK := 14.3
 const HIT_COOLDOWN_SECONDS := 0.20
 const PADDLE_BOUNCE_DEFAULT_MAX_ANGLE := 60.0
@@ -22,6 +23,7 @@ const PADDLE_BOUNCE_DEFAULT_MIN_SPEED := 3.0
 const PADDLE_BOUNCE_DEFAULT_MAX_SPEED := 20.0
 
 var hatch_hits := 0
+var egg_color_index := -1
 var pos := Vector2.ZERO
 var nudge_vx := 0.0
 var wobble_angle := 0.0
@@ -36,6 +38,7 @@ func advance(delta: float) -> void:
 
 func reset_all() -> void:
 	hatch_hits = 0
+	egg_color_index = -1
 	pos = Vector2.ZERO
 	reset_contact_motion()
 
@@ -51,12 +54,25 @@ func reset_contact_motion() -> void:
 func spawn(owner: Object) -> void:
 	hatch_hits = 0
 	pos = resolve_spawn_pos(owner)
+	roll_color_index()
 	reset_contact_motion()
 
 
 func set_hatched(required_hits: int) -> void:
 	hatch_hits = maxi(0, required_hits)
 	reset_contact_motion()
+
+
+func roll_color_index() -> void:
+	egg_color_index = int(randi() % EGG_TINT_COUNT)
+
+
+func set_color_index(index: int) -> void:
+	egg_color_index = index if index >= 0 and index < EGG_TINT_COUNT else -1
+
+
+func get_color_index() -> int:
+	return egg_color_index
 
 
 func update_player_contact(delta: float, owner: Object) -> void:
@@ -123,6 +139,7 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 func get_snapshot() -> Dictionary:
 	return {
 		"hatch_hits": hatch_hits,
+		"egg_color_index": egg_color_index,
 		"egg_pos": pos,
 		"egg_nudge_vx": nudge_vx,
 		"egg_wobble_angle": wobble_angle,

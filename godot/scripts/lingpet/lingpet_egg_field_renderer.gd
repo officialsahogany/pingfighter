@@ -10,6 +10,23 @@ const EGG_CRACK_LIGHT_GLOW_WIDTH := 6.0
 const HATCH_BREAK_SHARD_COUNT := 9
 const HATCH_BREAK_SHARD_DISTANCE := 44.0
 const HATCH_BREAK_SHARD_GRAVITY := 20.0
+const EGG_TINTS := [
+	Color(0.36, 0.82, 1.0),
+	Color(1.0, 0.46, 0.64),
+	Color(1.0, 0.74, 0.32),
+	Color(0.66, 0.50, 1.0),
+	Color(0.42, 0.92, 0.64),
+]
+
+
+func get_tint_count() -> int:
+	return EGG_TINTS.size()
+
+
+func get_tint_for_index(index: int) -> Color:
+	if index < 0 or index >= EGG_TINTS.size():
+		return Color.WHITE
+	return EGG_TINTS[index]
 
 
 func get_visual_key_for_hits(hatch_hits: int, required_hits: int) -> String:
@@ -27,7 +44,8 @@ func draw_egg(
 	hatch_hits: int,
 	required_hits: int,
 	wobble_angle: float,
-	egg_texture: Texture2D
+	egg_texture: Texture2D,
+	tint: Color = Color.WHITE
 ) -> void:
 	if canvas == null:
 		return
@@ -36,13 +54,13 @@ func draw_egg(
 	var glow_alpha: float = 0.16 + 0.10 * pulse + 0.12 * hit_ratio
 	var wobble_radians: float = deg_to_rad(wobble_angle)
 	var visual_center: Vector2 = center + Vector2(sin(wobble_radians) * EGG_PLAYER_WOBBLE_VISUAL_PIXELS, absf(sin(wobble_radians)) * 1.2)
-	canvas.draw_circle(visual_center + Vector2(0.0, 3.0), EGG_RADIUS + 16.0, Color(0.25, 0.85, 1.0, glow_alpha))
+	canvas.draw_circle(visual_center + Vector2(0.0, 3.0), EGG_RADIUS + 16.0, Color(tint.r, tint.g, tint.b, glow_alpha))
 	var texture_rect := Rect2(
 		visual_center - Vector2(EGG_TEXTURE_DRAW_SIZE.x * 0.5, EGG_TEXTURE_DRAW_SIZE.y * EGG_TEXTURE_TOP_OFFSET_RATIO),
 		EGG_TEXTURE_DRAW_SIZE
 	)
 	if egg_texture != null:
-		canvas.draw_texture_rect(egg_texture, texture_rect, false)
+		canvas.draw_texture_rect(egg_texture, texture_rect, false, Color(tint.r, tint.g, tint.b, tint.a))
 	_draw_egg_crack_light(canvas, texture_rect, hatch_hits, pulse)
 
 

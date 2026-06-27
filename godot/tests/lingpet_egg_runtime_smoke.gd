@@ -10,6 +10,8 @@ const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module
 const BallRoundController := preload("res://scripts/ball/ball_round_controller.gd")
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
+const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
@@ -534,6 +536,7 @@ func _init() -> void:
 	_verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch()
 	_verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility()
 	_verify_egg_player_contact_nudges_and_wobbles()
+	_verify_egg_color_rolls_once_and_restores()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
 	_verify_one_ball_hit_hatches_unidentified_egg()
@@ -651,9 +654,10 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/stages/common/lingpet_rail_card.gd"), "shared lingpet rail card helper should exist")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png"), "Maribo Hydro Sphere rail card should ship a landscape (boss-card class) imagegen PNG")
 	_expect(drawer_source.find("lingpet_egg_runtime") >= 0, "playfield drawer should keep drawing the ringpet companion after hatching")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "shared unidentified lingpet egg should use a PNG-backed runtime asset")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png"), "shared unidentified lingpet egg should have a first-hit cracked PNG variant")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png"), "shared unidentified lingpet egg should have a second-hit cracked PNG variant")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base.png"), "shared unidentified lingpet egg should use the neutral resonance PNG-backed runtime asset")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_1.png"), "shared unidentified lingpet egg should have a first-hit neutral cracked PNG variant")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_2.png"), "shared unidentified lingpet egg should have a second-hit neutral cracked PNG variant")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "legacy Maribo egg art should stay on disk for reference even after the shared resonance egg repoint")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(runtime_source.find("LINGPET_EGG_TEXTURE") < 0, "field egg rendering should not hard-preload the shared egg PNGs")
 	_expect(runtime_source.find("\"egg_crack_1\"") >= 0, "field egg rendering should still keep the first cracked catalog visual key for multi-hit profiles")
@@ -661,6 +665,9 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime_source.find("lingpet_egg_field_renderer.gd") >= 0, "egg runtime should delegate field egg rendering to the egg renderer module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_egg_field_renderer.gd"), "egg-field renderer module should exist")
 	var egg_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
+	var egg_field_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_state.gd")
+	_expect(egg_renderer_source.find("get_tint_for_index") >= 0 and egg_renderer_source.find("draw_texture_rect(egg_texture, texture_rect, false, Color(tint.r") >= 0, "egg renderer should tint the neutral egg texture through the rolled resonance color")
+	_expect(egg_field_state_source.find("egg_color_index") >= 0 and egg_field_state_source.find("roll_color_index()") >= 0, "egg field state should own the one-time resonance color roll")
 	_expect(egg_renderer_source.find("_draw_egg_crack_light") >= 0, "field egg rendering should leak light from cracked shell paths after a hatch hit")
 	_expect(egg_renderer_source.find("HATCH_BREAK_SHARD_COUNT") >= 0, "field hatch should keep a shell-fragment burst spec")
 	_expect(egg_renderer_source.find("_draw_hatch_shell_burst") >= 0, "field hatch should draw breaking egg fragments during the hatch flash")
@@ -1474,6 +1481,40 @@ func _verify_egg_player_contact_nudges_and_wobbles() -> void:
 		runtime.update(0.016, owner)
 	var sustained_nudge: float = owner.lingpet_egg_pos.x - start_pos.x
 	_expect(sustained_nudge < 14.0, "sustained player contact should not shove the Ringpet egg too far")
+
+
+func _verify_egg_color_rolls_once_and_restores() -> void:
+	var renderer: Object = LingpetEggFieldRenderer.new()
+	_expect(int(LingpetEggFieldState.EGG_TINT_COUNT) == int(renderer.get_tint_count()), "egg field state and renderer should agree on the resonance tint count")
+
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var first_snapshot: Dictionary = runtime.get_snapshot()
+	var color_index: int = int(first_snapshot.get("egg_color_index", -1))
+	_expect(color_index >= 0 and color_index < int(renderer.get_tint_count()), "spawned main egg should roll one valid resonance color index")
+	for _idx in range(16):
+		runtime.update(0.016, owner)
+	_expect(int(runtime.get_snapshot().get("egg_color_index", -1)) == color_index, "main egg resonance color must not reroll during normal frame advancement")
+
+	var save_snapshot: Dictionary = runtime.get_save_snapshot()
+	_expect(int(save_snapshot.get("egg_color_index", -1)) == color_index, "save snapshot should preserve the rolled egg resonance color index")
+	var restored_owner := FakeOwner.new()
+	var restored_runtime: Object = LingpetEggRuntime.new()
+	var restore_result: Dictionary = restored_runtime.apply_save_snapshot(save_snapshot, restored_owner)
+	_expect(bool(restore_result.get("restored", false)), "egg save snapshot should restore after adding resonance color")
+	_expect(int(restored_runtime.get_snapshot().get("egg_color_index", -1)) == color_index, "egg restore should preserve the saved resonance color index")
+
+	var field_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_state.gd")
+	var spawn_start: int = field_state_source.find("func spawn(")
+	var spawn_end: int = field_state_source.find("\nfunc ", spawn_start + 1)
+	var spawn_body: String = field_state_source.substr(spawn_start, spawn_end - spawn_start)
+	var advance_start: int = field_state_source.find("func advance(")
+	var advance_end: int = field_state_source.find("\nfunc ", advance_start + 1)
+	var advance_body: String = field_state_source.substr(advance_start, advance_end - advance_start)
+	_expect(spawn_body.find("roll_color_index()") >= 0, "egg resonance color should be rolled in spawn()")
+	_expect(advance_body.find("roll_color_index") < 0 and advance_body.find("egg_color_index") < 0, "egg resonance color must not reroll or mutate in per-frame advance()")
+	_expect(field_state_source.find("pet_id") < 0 and field_state_source.find("profile") < 0, "egg resonance color roll must stay decoupled from pet/profile identity")
 
 
 func _verify_player_serve_ball_does_not_hatch_egg() -> void:

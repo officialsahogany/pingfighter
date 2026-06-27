@@ -943,6 +943,7 @@ func get_save_snapshot() -> Dictionary:
 		_egg_state.hatch_hits,
 		_get_current_required_hits(),
 		_egg_state.pos,
+		_egg_state.egg_color_index,
 		_companion_pos,
 		_collection_state.get_owned_pet_ids(),
 		_collection_state.get_battle_slots(),
@@ -989,6 +990,8 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: O
 		_spawn_egg(owner)
 	else:
 		_clear_lingpet_field_state()
+	if (target_state == STATE_COMPANION or target_state == STATE_EGG) and snapshot.has("egg_color_index"):
+		_egg_state.set_color_index(int(snapshot.get("egg_color_index", -1)))
 	if owner != null:
 		if _state == STATE_COMPANION:
 			_mark_current_pet_owned(owner)
@@ -2735,7 +2738,8 @@ func _draw_egg(canvas: CanvasItem, center: Vector2) -> void:
 		_egg_state.hatch_hits,
 		_get_current_required_hits(),
 		_egg_state.wobble_angle,
-		_get_egg_texture_for_hits()
+		_get_egg_texture_for_hits(),
+		_egg_renderer.get_tint_for_index(_egg_state.egg_color_index)
 	)
 
 
