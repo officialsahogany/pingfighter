@@ -1,0 +1,18 @@
+{
+  "asset": "pause_system_editorial_map_bg_gemini_v1.png",
+  "purpose": "Slice D bright editorial pause MAIN menu background plate (faint top-down stylized city map).",
+  "source": "Gemini MCP gemini-generate-image",
+  "aspect": "16:9",
+  "image_size": "2K",
+  "generated": "2026-06-27",
+  "runtime_path": "res://assets/ui/pause_menu/pause_system_editorial_map_bg_gemini_v1.png",
+  "prompt_summary": "very faint light monochrome top-down stylized city map texture, pale cool-gray hairlines (roads, district blocks, contour arcs), lots of clean off-white space, no text, no dark areas; off-white base ~#EEF0F3 matching PAPER_BG.",
+  "qa": {
+    "faint_low_contrast": true,
+    "no_text_labels": true,
+    "no_dark_or_color": true,
+    "offwhite_base_matches_paper_bg": true,
+    "composite_preview": "d:/tmp/bosspong_ui_panel_capture/pause_slice_d/composite_resume.png (multiply over pause menu render — ship-quality)"
+  },
+  "wiring_note": "Draw full-view as the main-menu base (replacing the PAPER_BG fill + procedural _draw_main_map_texture). Wedge/dial/skewed bar/spine/sparkle stay procedural ON TOP. Drop the procedural sweeping arc to avoid doubling (image already carries arcs). Prewarm the texture at open(). Export-safe .import committed alongside the PNG."
+}

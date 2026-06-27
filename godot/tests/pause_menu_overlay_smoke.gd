@@ -227,20 +227,35 @@ func _init() -> void:
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should open the pause menu")
 	_expect(registry.pause_menu.is_active(), "pause menu should become active")
 	_expect(registry.modal_gate.should_block_battle_physics(Callable(self, "_get_module")), "pause menu should block battle physics")
-	_expect(registry.pause_menu._ringcore_crystal_texture != null, "pause menu should prewarm the ringcore crystal sheet on open")
 	var main_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(owner.get_viewport_rect().size)
-	_expect(registry.pause_menu._uses_main_split_layout(main_panel_rect), "wide pause menu should use the left crystal and right command split")
-	_expect(registry.pause_menu._get_main_crystal_draw_rect(main_panel_rect).end.x < registry.pause_menu._get_button_rect(main_panel_rect, 0, 3).position.x, "ringcore crystal should stay left of the command buttons")
+	_expect(main_panel_rect.position == Vector2.ZERO and main_panel_rect.size == owner.get_viewport_rect().size, "bright pause menu should use the full view as the main surface")
+	_expect(registry.pause_menu.PAPER_BG.r > 0.85 and registry.pause_menu.INK.r < 0.2, "bright pause menu should use light paper and dark ink tokens")
+	_expect(registry.pause_menu.TITLE_ON_GRAPHIC_INK.r > registry.pause_menu.GRAPHIC_INK.r + 0.70, "bright pause SYSTEM title should stay readable on the black editorial wedge")
+	_expect(FileAccess.file_exists(registry.pause_menu.MAIN_EDITORIAL_BG_PATH), "D2 pause menu should ship the editorial map background PNG")
+	_expect(FileAccess.file_exists(registry.pause_menu.MAIN_EDITORIAL_BG_PATH + ".import"), "D2 pause menu should ship the export-safe editorial map background import file")
+	_expect(registry.pause_menu._main_editorial_bg_texture != null, "D2 pause menu should prewarm the editorial background texture when opened")
+	var entries: Array = registry.pause_menu._get_main_entries()
+	_expect(str(entries[0].get("en", "")) == "RESUME" and str(entries[1].get("en", "")) == "STATUS" and str(entries[2].get("en", "")) == "SETTINGS", "bright pause menu should expose editorial English menu labels")
+	_expect(registry.pause_menu._should_show_main_local_label(), "Korean pause menu should keep the small local label")
+	var main_selection_rect: Rect2 = registry.pause_menu._get_selection_feedback_rect(main_panel_rect, "main", 0)
+	_expect(main_selection_rect.position.x == 0.0 and main_selection_rect.size.x >= owner.get_viewport_rect().size.x * 0.55, "main selection hit zone should be the left-edge editorial band")
+	_expect(registry.pause_menu._get_button_rect(main_panel_rect, 0, entries.size()) == main_selection_rect, "main button hit zone should match the selection feedback band")
+	_expect(registry.pause_menu._get_main_title_left_margin(main_panel_rect) <= 16.0, "bright pause title should sit near the top-left reference edge")
+	_expect(registry.pause_menu._get_main_diamond_center_x(main_panel_rect) >= owner.get_viewport_rect().size.x * 0.18, "bright pause menu list spine should live inside the editorial list, not on the old left card margin")
 	registry.pause_menu.update(0.20)
-	_expect(registry.pause_menu._get_ringcore_crystal_frame_index() > 0, "ringcore crystal frame should advance from the dedicated pause timer")
-	var crystal_source_rect: Rect2 = registry.pause_menu._get_ringcore_crystal_source_rect(31)
-	_expect(crystal_source_rect.end.x <= 1536.0 and crystal_source_rect.end.y <= 1536.0, "last ringcore frame source rect should stay inside the 6x6 sheet")
-	registry.pause_menu._ringcore_crystal_time = registry.pause_menu._get_ringcore_crystal_loop_seconds() + 0.125
-	_expect(registry.pause_menu._get_ringcore_crystal_frame_index() == 1, "ringcore crystal frame index should wrap inside the 32-frame loop")
+	_expect(registry.pause_menu._main_dial_time > 0.0, "bright pause menu dial timer should advance while paused")
 	var compact_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(Vector2(360.0, 640.0))
-	_expect(not registry.pause_menu._uses_main_split_layout(compact_panel_rect), "narrow pause menu should fall back to the compact centered layout")
+	_expect(compact_panel_rect.position == Vector2.ZERO and compact_panel_rect.size == Vector2(360.0, 640.0), "narrow pause menu should stay on the full-view editorial surface")
 	var pause_source := FileAccess.get_file_as_string("res://scripts/hud/pause_menu_overlay.gd")
-	_expect(pause_source.find("draw_set_transform") < 0, "pause menu ringcore should use a baked sprite sheet instead of immediate-mode transform rotation")
+	_expect(pause_source.find("draw_set_transform") < 0, "bright pause menu dial should avoid texture-quad transform rotation")
+	_expect(pause_source.find("_draw_ringcore_crystal") < 0, "bright pause main should not draw the preserved ringcore crystal asset")
+	_expect(pause_source.find("MAIN_SELECTED_BAR_SKEW") >= 0 and pause_source.find("draw_colored_polygon(bar_points") >= 0, "bright pause main should use a skewed editorial selection bar instead of the old rounded button")
+	_expect(pause_source.find("ProjectResourceLoader.load_texture(\n\t\tMAIN_EDITORIAL_BG_PATH") >= 0, "D2 pause menu should load the editorial background through the project resource loader")
+	var background_body := _source_function_body(pause_source, "func _draw_main_editorial_background")
+	_expect(background_body.find("_draw_main_editorial_base(canvas, panel_rect)") >= 0, "D2 pause menu should draw the editorial background art as the first main-menu layer")
+	_expect(background_body.find("_draw_main_map_texture") < 0, "D2 pause menu should not draw the old procedural map texture in the normal background path")
+	_expect(background_body.find("panel_rect.size.y * 1.06") < 0, "D2 pause menu should remove the duplicate procedural sweeping arc over the background art")
+	_expect(pause_source.find("needle_points") >= 0, "bright pause main should keep the solid compass-star dial motif")
 	var move_count_before := registry.audio.ui_move_count
 	_expect(_press(input, owner, KEY_DOWN), "pause menu down should be handled")
 	_expect(registry.pause_menu.selected_index == 1, "pause menu down should move to the character info entry")
@@ -684,6 +699,16 @@ func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByte
 			file.close()
 		return
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _source_function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\nfunc ", start + signature.length())
+	if next < 0:
+		return source.substr(start)
+	return source.substr(start, next - start)
 
 
 func _expect(condition: bool, message: String) -> void:

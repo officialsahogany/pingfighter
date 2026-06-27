@@ -33,21 +33,22 @@ const VSYNC_MODE_AUTO := -1
 const VSYNC_MODE_DISABLED := 0
 const VSYNC_MODE_ENABLED := 1
 const VSYNC_MODE_MAILBOX := 3
+const MAIN_EDITORIAL_BG_PATH := "res://assets/ui/pause_menu/pause_system_editorial_map_bg_gemini_v1.png"
 
-const RINGCORE_CRYSTAL_SHEET_PATH := "res://assets/ui/pause_menu/ringcore_crystal_turntable_sheet_32f_256_autosprite_v1.png"
-const RINGCORE_CRYSTAL_FRAME_SIZE := Vector2(256.0, 256.0)
-const RINGCORE_CRYSTAL_FRAME_COUNT := 32
-const RINGCORE_CRYSTAL_COLS := 6
-const RINGCORE_CRYSTAL_FPS := 8.0
-
-const MAIN_PANEL_SIZE := Vector2(580.0, 320.0)
 const OPTIONS_PANEL_SIZE := Vector2(900.0, 500.0)
 const BUTTON_SIZE := Vector2(250.0, 48.0)
 const BUTTON_GAP := 14.0
 const TITLE_HEIGHT := 82.0
-const MAIN_SPLIT_MIN_WIDTH := 520.0
-const MAIN_COMMAND_COLUMN_WIDTH := 284.0
-const MAIN_PANEL_SIDE_PADDING := 24.0
+const MAIN_ROW_PITCH := 96.0
+const MAIN_ROW_HEIGHT := 92.0
+const MAIN_ROW_START_RATIO := 0.36
+const MAIN_ROW_BAR_WIDTH_RATIO := 0.62
+const MAIN_LEFT_MARGIN := 92.0
+const MAIN_SELECTED_BAR_HEIGHT := 88.0
+const MAIN_DIAL_ROTATIONS_PER_SECOND := 0.075
+const MAIN_TITLE_LEFT_MARGIN := 10.0
+const MAIN_LIST_ANCHOR_RATIO := 0.25
+const MAIN_SELECTED_BAR_SKEW := 34.0
 const SLIDER_HEIGHT := 10.0
 const SLIDER_HIT_HEIGHT := 34.0
 const SLIDER_HANDLE_RADIUS := 8.0
@@ -83,6 +84,15 @@ const RESONANCE_MAG := Color(0.72, 0.50, 1.00)
 const NEON_GREEN := Color(0.00, 1.00, 0.47)
 const WARM_GOLD := Color(1.00, 0.80, 0.20)
 const TEXT_WARM := Color(0.94, 0.99, 1.00)
+const PAPER_BG := Color(0.93, 0.94, 0.96)
+const INK := Color(0.10, 0.12, 0.16)
+const INK_DIM := Color(0.42, 0.45, 0.52)
+const SELECT_BLUE := Color(0.49, 0.71, 0.90)
+const SELECT_SUBINK := Color(0.10, 0.16, 0.24)
+const GRAPHIC_INK := Color(0.07, 0.08, 0.10)
+const TITLE_ON_GRAPHIC_INK := Color(0.86, 0.89, 0.94)
+const DIAMOND_GRAY := Color(0.55, 0.60, 0.68)
+const SPINE_LINE := Color(0.0, 0.0, 0.0, 0.12)
 
 var active := false
 var options_open := false
@@ -111,8 +121,8 @@ var _selection_slide_time := SELECTION_SLIDE_DURATION
 var _selection_pop_time := SELECTION_POP_DURATION
 var _last_hover_scope := ""
 var _last_hover_index := -1
-var _ringcore_crystal_time := 0.0
-var _ringcore_crystal_texture: Texture2D
+var _main_dial_time := 0.0
+var _main_editorial_bg_texture: Texture2D = null
 
 
 func is_active() -> bool:
@@ -133,10 +143,20 @@ func open() -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
-	_ringcore_crystal_time = 0.0
+	_main_dial_time = 0.0
 	prewarm_assets()
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 	_reset_hover_tracking()
+
+
+func prewarm_assets() -> void:
+	if _main_editorial_bg_texture != null:
+		return
+	_main_editorial_bg_texture = ProjectResourceLoader.load_texture(
+		MAIN_EDITORIAL_BG_PATH,
+		"Pause menu editorial background texture is missing",
+		"Pause menu editorial background texture failed to load"
+	)
 
 
 func close() -> void:
@@ -148,7 +168,7 @@ func close() -> void:
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
-	_ringcore_crystal_time = 0.0
+	_main_dial_time = 0.0
 	_reset_selection_feedback(SELECTION_SCOPE_MAIN, selected_index)
 	_reset_hover_tracking()
 
@@ -172,9 +192,7 @@ func update(delta: float) -> void:
 	if not active:
 		return
 	animation_time += delta
-	var crystal_loop_seconds := _get_ringcore_crystal_loop_seconds()
-	if crystal_loop_seconds > 0.0:
-		_ringcore_crystal_time = fposmod(_ringcore_crystal_time + delta, crystal_loop_seconds)
+	_main_dial_time = fposmod(_main_dial_time + delta, 1.0 / maxf(MAIN_DIAL_ROTATIONS_PER_SECOND, 0.001))
 	_selection_slide_time = minf(SELECTION_SLIDE_DURATION, _selection_slide_time + delta)
 	_selection_pop_time = minf(SELECTION_POP_DURATION, _selection_pop_time + delta)
 
@@ -200,15 +218,15 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	if font == null:
 		return
 	var alpha: float = clamp(animation_time / 0.12, 0.0, 1.0)
-	var panel_rect: Rect2 = _get_active_panel_rect(view_size).grow(-8.0 * (1.0 - alpha))
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
 
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
-	_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0, true, true, PremiumPanelFrame.KIND_MAIN)
 	if options_open:
+		var panel_rect: Rect2 = _get_active_panel_rect(view_size).grow(-8.0 * (1.0 - alpha))
+		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
+		_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0, true, true, PremiumPanelFrame.KIND_MAIN)
 		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry, owner)
 	else:
-		_draw_main_menu(canvas, font, panel_rect, mouse_pos)
+		_draw_main_menu(canvas, font, _get_main_panel_rect(view_size), mouse_pos)
 
 
 func _handle_key_input(key_event: InputEventKey, owner: Object, registry: Object) -> Dictionary:
@@ -1236,21 +1254,6 @@ func _play_ui_feedback(registry: Object, method_name: String) -> void:
 		audio.call(method_name)
 
 
-func prewarm_assets() -> void:
-	_load_ringcore_crystal_texture()
-
-
-func _load_ringcore_crystal_texture() -> Texture2D:
-	if _ringcore_crystal_texture != null:
-		return _ringcore_crystal_texture
-	_ringcore_crystal_texture = ProjectResourceLoader.load_texture(
-		RINGCORE_CRYSTAL_SHEET_PATH,
-		"Missing pause menu ringcore crystal sheet: %s",
-		"Failed to load pause menu ringcore crystal sheet: %s"
-	)
-	return _ringcore_crystal_texture
-
-
 func _adjust_focused_volume(registry: Object, delta: float) -> void:
 	if options_focus == 0:
 		_set_bgm_volume(registry, _get_bgm_volume(registry) + delta)
@@ -1270,59 +1273,196 @@ func _set_volume_from_slider(slider_key: String, mouse_x: float, registry: Objec
 
 
 func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	var title_center_x: float = _get_main_title_center_x(panel_rect)
-	_draw_text_centered(canvas, font, _text("pause.title"), Vector2(title_center_x, panel_rect.position.y + 47.0), 28, Color.WHITE)
-	_draw_text_centered(canvas, font, _text("app.title"), Vector2(title_center_x, panel_rect.position.y + 72.0), 12, TEXT_DIM)
-	if _uses_main_split_layout(panel_rect):
-		_draw_ringcore_crystal(canvas, panel_rect)
+	_draw_main_editorial_background(canvas, panel_rect)
+	_draw_main_editorial_header(canvas, font, panel_rect)
+	_draw_main_editorial_spine(canvas, panel_rect)
 	var entries: Array = _get_main_entries()
+	if entries.is_empty():
+		return
+	var selected_rect := _get_animated_selection_rect(SELECTION_SCOPE_MAIN, panel_rect, selected_index)
+	_draw_main_selected_bar(canvas, font, panel_rect, selected_rect, entries[clampi(selected_index, 0, entries.size() - 1)])
 	for index in range(entries.size()):
-		_draw_button(canvas, font, _get_button_rect(panel_rect, index, entries.size()), str(entries[index].get("label", "")), index == selected_index, mouse_pos)
-	_draw_selection_feedback(canvas, panel_rect, SELECTION_SCOPE_MAIN, selected_index)
+		if index != selected_index:
+			_draw_main_unselected_entry(canvas, font, panel_rect, entries[index], index, mouse_pos)
 
 
-func _draw_ringcore_crystal(canvas: CanvasItem, panel_rect: Rect2) -> void:
-	var crystal_area := _get_main_crystal_area_rect(panel_rect)
-	if crystal_area.size.x <= 1.0 or crystal_area.size.y <= 1.0:
-		return
-	var divider_x := crystal_area.end.x + 12.0
-	_draw_neon_line(
-		canvas,
-		Vector2(divider_x, panel_rect.position.y + 28.0),
-		Vector2(divider_x, panel_rect.end.y - 28.0),
-		Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.36),
-		1.0
+func _draw_main_editorial_background(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	_draw_main_editorial_base(canvas, panel_rect)
+	var top_left := panel_rect.position
+	var wedge_width := minf(panel_rect.size.x * 0.42, 520.0)
+	var wedge_height := minf(panel_rect.size.y * 0.42, 315.0)
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			top_left,
+			top_left + Vector2(wedge_width, 0.0),
+			top_left + Vector2(wedge_width * 0.50, wedge_height * 0.20),
+			top_left + Vector2(wedge_width * 0.23, wedge_height),
+			top_left + Vector2(0.0, wedge_height * 0.93),
+		]),
+		GRAPHIC_INK
 	)
-	PremiumPanelFrame.draw_corner_brackets(
-		canvas,
-		crystal_area.grow(-5.0),
-		Color(RESONANCE_MAG.r, RESONANCE_MAG.g, RESONANCE_MAG.b, 0.40 + _focus_pulse_alpha() * 0.16),
-		1.0,
-		0.46,
-		18.0
-	)
-	var crystal_texture := _load_ringcore_crystal_texture()
-	if crystal_texture == null:
+	var line_color := Color(1.0, 1.0, 1.0, 0.62)
+	canvas.draw_arc(top_left + Vector2(98.0, 68.0), 54.0, 0.16 * PI, 1.08 * PI, 28, line_color, 1.4, true)
+	canvas.draw_line(top_left + Vector2(138.0, 118.0), top_left + Vector2(238.0, 42.0), Color(1.0, 1.0, 1.0, 0.36), 1.2, true)
+	_draw_main_editorial_dial(canvas, panel_rect)
+	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 92.0, panel_rect.size.y - 82.0), 9.0, Color(0.0, 0.0, 0.0, 0.22))
+	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 168.0, 54.0), 6.0, Color(0.0, 0.0, 0.0, 0.16))
+
+
+func _draw_main_editorial_base(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	if _main_editorial_bg_texture == null:
+		prewarm_assets()
+	if _main_editorial_bg_texture != null:
+		canvas.draw_texture_rect(_main_editorial_bg_texture, panel_rect, false)
 		return
-	var draw_rect := _get_main_crystal_draw_rect(panel_rect)
-	if draw_rect.size.x <= 1.0 or draw_rect.size.y <= 1.0:
+	canvas.draw_rect(panel_rect, PAPER_BG)
+	_draw_main_map_texture(canvas, panel_rect)
+
+
+func _draw_main_map_texture(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	var map_color := Color(0.0, 0.0, 0.0, 0.035)
+	var street_color := Color(0.0, 0.0, 0.0, 0.055)
+	var origin := panel_rect.position
+	for i in range(5):
+		var x := origin.x + panel_rect.size.x * (0.36 + float(i) * 0.105)
+		canvas.draw_line(
+			Vector2(x, origin.y + panel_rect.size.y * 0.08),
+			Vector2(x + panel_rect.size.x * 0.08, panel_rect.end.y - panel_rect.size.y * 0.10),
+			map_color,
+			1.0,
+			true
+		)
+	for i in range(4):
+		var y := origin.y + panel_rect.size.y * (0.22 + float(i) * 0.15)
+		canvas.draw_line(
+			Vector2(origin.x + panel_rect.size.x * 0.28, y),
+			Vector2(panel_rect.end.x - panel_rect.size.x * 0.10, y - panel_rect.size.y * 0.05),
+			map_color,
+			1.0,
+			true
+		)
+	var block_origin := origin + Vector2(panel_rect.size.x * 0.63, panel_rect.size.y * 0.31)
+	for i in range(3):
+		var block := Rect2(block_origin + Vector2(float(i) * 42.0, float(i % 2) * 28.0), Vector2(30.0, 20.0))
+		canvas.draw_rect(block, map_color, false, 1.0, true)
+		canvas.draw_line(block.position, block.end, street_color, 1.0, true)
+
+
+func _draw_main_editorial_header(canvas: CanvasItem, font: Font, panel_rect: Rect2) -> void:
+	var title_font := _get_ui_font(true)
+	var title_size := _get_main_title_font_size(panel_rect)
+	var title_pos := panel_rect.position + Vector2(_get_main_title_left_margin(panel_rect), maxf(54.0, panel_rect.size.y * 0.115))
+	canvas.draw_string(title_font, title_pos, "SYSTEM", HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, TITLE_ON_GRAPHIC_INK)
+
+
+func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	var entries: Array = _get_main_entries()
+	if entries.is_empty():
 		return
-	var glow_rect := draw_rect.grow(draw_rect.size.x * 0.08)
-	canvas.draw_texture_rect_region(
-		crystal_texture,
-		glow_rect,
-		_get_ringcore_crystal_source_rect(_get_ringcore_crystal_frame_index()),
-		Color(0.34, 0.86, 1.0, 0.17),
-		false,
+	var x := _get_main_diamond_center_x(panel_rect)
+	var first_rect := _get_main_row_band_rect(panel_rect, 0)
+	var last_rect := _get_main_row_band_rect(panel_rect, entries.size() - 1)
+	canvas.draw_line(
+		Vector2(x, first_rect.get_center().y),
+		Vector2(x, last_rect.get_center().y),
+		SPINE_LINE,
+		1.4,
 		true
 	)
-	canvas.draw_texture_rect_region(
-		crystal_texture,
-		draw_rect,
-		_get_ringcore_crystal_source_rect(_get_ringcore_crystal_frame_index()),
-		Color.WHITE,
-		false,
-		true
+
+
+func _draw_main_editorial_dial(canvas: CanvasItem, panel_rect: Rect2) -> void:
+	var center := panel_rect.position + Vector2(panel_rect.size.x - minf(88.0, panel_rect.size.x * 0.09), maxf(52.0, panel_rect.size.y * 0.10))
+	var radius := clampf(minf(panel_rect.size.x, panel_rect.size.y) * 0.105, 46.0, 84.0)
+	canvas.draw_arc(center, radius, 0.42 * PI, 1.34 * PI, 64, Color(0.0, 0.0, 0.0, 0.72), 2.0, true)
+	canvas.draw_arc(center, radius * 0.56, 0.20 * PI, 0.72 * PI, 36, Color(0.0, 0.0, 0.0, 0.42), 1.6, true)
+	var angle := fposmod(-0.92 * PI + _main_dial_time * MAIN_DIAL_ROTATIONS_PER_SECOND * TAU, TAU)
+	var dir := Vector2(cos(angle), sin(angle))
+	var tangent := dir.rotated(PI * 0.5)
+	var needle_points := PackedVector2Array([
+		center + dir * radius * 1.95,
+		center - dir * radius * 0.24 + tangent * radius * 0.18,
+		center - dir * radius * 0.08,
+		center - dir * radius * 0.24 - tangent * radius * 0.18,
+	])
+	canvas.draw_colored_polygon(needle_points, INK)
+	var tail_points := PackedVector2Array([
+		center - dir * radius * 0.05,
+		center - dir * radius * 0.78 + tangent * radius * 0.13,
+		center - dir * radius * 0.52 - tangent * radius * 0.12,
+	])
+	canvas.draw_colored_polygon(tail_points, INK)
+	canvas.draw_circle(center + Vector2(0.0, radius * 0.42), maxf(3.0, radius * 0.055), INK)
+
+
+func _draw_main_selected_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, selection_rect: Rect2, entry: Dictionary) -> void:
+	if not _has_feedback_rect(selection_rect):
+		return
+	var bar_rect := _get_main_selection_bar_rect(selection_rect)
+	var pop_amount := 0.0
+	var flash_alpha := 0.0
+	if _selection_feedback_scope == SELECTION_SCOPE_MAIN and _selection_pop_time < SELECTION_POP_DURATION:
+		var pop_t := clampf(_selection_pop_time / SELECTION_POP_DURATION, 0.0, 1.0)
+		pop_amount = sin(pop_t * PI) * SELECTION_POP_SCALE
+		flash_alpha = 0.20 * (1.0 - pop_t)
+	if pop_amount > 0.0:
+		var height_extra := bar_rect.size.y * pop_amount
+		bar_rect.position.y -= height_extra * 0.5
+		bar_rect.size.y += height_extra
+		bar_rect.size.x *= 1.0 + pop_amount
+	var skew := clampf(bar_rect.size.y * 0.42, 22.0, MAIN_SELECTED_BAR_SKEW)
+	var bar_points := PackedVector2Array([
+		Vector2(bar_rect.position.x - skew, bar_rect.position.y),
+		Vector2(bar_rect.end.x - skew * 0.18, bar_rect.position.y),
+		Vector2(bar_rect.end.x + skew, bar_rect.end.y),
+		Vector2(bar_rect.position.x + skew * 0.22, bar_rect.end.y),
+	])
+	canvas.draw_colored_polygon(bar_points, SELECT_BLUE)
+	var outline := PackedVector2Array(bar_points)
+	outline.append(bar_points[0])
+	canvas.draw_polyline(outline, Color(1.0, 1.0, 1.0, 0.24), 1.2, true)
+	if flash_alpha > 0.0:
+		canvas.draw_colored_polygon(bar_points, Color(1.0, 1.0, 1.0, flash_alpha))
+	var en_text := str(entry.get("en", ""))
+	var en_font := _get_ui_font(true)
+	var en_size := _get_main_entry_selected_font_size(bar_rect)
+	var en_text_size := en_font.get_string_size(en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size)
+	var en_center_x := bar_rect.position.x + bar_rect.size.x * (0.43 if _should_show_main_local_label() else 0.50)
+	var en_x := clampf(en_center_x - en_text_size.x * 0.5, bar_rect.position.x + 72.0, bar_rect.end.x - en_text_size.x - 54.0)
+	var en_pos := Vector2(en_x, bar_rect.get_center().y + float(en_size) * 0.36)
+	canvas.draw_string(en_font, en_pos, en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, Color.WHITE)
+	if _should_show_main_local_label():
+		var local_text := str(entry.get("label", ""))
+		var local_font := _get_text_draw_font(font, local_text)
+		var local_size := _get_main_entry_local_font_size(bar_rect)
+		var local_text_size := local_font.get_string_size(local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size)
+		var local_x := bar_rect.end.x - local_text_size.x - 44.0
+		if local_x > en_pos.x + en_text_size.x + 20.0 and local_x + local_text_size.x <= bar_rect.end.x - 24.0:
+			canvas.draw_string(local_font, Vector2(local_x, bar_rect.get_center().y + float(local_size) * 0.35), local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size, SELECT_SUBINK)
+
+
+func _draw_main_unselected_entry(canvas: CanvasItem, font: Font, panel_rect: Rect2, entry: Dictionary, index: int, mouse_pos: Vector2) -> void:
+	var band_rect := _get_main_row_band_rect(panel_rect, index)
+	var center_y := band_rect.get_center().y
+	var hovered := band_rect.has_point(mouse_pos)
+	var diamond_color := Color(DIAMOND_GRAY.r, DIAMOND_GRAY.g, DIAMOND_GRAY.b, 0.95 if hovered else 0.74)
+	_draw_main_sparkle(canvas, Vector2(_get_main_diamond_center_x(panel_rect), center_y), 7.0 if hovered else 6.0, diamond_color)
+	var en_text := str(entry.get("en", ""))
+	var en_font := _get_ui_font(true)
+	var en_size := _get_main_entry_idle_font_size(panel_rect)
+	var color := INK if hovered else Color(INK.r, INK.g, INK.b, 0.78 - float(index) * 0.08)
+	canvas.draw_string(en_font, Vector2(_get_main_unselected_text_x(panel_rect), center_y + float(en_size) * 0.34), en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, color)
+
+
+func _draw_main_sparkle(canvas: CanvasItem, center: Vector2, radius: float, color: Color) -> void:
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			center + Vector2(0.0, -radius),
+			center + Vector2(radius * 0.56, 0.0),
+			center + Vector2(0.0, radius),
+			center + Vector2(-radius * 0.56, 0.0),
+		]),
+		color
 	)
 
 
@@ -1964,18 +2104,11 @@ func _get_options_feedback_scope() -> String:
 
 
 func _draw_selection_feedback(canvas: CanvasItem, panel_rect: Rect2, scope: String, current_index: int) -> void:
-	var target_rect: Rect2 = _get_selection_feedback_rect(panel_rect, scope, current_index)
-	if not _has_feedback_rect(target_rect):
+	if scope == SELECTION_SCOPE_MAIN:
 		return
-
-	var draw_rect := target_rect
-	if _selection_feedback_scope == scope and _selection_slide_time < SELECTION_SLIDE_DURATION:
-		var from_rect: Rect2 = _get_selection_feedback_rect(panel_rect, scope, _selection_from_index)
-		var to_rect: Rect2 = _get_selection_feedback_rect(panel_rect, scope, _selection_to_index)
-		if _has_feedback_rect(from_rect) and _has_feedback_rect(to_rect):
-			var slide_t: float = clampf(_selection_slide_time / SELECTION_SLIDE_DURATION, 0.0, 1.0)
-			draw_rect = _lerp_rect(from_rect, to_rect, _ease_out_back(slide_t))
-
+	var draw_rect := _get_animated_selection_rect(scope, panel_rect, current_index)
+	if not _has_feedback_rect(draw_rect):
+		return
 	var pop_amount := 0.0
 	var flash_alpha := 0.0
 	if _selection_feedback_scope == scope and _selection_pop_time < SELECTION_POP_DURATION:
@@ -1996,7 +2129,7 @@ func _get_selection_feedback_rect(panel_rect: Rect2, scope: String, index: int) 
 		var entries: Array = _get_main_entries()
 		if entries.is_empty():
 			return Rect2()
-		return _get_button_rect(panel_rect, clampi(index, 0, entries.size() - 1), entries.size())
+		return _get_main_row_band_rect(panel_rect, clampi(index, 0, entries.size() - 1))
 	if not scope.begins_with("options:"):
 		return Rect2()
 	var parts := scope.split(":")
@@ -2177,72 +2310,106 @@ func _draw_text_in_rect(canvas: CanvasItem, font: Font, text: String, rect: Rect
 	canvas.draw_string(draw_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size, color)
 
 
-func _uses_main_split_layout(panel_rect: Rect2) -> bool:
-	return panel_rect.size.x >= MAIN_SPLIT_MIN_WIDTH
-
-
-func _get_main_title_center_x(panel_rect: Rect2) -> float:
-	if not _uses_main_split_layout(panel_rect):
-		return panel_rect.get_center().x
-	return _get_main_command_column_rect(panel_rect).get_center().x
-
-
-func _get_main_command_column_rect(panel_rect: Rect2) -> Rect2:
-	if not _uses_main_split_layout(panel_rect):
-		return panel_rect
-	var width: float = minf(MAIN_COMMAND_COLUMN_WIDTH, maxf(BUTTON_SIZE.x, panel_rect.size.x - MAIN_PANEL_SIDE_PADDING * 2.0))
-	return Rect2(
-		Vector2(panel_rect.end.x - MAIN_PANEL_SIDE_PADDING - width, panel_rect.position.y),
-		Vector2(width, panel_rect.size.y)
-	)
-
-
-func _get_main_crystal_area_rect(panel_rect: Rect2) -> Rect2:
-	if not _uses_main_split_layout(panel_rect):
-		return Rect2()
-	var command_rect := _get_main_command_column_rect(panel_rect)
-	var area_x := panel_rect.position.x + MAIN_PANEL_SIDE_PADDING
-	var area_width := maxf(1.0, command_rect.position.x - area_x - 28.0)
-	return Rect2(
-		Vector2(area_x, panel_rect.position.y + TITLE_HEIGHT + 4.0),
-		Vector2(area_width, maxf(1.0, panel_rect.size.y - TITLE_HEIGHT - 34.0))
-	)
-
-
-func _get_main_crystal_draw_rect(panel_rect: Rect2) -> Rect2:
-	var area := _get_main_crystal_area_rect(panel_rect)
-	if area.size.x <= 1.0 or area.size.y <= 1.0:
-		return Rect2()
-	var size := minf(minf(area.size.x - 16.0, area.size.y - 18.0), 174.0)
-	size = maxf(1.0, size)
-	return Rect2(area.get_center() - Vector2(size, size) * 0.5, Vector2(size, size))
-
-
-func _get_ringcore_crystal_loop_seconds() -> float:
-	return float(RINGCORE_CRYSTAL_FRAME_COUNT) / maxf(RINGCORE_CRYSTAL_FPS, 0.001)
-
-
-func _get_ringcore_crystal_frame_index() -> int:
-	return posmod(int(floor(_ringcore_crystal_time * RINGCORE_CRYSTAL_FPS)), RINGCORE_CRYSTAL_FRAME_COUNT)
-
-
-func _get_ringcore_crystal_source_rect(frame_index: int) -> Rect2:
-	var safe_frame := posmod(frame_index, RINGCORE_CRYSTAL_FRAME_COUNT)
-	var col := safe_frame % RINGCORE_CRYSTAL_COLS
-	var row := int(floor(float(safe_frame) / float(RINGCORE_CRYSTAL_COLS)))
-	return Rect2(
-		Vector2(float(col) * RINGCORE_CRYSTAL_FRAME_SIZE.x, float(row) * RINGCORE_CRYSTAL_FRAME_SIZE.y),
-		RINGCORE_CRYSTAL_FRAME_SIZE
-	)
-
-
 func _get_active_panel_rect(view_size: Vector2) -> Rect2:
 	return _get_options_panel_rect(view_size) if options_open else _get_main_panel_rect(view_size)
 
 
 func _get_main_panel_rect(view_size: Vector2) -> Rect2:
-	var size := Vector2(min(MAIN_PANEL_SIZE.x, max(280.0, view_size.x - 28.0)), min(MAIN_PANEL_SIZE.y, max(260.0, view_size.y - 28.0)))
-	return Rect2((view_size - size) * 0.5, size)
+	return Rect2(Vector2.ZERO, view_size)
+
+
+func _get_animated_selection_rect(scope: String, panel_rect: Rect2, current_index: int) -> Rect2:
+	var draw_rect := _get_selection_feedback_rect(panel_rect, scope, current_index)
+	if not _has_feedback_rect(draw_rect):
+		return Rect2()
+	if _selection_feedback_scope == scope and _selection_slide_time < SELECTION_SLIDE_DURATION:
+		var from_rect := _get_selection_feedback_rect(panel_rect, scope, _selection_from_index)
+		var to_rect := _get_selection_feedback_rect(panel_rect, scope, _selection_to_index)
+		if _has_feedback_rect(from_rect) and _has_feedback_rect(to_rect):
+			var slide_t: float = clampf(_selection_slide_time / SELECTION_SLIDE_DURATION, 0.0, 1.0)
+			draw_rect = _lerp_rect(from_rect, to_rect, _ease_out_back(slide_t))
+	return draw_rect
+
+
+func _get_main_row_pitch(panel_rect: Rect2) -> float:
+	return clampf(panel_rect.size.y * 0.135, 64.0, MAIN_ROW_PITCH)
+
+
+func _get_main_row_height(panel_rect: Rect2) -> float:
+	return minf(MAIN_ROW_HEIGHT, maxf(50.0, _get_main_row_pitch(panel_rect) - 4.0))
+
+
+func _get_main_row_start_y(panel_rect: Rect2) -> float:
+	var entries_count: int = maxi(1, _get_main_entries().size())
+	var pitch := _get_main_row_pitch(panel_rect)
+	var height := _get_main_row_height(panel_rect)
+	var total_height := height + pitch * float(maxi(0, entries_count - 1))
+	var minimum_start := minf(142.0, maxf(36.0, panel_rect.size.y * 0.18))
+	var maximum_start := maxf(minimum_start, panel_rect.size.y - total_height - 48.0)
+	var preferred_start := panel_rect.size.y * MAIN_ROW_START_RATIO
+	return clampf(preferred_start, minimum_start, maximum_start)
+
+
+func _get_main_bar_width(panel_rect: Rect2) -> float:
+	var minimum_width := minf(260.0, panel_rect.size.x)
+	var maximum_width := maxf(minimum_width, panel_rect.size.x - 24.0)
+	return clampf(panel_rect.size.x * MAIN_ROW_BAR_WIDTH_RATIO, minimum_width, maximum_width)
+
+
+func _get_main_row_band_rect(panel_rect: Rect2, index: int) -> Rect2:
+	var pitch := _get_main_row_pitch(panel_rect)
+	var height := _get_main_row_height(panel_rect)
+	var y := panel_rect.position.y + _get_main_row_start_y(panel_rect) + float(index) * pitch
+	return Rect2(Vector2(panel_rect.position.x, y), Vector2(_get_main_bar_width(panel_rect), height))
+
+
+func _get_main_selection_bar_rect(selection_rect: Rect2) -> Rect2:
+	var height := minf(MAIN_SELECTED_BAR_HEIGHT, maxf(50.0, selection_rect.size.y + 6.0))
+	return Rect2(Vector2(0.0, selection_rect.get_center().y - height * 0.5), Vector2(maxf(selection_rect.size.x, 1.0), height))
+
+
+func _get_main_left_margin(panel_rect: Rect2) -> float:
+	return clampf(panel_rect.size.x * 0.072, 36.0, MAIN_LEFT_MARGIN)
+
+
+func _get_main_title_left_margin(panel_rect: Rect2) -> float:
+	return clampf(panel_rect.size.x * 0.012, 8.0, MAIN_TITLE_LEFT_MARGIN)
+
+
+func _get_main_list_anchor_x(panel_rect: Rect2) -> float:
+	return clampf(panel_rect.size.x * MAIN_LIST_ANCHOR_RATIO, 180.0, 270.0)
+
+
+func _get_main_diamond_center_x(panel_rect: Rect2) -> float:
+	return _get_main_list_anchor_x(panel_rect)
+
+
+func _get_main_unselected_text_x(panel_rect: Rect2) -> float:
+	return _get_main_diamond_center_x(panel_rect) + 18.0
+
+
+func _get_main_title_font_size(panel_rect: Rect2) -> int:
+	return int(clampf(panel_rect.size.x * 0.060, 42.0, 66.0))
+
+
+func _get_main_subtitle_font_size(panel_rect: Rect2) -> int:
+	return int(clampf(panel_rect.size.x * 0.013, 13.0, 18.0))
+
+
+func _get_main_entry_selected_font_size(rect: Rect2) -> int:
+	return int(clampf(rect.size.y * 0.58, 38.0, 54.0))
+
+
+func _get_main_entry_local_font_size(rect: Rect2) -> int:
+	return int(clampf(rect.size.y * 0.24, 16.0, 22.0))
+
+
+func _get_main_entry_idle_font_size(panel_rect: Rect2) -> int:
+	return int(clampf(panel_rect.size.x * 0.026, 20.0, 32.0))
+
+
+func _should_show_main_local_label() -> bool:
+	return LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH
 
 
 func _get_options_panel_rect(view_size: Vector2) -> Rect2:
@@ -2271,11 +2438,11 @@ func _get_reset_button_rect(panel_rect: Rect2) -> Rect2:
 
 
 func _get_button_rect(panel_rect: Rect2, index: int, count: int) -> Rect2:
+	if count == _get_main_entries().size():
+		return _get_main_row_band_rect(panel_rect, clampi(index, 0, maxi(0, count - 1)))
 	var total_height: float = BUTTON_SIZE.y * float(count) + BUTTON_GAP * float(max(0, count - 1))
 	var start_y: float = panel_rect.position.y + TITLE_HEIGHT + (panel_rect.size.y - TITLE_HEIGHT - total_height) * 0.5
 	var button_center_x := panel_rect.get_center().x
-	if count == _get_main_entries().size() and _uses_main_split_layout(panel_rect):
-		button_center_x = _get_main_command_column_rect(panel_rect).get_center().x
 	return Rect2(
 		Vector2(button_center_x - BUTTON_SIZE.x * 0.5, start_y + float(index) * (BUTTON_SIZE.y + BUTTON_GAP)),
 		BUTTON_SIZE
@@ -2463,9 +2630,9 @@ func _get_control_mapping_rows() -> Array:
 
 func _get_main_entries() -> Array:
 	return [
-		{"label": _text("pause.continue"), "action": MENU_CONTINUE},
-		{"label": _text("pause.character_info"), "action": MENU_CHARACTER_INFO},
-		{"label": _text("pause.options"), "action": MENU_OPTIONS},
+		{"en": "RESUME", "label": _text("pause.continue"), "action": MENU_CONTINUE},
+		{"en": "STATUS", "label": _text("pause.character_info"), "action": MENU_CHARACTER_INFO},
+		{"en": "SETTINGS", "label": _text("pause.options"), "action": MENU_OPTIONS},
 	]
 
 
