@@ -280,6 +280,18 @@ func _init() -> void:
 	_expect(background_body.find("_draw_main_map_texture") < 0, "D2 pause menu should not draw the old procedural map texture in the normal background path")
 	_expect(background_body.find("panel_rect.size.y * 1.06") < 0, "D2 pause menu should remove the duplicate procedural sweeping arc over the background art")
 	_expect(pause_source.find("needle_points") >= 0, "bright pause main should keep the solid compass-star dial motif")
+	# --- D-options bright editorial re-skin seals ---
+	_expect(registry.pause_menu.OPT_PANEL.r > 0.85 and registry.pause_menu.OPT_CARD.r > 0.9 and registry.pause_menu.OPT_TRACK.r > 0.7, "D-options should use bright light surface tokens")
+	var draw_body := _source_function_body(pause_source, "func draw(")
+	_expect(draw_body.find("_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size))") >= 0, "D-options should draw the shared bright editorial base instead of the dark dim panel")
+	_expect(draw_body.find("0.0, 0.0, 0.0, 0.58") < 0, "D-options should not draw the old black dim behind the options panel")
+	_expect(draw_body.find("OPT_PANEL") >= 0, "D-options should draw the light content panel token")
+	var options_window_body := _source_function_body(pause_source, "func _draw_options_window")
+	_expect(options_window_body.find("_draw_scanlines") < 0, "D-options should drop the dark HUD scanlines")
+	var opt_button_body := _source_function_body(pause_source, "func _draw_button")
+	_expect(opt_button_body.find("OPT_CARD") >= 0 and opt_button_body.find("SELECT_BLUE") >= 0 and opt_button_body.find("BUTTON_COLOR") < 0, "D-options buttons should use bright tokens, not the dark button fill")
+	var opt_tab_body := _source_function_body(pause_source, "func _draw_tab(")
+	_expect(opt_tab_body.find("SELECT_BLUE") >= 0 and opt_tab_body.find("BUTTON_SELECTED") < 0, "D-options tabs should use the bright blue active token")
 	var move_count_before := registry.audio.ui_move_count
 	_expect(_press(input, owner, KEY_DOWN), "pause menu down should be handled")
 	_expect(registry.pause_menu.selected_index == 1, "pause menu down should move to the character info entry")

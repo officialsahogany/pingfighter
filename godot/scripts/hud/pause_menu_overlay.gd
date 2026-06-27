@@ -94,6 +94,14 @@ const GRAPHIC_INK := Color(0.07, 0.08, 0.10)
 const TITLE_ON_GRAPHIC_INK := Color(0.86, 0.89, 0.94)
 const DIAMOND_GRAY := Color(0.55, 0.60, 0.68)
 const SPINE_LINE := Color(0.0, 0.0, 0.0, 0.12)
+# D-options bright editorial tokens (options pages only; dark tokens above stay for any dark reuse).
+const OPT_PANEL := Color(0.95, 0.96, 0.98, 0.96)
+const OPT_HEADER := Color(0.90, 0.92, 0.96, 0.92)
+const OPT_CARD := Color(0.985, 0.99, 1.0, 0.96)
+const OPT_CARD_HOVER := Color(0.90, 0.94, 0.99, 0.98)
+const OPT_BORDER := Color(0.10, 0.12, 0.16, 0.18)
+const OPT_TRACK := Color(0.84, 0.87, 0.91)
+const OPT_CHECK_ON := Color(0.20, 0.62, 0.42)
 
 var active := false
 var options_open := false
@@ -223,8 +231,8 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 
 	if options_open:
 		var panel_rect: Rect2 = _get_active_panel_rect(view_size).grow(-8.0 * (1.0 - alpha))
-		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
-		_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0, true, true, PremiumPanelFrame.KIND_MAIN)
+		_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size))
+		_draw_panel(canvas, panel_rect, OPT_PANEL, OPT_BORDER, 1.0, false, false, PremiumPanelFrame.KIND_SECTION)
 		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry, owner)
 	else:
 		_draw_main_menu(canvas, font, _get_main_panel_rect(view_size), mouse_pos)
@@ -1468,8 +1476,8 @@ func _draw_main_sparkle(canvas: CanvasItem, center: Vector2, radius: float, colo
 
 func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
 	_draw_options_header(canvas, panel_rect)
-	_draw_neon_line(canvas, panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), NEON_CYAN, 1.5)
-	_draw_text(canvas, font, _text("settings.title"), panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
+	_draw_neon_line(canvas, panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.60), 1.5)
+	_draw_text(canvas, font, _text("settings.title"), panel_rect.position + Vector2(28.0, 40.0), 24, INK)
 	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), _text("settings.tab.sound"), options_tab == OPTIONS_TAB_SOUND, "sound")
 	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), _text("settings.tab.display"), options_tab == OPTIONS_TAB_DISPLAY, "display")
 	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), _text("settings.tab.controls"), options_tab == OPTIONS_TAB_CONTROLS, "controls")
@@ -1477,8 +1485,7 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	_draw_button(canvas, font, _get_reset_button_rect(panel_rect), _text("settings.reset", "초기화"), false, mouse_pos)
 
 	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
-	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0, false, false, PremiumPanelFrame.KIND_SECTION)
-	_draw_scanlines(canvas, content_rect)
+	_draw_panel(canvas, content_rect, OPT_CARD, OPT_BORDER, 1.0, false, false, PremiumPanelFrame.KIND_SECTION)
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry, owner)
 	elif options_tab == OPTIONS_TAB_CONTROLS:
@@ -1499,27 +1506,26 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 func _draw_options_header(canvas: CanvasItem, panel_rect: Rect2) -> void:
 	var top_rect := Rect2(panel_rect.position + Vector2(12.0, 3.0), Vector2(maxf(0.0, panel_rect.size.x - 24.0), 59.0))
 	var body_rect := Rect2(panel_rect.position + Vector2(3.0, 12.0), Vector2(maxf(0.0, panel_rect.size.x - 6.0), 50.0))
-	canvas.draw_rect(top_rect, HEADER_COLOR)
-	canvas.draw_rect(body_rect, HEADER_COLOR)
+	canvas.draw_rect(top_rect, OPT_HEADER)
+	canvas.draw_rect(body_rect, OPT_HEADER)
 
 
 func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool, icon_kind: String = "") -> void:
 	var draw_rect := rect
 	if active_tab:
 		draw_rect.position.y -= 2.0
-	var fill := BUTTON_SELECTED if active_tab else BUTTON_COLOR
-	var border := NEON_CYAN_HOT if active_tab else BUTTON_BORDER
+	var fill := SELECT_BLUE if active_tab else OPT_CARD
+	var border := SELECT_BLUE if active_tab else OPT_BORDER
 	_draw_panel(canvas, draw_rect, fill, border, 1.0)
 	if active_tab:
-		_draw_neon_line(canvas, Vector2(draw_rect.position.x + 4.0, draw_rect.end.y), Vector2(draw_rect.end.x - 4.0, draw_rect.end.y), NEON_CYAN, 1.2)
-		canvas.draw_line(draw_rect.position + Vector2(4.0, 1.0), Vector2(draw_rect.end.x - 4.0, draw_rect.position.y + 1.0), RESONANCE_MAG, 1.0)
+		_draw_neon_line(canvas, Vector2(draw_rect.position.x + 4.0, draw_rect.end.y), Vector2(draw_rect.end.x - 4.0, draw_rect.end.y), SELECT_BLUE, 1.2)
 	var label_rect := draw_rect
 	if not icon_kind.is_empty():
 		var icon_rect := Rect2(draw_rect.position + Vector2(10.0, (draw_rect.size.y - 18.0) * 0.5), Vector2(18.0, 18.0))
-		var icon_color := NEON_CYAN_HOT if active_tab else Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.60)
+		var icon_color := Color.WHITE if active_tab else INK_DIM
 		_draw_tab_icon(canvas, icon_kind, icon_rect, icon_color)
 		label_rect = Rect2(draw_rect.position + Vector2(29.0, 0.0), Vector2(maxf(0.0, draw_rect.size.x - 31.0), draw_rect.size.y))
-	_draw_text_in_rect(canvas, font, label, label_rect, 15, Color.WHITE)
+	_draw_text_in_rect(canvas, font, label, label_rect, 15, Color.WHITE if active_tab else INK)
 
 
 func _draw_tab_icon(canvas: CanvasItem, kind: String, icon_rect: Rect2, color: Color) -> void:
@@ -1589,26 +1595,26 @@ func _draw_volume_slider(
 ) -> void:
 	var slider_rect: Rect2 = _get_slider_rect_from_panel(slider_key, panel_rect)
 	var row_center_y: float = slider_rect.get_center().y
-	_draw_text(canvas, font, label, Vector2(panel_rect.position.x + 54.0, row_center_y + 7.0), 18, Color.WHITE)
-	canvas.draw_rect(slider_rect, SLIDER_BACK)
+	_draw_text(canvas, font, label, Vector2(panel_rect.position.x + 54.0, row_center_y + 7.0), 18, INK)
+	canvas.draw_rect(slider_rect, OPT_TRACK)
 	var fill_rect := Rect2(slider_rect.position, Vector2(slider_rect.size.x * clampf(value, 0.0, 1.0), slider_rect.size.y))
 	canvas.draw_rect(fill_rect, accent)
 	var handle_x: float = slider_rect.position.x + slider_rect.size.x * clampf(value, 0.0, 1.0)
-	var handle_color := Color.WHITE if focused or _get_slider_hit_rect_from_panel(slider_key, panel_rect).has_point(mouse_pos) else Color(215.0 / 255.0, 220.0 / 255.0, 230.0 / 255.0)
+	var handle_color := SELECT_BLUE if focused or _get_slider_hit_rect_from_panel(slider_key, panel_rect).has_point(mouse_pos) else Color(0.45, 0.50, 0.58)
 	canvas.draw_circle(Vector2(handle_x, row_center_y), SLIDER_HANDLE_RADIUS + (2.0 if focused else 0.0), handle_color)
 	var percent := "%d%%" % int(round(value * 100.0))
-	_draw_text(canvas, font, percent, Vector2(slider_rect.end.x + 18.0, row_center_y + 6.0), 15, accent)
+	_draw_text(canvas, font, percent, Vector2(slider_rect.end.x + 18.0, row_center_y + 6.0), 15, INK)
 
 
 func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
 	var label_pos := panel_rect.position + Vector2(54.0, 137.0)
-	_draw_text(canvas, font, _text("display.mode"), label_pos, 19, Color.WHITE)
+	_draw_text(canvas, font, _text("display.mode"), label_pos, 19, INK)
 	_draw_mode_pill(canvas, font, _get_display_fullscreen_rect(panel_rect), _text("display.mode.fullscreen"), display_mode == DISPLAY_MODE_FULLSCREEN, options_focus == 0, mouse_pos)
 	_draw_mode_pill(canvas, font, _get_display_exclusive_fullscreen_rect(panel_rect), _text("display.mode.exclusive"), display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN, options_focus == 0, mouse_pos)
 	_draw_mode_pill(canvas, font, _get_display_windowed_rect(panel_rect), _text("display.mode.windowed"), display_mode == DISPLAY_MODE_WINDOWED, options_focus == 0, mouse_pos)
 
 	var desc := _get_display_mode_description()
-	_draw_text(canvas, font, desc, panel_rect.position + Vector2(280.0, 162.0), 13, TEXT_DIM)
+	_draw_text(canvas, font, desc, panel_rect.position + Vector2(280.0, 162.0), 13, INK_DIM)
 
 	var fps_row_rect: Rect2 = _get_display_fps_cap_row_rect(panel_rect)
 	var fps_value_rect: Rect2 = _get_display_fps_cap_value_rect(panel_rect)
@@ -1673,7 +1679,7 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 
 
 func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	_draw_text(canvas, font, _text("controls.device"), panel_rect.position + Vector2(54.0, 137.0), 19, Color.WHITE)
+	_draw_text(canvas, font, _text("controls.device"), panel_rect.position + Vector2(54.0, 137.0), 19, INK)
 	_draw_mode_pill(
 		canvas,
 		font,
@@ -1718,7 +1724,7 @@ func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 
 
 func _draw_language_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	_draw_text(canvas, font, _text("language.title"), panel_rect.position + Vector2(54.0, 137.0), 19, Color.WHITE)
+	_draw_text(canvas, font, _text("language.title"), panel_rect.position + Vector2(54.0, 137.0), 19, INK)
 	_draw_mode_pill(
 		canvas,
 		font,
@@ -1783,7 +1789,7 @@ func _draw_language_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 		mouse_pos
 	)
 	var current_name := LanguageSettings.get_native_language_name(language_code)
-	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 260.0), 18, Color.WHITE)
+	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 260.0), 18, INK)
 	_draw_recommendation_block(canvas, font, _get_language_note_rect(panel_rect), _text("language.subtitle"))
 	_draw_button(canvas, font, _get_language_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 7, mouse_pos)
 
@@ -1795,12 +1801,12 @@ func _get_vibration_level_label(level: int = 0) -> String:
 
 
 func _draw_control_mapping_row(canvas: CanvasItem, font: Font, rect: Rect2, label: String, value: String) -> void:
-	_draw_panel(canvas, rect, Color(26.0 / 255.0, 34.0 / 255.0, 50.0 / 255.0, 0.88), Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.28), 1.0)
+	_draw_panel(canvas, rect, OPT_CARD, OPT_BORDER, 1.0)
 	var label_size: int = 16 if rect.size.y >= 34.0 else 14
 	var value_size: int = 15 if rect.size.y >= 34.0 else 13
 	var baseline_y: float = minf(27.0, rect.size.y - 8.0)
-	_draw_text(canvas, font, label, rect.position + Vector2(18.0, baseline_y), label_size, Color.WHITE)
-	_draw_text(canvas, font, value, rect.position + Vector2(220.0, baseline_y), value_size, Color(218.0 / 255.0, 230.0 / 255.0, 244.0 / 255.0))
+	_draw_text(canvas, font, label, rect.position + Vector2(18.0, baseline_y), label_size, INK)
+	_draw_text(canvas, font, value, rect.position + Vector2(220.0, baseline_y), value_size, INK_DIM)
 
 
 func _draw_mode_pill(
@@ -1813,12 +1819,12 @@ func _draw_mode_pill(
 	mouse_pos: Vector2
 ) -> void:
 	var hovered: bool = rect.has_point(mouse_pos)
-	var fill := BUTTON_SELECTED if selected else BUTTON_COLOR
-	if hovered:
-		fill = BUTTON_HOVER
-	var border := NEON_CYAN_HOT if hovered else (ACCENT_BLUE if selected or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42))
+	var fill := SELECT_BLUE if selected else OPT_CARD
+	if hovered and not selected:
+		fill = OPT_CARD_HOVER
+	var border := SELECT_BLUE if selected or focused or hovered else OPT_BORDER
 	_draw_panel(canvas, rect, fill, border, 2.0 if selected or focused else 1.0)
-	_draw_text_in_rect(canvas, font, label, rect, 17, Color.WHITE)
+	_draw_text_in_rect(canvas, font, label, rect, 17, Color.WHITE if selected else INK)
 
 
 func _draw_setting_select_row(
@@ -1832,18 +1838,16 @@ func _draw_setting_select_row(
 	mouse_pos: Vector2
 ) -> void:
 	var hovered: bool = row_rect.has_point(mouse_pos)
-	var fill := Color(25.0 / 255.0, 33.0 / 255.0, 50.0 / 255.0, 0.94)
-	if hovered or focused:
-		fill = Color(31.0 / 255.0, 43.0 / 255.0, 64.0 / 255.0, 0.98)
-	var border := NEON_CYAN_HOT if hovered else (ACCENT_BLUE if focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.24))
+	var fill := OPT_CARD_HOVER if hovered or focused else OPT_CARD
+	var border := SELECT_BLUE if hovered or focused else OPT_BORDER
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
-	_draw_text(canvas, font, label, row_rect.position + Vector2(18.0, 29.0), 16, Color.WHITE)
-	_draw_panel(canvas, value_rect, BUTTON_COLOR, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.48), 1.0)
+	_draw_text(canvas, font, label, row_rect.position + Vector2(18.0, 29.0), 16, INK)
+	_draw_panel(canvas, value_rect, OPT_TRACK, OPT_BORDER, 1.0)
 	var chevrons := _get_select_chevron_rects(value_rect)
 	var left_rect: Rect2 = chevrons["left"]
 	var right_rect: Rect2 = chevrons["right"]
-	var left_color := NEON_CYAN_HOT if left_rect.has_point(mouse_pos) else NEON_CYAN
-	var right_color := NEON_CYAN_HOT if right_rect.has_point(mouse_pos) else NEON_CYAN
+	var left_color := INK if left_rect.has_point(mouse_pos) else SELECT_BLUE
+	var right_color := INK if right_rect.has_point(mouse_pos) else SELECT_BLUE
 	var left_center := Vector2(value_rect.position.x + 14.0, value_rect.get_center().y)
 	var right_center := Vector2(value_rect.end.x - 14.0, value_rect.get_center().y)
 	canvas.draw_colored_polygon(
@@ -1862,7 +1866,7 @@ func _draw_setting_select_row(
 		]),
 		right_color
 	)
-	_draw_text_in_rect(canvas, font, value, value_rect, 15, Color.WHITE)
+	_draw_text_in_rect(canvas, font, value, value_rect, 15, INK)
 	if focused:
 		_draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
 
@@ -1880,43 +1884,41 @@ func _draw_toggle_setting_row(
 	muted: bool = false
 ) -> void:
 	var hovered: bool = row_rect.has_point(mouse_pos)
-	var fill := Color(24.0 / 255.0, 31.0 / 255.0, 46.0 / 255.0, 0.90)
-	if hovered or focused:
-		fill = Color(30.0 / 255.0, 42.0 / 255.0, 62.0 / 255.0, 0.96)
-	var border := ACCENT_BLUE if hovered or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.20)
+	var fill := OPT_CARD_HOVER if hovered or focused else OPT_CARD
+	var border := SELECT_BLUE if hovered or focused else OPT_BORDER
 	_draw_panel(canvas, row_rect, fill, border, 1.0)
-	var checkbox_fill := Color(0.0, 0.24, 0.14, 0.95) if enabled else Color(0.02, 0.05, 0.08, 0.95)
-	var checkbox_border := NEON_GREEN if enabled else Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.72)
+	var checkbox_fill := OPT_CHECK_ON if enabled else Color(0.90, 0.92, 0.95)
+	var checkbox_border := OPT_CHECK_ON if enabled else OPT_BORDER
 	_draw_panel(canvas, checkbox_rect, checkbox_fill, checkbox_border, 1.0)
 	if enabled:
 		var center := checkbox_rect.get_center()
-		canvas.draw_line(center + Vector2(-5.0, 0.0), center + Vector2(-1.5, 4.0), NEON_CYAN_HOT, 2.5)
-		canvas.draw_line(center + Vector2(-1.5, 4.0), center + Vector2(6.0, -5.0), NEON_CYAN_HOT, 2.5)
-	var title_color := Color(1.0, 1.0, 1.0, 0.88) if muted and not enabled else Color.WHITE
+		canvas.draw_line(center + Vector2(-5.0, 0.0), center + Vector2(-1.5, 4.0), Color.WHITE, 2.5)
+		canvas.draw_line(center + Vector2(-1.5, 4.0), center + Vector2(6.0, -5.0), Color.WHITE, 2.5)
+	var title_color := INK_DIM if muted and not enabled else INK
 	_draw_text(canvas, font, title, row_rect.position + Vector2(58.0, 24.0), 15, title_color)
 	_draw_toggle_leader(canvas, font, row_rect, checkbox_rect, title)
-	_draw_text(canvas, font, subtitle, row_rect.position + Vector2(58.0, 42.0), 11, TEXT_DIM)
+	_draw_text(canvas, font, subtitle, row_rect.position + Vector2(58.0, 42.0), 11, INK_DIM)
 	if focused:
 		_draw_holo_focus_frame(canvas, row_rect, _focus_pulse_alpha())
 
 
 func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, selected: bool, mouse_pos: Vector2) -> void:
 	var hovered: bool = rect.has_point(mouse_pos)
-	var fill := BUTTON_SELECTED if selected else BUTTON_COLOR
-	if hovered:
-		fill = BUTTON_HOVER
-	var border := NEON_CYAN_HOT if selected else (BUTTON_BORDER if hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.36))
+	var fill := SELECT_BLUE if selected else OPT_CARD
+	if hovered and not selected:
+		fill = OPT_CARD_HOVER
+	var border := SELECT_BLUE if selected or hovered else OPT_BORDER
 	_draw_panel(canvas, rect, fill, border, 1.0)
 	if selected:
-		canvas.draw_rect(Rect2(rect.position + Vector2(8.0, 10.0), Vector2(4.0, rect.size.y - 20.0)), RESONANCE_MAG)
-	_draw_text_in_rect(canvas, font, text, rect, 18, Color.WHITE)
+		canvas.draw_rect(Rect2(rect.position + Vector2(8.0, 10.0), Vector2(4.0, rect.size.y - 20.0)), Color(1.0, 1.0, 1.0, 0.70))
+	_draw_text_in_rect(canvas, font, text, rect, 18, Color.WHITE if selected else INK)
 
 
 func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, text: String) -> void:
-	_draw_panel(canvas, rect, Color(18.0 / 255.0, 25.0 / 255.0, 38.0 / 255.0, 0.90), Color(ACCENT_GOLD.r, ACCENT_GOLD.g, ACCENT_GOLD.b, 0.34), 1.0)
+	_draw_panel(canvas, rect, Color(1.0, 0.985, 0.93, 0.95), Color(0.78, 0.60, 0.20, 0.55), 1.0)
 	var lines := text.split("\n", false)
 	for index in range(min(lines.size(), 2)):
-		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(14.0, 19.0 + float(index) * 18.0), 12, Color(224.0 / 255.0, 232.0 / 255.0, 244.0 / 255.0))
+		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(14.0, 19.0 + float(index) * 18.0), 12, INK)
 
 
 func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, text: String) -> void:
@@ -1931,9 +1933,9 @@ func _draw_hud_readout_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, te
 			marker_center + Vector2(6.0, 0.0),
 			marker_center + Vector2(0.0, 3.0),
 		]),
-		Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.88)
+		SELECT_BLUE
 	)
-	canvas.draw_string(draw_font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, maxf(0.0, bar.size.x - 13.0), 12, TEXT_DIM)
+	canvas.draw_string(draw_font, Vector2(bar.position.x + 13.0, bar.get_center().y + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, maxf(0.0, bar.size.x - 13.0), 12, INK_DIM)
 
 
 func _get_select_chevron_rects(value_rect: Rect2) -> Dictionary:
@@ -1958,7 +1960,7 @@ func _draw_toggle_leader(canvas: CanvasItem, font: Font, row_rect: Rect2, checkb
 		canvas.draw_dashed_line(
 			Vector2(leader_x0, leader_y),
 			Vector2(leader_x1, leader_y),
-			Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.30),
+			Color(INK.r, INK.g, INK.b, 0.22),
 			1.0,
 			4.0
 		)
@@ -1990,12 +1992,12 @@ func _draw_holo_focus_frame(canvas: CanvasItem, rect: Rect2, pulse_alpha: float 
 	if rect.size.x <= 8.0 or rect.size.y <= 8.0:
 		return
 	var inner_rect := rect.grow(-3.0)
-	PremiumPanelFrame.draw_panel(canvas, inner_rect, PremiumPanelFrame.KIND_SLOT, Color.TRANSPARENT, Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.50), 1.0)
+	PremiumPanelFrame.draw_panel(canvas, inner_rect, PremiumPanelFrame.KIND_SLOT, Color.TRANSPARENT, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.55), 1.0)
 
 	var alpha := clampf(pulse_alpha, 0.0, 1.0)
-	var magenta := Color(RESONANCE_MAG.r, RESONANCE_MAG.g, RESONANCE_MAG.b, alpha)
+	var accent := Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, alpha)
 	var frame_rect := rect.grow(-1.0)
-	PremiumPanelFrame.draw_corner_brackets(canvas, frame_rect, magenta, 1.0, 0.45, 14.0)
+	PremiumPanelFrame.draw_corner_brackets(canvas, frame_rect, accent, 1.0, 0.45, 14.0)
 
 
 func _get_ui_font(tech: bool = false) -> Font:
@@ -2118,8 +2120,8 @@ func _draw_selection_feedback(canvas: CanvasItem, panel_rect: Rect2, scope: Stri
 	if pop_amount > 0.0:
 		draw_rect = _scale_rect_from_center(draw_rect, 1.0 + pop_amount)
 
-	var fill := Color(NEON_CYAN.r, NEON_CYAN.g, NEON_CYAN.b, 0.04 + flash_alpha * 0.42)
-	var border := Color(NEON_CYAN_HOT.r, NEON_CYAN_HOT.g, NEON_CYAN_HOT.b, 0.52 + flash_alpha)
+	var fill := Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.04 + flash_alpha * 0.42)
+	var border := Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.52 + flash_alpha)
 	PremiumPanelFrame.draw_panel(canvas, draw_rect, PremiumPanelFrame.KIND_SLOT, fill, border, 1.0)
 	_draw_holo_focus_frame(canvas, draw_rect, clampf(_focus_pulse_alpha() + flash_alpha, 0.0, 1.0))
 
