@@ -4,6 +4,7 @@ const BattleSceneModalGateController := preload("res://scripts/core/battle_scene
 const BattleSceneOverlayInputController := preload("res://scripts/core/battle_scene_overlay_input_controller.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 
 
@@ -236,10 +237,33 @@ func _init() -> void:
 	_expect(registry.pause_menu._main_editorial_bg_texture != null, "D2 pause menu should prewarm the editorial background texture when opened")
 	var entries: Array = registry.pause_menu._get_main_entries()
 	_expect(str(entries[0].get("en", "")) == "RESUME" and str(entries[1].get("en", "")) == "STATUS" and str(entries[2].get("en", "")) == "SETTINGS", "bright pause menu should expose editorial English menu labels")
+	_verify_pause_description_localization_keys()
+	_expect(str(entries[0].get("desc", "")) == "게임으로 돌아가기" and str(entries[1].get("desc", "")) == "캐릭터 정보 확인" and str(entries[2].get("desc", "")) == "게임 설정 변경", "D3 pause menu should use Korean descriptive local labels")
 	_expect(registry.pause_menu._should_show_main_local_label(), "Korean pause menu should keep the small local label")
 	var main_selection_rect: Rect2 = registry.pause_menu._get_selection_feedback_rect(main_panel_rect, "main", 0)
 	_expect(main_selection_rect.position.x == 0.0 and main_selection_rect.size.x >= owner.get_viewport_rect().size.x * 0.55, "main selection hit zone should be the left-edge editorial band")
 	_expect(registry.pause_menu._get_button_rect(main_panel_rect, 0, entries.size()) == main_selection_rect, "main button hit zone should match the selection feedback band")
+	var selected_bar_rect: Rect2 = registry.pause_menu._get_main_selection_bar_rect(main_selection_rect)
+	var selected_en_font: Font = registry.pause_menu._get_ui_font(true)
+	var selected_en_size: int = registry.pause_menu._get_main_entry_selected_font_size(selected_bar_rect)
+	var selected_en_width: float = selected_en_font.get_string_size(str(entries[0].get("en", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, selected_en_size).x
+	var selected_local_text := registry.pause_menu._get_main_selected_local_text(entries[0])
+	var selected_local_font: Font = registry.pause_menu._get_text_draw_font(selected_en_font, selected_local_text)
+	var selected_local_size: int = registry.pause_menu._get_main_entry_local_font_size(selected_bar_rect)
+	var selected_local_width: float = selected_local_font.get_string_size(selected_local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, selected_local_size).x
+	var selected_local_x: float = registry.pause_menu._get_main_selected_local_x(selected_bar_rect, selected_local_width)
+	var selected_en_x: float = registry.pause_menu._get_main_selected_en_x(selected_bar_rect, selected_en_width, selected_local_x)
+	_expect(is_equal_approx(selected_en_x, selected_bar_rect.position.x + registry.pause_menu.MAIN_BAR_EN_LEFT_PAD), "D3 pause menu should anchor selected EN text from the bar left padding")
+	_expect(selected_en_x < selected_bar_rect.get_center().x, "D3 pause menu selected EN text should sit left of the bar center")
+	_expect(selected_local_text == "게임으로 돌아가기" and selected_local_x > selected_en_x + selected_en_width + 20.0, "D3 pause menu Korean description should draw as the selected bar helper label without overlapping EN")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	var english_entries: Array = registry.pause_menu._get_main_entries()
+	_expect(str(english_entries[0].get("desc", "")) == "Return to game", "D3 pause menu should keep English desc keys populated for missing-key coverage")
+	_expect(not registry.pause_menu._should_show_main_local_label() and registry.pause_menu._get_main_selected_local_text(english_entries[0]).is_empty(), "D3 pause menu should keep helper descriptions hidden in English")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_CHINESE)
+	var chinese_entries: Array = registry.pause_menu._get_main_entries()
+	_expect(str(chinese_entries[0].get("desc", "")) == "返回游戏" and registry.pause_menu._get_main_selected_local_text(chinese_entries[0]) == "返回游戏", "D3 pause menu should show the desc key for non-English locales")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	_expect(registry.pause_menu._get_main_title_left_margin(main_panel_rect) <= 16.0, "bright pause title should sit near the top-left reference edge")
 	_expect(registry.pause_menu._get_main_diamond_center_x(main_panel_rect) >= owner.get_viewport_rect().size.x * 0.18, "bright pause menu list spine should live inside the editorial list, not on the old left card margin")
 	registry.pause_menu.update(0.20)
@@ -699,6 +723,55 @@ func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByte
 			file.close()
 		return
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _verify_pause_description_localization_keys() -> void:
+	var expected := {
+		LanguageSettings.LANGUAGE_KOREAN: {
+			"pause.desc.continue": "게임으로 돌아가기",
+			"pause.desc.character_info": "캐릭터 정보 확인",
+			"pause.desc.options": "게임 설정 변경",
+		},
+		LanguageSettings.LANGUAGE_ENGLISH: {
+			"pause.desc.continue": "Return to game",
+			"pause.desc.character_info": "View character info",
+			"pause.desc.options": "Game settings",
+		},
+		LanguageSettings.LANGUAGE_CHINESE: {
+			"pause.desc.continue": "返回游戏",
+			"pause.desc.character_info": "查看角色信息",
+			"pause.desc.options": "游戏设置",
+		},
+		LanguageSettings.LANGUAGE_JAPANESE: {
+			"pause.desc.continue": "ゲームに戻る",
+			"pause.desc.character_info": "キャラクター情報を確認",
+			"pause.desc.options": "ゲーム設定",
+		},
+		LanguageSettings.LANGUAGE_SPANISH: {
+			"pause.desc.continue": "Volver al juego",
+			"pause.desc.character_info": "Ver info del personaje",
+			"pause.desc.options": "Ajustes del juego",
+		},
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+			"pause.desc.continue": "Voltar ao jogo",
+			"pause.desc.character_info": "Ver info do personagem",
+			"pause.desc.options": "Configurações do jogo",
+		},
+		LanguageSettings.LANGUAGE_RUSSIAN: {
+			"pause.desc.continue": "Вернуться в игру",
+			"pause.desc.character_info": "Информация о персонаже",
+			"pause.desc.options": "Настройки игры",
+		},
+	}
+	for language in expected.keys():
+		var table: Dictionary = LanguageSettingsData.TEXT.get(language, {})
+		_expect(not table.is_empty(), "D3 pause desc language table should exist for %s" % language)
+		var language_expected: Dictionary = expected[language]
+		for key in language_expected.keys():
+			_expect(table.has(key), "D3 pause desc key should exist: %s/%s" % [language, key])
+			var value := str(table.get(key, ""))
+			_expect(not value.strip_edges().is_empty(), "D3 pause desc key should be non-empty: %s/%s" % [language, key])
+			_expect(value == str(language_expected[key]), "D3 pause desc key should match the approved copy: %s/%s" % [language, key])
 
 
 func _source_function_body(source: String, signature: String) -> String:

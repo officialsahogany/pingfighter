@@ -49,6 +49,7 @@ const MAIN_DIAL_ROTATIONS_PER_SECOND := 0.075
 const MAIN_TITLE_LEFT_MARGIN := 10.0
 const MAIN_LIST_ANCHOR_RATIO := 0.25
 const MAIN_SELECTED_BAR_SKEW := 34.0
+const MAIN_BAR_EN_LEFT_PAD := 270.0
 const SLIDER_HEIGHT := 10.0
 const SLIDER_HIT_HEIGHT := 34.0
 const SLIDER_HANDLE_RADIUS := 8.0
@@ -1427,16 +1428,15 @@ func _draw_main_selected_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, 
 	var en_font := _get_ui_font(true)
 	var en_size := _get_main_entry_selected_font_size(bar_rect)
 	var en_text_size := en_font.get_string_size(en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size)
-	var en_center_x := bar_rect.position.x + bar_rect.size.x * (0.43 if _should_show_main_local_label() else 0.50)
-	var en_x := clampf(en_center_x - en_text_size.x * 0.5, bar_rect.position.x + 72.0, bar_rect.end.x - en_text_size.x - 54.0)
+	var local_text := _get_main_selected_local_text(entry)
+	var local_font := _get_text_draw_font(font, local_text)
+	var local_size := _get_main_entry_local_font_size(bar_rect)
+	var local_text_size := local_font.get_string_size(local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size) if not local_text.is_empty() else Vector2.ZERO
+	var local_x := _get_main_selected_local_x(bar_rect, local_text_size.x) if not local_text.is_empty() else -1.0
+	var en_x := _get_main_selected_en_x(bar_rect, en_text_size.x, local_x)
 	var en_pos := Vector2(en_x, bar_rect.get_center().y + float(en_size) * 0.36)
 	canvas.draw_string(en_font, en_pos, en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, Color.WHITE)
-	if _should_show_main_local_label():
-		var local_text := str(entry.get("label", ""))
-		var local_font := _get_text_draw_font(font, local_text)
-		var local_size := _get_main_entry_local_font_size(bar_rect)
-		var local_text_size := local_font.get_string_size(local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size)
-		var local_x := bar_rect.end.x - local_text_size.x - 44.0
+	if not local_text.is_empty():
 		if local_x > en_pos.x + en_text_size.x + 20.0 and local_x + local_text_size.x <= bar_rect.end.x - 24.0:
 			canvas.draw_string(local_font, Vector2(local_x, bar_rect.get_center().y + float(local_size) * 0.35), local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size, SELECT_SUBINK)
 
@@ -2388,6 +2388,20 @@ func _get_main_unselected_text_x(panel_rect: Rect2) -> float:
 	return _get_main_diamond_center_x(panel_rect) + 18.0
 
 
+func _get_main_selected_en_x(bar_rect: Rect2, text_width: float, local_left_x: float = -1.0) -> float:
+	var min_x := bar_rect.position.x + minf(72.0, maxf(0.0, bar_rect.size.x - text_width))
+	var max_x := bar_rect.end.x - text_width - 54.0
+	if local_left_x >= 0.0:
+		max_x = minf(max_x, local_left_x - text_width - 20.0)
+	if max_x < min_x:
+		return maxf(bar_rect.position.x + 8.0, max_x)
+	return clampf(bar_rect.position.x + MAIN_BAR_EN_LEFT_PAD, min_x, max_x)
+
+
+func _get_main_selected_local_x(bar_rect: Rect2, text_width: float) -> float:
+	return bar_rect.end.x - text_width - 44.0
+
+
 func _get_main_title_font_size(panel_rect: Rect2) -> int:
 	return int(clampf(panel_rect.size.x * 0.060, 42.0, 66.0))
 
@@ -2410,6 +2424,12 @@ func _get_main_entry_idle_font_size(panel_rect: Rect2) -> int:
 
 func _should_show_main_local_label() -> bool:
 	return LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH
+
+
+func _get_main_selected_local_text(entry: Dictionary) -> String:
+	if not _should_show_main_local_label():
+		return ""
+	return str(entry.get("desc", entry.get("label", "")))
 
 
 func _get_options_panel_rect(view_size: Vector2) -> Rect2:
@@ -2630,9 +2650,9 @@ func _get_control_mapping_rows() -> Array:
 
 func _get_main_entries() -> Array:
 	return [
-		{"en": "RESUME", "label": _text("pause.continue"), "action": MENU_CONTINUE},
-		{"en": "STATUS", "label": _text("pause.character_info"), "action": MENU_CHARACTER_INFO},
-		{"en": "SETTINGS", "label": _text("pause.options"), "action": MENU_OPTIONS},
+		{"en": "RESUME", "label": _text("pause.continue"), "desc": _text("pause.desc.continue"), "action": MENU_CONTINUE},
+		{"en": "STATUS", "label": _text("pause.character_info"), "desc": _text("pause.desc.character_info"), "action": MENU_CHARACTER_INFO},
+		{"en": "SETTINGS", "label": _text("pause.options"), "desc": _text("pause.desc.options"), "action": MENU_OPTIONS},
 	]
 
 
