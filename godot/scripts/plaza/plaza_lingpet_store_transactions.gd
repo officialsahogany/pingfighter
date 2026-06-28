@@ -58,7 +58,7 @@ func perform_action(
 	if action_index == 0:
 		return _buy_resonance_egg(save_store, owner, registry, consume_ap)
 	if action_index == 1:
-		return _buy_ring_core_upgrade(save_store, registry, consume_ap)
+		return _buy_ring_core_upgrade(save_store, owner, registry, consume_ap)
 	return _build_summary("", 0, false, "unknown_lingpet_store_action")
 
 
@@ -103,7 +103,7 @@ func _buy_resonance_egg(save_store: Object, owner: Object, registry: Object, con
 	)
 
 
-func _buy_ring_core_upgrade(save_store: Object, registry: Object, consume_ap: bool) -> Dictionary:
+func _buy_ring_core_upgrade(save_store: Object, owner: Object, registry: Object, consume_ap: bool) -> Dictionary:
 	var offer := get_ring_core_upgrade_offer(registry)
 	var cost := int(offer.get("cost", 0))
 	var next_tier := int(offer.get("next_tier", 0))
@@ -135,7 +135,7 @@ func _buy_ring_core_upgrade(save_store: Object, registry: Object, consume_ap: bo
 			payment,
 			refund
 		)
-	var upgrade_result: Dictionary = lingpet_runtime.upgrade_run_ring_core_tier(next_tier, null, registry)
+	var upgrade_result: Dictionary = lingpet_runtime.upgrade_run_ring_core_tier(next_tier, owner, registry)
 	if not bool(upgrade_result.get("accepted", false)):
 		var refund := _refund_ring_core_payment(save_store, cost, int(payment.get("ap_spent", 0)))
 		return _merge_refund_summary(

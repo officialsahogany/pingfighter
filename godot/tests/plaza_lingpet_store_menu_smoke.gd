@@ -180,6 +180,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_lingpet_egg_purchase_spawns_runtime_egg()
 	_verify_lingpet_ring_core_purchase_upgrades_run_cap()
+	_verify_ring_core_purchase_grants_owned_pets_affinity()
 	_verify_failed_lingpet_store_actions_do_not_spend_ap()
 	_verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier()
 	_verify_ring_core_post_payment_refund_restores_wallet()
@@ -373,6 +374,59 @@ func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
 	full_viewport.queue_free()
 	full_owner.queue_free()
 	_cleanup(full_path)
+
+
+func _verify_ring_core_purchase_grants_owned_pets_affinity() -> void:
+	# Regression: the plaza ring-core upgrade must thread the live owner into
+	# upgrade_run_ring_core_tier so the +50 affinity reaches every OWNED pet,
+	# even ones that were never used this run (no run-tracked affinity) and are
+	# not in the runtime's cached collection. With owner dropped (owner = null),
+	# the runtime falls back to its empty internal cache and these pets are missed.
+	var save_path := _smoke_save_path("ring_core_owned")
+	var affinity_path := _smoke_save_path("ring_core_owned_affinity")
+	_cleanup(save_path)
+	_cleanup(affinity_path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(save_path)
+	store.apply_stage_clear_progress(1, 3000, true)
+	var affinity_store := LingpetAffinityStore.new()
+	affinity_store.set_save_path(affinity_path)
+	var owner := FakeOwner.new()
+	# Two owned pets, neither used this run (no run-tracked affinity) and never
+	# synced into the runtime's collection cache -> only the threaded owner can
+	# surface them to the +50 grant.
+	owner.lingpet_owned_pet_ids = ["maribo", "lunabi"]
+	root.add_child(owner)
+	var lingpet_runtime: Object = LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({
+		"lingpet_egg_runtime": lingpet_runtime,
+		"lingpet_affinity_store": affinity_store,
+	})
+
+	var viewport := _build_viewport()
+	var scene := _build_scene(viewport, save_path, owner, registry)
+	if scene == null:
+		viewport.queue_free()
+		owner.queue_free()
+		_cleanup(save_path)
+		_cleanup(affinity_path)
+		return
+	_open_building(scene, "lingpet_store")
+
+	# Baseline: neither owned pet has any run affinity yet (the +50 grant lands as a
+	# level-up, so assert on affinity level, not the post-level-up points remainder).
+	_expect(lingpet_runtime.get_affinity_level("maribo") == 0, "owned maribo should start at affinity level 0")
+	_expect(lingpet_runtime.get_affinity_level("lunabi") == 0, "owned lunabi should start at affinity level 0")
+
+	_expect(scene.trigger_menu_action_for_test(1), "standard ring-core purchase should execute")
+	_expect(int(lingpet_runtime.get_run_ring_core_tier()) == 1, "ring-core purchase should set this run ring-core tier 1")
+	_expect(lingpet_runtime.get_affinity_level("maribo") >= 1, "ring-core upgrade should grant +50 affinity to owned maribo via the threaded owner")
+	_expect(lingpet_runtime.get_affinity_level("lunabi") >= 1, "ring-core upgrade should grant +50 affinity to owned lunabi via the threaded owner")
+
+	viewport.queue_free()
+	owner.queue_free()
+	_cleanup(save_path)
+	_cleanup(affinity_path)
 
 
 func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> void:
