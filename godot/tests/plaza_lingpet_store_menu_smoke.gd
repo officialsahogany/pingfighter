@@ -182,6 +182,7 @@ func _run() -> void:
 	_verify_lingpet_ring_core_purchase_upgrades_run_cap()
 	_verify_ring_core_purchase_grants_owned_pets_affinity()
 	_verify_failed_lingpet_store_actions_do_not_spend_ap()
+	_verify_full_roster_allows_egg_purchase_and_routes_to_overflow()
 	_verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier()
 	_verify_ring_core_post_payment_refund_restores_wallet()
 
@@ -345,35 +346,58 @@ func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
 	poor_owner.queue_free()
 	_cleanup(poor_path)
 
-	var full_path := _smoke_save_path("full_collection")
-	_cleanup(full_path)
-	var full_store := PlazaSaveStore.new()
-	full_store.set_save_path(full_path)
-	full_store.apply_stage_clear_progress(1, 400, true)
-	var full_owner := FakeOwner.new()
-	_seed_all_hatch_candidates_as_owned(full_owner)
-	root.add_child(full_owner)
-	var full_runtime: Object = LingpetEggRuntime.new()
-	var full_registry := FakeRegistry.new({"lingpet_egg_runtime": full_runtime})
-	var full_viewport := _build_viewport()
-	var full_scene := _build_scene(full_viewport, full_path, full_owner, full_registry)
-	if full_scene == null:
-		full_viewport.queue_free()
-		full_owner.queue_free()
-		_cleanup(full_path)
-		return
-	_open_building(full_scene, "lingpet_store")
-	_expect(not full_scene.trigger_menu_action_for_test(0), "owned-full collection should block new egg purchases")
-	status = full_scene.get_status()
-	_expect(str(full_owner.lingpet_state) == "none", "full collection failure should not spawn an egg")
-	_expect(int(status.get("plaza_gold", 0)) == 400, "full collection failure should leave gold unchanged")
-	_expect(int(status.get("ap_current", 0)) == 4, "full collection failure should not spend AP")
-	var full_summary: Dictionary = status.get("last_lingpet_store_transaction_summary", {})
-	_expect(str(full_summary.get("reason", "")) == "no_hatch_candidates", "full collection failure should report no_hatch_candidates")
 
-	full_viewport.queue_free()
-	full_owner.queue_free()
-	_cleanup(full_path)
+func _verify_full_roster_allows_egg_purchase_and_routes_to_overflow() -> void:
+	# Contract (corrected): a FULL 3-slot roster does NOT block the resonance-egg
+	# purchase. The plaza egg gate is should_spawn_egg (catalog still has unowned
+	# candidates), NOT is_full. Roster-full is resolved at HATCH time by the
+	# overflow-replace choice, not by refusing the purchase.
+	#
+	# History: the prior assertion seeded 12 owned pets and expected the purchase to
+	# be blocked with no_hatch_candidates. That state is impossible in production --
+	# every owned-write path caps the collection at MAX_OWNED == MAX_BATTLE_SLOTS == 3,
+	# so get_owned_pet_ids_from_owner can never represent a collection larger than the
+	# 12-pet junior/smasher candidate pool, and should_spawn_egg is (correctly) true.
+	var save_path := _smoke_save_path("full_roster_overflow")
+	_cleanup(save_path)
+	var store := PlazaSaveStore.new()
+	store.set_save_path(save_path)
+	store.apply_stage_clear_progress(1, 400, true)
+	var owner := FakeOwner.new()
+	# A real, production-reachable full roster: exactly 3 owned pets filling the 3
+	# battle slots (NOT the impossible 12-owned state). The junior/smasher candidate
+	# pool is 12, so 9 candidates remain unowned and the egg stays purchasable.
+	_seed_full_roster(owner, ["maribo", "lunabi", "milkring"])
+	root.add_child(owner)
+	var lingpet_runtime: Object = LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": lingpet_runtime})
+	var viewport := _build_viewport()
+	var scene := _build_scene(viewport, save_path, owner, registry)
+	if scene == null:
+		viewport.queue_free()
+		owner.queue_free()
+		_cleanup(save_path)
+		return
+	_open_building(scene, "lingpet_store")
+
+	_expect(lingpet_runtime._collection_state.is_full(owner), "test setup: a 3-pet roster should read as full")
+
+	# Roster-full-allows-purchase: a full 3-slot roster does NOT block the egg purchase.
+	# The purchase succeeds and spawns a field egg; roster-full is resolved later, at
+	# HATCH time, by the overflow-replace choice (covered as a focused runtime contract in
+	# lingpet_egg_runtime_smoke._verify_main_egg_full_roster_hatch_routes_to_overflow --
+	# kept out of this integration smoke so it does not drive the renderer/cut-in path).
+	_expect(scene.trigger_menu_action_for_test(0), "full 3-slot roster should still allow the resonance egg purchase")
+	var status: Dictionary = scene.get_status()
+	_expect(str(owner.lingpet_state) == "egg", "full-roster egg purchase should spawn a field egg")
+	_expect(int(status.get("plaza_gold", 0)) == 150, "full-roster egg purchase should subtract 250G")
+	_expect(int(status.get("ap_current", 0)) == 3, "full-roster egg purchase should spend one AP")
+	var summary: Dictionary = status.get("last_lingpet_store_transaction_summary", {})
+	_expect(str(summary.get("reason", "")) == "ok", "full-roster egg purchase should report ok")
+
+	viewport.queue_free()
+	owner.queue_free()
+	_cleanup(save_path)
 
 
 func _verify_ring_core_purchase_grants_owned_pets_affinity() -> void:
@@ -556,19 +580,18 @@ func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: i
 	runtime.update(0.0, owner, registry)
 
 
-func _seed_all_hatch_candidates_as_owned(owner: FakeOwner) -> void:
-	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates({
-		"league_mode": "junior",
-		"character_type": "smasher",
-	}, [])
-	owner.lingpet_owned_pet_ids = candidates.duplicate()
-	owner.owned_lingpet_ids = candidates.duplicate()
-	owner.owned_ringpet_ids = candidates.duplicate()
-	for pet_id in candidates:
+func _seed_full_roster(owner: FakeOwner, pet_ids: Array) -> void:
+	# Seed a production-reachable full roster: the owned collection IS the battle
+	# slots (capped at MAX_BATTLE_SLOTS == 3), so fill both with the same pet ids.
+	var roster: Array = pet_ids.slice(0, 3)
+	owner.lingpet_owned_pet_ids = roster.duplicate()
+	owner.owned_lingpet_ids = roster.duplicate()
+	owner.lingpet_slots = roster.duplicate()
+	owner.lingpet_slot_pet_ids = roster.duplicate()
+	owner.lingpet_active_slot_index = 0
+	for pet_id in roster:
 		owner.lingpet_collection[pet_id] = true
-		owner.ringpet_collection[pet_id] = true
 		owner.owned_lingpets[pet_id] = true
-		owner.owned_ringpets[pet_id] = true
 
 
 func _build_viewport() -> SubViewport:

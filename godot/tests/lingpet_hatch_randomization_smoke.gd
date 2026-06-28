@@ -21,6 +21,7 @@ func _init() -> void:
 	_verify_catalog_hatch_skill_roll_distribution()
 	_verify_present_skill_conditions_first_unlock()
 	_verify_hatch_stat_roll_projection_and_caps()
+	_verify_hatch_candidate_pool_exhaustion()
 
 	if _failures.is_empty():
 		print("lingpet_hatch_randomization_smoke: ok")
@@ -144,6 +145,42 @@ func _verify_hatch_stat_roll_projection_and_caps() -> void:
 
 	affinity_state.reset_for_new_run()
 	_expect(not bool(affinity_state.has_hatch_stat_roll("maribo")), "new run reset should clear hatch stat rolls")
+
+
+func _verify_hatch_candidate_pool_exhaustion() -> void:
+	# Realistic small-pool exhaustion, kept at the catalog unit level. The live catalog
+	# gates every enabled lingpet to {junior, smasher} (a 12-pet pool), so there is NO
+	# natural hatch context with a <= 3 candidate pool to exercise this through the plaza
+	# integration smoke. A synthetic ENTRIES table (not a fake context forced into the
+	# integration path) is the honest way to lock the gate that produces
+	# should_spawn_egg == false / the runtime's no_hatch_candidates reason.
+	var entries := {
+		"alpha": {"unlock": {"league_mode": "junior", "character_type": "smasher"}},
+		"beta": {"unlock": {"league_mode": "junior", "character_type": "smasher"}},
+		# Same league, different character -> must be gated OUT of a smasher context.
+		"gamma": {"unlock": {"league_mode": "junior", "character_type": "viper"}},
+		# Disabled -> never a candidate even with a matching unlock.
+		"delta": {"enabled": false, "unlock": {"league_mode": "junior", "character_type": "smasher"}},
+	}
+	var ctx := {"league_mode": "junior", "character_type": "smasher"}
+
+	var full_pool := LingpetCatalog.get_hatch_candidates_from_entries(entries, ctx, [])
+	_expect_eq(full_pool.size(), 2, "unlock + enabled gating should yield exactly the 2 matching smasher pets")
+	_expect(full_pool.has("alpha") and full_pool.has("beta"), "matching enabled pets should be candidates")
+	_expect(not full_pool.has("gamma"), "a different-character pet must be gated out of the candidate pool")
+	_expect(not full_pool.has("delta"), "a disabled pet must never be a candidate")
+
+	var partial := LingpetCatalog.get_hatch_candidates_from_entries(entries, ctx, ["alpha"])
+	_expect_eq(partial.size(), 1, "owning one candidate should leave exactly the other unowned")
+	_expect(partial.has("beta"), "the still-unowned candidate should remain")
+
+	var exhausted := LingpetCatalog.get_hatch_candidates_from_entries(entries, ctx, ["alpha", "beta"])
+	_expect_eq(exhausted.size(), 0, "owning every matching candidate should exhaust the pool (should_spawn_egg == false)")
+	_expect_str(
+		LingpetCatalog.pick_hatch_pet_id_from_entries(entries, ctx, ["alpha", "beta"]),
+		"",
+		"an exhausted pool should pick no pet (drives the runtime no_hatch_candidates reason)"
+	)
 
 
 func _expect_hatch_skill_shape(loadout: Dictionary, active: bool) -> void:
