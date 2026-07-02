@@ -47,6 +47,9 @@ func _run() -> void:
 	_verify_satiety_slow_curve_and_junior_exemption()
 	_verify_flight_velocity_uses_satiety_scale()
 	_verify_telegraphed_exhaustion_suppresses_and_recovers()
+	_verify_d12_wake_threshold_and_active_rest_recovery()
+	_verify_hidden_sortie_exhaustion_parks_visibly()
+	_verify_satiety_exhaustion_renderer_contract()
 	ProjectResourceLoader.clear_caches()
 	if _failures.is_empty():
 		print("lingpet_satiety_state_smoke: ok")
@@ -243,15 +246,76 @@ func _verify_telegraphed_exhaustion_suppresses_and_recovers() -> void:
 	_expect_float(runtime.get_affinity_points("maribo"), affinity_before_click, "exhausted companion click should not grant affinity")
 
 	owner.ball_active = false
-	runtime.set_satiety_for_tests("maribo", 20.0)
+	runtime.set_satiety_for_tests("maribo", 5.0)
 	runtime.update(0.0, owner, registry)
-	_expect(not runtime.is_companion_exhausted_for_tests(owner), "feeding/recovery satiety should clear exhaustion")
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "satiety below the wake threshold should not clear KO")
+	runtime.set_satiety_for_tests("maribo", LingpetAffinityState.SATIETY_WAKE_THRESHOLD)
+	runtime.update(0.0, owner, registry)
+	_expect(not runtime.is_companion_exhausted_for_tests(owner), "satiety at the wake threshold should clear exhaustion")
 	runtime.reset_round({"owner": owner, "registry": registry})
 	runtime.configure_companion_motion_for_tests(Vector2(650.0, lane_y), 2, 0.0, false)
 	var contact_before_recovery := int(owner.lingpet_companion_contact_count)
 	_hit_companion(runtime, owner, registry, Vector2(650.0, lane_y))
 	_expect(int(owner.lingpet_companion_contact_count) == contact_before_recovery + 1, "recovered companion should resume ball-hit participation")
 	_cleanup_runtime(runtime)
+
+
+func _verify_d12_wake_threshold_and_active_rest_recovery() -> void:
+	var owner := _make_owner()
+	var registry = Smoke.FakeRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry), "D12 fixture should activate Maribo")
+	runtime.set_satiety_for_tests("maribo", 0.0)
+	runtime.update(2.0, owner, registry)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "D12 fixture should reach KO before recovery checks")
+	runtime.update(125.0, owner, registry)
+	_expect_float(runtime.get_satiety("maribo"), 10.416, "active KO companion should recover at rest speed", 0.02)
+	_expect(not runtime.is_companion_exhausted_for_tests(owner), "active KO companion should auto-wake once satiety reaches 10")
+	_cleanup_runtime(runtime)
+
+	var ping_owner := _make_owner()
+	var ping_registry = Smoke.FakeRegistry.new()
+	var ping_runtime: Object = LingpetEggRuntime.new()
+	_expect(ping_runtime.debug_grant_and_activate_pet("maribo", ping_owner, false, "maribo_hydro_sphere", "", ping_registry), "pingpong fixture should activate Maribo")
+	ping_runtime.set_satiety_for_tests("maribo", 0.0)
+	ping_runtime.update(2.0, ping_owner, ping_registry)
+	_expect(ping_runtime.is_companion_exhausted_for_tests(ping_owner), "pingpong fixture should start from KO")
+	_expect(bool(ping_runtime.switch_lingpet_slot(1, ping_owner, ping_registry)), "pingpong fixture should switch to the bench pet")
+	ping_runtime.update(1.0, ping_owner, ping_registry)
+	_expect(bool(ping_runtime.switch_lingpet_slot(0, ping_owner, ping_registry)), "pingpong fixture should switch back to the KO pet")
+	ping_runtime.update(0.0, ping_owner, ping_registry)
+	_expect(ping_runtime.get_satiety("maribo") > 0.0 and ping_runtime.get_satiety("maribo") < LingpetAffinityState.SATIETY_WAKE_THRESHOLD, "bench pingpong should only recover a small satiety amount")
+	_expect(ping_runtime.is_companion_exhausted_for_tests(ping_owner), "bench one-tick pingpong should not clear KO before satiety 10")
+	_cleanup_runtime(ping_runtime)
+
+
+func _verify_hidden_sortie_exhaustion_parks_visibly() -> void:
+	var owner := _make_owner()
+	var registry = Smoke.FakeRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("lunabi", owner, false, "lunabi_headbutt", "", registry), "sortie KO fixture should activate Lunabi")
+	runtime.configure_companion_sortie_hidden_for_tests(Vector2(-190.0, 220.0), 771, 30.0)
+	runtime.set_satiety_for_tests("lunabi", 0.0)
+	runtime.update(2.0, owner, registry)
+	var snapshot: Dictionary = runtime.get_snapshot()
+	var parked_pos: Vector2 = snapshot.get("companion_pos", Vector2.ZERO)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "hidden sortie fixture should reach KO")
+	_expect(bool(snapshot.get("companion_visible", false)), "hidden sortie KO should become visible instead of staying offscreen")
+	_expect(str(snapshot.get("companion_sortie_phase", "")) == LingpetCompanionMotionState.SORTIE_PHASE_EXHAUSTED_PARK, "hidden sortie KO should enter the exhausted park phase")
+	_expect(parked_pos.x >= 0.0 and parked_pos.x <= LingpetCompanionMotionState.FIELD_WIDTH, "hidden sortie KO park x should be inside the playfield")
+	_expect(parked_pos.y >= 0.0 and parked_pos.y <= LingpetCompanionMotionState.FIELD_HEIGHT, "hidden sortie KO park y should be inside the playfield")
+	_expect_float(float(snapshot.get("satiety_speed_scale", -1.0)), 0.0, "parked KO flight pet should still publish zero satiety speed scale")
+	_cleanup_runtime(runtime)
+
+
+func _verify_satiety_exhaustion_renderer_contract() -> void:
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
+	var draw_context_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	_expect(draw_context_source.find("\"companion_exhausted\"") >= 0, "draw context should pass exhausted state to the companion renderer")
+	_expect(draw_context_source.find("\"satiety_exhaustion_ratio\"") >= 0, "draw context should pass telegraph ratio to the companion renderer")
+	_expect(renderer_source.find("_draw_satiety_exhaustion_telegraph") >= 0, "renderer should consume the telegraph ratio for visible warning feedback")
+	_expect(renderer_source.find("_draw_exhausted_sleep_marker") >= 0, "renderer should consume exhausted state for visible sleep feedback")
+	_expect(renderer_source.find("dest_rect.size.y *= 0.76") >= 0, "renderer should visibly lower/squash exhausted companion posture")
 
 
 func _make_owner() -> Object:

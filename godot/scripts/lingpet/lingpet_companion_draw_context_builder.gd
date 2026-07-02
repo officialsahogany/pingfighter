@@ -63,6 +63,8 @@ func build_config(params: Dictionary) -> Dictionary:
 		"skill_cast_pose_active": skill_cast_pose_active,
 		"attacking": attacking,
 		"companion_visible": bool(params.get("companion_visible", true)),
+		"companion_exhausted": bool(params.get("companion_exhausted", false)),
+		"satiety_exhaustion_ratio": clampf(float(params.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0),
 		"idle_texture": _get_visual_texture(current_profile, "companion_idle"),
 		"move_left_texture": _get_visual_texture(current_profile, "companion_move_left"),
 		"move_right_texture": _get_visual_texture(current_profile, "companion_move_right"),

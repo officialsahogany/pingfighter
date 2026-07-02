@@ -127,6 +127,11 @@ const SORTIE_PHASE_INGRESS := "ingress"
 const SORTIE_PHASE_LOITER := "loiter"
 const SORTIE_PHASE_HOLD := "hold"
 const SORTIE_PHASE_EXIT := "exit"
+const SORTIE_PHASE_EXHAUSTED_PARK := "exhausted_park"
+const FLIGHT_EXHAUSTED_PARK_SPEED := 145.0
+const FLIGHT_EXHAUSTED_PARK_ENTRY_OFFSET_Y := 132.0
+const FLIGHT_EXHAUSTED_PARK_LANE_OFFSET_Y := 76.0
+const FLIGHT_EXHAUSTED_PARK_TOLERANCE := 8.0
 
 var pos := Vector2.ZERO
 var motion_style := MOTION_STYLE_PATROL
@@ -243,16 +248,17 @@ func update(
 	speed_max: float,
 	motion_style_value: String = MOTION_STYLE_PATROL,
 	appearance_rate_value: float = 0.0,
-	satiety_speed_scale: float = 1.0
+	satiety_speed_scale: float = 1.0,
+	companion_exhausted: bool = false
 ) -> void:
 	motion_style = _normalize_motion_style(motion_style_value)
 	appearance_rate = clampf(appearance_rate_value, 0.0, 1.0)
 	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	if motion_style == MOTION_STYLE_SORTIE_FLIGHT:
-		_update_sortie_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max, speed_scale)
+		_update_sortie_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max, speed_scale, companion_exhausted)
 		return
 	if motion_style == MOTION_STYLE_FREE_FLIGHT:
-		_update_free_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max, speed_scale)
+		_update_free_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max, speed_scale, companion_exhausted)
 		return
 	if patrol_seed <= 0 or patrol_min_x <= 0.0 or patrol_max_x <= patrol_min_x:
 		initialize(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max, motion_style)
@@ -265,7 +271,7 @@ func update(
 	var safe_delta: float = maxf(0.0, delta)
 	pos.y = patrol_lane_y
 	motion_visible = true
-	if freeze_motion:
+	if freeze_motion or companion_exhausted:
 		clear_defense_intercept()
 		motion_speed_ratio = 0.0
 		return
@@ -562,7 +568,8 @@ func _update_free_flight(
 	trigger_count: int,
 	speed_min: float,
 	speed_max: float,
-	satiety_speed_scale: float = 1.0
+	satiety_speed_scale: float = 1.0,
+	companion_exhausted: bool = false
 ) -> void:
 	if patrol_seed <= 0:
 		_initialize_free_flight(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max)
@@ -574,6 +581,9 @@ func _update_free_flight(
 	var safe_delta: float = maxf(0.0, delta)
 	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	clear_defense_intercept()
+	if companion_exhausted:
+		_update_exhausted_flight_park(safe_delta, owner, speed_min, speed_max)
+		return
 	# rabi is a GHOST: it never flies IN/OUT, it blinks (vanish in place -> wait ->
 	# reappear at a NEW spot). While visible it gently DRIFTS so it reads as a floating
 	# spirit rather than a frozen sprite.
@@ -692,7 +702,8 @@ func _update_sortie_flight(
 	trigger_count: int,
 	speed_min: float,
 	speed_max: float,
-	satiety_speed_scale: float = 1.0
+	satiety_speed_scale: float = 1.0,
+	companion_exhausted: bool = false
 ) -> void:
 	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	if patrol_seed <= 0 or sortie_phase == "":
@@ -703,6 +714,9 @@ func _update_sortie_flight(
 
 	var safe_delta: float = maxf(0.0, delta)
 	clear_defense_intercept()
+	if companion_exhausted:
+		_update_exhausted_flight_park(safe_delta, owner, speed_min, speed_max)
+		return
 	if freeze_motion:
 		motion_speed_ratio = 0.0
 		return
@@ -723,6 +737,53 @@ func _update_sortie_flight(
 			_update_sortie_exit(safe_delta, speed_min, speed_max, speed_scale)
 		_:
 			_start_sortie_entry(owner, trigger_count, speed_min, speed_max, speed_scale)
+
+
+func _update_exhausted_flight_park(delta: float, owner: Object, _speed_min: float, _speed_max: float) -> void:
+	var target := _get_exhausted_flight_park_target(owner)
+	if not motion_visible or _is_flight_park_offscreen(pos):
+		pos = _get_exhausted_flight_entry_pos(target)
+	if motion_style == MOTION_STYLE_SORTIE_FLIGHT:
+		sortie_phase = SORTIE_PHASE_EXHAUSTED_PARK
+	motion_visible = true
+	ghost_alpha = 1.0
+	free_flight_target = target
+	patrol_pause = 0.0
+	patrol_change_timer = 0.0
+	var safe_delta := maxf(0.0, delta)
+	var offset := target - pos
+	var distance := offset.length()
+	if safe_delta <= 0.0 or distance <= FLIGHT_EXHAUSTED_PARK_TOLERANCE:
+		pos = target
+		motion_velocity = Vector2.ZERO
+		motion_speed_ratio = 0.0
+		return
+	var direction := offset / distance
+	var step := minf(distance, FLIGHT_EXHAUSTED_PARK_SPEED * safe_delta)
+	motion_velocity = direction * (step / safe_delta)
+	pos += direction * step
+	pos.x = clampf(pos.x, COMPANION_RADIUS + 20.0, FIELD_WIDTH - COMPANION_RADIUS - 20.0)
+	pos.y = clampf(pos.y, COMPANION_RADIUS + 20.0, FIELD_HEIGHT - COMPANION_RADIUS - 20.0)
+	if absf(motion_velocity.x) > 1.0:
+		patrol_dir = 1.0 if motion_velocity.x > 0.0 else -1.0
+	motion_speed_ratio = 0.0
+
+
+func _get_exhausted_flight_park_target(owner: Object) -> Vector2:
+	var lane: Dictionary = _resolve_lane(owner)
+	var player_width: float = maxf(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0)))
+	var player_pos: Vector2 = _get_owner_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5 - player_width * 0.5, FIELD_HEIGHT - 75.0))
+	return Vector2(
+		clampf(player_pos.x + player_width * 0.5, COMPANION_RADIUS + 20.0, FIELD_WIDTH - COMPANION_RADIUS - 20.0),
+		clampf(float(lane.get("y", FIELD_HEIGHT - 50.0)) - FLIGHT_EXHAUSTED_PARK_LANE_OFFSET_Y, COMPANION_RADIUS + 20.0, FIELD_HEIGHT - COMPANION_RADIUS - 20.0)
+	)
+
+
+func _get_exhausted_flight_entry_pos(target: Vector2) -> Vector2:
+	return Vector2(
+		clampf(target.x, COMPANION_RADIUS + 20.0, FIELD_WIDTH - COMPANION_RADIUS - 20.0),
+		clampf(target.y - FLIGHT_EXHAUSTED_PARK_ENTRY_OFFSET_Y, COMPANION_RADIUS + 20.0, FIELD_HEIGHT - COMPANION_RADIUS - 20.0)
+	)
 
 
 func _initialize_sortie_flight(
@@ -932,6 +993,15 @@ func _is_sortie_far_offscreen(value: Vector2) -> bool:
 		or value.x >= FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X
 		or value.y <= -SORTIE_OFFSCREEN_MARGIN_Y
 		or value.y >= FIELD_HEIGHT + SORTIE_OFFSCREEN_MARGIN_Y
+	)
+
+
+func _is_flight_park_offscreen(value: Vector2) -> bool:
+	return (
+		value.x < COMPANION_RADIUS
+		or value.x > FIELD_WIDTH - COMPANION_RADIUS
+		or value.y < COMPANION_RADIUS
+		or value.y > FIELD_HEIGHT - COMPANION_RADIUS
 	)
 
 

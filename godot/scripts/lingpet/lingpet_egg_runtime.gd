@@ -2236,7 +2236,8 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
 		_profile_runtime_surface.get_motion_style(_current_profile),
 		_debug_stat_overrides.get_appearance_rate(_current_profile, 0.0),
-		satiety_speed_scale
+		satiety_speed_scale,
+		companion_exhausted
 	)
 	_companion_pos = _companion_motion_state.pos
 	_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
@@ -2544,6 +2545,19 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		_companion_pos,
 		COMPANION_SKILL_WINDUP_SECONDS
 	)
+	var companion_exhausted := _is_companion_exhausted_for_owner(null)
+	var draw_motion_speed_ratio: float = _companion_body_presence_resolver.get_draw_motion_speed_ratio_from_surface(
+		visual_surface,
+		_current_profile,
+		_ring_dash_state,
+		_feed_controller,
+		_starlight_tracking_state,
+		_companion_motion_state,
+		_companion_distance_roll_state,
+		COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO
+	)
+	if companion_exhausted:
+		draw_motion_speed_ratio = 0.0
 	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
 		"companion_active": _state == STATE_COMPANION,
 		"radius": COMPANION_RADIUS,
@@ -2560,16 +2574,9 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"face_left": _companion_facing_left,
-		"motion_speed_ratio": _companion_body_presence_resolver.get_draw_motion_speed_ratio_from_surface(
-			visual_surface,
-			_current_profile,
-			_ring_dash_state,
-			_feed_controller,
-			_starlight_tracking_state,
-			_companion_motion_state,
-			_companion_distance_roll_state,
-			COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO
-		),
+		"motion_speed_ratio": draw_motion_speed_ratio,
+		"companion_exhausted": companion_exhausted,
+		"satiety_exhaustion_ratio": get_satiety_exhaustion_ratio_for_tests(),
 		"companion_roll_angle": _companion_distance_roll_state.get_draw_angle(_current_profile, LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x),
 		"defense_guard_active": _companion_motion_state.defense_intercept_active,
 		"defense_guard_aura_ratio": _companion_motion_state.defense_guard_aura_ratio,
@@ -2874,7 +2881,8 @@ func _advance_satiety(delta: float, owner: Object = null) -> void:
 		_collection_state.get_battle_slots(),
 		delta,
 		_get_satiety_drain_multiplier(),
-		1.0
+		1.0,
+		_is_companion_exhausted_for_owner(owner)
 	)
 	if bool(result.get("changed", false)):
 		_invalidate_runtime_snapshot_cache()
