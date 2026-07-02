@@ -3,6 +3,7 @@ extends RefCounted
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const STATE_COMPANION := "companion"
 const MAX_BATTLE_SLOTS := 3
+const MAX_OWNED := MAX_BATTLE_SLOTS
 
 const OWNER_ARRAY_KEYS := [
 	"lingpet_owned_pet_ids",
@@ -45,6 +46,12 @@ func get_owned_pet_ids() -> Array[String]:
 	return owned_pet_ids.duplicate()
 
 
+func sync_from_owner(owner: Object) -> void:
+	owned_pet_ids = get_owned_pet_ids_from_owner(owner)
+	battle_slot_pet_ids = get_battle_slots_from_owner(owner)
+	active_slot_index = get_active_slot_index_from_owner(owner)
+
+
 func set_battle_slots(value: Variant) -> void:
 	battle_slot_pet_ids = normalize_slot_array(value)
 
@@ -65,16 +72,152 @@ func add_pet(owner: Object, pet_id: String) -> String:
 	var normalized_pet_id := normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return ""
+	sync_from_owner(owner)
 	if not owned_pet_ids.has(normalized_pet_id):
+		if owned_pet_ids.size() >= MAX_OWNED:
+			return ""
 		owned_pet_ids.append(normalized_pet_id)
 	_ensure_pet_in_battle_slots(normalized_pet_id)
 	if owner != null:
-		for key in OWNER_ARRAY_KEYS:
-			_ensure_owner_array_contains(owner, str(key), normalized_pet_id)
-		for key in OWNER_COLLECTION_KEYS:
-			_ensure_owner_dict_true(owner, str(key), normalized_pet_id)
+		_sync_owner_collections(owner)
 		_sync_owner_slots(owner)
 	return normalized_pet_id
+
+
+func add_pet_to_next_empty_slot(owner: Object, pet_id: String) -> String:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return ""
+	sync_from_owner(owner)
+	if not owned_pet_ids.has(normalized_pet_id):
+		if owned_pet_ids.size() >= MAX_OWNED:
+			return ""
+		owned_pet_ids.append(normalized_pet_id)
+	var slots: Array[String] = battle_slot_pet_ids.duplicate()
+	var slot_index := slots.find(normalized_pet_id)
+	if slot_index < 0:
+		slot_index = _assign_pet_to_first_empty_slot(slots, normalized_pet_id)
+	if slot_index < 0:
+		return ""
+	battle_slot_pet_ids = slots
+	active_slot_index = clampi(slot_index, 0, MAX_BATTLE_SLOTS - 1)
+	if owner != null:
+		_sync_owner_collections(owner)
+		_sync_owner_slots(owner)
+	return normalized_pet_id
+
+
+# Like add_pet_to_next_empty_slot, but PRESERVES the current active_slot_index so a
+# coexisting incubator-egg hatch (the lingpet_egg item used while a companion is already
+# active) registers the new pet into a free battle slot WITHOUT stealing the active
+# companion. Returns the normalized pet id on success, or "" if the roster is full / has
+# no empty slot. The companion keeps accompanying the player; the new pet is just
+# collected into its slot after the item-egg lifecycle reveal transition.
+func add_pet_to_collection_keep_active(owner: Object, pet_id: String) -> String:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return ""
+	sync_from_owner(owner)
+	var preserved_active := active_slot_index
+	if not owned_pet_ids.has(normalized_pet_id):
+		if owned_pet_ids.size() >= MAX_OWNED:
+			return ""
+		owned_pet_ids.append(normalized_pet_id)
+	var slots: Array[String] = battle_slot_pet_ids.duplicate()
+	var slot_index := slots.find(normalized_pet_id)
+	if slot_index < 0:
+		slot_index = _assign_pet_to_first_empty_slot(slots, normalized_pet_id)
+	if slot_index < 0:
+		return ""
+	battle_slot_pet_ids = slots
+	# Keep the companion's slot active; only fall back if the preserved index is invalid.
+	if preserved_active >= 0 and preserved_active < battle_slot_pet_ids.size() and battle_slot_pet_ids[preserved_active] != "":
+		active_slot_index = preserved_active
+	else:
+		active_slot_index = clampi(slot_index, 0, MAX_BATTLE_SLOTS - 1)
+	if owner != null:
+		_sync_owner_collections(owner)
+		_sync_owner_slots(owner)
+	return normalized_pet_id
+
+
+func release_pet(owner: Object, pet_id: String) -> bool:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return false
+	sync_from_owner(owner)
+	var changed := false
+	if owned_pet_ids.has(normalized_pet_id):
+		owned_pet_ids.erase(normalized_pet_id)
+		changed = true
+	for i in range(battle_slot_pet_ids.size()):
+		if battle_slot_pet_ids[i] == normalized_pet_id:
+			battle_slot_pet_ids[i] = ""
+			changed = true
+	if active_slot_index < 0 or active_slot_index >= battle_slot_pet_ids.size() or battle_slot_pet_ids[active_slot_index] == "":
+		active_slot_index = _first_occupied_slot_index(battle_slot_pet_ids)
+	if owner != null:
+		_sync_owner_collections(owner)
+		_sync_owner_slots(owner)
+	return changed
+
+
+func replace_slot(owner: Object, slot_index: int, new_pet_id: String) -> Dictionary:
+	var normalized_pet_id := normalize_pet_id(new_pet_id)
+	if normalized_pet_id == "":
+		return {}
+	sync_from_owner(owner)
+	var clamped_index := clampi(slot_index, 0, MAX_BATTLE_SLOTS - 1)
+	if clamped_index >= battle_slot_pet_ids.size():
+		return {}
+	var previous_pet_id := battle_slot_pet_ids[clamped_index]
+	if previous_pet_id != "" and previous_pet_id != normalized_pet_id and owned_pet_ids.has(previous_pet_id):
+		owned_pet_ids.erase(previous_pet_id)
+	if not owned_pet_ids.has(normalized_pet_id):
+		if owned_pet_ids.size() >= MAX_OWNED:
+			return {}
+		owned_pet_ids.append(normalized_pet_id)
+	for i in range(battle_slot_pet_ids.size()):
+		if battle_slot_pet_ids[i] == normalized_pet_id:
+			battle_slot_pet_ids[i] = ""
+	battle_slot_pet_ids[clamped_index] = normalized_pet_id
+	active_slot_index = clamped_index
+	if owner != null:
+		_sync_owner_collections(owner)
+		_sync_owner_slots(owner)
+	return {
+		"old_pet_id": previous_pet_id,
+		"new_pet_id": normalized_pet_id,
+		"slot_index": clamped_index,
+	}
+
+
+func owned_count(owner: Object = null) -> int:
+	return get_owned_pet_ids_from_owner(owner).size() if owner != null else owned_pet_ids.size()
+
+
+func is_full(owner: Object = null) -> bool:
+	return owned_count(owner) >= MAX_OWNED
+
+
+func has_unowned_pet_candidates(owner: Object) -> bool:
+	var owned_ids: Array[String] = get_owned_pet_ids_from_owner(owner)
+	for pet_id in LingpetCatalog.get_pet_ids():
+		if pet_id != "" and not owned_ids.has(pet_id):
+			return true
+	return false
+
+
+func has_owned_pet(owner: Object, pet_id: String) -> bool:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	return normalized_pet_id != "" and get_owned_pet_ids_from_owner(owner).has(normalized_pet_id)
+
+
+func get_pet_display_name(pet_id: String) -> String:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return ""
+	return LingpetCatalog.get_display_name(normalized_pet_id)
 
 
 func get_owned_pet_ids_from_owner(owner: Object) -> Array[String]:
@@ -97,7 +240,7 @@ func get_owned_pet_ids_from_owner(owner: Object) -> Array[String]:
 	var id := normalize_pet_id(str(_get_owner_value(owner, "lingpet_id", "")))
 	if id != "" and _is_companion_state(state) and not result.has(id):
 		result.append(id)
-	return result
+	return _cap_owned_pet_ids(result)
 
 
 func find_first_owned_pet_id(owner: Object) -> String:
@@ -132,6 +275,27 @@ func select_active_slot(slot_index: int, owner: Object = null) -> String:
 	if owner != null:
 		_sync_owner_slots(owner)
 	return slots[clamped_index]
+
+
+func ensure_pet_active_slot(owner: Object, pet_id: String) -> String:
+	var normalized_pet_id := add_pet(owner, pet_id)
+	if normalized_pet_id == "":
+		return ""
+	var slots: Array[String] = get_battle_slots_from_owner(owner)
+	var slot_index := slots.find(normalized_pet_id)
+	if slot_index < 0:
+		slot_index = clampi(get_active_slot_index_from_owner(owner), 0, MAX_BATTLE_SLOTS - 1)
+		if slot_index >= 0 and slot_index < slots.size():
+			slots[slot_index] = normalized_pet_id
+		else:
+			slot_index = _assign_pet_to_first_empty_slot(slots, normalized_pet_id)
+	if slot_index < 0:
+		return normalized_pet_id
+	battle_slot_pet_ids = slots
+	active_slot_index = clampi(slot_index, 0, MAX_BATTLE_SLOTS - 1)
+	if owner != null:
+		_sync_owner_slots(owner)
+	return normalized_pet_id
 
 
 func find_next_occupied_slot_index(direction: int = 1, owner: Object = null) -> int:
@@ -180,6 +344,36 @@ func pick_hatch_pet_id(owner: Object) -> String:
 	return LingpetCatalog.pick_hatch_pet_id(get_hatch_context(owner), get_owned_pet_ids_from_owner(owner))
 
 
+func is_auto_present_league(owner: Object) -> bool:
+	var hatch_context: Dictionary = get_hatch_context(owner)
+	return str(hatch_context.get("league_mode", "")) == "junior"
+
+
+# Picks a uniformly-random pet from the ENTIRE enabled catalog, ignoring
+# ownership and league/character unlock gating. Used by the Pro/Mythic
+# "lingpet_egg" active item, whose design is "use to hatch one random lingpet
+# among all" (deploy_egg_from_item), not the unlock-filtered hatch-candidate
+# pool that pick_hatch_pet_id uses.
+func pick_random_any_pet_id(rng: RandomNumberGenerator = null) -> String:
+	var ids: Array[String] = LingpetCatalog.get_pet_ids()
+	if ids.is_empty():
+		return ""
+	var index: int = (rng.randi() if rng != null else randi()) % ids.size()
+	return ids[index]
+
+
+func pick_random_unowned_pet_id(owner: Object, rng: RandomNumberGenerator = null) -> String:
+	var owned_ids: Array[String] = get_owned_pet_ids_from_owner(owner)
+	var candidates: Array[String] = []
+	for pet_id in LingpetCatalog.get_pet_ids():
+		if pet_id != "" and not owned_ids.has(pet_id):
+			candidates.append(pet_id)
+	if candidates.is_empty():
+		return ""
+	var index: int = (rng.randi() if rng != null else randi()) % candidates.size()
+	return candidates[index]
+
+
 func get_hatch_context(owner: Object) -> Dictionary:
 	return {
 		"league_mode": _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion"))),
@@ -202,6 +396,8 @@ func normalize_pet_id_array(value: Variant) -> Array[String]:
 		var pet_id: String = normalize_pet_id(str(item))
 		if pet_id != "" and not normalized.has(pet_id):
 			normalized.append(pet_id)
+			if normalized.size() >= MAX_OWNED:
+				break
 	return normalized
 
 
@@ -243,23 +439,18 @@ func _normalize_character_type(value: Variant) -> String:
 	return normalized
 
 
-func _ensure_owner_array_contains(owner: Object, key: String, pet_id: String) -> void:
-	var ids_value: Variant = _get_owner_value(owner, key, [])
-	var ids: Array = []
-	if ids_value is Array:
-		ids = ids_value.duplicate()
-	if not ids.has(pet_id):
-		ids.append(pet_id)
-	owner.set(key, ids)
-
-
-func _ensure_owner_dict_true(owner: Object, key: String, pet_id: String) -> void:
-	var collection_value: Variant = _get_owner_value(owner, key, {})
+func _sync_owner_collections(owner: Object) -> void:
+	if owner == null:
+		return
+	var ids: Array[String] = _cap_owned_pet_ids(owned_pet_ids)
+	owned_pet_ids = ids
+	for key in OWNER_ARRAY_KEYS:
+		owner.set(str(key), ids.duplicate())
 	var collection: Dictionary = {}
-	if collection_value is Dictionary:
-		collection = collection_value.duplicate(true)
-	collection[pet_id] = true
-	owner.set(key, collection)
+	for pet_id in ids:
+		collection[pet_id] = true
+	for key in OWNER_COLLECTION_KEYS:
+		owner.set(str(key), collection.duplicate(true))
 
 
 func _ensure_pet_in_battle_slots(pet_id: String) -> void:
@@ -278,6 +469,23 @@ func _assign_pet_to_first_empty_slot(slots: Array[String], pet_id: String) -> in
 			slots[i] = pet_id
 			return i
 	return -1
+
+
+func _first_occupied_slot_index(slots: Array[String]) -> int:
+	for i in range(mini(MAX_BATTLE_SLOTS, slots.size())):
+		if slots[i] != "":
+			return i
+	return 0
+
+
+func _cap_owned_pet_ids(ids: Array[String]) -> Array[String]:
+	var capped: Array[String] = []
+	for pet_id in ids:
+		if pet_id != "" and not capped.has(pet_id):
+			capped.append(pet_id)
+			if capped.size() >= MAX_OWNED:
+				break
+	return capped
 
 
 func _sync_owner_slots(owner: Object) -> void:

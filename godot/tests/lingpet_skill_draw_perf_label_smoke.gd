@@ -191,6 +191,10 @@ func _verify_draw_labels_and_counters() -> void:
 	_expect(float(_perf_logger.counters.get("lingpet.bone_barrier.barriers", 0.0)) >= 1.0, "Bone Barrier counter should report live barriers")
 	_expect(float(_perf_logger.counters.get("lingpet.milk_shot.projectiles", 0.0)) >= 1.0, "Milk Shot counter should report live projectiles")
 	_expect(float(_perf_logger.counters.get("lingpet.star_coil.trail", 0.0)) >= 1.0, "Star Coil counter should report the launch trail")
+	# Seal the snapshot_key -> counter mapping for one more key per family.
+	_expect(float(_perf_logger.counters.get("lingpet.star_coil.sparks", 0.0)) >= 1.0, "Star Coil counter should report launch sparks")
+	_expect(float(_perf_logger.counters.get("lingpet.bone_barrier.particles", 0.0)) >= 1.0, "Bone Barrier counter should report build particles")
+	_expect(float(_perf_logger.counters.get("lingpet.skeleton_archer.archers", 0.0)) >= 1.0, "Skeleton Archer counter should report the spawned archer")
 
 
 func _expect(condition: bool, message: String) -> void:

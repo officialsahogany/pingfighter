@@ -16,7 +16,7 @@ extends SceneTree
 
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -79,6 +79,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_stable_ticks_stay_within_volatile_write_budget()
+	_verify_runtime_snapshot_reuses_same_frame_cache()
 	_verify_static_and_affinity_surfaces_resync_after_input_change()
 	_verify_skill_effects_skip_idle_runtime_updates()
 	_verify_pet_switch_converges_static_keys()
@@ -138,13 +139,49 @@ func _verify_stable_ticks_stay_within_volatile_write_budget() -> void:
 	)
 
 
+func _verify_runtime_snapshot_reuses_same_frame_cache() -> void:
+	var setup := _make_companion_setup()
+	var owner: SchemaGatedCountingOwner = setup["owner"]
+	var runtime: Object = setup["runtime"]
+	runtime.reset_runtime_snapshot_cache_counters_for_tests()
+	var first_snapshot: Dictionary = runtime.get_snapshot()
+	var second_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(first_snapshot == second_snapshot, "same-frame runtime snapshots should be stable when no state changes")
+	_expect(
+		int(runtime.get_runtime_snapshot_build_count_for_tests()) == 1,
+		"same-frame get_snapshot calls should build the lingpet runtime snapshot once"
+	)
+	var base_patrol_speed: float = float(first_snapshot.get("companion_patrol_speed_default", 0.0))
+	runtime.set_debug_move_speed_override(2.0)
+	var changed_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(
+		int(runtime.get_runtime_snapshot_build_count_for_tests()) == 2,
+		"direct runtime state changes should invalidate the same-frame snapshot cache"
+	)
+	_expect(
+		is_equal_approx(float(changed_snapshot.get("companion_patrol_speed_default", -1.0)), base_patrol_speed * 2.0),
+		"invalidated snapshot should expose the changed move-speed override"
+	)
+	runtime.get_snapshot()
+	_expect(
+		int(runtime.get_runtime_snapshot_build_count_for_tests()) == 2,
+		"changed snapshot should also be reused for later same-frame reads"
+	)
+	runtime.update(1.0 / 72.0, owner, setup["registry"])
+	runtime.get_snapshot()
+	_expect(
+		int(runtime.get_runtime_snapshot_build_count_for_tests()) == 3,
+		"runtime update should invalidate the snapshot cache before post-update HUD reads"
+	)
+
+
 func _verify_static_and_affinity_surfaces_resync_after_input_change() -> void:
 	var setup := _make_companion_setup()
 	var owner: SchemaGatedCountingOwner = setup["owner"]
 	var runtime: Object = setup["runtime"]
 	# Per-run model: affinity leveling is gated by the ring-core cap (run tier 0 = cap 0),
 	# so grant a max ring-core here or the climb to Lv.30 below can never leave Lv.0.
-	runtime._affinity_state.set_run_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
+	runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	for _i in range(100):
 		runtime.update(1.0 / 72.0, owner, setup["registry"])
 	var base_speed := float(owner.value_of("lingpet_companion_patrol_speed_default"))

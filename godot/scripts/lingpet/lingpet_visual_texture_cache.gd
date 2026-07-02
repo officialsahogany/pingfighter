@@ -4,9 +4,6 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const DEFAULT_PREWARM_KEYS := [
-	"egg",
-	"egg_crack_1",
-	"egg_crack_2",
 	"companion_idle",
 	"companion_move_left",
 	"companion_move_right",

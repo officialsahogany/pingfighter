@@ -103,11 +103,14 @@ func _verify_runtime_choice_modal_threads_owner_and_registry() -> void:
 func _verify_gate_is_before_shuffle_and_academy_preview_threads_owner() -> void:
 	var catalog_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
 	var filter_index := catalog_source.find("choices = _filter_lingpet_owned_gate(choices, owner)")
+	var reserve_index := catalog_source.find("_extract_lingpet_ring_core_reserved_choices", filter_index)
 	var shuffle_index := catalog_source.find("choices.shuffle()", filter_index)
 	var truncate_index := catalog_source.find("for choice in choices:", filter_index)
 	_expect(filter_index >= 0, "runtime perk catalog should filter lingpet-gated choices")
+	_expect(reserve_index > filter_index, "ring-core early reservation should run after the lingpet owned gate")
+	_expect(shuffle_index > reserve_index, "ring-core early reservation should split force-included cards before shuffle")
 	_expect(shuffle_index > filter_index, "lingpet owned gate should run before choice shuffle")
-	_expect(truncate_index > shuffle_index, "choice truncation should happen after lingpet owned gate and shuffle")
+	_expect(truncate_index > shuffle_index, "choice truncation should happen after lingpet owned gate, reservation, and shuffle")
 
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	_expect(

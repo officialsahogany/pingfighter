@@ -4,6 +4,9 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+
+const OFFER_SAMPLE_COUNT := 20
 
 var _failures: Array[String] = []
 
@@ -21,6 +24,20 @@ class FakeOwner:
 	var lingpet_state := ""
 	var lingpet_id := ""
 	var selected_character_type := "smasher"
+
+
+class EmptyCatalog:
+	extends RefCounted
+
+	func get_choices(
+		_character_type: String,
+		_runtime_levels: Dictionary,
+		_exclude_instant: bool = false,
+		_base_choice_count: int = 3,
+		_owner: Object = null,
+		_registry: Object = null
+	) -> Array:
+		return []
 
 
 class FakeRegistry:
@@ -44,6 +61,9 @@ func _run() -> void:
 	_verify_ring_core_max_and_owned_empty_suppression()
 	_verify_ring_core_monotonic_debug_and_icon_contracts()
 	_verify_ring_core_run_reset_clears_purchased_tier()
+	_verify_ring_core_early_reserve_offer()
+	_verify_cooldown_suppresses_force_include_after_upgrade()
+	_verify_cooldown_ticks_once_per_presented_choice_screen()
 
 	if _failures.is_empty():
 		print("runtime_perk_lingpet_ring_core_upgrade_smoke: ok")
@@ -134,7 +154,7 @@ func _verify_ring_core_monotonic_debug_and_icon_contracts() -> void:
 	_expect(ring_branch >= 0 and generic_level > ring_branch, "ring-core special branch should run before generic runtime_skill_levels level-up")
 	_expect(state_source.find("upgrade_run_ring_core_tier(target_tier") >= 0, "ring-core branch should route through the run-state upgrade")
 	_expect(state_source.find("store.upgrade_ring_core_tier") < 0, "ring-core apply must not call the dropped permanent store upgrade")
-	_expect(state_source.find("LingpetAffinityStore.MAX_RING_CORE_TIER") >= 0, "ring-core apply should use the affinity-store class max tier constant")
+	_expect(state_source.find("LingpetRingCoreRules.MAX_RING_CORE_TIER") >= 0, "ring-core apply should use the ring-core rules max tier constant")
 	_expect(state_source.find("LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN") >= 0, "ring-core feedback tier names should avoid leaking Korean into non-Korean locales")
 
 	# R5 / per-run: localize_perk_data overrides description with PERK_SUMMARY_* for
@@ -160,6 +180,109 @@ func _verify_ring_core_run_reset_clears_purchased_tier() -> void:
 	_expect_eq(runtime.get_run_ring_core_tier(), 0, "a new run should reset the perk-purchased ring-core tier to 0")
 
 
+func _verify_ring_core_early_reserve_offer() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	for tier in [0, 1, 2]:
+		_expect_eq(catalog._get_lingpet_ring_core_early_reserve_count(tier), 1, "ring-core early reserve should be active through tier %d" % tier)
+	for tier in [3, 4, 5, 6]:
+		_expect_eq(catalog._get_lingpet_ring_core_early_reserve_count(tier), 0, "ring-core early reserve should taper off at tier %d" % tier)
+
+	var owner := _owned_owner()
+	var runtime := LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
+	_expect_eq(_ring_core_hits_in_target3_samples(catalog, owner, registry, 41000), OFFER_SAMPLE_COUNT, "tier 0 should force-include T1 in every 3-card early offer")
+	var tier0_choice := _choice_by_id(catalog.get_choices("smasher", {}, true, 3, owner, registry), "lingpet_ring_core_upgrade")
+	_expect(not tier0_choice.has("_lingpet_ring_core_reserved"), "ring-core reservation marker should not leak to UI choices")
+
+	var tier1_result: Dictionary = runtime.upgrade_run_ring_core_tier(1, owner, registry)
+	_expect(bool(tier1_result.get("accepted", false)), "ring-core cooldown fixture should raise to tier 1")
+	_drain_ring_core_offer_cooldown(runtime)
+	_expect_eq(runtime.get_ring_core_offer_cooldown_screens(), 0, "drained tier-1 cooldown fixture should reach zero")
+	_expect_eq(_ring_core_hits_in_target3_samples(catalog, owner, registry, 42000), OFFER_SAMPLE_COUNT, "tier 1 with cooldown 0 should force-include T2 in every 3-card early offer")
+
+	var tier2_result: Dictionary = runtime.upgrade_run_ring_core_tier(2, owner, registry)
+	_expect(bool(tier2_result.get("accepted", false)), "ring-core cooldown fixture should raise to tier 2")
+	_drain_ring_core_offer_cooldown(runtime)
+	_expect_eq(runtime.get_ring_core_offer_cooldown_screens(), 0, "drained tier-2 cooldown fixture should reach zero")
+	_expect_eq(_ring_core_hits_in_target3_samples(catalog, owner, registry, 43000), OFFER_SAMPLE_COUNT, "tier 2 with cooldown 0 should force-include T3 in every 3-card early offer")
+
+	var split: Dictionary = catalog._extract_lingpet_ring_core_reserved_choices([
+		{"id": "dash_module_control"},
+		{"id": "lingpet_ring_core_upgrade", "_lingpet_ring_core_reserved": true},
+		{"id": "lingpet_affinity_chip", "_lingpet_ring_core_reserved": true},
+	], 3)
+	var reserved: Array = split.get("reserved", []) as Array
+	var remaining: Array = split.get("remaining", []) as Array
+	_expect_eq(reserved.size(), 1, "reserved extractor should reserve only the ring-core card")
+	if reserved.size() == 1:
+		var reserved_choice: Dictionary = reserved[0] as Dictionary
+		_expect_eq(str(reserved_choice.get("id", "")), "lingpet_ring_core_upgrade", "reserved extractor should preserve the ring-core id")
+		_expect(not reserved_choice.has("_lingpet_ring_core_reserved"), "reserved extractor should erase the private ring-core marker")
+	var chip_choice := _choice_by_id(remaining, "lingpet_affinity_chip")
+	_expect(not chip_choice.has("_lingpet_ring_core_reserved"), "reserved extractor should erase stray markers from non-ring-core choices")
+
+	var catalog_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
+	_expect(catalog_source.find("LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER := [1, 1, 1, 0, 0, 0, 0]") >= 0, "catalog should lock the selected tier 0-2 early reserve tuning")
+	_expect(catalog_source.find("_extract_lingpet_ring_core_reserved_choices") >= 0, "catalog should split reserved ring-core cards before shuffle/truncation")
+	_expect(catalog_source.find("LINGPET_RING_CORE_PRIORITY_KEY") >= 0, "catalog should use a named private reservation marker")
+	_expect(catalog_source.find("_get_lingpet_ring_core_offer_cooldown(registry) <= 0") >= 0, "catalog should gate forced ring-core reservation on the cooldown reaching zero")
+
+
+func _verify_cooldown_suppresses_force_include_after_upgrade() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var owner := _owned_owner()
+	var runtime := LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
+	var cooldown := LingpetAffinityState.RING_CORE_OFFER_COOLDOWN_SCREENS
+	_expect(cooldown > 0, "ring-core offer cooldown should be a positive screen count")
+
+	for target_tier in [1, 2]:
+		var upgrade: Dictionary = runtime.upgrade_run_ring_core_tier(target_tier, owner, registry)
+		_expect(bool(upgrade.get("accepted", false)), "ring-core upgrade to tier %d should be accepted for the cooldown fixture" % target_tier)
+		_expect_eq(runtime.get_ring_core_offer_cooldown_screens(), cooldown, "ring-core upgrade to tier %d should arm the offer cooldown" % target_tier)
+		var immediate_hits := _ring_core_hits_in_target3_samples(catalog, owner, registry, 51000 + target_tier * 100)
+		_expect(
+			immediate_hits < OFFER_SAMPLE_COUNT,
+			"armed cooldown should suppress guaranteed ring-core force-include at tier %d (hit %d/%d samples)" % [target_tier, immediate_hits, OFFER_SAMPLE_COUNT]
+		)
+		_drain_ring_core_offer_cooldown(runtime)
+		_expect_eq(runtime.get_ring_core_offer_cooldown_screens(), 0, "tier %d cooldown should drain back to zero" % target_tier)
+		_expect_eq(
+			_ring_core_hits_in_target3_samples(catalog, owner, registry, 52000 + target_tier * 100),
+			OFFER_SAMPLE_COUNT,
+			"drained cooldown should restore guaranteed force-include for the next ring-core tier after tier %d" % target_tier
+		)
+
+
+func _verify_cooldown_ticks_once_per_presented_choice_screen() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var owner := _owned_owner()
+	var runtime := LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
+	var cooldown := LingpetAffinityState.RING_CORE_OFFER_COOLDOWN_SCREENS
+	var upgrade: Dictionary = runtime.upgrade_run_ring_core_tier(1, owner, registry)
+	_expect(bool(upgrade.get("accepted", false)), "modal tick fixture should raise to tier 1")
+	_expect_eq(runtime.get_ring_core_offer_cooldown_screens(), cooldown, "modal tick fixture should start armed")
+
+	var empty_state := RuntimePerkState.new()
+	empty_state.pending_skill_choices = 1
+	empty_state.open_next_choice("smasher", EmptyCatalog.new(), true, owner, registry)
+	_expect_eq(runtime.get_ring_core_offer_cooldown_screens(), cooldown, "empty/non-presented choice recursion should not tick the ring-core cooldown")
+
+	var perk_state := RuntimePerkState.new()
+	for screen_index in range(cooldown):
+		perk_state.pending_skill_choices = 1
+		perk_state.choice_active = false
+		perk_state.current_choices.clear()
+		perk_state.open_next_choice("smasher", catalog, true, owner, registry)
+		_expect(perk_state.choice_active, "presented cooldown screen %d should open a real perk modal" % (screen_index + 1))
+		_expect_eq(
+			runtime.get_ring_core_offer_cooldown_screens(),
+			cooldown - screen_index - 1,
+			"presented cooldown screen %d should tick the ring-core cooldown exactly once" % (screen_index + 1)
+		)
+
+
 func _owned_owner() -> FakeOwner:
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
@@ -171,6 +294,21 @@ func _choice_by_id(choices: Array, choice_id: String) -> Dictionary:
 		if value is Dictionary and str((value as Dictionary).get("id", "")) == choice_id:
 			return (value as Dictionary).duplicate(true)
 	return {}
+
+
+func _ring_core_hits_in_target3_samples(catalog: Object, owner: Object, registry: Object, seed_base: int) -> int:
+	var hits := 0
+	for i in range(OFFER_SAMPLE_COUNT):
+		seed(seed_base + i)
+		var choices: Array = catalog.get_choices("smasher", {}, true, 3, owner, registry)
+		if not _choice_by_id(choices, "lingpet_ring_core_upgrade").is_empty():
+			hits += 1
+	return hits
+
+
+func _drain_ring_core_offer_cooldown(runtime: Object) -> void:
+	for _i in range(LingpetAffinityState.RING_CORE_OFFER_COOLDOWN_SCREENS + 2):
+		runtime.tick_ring_core_offer_cooldown()
 
 
 func _expect(condition: bool, message: String) -> void:

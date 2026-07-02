@@ -1,24 +1,61 @@
 {
   "asset_id": "onimaru_companion_move_right_25f",
-  "created_for": "Onimaru debug lingpet companion right movement sheet",
-  "runtime_path": "res://assets/sprites/lingpet/onimaru_companion_move_right_25f.png",
-  "source_anchor_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
-  "source_anchor_manifest_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json",
-  "generation": {
-    "method": "AutoSprite MCP generate_spritesheet custom movement loop",
+  "pet_id": "onimaru",
+  "display_name": "오니마루",
+  "created_at": "2026-07-01",
+  "regeneration_note": "Rear-view (뒷모습) regen 2026-07-01 to match the patrol-pet convention; Onimaru was the only patrol lingpet facing front (root cause: AutoSprite base was a FRONT upload). REVISION: the first rear pass used iso_walk_northeast/iso_idle_up which faithfully render the back BUT DROP Onimaru's signature spiked club/kanabo prop. Fix: regenerate as AutoSprite kind 'custom' with a forceful STRICT-BACK-VIEW + 'holds his brown spiked club (blue tassel) in his RIGHT hand every frame' prompt — custom preserves the held club where iso drops it, and the no-turn wording keeps it a pure back view. Postprocess anchors the BODY horizontally by head-centroid (head_cx) so the club naturally extends to the right instead of shifting the body left, and bottom-aligns by the FEET band. Prev front runtime PNGs backed up in scratchpad onimaru_prev_runtime_backup/.",
+  "runtime_usage": "lingpet_companion_move_right_rear_walk_with_club_sheet",
+  "autosprite": {
     "character_id": "cmqdw3qgc00p1u65aaheaxlh2",
-    "job_id": "wf_7d24a697-b932-415f-b6b0-304a0d613415",
-    "spritesheet_id": "cmqdwurkk00xnkfscusdtbakd",
-    "source_video_id": "cmqdwss88001o9fwlmbtt1nab",
-    "prompt_name": "onimaru_move_right_25f",
-    "prompt_family": "front-biased Onimaru left/right lingpet movement pair, same identity lock with direction/trail wording flipped only",
-    "motion": "front-biased right movement; hair and tassel trail viewer-left",
-    "video_tier": "turbo",
+    "character_name": "Onimaru Lingpet Standing Source 20260614",
+    "kind": "custom (strict rear walk, club held)",
+    "spritesheet_id": "cmr1tltu40006ggqrmgus3yxd",
+    "workflow_job_id": "wf_2434e4ad-c9c2-40d3-bb61-95478d9200c8",
+    "source_video_id": "cmr1tjgps001c90r2xdyyu81o",
+    "generated_frame_count": 25,
     "remove_bg": "ultra",
-    "credits_used_for_pair": 10,
-    "postprocess": "copied AutoSprite transparent sheet without geometric edits; manifest QA only"
+    "video_tier": "turbo"
   },
-  "grid": {
+  "postprocess": {
+    "note": "custom rear walk-in-place with club; all 25 source frames used forward 0-24.",
+    "runtime_frame_source_sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "scale": 0.499,
+    "horizontal_anchor": "head-centroid (top-40% of content) -> cell center 128 (keeps body centered, club extends right)",
+    "vertical_align": "feet band (head_cx +/-55px) bottom -> baseline 236",
+    "target_body_height": 214,
+    "alpha_cleanup": {
+      "alpha_below": 8,
+      "kill_green_residue": true
+    },
+    "sheet": "1280x1280 5x5 256px RGBA"
+  },
+  "runtime_sheet": {
     "cols": 5,
     "rows": 5,
     "frame_count": 25,
@@ -26,326 +63,11 @@
       256,
       256
     ],
-    "frame_size": [
-      256,
-      256
+    "sheet_size": [
+      1280,
+      1280
     ],
-    "repeated_static_frame": false
-  },
-  "qa": {
-    "sha256": "6c4deba663746e4abb260995c92fe8ffd2ea7466e02f34e5e084c76ae9662df6",
-    "bytes": 385693,
-    "visible_pixels": 532745,
-    "visible_green_pixels": 0,
-    "visible_magenta_pixels": 0,
-    "visible_greenish_pixels": 0,
-    "visible_magentaish_pixels": 0,
-    "edge_alpha_max": 0,
-    "edge_touch_frames": [],
-    "sample_frame_bboxes": [
-      {
-        "index": 0,
-        "bbox": [
-          33,
-          12,
-          200,
-          233
-        ],
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 6,
-        "bbox": [
-          34,
-          7,
-          202,
-          231
-        ],
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 12,
-        "bbox": [
-          25,
-          10,
-          210,
-          233
-        ],
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 18,
-        "bbox": [
-          29,
-          11,
-          200,
-          233
-        ],
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 24,
-        "bbox": [
-          33,
-          12,
-          200,
-          233
-        ],
-        "edge_alpha_max": 0
-      }
-    ],
-    "atlas_json_bytes": 2776
-  },
-  "frames": [
-    {
-      "index": 0,
-      "bbox": [
-        33,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 1,
-      "bbox": [
-        33,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 2,
-      "bbox": [
-        34,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 3,
-      "bbox": [
-        34,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 4,
-      "bbox": [
-        35,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 5,
-      "bbox": [
-        36,
-        10,
-        201,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 6,
-      "bbox": [
-        34,
-        7,
-        202,
-        231
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 7,
-      "bbox": [
-        31,
-        5,
-        203,
-        231
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 8,
-      "bbox": [
-        27,
-        5,
-        205,
-        231
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 9,
-      "bbox": [
-        24,
-        6,
-        209,
-        231
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 10,
-      "bbox": [
-        24,
-        9,
-        211,
-        232
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 11,
-      "bbox": [
-        24,
-        10,
-        211,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 12,
-      "bbox": [
-        25,
-        10,
-        210,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 13,
-      "bbox": [
-        26,
-        9,
-        209,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 14,
-      "bbox": [
-        26,
-        8,
-        207,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 15,
-      "bbox": [
-        26,
-        6,
-        205,
-        232
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 16,
-      "bbox": [
-        26,
-        6,
-        202,
-        232
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 17,
-      "bbox": [
-        27,
-        8,
-        201,
-        232
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 18,
-      "bbox": [
-        29,
-        11,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 19,
-      "bbox": [
-        32,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 20,
-      "bbox": [
-        34,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 21,
-      "bbox": [
-        34,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 22,
-      "bbox": [
-        34,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 23,
-      "bbox": [
-        33,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 24,
-      "bbox": [
-        33,
-        12,
-        200,
-        233
-      ],
-      "edge_alpha_max": 0
-    }
-  ]
+    "sha256": "0cc04072dc87b74411869643bb1b7e3777aa4988ccd5f5598efa43df9c3938ad",
+    "bytes": 1175799
+  }
 }

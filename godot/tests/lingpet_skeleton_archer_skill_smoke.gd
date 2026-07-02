@@ -130,6 +130,7 @@ func _init() -> void:
 	_verify_golden_archer_multishot()
 	_verify_level5_bonus_summon()
 	_verify_returned_ball_breaks_archer()
+	_verify_wider_break_radius_catches_near_miss()
 	_verify_archer_count_cap_bounds_accumulation()
 	_verify_original_event_audio_is_ported()
 
@@ -153,7 +154,7 @@ func _verify_catalog_dispatcher_and_host_wiring() -> void:
 	var skill: Dictionary = LingpetCatalog.get_active_skill_entry(SKILL_ID)
 	_expect(not skill.is_empty(), "Nekuring catalog should expose Skeleton Archer metadata")
 	_expect(str(skill.get("runtime_kind", "")) == "skeleton_archer", "Skeleton Archer metadata should use the skeleton_archer runtime kind")
-	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 11.7), "Skeleton Archer skill cooldown should be the +30% nerf value (9.0 -> 11.7)")
+	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 18.25), "Skeleton Archer skill cast cooldown should carry the cumulative nerf chain (9.0 -> 11.7 -> 15.21 -> +20% -> 18.25)")
 	_expect(is_equal_approx(float(skill.get("windup_seconds", 0.0)), 0.45), "Skeleton Archer should use a short lingpet cast windup")
 	var nekuring_skill_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("nekuring"))
 	_expect(not nekuring_skill_ids.has("nekuring_ghost_summon"), "Nekuring active pool should remove Skeleton Summon")
@@ -179,9 +180,15 @@ func _verify_catalog_dispatcher_and_host_wiring() -> void:
 	_expect(host_source.find("lingpet.skeleton_archer.archers") >= 0, "Skeleton Archer draw should expose archer-count perf counters")
 	_expect(host_source.find("lingpet.skeleton_archer.arrows") >= 0, "Skeleton Archer draw should expose arrow-count perf counters")
 	_expect(host_source.find("record_counter_sample") >= 0, "Skeleton Archer draw counters should use the BattlePerf counter path")
-	_expect(runtime_source.find("_skill_runtime_host.draw(canvas, shake_offset, _get_draw_perf_logger(_draw_context))") >= 0, "lingpet draw should pass the playfield BattlePerf logger into the skill runtime host")
+	_expect(runtime_source.find("_skill_runtime_host.draw(canvas, shake_offset, _perf_probe.get_draw_logger(_draw_context))") >= 0, "lingpet draw should pass the playfield BattlePerf logger into the skill runtime host")
+	# Round boundary preserves summoned archers (mirrors Bone Barrier's reset_round so the
+	# Nekuring archers stay deployed into the next round).
+	host.reset_round(owner, registry)
+	_expect(host.get_skeleton_archer_archer_count_for_tests() == 1, "round-boundary reset should keep the summoned Skeleton Archer so it persists into the next round")
+	_expect(host.has_visible_effects(), "Skeleton Archer should still be visible after a round-boundary reset")
+	# A full reset (companion change / hatch / new battle / unequip) still wipes everything.
 	host.reset(owner, registry)
-	_expect(not host.has_visible_effects(), "runtime host reset should clear live Skeleton Archer visuals at round boundaries")
+	_expect(not host.has_visible_effects(), "full runtime host reset should clear all live Skeleton Archer visuals")
 
 
 func _verify_clean_lingpia_visual_layers() -> void:
@@ -207,6 +214,9 @@ func _verify_clean_lingpia_visual_layers() -> void:
 	_expect(source.find("for point_index in range(13)") >= 0, "bow should keep the 13-point recurve construction")
 	_expect(source.find("pos.y += 14.0") >= 0, "draw anchor should keep the +14 body offset (visual must overlap the collision center)")
 	_expect(source.find("draw_colored_polygon") < 0, "visual should avoid animated draw_colored_polygon triangulation risk")
+	# --- summoned archers render at 50% opacity (translucent revenant spirits) ---
+	_expect(source.find("const ARCHER_BODY_ALPHA := 0.5") >= 0, "summoned archers should expose a 50% body-opacity constant")
+	_expect(source.find("alpha *= ARCHER_BODY_ALPHA") >= 0, "_draw_archer should fold the 50% transparency into the master alpha so every layer (cloak, skull, bow, motes) inherits it")
 	# --- old cluttered anatomy must stay REMOVED (the messy look the user rejected) ---
 	_expect(source.find("func _draw_archer_pelvis") < 0, "redesign must NOT keep the pelvis anatomy")
 	_expect(source.find("func _draw_archer_legs") < 0, "redesign must NOT keep jointed legs/feet (the spirit hovers)")
@@ -231,6 +241,15 @@ func _verify_level_scaling_tables_and_runtime_snapshot() -> void:
 	_expect(is_equal_approx(float(lv5.get("bonus_summon_chance_pct", -1.0)), 30.0), "Skeleton Archer Lv.5 should add a 30 percent second-archer roll")
 	_expect(float(lv5.get("arrow_draw_time", 9.0)) < float(lv1.get("arrow_draw_time", 0.0)), "Skeleton Archer arrow draw time should shrink by Lv.5")
 	_expect(float(lv5.get("arrow_cooldown_max", 9.0)) < float(lv1.get("arrow_cooldown_max", 0.0)), "Skeleton Archer max arrow cooldown should shrink by Lv.5")
+	# +20% overall cooldown pass (on top of the earlier +30% nerf). Seal the exact catalog values so
+	# the arrow-fire intervals cannot silently drift back to the pre-20% tuning.
+	_expect(is_equal_approx(float(lv1.get("arrow_cooldown_min", 0.0)), 1.56), "Lv.1 arrow cooldown min should carry the +20% pass (1.30 -> 1.56)")
+	_expect(is_equal_approx(float(lv1.get("arrow_cooldown_max", 0.0)), 4.68), "Lv.1 arrow cooldown max should carry the +20% pass (3.90 -> 4.68)")
+	_expect(is_equal_approx(float(lv5.get("arrow_cooldown_min", 0.0)), 0.78), "Lv.5 arrow cooldown min should carry the +20% pass (0.65 -> 0.78)")
+	_expect(is_equal_approx(float(lv5.get("arrow_cooldown_max", 0.0)), 2.34), "Lv.5 arrow cooldown max should carry the +20% pass (1.95 -> 2.34)")
+	# The runtime fallback consts must stay in lockstep with the catalog (the skill-file comment claims sync).
+	_expect(is_equal_approx(float(LingpetSkeletonArcherSkill.ARROW_COOLDOWN_MIN_BY_LEVEL[0]), float(lv1.get("arrow_cooldown_min", -1.0))), "skill-file min cooldown fallback should match the catalog Lv.1 min")
+	_expect(is_equal_approx(float(LingpetSkeletonArcherSkill.ARROW_COOLDOWN_MAX_BY_LEVEL[4]), float(lv5.get("arrow_cooldown_max", -1.0))), "skill-file max cooldown fallback should match the catalog Lv.5 max")
 
 	var owner := FakeOwner.new()
 	var lv1_skill := LingpetSkeletonArcherSkill.new()
@@ -344,6 +363,49 @@ func _verify_returned_ball_breaks_archer() -> void:
 	_expect(int(snapshot.get("skeleton_archer_dying_count", 0)) == 1, "shattered archer should leave a short bone-fragment death visual")
 	_expect(audio.archer_death_count == 1, "shattered archer should play the original skulldead death cue")
 	_expect(audio.break_count == 0, "shattered archer should prefer the dedicated death cue over the borrowed bonebreak cue")
+
+
+func _verify_wider_break_radius_catches_near_miss() -> void:
+	# The ball-vs-archer break hit was widened (ARCHER_HIT_RADIUS_PADDING) so a boss-returned ball
+	# that passes NEAR the tall archer body -- not dead-center -- still shatters it. Assert the
+	# OUTCOME at an offset that sits OUTSIDE the old half-width-only radius (15 + ball_radius) but
+	# INSIDE the widened radius, so this case would FAIL on the pre-widen code (falsification), plus
+	# a far counter-case so the widened hitbox is generous, not unbounded.
+	var ball_radius := 14.3  # FakeOwner ball_size 28.6 -> radius 14.3 (mirrors _get_ball_radius)
+	var old_radius := float(LingpetSkeletonArcherSkill.ARCHER_WIDTH) * 0.5 + ball_radius
+	var new_radius := old_radius + float(LingpetSkeletonArcherSkill.ARCHER_HIT_RADIUS_PADDING)
+	var near_offset := (old_radius + new_radius) * 0.5
+	_expect(near_offset > old_radius, "near-miss offset must sit OUTSIDE the old break radius (falsification gate vs pre-widen code)")
+	_expect(near_offset < new_radius, "near-miss offset must sit INSIDE the widened break radius")
+
+	# --- near-miss descending ball breaks the archer with the widened radius ---
+	var registry := FakeRegistry.new({"game_audio": FakeAudio.new()})
+	var near_skill := LingpetSkeletonArcherSkill.new()
+	var near_owner := FakeOwner.new()
+	near_skill.set_golden_rolls_for_tests([1.0])
+	_expect(near_skill.launch(Vector2(380.0, 680.0), near_owner, {"registry": registry, "spawn_x": 380.0, "spawn_y": 650.0}), "near-miss Skeleton Archer fixture should launch")
+	near_skill.update(1.21, near_owner, registry)
+	var near_positions: Array = near_skill.get_snapshot().get("skeleton_archer_archer_positions", []) as Array
+	_expect(near_positions.size() == 1, "near-miss fixture should expose one live archer position")
+	if near_positions.size() == 1 and near_positions[0] is Vector2:
+		near_owner.ball_pos = (near_positions[0] as Vector2) + Vector2(0.0, -near_offset)  # descending ball above the archer body
+		near_owner.ball_vel = Vector2(0.0, 12.0)
+		near_skill.update(1.0 / 60.0, near_owner, registry)
+	_expect(int(near_skill.get_snapshot().get("skeleton_archer_archer_death_count", 0)) == 1, "a boss-returned ball passing NEAR the archer body should shatter it with the widened break radius")
+	_expect(int(near_skill.get_snapshot().get("skeleton_archer_archer_count", 0)) == 0, "the near-miss-shattered archer should leave the live archer list")
+
+	# --- far ball still misses (widened hitbox is generous, not unbounded) ---
+	var far_skill := LingpetSkeletonArcherSkill.new()
+	var far_owner := FakeOwner.new()
+	far_skill.set_golden_rolls_for_tests([1.0])
+	_expect(far_skill.launch(Vector2(380.0, 680.0), far_owner, {"registry": registry, "spawn_x": 380.0, "spawn_y": 650.0}), "far-miss Skeleton Archer fixture should launch")
+	far_skill.update(1.21, far_owner, registry)
+	var far_positions: Array = far_skill.get_snapshot().get("skeleton_archer_archer_positions", []) as Array
+	if far_positions.size() == 1 and far_positions[0] is Vector2:
+		far_owner.ball_pos = (far_positions[0] as Vector2) + Vector2(0.0, -(new_radius + 24.0))
+		far_owner.ball_vel = Vector2(0.0, 12.0)
+		far_skill.update(1.0 / 60.0, far_owner, registry)
+	_expect(int(far_skill.get_snapshot().get("skeleton_archer_archer_death_count", 0)) == 0, "a ball well beyond the widened break radius should NOT shatter the archer")
 
 
 func _verify_archer_count_cap_bounds_accumulation() -> void:

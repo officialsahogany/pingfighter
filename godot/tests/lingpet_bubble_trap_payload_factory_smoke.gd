@@ -25,7 +25,7 @@ func _init() -> void:
 
 
 func _verify_projectile_payload() -> void:
-	var projectile: Dictionary = LingpetBubbleTrapPayloadFactory.build_projectile(Vector2(320.0, 640.0), 220.0, 0.25, 1.04)
+	var projectile: Dictionary = LingpetBubbleTrapPayloadFactory.build_projectile(Vector2(320.0, 640.0), 220.0, 0.25, 1.04, true, 2.5)
 	_expect(projectile.get("pos", Vector2.ZERO) == Vector2(320.0, 640.0), "projectile should preserve launch position")
 	_expect(projectile.get("vel", Vector2.ZERO) == Vector2(0.0, -220.0), "projectile should preserve launch speed")
 	_expect(is_equal_approx(float(projectile.get("age", -1.0)), 0.0), "projectile age should start at zero")
@@ -33,6 +33,8 @@ func _verify_projectile_payload() -> void:
 	_expect(is_equal_approx(float(projectile.get("phase", 0.0)), 0.25 * TAU), "projectile phase should derive from visual seed")
 	_expect(is_equal_approx(float(projectile.get("visual_seed", 0.0)), 0.25), "projectile should preserve visual seed")
 	_expect(is_equal_approx(float(projectile.get("radius_scale", 0.0)), 1.04), "projectile should preserve radius scale")
+	_expect(bool(projectile.get("is_rainbow", false)), "projectile should preserve the rainbow flag")
+	_expect(is_equal_approx(float(projectile.get("rainbow_size_mult", 0.0)), 2.5), "projectile should preserve the rainbow size multiplier")
 	var trail: Array = projectile.get("trail", []) as Array
 	_expect(trail.size() == 1 and trail[0] == Vector2(320.0, 640.0), "projectile should start with a one-point trail")
 

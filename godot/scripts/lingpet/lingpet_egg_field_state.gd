@@ -15,7 +15,20 @@ const EGG_PLAYER_NUDGE_DAMPING := 0.62
 const EGG_PLAYER_WOBBLE_DAMPING := 0.72
 const EGG_PLAYER_WOBBLE_SPRING := 0.35
 const EGG_PLAYER_WOBBLE_MAX_DEGREES := 8.0
-const EGG_TINT_COUNT := 5
+const EGG_DASH_CONTACT_PADDING := 8.0
+const EGG_DASH_KNOCKBACK_VX := 13.5
+const EGG_DASH_MIN_VX := 8.0
+const EGG_DASH_MAX_VX := 16.0
+const EGG_DASH_FRICTION := 0.94
+const EGG_DASH_STOP_VX := 0.08
+const EGG_DASH_WALL_RESTITUTION := 0.72
+const EGG_DASH_WALL_MIN_REBOUND_VX := 5.0
+const EGG_DASH_CONTACT_COOLDOWN_SECONDS := 0.12
+const EGG_DASH_WOBBLE_IMPULSE := 5.5
+const EGG_ROLL_CONTACT_RADIUS := 30.0
+const EGG_ROLL_SETTLE_RATE := 0.22
+const EGG_ROLL_SETTLE_EPSILON := 0.02
+const EGG_VARIANT_COUNT := 5
 const BALL_RADIUS_FALLBACK := 14.3
 const HIT_COOLDOWN_SECONDS := 0.20
 const PADDLE_BOUNCE_DEFAULT_MAX_ANGLE := 60.0
@@ -26,56 +39,91 @@ var hatch_hits := 0
 var egg_color_index := -1
 var pos := Vector2.ZERO
 var nudge_vx := 0.0
+var dash_vx := 0.0
+var roll_angle := 0.0
 var wobble_angle := 0.0
 var wobble_vel := 0.0
+var hatch_flash_timer := 0.0
 var ball_was_inside := false
 var hit_cooldown := 0.0
+var dash_hit_cooldown := 0.0
+var dash_was_contacting := false
+var _last_player_pos := Vector2.ZERO
+var _last_player_pos_valid := false
 
 
 func advance(delta: float) -> void:
-	hit_cooldown = maxf(0.0, hit_cooldown - maxf(0.0, delta))
+	var safe_delta: float = maxf(0.0, delta)
+	hit_cooldown = maxf(0.0, hit_cooldown - safe_delta)
+	dash_hit_cooldown = maxf(0.0, dash_hit_cooldown - safe_delta)
+	hatch_flash_timer = maxf(0.0, hatch_flash_timer - safe_delta)
 
 
 func reset_all() -> void:
 	hatch_hits = 0
 	egg_color_index = -1
 	pos = Vector2.ZERO
+	reset_hatch_flash()
 	reset_contact_motion()
 
 
 func reset_contact_motion() -> void:
 	nudge_vx = 0.0
+	dash_vx = 0.0
+	roll_angle = 0.0
 	wobble_angle = 0.0
 	wobble_vel = 0.0
 	ball_was_inside = false
 	hit_cooldown = 0.0
+	dash_hit_cooldown = 0.0
+	dash_was_contacting = false
+	_last_player_pos = Vector2.ZERO
+	_last_player_pos_valid = false
 
 
 func spawn(owner: Object) -> void:
 	hatch_hits = 0
 	pos = resolve_spawn_pos(owner)
 	roll_color_index()
+	reset_hatch_flash()
 	reset_contact_motion()
 
 
 func set_hatched(required_hits: int) -> void:
 	hatch_hits = maxi(0, required_hits)
+	reset_hatch_flash()
 	reset_contact_motion()
 
 
+func trigger_hatch_flash(duration_seconds: float) -> void:
+	hatch_flash_timer = maxf(0.0, duration_seconds)
+
+
+func reset_hatch_flash() -> void:
+	hatch_flash_timer = 0.0
+
+
+func has_hatch_flash() -> bool:
+	return hatch_flash_timer > 0.0
+
+
+func get_hatch_flash_timer() -> float:
+	return hatch_flash_timer
+
+
 func roll_color_index() -> void:
-	egg_color_index = int(randi() % EGG_TINT_COUNT)
+	egg_color_index = int(randi() % EGG_VARIANT_COUNT)
 
 
 func set_color_index(index: int) -> void:
-	egg_color_index = index if index >= 0 and index < EGG_TINT_COUNT else -1
+	egg_color_index = index if index >= 0 and index < EGG_VARIANT_COUNT else -1
 
 
 func get_color_index() -> int:
 	return egg_color_index
 
 
-func update_player_contact(delta: float, owner: Object) -> void:
+func update_player_contact(delta: float, owner: Object, registry: Object = null) -> void:
 	if pos == Vector2.ZERO:
 		return
 	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2.ZERO)
@@ -95,16 +143,31 @@ func update_player_contact(delta: float, owner: Object) -> void:
 		nudge_vx = clampf(nudge_vx + push_dir * push_strength, -EGG_PLAYER_NUDGE_MAX_VX, EGG_PLAYER_NUDGE_MAX_VX)
 		wobble_vel += push_dir * push_strength * 2.0
 
+	var dash_context: Dictionary = _get_player_dash_context(owner, registry)
+	var dash_contacting := false
+	if bool(dash_context.get("active", false)):
+		dash_contacting = _is_dash_contacting_egg(player_pos, player_size)
+		if dash_contacting and not dash_was_contacting and dash_hit_cooldown <= 0.0:
+			_apply_dash_knockback(_resolve_dash_push_direction(dash_context, player_pos, player_size))
+	dash_was_contacting = dash_contacting
+
 	if frame_scale > 0.0:
+		var x_before: float = pos.x
 		if absf(nudge_vx) > 0.05:
 			var nudge_step: float = clampf(nudge_vx, -EGG_PLAYER_NUDGE_MAX_STEP, EGG_PLAYER_NUDGE_MAX_STEP)
-			pos.x = clampf(pos.x + nudge_step, EGG_TEXTURE_DRAW_SIZE.x * 0.5, FIELD_WIDTH - EGG_TEXTURE_DRAW_SIZE.x * 0.5)
+			pos.x = clampf(pos.x + nudge_step, _get_egg_min_x(), _get_egg_max_x())
 			nudge_vx *= pow(EGG_PLAYER_NUDGE_DAMPING, frame_scale)
 		else:
 			nudge_vx = 0.0
+		_advance_dash_motion(frame_scale)
+		_integrate_roll_from_delta(pos.x - x_before)
+		if dash_vx == 0.0 and absf(nudge_vx) <= 0.05:
+			_settle_roll_angle(frame_scale)
 		wobble_vel += -wobble_angle * EGG_PLAYER_WOBBLE_SPRING * frame_scale
 		wobble_vel *= pow(EGG_PLAYER_WOBBLE_DAMPING, frame_scale)
 		wobble_angle = clampf(wobble_angle + wobble_vel, -EGG_PLAYER_WOBBLE_MAX_DEGREES, EGG_PLAYER_WOBBLE_MAX_DEGREES)
+	_last_player_pos = player_pos
+	_last_player_pos_valid = true
 
 
 func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
@@ -142,9 +205,12 @@ func get_snapshot() -> Dictionary:
 		"egg_color_index": egg_color_index,
 		"egg_pos": pos,
 		"egg_nudge_vx": nudge_vx,
+		"egg_dash_vx": dash_vx,
+		"egg_roll_angle": roll_angle,
 		"egg_wobble_angle": wobble_angle,
 		"egg_wobble_vel": wobble_vel,
 		"hit_cooldown": hit_cooldown,
+		"dash_hit_cooldown": dash_hit_cooldown,
 	}
 
 
@@ -179,6 +245,151 @@ func _apply_paddle_bounce(owner: Object, ball_pos: Vector2, hit_radius: float) -
 	var speed: float = clampf(maxf(ball_vel.length(), min_speed), min_speed, max_speed)
 	owner.set("ball_vel", launch_dir * speed)
 	owner.set("ball_pos", Vector2(
-		clampf(ball_pos.x, EGG_TEXTURE_DRAW_SIZE.x * 0.5, FIELD_WIDTH - EGG_TEXTURE_DRAW_SIZE.x * 0.5),
+		clampf(ball_pos.x, _get_egg_min_x(), _get_egg_max_x()),
 		pos.y - hit_radius - 1.0
 	))
+
+
+func _is_dash_contacting_egg(player_pos: Vector2, player_size: Vector2) -> bool:
+	var padding: float = EGG_RADIUS + EGG_DASH_CONTACT_PADDING
+	var sweep_rect: Rect2 = _build_player_sweep_rect(player_pos, player_size, padding)
+	return sweep_rect.has_point(pos)
+
+
+func _build_player_sweep_rect(player_pos: Vector2, player_size: Vector2, padding: float) -> Rect2:
+	var previous_pos: Vector2 = _last_player_pos if _last_player_pos_valid else player_pos
+	var min_x: float = minf(previous_pos.x, player_pos.x)
+	var min_y: float = minf(previous_pos.y, player_pos.y)
+	var max_x: float = maxf(previous_pos.x + player_size.x, player_pos.x + player_size.x)
+	var max_y: float = maxf(previous_pos.y + player_size.y, player_pos.y + player_size.y)
+	var origin := Vector2(min_x - padding, min_y - padding)
+	var size := Vector2(max_x - min_x + padding * 2.0, max_y - min_y + padding * 2.0)
+	return Rect2(origin, size)
+
+
+func _apply_dash_knockback(direction: float) -> void:
+	var push_dir: float = _normalize_direction(direction)
+	if push_dir == 0.0:
+		return
+	dash_vx = clampf(dash_vx + push_dir * EGG_DASH_KNOCKBACK_VX, -EGG_DASH_MAX_VX, EGG_DASH_MAX_VX)
+	if absf(dash_vx) < EGG_DASH_MIN_VX:
+		dash_vx = push_dir * EGG_DASH_MIN_VX
+	wobble_vel += push_dir * EGG_DASH_WOBBLE_IMPULSE
+	dash_hit_cooldown = EGG_DASH_CONTACT_COOLDOWN_SECONDS
+
+
+func _advance_dash_motion(frame_scale: float) -> void:
+	if absf(dash_vx) <= EGG_DASH_STOP_VX:
+		dash_vx = 0.0
+		return
+	var next_x: float = pos.x + dash_vx * frame_scale
+	if next_x <= _get_egg_min_x():
+		pos.x = _get_egg_min_x()
+		_reflect_dash_from_wall(1.0)
+	elif next_x >= _get_egg_max_x():
+		pos.x = _get_egg_max_x()
+		_reflect_dash_from_wall(-1.0)
+	else:
+		pos.x = next_x
+		dash_vx *= pow(EGG_DASH_FRICTION, frame_scale)
+	if absf(dash_vx) <= EGG_DASH_STOP_VX:
+		dash_vx = 0.0
+
+
+func _reflect_dash_from_wall(wall_push_direction: float) -> void:
+	var push_dir: float = _normalize_direction(wall_push_direction)
+	if push_dir == 0.0:
+		return
+	var rebound_speed: float = maxf(EGG_DASH_WALL_MIN_REBOUND_VX, absf(dash_vx) * EGG_DASH_WALL_RESTITUTION)
+	dash_vx = clampf(push_dir * rebound_speed, -EGG_DASH_MAX_VX, EGG_DASH_MAX_VX)
+	wobble_vel += push_dir * EGG_DASH_WOBBLE_IMPULSE * 0.6
+
+
+func _integrate_roll_from_delta(delta_x: float) -> void:
+	if absf(delta_x) <= 0.0001:
+		return
+	roll_angle = fposmod(roll_angle + delta_x / EGG_ROLL_CONTACT_RADIUS, TAU)
+
+
+func _settle_roll_angle(frame_scale: float) -> void:
+	var settle_delta: float = _get_upright_roll_delta()
+	if absf(settle_delta) <= EGG_ROLL_SETTLE_EPSILON:
+		roll_angle = 0.0
+		return
+	roll_angle = fposmod(roll_angle + settle_delta * minf(1.0, EGG_ROLL_SETTLE_RATE * frame_scale), TAU)
+	if absf(_get_upright_roll_delta()) <= EGG_ROLL_SETTLE_EPSILON:
+		roll_angle = 0.0
+
+
+func _get_upright_roll_delta() -> float:
+	return -roll_angle if roll_angle <= PI else TAU - roll_angle
+
+
+func _resolve_dash_push_direction(dash_context: Dictionary, player_pos: Vector2, player_size: Vector2) -> float:
+	var dash_direction: float = float(dash_context.get("direction", 0.0))
+	if absf(dash_direction) > 0.01:
+		return _normalize_direction(dash_direction)
+	if _last_player_pos_valid:
+		var move_delta_x: float = player_pos.x - _last_player_pos.x
+		if absf(move_delta_x) > 0.01:
+			return _normalize_direction(move_delta_x)
+	var player_center_x: float = player_pos.x + player_size.x * 0.5
+	if absf(player_center_x - pos.x) > 0.01:
+		return -1.0 if player_center_x > pos.x else 1.0
+	return 1.0
+
+
+func _get_player_dash_context(owner: Object, registry: Object) -> Dictionary:
+	var context := {
+		"active": false,
+		"direction": 0.0,
+	}
+	var dash_state: Object = _get_instance(registry, "smasher_dash_state")
+	if dash_state != null:
+		if dash_state.has_method("get_snapshot"):
+			var snapshot_value: Variant = dash_state.get_snapshot()
+			if snapshot_value is Dictionary:
+				var snapshot: Dictionary = snapshot_value
+				context["active"] = bool(snapshot.get("active", context.get("active", false)))
+				context["direction"] = float(snapshot.get("direction", context.get("direction", 0.0)))
+		elif dash_state.has_method("is_active") and bool(dash_state.is_active()):
+			context["active"] = true
+	if owner != null:
+		if not bool(context.get("active", false)):
+			for key in ["dash_active", "player_dash_active", "soul_burst_dash_active"]:
+				var active_value: Variant = owner.get(str(key))
+				if active_value != null and bool(active_value):
+					context["active"] = true
+					break
+		if absf(float(context.get("direction", 0.0))) <= 0.01:
+			for key in ["dash_direction", "player_dash_direction", "smasher_dash_direction", "sensor_last_dash_direction", "poseidon_last_dash_direction"]:
+				var direction_value: Variant = owner.get(str(key))
+				if direction_value != null and absf(float(direction_value)) > 0.01:
+					context["direction"] = float(direction_value)
+					break
+	return context
+
+
+func _get_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	var value: Variant = registry.get_instance(key)
+	if value is Object:
+		return value
+	return null
+
+
+func _normalize_direction(direction: float) -> float:
+	if direction > 0.01:
+		return 1.0
+	if direction < -0.01:
+		return -1.0
+	return 0.0
+
+
+func _get_egg_min_x() -> float:
+	return EGG_TEXTURE_DRAW_SIZE.x * 0.5
+
+
+func _get_egg_max_x() -> float:
+	return FIELD_WIDTH - EGG_TEXTURE_DRAW_SIZE.x * 0.5

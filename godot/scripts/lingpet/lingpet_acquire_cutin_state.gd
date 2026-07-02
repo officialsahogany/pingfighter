@@ -18,22 +18,24 @@ const DISMISS_SECONDS := 1.6
 # never caches cannot hang the reveal forever (it then completes on the static art, the
 # old pre-fix behavior, rather than soft-locking the modal).
 const REVEAL_ASSET_GATE_FRACTION := 0.55
-const REVEAL_ASSET_GATE_MAX_HOLD_SECONDS := 4.0
+const REVEAL_ASSET_GATE_MAX_HOLD_SECONDS := 3.0
 
 var active := false
 var elapsed := 0.0
 var dismissing := false
 var dismiss_elapsed := 0.0
 var dismiss_seconds := DISMISS_SECONDS
+var display_pet_id := ""
 var _asset_gate_hold_elapsed := 0.0
 
 
-func start() -> void:
+func start(display_pet_id_override: String = "") -> void:
 	active = true
 	elapsed = 0.0
 	dismissing = false
 	dismiss_elapsed = 0.0
 	dismiss_seconds = DISMISS_SECONDS
+	display_pet_id = display_pet_id_override.strip_edges()
 	_asset_gate_hold_elapsed = 0.0
 
 
@@ -43,6 +45,7 @@ func reset() -> void:
 	dismissing = false
 	dismiss_elapsed = 0.0
 	dismiss_seconds = DISMISS_SECONDS
+	display_pet_id = ""
 	_asset_gate_hold_elapsed = 0.0
 
 
@@ -58,11 +61,12 @@ func advance(delta: float, assets_ready: bool = true) -> void:
 	elapsed += safe_delta
 	# Hold the reveal in reconstruction until the Live2D sheet caches (or the failsafe
 	# expires), so the static 원화 never locks solid on screen.
-	if not assets_ready and _asset_gate_hold_elapsed < REVEAL_ASSET_GATE_MAX_HOLD_SECONDS:
+	if not assets_ready:
 		var gate_cap: float = REVEAL_SECONDS * REVEAL_ASSET_GATE_FRACTION
 		if elapsed > gate_cap:
 			_asset_gate_hold_elapsed += safe_delta
-			elapsed = gate_cap
+			if _asset_gate_hold_elapsed < REVEAL_ASSET_GATE_MAX_HOLD_SECONDS:
+				elapsed = gate_cap
 
 
 func get_progress() -> float:
@@ -73,6 +77,22 @@ func get_progress() -> float:
 
 func is_awaiting_dismiss() -> bool:
 	return active and not dismissing and elapsed >= REVEAL_SECONDS
+
+
+func has_display_override() -> bool:
+	return display_pet_id != ""
+
+
+func get_display_override_pet_id() -> String:
+	return display_pet_id
+
+
+func get_display_pet_id(fallback_pet_id: String) -> String:
+	return display_pet_id if display_pet_id != "" else fallback_pet_id
+
+
+func clear_display_pet_id() -> void:
+	display_pet_id = ""
 
 
 func begin_dismiss(duration_seconds: float = DISMISS_SECONDS) -> bool:

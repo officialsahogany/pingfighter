@@ -156,6 +156,9 @@ class FakeRegistry:
 	func get_cached_instance(key: String) -> Object:
 		return get_instance(key)
 
+	func clear_refs() -> void:
+		instances.clear()
+
 
 class FakeAudio:
 	extends RefCounted
@@ -362,6 +365,7 @@ func _verify_catalog_entries_are_cached_for_draw_helpers() -> void:
 	picker.get_apply_button_rect_for_tests(view_size)
 	_expect(first_build_count == 1, "lingpet picker should build the catalog cache once")
 	_expect(picker.get_entries_build_count_for_tests() == first_build_count, "lingpet picker draw helpers should reuse the catalog cache")
+	_cleanup_debug_fixture(picker)
 
 
 func _verify_f7_opens_lingpet_debug_picker() -> void:
@@ -426,13 +430,15 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and LingpetCatalog.get_visual_path("rahoset", "cutin_dismiss_anim") == "res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png"
 		and LingpetCatalog.get_visual_path("rahoset", "click_reaction_anim") == "res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png"
 		and LingpetCatalog.get_visual_path("rahoset", "companion_click_reaction_anim") == "res://assets/sprites/lingpet/rahoset_companion_click_ritual_linked_v2_autosprite_98f.png"
-		and LingpetCatalog.get_visual_path("rahoset", "companion_walk") == "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
+		and LingpetCatalog.get_visual_path("rahoset", "companion_walk") == "res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png"
+		and LingpetCatalog.get_visual_path("rahoset", "companion_strike") == "res://assets/sprites/lingpet/rahoset_companion_rear_strike_25f.png",
 		"Rahoset F7 debug visuals should route acquisition hover and angle-matched click action to distinct AutoSprite-derived sheets"
 	)
 	_expect(
 		FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1_magenta_source.png")
-		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png")
+		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_rear_strike_25f.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_cutin_acquire_ready_v2_autosprite_32f.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png")
 		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_click_ritual_linked_v2_autosprite_98f.png"),
@@ -736,17 +742,17 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	)
 	_expect(
 		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
-		and cutin_host_source.find("\"koyora\": 14") < 0
-		and cutin_host_source.find("\"koyora\": 7") < 0
-		and cutin_host_source.find("\"koyora\": 98") < 0,
-		"Koyora should NOT register a 14x7/98 click-grid dismiss override -- it renders a dedicated 5x5/25 dismiss sheet via the default grid (decoupled 2026-06-21..23)"
+		and cutin_host_source.find("\"koyora\": 14") >= 0
+		and cutin_host_source.find("\"koyora\": 7") >= 0
+		and cutin_host_source.find("\"koyora\": 98") >= 0,
+		"Koyora acquisition dismiss should register its current 14x7/98 medium-res dismiss sheet contract"
 	)
 	_expect(
 		cutin_host_source.find("CUTIN_DISMISS_COLS_OVERRIDES") >= 0
-		and cutin_host_source.find("\"nekuring\": 14") < 0
-		and cutin_host_source.find("\"nekuring\": 7") < 0
-		and cutin_host_source.find("\"nekuring\": 98") < 0,
-		"Nekuring should NOT register a 14x7/98 click-grid dismiss override -- it renders its dedicated bespoke 5x5/25 dismiss sheet via the default grid (decoupled 2026-06-21)"
+		and cutin_host_source.find("\"nekuring\": 14") >= 0
+		and cutin_host_source.find("\"nekuring\": 7") >= 0
+		and cutin_host_source.find("\"nekuring\": 98") >= 0,
+		"Nekuring acquisition dismiss should register its current 14x7/98 medium-res dismiss sheet contract"
 	)
 	_expect(LingpetCatalog.get_display_name("nekuring") == "네쿠링", "Nekuring catalog display name should use the accepted Korean name")
 	_expect(
@@ -913,6 +919,7 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(modal_gate.is_lingpet_debug_picker_open(Callable(registry, "get_instance")), "modal gate should see the open lingpet picker")
 	_expect(modal_gate.should_block_battle_physics(Callable(registry, "get_instance")), "open lingpet picker should block battle physics")
 	_expect(owner.redraws == 1, "opening lingpet debug should request one redraw")
+	_cleanup_debug_fixture(picker, runtime, registry)
 
 
 func _verify_skill_rows_never_overlap_apply_button() -> void:
@@ -944,6 +951,7 @@ func _verify_skill_rows_never_overlap_apply_button() -> void:
 				not apply_rect.intersects(active_rect),
 				"active skill row %d should not overlap the apply button at view %s" % [index, view_size]
 			)
+	_cleanup_debug_fixture(picker)
 
 
 func _count_passive_skills(picker: Object) -> int:
@@ -1043,6 +1051,7 @@ func _verify_click_grants_and_activates_lingpet() -> void:
 	_expect(runtime.is_acquire_cutin_dismissing(), "clicking the held acquisition cut-in should start the Live2D exit action")
 	_expect(audio.lingpet_click_reaction_pet_ids == [target_pet_id], "clicking the acquisition Live2D exit action should request the selected pet voice once")
 	_expect(owner.redraws >= 1, "F7 selection and apply should request redraws")
+	_cleanup_debug_fixture(picker, runtime, registry)
 
 
 func _verify_debug_picker_can_select_koyora_doll_curse() -> void:
@@ -1059,6 +1068,7 @@ func _verify_debug_picker_can_select_koyora_doll_curse() -> void:
 	var koyora_index := _find_pet_index(picker, "koyora")
 	_expect(koyora_index >= 0, "F7 picker should list Koyora before selecting Doll Curse")
 	if koyora_index < 0:
+		_cleanup_debug_fixture(picker, runtime, registry)
 		return
 	var card_rect := picker.get_card_rect_for_tests(koyora_index, view_size)
 	var handled := bool(picker.handle_input(_mouse_click(card_rect.position + card_rect.size * 0.5), owner, registry, view_size))
@@ -1068,6 +1078,7 @@ func _verify_debug_picker_can_select_koyora_doll_curse() -> void:
 	var doll_curse_index := _find_active_skill_index(picker, "koyora_doll_curse")
 	_expect(doll_curse_index >= 0, "Koyora Doll Curse should be listed as a selectable F7 active skill row")
 	if doll_curse_index < 0:
+		_cleanup_debug_fixture(picker, runtime, registry)
 		return
 	var skill_rect := picker.get_active_skill_rect_for_tests(doll_curse_index, view_size)
 	handled = bool(picker.handle_input(_mouse_click(skill_rect.position + skill_rect.size * 0.5), owner, registry, view_size))
@@ -1082,6 +1093,7 @@ func _verify_debug_picker_can_select_koyora_doll_curse() -> void:
 	var loadout: Dictionary = owner.lingpet_loadouts.get("koyora", {})
 	_expect(str(loadout.get("active_skill_id", "")) == "koyora_doll_curse", "stored Koyora F7 loadout should include Doll Curse")
 	_expect(str(loadout.get("passive_skill_id", "")) == "lingpet_resonance_boost", "stored Koyora F7 loadout should retain the default Resonance Boost passive")
+	_cleanup_debug_fixture(picker, runtime, registry)
 
 
 func _verify_acquire_cutin_overlays_stage_result_paths() -> void:
@@ -1117,6 +1129,7 @@ func _verify_acquire_cutin_overlays_stage_result_paths() -> void:
 	)
 	_expect(overlay_input.input_count == 1, "lingpet acquisition cut-in should receive input before the stage-clear result screen")
 	_expect(result_screen.input_count == 0, "stage-clear result input should not consume clicks while the lingpet acquisition cut-in is active")
+	_cleanup_debug_fixture(null, null, registry)
 
 
 func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
@@ -1159,6 +1172,8 @@ func _verify_debug_grant_accepts_explicit_skill_loadout() -> void:
 	var nekuring_barrier_owner := FakeOwner.new()
 	_expect(nekuring_barrier_runtime.debug_grant_and_activate_pet("nekuring", nekuring_barrier_owner, false, "nekuring_bone_barrier", "lingpet_resonance_boost"), "debug grant should accept Nekuring Bone Barrier as an explicit active skill")
 	_expect(nekuring_barrier_owner.lingpet_active_skill_id == "nekuring_bone_barrier", "debug-only Nekuring should persist Bone Barrier as its explicit active skill")
+	for runtime_value in [runtime, rabi_runtime, koyora_runtime, koyora_doll_runtime, nekuring_runtime, nekuring_archer_runtime, nekuring_barrier_runtime]:
+		_cleanup_debug_fixture(null, runtime_value, null)
 
 
 func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:
@@ -1174,6 +1189,7 @@ func _verify_full_slots_replace_active_slot_for_debug_grant() -> void:
 	_expect(owner.active_lingpet_id == "lunabi", "debug grant should activate the selected lingpet even when slots were full")
 	_expect(owner.lingpet_slots[owner.lingpet_active_slot_index] == "lunabi", "debug grant should replace the active full slot with the selected lingpet")
 	_expect(not runtime.is_acquire_cutin_active(), "direct debug grant should keep cut-in optional unless F7 requests it")
+	_cleanup_debug_fixture(null, runtime, null)
 
 
 func _verify_defense_rate_slider() -> void:
@@ -1228,6 +1244,7 @@ func _verify_defense_rate_slider() -> void:
 	runtime.set_debug_defense_rate_override(-1.0)
 	runtime.update(0.0, owner, registry)
 	_expect(is_equal_approx(float(owner.lingpet_companion_defense_rate), 0.30), "clearing the override should restore Maribo's catalog 30% defense rate")
+	_cleanup_debug_fixture(picker, runtime, registry)
 
 
 func _verify_flight_pet_appearance_override() -> void:
@@ -1246,6 +1263,7 @@ func _verify_flight_pet_appearance_override() -> void:
 	var lunabi_index := _find_pet_index(picker, "lunabi")
 	_expect(maribo_index >= 0 and lunabi_index >= 0, "maribo and lunabi should both be present in the F7 picker for the override-routing case")
 	if maribo_index < 0 or lunabi_index < 0:
+		_cleanup_debug_fixture(picker, runtime, registry)
 		return
 	var maribo_rect := picker.get_card_rect_for_tests(maribo_index, view_size)
 	picker.handle_input(_mouse_click(maribo_rect.position + maribo_rect.size * 0.5), owner, registry, view_size)
@@ -1277,6 +1295,7 @@ func _verify_flight_pet_appearance_override() -> void:
 	picker.handle_input(_mouse_click(apply_rect.position + apply_rect.size * 0.5), owner, registry, view_size)
 	_expect(is_equal_approx(runtime.get_debug_defense_rate_override(), 0.5), "re-applying a patrol pet should route the staged override back to the defense channel")
 	_expect(is_equal_approx(runtime.get_debug_appearance_rate_override(), -1.0), "re-applying a patrol pet should clear the appearance-rate channel")
+	_cleanup_debug_fixture(picker, runtime, registry)
 
 
 func _verify_move_speed_slider() -> void:
@@ -1344,6 +1363,7 @@ func _verify_move_speed_slider() -> void:
 	var scaled_speed := float(owner.lingpet_companion_patrol_speed_default)
 	_expect(base_speed > 0.0, "base patrol speed should be published before scaling")
 	_expect(is_equal_approx(scaled_speed, base_speed * 1.5), "move-speed override should scale the live patrol speed by the multiplier")
+	_cleanup_debug_fixture(picker, runtime, registry)
 
 
 func _find_pet_index(picker: Object, pet_id: String) -> int:
@@ -1371,6 +1391,16 @@ func _active_pool_has(pool: Array[Dictionary], skill_id: String) -> bool:
 		if str(skill.get("id", "")) == skill_id:
 			return true
 	return false
+
+
+func _cleanup_debug_fixture(picker: Object = null, runtime: Object = null, registry: Object = null) -> void:
+	if picker != null and picker.has_method("clear_for_tests"):
+		picker.clear_for_tests()
+	if runtime != null and runtime.has_method("reset_for_tests"):
+		runtime.reset_for_tests()
+	if registry != null and registry.has_method("clear_refs"):
+		registry.clear_refs()
+	ProjectResourceLoader.clear_caches()
 
 
 func _key_event(keycode: Key) -> InputEventKey:

@@ -12,6 +12,10 @@ const BOSS_STUN_SECONDS := 3.0
 const PLAYER_STUN_SECONDS := 0.8
 const BOSS_KNOCKBACK_VELOCITY := 52.0
 const PLAYER_KNOCKBACK_SCALE := 0.30
+const BOSS_STUN_SECONDS_BY_LEVEL := [3.0, 3.3, 3.7, 4.1, 4.6]
+const BOSS_KNOCKBACK_VELOCITY_BY_LEVEL := [52.0, 56.0, 60.0, 66.0, 72.0]
+const PLAYER_STUN_SECONDS_BY_LEVEL := [0.80, 0.72, 0.62, 0.52, 0.40]
+const PLAYER_KNOCKBACK_SCALE_BY_LEVEL := [0.30, 0.27, 0.24, 0.21, 0.18]
 const BOSS_KNOCKBACK_FRAMES := 18.0
 const PLAYER_KNOCKBACK_FRAMES := 10.0
 const KNOCKBACK_DECAY := 0.85
@@ -62,6 +66,11 @@ var _last_explosion_target := ""
 var _last_self_explosion := false
 var _last_knockback_velocity := 0.0
 var _last_stun_frames := 0.0
+var _active_skill_level := 1
+var _boss_stun_seconds := BOSS_STUN_SECONDS
+var _boss_knockback_velocity := BOSS_KNOCKBACK_VELOCITY
+var _player_stun_seconds := PLAYER_STUN_SECONDS
+var _player_knockback_scale := PLAYER_KNOCKBACK_SCALE
 
 
 func reset() -> void:
@@ -89,6 +98,11 @@ func reset() -> void:
 	_last_self_explosion = false
 	_last_knockback_velocity = 0.0
 	_last_stun_frames = 0.0
+	_active_skill_level = 1
+	_boss_stun_seconds = BOSS_STUN_SECONDS
+	_boss_knockback_velocity = BOSS_KNOCKBACK_VELOCITY
+	_player_stun_seconds = PLAYER_STUN_SECONDS
+	_player_knockback_scale = PLAYER_KNOCKBACK_SCALE
 
 
 func prewarm() -> void:
@@ -97,6 +111,11 @@ func prewarm() -> void:
 
 func launch(origin: Vector2, owner: Object = null, launch_context: Dictionary = {}) -> bool:
 	reset()
+	_active_skill_level = _get_active_skill_level(launch_context)
+	_boss_stun_seconds = _get_level_float(BOSS_STUN_SECONDS_BY_LEVEL, _active_skill_level, BOSS_STUN_SECONDS)
+	_boss_knockback_velocity = _get_level_float(BOSS_KNOCKBACK_VELOCITY_BY_LEVEL, _active_skill_level, BOSS_KNOCKBACK_VELOCITY)
+	_player_stun_seconds = _get_level_float(PLAYER_STUN_SECONDS_BY_LEVEL, _active_skill_level, PLAYER_STUN_SECONDS)
+	_player_knockback_scale = _get_level_float(PLAYER_KNOCKBACK_SCALE_BY_LEVEL, _active_skill_level, PLAYER_KNOCKBACK_SCALE)
 	_active = true
 	_phase = PHASE_FLY_TO_BALL
 	_timer = 0.0
@@ -173,6 +192,7 @@ func get_explosion_count_for_tests() -> int:
 
 func get_snapshot() -> Dictionary:
 	return {
+		"bomb_surprise_active_skill_level": _active_skill_level,
 		"bomb_surprise_active": _active,
 		"bomb_surprise_phase": _phase,
 		"bomb_surprise_companion_override_active": has_companion_position_override(),
@@ -312,9 +332,9 @@ func _apply_explosion_status(owner: Object, registry: Object, target: String, se
 	var direction := _get_knockback_direction(owner, target, _explosion_pos)
 	var status_state := _get_registry_instance(registry, "status_effect_state")
 	if target == LOCATION_TOP:
-		var boss_velocity := direction * BOSS_KNOCKBACK_VELOCITY
+		var boss_velocity := direction * _boss_knockback_velocity
 		_last_knockback_velocity = boss_velocity
-		_last_stun_frames = BOSS_STUN_SECONDS * 60.0
+		_last_stun_frames = _boss_stun_seconds * 60.0
 		if status_state != null and status_state.has_method("apply_status"):
 			status_state.apply_status(
 				"boss",
@@ -329,9 +349,9 @@ func _apply_explosion_status(owner: Object, registry: Object, target: String, se
 				STATUS_SOURCE
 			)
 	else:
-		var player_velocity := direction * BOSS_KNOCKBACK_VELOCITY * PLAYER_KNOCKBACK_SCALE
+		var player_velocity := direction * _boss_knockback_velocity * _player_knockback_scale
 		_last_knockback_velocity = player_velocity
-		_last_stun_frames = PLAYER_STUN_SECONDS * 60.0
+		_last_stun_frames = _player_stun_seconds * 60.0
 		if status_state != null and status_state.has_method("apply_status"):
 			status_state.apply_status(
 				"player",
@@ -496,6 +516,17 @@ func _pick_fuse_seconds(origin: Vector2, launch_context: Dictionary) -> float:
 func _get_launch_home_pos(origin: Vector2, launch_context: Dictionary) -> Vector2:
 	var companion_pos := _as_vector2(launch_context.get("companion_pos", origin), origin)
 	return origin if companion_pos == Vector2.ZERO else companion_pos
+
+
+func _get_active_skill_level(launch_context: Dictionary) -> int:
+	return clampi(int(launch_context.get("active_skill_level", launch_context.get("skill_level", 1))), 1, BOSS_STUN_SECONDS_BY_LEVEL.size())
+
+
+func _get_level_float(values: Array, active_skill_level: int, fallback: float) -> float:
+	if values.is_empty():
+		return fallback
+	var index := clampi(active_skill_level, 1, values.size()) - 1
+	return float(values[index])
 
 
 func _get_attached_position(owner: Object) -> Vector2:

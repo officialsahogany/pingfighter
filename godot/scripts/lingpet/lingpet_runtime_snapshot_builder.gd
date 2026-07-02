@@ -203,7 +203,8 @@ func build_save_snapshot(
 	active_slot_index: int,
 	gauge_gain_bonus_pct: float,
 	motion_state: Object,
-	loadouts_by_pet_id: Dictionary = {}
+	loadouts_by_pet_id: Dictionary = {},
+	affinity_run_state: Dictionary = {}
 ) -> Dictionary:
 	var companion_active: bool = state == STATE_COMPANION
 	var snapshot := {
@@ -223,6 +224,9 @@ func build_save_snapshot(
 		"active_slot_index": active_slot_index,
 		"active_pet_id": pet_id if companion_active else "",
 		"gauge_gain_bonus_pct": gauge_gain_bonus_pct if companion_active else 0.0,
+		# Run-scoped affinity progression (per-pet affinity + run-global ring core tier
+		# + chips + feed). Carried so an in-run save/restore round trip does not wipe it.
+		"affinity_run_state": affinity_run_state.duplicate(true),
 	}
 	if motion_state != null:
 		snapshot.merge(motion_state.get_save_snapshot(), true)
@@ -278,6 +282,7 @@ func sync_owner(
 	var second_skill_id := second_raw_skill_id if second_skill_active else ""
 	var second_skill_name := str(second_active_skill.get("name", "")) if second_skill_active else ""
 	var second_skill_cooldown := float(second_active_skill.get("cooldown", 0.0)) if second_skill_active else 0.0
+	var second_skill_level := int(second_active_skill.get("level", 1)) if second_skill_active else 0
 	var second_skill_max_level := int(second_active_skill.get("max_level", 5)) if second_skill_active else 0
 	var passive_enabled := companion_active and not passive_skill.is_empty() and bool(passive_skill.get("enabled", true))
 	var passive_id := str(passive_skill.get("id", "")) if passive_enabled else ""
@@ -304,6 +309,7 @@ func sync_owner(
 		second_skill_id,
 		second_skill_name,
 		second_skill_cooldown,
+		second_skill_level,
 		second_skill_max_level,
 		passive_id,
 		passive_skill,
@@ -334,7 +340,7 @@ func sync_owner(
 		_set_pair(owner, "lingpet_companion_catch_height", "ringpet_companion_catch_height", catch_height)
 		_set_pair(owner, "lingpet_companion_defense_rate", "ringpet_companion_defense_rate", defense_rate if companion_active else 0.0)
 		_sync_skill_static_owner(owner, skill_id, skill_name, skill_cooldown, skill_active, skill_level, skill_max_level)
-		_sync_second_skill_static_owner(owner, second_skill_id, second_skill_name, second_skill_cooldown, second_skill_active, second_skill_max_level)
+		_sync_second_skill_static_owner(owner, second_skill_id, second_skill_name, second_skill_cooldown, second_skill_active, second_skill_level, second_skill_max_level)
 		_sync_passive_owner(owner, passive_id, passive_skill, passive_enabled)
 		_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
 		_set_pair(owner, "lingpet_player_speed_bonus_pct", "ringpet_player_speed_bonus_pct", player_speed_bonus_pct)
@@ -368,6 +374,7 @@ func _build_owner_static_surface_key(
 	second_skill_id: String,
 	second_skill_name: String,
 	second_skill_cooldown_duration: float,
+	second_skill_level: int,
 	second_skill_max_level: int,
 	passive_id: String,
 	passive_skill: Dictionary,
@@ -400,6 +407,7 @@ func _build_owner_static_surface_key(
 		second_skill_id,
 		second_skill_name,
 		second_skill_cooldown_duration,
+		second_skill_level,
 		second_skill_max_level,
 		passive_id,
 		int(passive_skill.get("level", 1)) if passive_enabled else 0,
@@ -495,10 +503,12 @@ func _sync_second_skill_static_owner(
 	skill_name: String,
 	skill_cooldown_duration: float,
 	skill_active: bool,
+	skill_level: int,
 	skill_max_level: int
 ) -> void:
 	_set_pair(owner, "lingpet_second_skill_id", "ringpet_second_skill_id", skill_id if skill_active else "")
 	_set_pair(owner, "lingpet_second_skill_name", "ringpet_second_skill_name", skill_name if skill_active else "")
+	_set_pair(owner, "lingpet_second_active_skill_level", "ringpet_second_active_skill_level", skill_level if skill_active else 0)
 	_set_pair(owner, "lingpet_second_skill_max_level", "ringpet_second_skill_max_level", skill_max_level if skill_active else 0)
 	_set_pair(owner, "lingpet_second_skill_cooldown_duration", "ringpet_second_skill_cooldown_duration", skill_cooldown_duration if skill_active else 0.0)
 

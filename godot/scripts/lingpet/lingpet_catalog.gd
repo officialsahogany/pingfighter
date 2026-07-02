@@ -66,6 +66,10 @@ const LEGACY_PASSIVE_ID_ALIASES := {
 	"lingpet_steady_body": "lingpet_afterglow_leak",
 	"lingpet_intercept_rhythm": "lingpet_afterglow_leak",
 }
+
+static var _active_skill_id_index: Dictionary = {}
+static var _active_skill_id_index_ready := false
+
 const COMMON_PASSIVE_SKILL_POOL := [
 	{
 		"id": "lingpet_resonance_boost",
@@ -154,16 +158,6 @@ const PETS := {
 		"visual_layout": {
 			"companion_walk_draw_size": 104.0,
 		},
-		"active_skill": {
-			"id": "maribo_hydro_sphere",
-			"runtime_kind": "hydro_sphere",
-			"name": "하이드로 스피어",
-			"description": "물의 기운이 담긴 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 물장판을 만듭니다.",
-			"cooldown": 40.0,
-			"windup_seconds": 1.0,
-			"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skill_icon_imagegen_v1.png",
-		},
 		"active_skill_pool": [
 			{
 				"id": "maribo_hydro_sphere",
@@ -179,7 +173,7 @@ const PETS := {
 				"id": "maribo_bubble_trap",
 				"runtime_kind": "bubble_trap",
 				"name": "물방울트랩",
-				"description": "천천히 앞으로 전진하는 물방울을 발사합니다. 상대 패들이 닿으면 2.5~3초 동안 물방울에 갇혀 움직일 수 없고, 물방울은 좌우로 떠다닙니다. 공에 닿으면 즉시 터집니다.",
+				"description": "레벨에 따라 속도와 수가 늘어나는 물방울을 발사합니다. 상대 패들이 닿으면 2.0~4.0초 동안 물방울에 갇혀 움직일 수 없고, Lv.3부터 낮은 확률로 공에 터지지 않는 거대 무지개 물방울이 먼저 나갑니다.",
 				"cooldown": 25.0,
 				"windup_seconds": 0.75,
 				"card_texture_path": "res://assets/sprites/lingpet/maribo_bubble_trap_skillcard_imagegen_v1.png",
@@ -279,19 +273,6 @@ const PETS := {
 			"companion_strike_draw_size": 104.0,
 			"companion_cast_draw_size": 104.0,
 		},
-		"active_skill": {
-			"id": "milkring_milk_production",
-			"runtime_kind": "milk_production",
-			"name": "우유생산",
-			"description": "밀쿠가 3초 동안 우유병을 제조합니다. 우유병은 스킬 레벨에 따라 플레이어 패들과 이미지 크기를 12~20% 키우며, Lv.3부터는 생산마다 30% 확률로 우유병 대신 게이지구슬을 회복하는 치즈가 나옵니다.",
-			"cooldown": 50.0,
-			"cooldown_by_level": [50.0, 47.0, 44.0, 41.0, 37.0],
-			"windup_seconds": 3.0,
-			"paddle_scale_multiplier_by_level": [1.12, 1.14, 1.16, 1.18, 1.20],
-			"cheese_chance_by_level": [0.0, 0.0, 0.30, 0.30, 0.30],
-			"card_texture_path": "res://assets/sprites/lingpet/milkring_milk_production_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/milkring_milk_production_skill_icon_imagegen_v1.png",
-		},
 		"active_skill_pool": [
 			{
 				"id": "milkring_milk_production",
@@ -368,23 +349,14 @@ const PETS := {
 			"companion_strike_draw_size": 104.0,
 			"companion_cast_draw_size": 104.0,
 		},
-		"active_skill": {
-			"id": "volty_bomb_surprise",
-			"runtime_kind": "bomb_surprise",
-			"name": "폭탄 서프라이즈",
-			"description": "볼탄이 시한폭탄을 공에 부착합니다. 폭탄은 공과 패들 사이를 오가다가 폭발하며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.",
-			"cooldown": 60.0,
-			"windup_seconds": 0.45,
-			"card_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skill_icon_imagegen_v1.png",
-		},
 		"active_skill_pool": [
 			{
 				"id": "volty_bomb_surprise",
 				"runtime_kind": "bomb_surprise",
 				"name": "폭탄 서프라이즈",
-				"description": "볼탄이 시한 폭탄을 공에 부착합니다. 폭탄은 공과 양쪽 패들 사이를 오가며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.",
+				"description": "볼탄이 시한폭탄을 공에 부착합니다. 폭탄은 공과 양쪽 패들 사이를 오가다가 폭발하며, 플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다. 레벨이 오를수록 상대 폭발의 스턴과 넉백이 강해지고, 자폭 시 받는 피해는 줄며, 쿨타임도 짧아집니다.",
 				"cooldown": 60.0,
+				"cooldown_by_level": [60.0, 56.0, 52.0, 47.0, 42.0],
 				"windup_seconds": 0.45,
 				"card_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skillcard_imagegen_v1.png",
 				"icon_texture_path": "res://assets/sprites/lingpet/volty_bomb_surprise_skill_icon_imagegen_v1.png",
@@ -400,7 +372,7 @@ const PETS := {
 				"icon_texture_path": "res://assets/sprites/lingpet/volty_gatling_burst_skill_icon.png",
 			},
 		],
-		"effect_text": "공을 직접 받아치면 게이지 +40 / 폭탄 서프라이즈는 60초마다 공에 시한폭탄을 붙여 상대 쪽 폭발 시 강한 스턴+넉백, 플레이어 쪽 폭발 시 약한 스턴+넉백을 일으킵니다.",
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 폭탄 서프라이즈는 60~42초마다 공에 시한폭탄을 붙여 상대 쪽 폭발 시 강한 스턴+넉백, 플레이어 쪽 폭발 시 약한 스턴+넉백을 일으킵니다. 레벨에 따라 상대 폭발은 강해지고 자폭 피해는 줄어듭니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/volty_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/volty_cutin_art_magenta_source.png",
 		"note": "Volty Bomb Surprise ports the original Android bomb-surprise ball attachment and side-based weak/strong stun plus knockback behavior to the lingpet runtime.",
@@ -445,20 +417,6 @@ const PETS := {
 			"companion_walk_draw_size": 104.0,
 			"companion_strike_draw_size": 104.0,
 			"companion_cast_draw_size": 104.0,
-		},
-		"active_skill": {
-			"id": "lumion_thunder_orb",
-			"runtime_kind": "thunder_orb",
-			"name": "천둥 뇌구",
-			"description": "루미온이 일직선 번개 구체를 발사합니다. 뇌구는 처음 빠르게 날아간 뒤 점점 느려지고, 상대 진영에서 폭발해 전기 스파크에 닿은 보스를 감전시킵니다. Lv.3부터는 감전이 풀린 뒤 폭발 자리 주변에 미니 스파크가 0.3초 간격으로 튀어(Lv.3=3·Lv.4=4·Lv.5=5회), 근처에 남은 보스가 닿으면 0.5초 추가 감전됩니다.",
-			"cooldown": 25.0,
-			"windup_seconds": 0.55,
-			"stun_duration_seconds": 1.4,
-			"stun_duration_seconds_by_level": [0.8, 1.0, 1.2, 1.4, 1.6],
-			"explosion_radius": 170.0,
-			"explosion_radius_by_level": [136.0, 144.5, 153.0, 161.5, 170.0],
-			"card_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/lumion_thunder_orb_skill_icon_imagegen_v1.png",
 		},
 		"active_skill_pool": [
 			{
@@ -521,7 +479,7 @@ const PETS := {
 			"companion_cast": "res://assets/sprites/lingpet/orbi_companion_strike.png",
 			"cutin_art": "res://assets/sprites/lingpet/orbi_cutin_art.png",
 			"cutin_anim": "res://assets/sprites/lingpet/orbi_cutin_anim.png",
-			"cutin_dismiss_anim": "res://assets/sprites/lingpet/orbi_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/orbi_click_live2d_pingpong_98f.png",
 			"click_reaction_anim": "res://assets/sprites/lingpet/orbi_click_live2d_pingpong_98f.png",
 			"companion_click_reaction_anim": "res://assets/sprites/lingpet/orbi_companion_click_reaction_98f.png",
 		},
@@ -530,20 +488,39 @@ const PETS := {
 			"companion_strike_draw_size": 104.0,
 			"companion_cast_draw_size": 104.0,
 		},
-		"active_skill": {
-			"id": "orbi_ring_orbit",
-			"runtime_kind": "moon_orbit",
-			"name": "링 오비트",
-			"description": "세라비가 푸른 링 궤도를 전개합니다. 상대 진영 벽에 닿으면 4초 동안 가로로 넓은 둔화장을 만듭니다.",
-			"cooldown": 36.0,
-			"windup_seconds": 0.8,
-			"card_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skill_icon_imagegen_v1.png",
-		},
-		"effect_text": "공을 직접 받아치면 게이지 +40 / 링 오비트는 36초마다 푸른 링 궤도를 쏘아 상대 진영에 4초 둔화장을 만듭니다.",
+		"active_skill_pool": [
+			{
+				"id": "orbi_gravity_accel",
+				"runtime_kind": "gravity_accel",
+				"name": "중력가속",
+				"description": "세라비가 시공의 힘으로 중력을 왜곡해 공을 보스 진영 쪽으로 끌어올립니다. 레벨이 높을수록 중력이 강해지고 지속 시간도 길어집니다.",
+				"cooldown": 20.0,
+				"windup_seconds": 0.6,
+				"duration_seconds_by_level": [2.0, 2.5, 3.0, 3.5, 4.0],
+				"gravity_strength_by_level": [28.8, 36.0, 43.2, 50.4, 57.6],
+				"card_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skill_icon_imagegen_v1.png",
+			},
+			{
+				"id": "orbi_dwarf_magic",
+				"runtime_kind": "dwarf_magic",
+				"name": "난쟁이마술",
+				"description": "세라비가 신비로운 보라색 빛가루 마법을 보스에게 쏘아 올립니다. 명중하면 보스 패들이 작아지고 이동 속도가 느려져 공을 막기 어려워집니다. 레벨이 높을수록 투사체가 더 빠르고 유도가 강해지며, 보스를 더 작게·더 오래(약 2.4~4초)·더 느리게 만듭니다.",
+				"cooldown": 21.6,
+				"windup_seconds": 0.5,
+				"shrink_scale_by_level": [0.70, 0.65, 0.60, 0.55, 0.50],
+				"shrink_duration_by_level": [2.4, 2.8, 3.2, 3.6, 4.0],
+				"boss_slow_multiplier_by_level": [0.65, 0.60, 0.55, 0.50, 0.45],
+				"proj_speed_by_level": [416.0, 472.0, 528.0, 584.0, 640.0],
+				"proj_homing_by_level": [2.4, 3.0, 3.6, 4.2, 4.8],
+				"card_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skill_icon_imagegen_v1.png",
+			},
+		],
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 중력가속 또는 난쟁이마술 중 획득 시 선택된 액티브를 자동 사용합니다(레벨↑ = 효과↑·지속↑). 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/orbi_cutin_art_magenta_source.png",
-		"note": "Serabi companion/cut-in/click visuals and Ring Orbit skill card/icon are live. Dedicated egg, cast sheet, dismiss sheet, and custom skill runtime are still pending; catalog temporarily reuses the shared egg, strike art for cast, cut-in animation for dismiss, and the supported moon_orbit runtime.",
+		"note": "Serabi companion/cut-in/click visuals are live. Active skill pool ports the original PingFighter chronos (Kireuke) two hero skills (downtown/hero_skills.py): 중력가속 / Gravity Accel (GravityControl) pulls the ball UP toward the boss goal (gravity_strength_by_level / duration_seconds_by_level), and 난쟁이마술 / Dwarf Magic (DwarfMagic) fires a homing purple light-dust projectile that, on boss hit, shrinks the boss paddle (collision + render, centered) AND slows boss movement for a level-scaled hold (shrink_scale_by_level / shrink_duration_by_level / boss_slow_multiplier_by_level). The second active unlocks via affinity like other dual-skill pets. Both skill cards/icons temporarily reuse the accepted orbi ring-orbit purple art as a placeholder pending dedicated 중력가속 / 난쟁이마술 art. Dedicated egg, cast sheet, and dismiss sheet are still pending; catalog temporarily reuses the shared egg, strike art for cast, and cut-in animation for dismiss.",
 	},
 	"red_dragon": {
 		"id": "red_dragon",
@@ -591,16 +568,6 @@ const PETS := {
 			"cutin_anim_view_h_ratio": 0.568,
 			"cutin_dismiss_view_h_ratio": 0.568,
 			"click_reaction_draw_size": 64.0,
-		},
-		"active_skill": {
-			"id": "red_dragon_dragon_breath",
-			"runtime_kind": "dragon_breath",
-			"name": "드래곤 브레스",
-			"description": "파루키라스가 용의 화염을 뿜어 공을 타격하고 가속시킵니다. 사라진 불꽃은 짧은 화염 지대를 남겨 보스를 둔화시키고 바깥으로 밀어냅니다.",
-			"cooldown": 40.0,
-			"windup_seconds": 0.65,
-			"card_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_breath_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/red_dragon_dragon_breath_skill_icon_imagegen_v1.png",
 		},
 		"active_skill_pool": [
 			{
@@ -679,16 +646,6 @@ const PETS := {
 			"companion_cast_draw_size": 92.0,
 			"companion_puppet_control_draw_size": 112.0,
 		},
-		"active_skill": {
-			"id": "koyora_puppet_control",
-			"runtime_kind": "puppet_grab",
-			"name": "꼭두각시 조종",
-			"description": "분홍 인형실을 빠르게 던져 락온된 보스를 코요라 앞까지 끌어당겨 뽀뽀한 뒤 제자리로 돌려놓습니다. 조종 중 줄이 공에 닿으면 줄이 끊기고 보스가 즉시 원래 위치로 되돌아갑니다. 줄이 도착하기 전에 보스가 락온 지점을 벗어나면 MISS. Lv.3부터 MISS 시 50% 확률로 0.5초 뒤 1회 재발사하고, Lv.5에서는 이 재시도를 최대 2회까지 이어갑니다.",
-			"cooldown": 25.0,
-			"windup_seconds": 0.8,
-			"card_texture_path": "res://assets/sprites/lingpet/koyora_puppet_control_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/koyora_puppet_control_skill_icon_imagegen_v1.png",
-		},
 		"active_skill_pool": [
 			{
 				"id": "koyora_puppet_control",
@@ -764,32 +721,17 @@ const PETS := {
 			"companion_strike_draw_size": 92.0,
 			"companion_cast_draw_size": 92.0,
 		},
-		"active_skill": {
-			"id": "nekuring_skeleton_archer",
-			"runtime_kind": "skeleton_archer",
-			"name": "해골궁수",
-			"description": "네쿠링이 플레이어 진영에 해골 궁수를 불러냅니다. 레벨이 오를수록 화살 발사 간격이 짧아지며, Lv.3부터 황금 궁수가 나타나 3발을 동시에 쏠 수 있습니다. Lv.5는 30% 확률로 궁수 2마리를 소환합니다.",
-			"cooldown": 11.7,
-			"windup_seconds": 0.45,
-			"arrow_draw_time_by_level": [1.00, 0.92, 0.84, 0.76, 0.68],
-			"arrow_cooldown_min_by_level": [1.30, 1.17, 0.98, 0.81, 0.65],
-			"arrow_cooldown_max_by_level": [3.90, 3.38, 2.86, 2.34, 1.95],
-			"golden_chance_pct_by_level": [0.0, 0.0, 20.0, 30.0, 30.0],
-			"bonus_summon_chance_pct_by_level": [0.0, 0.0, 0.0, 0.0, 30.0],
-			"card_texture_path": "res://assets/sprites/lingpet/nekuring_skeleton_archer_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/nekuring_skeleton_archer_skill_icon_imagegen_v1.png",
-		},
 		"active_skill_pool": [
 			{
 				"id": "nekuring_skeleton_archer",
 				"runtime_kind": "skeleton_archer",
 				"name": "해골궁수",
 				"description": "네쿠링이 플레이어 진영에 해골 궁수를 불러냅니다. 레벨이 오를수록 화살 발사 간격이 짧아지며, Lv.3부터 황금 궁수가 나타나 3발을 동시에 쏠 수 있습니다. Lv.5는 30% 확률로 궁수 2마리를 소환합니다.",
-				"cooldown": 11.7,
+				"cooldown": 18.25,
 				"windup_seconds": 0.45,
 				"arrow_draw_time_by_level": [1.00, 0.92, 0.84, 0.76, 0.68],
-				"arrow_cooldown_min_by_level": [1.30, 1.17, 0.98, 0.81, 0.65],
-				"arrow_cooldown_max_by_level": [3.90, 3.38, 2.86, 2.34, 1.95],
+				"arrow_cooldown_min_by_level": [1.56, 1.40, 1.18, 0.97, 0.78],
+				"arrow_cooldown_max_by_level": [4.68, 4.06, 3.43, 2.81, 2.34],
 				"golden_chance_pct_by_level": [0.0, 0.0, 20.0, 30.0, 30.0],
 				"bonus_summon_chance_pct_by_level": [0.0, 0.0, 0.0, 0.0, 30.0],
 				"card_texture_path": "res://assets/sprites/lingpet/nekuring_skeleton_archer_skillcard_imagegen_v1.png",
@@ -866,19 +808,6 @@ const PETS := {
 			"companion_walk_draw_size": 92.0,
 			"companion_strike_draw_size": 92.0,
 			"companion_cast_draw_size": 92.0,
-		},
-		"active_skill": {
-			"id": "monkeyring_banana_slice",
-			"runtime_kind": "banana_slice",
-			"name": "바나나 슬라이스",
-			"description": "빠나몽이 배 주머니에서 바나나를 꺼내 보스 진영 바닥에 던집니다. 레벨이 오르면 바나나가 두 개로 늘고 더 멀리 미끄러집니다.",
-			"cooldown": 18.0,
-			"windup_seconds": 0.45,
-			"banana_count_by_level": [1, 1, 2, 2, 2],
-			"slip_seconds_by_level": [0.45, 0.55, 0.65, 0.72, 0.80],
-			"slip_speed_by_level": [15.0, 16.25, 17.5, 18.75, 20.0],
-			"card_texture_path": "res://assets/sprites/lingpet/monkeyring_banana_slice_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/monkeyring_banana_slice_skill_icon_imagegen_v1.png",
 		},
 		"active_skill_pool": [
 			{
@@ -961,18 +890,6 @@ const PETS := {
 			"companion_strike_draw_size": 92.0,
 			"companion_cast_draw_size": 92.0,
 		},
-		"active_skill": {
-			"id": "rabi_soul_clone",
-			"runtime_kind": "soul_clone",
-			"name": "영혼분신",
-			"description": "모락모랑의 영혼 분신을 소환합니다. Lv.3부터 2마리, Lv.5부터 3마리가 나타나고 레벨이 오를수록 지속시간도 조금씩 늘어납니다. 분신은 플레이어 진영을 자유롭게 떠다니며 공을 패들처럼 튕겨냅니다.",
-			"cooldown": 55.0,
-			"windup_seconds": 0.8,
-			"clone_count_by_level": [1, 1, 2, 2, 3],
-			"duration_seconds_by_level": [15.0, 16.0, 17.0, 18.0, 20.0],
-			"card_texture_path": "res://assets/sprites/lingpet/rabi_soul_clone_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/rabi_soul_clone_skill_icon_imagegen_v1.png",
-		},
 		"active_skill_pool": [
 			{
 				"id": "rabi_soul_clone",
@@ -1050,11 +967,47 @@ const PETS := {
 			"companion_strike_draw_size": 92.0,
 			"companion_cast_draw_size": 92.0,
 		},
-		"active_skill": [],
-		"effect_text": "오니마루는 F7 디버그용 붉은 도깨비 링펫입니다. v2 원화 앵커 기반 라투디/클릭 시트와 전용 스탠딩, 좌/우 이동, 방망이 공격 동행 시트를 연결했으며, 스킬 런타임은 아직 부화 풀에 넣기 전 단계입니다.",
+		"active_skill": {
+			"id": "onimaru_headbutt",
+			"runtime_kind": "headbutt",
+			"name": "뿔박치기",
+			"description": "오니마루가 시전 순간의 상대 패들 위치로 돌진해 그 자리에 뿔을 박는 단일 박치기입니다. 보스가 착지 전 그 자리를 벗어나면 빈 벽을 들이받고, 충격 폭발 반경 안에 남아 있으면 기절시킵니다. 레벨이 오를수록 착지 충격 폭발과 스턴 적용 반경이 함께 넓어지고(약 80→160px), 적중한 상대의 기절 시간이 2.0초→3.5초로 늘어납니다. 단, 박치기 직후 오니마루 자신도 잠시 행동불능에 빠지는데, 이 자기 기절은 레벨이 오를수록 5.0초→2.0초로 짧아집니다.",
+			"cooldown": 30.0,
+			"windup_seconds": 0.45,
+			# Onimaru port of the arena-hero HornCharge: a single committed headbutt
+			# (no Lunabi-style combo / random mega). It locks the cast-time boss spot,
+			# so the boss can dodge by leaving the blast radius before impact. Leveling:
+			# slam_radius (BOTH the visible explosion AND the stun catch zone) widens
+			# 80->160px, boss stun grows, self-stun shrinks. ground_slam adds the HornCharge
+			# feel: earthquake screen shake + heavy slam sound + shockwave VFX on impact,
+			# then a recoil back to the launch lane. dash_radius drives the dash-trail glow.
+			"disable_moving_miss": 1.0,
+			"ground_slam": 1.0,
+			"headbutt_count_by_level": [1, 1, 1, 1, 1],
+			# Knockback PARITY with the arena HornCharge: the base skill KNOCKBACK_VELOCITY
+			# (13.0, shared with Lunabi) x 5.6 = 72.8 px/frame, matching the Python original's
+			# fixed 73 px/frame (downtown/hero_skills.py:4586, itself 104 x 0.7). This rockets
+			# the boss across the field into the wall like the original, instead of the old
+			# 13 x 1.25 = 16.25 px/frame (~170px) generic-hit shove. Flat across levels because
+			# the original HornCharge knockback is a fixed value, not level-scaled. Onimaru-only
+			# lever (Lunabi keeps its default KNOCKBACK_SCALE_BY_LEVEL).
+			"knockback_scale_by_level": [5.6, 5.6, 5.6, 5.6, 5.6],
+			"mega_chance_by_level": [0.0, 0.0, 0.0, 0.0, 0.0],
+			"dash_radius_by_level": [31.0, 36.0, 41.0, 46.0, 52.0],
+			"slam_radius_by_level": [80.0, 100.0, 120.0, 140.0, 160.0],
+			"hit_stun_seconds_by_level": [2.0, 2.375, 2.75, 3.125, 3.5],
+			"self_stun_seconds_by_level": [5.0, 4.25, 3.5, 2.75, 2.0],
+			# PLACEHOLDER: reuses the existing amber Live2D anchor as the skill card / icon
+			# until the dedicated onimaru_headbutt skill-card + icon art lands (Codex asset task).
+			# Points at an existing file so the per-frame rail-card draw caches a success
+			# instead of re-stat'ing a reserved-but-absent path every frame.
+			"card_texture_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
+		},
+		"effect_text": "오니마루는 F7 디버그용 붉은 도깨비 링펫입니다. v2 원화 앵커 기반 라투디/클릭 시트와 전용 스탠딩, 좌/우 이동, 방망이 공격 동행 시트를 연결했습니다. 뿔박치기: 30초마다 시전 순간의 상대 패들 위치로 돌진해 뿔을 박는 단일 박치기로, 보스가 그 자리에 남아 있으면 기절하고 벗어나면 빈 벽 충돌만 발생합니다. 레벨이 오를수록 도달·명중 범위와 상대 기절(2.0~3.5초)이 커지고 자기 기절(5.0~2.0초)은 짧아집니다. 스킬카드/아이콘 아트와 인게임 검수 전까지는 부화 풀 밖 디버그 전용으로 유지합니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber_magenta_source.png",
-		"note": "Onimaru is debug-only and uses the accepted v2 transparent Live2D anchor recolored to the amber/gold first-choice ring-part gem palette as the source for a dedicated AutoSprite-derived 8x4 / 32-frame acquisition Live2D loop, a dedicated identity-locked standing companion idle sheet, a dedicated AutoSprite left/right companion movement pair, a dedicated AutoSprite-derived kanabo strike sheet aligned to the runtime impact frame, and a dedicated AutoSprite-derived 14x7 click reaction sheet shared by acquisition dismiss and panel click. The click sheet uses the grip-fix retime that removes early frames where the kanabo reads as dropped, with a downscaled companion click sheet for battle. Keep it out of the random hatch pool until active-skill runtime is accepted.",
+		"note": "Onimaru is debug-only and uses the accepted v2 transparent Live2D anchor recolored to the amber/gold first-choice ring-part gem palette as the source for a dedicated AutoSprite-derived 8x4 / 32-frame acquisition Live2D loop, a dedicated identity-locked standing companion idle sheet, a dedicated AutoSprite left/right companion movement pair, a dedicated AutoSprite-derived kanabo strike sheet aligned to the runtime impact frame, and a dedicated AutoSprite-derived 14x7 click reaction sheet shared by acquisition dismiss and panel click. The click sheet uses the grip-fix retime that removes early frames where the kanabo reads as dropped, with a downscaled companion click sheet for battle. Keep it out of the random hatch pool until normal hatch release and dedicated Headbutt card/icon art are accepted.",
 	},
 	"rahoset": {
 		"id": "rahoset",
@@ -1085,12 +1038,12 @@ const PETS := {
 			"egg": "res://assets/sprites/lingpet/resonance_egg_base.png",
 			"egg_crack_1": "res://assets/sprites/lingpet/resonance_egg_base_crack_1.png",
 			"egg_crack_2": "res://assets/sprites/lingpet/resonance_egg_base_crack_2.png",
-			"companion_idle": "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
-			"companion_move_left": "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
-			"companion_move_right": "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
-			"companion_walk": "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
-			"companion_strike": "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
-			"companion_cast": "res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png",
+			"companion_idle": "res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png",
+			"companion_move_left": "res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png",
+			"companion_move_right": "res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png",
+			"companion_walk": "res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png",
+			"companion_strike": "res://assets/sprites/lingpet/rahoset_companion_rear_strike_25f.png",
+			"companion_cast": "res://assets/sprites/lingpet/rahoset_companion_rear_hover_25f.png",
 			"cutin_art": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
 			"cutin_anim": "res://assets/sprites/lingpet/rahoset_cutin_acquire_ready_v2_autosprite_32f.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/rahoset_click_ritual_linked_v2_autosprite_98f.png",
@@ -1108,17 +1061,28 @@ const PETS := {
 			"companion_strike_draw_size": 92.0,
 			"companion_cast_draw_size": 92.0,
 		},
-		"active_skill": [],
-		"effect_text": "라호세트는 F7 디버그용 이집트 사막 신 컨셉의 공중 링펫입니다. 현재는 정식 스킬 런타임과 전용 라투디 제작 전 단계라, 획득/클릭/동행 시트는 accepted 원화 앵커에서 만든 정적 임시 시트를 사용합니다.",
+		"active_skill": {
+			"id": "rahoset_sand_prison",
+			"runtime_kind": "sand_prison",
+			"name": "모래감옥",
+			"description": "라호세트가 보스 주위에 모래감옥을 세웁니다. 생성 시간은 Lv.1 1.5초에서 Lv.5 0.7초로 짧아지고, 생성 중 보스가 감옥 밖으로 빠져나가면 MISS가 되어 감옥이 모래바람에 쓸려 사라집니다. 붙잡히면 감금 시간이 Lv.1 2.3초에서 Lv.5 4.0초까지 늘어나며 보스의 좌우 이동 범위가 감옥 안으로 제한됩니다. Lv.3-4는 30%로 1회, Lv.5는 50%로 최대 2회 다시 소환합니다.",
+			"cooldown": 30.0,
+			"cooldown_by_level": [30.0, 30.0, 30.0, 30.0, 30.0],
+			"windup_seconds": 0.4,
+			"windup_seconds_by_level": [0.4, 0.4, 0.4, 0.4, 0.4],
+			"card_texture_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
+		},
+		"effect_text": "라호세트는 F7 디버그용 이집트 사막 신 컨셉의 공중 링펫입니다. 획득/클릭 라투디 시트와 뒷모습 호버·급강하 타격 동행 시트를 연결했습니다. 모래감옥: 30초마다 보스 주위에 모래감옥을 세웁니다. 생성(Lv.1 1.5초~Lv.5 0.7초) 중 보스가 빠져나가면 MISS, 붙잡히면 감금(Lv.1 2.3초~Lv.5 4.0초) 동안 좌우 이동이 감옥 안으로 제한됩니다. Lv.3-4는 30%로 1회, Lv.5는 50%로 최대 2회 다시 소환합니다. 전용 스킬카드/아이콘 아트와 인게임 검수 전까지는 부화 풀 밖 디버그 전용으로 유지합니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1_magenta_source.png",
-		"note": "Rahoset is debug-only until dedicated sand/desert active-skill runtime and egg assets are accepted. The first AutoSprite desert-hover branch was rejected for a persistent right-facing drift, so acquisition and companion hover use the accepted AutoSprite front-hover retry. Click/dismiss/panel playback uses the AutoSprite-derived staff-action transition sheet: frame 0 matches the acquisition hover angle, then eases into the raised-staff, open-wing expression/action pose so the click does not pop to a different angle. Keep it out of the random hatch pool until the active-skill runtime is accepted.",
+		"note": "Rahoset is debug-only. The Sand Prison active-skill runtime shipped 2026-07-02 (lingpet_sand_prison_skill + host/dispatcher wiring, sealed by lingpet_sand_prison_skill_smoke); the skill card/icon still reuse the anchor art. In-game companion sheets are now REAR-VIEW (뒷모습): companion_idle/move/walk/cast use rahoset_companion_rear_hover_25f (custom AutoSprite strict-back-view wing-flap hover), companion_strike uses rahoset_companion_rear_strike_25f (rear forward dive, wings sweep, impact remapped to animator cell 22). This replaces the earlier front-hover placeholder (superseded/removed) so the flight pet faces away like the other pets. Acquisition/click/panel playback still use the AutoSprite-derived staff-action transition sheet (frame 0 matches the acquisition hover angle, then eases into the raised-staff open-wing action pose). Keep it out of the random hatch pool until dedicated Sand Prison card/icon art and in-game QA are accepted.",
 	},
 	"orosha": {
 		"id": "orosha",
 		"display_name": "오로샤",
 		"motion_style": "patrol",
-		"enabled": false,
+		"enabled": true,
 		"debug_enabled": true,
 		"hatch_weight": 1.0,
 		"required_hits": 1,
@@ -1191,22 +1155,6 @@ const PETS := {
 			"companion_strike_draw_size": 98.0,
 			"companion_cast_draw_size": 98.0,
 		},
-		"active_skill": {
-			"id": "orosha_star_coil",
-			"runtime_kind": "star_coil",
-			"name": "별똬리",
-			"description": "오로샤가 가까운 벽을 굴러 올라가 보스를 별자리 고리로 휘감아 1.5~3.5초 동안 이동 속도를 60% 늦춥니다. 둔화가 끝나면 반대편 벽으로 굴러 내려옵니다.",
-			"cooldown": 40.0,
-			"cooldown_by_level": [40.0, 35.0, 30.0, 30.0, 30.0],
-			"windup_seconds": 0.3,
-			"slow_duration": 1.5,
-			"slow_duration_by_level": [1.5, 2.0, 2.5, 3.0, 3.5],
-			"slow_multiplier": 0.4,
-			"card_texture_path": "res://assets/sprites/lingpet/orosha_star_coil_skillcard_imagegen_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/orosha_star_coil_skill_icon_imagegen_v1.png",
-			"motion_hint": "patrol_auto_boss_slow",
-			"how_to_use": "랠리 중 자동 발동합니다. 공 하강 조건 없이 보스에게 둔화를 겁니다.",
-		},
 		"active_skill_pool": [
 			{
 				"id": "orosha_star_coil",
@@ -1228,7 +1176,7 @@ const PETS := {
 		"effect_text": "오로샤는 가까운 벽을 타고 올라가 보스를 별자리 고리뱀으로 휘감는 별똬리를 자동 발동합니다. 보스 위치는 고정하지 않고 이동 속도만 잠시 늦춥니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/orosha_lingpet_live2d_anchor_v1.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/orosha_lingpet_live2d_anchor_v1_magenta_source.png",
-		"note": "Orosha is debug-only until Star Coil card/icon assets, audio, and final hatch-pool QA are accepted. Orosha is a grounded rolling-hoop pet: companion movement now uses an AutoSprite-generated complete circular hoop redraw as a distance-based full runtime roll with a short visual deceleration coast on stop, avoiding the lumpy full rotation from the non-circular rear-view source art; the native left/right 8x6 / 48-frame AutoSprite ground-roll sheets remain as fallback assets. Star Coil is a patrol-auto boss slow skill that keeps boss movement AI authoritative and writes only live slow flags. Acquisition uses the rigid v2 AutoSprite Live2D sheet that avoids face-only rotation plus a separate AutoSprite VFX layer, and click/dismiss/panel playback uses the rolling-hoop AutoSprite sheet. Keep it out of the random hatch pool until the active-skill runtime and assets are accepted.",
+		"note": "Orosha is a live hatch-pool pet with accepted Star Coil card/icon assets, audio hooks, and final hatch-pool QA. Orosha is a grounded rolling-hoop pet: companion movement uses an AutoSprite-generated complete circular hoop redraw as a distance-based full runtime roll with a short visual deceleration coast on stop, avoiding the lumpy full rotation from the non-circular rear-view source art; the native left/right 8x6 / 48-frame AutoSprite ground-roll sheets remain as fallback assets. Star Coil is a patrol-auto boss slow skill that keeps boss movement AI authoritative and writes only live slow flags. Acquisition uses the rigid v2 AutoSprite Live2D sheet that avoids face-only rotation plus a separate AutoSprite VFX layer, and click/dismiss/panel playback uses the rolling-hoop AutoSprite sheet.",
 	},
 }
 
@@ -1362,7 +1310,20 @@ static func get_active_skill_pool(pet_id: String) -> Array[Dictionary]:
 
 
 static func get_active_skill_entry(skill_id: String) -> Dictionary:
-	return get_active_skill_entry_from_entries(PETS, skill_id)
+	var normalized := _normalize_skill_id(skill_id)
+	if normalized == "":
+		return {}
+	var skill: Variant = _get_active_skill_id_index().get(normalized, null)
+	if skill is Dictionary:
+		return (skill as Dictionary).duplicate(true)
+	return {}
+
+
+static func has_active_skill_entry(skill_id: String) -> bool:
+	var normalized := _normalize_skill_id(skill_id)
+	if normalized == "":
+		return false
+	return _get_active_skill_id_index().has(normalized)
 
 
 static func get_active_skill_entry_from_entries(entries: Dictionary, skill_id: String) -> Dictionary:
@@ -1380,7 +1341,8 @@ static func get_active_skill_entry_from_entries(entries: Dictionary, skill_id: S
 
 
 static func get_active_skill_runtime_kind(skill_id: String) -> String:
-	return get_active_skill_runtime_kind_from_entries(PETS, skill_id)
+	var skill := get_active_skill_entry(skill_id)
+	return str(skill.get("runtime_kind", "")).strip_edges().to_lower()
 
 
 static func get_active_skill_runtime_kind_from_entries(entries: Dictionary, skill_id: String) -> String:
@@ -1447,8 +1409,11 @@ static func pick_skill_loadout(pet_id: String, rng: RandomNumberGenerator = null
 	var active_skill := get_active_skill(pet_id)
 	var active_id := str(active_skill.get("id", "")).strip_edges()
 	var active_level := _roll_hatch_skill_level(roll_rng) if active_id != "" else 0
-	var passive_skill := get_passive_skill(pet_id)
-	var passive_id := str(passive_skill.get("id", "")).strip_edges()
+	# Hatch passive identity is randomly drawn from the shared common passive pool so a
+	# hatched pet no longer always starts on pool[0] (공명 증폭). Passives added to
+	# COMMON_PASSIVE_SKILL_POOL later join the draw automatically. Roll the identity first,
+	# then its level, mirroring the active id-then-level shape above.
+	var passive_id := _roll_hatch_passive_id(roll_rng)
 	var passive_level := _roll_hatch_skill_level(roll_rng) if passive_id != "" else 0
 	return {
 		"active_skill_id": active_id if active_level > 0 else "",
@@ -1499,6 +1464,17 @@ static func build_default_loadout(pet_id: String) -> Dictionary:
 
 static func _roll_hatch_skill_level(rng: RandomNumberGenerator) -> int:
 	return clampi(rng.randi_range(0, 3), 0, 3)
+
+
+static func _roll_hatch_passive_id(rng: RandomNumberGenerator) -> String:
+	# Uniformly pick one passive from the shared common pool for a hatch roll. The pool is
+	# pet-agnostic (every lingpet shares COMMON_PASSIVE_SKILL_POOL), so this scales with any
+	# future passive added to that list without further wiring. Returns "" only for the
+	# defensive empty-pool case; the caller then treats the passive channel as absent.
+	if COMMON_PASSIVE_SKILL_POOL.is_empty():
+		return ""
+	var index := rng.randi_range(0, COMMON_PASSIVE_SKILL_POOL.size() - 1)
+	return str((COMMON_PASSIVE_SKILL_POOL[index] as Dictionary).get("id", "")).strip_edges()
 
 
 static func normalize_active_skill_id(pet_id: String, skill_id: String) -> String:
@@ -1621,11 +1597,12 @@ static func _validate_required_visuals(pet_id: String, entry: Dictionary, issues
 static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
 	var skill: Variant = entry.get("active_skill", {})
 	var configured_pool := _get_configured_active_skill_pool_from_entry(entry)
-	if not (skill is Dictionary) and configured_pool.is_empty():
-		issues.append("%s: active_skill must be a Dictionary" % pet_id)
-		return
-	if skill is Dictionary:
+	if configured_pool.is_empty():
+		if not (skill is Dictionary):
+			issues.append("%s: active_skill must be a Dictionary" % pet_id)
+			return
 		_validate_active_skill_data(pet_id, "active_skill", skill as Dictionary, issues, require_existing_files)
+		return
 	for i in range(configured_pool.size()):
 		_validate_active_skill_data(pet_id, "active_skill_pool[%d]" % i, configured_pool[i], issues, require_existing_files)
 
@@ -1750,6 +1727,47 @@ static func _get_entry_weight(entries: Dictionary, pet_id: String) -> float:
 	return 0.0
 
 
+static func _get_active_skill_id_index() -> Dictionary:
+	if not _active_skill_id_index_ready:
+		_active_skill_id_index = _build_active_skill_id_index()
+		_active_skill_id_index_ready = true
+	return _active_skill_id_index
+
+
+static func _build_active_skill_id_index() -> Dictionary:
+	var index: Dictionary = {}
+	for raw_pet_id in PETS.keys():
+		var entry: Variant = PETS.get(raw_pet_id, {})
+		if not (entry is Dictionary):
+			continue
+		var pet_entry := entry as Dictionary
+		var active_pool: Variant = pet_entry.get("active_skill_pool", pet_entry.get("active_skills", []))
+		var has_configured_pool := _append_active_skill_index_entries(active_pool, index)
+		if not has_configured_pool:
+			_append_active_skill_index_entries(pet_entry.get("active_skill", {}), index)
+	return index
+
+
+static func _append_active_skill_index_entries(value: Variant, index: Dictionary) -> bool:
+	var saw_skill := false
+	if value is Array:
+		for raw_skill in (value as Array):
+			if raw_skill is Dictionary:
+				saw_skill = true
+				_append_active_skill_index_entry(raw_skill as Dictionary, index)
+	elif value is Dictionary:
+		saw_skill = true
+		_append_active_skill_index_entry(value as Dictionary, index)
+	return saw_skill
+
+
+static func _append_active_skill_index_entry(skill: Dictionary, index: Dictionary) -> void:
+	var normalized := _normalize_skill_id(str(skill.get("id", "")))
+	if normalized == "" or index.has(normalized):
+		return
+	index[normalized] = skill
+
+
 static func _get_entry_from_entries(entries: Dictionary, pet_id: String) -> Variant:
 	var normalized := _normalize_pet_id(pet_id)
 	var entry: Variant = entries.get(normalized, null)
@@ -1799,8 +1817,10 @@ static func _apply_active_skill_level(skill_data: Dictionary, level: int) -> Dic
 		result["cooldown"] = base_cooldown * maxf(0.10, 1.0 - level_cooldown_reduction_pct / 100.0)
 	var base_windup := float(result.get("windup_seconds", 0.0))
 	var level_windup_reduction_pct := _get_array_level_value(ACTIVE_WINDUP_REDUCTION_PCT_BY_LEVEL, normalized_level, 0.0)
-	result["active_skill_level_windup_reduction_pct"] = level_windup_reduction_pct
-	if base_windup > 0.0 and level_windup_reduction_pct > 0.0:
+	var has_explicit_windup_by_level := skill_data.has("windup_seconds_by_level")
+	result["active_skill_level_windup_reduction_pct"] = 0.0 if has_explicit_windup_by_level else level_windup_reduction_pct
+	result["windup_seconds_by_level_authoritative"] = has_explicit_windup_by_level
+	if base_windup > 0.0 and level_windup_reduction_pct > 0.0 and not has_explicit_windup_by_level:
 		result["base_windup_seconds"] = base_windup
 		result["windup_seconds"] = base_windup * maxf(0.10, 1.0 - level_windup_reduction_pct / 100.0)
 	return result

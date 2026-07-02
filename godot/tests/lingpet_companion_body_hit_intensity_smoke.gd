@@ -45,6 +45,8 @@ func _init() -> void:
 	_verify_companion_guard_clamps_to_rally_cap()
 	_verify_companion_guard_uses_junior_rally_floor()
 	_verify_companion_guard_uses_fire_cap()
+	_verify_companion_guard_saturates_rally_cap_bonus()
+	_verify_companion_guard_clamps_oversized_bonus_on_bounce()
 	_verify_missing_ball_intensity_is_safe()
 
 	if _failures.is_empty():
@@ -166,6 +168,35 @@ func _verify_companion_guard_uses_fire_cap() -> void:
 	_expect(bool(result.get("hit", false)), "companion fire cap fixture should hit")
 	_expect(owner.ball_vel.length() <= 36.001, "companion guard should clamp boosted speed to the fire rally cap plus current bonus")
 	_expect(is_equal_approx(owner.rally_speed_cap_bonus, 1.5), "companion guard should advance the fire rally cap bonus for the next hit")
+
+
+func _verify_companion_guard_saturates_rally_cap_bonus() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 18.0)
+	owner.rally_speed_cap_bonus = 9.8
+	var registry := FakeRegistry.new({"ball_physics": BallPhysics.new()})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion saturation fixture should hit")
+	_expect(is_equal_approx(owner.rally_speed_cap_bonus, 10.0), "companion guard should saturate the rally cap bonus at the shared ceiling")
+	owner.ball_pos = Vector2(320.0, 540.0)
+	owner.ball_vel = Vector2(0.0, 18.0)
+	var second_state := LingpetCompanionBodyHitState.new()
+	var second: Dictionary = second_state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(second.get("hit", false)), "second companion saturation fixture should hit")
+	_expect(is_equal_approx(owner.rally_speed_cap_bonus, 10.0), "repeated companion guards should not grow the bonus past the ceiling")
+
+
+func _verify_companion_guard_clamps_oversized_bonus_on_bounce() -> void:
+	var state := LingpetCompanionBodyHitState.new()
+	var owner := _build_owner_at(Vector2(320.0, 540.0))
+	owner.ball_vel = Vector2(0.0, 80.0)
+	owner.rally_speed_cap_bonus = 50.0
+	var registry := FakeRegistry.new({"ball_physics": BallPhysics.new()})
+	var result: Dictionary = state.resolve_ball_hit(owner, registry, Vector2(320.0, 540.0), 100.0, 44.0, 0.0, true, false)
+	_expect(bool(result.get("hit", false)), "companion oversized-bonus fixture should hit")
+	_expect(owner.ball_vel.length() <= 36.001, "companion guard bounce should clamp an oversized stored bonus to the shared ceiling")
+	_expect(is_equal_approx(owner.rally_speed_cap_bonus, 10.0), "companion guard should normalize an oversized stored bonus down to the ceiling")
 
 
 func _build_owner_at(pos: Vector2) -> FakeOwner:

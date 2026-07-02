@@ -65,9 +65,13 @@ func _verify_chip_card_gate_and_cap() -> void:
 
 	var owned_owner := FakeOwner.new()
 	owned_owner.lingpet_owned_pet_ids = ["maribo"]
+	var tier0_choices: Array = catalog.get_choices("smasher", {}, true, 200, owned_owner, registry)
+	_expect(_choice_by_id(tier0_choices, "lingpet_affinity_chip").is_empty(), "owned lingpet owner should not see the affinity chip card before acquiring ring core")
+
+	runtime._affinity_state.set_run_ring_core_tier(1)
 	var choices: Array = catalog.get_choices("smasher", {}, true, 200, owned_owner, registry)
 	var chip_choice := _choice_by_id(choices, "lingpet_affinity_chip")
-	_expect(not chip_choice.is_empty(), "owned lingpet owner should see the affinity chip card")
+	_expect(not chip_choice.is_empty(), "owned lingpet owner should see the affinity chip card after acquiring ring core")
 	_expect_eq(int(chip_choice.get("current_level", -1)), 0, "first affinity chip card should read current chip count 0")
 	_expect_eq(int(chip_choice.get("next_level", -1)), 1, "first affinity chip card should advance to chip 1")
 	_expect_eq(int(chip_choice.get("max_level", -1)), LingpetAffinityState.MAX_ENHANCEMENT_CHIPS, "chip card max should mirror affinity-state cap")
@@ -89,6 +93,7 @@ func _verify_chip_pick_updates_affinity_state_only() -> void:
 	var perk_state := RuntimePerkState.new()
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
+	runtime._affinity_state.set_run_ring_core_tier(1)
 	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
 	var choice := _choice_by_id(catalog.get_choices("smasher", {}, true, 200, owner, registry), "lingpet_affinity_chip")
 	_expect(not choice.is_empty(), "fixture should expose an affinity chip choice")
@@ -111,6 +116,8 @@ func _verify_runtime_multiplier_and_reset_boundary() -> void:
 	var defense_gain: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_BALL_HIT, {"defense_intercept": true}, registry)
 	_expect_float(float(defense_gain.get("granted_points", 0.0)), 26.0, "five chips should double the full defense-tagged affinity grant")
 	_expect_float(float(defense_gain.get("bonus_points", 0.0)), 10.0, "five chips should double the reported defense bonus points")
+	var ring_core_gain: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_RING_CORE_UPGRADE, {}, registry)
+	_expect_float(float(ring_core_gain.get("granted_points", 0.0)), 50.0, "ring-core upgrade grant should be chip-EXEMPT (flat 50 even with five chips, like feed)")
 	runtime.reset_affinity_for_new_battle()
 	_expect_eq(runtime.get_enhancement_chips(), 5, "new battle affinity reset should preserve run-scoped chips")
 	runtime.reset_for_tests()
@@ -119,7 +126,7 @@ func _verify_runtime_multiplier_and_reset_boundary() -> void:
 
 func _verify_chip_source_contracts() -> void:
 	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
-	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_FEED else get_enhancement_chip_multiplier()") >= 0, "affinity state should exempt feed while keeping the chip multiplier at the point-grant chokepoint")
+	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_FEED or source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()") >= 0, "affinity state should exempt feed and ring-core-upgrade while keeping the chip multiplier at the point-grant chokepoint")
 	_expect(affinity_source.find("granted_points *= enhancement_multiplier") >= 0, "affinity state should multiply granted_points at the single chokepoint")
 	_expect(affinity_source.find("bonus_points *= enhancement_multiplier") >= 0, "affinity state should keep reported bonus_points scaled with granted_points")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
@@ -128,6 +135,9 @@ func _verify_chip_source_contracts() -> void:
 	_expect(chip_branch >= 0 and generic_level > chip_branch, "affinity chip special branch should run before generic runtime_skill_levels level-up")
 	_expect(runtime_source.find("runtime.add_enhancement_chip(owner, registry)") >= 0, "affinity chip branch should route through lingpet_egg_runtime.add_enhancement_chip")
 	_expect(RuntimePerkIconRenderer.new().covered_ids().has("lingpet_affinity_chip"), "affinity chip card should have a PNG icon renderer path")
+	var catalog_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
+	_expect(catalog_source.find("LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER := 1") >= 0, "affinity chip catalog gate should require at least ring-core tier 1")
+	_expect(catalog_source.find("ring_core_tier < LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER") >= 0, "affinity chip append should suppress cards before ring-core acquisition")
 
 
 func _choice_by_id(choices: Array, choice_id: String) -> Dictionary:

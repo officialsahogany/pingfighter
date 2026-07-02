@@ -46,8 +46,19 @@ const FIRE_ZONE_DUPLICATE_X := 60.0
 const FIRE_ZONE_DUPLICATE_Y := 40.0
 const FIRE_ZONE_SPAWN_INTERVAL_SECONDS := 0.30
 const FIRE_ZONE_SPREAD_INTERVAL_SECONDS := 5.0 / 60.0
-const FIRE_ZONE_PUSH_INTERVAL_SECONDS := 0.34
-const FIRE_ZONE_PUSH_FORCE := 60.0
+# Smooth decaying-velocity bounce (parity with the molotov fire zone): a contact
+# arms an outward velocity that decays each frame so the boss eases out and is
+# pulled back by its own (slowed) AI, instead of being hard-snapped to a wall.
+const FIRE_ZONE_KNOCKBACK_SPEED := 17.0  # initial outward px/frame on contact
+const FIRE_ZONE_KNOCKBACK_DECAY_PER_FRAME := 0.88
+const FIRE_ZONE_KNOCKBACK_REARM_SPEED := 3.5  # re-bounce once residual vel drops below this
+const FIRE_ZONE_KNOCKBACK_COOLDOWN_FRAMES := 8.0  # short: re-bounce on each fresh contact (anti-cross)
+# Post-AI crossing barrier (dragon breath updates AFTER update_boss_ai): the boss
+# may not end a frame on the far side of a zone midline relative to the side it
+# entered the frame on. Mirrors the boss_ai_state molotov barrier; the y-band
+# matches _is_boss_touching_zone so a patch only blocks while sharing the boss y.
+const FIRE_ZONE_BARRIER_Y_BAND := 74.0
+const FIRE_ZONE_BARRIER_SIDE_EPSILON := 0.5
 const FIRE_ZONE_INITIAL_FLAMES := 10
 const FIRE_ZONE_MAX_FLAMES := 30
 const FIRE_ZONE_SPAWN_FLAMES := 2
@@ -441,7 +452,6 @@ func _spawn_fire_zone(center: Vector2) -> void:
 		FIRE_ZONE_WIDTH,
 		FIRE_ZONE_HEIGHT,
 		FIRE_ZONE_DURATION_SECONDS,
-		FIRE_ZONE_PUSH_INTERVAL_SECONDS,
 		_zone_id_counter
 	)
 	_seed_zone_flames(zone, FIRE_ZONE_INITIAL_FLAMES, 30.0, 12.0)
@@ -479,23 +489,52 @@ func _apply_fire_zones(owner: Object, registry: Object, delta: float) -> void:
 
 
 func _apply_single_fire_zone(zone: Dictionary, owner: Object, registry: Object, delta: float) -> void:
+	# Parity with the molotov fire zone: a smooth decaying-velocity bounce (not a
+	# hard wall snap), paced so it never machine-gun jitters, plus the 화염 감속,
+	# plus a hard post-AI crossing barrier that even a 40px/frame dash can't beat.
+	# Dragon breath runs in update_lingpet AFTER update_boss_ai, so everything here
+	# is the frame's last word on boss_pos.
 	var in_fire := _is_boss_touching_zone(owner, zone)
 	zone["boss_in_fire"] = in_fire
+	var fps_scale := delta * 60.0
+	var knockback_vel := float(zone.get("knockback_vel", 0.0))
+	var knockback_cooldown := maxf(0.0, float(zone.get("knockback_cooldown", 0.0)) - fps_scale)
+
 	if not in_fire:
-		return
-	_apply_boss_slow(registry)
-	# Snap the boss out of the patch EVERY frame so it reads as a wall it cannot
-	# cross. Dragon breath updates AFTER the boss AI moves the boss (see
-	# battle_frame_flow_controller: update_boss_ai then update_lingpet), so this
-	# snap is the frame's last word on boss_pos. The timer only throttles the
-	# screen-shake feedback so it does not rattle every frame.
-	var push_timer := float(zone.get("push_timer", 0.0)) + delta
-	var play_feedback := false
-	if push_timer >= FIRE_ZONE_PUSH_INTERVAL_SECONDS:
-		push_timer = fmod(push_timer, FIRE_ZONE_PUSH_INTERVAL_SECONDS)
-		play_feedback = true
-	zone["push_timer"] = push_timer
-	_push_boss_from_fire(owner, registry, zone, play_feedback)
+		zone["engage_dir"] = 0.0
+	else:
+		_apply_boss_slow(registry)
+
+	# Re-arm the outward bounce on a fresh/decayed contact. The short cooldown +
+	# velocity gate pace it (anti-jitter) while still re-bouncing on EVERY fresh
+	# contact so the boss can't drift through between bounces. engage_dir locks the
+	# direction for the whole engagement so a boss nudged past center isn't flipped.
+	if in_fire and knockback_cooldown <= 0.0 and absf(knockback_vel) <= FIRE_ZONE_KNOCKBACK_REARM_SPEED:
+		var locked := float(zone.get("engage_dir", 0.0))
+		var push_dir := signf(locked) if absf(locked) > 0.001 else _resolve_fire_push_dir(owner, zone)
+		zone["engage_dir"] = push_dir
+		zone["last_push_dir"] = push_dir
+		_last_push_dir = push_dir
+		knockback_vel = push_dir * FIRE_ZONE_KNOCKBACK_SPEED
+		knockback_cooldown = FIRE_ZONE_KNOCKBACK_COOLDOWN_FRAMES
+		var feedback: Object = _get_registry_instance(registry, "battle_feedback_state")
+		if feedback != null and feedback.has_method("max_screen_shake"):
+			feedback.max_screen_shake(0.05, 1.5)
+
+	# Integrate + decay the outward bounce (also while the boss is leaving, so the
+	# residual push gives a sluggish exit instead of a hard stop).
+	if absf(knockback_vel) > 0.001:
+		_apply_fire_knockback_step(owner, knockback_vel * fps_scale)
+		knockback_vel *= pow(FIRE_ZONE_KNOCKBACK_DECAY_PER_FRAME, fps_scale)
+		if absf(knockback_vel) < 0.3:
+			knockback_vel = 0.0
+
+	# Hard no-cross guarantee for fast moves (notably the boss dash, which the
+	# bounce alone cannot undo in a single frame).
+	_apply_fire_crossing_barrier(owner, registry, zone)
+
+	zone["knockback_vel"] = knockback_vel
+	zone["knockback_cooldown"] = knockback_cooldown
 
 
 func _seed_zone_flames(zone: Dictionary, count: int, spread_x: float, spread_y: float) -> void:
@@ -555,35 +594,73 @@ func _is_boss_touching_zone(owner: Object, zone: Dictionary) -> bool:
 	return x_in_range and y_in_range
 
 
-func _push_boss_from_fire(owner: Object, registry: Object, zone: Dictionary, play_feedback: bool) -> void:
+func _resolve_fire_push_dir(owner: Object, zone: Dictionary) -> float:
+	# Use the PRE-AI side (boss_pos_prev, set before update_boss_ai) — the same
+	# source the crossing barrier uses — so the bounce and the barrier always agree
+	# on which way is "out". Reading the live post-AI position would arm the wrong
+	# direction on a dash-cross frame (boss already on the far side), making the
+	# bounce fight the barrier.
+	var boss_rect := _get_boss_rect(owner)
+	var prev_pos := _get_owner_vector2(owner, "boss_pos_prev", boss_rect.position)
+	var center: Vector2 = zone.get("position", Vector2.ZERO)
+	var delta_x := (prev_pos.x + boss_rect.size.x * 0.5) - center.x
+	if absf(delta_x) > 0.001:
+		return -1.0 if delta_x < 0.0 else 1.0
+	var prev := float(zone.get("last_push_dir", _last_push_dir))
+	if absf(prev) > 0.001:
+		return signf(prev)
+	var boss_vel := float(_get_owner_value(owner, "boss_vel", 0.0))
+	if absf(boss_vel) > 0.2:
+		return -signf(boss_vel)
+	return 1.0
+
+
+# One frame of the decaying bounce: nudge boss_pos.x by the (already decayed)
+# delta, clamped to the field. Does not touch boss_vel — the boss AI keeps its
+# own velocity; the patch just displaces the boss outward over several frames.
+func _apply_fire_knockback_step(owner: Object, delta_x: float) -> void:
 	if owner == null:
 		return
 	var boss_rect := _get_boss_rect(owner)
 	var boss_pos := boss_rect.position
 	var boss_w := boss_rect.size.x
-	var boss_center_x := boss_rect.get_center().x
-	var center: Vector2 = zone.get("position", Vector2.ZERO)
-	var width := float(zone.get("width", FIRE_ZONE_WIDTH))
-	var push_dir := -1.0 if boss_center_x < center.x else 1.0
-	if absf(boss_center_x - center.x) <= 0.001:
-		push_dir = float(zone.get("last_push_dir", _last_push_dir))
-		if absf(push_dir) <= 0.001:
-			push_dir = 1.0
-	zone["last_push_dir"] = push_dir
-	_last_push_dir = push_dir
-	# Place the boss JUST OUTSIDE the touch band (same geometry as
-	# _is_boss_touching_zone) so it can't stand inside the burning patch -- a hard
-	# wall, like the molotov fire zone, instead of a small periodic nudge it can
-	# walk through between pushes.
-	var blocked_half := maxf(0.0, width * 0.5 + boss_w * 0.5)
-	var target_center_x := center.x + push_dir * (blocked_half + 1.0)
-	boss_pos.x = clampf(target_center_x - boss_w * 0.5, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
+	boss_pos.x = clampf(boss_pos.x + delta_x, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
 	owner.set("boss_pos", boss_pos)
-	owner.set("boss_vel", push_dir * FIRE_ZONE_PUSH_FORCE * 0.22)
-	if play_feedback:
-		var feedback: Object = _get_registry_instance(registry, "battle_feedback_state")
-		if feedback != null and feedback.has_method("max_screen_shake"):
-			feedback.max_screen_shake(0.035, 1.1)
+
+
+# Post-AI one-sided crossing barrier (mirrors boss_ai_state's molotov barrier):
+# the boss may not end the frame on the far side of the zone midline relative to
+# the side it entered the frame on (read from boss_pos_prev, set before the boss
+# AI moved this frame). Only blocks while the boss shares the zone's y-band, and
+# clamps a hair past the midline so the blocked side persists frame to frame.
+func _apply_fire_crossing_barrier(owner: Object, registry: Object, zone: Dictionary) -> void:
+	if owner == null:
+		return
+	var center: Vector2 = zone.get("position", Vector2.ZERO)
+	var boss_rect := _get_boss_rect(owner)
+	var boss_w := boss_rect.size.x
+	var half := boss_w * 0.5
+	var boss_center_x := boss_rect.get_center().x
+	var boss_center_y := boss_rect.get_center().y
+	if absf(boss_center_y - center.y) >= FIRE_ZONE_BARRIER_Y_BAND:
+		return
+	var prev_pos := _get_owner_vector2(owner, "boss_pos_prev", boss_rect.position)
+	var prev_center_x := prev_pos.x + half
+	var clamped_center := boss_center_x
+	if prev_center_x <= center.x:
+		clamped_center = minf(boss_center_x, center.x - FIRE_ZONE_BARRIER_SIDE_EPSILON)
+	else:
+		clamped_center = maxf(boss_center_x, center.x + FIRE_ZONE_BARRIER_SIDE_EPSILON)
+	if is_equal_approx(clamped_center, boss_center_x):
+		return
+	var boss_pos := boss_rect.position
+	boss_pos.x = clampf(clamped_center - half, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
+	owner.set("boss_pos", boss_pos)
+	owner.set("boss_vel", 0.0)
+	# A dash that rammed the patch must actually stop, or it re-rams every frame.
+	var ai_state: Object = _get_registry_instance(registry, "boss_ai_state")
+	if ai_state != null and ai_state.has_method("cancel_dash_for_fire_block"):
+		ai_state.cancel_dash_for_fire_block()
 
 
 func _apply_boss_slow(registry: Object) -> void:

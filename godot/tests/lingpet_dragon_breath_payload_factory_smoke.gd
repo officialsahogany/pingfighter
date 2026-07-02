@@ -74,14 +74,17 @@ func _is_breath_particle_inside_ranges(particle: Dictionary, origin: Vector2, di
 
 
 func _verify_fire_zone_payload() -> void:
-	var zone: Dictionary = LingpetDragonBreathPayloadFactory.build_fire_zone(Vector2(300.0, 120.0), 100.0, 50.0, 2.0, 0.34, 7)
+	var zone: Dictionary = LingpetDragonBreathPayloadFactory.build_fire_zone(Vector2(300.0, 120.0), 100.0, 50.0, 2.0, 7)
 	_expect(zone.get("position", Vector2.ZERO) == Vector2(300.0, 120.0), "fire zone should preserve position")
 	_expect(is_equal_approx(float(zone.get("width", 0.0)), 100.0), "fire zone should preserve width")
 	_expect(is_equal_approx(float(zone.get("height", 0.0)), 50.0), "fire zone should preserve height")
 	_expect(is_equal_approx(float(zone.get("timer", 0.0)), 2.0), "fire zone should preserve timer")
 	_expect(is_equal_approx(float(zone.get("max_timer", 0.0)), 2.0), "fire zone should preserve max timer")
 	_expect(is_equal_approx(float(zone.get("spread_timer", -1.0)), 0.0), "fire zone should start with zero spread timer")
-	_expect(is_equal_approx(float(zone.get("push_timer", 0.0)), 0.34), "fire zone should preserve push timer")
+	# Smooth-bounce state seeded at zero (parity with the molotov fire zone).
+	_expect(is_equal_approx(float(zone.get("knockback_vel", -1.0)), 0.0), "fire zone should start with zero knockback velocity")
+	_expect(is_equal_approx(float(zone.get("knockback_cooldown", -1.0)), 0.0), "fire zone should start with zero knockback cooldown")
+	_expect(is_equal_approx(float(zone.get("engage_dir", -1.0)), 0.0), "fire zone should start with no locked engage direction")
 	_expect((zone.get("flames", []) as Array).is_empty(), "fire zone should start with an empty flame list")
 	_expect(not bool(zone.get("boss_in_fire", true)), "fire zone should not start with boss contact")
 	_expect(is_equal_approx(float(zone.get("last_push_dir", -1.0)), 0.0), "fire zone should start with zero push direction")

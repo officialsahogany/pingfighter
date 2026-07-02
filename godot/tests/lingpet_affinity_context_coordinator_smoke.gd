@@ -33,6 +33,7 @@ class CaptureAffinityState:
 	var configured: Array[Dictionary] = []
 	var forced_seed_pet_id := ""
 	var forced_seed := 0
+	var restored_seeds: Dictionary = {}
 	var rewards: Dictionary = LingpetAffinityState.get_empty_reward_counts()
 
 	func _init() -> void:
@@ -68,6 +69,10 @@ class CaptureAffinityState:
 	func set_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
 		forced_seed_pet_id = pet_id
 		forced_seed = reward_seed
+		restored_seeds[pet_id] = reward_seed
+
+	func get_reward_seed(pet_id: String) -> int:
+		return int(restored_seeds.get(pet_id, 0))
 
 	func get_level(_pet_id: String) -> int:
 		return level
@@ -83,6 +88,8 @@ func _init() -> void:
 func _run() -> void:
 	_verify_context_composition_and_sticky_seed()
 	_verify_current_profile_projection_and_reset()
+	_verify_restored_reward_seed_adoption_after_cache_reset()
+	_verify_source_ownership()
 
 	if _failures.is_empty():
 		print("lingpet_affinity_context_coordinator_smoke: ok")
@@ -173,6 +180,33 @@ func _verify_current_profile_projection_and_reset() -> void:
 	_expect(int(rebuilt_context.get("reward_seed", 0)) > 0, "first configure after reset should generate a fresh nonzero seed")
 
 
+func _verify_restored_reward_seed_adoption_after_cache_reset() -> void:
+	var coordinator := LingpetAffinityContextCoordinator.new()
+	var current_profile := LingpetCurrentProfile.new()
+	var loadout_state := FakeLoadoutState.new()
+	var affinity_state := CaptureAffinityState.new()
+	current_profile.set_pet_id("maribo")
+	affinity_state.restored_seeds["maribo"] = 424242
+
+	coordinator.reset_for_new_run()
+	var restored_context := coordinator.configure("maribo", "maribo", current_profile, loadout_state, affinity_state)
+	_expect_eq(int(restored_context.get("reward_seed", 0)), 424242, "cache miss after restore should adopt the pet's restored reward seed")
+	_expect_eq(coordinator.get_reward_seed_for_tests("maribo", current_profile), 424242, "adopted restored seed should become the sticky coordinator seed")
+
+	affinity_state.restored_seeds["maribo"] = 991
+	var sticky_context := coordinator.configure("maribo", "maribo", current_profile, loadout_state, affinity_state)
+	_expect_eq(int(sticky_context.get("reward_seed", 0)), 424242, "repeated configure should retain the sticky seed instead of re-reading pet state")
+
+
+func _verify_source_ownership() -> void:
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var coordinator_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
+	_expect(runtime_source.find("LingpetAffinityContextCoordinator") >= 0, "egg runtime should delegate affinity reward-context composition")
+	_expect(runtime_source.find("_affinity_context_profile") < 0, "egg runtime should not retain the inactive-pet context profile")
+	_expect(runtime_source.find("_affinity_reward_seeds_by_pet_id") < 0, "egg runtime should not retain run-local reward seed storage")
+	_expect(runtime_source.find("func _get_affinity_reward_seed") < 0 and runtime_source.find("func _resolve_affinity_motion_style") < 0, "egg runtime should not retain context detail helpers")
+	_expect(coordinator_source.find("configure_reward_context") >= 0, "coordinator should own the final affinity-state context write")
+	_expect(coordinator_source.find("get_affinity_motion_style") >= 0, "coordinator should own current and inactive pet motion-style resolution")
 
 
 func _expect(condition: bool, message: String) -> void:

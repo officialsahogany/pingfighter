@@ -48,6 +48,7 @@ var _appear_spin := 0.0
 var _vanish_spin := 0.0
 var _wisps: Array = []
 var _prewarmed := false
+var _last_visible := true
 
 
 func prewarm() -> void:
@@ -69,6 +70,15 @@ func trigger_vanish(pos: Vector2) -> void:
 	_vanish_timer = VANISH_DURATION
 	_vanish_spin = fposmod(pos.x * 0.019 + pos.y * 0.013, TAU)
 	_spawn_wisps(pos, _vanish_spin, VANISH_DURATION, true)
+
+
+func sync_visibility(is_free_flight_companion: bool, motion_visible: bool, pos: Vector2) -> void:
+	if is_free_flight_companion and motion_visible != _last_visible:
+		if motion_visible:
+			trigger_appear(pos)
+		else:
+			trigger_vanish(pos)
+	_last_visible = motion_visible
 
 
 func advance(delta: float) -> void:
@@ -112,6 +122,7 @@ func reset() -> void:
 	_appear_pos = Vector2.ZERO
 	_vanish_pos = Vector2.ZERO
 	_wisps.clear()
+	_last_visible = true
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:

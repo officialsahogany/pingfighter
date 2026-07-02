@@ -13,16 +13,23 @@ const TOP_PATROL_Y_MIN := 100.0
 const TOP_PATROL_Y_MAX := 220.0
 const ARCHER_WIDTH := 30.0
 const ARCHER_HEIGHT := 50.0
+# Ball-vs-archer break geometry. The archer is drawn as a ~30x50 hovering figure, so modeling the
+# break hit as a circle of only its half-WIDTH (15px) under-covered the much taller body and made a
+# boss-returned ball feel like it "passed through" the archer without shattering it. This padding
+# widens the break circle beyond the body half-width so a returned ball that passes near ANY part of
+# the archer body reliably breaks it. Single lever -- raise to make the archer easier to break.
+const ARCHER_HIT_RADIUS_PADDING := 12.0
 const ARCHER_SPEED_PER_FRAME := 3.0
 const ARCHER_SPEED := ARCHER_SPEED_PER_FRAME * 60.0
 const ARROW_SPEED_PER_FRAME := 12.0
 const ARROW_SPEED := ARROW_SPEED_PER_FRAME * 60.0
 const ARROW_LENGTH := 16.0
 const ARROW_DRAW_TIME_BY_LEVEL := [1.00, 0.92, 0.84, 0.76, 0.68]
-# Arrow fire cooldowns (+30% vs the original tuning -- the skill read too strong). Kept in sync
-# with the lingpet_catalog nekuring_skeleton_archer arrays; these are the runtime fallbacks.
-const ARROW_COOLDOWN_MIN_BY_LEVEL := [1.30, 1.17, 0.98, 0.81, 0.65]
-const ARROW_COOLDOWN_MAX_BY_LEVEL := [3.90, 3.38, 2.86, 2.34, 1.95]
+# Arrow fire cooldowns. Two cumulative nerfs vs the original tuning: +30% (read too strong), then a
+# further +20% overall cooldown pass. Kept in sync with the lingpet_catalog nekuring_skeleton_archer
+# arrays; these are the runtime fallbacks. (pre-20%: min [1.30,1.17,0.98,0.81,0.65] / max [3.90,3.38,2.86,2.34,1.95])
+const ARROW_COOLDOWN_MIN_BY_LEVEL := [1.56, 1.40, 1.18, 0.97, 0.78]
+const ARROW_COOLDOWN_MAX_BY_LEVEL := [4.68, 4.06, 3.43, 2.81, 2.34]
 const EMERGE_DURATION := 1.2
 const DEATH_DURATION := 0.7
 const ARROW_MAX_AGE := 5.0
@@ -49,6 +56,11 @@ const ARCHER_BOW_POINT_COUNT := 13
 # unbounded scale axis. This generous soft cap bounds worst-case accumulation (typical
 # play sits at 1-3 archers and never reaches it); over-cap archers gracefully dissolve.
 const MAX_CONCURRENT_ARCHERS := 6
+
+# Summoned archers render as translucent revenant spirits at 50% opacity. Folded into the
+# master draw alpha in _draw_archer, so every layer (cloak bell, skull lantern, shoulder
+# pods, chest core, bow, soul motes, hem underglow) inherits the same transparency.
+const ARCHER_BODY_ALPHA := 0.5
 
 const BONE_COLOR := Color(0.82, 0.88, 0.78, 1.0)
 const BONE_SHADOW := Color(0.12, 0.18, 0.16, 1.0)
@@ -102,6 +114,18 @@ func cancel(_owner: Object = null, registry: Object = null) -> void:
 	if registry != null:
 		_last_registry = registry
 	reset()
+
+
+# Round-boundary reset: summoned archers persist into the next round (mirrors
+# Bone Barrier's reset_round so the Nekuring archers stay deployed across rounds),
+# so only the transient in-flight arrows, bone-fragment dissolves, and particles
+# are cleared. A full reset() / cancel() (companion change / hatch / new battle /
+# unequip) still wipes the archers too, so nothing leaks across sessions.
+func reset_round() -> void:
+	_arrows.clear()
+	_dying_archers.clear()
+	_particles.clear()
+	_active = not _archers.is_empty()
 
 
 func prewarm() -> void:
@@ -465,7 +489,7 @@ func _ball_destroys_archer(archer: Dictionary, owner: Object) -> bool:
 	var archer_pos := _get_dict_vector2(archer, "pos", Vector2.ZERO)
 	var ball_pos := BattleSceneOwnerReader.get_vector2(owner, "ball_pos", Vector2.ZERO)
 	var ball_radius := _get_ball_radius(owner)
-	var radius := ARCHER_WIDTH * 0.5 + ball_radius
+	var radius := ARCHER_WIDTH * 0.5 + ARCHER_HIT_RADIUS_PADDING + ball_radius
 	return archer_pos.distance_squared_to(ball_pos) <= radius * radius
 
 
@@ -635,6 +659,11 @@ func _draw_archer(canvas: CanvasItem, archer: Dictionary, shake_offset: Vector2)
 	var alpha := 1.0 if emerge_progress >= 1.0 else clampf(emerge_progress * 1.5, 0.0, 1.0)
 	if alpha <= 0.01:
 		return
+	# Render the summoned archer at 50% opacity. Folding it into the master alpha here (before
+	# the palette is built and before any layer draws) makes the WHOLE figure translucent --
+	# the palette colors carry it, and the layers that take `alpha` directly (hem underglow,
+	# emerge fx, soul motes) inherit it too.
+	alpha *= ARCHER_BODY_ALPHA
 	var is_golden := bool(archer.get("is_golden", false))
 	var pos := _get_dict_vector2(archer, "pos", Vector2.ZERO) + shake_offset
 	pos.y += 14.0 + (1.0 - emerge_progress) * 20.0 + float(archer.get("body_bob", 0.0))

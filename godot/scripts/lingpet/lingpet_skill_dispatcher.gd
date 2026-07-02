@@ -24,6 +24,9 @@ const SKILL_KIND_DOLL_CURSE := "doll_curse"
 const SKILL_KIND_BANANA_SLICE := "banana_slice"
 const SKILL_KIND_WILD_ROAR := "wild_roar"
 const SKILL_KIND_STAR_COIL := "star_coil"
+const SKILL_KIND_GRAVITY_ACCEL := "gravity_accel"
+const SKILL_KIND_DWARF_MAGIC := "dwarf_magic"
+const SKILL_KIND_SAND_PRISON := "sand_prison"
 const RESOURCE_CLASS_BALL_OWNER := "ball_owner"
 const RESOURCE_CLASS_POS_OVERRIDE := "pos_override"
 const HYDRO_SPHERE_SKILL_ID := "maribo_hydro_sphere"
@@ -47,6 +50,7 @@ const DOLL_CURSE_SKILL_ID := "koyora_doll_curse"
 const BANANA_SLICE_SKILL_ID := "monkeyring_banana_slice"
 const WILD_ROAR_SKILL_ID := "monkeyring_wild_roar"
 const STAR_COIL_SKILL_ID := "orosha_star_coil"
+const SAND_PRISON_SKILL_ID := "rahoset_sand_prison"
 const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_HYDRO_SPHERE: true,
 	SKILL_KIND_HEADBUTT: true,
@@ -69,6 +73,9 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_BANANA_SLICE: true,
 	SKILL_KIND_WILD_ROAR: true,
 	SKILL_KIND_STAR_COIL: true,
+	SKILL_KIND_GRAVITY_ACCEL: true,
+	SKILL_KIND_DWARF_MAGIC: true,
+	SKILL_KIND_SAND_PRISON: true,
 }
 
 
@@ -122,6 +129,8 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_WILD_ROAR
 		STAR_COIL_SKILL_ID:
 			return SKILL_KIND_STAR_COIL
+		SAND_PRISON_SKILL_ID:
+			return SKILL_KIND_SAND_PRISON
 		_:
 			return SKILL_KIND_NONE
 
@@ -210,6 +219,18 @@ static func is_star_coil(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_STAR_COIL
 
 
+static func is_gravity_accel(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_GRAVITY_ACCEL
+
+
+static func is_dwarf_magic(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_DWARF_MAGIC
+
+
+static func is_sand_prison(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_SAND_PRISON
+
+
 static func has_supported_runtime(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) != SKILL_KIND_NONE
 
@@ -226,7 +247,7 @@ static func get_exclusive_resource_classes(skill_id: String) -> Array[String]:
 	match get_skill_kind(skill_id):
 		SKILL_KIND_HYDRO_SPHERE, SKILL_KIND_SOLAR_BOLT, SKILL_KIND_GHOST_SUMMON:
 			classes.append(RESOURCE_CLASS_BALL_OWNER)
-		SKILL_KIND_HEADBUTT, SKILL_KIND_BOMB_SURPRISE, SKILL_KIND_GATLING_BURST, SKILL_KIND_PUPPET_GRAB, SKILL_KIND_DOLL_CURSE, SKILL_KIND_BANANA_SLICE, SKILL_KIND_STAR_COIL:
+		SKILL_KIND_HEADBUTT, SKILL_KIND_BOMB_SURPRISE, SKILL_KIND_GATLING_BURST, SKILL_KIND_PUPPET_GRAB, SKILL_KIND_DOLL_CURSE, SKILL_KIND_BANANA_SLICE, SKILL_KIND_STAR_COIL, SKILL_KIND_SAND_PRISON:
 			classes.append(RESOURCE_CLASS_POS_OVERRIDE)
 		SKILL_KIND_WILD_ROAR:
 			classes.append(RESOURCE_CLASS_BALL_OWNER)

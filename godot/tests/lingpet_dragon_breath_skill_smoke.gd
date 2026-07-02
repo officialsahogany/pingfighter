@@ -4,6 +4,8 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
+const LingpetDragonBreathSkill := preload("res://scripts/lingpet/lingpet_dragon_breath_skill.gd")
+const LingpetDragonBreathPayloadFactory := preload("res://scripts/lingpet/lingpet_dragon_breath_payload_factory.gd")
 
 const SKILL_ID := "red_dragon_dragon_breath"
 const FIRE_STATUS_SOURCE := "red_dragon_dragon_breath_fire"
@@ -15,6 +17,7 @@ class FakeOwner:
 	extends RefCounted
 
 	var boss_pos := Vector2(330.0, 25.0)
+	var boss_pos_prev := Vector2(330.0, 25.0)
 	var boss_vel := 0.0
 	var boss_paddle_width := 100.0
 	var boss_hitbox_height := 40.0
@@ -89,17 +92,33 @@ class FakeFeedback:
 		shake_count += 1
 
 
+class FakeBossAi:
+	extends RefCounted
+
+	var boss_dash_active := false
+	var cancel_count := 0
+
+	func cancel_dash_for_fire_block(_stun_seconds: float = 0.6, _audio: Object = null) -> bool:
+		cancel_count += 1
+		if not boss_dash_active:
+			return false
+		boss_dash_active = false
+		return true
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var status_effect_state: Object = null
 	var game_audio: Object = null
 	var battle_feedback_state: Object = null
+	var boss_ai_state: Object = null
 
-	func _init(status_state: Object = null, audio: Object = null, feedback: Object = null) -> void:
+	func _init(status_state: Object = null, audio: Object = null, feedback: Object = null, boss_ai: Object = null) -> void:
 		status_effect_state = status_state
 		game_audio = audio
 		battle_feedback_state = feedback
+		boss_ai_state = boss_ai
 
 	func get_cached_instance(key: String) -> Object:
 		return get_instance(key)
@@ -111,6 +130,8 @@ class FakeRegistry:
 			return game_audio
 		if key == "battle_feedback_state":
 			return battle_feedback_state
+		if key == "boss_ai_state":
+			return boss_ai_state
 		return null
 
 
@@ -121,6 +142,8 @@ func _init() -> void:
 	_verify_runtime_ball_boost_and_fire_zone()
 	_verify_breath_field_reflects_distant_ball()
 	_verify_reset_clears_fire_slow()
+	_verify_fire_zone_crossing_barrier_and_dash_cancel()
+	_verify_fire_zone_bounce_is_paced_not_jittery()
 
 	if _failures.is_empty():
 		print("lingpet_dragon_breath_skill_smoke: ok")
@@ -211,9 +234,19 @@ func _verify_runtime_ball_boost_and_fire_zone() -> void:
 
 	var snapshot: Dictionary = host.get_snapshot()
 	var zone_pos: Vector2 = snapshot.get("dragon_breath_fire_zone_pos", Vector2.ZERO)
-	owner.boss_pos = zone_pos - Vector2(owner.boss_paddle_width * 0.5, owner.boss_hitbox_height * 0.5)
+	# Place the boss just LEFT of the patch center so the bounce direction is
+	# deterministic, then let several frames of the smooth bounce play out (the new
+	# model eases the boss out over time instead of a one-frame hard-wall snap).
+	owner.boss_pos = Vector2(
+		zone_pos.x - owner.boss_paddle_width * 0.5 - 8.0,
+		zone_pos.y - owner.boss_hitbox_height * 0.5
+	)
+	# Pre-AI side (drives both the bounce direction and the crossing barrier) is the
+	# same left side; the actor driver would set this each physics frame.
+	owner.boss_pos_prev = owner.boss_pos
 	var boss_x_before := owner.boss_pos.x
-	host.update(0.51, owner, registry, SKILL_ID)
+	for _i in range(12):
+		host.update(1.0 / 60.0, owner, registry, SKILL_ID)
 
 	var slow_calls: Array[Dictionary] = status_state.get_calls_for_source(FIRE_STATUS_SOURCE)
 	_expect(not slow_calls.is_empty(), "Dragon Breath fire zone should refresh a shared boss slow")
@@ -224,9 +257,61 @@ func _verify_runtime_ball_boost_and_fire_zone() -> void:
 		var data: Dictionary = first_call.get("data", {}) as Dictionary
 		_expect(is_equal_approx(float(data.get("multiplier", 0.0)), 0.50), "Dragon Breath fire zone should apply the original 50 percent boss speed slow")
 		_expect(str(data.get("visual", "")) == "red_dragon_dragon_breath", "Dragon Breath slow should tag its own visual id")
-	_expect(absf(owner.boss_pos.x - boss_x_before) >= 50.0, "Dragon Breath fire zone should push the boss out of the flame patch")
-	_expect(absf(float(owner.boss_vel)) > 0.0, "Dragon Breath fire zone push should set a visible boss velocity impulse")
-	_expect(feedback.shake_count >= 1, "Dragon Breath fire-zone push should send light battle feedback")
+	# Smooth-bounce parity with the molotov fire zone: the boss is eased OUT of the
+	# patch (leftward, its approach side) and is never shoved across to the far side.
+	_expect(boss_x_before - owner.boss_pos.x >= 30.0, "Dragon Breath fire zone should ease the boss out of the flame patch (leftward)")
+	_expect(owner.boss_pos.x + owner.boss_paddle_width * 0.5 <= zone_pos.x + 0.5, "Dragon Breath fire zone must not shove the boss across to the far side")
+	_expect(feedback.shake_count >= 1, "Dragon Breath fire-zone bounce should send light battle feedback")
+
+
+func _verify_fire_zone_crossing_barrier_and_dash_cancel() -> void:
+	# Parity with the molotov barrier, but post-AI (dragon breath runs in
+	# update_lingpet): a boss that crossed the patch midline this frame (e.g. a
+	# 40px/frame dash, which moved it during update_boss_ai) must be clamped back
+	# to its PRE-AI side, and an active dash must be cancelled so it stops ramming.
+	var skill: Object = LingpetDragonBreathSkill.new()
+	var owner := FakeOwner.new()
+	var boss_ai := FakeBossAi.new()
+	boss_ai.boss_dash_active = true
+	var registry := FakeRegistry.new(FakeStatusEffectState.new(), FakeAudio.new(), FakeFeedback.new(), boss_ai)
+
+	var zone_center := Vector2(380.0, 45.0)
+	# Pre-AI the boss was LEFT of the patch; this frame it ended up on the RIGHT
+	# side (it crossed), as a dash would leave it.
+	owner.boss_pos_prev = Vector2(280.0, 25.0)  # center 330 (left of 380)
+	owner.boss_pos = Vector2(400.0, 25.0)  # center 450 (right of 380 — crossed)
+	var zone: Dictionary = LingpetDragonBreathPayloadFactory.build_fire_zone(zone_center, 100.0, 50.0, 2.0, 1)
+
+	skill._apply_single_fire_zone(zone, owner, registry, 1.0 / 60.0)
+
+	_expect(
+		owner.boss_pos.x + owner.boss_paddle_width * 0.5 <= zone_center.x + 0.01,
+		"a boss that crossed the patch must be clamped back to its pre-AI (left) side"
+	)
+	_expect(boss_ai.cancel_count >= 1, "crossing the patch should request a dash cancel")
+	_expect(not boss_ai.boss_dash_active, "the rammed dash must be cancelled so it stops")
+
+
+func _verify_fire_zone_bounce_is_paced_not_jittery() -> void:
+	# A boss dragged into the patch every frame must NOT re-arm a bounce every
+	# frame (the molotov "기괴한 떨림"): the velocity gate + short cooldown pace it.
+	var skill: Object = LingpetDragonBreathSkill.new()
+	var owner := FakeOwner.new()
+	var feedback := FakeFeedback.new()
+	var registry := FakeRegistry.new(FakeStatusEffectState.new(), FakeAudio.new(), feedback, FakeBossAi.new())
+	var zone_center := Vector2(380.0, 45.0)
+	var zone: Dictionary = LingpetDragonBreathPayloadFactory.build_fire_zone(zone_center, 100.0, 50.0, 2.0, 1)
+
+	for _i in range(20):
+		# Keep dragging the boss just left of the patch center every frame.
+		owner.boss_pos_prev = Vector2(360.0, 25.0)  # center 410... keep it inside the band, left bias
+		owner.boss_pos = Vector2(355.0, 25.0)  # center 405, inside contact band
+		skill._apply_single_fire_zone(zone, owner, registry, 1.0 / 60.0)
+
+	_expect(
+		feedback.shake_count >= 1 and feedback.shake_count <= 4,
+		"a boss held in the patch should bounce a couple of times over 20 frames (paced), never per-frame: got %d" % feedback.shake_count
+	)
 
 
 func _verify_reset_clears_fire_slow() -> void:

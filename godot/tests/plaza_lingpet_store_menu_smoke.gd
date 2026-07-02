@@ -1,11 +1,12 @@
 extends SceneTree
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 const PlazaScenePacked := preload("res://scenes/plaza.tscn")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -66,10 +67,6 @@ class FakeOwner:
 	var ringpet_affinity_next_requirement := 0.0
 	var lingpet_affinity_next_label := ""
 	var ringpet_affinity_next_label := ""
-	var lingpet_bond_points := 0
-	var ringpet_bond_points := 0
-	var lingpet_bond_title := ""
-	var ringpet_bond_title := ""
 	var lingpet_companion_defense_intercept_active := false
 	var ringpet_companion_defense_intercept_active := false
 	var lingpet_companion_defense_intercept_target_x := 0.0
@@ -174,10 +171,11 @@ class FakeRingCoreFailRuntime:
 
 
 func _init() -> void:
-	_run()
+	call_deferred("_run")
 
 
 func _run() -> void:
+	_verify_lingpet_store_runtime_only_sources()
 	_verify_lingpet_egg_purchase_spawns_runtime_egg()
 	_verify_lingpet_ring_core_purchase_upgrades_run_cap()
 	_verify_ring_core_purchase_grants_owned_pets_affinity()
@@ -186,6 +184,12 @@ func _run() -> void:
 	_verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier()
 	_verify_ring_core_post_payment_refund_restores_wallet()
 
+	ProjectResourceLoader.clear_caches()
+	await _drain_frames(30)
+	call_deferred("_finish")
+
+
+func _finish() -> void:
 	if _failures.is_empty():
 		print("plaza_lingpet_store_menu_smoke: ok")
 		quit(0)
@@ -193,6 +197,23 @@ func _run() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _drain_frames(frame_count: int) -> void:
+	for i in frame_count:
+		ProjectResourceLoader.try_resolve_finished_threaded_prewarm()
+		await process_frame
+
+
+func _verify_lingpet_store_runtime_only_sources() -> void:
+	var transaction_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
+	var plaza_scene_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_scene.gd")
+	_expect(transaction_source.find("lingpet_affinity_store") < 0, "plaza lingpet store transactions should not request the removed affinity store module key")
+	_expect(transaction_source.find("LingpetAffinityStore") < 0, "plaza lingpet store transactions should not preload or use the meta-only affinity store")
+	_expect(transaction_source.find("upgrade_run_ring_core_tier") >= 0, "plaza ring-core purchase should upgrade the live run-state runtime")
+	_expect(plaza_scene_source.find("missing_affinity_store") < 0, "plaza ring-core UI should not keep the removed missing_affinity_store reason")
+	_expect(plaza_scene_source.find("링코어 장부") < 0, "plaza ring-core UI should describe missing run-state as state, not a ledger")
+	_expect(plaza_scene_source.find("링코어 상태를 찾을 수 없습니다.") >= 0, "plaza ring-core UI should keep the current run-state missing message")
 
 
 func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
@@ -253,20 +274,15 @@ func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
 
 func _verify_lingpet_ring_core_purchase_upgrades_run_cap() -> void:
 	var save_path := _smoke_save_path("ring_core")
-	var affinity_path := _smoke_save_path("ring_core_affinity")
 	_cleanup(save_path)
-	_cleanup(affinity_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
 	store.apply_stage_clear_progress(1, 3000, true)
-	var affinity_store := LingpetAffinityStore.new()
-	affinity_store.set_save_path(affinity_path)
 	var owner := FakeOwner.new()
 	root.add_child(owner)
 	var lingpet_runtime: Object = LingpetEggRuntime.new()
 	var registry := FakeRegistry.new({
 		"lingpet_egg_runtime": lingpet_runtime,
-		"lingpet_affinity_store": affinity_store,
 	})
 
 	var viewport := _build_viewport()
@@ -275,7 +291,6 @@ func _verify_lingpet_ring_core_purchase_upgrades_run_cap() -> void:
 		viewport.queue_free()
 		owner.queue_free()
 		_cleanup(save_path)
-		_cleanup(affinity_path)
 		return
 	_open_building(scene, "lingpet_store")
 	var status: Dictionary = scene.get_status()
@@ -316,7 +331,6 @@ func _verify_lingpet_ring_core_purchase_upgrades_run_cap() -> void:
 	viewport.queue_free()
 	owner.queue_free()
 	_cleanup(save_path)
-	_cleanup(affinity_path)
 
 
 func _verify_failed_lingpet_store_actions_do_not_spend_ap() -> void:
@@ -407,14 +421,10 @@ func _verify_ring_core_purchase_grants_owned_pets_affinity() -> void:
 	# not in the runtime's cached collection. With owner dropped (owner = null),
 	# the runtime falls back to its empty internal cache and these pets are missed.
 	var save_path := _smoke_save_path("ring_core_owned")
-	var affinity_path := _smoke_save_path("ring_core_owned_affinity")
 	_cleanup(save_path)
-	_cleanup(affinity_path)
 	var store := PlazaSaveStore.new()
 	store.set_save_path(save_path)
 	store.apply_stage_clear_progress(1, 3000, true)
-	var affinity_store := LingpetAffinityStore.new()
-	affinity_store.set_save_path(affinity_path)
 	var owner := FakeOwner.new()
 	# Two owned pets, neither used this run (no run-tracked affinity) and never
 	# synced into the runtime's collection cache -> only the threaded owner can
@@ -424,7 +434,6 @@ func _verify_ring_core_purchase_grants_owned_pets_affinity() -> void:
 	var lingpet_runtime: Object = LingpetEggRuntime.new()
 	var registry := FakeRegistry.new({
 		"lingpet_egg_runtime": lingpet_runtime,
-		"lingpet_affinity_store": affinity_store,
 	})
 
 	var viewport := _build_viewport()
@@ -433,7 +442,6 @@ func _verify_ring_core_purchase_grants_owned_pets_affinity() -> void:
 		viewport.queue_free()
 		owner.queue_free()
 		_cleanup(save_path)
-		_cleanup(affinity_path)
 		return
 	_open_building(scene, "lingpet_store")
 
@@ -450,25 +458,19 @@ func _verify_ring_core_purchase_grants_owned_pets_affinity() -> void:
 	viewport.queue_free()
 	owner.queue_free()
 	_cleanup(save_path)
-	_cleanup(affinity_path)
 
 
 func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> void:
 	var poor_save_path := _smoke_save_path("ring_core_poor")
-	var poor_affinity_path := _smoke_save_path("ring_core_poor_affinity")
 	_cleanup(poor_save_path)
-	_cleanup(poor_affinity_path)
 	var poor_store := PlazaSaveStore.new()
 	poor_store.set_save_path(poor_save_path)
 	poor_store.apply_stage_clear_progress(1, 100, true)
-	var poor_affinity := LingpetAffinityStore.new()
-	poor_affinity.set_save_path(poor_affinity_path)
 	var poor_owner := FakeOwner.new()
 	root.add_child(poor_owner)
 	var poor_runtime: Object = LingpetEggRuntime.new()
 	var poor_registry := FakeRegistry.new({
 		"lingpet_egg_runtime": poor_runtime,
-		"lingpet_affinity_store": poor_affinity,
 	})
 	var poor_viewport := _build_viewport()
 	var poor_scene := _build_scene(poor_viewport, poor_save_path, poor_owner, poor_registry)
@@ -484,24 +486,18 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 	poor_viewport.queue_free()
 	poor_owner.queue_free()
 	_cleanup(poor_save_path)
-	_cleanup(poor_affinity_path)
 
 	var max_save_path := _smoke_save_path("ring_core_max")
-	var max_affinity_path := _smoke_save_path("ring_core_max_affinity")
 	_cleanup(max_save_path)
-	_cleanup(max_affinity_path)
 	var max_store := PlazaSaveStore.new()
 	max_store.set_save_path(max_save_path)
 	max_store.apply_stage_clear_progress(1, 3000, true)
-	var max_affinity := LingpetAffinityStore.new()
-	max_affinity.set_save_path(max_affinity_path)
 	var max_owner := FakeOwner.new()
 	root.add_child(max_owner)
 	var max_runtime: Object = LingpetEggRuntime.new()
-	max_runtime._affinity_state.set_run_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
+	max_runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	var max_registry := FakeRegistry.new({
 		"lingpet_egg_runtime": max_runtime,
-		"lingpet_affinity_store": max_affinity,
 	})
 	var max_viewport := _build_viewport()
 	var max_scene := _build_scene(max_viewport, max_save_path, max_owner, max_registry)
@@ -513,11 +509,10 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 		_expect(str(max_summary.get("reason", "")) == "max_ring_core_tier", "max-tier ring-core purchase should report max_ring_core_tier")
 		_expect(int(max_status.get("plaza_gold", 0)) == 3000, "max-tier ring-core purchase should leave gold unchanged")
 		_expect(int(max_status.get("ap_current", 0)) == 4, "max-tier ring-core purchase should not spend AP")
-		_expect(int(max_runtime.get_run_ring_core_tier()) == LingpetAffinityStore.MAX_RING_CORE_TIER, "max-tier ring-core purchase should leave the run tier unchanged")
+		_expect(int(max_runtime.get_run_ring_core_tier()) == LingpetRingCoreRules.MAX_RING_CORE_TIER, "max-tier ring-core purchase should leave the run tier unchanged")
 	max_viewport.queue_free()
 	max_owner.queue_free()
 	_cleanup(max_save_path)
-	_cleanup(max_affinity_path)
 
 	var missing_save_path := _smoke_save_path("ring_core_missing")
 	_cleanup(missing_save_path)
@@ -535,8 +530,8 @@ func _verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier() -> 
 		var missing_status: Dictionary = missing_scene.get_status()
 		var missing_summary: Dictionary = missing_status.get("last_lingpet_store_transaction_summary", {})
 		_expect(str(missing_summary.get("reason", "")) == "missing_lingpet_runtime", "missing lingpet runtime should report missing_lingpet_runtime")
-		_expect(int(missing_status.get("plaza_gold", 0)) == 3000, "missing affinity store should leave gold unchanged")
-		_expect(int(missing_status.get("ap_current", 0)) == 4, "missing affinity store should not spend AP")
+		_expect(int(missing_status.get("plaza_gold", 0)) == 3000, "missing lingpet runtime should leave gold unchanged")
+		_expect(int(missing_status.get("ap_current", 0)) == 4, "missing lingpet runtime should not spend AP")
 	missing_viewport.queue_free()
 	missing_owner.queue_free()
 	_cleanup(missing_save_path)

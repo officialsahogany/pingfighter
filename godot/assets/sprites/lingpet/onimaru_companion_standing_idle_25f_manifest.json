@@ -1,40 +1,61 @@
 {
   "asset_id": "onimaru_companion_standing_idle_25f",
-  "created_for": "Onimaru debug lingpet companion standing idle sheet",
-  "runtime_path": "res://assets/sprites/lingpet/onimaru_companion_standing_idle_25f.png",
-  "source_anchor_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2.png",
-  "source_anchor_manifest_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_manifest.json",
-  "generation": {
-    "method": "identity-locked deterministic standing idle from accepted v2 transparent anchor",
-    "reason": "AutoSprite was tried first, but generated identity drifted into a generic side-facing oni and lost the accepted v2 ringpet silhouette.",
-    "autosprite_character_id": "cmqdw3qgc00p1u65aaheaxlh2",
-    "autosprite_attempts": [
-      {
-        "job_id": "wf_eb7529d7-d9eb-4504-8558-c06ce76fe9a5",
-        "spritesheet_id": "cmqdw5q6f00qlu65a5gcy2ojv",
-        "accepted": false,
-        "reject_reason": "side/profile drift and missing accepted accessory read"
-      },
-      {
-        "job_id": "wf_0aa323b3-aa52-42e3-b781-8f9abcf260ad",
-        "spritesheet_id": "cmqdw8uat00ockfscj2q8kgzs",
-        "accepted": false,
-        "reject_reason": "clean sheet, but too generic red oni and not the accepted Onimaru v2 lingpet body"
-      }
-    ],
-    "animation": "25-frame subtle standing breathing sway; bottom anchor preserved near cell baseline",
-    "base_fit": {
-      "max_width": 220,
-      "max_height": 234,
-      "base_scale": 0.211957,
-      "base_size": [
-        179,
-        234
-      ]
-    },
-    "postprocess": "low-alpha chroma-key residue with alpha <= 3 removed after resampling"
+  "pet_id": "onimaru",
+  "display_name": "오니마루",
+  "created_at": "2026-07-01",
+  "regeneration_note": "Rear-view (뒷모습) regen 2026-07-01 to match the patrol-pet convention; Onimaru was the only patrol lingpet facing front (root cause: AutoSprite base was a FRONT upload). REVISION: the first rear pass used iso_walk_northeast/iso_idle_up which faithfully render the back BUT DROP Onimaru's signature spiked club/kanabo prop. Fix: regenerate as AutoSprite kind 'custom' with a forceful STRICT-BACK-VIEW + 'holds his brown spiked club (blue tassel) in his RIGHT hand every frame' prompt — custom preserves the held club where iso drops it, and the no-turn wording keeps it a pure back view. Postprocess anchors the BODY horizontally by head-centroid (head_cx) so the club naturally extends to the right instead of shifting the body left, and bottom-aligns by the FEET band. Prev front runtime PNGs backed up in scratchpad onimaru_prev_runtime_backup/.",
+  "runtime_usage": "lingpet_companion_idle_rear_with_club_sheet (also reused as companion_cast)",
+  "autosprite": {
+    "character_id": "cmqdw3qgc00p1u65aaheaxlh2",
+    "character_name": "Onimaru Lingpet Standing Source 20260614",
+    "kind": "custom (strict rear idle, club held)",
+    "spritesheet_id": "cmr1tlhz7001gf84vmelnh8mk",
+    "workflow_job_id": "wf_724fb342-95dc-49d2-84f1-a727cf45ee71",
+    "source_video_id": "cmr1tjgqx001e90r2c6o7hxib",
+    "generated_frame_count": 25,
+    "remove_bg": "ultra",
+    "video_tier": "turbo"
   },
-  "grid": {
+  "postprocess": {
+    "note": "custom rear breathing idle with club; all 25 frames used forward.",
+    "runtime_frame_source_sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "scale": 0.501,
+    "horizontal_anchor": "head-centroid (top-40% of content) -> cell center 128 (keeps body centered, club extends right)",
+    "vertical_align": "feet band (head_cx +/-55px) bottom -> baseline 236",
+    "target_body_height": 214,
+    "alpha_cleanup": {
+      "alpha_below": 8,
+      "kill_green_residue": true
+    },
+    "sheet": "1280x1280 5x5 256px RGBA"
+  },
+  "runtime_sheet": {
     "cols": 5,
     "rows": 5,
     "frame_count": 25,
@@ -42,475 +63,11 @@
       256,
       256
     ],
-    "frame_size": [
-      256,
-      256
+    "sheet_size": [
+      1280,
+      1280
     ],
-    "repeated_static_frame": false
-  },
-  "qa": {
-    "sha256": "9361d54344bbd9944882cd9d534277ce3292e8b09a59136faab441be12d7cd4f",
-    "bytes": 1407881,
-    "visible_pixels": 543077,
-    "visible_green_pixels": 0,
-    "visible_magenta_pixels": 0,
-    "visible_greenish_pixels": 0,
-    "visible_magentaish_pixels": 0,
-    "edge_alpha_max": 0,
-    "edge_touch_frames": [],
-    "sample_frame_bboxes": [
-      {
-        "index": 0,
-        "bbox": [
-          44,
-          14,
-          211,
-          243
-        ],
-        "scale_x": 0.99,
-        "scale_y": 1.014,
-        "rotation_degrees": 0.0894,
-        "center_x_offset": 0,
-        "bottom_y_offset": 0,
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 6,
-        "bbox": [
-          44,
-          16,
-          213,
-          240
-        ],
-        "scale_x": 0.9994,
-        "scale_y": 1.0009,
-        "rotation_degrees": 0.4458,
-        "center_x_offset": 1,
-        "bottom_y_offset": -1,
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 12,
-        "bbox": [
-          41,
-          20,
-          214,
-          242
-        ],
-        "scale_x": 1.0099,
-        "scale_y": 0.9861,
-        "rotation_degrees": -0.0334,
-        "center_x_offset": 0,
-        "bottom_y_offset": 0,
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 18,
-        "bbox": [
-          41,
-          19,
-          212,
-          243
-        ],
-        "scale_x": 1.0019,
-        "scale_y": 0.9974,
-        "rotation_degrees": -0.45,
-        "center_x_offset": -1,
-        "bottom_y_offset": 1,
-        "edge_alpha_max": 0
-      },
-      {
-        "index": 24,
-        "bbox": [
-          44,
-          13,
-          211,
-          243
-        ],
-        "scale_x": 0.9903,
-        "scale_y": 1.0136,
-        "rotation_degrees": -0.0231,
-        "center_x_offset": 0,
-        "bottom_y_offset": 0,
-        "edge_alpha_max": 0
-      }
-    ]
-  },
-  "frames": [
-    {
-      "index": 0,
-      "bbox": [
-        44,
-        14,
-        211,
-        243
-      ],
-      "scale_x": 0.99,
-      "scale_y": 1.014,
-      "rotation_degrees": 0.0894,
-      "center_x_offset": 0,
-      "bottom_y_offset": 0,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 1,
-      "bbox": [
-        46,
-        14,
-        213,
-        243
-      ],
-      "scale_x": 0.9903,
-      "scale_y": 1.0136,
-      "rotation_degrees": 0.1963,
-      "center_x_offset": 1,
-      "bottom_y_offset": 0,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 2,
-      "bbox": [
-        46,
-        13,
-        213,
-        242
-      ],
-      "scale_x": 0.9912,
-      "scale_y": 1.0123,
-      "rotation_degrees": 0.2908,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 3,
-      "bbox": [
-        45,
-        14,
-        213,
-        242
-      ],
-      "scale_x": 0.9927,
-      "scale_y": 1.0102,
-      "rotation_degrees": 0.3671,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 4,
-      "bbox": [
-        45,
-        14,
-        213,
-        242
-      ],
-      "scale_x": 0.9946,
-      "scale_y": 1.0075,
-      "rotation_degrees": 0.4203,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 5,
-      "bbox": [
-        45,
-        15,
-        213,
-        240
-      ],
-      "scale_x": 0.9969,
-      "scale_y": 1.0043,
-      "rotation_degrees": 0.4471,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 6,
-      "bbox": [
-        44,
-        16,
-        213,
-        240
-      ],
-      "scale_x": 0.9994,
-      "scale_y": 1.0009,
-      "rotation_degrees": 0.4458,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 7,
-      "bbox": [
-        44,
-        17,
-        213,
-        240
-      ],
-      "scale_x": 1.0019,
-      "scale_y": 0.9974,
-      "rotation_degrees": 0.4165,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 8,
-      "bbox": [
-        44,
-        17,
-        215,
-        240
-      ],
-      "scale_x": 1.0043,
-      "scale_y": 0.994,
-      "rotation_degrees": 0.361,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 9,
-      "bbox": [
-        44,
-        18,
-        215,
-        240
-      ],
-      "scale_x": 1.0064,
-      "scale_y": 0.9911,
-      "rotation_degrees": 0.2828,
-      "center_x_offset": 1,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 10,
-      "bbox": [
-        43,
-        19,
-        214,
-        240
-      ],
-      "scale_x": 1.0081,
-      "scale_y": 0.9887,
-      "rotation_degrees": 0.1869,
-      "center_x_offset": 0,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 11,
-      "bbox": [
-        41,
-        19,
-        214,
-        240
-      ],
-      "scale_x": 1.0093,
-      "scale_y": 0.987,
-      "rotation_degrees": 0.0792,
-      "center_x_offset": 0,
-      "bottom_y_offset": -1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 12,
-      "bbox": [
-        41,
-        20,
-        214,
-        242
-      ],
-      "scale_x": 1.0099,
-      "scale_y": 0.9861,
-      "rotation_degrees": -0.0334,
-      "center_x_offset": 0,
-      "bottom_y_offset": 0,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 13,
-      "bbox": [
-        41,
-        20,
-        214,
-        242
-      ],
-      "scale_x": 1.0099,
-      "scale_y": 0.9861,
-      "rotation_degrees": -0.144,
-      "center_x_offset": -1,
-      "bottom_y_offset": 0,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 14,
-      "bbox": [
-        41,
-        21,
-        214,
-        243
-      ],
-      "scale_x": 1.0093,
-      "scale_y": 0.987,
-      "rotation_degrees": -0.2455,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 15,
-      "bbox": [
-        41,
-        21,
-        213,
-        243
-      ],
-      "scale_x": 1.0081,
-      "scale_y": 0.9887,
-      "rotation_degrees": -0.3316,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 16,
-      "bbox": [
-        41,
-        20,
-        213,
-        243
-      ],
-      "scale_x": 1.0064,
-      "scale_y": 0.9911,
-      "rotation_degrees": -0.3968,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 17,
-      "bbox": [
-        41,
-        19,
-        213,
-        243
-      ],
-      "scale_x": 1.0043,
-      "scale_y": 0.994,
-      "rotation_degrees": -0.4371,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 18,
-      "bbox": [
-        41,
-        19,
-        212,
-        243
-      ],
-      "scale_x": 1.0019,
-      "scale_y": 0.9974,
-      "rotation_degrees": -0.45,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 19,
-      "bbox": [
-        41,
-        18,
-        212,
-        243
-      ],
-      "scale_x": 0.9994,
-      "scale_y": 1.0009,
-      "rotation_degrees": -0.4345,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 20,
-      "bbox": [
-        42,
-        17,
-        212,
-        243
-      ],
-      "scale_x": 0.9969,
-      "scale_y": 1.0043,
-      "rotation_degrees": -0.3918,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 21,
-      "bbox": [
-        42,
-        16,
-        212,
-        243
-      ],
-      "scale_x": 0.9946,
-      "scale_y": 1.0075,
-      "rotation_degrees": -0.3245,
-      "center_x_offset": -1,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 22,
-      "bbox": [
-        43,
-        16,
-        213,
-        243
-      ],
-      "scale_x": 0.9927,
-      "scale_y": 1.0102,
-      "rotation_degrees": -0.2367,
-      "center_x_offset": 0,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 23,
-      "bbox": [
-        43,
-        15,
-        212,
-        244
-      ],
-      "scale_x": 0.9912,
-      "scale_y": 1.0123,
-      "rotation_degrees": -0.1341,
-      "center_x_offset": 0,
-      "bottom_y_offset": 1,
-      "edge_alpha_max": 0
-    },
-    {
-      "index": 24,
-      "bbox": [
-        44,
-        13,
-        211,
-        243
-      ],
-      "scale_x": 0.9903,
-      "scale_y": 1.0136,
-      "rotation_degrees": -0.0231,
-      "center_x_offset": 0,
-      "bottom_y_offset": 0,
-      "edge_alpha_max": 0
-    }
-  ]
+    "sha256": "7bff467919049a1fb6f665fb61c609552d57e25215b9a63499afd0bd659cc30c",
+    "bytes": 1209720
+  }
 }

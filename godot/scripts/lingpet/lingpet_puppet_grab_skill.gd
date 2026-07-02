@@ -90,6 +90,16 @@ const MISS_OFFSET := Vector2(-32.0, -6.0)
 const ROPE_CUT_BALL_RADIUS_PAD := 18.0
 const ROPE_CUT_ARMING_SECONDS := 0.14
 const ROPE_CUT_GAP := 18.0
+# Elastic snap-back: when the strings are cut they behave like a stretched
+# rubber band that lets go — both halves whip back toward their anchors (fast
+# then settle), leaving a short dangling stub. `_cut_recoil_retract` is the
+# ease-out fraction; RESIDUAL is the share of the original free length left
+# hanging so the stub never collapses into the anchor.
+const CUT_RECOIL_EASE_POWER := 2.4
+const CUT_RECOIL_RESIDUAL := 0.26
+const CUT_BODY_SEGMENTS := 7
+const CUT_BODY_LASH_AMPLITUDE := 15.0
+const CUT_BODY_LASH_FREQ := 23.0
 const CUT_TEXT := "끊김!"
 const CUT_FONT_SIZE := 25
 const CUT_OFFSET := Vector2(-36.0, -18.0)
@@ -107,6 +117,11 @@ var _boss_draw_center := Vector2.ZERO
 var _cut_by_ball := false
 var _cut_point := Vector2.ZERO
 var _cut_count := 0
+# Per-cut frayed-thread bundles (one Array of fiber dicts per string, per end).
+# Generated once at the cut so the strand geometry is stable while only the
+# lash animates; cleared on reset / re-shoot.
+var _cut_fray_hand: Array = []
+var _cut_fray_boss: Array = []
 var _heart_spawn_accum := 0.0
 var _hearts: Array[Dictionary] = []
 var _sparkle_spawn_accum := 0.0
@@ -151,6 +166,8 @@ func reset() -> void:
 	_boss_draw_center = Vector2.ZERO
 	_cut_by_ball = false
 	_cut_point = Vector2.ZERO
+	_cut_fray_hand.clear()
+	_cut_fray_boss.clear()
 	_heart_spawn_accum = 0.0
 	_hearts.clear()
 	_sparkle_spawn_accum = 0.0
@@ -211,6 +228,8 @@ func _begin_shot(origin: Vector2, owner: Object = null) -> bool:
 	_missed = false
 	_cut_by_ball = false
 	_cut_point = Vector2.ZERO
+	_cut_fray_hand.clear()
+	_cut_fray_boss.clear()
 	_phase = PHASE_EXTENDING
 	_phase_timer = 0.0
 	_anim_time = 0.0
@@ -412,7 +431,21 @@ func _enter_rope_cut(registry: Object, cut_point: Vector2) -> void:
 	_sparkle_spawn_accum = 0.0
 	_hearts.clear()
 	_sparkles.clear()
+	_build_cut_fray_bundles()
 	_play_audio(registry, "play_lingpet_puppet_grab_miss")
+
+
+func _build_cut_fray_bundles() -> void:
+	# One frayed-thread bundle per string per end, seeded deterministically off
+	# the cut index so a given snap looks identical every frame (only the lash,
+	# driven by `_anim_time`, animates) while successive cuts still vary.
+	_cut_fray_hand.clear()
+	_cut_fray_boss.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(_cut_count) * 2654435761 + 0x9E3779B1
+	for _s in range(STRING_COUNT):
+		_cut_fray_hand.append(LingpetPuppetGrabPayloadFactory.build_cut_fray_bundle(rng))
+		_cut_fray_boss.append(LingpetPuppetGrabPayloadFactory.build_cut_fray_bundle(rng))
 
 
 func _get_current_boss_center(owner: Object) -> Vector2:
@@ -606,6 +639,9 @@ func get_snapshot() -> Dictionary:
 		"puppet_grab_cut_by_ball": _cut_by_ball,
 		"puppet_grab_cut_count": _cut_count,
 		"puppet_grab_cut_point": _cut_point,
+		"puppet_grab_cut_fray_hand_strings": _cut_fray_hand.size(),
+		"puppet_grab_cut_fray_boss_strings": _cut_fray_boss.size(),
+		"puppet_grab_cut_fibers_per_end": LingpetPuppetGrabPayloadFactory.CUT_FIBERS_PER_END,
 		"puppet_grab_companion_override_active": has_companion_position_override(),
 		"puppet_grab_owns_boss": _owns_boss,
 		"puppet_grab_pending_owner": _pending_owner_grab,
@@ -757,6 +793,24 @@ func _draw_strings(canvas: CanvasItem, shake_offset: Vector2) -> void:
 		canvas.draw_polyline(points, Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.85), 2.0, true)
 
 
+func _cut_recoil_retract(rp: float) -> float:
+	# Ease-out: the snapped end whips back fast at the instant of the cut, then
+	# settles. 0 → still at the break, 1 → fully retracted to the residual stub.
+	return 1.0 - pow(1.0 - clampf(rp, 0.0, 1.0), CUT_RECOIL_EASE_POWER)
+
+
+func get_cut_recoil_free_point_for_tests(anchor: Vector2, break_point: Vector2, rp: float) -> Vector2:
+	# Mirrors the exact draw-path recoil so a smoke can assert the free end moves
+	# toward its anchor as the snap progresses (elastic snap-back, not a static
+	# gap). `break_point` is the per-end break (already nudged by the half gap).
+	var retract := _cut_recoil_retract(rp)
+	return anchor.lerp(break_point, lerpf(1.0, CUT_RECOIL_RESIDUAL, retract))
+
+
+func get_cut_fray_for_tests() -> Dictionary:
+	return {"hand": _cut_fray_hand, "boss": _cut_fray_boss}
+
+
 func _draw_cut_strings(canvas: CanvasItem, hand: Vector2, tip: Vector2, base_color: Color) -> void:
 	var axis := tip - hand
 	var length := axis.length()
@@ -770,35 +824,113 @@ func _draw_cut_strings(canvas: CanvasItem, hand: Vector2, tip: Vector2, base_col
 	else:
 		break_point += hand - _get_rope_hand()
 	var local_break := _closest_point_on_segment(break_point, hand, tip)
-	var left_end := _closest_point_on_segment(local_break - dir * ROPE_CUT_GAP, hand, tip)
-	var right_start := _closest_point_on_segment(local_break + dir * ROPE_CUT_GAP, hand, tip)
-	var fade := 1.0 - clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0) * 0.55
+	# A small initial separation so the snap reads as "stretched, then let go"
+	# the instant it breaks — the two halves already part by the gap at rp=0.
+	var half_gap := ROPE_CUT_GAP * 0.5
+	var hand_break := local_break - dir * half_gap
+	var boss_break := local_break + dir * half_gap
+	var rp := clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0)
+	# The lash (rubber-band twang) is loud at the cut and dies out as it settles.
+	var lash_decay := pow(1.0 - rp, 1.4)
+	var fade := 1.0 - rp * 0.6
 	for s in range(STRING_COUNT):
-		var offset: float = -20.0 + float(s) * 10.0
-		var flutter: float = sin(_anim_time * 13.0 + float(s) * 1.9) * 5.0
-		var string_offset := perp * (offset * 0.32)
-		var tear_offset := perp * (flutter + offset * 0.08)
-		canvas.draw_line(
-			hand + string_offset,
-			left_end + tear_offset,
-			Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.75 * fade),
-			2.0,
-			true
-		)
-		canvas.draw_line(
-			tip + string_offset,
-			right_start - tear_offset,
-			Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.75 * fade),
-			2.0,
-			true
-		)
-		canvas.draw_line(
-			left_end + tear_offset,
-			left_end + tear_offset + perp * randf_range(-4.0, 4.0) - dir * randf_range(3.0, 8.0),
-			Color(1.0, 0.78, 0.88, 0.55 * fade),
-			1.0,
-			true
-		)
+		var lat: float = -20.0 + float(s) * 10.0
+		var hand_anchor := hand + perp * (lat * 0.34)
+		var boss_anchor := tip + perp * (lat * 0.34)
+		var hand_free := get_cut_recoil_free_point_for_tests(hand_anchor, hand_break, rp)
+		var boss_free := get_cut_recoil_free_point_for_tests(boss_anchor, boss_break, rp)
+		var seed_phase := float(s) * 1.7
+		_draw_snapped_half(canvas, hand_anchor, hand_free, perp, base_color, fade, lash_decay, seed_phase, s, true)
+		_draw_snapped_half(canvas, boss_anchor, boss_free, perp, base_color, fade, lash_decay, seed_phase, s, false)
+
+
+func _draw_snapped_half(
+	canvas: CanvasItem,
+	anchor: Vector2,
+	free_end: Vector2,
+	perp: Vector2,
+	base_color: Color,
+	fade: float,
+	lash_decay: float,
+	seed_phase: float,
+	string_idx: int,
+	is_hand: bool
+) -> void:
+	# Curved rope body: anchored (no sway) at the held end, lashing harder toward
+	# the free end — the recoiling cord whipping back, not a rigid stub.
+	var body_len := anchor.distance_to(free_end)
+	var lash_amp: float = minf(CUT_BODY_LASH_AMPLITUDE, body_len * 0.55)
+	var lash_sign: float = 1.0 if is_hand else -1.0
+	var pts := PackedVector2Array()
+	for i in range(CUT_BODY_SEGMENTS + 1):
+		var u := float(i) / float(CUT_BODY_SEGMENTS)
+		var base := anchor.lerp(free_end, u)
+		var lash := sin(_anim_time * CUT_BODY_LASH_FREQ + seed_phase + u * PI * 1.3) * lash_amp * lash_decay * u * lash_sign
+		pts.append(base + perp * lash)
+	canvas.draw_polyline(pts, Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.82 * fade), 2.0, true)
+	if pts.size() < 2:
+		return
+	var tail: Vector2 = pts[pts.size() - 1]
+	var tail_dir: Vector2 = tail - pts[pts.size() - 2]
+	if tail_dir.length() > 0.001:
+		tail_dir = tail_dir.normalized()
+	else:
+		tail_dir = (free_end - anchor).normalized()
+	var bundle: Array = _cut_fray_hand if is_hand else _cut_fray_boss
+	if string_idx < bundle.size():
+		_draw_fray_bundle(canvas, tail, tail_dir, bundle[string_idx], base_color, fade, lash_decay)
+
+
+func _draw_fray_bundle(
+	canvas: CanvasItem,
+	origin: Vector2,
+	out_dir: Vector2,
+	fibers: Array,
+	base_color: Color,
+	fade: float,
+	lash_decay: float
+) -> void:
+	# Each loose thread fans off the snapped tail at its own splay, curls as it
+	# goes, and twangs perpendicular to itself — several strands lashing in
+	# different directions, the signature of a torn cord vs a clean cut. The LONG
+	# streamers additionally drape downward under gravity and flutter slowly, so
+	# a few threads visibly stretch and flow as the cord lets go.
+	var lit := Color(
+		minf(1.0, base_color.r * 1.08),
+		minf(1.0, base_color.g + 0.18),
+		minf(1.0, base_color.b + 0.12),
+		base_color.a
+	)
+	for fiber in fibers:
+		var is_long: bool = bool(fiber.get("long", false))
+		var splay := float(fiber.get("splay", 0.0))
+		var flen := float(fiber.get("len", 14.0))
+		var curl := float(fiber.get("curl", 0.0))
+		var droop := float(fiber.get("droop", 0.0))
+		var wob_phase := float(fiber.get("wob_phase", 0.0))
+		var wob_freq := float(fiber.get("wob_freq", 32.0))
+		var wob_amp := float(fiber.get("wob_amp", 3.5))
+		var thick := float(fiber.get("thick", 1.3))
+		var fiber_segs: int = 10 if is_long else 4
+		var base_dir := out_dir.rotated(splay)
+		var cursor := origin
+		var step_len := flen / float(fiber_segs)
+		var lash_wave: float = 0.6 if is_long else 1.0
+		var fpts := PackedVector2Array()
+		fpts.append(cursor)
+		for i in range(fiber_segs):
+			var u := float(i + 1) / float(fiber_segs)
+			# Gravity bends the heading toward straight-down the further the
+			# thread streams out (long streamers droop and drape; stubs barely).
+			var heading: Vector2 = (base_dir.rotated(curl * u) + Vector2(0.0, droop * u)).normalized()
+			cursor += heading * step_len
+			var fperp := Vector2(-heading.y, heading.x)
+			var lash := sin(_anim_time * wob_freq + wob_phase + u * PI * lash_wave) * wob_amp * lash_decay * u
+			fpts.append(cursor + fperp * lash)
+		# Long streamers read wispier (lower alpha) so they flow rather than
+		# pop; short stubs stay slightly brighter at the torn cross-section.
+		var fade_alpha: float = base_color.a * (0.46 if is_long else 0.62) * fade
+		canvas.draw_polyline(fpts, Color(lit.r, lit.g, lit.b, fade_alpha), thick, true)
 
 
 func _string_tip_focus(t: float) -> float:

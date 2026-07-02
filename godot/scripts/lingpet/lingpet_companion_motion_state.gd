@@ -23,22 +23,28 @@ const COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP := 320.0
 # X and starts easing toward it EARLY (anchors as soon as the ball enters the band),
 # so it is in position by the time the ball arrives. It must NOT sprint across the
 # field — a high constant speed (the earlier 420 "fix") read as the lingpet running
-# the whole field. So the peak stays just above patrol (≈120-135), but the commit
-# zone is a generous LOCAL radius (not a tight "reachable THIS frame" window): the
-# lingpet anchors early and tracks, which is what makes a high defense rate actually
-# guard nearby balls instead of whiffing because it committed too late.
-# Guard chase speed = the pet's OWN move speed * (1 + bonus). The bonus is a +30%
+# the whole field. The motion therefore stays LOCAL and eased (NOT a field sprint),
+# but the peak chase speed is a CLEARLY perceptible step above patrol (≈192 for a
+# 120px/s pet vs the old subtle ≈156) — the +30% floor was raised to +60% on
+# 2026-06-25 after a felt-gap report that defense activation read identical to patrol.
+# The scope/ease caution from the saga is about LOCAL+eased motion, NOT raw speed, so
+# this raise does not reopen the teleport regression. The commit zone is a generous
+# LOCAL radius (not a tight "reachable THIS frame" window): the lingpet anchors early
+# and tracks, which is what makes a high defense rate actually guard nearby balls
+# instead of whiffing because it committed too late.
+# Guard chase speed = the pet's OWN move speed * (1 + bonus). The bonus is a +60%
 # FLOOR that EVERY defending lingpet gets (current AND future, no per-pet code), and it
-# scales HIGHER for pets whose defense_rate exceeds 30% -- so a higher defense rate is
+# scales HIGHER for pets whose defense_rate exceeds 60% -- so a higher defense rate is
 # BOTH wider (local zone above) AND faster, keeping the widened commit zone reachable.
-# The floor makes the "+30% move speed while defending" buff universal, not maribo-
+# The floor makes the "+60% move speed while defending" buff universal, not maribo-
 # specific. (Flight pets have no defense intercept, so they never reach this -- by
-# design; defense is patrol-only.) Examples (120px/s base pet): rate 0.10 -> floor +30%
-# -> 156; rate 0.30 (maribo) -> +30% -> 156; rate 1.0 -> +100% -> 240. Capped well under
+# design; defense is patrol-only.) Examples (120px/s base pet): rate 0.10 -> floor +60%
+# -> 192; rate 0.30 (maribo) -> +60% -> 192; rate 1.0 -> +100% -> 240. Capped well under
 # the saga-rejected 420 "robot teleport"; the ease-in/out ramp below keeps even the high
 # end from snapping. Playtest defaults -- keep speed on this SINGLE lever (saga: do not
-# raise guard speed in more than one place).
-const COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS := 0.30
+# raise guard speed in more than one place). If a live look still reads weak, bump this
+# floor (0.70/0.80); if it snaps/teleports, drop it back.
+const COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS := 0.60
 const COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN := 1.0
 const COMPANION_DEFENSE_GUARD_SPEED_CAP := 320.0
 # Ease-in: ramp from patrol speed up to the peak so even the small guard move starts
@@ -202,7 +208,7 @@ static func get_defense_local_zone(defense_rate: float) -> float:
 
 static func get_defense_guard_speed(speed_default: float, defense_rate: float) -> float:
 	var rate: float = clampf(defense_rate, 0.0, 1.0)
-	# +30% floor for EVERY defending pet, scaling above it once defense_rate > 0.30.
+	# +60% floor for EVERY defending pet, scaling above it once defense_rate > 0.60.
 	var bonus: float = maxf(COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS, COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN * rate)
 	var scaled: float = maxf(1.0, speed_default) * (1.0 + bonus)
 	return minf(scaled, COMPANION_DEFENSE_GUARD_SPEED_CAP)
@@ -236,15 +242,17 @@ func update(
 	speed_min: float,
 	speed_max: float,
 	motion_style_value: String = MOTION_STYLE_PATROL,
-	appearance_rate_value: float = 0.0
+	appearance_rate_value: float = 0.0,
+	satiety_speed_scale: float = 1.0
 ) -> void:
 	motion_style = _normalize_motion_style(motion_style_value)
 	appearance_rate = clampf(appearance_rate_value, 0.0, 1.0)
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	if motion_style == MOTION_STYLE_SORTIE_FLIGHT:
-		_update_sortie_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max)
+		_update_sortie_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max, speed_scale)
 		return
 	if motion_style == MOTION_STYLE_FREE_FLIGHT:
-		_update_free_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max)
+		_update_free_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max, speed_scale)
 		return
 	if patrol_seed <= 0 or patrol_min_x <= 0.0 or patrol_max_x <= patrol_min_x:
 		initialize(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max, motion_style)
@@ -262,9 +270,9 @@ func update(
 		motion_speed_ratio = 0.0
 		return
 	if safe_delta <= 0.0:
-		motion_speed_ratio = 0.0 if patrol_pause > 0.0 else _speed_ratio(patrol_speed, speed_min, speed_max)
+		motion_speed_ratio = 0.0 if patrol_pause > 0.0 else _speed_ratio(patrol_speed * speed_scale, speed_min, speed_max)
 		return
-	if _try_update_defense_intercept(safe_delta, owner, defense_rate, speed_default, speed_min):
+	if _try_update_defense_intercept(safe_delta, owner, defense_rate, speed_default * speed_scale, speed_min * speed_scale):
 		_advance_defense_guard_aura(safe_delta)
 		motion_speed_ratio = _speed_ratio(defense_intercept_step_speed, speed_min, speed_max)
 		return
@@ -283,7 +291,8 @@ func update(
 		# bug) until a round reset re-initializes it. Re-seed a direction here, where the patrol
 		# section only runs once the defense guard is no longer active.
 		patrol_dir = -1.0 if _next_unit() < 0.5 else 1.0
-	var next_x: float = pos.x + patrol_dir * patrol_speed * safe_delta
+	var effective_patrol_speed := patrol_speed * speed_scale
+	var next_x: float = pos.x + patrol_dir * effective_patrol_speed * safe_delta
 	if next_x <= patrol_min_x:
 		pos.x = patrol_min_x
 		patrol_dir = 1.0
@@ -313,7 +322,7 @@ func update(
 	if patrol_pause > 0.0:
 		motion_speed_ratio = 0.0
 	else:
-		motion_speed_ratio = _speed_ratio(absf(patrol_speed), speed_min, speed_max)
+		motion_speed_ratio = _speed_ratio(absf(effective_patrol_speed), speed_min, speed_max)
 
 
 func initialize(
@@ -522,13 +531,38 @@ func resume_sortie_loiter_from_current(
 	return true
 
 
+func resolve_facing_left_from_patrol_dir(current_facing_left: bool) -> bool:
+	if absf(float(patrol_dir)) <= 0.01:
+		return current_facing_left
+	return float(patrol_dir) < 0.0
+
+
+func resolve_facing_left_after_motion(
+	previous_pos: Vector2,
+	current_pos: Vector2,
+	current_facing_left: bool
+) -> bool:
+	# Flip the walk-sheet mirror only when the companion visibly travels left/right.
+	# The zero-to-spawn/restore placement jump is not real travel, so that first
+	# frame seeds from the real patrol direction instead.
+	if current_pos == Vector2.ZERO:
+		return current_facing_left
+	if previous_pos == Vector2.ZERO:
+		return resolve_facing_left_from_patrol_dir(current_facing_left)
+	var dx: float = current_pos.x - previous_pos.x
+	if absf(dx) > 0.05:
+		return dx < 0.0
+	return current_facing_left
+
+
 func _update_free_flight(
 	delta: float,
 	owner: Object,
 	freeze_motion: bool,
 	trigger_count: int,
 	speed_min: float,
-	speed_max: float
+	speed_max: float,
+	satiety_speed_scale: float = 1.0
 ) -> void:
 	if patrol_seed <= 0:
 		_initialize_free_flight(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max)
@@ -538,6 +572,7 @@ func _update_free_flight(
 		return
 
 	var safe_delta: float = maxf(0.0, delta)
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	clear_defense_intercept()
 	# rabi is a GHOST: it never flies IN/OUT, it blinks (vanish in place -> wait ->
 	# reappear at a NEW spot). While visible it gently DRIFTS so it reads as a floating
@@ -560,14 +595,15 @@ func _update_free_flight(
 		var offset: Vector2 = free_flight_target - pos
 		var distance: float = offset.length()
 		if distance > 0.01:
-			var step: float = minf(distance, FREE_GHOST_DRIFT_SPEED * safe_delta)
+			var drift_speed := FREE_GHOST_DRIFT_SPEED * speed_scale
+			var step: float = minf(distance, drift_speed * safe_delta)
 			motion_velocity = offset / distance * (step / safe_delta)
 			pos += offset / distance * step
 			if absf(offset.x) > 1.0:
 				patrol_dir = 1.0 if offset.x > 0.0 else -1.0
 		else:
 			motion_velocity = Vector2.ZERO
-		motion_speed_ratio = _speed_ratio(FREE_GHOST_DRIFT_SPEED, speed_min, speed_max)
+		motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
 		if patrol_change_timer <= 0.0:
 			_begin_free_ghost_hidden()
 	else:
@@ -655,12 +691,14 @@ func _update_sortie_flight(
 	freeze_motion: bool,
 	trigger_count: int,
 	speed_min: float,
-	speed_max: float
+	speed_max: float,
+	satiety_speed_scale: float = 1.0
 ) -> void:
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	if patrol_seed <= 0 or sortie_phase == "":
-		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max)
+		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max, speed_scale)
 	if pos == Vector2.ZERO:
-		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max)
+		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max, speed_scale)
 		return
 
 	var safe_delta: float = maxf(0.0, delta)
@@ -674,17 +712,17 @@ func _update_sortie_flight(
 
 	match sortie_phase:
 		SORTIE_PHASE_HIDDEN:
-			_update_sortie_hidden(safe_delta, owner, trigger_count, speed_min, speed_max)
+			_update_sortie_hidden(safe_delta, owner, trigger_count, speed_min, speed_max, speed_scale)
 		SORTIE_PHASE_INGRESS:
-			_update_sortie_ingress(safe_delta, speed_min, speed_max)
+			_update_sortie_ingress(safe_delta, speed_min, speed_max, speed_scale)
 		SORTIE_PHASE_LOITER:
-			_update_sortie_loiter(safe_delta, speed_min, speed_max)
+			_update_sortie_loiter(safe_delta, speed_min, speed_max, speed_scale)
 		SORTIE_PHASE_HOLD:
-			_update_sortie_hold(safe_delta, speed_min, speed_max)
+			_update_sortie_hold(safe_delta, speed_min, speed_max, speed_scale)
 		SORTIE_PHASE_EXIT:
-			_update_sortie_exit(safe_delta, speed_min, speed_max)
+			_update_sortie_exit(safe_delta, speed_min, speed_max, speed_scale)
 		_:
-			_start_sortie_entry(owner, trigger_count, speed_min, speed_max)
+			_start_sortie_entry(owner, trigger_count, speed_min, speed_max, speed_scale)
 
 
 func _initialize_sortie_flight(
@@ -692,23 +730,24 @@ func _initialize_sortie_flight(
 	_randomize_pos: bool,
 	trigger_count: int,
 	speed_min: float,
-	speed_max: float
+	speed_max: float,
+	satiety_speed_scale: float = 1.0
 ) -> void:
 	if patrol_seed <= 0:
 		patrol_seed = _build_seed(owner, trigger_count)
-	_start_sortie_entry(owner, trigger_count, speed_min, speed_max)
+	_start_sortie_entry(owner, trigger_count, speed_min, speed_max, satiety_speed_scale)
 
 
-func _update_sortie_hidden(delta: float, owner: Object, trigger_count: int, speed_min: float, speed_max: float) -> void:
+func _update_sortie_hidden(delta: float, owner: Object, trigger_count: int, speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	motion_visible = false
 	motion_velocity = Vector2.ZERO
 	motion_speed_ratio = 0.0
 	patrol_pause = maxf(0.0, patrol_pause - delta)
 	if patrol_pause <= 0.0:
-		_start_sortie_entry(owner, trigger_count, speed_min, speed_max)
+		_start_sortie_entry(owner, trigger_count, speed_min, speed_max, satiety_speed_scale)
 
 
-func _update_sortie_ingress(delta: float, speed_min: float, speed_max: float) -> void:
+func _update_sortie_ingress(delta: float, speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	motion_visible = true
 	var distance := pos.distance_to(free_flight_target)
 	if distance <= SORTIE_REACH_TOLERANCE:
@@ -716,12 +755,12 @@ func _update_sortie_ingress(delta: float, speed_min: float, speed_max: float) ->
 		return
 	var slow_ratio := clampf(distance / SORTIE_INGRESS_SLOW_DISTANCE, 0.0, 1.0)
 	var target_speed := lerpf(patrol_speed, SORTIE_INGRESS_SPEED_MIN, slow_ratio)
-	_advance_sortie_steered(delta, target_speed, SORTIE_TURN_RATE, SORTIE_INGRESS_DECELERATION, speed_min, speed_max)
+	_advance_sortie_steered(delta, target_speed, SORTIE_TURN_RATE, SORTIE_INGRESS_DECELERATION, speed_min, speed_max, satiety_speed_scale)
 	if pos.distance_to(free_flight_target) <= SORTIE_REACH_TOLERANCE:
 		_begin_sortie_loiter(speed_min, speed_max)
 
 
-func _update_sortie_loiter(delta: float, speed_min: float, speed_max: float) -> void:
+func _update_sortie_loiter(delta: float, speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	motion_visible = true
 	sortie_phase_timer = maxf(0.0, sortie_phase_timer - delta)
 	patrol_change_timer = maxf(0.0, patrol_change_timer - delta)
@@ -734,14 +773,15 @@ func _update_sortie_loiter(delta: float, speed_min: float, speed_max: float) -> 
 		or pos.distance_to(free_flight_target) <= SORTIE_LOITER_REACH_TOLERANCE
 	):
 		_choose_sortie_loiter_target(speed_min, speed_max)
-	_advance_sortie_steered(delta, patrol_speed, SORTIE_LOITER_TURN_RATE, SORTIE_ACCELERATION, speed_min, speed_max)
+	_advance_sortie_steered(delta, patrol_speed, SORTIE_LOITER_TURN_RATE, SORTIE_ACCELERATION, speed_min, speed_max, satiety_speed_scale)
 
 
-func _update_sortie_hold(delta: float, speed_min: float, speed_max: float) -> void:
+func _update_sortie_hold(delta: float, speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	motion_visible = true
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	patrol_pause = maxf(0.0, patrol_pause - delta)
 	var current_speed := motion_velocity.length()
-	var next_speed := move_toward(current_speed, 0.0, SORTIE_HOLD_DECELERATION * delta)
+	var next_speed := move_toward(current_speed, 0.0, SORTIE_HOLD_DECELERATION * speed_scale * delta)
 	if current_speed > 0.01 and next_speed > 0.01:
 		motion_velocity = motion_velocity.normalized() * next_speed
 		pos += motion_velocity * delta
@@ -749,19 +789,20 @@ func _update_sortie_hold(delta: float, speed_min: float, speed_max: float) -> vo
 		motion_velocity = Vector2.ZERO
 	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
 	if patrol_pause <= 0.0:
-		_start_sortie_exit(speed_min, speed_max)
+		_start_sortie_exit(speed_min, speed_max, satiety_speed_scale)
 
 
-func _update_sortie_exit(delta: float, speed_min: float, speed_max: float) -> void:
+func _update_sortie_exit(delta: float, speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	motion_visible = true
-	_advance_sortie_steered(delta, SORTIE_EXIT_SPEED_MAX, SORTIE_EXIT_TURN_RATE, SORTIE_EXIT_ACCELERATION, speed_min, speed_max)
+	_advance_sortie_steered(delta, SORTIE_EXIT_SPEED_MAX, SORTIE_EXIT_TURN_RATE, SORTIE_EXIT_ACCELERATION, speed_min, speed_max, satiety_speed_scale)
 	if pos.distance_to(free_flight_target) <= SORTIE_REACH_TOLERANCE or _is_sortie_far_offscreen(pos):
 		_begin_sortie_hidden(speed_min, speed_max)
 
 
-func _start_sortie_entry(owner: Object, trigger_count: int, speed_min: float, speed_max: float) -> void:
+func _start_sortie_entry(owner: Object, trigger_count: int, speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	if patrol_seed <= 0:
 		patrol_seed = _build_seed(owner, trigger_count)
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	var from_left := _next_unit() < 0.5
 	pos = Vector2(
 		-SORTIE_OFFSCREEN_MARGIN_X if from_left else FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X,
@@ -771,7 +812,7 @@ func _start_sortie_entry(owner: Object, trigger_count: int, speed_min: float, sp
 	patrol_speed = _next_range(SORTIE_LOITER_SPEED_MIN, SORTIE_LOITER_SPEED_MAX)
 	var route_dir := (free_flight_target - pos).normalized()
 	var entry_bias: float = _next_range(-0.18, 0.18)
-	motion_velocity = route_dir.rotated(entry_bias) * _next_range(SORTIE_INGRESS_SPEED_MIN, SORTIE_INGRESS_SPEED_MAX)
+	motion_velocity = route_dir.rotated(entry_bias) * _next_range(SORTIE_INGRESS_SPEED_MIN, SORTIE_INGRESS_SPEED_MAX) * speed_scale
 	patrol_dir = 1.0 if motion_velocity.x >= 0.0 else -1.0
 	patrol_pause = 0.0
 	patrol_change_timer = _next_range(SORTIE_LOITER_TARGET_INTERVAL_MIN, SORTIE_LOITER_TARGET_INTERVAL_MAX)
@@ -797,16 +838,17 @@ func _begin_sortie_hold(speed_min: float, speed_max: float) -> void:
 	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
 
 
-func _start_sortie_exit(speed_min: float, speed_max: float) -> void:
+func _start_sortie_exit(speed_min: float, speed_max: float, satiety_speed_scale: float = 1.0) -> void:
 	var _unused_speed_min := speed_min
 	var _unused_speed_max := speed_max
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
 	sortie_phase = SORTIE_PHASE_EXIT
 	patrol_pause = 0.0
 	patrol_change_timer = 0.0
 	free_flight_target = _get_sortie_exit_target()
 	if motion_velocity.length() <= 0.01:
 		var exit_dir := (free_flight_target - pos).normalized()
-		motion_velocity = exit_dir * SORTIE_LOITER_SPEED_MIN
+		motion_velocity = exit_dir * SORTIE_LOITER_SPEED_MIN * speed_scale
 	patrol_dir = 1.0 if motion_velocity.x >= 0.0 else -1.0
 
 
@@ -859,20 +901,24 @@ func _advance_sortie_steered(
 	turn_rate: float,
 	speed_change_rate: float,
 	speed_min: float,
-	speed_max: float
+	speed_max: float,
+	satiety_speed_scale: float = 1.0
 ) -> void:
 	var offset := free_flight_target - pos
 	var distance := offset.length()
+	var speed_scale := clampf(satiety_speed_scale, 0.0, 1.0)
+	var scaled_target_speed := target_speed * speed_scale
+	var scaled_change_rate := speed_change_rate * speed_scale
 	if distance <= 0.01:
 		motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
 		return
 	var desired_dir := offset / distance
 	if motion_velocity.length() <= 0.01:
-		motion_velocity = desired_dir * maxf(1.0, target_speed)
+		motion_velocity = desired_dir * maxf(0.0, scaled_target_speed)
 	var current_dir := motion_velocity.normalized()
 	var turn_angle := clampf(current_dir.angle_to(desired_dir), -turn_rate * delta, turn_rate * delta)
 	var next_dir := current_dir.rotated(turn_angle).normalized()
-	var next_speed := move_toward(motion_velocity.length(), target_speed, speed_change_rate * delta)
+	var next_speed := move_toward(motion_velocity.length(), scaled_target_speed, scaled_change_rate * delta)
 	motion_velocity = next_dir * next_speed
 	pos += motion_velocity * delta
 	if absf(motion_velocity.x) > 1.0:

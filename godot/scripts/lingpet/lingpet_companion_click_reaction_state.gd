@@ -29,7 +29,8 @@ const CENTER_OFFSET_Y := -6.0
 const CLICK_ZONE_HALF_WIDTH := 70.0
 const CLICK_ZONE_HALF_HEIGHT := 60.0
 const RUNTIME_VISUAL_KEY := "companion_click_reaction_anim"
-const PREWARM_VISUAL_KEYS := [RUNTIME_VISUAL_KEY]
+const PANEL_VISUAL_KEY := "click_reaction_anim"
+const PREWARM_VISUAL_KEYS := [RUNTIME_VISUAL_KEY, PANEL_VISUAL_KEY]
 
 var active := false
 var timer := 0.0
@@ -84,6 +85,15 @@ func can_start_at(playfield_pos: Vector2, companion_pos: Vector2) -> bool:
 		absf(playfield_pos.x - companion_pos.x) <= CLICK_ZONE_HALF_WIDTH
 		and absf(playfield_pos.y - companion_pos.y) <= CLICK_ZONE_HALF_HEIGHT
 	)
+
+
+func get_ready_texture(profile: Object) -> Texture2D:
+	if profile == null:
+		return null
+	var texture: Texture2D = profile.get_cached_visual_texture(RUNTIME_VISUAL_KEY, null)
+	if texture != null:
+		return texture
+	return profile.get_visual_texture(RUNTIME_VISUAL_KEY, null)
 
 
 func draw(canvas: CanvasItem, center: Vector2, texture: Texture2D, draw_size: Vector2 = Vector2.ZERO) -> void:

@@ -435,8 +435,10 @@ func _verify_schema_reset_and_host_wiring() -> void:
 
 func _verify_source_wiring_surfaces() -> void:
 	var egg_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	_expect(egg_src.find("\"roar_radius\"") >= 0 and egg_src.find("\"ball_boost\"") >= 0, "egg runtime should pass Wild Roar flattened level values")
-	_expect(egg_src.find("\"companion_catch_height\"") >= 0, "egg runtime should pass catch height for dynamic arm_min_gap")
+	var update_context_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_update_context_builder.gd")
+	_expect(egg_src.find("LingpetCompanionSkillUpdateContextBuilder") >= 0, "egg runtime should delegate companion skill update context assembly")
+	_expect(update_context_src.find("\"roar_radius\"") >= 0 and update_context_src.find("\"ball_boost\"") >= 0, "skill update context builder should pass Wild Roar flattened level values")
+	_expect(update_context_src.find("\"companion_catch_height\"") >= 0, "skill update context builder should pass catch height for dynamic arm_min_gap")
 	var skill_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_wild_roar_skill.gd")
 	_expect(skill_src.find("ROAR_ARM_TRAVEL_FACTOR := 1.5") >= 0, "Wild Roar can_arm should keep the low-tick dynamic travel factor")
 	_expect(skill_src.find("ROAR_LAUNCH_SPEED_MAX := 60.0") >= 0, "Wild Roar module should own the 60 launch backstop")

@@ -24,8 +24,12 @@ const LUNGE_TIMEOUT_FRAMES := 90.0
 # Fallback only; catalog slow_duration_by_level is authoritative at launch time.
 const SLOW_DURATION_BY_LEVEL := [1.5, 2.0, 2.5, 3.0, 3.5]
 const DEFAULT_SLOW_MULTIPLIER := 0.4
+const BIND_DASH_BLOCK_MIN_LEVEL := 3
+const BIND_SKILL_CD_FREEZE_MIN_LEVEL := 5
 const SLOW_ACTIVE_KEY := "lingpet_star_coil_boss_slow_active"
 const SLOW_MULTIPLIER_KEY := "lingpet_star_coil_boss_slow_multiplier"
+const DASH_BLOCK_KEY := "lingpet_star_coil_block_boss_dash"
+const SKILL_CD_FREEZE_KEY := "lingpet_star_coil_freeze_boss_skill_cd"
 const TRAIL_MAX_POINTS := 14
 const SPARK_MAX := 56
 # Colorful stars sprayed off the rolling Orosha body. ROLL_STAR_RATE is per-second
@@ -79,6 +83,10 @@ var _needs_owner_slow_sync := false
 # start and a single stop on every bind-exit path (release / retire / cancel) so the
 # ~6.5s wet squish does not trail past the 1.5~3.5s bind into the roll-away.
 var _bind_audio_active := false
+# True while the starmoving loop SFX is playing. One-shot start when Orosha enters a
+# moving phase (roll/climb/lunge/cross/descend) and a single stop on every exit path
+# (bind / idle / retire / cancel) so the loop never trails past the journey.
+var _move_audio_active := false
 
 
 func prewarm() -> void:
@@ -106,10 +114,12 @@ func reset() -> void:
 	_spark_emit_accum = 0.0
 	_spark_seed = 0.0
 	_bind_audio_active = false
+	_move_audio_active = false
 
 
 func cancel(owner: Object = null, registry: Object = null) -> void:
 	_stop_bind_audio(registry)
+	_stop_move_audio(registry)
 	reset()
 	if owner != null:
 		_sync_owner_slow(owner, false)
@@ -164,6 +174,7 @@ func update(delta: float, owner: Object, registry: Object = null, launch_context
 	_elapsed += safe_delta
 	_update_sparks(safe_delta)
 	if _phase == PHASE_IDLE:
+		_stop_move_audio(registry)
 		_sync_owner_slow_if_needed(owner)
 		return
 	if not _is_ball_active(owner, launch_context):
@@ -193,9 +204,13 @@ func update(delta: float, owner: Object, registry: Object = null, launch_context
 			_sync_owner_slow_if_needed(owner)
 
 	# While Orosha is rolling/climbing/lunging/crossing/descending, keep spraying
-	# colorful stars off the body. Bind has its own constrict sheet, so skip it here.
+	# colorful stars off the body AND loop the starmoving SFX. Bind has its own
+	# constrict sheet + squish SFX, so skip both there.
 	if _is_rolling_phase(_phase):
 		_emit_roll_stars(safe_delta, _pos - pre_move_pos)
+		_start_move_audio(registry)
+	else:
+		_stop_move_audio(registry)
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
@@ -248,6 +263,9 @@ func get_snapshot() -> Dictionary:
 		"star_coil_bind_duration": _bind_duration,
 		"star_coil_bind_timer_frames": _bind_timer * 60.0,
 		"star_coil_slow_multiplier": _slow_multiplier,
+		"star_coil_active_skill_level": _active_skill_level,
+		"star_coil_block_boss_dash": _is_bind_cc_active() and _active_skill_level >= BIND_DASH_BLOCK_MIN_LEVEL,
+		"star_coil_freeze_boss_skill_cd": _is_bind_cc_active() and _active_skill_level >= BIND_SKILL_CD_FREEZE_MIN_LEVEL,
 		"star_coil_lunge_frames": _lunge_frames,
 		"star_coil_last_boss_center": _last_boss_center,
 		"star_coil_last_can_arm_reason": _last_can_arm_reason,
@@ -307,7 +325,10 @@ func _update_bind(delta: float, owner: Object, launch_context: Dictionary, regis
 	_last_boss_center = boss_rect.get_center()
 	_bind_anchor = _last_boss_center
 	_pos = _bind_anchor
-	_bind_timer = maxf(0.0, _bind_timer - delta)
+	if _active_skill_level < BIND_DASH_BLOCK_MIN_LEVEL and _is_boss_dashing(registry):
+		_bind_timer = 0.0
+	else:
+		_bind_timer = maxf(0.0, _bind_timer - delta)
 	_bind_elapsed += delta
 	if _bind_timer > 0.0:
 		_sync_owner_slow(owner, true)
@@ -336,6 +357,7 @@ func _begin_bind(owner: Object, boss_rect: Rect2, registry: Object = null) -> vo
 
 func _retire(owner: Object, registry: Object = null) -> void:
 	_stop_bind_audio(registry)
+	_stop_move_audio(registry)
 	_bind_timer = 0.0
 	_bind_elapsed = 0.0
 	_phase = PHASE_IDLE
@@ -402,8 +424,19 @@ func _sync_owner_slow(owner: Object, active: bool) -> void:
 		return
 	owner.set(SLOW_ACTIVE_KEY, active)
 	owner.set(SLOW_MULTIPLIER_KEY, _slow_multiplier if active else 1.0)
+	owner.set(DASH_BLOCK_KEY, active and _active_skill_level >= BIND_DASH_BLOCK_MIN_LEVEL)
+	owner.set(SKILL_CD_FREEZE_KEY, active and _active_skill_level >= BIND_SKILL_CD_FREEZE_MIN_LEVEL)
 	_last_slow_active_written = active
 	_needs_owner_slow_sync = false
+
+
+func _is_bind_cc_active() -> bool:
+	return _phase == PHASE_BIND and _bind_timer > 0.0
+
+
+func _is_boss_dashing(registry: Object) -> bool:
+	var boss_ai_state := _get_registry_instance(registry, "boss_ai_state")
+	return boss_ai_state != null and bool(boss_ai_state.get("boss_dash_active"))
 
 
 func _start_bind_audio(registry: Object) -> void:
@@ -418,6 +451,20 @@ func _stop_bind_audio(registry: Object) -> void:
 		return
 	_bind_audio_active = false
 	_play_audio(registry, "stop_lingpet_star_coil_bind")
+
+
+func _start_move_audio(registry: Object) -> void:
+	if _move_audio_active:
+		return
+	_move_audio_active = true
+	_play_audio(registry, "play_lingpet_star_coil_move")
+
+
+func _stop_move_audio(registry: Object) -> void:
+	if not _move_audio_active:
+		return
+	_move_audio_active = false
+	_play_audio(registry, "stop_lingpet_star_coil_move")
 
 
 func _play_audio(registry: Object, method_name: String) -> void:

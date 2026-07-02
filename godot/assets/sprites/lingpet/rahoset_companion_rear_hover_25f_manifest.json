@@ -1,0 +1,52 @@
+{
+  "asset": "rahoset_companion_rear_hover_25f.png",
+  "generation_mode": "autosprite_rear_view_custom_v1",
+  "runtime_use": "F7 companion idle/move_left/move_right/walk/cast rear hover loop",
+  "regeneration_note": "Rear-view (뒷모습) companion regen 2026-07-01 (user: '라호세트도 뒷모습위주'). Flight pet (sortie_flight) companion sheets switched from a front-hover placeholder to REAR view, matching the other pets. AutoSprite kind 'custom' + strict-back-view/no-turn prompt renders the back of the golden nemes headdress + spread golden wings; the staff is preserved. Replaces rahoset_companion_front_hover_autosprite_25f (removed).",
+  "pet_id": "rahoset",
+  "created_at_utc": "2026-07-01",
+  "source_anchor": {
+    "path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png"
+  },
+  "grid": {
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      256,
+      256
+    ],
+    "sheet_size": [
+      1280,
+      1280
+    ],
+    "repeated_static_frame": false
+  },
+  "source_autosprite": {
+    "character_id": "cmqft7tkw000bu4oril1pprqj",
+    "spritesheet_id": "cmr1yrtnj001usu712sc2kss8",
+    "workflow_job_id": "wf_b901cd61-d1e2-4b56-b893-50b6a64e0b4c",
+    "video_id": "cmr1yoz5q000fsu710rm6wpbs",
+    "kind": "custom (strict rear, wings, back view)",
+    "remove_bg": "ultra",
+    "video_tier": "turbo",
+    "source_grid": [
+      5,
+      5
+    ],
+    "source_cell_size": [
+      512,
+      512
+    ]
+  },
+  "postprocess": {
+    "tool": "Pillow AutoSprite-derived per-cell 512->256 downscale, alpha<8 cleanup, 5x5 assembly",
+    "vertical": "centered (flight pet hover; matches prior front_hover placement, no feet baseline)",
+    "note": "All 25 custom rear hover frames used forward (wing flap + hover bob)."
+  },
+  "qa": {
+    "rear_view": "pure back view every frame (wings + nemes headdress back)",
+    "output_sha256": "520847f968c78686c760cefa37f97645e606965c2630fb164738b75bce665709",
+    "bytes": 1518523
+  }
+}

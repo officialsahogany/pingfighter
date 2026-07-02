@@ -1,7 +1,14 @@
 extends RefCounted
 
 
-static func build_projectile(origin: Vector2, projectile_speed: float, visual_seed: float, radius_scale: float) -> Dictionary:
+static func build_projectile(
+	origin: Vector2,
+	projectile_speed: float,
+	visual_seed: float,
+	radius_scale: float,
+	is_rainbow: bool = false,
+	rainbow_size_mult: float = 0.0
+) -> Dictionary:
 	var trail: Array[Vector2] = []
 	trail.append(origin)
 	return {
@@ -13,6 +20,8 @@ static func build_projectile(origin: Vector2, projectile_speed: float, visual_se
 		"phase": visual_seed * TAU,
 		"visual_seed": visual_seed,
 		"radius_scale": radius_scale,
+		"is_rainbow": is_rainbow,
+		"rainbow_size_mult": rainbow_size_mult,
 	}
 
 

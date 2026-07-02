@@ -121,8 +121,8 @@ func _verify_dispatcher_catalog_and_source_shape() -> void:
 	_expect(src.find("skip_ball_motion_step") < 0, "Doll Curse should not own the ball or use skip_ball_motion_step")
 	_expect(src.find("BEAM_HOMING_CHANCE_PCT_BY_LEVEL") >= 0, "Doll Curse should map Lv.1-Lv.5 to beam homing chance")
 	_expect(src.find("BEAM_HOMING_FOCUS_HALF_ANGLE_DEG_BY_LEVEL") >= 0, "Doll Curse should tighten beam focus by level")
-	var egg_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	_expect(egg_src.find("\"beam_homing_chance_pct\"") >= 0, "Doll Curse level-applied homing chance should be forwarded through launch_context")
+	var payload_builder_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd")
+	_expect(payload_builder_src.find("\"beam_homing_chance_pct\"") >= 0, "Doll Curse level-applied homing chance should be forwarded through the launch payload builder")
 	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "live lingpet catalog should validate after wiring Doll Curse")
 
 

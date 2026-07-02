@@ -23,6 +23,9 @@ const DOLL_CURSE_SKILL_PATH := "res://scripts/lingpet/lingpet_doll_curse_skill.g
 const BANANA_SLICE_SKILL_PATH := "res://scripts/lingpet/lingpet_banana_slice_skill.gd"
 const WILD_ROAR_SKILL_PATH := "res://scripts/lingpet/lingpet_wild_roar_skill.gd"
 const STAR_COIL_SKILL_PATH := "res://scripts/lingpet/lingpet_star_coil_skill.gd"
+const GRAVITY_ACCEL_SKILL_PATH := "res://scripts/lingpet/lingpet_gravity_accel_skill.gd"
+const DWARF_MAGIC_SKILL_PATH := "res://scripts/lingpet/lingpet_dwarf_magic_skill.gd"
+const SAND_PRISON_SKILL_PATH := "res://scripts/lingpet/lingpet_sand_prison_skill.gd"
 
 const SKELETON_ARCHER_DRAW_COUNTERS := [
 	{"counter_name": "lingpet.skeleton_archer.archers", "snapshot_key": "skeleton_archer_archer_count"},
@@ -65,6 +68,9 @@ var _doll_curse_skill: Object = null
 var _banana_slice_skill: Object = null
 var _wild_roar_skill: Object = null
 var _star_coil_skill: Object = null
+var _gravity_accel_skill: Object = null
+var _dwarf_magic_skill: Object = null
+var _sand_prison_skill: Object = null
 
 
 func reset(owner: Object = null, registry: Object = null) -> void:
@@ -89,6 +95,37 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_banana_slice_skill, owner, registry)
 	_reset_skill(_wild_roar_skill, owner, registry)
 	_reset_skill(_star_coil_skill, owner, registry)
+	_reset_skill(_gravity_accel_skill, owner, registry)
+	_reset_skill(_dwarf_magic_skill, owner, registry)
+	_reset_skill(_sand_prison_skill, owner, registry)
+
+
+func clear_for_tests(owner: Object = null, registry: Object = null) -> void:
+	reset(owner, registry)
+	_hydro_sphere_skill = null
+	_headbutt_skill = null
+	_moon_orbit_skill = null
+	_bubble_trap_skill = null
+	_milk_production_skill = null
+	_milk_shot_skill = null
+	_thunder_orb_skill = null
+	_solar_bolt_skill = null
+	_bomb_surprise_skill = null
+	_gatling_burst_skill = null
+	_dragon_breath_skill = null
+	_dragon_wing_skill = null
+	_ghost_summon_skill = null
+	_skeleton_archer_skill = null
+	_bone_barrier_skill = null
+	_soul_clone_skill = null
+	_puppet_grab_skill = null
+	_doll_curse_skill = null
+	_banana_slice_skill = null
+	_wild_roar_skill = null
+	_star_coil_skill = null
+	_gravity_accel_skill = null
+	_dwarf_magic_skill = null
+	_sand_prison_skill = null
 
 
 # Per-round reset. Skills that implement reset_round() persist their state
@@ -116,6 +153,9 @@ func reset_round(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill_round(_banana_slice_skill, owner, registry)
 	_reset_skill_round(_wild_roar_skill, owner, registry)
 	_reset_skill_round(_star_coil_skill, owner, registry)
+	_reset_skill_round(_gravity_accel_skill, owner, registry)
+	_reset_skill_round(_dwarf_magic_skill, owner, registry)
+	_reset_skill_round(_sand_prison_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -163,6 +203,12 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_wild_roar_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			_get_star_coil_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			_get_gravity_accel_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			_get_dwarf_magic_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			_get_sand_prison_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -189,6 +235,9 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger:
 	_draw_skill(_banana_slice_skill, canvas, shake_offset)
 	_draw_skill(_wild_roar_skill, canvas, shake_offset)
 	_draw_skill_instrumented(_star_coil_skill, canvas, shake_offset, "draw.lingpet.star_coil", perf_logger, STAR_COIL_DRAW_COUNTERS)
+	_draw_skill(_gravity_accel_skill, canvas, shake_offset)
+	_draw_skill(_dwarf_magic_skill, canvas, shake_offset)
+	_draw_skill(_sand_prison_skill, canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
@@ -214,6 +263,9 @@ func has_visible_effects() -> bool:
 		or _skill_has_visible_effects(_banana_slice_skill)
 		or _skill_has_visible_effects(_wild_roar_skill)
 		or _skill_has_visible_effects(_star_coil_skill)
+		or _skill_has_visible_effects(_gravity_accel_skill)
+		or _skill_has_visible_effects(_dwarf_magic_skill)
+		or _skill_has_visible_effects(_sand_prison_skill)
 	)
 
 
@@ -261,6 +313,12 @@ func has_visible_effects_for_skill(skill_id: String) -> bool:
 			return _skill_has_visible_effects(_wild_roar_skill)
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return _skill_has_visible_effects(_star_coil_skill)
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return _skill_has_visible_effects(_gravity_accel_skill)
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return _skill_has_visible_effects(_dwarf_magic_skill)
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return _skill_has_visible_effects(_sand_prison_skill)
 		_:
 			return false
 
@@ -269,6 +327,12 @@ func prewarm(skill_id: String) -> void:
 	var skill: Object = _get_skill_for_kind(LingpetSkillDispatcher.get_skill_kind(skill_id))
 	if skill != null and skill.has_method("prewarm"):
 		skill.prewarm()
+
+
+func prewarm_many(skill_ids: Array[String]) -> void:
+	for skill_id in skill_ids:
+		if skill_id != "":
+			prewarm(skill_id)
 
 
 func would_share_module(first_skill_id: String, second_skill_id: String) -> bool:
@@ -327,6 +391,12 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _wild_roar_skill != null and bool(_wild_roar_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return _star_coil_skill != null and bool(_star_coil_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return _gravity_accel_skill != null and bool(_gravity_accel_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return _dwarf_magic_skill != null and bool(_dwarf_magic_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return _sand_prison_skill != null and bool(_sand_prison_skill.is_active())
 		_:
 			return false
 
@@ -345,6 +415,12 @@ func can_arm(skill_id: String, params: Dictionary) -> bool:
 			return bool(_get_solar_bolt_skill().can_arm(params))
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return bool(_get_star_coil_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return bool(_get_gravity_accel_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return bool(_get_dwarf_magic_skill().can_arm(params))
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return bool(_get_sand_prison_skill().can_arm(params))
 		_:
 			return true
 
@@ -399,6 +475,12 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_wild_roar_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return bool(_get_star_coil_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return bool(_get_gravity_accel_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return bool(_get_dwarf_magic_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return bool(_get_sand_prison_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -447,6 +529,10 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return companion_pos
 		_:
 			return companion_pos
 
@@ -469,6 +555,8 @@ func has_companion_position_override(skill_id: String) -> bool:
 			return _wild_roar_skill != null and bool(_wild_roar_skill.has_companion_position_override())
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return _star_coil_skill != null and bool(_star_coil_skill.has_companion_position_override())
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return _sand_prison_skill != null and bool(_sand_prison_skill.has_companion_position_override())
 		_:
 			return false
 
@@ -491,6 +579,8 @@ func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vec
 			return _wild_roar_skill.get_companion_position_override(fallback) if _wild_roar_skill != null else fallback
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return _star_coil_skill.get_companion_position_override(fallback) if _star_coil_skill != null else fallback
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return _sand_prison_skill.get_companion_position_override(fallback) if _sand_prison_skill != null else fallback
 		_:
 			return fallback
 
@@ -515,6 +605,8 @@ func get_active_position_override_owner(skill_ids: Array, fallback: Vector2) -> 
 
 func suppresses_companion_body_hit(skill_id: String) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill != null and _headbutt_skill.has_method("suppresses_companion_body_hit") and bool(_headbutt_skill.suppresses_companion_body_hit())
 		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
 			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.suppresses_companion_body_hit())
 		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
@@ -557,6 +649,9 @@ func get_companion_cast_pose_progress(skill_id: String) -> float:
 		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
 			if _wild_roar_skill != null and _wild_roar_skill.has_method("get_companion_cast_pose_progress"):
 				return float(_wild_roar_skill.get_companion_cast_pose_progress())
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			if _sand_prison_skill != null and _sand_prison_skill.has_method("get_companion_cast_pose_progress"):
+				return float(_sand_prison_skill.get_companion_cast_pose_progress())
 	return -1.0
 
 
@@ -605,6 +700,12 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 			pass
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			_play_active_item_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			_play_gravity_accel_cast_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			_play_dwarf_magic_cast_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			_play_sand_prison_cast_feedback(registry)
 		_:
 			pass
 
@@ -641,7 +742,24 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _banana_slice_skill)
 	_merge_skill_snapshot(snapshot, _wild_roar_skill)
 	_merge_skill_snapshot(snapshot, _star_coil_skill)
+	_merge_skill_snapshot(snapshot, _gravity_accel_skill)
+	_merge_skill_snapshot(snapshot, _dwarf_magic_skill)
+	_merge_skill_snapshot(snapshot, _sand_prison_skill)
 	return snapshot
+
+
+func get_snapshot_for_skill_id(skill_id: String) -> Dictionary:
+	return get_snapshot_for_kind(LingpetSkillDispatcher.get_skill_kind(skill_id))
+
+
+func get_snapshot_for_kind(skill_kind: String) -> Dictionary:
+	var skill: Object = _peek_skill_for_kind(skill_kind)
+	if skill == null or not skill.has_method("get_snapshot"):
+		return {}
+	var raw_snapshot: Variant = skill.get_snapshot()
+	if raw_snapshot is Dictionary:
+		return raw_snapshot as Dictionary
+	return {}
 
 
 func get_hydro_puddle_particle_count_for_tests() -> int:
@@ -911,6 +1029,66 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_wild_roar_skill()
 		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
 			return _get_star_coil_skill()
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return _get_gravity_accel_skill()
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return _get_dwarf_magic_skill()
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return _get_sand_prison_skill()
+		_:
+			return null
+
+
+func _peek_skill_for_kind(skill_kind: String) -> Object:
+	match skill_kind:
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return _hydro_sphere_skill
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return _moon_orbit_skill
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return _bubble_trap_skill
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return _milk_production_skill
+		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
+			return _milk_shot_skill
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return _thunder_orb_skill
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return _solar_bolt_skill
+		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
+			return _bomb_surprise_skill
+		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
+			return _gatling_burst_skill
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
+			return _dragon_breath_skill
+		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
+			return _dragon_wing_skill
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return _ghost_summon_skill
+		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
+			return _skeleton_archer_skill
+		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
+			return _bone_barrier_skill
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			return _soul_clone_skill
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
+			return _puppet_grab_skill
+		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
+			return _doll_curse_skill
+		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
+			return _banana_slice_skill
+		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
+			return _wild_roar_skill
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return _star_coil_skill
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return _gravity_accel_skill
+		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
+			return _dwarf_magic_skill
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return _sand_prison_skill
 		_:
 			return null
 
@@ -1039,6 +1217,44 @@ func _get_star_coil_skill() -> Object:
 	if _star_coil_skill == null:
 		_star_coil_skill = _new_skill(STAR_COIL_SKILL_PATH)
 	return _star_coil_skill
+
+
+func _get_gravity_accel_skill() -> Object:
+	if _gravity_accel_skill == null:
+		_gravity_accel_skill = _new_skill(GRAVITY_ACCEL_SKILL_PATH)
+	return _gravity_accel_skill
+
+
+func _get_dwarf_magic_skill() -> Object:
+	if _dwarf_magic_skill == null:
+		_dwarf_magic_skill = _new_skill(DWARF_MAGIC_SKILL_PATH)
+	return _dwarf_magic_skill
+
+
+func _get_sand_prison_skill() -> Object:
+	if _sand_prison_skill == null:
+		_sand_prison_skill = _new_skill(SAND_PRISON_SKILL_PATH)
+	return _sand_prison_skill
+
+
+func get_dwarf_magic_hit_count_for_tests() -> int:
+	return int(_get_dwarf_magic_skill().get_hit_count_for_tests())
+
+
+func get_dwarf_magic_snapshot_for_tests() -> Dictionary:
+	return _get_dwarf_magic_skill().get_snapshot()
+
+
+func set_dwarf_magic_force_hit_next_for_tests(value: bool) -> void:
+	_get_dwarf_magic_skill().set_force_hit_next_for_tests(value)
+
+
+func get_sand_prison_snapshot_for_tests() -> Dictionary:
+	return _get_sand_prison_skill().get_snapshot()
+
+
+func set_sand_prison_retry_roll_queue_for_tests(values: Array) -> void:
+	_get_sand_prison_skill().set_retry_roll_queue_for_tests(values)
 
 
 # Companion-renderer hook: when Star Coil is in its BIND phase, the orosha body sheet replaces
@@ -1300,6 +1516,42 @@ func _play_puppet_grab_cast_feedback(registry: Object) -> void:
 		return
 	if audio.has_method("play_lingpet_puppet_grab_cast"):
 		audio.play_lingpet_puppet_grab_cast()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_gravity_accel_cast_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_gravity_accel_cast"):
+		audio.play_lingpet_gravity_accel_cast()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_dwarf_magic_cast_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_dwarf_magic_cast"):
+		audio.play_lingpet_dwarf_magic_cast()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
+func _play_sand_prison_cast_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_lingpet_sand_prison_cast"):
+		audio.play_lingpet_sand_prison_cast()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
 

@@ -152,6 +152,7 @@ func _init() -> void:
 	_verify_attachment_tracks_ball_and_transfers()
 	_verify_enemy_side_explosion()
 	_verify_player_side_self_explosion()
+	_verify_level_scaling_outcomes()
 
 	if _failures.is_empty():
 		print("lingpet_bomb_surprise_skill_smoke: ok")
@@ -172,6 +173,13 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(str(skill.get("runtime_kind", "")) == "bomb_surprise", "Volty Bomb Surprise metadata should use the bomb_surprise runtime kind")
 	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 60.0), "Volty Bomb Surprise should use the requested 60-second cooldown")
 	_expect(str(skill.get("name", "")) == "폭탄 서프라이즈", "Volty active skill should keep the requested Korean name")
+	_expect(str(skill.get("description", "")).find("레벨이 오를수록") >= 0, "Volty Bomb Surprise description should expose level scaling")
+	var lv1_skill: Dictionary = LingpetCatalog.get_active_skill("volty", "volty_bomb_surprise", 1)
+	var lv5_skill: Dictionary = LingpetCatalog.get_active_skill("volty", "volty_bomb_surprise", 5)
+	_expect(is_equal_approx(float(lv1_skill.get("cooldown", 0.0)), 60.0), "Bomb Surprise Lv.1 cooldown should keep the 60-second baseline")
+	_expect(is_equal_approx(float(lv5_skill.get("cooldown", 0.0)), 42.0), "Bomb Surprise Lv.5 cooldown should use the explicit 42-second table value")
+	_expect(bool(lv5_skill.get("cooldown_by_level_authoritative", false)), "Bomb Surprise cooldown_by_level should be authoritative")
+	_expect(is_equal_approx(float(lv5_skill.get("active_skill_level_cooldown_reduction_pct", -1.0)), 0.0), "Bomb Surprise explicit cooldown table should disable generic cooldown reduction double-dip")
 	for path in [
 		"res://assets/sounds/boomstart.wav",
 		"res://assets/sounds/spiderminesetup.wav",
@@ -266,6 +274,7 @@ func _verify_enemy_side_explosion() -> void:
 	_expect(bool(snapshot.get("bomb_surprise_explosion_active", false)), "Bomb Surprise should expose an explosion flash after detonation")
 	_expect(str(snapshot.get("bomb_surprise_last_target", "")) == "top", "top-half ball detonation should target the opponent side")
 	_expect(not bool(snapshot.get("bomb_surprise_last_self_explosion", true)), "opponent-side detonation should be the strong explosion")
+	_expect(int(snapshot.get("bomb_surprise_active_skill_level", 0)) == 1, "default Bomb Surprise launch should anchor at Lv.1")
 	_expect(is_equal_approx(absf(float(snapshot.get("bomb_surprise_last_knockback_velocity", 0.0))), 52.0), "strong explosion should use the original 52px bomb knockback velocity")
 	_expect(is_equal_approx(float(snapshot.get("bomb_surprise_last_stun_frames", 0.0)), 180.0), "strong explosion should apply the original 3-second stun")
 
@@ -315,6 +324,7 @@ func _verify_player_side_self_explosion() -> void:
 	var snapshot: Dictionary = host.get_snapshot()
 	_expect(str(snapshot.get("bomb_surprise_last_target", "")) == "bottom", "bottom-half ball detonation should target the player side")
 	_expect(bool(snapshot.get("bomb_surprise_last_self_explosion", false)), "player-side detonation should be the weak self explosion")
+	_expect(int(snapshot.get("bomb_surprise_active_skill_level", 0)) == 1, "default self-explosion launch should anchor at Lv.1")
 	_expect(is_equal_approx(absf(float(snapshot.get("bomb_surprise_last_knockback_velocity", 0.0))), 15.6), "weak explosion should scale the original knockback to 30 percent")
 	_expect(is_equal_approx(float(snapshot.get("bomb_surprise_last_stun_frames", 0.0)), 48.0), "weak explosion should apply the original 0.8-second self stun")
 
@@ -331,6 +341,42 @@ func _verify_player_side_self_explosion() -> void:
 	_expect(audio.bomb_urgent_tick_count == 1 and audio.bomb_urgent_stop_count == 1, "weak Bomb Surprise detonation should stop ticking3 on explosion")
 	_expect(audio.bomb_self_explosion_count == 1 and audio.bomb_explosion_count == 0 and audio.weak_count == 0 and audio.grenade_count == 0, "weak explosion should use the dedicated original weakexplosion sound path")
 	_expect(not feedback.shakes.is_empty() and feedback.shakes[0].y < 1.0, "weak explosion should request a weaker screen shake")
+
+
+func _verify_level_scaling_outcomes() -> void:
+	var lv1_boss := _explode_level_fixture(1, false)
+	_expect(int(lv1_boss.get("bomb_surprise_active_skill_level", 0)) == 1, "Lv.1 boss explosion should record active skill level 1")
+	_expect(is_equal_approx(float(lv1_boss.get("bomb_surprise_last_stun_frames", 0.0)), 180.0), "Lv.1 boss explosion should stun for 180 frames")
+	_expect(is_equal_approx(absf(float(lv1_boss.get("bomb_surprise_last_knockback_velocity", 0.0))), 52.0), "Lv.1 boss explosion should knock back at 52")
+
+	var lv5_boss := _explode_level_fixture(5, false)
+	_expect(int(lv5_boss.get("bomb_surprise_active_skill_level", 0)) == 5, "Lv.5 boss explosion should record active skill level 5")
+	_expect(is_equal_approx(float(lv5_boss.get("bomb_surprise_last_stun_frames", 0.0)), 276.0), "Lv.5 boss explosion should stun for 276 frames")
+	_expect(is_equal_approx(absf(float(lv5_boss.get("bomb_surprise_last_knockback_velocity", 0.0))), 72.0), "Lv.5 boss explosion should knock back at 72")
+
+	var lv5_self := _explode_level_fixture(5, true)
+	_expect(int(lv5_self.get("bomb_surprise_active_skill_level", 0)) == 5, "Lv.5 self explosion should record active skill level 5")
+	_expect(is_equal_approx(float(lv5_self.get("bomb_surprise_last_stun_frames", 0.0)), 24.0), "Lv.5 self explosion should stun the player for 24 frames")
+	_expect(is_equal_approx(absf(float(lv5_self.get("bomb_surprise_last_knockback_velocity", 0.0))), 12.96), "Lv.5 self explosion should use 72 * 0.18 knockback")
+
+
+func _explode_level_fixture(active_skill_level: int, self_explosion: bool) -> Dictionary:
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	owner.ball_pos = Vector2(680.0, 640.0) if self_explosion else Vector2(120.0, 120.0)
+	owner.ball_vel = Vector2(0.0, 10.0) if self_explosion else Vector2(0.0, -10.0)
+	var launch_origin := Vector2(300.0, 600.0)
+	var launch_context := {
+		"active_skill_level": active_skill_level,
+		"fuse_seconds": 0.20,
+		"companion_pos": launch_origin,
+	}
+	_expect(host.launch("volty_bomb_surprise", launch_origin, owner, launch_context), "level fixture should launch Bomb Surprise")
+	var attached_snap := _drive_until_phase(host, owner, registry, "attached", 1.0)
+	_expect(str(attached_snap.get("bomb_surprise_phase", "")) == "attached", "level fixture should reach the attached phase before detonation")
+	host.update(0.21, owner, registry, "volty_bomb_surprise")
+	return host.get_snapshot()
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cem63o612hq1y"
-path="res://.godot/imported/rahoset_companion_front_hover_autosprite_25f.png-72801b97c7705e3850a9aecafe39e4f8.ctex"
+uid="uid://boqtk8vfo2lts"
+path="res://.godot/imported/resonance_egg_item_icon.png-757f74e57136eaa8c50d44789418cd6e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/lingpet/rahoset_companion_front_hover_autosprite_25f.png"
-dest_files=["res://.godot/imported/rahoset_companion_front_hover_autosprite_25f.png-72801b97c7705e3850a9aecafe39e4f8.ctex"]
+source_file="res://assets/sprites/lingpet/resonance_egg_item_icon.png"
+dest_files=["res://.godot/imported/resonance_egg_item_icon.png-757f74e57136eaa8c50d44789418cd6e.ctex"]
 
 [params]
 

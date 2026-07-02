@@ -1,10 +1,13 @@
 extends RefCounted
 
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
+const LingpetCompanionSkillArmGate := preload("res://scripts/lingpet/lingpet_companion_skill_arm_gate.gd")
 
 const ACTION_NONE := "none"
 const ACTION_ARM := "arm"
 const ACTION_LAUNCH := "launch"
+
+var _arm_gate: Object = LingpetCompanionSkillArmGate.new()
 
 
 func update(delta: float, params: Dictionary) -> Dictionary:
@@ -19,6 +22,9 @@ func update(delta: float, params: Dictionary) -> Dictionary:
 		return _make_action(ACTION_NONE)
 	if skill_runtime_host != null:
 		skill_runtime_host.update(safe_delta, params.get("owner", null) as Object, params.get("registry", null) as Object, skill_id, params)
+	if bool(skill_state.windup_active) and float(skill_state.cooldown) > 0.0:
+		skill_state.cancel_windup()
+		return _make_action(ACTION_NONE)
 	if bool(skill_state.advance_windup(safe_delta, maxf(0.0, float(params.get("windup_seconds", 0.0))))):
 		return _make_action(ACTION_LAUNCH)
 	if _should_arm(skill_id, skill_state, skill_runtime_host, params):
@@ -63,6 +69,8 @@ func _should_arm(skill_id: String, skill_state: Object, skill_runtime_host: Obje
 		return false
 	if bool(params.get("switch_transition_active", false)):
 		return false
+	if bool(params.get("companion_exhausted", false)):
+		return false
 	if not bool(params.get("ball_active", false)):
 		return false
 	if skill_runtime_host != null and bool(skill_runtime_host.is_launch_blocked(skill_id)):
@@ -70,6 +78,14 @@ func _should_arm(skill_id: String, skill_state: Object, skill_runtime_host: Obje
 	if skill_runtime_host != null and skill_runtime_host.has_method("can_arm"):
 		if not bool(skill_runtime_host.can_arm(skill_id, params)):
 			return false
+	if not bool(_arm_gate.can_arm(
+		int(params.get("slot_index", 0)),
+		skill_id,
+		params.get("active_skill_ids", []) as Array[String],
+		params.get("skill_states", []) as Array,
+		skill_runtime_host
+	)):
+		return false
 	return true
 
 

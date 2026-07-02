@@ -4,6 +4,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
@@ -93,6 +94,9 @@ class FakeRegistry:
 				return audio
 		return null
 
+	func clear_refs() -> void:
+		lingpet_runtime = null
+
 
 func _init() -> void:
 	_run()
@@ -152,6 +156,7 @@ func _verify_lingpet_feed_active_item_use_and_blocked_preservation() -> void:
 	_expect(not runtime.use_slot(0, owner, registry), "lingpet_feed should not apply without an active lingpet")
 	_expect(owner.active_item_slots.size() == 1, "failed lingpet_feed should remain in the active slot")
 
+	lingpet_runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	_expect(lingpet_runtime.debug_grant_and_activate_pet("maribo", owner), "fixture should activate a lingpet")
 	_clear_active_item_cooldown(runtime, owner)
 	_expect(runtime.use_slot(0, owner, registry), "lingpet_feed should apply through the active item runtime once a lingpet is active")
@@ -172,6 +177,12 @@ func _verify_lingpet_feed_active_item_use_and_blocked_preservation() -> void:
 	_expect(not runtime.use_slot(0, owner, registry), "fourth feed item in one run should be blocked by the affinity counter")
 	_expect(owner.active_item_slots.size() == 1, "blocked fourth feed should not be consumed")
 	_expect(lingpet_runtime.get_last_affinity_result_for_tests().get("blocked_reason", "") == "max_feed_uses", "blocked fourth feed should report max_feed_uses")
+
+	runtime.reset()
+	lingpet_runtime.reset_for_tests()
+	registry.clear_refs()
+	owner.active_item_slots.clear()
+	ProjectResourceLoader.clear_caches()
 
 
 func _verify_lingpet_feed_source_contracts() -> void:

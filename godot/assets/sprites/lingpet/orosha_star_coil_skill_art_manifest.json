@@ -1,0 +1,37 @@
+{
+  "asset": "orosha_star_coil",
+  "created_at": "2026-06-23",
+  "generator": "Codex built-in imagegen",
+  "source_dir": "C:/Users/woduq/.codex/generated_images/019ee82f-bd0e-7c41-a694-dd69aec31a4c",
+  "runtime_usage": "lingpet_active_skill_card_and_icon",
+  "outputs": {
+    "skill_card": {
+      "path": "res://assets/sprites/lingpet/orosha_star_coil_skillcard_imagegen_v1.png",
+      "source": "ig_0d111035b2587d9e016a3a4d6522c08191a1e865bb62479769.png",
+      "source_copy": "res://assets/sprites/lingpet/orosha_star_coil_skillcard_imagegen_v1_source.png",
+      "size": [1720, 541],
+      "postprocess": "wide crop from 1774x887 source, y=20, resized to the existing Lingpet skill-card slot size",
+      "sha256": "338b280cc9dd6cf20e876518236a897a3658fc0cc03a2f41619738714b21d5d4",
+      "bytes": 1662907
+    },
+    "skill_icon": {
+      "path": "res://assets/sprites/lingpet/orosha_star_coil_skill_icon_imagegen_v1.png",
+      "source": "ig_0d111035b2587d9e016a3a4dd909b88191a316630e026148df.png",
+      "size": [1254, 1254],
+      "postprocess": "RGB normalize and PNG optimize, copied at generated square size",
+      "sha256": "74a3695a8095f80b5b091376570e638ad7bcb92688bfd9894969b8f5dae3441f",
+      "bytes": 2710261
+    }
+  },
+  "prompts": {
+    "skill_card": "Wide Orosha Star Coil Lingpet skill card: Orosha directly moves as the skill body, glossy purple-indigo ring-snake with gold constellation linework and turquoise gems, rolling into a short loose 2-3 loop bind around a dark enemy boss silhouette, golden star-chain constriction, no text, no border, no separate projectile.",
+    "skill_icon": "Square Orosha Star Coil icon: bold short 2-3 loop Orosha coil around a dark boss core, gold star-chain lock, large readable cute snake head, purple-indigo and gold constellation palette, no text, no border, no separate projectile."
+  },
+  "qa": {
+    "no_text_baked_into_art": true,
+    "preserves_direct_companion_bind_read": true,
+    "card_matches_catalog_path": true,
+    "icon_matches_catalog_path": true,
+    "notes": "Card and icon both emphasize Orosha's body as the bind source. The icon keeps the central boss and short coil large enough for small HUD/card usage."
+  }
+}

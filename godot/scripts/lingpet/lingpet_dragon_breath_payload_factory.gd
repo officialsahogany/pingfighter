@@ -30,7 +30,6 @@ static func build_fire_zone(
 	width: float,
 	height: float,
 	duration_seconds: float,
-	push_interval_seconds: float,
 	zone_id: int
 ) -> Dictionary:
 	return {
@@ -40,7 +39,10 @@ static func build_fire_zone(
 		"timer": duration_seconds,
 		"max_timer": duration_seconds,
 		"spread_timer": 0.0,
-		"push_timer": push_interval_seconds,
+		# Smooth bounce state (parity with the molotov fire zone).
+		"knockback_vel": 0.0,
+		"knockback_cooldown": 0.0,
+		"engage_dir": 0.0,
 		"flames": [],
 		"boss_in_fire": false,
 		"last_push_dir": 0.0,

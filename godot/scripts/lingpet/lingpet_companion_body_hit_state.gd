@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
 
 const BALL_RADIUS_FALLBACK := 14.3
 const HIT_COOLDOWN_SECONDS := 0.42
@@ -9,6 +10,7 @@ const BOUNCE_MAX_ANGLE := 60.0
 const BOUNCE_MIN_SPEED := 6.0
 const HIT_GAUGE_FLASH_SECONDS := 0.45
 const RALLY_SPEED_CAP_INCREASE_PER_GUARD := 0.5
+const RALLY_SPEED_CAP_BONUS_MAX := BallUpdateStaticConfig.RALLY_SPEED_CAP_BONUS_MAX
 
 var ball_was_inside := false
 var contact_count := 0
@@ -127,14 +129,14 @@ func _apply_companion_guard_bounce_speed(registry: Object, owner: Object, veloci
 	var ball_physics: Object = _get_registry_instance(registry, "ball_physics")
 	if ball_physics == null or not ball_physics.has_method("apply_companion_guard_bounce_speed"):
 		return velocity
-	var cap_bonus: float = maxf(0.0, float(BattleSceneOwnerReader.get_value(owner, "rally_speed_cap_bonus", 0.0)))
+	var cap_bonus: float = clampf(float(BattleSceneOwnerReader.get_value(owner, "rally_speed_cap_bonus", 0.0)), 0.0, RALLY_SPEED_CAP_BONUS_MAX)
 	var adjusted: Variant = ball_physics.apply_companion_guard_bounce_speed(velocity, cap_bonus)
 	return adjusted if adjusted is Vector2 else velocity
 
 
 func _apply_rally_speed_cap_progression(owner: Object) -> void:
 	var current_bonus: float = maxf(0.0, float(BattleSceneOwnerReader.get_value(owner, "rally_speed_cap_bonus", 0.0)))
-	owner.set("rally_speed_cap_bonus", current_bonus + RALLY_SPEED_CAP_INCREASE_PER_GUARD)
+	owner.set("rally_speed_cap_bonus", minf(current_bonus + RALLY_SPEED_CAP_INCREASE_PER_GUARD, RALLY_SPEED_CAP_BONUS_MAX))
 
 
 func _try_apply_hit_gauge_gain(owner: Object, registry: Object, hit_gauge_gain: float, companion_active: bool) -> bool:

@@ -1,6 +1,7 @@
 extends RefCounted
 
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 const SOURCE_ROUND_COMMIT := "round_commit"
 const SOURCE_BALL_HIT := "ball_hit"
@@ -8,6 +9,8 @@ const SOURCE_CLICK := "click"
 const SOURCE_HATCH := "hatch"
 const SOURCE_VICTORY := "victory"
 const SOURCE_FEED := "feed"
+const SOURCE_STAGE_CLEAR := "stage_clear"
+const SOURCE_RING_CORE_UPGRADE := "ring_core_upgrade"
 
 const REWARD_TYPE_ACTIVE_UNLOCK := "active_unlock"
 const REWARD_TYPE_PASSIVE_UNLOCK := "passive_unlock"
@@ -25,26 +28,28 @@ const MOTION_STYLE_PATROL := "patrol"
 const MOTION_STYLE_FLIGHT := "flight"
 
 const MAX_LEVEL := 30
-# V3 keeps the residue headstart ceiling at +4 until the stage-count/income
-# tuning pass. The store may remember a higher best level, but a new run still
-# starts conservatively.
-const HEADSTART_MAX_LEVEL := 4
 const MAX_ENHANCEMENT_CHIPS := 5
 const ENHANCEMENT_CHIP_BONUS := 0.20
 const MAX_FEED_USES_PER_RUN := 3
-const LINGPET_FEED_MAX_LEVEL := 15
 const SKILL_LEVEL_MAX := 5
 const RING_CORE_CAP_UNCHANGED := -1
 const MAX_MOBILITY_STACKS := 6
 const MAX_DEFENSE_STACKS := 2
 const MAX_GAUGE_STACKS := 4
-const BOND_TITLE_DISPLAY_CAP := 25
-
-const BOND_TITLE_AWKWARD := "어색함"
-const BOND_TITLE_CLOSER := "가까워짐"
-const BOND_TITLE_FRIENDLY := "친함"
-const BOND_TITLE_BEST_FRIEND := "단짝"
-const BOND_TITLE_SOULMATE := "영혼의 단짝"
+const RING_CORE_OFFER_COOLDOWN_SCREENS := 3
+const LEGACY_PET_RUN_STATE_KEYS := ["best_level", "bond_points", "bond_title"]
+const SATIETY_KEY := "satiety"
+const SATIETY_MIN := 0.0
+const SATIETY_MAX := 100.0
+const SATIETY_DRAIN_PER_SECOND := 0.25
+const SATIETY_REST_RECOVERY_RATIO := 1.0 / 3.0
+const SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL := [10.0, 17.0, 24.0, 31.0, 38.0]
+const SATIETY_EXHAUSTED_KEY := "satiety_exhausted"
+const SATIETY_EXHAUSTION_TIMER_KEY := "satiety_exhaustion_timer"
+const SATIETY_SLOW_START := 50.0
+const SATIETY_SLOW_FLOOR_START := 10.0
+const SATIETY_SLOW_MIN_MULTIPLIER := 0.60
+const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := 1.75
 
 const REQUIREMENT_BY_CURRENT_LEVEL := [
 	50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
@@ -54,6 +59,19 @@ const REQUIREMENT_BY_CURRENT_LEVEL := [
 
 const REWARD_DECK_SEED_MOD := 2147483647
 const DEFAULT_REWARD_DECK_SEED := 991
+
+# Second-slot unlocks are no longer fixed deck cards (they used to be pinned to
+# Lv16/Lv17). They are now gated behind the pet's combined FIRST active + FIRST
+# passive EFFECTIVE skill level reaching this sum, and -- once that prerequisite
+# is met -- granted by an independent per-level-up probability roll, so the exact
+# level they appear is intentionally unpredictable ("언제 나올진 모름"). The roll is
+# seeded per (reward_seed, level, salt), so it stays fully deterministic for
+# replay / save-restore (_award_missing_rewards_up_to_level) and for repeated
+# runs with the same pet seed. See _maybe_roll_second_unlock_card.
+const SECOND_UNLOCK_SKILL_LEVEL_SUM_REQUIREMENT := 5
+const SECOND_UNLOCK_ROLL_CHANCE_PCT := 30
+const SECOND_UNLOCK_ROLL_SALT_ACTIVE := 1009
+const SECOND_UNLOCK_ROLL_SALT_PASSIVE := 2017
 
 const LABEL_BY_REWARD_TYPE := {
 	REWARD_TYPE_ACTIVE_UNLOCK: "액티브 스킬 해금",
@@ -85,16 +103,22 @@ const CANONICAL_REWARD_TRACK := {
 	13: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
 	14: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
 	15: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
-	16: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
-	17: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
-	18: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
-	19: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
-	20: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
-	21: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
-	22: {"type": REWARD_TYPE_SECOND_ACTIVE_UNLOCK, "label": "2번째 액티브 해금"},
-	23: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
-	24: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
-	25: {"type": REWARD_TYPE_SECOND_PASSIVE_UNLOCK, "label": "2번째 패시브 해금"},
+	# Second-slot unlocks are no longer fixed track entries -- they are granted by a
+	# per-level probability roll gated on combined skill level (see
+	# _maybe_roll_second_unlock_card). This canonical track is only a fallback/
+	# migration read; the live deck (_build_reward_deck) is the authority. Lv16/17
+	# carry ordinary skill cards so the fallback never deterministically grants the
+	# unlocks here.
+	16: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
+	17: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	18: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	19: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
+	20: {"type": REWARD_TYPE_DEFENSE, "label": "방어 강화"},
+	21: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "액티브 스킬 +1", "skill_slot": 1},
+	22: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
+	23: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "패시브 스킬 +1", "skill_slot": 1},
+	24: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
+	25: {"type": REWARD_TYPE_MOBILITY, "label": "기동 강화"},
 	26: {"type": REWARD_TYPE_ACTIVE_SKILL, "label": "2번째 액티브 스킬 +1", "skill_slot": 2},
 	27: {"type": REWARD_TYPE_PASSIVE_SKILL, "label": "2번째 패시브 스킬 +1", "skill_slot": 2},
 	28: {"type": REWARD_TYPE_GAUGE, "label": "게이지 강화"},
@@ -112,20 +136,25 @@ const GAIN_TABLE := {
 		"defense_bonus_round_cap": 2,
 	},
 	SOURCE_CLICK: {
-		"points": 5.0,
+		"points": 20.0,
+		"flight_points": 30.0,
 		"round_cap": 2,
 		"battle_cap": 5,
 	},
 	SOURCE_HATCH: {"points": 25.0},
 	SOURCE_VICTORY: {"points": 20.0},
 	SOURCE_FEED: {"points": 35.0},
+	SOURCE_STAGE_CLEAR: {"points": 50.0},
+	SOURCE_RING_CORE_UPGRADE: {"points": 50.0},
 }
 
 # Flight-style companions get fewer ball-hit / click opportunities than patrol pets
-# (no patrol defense-intercept and often hidden / airborne), so the OPPORTUNITY-BASED
-# sources (ball hit, click) pay double for them. The style-agnostic floor sources
-# (round commit / victory / hatch / feed) stay flat. The caps stay by COUNT — only the
-# per-event points double, so a rarer flight hit/click feels proportionally rewarding.
+# (no patrol defense-intercept and often hidden / airborne), so the BALL-HIT opportunity
+# source pays double for them. The style-agnostic floor sources (round commit / victory /
+# stage clear / hatch / feed) stay flat. CLICK no longer routes through this generic
+# multiplier — it carries its own explicit patrol(20)/flight(30) values in GAIN_TABLE
+# (a 1.5x design value, not the ball-hit 2x). The caps stay by COUNT — only the per-event
+# points scale, so a rarer flight hit feels proportionally rewarding.
 # Placeholder magnitude — tuned in the V3-6 income-log pass with the rest of GAIN_TABLE.
 const FLIGHT_OPPORTUNITY_MULTIPLIER := 2.0
 
@@ -136,6 +165,7 @@ const BATTLE_CAP_CLICK_COUNT := "click_count"
 const BATTLE_CAP_ROUND_COMMIT_TOTAL := "round_commit_total"
 const BATTLE_CAP_ROUND_COMMIT_BY_PET := "round_commit_by_pet"
 const BATTLE_CAP_VICTORY_PAID := "victory_paid"
+const BATTLE_CAP_STAGE_CLEAR_PAID := "stage_clear_paid"
 const BATTLE_CAP_BOND_LEVEL_UPS_BY_PET := "bond_level_ups_by_pet"
 
 var _pets: Dictionary = {}
@@ -144,6 +174,7 @@ var _battle_caps: Dictionary = {}
 var _enhancement_chips := 0
 var _feed_uses_this_run := 0
 var _run_ring_core_tier := 0
+var _ring_core_offer_cooldown_screens := 0
 var _dirty := false
 
 
@@ -154,12 +185,51 @@ func reset_all() -> void:
 	_enhancement_chips = 0
 	_feed_uses_this_run = 0
 	_run_ring_core_tier = 0
+	_ring_core_offer_cooldown_screens = 0
 	reset_battle_caps()
 	_dirty = false
 
 
 func reset_for_new_run() -> void:
 	reset_all()
+
+
+# Run-scoped progression export/import. The lingpet save/restore round trip
+# (apply_save_snapshot) unconditionally calls reset_for_tests()->reset_for_new_run(),
+# which wipes the run progression. The save snapshot must therefore carry this run
+# state and re-import it on restore so a pet swap / plaza round trip / in-run restore
+# does NOT lose per-pet affinity OR the run-global ring core tier. This is in-memory /
+# in-run only: the disk save deliberately clears volatile run snapshots, so a game
+# restart still resets the run (see lingpet_save_store._is_volatile_run_snapshot).
+func export_run_state() -> Dictionary:
+	var pets_copy := {}
+	for raw_pet_id in _pets.keys():
+		var pet_data: Variant = _pets[raw_pet_id]
+		if pet_data is Dictionary:
+			pets_copy[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
+	return {
+		"pets": pets_copy,
+		"enhancement_chips": _enhancement_chips,
+		"feed_uses_this_run": _feed_uses_this_run,
+		"run_ring_core_tier": _run_ring_core_tier,
+		"ring_core_offer_cooldown_screens": _ring_core_offer_cooldown_screens,
+	}
+
+
+func import_run_state(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	var pets_in: Dictionary = data.get("pets", {}) as Dictionary
+	_pets.clear()
+	for raw_pet_id in pets_in.keys():
+		var pet_data: Variant = pets_in[raw_pet_id]
+		if pet_data is Dictionary:
+			_pets[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
+	_enhancement_chips = clampi(int(data.get("enhancement_chips", 0)), 0, MAX_ENHANCEMENT_CHIPS)
+	_feed_uses_this_run = clampi(int(data.get("feed_uses_this_run", 0)), 0, MAX_FEED_USES_PER_RUN)
+	_run_ring_core_tier = clampi(int(data.get("run_ring_core_tier", 0)), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
+	_ring_core_offer_cooldown_screens = maxi(0, int(data.get("ring_core_offer_cooldown_screens", 0)))
+	_dirty = true
 
 
 func reset_for_new_battle() -> void:
@@ -173,6 +243,23 @@ func reset_round_caps() -> void:
 func reset_battle_caps() -> void:
 	_round_caps.clear()
 	_battle_caps.clear()
+
+
+func _sanitize_pet_run_state(pet_data: Dictionary) -> Dictionary:
+	var pet_copy := pet_data.duplicate(true)
+	for legacy_key in LEGACY_PET_RUN_STATE_KEYS:
+		pet_copy.erase(legacy_key)
+	var sanitized_satiety := _sanitize_satiety_value(pet_copy.get(SATIETY_KEY, SATIETY_MAX))
+	pet_copy[SATIETY_KEY] = sanitized_satiety
+	pet_copy[SATIETY_EXHAUSTION_TIMER_KEY] = _sanitize_satiety_exhaustion_timer(
+		pet_copy.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0),
+		sanitized_satiety
+	)
+	pet_copy[SATIETY_EXHAUSTED_KEY] = sanitized_satiety <= SATIETY_MIN and (
+		bool(pet_copy.get(SATIETY_EXHAUSTED_KEY, false))
+		or float(pet_copy.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)) >= SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
+	)
+	return pet_copy
 
 
 func is_dirty() -> bool:
@@ -204,26 +291,202 @@ func get_feed_uses_this_run() -> int:
 	return clampi(_feed_uses_this_run, 0, MAX_FEED_USES_PER_RUN)
 
 
+func get_satiety(pet_id: String) -> float:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return SATIETY_MAX
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	if pet_data.is_empty():
+		return SATIETY_MAX
+	return _sanitize_satiety_value(pet_data.get(SATIETY_KEY, SATIETY_MAX))
+
+
+func get_satiety_pct(pet_id: String) -> int:
+	return clampi(roundi(get_satiety(pet_id)), int(SATIETY_MIN), int(SATIETY_MAX))
+
+
+func set_satiety(pet_id: String, value: float) -> float:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return SATIETY_MAX
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	var next_satiety := _sanitize_satiety_value(value)
+	var changed := false
+	if not is_equal_approx(float(pet_data.get(SATIETY_KEY, SATIETY_MAX)), next_satiety):
+		pet_data[SATIETY_KEY] = next_satiety
+		changed = true
+	if next_satiety > SATIETY_MIN:
+		if bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false)) or float(pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)) > 0.0:
+			pet_data[SATIETY_EXHAUSTED_KEY] = false
+			pet_data[SATIETY_EXHAUSTION_TIMER_KEY] = 0.0
+			changed = true
+	if changed:
+		_pets[normalized_pet_id] = pet_data
+		_dirty = true
+	return next_satiety
+
+
+func add_satiety(pet_id: String, amount: float) -> float:
+	return set_satiety(pet_id, get_satiety(pet_id) + amount)
+
+
+func advance_satiety(
+	active_pet_id: String,
+	battle_slot_pet_ids: Array,
+	delta_seconds: float,
+	active_drain_multiplier: float = 1.0,
+	rest_recovery_multiplier: float = 1.0
+) -> Dictionary:
+	if delta_seconds <= 0.0:
+		return {"changed": false, "active_satiety": get_satiety(active_pet_id)}
+	var normalized_active_pet_id := _normalize_pet_id(active_pet_id)
+	var changed := false
+	if normalized_active_pet_id != "":
+		var drain_amount := SATIETY_DRAIN_PER_SECOND * delta_seconds * maxf(0.0, active_drain_multiplier)
+		if drain_amount > 0.0:
+			var before_active := get_satiety(normalized_active_pet_id)
+			var after_active := set_satiety(normalized_active_pet_id, before_active - drain_amount)
+			changed = changed or not is_equal_approx(before_active, after_active)
+	var rest_amount := SATIETY_DRAIN_PER_SECOND * SATIETY_REST_RECOVERY_RATIO * delta_seconds * maxf(0.0, rest_recovery_multiplier)
+	if rest_amount > 0.0:
+		var seen := {}
+		for raw_pet_id in battle_slot_pet_ids:
+			var rest_pet_id := _normalize_pet_id(str(raw_pet_id))
+			if rest_pet_id == "" or rest_pet_id == normalized_active_pet_id or seen.has(rest_pet_id):
+				continue
+			seen[rest_pet_id] = true
+			var before_rest := get_satiety(rest_pet_id)
+			var after_rest := set_satiety(rest_pet_id, before_rest + rest_amount)
+			changed = changed or not is_equal_approx(before_rest, after_rest)
+	return {
+		"changed": changed,
+		"active_satiety": get_satiety(normalized_active_pet_id),
+	}
+
+
+func advance_satiety_exhaustion(
+	pet_id: String,
+	delta_seconds: float,
+	telegraph_seconds: float = SATIETY_EXHAUSTION_TELEGRAPH_SECONDS,
+	enabled: bool = true
+) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {"changed": false, "exhausted": false, "timer": 0.0, "ratio": 0.0}
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	var before_timer := _sanitize_satiety_exhaustion_timer(
+		pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0),
+		get_satiety(normalized_pet_id)
+	)
+	var before_exhausted := bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false))
+	var next_timer := before_timer
+	var next_exhausted := before_exhausted
+	if not enabled or get_satiety(normalized_pet_id) > SATIETY_MIN:
+		next_timer = 0.0
+		next_exhausted = false
+	else:
+		next_timer = maxf(0.0, before_timer + maxf(0.0, delta_seconds))
+		next_exhausted = next_timer >= maxf(0.0, telegraph_seconds)
+	var changed := (
+		not is_equal_approx(before_timer, next_timer)
+		or before_exhausted != next_exhausted
+	)
+	if changed:
+		pet_data[SATIETY_EXHAUSTION_TIMER_KEY] = next_timer
+		pet_data[SATIETY_EXHAUSTED_KEY] = next_exhausted
+		_pets[normalized_pet_id] = pet_data
+		_dirty = true
+	return {
+		"changed": changed,
+		"exhausted": next_exhausted,
+		"timer": next_timer,
+		"ratio": _get_satiety_exhaustion_ratio(next_timer, telegraph_seconds),
+	}
+
+
+func is_satiety_exhausted(pet_id: String) -> bool:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "" or get_satiety(normalized_pet_id) > SATIETY_MIN:
+		return false
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	return bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false))
+
+
+func get_satiety_exhaustion_timer(pet_id: String) -> float:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return 0.0
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	return _sanitize_satiety_exhaustion_timer(
+		pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0),
+		get_satiety(normalized_pet_id)
+	)
+
+
+func get_satiety_exhaustion_ratio(
+	pet_id: String,
+	telegraph_seconds: float = SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
+) -> float:
+	return _get_satiety_exhaustion_ratio(get_satiety_exhaustion_timer(pet_id), telegraph_seconds)
+
+
+func get_satiety_speed_multiplier(pet_id: String) -> float:
+	return get_satiety_speed_multiplier_for_value(get_satiety(pet_id))
+
+
+static func get_satiety_speed_multiplier_for_value(value: float) -> float:
+	var satiety := clampf(value, SATIETY_MIN, SATIETY_MAX)
+	if satiety > SATIETY_SLOW_START:
+		return 1.0
+	if satiety >= SATIETY_SLOW_FLOOR_START:
+		var ratio := (satiety - SATIETY_SLOW_FLOOR_START) / (SATIETY_SLOW_START - SATIETY_SLOW_FLOOR_START)
+		return lerpf(SATIETY_SLOW_MIN_MULTIPLIER, 1.0, ratio)
+	return SATIETY_SLOW_MIN_MULTIPLIER
+
+
 func get_run_ring_core_tier() -> int:
-	return clampi(_run_ring_core_tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	return clampi(_run_ring_core_tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 
 
 func set_run_ring_core_tier(tier: int) -> void:
-	_run_ring_core_tier = clampi(tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	_run_ring_core_tier = clampi(tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
+	if _run_ring_core_tier <= 0:
+		_ring_core_offer_cooldown_screens = 0
 
 
 func upgrade_run_ring_core_tier(target_tier: int = 0) -> bool:
 	var current_tier := get_run_ring_core_tier()
 	var next_tier := target_tier if target_tier > 0 else current_tier + 1
-	next_tier = clampi(next_tier, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	next_tier = clampi(next_tier, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	if next_tier <= current_tier:
 		return false
 	_run_ring_core_tier = next_tier
+	_ring_core_offer_cooldown_screens = RING_CORE_OFFER_COOLDOWN_SCREENS
 	return true
 
 
 func get_run_ring_core_cap() -> int:
-	return LingpetAffinityStore.get_ring_core_cap_for_tier(get_run_ring_core_tier())
+	return LingpetRingCoreRules.get_ring_core_cap_for_tier(get_run_ring_core_tier())
+
+
+func get_feed_cap_for_pet(pet_id: String) -> int:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return 0
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	if not pet_data.is_empty():
+		return _get_feed_level_cap(pet_data)
+	var run_cap := clampi(int(get_run_ring_core_cap()), 0, MAX_LEVEL)
+	return run_cap if run_cap > 0 else MAX_LEVEL
+
+
+func get_ring_core_offer_cooldown_screens() -> int:
+	return maxi(0, _ring_core_offer_cooldown_screens)
+
+
+func tick_ring_core_offer_cooldown() -> void:
+	if _ring_core_offer_cooldown_screens > 0:
+		_ring_core_offer_cooldown_screens -= 1
 
 
 func configure_reward_context(
@@ -307,6 +570,13 @@ static func get_empty_hatch_stat_roll() -> Dictionary:
 		"defense": 0.0,
 		"has_roll": false,
 	}
+
+
+static func get_satiety_drain_reduction_pct_for_level(level: int) -> float:
+	if level <= 0:
+		return 0.0
+	var index := clampi(level, 1, SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL.size()) - 1
+	return float(SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL[index])
 
 
 func set_unlock_choice_candidates(pet_id: String, reward_type: String, candidates: Array) -> void:
@@ -524,13 +794,16 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	if level_before >= MAX_LEVEL:
 		if source == SOURCE_ROUND_COMMIT:
 			_record_round_commit(normalized_pet_id)
-		return _build_result(normalized_pet_id, source, level_before, points_before, 0.0, 0.0, [], "max_level")
+		var max_reason := "max_feed_level" if source == SOURCE_FEED else "max_level"
+		return _build_result(normalized_pet_id, source, level_before, points_before, 0.0, 0.0, [], max_reason)
 
 	var gain_result := _resolve_gain(normalized_pet_id, source, tags, pet_data)
 	var granted_points := float(gain_result.get("points", 0.0))
 	var bonus_points := float(gain_result.get("bonus_points", 0.0))
 	var blocked_reason := str(gain_result.get("blocked_reason", ""))
-	var enhancement_multiplier := 1.0 if source == SOURCE_FEED else get_enhancement_chip_multiplier()
+	# Feed and the ring-core-upgrade roster grant are deliberate flat rewards, so enhancement
+	# chips do not inflate them (every other source scales with chips).
+	var enhancement_multiplier := 1.0 if source == SOURCE_FEED or source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()
 	granted_points *= enhancement_multiplier
 	bonus_points *= enhancement_multiplier
 	if granted_points <= 0.0:
@@ -543,7 +816,6 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 		_record_bond_level_ups(normalized_pet_id, level_rewards.size())
 	if source == SOURCE_FEED:
 		_feed_uses_this_run = mini(_feed_uses_this_run + 1, MAX_FEED_USES_PER_RUN)
-	_update_best_level(pet_data)
 	_pets[normalized_pet_id] = pet_data
 	_dirty = true
 	return _build_result(
@@ -556,39 +828,6 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 		level_rewards,
 		""
 	)
-
-
-func seed_best_level(pet_id: String, best_level: int, mark_dirty: bool = false) -> void:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return
-	var pet_data := _get_or_create_pet_data(normalized_pet_id)
-	var clamped_best := clampi(best_level, 0, MAX_LEVEL)
-	var previous_best := int(pet_data.get("best_level", 0))
-	pet_data["best_level"] = max(previous_best, clamped_best)
-	_pets[normalized_pet_id] = pet_data
-	if mark_dirty and clamped_best > previous_best:
-		_dirty = true
-
-
-func apply_headstart_from_best(pet_id: String, best_level: int) -> Dictionary:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return {}
-	var pet_data := _get_or_create_pet_data(normalized_pet_id)
-	_ensure_unlock_state(normalized_pet_id, pet_data)
-	var clamped_best := clampi(best_level, 0, MAX_LEVEL)
-	var ring_core_cap := clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
-	var headstart_level := mini(clampi(int(floor(float(clamped_best) / 3.0)), 0, HEADSTART_MAX_LEVEL), ring_core_cap)
-	var level_before := int(pet_data.get("affinity_level", 0))
-	var level_after: int = max(level_before, headstart_level)
-	pet_data["affinity_level"] = level_after
-	pet_data["best_level"] = max(int(pet_data.get("best_level", 0)), clamped_best)
-	if level_after > level_before:
-		_award_missing_rewards_up_to_level(pet_data, level_after)
-	_pets[normalized_pet_id] = pet_data
-	_dirty = true
-	return get_pet_data(normalized_pet_id)
 
 
 func get_pet_data(pet_id: String) -> Dictionary:
@@ -608,9 +847,12 @@ func get_points(pet_id: String) -> float:
 	return float(pet_data.get("affinity_points", 0.0))
 
 
-func get_best_level(pet_id: String) -> int:
+# Existing per-pet reward seed (0 when the pet has no seed yet). The context coordinator
+# adopts this on a seed-cache miss so a restored pet keeps its deterministic reward deck /
+# unlock-choice shuffle instead of being re-randomized after a save/restore round trip.
+func get_reward_seed(pet_id: String) -> int:
 	var pet_data := _get_existing_pet_data(_normalize_pet_id(pet_id))
-	return int(pet_data.get("best_level", 0))
+	return int(pet_data.get("reward_seed", 0))
 
 
 func get_next_requirement(pet_id: String) -> float:
@@ -650,6 +892,85 @@ func get_next_reward(pet_id: String) -> Dictionary:
 	return get_reward_for_level(level + 1)
 
 
+# Player-facing "다음 보상" label. Layers run-state context on top of get_next_reward
+# so the panel never shows a bare, dead-end "보상 없음":
+#   - at Lv.MAX            -> the terminal title (하트 공명)
+#   - rewards exhausted    -> "최대 강화 완료" (genuinely nothing left to grant)
+#   - sitting at the ring  -> "링코어 강화 시 해금" (a real reward exists, but it is
+#     core cap                gated behind the next ring core tier — the user's
+#                             "upgraded the ring core but it stayed 보상 없음"
+#                             confusion came from previewing this locked reward as
+#                             if it were reachable)
+#   - otherwise            -> the next reward's own label/title.
+# Single source for both owner-surface (TAB panel) and grant-controller (level-up
+# toast) so the two paths cannot drift.
+func get_next_reward_display_label(pet_id: String) -> String:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return ""
+	var level := get_level(normalized_pet_id)
+	if level >= MAX_LEVEL:
+		return "하트 공명"
+	var pet_data := _get_existing_pet_data(normalized_pet_id)
+	if pet_data.is_empty():
+		# Untracked pet — preview the level-1 reward directly.
+		var seed_reward := get_next_reward(normalized_pet_id)
+		if seed_reward.has("title"):
+			return str(seed_reward.get("title", "하트 공명"))
+		return str(seed_reward.get("label", ""))
+	_ensure_reward_state(normalized_pet_id, pet_data)
+	_pets[normalized_pet_id] = pet_data
+	# The immediate next card may resolve to NO_REWARD (a dry draw: maxed stats +
+	# maxed/locked skill slots) while real rewards still wait at later levels —
+	# unlock cards open new skill slots, and higher ring-core tiers expose more
+	# levels. A high starting skill level (e.g. base skill 5/5) makes this gap
+	# routine. So scan the deck forward for the next genuinely grantable reward
+	# instead of treating the first dry card as terminal.
+	var cap := clampi(int(get_run_ring_core_cap()), 0, MAX_LEVEL)
+	var next_grantable := _find_next_grantable_reward(pet_data, level)
+	if next_grantable.is_empty():
+		# The deck has nothing grantable left, BUT a second-slot unlock can still be
+		# rolled in (it is no longer a visible deck card). Distinguish three cases:
+		# at/above the ring core cap it is gated behind a ring core upgrade; below the
+		# cap a surprise unlock can still land, so show a non-spoiler placeholder
+		# instead of the terminal "최대 강화 완료"; only when no roll remains is it terminal.
+		if _has_pending_rollable_second_unlock(pet_data):
+			if level >= cap and cap < MAX_LEVEL:
+				return "링코어 강화 시 해금"
+			return "교감 보상"
+		# Nothing real remains across every future level — genuinely terminal.
+		return "최대 강화 완료"
+	if int(next_grantable.get("level", MAX_LEVEL)) > cap:
+		# A real reward exists, but only above the current ring core cap, so a
+		# ring core upgrade is the gate (the "강화했는데 보상 없음" confusion case).
+		return "링코어 강화 시 해금"
+	if next_grantable.has("title"):
+		return str(next_grantable.get("title", "하트 공명"))
+	return str(next_grantable.get("label", ""))
+
+
+# Scans the reward deck forward from current_level and returns the first level
+# whose card resolves to a genuinely grantable reward (not NO_REWARD), with the
+# resolved card plus its 1-based "level". Every level between current_level and
+# that result necessarily resolved to NO_REWARD, which grants nothing and so
+# leaves reward counts unchanged — therefore resolving each forward card against
+# the pet's CURRENT counts is sufficient and no forward state replay is needed.
+# Returns {} when nothing real remains through MAX_LEVEL.
+func _find_next_grantable_reward(pet_data: Dictionary, current_level: int) -> Dictionary:
+	if pet_data.is_empty():
+		return {}
+	var deck: Array = pet_data.get("reward_deck", []) as Array
+	for probe_level in range(maxi(current_level, 0) + 1, MAX_LEVEL + 1):
+		var base_card: Dictionary = get_reward_for_level(probe_level)
+		if probe_level > 0 and probe_level <= deck.size() and deck[probe_level - 1] is Dictionary:
+			base_card = (deck[probe_level - 1] as Dictionary).duplicate(true)
+		var resolved := _resolve_effective_reward_card(pet_data, base_card)
+		if str(resolved.get("type", "")) != REWARD_TYPE_NO_REWARD:
+			resolved["level"] = probe_level
+			return resolved
+	return {}
+
+
 func get_reward_deck(pet_id: String) -> Array[Dictionary]:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
@@ -665,17 +986,6 @@ func get_reward_deck(pet_id: String) -> Array[Dictionary]:
 		if raw_card is Dictionary:
 			result.append((raw_card as Dictionary).duplicate(true))
 	return result
-
-
-func get_best_levels() -> Dictionary:
-	var best_levels := {}
-	for raw_pet_id in _pets.keys():
-		var pet_id := str(raw_pet_id)
-		var pet_data := _get_existing_pet_data(pet_id)
-		var best_level := int(pet_data.get("best_level", 0))
-		if best_level > 0:
-			best_levels[pet_id] = best_level
-	return best_levels
 
 
 func get_tracked_pet_ids() -> Array[String]:
@@ -727,19 +1037,6 @@ static func get_requirement_for_level(current_level: int) -> float:
 	return 0.0
 
 
-static func get_bond_title_for_points(bond_points: int) -> String:
-	var display_points := clampi(bond_points, 0, BOND_TITLE_DISPLAY_CAP)
-	if display_points >= 21:
-		return BOND_TITLE_SOULMATE
-	if display_points >= 16:
-		return BOND_TITLE_BEST_FRIEND
-	if display_points >= 11:
-		return BOND_TITLE_FRIENDLY
-	if display_points >= 6:
-		return BOND_TITLE_CLOSER
-	return BOND_TITLE_AWKWARD
-
-
 static func get_reward_for_level(level: int) -> Dictionary:
 	if not CANONICAL_REWARD_TRACK.has(level):
 		return {}
@@ -789,17 +1086,24 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 		SOURCE_BALL_HIT:
 			return _apply_opportunity_multiplier(_resolve_ball_hit_gain(tags), pet_data)
 		SOURCE_CLICK:
-			return _apply_opportunity_multiplier(_resolve_click_gain(), pet_data)
+			return _resolve_click_gain(pet_data)
 		SOURCE_HATCH:
 			return _resolve_hatch_gain(pet_id, pet_data)
 		SOURCE_VICTORY:
 			return _resolve_victory_gain(pet_id, tags)
 		SOURCE_FEED:
 			return _resolve_feed_gain(pet_data)
+		SOURCE_STAGE_CLEAR:
+			return _resolve_stage_clear_gain(pet_id)
+		SOURCE_RING_CORE_UPGRADE:
+			# Flat roster-wide reward when this run's ring core tier rises. No cap / self-seal:
+			# the caller fires it once per pet per successful upgrade.
+			return {"points": _get_gain_value(SOURCE_RING_CORE_UPGRADE, "points")}
 	return {"points": 0.0, "blocked_reason": "unknown_source"}
 
 
-# Flight pets double ordinary opportunity-based sources (ball hit / click). ONLY the
+# Flight pets double the ball-hit opportunity source (click carries its own explicit
+# patrol/flight values in GAIN_TABLE and no longer routes through here). ONLY the
 # base/reduced hit points scale -- the defense/guard bonus (defense_intercept OR
 # ring_dash_block, which flight pets CAN earn via Linkport/ring-dash) is not an
 # opportunity reward, so it stays flat. A flight guard hit therefore pays base*2 + bonus
@@ -860,7 +1164,7 @@ func _resolve_ball_hit_gain(tags: Dictionary) -> Dictionary:
 	}
 
 
-func _resolve_click_gain() -> Dictionary:
+func _resolve_click_gain(pet_data: Dictionary) -> Dictionary:
 	var round_count := int(_round_caps.get(ROUND_CAP_CLICK_COUNT, 0))
 	var battle_count := int(_battle_caps.get(BATTLE_CAP_CLICK_COUNT, 0))
 	if round_count >= int(_get_gain_value(SOURCE_CLICK, "round_cap")):
@@ -869,7 +1173,12 @@ func _resolve_click_gain() -> Dictionary:
 		return {"points": 0.0, "blocked_reason": "battle_cap"}
 	_round_caps[ROUND_CAP_CLICK_COUNT] = round_count + 1
 	_battle_caps[BATTLE_CAP_CLICK_COUNT] = battle_count + 1
-	return {"points": _get_gain_value(SOURCE_CLICK, "points")}
+	# Click is opportunity-based but uses explicit per-style values (patrol 20 / flight 30,
+	# a 1.5x design value) instead of the generic ball-hit 2x multiplier. Enhancement chips
+	# still stack on top inside add_points.
+	var motion_style := _normalize_motion_style(str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)))
+	var points_key := "flight_points" if motion_style == MOTION_STYLE_FLIGHT else "points"
+	return {"points": _get_gain_value(SOURCE_CLICK, points_key)}
 
 
 func _resolve_victory_gain(pet_id: String, tags: Dictionary) -> Dictionary:
@@ -881,6 +1190,19 @@ func _resolve_victory_gain(pet_id: String, tags: Dictionary) -> Dictionary:
 		return {"points": 0.0, "blocked_reason": "ineligible"}
 	_battle_caps[BATTLE_CAP_VICTORY_PAID] = true
 	return {"points": _get_gain_value(SOURCE_VICTORY, "points")}
+
+
+func _resolve_stage_clear_gain(pet_id: String) -> Dictionary:
+	# Stage clear == the player-won match-finish moment (one boss per stage). Mirrors victory:
+	# participation-gated (50%+ rounds) and self-sealing once per battle, paid ON TOP of the
+	# +20 victory award. Style-agnostic floor (no flight multiplier); enhancement chips still
+	# stack in add_points.
+	if bool(_battle_caps.get(BATTLE_CAP_STAGE_CLEAR_PAID, false)):
+		return {"points": 0.0, "blocked_reason": "stage_clear_already_paid"}
+	if not _is_victory_participation_eligible(pet_id):
+		return {"points": 0.0, "blocked_reason": "ineligible"}
+	_battle_caps[BATTLE_CAP_STAGE_CLEAR_PAID] = true
+	return {"points": _get_gain_value(SOURCE_STAGE_CLEAR, "points")}
 
 
 func _resolve_hatch_gain(_pet_id: String, pet_data: Dictionary) -> Dictionary:
@@ -895,7 +1217,8 @@ func _resolve_feed_gain(pet_data: Dictionary) -> Dictionary:
 		return {"points": 0.0, "blocked_reason": "max_feed_uses"}
 	var level := int(pet_data.get("affinity_level", 0))
 	var points := float(pet_data.get("affinity_points", 0.0))
-	var remaining_to_feed_cap := _points_remaining_until_level(level, points, LINGPET_FEED_MAX_LEVEL)
+	var feed_cap := _get_feed_level_cap(pet_data)
+	var remaining_to_feed_cap := _points_remaining_until_level(level, points, feed_cap)
 	if remaining_to_feed_cap <= 0.0:
 		return {"points": 0.0, "blocked_reason": "max_feed_level"}
 	var feed_points := minf(_get_gain_value(SOURCE_FEED, "points"), remaining_to_feed_cap)
@@ -943,6 +1266,13 @@ func _award_reward_for_level(pet_data: Dictionary, level: int) -> Dictionary:
 	var base_card: Dictionary = get_reward_for_level(level)
 	if level > 0 and level <= deck.size() and deck[level - 1] is Dictionary:
 		base_card = (deck[level - 1] as Dictionary).duplicate(true)
+	# Probabilistic second-slot unlock: once the skill-level prerequisite is met, an
+	# independent per-level roll can replace this level's deck card with a second
+	# active/passive unlock. Done here (the single authoritative grant path used by
+	# both live level-up and replay) so real grants and save-restore replay agree.
+	var rolled_unlock := _maybe_roll_second_unlock_card(pet_data, level)
+	if not rolled_unlock.is_empty():
+		base_card = rolled_unlock
 	var awarded_card := _resolve_effective_reward_card(pet_data, base_card)
 	awarded_card["level"] = level
 	if level >= MAX_LEVEL:
@@ -954,27 +1284,86 @@ func _award_reward_for_level(pet_data: Dictionary, level: int) -> Dictionary:
 	return awarded_card
 
 
+# Decide whether this level grants a second-slot unlock instead of its deck card.
+# Returns the unlock card to inject, or {} to keep the normal deck card. The
+# prerequisite (combined first active + first passive effective skill level) and
+# the per-level roll are both evaluated against the pet's CURRENT cumulative
+# counts, so this is deterministic across replay. At most ONE unlock is injected
+# per level (active takes priority; an unrolled/blocked passive simply re-rolls
+# on the next level), since a level grants a single reward.
+func _maybe_roll_second_unlock_card(pet_data: Dictionary, level: int) -> Dictionary:
+	if not _second_unlock_prerequisite_met(pet_data):
+		return {}
+	var counts := _reward_counts_snapshot(pet_data)
+	# A second-slot unlock can never precede its first-slot unlock; gating on BOTH
+	# first unlocks also guarantees the roll can't displace the fixed Lv1/Lv2 first
+	# active/passive unlock deck cards (e.g. a high-base 5/5 pet meets the skill-sum
+	# prerequisite immediately, so without this guard the Lv1 roll could eat the
+	# first active unlock).
+	if not bool(counts.get("active_unlocked", false)) or not bool(counts.get("passive_unlocked", false)):
+		return {}
+	var seed := int(pet_data.get("reward_seed", 0))
+	if (
+		not bool(counts.get("second_active_unlocked", false))
+		and _pet_has_second_active_skill(pet_data)
+		and _second_unlock_roll_hits(seed, level, SECOND_UNLOCK_ROLL_SALT_ACTIVE)
+	):
+		return _make_reward_card(REWARD_TYPE_SECOND_ACTIVE_UNLOCK)
+	if (
+		not bool(counts.get("second_passive_unlocked", false))
+		and _pet_has_second_passive_skill(pet_data)
+		and _second_unlock_roll_hits(seed, level, SECOND_UNLOCK_ROLL_SALT_PASSIVE)
+	):
+		return _make_reward_card(REWARD_TYPE_SECOND_PASSIVE_UNLOCK)
+	return {}
+
+
+# Combined FIRST active + FIRST passive effective skill level (base + affinity
+# bonus). Second-slot bonuses are intentionally excluded -- they only exist after
+# a second unlock, which is exactly what this gate guards.
+func _second_unlock_prerequisite_met(pet_data: Dictionary) -> bool:
+	var counts := _reward_counts_snapshot(pet_data)
+	var active_level := int(pet_data.get("active_skill_base_level", 1)) + int(counts.get("active_skill_bonus", 0))
+	var passive_level := int(pet_data.get("passive_skill_base_level", 1)) + int(counts.get("passive_skill_bonus", 0))
+	return active_level + passive_level >= SECOND_UNLOCK_SKILL_LEVEL_SUM_REQUIREMENT
+
+
+func _second_unlock_roll_hits(seed: int, level: int, salt: int) -> bool:
+	var roll_seed := maxi(1, int((seed + level * 7919 + salt) % REWARD_DECK_SEED_MOD))
+	roll_seed = _advance_reward_seed(roll_seed)
+	return (roll_seed % 100) < SECOND_UNLOCK_ROLL_CHANCE_PCT
+
+
+# True when the prerequisite is met and at least one second-slot unlock the pet
+# actually owns is still locked -- i.e. a future level-up roll can still grant it.
+# Used only by the "다음 보상" preview so a roll-eligible pet never previews as a
+# dead-end terminal even when the deck itself has nothing grantable left.
+func _has_pending_rollable_second_unlock(pet_data: Dictionary) -> bool:
+	if not _second_unlock_prerequisite_met(pet_data):
+		return false
+	var counts := _reward_counts_snapshot(pet_data)
+	if not bool(counts.get("second_active_unlocked", false)) and _pet_has_second_active_skill(pet_data):
+		return true
+	if not bool(counts.get("second_passive_unlocked", false)) and _pet_has_second_passive_skill(pet_data):
+		return true
+	return false
+
+
 func _resolve_effective_reward_card(pet_data: Dictionary, card: Dictionary) -> Dictionary:
 	var card_type := str(card.get("type", ""))
 	if _can_apply_reward_card(pet_data, card):
 		return card.duplicate(true)
-	var replacement_type := _select_replacement_stat_reward_type(pet_data)
-	if replacement_type == "":
+	var replacement := _select_replacement_reward_card(pet_data)
+	if replacement.is_empty():
 		return {
 			"type": REWARD_TYPE_NO_REWARD,
 			"label": str(LABEL_BY_REWARD_TYPE.get(REWARD_TYPE_NO_REWARD, "보상 없음")),
 			"replaced_type": card_type,
 			"no_reward": true,
 		}
-	return {
-		"type": replacement_type,
-		"label": str(LABEL_BY_REWARD_TYPE.get(replacement_type, "스탯 강화")),
-		"replaced_type": card_type,
-	}
-
-
-func _can_apply_reward_type(pet_data: Dictionary, card_type: String) -> bool:
-	return _can_apply_reward_card(pet_data, {"type": card_type})
+	var replacement_card := replacement.duplicate(true)
+	replacement_card["replaced_type"] = card_type
+	return replacement_card
 
 
 func _can_apply_reward_card(pet_data: Dictionary, card: Dictionary) -> bool:
@@ -987,9 +1376,17 @@ func _can_apply_reward_card(pet_data: Dictionary, card: Dictionary) -> bool:
 		REWARD_TYPE_PASSIVE_UNLOCK:
 			return not bool(counts.get("passive_unlocked", false))
 		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
-			return not bool(counts.get("second_active_unlocked", false))
+			# A pet whose catalog active pool only has one skill has nothing to put in
+			# the second active slot, so granting the unlock would set the flag but leave
+			# an empty second-active card (the reconciler erases the primary from the
+			# candidate pool, leaving zero candidates). WIP pets ship with one active
+			# skill today and their second skill is authored later; gating on pool size
+			# auto-enables this unlock the moment a second active skill lands, with no
+			# further code change. The reward level is recovered into the next available
+			# reward by _select_replacement_reward_card.
+			return not bool(counts.get("second_active_unlocked", false)) and _pet_has_second_active_skill(pet_data)
 		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
-			return not bool(counts.get("second_passive_unlocked", false))
+			return not bool(counts.get("second_passive_unlocked", false)) and _pet_has_second_passive_skill(pet_data)
 		REWARD_TYPE_ACTIVE_SKILL:
 			return _can_apply_skill_bonus(pet_data, counts, true, skill_slot)
 		REWARD_TYPE_PASSIVE_SKILL:
@@ -1005,15 +1402,34 @@ func _can_apply_reward_card(pet_data: Dictionary, card: Dictionary) -> bool:
 	return true
 
 
-func _select_replacement_stat_reward_type(pet_data: Dictionary) -> String:
+# When a drawn card cannot apply (maxed stat, locked/maxed skill, already-done
+# unlock), recover the level into the next still-available reward instead of
+# dead-drawing straight into NO_REWARD. The reward deck demands more stat cards
+# (14) than the stat caps allow (12), and a pet hatched with high starting skill
+# levels also leaves skill-bonus cards unusable, so a stat-ONLY fallback left
+# several mid/late levels (and every level past the reward ceiling) showing
+# "보상 없음" with no recourse — raising the ring core cap only exposed more empty
+# levels. Stats run first (keeps the stat-reward feel); then unused skill-bonus
+# capacity (slot 1, then slot 2 once its unlock has landed). {} means the pet is
+# genuinely fully enhanced — the only true NO_REWARD case now.
+func _select_replacement_reward_card(pet_data: Dictionary) -> Dictionary:
 	var motion_style := _normalize_motion_style(str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)))
-	var order: Array[String] = [REWARD_TYPE_GAUGE, REWARD_TYPE_MOBILITY]
+	var candidates: Array[Dictionary] = []
 	if motion_style == MOTION_STYLE_PATROL:
-		order = [REWARD_TYPE_MOBILITY, REWARD_TYPE_GAUGE, REWARD_TYPE_DEFENSE]
-	for reward_type in order:
-		if _can_apply_reward_type(pet_data, reward_type):
-			return reward_type
-	return ""
+		candidates.append(_make_reward_card(REWARD_TYPE_MOBILITY))
+		candidates.append(_make_reward_card(REWARD_TYPE_GAUGE))
+		candidates.append(_make_reward_card(REWARD_TYPE_DEFENSE))
+	else:
+		candidates.append(_make_reward_card(REWARD_TYPE_GAUGE))
+		candidates.append(_make_reward_card(REWARD_TYPE_MOBILITY))
+	candidates.append(_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1))
+	candidates.append(_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1))
+	candidates.append(_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 2))
+	candidates.append(_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 2))
+	for candidate in candidates:
+		if _can_apply_reward_card(pet_data, candidate):
+			return candidate
+	return {}
 
 
 func _apply_reward_to_pet_counts(pet_data: Dictionary, reward: Dictionary) -> void:
@@ -1095,7 +1511,16 @@ func _build_reward_deck(pet_id: String, pet_data: Dictionary) -> void:
 		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
 		_make_reward_card(REWARD_TYPE_MOBILITY),
 	], seed, 11))
+	# Second-slot unlocks are NO LONGER fixed deck cards. They are granted by a
+	# per-level probability roll once the combined first active + first passive
+	# effective skill level reaches SECOND_UNLOCK_SKILL_LEVEL_SUM_REQUIREMENT
+	# (see _maybe_roll_second_unlock_card), so their appearance level is
+	# intentionally unpredictable. The two former pinned slots are returned to the
+	# Lv16-25 region as ordinary skill/stat cards, making it a single 10-card
+	# shuffled band; an injected unlock simply displaces that level's drawn card.
 	level_cards.append_array(_shuffle_reward_card_band([
+		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1),
+		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
 		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
 		_make_reward_card(REWARD_TYPE_GAUGE),
 		_make_reward_card(support_card_type),
@@ -1104,8 +1529,6 @@ func _build_reward_deck(pet_id: String, pet_data: Dictionary) -> void:
 		_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1),
 		_make_reward_card(REWARD_TYPE_GAUGE),
 		_make_reward_card(REWARD_TYPE_MOBILITY),
-		_make_reward_card(REWARD_TYPE_SECOND_ACTIVE_UNLOCK),
-		_make_reward_card(REWARD_TYPE_SECOND_PASSIVE_UNLOCK),
 	], seed, 16))
 	var final_band: Array[Dictionary] = [
 		_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 2),
@@ -1170,6 +1593,21 @@ func _available_active_skill_bonus_slots(pet_data: Dictionary) -> int:
 
 func _available_passive_skill_bonus_slots(pet_data: Dictionary) -> int:
 	return maxi(0, SKILL_LEVEL_MAX - int(pet_data.get("passive_skill_base_level", 1)))
+
+
+func _pet_has_second_active_skill(pet_data: Dictionary) -> bool:
+	var pet_id := str(pet_data.get("pet_id", "")).strip_edges()
+	if pet_id == "":
+		# Unknown pet: never suppress a real unlock on missing context.
+		return true
+	return LingpetCatalog.get_active_skill_pool(pet_id).size() >= 2
+
+
+func _pet_has_second_passive_skill(pet_data: Dictionary) -> bool:
+	var pet_id := str(pet_data.get("pet_id", "")).strip_edges()
+	if pet_id == "":
+		return true
+	return LingpetCatalog.get_passive_skill_pool(pet_id).size() >= 2
 
 
 func _can_apply_skill_bonus(pet_data: Dictionary, counts: Dictionary, active: bool, skill_slot: int) -> bool:
@@ -1375,10 +1813,8 @@ func _points_remaining_until_level(current_level: int, current_points: float, ta
 	return maxf(0.0, total)
 
 
-func _update_best_level(pet_data: Dictionary) -> void:
-	var level := int(pet_data.get("affinity_level", 0))
-	if level > int(pet_data.get("best_level", 0)):
-		pet_data["best_level"] = level
+func _get_feed_level_cap(pet_data: Dictionary) -> int:
+	return clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
 
 
 func _get_or_create_pet_data(pet_id: String) -> Dictionary:
@@ -1390,8 +1826,10 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"pet_id": pet_id,
 		"affinity_points": 0.0,
 		"affinity_level": 0,
+		SATIETY_KEY: SATIETY_MAX,
+		SATIETY_EXHAUSTED_KEY: false,
+		SATIETY_EXHAUSTION_TIMER_KEY: 0.0,
 		"hatch_bonus_granted": false,
-		"best_level": 0,
 		"reward_motion_style": MOTION_STYLE_PATROL,
 		"active_skill_base_level": 1,
 		"passive_skill_base_level": 1,
@@ -1408,6 +1846,21 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 	_ensure_unlock_state(pet_id, pet_data)
 	_pets[pet_id] = pet_data
 	return pet_data
+
+
+func _sanitize_satiety_value(value: Variant) -> float:
+	return clampf(float(value), SATIETY_MIN, SATIETY_MAX)
+
+
+func _sanitize_satiety_exhaustion_timer(value: Variant, satiety: float) -> float:
+	if satiety > SATIETY_MIN:
+		return 0.0
+	return maxf(0.0, float(value))
+
+
+func _get_satiety_exhaustion_ratio(timer: float, telegraph_seconds: float) -> float:
+	var duration := maxf(0.001, telegraph_seconds)
+	return clampf(maxf(0.0, timer) / duration, 0.0, 1.0)
 
 
 func _get_existing_pet_data(pet_id: String) -> Dictionary:
@@ -1512,7 +1965,6 @@ func _build_result(
 		"levels_gained": max(0, level_after - level_before),
 		"rewards": rewards.duplicate(true),
 		"blocked_reason": blocked_reason,
-		"best_level": int(pet_data.get("best_level", level_after)),
 		"reward_counts": _reward_counts_snapshot(pet_data),
 		"next_reward": get_next_reward(pet_id),
 	}

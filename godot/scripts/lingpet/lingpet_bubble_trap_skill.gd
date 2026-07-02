@@ -5,6 +5,7 @@ const LingpetBubbleTrapPayloadFactory := preload("res://scripts/lingpet/lingpet_
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PROJECTILE_SPEED := 220.0
+const PROJECTILE_SPEED_BY_LEVEL := [185.0, 205.0, 225.0, 250.0, 285.0]
 const PROJECTILE_RADIUS := 22.0
 const PROJECTILE_WOBBLE_AMPLITUDE := 15.0
 const PROJECTILE_WOBBLE_SECONDARY_AMPLITUDE := 5.5
@@ -19,12 +20,19 @@ const STAGE3_BOSS_VISUAL_CENTER_Y_OFFSET := 31.0
 const STAGE4_BOSS_VISUAL_CENTER_Y_OFFSET := 34.0
 const DEFAULT_BOSS_VISUAL_CENTER_Y_OFFSET := 25.0
 const SHOT_INTERVAL_SECONDS := 0.6
-const SHOT_COUNT_MIN := 2
-const SHOT_COUNT_MAX := 3
+const SHOT_COUNT_BASE := 2
+const EXTRA_SHOT_MAX_BY_LEVEL := [1, 1, 2, 2, 3]
+const EXTRA_SHOT_CHANCE := 0.5
+const EXTRA_ROLL_SALT := 101.0
+const RAINBOW_CHANCE_BY_LEVEL := [0.0, 0.0, 0.20, 0.20, 0.20]
+const RAINBOW_SIZE_MULT_BY_LEVEL := [0.0, 0.0, 2.0, 2.0, 2.5]
+const RAINBOW_ROLL_SALT := 211.0
 const FOLLOW_LAUNCH_OFFSET_Y := -24.0
-const SHOT_X_OFFSETS := [0.0, -26.0, 26.0]
+const SHOT_X_OFFSETS := [0.0, -26.0, 26.0, -52.0, 52.0]
 const CAPTURE_DURATION_MIN_SECONDS := 2.5
 const CAPTURE_DURATION_MAX_SECONDS := 3.0
+const CAPTURE_MIN_BY_LEVEL := [2.0, 2.3, 2.6, 2.8, 3.0]
+const CAPTURE_MAX_BY_LEVEL := [3.0, 3.3, 3.6, 3.8, 4.0]
 const CAPTURE_FLOAT_SPEED := 56.0
 const CAPTURE_STATUS_REFRESH_FRAMES := 4.0
 const BURST_FLASH_SECONDS := 0.34
@@ -54,6 +62,11 @@ var _shot_count_target := 0
 var _shots_launched := 0
 var _shot_interval_timer := 0.0
 var _last_launch_origin := Vector2.ZERO
+var _active_skill_level := 1
+var _projectile_speed := PROJECTILE_SPEED
+var _rainbow_pending := false
+var _force_extra_for_tests := -1
+var _force_rainbow_for_tests := -1
 var _capture_timer := 0.0
 var _capture_duration_seconds := CAPTURE_DURATION_MIN_SECONDS
 var _bubble_center := Vector2.ZERO
@@ -71,6 +84,9 @@ var _last_burst_reason := ""
 func reset() -> void:
 	_clear_projectiles()
 	_reset_shot_sequence()
+	_active_skill_level = 1
+	_projectile_speed = PROJECTILE_SPEED
+	_rainbow_pending = false
 	_capture_timer = 0.0
 	_capture_duration_seconds = CAPTURE_DURATION_MIN_SECONDS
 	_bubble_center = Vector2.ZERO
@@ -99,7 +115,10 @@ func update(delta: float, owner: Object, registry: Object = null, launch_context
 		_update_particles(safe_delta)
 
 
-func launch(origin: Vector2, _owner: Object = null, _launch_context: Dictionary = {}) -> void:
+func launch(origin: Vector2, _owner: Object = null, launch_context: Dictionary = {}) -> void:
+	_active_skill_level = _read_level(launch_context)
+	_projectile_speed = _get_level_float(PROJECTILE_SPEED_BY_LEVEL, _active_skill_level, PROJECTILE_SPEED)
+	_rainbow_pending = _roll_rainbow(origin)
 	_clear_projectiles()
 	_shot_count_target = _pick_shot_count(origin)
 	_shots_launched = 0
@@ -149,9 +168,13 @@ func get_pop_count_for_tests() -> int:
 func get_snapshot() -> Dictionary:
 	var primary_projectile := _get_primary_projectile()
 	return {
+		"bubble_trap_active_skill_level": _active_skill_level,
+		"bubble_trap_projectile_speed": _projectile_speed,
 		"bubble_trap_projectile_active": not _projectiles.is_empty(),
 		"bubble_trap_projectile_count": _projectiles.size(),
 		"bubble_trap_projectile_pos": primary_projectile.get("pos", Vector2.ZERO),
+		"bubble_trap_projectile_is_rainbow": bool(primary_projectile.get("is_rainbow", false)),
+		"bubble_trap_rainbow_active": _has_rainbow_projectile(),
 		"bubble_trap_projectile_positions": _get_projectile_positions(),
 		"bubble_trap_projectile_visual_radii": _get_projectile_visual_radii(),
 		"bubble_trap_inner_bubble_size_variance": INNER_BUBBLE_SIZE_VARIANCE,
@@ -211,9 +234,9 @@ func _update_projectile(projectile: Dictionary, delta: float, owner: Object, reg
 	)
 	var next_pos := Vector2(
 		clampf(origin_x + wobble_x, radius, FIELD_WIDTH - radius),
-		pos.y - PROJECTILE_SPEED * maxf(0.20, speed_scale) * delta
+		pos.y - _projectile_speed * maxf(0.20, speed_scale) * delta
 	)
-	if _ball_hits_circle(owner, next_pos, radius):
+	if not bool(projectile.get("is_rainbow", false)) and _ball_hits_circle(owner, next_pos, radius):
 		_burst_projectile_at(next_pos, registry, "ball")
 		return false
 	var boss_rect: Rect2 = _get_boss_rect(owner)
@@ -334,12 +357,16 @@ func _launch_next_projectile(origin: Vector2) -> void:
 	var shot_origin := Vector2(clampf(origin.x + offset_x, PROJECTILE_RADIUS, FIELD_WIDTH - PROJECTILE_RADIUS), origin.y)
 	var visual_seed := _seeded_unit(shot_origin.x + shot_origin.y, float(_shots_launched) + float(_capture_count + _pop_count) * 3.17)
 	var radius_scale := lerpf(0.92, 1.08, _seeded_unit(visual_seed, 5.0))
+	var is_rainbow := _rainbow_pending and _shots_launched == 0
+	var rainbow_mult := _get_level_float(RAINBOW_SIZE_MULT_BY_LEVEL, _active_skill_level, 0.0) if is_rainbow else 0.0
 	_projectiles.append(
 		LingpetBubbleTrapPayloadFactory.build_projectile(
 			shot_origin,
-			PROJECTILE_SPEED,
+			_projectile_speed,
 			visual_seed,
-			radius_scale
+			radius_scale,
+			is_rainbow,
+			rainbow_mult
 		)
 	)
 	_shots_launched += 1
@@ -348,11 +375,29 @@ func _launch_next_projectile(origin: Vector2) -> void:
 
 
 func _pick_shot_count(origin: Vector2) -> int:
-	var span: int = maxi(0, SHOT_COUNT_MAX - SHOT_COUNT_MIN)
-	if span <= 0:
-		return SHOT_COUNT_MIN
-	var roll := int(floor(_deterministic_unit(origin + Vector2(float(_capture_count), float(_pop_count))) * float(span + 1)))
-	return clampi(SHOT_COUNT_MIN + roll, SHOT_COUNT_MIN, SHOT_COUNT_MAX)
+	var max_extra: int = _get_level_int(EXTRA_SHOT_MAX_BY_LEVEL, _active_skill_level, 1)
+	var extra := 0
+	for i in range(max_extra):
+		if _roll_extra_success(origin, i):
+			extra += 1
+	return SHOT_COUNT_BASE + extra
+
+
+func _roll_extra_success(origin: Vector2, index: int) -> bool:
+	if _force_extra_for_tests == 0:
+		return false
+	if _force_extra_for_tests == 1:
+		return true
+	return _seeded_unit(origin.x + origin.y, EXTRA_ROLL_SALT + float(index) + float(_active_skill_level)) < EXTRA_SHOT_CHANCE
+
+
+func _roll_rainbow(origin: Vector2) -> bool:
+	var chance := _get_level_float(RAINBOW_CHANCE_BY_LEVEL, _active_skill_level, 0.0)
+	if chance <= 0.0:
+		return false
+	if _force_rainbow_for_tests != -1:
+		return _force_rainbow_for_tests == 1
+	return _seeded_unit(origin.x + origin.y, RAINBOW_ROLL_SALT + float(_active_skill_level)) < chance
 
 
 func _get_follow_launch_origin(owner: Object, launch_context: Dictionary) -> Vector2:
@@ -405,7 +450,17 @@ func _get_projectile_visual_radii() -> Array[float]:
 
 
 func _get_projectile_radius(projectile: Dictionary) -> float:
+	if bool(projectile.get("is_rainbow", false)):
+		return PROJECTILE_RADIUS * maxf(1.0, float(projectile.get("rainbow_size_mult", 2.0)))
 	return PROJECTILE_RADIUS * clampf(float(projectile.get("radius_scale", 1.0)), 0.70, 1.30)
+
+
+func _has_rainbow_projectile() -> bool:
+	for projectile_value in _projectiles:
+		var projectile := projectile_value as Dictionary
+		if bool(projectile.get("is_rainbow", false)):
+			return true
+	return false
 
 
 func _apply_boss_stun(registry: Object) -> void:
@@ -470,6 +525,15 @@ func _draw_projectile(canvas: CanvasItem, projectile: Dictionary, shake_offset: 
 			var prev_pos: Vector2 = (trail[i - 1] as Vector2) + shake_offset
 			canvas.draw_line(prev_pos, trail_pos, Color(0.68, 1.0, 1.0, 0.28 * ratio), maxf(1.0, 2.8 * ratio), true)
 	_draw_bubble_core(canvas, pos, radius, 0.92, 0.22, visual_seed)
+	if bool(projectile.get("is_rainbow", false)):
+		_draw_rainbow_projectile_shimmer(canvas, pos, radius, 0.92)
+
+
+func _draw_rainbow_projectile_shimmer(canvas: CanvasItem, center: Vector2, radius: float, alpha: float) -> void:
+	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	var hue: float = fmod(time_seconds * 0.15 + center.x * 0.002, 1.0)
+	canvas.draw_circle(center, radius * 0.96, Color.from_hsv(hue, 0.35, 1.0, alpha * 0.18))
+	canvas.draw_arc(center, radius * 0.92, -PI * 0.32, PI * 0.88, 32, Color.from_hsv(fmod(hue + 0.12, 1.0), 0.38, 1.0, alpha * 0.42), 2.4, true)
 
 
 func _draw_capture_bubble(canvas: CanvasItem, center: Vector2) -> void:
@@ -581,8 +645,26 @@ func _get_capture_bubble_radius(owner: Object, boss_rect: Rect2) -> float:
 
 
 func _pick_capture_duration_seconds(center: Vector2) -> float:
+	var lo := _get_level_float(CAPTURE_MIN_BY_LEVEL, _active_skill_level, CAPTURE_DURATION_MIN_SECONDS)
+	var hi := _get_level_float(CAPTURE_MAX_BY_LEVEL, _active_skill_level, CAPTURE_DURATION_MAX_SECONDS)
 	var roll := _seeded_unit(center.x + center.y, float(_capture_count) + 71.0)
-	return lerpf(CAPTURE_DURATION_MIN_SECONDS, CAPTURE_DURATION_MAX_SECONDS, roll)
+	return lerpf(lo, hi, roll)
+
+
+func _read_level(ctx: Dictionary) -> int:
+	return clampi(int(ctx.get("active_skill_level", ctx.get("skill_level", 1))), 1, 5)
+
+
+func _get_level_float(values: Array, active_skill_level: int, fallback: float) -> float:
+	if values.is_empty():
+		return fallback
+	return float(values[clampi(active_skill_level, 1, values.size()) - 1])
+
+
+func _get_level_int(values: Array, active_skill_level: int, fallback: int) -> int:
+	if values.is_empty():
+		return fallback
+	return int(values[clampi(active_skill_level, 1, values.size()) - 1])
 
 
 func _get_boss_visual_center_y_offset(owner: Object) -> float:

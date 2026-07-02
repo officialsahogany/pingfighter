@@ -1,12 +1,14 @@
 extends SceneTree
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const BattleSceneLifecycle := preload("res://scripts/core/battle_scene_lifecycle.gd")
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const BallRoundController := preload("res://scripts/ball/ball_round_controller.gd")
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
@@ -19,10 +21,15 @@ const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collectio
 const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
 const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
+const LingpetActiveSkillSlotResolver := preload("res://scripts/lingpet/lingpet_active_skill_slot_resolver.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const LingpetSaveStore := preload("res://scripts/lingpet/lingpet_save_store.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
+const LingpetCompanionDistanceRollState := preload("res://scripts/lingpet/lingpet_companion_distance_roll_state.gd")
+const LingpetCompanionSkillArmGate := preload("res://scripts/lingpet/lingpet_companion_skill_arm_gate.gd")
+const LingpetCompanionSkillPersistence := preload("res://scripts/lingpet/lingpet_companion_skill_persistence.gd")
+const LingpetCompanionSkillVisualResolver := preload("res://scripts/lingpet/lingpet_companion_skill_visual_resolver.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
 const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
@@ -30,6 +37,12 @@ const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_tex
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
+const LingpetTutorialBootstrap := preload("res://scripts/lingpet/lingpet_tutorial_bootstrap.gd")
+const LingpetUnlockLoadoutReconciler := preload("res://scripts/lingpet/lingpet_unlock_loadout_reconciler.gd")
+const LingpetNoneOwnerSyncState := preload("res://scripts/lingpet/lingpet_none_owner_sync_state.gd")
+const LingpetItemEggAbsorbRouter := preload("res://scripts/lingpet/lingpet_item_egg_absorb_router.gd")
+const LingpetItemEggLifecycleState := preload("res://scripts/lingpet/lingpet_item_egg_lifecycle_state.gd")
 
 var _failures: Array[String] = []
 
@@ -38,6 +51,7 @@ class FakeOwner:
 	extends RefCounted
 
 	var ai_mode := "junior league"
+	var current_stage := 1
 	var selected_character_type := "smasher"
 	var player_pos := Vector2(263.75, 675.0)
 	var player_paddle_width := 232.5
@@ -47,6 +61,10 @@ class FakeOwner:
 	var boss_paddle_width := 100.0
 	var boss_hitbox_height := 40.0
 	var lingpet_puppet_grab_active := false
+	var lingpet_star_coil_boss_slow_active := false
+	var lingpet_star_coil_boss_slow_multiplier := 1.0
+	var lingpet_star_coil_block_boss_dash := false
+	var lingpet_star_coil_freeze_boss_skill_cd := false
 	var ball_active := false
 	var ball_pos := Vector2.ZERO
 	var ball_pos_prev := Vector2.ZERO
@@ -94,10 +112,6 @@ class FakeOwner:
 	var ringpet_ring_core_tier := 0
 	var lingpet_affinity_chip_count := 0
 	var ringpet_affinity_chip_count := 0
-	var lingpet_bond_points := 0
-	var ringpet_bond_points := 0
-	var lingpet_bond_title := ""
-	var ringpet_bond_title := ""
 	var lingpet_companion_defense_intercept_active := false
 	var ringpet_companion_defense_intercept_active := false
 	var lingpet_companion_defense_intercept_target_x := 0.0
@@ -242,10 +256,6 @@ class FakeBattleOwner:
 	var ringpet_affinity_next_requirement := 0.0
 	var lingpet_affinity_next_label := ""
 	var ringpet_affinity_next_label := ""
-	var lingpet_bond_points := 0
-	var ringpet_bond_points := 0
-	var lingpet_bond_title := ""
-	var ringpet_bond_title := ""
 	var lingpet_companion_defense_intercept_active := false
 	var ringpet_companion_defense_intercept_active := false
 	var lingpet_companion_defense_intercept_target_x := 0.0
@@ -481,6 +491,22 @@ class FakeWhip:
 		return {}
 
 
+class FakeDashState:
+	extends RefCounted
+
+	var active := false
+	var direction := 0.0
+
+	func is_active() -> bool:
+		return active
+
+	func get_snapshot() -> Dictionary:
+		return {
+			"active": active,
+			"direction": direction,
+		}
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -496,24 +522,6 @@ class FakeRegistry:
 		return null
 
 
-class FakeAffinityBondStore:
-	extends RefCounted
-
-	var bond_levels: Dictionary = {}
-	var calls: Array[Dictionary] = []
-
-	func add_bond_levels(pet_id: String, amount: int) -> bool:
-		var normalized_pet_id := pet_id.strip_edges().to_lower()
-		if normalized_pet_id == "" or amount <= 0:
-			return false
-		calls.append({"pet_id": normalized_pet_id, "amount": amount})
-		bond_levels[normalized_pet_id] = int(bond_levels.get(normalized_pet_id, 0)) + amount
-		return true
-
-	func get_bond_level(pet_id: String) -> int:
-		return int(bond_levels.get(pet_id.strip_edges().to_lower(), 0))
-
-
 class FakeCutinHost:
 	extends RefCounted
 
@@ -521,7 +529,12 @@ class FakeCutinHost:
 	var done_after := 2
 	var anim_ready := true
 
-	func prewarm_pet_assets_step(pet_id: String) -> bool:
+	func prewarm_pet_assets_step(
+		pet_id: String,
+		_allow_sync_fallback: bool = false,
+		_perf_logger: Object = null,
+		_perf_label_prefix: String = ""
+	) -> bool:
 		prewarm_calls.append(pet_id)
 		return prewarm_calls.size() >= done_after
 
@@ -531,12 +544,15 @@ class FakeCutinHost:
 
 func _init() -> void:
 	_verify_registry_and_frame_wiring()
+	_verify_item_egg_hatch_rolls_loadout()
 	_verify_lingpet_catalog_random_hatch_scaffold()
 	_verify_junior_mika_spawn_syncs_character_info_keys()
 	_verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch()
 	_verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility()
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_egg_color_rolls_once_and_restores()
+	_verify_bare_egg_roll_physics_and_renderer()
+	_verify_egg_dash_collision_knocks_and_wall_rebounds()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
 	_verify_one_ball_hit_hatches_unidentified_egg()
@@ -545,6 +561,11 @@ func _init() -> void:
 	_verify_acquire_cutin_assets_prewarm_during_egg_phase()
 	_verify_acquire_cutin_reveal_holds_until_anim_sheet_ready()
 	_verify_owned_maribo_is_kept_as_companion()
+	_verify_pro_league_egg_item_deploy()
+	_verify_lingpet_egg_deploys_while_companion_active()
+	_verify_lingpet_egg_overflow_replace_release_choice()
+	_verify_lingpet_egg_overflow_reset_resolves_to_release()
+	_verify_lingpet_egg_deploy_blocked_in_junior()
 	_verify_lingpet_battle_slot_model()
 	_verify_companion_visual_and_pillar_card()
 	_verify_companion_patrol_ignores_viper_airborne_y()
@@ -565,6 +586,7 @@ func _init() -> void:
 	_verify_companion_skill_card_hydro_sphere()
 	_verify_hydro_sphere_scales_with_level()
 	_verify_lingpet_skill_cooldown_survives_slot_switch()
+	_verify_lingpet_slot_switch_clears_owner_locked_skill_flags()
 	_verify_lingpet_skill_waits_for_switch_transition()
 	_verify_hydro_puddle_vfx()
 	_verify_save_snapshot_roundtrip()
@@ -591,10 +613,12 @@ func _init() -> void:
 	_verify_lunabi_headbutt_level_scaling()
 	_verify_lunabi_headbutt_mega()
 	_verify_koyora_puppet_grab_skill()
+	_verify_skeleton_archer_resets_on_stage_transition()
 	_verify_loadout_apply_prewarms_active_skill_runtime()
 	_verify_companion_click_reaction()
 	_verify_affinity_click_start_edge_and_visibility_gate()
 	_verify_affinity_score_event_and_battle_reset()
+	_verify_ring_core_upgrade_grants_affinity_to_all_owned_pets()
 	_verify_affinity_reward_application()
 	_verify_second_active_slot_runtime_foundation()
 	_verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change()
@@ -622,8 +646,8 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime != null and runtime.has_method("update"), "lingpet egg runtime should be registered")
 	var save_store: Object = registry.get_instance("lingpet_save_store")
 	_expect(save_store != null and save_store.has_method("restore_runtime"), "lingpet save store should be registered")
-	var affinity_store: Object = registry.get_instance("lingpet_affinity_store")
-	_expect(affinity_store != null and affinity_store.has_method("get_best_level"), "lingpet affinity residue store should be registered")
+	var lingpet_catalog_source: String = FileAccess.get_file_as_string("res://scripts/resources/gameplay_lingpet_module_catalog.gd")
+	_expect(lingpet_catalog_source.find("\"lingpet_affinity_store\"") < 0, "meta-only affinity store should not stay registered as a live gameplay module")
 	var callback_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_update_callbacks.gd")
 	var flow_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_frame_flow_controller.gd")
 	var drawer_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
@@ -654,20 +678,58 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/stages/common/lingpet_rail_card.gd"), "shared lingpet rail card helper should exist")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png"), "Maribo Hydro Sphere rail card should ship a landscape (boss-card class) imagegen PNG")
 	_expect(drawer_source.find("lingpet_egg_runtime") >= 0, "playfield drawer should keep drawing the ringpet companion after hatching")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base.png"), "shared unidentified lingpet egg should use the neutral resonance PNG-backed runtime asset")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_1.png"), "shared unidentified lingpet egg should have a first-hit neutral cracked PNG variant")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_2.png"), "shared unidentified lingpet egg should have a second-hit neutral cracked PNG variant")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_holder.png"), "shared unidentified lingpet egg should ship the common holder layer")
+	var asset_renderer := LingpetEggFieldRenderer.new()
+	_expect(LingpetEggFieldRenderer.EGG_BARE_VARIANT_PATHS.size() == asset_renderer.get_variant_count(), "egg renderer variant count should be derived from the bare variant path list")
+	_expect(LingpetEggFieldRenderer.EGG_VARIANT_GLOW.size() == asset_renderer.get_variant_count(), "egg renderer should keep one glow color per variant path")
+	for variant_index in range(asset_renderer.get_variant_count()):
+		_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_bare_variant_%d.png" % variant_index), "field lingpet egg should ship bare variant layer %d" % variant_index)
+		_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_variant_%d.png" % variant_index), "holder-era resonance egg variant layer %d should stay on disk for rollback/icon/reference" % variant_index)
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_item_icon.png"), "lingpet egg active-item slot icon should ship the precomposited holder+crystal image")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base.png"), "legacy neutral resonance egg base should stay on disk for rollback/reference")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_1.png"), "legacy neutral first-crack resonance egg should stay on disk for rollback/reference")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_2.png"), "legacy neutral second-crack resonance egg should stay on disk for rollback/reference")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "legacy Maribo egg art should stay on disk for reference even after the shared resonance egg repoint")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var round_resetter_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_round_resetter.gd")
 	_expect(runtime_source.find("LINGPET_EGG_TEXTURE") < 0, "field egg rendering should not hard-preload the shared egg PNGs")
-	_expect(runtime_source.find("\"egg_crack_1\"") >= 0, "field egg rendering should still keep the first cracked catalog visual key for multi-hit profiles")
-	_expect(runtime_source.find("\"egg_crack_2\"") >= 0, "field egg rendering should still keep the stronger cracked catalog visual key")
 	_expect(runtime_source.find("lingpet_egg_field_renderer.gd") >= 0, "egg runtime should delegate field egg rendering to the egg renderer module")
+	_expect(runtime_source.find("func _get_egg_texture_for_hits") < 0, "egg runtime should not keep a single-use egg-texture wrapper after renderer-owned layer delegation")
+	_expect(runtime_source.find("func _draw_egg") < 0, "egg runtime should not keep a single-use field-egg draw wrapper")
+	_expect(runtime_source.find("func _draw_item_egg") < 0, "egg runtime should not keep a single-use item-egg draw wrapper")
+	_expect(runtime_source.find("func _draw_hatch_flash") < 0, "egg runtime should not keep a single-use hatch-flash draw wrapper")
+	_expect(runtime_source.find("_current_profile.get_visual_texture") < 0, "egg runtime should not resolve egg textures through the current pet profile")
+	_expect(runtime_source.find("_egg_renderer.draw_profile_egg") >= 0, "egg runtime should delegate coexisting item-egg drawing to the shared egg renderer")
+	_expect(runtime_source.find("_egg_renderer.draw_hatch_flash") >= 0, "egg runtime should call the egg renderer directly for hatch-flash drawing")
+	_expect(runtime_source.find("_egg_renderer.prewarm()") >= 0, "egg runtime should prewarm renderer-owned bare variant egg textures off the draw path")
+	_expect(runtime_source.find("var _hatch_flash_timer") < 0, "egg runtime should not keep raw hatch-flash timer state")
+	_expect(runtime_source.find("_egg_state.has_hatch_flash") >= 0 and runtime_source.find("_egg_state.get_hatch_flash_timer") >= 0, "egg runtime should read hatch-flash timer state from the egg field state")
+	# The hatch-flash TRIGGER is routed through the companion runtime resetter: egg runtime
+	# loads egg_state + hatch_flash_seconds into the hatch-reveal context, and the resetter
+	# calls egg_state.trigger_hatch_flash() from that context.
+	_expect(runtime_source.find("\"hatch_flash_seconds\"") >= 0 and runtime_source.find("start_hatch_reveal_effects") >= 0, "egg runtime should load egg_state + hatch_flash_seconds into the hatch-reveal context for the resetter")
+	var hatch_runtime_resetter_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
+	_expect(hatch_runtime_resetter_source.find("trigger_hatch_flash") >= 0, "companion runtime resetter should trigger the hatch flash via the context egg_state")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_egg_field_renderer.gd"), "egg-field renderer module should exist")
 	var egg_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
 	var egg_field_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_state.gd")
-	_expect(egg_renderer_source.find("get_tint_for_index") >= 0 and egg_renderer_source.find("draw_texture_rect(egg_texture, texture_rect, false, Color(tint.r") >= 0, "egg renderer should tint the neutral egg texture through the rolled resonance color")
+	_expect(egg_renderer_source.find("HOLDER_PATH") < 0 and egg_renderer_source.find("EGG_BARE_VARIANT_PATHS") >= 0, "field egg renderer should use bare variant texture paths and no holder layer")
+	_expect(egg_renderer_source.find("func prewarm") >= 0 and egg_renderer_source.find("load_imported_texture") >= 0, "egg renderer should expose a prewarm path for bare variant textures")
+	var egg_draw_body: String = _function_body(egg_renderer_source, "func draw_egg")
+	_expect(egg_draw_body.find("load_imported_texture") < 0 and egg_draw_body.find("_load_egg_texture") < 0, "egg renderer draw_egg() should use cached textures only, never hot-path lazy loading")
+	_expect(egg_draw_body.find("holder_texture") < 0 and egg_renderer_source.find("draw_texture_rect(holder_texture") < 0, "field egg renderer must not draw the holder layer")
+	_expect(egg_renderer_source.find("_draw_rotated_texture(canvas, egg_texture, texture_rect, final_rotation)") >= 0, "field egg renderer should draw the bare egg through the rotated texture path")
+	_expect(egg_renderer_source.find("draw_set_transform") < 0, "field egg rotation should avoid draw_set_transform state leaks")
+	_expect(egg_renderer_source.find("Color(tint.r") < 0 and egg_renderer_source.find("EGG_TINTS") < 0 and egg_renderer_source.find("get_tint_for_index") < 0, "egg renderer should not keep the old tint/modulate path")
+	_expect(egg_renderer_source.find("profile.get_visual_texture") < 0 and egg_renderer_source.find("get_visual_key_for_hits") < 0, "egg renderer should not read egg textures from pet profiles")
+	_expect(egg_field_state_source.find("func trigger_hatch_flash") >= 0 and egg_field_state_source.find("func get_hatch_flash_timer") >= 0, "egg field state should own hatch-flash timer lifecycle")
 	_expect(egg_field_state_source.find("egg_color_index") >= 0 and egg_field_state_source.find("roll_color_index()") >= 0, "egg field state should own the one-time resonance color roll")
+	_expect(egg_renderer_source.find("EGG_VARIANT_GLOW") >= 0, "egg renderer should own variant-specific glow colors")
+	var hatch_flash_body: String = _function_body(egg_renderer_source, "func draw_hatch_flash")
+	var hatch_burst_body: String = _function_body(egg_renderer_source, "func _draw_hatch_shell_burst")
+	_expect(hatch_flash_body.find("variant_index") >= 0 and hatch_flash_body.find("_draw_hatch_shell_burst(canvas, center, t, variant_index)") >= 0, "hatch flash should pass the egg variant into the shard burst")
+	_expect(hatch_burst_body.find("_get_glow_for_index(variant_index)") >= 0 and hatch_burst_body.find("glow.lerp(Color.WHITE") >= 0, "hatch shards should tint by the egg variant glow, not a fixed palette")
+	_expect(hatch_burst_body.find("Color(1.0, 0.74, 0.93") < 0, "hatch shards should drop the fixed pink shell palette so amber/violet/jade eggs do not spray pink")
 	_expect(egg_renderer_source.find("_draw_egg_crack_light") >= 0, "field egg rendering should leak light from cracked shell paths after a hatch hit")
 	_expect(egg_renderer_source.find("HATCH_BREAK_SHARD_COUNT") >= 0, "field hatch should keep a shell-fragment burst spec")
 	_expect(egg_renderer_source.find("_draw_hatch_shell_burst") >= 0, "field hatch should draw breaking egg fragments during the hatch flash")
@@ -679,9 +741,39 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime_source.find("lingpet_runtime_snapshot_builder.gd") >= 0, "egg runtime should delegate live/save snapshot and owner sync payloads to the snapshot builder")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd"), "lingpet runtime snapshot builder module should exist")
 	var snapshot_builder_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
+	var loadout_state_source_for_snapshot: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_loadout_state.gd")
+	var current_loadout_applier_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_loadout_applier.gd")
+	var current_pet_transition_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_pet_transition.gd")
 	_expect(snapshot_builder_source.find("build_runtime_snapshot") >= 0, "snapshot builder should own live runtime snapshot assembly")
 	_expect(snapshot_builder_source.find("build_save_snapshot") >= 0, "snapshot builder should own save snapshot assembly")
 	_expect(snapshot_builder_source.find("sync_owner") >= 0, "snapshot builder should own owner compatibility key sync")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_effect_text_resolver.gd"), "lingpet effect-text resolver module should exist")
+	_expect(runtime_source.find("LingpetEffectTextResolver.resolve") >= 0, "egg runtime should delegate owner-facing effect text selection to the effect-text resolver")
+	_expect(runtime_source.find("func _get_effect_text") < 0, "egg runtime should not keep a single-use effect-text wrapper")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd"), "lingpet affinity context coordinator module should exist")
+	_expect(runtime_source.find("_affinity_context_coordinator.configure") >= 0, "egg runtime should call the affinity coordinator directly for reward-context composition")
+	_expect(current_pet_transition_source.find("sync_current_profile") >= 0 and current_loadout_applier_source.find("sync_current_profile") >= 0, "current-pet transition and current-loadout applier should own current-profile affinity projection")
+	_expect(runtime_source.find("func _configure_affinity_reward_context") < 0, "egg runtime should not keep a reward-context configuration pass-through wrapper")
+	_expect(runtime_source.find("func _sync_current_profile_affinity") < 0, "egg runtime should not keep a current-profile affinity sync pass-through wrapper")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_current_pet_transition.gd"), "current pet transition helper should exist")
+	_expect(current_pet_transition_source.find("func apply") >= 0 and current_pet_transition_source.find("sync_current_profile") >= 0 and current_pet_transition_source.find("invalidate_runtime_and_snapshot_cache") >= 0, "current pet transition helper should own current-pet profile sync and change side effects")
+	_expect(runtime_source.find("lingpet_current_pet_transition.gd") >= 0 and runtime_source.find("_current_pet_transition.apply") >= 0, "egg runtime should delegate current-pet id transition side effects")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_current_loadout_applier.gd"), "current loadout applier should exist")
+	_expect(current_loadout_applier_source.find("func apply") >= 0 and current_loadout_applier_source.find("ensure_pet_loadout") >= 0 and current_loadout_applier_source.find("reconcile_for_runtime") >= 0, "current loadout applier should own current-pet loadout ensure and unlock reconciliation")
+	_expect(current_loadout_applier_source.find("LingpetLoadoutCacheKeyBuilder") >= 0 and current_loadout_applier_source.find("mark_runtime_cache_applied") >= 0, "current loadout applier should own current-loadout apply-cache keying")
+	_expect(runtime_source.find("lingpet_current_loadout_applier.gd") >= 0 and runtime_source.find("_current_loadout_applier.apply") >= 0, "egg runtime should delegate current-loadout application fanout")
+	_expect(runtime_source.find("lingpet_loadout_cache_key_builder.gd") < 0, "egg runtime should not own current-loadout cache-key construction directly")
+	_expect(snapshot_builder_source.find("func invalidate_sync_cache") >= 0, "snapshot builder should expose cache invalidation as a fixed module contract")
+	_expect(loadout_state_source_for_snapshot.find("func invalidate_runtime_and_snapshot_cache") >= 0 and loadout_state_source_for_snapshot.find("snapshot_builder.invalidate_sync_cache()") >= 0, "loadout state should own runtime-cache and snapshot-sync cache invalidation")
+	_expect(loadout_state_source_for_snapshot.find("func forget_pet_loadout_and_invalidate") >= 0 and loadout_state_source_for_snapshot.find("forget_pet_loadout(owner, pet_id)") >= 0, "loadout state should own forget-loadout plus cache invalidation fanout")
+	_expect(loadout_state_source_for_snapshot.find("func set_pet_loadout_and_invalidate") >= 0 and loadout_state_source_for_snapshot.find("set_pet_loadout(") >= 0, "loadout state should own set-loadout plus cache invalidation fanout")
+	_expect(runtime_source.find("func _invalidate_current_loadout_cache") < 0, "egg runtime should not keep a private loadout-cache invalidation wrapper")
+	_expect(runtime_source.find("_loadout_state.invalidate_runtime_and_snapshot_cache") >= 0, "egg runtime should delegate cache invalidation to the loadout-state owner")
+	_expect(runtime_source.find("_loadout_state.forget_pet_loadout(") < 0, "egg runtime should not repeat forget-loadout without the loadout-state invalidation helper")
+	var debug_grant_body := _function_body(runtime_source, "func debug_grant_and_activate_pet")
+	_expect(debug_grant_body.find("_loadout_state.set_pet_loadout_and_invalidate") >= 0, "debug-grant loadout writes should use the loadout-state invalidation helper")
+	_expect(debug_grant_body.find("_loadout_state.set_pet_loadout(") < 0, "debug-grant loadout writes should not repeat set-loadout without cache invalidation")
+	_expect(runtime_source.find("_snapshot_builder.has_method(\"invalidate_sync_cache\")") < 0, "egg runtime should not guard the fixed snapshot builder invalidation contract dynamically")
 	var save_restore_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_save_restore_planner.gd")
 	_expect(runtime_source.find("lingpet_save_restore_planner.gd") >= 0, "egg runtime should delegate save-restore target decisions to the restore planner")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_save_restore_planner.gd"), "lingpet save-restore planner module should exist")
@@ -689,6 +781,17 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(save_restore_source.find("active_pet_id") >= 0 and save_restore_source.find("battle_slot_pet_ids") >= 0, "save-restore planner should preserve active pet and battle slot interpretation")
 	_expect(runtime_source.find("lingpet_companion_body_hit_state.gd") >= 0, "egg runtime should delegate companion body hit bounce/gauge state to the body-hit module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_hit_state.gd"), "companion body-hit state module should exist")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_feed_controller.gd"), "lingpet feed controller module should exist")
+	_expect(runtime_source.find("func _advance_feed_bowl_state") < 0, "egg runtime should not keep a single-use feed-bowl advance wrapper")
+	_expect(runtime_source.find("func _reset_feed_bowl_state") < 0, "egg runtime should not keep a single-use feed reset wrapper")
+	_expect(runtime_source.find("_feed_controller.advance") >= 0 and runtime_source.find("LingpetAffinityState.SOURCE_FEED") >= 0, "egg runtime should advance feed bowls and grant completed feeds through the shared affinity source")
+	_expect(runtime_source.find("_feed_controller.reset_all") >= 0, "egg runtime should call the feed controller directly for feed reset cleanup")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd"), "companion body presence resolver module should exist")
+	_expect(runtime_source.find("func _is_companion_body_available_for_hit") < 0, "egg runtime should not keep a single-use companion body hit-availability wrapper")
+	_expect(runtime_source.find("func _is_companion_body_draw_suppressed") < 0, "egg runtime should not keep a single-use companion body draw-suppression wrapper")
+	_expect(runtime_source.find("func _is_companion_body_visible_for_draw") < 0, "egg runtime should not keep a single-use companion body draw-visibility wrapper")
+	_expect(runtime_source.find("_companion_body_presence_resolver.is_available_for_hit") >= 0, "egg runtime should call the body presence resolver directly for hit availability")
+	_expect(runtime_source.find("_companion_body_presence_resolver.is_visible_for_draw") >= 0, "egg runtime should call the body presence resolver directly for draw visibility")
 	_expect(runtime_source.find("lingpet_afterglow_leak_state.gd") >= 0, "egg runtime should delegate the Afterglow Leak residue passive to a focused state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_afterglow_leak_state.gd"), "Afterglow Leak passive state module should exist")
 	_expect(runtime_source.find("lingpet_starlight_tracking_state.gd") >= 0, "egg runtime should delegate the Starlight Tracking auto-collection passive to a focused state module")
@@ -696,8 +799,12 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd"), "starpoint stages should share a lingpet Starlight Tracking bridge")
 	_expect(runtime_source.find("lingpet_ring_dash_state.gd") >= 0, "egg runtime should delegate the Ring Dash emergency guard passive to a focused state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_ring_dash_state.gd"), "Ring Dash passive state module should exist")
+	_expect(runtime_source.find("func _play_ring_dash_audio") < 0, "egg runtime should not keep a single-use Ring Dash audio wrapper")
+	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_ring_dash") >= 0, "egg runtime should dispatch Ring Dash audio directly from the dash-start event")
 	_expect(runtime_source.find("lingpet_companion_motion_state.gd") >= 0, "egg runtime should delegate companion patrol/defense motion to the motion-state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_motion_state.gd"), "companion motion-state module should exist")
+	_expect(runtime_source.find("func _reset_companion_defense") < 0, "egg runtime should not keep a single-use companion defense reset wrapper")
+	_expect(round_resetter_source.find("companion_motion_state.reset_defense") >= 0, "round resetter should reset companion defense state through the motion-state module")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 	_expect(runtime_source.find("lingpet_companion_draw_context_builder.gd") >= 0, "egg runtime should delegate companion draw config assembly to the draw-context builder")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd"), "companion draw-context builder module should exist")
@@ -765,7 +872,12 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(runtime_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "lingpet runtime should expose the post-reveal dismissable state")
 	_expect(runtime_source.find("dismiss_acquire_cutin") >= 0, "lingpet runtime should support hard dismissal of the cut-in")
 	_expect(runtime_source.find("begin_acquire_cutin_dismiss") >= 0, "lingpet runtime should start the click-triggered exit action")
-	_expect(runtime_source.find("_get_current_acquire_cutin_dismiss_seconds") >= 0 and runtime_source.find("cutin_dismiss_seconds") >= 0, "lingpet runtime should allow pet-specific acquisition click-dismiss duration tuning")
+	_expect(runtime_source.find("func _get_current_acquire_cutin_dismiss_seconds") < 0, "lingpet runtime should not reintroduce the single-use acquisition dismiss-duration wrapper")
+	_expect(runtime_source.find("var _acquire_cutin_pet_id") < 0, "lingpet runtime should not keep raw acquire-cutin display identity state")
+	_expect(runtime_source.find("_acquire_cutin_state.get_display_pet_id") >= 0 and runtime_source.find("_acquire_cutin_state.has_display_override") >= 0, "lingpet runtime should ask acquire-cutin state for display identity")
+	for cutin_identity_wrapper in ["func _get_cutin_pet_id", "func _get_cutin_profile"]:
+		_expect(runtime_source.find(cutin_identity_wrapper) < 0, "lingpet runtime should resolve acquire-cutin display identity at the call site instead of keeping private wrappers (%s)" % cutin_identity_wrapper)
+	_expect(runtime_source.find("cutin_dismiss_seconds") >= 0 and runtime_source.find("LingpetAcquireCutinState.DISMISS_SECONDS") >= 0, "lingpet runtime should allow pet-specific acquisition click-dismiss duration tuning")
 	_expect(runtime_source.find("is_acquire_cutin_dismissing") >= 0, "lingpet runtime should expose the exit-action (dismissing) state")
 	_expect(runtime_source.find("get_acquire_cutin_dismiss_progress") >= 0, "lingpet runtime should expose the exit-action progress for the host")
 	var acquire_cutin_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
@@ -773,6 +885,12 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 		acquire_cutin_state_source.find("dismiss_seconds") >= 0
 		and acquire_cutin_state_source.find("begin_dismiss(duration_seconds") >= 0,
 		"lingpet acquire cut-in state should time the exit action with the pet-specific dismiss duration"
+	)
+	_expect(
+		acquire_cutin_state_source.find("display_pet_id") >= 0
+		and acquire_cutin_state_source.find("func get_display_pet_id") >= 0
+		and acquire_cutin_state_source.find("func has_display_override") >= 0,
+		"lingpet acquire cut-in state should own reveal-only display identity"
 	)
 	var hud_catalog_source: String = FileAccess.get_file_as_string("res://scripts/resources/gameplay_hud_module_catalog.gd")
 	_expect(hud_catalog_source.find("lingpet_acquire_cutin_overlay_host") >= 0, "HUD module catalog should register the lingpet acquisition cut-in host")
@@ -810,6 +928,9 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
 	_expect(host.has_method("prewarm_pet_assets_step"), "lingpet acquisition cut-in host should expose per-pet texture prewarm instead of warming every pet during boot")
 	_expect(cutin_host_dynamic_source.find("Boot warmup must stay lightweight") >= 0, "boot prewarm should avoid decoding every lingpet cut-in texture at Stage 1 loading")
+	_expect(runtime_source.find("_acquire_cutin_asset_prewarm_state.prewarm_registry_step") >= 0, "lingpet runtime should delegate acquire cut-in registry host resolution to the asset-prewarm owner")
+	for prewarm_wrapper in ["func _prewarm_acquire_cutin_assets_step", "func _prewarm_item_egg_cutin_assets_step"]:
+		_expect(runtime_source.find(prewarm_wrapper) < 0, "lingpet runtime should not keep private acquire cut-in asset-prewarm wrappers (%s)" % prewarm_wrapper)
 	var boot_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_assets_step")
 	var pet_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_pet_assets_step")
 	var sync_assets_body := _function_body(cutin_host_dynamic_source, "func _sync_assets_for_pet")
@@ -837,6 +958,9 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(game_audio_source.find("_ensure_lingpet_acquire_cutin_sfx") >= 0, "GameAudio should lazily recover the lingpet acquisition SFX player if setup did not create it")
 	_expect(game_audio_source.find("play_lingpet_acquire_cutin") >= 0, "GameAudio should expose a lingpet acquisition cut-in play method")
 	_expect(runtime_source.find("play_lingpet_acquire_cutin") >= 0, "lingpet runtime should request the acquisition cut-in sound when the screen starts")
+	_expect(runtime_source.find("func _play_acquire_cutin_audio") < 0, "lingpet runtime should not keep a single-use acquisition cut-in audio wrapper")
+	_expect(runtime_source.find("func _start_acquire_cutin") < 0, "lingpet runtime should not keep a single-use acquisition cut-in start wrapper")
+	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_cutin") >= 0, "lingpet runtime should dispatch acquisition cut-in audio directly from the cut-in start event")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"), "lingpet acquisition click Live2D should ship the deep bass doom backing SFX in the lingpet sound asset folder")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"), "lingpet acquisition click Live2D should ship the magic crackle sweep backing SFX in the lingpet sound asset folder")
 	var acquire_click_bass_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav")
@@ -849,6 +973,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(game_audio_source.find("LingpetAcquireClickCrackleSweepSfx") >= 0, "GameAudio should create a dedicated player for the acquisition click crackle sweep backing")
 	_expect(game_audio_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "GameAudio should expose a dedicated acquisition-click backing play method")
 	_expect(runtime_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "lingpet runtime should request the backing SFX only when the acquisition click Live2D starts")
+	_expect(runtime_source.find("func _play_acquire_click_reaction_backing_audio") < 0, "lingpet runtime should not keep a single-use acquisition-click backing audio wrapper")
+	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_click_reaction_backing") >= 0, "lingpet runtime should dispatch acquisition-click backing audio directly from the dismiss-start event")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3"), "Lunabi should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var lunabi_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3")
 	_expect(lunabi_click_voice_stream != null and lunabi_click_voice_stream.get_length() > 0.1, "Lunabi click-reaction voice should load as a playable Godot AudioStream")
@@ -922,9 +1048,13 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(candidates.has("volty"), "Volty should enter the random hatch pool after live catalog integration")
 	_expect(LingpetCatalog.is_pet_enabled("volty"), "Volty should be treated as a live pet")
 	_expect(all_catalog_pet_ids.has("orbi"), "catalog should keep the Serabi lingpet metadata")
-	_expect(enabled_catalog_pet_ids.has("orbi"), "Serabi should appear in enabled pet ids after companion/cut-in/click assets ship")
-	_expect(candidates.has("orbi"), "Serabi should enter the random hatch pool after live catalog integration")
+	_expect(enabled_catalog_pet_ids.has("orbi"), "Serabi should be enabled after the Gravity Accel skill port")
+	_expect(candidates.has("orbi"), "Serabi should enter the random hatch pool after the Gravity Accel skill port")
 	_expect(LingpetCatalog.is_pet_enabled("orbi"), "Serabi should be treated as a live pet")
+	_expect(all_catalog_pet_ids.has("orosha"), "catalog should keep the Orosha lingpet metadata")
+	_expect(enabled_catalog_pet_ids.has("orosha"), "Orosha should be enabled after Star Coil production promotion")
+	_expect(candidates.has("orosha"), "Orosha should enter the random hatch pool after Star Coil production promotion")
+	_expect(LingpetCatalog.is_pet_enabled("orosha"), "Orosha should be treated as a live pet")
 	for live_pet_id in LingpetCatalog.get_pet_ids():
 		var live_skill: Dictionary = LingpetCatalog.get_active_skill(live_pet_id)
 		var live_skill_id := str(live_skill.get("id", "")).strip_edges()
@@ -1001,10 +1131,11 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	}
 	var broken_windup_entry: Dictionary = broken_windup_entries["broken_windup"] as Dictionary
 	broken_windup_entry["id"] = "broken_windup"
-	var broken_windup_skill: Dictionary = broken_windup_entry["active_skill"] as Dictionary
+	var broken_windup_pool: Array = broken_windup_entry["active_skill_pool"] as Array
+	var broken_windup_skill: Dictionary = broken_windup_pool[0] as Dictionary
 	broken_windup_skill["windup_seconds"] = -0.25
 	var broken_windup_issues: Array[String] = LingpetCatalog.validate_entries(broken_windup_entries, false)
-	_expect(_issues_contain(broken_windup_issues, "active_skill.windup_seconds must be >= 0"), "catalog validator should catch invalid active-skill wind-up timing")
+	_expect(_issues_contain(broken_windup_issues, "active_skill_pool[0].windup_seconds must be >= 0"), "catalog validator should catch invalid active-skill wind-up timing")
 	var multi_entries := {
 		"maribo": LingpetCatalog.get_entry("maribo"),
 		"test_bubble": {
@@ -1038,8 +1169,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_display_name("volty") == "볼탄", "catalog should expose Voltan as the visible name for the volty runtime id")
 	_expect(LingpetCatalog.get_display_name("nekuring") == "네쿠링", "catalog should expose Nekuring as the visible name for the nekuring debug id")
 	_expect(LingpetCatalog.get_display_name("rabi") == "모락모랑", "catalog should expose Morakmorang as the visible name for the rabi runtime id")
-	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own the current shared unidentified egg visual path")
-	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
+	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("resonance_egg_base.png"), "catalog should own the current shared unidentified egg visual path")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("resonance_egg_base.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
 	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_walk")).ends_with("milkring_companion_walk.png"), "catalog should own Milkring's true leg-walk companion visual path")
 	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_strike")).ends_with("milkring_companion_strike.png"), "catalog should own Milkring companion strike visual path")
@@ -1074,10 +1205,9 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("orbi_companion_walk.png"), "catalog should own Serabi companion walk visual path")
 	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")).ends_with("orbi_companion_strike.png"), "catalog should own Serabi companion strike visual path")
 	# Decoupled (2026-06-24): koyora / nekuring / monkeyring / orosha use dedicated
-	# 14x7/98 dismiss sheets at 512px cells. The previous 5x5/25 sheets were small
-	# but only played at ~7fps over the long dismiss window; next-frame blending hid
-	# nothing and introduced visible alpha flicker. The panel click sheet stays
-	# full-res and uncapped, while hatch prewarm gets a medium-res dismiss-only sheet.
+	# 14x7/98 dismiss sheets at 512px cells. Panel click Live2D sheets that are
+	# not reused by fullscreen dismiss may ship as 4096px VRAM-compressed imports;
+	# koyora stays uncapped until explicitly moved.
 	for _dc_entry in [
 		{"pet": "nekuring", "click": "nekuring_click_live2d_pingpong_98f"},
 		{"pet": "koyora", "click": "koyora_click_live2d_pingpong_98f"},
@@ -1096,11 +1226,36 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		_expect(_dc_dismiss_import.find("process/size_limit=0") >= 0, "%s dedicated dismiss import should not be downscaled after the 512-cell repack" % _dc_pet)
 		_expect(_dc_dismiss_import.find("compress/mode=2") >= 0 and _dc_dismiss_import.find("\"vram_texture\": true") >= 0, "%s dedicated 98-frame dismiss sheet should be VRAM-compressed for hatch prewarm" % _dc_pet)
 		_expect(str(LingpetCatalog.get_visual_path(_dc_pet, "click_reaction_anim")).ends_with("%s.png" % _dc_click), "catalog should keep %s's panel click on the full-res click sheet" % _dc_pet)
-		_expect(FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _dc_click).find("process/size_limit=0") >= 0, "%s full click Live2D import should stay uncapped (size_limit=0) for panel-click quality" % _dc_pet)
+		var _dc_click_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _dc_click)
+		if _dc_pet in ["nekuring", "monkeyring", "orosha"]:
+			_expect(_dc_click_import.find("process/size_limit=4096") >= 0, "%s panel click Live2D import should use the 4096px cap after fullscreen dismiss was decoupled" % _dc_pet)
+			_expect(_dc_click_import.find("compress/mode=2") >= 0 and _dc_click_import.find("\"vram_texture\": true") >= 0, "%s panel click Live2D import should be VRAM-compressed after the 4096px cap policy" % _dc_pet)
+		else:
+			_expect(_dc_click_import.find("process/size_limit=0") >= 0, "%s full click Live2D import should stay uncapped until its panel policy is explicitly moved" % _dc_pet)
 		var _dc_seconds: float = float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_seconds", 3.35))
 		var _dc_action_portion: float = float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_action_portion", 0.74))
 		var _dc_effective_fps: float = 98.0 / maxf(0.01, _dc_seconds * _dc_action_portion)
 		_expect(_dc_effective_fps >= 22.0, "%s dismiss should have enough source frames for the long action window (effective fps %.2f)" % [_dc_pet, _dc_effective_fps])
+	var _lunabi_click_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/lunabi_click_live2d_pingpong_98f.png.import")
+	var _lunabi_dismiss_path := str(LingpetCatalog.get_visual_path("lunabi", "cutin_dismiss_anim"))
+	var _lunabi_click_path := str(LingpetCatalog.get_visual_path("lunabi", "click_reaction_anim"))
+	_expect(_lunabi_dismiss_path.ends_with("lunabi_cutin_dismiss_anim.png") and _lunabi_dismiss_path != _lunabi_click_path, "Lunabi fullscreen dismiss should stay decoupled from the panel click Live2D sheet")
+	_expect(FileAccess.file_exists(_lunabi_dismiss_path), "Lunabi should ship the dedicated fullscreen dismiss sheet used by the decoupled catalog path")
+	_expect(_lunabi_click_import.find("process/size_limit=4096") >= 0, "Lunabi panel click Live2D import should keep the 4096px cap because fullscreen dismiss is decoupled")
+	_expect(_lunabi_click_import.find("compress/mode=2") >= 0 and _lunabi_click_import.find("\"vram_texture\": true") >= 0, "Lunabi panel click Live2D import should be VRAM-compressed for stage-entry prewarm")
+	for _alias_pet in [
+		{"pet": "onimaru", "click": "onimaru_click_live2d_autosprite_98f_amber_gripfix"},
+		{"pet": "rahoset", "click": "rahoset_click_ritual_linked_v2_autosprite_98f"},
+	]:
+		var _alias_pet_id: String = str(_alias_pet["pet"])
+		var _alias_click: String = str(_alias_pet["click"])
+		_expect(str(LingpetCatalog.get_visual_path(_alias_pet_id, "cutin_dismiss_anim")).ends_with("%s.png" % _alias_click), "%s should still document the click-sheet fullscreen dismiss alias" % _alias_pet_id)
+		var _alias_click_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _alias_click)
+		_expect(_alias_click_import.find("process/size_limit=0") >= 0, "%s click sheet should stay uncapped while fullscreen dismiss still aliases it" % _alias_pet_id)
+		if _alias_pet_id == "rahoset":
+			_expect(_alias_click_import.find("compress/mode=2") >= 0 and _alias_click_import.find("\"vram_texture\": true") >= 0, "Rahoset aliased full-res click/dismiss sheet should stay uncapped but VRAM-compressed")
+		else:
+			_expect(_alias_click_import.find("compress/mode=0") >= 0 and _alias_click_import.find("\"vram_texture\": false") >= 0, "Onimaru aliased full-res click/dismiss sheet should stay uncapped and lossless until dismiss decouples")
 	# These four dedicated sheets are 14x7/98, so they must carry the same grid override
 	# as the backlog 98-frame dismiss pets. A stale default would slice them as 5x5/25.
 	var _dismiss_host_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
@@ -1109,8 +1264,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(_dismiss_host_source.find("\"rabi\": 14") >= 0 and _dismiss_host_source.find("\"rabi\": 98") >= 0, "rabi (still reusing its 14x7/98 click sheet as the dismiss) should keep the 14x7/98 override")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's panel click Live2D to the full 98-frame click sheet")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim")).ends_with("nekuring_companion_click_reaction_98f.png"), "catalog should route Nekuring's in-battle companion click to the downscaled 98-frame sheet")
-	var nekuring_click_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png")
-	_expect(nekuring_click_texture != null and nekuring_click_texture.get_width() == 16128 and nekuring_click_texture.get_height() == 8064, "Nekuring full click Live2D should load as a 14x7 / 98-frame 1152-cell HQ sheet")
+	ProjectResourceLoader.clear_caches()
+	var nekuring_imported_click_texture: Texture2D = ProjectResourceLoader.load_imported_texture("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png")
+	_expect(nekuring_imported_click_texture != null and nekuring_imported_click_texture.get_width() <= 4096 and nekuring_imported_click_texture.get_width() >= 4000 and is_equal_approx(float(nekuring_imported_click_texture.get_width()) / float(maxi(1, nekuring_imported_click_texture.get_height())), 2.0), "Nekuring imported panel click Live2D should load through the 4096px / 14x7 runtime cap")
+	ProjectResourceLoader.clear_caches()
 	var nekuring_companion_click_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f.png")
 	_expect(nekuring_companion_click_texture != null and nekuring_companion_click_texture.get_width() == 1792 and nekuring_companion_click_texture.get_height() == 896, "Nekuring companion click Live2D should load as a 14x7 / 98-frame 128-cell sheet")
 	var nekuring_click_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f_manifest.json")
@@ -1131,11 +1288,38 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_active_skill_entry("volty_gatling_burst").get("runtime_kind", "")) == "gatling_burst", "catalog should expose Volty's Gatling Burst runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("runtime_kind", "")) == "dragon_breath", "catalog should expose Red Dragon's Dragon Breath runtime kind by skill id")
 	_expect(is_equal_approx(float(LingpetCatalog.get_active_skill_entry("red_dragon_dragon_breath").get("cooldown", 0.0)), 40.0), "Red Dragon Dragon Breath should use the requested 40-second cooldown")
-	_expect(str(LingpetCatalog.get_active_skill_entry("orbi_ring_orbit").get("runtime_kind", "")) == "moon_orbit", "catalog should expose Serabi's temporary ring-orbit runtime kind by skill id")
+	_expect(LingpetCatalog.get_active_skill_entry("orbi_ring_orbit").is_empty(), "catalog should no longer expose Serabi's removed Ring Orbit skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("orbi_gravity_accel").get("runtime_kind", "")) == "gravity_accel", "catalog should expose Serabi's Gravity Accel runtime kind by skill id")
+	_expect(LingpetCatalog.get_active_skill_pool("orbi").size() == 2, "Serabi should expose a 2-skill active pool (gravity_accel + dwarf_magic)")
+	var orbi_gravity_lv1: Dictionary = LingpetCatalog.get_active_skill("orbi", "orbi_gravity_accel", 1)
+	var orbi_gravity_lv5: Dictionary = LingpetCatalog.get_active_skill("orbi", "orbi_gravity_accel", 5)
+	_expect(float(orbi_gravity_lv5.get("duration_seconds", 0.0)) > float(orbi_gravity_lv1.get("duration_seconds", 0.0)), "Serabi Gravity Accel duration should grow with level")
+	_expect(float(orbi_gravity_lv5.get("gravity_strength", 0.0)) > float(orbi_gravity_lv1.get("gravity_strength", 0.0)), "Serabi Gravity Accel strength should grow with level")
+	_expect(str(LingpetCatalog.get_active_skill_entry("orbi_dwarf_magic").get("runtime_kind", "")) == "dwarf_magic", "catalog should expose Serabi's Dwarf Magic runtime kind by skill id")
+	_expect(LingpetSkillDispatcher.is_dwarf_magic("orbi_dwarf_magic"), "skill dispatcher should route Serabi's Dwarf Magic through the dwarf_magic runtime")
+	var orbi_dwarf_lv1: Dictionary = LingpetCatalog.get_active_skill("orbi", "orbi_dwarf_magic", 1)
+	var orbi_dwarf_lv5: Dictionary = LingpetCatalog.get_active_skill("orbi", "orbi_dwarf_magic", 5)
+	_expect(float(orbi_dwarf_lv5.get("shrink_scale", 1.0)) < float(orbi_dwarf_lv1.get("shrink_scale", 1.0)), "Serabi Dwarf Magic should shrink the boss more at higher level")
+	_expect(float(orbi_dwarf_lv5.get("shrink_duration", 0.0)) > float(orbi_dwarf_lv1.get("shrink_duration", 0.0)), "Serabi Dwarf Magic shrink should last longer at higher level")
+	_expect(float(orbi_dwarf_lv5.get("boss_slow_multiplier", 1.0)) < float(orbi_dwarf_lv1.get("boss_slow_multiplier", 1.0)), "Serabi Dwarf Magic should slow the boss more at higher level")
 	_expect(LingpetCatalog.get_active_skill_entry("nekuring_ghost_summon").is_empty(), "catalog should no longer expose Nekuring's removed Skeleton Summon skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("nekuring_skeleton_archer").get("runtime_kind", "")) == "skeleton_archer", "catalog should expose Nekuring's Skeleton Archer runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("nekuring_bone_barrier").get("runtime_kind", "")) == "bone_barrier", "catalog should expose Nekuring's Bone Barrier runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("monkeyring_banana_slice").get("runtime_kind", "")) == "banana_slice", "catalog should expose Ppanamong's Banana Slice runtime kind by skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("onimaru_headbutt").get("runtime_kind", "")) == "headbutt", "catalog should route Onimaru's 뿔박치기 through the shared headbutt runtime")
+	_expect(LingpetSkillDispatcher.is_headbutt("onimaru_headbutt"), "skill dispatcher should resolve Onimaru's 뿔박치기 to the headbutt module via catalog runtime_kind")
+	var onimaru_headbutt_lv1: Dictionary = LingpetCatalog.get_active_skill("onimaru", "onimaru_headbutt", 1)
+	var onimaru_headbutt_lv5: Dictionary = LingpetCatalog.get_active_skill("onimaru", "onimaru_headbutt", 5)
+	_expect(str(onimaru_headbutt_lv1.get("name", "")) == "뿔박치기", "Onimaru active skill should be named 뿔박치기")
+	_expect(float(onimaru_headbutt_lv1.get("disable_moving_miss", 0.0)) > 0.5, "Onimaru 뿔박치기 should disable the random moving-target miss roll, unlike the Lunabi template")
+	_expect(int(round(float(onimaru_headbutt_lv1.get("headbutt_count", 0.0)))) == 1 and int(round(float(onimaru_headbutt_lv5.get("headbutt_count", 0.0)))) == 1, "Onimaru 뿔박치기 should stay a single committed headbutt at every level (no Lunabi combo)")
+	_expect(float(onimaru_headbutt_lv5.get("mega_chance", -1.0)) == 0.0, "Onimaru 뿔박치기 should never roll the random Lunabi mega charge")
+	_expect(float(onimaru_headbutt_lv5.get("dash_radius", 0.0)) > float(onimaru_headbutt_lv1.get("dash_radius", 0.0)), "Onimaru 뿔박치기 reach/hit radius should widen with level")
+	_expect(is_equal_approx(float(onimaru_headbutt_lv1.get("hit_stun_seconds", 0.0)), 2.0) and is_equal_approx(float(onimaru_headbutt_lv5.get("hit_stun_seconds", 0.0)), 3.5), "Onimaru 뿔박치기 boss stun should grow Lv.1 2.0s → Lv.5 3.5s")
+	_expect(is_equal_approx(float(onimaru_headbutt_lv1.get("self_stun_seconds", 0.0)), 5.0) and is_equal_approx(float(onimaru_headbutt_lv5.get("self_stun_seconds", 0.0)), 2.0), "Onimaru 뿔박치기 self-stun should shrink Lv.1 5.0s → Lv.5 2.0s")
+	# Onimaru headbutt RUNTIME behavior (fixed wall target / dodgeable empty slam,
+	# per-hit stun, self-stun + body-hit suppression) is owned by the dedicated
+	# lingpet_headbutt_skill_smoke.gd.
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
 	_expect(str(LingpetCatalog.get_passive_skill("maribo", "maribo_resonance_boost").get("id", "")) == "lingpet_resonance_boost", "catalog should resolve legacy passive-skill ids to Resonance Boost metadata")
 	_expect(str(LingpetCatalog.get_passive_skill("maribo", "maribo_resonance_boost").get("name", "")) == "공명 증폭", "catalog should resolve selected passive-skill metadata by id")
@@ -1147,7 +1331,9 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetSkillDispatcher.is_bomb_surprise("volty_bomb_surprise"), "skill dispatcher should route Volty's Bomb Surprise skill through the bomb_surprise runtime")
 	_expect(LingpetSkillDispatcher.is_gatling_burst("volty_gatling_burst"), "skill dispatcher should route Volty's Gatling Burst skill through the gatling_burst runtime")
 	_expect(LingpetSkillDispatcher.is_dragon_breath("red_dragon_dragon_breath"), "skill dispatcher should route Red Dragon's Dragon Breath skill through the dragon_breath runtime")
-	_expect(LingpetSkillDispatcher.is_moon_orbit("orbi_ring_orbit"), "skill dispatcher should route Serabi's temporary ring-orbit skill through the moon-orbit runtime")
+	_expect(not LingpetSkillDispatcher.is_moon_orbit("orbi_ring_orbit"), "skill dispatcher should not route Serabi's removed Ring Orbit skill through moon_orbit")
+	_expect(LingpetSkillDispatcher.is_gravity_accel("orbi_gravity_accel"), "skill dispatcher should route Serabi's Gravity Accel skill through the gravity_accel runtime")
+	_expect(LingpetSkillDispatcher.is_supported_kind("gravity_accel"), "skill dispatcher should expose Serabi's gravity_accel runtime kind")
 	_expect(not LingpetSkillDispatcher.is_ghost_summon("nekuring_ghost_summon"), "skill dispatcher should not route Nekuring's removed Skeleton Summon skill through ghost_summon")
 	_expect(LingpetSkillDispatcher.is_skeleton_archer("nekuring_skeleton_archer"), "skill dispatcher should route Nekuring's Skeleton Archer skill through the skeleton_archer runtime")
 	_expect(LingpetSkillDispatcher.is_bone_barrier("nekuring_bone_barrier"), "skill dispatcher should route Nekuring's Bone Barrier skill through the bone_barrier runtime")
@@ -1164,30 +1350,325 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var dispatcher_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 	var skill_runtime_host_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
+	var skill_runtime_surface_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_surface.gd")
 	var skill_controller_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_controller.gd")
+	var skill_update_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_update_context_builder.gd")
+	var skill_persistence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_persistence.gd")
+	var companion_runtime_resetter_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
+	var round_resetter_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_round_resetter.gd")
+	var affinity_hit_tag_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
+	var hatch_stat_roll_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_hatch_stat_roll_state.gd")
+	var current_loadout_applier_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_loadout_applier.gd")
+	var distance_roll_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_distance_roll_state.gd")
+	var body_presence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
+	var companion_motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 	var collection_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_collection_state.gd")
+	var save_restore_applier_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_save_restore_applier.gd")
+	var tutorial_bootstrap_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_tutorial_bootstrap.gd")
 	var current_profile_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_profile.gd")
+	var profile_runtime_surface_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_profile_runtime_surface.gd")
+	var current_visual_prewarm_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_visual_prewarm_coordinator.gd")
+	var overflow_choice_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_overflow_choice_state.gd")
+	var overflow_replace_plan_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_overflow_replace_plan.gd")
+	var overflow_release_plan_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_overflow_release_plan.gd")
+	var item_egg_absorb_router_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_item_egg_absorb_router.gd")
+	var item_egg_lifecycle_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_item_egg_lifecycle_state.gd")
+	var loadout_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_loadout_state.gd")
+	var none_owner_sync_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_none_owner_sync_state.gd")
 	_expect(runtime_source.find("lingpet_collection_state.gd") >= 0, "egg runtime should delegate owned collection + hatch candidate selection to the collection-state helper")
 	_expect(collection_source.find("LingpetCatalog.pick_hatch_pet_id") >= 0, "collection-state helper should pick the hidden egg identity through the catalog")
+	_expect(collection_source.find("func should_spawn_egg") >= 0, "collection-state helper should own hatch-candidate availability checks")
+	_expect(collection_source.find("func is_auto_present_league") >= 0, "collection-state helper should own Junior auto-present league checks")
+	_expect(collection_source.find("func ensure_pet_active_slot") >= 0, "collection-state helper should own owned-pet active battle-slot placement")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_collection_state.gd"), "lingpet collection-state helper should exist")
+	_expect(runtime_source.find("func _should_spawn_lingpet_egg") < 0, "egg runtime should not keep a thin hatch-candidate availability wrapper after collection-state delegation")
+	_expect(runtime_source.find("func _pick_hatch_pet_id") < 0, "egg runtime should not keep a thin hatch-selection wrapper after collection-state delegation")
+	_expect(runtime_source.find("func _is_lingpet_auto_present_league") < 0, "egg runtime should not keep a thin auto-present league wrapper after collection-state delegation")
+	_expect(runtime_source.find("_collection_state.should_spawn_egg") >= 0, "egg runtime should ask collection-state directly when gating automatic or plaza egg spawns")
+	_expect(runtime_source.find("_collection_state.pick_hatch_pet_id") >= 0, "egg runtime should ask collection-state directly when selecting the hidden egg identity")
+	_expect(runtime_source.find("_collection_state.is_auto_present_league") >= 0, "egg runtime should ask collection-state directly when gating Junior auto-present behavior")
+	_expect(runtime_source.find("func _find_first_owned_pet_id") < 0, "egg runtime should not keep an unused first-owned-pet wrapper after collection-state delegation")
+	_expect(runtime_source.find("func _find_active_slot_pet_id") < 0, "egg runtime should not keep a single-use active-slot pet lookup wrapper after collection-state delegation")
+	_expect(runtime_source.find("func _mark_current_pet_owned") < 0, "egg runtime should not keep a current-pet ownership pass-through wrapper after collection-state delegation")
+	_expect(runtime_source.find("func _mark_pet_owned") < 0, "egg runtime should not keep an owned-pet pass-through wrapper after collection-state delegation")
+	_expect(runtime_source.find("func _select_current_pet_slot") < 0, "egg runtime should not keep a current-pet active-slot pass-through wrapper after collection-state delegation")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_none_owner_sync_state.gd"), "none owner-sync gate helper should exist")
+	_expect(none_owner_sync_source.find("func update_none_state") >= 0 and none_owner_sync_source.find("func should_sync_once") >= 0 and none_owner_sync_source.find("func reset") >= 0, "none owner-sync gate should own STATE_NONE update policy and the once-per-none-state sync latch")
+	_expect(runtime_source.find("var _has_synced_none") < 0, "egg runtime should not keep raw none-state owner-sync latch")
+	_expect(runtime_source.find("func _update_none_state") < 0, "egg runtime should not keep a private STATE_NONE update helper")
+	_expect(runtime_source.find("_none_owner_sync_state.update_none_state") >= 0, "egg runtime should delegate STATE_NONE update policy to the none owner-sync helper")
+	var none_sync_gate := LingpetNoneOwnerSyncState.new()
+	_expect(bool(none_sync_gate.should_sync_once()), "none owner-sync gate should allow the first sync")
+	_expect(not bool(none_sync_gate.should_sync_once()), "none owner-sync gate should block repeat syncs until reset")
+	none_sync_gate.reset()
+	_expect(bool(none_sync_gate.should_sync_once()), "none owner-sync gate reset should allow sync again")
+	_expect(runtime_source.find("func _has_overflow_choice_pending") < 0, "egg runtime should not keep a single-use overflow-choice pending predicate wrapper")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_overflow_choice_state.gd"), "overflow choice state helper should exist")
+	_expect(overflow_choice_source.find("func begin_main_overflow") >= 0 and overflow_choice_source.find("func begin_item_egg_overflow") >= 0, "overflow choice helper should own main-egg and item-egg overflow state setup")
+	_expect(overflow_choice_source.find("func resolve_after_acquire_cutin") >= 0 and overflow_choice_source.find("mark_absorb_ready_if_awaiting") >= 0, "overflow choice helper should own acquire-cutin close routing between item-egg absorb and pending overflow activation")
+	_expect(runtime_source.find("func _begin_item_egg_overflow") < 0, "egg runtime should not keep a single-use item-egg overflow setup wrapper")
+	_expect(runtime_source.find("func _activate_overflow_choice_after_cutin") < 0, "egg runtime should not keep a private acquire-cutin completion router")
+	_expect(runtime_source.find("_overflow_choice_state.resolve_after_acquire_cutin") >= 0, "egg runtime should ask the overflow choice owner to resolve acquire-cutin completion")
+	_expect(overflow_choice_source.find("func build_snapshot") >= 0 and overflow_choice_source.find("pending_display_name") >= 0, "overflow choice helper should own modal snapshot payload assembly")
+	_expect(overflow_choice_source.find("func consume_release_context") >= 0 and overflow_choice_source.find("func consume_commit_pet_id") >= 0, "overflow choice helper should own capture-before-reset release/commit context")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_overflow_release_plan.gd"), "overflow release plan helper should exist")
+	_expect(overflow_release_plan_source.find("func consume") >= 0 and overflow_release_plan_source.find("consume_release_context") >= 0 and overflow_release_plan_source.find("ACTION_RESTORE_COMPANION") >= 0, "overflow release plan helper should own release context interpretation and restore action selection")
+	_expect(overflow_release_plan_source.find("has_owned_pet") >= 0 and overflow_release_plan_source.find("ACTION_CLEAR_PENDING") >= 0, "overflow release plan helper should own restore-vs-clear release decision")
+	var overflow_release_body := _function_body(runtime_source, "func commit_overflow_release")
+	_expect(overflow_release_body.find("_overflow_release_plan.consume") >= 0, "overflow release commit should ask the release-plan owner for action routing")
+	_expect(overflow_release_body.find("consume_release_context") < 0 and overflow_release_body.find("\"from_item_egg\"") < 0 and overflow_release_body.find("suspended_companion_pet_id") < 0, "overflow release commit should not interpret release context inline")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_overflow_replace_plan.gd"), "overflow replace plan helper should exist")
+	_expect(overflow_replace_plan_source.find("func consume") >= 0 and overflow_replace_plan_source.find("is_item_egg_source") >= 0 and overflow_replace_plan_source.find("replace_slot") >= 0, "overflow replace plan helper should own replace context interpretation and main-slot replacement")
+	_expect(overflow_replace_plan_source.find("ACTION_ITEM_EGG_REPLACE") >= 0 and overflow_replace_plan_source.find("ACTION_FINISH_MAIN_COMMIT") >= 0, "overflow replace plan helper should expose item-egg and main-commit actions")
+	var overflow_replace_body := _function_body(runtime_source, "func commit_overflow_replace")
+	_expect(overflow_replace_body.find("_overflow_replace_plan.consume") >= 0, "overflow replace commit should ask the replace-plan owner for action routing")
+	_expect(overflow_replace_body.find("_collection_state.replace_slot") < 0 and overflow_replace_body.find("_overflow_choice_state.is_item_egg_source") < 0 and overflow_replace_body.find("_overflow_choice_state.get_pending_pet_id") < 0, "overflow replace commit should not interpret replace context inline")
+	_expect(runtime_source.find("func get_overflow_choice_snapshot") >= 0 and runtime_source.find("_overflow_choice_state.build_snapshot") >= 0, "egg runtime should keep only the public overflow snapshot bridge")
+	_expect(runtime_source.find("\"pending_display_name\"") < 0, "egg runtime should not assemble overflow modal display payloads inline")
+	for overflow_field in ["_pending_overflow_choice", "_overflow_choice_active", "_pending_overflow_pet_id", "_suspended_companion_pet_id", "_overflow_from_item_egg"]:
+		_expect(runtime_source.find("var %s" % overflow_field) < 0, "egg runtime should not keep raw overflow modal state fields (%s)" % overflow_field)
+	for direct_overflow_field in [".active", ".pending_pet_id", ".from_item_egg", ".suspended_companion_pet_id"]:
+		_expect(runtime_source.find("_overflow_choice_state%s" % direct_overflow_field) < 0, "egg runtime should not read overflow state fields directly (%s)" % direct_overflow_field)
+	_expect(runtime_source.find("func _clear_overflow_choice_state") < 0, "egg runtime should not keep a private overflow-choice reset wrapper")
+	_expect(runtime_source.find("_overflow_choice_state.has_pending_or_active()") >= 0, "egg runtime should gate egg offers/deploy/reset through the overflow choice state owner")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_item_egg_lifecycle_state.gd"), "item-egg lifecycle state helper should exist")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_item_egg_absorb_router.gd"), "item-egg absorb router should exist")
+	_expect(item_egg_absorb_router_source.find("func route_absorbed_pet") >= 0 and item_egg_absorb_router_source.find("begin_item_egg_overflow") >= 0 and item_egg_absorb_router_source.find("add_pet_to_collection_keep_active") >= 0, "item-egg absorb router should own free-slot vs overflow routing")
+	_expect(item_egg_absorb_router_source.find("func commit_overflow_replace") >= 0 and item_egg_absorb_router_source.find("replace_slot") >= 0 and item_egg_absorb_router_source.find("ensure_pet_active_slot") >= 0, "item-egg absorb router should own overflow replace slot routing and companion-slot preservation")
+	_expect(item_egg_lifecycle_source.find("func begin_incubation") >= 0 and item_egg_lifecycle_source.find("func finish_incubation_for_reveal") >= 0 and item_egg_lifecycle_source.find("func consume_ready_absorb") >= 0, "item-egg lifecycle helper should own active/reveal/absorb state transitions")
+	_expect(item_egg_lifecycle_source.find("LingpetCurrentProfile") >= 0 and item_egg_lifecycle_source.find("func get_profile") >= 0 and item_egg_lifecycle_source.find("func get_required_hits") >= 0, "item-egg lifecycle helper should own the dedicated incubator-egg profile")
+	_expect(item_egg_lifecycle_source.find("func clear_runtime_state") >= 0 and item_egg_lifecycle_source.find("clear_display_pet_id") >= 0, "item-egg lifecycle helper should own full item-egg cleanup across lifecycle, field egg, absorb VFX, and reveal identity")
+	_expect(item_egg_lifecycle_source.find("func advance_incubation_for_reveal") >= 0 and item_egg_lifecycle_source.find("resolve_ball_hit") >= 0, "item-egg lifecycle helper should own the coexisting item-egg tick-to-reveal transition")
+	_expect(runtime_source.find("_item_egg_lifecycle_state") >= 0, "egg runtime should delegate coexisting item-egg lifecycle flags to the lifecycle helper")
+	_expect(runtime_source.find("func _clear_item_egg_state") < 0, "egg runtime should not keep a private item-egg cleanup wrapper after lifecycle delegation")
+	_expect(runtime_source.find("func _advance_item_egg") < 0 and runtime_source.find("func _on_item_egg_hatched") < 0, "egg runtime should not keep private item-egg tick/reveal wrappers after lifecycle delegation")
+	_expect(runtime_source.find("_item_egg_lifecycle_state.clear_runtime_state") >= 0, "egg runtime should ask the item-egg lifecycle helper to clear coexisting item-egg runtime state")
+	_expect(runtime_source.find("_item_egg_lifecycle_state.advance_incubation_for_reveal") >= 0, "egg runtime should ask the item-egg lifecycle helper to advance coexisting item eggs into reveal")
+	_expect(runtime_source.find("_item_egg_absorb_router.route_absorbed_pet") >= 0, "egg runtime should ask the item-egg absorb router to register or overflow absorbed pets")
+	var item_absorb_body := _function_body(runtime_source, "func _perform_item_egg_absorb")
+	_expect(item_absorb_body.find("_collection_state.is_full") < 0 and item_absorb_body.find("add_pet_to_collection_keep_active") < 0 and item_absorb_body.find("begin_item_egg_overflow") < 0, "item-egg absorb should not keep collection full/free-slot/overflow routing inline")
+	var item_overflow_replace_body := _function_body(runtime_source, "func _commit_item_egg_overflow_replace")
+	_expect(item_overflow_replace_body.find("_item_egg_absorb_router.commit_overflow_replace") >= 0, "item-egg overflow replace should ask the absorb router to commit slot routing")
+	_expect(item_overflow_replace_body.find("_collection_state.replace_slot") < 0 and item_overflow_replace_body.find("_collection_state.ensure_pet_active_slot") < 0, "item-egg overflow replace should not keep collection replace/active-slot routing inline")
+	_expect(runtime_source.find("var _item_egg_profile") < 0, "egg runtime should not keep a raw coexisting item-egg profile")
+	_expect(runtime_source.find("_item_egg_lifecycle_state.get_profile") >= 0 and runtime_source.find("_item_egg_lifecycle_state.get_required_hits") >= 0, "egg runtime should ask item-egg lifecycle for incubator profile reads")
+	var item_lifecycle := LingpetItemEggLifecycleState.new()
+	_expect(bool(item_lifecycle.begin_incubation("rabi")), "item-egg lifecycle should accept a valid incubator pet id")
+	_expect(str(item_lifecycle.get_profile().pet_id) == "rabi", "item-egg lifecycle should update its dedicated profile when incubation starts")
+	var item_absorb_router := LingpetItemEggAbsorbRouter.new()
+	_expect(item_absorb_router != null, "item-egg absorb router should instantiate for runtime routing")
+	for item_egg_field in ["_item_egg_active", "_item_egg_pet_id", "_item_egg_awaiting_absorb", "_item_egg_absorb_ready", "_item_egg_absorb_pet_id", "_item_egg_absorb_origin"]:
+		_expect(runtime_source.find("var %s" % item_egg_field) < 0, "egg runtime should not keep raw coexisting item-egg lifecycle fields (%s)" % item_egg_field)
+	_expect(companion_runtime_resetter_source.find("collection_state.ensure_pet_active_slot") >= 0, "companion runtime resetter should ask collection-state when marking/selecting the active lingpet")
+	_expect(save_restore_applier_source.find("ensure_pet_active_slot") >= 0, "save-restore applier should republish restored owned pets through collection-state instead of runtime private hooks")
+	_expect(save_restore_applier_source.find("_mark_current_pet_owned") < 0, "save-restore applier should not depend on the old runtime-owned-pet private hook")
+	_expect(runtime_source.find("lingpet_tutorial_bootstrap.gd") >= 0, "egg runtime should delegate Junior Mika first-egg tutorial ring-core policy to a focused bootstrap helper")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_tutorial_bootstrap.gd"), "lingpet tutorial bootstrap helper should exist")
+	_expect(runtime_source.find("func _grant_tutorial_standard_ring_core_if_needed") < 0, "egg runtime should not keep the tutorial ring-core grant policy after bootstrap delegation")
+	_expect(runtime_source.find("func _is_tutorial_first_lingpet_egg") < 0, "egg runtime should not keep the tutorial first-egg eligibility policy after bootstrap delegation")
+	_expect(runtime_source.find("_tutorial_bootstrap.grant_standard_ring_core_if_needed") >= 0, "egg runtime should call the tutorial bootstrap helper before spawning an automatic egg")
+	_expect(int(LingpetTutorialBootstrap.STANDARD_RING_CORE_TIER) == 1, "tutorial bootstrap standard tier constant should stay at the shipped tutorial tier")
+	_expect(tutorial_bootstrap_source.find("STANDARD_RING_CORE_TIER := 1") >= 0, "tutorial bootstrap should own the standard ring-core tutorial tier")
+	_expect(tutorial_bootstrap_source.find("is_first_lingpet_egg_eligible") >= 0 and tutorial_bootstrap_source.find("upgrade_run_ring_core_tier") >= 0, "tutorial bootstrap should own first-egg eligibility and run-state ring-core upgrade")
 	_expect(runtime_source.find("lingpet_current_profile.gd") >= 0, "egg runtime should delegate current pet catalog lookups to the current-profile helper")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_profile_runtime_surface.gd"), "profile runtime surface should exist for guarded companion stat/passive reads")
+	_expect(runtime_source.find("lingpet_profile_runtime_surface.gd") >= 0 and runtime_source.find("_profile_runtime_surface") >= 0, "egg runtime should ask the profile runtime surface for repeated companion profile values")
+	_expect(profile_runtime_surface_source.find("func build_runtime_surface") >= 0 and profile_runtime_surface_source.find("func get_catch_width") >= 0 and profile_runtime_surface_source.find("func get_passive_skill") >= 0, "profile runtime surface should own companion stat/passive surface assembly")
 	_expect(runtime_source.find("LingpetCatalog") < 0, "egg runtime should not directly query the lingpet catalog after profile delegation")
+	_expect(runtime_source.find("func _get_current_display_name") < 0, "egg runtime should not keep an unused current-profile display-name wrapper")
+	for profile_wrapper in ["func _get_current_active_skill_pool", "func _get_current_passive_skill_pool", "func _get_current_player_speed_bonus_pct", "func _get_current_hit_half_width", "func _get_current_hit_half_height", "func _get_current_visual_texture", "func _get_current_cached_visual_texture", "func _get_current_passive_skill", "func _get_current_motion_style", "func _get_current_gauge_gain_bonus_pct", "func _get_current_required_hits", "func _get_current_stat", "func _get_current_hit_gauge_gain", "func _normalize_pet_id"]:
+		_expect(runtime_source.find(profile_wrapper) < 0, "egg runtime should not keep single-use current-profile pass-through wrappers (%s)" % profile_wrapper)
+	for profile_direct_call in [".get_required_hits(", ".get_stat(", ".get_hit_gauge_gain(", ".get_gauge_gain_bonus_pct(", ".get_player_speed_bonus_pct(", ".get_passive_skill(", ".get_motion_style(", ".get_active_skill_pool(", ".get_passive_skill_pool("]:
+		_expect(runtime_source.find("_current_profile%s" % profile_direct_call) < 0, "egg runtime should route repeated current-profile companion reads through the profile runtime surface (%s)" % profile_direct_call)
+	for unlock_wrapper in ["func _get_active_unlock_candidate_ids", "func _first_raw_candidates", "func _loadout_matches_unlock_reconcile"]:
+		_expect(runtime_source.find(unlock_wrapper) < 0, "egg runtime should not keep old unlock reconciler test wrappers (%s)" % unlock_wrapper)
 	_expect(current_profile_source.find("LingpetCatalog.get_stat") >= 0, "current-profile helper should own current pet stat lookup")
 	_expect(current_profile_source.find("LingpetVisualTextureCache") >= 0, "current-profile helper should own visual-cache access for the selected pet")
 	_expect(current_profile_source.find("_active_skill_cache_key") >= 0, "current-profile helper should cache resolved active-skill metadata for the companion hot path")
 	_expect(current_profile_source.find("_passive_effect_cache") >= 0, "current-profile helper should cache passive effect lookups instead of reapplying level dictionaries per frame")
-	_expect(runtime_source.find("_applied_loadout_key") >= 0, "egg runtime should not deep-normalize the active lingpet loadout every companion update")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_current_visual_prewarm_coordinator.gd"), "current visual prewarm coordinator should exist")
+	_expect(current_visual_prewarm_source.find("func prewarm_current") >= 0 and current_visual_prewarm_source.find("prewarm_visuals") >= 0 and current_visual_prewarm_source.find("prewarm_assets") >= 0, "current visual prewarm coordinator should own selected profile + companion renderer prewarm fanout")
+	_expect(current_visual_prewarm_source.find("queue_if_companion") >= 0, "current visual prewarm coordinator should own companion click-reaction queue fanout")
+	_expect(companion_runtime_resetter_source.find("current_visual_prewarm_coordinator.prewarm_current") >= 0, "companion runtime resetter should route current visual prewarm fanout through the coordinator")
+	_expect(runtime_source.find("func _prewarm_current_visuals") < 0, "egg runtime should not keep a private current-visual prewarm wrapper")
+	for loadout_runtime_field in ["_applied_loadout_key", "_synced_owner_loadout_key", "_skip_unlock_reconcile"]:
+		_expect(runtime_source.find("var %s" % loadout_runtime_field) < 0, "egg runtime should not keep raw loadout runtime transient field (%s)" % loadout_runtime_field)
+	_expect(loadout_state_source.find("func has_applied_runtime_cache") >= 0 and loadout_state_source.find("func should_skip_unlock_reconcile") >= 0, "loadout-state owner should expose runtime cache and unlock-reconcile skip helpers")
+	_expect(current_loadout_applier_source.find("loadout_state.has_applied_runtime_cache") >= 0 and current_loadout_applier_source.find("loadout_state.should_skip_unlock_reconcile") >= 0, "current loadout applier should ask loadout-state owner for loadout runtime cache and debug reconcile skip")
+	_expect(runtime_source.find("func _forget_pet_loadout") < 0, "egg runtime should not keep a private loadout-forget pass-through wrapper")
+	_expect(runtime_source.find("_loadout_state.forget_pet_loadout_and_invalidate") >= 0, "egg runtime should ask the loadout-state owner to forget overflow pets with cache invalidation")
+	for debug_stat_wrapper in ["func _get_current_patrol_speed", "func _get_current_defense_rate", "func _get_current_appearance_rate"]:
+		_expect(runtime_source.find(debug_stat_wrapper) < 0, "egg runtime should not keep profile-aware debug stat pass-through wrappers (%s)" % debug_stat_wrapper)
+	_expect(runtime_source.find("_debug_stat_overrides.get_patrol_speed") >= 0, "egg runtime should ask debug stat owner directly for profile-aware patrol speed")
+	_expect(runtime_source.find("_debug_stat_overrides.get_defense_rate") >= 0, "egg runtime should ask debug stat owner directly for profile-aware defense rate")
+	_expect(runtime_source.find("_debug_stat_overrides.get_appearance_rate") >= 0, "egg runtime should ask debug stat owner directly for profile-aware appearance rate")
+	_expect(companion_motion_source.find("func resume_sortie_loiter_from_current") >= 0, "companion motion state should own sortie-loiter resume after Ring Dash")
+	_expect(runtime_source.find("func _resume_companion_motion_after_ring_dash") < 0, "egg runtime should not keep a private ring-dash resume pass-through wrapper")
+	_expect(runtime_source.find("_companion_motion_state.resume_sortie_loiter_from_current") >= 0, "egg runtime should call the motion-state owner directly when Ring Dash releases position control")
 	var current_profile := LingpetCurrentProfile.new()
 	_expect(str(current_profile.set_pet_id("unknown_pet")) == "maribo", "current-profile helper should fall back to the default pet for unknown ids")
 	_expect(is_equal_approx(current_profile.get_visual_layout_value("companion_walk_draw_size", 0.0), 104.0), "current-profile helper should expose current pet visual-layout overrides")
 	_expect(is_equal_approx(float(current_profile.get_hit_gauge_gain(0.0)), 40.0), "current-profile helper should expose current pet hit gauge gain")
-	_expect(runtime_source.find("_pick_hatch_pet_id") >= 0, "egg runtime should keep a narrow hatch-selection hook for future weighted random lingpets")
 	_expect(runtime_source.find("_update_companion_skill_effects") >= 0, "egg runtime should keep a narrow companion active-skill update hook")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_active_skill_slot_resolver.gd"), "active skill slot resolver should exist for second-active slot policy")
+	_expect(runtime_source.find("_skill_runtime_surface.get_active_slot_count") >= 0, "egg runtime should ask the skill-runtime surface for active slot count")
+	_expect(runtime_source.find("_active_skill_slot_resolver.get_active_slot_count") < 0, "egg runtime should not reassemble active slot count inline")
+	_expect(runtime_source.find("_active_skill_slot_resolver.get_skill_id_for_slot") < 0, "egg runtime should ask the skill-runtime surface for per-slot skill ids")
+	_expect(runtime_source.find("_skill_runtime_surface.get_active_skill_ids") >= 0, "egg runtime should ask the skill-runtime surface for runtime active skill id lists")
+	_expect(runtime_source.find("_active_skill_slot_resolver.get_active_skill_ids_for_runtime") < 0, "egg runtime should not reassemble runtime active skill id lists inline")
+	_expect(runtime_source.find("_active_skill_slot_resolver.get_active_skill_for_slot") < 0, "egg runtime should ask the skill-runtime surface for active skill dictionaries")
+	_expect(runtime_source.find("_active_skill_slot_resolver.get_skill_windup_seconds_for_slot") < 0, "egg runtime should ask the skill-runtime surface for per-slot windup seconds")
+	for active_slot_wrapper in ["func _get_active_skill_for_slot", "func _get_skill_windup_seconds_for_slot", "func _get_skill_id_for_slot", "func _get_active_slot_count", "func _get_active_skill_ids_for_runtime"]:
+		_expect(runtime_source.find(active_slot_wrapper) < 0, "egg runtime should not keep single-use active-slot resolver pass-through wrappers (%s)" % active_slot_wrapper)
+	_expect(runtime_source.find("BattleSceneOwnerReader.get_value") >= 0, "egg runtime should read owner values through the shared owner reader directly")
+	_expect(runtime_source.find("func _get_owner_value") < 0, "egg runtime should not keep a single-use owner-reader pass-through wrapper")
+	for affinity_pet_id_wrapper in ["func _resolve_affinity_pet_id", "func _get_active_affinity_pet_id"]:
+		_expect(runtime_source.find(affinity_pet_id_wrapper) < 0, "egg runtime should resolve affinity pet ids at the public call site instead of keeping private pass-through wrappers (%s)" % affinity_pet_id_wrapper)
 	_expect(runtime_source.find("lingpet_companion_skill_controller.gd") >= 0, "egg runtime should delegate companion active-skill arm/launch decisions to the skill controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_controller.gd"), "companion skill controller should exist for future lingpet active skills")
 	_expect(skill_controller_source.find("ACTION_ARM") >= 0 and skill_controller_source.find("ACTION_LAUNCH") >= 0, "companion skill controller should own active-skill action decisions")
 	_expect(skill_controller_source.find("LingpetSkillDispatcher.has_supported_runtime") >= 0, "companion skill controller should guard supported runtime skill ids")
+	_expect(skill_controller_source.find("LingpetCompanionSkillArmGate") >= 0 and skill_controller_source.find("_arm_gate.can_arm") >= 0, "companion skill controller should own cross-slot arm-gate mediation")
+	_expect(skill_update_context_source.find("\"slot_index\"") >= 0 and skill_update_context_source.find("\"active_skill_ids\"") >= 0 and skill_update_context_source.find("\"skill_states\"") >= 0, "companion skill update context should carry slot data for controller-owned arm gating")
+	_expect(runtime_source.find("var _companion_skill_arm_gate") < 0, "egg runtime should not keep a companion skill arm-gate instance outside the controller")
+	_expect(skill_persistence_source.find("func is_any_winding_up") >= 0, "companion skill persistence should own shared windup-active checks")
+	_expect(skill_persistence_source.find("func get_state_for_slot") >= 0, "companion skill persistence should own clamped skill-state slot lookup")
+	_expect(skill_persistence_source.find("func reset_runtime_transients") >= 0, "companion skill persistence should own skill host runtime transient resets")
+	_expect(skill_persistence_source.find("var state_by_pet_id") >= 0, "companion skill persistence should own the stored per-pet skill-state dictionary")
+	_expect(runtime_source.find("var _companion_skill_state_by_pet_id") < 0, "egg runtime should not expose a raw stored skill-state dictionary alias")
+	_expect(runtime_source.find("func _is_any_companion_skill_winding_up") < 0, "egg runtime should not keep a single-use companion skill windup predicate wrapper")
+	_expect(runtime_source.find("_companion_skill_persistence.is_any_winding_up") >= 0, "egg runtime should ask skill persistence directly when motion needs the windup gate")
+	_expect(runtime_source.find("func _get_companion_skill_state_for_slot") < 0, "egg runtime should not keep a private companion skill slot accessor wrapper")
+	_expect(runtime_source.find("_companion_skill_persistence.get_state_for_slot") < 0, "egg runtime should ask the skill-runtime surface for clamped skill-state slot lookup")
+	_expect(runtime_source.find("func _cancel_companion_skill_windups") < 0, "egg runtime should not keep a single-use companion skill windup-cancel wrapper")
+	_expect(runtime_source.find("func _reset_companion_skill_round_transients") < 0, "egg runtime should not keep a single-use companion skill round-reset wrapper")
+	_expect(runtime_source.find("func _reset_companion_skill_states") < 0, "egg runtime should not keep a single-use companion skill state-reset wrapper")
+	_expect(runtime_source.find("func _reset_skill_runtime_transients") < 0, "egg runtime should not keep a private skill runtime transient reset wrapper")
+	_expect(runtime_source.find("func _save_current_companion_skill_state") < 0, "egg runtime should not keep a current-skill-state save pass-through wrapper")
+	_expect(runtime_source.find("func _restore_current_companion_skill_state") < 0, "egg runtime should not keep a current-skill-state restore pass-through wrapper")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd"), "companion runtime resetter should exist")
+	_expect(companion_runtime_resetter_source.find("func reset_state") >= 0 and companion_runtime_resetter_source.find("reset_runtime_transients") >= 0 and companion_runtime_resetter_source.find("reset_states") >= 0, "companion runtime resetter should own full companion runtime reset fanout")
+	_expect(companion_runtime_resetter_source.find("reset_defense") >= 0 and companion_runtime_resetter_source.find("feed_controller.reset_all") >= 0, "companion runtime resetter should own defense-gated and feed cleanup")
+	_expect(companion_runtime_resetter_source.find("func reset_to_egg_wait") >= 0 and companion_runtime_resetter_source.find("egg_state.spawn") >= 0 and companion_runtime_resetter_source.find("current_visual_prewarm_coordinator.prewarm_current") >= 0, "companion runtime resetter should own egg-wait transition reset/prewarm fanout")
+	_expect(companion_runtime_resetter_source.find("func reset_companion_position") >= 0 and companion_runtime_resetter_source.find("\"companion_pos\"") >= 0, "companion runtime resetter should own companion position reset surfaces")
+	_expect(companion_runtime_resetter_source.find("func prepare_hatch_position") >= 0 and companion_runtime_resetter_source.find("reset_contact_motion") >= 0, "companion runtime resetter should own hatch-position capture and egg contact reset")
+	_expect(companion_runtime_resetter_source.find("func start_hatch_reveal_effects") >= 0 and companion_runtime_resetter_source.find("trigger_hatch_flash") >= 0 and companion_runtime_resetter_source.find("play_lingpet_acquire_cutin") >= 0 and companion_runtime_resetter_source.find("current_visual_prewarm_coordinator.prewarm_current") >= 0, "companion runtime resetter should own hatch reveal flash/cutin/prewarm fanout")
+	_expect(companion_runtime_resetter_source.find("func prepare_companion_activation") >= 0 and companion_runtime_resetter_source.find("restore_current") >= 0 and companion_runtime_resetter_source.find("ensure_pet_active_slot") >= 0, "companion runtime resetter should own companion activation restore/prewarm/active-slot fanout")
+	_expect(companion_runtime_resetter_source.find("func reset_to_none") >= 0 and companion_runtime_resetter_source.find("item_egg_lifecycle_state.clear_runtime_state") >= 0 and companion_runtime_resetter_source.find("egg_state.reset_all") >= 0, "companion runtime resetter should own clear-pending none-return cleanup fanout")
+	_expect(companion_runtime_resetter_source.find("func clear_field_state") >= 0 and companion_runtime_resetter_source.find("overflow_choice_state.reset") >= 0 and companion_runtime_resetter_source.find("ring_dash_state.reset_all") >= 0, "companion runtime resetter should own save-restore field cleanup fanout")
+	_expect(runtime_source.find("_companion_runtime_resetter.reset_state") >= 0, "egg runtime should delegate full companion runtime reset fanout")
+	var deploy_egg_body := _function_body(runtime_source, "func deploy_egg_from_item")
+	var plaza_spawn_body := _function_body(runtime_source, "func spawn_plaza_resonance_egg")
+	var auto_spawn_body := _function_body(runtime_source, "func _spawn_egg")
+	for egg_wait_body in [deploy_egg_body, plaza_spawn_body, auto_spawn_body]:
+		_expect(egg_wait_body.find("_companion_runtime_resetter.reset_to_egg_wait") >= 0, "egg-wait transitions should call the companion runtime resetter transition helper")
+		_expect(egg_wait_body.find("_reset_companion_runtime_state") < 0 and egg_wait_body.find("_reset_companion_patrol") < 0 and egg_wait_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0, "egg-wait transitions should not inline reset/prewarm fanout")
+	var regular_hatch_body := _function_body(runtime_source, "func _finish_regular_hatch")
+	var begin_overflow_hatch_body := _function_body(runtime_source, "func _begin_overflow_hatch")
+	var overflow_commit_body := _function_body(runtime_source, "func _finish_overflow_hatch_commit")
+	for hatch_reveal_body in [regular_hatch_body, begin_overflow_hatch_body, overflow_commit_body]:
+		_expect(hatch_reveal_body.find("_companion_runtime_resetter.prepare_hatch_position") >= 0, "hatch reveal transitions should ask the resetter for hatch position capture")
+		_expect(hatch_reveal_body.find("_companion_runtime_resetter.start_hatch_reveal_effects") >= 0, "hatch reveal transitions should ask the resetter for flash/cutin/prewarm fanout")
+		_expect(hatch_reveal_body.find("_egg_state.reset_contact_motion") < 0 and hatch_reveal_body.find("_egg_state.trigger_hatch_flash") < 0 and hatch_reveal_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0 and hatch_reveal_body.find("_audio_dispatcher.play_lingpet_acquire_cutin") < 0, "hatch reveal transitions should not inline contact/flash/cutin/prewarm fanout")
+	var debug_grant_activation_body := _function_body(runtime_source, "func debug_grant_and_activate_pet")
+	var slot_switch_body := _function_body(runtime_source, "func switch_lingpet_slot")
+	var adopt_owned_body := _function_body(runtime_source, "func _adopt_owned_pet")
+	for companion_activation_body in [debug_grant_activation_body, slot_switch_body, adopt_owned_body]:
+		_expect(companion_activation_body.find("_companion_runtime_resetter.prepare_companion_activation") >= 0, "companion activation transitions should ask the resetter for activation fanout")
+		_expect(companion_activation_body.find("_reset_companion_runtime_state") < 0 and companion_activation_body.find("_companion_skill_persistence.restore_current") < 0 and companion_activation_body.find("_collection_state.ensure_pet_active_slot") < 0 and companion_activation_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0, "companion activation transitions should not inline reset/restore/active-slot/prewarm fanout")
+	var clear_pending_body := _function_body(runtime_source, "func _clear_pending_egg_without_collection_reset")
+	_expect(clear_pending_body.find("_companion_runtime_resetter.reset_to_none") >= 0, "clear-pending none-return should ask the resetter for cleanup fanout")
+	_expect(clear_pending_body.find("_egg_state.reset_all") < 0 and clear_pending_body.find("_item_egg_lifecycle_state.clear_runtime_state") < 0 and clear_pending_body.find("_reset_companion_runtime_state") < 0 and clear_pending_body.find("_reset_companion_patrol") < 0 and clear_pending_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0, "clear-pending none-return should not inline cleanup/reset/prewarm fanout")
+	var field_cleanup_body := _function_body(runtime_source, "func _clear_lingpet_field_state")
+	_expect(field_cleanup_body.find("_companion_runtime_resetter.clear_field_state") >= 0, "save-restore field cleanup should ask the resetter for field cleanup fanout")
+	_expect(field_cleanup_body.find("_egg_state.reset_all") < 0 and field_cleanup_body.find("_item_egg_lifecycle_state.clear_runtime_state") < 0 and field_cleanup_body.find("_reset_companion_patrol") < 0 and field_cleanup_body.find("_afterglow_leak_state.reset_all") < 0 and field_cleanup_body.find("_overflow_choice_state.reset") < 0, "save-restore field cleanup should not inline field cleanup fanout")
+	var companion_runtime_reset_body := _function_body(runtime_source, "func _reset_companion_runtime_state")
+	_expect(companion_runtime_reset_body.find("_companion_skill_persistence.reset_runtime_transients") < 0, "companion runtime reset wrapper should not reset skill runtime transients inline after resetter delegation")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_round_resetter.gd"), "lingpet round resetter should exist")
+	_expect(round_resetter_source.find("func reset_round") >= 0 and round_resetter_source.find("reset_runtime_transients") >= 0 and round_resetter_source.find("reset_round_caps") >= 0, "lingpet round resetter should own round-boundary runtime reset fanout")
+	_expect(round_resetter_source.find("reset_round_transients") >= 0 and round_resetter_source.find("feed_controller.reset_all") >= 0, "lingpet round resetter should own per-round transient cleanup")
+	var reset_round_body := _function_body(runtime_source, "func reset_round")
+	_expect(reset_round_body.find("_round_resetter.reset_round") >= 0, "egg runtime should delegate round reset fanout")
+	_expect(reset_round_body.find("_companion_skill_persistence.reset_runtime_transients") < 0 and reset_round_body.find("_companion_skill_persistence.reset_round_transients") < 0 and reset_round_body.find("_affinity_state.reset_round_caps") < 0, "egg runtime round reset should not keep round reset fanout inline")
+	_expect(round_resetter_source.find("companion_skill_persistence.reset_round_transients") >= 0, "round resetter should ask skill persistence directly when resetting round skill transients")
+	_expect(companion_runtime_resetter_source.find("companion_skill_persistence.reset_states") >= 0, "companion runtime resetter should ask skill persistence directly when resetting skill states")
+	_expect(runtime_source.find("_companion_skill_persistence.save_current") >= 0, "egg runtime should ask skill persistence directly when saving the current skill state")
+	_expect(companion_runtime_resetter_source.find("companion_skill_persistence.restore_current") >= 0, "companion runtime resetter should ask skill persistence directly when restoring the current skill state")
+	_expect(runtime_source.find("func _sync_shared_companion_skill_trigger_count") < 0, "egg runtime should not keep a single-use skill trigger-count sync wrapper")
+	_expect(runtime_source.find("func _record_companion_skill_launch") < 0, "egg runtime should not keep a single-use skill launch-record wrapper")
+	_expect(runtime_source.find("_companion_skill_persistence.sync_shared_trigger_count") >= 0, "egg runtime should ask skill persistence directly when initializing shared trigger counts")
+	_expect(runtime_source.find("_companion_skill_persistence.record_launch") >= 0, "egg runtime should ask skill persistence directly when a companion skill launches")
 	_expect(runtime_source.find("LingpetSkillDispatcher") < 0, "egg runtime should not directly dispatch lingpet active-skill kinds after controller delegation")
+	_expect(affinity_hit_tag_source.find("func merge") >= 0 and affinity_hit_tag_source.find("func has_defense_tag") >= 0, "affinity hit-tag resolver should own tag merge and defense-tag detection")
+	_expect(runtime_source.find("_affinity_hit_tag_resolver.capture") >= 0, "egg runtime should ask the affinity hit-tag resolver directly when capturing hit-tag snapshots")
+	_expect(runtime_source.find("func _capture_affinity_hit_tags") < 0, "egg runtime should not keep a single-use affinity hit-tag capture wrapper")
+	_expect(runtime_source.find("func _merge_affinity_hit_tags") < 0, "egg runtime should not keep a single-use affinity hit-tag merge wrapper")
+	_expect(runtime_source.find("_affinity_hit_tag_resolver.merge") >= 0, "egg runtime should ask the affinity hit-tag resolver directly when merging tag snapshots")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_hatch_stat_roll_state.gd"), "hatch stat-roll helper should exist")
+	_expect(hatch_stat_roll_source.find("func ensure_roll") >= 0 and hatch_stat_roll_source.find("set_hatch_stat_roll") >= 0, "hatch stat-roll helper should own random hatch headstart roll application")
+	_expect(hatch_stat_roll_source.find("func roll_item_egg_hatch_traits") >= 0 and hatch_stat_roll_source.find("roll_and_store_pet_loadout_unsynced") >= 0, "hatch stat-roll helper should own item-egg hatch loadout/stat headstart coordination")
+	_expect(hatch_stat_roll_source.find("invalidate_owner_loadout_sync_for_runtime") >= 0, "hatch stat-roll helper should invalidate owner loadout sync after unsynced item-egg hatch loadout writes")
+	_expect(runtime_source.find("func _ensure_hatch_stat_roll") < 0, "egg runtime should not keep hatch stat-roll policy inline after helper delegation")
+	_expect(runtime_source.find("func _roll_item_egg_hatch_traits") < 0, "egg runtime should not keep the item-egg hatch trait wrapper inline after helper delegation")
+	_expect(current_loadout_applier_source.find("hatch_stat_roll_state.ensure_roll") >= 0, "current loadout applier should ask the hatch stat-roll helper when randomizing a new hatch loadout")
+	_expect(runtime_source.find("_hatch_stat_roll_state.roll_item_egg_hatch_traits") >= 0, "egg runtime should ask the hatch stat-roll helper when rolling item-egg hatch traits")
+	var item_egg_absorb_body_for_hatch_roll := _function_body(runtime_source, "func _perform_item_egg_absorb")
+	var item_egg_replace_body_for_hatch_roll := _function_body(runtime_source, "func _commit_item_egg_overflow_replace")
+	_expect(item_egg_absorb_body_for_hatch_roll.find("invalidate_owner_loadout_sync_for_runtime") < 0 and item_egg_replace_body_for_hatch_roll.find("invalidate_owner_loadout_sync_for_runtime") < 0, "egg runtime should not repeat item-egg hatch owner-loadout sync invalidation inline")
+	_expect(distance_roll_source.find("func get_draw_angle") >= 0, "companion distance-roll state should own roll draw-angle calculation")
+	_expect(distance_roll_source.find("func advance_draw_movement") >= 0 and distance_roll_source.find("func get_override_move_ratio") >= 0, "companion distance-roll state should own actual-draw-movement ratio calculation")
+	_expect(runtime_source.find("func _get_companion_roll_draw_angle") < 0, "egg runtime should not keep a single-use companion roll draw-angle wrapper")
+	_expect(runtime_source.find("_companion_distance_roll_state.get_draw_angle") >= 0, "egg runtime should ask distance-roll state directly for draw angle")
+	for draw_transient_field in ["_companion_draw_pos_prev", "_companion_override_move_ratio"]:
+		_expect(runtime_source.find("var %s" % draw_transient_field) < 0, "egg runtime should not keep raw companion draw-movement transient state (%s)" % draw_transient_field)
+	_expect(runtime_source.find("_companion_distance_roll_state.advance_draw_movement") >= 0, "egg runtime should ask distance-roll state to advance actual draw-movement state")
+	_expect(body_presence_source.find("get_override_move_ratio") >= 0, "body-presence resolver should ask distance-roll state for the draw-motion override ratio")
+	_expect(body_presence_source.find("func get_draw_motion_speed_ratio_from_runtime") >= 0 and body_presence_source.find("func get_draw_motion_speed_ratio_from_surface") >= 0, "body-presence resolver should own runtime and draw-surface motion-speed ratio assembly")
+	_expect(body_presence_source.find("func is_visible_for_draw_from_surface") >= 0 and body_presence_source.find("is_companion_visual_hidden") >= 0, "body-presence resolver should own draw-surface visibility source assembly")
+	_expect(body_presence_source.find("func is_available_for_hit_from_surface") >= 0, "body-presence resolver should own body-hit availability source assembly")
+	_expect(runtime_source.find("_companion_body_presence_resolver.get_draw_motion_speed_ratio_from_runtime") >= 0, "egg runtime should ask body-presence resolver for runtime draw-motion speed ratio assembly")
+	_expect(skill_runtime_surface_source.find("func get_active_slot_count") >= 0 and skill_runtime_surface_source.find("has_method(\"get_active_slot_count\")") >= 0, "skill runtime surface should own active slot-count assembly")
+	_expect(skill_runtime_surface_source.find("func get_active_skill_ids") >= 0 and skill_runtime_surface_source.find("get_active_skill_ids_for_runtime") >= 0, "skill runtime surface should own active skill id list assembly")
+	_expect(skill_runtime_surface_source.find("func get_active_surface_for_slot") >= 0 and skill_runtime_surface_source.find("get_skill_id_for_slot") >= 0 and skill_runtime_surface_source.find("get_active_skill_for_slot") >= 0 and skill_runtime_surface_source.find("get_skill_windup_seconds_for_slot") >= 0 and skill_runtime_surface_source.find("get_state_for_slot") >= 0 and skill_runtime_surface_source.find("get_active_skill_level_for_slot") >= 0, "skill runtime surface should own per-slot active-skill update/snapshot/owner-sync surface assembly")
+	_expect(skill_runtime_surface_source.find("func get_second_active_surface") >= 0 and skill_runtime_surface_source.find("get_active_surface_for_slot(") >= 0, "skill runtime surface should keep second-active surface as a slot-1 specialization")
+	var skill_update_body := _function_body(runtime_source, "func _update_companion_skill_effects")
+	_expect(skill_update_body.find("_skill_runtime_surface.get_active_surface_for_slot") >= 0, "companion skill update should ask skill runtime surface for per-slot active surface data")
+	_expect(skill_update_body.find("_active_skill_slot_resolver.get_active_skill_for_slot") < 0 and skill_update_body.find("_active_skill_slot_resolver.get_skill_windup_seconds_for_slot") < 0 and skill_update_body.find("_companion_skill_persistence.get_state_for_slot") < 0 and skill_update_body.find("_current_profile.get_active_skill_level_for_slot") < 0, "companion skill update should not reassemble active-skill surface inline")
+	var skill_launch_body := _function_body(runtime_source, "func _launch_companion_skill")
+	_expect(skill_launch_body.find("_skill_runtime_surface.get_active_surface_for_slot") >= 0, "companion skill launch should ask skill runtime surface for per-slot active surface data")
+	_expect(skill_launch_body.find("_current_profile.get_active_skill_level_for_slot") < 0, "companion skill launch should not reassemble active skill level fallback inline")
+	var runtime_snapshot_body := _function_body(runtime_source, "func _build_runtime_snapshot_uncached")
+	if runtime_snapshot_body == "":
+		runtime_snapshot_body = _function_body(runtime_source, "func get_snapshot")
+	var runtime_sync_owner_body := _function_body(runtime_source, "func _sync_owner")
+	_expect(runtime_snapshot_body.find("_skill_runtime_surface.get_active_surface_for_slot") >= 0, "runtime snapshot should ask skill runtime surface for primary active-skill surface data")
+	_expect(runtime_sync_owner_body.find("_skill_runtime_surface.get_active_surface_for_slot") >= 0, "owner sync should ask skill runtime surface for primary active-skill surface data")
+	_expect(runtime_snapshot_body.find("_skill_runtime_surface.get_second_active_surface") >= 0, "runtime snapshot should ask skill runtime surface for second-active surface data")
+	_expect(runtime_sync_owner_body.find("_skill_runtime_surface.get_second_active_surface") >= 0, "owner sync should ask skill runtime surface for second-active surface data")
+	_expect(runtime_snapshot_body.find("get_active_skill_for_slot") < 0 and runtime_snapshot_body.find("get_skill_windup_seconds_for_slot") < 0 and runtime_snapshot_body.find("_companion_skill_persistence.get_state_for_slot") < 0, "runtime snapshot should not reassemble active-skill surface inline")
+	_expect(runtime_sync_owner_body.find("get_active_skill_for_slot") < 0 and runtime_sync_owner_body.find("get_skill_windup_seconds_for_slot") < 0 and runtime_sync_owner_body.find("_companion_skill_persistence.get_state_for_slot") < 0, "owner sync should not reassemble active-skill surface inline")
+	_expect(skill_runtime_surface_source.find("func get_visual_surface") >= 0 and skill_runtime_surface_source.find("get_active_visual_slot_index") >= 0 and skill_runtime_surface_source.find("get_active_position_override_owner") >= 0, "skill runtime surface should own companion draw visual-skill surface assembly")
+	_expect(skill_runtime_surface_source.find("func get_active_position_owner") >= 0 and skill_runtime_surface_source.find("func has_active_position_override") >= 0, "skill runtime surface should own active position-owner queries and predicates")
+	_expect(skill_runtime_surface_source.find("func get_body_skill_id") >= 0, "skill runtime surface should own companion body-skill id assembly")
+	_expect(skill_runtime_surface_source.find("\"body_skill_id\"") >= 0 and skill_runtime_surface_source.find("get_companion_body_skill_id") >= 0, "skill runtime surface should carry companion body skill id in the visual surface")
+	var draw_body := _function_body(runtime_source, "func draw")
+	var draw_behind_body := _function_body(runtime_source, "func draw_lingpet_body_behind_actors")
+	_expect(draw_body.find("_skill_runtime_surface.get_body_skill_id") >= 0, "front-pass draw should ask skill runtime surface for companion body skill id")
+	_expect(draw_behind_body.find("_skill_runtime_surface.get_body_skill_id") >= 0, "behind-actors draw should ask skill runtime surface for companion body skill id")
+	_expect(draw_body.find("get_active_position_override_owner") < 0 and draw_body.find("get_companion_body_skill_id") < 0, "front-pass draw should not reassemble body skill id inline")
+	_expect(draw_behind_body.find("get_active_position_override_owner") < 0 and draw_behind_body.find("get_companion_body_skill_id") < 0, "behind-actors draw should not reassemble body skill id inline")
+	var draw_companion_body := _function_body(runtime_source, "func _draw_companion")
+	_expect(draw_companion_body.find("_skill_runtime_surface.get_visual_surface") >= 0, "companion draw should ask skill runtime surface for visual-skill surface data")
+	_expect(draw_companion_body.find("_companion_body_presence_resolver.get_draw_motion_speed_ratio_from_surface") >= 0, "companion draw should ask body-presence resolver for draw-surface speed ratio assembly")
+	_expect(draw_companion_body.find("_companion_body_presence_resolver.is_visible_for_draw_from_surface") >= 0, "companion draw should ask body-presence resolver for draw-surface visibility assembly")
+	_expect(draw_companion_body.find("get_active_visual_slot_index") < 0 and draw_companion_body.find("get_active_position_override_owner") < 0 and draw_companion_body.find("_companion_skill_persistence.get_state_for_slot") < 0 and draw_companion_body.find("get_skill_windup_seconds_for_slot") < 0, "companion draw should not reassemble visual-skill surface inline")
+	_expect(draw_companion_body.find("is_companion_visual_hidden") < 0 and draw_companion_body.find("has_companion_position_override") < 0 and draw_companion_body.find("motion_visible") < 0, "companion draw should not reassemble body visibility sources inline")
+	var advance_draw_anim_body := _function_body(runtime_source, "func _advance_companion_draw_anim")
+	_expect(advance_draw_anim_body.find("get_draw_motion_speed_ratio_from_runtime") >= 0 and advance_draw_anim_body.find("get_draw_motion_speed_ratio_from_sources") < 0, "companion draw animator should not reassemble motion-speed ratio sources inline")
+	var resolve_companion_ball_hit_body := _function_body(runtime_source, "func _resolve_companion_ball_hit")
+	_expect(resolve_companion_ball_hit_body.find("_skill_runtime_surface.get_visual_surface") >= 0, "companion body-hit should ask skill runtime surface for visual/body-skill surface data")
+	_expect(resolve_companion_ball_hit_body.find("_companion_body_presence_resolver.is_available_for_hit_from_surface") >= 0, "companion body-hit should ask body-presence resolver for availability source assembly")
+	_expect(resolve_companion_ball_hit_body.find("get_active_position_override_owner") < 0 and resolve_companion_ball_hit_body.find("has_active_position_override") < 0 and resolve_companion_ball_hit_body.find("has_companion_position_override") < 0 and resolve_companion_ball_hit_body.find("is_companion_visual_hidden") < 0, "companion body-hit should not reassemble body availability sources inline")
 	_expect(runtime_source.find("lingpet_skill_runtime_host.gd") >= 0, "egg runtime should delegate concrete active-skill modules to the skill runtime host")
 	_expect(runtime_source.find("lingpet_hydro_sphere_skill.gd") < 0, "egg runtime should not directly own the Hydro Sphere module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_skill_runtime_host.gd"), "lingpet skill runtime host should exist for future active-skill modules")
@@ -1202,8 +1683,25 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(skill_runtime_host_source.find("preload(\"res://scripts/lingpet/lingpet_hydro_sphere_skill.gd\")") < 0, "skill runtime host should not hard-preload every lingpet skill during boot")
 	_expect(skill_runtime_host_source.find("var _hydro_sphere_skill: Object = null") >= 0, "skill runtime host should keep concrete skill modules lazy until the active skill needs them")
 	_expect(skill_runtime_host_source.find("_new_skill(") >= 0 and skill_runtime_host_source.find("load(path)") >= 0, "skill runtime host should dynamically load concrete skill modules on demand")
+	_expect(skill_runtime_host_source.find("func prewarm_many") >= 0, "skill runtime host should own batch prewarm for resolver-built active skill ids")
+	_expect(skill_runtime_host_source.find("func clear_for_tests") >= 0, "skill runtime host should expose test cleanup that releases lazy skill modules")
+	_expect(runtime_source.find("_skill_runtime_host.prewarm_many(_skill_runtime_surface.get_active_skill_ids") >= 0, "egg runtime should hand surface-built active-skill prewarm batches to the host")
+	var runtime_reset_for_tests_body := _function_body(runtime_source, "func reset_for_tests")
+	_expect(runtime_reset_for_tests_body.find("_skill_runtime_host.clear_for_tests") >= 0, "egg runtime test reset should release lazy skill runtime modules")
+	_expect(current_loadout_applier_source.find("skill_runtime_host.prewarm_many") >= 0 and current_loadout_applier_source.find("active_skill_slot_resolver.get_active_skill_ids_for_runtime") >= 0, "current loadout applier should prewarm active-skill runtimes after applying a loadout")
+	_expect(runtime_source.find("func _prewarm_current_skill_runtime") < 0, "egg runtime should not keep a private active-skill prewarm wrapper")
 	_expect(skill_runtime_host_source.find("get_companion_position_override") >= 0, "skill runtime host should let body-driven skills override the real companion position")
-	_expect(runtime_source.find("_apply_active_companion_skill_position_override") >= 0, "egg runtime should apply body-driven skill positions through the active owner query")
+	_expect(runtime_source.find("func _apply_active_companion_skill_position_override") < 0, "egg runtime should not keep a single-use position-override apply wrapper")
+	_expect(runtime_source.find("func _apply_companion_skill_position_override") < 0, "egg runtime should not keep a dead companion skill position-override wrapper")
+	_expect(runtime_source.find("_skill_runtime_surface.get_active_position_owner") >= 0 and runtime_source.find("_skill_runtime_surface.has_active_position_override") >= 0 and runtime_source.find("_vector_resolver.vector2_or_fallback") >= 0, "egg runtime should apply body-driven skill positions through the skill-runtime active-position surface")
+	_expect(runtime_source.find("_companion_skill_visual_resolver.get_active_position_override_owner") < 0 and runtime_source.find("_companion_skill_visual_resolver.has_active_position_override") < 0, "egg runtime should not reassemble active position-owner queries inline")
+	for visual_wrapper in ["func _get_active_position_override_owner", "func _has_active_companion_position_override", "func _get_companion_body_skill_id"]:
+		_expect(runtime_source.find(visual_wrapper) < 0, "egg runtime should not keep single-use companion-skill visual resolver pass-through wrappers (%s)" % visual_wrapper)
+	_expect(runtime_source.find("func _trigger_companion_skill_strike_if_requested") < 0, "egg runtime should not keep a single-use companion strike-request wrapper")
+	_expect(runtime_source.find("_skill_runtime_surface.consume_companion_strike_request") >= 0, "egg runtime should consume companion strike requests through the skill-runtime surface directly")
+	_expect(skill_runtime_surface_source.find("func is_companion_body_hit_suppressed") >= 0, "skill-runtime surface should own companion body-hit suppression checks")
+	_expect(runtime_source.find("func _is_companion_body_hit_suppressed") < 0, "egg runtime should not keep a single-use companion body-hit suppression wrapper")
+	_expect(runtime_source.find("_skill_runtime_surface.is_companion_body_hit_suppressed") >= 0, "egg runtime should ask the skill-runtime surface directly for body-hit suppression")
 	_expect(dispatcher_source.find("LingpetCatalog.get_active_skill_runtime_kind") >= 0, "skill dispatcher should resolve active-skill runtime kind through the catalog before falling back to legacy ids")
 	_expect(runtime_source.find("lingpet_companion_skill_state.gd") >= 0, "egg runtime should delegate shared active-skill cooldown/wind-up state to the companion skill-state controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_state.gd"), "companion skill-state controller should exist for future lingpet active skills")
@@ -1225,6 +1723,7 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_walk.png"), "Maribo companion should use a PNG-backed back-view walk sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_WALK_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo walk fallback")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 	_expect(draw_context_source.find("companion_walk") >= 0, "companion draw context should resolve walk visuals through the current lingpet catalog profile")
 	_expect(
 		draw_context_source.find("companion_idle") >= 0
@@ -1237,6 +1736,9 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	_expect(runtime_source.find("lingpet_companion_renderer.gd") >= 0, "egg runtime should delegate companion sprite drawing to the companion renderer")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_renderer.gd"), "companion renderer module should exist")
 	var companion_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
+	_expect(companion_renderer_source.find("func prewarm_assets") >= 0, "companion renderer should expose the soft-glow prewarm API as a fixed module contract")
+	_expect(runtime_source.find("_companion_renderer.prewarm_assets()") >= 0, "egg runtime should call the companion renderer prewarm contract directly")
+	_expect(runtime_source.find("_companion_renderer.has_method(\"prewarm_assets\")") < 0, "egg runtime should not guard the fixed companion renderer prewarm contract dynamically")
 	_expect(companion_renderer_source.find("draw_texture_rect_region") >= 0, "companion renderer should blit walk-sheet cells, not draw a procedural body")
 	_expect(draw_context_source.find("companion_walk_draw_size") >= 0, "companion draw context should pass per-pet walk draw-size overrides")
 	_expect(draw_context_source.find("companion_wing_flap_max_speed_ratio") >= 0, "companion draw context should support per-pet wing-flap cadence caps")
@@ -1296,7 +1798,12 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# from patrol_dir. Seal the travel -> face_left -> dedicated-or-flip chain so
 	# neither the latch nor the mirror fallback silently regresses.
 	_expect(runtime_source.find("_companion_facing_left") >= 0, "egg runtime should latch companion facing to actual horizontal travel, not raw patrol_dir")
-	_expect(runtime_source.find("_set_companion_facing_from_patrol_dir") >= 0, "egg runtime should seed companion facing from patrol_dir on first spawn/restore")
+	_expect(motion_source.find("func resolve_facing_left_from_patrol_dir") >= 0, "companion motion state should own patrol_dir-based facing resolution")
+	_expect(motion_source.find("func resolve_facing_left_after_motion") >= 0, "companion motion state should own dx-based facing resolution")
+	_expect(runtime_source.find("func _set_companion_facing_from_patrol_dir") < 0, "egg runtime should not keep a private patrol_dir facing resolver")
+	_expect(runtime_source.find("func _update_companion_facing_after_motion") < 0, "egg runtime should not keep a private dx-based facing resolver")
+	_expect(runtime_source.find("_companion_motion_state.resolve_facing_left_from_patrol_dir") >= 0, "egg runtime should seed companion facing from the motion-state patrol_dir owner")
+	_expect(runtime_source.find("_companion_motion_state.resolve_facing_left_after_motion") >= 0, "egg runtime should update companion facing from the motion-state dx owner")
 	_expect(runtime_source.find("\"face_left\"") >= 0, "egg runtime should feed the latched facing into the draw config")
 	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should pass the face_left flag through to the renderer")
 	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should use the latched facing to select a dedicated left sheet or flip the fallback walk sheet")
@@ -1319,8 +1826,10 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# Impact-synced reaction: the ball-hit must seed the SHORT residual so the
 	# thrust/apex frame renders at contact, NOT the full duration (which replayed
 	# the long wind-up after the bounce = late-strike regression).
-	_expect(runtime_source.find("_maybe_arm_companion_strike") >= 0, "companion should arm the strike anticipatorily (like player/boss attack sheets), not only on contact")
 	var strike_anticipator_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_strike_anticipator.gd")
+	_expect(runtime_source.find("func _maybe_arm_companion_strike") < 0, "egg runtime should not keep a private companion strike-arm helper")
+	_expect(runtime_source.find("_companion_strike_anticipator.maybe_arm_from_sources") >= 0, "companion should arm the strike anticipatorily through the strike-anticipator owner")
+	_expect(strike_anticipator_source.find("func maybe_arm_from_sources") >= 0, "strike anticipator should own runtime-source strike arm mediation")
 	_expect(strike_anticipator_source.find("frames_to_contact") >= 0, "anticipatory strike should predict time-to-contact to pick an entry frame")
 	_expect(sprite_animator_source.find("STRIKE_START_FRAME") >= 0, "strike animator should declare a wind-up start frame (skip dead-air, show coil before the thrust)")
 	var strike_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_strike.png") as Texture2D
@@ -1390,19 +1899,15 @@ func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 
 
 func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> void:
-	var affinity_path := _smoke_save_path("tutorial_ring_core_standard")
-	_remove_user_file(affinity_path)
-	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
-	var store: Object = LingpetAffinityStore.new()
-	store.set_save_path(affinity_path)
-	# R3 / v5: store no longer persists ring-core; the tutorial grant is run-state.
+	# R3 / v5: store is no longer a live module; the tutorial grant is run-state.
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	var registry := FakeRegistry.new({"lingpet_affinity_store": store})
+	var host := FakeCutinHost.new()
+	host.done_after = 99
+	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
 
-	_expect(runtime.update(0.0, owner, registry), "Junior Mika tutorial should spawn the first egg with a registry")
+	_expect(runtime.update(0.0, owner, registry), "Junior Mika tutorial should spawn the first egg with a registry that has no affinity store")
 	_expect(str(owner.lingpet_state) == "egg", "tutorial ring-core grant should happen while the first lingpet is still an egg")
-	_expect_eq(int(store.get_ring_core_tier()), 0, "Junior Mika first egg should not mutate the permanent ring-core store")
 	_expect_eq(int(runtime._affinity_state.get_run_ring_core_tier()), 1, "Junior Mika first egg should grant this-run standard ring-core before hatch")
 	_expect_eq(int(runtime._affinity_state.get_run_ring_core_cap()), 5, "standard tutorial ring-core should expose run cap 5 before hatch affinity resolves")
 
@@ -1424,42 +1929,21 @@ func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> vo
 	_expect_eq(int(storeless_runtime._affinity_state.get_run_ring_core_tier()), 1, "storeless tutorial grant should set this-run tier 1")
 	_expect_eq(int(storeless_runtime._affinity_state.get_run_ring_core_cap()), 5, "storeless tutorial grant should expose run cap 5")
 
-	_remove_user_file(affinity_path)
-	_remove_user_file(affinity_path.trim_suffix(".cfg") + ".last_good.cfg")
-
 
 func _verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility() -> void:
-	var higher_path := _smoke_save_path("tutorial_ring_core_higher")
-	var viper_path := _smoke_save_path("tutorial_ring_core_viper")
-	_remove_user_file(higher_path)
-	_remove_user_file(higher_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(viper_path)
-	_remove_user_file(viper_path.trim_suffix(".cfg") + ".last_good.cfg")
-
-	var higher_store: Object = LingpetAffinityStore.new()
-	higher_store.set_save_path(higher_path)
 	# R3 / v5: store no longer persists ring-core; seed the run tier directly below.
 	var higher_owner := FakeOwner.new()
 	var higher_runtime: Object = LingpetEggRuntime.new()
 	higher_runtime._affinity_state.set_run_ring_core_tier(2)
-	_expect(higher_runtime.update(0.0, higher_owner, FakeRegistry.new({"lingpet_affinity_store": higher_store})), "higher-tier Junior Mika should still spawn the tutorial egg")
+	_expect(higher_runtime.update(0.0, higher_owner, FakeRegistry.new({})), "higher-tier Junior Mika should still spawn the tutorial egg without an affinity store module")
 	_expect_eq(int(higher_runtime._affinity_state.get_run_ring_core_tier()), 2, "tutorial grant should not lower an existing run ring-core tier")
-	_expect_eq(int(higher_store.get_ring_core_tier()), 0, "tutorial grant should not write the permanent ring-core store (run-state only)")
 
-	var viper_store: Object = LingpetAffinityStore.new()
-	viper_store.set_save_path(viper_path)
 	# R3 / v5: store no longer persists ring-core; non-Mika simply never grants.
 	var viper_owner := FakeOwner.new()
 	viper_owner.selected_character_type = "viper"
 	var viper_runtime: Object = LingpetEggRuntime.new()
-	_expect(not viper_runtime.update(0.0, viper_owner, FakeRegistry.new({"lingpet_affinity_store": viper_store})), "Junior non-Mika should not spawn the first tutorial egg")
-	_expect_eq(int(viper_store.get_ring_core_tier()), 0, "ineligible non-Mika owner should not receive the tutorial ring-core")
+	_expect(not viper_runtime.update(0.0, viper_owner, FakeRegistry.new({})), "Junior non-Mika should not spawn the first tutorial egg")
 	_expect_eq(int(viper_runtime._affinity_state.get_run_ring_core_tier()), 0, "ineligible non-Mika owner should keep this-run ring-core at tier 0")
-
-	_remove_user_file(higher_path)
-	_remove_user_file(higher_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(viper_path)
-	_remove_user_file(viper_path.trim_suffix(".cfg") + ".last_good.cfg")
 
 
 func _verify_egg_player_contact_nudges_and_wobbles() -> void:
@@ -1485,14 +1969,14 @@ func _verify_egg_player_contact_nudges_and_wobbles() -> void:
 
 func _verify_egg_color_rolls_once_and_restores() -> void:
 	var renderer: Object = LingpetEggFieldRenderer.new()
-	_expect(int(LingpetEggFieldState.EGG_TINT_COUNT) == int(renderer.get_tint_count()), "egg field state and renderer should agree on the resonance tint count")
+	_expect(int(LingpetEggFieldState.EGG_VARIANT_COUNT) == int(renderer.get_variant_count()), "egg field state and renderer should agree on the resonance egg variant count")
 
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner)
 	var first_snapshot: Dictionary = runtime.get_snapshot()
 	var color_index: int = int(first_snapshot.get("egg_color_index", -1))
-	_expect(color_index >= 0 and color_index < int(renderer.get_tint_count()), "spawned main egg should roll one valid resonance color index")
+	_expect(color_index >= 0 and color_index < int(renderer.get_variant_count()), "spawned main egg should roll one valid resonance variant index")
 	for _idx in range(16):
 		runtime.update(0.016, owner)
 	_expect(int(runtime.get_snapshot().get("egg_color_index", -1)) == color_index, "main egg resonance color must not reroll during normal frame advancement")
@@ -1505,6 +1989,19 @@ func _verify_egg_color_rolls_once_and_restores() -> void:
 	_expect(bool(restore_result.get("restored", false)), "egg save snapshot should restore after adding resonance color")
 	_expect(int(restored_runtime.get_snapshot().get("egg_color_index", -1)) == color_index, "egg restore should preserve the saved resonance color index")
 
+	var item_owner := FakeOwner.new()
+	item_owner.ai_mode = "champion"
+	var item_registry := FakeRegistry.new()
+	var item_runtime: Object = LingpetEggRuntime.new()
+	_expect(bool(item_runtime.debug_grant_and_activate_pet("maribo", item_owner, false, "", "", item_registry)), "item color fixture should start with an active companion")
+	_expect(bool(item_runtime.deploy_egg_from_item(item_owner, item_registry)), "item color fixture should deploy a coexisting incubator egg")
+	var item_egg_state: Object = item_runtime.get("_item_egg_state") as Object
+	var item_color_index: int = int(item_egg_state.get_color_index())
+	_expect(item_color_index >= 0 and item_color_index < int(renderer.get_variant_count()), "deployed item egg should roll its own valid resonance variant index")
+	for _idx in range(8):
+		item_runtime.update(0.016, item_owner, item_registry)
+	_expect(int(item_egg_state.get_color_index()) == item_color_index, "deployed item egg resonance color must not reroll during incubation frames")
+
 	var field_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_state.gd")
 	var spawn_start: int = field_state_source.find("func spawn(")
 	var spawn_end: int = field_state_source.find("\nfunc ", spawn_start + 1)
@@ -1515,6 +2012,187 @@ func _verify_egg_color_rolls_once_and_restores() -> void:
 	_expect(spawn_body.find("roll_color_index()") >= 0, "egg resonance color should be rolled in spawn()")
 	_expect(advance_body.find("roll_color_index") < 0 and advance_body.find("egg_color_index") < 0, "egg resonance color must not reroll or mutate in per-frame advance()")
 	_expect(field_state_source.find("pet_id") < 0 and field_state_source.find("profile") < 0, "egg resonance color roll must stay decoupled from pet/profile identity")
+
+	var item_catalog_source: String = FileAccess.get_file_as_string("res://scripts/items/active_item_catalog.gd")
+	_expect(item_catalog_source.find("resonance_egg_item_icon.png") >= 0, "active item slot icon should point at the precomposited resonance egg item icon")
+	_expect(item_catalog_source.find("Color(0.30, 0.80, 1.0)") >= 0 and item_catalog_source.find("Color(1.0, 0.86, 0.62)") < 0, "lingpet egg pickup catalog color should use the cyan resonance color, not the old peach-gold glow")
+
+	var visual_cache_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
+	var default_prewarm_start: int = visual_cache_source.find("const DEFAULT_PREWARM_KEYS")
+	var default_prewarm_end: int = visual_cache_source.find("]", default_prewarm_start)
+	var default_prewarm_body: String = visual_cache_source.substr(default_prewarm_start, default_prewarm_end - default_prewarm_start)
+	_expect(default_prewarm_body.find("\"egg\"") < 0 and default_prewarm_body.find("\"egg_crack_") < 0, "per-pet visual prewarm should not load egg layers now owned by the egg renderer")
+
+
+func _verify_bare_egg_roll_physics_and_renderer() -> void:
+	var renderer: Object = LingpetEggFieldRenderer.new()
+	for variant_index in range(renderer.get_variant_count()):
+		var path := "res://assets/sprites/lingpet/resonance_egg_bare_variant_%d.png" % variant_index
+		_expect(FileAccess.file_exists(path), "bare field egg variant %d should exist" % variant_index)
+		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+		_expect(image != null, "bare field egg variant %d should load as an image" % variant_index)
+		if image == null:
+			continue
+		var bounds: Rect2i = _image_alpha_bounds(image)
+		_expect_eq(bounds.size.x, 316, "bare field egg variant %d should keep the shared alpha bbox width" % variant_index)
+		_expect_eq(bounds.size.y, 396, "bare field egg variant %d should keep the shared alpha bbox height" % variant_index)
+		_expect_float(float(bounds.position.x) + (float(bounds.size.x) - 1.0) * 0.5, 255.5, "bare field egg variant %d alpha bbox should be centered on the canvas x pivot" % variant_index)
+		_expect_float(float(bounds.position.y) + (float(bounds.size.y) - 1.0) * 0.5, 255.5, "bare field egg variant %d alpha bbox should be centered on the canvas y pivot" % variant_index)
+		_expect_float(image.get_pixel(0, 0).a, 0.0, "bare field egg variant %d top-left corner should be transparent" % variant_index)
+		_expect_float(image.get_pixel(image.get_width() - 1, 0).a, 0.0, "bare field egg variant %d top-right corner should be transparent" % variant_index)
+		_expect_float(image.get_pixel(0, image.get_height() - 1).a, 0.0, "bare field egg variant %d bottom-left corner should be transparent" % variant_index)
+		_expect_float(image.get_pixel(image.get_width() - 1, image.get_height() - 1).a, 0.0, "bare field egg variant %d bottom-right corner should be transparent" % variant_index)
+
+	var radius_from_art: float = (LingpetEggFieldRenderer.EGG_SEMI_MAJOR + LingpetEggFieldRenderer.EGG_SEMI_MINOR) * 0.5
+	_expect(absf(LingpetEggFieldState.EGG_ROLL_CONTACT_RADIUS - radius_from_art) <= 1.0, "egg roll contact radius should stay tied to the renderer's measured bare-egg semi-axes")
+
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(0.0, 0.0)
+	var roll_state := LingpetEggFieldState.new()
+	roll_state.pos = Vector2(200.0, 704.0)
+	roll_state.dash_vx = 12.0
+	var traveled := 0.0
+	for _idx in range(8):
+		var x_before: float = roll_state.pos.x
+		roll_state.update_player_contact(0.016, owner)
+		traveled += roll_state.pos.x - x_before
+	var expected_roll: float = fposmod(traveled / LingpetEggFieldState.EGG_ROLL_CONTACT_RADIUS, TAU)
+	_expect_float(float(roll_state.roll_angle), expected_roll, "egg roll angle should integrate from actual x displacement, not time or raw velocity")
+
+	var wrap_state := LingpetEggFieldState.new()
+	wrap_state.pos = Vector2(100.0, 704.0)
+	wrap_state.dash_vx = 400.0
+	wrap_state.update_player_contact(0.016, owner)
+	_expect(float(wrap_state.roll_angle) >= 0.0 and float(wrap_state.roll_angle) < TAU, "egg roll angle should stay wrapped to [0, TAU)")
+
+	var wall_state := LingpetEggFieldState.new()
+	wall_state.pos = Vector2(LingpetEggFieldState.FIELD_WIDTH - LingpetEggFieldState.EGG_TEXTURE_DRAW_SIZE.x * 0.5 - 1.0, 704.0)
+	wall_state.dash_vx = 16.0
+	var angle_before_wall: float = wall_state.roll_angle
+	wall_state.update_player_contact(0.016, owner)
+	var into_wall_delta: float = _signed_angle_delta(angle_before_wall, wall_state.roll_angle)
+	var angle_after_wall: float = wall_state.roll_angle
+	wall_state.update_player_contact(0.016, owner)
+	var rebound_delta: float = _signed_angle_delta(angle_after_wall, wall_state.roll_angle)
+	_expect(into_wall_delta > 0.0, "egg roll should advance in the original travel direction before wall rebound")
+	_expect(rebound_delta < 0.0, "egg roll direction should reverse automatically after wall rebound")
+
+	var settle_state := LingpetEggFieldState.new()
+	settle_state.pos = Vector2(300.0, 704.0)
+	settle_state.roll_angle = PI * 0.57
+	for _idx in range(90):
+		settle_state.update_player_contact(0.016, owner)
+	var upright_error: float = minf(absf(float(settle_state.roll_angle)), absf(TAU - float(settle_state.roll_angle)))
+	_expect(upright_error <= LingpetEggFieldState.EGG_ROLL_SETTLE_EPSILON * 1.5, "motionless egg should settle back near upright instead of stopping on an arbitrary tip angle")
+	settle_state.roll_angle = PI * 0.5
+	settle_state.reset_contact_motion()
+	_expect_float(float(settle_state.roll_angle), 0.0, "reset_contact_motion should reset volatile roll angle")
+
+	var texture_rect := Rect2(Vector2(40.0, 80.0), Vector2(88.0, 88.0))
+	var crack_path: Array[Vector2] = [
+		Vector2(0.50, 0.15),
+		Vector2(0.46, 0.26),
+		Vector2(0.51, 0.36),
+	]
+	var flat_points: PackedVector2Array = renderer.build_crack_light_points_for_tests(texture_rect, crack_path, 0.0)
+	var turned_points: PackedVector2Array = renderer.build_crack_light_points_for_tests(texture_rect, crack_path, PI * 0.5)
+	var crack_center: Vector2 = texture_rect.get_center()
+	for point_index in range(flat_points.size()):
+		var expected_point: Vector2 = crack_center + (flat_points[point_index] - crack_center).rotated(PI * 0.5)
+		_expect(turned_points[point_index].distance_to(expected_point) <= 0.001, "egg crack-light point %d should rotate with the egg body" % point_index)
+
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(runtime_source.find("_egg_state.roll_angle") >= 0, "main field egg draw should pass roll_angle into the renderer")
+	_expect(runtime_source.find("_item_egg_state.roll_angle") >= 0, "coexisting item egg draw should pass roll_angle into the renderer")
+
+
+func _verify_egg_dash_collision_knocks_and_wall_rebounds() -> void:
+	var dash_state := FakeDashState.new()
+	var registry := FakeRegistry.new({"smasher_dash_state": dash_state})
+	var owner := FakeOwner.new()
+	owner.player_paddle_width = 120.0
+	owner.player_paddle_height = 50.0
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	var start_pos: Vector2 = owner.lingpet_egg_pos
+	owner.player_pos = Vector2(
+		start_pos.x - owner.player_paddle_width - 90.0,
+		start_pos.y - owner.player_paddle_height * 0.5
+	)
+	runtime.update(0.016, owner, registry)
+	dash_state.active = true
+	dash_state.direction = 1.0
+	owner.player_pos = Vector2(
+		start_pos.x - owner.player_paddle_width * 0.5 - 2.0,
+		start_pos.y - owner.player_paddle_height * 0.5
+	)
+	runtime.update(0.016, owner, registry)
+	var knocked_pos: Vector2 = owner.lingpet_egg_pos
+	var knocked_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(knocked_pos.x > start_pos.x + 6.0, "player dash contact should knock the Ringpet egg away from the dash")
+	_expect(float(knocked_snapshot.get("egg_dash_vx", 0.0)) > 0.0, "Ringpet egg should keep dash knockback velocity after dash contact")
+	_expect(int(owner.lingpet_hatch_hits) == 0, "player dash contact should not count as a hatch hit")
+	dash_state.active = false
+	dash_state.direction = 0.0
+	runtime.update(0.016, owner, registry)
+	_expect(owner.lingpet_egg_pos.x > knocked_pos.x, "dash-knocked Ringpet egg should keep sliding briefly after contact")
+
+	var wall_dash_state := FakeDashState.new()
+	var wall_registry := FakeRegistry.new({"smasher_dash_state": wall_dash_state})
+	var wall_owner := FakeOwner.new()
+	wall_owner.player_paddle_width = 120.0
+	wall_owner.player_paddle_height = 50.0
+	var wall_runtime: Object = LingpetEggRuntime.new()
+	wall_runtime.update(0.0, wall_owner, wall_registry)
+	var wall_y: float = wall_owner.lingpet_egg_pos.y
+	var wall_x: float = LingpetEggFieldState.FIELD_WIDTH - LingpetEggFieldState.EGG_TEXTURE_DRAW_SIZE.x * 0.5
+	wall_owner.player_pos = Vector2(
+		wall_x - wall_owner.player_paddle_width - 90.0,
+		wall_y - wall_owner.player_paddle_height * 0.5
+	)
+	wall_runtime.update(0.016, wall_owner, wall_registry)
+	wall_runtime._egg_state.pos = Vector2(wall_x - 1.0, wall_y)
+	wall_dash_state.active = true
+	wall_dash_state.direction = 1.0
+	wall_owner.player_pos = Vector2(
+		wall_x - wall_owner.player_paddle_width * 0.5 - 2.0,
+		wall_y - wall_owner.player_paddle_height * 0.5
+	)
+	wall_runtime.update(0.016, wall_owner, wall_registry)
+	var wall_snapshot: Dictionary = wall_runtime.get_snapshot()
+	_expect(wall_owner.lingpet_hatch_hits == 0, "wall rebound fixture should not affect hatch progress")
+	_expect(wall_owner.lingpet_egg_pos.x <= wall_x, "Ringpet egg should stay inside the playfield when it hits the wall")
+	_expect(float(wall_snapshot.get("egg_dash_vx", 0.0)) < 0.0, "Ringpet egg should rebound away from the wall")
+	wall_dash_state.active = false
+	var rebound_start_x: float = wall_owner.lingpet_egg_pos.x
+	wall_runtime.update(0.016, wall_owner, wall_registry)
+	_expect(wall_owner.lingpet_egg_pos.x < rebound_start_x, "wall rebound should push the Ringpet egg back toward the opposite side")
+
+	var item_dash_state := FakeDashState.new()
+	var item_registry := FakeRegistry.new({"smasher_dash_state": item_dash_state})
+	var item_owner := FakeOwner.new()
+	item_owner.ai_mode = "champion"
+	item_owner.player_paddle_width = 120.0
+	item_owner.player_paddle_height = 50.0
+	var item_runtime: Object = LingpetEggRuntime.new()
+	_expect(bool(item_runtime.debug_grant_and_activate_pet("maribo", item_owner, false, "", "", item_registry)), "dash fixture should start with an active companion")
+	_expect(bool(item_runtime.deploy_egg_from_item(item_owner, item_registry)), "dash fixture should deploy a coexisting item egg")
+	var item_egg_state: Object = item_runtime.get("_item_egg_state") as Object
+	var item_start_pos: Vector2 = item_egg_state.pos
+	item_owner.player_pos = Vector2(
+		item_start_pos.x - item_owner.player_paddle_width - 90.0,
+		item_start_pos.y - item_owner.player_paddle_height * 0.5
+	)
+	item_runtime.update(0.016, item_owner, item_registry)
+	item_dash_state.active = true
+	item_dash_state.direction = 1.0
+	item_owner.player_pos = Vector2(
+		item_start_pos.x - item_owner.player_paddle_width * 0.5 - 2.0,
+		item_start_pos.y - item_owner.player_paddle_height * 0.5
+	)
+	item_runtime.update(0.016, item_owner, item_registry)
+	_expect(item_egg_state.pos.x > item_start_pos.x + 6.0, "deployed item egg should use the same dash knockback path")
+	_expect(bool(item_runtime.is_item_egg_active()), "dash knockback should not consume or hatch the deployed item egg")
 
 
 func _verify_player_serve_ball_does_not_hatch_egg() -> void:
@@ -1575,30 +2253,30 @@ func _verify_one_ball_hit_hatches_unidentified_egg() -> void:
 	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == hatched_id, "hatched lingpet should auto-fill the first lingpet battle slot")
 	_expect(int(owner.lingpet_active_slot_index) == 0, "hatched lingpet should use slot 0 as the active battle slot")
 	_expect(bool(owner.lingpet_collection.get(hatched_id, false)), "hatched lingpet should be marked in the lingpet collection")
-	_expect(owner.lingpet_loadouts is Dictionary and (owner.lingpet_loadouts as Dictionary).has(hatched_id), "hatched lingpet should receive a persisted no-skill loadout shell")
+	_expect(owner.lingpet_loadouts is Dictionary and (owner.lingpet_loadouts as Dictionary).has(hatched_id), "hatched lingpet should receive a persisted hatch-roll loadout shell")
 	var hatched_loadout: Dictionary = (owner.lingpet_loadouts as Dictionary).get(hatched_id, {}) as Dictionary
 	var selected_active_id := str(hatched_loadout.get("active_skill_id", ""))
 	var selected_passive_id := str(hatched_loadout.get("passive_skill_id", ""))
-	_expect(selected_active_id == "", "hatched lingpet loadout should not auto-pick an active skill before affinity unlock resolve")
-	_expect(selected_passive_id == "", "hatched lingpet loadout should not auto-pick a passive skill before affinity unlock resolve")
-	_expect((hatched_loadout.get("active_skill_ids", []) as Array).is_empty(), "hatched no-skill loadout should keep active_skill_ids empty")
-	_expect((hatched_loadout.get("passive_skill_ids", []) as Array).is_empty(), "hatched no-skill loadout should keep passive_skill_ids empty")
 	_expect(str(owner.lingpet_active_skill_id) == selected_active_id, "owner should publish the active skill selected by the lingpet loadout")
 	_expect(str(owner.lingpet_passive_skill_id) == selected_passive_id, "owner should publish the passive skill selected by the lingpet loadout")
-	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), 50.0), "hatched no-skill lingpet should not apply a passive gauge-gain bonus before unlock resolve")
+	var hatched_hit_gauge_gain := float(runtime.get_gauge_gain_per_hit(50.0))
+	# Hatch passive is now randomly drawn from the common pool, so only a rolled Resonance Boost
+	# raises gauge gain; any other passive (or none) leaves the base gauge gain untouched.
+	if selected_passive_id == "lingpet_resonance_boost":
+		_expect(hatched_hit_gauge_gain > 50.0, "hatched Resonance Boost passive should apply a gauge-gain bonus")
+	else:
+		_expect_float(hatched_hit_gauge_gain, 50.0, "no passive or a non-gauge passive should keep base gauge gain")
 	_expect(runtime.has_visible_effects(), "hatched lingpet should keep visible companion effects after hatching")
 	_expect(owner.lingpet_companion_pos is Vector2 and owner.lingpet_companion_pos != Vector2.ZERO, "hatched lingpet should publish companion position")
 	var runtime_snapshot: Dictionary = runtime.get_snapshot()
 	_expect(float(runtime_snapshot.get("hatch_flash_timer", 0.0)) > 0.0, "hatched lingpet should keep the egg-break animation active briefly")
 	_expect(str(runtime_snapshot.get("active_skill_id", "")) == selected_active_id, "runtime snapshot should expose the selected active skill id")
 	_expect(str(runtime_snapshot.get("passive_skill_id", "")) == selected_passive_id, "runtime snapshot should expose the selected passive skill id")
-	_expect(str(runtime_snapshot.get("companion_skill_id", "")) == "", "hatched no-skill snapshot should not leak pool[0] into the rail/TAB active skill id")
-	_expect(str(runtime_snapshot.get("companion_skill_name", "")) == "", "hatched no-skill snapshot should not leak pool[0] into the rail/TAB active skill name")
-	_expect(int(runtime_snapshot.get("active_skill_level", 0)) == 0, "runtime snapshot should expose active skill level 0 before unlock resolve")
-	_expect(int(runtime_snapshot.get("passive_skill_level", 0)) == 0, "runtime snapshot should expose passive skill level 0 before unlock resolve")
+	_expect_hatched_skill_channel_matches_owner(owner, runtime_snapshot, hatched_loadout, "active", "hatched active skill roll")
+	_expect_hatched_skill_channel_matches_owner(owner, runtime_snapshot, hatched_loadout, "passive", "hatched passive skill roll")
 	var panel: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(str(panel.get("title", "")) == LingpetCatalog.get_display_name(hatched_id), "character-info panel should reveal the hatched lingpet after hatching")
-	_expect(str(panel.get("subtitle", "")) == "동행 중", "character-info panel should show the plain 동행 중 companion status after hatching (R3b: permanent affinity title removed)")
+	_expect(str(panel.get("subtitle", "")) == LanguageSettings.translate_text("동행 중"), "character-info panel should show the plain 동행 중 companion status after hatching (R3b: permanent affinity title removed)")
 
 
 func _verify_affinity_hatch_bonus_hook() -> void:
@@ -1637,6 +2315,43 @@ func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: i
 	owner.ball_pos = egg_pos + Vector2(float(index), -8.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.0, owner, registry)
+
+
+func _finish_acquire_cutin(runtime: Object, registry: Object = null) -> void:
+	runtime.advance_acquire_cutin(3.0, registry)
+	if runtime.has_method("is_acquire_cutin_awaiting_dismiss") and bool(runtime.is_acquire_cutin_awaiting_dismiss()):
+		runtime.begin_acquire_cutin_dismiss(registry)
+	var guard := 0
+	while runtime.has_method("is_acquire_cutin_active") and bool(runtime.is_acquire_cutin_active()) and guard < 700:
+		runtime.advance_acquire_cutin(0.1, registry)
+		guard += 1
+	_expect(not bool(runtime.is_acquire_cutin_active()), "test helper should finish the acquisition cut-in")
+
+
+func _skill_state_for_runtime_slot(runtime: Object, slot_index: int) -> Object:
+	return LingpetCompanionSkillPersistence.new().get_state_for_slot(runtime._companion_skill_states, slot_index)
+
+
+func _seed_lingpet_roster(owner: Object, pet_ids: Array[String], active_slot_index: int = 0) -> void:
+	var ids: Array = pet_ids.duplicate()
+	var collection: Dictionary = {}
+	for pet_id in ids:
+		collection[pet_id] = true
+	owner.lingpet_owned_pet_ids = ids.duplicate()
+	owner.owned_lingpet_ids = ids.duplicate()
+	owner.owned_ringpet_ids = ids.duplicate()
+	owner.lingpet_collection = collection.duplicate(true)
+	owner.ringpet_collection = collection.duplicate(true)
+	owner.owned_lingpets = collection.duplicate(true)
+	owner.owned_ringpets = collection.duplicate(true)
+	owner.lingpet_slots = ids.duplicate()
+	while owner.lingpet_slots.size() < 3:
+		owner.lingpet_slots.append("")
+	owner.ringpet_slots = owner.lingpet_slots.duplicate()
+	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.lingpet_active_slot_index = active_slot_index
+	owner.ringpet_active_slot_index = active_slot_index
 
 
 func _verify_acquire_cutin_triggers_on_hatch() -> void:
@@ -1821,6 +2536,283 @@ func _verify_owned_maribo_is_kept_as_companion() -> void:
 	_expect(str(snapshot.get("state", "")) == "companion", "owned Maribo should restore companion runtime state")
 	_expect(str(owner.lingpet_state) == "companion", "owned Maribo should publish companion state to the owner")
 	_expect(str(owner.active_lingpet_id) == "maribo", "owned Maribo should become the active lingpet")
+
+
+func _verify_pro_league_egg_item_deploy() -> void:
+	# Pro (champion) / Mythic leagues do NOT auto-present the lingpet at battle start;
+	# it must be deployed via the "lingpet_egg" active item. Junior keeps the
+	# auto-present behavior (covered by the owned-maribo / egg-spawn tests above).
+	var host := FakeCutinHost.new()
+	host.done_after = 99
+	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
+
+	# Champion: a fresh owner stays STATE_NONE on update (no auto egg spawn).
+	var champion_owner := FakeOwner.new()
+	champion_owner.ai_mode = "champion"
+	var champion_runtime: Object = LingpetEggRuntime.new()
+	champion_runtime.update(0.0, champion_owner, registry)
+	_expect(str(champion_owner.lingpet_state) == "none", "Pro league should not auto-spawn a lingpet egg at battle start")
+	_expect(bool(champion_runtime.can_offer_egg_item(champion_owner)), "Pro league should offer the egg item while no lingpet is deployed")
+
+	# Using the egg item deploys the egg with a random catalog pet (STATE_EGG).
+	_expect(bool(champion_runtime.deploy_egg_from_item(champion_owner, registry)), "egg item use should deploy the egg in Pro league")
+	_expect(str(champion_owner.lingpet_state) == "egg", "deployed egg item should place the egg in the field (egg phase)")
+	var deployed_pet_id := str(champion_runtime.get("_pet_id"))
+	_expect(LingpetCatalog.has_pet(deployed_pet_id), "deployed egg should resolve a valid random catalog pet")
+	_expect(host.prewarm_calls.has(deployed_pet_id), "egg item use should kick acquisition cut-in streaming as soon as the pet id is known")
+
+	# Once deployed, the item no longer offers and a second use is a no-op so the
+	# slot controller leaves the item unconsumed (see _try_use_slot).
+	_expect(not bool(champion_runtime.can_offer_egg_item(champion_owner)), "egg item should stop being offered once a lingpet is deployed")
+	_expect(not bool(champion_runtime.deploy_egg_from_item(champion_owner, registry)), "deploying a second egg while one is already present must be a no-op")
+
+	# Champion auto-adopt is also suppressed: owning a pet must NOT auto-deploy it
+	# (the whole point is to earn the deploy via the item). Contrast the junior
+	# owned-maribo test, which adopts directly.
+	var owned_champion := FakeOwner.new()
+	owned_champion.ai_mode = "champion"
+	owned_champion.lingpet_owned_pet_ids = ["maribo"]
+	var owned_champion_runtime: Object = LingpetEggRuntime.new()
+	owned_champion_runtime.update(0.0, owned_champion, registry)
+	_expect(str(owned_champion.lingpet_state) == "none", "Pro league must not auto-adopt an owned lingpet at battle start")
+	_expect(bool(owned_champion_runtime.can_offer_egg_item(owned_champion)), "Pro league with an owned pet should still require the egg item to deploy")
+
+	# Mythic league behaves like Pro (also gated).
+	var mythic_owner := FakeOwner.new()
+	mythic_owner.ai_mode = "mythic"
+	var mythic_runtime: Object = LingpetEggRuntime.new()
+	mythic_runtime.update(0.0, mythic_owner, registry)
+	_expect(str(mythic_owner.lingpet_state) == "none", "Mythic league should not auto-spawn a lingpet egg at battle start")
+	_expect(bool(mythic_runtime.can_offer_egg_item(mythic_owner)), "Mythic league should offer the egg item while no lingpet is deployed")
+
+
+# Coexist incubator egg: using the lingpet_egg item while a companion is ALREADY on field
+# must NOT suspend / replace the companion. The companion keeps accompanying the player and
+# stays in the character-info panel; a SEPARATE egg incubates alongside it, and on hatch the
+# new pet is absorbed into a free collection slot (digital absorb VFX) without stealing the
+# active companion. Reverse-verified: the pre-coexist suspend code published lingpet_state
+# "egg" and cleared the companion -- the exact bug this slice fixes.
+func _verify_lingpet_egg_deploys_while_companion_active() -> void:
+	var owner := FakeOwner.new()
+	owner.ai_mode = "champion"
+	var host := FakeCutinHost.new()
+	host.done_after = 99
+	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry)), "fixture should start with Maribo as an active companion")
+	_expect(bool(runtime.can_offer_egg_item(owner)), "egg should still be offerable while a companion is active")
+	_expect(bool(runtime.deploy_egg_from_item(owner, registry)), "egg item should deploy a coexisting incubator while a companion is active")
+	# The companion is NOT replaced -- it stays on field and in the panel.
+	_expect(str(owner.lingpet_state) == "companion", "deploying the egg must NOT suspend/replace the active companion")
+	_expect(str(owner.active_lingpet_id) == "maribo", "the active companion should stay Maribo while the new egg incubates")
+	_expect(bool(runtime.is_item_egg_active()), "a separate incubator egg should be active alongside the companion")
+	var egg_pet_id := str(runtime.get_item_egg_pet_id())
+	_expect(egg_pet_id != "maribo" and LingpetCatalog.has_pet(egg_pet_id), "incubator egg should roll an unowned catalog pet")
+	_expect(host.prewarm_calls.has(egg_pet_id), "coexisting egg item use should kick acquisition cut-in streaming for the rolled pet immediately")
+	# No second egg may be offered / deployed while one is already incubating.
+	_expect(not bool(runtime.can_offer_egg_item(owner)), "no second egg item should be offered while an incubator egg is active")
+	_expect(not bool(runtime.deploy_egg_from_item(owner, registry)), "a second incubator deploy must be a no-op while one is active")
+
+	_hatch_item_egg_with_reveal(runtime, owner, registry)
+	# Hatch outcome: the new pet is absorbed into a free slot; the companion is UNCHANGED.
+	_expect(str(owner.lingpet_state) == "companion", "the companion should remain active after the incubator egg hatches")
+	_expect(str(owner.active_lingpet_id) == "maribo", "the absorbed pet is collected, NOT made the companion")
+	_expect(not bool(runtime.is_item_egg_active()), "the incubator egg should clear after hatching")
+	_expect(bool(runtime.is_item_egg_absorbing()), "hatching should trigger the digital absorb VFX")
+	_expect((owner.lingpet_owned_pet_ids as Array).size() == 2, "owned roster should grow to two pets")
+	_expect((owner.lingpet_owned_pet_ids as Array).has("maribo"), "the companion should remain owned")
+	_expect((owner.lingpet_owned_pet_ids as Array).has(egg_pet_id), "the absorbed pet should be added to ownership")
+	_expect((owner.lingpet_slots as Array).has("maribo"), "the companion should keep its battle slot")
+	_expect((owner.lingpet_slots as Array).has(egg_pet_id), "the absorbed pet should fill an empty battle slot")
+	_expect(int(owner.lingpet_active_slot_index) == (owner.lingpet_slots as Array).find("maribo"), "the active slot should stay the companion's, not the absorbed pet's")
+	_expect(not bool(runtime.is_overflow_choice_active()), "an empty-slot absorb should not open the overflow modal")
+
+
+# Hits the COEXIST incubator egg (not the main egg) until it hatches. The incubator egg's
+# pet is random, so its required_hits can be > 1; loop until is_item_egg_active() clears.
+# After this returns the reveal acquire cut-in is active (the egg has hatched into the
+# reveal phase), but the new pet is NOT yet absorbed -- call _finish_item_egg_reveal next.
+func _register_item_egg_hits_until_hatched(runtime: Object, owner: FakeOwner, registry: Object = null, max_hits: int = 12) -> void:
+	owner.ball_active = true
+	var guard := 0
+	while bool(runtime.is_item_egg_active()) and guard < max_hits:
+		var pos: Vector2 = (runtime.get("_item_egg_state") as Object).pos
+		_register_hit(runtime, owner, pos, guard + 1, registry)
+		guard += 1
+
+
+# Drives the full incubator-egg hatch: hit until hatched (reveal cut-in opens), assert the
+# acquire cut-in (획득 라투디 + 클릭 라투디) plays for the new pet, dismiss it, then run one
+# update(owner) so the deferred absorb (_perform_item_egg_absorb) restores the companion and
+# registers / overflows the new pet.
+func _verify_item_egg_hatch_rolls_loadout() -> void:
+	# REGRESSION: item-egg hatches (the 2nd+ consecutive hatch, while a companion stays active)
+	# must roll their hatch loadout like the regular hatch -- not fall back to a DEFAULT Lv.1/Lv.1
+	# loadout. Drive several real item-egg hatches and confirm the absorbed pet's STORED loadout
+	# level reflects a roll (varies, including levels >= 2), and is persisted to owner.lingpet_loadouts.
+	# Without the hatch-stat owner's item-egg trait roll every item-egg pet would be exactly Lv.1, so over this
+	# many rolls (>= 2 levels each) at least one level >= 2 is effectively certain (~1 - 0.5^N).
+	var saw_level_two_or_more := false
+	var saw_none_or_one := false
+	var all_present := true
+	var hatched_count := 0
+	for _attempt in range(16):
+		var owner := FakeOwner.new()
+		owner.ai_mode = "champion"
+		var registry := FakeRegistry.new({})
+		var runtime: Object = LingpetEggRuntime.new()
+		runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry)
+		if not bool(runtime.deploy_egg_from_item(owner, registry)):
+			continue
+		var egg_pet_id := str(runtime.get_item_egg_pet_id())
+		_hatch_item_egg_with_reveal(runtime, owner, registry)
+		var loadouts: Dictionary = owner.lingpet_loadouts as Dictionary
+		if not loadouts.has(egg_pet_id):
+			all_present = false
+			continue
+		hatched_count += 1
+		var lo: Dictionary = loadouts.get(egg_pet_id, {}) as Dictionary
+		var active_level := int(lo.get("active_skill_level", 1))
+		var passive_level := int(lo.get("passive_skill_level", 1))
+		_expect(active_level >= 0 and active_level <= 3, "item-egg active hatch level should stay in the 0..3 roll range")
+		_expect(passive_level >= 0 and passive_level <= 3, "item-egg passive hatch level should stay in the 0..3 roll range")
+		if active_level >= 2 or passive_level >= 2:
+			saw_level_two_or_more = true
+		if active_level <= 1 or passive_level <= 1:
+			saw_none_or_one = true
+	_expect(hatched_count > 0, "fixture should hatch at least one item egg into a free slot")
+	_expect(all_present, "every item-egg-hatched pet should persist its rolled loadout into owner.lingpet_loadouts")
+	_expect(saw_level_two_or_more, "item-egg hatches must ROLL the loadout (a level >= 2 must appear), not default to Lv.1")
+	_expect(saw_none_or_one, "item-egg roll should still produce low (none/Lv.1) levels too, proving a real distribution")
+
+
+func _hatch_item_egg_with_reveal(runtime: Object, owner: FakeOwner, registry: Object = null) -> void:
+	var companion_before := str(owner.active_lingpet_id)
+	var state_before := str(owner.lingpet_state)
+	_register_item_egg_hits_until_hatched(runtime, owner, registry)
+	_expect(bool(runtime.is_acquire_cutin_active()), "incubator-egg hatch should play the acquire cut-in for the new pet before absorbing")
+	# High: the not-yet-absorbed new pet must NOT be published as the active companion during
+	# the reveal -- owner active_lingpet_id / lingpet_state keep pointing at the real companion.
+	_expect(str(owner.active_lingpet_id) == companion_before, "reveal must NOT publish the new pet as the active companion (owner active_lingpet_id unchanged)")
+	_expect(str(owner.lingpet_state) == state_before, "reveal must keep the owner lingpet_state as the companion")
+	# Medium: no new egg can be offered/deployed during the reveal.
+	_expect(not bool(runtime.can_offer_egg_item(owner)), "no egg should be offerable during the incubator-egg reveal")
+	_finish_acquire_cutin(runtime, registry)
+	# Medium: the gap between the cut-in closing and the deferred absorb must also stay closed.
+	_expect(not bool(runtime.can_offer_egg_item(owner)), "no egg should be offerable between cut-in close and absorb")
+	_expect(not bool(runtime.deploy_egg_from_item(owner, registry)), "no egg should deploy between cut-in close and absorb")
+	runtime.update(0.0, owner, registry)
+
+
+# Coexist incubator egg, ROSTER FULL: hatching opens a slot-replace choice WITHOUT
+# disturbing the active companion. Replace registers the new pet into the chosen
+# (non-companion) slot and keeps the companion active; release discards the new pet and
+# leaves the roster + companion untouched.
+func _verify_lingpet_egg_overflow_replace_release_choice() -> void:
+	var full_roster: Array[String] = ["maribo", "lunabi", "milkring"]
+
+	# --- Replace path ---
+	var replace_owner := FakeOwner.new()
+	replace_owner.ai_mode = "champion"
+	_seed_lingpet_roster(replace_owner, full_roster, 0)
+	var replace_registry := FakeRegistry.new({})
+	var replace_runtime: Object = LingpetEggRuntime.new()
+	_expect(bool(replace_runtime.debug_grant_and_activate_pet("maribo", replace_owner, false, "", "", replace_registry)), "replace fixture should start with an active full roster")
+	_expect(bool(replace_runtime.deploy_egg_from_item(replace_owner, replace_registry)), "full roster should still allow a coexisting incubator egg")
+	var pending_replace_id := str(replace_runtime.get_item_egg_pet_id())
+	_hatch_item_egg_with_reveal(replace_runtime, replace_owner, replace_registry)
+	# Roster full -> after the reveal + absorb, the slot-replace choice opens.
+	_expect(bool(replace_runtime.is_overflow_choice_active()), "a full-roster incubator hatch should open the slot-replace choice")
+	_expect(str(replace_owner.active_lingpet_id) == "maribo", "the companion stays active while the overflow choice is open")
+	_expect(not (replace_owner.lingpet_owned_pet_ids as Array).has(pending_replace_id), "overflow hatch should not be owned before the choice commits")
+	var old_slot_pet := str((replace_owner.lingpet_slots as Array)[1])
+	_expect(old_slot_pet != "maribo", "fixture: chosen replace slot 1 should not be the companion's slot")
+	_expect(bool(replace_runtime.commit_overflow_replace(1, replace_owner, replace_registry)), "replace commit should accept a chosen existing slot")
+	_expect((replace_owner.lingpet_owned_pet_ids as Array).size() == 3, "replace should keep the owned roster capped at three")
+	_expect((replace_owner.lingpet_owned_pet_ids as Array).has(pending_replace_id), "replace should keep the newly hatched pet")
+	_expect(not (replace_owner.lingpet_owned_pet_ids as Array).has(old_slot_pet), "replace should permanently release the chosen old pet")
+	_expect(str((replace_owner.lingpet_slots as Array)[1]) == pending_replace_id, "new pet should take the selected battle slot")
+	# The companion is preserved -> it stays active, NOT the newly placed pet.
+	_expect(str(replace_owner.active_lingpet_id) == "maribo", "replace must keep the companion active, not the absorbed pet")
+	_expect(not bool(replace_runtime.is_overflow_choice_active()), "replace commit should close the overflow modal")
+	_expect(float(replace_runtime.get_affinity_points(pending_replace_id)) > 0.0, "kept overflow hatch should receive the hatch affinity grant")
+	# REGRESSION (Codex Medium): the full-roster overflow-REPLACE commit must ROLL + persist the
+	# hatch loadout for the kept new pet, exactly like the free-slot absorb path
+	# (_verify_item_egg_hatch_rolls_loadout). _commit_item_egg_overflow_replace rolls via
+	# roll_item_egg_hatch_traits then republishes through _sync_owner (companion-untouched branch),
+	# so the rolled loadout must already be on owner.lingpet_loadouts after the commit. Without that
+	# roll the kept pet would silently fall back to a DEFAULT Lv.1/Lv.1 loadout.
+	var replace_loadouts: Dictionary = replace_owner.lingpet_loadouts as Dictionary
+	_expect(replace_loadouts.has(pending_replace_id), "overflow-replace must persist the rolled hatch loadout into owner.lingpet_loadouts")
+	var replace_lo: Dictionary = replace_loadouts.get(pending_replace_id, {}) as Dictionary
+	var replace_active := int(replace_lo.get("active_skill_level", 1))
+	var replace_passive := int(replace_lo.get("passive_skill_level", 1))
+	_expect(replace_active >= 0 and replace_active <= 3, "overflow-replace active hatch level should stay in the 0..3 roll range")
+	_expect(replace_passive >= 0 and replace_passive <= 3, "overflow-replace passive hatch level should stay in the 0..3 roll range")
+
+	# --- Release path ---
+	var release_owner := FakeOwner.new()
+	release_owner.ai_mode = "champion"
+	_seed_lingpet_roster(release_owner, full_roster, 0)
+	var release_registry := FakeRegistry.new({})
+	var release_runtime: Object = LingpetEggRuntime.new()
+	_expect(bool(release_runtime.debug_grant_and_activate_pet("maribo", release_owner, false, "", "", release_registry)), "release fixture should start with an active full roster")
+	_expect(bool(release_runtime.deploy_egg_from_item(release_owner, release_registry)), "full roster should allow a release-path incubator egg")
+	var pending_release_id := str(release_runtime.get_item_egg_pet_id())
+	_hatch_item_egg_with_reveal(release_runtime, release_owner, release_registry)
+	_expect(bool(release_runtime.is_overflow_choice_active()), "release path should also open the overflow modal")
+	_expect(bool(release_runtime.commit_overflow_release(release_owner, release_registry)), "release commit should discard the newly hatched pet")
+	_expect((release_owner.lingpet_owned_pet_ids as Array) == full_roster, "release should preserve the original three owned pets")
+	_expect(not (release_owner.lingpet_owned_pet_ids as Array).has(pending_release_id), "released new hatch should not enter ownership")
+	_expect((release_owner.lingpet_slots as Array) == full_roster, "release should preserve the original battle slots")
+	_expect(str(release_owner.active_lingpet_id) == "maribo", "release should keep the companion active untouched")
+	_expect(float(release_runtime.get_affinity_points(pending_release_id)) <= 0.0, "released overflow hatch should not receive hatch affinity")
+
+
+# Trap 5 / safety-critical: an unresolved overflow choice modal must be force-resolved as
+# 방생 (release) by reset_round even though the round-cleanup deps carry NO "owner"
+# (ball_dependency_context._build_common_round_deps). Otherwise is_overflow_choice_active
+# stays true and softlocks the next round. The owner-less commit_overflow_release must clear
+# the flag in-memory and self-heal (restore the suspended companion) on the next update(owner).
+func _verify_lingpet_egg_overflow_reset_resolves_to_release() -> void:
+	var full_roster: Array[String] = ["maribo", "lunabi", "milkring"]
+	var owner := FakeOwner.new()
+	owner.ai_mode = "champion"
+	_seed_lingpet_roster(owner, full_roster, 0)
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry)), "reset fixture should start with an active full roster")
+	_expect(bool(runtime.deploy_egg_from_item(owner, registry)), "full roster should allow a coexisting incubator egg")
+	var pending_id := str(runtime.get_item_egg_pet_id())
+	_hatch_item_egg_with_reveal(runtime, owner, registry)
+	_expect(bool(runtime.is_overflow_choice_active()), "fixture should reach an open overflow choice modal")
+
+	# Round-cleanup deps carry registry but NOT owner (the owner-less round-cleanup trap).
+	runtime.reset_round({"registry": registry})
+	_expect(not bool(runtime.is_overflow_choice_active()), "reset_round must force-resolve an unresolved overflow modal so it cannot softlock the next round")
+
+	# The companion was never suspended for the coexist path, so it stays active.
+	runtime.update(0.0, owner, registry)
+	_expect(str(owner.active_lingpet_id) == "maribo", "the companion stays active after an owner-less reset release")
+	_expect((owner.lingpet_owned_pet_ids as Array).size() == 3, "reset 방생 should keep the owned roster capped at three")
+	_expect(not (owner.lingpet_owned_pet_ids as Array).has(pending_id), "reset 방생 should not add the unresolved overflow hatch to ownership")
+
+
+# Junior must NEVER use an egg, even if a direct-grant reward path (Pandora active
+# grant, plaza gacha) bypassed the offer/pickup gate and dropped one into a junior
+# slot. deploy_egg_from_item is the central use-site seal (item_runtime_checklist §1.7).
+# Reverse-verified: removing the is_auto_present_league guard lets the junior deploy
+# succeed and this assertion fails.
+func _verify_lingpet_egg_deploy_blocked_in_junior() -> void:
+	var owner := FakeOwner.new()
+	owner.ai_mode = "junior"
+	_seed_lingpet_roster(owner, ["maribo"], 0)
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	# Fresh STATE_NONE runtime where a Pro/Mythic deploy WOULD succeed — only the
+	# junior-league guard should reject it.
+	_expect(not bool(runtime.deploy_egg_from_item(owner, registry)), "junior league must never deploy an egg from the item (auto-present tutorial invariant)")
+	_expect(str(runtime.get("_state")) != "egg", "a blocked junior deploy must not place a field egg")
 
 
 func _verify_lingpet_battle_slot_model() -> void:
@@ -2178,7 +3170,7 @@ func _verify_tailwind_steps_passive() -> void:
 	_expect(specs.size() >= 2, "Tailwind Steps panel should still expose active and passive skill specs")
 	var passive_spec: Dictionary = specs[1] as Dictionary
 	_expect(str(passive_spec.get("id", "")) == "lingpet_tailwind_steps", "Tailwind Steps panel spec should keep the passive id")
-	_expect(str(passive_spec.get("subtitle", "")).find("이동") >= 0, "Tailwind Steps passive subtitle should explain the movement-speed bonus")
+	_expect(str(passive_spec.get("subtitle", "")).find(LanguageSettings.translate_text("이동")) >= 0, "Tailwind Steps passive subtitle should explain the movement-speed bonus")
 
 
 func _verify_starlight_tracking_passive() -> void:
@@ -2213,7 +3205,7 @@ func _verify_starlight_tracking_passive() -> void:
 	_expect(specs.size() >= 2, "Starlight Tracking panel should still expose active and passive skill specs")
 	var passive_spec: Dictionary = specs[1] as Dictionary
 	_expect(str(passive_spec.get("id", "")) == "lingpet_starlight_tracking", "Starlight Tracking panel spec should keep the passive id")
-	_expect(str(passive_spec.get("subtitle", "")).find("추적") >= 0, "Starlight Tracking passive subtitle should explain the drop-trigger chance")
+	_expect(str(passive_spec.get("subtitle", "")).find(LanguageSettings.translate_text("추적")) >= 0, "Starlight Tracking passive subtitle should explain the drop-trigger chance")
 
 	var companion_pos: Vector2 = owner.lingpet_companion_pos
 	var close_drop := _make_starpoint_drop(companion_pos + Vector2(8.0, 0.0), 0.0)
@@ -2339,7 +3331,7 @@ func _verify_ring_dash_passive() -> void:
 	_expect(specs.size() >= 2, "Ring Dash panel should still expose active and passive skill specs")
 	var passive_spec: Dictionary = specs[1] as Dictionary
 	_expect(str(passive_spec.get("id", "")) == "lingpet_ring_dash", "Ring Dash panel spec should keep the passive id")
-	_expect(str(passive_spec.get("subtitle", "")).find("전이") >= 0, "Linkport passive subtitle should explain the emergency teleport chance")
+	_expect(str(passive_spec.get("subtitle", "")).find(LanguageSettings.translate_text("전이")) >= 0, "Linkport passive subtitle should explain the emergency teleport chance")
 
 	var owner2 := FakeOwner.new()
 	owner2.lingpet_ring_dash_force_roll_pct = 0.0
@@ -2381,7 +3373,7 @@ func _verify_ring_dash_passive() -> void:
 	var flight_visible_dash: Dictionary = runtime3.get_snapshot()
 	_expect(int(flight_visible_dash.get("companion_contact_count", 0)) == 1, "Linkport should hit after the flight companion has reappeared")
 	_expect(float(owner3.ball_vel.y) < 0.0, "Linkport hit should bounce the descending ball upward after reappearing")
-	_expect_float(runtime3.get_affinity_points("lunabi"), 13.0, "Linkport block should grant direct-hit affinity plus one defense bonus")
+	_expect_float(runtime3.get_affinity_points("lunabi"), 21.0, "Linkport flight guard hit should double only the base (8*2) and keep the flat +5 guard bonus = 21")
 	runtime3.update(0.05, owner3, registry)
 	var flight_resume: Dictionary = runtime3.get_snapshot()
 	_expect(not bool(flight_resume.get("ring_dash_active", false)), "Linkport should clear once the guarded ball has bounced away")
@@ -2695,13 +3687,93 @@ func _verify_lingpet_skill_cooldown_survives_slot_switch() -> void:
 	_expect(maribo_cooldown > 39.0, "Maribo skill should have a live cooldown before switching away")
 	_expect(bool(runtime.switch_lingpet_slot(1, owner)), "switching to the occupied Lunabi slot should succeed")
 	_expect(str(owner.active_lingpet_id) == "lunabi", "slot switch should activate Lunabi")
-	_expect(is_equal_approx(float(owner.lingpet_skill_cooldown), 0.0), "freshly switched Lunabi should publish its own ready skill state")
+	var lunabi_shared_cooldown: float = float(owner.lingpet_skill_cooldown)
+	_expect(lunabi_shared_cooldown > LingpetEggRuntime.COMPANION_SKILL_SHARED_COOLDOWN_SECONDS - 0.1, "freshly switched Lunabi should inherit the shared lingpet skill cooldown")
+	_expect(not bool(owner.lingpet_skill_ready), "freshly switched Lunabi must not be ready for a burst cast during shared cooldown")
+	_expect(float(runtime.get_snapshot().get("companion_skill_shared_cooldown", 0.0)) > LingpetEggRuntime.COMPANION_SKILL_SHARED_COOLDOWN_SECONDS - 0.1, "runtime snapshot should expose the shared lingpet skill cooldown for HUD/debug consumers")
 	owner.ball_active = false
 	runtime.update(10.0, owner, registry)
+	_expect(is_equal_approx(float(owner.lingpet_skill_cooldown), 0.0), "freshly switched Lunabi shared cooldown should tick down normally")
 	_expect(bool(runtime.switch_lingpet_slot(0, owner)), "switching back to Maribo should succeed")
 	_expect(str(owner.active_lingpet_id) == "maribo", "slot switch should reactivate Maribo")
 	var restored_cooldown: float = float(owner.lingpet_skill_cooldown)
 	_expect(restored_cooldown > 28.0 and restored_cooldown < maribo_cooldown - 9.5, "inactive Maribo cooldown should keep ticking while another lingpet is active")
+
+
+func _verify_lingpet_slot_switch_clears_owner_locked_skill_flags() -> void:
+	var puppet_owner := FakeOwner.new()
+	puppet_owner.lingpet_owned_pet_ids = ["koyora", "maribo"]
+	puppet_owner.owned_lingpet_ids = puppet_owner.lingpet_owned_pet_ids.duplicate()
+	puppet_owner.owned_ringpet_ids = puppet_owner.lingpet_owned_pet_ids.duplicate()
+	puppet_owner.lingpet_slots = ["koyora", "maribo", ""]
+	puppet_owner.ringpet_slots = puppet_owner.lingpet_slots.duplicate()
+	puppet_owner.lingpet_slot_pet_ids = puppet_owner.lingpet_slots.duplicate()
+	puppet_owner.ringpet_slot_pet_ids = puppet_owner.lingpet_slots.duplicate()
+	puppet_owner.lingpet_active_slot_index = 0
+	puppet_owner.ringpet_active_slot_index = 0
+	puppet_owner.ball_active = true
+	var puppet_runtime: Object = LingpetEggRuntime.new()
+	var puppet_registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	_expect(
+		puppet_runtime.debug_grant_and_activate_pet("koyora", puppet_owner, false, "koyora_puppet_control", "", puppet_registry, 1, 1),
+		"slot-switch puppet fixture should activate Koyora"
+	)
+	_expect(
+		bool(puppet_runtime._skill_runtime_host.launch("koyora_puppet_control", Vector2(380.0, 600.0), puppet_owner, {"active_skill_level": 1})),
+		"slot-switch puppet fixture should launch Puppet Control"
+	)
+	puppet_runtime._skill_runtime_host.update(0.9, puppet_owner, puppet_registry, "koyora_puppet_control", {})
+	_expect(bool(puppet_owner.lingpet_puppet_grab_active), "slot-switch puppet setup should hold the boss before switching")
+	_expect(puppet_owner.boss_pos.y > 25.0, "slot-switch puppet setup should drag the boss before switching")
+	_expect(bool(puppet_runtime.switch_lingpet_slot(1, puppet_owner, puppet_registry)), "switching away from active Puppet Control should succeed")
+	_expect(not bool(puppet_owner.lingpet_puppet_grab_active), "switching away from Puppet Control must clear the boss-freeze flag immediately")
+	_expect(_vector2_distance(puppet_owner.boss_pos, Vector2(330.0, 25.0)) <= 0.01, "switching away from Puppet Control must restore boss_pos immediately")
+
+	var star_owner := FakeOwner.new()
+	star_owner.lingpet_owned_pet_ids = ["orosha", "maribo"]
+	star_owner.owned_lingpet_ids = star_owner.lingpet_owned_pet_ids.duplicate()
+	star_owner.owned_ringpet_ids = star_owner.lingpet_owned_pet_ids.duplicate()
+	star_owner.lingpet_slots = ["orosha", "maribo", ""]
+	star_owner.ringpet_slots = star_owner.lingpet_slots.duplicate()
+	star_owner.lingpet_slot_pet_ids = star_owner.lingpet_slots.duplicate()
+	star_owner.ringpet_slot_pet_ids = star_owner.lingpet_slots.duplicate()
+	star_owner.lingpet_active_slot_index = 0
+	star_owner.ringpet_active_slot_index = 0
+	star_owner.ball_active = true
+	var star_runtime: Object = LingpetEggRuntime.new()
+	var star_registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	_expect(
+		star_runtime.debug_grant_and_activate_pet("orosha", star_owner, false, "orosha_star_coil", "", star_registry, 5, 1),
+		"slot-switch Star Coil fixture should activate Orosha"
+	)
+	var star_context := {
+		"companion_pos": Vector2(380.0, 650.0),
+		"companion_visible": true,
+		"active_skill_id": "orosha_star_coil",
+		"active_skill_level": 5,
+		"slow_duration": 3.5,
+		"slow_multiplier": 0.4,
+		"ball_active": true,
+		"boss_pos": star_owner.boss_pos,
+		"boss_paddle_width": star_owner.boss_paddle_width,
+		"boss_hitbox_height": star_owner.boss_hitbox_height,
+	}
+	_expect(
+		bool(star_runtime._skill_runtime_host.launch("orosha_star_coil", Vector2(380.0, 650.0), star_owner, star_context)),
+		"slot-switch Star Coil fixture should launch Star Coil"
+	)
+	for _i in range(240):
+		star_runtime._skill_runtime_host.update(1.0 / 60.0, star_owner, star_registry, "orosha_star_coil", star_context)
+		if bool(star_owner.lingpet_star_coil_boss_slow_active):
+			break
+	_expect(bool(star_owner.lingpet_star_coil_boss_slow_active), "slot-switch Star Coil setup should slow the boss before switching")
+	_expect(bool(star_owner.lingpet_star_coil_block_boss_dash), "slot-switch Star Coil setup should block boss dash at Lv.5")
+	_expect(bool(star_owner.lingpet_star_coil_freeze_boss_skill_cd), "slot-switch Star Coil setup should freeze boss skill cooldown at Lv.5")
+	_expect(bool(star_runtime.switch_lingpet_slot(1, star_owner, star_registry)), "switching away from active Star Coil should succeed")
+	_expect(not bool(star_owner.lingpet_star_coil_boss_slow_active), "switching away from Star Coil must clear boss slow immediately")
+	_expect(is_equal_approx(float(star_owner.lingpet_star_coil_boss_slow_multiplier), 1.0), "switching away from Star Coil must restore slow multiplier")
+	_expect(not bool(star_owner.lingpet_star_coil_block_boss_dash), "switching away from Star Coil must clear boss dash block")
+	_expect(not bool(star_owner.lingpet_star_coil_freeze_boss_skill_cd), "switching away from Star Coil must clear boss skill cooldown freeze")
 
 
 func _verify_lingpet_skill_waits_for_switch_transition() -> void:
@@ -2945,7 +4017,7 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 	_expect(_stat_values_have_exact(lingpet_stats, "2.00"), "character-info lingpet stats should show Maribo speed as a slower single player-style value")
 	_expect(_stat_values_have_fragment(lingpet_stats, "100x44"), "character-info lingpet stats should show the body-size footprint")
 	_expect(_stat_values_have_exact(lingpet_stats, "40pt"), "character-info lingpet stats should show the direct hit gauge gain as a common stat")
-	_expect(_stat_values_have_exact(lingpet_stats, "40초"), "character-info lingpet stats should show Hydro Sphere cooldown")
+	_expect(_stat_values_have_exact(lingpet_stats, CharacterInfoOverlayFormatter.format_seconds_text(40.0)), "character-info lingpet stats should show Hydro Sphere cooldown")
 	_expect(_stat_values_have_exact(lingpet_stats, "30%"), "character-info lingpet stats should show the real defense rate")
 	_expect(_stat_values_have_exact(lingpet_stats, "Lv.0"), "character-info lingpet stats should show the text-only affinity level row")
 
@@ -3132,6 +4204,9 @@ func _verify_player_takes_ball_priority_when_companion_overlaps() -> void:
 	runtime.update(0.05, owner, registry)
 	_expect(int(owner.lingpet_companion_contact_count) >= prev_contacts + 1, "companion must still guard a ball the player CANNOT reach (defense feature intact)")
 	_expect(float(owner.ball_vel.y) < 0.0, "a guarded (player-unreachable) ball should still be bounced upward")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(runtime_source.find("func _player_can_block_companion_ball") < 0, "runtime should not keep a single-use player-block predicate wrapper")
+	_expect(runtime_source.find("_companion_player_block_resolver.can_player_block") >= 0, "runtime should call the player-block resolver directly for companion hit priority")
 
 
 func _verify_lingpet_body_draws_behind_player() -> void:
@@ -3140,21 +4215,23 @@ func _verify_lingpet_body_draws_behind_player() -> void:
 	# is the explicit bind-sheet gate, where the companion body has to wrap over a target.
 	# Reverse-check: a raw _draw_companion( leak into draw() would cover the player again.
 	var runtime_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var body_presence_resolver_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 	var draw_fn_start: int = runtime_src.find("\nfunc draw(canvas: CanvasItem")
 	_expect(draw_fn_start >= 0, "egg runtime should define draw(canvas: CanvasItem, ...)")
 	var draw_fn_end: int = runtime_src.find("\nfunc ", draw_fn_start + 1)
 	var draw_fn_body: String = runtime_src.substr(draw_fn_start, draw_fn_end - draw_fn_start)
-	var front_gate_idx: int = draw_fn_body.find("if _is_companion_body_drawn_in_front():")
+	var front_gate_idx: int = draw_fn_body.find("if _companion_body_presence_resolver.is_front_pass_body_active(")
 	var front_companion_idx: int = draw_fn_body.find("_draw_companion(")
 	_expect(front_companion_idx < 0 or (front_gate_idx >= 0 and front_gate_idx < front_companion_idx), "main draw() may draw the companion body only behind the explicit bind-sheet front-pass gate")
-	_expect(draw_fn_body.find("_draw_egg(") < 0, "main draw() must NOT draw the egg body (it renders behind the player instead)")
-	_expect(runtime_src.find("func _is_companion_body_drawn_in_front()") >= 0, "front-pass companion draw should stay guarded by a named bind-sheet predicate")
+	_expect(draw_fn_body.find("_egg_renderer.draw_egg(") < 0, "main draw() must NOT draw the egg body (it renders behind the player instead)")
+	_expect(runtime_src.find("func _is_companion_body_drawn_in_front()") < 0, "egg runtime should not keep a private front-pass companion body predicate")
+	_expect(body_presence_resolver_src.find("func is_front_pass_body_active") >= 0, "front-pass companion draw should stay guarded by a named body-presence resolver predicate")
 	var behind_fn_start: int = runtime_src.find("func draw_lingpet_body_behind_actors(")
 	_expect(behind_fn_start >= 0, "egg runtime should expose draw_lingpet_body_behind_actors() for the behind-player body pass")
 	var behind_fn_end: int = runtime_src.find("\nfunc ", behind_fn_start + 1)
 	var behind_fn_body: String = runtime_src.substr(behind_fn_start, behind_fn_end - behind_fn_start)
 	_expect(behind_fn_body.find("_draw_companion(") >= 0, "draw_lingpet_body_behind_actors() should draw the companion body")
-	_expect(behind_fn_body.find("_draw_egg(") >= 0, "draw_lingpet_body_behind_actors() should draw the egg body")
+	_expect(behind_fn_body.find("_egg_renderer.draw_egg(") >= 0, "draw_lingpet_body_behind_actors() should draw the egg body")
 	# The shared player actor renderer must invoke the hook BEFORE the player sprite.
 	var player_src: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
 	var hook_idx: int = player_src.find("lingpet_body_draw")
@@ -3173,18 +4250,18 @@ func _verify_lingpet_defense_guard_chase_feedback() -> void:
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 	_expect(runtime_source.find("COMPANION_DEFENSE_GUARD_PLAYER_SPEED_BONUS_PCT") < 0, "defense guard should not smuggle an undocumented player speed bonus into the runtime")
 	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN") >= 0, "defense guard chase speed should scale with defense_rate through a single rate-gain lever, not a fixed multiplier")
-	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS") >= 0, "every defending lingpet must get the universal +30% guard-speed floor (not a maribo-only value)")
+	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS") >= 0, "every defending lingpet must get the universal +60% guard-speed floor (not a maribo-only value)")
 	_expect(renderer_source.find("defense_guard_aura_ratio") >= 0 and renderer_source.find("_resolve_aura_color") >= 0, "companion renderer should tint the soft aura through a guard ratio")
 	_expect(draw_context_source.find("\"defense_guard_active\"") >= 0 and draw_context_source.find("\"defense_guard_aura_ratio\"") >= 0, "draw context should expose guard chase aura fields")
 	var guard_speed: float = LingpetCompanionMotionState.get_defense_guard_speed(120.0, 0.30)
-	_expect_float(guard_speed, 156.0, "Maribo (0.30 rate) sits exactly on the +30% floor: pet_speed * 1.30 = 156")
-	# Universal +30% FLOOR: every defending lingpet -- not just maribo -- gets at least
-	# +30%, regardless of its (possibly lower) defense_rate, and for ANY base move speed.
-	_expect_float(LingpetCompanionMotionState.get_defense_guard_speed(120.0, 0.10), 156.0, "a LOW 0.10-rate defending pet still gets the +30% floor (156), not +10% (132)")
-	_expect_float(LingpetCompanionMotionState.get_defense_guard_speed(200.0, 0.16), 260.0, "the +30% floor applies to ANY pet's own move speed (200px/s pet -> 260), so the buff is universal not maribo-specific")
+	_expect_float(guard_speed, 192.0, "Maribo (0.30 rate) sits exactly on the +60% floor: pet_speed * 1.60 = 192")
+	# Universal +60% FLOOR: every defending lingpet -- not just maribo -- gets at least
+	# +60%, regardless of its (possibly lower) defense_rate, and for ANY base move speed.
+	_expect_float(LingpetCompanionMotionState.get_defense_guard_speed(120.0, 0.10), 192.0, "a LOW 0.10-rate defending pet still gets the +60% floor (192), not +10% (132)")
+	_expect_float(LingpetCompanionMotionState.get_defense_guard_speed(175.0, 0.16), 280.0, "the +60% floor applies to ANY pet's own move speed (175px/s pet -> 280, under the 320 cap), so the buff is universal not maribo-specific")
 	var guard_speed_max: float = LingpetCompanionMotionState.get_defense_guard_speed(120.0, 1.0)
 	_expect_float(guard_speed_max, 240.0, "above the floor, a higher defense rate scales the chase speed up (rate 1.0 -> pet_speed * 2.0 = 240) so the widened zone stays reachable")
-	_expect(guard_speed_max > guard_speed, "a defense rate above 0.30 must raise the guard CHASE SPEED beyond the +30% floor, not only the commit zone")
+	_expect(guard_speed_max > guard_speed, "a defense rate above the 0.60 floor must raise the guard CHASE SPEED beyond it, not only the commit zone")
 
 	var registry := FakeRegistry.new({})
 	var owner := FakeOwner.new()
@@ -3214,8 +4291,8 @@ func _verify_lingpet_defense_guard_chase_feedback() -> void:
 		runtime.update(step_delta, owner, registry)
 		ball_y += step_drop
 	var fast_snapshot: Dictionary = runtime.get_snapshot()
-	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) <= guard_speed + 0.001, "guard chase must not exceed the lingpet movement baseline plus 30 percent")
-	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) >= guard_speed - 0.001, "guard chase should ramp up to the lingpet movement baseline plus 30 percent")
+	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) <= guard_speed + 0.001, "guard chase must not exceed the lingpet movement baseline plus 60 percent")
+	_expect(float(fast_snapshot.get("companion_patrol_speed", 0.0)) >= guard_speed - 0.001, "guard chase should ramp up to the lingpet movement baseline plus 60 percent")
 	_expect_float(float(fast_snapshot.get("companion_defense_guard_aura_ratio", 0.0)), 1.0, "guard aura should reach full red after the short ramp")
 
 	var builder_config: Dictionary = LingpetCompanionDrawContextBuilder.new().build_config({
@@ -3297,10 +4374,10 @@ func _verify_maribo_high_defense_reaches_widened_zone() -> void:
 	# trivial 80px case in _verify_maribo_defense_actually_blocks_reachable_ball. Ball
 	# descends at the real fps_scale rate (ball_vel * delta * 60); a raw-ball_vel step
 	# would inflate the guard window. NOTE: the SPEED-coupling regression is sealed
-	# deterministically by get_defense_guard_speed's 156->240 assertions in
+	# deterministically by get_defense_guard_speed's 192->240 assertions in
 	# _verify_lingpet_defense_guard_chase_feedback (verified to FAIL on a rate-independent
 	# speed). This case is the "widened reach yields a real bounce" half, not the
-	# speed-regression seal: at this gap/descent the old fixed 156px/s would also catch,
+	# speed-regression seal: at this gap/descent even the floor 192px/s (no rate coupling) would also catch,
 	# so do not read a pass here as proof the coupling is active.
 	var registry := FakeRegistry.new({})
 	var owner := FakeOwner.new()
@@ -3469,6 +4546,18 @@ func _verify_patrol_static_frame_reads_idle() -> void:
 
 
 func _verify_orosha_distance_roll_angle_tracks_horizontal_travel() -> void:
+	var direct_profile := LingpetCurrentProfile.new()
+	direct_profile.set_pet_id("orosha")
+	var direct_roll: Object = LingpetCompanionDistanceRollState.new()
+	direct_roll.advance_draw_movement(Vector2(100.0, 100.0), 0.05, 200.0, direct_profile, 100.0, 0.35)
+	_expect_float(float(direct_roll.get_override_move_ratio()), 0.35, "distance-roll state should seed draw-movement ratio from the motion state on the first frame")
+	direct_roll.advance_draw_movement(Vector2(100.0, 130.0), 0.05, 200.0, direct_profile, 100.0, 0.0)
+	_expect_float(float(direct_roll.get_override_move_ratio()), 0.0, "distance-roll state should keep vertical-only movement idle for side-view walk sheets")
+	direct_roll.advance_draw_movement(Vector2(105.0, 130.0), 0.05, 200.0, direct_profile, 100.0, 0.0)
+	_expect_float(float(direct_roll.get_override_move_ratio()), 0.5, "distance-roll state should normalize real horizontal draw movement into the walk ratio")
+	direct_roll.reset()
+	_expect_float(float(direct_roll.get_override_move_ratio()), 0.0, "distance-roll state reset should clear draw-movement ratio transients")
+
 	var registry := FakeRegistry.new({})
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
@@ -3556,13 +4645,28 @@ func _verify_ghost_blink_vfx() -> void:
 	for _j in range(40):
 		vfx.advance(0.05)
 	_expect(not vfx.has_visible_effects(), "vanish VFX should fully expire")
+	vfx.sync_visibility(true, false, Vector2(440.0, 310.0))
+	_expect(vfx.has_visible_effects(), "sync_visibility should trigger vanish on a free-flight visible->hidden edge")
+	vfx.reset()
+	vfx.sync_visibility(false, false, Vector2(440.0, 310.0))
+	vfx.sync_visibility(true, false, Vector2(440.0, 310.0))
+	_expect(not vfx.has_visible_effects(), "sync_visibility should not replay a stale non-free-flight hidden edge")
+	vfx.sync_visibility(true, true, Vector2(440.0, 310.0))
+	_expect(vfx.has_visible_effects(), "sync_visibility should trigger appear on a free-flight hidden->visible edge")
 
 	# Wiring: the egg runtime must advance, draw, and fire the blink on free-flight
 	# visibility edges, and reset it on the lingpet reset paths.
 	var runtime_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	_expect(runtime_src.find("_ghost_blink_vfx.trigger_appear") >= 0 and runtime_src.find("_ghost_blink_vfx.trigger_vanish") >= 0, "egg runtime should fire the ghost blink VFX on appear/vanish edges")
+	var ghost_vfx_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
+	_expect(runtime_src.find("func _update_ghost_blink_vfx_triggers") < 0, "egg runtime should not keep a single-use ghost blink trigger wrapper")
+	_expect(runtime_src.find("var _prev_ghost_visible") < 0, "egg runtime should not keep raw ghost visibility edge state")
+	_expect(runtime_src.find("_ghost_blink_vfx.sync_visibility") >= 0, "egg runtime should ask the ghost blink VFX owner to sync free-flight visibility edges")
+	_expect(ghost_vfx_src.find("func sync_visibility") >= 0 and ghost_vfx_src.find("trigger_appear") >= 0 and ghost_vfx_src.find("trigger_vanish") >= 0, "ghost blink VFX should own appear/vanish edge triggering")
 	_expect(runtime_src.find("_ghost_blink_vfx.draw(") >= 0 and runtime_src.find("_ghost_blink_vfx.advance(") >= 0, "egg runtime should advance + draw the ghost blink VFX")
-	_expect(runtime_src.find("_ghost_blink_vfx.reset()") >= 0, "egg runtime should reset the ghost blink VFX on lingpet resets")
+	# Reset moved off the runtime into the dedicated resetters; assert the new owners.
+	var companion_resetter_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
+	var round_resetter_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_round_resetter.gd")
+	_expect(companion_resetter_src.find("ghost_blink_vfx.reset()") >= 0 and round_resetter_src.find("ghost_blink_vfx.reset()") >= 0, "lingpet reset paths (companion runtime + round resetters) should reset the ghost blink VFX")
 
 
 func _measure_ghost_hidden_wait(rate: float) -> Dictionary:
@@ -3688,8 +4792,10 @@ func _verify_lunabi_free_flight_profile() -> void:
 	_expect(hover_frame_a != hover_frame_b, "Sortie-flight companions should keep cycling wing-flap frames while hovering")
 	_expect(LingpetCompanionSpriteAnimator.FLIGHT_FPS_MAX <= 14.0, "Lunabi wing-flap cadence should stay below vibration-speed playback")
 	var egg_runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var body_presence_resolver_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 	_expect(egg_runtime_source.find("COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO") >= 0, "Sortie-flight runtime should keep a minimum visible wing-flap cadence during hover")
-	_expect(egg_runtime_source.find("_get_companion_draw_motion_speed_ratio") >= 0, "Companion draw context should route sortie-flight cadence through a hover-safe helper")
+	_expect(egg_runtime_source.find("func _get_companion_draw_motion_speed_ratio") < 0, "egg runtime should not keep a private draw-motion speed-ratio helper")
+	_expect(body_presence_resolver_source.find("func get_draw_motion_speed_ratio_from_runtime") >= 0 and body_presence_resolver_source.find("func get_draw_motion_speed_ratio_from_sources") >= 0, "Companion draw context should route sortie-flight cadence through source-aware body-presence helpers")
 
 	var forced_companion_pos := Vector2(380.0, 310.0)
 	runtime.configure_companion_motion_for_tests(forced_companion_pos, 2, 0.0, false)
@@ -3990,6 +5096,41 @@ func _verify_loadout_apply_prewarms_active_skill_runtime() -> void:
 	var fresh: Object = LingpetEggRuntime.new()
 	fresh.prewarm_assets()
 	_expect(fresh._skill_runtime_host._doll_curse_skill == null, "boot prewarm without an equipped pet should not build skill modules")
+
+
+func _verify_skeleton_archer_resets_on_stage_transition() -> void:
+	# Summoned Skeleton Archers persist across ROUND boundaries (reset_round keeps them) but
+	# must be wiped when the player advances to the next STAGE. The egg runtime self-detects
+	# the owner's current_stage change and runs a full skill-host reset (round_scope=false).
+	var runtime: Object = LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 1
+	owner.ball_active = false
+	var registry := FakeRegistry.new({"game_audio": FakePaddleAudio.new()})
+	var host: Object = runtime._skill_runtime_host
+	var skill_persistence: Object = runtime._companion_skill_persistence
+	_expect(
+		bool(host.launch("nekuring_skeleton_archer", Vector2(380.0, 680.0), owner, {"registry": registry, "spawn_x": 380.0, "spawn_y": 650.0, "arrow_cooldown": 99.0})),
+		"stage-transition fixture should summon a Skeleton Archer"
+	)
+	host.update(1.21, owner, registry, "nekuring_skeleton_archer", {})
+	_expect(host.get_skeleton_archer_archer_count_for_tests() == 1, "stage-transition fixture should keep one live archer before any stage change")
+	# First observation at stage 1 only adopts the stage number (no wipe -- not a real change).
+	skill_persistence.maybe_reset_runtime_transients_for_stage(owner.current_stage, runtime._companion_skill_states, host, owner, registry)
+	_expect(host.get_skeleton_archer_archer_count_for_tests() == 1, "adopting the initial stage number must not wipe the summoned archer")
+	# Staying on the same stage (a round boundary within the stage) keeps the archer.
+	skill_persistence.maybe_reset_runtime_transients_for_stage(owner.current_stage, runtime._companion_skill_states, host, owner, registry)
+	_expect(host.get_skeleton_archer_archer_count_for_tests() == 1, "staying on the same stage (round boundary) must keep the summoned archer")
+	# Advancing to the next stage wipes the deployed archer.
+	owner.current_stage = 2
+	skill_persistence.maybe_reset_runtime_transients_for_stage(owner.current_stage, runtime._companion_skill_states, host, owner, registry)
+	_expect(host.get_skeleton_archer_archer_count_for_tests() == 0, "advancing to the next stage must wipe the summoned archer")
+	# The detector must actually be wired into the per-frame update, or it never fires in play.
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var persistence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_persistence.gd")
+	_expect(runtime_source.find("func _maybe_reset_skill_deployments_for_stage") < 0, "egg runtime should not keep a private per-stage deployment reset wrapper")
+	_expect(runtime_source.find("_companion_skill_persistence.maybe_reset_runtime_transients_for_stage") >= 0, "egg runtime update should drive the persistence-owned per-stage deployment reset")
+	_expect(persistence_source.find("func maybe_reset_runtime_transients_for_stage") >= 0 and persistence_source.find("func reset_stage_observer") >= 0, "companion skill persistence should own stage-change deployment reset state")
 
 
 func _verify_koyora_puppet_grab_skill() -> void:
@@ -4671,12 +5812,16 @@ func _verify_companion_click_reaction() -> void:
 
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var click_reaction_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
+	var click_draw_size_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_click_reaction_draw_size_resolver.gd")
 	var profile_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_profile.gd")
+	var current_visual_prewarm_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_visual_prewarm_coordinator.gd")
 	var visual_cache_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
+	var body_presence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 	_expect(runtime_source.find("lingpet_companion_click_reaction_state.gd") >= 0, "lingpet runtime should delegate click-reaction timing state")
 	_expect(runtime_source.find("_draw_companion_click_reaction") < 0, "lingpet runtime should delegate click-reaction sheet drawing to the click-reaction module")
 	_expect(click_reaction_source.find("PREWARM_VISUAL_KEYS") >= 0, "click-reaction module should own the focused visual prewarm keys")
+	_expect(click_reaction_source.find("PANEL_VISUAL_KEY := \"click_reaction_anim\"") >= 0 and click_reaction_source.find("PREWARM_VISUAL_KEYS := [RUNTIME_VISUAL_KEY, PANEL_VISUAL_KEY]") >= 0, "post-hatch companion prewarm should include the character-info panel click Live2D sheet")
 	_expect(click_reaction_source.find("can_start_at") >= 0 and click_reaction_source.find("CLICK_ZONE_HALF_WIDTH") >= 0, "click-reaction module should own the companion tap-zone math")
 	_expect(click_reaction_source.find("draw_texture_rect_region") >= 0, "click-reaction module should own the popup sheet frame draw")
 	_expect(click_reaction_source.find("DEFAULT_VIEW_HEIGHT := 82.0") >= 0, "click-reaction module should fall back to the same small size as the SD walk sprite")
@@ -4687,25 +5832,36 @@ func _verify_companion_click_reaction() -> void:
 	_expect(profile_source.find("prewarm_visual_keys") >= 0, "lingpet current profile should support focused visual prewarm keys for large optional sheets")
 	_expect(profile_source.find("get_cached_visual_texture") >= 0, "lingpet current profile should expose cached-only texture lookup for click-reaction draw frames")
 	_expect(visual_cache_source.find("prewarm_pet_key_threaded_step") >= 0 and visual_cache_source.find("ProjectResourceLoader.prewarm_texture_threaded_step") >= 0, "lingpet visual cache should thread-prewarm large optional click-reaction sheets")
-	_expect(runtime_source.find("_prewarm_click_reaction_visual_step") >= 0, "lingpet runtime should spread click-reaction visual prewarm over companion updates")
-	_expect(runtime_source.find("LingpetCompanionClickReactionState.RUNTIME_VISUAL_KEY") >= 0, "lingpet click-reaction draw should use the dedicated in-battle visual key")
+	_expect(runtime_source.find("func _queue_click_reaction_visual_prewarm") < 0, "lingpet runtime should not keep a single-use click-reaction visual prewarm queue wrapper")
+	_expect(runtime_source.find("func _prewarm_click_reaction_visual_step") < 0, "lingpet runtime should not keep a single-use click-reaction visual prewarm step wrapper")
+	_expect(current_visual_prewarm_source.find("_reaction_visual_prewarm_state.queue_if_companion") >= 0 or current_visual_prewarm_source.find("queue_if_companion") >= 0, "current visual prewarm coordinator should schedule click-reaction visual prewarm through the focused prewarm state")
+	_expect(runtime_source.find("func _prewarm_current_visuals") < 0, "lingpet runtime should not keep a single-use current visual prewarm wrapper")
+	_expect(runtime_source.find("_companion_click_reaction_visual_prewarm_state.prewarm_step") >= 0, "lingpet runtime should spread click-reaction visual prewarm over companion updates through the focused prewarm state")
+	_expect(click_reaction_source.find("func get_ready_texture") >= 0 and click_reaction_source.find("get_cached_visual_texture") >= 0, "click-reaction module should own cached-first texture readiness lookup")
+	_expect(runtime_source.find("_companion_click_reaction_state.get_ready_texture") >= 0, "lingpet runtime should ask the click-reaction owner for the ready texture")
+	_expect(runtime_source.find("func _ensure_companion_click_reaction_texture_ready") < 0, "lingpet runtime should not keep a private click-reaction texture readiness wrapper")
 	_expect(runtime_source.find("_get_current_cached_visual_texture(\"click_reaction_anim\", null)") < 0, "lingpet click-reaction draw should not use the full-size cut-in/result sheet key")
 	_expect(runtime_source.find("_get_current_visual_texture(\"click_reaction_anim\", null)") < 0, "lingpet click-reaction draw should not synchronously load the large sheet")
 	_expect(
-		LingpetEggRuntime.CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC <= ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC
-			and LingpetEggRuntime.CLICK_REACTION_TEXTURE_PREWARM_MAX_POLLS <= ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
-		"lingpet in-battle click-reaction prewarm should keep the short threaded guard instead of a long live-gameplay load"
+		LingpetEggRuntime.CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC == 0
+			and LingpetEggRuntime.CLICK_REACTION_TEXTURE_PREWARM_MAX_POLLS == 0,
+		"lingpet live-rally click/panel prewarm should never demote an in-flight threaded texture to a synchronous main-thread fallback"
 	)
 	_expect(_lingpet_runtime_click_sheet_is_small("maribo"), "Maribo in-battle click-reaction sheet should be the downscaled companion sheet")
 	_expect(_lingpet_runtime_click_sheet_is_small("lunabi"), "Lunabi in-battle click-reaction sheet should be the downscaled companion sheet")
 	_expect(_lingpet_runtime_click_sheet_is_small("nekuring"), "Nekuring in-battle click-reaction sheet should be the downscaled companion sheet")
-	_expect(runtime_source.find("_get_companion_click_reaction_draw_size") >= 0, "lingpet runtime should size click-reaction Live2D through a focused helper")
-	_expect(runtime_source.find("click_reaction_draw_size") >= 0 and runtime_source.find("companion_walk_draw_size") >= 0, "lingpet runtime should support a per-pet click-reaction size override before falling back to SD walk draw size")
+	_expect(runtime_source.find("func _get_companion_click_reaction_draw_size") < 0, "lingpet runtime should not reintroduce the single-use click-reaction draw-size wrapper")
+	_expect(runtime_source.find("_companion_click_reaction_draw_size_resolver.resolve") >= 0, "lingpet runtime should size click-reaction Live2D through the focused resolver")
+	_expect(click_draw_size_source.find("click_reaction_draw_size") >= 0 and click_draw_size_source.find("companion_walk_draw_size") >= 0, "lingpet draw-size resolver should support a per-pet click-reaction size override before falling back to SD walk draw size")
 	_expect(runtime_source.find("if not click_reaction_visible") >= 0, "lingpet runtime should hide the base SD companion while the click-reaction Live2D is visible")
+	_expect(body_presence_source.find("func is_click_reaction_visible") >= 0, "body-presence resolver should own click-reaction visibility gating")
+	var body_draw_fn := _function_body(runtime_source, "func draw_lingpet_body_behind_actors")
+	_expect(body_draw_fn.find("_companion_body_presence_resolver.is_click_reaction_visible") >= 0, "lingpet body draw should ask body-presence resolver for click-reaction visibility")
+	_expect(body_draw_fn.find("_ring_dash_state.is_companion_visual_hidden") < 0, "lingpet body draw should not reassemble click-reaction visibility inline")
 	_expect(input_source.find("try_begin_companion_click_reaction") >= 0, "battle input should route playfield companion clicks to the lingpet runtime")
 	_expect(input_source.find("try_begin_companion_click_reaction(playfield_pos, registry)") >= 0, "battle input should hand the registry to the click-reaction so the per-pet voice can play")
-	_expect(runtime_source.find("_play_click_reaction_audio") >= 0, "lingpet runtime should request the click-reaction voice when a companion click lands")
-	_expect(runtime_source.find("play_lingpet_click_reaction") >= 0, "lingpet runtime should route the click-reaction voice through the pet-agnostic GameAudio entry")
+	_expect(runtime_source.find("func _play_click_reaction_audio") < 0, "lingpet runtime should not keep a single-use click-reaction audio wrapper")
+	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_click_reaction") >= 0, "lingpet runtime should route click-reaction voice timing directly through the audio dispatcher")
 
 
 func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
@@ -4721,18 +5877,18 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 
 	var click_pos: Vector2 = forced_click_pos
 	_expect(bool(runtime.try_begin_companion_click_reaction(click_pos)), "first visible companion click should start the click reaction")
-	_expect_float(runtime.get_affinity_points("maribo"), 5.0, "first start-edge click should grant affinity")
+	_expect_float(runtime.get_affinity_points("maribo"), 20.0, "first start-edge click should grant affinity (20)")
 	_expect(bool(runtime.try_begin_companion_click_reaction(click_pos)), "active companion click should still be consumed")
-	_expect_float(runtime.get_affinity_points("maribo"), 5.0, "active click-reaction replay branch should not grant a second affinity award")
+	_expect_float(runtime.get_affinity_points("maribo"), 20.0, "active click-reaction replay branch should not grant a second affinity award")
 
 	runtime.update(5.0, owner)
 	click_pos = owner.lingpet_companion_pos
 	_expect(bool(runtime.try_begin_companion_click_reaction(click_pos)), "second visible start-edge click in the same round should be allowed")
-	_expect_float(runtime.get_affinity_points("maribo"), 10.0, "second start-edge click should use the remaining round click budget")
+	_expect_float(runtime.get_affinity_points("maribo"), 40.0, "second start-edge click should use the remaining round click budget (2x20)")
 	runtime.update(5.0, owner)
 	click_pos = owner.lingpet_companion_pos
 	_expect(bool(runtime.try_begin_companion_click_reaction(click_pos)), "third same-round start edge should still consume the companion click")
-	_expect_float(runtime.get_affinity_points("maribo"), 10.0, "third same-round start edge should be blocked by the affinity round cap")
+	_expect_float(runtime.get_affinity_points("maribo"), 40.0, "third same-round start edge should be blocked by the affinity round cap")
 	var capped_result: Dictionary = runtime.get_last_affinity_result_for_tests()
 	_expect_str(str(capped_result.get("blocked_reason", "")), "round_cap", "third same-round click should report the affinity round cap")
 
@@ -4740,7 +5896,10 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 	runtime.reset_round({"owner": owner})
 	click_pos = owner.lingpet_companion_pos
 	_expect(bool(runtime.try_begin_companion_click_reaction(click_pos)), "new round should restore the click affinity round budget")
-	_expect_float(runtime.get_affinity_points("maribo"), 15.0, "new-round visible click should grant affinity again")
+	# Cumulative would be 60 here, but that crosses the 50 level requirement, so assert the
+	# fresh click GRANT (+20) rather than the level-up-sensitive banked residual.
+	var new_round_click: Dictionary = runtime.get_last_affinity_result_for_tests()
+	_expect_float(float(new_round_click.get("granted_points", 0.0)), 20.0, "new-round visible click should grant a fresh +20 once the round budget resets")
 
 	var hidden_owner := FakeOwner.new()
 	var hidden_runtime: Object = LingpetEggRuntime.new()
@@ -4748,6 +5907,13 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 	hidden_runtime.configure_companion_sortie_hidden_for_tests(Vector2(250.0, 245.0), 2, 8.0)
 	_expect(bool(hidden_runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0))), "hidden sortie companion tap may still consume the click reaction")
 	_expect_float(hidden_runtime.get_affinity_points("lunabi"), 0.0, "hidden sortie companion click should not grant affinity")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var body_presence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
+	_expect(runtime_source.find("func _can_grant_click_affinity") < 0, "runtime should not keep a single-use click-affinity visibility predicate wrapper")
+	_expect(body_presence_source.find("func can_grant_click_affinity") >= 0, "body-presence resolver should own click-affinity visibility gating")
+	var click_reaction_body := _function_body(runtime_source, "func try_begin_companion_click_reaction")
+	_expect(click_reaction_body.find("_companion_body_presence_resolver.can_grant_click_affinity") >= 0, "runtime should gate click affinity through the body-presence resolver")
+	_expect(click_reaction_body.find("_companion_motion_state.motion_visible") < 0 and click_reaction_body.find("_ring_dash_state.is_companion_visual_hidden") < 0, "click reaction should not reassemble click-affinity visibility inline")
 
 	var dash_owner := FakeOwner.new()
 	dash_owner.lingpet_ring_dash_force_roll_pct = 0.0
@@ -4768,6 +5934,42 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 	_expect_float(dash_runtime.get_affinity_points("maribo"), before_hidden_click, "Ring Dash visual-hidden click should not grant affinity")
 
 
+func _verify_ring_core_upgrade_grants_affinity_to_all_owned_pets() -> void:
+	var registry := FakeRegistry.new({})
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo", "lunabi"]  # lunabi is NEVER a companion this run
+	owner.lingpet_slots = ["maribo", "", ""]
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner), "ring-core grant fixture should activate Maribo")
+	_expect_eq(runtime.get_affinity_level("maribo"), 0, "fixture should start the active pet at affinity Lv0")
+	_expect_eq(runtime.get_affinity_level("lunabi"), 0, "never-engaged owned pet should start at Lv0")
+
+	# Tier 0 -> 1 (cap 5). Every OWNED pet must receive the flat +50 (= Lv1), incl. lunabi, which
+	# has never been a companion this run (its context is built from the catalog on first grant).
+	var result: Dictionary = runtime.upgrade_run_ring_core_tier(1, owner, registry)
+	_expect(bool(result.get("accepted", false)), "ring-core tier 0->1 upgrade should be accepted")
+	_expect_eq(int(result.get("affinity_granted_pets", 0)), 2, "ring-core upgrade should grant affinity to both owned pets")
+	_expect_eq(runtime.get_affinity_level("maribo"), 1, "active owned pet should gain ~1 level from the +50 ring-core grant")
+	_expect_eq(runtime.get_affinity_level("lunabi"), 1, "never-engaged owned pet should also receive the +50 ring-core grant")
+
+	# Per-upgrade (not once-per-run): a second tier rise pays another +50 to the whole roster.
+	var second: Dictionary = runtime.upgrade_run_ring_core_tier(2, owner, registry)
+	_expect(bool(second.get("accepted", false)), "second ring-core upgrade should be accepted")
+	_expect_eq(runtime.get_affinity_level("maribo"), 2, "a second ring-core upgrade should grant another +50 (per-upgrade)")
+	_expect_eq(runtime.get_affinity_level("lunabi"), 2, "a second ring-core upgrade should also re-grant the never-engaged pet")
+
+	# Chip-exempt: 5 enhancement chips keep the grant a flat +50 (Lv1), not +100 (Lv2).
+	var chip_owner := FakeOwner.new()
+	chip_owner.lingpet_owned_pet_ids = ["maribo"]
+	chip_owner.lingpet_slots = ["maribo", "", ""]
+	var chip_runtime: Object = LingpetEggRuntime.new()
+	_expect(chip_runtime.debug_grant_and_activate_pet("maribo", chip_owner), "chip-exempt fixture should activate Maribo")
+	for _i in range(5):
+		chip_runtime._affinity_state.add_enhancement_chip()
+	chip_runtime.upgrade_run_ring_core_tier(1, chip_owner, registry)
+	_expect_eq(chip_runtime.get_affinity_level("maribo"), 1, "ring-core +50 grant should be chip-exempt (flat 50 = Lv1, not 100 = Lv2)")
+
+
 func _verify_affinity_score_event_and_battle_reset() -> void:
 	var inactive_runtime: Object = LingpetEggRuntime.new()
 	inactive_runtime.handle_score_event("player", {"match_finished": true}, {})
@@ -4781,10 +5983,16 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	runtime.handle_score_event("player", {"match_finished": false}, {})
 	_expect_float(runtime.get_affinity_points("maribo"), 5.0, "a player-scored commit should pay one +5 round award")
 	runtime.handle_score_event("player", {"match_finished": true}, {})
-	_expect_float(runtime.get_affinity_points("maribo"), 30.0, "player match finish should add round-completion and eligible victory affinity")
+	# Match finish pays round-completion (+5), victory (+20) and stage clear (+50) = +75, but this
+	# fixture runs at ring-core tier 0 (cap 0), so banked points clamp at the 50 next-level
+	# requirement. The duplicate self-seal checks below are the real proof both bonuses were paid.
+	_expect_float(runtime.get_affinity_points("maribo"), 50.0, "player match finish income (5+20+50) clamps to the 50 cap-0 next-level requirement")
 	var duplicate_victory: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_VICTORY)
 	_expect_float(float(duplicate_victory.get("granted_points", 0.0)), 0.0, "victory payout should self-seal inside one battle")
 	_expect_str(str(duplicate_victory.get("blocked_reason", "")), "victory_already_paid", "duplicate victory should report the battle seal")
+	var duplicate_stage_clear: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_STAGE_CLEAR)
+	_expect_float(float(duplicate_stage_clear.get("granted_points", 0.0)), 0.0, "match finish should already have paid stage clear once, so a second is self-sealed")
+	_expect_str(str(duplicate_stage_clear.get("blocked_reason", "")), "stage_clear_already_paid", "duplicate stage clear should report the battle seal")
 
 	runtime.reset_affinity_for_new_battle()
 	var first_hatch: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_HATCH)
@@ -4796,14 +6004,14 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 
 	for _i in range(5):
 		var click_result: Dictionary = runtime.debug_add_affinity_points_for_tests("koyora", LingpetAffinityState.SOURCE_CLICK)
-		_expect_float(float(click_result.get("granted_points", 0.0)), 5.0, "click battle-cap setup should grant each of the five battle clicks")
+		_expect_float(float(click_result.get("granted_points", 0.0)), 20.0, "click battle-cap setup should grant each of the five battle clicks (20)")
 		runtime.reset_round({"owner": owner})
 	var capped_click: Dictionary = runtime.debug_add_affinity_points_for_tests("koyora", LingpetAffinityState.SOURCE_CLICK)
 	_expect_float(float(capped_click.get("granted_points", 0.0)), 0.0, "sixth click in one battle should be blocked before battle reset")
 	_expect_str(str(capped_click.get("blocked_reason", "")), "battle_cap", "sixth click should report the battle cap")
 	runtime.reset_affinity_for_new_battle()
 	var reloaded_click: Dictionary = runtime.debug_add_affinity_points_for_tests("koyora", LingpetAffinityState.SOURCE_CLICK)
-	_expect_float(float(reloaded_click.get("granted_points", 0.0)), 5.0, "new-battle reset should reload click battle budget")
+	_expect_float(float(reloaded_click.get("granted_points", 0.0)), 20.0, "new-battle reset should reload click battle budget (20)")
 
 	runtime.reset_affinity_for_new_battle()
 	runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
@@ -4817,8 +6025,7 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	var reset_win: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_VICTORY)
 	_expect_float(float(reset_win.get("granted_points", 0.0)), 20.0, "new-battle reset should clear the attendance ledger and allow a fresh eligible victory")
 
-	var defeat_store := FakeAffinityBondStore.new()
-	var defeat_registry := FakeRegistry.new({"lingpet_affinity_store": defeat_store})
+	var defeat_registry := FakeRegistry.new({})
 	var defeat_runtime: Object = LingpetEggRuntime.new()
 	_set_run_ring_core_tier_for_smoke(defeat_runtime)
 	_expect(defeat_runtime.debug_grant_and_activate_pet("maribo", FakeOwner.new()), "bond defeat fixture should activate Maribo")
@@ -4826,19 +6033,15 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	defeat_runtime.handle_score_event("boss", {"match_finished": true}, {"registry": defeat_registry})
 	var defeat_settlement: Dictionary = defeat_runtime.get_last_affinity_bond_settlement_for_tests()
 	_expect_eq(int((defeat_settlement.get("discarded", {}) as Dictionary).get("maribo", 0)), 1, "boss match-finish should discard pending bond level-ups")
-	_expect_eq(defeat_store.calls.size(), 0, "defeat should not write bond levels to the store")
 
-	var short_store := FakeAffinityBondStore.new()
 	var short_runtime: Object = LingpetEggRuntime.new()
 	_set_run_ring_core_tier_for_smoke(short_runtime)
 	_expect(short_runtime.debug_grant_and_activate_pet("maribo", FakeOwner.new()), "bond short-run fixture should activate Maribo")
 	_grant_affinity_round_commits(short_runtime, "maribo", 10)
 	short_runtime.reset_affinity_for_new_battle()
 	_expect(short_runtime.get_last_affinity_bond_settlement_for_tests().is_empty(), "short run reset should not produce a bond settlement")
-	_expect_eq(short_store.calls.size(), 0, "short run reset should not write bond levels to the store")
 
-	var gated_store := FakeAffinityBondStore.new()
-	var gated_registry := FakeRegistry.new({"lingpet_affinity_store": gated_store})
+	var gated_registry := FakeRegistry.new({})
 	var gated_runtime: Object = LingpetEggRuntime.new()
 	_set_run_ring_core_tier_for_smoke(gated_runtime)
 	var gated_owner := FakeOwner.new()
@@ -4849,12 +6052,11 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	gated_runtime.handle_score_event("player", {"match_finished": true}, {"registry": gated_registry})
 	var gated_settlement: Dictionary = gated_runtime.get_last_affinity_bond_settlement_for_tests()
 	_expect_eq(int((gated_settlement.get("discarded", {}) as Dictionary).get("maribo", 0)), 1, "below-50-percent pending pet should not settle bond levels")
-	_expect_eq(gated_store.get_bond_level("maribo"), 0, "below-50-percent pending pet should not write bond levels")
-	_expect_eq(int((gated_settlement.get("settled", {}) as Dictionary).get("lunabi", 0)), 1, "eligible active pet should settle its pending bond level (run-state, not store)")
-	_expect_eq(gated_store.get_bond_level("lunabi"), 0, "settled bond levels must not be written to the permanent store")
+	# lunabi: 11 commits -> Lv1, then the match-finish income (round +5, victory +20, stage clear +50)
+	# crosses a second 50 boundary -> Lv2, so it settles 2 bond level-ups (1 commit + 1 finish burst).
+	_expect_eq(int((gated_settlement.get("settled", {}) as Dictionary).get("lunabi", 0)), 2, "eligible active pet settles its pending bond levels incl. the match-finish burst (run-state, not store)")
 
-	var swap_store := FakeAffinityBondStore.new()
-	var swap_registry := FakeRegistry.new({"lingpet_affinity_store": swap_store})
+	var swap_registry := FakeRegistry.new({})
 	var swap_runtime: Object = LingpetEggRuntime.new()
 	_set_run_ring_core_tier_for_smoke(swap_runtime)
 	var swap_owner := FakeOwner.new()
@@ -4865,15 +6067,16 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	swap_runtime.handle_score_event("player", {"match_finished": true}, {"registry": swap_registry})
 	var swap_settlement: Dictionary = swap_runtime.get_last_affinity_bond_settlement_for_tests()
 	_expect_eq(int((swap_settlement.get("settled", {}) as Dictionary).get("maribo", 0)), 1, "inactive swapped pet with 50-percent attendance should settle its own pending bond level")
-	_expect_eq(int((swap_settlement.get("settled", {}) as Dictionary).get("lunabi", 0)), 1, "final active pet should settle its own eligible pending bond level (run-state)")
-	_expect_eq(swap_store.get_bond_level("maribo"), 0, "settled bond levels are run-state only and must not be written to the permanent store")
-	_expect_eq(swap_store.get_bond_level("lunabi"), 0, "final active pet bond settlement must not be written to the permanent store either")
+	# lunabi: 10 commits -> Lv1, then the match-finish income burst (+75) crosses a second boundary -> Lv2.
+	_expect_eq(int((swap_settlement.get("settled", {}) as Dictionary).get("lunabi", 0)), 2, "final active pet settles its own eligible pending bond levels incl. the match-finish burst (run-state)")
 
 
 func _verify_affinity_reward_application() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var add_affinity_pos := runtime_source.find("func _add_affinity_points")
-	_expect(add_affinity_pos >= 0 and runtime_source.find("_invalidate_current_loadout_cache()", add_affinity_pos) > add_affinity_pos, "affinity level-up path should invalidate the current loadout cache")
+	var affinity_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
+	_expect(runtime_source.find("func _handle_affinity_level_gain") < 0, "egg runtime should not keep a private affinity level-gain callback helper")
+	_expect(runtime_source.find("Callable(_affinity_context_coordinator, \"handle_level_gain\")") >= 0, "affinity level-up callback should route through the affinity context coordinator")
+	_expect(affinity_context_source.find("func handle_level_gain") >= 0 and affinity_context_source.find("invalidate_runtime_cache") >= 0 and affinity_context_source.find("invalidate_sync_cache") >= 0, "affinity context coordinator should own level-gain profile sync and cache invalidation")
 
 	var profile := LingpetCurrentProfile.new()
 	profile.set_pet_id("maribo")
@@ -4980,7 +6183,7 @@ func _verify_affinity_reward_application() -> void:
 	_expect_eq(int(boosted_snapshot.get("companion_passive_skill_level", 0)), 3, "V3 Lv.12 should synthesize passive skill Lv.3 from base Lv.1 plus two bonuses")
 	_expect_eq(int(boosted_rewards.get("defense_stacks", 0)), 2, "V3 Lv.12 patrol fixture should keep both defense cards")
 	_expect_eq(int(boosted_rewards.get("gauge_stacks", 0)), 2, "V3 Lv.12 patrol fixture should keep both gauge cards")
-	_expect_eq(int(boosted_rewards.get("mobility_stacks", 0)), 2, "V3 Lv.12 patrol fixture should keep both mobility cards")
+	_expect_eq(int(boosted_rewards.get("mobility_stacks", 0)), 4, "V3 Lv.12 patrol fixture should keep all four mobility cards from the current seeded deck")
 	_prepare_maribo_guard_after_windup(boosted_runtime, boosted_owner, boosted_registry)
 	var lane_y: float = boosted_owner.lingpet_companion_pos.y
 	boosted_runtime.configure_companion_motion_for_tests(Vector2(570.0, lane_y), 5, 0.0, false)
@@ -5036,7 +6239,7 @@ func _verify_affinity_reward_application() -> void:
 	flight_runtime.update(0.0, flight_owner, flight_registry)
 	var mobility_flight_snapshot: Dictionary = flight_runtime.get_snapshot()
 	var boosted_appearance_rate: float = float(mobility_flight_snapshot.get("companion_appearance_rate", 0.0))
-	_expect_float(boosted_appearance_rate, base_appearance_rate + 0.05, "flight mobility reward should raise appearance rate by 5 percentage points")
+	_expect_float(boosted_appearance_rate, base_appearance_rate + 0.10, "flight mobility rewards should raise appearance rate by 10 percentage points")
 	var base_hidden: float = float(_measure_ghost_hidden_wait(base_appearance_rate).get("hidden", 0.0))
 	var boosted_hidden: float = float(_measure_ghost_hidden_wait(boosted_appearance_rate).get("hidden", 0.0))
 	_expect(boosted_hidden < base_hidden, "flight mobility reward should measurably shorten hidden wait")
@@ -5050,12 +6253,13 @@ func _verify_affinity_reward_application() -> void:
 	_expect_eq(int(support_flight_rewards.get("passive_skill_bonus", 0)), 1, "V3 Lv.10 flight fixture should have one passive skill +1 reward")
 	_expect_eq(int(support_flight_snapshot.get("active_skill_level", 0)), 3, "V3 Lv.10 flight fixture should synthesize active skill Lv.3")
 	_expect_eq(int(support_flight_snapshot.get("companion_passive_skill_level", 0)), 2, "V3 Lv.10 flight fixture should synthesize passive skill Lv.2")
-	_expect_eq(int(support_flight_rewards.get("gauge_stacks", 0)), 3, "V3 Lv.10 flight fixture should count three gauge cards")
-	_expect_float(float(support_flight_snapshot.get("companion_appearance_rate", 0.0)), base_appearance_rate + 0.10, "V3 Lv.10 flight fixture should synthesize two mobility cards into appearance rate")
-	_expect_float(float(support_flight_snapshot.get("companion_hit_gauge_gain", 0.0)), 55.0, "V3 Lv.10 flight fixture should synthesize three gauge cards into hit gauge gain")
+	_expect_eq(int(support_flight_rewards.get("gauge_stacks", 0)), 4, "V3 Lv.10 flight fixture should count four gauge cards from the current seeded deck")
+	_expect_float(float(support_flight_snapshot.get("companion_appearance_rate", 0.0)), base_appearance_rate + 0.15, "V3 Lv.10 flight fixture should synthesize three mobility cards into appearance rate")
+	_expect_float(float(support_flight_snapshot.get("companion_hit_gauge_gain", 0.0)), 60.0, "V3 Lv.10 flight fixture should synthesize four gauge cards into hit gauge gain")
 
 
 func _verify_second_active_slot_runtime_foundation() -> void:
+	var active_slot_resolver := LingpetActiveSkillSlotResolver.new()
 	var owner := FakeOwner.new()
 	owner.ball_active = true
 	owner.ball_pos = Vector2(380.0, 260.0)
@@ -5067,46 +6271,52 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 		runtime.debug_grant_and_activate_pet("red_dragon", owner, false, "", "", registry, 1, 1),
 		"second-active fixture should activate Red Dragon without a debug-forced loadout"
 	)
-	runtime._loadout_state.set_pet_loadout(
+	runtime._loadout_state.set_pet_loadout_and_invalidate(
 		owner,
 		"red_dragon",
 		"red_dragon_dragon_breath",
 		"",
 		1,
 		1,
+		runtime._snapshot_builder,
 		"red_dragon_dragon_wing",
 		"",
 		1,
 		1
 	)
-	runtime._invalidate_current_loadout_cache()
 	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime._get_active_slot_count(), 1, "slot 1 should stay runtime-locked before second_active_unlocked")
+	_expect_eq(active_slot_resolver.get_active_slot_count(runtime._current_profile, runtime._skill_runtime_host), 1, "slot 1 should stay runtime-locked before second_active_unlocked")
 	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 7, 0.0, true)
 	runtime.update(0.05, owner, registry)
-	var locked_slot_state: Object = runtime._get_companion_skill_state_for_slot(1)
+	var locked_slot_state: Object = _skill_state_for_runtime_slot(runtime, 1)
 	_expect(not bool(locked_slot_state.windup_active), "locked slot 1 should not arm even when a second active id exists")
 	_expect_float(float(locked_slot_state.cooldown), 0.0, "locked slot 1 should not spend cooldown")
 
 	runtime.reset_round({"owner": owner, "registry": registry})
-	_grant_affinity_round_commits(runtime, "red_dragon", 220)
+	_grant_affinity_round_commits_until_reward(runtime, "red_dragon", "second_active_unlocked", 300)
 	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("red_dragon"), 22, "second-active fixture should reach the Lv.22 unlock gate")
+	# The second-active unlock is now granted by a per-level probability roll once the
+	# combined skill-level prerequisite is met, so its level is no longer pinned -- only
+	# bounded by the run (1..MAX). The reward FLAG landing is what enables slot 1 below.
+	_expect(
+		runtime.get_affinity_level("red_dragon") >= 1 and runtime.get_affinity_level("red_dragon") <= LingpetAffinityState.MAX_LEVEL,
+		"second-active fixture should roll the unlock within the run"
+	)
 	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")
-	_expect(bool(rewards.get("second_active_unlocked", false)), "Lv.22 should record the second-active unlock flag")
+	_expect(bool(rewards.get("second_active_unlocked", false)), "shuffled reward deck should record the second-active unlock flag")
 	var loadout: Dictionary = runtime._loadout_state.get_loadout("red_dragon")
 	_expect_eq((loadout.get("active_skill_ids", []) as Array).size(), 2, "V3-2c reconcile should write a real slot-1 active id")
 	_expect(str(loadout.get("second_active_skill_id", "")) != "", "V3-2c reconcile should persist the resolved second active id")
 	_expect(str(owner.lingpet_second_active_skill_id) != "", "owner second active key should expose the reconciled slot-1 id")
-	_expect_eq(runtime._get_active_slot_count(), 2, "Lv.22 unlock with a slot-1 id should enable two active slots")
-	_expect(runtime._get_skill_id_for_slot(1) != "", "slot 1 should resolve a real skill id after V3-2c reconcile")
+	_expect_eq(active_slot_resolver.get_active_slot_count(runtime._current_profile, runtime._skill_runtime_host), 2, "second unlock flag with a slot-1 id should enable two active slots")
+	_expect(active_slot_resolver.get_skill_id_for_slot(runtime._current_profile, 1) != "", "slot 1 should resolve a real skill id after V3-2c reconcile")
 	_expect(runtime._skill_runtime_host._dragon_breath_skill != null, "slot 0 skill runtime should prewarm at loadout apply")
 	_expect(runtime._skill_runtime_host._dragon_wing_skill != null, "V3-2c should prewarm the reconciled second active runtime")
 
 	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 7, 0.0, true)
 	runtime.update(0.05, owner, registry)
-	var slot0_state: Object = runtime._get_companion_skill_state_for_slot(0)
-	var slot1_state: Object = runtime._get_companion_skill_state_for_slot(1)
+	var slot0_state: Object = _skill_state_for_runtime_slot(runtime, 0)
+	var slot1_state: Object = _skill_state_for_runtime_slot(runtime, 1)
 	_expect(bool(slot0_state.windup_active), "slot 0 FREE skill should arm its own windup")
 	_expect(bool(slot1_state.windup_active), "slot 1 should arm its own windup after V3-2c reconcile")
 	_expect_float(float(slot0_state.cooldown), 0.0, "slot 0 windup should not spend slot 0 cooldown before launch")
@@ -5137,10 +6347,10 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	same_kind_runtime._current_profile.active_skill_levels = {"red_dragon_dragon_breath": 1}
 	same_kind_runtime._current_profile.active_slot_count = 2
 	same_kind_runtime._current_profile.set_affinity_state(22, same_kind_rewards)
-	_expect_eq(same_kind_runtime._get_active_slot_count(), 1, "same-kind active slots should collapse to slot 0 to avoid shared state")
+	_expect_eq(active_slot_resolver.get_active_slot_count(same_kind_runtime._current_profile, same_kind_runtime._skill_runtime_host), 1, "same-kind active slots should collapse to slot 0 to avoid shared state")
 	same_kind_runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 8, 0.0, true)
 	same_kind_runtime.update(0.05, same_kind_owner, registry)
-	var same_kind_slot1: Object = same_kind_runtime._get_companion_skill_state_for_slot(1)
+	var same_kind_slot1: Object = _skill_state_for_runtime_slot(same_kind_runtime, 1)
 	_expect(not bool(same_kind_slot1.windup_active), "same-kind slot 1 should not arm when module sharing is blocked")
 
 	var suppress_runtime: Object = LingpetEggRuntime.new()
@@ -5151,7 +6361,7 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	)
 	suppress_runtime._affinity_state.resolve_single_unlock("red_dragon", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "red_dragon_dragon_breath")
 	suppress_runtime._affinity_state.resolve_single_unlock("red_dragon", LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK, "red_dragon_dragon_breath")
-	suppress_runtime._invalidate_current_loadout_cache()
+	suppress_runtime._loadout_state.invalidate_runtime_and_snapshot_cache(suppress_runtime._snapshot_builder)
 	suppress_runtime.update(0.0, suppress_owner, registry)
 	var suppress_loadout: Dictionary = suppress_runtime._loadout_state.get_loadout("red_dragon")
 	_expect_str(str(suppress_loadout.get("active_skill_id", "")), "red_dragon_dragon_breath", "forced same-kind reconcile should preserve slot 0")
@@ -5167,30 +6377,45 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	passive_runtime._affinity_state.resolve_single_unlock("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "maribo_hydro_sphere")
 	passive_runtime._affinity_state.resolve_single_unlock("maribo", LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK, "lingpet_resonance_boost")
 	passive_runtime._affinity_state.resolve_single_unlock("maribo", LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK, "lingpet_tailwind_steps")
-	passive_runtime._invalidate_current_loadout_cache()
+	passive_runtime._loadout_state.invalidate_runtime_and_snapshot_cache(passive_runtime._snapshot_builder)
 	passive_runtime.update(0.0, passive_owner, registry)
 	var passive_loadout: Dictionary = passive_runtime._loadout_state.get_loadout("maribo")
 	_expect_str(str(passive_loadout.get("passive_skill_id", "")), "lingpet_resonance_boost", "primary passive reconcile should write slot 0")
 	_expect_str(str(passive_loadout.get("second_passive_skill_id", "")), "lingpet_tailwind_steps", "second-passive reconcile should write slot 1")
 	_expect_eq((passive_loadout.get("passive_skill_ids", []) as Array).size(), 2, "second-passive reconcile should persist two passive ids")
+	var unlock_reconciler := LingpetUnlockLoadoutReconciler.new()
+	var unlock_reconciler_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_unlock_loadout_reconciler.gd")
+	var current_loadout_applier_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_loadout_applier.gd")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	_expect(runtime_source.find("func _reconcile_unlock_choices") < 0, "egg runtime should not keep a private unlock reconcile wrapper")
+	_expect(current_loadout_applier_source.find("unlock_loadout_reconciler.reconcile_for_runtime") >= 0, "current loadout applier should delegate runtime unlock reconcile to the reconciler owner")
+	_expect(unlock_reconciler_source.find("func reconcile_for_runtime") >= 0 and unlock_reconciler_source.find("invalidate_runtime_cache") >= 0 and unlock_reconciler_source.find("invalidate_sync_cache") >= 0, "unlock loadout reconciler should own runtime reconcile cache invalidation")
 	_expect(
-		passive_runtime._loadout_matches_unlock_reconcile(passive_loadout, "maribo_hydro_sphere", "lingpet_resonance_boost", "", "lingpet_tailwind_steps"),
+		unlock_reconciler.loadout_matches(passive_loadout, "maribo_hydro_sphere", "lingpet_resonance_boost", "", "lingpet_tailwind_steps"),
 		"loadout match should include the second passive id so a settled reconcile does not thrash"
 	)
 	_expect(
-		not bool(passive_runtime._reconcile_unlock_choices(passive_owner)),
+		not bool(unlock_reconciler.reconcile_for_runtime(
+			passive_owner,
+			"maribo",
+			passive_runtime._current_profile,
+			passive_runtime._affinity_state,
+			passive_runtime._loadout_state,
+			passive_runtime._skill_runtime_host,
+			passive_runtime._snapshot_builder
+		)),
 		"a settled 4-key reconcile should return false instead of rewriting every frame"
 	)
 
-	var legacy_runtime: Object = LingpetEggRuntime.new()
-	legacy_runtime._companion_skill_state_by_pet_id["red_dragon"] = {
+	var legacy_persistence := LingpetCompanionSkillPersistence.new()
+	legacy_persistence.state_by_pet_id["red_dragon"] = {
 		"cooldown": 20.0,
 		"trigger_count": 3,
 		"last_gain": 1.0,
 		"origin": Vector2(12.0, 34.0),
 	}
-	legacy_runtime._advance_stored_companion_skill_cooldowns(3.0)
-	var legacy_stored: Dictionary = legacy_runtime._companion_skill_state_by_pet_id.get("red_dragon", {}) as Dictionary
+	legacy_persistence.advance_stored_cooldowns(3.0, "", false, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
+	var legacy_stored: Dictionary = legacy_persistence.state_by_pet_id.get("red_dragon", {}) as Dictionary
 	var legacy_slot0: Dictionary = legacy_stored.get("slot_0", {}) as Dictionary
 	var legacy_slot1: Dictionary = legacy_stored.get("slot_1", {}) as Dictionary
 	_expect_float(float(legacy_slot0.get("cooldown", 0.0)), 17.0, "legacy flat skill snapshot should migrate into slot 0 and advance")
@@ -5210,7 +6435,7 @@ func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> v
 		runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry, 1, 1),
 		"explicit debug active fixture should activate Maribo"
 	)
-	_expect(bool(runtime._skip_unlock_reconcile), "debug-grant unlock reconcile skip should stay sticky for the forced same-pet loadout")
+	_expect(bool(runtime._loadout_state.should_skip_unlock_reconcile()), "debug-grant unlock reconcile skip should stay sticky for the forced same-pet loadout")
 	var initial_loadout: Dictionary = runtime._loadout_state.get_loadout("maribo")
 	_expect_str(str(initial_loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "explicit debug grant should keep its forced active skill")
 	_expect_str(str(initial_loadout.get("passive_skill_id", "")), "", "explicit active-only debug grant should start without a passive skill")
@@ -5229,12 +6454,13 @@ func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> v
 		runtime.debug_grant_and_activate_pet("lumion", owner, false, "", "", registry, 1, 1),
 		"same fixture should switch to Lumion without a forced debug loadout"
 	)
-	_expect(not bool(runtime._skip_unlock_reconcile), "pet change should clear the debug reconcile skip flag")
+	_expect(not bool(runtime._loadout_state.should_skip_unlock_reconcile()), "pet change should clear the debug reconcile skip flag")
 	_grant_affinity_round_commits(runtime, "lumion", 10)
 	runtime.update(0.0, owner, registry)
 	var lumion_loadout: Dictionary = runtime._loadout_state.get_loadout("lumion")
 	var lumion_active_id := str(lumion_loadout.get("active_skill_id", ""))
-	var lumion_active_candidates: Array[String] = runtime._get_active_unlock_candidate_ids("lumion")
+	var unlock_reconciler := LingpetUnlockLoadoutReconciler.new()
+	var lumion_active_candidates: Array[String] = unlock_reconciler.get_active_unlock_candidate_ids("lumion")
 	_expect(lumion_active_id != "", "unforced pet after a debug switch should reconcile a primary active unlock")
 	_expect(lumion_active_candidates.has(lumion_active_id), "unforced Lumion active unlock should resolve to one of the current active candidates")
 	var lumion_resolved: Dictionary = runtime._affinity_state.get_resolved_unlock_choices("lumion")
@@ -5243,6 +6469,9 @@ func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> v
 
 
 func _verify_second_active_resource_conflict_mediation() -> void:
+	var arm_gate := LingpetCompanionSkillArmGate.new()
+	var active_slot_resolver := LingpetActiveSkillSlotResolver.new()
+	var visual_resolver := LingpetCompanionSkillVisualResolver.new()
 	_expect(
 		bool(LingpetSkillDispatcher.skills_share_exclusive_resource("rabi_ghost_summon", "maribo_hydro_sphere")),
 		"BALL_OWNER skills should report an exclusive-resource intersection"
@@ -5273,12 +6502,50 @@ func _verify_second_active_resource_conflict_mediation() -> void:
 	_force_second_active_runtime_profile(ball_runtime, "rabi", "rabi_ghost_summon", "maribo_hydro_sphere")
 	ball_runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 4, 0.0, true)
 	ball_runtime.update(0.05, ball_owner, registry)
-	var ball_slot0: Object = ball_runtime._get_companion_skill_state_for_slot(0)
-	var ball_slot1: Object = ball_runtime._get_companion_skill_state_for_slot(1)
+	var ball_slot0: Object = _skill_state_for_runtime_slot(ball_runtime, 0)
+	var ball_slot1: Object = _skill_state_for_runtime_slot(ball_runtime, 1)
 	_expect(bool(ball_slot0.windup_active), "slot 0 BALL_OWNER should arm first")
 	_expect(not bool(ball_slot1.windup_active), "slot 1 BALL_OWNER should wait while slot 0 owns the class")
-	_expect(not bool(ball_runtime._can_arm_companion_skill_slot(1, "maribo_hydro_sphere")), "BALL_OWNER arm gate should be falsifiable at slot 1")
-	_expect(bool(ball_runtime._can_arm_companion_skill_slot(1, "red_dragon_dragon_breath")), "FREE slot should remain eligible beside a BALL_OWNER wind-up")
+	var blocked_slot1_cooldown := float(ball_slot1.cooldown)
+	ball_runtime.update(0.05, ball_owner, registry)
+	_expect_float(float(ball_slot1.cooldown), blocked_slot1_cooldown, "blocked BALL_OWNER slot 1 should not spend cooldown while waiting")
+	_expect_eq(int(ball_slot1.trigger_count), 0, "blocked BALL_OWNER slot 1 should not count a trigger while waiting")
+	_expect(
+		not bool(arm_gate.can_arm(
+			1,
+			"maribo_hydro_sphere",
+			active_slot_resolver.get_active_skill_ids_for_runtime(ball_runtime._current_profile, ball_runtime._skill_runtime_host),
+			ball_runtime._companion_skill_states,
+			ball_runtime._skill_runtime_host
+		)),
+		"BALL_OWNER arm gate should be falsifiable at slot 1"
+	)
+	_expect(
+		bool(arm_gate.can_arm(
+			1,
+			"red_dragon_dragon_breath",
+			active_slot_resolver.get_active_skill_ids_for_runtime(ball_runtime._current_profile, ball_runtime._skill_runtime_host),
+			ball_runtime._companion_skill_states,
+			ball_runtime._skill_runtime_host
+		)),
+		"FREE slot should remain eligible beside a BALL_OWNER wind-up"
+	)
+	ball_slot0.cancel_windup()
+	ball_slot0.cooldown = 1.0
+	_expect(
+		bool(arm_gate.can_arm(
+			1,
+			"maribo_hydro_sphere",
+			active_slot_resolver.get_active_skill_ids_for_runtime(ball_runtime._current_profile, ball_runtime._skill_runtime_host),
+			ball_runtime._companion_skill_states,
+			ball_runtime._skill_runtime_host
+		)),
+		"BALL_OWNER loser should become eligible after the winning slot releases the exclusive class"
+	)
+	ball_runtime.update(0.05, ball_owner, registry)
+	_expect(not bool(ball_slot0.windup_active), "cooling BALL_OWNER slot 0 should not immediately reclaim wind-up")
+	_expect(bool(ball_slot1.windup_active), "BALL_OWNER loser should arm once slot 0 no longer holds the class")
+	_expect_float(float(ball_slot1.cooldown), 0.0, "resumed BALL_OWNER slot 1 should not spend cooldown before its own launch")
 
 	var pos_owner := FakeOwner.new()
 	pos_owner.ball_active = true
@@ -5292,15 +6559,26 @@ func _verify_second_active_resource_conflict_mediation() -> void:
 	_force_second_active_runtime_profile(pos_runtime, "lunabi", "lunabi_headbutt", "koyora_puppet_control")
 	pos_runtime.configure_companion_motion_for_tests(Vector2(380.0, 310.0), 5, 0.0, true)
 	pos_runtime.update(0.05, pos_owner, registry)
-	var pos_slot0: Object = pos_runtime._get_companion_skill_state_for_slot(0)
-	var pos_slot1: Object = pos_runtime._get_companion_skill_state_for_slot(1)
+	var pos_slot0: Object = _skill_state_for_runtime_slot(pos_runtime, 0)
+	var pos_slot1: Object = _skill_state_for_runtime_slot(pos_runtime, 1)
 	_expect(bool(pos_slot0.windup_active), "slot 0 POS_OVERRIDE should arm first")
 	_expect(not bool(pos_slot1.windup_active), "slot 1 POS_OVERRIDE should wait while slot 0 owns the class")
 	pos_runtime.update(0.50, pos_owner, registry)
-	var override_owner: Dictionary = pos_runtime._get_active_position_override_owner()
+	var override_owner: Dictionary = visual_resolver.get_active_position_override_owner(
+		active_slot_resolver.get_active_skill_ids_for_runtime(pos_runtime._current_profile, pos_runtime._skill_runtime_host),
+		pos_runtime._skill_runtime_host,
+		pos_runtime._companion_pos
+	)
 	_expect(bool(override_owner.get("has", false)), "launched POS_OVERRIDE skill should expose one active position owner")
 	_expect_str(str(override_owner.get("skill_id", "")), "lunabi_headbutt", "position override owner query should keep slot-0 priority")
-	_expect_str(pos_runtime._get_companion_body_skill_id(), "lunabi_headbutt", "body hit/draw gates should read the active position owner")
+	_expect_str(
+		visual_resolver.get_companion_body_skill_id(
+			override_owner,
+			active_slot_resolver.get_skill_id_for_slot(pos_runtime._current_profile, 0)
+		),
+		"lunabi_headbutt",
+		"body hit/draw gates should read the active position owner"
+	)
 
 	var wild_runtime: Object = LingpetEggRuntime.new()
 	var wild_owner := FakeOwner.new()
@@ -5309,10 +6587,28 @@ func _verify_second_active_resource_conflict_mediation() -> void:
 		"Wild Roar resource-class fixture should activate Monkeyring"
 	)
 	_force_second_active_runtime_profile(wild_runtime, "monkeyring", "monkeyring_wild_roar", "maribo_hydro_sphere")
-	wild_runtime._get_companion_skill_state_for_slot(0).arm_windup()
-	_expect(not bool(wild_runtime._can_arm_companion_skill_slot(1, "maribo_hydro_sphere")), "Wild Roar should block BALL_OWNER peers through set intersection")
+	_skill_state_for_runtime_slot(wild_runtime, 0).arm_windup()
+	_expect(
+		not bool(arm_gate.can_arm(
+			1,
+			"maribo_hydro_sphere",
+			active_slot_resolver.get_active_skill_ids_for_runtime(wild_runtime._current_profile, wild_runtime._skill_runtime_host),
+			wild_runtime._companion_skill_states,
+			wild_runtime._skill_runtime_host
+		)),
+		"Wild Roar should block BALL_OWNER peers through set intersection"
+	)
 	_force_second_active_runtime_profile(wild_runtime, "monkeyring", "monkeyring_wild_roar", "lunabi_headbutt")
-	_expect(not bool(wild_runtime._can_arm_companion_skill_slot(1, "lunabi_headbutt")), "Wild Roar should block POS_OVERRIDE peers through set intersection")
+	_expect(
+		not bool(arm_gate.can_arm(
+			1,
+			"lunabi_headbutt",
+			active_slot_resolver.get_active_skill_ids_for_runtime(wild_runtime._current_profile, wild_runtime._skill_runtime_host),
+			wild_runtime._companion_skill_states,
+			wild_runtime._skill_runtime_host
+		)),
+		"Wild Roar should block POS_OVERRIDE peers through set intersection"
+	)
 
 	var visual_runtime: Object = LingpetEggRuntime.new()
 	var visual_owner := FakeOwner.new()
@@ -5321,18 +6617,70 @@ func _verify_second_active_resource_conflict_mediation() -> void:
 		"active visual slot fixture should activate Koyora"
 	)
 	_force_second_active_runtime_profile(visual_runtime, "koyora", "red_dragon_dragon_breath", "koyora_doll_curse")
-	visual_runtime._get_companion_skill_state_for_slot(1).arm_windup()
-	_expect_eq(visual_runtime._get_active_visual_slot_index(), 1, "draw context should select slot 1 when only the second active is casting")
+	_skill_state_for_runtime_slot(visual_runtime, 1).arm_windup()
+	_expect_eq(
+		visual_resolver.get_active_visual_slot_index(
+			active_slot_resolver.get_active_skill_ids_for_runtime(visual_runtime._current_profile, visual_runtime._skill_runtime_host),
+			visual_runtime._companion_skill_states,
+			visual_runtime._skill_runtime_host
+		),
+		1,
+		"draw context should select slot 1 when only the second active is casting"
+	)
+
+	var strike_runtime: Object = LingpetEggRuntime.new()
+	var strike_owner := FakeOwner.new()
+	strike_owner.ball_active = true
+	strike_owner.ball_pos = Vector2(720.0, 720.0)
+	strike_owner.ball_vel = Vector2.ZERO
+	_expect(
+		strike_runtime.debug_grant_and_activate_pet("red_dragon", strike_owner, false, "red_dragon_dragon_breath", "", registry, 1, 1),
+		"slot-1 strike fixture should activate Red Dragon"
+	)
+	_force_second_active_runtime_profile(strike_runtime, "red_dragon", "red_dragon_dragon_breath", "lunabi_headbutt")
+	strike_runtime.configure_companion_motion_for_tests(Vector2(80.0, 310.0), 6, 0.0, true)
+	strike_runtime.update(0.05, strike_owner, registry)
+	var strike_slot0: Object = _skill_state_for_runtime_slot(strike_runtime, 0)
+	var strike_slot1: Object = _skill_state_for_runtime_slot(strike_runtime, 1)
+	_expect(not bool(strike_slot0.windup_active), "slot 0 FREE fixture should stay idle by failing its center-position arm gate")
+	_expect(bool(strike_slot1.windup_active), "slot 1 headbutt should arm its own windup beside a FREE slot 0 skill")
+	_expect(not bool(strike_runtime.is_companion_striking_for_tests()), "slot 1 headbutt should not begin strike before launch")
+	var strike_slot1_surface: Dictionary = strike_runtime._skill_runtime_surface.get_active_surface_for_slot(
+		strike_runtime._current_profile,
+		strike_runtime._active_skill_slot_resolver,
+		strike_runtime._companion_skill_persistence,
+		strike_runtime._companion_skill_states,
+		strike_runtime._skill_runtime_host,
+		LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS,
+		1
+	)
+	var strike_slot1_windup := float(strike_slot1_surface.get("windup_seconds", LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS))
+	strike_runtime.update(strike_slot1_windup + 0.05, strike_owner, registry)
+	_expect(not bool(strike_slot1.windup_active), "slot 1 headbutt windup should clear after launch")
+	_expect(float(strike_slot1.cooldown) > 0.0, "slot 1 headbutt launch should spend slot 1 cooldown")
+	_expect(bool(strike_runtime.is_companion_striking_for_tests()), "slot 1 headbutt launch should consume its strike request")
+	_expect_eq(
+		strike_runtime.get_companion_strike_frame_for_tests(),
+		LingpetCompanionSpriteAnimator.STRIKE_START_FRAME,
+		"slot 1 strike request should start the shared animator at the wind-up strike frame"
+	)
 
 
 func _verify_affinity_level_up_feedback_and_income_log() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var grant_controller_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_grant_controller.gd")
 	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_affinity_feedback_state.gd"), "affinity level-up feedback state should be a focused runtime module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_affinity_income_tracker.gd"), "affinity income logging should be a focused runtime module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_affinity_grant_controller.gd"), "affinity grant lifecycle should have a focused controller")
 	_expect(runtime_source.find("draw_affinity_feedback") >= 0, "runtime should draw affinity level-up feedback as a non-pausing playfield overlay")
-	_expect(runtime_source.find("_affinity_income_tracker.record") >= 0, "runtime should record affinity income on every granted source")
+	_expect(runtime_source.find("func _draw_affinity_feedback") < 0, "egg runtime should not keep a single-use affinity-feedback draw wrapper")
+	_expect(runtime_source.find("_companion_renderer.draw_affinity_feedback") >= 0, "egg runtime should call the companion renderer affinity feedback draw owner directly")
+	_expect(grant_controller_source.find("income_tracker.record") >= 0, "grant controller should record affinity income on every granted source")
+	_expect(grant_controller_source.find("func remember_result") >= 0 and grant_controller_source.find("func get_last_result") >= 0, "grant controller should own the latest affinity grant result")
+	_expect(runtime_source.find("var _last_affinity_result") < 0, "egg runtime should not keep raw latest-affinity-result state")
+	_expect(runtime_source.find("_affinity_grant_controller.get_last_result") >= 0, "egg runtime should expose latest affinity result through the grant controller owner")
 	_expect(renderer_source.find("draw_affinity_feedback") >= 0, "companion renderer should own the affinity level-up burst draw")
 	_expect(renderer_source.find("affinity_heart_tint") >= 0, "companion renderer should support the max-level permanent heart tint")
 	_expect(draw_context_source.find("build_affinity_feedback_config") >= 0, "draw context builder should expose a small affinity feedback draw config")
@@ -5438,7 +6786,8 @@ func _verify_lingpet_guard_label_feedback() -> void:
 	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(renderer_source.find("LanguageSettings.translate_text") >= 0 and renderer_source.find("_draw_guard_label") >= 0, "guard label should translate at the raw draw-string boundary")
-	_expect(runtime_source.find("trigger_guard_label") >= 0 and runtime_source.find("_has_defense_affinity_hit_tag") >= 0, "runtime should trigger the guard label from defense-tagged hits")
+	_expect(runtime_source.find("trigger_guard_label") >= 0 and runtime_source.find("_affinity_hit_tag_resolver.has_defense_tag") >= 0, "runtime should trigger the guard label from resolver-owned defense-tagged hits")
+	_expect(runtime_source.find("func _has_defense_affinity_hit_tag") < 0, "runtime should not keep a single-use defense affinity hit-tag wrapper")
 
 	var plain_owner := FakeOwner.new()
 	plain_owner.lingpet_owned_pet_ids = ["maribo"]
@@ -5481,11 +6830,34 @@ func _verify_affinity_store_v5_meta_only() -> void:
 	# ([best_levels]/[bond_points]/[ring_core]/[resolved_unlock_choices]) are
 	# ignored on load and never re-persisted; affinity lives in run-state only.
 	var store_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_store.gd")
+	var ring_core_rules_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(store_source.find("SAVE_SCHEMA_VERSION := 5") >= 0, "affinity store should stamp the v5 meta-only schema")
 	_expect(store_source.find("bytes.slice(3)") >= 0, "affinity store should still strip UTF-8 BOM before parsing")
+	for store_residue_needle in ["MAX_BEST_LEVEL", "MAX_AFFINITY_LEVEL", "MAX_RING_CORE_TIER", "func get_ring_core_cap_for_tier", "var _best_levels", "var _bond_points", "var _ring_core_tier", "var _resolved_unlock_choices", "func _load_best_levels", "func _load_bond_points", "func _load_ring_core", "func _load_resolved_unlock_choices"]:
+		_expect(store_source.find(store_residue_needle) < 0, "v5 affinity store should not keep legacy backing residue (%s)" % store_residue_needle)
+	_expect(ring_core_rules_source.find("MAX_RING_CORE_TIER := 6") >= 0 and ring_core_rules_source.find("get_ring_core_cap_for_tier") >= 0, "ring-core tier constants/cap helper should live in the dedicated rules helper")
+	_verify_affinity_store_not_production_dependency()
+	for store_api_needle in ["func get_best_level", "func get_best_levels", "func set_best_level", "func merge_best_levels", "func get_bond_points", "func get_bond_points_map", "func add_bond_levels", "func get_resolved_unlock_choices", "func get_all_resolved_unlock_choices", "func set_resolved_unlock_choice", "func clear_resolved_unlock_choice", "func has_ring_core_tier", "func get_ring_core_tier", "func get_ring_core_cap(", "func set_ring_core_tier", "func upgrade_ring_core_tier"]:
+		_expect(store_source.find(store_api_needle) < 0, "v5 affinity store should not expose legacy progression API (%s)" % store_api_needle)
 	for store_needle in ["store.get_best_level", "store.set_best_level", "store.add_bond_levels", "store.get_bond_points", "store.get_resolved_unlock_choices", "store.set_resolved_unlock_choice", "store.clear_resolved_unlock_choice", "store.get_ring_core_tier", "store.set_ring_core_tier", "store.upgrade_ring_core_tier", "store.get_ring_core_cap"]:
 		_expect(runtime_source.find(store_needle) < 0, "egg_runtime must not touch the persisted affinity axis (%s)" % store_needle)
+	_expect(runtime_source.find("add_bond_levels") < 0, "egg_runtime should not reintroduce a permanent bond settlement write")
+	var smoke_source := FileAccess.get_file_as_string("res://tests/lingpet_egg_runtime_smoke.gd")
+	var legacy_fixture_writers := [
+		"_write_affinity_store_" + "bom_file",
+		"_write_affinity_store_" + "broken_file",
+		"_write_affinity_store_" + "v1_file",
+		"_write_affinity_store_" + "v2_file",
+		"_write_affinity_store_" + "corrupt_bond_file",
+	]
+	for legacy_fixture_writer in legacy_fixture_writers:
+		_expect(smoke_source.find(legacy_fixture_writer) < 0, "egg runtime smoke should not keep unused legacy affinity-store fixture writer %s" % legacy_fixture_writer)
+	for runtime_needle in ["_apply_affinity_headstart_from_store", "_get_affinity_store", "_affinity_store_override", "_affinity_headstart_applied_pet_ids"]:
+		_expect(runtime_source.find(runtime_needle) < 0, "egg_runtime should not keep private v4 store/headstart residue (%s)" % runtime_needle)
+	for unlock_store_needle in ["func _apply_persisted_unlock_choices", "func _get_store_resolved_unlock_choices"]:
+		_expect(runtime_source.find(unlock_store_needle) < 0, "egg_runtime should not keep v4 persisted unlock-choice residue (%s)" % unlock_store_needle)
+	_expect(runtime_source.find("set_affinity_store_for_tests") < 0, "egg_runtime should not keep the removed v5 no-op store compatibility hook")
 
 	var legacy_text := "[meta]\nschema_version=4\n\n[best_levels]\nmaribo=30\n\n[bond_points]\nmaribo=18\n\n[ring_core]\ntier=6\n\n[resolved_unlock_choices]\n\"maribo.active\"=\"legacy_skill\"\n"
 	var legacy_path := _smoke_save_path("affinity_store_v5_legacy")
@@ -5505,19 +6877,13 @@ func _verify_affinity_store_v5_meta_only() -> void:
 
 	var store: Object = LingpetAffinityStore.new()
 	store.set_save_path(legacy_path)
-	# Legacy sections are ignored -> every getter returns the safe v5 default.
-	_expect_eq(int(store.get_best_level("maribo")), 0, "v5 store should ignore the legacy [best_levels] section")
-	_expect_eq(int(store.get_bond_points("maribo")), 0, "v5 store should ignore the legacy [bond_points] section")
-	_expect_eq(int(store.get_ring_core_tier()), 0, "v5 store should ignore the legacy [ring_core] tier")
-	_expect_eq(int(store.get_ring_core_cap()), 0, "v5 store ring-core cap should be 0 (never fail open to MAX)")
-	_expect(store.get_resolved_unlock_choices("maribo").is_empty(), "v5 store should ignore the legacy [resolved_unlock_choices] section")
-
-	# Writers are no-op false so plaza/perk store upgrades fail safely until R4/R5.
-	_expect(not bool(store.set_best_level("maribo", 12)), "v5 set_best_level should no-op false")
-	_expect(not bool(store.add_bond_levels("maribo", 5)), "v5 add_bond_levels should no-op false")
-	_expect(not bool(store.set_ring_core_tier(3)), "v5 set_ring_core_tier should no-op false")
-	_expect(not bool(store.upgrade_ring_core_tier(2)), "v5 upgrade_ring_core_tier should no-op false")
-	_expect(not bool(store.set_resolved_unlock_choice("maribo", "active", "x")), "v5 set_resolved_unlock_choice should no-op false")
+	for removed_method in ["get_best_level", "get_best_levels", "set_best_level", "merge_best_levels", "get_bond_points", "get_bond_points_map", "add_bond_levels", "get_resolved_unlock_choices", "get_all_resolved_unlock_choices", "set_resolved_unlock_choice", "clear_resolved_unlock_choice", "has_ring_core_tier", "get_ring_core_tier", "get_ring_core_cap", "set_ring_core_tier", "upgrade_ring_core_tier"]:
+		_expect(not bool(store.has_method(removed_method)), "v5 store should remove legacy progression method %s" % removed_method)
+	_expect(bool(store.load()), "v5 store should load a legacy file while ignoring progression sections")
+	_expect_eq(int(store.get_schema_version()), LingpetAffinityStore.SAVE_SCHEMA_VERSION, "v5 store load should expose the current meta-only schema")
+	var loaded_summary: Dictionary = store.get_summary()
+	for legacy_summary_key in ["best_levels", "bond_points", "has_ring_core_tier", "ring_core_tier", "ring_core_cap", "resolved_unlock_choices"]:
+		_expect(not loaded_summary.has(legacy_summary_key), "v5 store summary should not expose legacy progression key %s" % legacy_summary_key)
 
 	# An explicit save() must drop every legacy section -> meta-only file.
 	_expect(bool(store.save()), "v5 store save should succeed")
@@ -5530,9 +6896,11 @@ func _verify_affinity_store_v5_meta_only() -> void:
 	# not resurrect old sections through the recovery path.
 	var reloaded: Object = LingpetAffinityStore.new()
 	reloaded.set_save_path(legacy_path)
-	_expect_eq(int(reloaded.get_best_level("maribo")), 0, "reloaded v5 store should not resurrect best levels from backup")
-	_expect_eq(int(reloaded.get_ring_core_tier()), 0, "reloaded v5 store should not resurrect ring-core tier from backup")
-	_expect(reloaded.get_resolved_unlock_choices("maribo").is_empty(), "reloaded v5 store should not resurrect resolved choices from backup")
+	_expect(bool(reloaded.load()), "reloaded v5 store should load the meta-only file")
+	_expect_eq(int(reloaded.get_schema_version()), LingpetAffinityStore.SAVE_SCHEMA_VERSION, "reloaded v5 store should keep the current schema")
+	var reloaded_summary: Dictionary = reloaded.get_summary()
+	for legacy_summary_key in ["best_levels", "bond_points", "has_ring_core_tier", "ring_core_tier", "ring_core_cap", "resolved_unlock_choices"]:
+		_expect(not reloaded_summary.has(legacy_summary_key), "reloaded v5 summary should not resurrect legacy key %s" % legacy_summary_key)
 
 	# Runtime: a legacy store best=30 / ring tier 6 must NOT headstart or open the
 	# affinity cap. The run starts fresh at tier 0 / level 0.
@@ -5544,11 +6912,9 @@ func _verify_affinity_store_v5_meta_only() -> void:
 	if headstart_file != null:
 		headstart_file.store_string(legacy_text)
 		headstart_file.close()
-	var hs_store: Object = LingpetAffinityStore.new()
-	hs_store.set_save_path(headstart_path)
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	var registry := FakeRegistry.new({"lingpet_affinity_store": hs_store})
+	var registry := FakeRegistry.new({})
 	runtime.update(0.0, owner, registry)
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	owner.ball_active = true
@@ -5556,7 +6922,6 @@ func _verify_affinity_store_v5_meta_only() -> void:
 	var hatched_pet_id := str(owner.active_lingpet_id)
 	_expect(hatched_pet_id != "", "v5 headstart fixture should hatch a concrete pet")
 	_expect_eq(runtime.get_affinity_level(hatched_pet_id), 0, "legacy store best=30 must NOT headstart a v5 run (affinity starts at Lv0)")
-	_expect_eq(int(hs_store.get_best_level(hatched_pet_id)), 0, "v5 store must not record a best level on hatch")
 	_expect(int(owner.lingpet_ring_core_tier) != 6, "owner/TAB ring-core tier should ignore the legacy store tier 6 (run-state, not store)")
 
 	_remove_user_file(legacy_path)
@@ -5570,7 +6935,15 @@ func _grant_affinity_round_commits(runtime: Object, pet_id: String, count: int) 
 		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT)
 
 
-func _set_run_ring_core_tier_for_smoke(runtime: Object, tier: int = LingpetAffinityStore.MAX_RING_CORE_TIER) -> void:
+func _grant_affinity_round_commits_until_reward(runtime: Object, pet_id: String, reward_key: String, max_commits: int) -> void:
+	for _i in range(maxi(0, max_commits)):
+		var rewards: Dictionary = runtime.get_affinity_rewards_for_tests(pet_id)
+		if bool(rewards.get(reward_key, false)):
+			return
+		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT)
+
+
+func _set_run_ring_core_tier_for_smoke(runtime: Object, tier: int = LingpetRingCoreRules.MAX_RING_CORE_TIER) -> void:
 	runtime._affinity_state.set_run_ring_core_tier(tier)
 
 
@@ -5647,12 +7020,10 @@ func _verify_ring_core_cap_run_state_source() -> void:
 	_remove_user_file(standard_path)
 	_remove_user_file(missing_path)
 
-	var ignored_store: Object = LingpetAffinityStore.new()
-	ignored_store.set_save_path(ignored_store_path)
-	# R3 / v5: store no longer persists best/ring-core; this is an empty store.
+	# R3 / v5: store no longer persists best/ring-core and is not a live module.
 	var no_core_runtime: Object = LingpetEggRuntime.new()
 	var no_core_owner := FakeOwner.new()
-	var no_core_registry := FakeRegistry.new({"lingpet_affinity_store": ignored_store})
+	var no_core_registry := FakeRegistry.new({})
 	_expect(no_core_runtime.debug_grant_and_activate_pet("maribo", no_core_owner, false, "", "", no_core_registry), "run-tier fixture should activate Maribo")
 	no_core_runtime.update(0.0, no_core_owner, no_core_registry)
 	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "legacy store T6 should not open this-run ring-core cap")
@@ -5662,12 +7033,10 @@ func _verify_ring_core_cap_run_state_source() -> void:
 	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "run tier 0 should keep affinity at Lv0")
 	_expect_float(no_core_runtime.get_affinity_points("maribo"), 50.0, "run tier 0 should clamp banked points at the Lv1 requirement (50/50), not overshoot")
 
-	var standard_store: Object = LingpetAffinityStore.new()
-	standard_store.set_save_path(standard_path)
 	# R3 / v5: store no longer persists ring-core; the run tier is seeded directly.
 	var standard_runtime: Object = LingpetEggRuntime.new()
 	var standard_owner := FakeOwner.new()
-	var standard_registry := FakeRegistry.new({"lingpet_affinity_store": standard_store})
+	var standard_registry := FakeRegistry.new({})
 	standard_runtime._affinity_state.set_run_ring_core_tier(1)
 	_expect(standard_runtime.debug_grant_and_activate_pet("maribo", standard_owner, false, "", "", standard_registry), "standard fixture should activate Maribo")
 	standard_runtime.update(0.0, standard_owner, standard_registry)
@@ -5680,24 +7049,21 @@ func _verify_ring_core_cap_run_state_source() -> void:
 	standard_runtime.update(0.0, standard_owner, standard_registry)
 	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
 	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "owner snapshot sync should not reset ring-core cap to fail-open MAX")
-	standard_runtime._invalidate_current_loadout_cache()
+	standard_runtime._loadout_state.invalidate_runtime_and_snapshot_cache(standard_runtime._snapshot_builder)
 	standard_runtime._apply_current_loadout(standard_owner, true, false)
 	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
 	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "loadout apply without registry should preserve the this-run ring-core cap")
 	_expect(standard_runtime._affinity_state.upgrade_run_ring_core_tier(2), "run-state ring-core upgrade should move the cap to tier 2")
 	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
 	_expect_eq(standard_runtime.get_affinity_level("maribo"), 6, "upgrading this-run ring-core cap should release only the clamped ceiling (bounded head start), not a banked level burst")
-	_expect_eq(int(standard_store.get_ring_core_tier()), 0, "run-state cap upgrades must not write the permanent ring-core store (always 0 in v5)")
+	_expect(not FileAccess.file_exists(standard_path), "run-state cap upgrades must not write the permanent ring-core store")
 
-	var missing_store: Object = LingpetAffinityStore.new()
-	missing_store.set_save_path(missing_path)
-	# R3 / v5: store no longer persists best levels; this is an empty store.
+	# R3 / v5: store no longer persists best levels and is not a live module.
 	var missing_runtime: Object = LingpetEggRuntime.new()
 	var missing_owner := FakeOwner.new()
-	var missing_registry := FakeRegistry.new({"lingpet_affinity_store": missing_store})
+	var missing_registry := FakeRegistry.new({})
 	_expect(missing_runtime.debug_grant_and_activate_pet("maribo", missing_owner, false, "", "", missing_registry), "missing-tier fixture should activate Maribo")
 	missing_runtime.update(0.0, missing_owner, missing_registry)
-	_expect(not bool(missing_store.has_ring_core_tier()), "missing-tier fixture should keep ring-core absent")
 	_expect_eq(missing_runtime.get_affinity_level("maribo"), 0, "missing store ring-core data should not fail open beyond this-run tier 0")
 	for _i in range(20):
 		missing_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, missing_registry)
@@ -5765,6 +7131,45 @@ func _skill_ids(skills: Array[Dictionary]) -> Array[String]:
 	return ids
 
 
+func _expect_hatched_skill_channel_matches_owner(
+	owner: FakeOwner,
+	runtime_snapshot: Dictionary,
+	loadout: Dictionary,
+	channel: String,
+	label: String
+) -> void:
+	var id_key := "%s_skill_id" % channel
+	var level_key := "%s_skill_level" % channel
+	var ids_key := "%s_skill_ids" % channel
+	var levels_key := "%s_skill_levels" % channel
+	var slot_count_key := "%s_slot_count" % channel
+	var skill_id := str(loadout.get(id_key, ""))
+	var level := int(loadout.get(level_key, 0))
+	var ids: Array = loadout.get(ids_key, []) as Array
+	var levels: Dictionary = loadout.get(levels_key, {}) as Dictionary
+	var slot_count := int(loadout.get(slot_count_key, 0))
+	_expect_str(str(owner.get("lingpet_%s_skill_id" % channel)), skill_id, "%s owner id should mirror loadout" % label)
+	_expect_eq(int(owner.get("lingpet_%s_skill_level" % channel)), level, "%s owner level should mirror loadout" % label)
+	_expect_str(str(runtime_snapshot.get(id_key, "")), skill_id, "%s snapshot id should mirror loadout" % label)
+	_expect_eq(int(runtime_snapshot.get(level_key, 0)), level, "%s snapshot level should mirror loadout" % label)
+	_expect(level >= 0 and level <= 3, "%s level should stay in hatch roll range 0..3" % label)
+	if skill_id == "":
+		_expect_eq(level, 0, "%s empty id should have zero level" % label)
+		_expect_eq(ids.size(), 0, "%s empty id should keep ids empty" % label)
+		_expect_eq(slot_count, 0, "%s empty id should keep slot count zero" % label)
+	else:
+		_expect(level > 0, "%s non-empty id should have positive level" % label)
+		_expect(ids.has(skill_id), "%s ids should include the primary skill" % label)
+		_expect_eq(slot_count, 1, "%s slot count should open with a primary skill" % label)
+		_expect_eq(int(levels.get(skill_id, 0)), level, "%s level map should mirror primary level" % label)
+	if channel == "active":
+		var expected_skill_name := ""
+		if skill_id != "":
+			expected_skill_name = str(LingpetCatalog.get_active_skill_entry(skill_id).get("name", ""))
+		_expect_str(str(runtime_snapshot.get("companion_skill_id", "")), skill_id, "%s rail/TAB skill id should mirror loadout" % label)
+		_expect_str(str(runtime_snapshot.get("companion_skill_name", "")), expected_skill_name, "%s rail/TAB skill name should mirror catalog" % label)
+
+
 func _vector2_distance(a: Variant, b: Variant) -> float:
 	if not (a is Vector2) or not (b is Vector2):
 		return INF
@@ -5800,6 +7205,27 @@ func _sheet_frame_motion_score(path: String, frame_a: int, frame_b: int, draw_si
 	return score
 
 
+func _image_alpha_bounds(image: Image, alpha_threshold: float = 16.0 / 255.0) -> Rect2i:
+	var min_x: int = image.get_width()
+	var min_y: int = image.get_height()
+	var max_x := -1
+	var max_y := -1
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			if image.get_pixel(x, y).a > alpha_threshold:
+				min_x = mini(min_x, x)
+				min_y = mini(min_y, y)
+				max_x = maxi(max_x, x)
+				max_y = maxi(max_y, y)
+	if max_x < min_x or max_y < min_y:
+		return Rect2i(0, 0, 0, 0)
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+func _signed_angle_delta(from_angle: float, to_angle: float) -> float:
+	return fposmod(to_angle - from_angle + PI, TAU) - PI
+
+
 func _lingpet_runtime_click_sheet_is_small(pet_id: String) -> bool:
 	var path := LingpetCatalog.get_visual_path(pet_id, "companion_click_reaction_anim")
 	if path == "" or not FileAccess.file_exists(path):
@@ -5820,6 +7246,36 @@ func _estimated_knockback_distance(initial_nudge: float, velocity: float, frames
 
 func _character_info_overlay_source() -> String:
 	return FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_state.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_support.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_core.gd")
+
+
+func _verify_affinity_store_not_production_dependency() -> void:
+	var script_paths := _collect_gd_script_paths("res://scripts")
+	_expect(not script_paths.is_empty(), "production affinity-store scan should find scripts")
+	for path in script_paths:
+		var source := FileAccess.get_file_as_string(path)
+		_expect(source.find("LingpetAffinityStore") < 0, "%s should not preload or use LingpetAffinityStore after the v5 meta-only split" % path)
+		_expect(source.find("lingpet_affinity_store") < 0, "%s should not request the removed lingpet_affinity_store module key after the v5 meta-only split" % path)
+
+
+func _collect_gd_script_paths(root_path: String) -> Array[String]:
+	var result: Array[String] = []
+	var dir := DirAccess.open(root_path)
+	if dir == null:
+		return result
+	dir.list_dir_begin()
+	while true:
+		var entry := dir.get_next()
+		if entry == "":
+			break
+		if entry.begins_with("."):
+			continue
+		var path := root_path.path_join(entry)
+		if dir.current_is_dir():
+			result.append_array(_collect_gd_script_paths(path))
+		elif entry.ends_with(".gd"):
+			result.append(path)
+	dir.list_dir_end()
+	return result
 
 
 func _function_body(source: String, signature: String) -> String:
@@ -5886,53 +7342,6 @@ func _write_lingpet_snapshot(path: String, snapshot: Dictionary) -> void:
 	config.set_value("lingpet", "snapshot", snapshot.duplicate(true))
 	var result: int = config.save(path)
 	_expect(result == OK, "test helper should write a legacy lingpet snapshot")
-
-
-func _write_affinity_store_bom_file(path: String) -> void:
-	var bytes := PackedByteArray([0xEF, 0xBB, 0xBF])
-	bytes.append_array("[meta]\nversion=1\n[best_levels]\nmaribo=9\nlunabi=12\n".to_utf8_buffer())
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_expect(file != null, "test helper should open the affinity BOM fixture")
-	if file == null:
-		return
-	file.store_buffer(bytes)
-	file.close()
-
-
-func _write_affinity_store_broken_file(path: String) -> void:
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_expect(file != null, "test helper should open the affinity broken-file fixture")
-	if file == null:
-		return
-	file.store_string("[best_levels\nmaribo=:::\n")
-	file.close()
-
-
-func _write_affinity_store_v1_file(path: String) -> void:
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_expect(file != null, "test helper should open the affinity v1 migration fixture")
-	if file == null:
-		return
-	file.store_string("[meta]\nversion=1\n[best_levels]\nmaribo=9\nlunabi=12\n")
-	file.close()
-
-
-func _write_affinity_store_v2_file(path: String) -> void:
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_expect(file != null, "test helper should open the affinity v2 migration fixture")
-	if file == null:
-		return
-	file.store_string("[meta]\nschema_version=2\n[best_levels]\nmaribo=10\n[bond_points]\nmaribo=6\n")
-	file.close()
-
-
-func _write_affinity_store_corrupt_bond_file(path: String) -> void:
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_expect(file != null, "test helper should open the affinity corrupt-bond fixture")
-	if file == null:
-		return
-	file.store_string("[meta]\nschema_version=2\n[best_levels]\nmaribo=9\n[bond_points]\nmaribo=-5\nlunabi=\"oops\"\nrabi=30\n")
-	file.close()
 
 
 func _smoke_save_path(slug: String) -> String:

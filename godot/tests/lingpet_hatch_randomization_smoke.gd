@@ -19,6 +19,7 @@ class EmptyLoadoutState:
 
 func _init() -> void:
 	_verify_catalog_hatch_skill_roll_distribution()
+	_verify_hatch_passive_id_covers_full_pool()
 	_verify_present_skill_conditions_first_unlock()
 	_verify_hatch_stat_roll_projection_and_caps()
 	_verify_hatch_candidate_pool_exhaustion()
@@ -41,8 +42,22 @@ func _verify_catalog_hatch_skill_roll_distribution() -> void:
 	var repeat_loadout := LingpetCatalog.pick_skill_loadout("maribo", repeat_rng)
 	_expect_str(_loadout_signature(first_loadout), _loadout_signature(repeat_loadout), "seeded hatch skill rolls should be reproducible")
 
+	# The hatch passive IDENTITY is now randomly drawn from the shared common passive pool
+	# (not pinned to pool[0] = 공명 증폭). Collect the pool ids so the distribution sweep can
+	# assert both membership (every rolled passive is a valid pool entry) and coverage (more
+	# than one distinct passive appears -- the falsification anchor: a pool[0]-hardcoded roll
+	# only ever surfaces one id).
+	var passive_pool_ids := {}
+	for passive in LingpetCatalog.get_passive_skill_pool("maribo"):
+		var pool_passive_id := str((passive as Dictionary).get("id", "")).strip_edges()
+		if pool_passive_id != "":
+			passive_pool_ids[pool_passive_id] = true
+	_expect(passive_pool_ids.size() >= 2, "common passive pool should expose at least two passives for the hatch draw")
+
 	var active_counts := [0, 0, 0, 0]
 	var passive_counts := [0, 0, 0, 0]
+	var seen_passive_ids := {}
+	var saw_invalid_passive_id := false
 	var saw_active_without_passive := false
 	var saw_passive_without_active := false
 	var saw_both_present := false
@@ -59,6 +74,11 @@ func _verify_catalog_hatch_skill_roll_distribution() -> void:
 		passive_counts[passive_level] = int(passive_counts[passive_level]) + 1
 		_expect_hatch_skill_shape(loadout, true)
 		_expect_hatch_skill_shape(loadout, false)
+		if passive_level > 0:
+			var rolled_passive_id := str(loadout.get("passive_skill_id", ""))
+			seen_passive_ids[rolled_passive_id] = true
+			if not passive_pool_ids.has(rolled_passive_id):
+				saw_invalid_passive_id = true
 		saw_active_without_passive = saw_active_without_passive or (active_level > 0 and passive_level == 0)
 		saw_passive_without_active = saw_passive_without_active or (active_level == 0 and passive_level > 0)
 		saw_both_present = saw_both_present or (active_level > 0 and passive_level > 0)
@@ -70,6 +90,40 @@ func _verify_catalog_hatch_skill_roll_distribution() -> void:
 	_expect(saw_passive_without_active, "active and passive hatch rolls should be independent enough to allow passive-only starts")
 	_expect(saw_both_present, "hatch rolls should allow both skills to start present")
 	_expect(saw_both_missing, "hatch rolls should preserve the no-skill start as a possible outcome")
+	_expect(not saw_invalid_passive_id, "every rolled hatch passive id should be a member of the common passive pool")
+	# The pinned-pool[0] regression only needs "more than one passive can appear" through the real
+	# pick_skill_loadout path; full-pool range coverage is proven separately and robustly (adaptive
+	# to pool growth) by _verify_hatch_passive_id_covers_full_pool so a growing pool cannot make
+	# this fixed-seed integration sweep flaky.
+	_expect(seen_passive_ids.size() >= 2, "hatch passive draw should surface more than one passive (not pinned to pool[0])")
+
+
+func _verify_hatch_passive_id_covers_full_pool() -> void:
+	# Directly exercise the id roll (bypassing the 75% present-level gate so empty rolls do not
+	# dilute the sweep) and cap the seed loop ADAPTIVELY (scales with the pool) so this stays a
+	# strong, non-brittle range seal as COMMON_PASSIVE_SKILL_POOL grows. Falsification targets:
+	# a pinned pool[0] surfaces exactly one id, and an off-by-one range (e.g. size-2) never reaches
+	# the last id -- both fail the full-coverage assert.
+	var pool_ids := {}
+	for passive in LingpetCatalog.get_passive_skill_pool("maribo"):
+		var pool_passive_id := str((passive as Dictionary).get("id", "")).strip_edges()
+		if pool_passive_id != "":
+			pool_ids[pool_passive_id] = true
+	_expect(pool_ids.size() >= 2, "common passive pool should expose at least two passives for the range check")
+	var seen := {}
+	var saw_invalid := false
+	var seed_cap := maxi(4000, pool_ids.size() * 400)
+	for seed in range(1, seed_cap + 1):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(seed)
+		var rolled := str(LingpetCatalog._roll_hatch_passive_id(rng))
+		seen[rolled] = true
+		if not pool_ids.has(rolled):
+			saw_invalid = true
+		if seen.size() == pool_ids.size():
+			break
+	_expect(not saw_invalid, "direct hatch passive id roll should only return common-pool members")
+	_expect_eq(seen.size(), pool_ids.size(), "direct hatch passive id roll should reach every common-pool index (full uniform range)")
 
 
 func _verify_present_skill_conditions_first_unlock() -> void:

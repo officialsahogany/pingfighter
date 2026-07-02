@@ -109,8 +109,8 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(is_equal_approx(float(lv3.get("duration_seconds", 0.0)), 17.0), "Soul Clone Lv.3 should extend to 17 seconds")
 	_expect(is_equal_approx(float(lv5.get("duration_seconds", 0.0)), 20.0), "Soul Clone Lv.5 should extend to 20 seconds")
 	_expect(str(skill.get("description", "")).find("Lv.3") >= 0 and str(skill.get("description", "")).find("Lv.5") >= 0, "Soul Clone description should expose the clone-count level breakpoints")
-	var egg_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	_expect(egg_source.find("\"clone_count\"") >= 0 and egg_source.find("\"duration_seconds\"") >= 0, "egg runtime should pass Soul Clone flattened level values into launch_context")
+	var payload_builder_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd")
+	_expect(payload_builder_source.find("\"clone_count\"") >= 0 and payload_builder_source.find("\"duration_seconds\"") >= 0, "payload builder should pass Soul Clone flattened level values into launch_context")
 
 
 func _verify_runtime_hit_duration_and_reset() -> void:

@@ -2,6 +2,7 @@ extends SceneTree
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const LingpetBubbleTrapSkill := preload("res://scripts/lingpet/lingpet_bubble_trap_skill.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 
@@ -100,6 +101,9 @@ class FakeLingpetRuntime:
 
 func _init() -> void:
 	_verify_dispatcher_and_catalog()
+	_verify_level_scaled_launch_values()
+	_verify_forced_extra_shot_rolls()
+	_verify_rainbow_projectile_rules()
 	_verify_multi_shot_sequence_tracks_moving_origin()
 	_verify_runtime_capture_and_ball_pop()
 	_verify_projectile_ball_pop()
@@ -125,6 +129,7 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(str(skill.get("runtime_kind", "")) == "bubble_trap", "Bubble Trap metadata should use the bubble_trap runtime kind")
 	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 25.0), "Bubble Trap should use a 25-second cooldown")
 	_expect(str(skill.get("name", "")) == "물방울트랩", "Bubble Trap should keep the requested Korean skill name")
+	_expect(str(skill.get("description", "")).find("2.0~4.0초") >= 0 and str(skill.get("description", "")).find("무지개") >= 0, "Bubble Trap catalog description should mention level-scaled duration and rainbow behavior")
 	_expect(str(skill.get("card_texture_path", "")).ends_with("maribo_bubble_trap_skillcard_imagegen_v1.png"), "Bubble Trap should use its own Maribo-matched skill card")
 	_expect(str(skill.get("icon_texture_path", "")).ends_with("maribo_bubble_trap_skill_icon_imagegen_v1.png"), "Bubble Trap should use its own Maribo-matched skill icon")
 	_expect(FileAccess.file_exists(str(skill.get("card_texture_path", ""))), "Bubble Trap skill-card PNG should exist")
@@ -138,6 +143,67 @@ func _verify_dispatcher_and_catalog() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_bubble_trap_skill.gd")
 	_expect(source.find("INNER_BUBBLE_SIZE_VARIANCE := 0.30") >= 0, "Bubble Trap inner bubble sizes should vary by +/-30 percent")
 	_expect(source.find("PROJECTILE_WOBBLE_AMPLITUDE") >= 0 and source.find("_draw_inner_bubbles") >= 0, "Bubble Trap visuals should use bubbly wobble motion and inner bubble rendering")
+	_expect(source.find("launch_context: Dictionary") >= 0 and source.find("_read_level(launch_context)") >= 0, "Bubble Trap launch should consume active-skill level context")
+	_expect(source.find("SHOT_COUNT_MIN") < 0 and source.find("SHOT_COUNT_MAX") < 0, "Bubble Trap should use independent extra-shot rolls instead of min/max span rolls")
+	_expect(source.find("EXTRA_ROLL_SALT + float(index)") >= 0, "Bubble Trap extra-shot rolls should salt each independent roll by index")
+
+
+func _verify_level_scaled_launch_values() -> void:
+	var lv1 := _launch_skill_direct(1)
+	var lv5 := _launch_skill_direct(5)
+	var lv1_snapshot: Dictionary = lv1.get_snapshot()
+	var lv5_snapshot: Dictionary = lv5.get_snapshot()
+	_expect(int(lv1_snapshot.get("bubble_trap_active_skill_level", 0)) == 1, "Bubble Trap should capture Lv.1 from launch context")
+	_expect(int(lv5_snapshot.get("bubble_trap_active_skill_level", 0)) == 5, "Bubble Trap should capture Lv.5 from launch context")
+	_expect(is_equal_approx(float(lv1_snapshot.get("bubble_trap_projectile_speed", 0.0)), 185.0), "Bubble Trap Lv.1 projectile speed should be 185")
+	_expect(is_equal_approx(float(lv5_snapshot.get("bubble_trap_projectile_speed", 0.0)), 285.0), "Bubble Trap Lv.5 projectile speed should be 285")
+
+	var lv1_capture := _capture_duration_for_level(1)
+	var lv5_capture := _capture_duration_for_level(5)
+	_expect(lv1_capture >= 2.0 and lv1_capture <= 3.0, "Bubble Trap Lv.1 capture duration should stay in the 2.0-3.0s band")
+	_expect(lv5_capture >= 3.0 and lv5_capture <= 4.0, "Bubble Trap Lv.5 capture duration should stay in the 3.0-4.0s band")
+	_expect(lv5_capture > lv1_capture, "Bubble Trap capture duration should increase for the same fixture from Lv.1 to Lv.5")
+
+
+func _verify_forced_extra_shot_rolls() -> void:
+	var lv1_all_success := _launch_skill_direct(1, 1)
+	var lv5_all_success := _launch_skill_direct(5, 1)
+	var lv1_all_fail := _launch_skill_direct(1, 0)
+	var lv5_all_fail := _launch_skill_direct(5, 0)
+	_expect(int(lv1_all_success.get_snapshot().get("bubble_trap_shot_count_target", 0)) == 3, "Bubble Trap Lv.1 all-success extra rolls should fire 3 total bubbles")
+	_expect(int(lv5_all_success.get_snapshot().get("bubble_trap_shot_count_target", 0)) == 5, "Bubble Trap Lv.5 all-success extra rolls should fire 5 total bubbles")
+	_expect(int(lv1_all_fail.get_snapshot().get("bubble_trap_shot_count_target", 0)) == 2, "Bubble Trap Lv.1 failed extra rolls should fall back to 2 base bubbles")
+	_expect(int(lv5_all_fail.get_snapshot().get("bubble_trap_shot_count_target", 0)) == 2, "Bubble Trap Lv.5 failed extra rolls should fall back to 2 base bubbles")
+
+
+func _verify_rainbow_projectile_rules() -> void:
+	var lv1_skill := _launch_skill_direct(1, 0, 1)
+	var lv5_skill := _launch_skill_direct(5, 0, 1)
+	var lv1_snapshot: Dictionary = lv1_skill.get_snapshot()
+	var lv5_snapshot: Dictionary = lv5_skill.get_snapshot()
+	_expect(not bool(lv1_snapshot.get("bubble_trap_projectile_is_rainbow", false)), "Bubble Trap Lv.1 should not create a rainbow bubble even when the test override asks for one")
+	_expect(bool(lv5_snapshot.get("bubble_trap_projectile_is_rainbow", false)), "Bubble Trap Lv.5 forced rainbow should replace the lead bubble")
+	var lv5_radii: Array = lv5_snapshot.get("bubble_trap_projectile_visual_radii", [])
+	_expect(not lv5_radii.is_empty() and is_equal_approx(float(lv5_radii[0]), 22.0 * 2.5), "Bubble Trap Lv.5 rainbow lead bubble should use the 2.5x radius")
+
+	var rainbow_owner := FakeOwner.new()
+	rainbow_owner.ball_active = true
+	rainbow_owner.ball_pos = lv5_snapshot.get("bubble_trap_projectile_pos", Vector2.ZERO)
+	lv5_skill.update(0.01, rainbow_owner, FakeRegistry.new(FakeStatusEffectState.new(), FakeAudio.new()))
+	_expect(bool(lv5_skill.get_snapshot().get("bubble_trap_projectile_active", false)), "Bubble Trap rainbow projectile should not pop on ball contact")
+
+	var normal_skill := _launch_skill_direct(5, 0, 0)
+	var normal_snapshot: Dictionary = normal_skill.get_snapshot()
+	var normal_owner := FakeOwner.new()
+	normal_owner.ball_active = true
+	normal_owner.ball_pos = normal_snapshot.get("bubble_trap_projectile_pos", Vector2.ZERO)
+	normal_skill.update(0.01, normal_owner, FakeRegistry.new(FakeStatusEffectState.new(), FakeAudio.new()))
+	_expect(not bool(normal_skill.get_snapshot().get("bubble_trap_projectile_active", true)), "Bubble Trap normal projectile should still pop on ball contact")
+
+	var capture_skill := _launch_skill_direct(5, 0, 1, Vector2(380.0, 160.0))
+	var capture_owner := FakeOwner.new()
+	capture_skill.update(0.50, capture_owner, FakeRegistry.new(FakeStatusEffectState.new(), FakeAudio.new()))
+	_expect(bool(capture_skill.get_snapshot().get("bubble_trap_capture_active", false)), "Bubble Trap rainbow projectile should still capture the boss")
 
 
 func _verify_runtime_capture_and_ball_pop() -> void:
@@ -156,7 +222,7 @@ func _verify_runtime_capture_and_ball_pop() -> void:
 	_expect(not bool(snapshot.get("bubble_trap_projectile_active", true)), "Bubble Trap projectile should stop after touching the boss paddle")
 	_expect(bool(snapshot.get("bubble_trap_capture_active", false)), "Bubble Trap should capture the boss paddle on contact")
 	_expect(int(host.get_bubble_trap_capture_count_for_tests()) == 1, "Bubble Trap should count one capture")
-	_expect(_is_capture_duration_in_range(float(snapshot.get("bubble_trap_capture_duration", 0.0))), "Bubble Trap capture duration should be between 2.5 and 3 seconds")
+	_expect(_is_capture_duration_in_range(float(snapshot.get("bubble_trap_capture_duration", 0.0))), "Bubble Trap default Lv.1 capture duration should be between 2.0 and 3.0 seconds")
 	_expect(float(snapshot.get("bubble_trap_radius", 0.0)) >= 82.0, "Bubble Trap capture bubble should be large enough to cover the boss body, not only the head")
 	var visual_center: Vector2 = snapshot.get("bubble_trap_center", Vector2.ZERO)
 	var hitbox_center_y := owner.boss_pos.y + owner.boss_hitbox_height * 0.5
@@ -257,14 +323,14 @@ func _verify_capture_expiry_pop() -> void:
 	host.update(0.50, owner, registry, skill_id)
 	_expect(bool(host.get_snapshot().get("bubble_trap_capture_active", false)), "expiry fixture should start from a captured bubble")
 	var snapshot: Dictionary = host.get_snapshot()
-	_expect(_is_capture_duration_in_range(float(snapshot.get("bubble_trap_capture_duration", 0.0))), "expiry fixture should expose the 2.5-3s capture duration")
+	_expect(_is_capture_duration_in_range(float(snapshot.get("bubble_trap_capture_duration", 0.0))), "expiry fixture should expose the Lv.1 2.0-3.0s capture duration")
 	var remaining := float(snapshot.get("bubble_trap_capture_timer", 0.0))
 	host.update(maxf(0.0, remaining - 0.05), owner, registry, skill_id)
-	_expect(bool(host.get_snapshot().get("bubble_trap_capture_active", false)), "Bubble Trap should stay captured until the selected 2.5-3s duration nearly ends")
+	_expect(bool(host.get_snapshot().get("bubble_trap_capture_active", false)), "Bubble Trap should stay captured until the selected level-scaled duration nearly ends")
 	snapshot = host.get_snapshot()
 	host.update(float(snapshot.get("bubble_trap_capture_timer", 0.0)) + 0.05, owner, registry, skill_id)
 	snapshot = host.get_snapshot()
-	_expect(not bool(snapshot.get("bubble_trap_capture_active", true)), "Bubble Trap should release after the selected 2.5-3s capture duration")
+	_expect(not bool(snapshot.get("bubble_trap_capture_active", true)), "Bubble Trap should release after the selected level-scaled capture duration")
 	_expect(str(snapshot.get("bubble_trap_last_burst_reason", "")) == "expire", "capture expiry should pop the bubble")
 
 
@@ -287,6 +353,25 @@ func _verify_rail_card_reads_bubble_casting() -> void:
 	_expect(absf(float(rail_entry.get("cooldown_total", 0.0)) - 25.0) <= 0.01, "Bubble Trap rail entry should carry its 25s cooldown")
 
 
+func _launch_skill_direct(
+	active_skill_level: int,
+	force_extra: int = -1,
+	force_rainbow: int = -1,
+	origin: Vector2 = Vector2(260.0, 656.0)
+) -> Object:
+	var skill: Object = LingpetBubbleTrapSkill.new()
+	skill._force_extra_for_tests = force_extra
+	skill._force_rainbow_for_tests = force_rainbow
+	skill.launch(origin, null, {"active_skill_level": active_skill_level})
+	return skill
+
+
+func _capture_duration_for_level(active_skill_level: int) -> float:
+	var skill := _launch_skill_direct(active_skill_level, 0, 0, Vector2(380.0, 160.0))
+	skill.update(0.50, FakeOwner.new(), FakeRegistry.new(FakeStatusEffectState.new(), FakeAudio.new()))
+	return float(skill.get_snapshot().get("bubble_trap_capture_duration", 0.0))
+
+
 func _skill_ids(skills: Array[Dictionary]) -> Array[String]:
 	var ids: Array[String] = []
 	for skill in skills:
@@ -297,7 +382,7 @@ func _skill_ids(skills: Array[Dictionary]) -> Array[String]:
 
 
 func _is_capture_duration_in_range(duration: float) -> bool:
-	return duration >= 2.5 and duration <= 3.0
+	return duration >= 2.0 and duration <= 3.0
 
 
 func _expect(condition: bool, message: String) -> void:

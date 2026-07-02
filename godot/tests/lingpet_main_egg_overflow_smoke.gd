@@ -77,10 +77,6 @@ class FakeOwner:
 	var ringpet_ring_core_tier := 0
 	var lingpet_affinity_chip_count := 0
 	var ringpet_affinity_chip_count := 0
-	var lingpet_bond_points := 0
-	var ringpet_bond_points := 0
-	var lingpet_bond_title := ""
-	var ringpet_bond_title := ""
 	var lingpet_companion_defense_intercept_active := false
 	var ringpet_companion_defense_intercept_active := false
 	var lingpet_companion_defense_intercept_target_x := 0.0
@@ -284,5 +280,4 @@ func _seed_lingpet_roster(owner: Object, pet_ids: Array[String], active_slot_ind
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
-
 

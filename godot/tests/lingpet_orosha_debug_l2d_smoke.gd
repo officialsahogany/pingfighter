@@ -32,20 +32,20 @@ func _init() -> void:
 
 
 func _verify_catalog_entry() -> void:
-	_expect(LingpetCatalog.has_pet("orosha"), "Orosha should be runtime-activatable for F7 debug")
-	_expect(LingpetCatalog.is_pet_debug_enabled("orosha"), "Orosha should be visible in the F7 debug picker")
-	_expect(not LingpetCatalog.is_pet_enabled("orosha"), "Orosha should stay out of the normal hatch pool")
-	_expect(not LingpetCatalog.get_pet_ids().has("orosha"), "enabled pet ids should not include debug-only Orosha")
-	_expect(LingpetCatalog.get_debug_pet_ids().has("orosha"), "debug pet ids should include Orosha")
-	_expect(LingpetCatalog.get_pet_ids(true).has("orosha"), "all pet ids should include parked Orosha metadata")
+	_expect(LingpetCatalog.has_pet("orosha"), "Orosha should be runtime-activatable")
+	_expect(LingpetCatalog.is_pet_enabled("orosha"), "Orosha should be enabled after Star Coil production promotion")
+	_expect(LingpetCatalog.get_pet_ids().has("orosha"), "enabled pet ids should include live Orosha")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("orosha"), "debug pet ids should include live Orosha for F7 selection")
+	_expect(LingpetCatalog.get_pet_ids(true).has("orosha"), "all pet ids should include Orosha metadata")
 	_expect(LingpetCatalog.get_display_name("orosha") == "오로샤", "Orosha should expose the accepted Korean display name")
 	_expect(LingpetCatalog.get_motion_style("orosha") == "patrol", "Orosha should use the grounded patrol movement style")
-	_expect(LingpetCatalog.get_active_skill_pool("orosha").is_empty(), "Orosha should not expose a fake active skill before its runtime ships")
+	_expect(_active_pool_has(LingpetCatalog.get_active_skill_pool("orosha"), "orosha_star_coil"), "Orosha should expose the shipped Star Coil active runtime")
+	_expect(LingpetCatalog.get_active_skill_runtime_kind("orosha_star_coil") == "star_coil", "Orosha Star Coil should route through the star_coil runtime kind")
 	var hatch_candidates := LingpetCatalog.get_hatch_candidates({
 		"league_mode": "junior",
 		"character_type": "smasher",
 	}, [])
-	_expect(not hatch_candidates.has("orosha"), "Orosha should not enter the random hatch pool while debug-only")
+	_expect(hatch_candidates.has("orosha"), "Orosha should enter the random hatch pool after Star Coil production promotion")
 
 
 func _verify_visual_paths() -> void:
@@ -87,6 +87,7 @@ func _verify_runtime_sheet_sizes() -> void:
 	_expect_texture_size("res://assets/sprites/lingpet/orosha_companion_move_right_ground_roll_autosprite_48f.png", 2048, 1536)
 	_expect_texture_size("res://assets/sprites/lingpet/orosha_cutin_live2d_rigid_v2_autosprite_32f.png", 4096, 2048)
 	_expect_texture_size("res://assets/sprites/lingpet/orosha_acquire_vfx_autosprite_16f.png", 2048, 2048)
+	_expect_texture_size("res://assets/sprites/lingpet/orosha_cutin_dismiss_anim.png", 7168, 3584)
 	_expect_texture_size("res://assets/sprites/lingpet/orosha_click_rolling_autosprite_98f.png", 7168, 3584)
 	_expect_texture_size("res://assets/sprites/lingpet/orosha_companion_click_reaction_rolling_98f.png", 1792, 896)
 
@@ -232,9 +233,9 @@ func _verify_acquire_live2d_sheet_contracts() -> void:
 	_expect(host._get_cutin_anim_cols() == 8, "Orosha acquisition Live2D should use the 8-column sheet")
 	_expect(host._get_cutin_anim_rows() == 4, "Orosha acquisition Live2D should use the 4-row sheet")
 	_expect(host._get_cutin_anim_frame_count() == 32, "Orosha acquisition Live2D should play all 32 frames")
-	_expect(host._get_cutin_dismiss_cols() == 5, "Orosha acquisition click dismiss should use the dedicated 5-column dismiss grid (decoupled to a repacked 5x5/25 sheet)")
-	_expect(host._get_cutin_dismiss_rows() == 5, "Orosha acquisition click dismiss should use the dedicated 5-row dismiss grid")
-	_expect(host._get_cutin_dismiss_frame_count() == 25, "Orosha acquisition click dismiss should play the repacked 25-frame dismiss sheet")
+	_expect(host._get_cutin_dismiss_cols() == 14, "Orosha acquisition click dismiss should use the current 14-column dismiss grid")
+	_expect(host._get_cutin_dismiss_rows() == 7, "Orosha acquisition click dismiss should use the current 7-row dismiss grid")
+	_expect(host._get_cutin_dismiss_frame_count() == 98, "Orosha acquisition click dismiss should play the current 98-frame dismiss sheet")
 
 
 func _verify_acquire_host_loads_visible_cutin_textures() -> void:
@@ -289,6 +290,13 @@ func _expect_manifest_grid(path: String, cols: int, rows: int, frame_count: int,
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _active_pool_has(pool: Array, skill_id: String) -> bool:
+	for entry_value in pool:
+		if entry_value is Dictionary and str((entry_value as Dictionary).get("id", "")) == skill_id:
+			return true
+	return false
 
 
 func _cleanup() -> void:

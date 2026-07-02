@@ -50,10 +50,58 @@ const OWNER_SECOND_PASSIVE_SKILL_LEVEL_KEYS := [
 ]
 
 var loadouts_by_pet_id: Dictionary = {}
+var _applied_runtime_cache_key := ""
+var _synced_owner_runtime_cache_key := ""
+var _skip_unlock_reconcile := false
 
 
 func reset() -> void:
 	loadouts_by_pet_id.clear()
+	invalidate_runtime_cache()
+	_skip_unlock_reconcile = false
+
+
+func has_applied_runtime_cache() -> bool:
+	return _applied_runtime_cache_key != ""
+
+
+func get_applied_runtime_cache_key() -> String:
+	return _applied_runtime_cache_key
+
+
+func mark_runtime_cache_applied(cache_key: String) -> void:
+	_applied_runtime_cache_key = cache_key
+
+
+func invalidate_runtime_cache() -> void:
+	_applied_runtime_cache_key = ""
+	_synced_owner_runtime_cache_key = ""
+
+
+func invalidate_runtime_and_snapshot_cache(snapshot_builder: Object) -> void:
+	invalidate_runtime_cache()
+	if snapshot_builder != null:
+		snapshot_builder.invalidate_sync_cache()
+
+
+func should_sync_owner_loadouts_for_runtime(is_companion_active: bool) -> bool:
+	return not is_companion_active or _synced_owner_runtime_cache_key != _applied_runtime_cache_key
+
+
+func mark_owner_loadouts_synced_for_runtime() -> void:
+	_synced_owner_runtime_cache_key = _applied_runtime_cache_key
+
+
+func invalidate_owner_loadout_sync_for_runtime() -> void:
+	_synced_owner_runtime_cache_key = ""
+
+
+func set_skip_unlock_reconcile(value: bool) -> void:
+	_skip_unlock_reconcile = value
+
+
+func should_skip_unlock_reconcile() -> bool:
+	return _skip_unlock_reconcile
 
 
 func set_loadouts(value: Variant) -> void:
@@ -71,6 +119,25 @@ func set_loadouts(value: Variant) -> void:
 
 func get_loadouts() -> Dictionary:
 	return loadouts_by_pet_id.duplicate(true)
+
+
+func forget_pet_loadout(owner: Object, pet_id: String) -> bool:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return false
+	sync_from_owner(owner)
+	if not loadouts_by_pet_id.has(normalized_pet_id):
+		return false
+	loadouts_by_pet_id.erase(normalized_pet_id)
+	sync_owner(owner)
+	return true
+
+
+func forget_pet_loadout_and_invalidate(owner: Object, pet_id: String, snapshot_builder: Object) -> bool:
+	if not forget_pet_loadout(owner, pet_id):
+		return false
+	invalidate_runtime_and_snapshot_cache(snapshot_builder)
+	return true
 
 
 func sync_from_owner(owner: Object) -> void:
@@ -151,6 +218,36 @@ func set_pet_loadout(
 	return loadout.duplicate(true)
 
 
+func set_pet_loadout_and_invalidate(
+	owner: Object,
+	pet_id: String,
+	active_skill_id: String,
+	passive_skill_id: String,
+	active_skill_level: int,
+	passive_skill_level: int,
+	snapshot_builder: Object,
+	second_active_skill_id: String = "",
+	second_passive_skill_id: String = "",
+	second_active_skill_level: int = LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL,
+	second_passive_skill_level: int = LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
+) -> Dictionary:
+	var loadout := set_pet_loadout(
+		owner,
+		pet_id,
+		active_skill_id,
+		passive_skill_id,
+		active_skill_level,
+		passive_skill_level,
+		second_active_skill_id,
+		second_passive_skill_id,
+		second_active_skill_level,
+		second_passive_skill_level
+	)
+	if not loadout.is_empty():
+		invalidate_runtime_and_snapshot_cache(snapshot_builder)
+	return loadout
+
+
 func get_loadout(pet_id: String) -> Dictionary:
 	var normalized_pet_id := normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
@@ -160,6 +257,34 @@ func get_loadout(pet_id: String) -> Dictionary:
 		if not loadout.is_empty():
 			return loadout
 	return LingpetCatalog.build_default_loadout(normalized_pet_id)
+
+
+func get_stored_loadout(pet_id: String) -> Dictionary:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {}
+	if not loadouts_by_pet_id.has(normalized_pet_id):
+		return {}
+	var loadout := _normalize_loadout(normalized_pet_id, loadouts_by_pet_id.get(normalized_pet_id, {}), true)
+	return loadout.duplicate(true) if not loadout.is_empty() else {}
+
+
+# Roll a fresh hatch loadout for pet_id and store it in run-state WITHOUT writing the
+# active-skill owner keys (no sync_owner). Used by item-egg hatches: the absorbed pet must get a
+# rolled (not default Lv.1) loadout, but the ACTIVE companion's published owner keys must stay
+# untouched -- sync_owner() would direct-write the new pet's level and desync the snapshot
+# builder's change-gated cache, corrupting the companion's displayed level. The caller persists
+# the loadouts dict separately (e.g. by forcing the next owner-sync to re-publish it).
+func roll_and_store_pet_loadout_unsynced(pet_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {}
+	var rolled_source: Dictionary = LingpetCatalog.pick_skill_loadout(normalized_pet_id, rng)
+	var rolled := _normalize_loadout(normalized_pet_id, rolled_source, true)
+	if rolled.is_empty():
+		rolled = LingpetCatalog.build_default_loadout(normalized_pet_id)
+	loadouts_by_pet_id[normalized_pet_id] = rolled
+	return rolled.duplicate(true)
 
 
 func get_active_skill_id(pet_id: String) -> String:

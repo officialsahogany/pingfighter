@@ -3,6 +3,7 @@ extends SceneTree
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const LingpetAcquireCutinOverlayHost := preload("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
@@ -35,7 +36,13 @@ func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.get_debug_pet_ids().has("onimaru"), "debug pet ids should include Onimaru")
 	_expect(LingpetCatalog.get_pet_ids(true).has("onimaru"), "all pet ids should include parked Onimaru metadata")
 	_expect(LingpetCatalog.get_display_name("onimaru") == "오니마루", "Onimaru should expose the accepted Korean display name")
-	_expect(LingpetCatalog.get_active_skill_pool("onimaru").is_empty(), "Onimaru should not expose a fake active skill before its runtime is ported")
+	var active_pool := LingpetCatalog.get_active_skill_pool("onimaru")
+	_expect(active_pool.size() == 1, "Onimaru should expose exactly one accepted debug active skill")
+	var active_skill: Dictionary = active_pool[0] if not active_pool.is_empty() else {}
+	_expect(str(active_skill.get("id", "")) == "onimaru_headbutt", "Onimaru debug active skill should be onimaru_headbutt")
+	_expect(str(active_skill.get("runtime_kind", "")) == "headbutt", "Onimaru debug active skill should route through the shared headbutt runtime")
+	_expect(LingpetSkillDispatcher.is_headbutt("onimaru_headbutt"), "Onimaru Headbutt should resolve through the dispatcher")
+	_expect(float(active_skill.get("disable_moving_miss", 0.0)) > 0.5, "Onimaru Headbutt should disable the random moving-target miss roll")
 	var hatch_candidates := LingpetCatalog.get_hatch_candidates({
 		"league_mode": "junior",
 		"character_type": "smasher",
