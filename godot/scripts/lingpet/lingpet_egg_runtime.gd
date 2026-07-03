@@ -383,13 +383,22 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 				var feed_pet_id := str(feed_step.get("feed_pet_id", ""))
 				var feed_registry: Object = feed_step.get("feed_registry", registry) as Object
 				if feed_pet_id != "":
-					var feed_result := _add_affinity_points(
-						feed_pet_id,
-						LingpetAffinityState.SOURCE_FEED,
-						{},
-						feed_registry
-					)
-					feed_result["accepted"] = float(feed_result.get("granted_points", 0.0)) > 0.0
+					var feed_amount := maxf(0.0, float(feed_step.get("feed_amount", 0.0)))
+					var satiety_before: float = float(_affinity_state.get_satiety(feed_pet_id))
+					var satiety_after: float = float(_affinity_state.add_satiety(feed_pet_id, feed_amount))
+					var feed_result := {
+						"accepted": satiety_after > satiety_before,
+						"pet_id": feed_pet_id,
+						"source": "satiety_feed",
+						"feed_amount": feed_amount,
+						"granted_satiety": maxf(0.0, satiety_after - satiety_before),
+						"satiety_before": satiety_before,
+						"satiety_after": satiety_after,
+						"blocked_reason": "",
+						"feed_registry": feed_registry,
+					}
+					_affinity_grant_controller.remember_result(feed_result)
+					_invalidate_runtime_snapshot_cache()
 		_ring_dash_vfx.advance(delta)
 		_ghost_blink_vfx.advance(delta)
 		_perf_probe.end(perf_logger, "physics.lingpet.vfx_states", sample_start)
@@ -2703,7 +2712,7 @@ func tick_ring_core_offer_cooldown() -> void:
 	_affinity_state.tick_ring_core_offer_cooldown()
 
 
-func feed_lingpet(owner: Object = null, registry: Object = null) -> Dictionary:
+func feed_lingpet(owner: Object = null, registry: Object = null, feed_amount: float = 40.0) -> Dictionary:
 	_invalidate_runtime_snapshot_cache()
 	var affinity_pet_id := ""
 	if _state == STATE_COMPANION:
@@ -2735,7 +2744,8 @@ func feed_lingpet(owner: Object = null, registry: Object = null) -> Dictionary:
 		has_active_position_override
 			or _ring_dash_state.has_companion_position_override()
 			or _starlight_tracking_state.has_companion_position_override(),
-		registry
+		registry,
+		feed_amount
 	)
 	_affinity_grant_controller.remember_result(result)
 	return result

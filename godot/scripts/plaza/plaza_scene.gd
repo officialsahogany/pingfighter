@@ -1307,7 +1307,10 @@ func _ensure_character_info_overlay_host() -> void:
 	host.position = Vector2.ZERO
 	host.size = size
 	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.z_as_relative = false
+	# The live plaza root is driven above battle/result UI at z_index=1200.
+	# Keep this child relative so TAB-opened character info is not stranded
+	# below the plaza's opaque draw pass in the result-controller path.
+	host.z_as_relative = true
 	host.z_index = 120
 	add_child(host)
 	_character_info_overlay_host = host
@@ -2507,11 +2510,13 @@ func _buy_shop_stock_item(index: int) -> Dictionary:
 		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "not_enough_gold")
 	if _is_shop_ap_blocked(not _active_menu_visit_ap_consumed):
 		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "no_ap")
+	if _runtime_owner == null:
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_owner")
+	if _is_active_shop_item(item_data):
+		return _buy_active_shop_stock_item(index, item_data, item_name, price)
 	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("acquire_item"):
 		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_item_runtime")
-	if _runtime_owner == null:
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_owner")
 	var grant_index := int(mythic_item_runtime.acquire_item(item_name, _runtime_owner, _runtime_registry, {}, false, false, item_data))
 	if grant_index < 0:
 		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "inventory_full")
@@ -2528,6 +2533,31 @@ func _buy_shop_stock_item(index: int) -> Dictionary:
 		_build_shop_trade_summary("purchase", item_data, price, 0, true, "ok"),
 		payment
 	)
+
+
+func _buy_active_shop_stock_item(index: int, item_data: Dictionary, item_name: String, price: int) -> Dictionary:
+	var active_item_runtime := _get_runtime_instance("active_item_runtime")
+	if active_item_runtime == null or not active_item_runtime.has_method("grant_item_to_slot"):
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_item_runtime")
+	if not bool(active_item_runtime.grant_item_to_slot(item_name, _runtime_owner, _runtime_registry, false)):
+		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "active_slots_full")
+	var payment := _perform_shop_wallet_transaction("purchase", price, not _active_menu_visit_ap_consumed)
+	if not bool(payment.get("changed", false)):
+		if active_item_runtime.has_method("debug_remove_item_from_slot"):
+			active_item_runtime.debug_remove_item_from_slot(item_name, _runtime_owner, _runtime_registry)
+		return _merge_shop_trade_wallet_summary(
+			_build_shop_trade_summary("purchase", item_data, price, 0, false, str(payment.get("reason", "payment_failed"))),
+			payment
+		)
+	_shop_inventory.remove_at(index)
+	return _merge_shop_trade_wallet_summary(
+		_build_shop_trade_summary("purchase", item_data, price, 0, true, "ok"),
+		payment
+	)
+
+
+func _is_active_shop_item(item_data: Dictionary) -> bool:
+	return str(item_data.get("type", "")).to_lower() == "active"
 
 
 func _sell_player_passive_item(index: int) -> Dictionary:
@@ -2799,8 +2829,8 @@ func _format_lingpet_store_transaction_message(summary: Dictionary) -> String:
 					return "행동력이 부족합니다."
 				"not_enough_gold":
 					return "링코어 강화 비용이 부족합니다."
-				"missing_lingpet_runtime", "missing_affinity_store":
-					return "링코어 장부를 찾을 수 없습니다."
+				"missing_lingpet_runtime":
+					return "링코어 상태를 찾을 수 없습니다."
 				"max_ring_core_tier":
 					return "링코어가 이미 최대 단계입니다."
 				"missing_ring_core_price":

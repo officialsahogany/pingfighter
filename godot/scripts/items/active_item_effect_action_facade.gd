@@ -66,7 +66,8 @@ func apply_lingpet_feed(
 	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
 	if lingpet_runtime == null or not lingpet_runtime.has_method("feed_lingpet"):
 		return false
-	var result: Variant = lingpet_runtime.feed_lingpet(owner, registry)
+	var feed_amount := maxf(0.0, float(item_data.get("feed_amount", 40.0)))
+	var result: Variant = lingpet_runtime.feed_lingpet(owner, registry, feed_amount)
 	if not (result is Dictionary):
 		return false
 	var feed_result: Dictionary = result

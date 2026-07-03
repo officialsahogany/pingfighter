@@ -8,7 +8,6 @@ const SOURCE_BALL_HIT := "ball_hit"
 const SOURCE_CLICK := "click"
 const SOURCE_HATCH := "hatch"
 const SOURCE_VICTORY := "victory"
-const SOURCE_FEED := "feed"
 const SOURCE_STAGE_CLEAR := "stage_clear"
 const SOURCE_RING_CORE_UPGRADE := "ring_core_upgrade"
 
@@ -30,7 +29,6 @@ const MOTION_STYLE_FLIGHT := "flight"
 const MAX_LEVEL := 30
 const MAX_ENHANCEMENT_CHIPS := 5
 const ENHANCEMENT_CHIP_BONUS := 0.20
-const MAX_FEED_USES_PER_RUN := 3
 const SKILL_LEVEL_MAX := 5
 const RING_CORE_CAP_UNCHANGED := -1
 const MAX_MOBILITY_STACKS := 6
@@ -144,7 +142,6 @@ const GAIN_TABLE := {
 	},
 	SOURCE_HATCH: {"points": 25.0},
 	SOURCE_VICTORY: {"points": 20.0},
-	SOURCE_FEED: {"points": 35.0},
 	SOURCE_STAGE_CLEAR: {"points": 50.0},
 	SOURCE_RING_CORE_UPGRADE: {"points": 50.0},
 }
@@ -152,7 +149,7 @@ const GAIN_TABLE := {
 # Flight-style companions get fewer ball-hit / click opportunities than patrol pets
 # (no patrol defense-intercept and often hidden / airborne), so the BALL-HIT opportunity
 # source pays double for them. The style-agnostic floor sources (round commit / victory /
-# stage clear / hatch / feed) stay flat. CLICK no longer routes through this generic
+# stage clear / hatch) stay flat. CLICK no longer routes through this generic
 # multiplier — it carries its own explicit patrol(20)/flight(30) values in GAIN_TABLE
 # (a 1.5x design value, not the ball-hit 2x). The caps stay by COUNT — only the per-event
 # points scale, so a rarer flight hit feels proportionally rewarding.
@@ -173,7 +170,6 @@ var _pets: Dictionary = {}
 var _round_caps: Dictionary = {}
 var _battle_caps: Dictionary = {}
 var _enhancement_chips := 0
-var _feed_uses_this_run := 0
 var _run_ring_core_tier := 0
 var _ring_core_offer_cooldown_screens := 0
 var _dirty := false
@@ -184,7 +180,6 @@ var _dirty := false
 func reset_all() -> void:
 	_pets.clear()
 	_enhancement_chips = 0
-	_feed_uses_this_run = 0
 	_run_ring_core_tier = 0
 	_ring_core_offer_cooldown_screens = 0
 	reset_battle_caps()
@@ -211,7 +206,6 @@ func export_run_state() -> Dictionary:
 	return {
 		"pets": pets_copy,
 		"enhancement_chips": _enhancement_chips,
-		"feed_uses_this_run": _feed_uses_this_run,
 		"run_ring_core_tier": _run_ring_core_tier,
 		"ring_core_offer_cooldown_screens": _ring_core_offer_cooldown_screens,
 	}
@@ -227,7 +221,6 @@ func import_run_state(data: Dictionary) -> void:
 		if pet_data is Dictionary:
 			_pets[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
 	_enhancement_chips = clampi(int(data.get("enhancement_chips", 0)), 0, MAX_ENHANCEMENT_CHIPS)
-	_feed_uses_this_run = clampi(int(data.get("feed_uses_this_run", 0)), 0, MAX_FEED_USES_PER_RUN)
 	_run_ring_core_tier = clampi(int(data.get("run_ring_core_tier", 0)), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	_ring_core_offer_cooldown_screens = maxi(0, int(data.get("ring_core_offer_cooldown_screens", 0)))
 	_dirty = true
@@ -286,10 +279,6 @@ func get_enhancement_chips() -> int:
 
 func get_enhancement_chip_multiplier() -> float:
 	return 1.0 + float(get_enhancement_chips()) * ENHANCEMENT_CHIP_BONUS
-
-
-func get_feed_uses_this_run() -> int:
-	return clampi(_feed_uses_this_run, 0, MAX_FEED_USES_PER_RUN)
 
 
 func get_satiety(pet_id: String) -> float:
@@ -491,17 +480,6 @@ func upgrade_run_ring_core_tier(target_tier: int = 0) -> bool:
 
 func get_run_ring_core_cap() -> int:
 	return LingpetRingCoreRules.get_ring_core_cap_for_tier(get_run_ring_core_tier())
-
-
-func get_feed_cap_for_pet(pet_id: String) -> int:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return 0
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	if not pet_data.is_empty():
-		return _get_feed_level_cap(pet_data)
-	var run_cap := clampi(int(get_run_ring_core_cap()), 0, MAX_LEVEL)
-	return run_cap if run_cap > 0 else MAX_LEVEL
 
 
 func get_ring_core_offer_cooldown_screens() -> int:
@@ -818,16 +796,15 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	if level_before >= MAX_LEVEL:
 		if source == SOURCE_ROUND_COMMIT:
 			_record_round_commit(normalized_pet_id)
-		var max_reason := "max_feed_level" if source == SOURCE_FEED else "max_level"
-		return _build_result(normalized_pet_id, source, level_before, points_before, 0.0, 0.0, [], max_reason)
+		return _build_result(normalized_pet_id, source, level_before, points_before, 0.0, 0.0, [], "max_level")
 
 	var gain_result := _resolve_gain(normalized_pet_id, source, tags, pet_data)
 	var granted_points := float(gain_result.get("points", 0.0))
 	var bonus_points := float(gain_result.get("bonus_points", 0.0))
 	var blocked_reason := str(gain_result.get("blocked_reason", ""))
-	# Feed and the ring-core-upgrade roster grant are deliberate flat rewards, so enhancement
-	# chips do not inflate them (every other source scales with chips).
-	var enhancement_multiplier := 1.0 if source == SOURCE_FEED or source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()
+	# The ring-core-upgrade roster grant is a deliberate flat reward, so enhancement
+	# chips do not inflate it (every other affinity source scales with chips).
+	var enhancement_multiplier := 1.0 if source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()
 	granted_points *= enhancement_multiplier
 	bonus_points *= enhancement_multiplier
 	if granted_points <= 0.0:
@@ -838,8 +815,6 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	var level_rewards: Array[Dictionary] = _apply_level_ups(normalized_pet_id, pet_data)
 	if level_rewards.size() > 0:
 		_record_bond_level_ups(normalized_pet_id, level_rewards.size())
-	if source == SOURCE_FEED:
-		_feed_uses_this_run = mini(_feed_uses_this_run + 1, MAX_FEED_USES_PER_RUN)
 	_pets[normalized_pet_id] = pet_data
 	_dirty = true
 	return _build_result(
@@ -1115,8 +1090,6 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 			return _resolve_hatch_gain(pet_id, pet_data)
 		SOURCE_VICTORY:
 			return _resolve_victory_gain(pet_id, tags)
-		SOURCE_FEED:
-			return _resolve_feed_gain(pet_data)
 		SOURCE_STAGE_CLEAR:
 			return _resolve_stage_clear_gain(pet_id)
 		SOURCE_RING_CORE_UPGRADE:
@@ -1234,19 +1207,6 @@ func _resolve_hatch_gain(_pet_id: String, pet_data: Dictionary) -> Dictionary:
 		return {"points": 0.0, "blocked_reason": "hatch_bonus_granted"}
 	pet_data["hatch_bonus_granted"] = true
 	return {"points": _get_gain_value(SOURCE_HATCH, "points")}
-
-
-func _resolve_feed_gain(pet_data: Dictionary) -> Dictionary:
-	if _feed_uses_this_run >= MAX_FEED_USES_PER_RUN:
-		return {"points": 0.0, "blocked_reason": "max_feed_uses"}
-	var level := int(pet_data.get("affinity_level", 0))
-	var points := float(pet_data.get("affinity_points", 0.0))
-	var feed_cap := _get_feed_level_cap(pet_data)
-	var remaining_to_feed_cap := _points_remaining_until_level(level, points, feed_cap)
-	if remaining_to_feed_cap <= 0.0:
-		return {"points": 0.0, "blocked_reason": "max_feed_level"}
-	var feed_points := minf(_get_gain_value(SOURCE_FEED, "points"), remaining_to_feed_cap)
-	return {"points": feed_points}
 
 
 func _apply_level_ups(pet_id: String, pet_data: Dictionary) -> Array[Dictionary]:
@@ -1824,21 +1784,6 @@ func _sum_int_values(values: Dictionary) -> int:
 	for raw_value in values.values():
 		total += int(raw_value)
 	return total
-
-
-func _points_remaining_until_level(current_level: int, current_points: float, target_level: int) -> float:
-	var clamped_current := clampi(current_level, 0, MAX_LEVEL)
-	var clamped_target := clampi(target_level, 0, MAX_LEVEL)
-	if clamped_current >= clamped_target:
-		return 0.0
-	var total := -maxf(0.0, current_points)
-	for level in range(clamped_current, clamped_target):
-		total += get_requirement_for_level(level)
-	return maxf(0.0, total)
-
-
-func _get_feed_level_cap(pet_data: Dictionary) -> int:
-	return clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
 
 
 func _get_or_create_pet_data(pet_id: String) -> Dictionary:

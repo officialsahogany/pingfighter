@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const PlazaShopPricing := preload("res://scripts/plaza/plaza_shop_pricing.gd")
 
@@ -8,10 +9,15 @@ const MAX_STOCK_COUNT := 12
 const LEGENDARY_ROLL_CHANCE := 0.05
 const FEATURED_DISCOUNT_RATE := 0.20
 const FEATURED_COUNT := 2
+const GUARANTEED_ACTIVE_ITEM_NAMES := [
+	"lingpet_feed",
+	"lingpet_special_feed",
+]
 
 
 func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0) -> Array:
 	var source_catalog := catalog if catalog != null else MythicItemCatalog.new()
+	var active_catalog := ActiveItemCatalog.new()
 	var passive_pool := _build_pool(source_catalog, false)
 	var legendary_pool := _build_pool(source_catalog, true)
 	var count := item_count
@@ -24,8 +30,10 @@ func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0
 	else:
 		rng.seed = seed
 	var stock: Array = []
+	_append_guaranteed_active_stock(stock, active_catalog)
 	var available_legendary := legendary_pool.duplicate()
-	for index in range(count):
+	var random_slots := maxi(0, count - stock.size())
+	for _index in range(random_slots):
 		var choose_legendary := not available_legendary.is_empty() and rng.randf() < LEGENDARY_ROLL_CHANCE
 		var item_name := ""
 		if choose_legendary:
@@ -36,11 +44,21 @@ func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0
 			item_name = str(passive_pool[rng.randi_range(0, passive_pool.size() - 1)])
 		elif not available_legendary.is_empty():
 			item_name = str(available_legendary.pop_back())
-		var item_data := _build_shop_item(source_catalog, item_name, index)
+		var item_data := _build_shop_item(source_catalog, item_name, stock.size())
 		if not item_data.is_empty():
 			stock.append(item_data)
 	_apply_featured_discount(stock, rng)
 	return stock
+
+
+func _append_guaranteed_active_stock(stock: Array, active_catalog: Object) -> void:
+	for item_name_value in GUARANTEED_ACTIVE_ITEM_NAMES:
+		var item_name := str(item_name_value)
+		if not PlazaShopPricing.is_shop_priced_item(item_name):
+			continue
+		var item_data := _build_shop_item(active_catalog, item_name, stock.size())
+		if not item_data.is_empty():
+			stock.append(item_data)
 
 
 func _build_pool(catalog: Object, legendary: bool) -> Array:

@@ -3,7 +3,6 @@ extends SceneTree
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetFeedController := preload("res://scripts/lingpet/lingpet_feed_controller.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
@@ -28,6 +27,10 @@ class FakeOwner:
 	var player_pos := Vector2(302.5, 700.0)
 	var player_paddle_width := 155.0
 	var player_paddle_height := 50.0
+	var ball_active := false
+
+	func queue_redraw() -> void:
+		pass
 
 
 func _init() -> void:
@@ -35,13 +38,11 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_verify_feed_use_counter_and_reset_boundary()
-	_verify_feed_level_cap_and_clamp()
-	_verify_feed_ignores_enhancement_chips()
-	_verify_unbounded_feed_attempts_stop_at_run_use_cap()
-	_verify_feed_controller_lifecycle_ownership()
-	_verify_runtime_feed_lingpet_entrypoint()
-	_verify_feed_source_contracts()
+	_verify_affinity_feed_source_removed()
+	_verify_feed_controller_satiety_gates_and_pending_amount()
+	_verify_runtime_feed_restores_satiety_after_bowl()
+	_verify_ko_feed_wakes_companion()
+	_verify_battle_cap_resets_only_on_new_battle()
 	await _cleanup_runtime_resources()
 
 	if _failures.is_empty():
@@ -53,224 +54,162 @@ func _run() -> void:
 		quit(1)
 
 
-func _verify_feed_use_counter_and_reset_boundary() -> void:
+func _verify_affinity_feed_source_removed() -> void:
 	var state := LingpetAffinityState.new()
 	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	for index in range(LingpetAffinityState.MAX_FEED_USES_PER_RUN):
-		var result: Dictionary = state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-		_expect_float(float(result.get("granted_points", 0.0)), 35.0, "feed use %d should grant the base feed amount" % [index + 1])
-	_expect_eq(state.get_feed_uses_this_run(), LingpetAffinityState.MAX_FEED_USES_PER_RUN, "three successful feed uses should consume the run counter")
-	var fourth: Dictionary = state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(fourth.get("granted_points", 0.0)), 0.0, "fourth feed use in one run should be blocked")
-	_expect_str(str(fourth.get("blocked_reason", "")), "max_feed_uses", "fourth feed use should report max_feed_uses")
+	var result: Dictionary = state.add_points("maribo", "feed")
+	_expect_float(float(result.get("granted_points", -1.0)), 0.0, "legacy feed source should no longer grant affinity")
+	_expect_str(str(result.get("blocked_reason", "")), "unknown_source", "legacy feed source should be rejected as an affinity source")
+	_expect_float(state.get_points("maribo"), 0.0, "legacy feed source must leave affinity points unchanged")
 
-	state.reset_for_new_battle()
-	var after_battle: Dictionary = state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_str(str(after_battle.get("blocked_reason", "")), "max_feed_uses", "new battle should not reset the per-run feed counter")
-
-	state.reset_for_new_run()
-	var after_run: Dictionary = state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(after_run.get("granted_points", 0.0)), 35.0, "new run should reset the feed counter")
-	_expect_eq(state.get_feed_uses_this_run(), 1, "new run should start a fresh feed counter")
+	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
+	_expect(affinity_source.find("SOURCE_FEED") < 0, "affinity state should not keep a feed affinity source")
+	_expect(affinity_source.find("MAX_FEED_USES_PER_RUN") < 0, "affinity state should not keep the old run feed cap")
+	_expect(affinity_source.find("_feed_uses_this_run") < 0, "affinity state should not export/import old feed counters")
+	_expect(affinity_source.find("max_feed_level") < 0, "ring-core feed affinity cap should be superseded")
+	_expect(
+		affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()") >= 0,
+		"only ring-core-upgrade should remain chip-exempt after feed stops granting affinity"
+	)
 
 
-func _verify_feed_level_cap_and_clamp() -> void:
-	var max_state := LingpetAffinityState.new()
-	max_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	max_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, max_state.get_run_ring_core_cap())
-	_grant_round_commits(max_state, "maribo", 299)
-	_expect_eq(max_state.get_level("maribo"), 29, "T6 clamp fixture should start at Lv29")
-	_expect_float(max_state.get_points("maribo"), 45.0, "T6 clamp fixture should sit five points below Lv30")
-	var max_clamped: Dictionary = max_state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(max_clamped.get("granted_points", 0.0)), 5.0, "feed should clamp at the Lv30 ring-core ceiling instead of overflowing")
-	_expect_eq(max_state.get_level("maribo"), LingpetAffinityState.MAX_LEVEL, "T6 clamped feed should reach exactly Lv30")
-	_expect_float(max_state.get_points("maribo"), 0.0, "T6 clamped feed should leave no overflow beyond Lv30")
-	var max_block: Dictionary = max_state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(max_block.get("granted_points", 0.0)), 0.0, "feed at Lv30 should grant no points")
-	_expect_str(str(max_block.get("blocked_reason", "")), "max_feed_level", "feed at Lv30 should report max_feed_level")
-
-	var capped_state := LingpetAffinityState.new()
-	capped_state.set_run_ring_core_tier(3)
-	capped_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, capped_state.get_run_ring_core_cap())
-	_grant_round_commits(capped_state, "maribo", 149)
-	_expect_eq(capped_state.get_level("maribo"), 14, "T3 clamp fixture should start at Lv14")
-	_expect_float(capped_state.get_points("maribo"), 45.0, "T3 clamp fixture should sit five points below Lv15")
-	var capped_clamped: Dictionary = capped_state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(capped_clamped.get("granted_points", 0.0)), 5.0, "T3 feed should still clamp at its current ring-core ceiling")
-	_expect_eq(capped_state.get_level("maribo"), capped_state.get_run_ring_core_cap(), "T3 clamped feed should reach exactly the current ring-core cap")
-	_expect_float(capped_state.get_points("maribo"), 0.0, "T3 clamped feed should leave no overflow beyond the ring-core cap")
-	var capped_block: Dictionary = capped_state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(capped_block.get("granted_points", 0.0)), 0.0, "feed at the current ring-core cap should grant no points")
-	_expect_str(str(capped_block.get("blocked_reason", "")), "max_feed_level", "feed at the current ring-core cap should report max_feed_level")
-
-
-func _verify_feed_ignores_enhancement_chips() -> void:
-	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	state.set_enhancement_chips(5)
-	var feed: Dictionary = state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect_float(float(feed.get("granted_points", 0.0)), 35.0, "five chips should not multiply feed affinity")
-	var round_commit: Dictionary = state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	_expect_float(float(round_commit.get("granted_points", 0.0)), 10.0, "five chips should still multiply ordinary affinity income")
-
-
-# Feed-only affinity is bounded by the per-run feed-use cap plus the current
-# ring-core cap. (Second-slot unlocks are source-agnostic: combined skill level
-# + a per-level roll, so this test only owns the feed bounds.)
-func _verify_unbounded_feed_attempts_stop_at_run_use_cap() -> void:
-	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	var last_result: Dictionary = {}
-	for _i in range(100):
-		last_result = state.add_points("maribo", LingpetAffinityState.SOURCE_FEED)
-	_expect(state.get_level("maribo") <= state.get_feed_cap_for_pet("maribo"), "feed-only affinity should never exceed the current feed cap")
-	_expect_str(str(last_result.get("blocked_reason", "")), "max_feed_uses", "unbounded feed attempts should end at the run-use cap")
-
-
-func _verify_feed_controller_lifecycle_ownership() -> void:
+func _verify_feed_controller_satiety_gates_and_pending_amount() -> void:
 	var controller := LingpetFeedController.new()
 	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
 	var owner := FakeOwner.new()
 	var registry_token := RefCounted.new()
-	var missing: Dictionary = controller.request("", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token)
-	_expect_str(str(missing.get("blocked_reason", "")), "missing_lingpet", "feed controller should own the missing-pet request gate")
+	state.set_satiety("maribo", 60.0)
 
-	var busy: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, true, registry_token)
+	var missing: Dictionary = controller.request("", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
+	_expect_str(str(missing.get("blocked_reason", "")), "missing_lingpet", "feed controller should own the missing-pet request gate")
+	var invalid: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 0.0)
+	_expect_str(str(invalid.get("blocked_reason", "")), "invalid_feed_amount", "feed controller should reject zero satiety feed amounts")
+	var busy: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, true, registry_token, 40.0)
 	_expect_str(str(busy.get("blocked_reason", "")), "companion_busy", "feed controller should own the companion-busy request gate")
 
-	var armed: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token)
-	_expect(bool(armed.get("accepted", false)) and bool(armed.get("pending", false)), "feed controller should arm and retain a pending feed lifecycle")
-	var bowl_pos: Variant = armed.get("bowl_pos", Vector2.ZERO)
-	_expect(bowl_pos is Vector2 and (bowl_pos as Vector2).x < owner.player_pos.x + owner.player_paddle_width * 0.5, "feed controller should place the bowl on the companion-facing side")
-	var duplicate: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, null)
+	state.set_satiety("maribo", LingpetAffinityState.SATIETY_MAX)
+	var full: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
+	_expect_str(str(full.get("blocked_reason", "")), "satiety_full", "feed controller should block actual feed requests when the pet is full")
+
+	state.set_satiety("maribo", 20.0)
+	var first: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
+	_expect(bool(first.get("accepted", false)) and bool(first.get("pending", false)), "feed controller should arm a pending satiety feed")
+	_expect_float(float(first.get("feed_amount", 0.0)), 40.0, "feed controller should echo the requested feed amount")
+	var duplicate: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
 	_expect_str(str(duplicate.get("blocked_reason", "")), "feed_in_progress", "feed controller should reject a second request while its bowl is active")
-
-	var completed: Dictionary = {}
-	for _i in range(260):
-		var advanced: Dictionary = controller.advance(1.0 / 60.0, Vector2(250.0, 700.0), "patrol", null)
-		if bool(advanced.get("completed", false)):
-			completed = advanced
-			break
-	_expect_str(str(completed.get("feed_pet_id", "")), "maribo", "feed controller should return the pending pet only after eating completes")
+	var completed := _advance_controller_until_complete(controller, Vector2(250.0, 700.0), "patrol")
+	_expect_str(str(completed.get("feed_pet_id", "")), "maribo", "feed controller should preserve pending pet ownership through completion")
+	_expect_float(float(completed.get("feed_amount", 0.0)), 40.0, "feed controller should preserve the pending feed amount through completion")
 	_expect(completed.get("feed_registry", null) == registry_token, "feed controller should preserve the request registry through completion")
-	_expect(not controller.is_active(), "feed controller should clear the visible bowl after completion")
+	_expect_eq(controller.get_feed_uses_this_battle_for_tests(), 1, "completed feed should consume one battle feed use")
 
-	controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token)
+	_arm_and_complete_controller(controller, state, owner, registry_token, 100.0)
+	_expect_eq(controller.get_feed_uses_this_battle_for_tests(), LingpetFeedController.MAX_FEED_USES_PER_BATTLE, "second completed feed should reach the battle cap")
+	state.set_satiety("maribo", 30.0)
+	var capped: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
+	_expect_str(str(capped.get("blocked_reason", "")), "max_battle_feed_uses", "third feed in one battle should be blocked by the battle cap")
 	controller.reset_all()
-	_expect(not controller.is_active(), "feed controller reset should clear an active bowl")
-	_expect(controller.advance(1.0, Vector2(250.0, 700.0), "patrol", null).is_empty(), "feed controller reset should clear pending completion work")
-
-	var high_level_state := LingpetAffinityState.new()
-	high_level_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	high_level_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, high_level_state.get_run_ring_core_cap())
-	_grant_round_commits(high_level_state, "maribo", 260)
-	var high_level_controller := LingpetFeedController.new()
-	var high_level_request: Dictionary = high_level_controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", high_level_state, false, registry_token)
-	_expect(bool(high_level_request.get("accepted", false)), "feed controller should allow Lv15+ pets when the current ring-core cap is higher")
-	high_level_controller.reset_all()
-
-	var capped_state := LingpetAffinityState.new()
-	capped_state.set_run_ring_core_tier(3)
-	capped_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, capped_state.get_run_ring_core_cap())
-	_grant_round_commits(capped_state, "maribo", 150)
-	var capped_controller := LingpetFeedController.new()
-	var capped_request: Dictionary = capped_controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", capped_state, false, registry_token)
-	_expect_str(str(capped_request.get("blocked_reason", "")), "max_feed_level", "feed controller should still block at the current ring-core cap")
+	var still_capped: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
+	_expect_str(str(still_capped.get("blocked_reason", "")), "max_battle_feed_uses", "visual reset/round cleanup must not reset the battle feed cap")
+	controller.reset_for_new_battle()
+	var after_battle_reset: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, 40.0)
+	_expect(bool(after_battle_reset.get("accepted", false)), "new battle reset should reopen the feed cap")
 
 
-func _verify_runtime_feed_lingpet_entrypoint() -> void:
+func _verify_runtime_feed_restores_satiety_after_bowl() -> void:
 	var runtime := LingpetEggRuntime.new()
 	var owner := FakeOwner.new()
-	var missing: Dictionary = runtime.feed_lingpet(owner, null)
-	_expect(not bool(missing.get("accepted", true)), "feed_lingpet should no-op when no lingpet is active")
-	_expect_str(str(missing.get("blocked_reason", "")), "missing_lingpet", "missing lingpet feed should report missing_lingpet")
-
-	runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
+	var registry := RefCounted.new()
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner), "fixture should activate a lingpet companion")
-	var first: Dictionary = runtime.feed_lingpet(owner, null)
-	_expect(bool(first.get("accepted", false)), "feed_lingpet should arm a feed bowl through the active companion")
-	_expect(bool(first.get("pending", false)), "feed_lingpet should report pending while the companion walks to the bowl")
-	_expect_float(float(first.get("granted_points", 0.0)), 0.0, "runtime feed_lingpet should not grant feed affinity immediately")
-	_expect(bool(runtime.get_snapshot().get("feed_bowl_active", false)), "feed_lingpet should expose an active feed bowl before completion")
-	_verify_feed_bowl_eating_y_stays_bounded(runtime, owner)
-	_advance_feed_until_complete(runtime, owner)
-	_expect_float(runtime.get_affinity_points("maribo"), 35.0, "runtime feed_lingpet should grant the feed amount after the eating animation")
-	_expect_eq(runtime.get_affinity_level("maribo"), 0, "one completed feed should stay below the first affinity level")
-	for _i in range(2):
-		runtime.feed_lingpet(owner, null)
-		_advance_feed_until_complete(runtime, owner)
-	var blocked: Dictionary = runtime.feed_lingpet(owner, null)
-	_expect(not bool(blocked.get("accepted", true)), "runtime feed_lingpet should expose blocked feed results")
-	_expect_str(str(blocked.get("blocked_reason", "")), "max_feed_uses", "runtime feed_lingpet should share the state run-use cap")
-	runtime.reset_for_tests()
-	ProjectResourceLoader.clear_caches()
+	runtime.set_satiety_for_tests("maribo", 25.0)
+	var affinity_before := runtime.get_affinity_points("maribo")
+	var first: Dictionary = runtime.feed_lingpet(owner, registry, 40.0)
+	_expect(bool(first.get("accepted", false)) and bool(first.get("pending", false)), "runtime feed_lingpet should arm a satiety feed")
+	_expect_float(float(first.get("feed_amount", 0.0)), 40.0, "runtime feed_lingpet should pass the requested amount to the controller")
+	_expect_float(runtime.get_satiety("maribo"), 25.0, "runtime feed_lingpet should not restore satiety until the bowl completes")
+	_advance_feed_until_complete(runtime, owner, registry)
+	var last_result: Dictionary = runtime.get_last_affinity_result_for_tests()
+	_expect_str(str(last_result.get("source", "")), "satiety_feed", "completed feed should report the satiety-feed source")
+	_expect_float(float(last_result.get("granted_satiety", 0.0)), 40.0, "completed feed should restore the threaded satiety amount")
+	_expect(runtime.get_satiety("maribo") > 63.0 and runtime.get_satiety("maribo") <= 65.0, "completed feed should restore satiety after normal active drain during the bowl walk")
+	_expect_float(runtime.get_affinity_points("maribo"), affinity_before, "completed feed must not grant affinity points")
+
+	runtime.set_satiety_for_tests("maribo", LingpetAffinityState.SATIETY_MAX)
+	var full: Dictionary = runtime.feed_lingpet(owner, registry, 40.0)
+	_expect(not bool(full.get("accepted", true)), "runtime feed_lingpet should reject full-satiety requests")
+	_expect_str(str(full.get("blocked_reason", "")), "satiety_full", "full-satiety feed should report satiety_full")
+	_cleanup_runtime(runtime)
 
 
-func _verify_feed_source_contracts() -> void:
-	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
-	_expect(affinity_source.find("const SOURCE_FEED := \"feed\"") >= 0, "affinity state should define a feed source")
-	_expect(affinity_source.find("SOURCE_FEED: {\"points\": 35.0}") >= 0, "feed source should use the placeholder N=35 amount")
-	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_FEED or source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()") >= 0, "feed should be exempt from enhancement chip multiplication at the chokepoint")
-	_expect(affinity_source.find("_feed_uses_this_run") >= 0, "feed uses should be a run-scoped affinity_state counter")
-	_expect(affinity_source.find("reset_for_new_battle") >= 0 and affinity_source.find("_feed_uses_this_run = 0", affinity_source.find("func reset_for_new_battle")) < 0, "new battle reset should not clear feed uses")
-	_expect(affinity_source.find("func get_feed_cap_for_pet") >= 0, "feed cap should be exposed through a ring-core-aware getter")
-	_expect(affinity_source.find("var feed_cap := _get_feed_level_cap(pet_data)") >= 0, "feed gain should clamp against the pet's current ring-core cap")
-	_expect(affinity_source.find("LINGPET_FEED_MAX_LEVEL") < 0, "feed should no longer carry a hardcoded Lv15 ceiling")
-
-	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var controller_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_feed_controller.gd")
-	_expect(runtime_source.find("func feed_lingpet") >= 0, "lingpet runtime should expose a feed_lingpet entrypoint")
-	_expect(runtime_source.find("LingpetAffinityState.SOURCE_FEED") >= 0, "feed_lingpet should route through the feed affinity source")
-	_expect(runtime_source.find("LingpetFeedController") >= 0, "lingpet runtime should delegate the feed lifecycle to its focused owner")
-	_expect(runtime_source.find("_pending_feed_pet_id") < 0 and runtime_source.find("_pending_feed_registry") < 0, "lingpet runtime should not retain feed pending-context ownership")
-	_expect(controller_source.find("LingpetFeedBowlState") >= 0, "feed controller should stage the visible feed-bowl approach before granting affinity")
-	_expect(controller_source.find("\"pending\"") >= 0, "feed controller should report a pending visual feed instead of immediate affinity")
-	_expect(controller_source.find("get_feed_cap_for_pet") >= 0, "feed controller should preflight against the ring-core-aware feed cap")
+func _verify_ko_feed_wakes_companion() -> void:
+	var runtime := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := RefCounted.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry), "KO fixture should activate a skill-capable lingpet")
+	runtime.set_satiety_for_tests("maribo", 0.0)
+	runtime.update(2.0, owner, registry)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "fixture should reach exhausted state before feed")
+	var feed: Dictionary = runtime.feed_lingpet(owner, registry, 40.0)
+	_expect(bool(feed.get("accepted", false)), "feed should be usable on a KO companion")
+	_advance_feed_until_complete(runtime, owner, registry)
+	_expect(runtime.get_satiety("maribo") >= LingpetAffinityState.SATIETY_WAKE_THRESHOLD, "feed should restore past the wake threshold")
+	_expect(not runtime.is_companion_exhausted_for_tests(owner), "feed should wake an exhausted companion through set_satiety")
+	_cleanup_runtime(runtime)
 
 
-func _grant_round_commits(state: Object, pet_id: String, count: int) -> void:
-	for _i in range(count):
-		state.add_points(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT)
+func _verify_battle_cap_resets_only_on_new_battle() -> void:
+	var runtime := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := RefCounted.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner), "battle-cap fixture should activate a lingpet")
+	runtime.set_satiety_for_tests("maribo", 0.0)
+	_complete_runtime_feed(runtime, owner, registry, 40.0)
+	_complete_runtime_feed(runtime, owner, registry, 40.0)
+	runtime.reset_round({"owner": owner, "registry": registry})
+	runtime.set_satiety_for_tests("maribo", 20.0)
+	var round_blocked: Dictionary = runtime.feed_lingpet(owner, registry, 40.0)
+	_expect_str(str(round_blocked.get("blocked_reason", "")), "max_battle_feed_uses", "round reset should not clear the battle feed cap")
+	runtime.reset_affinity_for_new_battle()
+	runtime.set_satiety_for_tests("maribo", 20.0)
+	var new_battle: Dictionary = runtime.feed_lingpet(owner, registry, 40.0)
+	_expect(bool(new_battle.get("accepted", false)), "new battle should reset the feed cap")
+	_cleanup_runtime(runtime)
 
 
-func _advance_feed_until_complete(runtime: Object, owner: Object) -> void:
+func _arm_and_complete_controller(controller: Object, state: Object, owner: Object, registry_token: Object, amount: float) -> void:
+	state.set_satiety("maribo", 20.0)
+	var armed: Dictionary = controller.request("maribo", owner, Vector2(250.0, 700.0), "patrol", state, false, registry_token, amount)
+	_expect(bool(armed.get("accepted", false)), "controller fixture should arm feed before completion")
+	_advance_controller_until_complete(controller, Vector2(250.0, 700.0), "patrol")
+
+
+func _advance_controller_until_complete(controller: Object, companion_pos: Vector2, motion_style: String) -> Dictionary:
 	for _i in range(260):
-		runtime.update(1.0 / 60.0, owner, null)
+		var advanced: Dictionary = controller.advance(1.0 / 60.0, companion_pos, motion_style, null)
+		if bool(advanced.get("completed", false)):
+			return advanced
+	_expect(false, "feed controller should complete within the smoke time budget")
+	return {}
+
+
+func _complete_runtime_feed(runtime: Object, owner: Object, registry: Object, amount: float) -> void:
+	var armed: Dictionary = runtime.feed_lingpet(owner, registry, amount)
+	_expect(bool(armed.get("accepted", false)), "runtime fixture should arm feed before completion")
+	_advance_feed_until_complete(runtime, owner, registry)
+
+
+func _advance_feed_until_complete(runtime: Object, owner: Object, registry: Object) -> void:
+	for _i in range(260):
+		runtime.update(1.0 / 60.0, owner, registry)
 		if not bool(runtime.get_snapshot().get("feed_bowl_active", false)):
 			return
 	_expect(false, "feed bowl should complete within the smoke time budget")
 
 
-func _verify_feed_bowl_eating_y_stays_bounded(runtime: Object, owner: Object) -> void:
-	var eating_snapshot := _advance_feed_until_eating(runtime, owner)
-	var initial_pos: Variant = eating_snapshot.get("feed_bowl_companion_pos", Vector2.ZERO)
-	if not (initial_pos is Vector2):
-		_expect(false, "feed bowl eating snapshot should expose a companion position")
-		return
-	var base_y := (initial_pos as Vector2).y
-	var min_y := base_y
-	var max_y := base_y
-	for _i in range(45):
-		runtime.update(1.0 / 60.0, owner, null)
-		var snapshot: Dictionary = runtime.get_snapshot()
-		if str(snapshot.get("feed_bowl_phase", "")) != "eating":
-			break
-		var pos: Variant = snapshot.get("feed_bowl_companion_pos", Vector2.ZERO)
-		if pos is Vector2:
-			min_y = minf(min_y, (pos as Vector2).y)
-			max_y = maxf(max_y, (pos as Vector2).y)
-	_expect(max_y - min_y <= 8.0, "ground feed eating bob should stay bounded instead of accumulating vertical drift")
-
-
-func _advance_feed_until_eating(runtime: Object, owner: Object) -> Dictionary:
-	for _i in range(180):
-		runtime.update(1.0 / 60.0, owner, null)
-		var snapshot: Dictionary = runtime.get_snapshot()
-		if str(snapshot.get("feed_bowl_phase", "")) == "eating":
-			return snapshot
-	_expect(false, "feed bowl should reach the eating phase within the smoke time budget")
-	return {}
+func _cleanup_runtime(runtime: Object) -> void:
+	if runtime != null and runtime.has_method("reset_for_tests"):
+		runtime.reset_for_tests()
+	ProjectResourceLoader.clear_caches()
 
 
 func _expect(condition: bool, message: String) -> void:
@@ -283,8 +222,8 @@ func _expect_eq(actual: int, expected: int, message: String) -> void:
 		_failures.append("%s (expected %d, got %d)" % [message, expected, actual])
 
 
-func _expect_float(actual: float, expected: float, message: String) -> void:
-	if absf(actual - expected) > 0.001:
+func _expect_float(actual: float, expected: float, message: String, tolerance: float = 0.001) -> void:
+	if absf(actual - expected) > tolerance:
 		_failures.append("%s (expected %.3f, got %.3f)" % [message, expected, actual])
 
 

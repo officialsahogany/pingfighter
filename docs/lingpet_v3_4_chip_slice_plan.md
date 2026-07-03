@@ -39,7 +39,10 @@
 ### 2.2 수입 주입 (단일 chokepoint, §12-6 #1)
 - `add_points()` ~388 `granted_points` 직후 `*= get_enhancement_chip_multiplier()`. float 유지(반올림 금지),
   bonus 자동 포함, 만렙 0-리턴이 위라 자동 안전.
-- **미래 먹이(V3-5) 면제**: 칩 곱은 GAIN_TABLE 소스 한정. 먹이 소스 추가 시 그 소스만 면제.
+- **먹이(V3-5) 면제 — SUPERSEDED 2026-07-03 Slice 4**: `SOURCE_FEED`는
+  제거됐다. 먹이는 더 이상 친밀도 `add_points`를 호출하지 않고 포만도
+  `add_satiety`만 회복하므로 enhancement chip 배율 대상이 아니다. 현재
+  친밀도 칩 면제 소스는 `SOURCE_RING_CORE_UPGRADE`뿐이다.
 
 ### 2.3 칩 퍽 카드 (결정 1·3 정합 — **특수 카드**)
 - ⚠ 결정 3이 카운트를 affinity_state에 두므로, 칩 카드는 일반 레벨 퍽이 아니라 **특수 카드**(convert_to_gold 형):
@@ -96,12 +99,16 @@
 - TAB 링코어 슬롯 **우측 세로 5칸**(0~5) hand-draw(세로 눈금 위젯 없음 → 신규).
 - 데이터: affinity_state 칩 카운트 → owner-key 페어 `lingpet_affinity_chip_count`/`ringpet_`(DEFAULT_VALUES 선언) → `set_owner_pair_gated` → snapshot `affinity_chip_count` → presenter. run-scoped, account 미영속.
 
-## §6. §F — 먹이 게이트 훅 (V3-5 연계, 게이팅만)
+## §6. §F — 먹이 게이트 훅 (V3-5 연계, 현재 랜딩됨)
 
-- 먹이 액티브 아이템 자체는 **V3-5(미구현)**. 여기선 게이트 스캐폴드만:
-  `active_item_field_spawn_pool.build_spawn_candidates(registry, owner)`(owner 이미 받음)에 owner-lingpet skip
-  (먹이 후보는 owned non-empty일 때만), `_should_skip_passive_spawn_candidate` 캐릭터-게이트 패턴을 액티브 측에 미러.
-- 먹이 아이템 build_feed() + FIELD_SPAWN_ORDER 추가는 V3-5.
+- 과거 V3-4 범위는 게이트 스캐폴드만이었다. 2026-06-30 현재 V3-5 먹이 액티브 아이템은
+  `lingpet_feed` 카탈로그 / `FIELD_SPAWN_ORDER` / field-spawn owned gate /
+  active-item effect dispatch / `lingpet_egg_runtime.feed_lingpet` / `LingpetFeedController`까지
+  랜딩되어 있다.
+- 현재 Slice 4 이후 유지해야 할 계약은 두 가지다: (1) 기본 먹이(귤)는 owned
+  non-empty일 때만 field-spawn 후보에 나온다. (2) 먹이는 친밀도 소스가 아니므로
+  칩 배율 경로에 들어오지 않는다. 봉인:
+  `lingpet_feed_active_item_smoke.gd`, `lingpet_feed_affinity_smoke.gd`.
 
 ## §7. 아트 deliverable — 7 아이콘 (별도 imagegen)
 
@@ -132,7 +139,7 @@
 6. **계정 영구 write from 런 퍽(§3.1)**: 골드샵과 monotonic 공존(순서 무관). debug_set_perk_level/get_perk_data가 비레벨 id 인식.
 7. **티어-aware 아이콘(§3.2)**: 단일 동적 카드라 6 PNG 중 티어별 선택 — get_choices가 tier 필드 + 렌더러 per-tier 맵. covered_ids 봉인.
 8. **char-select hot-path(§4.1)**: store load는 `_ready` 1회 캐시, _draw/_process 금지(queue_redraw 매 프레임).
-9. **TAB 공간/row-budget**: 링코어 슬롯+5칸 전용 밴드(V3-2c-UI 패턴, row-budget 회피). 즉시모드, 음수-z/draw_set_transform 금지.
+9. **TAB 공간/row-budget**: 링코어 슬롯+5칸 전용 밴드(닫힌 TAB unlock-card surface의 전용 밴드 패턴, row-budget 회피). 즉시모드, 음수-z/draw_set_transform 금지.
 10. **아트 PNG-first**: 절차 폴백이 PNG 우회 안 함, 6패밀리 정합.
 11. **다국어**: 칩/링코어 퍽 카드명·설명·티어명 노출 한글 전부 language_settings 4언어 + localization_coverage_smoke (exact 키 — loose grep false-positive 금지, [[godot-localization-copy-sync]]).
 
@@ -148,7 +155,8 @@ affinity_chip_count owner 페어 schema-gated 도달(divergent 값). + 다국어
 - **A(칩 메커닉)** — affinity_state 칩 + 수입 배율 + 칩 특수 카드.
 - **B(링코어 퍽)** — 동적 카드 + upgrade_ring_core_tier + 6 아이콘(아트 후행 가능, 폴백).
 - **C/D(표시)** — TAB 링코어 슬롯+5칸 + 캐릭선택 링코어 슬롯.
-- **F(먹이 게이트 훅)** — V3-5 대비 스캐폴드(먹이 아이템은 V3-5).
+- **F(먹이 게이트 훅)** — V3-5 랜딩 완료. V3-4는 owned gate와 chip-multiplier exemption
+  계약을 계속 소유한다.
 - **아트 7종** — 병렬 imagegen.
-- ⚠ **V3-4 배선 착수 전 V3-2c-UI 먼저 커밋**(affinity_state/egg_runtime 엉킴 방지; 플라자 staged 임시 unstage→커밋→재stage).
+- ⚠ **V3-4 배선 착수 전 현재 per-run/unlock-loadout 변경분 커밋 범위 확인** — 과거 "V3-2c-UI 먼저 커밋" 전제는 superseded. affinity_state/egg_runtime 엉킴 방지는 hunk 선별/dirty-worktree 확인으로 처리.
 - 수치(+20%/×2, 티어 cap)는 플레이스홀더 — V3-6(스테이지+income QA) 재튜닝.

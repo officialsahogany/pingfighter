@@ -13,10 +13,13 @@ const BOWL_FLOOR_OFFSET_Y := 18.0
 const BOWL_EDGE_MARGIN_X := 24.0
 const BOWL_MIN_Y := 36.0
 const BOWL_BOTTOM_MARGIN := 20.0
+const MAX_FEED_USES_PER_BATTLE := 2
 
 var _bowl_state: Object = LingpetFeedBowlState.new()
 var _pending_pet_id := ""
+var _pending_feed_amount := 0.0
 var _pending_registry: Object = null
+var _feed_uses_this_battle := 0
 
 
 func request(
@@ -26,11 +29,15 @@ func request(
 	motion_style: String,
 	affinity_state: Object,
 	companion_busy: bool,
-	registry: Object = null
+	registry: Object = null,
+	feed_amount: float = 0.0
 ) -> Dictionary:
 	var normalized_pet_id := pet_id.strip_edges().to_lower()
 	if normalized_pet_id == "":
 		return _build_request_result(false, "missing_lingpet", normalized_pet_id)
+	var normalized_amount := maxf(0.0, feed_amount)
+	if normalized_amount <= 0.0:
+		return _build_request_result(false, "invalid_feed_amount", normalized_pet_id)
 	var blocked_reason := _get_blocked_reason(normalized_pet_id, affinity_state)
 	if blocked_reason != "":
 		return _build_request_result(false, blocked_reason, normalized_pet_id)
@@ -40,10 +47,12 @@ func request(
 	if not _bowl_state.arm(bowl_pos, companion_pos, motion_style):
 		return _build_request_result(false, "feed_in_progress", normalized_pet_id)
 	_pending_pet_id = normalized_pet_id
+	_pending_feed_amount = normalized_amount
 	_pending_registry = registry
 	var result := _build_request_result(true, "", normalized_pet_id)
 	result["pending"] = true
 	result["bowl_pos"] = bowl_pos
+	result["feed_amount"] = normalized_amount
 	return result
 
 
@@ -59,16 +68,29 @@ func advance(
 	if not bool(result.get("completed", false)):
 		return result
 	var feed_pet_id := _pending_pet_id
+	var feed_amount := _pending_feed_amount
 	var feed_registry := _pending_registry if _pending_registry != null else fallback_registry
 	_clear_pending()
+	_feed_uses_this_battle = mini(_feed_uses_this_battle + 1, MAX_FEED_USES_PER_BATTLE)
 	result["feed_pet_id"] = feed_pet_id
+	result["feed_amount"] = feed_amount
 	result["feed_registry"] = feed_registry
+	result["feed_uses_this_battle"] = _feed_uses_this_battle
 	return result
 
 
 func reset_all() -> void:
 	_bowl_state.reset_all()
 	_clear_pending()
+
+
+func reset_for_new_battle() -> void:
+	reset_all()
+	_feed_uses_this_battle = 0
+
+
+func get_feed_uses_this_battle_for_tests() -> int:
+	return clampi(_feed_uses_this_battle, 0, MAX_FEED_USES_PER_BATTLE)
 
 
 func is_active() -> bool:
@@ -100,13 +122,11 @@ func _get_blocked_reason(pet_id: String, affinity_state: Object) -> String:
 		return "feed_in_progress"
 	if affinity_state == null:
 		return "missing_affinity_state"
-	if int(affinity_state.get_feed_uses_this_run()) >= LingpetAffinityState.MAX_FEED_USES_PER_RUN:
-		return "max_feed_uses"
-	var feed_cap := LingpetAffinityState.MAX_LEVEL
-	if affinity_state.has_method("get_feed_cap_for_pet"):
-		feed_cap = int(affinity_state.get_feed_cap_for_pet(pet_id))
-	if int(affinity_state.get_level(pet_id)) >= feed_cap:
-		return "max_feed_level"
+	if affinity_state.has_method("get_satiety"):
+		if float(affinity_state.get_satiety(pet_id)) >= LingpetAffinityState.SATIETY_MAX:
+			return "satiety_full"
+	if _feed_uses_this_battle >= MAX_FEED_USES_PER_BATTLE:
+		return "max_battle_feed_uses"
 	return ""
 
 
@@ -115,8 +135,9 @@ func _build_request_result(accepted: bool, blocked_reason: String, pet_id: Strin
 		"accepted": accepted,
 		"pending": false,
 		"pet_id": pet_id,
-		"source": LingpetAffinityState.SOURCE_FEED,
-		"granted_points": 0.0,
+		"source": "satiety_feed",
+		"feed_amount": 0.0,
+		"granted_satiety": 0.0,
 		"blocked_reason": blocked_reason,
 	}
 
@@ -152,4 +173,5 @@ func _resolve_bowl_pos(owner: Object, companion_pos: Vector2) -> Vector2:
 
 func _clear_pending() -> void:
 	_pending_pet_id = ""
+	_pending_feed_amount = 0.0
 	_pending_registry = null

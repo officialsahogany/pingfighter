@@ -117,7 +117,7 @@ func _verify_runtime_multiplier_and_reset_boundary() -> void:
 	_expect_float(float(defense_gain.get("granted_points", 0.0)), 26.0, "five chips should double the full defense-tagged affinity grant")
 	_expect_float(float(defense_gain.get("bonus_points", 0.0)), 10.0, "five chips should double the reported defense bonus points")
 	var ring_core_gain: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_RING_CORE_UPGRADE, {}, registry)
-	_expect_float(float(ring_core_gain.get("granted_points", 0.0)), 50.0, "ring-core upgrade grant should be chip-EXEMPT (flat 50 even with five chips, like feed)")
+	_expect_float(float(ring_core_gain.get("granted_points", 0.0)), 50.0, "ring-core upgrade grant should be chip-EXEMPT (flat 50 even with five chips)")
 	runtime.reset_affinity_for_new_battle()
 	_expect_eq(runtime.get_enhancement_chips(), 5, "new battle affinity reset should preserve run-scoped chips")
 	runtime.reset_for_tests()
@@ -126,7 +126,8 @@ func _verify_runtime_multiplier_and_reset_boundary() -> void:
 
 func _verify_chip_source_contracts() -> void:
 	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
-	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_FEED or source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()") >= 0, "affinity state should exempt feed and ring-core-upgrade while keeping the chip multiplier at the point-grant chokepoint")
+	_expect(affinity_source.find("SOURCE_FEED") < 0, "affinity state should not keep the superseded feed affinity source")
+	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()") >= 0, "affinity state should exempt only ring-core-upgrade while keeping the chip multiplier at the point-grant chokepoint")
 	_expect(affinity_source.find("granted_points *= enhancement_multiplier") >= 0, "affinity state should multiply granted_points at the single chokepoint")
 	_expect(affinity_source.find("bonus_points *= enhancement_multiplier") >= 0, "affinity state should keep reported bonus_points scaled with granted_points")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")

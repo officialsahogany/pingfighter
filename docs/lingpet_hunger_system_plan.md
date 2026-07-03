@@ -176,7 +176,7 @@ repo grep 결과 허기/포만/기력/스태미나 계열은 전부 미사용(�
 - 현행: `feed_lingpet` → 그릇 연출 → SOURCE_FEED 친밀도 +35, 3중 캡
   (런 3회 / 링코어 clamp / 칩 면제) + 봉인 스모크 2본. **이 계약 전체가 '먹이 =
   교감'을 전제로 봉인되어 있어 부분 수정 불가** — 코드 + 스모크 재작성 + 문서
-  supersede + 다국어 4벌(기존 설명문 "친밀도를 35 올립니다")을 한 슬라이스에.
+  supersede + 다국어 동기(기존 설명문 "친밀도를 35 올립니다" 교체)를 한 슬라이스에.
 - 전환 후: 먹이 = 포만도 회복. `feed_amount`가 전 구간 죽은 배관(facade가
   item_data를 버리고 GAIN_TABLE 고정 35 사용)이라 catalog → facade →
   `feed_lingpet` 인자 → feed_controller pending → 완료 지급까지 amount 스레딩
@@ -189,9 +189,15 @@ repo grep 결과 허기/포만/기력/스태미나 계열은 전부 미사용(�
   백로그였던 '먹이 샵판매'가 필수 의존이 됨). 가격 곡선이 새 경제 캡.
 - 슬롯 예산: 먹이 사용을 전 슬롯 공유 7초 쿨다운에서 면제(자체 짧은 쿨다운만)
   검토 — 급식이 전투 아이템 사용권까지 잠그면 이중 처벌.
-- 티어 구성: 원안 4종 유지 시 §3 이름 세트(귤/사과/멜론/특제 사료)로. 구조
-  비용은 치즈 3종 선례(단일 effect id + 파라미터화 빌더) 덕에 선형 —
-  카탈로그 4엔트리 + 아이콘 4장 + 다국어 4벌. 1차 2종 축소(D6)도 유효 옵션.
+- 티어 구성: **D6 확정 = 1차 2종** — 기본 **귤**(포만도 +40, 흔함·필드/샵 확정
+  판매), 고급 **특제 사료**(포만도 +100, 희귀·샵/보상). +40 = 약 2.7분 활성
+  ("응급 처치"), +100 = 풀 충전. 4종(사과 +30 / 멜론 +50)은 Slice 4 이후 순수
+  ADD로 확장(치즈 3종 선례 = 단일 effect id + 파라미터화 빌더로 선형 비용).
+  구체 이름을 지금 잠가 4종 확장 시 리네이밍 다국어 처닝을 방지.
+- **KO×먹이 정합(무료 시너지)**: D12 `set_satiety` 기상 로직이 이미 배선돼
+  있어(포만도 ≥10에서 exhausted 클리어), 먹이가 `add_satiety`만 호출하면 KO 펫
+  급식 = 즉시 기상이 자동 성립. 귤(+40)/특제(+100) 둘 다 0에서 임계 10을 넘겨
+  기상 — Slice 4는 신규 기상 로직 불필요, "탈진→급식→벌떡 기상" 연출만 얹으면 됨.
 
 ### 4.6 '소식 체질' 패시브
 
@@ -306,8 +312,17 @@ Slice 3)만 사용한다.
 
 - **Slice 0 — 결정 잠금** (코드 0줄): ✅ 핵심 3결정(D1/D3/D4) 잠금 완료
   (2026-07-03). 잔여 D-결정은 해당 슬라이스 착수 전 잠금(§8).
+> **커밋 상태(2026-07-03)**: Slice 1+3a+3b 코어 = **`2ae19366a`** ("Wire
+> lingpet satiety system core", 8파일 +725, 사티에티-전용 헌크분리 커밋 —
+> battle_scene_state/egg_runtime의 무관 WIP(sand_prison/star_coil/dwarf_magic
+> 키 + egg-roll required_hits 리팩터)는 의도적으로 미스테이징 유지). **주의**:
+> Slice 3a의 스킬 arm-gate 파일 2개(lingpet_companion_skill_controller.gd,
+> lingpet_companion_skill_update_context_builder.gd)는 그 이전 체크포인트
+> **`e8e141e7c`**("checkpoint lingpet module cluster")에 "bare rolling egg"
+> 작업과 함께 이미 섞여 커밋됨 — 사티에티 배선은 두 커밋에 걸침.
+
 - **Slice 1 — 포만도 상태 코어**: ✅ **완료(2026-07-03, Codex 배선 + Claude
-  적대 리뷰 APPROVE, 미커밋)** — `_pets` satiety(드레인 0.25/초, 휴식 회복
+  적대 리뷰 APPROVE, 커밋 2ae19366a)** — `_pets` satiety(드레인 0.25/초, 휴식 회복
   1/3, sanitize 양방향) + `_advance_satiety` STATE_COMPANION delta 틱 +
   owner pair 정수 양자화/게이트 write + `lingpet_satiety_state_smoke` 4상
   (드레인 OUTCOME / pause 동결 / 왕복 / divergent owner) + RED 반증검증
@@ -348,10 +363,22 @@ Slice 3)만 사용한다.
      증명하지 못하는 약한 봉인이므로, **실제 화면 픽셀 QA가 라이브 QA 게이트로
      남아 있음**(리뷰에서 미수행). 소스 검사 봉인은 함수명 리네이밍 시 조용히
      깨질 수 있으니 렌더 리팩터 시 주의.
-- **Slice 4 — 먹이 전환 (원자적)**: 4a 단일 먹이 → 포만도 +50 전환(amount 스레딩
-  + V3-5 스모크/문서/다국어 supersede 동일 커밋 + 만복 차단 + 연출 중 스왑 시
-  pending 귀속 봉인 + Alchemy 리사이클 상호작용 감사). 4b 후속: 4종 세분화
-  (치즈 빌더 패턴) + 플라자 샵 확정 판매 + item_runtime_checklist 감사.
+- **Slice 4 — 먹이 전환 (원자적)**: ✅ **완료(2026-07-03, Codex 배선 + Claude
+  적대 리뷰 APPROVE, 미커밋)** — `lingpet_feed` = 귤(+40, 필드+샵),
+  `lingpet_special_feed` = 특제 사료(+100, 샵+보상, reward_only). 공유 effect id
+  `lingpet_feed` + `feed_amount` per-item 스레딩(catalog→facade→feed_lingpet→
+  controller pending→완료 `add_satiety`), SOURCE_FEED 완전 제거, 배틀당 완료
+  급식 2회 캡(리셋=affinity 배틀 경계 공유, round reset 아님), 만복(satiety==MAX)
+  차단, `no_global_cooldown`으로 전 슬롯 7초 쿨다운 면제, KO 급식 즉시 기상
+  (D12 set_satiety 자동), V3-5/V3-4 문서 supersede + 다국어 6벌(EN/ZH/JA/ES/
+  PT_BR/RU) + item_runtime_checklist 감사. **리뷰 검증**: 스모크 10본 독립 재실행
+  GREEN(feed_affinity/feed_active_item/satiety_state/chip/plaza_shop_stock/
+  localization/korean_names/field_spawn/stage_clear ×2), 배틀 2-cap 반증검증
+  리뷰어 직접 재현(999→배틀캡+alchemy 우회방지 5단언 RED→원복 GREEN), 6개 언어
+  ×2아이템 커버 확인, feed=add_satiety·SOURCE_FEED 잔재 0. **Codex가 RED로
+  보고한 `lingpet_egg_runtime_smoke`("shove the egg too far")는 리뷰어 3/3 GREEN
+  재현 불가** — Codex 중간 상태/stale import로 추정, 현 워킹트리는 통과. 4종
+  세분화(사과 +30 / 멜론 +50)는 Slice 4 이후 순수 ADD.
 - **Slice 5 — 명시적 보류**: 비활성화 토글(§4.8) / 자동 급식기(§4.7) /
   rested bonus·참여율 비례화(§4.9 — 단 D4 결정 자체는 Slice 0에서 선행).
 
@@ -366,7 +393,7 @@ Slice 3)만 사용한다.
 | D3 | 먹이의 교감 기능 | **확정(2026-07-03)**: 완전 제거 — 먹이 = 포만도 전용. 교감 수입 공백 보전 여부는 V3-6 수치 튜닝에서 결정 |
 | D4 | 참여율 50% 절벽 게이트 | **확정(2026-07-03)**: 비례 지급으로 교체 (`rounds_committed / total_rounds × 70`) |
 | D5 | 소식 체질의 부화 풀 편입 | 부화 정체성 풀 제외 (2차 해금 후보 전용 or 스탯 롤 축) |
-| D6 | 먹이 티어 수 | 4종(귤/사과/멜론/특제 사료) vs 1차 2종 — 원안 존중 시 4종, 슬롯 압박 우려 시 2종 |
+| D6 | 먹이 티어 수 | **확정(2026-07-03)**: **1차 2종** — 기본 = **귤**(포만도 +40, 흔함·필드/샵), 고급 = **특제 사료**(포만도 +100, 희귀·샵/보상). 근거: Slice 4는 "먹이=교감→포만도" 전환+V3-5 supersede 정합 작업이라 티어 표면을 좁게. 4종(사과 +30 / 멜론 +50 삽입)은 Slice 4 이후 소식 체질/경제 튜닝과 함께 순수 ADD로 확장(구체 이름 유지 → 리네이밍 다국어 처닝 방지) |
 | D7 | 비행 펫 번역 | **확정(2026-07-03)**: SORTIE/free_flight velocity 배율 + hidden 구간 드레인 포함. 근거: 포만도 감속 = '이동 컨디션'이므로 비행 펫도 실제 속도/도착 타이밍/플랩 리듬이 함께 느려져야 지상과 같은 규칙으로 읽힘. 출현율 페널티안은 체감이 "안 나옴/숨음"이라 인과가 덜 직관적 + 디버깅 흐림 → 폐기 |
 | D8 | 자동 급식기 | 축소 유지(휴식 회복 2배, 상한 70) vs 삭제 |
 | D9 | 주니어 리그 | 드레인 면제 vs 50% 감면 |
@@ -442,17 +469,46 @@ Codex는 2026-07-03 자체 리뷰에서 이 문서의 결론(포만도 개명, �
 - 드레인 클록은 `update_lingpet` delta 누적만 — wall-clock
   (`Time.get_ticks_msec`) 금지(모달 일시정지 누수).
 - Slice 4는 V3-5 supersede 원자 커밋: 코드 + 기존 스모크 2본 재작성 +
-  `docs/lingpet_v3_5_feed_slice_plan.md` supersede 표기 + 다국어 4벌
-  (기존 "친밀도를 35 올립니다" 설명문 교체)을 같은 커밋에. Alchemy 리사이클
-  퍽 × 먹이 상호작용 감사 동봉.
+  `docs/lingpet_v3_5_feed_slice_plan.md` supersede 표기 + 다국어 동기
+  (기존 "친밀도를 35 올립니다" 설명문 교체, 귤/특제 사료 표시명) +
+  상점/보상 경로 + 전역 쿨다운 면제 + Alchemy 리사이클 × 먹이 상호작용 감사 동봉.
+
+### Slice 4 지시 (먹이 전환 — D6 확정 1차 2종, V3-5 supersede 원자 커밋)
+
+Slice 1+3a+3b 커밋(`2ae19366a`) 후 다음 지시. **한 커밋에 원자적으로**:
+
+- **효과 전환**: `feed_lingpet` → SOURCE_FEED 친밀도 지급 **제거**, 대신
+  `add_satiety(pet_id, amount)` 호출. `feed_amount`가 전 구간 죽은 배관(facade가
+  item_data를 버리고 GAIN_TABLE 고정 35 사용)이라 **amount 스레딩 신설**:
+  catalog → facade(item_data 활성화) → `feed_lingpet` 인자 → feed_controller
+  pending 필드 → 완료 지급.
+- **2종 아이템(D6)**: 기본 = 기존 `lingpet_feed` 재사용(포만도 **+40**, 표시명
+  '귤'로 전환 — 필드 스폰 + **플라자 샵 확정 판매**), 고급 = 신규 아이템 1개
+  (포만도 **+100**, 표시명 '특제 사료' — 샵/보상). 그릇(bowl) 연출·상태 재사용.
+- **캡 재정의**: 런 3회 캡(`MAX_FEED_USES_PER_RUN`) **폐기** → **배틀당 급식
+  2회 캡**. `_get_blocked_reason`을 `max_feed_uses`/`max_feed_level` → **만복
+  (satiety == MAX) 차단**으로 교체. Alchemy 리사이클 퍽 × 먹이 무한화 감사 동봉.
+- **KO×먹이(무료 시너지)**: D12 `set_satiety` 기상 로직이 이미 배선돼 있어 급식
+  = 즉시 기상이 자동 성립(귤/특제 둘 다 0→임계 10 초과). 신규 기상 로직 불필요
+  — "탈진→급식→벌떡 기상" 연출만 추가.
+- **supersede 세트(같은 커밋)**: `docs/lingpet_v3_5_feed_slice_plan.md` §0
+  '재론 금지' 결정을 supersede 표기 + 봉인 스모크 2본
+  (`lingpet_feed_affinity_smoke` / `lingpet_feed_active_item_smoke`) 재작성
+  (새 봉인: 만복 시 차단 / 연출 중 스왑 시 pending 귀속 / KO 급식 즉시 기상 /
+  배틀당 2회 캡) + 다국어(기존 "친밀도를 35 올립니다" → "포만도를 N 회복합니다",
+  귤/특제 사료 신규 표시명·설명 = EN/JA/ZH 포함) + item_runtime_checklist 감사.
+- **먹이 슬롯 예산**: 급식을 전 슬롯 공유 7초 쿨다운에서 면제(자체 짧은 쿨다운만)
+  검토 — 급식이 전투 아이템 사용권까지 잠그면 이중 처벌(§4.5).
+- **주의**: SOURCE_FEED 제거로 교감 수입 곡선 변경(D3) — V3-6 튜닝 전제이므로
+  본 커밋은 "먹이 교감 소스 제거"만, 교감 수치 보전은 건드리지 않음.
 
 ### 수치 초기값 (전부 튜닝 레버 — §4 근거)
 
 드레인 0.25/초(활성 전투 중만) / 휴식 회복 = 드레인의 1/3 / 감속 = 포만도
-50→10에서 1.0→0.6 선형, 하한 0.6, 0에서만 정지 / 탈진 텔레그래프 1.5~2초 /
-먹이 단일 전환 시 +50, 배틀당 급식 2회 캡 / 소식 체질
-`satiety_drain_reduction_pct_by_level := [10, 17, 24, 31, 38]`, 합산 감면
-상한 ≤ 40~60%.
+50→10에서 1.0→0.6 선형, 하한 0.6, 0에서만 정지 / 탈진 텔레그래프 1.75초 /
+KO 기상 임계 10 / **먹이 2종: 귤 +40, 특제 사료 +100, 배틀당 급식 2회 캡** /
+소식 체질 `satiety_drain_reduction_pct_by_level := [10, 17, 24, 31, 38]`,
+합산 감면 상한 ≤ 40~60%.
 
 ### 완료 게이트 (슬라이스 공통)
 

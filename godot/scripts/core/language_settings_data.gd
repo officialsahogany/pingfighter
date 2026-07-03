@@ -18,7 +18,8 @@ const LANGUAGE_NATIVE_NAMES := {
 }
 
 const ITEM_DISPLAY_EN := {
-	"lingpet_feed": "Lingpet Feed",
+	"lingpet_feed": "Tangerine",
+	"lingpet_special_feed": "Special Feed",
 	"gauge_charge": "Energy Drink",
 	"life_elixir": "Life Elixir",
 	"ammo_box": "Ammo Box",
@@ -101,7 +102,8 @@ const ITEM_DISPLAY_EN := {
 }
 
 const ITEM_DISPLAY_ZH := {
-	"lingpet_feed": "Lingpet Feed",
+	"lingpet_feed": "橘子",
+	"lingpet_special_feed": "特制饲料",
 	"gauge_charge": "能量饮料",
 	"life_elixir": "生命灵药",
 	"ammo_box": "弹药箱",
@@ -184,7 +186,8 @@ const ITEM_DISPLAY_ZH := {
 }
 
 const ITEM_DISPLAY_JA := {
-	"lingpet_feed": "Lingpet Feed",
+	"lingpet_feed": "みかん",
+	"lingpet_special_feed": "特製フード",
 	"gauge_charge": "エナジードリンク",
 	"life_elixir": "生命水",
 	"ammo_box": "弾薬箱",
@@ -267,7 +270,8 @@ const ITEM_DISPLAY_JA := {
 }
 
 const ITEM_DISPLAY_ES := {
-	"lingpet_feed": "Lingpet Feed",
+	"lingpet_feed": "Mandarina",
+	"lingpet_special_feed": "Comida especial",
 	"gauge_charge": "Bebida energética",
 	"life_elixir": "Elixir de vida",
 	"ammo_box": "Caja de munición",
@@ -350,7 +354,8 @@ const ITEM_DISPLAY_ES := {
 }
 
 const ITEM_DISPLAY_PT_BR := {
-	"lingpet_feed": "Lingpet Feed",
+	"lingpet_feed": "Tangerina",
+	"lingpet_special_feed": "Ração especial",
 	"gauge_charge": "Energético",
 	"life_elixir": "Elixir da Vida",
 	"ammo_box": "Caixa de Munição",
@@ -433,7 +438,8 @@ const ITEM_DISPLAY_PT_BR := {
 }
 
 const ITEM_DISPLAY_RU := {
-	"lingpet_feed": "Lingpet Feed",
+	"lingpet_feed": "Мандарин",
+	"lingpet_special_feed": "Особый корм",
 	"gauge_charge": "Энергетик",
 	"life_elixir": "Эликсир жизни",
 	"ammo_box": "Ящик патронов",
@@ -516,7 +522,8 @@ const ITEM_DISPLAY_RU := {
 }
 
 const ACTIVE_ITEM_DESCRIPTION_EN := {
-	"lingpet_feed": "Feeds the active Lingpet for 35 affinity. Works up to three times per run and only until affinity Lv.15.",
+	"lingpet_feed": "Restores 40 satiety to the active Lingpet. Cannot be used while the Lingpet is full.",
+	"lingpet_special_feed": "Restores 100 satiety to the active Lingpet. Cannot be used while the Lingpet is full.",
 	"gauge_charge": "Charges 220 gauge.",
 	"life_elixir": "Fully charges the gauge.",
 	"ammo_box": "Restocks ammunition for the currently selected rental firearm.",

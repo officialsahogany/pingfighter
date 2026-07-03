@@ -65,8 +65,15 @@ const ROLL_BONUS_RANGES := {
 	"low": 0.08,
 }
 
+const ACTIVE_BASE_PRICES := {
+	"lingpet_feed": 240,
+	"lingpet_special_feed": 700,
+}
+
 
 static func get_base_price(item_name: String) -> int:
+	if ACTIVE_BASE_PRICES.has(item_name):
+		return int(ACTIVE_BASE_PRICES[item_name])
 	if PASSIVE_BASE_PRICES.has(item_name):
 		return int(PASSIVE_BASE_PRICES[item_name])
 	if LEGENDARY_BASE_PRICES.has(item_name):
@@ -75,7 +82,7 @@ static func get_base_price(item_name: String) -> int:
 
 
 static func is_shop_priced_item(item_name: String) -> bool:
-	return PASSIVE_BASE_PRICES.has(item_name) or LEGENDARY_BASE_PRICES.has(item_name)
+	return ACTIVE_BASE_PRICES.has(item_name) or PASSIVE_BASE_PRICES.has(item_name) or LEGENDARY_BASE_PRICES.has(item_name)
 
 
 static func is_legacy_legendary(item_name: String) -> bool:

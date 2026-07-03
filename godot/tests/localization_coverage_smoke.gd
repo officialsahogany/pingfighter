@@ -4,6 +4,8 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetLanguageCatalog := preload("res://scripts/lingpet/lingpet_language_catalog.gd")
+const LingpetLanguageRichText := preload("res://scripts/lingpet/lingpet_language_rich_text.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
@@ -15,10 +17,19 @@ const ACTIVE_ITEM_EXTRAS := [
 	"ammo_box",
 	"doping_potion",
 	"elixir_of_mastery",
+	"lingpet_special_feed",
 	"milk_bottle",
 	"cheddar_cheese",
 	"camembert_cheese",
 	"emmental_cheese",
+]
+const LINGPET_PENDULUM_CHROME_KEYS := [
+	"lingpet.pendulum.title",
+	"lingpet.pendulum.close",
+	"lingpet.pendulum.language_label",
+	"lingpet.pendulum.esc_hint",
+	"lingpet.pendulum.next_hint",
+	"lingpet.pendulum.decoder_caption",
 ]
 
 var _failures: Array[String] = []
@@ -154,6 +165,7 @@ func _verify_translation_map_coverage() -> void:
 	for language in LanguageSettings.get_language_options():
 		var localized_text: Dictionary = LanguageSettings.TEXT.get(language, {})
 		_verify_same_keys(korean_text, localized_text, "TEXT[%s]" % language)
+		_verify_pendulum_text_key_coverage(localized_text, "TEXT[%s]" % language)
 
 	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_ZH, "ITEM_DISPLAY_ZH")
 	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_JA, "ITEM_DISPLAY_JA")
@@ -229,6 +241,37 @@ func _verify_runtime_surfaces_have_no_hangul(language: String) -> void:
 	_verify_skill_configs(language)
 	_verify_formatter_outputs(language)
 	_verify_lingpet_panel_surface(language)
+	_verify_lingpet_pendulum_surface(language)
+
+
+func _verify_pendulum_text_key_coverage(localized_text: Dictionary, context: String) -> void:
+	for key in LINGPET_PENDULUM_CHROME_KEYS:
+		_expect(localized_text.has(key), "%s should include Lingpet pendulum chrome key %s" % [context, key])
+	for line in LingpetLanguageCatalog.get_generic_lines(""):
+		var tokens: Array = line.get("tokens", []) as Array
+		for token_value in tokens:
+			var token: Dictionary = token_value as Dictionary
+			var key := str(token.get("key", ""))
+			if key != "":
+				_expect(localized_text.has(key), "%s should include Lingpet pendulum token key %s" % [context, key])
+
+
+func _verify_lingpet_pendulum_surface(language: String) -> void:
+	for line in LingpetLanguageCatalog.get_generic_lines(""):
+		var runs := LingpetLanguageRichText.build_runs(line, 5, Callable(self, "_translate_key_for_smoke"))
+		for run_value in runs:
+			var run: Dictionary = run_value as Dictionary
+			if bool(run.get("visible", true)):
+				_expect_no_hangul(str(run.get("text", "")), "LINGPET_PENDULUM_LINE[%s] %s" % [language, str(line.get("id", ""))])
+	for key in LINGPET_PENDULUM_CHROME_KEYS:
+		var text := LanguageSettings.translate(key)
+		if key == "lingpet.pendulum.decoder_caption":
+			text = text % [5, 100]
+		_expect_no_hangul(text, "LINGPET_PENDULUM_CHROME[%s] %s" % [language, key])
+
+
+func _translate_key_for_smoke(key: String, fallback: String = "") -> String:
+	return LanguageSettings.translate(key, fallback if fallback != "" else key)
 
 
 func _verify_lingpet_panel_surface(language: String) -> void:
@@ -239,6 +282,7 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 	var surface_texts: Array[String] = [
 		"링펫", "링펫 알", "링펫 없음", "링펫 알 없음", "미해금", "미획득",
 		"동행 중", "하트 공명", "액티브 스킬", "패시브 스킬", "다음 보상 준비 중",
+		"최대 강화 완료", "링코어 강화 시 해금", "2번째 액티브 스킬 +1", "2번째 패시브 스킬 +1",
 		"방어", "방어율", "출현율", "액티브 쿨타임", "받아치기", "이동", "추적", "전이",
 		"링코어", "강화칩 %d / %d", "미장착",
 		"공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
@@ -248,19 +292,10 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 	]
 	for reward_label in LingpetAffinityState.LABEL_BY_REWARD_TYPE.values():
 		surface_texts.append(str(reward_label))
-	for bond_title in [
-		LingpetAffinityState.BOND_TITLE_AWKWARD,
-		LingpetAffinityState.BOND_TITLE_CLOSER,
-		LingpetAffinityState.BOND_TITLE_FRIENDLY,
-		LingpetAffinityState.BOND_TITLE_BEST_FRIEND,
-		LingpetAffinityState.BOND_TITLE_SOULMATE,
-	]:
-		surface_texts.append(str(bond_title))
 	for korean_text in surface_texts:
 		_expect_no_hangul(LanguageSettings.translate_text(korean_text), "LINGPET_SURFACE[%s] %s" % [language, korean_text])
 	_expect_no_hangul(LanguageSettings.translate_text("교감 Lv.15!"), "LINGPET_SURFACE[%s] affinity flash label" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("교감 Lv.%d") % 3, "LINGPET_SURFACE[%s] affinity row label" % language)
-	_expect_no_hangul(LanguageSettings.translate_text("동행 중 · 친밀도 %s") % LanguageSettings.translate_text(LingpetAffinityState.BOND_TITLE_AWKWARD), "LINGPET_SURFACE[%s] companion subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("공 충돌 %s") % "1 / 3", "LINGPET_SURFACE[%s] egg subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text("기동 강화"), "LINGPET_SURFACE[%s] next reward line" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("강화칩 %d / %d") % [3, 5], "LINGPET_SURFACE[%s] ring core chip count line" % language)

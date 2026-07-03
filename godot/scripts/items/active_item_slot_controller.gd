@@ -512,6 +512,10 @@ func _is_item_ready(item_data: Dictionary, now_msec: int, registry: Object) -> b
 	return true
 
 
+func _uses_global_cooldown(item_data: Dictionary) -> bool:
+	return not bool(item_data.get("no_global_cooldown", false))
+
+
 func _get_effective_active_item_cooldown_msec(item_data: Dictionary, registry: Object) -> int:
 	var base_cooldown_msec: int = max(0, int(item_data.get("cooldown_msec", item_data.get("cooldown_ms", DEFAULT_COOLDOWN_MSEC))))
 	var cooldown_msec: int = base_cooldown_msec

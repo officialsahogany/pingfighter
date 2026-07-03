@@ -22,6 +22,7 @@ const DEBUG_ACTION_BUTTON_GAP := 8.0
 const DEBUG_ENTRY_ORDER := [
 	"gauge_charge",
 	"lingpet_feed",
+	"lingpet_special_feed",
 	"life_elixir",
 	"vitamin_pill",
 	"strange_vial",
@@ -400,6 +401,10 @@ func _get_debug_item_title(item_name: String) -> String:
 	match item_name:
 		"gauge_charge":
 			return "에너지드링크"
+		"lingpet_feed":
+			return "귤"
+		"lingpet_special_feed":
+			return "특제 사료"
 		"life_elixir":
 			return "생명수"
 		"vitamin_pill":
@@ -450,6 +455,10 @@ func _get_debug_item_subtitle(item_name: String) -> String:
 	match item_name:
 		"gauge_charge":
 			return "게이지 +220 충전"
+		"lingpet_feed":
+			return "포만도 +40"
+		"lingpet_special_feed":
+			return "포만도 +100"
 		"life_elixir":
 			return "게이지 최대 충전"
 		"vitamin_pill":

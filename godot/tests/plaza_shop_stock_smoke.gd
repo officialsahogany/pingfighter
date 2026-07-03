@@ -25,6 +25,8 @@ func _run() -> void:
 
 func _verify_price_table_samples() -> void:
 	_expect(PlazaShopPricing.get_base_price("speedboots") == 750, "speedboots should keep the legacy shop base price")
+	_expect(PlazaShopPricing.get_base_price("lingpet_feed") == 240, "basic feed should have a plaza shop base price")
+	_expect(PlazaShopPricing.get_base_price("lingpet_special_feed") == 700, "special feed should have a plaza shop base price")
 	_expect(PlazaShopPricing.get_base_price("ragnarok_hammer") == 3600, "ragnarok_hammer should keep the legacy shop base price")
 	_expect(PlazaShopPricing.get_base_price("transcendent_crown") == 4560, "transcendent_crown should keep the legacy shop base price")
 	_expect(PlazaShopPricing.get_sell_price({"name": "gold_bar"}) == PlazaShopPricing.GOLD_BAR_SELL_PRICE, "gold_bar should keep the fixed legacy sell price")
@@ -38,13 +40,15 @@ func _verify_stock_roll_shape() -> void:
 	_expect(stock.size() == 12, "shop stock override should build the requested item count")
 	var featured_count := 0
 	var legendary_seen: Dictionary = {}
+	var item_names_seen: Dictionary = {}
 	for item_value in stock:
 		_expect(item_value is Dictionary, "shop stock entries should be dictionaries")
 		if not (item_value is Dictionary):
 			continue
 		var item_data: Dictionary = item_value
 		var item_name := str(item_data.get("name", ""))
-		_expect(PlazaShopPricing.is_shop_priced_item(item_name), "shop stock item %s should belong to the legacy-priced implemented pool" % item_name)
+		item_names_seen[item_name] = true
+		_expect(PlazaShopPricing.is_shop_priced_item(item_name), "shop stock item %s should belong to the priced implemented pool" % item_name)
 		_expect(str(item_data.get("shop_stock_id", "")) != "", "shop stock item %s should have a stable stock id" % item_name)
 		_expect(int(item_data.get("shop_base_price", 0)) == PlazaShopPricing.get_base_price(item_name), "shop stock item %s should carry its base price" % item_name)
 		_expect(int(item_data.get("shop_price", 0)) > 0, "shop stock item %s should carry a positive buy price" % item_name)
@@ -57,6 +61,8 @@ func _verify_stock_roll_shape() -> void:
 		if PlazaShopPricing.is_legacy_legendary(item_name):
 			_expect(not bool(legendary_seen.get(item_name, false)), "legendary shop stock item %s should not duplicate in one roll" % item_name)
 			legendary_seen[item_name] = true
+	_expect(bool(item_names_seen.get("lingpet_feed", false)), "shop stock should guarantee basic feed")
+	_expect(bool(item_names_seen.get("lingpet_special_feed", false)), "shop stock should guarantee special feed")
 	_expect(featured_count == 2, "shop stock should mark two featured sale items")
 
 

@@ -1,10 +1,21 @@
-# V3-5 슬라이스 — 먹이 액티브 아이템 (친밀도 즉발 + 상한 3종)
+# V3-5 슬라이스 — 먹이 액티브 아이템 (친밀도 즉발 + 런/링코어 상한)
+
+> **SUPERSEDED (2026-07-03 / Slice 4):** 이 문서의 “먹이 = 친밀도 SOURCE_FEED + run 3회 캡”
+> 설계는 `docs/lingpet_hunger_system_plan.md` Slice 4가 대체한다. 현재 계약은
+> `lingpet_feed` = **귤 / 포만도 +40 / 필드+샵**, `lingpet_special_feed` =
+> **특제 사료 / 포만도 +100 / 샵+보상**, `SOURCE_FEED` 친밀도 지급 제거,
+> **배틀당 완료 급식 2회 캡**, 만복(`satiety == MAX`) 사용 차단이다. 아래 본문은
+> 폐기된 친밀도 먹이 설계의 역사 기록으로만 읽는다.
 
 > 단일 소스 `docs/lingpet_affinity_system_plan.md` §13-4. 액티브 아이템 런타임은
 > `docs/item_runtime_checklist.md` 경로. 배선은 사용자, Claude는 디자인+적대 리뷰.
 > 줄번호는 직접 정찰(2026-06-16) 시점, 드리프트 가능 — 심볼명 우선.
+>
+> **2026-06-30 정정:** 2번째 슬롯 해금은 더 이상 특정 친밀도 레벨(Lv.22 등) 도달로
+> 게이트되지 않는다. 현재는 1차 스킬 유효 레벨 합계 + 레벨업 확률 롤 계약이며,
+> 먹이 스모크는 현재 링코어 캡 천장 / per-run 사용 카운터 / 칩 배율 면제만 봉인한다.
 
-## §0. 확정 결정 (재론 금지, 2026-06-16)
+## §0. 확정 결정 (재론 금지, 2026-06-16 / 먹이 천장 정정 2026-07-02)
 
 | # | 항목 | 결정 |
 |---|---|---|
@@ -12,7 +23,7 @@
 | 2 | 획득 경로 | field-spawn(F 게이트 기커밋) **+ 플라자 샵 골드구매**(`grant_item_to_slot`) |
 | 3 | per-run 캡 | **affinity_state 사용 카운터** — 런당 먹이가 친밀도 주는 횟수 ≤3, **샵+스폰 무관하게 affinity-from-feed 캡**(어느 경로 10개 사도 3개만 효과) |
 | 4 | 허용 개수 | **3/런** (run-scope, reset_for_new_run서 0). 플레이스홀더(V3-6 튜닝) |
-| 5 | Lv.15 천장 | **block + clamp 함께** — Lv.15+면 0, Lv.14에서 큰 먹이도 Lv.15까지만(16 안 넘게 clamp) |
+| 5 | 현재 링코어 천장 | **block + clamp 함께** — 현재 링코어 캡 이상이면 0, 캡 직전에서 큰 먹이도 캡까지만(clamp). T3는 Lv.15, T6는 Lv.30 |
 | 6 | 칩 배율 면제 | chokepoint(412) `1.0 if source==SOURCE_FEED else mult` |
 | 7 | N 값 | ≈35(한 레벨), 플레이스홀더 V3-6 |
 
@@ -20,7 +31,8 @@
 
 플라자 샵이 `plaza_shop_transactions.gd:63-68 grant_item_to_slot`로 골드→슬롯 그랜트하므로
 **먹이가 샵에 풀리면 골드 무한구매로 0칩 친밀도 채우기 도달 가능**(칩·랠리 경제 우회). 캡 3종이
-이걸 막는다. **핵심 봉인 스모크 = "먹이만으론 2번째 슬롯(Lv.22) 도달 불가"**(무한 먹이→Lv.15 캡<22).
+이걸 막는다. **핵심 봉인 스모크 = "먹이만으론 current ring-core ceiling/use cap 우회 불가"**
+(무한 먹이 시도 → 현재 링코어 천장 + max_feed_uses).
 
 ## §2. 먹이 아이템 등록 (active_item_catalog + item_runtime_checklist)
 
@@ -60,15 +72,16 @@
 - `add_points`서 `source==SOURCE_FEED and _feed_uses_this_run >= MAX_FEED_USES_PER_RUN` → blocked "max_feed_uses"(0 gain).
   성공 gain(>0) 시 `_feed_uses_this_run += 1`. **샵 10개 사도 4번째부터 친밀도 0.**
 
-### 4.4 Lv.15 천장 + clamp (결정 5)
-- `const LINGPET_FEED_MAX_LEVEL := 15`. `source==SOURCE_FEED and level_before >= 15` → blocked "max_feed_level".
-- **clamp**: Lv.14에서 큰 N이 Lv.16으로 안 건너게 — feed granted_points를 `min(granted, lv15_ceiling_points - points_before)`로.
-  `lv15_ceiling_points` = REQUIREMENT_BY_CURRENT_LEVEL 누적(Lv.15 경계). 한 먹이 = 최대 Lv.15 도달.
-- (30 MAX_LEVEL 캡은 line 403 기존; 먹이는 그 위 15 천장 추가.)
+### 4.4 현재 링코어 천장 + clamp (결정 5, 2026-07-02 정정)
+- 먹이 전용 고정 `Lv.15` 상수는 제거. `source==SOURCE_FEED`는 펫의 현재 `ring_core_cap`을 천장으로 쓴다.
+- **clamp**: 캡 직전에서 큰 N이 다음 잠긴 레벨로 안 건너게 — feed granted_points를
+  `min(granted, points_remaining_until_current_ring_core_cap)`로.
+  예: T3(cap15)는 Lv.15까지만, T6(cap30)는 Lv.30까지.
+- (30 MAX_LEVEL 캡은 절대 상한; 먹이는 그 아래 현재 링코어 캡을 따른다.)
 
 ### 4.5 삽입 위치 (add_points ~392-426)
-- 403(30캡) 다음: feed level-15 게이트 + use-counter 게이트(blocked early-return).
-- 408 _resolve_gain 후 / 412 면제 / 415 0-gate 위: feed clamp.
+- 403(30캡) 다음: feed current-ring-core-cap 게이트 + use-counter 게이트(blocked early-return).
+- 408 _resolve_gain 후 / 412 면제 / 415 0-gate 위: current-ring-core-cap feed clamp.
 - 419 누적 성공 후: feed 카운터 증가.
 - (권장: `_resolve_gain`에 per-source `_resolve_feed_gain`을 두어 use-counter+clamp 집약, 면제는 412 source-check.)
 
@@ -76,18 +89,18 @@
 
 1. **칩 배율 면제 필수(412)**: 기본은 전 소스 곱 → 먹이 안 빼면 (a)칩 곱한 먹이로 익스플로잇 가속 (b)§13-4 #4 위반. source-check 한 줄.
 2. **샵 경로 방어**: per-run 캡은 field-spawn뿐 아니라 **샵 골드구매분도** 막아야 함. 사용 카운터(affinity-from-feed)가 획득 경로 무관하게 캡 → 샵 우회 차단(결정 3).
-3. **Lv.15 block만으론 부족**: Lv.14 + 큰 N → Lv.16 교차 가능. **clamp 필수**(결정 5). N 작아도 V3-6서 커질 수 있으니 구조적 clamp.
+3. **cap block만으론 부족**: cap-1 + 큰 N → 잠긴 다음 레벨 교차 가능. **clamp 필수**(결정 5). N 작아도 V3-6서 커질 수 있으니 구조적 clamp.
 4. **run-scope 경계**: 먹이 카운터는 `reset_for_new_run`만(런 내 battle 누적), 미영속. chip과 동일.
 5. **use 시 owned 재확인**: 샵 구매분은 F 획득게이트 우회 → 효과 적용 시 companion/owned 재확인(없으면 no-op).
 6. **item_runtime_checklist 전 위치**: 액티브 아이템 add 누락(아이콘 precedence·dev-mode·샵가·다국어)은 반복 트랩.
 
 ## §6. 스모크 (반증 필수)
 
-1. **`_verify_feed_alone_cannot_reach_second_slot`** (핵심 봉인): 먹이만 무한 적용(카운터 리셋 포함 다회 런) →
-   level ≤ 15, **절대 Lv.22(2번째 액티브) 미달**. 반증: Lv.15 천장 빼면 22 도달.
+1. **`_verify_unbounded_feed_attempts_stop_at_run_use_cap`** (핵심 봉인): 먹이만 무한 적용 →
+   level ≤ current ring-core cap + 마지막 결과 `max_feed_uses`. 2번째 슬롯 해금 주장은 이 smoke 범위가 아님.
 2. **use-counter**: 먹이 3회 친밀도 부여, 4회째 blocked "max_feed_uses"; `reset_for_new_run` 후 재무장.
    `reset_for_new_battle` 후 카운트 생존.
-3. **Lv.15 천장+clamp**: Lv.14 + 큰 먹이 → 결과 ≤ Lv.15(clamp, 16 아님); Lv.15+면 gain 0 "max_feed_level".
+3. **현재 링코어 천장+clamp**: cap-1 + 큰 먹이 → 결과 ≤ cap(clamp); cap 이상이면 gain 0 "max_feed_level". T3 cap15와 T6 cap30을 함께 봉인.
 4. **칩 면제**: 5칩 상태 먹이 gain == 0칩 먹이 gain(N, 2N 아님). 반증: 면제 빼면 2N.
 5. **먹이 비영속**: store/snapshot에 feed 카운터 키 부재(source-scan).
 6. **등록**: catalog build + FIELD_SPAWN_ORDER + effect 디스패치 + 아이콘 covered. (+ F 게이트 기커밋: pre-lingpet 미스폰 — 기존 smoke.)
@@ -99,9 +112,9 @@
 
 ## §8. 시퀀싱 (권장)
 
-- **affinity 4종(SOURCE_FEED + 면제 + use-counter + Lv.15 clamp) 먼저** — 캡 코어, egg_runtime `feed_lingpet`까지.
+- **affinity 4종(SOURCE_FEED + 면제 + use-counter + current-ring-core clamp) 먼저** — 캡 코어, egg_runtime `feed_lingpet`까지.
   스모크 1~5(핵심 봉인 포함)로 잠금. 아이템 아직 없어도 `feed_lingpet` 직접 호출로 캡 검증 가능.
 - **아이템 등록(catalog + 효과 디스패치 + item_runtime_checklist)** — apply_lingpet_feed → feed_lingpet.
 - **아이콘** — item-generation 병렬.
-- 수치(N=35·3개/런·Lv.15)는 플레이스홀더 — V3-6(income QA) 재튜닝.
+- 수치(N=35·3개/런·현재 링코어 캡)는 플레이스홀더 — V3-6(income QA) 재튜닝.
 - ⚠ 배선 시 워킹트리 외부 dirty와 hunk 선별(V3-4와 동일 패턴).

@@ -3,6 +3,7 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_COOLDOWN_MSEC := 7000
+const LINGPET_FEED_COOLDOWN_MSEC := 1500
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
 
@@ -75,6 +76,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_gauge_charge()
 		"lingpet_feed":
 			item_data = _build_lingpet_feed()
+		"lingpet_special_feed":
+			item_data = _build_lingpet_special_feed()
 		"life_elixir":
 			item_data = _build_life_elixir()
 		"ammo_box":
@@ -202,17 +205,56 @@ func _build_gauge_charge() -> Dictionary:
 func _build_lingpet_feed() -> Dictionary:
 	return {
 		"name": "lingpet_feed",
-		"display_name": "링펫 먹이",
+		"display_name": "귤",
 		"type": "active",
 		"effect": "lingpet_feed",
 		"chance": 0.010,
 		"duration": 0,
-		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"feed_amount": 35.0,
-		"description": "활성 링펫에게 먹이를 줘 친밀도를 35 올립니다. 한 런에 3번, 친밀도 Lv.15까지만 효과가 있습니다.",
+		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
+		"feed_amount": 40.0,
+		"description": "활성 링펫에게 먹이를 줘 포만도를 40 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
 		"icon_path": LINGPET_FEED_ICON_PATH,
-		"color": Color(0.45, 0.95, 0.88),
+		"color": Color(1.0, 0.58, 0.16),
+		"no_global_cooldown": true,
+		"shop_guaranteed": true,
 		"consumable": true,
+	}
+
+
+func _build_lingpet_special_feed() -> Dictionary:
+	return {
+		"name": "lingpet_special_feed",
+		"display_name": "특제 사료",
+		"type": "active",
+		"effect": "lingpet_feed",
+		"rarity": "rare",
+		"chance": 0.004,
+		"duration": 0,
+		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
+		"feed_amount": 100.0,
+		"description": "활성 링펫에게 특제 사료를 줘 포만도를 100 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"icon_path": LINGPET_FEED_ICON_PATH,
+		"color": Color(0.96, 0.76, 0.28),
+		"no_global_cooldown": true,
+		"shop_guaranteed": true,
+		"reward_only": true,
+		"consumable": true,
+	}
+
+
+	# Pro (champion) / Mythic only — gated in active_item_field_spawn_pool via
+	# never sees this item (its lingpet is auto-present).
+	return {
+		"display_name": "링펫알",
+		"type": "active",
+		"chance": 0.030,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"description": "필드에 링펫알을 설치합니다. 공으로 맞혀 부화시키면 링펫 한 마리를 무작위로 얻습니다.",
+		"color": Color(0.30, 0.80, 1.0),
+		"consumable": true,
+		# One-shot deploy: the Alchemy recycle perk must NOT keep this in the slot. Only one
+		"no_recycle": true,
 	}
 
 

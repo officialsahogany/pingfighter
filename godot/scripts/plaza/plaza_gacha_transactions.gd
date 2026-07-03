@@ -3,6 +3,9 @@ extends RefCounted
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
 const PULL_COST := 150
+const EXTRA_GACHA_ACTIVE_ITEM_NAMES := [
+	"lingpet_special_feed",
+]
 
 var _catalog: Object = ActiveItemCatalog.new()
 var _rng := RandomNumberGenerator.new()
@@ -72,7 +75,7 @@ func _pick_active_item() -> Dictionary:
 		if _is_valid_gacha_item(forced_item):
 			return forced_item
 	var candidates: Array[Dictionary] = []
-	for item_name_value in ActiveItemCatalog.FIELD_SPAWN_ORDER:
+	for item_name_value in _get_gacha_item_names():
 		var item_name := str(item_name_value)
 		var candidate: Dictionary = _catalog.build_item_by_name(item_name)
 		if _is_valid_gacha_item(candidate):
@@ -89,6 +92,14 @@ func _pick_active_item() -> Dictionary:
 		if roll <= 0.0:
 			return candidate.duplicate(true)
 	return candidates.back().duplicate(true)
+
+
+func _get_gacha_item_names() -> Array:
+	var result: Array = ActiveItemCatalog.FIELD_SPAWN_ORDER.duplicate()
+	for item_name in EXTRA_GACHA_ACTIVE_ITEM_NAMES:
+		if not result.has(item_name):
+			result.append(item_name)
+	return result
 
 
 func _is_valid_gacha_item(item_data: Dictionary) -> bool:

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const REWARD_ACTIVE := "active"
@@ -27,8 +28,12 @@ const NORMAL_REWARD_STARPOINT_SINGLE := "starpoint_1"
 const NORMAL_REWARD_STARPOINT_DOUBLE := "starpoint_2"
 const ADVANCED_REWARD_STARPOINT_DOUBLE := "advanced_starpoint_2"
 const ADVANCED_REWARD_STARPOINT_TRIPLE := "advanced_starpoint_3"
+const EXTRA_ACTIVE_REWARD_ITEM_NAMES := [
+	"lingpet_special_feed",
+]
 
 var _spawn_pool: Object = ActiveItemFieldSpawnPool.new()
+var _active_catalog: Object = ActiveItemCatalog.new()
 
 
 func roll_reward(box_kind: String, owner: Object = null, registry: Object = null) -> Dictionary:
@@ -191,7 +196,25 @@ func _build_candidates_for_group(reward_group: String, owner: Object, registry: 
 		var item_data: Dictionary = item_value
 		if _get_item_group(item_data) == reward_group:
 			candidates.append(item_data.duplicate(true))
+	if reward_group == REWARD_ACTIVE:
+		_append_extra_active_reward_candidates(candidates)
 	return candidates
+
+
+func _append_extra_active_reward_candidates(candidates: Array) -> void:
+	for item_name in EXTRA_ACTIVE_REWARD_ITEM_NAMES:
+		if _candidate_list_has_item(candidates, str(item_name)):
+			continue
+		var item_data: Dictionary = _active_catalog.build_item_by_name(str(item_name))
+		if not item_data.is_empty() and _get_item_group(item_data) == REWARD_ACTIVE:
+			candidates.append(item_data.duplicate(true))
+
+
+func _candidate_list_has_item(candidates: Array, item_name: String) -> bool:
+	for candidate_value in candidates:
+		if candidate_value is Dictionary and str((candidate_value as Dictionary).get("name", "")) == item_name:
+			return true
+	return false
 
 
 func _pick_weighted_candidate(candidates: Array) -> Dictionary:
