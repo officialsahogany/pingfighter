@@ -6,7 +6,9 @@ const MOTION_STYLE_PATROL := "patrol"
 const PHASE_NONE := ""
 const PHASE_TO_BOWL := "to_bowl"
 const PHASE_EATING := "eating"
+const PHASE_RETURN := "return"
 const DEFAULT_APPROACH_SPEED := 360.0
+const RETURN_ARRIVAL_RADIUS := 12.0
 const DEFAULT_EAT_SECONDS := 1.0
 const ARRIVAL_RADIUS := 14.0
 const GROUND_ARRIVAL_X := 9.0
@@ -23,6 +25,7 @@ var _phase := PHASE_NONE
 var _bowl_pos := Vector2.ZERO
 var _target_pos := Vector2.ZERO
 var _companion_pos := Vector2.ZERO
+var _return_pos := Vector2.ZERO
 var _eating_base_pos := Vector2.ZERO
 var _eating_timer := 0.0
 var _eating_total := DEFAULT_EAT_SECONDS
@@ -38,6 +41,8 @@ func arm(bowl_pos: Vector2, current_companion_pos: Vector2, motion_style_value: 
 	_phase = PHASE_TO_BOWL
 	_bowl_pos = bowl_pos
 	_companion_pos = current_companion_pos if current_companion_pos != Vector2.ZERO else bowl_pos
+	# Air position the companion descends FROM; flight pets fly back to it after eating.
+	_return_pos = _companion_pos
 	_ground_tracking = _is_ground_motion_style(motion_style_value)
 	_target_pos = _resolve_target_pos()
 	_eating_base_pos = Vector2.ZERO
@@ -75,6 +80,20 @@ func advance(delta: float, current_companion_pos: Vector2, motion_style_value: S
 		if _eating_timer <= 0.0:
 			_completed_count += 1
 			completed = true
+			# Flight pets descended to the ground bowl. Dropping the position
+			# override the instant eating ends teleports them straight back to
+			# their air lane (reads as "갑자기 시야에서 사라짐"). Fly them back up
+			# to the pre-feed air spot first, then release. Ground pets already
+			# keep their lane Y, so they release immediately with no visible jump.
+			if _ground_tracking or _return_pos == Vector2.ZERO:
+				_clear_active()
+			else:
+				_phase = PHASE_RETURN
+				_eating_base_pos = Vector2.ZERO
+	elif _phase == PHASE_RETURN:
+		_companion_pos = _companion_pos.move_toward(_return_pos, DEFAULT_APPROACH_SPEED * safe_delta)
+		if _companion_pos.distance_to(_return_pos) <= RETURN_ARRIVAL_RADIUS:
+			_companion_pos = _return_pos
 			_clear_active()
 	return {
 		"active": _active,
@@ -96,7 +115,9 @@ func get_companion_position_override(fallback: Vector2) -> Vector2:
 
 
 func has_visible_effects() -> bool:
-	return _active and _bowl_pos != Vector2.ZERO
+	# The bowl graphic represents the food; once eating ends and the flight pet
+	# is gliding home (PHASE_RETURN), the food is gone so the bowl stops drawing.
+	return _active and _phase != PHASE_RETURN and _bowl_pos != Vector2.ZERO
 
 
 func is_active() -> bool:
@@ -128,6 +149,7 @@ func reset_all() -> void:
 	_bowl_pos = Vector2.ZERO
 	_target_pos = Vector2.ZERO
 	_companion_pos = Vector2.ZERO
+	_return_pos = Vector2.ZERO
 	_eating_base_pos = Vector2.ZERO
 	_completed_count = 0
 

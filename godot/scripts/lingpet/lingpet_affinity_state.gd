@@ -39,7 +39,7 @@ const LEGACY_PET_RUN_STATE_KEYS := ["best_level", "bond_points", "bond_title"]
 const SATIETY_KEY := "satiety"
 const SATIETY_MIN := 0.0
 const SATIETY_MAX := 100.0
-const SATIETY_DRAIN_PER_SECOND := 0.25
+const SATIETY_DRAIN_PER_SECOND := 0.52
 const SATIETY_REST_RECOVERY_RATIO := 1.0 / 3.0
 const SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL := [10.0, 17.0, 24.0, 31.0, 38.0]
 const SATIETY_EXHAUSTED_KEY := "satiety_exhausted"
@@ -49,6 +49,10 @@ const SATIETY_SLOW_FLOOR_START := 10.0
 const SATIETY_SLOW_MIN_MULTIPLIER := 0.60
 const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := 1.75
 const SATIETY_WAKE_THRESHOLD := 10.0
+# Snap band for float residue at both satiety rails (see _sanitize_satiety_value):
+# values inside (0, ε) collapse to 0 and (100-ε, 100) to 100 so write-gating /
+# strict comparisons never pin the gauge just off a rail. Gameplay-invisible.
+const SATIETY_VALUE_SNAP_EPSILON := 0.001
 
 const REQUIREMENT_BY_CURRENT_LEVEL := [
 	50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
@@ -1818,7 +1822,17 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 
 
 func _sanitize_satiety_value(value: Variant) -> float:
-	return clampf(float(value), SATIETY_MIN, SATIETY_MAX)
+	var clamped := clampf(float(value), SATIETY_MIN, SATIETY_MAX)
+	# Float-residue snap: a real-tick drain sequence can land on a sub-epsilon
+	# positive remainder (e.g. 2e-10) that set_satiety's is_equal_approx write
+	# gate then freezes forever ("2e-10 ≈ 0" skips the 0.0 write). A strictly
+	# positive residue keeps the exhaustion "satiety > 0" branch resetting the
+	# KO timer every tick, so the pet can never exhaust. Snap both rails.
+	if clamped < SATIETY_VALUE_SNAP_EPSILON:
+		return SATIETY_MIN
+	if clamped > SATIETY_MAX - SATIETY_VALUE_SNAP_EPSILON:
+		return SATIETY_MAX
+	return clamped
 
 
 func _sanitize_satiety_exhaustion_timer(value: Variant, satiety: float) -> float:

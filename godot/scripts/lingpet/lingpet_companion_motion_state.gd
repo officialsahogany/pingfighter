@@ -130,7 +130,6 @@ const SORTIE_PHASE_EXIT := "exit"
 const SORTIE_PHASE_EXHAUSTED_PARK := "exhausted_park"
 const FLIGHT_EXHAUSTED_PARK_SPEED := 145.0
 const FLIGHT_EXHAUSTED_PARK_ENTRY_OFFSET_Y := 132.0
-const FLIGHT_EXHAUSTED_PARK_LANE_OFFSET_Y := 76.0
 const FLIGHT_EXHAUSTED_PARK_TOLERANCE := 8.0
 
 var pos := Vector2.ZERO
@@ -770,12 +769,14 @@ func _update_exhausted_flight_park(delta: float, owner: Object, _speed_min: floa
 
 
 func _get_exhausted_flight_park_target(owner: Object) -> Vector2:
+	# KO'd flight pets collapse WHERE they were flying (straight down to the ground
+	# lane), not next to the player — anchoring to player_pos made the sleeping pet
+	# overlap the player paddle (live QA 2026-07-04). X follows the pet's own
+	# position each tick (offset.x stays ~0 → pure vertical descent).
 	var lane: Dictionary = _resolve_lane(owner)
-	var player_width: float = maxf(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0)))
-	var player_pos: Vector2 = _get_owner_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5 - player_width * 0.5, FIELD_HEIGHT - 75.0))
 	return Vector2(
-		clampf(player_pos.x + player_width * 0.5, COMPANION_RADIUS + 20.0, FIELD_WIDTH - COMPANION_RADIUS - 20.0),
-		clampf(float(lane.get("y", FIELD_HEIGHT - 50.0)) - FLIGHT_EXHAUSTED_PARK_LANE_OFFSET_Y, COMPANION_RADIUS + 20.0, FIELD_HEIGHT - COMPANION_RADIUS - 20.0)
+		clampf(pos.x, COMPANION_RADIUS + 20.0, FIELD_WIDTH - COMPANION_RADIUS - 20.0),
+		clampf(float(lane.get("y", FIELD_HEIGHT - 50.0)), COMPANION_RADIUS + 20.0, FIELD_HEIGHT - COMPANION_RADIUS - 20.0)
 	)
 
 

@@ -277,8 +277,8 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 	var dest_rect: Rect2 = rects.get("dest", Rect2())
 	var source_rect: Rect2 = rects.get("source", Rect2())
 	if exhausted:
-		dest_rect.position.y += dest_rect.size.y * 0.18
-		dest_rect.size.y *= 0.76
+		_draw_exhausted_lying_sprite(canvas, tex, source_rect, dest_rect, modulate, should_flip_sprite)
+		return
 	# Dedicated movement sheets render as-authored. Legacy sheets mirror through
 	# UVs for left-facing walk / strike / cast fallbacks. Passing a negative Rect2
 	# width to
@@ -288,6 +288,46 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		_draw_flipped_texture_region(canvas, tex, source_rect, dest_rect, modulate)
 	else:
 		canvas.draw_texture_rect_region(tex, dest_rect, source_rect, modulate, false, true)
+
+
+# Exhausted (KO) pets lie flat on the ground instead of standing (live QA
+# 2026-07-04: the old y-squash still read as "standing but idle").
+# draw_texture_rect_region cannot rotate and draw_set_transform is banned in
+# _draw paths (identity-reset trap), so build the rotated quad vertices
+# directly and map the sheet cell through NORMALIZED UVs (raw pixel UVs
+# silently clamp — draw_polygon UV trap).
+func _draw_exhausted_lying_sprite(canvas: CanvasItem, tex: Texture2D, source_rect: Rect2, dest_rect: Rect2, modulate: Color, flip: bool) -> void:
+	if tex == null or dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
+		return
+	var half_w := dest_rect.size.x * 0.5
+	var half_h := dest_rect.size.y * 0.5
+	# Rest the lying body on the standing sprite's feet line; the rotated body's
+	# on-screen half-height is the original half-WIDTH.
+	var ground_y := dest_rect.end.y
+	var center := Vector2(dest_rect.get_center().x, ground_y - half_w)
+	# 90° rotation: screen-space axes for the sprite's local +x (right) and +y (down).
+	# head_dir picks which side the head falls toward, following the facing flip.
+	var head_dir := -1.0 if flip else 1.0
+	var local_right := Vector2(0.0, head_dir)
+	var local_down := Vector2(-head_dir, 0.0)
+	var tl := center - local_right * half_w - local_down * half_h
+	var tr := center + local_right * half_w - local_down * half_h
+	var br := center + local_right * half_w + local_down * half_h
+	var bl := center - local_right * half_w + local_down * half_h
+	var tex_size: Vector2 = tex.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return
+	var uv0 := source_rect.position / tex_size
+	var uv1 := source_rect.end / tex_size
+	var points := PackedVector2Array([tl, tr, br, bl])
+	var uvs := PackedVector2Array([
+		Vector2(uv0.x, uv0.y),
+		Vector2(uv1.x, uv0.y),
+		Vector2(uv1.x, uv1.y),
+		Vector2(uv0.x, uv1.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, tex)
 
 
 func resolve_companion_sprite_state_for_tests(config: Dictionary) -> Dictionary:

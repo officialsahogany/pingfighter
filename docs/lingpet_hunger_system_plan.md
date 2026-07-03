@@ -125,8 +125,10 @@ repo grep 결과 허기/포만/기력/스태미나 계열은 전부 미사용(�
 - **전투 중 + 활성(필드) 컴패니언만**, `egg_runtime.update()` STATE_COMPANION
   분기에서 delta 누적 — `update_lingpet`은 모든 모달 일시정지 브랜치가 스킵하므로
   일시정지/TAB/시네마틱/광장 동결이 공짜(월클록 쿨다운 누수 트랩 구조 면역).
-- 초기값: **0.25/초** (풀바 100 ≈ 활성 6.7분 ≈ 배틀 약 2판 — "한 판은 마음껏,
-  두 판째부터 선택"). 밴드 0.2~0.5/초에서 V3-6 튜닝과 함께 확정.
+- 드레인 속도: **0.52/초로 재상향 확정(2026-07-04, 라이브 2차 튜닝 — "탈진까지
+  30% 가속" 요청)** — 이력: 0.25(초기, 거의 정지로 읽힘) → 0.40(7/3) → 0.52.
+  풀바 3.2분 ≈ 배틀 1판. 파생치 자동 연동: 휴식 회복 0.173/초, KO 자동 기상
+  ~58초, 귤(+40)=77초 분량. 스모크 기대값은 상수 파생이라 재튜닝은 상수 1줄.
 - 목표 가동률: 단일 펫 무급식 = 런 활성 전투시간의 ~25-30%, 3마리 순환 시
   ~75-90% — "로테이션하면 이득, 한 마리 고집하면 공백"을 만드는 수치 지점.
 - sortie/free_flight 펫: hidden(오프스크린) 구간 **포함** 드레인(지상/비행
@@ -136,7 +138,7 @@ repo grep 결과 허기/포만/기력/스태미나 계열은 전부 미사용(�
 ### 4.3 휴식 회복 (스태미나형 핵심)
 
 - 교체 아웃(비활성 슬롯) 펫은 **기본 내장 저속 회복: 드레인의 1/3**
-  (0.25/초 드레인 기준 ≈ 0.083/초). 먹이배낭 없이 제공.
+  (0.40/초 드레인 기준 ≈ 0.133/초). 먹이배낭 없이 제공.
 - 이로써 "L키 교체 = 사실상의 휴식"이 성립 — 원안 6번(비활성화 토글)의 목표
   80%를 신규 상태머신 없이 커버 (토글 자체는 §7 Slice 5 보류).
 
@@ -158,9 +160,12 @@ repo grep 결과 허기/포만/기력/스태미나 계열은 전부 미사용(�
   배선**: body hit(`_resolve_companion_ball_hit`) / 선제타격(strike anticipator)
   / 스킬 arm 게이트 / 수비 인터셉트 / 클릭 교감 지급. 기존
   `suppresses_companion_body_hit`는 skill_id 디스패치라 재사용 불가 — 파킹≠비활성
-  트랩 직격 지점. KO 포즈: 지상 = 레인 Y 파킹 + 잠듦(Zzz) 연출, 비행 = 가시
-  위치 강하 후 파킹(플랩 하한 0.12 때문에 비율 조작만으로는 뻗은 모습 표현 불가
-  — 전용 연출 필요). 연출 프레이밍은 '아사'가 아니라 '지쳐서 잠듦'.
+  트랩 직격 지점. KO 포즈(2026-07-04 라이브 QA 개정): **탈진한 그 자리에서
+  바닥 레인으로 수직 강하해 눕는다** — 파킹 X는 펫 자신의 현재 위치(플레이어
+  앵커 금지: 구 구현이 player_pos 중앙으로 글라이드해 잠든 펫이 캐릭터와 겹침),
+  포즈는 90° 회전 눕힘(`_draw_exhausted_lying_sprite`, draw_set_transform 금지
+  트랩이라 회전 쿼드 정점 직접 계산 + 정규화 UV draw_polygon) + Z 마커.
+  연출 프레이밍은 '아사'가 아니라 '지쳐서 잠듦'.
 - 탈진 펫으로의 전환: **허용하되 탈진 상태 그대로 투입**(선택지를 막기보다
   결과를 보여주는 쪽이 부당함이 적음). 먹이면 기상 전용 연출(벌떡 일어나기) —
   "탈진 → 급식 → 부활"이 이 시스템 최대의 감정 보상 모먼트.
@@ -168,8 +173,8 @@ repo grep 결과 허기/포만/기력/스태미나 계열은 전부 미사용(�
   이상이 될 때만 해제 — "포만도 > 0 즉시 해제"는 금지(벤치 1틱 왕복 핑퐁으로
   텔레그래프 기능 윈도우를 무한 farming 가능 + D10 무력화). KO 중에는 활성
   펫도 휴식 속도(드레인 1/3)로 회복("잠들어 쉬는 중") → 임계 도달 시 자동
-  기상(~2분). 먹이는 즉시 기상 가속제. 1펫 로스터의 영구 KO 데드락도 이
-  규칙으로 해소.
+  기상(0.40/초 드레인 기준 ~75초). 먹이는 즉시 기상 가속제. 1펫 로스터의 영구
+  KO 데드락도 이 규칙으로 해소.
 
 ### 4.5 먹이 전환 (V3-5 supersede — 원자적 개정 필수)
 
@@ -312,10 +317,14 @@ Slice 3)만 사용한다.
 
 - **Slice 0 — 결정 잠금** (코드 0줄): ✅ 핵심 3결정(D1/D3/D4) 잠금 완료
   (2026-07-03). 잔여 D-결정은 해당 슬라이스 착수 전 잠금(§8).
-> **커밋 상태(2026-07-03)**: Slice 1+3a+3b 코어 = **`2ae19366a`** ("Wire
-> lingpet satiety system core", 8파일 +725, 사티에티-전용 헌크분리 커밋 —
-> battle_scene_state/egg_runtime의 무관 WIP(sand_prison/star_coil/dwarf_magic
-> 키 + egg-roll required_hits 리팩터)는 의도적으로 미스테이징 유지). **주의**:
+> **커밋 상태(2026-07-03)**: Slice 1+3a+3b 코어 = **`2ae19366a`** (8파일 +725),
+> Slice 4 먹이 전환 = **`f1bb2dd2b`** ("Convert lingpet feed to satiety", 23파일
+> +836/-413, feed-only 헌크분리 커밋). 두 커밋 모두 사티에티/먹이-전용 —
+> egg-roll(lingpet_egg / required_hits) + combo_amplifier_chip WIP가 같은 파일
+> (egg_runtime / language_settings / active_item_catalog / slot_controller 등)에
+> 얽혀 있으나 의도적으로 미스테이징 유지. Slice 4 헌크분리 검증: staged +egg
+> 추가 0(넓은 마커 재스캔), 삭제된 feed 심볼(SOURCE_FEED/MAX_FEED_USES_PER_RUN)은
+> 소스-문자열 감사로만 참조, 커밋 트리 egg-roll 함수 dangling 0 확인. **주의**:
 > Slice 3a의 스킬 arm-gate 파일 2개(lingpet_companion_skill_controller.gd,
 > lingpet_companion_skill_update_context_builder.gd)는 그 이전 체크포인트
 > **`e8e141e7c`**("checkpoint lingpet module cluster")에 "bare rolling egg"
@@ -328,7 +337,28 @@ Slice 3)만 사용한다.
   (드레인 OUTCOME / pause 동결 / 왕복 / divergent owner) + RED 반증검증
   (DEFAULT_VALUES 임시 제거). 스모크는 리뷰에서 독립 재실행 GREEN. 이월 의무
   3건은 §4.6/§5에 기록. TAB 관찰 표시는 Slice 2로 이동.
-- **Slice 2 — TAB 포만도 바**: 교감 밴드 확장 (§5). 42px 게이트 assert + 픽셀 QA.
+- **Slice 2 — TAB 포만도 바**: ✅ **완료(2026-07-03, Codex 배선 + Claude 적대
+  리뷰 APPROVE, 미커밋)** — 교감 밴드 확장(`AFFINITY_BAND_HEIGHT` 50, 실제
+  rect `-10px` 여유로 42px 해금 게이트 유지) + `snapshot["satiety_pct"]` /
+  `companion_exhausted` / `satiety_exhaustion_ratio` 경유 포만도 8px 스트립
+  (`merge_runtime_satiety_snapshot`, 신규 배관 0) + 정상/경고/위험/탈진/펫없음
+  + 빈 pet_id 6상 상태 스모크 + owner 키(`lingpet_satiety_pct`) 미사용을
+  소스-부재 단언으로 봉인 + 비헤드리스 probe 캡처. **리뷰 검증**: 스모크 5본
+  독립 재실행 GREEN, 캡처 픽셀 QA 통과(포만 스트립+73%+겹침 없음, 정상 상태),
+  탈진≠펫없음 게이트 반증검증 리뷰어 직접 재현(`has_active_companion` 강제
+  true → 숨김 단언 2건 RED → 원복 GREEN). 색 임계 = 스펙 정합(≤50 warning /
+  ≤20 critical / 탈진 critical+`탈진 Zzz`). **`character_info_live_stats_smoke`
+  RED는 Slice 2 무관 확정**: 실패 단언(Lunabi Live2D 1024셀 시작/전진)이
+  기존 레퍼런스 사고(비헤드리스 실행 → pending .import 실체화, 클릭 Live2D
+  size_limit decouple 미커밋 WIP 표면)와 동일 — satiety 접점 0, .import
+  실체화 흔적(7/2) 확인. 잔여: 경고/위험/탈진 상태의 실제 색 픽셀은 라이브
+  QA에서 Slice 3b 텔레그래프/Zzz와 함께 확인.
+  **커밋 방침 확정(2026-07-03, 사용자)**: Slice 2는 feed-only식 헌크 분리
+  금지 — 프레젠터·frame_presenter가 오로라/에디토리얼 크롬 WIP와 draw_panel
+  시그니처/내부 레이아웃 등 **함수 수준**으로 얽혀 있어 분리 수술이 커밋 트리
+  정합성보다 더 위험. **UI 프리미엄 리스타일 클러스터를 닫을 때 함께 커밋**하고,
+  라이브 QA(황/적/탈진 색 픽셀 + Slice 3b 텔레그래프/Zzz)는 그 직전 또는
+  직후 한 번에 수행.
 - **Slice 3a — 감속 + 탈진 게이트**: ✅ **완료(2026-07-03, Codex 배선 + Claude
   적대 리뷰 APPROVE, 미커밋)** — 곡선(>50=1.0, 50→10 선형 1.0→0.6, <10=0.6,
   `get_satiety_speed_multiplier_for_value`) + 텔레그래프 1.75s
@@ -363,8 +393,8 @@ Slice 3)만 사용한다.
      증명하지 못하는 약한 봉인이므로, **실제 화면 픽셀 QA가 라이브 QA 게이트로
      남아 있음**(리뷰에서 미수행). 소스 검사 봉인은 함수명 리네이밍 시 조용히
      깨질 수 있으니 렌더 리팩터 시 주의.
-- **Slice 4 — 먹이 전환 (원자적)**: ✅ **완료(2026-07-03, Codex 배선 + Claude
-  적대 리뷰 APPROVE, 미커밋)** — `lingpet_feed` = 귤(+40, 필드+샵),
+- **Slice 4 — 먹이 전환 (원자적)**: ✅ **완료 + 커밋 `f1bb2dd2b`
+  (2026-07-03, Codex 배선 + Claude 적대 리뷰 APPROVE + feed-only 헌크분리 커밋)** — `lingpet_feed` = 귤(+40, 필드+샵),
   `lingpet_special_feed` = 특제 사료(+100, 샵+보상, reward_only). 공유 effect id
   `lingpet_feed` + `feed_amount` per-item 스레딩(catalog→facade→feed_lingpet→
   controller pending→완료 `add_satiety`), SOURCE_FEED 완전 제거, 배틀당 완료
@@ -441,6 +471,35 @@ Codex는 2026-07-03 자체 리뷰에서 이 문서의 결론(포만도 개명, �
 토글/급식기 보류, 감속 하한 0.6, 참여율 비례화, 소식 2차 해금행)에 독립
 수렴했으므로 이 문서 §4~§8을 그대로 작업 지시서로 사용한다.
 
+### Slice 2 지시 (TAB 포만도 바 — 착수 승인 2026-07-03, Slice 4 커밋 f1bb2dd2b 후)
+
+렌더 전용 슬라이스, 결정 대기 없음. `character_info_overlay_lingpet_presenter.gd`.
+
+- **데이터 = 스냅샷 경유(신규 배관 0)**: Slice 1/3에서 이미 published된
+  `snapshot["satiety_pct"]`(정수 0~100) + `snapshot["companion_exhausted"]`
+  + `snapshot["satiety_exhaustion_ratio"]`를 읽는다. TAB 슬롯 탭은 벤치 인라인
+  뷰가 아니라 **활성 슬롯 스위처**라(클릭 시 switch_lingpet_slot → 스냅샷이 새
+  활성 펫으로 갱신) TAB은 항상 활성 펫을 표시 = 스냅샷 satiety_pct가 정확.
+  per-pet 스토어 직접 읽기 불필요.
+- **탈진 ≠ 펫없음 구분 필수**: satiety_pct는 비-컴패니언 시 0이라 "펫 없음"과
+  "탈진(0)"이 같은 값. 스트립 가시성은 활성 컴패니언 존재로 게이트하고, 0일 때
+  `companion_exhausted`로 탈진(적색+'탈진'/Zzz)과 미배치(스트립 숨김/빈 상태)를
+  갈라라. owner 키 `lingpet_satiety_pct`는 in-game HUD용(활성 전용)이라 TAB에서
+  읽지 말 것.
+- **레이아웃 = 스탯 행 추가 금지, 교감 밴드 확장(§5)**: `AFFINITY_BAND_HEIGHT`
+  34→~50, `draw_affinity_status`(:384) 안에서 교감 미터 하단에 2번째 미터(8px)
+  추가, `companion_art_rect` 자동 수축은 기존 파라미터로 흡수. 색: >50 기본 /
+  ≤50 황색 / ≤20 적색. 능력치 탭 행은 손대지 않음(용량 스모크 무변경이 세이프가드).
+- **오로라 WIP 헌크 금지**: 이 파일은 미커밋 '링펫 회전 오로라' WIP와 공유.
+  교감 밴드 확장 헌크만 추가하고 오로라 헌크는 건드리지 말 것. 커밋 시 헌크
+  엉키면 Claude가 직접 분리(Slice 1/4 선례).
+- **봉인**: (a) 확장 밴드 높이에서도 해금 대기 밴드 42px 게이트(:259 인근)가
+  여전히 통과함을 assert, (b) 탈진/미배치/정상 3상에서 스트립 상태가 스냅샷
+  필드와 일치(상태 스모크 or 소스-존재 검사), (c) 텍스트 겹침 없음 픽셀 QA,
+  (d) 렌더라 **캡처/픽셀 QA 필수**(Slice 3b 텔레그래프/Zzz 픽셀 QA와 함께 볼 수
+  있음). headless dummy renderer가 SubViewport null이면 자동 픽셀은 불가하니
+  실제 화면 캡처로.
+
 ### 작업 범위와 순서
 
 - **1차 지시 = Slice 1(포만도 상태 코어) 단독.** §7의 스모크 4본(드레인
@@ -504,11 +563,12 @@ Slice 1+3a+3b 커밋(`2ae19366a`) 후 다음 지시. **한 커밋에 원자적�
 
 ### 수치 초기값 (전부 튜닝 레버 — §4 근거)
 
-드레인 0.25/초(활성 전투 중만) / 휴식 회복 = 드레인의 1/3 / 감속 = 포만도
+드레인 **0.40/초**(활성 전투 중만 — 2026-07-03 라이브 튜닝으로 0.25→0.40 상향,
+스모크는 상수 파생) / 휴식 회복 = 드레인의 1/3 / 감속 = 포만도
 50→10에서 1.0→0.6 선형, 하한 0.6, 0에서만 정지 / 탈진 텔레그래프 1.75초 /
-KO 기상 임계 10 / **먹이 2종: 귤 +40, 특제 사료 +100, 배틀당 급식 2회 캡** /
-소식 체질 `satiety_drain_reduction_pct_by_level := [10, 17, 24, 31, 38]`,
-합산 감면 상한 ≤ 40~60%.
+KO 기상 임계 10(자동 기상 ~75초) / **먹이 2종: 귤 +40, 특제 사료 +100, 배틀당
+급식 2회 캡** / 소식 체질 `satiety_drain_reduction_pct_by_level := [10, 17,
+24, 31, 38]`, 합산 감면 상한 ≤ 40~60%.
 
 ### 완료 게이트 (슬라이스 공통)
 

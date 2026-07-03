@@ -44,6 +44,7 @@ func _run() -> void:
 	await _verify_skipped_update_freezes_satiety()
 	_verify_save_restore_roundtrip()
 	_verify_schema_gated_owner_mirror()
+	_verify_float_residue_cannot_block_exhaustion()
 	_verify_satiety_slow_curve_and_junior_exemption()
 	_verify_flight_velocity_uses_satiety_scale()
 	_verify_telegraphed_exhaustion_suppresses_and_recovers()
@@ -68,10 +69,12 @@ func _verify_active_drain_and_rest_recovery() -> void:
 	runtime.set_satiety_for_tests("maribo", 100.0)
 	runtime.set_satiety_for_tests("lunabi", 50.0)
 	runtime.update(12.0, owner, registry)
-	_expect_float(runtime.get_satiety("maribo"), 97.0, "active companion should drain satiety by 0.25/sec")
-	_expect_float(runtime.get_satiety("lunabi"), 51.0, "inactive battle-slot lingpet should recover at one-third drain")
+	var expected_active := 100.0 - 12.0 * LingpetAffinityState.SATIETY_DRAIN_PER_SECOND
+	var expected_rest := 50.0 + 12.0 * LingpetAffinityState.SATIETY_DRAIN_PER_SECOND * LingpetAffinityState.SATIETY_REST_RECOVERY_RATIO
+	_expect_float(runtime.get_satiety("maribo"), expected_active, "active companion should drain satiety at SATIETY_DRAIN_PER_SECOND")
+	_expect_float(runtime.get_satiety("lunabi"), expected_rest, "inactive battle-slot lingpet should recover at one-third drain")
 	var snapshot: Dictionary = runtime.get_snapshot()
-	_expect_eq(int(snapshot.get("satiety_pct", -1)), 97, "runtime snapshot should expose quantized active satiety")
+	_expect_eq(int(snapshot.get("satiety_pct", -1)), roundi(expected_active), "runtime snapshot should expose quantized active satiety")
 	_cleanup_runtime(runtime)
 
 
@@ -85,7 +88,7 @@ func _verify_skipped_update_freezes_satiety() -> void:
 	await process_frame
 	_expect_float(runtime.get_satiety("maribo"), 80.0, "satiety must not use wall-clock time while update_lingpet is skipped")
 	runtime.update(1.0, owner, registry)
-	_expect_float(runtime.get_satiety("maribo"), 79.75, "satiety should resume from the delta-driven update tick")
+	_expect_float(runtime.get_satiety("maribo"), 80.0 - LingpetAffinityState.SATIETY_DRAIN_PER_SECOND, "satiety should resume from the delta-driven update tick")
 	_cleanup_runtime(runtime)
 
 
@@ -130,6 +133,38 @@ func _verify_schema_gated_owner_mirror() -> void:
 	runtime.update(0.0, owner, registry)
 	_expect_eq(_owner_int(owner, "lingpet_satiety_pct"), 77, "schema-gated owner should receive divergent lingpet satiety")
 	_expect_eq(_owner_int(owner, "ringpet_satiety_pct"), 77, "schema-gated owner should receive divergent ringpet satiety")
+	_cleanup_runtime(runtime)
+
+
+func _verify_float_residue_cannot_block_exhaustion() -> void:
+	# Live-bug repro (2026-07-04): a real-tick drain sequence left satiety pinned at a
+	# sub-epsilon positive residue (~2e-10). set_satiety's is_equal_approx write gate
+	# treated "residue ≈ 0" as unchanged and skipped the 0.0 write, freezing the residue
+	# forever; the exhaustion "satiety > 0" branch then reset the KO timer every tick, so
+	# pets never exhausted in live play while every synthetic-exact-0 smoke stayed GREEN.
+	# The sanitize snap must collapse the residue to exactly 0 so exhaustion accumulates.
+	var owner := _make_owner()
+	var registry = Smoke.FakeRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry), "residue fixture should activate Maribo")
+	runtime.set_satiety_for_tests("maribo", 0.0000000002)
+	_expect_float(runtime.get_satiety("maribo"), 0.0, "sub-epsilon satiety residue must snap to exactly 0")
+	for i in 150:
+		runtime.update(1.0 / 60.0, owner, registry)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "residue-injected pet must still exhaust after the telegraph window")
+
+	runtime.set_satiety_for_tests("maribo", 20.0)
+	runtime.update(0.0, owner, registry)
+	_expect(not runtime.is_companion_exhausted_for_tests(owner), "residue fixture should wake before the real-tick sequence leg")
+	runtime.set_satiety_for_tests("maribo", 1.0)
+	# 1.0 / 0.40 per sec = 0 at tick 150; telegraph completes at ~tick 255. Check the
+	# exact-0 landing DURING the telegraph window (before KO-rest recovery kicks in).
+	for i in 160:
+		runtime.update(1.0 / 60.0, owner, registry)
+	_expect_float(runtime.get_satiety("maribo"), 0.0, "real-tick drain sequence must land on exactly 0, not a float residue")
+	for i in 140:
+		runtime.update(1.0 / 60.0, owner, registry)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "real-tick drain sequence must reach exhaustion")
 	_cleanup_runtime(runtime)
 
 
@@ -269,7 +304,8 @@ func _verify_d12_wake_threshold_and_active_rest_recovery() -> void:
 	runtime.update(2.0, owner, registry)
 	_expect(runtime.is_companion_exhausted_for_tests(owner), "D12 fixture should reach KO before recovery checks")
 	runtime.update(125.0, owner, registry)
-	_expect_float(runtime.get_satiety("maribo"), 10.416, "active KO companion should recover at rest speed", 0.02)
+	var expected_ko_rest := 125.0 * LingpetAffinityState.SATIETY_DRAIN_PER_SECOND * LingpetAffinityState.SATIETY_REST_RECOVERY_RATIO
+	_expect_float(runtime.get_satiety("maribo"), expected_ko_rest, "active KO companion should recover at rest speed", 0.02)
 	_expect(not runtime.is_companion_exhausted_for_tests(owner), "active KO companion should auto-wake once satiety reaches 10")
 	_cleanup_runtime(runtime)
 
@@ -304,6 +340,11 @@ func _verify_hidden_sortie_exhaustion_parks_visibly() -> void:
 	_expect(str(snapshot.get("companion_sortie_phase", "")) == LingpetCompanionMotionState.SORTIE_PHASE_EXHAUSTED_PARK, "hidden sortie KO should enter the exhausted park phase")
 	_expect(parked_pos.x >= 0.0 and parked_pos.x <= LingpetCompanionMotionState.FIELD_WIDTH, "hidden sortie KO park x should be inside the playfield")
 	_expect(parked_pos.y >= 0.0 and parked_pos.y <= LingpetCompanionMotionState.FIELD_HEIGHT, "hidden sortie KO park y should be inside the playfield")
+	# Live QA 2026-07-04: KO parking must collapse where the pet was (clamped to the
+	# nearest edge for this offscreen -190 fixture), NOT glide to the player's center
+	# (~380) — the old player-anchored target left the sleeping pet overlapping the
+	# player paddle.
+	_expect(parked_pos.x < 120.0, "hidden sortie KO should park near its own (clamped) position, not glide to the player center")
 	_expect_float(float(snapshot.get("satiety_speed_scale", -1.0)), 0.0, "parked KO flight pet should still publish zero satiety speed scale")
 	_cleanup_runtime(runtime)
 
@@ -315,7 +356,8 @@ func _verify_satiety_exhaustion_renderer_contract() -> void:
 	_expect(draw_context_source.find("\"satiety_exhaustion_ratio\"") >= 0, "draw context should pass telegraph ratio to the companion renderer")
 	_expect(renderer_source.find("_draw_satiety_exhaustion_telegraph") >= 0, "renderer should consume the telegraph ratio for visible warning feedback")
 	_expect(renderer_source.find("_draw_exhausted_sleep_marker") >= 0, "renderer should consume exhausted state for visible sleep feedback")
-	_expect(renderer_source.find("dest_rect.size.y *= 0.76") >= 0, "renderer should visibly lower/squash exhausted companion posture")
+	_expect(renderer_source.find("_draw_exhausted_lying_sprite") >= 0, "renderer should draw the exhausted companion lying flat on the ground")
+	_expect(renderer_source.find(".draw_set_transform(") < 0 and renderer_source.find(".draw_set_transform_matrix(") < 0, "renderer must not CALL draw_set_transform for the lying rotation (identity-reset trap) — rotated quad vertices only")
 
 
 func _make_owner() -> Object:

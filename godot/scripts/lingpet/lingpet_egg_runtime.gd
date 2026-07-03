@@ -1685,7 +1685,7 @@ func reset_for_tests() -> void:
 	_companion_skill_persistence.reset_store()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
-	_feed_controller.reset_all()
+	_feed_controller.reset_for_new_battle()
 	_overflow_choice_state.reset()
 	_item_egg_lifecycle_state.clear_runtime_state(
 		_item_egg_state,
@@ -2762,6 +2762,7 @@ func get_enhancement_chip_multiplier() -> float:
 func reset_affinity_for_new_battle() -> void:
 	_invalidate_runtime_snapshot_cache()
 	_affinity_battle_lifecycle.reset_for_new_battle(_affinity_income_tracker, _affinity_state)
+	_feed_controller.reset_for_new_battle()
 	_affinity_grant_controller.clear_last_result()
 
 
