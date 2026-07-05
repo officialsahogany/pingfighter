@@ -358,8 +358,16 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"stage2.pillar.hud",
 		"stage2.pillar.active_item_hud",
 		"stage2.pillar.boss_skill_hud",
+		"stage2.rail.context_build",
 	]:
 		_expect(pillar_scene_source.find(label) >= 0, "Stage 2 pillar draw should expose BattlePerf label %s" % label)
+	for label in [
+		"stage2.rail.cards_draw",
+		"stage2.rail.lingpet_card",
+		"stage2.rail.gauge_speech",
+		"stage2.rail.tooltip",
+	]:
+		_expect(boss_hud_source.find(label) >= 0, "Stage 2 boss skill rail should expose diagnostic BattlePerf label %s" % label)
 	_expect(
 		_function_body(pillar_scene_source, "func _draw_stage2_boss_skill_hud").find("context.duplicate()") < 0,
 		"Stage 2 boss skill HUD should build a compact draw context instead of copying the full battle context"

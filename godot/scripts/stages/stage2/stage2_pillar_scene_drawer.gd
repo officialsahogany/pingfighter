@@ -160,17 +160,21 @@ func _draw_stage2_boss_skill_hud(
 	var skill_state: Object = registry.get_instance("stage2_boss_skill_state")
 	if skill_state == null or not skill_state.has_method("get_hud_context"):
 		return
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var sample_start: int = _perf_begin(perf_logger)
 	var stage_background: Object = registry.get_instance("stage2_pillar_background")
 	var hud_context: Dictionary = _get_dictionary(skill_state.get_hud_context(stage_background, context))
 	hud_context["current_stage"] = int(context.get("current_stage", 2))
 	hud_context["view_size"] = view_size
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
+	hud_context["battle_perf_logger"] = perf_logger
 	var avoid_rect_value: Variant = context.get("commando_firearm_panel_rect", Rect2())
 	if avoid_rect_value is Rect2:
 		hud_context["commando_firearm_panel_rect"] = avoid_rect_value
 	# Hatched lingpet rides this stage's boss skill rail too (companion persists across stages).
 	LingpetRailCard.append_entry(hud_context, registry, "stage2_boss_skill_hud_skills", "stage2_boss_skill_hud_active")
+	_perf_end(perf_logger, "stage2.rail.context_build", sample_start)
 	renderer.draw(canvas, hud_context)
 
 

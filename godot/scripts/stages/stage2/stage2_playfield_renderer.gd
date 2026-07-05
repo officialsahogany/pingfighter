@@ -16,17 +16,17 @@ const VINE_RUSTLE_RANGE := 120.0
 const VINE_RUSTLE_NORMAL := 7.0
 const VINE_RUSTLE_DASH := 12.0
 const VINE_RUSTLE_STRIP_COUNT := 1
-const VINE_RENDER_STRIDE_SEVERE_LOD := 2
+const VINE_RENDER_STRIDE_SEVERE_LOD := 1
 const ENABLE_STATIC_BUSH_CLUSTER_CACHE := false
 const MAX_BUSH_TEXTURE_CLUSTERS_PER_BUSH := 3
 const BUSH_RENDER_STRIDE_SEVERE_LOD := 1
 const BUSH_CLUSTER_RENDER_STRIDE_SEVERE_LOD := 2
 const PLAYER_BUSH_TEXTURE_CLUSTER_BONUS := 1
-const FALLING_LEAF_RENDER_LIMIT := 2
-const FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD := 0
-const ELLIPSE_SEGMENTS := 18
-const ELLIPSE_OUTLINE_SEGMENTS := 24
-const ELLIPSE_ARC_SEGMENTS := 12
+const FALLING_LEAF_RENDER_LIMIT := 8
+const FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD := 6
+const ELLIPSE_SEGMENTS := 32
+const ELLIPSE_OUTLINE_SEGMENTS := 64
+const ELLIPSE_ARC_SEGMENTS := 28
 const LOD_ACTIVE_THRESHOLD := 0.85
 const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
 const PERF_LOG_ENV := "PINGFIGHTER_STAGE2_PERF_LOG"
@@ -754,6 +754,7 @@ func _draw_center_stadium_base(canvas: CanvasItem, width: float, _height: float,
 	canvas.draw_line(Vector2(0.0, cy), Vector2(width, cy), _rgba255(11.0, 166.0, 85.0, 255.0), line_width + 2.0, true)
 	canvas.draw_line(Vector2(0.0, cy), Vector2(width, cy), _rgba255(18.0, 220.0, 117.0, 255.0), line_width, true)
 	_draw_ellipse(canvas, ring_rect, _rgba255(12.0, 30.0, 31.0, 255.0))
+	_draw_ellipse_outline(canvas, ring_rect, _rgba255(18.0, 205.0, 106.0, 255.0), max(2.0, round(3.0 * s)))
 	var inner_rect := ring_rect.grow(-18.0 * s)
 	if inner_rect.size.x > 0.0 and inner_rect.size.y > 0.0:
 		_draw_ellipse(canvas, inner_rect, _rgba255(12.0, 24.0, 27.0, 255.0))
@@ -977,9 +978,7 @@ func _draw_bush_leaf_dots(canvas: CanvasItem, bush: Dictionary, scale_x: float, 
 				canvas.draw_circle(pos, size * 0.45, color)
 
 
-func _draw_stadium_electric_flow(canvas: CanvasItem, width: float, center_x: float, line_y: float, ring_rect: Rect2, quality_scale: float) -> void:
-	if _is_severe_lod_active(quality_scale):
-		return
+func _draw_stadium_electric_flow(canvas: CanvasItem, width: float, center_x: float, line_y: float, ring_rect: Rect2, _quality_scale: float) -> void:
 	var cycle: float = fmod(time_sec, 18.0)
 	if cycle > 0.85:
 		return
