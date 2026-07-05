@@ -1,5 +1,12 @@
 # Regression Risk Triage - 2026-05-22
 
+> **ARCHIVED (frozen since 2026-05-25, provenance only).** This triage is a
+> historical record with no inbound references from live routing docs. Do NOT
+> re-run any command recorded below — in particular the "Executed Isolation
+> Commands" section records a `git stash push` that is PROHIBITED under the
+> current repo rule (CLAUDE.md §0: never `git reset` / `git checkout` /
+> `git stash` in this dirty-worktree repo).
+
 Current target: Godot `godot/`. Legacy Python/Pygame files are frozen
 reference unless explicitly requested.
 
@@ -1939,9 +1946,12 @@ git branch safety/regression-triage-20260522
 git diff --binary > regression-triage-20260522-workingtree.patch
 ```
 
-Legacy runtime / asset isolation:
+Legacy runtime / asset isolation (historical record of a command executed
+once on 2026-05-22 — PROHIBITED to re-run; `git stash` is banned in this
+repo, see CLAUDE.md §0):
 
-```powershell
+```text
+# DO NOT RE-RUN — historical record only. git stash is prohibited in this repo.
 git stash push -u -m "legacy-python-and-root-assets-before-godot-stabilization" -- `
   ':!godot/**' ':!docs/**' ':!AGENTS.md' ':!.claude/**'
 ```

@@ -6,6 +6,75 @@ Codex 리뷰용. 이 세션(fable-5 → opus-4.8)이 72FPS 프레임 예산 최�
 진행 메모는 메모리 `project_stage2_stutter_investigation.md` /
 `project_stage1_entry_loading_optimization.md`.
 
+## [최신] 2026-07-02~03 세션: 240Hz 랩탑 실측 캠페인 (fable-5 + 사용자 적용)
+
+측정 환경: **RTX 4060 Laptop / 240Hz 모니터 → Stable Monitor 리졸브 렌더
+60 / 물리 60** (240÷4, 리졸버 정상 검증). 6/10~14 세션의 데스크톱
+RTX 5070 / 144Hz / 72캡과는 머신·캡·로드아웃이 다르므로 더블링% 직접 비교
+금지. 측정은 BattlePerf 플래그 3종 + `--log-file` 스탠드얼론 실행(에디터
+디버거 파이프 관찰자 효과 없음), 더블링 판정은 60캡 기준 `process.shell.delta`
+max ≥ 33.33ms(2틱). 원본 로그는 세션 스크래치패드(휘발)라 수치는 여기 박제.
+
+### 출하된 수정 (전부 워크트리 WIP, 스모크 봉인 + 실측 검증)
+
+상시 비용(합산 ~4ms/frame 회수):
+1. 링펫 owner_sync/profile/skill surface 캐시 — owner_sync -27%, skill_effects -30%
+2. 스테이지1 공유 보스스킬 레일 게이트 호이스트 — 스테이지≠1 낭비
+   1.24ms → 0.003ms (`stage1_pillar_hud_scene_drawer._draw_stage1_boss_skill_hud`)
+3. `get_snapshot()` 프레임/리비전 캐시 — 링펫 물리 2.9~3.2 → 0.92ms
+4. `LingpetCatalog` active skill id 정적 인덱스 — 레일 `cards_draw`
+   0.865 → 0.056ms (보스 카드 miss가 14펫 풀스캔+딥카피 타던 것 제거)
+5. 레일 전용 협소 surface `get_rail_card_surface()` — 레일 `context_build`
+   0.71 → 0.049ms (거대 스냅샷 빌드가 정보창 열릴 때만으로 강등)
+6. 진단 라벨 다수 (stage3/4 post-HUD, rail 서브, egg_phase 4분할,
+   round_dep 모듈별, character_info_prewarm 분해)
+
+원샷 로딩 히치:
+7. 전환 리셋 전 stage round-deps 스텝 + 키 단일소스
+   (`ball_dependency_context.get_stage_round_dep_keys`) — 리셋 256 → 20ms
+8. round-dep 스크립트 threaded load (`script_instance_cache.request_threaded_script`)
+   — `stage2_pillar_background` 스크립트 포레스트 253 → 0.1ms
+9. `character_info_prewarm` — resolve_module threaded(부트는
+   `battle_scene_shell` 브리지 필수!) + 텍스트 batch 분할 = 686 → 47.7ms
+10. 링펫 획득 컷인 reveal gate 동기 로드 제거(3s failsafe → 정지화 폴백) +
+    알 아이템 사용 시점 스트리밍 킥 — 알 사용 184 → 12.8ms, 해피패스 부화
+    egg_phase 50.9ms 확인. **단, run5의 679ms 급속부화 레이스는 미재현 —
+    egg_phase 4분할 라벨로 감시 중** (재현법: 알 사용 즉시 최속 부화)
+
+### 더블링 스코어보드 (run1 → run5, 동일 세션 내 추이)
+
+| 스테이지 | run1 | run5 | draw 평균 |
+|---|---|---|---|
+| 1 | 12% | 18.4% | 5.3→5.2ms |
+| 2 | 62.4% | 20% | 7.9→5.7ms |
+| 3 | 94.7% | **2.8%** | 9.3→5.8ms |
+| 4 | 96.8% | 47% | 10.7→6.8ms |
+| 5 | 90.5% | 61.8% | 10.2→7.0ms |
+| 6 | 미측정 | 79.4% | 7.1ms |
+
+s4~5 잔여 더블링은 1틱 스킵 위주로 성질 변화(run1은 40~60ms 스톨 지배).
+
+### 남은 백로그 (우선순위 순)
+
+1. **스테이지 4~6 플레이필드/필러 draw 본편** — 액터 ~4.8ms + 필러 씬
+   ~1.8ms, 설계서 S1/S2급 정적 캐싱 영역. 스테이지 6(테트리서)이 79.4%로
+   현재 최악 + 첫 진입 원샷(전환 step result 리소스 714.8ms,
+   `stage6.pillar.tetriser_boss_hud` 첫 드로 154.9ms) 미조사.
+2. 721ms 컷인 급속부화 레이스 감시/재현 (라벨 심어짐).
+3. **60Hz 모니터 + VSync On 릴리즈 기준 검증 런 미실시** (이번 세션은 전부
+   240Hz→60캡 + vsync off).
+4. character_info_prewarm 잔여 47.5ms 배치(runtime_perk 텍스트) 축소 —
+   수용 범위라 저우선.
+
+### 이번 세션이 백필한 트랩 (docs/godot_runtime_traps.md)
+
+- Shared HUD Wrapper Prep-Before-Gate Trap (build-then-discard)
+- Per-Frame Catalog Lookup Trap (miss-case full scan + deep copies)
+- Hot-Path Lazy Init Trap에 전환 스텝 순서 변형 + threaded script fix shape
+  + 부트 shell 브리지 footgun 추가
+- Threaded Texture trap에 readiness-gate corollary (게이트는 기다려야지
+  동기 로드 금지) 추가
+
 ## 0. 브랜치/커밋 상태 (먼저 읽을 것)
 
 - 현재 브랜치: `feature/plaza-hub-s4-s6b5`. 아래 4개 최적화 커밋은 **전부 이

@@ -242,6 +242,22 @@ These are the bugs most likely to survive a "looks registered" pass:
   Do not let per-frame equip sync flip ownership flags back to `False`
   on unequip, or field respawn / one-time gacha rules will silently
   break.
+- **Programmatic item use / scan paths must not mutate manual input-edge
+  state.** Auto-use helpers, AI-assist scans, recovery / defense checks,
+  or other pre-update item queries may run before the active-item input
+  reader in `battle_frame_flow_controller`. They must not call helpers that
+  rewrite edge bookkeeping such as `slot_key_pressed`,
+  `gamepad_selected_use_pressed`, or `gamepad_slot_cycle_direction`;
+  those states are owned by the real input-reading path
+  (`active_item_slot_controller.update()` / explicit locked-input sync).
+  Otherwise a no-match scan can mark a just-pressed key as already held
+  before the manual slot update sees it, so `pressed and not was_pressed`
+  fails and the player reads the item as unusable. Reference failure:
+  Smartphone's low-gauge recovery scan used `use_first_matching_item()`
+  before `update_active_items`; the scan found no recovery item but still
+  synchronized slot input, making `1` / `2` presses disappear. Regression
+  smoke: `active_item_slot_controller_smartphone_cooldown_smoke.gd` asserts
+  that a no-match Smartphone scan does not rewrite the slot key edge state.
 - **Runtime-skill-driven item behavior must share one canonical helper
   path end-to-end.** If item gameplay depends on academy / downtown /
   item-tree runtime skills or temporary effective-level bonuses, do not
@@ -261,6 +277,120 @@ These are the bugs most likely to survive a "looks registered" pass:
   generation above the base cap, confirm every scaling lane is still
   rendered (for example rarity bonus + passive-share bonus), not only
   the first effect.
+- **A field-zone item's gameplay HIT/CONTACT region must match the
+  VISIBLE effect, not its full expansion radius.** Expanding zone effects
+  (tear gas, smoke, aura, gas/fire fields) render a cloud that fades out
+  well INSIDE the max radius, but the soft particles/haze never reach the
+  full `max_radius`. If the contact/trigger test uses the raw zone radius,
+  the gameplay region is far larger than what the player sees — an actor
+  that is visibly nowhere near the cloud still triggers the effect.
+  Reference failure: tear gas paused boss skill cooldown anywhere inside
+  its `radius_x` 240 ellipse (≈ near-field-wide once clamped), even with
+  the boss far from the visible smoke. Fix = scale the contact ellipse to
+  the visible body, NOT the full radius. Pick the scale by overlaying
+  candidate ellipses on the real rendered effect; do not eyeball a constant.
+  The regression smoke must place the actor INSIDE the full ellipse but
+  OUTSIDE the visible body and assert no trigger — a "far from the whole
+  zone" case passes even with the bug
+  (`active_item_throw_tear_gas_smoke._verify_boss_inside_full_radius_but_outside_visible_smoke_does_not_pause`,
+  reverse-verified to FAIL at scale 1.0).
+  **The contact scale must be PER-AXIS when the cloud is not axis-uniform.**
+  A single shared scale cannot match a cloud that is drawn flatter on one
+  axis than the other: tear gas renders a wide-but-flat body (visible
+  half-width ≈ `radius_x·0.74`, visible half-height ≈ `radius_y·0.34`), so a
+  single `0.66` left the VERTICAL reach (`radius_y·0.66 ≈ 119px`) ~2x the
+  visible cloud height while the horizontal was fine. Because the boss lives
+  at the very TOP of the field, that residual vertical over-reach re-created
+  the bug: the ⏸ skill-stop marker showed above the boss head while the boss
+  was rendered ABOVE the cloud (`TEAR_GAS_BOSS_CONTACT_RADIUS_SCALE_X 0.66` /
+  `_Y 0.40`, sealed by
+  `active_item_throw_tear_gas_smoke._verify_boss_above_low_cloud_does_not_pause`,
+  reverse-verified to FAIL at `scale_y 0.66`). The seal MUST put the actor at
+  its real top-of-field position (the vertical mismatch is invisible when the
+  actor is vertically centered on the zone).
+  **A boss/actor-TARGETING zone item must also land the cloud so the VISIBLE
+  body reaches the target, not just so the trigger does.** Tear gas auto-aims
+  a fixed offset below the boss (`boss_pos.y + 40 + TEAR_GAS_TARGET_BELOW_BOSS`);
+  once the contact ellipse is honestly matched to the flat visible body, an
+  offset larger than the cloud's upward reach (`≈ radius_y·0.32`) tops the
+  rendered smoke out SHORT of the boss, so the (now-correct) trigger fires with
+  no visual contact. Design decision 2026-07-02: keep the boss-CC by lowering
+  the offset (`75 → 30`) so the billowing gas visibly envelops the boss, rather
+  than tightening the trigger into a no-op. Any actor-targeting field/zone item
+  must keep `aim_offset ≤ visible upward reach` (sealed by
+  `active_item_tear_gas_tuning_smoke` + `_verify_new_aim_zone_pauses_and_covers_boss`).
+  **A status MARKER must not outlive the gameplay effect it advertises.** If
+  the effect is a short re-armed latch (tear gas pause = 2f, refreshed every
+  contact frame), any separate display linger timer is grace only and must stay
+  at anti-flicker scale (≤ ~0.25s). Tear gas kept a 60f (1s) marker linger
+  after the 2f pause ended, so a dashing boss carried the ⏸ icon across the
+  field after leaving the cloud — read in-game as "icon with no gas contact"
+  even after the contact geometry was fixed (`TEAR_GAS_TEXT_DURATION_FRAMES
+  60 → 12`, sealed by `active_item_tear_gas_tuning_smoke`, reverse-verified to
+  FAIL at 60).
+- **An active item that CONSTRAINS boss movement (block / wall / fire
+  zone / push-back) cannot enforce that constraint from a pre-AI position
+  check alone — it must also apply a post-AI constraint.**
+  `battle_frame_flow_controller` runs `update_active_items` BEFORE
+  `update_boss_ai` in the same frame, so any contact/repulsion the item
+  computes (in `update_active_items`) is based on last frame's boss
+  position. The boss AI then moves — and the **40px/frame dash**
+  (`boss_ai_state` dash paths) both happens AFTER that check AND skips the
+  per-frame `_get_active_item_slow_multiplier` 감속 — so a dash blows
+  straight through the "obstruction" before the item ever reacts.
+  Reference failure: the molotov fire zone bounced the boss once, then it
+  dashed through. Fix = publish the zone geometry into the boss-AI context
+  and clamp the FINAL boss position inside `boss_ai_state.update()` (a thin
+  wrapper around `_update_motion` that calls
+  `_apply_molotov_fire_barrier`), so EVERY movement path (normal, dash,
+  knockback) is caught. The pre-AI bounce/slow still own the smooth feel;
+  the post-AI clamp is the hard no-cross guarantee. Three sub-traps the
+  post-AI constraint MUST handle:
+  - **Carry the contact y-band, not just the x midline.** Molotov fire
+    zones are reused by the Commando suicide drone, which spawns them at the
+    drone's projectile position ANYWHERE on the field. A barrier keyed on
+    `center_x` alone turns a low zone into a full-height vertical wall. The
+    barrier payload must include `center_y` and gate on the SAME y-band as
+    the effect's own contact test (`abs(boss_center_y - center_y) < 60`).
+  - **A blocked dash must be cancelled, not just position-clamped.**
+    Clamping the final position + zeroing `boss_vel` leaves
+    `boss_dash_active = true` and the dash state machine re-rams the midline
+    every frame for the rest of its timer. End the dash into its recovery
+    stun (`_end_boss_dash_on_fire_block`, mirroring the non-chain tail of
+    `_finish_boss_dash` — do NOT chain, which could re-cross).
+  - A smoke that fakes the AI by moving the boss BEFORE the item update
+    (the reverse of the real order) does NOT cover this. Assert through the
+    REAL `boss_ai_state.update()` with the actual dash state machine driving
+    a 40px/frame cross, and check both the clamp AND `boss_dash_active`
+    flipping false + the recovery stun arming
+    (`boss_ai_molotov_fire_barrier_smoke`, each sub-case reverse-verified to
+    FAIL with that guard disabled).
+- **A lingering boss-debuff timer (slow / DoT) that bleeds off inside a
+  per-frame updater leaks two ways unless BOTH are wired.** If a debuff uses a
+  manual frame timer that decays inside an updater gated by a "has any runtime
+  work?" check, and is cleared by a round-transition status reset:
+  - The timer must be in the **work gate** (`_has_runtime_update_work`), or once
+    the spawning object (fire zone, projectile) is gone the updater stops being
+    called, the timer **freezes at its last value**, and the boss stays debuffed
+    forever WITHIN the round.
+  - The timer must be zeroed in the **round-transition clear**
+    (`clear_round_boss_status_effects`, called from `reset_round`) — the full
+    `reset()` FLOAT_FIELDS list only covers death / main-menu, NOT round
+    boundaries — or the debuff **leaks into the next round**.
+  Reference failure: the molotov 화염 감속 (`molotov_fire_slow_timer_frames`,
+  designed to linger ~0.6s after the boss leaves the fire) stayed applied
+  forever and across rounds because it was in neither list. Prefer a
+  short-duration auto-expiring STATUS (the dragon-breath `apply_status` pattern,
+  which self-clears when not refreshed) over a manual lingering timer when you
+  can. Sealed by `active_item_throw_molotov_smoke`
+  `_verify_fire_slow_bleeds_off_and_keeps_runtime_alive` +
+  `_verify_round_clear_zeroes_fire_slow` (each reverse-verified to FAIL with its
+  guard removed).
+  The round-transition clear must also remove any still-live source object that
+  can immediately reapply the timer next round (projectile, field zone, lingering
+  contact object). Clearing only the debuff timer is not enough if an invisible
+  leftover zone survives `reset_round` and refreshes the timer on the first
+  active-item update of the next serve.
 - Duplicate policy is path-specific. Field drops, Pandora / treasure
   routes, shop / crane, and stage-clear gacha can intentionally diverge.
   Verify the real path-specific gate instead of summarizing an item as
@@ -422,6 +552,25 @@ These are the bugs most likely to survive a "looks registered" pass:
   `owner.equipment_slots`, `owner.passive_item_slots`, and
   `_equipped_slot`. Smoke tests should assert the item appears in the
   exact rendered slot key, not only that `equipped == true`.
+- **Displacing an equipped item from its slot must run that item's
+  unequip cleanup, not just clear its flags.** Any Godot equip path that
+  replaces a slot occupant — `mythic_item_equipment_facade.equip_inventory_item`
+  (single-slot families), `equip_inventory_item_to_slot` /
+  `auto_equip_inventory_item` / `swap_equipment_slots` (drag-and-drop /
+  right-click auto-equip) — only sets the displaced item's
+  `equipped = false` / `_equipped_slot = ""`. That alone leaves the
+  displaced item's per-item runtime state alive for items with explicit
+  teardown in `_clear_on_unequip` (Hermes, Baal Boots, Pandora, Horn
+  Strawberry, Odin's Eye, the armors, venom mist, rainbow glove, etc.).
+  The replacement must collect the displaced item names and call
+  `_clear_on_unequip` for each AFTER `rebuild_equipped_items` (so the
+  `is_*_equipped()` guards see the post-swap state), mirroring the
+  explicit `unequip_inventory_item` path. Reference: `_displace_slot_occupants`
+  + `_run_displaced_unequip_cleanup`, sealed by
+  `character_info_inventory_equip_facade_smoke._verify_displaced_item_runs_unequip_cleanup`
+  (spies a displaced runtime-state item's `clear_runtime`). A smoke that
+  only asserts the displaced item is `equipped == false` does NOT catch
+  this — assert the displaced item's runtime teardown actually ran.
 - **Runtime reads that must NOT miss a frame should bypass
   `item_effects/*` module globals and query the equipped item
   directly.** `sync_equipped_passive_effects()` calls
@@ -775,6 +924,26 @@ Current Godot-first rule:
       (`active_item_trampoline_smoke._verify_stepper_full_path_collision_priority`
       is the reference). A detector-only unit test cannot catch this
       priority regression.
+- [ ] **A field-placed sprite whose gameplay/collision anchor is pinned
+      HIGH above the floor (for the reason above) will FLOAT if drawn at an
+      aspect-locked height anchored to that band.** The collision mat sits at
+      `TRAMPOLINE_MAT_TOP_Y` (~62px above the floor) so the ball meets it above
+      the paddle, but the installed sprite is wide (~4:1) — at gameplay width it
+      is only ~31px tall, so anchoring its bottom near the mat band leaves the
+      baked feet floating ~35px over the ground (2026-07-01 "트램플린이 바닥에서
+      떠있음" report). The pad rim MUST stay on the collision line (the ball
+      sinks INTO the mat during capture, so a lowered pad reads as bouncing in
+      mid-air), so the fix keeps the pad-aligning top and stretches the draw
+      height DOWN so the feet reach the same floor line the procedural fallback
+      legs use (`TRAMPOLINE_BOTTOM_Y + TEXTURE_DRAW_FLOOR_MARGIN`). Ground every
+      state the same way — the installed idle sprite and every stretch-sheet
+      capture/bounce cell all carry their feet at the same bottom fraction, so a
+      single "stretch to floor" anchor rule keeps the trampoline from jumping
+      between idle / capture / rebound. The smoke asserts the GEOMETRY (draw-rect
+      bottom ≈ floor AND pad top not sunk below the collision line), reverse-
+      verified to fail on the aspect-only bottom
+      (`active_item_trampoline_renderer.compute_textured_draw_rect`,
+      `active_item_trampoline_smoke._verify_textured_trampoline_grounds_feet_at_floor`).
 - [ ] **A new floor-save / reflect channel must release boss ball-control
       skills, and vice versa.** Skills like the Stage 1 Dalji whip
       (상모돌리기) re-shape `ball_vel` EVERY frame while active (upward
@@ -894,6 +1063,114 @@ Current Godot-first rule:
       auto-use leaves the lone item usable AND that a manual use still blocks the
       others). Any future AI-assist / auto-cast item that fires through an
       `ignore_cooldown` path must keep this neutrality.
+- [ ] **Cross-module-deploy active items (item use drives ANOTHER runtime) must
+      return `false` when the target rejects, and league/state-gate their field
+      spawn — not their cooldown.** The `lingpet_egg` item (Pro/Mythic only) is the
+      reference: its effect (`active_item_effect_action_facade.activate_lingpet_egg`)
+      calls `lingpet_egg_runtime.deploy_egg_from_item(owner)` and **returns false
+      while another egg / cut-in / overflow choice is unresolved, or when no
+      unowned pet can be rolled**, so `active_item_slot_controller._try_use_slot`
+      leaves the item unconsumed / cooldown unstarted (line ~385 `if not applied`).
+      Whether the item is OFFERED at all is gated in the SPAWN POOL, not the use
+      path: `active_item_field_spawn_pool._should_skip_active_spawn_candidate`
+      (which now takes `registry`) skips `lingpet_egg` unless
+      `lingpet_egg_runtime.can_offer_egg_item(owner)` is true (non-junior league,
+      no unresolved egg / cut-in / overflow choice, and at least one unowned pet
+      candidate). It reads the runtime via `get_cached_instance` (never a
+      lazy instantiation in the spawn path) and falls back to a league-only gate.
+      Total owned lingpets are capped at 3. Below the cap, a hatched egg auto-fills
+      the next empty lingpet slot and becomes active. At the cap, the acquisition
+      cut-in plays first; after dismiss, the overflow modal lets the player either
+      replace one of the existing three (old pet permanently released, new pet kept
+      in that slot) or release the newly hatched pet (existing three unchanged).
+      Hatch affinity is granted only when the new pet is actually kept.
+      Junior keeps the lingpet auto-present. Non-junior leagues suppress
+      battle-start auto-adopt / auto-spawn, but the item can still deploy a
+      later egg once the previous egg / cut-in / choice flow has resolved.
+      **Return-false-on-reject is NOT enough on its own: a one-shot deploy item also
+      strands as a dead duplicate if the player picks up two before using one** (the
+      second use returns false while the first egg is unresolved). Block the duplicate
+      at PICKUP: `active_item_slot_controller.store_active_item` rejects a `lingpet_egg`
+      when one is already in `active_item_slots` OR `can_offer_egg_item(owner)` is false
+      (`_is_lingpet_egg_pickup_redundant`, cache-only runtime peek), and the spawn gate
+      ALSO skips a second egg while one is held (`_owner_has_lingpet_egg_in_slots`).
+      **The PICKUP gate is still not enough: the Alchemy recycle perk
+      (`item_recycle`) can re-introduce the same dead-slot from a third route.**
+      A `consumable: true` one-shot deploy item that succeeds (applied=true) can be
+      KEPT in its slot by the recycle proc (`active_item_slot_controller._try_use_slot`
+      `recycle_triggered` branch), but the recycled copy can immediately become a
+      dead duplicate while the egg / cut-in / overflow choice is unresolved. Set
+      **`"no_recycle": true`** in the catalog dict for ANY one-shot deploy item whose
+      second copy can be structurally invalid; `_try_use_slot` honors it
+      (`recyclable = consumable and not no_recycle`) so the item is consumed
+      normally. Current `lingpet_egg` reason: avoid recycled duplicate eggs while
+      an egg / cut-in / overflow choice is unresolved; the egg can be offered again
+      after that acquisition flow resolves. Seal with a forced-recycle smoke (max
+      `item_recycle` chance) asserting the deployed item is REMOVED, not kept;
+      reverse-verify it FAILS without the guard
+      (`item_alchemy_perk_port_smoke._verify_lingpet_egg_excluded_from_recycle`,
+      with a positive-control normal consumable that IS kept under the same seed).
+      The `can_store_item` callback path cannot do this — its `target` is the
+      effect_controller, which has no slot/lingpet visibility; gate inside
+      `store_active_item` (it has `registry` + `owner` + slots).
+      **Cache-only contract:** the spawn/pickup gates' `_get_cached_instance` must
+      return null when `get_cached_instance` is unavailable — do NOT fall back to
+      `get_instance` (that lazy-instantiates the target on the hot spawn path). The
+      fakes must implement `get_cached_instance` and fail if `get_instance` is reached
+      for the gated key.
+      **Direct-grant reward pools BYPASS the pickup gate — gate at the USE site too.**
+      `_is_lingpet_egg_pickup_redundant` / `can_offer_egg_item` live ONLY on the field
+      PICKUP path (`store_active_item`). The DIRECT-grant path
+      (`grant_item_to_slot` → `active_item_debug_inventory.grant_item_to_slot` →
+      `active_item_slot_controller.append_item_data`) does NOT apply them. So every
+      reward pool that grants via that path — Pandora active grant
+      (`pandora_legacy_grant_router`), plaza gacha (`plaza_gacha_transactions`),
+      stage-clear active reward, debug grant — can drop a `lingpet_egg` into a slot
+      ungated. The stage-clear box is only safe because it filters the egg out at ROLL
+      time (its candidates come from `active_item_field_spawn_pool.build_spawn_candidates`,
+      which runs `_should_skip_lingpet_egg_spawn`); Pandora and plaza gacha build their
+      pools WITHOUT that gate, so they leak the egg — into JUNIOR slots too, where the
+      auto-present tutorial invariant must hold. Therefore the league guard MUST also live
+      at the USE site: `deploy_egg_from_item` early-returns when
+      `_collection_state.is_auto_present_league(owner)`. This single use-site seal blocks
+      the junior break from EVERY current and future grant path, regardless of how the egg
+      reached the slot, while keeping the egg obtainable as a Pro/Mythic reward. Audit
+      every independent active-reward pool (Pandora, plaza gacha, stage-clear, treasure,
+      crane) when adding/porting a gated active item — pool inclusion alone is not the
+      contract; the USE-site gate is the backstop.
+      **Slice 4 lingpet feed exception/audit (2026-07-03):** `lingpet_feed` (귤,
+      satiety +40) and `lingpet_special_feed` (특제 사료, satiety +100) are
+      cross-module active items that drive `lingpet_egg_runtime.feed_lingpet`, but
+      they are NOT one-shot deploy items. A second use is structurally valid, so they
+      deliberately do **not** carry `"no_recycle": true`; the Alchemy recycle path may
+      keep the feed item, and the runtime-side **battle cap of 2 completed feeds** plus
+      **satiety_full** use-site rejection own the infinite-feed guard. Keep this sealed
+      through `lingpet_feed_active_item_smoke` (forced recycle cannot bypass the cap).
+      Feed also opts out of the shared 7s active-item cooldown through
+      `"no_global_cooldown": true`; the slot controller must avoid stamping the shared
+      cooldown onto other held items for those uses. Acquisition audit: basic feed is
+      field + guaranteed shop; special feed is shop + active reward/gacha extra, never
+      `FIELD_SPAWN_ORDER`.
+      **Localization:** a new active item adds Korean `display_name`/`description` in
+      `active_item_catalog`, but `build_item_by_name` only overrides them in non-Korean
+      locales when `language_settings_data` has the key. Add the item to ALL of
+      `ITEM_DISPLAY_EN/ZH/JA/ES/PT_BR/RU` (the coverage smoke `_verify_same_keys`
+      requires identical keys across all six) and `ACTIVE_ITEM_DESCRIPTION_EN`, or
+      `localization_coverage_smoke._verify_active_item_catalog` fails on leaked Hangul.
+      When adding a similar item that summons/deploys into another module, mirror
+      all of: (1) effect returns false on reject, (2) field-spawn gate by the target's
+      offer state (cache-only peek), (3) duplicate-pickup gate in `store_active_item`,
+      (4) the target module suppresses its own auto-path in the gated mode, (5)
+      localization map entries, (6) `"no_recycle": true` if a second use is impossible,
+      (7) a USE-site league guard (`deploy_egg_from_item` blocks
+      `is_auto_present_league`) because direct-grant reward pools (Pandora, plaza gacha)
+      bypass the pickup gate, (8) smokes asserting the offer flips off after deploy,
+      a second use is a no-op, a second pickup is rejected, a maxed recycle proc
+      does not strand the deployed item, AND a junior deploy is rejected
+      (`item_field_spawn_pool_smoke._verify_lingpet_egg_active_gate` + the two-eggs
+      store case + `lingpet_egg_runtime_smoke._verify_pro_league_egg_item_deploy` +
+      `lingpet_egg_runtime_smoke._verify_lingpet_egg_deploy_blocked_in_junior` +
+      `item_alchemy_perk_port_smoke._verify_lingpet_egg_excluded_from_recycle`).
 
 ---
 
