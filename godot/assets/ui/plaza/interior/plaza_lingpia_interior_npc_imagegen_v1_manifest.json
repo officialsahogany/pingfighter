@@ -1,0 +1,60 @@
+{
+  "id": "plaza_lingpia_interior_npc_imagegen_v1",
+  "stage": "lingpia",
+  "theme": "lingpia",
+  "panel_size_logical_px": [
+    244,
+    420
+  ],
+  "final_source_size_px": [
+    512,
+    880
+  ],
+  "key_color": "#ff00ff",
+  "cleanup": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; fit alpha bbox into 512x880 transparent canvas",
+  "qa_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_imagegen_v1_qa.json",
+  "assets": {
+    "shop": {
+      "npc_name": "???? ??",
+      "identity": "shop owner, item holo crate",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_shop_mora_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_shop_mora_imagegen_v1_magenta_source.png"
+    },
+    "bank": {
+      "npc_name": "??? ??",
+      "identity": "bank clerk, vault/coin holo",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_bank_doyun_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_bank_doyun_imagegen_v1_magenta_source.png"
+    },
+    "gacha": {
+      "npc_name": "?? ????? ??",
+      "identity": "gacha operator, capsule holo",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_gacha_lumi_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_gacha_lumi_imagegen_v1_magenta_source.png"
+    },
+    "lingpet_store": {
+      "npc_name": "?? ??? ??",
+      "identity": "ringpet keeper, resonance egg",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_lingpet_store_lingling_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_lingpet_store_lingling_imagegen_v1_magenta_source.png"
+    },
+    "blacksmith": {
+      "npc_name": "???? ??",
+      "identity": "blacksmith, hammer/forge holo",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_blacksmith_gangcheol_imagegen_v1_magenta_source.png"
+    },
+    "tavern": {
+      "npc_name": "??? ?? ??",
+      "identity": "tavern keeper, quest scroll/cup",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_tavern_harang_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_tavern_harang_imagegen_v1_magenta_source.png"
+    },
+    "academy": {
+      "npc_name": "???? ?? ??",
+      "identity": "academy instructor, book/skill orb",
+      "res_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_academy_seoyul_imagegen_v1.png",
+      "source_path": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_academy_seoyul_imagegen_v1_magenta_source.png"
+    }
+  }
+}

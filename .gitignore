@@ -216,6 +216,11 @@ preview_outputs/
 .codex/
 .codex_tmp/
 tmp/
+tmp_*.xml
+output/
+exports/
+aibuisnessfull2/
+images/ui/hud/
 screenshots/arena_test_*.png
 .tmp/automation/latest/
 .tmp/automation/*/prompt.md

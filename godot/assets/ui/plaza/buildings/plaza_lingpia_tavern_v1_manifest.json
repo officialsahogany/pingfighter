@@ -1,0 +1,92 @@
+{
+  "asset_id": "plaza_lingpia_tavern_v1",
+  "building_type": "tavern",
+  "stage_theme": "lingpia",
+  "runtime_usage": "plaza_building_kit_style_locked_production",
+  "generated_at": "2026-07-02T10:30:46+09:00",
+  "production_route": "Codex built-in image_gen base; accepted Lingpia anchor style; locked-coordinate local emissive overlays; border-seeded #ff00ff chroma-key alpha.",
+  "display_height": 220,
+  "display_scale": 0.2872,
+  "source_size": [
+    1253,
+    766
+  ],
+  "origin_pivot": [
+    626,
+    744
+  ],
+  "collision_rect": {
+    "x": -426,
+    "y": -78,
+    "w": 852,
+    "h": 74
+  },
+  "interaction_rect": {
+    "x": -75,
+    "y": -220,
+    "w": 150,
+    "h": 158
+  },
+  "y_sort_anchor": [
+    626,
+    744
+  ],
+  "identity_emblem": {
+    "id": "tavern_quest_scroll_cup",
+    "canonical_across_themes": true,
+    "description": "quest scroll plus cup/lantern pictogram; Lingpia hub, theme-neutral"
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_building_base.png",
+      "sha256": "409e695b31cd97088cce7d2a119f58a57df3cd0c4b1481206794165ff0620691"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_sign_emissive.png",
+      "sha256": "33cab96a904a93dbfe2759016f427ac05da6e90bb171a1c477da2bed54a73bb8"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_window_glow_mask.png",
+      "sha256": "0b4d7974e13f6b599ae7dd29612b2e3438d9da35b2e73c503759c09d9601dc37"
+    },
+    "loop": null
+  },
+  "source_layers": {
+    "base_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_building_base_source_chromakey.png",
+      "sha256": "391b5b1b9849195594c0571a32e411a159592f9a6e92421f8a19d3e24af97790"
+    },
+    "sign_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_sign_on_source_chromakey.png",
+      "sha256": "abba7c04539464f7d6deb6d14661a0236ea882b3254dafe85da17adfad742703"
+    },
+    "window_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_window_on_source_chromakey.png",
+      "sha256": "e97ddc4f67bb57dae995289153f1c91c3a04588f858e30231891e1719cf759b2"
+    }
+  },
+  "provenance": {
+    "generated_base_source": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_08d66bc1f2a5ab70016a45baba6a388191842cca95bc190304.png",
+    "nukki_method": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; no global magenta keying; no white-background remove_bg path",
+    "brief": "theme-neutral Lingpia VR hub tavern; local flat holo sign pictogram."
+  },
+  "qa": {
+    "source_bbox": {
+      "x": 12,
+      "y": 14,
+      "w": 1227,
+      "h": 738
+    },
+    "base_alpha_coverage_percent": 78.6168,
+    "sign_emissive_alpha_coverage_percent": 9.3022,
+    "window_glow_alpha_coverage_percent": 30.3048,
+    "transparent_corner_pixels_24px": 2304,
+    "remaining_key_fringe_pixels": 0,
+    "corner_alpha_max": 0,
+    "preview_lit_res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_lit_preview.png",
+    "previews": [
+      "plaza_lingpia_tavern_v1_kit_contact_board.png",
+      "plaza_lingpia_tavern_v1_760_mockup_stage1_cyber_joseon.png"
+    ]
+  }
+}

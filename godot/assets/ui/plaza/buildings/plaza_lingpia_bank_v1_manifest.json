@@ -1,0 +1,92 @@
+{
+  "asset_id": "plaza_lingpia_bank_v1",
+  "building_type": "bank",
+  "stage_theme": "lingpia",
+  "runtime_usage": "plaza_building_kit_style_locked_production",
+  "generated_at": "2026-07-02T10:30:21+09:00",
+  "production_route": "Codex built-in image_gen base; accepted Lingpia anchor style; locked-coordinate local emissive overlays; border-seeded #ff00ff chroma-key alpha.",
+  "display_height": 280,
+  "display_scale": 0.2525,
+  "source_size": [
+    1130,
+    1109
+  ],
+  "origin_pivot": [
+    565,
+    1087
+  ],
+  "collision_rect": {
+    "x": -384,
+    "y": -78,
+    "w": 768,
+    "h": 74
+  },
+  "interaction_rect": {
+    "x": -85,
+    "y": -280,
+    "w": 170,
+    "h": 201
+  },
+  "y_sort_anchor": [
+    565,
+    1087
+  ],
+  "identity_emblem": {
+    "id": "bank_coin_vault",
+    "canonical_across_themes": true,
+    "description": "gold coin stack plus vault door pictogram; Lingpia hub, theme-neutral"
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_building_base.png",
+      "sha256": "a8a011d36bcd54c302ca88e18e72502cd174174a5ee2cde4999ab9561114fbaf"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_sign_emissive.png",
+      "sha256": "7eda789c019a8f4839a5459987a036e3ffd77c1797019f9f778704914c5ed5ef"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_window_glow_mask.png",
+      "sha256": "4788ed6b1736399d6fed8d90ecebf0a4ea501fa6d66d5906d192de0311cfbf5b"
+    },
+    "loop": null
+  },
+  "source_layers": {
+    "base_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_building_base_source_chromakey.png",
+      "sha256": "eb25fe2a26f630eb9333d3693e2b5a9e96524664d9979877a4371b52b4d5ad13"
+    },
+    "sign_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_sign_on_source_chromakey.png",
+      "sha256": "78b2e78826540c0a72abcddc728e62242984d7273d387da7302fbba904e09c2b"
+    },
+    "window_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_window_on_source_chromakey.png",
+      "sha256": "49f164fe3e792892936cacfb59d485dcbff5d3467f9b291235c349d40d1439ff"
+    }
+  },
+  "provenance": {
+    "generated_base_source": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_08d66bc1f2a5ab70016a45b988a210819188962ec7e651d245.png",
+    "nukki_method": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; no global magenta keying; no white-background remove_bg path",
+    "brief": "theme-neutral Lingpia VR hub bank; local flat holo sign pictogram."
+  },
+  "qa": {
+    "source_bbox": {
+      "x": 14,
+      "y": 14,
+      "w": 1102,
+      "h": 1081
+    },
+    "base_alpha_coverage_percent": 73.8664,
+    "sign_emissive_alpha_coverage_percent": 6.6247,
+    "window_glow_alpha_coverage_percent": 13.8078,
+    "transparent_corner_pixels_24px": 2304,
+    "remaining_key_fringe_pixels": 0,
+    "corner_alpha_max": 0,
+    "preview_lit_res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_lit_preview.png",
+    "previews": [
+      "plaza_lingpia_bank_v1_kit_contact_board.png",
+      "plaza_lingpia_bank_v1_760_mockup_stage1_cyber_joseon.png"
+    ]
+  }
+}

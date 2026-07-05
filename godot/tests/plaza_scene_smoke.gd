@@ -17,7 +17,7 @@ const PIXEL_SAMPLE_PATHS := [
 	"res://assets/ui/plaza/plaza_stage1_sidescroll_far_sky_moon_cyber_joseon_imagegen_v1.png",
 	"res://assets/ui/plaza/plaza_stage1_sidescroll_accent_neon_cutout_v1.png",
 	"res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_v1.png",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_shop_v2_building_base.png",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_building_base.png",
 	"res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_static_v1.png",
 	"res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_anim_sheet_v1.png",
 ]
@@ -148,9 +148,9 @@ func _verify_interior_object_texture_contract() -> void:
 
 
 func _verify_interior_npc_qa_file() -> void:
-	var manifest_path := "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_imagegen_v1_manifest.json"
+	var manifest_path := "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_imagegen_v1_manifest.json"
 	_expect(FileAccess.file_exists(manifest_path), "interior NPC imagegen manifest should exist")
-	var qa_path := "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_imagegen_v1_qa.json"
+	var qa_path := "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_imagegen_v1_qa.json"
 	_expect(FileAccess.file_exists(qa_path), "interior NPC QA manifest should exist")
 	var file := FileAccess.open(qa_path, FileAccess.READ)
 	_expect(file != null, "interior NPC QA manifest should open")

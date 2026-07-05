@@ -1,0 +1,19 @@
+{
+  "file": "plaza_lingpia_interior_npc_shop_mora_imagegen_v1.png",
+  "source": "plaza_lingpia_interior_npc_shop_mora_imagegen_v1_magenta_source.png",
+  "size": [
+    512,
+    880
+  ],
+  "alpha_bbox": [
+    118,
+    26,
+    393,
+    842
+  ],
+  "visible_pixels": 109788,
+  "visible_magenta_pixels": 0,
+  "corner_alpha_max": 0,
+  "fit_scale": 0.5268,
+  "role_lock": "Mora / shopkeeper text and greeting kept in code; not baked into image"
+}

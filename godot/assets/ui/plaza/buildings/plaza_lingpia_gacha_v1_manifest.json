@@ -1,0 +1,92 @@
+{
+  "asset_id": "plaza_lingpia_gacha_v1",
+  "building_type": "gacha",
+  "stage_theme": "lingpia",
+  "runtime_usage": "plaza_building_kit_style_locked_production",
+  "generated_at": "2026-07-02T10:30:27+09:00",
+  "production_route": "Codex built-in image_gen base; accepted Lingpia anchor style; locked-coordinate local emissive overlays; border-seeded #ff00ff chroma-key alpha.",
+  "display_height": 250,
+  "display_scale": 0.2735,
+  "source_size": [
+    1167,
+    914
+  ],
+  "origin_pivot": [
+    583,
+    892
+  ],
+  "collision_rect": {
+    "x": -396,
+    "y": -78,
+    "w": 793,
+    "h": 74
+  },
+  "interaction_rect": {
+    "x": -82,
+    "y": -250,
+    "w": 165,
+    "h": 180
+  },
+  "y_sort_anchor": [
+    583,
+    892
+  ],
+  "identity_emblem": {
+    "id": "gacha_capsule_rotation",
+    "canonical_across_themes": true,
+    "description": "transparent capsule plus rotation arrow pictogram; Lingpia hub, theme-neutral"
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_building_base.png",
+      "sha256": "56e9ab1d8b92777f19366511868c7055996208695d3e69a6eb0a4e5a3ba4f135"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_sign_emissive.png",
+      "sha256": "c950fe6b1f69a12ff831a415b36671630a90f8ca8d1d196ded933e92228d6cf4"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_window_glow_mask.png",
+      "sha256": "9c1a06dd53a39056c832695207a6262e450291a6db68dd1a079f2beed25124b9"
+    },
+    "loop": null
+  },
+  "source_layers": {
+    "base_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_building_base_source_chromakey.png",
+      "sha256": "78d0ae0415ca40fccfee62231b8f688960072cb772852c65b4fac892cbc500a4"
+    },
+    "sign_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_sign_on_source_chromakey.png",
+      "sha256": "a03e89c07c79582c290eac48bf03ef6a0dec86f8f89b931d8c799ebc5dd9ca40"
+    },
+    "window_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_window_on_source_chromakey.png",
+      "sha256": "1e09e869e419561d410d2c8c2c325ac4c568ba8652ee28f94f5461d3ecf6cf25"
+    }
+  },
+  "provenance": {
+    "generated_base_source": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_08d66bc1f2a5ab70016a45b9cfe78c81918a1ade8c26bb82e5.png",
+    "nukki_method": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; no global magenta keying; no white-background remove_bg path",
+    "brief": "theme-neutral Lingpia VR hub gacha; local flat holo sign pictogram."
+  },
+  "qa": {
+    "source_bbox": {
+      "x": 14,
+      "y": 14,
+      "w": 1139,
+      "h": 886
+    },
+    "base_alpha_coverage_percent": 80.9987,
+    "sign_emissive_alpha_coverage_percent": 8.2097,
+    "window_glow_alpha_coverage_percent": 25.0086,
+    "transparent_corner_pixels_24px": 2304,
+    "remaining_key_fringe_pixels": 0,
+    "corner_alpha_max": 0,
+    "preview_lit_res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_lit_preview.png",
+    "previews": [
+      "plaza_lingpia_gacha_v1_kit_contact_board.png",
+      "plaza_lingpia_gacha_v1_760_mockup_stage1_cyber_joseon.png"
+    ]
+  }
+}

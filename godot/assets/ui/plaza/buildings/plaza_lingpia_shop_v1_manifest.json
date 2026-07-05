@@ -1,0 +1,98 @@
+{
+  "asset_id": "plaza_lingpia_shop_v1",
+  "building_type": "shop",
+  "stage_theme": "lingpia",
+  "runtime_usage": "plaza_building_kit_anchor_gate",
+  "generated_at": "2026-07-02T09:47:19+09:00",
+  "production_route": "Codex built-in image_gen base; sign/window image edits attempted but composition drifted, so final gate packet uses locked-coordinate local emissive overlays on the accepted base; local #ff00ff chroma-key alpha.",
+  "display_height": 220,
+  "display_scale": 0.3207,
+  "source_size": [
+    1197,
+    686
+  ],
+  "origin_pivot": [
+    598,
+    664
+  ],
+  "collision_rect": {
+    "x": -406,
+    "y": -78,
+    "w": 813,
+    "h": 74
+  },
+  "interaction_rect": {
+    "x": -75,
+    "y": -220,
+    "w": 150,
+    "h": 160
+  },
+  "y_sort_anchor": [
+    598,
+    664
+  ],
+  "identity_emblem": {
+    "id": "shop_coin_item_box",
+    "canonical_across_themes": true,
+    "description": "gold coin plus item box/pouch pictogram; Lingpia hub, theme-neutral"
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_building_base.png",
+      "sha256": "4ad78806755bf9aeb12caae57d40904e8eac06cb071d88356a203f9e77e59379"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_sign_emissive.png",
+      "sha256": "ce5fa79515090199330c92d0e86e65220474e3116a92de24338f11b7bcdb81fd"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_window_glow_mask.png",
+      "sha256": "192aa4962f9ccc15241039084d14ae2158018128c26eb4bc81f6545e5654de65"
+    },
+    "loop": null
+  },
+  "source_layers": {
+    "base_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_building_base_source_chromakey.png",
+      "sha256": "26c576c610ba6af553823878ad8385a72db0fdb960a66c7eaedaf6834bc4483c"
+    },
+    "sign_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_sign_on_source_chromakey.png",
+      "sha256": "9ca33b9747ed9493f259202e11934f3e036595c1574edc2ac4d2e5e9117c7d19"
+    },
+    "window_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_window_on_source_chromakey.png",
+      "sha256": "4a09cf9c668d651a0fe5fd0045cad71e0aeec6668433bd11e3949589934e426b"
+    }
+  },
+  "provenance": {
+    "generated_base_source": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_00325c84e2847769016a45b1dc058c819193a923f96723bef8.png",
+    "discarded_sign_edit_source_due_to_composition_drift": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_00325c84e2847769016a45b215ce5c81918a0b686c367c162e.png",
+    "discarded_window_edit_source_due_to_composition_drift": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_00325c84e2847769016a45b247cf70819188d748ec484c28b3.png",
+    "nukki_method": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; no white-background remove_bg path",
+    "brief": "theme-neutral Lingpia VR hub shop; no real-world cultural motif; shop emblem stays coin plus item box/pouch."
+  },
+  "qa": {
+    "source_bbox": {
+      "x": 14,
+      "y": 14,
+      "w": 1169,
+      "h": 658
+    },
+    "base_alpha_coverage_percent": 73.019,
+    "sign_emissive_alpha_coverage_percent": 13.9109,
+    "window_glow_alpha_coverage_percent": 35.6273,
+    "transparent_corner_pixels_24px": 2304,
+    "remaining_key_fringe_pixels": 0,
+    "preview_lit_res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_lit_preview.png",
+    "previews": [
+      "plaza_lingpia_shop_v1_kit_contact_board.png",
+      "plaza_lingpia_shop_v1_760_mockup_stage1_cyber_joseon.png",
+      "plaza_lingpia_shop_v1_760_mockup_stage2_jungle_relic.png",
+      "plaza_lingpia_shop_v1_760_mockup_stage3_neon_city_proxy.png",
+      "plaza_lingpia_shop_v1_sign_diff_contact.png",
+      "plaza_lingpia_shop_v1_window_flicker_contact.png"
+    ],
+    "mockup_notes": "Stage 3 neon_city plaza floor asset is not present in repo at anchor time; proxy mockup uses a neutral wet-neon asphalt patch and is named *_proxy.png."
+  }
+}

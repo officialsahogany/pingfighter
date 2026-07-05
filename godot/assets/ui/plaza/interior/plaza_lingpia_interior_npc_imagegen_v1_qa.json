@@ -1,0 +1,143 @@
+{
+  "assets": [
+    {
+      "file": "plaza_lingpia_interior_npc_shop_mora_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_shop_mora_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        118,
+        26,
+        393,
+        842
+      ],
+      "visible_pixels": 109788,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5268,
+      "role_lock": "Mora / shopkeeper text and greeting kept in code; not baked into image"
+    },
+    {
+      "file": "plaza_lingpia_interior_npc_bank_doyun_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_bank_doyun_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        98,
+        26,
+        414,
+        842
+      ],
+      "visible_pixels": 116080,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5231,
+      "npc_name": "??? ??",
+      "role_lock": "NPC name/role/greeting stay in code; not baked into image"
+    },
+    {
+      "file": "plaza_lingpia_interior_npc_gacha_lumi_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_gacha_lumi_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        101,
+        26,
+        410,
+        842
+      ],
+      "visible_pixels": 112605,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5275,
+      "npc_name": "?? ????? ??",
+      "role_lock": "NPC name/role/greeting stay in code; not baked into image"
+    },
+    {
+      "file": "plaza_lingpia_interior_npc_lingpet_store_lingling_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_lingpet_store_lingling_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        118,
+        26,
+        394,
+        842
+      ],
+      "visible_pixels": 120568,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5337,
+      "npc_name": "?? ??? ??",
+      "role_lock": "NPC name/role/greeting stay in code; not baked into image"
+    },
+    {
+      "file": "plaza_lingpia_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_blacksmith_gangcheol_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        82,
+        26,
+        430,
+        842
+      ],
+      "visible_pixels": 138568,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5244,
+      "npc_name": "???? ??",
+      "role_lock": "NPC name/role/greeting stay in code; not baked into image"
+    },
+    {
+      "file": "plaza_lingpia_interior_npc_tavern_harang_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_tavern_harang_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        101,
+        26,
+        411,
+        842
+      ],
+      "visible_pixels": 122022,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5234,
+      "npc_name": "??? ?? ??",
+      "role_lock": "NPC name/role/greeting stay in code; not baked into image"
+    },
+    {
+      "file": "plaza_lingpia_interior_npc_academy_seoyul_imagegen_v1.png",
+      "source": "plaza_lingpia_interior_npc_academy_seoyul_imagegen_v1_magenta_source.png",
+      "size": [
+        512,
+        880
+      ],
+      "alpha_bbox": [
+        103,
+        26,
+        409,
+        842
+      ],
+      "visible_pixels": 126408,
+      "visible_magenta_pixels": 0,
+      "corner_alpha_max": 0,
+      "fit_scale": 0.5295,
+      "npc_name": "???? ?? ??",
+      "role_lock": "NPC name/role/greeting stay in code; not baked into image"
+    }
+  ]
+}

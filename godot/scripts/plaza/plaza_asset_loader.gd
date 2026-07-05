@@ -21,13 +21,13 @@ const SIDESCROLL_MEDALLION_CUTOUT := "res://assets/ui/plaza/plaza_stage1_sidescr
 const SIDESCROLL_MEDALLION_CUTOUT_EMISSIVE := "res://assets/ui/plaza/plaza_stage1_sidescroll_medallion_cutout_emissive_v1.png"
 
 const INTERIOR_NPC_TEXTURE_PATHS := {
-	"shop": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_shop_mora_imagegen_v1.png",
-	"bank": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_bank_doyun_imagegen_v1.png",
-	"gacha": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_gacha_lumi_imagegen_v1.png",
-	"lingpet_store": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_lingpet_store_lingling_imagegen_v1.png",
-	"blacksmith": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
-	"tavern": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_tavern_harang_imagegen_v1.png",
-	"academy": "res://assets/ui/plaza/interior/plaza_stage1_interior_npc_academy_seoyul_imagegen_v1.png",
+	"shop": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_shop_mora_imagegen_v1.png",
+	"bank": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_bank_doyun_imagegen_v1.png",
+	"gacha": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_gacha_lumi_imagegen_v1.png",
+	"lingpet_store": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_lingpet_store_lingling_imagegen_v1.png",
+	"blacksmith": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_blacksmith_gangcheol_imagegen_v1.png",
+	"tavern": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_tavern_harang_imagegen_v1.png",
+	"academy": "res://assets/ui/plaza/interior/plaza_lingpia_interior_npc_academy_seoyul_imagegen_v1.png",
 }
 
 const INTERIOR_ROOM_TEXTURE_PATHS := {
@@ -74,13 +74,13 @@ const PLAZA_PLAYER_SPRITE_PATHS := {
 }
 
 const BUILDING_MANIFEST_PATHS := [
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_shop_v2_manifest.json",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_bank_v1_manifest.json",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_gacha_v1_manifest.json",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_lingpet_store_v1_manifest.json",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_blacksmith_v1_manifest.json",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_tavern_v1_manifest.json",
-	"res://assets/ui/plaza/buildings/plaza_stage1_cyber_joseon_academy_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_shop_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_bank_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_gacha_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_lingpet_store_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_tavern_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_manifest.json",
 ]
 
 const FLOOR_KEYS := {

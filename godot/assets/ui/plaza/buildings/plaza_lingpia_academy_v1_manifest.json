@@ -1,0 +1,92 @@
+{
+  "asset_id": "plaza_lingpia_academy_v1",
+  "building_type": "academy",
+  "stage_theme": "lingpia",
+  "runtime_usage": "plaza_building_kit_style_locked_production",
+  "generated_at": "2026-07-02T10:30:51+09:00",
+  "production_route": "Codex built-in image_gen base; accepted Lingpia anchor style; locked-coordinate local emissive overlays; border-seeded #ff00ff chroma-key alpha.",
+  "display_height": 300,
+  "display_scale": 0.27,
+  "source_size": [
+    1096,
+    1111
+  ],
+  "origin_pivot": [
+    548,
+    1089
+  ],
+  "collision_rect": {
+    "x": -372,
+    "y": -78,
+    "w": 745,
+    "h": 74
+  },
+  "interaction_rect": {
+    "x": -90,
+    "y": -300,
+    "w": 180,
+    "h": 216
+  },
+  "y_sort_anchor": [
+    548,
+    1089
+  ],
+  "identity_emblem": {
+    "id": "academy_book_orb_exchange",
+    "canonical_across_themes": true,
+    "description": "open book plus skill orb and exchange arrows pictogram; Lingpia hub, theme-neutral"
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_building_base.png",
+      "sha256": "cb030bf95cc2fe143efb0d41662cdc3e957a57bd61dfa1a87e7b8ca6651ecf1d"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_sign_emissive.png",
+      "sha256": "2d8cf32f7feb0687713fce4de3aca6f53881f82877fd19c32a21f6e8fa3a79d0"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_window_glow_mask.png",
+      "sha256": "3eb8e3fbdfe51e436c2ee90d2d83ac9446d79721d9bd3f2f8e15323f945030fa"
+    },
+    "loop": null
+  },
+  "source_layers": {
+    "base_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_building_base_source_chromakey.png",
+      "sha256": "e8bbcd95c7ce210ac43be79e203b3544a193b914077a36bedfdb6ba19f430328"
+    },
+    "sign_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_sign_on_source_chromakey.png",
+      "sha256": "2189a005960a36667d798c3b1529da884f4b621cd74b24d0a7675441ad7c1214"
+    },
+    "window_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_window_on_source_chromakey.png",
+      "sha256": "40c0f278cc377b6232ae08a954874f117298d9ffe191554dc98185ddaefec434"
+    }
+  },
+  "provenance": {
+    "generated_base_source": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_08d66bc1f2a5ab70016a45bb05547c8191b3814ec24198bac8.png",
+    "nukki_method": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; no global magenta keying; no white-background remove_bg path",
+    "brief": "theme-neutral Lingpia VR hub academy; local flat holo sign pictogram."
+  },
+  "qa": {
+    "source_bbox": {
+      "x": 14,
+      "y": 14,
+      "w": 1068,
+      "h": 1083
+    },
+    "base_alpha_coverage_percent": 64.8407,
+    "sign_emissive_alpha_coverage_percent": 5.0639,
+    "window_glow_alpha_coverage_percent": 24.5684,
+    "transparent_corner_pixels_24px": 2304,
+    "remaining_key_fringe_pixels": 0,
+    "corner_alpha_max": 0,
+    "preview_lit_res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_lit_preview.png",
+    "previews": [
+      "plaza_lingpia_academy_v1_kit_contact_board.png",
+      "plaza_lingpia_academy_v1_760_mockup_stage1_cyber_joseon.png"
+    ]
+  }
+}

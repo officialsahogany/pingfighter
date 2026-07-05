@@ -1,0 +1,92 @@
+{
+  "asset_id": "plaza_lingpia_blacksmith_v1",
+  "building_type": "blacksmith",
+  "stage_theme": "lingpia",
+  "runtime_usage": "plaza_building_kit_style_locked_production",
+  "generated_at": "2026-07-02T10:30:40+09:00",
+  "production_route": "Codex built-in image_gen base; accepted Lingpia anchor style; locked-coordinate local emissive overlays; border-seeded #ff00ff chroma-key alpha.",
+  "display_height": 300,
+  "display_scale": 0.2712,
+  "source_size": [
+    1142,
+    1106
+  ],
+  "origin_pivot": [
+    571,
+    1084
+  ],
+  "collision_rect": {
+    "x": -388,
+    "y": -78,
+    "w": 776,
+    "h": 74
+  },
+  "interaction_rect": {
+    "x": -90,
+    "y": -300,
+    "w": 180,
+    "h": 216
+  },
+  "y_sort_anchor": [
+    571,
+    1084
+  ],
+  "identity_emblem": {
+    "id": "blacksmith_hammer_anvil_flame",
+    "canonical_across_themes": true,
+    "description": "hammer plus anvil and flame pictogram; Lingpia hub, theme-neutral"
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_building_base.png",
+      "sha256": "9b270cd85498122e4ad0ebb33495828f088707e4ee39e994fc901c7806bae8ab"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_sign_emissive.png",
+      "sha256": "ed8cfc8d969e6da5979e39d9ad22301c8aefa8af53cd7e61ae51caec00924217"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_window_glow_mask.png",
+      "sha256": "82390aca20356d2d06f34868d84f147d28742606b8d5265604b4c433bfd85eb4"
+    },
+    "loop": null
+  },
+  "source_layers": {
+    "base_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_building_base_source_chromakey.png",
+      "sha256": "6fdba3718a324ef8677d4cfb12ad48a177519be4289074bf5b61997569b8dbdc"
+    },
+    "sign_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_sign_on_source_chromakey.png",
+      "sha256": "e451a21413fca1852a2fe58685d369dfe4b2f688c1566ad7f0e30dfa8f946314"
+    },
+    "window_on_chromakey": {
+      "res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_window_on_source_chromakey.png",
+      "sha256": "456ae7f3f836e491724142eacc8cfa515758b7293edee809111860d1fed1e062"
+    }
+  },
+  "provenance": {
+    "generated_base_source": "C:\\Users\\woduq\\.codex\\generated_images\\019f203d-a75d-7c23-b1a1-1d3a2fab5a24\\ig_08d66bc1f2a5ab70016a45ba6849788191b7e379748e94939a.png",
+    "nukki_method": "border-seeded #ff00ff chroma-key alpha; pure-key hole cleanup; no global magenta keying; no white-background remove_bg path",
+    "brief": "theme-neutral Lingpia VR hub blacksmith; local flat holo sign pictogram."
+  },
+  "qa": {
+    "source_bbox": {
+      "x": 14,
+      "y": 14,
+      "w": 1114,
+      "h": 1078
+    },
+    "base_alpha_coverage_percent": 69.8467,
+    "sign_emissive_alpha_coverage_percent": 5.7195,
+    "window_glow_alpha_coverage_percent": 25.6248,
+    "transparent_corner_pixels_24px": 2304,
+    "remaining_key_fringe_pixels": 0,
+    "corner_alpha_max": 0,
+    "preview_lit_res_path": "res://assets/ui/plaza/buildings/plaza_lingpia_blacksmith_v1_lit_preview.png",
+    "previews": [
+      "plaza_lingpia_blacksmith_v1_kit_contact_board.png",
+      "plaza_lingpia_blacksmith_v1_760_mockup_stage1_cyber_joseon.png"
+    ]
+  }
+}
