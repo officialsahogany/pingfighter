@@ -2,7 +2,10 @@
 
 > 이 문서가 링펫어 언어·문자·문법 + 해석기(decoder) 메커니즘의 진실 원본입니다.
 > 디자인/리뷰 = Claude. GDScript 배선 = 사용자/Codex. 자산(폰트/이미지) = Claude.
-> 상태: **설계 락(2026-06-22), 미배선.** 적대 리뷰 1회 반영(아래 §8 검증 앵커).
+> 상태: **부분 배선 완료(2026-06-30 확인).** S1/S1.5/S2/S3는 Godot 코드와 smoke로
+> 봉인됐다. S4는 캐릭터정보 펜듈럼 내부 호스트가 랜딩됐고, 배틀 바크 / 플라자 링링 /
+> 도감형 영구 해석기 호스트는 별도 후속이다. S5는 펜듈럼 제너럴 대사·chrome i18n 키가
+> 등록됐고, 스토리/도감용 대량 콘텐츠 키는 후속이다.
 
 ## 0. 명칭 락 (잔재 제거)
 
@@ -11,7 +14,7 @@
 | 공식 표기(플레이어) | **링펫어** (EN: *Lingpet tongue*) |
 | 내부 id | `lingpet_lang` |
 | 데이터 키 루트 | `lingpet.language.*` |
-| 폰트 family | **"Lingpet Script"** (v1 TTF: `d:\tmp\lingpet_font\LingpetScript-Regular.ttf`, repo 이전 예정 → `godot/assets/fonts/`) |
+| 폰트 family | **"Lingpet Script"** (v1 TTF: `godot/assets/fonts/LingpetScript-Regular.ttf`) |
 | 영구 진행 게이트 | `decoder_level` (0~5, plaza_save_store 저장). 플레이어 노출명: **링펫어 해석기 레벨** (EN *Lingpet Decoder Level*) |
 
 `Ringa` / `Linga` 명칭은 폐기. 로마자는 별도 이름 없이 "발음 표기".
@@ -53,6 +56,38 @@
 | l | l | ∟ | j | ts | △· 삼각+점 |
 | m | m | ⊞ 격자 | n | n | ◠ 호 |
 | * | star | ✶ (체크섬) | ? | 물음 | 갈고리 |
+
+> **글자 v2 — 장식형(ornate, 2026-06-23):** 위 표의 기본 형태를 유지하되 글리프를 **장식 재설계**함
+> (이중 링 / 중첩 도형 / 내부 점·문양 / 세리프 / 8각 별 등). **키매핑·음소·해독은 불변**(a→원-계열,
+> k→X-계열…). 빌더 `d:\tmp\build_lingpet_font_v2.py`, v1 백업 `d:\tmp\lingpet_font\LingpetScript-Regular.v1.ttf`.
+> repo 폰트(`godot/assets/fonts/LingpetScript-Regular.ttf`)는 v2로 교체·재임포트·`lingpet_font_smoke` 통과.
+
+> **«Lingpet Script Display» — 정교 표제 폰트(2026-06-23):** 로어 페이지·도감·타이틀용 별도 폰트.
+> 글리프는 **제미나이 생성(흑/백, 기하·회로·성도 결) → cv2 트레이싱 → fontTools** 파이프라인으로 제작
+> (음소 22 = AI-트레이싱 글자, ✦·? = 절차적). **본문/해석기는 기하 v2 폰트 유지**(작은 크기 가독성).
+> repo `godot/assets/fonts/LingpetScriptDisplay-Regular.ttf` + `lingpet_font_smoke` Display 로드 단언.
+> 빌더 `d:\tmp\build_display_font.py` (소스 시트 image-1782187898280 / image-1782191069130). 화려 렌더(골드
+> 인레이/글로우/별빛)는 PIL 합성. 주의: "화려"를 켈틱 필리그리로 해석한 첫 시도는 폐기 — 처음 컨셉아트
+> 결 = **기하·회로 기호**(동심원/교차삼각별/육각/회로기판/다각별/격자/초승달), 흐르는 소용돌이 아님.
+
+### 2.2 메타-시길 (b·d·f·w) — 음소 아님, 기능 기호 (확정 2026-06-23)
+링펫어엔 /b d f w/ 음소가 없어 그 키를 **언어의 구두점·강조·이름표시 기능 기호**로 배정한다
+(키보드 완결성 + 의미층 확장; 기존 `*`=✦ 감정/공명 체크섬, `?`=물음과 같은 메타층). 마침/쉼/강조는
+이전 문법에 없던 공백을 메운다.
+
+| 키 | 기호 | 의미 | 글리프(양 폰트 공통·절차적) | 위치 | 해석기 동작(의도) |
+|---|---|---|---|---|---|
+| b | 강조 | 앞 단어 강조/증폭("매우·진심으로") | ↑ 이중 셰브런 + 정점 점 | 후치(강조할 단어 뒤) | 강조어 **우선 해독**(같은 tier면 먼저 플립) + 렌더 시 굵게/크게 |
+| f | 마침 | 문장 종결 | ● 묵직한 점 | 문장 끝 | 문장 경계(세그먼트 분할) |
+| w | 쉼 | 절 구분·호흡 | ، 점+꼬리 | 절 사이 | 약한 경계(렌더 간격) |
+| d | 신성·고유명 마커 | 다음 단어가 이름/코어-신성어 | ◈ 다이아 링+내부 별+점 | 전치(표시 단어 앞) | **완전 표의 시길** 연출 트리거(§2 희귀 연출), 미해독이어도 특별 렌더 |
+
+- **강조는 두 층위 공존:** `soro-soro`(반복=지속/강조, §3) **AND** `b` 시길(단발 강조). 반복은 "계속/지속",
+  `b`는 "이 단어가 중요"로 미묘히 다르다(둘 다 정당). `d`는 §2의 "완전 표의 시길=희귀 연출"의 **인라인 트리거**.
+- 글리프는 **두 폰트(기하 본문 / Display 표제) 모두 동일 절차적 형태**로 통일(임의 모양 아님).
+  빌더 함수: `g_b/g_f/g_w/g_d`(v2 기하), `m_emphasis/m_period/m_comma/m_name`(Display). GDI+ 렌더 검증 완료.
+- **해석기 동작(우선 해독·표의 트리거)은 폰트·표기만 확정**이고, reveal()에 마커 kind를 더하는 런타임 구현은
+  S2/S3 콘텐츠 작성 시 토큰으로 추가(후속). 토큰 스키마 예: `{kind:"marker", mark:"emphasis|period|pause|name"}`.
 
 ## 3. 음운 / 문법 v0.1
 
@@ -133,10 +168,15 @@ lingpet.language.maribo.greet_arrive = {
 - **S0** 명칭/문자/문법/계약 락(이 문서) + TTF repo 이전 + 글자표.
 - **S1** `decoder_level` 영구 저장(plaza_save_store) + getter + 해석률 헬퍼 + 스모크. **✅완료/리뷰 APPROVE(2026-06-23).**
 - **S1.5** 마일스톤 훅(스테이지 클리어 → `unlock_decoder_level`). **✅완료/스모크 통과(2026-06-23). §6.2.**
-- **S2** 언어 데이터 모듈(`lingpet.language.*` 키 + 토큰 tier) + `reveal()` 순수함수 + 비율/결정론 스모크. **§6.3.**
-- **S3** 렌더(RichTextLabel 세그먼트 호스트) + 해석 플립.
-- **S4** 호스트 배선(바크 / 플라자 링링 / 도감).
-- **S5** i18n 키 테이블 등록 + 라이브 QA.
+- **S2** 언어 데이터 모듈(`lingpet.language.*` 키 + 토큰 tier) + `reveal()` 순수함수 + 비율/결정론 스모크. **✅완료/스모크 통과(2026-06-23). §6.3.**
+- **S3** 렌더(RichTextLabel 세그먼트 호스트) + 해석 플립. **✅완료/스모크 통과(2026-06-23). §6.4.**
+- **S4** 호스트 배선. **부분 완료:** 캐릭터정보 펜듈럼 내부가 `LingpetLanguageCatalog` /
+  `LingpetLanguageRichText`를 즉시모드로 사용한다. 이 호스트는
+  `docs/lingpet_pendulum_interior_plan.md` §12에 따라 영구 `decoder_level`이 아니라 현재 런
+  `ring_core_tier`로 부분 해독한다. 배틀 바크 / 플라자 링링 / 도감형 영구 해석기 호스트는 후속.
+- **S5** i18n 키 테이블 등록 + 라이브 QA. **부분 완료:** 펜듈럼 제너럴 대사와 chrome 키는
+  `language_settings_data.gd`에 등록되고 `localization_coverage_smoke.gd`가 커버한다. 스토리/도감용
+  대량 콘텐츠 키는 후속.
 
 ## 6.1 S1 배선 계약 (`decoder_level` 영구 저장) — 배선=사용자/Codex, 리뷰=Claude
 
@@ -186,7 +226,7 @@ S1 구현은 `SAVE_SCHEMA_VERSION = 6`으로 올려 v5/구세이브 로드 시 `
 
 **옵션 — 부화 순간 Lv1(문자 그대로):** "첫 알 부화 즉시"를 원하면 부화 finalize
 (`lingpet_egg_runtime`의 `hit_result.hatched` ~line 1134)에 `unlock_decoder_level(1)`. **단 그 지점은
-현재 plaza_save_store 핸들이 없음** → 스토어/콜백 스레딩 필요(침습적). 이득(같은 20%·한 스테이지 빠름)
+그 지점에는 plaza_save_store 핸들이 없음** → 스토어/콜백 스레딩 필요(침습적). 이득(같은 20%·한 스테이지 빠름)
 대비 배선비가 커서 **비권장**. 스토리 비트가 꼭 필요하면 스토어 접근 가능한 다음 체크포인트에서
 `lingpet_collection_state.find_first_owned_pet_id(owner)` 게이트로.
 
@@ -211,6 +251,9 @@ S1 구현은 `SAVE_SCHEMA_VERSION = 6`으로 올려 v5/구세이브 로드 시 `
 ko 문자열 해석(translate)은 S3/S5.** S2의 `reveal`은 **i18n 키만 내보내고 문자열을 해석하지 않는다**
 (순수성·결정론·테스트 용이).
 
+**구현 상태(2026-06-23):** `godot/scripts/lingpet/lingpet_language_catalog.gd` 샘플 라인 2개,
+`godot/scripts/lingpet/lingpet_decoder.gd::reveal()`, `godot/tests/lingpet_reveal_smoke.gd`로 고정.
+
 **데이터 모듈:** `lingpet_language_catalog.gd`(RefCounted, 정적 데이터 + 조회). `lingpet.language.<pet>.<line>` 엔트리:
 ```
 {
@@ -226,6 +269,9 @@ ko 문자열 해석(translate)은 S3/S5.** S2의 `reveal`은 **i18n 키만 내�
 **`reveal(line, decoder_level) -> Array` (순수, `lingpet_decoder.gd`에 추가):**
 - 각 토큰: `tier <= decoder_level` → `{kind="ko", key, decoded=true, tier, token_kind, emotion}` ;
   아니면 → `{kind="glyph", text=glyph, decoded=false, tier, token_kind}`.
+- 예외: `kind="emotion"` 토큰은 번역 가능한 ko 토큰이 아니다. `glyph`를 유지하고
+  `lit/visible = tier <= decoder_level`로 반환한다. 미해석 시 `text=""`로 숨고, 레벨5에서만
+  별 시길이 점등된다.
 - **LanguageSettings 호출 금지**(키만 반환). 레벨은 인자로만(내부에서 `get_decoder_level` 읽지 말 것 — 순수).
 - 감정/별 토큰(kind="emotion", tier 5)은 레벨5에서만 decoded → S3가 점등.
 
@@ -243,26 +289,78 @@ ko 문자열 해석(translate)은 S3/S5.** S2의 `reveal`은 **i18n 키만 내�
 - **ko 문자열을 reveal에서 미리 해석 금지** — 키만. `translate(key)`는 S3/S5(raw ko 금지 규칙 §4.2 유지).
 - 토큰 `key`는 `lingpet.language.*` 네임스페이스; 언어 테이블 등록은 S5.
 
+## 6.4 S3 배선 계약 (RichTextLabel 세그먼트 렌더 + 해석 플립) — 배선=사용자/Codex, 리뷰=Claude
+
+**선택 고정(2026-06-23):** S3는 `LanguageSettings.translate(key, key)` fallback으로 빌드한다.
+샘플 한국어 문장 등록은 S5에서 처리한다. 즉 S3 felt-QA에서는 decoded 토큰이 아직
+`lingpet.language.*` 키로 보일 수 있지만, 렌더/플립/폰트/캐시 계약을 먼저 봉인한다.
+
+**구현 상태(2026-06-23):** `godot/scripts/lingpet/lingpet_language_rich_text.gd`가
+렌더런 모델 + RichTextLabel 적용을 소유하고, `godot/tests/lingpet_rich_text_smoke.gd`가
+레벨 0/3/5·키 fallback·결정론·금지 경로를 봉인한다.
+
+**폰트:** `godot/assets/fonts/LingpetScript-Regular.ttf`를 사용한다. 로드는 S3 렌더 호스트가
+`ProjectResourceLoader.load_font("res://assets/fonts/LingpetScript-Regular.ttf", ...)`로 1회 캐시한다.
+매 프레임 `FontFile.new()`/`load_dynamic_font()` 금지. 본문 한국어/키 fallback은 기존 본문 폰트
+(`NanumSquareB.ttf` 등)를 사용한다. 폰트 로드 자체는 `lingpet_font_smoke.gd`로 봉인한다.
+
+**소유 모듈(권장):** `lingpet_language_rich_text.gd`(RefCounted 또는 Control helper).
+입력은 `line: Dictionary`, `decoder_level: int`, 선택 `translator: Callable`이며,
+`line`은 호출처가 1회 fetch한 값을 넘긴다. 렌더 루프에서 `LingpetLanguageCatalog.get_line()`/
+`LingpetDecoder.reveal()` 반복 호출 금지([[catalog const deepcopy hotpath]]).
+
+**렌더 계약:**
+- `LingpetDecoder.reveal(line, decoder_level)` 결과를 세그먼트로 변환한다.
+- `kind="glyph"` → Lingpet Script 폰트 런 + glyph text + 미해석 색.
+- `kind="ko"` → `LanguageSettings.translate(key, key)` 결과 + 본문 폰트 런 + 해석 색.
+- `token_kind="emotion"` 세그먼트는 S3에서 숨김/별색 점등만 허용, 실제 문장 콘텐츠 추가 금지.
+  미해석 emotion은 `visible=false`, 레벨5 emotion은 Lingpet Script 별 글리프 + 점등색.
+- `draw_string_cached` 단독 렌더 금지. RichTextLabel segment push 방식만 허용.
+- 텍스트 삽입은 `RichTextLabel.add_text()`로 한다. `append_text()`는 BBCode 파싱 경로라 금지.
+- 레벨은 호출처가 `plaza_save_store.get_decoder_level()` 값을 넘긴다. 렌더 helper 내부에서
+  save store 또는 런 `ring_core_tier`를 읽지 않는다.
+
+**스모크(`lingpet_rich_text_smoke.gd`, 반증검증 필수):**
+1. 레벨0은 모든 세그먼트가 glyph 폰트/미해석 색, decoded 텍스트 없음.
+2. 레벨3은 tier 1~3만 본문 폰트/해석 색, tier 4~5는 glyph 유지.
+3. 레벨5는 모든 토큰이 decoded, emotion 토큰은 점등 스타일.
+4. 미등록 i18n 키는 `LanguageSettings.translate(key, key)` fallback으로 key 문자열을 표시.
+5. 같은 line+level 두 번 빌드 결과가 동일(결정론/캐시 안정).
+6. 반증: renderer가 `draw_string_cached` 단일 문자열로 합치거나 `ring_core_tier`를 읽도록 바꾸면 FAIL.
+
 ## 7. (이전 검토에서) 무효화된 항목
 - ❌ "링코어 = 계정 공용 영구 파츠" — **틀림**. v5는 런 단위(§4.1). 영구 게이트는 `decoder_level`.
 - ❌ 데이터에 raw `ko` 문자열 + `translate_text()` — i18n 규칙 위반(§4.2).
 - ❌ `draw_string_cached` 단독 렌더 — 토큰 색/혼합 불가(§4.3).
 - ❌ "완전 표의문자(글리프=개념)" 전면 채택 — 알파벳형 + 특수시길로 확정, 표의는 고유명사/코어기억 한정.
 
-## 8. 검증된 코드 앵커 (2026-06-22)
+## 8. 검증된 코드 앵커 (2026-06-30)
 - 링코어 런 단위: `lingpet_affinity_store.gd:73, 192-203` (meta-only no-op) /
   `lingpet_affinity_state.gd:142, 152` (`_run_ring_core_tier`가 `reset_for_new_run`에서 0).
 - i18n 규칙: `untranslated_surface_i18n_design.md:40` / `language_settings.gd` `translate(stable_key)`.
 - 렌더 캐시 한계(단일 문자열/색): `character_info_overlay_text_line_cache.gd:43`.
 - 영구 원장: `plaza_save_store` (컨티뉴 보석 영구 저장처).
 - 플라자 NPC 호스트: `plaza_scene.gd:68-86` ("링펫 사육사 링링" + speech rect).
-- 폰트 v1: `d:\tmp\lingpet_font\LingpetScript-Regular.ttf` (+ 빌더 `d:\tmp\build_lingpet_font.py`).
+- 폰트 v1: `godot/assets/fonts/LingpetScript-Regular.ttf` (원본 `d:\tmp\lingpet_font\LingpetScript-Regular.ttf`, 빌더 `d:\tmp\build_lingpet_font.py`).
+- 저장/마일스톤: `godot/tests/decoder_level_store_smoke.gd`.
+- 데이터/reveal: `godot/scripts/lingpet/lingpet_language_catalog.gd`,
+  `godot/scripts/lingpet/lingpet_decoder.gd`, `godot/tests/lingpet_reveal_smoke.gd`.
+- 렌더/폰트: `godot/scripts/lingpet/lingpet_language_rich_text.gd`,
+  `godot/tests/lingpet_rich_text_smoke.gd`, `godot/tests/lingpet_font_smoke.gd`.
+- 현재 S4 호스트: `godot/scripts/hud/character_info_overlay_pendulum_interior.gd` /
+  `godot/tests/character_info_overlay_pendulum_interior_smoke.gd`. 이 호스트는 영구
+  `plaza_save_store.decoder_level`을 읽지 않고, 현재 런 `ring_core_tier`를 해석 레벨로 변환한다.
+- 현재 S5 범위: `godot/scripts/core/language_settings_data.gd`의
+  `lingpet.language.generic.*` / `lingpet.pendulum.*` 키와
+  `godot/tests/localization_coverage_smoke.gd`.
 
 ## 9. 잔여 결정 / 후속
 - ✅ **상승 경로 = 스토리/수집 마일스톤 중심**(골드 구매 비채택, 보조만). §4.1.
 - ✅ **플레이어 명칭 = 링펫어 해석기 레벨** (EN Lingpet Decoder Level).
 - ✅ **완전 표의 시길 = 희귀 연출 전용**(코어기억/고유명사/금기어/제니스). §2.
 - 기본 마일스톤 래더 세부(어떤 스테이지/수집이 어느 레벨)는 조정 가능 — 스키마 불변.
+- 영구 `decoder_level`을 실제로 소비하는 배틀 바크 / 플라자 링링 / 도감형 호스트.
 - 완전 표의 시길 실제 후보 목록(코어 기억/고유명사) — 콘텐츠 작성 시.
-- TTF repo 경로/family 최종 + 글리프 미세조정(`m` 격자 등).
-- (옵션) 런 링코어 높을 때 일시 +reveal 보너스 여부.
+- 글리프 미세조정(`m` 격자 등).
+- 펜듈럼은 이미 런 `ring_core_tier` 기반 부분해독을 채택했다. 영구 `decoder_level`로 되돌리는 것은
+  현재 `docs/lingpet_pendulum_interior_plan.md` §12와 smoke 계약상 회귀다.
