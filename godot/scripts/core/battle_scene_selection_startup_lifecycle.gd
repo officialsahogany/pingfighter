@@ -4,8 +4,15 @@ const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const DEFAULT_LEAGUE_MODE := "junior"
+# Player-facing Stage 1 roulette pool. Dalji-only by explicit decision
+# (2026-07-04): Gaksital / Pododaejang stay debug-picker-only (explicit
+# selection) until they are release-ready. Re-add "gaksi" / "podo" here to
+# re-open the original random roulette.
+const STAGE1_RANDOM_BOSS_VARIANTS: Array[String] = ["dalji"]
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
+var stage1_boss_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var stage1_boss_rng_ready := false
 
 
 func apply_selection_state(owner: Object) -> void:
@@ -19,7 +26,7 @@ func apply_selection_state(owner: Object) -> void:
 		selection.get("runtime_character_id", selection.get("character_id", "smasher"))
 	)
 	var entry_stage: int = max(1, int(selection.get("stage_id", 1)))
-	var stage1_boss_variant: String = normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
+	var stage1_boss_variant: String = resolve_stage1_boss_variant(selection, entry_stage)
 	owner.set("current_stage", entry_stage)
 	owner.set("stage1_boss_variant", stage1_boss_variant if entry_stage == 1 else "dalji")
 	owner.set("selected_character_id", str(selection.get("character_id", "ufo_player")))
@@ -94,4 +101,38 @@ func normalize_stage1_boss_variant(value: String) -> String:
 	var normalized := value.strip_edges().to_lower()
 	if normalized == "gaksi" or normalized == "gaksital" or normalized == "talkwangdae":
 		return "gaksi"
+	if normalized == "podo" or normalized == "pododaejang" or normalized == "podo_daejang":
+		return "podo"
 	return "dalji"
+
+
+func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> String:
+	if entry_stage != 1:
+		return "dalji"
+	if bool(selection.get("stage1_boss_variant_explicit", false)):
+		return normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
+	return select_random_stage1_boss_variant()
+
+
+func select_random_stage1_boss_variant() -> String:
+	if STAGE1_RANDOM_BOSS_VARIANTS.is_empty():
+		return "dalji"
+	_ensure_stage1_boss_rng_ready()
+	var index: int = stage1_boss_rng.randi_range(0, STAGE1_RANDOM_BOSS_VARIANTS.size() - 1)
+	return str(STAGE1_RANDOM_BOSS_VARIANTS[index])
+
+
+func get_stage1_random_boss_variants() -> Array[String]:
+	return STAGE1_RANDOM_BOSS_VARIANTS.duplicate()
+
+
+func set_stage1_boss_rng_seed_for_test(seed_value: int) -> void:
+	stage1_boss_rng.seed = seed_value
+	stage1_boss_rng_ready = true
+
+
+func _ensure_stage1_boss_rng_ready() -> void:
+	if stage1_boss_rng_ready:
+		return
+	stage1_boss_rng.randomize()
+	stage1_boss_rng_ready = true
