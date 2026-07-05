@@ -84,7 +84,11 @@ If the documents conflict:
 - Legacy handoff / review packets lose to the current Godot owner module,
   `AGENTS.md`, `docs/godot_port_architecture.md`, and the relevant runtime
   checklist.
-- Everything else (hidden-knowledge rules, coordinate standards, stage
+- Godot runtime hidden-trap details -> `docs/godot_runtime_traps.md` wins
+  over the 3-8 line stubs kept in this file's trap index.
+- General Godot runtime / performance / implementation questions not covered
+  by a trap or checklist -> `AGENTS.md` wins.
+- Everything else (routing, asset-prep rules, coordinate standards, stage
   mapping) -> this file wins.
 
 ## 0.1 Claude / Codex Asset Workflow Split
@@ -118,6 +122,7 @@ implementation checklist. Use it as a routing and hidden-knowledge index:
 |---|---|
 | How to work (default agent posture) | `docs/agent_operating_posture.md` |
 | Godot implementation, runtime checks, test commands | `AGENTS.md` |
+| Godot runtime hidden traps (BOM, lazy-init, owner-schema, companion motion, boss-paddle skills, ...) | Stub index in this file; FULL text in `docs/godot_runtime_traps.md` |
 | Godot port wiring and module boundaries | `docs/godot_port_checklist.md`, then `docs/godot_port_architecture.md` |
 | Item runtime work | `docs/item_runtime_checklist.md` |
 | Character skill / perk runtime work | `docs/character_skill_perk_checklist.md` |
@@ -176,7 +181,9 @@ Backfill routing:
 - Character perk / skill runtime invariant ->
   `docs/character_skill_perk_checklist.md`.
 - Hidden UI trap, coordinate rule, stage-mapping rule, or resource-loading
-  invariant that belongs in standing memory -> this file.
+  invariant that belongs in standing memory -> FULL text in
+  `docs/godot_runtime_traps.md`, plus a 3-8 line stub (same heading +
+  pointer) in this file's trap index. See the graduation rule below.
 - Asset-generation / pipeline rule -> the relevant `SKILL.md`; for
   fullscreen bottom HUD, pillar HUD, orb collar, active-slot tray, dash
   token frame, or other large HUD frame art, route to
@@ -208,698 +215,314 @@ crane spawn-vs-reward routing.
 Before ending the task, explicitly tell the user in one short line that the
 checklist / rulebook was updated and what kind of safeguard was added.
 
+### Backfill graduation rule (size discipline)
+
+`CLAUDE.md` and the memory index are auto-injected into every session --
+every line here is a recurring per-session token cost. Standing rules:
+
+- New Godot runtime trap backfills put the FULL text (incident, mechanism,
+  standing rules, smoke seals) in `docs/godot_runtime_traps.md` and add only
+  a 3-8 line stub (same heading + essence + pointer) to this file's trap
+  index. Do not grow a stub back into a narrative -- grow the doc section
+  instead.
+- Before adding a rule body to this file or `AGENTS.md`, grep the OTHER
+  standing file: if the rule already lives there, add a 1-line pointer
+  instead of a body copy. Deliberate N-plication (like the Claude / Codex
+  workflow split in §0.1) must say so explicitly at each copy.
+- When a section in this file exceeds ~15 lines, or its behavior is sealed
+  by a named smoke AND covered by an on-demand doc, graduate the detail out
+  and leave a stub. Soft ceiling for this file: ~100KB -- when over,
+  graduate existing content before appending new content.
+
+## Godot Runtime Hidden-Trap Index (stubs)
+
+Every section below is a 3-8 line STUB of a standing runtime trap. The FULL
+text (incident history, mechanisms, standing rules, smoke seals) lives
+verbatim in `docs/godot_runtime_traps.md` under the SAME heading -- open
+that file before working in an affected area. Per the backfill graduation
+rule (see "Post-fix checklist backfill policy" above), new trap backfills
+add their full text there and only a stub here.
+
 ## Godot ConfigFile UTF-8 BOM Trap
 
-Godot `ConfigFile.load()` can silently miss the first section when a settings
-file starts with a UTF-8 BOM (`0xEF 0xBB 0xBF`). PowerShell `Out-File`,
-Notepad, and some editors may add this BOM while the file still looks normal
-in text viewers. If the first section is `[graphics]`, Godot can treat the
-BOM as part of the section header, skip those keys, and fall back to defaults
-such as windowed mode or Auto / off VSync even though the visible file content
-looks correct.
-
-For Godot settings / save-data code using `ConfigFile`, suspect BOM first
-when logs show `exists=on` / `load OK` but the first section's keys are
-missing. Read raw bytes, strip a leading UTF-8 BOM, then parse the cleaned
-text and rewrite the file without BOM. For player-facing settings, keep a
-`last_good` backup or equivalent recovery path so schema-only / partial
-settings files can be repaired instead of silently reverting to defaults.
+`ConfigFile.load()` silently skips the FIRST section when the file starts
+with a UTF-8 BOM (PowerShell `Out-File` / Notepad add it invisibly). If logs
+say `load OK` but first-section keys fall back to defaults, suspect BOM
+first: read raw bytes, strip the BOM, rewrite without it; keep a `last_good`
+recovery path for player-facing settings. Full rule:
+`docs/godot_runtime_traps.md`.
 
 ## Godot High-Refresh Pacing Trap
 
-The 144Hz divisor-lock display hypothesis has been tested and rejected for the
-current Godot 4 + Windows + NVIDIA path. `72_FPS` / `48_FPS` on a 144Hz monitor
-looks like a clean 1/2 or 1/3 divisor on paper, but the tested combinations
-(`VSync On`, `VSync Off`, and `Auto` / adaptive in exclusive fullscreen) did
-not reproduce the smooth 60Hz lock. `VSync On` plus `Engine.max_fps` creates
-two pacing layers, while driver-only adaptive present did not make a stable
-72Hz half-rate lock either.
-
-For release-quality smoothness, treat `60Hz monitor + 60 FPS + VSync On` as the
-known-good display setup. If a high-refresh display needs to feel smoother,
-route the work to frame interpolation or heavy-event reduction; do not assume
-another display-setting matrix will fix it. Player-facing helpers may recommend
-opening Windows display settings, but automatic refresh-rate switching must be
-explicit opt-in because it affects the whole desktop.
-
-The shipped project keeps a **48 FPS bootstrap safety cap** in
-`godot/project.godot` (`run/max_fps=48`, `physics_ticks_per_second=72`), while
-the runtime display default is intentionally **Stable Monitor**:
-`RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR` in
-`godot/scripts/core/battle_view_layout.gd`, mirrored in
-`godot/scripts/hud/pause_menu_overlay.gd`. Stable Monitor resolves through
-`_get_stable_monitor_refresh_rate()` /
-`resolve_stable_cap_for_monitor_rate()` so **144Hz -> 72** (promoted
-2026-06-11 from 48 after the 72fps budget work passed its clean-run felt
-gate — see `docs/frame_budget_72fps_optimization_design.md` §0.2; the
-single lever is `RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 72`, divisor table
-sealed in `render_fps_cap_settings_smoke.gd`), 120Hz -> 60, and
-60Hz -> 60. This keeps the `60Hz + 60 FPS + VSync On` known-good setup intact
-on 60Hz displays while giving high-refresh displays a safer default frame
-budget than monitor-rate 144 FPS. Runtime options still expose 48 / 60 / 72 /
-Unlimited / Monitor as explicit alternatives. No new settings migration was
-needed for the promotion: the stored value is the Stable Monitor sentinel,
-which re-resolves through the new table on load.
-
-Display settings schema 5 migrates materialized schema <=4
-`RENDER_FPS_CAP_MONITOR` defaults to Stable Monitor. This intentionally cleans
-up settings files created while the runtime default followed monitor Hz. Before
-changing the shipped runtime default again, move all of these together:
-`RENDER_FPS_CAP_DEFAULT` in `battle_view_layout.gd`, the mirrored constants and
-recommended-settings path in `pause_menu_overlay.gd`, the recommendation copy in
-`language_settings_data.gd`, the default / migration assertions in
-`render_fps_cap_settings_smoke.gd`, this documentation, and the display-settings
-migration. Touch `project.godot` and `project_boot_flow_settings_smoke.gd` only
-if the bootstrap safety cap itself changes.
-
-**Stable Monitor default trades physics fidelity for pacing on >120Hz
-displays.** `_resolve_physics_ticks_per_second()` syncs the physics tick rate to
-the resolved render cap for `RENDER_FPS_CAP_STABLE_MONITOR` /
-`RENDER_FPS_CAP_MONITOR` whenever that cap lands in `[30, 120]`, and
-`render_fps_cap_settings_smoke.gd` locks this as a contract. After the
-2026-06-11 144->72 promotion the shipped Stable Monitor default resolves to
-**render 72 / physics 72 on a 144Hz monitor** (a 60Hz display stays 60/60) —
-72 IS the project physics default, so the earlier `72 -> 48` physics drop and
-its fast-ball **tunneling** risk note for `>120Hz` displays are retired for
-144Hz. The tick-sync contract itself still applies to other monitor rates
-(e.g. 165Hz -> 55/55, 240Hz -> 60/60), where the resolved tick can sit below
-72: the felt risk there remains tunneling through thin collision bands
-(paddle edge, holy barrier, brick wall); gameplay speed stays constant only
-as long as motion uses the `ball_update_controller` `fps_scale = delta * 60`
-path. If tunneling shows up on such a display, the minimal, cleanest
-follow-up is to make `STABLE_MONITOR` fall back to the project physics
-default (`72`) inside `_resolve_physics_ticks_per_second()` instead of
-syncing to the resolved cap, then flip the `render_fps_cap_settings_smoke.gd`
-"sync physics to its resolved cap" assert. That single lever is the
-documented switch — do not silently re-raise physics anywhere else.
+The 144Hz divisor-lock display hypothesis is tested and REJECTED -- do not
+re-run display-setting matrices. Known-good = 60Hz + 60 FPS + VSync On;
+shipped default = Stable Monitor (144Hz -> render 72 / physics 72, single
+lever `RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 72`), bootstrap safety cap 48
+in `project.godot`. Changing the shipped default requires moving ~7 places
+together -- full list + tick-sync / tunneling notes:
+`docs/godot_runtime_traps.md`.
 
 ## Godot Hot-Path Lazy Init Trap
 
-Do not lazy-instantiate modules, resources, textures, scene nodes, draw hosts,
-or large caches from Godot hot paths (`_physics_process`, `_process`, `_draw`,
-or helpers reached from them). A first call that looks cheap can turn into a
-100ms+ hitch when it creates a module, loads a texture, builds icon/layout
-caches, or instantiates an overlay.
+Never lazy-instantiate modules / textures / caches / overlays from
+`_physics_process` / `_process` / `_draw` -- the first call becomes a 100ms+
+hitch. Prewarm at discrete moments (boot, loadout-apply, loading frames);
+reset / "is it active?" consumers use `registry.get_cached_instance` (the
+non-instantiating peek). In staged loading sequences the dep-instantiation
+step must run BEFORE dep-consuming steps (match reset), key list
+single-sourced from the consumer. Known repeat list (F3 icons, 370ms
+match-reset deps cold-instantiation, stage-transition step-order variant,
+lingpet skill host, ...): `docs/godot_runtime_traps.md`.
 
-Use one of these instead:
-- Create or prewarm before entering the visible / hot state.
-- Use cached-only lookups for "is this open / active?" gates.
-- Stage heavy work across loading / intro frames.
-- Document the path as low-cost lazy only after measurement.
+## Godot Missing Reserved-Asset Per-Frame Re-Stat Trap
 
-Known repeats of this exact class include F3 mythic-management first icon
-creation, score-result texture ensure during draw, desktop mobile-touch first
-draw module creation, Stage 1 pillar mythic runtime lookup during draw,
-perk-debug overlay first visible draw, the modal-gate physics regression
-where closed overlay checks lazy-created modules for a 158ms spike, the
-lingpet skill runtime host lazy-creating the active skill module (1034-line
-doll curse script + 512px sheet) on its first per-frame update / first arm,
-and the match-reset deps build cold-instantiating ALL six stages' state
-modules through `registry.get_instance` on a stage-1 match end (370ms
-physics stall; the round-restart default deps path hit the same class at
-574ms). Reset / cleanup / "is it active?" consumers that only need EXISTING
-modules must look up through `registry.get_cached_instance` (the
-non-instantiating peek — a never-created module has no state to reset);
-reference: `battle_update_stage_runtime_deps_builder` include-all branch,
-sealed by `stage_runtime_deps_builder_smoke`'s cold-instantiation guard.
-The lingpet fix pattern is prewarming at the discrete loadout-apply / boot
-moment (`lingpet_egg_runtime._prewarm_current_skill_runtime`, sealed by
-`lingpet_egg_runtime_smoke._verify_loadout_apply_prewarms_active_skill_runtime`);
-a new lingpet skill gets the sheet half of this for free only if it
-implements `prewarm()` for its heavy textures.
+The resource loader caches SUCCESSES only: a reserved-but-absent asset path
+in a per-frame draw path re-stats the filesystem EVERY frame, and the
+once-only warning dedup makes it silent. Never wire a not-yet-generated path
+into per-frame draw; point it at a placeholder or land the art + a
+`file_exists` assert in the same slice. Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot Threaded Texture Cross-Path Timeout Trap
+
+`ProjectResourceLoader.prewarm_texture_threaded_step()` has one shared
+texture slot. A different-path waiter must use its OWN timeout clock and must
+not drain the owner's in-flight worker on waiter expiry; otherwise a default
+caller behind a large 0/0 live stream can block the frame on somebody else's
+sheet. Streamed-asset readiness GATES must wait (return false + failsafe
+deadline -> degraded visual), never sync-load as a last-line fallback
+(721ms cut-in stall). Full rule + smoke seal: `docs/godot_runtime_traps.md`.
 
 ## Godot Animated Polygon Triangulation Trap
 
-Any Godot `draw_colored_polygon()` point set built from jitter, sag,
-shrink/dissolve, sine waves, or other animated offsets must prove the fill is
-triangulable before shipping. Prefer geometry that cannot self-intersect
-(bounded angle jitter, nonzero area, stable point order); otherwise guard only
-the fill with `Geometry2D.triangulate_polygon(points)` and keep outlines or
-safe fallbacks visible. Add a sweep smoke for the builder, and treat repeated
-`Invalid polygon data` log lines as a frame-budget regression signal. The full
-runtime rule lives in `AGENTS.md` under "Godot Degenerate
-`draw_colored_polygon` Trap".
+Any `draw_colored_polygon()` point set built from animated offsets must be
+provably triangulable -- guard fills with `Geometry2D.triangulate_polygon`,
+keep outlines / safe fallbacks visible, and treat repeated `Invalid polygon
+data` spam as a frame-budget regression. Runtime rule owner: `AGENTS.md`
+("Godot Degenerate `draw_colored_polygon` Trap"); details:
+`docs/godot_runtime_traps.md`.
 
 ## Godot Effect Drawer Static-Frame Trap
 
-When a Godot effect zone drawer reads its life/elapsed from a different key
-than the per-frame tickdown updates, the visual appears for the full duration
-as a frozen frame-0 still and then disappears -- the timer is decrementing,
-but the drawer is looking at the wrong field. Reference failure: the Commando
-fire-support airstrike used `GrenadeExplosionDrawer.draw_zone()`, which reads
-`duration_frames` first (fallback `timer_frames`), but
-`commando_firearm_impact_flash_resolver` set both `duration_frames` and
-`timer_frames` to the same initial value, and `advance_timed_effects()` only
-decrements `timer_frames`. The drawer therefore saw a constant elapsed=0 for
-the entire airstrike, producing a static "pop in / pop out" instead of the
-animated grenade-style blast.
-
-Standing rules for effect zone / impact flash wiring:
-- Pick ONE timer key (`timer_frames` OR `duration_frames`) per effect family
-  and use it consistently across resolver -> tick -> drawer. Do not duplicate
-  the same initial value into both keys "just in case."
-- If a shared drawer reads `duration_frames` first with `timer_frames`
-  fallback, any caller whose tickdown updates only `timer_frames` must NOT
-  set `duration_frames` in the zone dict at all. The fallback chain only
-  works if the unwanted-by-this-caller key is absent.
-- Add a focused smoke that asserts the impact-flash dict does NOT carry the
-  static-only key the drawer would prefer
-  (`commando_firearm_impact_flash_resolver_smoke.gd` is the reference: it
-  asserts `not fire_support.has("duration_frames")`).
-- When porting a grenade-style explosion to a new weapon / item / boss skill,
-  verify in-game that the explosion actually animates -- a static frame-0
-  render can hide behind correct radius / color / texture metadata and a
-  passing tick-decrement smoke.
-- Terminal projectile-death dispatch must whitelist which death reasons get a
-  visible impact flash. A dispatcher that appends a flash for ANY non-empty
-  reason pops the flash at the projectile's quasi-random death position --
-  the Commando pistol spread-miss bug is the reference: bullets dying via
-  `"expired"` / `"out_of_bounds"` (cross-field spread misses, stage 2
-  rock-ricochet deaths) drew the red-orange starburst at random mid-field
-  positions. Bullet-kind projectiles must fizzle silently on those reasons,
-  while `"expired"` stays a legitimate detonation reason for rocket /
-  support / drone / net payloads
-  (`commando_firearm_projectile_impact_state._should_spawn_impact_flash`,
-  sealed by `commando_firearm_projectile_impact_state_smoke`
-  `_verify_bullet_terminal_fizzle_is_silent`). Remember the amplifier: an fx
-  host anchored to `impact_flashes[0]`
-  (`stage1_commando_firearm_fx_host.gd`) replays a large glow + one-shot
-  particle burst at whatever position lands in that array, so auditing only
-  the immediate-mode drawer understates how visible a stray flash entry is.
+Pick ONE timer key per effect family (`timer_frames` XOR `duration_frames`)
+across resolver -> tick -> drawer: a drawer reading the key the tickdown
+does NOT update renders a frozen frame-0 still for the whole duration
+("pop in / pop out" instead of animating) -- if the shared drawer prefers
+`duration_frames`, callers ticking `timer_frames` must not set it at all.
+Terminal projectile deaths must WHITELIST which reasons get a visible
+impact flash (bullet kinds fizzle silently on "expired" / "out_of_bounds";
+an fx host anchored to `impact_flashes[0]` amplifies any stray entry).
+Full rules: `docs/godot_runtime_traps.md`.
 
 ## Godot Negative-Z Backdrop Host vs Ancestor Opaque Fill Trap
 
-Canvas `z_index` is sorted globally within a CanvasLayer, not per-parent. A
-"draw behind my parent" host node with negative z (`z_as_relative`) therefore
-draws before EVERY z=0 canvas item in the layer — including the screen-root
-ancestor's `_draw`. If any ancestor paints an opaque full-screen background
-(`draw_rect(view, color, alpha≈1.0)`), the entire negative-z host subtree
-(every TextureRect layer, every GPUParticles2D child, regardless of their own
-positive relative z) is silently and permanently covered. There is no error,
-state smokes still pass (`visible=true`, correct modulate/texture), and the
-on-screen result just "looks unchanged", so the burial can ship unnoticed for
-weeks. Reference failure: the character-select preview VFX host (z=-20,
-designed only against its parent `character_live_preview`'s immediate draw)
-was buried by `character_select_screen._draw_background()`'s opaque
-full-screen fill the whole time — discovered 2026-06-12 only when the new
-chamber backplate "didn't show" despite every state probe reading correct.
-
-Standing rules:
-- When adding a negative-z host under a Control whose ANCESTORS also do
-  immediate `_draw`, audit every ancestor for full-screen / panel-covering
-  opaque fills. The direct parent is not the only cover candidate.
-- z alone cannot slot a child between an ancestor's `_draw` and its parent's
-  `_draw`: any negative z sinks below the ancestor too, and z=0 rises above
-  the parent's own canvas item. The working fixes are (a) cut a hole in the
-  ancestor's opaque fill at the host rect (4-strip
-  `_draw_rect_excluding_hole` + an explicit "host active" gate like
-  `character_live_preview.is_backdrop_host_active()`), or (b) restructure the
-  host as a z=0 sibling tree-ordered before the actor renderer.
-- A backdrop / VFX host integration is not "done" on state smokes alone. The
-  sign-off requires a PIXEL-level check — run the real scene windowed, take a
-  viewport screenshot, and confirm the layer actually reads on screen. The
-  reference incident had `visible=true`, correct texture, correct modulate,
-  and zero visible pixels.
-- When a previously-buried backdrop finally shows (or a new backplate lands),
-  re-QA the backdrop ART against the foreground figure before trusting old
-  "looked fine" reads — and treat new "character asset defect" reports with
-  suspicion. Reference: the chamber backplate's dark center-top ceiling band
-  read as a black nukki stain behind Io's head the day the burial fix landed
-  (2026-06-12), while the sheet alpha, every draw call, and every layer were
-  clean. Diagnose by pixel-DIFFING with-character vs without-character
-  captures of the same scene: if the "fringe" pixels equal the
-  backdrop-only render, the defect is the backdrop art (fix the art, e.g.
-  brighten the pocket / extend the beam), not the sprite or the renderer.
-- The same incident's second wave: RELIGHTING a backdrop invalidates every
-  dark overlay that was tuned against the old dark backdrop. The
-  thigh-cutline dissolve shroud (near-black pool, alpha 0.94, tuned the same
-  day against the pre-lit room) became a "black fog swallowing the legs"
-  stain the moment the bright summon column landed behind it — its bell
-  falloff leaves bright floor exposed on both sides, maximizing the
-  contrast. When a backdrop gets brighter, re-audit the shrouds / aprons /
-  contact shadows drawn over it and re-tint them as shadows OF the lit
-  scene (scene hue, moderate alpha), never neutral near-black.
-
-A sprite sheet with a lateral action (throw, strike, aim, lunge) is authored
-facing ONE direction, and that authored facing is invisible in code -- you
-must open the PNG to know it. Any runtime that can play the sheet in BOTH
-gameplay directions must mirror the draw when the actual action direction
-opposes the authored facing, and the projectile / effect spawn point must
-come from the acting limb (offset toward the facing direction), not the body
-center. Reference failure: the Stage 2 pillar monkey stored `facing_right`
-at spawn but `_draw_monkey` never read it, and the banana spawned at body
-center -- a right-tree monkey visibly threw toward the letterbox while the
-banana flew left into the field from behind its back
-(`stage2_monkey_banana_event.gd`).
-
-Standing rules:
-- A per-actor facing / direction flag that exists only in the spawn dict is
-  a red flag -- grep that the renderer actually consumes it.
-- Mirror via the established UV-swapped `draw_polygon` helper
-  (texture-size-normalized UVs; see `_draw_flipped_sheet_frame` /
-  `lingpet_companion_renderer._draw_flipped_texture_region`), not a
-  negative-width Rect2.
-- The smoke must assert the OUTCOME pair: the flip decision matches the
-  actual travel direction of the spawned projectile, AND the spawn point is
-  offset to the facing side of the actor center
-  (`stage2_monkey_banana_event_smoke` facing / launch-point block is the
-  reference).
-- The projectile spawn TIME must match the sheet's hand-empty frame, not a
-  round-number delay. If the sheet holds the object in-hand through frame N
-  and shows an empty hand from frame N+1, spawn the projectile exactly when
-  frame N+1 lands (derive the release constant from the frame mapping, e.g.
-  `2.0 / 7.0`, not `0.5`), or the object visibly vanishes between wind-up
-  and release.
-- If the actor lives in the screen letterbox (pillar tree, outer chrome),
-  the projectile's draw cull must include the letterbox band in game
-  coordinates (`game_offset.x / render_scale` each side), not just
-  `0..WIDTH` plus a small margin -- otherwise the projectile pops into view
-  mid-flight at the field edge even though its motion math is correct.
+Canvas z sorts globally per CanvasLayer: a negative-z host sinks below EVERY
+ancestor's z=0 `_draw`, so an ancestor's opaque full-screen fill buries the
+whole subtree silently (state smokes stay green -- sign-off needs PIXEL QA).
+Positive-z variant: a spawner can drive an ANCESTOR's z above your absolute
+child z (plaza z=1200 case). This section also owns the authored-facing
+rule: lateral-action sheets face ONE invisible direction -- renderers must
+consume the facing flag, mirror via the UV-swapped helper, and spawn
+projectiles from the acting limb at the hand-empty frame; letterbox-actor
+projectiles need the letterbox band included in their draw cull. Full
+rules: `docs/godot_runtime_traps.md`.
 
 ## Godot Per-Frame Probability Roll Trap
 
-A `chance_pct` that is meant as a per-opportunity success rate but is rolled
-**every frame** inside a multi-frame gating window does NOT behave like that
-percentage. The ball / actor sits inside the qualifying window for `N` frames,
-so the felt success rate is the compounded `1 - (1 - p)^N`, which saturates
-toward certainty and **washes out level / rarity scaling**. The reference
-failure: `lingpet_ring_dash` (링크포트) rolled its `ring_dash_chance_pct`
-inside `advance()` every frame the descending ball was in the lower guard band.
-With ~9-17 window frames, Lv.1 12% compounded to ~70% and Lv.5 32% to ~99%, so
-both passive levels felt identical in play even though the catalog numbers
-differ 2.7x.
-
-Standing rules for chance-gated per-frame gameplay effects:
-- Decide whether the displayed percentage is **per-opportunity** or
-  **per-frame**, and make the code match. The default player-facing intent is
-  per-opportunity.
-- For per-opportunity semantics, gate the roll with a "already rolled this
-  opportunity" lock and clear it only when the opportunity genuinely ends
-  (e.g. ball stops descending / new rally / actor leaves the window), NOT every
-  frame the gate is briefly false. `lingpet_ring_dash_state._rolled_this_descent`
-  + `_update_descent_roll_lock()` (cleared on `ball_vel.y <= 0` or ball
-  inactive) is the reference pattern.
-- Add a focused smoke that proves a **failed** roll does not re-trigger within
-  the same opportunity, and that a fresh opportunity re-arms exactly one roll
-  (`lingpet_egg_runtime_smoke._verify_ring_dash_single_roll_per_descent`).
-  A success-only test (force_roll = always-succeed) passes either way and hides
-  the compounding bug.
-- When auditing a new chance-based lingpet passive / item proc / boss-skill
-  gate, check the call cadence first: if the roll site is reached from
-  `_process` / `_physics_process` / a per-frame `advance()`, assume per-frame
-  compounding until proven per-opportunity.
-- **Before "fixing" a displayed-stat-vs-felt-behavior gap by buffing power,
-  confirm the stat's INTENDED SCOPE with the design owner — the gap is often a
-  scope/labeling issue, not a reach deficiency.** Reference saga: `lingpet`
-  `defense_rate` ("방어율") armed an intercept correctly but at 155px/s (≈ patrol
-  speed) usually could not REACH the predicted ball X, so the displayed 30%
-  blocked fewer balls than it implied. The first "fix" assumed defense should
-  cover the WHOLE field and raised the speed to 420px/s — which made the lingpet
-  sprint across the field and read as a robotic teleport, NOT what the design
-  wanted. The actual intent was a **local predictive guard**: the lingpet only
-  guards uncatchable balls that fall NEAR it (it is not a field-wide goalkeeper).
-  The correct fix was therefore to SCOPE the stat, not buff reach: keep a subtle,
-  slightly-above-patrol eased speed (`COMPANION_DEFENSE_INTERCEPT_SPEED = 180`
-  with ease-in/out) and arm defense only for balls that match the FULL intent --
-  (1) the **player cannot block** the predicted X (`_player_can_block`, mirroring
-  `lingpet_ring_dash_state`; guarding a ball the player could make is pointless),
-  (2) the predicted X is within a generous **local commit zone**
-  (`COMPANION_DEFENSE_LOCAL_ZONE`) of the lingpet, (3) the roll passes. Far /
-  player-blockable balls never arm (out of scope, by design). **Crucially, the
-  commit is ANTICIPATORY, not "reachable THIS frame".** An earlier iteration gated
-  on a tight `reachable_distance = speed*(time_left)*factor` window, so at the slow
-  180px/s the guard committed too LATE and a high (even 100%) defense rate still
-  whiffed nearby balls — the lingpet only "decided" once the ball was already close
-  enough to reach instantly, by which point it usually wasn't. The fix: commit as
-  soon as the ball enters the band within the local zone, then anchor to the
-  re-predicted landing X and ease toward it EARLY across the whole descent; the slow
-  speed itself caps total travel so anchoring/tracking can never become a field
-  sprint. The displayed rate is then honest WITHIN the local zone, and the tooltip
-  says so ("링펫 근처로 떨어지는 … 미리 예측해 가드"). NOTE: the defense intercept
-  (`lingpet_companion_motion_state`) and the Linkport passive
-  (`lingpet_ring_dash_state`) are SEPARATE systems with their own gates -- do not
-  assume a gate present in one (e.g. `_player_can_block`) exists in the other.
-  Also: defense intercept is **PATROL-only** — flight-style companions
-  (`sortie_flight` / `free_flight`) skip it in `lingpet_companion_motion_state.update`,
-  so `_get_current_defense_rate()` returns 0 for non-patrol pets (override included)
-  and the character-info panel hides the 방어율 row when the rate is 0. A new
-  flight-style lingpet must keep `defense_rate: 0.0` in the catalog (a nonzero value
-  is dead data that only misleads the UI).
-- **A displayed chance/rate stat must produce its real gameplay OUTCOME (within
-  its intended scope), and the smoke must assert the outcome.** Standing rules:
-  (a) write the smoke against the end effect (ball bounced / `ball_vel.y < 0`,
-  damage dealt, status applied), not the arming/attempt flag —
-  `_verify_maribo_defense_actually_blocks_reachable_ball` asserts a near ball is
-  actually bounced; (b) any tuning that gates the follow-through (chase speed vs
-  arrival time, projectile speed vs distance) must be checked against the real
-  time/space budget; (c) keep an out-of-scope / "does NOT always succeed"
-  counter-case so the effect is neither a guaranteed wall nor silently dead —
-  `_verify_maribo_defense_rate_intercepts_descending_ball` asserts a far ball does
-  NOT arm; (d) **a smoke that hand-advances the ball must mirror the runtime's
-  per-frame distance `ball_vel * delta * 60` (`ball_update_controller`
-  `fps_scale = delta*60`), NOT raw `ball_vel` per step.** Raw `ball_vel` per step
-  (e.g. `ball_y += 12`) descends ~3x too slowly at `delta=0.05`, handing the
-  defender an inflated window so the test passes even at a too-slow speed; use
-  `ball_y += ball_vel.y * delta * 60`.
-- **Lingpet companion test trap: Maribo's auto-cast skill wind-up FREEZES
-  companion motion.** `windup_active` is passed as `freeze_motion` to
-  `lingpet_companion_motion_state.update`, so during the ~1s Hydro Sphere wind-up
-  the companion cannot patrol or run a defense intercept. A multi-frame companion
-  motion smoke must first let the initial cast actually LAUNCH (needs an active
-  ball parked away from the lane) so the skill enters its 40s cooldown; otherwise
-  the wind-up re-arms and the companion stays frozen through the scenario.
-- **Interaction-grant variant: a player-driven reward grant (pet click rapport,
-  future companion petting / feeding rewards) needs BOTH the per-opportunity
-  edge lock AND round/battle caps owned by the battle lifecycle — global,
-  pet-id-agnostic, surviving pet switch / re-hatch.** The edge lock alone
-  leaves an AFK re-trigger loop (~one grant per animation cycle), and per-pet
-  cap counters re-arm on pet switch. Reference: lingpet 교감 click grant —
-  start()-edge-only award in `try_begin_companion_click_reaction` (the
-  already-active replay branch must not grant) + battle-global caps in
-  `lingpet_affinity_state` (round 2 / battle 5), sealed by
-  `lingpet_affinity_state_smoke`'s same-round pet-switch cases.
+A `chance_pct` rolled EVERY frame inside a multi-frame window compounds to
+near-certainty and erases level scaling -- displayed rates are
+per-opportunity by default; gate with a rolled-this-opportunity lock that
+clears only when the opportunity ends. Before "fixing" a
+displayed-stat-vs-felt gap by buffing power, confirm the stat's INTENDED
+SCOPE with the design owner (링펫 방어율 saga). Smokes must assert the real
+OUTCOME and step the ball with `ball_vel * delta * 60`. Full rules
+(defense-guard scope / speed levers, Maribo wind-up freeze,
+interaction-grant caps): `docs/godot_runtime_traps.md`.
 
 ## Godot Companion Walk/Idle Ratio Trap (treadmill in place)
 
-**ROOT-CAUSE WARNING — a stationary "marching in place" companion is usually a
-POSITION-stuck bug, not an animation bug. Chase the motion first.** The lingpet
-"제자리걸음" saga: the companion appeared to march in place; several animation-side
-fixes (the mechanisms below) only changed WHETHER the stuck pet showed a walk or
-an idle frame — they never made it move. The real cause was that the defense
-intercept parks `patrol_dir = 0` when it arrives at the guard point
-(`lingpet_companion_motion_state._advance_defense_intercept`), and NOTHING
-restores it once the guard clears: `clear_defense_intercept` does not touch
-`patrol_dir`, a flip is `-1 * 0 = 0`, and a heading-less pet can never reach a
-lane edge to be re-aimed — so `next_x = pos.x + 0 * speed = pos.x` froze the pet
-in place until a round reset re-`initialize`d it ("게임 진행하다보면 풀린다").
-With the INTENDED `motion_speed_ratio` still > 0 this read as a walk treadmill;
-after the actual-movement gate (Mechanism C) it read as a frozen idle — SAME
-bug. Fix: re-seed `patrol_dir` to ±1 in the patrol movement section whenever it
-is zero (that section only runs once the defense guard is inactive). Sealed by
-`lingpet_egg_runtime_smoke._verify_patrol_dir_recovers_after_defense_park`
-(reverse-verified: the pet stays frozen without the re-seed). Lesson: when a
-companion "walks in place", first prove whether `_companion_pos` actually
-advances frame-to-frame; if not, the animation gate is downstream of the real
-(motion) bug. Any code that zeroes `patrol_dir` mid-game (defense park, future
-grab/displace skills) must restore a heading on release.
-
-`lingpet_companion_motion_state.motion_speed_ratio` is the companion
-renderer's walk/idle GATE and walk-anim speed
-(`lingpet_companion_renderer` picks the walk sheet when ratio > 0.01;
-`get_walk_frame` then cycles on WALL-CLOCK time). Any motion-state /
-override writer must therefore write the ACTUAL per-frame movement speed
-into it, never an intent / capability constant — a positive ratio on a
-stationary companion renders as full-speed walking in place, ships
-silently (no error, state smokes pass), and only shows in live play.
-Reference failure: the defense intercept set the ratio from the 225px/s
-guard-speed cap for the whole intercept-active window, but the
-anticipatory guard ARRIVES EARLY BY DESIGN and parks at the predicted
-landing X — so the parked guard treadmilled at max walk FPS. Fix = track
-the real step speed (`defense_intercept_step_speed`, 0 in the
-arrived-hold branch; `patrol_speed` alone is NOT enough — it retains the
-last chase speed on arrival), sealed by `lingpet_egg_runtime_smoke.
-_verify_maribo_defense_hold_stops_walk_animation` (verified to FAIL
-against the constant-ratio code).
-
-This trap has THREE distinct mechanisms; the defense-hold above is only
-one. The other two were the dominant cause in live play and are now fixed
-together:
-
-- **Mechanism A — skipped `update_lingpet` + wall-clock anim.** Every
-  early-return pause branch in `battle_frame_flow_controller.update()`
-  (Smasher power-smash freeze ~1.65s, mythic acquisition cinematic,
-  scoreboard fade-in, stage3 kuromi / psychoball hitstop) skips the
-  `update_lingpet` callback while still calling `queue_redraw`. The
-  companion is still drawn with its STALE `motion_speed_ratio` (> 0.01 if
-  it was mid-walk), and the walk frame used raw `Time.get_ticks_msec()`,
-  so it kept cycling — marching in place — while the frozen pet never
-  moved. Fix: drive the walk frame from an accumulator
-  (`LingpetCompanionSpriteAnimator.walk_phase`, advanced by
-  `advance_walk_phase()` which is called only inside the `update_lingpet`
-  tick) instead of wall-clock. A skipped tick freezes the phase → a still
-  frame, not a march. The wall-clock path stays as a fallback for any
-  animator instance that never calls `advance_walk_phase` (the soul-clone
-  has its OWN animator). Sealed by
-  `_verify_walk_animation_freezes_when_update_skipped`.
-- **Mechanism B — position-override forces draw ratio 1.0.**
-  `lingpet_egg_runtime._get_companion_draw_motion_speed_ratio()` hardcoded
-  `1.0` for the skill-host and starlight-tracking override branches,
-  regardless of whether the override actually MOVED the pet. The starlight
-  pickup-hold (~1s, common on ground pets like maribo that have
-  `lingpet_starlight_tracking`) and skill holds (doll-curse cast, headbutt
-  repeat-wait) park the pet → walked in place. Fix: the override branches
-  return a real **horizontal** movement ratio (`_companion_override_move_ratio`,
-  computed each tick in `_advance_companion_draw_anim` from the x-delta of
-  `_companion_pos`). A held override → 0 → idle; a moving one → walk. Use
-  x-delta, NOT vector length: the walk sheet is side-view locomotion, so a
-  pure vertical hop (the starlight pickup jump arc keeps x fixed) must read
-  as idle. Sealed by `_verify_starlight_pickup_hold_reads_idle`.
-- **Mechanism C — PATROL/defense path used INTENDED speed, not real movement.**
-  Mechanism B fixed only the override branches; the patrol/free-flight branch of
-  `_get_companion_draw_motion_speed_ratio()` still returned
-  `motion_speed_ratio` (the motion state's INTENDED speed, derived from
-  `patrol_speed` / defense step speed). That intended ratio can stay > 0.01 on a
-  frame where the drawn position does NOT actually advance — defense intercept
-  arriving at a lane-clamped target, a zero/negative-delta tick recomputing
-  `_speed_ratio(patrol_speed)`, sub-tolerance re-anchoring — so a stationary
-  patrol pet (nekuring: patrol + `defense_rate` 0.14, no starlight) marched in
-  place. Fix: the patrol/free-flight branch now ALSO returns
-  `_companion_override_move_ratio` (real per-frame x-travel), so a genuinely
-  static companion reads idle no matter WHICH path left the intended ratio
-  positive. The seed frame (just adopted, `_companion_draw_pos_prev == ZERO`)
-  falls back to the intended ratio for that one frame so the first visible frame
-  isn't a spurious idle. Sealed by `_verify_patrol_static_frame_reads_idle`
-  (a zero-delta tick: intended ratio positive, position unchanged → draw idle).
-- **Threshold parity.** `LingpetCompanionSpriteAnimator.get_walk_frame` idled
-  only at `ratio <= 0.0`, but the renderer's "moving" gate is `ratio > 0.01`. A
-  ratio in (0, 0.01] therefore made the renderer pick the IDLE texture while
-  `get_walk_frame` still CYCLED it — the idle sheet marched in place. Both now
-  use `MOVING_RATIO_THRESHOLD = 0.01`; keep them in lockstep.
-
-Standing rule: the companion walk/idle gate must be driven by ACTUAL drawn
-movement (or 0 when held), for EVERY non-flight path (overrides AND patrol/
-defense) — never by an intent / capability constant (`motion_speed_ratio`,
-guard-speed cap, hardcoded 1.0) that can diverge from real displacement. The
-walk-frame CLOCK must freeze whenever the companion's own update tick is
-skipped, and the renderer's "moving" threshold and the animator's idle
-threshold must match. When adding a new pause branch that skips
-`update_lingpet`, a new override / skill that parks the companion, or any new
-`motion_speed_ratio` writer, re-audit all of these mechanisms.
+A companion "marching in place" is usually a POSITION bug, not an animation
+bug -- first prove `_companion_pos` advances (reference: `patrol_dir` parked
+at 0 by the defense intercept and never re-seeded). The walk/idle gate must
+be driven by ACTUAL drawn movement (never intent constants / hardcoded 1.0),
+the walk clock must freeze when `update_lingpet` is skipped, and renderer /
+animator thresholds must match (0.01). Three mechanisms + seals:
+`docs/godot_runtime_traps.md`.
 
 ## Godot Companion Teleport/Reposition Locomotion Trap (ground pet keeps Y)
 
-Any lingpet skill / passive that SCRIPTS a companion's position (teleport, blink,
-dash, recall, vacuum, future reposition skills) must respect the pet's
-locomotion style when choosing the target Y. **Ground (`patrol`) lingpets cannot
-move into the air**, so a position override for a patrol pet must keep the pet's
-current ground-lane Y and only change X. Flight pets (`sortie_flight` /
-`free_flight`) may move freely in Y. Reference failure: Linkport
-(`lingpet_ring_dash`) teleported a descending-ball interceptor to the player
-guard-center Y (`_resolve_player_guard_center_y`) for ALL pets. For a patrol pet
-that Y differs from its patrol lane Y by `guard_y - patrol_lane_y`, which is
-**paddle-height dependent**: ≈0px at the 50px base paddle (so state smokes that
-use the base paddle never caught it) but a clearly visible upward pop once a
-paddle-height perk/item raises the paddle (≈15px at 75, ≈38px at 120). The pet
-appeared to jump up into the air to hit the ball. Fix: pass the motion style into
-the position-scripting state and branch the target Y — `current_companion_pos.y`
-for ground pets, the guard-center dive only for flight pets
-(`lingpet_ring_dash_state.advance`'s `motion_style` arg →
-`_build_target_data`'s `is_ground_pet`).
+Position-scripting skills (teleport / blink / dash / recall) must pick the
+target Y by locomotion style: ground (`patrol`) pets keep their lane Y
+(X changes only), flight pets may dive freely. The divergence is ~0 at base
+paddle height, so regression smokes MUST use a non-base paddle height.
+Full rules: `docs/godot_runtime_traps.md`.
 
-Standing rules:
-- A companion position override's target Y must be chosen by locomotion style,
-  not a single field-wide anchor (guard line, ball Y, player center). Ground =
-  keep current lane Y; flight = free.
-- The regression smoke MUST use a **non-base paddle height** (the divergence is
-  ~0 at the 50px base, so a base-paddle test passes even with the bug) and assert
-  the OUTCOME pair: ground pet Y stays on its lane (only X teleports) AND a flight
-  pet still dives to the guard line. Reference:
-  `lingpet_egg_runtime_smoke._verify_ring_dash_ground_pet_keeps_y_on_teleport`
-  (paddle 75; reverse-verified to FAIL on the old guard-dive code) plus the flight
-  guard-Y assert added to `_verify_ring_dash_passive`.
+## Godot Lingpet Companion Incapacitation Body-Hit Trap (parked ≠ disabled)
+
+A companion parked by a position override stays fully hittable. Any
+incapacitation window (self-stun, freeze, knockdown) must route through
+`suppresses_companion_body_hit(skill_id)` -- one switch gates BOTH body hit
+and anticipatory strike -- and suppress ONLY the incapacitated window, never
+the active / charge phase. Full rules: `docs/godot_runtime_traps.md`.
 
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
-The battle `owner` (`battle_scene_shell`) routes `owner.set(key, value)` /
-`owner.get(key)` through `battle_scene_state` `set_value` / `get_value`, which
-**only store / return keys present in `BattleSceneState.DEFAULT_VALUES`**. A
-`set()` to a key NOT in that schema is a **silent no-op** (no error), and a
-`get()` returns null → callers fall back to their default. So any per-frame
-runtime value you sync onto the owner for another system to read (e.g. the
-character-info panel) is **silently dropped unless the key is declared in
-`DEFAULT_VALUES`**.
+`owner.set(key, ...)` is a SILENT no-op for keys not declared in
+`BattleSceneState.DEFAULT_VALUES`, and readers fall back to catalog / base
+values that mask the drop. Declare every synced key, test the DIVERGENT
+(boosted != base) case through a schema-gated owner, and diff primary vs
+second / duplicate sync helpers (a sibling omitting one key pins the panel
+at base). Structural seal + slot-sentinel rules:
+`docs/godot_runtime_traps.md`.
 
-Reference failure: the F7 lingpet defense-rate override didn't show in the
-character-info panel. `lingpet_runtime_snapshot_builder.sync_owner` wrote
-`owner.set("lingpet_companion_defense_rate", _get_current_defense_rate())` every
-frame, but `lingpet_companion_defense_rate` was missing from `DEFAULT_VALUES`, so
-the write no-opped and `character_info_overlay_lingpet_snapshot_builder` fell back
-to `LingpetCatalog.get_stat(..., "defense_rate")` (the catalog/base value). The
-base equals the catalog value, so the panel "looked right" until an override made
-the live value diverge from the catalog. Fix = declare the key (and its `ringpet_`
-pair) in `DEFAULT_VALUES`.
+## Godot Two-Update-Path Context-Flag Trap (effects-path flag read on the ball path)
 
-Standing rules:
-- When a runtime stat must appear in the character-info panel (or any cross-module
-  owner read), confirm the owner key is in `battle_scene_state.DEFAULT_VALUES`.
-  If it is not, the sync silently no-ops and the reader uses its fallback.
-- A panel/stat that reads `owner.<key>` with a **catalog/base fallback** can mask
-  this bug whenever the live value happens to equal the base. Test the DIVERGENT
-  case (a runtime override / buff that differs from the catalog value).
-- Smokes must use a **schema-gated owner** (delegating to `BattleSceneState`, like
-  `battle_scene_shell`) to catch this — a plain dict `FakeOwner` that stores any
-  key will pass even when the real schema would drop the write. Reference:
-  `character_info_live_stats_smoke._verify_defense_override_reaches_panel_through_schema_gated_owner`
-  (verified to FAIL when the schema key is removed).
-- This trap repeated at scale (2026-06-12): 17 of the snapshot sync's keys
-  (`hit_gauge_gain`, `patrol_speed_*`, `catch_*`, passive bonus pcts, slot
-  mirrors) were missing from `DEFAULT_VALUES`, so 교감 기동/게이지 강화 and
-  passive stat boosts applied in gameplay but the TAB panel kept showing the
-  catalog base. The structural seal is now
-  `character_info_live_stats_smoke._verify_snapshot_sync_keys_are_schema_declared`,
-  which scans every `_set_pair(owner, ...)` / `owner.set(...)` key literal in
-  `lingpet_runtime_snapshot_builder.gd` against `DEFAULT_VALUES` — new sync
-  keys fail the smoke until declared. Also remember the pair fallback masks
-  single-key omissions: the panel reads `lingpet_*` then `ringpet_*`, so a
-  value-level test alone can pass while one of the pair is dropped.
-- Slot-index style mirrors need a **negative sentinel default** (`-1`), and the
-  owner-read helper must treat negatives as "not synced yet"
-  (`lingpet_collection_state.get_active_slot_index_from_owner`); a `0` default
-  would force slot 0 over the runtime's internal index on a fresh battle state.
+The effects update path and the ball update path build DIFFERENT context
+dicts: an effects-only flag (e.g. `enraged_boss_active`) read from a
+ball-path helper silently returns false forever. Capture such flags at
+`activate()` time into a member; the regression smoke must use SEPARATE
+contexts for the two calls (a shared dict masks the bug). Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot Shared Stateful Input-Reader Edge-Eating Trap (extra get_snapshot() consumer)
+
+An off-controller per-frame consumer of the shared player input reader (horn
+strawberry command listener; `update_mythic_items` runs BEFORE
+`update_player_control`) consumes stateful `action_just_pressed` /
+`just_released` edges, so edge-gated inputs (commando firearm fire) silently
+die while the item is merely equipped. Stateful readers' `get_snapshot()` is
+now idempotent per physics frame -- new edge-detecting readers and off-path
+input samplers must keep that guard. Seal:
+`player_input_reader_same_frame_edge_smoke.gd`; full rule:
+`docs/godot_runtime_traps.md`.
 
 ## Godot Lazy Applied-Key Re-Apply Trap
 
-A lazy apply gate that early-returns on "already applied" BEFORE recomputing
-its key makes key-CONTENT changes invisible: if an input folded into the key
-changes while the stored key string is still non-empty, the gate returns
-before the key is ever rebuilt, so "include the new input in the key" alone
-is a silent no-op. Reference failure class: `lingpet_egg_runtime.
-_apply_current_loadout` early-returns on `_applied_loadout_key != ""` before
-`_build_loadout_key` runs — an affinity level-up that only changed key
-contents would never re-apply. The only working lever is explicit
-invalidation (`_invalidate_current_loadout_cache()` on every level-up) plus
-folding the changing input into the downstream value caches
-(`lingpet_current_profile` skill-dict cache keys). Standing rules:
-- For any applied-key / dirty-key lazy gate, audit WHERE the early-return
-  sits relative to the key recompute before claiming "the key includes X".
-- The regression smoke must drive the REAL apply path: change the input
-  WITHOUT invalidation and assert the stale value persists, then invalidate
-  and assert the new value lands (lingpet_egg_runtime_smoke affinity
-  synthesis case is the reference).
+An "already applied" early-return that sits BEFORE the key recompute makes
+key-CONTENT changes invisible -- "include the new input in the key" alone is
+a silent no-op; the only levers are explicit invalidation plus folding the
+input into downstream value caches. Smokes must drive the REAL apply path
+(stale persists -> invalidate -> new value lands). Full rule:
+`docs/godot_runtime_traps.md`.
 
 ## Godot Stats-Panel Row Budget Trap
 
-`character_info_overlay_stats_presenter.draw_lingpet_stat_rows` silently
-DROPS rows that overflow the section rect (line gap floors at 16px, rows
-past the rect bottom break out of the draw loop). A new stat row can pass
-every data-model assert (`rows.size() >= N`) while the drawn panel silently
-loses its last row in the vertical stacked layout (<620px inner width).
-This is the sibling of the tooltip shared-line-budget clip trap. When adding
-a panel row, assert DRAW-TIME capacity at the stacked-layout rect via
-`lingpet_stat_rows_visible_capacity` (reference:
-`character_info_live_stats_smoke`'s 교감-row capacity assert), or define
-which row yields when the rect cannot fit.
+`draw_lingpet_stat_rows` silently DROPS rows that overflow the section rect
+(sibling of the tooltip shared-line-budget clip trap). When adding a panel
+row, assert draw-time capacity via `lingpet_stat_rows_visible_capacity` at
+the stacked-layout (<620px) rect, or define which row yields. Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot Boss Skill Card Rail Commando-Avoidance Trap
+
+`resolve_stack_start_y`'s `avoid_rect` arg is OPTIONAL -- a stage card-rail
+renderer that omits `commando_firearm_panel_rect` silently disables Commando
+firearm-HUD avoidance and buries that UI under its card stack. Every new
+stage renderer must read + forward the rect AND be added to the coverage
+smoke's hardcoded path list (prefer the behavioral seal). Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot Lingpet Second-Active-Slot HUD Parity Trap
+
+Companion active-skill state comes as suffixed pairs (`companion_skill_*`
+and `companion_skill_*_1`) -- every HUD / debug / localization consumer must
+read BOTH slots, and per-slot "casting" must resolve via that slot's OWN
+skill kind (never a shared OR of every module flag, or a slot-1 cast fills
+the slot-0 gauge). Smokes need a dual-active snapshot asserting both
+directions. Full rules: `docs/godot_runtime_traps.md`.
 
 ## Godot Boss-Paddle-Scripting Skill Trap (drag / grab / displace the boss)
 
-Any skill that **scripts the boss paddle position** instead of nudging it
-(lingpet 꼭두각시 조종 / Koyora puppet grab, future pull / grab / vacuum /
-displace ports) must keep these invariants together, or the effect looks broken:
+Skills that SCRIPT the boss paddle position (puppet-grab class) must keep
+six invariants together: boss-AI freeze flag, ball collision preserved with
+LIVE-anchor post-hit snap + `boss_collision_cooldown` re-arm,
+`DEFAULT_VALUES` declaration, self-healing release that survives an
+owner-less `cancel(null)`, round-reset `boss_y` normalization, and home-band
+anchors for "below the boss" guards. Reference: Koyora puppet grab + its
+smoke. Full invariants: `docs/godot_runtime_traps.md`.
 
-1. **Freeze the boss AI** so it stops re-deriving `boss_pos` from the ball.
-   `boss_ai_state.update()` overwrites a bare `owner.set("boss_pos", …)` every
-   frame (the headbutt skill only survives because it rides the decaying
-   `start_paddle_hit_knockback` channel). For a precise drag-and-exact-return,
-   add a context freeze flag that mirrors `viper_dmk_freeze_active` — boss AI
-   returns `{boss_pos, boss_vel: 0}` unchanged — and have the skill write
-   `owner.boss_pos = scripted_target` every active frame (ordering-independent;
-   the freeze is a no-op on position). Reference: `lingpet_puppet_grab_active`
-   in `boss_ai_state.gd` + `battle_update_boss_ai_context_builder.gd`.
-2. **Preserve the boss's BALL collision while it is displaced.** 2026-06-09
-   design decision: match the original Python behavior 100%. The puppet skill
-   only scripts the boss paddle position; if that displaced paddle overlaps a
-   rising ball, `ball_motion_collision_detector` should still emit
-   `EVENT_BOSS_PADDLE`. Do not gate boss collision on
-   `lingpet_puppet_grab_active`; that flag is for AI freeze, schema, and cleanup
-   only. Historical reversal note: older guidance said to skip this collision
-   to keep the goal "open"; that guidance is obsolete. The shipped intent is
-   that a dragged boss can still physically bounce a rising ball from its
-   displaced position, even when that looks like defending from the wrong side.
-   Corollary (2026-06-11 fix): the boss-hit BOUNCE response must anchor to the
-   LIVE paddle too. `paddle_bounce_boss_post_hit_handler._snap_boss_hit_ball_pos`
-   used to snap the ball's y to the static `boss_y` constant (`BOSS_Y = 25`),
-   so with a displaced boss the collision fired correctly but the post-hit
-   snap teleported the ball back to the top of the screen on contact. The snap
-   now reads the live `context.boss_pos.y` (static `boss_y` only as fallback).
-   Any post-hit logic anchored to the boss paddle (ball snap, effect spawn,
-   cooldown bands) must use the live `boss_pos`, never `BOSS_Y` / `boss_y`.
-   Second corollary (2026-06-11): a boss paddle hit must re-arm
-   `boss_collision_cooldown` (Python parity: `pingfighter.py` 174199,
-   `BOSS_COLLISION_COOLDOWN_FRAMES = 10`). The Godot port originally relied on
-   the `ball_vel.y < 0` gate alone, which is enough for a top-parked boss but
-   lets a displaced boss (kiss point just above the player band) ping-pong the
-   ball boss<->player every couple of frames. The cooldown is set in
-   `paddle_bounce_boss_post_hit_handler` and must be propagated through every
-   bounce-result allowlist layer (`paddle_bounce_post_hit_handler` →
-   `paddle_bounce_post_hit_step` → `paddle_bounce_controller`) or the scene
-   merge silently drops it.
-6. **"Below the boss" repositioning hacks must not follow a displaced boss.**
-   Stage-side guards that re-place the ball "just under the boss" as a proxy
-   for "just under the top goal band" (stage2 quake
-   `resolve_quake_boss_backstop`, `stage2_quake_ball_motion_state.apply_boss_launch_guard`)
-   must cap their anchor at the HOME band — `min(boss_pos.y, context.boss_y)` —
-   or a puppeted mid-field boss makes them teleport the ball from the goal
-   line into the player's floor band (stealing a goal / forcing a loss). When
-   porting any future "keep the ball below/above an actor" guard, ask whether
-   the actor can be displaced by a scripting skill and pick the intent anchor
-   (home band) explicitly.
-3. **Declare the flag in `battle_scene_state.DEFAULT_VALUES`** (see the
-   Owner-Field Schema Trap above) or every `owner.set(flag, true)` silently
-   no-ops and neither consumer ever sees it.
-4. **Release via a self-healing ownership flag, NOT via `cancel(owner)`.** The
-   round-end cleanup path (`ball_round_actor_cleanup.reset_actor_round_state` →
-   `lingpet_egg_runtime.reset_round` → host `cancel`) runs with **`owner == null`**
-   — the round-cleanup deps (`ball_dependency_context._build_common_round_deps`)
-   carry no `owner`, and those deps are cached, so threading owner in is invasive.
-   A `cancel(owner)` that depends on the owner being passed therefore **cannot
-   clear the freeze flag on round end**, so the stuck `*_grab_active` flag freezes
-   the boss into the next round (at whatever `boss_pos` it lands on — it can't move
-   or defend). Fix: keep an `_owns_boss` ownership flag that **survives an
-   owner-less `cancel()`**, and finish the release (restore boss to the captured
-   origin + clear the flag) on the next `update()` that does have the owner (the
-   host dispatches `update()` every frame while the pet is equipped). Reference:
-   `lingpet_puppet_grab_skill._release` + the deferred-release branch at the top of
-   `update()`.
-5. **Displaced `boss_pos.y` must be reset at the round-reset layer too.** This was
-   a latent asymmetry: `ball_round_controller.reset_ball` reset the player paddle's
-   y (`player_y`) but NOT the boss paddle's y — it only re-centered boss **x** and
-   kept the current y. Nothing else touched boss y (the boss AI manages x only), so
-   a skill that drags the boss DOWN left the dragged y surviving the reset. Fixed by
-   adding `boss_y` to `ball_update_static_config.build_reset_config` and restoring
-   `boss_pos.y = config.boss_y` in `reset_ball`. Lesson: any skill that moves an
-   actor field the round-reset path does not already normalize (here, boss y) must
-   either restore it itself on release OR get the reset path to normalize it — and
-   `reset_ball` only normalizes the fields it explicitly lists.
+## Godot Boss-Paddle-Range-Restriction Skill Trap (clamp / cage the boss)
 
-The smoke must assert the OUTCOME across phases (boss stays put → dragged down →
-pinned at the kiss point → restored to the exact origin) AND that the owner flag
-is true while held and false after release, a mid-grab `cancel(owner)` cleanup
-case, a **round-end leak regression** that calls `cancel(null)` mid-grab and
-proves the next `update(owner)` clears the flag, AND a regression that runs the
-real `BallRoundController.reset_ball()` after a drag and proves boss y returns to
-`BOSS_Y`, AND a collision regression proving a puppeted boss paddle still returns
-`EVENT_BOSS_PADDLE` for a rising overlap, AND an OUTCOME regression that runs
-`paddle_bounce_boss_post_hit_handler.apply()` with a displaced `boss_pos` and
-asserts the ball snaps below the DISPLACED paddle (no static-top teleport).
-Keep the source guard too:
-`ball_motion_collision_detector.gd` must not branch on
-`lingpet_puppet_grab_active`. Reference:
-`lingpet_egg_runtime_smoke._verify_koyora_puppet_grab_skill`.
-Koyora Puppet Control is no longer pure-CC: by design it may read
-`ball_active` / `ball_pos` / `ball_pos_prev` / `ball_size` so the live ball can
-cut the puppet strings during PULLING / KISSING. It still must not read
-`ball_vel`, move the ball, change score, or apply damage; the smoke asserts
-those boundaries.
+Cage / lane / wall skills are NOT the freeze pattern: clamp the final
+`boss_pos.x` AFTER normal boss AI output while preserving `boss_vel` (the
+boss keeps playing inside the cage). Schema keys, puppet-grab precedence,
+owner-less self-heal, and outcome smokes as listed. Full checklist:
+`docs/godot_runtime_traps.md`.
+
+## Godot Boss-Paddle-Resizing Skill Trap (shrink / grow the boss paddle)
+
+Never resize `boss_paddle_size` directly -- the render center is
+width-coupled, so the boss visibly slides sideways while shrinking. Keep
+shared contexts full-size and inject a separate CENTERED scale for collision
+(`boss_collision_shrink_scale`) and render (`boss_paddle_shrink_scale`)
+reading the same owner flags; smokes must assert geometry OUTCOMES (hit vs
+miss), not just flags. Full rules: `docs/godot_runtime_traps.md`.
+
+## Godot Shared HUD Wrapper Prep-Before-Gate Trap (build-then-discard)
+
+A shared per-frame HUD / rail wrapper serving multiple stages must hoist its
+cheapest discriminating gate (stage id / active flag) ABOVE the caller-side
+prep. A gate living only inside the callee renderer turns `context.duplicate()`
++ `LingpetRailCard.append_entry()` -> lingpet `get_snapshot()` into invisible
+build-then-discard cost every frame (0.6~1.3ms/frame, grows with companion
+activation; each `append_entry` = one full snapshot build). Seal with a
+non-owning-stage call-count smoke. Full rule: `docs/godot_runtime_traps.md`.
+
+## Godot Slot-Indexed HUD State Array-Shift Trap
+
+Array-backed HUD slots compact / reorder, so `slot_index` is not stable item
+identity. Acquisition-style effects must distinguish empty -> item from
+non-empty -> different-key shifts: the former may pop, the latter should update
+the tracked key while suppressing acquisition UI unless an explicit pickup
+event says otherwise. Seal replacement + `remove_at` compaction cases. Full
+rule: `docs/godot_runtime_traps.md`.
+
+## Godot Per-Frame Catalog Lookup Trap (miss-case full scan)
+
+A catalog / registry helper on a per-frame draw or physics path must be O(1):
+the lingpet rail's `is_lingpet_skill()` full-scanned all 14 pets with
+`duplicate(true)` per call, and boss cards (guaranteed misses) paid it twice
+per card per frame (~0.29ms/card = ~95% of the "draw" cost). Build a one-time
+static id index; deep-copy only on hit; attribute cost with per-layer
+sub-labels BEFORE designing render-side caches. Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot draw_polygon Un-Normalized UV Invisible-Quad Trap
+
+`CanvasItem.draw_polygon(points, colors, uvs, texture)` needs NORMALIZED
+[0,1] UVs. Feeding an atlas cell's PIXEL `source_rect` straight through
+clamps every UV past 1.0 to the sheet's transparent edge texel, so the
+whole textured quad renders invisible — no error, pixel-QA only. Sibling
+`draw_texture_rect_region()` takes pixel rects and is fine, so one sprite
+vanishes while another shows. Normalize by `texture.get_size()`
+(uv_min/uv_max), match `points` corner order. Repeats: stage5 홍련
+fire-machine dragon head, commando supply-drop crash plane. Full rule +
+canonical helpers: `docs/godot_runtime_traps.md`.
+
+## Godot Modal-Block Gate Skips Loop-Audio Maintenance Trap
+
+Force-looped gameplay SFX (dash-delay 후딜, warp gate, magnum grip, plasma,
+chaos blackhole, ...) are stopped ONLY by `update_effects`'s per-frame
+`sync_*` / `GameplayLoopAudioCleanup.stop_all`. A physics-blocking modal
+(character info via TAB, pause, debug pickers) returns from
+`battle_scene_frame_controller.process_physics` BEFORE the update driver, so
+that stop never fires and the loop drones/repeats for the whole modal
+(reference: dash then TAB → 후딜 loops forever). Fix lives at the shared
+modal-block gate (`_stop_modal_blocked_gameplay_loop_audio`); new looped SFX
+must be in `gameplay_loop_audio_cleanup.gd` `STOP_METHODS`. Seal:
+`battle_scene_frame_controller_modal_loop_audio_smoke.gd`. Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot Per-Tick Float Drain Rail-Residue Trap
+
+A real-tick float drain can strand the stored value on a sub-epsilon
+positive residue that `is_equal_approx` write-gating freezes forever —
+strict rail comparisons (`> 0`) then misjudge it every tick, so
+rail-triggered states (포만도 탈진 KO) silently never fire while display /
+slow-curve output still looks correct. Snap an ε-band onto BOTH rails in
+the single sanitize helper; seals need residue-injection + real-tick
+sequence legs (synthetic exact-0 cases prove nothing). Full rule:
+`docs/godot_runtime_traps.md`.
 
 ## Direct Draw Request Routing
 
@@ -1877,7 +1500,11 @@ These are easy to miss even when the runtime checklist is open:
   input priority, window lifetime, consumption, expiry, and focused smoke
   coverage. Viper Dark Blade is the reference trap: Air Blade coverage
   alone does not prove Shadow Step, Marshal Kick, Phantom Kick, and
-  Hwarang/Core Flip hit paths are wired. The matrix must also include
+  Hwarang/Core Flip hit paths are wired. For Dark Blade follow-ups, audit
+  both update paths: the Air Blade phase-2 branch and the `blade_dark_mode`
+  phase-2 branch in `viper_skill_blade_motion_runtime.gd`; wiring only the
+  Air Blade side misses Dark Blade -> Venom Edge and predecessor routes that
+  converge through `blade_dark_mode`. The matrix must also include
   window-INVALIDATION events, not just openers: if the original clears a
   stale chain window when a NEW predecessor cast starts ("이번 킥으로
   공을 맞춰야만 오픈" — pingfighter.py marshal/phantom start clears
@@ -1888,7 +1515,26 @@ These are easy to miss even when the runtime checklist is open:
   stale-window clear + `viper_marshal_kick_port_smoke.gd`
   `_test_new_kick_start_clears_stale_dark_blade_window` (asserts the
   cleared window does NOT fire on the chain key pre-hit, and THIS kick's
-  hit re-opens it).
+  hit re-opens it). A SECOND invalidation class is WHIFF / timeout on the
+  OPENER itself: if the opener arms a long-lived FALLBACK hit path whose
+  success opens the chain (shadow_step arms a ~5s paddle-hit window
+  `shadow_kick_ready` that, on hit, schedules the Marshal Kick chain), the
+  original DISARMS that fallback the instant the opener's short strike buff
+  expires WITHOUT a hit (pingfighter.py:106225 —
+  `_viper_phantom_strike_timer <= 0 and not _viper_ss_hit_consumed ->
+  _viper_ss_kick_ready = False`, comment "헛방질 시 패들 히트 경로도 차단
+  (마샬킥 카운터 오활성화 방지)"). A port that wires only the ARM site leaves
+  the fallback live for the whole timeout, so an unrelated later paddle bounce
+  fires the opener hit and falsely opens the chain — user-visible as "쉐도우
+  백스텝이 헛발질했는데 몇 초 뒤 공에 맞으면 마샬킥 연계가 열린다". Reference
+  fix: `viper_skill_shadow_step_runtime._update_phantom_strike` whiff-clear
+  (mirrors the Python line above) + `viper_shadow_step_port_smoke.gd`
+  `_test_whiff_does_not_open_marshal_via_paddle_hit` (reverse-verified to FAIL
+  on the un-cleared code). The regression smoke MUST reproduce the whiff (opener
+  misses — only tick the strike buff to expiry, never run the wave/hologram/
+  immediate hit) and then prove a later paddle bounce neither consumes an opener
+  hit nor schedules the chain; a happy-path "opener hits -> chain opens" test
+  passes even with the bug present.
 - **Transparent-canvas overlay trap on copied runtime surfaces is real.**
   If a glitch clone, afterimage, low-HP variant, or other runtime copy is
   built from `base_surface.copy()` plus `BLEND_RGB_ADD` /
@@ -2753,6 +2399,12 @@ function (`handle_boss`, `handle_boss_mythic`, `handle_boss_junior`,
   `*_slow_amount` is subtracted inside the helper (`slow_multiplier *=
   (1.0 - slow_amount)`), so `0.7` means 70% slower and `0.3` means only
   30% slower.
+- **Godot boss slow uses named tier multipliers for new sources.** Prefer
+  `res://scripts/status/boss_slow_tiers.gd`: `WEAK = 0.70` (30% slow),
+  `MEDIUM = 0.55` (45% slow), and `STRONG = 0.40` (60% slow). These are
+  direct movement multipliers; lower means stronger. Keep special
+  overcap / legacy-parity values as documented raw exceptions rather than
+  silently redefining a tier.
 - **When adding a new boss slow source, add it inside
   `_apply_common_boss_slow_effects()` and nowhere else.** Copy-pasting
   a per-handler slow block is how this system drifted in the first
@@ -2907,42 +2559,28 @@ alpha work.
 
 ---
 
-## Legacy Safe Git Rollback Notes
+## Legacy Git Rollback Notes (PROHIBITED IN THIS REPO — provenance only)
 
-**Never run `git reset --hard` with uncommitted changes.** Work will be
-lost silently.
+**DO NOT ROLL BACK WITH GIT STATE COMMANDS IN THIS REPO.** This repo
+intentionally keeps a dirty worktree full of uncommitted WIP, and the
+standing rule (§0 and `docs/agent_operating_posture.md`) is: never
+`git reset` / `git checkout` / `git stash` to revert or verify — a
+stash/reset here destroys live WIP. For regression checks, toggle the
+target line in place (Edit / temp patch / fixture) instead. If an actual
+rollback is ever unavoidable, it is an explicit user decision, not an
+agent procedure.
 
-Safe sequence:
+The runnable legacy-era recipe that used to live in this section (a
+stash-then-hard-reset sequence, checkout-based single-file spot reverts,
+and a "safe rollback" command table) was removed on 2026-07-02: every step
+of it is on this repo's prohibited list, and out-of-context grep / RAG hits
+on those command lines read as endorsements. Read-only history inspection
+(`git log`, `git show`, `git reflog`) remains fine.
 
-```bash
-# 1. Save current state
-git stash -u -m "pre-rollback backup"
-# or
-git add -A && git commit -m "WIP: pre-rollback snapshot"
-
-# 2. Roll back
-git reset --hard <commit>
-
-# 3. Restore (if stashed)
-git stash pop
-```
-
-Safer alternatives:
-
-| Scenario | Command |
-|----------|---------|
-| Revert one file | `git checkout <commit> -- <file>` |
-| Test a revert without committing | `git checkout -b test-branch <commit>` |
-| Undo a commit while keeping history | `git revert <commit>` |
-| Full rollback safely | `git stash -u` -> `git reset --hard` |
-
-Recovery:
-- Stashed -> `git stash list`, then `git stash pop`
-- Committed -> `git reflog`, then `git checkout <hash>`
-
-When rolling back: `pingfighter.py` and its sibling modules (`start_menu.py`,
-`items.py`, etc.) must land on the same version together. Spot-reverting one
-file without the rest breaks imports and state.
+Legacy parity fact kept for provenance: `pingfighter.py` and its sibling
+modules (`start_menu.py`, `items.py`, etc.) must land on the same version
+together. Spot-reverting one file without the rest breaks imports and
+state.
 
 ---
 

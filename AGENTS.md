@@ -64,6 +64,11 @@ When the documents overlap:
 - `docs/item_runtime_checklist.md` is the source of truth for item runtime integration.
 - `docs/character_skill_perk_checklist.md` is the source of truth for runtime character perk / skill integration.
 - `docs/godot_port_checklist.md` is the source of truth for Godot porting integration and wiring rules.
+- `docs/godot_runtime_traps.md` is the source of truth for cross-cutting
+  Godot runtime hidden-trap details (ConfigFile BOM, hot-path lazy init,
+  owner-field schema, companion motion, boss-paddle scripting / cage /
+  resize, ...). `CLAUDE.md` keeps only 3-8 line stubs under the same
+  headings.
 - `docs/skill_vfx_workflow.md` is the source of truth for Claude / Codex
   art-to-runtime workflow boundaries and the modular VFX handoff checklist.
 - `docs/agent_operating_posture.md` is the source of truth for the shared
@@ -180,6 +185,12 @@ Godot port routing:
   leave scaffold English in menu titles, tabs, status text, tooltips,
   roll-option labels, or action hints unless it is an intentional brand /
   identifier / engine term.
+- When adding a new Godot boss slow source, use
+  `scripts/status/boss_slow_tiers.gd` for the default strength scale:
+  `WEAK = 0.70`, `MEDIUM = 0.55`, `STRONG = 0.40`. These are direct
+  movement multipliers, so lower values are stronger slows. Use raw
+  multipliers only for explicit legacy-parity or overcap exceptions and
+  document the exception at the source.
 - When porting items, character skills, boss actions, stage events,
   rewards, or UI feedback, audit audio as a first-class parity surface.
   Route cues through `scripts/audio/game_audio.gd` or the focused audio
@@ -192,6 +203,22 @@ Godot port routing:
   score-event, scoreboard, serve-wait, round-restart, and game-reset
   paths cannot leave the loop playing or re-arm it, and add / update a
   focused smoke test for that lifecycle.
+- `ProjectResourceLoader.load_audio_stream` caches `AudioStream` by PATH and
+  `game_audio_player_factory` assigns that cached instance to `player.stream`
+  RAW (no `.duplicate()`), so two players loading the SAME sound file share ONE
+  `AudioStream` object. Any per-player mutation of that stream (loop_mode,
+  loop_begin/loop_end, or other in-RAM flag changes) silently affects EVERY
+  player pointing at that path — the `.wav.import` `loop_mode=0` does NOT protect
+  you because the flag is forced in RAM after load. Reference failure:
+  `gravityaccel.wav` backs both `chaos_spear_blackhole_sfx` (legit loop) and
+  `lingpet_gravity_accel_cast_sfx` (one-shot cast cue); `_enable_loop` flipped
+  `loop_mode` on the shared instance at boot, so Serabi's 중력가속 one-shot cast
+  looped forever and bled into the next round. Rule: any code that mutates a
+  player's `AudioStream` per-player must `.duplicate()` it first (never mutate
+  the path-cached instance). `_enable_loop` now does this. Sealed by
+  `gravity_accel_cast_no_loop_bleed_smoke.gd` (asserts the cast cue stream is a
+  DIFFERENT object from the blackhole stream and its `loop_mode` stays
+  `LOOP_DISABLED`, reverse-verified RED against the in-place mutation).
 - For any Godot visible gameplay VFX that uses a detached FX host
   (`Node2D`, `Sprite2D`, `ColorRect`, `GPUParticles2D`, shader quad, or
   similar), treat host lifecycle as separate from logical visibility.
@@ -393,12 +420,19 @@ Sprite workflow mode switch:
 ## Critical Stage Mapping
 - Godot live runtime: code `current_stage == 5` is user-facing **Stage 5
   Hongryun / Honglyeon** (`stage5_hongryun_*`, Chinese Fire).
-- Godot live runtime: code `current_stage == 6` is not the active Hongryun
-  route and is not currently the Nemesis route. Do not target it unless a new
-  Stage 6 owner is explicitly introduced.
+- Godot live runtime: code `current_stage == 6` is user-facing **Stage 6
+  Tetriser / 테트리서** (`stage6_tetriser_*`), a port of Python Stage 7
+  (`current_stage == 7`, `stage7_*`, `AnimatedBackgroundStage7`). The Stage 6
+  owner was introduced 2026-06-03 and is shipped; this supersedes the earlier
+  "do not target Stage 6" rule. See `docs/stage6_tetriser_port_plan.md`.
+- Original Nemesis / ocean / battleship content (Python Stage 6) remains
+  excluded / reference-only.
 - Legacy Python docs may describe the original order as Stage 5 Nemesis and
   Stage 6 Honglyeon. Treat that numbering as frozen reference-only porting
   context; do not copy it into Godot runtime routing, tests, or asset names.
+- Stage-number mapping decisions are owned by `CLAUDE.md` ("Legacy Stage
+  Order Reference + Current Godot Decision"); if this section drifts from
+  CLAUDE.md, CLAUDE.md wins.
 - See `docs/stage5_hongryun_godot_port_plan.md` for the current Godot Stage 5
   Hongryun policy before editing stage-specific logic, assets, or event code.
 
@@ -1299,9 +1333,13 @@ boss sprite classes.
 - Perform one real in-game visual check before calling the task done
 
 ## Testing Guidelines
-- Use `pytest` and `unittest` as already present in the repo
-- Add `tests/test_<feature>.py` for new logic when feasible
-- For graphics-dependent checks, prefer headless runs with `SDL_VIDEODRIVER=dummy`
+- Godot work signs off with the Godot smoke wrappers
+  (`godot/tools/run_smoke_tests.ps1`, `godot/tools/run_headless_load_check.ps1`)
+  per the verification rules above. Never use the legacy Python commands in
+  the next bullet as sign-off for Godot work.
+- Legacy Python (frozen reference) only: `pytest` / `unittest` as already
+  present in the repo, `tests/test_<feature>.py` for new legacy-side logic,
+  and headless runs with `SDL_VIDEODRIVER=dummy`.
 - For player / boss sprite replacements, include a focused smoke assertion for
   both the primary texture key and any fallback / legacy key that can render the
   same state. The test should prove texture size, frame count, grid rows /
