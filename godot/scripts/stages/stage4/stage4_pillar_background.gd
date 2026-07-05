@@ -68,7 +68,10 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 	var clamped_delta: float = maxf(0.0, delta)
 	time_sec += clamped_delta
 	_update_wall_shake_accents(clamped_delta)
-	last_stage4_context = context.duplicate(true)
+	# Shallow copy is safe: no consumer mutates nested context values; :79/:85 merges
+	# add top-level keys only, moon_event.update reads context read-only, and every
+	# cached read (:160/:181/:197/:435) is a top-level scalar. Avoids a ~55-key/frame deep copy.
+	last_stage4_context = context.duplicate()
 	last_stage4_deps = deps.duplicate()
 	var map_state: Object = deps.get("stage4_map_state", null)
 	last_map_state = map_state
@@ -181,14 +184,15 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictio
 	var current_stage: int = int(context.get("current_stage", last_stage4_context.get("current_stage", 4)))
 	if current_stage != 4:
 		return false
+	var resolved_deps: Dictionary = _merge_cached_deps(deps)
 	var handled := false
-	if _resolve_star_bird_collision(scene, context, deps):
+	if _resolve_star_bird_collision(scene, context, resolved_deps):
 		handled = true
-	if _resolve_monk_staff_collision(scene, context, deps):
+	if _resolve_monk_staff_collision(scene, context, resolved_deps):
 		handled = true
-	if _resolve_moon_fragment_collision(scene, context, deps):
+	if _resolve_moon_fragment_collision(scene, context, resolved_deps):
 		handled = true
-	if _resolve_ponk_skill_collision(scene, context, deps):
+	if _resolve_ponk_skill_collision(scene, context, resolved_deps):
 		handled = true
 	return handled
 
@@ -222,7 +226,7 @@ func trigger_tree_shake(side: String, impact_y: float, impact_speed: float, fiel
 
 
 func _resolve_star_bird_collision(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> bool:
-	var resolved_deps: Dictionary = _merge_cached_deps(deps)
+	var resolved_deps: Dictionary = deps  # already merged by resolve_ball_collision (single caller)
 	var bird_event: Object = _get_cached_stage4_event("stage4_bird_event", resolved_deps)
 	if bird_event == null or not bird_event.has_method("get_crow_positions"):
 		return false
@@ -254,7 +258,7 @@ func _resolve_star_bird_collision(scene: Dictionary, context: Dictionary, deps: 
 
 
 func _resolve_monk_staff_collision(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> bool:
-	var resolved_deps: Dictionary = _merge_cached_deps(deps)
+	var resolved_deps: Dictionary = deps  # already merged by resolve_ball_collision (single caller)
 	var monk_event: Object = _get_cached_stage4_event("stage4_brazier_monk_event", resolved_deps)
 	if monk_event == null:
 		return false
@@ -289,7 +293,7 @@ func _resolve_monk_staff_collision(scene: Dictionary, context: Dictionary, deps:
 
 
 func _resolve_moon_fragment_collision(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> bool:
-	var resolved_deps: Dictionary = _merge_cached_deps(deps)
+	var resolved_deps: Dictionary = deps  # already merged by resolve_ball_collision (single caller)
 	var active_moon_event: Object = _resolve_moon_event(resolved_deps)
 	if active_moon_event == null or not active_moon_event.has_method("resolve_fragment_collisions"):
 		return false
@@ -302,7 +306,7 @@ func _resolve_moon_fragment_collision(scene: Dictionary, context: Dictionary, de
 
 
 func _resolve_ponk_skill_collision(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> bool:
-	var resolved_deps: Dictionary = _merge_cached_deps(deps)
+	var resolved_deps: Dictionary = deps  # already merged by resolve_ball_collision (single caller)
 	var ponk_skill_state: Object = _resolve_ponk_skill_state(resolved_deps)
 	if ponk_skill_state == null or not ponk_skill_state.has_method("resolve_ball_collision"):
 		return false
