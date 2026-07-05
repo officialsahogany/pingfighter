@@ -96,6 +96,18 @@ func _get_cached_module(key: String) -> Object:
 	return null
 
 
+func request_threaded_script(key: String) -> bool:
+	if gameplay_modules == null or not gameplay_modules.has_method("request_threaded_script"):
+		return true
+	return bool(gameplay_modules.request_threaded_script(key))
+
+
+func is_threaded_script_ready(key: String) -> bool:
+	if gameplay_modules == null or not gameplay_modules.has_method("is_threaded_script_ready"):
+		return true
+	return bool(gameplay_modules.is_threaded_script_ready(key))
+
+
 func _get(property: StringName) -> Variant:
 	var key: String = str(property)
 	if scene_state.has_key(key):

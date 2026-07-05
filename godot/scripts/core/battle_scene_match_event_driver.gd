@@ -4,6 +4,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const BallDependencyContext := preload("res://scripts/ball/ball_dependency_context.gd")
 
 # Engine code-stage id where the demo sequence stops advancing automatically.
 # Keep this as a code-stage boundary; public stage numbering can differ from
@@ -13,7 +14,7 @@ const STAGE_TRANSITION_LOADING_MIN_SECONDS := 2.20
 const STAGE_TRANSITION_LOADING_START_PROGRESS := 0.0
 const STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS := 0.92
 const STAGE_TRANSITION_LOADING_FINAL_REVEAL_SECONDS := 0.24
-const STAGE_TRANSITION_WORK_STEP_DONE := 9
+const STAGE_TRANSITION_WORK_STEP_DONE := 10
 
 var _fallback_boss_health_flow: Object = BattleSceneBossHealthFlow.new()
 var _stage_transition_loading_active := false
@@ -24,6 +25,8 @@ var _stage_transition_loading_work_done := false
 var _stage_transition_loading_drawn_once := false
 var _stage_transition_loading_final_reveal_active := false
 var _stage_transition_loading_work_step := 0
+var _stage_transition_round_dep_prewarm_keys: Array[String] = []
+var _stage_transition_round_dep_prewarm_index := 0
 
 
 func handle_score_event(scoring_side: String, owner: Object, registry: Object) -> void:
@@ -271,6 +274,8 @@ func _begin_stage_transition_loading(owner: Object, registry: Object, next_stage
 	_stage_transition_loading_drawn_once = false
 	_stage_transition_loading_final_reveal_active = false
 	_stage_transition_loading_work_step = 0
+	_stage_transition_round_dep_prewarm_keys.clear()
+	_stage_transition_round_dep_prewarm_index = 0
 	if owner != null:
 		owner.set("current_stage", next_stage)
 	_clear_owner_weather(owner)
@@ -279,6 +284,7 @@ func _begin_stage_transition_loading(owner: Object, registry: Object, next_stage
 	var resources: Object = _get_instance(registry, "battle_resources")
 	if resources != null and resources.has_method("reset_transition_texture_prewarm"):
 		resources.reset_transition_texture_prewarm()
+	_request_stage_transition_round_dep_scripts(registry, next_stage)
 	_prewarm_stage_transition_loading_assets(registry)
 	_queue_redraw(owner)
 
@@ -305,23 +311,26 @@ func _run_stage_transition_loading_work_step(owner: Object, registry: Object, ne
 		0:
 			_configure_ball_physics(owner, registry, next_stage)
 		1:
-			_reset_match_for_stage_transition(owner, registry)
+			if not _prewarm_stage_transition_round_deps(registry, next_stage):
+				return false
 		2:
-			_prepare_stage_start(owner, registry, next_stage)
+			_reset_match_for_stage_transition(owner, registry)
 		3:
+			_prepare_stage_start(owner, registry, next_stage)
+		4:
 			if not _reload_battle_textures(owner, registry, next_stage):
 				return false
-		4:
+		5:
 			if not _prewarm_stage_transition_runtime_resources(owner, registry):
 				return false
-		5:
+		6:
 			if not _prewarm_stage_clear_result_transition_resources(owner, registry):
 				return false
-		6:
-			_stop_stage_gameplay_audio(registry)
 		7:
-			_stop_stage_bgm(registry)
+			_stop_stage_gameplay_audio(registry)
 		8:
+			_stop_stage_bgm(registry)
+		9:
 			_play_stage_bgm(registry, next_stage)
 		_:
 			return true
@@ -343,6 +352,8 @@ func _finish_stage_transition_loading(owner: Object, registry: Object) -> void:
 	_stage_transition_loading_drawn_once = false
 	_stage_transition_loading_final_reveal_active = false
 	_stage_transition_loading_work_step = 0
+	_stage_transition_round_dep_prewarm_keys.clear()
+	_stage_transition_round_dep_prewarm_index = 0
 	_replay_ball_spawn_intro_for_stage_transition(owner, registry)
 	_queue_redraw(owner)
 
@@ -475,6 +486,38 @@ func _prewarm_stage_transition_loading_assets(registry: Object) -> void:
 		loading_renderer.prewarm_stage_assets(_stage_transition_loading_next_stage)
 	elif loading_renderer != null and loading_renderer.has_method("prewarm_assets"):
 		loading_renderer.prewarm_assets()
+
+
+func _prewarm_stage_transition_round_deps(registry: Object, next_stage: int) -> bool:
+	if registry == null or not registry.has_method("get_instance"):
+		return true
+	if _stage_transition_round_dep_prewarm_keys.is_empty() and _stage_transition_round_dep_prewarm_index <= 0:
+		_stage_transition_round_dep_prewarm_keys = BallDependencyContext.get_stage_round_dep_keys(next_stage)
+	if _stage_transition_round_dep_prewarm_index >= _stage_transition_round_dep_prewarm_keys.size():
+		return true
+
+	var module_key: String = _stage_transition_round_dep_prewarm_keys[_stage_transition_round_dep_prewarm_index]
+	if registry.has_method("request_threaded_script"):
+		registry.request_threaded_script(module_key)
+	if registry.has_method("is_threaded_script_ready") and not bool(registry.is_threaded_script_ready(module_key)):
+		return false
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var sample_start := _perf_begin(perf_logger)
+	registry.get_instance(module_key)
+	_perf_end(
+		perf_logger,
+		"process.frame.stage_transition_loading.step.1.round_dep.%s" % module_key,
+		sample_start
+	)
+	_stage_transition_round_dep_prewarm_index += 1
+	return _stage_transition_round_dep_prewarm_index >= _stage_transition_round_dep_prewarm_keys.size()
+
+
+func _request_stage_transition_round_dep_scripts(registry: Object, next_stage: int) -> void:
+	if registry == null or not registry.has_method("request_threaded_script"):
+		return
+	for module_key in BallDependencyContext.get_stage_round_dep_keys(next_stage):
+		registry.request_threaded_script(str(module_key))
 
 
 func _prewarm_stage_transition_runtime_resources(owner: Object, registry: Object) -> bool:
