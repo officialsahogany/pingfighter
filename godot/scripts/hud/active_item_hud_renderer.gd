@@ -34,16 +34,16 @@ func draw_slots(
 	panel_renderer.draw_slot_panel(
 		canvas,
 		main_box_rect,
-		Color(15.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 180.0 / 255.0),
-		Color(70.0 / 255.0, 70.0 / 255.0, 90.0 / 255.0)
+		Color(18.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 200.0 / 255.0),
+		Color(120.0 / 255.0, 150.0 / 255.0, 190.0 / 255.0)
 	)
 	if bool(layout.get("overflow_visible", false)):
 		var overflow_box_rect: Rect2 = layout["overflow_box_rect"]
 		panel_renderer.draw_slot_panel(
 			canvas,
 			overflow_box_rect,
-			Color(15.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 80.0 / 255.0),
-			Color(60.0 / 255.0, 60.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0)
+			Color(18.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 120.0 / 255.0),
+			Color(100.0 / 255.0, 125.0 / 255.0, 160.0 / 255.0, 130.0 / 255.0)
 		)
 
 	var cooldown_group_remaining_ratio := 0.0

@@ -4,14 +4,17 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
 const DEFAULT_ACTIVE_ITEM_COOLDOWN_MS := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const COOLDOWN_FLASH_DURATION_MS := 400
+const PICKUP_POP_DURATION_MS := 350
 
 var selected_active_item_index := 0
 var cooldown_complete_flash: Dictionary = {}
+var pickup_pop: Dictionary = {}
 
 
 func reset() -> void:
 	selected_active_item_index = 0
 	cooldown_complete_flash.clear()
+	pickup_pop.clear()
 
 
 func set_selected_index(index: int) -> void:
@@ -24,6 +27,10 @@ func get_selected_index() -> int:
 
 func get_cooldown_complete_flash() -> Dictionary:
 	return cooldown_complete_flash
+
+
+func get_pickup_pop() -> Dictionary:
+	return pickup_pop
 
 
 func get_slot_status(
@@ -39,7 +46,9 @@ func get_slot_status(
 		"cooldown_flash_pulse": 0.0,
 		"throw_lock_remaining_seconds": 0,
 		"alchemy_notice_ratio": 0.0,
+		"pickup_pop_pulse": 0.0,
 	}
+	_update_pickup_pop_status(status, slot_index, item_data, current_time_msec)
 
 	var last_use_msec: int = get_active_item_last_use_msec(item_data)
 	var cooldown_time_msec: int = _get_active_item_cooldown_time_msec(current_time_msec, registry)
@@ -99,6 +108,54 @@ func _get_active_item_cooldown_time_msec(current_time_msec: int, registry: Objec
 	if active_item_runtime != null and active_item_runtime.has_method("get_active_item_cooldown_time_msec"):
 		return int(active_item_runtime.get_active_item_cooldown_time_msec(current_time_msec))
 	return current_time_msec
+
+
+func _update_pickup_pop_status(status: Dictionary, slot_index: int, item_data: Dictionary, current_time_msec: int) -> void:
+	var item_key: String = _build_pickup_item_key(item_data)
+	if item_key == "":
+		pickup_pop.erase(slot_index)
+		return
+
+	var entry: Dictionary = {}
+	var existing: Variant = pickup_pop.get(slot_index, {})
+	if existing is Dictionary:
+		entry = existing
+	var previous_item_key: String = str(entry.get("item_key", ""))
+	if previous_item_key != item_key:
+		var start_msec: int = current_time_msec
+		if previous_item_key != "":
+			start_msec = current_time_msec - PICKUP_POP_DURATION_MS
+		entry = {
+			"item_key": item_key,
+			"start_msec": start_msec,
+		}
+		pickup_pop[slot_index] = entry
+		if previous_item_key != "":
+			status["pickup_pop_pulse"] = 0.0
+			return
+
+	var elapsed_msec: int = current_time_msec - int(entry.get("start_msec", current_time_msec))
+	if elapsed_msec < 0:
+		entry["start_msec"] = current_time_msec
+		pickup_pop[slot_index] = entry
+		elapsed_msec = 0
+	if elapsed_msec >= PICKUP_POP_DURATION_MS:
+		status["pickup_pop_pulse"] = 0.0
+		return
+	var progress: float = float(elapsed_msec) / float(PICKUP_POP_DURATION_MS)
+	var envelope: float = progress / 0.20 if progress < 0.20 else 1.0 - ((progress - 0.20) / 0.80)
+	status["pickup_pop_pulse"] = clamp(envelope, 0.0, 1.0)
+
+
+func _build_pickup_item_key(item_data: Dictionary) -> String:
+	var identity: String = str(item_data.get("uid", ""))
+	if identity == "":
+		identity = str(item_data.get("instance_id", ""))
+	if identity == "":
+		identity = str(item_data.get("name", ""))
+	if identity == "":
+		return ""
+	return identity
 
 
 func _get_instance(registry: Object, key: String) -> Object:

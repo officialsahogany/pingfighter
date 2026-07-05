@@ -199,6 +199,63 @@ func get_active_item_cooldown_time_msec(current_time_msec: int) -> int:
 	return current_time_msec
 
 
+func reorder_active_slots(src_index: int, dst_index: int, owner: Object, _registry: Object = null) -> bool:
+	# Character-info drag reorder parity: swap two occupied active-item slots.
+	# Mirrors the original `active_item_slot[src], active_item_slot[dst]` swap;
+	# a drop on an out-of-range (empty) slot is a no-op.
+	if owner == null or src_index == dst_index:
+		return false
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if src_index < 0 or src_index >= active_item_slots.size():
+		return false
+	if dst_index < 0 or dst_index >= active_item_slots.size():
+		return false
+	var moved: Variant = active_item_slots[src_index]
+	active_item_slots[src_index] = active_item_slots[dst_index]
+	active_item_slots[dst_index] = moved
+	owner.set("active_item_slots", active_item_slots)
+	_request_owner_redraw(owner)
+	return true
+
+
+func discard_active_slot(slot_index: int, owner: Object, registry: Object = null) -> bool:
+	# Character-info trash drop parity: remove one active item from its slot and
+	# shift the HUD selection so it tracks the same item / stays in bounds
+	# (original decrements selected_item_index, pingfighter.py:195600-195610).
+	if owner == null:
+		return false
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if slot_index < 0 or slot_index >= active_item_slots.size():
+		return false
+	active_item_slots.remove_at(slot_index)
+	owner.set("active_item_slots", active_item_slots)
+	_adjust_selected_slot_after_discard(registry, slot_index, active_item_slots.size())
+	_request_owner_redraw(owner)
+	return true
+
+
+func _request_owner_redraw(owner: Object) -> void:
+	if owner == null:
+		return
+	if owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner.has_method("queue_redraw"):
+		owner.queue_redraw()
+
+
+func _adjust_selected_slot_after_discard(registry: Object, removed_index: int, remaining_count: int) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var hud_state: Object = registry.get_instance("active_item_hud_state")
+	if hud_state == null or not hud_state.has_method("get_selected_index") or not hud_state.has_method("set_selected_index"):
+		return
+	var selected: int = int(hud_state.get_selected_index())
+	if selected > removed_index:
+		selected -= 1
+	selected = clampi(selected, 0, max(0, remaining_count - 1))
+	hud_state.set_selected_index(selected)
+
+
 func use_slot(slot_index: int, owner: Object, registry: Object) -> bool:
 	_ensure_helpers_ready()
 	return use_facade.use_slot(self, slot_index, owner, registry)

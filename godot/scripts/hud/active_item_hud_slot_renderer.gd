@@ -4,6 +4,7 @@ const ActiveItemHudSlotIconRenderer := preload("res://scripts/hud/active_item_hu
 const ActiveItemHudSlotStatusRenderer := preload("res://scripts/hud/active_item_hud_slot_status_renderer.gd")
 
 const MAX_TEXT_SIZE_CACHE_ENTRIES := 32
+const READY_GLOW_TICK_SCALE := 0.006
 
 var icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 var status_renderer: Object = ActiveItemHudSlotStatusRenderer.new()
@@ -21,6 +22,9 @@ func draw_slot(
 	is_overflow_slot: bool,
 	slot_number: String
 ) -> float:
+	var ready: bool = is_slot_ready(item_data, slot_status)
+	if ready and float(slot_status.get("alchemy_notice_ratio", 0.0)) <= 0.0:
+		_draw_ready_glow(canvas, slot_rect, scale_factor, is_overflow_slot)
 	_draw_slot_background(canvas, slot_rect, is_overflow_slot)
 	if item_data.is_empty():
 		canvas.draw_rect(slot_rect, Color(40.0 / 255.0, 40.0 / 255.0, 50.0 / 255.0), false, 1.0)
@@ -28,6 +32,7 @@ func draw_slot(
 
 	icon_renderer.draw_icon(canvas, slot_rect, item_data, scale_factor, visuals)
 	var remaining_ratio: float = status_renderer.draw_status_overlays(canvas, slot_rect, scale_factor, slot_status)
+	_draw_pickup_pop(canvas, slot_rect, scale_factor, float(slot_status.get("pickup_pop_pulse", 0.0)))
 	_draw_slot_border(canvas, slot_rect, selected, is_overflow_slot)
 	_draw_slot_number(
 		canvas,
@@ -39,8 +44,41 @@ func draw_slot(
 	return remaining_ratio
 
 
+static func is_slot_ready(item_data: Dictionary, slot_status: Dictionary) -> bool:
+	if item_data.is_empty():
+		return false
+	if float(slot_status.get("cooldown_remaining_ratio", 0.0)) > 0.0:
+		return false
+	if int(slot_status.get("throw_lock_remaining_seconds", 0)) > 0:
+		return false
+	return true
+
+
 func draw_group_cooldown_frame(canvas: Node2D, frame_rect: Rect2, remaining_ratio: float, scale_factor: float) -> void:
 	status_renderer.draw_group_cooldown_frame(canvas, frame_rect, remaining_ratio, scale_factor)
+
+
+func _draw_ready_glow(canvas: Node2D, slot_rect: Rect2, scale_factor: float, is_overflow_slot: bool) -> void:
+	var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * READY_GLOW_TICK_SCALE)
+	var glow_alpha: float = 0.10 + 0.12 * pulse
+	var outer_rect: Rect2 = slot_rect.grow((3.0 + pulse * 3.0) * scale_factor)
+	var inner_rect: Rect2 = slot_rect.grow((1.0 + pulse * 1.5) * scale_factor)
+	if is_overflow_slot:
+		glow_alpha *= 0.45
+	canvas.draw_rect(outer_rect, Color(0.30, 0.85, 1.0, glow_alpha))
+	canvas.draw_rect(outer_rect, Color(0.45, 0.95, 1.0, 0.38 if not is_overflow_slot else 0.18), false, max(1.0, 2.0 * scale_factor))
+	canvas.draw_rect(inner_rect, Color(0.60, 1.0, 1.0, 0.12 if not is_overflow_slot else 0.06), false, max(1.0, scale_factor))
+
+
+func _draw_pickup_pop(canvas: Node2D, slot_rect: Rect2, scale_factor: float, pulse: float) -> void:
+	pulse = clamp(pulse, 0.0, 1.0)
+	if pulse <= 0.0:
+		return
+	var grow_amount: float = (2.0 + 5.0 * pulse) * scale_factor
+	var flash_alpha: float = 0.08 + 0.24 * pulse
+	var pop_rect: Rect2 = slot_rect.grow(grow_amount)
+	canvas.draw_rect(slot_rect, Color(1.0, 0.95, 0.50, flash_alpha))
+	canvas.draw_rect(pop_rect, Color(1.0, 0.92, 0.45, 0.55 * pulse), false, max(1.0, 2.0 * scale_factor))
 
 
 func _draw_slot_background(canvas: Node2D, slot_rect: Rect2, is_overflow_slot: bool) -> void:
@@ -74,8 +112,9 @@ func _draw_slot_number(canvas: Node2D, slot_rect: Rect2, text: String, font_size
 		slot_rect.position + Vector2(3.0 * scale_factor, 3.0 * scale_factor),
 		badge_size
 	)
-	canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
-	canvas.draw_rect(badge_rect, Color(1.0, 1.0, 1.0, 0.22), false, 1.0)
+	canvas.draw_rect(badge_rect, Color(12.0 / 255.0, 16.0 / 255.0, 24.0 / 255.0, 0.88))
+	canvas.draw_rect(badge_rect, Color(130.0 / 255.0, 205.0 / 255.0, 1.0, 0.72), false, max(1.0, scale_factor))
+	canvas.draw_line(badge_rect.position + Vector2(1.0, 1.0), Vector2(badge_rect.end.x - 1.0, badge_rect.position.y + 1.0), Color(1.0, 1.0, 1.0, 0.24), 1.0)
 
 	var text_x: float = badge_rect.position.x + (badge_rect.size.x - text_size.x) * 0.5
 	var text_y: float = badge_rect.position.y + (badge_rect.size.y - text_size.y) * 0.5 + font.get_ascent(font_size)

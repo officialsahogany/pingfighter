@@ -31,8 +31,6 @@ func get_slot_status(
 	registry: Object = null,
 	runtime_perk_state: Object = null
 ) -> Dictionary:
-	if item_data.is_empty():
-		return {}
 	if hud_state != null:
 		return hud_state.get_slot_status(
 			slot_index,
@@ -46,4 +44,6 @@ func get_slot_status(
 		"cooldown_remaining_ratio": 0.0,
 		"cooldown_flash_pulse": 0.0,
 		"throw_lock_remaining_seconds": 0,
+		"alchemy_notice_ratio": 0.0,
+		"pickup_pop_pulse": 0.0,
 	}
