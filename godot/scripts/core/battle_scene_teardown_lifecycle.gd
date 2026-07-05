@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
+const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 
 
 func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, callbacks: Dictionary) -> void:
@@ -11,7 +12,17 @@ func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, c
 	var audio: Object = _get_module(cached_module_getter, "game_audio")
 	if audio != null and audio.has_method("stop_bgm"):
 		audio.stop_bgm()
-	ProjectResourceLoader.clear_caches()
+	# Clear battle resources but KEEP the character-select warm set. Every
+	# post-battle exit (F10 booth reset, true-defeat settlement, stage-clear
+	# exit) skips the boot loading screen, so wiping these here forces a cold
+	# main-thread reload (multi-second freeze) or on-demand streaming
+	# ("애니메이션 준비 중" badges) on the very next screen. The set was already
+	# resident for the whole battle, so retaining it is not a VRAM regression.
+	var retained: Dictionary = CharacterSelectPrewarm.new().collect_retained_cache_paths()
+	ProjectResourceLoader.clear_caches_except(
+		retained.get("textures", []),
+		retained.get("audio", [])
+	)
 	SkillOrbTextureNormalizer.clear_cache()
 	if registry != null and registry.has_method("clear_all"):
 		registry.clear_all()

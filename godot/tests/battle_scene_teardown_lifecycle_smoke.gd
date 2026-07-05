@@ -2,6 +2,8 @@ extends SceneTree
 
 const BattleSceneStartupController := preload("res://scripts/core/battle_scene_startup_controller.gd")
 const BattleSceneTeardownLifecycle := preload("res://scripts/core/battle_scene_teardown_lifecycle.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 
 var _failures: Array[String] = []
 var _fake_modules: Dictionary = {}
@@ -46,6 +48,7 @@ class FakeTeardownLifecycle:
 
 func _init() -> void:
 	_verify_teardown_lifecycle_cleans_runtime_surfaces()
+	_verify_teardown_retains_character_select_warm_set()
 	_verify_startup_controller_delegates_exit_tree_surface()
 
 	if _failures.is_empty():
@@ -78,6 +81,43 @@ func _verify_teardown_lifecycle_cleans_runtime_surfaces() -> void:
 	_expect(registry.clear_all_calls == 1, "teardown lifecycle should clear the gameplay registry")
 	_expect(_clear_module_cache_calls == 1, "teardown lifecycle should call clear-module-cache callback")
 	owner.free()
+
+
+func _verify_teardown_retains_character_select_warm_set() -> void:
+	# Post-battle exits (F10 booth reset, true-defeat settlement, stage-clear
+	# exit) skip the boot loading screen, so teardown must not wipe the
+	# character-select warm set out of the ProjectResourceLoader caches.
+	var retained: Dictionary = CharacterSelectPrewarm.new().collect_retained_cache_paths()
+	var warm_texture_paths: Array = retained.get("textures", [])
+	_expect(
+		not warm_texture_paths.is_empty(),
+		"character-select warm set should list at least one texture path"
+	)
+	if warm_texture_paths.is_empty():
+		return
+	var warm_path := str(warm_texture_paths[0])
+	var warm_texture := PlaceholderTexture2D.new()
+	var battle_path := "res://tests/fake_battle_texture_for_teardown_smoke.png"
+	var battle_texture := PlaceholderTexture2D.new()
+	ProjectResourceLoader.clear_caches()
+	ProjectResourceLoader.store_texture(warm_path, warm_texture)
+	ProjectResourceLoader.store_texture(battle_path, battle_texture)
+
+	var lifecycle: Object = BattleSceneTeardownLifecycle.new()
+	var owner := Node.new()
+	_fake_modules = {}
+	lifecycle.exit_tree(owner, FakeRegistry.new(), Callable(self, "_get_fake_module"), {})
+	owner.free()
+
+	_expect(
+		ProjectResourceLoader.get_cached_texture(warm_path) == warm_texture,
+		"battle teardown must retain the character-select warm set in the texture cache (post-battle exits skip the boot loading screen)"
+	)
+	_expect(
+		ProjectResourceLoader.get_cached_texture(battle_path) == null,
+		"battle teardown should still clear textures outside the character-select warm set"
+	)
+	ProjectResourceLoader.clear_caches()
 
 
 func _verify_startup_controller_delegates_exit_tree_surface() -> void:
