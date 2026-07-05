@@ -240,6 +240,9 @@ func prewarm_acquisition_cinematic(owner: Object = null, registry: Object = null
 
 func prewarm_acquisition_cinematic_assets() -> void:
 	_ensure_helpers_ready()
+	if acquisition_cinematic_runtime != null and acquisition_cinematic_runtime.has_method("prewarm_static_assets"):
+		acquisition_cinematic_runtime.prewarm_static_assets()
+		return
 	while not prewarm_acquisition_cinematic_assets_step():
 		pass
 
@@ -348,6 +351,21 @@ func unequip_slot(slot_key: String, owner: Object, registry: Object = null) -> b
 func discard_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
 	return equipment_facade.discard_inventory_item(self, index, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
+
+
+func equip_inventory_item_to_slot(index: int, slot_key: String, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
+	return equipment_facade.equip_inventory_item_to_slot(self, index, slot_key, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
+
+
+func auto_equip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
+	return equipment_facade.auto_equip_inventory_item(self, index, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
+
+
+func swap_equipment_slots(slot_a: String, slot_b: String, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
+	return equipment_facade.swap_equipment_slots(self, slot_a, slot_b, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func debug_toggle_megingjord(owner: Object, registry: Object) -> bool:

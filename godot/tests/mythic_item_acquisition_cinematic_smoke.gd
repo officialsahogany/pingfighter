@@ -62,6 +62,8 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_verify_blocking_prewarm_uses_safe_asset_path()
+	_verify_teardown_keeps_host_reusable()
 	_verify_cinematic_host_prewarm_reused()
 	_verify_cinematic_phase_lifecycle()
 	_verify_cinematic_updates_while_gameplay_frame_is_frozen()
@@ -209,3 +211,68 @@ func _drain_frames(frame_count: int) -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _verify_blocking_prewarm_uses_safe_asset_path() -> void:
+	var cinematic_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
+	var cinematic_body := _function_body(cinematic_source, "static func prewarm_assets() -> void:")
+	_expect(
+		cinematic_body.find("while not prewarm_assets_step()") < 0,
+		"cinematic blocking prewarm should not busy-loop the staged threaded prewarm step"
+	)
+	_expect(
+		cinematic_body.find("ProjectResourceLoader.load_texture") >= 0
+			and cinematic_body.find("_get_or_build_soft_white_flash_texture()") >= 0,
+		"cinematic blocking prewarm should use the direct safe texture/procedural path"
+	)
+
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_acquisition_cinematic_runtime.gd")
+	var helper_body := _function_body(helper_source, "func prewarm_assets() -> void:")
+	var helper_direct_index := helper_body.find("cinematic_script.prewarm_assets()")
+	var helper_fallback_index := helper_body.find("while not prewarm_static_assets_step()")
+	_expect(
+		helper_direct_index >= 0 and (helper_fallback_index < 0 or helper_direct_index < helper_fallback_index),
+		"cinematic runtime blocking prewarm should prefer the safe direct prewarm before any staged fallback"
+	)
+
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var runtime_body := _function_body(runtime_source, "func prewarm_acquisition_cinematic_assets() -> void:")
+	var runtime_direct_index := runtime_body.find("acquisition_cinematic_runtime.prewarm_static_assets()")
+	var runtime_fallback_index := runtime_body.find("while not prewarm_acquisition_cinematic_assets_step()")
+	_expect(
+		runtime_direct_index >= 0 and (runtime_fallback_index < 0 or runtime_direct_index < runtime_fallback_index),
+		"mythic runtime blocking acquisition prewarm should route through the helper's safe direct prewarm"
+	)
+
+
+func _verify_teardown_keeps_host_reusable() -> void:
+	var catalog: Object = MythicItemCatalog.new()
+	var host := MythicAcquisitionCinematic.new()
+	var owner := FakeOwner.new()
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(audio)
+	var item_data: Dictionary = catalog.build_item_by_name("heavenly_cape")
+	root.add_child(owner)
+	owner.add_child(host)
+
+	host.trigger(item_data, Vector2(220.0, 330.0), Vector2(380.0, 710.0), registry)
+	host.tear_down(false)
+	_expect(not host.is_queued_for_deletion(), "tear_down(false) should keep the cinematic host available for reuse")
+	host.trigger(item_data, Vector2(230.0, 340.0), Vector2(380.0, 710.0), registry)
+	var snapshot: Dictionary = host.get_snapshot()
+	_expect(bool(snapshot.get("active", false)), "cinematic host should restart after tear_down(false)")
+	_expect(str(snapshot.get("item_name", "")) == "heavenly_cape", "reused cinematic host should preserve the new item payload")
+	host.tear_down(true)
+	owner.queue_free()
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var end := source.length()
+	for next_signature in ["\nfunc ", "\nstatic func "]:
+		var candidate := source.find(next_signature, start + signature.length())
+		if candidate >= 0:
+			end = min(end, candidate)
+	return source.substr(start, end - start)

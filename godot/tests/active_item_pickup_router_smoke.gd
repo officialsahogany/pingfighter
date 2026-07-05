@@ -5,7 +5,6 @@ const ActiveItemEffectController := preload("res://scripts/items/active_item_eff
 const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
 const ActiveItemPickupRouter := preload("res://scripts/items/active_item_pickup_router.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
-const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -45,6 +44,62 @@ class FakeRegistry:
 		if key == "mythic_item_runtime":
 			return mythic_runtime
 		return null
+
+
+class FakeCinematicMythicRuntime:
+	extends RefCounted
+
+	var inventory: Array = []
+	var cinematic_active := false
+	var cinematic_snapshot: Dictionary = {}
+
+	func acquire_item(
+		item_name: String,
+		_owner: Object,
+		_registry: Object,
+		_roll_overrides: Dictionary = {},
+		_auto_equip: bool = true,
+		_play_feedback: bool = false,
+		source_item_data: Dictionary = {}
+	) -> int:
+		var stored: Dictionary = source_item_data.duplicate(true)
+		if stored.is_empty():
+			stored = {"name": item_name, "type": "mythic", "rarity": "mythic"}
+		stored["name"] = item_name
+		inventory.append(stored)
+		return inventory.size() - 1
+
+	func get_inventory_item(index: int) -> Dictionary:
+		if index < 0 or index >= inventory.size():
+			return {}
+		return (inventory[index] as Dictionary).duplicate(true)
+
+	func has_owned_item_name(item_name: String) -> bool:
+		for item in inventory:
+			if item is Dictionary and str((item as Dictionary).get("name", "")) == item_name:
+				return true
+		return false
+
+	func start_acquisition_cinematic(
+		acquired_item_data: Dictionary,
+		pickup_position: Vector2,
+		_owner: Object,
+		_registry: Object = null,
+		target_player_center_override: Vector2 = Vector2.INF
+	) -> bool:
+		cinematic_active = true
+		cinematic_snapshot = {
+			"item_name": str(acquired_item_data.get("name", "")),
+			"pickup_position": pickup_position,
+			"player_center": target_player_center_override,
+		}
+		return true
+
+	func is_acquisition_cinematic_active() -> bool:
+		return cinematic_active
+
+	func get_acquisition_cinematic_snapshot() -> Dictionary:
+		return cinematic_snapshot.duplicate(true)
 
 
 func _init() -> void:
@@ -140,9 +195,9 @@ func _verify_store_field_item_routes() -> void:
 	_expect(str(stored_gold_digger.get("qualified_display_name", "")) == "필드고정 골드디거", "inventory should preserve the qualified display name")
 	var routed_gold_digger: Dictionary = gold_digger_field_item.get("item_data", {})
 	_expect(str(routed_gold_digger.get("qualified_display_name", "")) == str(stored_gold_digger.get("qualified_display_name", "")), "stored field item should keep the exact inventory display identity")
-	mythic_runtime.reset_round(registry)
 	effect_controller.reset()
-	owner.queue_free()
+	_cleanup_mythic_runtime_owner(mythic_runtime, registry, owner)
+	registry.mythic_runtime = null
 
 
 func _verify_collect_field_item_routes() -> void:
@@ -187,11 +242,11 @@ func _verify_collect_field_item_routes() -> void:
 	_expect(passive_owner.lucky_coin_equipped, "boomerang passive pickup should auto-equip")
 	_expect(_inventory_has_item(passive_runtime, "lucky_coin"), "boomerang passive pickup should be owned")
 	_expect(_pickup_feedback_count == 2, "boomerang passive pickup should trigger pickup feedback")
-	active_registry.mythic_runtime.reset_round(active_registry)
-	passive_runtime.reset_round(passive_registry)
 	effect_controller.reset()
-	active_owner.queue_free()
-	passive_owner.queue_free()
+	_cleanup_mythic_runtime_owner(active_registry.mythic_runtime, active_registry, active_owner)
+	_cleanup_mythic_runtime_owner(passive_runtime, passive_registry, passive_owner)
+	active_registry.mythic_runtime = null
+	passive_registry.mythic_runtime = null
 
 
 func _verify_pickup_feedback_handoff() -> void:
@@ -231,7 +286,7 @@ func _verify_mythic_pickup_starts_cinematic() -> void:
 	var router: Object = ActiveItemPickupRouter.new()
 	var slot_controller: Object = ActiveItemSlotController.new()
 	var effect_controller: Object = ActiveItemEffectController.new()
-	var runtime: Object = MythicItemRuntime.new()
+	var runtime: Object = FakeCinematicMythicRuntime.new()
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new(runtime)
 	root.add_child(owner)
@@ -250,9 +305,9 @@ func _verify_mythic_pickup_starts_cinematic() -> void:
 	), "mythic pickup should route into mythic runtime")
 	_expect(runtime.is_acquisition_cinematic_active(), "mythic field pickup should start the acquisition cinematic")
 	_expect(_pickup_feedback_count == before_pickup_count, "mythic field pickup should suppress the small pickup feedback popup")
-	runtime.reset_round(registry)
 	effect_controller.reset()
-	owner.queue_free()
+	_cleanup_mythic_runtime_owner(runtime, registry, owner)
+	registry.mythic_runtime = null
 
 
 func _drain_frames(frame_count: int) -> void:
@@ -261,8 +316,20 @@ func _drain_frames(frame_count: int) -> void:
 
 
 func _clear_runtime_caches_for_test() -> void:
-	MythicAcquisitionCinematic.reset_for_test()
 	ProjectResourceLoader.clear_caches()
+
+
+func _cleanup_mythic_runtime_owner(runtime: Object, registry: Object, owner: Node) -> void:
+	if runtime != null and runtime.has_method("reset_round"):
+		runtime.reset_round(registry)
+	if runtime != null:
+		var cinematic: Variant = runtime.get("acquisition_cinematic")
+		if cinematic != null:
+			runtime.set("acquisition_cinematic", null)
+		if cinematic is Node and is_instance_valid(cinematic):
+			(cinematic as Node).free()
+	if owner != null:
+		owner.queue_free()
 
 
 func _record_pickup_feedback(_field_item: Dictionary, _registry: Object) -> void:

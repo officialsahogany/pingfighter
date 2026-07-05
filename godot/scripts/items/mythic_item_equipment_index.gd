@@ -78,6 +78,52 @@ func resolve_equipment_slot_key(runtime: Object, item_data: Dictionary, owner: O
 	return ""
 
 
+func slot_family_for_key(slot_key: String) -> String:
+	var canonical: String = canonical_equipment_slot_key(slot_key)
+	if canonical == "left_arm" or canonical == "right_arm":
+		return "arm"
+	if canonical.begins_with("accessory"):
+		return "accessory"
+	return canonical
+
+
+func slot_family_for_item(runtime: Object, item_data: Dictionary) -> String:
+	var item_name: String = str(item_data.get("name", ""))
+	return canonical_equipment_slot_key(str(item_data.get("slot", runtime.catalog.get_slot_key(item_name))))
+
+
+func is_slot_compatible(runtime: Object, item_data: Dictionary, slot_key: String) -> bool:
+	if item_data.is_empty():
+		return false
+	return slot_family_for_item(runtime, item_data) == slot_family_for_key(slot_key)
+
+
+func candidate_slot_keys(item_family: String, constants: Dictionary) -> Array:
+	if item_family == "arm":
+		return _get_array(constants.get("arm_slot_keys", ["left_arm", "right_arm"]))
+	if item_family == "accessory":
+		return _get_array(constants.get("accessory_slot_keys", ["accessory1", "accessory2"]))
+	return [item_family]
+
+
+func resolve_auto_equip_slot(runtime: Object, item_data: Dictionary, owner: Object, constants: Dictionary) -> String:
+	# Original PingFighter find_slot_for_item parity: prefer the first empty
+	# enabled slot of the item's family, otherwise fall back to the first
+	# enabled candidate (which will be swap-replaced on equip).
+	var family: String = slot_family_for_item(runtime, item_data)
+	var candidates: Array = candidate_slot_keys(family, constants)
+	var first_enabled: String = ""
+	for raw_slot in candidates:
+		var key: String = str(raw_slot)
+		if not is_equipment_slot_enabled(runtime, key, owner):
+			continue
+		if first_enabled == "":
+			first_enabled = key
+		if find_equipped_inventory_index_by_slot(runtime, key) < 0:
+			return key
+	return first_enabled
+
+
 func canonical_equipment_slot_key(slot_key: String) -> String:
 	match slot_key:
 		"back", "등":

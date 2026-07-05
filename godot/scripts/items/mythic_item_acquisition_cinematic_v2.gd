@@ -138,8 +138,34 @@ static func should_use_item_data(source: Dictionary) -> bool:
 
 
 static func prewarm_assets() -> void:
-	while not prewarm_assets_step():
-		pass
+	if _assets_prewarmed:
+		return
+	ProjectResourceLoader.load_texture(
+		BACKPLATE_TEXTURE_PATH,
+		"Missing mythic acquisition backplate texture: %s",
+		"Failed to load mythic acquisition backplate texture: %s"
+	)
+	ProjectResourceLoader.load_texture(
+		SHARD_TEXTURE_PATH,
+		"Missing mythic acquisition shard texture: %s",
+		"Failed to load mythic acquisition shard texture: %s"
+	)
+	ProjectResourceLoader.load_texture(
+		ARC_TEXTURE_PATH,
+		"Missing mythic acquisition arc texture: %s",
+		"Failed to load mythic acquisition arc texture: %s"
+	)
+	_get_or_build_icon_backdrop_texture()
+	_get_or_build_soft_vignette_texture()
+	_get_or_build_soft_white_flash_texture()
+	_icon_backdrop_prewarm_data = PackedByteArray()
+	_icon_backdrop_prewarm_y = 0
+	_vignette_prewarm_data = PackedByteArray()
+	_vignette_prewarm_y = 0
+	_white_flash_prewarm_data = PackedByteArray()
+	_white_flash_prewarm_y = 0
+	_assets_prewarmed = true
+	_prewarm_assets_step_index = 0
 
 
 static func prewarm_assets_step() -> bool:
@@ -224,6 +250,10 @@ func _ready() -> void:
 	prewarm_assets()
 	_load_effect_textures()
 	_build_node_tree()
+
+
+func _exit_tree() -> void:
+	_release_runtime_resources()
 
 
 func _load_effect_textures() -> void:
@@ -769,6 +799,59 @@ func reset(registry: Object = null) -> void:
 	if _absorb_particles != null:
 		_absorb_particles.emitting = false
 	queue_redraw()
+
+
+func tear_down(free_self: bool = false) -> void:
+	reset()
+	if free_self:
+		queue_free()
+
+
+func _release_runtime_resources() -> void:
+	if _backplate != null:
+		_backplate.texture = null
+		_backplate.material = null
+	for arc in _arcs:
+		if arc != null:
+			arc.texture = null
+			arc.material = null
+	_clear_particle_resources(_ambient_particles)
+	_clear_particle_resources(_burst_particles)
+	_clear_particle_resources(_absorb_particles)
+	if _icon_backdrop != null:
+		_icon_backdrop.texture = null
+		_icon_backdrop.material = null
+	if _icon_sprite != null:
+		_icon_sprite.texture = null
+		_icon_sprite.material = null
+		_icon_sprite.region_enabled = false
+	item_data.clear()
+	_light_beams.clear()
+	item_texture = null
+	_backplate_texture = null
+	_shard_texture = null
+	_arc_texture = null
+	_backplate_mat = null
+	_arcs.clear()
+	_ambient_particles = null
+	_burst_particles = null
+	_absorb_particles = null
+	_icon_backdrop = null
+	_icon_sprite = null
+	_white_flash_texture = null
+	_vignette_texture = null
+
+
+func _clear_particle_resources(particles: GPUParticles2D) -> void:
+	if particles == null:
+		return
+	particles.emitting = false
+	var process_material := particles.process_material as ParticleProcessMaterial
+	if process_material != null:
+		process_material.color_ramp = null
+	particles.texture = null
+	particles.material = null
+	particles.process_material = null
 
 
 func is_active() -> bool:

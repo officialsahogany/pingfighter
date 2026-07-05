@@ -1,10 +1,9 @@
 extends RefCounted
 
 const ACQUISITION_CINEMATIC_SCRIPT_PATH := "res://scripts/items/mythic_item_acquisition_cinematic_v2.gd"
+const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
 const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
-
-var _script_cache: Variant = null
 
 
 func prewarm(runtime: Object, owner: Object = null, registry: Object = null) -> void:
@@ -80,13 +79,14 @@ func update(runtime: Object, delta: float, registry: Object = null) -> void:
 
 
 func get_cinematic_script() -> Variant:
-	if _script_cache != null:
-		return _script_cache
-	_script_cache = load(ACQUISITION_CINEMATIC_SCRIPT_PATH)
-	return _script_cache
+	return MythicAcquisitionCinematic
 
 
 func prewarm_assets() -> void:
+	var cinematic_script: Variant = get_cinematic_script()
+	if cinematic_script != null and cinematic_script.has_method("prewarm_assets"):
+		cinematic_script.prewarm_assets()
+		return
 	while not prewarm_static_assets_step():
 		pass
 

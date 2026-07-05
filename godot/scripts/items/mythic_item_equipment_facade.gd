@@ -143,21 +143,46 @@ func equip_inventory_item(
 		return false
 	if not runtime.equipment_index.is_equipment_slot_enabled(runtime, slot_key, owner):
 		return false
-	for i in range(runtime.inventory_items.size()):
-		if i == index or not (runtime.inventory_items[i] is Dictionary):
-			continue
-		var other: Dictionary = runtime.inventory_items[i]
-		if str(other.get("_equipped_slot", "")) == slot_key:
-			other["equipped"] = false
-			other["_equipped_slot"] = ""
+	var displaced_names: Array = _displace_slot_occupants(runtime, index, slot_key)
 	item_data["equipped"] = true
 	item_data["_equipped_slot"] = slot_key
 	runtime.inventory_items[index] = item_data
 	runtime.equipment_index.rebuild_equipped_items(runtime, context_constants)
+	_run_displaced_unequip_cleanup(runtime, displaced_names, item_name, registry, baal_boots_constants)
 	_clear_on_equip(runtime, item_name, owner, registry, baal_boots_constants)
 	runtime._sync_owner(owner, registry)
 	runtime.audio_router.play_equipment_audio(runtime, registry)
 	return true
+
+
+# Clears every inventory item currently occupying canonical_slot (except
+# exclude_index) and returns their item names so callers can run unequip
+# cleanup for the displaced items.
+func _displace_slot_occupants(runtime: Object, exclude_index: int, canonical_slot: String) -> Array:
+	var displaced_names: Array = []
+	for i in range(runtime.inventory_items.size()):
+		if i == exclude_index or not (runtime.inventory_items[i] is Dictionary):
+			continue
+		var other: Dictionary = runtime.inventory_items[i]
+		if runtime.equipment_index.canonical_equipment_slot_key(str(other.get("_equipped_slot", ""))) == canonical_slot:
+			other["equipped"] = false
+			other["_equipped_slot"] = ""
+			var other_name: String = str(other.get("name", ""))
+			if other_name != "":
+				displaced_names.append(other_name)
+	return displaced_names
+
+
+# A displaced item is being unequipped by the replacement, so it must run the
+# same per-item teardown as an explicit unequip (Hermes / Baal Boots / Pandora /
+# Horn Strawberry / Odin's Eye etc. leave runtime state alive otherwise). Must
+# run AFTER rebuild_equipped_items so is_*_equipped() guards see the new state.
+func _run_displaced_unequip_cleanup(runtime: Object, displaced_names: Array, equipped_item_name: String, registry: Object, baal_boots_constants: Dictionary) -> void:
+	for displaced_name in displaced_names:
+		var name_text: String = str(displaced_name)
+		if name_text == "" or name_text == equipped_item_name:
+			continue
+		_clear_on_unequip(runtime, name_text, registry, baal_boots_constants)
 
 
 func unequip_inventory_item(
@@ -215,6 +240,113 @@ func unequip_slot(
 	if index < 0:
 		return false
 	return unequip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants)
+
+
+func equip_inventory_item_to_slot(
+	runtime: Object,
+	index: int,
+	slot_key: String,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
+	# Slot-targeted equip (drag-and-drop / right-click auto-equip). Mirrors
+	# equip_inventory_item but the caller chooses the destination slot instead
+	# of resolve_equipment_slot_key picking only an empty one.
+	if index < 0 or index >= runtime.inventory_items.size():
+		return false
+	if not (runtime.inventory_items[index] is Dictionary):
+		return false
+	var item_data: Dictionary = runtime.inventory_items[index]
+	var item_name: String = str(item_data.get("name", ""))
+	var canonical_slot: String = runtime.equipment_index.canonical_equipment_slot_key(slot_key)
+	if not runtime.equipment_index.is_slot_compatible(runtime, item_data, canonical_slot):
+		return false
+	if not runtime.equipment_index.is_equipment_slot_enabled(runtime, canonical_slot, owner):
+		return false
+	if runtime.equipment_index.is_single_equipment_item(item_name, context_constants):
+		var equipped_index: int = runtime.equipment_index.find_equipped_inventory_index_by_name(runtime, item_name)
+		if equipped_index >= 0 and equipped_index != index:
+			return false
+	var displaced_names: Array = _displace_slot_occupants(runtime, index, canonical_slot)
+	item_data["equipped"] = true
+	item_data["_equipped_slot"] = canonical_slot
+	runtime.inventory_items[index] = item_data
+	runtime.equipment_index.rebuild_equipped_items(runtime, context_constants)
+	_run_displaced_unequip_cleanup(runtime, displaced_names, item_name, registry, baal_boots_constants)
+	_clear_on_equip(runtime, item_name, owner, registry, baal_boots_constants)
+	runtime._sync_owner(owner, registry)
+	runtime.audio_router.play_equipment_audio(runtime, registry)
+	return true
+
+
+func auto_equip_inventory_item(
+	runtime: Object,
+	index: int,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
+	# Right-click parity: equip into the first empty compatible slot, else the
+	# first enabled compatible slot (swap-replacing whatever is there).
+	if index < 0 or index >= runtime.inventory_items.size():
+		return false
+	if not (runtime.inventory_items[index] is Dictionary):
+		return false
+	var item_data: Dictionary = runtime.inventory_items[index]
+	var slot_key: String = runtime.equipment_index.resolve_auto_equip_slot(runtime, item_data, owner, context_constants)
+	if slot_key == "":
+		return false
+	return equip_inventory_item_to_slot(runtime, index, slot_key, owner, registry, context_constants, baal_boots_constants)
+
+
+func swap_equipment_slots(
+	runtime: Object,
+	slot_a: String,
+	slot_b: String,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
+	# Drag a slot item onto another occupied slot. Both items must be
+	# cross-compatible with the other slot, otherwise the swap is rejected.
+	var canonical_a: String = runtime.equipment_index.canonical_equipment_slot_key(slot_a)
+	var canonical_b: String = runtime.equipment_index.canonical_equipment_slot_key(slot_b)
+	if canonical_a == canonical_b:
+		return false
+	var index_a: int = runtime.equipment_index.find_equipped_inventory_index_by_slot(runtime, canonical_a)
+	var index_b: int = runtime.equipment_index.find_equipped_inventory_index_by_slot(runtime, canonical_b)
+	if index_a < 0 and index_b < 0:
+		return false
+	if index_a >= 0:
+		var item_a_check: Dictionary = runtime._get_dict(runtime.inventory_items[index_a])
+		if not runtime.equipment_index.is_slot_compatible(runtime, item_a_check, canonical_b):
+			return false
+		if not runtime.equipment_index.is_equipment_slot_enabled(runtime, canonical_b, owner):
+			return false
+	if index_b >= 0:
+		var item_b_check: Dictionary = runtime._get_dict(runtime.inventory_items[index_b])
+		if not runtime.equipment_index.is_slot_compatible(runtime, item_b_check, canonical_a):
+			return false
+		if not runtime.equipment_index.is_equipment_slot_enabled(runtime, canonical_a, owner):
+			return false
+	if index_a >= 0 and runtime.inventory_items[index_a] is Dictionary:
+		var item_a: Dictionary = runtime.inventory_items[index_a]
+		item_a["equipped"] = true
+		item_a["_equipped_slot"] = canonical_b
+		runtime.inventory_items[index_a] = item_a
+	if index_b >= 0 and runtime.inventory_items[index_b] is Dictionary:
+		var item_b: Dictionary = runtime.inventory_items[index_b]
+		item_b["equipped"] = true
+		item_b["_equipped_slot"] = canonical_a
+		runtime.inventory_items[index_b] = item_b
+	runtime.equipment_index.rebuild_equipped_items(runtime, context_constants)
+	runtime._sync_owner(owner, registry)
+	runtime.audio_router.play_equipment_audio(runtime, registry)
+	return true
 
 
 func discard_inventory_item(
