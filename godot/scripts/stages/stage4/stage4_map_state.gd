@@ -62,6 +62,9 @@ func handle_score_event(scoring_side: String, score_result: Dictionary, deps: Di
 		return
 	if scoring_side != "player":
 		return
+	var ponk_skill_state: Object = _get_stage4_event(deps, "stage4_ponk_skill_state")
+	if ponk_skill_state != null and ponk_skill_state.has_method("handle_score_event"):
+		ponk_skill_state.handle_score_event(scoring_side, score_result, deps)
 	if _is_destruction_started(deps):
 		return
 	if int(score_result.get("player_score", 0)) == PLAYER_SCORE_DESTRUCTION_TRIGGER:

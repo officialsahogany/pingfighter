@@ -7,6 +7,7 @@ const Stage4PonkBossSkillHudAssets := preload("res://scripts/stages/stage4/stage
 
 const MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH := Stage4PonkBossSkillHudAssets.MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH
 const MEDITATION_SKILLCARD_TEXTURE_PATH := Stage4PonkBossSkillHudAssets.MEDITATION_SKILLCARD_TEXTURE_PATH
+const ILLUSION_RIPPLE_SKILLCARD_TEXTURE_PATH := Stage4PonkBossSkillHudAssets.ILLUSION_RIPPLE_SKILLCARD_TEXTURE_PATH
 const MAGNETIC_FIELD_FALLBACK_SHEET_PATH := Stage4PonkBossSkillHudAssets.MAGNETIC_FIELD_FALLBACK_SHEET_PATH
 const MEDITATION_FALLBACK_SHEET_PATH := Stage4PonkBossSkillHudAssets.MEDITATION_FALLBACK_SHEET_PATH
 const CARD_TEXTURE_COLS := Stage4PonkBossSkillHudAssets.CARD_TEXTURE_COLS
@@ -33,12 +34,14 @@ func prewarm_assets_step() -> bool:
 			_get_skill_texture("magnetic_field")
 		1:
 			_get_skill_texture("meditation")
+		2:
+			_get_skill_texture("illusion_ripple")
 		_:
 			_prewarmed = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 1:
+	if _prewarm_step_index > 2:
 		_prewarmed = true
 		_prewarm_step_index = 0
 		return true
@@ -132,6 +135,7 @@ func get_asset_status() -> Dictionary:
 	return {
 		"magnetic_card_texture": _get_skill_texture("magnetic_field") != null,
 		"meditation_card_texture": _get_skill_texture("meditation") != null,
+		"illusion_ripple_card_texture": _get_skill_texture("illusion_ripple") != null,
 	}
 
 
@@ -209,6 +213,8 @@ func _get_skill_texture_paths(skill_id: String) -> Array[String]:
 		return [MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH, MAGNETIC_FIELD_FALLBACK_SHEET_PATH]
 	if skill_id == "meditation":
 		return [MEDITATION_SKILLCARD_TEXTURE_PATH, MEDITATION_FALLBACK_SHEET_PATH]
+	if skill_id == "illusion_ripple":
+		return [ILLUSION_RIPPLE_SKILLCARD_TEXTURE_PATH]
 	return []
 
 

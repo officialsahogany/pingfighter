@@ -27,6 +27,7 @@ const Stage4PonkBossSkillHudRenderer := preload("res://scripts/stages/stage4/sta
 const Stage4PonkGaugeHudRenderer := preload("res://scripts/stages/stage4/stage4_ponk_gauge_hud_renderer.gd")
 const Stage4PonkMagneticFxHost := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd")
 const Stage4PonkMeditationFxHost := preload("res://scripts/stages/stage4/stage4_ponk_meditation_fx_host.gd")
+const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
 const Stage4PonkSkillState := preload("res://scripts/stages/stage4/stage4_ponk_skill_state.gd")
 const Stage4TempleDestructionEvent := preload("res://scripts/stages/stage4/stage4_temple_destruction_event.gd")
 const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
@@ -54,6 +55,7 @@ const STAGE4_IMAGE_ASSETS := [
 	{"path": "res://assets/sprites/hud/stage4_tibetan_cyber_temple_motion_sprites_imagegen_v2.png", "size": Vector2(1659.0, 948.0)},
 	{"path": "res://assets/sprites/hud/stage4_ponk_refraction_magnetic_field_skillcard_imagegen_v1.png", "size": Vector2(2016.0, 540.0)},
 	{"path": "res://assets/sprites/hud/stage4_ponk_vipassana_meditation_skillcard_imagegen_v1.png", "size": Vector2(2016.0, 540.0)},
+	{"path": "res://assets/sprites/hud/stage4_ponk_illusion_ripple_skillcard_imagegen_v1.png", "size": Vector2(2016.0, 540.0)},
 	{"path": "res://assets/sprites/stage4/stage4_ponk_refraction_magnetic_field_sheet_imagegen_v3_soft.png", "size": Vector2(2048.0, 2048.0)},
 	{"path": "res://assets/sprites/stage4/temple_ghost_walk_left.png", "size": Vector2(1376.0, 768.0)},
 	{"path": "res://assets/sprites/stage4/temple_ghost_walk_right.png", "size": Vector2(1376.0, 768.0)},
@@ -319,6 +321,18 @@ func _init() -> void:
 	_expect(str(router.get_module_key(4, "actor_renderer")) == "stage4_actor_renderer", "Stage 4 should route actor drawing to the Stage 4 actor renderer")
 	_expect(str(router.get_module_key(4, "pillar_scene_drawer")) == "stage4_pillar_scene_drawer", "Stage 4 should route pillar drawing to the Stage 4 pillar scene drawer")
 	_expect(str(router.get_module_key(4, "stage_background")) == "stage4_pillar_background", "Stage 4 should route stage background state to the Stage 4 pillar background")
+	var pillar_scene_source := FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_pillar_scene_drawer.gd")
+	_expect(
+		pillar_scene_source.find("\"stage4.pillar.post_active_hud\"") >= 0
+			and pillar_scene_source.find("\"stage4.pillar.ponk_boss_hud\"") >= 0
+			and pillar_scene_source.find("\"stage4.pillar.ponk_gauge_hud\"") >= 0,
+		"Stage 4 post-playfield HUD should expose active-item, Ponk boss-card, and fallback gauge BattlePerf labels"
+	)
+	_expect(
+		pillar_scene_source.find("func _perf_begin") >= 0
+			and pillar_scene_source.find("func _perf_end") >= 0,
+		"Stage 4 pillar scene drawer should own local BattlePerf helper wrappers"
+	)
 
 	var registry: Object = GameplayModuleRegistry.new()
 	var stage3_playfield_renderer: Object = registry.get_instance("stage3_playfield_renderer")
@@ -490,6 +504,7 @@ func _init() -> void:
 	var skill_card_status: Dictionary = skill_card_renderer.get_asset_status()
 	_expect(bool(skill_card_status.get("magnetic_card_texture", false)), "Stage 4 Ponk magnetic skill card should load themed PNG art")
 	_expect(bool(skill_card_status.get("meditation_card_texture", false)), "Stage 4 Ponk meditation skill card should load themed PNG art")
+	_expect(bool(skill_card_status.get("illusion_ripple_card_texture", false)), "Stage 4 Ponk illusion ripple skill card should load themed PNG art")
 
 	var background: Object = registry.get_instance("stage4_pillar_background")
 	_expect(background != null and background.has_method("draw"), "Stage 4 pillar background should be constructible from the module catalog")
@@ -650,22 +665,36 @@ func _init() -> void:
 	_expect(bool(ponk_asset_status.get("meditation_fx_lock_burst_png_slot", false)), "Stage 4 Ponk skill state should prefer Claude's lock-burst PNG")
 	_expect(bool(ponk_asset_status.get("meditation_fx_release_burst_png_slot", false)), "Stage 4 Ponk skill state should prefer Claude's release-burst PNG")
 	_expect(bool(ponk_asset_status.get("meditation_fx_release_trail_png_slot", false)), "Stage 4 Ponk skill state should prefer Claude's release-trail PNG")
+	_expect(bool(ponk_asset_status.get("illusion_ripple_fx_shader_host_pipeline", false)), "Stage 4 Ponk illusion ripple should expose its screen-read shader host pipeline")
+	_expect(bool(ponk_asset_status.get("illusion_ripple_uses_screen_texture", false)), "Stage 4 Ponk illusion ripple should sample the screen texture")
+	_expect(bool(ponk_asset_status.get("illusion_ripple_uses_back_buffer_copy", false)), "Stage 4 Ponk illusion ripple should own a BackBufferCopy path")
+	_expect(int(ponk_asset_status.get("illusion_ripple_z_index", 0)) == 1272, "Stage 4 Ponk illusion ripple should render below defeat color restore")
+	_expect(bool(ponk_asset_status.get("awaken_aura_fx_shader_host_pipeline", false)), "Stage 4 Ponk awaken aura should expose its reusable shader host pipeline")
+	_expect(bool(ponk_asset_status.get("awaken_aura_fx_texture_pieces_ready", false)), "Stage 4 Ponk awaken aura should prewarm the three generated PNG pieces")
+	_expect(bool(ponk_asset_status.get("awaken_aura_backplate_png_slot", false)), "Stage 4 Ponk awaken aura should prefer Claude's mandala backplate PNG")
+	_expect(bool(ponk_asset_status.get("awaken_aura_mote_png_slot", false)), "Stage 4 Ponk awaken aura should prefer Claude's lotus mote PNG")
+	_expect(bool(ponk_asset_status.get("awaken_aura_arc_png_slot", false)), "Stage 4 Ponk awaken aura should prefer Claude's orbit arc PNG")
 	var meditation_fx_status: Dictionary = Stage4PonkMeditationFxHost.build_pipeline_status()
 	var magnetic_fx_status: Dictionary = Stage4PonkMagneticFxHost.build_pipeline_status()
+	var awaken_aura_fx_status: Dictionary = Stage4PonkAwakenAuraFxHost.build_pipeline_status()
 	_expect(bool(magnetic_fx_status.get("magnetic_fx_texture_pieces_ready", false)), "Stage 4 magnetic FX host should be constructible with Claude's generated art assets")
 	_expect(bool(magnetic_fx_status.get("magnetic_phase2_fx_texture_pieces_ready", false)), "Stage 4 magnetic Phase 2 FX host should be constructible with Claude's generated art assets")
 	_expect(bool(meditation_fx_status.get("meditation_fx_texture_pieces_ready", false)), "Stage 4 meditation FX host should be constructible without generated art assets")
+	_expect(bool(awaken_aura_fx_status.get("awaken_aura_fx_texture_pieces_ready", false)), "Stage 4 awaken aura FX host should be constructible with Claude's generated art assets")
 	var initial_skill_card_context: Dictionary = ponk_skill_state.get_skill_card_hud_context(null, {"current_stage": 4})
 	var initial_skill_cards: Array = _as_array(initial_skill_card_context.get("stage4_ponk_boss_skill_hud_skills", []))
 	_expect(bool(initial_skill_card_context.get("stage4_ponk_boss_skill_hud_active", false)), "Stage 4 Ponk skill card HUD context should be active")
-	_expect(initial_skill_cards.size() == 2, "Stage 4 Ponk should expose two boss skill cards")
+	_expect(initial_skill_cards.size() == 3, "Stage 4 Ponk should expose three boss skill cards")
 	_expect(_has_skill_card(initial_skill_cards, "magnetic_field"), "Stage 4 Ponk skill cards should include refraction magnetic field")
 	_expect(_has_skill_card(initial_skill_cards, "meditation"), "Stage 4 Ponk skill cards should include meditation")
+	_expect(_has_skill_card(initial_skill_cards, "illusion_ripple"), "Stage 4 Ponk skill cards should include Monghwan Poyeong")
 	_expect(str(_get_skill_card(initial_skill_cards, "magnetic_field").get("name", "")) == "굴절 자기장", "Stage 4 magnetic skill card should expose a Korean label")
 	_expect(str(_get_skill_card(initial_skill_cards, "magnetic_field").get("trigger_type", "")) == "auto_cooldown", "Stage 4 magnetic skill card should expose automatic cooldown metadata")
 	_expect(is_equal_approx(float(_get_skill_card(initial_skill_cards, "magnetic_field").get("cooldown_total", 0.0)), 25.0), "Stage 4 magnetic skill card should expose the 25-second cooldown")
 	_expect(str(_get_skill_card(initial_skill_cards, "meditation").get("trigger_type", "")) == "hit_cooldown", "Stage 4 meditation skill card should expose hit-trigger cooldown metadata")
 	_expect(is_equal_approx(float(_get_skill_card(initial_skill_cards, "meditation").get("cooldown_total", 0.0)), 18.0), "Stage 4 meditation skill card should expose the 18-second cooldown")
+	_expect(str(_get_skill_card(initial_skill_cards, "illusion_ripple").get("name", "")) == "몽환포영", "Stage 4 illusion skill card should expose the Korean label")
+	_expect(str(_get_skill_card(initial_skill_cards, "illusion_ripple").get("status", "")) == "locked", "Stage 4 illusion skill card should stay locked before player four points")
 	map_state.reset()
 	destruction.reset()
 	bird_event.reset()

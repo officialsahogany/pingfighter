@@ -43,12 +43,20 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry: 
 func draw_post_playfield_hud(canvas: CanvasItem, context: Dictionary, registry: Object) -> void:
 	if canvas == null or registry == null:
 		return
+	var perf_logger: Object = context.get("battle_perf_logger", null)
 	var view_size: Vector2 = _get_vector2(context, "view_size", Vector2.ZERO)
 	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
+	var sample_start: int = _perf_begin(perf_logger)
 	hud_scene_drawer.draw_active_item_hud(canvas, context, registry, view_size, game_offset, game_size)
-	if not _draw_stage4_ponk_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size):
+	_perf_end(perf_logger, "stage4.pillar.post_active_hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var drew_ponk_boss_hud := _draw_stage4_ponk_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size)
+	_perf_end(perf_logger, "stage4.pillar.ponk_boss_hud", sample_start)
+	if not drew_ponk_boss_hud:
+		sample_start = _perf_begin(perf_logger)
 		_draw_stage4_ponk_gauge(canvas, context, registry, view_size, game_offset, game_size)
+		_perf_end(perf_logger, "stage4.pillar.ponk_gauge_hud", sample_start)
 
 
 func _draw_stage4_ponk_boss_skill_hud(
@@ -105,3 +113,14 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

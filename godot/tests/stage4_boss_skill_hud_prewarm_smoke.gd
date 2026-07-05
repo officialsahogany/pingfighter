@@ -10,8 +10,10 @@ func _init() -> void:
 	_expect(renderer.has_method("prewarm_assets_step"), "Stage 4 boss skill HUD should expose staged asset prewarm")
 	_expect(not bool(renderer.prewarm_assets_step()), "first Stage 4 boss skill HUD prewarm step should not load every skillcard")
 	_expect(_texture_cache_size(renderer) == 1, "first Stage 4 boss skill HUD prewarm step should load exactly one skillcard texture")
-	_expect(bool(renderer.prewarm_assets_step()), "second Stage 4 boss skill HUD prewarm step should complete")
-	_expect(_texture_cache_size(renderer) == 2, "completed Stage 4 boss skill HUD prewarm should load both skillcard textures")
+	_expect(not bool(renderer.prewarm_assets_step()), "second Stage 4 boss skill HUD prewarm step should wait for the illusion skillcard")
+	_expect(_texture_cache_size(renderer) == 2, "second Stage 4 boss skill HUD prewarm step should load two skillcard textures")
+	_expect(bool(renderer.prewarm_assets_step()), "third Stage 4 boss skill HUD prewarm step should complete")
+	_expect(_texture_cache_size(renderer) == 3, "completed Stage 4 boss skill HUD prewarm should load all three skillcard textures")
 	_expect(bool(renderer.prewarm_assets_step()), "completed Stage 4 boss skill HUD prewarm should remain idempotent")
 
 	if _failures.is_empty():

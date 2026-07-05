@@ -1,6 +1,8 @@
 extends SceneTree
 
 const BallRoundActorCleanup := preload("res://scripts/ball/ball_round_actor_cleanup.gd")
+const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
+const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
 const Stage4PonkSkillState := preload("res://scripts/stages/stage4/stage4_ponk_skill_state.gd")
 
 var _failures: Array[String] = []
@@ -52,6 +54,27 @@ func _run() -> void:
 		_expect(not bool(cleared_status.get("active", true)), "Round cleanup should deactivate the Stage 4 magnetic FX host")
 		_expect(not magnetic_host.visible, "Round cleanup should hide the Stage 4 magnetic FX host")
 		_expect(not bool(cleared_status.get("projectile_orb_visible", true)), "Round cleanup should hide the Stage 4 magnetic projectile orb")
+
+	var aura_host := Stage4PonkAwakenAuraFxHost.new()
+	aura_host.name = "PonkAwakenAuraFxHost"
+	canvas.add_child(aura_host)
+	await process_frame
+	aura_host.prewarm_runtime_nodes()
+	aura_host.sync_state({
+		"active": true,
+		"intensity": 1.0,
+		"boss_center": Vector2(380.0, 96.0),
+		"elapsed": 1.25,
+		"enraged": false,
+		"game_offset": Vector2.ZERO,
+		"render_scale": 1.0,
+	}, true)
+	await process_frame
+	_expect(bool(aura_host.get_debug_status().get("visible", false)), "Setup should leave the Stage 4 awaken aura host visible before stage reset")
+	MatchResetController.new().reset_stage_state({})
+	await process_frame
+	_expect(not bool(aura_host.get_debug_status().get("visible", true)), "Stage reset should hide orphaned Stage 4 awaken aura hosts")
+	_expect(not bool(aura_host.get_debug_status().get("mote_emitting", true)), "Stage reset should stop orphaned Stage 4 awaken aura particles")
 
 	canvas.queue_free()
 

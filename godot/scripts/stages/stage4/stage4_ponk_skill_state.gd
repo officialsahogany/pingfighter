@@ -5,6 +5,8 @@ const StageActorDrawContextArrays := preload("res://scripts/stages/common/stage_
 const Stage4PonkMagneticAssets := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_assets.gd")
 const Stage4PonkMagneticFxHost := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd")
 const Stage4PonkMeditationFxHost := preload("res://scripts/stages/stage4/stage4_ponk_meditation_fx_host.gd")
+const Stage4PonkIllusionRippleFxHost := preload("res://scripts/stages/stage4/stage4_ponk_illusion_ripple_fx_host.gd")
+const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
 const Stage4PonkSkillPayloadFactory := preload("res://scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd")
 
 const MAGNETIC_FIELD_SHEET_PATH := Stage4PonkMagneticAssets.MAGNETIC_FIELD_SHEET_PATH
@@ -42,6 +44,17 @@ const MEDITATION_RELEASE_SPEED_BONUS_MAX := 1.30
 const BALL_BASE_SPEED_FALLBACK := 7.65
 const MAGNETIC_SKILL_ID := "magnetic_field"
 const MEDITATION_SKILL_ID := "meditation"
+const ILLUSION_SKILL_ID := "illusion_ripple"
+const ILLUSION_UNLOCK_PLAYER_SCORE := 4
+const ILLUSION_DURATION_FRAMES := 240.0
+const ILLUSION_COOLDOWN_SEC := 70.0
+const ILLUSION_FIRST_CAST_DELAY_FRAMES := 180.0
+const ILLUSION_AWAKEN_BURST_FRAMES := 90.0
+const ILLUSION_AWAKEN_STAGE_LOCKED := 0
+const ILLUSION_AWAKEN_STAGE_WAIT_SERVE := 1
+const ILLUSION_AWAKEN_STAGE_SERVE_WAIT := 2
+const ILLUSION_AWAKEN_STAGE_COUNTDOWN := 3
+const ILLUSION_AWAKEN_STAGE_LOOP := 4
 
 var rng := RandomNumberGenerator.new()
 var magnetic_sheet: Texture2D = null
@@ -93,6 +106,21 @@ var meditation_release_fx_id := 0
 var meditation_fx_host: Node = null
 var meditation_fx_host_add_pending := false
 var meditation_fx_host_runtime_prewarmed := false
+var illusion_unlocked := false
+var illusion_awaken_stage := ILLUSION_AWAKEN_STAGE_LOCKED
+var illusion_first_cast_delay_frames := 0.0
+var illusion_awaken_burst_frames := 0.0
+var illusion_awaken_burst_played := false
+var illusion_active := false
+var illusion_timer_frames := 0.0
+var illusion_cooldown_seconds := 0.0
+var illusion_aura_enraged := false
+var illusion_fx_host: Node = null
+var illusion_fx_host_add_pending := false
+var illusion_fx_host_runtime_prewarmed := false
+var awaken_aura_fx_host: Node = null
+var awaken_aura_fx_host_add_pending := false
+var awaken_aura_fx_host_runtime_prewarmed := false
 var fx_hosts_prewarmed := false
 
 var _test_meditation_chance := -1.0
@@ -122,12 +150,18 @@ func prewarm_assets_step() -> bool:
 		2:
 			if not Stage4PonkMeditationFxHost.prewarm_assets_step():
 				return false
+		3:
+			if not Stage4PonkIllusionRippleFxHost.prewarm_assets_step():
+				return false
+		4:
+			if not Stage4PonkAwakenAuraFxHost.prewarm_assets_step():
+				return false
 		_:
 			_prewarm_assets_done = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 2:
+	if _prewarm_step_index > 4:
 		_prewarm_assets_done = true
 		_prewarm_step_index = 0
 		return true
@@ -151,12 +185,16 @@ func prewarm_runtime_hosts_step(canvas: CanvasItem) -> bool:
 			_get_or_create_magnetic_fx_host(canvas)
 		1:
 			_get_or_create_meditation_fx_host(canvas)
+		2:
+			_get_or_create_illusion_fx_host(canvas)
+		3:
+			_get_or_create_awaken_aura_fx_host(canvas)
 		_:
 			fx_hosts_prewarmed = true
 			_prewarm_runtime_host_step_index = 0
 			return true
 	_prewarm_runtime_host_step_index += 1
-	if _prewarm_runtime_host_step_index > 1:
+	if _prewarm_runtime_host_step_index > 3:
 		fx_hosts_prewarmed = true
 		_prewarm_runtime_host_step_index = 0
 		return true
@@ -198,6 +236,17 @@ func reset() -> void:
 	meditation_cooldown_seconds = MEDITATION_COOLDOWN_SEC
 	_reset_meditation_release_fx(true)
 	_stop_meditation_fx_host()
+	illusion_unlocked = false
+	illusion_awaken_stage = ILLUSION_AWAKEN_STAGE_LOCKED
+	illusion_first_cast_delay_frames = 0.0
+	illusion_awaken_burst_frames = 0.0
+	illusion_awaken_burst_played = false
+	illusion_active = false
+	illusion_timer_frames = 0.0
+	illusion_cooldown_seconds = 0.0
+	illusion_aura_enraged = false
+	_stop_illusion_fx_host()
+	_stop_awaken_aura_fx_host()
 	frame_clock = 0.0
 
 
@@ -225,6 +274,15 @@ func reset_round(deps: Dictionary = {}) -> void:
 	meditation_cooldown_seconds = MEDITATION_COOLDOWN_SEC
 	_reset_meditation_release_fx(true)
 	_stop_meditation_fx_host()
+	illusion_active = false
+	illusion_timer_frames = 0.0
+	illusion_awaken_burst_frames = 0.0
+	_stop_illusion_fx_host()
+	_stop_awaken_aura_fx_host()
+
+
+func reset_for_result() -> void:
+	reset()
 
 
 func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> Dictionary:
@@ -240,6 +298,12 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> Di
 		meditation_trails.clear()
 		meditation_particles.clear()
 		meditation_circles.clear()
+		illusion_active = false
+		illusion_timer_frames = 0.0
+		illusion_awaken_burst_frames = 0.0
+		illusion_aura_enraged = false
+		_stop_illusion_fx_host()
+		_stop_awaken_aura_fx_host()
 		_reset_meditation_release_fx()
 		return get_debug_snapshot()
 
@@ -247,18 +311,40 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> Di
 	var fps_scale: float = clamped_delta * 60.0
 	frame_clock += clamped_delta
 	magnetic_center = _get_boss_center(context)
+	illusion_aura_enraged = _is_enraged(context)
+	var activated_illusion_this_tick := false
 
 	if not _is_timing_frozen(context):
 		if not _is_boss_skill_cooldown_paused(context):
 			_update_skill_cooldowns(clamped_delta)
+		_update_illusion_awaken_burst(fps_scale)
+		activated_illusion_this_tick = _update_illusion_awaken_state(fps_scale, context)
+		if not _is_boss_skill_cooldown_paused(context):
 			if _can_auto_activate_magnetic(context):
 				_activate_magnetic(context, deps)
+			if _can_auto_activate_illusion(context):
+				_activate_illusion()
+				activated_illusion_this_tick = true
 		_update_magnetic(fps_scale, context, deps)
 		_update_magnetic_projectile(fps_scale, context)
 		_update_meditation(fps_scale, context, deps)
+		if not activated_illusion_this_tick:
+			_update_illusion(fps_scale)
 
 	_sync_magnetic_audio(deps)
 	return get_debug_snapshot()
+
+
+func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
+	if scoring_side != "player":
+		return
+	if illusion_unlocked:
+		return
+	if int(score_result.get("player_score", 0)) < ILLUSION_UNLOCK_PLAYER_SCORE:
+		return
+	illusion_unlocked = true
+	illusion_awaken_stage = ILLUSION_AWAKEN_STAGE_WAIT_SERVE
+	illusion_first_cast_delay_frames = 0.0
 
 
 func register_boss_hit(_ball_vel: Vector2, context: Dictionary = {}, deps: Dictionary = {}) -> Dictionary:
@@ -392,6 +478,12 @@ func force_activate_meditation(context: Dictionary = {}, deps: Dictionary = {}) 
 	return meditation_active
 
 
+func force_activate_illusion() -> bool:
+	illusion_unlocked = true
+	_activate_illusion()
+	return illusion_active
+
+
 func force_spawn_magnetic_projectile(pos: Vector2, radius: float = MAGNETIC_RADIUS) -> bool:
 	magnetic_projectile_active = true
 	magnetic_projectile_pos = pos
@@ -413,7 +505,7 @@ func get_hud_context() -> Dictionary:
 		"stage4_ponk_gauge_value": boss_special_gauge,
 		"stage4_ponk_gauge_max": GAUGE_MAX,
 		"stage4_ponk_gauge_ready": boss_special_ready,
-		"stage4_ponk_gauge_active": magnetic_active or meditation_active,
+		"stage4_ponk_gauge_active": magnetic_active or meditation_active or illusion_active,
 	}
 	result.merge(get_skill_card_hud_context(), true)
 	return result
@@ -425,6 +517,7 @@ func get_skill_card_hud_context(_owner: Object = null, _context: Dictionary = {}
 		"stage4_ponk_boss_skill_hud_skills": [
 			_build_magnetic_skill_card(),
 			_build_meditation_skill_card(),
+			_build_illusion_skill_card(),
 		],
 	}
 
@@ -434,7 +527,7 @@ func get_actor_draw_context(copy_arrays: bool = false) -> Dictionary:
 		"stage4_ponk_gauge_value": boss_special_gauge,
 		"stage4_ponk_gauge_max": GAUGE_MAX,
 		"stage4_ponk_gauge_ready": boss_special_ready,
-		"stage4_ponk_gauge_active": magnetic_active or meditation_active,
+		"stage4_ponk_gauge_active": magnetic_active or meditation_active or illusion_active,
 		"stage4_magnetic_active": magnetic_active,
 		"stage4_magnetic_timer": magnetic_timer_frames,
 		"stage4_magnetic_radius": magnetic_radius,
@@ -474,6 +567,20 @@ func get_actor_draw_context(copy_arrays: bool = false) -> Dictionary:
 		"stage4_meditation_release_fx_velocity": meditation_release_fx_velocity,
 		"stage4_meditation_release_fx_id": meditation_release_fx_id,
 		"stage4_meditation_release_fx_trails": StageActorDrawContextArrays.snapshot(meditation_release_fx_trails, copy_arrays),
+		"stage4_illusion_unlocked": illusion_unlocked,
+		"stage4_illusion_awaken_stage": illusion_awaken_stage,
+		"stage4_illusion_first_cast_delay": illusion_first_cast_delay_frames,
+		"stage4_illusion_first_cast_delay_total": ILLUSION_FIRST_CAST_DELAY_FRAMES,
+		"stage4_illusion_awaken_burst": illusion_awaken_burst_frames,
+		"stage4_illusion_awaken_burst_total": ILLUSION_AWAKEN_BURST_FRAMES,
+		"stage4_illusion_active": illusion_active,
+		"stage4_illusion_timer": illusion_timer_frames,
+		"stage4_illusion_duration_total": ILLUSION_DURATION_FRAMES,
+		"stage4_illusion_cooldown_remaining": illusion_cooldown_seconds,
+		"stage4_illusion_cooldown_total": ILLUSION_COOLDOWN_SEC,
+		"stage4_illusion_awaken_aura_intensity": _get_illusion_awaken_aura_intensity({}),
+		"stage4_illusion_awaken_aura_enraged": illusion_aura_enraged,
+		"stage4_illusion_awaken_aura_modular_ready": Stage4PonkAwakenAuraFxHost.has_loaded_pipeline(),
 	}
 
 
@@ -495,6 +602,16 @@ func get_debug_snapshot() -> Dictionary:
 		"meditation_cooldown_seconds": meditation_cooldown_seconds,
 		"meditation_release_pending": meditation_release_pending,
 		"meditation_release_fx_timer_frames": meditation_release_fx_timer_frames,
+		"illusion_unlocked": illusion_unlocked,
+		"illusion_awaken_stage": illusion_awaken_stage,
+		"illusion_first_cast_delay_frames": illusion_first_cast_delay_frames,
+		"illusion_awaken_burst_frames": illusion_awaken_burst_frames,
+		"illusion_awaken_burst_played": illusion_awaken_burst_played,
+		"illusion_active": illusion_active,
+		"illusion_timer_frames": illusion_timer_frames,
+		"illusion_cooldown_seconds": illusion_cooldown_seconds,
+		"illusion_aura_enraged": illusion_aura_enraged,
+		"awaken_aura_fx_host_attached": _is_valid_awaken_aura_fx_host(),
 	}, true)
 	return snapshot
 
@@ -507,8 +624,12 @@ func get_asset_status() -> Dictionary:
 	}
 	status.merge(Stage4PonkMagneticFxHost.build_pipeline_status(), true)
 	status.merge(Stage4PonkMeditationFxHost.build_pipeline_status(), true)
+	status.merge(Stage4PonkIllusionRippleFxHost.build_pipeline_status(), true)
+	status.merge(Stage4PonkAwakenAuraFxHost.build_pipeline_status(), true)
 	status["magnetic_fx_host_attached"] = _is_valid_magnetic_fx_host()
 	status["meditation_fx_host_attached"] = _is_valid_meditation_fx_host()
+	status["illusion_fx_host_attached"] = _is_valid_illusion_fx_host()
+	status["awaken_aura_fx_host_attached"] = _is_valid_awaken_aura_fx_host()
 	return status
 
 
@@ -567,6 +688,61 @@ func _build_meditation_skill_card() -> Dictionary:
 	}
 
 
+func _build_illusion_skill_card() -> Dictionary:
+	var cooldown_ready: bool = illusion_cooldown_seconds <= 0.0
+	var card_unlocked: bool = illusion_unlocked and illusion_awaken_stage >= ILLUSION_AWAKEN_STAGE_SERVE_WAIT
+	var first_cast_building: bool = (
+		illusion_unlocked
+		and illusion_awaken_stage >= ILLUSION_AWAKEN_STAGE_SERVE_WAIT
+		and illusion_awaken_stage < ILLUSION_AWAKEN_STAGE_LOOP
+	)
+	var ready: bool = (
+		card_unlocked
+		and illusion_awaken_stage >= ILLUSION_AWAKEN_STAGE_LOOP
+		and cooldown_ready
+		and not illusion_active
+	)
+	var status := "locked"
+	if illusion_active:
+		status = "casting"
+	elif ready:
+		status = "ready"
+	elif card_unlocked:
+		status = "charging"
+	var progress: float = 0.0
+	if illusion_active or ready:
+		progress = 1.0
+	elif illusion_awaken_stage == ILLUSION_AWAKEN_STAGE_COUNTDOWN:
+		progress = _cooldown_progress(illusion_first_cast_delay_frames, ILLUSION_FIRST_CAST_DELAY_FRAMES)
+	elif illusion_awaken_stage >= ILLUSION_AWAKEN_STAGE_LOOP:
+		progress = _cooldown_progress(illusion_cooldown_seconds, ILLUSION_COOLDOWN_SEC)
+	var remaining: float = maxf(0.0, illusion_cooldown_seconds)
+	var total: float = ILLUSION_COOLDOWN_SEC
+	if first_cast_building:
+		remaining = maxf(0.0, illusion_first_cast_delay_frames) / 60.0
+		total = ILLUSION_FIRST_CAST_DELAY_FRAMES / 60.0
+	return {
+		"id": ILLUSION_SKILL_ID,
+		"name": "몽환포영",
+		"short_label": "포영",
+		"trigger": "플레이어 4점에 각성",
+		"trigger_type": "score_unlock_auto_cooldown",
+		"status": status,
+		"ready": ready,
+		"active": illusion_active,
+		"progress": progress,
+		"remaining": remaining,
+		"total": total,
+		"cooldown_remaining": maxf(0.0, illusion_cooldown_seconds),
+		"cooldown_total": ILLUSION_COOLDOWN_SEC,
+		"cooldown_seconds": ILLUSION_COOLDOWN_SEC,
+		"duration_remaining": illusion_timer_frames,
+		"duration_total": ILLUSION_DURATION_FRAMES,
+		"color": Color(0.62, 0.45, 0.85, 1.0),
+		"description": "화면 전체를 물결처럼 일그러뜨려 4초 동안 시야를 방해합니다.",
+	}
+
+
 func draw(canvas: CanvasItem, context: Dictionary = {}, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
@@ -590,12 +766,67 @@ func draw(canvas: CanvasItem, context: Dictionary = {}, shake_offset: Vector2 = 
 	var fx_host_handled: bool = _sync_meditation_fx_host(canvas, context, shake_offset, meditation_fx_active)
 	if meditation_fx_active and not fx_host_handled:
 		_draw_meditation(canvas, context, shake_offset)
+	var awaken_aura_intensity: float = _get_illusion_awaken_aura_intensity(context)
+	_sync_awaken_aura_fx_host(canvas, context, shake_offset, awaken_aura_intensity > 0.001)
+	var illusion_fx_active: bool = bool(context.get("stage4_illusion_active", illusion_active))
+	_sync_illusion_fx_host(canvas, context, illusion_fx_active)
+
+
+func _update_illusion_awaken_state(fps_scale: float, context: Dictionary) -> bool:
+	if not illusion_unlocked:
+		return false
+	if illusion_awaken_stage <= ILLUSION_AWAKEN_STAGE_LOCKED or illusion_awaken_stage >= ILLUSION_AWAKEN_STAGE_LOOP:
+		return false
+	var serve_waiting := _is_serve_waiting(context)
+	if illusion_awaken_stage == ILLUSION_AWAKEN_STAGE_WAIT_SERVE:
+		if serve_waiting:
+			illusion_awaken_stage = ILLUSION_AWAKEN_STAGE_SERVE_WAIT
+			illusion_first_cast_delay_frames = ILLUSION_FIRST_CAST_DELAY_FRAMES
+		return false
+	if illusion_awaken_stage == ILLUSION_AWAKEN_STAGE_SERVE_WAIT:
+		if serve_waiting or _is_boss_skill_cooldown_paused(context):
+			return false
+		illusion_awaken_stage = ILLUSION_AWAKEN_STAGE_COUNTDOWN
+		illusion_first_cast_delay_frames = ILLUSION_FIRST_CAST_DELAY_FRAMES
+		_arm_illusion_awaken_burst()
+		return false
+	if illusion_awaken_stage != ILLUSION_AWAKEN_STAGE_COUNTDOWN:
+		return false
+	if serve_waiting:
+		illusion_awaken_stage = ILLUSION_AWAKEN_STAGE_SERVE_WAIT
+		illusion_first_cast_delay_frames = ILLUSION_FIRST_CAST_DELAY_FRAMES
+		return false
+	if _is_boss_skill_cooldown_paused(context) or not _can_activate_illusion(context):
+		return false
+	illusion_first_cast_delay_frames = maxf(
+		0.0,
+		illusion_first_cast_delay_frames - maxf(0.0, fps_scale)
+	)
+	if illusion_first_cast_delay_frames > 0.0:
+		return false
+	_activate_illusion()
+	return true
+
+
+func _arm_illusion_awaken_burst() -> void:
+	if illusion_awaken_burst_played:
+		return
+	illusion_awaken_burst_frames = ILLUSION_AWAKEN_BURST_FRAMES
+	illusion_awaken_burst_played = true
+
+
+func _update_illusion_awaken_burst(fps_scale: float) -> void:
+	if illusion_awaken_burst_frames <= 0.0:
+		return
+	illusion_awaken_burst_frames = maxf(0.0, illusion_awaken_burst_frames - maxf(0.0, fps_scale))
 
 
 func _update_skill_cooldowns(delta: float) -> void:
 	var step: float = maxf(0.0, delta)
 	magnetic_cooldown_seconds = maxf(0.0, magnetic_cooldown_seconds - step)
 	meditation_cooldown_seconds = maxf(0.0, meditation_cooldown_seconds - step)
+	if illusion_unlocked:
+		illusion_cooldown_seconds = maxf(0.0, illusion_cooldown_seconds - step)
 
 
 func _can_auto_activate_magnetic(context: Dictionary) -> bool:
@@ -607,8 +838,43 @@ func _can_auto_activate_magnetic(context: Dictionary) -> bool:
 	)
 
 
+func _can_activate_illusion(context: Dictionary) -> bool:
+	return (
+		illusion_unlocked
+		and not illusion_active
+		and not _is_serve_waiting(context)
+	)
+
+
+func _can_auto_activate_illusion(context: Dictionary) -> bool:
+	return (
+		illusion_unlocked
+		and illusion_awaken_stage >= ILLUSION_AWAKEN_STAGE_LOOP
+		and illusion_cooldown_seconds <= 0.0
+		and _can_activate_illusion(context)
+	)
+
+
 func _cooldown_progress(remaining: float, total: float) -> float:
 	return clampf(1.0 - maxf(0.0, remaining) / maxf(0.001, total), 0.0, 1.0)
+
+
+func _activate_illusion() -> void:
+	illusion_unlocked = true
+	illusion_awaken_stage = ILLUSION_AWAKEN_STAGE_LOOP
+	illusion_first_cast_delay_frames = 0.0
+	illusion_active = true
+	illusion_timer_frames = ILLUSION_DURATION_FRAMES
+	illusion_cooldown_seconds = ILLUSION_COOLDOWN_SEC
+
+
+func _update_illusion(fps_scale: float) -> void:
+	if not illusion_active:
+		return
+	illusion_timer_frames = maxf(0.0, illusion_timer_frames - maxf(0.0, fps_scale))
+	if illusion_timer_frames > 0.0:
+		return
+	illusion_active = false
 
 
 func _activate_magnetic(context: Dictionary, deps: Dictionary) -> void:
@@ -833,8 +1099,27 @@ func _sync_draw_clock(context: Dictionary) -> void:
 		or bool(context.get("stage4_magnetic_projectile_fade_active", magnetic_projectile_fade_timer_seconds > 0.0))
 		or bool(context.get("stage4_meditation_active", meditation_active))
 		or bool(context.get("stage4_meditation_release_fx_active", meditation_release_fx_timer_frames > 0.0))
+		or _get_illusion_awaken_aura_intensity(context) > 0.001
+		or bool(context.get("stage4_illusion_active", illusion_active))
 	):
 		frame_clock = float(Time.get_ticks_msec()) * 0.001
+
+
+func _get_illusion_awaken_aura_intensity(context: Dictionary) -> float:
+	if bool(context.get("stage4_illusion_active", illusion_active)):
+		return 1.0
+	if not bool(context.get("stage4_illusion_unlocked", illusion_unlocked)):
+		return 0.0
+	var awaken_stage := int(context.get("stage4_illusion_awaken_stage", illusion_awaken_stage))
+	if awaken_stage < ILLUSION_AWAKEN_STAGE_SERVE_WAIT:
+		return 0.0
+	if awaken_stage == ILLUSION_AWAKEN_STAGE_SERVE_WAIT:
+		return 0.42
+	if awaken_stage == ILLUSION_AWAKEN_STAGE_COUNTDOWN:
+		var total: float = maxf(1.0, float(context.get("stage4_illusion_first_cast_delay_total", ILLUSION_FIRST_CAST_DELAY_FRAMES)))
+		var remaining: float = clampf(float(context.get("stage4_illusion_first_cast_delay", illusion_first_cast_delay_frames)), 0.0, total)
+		return clampf(0.34 + (1.0 - remaining / total) * 0.66, 0.0, 1.0)
+	return 0.55
 
 
 func _draw_magnetic_field(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
@@ -926,6 +1211,22 @@ func _prewarm_meditation_fx_host_runtime_nodes() -> void:
 	if meditation_fx_host != null and is_instance_valid(meditation_fx_host) and meditation_fx_host.has_method("prewarm_runtime_nodes"):
 		meditation_fx_host.call("prewarm_runtime_nodes")
 		meditation_fx_host_runtime_prewarmed = true
+
+
+func _prewarm_illusion_fx_host_runtime_nodes() -> void:
+	if illusion_fx_host_runtime_prewarmed:
+		return
+	if illusion_fx_host != null and is_instance_valid(illusion_fx_host) and illusion_fx_host.has_method("prewarm_runtime_nodes"):
+		illusion_fx_host.call("prewarm_runtime_nodes")
+		illusion_fx_host_runtime_prewarmed = true
+
+
+func _prewarm_awaken_aura_fx_host_runtime_nodes() -> void:
+	if awaken_aura_fx_host_runtime_prewarmed:
+		return
+	if awaken_aura_fx_host != null and is_instance_valid(awaken_aura_fx_host) and awaken_aura_fx_host.has_method("prewarm_runtime_nodes"):
+		awaken_aura_fx_host.call("prewarm_runtime_nodes")
+		awaken_aura_fx_host_runtime_prewarmed = true
 
 
 func _get_or_create_magnetic_fx_host(canvas: CanvasItem) -> Node:
@@ -1089,6 +1390,169 @@ func _stop_meditation_fx_host() -> void:
 
 func _is_valid_meditation_fx_host() -> bool:
 	return meditation_fx_host != null and is_instance_valid(meditation_fx_host) and not meditation_fx_host.is_queued_for_deletion()
+
+
+func _sync_illusion_fx_host(canvas: CanvasItem, context: Dictionary, active: bool) -> bool:
+	if not active and not _is_valid_illusion_fx_host():
+		return false
+	var host: Node = _get_or_create_illusion_fx_host(canvas)
+	if host == null or not host.has_method("sync_state"):
+		return false
+	host.sync_state(_build_illusion_fx_context(context), active)
+	if not active:
+		return false
+	return host.get_parent() != null
+
+
+func _get_or_create_illusion_fx_host(canvas: CanvasItem) -> Node:
+	if _is_valid_illusion_fx_host():
+		_prewarm_illusion_fx_host_runtime_nodes()
+		return illusion_fx_host
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null("PonkIllusionRippleFxHost")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		illusion_fx_host = existing
+		illusion_fx_host_add_pending = false
+		illusion_fx_host_runtime_prewarmed = false
+		_prewarm_illusion_fx_host_runtime_nodes()
+		return illusion_fx_host
+	illusion_fx_host = Stage4PonkIllusionRippleFxHost.new()
+	illusion_fx_host.name = "PonkIllusionRippleFxHost"
+	illusion_fx_host.visible = false
+	illusion_fx_host_runtime_prewarmed = false
+	_prewarm_illusion_fx_host_runtime_nodes()
+	if not illusion_fx_host_add_pending:
+		illusion_fx_host_add_pending = true
+		parent.call_deferred("add_child", illusion_fx_host)
+	return illusion_fx_host
+
+
+func _build_illusion_fx_context(context: Dictionary) -> Dictionary:
+	var view_size: Vector2 = _as_vector2(context.get("view_size", context.get("viewport_size", Vector2.ZERO)), Vector2.ZERO)
+	if view_size.x <= 1.0 or view_size.y <= 1.0:
+		var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
+		if game_size.x > 1.0 and game_size.y > 1.0:
+			view_size = game_size
+	if view_size.x <= 1.0 or view_size.y <= 1.0:
+		view_size = Vector2(float(context.get("width", FIELD_WIDTH)), float(context.get("height", FIELD_HEIGHT)))
+	return {
+		"active": bool(context.get("stage4_illusion_active", illusion_active)),
+		"timer_frames": maxf(0.0, float(context.get("stage4_illusion_timer", illusion_timer_frames))),
+		"duration_total": maxf(1.0, float(context.get("stage4_illusion_duration_total", ILLUSION_DURATION_FRAMES))),
+		"view_size_px": view_size,
+		"elapsed_sec": float(context.get("stage4_effect_clock", frame_clock)),
+		"intensity_px": float(context.get("stage4_illusion_intensity_px", 12.0)),
+		"wave_freq_a": float(context.get("stage4_illusion_wave_freq_a", 9.0)),
+		"wave_freq_b": float(context.get("stage4_illusion_wave_freq_b", 17.0)),
+		"wave_speed": float(context.get("stage4_illusion_wave_speed", 2.2)),
+		"hue_wave_amp": float(context.get("stage4_illusion_hue_amp", 0.9)),
+		"hue_wave_freq": float(context.get("stage4_illusion_hue_freq", 5.0)),
+		"hue_time_speed": float(context.get("stage4_illusion_hue_speed", 0.9)),
+		"chroma_offset_px": float(context.get("stage4_illusion_chroma_offset_px", 3.5)),
+		"saturation_boost": float(context.get("stage4_illusion_saturation_boost", 0.25)),
+	}
+
+
+func _stop_illusion_fx_host() -> void:
+	if not _is_valid_illusion_fx_host():
+		illusion_fx_host = null
+		illusion_fx_host_add_pending = false
+		illusion_fx_host_runtime_prewarmed = false
+		return
+	if illusion_fx_host.has_method("set_active"):
+		illusion_fx_host.set_active(false)
+
+
+func _is_valid_illusion_fx_host() -> bool:
+	return illusion_fx_host != null and is_instance_valid(illusion_fx_host) and not illusion_fx_host.is_queued_for_deletion()
+
+
+func _sync_awaken_aura_fx_host(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, active: bool) -> bool:
+	if not active and not _is_valid_awaken_aura_fx_host():
+		return false
+	var host: Node = _get_or_create_awaken_aura_fx_host(canvas)
+	if host == null or not host.has_method("sync_state"):
+		return false
+	var fx_context: Dictionary = _build_awaken_aura_fx_context(context, shake_offset)
+	if host.has_method("can_handle_state") and not bool(host.can_handle_state(fx_context)):
+		host.sync_state(fx_context, false)
+		return false
+	host.sync_state(fx_context, active)
+	if not active:
+		return false
+	if host.has_method("has_runtime_assets") and not bool(host.has_runtime_assets()):
+		return false
+	return host.get_parent() != null
+
+
+func _get_or_create_awaken_aura_fx_host(canvas: CanvasItem) -> Node:
+	if _is_valid_awaken_aura_fx_host():
+		_prewarm_awaken_aura_fx_host_runtime_nodes()
+		return awaken_aura_fx_host
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null("PonkAwakenAuraFxHost")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		awaken_aura_fx_host = existing
+		awaken_aura_fx_host_add_pending = false
+		awaken_aura_fx_host_runtime_prewarmed = false
+		Stage4PonkAwakenAuraFxHost.register_host_for_cleanup(awaken_aura_fx_host)
+		_prewarm_awaken_aura_fx_host_runtime_nodes()
+		return awaken_aura_fx_host
+	awaken_aura_fx_host = Stage4PonkAwakenAuraFxHost.new()
+	awaken_aura_fx_host.name = "PonkAwakenAuraFxHost"
+	awaken_aura_fx_host.visible = false
+	awaken_aura_fx_host_runtime_prewarmed = false
+	Stage4PonkAwakenAuraFxHost.register_host_for_cleanup(awaken_aura_fx_host)
+	_prewarm_awaken_aura_fx_host_runtime_nodes()
+	if not awaken_aura_fx_host_add_pending:
+		awaken_aura_fx_host_add_pending = true
+		parent.call_deferred("add_child", awaken_aura_fx_host)
+	return awaken_aura_fx_host
+
+
+func _build_awaken_aura_fx_context(context: Dictionary, shake_offset: Vector2) -> Dictionary:
+	var render_scale: float = float(context.get("render_scale", 0.0))
+	if render_scale <= 0.0:
+		var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
+		var width: float = maxf(1.0, float(context.get("width", FIELD_WIDTH)))
+		render_scale = game_size.x / width if game_size.x > 0.0 else 1.0
+	return {
+		"active": _get_illusion_awaken_aura_intensity(context) > 0.001,
+		"intensity": _get_illusion_awaken_aura_intensity(context),
+		"boss_center": _get_awaken_aura_center(context) + shake_offset,
+		"elapsed": float(context.get("stage4_effect_clock", frame_clock)),
+		"enraged": bool(context.get("stage4_illusion_awaken_aura_enraged", illusion_aura_enraged)),
+		"game_offset": _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO),
+		"render_scale": render_scale,
+	}
+
+
+func _get_awaken_aura_center(context: Dictionary) -> Vector2:
+	var boss_pos: Vector2 = _get_vector2(context, "boss_pos", Vector2(330.0, 55.0))
+	var boss_size: Vector2 = _get_vector2(context, "boss_paddle_size", Vector2(100.0, 18.0))
+	var boss_hitbox_height: float = float(context.get("boss_hitbox_height", 40.0))
+	return Vector2(
+		boss_pos.x + boss_size.x * 0.5,
+		boss_pos.y + boss_hitbox_height * 0.5 + 34.0
+	)
+
+
+func _stop_awaken_aura_fx_host() -> void:
+	if not _is_valid_awaken_aura_fx_host():
+		awaken_aura_fx_host = null
+		awaken_aura_fx_host_add_pending = false
+		awaken_aura_fx_host_runtime_prewarmed = false
+		return
+	if awaken_aura_fx_host.has_method("set_active"):
+		awaken_aura_fx_host.set_active(false)
+
+
+func _is_valid_awaken_aura_fx_host() -> bool:
+	return awaken_aura_fx_host != null and is_instance_valid(awaken_aura_fx_host) and not awaken_aura_fx_host.is_queued_for_deletion()
 
 
 func _reset_meditation_release_fx(reset_id: bool = false) -> void:
