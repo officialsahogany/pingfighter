@@ -1,6 +1,10 @@
 extends RefCounted
 
 const MODULES := {
+	"boss_slow_tiers": {
+		"path": "res://scripts/status/boss_slow_tiers.gd",
+		"label": "boss slow tier constants",
+	},
 	"status_effect_state": {
 		"path": "res://scripts/status/status_effect_state.gd",
 		"label": "status effect state",
