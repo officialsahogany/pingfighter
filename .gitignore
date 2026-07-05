@@ -387,6 +387,16 @@ godot/assets/sprites/stage3/*_source_chromakey.png*
 godot/assets/sprites/stage3/*_magenta.png*
 godot/assets/sprites/stage3/*_alpha.png*
 godot/assets/sprites/stage3/*_meta.json
+godot/assets/sprites/stage4/*_pipeline-meta.json
+godot/assets/sprites/stage4/*_qc.json
+godot/assets/sprites/stage4/*.qc.json
+godot/assets/sprites/stage4/*_preview.png*
+godot/assets/sprites/stage4/*_source_chromakey.png*
+godot/assets/sprites/stage4/*_magenta.png*
+godot/assets/sprites/stage4/*_alpha.png*
+godot/assets/sprites/stage4/*_meta.json
+godot/assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_live2d_pingpong_98f_autosprite_v2*.png*
+godot/assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_click_reaction_98f_autosprite_v2*.png*
 godot/assets/sprites/effects/boss_electrocution_field_arc_imagegen_v1.png*
 godot/assets/sprites/effects/boss_electrocution_field_backplate_imagegen_v1.png*
 godot/assets/sprites/effects/**/*_manifest.json
@@ -394,4 +404,6 @@ godot/assets/sprites/effects/**/*_atlas.json
 godot/assets/sprites/effects/**/*_meta.json
 godot/assets/sprites/effects/**/*_source.png*
 godot/assets/sprites/effects/**/*_alpha.png*
+godot/tools/puppet_grab_snap_preview_capture.gd
+godot/tools/puppet_grab_snap_preview_capture.gd.uid
 godot/assets/sprites/smasher_subculture_left_walk_sheet_mirrored_right.png*

@@ -1,0 +1,358 @@
+{
+  "boss_id": "gaksital",
+  "display_name_ko": "\uac01\uc2dc\ud0c8",
+  "stage": 1,
+  "variant_key": "gaksi",
+  "autosprite_character_id": "cmqpewcsl003911vifeko0cwj",
+  "workflow_mode": "precise",
+  "accepted_at": "2026-07-04",
+  "asset_root": "res://assets/sprites/stage1/gaksital/",
+  "identity_lock": "red Hahoe-style mask, black topknot hair, rainbow saekdong jeogori, white pants, chibi 16-bit pixel art, thick black outline",
+  "fan_policy": "Fan prop is not held in walk/idle because AutoSprite repeatedly dropped it there; fan identity is carried by fan_throw skill sheet, base portrait, and future projectile/card art.",
+  "grid_authority_note": "Do not infer 4x2 for 8-frame sheets. AutoSprite returned 3x3 sheets with 8 used frames and one unused transparent cell. Runtime loaders must use per-asset cols/rows/frames below.",
+  "runtime_priority": [
+    "defeat",
+    "victory",
+    "stun",
+    "dash",
+    "fan_throw",
+    "attack",
+    "walk_left/walk_right",
+    "idle"
+  ],
+  "assets": [
+    {
+      "state": "walk_left",
+      "dst": "gaksital_boss_walk_left_front_sidestep_16f_mirrored_from_right_v3_pro.png",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_walk_left_front_sidestep_16f_mirrored_from_right_v3_pro.png",
+      "cols": 4,
+      "rows": 4,
+      "frames": 16,
+      "cell_width": 256,
+      "cell_height": 256,
+      "width": 1024,
+      "height": 1024,
+      "image_mode": "RGBA",
+      "sha256": "fb8e85918f30dba84d8630d249556cc575c47fbebede958d66c7e4f638cf6c82",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "derived_from_state": "walk_right",
+      "derived_from_spritesheet_id": "cmr5ctxud005pcgpw9njnf17i",
+      "postprocess": "deterministic_per_cell_horizontal_mirror_export_after_low_alpha_edge_cleanup",
+      "notes": "Runtime left-facing file. PER-CELL horizontal mirror of the accepted front-biased right sidestep: each 256x256 cell flipped in place so the 4x4 frame/grid order is preserved (left[i] == hflip(right[i])). Sampled mirror mismatch = 0. Cell-edge alpha max = 0 after deterministic <=3 alpha edge cleanup."
+    },
+    {
+      "state": "walk_right",
+      "dst": "gaksital_boss_walk_right_front_sidestep_16f_autosprite_v3_pro.png",
+      "cols": 4,
+      "rows": 4,
+      "frames": 16,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_df9b9298-6a10-4572-a2bb-bc09bb9442a9",
+      "spritesheet_id": "cmr5ctxud005pcgpw9njnf17i",
+      "source_video_id": "cmr5ckidr00llmopla719v73u",
+      "notes": "Accepted AutoSprite pro custom sidestep source. Front-biased horizontal movement replacement: body and mask stay mostly front-facing with only slight travel-direction turn, no fan/prop in hand. Cell-edge alpha max = 0 after deterministic <=3 alpha edge cleanup.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_walk_right_front_sidestep_16f_autosprite_v3_pro.png",
+      "width": 1024,
+      "height": 1024,
+      "image_mode": "RGBA",
+      "sha256": "38724d48cb3b84880406a9727aeea20b7476130890618326bd573717c14c7dcc",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "idle",
+      "dst": "gaksital_boss_idle_8f_autosprite_v1_pro.png",
+      "cols": 3,
+      "rows": 3,
+      "frames": 8,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_ecc8df2a-4390-41f5-bd24-00375a3e8199",
+      "spritesheet_id": "cmqpfg0p90068c48atm0z14e9",
+      "source_video_id": "cmqpfemnr000511i9vnzdihkb",
+      "notes": "Accepted fan-less idle. Cell 9 is unused transparent padding from AutoSprite 3x3 export.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_idle_8f_autosprite_v1_pro.png",
+      "width": 768,
+      "height": 768,
+      "image_mode": "P",
+      "sha256": "686545c4b444cb8ebdf2bdd8ee3f7876b23d910b1afe2277e6dc33d3a19ff0bc",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "attack",
+      "dst": "gaksital_boss_attack_8f_autosprite_v1_pro.png",
+      "cols": 3,
+      "rows": 3,
+      "frames": 8,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_0e82ce15-774a-48e8-9944-fb54cb9e1ec4",
+      "spritesheet_id": "cmqpffwzu000o6ko0bcxr8io8",
+      "source_video_id": "cmqpfemlo000311i9fqd90imz",
+      "notes": "Accepted punch/strike attack with clear prep-to-impact read. Cell 9 unused.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_attack_8f_autosprite_v1_pro.png",
+      "width": 768,
+      "height": 768,
+      "image_mode": "P",
+      "sha256": "883d825e19011707be1f6debb72cef8f73d04dcdebf1d72fc77f1b839be18505",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "dash",
+      "dst": "gaksital_boss_dash_8f_autosprite_v1_pro.png",
+      "cols": 3,
+      "rows": 3,
+      "frames": 8,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_0c1be2cb-af6f-42a8-ad34-319fb1432c5f",
+      "spritesheet_id": "cmqpffydy000z6ko0lp3jr8sl",
+      "source_video_id": "cmqpfemq0000f11i91fn5bfia",
+      "notes": "Accepted fast slide/dash sheet with forward lean and speed lines. Cell 9 unused.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_dash_8f_autosprite_v1_pro.png",
+      "width": 768,
+      "height": 768,
+      "image_mode": "P",
+      "sha256": "9fb7321582951e3cb2cf595256fc14d02f8f86f813085d3c8c3f1344cee65f2d",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "stun",
+      "dst": "gaksital_boss_stun_8f_autosprite_v1_pro.png",
+      "cols": 3,
+      "rows": 3,
+      "frames": 8,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_ff9b12f2-dbea-47d6-94b8-705256efd716",
+      "spritesheet_id": "cmqpffwko000k6ko0fo9ah3du",
+      "source_video_id": "cmqpfemsf000p11i9uw6yuoeh",
+      "notes": "Accepted dazed/stagger sheet. Cell 9 unused.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_stun_8f_autosprite_v1_pro.png",
+      "width": 768,
+      "height": 768,
+      "image_mode": "P",
+      "sha256": "ccf0065783124fe29801a1332f541971aa0862d6a698e2080cd24fdb3e18b1b5",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "victory",
+      "dst": "gaksital_boss_victory_round_8f_autosprite_v2_pro.png",
+      "cols": 3,
+      "rows": 3,
+      "frames": 8,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_3f0cf0e2-34ba-48c0-b9d5-9d52081d1c06",
+      "spritesheet_id": "cmr5czm9i006gcgpw5h9iylxp",
+      "source_video_id": "cmr5cxbfg00l6pcha0dgoi2h1",
+      "notes": "Accepted clean round-victory result animation. Front-facing body hop / arm raise without confetti or edge-touching particles. Cell 9 unused. Cell-edge alpha max = 0 after deterministic <=3 alpha edge cleanup.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_victory_round_8f_autosprite_v2_pro.png",
+      "width": 768,
+      "height": 768,
+      "image_mode": "RGBA",
+      "sha256": "574ad5c7bf94bba519dd9b0136b7c1f35b04e2c3419de5a343a9cff01d153844",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "defeat",
+      "dst": "gaksital_boss_defeat_round_8f_autosprite_v2_pro.png",
+      "cols": 3,
+      "rows": 3,
+      "frames": 8,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_516425d4-2933-42e8-8957-9ae2d409f673",
+      "spritesheet_id": "cmr5d4lwr0003an61nagcxxhl",
+      "source_video_id": "cmr5d279o0017q1kfarj167qt",
+      "notes": "Accepted clean round-defeat result animation. Front-facing shock -> seated/slumped loss pose, no mask-off motif, no fan/particles touching cell edges. Cell 9 unused. Cell-edge alpha max = 0.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_defeat_round_8f_autosprite_v2_pro.png",
+      "width": 768,
+      "height": 768,
+      "image_mode": "RGBA",
+      "sha256": "936c72b41e535b240e4737a884ee6c4ff9e2c2da7f716f0932097cc9496c15e5",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "state": "fan_throw",
+      "dst": "gaksital_boss_fan_throw_16f_autosprite_v1_pro.png",
+      "cols": 4,
+      "rows": 4,
+      "frames": 16,
+      "cell_width": 256,
+      "cell_height": 256,
+      "job_id": "wf_824ed3d3-4bb5-4e54-81c1-89f5a0fa02d2",
+      "spritesheet_id": "cmqpfbjf5006pxzbnl0dvpgv8",
+      "source_video_id": "cmqpf9whi0061z51bnd69idag",
+      "notes": "Accepted skill sheet: fan hold, windup, throw, color burst.",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_fan_throw_16f_autosprite_v1_pro.png",
+      "width": 1024,
+      "height": 1024,
+      "image_mode": "P",
+      "sha256": "6e9e00ddda3b9bd77828ce00fb5ddb80e8355a6b8c367cfae36bb7dd97cfabda",
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "rejected_or_reference_candidates": [
+    {
+      "path": "D:/tmp/gaksital_walk_right_v1.png",
+      "reason": "Rejected: walk motion/identity okay but fan prop disappeared; superseded by pro v2 and later fan policy.",
+      "spritesheet_id": "cmqpf2wj1003uc48ad4rrdu24"
+    },
+    {
+      "path": "D:/tmp/gaksital_walk_left_v1_pro.png",
+      "reason": "Reference only: identity/motion okay but still right-facing; runtime left uses deterministic mirrored right-source export.",
+      "spritesheet_id": "cmqpfbnct006uxzbnp7n5s9e0"
+    },
+    {
+      "path": "D:/tmp/g_idle_fan.png",
+      "reason": "Reference only: idle quality okay but fan prop still not retained; original accepted idle kept for runtime.",
+      "spritesheet_id": "cmqpfldn5006lc48aw2bloyj2"
+    },
+    {
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_walk_right_16f_autosprite_v2_pro.png",
+      "reason": "Superseded 2026-07-04: technically valid, but stable horizontal movement read too side-facing compared with other Stage 1 bosses. Replaced by front-biased sidestep v3.",
+      "spritesheet_id": "cmqpf6jd8005cz51bsno5by18"
+    },
+    {
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_boss_walk_left_16f_mirrored_from_right_v2_pro.png",
+      "reason": "Superseded 2026-07-04 together with the side-facing v2 right walk. Left was a correct per-cell mirror of v2 but inherited the side-facing read.",
+      "spritesheet_id": "cmqpf6jd8005cz51bsno5by18"
+    },
+    {
+      "path": "D:/tmp/gaksital_sprite_regen_20260704/gaksital_walk_right_frontbiased_autosprite_cmr5ceb3u.png",
+      "reason": "Rejected: first 2026-07-04 front-biased walk attempt still read side-facing and reintroduced fan/stick props in locomotion.",
+      "job_id": "wf_bb201ff8-512b-4e5c-b158-9fb643ebd6a6",
+      "spritesheet_id": "cmr5ceb3u00i8mopl9s5rqru6"
+    },
+    {
+      "path": "D:/tmp/gaksital_sprite_regen_20260704/gaksital_victory_round_autosprite_cmr5ce31z.png",
+      "reason": "Rejected: first 2026-07-04 round-victory candidate had confetti/particles touching cell and sheet edges.",
+      "job_id": "wf_759aaa32-d6d2-4f44-b55f-b624d147ce25",
+      "spritesheet_id": "cmr5ce31z000qcgpwbgas4s38"
+    },
+    {
+      "path": "D:/tmp/gaksital_sprite_regen_20260704/gaksital_defeat_round_autosprite_cmr5cg12q.png",
+      "reason": "Rejected: first 2026-07-04 round-defeat candidate kept fan/particles on cell edges. Replaced by clean body-only defeat v2.",
+      "job_id": "wf_e6d4716c-f8a5-4090-b0bd-1a5fa18ef85f",
+      "spritesheet_id": "cmr5cg12q0022cgpwcrmg3xiq"
+    },
+    {
+      "path": "AutoSprite character cmr5ctja5005bcgpwjwnd46jp",
+      "reason": "Rejected anchor: no-fan front character removed the prop but drifted too far from the shipped Gaksital mask/outfit identity; no runtime sheet promoted from this character.",
+      "character_id": "cmr5ctja5005bcgpwjwnd46jp"
+    }
+  ],
+  "skill_vfx_assets": [
+    {
+      "kind": "skill_projectile_sprite",
+      "skill": "fan_throw",
+      "dst": "gaksital_fan_projectile_imagegen_v1.png",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_fan_projectile_imagegen_v1.png",
+      "width": 256,
+      "height": 256,
+      "image_mode": "RGBA",
+      "corner_alpha": [0, 0, 0, 0],
+      "sha256": "5ffcfac5bea4bf527b9c2ad44de91eebcdf03677fdbd588a7a694568ebf8f6a4",
+      "rotation": "Single SQUARE sprite. Rotate about the texture center at runtime by the per-frame fan spin (Python _draw_fan_shape parity, spin += 0.3/frame). The 1:1 canvas + centered fan avoids the flat-quad continuous-rotation tumble trap (feedback_godot_immediate_rotation_tumble).",
+      "halo": "0 semi-transparent pixels after remove_bg.py (hard-edge nukki, no AI pastel-halo residue).",
+      "source": "Gemini gemini-generate-image (non-sheet imagegen rule). Open Korean folding fan, cream paper + dark-red ribs/rim + red plum blossom, matches the fan in the fan_throw sheet and base portrait. Raw jpeg + nukki kept in d:/tmp.",
+      "notes": "Runtime draw small (~hit_radius 24 band). Centered on the square with ~6% margin so rotation corners do not clip. Re-import required."
+    },
+    {
+      "kind": "boss_skill_hud_card",
+      "skill": "fan_throw",
+      "dst": "gaksital_fan_throw_skillcard_imagegen_v2.png",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_fan_throw_skillcard_imagegen_v2.png",
+      "width": 408,
+      "height": 120,
+      "aspect": "~3.4:1, authored for the boss skill HUD gauge rect (BossSkillCardHudSpec card_size base 34x10); runtime stretches/downscales.",
+      "image_mode": "RGBA",
+      "opaque": true,
+      "sha256": "d65276e9a14889ebd29f5e0e047177049e215d6d8d19d6c1fff3632313228e22",
+      "source": "Gemini gemini-generate-image (non-sheet imagegen rule). Crimson lacquer plaque + gold Korean trim border + open fan with rightward motion streaks. No baked text (Korean glyph risk; the skill name lives in the HUD tooltip). Raw jpeg + nukki kept in d:/tmp.",
+      "notes": "The boss skill HUD _draw_skillcard_gauge draws its OWN cooldown fill (fill_ratio horizontal clip), so this card carries NO baked gauge/progress bar (a v1 with a baked orange bar was rejected). IMPORTANT: the Dalji boss skillcards (stage1_dalji_*_skillcard_imagegen_v1.png) do NOT exist on disk (reserved null paths -> fallback gauge), so this defines a NEW boss-skillcard style and would make Gaksital's HUD richer than Dalji's until Dalji gets a matching card. Verify the gauge-fill interaction during Phase 3 HUD wiring. Re-import required."
+    },
+    {
+      "kind": "skill_effect_sheet",
+      "skill": "fan_wind",
+      "dst": "gaksital_fan_wind_vortex_16f_autosprite_v1.png",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_fan_wind_vortex_16f_autosprite_v1.png",
+      "cols": 4,
+      "rows": 4,
+      "frames": 16,
+      "cell_width": 256,
+      "cell_height": 256,
+      "width": 1024,
+      "height": 1024,
+      "image_mode": "P",
+      "sha256": "4539c71162844fe2c3f7497565b5c88de44f2fb85816a3f5c567174fff964f91",
+      "corner_alpha": [0, 0, 0, 0],
+      "autosprite_asset_id": "cmr4ypt2a000fhx2c1mkf4j78",
+      "job_id": "wf_f9a9eadb-48c8-452d-98b0-2060e19defca",
+      "spritesheet_id": "cmr4ywlee001kj9herzd9xy98",
+      "source": "Gemini still concept (cyan cyclone + crimson ribbons on black) -> AutoSprite create_asset -> animate_asset isLooping=true removeBg=ultra, 16f 256px cells. AutoSprite-derived per the sheet-source rule.",
+      "qa": "edge_alpha_max=0 on all 16 cells; content bbox center span 3.5px x / 2.0px y (stable center); content ~107-116px per 256 cell; light-bg + teal-bg composite previews clean (dark accents read as outline shading in this game's thick-outline style).",
+      "runtime": "boss_fan_wind_sheet texture key. Renderer stage1_gaksital_fan_throw_renderer._draw_fan_wind_sheet draws frame = floor(fposmod(spin_phase, TAU)/TAU*16), draw diameter 128 * growth_scale, alpha fade over last 30f (timer_ratio < 0.125). Procedural vortex kept as null-texture fallback; capture ring + orbit ball accents stay procedural on top in both modes. Re-import required."
+    },
+    {
+      "kind": "boss_skill_hud_card",
+      "skill": "fan_wind",
+      "dst": "gaksital_fan_wind_skillcard_imagegen_v1.png",
+      "path": "res://assets/sprites/stage1/gaksital/gaksital_fan_wind_skillcard_imagegen_v1.png",
+      "width": 408,
+      "height": 120,
+      "aspect": "~3.4:1, same authoring target as the fan_throw card (BossSkillCardHudSpec gauge rect).",
+      "image_mode": "RGBA",
+      "opaque": true,
+      "sha256": "620EDC03E4B97A6E999404C3E3DBBE430F6A437F717FC7A681D165EA667265A3",
+      "source": "Gemini gemini-generate-image 21:9 (non-sheet imagegen rule), center-cropped to 3.4:1 and Lanczos-resized to 408x120. Hahoe-mask figure sweeping crimson-rimmed cream fan at left, cyan vortex with captured glowing ball at right. No baked text / gauge bar (fan_throw v2 precedent).",
+      "notes": "Wired at stage1_gaksital_boss_skill_hud_assets.FAN_WIND_SKILLCARD_TEXTURE_PATH. Re-import required."
+    }
+  ]
+}

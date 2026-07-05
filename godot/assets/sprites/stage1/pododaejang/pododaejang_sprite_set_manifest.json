@@ -1,0 +1,96 @@
+{
+  "boss": "pododaejang",
+  "stage": 1,
+  "variant_key": "podo",
+  "display_name_ko": "포도대장",
+  "family": "stage1 (달지 / 각시탈 sibling quality line, soft cel-shaded chibi, NOT pixel art)",
+  "source": "AutoSprite MCP",
+  "removeBg": "ultra",
+  "videoTier": "pro",
+  "size_note": "Body-read target = 달지(Dalji) +~20% (largest of the stage1 trio). Boss fills ~50% of the 256px cell. Verify body-read next to 달지 in-game before sign-off (skill §4.1 Menhera body-class gate).",
+  "autosprite": {
+    "boss_character_id": "cmqvyclgi000pvtk52vv0dn2j",
+    "boss_character_name": "Stage1 Pododaejang Boss v1"
+  },
+  "identity_lock": [
+    "black wide-brim Joseon gat hat",
+    "navy gwanbok official robe",
+    "gold crane rank badge (흉배) center chest",
+    "brown waist belt + coiled brown binding rope (포승줄)",
+    "stern dignified face, black mustache + short beard"
+  ],
+  "GRID_AUTHORITY_WARNING": "AutoSprite grids are NOT the repo-standard 4x2. Slice each sheet by its OWN (cols, rows): walk = 4 cols x 4 rows (16 frames), all others = 3 cols x 3 rows (8 frames, cell 8 EMPTY). Read frames 0..frameCount-1 row-major; ignore trailing empty cell(s). See [[feedback_godot_atlas_grid_authority]].",
+  "sheets": [
+    {
+      "runtime_state": "walk",
+      "file": "pododaejang_boss_walk_16f_autosprite_v1_pro.png",
+      "autosprite_kind": "iso_walk_down",
+      "spritesheet_id": "cmqvyz5ru000i6uhcsa9lpikb",
+      "sheet_px": [1024, 1024], "cell_px": [256, 256], "cols": 4, "rows": 4, "frame_count": 16, "loop": true,
+      "note": "FRONT-FACING walk (faces player). Single sheet used for BOTH move directions — no walk_left/walk_right pair needed (front-facing has no directional lean). 포승줄 visible coiled at front waist. v1 'walk' (sidescroller) was REJECTED for going side-profile; this iso_walk_down is the canonical anchor."
+    },
+    {
+      "runtime_state": "idle",
+      "file": "pododaejang_boss_idle_8f_autosprite_v1_pro.png",
+      "autosprite_kind": "iso_idle_down",
+      "spritesheet_id": "cmqw0fwz7002td3yezzsxun6n",
+      "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": true,
+      "note": "Front-facing breathing bob. Wall-clock loop (skill §17.5 idle pattern)."
+    },
+    {
+      "runtime_state": "dash",
+      "file": "pododaejang_boss_dash_8f_autosprite_v1_pro.png",
+      "autosprite_kind": "iso_run_down",
+      "spritesheet_id": "cmqw0ftg3002wir8spochopsz",
+      "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": true,
+      "note": "Front-facing fast run = dash. External-timer driven (boss_dash_timer)."
+    },
+    {
+      "runtime_state": "victory",
+      "file": "pododaejang_boss_victory_8f_autosprite_v1_pro.png",
+      "autosprite_kind": "iso_jump_down",
+      "spritesheet_id": "cmqw0g7av0004h2noh6utk18k",
+      "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": false,
+      "note": "Triumphant jump. Plays once, hold on last frame. (Slightly understated — candidate for a punchier v2 if desired.)"
+    },
+    {
+      "runtime_state": "attack",
+      "file": "pododaejang_boss_attack_8f_autosprite_v1_pro.png",
+      "autosprite_kind": "custom",
+      "spritesheet_id": "cmqw0g5c60030ir8s5qv88oz2",
+      "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": false,
+      "note": "포승줄 (arrest_rope) cast — brown rope whips out in an arc from the hand. Pair the release frame with the arrest_rope skill on-boss-hit activation (anticipatory, skill §8.4.1). Doubles as the boss strike pose."
+    },
+    {
+      "runtime_state": "defeat",
+      "file": "pododaejang_boss_defeat_8f_autosprite_v1_pro.png",
+      "autosprite_kind": "custom",
+      "spritesheet_id": "cmqw0fp4q002kd3yeenkgomqv",
+      "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": false,
+      "note": "Front-facing slump. Plays once, hold on last frame; trigger_defeat clears is_victorious (skill §17.6)."
+    },
+    {
+      "runtime_state": "stun",
+      "file": "pododaejang_boss_stun_8f_autosprite_v1_pro.png",
+      "autosprite_kind": "custom",
+      "spritesheet_id": "cmqw0gaua0008h2noldky3r17",
+      "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": true,
+      "note": "Front-facing dizzy wobble. External-timer driven (boss_stunned_timer)."
+    }
+  ],
+  "priority_chain": "defeat > victory > stun > dash > attack(arrest_rope active) > walk > idle (skill §17.6)",
+  "pojol_summon": {
+    "display_name_ko": "포졸",
+    "autosprite_character_id": "cmqw0l8lj000fi6vgvwwui0dx",
+    "file": "../pojol/pojol_patrol_walk_8f_autosprite_v1_pro.png",
+    "autosprite_kind": "iso_walk_down",
+    "spritesheet_id": "cmqw0ozjc001bjkbjlqjcfo51",
+    "sheet_px": [768, 768], "cell_px": [256, 256], "cols": 3, "rows": 3, "frame_count": 8, "loop": true,
+    "identity": "low-rank constable: black wide-brim hat, plain navy uniform (NO gold badge), brown belt, short brown wooden club, young beardless face. Clearly subordinate to the chief.",
+    "render_note": "Summoned by the patrol_guards skill — 2 guards spawned below the boss, patrolling laterally (original 300f / ~110-180 px/sec). Renders MUCH smaller than the boss (original 32x44 vs boss 96x192). Front-facing walk used regardless of patrol direction."
+  },
+  "runtime_handoff": {
+    "import_step": "NOT yet imported. Codex must run `godot --headless --import` (editor CLOSED) to generate .png.import siblings, then commit them — raw PNG without .import is export-unsafe (see [[project_godot_export_resource_audit]]).",
+    "owner": "Codex wires the variant 'podo' renderer (Slice 2 runtime, port plan §6). Claude = art + adversarial review + in-game pixel QA."
+  }
+}
