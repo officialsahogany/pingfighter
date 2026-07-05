@@ -327,13 +327,39 @@ func _show_stage_clear_result(registry: Object, reset_game_callback: Callable, o
 	return bool(result_screen.show_from_scoreboard(owner, registry, reset_game_callback, exit_callback))
 
 
+func exit_to_main_menu(owner: Object) -> void:
+	# Public entry for non-defeat run-ending exits (pause menu 나가기). Same
+	# semantics as the settlement exit: rewind to Stage 1 + return to title.
+	_exit_to_main_menu(owner)
+
+
 func _exit_to_main_menu(owner: Object) -> void:
 	# True defeat (chance gems exhausted) returns to the main menu / title.
+	_reset_run_selection_state(owner)
 	_change_to_scene(owner, "res://scenes/main_menu.tscn")
 
 
 func _exit_to_character_select(owner: Object) -> void:
+	_reset_run_selection_state(owner)
 	_change_to_scene(owner, "res://scenes/character_select.tscn")
+
+
+func _reset_run_selection_state(owner: Object) -> void:
+	# Roguelike run grammar: every run-ending exit starts the NEXT run from
+	# Stage 1. Mid-run stage advances persist the reached stage into
+	# GameSelectionState (battle_scene_match_event_driver._sync_selection_stage),
+	# so without this rewind the next character-select entry re-enters the
+	# stage the player was defeated on. Resolve through tree.root (relative
+	# lookup, same as ExhibitionResetHandler) -- absolute get_node paths error
+	# outside the active scene tree.
+	if not (owner is Node):
+		return
+	var tree: SceneTree = (owner as Node).get_tree()
+	if tree == null or tree.root == null:
+		return
+	var selection_state: Node = tree.root.get_node_or_null("GameSelectionState")
+	if selection_state != null and selection_state.has_method("set_stage"):
+		selection_state.set_stage(1)
 
 
 func _change_to_scene(owner: Object, scene_path: String) -> void:

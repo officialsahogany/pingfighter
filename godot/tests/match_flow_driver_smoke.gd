@@ -10,6 +10,15 @@ var _ball_reset_calls := 0
 var _reset_game_callback_calls := 0
 
 
+class SceneChangeProbeDriver:
+	extends MatchFlowDriver
+
+	var changed_scene_paths: Array[String] = []
+
+	func _change_to_scene(_owner: Object, scene_path: String) -> void:
+		changed_scene_paths.append(scene_path)
+
+
 class FakeOwner:
 	extends RefCounted
 
@@ -639,6 +648,14 @@ func _init() -> void:
 	_expect(str(owner.active_item_slots[0].get("item_id", "")) == "reward_item", "stage transition should keep active item identity")
 	_expect(int(owner.active_item_slots[0].get("last_use_msec", 0)) < 0, "stage transition should clear active item cooldown fields")
 
+	# The run-end exit leg needs an ACTIVE scene tree (tree-based
+	# GameSelectionState resolution), which does not exist during _init --
+	# defer the final leg + tally to the first process iteration.
+	call_deferred("_finish_after_deferred_legs")
+
+
+func _finish_after_deferred_legs() -> void:
+	_verify_run_end_exits_reset_selection_stage()
 	if _failures.is_empty():
 		print("match_flow_driver_smoke: ok")
 		quit(0)
@@ -646,6 +663,46 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_run_end_exits_reset_selection_stage() -> void:
+	# Roguelike run grammar: a run-ending exit (true defeat, stage-clear exit)
+	# must rewind the persisted GameSelectionState stage to 1, or the next
+	# character-select entry re-enters the stage the last run ended on.
+	# Runs deferred so the real GameSelectionState autoload is registered.
+	var selection_state := get_root().get_node_or_null("GameSelectionState")
+	_expect(selection_state != null, "run-end exit leg needs the GameSelectionState autoload")
+	if selection_state == null:
+		return
+	var exit_owner := Node.new()
+	get_root().add_child(exit_owner)
+	var probe := SceneChangeProbeDriver.new()
+
+	selection_state.set_stage(4)
+	probe._exit_to_main_menu(exit_owner)
+	_expect(
+		int(selection_state.get("stage_id")) == 1,
+		"true-defeat exit must rewind the persisted run stage to 1 (roguelike run grammar)"
+	)
+	_expect(
+		probe.changed_scene_paths.size() == 1 and probe.changed_scene_paths[0] == "res://scenes/main_menu.tscn",
+		"true-defeat exit should still change to the main menu scene"
+	)
+
+	selection_state.set_stage(3)
+	probe._exit_to_character_select(exit_owner)
+	_expect(
+		int(selection_state.get("stage_id")) == 1,
+		"stage-clear exit must rewind the persisted run stage to 1 (roguelike run grammar)"
+	)
+	_expect(
+		probe.changed_scene_paths.size() == 2 and probe.changed_scene_paths[1] == "res://scenes/character_select.tscn",
+		"stage-clear exit should still change to the character-select scene"
+	)
+
+	selection_state.set_stage(1)
+	get_root().remove_child(exit_owner)
+	exit_owner.free()
 
 
 func _record_drive_reset() -> void:
