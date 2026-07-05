@@ -12,6 +12,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 var failure_count: int = 0
 var menu: Control = null
 var quit_calls: int = 0
+var menu_background_prewarm: Object = null
 
 
 func _init() -> void:
@@ -30,6 +31,15 @@ func _run() -> void:
 	get_root().add_child(menu)
 	current_scene = menu
 	await process_frame
+	# F10 booth-reset regression guard: the exhibition reset jumps straight to
+	# this menu (skipping the boot loading screen) after battle teardown wiped
+	# the resource caches, so the menu itself must re-begin the
+	# character-select prewarm in the background during title idle.
+	menu_background_prewarm = menu.get("character_select_prewarm")
+	_expect(
+		menu_background_prewarm != null,
+		"main menu should begin the character-select background prewarm on ready (F10 booth reset skips the boot loading screen)"
+	)
 	var background := menu.get_node_or_null("Background") as TextureRect
 	_expect(menu.get_node_or_null("BackgroundFill") == null, "main menu should not draw a cropped duplicate background strip above the title art")
 	_expect(background != null, "main menu should expose the background texture rect")
@@ -233,6 +243,19 @@ func _run() -> void:
 	var selection_state := get_root().get_node_or_null("GameSelectionState")
 	if selection_state != null and "skip_battle_logo_once" in selection_state:
 		selection_state.set("skip_battle_logo_once", false)
+	# Wait (bounded) for the background prewarm to claim the character-select
+	# PackedScene BEFORE pressing start, so the scene_file_path assertion below
+	# deterministically exercises the change_scene_to_packed branch instead of
+	# racing the threaded load into the change_scene_to_file fallback.
+	if menu_background_prewarm != null and menu_background_prewarm.has_method("get_loaded_scene"):
+		for _i in range(600):
+			if menu_background_prewarm.call("get_loaded_scene") != null:
+				break
+			await process_frame
+		_expect(
+			menu_background_prewarm.call("get_loaded_scene") != null,
+			"main menu background prewarm should load the character-select PackedScene during title idle"
+		)
 	_send_gamepad_start_to_menu()
 	await process_frame
 	_expect(bool(menu.get("transitioning")), "start should lock the main menu while the entry animation plays")
@@ -256,6 +279,10 @@ func _run() -> void:
 	var transition_timer := create_timer(1.12)
 	await transition_timer.timeout
 	transition_timer = null
+	for _i in range(360):
+		if current_scene != menu:
+			break
+		await process_frame
 	await process_frame
 	var active_scene := current_scene
 	_expect(active_scene != null, "start should leave a current scene")
@@ -281,6 +308,7 @@ func _run() -> void:
 				await process_frame
 	await _cleanup_main_menu_reference()
 	await _cleanup_current_scene()
+	await _drain_menu_background_prewarm()
 	ProjectResourceLoader.clear_caches()
 	for _i in range(120):
 		ProjectResourceLoader.try_resolve_finished_threaded_prewarm()
@@ -292,16 +320,10 @@ func _run() -> void:
 
 func _finish() -> void:
 	if failure_count > 0:
-		call_deferred("_quit_with_code", 1)
+		quit(1)
 		return
 	print("main_menu_flow_smoke: ok")
-	call_deferred("_quit_with_code", 0)
-
-
-func _quit_with_code(exit_code: int) -> void:
-	for _i in range(60):
-		await process_frame
-	quit(exit_code)
+	quit(0)
 
 
 func _send_escape_to_menu() -> void:
@@ -387,11 +409,16 @@ func _cleanup_main_menu_reference() -> void:
 		_cleanup_audio_player(menu.get("start_transition_sfx_player") as AudioStreamPlayer)
 		menu.set("application_quit_callback", Callable())
 		var overlay: Object = menu.get("main_menu_settings_overlay")
-		if overlay != null and overlay.has_method("close"):
-			overlay.close()
+		if overlay != null:
+			if overlay.has_method("clear_runtime_state"):
+				overlay.clear_runtime_state()
+			elif overlay.has_method("close"):
+				overlay.close()
 		var registry: Object = menu.get("main_menu_settings_registry")
 		if registry != null:
-			if "audio_settings" in registry:
+			if registry.has_method("clear_runtime_state"):
+				registry.clear_runtime_state()
+			elif "audio_settings" in registry:
 				registry.set("audio_settings", null)
 			if "view_layout" in registry:
 				registry.set("view_layout", null)
@@ -404,6 +431,19 @@ func _cleanup_main_menu_reference() -> void:
 	menu = null
 	await process_frame
 	await process_frame
+
+
+func _drain_menu_background_prewarm() -> void:
+	# Claim every threaded load the menu's background prewarm still has in
+	# flight so the smoke does not quit with dangling load_threaded_request
+	# handles. Bounded so a stuck load cannot hang the smoke.
+	if menu_background_prewarm == null:
+		return
+	for _i in range(600):
+		if bool(menu_background_prewarm.update()):
+			break
+		await process_frame
+	menu_background_prewarm = null
 
 
 func _cleanup_audio_player(player: AudioStreamPlayer) -> void:

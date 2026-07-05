@@ -1,6 +1,7 @@
 extends Control
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
@@ -106,6 +107,10 @@ class MainMenuSettingsRegistry:
 				return view_layout
 		return null
 
+	func clear_runtime_state() -> void:
+		audio_settings = null
+		view_layout = null
+
 @export_file("*.tscn") var character_select_scene_path: String = DEFAULT_CHARACTER_SELECT_SCENE_PATH
 
 @onready var background_rect: TextureRect = $Background
@@ -136,6 +141,8 @@ var start_transition_elapsed: float = 0.0
 var start_prompt_ribbon: Control = null
 var start_prompt_label: Label = null
 var application_quit_callback: Callable = Callable()
+var character_select_prewarm: Object = null
+var character_select_prewarm_finished: bool = false
 var _start_transition_tweens: Array[Tween] = []
 
 
@@ -160,6 +167,35 @@ func _ready() -> void:
 		quit_confirm_no_button.pressed.connect(_on_quit_canceled)
 	refresh_language_texts()
 	_start_main_menu_bgm()
+	_begin_character_select_background_prewarm()
+
+
+func _begin_character_select_background_prewarm() -> void:
+	# The F10 exhibition reset (and every battle exit) reaches this menu after
+	# battle_scene_teardown_lifecycle has wiped the ProjectResourceLoader
+	# caches, WITHOUT replaying the boot loading screen that normally
+	# re-prewarms the character-select assets. Rebuild that warmth in the
+	# background during title idle so the start press does not cold-load the
+	# character-select scene on the main thread (multi-second freeze) and the
+	# per-character fullframe sheets do not fall back to on-demand streaming
+	# ("애니메이션 준비 중" badge). Keep the prewarm object alive for the whole
+	# menu lifetime so the later scene change can reuse its PackedScene.
+	var scene_path := character_select_scene_path
+	if scene_path == "":
+		scene_path = DEFAULT_CHARACTER_SELECT_SCENE_PATH
+	character_select_prewarm = CharacterSelectPrewarm.new()
+	character_select_prewarm.begin(scene_path)
+	character_select_prewarm_finished = false
+	_update_character_select_background_prewarm()
+
+
+func _update_character_select_background_prewarm() -> void:
+	if character_select_prewarm_finished or character_select_prewarm == null:
+		return
+	if not character_select_prewarm.has_method("update"):
+		character_select_prewarm_finished = true
+		return
+	character_select_prewarm_finished = bool(character_select_prewarm.update())
 
 
 func _ensure_main_menu_background() -> void:
@@ -182,8 +218,7 @@ func _exit_tree() -> void:
 	start_transition_active = false
 	_kill_start_transition_tweens()
 	application_quit_callback = Callable()
-	if main_menu_settings_overlay != null and main_menu_settings_overlay.has_method("close"):
-		main_menu_settings_overlay.close()
+	_clear_settings_overlay_runtime_state()
 	main_menu_settings_overlay = null
 	main_menu_settings_registry = null
 	_stop_main_menu_bgm()
@@ -193,6 +228,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	start_prompt_elapsed += delta
 	_update_touch_start_prompt_visual()
+	_update_character_select_background_prewarm()
 	if start_transition_active:
 		start_transition_elapsed = minf(
 			start_transition_elapsed + delta,
@@ -347,7 +383,14 @@ func _change_to_character_select() -> void:
 	var next_scene_path := character_select_scene_path
 	if next_scene_path == "":
 		next_scene_path = DEFAULT_CHARACTER_SELECT_SCENE_PATH
-	var error: int = tree.change_scene_to_file(next_scene_path)
+	var prewarmed_scene: PackedScene = null
+	if character_select_prewarm != null and character_select_prewarm.has_method("get_loaded_scene"):
+		prewarmed_scene = character_select_prewarm.get_loaded_scene() as PackedScene
+	var error: int = (
+		tree.change_scene_to_packed(prewarmed_scene)
+		if prewarmed_scene != null
+		else tree.change_scene_to_file(next_scene_path)
+	)
 	if error != OK:
 		transitioning = false
 		push_warning("Failed to change scene to %s (error %d)" % [next_scene_path, error])
@@ -801,6 +844,17 @@ func _setup_settings_overlay() -> void:
 	main_menu_settings_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	main_menu_settings_layer.draw.connect(_draw_settings_overlay)
 	add_child(main_menu_settings_layer)
+
+
+func _clear_settings_overlay_runtime_state() -> void:
+	if main_menu_settings_overlay != null:
+		if main_menu_settings_overlay.has_method("clear_runtime_state"):
+			main_menu_settings_overlay.clear_runtime_state()
+		elif main_menu_settings_overlay.has_method("close"):
+			main_menu_settings_overlay.close()
+	if main_menu_settings_registry != null:
+		if main_menu_settings_registry.has_method("clear_runtime_state"):
+			main_menu_settings_registry.clear_runtime_state()
 
 
 func _open_main_menu_settings() -> void:
