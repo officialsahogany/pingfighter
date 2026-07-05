@@ -16,6 +16,20 @@ func create_ref_counted(key: String):
 	return cache.create_ref_counted(str(spec["path"]), str(spec["label"]))
 
 
+func request_threaded_script(key: String) -> bool:
+	var spec: Dictionary = _get_spec(key)
+	if spec.is_empty():
+		return true
+	return cache.request_threaded_script(str(spec["path"]), str(spec["label"]))
+
+
+func is_threaded_script_ready(key: String) -> bool:
+	var spec: Dictionary = _get_spec(key)
+	if spec.is_empty():
+		return true
+	return cache.is_threaded_script_ready(str(spec["path"]), str(spec["label"]))
+
+
 func get_instance(key: String):
 	var spec: Dictionary = _get_spec(key)
 	if spec.is_empty():

@@ -3,6 +3,7 @@ extends SceneTree
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const MISSING_TEXTURE_PATH := "res://assets/__missing_warning_dedup_fixture__.png"
+const MISSING_TEXTURE_PATH_2 := "res://assets/__missing_warning_dedup_fixture_2__.png"
 const MISSING_AUDIO_PATH := "res://assets/__missing_warning_dedup_fixture__.wav"
 const TEXTURE_WARNING := "dedup texture missing: %s"
 const AUDIO_WARNING := "dedup audio missing: %s"
@@ -55,6 +56,20 @@ func _init() -> void:
 	_expect(
 		ProjectResourceLoader.get_warning_dedup_count_for_tests() == 3,
 		"audio missing warnings should share the same path-warning dedup path"
+	)
+	# Path is part of the dedup key: same template against a different path
+	# must claim a distinct key.
+	_expect(
+		ProjectResourceLoader.claim_path_warning_for_tests(TEXTURE_WARNING, MISSING_TEXTURE_PATH_2),
+		"the same template against a second path should claim a distinct warning key"
+	)
+	_expect(
+		not ProjectResourceLoader.claim_path_warning_for_tests(TEXTURE_WARNING, MISSING_TEXTURE_PATH_2),
+		"the second-path warning should then be suppressed"
+	)
+	_expect(
+		ProjectResourceLoader.get_warning_dedup_count_for_tests() == 4,
+		"same template + distinct path should keep a separate dedup key"
 	)
 
 	if _failed:

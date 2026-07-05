@@ -7,6 +7,9 @@ static var _threaded_texture_prewarm_path: String = ""
 static var _threaded_texture_prewarm_started_msec: int = 0
 static var _threaded_texture_prewarm_poll_count: int = 0
 static var _threaded_texture_prewarm_stale_warning_sent: bool = false
+static var _threaded_texture_wait_started_msec_by_path: Dictionary = {}
+static var _threaded_texture_wait_poll_count_by_path: Dictionary = {}
+static var _force_threaded_texture_prewarm_in_progress_for_tests: bool = false
 static var _threaded_audio_prewarm_path: String = ""
 static var _threaded_audio_prewarm_started_msec: int = 0
 static var _threaded_audio_prewarm_poll_count: int = 0
@@ -15,10 +18,11 @@ static var _warned_paths: Dictionary = {}
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
 # Hard upper bound: a threaded load that never reaches LOADED/FAILED (stuck
-# status, evicted request, or an unrelated path that permanently owns the
-# shared slot) is abandoned at this bound and resolved synchronously, so the
-# prewarm loop -- and any caller waiting on done == true, including a different
-# path blocked behind the shared slot -- can never hang.
+# status or evicted request) is abandoned at this bound and resolved
+# synchronously, so the prewarm loop -- and any caller waiting on done == true --
+# can never hang. A different path blocked behind the shared slot uses its own
+# wait clock and may resolve itself synchronously; it must not drain the slot
+# owner's in-progress worker on the caller's timeout.
 #
 # This DEFAULT is intentionally short. Every shipped caller runs behind a
 # loading / stage-transition / acquisition-cinematic screen where the caller
@@ -56,6 +60,8 @@ static func has_threaded_prewarm_in_flight() -> bool:
 # poll expires it.
 static func try_resolve_finished_threaded_prewarm() -> void:
 	if _threaded_texture_prewarm_path == "":
+		return
+	if _force_threaded_texture_prewarm_in_progress_for_tests:
 		return
 	var progress_values: Array = []
 	var status := ResourceLoader.load_threaded_get_status(_threaded_texture_prewarm_path, progress_values)
@@ -182,6 +188,7 @@ static func prewarm_texture_threaded_step(
 		_threaded_texture_prewarm_started_msec = Time.get_ticks_msec()
 		_threaded_texture_prewarm_poll_count = 0
 		_threaded_texture_prewarm_stale_warning_sent = false
+		_clear_threaded_texture_waiters()
 		return {"done": false, "texture": null}
 	if _threaded_texture_prewarm_path != path:
 		# A different path owns the shared threaded slot. If that foreign load has
@@ -192,14 +199,14 @@ static func prewarm_texture_threaded_step(
 		try_resolve_finished_threaded_prewarm()
 		if _threaded_texture_prewarm_path == "":
 			return prewarm_texture_threaded_step(path, missing_warning, failed_warning, max_msec, max_polls, emit_timeout_warning, prefer_imported_fallback)
-		# Still loading: count the poll so a stuck slot is bounded for cross-path
-		# callers too, then bail to a synchronous load once the hard MAX bound is
-		# hit -- an unrelated stuck load must never block this path forever.
-		_threaded_texture_prewarm_poll_count += 1
-		if _is_threaded_texture_prewarm_expired(max_msec, max_polls):
+		# Still loading: use this caller's own wait clock. The shared slot
+		# owner's start time may be much older than this request, and timing out
+		# here must not drain the owner's in-flight worker into this frame.
+		_mark_threaded_texture_waiter_poll(path)
+		if _is_threaded_texture_waiter_expired(path, max_msec, max_polls):
 			if emit_timeout_warning:
 				_push_threaded_texture_prewarm_stale_warning()
-			_drain_threaded_texture_prewarm()
+			_clear_threaded_texture_waiter(path)
 			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		if _is_threaded_texture_prewarm_stale():
 			_push_threaded_texture_prewarm_stale_warning()
@@ -495,6 +502,26 @@ static func _is_threaded_texture_prewarm_expired(max_msec: int, max_polls: int) 
 	return max_msec > 0 and elapsed_msec >= max_msec
 
 
+static func _mark_threaded_texture_waiter_poll(path: String) -> void:
+	if path == "":
+		return
+	if not _threaded_texture_wait_started_msec_by_path.has(path):
+		_threaded_texture_wait_started_msec_by_path[path] = Time.get_ticks_msec()
+		_threaded_texture_wait_poll_count_by_path[path] = 0
+	_threaded_texture_wait_poll_count_by_path[path] = int(_threaded_texture_wait_poll_count_by_path.get(path, 0)) + 1
+
+
+static func _is_threaded_texture_waiter_expired(path: String, max_msec: int, max_polls: int) -> bool:
+	if path == "":
+		return false
+	var poll_count := int(_threaded_texture_wait_poll_count_by_path.get(path, 0))
+	if max_polls > 0 and poll_count >= max_polls:
+		return true
+	var started_msec := int(_threaded_texture_wait_started_msec_by_path.get(path, Time.get_ticks_msec()))
+	var elapsed_msec := Time.get_ticks_msec() - started_msec
+	return max_msec > 0 and elapsed_msec >= max_msec
+
+
 static func _push_threaded_texture_prewarm_stale_warning() -> void:
 	if _threaded_texture_prewarm_stale_warning_sent:
 		return
@@ -508,10 +535,25 @@ static func _clear_threaded_texture_prewarm() -> void:
 	_threaded_texture_prewarm_started_msec = 0
 	_threaded_texture_prewarm_poll_count = 0
 	_threaded_texture_prewarm_stale_warning_sent = false
+	_force_threaded_texture_prewarm_in_progress_for_tests = false
+	_clear_threaded_texture_waiters()
+
+
+static func _clear_threaded_texture_waiter(path: String) -> void:
+	_threaded_texture_wait_started_msec_by_path.erase(path)
+	_threaded_texture_wait_poll_count_by_path.erase(path)
+
+
+static func _clear_threaded_texture_waiters() -> void:
+	_threaded_texture_wait_started_msec_by_path.clear()
+	_threaded_texture_wait_poll_count_by_path.clear()
 
 
 static func _drain_threaded_texture_prewarm() -> void:
 	if _threaded_texture_prewarm_path == "":
+		return
+	if _force_threaded_texture_prewarm_in_progress_for_tests:
+		_clear_threaded_texture_prewarm()
 		return
 	var path := _threaded_texture_prewarm_path
 	var progress_values: Array = []
@@ -567,3 +609,46 @@ static func clear_caches() -> void:
 	_font_cache.clear()
 	_clear_threaded_texture_prewarm()
 	_clear_threaded_audio_prewarm()
+
+
+static func clear_caches_except(retained_texture_paths: Array = [], retained_audio_paths: Array = []) -> void:
+	# Same lifecycle reset as clear_caches(), but keeps a whitelisted warm set
+	# (e.g. the character-select assets battle teardown must not throw away,
+	# or every post-battle exit re-streams them cold).
+	_drain_threaded_texture_prewarm()
+	_drain_threaded_audio_prewarm()
+	_retain_cache_entries(_texture_cache, retained_texture_paths)
+	_retain_cache_entries(_audio_cache, retained_audio_paths)
+	_font_cache.clear()
+	_clear_threaded_texture_prewarm()
+	_clear_threaded_audio_prewarm()
+
+
+static func _retain_cache_entries(cache: Dictionary, retained_paths: Array) -> void:
+	if retained_paths.is_empty():
+		cache.clear()
+		return
+	var retained: Dictionary = {}
+	for path_value in retained_paths:
+		var path := str(path_value)
+		if cache.has(path):
+			retained[path] = cache[path]
+	cache.clear()
+	cache.merge(retained)
+
+
+static func force_threaded_texture_prewarm_in_progress_for_tests(path: String, age_msec: int = 0, poll_count: int = 0) -> void:
+	_threaded_texture_prewarm_path = path
+	_threaded_texture_prewarm_started_msec = Time.get_ticks_msec() - maxi(age_msec, 0)
+	_threaded_texture_prewarm_poll_count = maxi(poll_count, 0)
+	_threaded_texture_prewarm_stale_warning_sent = false
+	_force_threaded_texture_prewarm_in_progress_for_tests = true
+	_clear_threaded_texture_waiters()
+
+
+static func get_threaded_texture_prewarm_path_for_tests() -> String:
+	return _threaded_texture_prewarm_path
+
+
+static func get_threaded_texture_wait_poll_count_for_tests(path: String) -> int:
+	return int(_threaded_texture_wait_poll_count_by_path.get(path, 0))

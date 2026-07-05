@@ -4,6 +4,8 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 
 const IMPORTED_TEXTURE_PATH := "res://assets/sprites/hud/stage2_game_frame_rock_leaf_imagegen_v3.png"
 const IMPORTED_AUDIO_PATH := "res://assets/bgm/stage2bgm.ogg"
+const CROSS_PATH_WAITER_TEXTURE_PATH := "res://assets/sprites/items/banana.png"
+const FOREIGN_IN_FLIGHT_TEXTURE_PATH := "res://assets/sprites/lingpet/onimaru_click_live2d_pingpong_98f.png"
 
 var _failed := false
 
@@ -49,6 +51,7 @@ func _init() -> void:
 		"threaded texture prewarm should fall back to source loading instead of stalling indefinitely"
 	)
 	_verify_threaded_prewarm_short_guard(threaded_prewarm_body)
+	_verify_cross_path_texture_prewarm_timeout_does_not_drain_foreign_slot()
 	_expect(
 		audio_body.find("load_from_file") < audio_body.find("_can_load_imported_resource"),
 		"audio loader should prefer raw audio decoding before imported fallback"
@@ -102,6 +105,55 @@ func _verify_threaded_prewarm_short_guard(threaded_prewarm_body: String) -> void
 			and ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS <= 600,
 		"threaded prewarm default hard bound must stay short (<=3000ms / <=600 polls); long keep-threaded is opt-in per caller"
 	)
+
+
+func _verify_cross_path_texture_prewarm_timeout_does_not_drain_foreign_slot() -> void:
+	ProjectResourceLoader.clear_caches()
+	ProjectResourceLoader.force_threaded_texture_prewarm_in_progress_for_tests(
+		FOREIGN_IN_FLIGHT_TEXTURE_PATH,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC + 1200,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS + 120
+	)
+	var first_poll: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		CROSS_PATH_WAITER_TEXTURE_PATH,
+		"",
+		"",
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+		false,
+		true
+	)
+	_expect(
+		not bool(first_poll.get("done", true)),
+		"cross-path caller should start its own wait clock instead of expiring against the foreign owner's old start time"
+	)
+	_expect(
+		ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == FOREIGN_IN_FLIGHT_TEXTURE_PATH,
+		"cross-path caller should not drain a healthy foreign in-flight texture on its first poll"
+	)
+	_expect(
+		ProjectResourceLoader.get_threaded_texture_wait_poll_count_for_tests(CROSS_PATH_WAITER_TEXTURE_PATH) == 1,
+		"cross-path caller should track wait polls under its own requested texture path"
+	)
+
+	var fallback_poll: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		CROSS_PATH_WAITER_TEXTURE_PATH,
+		"",
+		"",
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+		1,
+		false,
+		true
+	)
+	_expect(
+		bool(fallback_poll.get("done", false)) and fallback_poll.get("texture", null) is Texture2D,
+		"an expired cross-path caller should resolve its own texture via fallback"
+	)
+	_expect(
+		ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == FOREIGN_IN_FLIGHT_TEXTURE_PATH,
+		"an expired cross-path caller should not drain the foreign slot owner's in-flight texture"
+	)
+	ProjectResourceLoader.clear_caches()
 
 
 func _verify_asset_png_import_sidecars() -> void:
