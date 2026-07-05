@@ -117,8 +117,48 @@ func _init() -> void:
 	_expect(owner_without_alchemy.active_item_slots.is_empty(), "without Alchemy the used consumable should be removed")
 	_expect(_backup_calls == 1, "non-recycled consumable path should still call the pending backup hook")
 
+	_verify_lingpet_egg_excluded_from_recycle()
+
 	print("item_alchemy_perk_port_smoke: ok")
 	quit(0)
+
+
+# Regression: a one-shot deploy item (lingpet_egg) must be CONSUMED by Alchemy,
+# never recycled into the slot — a recycled egg can never re-deploy (a lingpet is
+# already present), so it would strand a permanently-dead slot (item_runtime_checklist
+# §1.7). Reverse-verified to FAIL when the no_recycle guard is removed from
+# active_item_slot_controller._try_use_slot.
+func _verify_lingpet_egg_excluded_from_recycle() -> void:
+	var perk_state := RuntimePerkState.new()
+	perk_state.runtime_skill_levels["item_recycle"] = 5
+	perk_state.item_perk_level_bonus = 20  # drive the recycle chance to the 0.90 cap
+	_expect_close(perk_state.get_active_item_recycle_chance(), 0.90, "test setup should max the recycle chance")
+	var registry := FakeRegistry.new(perk_state, FakeAudio.new())
+
+	# Positive control: at this max chance a NORMAL consumable is recycled (kept),
+	# proving the recycle path is genuinely live for this seed/registry.
+	seed(1)
+	_effect_calls = 0
+	_backup_calls = 0
+	var control_owner := FakeOwner.new()
+	control_owner.active_item_slots = [_build_test_item("banana")]
+	var control_sc := ActiveItemSlotController.new()
+	_expect(control_sc.use_slot(0, control_owner, registry, false, Callable(self, "_apply_effect"), Callable(self, "_backup_item")), "control banana use should succeed")
+	_expect(control_owner.active_item_slots.size() == 1, "control: a normal consumable should be recycled (kept) at max chance")
+
+	# The fix: the real catalog lingpet_egg carries no_recycle and must be removed
+	# on use even with the recycle chance maxed and the same favorable seed.
+	var egg_item: Dictionary = ActiveItemCatalog.new().build_item_by_name("lingpet_egg")
+	_expect(bool(egg_item.get("no_recycle", false)), "catalog lingpet_egg should carry the no_recycle flag")
+	egg_item["cooldown_msec"] = 0  # bypass the readiness gate for this focused test
+	seed(1)
+	_effect_calls = 0
+	_backup_calls = 0
+	var egg_owner := FakeOwner.new()
+	egg_owner.active_item_slots = [egg_item]
+	var egg_sc := ActiveItemSlotController.new()
+	_expect(egg_sc.use_slot(0, egg_owner, registry, false, Callable(self, "_apply_effect"), Callable(self, "_backup_item")), "lingpet_egg use should succeed")
+	_expect(egg_owner.active_item_slots.is_empty(), "lingpet_egg must be consumed by Alchemy, never recycled into a dead slot")
 
 
 func _build_test_item(item_name: String) -> Dictionary:
