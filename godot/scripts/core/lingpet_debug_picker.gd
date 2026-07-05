@@ -379,6 +379,15 @@ func get_entries_build_count_for_tests() -> int:
 	return _entries_cache_build_count
 
 
+func clear_for_tests() -> void:
+	_texture_cache.clear()
+	_entries_cache.clear()
+	_entries_cache_ready = false
+	_active_skill_pool_cache.clear()
+	_passive_skill_pool_cache.clear()
+	_max_skill_rows_cache = -1
+
+
 func get_active_skill_id_for_tests(index: int = -1) -> String:
 	var skill_index := selected_active_skill_index if index < 0 else index
 	return _get_skill_id_from_pool(_get_skill_pool(_get_selected_pet_id(), true), skill_index)
