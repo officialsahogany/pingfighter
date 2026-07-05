@@ -6,6 +6,7 @@ const PlayerCharacterRuntime := preload("res://scripts/characters/player_charact
 const STAGE_OPTIONS := [
 	{"id": 1, "variant": "dalji", "name": "스테이지 1", "desc": "달지"},
 	{"id": 1, "variant": "gaksi", "name": "스테이지 1-B", "desc": "각시탈"},
+	{"id": 1, "variant": "podo", "name": "스테이지 1-C", "desc": "포도대장"},
 	{"id": 2, "name": "스테이지 2", "desc": "정글"},
 	{"id": 3, "name": "스테이지 3", "desc": "멘헤라"},
 	{"id": 4, "name": "스테이지 4", "desc": "소림사"},
@@ -56,6 +57,9 @@ const STAGE_RESET_MODULE_KEYS := [
 	"stage1_dalji_whip_skill_state",
 	"stage1_dalji_spinning_top_skill_state",
 	"stage1_dalji_boss_skill_cooldown_state",
+	"stage1_gaksital_fan_throw_skill_state",
+	"stage1_gaksital_fan_wind_skill_state",
+	"stage1_gaksital_boss_skill_cooldown_state",
 	"stage1_balloon_event",
 	"stage2_boss_skill_state",
 	"stage3_boss_skill_state",
@@ -328,17 +332,19 @@ func _prewarm_active_item_runtime(registry: Object) -> void:
 
 
 func _prewarm_stage1_selected_modules(owner: Object, registry: Object) -> void:
+	var stage1_boss_variant: String = _get_stage1_boss_variant(owner)
 	var stage_background: Object = _get_instance(registry, "stage1_pillar_background")
 	if stage_background != null and stage_background.has_method("prewarm_assets"):
 		stage_background.prewarm_assets()
 	var module_getter := Callable(registry, "get_instance") if registry != null and registry.has_method("get_instance") else Callable()
 	var pillar_scene_drawer: Object = _get_instance(registry, "stage1_pillar_scene_drawer")
 	if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets") and module_getter.is_valid():
-		pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner))
-	for key in [
-		"stage1_balloon_event",
-		"stage1_dalji_boss_skill_hud_renderer",
-	]:
+		pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner), stage1_boss_variant)
+	var keys: Array[String] = ["stage1_balloon_event"]
+	var skill_hud_key: String = _get_stage1_boss_skill_hud_key(stage1_boss_variant)
+	if skill_hud_key != "":
+		keys.append(skill_hud_key)
+	for key in keys:
 		var stage_module: Object = _get_instance(registry, str(key))
 		if stage_module != null and stage_module.has_method("prewarm_assets"):
 			stage_module.prewarm_assets()
@@ -381,7 +387,7 @@ func _sync_selection_state(owner: Object, stage_id: int, stage1_boss_variant: St
 		return
 	var selection_state: Object = owner.get_node_or_null("/root/GameSelectionState")
 	if selection_state != null and selection_state.has_method("set_stage"):
-		selection_state.set_stage(stage_id, stage1_boss_variant if stage_id == 1 else "dalji")
+		selection_state.set_stage(stage_id, stage1_boss_variant if stage_id == 1 else "dalji", stage_id == 1)
 
 
 func _move_selection(dx: int, dy: int) -> void:
@@ -421,13 +427,18 @@ func _find_stage_variant_index(stage_id: int, stage1_boss_variant: String = "dal
 
 
 func _get_panel_rect(view_size: Vector2) -> Rect2:
+	var row_count := _get_stage_option_row_count()
 	var grid_size := Vector2(
 		COLUMNS * CARD_SIZE.x + (COLUMNS - 1) * CARD_GAP.x,
-		3.0 * CARD_SIZE.y + 2.0 * CARD_GAP.y
+		float(row_count) * CARD_SIZE.y + float(maxi(0, row_count - 1)) * CARD_GAP.y
 	)
 	var panel_size := grid_size + PANEL_PADDING * 2.0 + Vector2(0.0, HEADER_HEIGHT + 30.0)
 	var pos := (view_size - panel_size) * 0.5
 	return Rect2(Vector2(max(pos.x, 12.0), max(pos.y, 12.0)), panel_size)
+
+
+func _get_stage_option_row_count() -> int:
+	return int(ceil(float(STAGE_OPTIONS.size()) / float(COLUMNS)))
 
 
 func _get_card_rect(index: int, panel_rect: Rect2) -> Rect2:
@@ -466,7 +477,18 @@ func _normalize_stage1_boss_variant(value: String) -> String:
 	var normalized := value.strip_edges().to_lower()
 	if normalized == "gaksi" or normalized == "gaksital" or normalized == "talkwangdae":
 		return "gaksi"
+	if normalized == "podo" or normalized == "pododaejang" or normalized == "podo_daejang":
+		return "podo"
 	return "dalji"
+
+
+func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
+	match _normalize_stage1_boss_variant(stage1_boss_variant):
+		"gaksi":
+			return "stage1_gaksital_boss_skill_hud_renderer"
+		"dalji":
+			return "stage1_dalji_boss_skill_hud_renderer"
+	return ""
 
 
 func _is_current_option(option: Dictionary, current_stage: int, current_stage1_boss_variant: String) -> bool:

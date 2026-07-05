@@ -8,10 +8,12 @@ class FakeSelectionState:
 
 	var stage_id := 1
 	var stage1_boss_variant := "dalji"
+	var stage1_boss_variant_explicit := false
 
-	func set_stage(stage: int, stage1_variant: String = "dalji") -> void:
+	func set_stage(stage: int, stage1_variant: String = "dalji", explicit_stage1_variant: bool = false) -> void:
 		stage_id = stage
 		stage1_boss_variant = stage1_variant if stage_id == 1 else "dalji"
+		stage1_boss_variant_explicit = explicit_stage1_variant and stage_id == 1
 
 
 class FakeOwner:
@@ -79,11 +81,17 @@ class FakeResetModule:
 class FakeStage1PillarSceneModule:
 	var prewarm_count := 0
 	var prewarm_character_type := ""
+	var prewarm_stage1_boss_variant := ""
 	var module_getter_valid := false
 
-	func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
+	func prewarm_assets(
+		module_getter: Callable,
+		selected_character_type: String = "smasher",
+		stage1_boss_variant: String = "dalji"
+	) -> void:
 		prewarm_count += 1
 		prewarm_character_type = selected_character_type
+		prewarm_stage1_boss_variant = stage1_boss_variant
 		module_getter_valid = module_getter.is_valid()
 
 
@@ -144,6 +152,7 @@ class FakeActiveItemHudVisuals:
 
 
 class FakeRegistry:
+	var requested_keys: Array[String] = []
 	var audio := FakeAudio.new()
 	var match_flow := FakeMatchFlowDriver.new()
 	var stage_intro := FakeResetModule.new()
@@ -151,6 +160,7 @@ class FakeRegistry:
 	var stage1_pillar_scene := FakeStage1PillarSceneModule.new()
 	var stage1_balloon := FakeResetModule.new()
 	var stage1_skill_hud := FakeResetModule.new()
+	var stage1_gaksital_skill_hud := FakeResetModule.new()
 	var stage2_bg := FakeResetModule.new()
 	var impact_effects := FakeClearModule.new()
 	var ball_effects := FakeClearModule.new()
@@ -161,6 +171,7 @@ class FakeRegistry:
 	var active_item_hud_visuals := FakeActiveItemHudVisuals.new()
 
 	func get_instance(key: String) -> Object:
+		requested_keys.append(key)
 		match key:
 			"game_audio":
 				return audio
@@ -176,6 +187,8 @@ class FakeRegistry:
 				return stage1_balloon
 			"stage1_dalji_boss_skill_hud_renderer":
 				return stage1_skill_hud
+			"stage1_gaksital_boss_skill_hud_renderer":
+				return stage1_gaksital_skill_hud
 			"stage2_pillar_background":
 				return stage2_bg
 			"impact_effects":
@@ -243,6 +256,7 @@ func _init() -> void:
 	_expect(stage1_registry.stage1_pillar_scene.prewarm_count == 1, "stage debug reset should prewarm the selected Stage 1 pillar scene")
 	_expect(stage1_registry.stage1_pillar_scene.module_getter_valid, "Stage 1 pillar scene prewarm should receive a module getter")
 	_expect(stage1_registry.stage1_pillar_scene.prewarm_character_type == "soldier", "Stage 1 pillar scene prewarm should receive the selected character type")
+	_expect(stage1_registry.stage1_pillar_scene.prewarm_stage1_boss_variant == "dalji", "Stage 1 Dalji prewarm should receive the selected boss variant")
 	_expect(stage1_registry.stage1_balloon.prewarm_count == 1, "stage debug reset should prewarm Stage 1 balloon runtime assets")
 	_expect(stage1_registry.stage1_skill_hud.prewarm_count == 1, "stage debug reset should prewarm Stage 1 skill HUD assets")
 	_expect(stage1_registry.active_item_runtime.prewarm_count == 1, "Stage 1 debug reset should prewarm active item runtime assets")
@@ -257,7 +271,31 @@ func _init() -> void:
 	_expect(gaksi_owner.stage1_boss_variant == "gaksi", "Gaksital debug route should set the Stage 1 boss variant")
 	_expect(gaksi_owner.selection_state.stage_id == 1, "Gaksital debug route should sync selected Stage 1")
 	_expect(gaksi_owner.selection_state.stage1_boss_variant == "gaksi", "Gaksital debug route should sync selected boss variant")
+	_expect(gaksi_owner.selection_state.stage1_boss_variant_explicit, "Gaksital debug route should mark the selected boss variant explicit")
 	_expect(gaksi_registry.stage1_bg.prewarm_count == 1, "Gaksital debug route should still prewarm shared Stage 1 background")
+	_expect(gaksi_registry.stage1_pillar_scene.prewarm_stage1_boss_variant == "gaksi", "Gaksital debug route should prewarm the selected boss variant")
+	_expect(gaksi_registry.stage1_gaksital_skill_hud.prewarm_count == 1, "Gaksital debug route should prewarm the Gaksital boss skill HUD")
+
+	var podo_owner := FakeOwner.new()
+	podo_owner.selection_state = FakeSelectionState.new()
+	var podo_registry := FakeRegistry.new()
+	picker.toggle(podo_owner)
+	picker.selected_index = picker._find_stage_variant_index(1, "pododaejang")
+	_expect(picker.handle_input(event, podo_owner, podo_registry, Vector2(1280.0, 720.0)), "Enter should apply Stage 1 Pododaejang")
+	_expect(podo_owner.current_stage == 1, "Pododaejang debug route should remain Stage 1")
+	_expect(podo_owner.stage1_boss_variant == "podo", "Pododaejang debug route should set the Stage 1 boss variant")
+	_expect(podo_owner.selection_state.stage_id == 1, "Pododaejang debug route should sync selected Stage 1")
+	_expect(podo_owner.selection_state.stage1_boss_variant == "podo", "Pododaejang debug route should sync selected boss variant")
+	_expect(podo_owner.selection_state.stage1_boss_variant_explicit, "Pododaejang debug route should mark the selected boss variant explicit")
+	_expect(podo_registry.stage1_bg.prewarm_count == 1, "Pododaejang debug route should still prewarm shared Stage 1 background")
+	_expect(podo_registry.stage1_balloon.prewarm_count == 1, "Pododaejang debug route should prewarm shared Stage 1 balloon assets")
+	_expect(podo_registry.stage1_pillar_scene.prewarm_stage1_boss_variant == "podo", "Pododaejang debug route should prewarm the selected boss variant")
+	_expect(podo_registry.stage1_skill_hud.prewarm_count == 0, "Pododaejang Slice 1 should not prewarm Dalji boss skill HUD assets")
+	_expect(podo_registry.stage1_gaksital_skill_hud.prewarm_count == 0, "Pododaejang Slice 1 should not prewarm Gaksital boss skill HUD assets")
+	_expect(not podo_registry.requested_keys.has("stage1_pododaejang_boss_skill_hud_renderer"), "Pododaejang Slice 1 should not request missing Pododaejang HUD modules yet")
+	var panel_rect: Rect2 = picker._get_panel_rect(Vector2(1280.0, 720.0))
+	var last_card_rect: Rect2 = picker._get_card_rect(picker._find_stage_index(12), panel_rect)
+	_expect(last_card_rect.end.y <= panel_rect.end.y - 20.0, "stage debug picker panel should expand for the fourth row after adding Stage 1-C")
 
 	print("stage_debug_picker_runtime_reset_smoke: ok")
 	quit(0)
