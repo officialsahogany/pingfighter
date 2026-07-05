@@ -34,11 +34,13 @@ This section is intentionally long; use search to find the nearest owner.
   active-item capsule pulls, S6b-5 `plaza_lingpet_store_transactions.gd`
   resonance-egg purchases that call `lingpet_egg_runtime` without directly
   mutating lingpet ownership, and the EXIT-zone callback surface.
-  `stage_clear_result_screen.gd` only spawns `scenes/plaza.tscn` after
-  rewards are granted, transfers volatile `runtime_perk_gold` into
-  `plaza_save_store.gd` once, grants the stage-clear AP once, and delays the
-  existing next-stage reset callback until the plaza exits; plaza-local
-  movement, interaction, and save-ledger state stay under `scripts/plaza/`.
+  `stage_clear_result_screen.gd` only routes into `scenes/plaza.tscn` after
+  rewards are granted, delegates plaza scene spawn / prewarm / forwarding to
+  the result-screen plaza scene helper, delegates volatile `runtime_perk_gold`
+  transfer and one-shot stage-clear AP application to the result-screen plaza
+  progress helper, and delays the existing next-stage reset callback until the
+  plaza exits; plaza-local movement, interaction, and save-ledger state stay
+  under `scripts/plaza/`.
 - `scripts/characters/blacksmith_thor_shield_state.gd`
   Owns Kohaku / Baltor's first Godot combat slice for Thor Shield:
   shield open / retract timers, swing timing, movement slowdown, shield
@@ -106,6 +108,11 @@ This section is intentionally long; use search to find the nearest owner.
   speed multipliers, cleanse, and reverse-input hooks receive one canonical
   state. During migration it also emits the legacy active-item / Stage 3
   / Stage 4 context keys that existing renderers and AI branches already consume.
+- `scripts/status/boss_slow_tiers.gd`
+  Owns the standard Godot boss slow strength constants for new slow sources:
+  weak 0.70, medium 0.55, and strong 0.40 as direct movement multipliers.
+  `status_effect_state.gd` still owns stacking, duration, source cleanup, and
+  context export.
 - `scripts/items/active_item_runtime_update_driver.gd`
   Owns active-item runtime per-frame sequencing: effect update, stopwatch
   time-freeze gating for field / throw updates, field pickup callback
@@ -170,11 +177,79 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_current_profile.gd`
   Owns the currently selected Ringpet profile view: normalized pet id,
   display name, hatch-hit requirement, stats, selected active-skill metadata,
-  selected passive-skill metadata, effect text, hit footprint helpers, and
-  selected-pet visual prewarm / texture lookup
+  selected passive-skill metadata, active / passive slot id-level arrays,
+  active / passive effective-level projection, effect text, hit footprint
+  helpers, and selected-pet visual prewarm / texture lookup
   through `lingpet_visual_texture_cache.gd`. `lingpet_egg_runtime.gd` should
   update this helper when the active pet id changes instead of querying
-  `lingpet_catalog.gd` directly.
+  `lingpet_catalog.gd` directly, and should not keep unused display-name /
+  skill-pool / player-speed / hit-footprint / visual-texture / passive-skill /
+  motion-style / gauge-bonus / required-hit / generic-stat / hit-gauge-gain /
+  normalized-pet-id pass-through wrappers after the profile owns those views.
+  Runtime affinity APIs should resolve public pet-id fallbacks through this
+  profile helper at the call site instead of reintroducing local
+  `_resolve_affinity_pet_id` / `_get_active_affinity_pet_id` wrappers.
+- `scripts/lingpet/lingpet_profile_runtime_surface.gd`
+  Owns guarded runtime-facing reads from `lingpet_current_profile.gd` for the
+  egg runtime: hatch-hit requirement, companion catch footprint, hit-gauge gain,
+  gauge / player-speed bonuses, current passive skill, passive skill list /
+  id lookup, motion style, and active / passive skill pool surfaces. It does
+  not own catalog lookup, selected-pet projection, or visual texture cache invalidation; those stay in
+  `lingpet_current_profile.gd`. `lingpet_egg_runtime.gd` should ask this
+  surface for repeated companion stat / passive / pool payloads instead of
+  scattering current-profile method guards or rebuilding profile stat bundles
+  inline.
+- `scripts/lingpet/lingpet_ring_core_rules.gd`
+  Owns the shared Ringpet ring-core cap scale: maximum affinity level,
+  maximum run ring-core tier, and tier-to-affinity-cap conversion. Runtime
+  grant, store-compatibility, and UI projection code should call this helper
+  instead of retyping cap constants.
+- `scripts/lingpet/lingpet_affinity_state.gd`
+  Owns run-local Ringpet affinity progression state: source gain tables, per-pet
+  level / point totals, battle caps, this-run chips / feed bonus / ring-core
+  tier, second-unlock roll state, hatch stat-roll fields, and run-state export /
+  import. The current second unlock gate is first active + passive effective
+  level sum >= 5, followed by the deterministic 30% roll-per-level path; fixed
+  Lv.22 / Lv.25 unlock-card wording should not be reintroduced.
+- `scripts/lingpet/lingpet_affinity_store.gd`
+  Owns Ringpet affinity save compatibility for the v5 meta-only contract. It
+  normalizes the persisted affinity section to schema metadata, intentionally
+  ignores legacy best-level / bond-point / ring-core payloads, and must not
+  resurrect run-local affinity progress from save data.
+- `scripts/lingpet/lingpet_affinity_income_tracker.gd`
+  Owns per-battle Ringpet affinity income accounting: totals by source and pet,
+  level-up counts, optional debug logging, BattlePerf counter forwarding, and
+  reset-on-battle lifecycle. Grant controllers should record through this
+  tracker instead of scattering per-source counters.
+- `scripts/lingpet/lingpet_decoder.gd`
+  Owns pure Ringpet language decoder math: decoder level clamping, 20% reveal
+  increments, token-tier reveal, hidden glyph segments, decoded Korean key
+  segments, and emotion-token visibility. It should stay catalog- and UI-agnostic.
+- `scripts/lingpet/lingpet_language_catalog.gd`
+  Owns the static Ringpet language line catalog: line ids, speaker / emotion
+  metadata, glyph text, token tiers, generic emotion buckets, and random generic
+  line selection. New lines should be added here with matching localization keys,
+  not hardcoded in UI renderers.
+- `scripts/lingpet/lingpet_language_rich_text.gd`
+  Owns Ringpet language rich-text presentation helpers: decoder-run conversion,
+  Lingpet/body font loading and prewarm, run colors / font selection, label
+  application, and plain-text extraction. It does not choose catalog lines or
+  mutate decoder progress.
+- `scripts/lingpet/lingpet_skill_dispatcher.gd`
+  Owns active Ringpet skill-id to runtime-kind routing, supported-kind checks,
+  shared-module detection, and exclusive resource-class policy for dual active
+  loadouts. New active skills should register their runtime kind in the catalog
+  and keep any legacy id fallback here until old saves no longer need it.
+- `scripts/lingpet/lingpet_debug_stat_override_state.gd`
+  Owns F7 Ringpet debug stat override state and policy: defense-rate override
+  clamp / clear, appearance-rate override clamp / clear, move-speed multiplier
+  clamp / clear, patrol-only defense visibility, flight-only appearance
+  visibility, profile stat lookup for patrol speed / defense / appearance, and
+  ungated move-speed multiplication. `lingpet_egg_runtime.gd` keeps the public
+  debug setter / getter API used by the picker and character info smokes while
+  delegating the actual override state and profile-aware stat resolution.
+  Private `_get_current_patrol_speed`, `_get_current_defense_rate`, and
+  `_get_current_appearance_rate` runtime wrappers should not be reintroduced.
 - `scripts/lingpet/lingpet_affinity_feedback_state.gd`
   Owns Ringpet affinity level-up and point-gain feedback state: level-up flash
   timers, title / heart-tint state, point-popup coalescing, expiry, snapshot
@@ -186,34 +261,275 @@ This section is intentionally long; use search to find the nearest owner.
   point-gain popups and renderer-facing ratio payloads. The feedback state
   module should keep timers, coalescing, cap enforcement, labels, and snapshot
   fanout.
+- `scripts/lingpet/lingpet_affinity_context_coordinator.gd`
+  Owns Ringpet affinity reward-context composition and current-profile
+  projection: per-pet run-local reward seeds, inactive-pet motion-style lookup,
+  stored-vs-explicit loadout base levels, this-run ring-core cap clamping,
+  `configure_reward_context()` writes, test seed injection, and affinity level /
+  cumulative-reward sync into `lingpet_current_profile.gd`, plus level-gain
+  current-profile projection and loadout / owner-sync cache invalidation.
+  `lingpet_egg_runtime.gd` should call `configure()` / `sync_current_profile()`
+  directly for reward-context, pet-id, loadout, and level-gain projection
+  points instead of reintroducing private reward-context, current-profile
+  affinity sync, or level-gain callback wrappers.
+- `scripts/lingpet/lingpet_current_pet_transition.gd`
+  Owns the current-pet id transition fanout: setting the current profile's pet
+  id, projecting affinity state into that profile, clearing skip-unlock
+  reconcile when the pet changes, resetting distance-roll / affinity-feedback
+  transient / click-reaction prewarm / acquire-cutin prewarm state, invalidating
+  loadout and snapshot caches, and syncing the visible affinity feedback level.
+  `lingpet_egg_runtime.gd` keeps `_pet_id` storage and the current wrapper while
+  migration is ongoing, but should not re-inline the transition side effects.
+- `scripts/lingpet/lingpet_affinity_grant_controller.gd`
+  Owns the configured Ringpet affinity grant lifecycle: point-state mutation,
+  income / BattlePerf recording, current-companion point popup dispatch,
+  level-gain callback ordering, next-reward label resolution, level-up feedback,
+  post-feedback audio dispatch, and the latest grant/request result exposed for
+  focused tests. `lingpet_egg_runtime.gd` keeps reward-context configuration
+  plus the profile-sync / loadout-cache compatibility callback and should not
+  reintroduce a raw latest-affinity-result dictionary.
+- `scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd`
+  Owns Ringpet ball-hit affinity tag capture / merge policy: defense-intercept
+  and ring-dash block tags, null-safe state capture, OR-style merge semantics,
+  and shared defense-tag detection for guard feedback. `lingpet_egg_runtime.gd`
+  should call resolver-owned capture, merge, and defense-tag detection directly
+  from the labelled companion-hit phase boundaries instead of reintroducing
+  single-use capture, merge, or guard-label predicate wrappers.
+- `scripts/lingpet/lingpet_affinity_run_upgrade_controller.gd`
+  Owns Ringpet run-scope upgrade result application and payloads for affinity
+  enhancement chips and run Ring Core tier upgrades: cap reporting, live
+  multiplier / cap reads, accepted flags, and refund-safe blocked reasons.
+  `lingpet_egg_runtime.gd` keeps the public perk / plaza API wrappers.
+- `scripts/lingpet/lingpet_affinity_battle_lifecycle.gd`
+  Owns Ringpet affinity battle lifecycle policy: score-event affinity grants
+  (player-scored round commit, player victory payout), match-finish pending
+  bond settlement / defeat discard, last-settlement test surface, and new-battle
+  income-log / battle-cap reset. `lingpet_egg_runtime.gd` keeps the public
+  score-event and battle-reset APIs and delegates through the shared affinity
+  point-grant chokepoint.
+- `scripts/lingpet/lingpet_affinity_owner_surface.gd`
+  Owns affinity runtime / owner projection: level, points, next requirement /
+  reward label, this-run ring-core tier, enhancement chips, v5 zeroed bond
+  compatibility fields, `lingpet_*` / `ringpet_*` pair publication, owner-id
+  cache rebasing, stable-key skip decisions, reward-signature invalidation, and
+  the existing focused build-count instrumentation. `lingpet_egg_runtime.gd`
+  keeps the public snapshot API and compatibility counter wrappers.
+- `scripts/lingpet/lingpet_hatch_stat_roll_state.gd`
+  Owns one-time hatch stat-roll application for randomized Ringpet loadouts:
+  pet-id normalization, already-set blocking, randomized mobility / defense
+  headstarts, the patrol-only defense headstart gate, and item-egg hatch
+  loadout/stat headstart coordination via unsynced loadout storage plus the
+  owner-loadout sync invalidation required after those unsynced item-egg writes.
+  `lingpet_egg_runtime.gd` calls this helper when a newly randomized hatch
+  loadout needs its first headstart roll or an absorbed / overflow item egg
+  needs hatch traits; inline hatch-roll policy wrappers or item-egg loadout-sync
+  invalidation should not be reintroduced.
+- `scripts/lingpet/lingpet_feed_controller.gd`
+  Owns the Ringpet feed request lifecycle: missing / busy / run-cap / level-cap
+  rejection, bowl placement near the player, pending pet and registry context,
+  feed-bowl approach / eating delegation, completion handoff, snapshot / draw /
+  position-override forwarding, and reset cleanup. `lingpet_egg_runtime.gd`
+  keeps the public `feed_lingpet()` API, advances this controller directly from
+  the companion update, and applies completed feeds through the shared affinity
+  point-grant chokepoint; single-use feed advance or feed reset wrappers should
+  not be reintroduced.
+- `scripts/lingpet/lingpet_plaza_resonance_egg_summary_builder.gd`
+  Owns plaza Resonance Egg offer / spawn summary payload construction:
+  handled / changed flags, `can_spawn` reasons, current runtime state,
+  hatch-hit progress fields, and reason priority for missing owner, active egg,
+  no hatch candidates, and ok offers. `lingpet_egg_runtime.gd` keeps the actual
+  spawn state transition and collection sync.
+- `scripts/lingpet/lingpet_overflow_release_plan.gd`
+  Owns overflow release action planning after the modal release choice:
+  consuming the captured release context, distinguishing incubator item-egg
+  release from main egg overflow release, checking whether a suspended
+  companion can be restored from the collection, and returning sync / restore /
+  clear-pending actions. `lingpet_egg_runtime.gd` executes the returned action
+  and should not re-interpret `from_item_egg` or suspended-companion release
+  context inline.
+- `scripts/lingpet/lingpet_overflow_replace_plan.gd`
+  Owns overflow replace action planning after the modal replace choice:
+  validating active pending overflow state, distinguishing incubator item-egg
+  replace from main egg overflow replace, committing the main collection
+  `replace_slot()` call, and returning the old / pending pet ids plus item-egg
+  or main-commit action. `lingpet_egg_runtime.gd` executes the returned action
+  and should not re-interpret item-egg source state or call collection
+  replacement inline for normal overflow replacement.
+- `scripts/lingpet/lingpet_perf_probe.gd`
+  Owns Ringpet runtime BattlePerf logger lookup and sample forwarding:
+  registry `battle_perf_logger` lookup, draw-context logger lookup, guarded
+  `begin_sample()` / `finish_sample()` calls, and null / invalid-object
+  fallbacks. `lingpet_egg_runtime.gd` keeps only the labelled phase boundaries
+  so the physics / draw label set remains visible in the hot path.
 - `scripts/lingpet/lingpet_egg_field_state.gd`
   Owns Ringpet floor-egg field behavior: spawn position near the player paddle,
   player-contact nudge / wobble, egg ball-hit overlap state, player-serve
   bounce-without-crack semantics, paddle-style ball reflection, hit cooldown,
-  hatch-hit counting, and egg snapshot fields. `lingpet_egg_runtime.gd` keeps
-  the state transition into companion mode and the hatch flash / cut-in trigger.
+  hatch-hit counting, hatch-flash timer lifecycle, and egg snapshot fields.
+  `lingpet_egg_runtime.gd` keeps the state transition into companion mode and
+  the hatch / cut-in trigger points, but should not reintroduce a raw
+  `_hatch_flash_timer` field.
 - `scripts/lingpet/lingpet_egg_field_renderer.gd`
   Owns Ringpet floor-egg rendering: intact / cracked egg texture placement,
-  glow, crack light leakage, hatch flash rings, and deterministic shell-shard
-  burst geometry. `lingpet_egg_runtime.gd` supplies egg state and catalog-backed
-  textures, but egg / hatch draw math should stay in this renderer.
+  intact / cracked visual-key selection, glow, crack light leakage, hatch flash
+  rings, profile-backed egg texture resolution for incubator item eggs, and
+  deterministic shell-shard burst geometry. `lingpet_egg_runtime.gd` asks this
+  renderer for the main egg visual key, delegates item-egg profile drawing to
+  the renderer, and calls the renderer directly for egg / hatch-flash draws;
+  egg / hatch draw math, crack-stage key choice, and single-use draw wrappers
+  such as `_draw_item_egg` should stay out of the runtime.
+- `scripts/lingpet/lingpet_effect_text_resolver.gd`
+  Owns owner-facing Ringpet effect-text selection: unidentified-egg hit-count
+  copy for floor eggs, current-profile catalog copy for companions, and empty
+  text for hidden states. `lingpet_egg_runtime.gd` calls this resolver directly
+  from owner sync instead of keeping single-use text-selection wrappers or
+  inline Korean copy.
 - `scripts/lingpet/lingpet_companion_skill_state.gd`
   Owns Ringpet active-skill shared state: cooldown countdown, wind-up timing,
   launch origin, flash timer / ratio, trigger count, and snapshot payload
   fields. Pet-specific skill modules should own their projectile / field /
   status behavior, while `lingpet_egg_runtime.gd` uses this state controller
   for the common cast lifecycle.
+- `scripts/lingpet/lingpet_companion_skill_persistence.gd`
+  Owns Ringpet companion active-skill persistence across pet switches: per-pet
+  stored skill-state snapshots, legacy flat snapshot migration into slot 0,
+  inactive-pet cooldown ticking, shared trigger-count synchronization across
+  active slots, clamped skill-state slot lookup, windup reset fanout, skill
+  runtime host full-vs-round transient reset routing, per-stage persistent
+  deployment wipe detection, and launch trigger recording.
+  `lingpet_egg_runtime.gd` calls this owner directly from the frame-advance and
+  launch paths; dead advance / snapshot / slot-key wrapper names, raw stored
+  dictionary aliases, single-use windup predicate wrappers, cancel / reset
+  pass-through wrappers, private skill-state slot accessor wrappers, skill
+  runtime transient-reset wrappers, per-stage deployment reset wrappers,
+  trigger-count sync wrappers, and launch-record wrappers should not be
+  reintroduced.
+- `scripts/lingpet/lingpet_active_skill_slot_resolver.gd`
+  Owns Ringpet companion active-skill slot resolution: second-active unlock
+  gating, public/private slot-id compatibility, host module-sharing collapse of
+  slot 1, runtime active-skill id list assembly, and second-slot active-skill /
+  windup metadata surfaces.
+  `lingpet_egg_runtime.gd` should call this resolver directly for slot count,
+  slot skill ids, active-id lists, active skill dictionaries, and per-slot
+  windup seconds instead of reintroducing private pass-through wrappers. Inline
+  slot-count conflict logic and unused second-slot pass-through wrappers should
+  stay out of the runtime.
 - `scripts/lingpet/lingpet_companion_skill_controller.gd`
   Owns Ringpet companion active-skill arm / launch decisions: supported
   runtime id guard, host update, wind-up completion, ready-to-arm checks,
-  skill prewarm before cast wind-up, launch completion, cooldown / flash
-  commit, and launch feedback. `lingpet_egg_runtime.gd` should keep only the
-  narrow update hook plus companion-position / launch-origin application.
+  cross-slot arm-gate mediation through `lingpet_companion_skill_arm_gate.gd`,
+  skill prewarm before cast wind-up, launch completion, cooldown / flash commit,
+  and launch feedback. `lingpet_egg_runtime.gd` should keep only the narrow
+  update hook plus companion-position / launch-origin application, and should
+  not keep a separate arm-gate instance.
+- `scripts/lingpet/lingpet_companion_skill_arm_gate.gd`
+  Owns Ringpet companion active-skill arm mediation between active slots:
+  exclusive-resource intersection checks, peer windup holds, active launch-block
+  holds, and companion position-override holds. Focused smokes should call this
+  owner directly for arm-gate assertions; `lingpet_companion_skill_controller.gd`
+  embeds it for runtime arm decisions. `lingpet_egg_runtime.gd` should not keep
+  private arm-gate pass-through wrappers, a separate arm-gate instance, or
+  re-list the cross-slot resource-hold logic inline.
+- `scripts/lingpet/lingpet_companion_skill_visual_resolver.gd`
+  Owns Ringpet companion active-skill visual ownership resolution: active
+  position-override owner selection, body-skill id fallback, active visual slot
+  priority for windups / cast-pose progress, and legacy host fallback queries.
+  `lingpet_skill_runtime_surface.gd` is the egg runtime's public surface for
+  active position-owner queries / predicates and body-skill id assembly; the
+  egg runtime should not reassemble active ids for this resolver inline or
+  reintroduce single-use position-override, active-owner, active-override, or
+  body-skill-id pass-through wrappers.
+- `scripts/lingpet/lingpet_companion_body_presence_resolver.gd`
+  Owns Ringpet companion body presence decisions: hit availability, draw
+  visibility, ring-dash hidden priority, override-source presence gates, and
+  front-pass bind-sheet body gates, plus draw motion-speed ratio selection for
+  active-skill / feed / starlight override sources, patrol real-movement
+  cadence, sortie-flight hover flap floors, runtime / draw-surface source
+  assembly for that cadence, draw-surface visibility source assembly, and
+  click-affinity / click-reaction visibility gating, and body-hit availability
+  source assembly.
+  `lingpet_egg_runtime.gd` calls this resolver directly for hit availability,
+  draw visibility, front-pass body gates, click-affinity / click-reaction
+  visibility, and draw-motion cadence decisions;
+  body-presence pass-through wrappers, private draw-motion speed-ratio helpers,
+  or inline source assembly for walk-frame / draw-context cadence, visibility,
+  click-affinity / click-reaction, or body-hit availability should not be
+  reintroduced.
+- `scripts/lingpet/lingpet_companion_runtime_resetter.gd`
+  Owns full companion runtime reset fanout: sprite animator, distance-roll,
+  body-hit, passive residue / dash / ghost / starlight / feed cleanup, skill
+  state reset, optional defense reset, and skill runtime transient cleanup. It
+  also owns egg-wait transition cleanup/prewarm fanout for automatic eggs,
+  plaza resonance eggs, and first-acquisition item eggs: field-egg spawn,
+  companion position reset surface, modal transition reset, none-owner sync
+  reset, and current-visual prewarm. It also owns hatch reveal transition
+  surfaces for regular hatches and overflow hatch commits: egg-position capture,
+  egg contact-motion reset, hatch flash trigger, optional acquisition cut-in
+  start/audio, and current-visual prewarm. It also owns companion activation
+  fanout after debug grants, slot switches, and owned-pet adoption: optional
+  hatch-complete marking, companion position reset surface, runtime reset,
+  current skill-state restore, switch / acquire-cutin reset options, current
+  visual prewarm, and active collection slot publication. It also owns
+  clear-pending / none-return cleanup fanout: main egg reset, coexisting item-egg
+  lifecycle cleanup, companion position reset surface, runtime reset, modal
+  transition reset, and current-visual prewarm. It also owns save/restore field
+  cleanup fanout that clears visible field remnants without wiping stored skill
+  state: main egg reset, companion position reset surface, passive / dash /
+  ghost / starlight / feed cleanup, overflow choice reset, and coexisting
+  item-egg lifecycle cleanup.
+  `lingpet_egg_runtime.gd` keeps the call-site wrapper while migration is
+  ongoing, but should not re-inline the full reset list, egg-wait
+  reset/prewarm list, hatch reveal flash/cutin/prewarm list, companion
+  activation restore/prewarm/active-slot list, clear-pending none-return cleanup
+  list, save/restore field cleanup list, or direct skill runtime transient reset
+  call.
+- `scripts/lingpet/lingpet_round_resetter.gd`
+  Owns round-boundary Lingpet reset fanout after any pending overflow release:
+  skill runtime round-scope transient reset, affinity round caps, affinity
+  feedback round transients, companion defense reset, switch transition reset,
+  companion skill round transients, body-hit / passive / VFX / starlight / feed
+  cleanup. `lingpet_egg_runtime.gd` keeps the public `reset_round()` entry and
+  pending-overflow release routing, but should not re-inline the round reset
+  list.
+- `scripts/lingpet/lingpet_companion_distance_roll_state.gd`
+  Owns Ringpet companion distance-roll visual state: roll angle, angular
+  velocity, signed path-distance conversion for horizontal / vertical travel,
+  actual drawn-position movement ratio, coast deceleration, radius / velocity
+  fallback config, reset behavior, and draw-angle shaping.
+  `lingpet_egg_runtime.gd` advances distance-roll state directly from the
+  draw-animation measurement path and asks it directly for draw angle and the
+  real-movement override ratio; dead movement / config / draw-angle wrappers
+  or raw runtime draw-position transients should not be reintroduced.
+- `scripts/lingpet/lingpet_companion_skill_effect_update_gate.gd`
+  Owns Ringpet companion active-skill effect update gating: cooldown / inactive
+  ball idle-skip decisions, visible-effect and windup guards, and the focused
+  runtime-update / idle-skip counters used by performance smokes.
+  `lingpet_egg_runtime.gd` keeps the narrow `_update_companion_skill_effects`
+  hook and public counter wrappers, but should not reintroduce the skip policy
+  or counter fields inline.
+- `scripts/lingpet/lingpet_companion_skill_update_context_builder.gd`
+  Owns Ringpet companion active-skill update-context assembly for the shared
+  controller: battle state / owner / registry / ball motion, switch-transition
+  and companion visibility flags, companion geometry, active-skill effective
+  level fallback, and Wild Roar-style flattened numeric context fields.
+  `lingpet_egg_runtime.gd` keeps the hot update loop and passes current values
+  into this builder instead of re-listing controller dictionary keys inline.
+- `scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd`
+  Owns Ringpet companion active-skill launch payload assembly: companion
+  identity / geometry fields, registry forwarding, effective active-skill id /
+  level fallback, and the shared numeric option defaults consumed by concrete
+  skill runtimes. `lingpet_egg_runtime.gd` should pass current launch context
+  into this builder instead of re-listing every skill-specific payload key.
 - `scripts/lingpet/lingpet_companion_motion_state.gd`
   Owns Ringpet companion shared motion state: player-height patrol lane,
   stop-and-go randomized movement, save / restore patrol snapshot keys, and
-  defense-rate intercept movement. `lingpet_egg_runtime.gd` keeps hatch /
-  body-hit orchestration and delegates companion movement decisions here.
+  defense-rate intercept movement / reset, plus sortie-flight loiter resume
+  after temporary Ring Dash position override release, patrol-dir based
+  first-frame facing resolution, and dx-based facing resolution for visible
+  companion travel. `lingpet_egg_runtime.gd` keeps hatch / body-hit
+  orchestration and delegates companion movement decisions here; single-use
+  companion defense reset, ring-dash resume, patrol-dir facing, or dx-facing
+  wrappers should not be reintroduced.
 - `scripts/lingpet/lingpet_companion_sprite_animator.gd`
   Owns Ringpet companion sprite animation math: walk / idle frame selection,
   cast wind-up frame mapping, strike playback state, strike entry-frame mapping,
@@ -223,10 +539,12 @@ This section is intentionally long; use search to find the nearest owner.
   frame math to the runtime.
 - `scripts/lingpet/lingpet_companion_strike_anticipator.gd`
   Owns Ringpet companion visual strike anticipation: ball-active / descending
-  checks, contact time prediction, current catalog hit-footprint inputs,
-  horizontal future-position tolerance, latch reset, and animator strike start.
-  The real bounce / gauge reward remains in `lingpet_companion_body_hit_state.gd`;
-  this helper is visual timing only.
+  checks, body-hit suppression mediation for active skill body owners, contact
+  time prediction, current catalog hit-footprint inputs, horizontal
+  future-position tolerance, latch reset, and animator strike start. The real
+  bounce / gauge reward remains in `lingpet_companion_body_hit_state.gd`; this
+  helper is visual timing only, and the runtime should not reintroduce a
+  private strike-arm wrapper.
 - `scripts/lingpet/lingpet_companion_draw_context_builder.gd`
   Owns Ringpet companion renderer config assembly: hit / gauge / skill flash
   ratios, switch-transition ratio and trigger counts, cast-vs-strike priority,
@@ -236,8 +554,18 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_companion_renderer.gd`
   Owns Ringpet companion draw presentation: idle bob / glow, walk / strike /
   cast sprite blitting, hit flash rings, skill flash rings, and direct-hit
-  gauge burst rays. `lingpet_egg_runtime.gd` supplies current textures and
-  transient state, but companion draw math should stay in this renderer.
+  gauge burst rays, affinity feedback burst / popup drawing, and soft-glow
+  texture prewarm. `lingpet_egg_runtime.gd` supplies current textures and
+  transient state, but companion draw math should stay in this renderer and
+  single-use affinity-feedback draw wrappers should not be reintroduced.
+- `scripts/lingpet/lingpet_current_visual_prewarm_coordinator.gd`
+  Owns selected Ringpet visual prewarm fanout at runtime transition points:
+  current-profile catalog visual prewarm, companion renderer soft-glow prewarm,
+  and companion click-reaction sheet queueing when the selected pet is active.
+  `lingpet_egg_runtime.gd` should call this coordinator directly from adopt /
+  hatch / restore / clear transition points instead of keeping a private
+  `_prewarm_current_visuals` wrapper or scattering the click-reaction queue
+  policy inline.
 - `scripts/lingpet/lingpet_companion_body_hit_state.gd`
   Owns Ringpet companion body-contact behavior: wide catch-box overlap state,
   contact cooldown, last contact position, player-paddle-style ball reflection,
@@ -245,6 +573,12 @@ This section is intentionally long; use search to find the nearest owner.
   hit / gauge flash snapshot fields. Future Ringpets with different body-hit
   rules should extend this helper instead of adding more collision math to
   `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_companion_player_block_resolver.gd`
+  Owns the Ringpet companion hit player-priority reach check: null / missing
+  player guards, player paddle width, ball-radius expansion, and inclusive
+  horizontal reach bounds. `lingpet_egg_runtime.gd` calls this resolver directly
+  when suppressing companion body hits that the player can take; single-use
+  player-block predicate wrappers should not be reintroduced.
 - `scripts/lingpet/lingpet_afterglow_leak_state.gd`
   Owns the shared Ringpet passive `lingpet_afterglow_leak` / 잔광 유출:
   companion-hit residue spawning, residue lifetime / seep-away cleanup,
@@ -279,44 +613,211 @@ This section is intentionally long; use search to find the nearest owner.
   companion / fresh-egg / none restore plan. `lingpet_egg_runtime.gd` should
   apply the returned plan to runtime state, not re-interpret save payloads
   inline.
+- `scripts/lingpet/lingpet_save_restore_applier.gd`
+  Owns Ringpet save-restore application choreography after the planner chooses
+  a target: reset-before-restore, empty-snapshot owner sync, loadout handoff,
+  companion restore hooks (loadout, hatched egg, companion position / patrol),
+  companion-position Vector2 coercion through `lingpet_runtime_vector_resolver`,
+  legacy save-state alias normalization, fresh-egg spawn, none-state clear,
+  final owner sync shape, and restore result payload. `lingpet_egg_runtime.gd`
+  keeps the public save / restore APIs and explicitly passes the remaining
+  runtime-owned field-clear / patrol-restore callbacks; the applier should not
+  dynamically probe those private hook names.
 - `scripts/lingpet/lingpet_loadout_state.gd`
   Owns Ringpet acquisition loadouts: per-pet selected active-skill id,
   selected active/passive Lv.1-Lv.5 values, selected passive-skill id,
   passive slot unlock count, `lingpet_loadouts` / `ringpet_loadouts` owner-key
-  compatibility, legacy missing-loadout defaults, and first-acquisition random
-  shared-passive selection. Future Ringpet skill rerolls, choice tickets, or
-  growth-driven loadout changes should update this helper instead of adding
-  more selected-skill dictionaries to `lingpet_egg_runtime.gd`.
+  compatibility, legacy missing-loadout defaults, first-acquisition random
+  shared-passive selection, current runtime apply-cache key, owner-sync
+  loadout-snapshot key, snapshot-sync cache invalidation fanout, and
+  debug-forced unlock-reconcile skip latch, explicit set-loadout + cache
+  invalidation fanout for debug / fixture loadouts, and forget-loadout + cache
+  invalidation fanout for released / replaced pets. Runtime release / replace
+  paths should call this owner directly when forgetting a removed pet's loadout
+  so runtime + snapshot caches are invalidated only when it reports an actual
+  deletion.
+  `lingpet_egg_runtime.gd` should call this owner for loadout cache
+  invalidation instead of keeping a private `_invalidate_current_loadout_cache`
+  wrapper. Future Ringpet skill rerolls, choice tickets, growth-driven loadout
+  changes, or loadout sync throttles should update this helper instead of
+  adding more selected-skill dictionaries or cache-key latches to
+  `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_loadout_cache_key_builder.gd`
+  Owns Ringpet selected-loadout cache key construction: active / passive skill
+  id-level slot signatures, active / passive slot-count fields, empty-id
+  filtering, malformed level fallback handling, and affinity reward-signature
+  inclusion. Current-loadout application calls this builder through
+  `lingpet_current_loadout_applier.gd`; `lingpet_egg_runtime.gd` should not own
+  selected-loadout cache-key construction directly.
+- `scripts/lingpet/lingpet_current_loadout_applier.gd`
+  Owns current-pet loadout application fanout: empty-pet profile/loadout reset,
+  skip-unlock reconcile clearing for empty state, unlock-to-loadout
+  reconciliation, ensure-vs-read loadout selection, first hatch stat-roll
+  delegation, affinity reward-context refresh, selected-loadout cache-key
+  comparison / mark, current-profile loadout and affinity projection, and
+  active-skill runtime prewarm after a loadout becomes active.
+  `lingpet_egg_runtime.gd` keeps the call sites and current pet id, but should
+  not re-inline current-loadout apply/cache/prewarm fanout.
+- `scripts/lingpet/lingpet_unlock_loadout_reconciler.gd`
+  Owns affinity-reward-to-loadout reconciliation: active / passive unlock
+  candidate construction, deterministic secondary candidate ordering,
+  automatic run-state choice resolution, duplicate and shared-runtime-module
+  rejection, existing skill-level preservation, and final two-slot loadout
+  writes, including runtime cache invalidation after an actual loadout change.
+  Focused unlock smokes should call this owner directly for candidate caps,
+  loadout-match checks, work-gate checks, and runtime reconcile idempotence;
+  `lingpet_egg_runtime.gd` should call this owner directly instead of keeping a
+  private reconcile wrapper. Private test pass-through wrappers, single-use
+  work-gate wrappers, and v4 persisted unlock-choice store wrappers should not
+  be reintroduced.
 - `scripts/lingpet/lingpet_collection_state.gd`
   Owns Ringpet owned-collection state and owner-key compatibility: save
   `owned_pet_ids`, `lingpet_owned_pet_ids` / `owned_lingpet_ids` /
   `owned_ringpet_ids`, collection dictionaries, first-owned companion adoption,
-  and catalog-backed hatch candidate selection. Future Ringpet acquisition
-  routes should update this helper instead of adding more collection key scans
-  to `lingpet_egg_runtime.gd`.
+  active battle-slot placement for owned pets, catalog-backed hatch candidate
+  selection, Junior auto-present league checks, and egg-spawn availability
+  checks. Future Ringpet acquisition routes should update this helper instead
+  of adding more collection key scans to `lingpet_egg_runtime.gd`, and unused
+  first-owned, owned-pet marking, hatch-selection, hatch-availability,
+  auto-present, or active-slot pass-through wrappers should not be reintroduced
+  in the runtime.
+- `scripts/lingpet/lingpet_none_owner_sync_state.gd`
+  Owns STATE_NONE update policy and the owner-sync one-shot gate used by Pro /
+  Mythic fresh battles and Junior no-candidate idle frames: auto-present league
+  branching, owned-pet adoption, automatic egg spawning, and single none
+  snapshot publishing. `lingpet_egg_runtime.gd` should delegate the STATE_NONE
+  update branch to this owner and reset it when leaving or fully clearing the
+  field, instead of keeping a raw `_has_synced_none` latch or private
+  `_update_none_state` wrapper.
+- `scripts/lingpet/lingpet_overflow_choice_state.gd`
+  Owns Ringpet overflow replacement-modal state: pending vs active flags,
+  pending pet id, suspended companion id for main-egg overflow restore, and the
+  coexist-incubator item-egg source flag. It also owns overflow-modal snapshot
+  payload assembly (`pending_display_name`, slot entries, active slot marker)
+  with display-name lookups supplied by `lingpet_collection_state.gd`, plus the
+  capture-before-reset commit / release context used by replace and discard
+  flows, and acquire-cutin-close routing that marks item-egg absorbs ready
+  before activating a pending main overflow modal.
+  `lingpet_egg_runtime.gd` keeps the public modal snapshot / commit APIs and
+  hatch orchestration, but gates egg offers, deploys, plaza spawns, and round
+  reset through this state owner, and calls it directly for item-egg overflow
+  setup, instead of keeping raw
+  `_pending_overflow_choice` / `_overflow_choice_active` fields,
+  inline display-payload assembly, direct state-field reads, or a
+  `_clear_overflow_choice_state` / item-egg setup wrapper / private
+  acquire-cutin completion router.
+- `scripts/lingpet/lingpet_item_egg_lifecycle_state.gd`
+  Owns the coexisting item-egg lifecycle state used when `lingpet_egg` is
+  deployed while a companion is already active: active egg pet id, incubation
+  blocking checks, item-egg tick-to-reveal transition, reveal-to-absorb waiting /
+  ready flags, absorb pet id, absorb origin capture, the dedicated incubator-egg
+  current profile used for required-hit / egg-visual / cut-in reads, and full
+  coexisting item-egg cleanup across lifecycle state, field egg state, absorb
+  VFX, and reveal display identity.
+  `lingpet_egg_runtime.gd` keeps the acquire cut-in start, absorb VFX,
+  hatch trait / affinity follow-up, and owner sync choreography, but should not
+  reintroduce raw `_item_egg_active`, `_item_egg_pet_id`,
+  `_item_egg_awaiting_absorb`, `_item_egg_absorb_ready`,
+  `_item_egg_absorb_pet_id`, `_item_egg_absorb_origin`, `_item_egg_profile`,
+  private `_advance_item_egg` / `_on_item_egg_hatched` wrappers, or a private
+  `_clear_item_egg_state` wrapper.
+- `scripts/lingpet/lingpet_item_egg_absorb_router.gd`
+  Owns the coexisting item-egg absorb registration route after the reveal
+  cut-in closes: owner collection sync, free-slot registration that preserves
+  the active companion slot, and roster-full handoff into item-egg overflow
+  replacement choice. It also owns the item-egg overflow replace slot commit
+  routing: collection slot replacement, old/new pet result payload, active
+  companion replacement detection, and active-companion slot preservation when
+  the chosen replaced slot is not the current companion.
+  `lingpet_egg_runtime.gd` keeps absorb VFX triggering, hatch trait rolls,
+  affinity grants, and owner sync choreography, but should not reintroduce
+  item-egg absorb-time collection full checks, free-slot registration calls, or
+  item-egg overflow setup / replace-slot routing inline.
+- `scripts/lingpet/lingpet_tutorial_bootstrap.gd`
+  Owns the Junior Mika first-Ringpet tutorial bootstrap: first-egg eligibility
+  checks, the shipped standard run ring-core tier, and run-state-only tier
+  upgrade before the automatic egg spawns. `lingpet_egg_runtime.gd` should call
+  this helper from the automatic egg-spawn transition instead of keeping
+  tutorial eligibility / grant policy helpers locally.
 - `scripts/lingpet/lingpet_acquire_cutin_state.gd`
   Owns Ringpet acquisition cut-in timing state: reveal progress, hold-until-
   dismiss semantics, click-triggered exit-action progress, hard reset, and
-  auto-close when the exit action completes. `lingpet_egg_runtime.gd` keeps
-  the public modal / input / overlay API and delegates timing here so future
-  Ringpet reveal variants do not add more cut-in clocks to the runtime.
+  auto-close when the exit action completes, plus reveal-only display pet id
+  overrides for incubator item-egg cut-ins. `lingpet_egg_runtime.gd` keeps the
+  public modal / input / overlay API and delegates timing / display identity
+  here so future Ringpet reveal variants do not add more cut-in clocks or raw
+  display-id fields to the runtime. Call sites should resolve display identity
+  through `get_display_pet_id()` / `has_display_override()` instead of
+  reintroducing `_acquire_cutin_pet_id` or private `_get_cutin_pet_id` /
+  `_get_cutin_profile` wrappers. Hatch / debug / item-egg reveal start sites
+  should call `_acquire_cutin_state.start()` (passing an override pet id only
+  for item-egg reveal) and the audio dispatcher at the event site instead of
+  reintroducing a single-use `_start_acquire_cutin` wrapper.
+- `scripts/lingpet/lingpet_acquire_cutin_overlay_host_resolver.gd`
+  Owns Ringpet acquisition cut-in overlay host registry lookup: the shared
+  `lingpet_acquire_cutin_overlay_host` key, cached-instance priority, normal
+  instance fallback, object/null guard, and optional animated cut-in readiness
+  query fallback. `lingpet_egg_runtime.gd` calls this resolver directly from
+  the reveal gate and egg-phase asset prewarm path instead of keeping narrow
+  pass-through wrappers.
+- `scripts/lingpet/lingpet_acquire_cutin_asset_prewarm_state.gd`
+  Owns Ringpet acquisition cut-in asset prewarm completion state: completed
+  pet id bookkeeping, empty-pet no-op handling, registry overlay-host
+  resolution, host capability guard, host prewarm ticking, and short-circuiting
+  already-cached pets. `lingpet_egg_runtime.gd` should call this helper
+  directly from main-egg, cut-in advance, and incubator-egg prewarm points
+  instead of reintroducing private `_prewarm_acquire_cutin_assets_step` or
+  `_prewarm_item_egg_cutin_assets_step` wrappers.
 - `scripts/lingpet/lingpet_companion_click_reaction_state.gd`
   Owns in-battle companion click-reaction behavior: tap-zone math, focused
-  click-reaction sheet prewarm keys, 98-frame popup timing / alpha, and sheet
-  frame drawing. `lingpet_egg_runtime.gd` keeps only the playfield click API
-  and current-pet texture lookup.
+  click-reaction sheet prewarm keys, cached-first ready-texture lookup,
+  98-frame popup timing / alpha, and sheet frame drawing.
+  `lingpet_egg_runtime.gd` keeps only the playfield click API and should ask
+  this owner for texture readiness instead of keeping private readiness wrappers
+  or re-listing the runtime visual key lookup.
+- `scripts/lingpet/lingpet_companion_click_reaction_draw_size_resolver.gd`
+  Owns in-battle companion click-reaction draw-size resolution: per-pet
+  `click_reaction_draw_size` override priority, `companion_walk_draw_size`
+  fallback, and sprite-default fallback for missing / non-positive values.
+  `lingpet_egg_runtime.gd` calls this resolver directly from the body draw path
+  when the click-reaction sheet is visible.
+- `scripts/lingpet/lingpet_companion_click_reaction_visual_prewarm_state.gd`
+  Owns in-battle companion click-reaction visual prewarm bookkeeping: current
+  queued pet id, completed pet id, companion-state gating, short-circuiting for
+  already-cached pets, and threaded prewarm step iteration across the focused
+  click-reaction visual keys. `lingpet_egg_runtime.gd` schedules and ticks this
+  state directly from visual prewarm / companion-update paths; single-use queue
+  or step wrappers should not be reintroduced.
 - `scripts/lingpet/lingpet_ghost_blink_vfx.gd`
   Owns Rabi free-flight companion appear / vanish blink VFX: deterministic
   soft-glow prewarm, pop / implode timers, bounded wisp particles, immediate
-  draw ordering, and reset cleanup. `lingpet_egg_runtime.gd` should only
-  trigger, advance, draw, and reset this helper when ghost visibility changes.
+  draw ordering, free-flight visibility edge tracking, and reset cleanup.
+  `lingpet_egg_runtime.gd` should only sync visibility, advance, draw, and
+  reset this helper; raw `_prev_ghost_visible` state or single-use trigger-edge
+  wrappers should not be reintroduced.
+- `scripts/lingpet/lingpet_runtime_vector_resolver.gd`
+  Owns small Ringpet runtime Vector2 resolution helpers: Variant-to-Vector2
+  fallback coercion, owner-backed player paddle position / size reads, and
+  Starlight Tracking pickup delivery-center / item-egg absorb-target
+  calculation. `lingpet_egg_runtime.gd` and `lingpet_save_restore_applier.gd`
+  call the resolver directly anywhere they need those fallback semantics for
+  position overrides, save-restore companion position, pickup delivery, or
+  player-centered absorb VFX targets.
+- `scripts/lingpet/lingpet_audio_dispatcher.gd`
+  Owns Ringpet runtime GameAudio dispatch for runtime-owned SFX hooks:
+  acquisition cut-in, ring dash, companion click-reaction voice, and
+  acquisition-click backing. It centralizes guarded `game_audio` registry
+  lookup and method invocation, while `lingpet_egg_runtime.gd` keeps the
+  event-timing branches that decide when each cue should fire and calls the
+  dispatcher directly; single-use audio play wrappers should not be
+  reintroduced.
 - `scripts/lingpet/lingpet_runtime_snapshot_builder.gd`
   Owns Ringpet runtime data projection: live snapshot assembly, save snapshot
   assembly, selected loadout / passive-skill projection, and owner
-  compatibility key sync for both `lingpet_*` and `ringpet_*` consumers.
-  `lingpet_egg_runtime.gd` supplies current state / catalog stats / helper
-  modules, but UI, HUD, and save-facing payload shapes should stay centralized
-  here.
+  compatibility key sync plus sync-cache invalidation for both `lingpet_*` and
+  `ringpet_*` consumers. `lingpet_egg_runtime.gd` supplies current state /
+  catalog stats / helper modules, but UI, HUD, and save-facing payload shapes
+  should stay centralized here.
 - `scripts/lingpet/lingpet_egg_runtime.gd`
   Owns the first Ringpet runtime slice: catalog-backed Junior League +
   Mika eligibility, hidden egg identity selection, owner-state sync for the
@@ -332,13 +833,40 @@ This section is intentionally long; use search to find the nearest owner.
   for modal / input / overlay controllers, but the reveal and dismiss timing
   state lives in `lingpet_acquire_cutin_state.gd`; companion click-reaction
   tap-zone / draw / timing state lives in `lingpet_companion_click_reaction_state.gd`.
+  The old v4 persisted-affinity store headstart path is removed from this
+  runtime; v5 affinity is run-state only. `set_affinity_store_for_tests()`
+  remains as a public no-op compatibility hook so tests can prove injected
+  legacy store residue cannot affect battle affinity, ring-core cap, or
+  owner-surface sync.
 - `scripts/lingpet/lingpet_skill_runtime_host.gd`
   Owns Ringpet active-skill module dispatch: skill-kind lookup, skill-specific
-  prewarm / update / draw / visible-effect checks, launch blocking, launch
-  calls, cast-windup visual gating, launch feedback, and skill snapshot merge.
-  Future Ringpet active skills should add a focused skill module plus a
-  dispatcher / host branch here instead of adding concrete projectile or field
-  behavior to `lingpet_egg_runtime.gd`.
+  prewarm / batch prewarm, update / draw / visible-effect checks, launch
+  blocking, launch calls, cast-windup visual gating, launch feedback, and skill
+  snapshot merge. Future Ringpet active skills should add a focused skill
+  module plus a dispatcher / host branch here instead of adding concrete
+  projectile or field behavior to `lingpet_egg_runtime.gd`; callers should
+  pass surface-built active skill id lists to `prewarm_many()` instead of
+  reintroducing a private `_prewarm_current_skill_runtime` wrapper or an inline
+  prewarm loop.
+- `scripts/lingpet/lingpet_skill_runtime_surface.gd`
+  Owns Ringpet skill-runtime host public surface guards for the egg runtime:
+  companion-state-gated boss-AI context, companion-state-gated ball-collision
+  context, bind-sheet front-pass state checks, companion body hit/draw
+  suppression checks, companion strike-request consumption, Variant-to-
+  Dictionary coercion, active slot-count assembly, active skill id list
+  assembly, per-slot active-skill update / snapshot / owner-sync surface
+  assembly including profile active-skill level fallbacks, active
+  position-owner query / predicate assembly, companion draw
+  visual-skill surface assembly, companion body-skill id assembly, and Bone
+  Barrier hit notification forwarding.
+  `lingpet_egg_runtime.gd` keeps only public API names consumed by battle
+  context builders and ball event processors, and should call this surface
+  directly for private draw-suppression, hit-suppression, strike-request, and
+  active-skill slot-count / id / surface / level-fallback / active-position
+  decisions;
+  single-use body-suppression predicate wrappers or duplicated active-skill
+  slot-count / id / update / snapshot / owner-sync / draw-surface /
+  active-position / body-skill id prep should not be reintroduced.
 - `scripts/lingpet/lingpet_ghost_summon_skill.gd`
   Owns Rabi's `rabi_ghost_summon` / Ghost Summon active runtime: two
   Banshee-style ghost paddles, ball-eat capture, hidden-ball hold, teleport
@@ -384,9 +912,12 @@ This section is intentionally long; use search to find the nearest owner.
   the boss slow status data payload. `lingpet_moon_orbit_skill.gd` should
   keep projectile travel, field timing, overlap checks, and drawing.
 - `scripts/lingpet/lingpet_bubble_trap_skill.gd`
-  Owns Maribo Bubble Trap's skill-specific runtime: slow forward bubble
-  projectile travel, boss-paddle collision capture, 2.5-3.0-second bubble movement
-  lock, shared boss-stun refresh, ball-contact / expiry popping, lightweight
+  Owns Maribo Bubble Trap's skill-specific runtime: level-scaled forward bubble
+  projectile travel (speed by level), independent 50% extra-shot rolls (up to
+  1/2/3 extra bubbles by level), boss-paddle collision capture with a
+  level-scaled 2.0-4.0-second bubble movement lock, a lead-only ball-immune
+  rainbow giant bubble (Lv.3+ 20%, 2.0x / 2.5x size),
+  shared boss-stun refresh, ball-contact / expiry popping, lightweight
   procedural bubble burst VFX, reused hydro-water feedback, and Bubble Trap
   snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this module by the
   `bubble_trap` runtime kind so `lingpet_egg_runtime.gd` stays limited to the
@@ -439,6 +970,114 @@ This section is intentionally long; use search to find the nearest owner.
   should keep companion-origin tracking, heat-cone ball reflection, fire-zone
   lifetime / boss push logic, molotov host lifecycle, audio, and draw
   composition.
+- `scripts/lingpet/lingpet_moon_orbit_skill.gd`
+  Owns Draft Bat / Orbi Moon Orbit runtime: projectile travel to the opponent
+  wall, orbit-field placement and duration, boss-overlap slow refresh, burst /
+  ambient particle lifecycle, and `moon_orbit_*` snapshot keys.
+- `scripts/lingpet/lingpet_bomb_surprise_skill.gd`
+  Owns Volty Bomb Surprise runtime: companion flight to the ball, fuse timing,
+  ball / top / bottom detonation routing, boss / player stun and knockback,
+  fuse audio cleanup, explosion VFX, companion position override, and
+  `bomb_surprise_*` snapshot keys.
+- `scripts/lingpet/lingpet_dragon_wing_skill.gd`
+  Owns Farukiras / Red Dragon Dragon Wing runtime: wind-field duration,
+  ball-vortex steering and speed bounds, flying-dragon collision, dragon sprite
+  / trail texture use, warm wind particles, hit flash, and `dragon_wing_*`
+  snapshot keys.
+- `scripts/lingpet/lingpet_doll_curse_skill.gd`
+  Owns Koyora Doll Curse runtime: marionette phase timing, doll sheet / fallback
+  drawing, beam sweep and homing rolls, boss-confusion apply / clear, ball
+  bounce, destroy particles, companion cast-pose override, and `doll_curse_*`
+  snapshot keys.
+- `scripts/lingpet/lingpet_thunder_orb_skill.gd`
+  Owns Lumion Thunder Orb runtime: decelerating orb travel, main blast radius /
+  stun duration, Lv.3+ mini-spark chain, electric-loop lifecycle cleanup,
+  source-scoped boss electric stun, blue-white orb / explosion drawing, and
+  `thunder_orb_*` snapshot keys.
+- `scripts/lingpet/lingpet_dragon_breath_skill.gd`
+  Owns Red Dragon Dragon Breath runtime: companion-origin breath cone tracking,
+  heat-cone ball reflection, lingering fire-zone spawn / lifetime, boss slow /
+  push refresh, molotov-renderer payload conversion, breath audio, and
+  `dragon_breath_*` snapshot keys.
+- `scripts/lingpet/lingpet_dragon_breath_texture_cache.gd`
+  Owns procedural Dragon Breath texture cache and staged prewarm for flame
+  tongues and embers. Runtime draw code should reuse this cache instead of
+  creating `ImageTexture` resources in hot paths.
+- `scripts/lingpet/lingpet_bone_barrier_payload_factory.gd`
+  Owns pure Nekuring Bone Barrier payload construction for barrier dictionaries,
+  build particles, hit particles, and bone fragments.
+- `scripts/lingpet/lingpet_bone_barrier_skill.gd`
+  Owns Nekuring Bone Barrier runtime: level-scaled barrier width, bonus-barrier
+  rolls, install / build timing, round-persistent barriers, ball-collision
+  context, shatter cleanup, audio feedback, and `bone_barrier_*` snapshot keys.
+- `scripts/lingpet/lingpet_skeleton_archer_payload_factory.gd`
+  Owns pure Nekuring Skeleton Archer payload construction for archer summon
+  dictionaries, arrows, summon / hit particles, and dying archer fragments.
+- `scripts/lingpet/lingpet_skeleton_archer_skill.gd`
+  Owns Nekuring Skeleton Archer runtime: summon caps, patrol / aim / fire timing,
+  golden and bonus-summon rolls, arrow hit geometry, boss knockback / stun
+  status, archer destruction, procedural skeleton drawing, and
+  `skeleton_archer_*` snapshot keys.
+- `scripts/lingpet/lingpet_milk_shot_payload_factory.gd`
+  Owns pure Milkring Milk Shot payload construction for projectile dictionaries,
+  boss-stun status data, hit particles, and muzzle splashes.
+- `scripts/lingpet/lingpet_milk_shot_skill.gd`
+  Owns Milkring Milk Shot runtime: normal and mega firing modes, level-scaled
+  shot count / duration / stun / knockback, projectile deceleration, hit
+  geometry, muzzle / hit VFX, and `milk_shot_*` snapshot keys.
+- `scripts/lingpet/lingpet_milk_production_skill.gd`
+  Owns Milkring Milk Production runtime: production timer, level-scaled milk
+  bottle paddle multiplier, Lv.3+ cheese roll and item selection, active-item
+  field spawn handoff, production gauge / spawn flash drawing, and
+  `milk_production_*` snapshot keys.
+- `scripts/lingpet/lingpet_headbutt_skill.gd`
+  Owns Lunabi Headbutt runtime: arm gate, homing dash, moving-target miss rolls,
+  combo repeats, mega charge / stun / knockback upgrades, ground-slam variant,
+  companion position override, impact / miss VFX, and `headbutt_*` snapshot keys.
+- `scripts/lingpet/lingpet_solar_bolt_skill.gd`
+  Owns Lumion Solar Bolt runtime: defensive ball-reflect arm gate, first strike,
+  refire chance / delayed refires, ball speed lock / rebound direction, solar
+  bolt / explosion / spark drawing, and `solar_bolt_*` snapshot keys.
+- `scripts/lingpet/lingpet_gravity_accel_skill.gd`
+  Owns Orosha Gravity Accel runtime: level-scaled duration and gravity strength,
+  upward ball pull with speed caps, ambient field particles, distortion-line
+  drawing, and `gravity_accel_*` snapshot keys.
+- `scripts/lingpet/lingpet_dwarf_magic_skill.gd`
+  Owns Dwarf Magic runtime: homing projectile, hit / miss tracking, boss shrink
+  and restore phases, boss slow context keys, owner-state sync, dust / projectile
+  VFX, and `dwarf_magic_*` snapshot keys.
+- `scripts/lingpet/lingpet_sand_prison_skill.gd`
+  Owns Rahoset Sand Prison runtime: cage creation / miss / imprison / dissolve
+  phases, retry rolls, boss clamp owner fields, sand particle streams,
+  companion cast-pose override, audio hooks, and `sand_prison_*` snapshot keys.
+- `scripts/lingpet/lingpet_star_coil_skill.gd`
+  Owns Orosha Star Coil runtime: wall roll / climb / lunge / bind / cross /
+  descend phases, boss slow / dash-block / cooldown-freeze effects, boss position
+  ownership, coil drawing, and `star_coil_*` snapshot keys.
+- `scripts/lingpet/lingpet_wild_roar_skill.gd`
+  Owns Monkeyring Wild Roar runtime: proximity arm gate, roar radius and ball
+  boost scaling, ball reflection jitter, screen flash / roar-zone / spark VFX,
+  companion cast-pose override, and `wild_roar_*` snapshot keys.
+- `scripts/lingpet/lingpet_ring_dash_state.gd`
+  Owns Ring Dash / Linkport passive state: emergency guard target prediction,
+  once-per-descent roll gating, cooldown, companion position override, short
+  visual-hide delay, and `ring_dash_*` snapshot keys.
+- `scripts/lingpet/lingpet_ring_dash_vfx.gd`
+  Owns Ring Dash / Linkport passive VFX drawing and transient visual payloads.
+  Companion runtime should keep trigger policy in `lingpet_ring_dash_state.gd`
+  and route only visible burst / trail presentation here.
+- `scripts/lingpet/lingpet_starlight_tracking_state.gd`
+  Owns Starlight Tracking passive state: drop-token claim rolls, flying and
+  ground-pet pickup / delivery phases, companion position override, carried-drop
+  metadata sync, round reset, and `starlight_tracking_*` snapshot keys.
+- `scripts/lingpet/lingpet_feed_bowl_state.gd`
+  Owns the feed-bowl companion sub-state: bowl arm position, approach and eating
+  phases, ground-pet tracking, companion position override, bowl drawing,
+  completion count, and round / full reset behavior.
+- `scripts/lingpet/lingpet_item_egg_absorb_vfx.gd`
+  Owns the item-egg absorb visual: origin-to-target burst timing, code-square /
+  mote motion, glow texture prewarm, draw lifecycle, and reset semantics used by
+  the item-egg absorb router.
 - `scripts/lingpet/lingpet_save_store.gd`
   Owns the Ringpet save-file route: loading / saving the runtime snapshot
   from `user://lingpet_save.cfg`, restoring it during battle bootstrap,
@@ -1532,14 +2171,231 @@ This section is intentionally long; use search to find the nearest owner.
   preparation after scoreboard overlay completion.
   Registered as `match_scoreboard_flow_controller`.
 - `scripts/core/stage_clear_result_screen.gd`
-  Owns the battle-flow handoff for the stage-clear result screen shown
-  after a player match win. It reads the scoreboard snapshot, asks the
-  reward-plan builder for the preview plan, instantiates `scenes/stage_clear_result.tscn` as a
-  child of the battle scene, blocks battle update while active, forwards
-  input, delegates reward rolls to `stage_clear_reward_resolver.gd`, grants
-  resolved box rewards once on result confirmation, and delays the normal
-  match-reset callback until confirmation.
+  Owns the public battle-flow facade for the stage-clear result screen shown
+  after a player match win: show / reset / update / input / draw / status /
+  prewarm entry points plus the small active score and pending scene state
+  that those adapters expose. Focused handlers now own show-state assembly,
+  result-scene spawn / prewarm, update fanout, input fanout, finish flow,
+  immediate reward followup, plaza entry / progress, status assembly, and
+  reset-state mutation.
   Registered as `stage_clear_result_screen`.
+- `scripts/core/stage_clear_result_handler_registry.gd`
+  Owns construction of the stage-clear result screen's helper set and injects
+  the stable `screen.get("_...")` service names into
+  `stage_clear_result_screen.gd`'s `_services` map. The screen keeps dynamic
+  `_get` / `_set` access for sibling result-screen adapters, but no longer
+  declares, preloads, or instantiates each helper field directly.
+- `scripts/core/stage_clear_result_runtime_context_handler.gd`
+  Owns the public result-screen runtime-context facade: score snapshot,
+  current-stage, selected-character, victory-character, registry instance, and
+  stage-result reset wrapper methods used by show / prewarm / spawn / plaza
+  flows. Concrete score fallback reads, owner stage / character normalization,
+  guarded registry lookup, and Stage 4 / 5 / 6 result-reset routing are
+  delegated to `stage_clear_result_runtime_context_data.gd`.
+- `scripts/core/stage_clear_result_runtime_context_data.gd`
+  Owns stateless result-screen runtime-context extraction and result-reset
+  routing: match-score snapshot priority, scoreboard fallback score reads,
+  owner current-stage clamping, `PlayerCharacterRuntime` normalization and
+  victory-result character mapping, guarded registry lookup, Stage 4 Ponk
+  result reset, Stage 5 Hongryun state / fire-machine / actor FX reset, and
+  Stage 6 Tetriser result reset.
+- `scripts/core/stage_clear_result_show_flow_handler.gd`
+  Owns the public result-screen show-flow surface: show-state wrapper method,
+  screen-backed show adapter, player-win result propagation, and delegation to
+  screen-backed apply / spawn wiring. Player-win gating, score / current-stage
+  snapshot reads, show-time stage reset, reward / plaza / starpoint reset
+  ordering, pending reset / exit callback storage, pending owner / registry
+  storage, stage reward snapshot assembly, active flag setting, and
+  spawn-pending flag setting are delegated to
+  `stage_clear_result_show_state_data.gd`. Screen-backed context extraction,
+  show-state apply dispatch, and show-spawn callback wiring are delegated to
+  `stage_clear_result_show_screen_data.gd`.
+- `scripts/core/stage_clear_result_show_state_data.gd`
+  Owns stateless result-screen show-state assembly: player-win gating, score /
+  current-stage snapshot reads through the runtime context handler, show-time
+  stage reset, reward / plaza / starpoint reset ordering, pending reset / exit
+  callback storage, pending owner / registry storage, stage reward snapshot
+  assembly through the stage snapshot builder, active flag setting, and
+  spawn-pending flag setting.
+- `scripts/core/stage_clear_result_show_screen_data.gd`
+  Owns stateless screen-backed show-flow adapter work: reading stage-start
+  snapshots, scene nodes, runtime context, stage snapshot builder, resettable
+  handlers, screen-state handler, and scene-spawn flow handler from the result
+  screen; routing show-state schema assembly through
+  `stage_clear_result_show_flow_handler.gd`; applying show state; starting the
+  show-time scene-spawn flow; and applying returned spawn state.
+- `scripts/core/stage_clear_result_prewarm_flow_handler.gd`
+  Owns the public result-screen prewarm flow surface and status storage:
+  blocking prewarm loops, scene-shell / staged asset-prewarm wrapper methods,
+  cached status updates, cached status reads, and explicit status clearing.
+  Scene-shell prewarm call normalization, staged asset-prewarm context
+  resolution, result victory character / current-stage lookup, threaded-vs-
+  normal prewarm flag forwarding, and status copying are delegated to
+  `stage_clear_result_prewarm_step_data.gd`. Screen-backed prewarm handler
+  extraction and pending-spawn prewarm callback wiring are delegated to
+  `stage_clear_result_prewarm_screen_data.gd`.
+- `scripts/core/stage_clear_result_prewarm_step_data.gd`
+  Owns stateless result-screen prewarm step execution: scene-shell prewarm call
+  normalization, staged asset-prewarm owner fallback resolution, result victory
+  character / current-stage lookup through the runtime context handler,
+  threaded-vs-normal prewarm flag forwarding, invalid-handler fallback results,
+  and cached status dictionary copying.
+- `scripts/core/stage_clear_result_prewarm_screen_data.gd`
+  Owns stateless screen-backed prewarm adapters: blocking prewarm from screen,
+  shell prewarm from screen, pending owner / stage / scene-spawn handler /
+  scene-shell handler / runtime-context extraction, pending-spawn callback
+  construction, and null-screen status clearing through the prewarm flow
+  handler.
+- `scripts/core/stage_clear_result_plaza_enter_flow_handler.gd`
+  Owns result-screen plaza-entry semantics: active gating, pending reward grant
+  timing, stage-clear progress apply timing, starpoint-choice reset, pending
+  spawn-state clear callback dispatch, result-scene free callback dispatch,
+  plaza asset readiness blocking, plaza scene-config timing, plaza scene spawn
+  timing, fallback-to-continue behavior, and redraw requests after successful
+  plaza spawn. Screen-backed context and callback wiring are delegated to
+  `stage_clear_result_plaza_enter_screen_data.gd`.
+- `scripts/core/stage_clear_result_plaza_enter_screen_data.gd`
+  Owns stateless screen-backed plaza-entry context assembly: active / stage /
+  plaza save store / owner / registry / scene / plaza-scene handler /
+  starpoint-choice handler reads, selected-character lookup, pending reward
+  grant callback binding, stage-clear progress callback binding, pending-spawn
+  mutation callback binding, and guarded screen property reads.
+- `scripts/core/stage_clear_result_scene_shell_handler.gd`
+  Owns the result-scene shell surface: scene path exposure, packed-scene cache,
+  callback / spawn / free adapter exposure, and screen result-scene free
+  surface. Result-scene callback schema assembly, scene instantiation /
+  normalization, config scene-handler wiring, owner child attachment, runtime
+  reference cleanup, and screen scene-node reads are delegated to
+  `stage_clear_result_scene_shell_scene_data.gd`. Staged prewarm status,
+  prewarm step state, result-asset readiness, and required asset-key policy are
+  delegated to `stage_clear_result_scene_shell_prewarm_state.gd`.
+- `scripts/core/stage_clear_result_scene_shell_scene_data.gd`
+  Owns stateless result-scene shell node glue: result-scene callback schema
+  dictionaries, packed scene instantiation checks, Control normalization,
+  process / z-index / texture filter setup, config scene-handler wiring,
+  owner-child attachment, runtime-reference cleanup before free, and
+  screen-backed result-scene free adapters.
+- `scripts/core/stage_clear_result_scene_shell_prewarm_state.gd`
+  Owns stateful result-scene prewarm and readiness policy: packed-scene ready
+  status mirroring, selected-character / stage prewarm status, staged config
+  prewarm delegation, threaded-vs-normal prewarm branching, cached prewarm
+  status copying, selected-stage asset readiness checks, and per-stage required
+  result asset-key lists.
+- `scripts/core/stage_clear_result_finish_flow_handler.gd`
+  Owns the public result-screen finish action surface: stable action constants,
+  context-builder / action-dispatch wrappers, next-stage / plaza-continuation /
+  exit wrapper methods, and the screen-backed finish adapter entry point.
+  Actual finish-flow context schema, action dispatch internals, reward-grant
+  timing, progress-apply timing, inactive-state callback ordering, result /
+  plaza scene cleanup callbacks, and reset-vs-exit callback selection are
+  delegated to `stage_clear_result_finish_action_data.gd`. Screen-backed
+  context callback assembly is delegated to
+  `stage_clear_result_finish_screen_context_data.gd`.
+- `scripts/core/stage_clear_result_finish_action_data.gd`
+  Owns stateless result-screen finish action execution: finish-flow context
+  schema, next-stage / plaza-continuation / exit dispatch internals, pending
+  reward-grant timing, stage-clear progress apply timing, inactive-state
+  callback ordering, result / plaza scene cleanup callbacks, guarded context
+  callable reads, and reset-vs-exit callback selection.
+- `scripts/core/stage_clear_result_finish_screen_context_data.gd`
+  Owns stateless finish-flow screen context extraction: pending reset / exit
+  callbacks, pending reward grant callback binding, stage-clear progress
+  callback binding, finish-inactive callback binding, plaza-scene cleanup
+  callback binding, and guarded screen property reads. It routes final context
+  schema assembly back through `stage_clear_result_finish_flow_handler.gd`.
+- `scripts/core/stage_clear_result_update_flow_handler.gd`
+  Owns result-screen per-frame update semantics: plaza-scene-first routing,
+  result-scene visibility / timer updates, plaza background prewarm stepping,
+  mythic acquisition cinematic updates, runtime perk choice updates, pending
+  starpoint-choice updates, and registry instance lookup for update-time
+  runtime services. Screen-backed context extraction and pending-spawn callback
+  wiring are delegated to `stage_clear_result_update_screen_context_data.gd`.
+- `scripts/core/stage_clear_result_update_screen_context_data.gd`
+  Owns stateless screen context extraction for result update flow: active /
+  spawn-pending state reads, plaza-scene presence and update dispatch, pending
+  result-scene spawn callback binding, result-scene existence checks, owner /
+  registry / current-stage / selected-character context assembly, and guarded
+  screen property reads.
+- `scripts/core/stage_clear_result_screen_status_handler.gd`
+  Owns public result-screen status schema assembly: base active / score /
+  stage / reward-plan / scene-ready / pending-spawn status fields, stage-start
+  and stage-reward snapshot copies, and status merges from reward-grant,
+  starpoint-choice, and plaza-scene handlers. Screen-backed field reads,
+  cached plaza-progress summary lookup, and reward-plan copying are delegated
+  to `stage_clear_result_screen_status_screen_data.gd`.
+- `scripts/core/stage_clear_result_screen_status_screen_data.gd`
+  Owns stateless screen-backed status adapter work: active / score / stage /
+  scene-ready / spawn-pending reads, result reward-plan copying, cached plaza
+  progress summary reads, stage-start and reward snapshot copying, and handler
+  object extraction before routing through the status handler's schema builder.
+- `scripts/core/stage_clear_result_input_flow_handler.gd`
+  Owns result-screen input semantics: active gating, plaza-scene priority,
+  pending-spawn consumption, mythic acquisition input priority, result-scene
+  input fanout, post-input active / scene-valid checks, runtime-perk state
+  lookup, and starpoint-choice reward sync. Screen-backed context extraction,
+  result-scene input timing lookup, and screen callback wiring are delegated to
+  `stage_clear_result_input_screen_data.gd`.
+- `scripts/core/stage_clear_result_input_screen_data.gd`
+  Owns stateless screen-backed input context assembly: spawn-pending / scene /
+  owner / registry / plaza / mythic / starpoint handler reads, Dalji click
+  dialogue duration lookup, active callback binding, result-scene existence
+  callback binding, and guarded screen property reads.
+- `scripts/core/stage_clear_result_scene_spawn_flow_handler.gd`
+  Owns the public result-screen scene-spawn flow call surface. Raw result-scene
+  spawn and configured result-scene spawn are exposed here as a compatibility
+  surface but owned by `stage_clear_result_scene_spawn_core_data.gd`.
+  Screen-backed spawn / show / pending adapter assembly is exposed here as a
+  compatibility surface but owned by
+  `stage_clear_result_scene_spawn_screen_data.gd`. Show-time ready-vs-pending
+  branching and pending-spawn advancement are exposed here as a compatibility
+  surface but owned by `stage_clear_result_scene_spawn_pending_data.gd`.
+  Shell prewarm / readiness / required-key delegation is also exposed here as a
+  compatibility surface but owned by
+  `stage_clear_result_scene_spawn_shell_data.gd`. Callback wiring and
+  result-scene config / screen-field reads are owned by their focused helper
+  modules below and no longer have private wrapper shells in this flow handler.
+- `scripts/core/stage_clear_result_scene_spawn_callback_data.gd`
+  Owns stateless result-scene callback wiring: scene-shell callback schema
+  delegation, screen-backed spawn callbacks, finish-action callbacks, plaza
+  entry / plaza-continue callbacks, roll reward callbacks, immediate reward
+  callbacks, and free-result-scene callbacks. The scene-spawn flow handler keeps
+  the public result-screen adapter call surface.
+- `scripts/core/stage_clear_result_scene_spawn_config_data.gd`
+  Owns stateless result-scene spawn config assembly and screen-field extraction:
+  scene config builder delegation, result victory character lookup, reward-plan
+  copying, snapshot dictionary copying, score / stage integer reads, current
+  scene Control reads, and object-service reads. The scene-spawn flow handler
+  keeps the public result-screen adapter call surface.
+- `scripts/core/stage_clear_result_scene_spawn_core_data.gd`
+  Owns stateless result-scene spawn execution: Node-owner validation,
+  free-existing-scene dispatch before respawn, shell `spawn_scene` delegation,
+  spawned Control normalization, and configured spawn composition from config
+  and callback helper payloads. The scene-spawn flow handler keeps the public
+  result-screen call surface.
+- `scripts/core/stage_clear_result_scene_spawn_pending_data.gd`
+  Owns stateless show / pending scene-spawn branching: ready-vs-pending show
+  decisions, staged prewarm advancement, result-scene spawn callback dispatch,
+  reset dispatch on failed ready spawn, and redraw requests while scene assets
+  are pending. The scene-spawn flow handler keeps the public result-screen call
+  surface.
+- `scripts/core/stage_clear_result_scene_spawn_screen_data.gd`
+  Owns stateless screen-backed scene-spawn adapter assembly: pulling pending
+  owner / registry / shell / config-builder / score / stage / reward fields
+  from the result screen, building result-scene callbacks, invoking configured
+  scene spawn through the flow handler, writing back `_scene_node`, and exposing
+  screen-backed show / pending spawn entry points. Show / pending call assembly
+  is delegated to `stage_clear_result_scene_spawn_screen_pending_data.gd`. The
+  scene-spawn flow handler keeps the public result-screen call surface.
+- `scripts/core/stage_clear_result_scene_spawn_screen_pending_data.gd`
+  Owns stateless screen-backed show / pending adapter assembly: reading pending
+  owner / registry / runtime context / stage fields from the result screen,
+  resolving the result victory character, building screen spawn callbacks, and
+  invoking show / pending spawn through the flow handler's public surface.
+- `scripts/core/stage_clear_result_scene_spawn_shell_data.gd`
+  Owns stateless result-scene shell delegation: packed-scene shell prewarm,
+  staged asset prewarm, copied prewarm status payloads, selected-character /
+  stage asset readiness checks, and required asset-key normalization. The
+  scene-spawn flow handler keeps the public result-screen call surface.
 - `scripts/core/stage_clear_result_reward_plan_builder.gd`
   Owns stage-clear reward-preview plan construction for the result screen:
   score-margin-to-box-count mapping, localized item-box summary text, box
@@ -1547,12 +2403,85 @@ This section is intentionally long; use search to find the nearest owner.
   odds. The result screen keeps only the public `get_reward_plan()` surface
   and no longer owns box-count or odds calculation.
 - `scripts/core/stage_clear_result_stage_snapshot_builder.gd`
-  Owns stage-clear progress snapshot and stage-reward diff assembly for the
-  result screen: stage-start active slots, passive/mythic inventory, runtime
-  perk levels, remaining active-item reward rows, newly acquired passive /
-  mythic item rows, and gained perk rows. The result screen stores the
+  Owns stage-clear progress snapshot reads for the result screen: stage-start
+  active slots, passive/mythic inventory, runtime perk levels, registry-backed
+  mythic runtime and runtime-perk state lookups, plus the public stage-reward
+  snapshot call surface. Stage-reward diff row construction is delegated to
+  `stage_clear_result_stage_reward_diff_data.gd`. The result screen stores the
   snapshots and passes them into the visible result scene, but no longer owns
   item/perk inventory reads or stage-diff reward construction.
+- `scripts/core/stage_clear_result_stage_reward_diff_data.gd`
+  Owns stateless stage-clear reward diff construction from prepared snapshots:
+  baseline stage mismatch handling, active / passive / mythic reward-list
+  selection, and gained-perk reward-list selection. Item reward row construction
+  is delegated to `stage_clear_result_stage_item_reward_data.gd`; perk reward row
+  construction is delegated to `stage_clear_result_stage_perk_reward_data.gd`.
+- `scripts/core/stage_clear_result_stage_item_reward_data.gd`
+  Owns stateless stage-clear item reward row construction: remaining active-item
+  rows, passive/mythic inventory identity counting, newly acquired passive /
+  mythic rows, mythic-vs-passive classification, catalog enrichment, display
+  name resolution, icon path forwarding, and item identity fallback keys.
+- `scripts/core/stage_clear_result_stage_perk_reward_data.gd`
+  Owns stateless stage-clear gained-perk reward rows: baseline-vs-current level
+  comparison, runtime perk catalog enrichment, level-delta labels, and payload
+  fields consumed by the result scene.
+- `scripts/core/stage_clear_result_plaza_progress_handler.gd`
+  Owns the result-screen plaza progress edge: one-shot volatile
+  `runtime_perk_gold` transfer into `plaza_save_store.gd`, one-shot
+  stage-clear AP grant gating, cached progress-summary reporting, and plaza
+  save-path lookup for the plaza scene configuration. The result screen keeps
+  the battle-flow transition and scene-spawn orchestration, but no longer owns
+  the gold/AP idempotence state directly.
+- `scripts/core/stage_clear_result_plaza_scene_handler.gd`
+  Owns the result-screen plaza scene edge: plaza packed-scene caching,
+  scene spawn / configure / free, plaza update / input forwarding, and plaza
+  status keys exposed through `stage_clear_result_screen.gd`. Background
+  threaded plaza prewarm, blocking prewarm before entry, and prewarm status are
+  delegated to `stage_clear_result_plaza_scene_prewarm_state.gd`. The result
+  screen keeps the route decision and callback sequencing, but no longer owns
+  the plaza node, packed scene, or prewarm state directly.
+- `scripts/core/stage_clear_result_plaza_scene_prewarm_state.gd`
+  Owns stateful result-screen plaza asset readiness: background prewarm enable
+  toggles, current-stage prewarm cache status, threaded plaza prewarm stepping,
+  blocking plaza prewarm before entry, and timeout warnings for blocking
+  readiness.
+- `scripts/core/stage_clear_result_reward_grant_handler.gd`
+  Owns the public result-screen reward grant facade: box reward-roll
+  delegation, result-scene resolved reward reads, pending reward grant entry
+  points, immediate box grant entry point, and reward-resolver test injection.
+  Final pending reward grant idempotence, pending reward filtering, immediate
+  starpoint / mythic box grant summary capture, grant-summary merging, cached
+  status assembly, and reset state are delegated to
+  `stage_clear_result_reward_grant_state.gd`. Stateless immediate starpoint /
+  mythic grant branching, grant payload mutation, and grant result dictionary
+  construction are delegated to
+  `stage_clear_result_immediate_reward_grant_data.gd`. The result screen still
+  coordinates visible side effects such as deferred starpoint-choice gates and
+  mythic acquisition cinematic z-order, but no longer stores reward resolver,
+  final-grant flags, or immediate-grant summary lists directly.
+- `scripts/core/stage_clear_result_immediate_reward_flow_handler.gd`
+  Owns the public result-screen immediate reward followup facade: direct
+  reward grants and screen-backed reward grant callbacks. Deferred
+  starpoint-choice followup, mythic acquisition cinematic dispatch, scene
+  visibility resync, screen-scene extraction, and registry reads are delegated
+  to `stage_clear_result_immediate_reward_flow_data.gd`.
+- `scripts/core/stage_clear_result_immediate_reward_flow_data.gd`
+  Owns stateless immediate reward followup side-effect routing after an
+  immediate starpoint / mythic box grant: defer-choice availability checks,
+  deferred starpoint-choice scheduling, mythic acquisition cinematic raising,
+  successful-grant scene visibility sync, active-screen guarding, and
+  result-screen scene-node lookup.
+- `scripts/core/stage_clear_result_reward_grant_state.gd`
+  Owns stateful stage-clear reward grant bookkeeping: final pending reward
+  idempotence, non-immediate pending reward filtering, resolver grant fallback
+  summaries, immediate grant summary capture, cumulative grant-summary merging,
+  failed reward list copying, public status snapshots, and reset cleanup.
+- `scripts/core/stage_clear_result_immediate_reward_grant_data.gd`
+  Owns stateless immediate stage-clear box reward grant execution for starpoint
+  and mythic rewards: reward-type branching, starpoint defer-choice payload
+  mutation, mythic acquisition cinematic payload mutation, single-reward
+  resolver dispatch, and result dictionary assembly. The reward grant handler
+  keeps stateful summary capture and merge policy.
 - `scripts/core/stage_clear_reward_resolver.gd`
   Owns stage-clear chest reward selection and final grant dispatch. Normal
   chests use the active / passive / starpoint lanes, mythic chests use the
@@ -1561,7 +2490,7 @@ This section is intentionally long; use search to find the nearest owner.
   Registered as `stage_clear_reward_resolver`.
 - `scenes/stage_clear_result.tscn` +
   `scripts/ui/stage_clear_result_scene.gd`
-  Own the visible fullscreen result scene: Stage 1 result-background
+  Own the visible fullscreen result scene: stage-selected result-background
   drawing, Dalji defeated cutscene sheet playback, player victory-side
   sheet playback, score-based reward chest animation, result scroll input,
   result scroll drawing, and scene-local linear texture filtering for
@@ -1583,8 +2512,10 @@ This section is intentionally long; use search to find the nearest owner.
   content rects, and cinematic-local coordinate conversion are delegated to
   `stage_clear_result_layout_helper.gd`; result-box plan materialization,
   kind normalization, and display-label assembly are delegated to
-  `stage_clear_result_box_data.gd`; Dalji / Stage 2 / Stage 3 defeated
-  result actor drawing and player-victory Live2D sheet drawing are delegated
+  `stage_clear_result_box_plan_data.gd` through the `stage_clear_result_box_data.gd`
+  compatibility facade; Dalji / Stage 2 / Stage 3 defeated,
+  Stage 4 Ponk fallback, Stage 6 Tetriser defeated result actor drawing,
+  and player-victory Live2D sheet drawing are delegated
   to `stage_clear_result_actor_draw_helper.gd`; result reward pickup / Live2D
   target position pairing for mythic acquisition cinematics is delegated to
   `stage_clear_result_cinematic_position_helper.gd`; centered text
@@ -1613,25 +2544,34 @@ This section is intentionally long; use search to find the nearest owner.
   is delegated to `stage_clear_result_shape_helper.gd`; result sheet-frame
   source rect and texture-region drawing are delegated to
   `stage_clear_result_sheet_draw_helper.gd`; public QA / smoke-test
-  interaction status dictionary assembly is delegated to
-  `stage_clear_result_status_builder.gd`; player-victory and Dalji
+  interaction status dictionary orchestration is delegated to
+  `stage_clear_result_status_builder.gd`, with scene snapshot collection
+  routed through `stage_clear_result_scene_context_builder.gd` and final
+  actor / non-actor status payload assembly routed through
+  `stage_clear_result_actor_status_builder.gd` /
+  `stage_clear_result_non_actor_status_builder.gd`; player-victory and Dalji
   click-reaction frame / transition / alpha math is delegated to
   `stage_clear_result_click_reaction_state.gd`; result actor click-reaction
   timer advancement is delegated to
   `stage_clear_result_actor_reaction_update_handler.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
-  to the battle shell; do not put grant logic back in this UI scene.
+  to the battle shell; route top-level draw fanout through
+  `stage_clear_result_draw_scene_handler.gd` instead of reintroducing focused
+  `_draw_*` wrapper methods on the result scene, and do not put grant logic
+  back in this UI scene.
 - `scripts/ui/stage_clear_result_asset_loader.gd`
   Owns stage-clear result asset loading and staged prewarm dispatch:
-  result background / scroll / chest sheets, Dalji and player-victory
-  sheets, Dalji click voice, result-box FX prewarm, and the stateful
-  result-asset prewarm step cursor / status map used by the screen shell. It
+  result background / scroll / chest sheets, Stage 4 / Stage 5 / Stage 6 result
+  backgrounds, Dalji and player-victory sheets, Stage 4 Ponk fallback sheet,
+  Stage 5 Hongryun fallback result sheet, Stage 6 Tetriser result defeat sheet, Dalji click voice, result-box FX
+  prewarm, and the stateful result-asset prewarm step cursor / status map used by the screen shell. It
   also owns player-victory character id normalization, default result asset
   path config assembly, and result asset path selection. The asset apply
   handler owns texture-field collection / invalidation / application for the
   scene; the character asset state handler owns configure-time selected
-  character cache invalidation; the scene still owns loaded stream fields, path
-  constant compatibility aliases, and decides when to load or prewarm.
+  character cache invalidation; the config scene handler owns configure / ready
+  load timing, while the scene still owns loaded stream fields and path constant
+  compatibility aliases.
 - `scripts/ui/stage_clear_result_character_asset_state_handler.gd`
   Owns configure-time result character asset state resolution: normalizing the
   requested result character through `stage_clear_result_asset_loader.gd`,
@@ -1640,16 +2580,22 @@ This section is intentionally long; use search to find the nearest owner.
   base / click sheets plus cached loaded paths when it changes. It also owns
   character asset apply payloads and scene-field apply payloads for the
   selected character, player-victory sheet references, and cached loaded path
-  fields. The scene still owns writing the returned fields through the shared
-  field-payload applier.
+  fields. The config scene handler owns calling it and writing the returned
+  fields through the shared field-payload applier.
 - `scripts/ui/stage_clear_result_audio_apply_handler.gd`
-  Owns stage-clear result audio stream / SFX application for the scene: the
+  Owns stage-clear result audio stream / SFX application policy: the
   Stage 1 Dalji click-voice stage gate, clearing non-Stage 1 voice streams,
   delegating actual audio loading to `stage_clear_result_asset_loader.gd`,
   preserving already-loaded voice streams, and routing result-box-open SFX
-  calls through the optional game-audio dependency. The scene still owns when
-  to request audio, stores the returned stream field, and sequences voice/SFX
-  calls around gameplay state changes.
+  calls through the optional game-audio dependency.
+- `scripts/ui/stage_clear_result_audio_scene_handler.gd`
+  Owns stage-clear result audio scene glue: reading / writing the scene's
+  Dalji click voice stream and player fields, invoking the audio apply handler
+  for stream load and result-box SFX routing, invoking the voice player for
+  immediate / deferred playback and stop requests, and preserving the scene's
+  existing stage-gated voice behavior. The config scene handler owns ready /
+  configure / clear audio lifecycle calls; actor / box scene handlers own their
+  focused click and SFX trigger calls.
 - `scripts/ui/stage_clear_result_asset_apply_handler.gd`
   Owns stage-clear result texture-field application for the scene: collecting
   current texture fields from the canonical asset-loader key list, invalidating
@@ -1658,61 +2604,123 @@ This section is intentionally long; use search to find the nearest owner.
   loaded textures back to scene fields, and returning the applied victory sheet
   path state. It also packages texture-path apply payloads for the cached
   player-victory base / click sheet path fields plus scene-field apply payloads
-  for the cached path strings. The scene still owns when to call it and stores
-  the returned path cache strings through the shared field-payload applier.
+  for the cached path strings. The config scene handler owns when to call it and
+  stores the returned path cache strings through the shared field-payload
+  applier.
 - `scripts/ui/stage_clear_result_voice_player.gd`
   Owns stage-clear one-shot voice player lifecycle for result-scene click
   voices: AudioStreamPlayer creation / parent attachment, stream and volume
-  assignment, immediate vs deferred playback, and stopping. The scene still
-  owns when the Dalji click voice should play and its loaded stream field.
+  assignment, explicit deferred-method compatibility for detached legacy
+  callers, immediate playback, and stopping. Actor-click / callback / config
+  scene handlers own play and cleanup timing. The result scene keeps only the
+  loaded stream/player fields and should not reintroduce a deferred voice
+  callback method.
 - `scripts/ui/stage_clear_result_actor_click_handler.gd`
-  Owns stage-clear result actor click routing for player-victory, Dalji, and
-  Stage 2 / Stage 3 boss defeat reaction sheets: stage / sheet guards,
+  Owns stage-clear result actor click routing for player-victory, Dalji,
+  Stage 2 / Stage 3 boss defeat reaction sheets, Stage 4 Ponk fallback
+  result sheet, Stage 5 Hongryun fallback result sheet, and Stage 6 Tetriser result defeat sheet: stage / sheet guards,
   hit-test delegation to the actor draw helper, click-consume vs restart
-  classification, captured base-frame payloads, click-rect apply payloads,
-  click-reaction apply payloads, Dalji dialogue / voice request flags, and
-  Dalji click side-effect apply payloads for dialogue timer / voice-play
-  requests. It also packages scene-field apply payloads for click reaction
-  timers, player / Dalji click rects, and Dalji dialogue timer side effects.
-  The scene still owns live timer fields, stored click rects, voice playback
-  side effects, property writes through the shared field-payload applier, and
-  redraw calls.
+  classification, Stage 2 / Stage 3 Live2D boss result and Stage 4 / Stage 5 /
+  Stage 6 fallback click property config, captured base-frame payloads,
+  click-rect apply payloads, click-reaction apply payloads, Dalji dialogue /
+  voice request flags, and Dalji click side-effect apply payloads for dialogue
+  timer / voice-play requests.
+- `scripts/ui/stage_clear_result_actor_click_scene_apply_handler.gd`
+  Owns stage-clear result actor click scene-field apply orchestration for
+  player-victory, Dalji, and current Stage 2-6 boss-result clicks: reading the
+  scene's live timer / sheet / transition fields, invoking the low-level actor
+  click helper, merging click-rect / reaction / Dalji side-effect field payloads,
+  and carrying voice-play flags back to the scene apply boundary.
+- `scripts/ui/stage_clear_result_actor_click_scene_handler.gd`
+  Owns stage-clear result actor click scene glue: reading current-stage / timer
+  state from the scene, resolving view size and draw scale, calling
+  `stage_clear_result_actor_click_scene_apply_handler.gd` for player-victory /
+  Dalji / Stage 2-6 boss-result click payloads, applying those payloads through
+  the scene's shared applier, routing Dalji click voice playback through
+  `stage_clear_result_audio_scene_handler.gd`, and requesting redraws. The
+  input scene handler calls this scene handler directly for result actor
+  clicks; the result scene should not keep actor-click pass-through wrappers,
+  per-stage click wrappers, direct boss click config reads, low-level
+  click-reaction payload assembly, actor click scene-field payload packaging,
+  or local click apply / redraw / voice branching.
 - `scripts/ui/stage_clear_result_font_cache.gd`
   Owns the stage-clear result UI font variation cache: it wraps the fallback
   font with scaled glyph spacing for compact Korean result-scroll labels and
   reuses the variation until the base font or requested spacing changes. The
   scene still owns when to request the font for a draw pass.
 - `scripts/ui/stage_clear_result_actor_draw_helper.gd`
-  Owns stage-clear result actor sheet drawing for the defeated Dalji, Stage 2
-  boss, Stage 3 boss, and player-victory Live2D result actors. It resolves
-  actor / click rects through the layout helper and delegates base /
-  click-reaction blending to the sheet draw helper. The actor presenter owns
-  player-victory / defeated-boss draw orchestration and reaction-state
-  assembly; the scene still owns fallback drawing, texture fields, and stored
-  click rects for input.
+  Owns the stable public result-actor drawing facade: legacy constant names,
+  reaction-state helper names, click-attempt helper names, and draw helper names
+  used by presenter / click / context / reset modules. It delegates defeated
+  Dalji, Stage 2 / Stage 3 boss, and player-victory Live2D implementation to
+  `stage_clear_result_live2d_actor_draw_helper.gd`, and delegates Stage 4 Ponk,
+  Stage 5 Hongryun, and Stage 6 Tetriser pulse fallback implementation to
+  `stage_clear_result_pulse_actor_draw_helper.gd`.
+- `scripts/ui/stage_clear_result_live2d_actor_draw_helper.gd`
+  Owns the shared Live2D-sheet result actor contract for defeated Dalji,
+  Stage 2 / Stage 3 boss result sheets, and player-victory Live2D sheets:
+  frame / cell / click timing constants, click-reaction state construction,
+  click hit rects, layout-helper rect resolution, reaction-sheet blending, and
+  the null-sheet player-victory compatibility result.
+- `scripts/ui/stage_clear_result_pulse_actor_draw_helper.gd`
+  Owns the shared pulse-sheet result actor contract for Stage 4 Ponk, Stage 5
+  Hongryun, and Stage 6 Tetriser: fallback sheet constants, reaction-state
+  timing, click-attempt hit rects, pulse grow / ghost overlay drawing, and
+  Stage-specific fallback draw wrappers. Public callers should continue using
+  `stage_clear_result_actor_draw_helper.gd` unless they are extending the
+  pulse fallback implementation itself.
 - `scripts/ui/stage_clear_result_actor_presenter.gd`
   Owns stage-clear result actor draw orchestration for player-victory Live2D
   and defeated-boss actors: current-stage branching for Dalji / Stage 2 /
-  Stage 3, draw-context assembly / unpacking, click-reaction state assembly,
+  Stage 3 / Stage 4 Ponk fallback / Stage 5 Hongryun fallback / Stage 6 Tetriser, draw-context assembly / unpacking, click-reaction state assembly,
   returning draw-time click rects, and packaging actor draw apply payloads for
   player-victory / defeated-boss click rect fields plus player drawn state. It
-  also packages draw scene-field apply payloads for `_player_victory_click_rect`
-  and `_dalji_click_rect`. It delegates low-level sheet drawing and
-  reaction-frame math to
-  `stage_clear_result_actor_draw_helper.gd`. The scene still owns fallback
-  drawing, live timer fields, loaded texture references, thin context wrapper
-  calls, and local field writes.
+  also packages draw scene-field apply payloads for `_player_victory_click_rect`,
+  `_dalji_click_rect`, `_stage4_ponk_result_click_rect`, and
+  `_stage5_hongryun_result_click_rect`, and `_stage6_boss_defeat_click_rect`.
+  It delegates low-level sheet drawing and reaction-frame math to
+  `stage_clear_result_actor_draw_helper.gd`.
+- `scripts/ui/stage_clear_result_actor_draw_scene_handler.gd`
+  Owns stage-clear actor draw scene glue: reading live timer / reaction timer /
+  transition-frame / texture / click-rect fields from the result scene,
+  building player-victory and defeated-boss draw contexts through
+  `stage_clear_result_actor_presenter.gd`, routing presenter scene-field apply
+  payloads back through the scene's shared applier, and drawing the
+  player-victory static fallback through `stage_clear_result_static_draw_helper.gd`
+  when Live2D drawing is unavailable. The draw scene handler owns calling this
+  scene handler; the result scene still owns stored actor draw fields but not
+  actor draw fanout wrappers.
+- `scripts/ui/stage_clear_result_draw_scene_handler.gd`
+  Owns stage-clear result top-level `_draw()` scene glue: resolving current
+  view size, preserving draw-time texture loading, resolving layout scale and
+  cached font, drawing the static background / tint / dialogue / footer,
+  invoking actor, box, scroll, and runtime-overlay scene handlers in the
+  established back-to-front order, and keeping static draw helper calls out of
+  `stage_clear_result_scene.gd`. The scene keeps only the public `_draw()` entry
+  and should not keep focused `_draw_*` fanout wrapper names for actor, box,
+  scroll, or runtime overlay drawing.
 - `scripts/ui/stage_clear_result_actor_reaction_update_handler.gd`
   Owns result-scene actor reaction timer context assembly and advancement for
   the per-frame update loop: Dalji base-loop timer, Dalji click reaction,
   player-victory click reaction, Stage 2 / Stage 3 boss defeat click
-  reactions, and Dalji dialogue countdown clamping. It delegates reaction timer
+  reactions, Stage 4 Ponk fallback pulse, Stage 6 Tetriser defeated pulse,
+  and Dalji dialogue countdown clamping. It delegates reaction timer
   clamping to
   `stage_clear_result_click_reaction_state.gd`, uses actor draw helper
   duration constants, and packages actor reaction timer apply payloads plus
-  scene-field apply payloads. The scene still owns storage for the live timer
-  fields plus thin wrapper calls and applies the returned values through the
-  shared field-payload applier.
+  scene-field apply payloads. The update scene handler owns reading live timer
+  fields from the result scene, routing the per-frame update, and applying the
+  returned scene-field payloads through the shared field-payload applier.
+- `scripts/ui/stage_clear_result_update_scene_handler.gd`
+  Owns stage-clear result per-frame scene glue: advancing the result
+  timer, reading actor reaction timer fields, invoking
+  `stage_clear_result_actor_reaction_update_handler.gd`, routing box and scroll
+  update wrappers, synchronizing the viewport-sized Control, invoking
+  `stage_clear_result_fx_host_update_handler.gd`, and requesting the redraw at
+  the end of the update tick. The result scene's `_process()` and the
+  screen/controller call this handler directly; public update wrappers,
+  actor-reaction pass-through wrappers, and direct actor-reaction / FX-host
+  update helper calls should not be reintroduced there.
 - `scripts/ui/stage_clear_result_layout_helper.gd`
   Owns stateless stage-clear result layout and frame policy helpers:
   floating chest anchor layouts, result-box safe-frame selection, reward
@@ -1730,19 +2738,53 @@ This section is intentionally long; use search to find the nearest owner.
   still owns which sheet pair, reaction-state dictionary, grid, cell size,
   rect, and overall alpha to draw.
 - `scripts/ui/stage_clear_result_box_data.gd`
-  Owns stateless stage-clear result-box data assembly: reward-plan box
-  materialization, standalone preview reward-plan defaults, legacy mythic
-  box-kind normalization, box display labels,
-  display-label extraction for interaction status, and resolved reward-copy
-  extraction from opened boxes. It also owns reward-roll fallback selection and
-  box opening / reward-emerge state transitions, plus appending selected
-  starpoint perk rewards back into box reward data and packaging append apply
-  payloads for scene box writes / redraw requests. Box hover / click / next-idle
+  Owns the stable public compatibility facade for stateless stage-clear
+  result-box data APIs. Reward-plan box materialization, standalone preview
+  defaults, legacy mythic box-kind normalization, box display labels, and
+  display-label extraction are exposed here but owned by
+  `stage_clear_result_box_plan_data.gd`. Reward-roll fallback selection, box
+  opening setup, next-idle selection, and box opening / reward-emerge state
+  transitions are exposed here but owned by
+  `stage_clear_result_box_opening_data.gd`. Resolved reward-copy extraction,
+  selected starpoint perk append mutation, and append apply payload packaging
+  are exposed here but owned by `stage_clear_result_box_resolved_reward_data.gd`.
+  Immediate reward payload assembly, granted-state marking, and callback attempt
+  sequencing are exposed here but owned by
+  `stage_clear_result_box_immediate_reward_data.gd`. Box hover / click / next-idle
   opening input now routes through `stage_clear_result_box_input_handler.gd`;
   opening-state update sequencing now routes through
   `stage_clear_result_box_update_handler.gd`; the scene still owns reward
   callback wiring, audio side effects, drawing, and the public result-scene box
   constants kept as compatibility aliases.
+- `scripts/ui/stage_clear_result_box_immediate_reward_data.gd`
+  Owns stateless immediate result-box reward mutation: building the callback
+  payload from an opened box and cinematic positions, marking the stored box /
+  reward as already granted, and packaging the success / miss result from the
+  immediate reward callback without mutating source arrays in place. The public
+  `stage_clear_result_box_data.gd` facade keeps the stable call surface for
+  existing scene and helper modules.
+- `scripts/ui/stage_clear_result_box_opening_data.gd`
+  Owns stateless result-box opening data mutation: reward callback / fallback
+  rolling, opening an idle box with a copied reward, opening with a roll-kind
+  override, finding the next idle box, and advancing opening / reward-emerge
+  progress with lid-open ids and just-opened indices. The public
+  `stage_clear_result_box_data.gd` facade keeps the stable call surface for box
+  input and update handlers.
+- `scripts/ui/stage_clear_result_box_plan_data.gd`
+  Owns stateless result-box plan and kind data: standalone preview reward-plan
+  defaults, materializing positioned floating boxes from reward plans and layout
+  slots, normalizing legacy mythic box kinds, mythic-visual kind predicates, and
+  Korean fallback display labels for normal / advanced / guaranteed-mythic
+  boxes. The public `stage_clear_result_box_data.gd` facade keeps the stable
+  call surface for preview defaults, scene configuration, and existing box
+  helpers.
+- `scripts/ui/stage_clear_result_box_resolved_reward_data.gd`
+  Owns stateless resolved result-box reward mutation: extracting copied rewards
+  with source box kind / state metadata, appending selected starpoint perk
+  rewards into a copied box array, and packaging append apply / scene-field
+  payloads for redraw and box writes. The public
+  `stage_clear_result_box_data.gd` facade keeps the stable call surface for the
+  box scene handler and starpoint choice flow.
 - `scripts/ui/stage_clear_result_preview_defaults_handler.gd`
   Owns stage-clear result standalone-preview default application decisions:
   determining when an otherwise empty result scene should receive preview data,
@@ -1750,75 +2792,144 @@ This section is intentionally long; use search to find the nearest owner.
   returning an explicit apply flag plus field payload, and packaging standalone
   preview apply payloads that preserve current fields when defaults should not
   apply. It also packages standalone preview scene-field apply payloads for
-  score / stage / reward-plan fields. The scene still owns writing the returned
-  fields through the shared field-payload applier.
+  score / stage / reward-plan fields. The config scene handler owns writing the
+  returned fields through the shared field-payload applier.
 - `scripts/ui/stage_clear_result_runtime_object_state_handler.gd`
   Owns configure-time result scene runtime object dependency resolution:
   the canonical runtime object key list, accepting only valid Godot objects from
   configure data, rejecting non-object values, and returning null for missing
   or invalid dependencies. It also owns runtime object apply payloads that map
   canonical configure keys to result-scene private dependency field names. The
-  scene still owns writing the returned private dependency fields and invoking
-  their runtime methods.
+  config scene handler owns writing the returned private dependency fields; the
+  focused runtime overlay scene handler owns invoking their runtime methods.
 - `scripts/ui/stage_clear_result_input_router.gd`
   Owns top-level stage-clear result input context assembly and route
   classification: modal capture priority for mythic acquisition / runtime perk
   choices / treasure-hunt effects, keyboard advance / escape mapping, gamepad
   confirm / cancel mapping, mouse-motion hover / drag routing, and left-click /
-  drag-release route payloads. The scene still owns thin context-wrapper calls
-  plus applying routed side effects through existing handlers, callbacks, drag
-  state, click reactions, and redraws.
+  drag-release route payloads. The input scene handler owns reading live scene
+  modal / drag state, invoking this router, and dispatching routed side effects.
+- `scripts/ui/stage_clear_result_input_scene_handler.gd`
+  Owns stage-clear result input scene glue: building router context from live
+  modal overlay and scroll fields, invoking `stage_clear_result_input_router.gd`,
+  cancelling scroll drags when modal capture takes over, dispatching runtime
+  overlay input, advance / escape navigation, hover / drag updates, click-chain
+  ordering for Dalji / boss / player / scroll / button / box clicks, and the
+  fallback box-hover update when a left click hits no action. The result
+  scene's `_gui_input()` and the screen/controller call this handler directly;
+  public input wrappers, input context, mouse-left side effects, advance /
+  escape, and button-click pass-through wrappers should not be reintroduced
+  there.
 - `scripts/ui/stage_clear_result_runtime_overlay_presenter.gd`
-  Owns result-scene runtime overlay and modal dependency interaction:
+  Owns result-scene runtime overlay and modal dependency interaction policy:
   runtime-perk input forwarding, mythic acquisition input forwarding, active
   state checks for runtime perk / mythic acquisition / treasure-hunt effects,
   result-interaction blocking policy, overlay visibility checks, fallback-vs-
   runtime catalog / icon-renderer selection, and delegating final overlay draw
-  calls to `runtime_perk_overlay_renderer.gd`. The scene still owns the live
-  dependency fields, public status-wrapper methods, redraw timing, and result
-  callbacks.
+  calls to `runtime_perk_overlay_renderer.gd`.
+- `scripts/ui/stage_clear_result_runtime_overlay_scene_handler.gd`
+  Owns result-scene runtime overlay scene glue: reading the scene's live
+  runtime perk / mythic / treasure-hunt dependency fields, forwarding modal
+  input through the runtime overlay presenter, forwarding the current view size,
+  requesting redraw after modal input, exposing active / visibility / blocking /
+  draw scene-handler calls to input, context, navigation, box, scroll, and draw
+  scene handlers, plus writing the starpoint-choice gate fields that block
+  result input while a perk choice opens. The screen/controller should call the
+  scene handler directly for starpoint gate writes; the scene still owns the
+  live dependency fields and result callbacks, but should not keep focused
+  runtime-overlay input/status / visibility fanout wrappers or a public
+  starpoint-gate facade.
 - `scripts/ui/stage_clear_result_viewport_layout.gd`
   Owns stage-clear result viewport sizing policy: detached-scene fallback size,
   current-size fallback, 1920x1080 layout-scale calculation, and synchronizing
-  the result `Control` to the full visible viewport. The scene still owns when
-  to request viewport sync and keeps thin wrapper methods for status builders
-  and existing smoke tests.
+  the result `Control` to the full visible viewport.
+- `scripts/ui/stage_clear_result_viewport_scene_handler.gd`
+  Owns live result-scene viewport glue: forwarding scene view-size lookups,
+  current-size fallback, layout-scale lookup, and viewport sync to
+  `stage_clear_result_viewport_layout.gd`. The scene keeps only compatibility
+  wrapper methods for status builders and existing smoke tests; the scene and
+  stage-clear result scene handlers should not call the viewport layout helper
+  directly.
 - `scripts/ui/stage_clear_result_scene_field_applier.gd`
   Owns stage-clear result scene-field payload application: unwrapping nested
   `field_payload` dictionaries from helper apply-results, caching valid scene
   property names, rejecting unknown field keys, and writing approved values to
-  the result scene. The scene keeps only compatibility wrappers for direct
-  payloads and apply-results so existing focused helpers can return field
-  payloads without owning property writes.
+  the result scene.
+- `scripts/ui/stage_clear_result_field_apply_scene_handler.gd`
+  Owns live result-scene field-apply glue: reading the scene's field-name lookup
+  cache and delegating nested apply-results to
+  `stage_clear_result_scene_field_applier.gd`. Stage-clear result scene
+  handlers and focused smoke tests should route scene-field apply payloads
+  through this field-apply scene handler instead of bouncing through a result
+  scene `_apply_scene_apply_result()` wrapper or calling the field applier
+  directly; that compatibility wrapper should not be reintroduced.
 - `scripts/ui/stage_clear_result_config_reset_state_handler.gd`
-    Owns configure-time result scene reset-state, reset apply payloads, and
-    reset scene-field apply payloads: lid counter, starpoint gate fields, hover
-    state, button rects, scroll phase / timer / drag state, scene timers, actor
-    click-reaction inactive timers, and Dalji dialogue timer.
-  The scene still owns applying the returned values, rebuilding boxes, FX-pool
-  side effects, voice cleanup, callback storage, and redraw / resource sync.
+  Owns configure-time result scene reset-state, reset apply payloads, and
+  reset scene-field apply payloads: lid counter, starpoint gate fields, hover
+  state, button rects, scroll phase / timer / drag state, scene timers, actor
+  click-reaction inactive timers, reset-owned click-reaction default lookup,
+  and Dalji dialogue timer.
+  The config scene handler owns applying the returned values, rebuilding boxes,
+  FX-pool side effects, voice cleanup, callback storage, and redraw / resource
+  sync.
 - `scripts/ui/stage_clear_result_config_data_state_handler.gd`
   Owns configure-time result scene data normalization: player / boss score,
   current stage, requested selected-character id, reward-plan dictionary
   validation, stage-reward snapshot dictionary validation, and config data
   apply payloads plus scene-field apply payloads with fallback handling for
-  public score / stage / reward fields. The scene still owns applying the
-  returned public fields through the shared field-payload applier, routing the
-  requested character through the character asset-state handler, and building
-  live result boxes from the sanitized reward plan.
+  public score / stage / reward fields. The config scene handler owns applying
+  the returned public fields through the shared field-payload applier, routing
+  the requested character through the character asset-state handler, and
+  building live result boxes from the sanitized reward plan.
+- `scripts/ui/stage_clear_result_config_scene_handler.gd`
+  Owns stage-clear result configure / ready / teardown scene glue: Control
+  input/display setup, standalone preview default application, configure data
+  normalization, selected-character asset cache invalidation, runtime object
+  dependency application, box rebuilding from the sanitized reward plan,
+  configure reset-state application, FX pool reset / teardown, callback storage,
+  viewport sync, texture loading, audio loading / stop, redraw, runtime
+  reference clearing, exit-time helper-cache nulling, result asset prewarm
+  API calls, reset-owned reaction timer default facade calls, and default
+  helper creation for runtime perk catalog / icon / overlay rendering, font
+  cache, and result-box FX host pool. The scene keeps Godot lifecycle callbacks
+  and live storage fields. The screen/controller and tests should call this
+  scene handler directly for result-scene configure, asset prewarm, and
+  runtime-reference cleanup; the scene should not reintroduce configure or
+  static prewarm facades, direct
+  configure/reset/preview / asset-apply/runtime-object helper calls, direct
+  config-data / character-asset / runtime-object / reset / preview / texture /
+  audio pass-through wrappers, direct asset-loader prewarm calls, helper
+  constructor calls, direct actor-draw timing policy reads, inline
+  reset-current-state maps, or inline exit-tree teardown.
 - `scripts/ui/stage_clear_result_callback_handler.gd`
   Owns stage-clear result callback invocation policy: next-stage confirm calls,
   exit-to-menu calls, and the exit fallback to confirm when no explicit exit
-  callback exists. The scene still owns callback storage, button / keyboard
-  routing, Dalji voice cleanup before callback invocation, and redraw state.
+  callback exists.
+- `scripts/ui/stage_clear_result_callback_scene_handler.gd`
+  Owns stage-clear result callback scene glue: stopping the Dalji click voice
+  before navigation callbacks, reading and clearing the scene's confirm /
+  plaza / exit callback fields, preserving exit-to-confirm fallback semantics,
+  and delegating final callback invocation to the callback handler. The scene
+  still owns callback storage and redraw state, but callback pass-through
+  wrappers should not be reintroduced there.
 - `scripts/ui/stage_clear_result_navigation_action_handler.gd`
   Owns stage-clear result navigation action policy: advance input while boxes
   are hidden vs scroll-visible, blocked advance consumption, escape behavior,
   next / exit scroll-button action mapping, action apply payloads for handled
   vs actionless results, and scroll-button click apply payloads that preserve
-  button rects while reporting the resulting action / handled state. The scene
-  still owns applying those actions through box opening, callbacks, voice
-  cleanup, and redraws.
+  button rects while reporting the resulting action / handled state.
+- `scripts/ui/stage_clear_result_navigation_scene_handler.gd`
+  Owns stage-clear result navigation scene glue: reading scroll phase, querying
+  modal-blocking state through the runtime overlay scene handler, building
+  advance / escape / scroll-button navigation apply results through the
+  navigation action handler, forwarding scroll-button layout payloads through
+  the scroll scene handler, and routing final navigation actions directly
+  through the box scene handler or callback scene handler. The scene keeps only
+  stored scroll / box state, callbacks, and redraw surfaces; the navigation
+  scene handler should not route
+  actions back through the result scene's `_open_next_idle_box`, `_confirm`,
+  `_enter_plaza`, `_exit_to_menu`, `_apply_scroll_button_layout`, or
+  `_is_result_interaction_blocked` wrappers.
 - `scripts/ui/stage_clear_result_box_input_handler.gd`
   Owns the result scene's floating-box input adapter layer: next idle box
   selection, clicked idle box classification, blocked-click consumption,
@@ -1828,26 +2939,42 @@ This section is intentionally long; use search to find the nearest owner.
   payloads for box arrays, hover index fallback, consumed state, audio
   requests, and redraw requests. It delegates pure box data mutation to
   `stage_clear_result_box_data.gd` and pure box hit-test math to
-  `stage_clear_result_interaction_state.gd`; the scene still owns storing the
-  returned box array and hover index, playing the result-box-open sound, and
-  redraw calls.
+  `stage_clear_result_interaction_state.gd`.
 - `scripts/ui/stage_clear_result_box_update_handler.gd`
   Owns the result scene's floating-box update sequencing: applying
   `stage_clear_result_box_data.gd` opening / reward-emerge state transitions,
   collecting just-opened box indices, and routing those indices through
   `stage_clear_result_immediate_reward_helper.gd` for cinematic immediate
   reward grants. It also packages update apply payloads and scene field apply
-  payloads for the live box array and lid-open counter. The scene still owns
-  live field writes through the shared field-payload applier, viewport / scale
-  lookup, and the immediate reward callback.
+  payloads for the live box array and lid-open counter.
+- `scripts/ui/stage_clear_result_box_scene_handler.gd`
+  Owns stage-clear result-box scene glue: reading live boxes, hover index,
+  lid-open counter, scroll phase / timer, result-box sheet textures, reward icon
+  cache, viewport scale, reward callbacks, and runtime-overlay modal blocking
+  through the runtime overlay scene handler; delegating click / next-idle /
+  hover policy to
+  `stage_clear_result_box_input_handler.gd`; delegating opening animation and
+  immediate-grant sequencing to `stage_clear_result_box_update_handler.gd`;
+  delegating resolved reward extraction and starpoint-choice resolved-perk
+  append payloads to `stage_clear_result_box_data.gd`;
+  delegating floating-box draw orchestration and draw-context assembly to
+  `stage_clear_result_box_presenter.gd`;
+  applying scene-field payloads through the scene's shared applier; routing
+  result-box-open SFX through `stage_clear_result_audio_scene_handler.gd`; and
+  requesting redraws. Navigation, input, update, and draw scene handlers call
+  this box scene handler directly; the result scene still owns live stored
+  box / hover / lid-counter / texture fields, but should not keep focused box
+  click / hover / update / state-apply fanout wrappers, and the box scene
+  handler should not bounce interaction-block checks through the result scene
+  wrapper.
 - `scripts/ui/stage_clear_result_box_presenter.gd`
   Owns stage-clear floating result-box draw orchestration: iterating the live
   box array, resolving hover state by index, assembling draw context payloads,
   passing scroll reveal timing, and delegating per-box draw-context assembly
   plus final drawing to
-  `stage_clear_result_box_draw_helper.gd`. The scene still owns live box
-  state, loaded result-box sheets, reward icon cache storage, and when to draw
-  the presenter through a thin context wrapper.
+  `stage_clear_result_box_draw_helper.gd`. The box scene handler owns live box
+  state / texture / reward icon cache scene reads; the draw scene handler owns
+  when to invoke floating-box drawing through the box scene handler.
 - `scripts/ui/stage_clear_result_cinematic_position_helper.gd`
   Owns stateless stage-clear result cinematic position assembly for
   immediate mythic reward grants: floating result-box pickup points,
@@ -1872,16 +2999,17 @@ This section is intentionally long; use search to find the nearest owner.
   constants, region rect helpers, and scroll rect / drag-offset clamping
   geometry.
   The scroll update handler owns combining live box-open state with the phase
-  transition helper; the scene still owns the live box array, perk-choice and
-  starpoint-choice gates, input, drawing, and confirmation callbacks.
+  transition helper; the scroll scene handler owns live scene-field glue for
+  phase update, input, and drawing.
 - `scripts/ui/stage_clear_result_scroll_update_handler.gd`
   Owns the result scene's scroll phase update sequencing: checking whether all
   floating boxes have opened via `stage_clear_result_interaction_state.gd`,
   applying gate-blocked state, and routing phase / timer transitions through
   `stage_clear_result_scroll_state.gd` with the authored delay and unfurl
   duration constants. It also packages update apply payloads and scene field
-  apply payloads for the live scroll phase / timer fields. The scene still owns
-  live field writes through the shared field-payload applier and gate sources.
+  apply payloads for the live scroll phase / timer fields. The scroll scene
+  handler owns reading live scene fields, gate sources, and applying the field
+  payload through the shared scene applier.
 - `scripts/ui/stage_clear_result_scroll_draw_helper.gd`
   Owns stage-clear result scroll drawing helpers that are independent of
   scene state: authored cyber-scroll texture-region drawing, the fallback
@@ -1903,18 +3031,21 @@ This section is intentionally long; use search to find the nearest owner.
   delegation, opened scroll content draw delegation, and returning updated
   scroll offset plus next / exit button rects. It also owns draw-result apply
   payload packaging for the scene's scroll offset and button rect fields. The
-  scene still owns the loaded scroll texture, live score / reward / hover
-  state, a thin context wrapper, and the local field writes.
+  scroll scene handler owns the loaded scroll texture / live score / reward /
+  hover scene reads, draw-context glue, and routing draw apply payloads through
+  common scroll-state scene application.
 - `scripts/ui/stage_clear_result_fx_host_pool.gd`
   Owns result-box open FX host pooling for the stage-clear result scene:
   host allocation, prewarm cursor advancement, active / inactive sync state,
   and teardown. The FX host update handler owns per-frame prewarm/sync
-  sequencing; the scene still owns box state mutation, scroll phase/timer,
-  layout scale, and pool lifecycle reset / teardown calls.
+  sequencing; the update scene handler owns passing the live boxes, timer,
+  scroll phase/timer, and layout scale into that helper each tick. The scene
+  still owns the pool instance and pool lifecycle reset / teardown calls.
 - `scripts/ui/stage_clear_result_fx_host_update_handler.gd`
   Owns per-frame stage-clear result-box FX host update sequencing: one staged
   pool prewarm step followed by active host sync with the current boxes,
-  layout scale, timer, and scroll phase/timer. It delegates host allocation,
+  layout scale, timer, and scroll phase/timer. It is invoked by
+  `stage_clear_result_update_scene_handler.gd` and delegates host allocation,
   visibility, and state payload construction to `stage_clear_result_fx_host_pool.gd`.
 - `scripts/ui/stage_clear_result_interaction_state.gd`
   Owns stateless stage-clear result interaction calculations: scroll-button
@@ -1924,16 +3055,26 @@ This section is intentionally long; use search to find the nearest owner.
   actual input consumption, callback dispatch, hover redraw requests, live
   box mutation, and drawing.
 - `scripts/ui/stage_clear_result_scroll_input_handler.gd`
-  Owns the result scene's scroll-input adapter layer: refreshing visible
+  Owns the result scene's scroll-input adapter policy: refreshing visible
   next / exit button rects from scroll phase and offset, classifying scroll
   button clicks / hovers for scene callbacks, and packaging scroll drag
   start / update / finish offsets plus refreshed button / hover state. It now
   also packages hover / drag-start / drag-update / drag-finish / drag-cancel
-  apply payloads so the scene can mutate scroll dragging, grab offset, final
-  scroll offset, hover state, and redraw requests from one small local apply
-  method instead of interpreting helper result keys at each input branch. It
-  also packages common scene scroll-state apply payloads for button rects,
+  apply payloads plus common scene scroll-state apply payloads for button rects,
   scroll offset, drag state, grab offset, and hovered-button fallback handling.
+- `scripts/ui/stage_clear_result_scroll_scene_handler.gd`
+  Owns the result scene's scroll scene glue: reading live scroll phase, timer,
+  boxes, texture, reward / score / hover state, offset, drag, grab, hover, and
+  modal-blocking state through the runtime overlay scene handler; invoking the
+  scroll-input handler for hover / drag / refresh payloads; invoking the
+  scroll-update handler for phase / timer sequencing; invoking the scroll
+  presenter for scroll frame / content drawing and draw-context assembly;
+  applying all payloads through the shared scene-field applier; and requesting
+  redraw when the handler marks a scroll input change as visible. The scene
+  still owns the live scroll fields and when top-level input / update / draw
+  entry points are called, but should not keep focused scroll input / update /
+  state-apply fanout wrappers; the scroll scene handler should not bounce
+  interaction-block checks through the result scene wrapper.
   It delegates pure geometry and hit-test math to
   `stage_clear_result_interaction_state.gd` and
   `stage_clear_result_scroll_state.gd`; the scene still owns actual confirm /
@@ -1945,24 +3086,89 @@ This section is intentionally long; use search to find the nearest owner.
   hovered-button state, localized labels, button rect storage, and action
   dispatch.
 - `scripts/ui/stage_clear_result_status_builder.gd`
-  Owns read-only result-scene `get_interaction_status()` dictionary assembly
-  for smoke tests and QA probes. It accepts scene-prepared state snapshots and
-  constants, derives layout/status fields, and must not mutate boxes, timers,
-  click-reaction state, or reward snapshots.
+  Owns read-only result-scene interaction-status dictionary assembly
+  orchestration for smoke tests and QA probes. It accepts either
+  scene-prepared state snapshots or a live scene object, adds the canonical
+  `current_stage` field, and merges the actor / non-actor status payloads.
+  It must not mutate boxes, timers, click-reaction state, or reward snapshots.
+- `scripts/ui/stage_clear_result_status_scene_handler.gd`
+  Owns the live scene glue for interaction-status probes: reading the scene
+  object plus Dalji dialogue copy supplied by the caller and delegating the
+  actual read-only status assembly to `stage_clear_result_status_builder.gd`.
+  Tests and QA probes should call this handler directly; the scene should not
+  keep a public `get_interaction_status()` facade or call the status builder
+  directly.
+- `scripts/ui/stage_clear_result_scene_context_builder.gd`
+  Owns read-only scene snapshot collection for result interaction status:
+  viewport / layout scale, box arrays, reward-summary state, perk-info
+  summaries, scroll state, button / gate status, modal activity, and
+  box-open audio readiness. Actor-specific snapshot collection is delegated to
+  `stage_clear_result_actor_scene_context_builder.gd`; viewport values are
+  routed through `stage_clear_result_viewport_scene_handler.gd`, and runtime
+  perk / treasure-hunt activity is routed through
+  `stage_clear_result_runtime_overlay_scene_handler.gd`. The scene still owns
+  the live fields used for the snapshot, but the context builder should not
+  bounce view-size, layout-scale, or overlay activity lookups through result
+  scene wrapper methods.
+- `scripts/ui/stage_clear_result_actor_scene_context_builder.gd`
+  Owns read-only actor snapshot collection for result interaction status:
+  Dalji reaction / dialogue / voice state and player-victory sheet / reaction
+  state. Stage 2 / Stage 3 Live2D defeated boss snapshot collection is
+  delegated to `stage_clear_result_live2d_boss_scene_context_builder.gd`;
+  Stage 4 / Stage 5 / Stage 6 fallback result sheet snapshot collection is
+  delegated to `stage_clear_result_fallback_actor_scene_context_builder.gd`.
+  It may call asset-loader constants and actor draw-helper reaction math, but
+  must not draw, load textures, or mutate scene timers.
+- `scripts/ui/stage_clear_result_live2d_boss_scene_context_builder.gd`
+  Owns read-only Stage 2 / Stage 3 Live2D defeated boss snapshot collection for
+  result interaction status: sheet paths / load states, click-reaction sheet
+  paths / load states, frame-grid metadata, reaction timers, transition frames,
+  and reaction-state payloads from actor draw-helper math.
+- `scripts/ui/stage_clear_result_fallback_actor_scene_context_builder.gd`
+  Owns read-only Stage 4 Ponk / Stage 5 Hongryun / Stage 6 Tetriser fallback
+  result sheet snapshot collection for result interaction status: sheet paths /
+  load states, frame-grid metadata, click rects, reaction timers, transition
+  frames, and reaction-state payloads from actor draw-helper math.
+- `scripts/ui/stage_clear_result_non_actor_status_builder.gd`
+  Owns non-actor interaction-status payload derivation: result-box counts,
+  reward-source counts, display labels, perk-info summary, starpoint totals,
+  scroll visibility / rect / drag status, button clickability, modal gates, and
+  box-open audio readiness. It consumes prepared context dictionaries instead
+  of reading scene fields directly.
+- `scripts/ui/stage_clear_result_actor_status_builder.gd`
+  Owns actor interaction-status payload orchestration plus direct Dalji and
+  player-victory status derivation. Stage 2 / Stage 3 Live2D defeated boss
+  status is delegated to `stage_clear_result_live2d_boss_status_builder.gd`;
+  Stage 4 Ponk / Stage 5 Hongryun / Stage 6 Tetriser fallback result status is
+  delegated to `stage_clear_result_fallback_actor_status_builder.gd`. It
+  consumes prepared context dictionaries plus layout helper rect math; drawing
+  and click-routing remain in the actor presenter / draw / click-handler owners.
+- `scripts/ui/stage_clear_result_live2d_boss_status_builder.gd`
+  Owns Stage 2 / Stage 3 Live2D defeated boss public interaction-status
+  derivation: active-stage flags, sheet / click-reaction sheet paths and load
+  states, frame-grid metadata, draw / click rects, reaction timers, transition
+  frames, base frames, and reaction alpha.
+- `scripts/ui/stage_clear_result_fallback_actor_status_builder.gd`
+  Owns Stage 4 Ponk / Stage 5 Hongryun / Stage 6 Tetriser fallback actor public
+  interaction-status derivation: active-stage flags, sheet paths and load
+  states, frame-grid metadata, draw / click rects with valid-rect fallback,
+  reaction timers, transition frames, base frames, and reaction alpha.
 - `scripts/ui/stage_clear_result_static_draw_helper.gd`
   Owns stage-clear result static draw surfaces: result background fallback /
   cover blit, Dalji click dialogue bubble / tail / text, player-victory
-  fallback panel / text / sheet frame, and footer text. The scene still owns
-  texture fields, timers, reaction state, stage number, and draw sequencing.
+  fallback panel / text / sheet frame, and footer text. The draw scene handler
+  owns static background / dialogue / footer draw sequencing; the actor draw
+  scene handler owns the player-victory fallback draw call. The scene still owns
+  the live texture / timer / stage storage fields.
 - `scripts/ui/stage_clear_result_shape_helper.gd`
   Owns stateless result-scene shape point generation and low-level
   CanvasItem draw helpers: ellipse fill polygons, ellipse polylines,
   radial burst polygons, star polygons, closed polyline conversion,
   filled ellipse / ellipse-outline / star / radial-burst drawing, StyleBoxFlat
   panel drawing, fitted texture blits, fallback reward icon primitives, plus
-  result-box hover glow / sparkle geometry and drawing. The scene still owns
-  high-level draw sequencing, color selection, alpha gates, and animation
-  timing.
+  result-box hover glow / sparkle geometry and drawing. Draw scene handlers /
+  presenters own high-level draw sequencing, color selection, alpha gates, and
+  animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the
   player victory and Dalji result sheets: base frame selection, reaction
@@ -2779,10 +3985,10 @@ This section is intentionally long; use search to find the nearest owner.
   Stage 1 active-item / pillar HUD scene drawer, and composes the Stage 2
   boss-skill HUD renderer in the post-playfield HUD pass.
 - `scripts/stages/stage2/stage2_actor_renderer.gd`
-  Owns the public Stage 2 playfield / actor draw entry point for the first
-  MVP slice. It delegates the jungle court to `stage2_playfield_renderer`,
-  reuses the shared Smasher player renderer, and draws the placeholder
-  Stage 2 boss through `stage2_boss_actor_renderer`.
+  Owns the public Stage 2 playfield / actor draw entry point. It delegates the
+  jungle court to `stage2_playfield_renderer`, reuses the shared Smasher player
+  renderer, and draws the sprite-backed Stage 2 boss through
+  `stage2_boss_actor_renderer`.
 - `scripts/stages/stage2/stage2_playfield_renderer.gd`
   Owns the Stage 2 center playfield background: the original Python
   imagegen center-field source/fallback, crocodile center emblem, ball-
@@ -2791,13 +3997,13 @@ This section is intentionally long; use search to find the nearest owner.
   center electric line. The procedural jungle court remains only as the
   missing-asset fallback.
 - `scripts/stages/stage2/stage2_boss_actor_renderer.gd`
-  Owns the initial Stage 2 boss placeholder renderer. It draws an
-  alligator-style boss silhouette from live boss position / facing,
-  stage-owned rage tint / offset, score expression overlays, and
-  contact-state context so Stage 2 can run before final boss sheets and
-  boss-specific skills are ported. It also owns the speed-defense shield
-  transform presentation and ghost trail draw path from the Stage 2 boss
-  skill context.
+  Owns the Stage 2 boss actor renderer. It selects the accepted idle, left /
+  right walk, attack, Jungle Quake stomp, speed-defense, victory, and defeat
+  sheets; keeps procedural alligator silhouette drawing as a missing-asset
+  fallback; consumes live boss position / facing, stage-owned rage tint /
+  offset, score expression overlays, contact-state context, status overlays,
+  speed-defense shield presentation, and ghost trail draw data from the Stage 2
+  boss skill context.
 - `scripts/stages/stage3/stage3_pillar_background.gd`
   Owns the Stage 3 outer Menhera plush frame map slice. It loads the
   Python reference imagegen assets copied under `godot/assets/sprites/hud/`,
@@ -2942,9 +4148,13 @@ This section is intentionally long; use search to find the nearest owner.
   deflected-fragment boss stun / Ponk gauge damage. Red moon fragment payload
   construction is delegated to `stage4_moon_payload_factory.gd`.
 - `scripts/stages/stage4/stage4_ponk_boss_actor_renderer.gd`
-  Owns the initial Stage 4 Ponk boss placeholder renderer so the Stage 4
-  route never falls through to the Stage 1 Dalji actor while final Ponk
-  sprite sheets are still pending.
+  Owns the Stage 4 Ponk boss actor renderer so the Stage 4 route never falls
+  through to the Stage 1 Dalji actor. It uses the current generated Ponk idle
+  sheet with procedural fallback drawing, and owns the procedural
+  `illusion_ripple` awaken aura / chi-orbit amplification pass, rotating light
+  crown, and one-shot awaken burst driven by `stage4_illusion_awaken_stage`,
+  first-cast delay, and awaken-burst draw context while the full action /
+  result sheet set remains incomplete.
 - `scripts/stages/stage4/stage4_ponk_gauge_hud_renderer.gd`
   Owns the first Stage 4 Ponk gauge HUD port as a separate post-playfield
   HUD renderer. Final skill-card conversion can replace or narrow this
@@ -2969,9 +4179,13 @@ This section is intentionally long; use search to find the nearest owner.
   gauge HUD context, boss skill-card metadata, actor VFX draw context, and
   the magnetic-field sheet under `godot/assets/sprites/stage4/`. It keeps
   magnetic and meditation gameplay timing here while delegating the
-  node-backed visual remasters to `stage4_ponk_magnetic_fx_host.gd` and
-  `stage4_ponk_meditation_fx_host.gd`. Meditation trail, particle, and
-  circle payload construction is delegated to
+  node-backed visual remasters to `stage4_ponk_magnetic_fx_host.gd`,
+  `stage4_ponk_meditation_fx_host.gd`, and
+  `stage4_ponk_illusion_ripple_fx_host.gd`. It also owns the
+  `illusion_awaken_stage` 0-4 state machine, first-cast 180-frame delay,
+  one-shot awaken burst timer / played flag, permanent unlock,
+  70-second auto-loop cooldown, and round / result cleanup
+  policy for 몽환포영. Meditation trail, particle, and circle payload construction is delegated to
   `stage4_ponk_skill_payload_factory.gd`. Loop sound cleanup stays
   registered through `gameplay_loop_audio_cleanup.gd`.
 - `scripts/stages/stage4/stage4_ponk_magnetic_assets.gd`
@@ -3020,6 +4234,17 @@ This section is intentionally long; use search to find the nearest owner.
   `stage4_ponk_meditation_release_burst_imagegen_v1.png`, and
   `stage4_ponk_meditation_release_trail_imagegen_v1.png`; gameplay timing
   remains in `stage4_ponk_skill_state.gd`.
+- `scripts/stages/stage4/stage4_ponk_illusion_ripple_fx_host.gd`
+  Owns the Godot-native full-screen screen-read host for Ponk's
+  `illusion_ripple` / 몽환포영 awakening effect: absolute z-index 1272,
+  `BackBufferCopy(COPY_MODE_VIEWPORT)`, fullscreen `ColorRect`,
+  `hint_screen_texture` shader sampling, two-frequency sine-wave UV
+  displacement, chromatic aberration, hue-wave color rotation, saturation
+  breath, host-driven strength envelope, grace-timeout self cleanup, staged
+  asset prewarm through `stage4_ponk_skill_state.gd`, and the
+  boot PSO draw pass in `battle_pso_prewarmer.gd`. Gameplay unlock,
+  `illusion_awaken_stage`, first-cast delay, duration, cooldown, and result / round cleanup ownership
+  remains in `stage4_ponk_skill_state.gd`.
 - `scripts/stages/stage4/stage4_ponk_meditation_assets.gd`
   Owns shared Stage 4 Ponk meditation FX texture-path metadata for mandala,
   lotus, sutra, lock-burst, release-burst, and release-trail PNG slots.
@@ -3057,14 +4282,15 @@ This section is intentionally long; use search to find the nearest owner.
   only the `stage5_boss_skill_hud_*` context emitted by
   `stage5_hongryun_state.gd`.
 - `scripts/stages/stage5/stage5_pillar_scene_drawer.gd`
-  Owns the temporary Stage 5 pillar draw route while Hongryun-specific
-  background / pillar art is still pending. It reuses the Stage 1 shared
-  pillar HUD chrome and fallback background path, then adds the Stage 5
-  Hongryun boss skill-card HUD in the post-playfield HUD pass.
+  Owns the Stage 5 pillar draw route: it delegates Hongryun-specific layered
+  pillar / background art through the routed stage-background owner when
+  available, falls back to the Stage 1 pillar background path when needed,
+  reuses the Stage 1 shared pillar HUD chrome, and adds the Stage 5 Hongryun
+  boss skill-card HUD in the post-playfield HUD pass.
 - `scripts/stages/stage6/` — Stage 6 테트리서 / Tetriser cluster (port of Python
   Stage 7; Godot slot 6, see `docs/stage6_tetriser_port_plan.md`). Status:
-  **complete through step 5c + boss sprite + background + pillar Tetris deco +
-  crystal-shield boss skill; loading/result art pending**. Owners (9 modules):
+  **complete through step 5c + boss sprite + static pillar background +
+  crystal-shield boss skill; loading/result art pending**. Owners (8 modules):
   - `stage6_tetriser_state.gd` — single owner of boss gauge (max 500, 25/sec
     charge, round-persist via reset_round vs full reset), falling tetrominoes
     (assembly→fall→drift/rotate→settle), guard blocks (slide→active), edge tetro
@@ -3089,22 +4315,18 @@ This section is intentionally long; use search to find the nearest owner.
     preserves `super_scale` growth + aura.
   - `stage6_tetriser_actor_renderer.gd` — orchestrates playfield + shared Stage1
     player/commando renderers + boss renderer (main draw entry).
-  - `stage6_tetriser_pillar_background.gd` — atmospheric arena backdrop
-    (faithful procedural port of Python `AnimatedBackgroundStage7`): pulsing
-    torch glows, sweeping light band, drifting motes, blue-purple border
-    frame. Central cube is NOT drawn here (owned by the playfield renderer).
+  - `stage6_tetriser_pillar_background.gd` — static imagegen mood backdrop
+    Loads
+    `stage6_tetriser_pillar_bg_imagegen_v1.png`, cover-fits it behind the
+    shared pillar HUD, and draws only a quiet playfield shade / edge boundary.
+    Central cube is NOT drawn here (owned by the playfield renderer).
   - `stage6_tetriser_pillar_scene_drawer.gd` — background fanout + shared Stage 1
-    pillar HUD chrome; draws the pillar Tetris deco between background and HUD;
-    drives the boss skill-card HUD in `draw_post_playfield_hud` (merges state
-    `get_hud_context`).
-  - `stage6_tetriser_pillar_tetris.gd` — two self-playing Tetris wells in the
-    screen letterbox margins (behavior port of Python `TetrisGame` /
-    `TetriserPillarBackground`: auto-play, line clears, rainbow, NEXT preview).
-    Visual deco only; Crystal Shield gameplay is owned by
-    `stage6_tetriser_crystal_shield_state.gd`.
+    pillar HUD chrome; live pillar Tetris wells were retired so HUD cards /
+    dash-orb chrome remain the foreground read. It drives the boss skill-card
+    HUD in `draw_post_playfield_hud` (merges state `get_hud_context`).
   - `stage6_tetriser_boss_skill_hud_renderer.gd` — 달지식 boss skill-card HUD
     (gauge + 낙하/가드/벽/초인 cards) via shared `BossSkillCardHudSpec`
-    (procedural cards; tetriser skillcard textures pending).
+    with Stage 6 Tetriser imagegen skill-card textures and staged prewarm.
   - Integration touch points: `stage_runtime_router` (role map), `stage_debug_picker`
     (id 6, reset keys, prewarm), `gameplay_stage_module_catalog` (7 keys),
     `battle_update_stage_runtime_deps_builder` / `battle_update_boss_ai_context_builder`
@@ -3235,6 +4457,38 @@ This section is intentionally long; use search to find the nearest owner.
   The battle scene shell only routes the public starpoint trigger, debug F8
   trigger, modal input,
   modal pause, and draw ordering.
+- `scripts/core/stage_clear_result_starpoint_choice_handler.gd`
+  Owns the public result-screen starpoint perk-choice flow surface: defer
+  eligibility, deferred-choice scheduling wrapper, pending-choice update fanout,
+  runtime-choice update fanout, selected-perk sync wrapper, and runtime perk
+  choice-active probing. Deferred delay state, result input gate writes,
+  deferred-open state tracking, selected-sequence idempotence, and resolved
+  perk append dispatch through the box scene handler are delegated to
+  `stage_clear_result_starpoint_choice_state.gd`. Runtime perk modal opening,
+  choice context assembly, active-state probing, and choice-open audio fallback
+  are delegated to `stage_clear_result_starpoint_choice_open_data.gd`.
+  Selected perk reward payload assembly and runtime perk snapshot copying are
+  delegated through the choice state to
+  `stage_clear_result_starpoint_perk_reward_data.gd`.
+- `scripts/core/stage_clear_result_starpoint_choice_state.gd`
+  Owns stateful result-box starpoint choice tracking: pending delay / box-index
+  storage, result input gate scene writes, delayed-open countdown, opened-choice
+  active box tracking, selected-choice sequence idempotence, resolved perk
+  reward append dispatch through the box scene handler, runtime perk snapshot
+  reads through `stage_clear_result_starpoint_perk_reward_data.gd`, and active /
+  pending state reset.
+- `scripts/core/stage_clear_result_starpoint_choice_open_data.gd`
+  Owns stateless result-box starpoint deferred-choice opening: defer eligibility,
+  runtime perk choice active-state probing, `open_next_choice` dispatch,
+  result-box choice context flags that defer instant grants until spawn-intro
+  completion, pre-open sequence capture, and runtime-perk choice-open audio
+  fallback.
+- `scripts/core/stage_clear_result_starpoint_perk_reward_data.gd`
+  Owns stateless result-box starpoint perk reward data assembly: copied
+  runtime-perk snapshots, selected-choice sequence extraction, perk catalog /
+  choice fallback data merging, level label construction, and the
+  `box_starpoint_choice` reward payload returned to the starpoint choice
+  handler.
 - `scripts/characters/laurel_leaf_shield_state.gd`
   Owns the Godot 월계수잎 runtime shield: effective perk leaves plus future
   Sacred Laurel leaf bonuses, player-centered elliptical orbit timing,
@@ -3318,6 +4572,12 @@ This section is intentionally long; use search to find the nearest owner.
   tooltip specs, translated stat-row dictionaries, and Lingpet stat cache
   hashes. The overlay keeps texture caches, hover rects, drawing, and cache
   storage.
+- `scripts/hud/character_info_overlay_pendulum_interior.gd`
+  Owns the TAB character-info Ring Core pendulum-interior sub-screen:
+  open / close state, reusable Lingpet companion walking draw config,
+  generic Lingpet-language speech selection, decoder-level rich-text run
+  caching, and immediate-mode modal chrome. The main overlay keeps input
+  routing, z-order, hover rect collection, and redraw decisions.
 - `scripts/hud/character_info_overlay_header_presenter.gd`
   Owns pure TAB character-info header text assembly: stable subtitle text and
   localized pending-choice / perk-gold status strings. The overlay keeps the
@@ -3357,6 +4617,13 @@ This section is intentionally long; use search to find the nearest owner.
   prewarm iteration. The overlay keeps texture path resolution, load caches,
   Lingpet catalog iteration, hover data, prewarm source resolution / cache
   guards, and fallback symbol drawing.
+- `scripts/hud/premium_panel_frame.gd`
+  Owns shared zero-allocation StyleBoxFlat chrome for premium HUD panels:
+  rounded main / section / slot / cell geometry, soft container shadows,
+  a main-panel halo pass, and reusable corner-bracket accents. Character-info
+  presenters pass per-call colors through this helper while keeping layout,
+  hover state, text, icon, and gameplay data ownership in their existing
+  overlay modules.
 - `scripts/hud/character_info_overlay_lingpet_texture_loader.gd`
   Owns catalog-backed Lingpet art / skill icon path resolution,
   `ProjectResourceLoader` texture loads, and Lingpet skill-icon prewarm cache
@@ -4036,7 +5303,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns shared scene-owner value reads for core context builders and scene
   snapshot appliers: null-safe property lookup plus typed Vector2,
   Dictionary, and Array fallback helpers. Core modules should delegate to
-  this reader instead of duplicating owner property access logic.
+  this reader instead of duplicating owner property access logic; Ringpet
+  runtime code should call it directly rather than keeping local owner-value
+  pass-through wrappers.
 - `scripts/core/battle_context_reader.gd`
   Owns shared dictionary value reads for core draw/context modules:
   Dictionary fallback coercion and typed Vector2 lookup from context
@@ -5983,8 +7252,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_scene_selection_startup_lifecycle.gd`
   Owns the battle-scene selection handoff lifecycle: reading the optional
   `GameSelectionState` autoload selection, normalizing runtime character and
-  league mode, clamping the selected stage, and writing the selected
-  character / runtime / display-name / AI-mode fields onto the battle owner.
+  league mode, clamping the selected stage, resolving the Stage 1 entry boss
+  roulette unless an explicit debug variant was selected, and writing the
+  selected character / runtime / display-name / AI-mode fields onto the
+  battle owner.
 - `scripts/core/battle_scene_ready_lifecycle.gd`
   Owns battle-scene ready/startup lifecycle: applying the optional
   `GameSelectionState` autoload selection into battle state, initial

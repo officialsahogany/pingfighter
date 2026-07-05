@@ -17,6 +17,10 @@ for legacy-source work.
   Checklist`, and `Godot Port Change Checklist` are current operating rules.
 - `Live Godot Layout` and `Planned / Current Module Map` summarize current
   architecture boundaries.
+- Date-stamped status and module-count snapshots live in
+  `docs/current_development_boundary.md` and
+  `docs/refactor_status_brief.md`. Keep this file linked to those snapshots
+  instead of copying their counts here.
 - `docs/godot_module_ownership_ledger.md` is the running ownership and
   status ledger. Update it when adding or moving modules, but do not treat
   every historical note there as a new rule.
@@ -655,6 +659,11 @@ Before sign-off:
   locally.
 
 ## Planned / Current Module Map
+
+This map names the stable owner folders. For current script counts, stage
+status, character status, and Ringpet / Lingpet split status, use
+`docs/refactor_status_brief.md`; for the Godot-vs-legacy implementation
+boundary, use `docs/current_development_boundary.md`.
 
 - `scripts/core/`
   Match-level rules, score state, round flow, scene orchestration helpers,

@@ -1,79 +1,147 @@
 # Refactoring Status Brief
 
-> Last updated: 2026-05-28
+> Last updated: 2026-07-01
 
-One-page current state of the Godot port. For operational rules and
-module routing, see `AGENTS.md`. For the full module ledger, see
-`docs/godot_module_ownership_ledger.md`.
+현재 Godot 포트 리팩터링 상태를 한 장으로 요약한다. 운영 규칙은
+`AGENTS.md`, 현재 경계는 `docs/current_development_boundary.md`, 모듈별
+소유권 근거는 `docs/godot_module_ownership_ledger.md`를 따른다.
 
 ## Snapshot Delta
 
-| Metric | 2026-05-11 snapshot | Current (2026-05-28) | Delta |
-|---|---|---|---|
-| `godot/scripts/` .gd files | 582 | 839 | +257 (+44%) |
-| `godot/tests/` .gd files | 299 | 510 | +211 (+71%) |
+| Metric | 2026-05-11 snapshot | Current (2026-07-01) | Delta |
+|---|---:|---:|---:|
+| `godot/scripts/` `.gd` files | 582 | 1298 | +716 (+123%) |
+| `godot/tests/` `.gd` files | 299 | 848 | +549 (+184%) |
+| `godot/tests/*_smoke.gd` files | n/a | 846 | n/a |
 
-Notable changes since the snapshot:
+Key movement since the old brief:
 
-- Stage 5 moved from the old `Stage 5+ / Not yet ported` bucket to an
-  active Hongryun slice with 12 `stage5_hongryun_*` modules.
-- Stage 2 Monkey is now the largest stage module cluster at 67 `.gd` files.
-- The snapshot in `AGENTS.md` remains useful as provenance, but this file is
-  the live progress brief.
+- `godot/scenes/main.gd` remains the intended one-line shell extending
+  `res://scripts/core/battle_scene_shell.gd`.
+- Stage 5 is no longer an unported bucket: Hongryun has routed actor, boss
+  actor, pillar/background, playfield, state, fire-machine, and boss skill-card
+  HUD owners, and the stage-clear result screen now routes the existing
+  Hongryun victory sheet as a fallback actor with a short click pulse.
+- Stage 6 is runtime-present: Tetriser has routed runtime, playfield, boss
+  sprite, static pillar background, Crystal Shield, and boss skill-card HUD
+  owners. Loading and stage-clear result backgrounds now route through existing
+  Tetriser art, and the stage-clear boss-defeat slot now uses the existing
+  Tetriser defeat sheet with a short click pulse reaction. A dedicated
+  high-polish result Live2D sheet remains a visual gap.
+- Ringpet / Lingpet is a major split surface with 127 modules. Every current
+  `godot/scripts/lingpet/*.gd` file has a ledger entry as of this snapshot.
+- Stage 2 boss rendering is now sprite-backed; procedural alligator rendering
+  is a missing-asset fallback, not the primary implementation.
 
 ## Script Distribution
 
 | Folder | Files | Notes |
-|---|---|---|
-| `scripts/core/` | 139 | Match flow, scene orchestration, context builders |
-| `scripts/characters/` | 161 | Smasher 65, Commando 58, Viper 24, Optimus 2 |
-| `scripts/items/` | 201 | Active/passive/legendary/mythic item runtimes |
-| `scripts/stages/` | 140 | Common (3), Stage 1 (33), Stage 2 (67), Stage 3 (9), Stage 4 (15), Stage 5 (12), root (1) |
-| `scripts/hud/` | 70 | Pillar HUD, gauge orbs, scoreboard, tooltips |
-| `scripts/ball/` | 68 | Ball physics, speed policy, VFX, collision |
-| `scripts/ui/` | 21 | UI utilities |
-| `scripts/resources/` | 15 | Texture/resource loader, module registry |
-| `scripts/effects/` | 14 | Particles, screen shake, impact VFX |
-| `scripts/audio/` | 4 | Sound loading, loop cleanup |
-| `scripts/ai/` | 3 | Boss AI |
-| `scripts/status/` | 3 | Slow/stun/confusion/reverse/burn states |
+|---|---:|---|
+| `scripts/items/` | 209 | Active/passive/legendary/mythic item runtimes and field effects |
+| `scripts/stages/` | 198 | Stage routing, boss states, backgrounds, playfields, skill HUDs |
+| `scripts/characters/` | 194 | Smasher, Commando, Viper, Optimus, Blacksmith, shared player state |
+| `scripts/core/` | 201 | Match flow, scene shell, context builders, debug pickers |
+| `scripts/lingpet/` | 127 | Affinity, hatch/loadout, language, active/passive skills, feed/item-egg flows |
+| `scripts/hud/` | 130 | Pillar HUD, gauge orbs, scoreboards, tooltips, overlays |
+| `scripts/ball/` | 69 | Ball physics, speed policy, collision, VFX helpers |
+| `scripts/ui/` | 95 | UI components and menu helpers |
+| `scripts/resources/` | 25 | Module catalogs, loaders, sprite/resource paths |
+| `scripts/effects/` | 22 | Reusable VFX hosts, particles, screen shake, impact helpers |
+| `scripts/plaza/` | 16 | Plaza shell, save/economy, shop/bank/gacha/academy/tavern flows |
+| `scripts/status/` | 5 | Shared status state, boss slow tiers, status overlays |
+| `scripts/audio/` | 4 | Audio loading/routing and loop cleanup |
+| `scripts/ai/` | 3 | Boss AI and prediction state |
 
-## Stage Porting Status
+## Stage Status
 
-| Stage | Boss | Status | Module count |
-|---|---|---|---|
-| Stage 1 | 달지 (Dalji) | ✅ Substantially complete | 33 .gd |
-| Stage 2 | 몽키 (Monkey) | ✅ Substantially complete; largest stage cluster | 67 .gd |
-| Stage 3 | 멘헤라 (Menhera) | ✅ Basic complete | 9 .gd |
-| Stage 4 | 퐁크 (Ponk) | ✅ Basic complete | 15 .gd |
-| Stage 5 | 홍련 (Hongryun) | 🔧 In progress; no longer in the old unported bucket | 12 .gd (inferno FX, pillar, state, fire machine) |
-| Stage 6 | 테트리서 (Tetriser) | 📋 Planning started | Port of Python Stage 7; plan: docs/stage6_tetriser_port_plan.md |
-| Stage 7+ | — | ⬜ Not started | Roadmap backlog (8 아카무 리고 / 9~12) |
+| Stage | Boss / route | Status | Module count |
+|---|---|---|---:|
+| Stage 1 | Dalji / Gaksital / Pododaejang slices | Substantially ported and sprite-backed | 48 |
+| Stage 2 | Monkey / alligator boss route | Substantially ported; largest stage cluster | 68 |
+| Stage 3 | Menhera | Basic route and boss-skill HUD present | 13 |
+| Stage 4 | Ponk | Route, idle-sheet actor, skill-card HUD, magnetic/meditation FX, and result background/fallback actor click pulse present; full dedicated action/result sheet set incomplete | 27 |
+| Stage 5 | Hongryun | Active Godot Stage 5 route with routed state, actor, playfield, pillar/background, fire-machine, boss skill-card HUD, and result background/fallback actor click pulse | 15 |
+| Stage 6 | Tetriser | Runtime route present with boss sprite, playfield, static pillar background, Crystal Shield, and boss skill-card HUD; loading/result backgrounds and result boss-defeat slot/click pulse routed from existing Tetriser art, dedicated result Live2D polish pending | 9 |
+| `common` | Shared stage helpers | Boss skill-card sizing, rail helpers, shared stage utilities | 17 |
+| `root` | Stage router | `stage_runtime_router.gd` role-to-module routing | 1 |
 
 ## Character Status
 
-| Character | Status | Prefixed files | Key systems |
-|---|---|---|---|
-| Smasher | ✅ Core complete | 65 | Dash, Drive, Power Smash, Ghost Shot, Wheel, Plasma, Warp Gate, Shield Kiting, Magnum Grip, Combo |
-| Commando | ✅ Basic complete | 58 | Firearm runtime, support aircraft, suicide drone, supply drop, weapon controller |
-| Viper | ✅ Basic complete | 24 | Skill runtime, Jetpack, EMP, Chaos Spear, Shadow Step |
-| Optimus | 🔧 Early | 2 | Minimal presence |
-| Baltor/Blacksmith | ⬜ Not started | 0 | — |
+| Character surface | Files | Current read |
+|---|---:|---|
+| Smasher-prefixed | 69 | Mature core skill/runtime surface |
+| Commando-prefixed | 59 | Mature firearm/supply/support runtime surface |
+| Viper-prefixed | 47 | Mature skill runtime surface with several split helpers |
+| Optimus-prefixed | 2 | Early runtime presence |
+| Blacksmith-prefixed | 5 | Early runtime/config/shield surface |
+| Baltor-prefixed | 0 | No Godot character surface yet |
+| Shared/generic player/runtime-perk surface | 12 | Movement, lock proxy, customization overlay, runtime perk state/catalog |
+
+## Ringpet / Lingpet Status
+
+- Current module count: 127 `.gd` files under `godot/scripts/lingpet/`.
+- Ownership coverage: 0 current Lingpet `.gd` files missing from
+  `docs/godot_module_ownership_ledger.md`.
+- Current second active/passive unlock contract: first active + passive
+  effective level sum `>= 5`, then deterministic 30% roll on level-up. Fixed
+  Lv.22 / Lv.25 unlock-card wording is historical only.
+- Implemented ownership surfaces include affinity state/store/income, ring-core
+  cap rules, hatch/loadout/current-profile projection, language catalog /
+  decoder / rich text, skill dispatcher, per-skill runtime modules, passive
+  state helpers, item-egg absorb, feed bowl, and visual texture cache.
 
 ## Remaining Risks
 
-- **Stage 5 홍련** is in progress but not complete — inferno burst/trail/charge
-  FX hosts exist, fire machine event exists, but boss AI, full skill set, and
-  integration QA are still ahead.
-- **Stage 2 몽키** has the largest stage module footprint. Treat future edits
-  there as broad-stage work, not a small isolated patch.
-- **Optimus and Baltor/Blacksmith** have minimal or no Godot presence.
-- **Stage 3/4 module counts are low** (9 and 15) compared to Stage 1/2
-  (33 and 67), suggesting lighter integration or potential gaps.
+- Stage 4 Ponk now has result background and an idle-sheet fallback actor /
+  click pulse, but still needs the full dedicated action/result sheet set
+  before it should be described as visually complete.
+- Stage 5 Hongryun is routed and visually active, including a reused-sheet
+  result click pulse, but still needs continued parity / polish QA and a
+  dedicated high-polish result sheet before treating the whole stage as
+  complete.
+- Stage 6 Tetriser runtime/result routing is present, including a reused-sheet
+  result click pulse, but a dedicated high-polish result Live2D sheet remains
+  pending.
+- Optimus and Blacksmith are early; Baltor has no Godot character surface yet.
+- The repo remains a dirty-worktree environment with many unrelated modified
+  and untracked docs/assets. Do not revert unrelated files while briefing or
+  refactoring.
 
 ## Verification Baseline
 
-- Headless load check: `tools/run_headless_load_check.ps1`
-- Smoke tests: `tools/run_smoke_tests.ps1` (510 tests)
-- Warning scan: `tools/run_warning_scan.ps1`
-- Windows build: `tools/build_windows.ps1`
+- Load check: from `godot/`, run `.\tools\run_headless_load_check.ps1`.
+- Warning scan: from `godot/`, run `.\tools\run_warning_scan.ps1`.
+- Focused smokes: from `godot/`, run `.\tools\run_smoke_tests.ps1 -Tests ...`.
+- Last focused briefing verification on this branch included:
+  `stage2_boss_idle_sprite_smoke`, `stage4_map_port_smoke`,
+  `stage5_hongryun_visual_shell_smoke`,
+  `lingpet_active_skill_slot_resolver_smoke`, and
+  `lingpet_skill_runtime_surface_smoke`.
+- This brief's numeric snapshot is guarded by
+  `refactor_status_brief_smoke`.
+
+## Refresh Commands
+
+Run these from the repository root when updating this brief:
+
+```powershell
+(rg --files -g "*.gd" godot\scripts | Measure-Object).Count
+(rg --files -g "*.gd" godot\tests | Measure-Object).Count
+(rg --files -g "*_smoke.gd" godot\tests | Measure-Object).Count
+
+$folders = 'items','stages','characters','core','lingpet','hud','ball','ui','resources','effects','plaza','status','audio','ai'
+foreach ($f in $folders) {
+  $c = (rg --files -g "*.gd" "godot\scripts\$f" | Measure-Object).Count
+  "$f=$c"
+}
+
+Get-ChildItem godot\scripts\stages -Directory | Sort-Object Name | ForEach-Object {
+  $c = (rg --files -g "*.gd" $_.FullName | Measure-Object).Count
+  "$($_.Name)=$c"
+}
+(Get-ChildItem godot\scripts\stages -File -Filter *.gd | Measure-Object).Count
+```
+
+For Lingpet ownership coverage, compare the current script list against
+`docs/godot_module_ownership_ledger.md`; the expected missing count for this
+snapshot is `0`.
