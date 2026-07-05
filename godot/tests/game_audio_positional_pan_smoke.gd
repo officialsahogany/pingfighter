@@ -1,6 +1,7 @@
 extends SceneTree
 
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 var _host: Node = null
@@ -34,13 +35,12 @@ func _run() -> void:
 	audio.paddle_hit_panner = null
 	audio.wall_hit_panner = null
 	audio = null
-	await process_frame
+	ProjectResourceLoader.clear_caches()
+	await _drain_frames(8)
 	if _host != null:
-		_host.queue_free()
+		_host.free()
 		_host = null
-	await process_frame
-	await process_frame
-	await process_frame
+	await _drain_frames(24)
 
 	if _failures.is_empty():
 		print("game_audio_positional_pan_smoke: ok")
@@ -132,7 +132,7 @@ func _cleanup_host_audio_nodes() -> void:
 		if child is AudioStreamPlayer:
 			_stop_player(child as AudioStreamPlayer)
 			(child as AudioStreamPlayer).stream = null
-			child.queue_free()
+			child.free()
 
 
 func _cleanup_pan_bus(bus_name: String) -> void:
@@ -149,6 +149,11 @@ func _stop_player(player: Object) -> void:
 		return
 	if bool(player.get("playing")):
 		player.call("stop")
+
+
+func _drain_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await process_frame
 
 
 func _expect(condition: bool, message: String) -> void:

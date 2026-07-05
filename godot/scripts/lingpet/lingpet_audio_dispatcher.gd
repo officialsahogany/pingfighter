@@ -11,6 +11,11 @@ func play_lingpet_ring_dash(registry: Object = null) -> bool:
 	return _call_game_audio(registry, "play_lingpet_ring_dash")
 
 
+# 링펫알(공명 알)이 공에 맞을 때 재생하는 뼈 부러지는 임팩트 SFX(2종 중 랜덤).
+func play_lingpet_egg_hit(registry: Object = null) -> bool:
+	return _call_game_audio(registry, "play_lingpet_egg_hit")
+
+
 func play_lingpet_click_reaction(registry: Object = null, pet_id: String = "") -> bool:
 	return _call_game_audio(registry, "play_lingpet_click_reaction", [pet_id])
 

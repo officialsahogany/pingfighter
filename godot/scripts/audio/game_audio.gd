@@ -34,6 +34,9 @@ const SHIELD_KITING_WIND_UP_SOUND_PATH := "res://assets/sounds/shieldcating1.wav
 const SHIELD_KITING_LAUNCH_SOUND_PATH := "res://assets/sounds/shieldcating2.wav"
 const SHIELD_KITING_HIT_SOUND_PATH := "res://assets/sounds/shieldcating3.wav"
 const WHIP_SOUND_PATH := "res://assets/sounds/whip_effect.wav"
+const FAN_SOUND_PATH := "res://assets/sounds/fan.wav"
+const WHIPCRACK_SOUND_PATH := "res://assets/sounds/whipcrack.wav"
+const GAKSITAL_FAN_SOUND_POOL_SIZE := 3
 const VIPER_JETPACK_SOUND_PATH := "res://assets/sounds/jetpack.wav"
 const VIPER_BACKSTEP_SOUND_PATH := "res://assets/sounds/backstep.wav"
 const VIPER_SHADOW_KICK_SOUND_PATH := "res://assets/sounds/shadowkick.wav"
@@ -114,10 +117,18 @@ const LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/luna
 const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
 const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
 const LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"
+const LINGPET_MARIBO_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/maribo_click_reaction_voice_v1.mp3"
+const LINGPET_RABI_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/rabi_click_reaction_voice_v1.mp3"
+const LINGPET_LUMION_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/lumion_click_reaction_voice_v1.mp3"
+const LINGPET_MONKEYRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/monkeyring_click_reaction_voice_v1.mp3"
+const LINGPET_ONIMARU_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/onimaru_click_reaction_voice_v1.mp3"
+const LINGPET_OROSHA_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/orosha_click_reaction_voice_v1.wav"
+const LINGPET_KOYORA_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/koyora_click_reaction_voice_v1.mp3"
 const LINGPET_PUPPET_GRAB_CAST_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
 const LINGPET_PUPPET_GRAB_PULL_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab.wav"
 const LINGPET_PUPPET_GRAB_KISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_kissing.wav"
 const LINGPET_PUPPET_GRAB_MISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
+const LINGPET_SAND_PRISON_OPEN_SOUND_PATH := "res://assets/sounds/lingpet/rahoset_sand_prison_open.wav"
 const LINGPET_WILD_ROAR_SOUND_PATH := "res://assets/sounds/lingpet/monkeyshouting.wav"
 # Orosha 별똬리(star_coil) BIND squish: plays while the star coil-snake constricts the
 # boss (one-shot at bind start, stopped on release so the wet squish does not trail
@@ -125,6 +136,10 @@ const LINGPET_WILD_ROAR_SOUND_PATH := "res://assets/sounds/lingpet/monkeyshoutin
 # (soft-clip makeup gain so its quiet body lifts from ~-30 to ~-21 dBFS RMS) and
 # trimmed to ~3.6s so the audible squish lands on the bind window (1.5~3.5s).
 const LINGPET_STAR_COIL_BIND_SOUND_PATH := "res://assets/sounds/lingpet/orosha_star_coil_bind.wav"
+# Orosha 별똬리(star_coil) MOVE loop: plays while the star coil-snake rolls to the wall,
+# climbs, lunges, crosses, and descends (every moving phase). Looping — started once per
+# travel and stopped on bind / idle / retire / cancel by the skill.
+const LINGPET_STAR_COIL_MOVE_SOUND_PATH := "res://assets/sounds/starmoving.wav"
 const LINGPET_RING_DASH_SOUND_PATH := "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav"
 const LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH := "res://assets/sounds/lingpet/affinity_level_up_chime.wav"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
@@ -140,18 +155,45 @@ const LINGPET_LUNABI_CLICK_VOICE_GAIN_DB := -4.0
 const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_MARIBO_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_RABI_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_LUMION_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_MONKEYRING_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_ONIMARU_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_OROSHA_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_KOYORA_CLICK_VOICE_GAIN_DB := 0.0
 const LINGPET_PUPPET_GRAB_CAST_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_PULL_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_KISS_GAIN_DB := -5.0
 const LINGPET_PUPPET_GRAB_MISS_GAIN_DB := -5.0
+const LINGPET_SAND_PRISON_OPEN_GAIN_DB := -6.0
 const LINGPET_WILD_ROAR_GAIN_DB := -4.0
 const LINGPET_STAR_COIL_BIND_GAIN_DB := -2.0
+const LINGPET_STAR_COIL_MOVE_GAIN_DB := -6.0
 const LINGPET_RING_DASH_GAIN_DB := -5.0
 const LINGPET_AFFINITY_LEVEL_UP_GAIN_DB := -4.0
+# 링펫알(공명 알)이 공에 맞을 때 재생하는 뼈 부러지는 임팩트 SFX 2종. 매 히트마다
+# 둘 중 하나를 랜덤으로 재생(피치 지터)해 연속 히트가 똑같이 들리지 않게 한다.
+# mini_spark 패턴과 동일하게 단일 플레이어 + 후보 스트림 배열로 로드한다.
+const LINGPET_EGG_HIT_SOUND_PATHS := [
+	"res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav",
+	"res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_2.wav",
+]
+const LINGPET_EGG_HIT_GAIN_DB := -5.0
 const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
 const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
 const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
 const LINGPET_GATLING_HIT_GAIN_DB := -13.9794
+# Serabi 난쟁이마술 (Dwarf Magic): original PingFighter parity — smallboyshoot on
+# cast, smallboyhit on boss hit (downtown/hero_skills.py DwarfMagic).
+const LINGPET_DWARF_MAGIC_CAST_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
+const LINGPET_DWARF_MAGIC_HIT_SOUND_PATH := "res://assets/sounds/smallboyhit.wav"
+const LINGPET_DWARF_MAGIC_CAST_GAIN_DB := -4.0
+const LINGPET_DWARF_MAGIC_HIT_GAIN_DB := -4.0
+# Serabi 중력가속 (Gravity Accel): original PingFighter parity — gravityaccel on
+# cast (downtown/hero_skills.py GravityControl, duration field skill, cast cue only).
+const LINGPET_GRAVITY_ACCEL_CAST_SOUND_PATH := "res://assets/sounds/gravityaccel.wav"
+const LINGPET_GRAVITY_ACCEL_CAST_GAIN_DB := -4.0
 const RAGNAROK_SHOT_SOUND_PATH := "res://assets/sounds/ragnarokshot.wav"
 const RAGNAROK_BOOM_SOUND_PATH := "res://assets/sounds/ragnarokboom.wav"
 const RAGNAROK_SHOCK_SOUND_PATH := "res://assets/sounds/ragnarokshock.wav"
@@ -266,6 +308,7 @@ const STAGE3_KUROMI_AWAKE_SOUND_PATH := "res://assets/sounds/kuromiawake.wav"
 const STAGE3_KUROMI_STONEBREAK_SOUND_PATH := "res://assets/sounds/stonebreak_large.wav"
 const STAGE3_KUROMI_TONGUE_SOUND_PATH := "res://assets/sounds/kuromitongue.wav"
 const STAGE3_KUROMI_SWALLOW_SOUND_PATH := "res://assets/sounds/kuromiswallow.wav"
+const STAGE3_KUROMI_SPIT_SOUND_PATH := "res://assets/sounds/kuromispit.wav"
 const LINGPET_GHOST_SUMMON_SOUND_PATH := "res://assets/sounds/bencyghost.wav"
 const LINGPET_GHOST_SUMMON_OUT_SOUND_PATH := "res://assets/sounds/bencyghostout.wav"
 # Nekuring Skeleton Archer (네크로 해골궁수) original PingFighter SFX, ported 1:1 from
@@ -300,7 +343,12 @@ const STAGE5_HONGRYUN_HURT_SOUND_PATHS := [
 	"res://assets/sounds/stage5_hongryun_hurt_3.wav",
 ]
 const LEAF_SHIELD_SOUND_PATH := "res://assets/sounds/leaf.wav"
+# 트램펄린(trampoline) 액티브 아이템이 공을 위로 튕겨내는(launch) 순간 재생하는 "보잉" 큐.
+const TRAMPOLINE_BOUNCE_SOUND_PATH := "res://assets/sounds/trampoline_bounce.wav"
+const TRAMPOLINE_BOUNCE_GAIN_DB := -4.0
 const STAGE1_BGM_PATH := "res://assets/bgm/stage1bgm.mp3"
+const STAGE1_ALT_BGM_PATH := "res://assets/bgm/stage1bgm2.ogg"
+const STAGE1_ALT2_BGM_PATH := "res://assets/bgm/stage1bgm3.ogg"
 const STAGE2_BGM_PATH := "res://assets/bgm/stage2bgm.ogg"
 const STAGE2_ALT_BGM_PATH := "res://assets/bgm/stage2bgm2.mp3"
 const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.ogg"
@@ -314,9 +362,13 @@ const SCOREBOARD_SOUND_VOLUME_DB := -8.0
 const UI_MOVE_SOUND_PATH := "res://assets/sounds/ui_move.wav"
 const UI_CONFIRM_SOUND_PATH := "res://assets/sounds/ui_confirm.wav"
 const UI_BACK_SOUND_PATH := "res://assets/sounds/ui_back.wav"
+# 퍽 선택화면에서 퍽을 확정(선택)했을 때 재생하는 마법 보상 확인음. 일반 퍽 픽에 쓰인다
+# (액티브 언락 퍽은 오브로 날아가는 비행 연출 사운드를 유지).
+const UI_PERK_SELECT_SOUND_PATH := "res://assets/sounds/ui_perk_select.wav"
 const UI_MOVE_GAIN_DB := -9.0
 const UI_CONFIRM_GAIN_DB := -7.0
 const UI_BACK_GAIN_DB := -8.0
+const UI_PERK_SELECT_GAIN_DB := 0.0
 const DEFAULT_BGM_VOLUME := 0.4
 const DEFAULT_SFX_VOLUME := 0.7
 const STAGE1_BGM_GAIN := 0.75
@@ -325,13 +377,14 @@ const STAGE3_BGM_GAIN := 0.9
 const STAGE4_BGM_GAIN := 0.9
 const STAGE5_BGM_GAIN := 0.9
 const STAGE6_BGM_GAIN := 0.9
+const STAGE1_BGM_NAMES := ["stage1", "stage1_alt", "stage1_alt2"]
 const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
 const BGM_BUS_NAME := "BGM"
 const SFX_BUS_NAME := "SFX"
 const SFX_PAN_PADDLE_BUS_NAME := "SFXPanPaddle"
 const SFX_PAN_WALL_BUS_NAME := "SFXPanWall"
 const AUDIO_SETUP_STEP_COUNT := 7
-const BGM_SETUP_STEP_COUNT := 9
+const BGM_SETUP_STEP_COUNT := 11
 const PLAYFIELD_LEFT_X := 0.0
 const PLAYFIELD_RIGHT_X := 760.0
 const PLAYFIELD_CENTER_X := 380.0
@@ -351,6 +404,7 @@ var muted_bgm_name := ""
 var ui_move_sfx: AudioStreamPlayer
 var ui_confirm_sfx: AudioStreamPlayer
 var ui_back_sfx: AudioStreamPlayer
+var ui_perk_select_sfx: AudioStreamPlayer
 var paddle_hit_sfx: AudioStreamPlayer
 var serve_sfx: AudioStreamPlayer
 var pingpong_serve_sfx: AudioStreamPlayer
@@ -377,6 +431,10 @@ var shield_kiting_wind_up_sfx: AudioStreamPlayer
 var shield_kiting_launch_sfx: AudioStreamPlayer
 var shield_kiting_hit_sfx: AudioStreamPlayer
 var whip_sfx: AudioStreamPlayer
+var gaksital_fan_sfx: AudioStreamPlayer
+var gaksital_fan_sfx_layers: Array = []
+var gaksital_fan_sfx_cursor := 0
+var whipcrack_sfx: AudioStreamPlayer
 var viper_jetpack_sfx: AudioStreamPlayer
 var viper_backstep_sfx: AudioStreamPlayer
 var viper_shadow_kick_sfx: AudioStreamPlayer
@@ -442,18 +500,32 @@ var lingpet_lunabi_click_voice_sfx: AudioStreamPlayer
 var lingpet_volty_click_voice_sfx: AudioStreamPlayer
 var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
 var lingpet_red_dragon_click_voice_sfx: AudioStreamPlayer
+var lingpet_maribo_click_voice_sfx: AudioStreamPlayer
+var lingpet_rabi_click_voice_sfx: AudioStreamPlayer
+var lingpet_lumion_click_voice_sfx: AudioStreamPlayer
+var lingpet_monkeyring_click_voice_sfx: AudioStreamPlayer
+var lingpet_onimaru_click_voice_sfx: AudioStreamPlayer
+var lingpet_orosha_click_voice_sfx: AudioStreamPlayer
+var lingpet_koyora_click_voice_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_cast_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_pull_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_kiss_sfx: AudioStreamPlayer
 var lingpet_puppet_grab_miss_sfx: AudioStreamPlayer
+var lingpet_sand_prison_open_sfx: AudioStreamPlayer
 var lingpet_wild_roar_sfx: AudioStreamPlayer
 var lingpet_star_coil_bind_sfx: AudioStreamPlayer
+var lingpet_star_coil_move_sfx: AudioStreamPlayer
 var lingpet_ring_dash_sfx: AudioStreamPlayer
 var lingpet_affinity_level_up_sfx: AudioStreamPlayer
+var lingpet_egg_hit_sfx: AudioStreamPlayer
+var lingpet_egg_hit_streams: Array[AudioStream] = []
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
 var lingpet_gatling_loop_sfx: AudioStreamPlayer
 var lingpet_gatling_fire_sfx: AudioStreamPlayer
 var lingpet_gatling_hit_sfx: AudioStreamPlayer
+var lingpet_dwarf_magic_cast_sfx: AudioStreamPlayer
+var lingpet_dwarf_magic_hit_sfx: AudioStreamPlayer
+var lingpet_gravity_accel_cast_sfx: AudioStreamPlayer
 var legendary_after_sfx: AudioStreamPlayer
 var legendary_ending_sfx: AudioStreamPlayer
 var ragnarok_shot_sfx: AudioStreamPlayer
@@ -534,6 +606,7 @@ var stage3_kuromi_awake_sfx: AudioStreamPlayer
 var stage3_kuromi_stonebreak_sfx: AudioStreamPlayer
 var stage3_kuromi_tongue_sfx: AudioStreamPlayer
 var stage3_kuromi_swallow_sfx: AudioStreamPlayer
+var stage3_kuromi_spit_sfx: AudioStreamPlayer
 var lingpet_ghost_summon_sfx: AudioStreamPlayer
 var lingpet_ghost_summon_out_sfx: AudioStreamPlayer
 var lingpet_skeleton_archer_summon_sfx: AudioStreamPlayer
@@ -561,7 +634,10 @@ var stage6_tetriser_shield_sfx: AudioStreamPlayer
 var stage6_tetriser_laser_sfx: AudioStreamPlayer
 var stage5_hongryun_hurt_sfx: Array = []
 var leaf_shield_sfx: AudioStreamPlayer
+var trampoline_bounce_sfx: AudioStreamPlayer
 var stage1_bgm: AudioStreamPlayer
+var stage1_alt_bgm: AudioStreamPlayer
+var stage1_alt2_bgm: AudioStreamPlayer
 var stage2_bgm: AudioStreamPlayer
 var stage2_alt_bgm: AudioStreamPlayer
 var stage3_bgm: AudioStreamPlayer
@@ -569,6 +645,8 @@ var stage4_bgm: AudioStreamPlayer
 var stage4_phase2_bgm: AudioStreamPlayer
 var stage5_bgm: AudioStreamPlayer
 var stage6_bgm: AudioStreamPlayer
+var stage1_bgm_rng := RandomNumberGenerator.new()
+var stage1_bgm_rng_ready := false
 var stage2_bgm_rng := RandomNumberGenerator.new()
 var stage2_bgm_rng_ready := false
 var _audio_setup_step := 0
@@ -636,6 +714,7 @@ func _setup_core_ball_sfx() -> void:
 	ui_move_sfx = player_factory.create(owner_node, "UiMoveSfx", UI_MOVE_SOUND_PATH, UI_MOVE_GAIN_DB)
 	ui_confirm_sfx = player_factory.create(owner_node, "UiConfirmSfx", UI_CONFIRM_SOUND_PATH, UI_CONFIRM_GAIN_DB)
 	ui_back_sfx = player_factory.create(owner_node, "UiBackSfx", UI_BACK_SOUND_PATH, UI_BACK_GAIN_DB)
+	ui_perk_select_sfx = player_factory.create(owner_node, "UiPerkSelectSfx", UI_PERK_SELECT_SOUND_PATH, UI_PERK_SELECT_GAIN_DB)
 	paddle_hit_sfx = player_factory.create(owner_node, "PaddleHitSfx", PADDLE_HIT_SOUND_PATH, -5.0)
 	serve_sfx = player_factory.create(owner_node, "ServeSfx", SERVE_SOUND_PATH, -5.0)
 	pingpong_serve_sfx = player_factory.create(owner_node, "PingpongServeSfx", PINGPONG_SERVE_SOUND_PATH, -5.0)
@@ -671,6 +750,10 @@ func _setup_smasher_skill_sfx() -> void:
 	shield_kiting_launch_sfx = player_factory.create(owner_node, "ShieldKitingLaunchSfx", SHIELD_KITING_LAUNCH_SOUND_PATH, -5.0)
 	shield_kiting_hit_sfx = player_factory.create(owner_node, "ShieldKitingHitSfx", SHIELD_KITING_HIT_SOUND_PATH, -4.0)
 	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
+	gaksital_fan_sfx = player_factory.create(owner_node, "GaksitalFanSfx", FAN_SOUND_PATH, _volume_to_db(0.35))
+	gaksital_fan_sfx_layers = _create_optional_sfx_layers("GaksitalFanSfxLayer", FAN_SOUND_PATH, _volume_to_db(0.35), GAKSITAL_FAN_SOUND_POOL_SIZE - 1)
+	gaksital_fan_sfx_cursor = 0
+	whipcrack_sfx = player_factory.create(owner_node, "WhipcrackSfx", WHIPCRACK_SOUND_PATH, _volume_to_db(0.6))
 	viper_jetpack_sfx = player_factory.create(owner_node, "ViperJetpackSfx", VIPER_JETPACK_SOUND_PATH, -8.5)
 	_enable_loop(viper_jetpack_sfx)
 	viper_backstep_sfx = player_factory.create(owner_node, "ViperBackstepSfx", VIPER_BACKSTEP_SOUND_PATH, -6.0)
@@ -751,14 +834,26 @@ func _setup_item_command_sfx() -> void:
 	lingpet_volty_click_voice_sfx = player_factory.create(owner_node, "LingpetVoltyClickVoiceSfx", LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH, LINGPET_VOLTY_CLICK_VOICE_GAIN_DB)
 	lingpet_milkring_click_voice_sfx = player_factory.create(owner_node, "LingpetMilkringClickVoiceSfx", LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH, LINGPET_MILKRING_CLICK_VOICE_GAIN_DB)
 	lingpet_red_dragon_click_voice_sfx = player_factory.create(owner_node, "LingpetRedDragonClickVoiceSfx", LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH, LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB)
+	lingpet_maribo_click_voice_sfx = player_factory.create(owner_node, "LingpetMariboClickVoiceSfx", LINGPET_MARIBO_CLICK_VOICE_SOUND_PATH, LINGPET_MARIBO_CLICK_VOICE_GAIN_DB)
+	lingpet_rabi_click_voice_sfx = player_factory.create(owner_node, "LingpetRabiClickVoiceSfx", LINGPET_RABI_CLICK_VOICE_SOUND_PATH, LINGPET_RABI_CLICK_VOICE_GAIN_DB)
+	lingpet_lumion_click_voice_sfx = player_factory.create(owner_node, "LingpetLumionClickVoiceSfx", LINGPET_LUMION_CLICK_VOICE_SOUND_PATH, LINGPET_LUMION_CLICK_VOICE_GAIN_DB)
+	lingpet_monkeyring_click_voice_sfx = player_factory.create(owner_node, "LingpetMonkeyringClickVoiceSfx", LINGPET_MONKEYRING_CLICK_VOICE_SOUND_PATH, LINGPET_MONKEYRING_CLICK_VOICE_GAIN_DB)
+	lingpet_onimaru_click_voice_sfx = player_factory.create(owner_node, "LingpetOnimaruClickVoiceSfx", LINGPET_ONIMARU_CLICK_VOICE_SOUND_PATH, LINGPET_ONIMARU_CLICK_VOICE_GAIN_DB)
+	lingpet_orosha_click_voice_sfx = player_factory.create(owner_node, "LingpetOroshaClickVoiceSfx", LINGPET_OROSHA_CLICK_VOICE_SOUND_PATH, LINGPET_OROSHA_CLICK_VOICE_GAIN_DB)
+	lingpet_koyora_click_voice_sfx = player_factory.create(owner_node, "LingpetKoyoraClickVoiceSfx", LINGPET_KOYORA_CLICK_VOICE_SOUND_PATH, LINGPET_KOYORA_CLICK_VOICE_GAIN_DB)
 	lingpet_puppet_grab_cast_sfx = player_factory.create(owner_node, "LingpetPuppetGrabCastSfx", LINGPET_PUPPET_GRAB_CAST_SOUND_PATH, LINGPET_PUPPET_GRAB_CAST_GAIN_DB)
 	lingpet_puppet_grab_pull_sfx = player_factory.create(owner_node, "LingpetPuppetGrabPullSfx", LINGPET_PUPPET_GRAB_PULL_SOUND_PATH, LINGPET_PUPPET_GRAB_PULL_GAIN_DB)
 	lingpet_puppet_grab_kiss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabKissSfx", LINGPET_PUPPET_GRAB_KISS_SOUND_PATH, LINGPET_PUPPET_GRAB_KISS_GAIN_DB)
 	lingpet_puppet_grab_miss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabMissSfx", LINGPET_PUPPET_GRAB_MISS_SOUND_PATH, LINGPET_PUPPET_GRAB_MISS_GAIN_DB)
+	lingpet_sand_prison_open_sfx = player_factory.create(owner_node, "LingpetSandPrisonOpenSfx", LINGPET_SAND_PRISON_OPEN_SOUND_PATH, LINGPET_SAND_PRISON_OPEN_GAIN_DB)
 	lingpet_wild_roar_sfx = player_factory.create(owner_node, "LingpetWildRoarSfx", LINGPET_WILD_ROAR_SOUND_PATH, LINGPET_WILD_ROAR_GAIN_DB)
 	lingpet_star_coil_bind_sfx = player_factory.create(owner_node, "LingpetStarCoilBindSfx", LINGPET_STAR_COIL_BIND_SOUND_PATH, LINGPET_STAR_COIL_BIND_GAIN_DB)
+	lingpet_star_coil_move_sfx = player_factory.create(owner_node, "LingpetStarCoilMoveSfx", LINGPET_STAR_COIL_MOVE_SOUND_PATH, LINGPET_STAR_COIL_MOVE_GAIN_DB)
+	_enable_loop(lingpet_star_coil_move_sfx)
 	lingpet_ring_dash_sfx = player_factory.create(owner_node, "LingpetRingDashSfx", LINGPET_RING_DASH_SOUND_PATH, LINGPET_RING_DASH_GAIN_DB)
 	lingpet_affinity_level_up_sfx = player_factory.create(owner_node, "LingpetAffinityLevelUpSfx", LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH, LINGPET_AFFINITY_LEVEL_UP_GAIN_DB)
+	lingpet_egg_hit_sfx = player_factory.create(owner_node, "LingpetEggHitSfx", str(LINGPET_EGG_HIT_SOUND_PATHS[0]), LINGPET_EGG_HIT_GAIN_DB)
+	lingpet_egg_hit_streams = _load_audio_stream_candidates(LINGPET_EGG_HIT_SOUND_PATHS)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
@@ -817,6 +912,9 @@ func _setup_projectile_item_sfx() -> void:
 	lingpet_gatling_loop_sfx = player_factory.create(owner_node, "LingpetGatlingLoopSfx", LINGPET_GATLING_LOOP_SOUND_PATH, LINGPET_GATLING_LOOP_GAIN_DB)
 	lingpet_gatling_fire_sfx = player_factory.create(owner_node, "LingpetGatlingFireSfx", LINGPET_GATLING_FIRE_SOUND_PATH, LINGPET_GATLING_FIRE_GAIN_DB)
 	lingpet_gatling_hit_sfx = player_factory.create(owner_node, "LingpetGatlingHitSfx", LINGPET_GATLING_HIT_SOUND_PATH, LINGPET_GATLING_HIT_GAIN_DB)
+	lingpet_dwarf_magic_cast_sfx = player_factory.create(owner_node, "LingpetDwarfMagicCastSfx", LINGPET_DWARF_MAGIC_CAST_SOUND_PATH, LINGPET_DWARF_MAGIC_CAST_GAIN_DB)
+	lingpet_dwarf_magic_hit_sfx = player_factory.create(owner_node, "LingpetDwarfMagicHitSfx", LINGPET_DWARF_MAGIC_HIT_SOUND_PATH, LINGPET_DWARF_MAGIC_HIT_GAIN_DB)
+	lingpet_gravity_accel_cast_sfx = player_factory.create(owner_node, "LingpetGravityAccelCastSfx", LINGPET_GRAVITY_ACCEL_CAST_SOUND_PATH, LINGPET_GRAVITY_ACCEL_CAST_GAIN_DB)
 	_enable_loop(spider_mine_walk_sfx)
 	_enable_loop(lingpet_gatling_loop_sfx)
 
@@ -854,6 +952,7 @@ func _setup_stage_feedback_sfx() -> void:
 	stage3_kuromi_stonebreak_sfx = _create_optional_sfx("Stage3KuromiStonebreakSfx", STAGE3_KUROMI_STONEBREAK_SOUND_PATH, -4.0)
 	stage3_kuromi_tongue_sfx = player_factory.create(owner_node, "Stage3KuromiTongueSfx", STAGE3_KUROMI_TONGUE_SOUND_PATH, -4.5)
 	stage3_kuromi_swallow_sfx = player_factory.create(owner_node, "Stage3KuromiSwallowSfx", STAGE3_KUROMI_SWALLOW_SOUND_PATH, -5.0)
+	stage3_kuromi_spit_sfx = player_factory.create(owner_node, "Stage3KuromiSpitSfx", STAGE3_KUROMI_SPIT_SOUND_PATH, -4.0)
 	lingpet_ghost_summon_sfx = player_factory.create(owner_node, "LingpetGhostSummonSfx", LINGPET_GHOST_SUMMON_SOUND_PATH, -5.0)
 	lingpet_ghost_summon_out_sfx = player_factory.create(owner_node, "LingpetGhostSummonOutSfx", LINGPET_GHOST_SUMMON_OUT_SOUND_PATH, -5.0)
 	lingpet_skeleton_archer_summon_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherSummonSfx", LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH, -4.4)
@@ -888,13 +987,14 @@ func _setup_stage_feedback_sfx() -> void:
 			-5.0
 		))
 	leaf_shield_sfx = player_factory.create(owner_node, "LeafShieldSfx", LEAF_SHIELD_SOUND_PATH, -4.5)
+	trampoline_bounce_sfx = player_factory.create(owner_node, "TrampolineBounceSfx", TRAMPOLINE_BOUNCE_SOUND_PATH, TRAMPOLINE_BOUNCE_GAIN_DB)
 	_enable_loop(stage2_quake_sfx)
 	_enable_loop(stage3_psychoball_sfx)
 	_enable_loop(stage4_magnetic_sfx)
 
 
 func _setup_bgm_players() -> void:
-	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
+	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
 		_ensure_bgm_player(str(bgm_name))
 	_bgm_setup_step = BGM_SETUP_STEP_COUNT
 	_restore_bgm_muted()
@@ -907,27 +1007,33 @@ func _setup_bgm_players_step() -> bool:
 			if _should_setup_bgm_player("stage1"):
 				_ensure_bgm_player("stage1")
 		1:
+			if _should_setup_bgm_player("stage1_alt"):
+				_ensure_bgm_player("stage1_alt")
+		2:
+			if _should_setup_bgm_player("stage1_alt2"):
+				_ensure_bgm_player("stage1_alt2")
+		3:
 			if _should_setup_bgm_player("stage2"):
 				_ensure_bgm_player("stage2")
-		2:
+		4:
 			if _should_setup_bgm_player("stage2_alt"):
 				_ensure_bgm_player("stage2_alt")
-		3:
+		5:
 			if _should_setup_bgm_player("stage3"):
 				_ensure_bgm_player("stage3")
-		4:
+		6:
 			if _should_setup_bgm_player("stage4"):
 				_ensure_bgm_player("stage4")
-		5:
+		7:
 			if _should_setup_bgm_player("stage4_phase2"):
 				_ensure_bgm_player("stage4_phase2")
-		6:
+		8:
 			if _should_setup_bgm_player("stage5"):
 				_ensure_bgm_player("stage5")
-		7:
+		9:
 			if _should_setup_bgm_player("stage6"):
 				_ensure_bgm_player("stage6")
-		8:
+		10:
 			_restore_bgm_muted()
 		_:
 			return true
@@ -978,6 +1084,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				UI_MOVE_SOUND_PATH,
 				UI_CONFIRM_SOUND_PATH,
 				UI_BACK_SOUND_PATH,
+				UI_PERK_SELECT_SOUND_PATH,
 				PADDLE_HIT_SOUND_PATH,
 				SERVE_SOUND_PATH,
 				PINGPONG_SERVE_SOUND_PATH,
@@ -1007,6 +1114,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				SHIELD_KITING_LAUNCH_SOUND_PATH,
 				SHIELD_KITING_HIT_SOUND_PATH,
 				WHIP_SOUND_PATH,
+				FAN_SOUND_PATH,
+				WHIPCRACK_SOUND_PATH,
 				VIPER_JETPACK_SOUND_PATH,
 				VIPER_BACKSTEP_SOUND_PATH,
 				VIPER_SHADOW_KICK_SOUND_PATH,
@@ -1075,10 +1184,13 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_PUPPET_GRAB_PULL_SOUND_PATH,
 				LINGPET_PUPPET_GRAB_KISS_SOUND_PATH,
 				LINGPET_PUPPET_GRAB_MISS_SOUND_PATH,
+				LINGPET_SAND_PRISON_OPEN_SOUND_PATH,
 				LINGPET_WILD_ROAR_SOUND_PATH,
 				LINGPET_STAR_COIL_BIND_SOUND_PATH,
 				LINGPET_RING_DASH_SOUND_PATH,
 				LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH,
+				str(LINGPET_EGG_HIT_SOUND_PATHS[0]),
+				str(LINGPET_EGG_HIT_SOUND_PATHS[1]),
 				LEGENDARY_AFTER_SOUND_PATH,
 				LEGENDARY_ENDING_SOUND_PATH,
 				RAGNAROK_SHOT_SOUND_PATH,
@@ -1152,6 +1264,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				STAGE3_KUROMI_STONEBREAK_SOUND_PATH,
 				STAGE3_KUROMI_TONGUE_SOUND_PATH,
 				STAGE3_KUROMI_SWALLOW_SOUND_PATH,
+				STAGE3_KUROMI_SPIT_SOUND_PATH,
 				LINGPET_GHOST_SUMMON_SOUND_PATH,
 				LINGPET_GHOST_SUMMON_OUT_SOUND_PATH,
 				LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH,
@@ -1172,6 +1285,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				STAGE5_HONGRYUN_CHARGE_SOUND_PATH,
 				STAGE5_HONGRYUN_SHOOT_SOUND_PATH,
 				LEAF_SHIELD_SOUND_PATH,
+				TRAMPOLINE_BOUNCE_SOUND_PATH,
 			]
 			for voice_path in MIKA_POWER_SMASHING_VOICE_PATHS:
 				stage_paths.append(str(voice_path))
@@ -1187,7 +1301,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 
 func _get_required_bgm_stream_paths() -> Array[String]:
 	var paths: Array[String] = []
-	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
+	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
 		var bgm_key := str(bgm_name)
 		if _should_setup_bgm_player(bgm_key):
 			paths.append(_get_bgm_stream_path(bgm_key))
@@ -1197,6 +1311,10 @@ func _get_required_bgm_stream_paths() -> Array[String]:
 func _get_bgm_stream_path(bgm_name: String) -> String:
 	if bgm_name == "stage1":
 		return STAGE1_BGM_PATH
+	if bgm_name == "stage1_alt":
+		return STAGE1_ALT_BGM_PATH
+	if bgm_name == "stage1_alt2":
+		return STAGE1_ALT2_BGM_PATH
 	if bgm_name == "stage2":
 		return STAGE2_BGM_PATH
 	if bgm_name == "stage2_alt":
@@ -1230,7 +1348,7 @@ func _is_setup_complete() -> bool:
 func _should_setup_bgm_player(bgm_name: String) -> bool:
 	var setup_stage := _get_owner_current_stage()
 	if setup_stage == 1:
-		return bgm_name == "stage1"
+		return STAGE1_BGM_NAMES.has(bgm_name)
 	if setup_stage == 2:
 		return bgm_name == "stage2" or bgm_name == "stage2_alt"
 	if setup_stage == 3:
@@ -1246,6 +1364,10 @@ func _should_setup_bgm_player(bgm_name: String) -> bool:
 
 func _is_required_bgm_player_ready() -> bool:
 	if _should_setup_bgm_player("stage1") and not _is_owned_player_ready(stage1_bgm):
+		return false
+	if _should_setup_bgm_player("stage1_alt") and not _is_owned_player_ready(stage1_alt_bgm):
+		return false
+	if _should_setup_bgm_player("stage1_alt2") and not _is_owned_player_ready(stage1_alt2_bgm):
 		return false
 	if _should_setup_bgm_player("stage2") and not _is_owned_player_ready(stage2_bgm):
 		return false
@@ -1267,6 +1389,8 @@ func _is_required_bgm_player_ready() -> bool:
 func _are_all_bgm_players_ready() -> bool:
 	return (
 		_is_owned_player_ready(stage1_bgm)
+		and _is_owned_player_ready(stage1_alt_bgm)
+		and _is_owned_player_ready(stage1_alt2_bgm)
 		and _is_owned_player_ready(stage2_bgm)
 		and _is_owned_player_ready(stage2_alt_bgm)
 		and _is_owned_player_ready(stage3_bgm)
@@ -1446,6 +1570,15 @@ func play_shield_kiting_hit() -> void:
 
 func play_whip() -> void:
 	_play_with_pitch(whip_sfx, randf_range(0.98, 1.02))
+
+
+func play_gaksital_fan(volume: float = 0.35) -> void:
+	_play_gaksital_fan_layer(volume, randf_range(0.98, 1.02))
+
+
+func play_whipcrack(volume: float = 0.6) -> void:
+	_set_sfx_player_linear_volume(whipcrack_sfx, volume)
+	_play_with_pitch(whipcrack_sfx, randf_range(0.98, 1.02))
 
 
 func stop_whip() -> void:
@@ -1924,6 +2057,20 @@ func play_lingpet_click_reaction(pet_id: String) -> void:
 		_play_with_pitch(_ensure_lingpet_milkring_click_voice_sfx(), randf_range(0.98, 1.02))
 	elif normalized_pet_id == "red_dragon":
 		_play_with_pitch(_ensure_lingpet_red_dragon_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "maribo":
+		_play_with_pitch(_ensure_lingpet_maribo_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "rabi":
+		_play_with_pitch(_ensure_lingpet_rabi_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "lumion":
+		_play_with_pitch(_ensure_lingpet_lumion_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "monkeyring":
+		_play_with_pitch(_ensure_lingpet_monkeyring_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "onimaru":
+		_play_with_pitch(_ensure_lingpet_onimaru_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "orosha":
+		_play_with_pitch(_ensure_lingpet_orosha_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "koyora":
+		_play_with_pitch(_ensure_lingpet_koyora_click_voice_sfx(), randf_range(0.98, 1.02))
 
 
 func play_lingpet_puppet_grab_cast() -> void:
@@ -1946,6 +2093,11 @@ func play_lingpet_puppet_grab_miss() -> void:
 		play_active_item()
 
 
+func play_lingpet_sand_prison_cast() -> void:
+	if not _play_with_pitch(lingpet_sand_prison_open_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
 func play_lingpet_wild_roar() -> void:
 	if not _play_with_pitch(lingpet_wild_roar_sfx, randf_range(0.96, 1.04)):
 		play_active_item()
@@ -1961,6 +2113,35 @@ func stop_lingpet_star_coil_bind() -> void:
 		lingpet_star_coil_bind_sfx.stop()
 
 
+func play_lingpet_star_coil_move() -> void:
+	if lingpet_star_coil_move_sfx == null or lingpet_star_coil_move_sfx.stream == null:
+		return
+	if lingpet_star_coil_move_sfx.playing:
+		return
+	lingpet_star_coil_move_sfx.pitch_scale = 1.0
+	lingpet_star_coil_move_sfx.play()
+
+
+func stop_lingpet_star_coil_move() -> void:
+	if lingpet_star_coil_move_sfx != null and lingpet_star_coil_move_sfx.playing:
+		lingpet_star_coil_move_sfx.stop()
+
+
+func play_lingpet_dwarf_magic_cast() -> void:
+	if not _play_with_pitch(lingpet_dwarf_magic_cast_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
+func play_lingpet_dwarf_magic_hit() -> void:
+	if not _play_with_pitch(lingpet_dwarf_magic_hit_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
+func play_lingpet_gravity_accel_cast() -> void:
+	if not _play_with_pitch(lingpet_gravity_accel_cast_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
 func play_lingpet_ring_dash() -> void:
 	if not _play_with_pitch(lingpet_ring_dash_sfx, randf_range(0.97, 1.03)):
 		play_active_item()
@@ -1969,6 +2150,12 @@ func play_lingpet_ring_dash() -> void:
 func play_lingpet_affinity_level_up() -> void:
 	if not _play_with_pitch(lingpet_affinity_level_up_sfx, randf_range(0.99, 1.01)):
 		play_item_get()
+
+
+func play_lingpet_egg_hit() -> void:
+	# 링펫알이 공에 맞을 때: 뼈 부러지는 임팩트 2종 중 하나를 랜덤 재생(피치 지터)해
+	# 연속 히트가 똑같이 들리지 않게 한다.
+	_play_random_stream_with_pitch(lingpet_egg_hit_sfx, lingpet_egg_hit_streams, randf_range(0.94, 1.06))
 
 
 func play_lingpet_doll_curse() -> void:
@@ -2129,6 +2316,11 @@ func play_horn_strawberry_field_break() -> void:
 
 func play_horn_strawberry_field_build_break() -> void:
 	if not _play_with_pitch(horn_strawberry_field_build_break_sfx, 1.0):
+		play_active_item()
+
+
+func play_horn_charge() -> void:
+	if not _play_with_pitch(horn_strawberry_horn_charge_sfx, 1.0):
 		play_active_item()
 
 
@@ -2457,9 +2649,14 @@ func play_wall_hit(impact_speed: float = 0.0, source_x: float = PLAYFIELD_CENTER
 
 
 func play_trampoline_bounce(impact_speed: float = 0.0) -> void:
-	var pitch: float = clamp(1.20 + impact_speed / 60.0, 1.20, 1.48) * randf_range(0.97, 1.03)
+	# Faster incoming ball -> slightly brighter boing, with light per-hit jitter.
+	var pitch: float = clamp(0.94 + impact_speed / 90.0, 0.94, 1.14) * randf_range(0.97, 1.03)
+	if _play_with_pitch(trampoline_bounce_sfx, pitch):
+		return
+	# Fallback (asset missing): the original pitched wall-hit springboard cue.
 	_ensure_hit_pan_buses()
-	if not _play_with_pitch_at(wall_hit_sfx, pitch, PLAYFIELD_CENTER_X, wall_hit_panner):
+	var fallback_pitch: float = clamp(1.20 + impact_speed / 60.0, 1.20, 1.48) * randf_range(0.97, 1.03)
+	if not _play_with_pitch_at(wall_hit_sfx, fallback_pitch, PLAYFIELD_CENTER_X, wall_hit_panner):
 		play_wall_hit(impact_speed)
 
 
@@ -2618,6 +2815,10 @@ func play_stage3_kuromi_tongue() -> void:
 
 func play_stage3_kuromi_swallow() -> void:
 	_play_with_pitch(stage3_kuromi_swallow_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage3_kuromi_spit() -> void:
+	_play_with_pitch(stage3_kuromi_spit_sfx, randf_range(0.97, 1.03))
 
 
 func play_lingpet_ghost_summon() -> void:
@@ -2791,7 +2992,7 @@ func play_stage4_phase2_bgm() -> bool:
 
 func play_stage_bgm(stage: int) -> bool:
 	if stage == 1:
-		return play_bgm("stage1")
+		return play_bgm(_select_stage1_bgm_name())
 	if stage == 2:
 		return play_bgm(_select_stage2_bgm_name())
 	if stage == 3:
@@ -2808,7 +3009,7 @@ func play_stage_bgm(stage: int) -> bool:
 
 func prime_stage_bgm(stage: int) -> bool:
 	if stage == 1:
-		return prime_bgm("stage1")
+		return prime_bgm(_select_stage1_bgm_name())
 	if stage == 2:
 		return prime_bgm(_select_stage2_bgm_name())
 	if stage == 3:
@@ -2967,6 +3168,12 @@ func play_ui_back() -> void:
 	_play_with_pitch(ui_back_sfx, 1.0)
 
 
+func play_runtime_perk_select() -> void:
+	# 퍽 확정 순간의 확인음. 살짝의 피치 지터로 연속 픽이 기계적으로 들리지 않게 한다.
+	if not _play_with_pitch(ui_perk_select_sfx, randf_range(0.98, 1.03)):
+		play_ui_confirm()
+
+
 func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	if player == null or player.stream == null:
 		return false
@@ -3026,6 +3233,35 @@ func _load_audio_stream_candidates(paths: Array) -> Array[AudioStream]:
 func _set_sfx_player_linear_volume(player: AudioStreamPlayer, volume: float) -> void:
 	if player != null:
 		player.volume_db = _volume_to_db(volume)
+
+
+func _play_gaksital_fan_layer(volume: float, pitch: float) -> bool:
+	var players := [gaksital_fan_sfx]
+	players.append_array(gaksital_fan_sfx_layers)
+	var valid_players: Array[AudioStreamPlayer] = []
+	for value in players:
+		if value is AudioStreamPlayer and (value as AudioStreamPlayer).stream != null:
+			valid_players.append(value as AudioStreamPlayer)
+	if valid_players.is_empty():
+		return false
+	var clamped_volume: float = clampf(volume, 0.0, 1.0)
+	for offset in range(valid_players.size()):
+		var index: int = (gaksital_fan_sfx_cursor + offset) % valid_players.size()
+		var player: AudioStreamPlayer = valid_players[index]
+		if not player.playing:
+			gaksital_fan_sfx_cursor = (index + 1) % valid_players.size()
+			_set_sfx_player_linear_volume(player, clamped_volume)
+			player.pitch_scale = pitch
+			player.play()
+			return true
+	var fallback_index: int = gaksital_fan_sfx_cursor % valid_players.size()
+	var fallback_player: AudioStreamPlayer = valid_players[fallback_index]
+	gaksital_fan_sfx_cursor = (fallback_index + 1) % valid_players.size()
+	_set_sfx_player_linear_volume(fallback_player, clamped_volume)
+	fallback_player.pitch_scale = pitch
+	fallback_player.stop()
+	fallback_player.play()
+	return true
 
 
 func _play_commando_ak47_fire_layer(pitch: float) -> bool:
@@ -3150,6 +3386,83 @@ func _ensure_lingpet_red_dragon_click_voice_sfx() -> AudioStreamPlayer:
 	return lingpet_red_dragon_click_voice_sfx
 
 
+func _ensure_lingpet_maribo_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_maribo_click_voice_sfx != null and lingpet_maribo_click_voice_sfx.stream != null:
+		return lingpet_maribo_click_voice_sfx
+	lingpet_maribo_click_voice_sfx = _create_optional_sfx(
+		"LingpetMariboClickVoiceSfx",
+		LINGPET_MARIBO_CLICK_VOICE_SOUND_PATH,
+		LINGPET_MARIBO_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_maribo_click_voice_sfx
+
+
+func _ensure_lingpet_rabi_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_rabi_click_voice_sfx != null and lingpet_rabi_click_voice_sfx.stream != null:
+		return lingpet_rabi_click_voice_sfx
+	lingpet_rabi_click_voice_sfx = _create_optional_sfx(
+		"LingpetRabiClickVoiceSfx",
+		LINGPET_RABI_CLICK_VOICE_SOUND_PATH,
+		LINGPET_RABI_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_rabi_click_voice_sfx
+
+
+func _ensure_lingpet_lumion_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_lumion_click_voice_sfx != null and lingpet_lumion_click_voice_sfx.stream != null:
+		return lingpet_lumion_click_voice_sfx
+	lingpet_lumion_click_voice_sfx = _create_optional_sfx(
+		"LingpetLumionClickVoiceSfx",
+		LINGPET_LUMION_CLICK_VOICE_SOUND_PATH,
+		LINGPET_LUMION_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_lumion_click_voice_sfx
+
+
+func _ensure_lingpet_monkeyring_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_monkeyring_click_voice_sfx != null and lingpet_monkeyring_click_voice_sfx.stream != null:
+		return lingpet_monkeyring_click_voice_sfx
+	lingpet_monkeyring_click_voice_sfx = _create_optional_sfx(
+		"LingpetMonkeyringClickVoiceSfx",
+		LINGPET_MONKEYRING_CLICK_VOICE_SOUND_PATH,
+		LINGPET_MONKEYRING_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_monkeyring_click_voice_sfx
+
+
+func _ensure_lingpet_onimaru_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_onimaru_click_voice_sfx != null and lingpet_onimaru_click_voice_sfx.stream != null:
+		return lingpet_onimaru_click_voice_sfx
+	lingpet_onimaru_click_voice_sfx = _create_optional_sfx(
+		"LingpetOnimaruClickVoiceSfx",
+		LINGPET_ONIMARU_CLICK_VOICE_SOUND_PATH,
+		LINGPET_ONIMARU_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_onimaru_click_voice_sfx
+
+
+func _ensure_lingpet_orosha_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_orosha_click_voice_sfx != null and lingpet_orosha_click_voice_sfx.stream != null:
+		return lingpet_orosha_click_voice_sfx
+	lingpet_orosha_click_voice_sfx = _create_optional_sfx(
+		"LingpetOroshaClickVoiceSfx",
+		LINGPET_OROSHA_CLICK_VOICE_SOUND_PATH,
+		LINGPET_OROSHA_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_orosha_click_voice_sfx
+
+
+func _ensure_lingpet_koyora_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_koyora_click_voice_sfx != null and lingpet_koyora_click_voice_sfx.stream != null:
+		return lingpet_koyora_click_voice_sfx
+	lingpet_koyora_click_voice_sfx = _create_optional_sfx(
+		"LingpetKoyoraClickVoiceSfx",
+		LINGPET_KOYORA_CLICK_VOICE_SOUND_PATH,
+		LINGPET_KOYORA_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_koyora_click_voice_sfx
+
+
 func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
 	if _is_owned_player_ready(player):
@@ -3158,6 +3471,12 @@ func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 		"stage1":
 			stage1_bgm = _create_bgm_player("Stage1Bgm", STAGE1_BGM_PATH, STAGE1_BGM_GAIN)
 			return stage1_bgm
+		"stage1_alt":
+			stage1_alt_bgm = _create_bgm_player("Stage1AltBgm", STAGE1_ALT_BGM_PATH, STAGE1_BGM_GAIN)
+			return stage1_alt_bgm
+		"stage1_alt2":
+			stage1_alt2_bgm = _create_bgm_player("Stage1Alt2Bgm", STAGE1_ALT2_BGM_PATH, STAGE1_BGM_GAIN)
+			return stage1_alt2_bgm
 		"stage2":
 			stage2_bgm = _create_bgm_player("Stage2Bgm", STAGE2_BGM_PATH, STAGE2_BGM_GAIN)
 			return stage2_bgm
@@ -3194,6 +3513,10 @@ func _create_bgm_player(name: String, path: String, gain: float) -> AudioStreamP
 func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	if bgm_name == "stage1":
 		return stage1_bgm
+	if bgm_name == "stage1_alt":
+		return stage1_alt_bgm
+	if bgm_name == "stage1_alt2":
+		return stage1_alt2_bgm
 	if bgm_name == "stage2":
 		return stage2_bgm
 	if bgm_name == "stage2_alt":
@@ -3241,7 +3564,7 @@ func _get_existing_audio_bus_volume(bus_name: String, fallback: float) -> float:
 
 
 func _apply_bgm_bus_to_players() -> void:
-	for player in [stage1_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm, stage6_bgm]:
+	for player in [stage1_bgm, stage1_alt_bgm, stage1_alt2_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm, stage6_bgm]:
 		if player is AudioStreamPlayer:
 			(player as AudioStreamPlayer).bus = BGM_BUS_NAME
 
@@ -3328,6 +3651,7 @@ func _get_sfx_players() -> Array:
 		ui_move_sfx,
 		ui_confirm_sfx,
 		ui_back_sfx,
+		ui_perk_select_sfx,
 		paddle_hit_sfx,
 		serve_sfx,
 		pingpong_serve_sfx,
@@ -3354,6 +3678,8 @@ func _get_sfx_players() -> Array:
 		shield_kiting_launch_sfx,
 		shield_kiting_hit_sfx,
 		whip_sfx,
+		gaksital_fan_sfx,
+		whipcrack_sfx,
 		viper_jetpack_sfx,
 		viper_backstep_sfx,
 		viper_shadow_kick_sfx,
@@ -3416,18 +3742,31 @@ func _get_sfx_players() -> Array:
 		lingpet_volty_click_voice_sfx,
 		lingpet_milkring_click_voice_sfx,
 		lingpet_red_dragon_click_voice_sfx,
+		lingpet_maribo_click_voice_sfx,
+		lingpet_rabi_click_voice_sfx,
+		lingpet_lumion_click_voice_sfx,
+		lingpet_monkeyring_click_voice_sfx,
+		lingpet_onimaru_click_voice_sfx,
+		lingpet_orosha_click_voice_sfx,
+		lingpet_koyora_click_voice_sfx,
 		lingpet_puppet_grab_cast_sfx,
 		lingpet_puppet_grab_pull_sfx,
 		lingpet_puppet_grab_kiss_sfx,
 		lingpet_puppet_grab_miss_sfx,
+		lingpet_sand_prison_open_sfx,
 		lingpet_wild_roar_sfx,
 		lingpet_star_coil_bind_sfx,
+		lingpet_star_coil_move_sfx,
 		lingpet_ring_dash_sfx,
 		lingpet_affinity_level_up_sfx,
+		lingpet_egg_hit_sfx,
 		lingpet_gatling_transform_sfx,
 		lingpet_gatling_loop_sfx,
 		lingpet_gatling_fire_sfx,
 		lingpet_gatling_hit_sfx,
+		lingpet_dwarf_magic_cast_sfx,
+		lingpet_dwarf_magic_hit_sfx,
+		lingpet_gravity_accel_cast_sfx,
 		legendary_after_sfx,
 		legendary_ending_sfx,
 		ragnarok_shot_sfx,
@@ -3505,6 +3844,7 @@ func _get_sfx_players() -> Array:
 		stage3_kuromi_stonebreak_sfx,
 		stage3_kuromi_tongue_sfx,
 		stage3_kuromi_swallow_sfx,
+		stage3_kuromi_spit_sfx,
 		lingpet_ghost_summon_sfx,
 		lingpet_ghost_summon_out_sfx,
 		stage4_moon_shoot_sfx,
@@ -3524,7 +3864,33 @@ func _get_sfx_players() -> Array:
 		stage6_tetriser_shield_sfx,
 		stage6_tetriser_laser_sfx,
 		leaf_shield_sfx,
-	] + commando_ak47_fire_sfx_layers + stage5_hongryun_hurt_sfx
+		trampoline_bounce_sfx,
+	] + gaksital_fan_sfx_layers + commando_ak47_fire_sfx_layers + stage5_hongryun_hurt_sfx
+
+
+func _select_stage1_bgm_name() -> String:
+	if STAGE1_BGM_NAMES.has(current_bgm_name):
+		var current_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
+		if bgm_muted or (current_player != null and current_player.playing):
+			return current_bgm_name
+	var candidates: Array[String] = _get_stage1_bgm_candidates()
+	if candidates.is_empty():
+		return "stage1"
+	if candidates.size() == 1:
+		return candidates[0]
+	if not stage1_bgm_rng_ready:
+		stage1_bgm_rng.randomize()
+		stage1_bgm_rng_ready = true
+	return candidates[stage1_bgm_rng.randi_range(0, candidates.size() - 1)]
+
+
+func _get_stage1_bgm_candidates() -> Array[String]:
+	var candidates: Array[String] = []
+	for bgm_name in STAGE1_BGM_NAMES:
+		var player: AudioStreamPlayer = _ensure_bgm_player(str(bgm_name))
+		if player != null and player.stream != null:
+			candidates.append(str(bgm_name))
+	return candidates
 
 
 func _select_stage2_bgm_name() -> String:
@@ -3559,7 +3925,16 @@ func _is_owned_player_ready(player: AudioStreamPlayer) -> bool:
 func _enable_loop(player: AudioStreamPlayer) -> void:
 	if player == null or player.stream == null:
 		return
-	var stream: AudioStream = player.stream
+	# ProjectResourceLoader.load_audio_stream caches by path and the player factory
+	# assigns that cached AudioStream RAW, so one AudioStream instance can back
+	# several players (gravityaccel.wav is shared by chaos_spear_blackhole_sfx AND
+	# lingpet_gravity_accel_cast_sfx). Flipping loop_mode on the shared instance
+	# force-loops EVERY player pointing at it -- that is what made Serabi's 중력가속
+	# one-shot cast cue loop forever and bleed into the next round. Duplicate first
+	# so only THIS player's stream loops; every other user keeps the one-shot cache
+	# instance untouched.
+	var stream: AudioStream = player.stream.duplicate() as AudioStream
+	player.stream = stream
 	if stream is AudioStreamWAV:
 		var wav_stream: AudioStreamWAV = stream
 		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD

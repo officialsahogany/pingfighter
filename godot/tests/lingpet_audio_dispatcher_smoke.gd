@@ -16,6 +16,9 @@ class FakeAudio:
 	func play_lingpet_ring_dash() -> void:
 		calls.append({"method": "play_lingpet_ring_dash"})
 
+	func play_lingpet_egg_hit() -> void:
+		calls.append({"method": "play_lingpet_egg_hit"})
+
 	func play_lingpet_click_reaction(pet_id: String) -> void:
 		calls.append({"method": "play_lingpet_click_reaction", "pet_id": pet_id})
 
@@ -56,6 +59,7 @@ func _verify_dispatch_methods_call_game_audio() -> void:
 	var dispatcher := LingpetAudioDispatcher.new()
 	_expect(not dispatcher.play_lingpet_acquire_cutin(null), "missing registry should not dispatch acquire cut-in audio")
 	_expect(not dispatcher.play_lingpet_ring_dash(FakeRegistry.new(null)), "missing game_audio instance should not dispatch ring dash audio")
+	_expect(not dispatcher.play_lingpet_egg_hit(FakeRegistry.new(null)), "missing game_audio instance should not dispatch egg-hit audio")
 
 	var audio := FakeAudio.new()
 	var registry := FakeRegistry.new(audio)
@@ -63,14 +67,16 @@ func _verify_dispatch_methods_call_game_audio() -> void:
 	_expect(dispatcher.play_lingpet_ring_dash(registry), "dispatcher should play ring dash through GameAudio")
 	_expect(dispatcher.play_lingpet_click_reaction(registry, "lunabi"), "dispatcher should pass pet id to click-reaction voice dispatch")
 	_expect(dispatcher.play_lingpet_acquire_click_reaction_backing(registry), "dispatcher should play acquisition click backing through GameAudio")
-	_expect(registry.requested_keys == ["game_audio", "game_audio", "game_audio", "game_audio"], "dispatcher should resolve only the game_audio registry key")
-	_expect(audio.calls.size() == 4, "dispatcher should produce one GameAudio call per successful request")
-	if audio.calls.size() >= 4:
+	_expect(dispatcher.play_lingpet_egg_hit(registry), "dispatcher should play egg-hit through GameAudio")
+	_expect(registry.requested_keys == ["game_audio", "game_audio", "game_audio", "game_audio", "game_audio"], "dispatcher should resolve only the game_audio registry key")
+	_expect(audio.calls.size() == 5, "dispatcher should produce one GameAudio call per successful request")
+	if audio.calls.size() >= 5:
 		_expect(str(audio.calls[0].get("method", "")) == "play_lingpet_acquire_cutin", "first call should be acquisition cut-in")
 		_expect(str(audio.calls[1].get("method", "")) == "play_lingpet_ring_dash", "second call should be ring dash")
 		_expect(str(audio.calls[2].get("method", "")) == "play_lingpet_click_reaction", "third call should be click reaction")
 		_expect(str(audio.calls[2].get("pet_id", "")) == "lunabi", "click reaction should forward the current pet id")
 		_expect(str(audio.calls[3].get("method", "")) == "play_lingpet_acquire_click_reaction_backing", "fourth call should be acquisition click backing")
+		_expect(str(audio.calls[4].get("method", "")) == "play_lingpet_egg_hit", "fifth call should be egg-hit")
 
 
 func _verify_runtime_delegates_lingpet_audio_dispatch() -> void:
@@ -79,6 +85,7 @@ func _verify_runtime_delegates_lingpet_audio_dispatch() -> void:
 	_expect(runtime_source.find("LingpetAudioDispatcher") >= 0, "egg runtime should preload the lingpet audio dispatcher")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_cutin") >= 0, "acquisition cut-in wrapper should delegate to the audio dispatcher")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_ring_dash") >= 0, "ring dash wrapper should delegate to the audio dispatcher")
+	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_egg_hit") >= 0, "egg-hit wrapper should delegate to the audio dispatcher")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_click_reaction") >= 0, "click-reaction wrapper should delegate to the audio dispatcher")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_click_reaction_backing") >= 0, "acquisition click backing wrapper should delegate to the audio dispatcher")
 	_expect(runtime_source.find("get_instance(\"game_audio\")") < 0, "egg runtime should not directly resolve GameAudio after dispatcher extraction")
