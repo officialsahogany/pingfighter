@@ -17,6 +17,10 @@ static func handle_input(target: Object, event: InputEvent, owner: Object, regis
 
 static func _handle_mouse_motion(target: Object, event: InputEvent) -> bool:
 	var motion_event: InputEventMouseMotion = event
+	if bool(target.get("_drag_active")):
+		target.call("_drag_handle_motion", motion_event.position)
+		target.call("_request_redraw", true)
+		return true
 	if bool(target.call("_should_redraw_for_mouse_motion", motion_event.position)):
 		target.call("_request_redraw", true)
 	return true
@@ -27,13 +31,52 @@ static func _handle_key(target: Object, event: InputEvent) -> bool:
 	if not key_event.pressed or key_event.echo:
 		return true
 	if key_event.keycode == KEY_TAB or key_event.physical_keycode == KEY_TAB or key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE:
+		if bool(target.call("_is_discard_confirm_active")):
+			target.call("_cancel_discard_confirm")
+			target.call("_reset_hover_and_request_redraw", true)
+			return true
+		if bool(target.get("_drag_active")):
+			target.call("_drag_cancel")
+			target.call("_reset_hover_and_request_redraw", true)
+			return true
+		if bool(target.call("_is_pendulum_interior_active")):
+			target.call("_close_pendulum_interior")
+			return true
 		target.call("close", true)
 	return true
 
 
 static func _handle_mouse_button(target: Object, event: InputEvent, owner: Object, registry: Object) -> bool:
 	var mouse_event: InputEventMouseButton = event
+	# Discard-confirm modal intercepts everything while it is open.
+	if bool(target.call("_is_discard_confirm_active")):
+		if bool(target.call("_handle_discard_confirm_mouse_button", mouse_event.position, mouse_event.button_index, owner, registry)):
+			target.call("_reset_hover_and_request_redraw", true)
+		return true
+	if bool(target.call("_is_pendulum_interior_active")):
+		return bool(target.call("_handle_pendulum_mouse_button", mouse_event.position, mouse_event.button_index))
+	# Inventory / equipment / active-item drag-and-drop + click-to-pick.
+	if mouse_event.button_index == MOUSE_BUTTON_LEFT:
+		if mouse_event.pressed:
+			if bool(target.call("_drag_handle_left_press", mouse_event.position, owner, registry)):
+				target.call("_reset_hover_and_request_redraw", true)
+				return true
+		else:
+			if bool(target.call("_drag_handle_left_release", mouse_event.position, owner, registry)):
+				target.call("_reset_hover_and_request_redraw", true)
+				return true
+	# Right-click cancels a held item before doing normal right-click work.
+	if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_RIGHT and bool(target.get("_drag_active")):
+		target.call("_drag_cancel")
+		target.call("_reset_hover_and_request_redraw", true)
+		return true
 	if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+		if bool(target.call("_try_handle_lingpet_slot_tab_click", mouse_event.position, owner, registry)):
+			target.call("_reset_hover_and_request_redraw", true)
+			return true
+		if bool(target.call("_try_handle_lingpet_pendulum_open_click", mouse_event.position, owner, registry)):
+			target.call("_reset_hover_and_request_redraw", true)
+			return true
 		if bool(target.call("_try_handle_lingpet_unlock_pick_click", mouse_event.position, owner, registry)):
 			target.call("_reset_hover_and_request_redraw", true)
 			return true

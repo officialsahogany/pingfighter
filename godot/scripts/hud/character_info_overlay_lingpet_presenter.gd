@@ -9,7 +9,7 @@ const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 
 const PANEL_LIVE2D_COLS_BY_PET_ID := {
 	"lunabi": 14,
@@ -43,8 +43,17 @@ const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 	"orosha": 1.0 / 16.0,
 	"rahoset": 1.0 / 16.0,
 }
-const AFFINITY_BAND_HEIGHT := 34.0
+const AFFINITY_BAND_HEIGHT := 50.0
 const AFFINITY_METER_HEIGHT := 8.0
+# Vertical split of the affinity band into the two hover zones: the top slice
+# (label + affinity meter + "다음:" row) belongs to the 교감 tooltip, everything
+# below to the 포만도 strip tooltip. The satiety strip starts at +30 (see
+# _get_satiety_strip_layout), so 28 keeps the two hover rects from overlapping.
+const AFFINITY_HOVER_BAND_HEIGHT := 28.0
+const SATIETY_METER_HEIGHT := 8.0
+const SATIETY_METER_GAP := 4.0
+const SATIETY_WARNING_THRESHOLD := 50
+const SATIETY_CRITICAL_THRESHOLD := 20
 const RING_CORE_ROW_HEIGHT := 64.0
 const UNLOCK_CHOICE_BAND_MIN_HEIGHT := 54.0
 const UNLOCK_CHOICE_BAND_MAX_HEIGHT := 76.0
@@ -59,8 +68,11 @@ static func draw_panel(
 	skill_icon_rects: Array,
 	unlock_options: Array,
 	unlock_card_rects: Array,
+	ring_core_rects: Array,
+	slot_tab_rects: Array,
 	art_texture_cache: Dictionary,
 	skill_icon_texture_cache: Dictionary,
+	empty_ring_texture: Texture2D,
 	section_color: Color,
 	section_border: Color,
 	grid_fill: Color,
@@ -78,14 +90,18 @@ static func draw_panel(
 ) -> Dictionary:
 	skill_icon_rects.clear()
 	unlock_card_rects.clear()
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, section_color, section_border, 2.0)
-	_draw_text_xy(canvas, font, "링펫", rect.position.x + 12.0, rect.position.y + 24.0, 13, accent_blue, ui_text_scale)
+	ring_core_rects.clear()
+	slot_tab_rects.clear()
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, section_color, section_border, accent_blue)
+	_draw_paw_icon(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 13.0, Color(0.92, 0.96, 1.0, 0.95))
+	_draw_text_xy(canvas, font, "링펫", rect.position.x + 36.0, rect.position.y + 24.0, 13, text_soft, ui_text_scale)
+	_draw_lingpet_slot_tabs(canvas, font, rect, snapshot, slot_tab_rects, accent_blue, slot_fill, empty_text_color, text_soft, ui_text_scale)
 	var content_rect := Rect2(rect.position.x + 12.0, rect.position.y + 36.0, rect.size.x - 24.0, rect.size.y - 48.0)
 	canvas.draw_rect(content_rect, grid_fill)
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "companion":
-		return draw_companion_panel(canvas, font, content_rect, snapshot, mouse_pos, hover_data, skill_icon_rects, unlock_options, unlock_card_rects, art_texture_cache, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale, panel_animation_time)
-	draw_non_companion_panel(canvas, font, content_rect, snapshot, hatch_required_hits, stat_buff_color, empty_text_color, accent_gold, text_soft, ring_segments, ui_text_scale, wrap_text_callable)
+		return draw_companion_panel(canvas, font, content_rect, snapshot, mouse_pos, hover_data, skill_icon_rects, unlock_options, unlock_card_rects, ring_core_rects, art_texture_cache, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale, panel_animation_time)
+	draw_non_companion_panel(canvas, font, content_rect, snapshot, hatch_required_hits, stat_buff_color, empty_text_color, accent_gold, text_soft, ring_segments, ui_text_scale, wrap_text_callable, empty_ring_texture)
 	return hover_data
 
 
@@ -125,6 +141,14 @@ static func draw_egg_icon(canvas: CanvasItem, rect: Rect2, state: String, progre
 		_draw_centered_fallback_text(canvas, "M", center.x, center.y + 4.0, int(rect.size.x * 0.30), Color.WHITE, ui_text_scale)
 
 
+static func _draw_paw_icon(canvas: CanvasItem, center: Vector2, size: float, color: Color) -> void:
+	canvas.draw_circle(center + Vector2(0.0, size * 0.16), size * 0.36, color)
+	canvas.draw_circle(center + Vector2(-size * 0.36, -size * 0.14), size * 0.16, color)
+	canvas.draw_circle(center + Vector2(-size * 0.13, -size * 0.34), size * 0.17, color)
+	canvas.draw_circle(center + Vector2(size * 0.13, -size * 0.34), size * 0.17, color)
+	canvas.draw_circle(center + Vector2(size * 0.36, -size * 0.14), size * 0.16, color)
+
+
 static func draw_non_companion_panel(
 	canvas: CanvasItem,
 	font: Font,
@@ -137,13 +161,31 @@ static func draw_non_companion_panel(
 	text_soft: Color,
 	ring_segments: int,
 	ui_text_scale: float,
-	wrap_text_callable: Callable
+	wrap_text_callable: Callable,
+	empty_ring_texture: Texture2D = null
 ) -> void:
 	var state: String = str(snapshot.get("state", "none"))
 	var hits: int = int(snapshot.get("hatch_hits", 0))
 	var required_hits: int = max(1, int(snapshot.get("required_hits", hatch_required_hits)))
 	var progress: float = clamp(float(hits) / float(required_hits), 0.0, 1.0)
 	var compact: bool = content_rect.size.x < 260.0 or content_rect.size.y < 145.0
+	if state == "none" and empty_ring_texture != null and not compact:
+		# No-egg hero layout (mockup): centered text block on top, the large
+		# unhatched crystal egg filling the space below.
+		var none_center_x: float = content_rect.get_center().x
+		var none_title: String = str(snapshot.get("title", "링펫 없음"))
+		var none_subtitle: String = str(snapshot.get("subtitle", "미해금"))
+		var none_body: String = str(snapshot.get("body", ""))
+		_draw_centered_text(canvas, font, none_title, none_center_x, content_rect.position.y + 30.0, 16, Color.WHITE, ui_text_scale)
+		_draw_centered_text(canvas, font, none_subtitle, none_center_x, content_rect.position.y + 52.0, 12, text_soft, ui_text_scale)
+		var none_body_lines_value: Variant = wrap_text_callable.call(font, LanguageSettings.translate_text(none_body), 11, content_rect.size.x - 40.0, 3)
+		var none_body_lines: Array = none_body_lines_value if none_body_lines_value is Array else []
+		for i in range(none_body_lines.size()):
+			_draw_centered_text(canvas, font, str(none_body_lines[i]), none_center_x, content_rect.position.y + 78.0 + float(i) * 18.0, 11, empty_text_color, ui_text_scale)
+		var none_art_top: float = content_rect.position.y + 86.0 + float(none_body_lines.size()) * 18.0
+		var none_art_rect := Rect2(content_rect.position.x + 20.0, none_art_top, content_rect.size.x - 40.0, maxf(60.0, content_rect.end.y - none_art_top - 10.0))
+		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, empty_ring_texture, none_art_rect, Color(1.0, 1.0, 1.0, 0.95))
+		return
 	var icon_size: float = clamp(min(content_rect.size.x * (0.36 if not compact else 0.28), content_rect.size.y * 0.54), 38.0, 82.0)
 	var icon_rect: Rect2
 	var text_x: float
@@ -159,7 +201,11 @@ static func draw_non_companion_panel(
 		text_x = icon_rect.end.x + 18.0
 		text_y = content_rect.position.y + 36.0
 		text_w = max(120.0, content_rect.end.x - text_x - 12.0)
-	draw_egg_icon(canvas, icon_rect, state, progress, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
+	if state == "none" and empty_ring_texture != null:
+		var hero_rect: Rect2 = icon_rect.grow(icon_size * 0.44)
+		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, empty_ring_texture, hero_rect, Color(1.0, 1.0, 1.0, 0.92))
+	else:
+		draw_egg_icon(canvas, icon_rect, state, progress, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
 
 	var title: String = str(snapshot.get("title", "링펫 없음"))
 	var subtitle: String = str(snapshot.get("subtitle", "미해금"))
@@ -187,6 +233,7 @@ static func draw_companion_panel(
 	skill_icon_rects: Array,
 	unlock_options: Array,
 	unlock_card_rects: Array,
+	ring_core_rects: Array,
 	art_texture_cache: Dictionary,
 	skill_icon_texture_cache: Dictionary,
 	stat_buff_color: Color,
@@ -215,23 +262,26 @@ static func draw_companion_panel(
 
 	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h + unlock_band_h + ring_core_row_h, affinity_band_h)
 	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
-	var art_glow_center := art_rect.get_center()
-	var art_glow_radius: float = min(art_rect.size.x, art_rect.size.y) * 0.42
-	for glow_index in range(4, 0, -1):
-		canvas.draw_circle(art_glow_center, art_glow_radius + float(glow_index) * 11.0, Color(0.0, 205.0 / 255.0, 1.0, 0.018 * float(glow_index)))
-	var art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_art_texture(str(snapshot.get("pet_id", "")), art_texture_cache)
+	var aurora_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_cached_panel_aurora_texture(art_texture_cache)
+	if aurora_texture != null:
+		_draw_aurora_backdrop(canvas, art_rect, aurora_texture, panel_animation_time)
+	var art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_cached_art_texture(str(snapshot.get("pet_id", "")), art_texture_cache)
 	if art_texture != null:
 		if CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art(pet_id):
 			draw_panel_live2d_art(canvas, art_texture, art_rect.grow(-4.0), pet_id, panel_animation_time)
 		else:
 			CharacterInfoOverlayTextureDrawer.draw_contained(canvas, art_texture, art_rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
 	else:
-		draw_egg_icon(canvas, Rect2(art_rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
+		var static_art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_cached_static_art_texture(str(snapshot.get("pet_id", "")), art_texture_cache)
+		if static_art_texture != null:
+			CharacterInfoOverlayTextureDrawer.draw_contained(canvas, static_art_texture, art_rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
+		else:
+			draw_egg_icon(canvas, Rect2(art_rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
 
-	var affinity_rect := Rect2(art_rect.position.x, art_rect.end.y + 4.0, art_rect.size.x, max(24.0, affinity_band_h - 6.0))
-	draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale)
+	var affinity_rect := Rect2(art_rect.position.x, art_rect.end.y + 4.0, art_rect.size.x, max(24.0, affinity_band_h - 10.0))
+	hover_data = draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale, mouse_pos, hover_data)
 	var ring_core_row_rect := Rect2(affinity_rect.position.x, affinity_rect.end.y + 4.0, affinity_rect.size.x, ring_core_row_h)
-	hover_data = _draw_lingpet_ring_core_row(canvas, font, ring_core_row_rect, snapshot, mouse_pos, hover_data, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
+	hover_data = _draw_lingpet_ring_core_row(canvas, font, ring_core_row_rect, snapshot, mouse_pos, hover_data, ring_core_rects, skill_icon_texture_cache, stat_buff_color, empty_text_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 
 	var icon_count: int = max(1, skill_specs.size())
 	var icon_gap: float = 9.0
@@ -340,6 +390,106 @@ static func companion_art_rect(content_rect: Rect2, skill_row_h: float, affinity
 	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0 - maxf(0.0, affinity_band_h)))
 
 
+static func merge_runtime_satiety_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
+	if runtime_snapshot.has("satiety_pct"):
+		panel_snapshot["satiety_pct"] = clampi(int(runtime_snapshot.get("satiety_pct", 0)), 0, 100)
+	if runtime_snapshot.has("companion_exhausted"):
+		panel_snapshot["companion_exhausted"] = bool(runtime_snapshot.get("companion_exhausted", false))
+	if runtime_snapshot.has("satiety_exhaustion_ratio"):
+		panel_snapshot["satiety_exhaustion_ratio"] = clampf(float(runtime_snapshot.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
+	return panel_snapshot
+
+
+static func get_satiety_strip_state(snapshot: Dictionary) -> Dictionary:
+	var has_active_companion := str(snapshot.get("state", "")) == "companion" and str(snapshot.get("pet_id", "")).strip_edges() != ""
+	if not has_active_companion:
+		return {
+			"visible": false,
+			"pct": 0,
+			"exhausted": false,
+			"ratio": 0.0,
+			"label": "",
+			"value": "",
+			"color_key": "hidden",
+		}
+	var pct := clampi(int(snapshot.get("satiety_pct", 0)), 0, 100)
+	var exhausted := bool(snapshot.get("companion_exhausted", false))
+	var ratio := clampf(float(snapshot.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
+	var color_key := "normal"
+	if exhausted or pct <= SATIETY_CRITICAL_THRESHOLD:
+		color_key = "critical"
+	elif pct <= SATIETY_WARNING_THRESHOLD:
+		color_key = "warning"
+	return {
+		"visible": true,
+		"pct": pct,
+		"exhausted": exhausted,
+		"ratio": ratio,
+		"label": "포만도",
+		"value": "탈진 Zzz" if exhausted else "%d%%" % pct,
+		"color_key": color_key,
+	}
+
+
+static func get_satiety_strip_layout_for_tests(font: Font, rect: Rect2, snapshot: Dictionary, ui_text_scale: float) -> Dictionary:
+	return _get_satiety_strip_layout(font, rect, get_satiety_strip_state(snapshot), ui_text_scale)
+
+
+static func lingpet_progress_meter_width(rect: Rect2) -> float:
+	# Single source of truth for the 교감 and 포만 meter length. Both bars use
+	# this so they share an identical left edge + width and read as one tidy
+	# stack; their right-side annotations ("다음: …" / "포만도 …") then line up in
+	# the same column too. Changing the affinity meter span here keeps satiety
+	# in lockstep automatically.
+	return clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
+
+
+static func _get_satiety_strip_layout(font: Font, rect: Rect2, satiety_state: Dictionary, ui_text_scale: float) -> Dictionary:
+	if not bool(satiety_state.get("visible", false)):
+		return {}
+	var label_text := str(satiety_state.get("label", ""))
+	var strip_y: float = rect.position.y + 18.0 + AFFINITY_METER_HEIGHT + SATIETY_METER_GAP
+	var baseline_y: float = strip_y + 8.0
+	# Align the 포만 meter to the exact span of the 교감 meter above it, then place
+	# the "포만도" label + value in the same right-hand annotation column the 교감
+	# "다음:" text uses, so the two bars stack cleanly instead of staggering.
+	var meter_w: float = lingpet_progress_meter_width(rect)
+	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, SATIETY_METER_HEIGHT)
+	var annot_x: float = meter_rect.end.x + 8.0
+	var label_w: float = _text_size(font, label_text, 9, ui_text_scale).x
+	var label_rect := Rect2(annot_x, strip_y - 1.0, label_w, SATIETY_METER_HEIGHT + 3.0)
+	var value_x: float = label_rect.end.x + 5.0 * ui_text_scale
+	var value_w: float = maxf(10.0, rect.end.x - value_x)
+	var value_rect := Rect2(value_x, strip_y - 1.0, value_w, SATIETY_METER_HEIGHT + 3.0)
+	return {
+		"label_rect": label_rect,
+		"meter_rect": meter_rect,
+		"value_rect": value_rect,
+		"baseline_y": baseline_y,
+	}
+
+
+static func _satiety_strip_color(satiety_state: Dictionary, stat_buff_color: Color) -> Color:
+	match str(satiety_state.get("color_key", "normal")):
+		"critical":
+			return Color(1.0, 64.0 / 255.0, 82.0 / 255.0, 0.94)
+		"warning":
+			return Color(1.0, 206.0 / 255.0, 80.0 / 255.0, 0.92)
+	return Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88)
+
+
+# Single source for the two bar hover zones inside the affinity band, so the
+# draw path and the regression smoke agree. The 교감 zone is the top slice; the
+# 포만도 zone is everything below it. They abut at AFFINITY_HOVER_BAND_HEIGHT and
+# never overlap (has_point is half-open, so the seam belongs to 포만도).
+static func affinity_bar_hover_rect(rect: Rect2) -> Rect2:
+	return Rect2(rect.position.x, rect.position.y, rect.size.x, AFFINITY_HOVER_BAND_HEIGHT)
+
+
+static func satiety_bar_hover_rect(rect: Rect2) -> Rect2:
+	return Rect2(rect.position.x, rect.position.y + AFFINITY_HOVER_BAND_HEIGHT, rect.size.x, maxf(12.0, rect.size.y - AFFINITY_HOVER_BAND_HEIGHT))
+
+
 static func draw_affinity_status(
 	canvas: CanvasItem,
 	font: Font,
@@ -348,8 +498,10 @@ static func draw_affinity_status(
 	stat_buff_color: Color,
 	empty_text_color: Color,
 	accent_blue: Color,
-	ui_text_scale: float
-) -> void:
+	ui_text_scale: float,
+	mouse_pos: Vector2 = Vector2.INF,
+	hover_data: Dictionary = {}
+) -> Dictionary:
 	var level := int(snapshot.get("affinity_level", 0))
 	var points := maxf(0.0, float(snapshot.get("affinity_points", 0.0)))
 	var requirement := maxf(0.0, float(snapshot.get("affinity_next_requirement", 0.0)))
@@ -365,7 +517,7 @@ static func draw_affinity_status(
 	_draw_text_xy(canvas, font, level_text, rect.position.x, rect.position.y + 11.0, 11, Color.WHITE, ui_text_scale)
 	_draw_text_xy(canvas, font, value_text, rect.end.x - value_w, rect.position.y + 11.0, 11, stat_buff_color if maxed else empty_text_color, ui_text_scale)
 
-	var meter_w: float = clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
+	var meter_w: float = lingpet_progress_meter_width(rect)
 	var meter_rect := Rect2(rect.position.x, rect.position.y + 18.0, meter_w, AFFINITY_METER_HEIGHT)
 	canvas.draw_rect(meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
 	canvas.draw_rect(Rect2(meter_rect.position, Vector2(meter_rect.size.x * progress, meter_rect.size.y)), Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.82))
@@ -377,11 +529,104 @@ static func draw_affinity_status(
 	var next_w := maxf(10.0, rect.end.x - next_x)
 	_draw_text_xy(canvas, font, _fit_text_to_width(font, next_text, 10, next_w, ui_text_scale), next_x, rect.position.y + 26.0, 10, accent_blue if maxed else empty_text_color, ui_text_scale)
 
+	var satiety_state := get_satiety_strip_state(snapshot)
+	var satiety_layout := _get_satiety_strip_layout(font, rect, satiety_state, ui_text_scale)
+	if not satiety_layout.is_empty():
+		var satiety_color := _satiety_strip_color(satiety_state, stat_buff_color)
+		var satiety_meter_rect: Rect2 = satiety_layout.get("meter_rect", Rect2())
+		var satiety_progress := clampf(float(satiety_state.get("pct", 0)) / 100.0, 0.0, 1.0)
+		var exhaustion_ratio := clampf(float(satiety_state.get("ratio", 0.0)), 0.0, 1.0)
+		canvas.draw_rect(satiety_meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
+		canvas.draw_rect(Rect2(satiety_meter_rect.position, Vector2(satiety_meter_rect.size.x * satiety_progress, satiety_meter_rect.size.y)), satiety_color)
+		if exhaustion_ratio > 0.0:
+			canvas.draw_rect(satiety_meter_rect.grow(1.0), Color(1.0, 64.0 / 255.0, 82.0 / 255.0, 0.18 + 0.20 * exhaustion_ratio), false, 1.0)
+		canvas.draw_rect(satiety_meter_rect, satiety_color, false, 1.0)
+		var label_rect: Rect2 = satiety_layout.get("label_rect", Rect2())
+		var value_rect: Rect2 = satiety_layout.get("value_rect", Rect2())
+		var baseline_y: float = float(satiety_layout.get("baseline_y", satiety_meter_rect.end.y))
+		if label_rect.size.x > 1.0:
+			_draw_text_xy(canvas, font, _fit_text_to_width(font, str(satiety_state.get("label", "")), 9, label_rect.size.x, ui_text_scale), label_rect.position.x, baseline_y, 9, empty_text_color, ui_text_scale)
+		_draw_text_xy(canvas, font, _fit_text_to_width(font, str(satiety_state.get("value", "")), 9, value_rect.size.x, ui_text_scale), value_rect.position.x, baseline_y, 9, satiety_color, ui_text_scale)
+
+	# Hover tooltips for the two bars, mirroring the stat-row / ring-core hover
+	# contract (_fill_hover_data clears + sets, so the last matching rect wins).
+	# The 교감 band is the top slice (label + meter + "다음:" row); the 포만도 band
+	# is the strip below it. The two rects never overlap, so at most one fills.
+	var affinity_hover_rect := affinity_bar_hover_rect(rect)
+	if affinity_hover_rect.has_point(mouse_pos):
+		_fill_hover_data(
+			hover_data,
+			level_text,
+			value_text,
+			LanguageSettings.translate_text("이번 판 동안 링펫과 쌓은 교감 수치입니다. 요구치를 채우면 교감 레벨이 오르고 다음 보상이 해금됩니다.")
+				+ " " + LanguageSettings.translate_text("링펫을 클릭하거나 E 키(패드 RT)로 교감할 수 있습니다."),
+			Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 1.0),
+			affinity_hover_rect
+		)
+	if not satiety_layout.is_empty():
+		var satiety_hover_rect := satiety_bar_hover_rect(rect)
+		if satiety_hover_rect.has_point(mouse_pos):
+			_fill_hover_data(
+				hover_data,
+				LanguageSettings.translate_text("포만도"),
+				str(satiety_state.get("value", "")),
+				LanguageSettings.translate_text("링펫의 포만도입니다. 시간이 지나면 서서히 줄고, 낮아지면 순찰이 느려지며 0이 되면 탈진합니다. 먹이를 주면 회복됩니다."),
+				_satiety_strip_color(satiety_state, stat_buff_color),
+				satiety_hover_rect
+			)
+	return hover_data
+
 
 static func should_redraw_panel_live2d(snapshot: Dictionary) -> bool:
 	if str(snapshot.get("state", "")) != "companion":
 		return false
-	return CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art(str(snapshot.get("pet_id", "")))
+	# Every companion panel now animates (rotating aurora backdrop), not only
+	# live2d-sheet pets, so the continuous-redraw gate opens for any companion.
+	return true
+
+
+# Slowly rotating galaxy quad behind the companion. Vertices are recomputed from
+# the angle each frame into shared scratch buffers (no transform-stack rotation =
+# tumble-immune, no per-frame allocation). UVs stay normalized 0..1.
+const AURORA_SPIN_SECONDS := 34.0
+const AURORA_ALPHA := 0.72
+const AURORA_STRETCH_MAX := 1.5
+const AURORA_UV_INSET := 0.05
+static var _aurora_points := PackedVector2Array([Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO])
+static var _aurora_colors := PackedColorArray([
+	Color(1.0, 1.0, 1.0, AURORA_ALPHA),
+	Color(1.0, 1.0, 1.0, AURORA_ALPHA),
+	Color(1.0, 1.0, 1.0, AURORA_ALPHA),
+	Color(1.0, 1.0, 1.0, AURORA_ALPHA),
+])
+static var AURORA_UVS := PackedVector2Array([
+	Vector2(AURORA_UV_INSET, AURORA_UV_INSET),
+	Vector2(1.0 - AURORA_UV_INSET, AURORA_UV_INSET),
+	Vector2(1.0 - AURORA_UV_INSET, 1.0 - AURORA_UV_INSET),
+	Vector2(AURORA_UV_INSET, 1.0 - AURORA_UV_INSET),
+])
+
+
+static func _draw_aurora_backdrop(canvas: CanvasItem, rect: Rect2, texture: Texture2D, panel_animation_time: float) -> void:
+	var center := rect.get_center()
+	# Corner radius = half the short side, so the rotated quad's bounding circle
+	# stays inside the art rect on the short axis at every angle. The quad is
+	# then stretched along the LONG axis (post-rotation, clamped to the rect) so
+	# the galaxy fills the band as a tilted disc instead of hiding behind the
+	# pet. The UV inset crops the texture's pure-black margin for extra reach.
+	var corner_radius: float = minf(rect.size.x, rect.size.y) * 0.5 * 0.98
+	var stretch: float = clampf(maxf(rect.size.x, rect.size.y) * 0.5 * 0.98 / maxf(corner_radius, 1.0), 1.0, AURORA_STRETCH_MAX)
+	var stretch_horizontal: bool = rect.size.x >= rect.size.y
+	var spin := fposmod(panel_animation_time, AURORA_SPIN_SECONDS) / AURORA_SPIN_SECONDS * TAU
+	for i in range(4):
+		var corner_angle := spin + PI * 0.25 + float(i) * PI * 0.5
+		var offset := Vector2(cos(corner_angle), sin(corner_angle)) * corner_radius
+		if stretch_horizontal:
+			offset.x *= stretch
+		else:
+			offset.y *= stretch
+		_aurora_points[i] = center + offset
+	canvas.draw_polygon(_aurora_points, _aurora_colors, AURORA_UVS, texture)
 
 
 static func draw_panel_live2d_art(canvas: CanvasItem, texture: Texture2D, rect: Rect2, pet_id: String, panel_animation_time: float) -> void:
@@ -440,7 +685,7 @@ static func draw_skill_icon(
 		var badge_rect := Rect2(rect.end.x - 22.0, rect.position.y + 3.0, 19.0, 14.0)
 		canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
 		canvas.draw_rect(badge_rect, Color(color.r, color.g, color.b, 0.88), false, 1.0)
-		_draw_centered_text(canvas, font, badge, badge_rect.get_center().x, badge_rect.position.y + 11.0, 8, Color.WHITE, ui_text_scale)
+		_draw_centered_text(canvas, font, badge, badge_rect.get_center().x, badge_rect.get_center().y, 8, Color.WHITE, ui_text_scale)
 	if hovered:
 		_fill_hover_data(hover_data, str(spec.get("title", "")), str(spec.get("subtitle", "")), str(spec.get("body", "")), color, rect)
 	return hover_data
@@ -518,6 +763,71 @@ static func _get_color(value: Variant, fallback: Color) -> Color:
 
 static func _fallback_symbol_letter(id_text: String) -> String:
 	return "?" if id_text == "" else id_text.substr(0, 1).to_upper()
+
+
+const SLOT_TAB_HEIGHT := 20.0
+const SLOT_TAB_MAX_WIDTH := 80.0
+const SLOT_TAB_GAP := 4.0
+const SLOT_TAB_MAX_COUNT := 3
+
+
+# Draws up to 3 acquired-lingpet tabs to the right of the "링펫" header. Each
+# occupied tab appends {rect, slot_index, pet_id} to slot_tab_rects, which the
+# overlay click handler (_try_handle_lingpet_slot_tab_click) reads to switch the
+# active companion (lingpet_egg_runtime.switch_lingpet_slot). Tabs sit in the
+# header band (above content_rect) so the body never reflows.
+static func _draw_lingpet_slot_tabs(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	snapshot: Dictionary,
+	slot_tab_rects: Array,
+	accent_blue: Color,
+	slot_fill: Color,
+	empty_text_color: Color,
+	text_soft: Color,
+	ui_text_scale: float
+) -> void:
+	var tabs_value: Variant = snapshot.get("slot_tabs", [])
+	if not (tabs_value is Array):
+		return
+	var tabs: Array = tabs_value
+	if tabs.is_empty():
+		return
+	var count: int = mini(tabs.size(), SLOT_TAB_MAX_COUNT)
+	# Anchor after the paw icon + title (title draws at rect.x + 36 since the
+	# section glyph pass) so the tabs never cover the section label.
+	var header_x: float = rect.position.x + 36.0
+	var header_w: float = _text_size(font, "링펫", 13, ui_text_scale).x
+	var gap: float = SLOT_TAB_GAP * ui_text_scale
+	var start_x: float = header_x + header_w + 12.0 * ui_text_scale
+	var avail: float = rect.end.x - 8.0 - start_x
+	if avail <= 24.0:
+		return
+	var tab_h: float = SLOT_TAB_HEIGHT * ui_text_scale
+	var tab_w: float = minf(SLOT_TAB_MAX_WIDTH * ui_text_scale, (avail - float(count - 1) * gap) / float(count))
+	if tab_w < 18.0:
+		return
+	var tab_y: float = maxf(rect.position.y + 2.0, rect.position.y + 24.0 - tab_h * 0.85)
+	for i in range(count):
+		var entry_value: Variant = tabs[i]
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var tab_rect := Rect2(start_x + float(i) * (tab_w + gap), tab_y, tab_w, tab_h)
+		var is_active: bool = bool(entry.get("active", false))
+		var bg: Color = Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.85) if is_active else Color(slot_fill.r, slot_fill.g, slot_fill.b, 0.72)
+		canvas.draw_rect(tab_rect, bg)
+		var border: Color = Color(1.0, 1.0, 1.0, 0.85) if is_active else Color(empty_text_color.r, empty_text_color.g, empty_text_color.b, 0.5)
+		canvas.draw_rect(tab_rect, border, false, 1.0)
+		var label: String = _fit_text_to_width(font, str(entry.get("name", "")), 11, tab_w - 8.0 * ui_text_scale, ui_text_scale)
+		var label_color: Color = Color.WHITE if is_active else text_soft
+		_draw_centered_text(canvas, font, label, tab_rect.get_center().x, tab_rect.get_center().y, 11, label_color, ui_text_scale)
+		slot_tab_rects.append({
+			"rect": tab_rect,
+			"slot_index": int(entry.get("slot_index", -1)),
+			"pet_id": str(entry.get("pet_id", "")),
+		})
 
 
 static func _draw_centered_fallback_text(canvas: CanvasItem, text: String, center_x: float, center_y: float, size: int, color: Color, ui_text_scale: float) -> void:
@@ -832,9 +1142,13 @@ static func build_stats(
 	var defense_rate: float = float(snapshot.get("companion_defense_rate", 0.0))
 	var appearance_rate: float = float(snapshot.get("companion_appearance_rate", 0.0))
 	var speed_display: float = speed_default / speed_display_px_per_point
+	# Tooltips describe the ACTUAL equipped lingpet, not a hardcoded "마리보".
+	var pet_name: String = str(snapshot.get("title", "")).strip_edges()
+	if pet_name == "":
+		pet_name = "링펫"
 	var rows := [
-		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, LanguageSettings.translate_text("마리보가 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다.") % [CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
-		make_display_stat_row("몸집크기", "%sx%spx" % [CharacterInfoOverlayFormatter.format_plain_number(catch_width), CharacterInfoOverlayFormatter.format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
+		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, LanguageSettings.translate_text("%s이(가) 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다.") % [pet_name, CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
+		make_display_stat_row("몸집크기", "%sx%spx" % [CharacterInfoOverlayFormatter.format_plain_number(catch_width), CharacterInfoOverlayFormatter.format_plain_number(catch_height)], Color.WHITE, LanguageSettings.translate_text("%s이(가) 공을 튕겨낼 때 쓰는 실제 판정 범위입니다.") % pet_name),
 		make_display_stat_row("게이지 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
 	]
 	# Defense is a PATROL-only local guard, so flight-style lingpets report a 0 rate
@@ -950,6 +1264,7 @@ static func _draw_lingpet_ring_core_row(
 	snapshot: Dictionary,
 	mouse_pos: Vector2,
 	hover_data: Dictionary,
+	ring_core_rects: Array,
 	skill_icon_texture_cache: Dictionary,
 	stat_buff_color: Color,
 	empty_text_color: Color,
@@ -958,10 +1273,12 @@ static func _draw_lingpet_ring_core_row(
 	ring_segments: int,
 	ui_text_scale: float
 ) -> Dictionary:
-	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	var chip_count := clampi(int(snapshot.get("affinity_chip_count", 0)), 0, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
 	var slot_size: float = clampf(rect.size.y - 6.0, 42.0, 58.0)
 	var ring_core_rect := Rect2(rect.position + Vector2(0.0, (rect.size.y - slot_size) * 0.5), Vector2(slot_size, slot_size))
+	if tier > 0:
+		ring_core_rects.append(ring_core_rect)
 	var chip_pips_x := ring_core_rect.end.x + 7.0
 	var chip_pips_hover_rect := Rect2(chip_pips_x - 3.0, rect.position.y, _affinity_chip_pips_width() + 6.0, rect.size.y)
 	# Whole-row hover: the narrow chip-pips column shows the chip income tooltip; everything
@@ -984,7 +1301,7 @@ static func _draw_lingpet_ring_core_row(
 		_fill_hover_data(hover_data, LanguageSettings.translate_text("강화칩 %d / %d") % [chip_count, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS], "", chip_body, stat_buff_color, chip_pips_hover_rect)
 	elif hover_target == &"ring_core":
 		var rc_subtitle := ("T%d" % tier) if tier > 0 else LanguageSettings.translate_text("미장착")
-		var rc_cap := LingpetAffinityStore.get_ring_core_cap_for_tier(tier)
+		var rc_cap := LingpetRingCoreRules.get_ring_core_cap_for_tier(tier)
 		var rc_body := LanguageSettings.translate_text("친밀도 상한 Lv.%d") % rc_cap
 		_fill_hover_data(hover_data, LanguageSettings.translate_text("링코어"), rc_subtitle, rc_body, accent_blue, rect)
 	return hover_data
@@ -1002,6 +1319,14 @@ static func _ring_core_row_hover_target(row_rect: Rect2, pips_rect: Rect2, mouse
 	return &""
 
 
+# The ring-core slot cell is square and draw_contained centers the icon on the rect, so
+# the inset MUST be symmetric — an asymmetric inset both shifts the icon sideways and
+# shrinks it. A uniform 4px inset keeps the icon concentric with the cell and fills it
+# generously (icon size = cell - 8, vs the old cell - 17 width that read small + left-shifted).
+static func _ring_core_icon_rect(slot_rect: Rect2) -> Rect2:
+	return slot_rect.grow(-4.0)
+
+
 static func _draw_lingpet_ring_core_slot(
 	canvas: CanvasItem,
 	font: Font,
@@ -1014,11 +1339,11 @@ static func _draw_lingpet_ring_core_slot(
 	ring_segments: int,
 	ui_text_scale: float
 ) -> void:
-	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var tier := clampi(int(snapshot.get("ring_core_tier", 0)), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	canvas.draw_rect(rect, slot_fill)
 	var border_color := Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.96 if tier > 0 else 0.42)
 	canvas.draw_rect(rect, border_color, false, 2.0 if hovered else 1.0)
-	var icon_rect := Rect2(rect.position + Vector2(5.0, 5.0), Vector2(maxf(12.0, rect.size.x - 17.0), maxf(12.0, rect.size.y - 10.0)))
+	var icon_rect := _ring_core_icon_rect(rect)
 	var texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(tier, skill_icon_texture_cache)
 	if texture != null:
 		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, texture, icon_rect, Color(1.0, 1.0, 1.0, 0.96))
@@ -1028,7 +1353,7 @@ static func _draw_lingpet_ring_core_slot(
 		var badge_rect := Rect2(rect.position + Vector2(3.0, rect.size.y - 16.0), Vector2(22.0, 12.0))
 		canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
 		canvas.draw_rect(badge_rect, Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.72), false, 1.0)
-		_draw_centered_text(canvas, font, "T%d" % tier, badge_rect.get_center().x, badge_rect.position.y + 9.0, 7, Color.WHITE, ui_text_scale)
+		_draw_centered_text(canvas, font, "T%d" % tier, badge_rect.get_center().x, badge_rect.get_center().y, 7, Color.WHITE, ui_text_scale)
 
 
 static func _draw_empty_lingpet_ring_core_slot(canvas: CanvasItem, rect: Rect2, accent_blue: Color, ring_segments: int) -> void:

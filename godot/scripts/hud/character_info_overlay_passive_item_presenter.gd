@@ -319,11 +319,14 @@ static func prewarm_overlay_inventory_assets(target: Object, owner: Object, regi
 
 
 static func try_handle_inventory_context_click(mouse_pos: Vector2, owner: Object, registry: Object, grid_rect: Rect2, grid_start: Vector2, cell_size: float, stride: float, columns: int, item_count: int) -> bool:
+	# Original PingFighter parity: right-clicking an inventory item auto-equips
+	# it into a compatible slot (empty preferred, else swap-replace the first
+	# enabled candidate), NOT a Godot-only equip/unequip toggle.
 	var runtime: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "mythic_item_runtime")
-	if runtime == null or not runtime.has_method("toggle_inventory_item"):
+	if runtime == null or not runtime.has_method("auto_equip_inventory_item"):
 		return false
 	var index: int = CharacterInfoOverlayHoverGeometry.get_cached_grid_hover_index(mouse_pos, grid_rect, grid_start, cell_size, stride, columns, item_count)
-	return index >= 0 and bool(runtime.toggle_inventory_item(index, owner, registry))
+	return index >= 0 and bool(runtime.auto_equip_inventory_item(index, owner, registry))
 
 
 static func update_overlay_grid_layout(target: Object, grid_rect: Rect2, cell_size: float, stride: float, columns: int, item_count: int, scroll: float, current_layout_rect: Rect2, current_scroll: float, current_columns: int, current_cell_size: float, current_stride: float, current_item_count: int, cell_rect_cache: Array[Rect2], icon_rect_cache: Array[Rect2], fallback_rect_cache: Array[Rect2], badge_rect_cache: Array[Rect2], badge_center_x_cache: Array[float], badge_center_y_cache: Array[float], visible_index_cache: Array[int]) -> void:

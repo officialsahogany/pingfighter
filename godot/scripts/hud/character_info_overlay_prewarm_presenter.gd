@@ -11,6 +11,11 @@ const CharacterInfoOverlayTextWidthCache := preload("res://scripts/hud/character
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 
+const TEXT_PREWARM_STEP_COUNT := 4
+const ACTIVE_ITEM_TEXT_PREWARM_BATCH_SIZE := 6
+const RUNTIME_PERK_TEXT_PREWARM_BATCH_SIZE := 8
+const SKILL_TEXT_PREWARM_BATCH_SIZE := 3
+
 
 static func prewarm_layout_caches(
 	target: Object,
@@ -42,17 +47,60 @@ static func prewarm_draw_caches(target: Object, font: Font, owner: Object, regis
 	prewarm_stats_layout(target, font, owner, registry, module_getter, base_active_item_slot_count)
 
 
-static func prewarm_shared_assets_and_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, include_shared_icon_assets: bool, lingpet_art_texture_cache: Dictionary, lingpet_skill_icon_texture_cache: Dictionary, shared_icon_assets_prewarmed: bool, static_text_prewarmed: bool, active_item_text_prewarmed: bool, runtime_perk_text_prewarmed: bool, skill_text_prewarmed: bool) -> void:
-	CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets(lingpet_art_texture_cache)
-	CharacterInfoOverlayLingpetTextureLoader.prewarm_skill_icon_assets(lingpet_skill_icon_texture_cache)
+static func prewarm_shared_assets_and_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, include_shared_icon_assets: bool, lingpet_art_texture_cache: Dictionary, lingpet_skill_icon_texture_cache: Dictionary, shared_icon_assets_prewarmed: bool, static_text_prewarmed: bool, active_item_text_prewarmed: bool, runtime_perk_text_prewarmed: bool, skill_text_prewarmed: bool, lingpet_prewarm_pet_ids: Variant = null) -> void:
+	CharacterInfoOverlayLingpetTextureLoader.prewarm_cached_art_assets(lingpet_art_texture_cache, lingpet_prewarm_pet_ids)
+	CharacterInfoOverlayLingpetTextureLoader.prewarm_skill_icon_assets(lingpet_skill_icon_texture_cache, lingpet_prewarm_pet_ids)
 	if include_shared_icon_assets and not shared_icon_assets_prewarmed:
 		target.set("_shared_icon_assets_prewarmed", _prewarm_shared_icon_assets(registry, module_getter))
 	target.call("_prewarm_visible_item_icons", owner, registry, module_getter)
 	target.call("_prewarm_passive_inventory_assets", owner, registry, module_getter)
 	_prewarm_static_text(target, font, owner, static_text_prewarmed)
-	_prewarm_active_item_text(target, font, active_item_text_prewarmed)
-	_prewarm_runtime_perk_text(target, font, owner, registry, module_getter, runtime_perk_text_prewarmed)
-	_prewarm_skill_text(target, font, owner, registry, module_getter, skill_text_prewarmed)
+	_prewarm_active_item_text_full(target, font, active_item_text_prewarmed)
+	_prewarm_runtime_perk_text_full(target, font, owner, registry, module_getter, runtime_perk_text_prewarmed)
+	_prewarm_skill_text_full(target, font, owner, registry, module_getter, skill_text_prewarmed)
+
+
+static func prewarm_shared_icon_assets_step(target: Object, registry: Object, module_getter: Callable) -> bool:
+	var icon_done := bool(target.get("_prewarm_shared_runtime_icon_assets_done")) if target != null else true
+	if not icon_done:
+		var icon_renderer: Object = CharacterInfoOverlayOwnerState.prewarm_instance(registry, module_getter, "runtime_perk_icon_renderer")
+		if icon_renderer != null and icon_renderer.has_method("prewarm_assets_step"):
+			icon_done = bool(icon_renderer.prewarm_assets_step())
+		elif icon_renderer != null and icon_renderer.has_method("prewarm_assets"):
+			icon_renderer.prewarm_assets()
+			icon_done = true
+		else:
+			icon_done = true
+		target.set("_prewarm_shared_runtime_icon_assets_done", icon_done)
+	var visuals_done := bool(target.get("_prewarm_shared_active_item_icons_done")) if target != null else true
+	if not visuals_done:
+		var visuals: Object = CharacterInfoOverlayOwnerState.prewarm_instance(registry, module_getter, "active_item_hud_visuals")
+		if visuals != null and visuals.has_method("prewarm_catalog_icons_step"):
+			visuals_done = bool(visuals.prewarm_catalog_icons_step())
+		elif visuals != null and visuals.has_method("prewarm_catalog_icons"):
+			visuals.prewarm_catalog_icons()
+			visuals_done = true
+		else:
+			visuals_done = true
+		target.set("_prewarm_shared_active_item_icons_done", visuals_done)
+	if icon_done and visuals_done and target != null:
+		target.set("_prewarm_shared_runtime_icon_assets_done", false)
+		target.set("_prewarm_shared_active_item_icons_done", false)
+	return icon_done and visuals_done
+
+
+static func prewarm_text_caches_step(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, static_text_prewarmed: bool, active_item_text_prewarmed: bool, runtime_perk_text_prewarmed: bool, skill_text_prewarmed: bool, step_index: int) -> bool:
+	match step_index:
+		0:
+			_prewarm_static_text(target, font, owner, static_text_prewarmed)
+			return true
+		1:
+			return _prewarm_active_item_text(target, font, active_item_text_prewarmed)
+		2:
+			return _prewarm_runtime_perk_text(target, font, owner, registry, module_getter, runtime_perk_text_prewarmed)
+		3:
+			return _prewarm_skill_text(target, font, owner, registry, module_getter, skill_text_prewarmed)
+	return true
 
 
 static func _prewarm_shared_icon_assets(registry: Object, module_getter: Callable) -> bool:
@@ -76,14 +124,63 @@ static func _prewarm_static_text(target: Object, font: Font, owner: Object, stat
 	CharacterInfoOverlayTextWidthCache.prewarm_static_text(font, owner, target.get("_equipment_slot_keys"), target.get("_equipment_slot_labels"), Callable(target, "_text_size"))
 
 
-static func _prewarm_active_item_text(target: Object, font: Font, active_item_text_prewarmed: bool) -> void:
+static func _prewarm_active_item_text(target: Object, font: Font, active_item_text_prewarmed: bool) -> bool:
+	if active_item_text_prewarmed:
+		return true
+	var entries: Array = target.get("_active_item_text_prewarm_entries")
+	if entries.is_empty() and int(target.get("_active_item_text_prewarm_cursor")) <= 0:
+		entries = CharacterInfoOverlayValueUtils.build_active_item_text_prewarm_entries(
+			target.get("_active_item_catalog"),
+			ActiveItemCatalog.FIELD_SPAWN_ORDER,
+			CharacterInfoOverlayStaticData.EXTRA_ACTIVE_ITEM_PREWARM_NAMES
+		)
+		target.set("_active_item_text_prewarm_entries", entries)
+	var cursor: int = int(target.get("_active_item_text_prewarm_cursor"))
+	var next_cursor := CharacterInfoOverlayValueUtils.prewarm_active_item_text_entries_step(font, entries, cursor, ACTIVE_ITEM_TEXT_PREWARM_BATCH_SIZE, Callable(target, "_text_size"), Callable(CharacterInfoOverlayFormatter, "trim_label"), Callable(target, "_wrap_text_to_width"))
+	if next_cursor >= entries.size():
+		target.set("_active_item_text_prewarmed", true)
+		target.set("_active_item_text_prewarm_cursor", 0)
+		target.set("_active_item_text_prewarm_entries", [])
+		return true
+	target.set("_active_item_text_prewarm_cursor", next_cursor)
+	return false
+
+
+static func _prewarm_active_item_text_full(target: Object, font: Font, active_item_text_prewarmed: bool) -> void:
 	if active_item_text_prewarmed:
 		return
 	target.set("_active_item_text_prewarmed", true)
 	CharacterInfoOverlayValueUtils.prewarm_active_item_text(font, target.get("_active_item_catalog"), ActiveItemCatalog.FIELD_SPAWN_ORDER, CharacterInfoOverlayStaticData.EXTRA_ACTIVE_ITEM_PREWARM_NAMES, Callable(target, "_text_size"), Callable(CharacterInfoOverlayFormatter, "trim_label"), Callable(target, "_wrap_text_to_width"))
 
 
-static func _prewarm_runtime_perk_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, runtime_perk_text_prewarmed: bool) -> void:
+static func _prewarm_runtime_perk_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, runtime_perk_text_prewarmed: bool) -> bool:
+	if runtime_perk_text_prewarmed:
+		return true
+	var perk_catalog: Object = CharacterInfoOverlayOwnerState.prewarm_instance(registry, module_getter, "runtime_perk_catalog")
+	var perk_runtime_state: Object = CharacterInfoOverlayOwnerState.prewarm_instance(registry, module_getter, "runtime_perk_state")
+	var character_runtime: Object = target.get("_character_runtime")
+	if perk_catalog == null:
+		return true
+	var entries: Array = target.get("_runtime_perk_text_prewarm_entries")
+	if entries.is_empty() and int(target.get("_runtime_perk_text_prewarm_cursor")) <= 0:
+		entries = CharacterInfoOverlayPerkPresenter.build_runtime_perk_text_prewarm_entries(
+			perk_catalog,
+			CharacterInfoOverlayOwnerState.character_type_from_owner(owner, character_runtime),
+			perk_runtime_state
+		)
+		target.set("_runtime_perk_text_prewarm_entries", entries)
+	var cursor: int = int(target.get("_runtime_perk_text_prewarm_cursor"))
+	var next_cursor := CharacterInfoOverlayPerkPresenter.prewarm_runtime_perk_text_entries_step(font, entries, cursor, RUNTIME_PERK_TEXT_PREWARM_BATCH_SIZE, Callable(target, "_text_size"), Callable(CharacterInfoOverlayFormatter, "trim_label"), Callable(target, "_wrap_text_to_width"))
+	if next_cursor >= entries.size():
+		target.set("_runtime_perk_text_prewarmed", true)
+		target.set("_runtime_perk_text_prewarm_cursor", 0)
+		target.set("_runtime_perk_text_prewarm_entries", [])
+		return true
+	target.set("_runtime_perk_text_prewarm_cursor", next_cursor)
+	return false
+
+
+static func _prewarm_runtime_perk_text_full(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, runtime_perk_text_prewarmed: bool) -> void:
 	if runtime_perk_text_prewarmed:
 		return
 	var perk_catalog: Object = CharacterInfoOverlayOwnerState.prewarm_instance(registry, module_getter, "runtime_perk_catalog")
@@ -95,7 +192,34 @@ static func _prewarm_runtime_perk_text(target: Object, font: Font, owner: Object
 	)
 
 
-static func _prewarm_skill_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, skill_text_prewarmed: bool) -> void:
+static func _prewarm_skill_text(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, skill_text_prewarmed: bool) -> bool:
+	if skill_text_prewarmed:
+		return true
+	var character_runtime: Object = target.get("_character_runtime")
+	var character_type: String = CharacterInfoOverlayOwnerState.character_type_from_owner(owner, character_runtime)
+	var entries: Array = target.get("_skill_text_prewarm_entries")
+	if entries.is_empty() and int(target.get("_skill_text_prewarm_cursor")) <= 0:
+		entries = CharacterInfoOverlayValueUtils.build_skill_text_prewarm_entries(
+			character_runtime,
+			registry,
+			module_getter,
+			Callable(CharacterInfoOverlayOwnerState, "prewarm_instance")
+		)
+		target.set("_skill_text_prewarm_entries", entries)
+	var cursor: int = int(target.get("_skill_text_prewarm_cursor"))
+	var next_cursor := CharacterInfoOverlayValueUtils.prewarm_skill_text_entries_step(font, entries, cursor, SKILL_TEXT_PREWARM_BATCH_SIZE, Callable(target, "_text_size"), Callable(CharacterInfoOverlayFormatter, "trim_label"), Callable(target, "_wrap_text_to_width"))
+	if next_cursor >= entries.size():
+		target.call("_text_size", font, CharacterInfoOverlayFormatter.character_type_label(character_type), 14)
+		if not entries.is_empty():
+			target.set("_skill_text_prewarmed", true)
+		target.set("_skill_text_prewarm_cursor", 0)
+		target.set("_skill_text_prewarm_entries", [])
+		return true
+	target.set("_skill_text_prewarm_cursor", next_cursor)
+	return false
+
+
+static func _prewarm_skill_text_full(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, skill_text_prewarmed: bool) -> void:
 	if skill_text_prewarmed:
 		return
 	var character_runtime: Object = target.get("_character_runtime")

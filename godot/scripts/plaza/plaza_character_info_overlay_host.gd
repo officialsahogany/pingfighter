@@ -1,5 +1,6 @@
 extends Control
 
+const CharacterInfoLingpetPrewarmFilter := preload("res://scripts/hud/character_info_lingpet_prewarm_filter.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const FALLBACK_VIEW_SIZE := Vector2(760.0, 750.0)
 
@@ -32,7 +33,8 @@ func open(owner: Object = null, registry: Object = null, module_getter: Callable
 	if size.x <= 0.0 or size.y <= 0.0:
 		size = view_size
 	if _overlay != null and _overlay.has_method("prewarm_assets"):
-		_overlay.prewarm_assets(_owner, _registry, _module_getter, true, view_size)
+		var lingpet_prewarm_pet_ids := CharacterInfoLingpetPrewarmFilter.get_slot_prewarm_pet_ids(_owner, _registry, _module_getter)
+		_overlay.prewarm_assets(_owner, _registry, _module_getter, true, view_size, lingpet_prewarm_pet_ids)
 	if _overlay != null and _overlay.has_method("open"):
 		_overlay.open(_owner, _registry)
 	visible = is_active()

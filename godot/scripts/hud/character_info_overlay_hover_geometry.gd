@@ -103,6 +103,7 @@ static func overlay_signature_contains_mouse(
 	perk_columns: int,
 	perk_count: int,
 	lingpet_skill_rects: Array[Rect2],
+	lingpet_ring_core_rects: Array[Rect2],
 	lingpet_stat_rects: Array[Rect2]
 ) -> bool:
 	if signature == "passive_inventory":
@@ -127,6 +128,8 @@ static func overlay_signature_contains_mouse(
 			return cached_grid_signature_contains_mouse(key_text, mouse_pos, perk_grid_rect, perk_start, perk_cell_size, perk_stride, perk_columns, perk_count)
 		"lingpet_skill":
 			return rect_list_index_contains_mouse(lingpet_skill_rects, key_text, mouse_pos)
+		"lingpet_ring_core":
+			return rect_list_index_contains_mouse(lingpet_ring_core_rects, key_text, mouse_pos)
 		"lingpet_stat":
 			return rect_list_index_contains_mouse(lingpet_stat_rects, key_text, mouse_pos)
 	return false
@@ -161,6 +164,7 @@ static func overlay_hover_signature(
 	perk_columns: int,
 	perk_count: int,
 	lingpet_skill_rects: Array[Rect2],
+	lingpet_ring_core_rects: Array[Rect2],
 	lingpet_stat_rects: Array[Rect2]
 ) -> String:
 	if last_hover_signature.find(":") >= 0 and bool(hover_contains_callable.call(last_hover_signature, mouse_pos)):
@@ -186,6 +190,9 @@ static func overlay_hover_signature(
 	var lingpet_skill_signature: String = get_rect_list_hover_signature(lingpet_skill_rects, mouse_pos, "lingpet_skill")
 	if lingpet_skill_signature != "":
 		return lingpet_skill_signature
+	var ring_core_signature: String = get_rect_list_hover_signature(lingpet_ring_core_rects, mouse_pos, "lingpet_ring_core")
+	if ring_core_signature != "":
+		return ring_core_signature
 	return get_rect_list_hover_signature(lingpet_stat_rects, mouse_pos, "lingpet_stat")
 
 static func get_cached_grid_hover_signature(

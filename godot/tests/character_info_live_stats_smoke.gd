@@ -10,7 +10,7 @@ const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_inf
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
@@ -79,34 +79,6 @@ class NullRegistry:
 		return null
 
 
-class FakeBondStore:
-	extends RefCounted
-
-	var bond_points: Dictionary = {}
-	var ring_core_tier: int = 0
-
-	func _init(initial_points: Dictionary = {}) -> void:
-		for raw_pet_id in initial_points.keys():
-			set_bond_points(str(raw_pet_id), int(initial_points.get(raw_pet_id, 0)))
-
-	func get_best_level(_pet_id: String) -> int:
-		return 0
-
-	func get_bond_points(pet_id: String) -> int:
-		return int(bond_points.get(pet_id.strip_edges().to_lower(), 0))
-
-	func set_bond_points(pet_id: String, points: int) -> void:
-		var normalized_pet_id := pet_id.strip_edges().to_lower()
-		if normalized_pet_id != "":
-			bond_points[normalized_pet_id] = maxi(0, points)
-
-	func get_ring_core_tier() -> int:
-		return ring_core_tier
-
-	func set_ring_core_tier(tier: int) -> void:
-		ring_core_tier = clampi(tier, 0, 6)
-
-
 class FakeRegistry:
 	var runtime_perk_state: Object
 	var active_item_runtime: Object
@@ -158,6 +130,10 @@ class FakeCharacterRuntime:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var overlay: Object = CharacterInfoOverlay.new()
 	var perk_state: Object = RuntimePerkState.new()
@@ -308,6 +284,8 @@ func _init() -> void:
 	var lunabi_skill_specs: Array = CharacterInfoOverlayLingpetPresenter.get_skill_specs(lunabi_panel_snapshot, CharacterInfoOverlay.STAT_BUFF_COLOR)
 	var lunabi_stats: Array = overlay._build_lingpet_stats(lunabi_owner)
 	var lunabi_art_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_art_texture("lunabi", {})
+	var lunabi_loaded_size := lunabi_art_texture.get_size() if lunabi_art_texture != null else Vector2.ZERO
+	var lunabi_cell_size := Vector2(lunabi_loaded_size.x / 14.0, lunabi_loaded_size.y / 7.0)
 	var lunabi_live2d_source_0: Rect2 = CharacterInfoOverlayLingpetPresenter.panel_live2d_source_rect("lunabi", lunabi_art_texture.get_size() if lunabi_art_texture != null else Vector2.ZERO, 0.0)
 	var lunabi_live2d_source_1: Rect2 = CharacterInfoOverlayLingpetPresenter.panel_live2d_source_rect("lunabi", lunabi_art_texture.get_size() if lunabi_art_texture != null else Vector2.ZERO, 0.07)
 	_expect(str(lunabi_panel_snapshot.get("pet_id", "")) == "lunabi", "Lunabi panel snapshot should preserve its catalog pet id")
@@ -322,10 +300,10 @@ func _init() -> void:
 	_expect(CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art("lunabi"), "Lunabi character-info art should opt into the panel Live2D sheet")
 	_expect(not CharacterInfoOverlayLingpetTextureLoader.uses_panel_live2d_art("maribo"), "Maribo character-info art should keep using the static cutin art for now")
 	_expect(lunabi_art_texture != null and str(lunabi_art_texture.resource_path).ends_with("lunabi_click_live2d_pingpong_98f.png"), "Lunabi character-info art should resolve to the 98-frame panel Live2D sheet")
-	_expect(lunabi_live2d_source_0.position == Vector2.ZERO and lunabi_live2d_source_0.size == Vector2(1024.0, 1024.0), "Lunabi character-info Live2D should start from the first 1024px sheet cell")
-	_expect(is_equal_approx(lunabi_live2d_source_1.position.x, 1024.0), "Lunabi character-info Live2D should advance to the next sheet cell after one 16fps tick")
+	_expect(lunabi_live2d_source_0.position == Vector2.ZERO and lunabi_live2d_source_0.size == lunabi_cell_size, "Lunabi character-info Live2D should start from the first imported sheet cell")
+	_expect(is_equal_approx(lunabi_live2d_source_1.position.x, lunabi_cell_size.x), "Lunabi character-info Live2D should advance to the next imported sheet cell after one 16fps tick")
 	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(lunabi_panel_snapshot), "Lunabi character-info panel should request redraws while its panel Live2D is visible")
-	_expect(not CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(maribo_panel_snapshot), "Maribo character-info panel should not request continuous Live2D redraws")
+	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(maribo_panel_snapshot), "Maribo character-info panel should keep redrawing so the aurora backdrop animates (every companion, not only live2d pets)")
 	var nekuring_owner := FakeOwner.new({
 		"lingpet_id": "nekuring",
 		"lingpet_state": "companion",
@@ -345,10 +323,16 @@ func _init() -> void:
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
 	_verify_affinity_values_reach_panel_through_schema_gated_owner()
 	_verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner()
+	_verify_second_active_affinity_level_reaches_panel_through_schema_gated_owner()
 	_verify_second_slot_rows_reach_lingpet_tab()
 	_verify_snapshot_sync_keys_are_schema_declared()
 
 	ProjectResourceLoader.clear_caches()
+	await _drain_frames(12)
+	call_deferred("_finish_ok")
+
+
+func _finish_ok() -> void:
 	print("character_info_live_stats_smoke: ok")
 	quit(0)
 
@@ -413,9 +397,6 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	var owner := SchemaGatedOwner.new()
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	var bond_store := FakeBondStore.new({})
-	bond_store.set_ring_core_tier(6)
-	runtime.set_affinity_store_for_tests(bond_store)
 	runtime._affinity_state.set_run_ring_core_tier(3)
 	_expect(
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
@@ -450,7 +431,8 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(presenter_source.find("_draw_lingpet_ring_core_row") >= 0, "TAB lingpet panel should draw ring-core in a dedicated row separate from the affinity band")
 	_expect(presenter_source.find("_draw_vertical_affinity_chip_pips") >= 0, "TAB lingpet panel should draw affinity chips as vertical pips beside the ring-core slot")
 	_expect(presenter_source.find("_draw_horizontal_affinity_chip_pips") < 0, "TAB lingpet panel should not keep the rejected horizontal chip row")
-	_expect(presenter_source.find("const AFFINITY_BAND_HEIGHT := 34.0") >= 0, "TAB lingpet affinity band should return to text-only height after ring-core moves to its own row")
+	_expect(presenter_source.find("const AFFINITY_BAND_HEIGHT := 50.0") >= 0, "TAB lingpet affinity band should reserve the expanded satiety strip space")
+	_expect(presenter_source.find("max(24.0, affinity_band_h - 10.0)") >= 0, "TAB lingpet affinity band should leave the 42px unlock-choice gate drawable after adding the satiety strip")
 	_expect(presenter_source.find("const RING_CORE_ROW_HEIGHT := 64.0") >= 0, "TAB lingpet panel should reserve a dedicated ring-core row")
 	_expect(presenter_source.find("clampf(rect.size.y - 6.0, 42.0, 58.0)") >= 0, "TAB lingpet ring-core row should keep the enlarged 58px slot cap")
 	_expect(presenter_source.find("var ring_core_row_rect := Rect2") >= 0, "TAB lingpet ring-core slot should live in its own row, not inside the affinity band")
@@ -462,7 +444,7 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(presenter_source.find("skill_specs.size() + 1") < 0, "TAB lingpet skill rail should stay skill-only after ring-core moves into its own row")
 	_expect(texture_loader_source.find("get_ring_core_icon_texture") >= 0, "TAB lingpet texture loader should expose ring-core tier icon loading")
 	_expect(texture_loader_source.find("RuntimePerkIconRenderer.PERK_ICON_PATHS") >= 0, "TAB lingpet ring-core icon loading should reuse the perk-card tier art family")
-	_expect(texture_loader_source.find("LingpetAffinityStore.MAX_RING_CORE_TIER + 1") >= 0, "TAB lingpet prewarm should iterate every ring-core tier art")
+	_expect(texture_loader_source.find("LingpetRingCoreRules.MAX_RING_CORE_TIER + 1") >= 0, "TAB lingpet prewarm should iterate every ring-core tier art")
 	# Behavioral seal for the whole-row hover. The icon-only (~50px) and pips-only (~15px)
 	# hit rects were tiny on a ~200px row, so hovering the large "링코어 / 미장착 / 강화칩"
 	# LABEL text showed no tooltip. _ring_core_row_hover_target is pure (no draw context), so
@@ -476,9 +458,18 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(102.0, 230.0))) == "chip", "hovering the chip pips column should show the chip-income tooltip")
 	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(400.0, 230.0))) == "", "hovering outside the ring-core row should show no tooltip")
 	var ring_core_icon_cache := {}
-	for tier in range(1, LingpetAffinityStore.MAX_RING_CORE_TIER + 1):
+	for tier in range(1, LingpetRingCoreRules.MAX_RING_CORE_TIER + 1):
 		var tier_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(tier, ring_core_icon_cache)
 		_expect(tier_texture != null, "TAB lingpet ring-core slot should resolve tier %d icon art" % tier)
+	# The ring-core icon must be centered in its square slot and fill it generously.
+	# draw_contained centers on the rect, so an asymmetric inset would shift it left and
+	# shrink it. Reverse guard: the old Rect2(pos+(5,5),(size-17,size-10)) is 3.5px left of
+	# center and size-17 wide, so it fails both asserts below.
+	var ring_core_slot_cell := Rect2(40.0, 200.0, 50.0, 50.0)
+	var ring_core_icon_rect := CharacterInfoOverlayLingpetPresenter._ring_core_icon_rect(ring_core_slot_cell)
+	_expect(ring_core_icon_rect.get_center().is_equal_approx(ring_core_slot_cell.get_center()), "ring-core icon rect must stay concentric with its square slot (no left shift)")
+	_expect(ring_core_icon_rect.size.x >= ring_core_slot_cell.size.x - 10.0, "ring-core icon should fill the slot generously, not the old size-17 shrink")
+	_expect(ring_core_icon_rect.size.x <= ring_core_slot_cell.size.x and ring_core_icon_rect.size.y <= ring_core_slot_cell.size.y, "ring-core icon rect should stay within the slot cell")
 	_expect(CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(0, ring_core_icon_cache) == null, "TAB lingpet ring-core slot should keep tier 0 as an empty placeholder")
 	var overlay: Object = CharacterInfoOverlay.new()
 	var rows: Array = overlay._build_lingpet_stats(owner)
@@ -501,7 +492,7 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	var owner := SchemaGatedOwner.new()
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	runtime._affinity_state.set_run_ring_core_tier(LingpetAffinityStore.MAX_RING_CORE_TIER)
+	runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	_expect(
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
 		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
@@ -532,6 +523,79 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	_expect(
 		is_equal_approx(float(snapshot.get("companion_patrol_speed_default", 0.0)), expected_speed),
 		"기동 강화 stacks should reach the panel move-speed row instead of the catalog base"
+	)
+
+
+func _verify_second_active_affinity_level_reaches_panel_through_schema_gated_owner() -> void:
+	# 교감 raises the SECOND active skill's effective level via
+	# second_active_skill_bonus, folded into the profile's slot-1 level and the LIVE
+	# runtime snapshot. But the TAB panel reads the slot-1 level from the owner key
+	# lingpet_second_active_skill_level, which _sync_second_skill_static_owner must
+	# write with the BOOSTED level (mirroring its primary sibling that writes
+	# lingpet_active_skill_level). If that write is omitted, the owner key stays at
+	# the loadout BASE level (1) and the TAB 2nd-active card is pinned at Lv.1 while
+	# 교감 leveling raises the real level everywhere else — Owner-Field Schema Trap.
+	# The manual-owner.set panel test above (_verify_second_slot_rows) can't catch
+	# this because it never exercises the runtime SYNC write; this fixture drives the
+	# real LingpetEggRuntime.update owner sync. Reverse-verified: removing the
+	# lingpet_second_active_skill_level _set_pair line fails the two asserts below.
+	var owner := SchemaGatedOwner.new()
+	var registry := NullRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
+	# Auto loadout (empty skill ids) so the second-active unlock reconciles into
+	# slot 1; an explicit loadout would set skip_unlock_reconcile and never fill it.
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry, 1, 1)),
+		"schema-gated owner should accept a Maribo auto-loadout debug grant for the 2nd-active case"
+	)
+	# Fixed reward seed -> deterministic second-active unlock + skill-bonus grants.
+	runtime.set_affinity_reward_seed_for_tests("maribo", 12345)
+	var commit_guard := 0
+	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 2000:
+		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+		commit_guard += 1
+	_expect(runtime.get_affinity_level("maribo") == LingpetAffinityState.MAX_LEVEL, "2nd-active fixture should reach affinity max level via round commits")
+	runtime.update(0.0, owner, registry)
+
+	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
+	_expect(bool(rewards.get("second_active_unlocked", false)), "2nd-active fixture (seed 12345) should unlock the second active by max level")
+	var second_bonus := int(rewards.get("second_active_skill_bonus", 0))
+	_expect(second_bonus > 0, "2nd-active fixture should earn a second_active_skill_bonus so the base-vs-boosted divergence is real (a base==boosted case passes even with the bug)")
+	var expected_second_level := LingpetCatalog.clamp_skill_level(LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL + second_bonus)
+	_expect(expected_second_level > 1, "divergent case: the boosted 2nd-active level must exceed the base loadout level")
+
+	# The owner key the TAB panel reads must carry the BOOSTED level, not base 1.
+	_expect(
+		int(owner.get("lingpet_second_active_skill_level")) == expected_second_level,
+		"교감-boosted 2nd active level should reach the lingpet_second_active_skill_level owner key, not the loadout base"
+	)
+	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
+	_expect(str(snapshot.get("companion_skill_id_1", "")) != "", "2nd-active fixture should fill the slot-1 active card")
+	_expect(
+		int(snapshot.get("companion_skill_level_1", 0)) == expected_second_level,
+		"교감-boosted 2nd active level should reach the TAB panel companion_skill_level_1 (Owner-Field Schema Trap: _sync_second_skill_static_owner must write the level)"
+	)
+
+	# Ordering contract: lingpet_loadout_state.sync_owner writes the loadout BASE
+	# level to the SAME owner key whenever ensure_pet_loadout re-runs (runtime cache
+	# invalid). Every invalidator must also invalidate the snapshot-builder sync
+	# cache so the BOOSTED write re-fires AFTER the base write in the same
+	# _sync_owner pass — otherwise the static-surface gate skips the re-write (key
+	# unchanged) and the stale base sticks. Exercise the risky follow-on frames plus
+	# an explicit invalidation round trip (mimics pet-switch / loadout-change /
+	# level-up aftermath).
+	for _frame in range(3):
+		runtime.update(0.016, owner, registry)
+	_expect(
+		int(owner.get("lingpet_second_active_skill_level")) == expected_second_level,
+		"boosted 2nd active level should survive follow-on update frames (loadout base writer must not clobber)"
+	)
+	runtime._loadout_state.invalidate_runtime_and_snapshot_cache(runtime._snapshot_builder)
+	runtime.update(0.016, owner, registry)
+	_expect(
+		int(owner.get("lingpet_second_active_skill_level")) == expected_second_level,
+		"boosted 2nd active level should survive a loadout-cache invalidation round trip (base writer re-fires, boosted write must follow in the same sync pass)"
 	)
 
 
@@ -661,6 +725,11 @@ func _finish_active_runtime_initialization(runtime: Object) -> void:
 		return
 	while not bool(runtime.prewarm_initialization_step()):
 		pass
+
+
+func _drain_frames(frame_count: int) -> void:
+	for i in frame_count:
+		await process_frame
 
 
 func _build_lingpet_rows_from_snapshot(snapshot: Dictionary, row_budget_rect: Rect2) -> Array:

@@ -3,9 +3,11 @@ extends SceneTree
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const CharacterInfoOverlayActiveItemPresenter := preload("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
 const CharacterInfoOverlayHoverGeometry := preload("res://scripts/hud/character_info_overlay_hover_geometry.gd")
+const CharacterInfoLingpetPrewarmFilter := preload("res://scripts/hud/character_info_lingpet_prewarm_filter.gd")
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const CharacterInfoOverlayPassiveItemPresenter := preload("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
+const CharacterInfoOverlayPrewarmPresenter := preload("res://scripts/hud/character_info_overlay_prewarm_presenter.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -26,6 +28,40 @@ class FakeActiveItemVisuals:
 
 	func get_icon_texture(_item_data: Dictionary) -> Texture2D:
 		return null
+
+
+class FakeStagedRuntimeIconModule:
+	var complete_after := 1
+	var step_calls := 0
+	var called_after_done := false
+	var _done := false
+
+	func prewarm_assets_step() -> bool:
+		if _done:
+			called_after_done = true
+			return true
+		step_calls += 1
+		if step_calls >= complete_after:
+			_done = true
+			return true
+		return false
+
+
+class FakeStagedActiveItemVisuals:
+	var complete_after := 4
+	var step_calls := 0
+	var called_after_done := false
+	var _done := false
+
+	func prewarm_catalog_icons_step() -> bool:
+		if _done:
+			called_after_done = true
+			return true
+		step_calls += 1
+		if step_calls >= complete_after:
+			_done = true
+			return true
+		return false
 
 
 class FakeSkillConfig:
@@ -117,10 +153,28 @@ class FakeRegistry:
 		return null
 
 
+class FakeStaggeredSharedIconRegistry:
+	var icon_renderer := FakeStagedRuntimeIconModule.new()
+	var active_item_visuals := FakeStagedActiveItemVisuals.new()
+
+	func get_instance(key: String) -> Object:
+		match key:
+			"runtime_perk_icon_renderer":
+				return icon_renderer
+			"active_item_hud_visuals":
+				return active_item_visuals
+		return null
+
+
 class FakeOwner:
 	extends RefCounted
 
 	var selected_character_type := "smasher"
+	var lingpet_state := "companion"
+	var lingpet_id := "maribo"
+	var current_lingpet_id := "maribo"
+	var lingpet_slots := ["maribo", "lunabi", ""]
+	var lingpet_active_slot_index := 0
 	var equipment_slots := {
 		"head": {"name": "alpha_helm", "display_name": "Alpha Helm"},
 	}
@@ -146,13 +200,29 @@ func _init() -> void:
 	var font: Font = ThemeDB.fallback_font
 	_expect(font != null, "fallback font should be available for character info prewarm")
 
-	overlay.prewarm_assets(null, null, Callable(), false)
+	var omitted_filter_art_cache: Dictionary = {}
+	CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets(omitted_filter_art_cache)
+	_expect(omitted_filter_art_cache.is_empty(), "omitted lingpet prewarm filter should not mean full-roster panel art loading")
+	var omitted_filter_step_cache: Dictionary = {}
+	_expect(CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets_step(omitted_filter_step_cache), "omitted staged lingpet prewarm filter should finish without queuing full-roster panel art")
+	_expect(omitted_filter_step_cache.is_empty(), "omitted staged lingpet prewarm filter should not cache full-roster panel art")
+	var slot_filter_ids := CharacterInfoLingpetPrewarmFilter.get_slot_prewarm_pet_ids(FakeOwner.new())
+	_expect(slot_filter_ids == ["maribo", "lunabi"], "TAB character info prewarm filter should warm equipped lingpet slots without falling back to the full roster")
+	var empty_owner := FakeOwner.new()
+	empty_owner.lingpet_state = "none"
+	empty_owner.lingpet_id = ""
+	empty_owner.current_lingpet_id = ""
+	empty_owner.lingpet_slots = []
+	empty_owner.lingpet_active_slot_index = -1
+	_expect(CharacterInfoLingpetPrewarmFilter.get_active_prewarm_pet_ids(empty_owner).is_empty(), "boot character info prewarm filter should return zero lingpets when the owner has not restored slots yet")
+
+	overlay.prewarm_assets(null, null, Callable(), false, Vector2.ZERO, [])
 	_expect(_registry.icon_renderer.prewarm_count == 0, "partial character info prewarm should not mark icon assets done")
 	_expect(_registry.active_item_visuals.prewarm_count == 0, "partial character info prewarm should not mark active item visuals done")
 	_expect(not overlay._runtime_perk_text_prewarmed, "partial character info prewarm should leave runtime perk text pending without a catalog")
 	_expect(not overlay._skill_text_prewarmed, "partial character info prewarm should leave skill text pending without skill configs")
 
-	overlay.prewarm_assets(null, _registry)
+	overlay.prewarm_assets(null, _registry, Callable(), true, Vector2.ZERO, [])
 	_expect(_registry.icon_renderer.prewarm_count == 1, "character info prewarm should warm perk icon assets")
 	_expect(_registry.active_item_visuals.prewarm_count == 1, "character info prewarm should warm active item icons")
 	_expect(overlay._runtime_perk_text_prewarmed, "character info prewarm should complete runtime perk text once the catalog is reachable")
@@ -161,7 +231,7 @@ func _init() -> void:
 	_expect(overlay._wrap_text_cache.size() > 0, "character info prewarm should populate wrapped text cache")
 
 	var layout_overlay := CharacterInfoOverlay.new()
-	layout_overlay.prewarm_assets(FakeOwner.new(), _registry, Callable(), false)
+	layout_overlay.prewarm_assets(FakeOwner.new(), _registry, Callable(), false, Vector2.ZERO, ["maribo"])
 	_expect(layout_overlay._layout_panel_rect.size != Vector2.ZERO, "character info prewarm should prepare the frame layout when a viewport is available")
 	_expect(layout_overlay._layout_equipment_rect.size != Vector2.ZERO, "character info should keep the equipment slot panel visible")
 	_expect(layout_overlay._layout_skill_rect.size != Vector2.ZERO, "character info should keep the skill slot panel visible")
@@ -185,16 +255,64 @@ func _init() -> void:
 	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(maribo_passive_icon_path), "character info prewarm should cache the catalog passive icon")
 	var maribo_art_path: String = LingpetCatalog.get_visual_path("maribo", "cutin_art")
 	_expect(maribo_art_path != "", "maribo cutin art should be reachable through the catalog")
-	_expect(layout_overlay._lingpet_art_texture_cache.has(maribo_art_path), "character info prewarm should cache lingpet cutin art in the draw-time art cache")
+	_expect(not layout_overlay._lingpet_art_texture_cache.has(maribo_art_path), "TAB-open character info prewarm should not synchronously load lingpet panel art when the staged cache missed")
 	_expect(not layout_overlay._lingpet_skill_icon_texture_cache.has(maribo_art_path), "character info prewarm should keep lingpet art out of the skill icon cache")
 	var lunabi_panel_art_path: String = CharacterInfoOverlayLingpetTextureLoader.get_panel_art_path("lunabi")
 	_expect(lunabi_panel_art_path.ends_with("lunabi_click_live2d_pingpong_98f.png"), "Lunabi character info panel should use the 98-frame panel Live2D sheet path")
-	_expect(layout_overlay._lingpet_art_texture_cache.has(lunabi_panel_art_path), "character info prewarm should cache Lunabi's panel Live2D sheet")
+	_expect(not layout_overlay._lingpet_art_texture_cache.has(lunabi_panel_art_path), "limited character info prewarm should not cache inactive Lunabi panel Live2D sheet")
 	_expect(not layout_overlay._lingpet_skill_icon_texture_cache.has(lunabi_panel_art_path), "character info prewarm should keep Lunabi panel Live2D out of the skill icon cache")
 	var nekuring_panel_art_path: String = CharacterInfoOverlayLingpetTextureLoader.get_panel_art_path("nekuring")
 	_expect(nekuring_panel_art_path.ends_with("nekuring_click_live2d_pingpong_98f.png"), "Nekuring character info panel should use the 98-frame panel Live2D sheet path")
 	var loader_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 	_expect(loader_source.find("FileAccess.file_exists") < 0, "lingpet texture loader should delegate export-safe existence checks to ProjectResourceLoader")
+
+	var limited_overlay := CharacterInfoOverlay.new()
+	var limited_registry := FakeRegistry.new()
+	var limited_steps := 0
+	while not limited_overlay.prewarm_assets_step(FakeOwner.new(), limited_registry, Callable(), false, Vector2.ZERO, ["maribo"]):
+		limited_steps += 1
+		if limited_steps >= 512:
+			_expect(false, "limited lingpet character info prewarm should complete in bounded steps")
+			break
+	_expect(limited_overlay._lingpet_art_texture_cache.has(maribo_art_path), "limited lingpet prewarm should cache the requested active pet art")
+	_expect(not limited_overlay._lingpet_art_texture_cache.has(lunabi_panel_art_path), "limited lingpet prewarm should not cache inactive roster panel Live2D sheets")
+	_expect(limited_overlay._lingpet_skill_icon_texture_cache.has(maribo_passive_icon_path), "limited lingpet prewarm should cache the requested active pet skill icons")
+
+	var staged_registry := FakeRegistry.new()
+	var staged_overlay := CharacterInfoOverlay.new()
+	var staged_steps := 0
+	while not staged_overlay.prewarm_assets_step(FakeOwner.new(), staged_registry, Callable(), true, Vector2.ZERO, ["maribo"]):
+		staged_steps += 1
+		if staged_steps >= 512:
+			_expect(false, "character info staged prewarm should complete in bounded steps")
+			break
+	_expect(staged_steps > 4, "character info staged prewarm should spread work across multiple calls")
+	_expect(staged_overlay._shared_icon_assets_prewarmed, "character info staged prewarm should complete shared icon assets before TAB opens")
+	_expect(staged_registry.icon_renderer.prewarm_count == 1, "character info staged prewarm should warm runtime perk icons")
+	_expect(staged_registry.active_item_visuals.prewarm_count == 1, "character info staged prewarm should warm active item icons")
+	_expect(staged_overlay._lingpet_art_texture_cache.has(maribo_art_path), "character info staged prewarm should cache the requested lingpet art")
+	_expect(staged_overlay._lingpet_skill_icon_texture_cache.has(maribo_passive_icon_path), "character info staged prewarm should cache lingpet passive icons")
+	var slot_overlay := CharacterInfoOverlay.new()
+	var slot_steps := 0
+	while not slot_overlay.prewarm_lingpet_panel_assets_step(["maribo", "lunabi"]):
+		slot_steps += 1
+		if slot_steps >= 512:
+			_expect(false, "stage-transition slot lingpet panel prewarm should complete in bounded steps")
+			break
+	_expect(CharacterInfoOverlayLingpetTextureLoader.get_cached_art_texture("maribo", slot_overlay._lingpet_art_texture_cache) != null, "stage-transition slot prewarm should leave active-slot art as a cached TAB hit")
+	_expect(CharacterInfoOverlayLingpetTextureLoader.get_cached_art_texture("lunabi", slot_overlay._lingpet_art_texture_cache) != null, "stage-transition slot prewarm should leave inactive-slot panel Live2D as a cached TAB hit")
+	var staggered_registry := FakeStaggeredSharedIconRegistry.new()
+	var staggered_overlay := CharacterInfoOverlay.new()
+	var shared_icon_steps := 0
+	while not CharacterInfoOverlayPrewarmPresenter.prewarm_shared_icon_assets_step(staggered_overlay, staggered_registry, Callable()):
+		shared_icon_steps += 1
+		if shared_icon_steps >= 16:
+			_expect(false, "staggered shared icon prewarm should complete without restarting finished sub-steps")
+			break
+	_expect(staggered_registry.icon_renderer.step_calls == 1, "staged shared icon prewarm should not rerun completed runtime perk icons while active-item icons continue")
+	_expect(not staggered_registry.icon_renderer.called_after_done, "staged shared icon prewarm should skip the finished runtime icon renderer")
+	_expect(staggered_registry.active_item_visuals.step_calls == 4, "staged shared icon prewarm should keep advancing active-item icons until complete")
+	_expect(not staggered_registry.active_item_visuals.called_after_done, "staged shared icon prewarm should stop after active-item icons complete")
 
 	var text_cache_size: int = overlay._text_size_cache.size()
 	var wrap_cache_size: int = overlay._wrap_text_cache.size()
@@ -253,7 +371,7 @@ func _init() -> void:
 	_expect(overlay._text_size_cache.size() >= text_cache_size, "character info text cache should remain populated")
 	_expect(overlay._wrap_text_cache.size() >= wrap_cache_size, "character info wrap cache should remain populated")
 
-	overlay.prewarm_assets(null, _registry)
+	overlay.prewarm_assets(null, _registry, Callable(), true, Vector2.ZERO, [])
 	_expect(_registry.icon_renderer.prewarm_count == 1, "character info prewarm should be idempotent for icons")
 	_expect(_registry.active_item_visuals.prewarm_count == 1, "character info prewarm should be idempotent for active item visuals")
 
@@ -507,6 +625,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 	var stats_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 	var header_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_header_presenter.gd")
 	var prewarm_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_prewarm_presenter.gd")
+	var loader_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 	var texture_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 	var equipment_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_equipment_drawer.gd")
 	var active_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
@@ -515,6 +634,9 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 	var passive_item_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
 	var passive_inventory_drawer_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_passive_inventory_drawer.gd")
 	var owner_state_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_owner_state.gd")
+	var prewarm_filter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_lingpet_prewarm_filter.gd")
+	var battle_overlay_input_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_input_controller.gd")
+	var plaza_overlay_host_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_character_info_overlay_host.gd")
 	var value_utils_source := _character_info_value_utils_contract_source()
 	var perk_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 	var skill_layout_body := _function_body(value_utils_source, "static func refresh_skill_slot_layout_arrays(")
@@ -551,12 +673,12 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info draw should fetch runtime perk snapshot once per frame"
 	)
 	_expect(
-		header_presenter_source.find("if not snapshot.has(\"pending_skill_choices\"):") >= 0,
-		"character info header should only read owner pending choices when the snapshot lacks the value"
+		_function_body(header_presenter_source, "static func draw_header(").find("if not snapshot.has(\"pending_skill_choices\"):") < 0,
+		"character info header should no longer read pending choices (top-right status line removed for the trash can)"
 	)
 	_expect(
-		header_presenter_source.find("if not snapshot.has(\"gold_from_perks\"):") >= 0,
-		"character info header should only read owner perk gold when the snapshot lacks the value"
+		_function_body(header_presenter_source, "static func draw_header(").find("if not snapshot.has(\"gold_from_perks\"):") < 0,
+		"character info header should no longer read perk gold (top-right status line removed for the trash can)"
 	)
 	_expect(
 		frame_presenter_source.find("var runtime_perk_icon_renderer: Object = CharacterInfoOverlayOwnerState.get_instance(registry, \"runtime_perk_icon_renderer\")") >= 0,
@@ -607,8 +729,59 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info prewarm should prepare first-draw caches after layout"
 	)
 	_expect(
+		_function_body(prewarm_presenter_source, "static func prewarm_shared_assets_and_text(").find("CharacterInfoOverlayLingpetTextureLoader.prewarm_cached_art_assets(lingpet_art_texture_cache, lingpet_prewarm_pet_ids)") >= 0,
+		"TAB-open character info prewarm should peek cached lingpet art instead of synchronously loading panel sheets"
+	)
+	_expect(
+		_function_body(source, "func prewarm_assets_step(").find("CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets_step(_lingpet_art_texture_cache, lingpet_prewarm_pet_ids)") >= 0
+			and _function_body(source, "func prewarm_assets_step(").find("CharacterInfoOverlayPrewarmPresenter.prewarm_shared_icon_assets_step(self, registry, module_getter)") >= 0,
+		"character info staged prewarm should move lingpet art and shared icons out of the first TAB input frame"
+	)
+	_expect(
+		_function_body(source, "func prewarm_lingpet_panel_assets_step(").find("CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets_step(_lingpet_art_texture_cache, lingpet_prewarm_pet_ids)") >= 0
+			and _function_body(source, "func prewarm_lingpet_panel_assets_step(").find("CharacterInfoOverlayLingpetTextureLoader.prewarm_skill_icon_assets_step(_lingpet_skill_icon_texture_cache, lingpet_prewarm_pet_ids)") >= 0,
+		"character info should expose a lingpet-only staged prewarm path for stage-transition owner sync"
+	)
+	_expect(
 		prewarm_presenter_source.find("static func prewarm_stats_layout(target: Object, font: Font, owner: Object, registry: Object, module_getter: Callable, base_active_item_slot_count: int) -> void:") >= 0,
 		"character info prewarm should include a stats layout cache helper"
+	)
+	_expect(
+		prewarm_presenter_source.find("static func prewarm_shared_icon_assets_step(target: Object, registry: Object, module_getter: Callable) -> bool:") >= 0,
+		"character info prewarm presenter should expose staged shared icon warming"
+	)
+	_expect(
+		_function_body(loader_source, "static func _prewarm_texture_path_threaded_step(").find("ProjectResourceLoader.prewarm_texture_threaded_step(") >= 0
+			and _function_body(loader_source, "static func prewarm_art_assets_step(").find("_build_panel_art_prewarm_paths(pet_ids)") >= 0,
+		"character info lingpet panel art staged prewarm should use threaded imported texture loading"
+	)
+	_expect(
+		_function_body(loader_source, "static func _get_cached_texture_path(").find("ProjectResourceLoader.get_cached_texture(path)") >= 0
+			and _function_body(lingpet_presenter_source, "static func draw_companion_panel(").find("CharacterInfoOverlayLingpetTextureLoader.get_cached_art_texture") >= 0
+			and _function_body(lingpet_presenter_source, "static func draw_companion_panel(").find("CharacterInfoOverlayLingpetTextureLoader.get_cached_static_art_texture") >= 0
+			and _function_body(lingpet_presenter_source, "static func draw_companion_panel(").find("CharacterInfoOverlayLingpetTextureLoader.get_art_texture") < 0,
+		"character info TAB draw should use cached-only panel art with a static-art fallback instead of blocking on in-flight streams"
+	)
+	_expect(
+		_function_body(loader_source, "static func _resolve_prewarm_pet_ids(").find("return []") >= 0
+			and loader_source.find("const PREWARM_ALL_PETS") >= 0,
+		"character info lingpet texture loader should require an explicit roster token instead of treating null as full-roster prewarm"
+	)
+	_expect(
+		prewarm_filter_source.find("static func get_active_prewarm_pet_ids(") >= 0
+			and prewarm_filter_source.find("load_snapshot") < 0
+			and prewarm_filter_source.find("_append_from_save_snapshot") < 0,
+		"character info lingpet prewarm filter should be owner-only; boot with empty owner intentionally warms zero lingpet panel art"
+	)
+	_expect(
+		battle_overlay_input_source.find("CharacterInfoLingpetPrewarmFilter.get_slot_prewarm_pet_ids(owner, registry, module_getter)") >= 0
+			and battle_overlay_input_source.find("prewarm_assets(owner, registry, module_getter, true, _get_view_size(owner), lingpet_prewarm_pet_ids)") >= 0,
+		"battle TAB character info open should pass an equipped-slot lingpet filter instead of synchronously prewarming the full roster"
+	)
+	_expect(
+		plaza_overlay_host_source.find("CharacterInfoLingpetPrewarmFilter.get_slot_prewarm_pet_ids(_owner, _registry, _module_getter)") >= 0
+			and plaza_overlay_host_source.find("prewarm_assets(_owner, _registry, _module_getter, true, view_size, lingpet_prewarm_pet_ids)") >= 0,
+		"plaza TAB character info open should pass an equipped-slot lingpet filter instead of synchronously prewarming the full roster"
 	)
 	_expect(
 		_function_body(prewarm_presenter_source, "static func prewarm_stats_layout(").find("target.call(\"_text_size\", font, str(row.get(\"value\", \"\")), 13)") >= 0,
@@ -627,8 +800,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info header status should avoid format arrays after cache misses"
 	)
 	_expect(
-		_function_body(header_presenter_source, "static func draw_header(").find("var title_x: float = panel_rect.position.x + 26.0") >= 0,
-		"character info header should use scalar title coordinates"
+		_function_body(header_presenter_source, "static func draw_header(").find("var title_x: float = panel_rect.position.x + 28.0 + emblem_offset") >= 0,
+		"character info header should use scalar title coordinates with class-emblem offset"
 	)
 	_expect(
 		_function_body(header_presenter_source, "static func draw_header(").find("title_pos") < 0,
@@ -639,12 +812,12 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info header should read subtitle text from cache"
 	)
 	_expect(
-		_function_body(header_presenter_source, "static func draw_header(").find("var status: String = cached_status_text(pending, gold, status_text_cache)") >= 0,
-		"character info header should read status text from cache"
+		_function_body(header_presenter_source, "static func draw_header(").find("cached_status_text(") < 0,
+		"character info header should no longer compose the top-right status text (replaced by the trash can)"
 	)
 	_expect(
-		_function_body(header_presenter_source, "static func draw_header(").find("var status_width: float = float(width_state.get(\"width\", 0.0))") >= 0,
-		"character info header should read cached status text width"
+		_function_body(header_presenter_source, "static func draw_header(").find("var status_width") < 0,
+		"character info header should no longer measure status text width (status line removed)"
 	)
 	_expect(
 		_function_body(header_presenter_source, "static func draw_header(").find("_text_size(font, status, 14)") < 0,
@@ -811,8 +984,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info empty skill hover fill should be a shared constant"
 	)
 	_expect(
-		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)") >= 0,
-		"character info skill presenter should route empty slots through the shared slot panel helper"
+		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_empty_slot_socket(canvas, slot_rect, slot_fill, slot_border)") >= 0,
+		"character info skill presenter should route empty slots through the shared empty-slot socket helper"
 	)
 	_expect(
 		texture_drawer_source.find("static func draw_slot_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:") >= 0,
@@ -1279,8 +1452,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats draw should not unpack row dictionaries during the draw loop"
 	)
 	_expect(
-		stats_presenter_source.find("_draw_text_xy(canvas, font, str(label_cache[i]), label_x, baseline_y, row_size, text_dim, ui_text_scale)") >= 0,
-		"character info stats draw should read labels from typed scalar caches"
+		stats_presenter_source.find("_draw_text_xy(canvas, font, str(label_cache[i]), label_draw_x, baseline_y, row_size, text_dim, ui_text_scale)") >= 0,
+		"character info stats draw should read labels from typed scalar caches after icon offset"
 	)
 	_expect(
 		stats_presenter_source.find("_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color, ui_text_scale)") >= 0,

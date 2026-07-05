@@ -77,8 +77,10 @@ static func refresh_perk_grid_layout_arrays(
 	visible_index_cache.clear()
 	var start_x: float = grid_rect.position.x + (grid_rect.size.x - (cell_size * float(columns) + (stride - cell_size) * float(columns - 1))) * 0.5
 	var start_y: float = grid_rect.position.y - scroll
-	var perk_icon_w: float = cell_size - 10.0
-	var perk_icon_h: float = cell_size - 17.0
+	# Hex cells read roomier than the old squares — let the perk icon fill the
+	# cell (orb icons carry transparent corners), keeping the badge strip below.
+	var perk_icon_w: float = cell_size - 4.0
+	var perk_icon_h: float = cell_size - 13.0
 	for row in range(visible_first_row, visible_last_row + 1):
 		var row_y: float = start_y + float(row) * stride
 		if row_y + cell_size < grid_rect.position.y or row_y > grid_rect.end.y:
@@ -89,7 +91,7 @@ static func refresh_perk_grid_layout_arrays(
 				break
 			var cell_x: float = start_x + float(col) * stride
 			cell_rect_cache[i] = Rect2(cell_x, row_y, cell_size, cell_size)
-			icon_rect_cache[i] = Rect2(cell_x + 5.0, row_y + 4.0, perk_icon_w, perk_icon_h)
+			icon_rect_cache[i] = Rect2(cell_x + 2.0, row_y + 2.0, perk_icon_w, perk_icon_h)
 			center_x_cache[i] = cell_x + cell_size * 0.5
 			level_y_cache[i] = row_y + cell_size - 4.0
 			visible_index_cache.append(i)

@@ -117,6 +117,7 @@ class FakeCharacterInfo:
 
 	var active := false
 	var close_calls := 0
+	var draw_calls := 0
 	var update_calls := 0
 	var update_result := false
 
@@ -130,6 +131,9 @@ class FakeCharacterInfo:
 	func update(_delta: float) -> bool:
 		update_calls += 1
 		return update_result
+
+	func draw(_canvas: CanvasItem, _owner: Object, _registry: Object, _view_size: Vector2) -> void:
+		draw_calls += 1
 
 
 class FakeOverlay:
@@ -192,6 +196,10 @@ class FakeOwner:
 		redraw_count += 1
 
 
+class FakeNodeOwner:
+	extends Node
+
+
 class FakeCachedRegistry:
 	extends RefCounted
 
@@ -229,6 +237,7 @@ func _init() -> void:
 	_verify_open_debug_overlays_are_timed()
 	_verify_runtime_perk_update_receives_perf_logger()
 	_verify_character_info_idle_redraw_is_opt_in()
+	_verify_character_info_host_takes_battle_canvas_redraw()
 	_verify_lingpet_debug_idle_redraw_animates()
 	_verify_clean_capture_closes_debug_overlays()
 	OS.set_environment("PINGFIGHTER_BATTLE_PERF_CLEAN_CAPTURE", "0")
@@ -366,6 +375,7 @@ func _verify_character_info_idle_redraw_is_opt_in() -> void:
 	)
 	modal_gate.character_info_active = true
 	var character_info := FakeCharacterInfo.new()
+	character_info.active = true
 	var owner := FakeOwner.new()
 	_modules = {
 		"battle_perf_logger": perf_logger,
@@ -386,6 +396,35 @@ func _verify_character_info_idle_redraw_is_opt_in() -> void:
 	_expect(character_info.update_calls == 2, "dirty character info process should update again")
 	_expect(owner.redraw_count == 1, "dirty character info overlay should request one redraw")
 	_expect(perf_logger.labels.has("process.overlay.character_info_queue_redraw"), "dirty character info overlay should emit a redraw queue sublabel")
+
+
+func _verify_character_info_host_takes_battle_canvas_redraw() -> void:
+	var controller := BattleSceneOverlayFrameController.new()
+	var modal_gate := FakeModalGate.new()
+	var perf_logger := FakePerfLogger.new()
+	var character_info := FakeCharacterInfo.new()
+	var owner := FakeNodeOwner.new()
+	character_info.active = true
+	character_info.update_result = true
+	modal_gate.character_info = character_info
+	_modules = {
+		"battle_perf_logger": perf_logger,
+		"battle_scene_modal_gate_controller": modal_gate,
+		"character_info_overlay": character_info,
+	}
+
+	var handled: bool = bool(controller.process_idle(0.016, owner, null, Callable(self, "_get_module")))
+	var host := owner.get_node_or_null("BattleCharacterInfoOverlayHost")
+	_expect(handled, "active character info host path should still block the gameplay frame")
+	_expect(host is Control, "dirty character info should attach a dedicated overlay host to the battle scene")
+	_expect(host != null and bool((host as CanvasItem).visible), "character info host should be visible while the overlay is active")
+	_expect(perf_logger.labels.has("process.overlay.character_info_queue_redraw"), "host redraw path should keep the existing process perf label")
+
+	var canvas := Control.new()
+	controller.draw(canvas, owner, null, Callable(self, "_get_module"), Vector2(900.0, 720.0))
+	_expect(character_info.draw_calls == 0, "battle canvas draw should sync the host instead of drawing the character info overlay directly")
+	owner.free()
+	canvas.free()
 
 
 func _verify_lingpet_debug_idle_redraw_animates() -> void:

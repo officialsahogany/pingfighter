@@ -10,6 +10,15 @@ static func get_module(module_getter: Callable, key: String) -> Object:
 	return null
 
 
+static func get_cached_module(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
 static func get_modal_gate(module_getter: Callable) -> Object:
 	return get_module(module_getter, "battle_scene_modal_gate_controller")
 

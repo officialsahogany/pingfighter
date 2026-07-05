@@ -10,9 +10,21 @@ static func prewarm_active_item_text(
 	trim_label_callable: Callable,
 	prewarm_text_block_callable: Callable
 ) -> void:
+	var entries := build_active_item_text_prewarm_entries(active_item_catalog, field_spawn_order, extra_item_names)
+	prewarm_active_item_text_entries_step(font, entries, 0, entries.size(), text_size_callable, trim_label_callable, prewarm_text_block_callable)
+
+
+static func build_active_item_text_prewarm_entries(
+	active_item_catalog: Object,
+	field_spawn_order: Array,
+	extra_item_names: Array
+) -> Array:
 	var item_names: Array = []
 	item_names.append_array(field_spawn_order)
 	item_names.append_array(extra_item_names)
+	var entries: Array = []
+	if active_item_catalog == null:
+		return entries
 	for item_name_value in item_names:
 		var item_name: String = str(item_name_value)
 		if item_name == "":
@@ -24,10 +36,35 @@ static func prewarm_active_item_text(
 		var display_name: String = str(item_data.get("display_name", ""))
 		if display_name == "":
 			display_name = str(active_item_catalog.get_display_name(item_name))
+		entries.append({
+			"display_name": display_name,
+			"description": get_string_fallback(item_data, "description", "desc"),
+		})
+	return entries
+
+
+static func prewarm_active_item_text_entries_step(
+	font: Font,
+	entries: Array,
+	cursor: int,
+	batch_size: int,
+	text_size_callable: Callable,
+	trim_label_callable: Callable,
+	prewarm_text_block_callable: Callable
+) -> int:
+	if font == null or entries.is_empty():
+		return entries.size()
+	var end_index: int = min(entries.size(), max(cursor, 0) + max(batch_size, 1))
+	for i in range(max(cursor, 0), end_index):
+		var entry: Dictionary = get_dict(entries[i])
+		var display_name: String = str(entry.get("display_name", ""))
+		if display_name == "":
+			continue
 		text_size_callable.call(font, display_name, 10)
 		text_size_callable.call(font, display_name, 13)
 		text_size_callable.call(font, trim_label_callable.call(display_name, 10), 10)
-		prewarm_text_block_callable.call(font, get_string_fallback(item_data, "description", "desc"), 13, 312.0, 5)
+		prewarm_text_block_callable.call(font, str(entry.get("description", "")), 13, 312.0, 5)
+	return end_index
 
 
 static func prewarm_skill_text(
@@ -41,8 +78,33 @@ static func prewarm_skill_text(
 	trim_label_callable: Callable,
 	prewarm_text_block_callable: Callable
 ) -> bool:
+	var entries := build_skill_text_prewarm_entries(
+		character_runtime,
+		registry,
+		module_getter,
+		get_prewarm_instance_callable
+	)
+	prewarm_skill_text_entries_step(
+		font,
+		entries,
+		0,
+		entries.size(),
+		text_size_callable,
+		trim_label_callable,
+		prewarm_text_block_callable
+	)
+	text_size_callable.call(font, current_character_label, 14)
+	return not entries.is_empty()
+
+
+static func build_skill_text_prewarm_entries(
+	character_runtime: Object,
+	registry: Object,
+	module_getter: Callable,
+	get_prewarm_instance_callable: Callable
+) -> Array:
 	var seen: Dictionary = {}
-	var warmed := false
+	var entries: Array = []
 	for character_type_value in ["smasher", "viper", "soldier"]:
 		var character_type: String = str(character_type_value)
 		var config_key := "smasher_skill_config"
@@ -65,14 +127,35 @@ static func prewarm_skill_text(
 			seen[skill_id] = true
 			var data_value: Variant = skill_data[skill_id_value]
 			var data: Dictionary = data_value if data_value is Dictionary else {}
-			var name: String = str(data.get("korean", skill_id))
-			text_size_callable.call(font, name, 10)
-			text_size_callable.call(font, name, 15)
-			text_size_callable.call(font, trim_label_callable.call(name, 7), 10)
-			prewarm_text_block_callable.call(font, str(data.get("description", "")), 13, 312.0, 5)
-			warmed = true
-	text_size_callable.call(font, current_character_label, 14)
-	return warmed
+			entries.append({
+				"name": str(data.get("korean", skill_id)),
+				"description": str(data.get("description", "")),
+			})
+	return entries
+
+
+static func prewarm_skill_text_entries_step(
+	font: Font,
+	entries: Array,
+	cursor: int,
+	batch_size: int,
+	text_size_callable: Callable,
+	trim_label_callable: Callable,
+	prewarm_text_block_callable: Callable
+) -> int:
+	if font == null or entries.is_empty():
+		return entries.size()
+	var end_index: int = min(entries.size(), max(cursor, 0) + max(batch_size, 1))
+	for i in range(max(cursor, 0), end_index):
+		var entry: Dictionary = get_dict(entries[i])
+		var name: String = str(entry.get("name", ""))
+		if name == "":
+			continue
+		text_size_callable.call(font, name, 10)
+		text_size_callable.call(font, name, 15)
+		text_size_callable.call(font, trim_label_callable.call(name, 7), 10)
+		prewarm_text_block_callable.call(font, str(entry.get("description", "")), 13, 312.0, 5)
+	return end_index
 
 
 static func prewarm_perk_text_entry(

@@ -4,12 +4,18 @@ func is_active() -> bool:
 	return active
 
 func open(owner: Object = null, registry: Object = null) -> void:
+	_ensure_editorial_bg_texture()
+	_ensure_empty_hero_textures()
+	_ensure_scene_dressing_textures()
 	var pause_state: Dictionary = CharacterInfoOverlayLifecycle.open(self, owner, registry, _skill_cooldown_pause_active, _skill_cooldown_pause_owner, _skill_cooldown_pause_registry)
 	_skill_cooldown_pause_active = bool(pause_state.get("active", false))
 	_skill_cooldown_pause_owner = pause_state.get("owner", null)
 	_skill_cooldown_pause_registry = pause_state.get("registry", null)
 
 func close(from_input: bool = false) -> void:
+	# Drop any held item / open discard confirm so it cannot leak into the next open.
+	_drag_cancel()
+	_cancel_discard_confirm()
 	var pause_state: Dictionary = CharacterInfoOverlayLifecycle.close(self, from_input, _skill_cooldown_pause_active, _skill_cooldown_pause_owner, _skill_cooldown_pause_registry)
 	_skill_cooldown_pause_active = bool(pause_state.get("active", false))
 	_skill_cooldown_pause_owner = pause_state.get("owner", null)
@@ -40,10 +46,10 @@ func _should_redraw_for_mouse_motion(mouse_pos: Vector2) -> bool:
 	return CharacterInfoOverlayHoverGeometry.should_redraw_for_mouse_motion(self, mouse_pos, _get_hover_signature(mouse_pos), _last_hover_signature, _has_mouse_redraw_position, _last_mouse_redraw_position, MOUSE_MOTION_REDRAW_DISTANCE_SQ)
 
 func _get_hover_signature(mouse_pos: Vector2) -> String:
-	return CharacterInfoOverlayHoverGeometry.overlay_hover_signature(mouse_pos, _last_hover_signature, Callable(self, "_hover_signature_contains_mouse"), _last_equipment_rect, Callable(self, "_get_equipment_hover_signature"), _last_skill_rect, _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_items_rect, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_rect, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_stat_row_rects)
+	return CharacterInfoOverlayHoverGeometry.overlay_hover_signature(mouse_pos, _last_hover_signature, Callable(self, "_hover_signature_contains_mouse"), _last_equipment_rect, Callable(self, "_get_equipment_hover_signature"), _last_skill_rect, _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_items_rect, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_rect, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects)
 
 func _hover_signature_contains_mouse(signature: String, mouse_pos: Vector2) -> bool:
-	return CharacterInfoOverlayHoverGeometry.overlay_signature_contains_mouse(signature, mouse_pos, _last_passive_inventory_rect, _last_perk_grid_rect, Callable(self, "_equipment_signature_contains_mouse"), _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_stat_row_rects)
+	return CharacterInfoOverlayHoverGeometry.overlay_signature_contains_mouse(signature, mouse_pos, _last_passive_inventory_rect, _last_perk_grid_rect, Callable(self, "_equipment_signature_contains_mouse"), _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects)
 
 func _get_equipment_hover_signature(mouse_pos: Vector2) -> String:
 	var slot_index: int = _find_hovered_equipment_slot_index(mouse_pos)
@@ -92,18 +98,98 @@ func _get_equipment_slot_key_at_mouse(mouse_pos: Vector2) -> String:
 	var slot_index: int = _find_hovered_equipment_slot_index(mouse_pos)
 	return CharacterInfoOverlayEquipmentDrawer.slot_key_at_index_or_mouse(mouse_pos, slot_index, _equipment_slot_keys, _has_indexed_equipment_hover_layout(), _last_equipment_slot_rects)
 
-func prewarm_assets(owner: Object = null, registry: Object = null, module_getter: Callable = Callable(), include_shared_icon_assets: bool = true, view_size: Vector2 = Vector2.ZERO) -> void:
+func _resolve_prewarm_view_size(owner: Object, view_size: Vector2) -> Vector2:
+	var resolved_view_size: Vector2 = view_size
+	if resolved_view_size.x > 0.0 and resolved_view_size.y > 0.0:
+		return resolved_view_size
+	if owner != null and owner.has_method("get_viewport_rect"):
+		var rect_value: Variant = owner.get_viewport_rect()
+		if rect_value is Rect2:
+			var owner_view_rect: Rect2 = rect_value
+			if owner_view_rect.size.x > 0.0 and owner_view_rect.size.y > 0.0:
+				resolved_view_size = owner_view_rect.size
+	return resolved_view_size
+
+
+func _ensure_editorial_bg_texture() -> void:
+	if _editorial_bg_texture != null:
+		return
+	_editorial_bg_texture = ProjectResourceLoader.load_texture(
+		EDITORIAL_BG_PATH,
+		"Character info editorial background texture is missing",
+		"Character info editorial background texture failed to load"
+	)
+
+
+func _ensure_scene_dressing_textures() -> void:
+	if _human_hologram_texture == null:
+		_human_hologram_texture = ProjectResourceLoader.load_texture(
+			HUMAN_HOLOGRAM_PATH,
+			"Character info human hologram texture is missing",
+			"Character info human hologram texture failed to load"
+		)
+	if _empty_slot_socket_texture == null:
+		_empty_slot_socket_texture = ProjectResourceLoader.load_texture(
+			EMPTY_SLOT_SOCKET_PATH,
+			"Character info empty slot socket texture is missing",
+			"Character info empty slot socket texture failed to load"
+		)
+		CharacterInfoOverlayTextureDrawer.set_empty_slot_socket_texture(_empty_slot_socket_texture)
+	if _mystic_backdrop_texture == null:
+		_mystic_backdrop_texture = ProjectResourceLoader.load_texture(
+			MYSTIC_BACKDROP_PATH,
+			"Character info mystic backdrop texture is missing",
+			"Character info mystic backdrop texture failed to load"
+		)
+	if _class_emblem_textures.size() < CLASS_EMBLEM_PATHS.size():
+		for class_id in CLASS_EMBLEM_PATHS:
+			if _class_emblem_textures.get(class_id) is Texture2D:
+				continue
+			var emblem_texture: Texture2D = ProjectResourceLoader.load_texture(
+				str(CLASS_EMBLEM_PATHS[class_id]),
+				"Character info class emblem texture is missing",
+				"Character info class emblem texture failed to load"
+			)
+			if emblem_texture != null:
+				_class_emblem_textures[class_id] = emblem_texture
+
+
+func _ensure_empty_hero_textures() -> void:
+	if _empty_perk_hero_texture == null:
+		_empty_perk_hero_texture = ProjectResourceLoader.load_texture(
+			EMPTY_HERO_PERK_CRYSTAL_PATH,
+			"Character info empty perk hero texture is missing",
+			"Character info empty perk hero texture failed to load"
+		)
+	if _empty_ringpet_hero_texture == null:
+		_empty_ringpet_hero_texture = ProjectResourceLoader.load_texture(
+			EMPTY_HERO_RINGPET_EGG_PATH,
+			"Character info empty ringpet hero texture is missing",
+			"Character info empty ringpet hero texture failed to load"
+		)
+	if _empty_passive_hero_texture == null:
+		_empty_passive_hero_texture = ProjectResourceLoader.load_texture(
+			EMPTY_HERO_PASSIVE_CLUSTER_PATH,
+			"Character info empty passive hero texture is missing",
+			"Character info empty passive hero texture failed to load"
+		)
+
+
+func prewarm_assets(
+	owner: Object = null,
+	registry: Object = null,
+	module_getter: Callable = Callable(),
+	include_shared_icon_assets: bool = true,
+	view_size: Vector2 = Vector2.ZERO,
+	lingpet_prewarm_pet_ids: Variant = null
+) -> void:
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var resolved_view_size: Vector2 = view_size
-	if resolved_view_size.x <= 0.0 or resolved_view_size.y <= 0.0:
-		if owner != null and owner.has_method("get_viewport_rect"):
-			var rect_value: Variant = owner.get_viewport_rect()
-			if rect_value is Rect2:
-				var owner_view_rect: Rect2 = rect_value
-				if owner_view_rect.size.x > 0.0 and owner_view_rect.size.y > 0.0:
-					resolved_view_size = owner_view_rect.size
+	_ensure_editorial_bg_texture()
+	_ensure_empty_hero_textures()
+	_ensure_scene_dressing_textures()
+	var resolved_view_size: Vector2 = _resolve_prewarm_view_size(owner, view_size)
 	CharacterInfoOverlayPrewarmPresenter.prewarm_layout_caches(
 		self,
 		owner,
@@ -116,7 +202,168 @@ func prewarm_assets(owner: Object = null, registry: Object = null, module_getter
 		PASSIVE_INVENTORY_COLUMN_TARGET
 	)
 	CharacterInfoOverlayPrewarmPresenter.prewarm_draw_caches(self, font, owner, registry, module_getter, BASE_ACTIVE_ITEM_SLOT_COUNT)
-	CharacterInfoOverlayPrewarmPresenter.prewarm_shared_assets_and_text(self, font, owner, registry, module_getter, include_shared_icon_assets, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed)
+	CharacterInfoOverlayPrewarmPresenter.prewarm_shared_assets_and_text(self, font, owner, registry, module_getter, include_shared_icon_assets, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed, lingpet_prewarm_pet_ids)
+	_prewarm_pendulum_interior(owner, registry)
+
+func prewarm_assets_step(
+	owner: Object = null,
+	registry: Object = null,
+	module_getter: Callable = Callable(),
+	include_shared_icon_assets: bool = true,
+	view_size: Vector2 = Vector2.ZERO,
+	lingpet_prewarm_pet_ids: Variant = null,
+	perf_logger: Object = null,
+	perf_label_prefix: String = ""
+) -> bool:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		_prewarm_assets_step_index = 0
+		_reset_text_prewarm_step_state()
+		return true
+	var resolved_view_size: Vector2 = _resolve_prewarm_view_size(owner, view_size)
+	var step_start: int = _perf_begin(perf_logger)
+	_ensure_editorial_bg_texture()
+	_ensure_empty_hero_textures()
+	_ensure_scene_dressing_textures()
+	_perf_end_with_prefix(perf_logger, perf_label_prefix, "shell_textures", step_start)
+	match _prewarm_assets_step_index:
+		0:
+			step_start = _perf_begin(perf_logger)
+			CharacterInfoOverlayPrewarmPresenter.prewarm_layout_caches(
+				self,
+				owner,
+				registry,
+				module_getter,
+				resolved_view_size,
+				BASE_ACCESSORY_SLOT_COUNT,
+				ACCENT_BLUE,
+				BASE_ACTIVE_ITEM_SLOT_COUNT,
+				PASSIVE_INVENTORY_COLUMN_TARGET
+			)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "layout", step_start)
+		1:
+			step_start = _perf_begin(perf_logger)
+			CharacterInfoOverlayPrewarmPresenter.prewarm_draw_caches(self, font, owner, registry, module_getter, BASE_ACTIVE_ITEM_SLOT_COUNT)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "draw_caches", step_start)
+		2:
+			step_start = _perf_begin(perf_logger)
+			var art_done: bool = CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets_step(_lingpet_art_texture_cache, lingpet_prewarm_pet_ids)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "lingpet_art", step_start)
+			if not art_done:
+				return false
+		3:
+			step_start = _perf_begin(perf_logger)
+			var skill_icons_done: bool = CharacterInfoOverlayLingpetTextureLoader.prewarm_skill_icon_assets_step(_lingpet_skill_icon_texture_cache, lingpet_prewarm_pet_ids)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "lingpet_skill_icons", step_start)
+			if not skill_icons_done:
+				return false
+		4:
+			if include_shared_icon_assets and not _shared_icon_assets_prewarmed:
+				step_start = _perf_begin(perf_logger)
+				var shared_icons_done: bool = CharacterInfoOverlayPrewarmPresenter.prewarm_shared_icon_assets_step(self, registry, module_getter)
+				_perf_end_with_prefix(perf_logger, perf_label_prefix, "shared_icons", step_start)
+				if not shared_icons_done:
+					return false
+				_shared_icon_assets_prewarmed = true
+		5:
+			step_start = _perf_begin(perf_logger)
+			_prewarm_visible_item_icons(owner, registry, module_getter)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "visible_item_icons", step_start)
+		6:
+			step_start = _perf_begin(perf_logger)
+			_prewarm_passive_inventory_assets(owner, registry, module_getter)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "passive_inventory_icons", step_start)
+		7:
+			if _prewarm_text_step_index < CharacterInfoOverlayPrewarmPresenter.TEXT_PREWARM_STEP_COUNT:
+				step_start = _perf_begin(perf_logger)
+				var text_step_done := CharacterInfoOverlayPrewarmPresenter.prewarm_text_caches_step(
+					self,
+					font,
+					owner,
+					registry,
+					module_getter,
+					_static_text_prewarmed,
+					_active_item_text_prewarmed,
+					_runtime_perk_text_prewarmed,
+					_skill_text_prewarmed,
+					_prewarm_text_step_index
+				)
+				_perf_end_with_prefix(perf_logger, perf_label_prefix, _character_info_text_prewarm_label(_prewarm_text_step_index), step_start)
+				if text_step_done:
+					_prewarm_text_step_index += 1
+				return false
+			_prewarm_assets_step_index = 0
+			_reset_text_prewarm_step_state()
+			return true
+		_:
+			_prewarm_assets_step_index = 0
+			_reset_text_prewarm_step_state()
+			return true
+	_prewarm_assets_step_index += 1
+	return false
+
+func prewarm_lingpet_panel_assets_step(
+	lingpet_prewarm_pet_ids: Variant = null,
+	perf_logger: Object = null,
+	perf_label_prefix: String = ""
+) -> bool:
+	var step_start: int = 0
+	match _lingpet_panel_prewarm_step_index:
+		0:
+			step_start = _perf_begin(perf_logger)
+			var art_done: bool = CharacterInfoOverlayLingpetTextureLoader.prewarm_art_assets_step(_lingpet_art_texture_cache, lingpet_prewarm_pet_ids)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "lingpet_art", step_start)
+			if not art_done:
+				return false
+			_lingpet_panel_prewarm_step_index = 1
+			return false
+		1:
+			step_start = _perf_begin(perf_logger)
+			var skill_icons_done: bool = CharacterInfoOverlayLingpetTextureLoader.prewarm_skill_icon_assets_step(_lingpet_skill_icon_texture_cache, lingpet_prewarm_pet_ids)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, "lingpet_skill_icons", step_start)
+			if not skill_icons_done:
+				return false
+			_lingpet_panel_prewarm_step_index = 0
+			return true
+		_:
+			_lingpet_panel_prewarm_step_index = 0
+			return true
+
+
+func _character_info_text_prewarm_label(step_index: int) -> String:
+	match step_index:
+		0:
+			return "text.static"
+		1:
+			return "text.active_item"
+		2:
+			return "text.runtime_perk"
+		3:
+			return "text.skill"
+	return "text.%d" % step_index
+
+
+func _reset_text_prewarm_step_state() -> void:
+	_prewarm_text_step_index = 0
+	_active_item_text_prewarm_cursor = 0
+	_active_item_text_prewarm_entries.clear()
+	_runtime_perk_text_prewarm_cursor = 0
+	_runtime_perk_text_prewarm_entries.clear()
+	_skill_text_prewarm_cursor = 0
+	_skill_text_prewarm_entries.clear()
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end_with_prefix(perf_logger: Object, label_prefix: String, label_suffix: String, start_usec: int) -> void:
+	if label_prefix == "":
+		return
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample("%s.%s" % [label_prefix, label_suffix], start_usec)
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, _view_size: Vector2) -> bool:
 	return CharacterInfoOverlayInputHandler.handle_input(self, event, owner, registry)
@@ -128,14 +375,17 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	if font == null:
 		return
 	_update_frame_layout(view_size)
-	CharacterInfoOverlayFramePresenter.draw_frame(self, canvas, owner, registry, view_size, font, _layout_panel_rect, _layout_equipment_rect, _layout_skill_rect, _layout_active_items_rect, _layout_perk_rect, _layout_lingpet_rect, _layout_stats_rect, _layout_inventory_rect, _frame_stat_sources, _frame_hover_data, _header_subtitle_cache, _header_status_text_cache, _header_status_width_cache, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, OPEN_ANIMATION_DURATION, PANEL_COLOR, PANEL_BORDER, TEXT_DIM, ACCENT_GOLD, BASE_ACTIVE_ITEM_SLOT_COUNT, LINGPET_HATCH_REQUIRED_HITS, SECTION_COLOR, SECTION_BORDER, OVERLAY_GRID_FILL, STAT_BUFF_COLOR, OVERLAY_GRID_EMPTY_TEXT, ACCENT_BLUE, TEXT_SOFT, OVERLAY_SLOT_FILL, FALLBACK_SYMBOL_RING_SEGMENTS, UI_TEXT_SCALE)
+	CharacterInfoOverlayFramePresenter.draw_frame(self, canvas, owner, registry, view_size, font, _layout_panel_rect, _layout_equipment_rect, _layout_skill_rect, _layout_active_items_rect, _layout_perk_rect, _layout_lingpet_rect, _layout_stats_rect, _layout_inventory_rect, _frame_stat_sources, _frame_hover_data, _header_subtitle_cache, _header_status_text_cache, _header_status_width_cache, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _last_lingpet_ring_core_rects, _last_lingpet_slot_tab_rects, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, OPEN_ANIMATION_DURATION, PANEL_COLOR, PANEL_BORDER, TEXT_DIM, ACCENT_GOLD, BASE_ACTIVE_ITEM_SLOT_COUNT, LINGPET_HATCH_REQUIRED_HITS, SECTION_COLOR, SECTION_BORDER, OVERLAY_GRID_FILL, STAT_BUFF_COLOR, OVERLAY_GRID_EMPTY_TEXT, ACCENT_BLUE, TEXT_SOFT, OVERLAY_SLOT_FILL, FALLBACK_SYMBOL_RING_SEGMENTS, UI_TEXT_SCALE)
+	# Drag preview / trash zone / discard-confirm modal draw on top of the frame.
+	_draw_drag_overlay(canvas, owner, registry, view_size, font)
 
 func _update_frame_layout(view_size: Vector2) -> void:
 	CharacterInfoOverlayLayout.update_frame_layout(self, view_size, _layout_view_size, _layout_panel_rect)
 
 func _draw_equipment_slots(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, active_item_hud_visuals: Object = null, mythic_item_runtime: Object = null, runtime_state: Object = null) -> Dictionary:
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
-	_draw_text_xy(canvas, font, "장비 슬롯", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 13.0, "sword", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, font, "장비 슬롯", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
 
 	_last_equipment_rect = rect
 	var slot_state: Dictionary = CharacterInfoOverlayOwnerState.equipment_state_from_owner(owner)
@@ -152,7 +402,7 @@ func _draw_equipment_slots(canvas: CanvasItem, owner: Object, registry: Object, 
 	if mouse_in_equipment_rect:
 		hovered_slot_index = _find_hovered_equipment_slot_index(mouse_pos)
 
-	_draw_equipment_anatomy_silhouette(canvas, content_rect, slot_size, hovered_slot_index >= 0)
+	_draw_equipment_anatomy_silhouette(canvas, content_rect, slot_size, hovered_slot_index >= 0, hovered_slot_index)
 	_ensure_equipment_slot_metadata_cache()
 	var equipment_label_size: int = 10 if slot_size >= 40.0 else 8
 	var use_compact_equipment_labels: bool = slot_size < 42.0
@@ -189,8 +439,9 @@ func _draw_equipment_slots(canvas: CanvasItem, owner: Object, registry: Object, 
 
 func _draw_skill_slots(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, character_type_override: String = "", skill_snapshot_override: Dictionary = {}, icon_renderer_override: Object = null) -> Dictionary:
 	_last_skill_rect = rect
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
-	_draw_text_xy(canvas, font, "장착 스킬", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "star", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, font, "장착 스킬", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
 
 	var character_type: String = character_type_override if character_type_override != "" else CharacterInfoOverlayOwnerState.character_type_from_owner(owner, _character_runtime)
 	var snapshot: Dictionary = skill_snapshot_override
@@ -238,8 +489,9 @@ func _draw_skill_slots(canvas: CanvasItem, owner: Object, registry: Object, rect
 
 func _draw_active_items(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, max_slots: int = -1, active_item_hud_visuals: Object = null, stat_sources: Array = [], active_slots_override: Variant = null) -> Dictionary:
 	_last_active_items_rect = rect
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
-	_draw_text_xy(canvas, font, "액티브 아이템", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 13.0, "flask", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, font, "액티브 아이템", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
 
 	var slots: Array = active_slots_override if active_slots_override is Array else CharacterInfoOverlayValueUtils.get_array(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "active_item_slots", []))
 	_refresh_active_item_label_cache(slots)
@@ -283,15 +535,27 @@ func _draw_active_items(canvas: CanvasItem, owner: Object, registry: Object, rec
 		Callable(self, "_set_hover_data")
 	)
 
+
+func _draw_empty_state_hero(canvas: CanvasItem, texture: Texture2D, grid_rect: Rect2, y_offset: float, size_scale: float, min_size: float, max_size: float, fallback_radius: float) -> void:
+	var hero_size: float = clampf(minf(grid_rect.size.x, grid_rect.size.y) * size_scale, min_size, max_size)
+	var center := Vector2(grid_rect.get_center().x, grid_rect.get_center().y + y_offset)
+	if texture != null:
+		var hero_rect := Rect2(center - Vector2(hero_size, hero_size) * 0.5, Vector2(hero_size, hero_size))
+		CharacterInfoOverlayTextureDrawer.draw_contained(canvas, texture, hero_rect, Color(1.0, 1.0, 1.0, 0.90))
+		return
+	CharacterInfoOverlayTextureDrawer.draw_empty_state_diamond(canvas, center, fallback_radius, Color(OVERLAY_GRID_EMPTY_TEXT.r, OVERLAY_GRID_EMPTY_TEXT.g, OVERLAY_GRID_EMPTY_TEXT.b, 0.75))
+
+
 func _draw_passive_inventory(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, active_item_hud_visuals: Object = null, mythic_item_runtime: Object = null, runtime_state: Object = null) -> Dictionary:
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
 	_last_passive_inventory_rect = rect
 
 	var inventory_items: Array = CharacterInfoOverlayPassiveItemPresenter.passive_inventory_items(owner, registry, mythic_item_runtime)
 	var summary: Dictionary = _prepare_passive_inventory_draw_cache(inventory_items)
 	var title := "패시브 보관함"
 	var count_text: String = str(summary.get("count_text", ""))
-	_draw_text_xy(canvas, font, title, rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "chest", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, font, title, rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
 	var count_width: float = _get_passive_inventory_count_text_width(font, count_text, 11)
 	_draw_text_xy(canvas, font, count_text, rect.end.x - count_width - 12.0, rect.position.y + 23.0, 11, TEXT_DIM)
 
@@ -302,7 +566,10 @@ func _draw_passive_inventory(canvas: CanvasItem, owner: Object, registry: Object
 	if inventory_items.is_empty():
 		_set_passive_grid_hover_layout(Vector2.ZERO, 0.0, 0.0, 0, 0)
 		_last_passive_inventory_content_height = grid_rect.size.y
-		_draw_text_centered_xy(canvas, font, "패시브 아이템 없음", grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 + 4.0, 13, OVERLAY_GRID_EMPTY_TEXT)
+		_draw_empty_state_hero(canvas, _empty_passive_hero_texture, grid_rect, -55.0, 0.72, 76.0, 118.0, 6.0)
+		_draw_text_centered_xy(canvas, font, "NO PASSIVE ITEMS OBTAINED", grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 - 6.0, 15, Color(ACCENT_BLUE.r, ACCENT_BLUE.g, ACCENT_BLUE.b, 0.85))
+		if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+			_draw_text_centered_xy(canvas, font, "패시브 아이템 없음", grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 + 16.0, 13, OVERLAY_GRID_EMPTY_TEXT)
 		return hover_data
 
 	var gap := 8.0
@@ -350,8 +617,9 @@ func _draw_passive_inventory(canvas: CanvasItem, owner: Object, registry: Object
 	return hover_data
 
 func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, runtime_state: Object = null, icon_renderer_override: Object = null, runtime_snapshot_override: Variant = null, catalog_override: Object = null, equipped_skills_for_filter: Array = []) -> Dictionary:
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
-	_draw_text_xy(canvas, font, "퍽", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "hex", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, font, "퍽", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
 
 	var effective_runtime_state: Object = runtime_state if runtime_state != null else CharacterInfoOverlayOwnerState.get_instance(registry, "runtime_perk_state")
 	var catalog: Object = catalog_override
@@ -373,7 +641,10 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	canvas.draw_rect(grid_rect, OVERLAY_GRID_FILL)
 	if acquired.is_empty():
 		_set_perk_grid_hover_layout(Vector2.ZERO, 0.0, 0.0, 0, 0)
-		_draw_text_centered_xy(canvas, font, LanguageSettings.translate_text("획득한 퍽 없음"), grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 + 4.0, 14, OVERLAY_GRID_EMPTY_TEXT)
+		_draw_empty_state_hero(canvas, _empty_perk_hero_texture, grid_rect, -74.0, 0.52, 76.0, 132.0, 6.0)
+		_draw_text_centered_xy(canvas, font, "NO PERKS OBTAINED", grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 - 6.0, 15, Color(ACCENT_BLUE.r, ACCENT_BLUE.g, ACCENT_BLUE.b, 0.85))
+		if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+			_draw_text_centered_xy(canvas, font, LanguageSettings.translate_text("획득한 퍽 없음"), grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 + 16.0, 14, OVERLAY_GRID_EMPTY_TEXT)
 		_last_perk_content_height = grid_rect.size.y
 		return hover_data
 
@@ -412,8 +683,9 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	return hover_data
 
 func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, runtime_state_override: Object = null, active_item_runtime_override: Object = null, mythic_item_runtime_override: Object = null, character_type_override: String = "", stat_sources_override: Array = [], mouse_pos: Vector2 = Vector2.INF, hover_data: Dictionary = {}, active_item_slot_capacity_override: int = -1, active_item_slots_override: Variant = null) -> Dictionary:
-	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
-	_draw_text_xy(canvas, font, "능력치", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "chart", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, font, "능력치", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
 	_build_stats(
 		owner,
 		registry,

@@ -86,7 +86,7 @@ static func draw_slots(
 		var slot_rect: Rect2 = slot_rect_cache[i]
 		var has_skill_slot: bool = i < equipped_count
 		if not has_skill_slot:
-			CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)
+			CharacterInfoOverlayTextureDrawer.draw_empty_slot_socket(canvas, slot_rect, slot_fill, slot_border)
 			var hovered_empty: bool = i == hovered_skill_slot
 			if hovered_empty:
 				canvas.draw_circle(center_cache[i], slot_size * 0.22, empty_hover_fill)

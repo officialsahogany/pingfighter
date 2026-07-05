@@ -7,6 +7,12 @@ const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 
+# Slot labels sit over the bright hologram body — a dark 4-direction outline
+# keeps them readable on any backdrop (text shaping/width caches absorb the
+# repeated draws since every pass shares the same string, font, and size).
+const LABEL_OUTLINE_COLOR := Color(0.03, 0.06, 0.12, 0.92)
+const LABEL_OUTLINE_OFFSET := 1.2
+
 
 static func ensure_slot_metadata_cache(definitions: Array, keys: Array[String], labels: Array[String], compact_labels: Array[String], bases: Array[String], accessory_numbers: Array[int], empty_colors: Array[Color], empty_border_colors: Array[Color], index_cache: Dictionary, equipment_color_head: Color, equipment_color_top: Color, equipment_color_arm: Color, equipment_color_belt: Color, equipment_color_back: Color, equipment_color_knee: Color, equipment_color_shoes: Color, equipment_color_accessory: Color) -> void:
 	if keys.size() == definitions.size():
@@ -173,8 +179,6 @@ static func draw_slots(
 			draw_placeholder(canvas, placeholder_rect_cache[i], base, base_color, enabled, placeholder_arc_segments, accessory_ring_segments)
 		if not enabled:
 			draw_locked_slot(canvas, locked_line_a_start_cache[i], locked_line_a_end_cache[i], locked_line_b_start_cache[i], locked_line_b_end_cache[i], locked_line_color_cache[i])
-		var visible_label: String = visible_label_cache[i]
-		draw_text_centered_xy_callable.call(canvas, font, visible_label, slot_center_x, label_y_cache[i], equipment_label_size, label_color_cache[i])
 		if hovered:
 			if has_item:
 				var display_name: String = equipment_display_name_callable.call(item_data)
@@ -188,6 +192,18 @@ static func draw_slots(
 					"패시브 장비가 연결되면 이 슬롯에 표시됩니다.",
 					base_color
 				)
+	# Labels draw in a second pass so overlapping neighbor slot boxes (center
+	# column: 상의/벨트) can never cover them; the dark outline keeps them
+	# readable over the bright hologram body.
+	for i in range(keys.size()):
+		var visible_label: String = visible_label_cache[i]
+		var label_center_x: float = center_x_cache[i]
+		var label_center_y: float = label_y_cache[i]
+		draw_text_centered_xy_callable.call(canvas, font, visible_label, label_center_x + LABEL_OUTLINE_OFFSET, label_center_y, equipment_label_size, LABEL_OUTLINE_COLOR)
+		draw_text_centered_xy_callable.call(canvas, font, visible_label, label_center_x - LABEL_OUTLINE_OFFSET, label_center_y, equipment_label_size, LABEL_OUTLINE_COLOR)
+		draw_text_centered_xy_callable.call(canvas, font, visible_label, label_center_x, label_center_y + LABEL_OUTLINE_OFFSET, equipment_label_size, LABEL_OUTLINE_COLOR)
+		draw_text_centered_xy_callable.call(canvas, font, visible_label, label_center_x, label_center_y - LABEL_OUTLINE_OFFSET, equipment_label_size, LABEL_OUTLINE_COLOR)
+		draw_text_centered_xy_callable.call(canvas, font, visible_label, label_center_x, label_center_y, equipment_label_size, label_color_cache[i])
 	return hover_data
 
 

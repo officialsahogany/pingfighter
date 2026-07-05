@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemHudSlotIconRenderer := preload("res://scripts/hud/active_item_hud_slot_icon_renderer.gd")
 const CharacterInfoOverlayActiveItemPresenter := preload("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
 const CharacterInfoOverlayEquipmentDrawer := preload("res://scripts/hud/character_info_overlay_equipment_drawer.gd")
@@ -12,9 +13,11 @@ const CharacterInfoOverlayInputHandler := preload("res://scripts/hud/character_i
 const CharacterInfoOverlayLayout := preload("res://scripts/hud/character_info_overlay_layout.gd")
 const CharacterInfoOverlayLifecycle := preload("res://scripts/hud/character_info_overlay_lifecycle.gd")
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
 const CharacterInfoOverlayPassiveInventoryDrawer := preload("res://scripts/hud/character_info_overlay_passive_inventory_drawer.gd")
 const CharacterInfoOverlayPassiveItemPresenter := preload("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
+const CharacterInfoOverlayPendulumInterior := preload("res://scripts/hud/character_info_overlay_pendulum_interior.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const CharacterInfoOverlayPrewarmPresenter := preload("res://scripts/hud/character_info_overlay_prewarm_presenter.gd")
 const CharacterInfoOverlaySkillSlotPresenter := preload("res://scripts/hud/character_info_overlay_skill_slot_presenter.gd")
@@ -31,10 +34,13 @@ const LINGPET_SPEED_DISPLAY_PX_PER_POINT := 60.0
 
 const SPECIAL_GAUGE_MAX := 500.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
-const PANEL_COLOR := Color(18.0 / 255.0, 22.0 / 255.0, 38.0 / 255.0, 0.96)
-const PANEL_BORDER := Color(100.0 / 255.0, 150.0 / 255.0, 1.0, 0.86)
-const SECTION_COLOR := Color(24.0 / 255.0, 30.0 / 255.0, 50.0 / 255.0, 0.92)
-const SECTION_BORDER := Color(78.0 / 255.0, 112.0 / 255.0, 165.0 / 255.0, 0.76)
+# Glassmorphism pass: the main frame is a frosted translucent pane over the
+# (paused) battle scene; sections are slightly darker glass wells. Alpha values
+# are the felt-QA levers — raise them if battle noise hurts text readability.
+const PANEL_COLOR := Color(0.40, 0.54, 0.70, 0.18)
+const PANEL_BORDER := Color(0.62, 0.80, 0.98, 0.85)
+const SECTION_COLOR := Color(0.10, 0.17, 0.27, 0.62)
+const SECTION_BORDER := Color(0.55, 0.73, 0.92, 0.55)
 const TEXT_DIM := Color(178.0 / 255.0, 188.0 / 255.0, 210.0 / 255.0)
 const TEXT_SOFT := Color(210.0 / 255.0, 220.0 / 255.0, 235.0 / 255.0)
 const ACCENT_BLUE := Color(0.0, 205.0 / 255.0, 1.0)
@@ -45,6 +51,24 @@ const OVERLAY_GRID_FILL := Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.55)
 const OVERLAY_GRID_CELL_FILL := Color(20.0 / 255.0, 25.0 / 255.0, 38.0 / 255.0, 0.96)
 const OVERLAY_GRID_EMPTY_TEXT := Color(125.0 / 255.0, 132.0 / 255.0, 150.0 / 255.0)
 const OVERLAY_SLOT_FILL := Color(12.0 / 255.0, 17.0 / 255.0, 29.0 / 255.0, 0.96)
+# Editorial chrome (pause-menu visual language shared into the character info panel).
+# The draw-side alpha lever lives in character_info_overlay_frame_presenter.gd.
+const EDITORIAL_BG_PATH := "res://assets/ui/pause_menu/pause_system_editorial_map_bg_cyberpunk_v2.png"
+const EMPTY_HERO_PERK_CRYSTAL_PATH := "res://assets/ui/character_info/character_info_empty_perk_crystal_imagegen_v1.png"
+const EMPTY_HERO_RINGPET_EGG_PATH := "res://assets/ui/character_info/character_info_empty_ringpet_egg_imagegen_v1.png"
+const EMPTY_HERO_PASSIVE_CLUSTER_PATH := "res://assets/ui/character_info/character_info_empty_passive_crystal_cluster_imagegen_v1.png"
+# Slice C scene dressing: human hologram figure, machined empty-slot socket, mystic backdrop.
+const HUMAN_HOLOGRAM_PATH := "res://assets/ui/character_info/character_info_human_hologram_imagegen_v1.png"
+const EMPTY_SLOT_SOCKET_PATH := "res://assets/ui/character_info/character_info_empty_slot_socket_imagegen_v1.png"
+const MYSTIC_BACKDROP_PATH := "res://assets/ui/character_info/character_info_mystic_backdrop_imagegen_v1.png"
+const SECTION_GLYPH_COLOR := Color(0.92, 0.96, 1.0, 0.95)
+const CLASS_EMBLEM_PATHS := {
+	"smasher": "res://assets/ui/character_info/character_info_class_emblem_smasher_imagegen_v1.png",
+	"viper": "res://assets/ui/character_info/character_info_class_emblem_viper_imagegen_v1.png",
+	"soldier": "res://assets/ui/character_info/character_info_class_emblem_soldier_imagegen_v1.png",
+	"blacksmith": "res://assets/ui/character_info/character_info_class_emblem_blacksmith_imagegen_v1.png",
+	"optimus": "res://assets/ui/character_info/character_info_class_emblem_optimus_imagegen_v1.png",
+}
 const OVERLAY_SLOT_BORDER := Color(80.0 / 255.0, 100.0 / 255.0, 140.0 / 255.0, 0.72)
 const OVERLAY_SKILL_EMPTY_HOVER_FILL := Color(80.0 / 255.0, 90.0 / 255.0, 110.0 / 255.0, 0.35)
 const OVERLAY_ACTIVE_EMPTY_TEXT := Color(95.0 / 255.0, 100.0 / 255.0, 120.0 / 255.0)
@@ -101,6 +125,14 @@ const EQUIPMENT_SLOT_DEFINITIONS := CharacterInfoOverlayStaticData.EQUIPMENT_SLO
 
 var active := false
 var animation_time := 0.0
+var _editorial_bg_texture: Texture2D = null
+var _empty_perk_hero_texture: Texture2D = null
+var _empty_ringpet_hero_texture: Texture2D = null
+var _empty_passive_hero_texture: Texture2D = null
+var _human_hologram_texture: Texture2D = null
+var _empty_slot_socket_texture: Texture2D = null
+var _mystic_backdrop_texture: Texture2D = null
+var _class_emblem_textures: Dictionary = {}
 var lingpet_panel_live2d_time := 0.0
 var perk_scroll := 0.0
 var passive_inventory_scroll := 0.0
@@ -113,8 +145,23 @@ var _last_passive_inventory_content_height := 0.0
 var _last_equipment_rect := Rect2()
 var _last_skill_rect := Rect2()
 var _last_active_items_rect := Rect2()
+# --- Inventory / equipment drag-and-drop + pick-up state (original PingFighter
+# parity). _drag_source is "" when nothing is held. ---
+var _drag_active := false
+var _drag_is_mouse_down := false
+var _drag_moved := false
+var _drag_source := ""
+var _drag_inventory_index := -1
+var _drag_slot_key := ""
+var _drag_active_index := -1
+var _drag_press_pos := Vector2.ZERO
+var _drag_current_pos := Vector2.ZERO
+var _last_trash_rect := Rect2()
+var _discard_confirm: Object = null
 var _last_lingpet_skill_icon_rects: Array[Rect2] = []
 var _last_lingpet_unlock_card_rects: Array = []
+var _last_lingpet_ring_core_rects: Array[Rect2] = []
+var _last_lingpet_slot_tab_rects: Array = []
 var _last_lingpet_stat_row_rects: Array[Rect2] = []
 var _last_equipment_slot_rects: Dictionary = {}
 var _equipment_hover_uses_indexed_layout := false
@@ -172,6 +219,7 @@ var _equipment_silhouette_right_leg_poly := PackedVector2Array()
 var _active_item_catalog: Object = ActiveItemCatalog.new()
 var _active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 var _character_runtime: Object = PlayerCharacterRuntime.new()
+var _pendulum_interior: Object = CharacterInfoOverlayPendulumInterior.new()
 var _lingpet_art_texture_cache: Dictionary = {}
 var _lingpet_skill_icon_texture_cache: Dictionary = {}
 var _lingpet_stats_cache: Dictionary = {}
@@ -180,6 +228,17 @@ var _static_text_prewarmed := false
 var _active_item_text_prewarmed := false
 var _runtime_perk_text_prewarmed := false
 var _skill_text_prewarmed := false
+var _prewarm_assets_step_index := 0
+var _prewarm_text_step_index := 0
+var _active_item_text_prewarm_entries: Array = []
+var _active_item_text_prewarm_cursor := 0
+var _runtime_perk_text_prewarm_entries: Array = []
+var _runtime_perk_text_prewarm_cursor := 0
+var _skill_text_prewarm_entries: Array = []
+var _skill_text_prewarm_cursor := 0
+var _lingpet_panel_prewarm_step_index := 0
+var _prewarm_shared_runtime_icon_assets_done := false
+var _prewarm_shared_active_item_icons_done := false
 var _passive_inventory_icon_prewarm_items_hash := 0
 var _passive_inventory_icon_prewarm_item_count := -1
 var _passive_inventory_draw_cache_items_hash := 0
@@ -377,8 +436,8 @@ var _skill_cooldown_pause_registry: Object = null
 
 func state_fields_warning_anchor() -> int:
 	var value := 0
-	value = hash([value, active, animation_time, lingpet_panel_live2d_time, perk_scroll, passive_inventory_scroll, _lingpet_panel_live2d_redraw_active, _last_perk_grid_rect, _last_perk_content_height, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_inventory_content_height, _last_equipment_rect, _last_skill_rect, _last_active_items_rect, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _last_lingpet_stat_row_rects, _last_equipment_slot_rects, _equipment_hover_uses_indexed_layout, _equipment_layout_content_rect, _equipment_layout_slot_size, _equipment_slot_rect_cache, _equipment_slot_rect_list_cache, _equipment_slot_icon_rect_cache, _equipment_slot_fallback_rect_cache, _equipment_slot_placeholder_rect_cache, _equipment_slot_locked_line_a_start_cache, _equipment_slot_locked_line_a_end_cache, _equipment_slot_locked_line_b_start_cache, _equipment_slot_locked_line_b_end_cache, _equipment_slot_center_x_cache, _equipment_slot_center_y_cache, _equipment_slot_label_y_cache, _equipment_slot_index_cache, _equipment_slot_keys, _equipment_slot_labels, _equipment_slot_compact_labels, _equipment_slot_visible_label_cache, _equipment_slot_visible_label_cache_compact, _equipment_slot_bases, _equipment_slot_accessory_numbers, _equipment_slot_empty_colors, _equipment_slot_empty_border_colors])
-	value = hash([value, _equipment_slot_item_cache, _equipment_slot_has_item_cache, _equipment_slot_enabled_cache, _equipment_slot_label_color_cache, _equipment_slot_base_color_cache, _equipment_slot_border_color_cache, _equipment_slot_fill_color_cache, _equipment_slot_border_width_cache, _equipment_slot_locked_line_color_cache, _equipment_slot_frame_cache_slot_state_hash, _equipment_slot_frame_cache_accessory_slot_count, _equipment_slot_frame_cache_slot_count, _empty_equipment_item, _equipment_silhouette_content_rect, _equipment_silhouette_slot_size, _equipment_silhouette_body_x, _equipment_silhouette_head_center, _equipment_silhouette_neck_rect, _equipment_silhouette_shoulder_y, _equipment_silhouette_waist_y, _equipment_silhouette_hip_y, _equipment_silhouette_waist_w, _equipment_silhouette_torso_poly, _equipment_silhouette_left_arm_poly, _equipment_silhouette_right_arm_poly, _equipment_silhouette_left_leg_poly, _equipment_silhouette_right_leg_poly, _active_item_catalog, _active_item_icon_renderer, _character_runtime, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _lingpet_stats_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed, _passive_inventory_icon_prewarm_items_hash, _passive_inventory_icon_prewarm_item_count])
+	value = hash([value, active, animation_time, _editorial_bg_texture, _empty_perk_hero_texture, _empty_ringpet_hero_texture, _empty_passive_hero_texture, lingpet_panel_live2d_time, perk_scroll, passive_inventory_scroll, _lingpet_panel_live2d_redraw_active, _last_perk_grid_rect, _last_perk_content_height, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_inventory_content_height, _last_equipment_rect, _last_skill_rect, _last_active_items_rect, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects, _last_equipment_slot_rects, _equipment_hover_uses_indexed_layout, _equipment_layout_content_rect, _equipment_layout_slot_size, _equipment_slot_rect_cache, _equipment_slot_rect_list_cache, _equipment_slot_icon_rect_cache, _equipment_slot_fallback_rect_cache, _equipment_slot_placeholder_rect_cache, _equipment_slot_locked_line_a_start_cache, _equipment_slot_locked_line_a_end_cache, _equipment_slot_locked_line_b_start_cache, _equipment_slot_locked_line_b_end_cache, _equipment_slot_center_x_cache, _equipment_slot_center_y_cache, _equipment_slot_label_y_cache, _equipment_slot_index_cache, _equipment_slot_keys, _equipment_slot_labels, _equipment_slot_compact_labels, _equipment_slot_visible_label_cache, _equipment_slot_visible_label_cache_compact, _equipment_slot_bases, _equipment_slot_accessory_numbers, _equipment_slot_empty_colors, _equipment_slot_empty_border_colors])
+	value = hash([value, _equipment_slot_item_cache, _equipment_slot_has_item_cache, _equipment_slot_enabled_cache, _equipment_slot_label_color_cache, _equipment_slot_base_color_cache, _equipment_slot_border_color_cache, _equipment_slot_fill_color_cache, _equipment_slot_border_width_cache, _equipment_slot_locked_line_color_cache, _equipment_slot_frame_cache_slot_state_hash, _equipment_slot_frame_cache_accessory_slot_count, _equipment_slot_frame_cache_slot_count, _empty_equipment_item, _equipment_silhouette_content_rect, _equipment_silhouette_slot_size, _equipment_silhouette_body_x, _equipment_silhouette_head_center, _equipment_silhouette_neck_rect, _equipment_silhouette_shoulder_y, _equipment_silhouette_waist_y, _equipment_silhouette_hip_y, _equipment_silhouette_waist_w, _equipment_silhouette_torso_poly, _equipment_silhouette_left_arm_poly, _equipment_silhouette_right_arm_poly, _equipment_silhouette_left_leg_poly, _equipment_silhouette_right_leg_poly, _active_item_catalog, _active_item_icon_renderer, _character_runtime, _pendulum_interior, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _lingpet_stats_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed, _prewarm_assets_step_index, _prewarm_text_step_index, _active_item_text_prewarm_entries, _active_item_text_prewarm_cursor, _runtime_perk_text_prewarm_entries, _runtime_perk_text_prewarm_cursor, _skill_text_prewarm_entries, _skill_text_prewarm_cursor, _lingpet_panel_prewarm_step_index, _prewarm_shared_runtime_icon_assets_done, _prewarm_shared_active_item_icons_done, _passive_inventory_icon_prewarm_items_hash, _passive_inventory_icon_prewarm_item_count])
 	value = hash([value, _passive_inventory_draw_cache_items_hash, _passive_inventory_draw_cache_item_count, _passive_inventory_summary_count, _passive_inventory_summary_equipped, _passive_inventory_summary, _header_subtitle_cache, _header_status_text_cache, _header_status_width_cache, _passive_inventory_count_text_width_cache, _passive_item_frame_color_cache, _passive_item_body_cache_hash, _passive_item_body_cache_ready, _passive_item_body_cache, _passive_item_roll_entries_cache_item_hash, _passive_item_roll_entries_cache_runtime_id, _passive_item_roll_entries_cache_polish_multiplier, _passive_item_roll_entries_cache, _passive_item_roll_entry_dict_cache, _equipment_item_display_name_cache_hash, _equipment_item_display_name_cache_ready, _equipment_item_display_name_cache, _item_quality_color_cache_hash, _item_quality_color_cache_ready, _item_quality_color_cache, _tooltip_subtitle_color_source, _tooltip_subtitle_color_cache, _tooltip_entry_lines_cache_entries_hash, _tooltip_entry_lines_cache_size, _tooltip_entry_lines_cache_width, _tooltip_entry_lines_cache_max_lines, _tooltip_entry_lines_cache, _tooltip_entry_line_dict_cache, _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache, _empty_tooltip_roll_entries, _ui_font_size_cache, _fallback_symbol_letter_cache, _text_size_cache, _text_size_fast_text, _text_size_fast_ui_size])
 	value = hash([value, _text_size_fast_value, _wrap_text_cache, _wrap_text_fast_text, _wrap_text_fast_size, _wrap_text_fast_width, _wrap_text_fast_max_lines, _wrap_text_fast_lines, _acquired_perk_cache_hash, _acquired_perk_cache_ready, _acquired_perk_cache, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, _perk_level_text_size_cache_texts, _perk_level_text_size_cache_sizes, _perk_level_text_size_cache_font_ids, _perk_level_text_size_cache_values, _perk_level_text_size_fast_text, _perk_level_text_size_fast_size, _perk_level_text_size_fast_font_id, _perk_level_text_size_fast_value, _centered_text_size_cache_texts, _centered_text_size_cache_sizes, _centered_text_size_cache_font_ids, _centered_text_size_cache_values, _centered_text_size_fast_text, _centered_text_size_fast_size, _centered_text_size_fast_font_id, _centered_text_size_fast_value, _skill_slot_layout_rect, _skill_slot_layout_count, _skill_slot_layout_slot_size, _skill_slot_rect_cache, _skill_slot_icon_rect_cache, _skill_slot_fallback_rect_cache])
 	value = hash([value, _skill_slot_center_cache, _skill_slot_center_x_cache, _skill_slot_label_y, _skill_slot_draw_cache_equipped_hash, _skill_slot_draw_cache_skill_data_hash, _skill_slot_draw_cache_fallback_color, _skill_slot_id_cache, _skill_slot_data_cache, _skill_slot_label_cache, _skill_slot_color_cache, _skill_slot_fill_color_cache, _skill_slot_border_color_cache, _active_item_label_cache_names, _active_item_label_cache_raw_display_names, _active_item_display_name_cache, _active_item_trimmed_label_cache, _active_slot_draw_cache_slots_hash, _active_slot_draw_cache_max_slots, _active_slot_draw_cache_visuals_id, _active_slot_draw_cache_should_cache_colors, _active_slot_has_item_cache, _active_slot_item_cache, _active_slot_fallback_color_cache, _active_slot_has_fallback_color_cache, _active_slot_layout_rect, _active_slot_layout_count, _active_slot_layout_slot_size, _active_slot_layout_gap, _active_slot_rect_cache, _active_slot_fallback_rect_cache, _active_slot_center_x_cache, _active_slot_empty_marker_y, _active_slot_label_y, _passive_grid_layout_rect, _passive_grid_layout_scroll, _passive_grid_layout_columns, _passive_grid_layout_cell_size, _passive_grid_layout_stride, _passive_grid_layout_item_count, _passive_grid_visible_index_cache])

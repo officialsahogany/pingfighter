@@ -4,6 +4,8 @@ const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 
+const LEVEL_BADGE_FILL := Color(0.05, 0.09, 0.15, 0.92)
+
 
 static func build_equipped_skill_lookup(equipped_skills: Array) -> Dictionary:
 	var result: Dictionary = {}
@@ -163,38 +165,83 @@ static func prewarm_runtime_perk_text(
 	trim_label_callable: Callable,
 	prewarm_text_block_callable: Callable
 ) -> bool:
+	var entries: Array = build_runtime_perk_text_prewarm_entries(catalog, character_type, runtime_state)
 	if catalog == null:
 		return false
-	var entries: Array = catalog_prewarm_entries(catalog, character_type)
-	for entry_value in entries:
-		CharacterInfoOverlayValueUtils.prewarm_perk_text_entry(
-			font,
-			CharacterInfoOverlayValueUtils.get_dict(entry_value),
-			text_size_callable,
-			trim_label_callable,
-			prewarm_text_block_callable
-		)
+	prewarm_runtime_perk_text_entries_step(
+		font,
+		entries,
+		0,
+		entries.size(),
+		text_size_callable,
+		trim_label_callable,
+		prewarm_text_block_callable
+	)
+	return true
+
+
+static func build_runtime_perk_text_prewarm_entries(
+	catalog: Object,
+	character_type: String,
+	runtime_state: Object
+) -> Array:
+	var entries: Array = []
+	if catalog == null:
+		return entries
+	for entry_value in catalog_prewarm_entries(catalog, character_type):
+		entries.append({
+			"kind": "perk",
+			"entry": CharacterInfoOverlayValueUtils.get_dict(entry_value),
+		})
 	if runtime_state == null or not runtime_state.has_method("get_snapshot"):
-		return true
+		return entries
 	var snapshot: Dictionary = CharacterInfoOverlayValueUtils.get_dict(runtime_state.get_snapshot())
 	var levels: Dictionary = CharacterInfoOverlayValueUtils.get_dict(snapshot.get("runtime_skill_levels", {}))
 	for skill_id_value in levels.keys():
 		var skill_id: String = str(skill_id_value)
 		var level: int = int(levels.get(skill_id_value, 1))
-		text_size_callable.call(font, "Lv.%d" % level, 9)
+		var data: Dictionary = {}
 		if catalog.has_method("get_perk_data"):
-			var data: Dictionary = CharacterInfoOverlayValueUtils.get_dict(catalog.get_perk_data(skill_id))
-			if not data.is_empty():
-				data["id"] = skill_id
-				data["level"] = level
-				CharacterInfoOverlayValueUtils.prewarm_perk_text_entry(
-					font,
-					data,
-					text_size_callable,
-					trim_label_callable,
-					prewarm_text_block_callable
-			)
-	return true
+			data = CharacterInfoOverlayValueUtils.get_dict(catalog.get_perk_data(skill_id))
+		if not data.is_empty():
+			data["id"] = skill_id
+			data["level"] = level
+		entries.append({
+			"kind": "runtime_level",
+			"level": level,
+			"entry": data,
+		})
+	return entries
+
+
+static func prewarm_runtime_perk_text_entries_step(
+	font: Font,
+	entries: Array,
+	cursor: int,
+	batch_size: int,
+	text_size_callable: Callable,
+	trim_label_callable: Callable,
+	prewarm_text_block_callable: Callable
+) -> int:
+	if font == null or entries.is_empty():
+		return entries.size()
+	var end_index: int = min(entries.size(), max(cursor, 0) + max(batch_size, 1))
+	for i in range(max(cursor, 0), end_index):
+		var prewarm_entry: Dictionary = CharacterInfoOverlayValueUtils.get_dict(entries[i])
+		var kind: String = str(prewarm_entry.get("kind", "perk"))
+		if kind == "runtime_level":
+			text_size_callable.call(font, "Lv.%d" % int(prewarm_entry.get("level", 1)), 9)
+		var entry: Dictionary = CharacterInfoOverlayValueUtils.get_dict(prewarm_entry.get("entry", {}))
+		if entry.is_empty():
+			continue
+		CharacterInfoOverlayValueUtils.prewarm_perk_text_entry(
+			font,
+			entry,
+			text_size_callable,
+			trim_label_callable,
+			prewarm_text_block_callable
+		)
+	return end_index
 
 
 static func update_overlay_grid_layout(target: Object, grid_rect: Rect2, cell_size: float, stride: float, columns: int, item_count: int, scroll: float, current_layout_rect: Rect2, current_scroll: float, current_columns: int, current_cell_size: float, current_stride: float, current_item_count: int, cell_rect_cache: Array[Rect2], icon_rect_cache: Array[Rect2], center_x_cache: Array[float], level_y_cache: Array[float], visible_index_cache: Array[int]) -> void:
@@ -298,13 +345,16 @@ static func draw_grid_cells(
 		var border_color: Color = border_color_cache[i]
 		if hovered:
 			border_color = hover_border_color_cache[i]
-		CharacterInfoOverlayTextureDrawer.draw_cell_panel(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered else 1.0)
+		CharacterInfoOverlayTextureDrawer.draw_hex_cell(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered else 1.2)
 		var perk_id: String = draw_id_cache[i]
 		if not can_draw_perk_icon or not bool(icon_renderer.draw_icon(canvas, perk_id, icon_rect_cache[i], 1.0, true)):
 			CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, icon_rect_cache[i], color, perk_id, letter_cache, letter_cache_limit, ring_segments, draw_text_centered_xy_callable)
 		var level_text: String = level_text_cache[i]
 		var level_color: Color = level_color_cache[i]
 		var level_text_size: Vector2 = get_level_text_size_callable.call(font, level_text, 9)
+		var badge_rect := Rect2(center_x_cache[i] - level_text_size.x * 0.5 - 6.0, level_y_cache[i] - 10.0, level_text_size.x + 12.0, 13.0)
+		canvas.draw_rect(badge_rect, LEVEL_BADGE_FILL)
+		canvas.draw_rect(badge_rect, Color(level_color.r, level_color.g, level_color.b, 0.55), false, 1.0)
 		draw_text_centered_with_size_xy_callable.call(canvas, font, level_text, center_x_cache[i], level_y_cache[i], 9, level_color, level_text_size)
 		if hovered:
 			hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, hover_body_cache[i], color)

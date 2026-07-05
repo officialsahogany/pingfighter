@@ -1,5 +1,31 @@
 extends "res://scripts/hud/character_info_overlay_state.gd"
 
+const CharacterInfoOverlayDragController := preload("res://scripts/hud/character_info_overlay_drag_controller.gd")
+
+func _drag_handle_left_press(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
+	return CharacterInfoOverlayDragController.handle_left_press(self, mouse_pos, owner, registry)
+
+func _drag_handle_left_release(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
+	return CharacterInfoOverlayDragController.handle_left_release(self, mouse_pos, owner, registry)
+
+func _drag_handle_motion(mouse_pos: Vector2) -> void:
+	CharacterInfoOverlayDragController.handle_motion(self, mouse_pos)
+
+func _drag_cancel() -> void:
+	CharacterInfoOverlayDragController.cancel_drag(self)
+
+func _is_discard_confirm_active() -> bool:
+	return CharacterInfoOverlayDragController.is_confirm_active(self)
+
+func _handle_discard_confirm_mouse_button(mouse_pos: Vector2, button_index: int, owner: Object, registry: Object) -> bool:
+	return CharacterInfoOverlayDragController.handle_confirm_mouse_button(self, mouse_pos, button_index, owner, registry)
+
+func _cancel_discard_confirm() -> void:
+	CharacterInfoOverlayDragController.cancel_confirm(self)
+
+func _draw_drag_overlay(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2, font: Font) -> void:
+	CharacterInfoOverlayDragController.draw_overlay(self, canvas, owner, registry, view_size, font, _layout_panel_rect)
+
 func _build_lingpet_stats(owner: Object) -> Array:
 	_lingpet_stats_cache = CharacterInfoOverlayLingpetPresenter.build_stats_cached(
 		CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), LINGPET_HATCH_REQUIRED_HITS),
@@ -54,9 +80,49 @@ func _ensure_equipment_slot_frame_cache_size(slot_count: int) -> void:
 func _update_equipment_silhouette_geometry(content_rect: Rect2, slot_size: float) -> void:
 	CharacterInfoOverlayEquipmentGeometry.update_overlay_silhouette(self, content_rect, slot_size, _equipment_silhouette_content_rect, _equipment_silhouette_slot_size, _equipment_silhouette_torso_poly)
 
-func _draw_equipment_anatomy_silhouette(canvas: CanvasItem, content_rect: Rect2, slot_size: float, show_detail: bool = false) -> void:
+# Normalized (0..1) regions of the hologram texture per equipment slot key.
+# Hovering a slot redraws its region over itself — the texture's own alpha
+# masks the brightening to the figure, so the body part pops with no box edge.
+const EQUIPMENT_HOLOGRAM_REGIONS := {
+	"head": Rect2(0.32, 0.06, 0.36, 0.17),
+	"top": Rect2(0.26, 0.23, 0.48, 0.22),
+	"left_arm": Rect2(0.08, 0.24, 0.28, 0.38),
+	"right_arm": Rect2(0.64, 0.24, 0.28, 0.38),
+	"belt": Rect2(0.28, 0.43, 0.44, 0.13),
+	"belt2": Rect2(0.26, 0.25, 0.48, 0.24),
+	"knee": Rect2(0.26, 0.56, 0.48, 0.20),
+	"shoes": Rect2(0.26, 0.76, 0.48, 0.15),
+}
+
+
+func _draw_equipment_anatomy_silhouette(canvas: CanvasItem, content_rect: Rect2, slot_size: float, show_detail: bool = false, hovered_slot_index: int = -1) -> void:
+	if _human_hologram_texture != null:
+		# Slice C: distinct holographic human figure replaces the faint
+		# procedural silhouette (which stays as the load-failure fallback).
+		var texture_size: Vector2 = _human_hologram_texture.get_size()
+		if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+			return
+		var fit_rect := content_rect.grow(-4.0)
+		var fit_scale: float = min(fit_rect.size.x / texture_size.x, fit_rect.size.y / texture_size.y)
+		var dest := Rect2(fit_rect.get_center() - texture_size * fit_scale * 0.5, texture_size * fit_scale)
+		canvas.draw_texture_rect(_human_hologram_texture, dest, false, Color(1.0, 1.0, 1.0, 0.92))
+		_draw_equipment_hologram_part_highlight(canvas, dest, texture_size, hovered_slot_index)
+		return
 	_update_equipment_silhouette_geometry(content_rect, slot_size)
 	CharacterInfoOverlayEquipmentGeometry.draw_silhouette(canvas, slot_size, show_detail, _equipment_silhouette_head_center, _equipment_silhouette_neck_rect, _equipment_silhouette_torso_poly, _equipment_silhouette_body_x, _equipment_silhouette_shoulder_y, _equipment_silhouette_waist_y, _equipment_silhouette_hip_y, _equipment_silhouette_waist_w, _equipment_silhouette_left_arm_poly, _equipment_silhouette_right_arm_poly, _equipment_silhouette_left_leg_poly, _equipment_silhouette_right_leg_poly, EQUIPMENT_SILHOUETTE_HEAD, EQUIPMENT_SILHOUETTE_NECK, EQUIPMENT_SILHOUETTE_BASE, EQUIPMENT_SILHOUETTE_DEEP_DETAIL, EQUIPMENT_SILHOUETTE_BASE_DETAIL, EQUIPMENT_SILHOUETTE_LINE, EQUIPMENT_BODY_RING_SEGMENTS, EQUIPMENT_BODY_ARC_SEGMENTS)
+
+func _draw_equipment_hologram_part_highlight(canvas: CanvasItem, dest: Rect2, texture_size: Vector2, hovered_slot_index: int) -> void:
+	if hovered_slot_index < 0 or hovered_slot_index >= _equipment_slot_keys.size():
+		return
+	var region_value: Variant = EQUIPMENT_HOLOGRAM_REGIONS.get(_equipment_slot_keys[hovered_slot_index])
+	if not (region_value is Rect2):
+		return
+	var region: Rect2 = region_value
+	var src := Rect2(region.position * texture_size, region.size * texture_size)
+	var dst := Rect2(dest.position + region.position * dest.size, region.size * dest.size)
+	canvas.draw_texture_rect_region(_human_hologram_texture, dst, src, Color(1.0, 1.0, 1.0, 0.9))
+	canvas.draw_texture_rect_region(_human_hologram_texture, dst, src, Color(0.72, 0.95, 1.0, 0.55))
+
 
 func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline_x: float, baseline_y: float, size: int, color: Color) -> void:
 	if text == "":
@@ -110,6 +176,13 @@ func _prewarm_visible_item_icons(owner: Object, registry: Object, module_getter:
 func _prewarm_passive_inventory_assets(owner: Object, registry: Object, module_getter: Callable) -> void:
 	CharacterInfoOverlayPassiveItemPresenter.prewarm_overlay_inventory_assets(self, owner, registry, module_getter, _passive_inventory_icon_prewarm_items_hash, _passive_inventory_icon_prewarm_item_count, _active_item_icon_renderer)
 
+func _prewarm_pendulum_interior(owner: Object, registry: Object) -> void:
+	if _pendulum_interior == null or not _pendulum_interior.has_method("prewarm_for_snapshot"):
+		return
+	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), LINGPET_HATCH_REQUIRED_HITS)
+	if CharacterInfoOverlayPendulumInterior.can_open_snapshot(snapshot):
+		_pendulum_interior.prewarm_for_snapshot(snapshot, registry)
+
 func _get_passive_inventory_count_text_width(font: Font, count_text: String, size: int) -> float:
 	return CharacterInfoOverlayTextWidthCache.get_overlay_single_width(self, "_passive_inventory_count_text_width_cache", font, count_text, size, Callable(self, "_text_size"), _passive_inventory_count_text_width_cache)
 
@@ -152,6 +225,55 @@ func _try_handle_lingpet_unlock_pick_click(mouse_pos: Vector2, owner: Object, re
 			return false
 		return bool(runtime.commit_unlock_pick(str(entry.get("pet_id", "")), str(entry.get("choice_key", "")), str(entry.get("candidate_id", "")), owner, registry))
 	return false
+
+func _try_handle_lingpet_slot_tab_click(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
+	for raw_entry in _last_lingpet_slot_tab_rects:
+		if not (raw_entry is Dictionary):
+			continue
+		var entry: Dictionary = raw_entry
+		var rect_value: Variant = entry.get("rect", Rect2())
+		if not (rect_value is Rect2):
+			continue
+		if not (rect_value as Rect2).has_point(mouse_pos):
+			continue
+		var runtime: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "lingpet_egg_runtime")
+		if runtime == null or not runtime.has_method("switch_lingpet_slot"):
+			return false
+		# switch_lingpet_slot is a no-op (returns false) for an empty slot and a
+		# benign re-select for the already-active slot; only a real switch returns
+		# true and consumes the click / triggers the panel redraw.
+		return bool(runtime.switch_lingpet_slot(int(entry.get("slot_index", -1)), owner, registry))
+	return false
+
+func _is_pendulum_interior_active() -> bool:
+	return _pendulum_interior != null and _pendulum_interior.has_method("is_active") and bool(_pendulum_interior.is_active())
+
+func _close_pendulum_interior() -> void:
+	if _pendulum_interior != null and _pendulum_interior.has_method("reset"):
+		_pendulum_interior.reset()
+	call("_reset_hover_and_request_redraw", true)
+
+func _try_handle_lingpet_pendulum_open_click(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
+	for rect in _last_lingpet_ring_core_rects:
+		if not rect.has_point(mouse_pos):
+			continue
+		var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), LINGPET_HATCH_REQUIRED_HITS)
+		if not CharacterInfoOverlayPendulumInterior.can_open_snapshot(snapshot):
+			return false
+		if _pendulum_interior == null or not _pendulum_interior.has_method("open"):
+			return false
+		return bool(_pendulum_interior.open(snapshot, owner, registry))
+	return false
+
+func _handle_pendulum_mouse_button(mouse_pos: Vector2, button_index: int) -> bool:
+	if not _is_pendulum_interior_active():
+		return false
+	if _pendulum_interior == null or not _pendulum_interior.has_method("handle_mouse_button"):
+		return true
+	var action: StringName = _pendulum_interior.handle_mouse_button(mouse_pos, button_index)
+	if action != &"":
+		call("_reset_hover_and_request_redraw", true)
+	return true
 
 func _prepare_passive_inventory_draw_cache(inventory_items: Array) -> Dictionary:
 	return CharacterInfoOverlayPassiveItemPresenter.prepare_overlay_inventory_draw_cache(self, inventory_items, _passive_inventory_draw_cache_items_hash, _passive_inventory_draw_cache_item_count, _passive_inventory_item_cache, _passive_inventory_draw_color_cache, _passive_inventory_border_color_cache, _passive_inventory_active_border_color_cache, _passive_inventory_equipped_cache, _passive_inventory_summary, _passive_inventory_summary_count, _passive_inventory_summary_equipped, Callable(CharacterInfoOverlayPassiveItemPresenter, "cached_frame_color").bind(_passive_item_frame_color_cache, PASSIVE_FRAME_COLOR_CACHE_LIMIT))

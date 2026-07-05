@@ -1,12 +1,15 @@
 extends RefCounted
 
+const CharacterInfoOverlayHost := preload("res://scripts/hud/character_info_overlay_host.gd")
 const BattleSceneOverlayFrameUtils := preload("res://scripts/core/battle_scene_overlay_frame_utils.gd")
 
 const CLEAN_CAPTURE_ENV := "PINGFIGHTER_BATTLE_PERF_CLEAN_CAPTURE"
 const CLEAN_CAPTURE_FLAG_PATH := "res://battle_perf_clean_capture.flag"
+const CHARACTER_INFO_HOST_NODE_NAME := "BattleCharacterInfoOverlayHost"
 
 var _clean_capture_checked := false
 var _clean_capture_enabled := false
+var _character_info_overlay_host: Control = null
 
 
 func process_idle(
@@ -17,6 +20,7 @@ func process_idle(
 ) -> bool:
 	var perf_logger: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "battle_perf_logger")
 	var sample_start: int = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
+	_sync_character_info_overlay_host_visibility(owner, _registry, module_getter)
 	if _is_clean_capture_enabled():
 		if _close_clean_capture_overlays(owner, module_getter):
 			BattleSceneOverlayFrameUtils.queue_redraw(owner)
@@ -129,7 +133,7 @@ func process_idle(
 					should_redraw = bool(update_result)
 			if should_redraw:
 				var redraw_start: int = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
-				BattleSceneOverlayFrameUtils.queue_redraw(owner)
+				_queue_character_info_overlay_redraw(owner, _registry, module_getter, true)
 				BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.character_info_queue_redraw", redraw_start)
 			return true
 		"ball_speed":
@@ -221,8 +225,9 @@ func draw(
 		"character_info":
 			sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
 			var character_info: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "character_info_overlay")
-			if character_info != null and character_info.has_method("draw"):
-				character_info.draw(canvas, owner, registry, view_size)
+			if not _sync_character_info_overlay_host(canvas, character_info, owner, registry, view_size, false):
+				if character_info != null and character_info.has_method("draw"):
+					character_info.draw(canvas, owner, registry, view_size)
 			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "draw.overlay.character_info", sample_start)
 			return
 		"active_item_debug":
@@ -252,6 +257,64 @@ func _draw_ball_speed_debug(
 	if ball_speed_debug != null and ball_speed_debug.has_method("draw"):
 		ball_speed_debug.draw(canvas, owner, view_size, registry)
 	BattleSceneOverlayFrameUtils.perf_end(perf_logger, "draw.overlay.ball_speed_debug", sample_start)
+
+
+func queue_character_info_overlay_redraw(owner: Object, registry: Object, module_getter: Callable, force_redraw: bool = true) -> bool:
+	return _queue_character_info_overlay_redraw(owner, registry, module_getter, force_redraw)
+
+
+func _queue_character_info_overlay_redraw(owner: Object, registry: Object, module_getter: Callable, force_redraw: bool = true) -> bool:
+	var character_info: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "character_info_overlay")
+	var view_size := BattleSceneOverlayFrameUtils.get_view_size(owner)
+	if _sync_character_info_overlay_host(owner, character_info, owner, registry, view_size, force_redraw):
+		return true
+	BattleSceneOverlayFrameUtils.queue_redraw(owner)
+	return false
+
+
+func _sync_character_info_overlay_host_visibility(owner: Object, registry: Object, module_getter: Callable) -> void:
+	if _character_info_overlay_host == null or not is_instance_valid(_character_info_overlay_host):
+		return
+	var character_info: Object = BattleSceneOverlayFrameUtils.get_cached_module(registry, "character_info_overlay")
+	if character_info == null:
+		character_info = BattleSceneOverlayFrameUtils.get_module(module_getter, "character_info_overlay")
+	var active := character_info != null and character_info.has_method("is_active") and bool(character_info.is_active())
+	if not active:
+		_character_info_overlay_host.hide_overlay()
+		return
+	_character_info_overlay_host.sync_overlay(character_info, owner, registry, BattleSceneOverlayFrameUtils.get_view_size(owner), false)
+
+
+func _sync_character_info_overlay_host(canvas_or_owner: Object, character_info: Object, owner: Object, registry: Object, view_size: Vector2, force_redraw: bool) -> bool:
+	if character_info == null or not character_info.has_method("is_active") or not bool(character_info.is_active()):
+		if _character_info_overlay_host != null and is_instance_valid(_character_info_overlay_host):
+			_character_info_overlay_host.hide_overlay()
+		return true
+	var host := _get_or_create_character_info_overlay_host(canvas_or_owner)
+	if host == null:
+		return false
+	host.sync_overlay(character_info, owner, registry, view_size, force_redraw)
+	return true
+
+
+func _get_or_create_character_info_overlay_host(canvas_or_owner: Object) -> Control:
+	if _character_info_overlay_host != null and is_instance_valid(_character_info_overlay_host):
+		return _character_info_overlay_host
+	if not (canvas_or_owner is Node):
+		return null
+	var parent := canvas_or_owner as Node
+	var existing := parent.get_node_or_null(CHARACTER_INFO_HOST_NODE_NAME)
+	if existing is Control:
+		_character_info_overlay_host = existing as Control
+		return _character_info_overlay_host
+	var host := CharacterInfoOverlayHost.new()
+	host.name = CHARACTER_INFO_HOST_NODE_NAME
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.z_index = 3000
+	host.top_level = true
+	parent.add_child(host)
+	_character_info_overlay_host = host
+	return _character_info_overlay_host
 
 
 func _is_runtime_perk_choice_active(module_getter: Callable, modal_gate: Object = null) -> bool:

@@ -92,6 +92,10 @@ static func character_type_label(character_type: String) -> String:
 		return "바이퍼"
 	if character_type == "soldier":
 		return "코만도"
+	if character_type == "blacksmith":
+		return "발토르"
+	if character_type == "optimus":
+		return "옵티머스"
 	return "스매셔"
 
 

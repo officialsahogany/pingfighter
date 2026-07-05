@@ -45,6 +45,8 @@ class FakeMythicRuntime:
 
 	var toggle_calls := 0
 	var toggle_result := true
+	var auto_equip_calls := 0
+	var auto_equip_result := true
 	var unequip_calls := 0
 	var unequip_result := true
 	var last_unequip_slot := ""
@@ -52,6 +54,10 @@ class FakeMythicRuntime:
 	func toggle_inventory_item(index: int, _owner: Object, _registry: Object = null) -> bool:
 		toggle_calls += 1
 		return index == 0 and toggle_result
+
+	func auto_equip_inventory_item(index: int, _owner: Object, _registry: Object = null) -> bool:
+		auto_equip_calls += 1
+		return index == 0 and auto_equip_result
 
 	func unequip_slot(slot_key: String, _owner: Object, _registry: Object = null) -> bool:
 		unequip_calls += 1
@@ -292,7 +298,10 @@ func _verify_character_info_context_click_queues_single_redraw() -> void:
 		bool(input.handle_input(_mouse_button(Vector2(24.0, 24.0), MOUSE_BUTTON_RIGHT), owner, registry, Callable(self, "_get_module"), {})),
 		"character info context click should be consumed"
 	)
-	_expect(runtime.toggle_calls == 1, "character info context click should reach the inventory runtime once")
+	# Original PingFighter parity: inventory right-click auto-equips (it no longer
+	# toggles equip/unequip).
+	_expect(runtime.auto_equip_calls == 1, "character info context click should reach the inventory runtime once")
+	_expect(runtime.toggle_calls == 0, "inventory right-click should no longer use the equip/unequip toggle")
 	_expect(owner.redraw_count == 1, "changed character info context click should queue exactly one redraw")
 	_expect(not overlay.consume_input_redraw_request(), "input controller should consume the context-click redraw request")
 

@@ -1,0 +1,42 @@
+{
+  "asset_set": "character_info_scene_dressing_imagegen_v1",
+  "created_for": "Character info overlay Slice C scene dressing (armor stand, empty slot socket, mystic backdrop)",
+  "generation_mode": "Gemini gemini-generate-image (1K/2K) with per-asset post-processing",
+  "assets": [
+    {
+      "id": "human_hologram",
+      "source": "character_info_human_hologram_imagegen_v1_source_black.png",
+      "final": "character_info_human_hologram_imagegen_v1.png",
+      "postprocess": "luminance-baked alpha (black background matte, alpha = max channel * 1.35), trimmed to alpha bbox +14px",
+      "prompt_summary": "Strictly front-facing translucent featureless female glass mannequin on a teal-rimmed podium with a spotlight cone, drawn behind the equipment slots. v3 per art direction (v1 knight armor stand, v2 male figure superseded); generation-frame border cropped before the luminance bake. Slot hover brightens the matching body region via EQUIPMENT_HOLOGRAM_REGIONS."
+    },
+    {
+      "id": "empty_slot_socket",
+      "source": "character_info_empty_slot_socket_imagegen_v1_source_chromakey.png",
+      "final": "character_info_empty_slot_socket_imagegen_v1.png",
+      "postprocess": "#ff00ff chroma key with magenta defringe + 1px rim alpha soften, trimmed to alpha bbox +14px",
+      "prompt_summary": "Dark gunmetal rounded-square socket with four corner tabs and a recessed circular well, used for empty skill/active-item slots."
+    },
+    {
+      "id": "empty_ringpet_egg",
+      "source": "character_info_empty_ringpet_egg_imagegen_v1_source_black.png",
+      "final": "character_info_empty_ringpet_egg_imagegen_v1.png",
+      "postprocess": "luminance-baked alpha (black background matte, alpha = max channel * 1.5), trimmed to alpha bbox +10px",
+      "prompt_summary": "Unhatched dark faceted crystal egg with violet/cyan rim glow floating over a summoning-circle platform. Supersedes the Slice B resonance ring for the ringpet none state (ring asset kept on disk, now unused)."
+    },
+    {
+      "id": "class_emblems",
+      "source": "character_info_class_emblem_{smasher,viper,soldier,blacksmith,optimus}_imagegen_v1_source_black.png",
+      "final": "character_info_class_emblem_{smasher,viper,soldier,blacksmith,optimus}_imagegen_v1.png",
+      "postprocess": "luminance-baked alpha (alpha = max channel * 1.45), trimmed, LANCZOS downscale to 256px",
+      "prompt_summary": "Per-class ornate crest emblems on a shared filigree-shield template: smasher gold racket comet, viper violet twin blades, soldier emerald crosshair wings, blacksmith amber hammer shield, optimus cyan card fan with clockwork. Drawn at ~56px left of the header title."
+    },
+    {
+      "id": "mystic_backdrop",
+      "source": "(opaque full scene, no key)",
+      "final": "character_info_mystic_backdrop_imagegen_v1.png",
+      "postprocess": "JPEG to PNG conversion only (2752x1536)",
+      "prompt_summary": "Heavily blurred cyberpunk city dusk with teal/magenta bokeh, full-screen mystical backdrop behind the glass panels."
+    }
+  ]
+}

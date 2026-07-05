@@ -1,0 +1,30 @@
+{
+  "asset_set": "character_info_empty_hero_imagegen_v1",
+  "created_for": "Character info overlay Slice B empty-state hero illustrations",
+  "generation_mode": "built-in image_gen with chroma-key post-processing",
+  "postprocess": {
+    "source_background": "#00ff00 chroma key",
+    "alpha_tool": "Codex imagegen remove_chroma_key.py",
+    "final_size": "512x512 transparent PNG"
+  },
+  "assets": [
+    {
+      "id": "perk_crystal",
+      "source": "character_info_empty_perk_crystal_imagegen_v1_source_chromakey.png",
+      "final": "character_info_empty_perk_crystal_imagegen_v1.png",
+      "prompt_summary": "Floating prismatic cyan and subtle magenta perk crystal emblem for a glassmorphism game UI empty state."
+    },
+    {
+      "id": "ringpet_resonance_ring",
+      "source": "character_info_empty_ringpet_resonance_ring_imagegen_v1_source_chromakey.png",
+      "final": "character_info_empty_ringpet_resonance_ring_imagegen_v1.png",
+      "prompt_summary": "Interlocking luminous glass rings orbiting a small crystalline core for the ringpet empty state."
+    },
+    {
+      "id": "passive_crystal_cluster",
+      "source": "character_info_empty_passive_crystal_cluster_imagegen_v1_source_chromakey.png",
+      "final": "character_info_empty_passive_crystal_cluster_imagegen_v1.png",
+      "prompt_summary": "Compact five-shard translucent crystal cluster for the passive inventory empty state."
+    }
+  ]
+}

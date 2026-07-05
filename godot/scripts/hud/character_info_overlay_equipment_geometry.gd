@@ -9,9 +9,11 @@ static func slot_positions(content_rect: Rect2, slot_size: float) -> Dictionary:
 	var side_span: float = min(content_rect.size.x * 0.31, slot_size * 2.55)
 	var head_y: float = content_rect.position.y + content_rect.size.y * 0.13
 	var shoulder_y: float = content_rect.position.y + content_rect.size.y * 0.35
-	var chest_y: float = content_rect.position.y + content_rect.size.y * 0.40
-	var waist_y: float = content_rect.position.y + content_rect.size.y * 0.58
-	var hip_y: float = content_rect.position.y + content_rect.size.y * 0.68
+	# 상의/벨트 share the body column — keep enough vertical air between them
+	# for the 상의 label (slot bottom + ~16px) to clear the 벨트 box.
+	var chest_y: float = content_rect.position.y + content_rect.size.y * 0.38
+	var waist_y: float = content_rect.position.y + content_rect.size.y * 0.615
+	var hip_y: float = content_rect.position.y + content_rect.size.y * 0.66
 	var foot_y: float = content_rect.position.y + content_rect.size.y * 0.88
 	var accessory_gap: float = min(slot_size * 1.58, content_rect.size.y * 0.21)
 	return {
@@ -20,8 +22,8 @@ static func slot_positions(content_rect: Rect2, slot_size: float) -> Dictionary:
 		"right_arm": Vector2(body_x + side_span, shoulder_y),
 		"top": Vector2(body_x, chest_y),
 		"belt": Vector2(body_x, waist_y),
-		"belt2": Vector2(body_x - side_span * 0.86, hip_y),
-		"knee": Vector2(body_x - side_span * 0.48, content_rect.position.y + content_rect.size.y * 0.74),
+		"belt2": Vector2(body_x - side_span * 0.95, hip_y),
+		"knee": Vector2(body_x - side_span * 0.28, content_rect.position.y + content_rect.size.y * 0.78),
 		"shoes": Vector2(body_x + side_span * 0.58, foot_y),
 		"accessory1": Vector2(right_column_x, head_y),
 		"accessory2": Vector2(right_column_x, head_y + accessory_gap),

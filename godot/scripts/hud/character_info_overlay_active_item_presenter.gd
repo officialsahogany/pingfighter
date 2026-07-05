@@ -94,13 +94,14 @@ static func draw_slots(
 ) -> Dictionary:
 	for i in range(max_slots):
 		var slot_rect: Rect2 = slot_rect_cache[i]
-		CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)
 		var has_active_slot: bool = slot_has_item_cache[i]
 		if not has_active_slot:
+			CharacterInfoOverlayTextureDrawer.draw_empty_slot_socket(canvas, slot_rect, slot_fill, slot_border)
 			var empty_slot_hovered: bool = i == hovered_active_slot
 			if empty_slot_hovered:
 				draw_text_centered_xy_callable.call(canvas, font, "-", center_x_cache[i], empty_marker_y, 20, empty_text_color)
 			continue
+		CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, slot_fill, slot_border, 1.5)
 		var item_data: Dictionary = slot_item_cache[i]
 		var active_item_hovered: bool = i == hovered_active_slot
 		var active_item_color: Color = fallback_color_cache[i]

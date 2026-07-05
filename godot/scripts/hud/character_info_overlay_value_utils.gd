@@ -426,6 +426,38 @@ static func prewarm_active_item_text(
 	)
 
 
+static func build_active_item_text_prewarm_entries(
+	active_item_catalog: Object,
+	field_spawn_order: Array,
+	extra_item_names: Array
+) -> Array:
+	return CharacterInfoOverlayPrewarmTextUtils.build_active_item_text_prewarm_entries(
+		active_item_catalog,
+		field_spawn_order,
+		extra_item_names
+	)
+
+
+static func prewarm_active_item_text_entries_step(
+	font: Font,
+	entries: Array,
+	cursor: int,
+	batch_size: int,
+	text_size_callable: Callable,
+	trim_label_callable: Callable,
+	prewarm_text_block_callable: Callable
+) -> int:
+	return CharacterInfoOverlayPrewarmTextUtils.prewarm_active_item_text_entries_step(
+		font,
+		entries,
+		cursor,
+		batch_size,
+		text_size_callable,
+		trim_label_callable,
+		prewarm_text_block_callable
+	)
+
+
 static func prewarm_skill_text(
 	font: Font,
 	character_runtime: Object,
@@ -444,6 +476,40 @@ static func prewarm_skill_text(
 		registry,
 		module_getter,
 		get_prewarm_instance_callable,
+		text_size_callable,
+		trim_label_callable,
+		prewarm_text_block_callable
+	)
+
+
+static func build_skill_text_prewarm_entries(
+	character_runtime: Object,
+	registry: Object,
+	module_getter: Callable,
+	get_prewarm_instance_callable: Callable
+) -> Array:
+	return CharacterInfoOverlayPrewarmTextUtils.build_skill_text_prewarm_entries(
+		character_runtime,
+		registry,
+		module_getter,
+		get_prewarm_instance_callable
+	)
+
+
+static func prewarm_skill_text_entries_step(
+	font: Font,
+	entries: Array,
+	cursor: int,
+	batch_size: int,
+	text_size_callable: Callable,
+	trim_label_callable: Callable,
+	prewarm_text_block_callable: Callable
+) -> int:
+	return CharacterInfoOverlayPrewarmTextUtils.prewarm_skill_text_entries_step(
+		font,
+		entries,
+		cursor,
+		batch_size,
 		text_size_callable,
 		trim_label_callable,
 		prewarm_text_block_callable

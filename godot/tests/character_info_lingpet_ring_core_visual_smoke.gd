@@ -63,6 +63,9 @@ class RingCoreProbe:
 			"affinity_points": 25.0,
 			"affinity_next_requirement": 50.0,
 			"affinity_next_label": "2번째 패시브 스킬 +1",
+			"satiety_pct": 73,
+			"companion_exhausted": false,
+			"satiety_exhaustion_ratio": 0.0,
 			"ring_core_tier": 3,
 			"affinity_chip_count": 4,
 			"companion_skill_id": "maribo_hydro_sphere",
@@ -86,7 +89,7 @@ class RingCoreProbe:
 			art_rect.position.x,
 			art_rect.end.y + 4.0,
 			art_rect.size.x,
-			max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 6.0)
+			max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 10.0)
 		)
 		var row_rect := Rect2(
 			affinity_rect.position.x,

@@ -23,6 +23,64 @@ static func _default_affinity_next_label(level: int) -> String:
 	return ""
 
 
+# Up to 3 acquired-lingpet tabs in acquisition (battle-slot) order for the
+# character-info panel header. Reads the owner-mirrored battle slots
+# (lingpet_collection_state._sync_owner_slots), with the lingpet_*/ringpet_*
+# pair fallback used throughout this builder. The active flag resolves like
+# lingpet_collection_state.get_active_slot_index_from_owner: an explicit synced
+# index wins; otherwise match the active companion pet_id; otherwise the first
+# occupied slot (never force slot 0 on the -1 "not synced" sentinel).
+static func _build_slot_tabs(owner: Object, safe_owner_get: Callable, active_pet_id: String) -> Array:
+	var slots_value: Variant = safe_owner_get.call(owner, "lingpet_slots", [])
+	if not (slots_value is Array) or (slots_value as Array).is_empty():
+		slots_value = safe_owner_get.call(owner, "ringpet_slots", [])
+	var slots: Array = slots_value if slots_value is Array else []
+	var active_index: int = int(safe_owner_get.call(owner, "lingpet_active_slot_index", -1))
+	if active_index < 0:
+		active_index = int(safe_owner_get.call(owner, "ringpet_active_slot_index", -1))
+	var normalized_active: String = active_pet_id.strip_edges().to_lower()
+	var occupied: Array = []
+	var first_occupied: int = -1
+	for i in range(slots.size()):
+		var pet_id: String = str(slots[i]).strip_edges().to_lower()
+		if pet_id == "":
+			continue
+		if first_occupied < 0:
+			first_occupied = i
+		occupied.append({"slot_index": i, "pet_id": pet_id})
+	if occupied.is_empty():
+		# Slots not synced yet but a companion is on field — show a single tab so
+		# the header never reads zero tabs while a lingpet accompanies the player.
+		if normalized_active != "":
+			return [{
+				"slot_index": 0,
+				"pet_id": normalized_active,
+				"name": _get_display_name(normalized_active),
+				"active": true,
+			}]
+		return []
+	var resolved_active: int = -1
+	if active_index >= 0:
+		resolved_active = active_index
+	elif normalized_active != "":
+		for entry in occupied:
+			if str(entry.get("pet_id", "")) == normalized_active:
+				resolved_active = int(entry.get("slot_index", -1))
+				break
+	if resolved_active < 0:
+		resolved_active = first_occupied
+	var tabs: Array = []
+	for entry in occupied:
+		var pet_id: String = str(entry.get("pet_id", ""))
+		tabs.append({
+			"slot_index": int(entry.get("slot_index", -1)),
+			"pet_id": pet_id,
+			"name": _get_display_name(pet_id),
+			"active": int(entry.get("slot_index", -1)) == resolved_active,
+		})
+	return tabs
+
+
 static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_required_hits: int) -> Dictionary:
 	var lingpet_id: String = str(safe_owner_get.call(owner, "lingpet_id", ""))
 	if lingpet_id == "":
@@ -42,10 +100,12 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 		else:
 			state = "none"
 	var display_name: String = _get_display_name(lingpet_id)
+	var slot_tabs: Array = _build_slot_tabs(owner, safe_owner_get, lingpet_id)
 	match state:
 		"egg", "hatching", "알":
 			return {
 				"state": "egg",
+				"slot_tabs": slot_tabs,
 				"title": "링펫 알",
 				"subtitle": LanguageSettings.translate_text("공 충돌 %s") % CharacterInfoOverlayFormatter.format_int_pair(hits, required_hits),
 				"body": "공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
@@ -113,6 +173,7 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			# R3b / per-run: permanent bond points + chinmildo title residue removed.
 			return {
 				"state": "companion",
+				"slot_tabs": slot_tabs,
 				"pet_id": lingpet_id,
 				"title": display_name,
 				"subtitle": LanguageSettings.translate_text("동행 중"),
@@ -170,9 +231,10 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 		_:
 			return {
 				"state": "none",
+				"slot_tabs": slot_tabs,
 				"title": "링펫 알 없음",
 				"subtitle": "미획득",
-				"body": "주니어리그에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
+				"body": "테스트 난이도에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
 				"hatch_hits": 0,
 				"required_hits": required_hits,
 			}

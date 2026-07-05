@@ -66,14 +66,22 @@ static func character_type_from_owner(owner: Object, character_runtime: Object) 
 	return normalize_character_type(owner_value(owner, "selected_character_type", "smasher"), character_runtime)
 
 
-static func character_display_name(raw_name: String, character_type: String) -> String:
-	if raw_name != "" and raw_name.find("?") < 0:
-		return raw_name
-	if character_type == "viper":
-		return "바이퍼"
-	if character_type == "soldier":
-		return "코만도"
-	return "스매셔"
+# Personal (lore) names per runtime class. Display source of truth is
+# character_select_data.gd's per-class "character_name" entries — keep in sync.
+const CHARACTER_PERSONAL_NAMES := {
+	"smasher": "미카",
+	"viper": "세린",
+	"soldier": "레나",
+	"blacksmith": "코하쿠",
+	"optimus": "이오",
+}
+
+
+static func character_display_name(_raw_name: String, character_type: String) -> String:
+	# Header badge reads "<개인 이름> / <클래스>". The owner's
+	# selected_character_name field carries the CLASS label, so it is
+	# intentionally ignored here (it used to render "바이퍼 / 바이퍼").
+	return str(CHARACTER_PERSONAL_NAMES.get(character_type, "미카"))
 
 
 static func character_display_name_from_owner(owner: Object, character_type: String) -> String:
