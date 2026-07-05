@@ -189,6 +189,8 @@ func _verify_stage4_effect_update_uses_tear_gas_pause() -> void:
 	var active_item_runtime := FakeActiveItemRuntime.new()
 	ponk_state.set("magnetic_cooldown_seconds", 14.0)
 	ponk_state.set("meditation_cooldown_seconds", 8.0)
+	ponk_state.set("illusion_unlocked", true)
+	ponk_state.set("illusion_cooldown_seconds", 6.0)
 
 	controller.update(5.0, _base_context(4), {
 		"active_item_runtime": active_item_runtime,
@@ -200,6 +202,7 @@ func _verify_stage4_effect_update_uses_tear_gas_pause() -> void:
 	var snapshot: Dictionary = ponk_state.get_debug_snapshot()
 	_expect(is_equal_approx(float(snapshot.get("magnetic_cooldown_seconds", 0.0)), 14.0), "Stage 4 magnetic cooldown should stop while tear gas pause is active")
 	_expect(is_equal_approx(float(snapshot.get("meditation_cooldown_seconds", 0.0)), 8.0), "Stage 4 meditation cooldown should stop while tear gas pause is active")
+	_expect(is_equal_approx(float(snapshot.get("illusion_cooldown_seconds", 0.0)), 6.0), "Stage 4 illusion cooldown should stop while tear gas pause is active")
 
 	active_item_runtime.paused = false
 	controller.update(1.0 / 60.0, _base_context(4), {
@@ -211,6 +214,7 @@ func _verify_stage4_effect_update_uses_tear_gas_pause() -> void:
 	snapshot = ponk_state.get_debug_snapshot()
 	_expect(float(snapshot.get("magnetic_cooldown_seconds", 0.0)) < 14.0, "Stage 4 magnetic cooldown should resume after tear gas pause clears")
 	_expect(float(snapshot.get("meditation_cooldown_seconds", 0.0)) < 8.0, "Stage 4 meditation cooldown should resume after tear gas pause clears")
+	_expect(float(snapshot.get("illusion_cooldown_seconds", 0.0)) < 6.0, "Stage 4 illusion cooldown should resume after tear gas pause clears")
 
 
 func _verify_pause_marker_draw_context_aliases() -> void:

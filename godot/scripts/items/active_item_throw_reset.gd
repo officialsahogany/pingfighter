@@ -40,6 +40,7 @@ const FLOAT_FIELDS: Array[String] = [
 	"soap_foam_spawn_timer_frames",
 	"spider_mine_slow_timer_frames",
 	"spider_mine_slow_text_timer_frames",
+	"molotov_fire_slow_timer_frames",
 ]
 
 

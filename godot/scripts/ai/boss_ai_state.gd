@@ -38,6 +38,15 @@ const BOSS_DASH_AI_COVER_MULTIPLIER := 1.5
 const BOSS_DASH_REQUIRED_WIDTH_RATIO := 0.8
 const BOSS_DASH_MIN_DISTANCE := 20.0
 const BOSS_DASH_DEFAULT_MAX_SPEED := 6.3175
+# Molotov fire barrier vertical gate — mirrors the molotov's own contact test
+# (`abs(boss_center.y - center.y) < 60`, boss_center.y = boss_pos.y + 20) so a
+# fire zone only blocks the boss's x while they share a y-band, never as a
+# full-height wall. Keep in lockstep with active_item_throw_molotov.update_fire_zones.
+const MOLOTOV_FIRE_BARRIER_Y_BAND := 60.0
+const MOLOTOV_FIRE_BARRIER_BOSS_HALF_HEIGHT := 20.0
+# Keep the blocked boss strictly on its approach side of the midline (never
+# exactly on it) so the block direction persists frame to frame.
+const MOLOTOV_FIRE_BARRIER_SIDE_EPSILON := 0.5
 
 var prediction_state: Object = BossAiPredictionState.new()
 var turn_inertia_resolver: Object = BossAiTurnInertiaResolver.new()
@@ -162,6 +171,129 @@ func clear_paddle_hit_knockback() -> void:
 
 
 func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionary) -> Dictionary:
+	# Compute the boss motion, then apply the molotov fire barrier to the FINAL
+	# position. The barrier must run after every movement path (normal, dash,
+	# knockback) because update_active_items — where the molotov's own contact
+	# bounce lives — runs a frame earlier, so a dash started/advanced here would
+	# otherwise cross the fire before the molotov ever sees it.
+	var entry_boss_pos: Vector2 = boss_pos
+	var result: Dictionary = _update_motion(delta, boss_pos, boss_vel, context)
+	result = _apply_molotov_fire_barrier(result, entry_boss_pos, context)
+	return _apply_lingpet_sand_prison_clamp(result, context)
+
+
+func _apply_lingpet_sand_prison_clamp(result: Dictionary, context: Dictionary) -> Dictionary:
+	if bool(context.get("lingpet_puppet_grab_active", false)):
+		return result
+	if not bool(context.get("lingpet_sand_prison_clamp_active", false)):
+		return result
+	var width: float = float(context.get("width", 760.0))
+	var play_left: float = float(context.get("play_left", 0.0))
+	var play_right: float = float(context.get("play_right", width))
+	var boss_paddle_width: float = maxf(1.0, float(context.get("boss_paddle_width", 100.0)))
+	var raw_left: float = float(context.get("lingpet_sand_prison_cage_left", play_left))
+	var raw_right: float = float(context.get("lingpet_sand_prison_cage_right", play_right))
+	var cage_left: float = clampf(minf(raw_left, raw_right), play_left, play_right)
+	var cage_right: float = clampf(maxf(raw_left, raw_right), play_left, play_right)
+	if cage_right - cage_left < boss_paddle_width:
+		var half := boss_paddle_width * 0.5
+		var center := clampf((cage_left + cage_right) * 0.5, play_left + half, play_right - half)
+		cage_left = center - half
+		cage_right = center + half
+	var min_x: float = clampf(cage_left, play_left, play_right - boss_paddle_width)
+	var max_x: float = clampf(cage_right - boss_paddle_width, play_left, play_right - boss_paddle_width)
+	if max_x < min_x:
+		var midpoint := clampf((min_x + max_x) * 0.5, play_left, play_right - boss_paddle_width)
+		min_x = midpoint
+		max_x = midpoint
+	var result_pos: Vector2 = _as_vector2(result.get("boss_pos", Vector2(play_left, 25.0)), Vector2(play_left, 25.0))
+	var clamped_x: float = clampf(result_pos.x, min_x, max_x)
+	if is_equal_approx(clamped_x, result_pos.x):
+		return result
+	var clamped_result: Dictionary = result.duplicate(true)
+	clamped_result["boss_pos"] = Vector2(clamped_x, result_pos.y)
+	# Preserve boss_vel: Sand Prison restricts lateral range but the boss keeps
+	# its normal bounce / tracking impulse inside the cage.
+	return clamped_result
+
+
+# One-sided crossing barrier: the boss may not end a frame on the FAR side of an
+# active molotov fire zone's midline relative to the side it entered the frame on.
+# This is the hard guarantee that a fast dash cannot punch through the fire; the
+# molotov's velocity bounce + 화염 감속 still own the smooth feel for normal moves.
+func _apply_molotov_fire_barrier(result: Dictionary, entry_boss_pos: Vector2, context: Dictionary) -> Dictionary:
+	var barriers_value: Variant = context.get("active_item_molotov_fire_barriers", [])
+	if not (barriers_value is Array) or (barriers_value as Array).is_empty():
+		return result
+	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
+	var width: float = float(context.get("width", 760.0))
+	var play_left: float = float(context.get("play_left", 0.0))
+	var play_right: float = float(context.get("play_right", width))
+	var half: float = boss_paddle_width * 0.5
+	var result_pos: Vector2 = _as_vector2(result.get("boss_pos", entry_boss_pos), entry_boss_pos)
+	var entry_center: float = entry_boss_pos.x + half
+	var new_center: float = result_pos.x + half
+	# Mirror the molotov contact test's vertical band so a fire zone only blocks
+	# while the boss shares its y. Fire zones are reused by the suicide drone at
+	# arbitrary field positions, so a low zone must NOT wall off the boss's x.
+	var boss_center_y: float = result_pos.y + MOLOTOV_FIRE_BARRIER_BOSS_HALF_HEIGHT
+	var clamped_center: float = new_center
+	for barrier_value in barriers_value:
+		if not (barrier_value is Dictionary):
+			continue
+		if abs(boss_center_y - float(barrier_value.get("center_y", boss_center_y))) >= MOLOTOV_FIRE_BARRIER_Y_BAND:
+			continue
+		var bc: float = float(barrier_value.get("center_x", 0.0))
+		# Clamp to a tiny epsilon on the boss's APPROACH side, never exactly onto
+		# bc. Landing the boss center exactly on the midline loses the side: next
+		# frame entry_center == bc is treated as "left" (<=), so a right-approaching
+		# boss can no longer retreat right while a cross to the left opens up. The
+		# epsilon keeps the clamped center strictly on its own side so the block
+		# direction stays stable frame to frame.
+		if entry_center <= bc:
+			clamped_center = min(clamped_center, bc - MOLOTOV_FIRE_BARRIER_SIDE_EPSILON)
+		else:
+			clamped_center = max(clamped_center, bc + MOLOTOV_FIRE_BARRIER_SIDE_EPSILON)
+	if is_equal_approx(clamped_center, new_center):
+		return result
+	var clamped_x: float = clamp(clamped_center - half, play_left, play_right - boss_paddle_width)
+	var clamped_result: Dictionary = result.duplicate(true)
+	clamped_result["boss_pos"] = Vector2(clamped_x, result_pos.y)
+	# Kill the velocity that drove the boss into the fire so it stops ramming the
+	# midline instead of pushing through every frame.
+	clamped_result["boss_vel"] = 0.0
+	# A dash blocked by the fire must actually STOP: end the dash and drop into its
+	# normal recovery stun, otherwise boss_dash_active stays true and the dash
+	# state machine re-rams the midline every frame for the rest of its timer.
+	if boss_dash_active:
+		_end_boss_dash_on_fire_block(context)
+	return clamped_result
+
+
+# Cancel an in-flight dash because a fire zone stopped it, transitioning straight
+# into the dash recovery stun (NOT a chained dash — chaining could just re-cross).
+# Mirrors the non-chain tail of `_finish_boss_dash`. Public so other post-AI fire
+# owners (e.g. the lingpet dragon breath, which runs in update_lingpet after the
+# boss AI) can stop a dash that crossed their patch. No-op if not dashing.
+func cancel_dash_for_fire_block(stun_seconds: float = BOSS_DASH_STAGE1_STUN_SECONDS, audio: Object = null) -> bool:
+	if not boss_dash_active:
+		return false
+	boss_dash_active = false
+	boss_dash_timer_frames = 0.0
+	boss_dash_direction = 0
+	boss_dash_stun_total_frames = max(1.0, max(0.0, stun_seconds) * 60.0)
+	boss_dash_stun_timer_frames = boss_dash_stun_total_frames
+	if audio != null and audio.has_method("play_dash_delay"):
+		audio.play_dash_delay()
+	return true
+
+
+func _end_boss_dash_on_fire_block(context: Dictionary) -> void:
+	var stun_seconds: float = max(0.0, float(context.get("boss_dash_stun_seconds", BOSS_DASH_STAGE1_STUN_SECONDS)))
+	cancel_dash_for_fire_block(stun_seconds, context.get("audio", null))
+
+
+func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionary) -> Dictionary:
 	var fps_scale: float = delta * 60.0
 	var width: float = float(context.get("width", 760.0))
 	var play_left: float = float(context.get("play_left", 0.0))
@@ -506,6 +638,8 @@ func _try_start_boss_dash(
 	if bool(context.get("stage2_monkey_banana_boss_slip_active", false)):
 		return false
 	if bool(context.get("lingpet_banana_slice_boss_slip_active", false)):
+		return false
+	if bool(context.get("lingpet_star_coil_block_boss_dash", false)):
 		return false
 
 	var ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
@@ -1110,6 +1244,13 @@ func _get_active_item_slow_multiplier(context: Dictionary) -> float:
 		multiplier *= clamp(float(context.get("baal_boots_boss_slow_multiplier", 0.7)), 0.05, 1.0)
 	if bool(context.get("lingpet_star_coil_boss_slow_active", false)):
 		multiplier *= clamp(float(context.get("lingpet_star_coil_boss_slow_multiplier", 0.4)), 0.05, 1.0)
+	if bool(context.get("lingpet_dwarf_magic_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("lingpet_dwarf_magic_boss_slow_multiplier", 0.55)), 0.05, 1.0)
+	# Molotov fire already owns hard movement obstruction through the post-AI
+	# barrier above. Keep its lingering fire slow as a standalone smooth-return
+	# feel, but do not stack it on top of dedicated boss-slow debuffs.
+	if is_equal_approx(multiplier, 1.0) and bool(context.get("active_item_molotov_slow_active", false)):
+		multiplier *= clamp(float(context.get("active_item_molotov_slow_factor", 1.0)), 0.05, 1.0)
 	return clamp(multiplier, 0.05, 1.0)
 
 

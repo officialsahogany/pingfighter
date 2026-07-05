@@ -137,7 +137,7 @@ func _verify_activation_helper_owns_item_targets_and_blockers() -> void:
 		Callable(activation, "activate_tear_gas"),
 		owner,
 		"tear_gas",
-		170.0,
+		125.0,  # boss_pos.y(55) + 40 + TEAR_GAS_TARGET_BELOW_BOSS(30) — aim lowered so the cloud envelops the boss
 		["play_throw_before", "play_active_item"]
 	)
 	_expect_activation_target_y(

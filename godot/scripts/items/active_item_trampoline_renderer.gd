@@ -16,6 +16,9 @@ const STRETCH_SHEET_FRAME_COUNT := 16
 const TEXTURE_DRAW_WIDTH_SCALE := 1.15
 const TEXTURE_DRAW_BOTTOM_OFFSET := 11.0
 const TEXTURE_DRAW_MIN_HEIGHT := 24.0
+# Feet land this far below TRAMPOLINE_BOTTOM_Y (shared with the procedural
+# _draw_legs floor line so both paths rest on the same ground).
+const TEXTURE_DRAW_FLOOR_MARGIN := 5.0
 const MAT_TOP_SEGMENTS := 12
 const MAT_MIN_FABRIC_THICKNESS := 2.0
 const MAT_MAX_SAG := 7.0
@@ -130,12 +133,7 @@ func _draw_textured_trampoline(
 	if source_size.x <= 0.0 or source_size.y <= 0.0:
 		return false
 	var draw_width: float = max(1.0, half_width * 2.0 * TEXTURE_DRAW_WIDTH_SCALE)
-	var draw_height: float = max(TEXTURE_DRAW_MIN_HEIGHT * spawn_scale, draw_width * source_size.y / source_size.x)
-	var visual_bottom: float = mat_bottom + TEXTURE_DRAW_BOTTOM_OFFSET * spawn_scale
-	var draw_rect := Rect2(
-		Vector2(center.x - draw_width * 0.5, visual_bottom - draw_height),
-		Vector2(draw_width, draw_height)
-	)
+	var draw_rect: Rect2 = compute_textured_draw_rect(center, draw_width, mat_bottom, spawn_scale, source_size)
 	if source_rect.size.x > 0.0 and source_rect.size.y > 0.0:
 		canvas.draw_texture_rect_region(texture, draw_rect, source_rect)
 	else:
@@ -143,8 +141,40 @@ func _draw_textured_trampoline(
 	return true
 
 
+# The sprite's pad rim aligns to the collision mat line through the aspect-locked
+# TOP (the TEXTURE_DRAW_BOTTOM_OFFSET tuning). But the mat rests ~62px above the
+# floor while the aspect-locked sprite is only ~31px tall at gameplay width, so
+# the baked feet float. Keep the pad-aligning top and stretch the height DOWN so
+# the feet reach the same floor line the procedural _draw_legs fallback uses. The
+# stretch is eased in through spawn_scale so the spawn pop-in still grows from the
+# mat instead of snapping a full-height sliver on frame 1. The installed idle
+# sprite and every stretch-sheet capture/bounce cell both carry their feet at the
+# same bottom fraction, so the trampoline grounds identically in all states and
+# never jumps between idle, capture, and rebound.
+static func compute_textured_draw_rect(
+	center: Vector2,
+	draw_width: float,
+	mat_bottom: float,
+	spawn_scale: float,
+	source_size: Vector2
+) -> Rect2:
+	var aspect_height: float = max(
+		TEXTURE_DRAW_MIN_HEIGHT * spawn_scale,
+		draw_width * source_size.y / source_size.x
+	)
+	var visual_bottom: float = mat_bottom + TEXTURE_DRAW_BOTTOM_OFFSET * spawn_scale
+	var draw_top: float = visual_bottom - aspect_height
+	var floor_y: float = ActiveItemTrampolineRuntime.TRAMPOLINE_BOTTOM_Y + TEXTURE_DRAW_FLOOR_MARGIN
+	var grounded_bottom: float = lerp(visual_bottom, floor_y, clamp(spawn_scale, 0.0, 1.0))
+	var draw_height: float = max(aspect_height, grounded_bottom - draw_top)
+	return Rect2(
+		Vector2(center.x - draw_width * 0.5, draw_top),
+		Vector2(draw_width, draw_height)
+	)
+
+
 func _draw_legs(canvas: CanvasItem, center: Vector2, half_width: float, mat_bottom: float) -> void:
-	var floor_y: float = ActiveItemTrampolineRuntime.TRAMPOLINE_BOTTOM_Y + 5.0
+	var floor_y: float = ActiveItemTrampolineRuntime.TRAMPOLINE_BOTTOM_Y + TEXTURE_DRAW_FLOOR_MARGIN
 	var leg_height: float = max(2.0, floor_y - mat_bottom)
 	for side in [-1.0, 1.0]:
 		var leg_x: float = center.x + side * (half_width - 9.0)

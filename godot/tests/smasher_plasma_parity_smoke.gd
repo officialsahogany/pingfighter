@@ -176,6 +176,12 @@ func _test_stage_gauge_drain_routes() -> void:
 
 func _test_fire_zone_no_longer_stacks_slow() -> void:
 	var boss_ai: Object = BossAIState.new()
+	var molotov_only_multiplier: float = boss_ai._get_active_item_slow_multiplier({
+		"active_item_molotov_slow_active": true,
+		"active_item_molotov_slow_factor": 0.5,
+	})
+	_expect(is_equal_approx(molotov_only_multiplier, 0.5), "molotov fire-zone slow should still reduce boss speed when it is the only slow source")
+
 	var multiplier: float = boss_ai._get_active_item_slow_multiplier({
 		"active_item_molotov_slow_active": true,
 		"active_item_molotov_slow_factor": 0.5,

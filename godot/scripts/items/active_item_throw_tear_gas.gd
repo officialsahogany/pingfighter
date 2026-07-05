@@ -117,7 +117,7 @@ func update_zones(controller: Object, owner: Object, registry: Object, delta: fl
 	)
 	var boss_width: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "boss_paddle_width", 100.0)))
 	var boss_height: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "boss_hitbox_height", 40.0)))
-	var boss_center := Vector2(boss_pos.x + boss_width * 0.5, boss_pos.y + boss_height * 0.5)
+	var max_opacity: float = _get_float(controller, "TEAR_GAS_MAX_OPACITY", 0.82)
 	var write_index := 0
 	for read_index in range(zones.size()):
 		var zone: Dictionary = zones[read_index]
@@ -140,11 +140,11 @@ func update_zones(controller: Object, owner: Object, registry: Object, delta: fl
 			float(zone.get("radius_x", 0.0)) + _get_float(controller, "TEAR_GAS_EXPANSION_RATE_X") * fps_scale
 		)
 		if elapsed < 30.0:
-			zone["opacity"] = min(0.68, float(zone.get("opacity", 0.0)) + 0.045 * fps_scale)
+			zone["opacity"] = min(max_opacity, float(zone.get("opacity", 0.0)) + 0.045 * fps_scale)
 		elif remaining < 60.0:
-			zone["opacity"] = max(0.0, min(0.68, float(zone.get("opacity", 0.68))) - 0.018 * fps_scale)
+			zone["opacity"] = max(0.0, min(max_opacity, float(zone.get("opacity", max_opacity))) - 0.018 * fps_scale)
 		else:
-			zone["opacity"] = 0.68
+			zone["opacity"] = max_opacity
 
 		var burst_timer: float = max(0.0, float(zone.get("burst_timer", 0.0)) - fps_scale)
 		zone["burst_timer"] = burst_timer
@@ -164,10 +164,16 @@ func update_zones(controller: Object, owner: Object, registry: Object, delta: fl
 
 		var radius_y: float = max(1.0, float(zone.get("radius", _get_float(controller, "TEAR_GAS_MAX_RADIUS"))))
 		var radius_x: float = max(1.0, float(zone.get("radius_x", _get_float(controller, "TEAR_GAS_MAX_RADIUS_X"))))
-		var normalized_dx: float = (boss_center.x - center.x) / radius_x
-		var normalized_dy: float = (boss_center.y - center.y) / radius_y
+		# Contact ellipse is scaled down to the VISIBLE smoke body so the pause
+		# fires only when the boss is actually inside the rendered cloud, not the
+		# (much larger) full expansion radius. The cloud is flatter vertically
+		# than it is wide, so X and Y use SEPARATE scales (a shared scale left the
+		# vertical reach ~2x the visible body and paused the top-of-field boss
+		# while it was rendered above the cloud).
+		var contact_scale_x: float = _get_float(controller, "TEAR_GAS_BOSS_CONTACT_RADIUS_SCALE_X", 0.66)
+		var contact_scale_y: float = _get_float(controller, "TEAR_GAS_BOSS_CONTACT_RADIUS_SCALE_Y", 0.40)
 		var in_gas: bool = (
-			normalized_dx * normalized_dx + normalized_dy * normalized_dy <= 1.0
+			_is_boss_rect_in_gas(center, radius_x * contact_scale_x, radius_y * contact_scale_y, boss_pos, boss_width, boss_height)
 			and float(zone.get("opacity", 0.0)) > 0.12
 		)
 		zone["boss_in_gas"] = in_gas
@@ -285,12 +291,31 @@ func _notify_stage4_smoke_zone_expired(owner: Object, registry: Object, zone: Di
 
 func _resolve_gas_zone_center(controller: Object, center: Vector2) -> Vector2:
 	var field_width: float = _get_float(controller, "FIELD_WIDTH", 760.0)
-	var radius_x: float = _get_float(controller, "TEAR_GAS_MAX_RADIUS_X", 384.0)
+	var radius_x: float = _get_float(controller, "TEAR_GAS_MAX_RADIUS_X", 240.0)
 	var margin_x: float = min(field_width * 0.5, max(10.0, radius_x))
 	return Vector2(
 		clamp(center.x, margin_x, max(margin_x, field_width - margin_x)),
 		center.y
 	)
+
+
+func _is_boss_rect_in_gas(
+	center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	boss_pos: Vector2,
+	boss_width: float,
+	boss_height: float
+) -> bool:
+	var left: float = boss_pos.x
+	var right: float = boss_pos.x + boss_width
+	var top: float = boss_pos.y
+	var bottom: float = boss_pos.y + boss_height
+	var closest_x: float = clamp(center.x, min(left, right), max(left, right))
+	var closest_y: float = clamp(center.y, min(top, bottom), max(top, bottom))
+	var normalized_dx: float = (closest_x - center.x) / max(1.0, radius_x)
+	var normalized_dy: float = (closest_y - center.y) / max(1.0, radius_y)
+	return normalized_dx * normalized_dx + normalized_dy * normalized_dy <= 1.0
 
 
 func _build_stage4_deps(registry: Object) -> Dictionary:

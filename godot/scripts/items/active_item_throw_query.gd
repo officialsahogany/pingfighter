@@ -114,8 +114,9 @@ func build_boss_ai_context(controller: Object) -> Dictionary:
 		"active_item_soap_slip_active": _get_float(controller, "soap_boss_slip_timer_frames") > 0.0,
 		"active_item_soap_slip_blend": _get_float(controller, "SOAP_BLEND_FACTOR"),
 		"active_item_soap_slip_friction": _get_float(controller, "SOAP_FRICTION"),
-		"active_item_molotov_slow_active": false,
-		"active_item_molotov_slow_factor": 1.0,
+		"active_item_molotov_slow_active": _get_float(controller, "molotov_fire_slow_timer_frames") > 0.0,
+		"active_item_molotov_slow_factor": _get_float(controller, "MOLOTOV_FIRE_SLOW_FACTOR"),
+		"active_item_molotov_fire_barriers": _get_molotov_fire_barriers(controller),
 		"active_item_tear_gas_cooldown_pause_active": is_boss_skill_cooldown_paused(controller),
 		"active_item_boss_skill_cooldown_paused": is_boss_skill_cooldown_paused(controller),
 		"active_item_spider_mine_slow_active": _get_float(controller, "spider_mine_slow_timer_frames") > 0.0,
@@ -125,6 +126,12 @@ func build_boss_ai_context(controller: Object) -> Dictionary:
 
 func is_boss_skill_cooldown_paused(controller: Object) -> bool:
 	return _get_float(controller, "tear_gas_boss_pause_timer_frames") > 0.0
+
+
+func _get_molotov_fire_barriers(controller: Object) -> Array:
+	if controller != null and controller.has_method("get_molotov_fire_barriers"):
+		return controller.get_molotov_fire_barriers()
+	return []
 
 
 func get_banana_slip_speed(controller: Object) -> float:

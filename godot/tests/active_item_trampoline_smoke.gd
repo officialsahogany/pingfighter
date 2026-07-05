@@ -48,6 +48,7 @@ func _init() -> void:
 	_verify_generated_visual_assets_load()
 	_verify_router_dispatches_activation()
 	_verify_activation_places_trampoline_at_player_center()
+	_verify_textured_trampoline_grounds_feet_at_floor()
 	_verify_slingshot_capture_then_launch()
 	_verify_stepper_full_path_collision_priority()
 	_verify_rising_ball_is_ignored()
@@ -156,6 +157,61 @@ func _verify_activation_places_trampoline_at_player_center() -> void:
 		not controller.trampoline_particles.is_empty(),
 		"placement should spawn install particles"
 	)
+
+
+# Regression: the textured sprite floated ~35px above the floor because the
+# aspect-locked draw height stopped the sprite at mat_bottom + a small offset
+# while the mat rests ~62px above the floor. The grounded draw must keep the pad
+# rim at the collision mat line (never sink it) AND stretch the feet down to the
+# same floor line the procedural _draw_legs fallback uses — for the installed
+# idle sprite (384x93) AND every stretch-sheet capture/bounce cell (384x128), so
+# the trampoline never jumps between states. Reverse-verified: reverting
+# compute_textured_draw_rect to the aspect-only bottom fails the feet assert.
+func _verify_textured_trampoline_grounds_feet_at_floor() -> void:
+	var runtime: Object = ActiveItemTrampolineRuntime.new()
+	var rect: Rect2 = runtime.build_spawn_trampoline(FakeOwner.new()).get("rect", Rect2())
+	var floor_y: float = ActiveItemTrampolineRuntime.TRAMPOLINE_BOTTOM_Y + ActiveItemTrampolineRenderer.TEXTURE_DRAW_FLOOR_MARGIN
+
+	var full: Dictionary = _trampoline_draw_inputs(rect, 1.0)
+	for source_size in [Vector2(384.0, 93.0), Vector2(384.0, 128.0)]:
+		var draw_rect: Rect2 = ActiveItemTrampolineRenderer.compute_textured_draw_rect(
+			full.center, full.draw_width, full.mat_bottom, 1.0, source_size
+		)
+		var bottom: float = draw_rect.position.y + draw_rect.size.y
+		_expect(
+			abs(bottom - floor_y) < 0.5,
+			"textured trampoline feet must reach the floor line (src %s bottom=%.1f floor=%.1f)" % [source_size, bottom, floor_y]
+		)
+		_expect(
+			draw_rect.position.y <= ActiveItemTrampolineRuntime.TRAMPOLINE_MAT_TOP_Y + 2.0,
+			"textured trampoline pad top must stay at/above the collision mat line, not sink (src %s top=%.1f)" % [source_size, draw_rect.position.y]
+		)
+		_expect(
+			draw_rect.size.y > full.draw_width * source_size.y / source_size.x + 1.0,
+			"textured trampoline must stretch below its aspect-locked height to ground the feet (src %s)" % source_size
+		)
+
+	# Spawn pop-in easing: at a small spawn scale the grounded bottom must ease
+	# out of the mat rather than snapping a full-height sliver to the floor.
+	var tiny: Dictionary = _trampoline_draw_inputs(rect, 0.2)
+	var tiny_rect: Rect2 = ActiveItemTrampolineRenderer.compute_textured_draw_rect(
+		tiny.center, tiny.draw_width, tiny.mat_bottom, 0.2, Vector2(384.0, 93.0)
+	)
+	_expect(
+		tiny_rect.position.y + tiny_rect.size.y < floor_y - 10.0,
+		"the spawn pop-in should ease the feet down from the mat, not snap to the floor at 20%% scale"
+	)
+
+
+# Mirrors ActiveItemTrampolineRenderer._draw_trampoline's per-scale geometry so
+# the grounding assertions run against the same inputs the draw path builds.
+func _trampoline_draw_inputs(rect: Rect2, spawn_scale: float) -> Dictionary:
+	var center: Vector2 = rect.get_center()
+	var half_width: float = rect.size.x * 0.5 * spawn_scale
+	var mat_height: float = max(4.0, rect.size.y * spawn_scale)
+	var mat_bottom: float = center.y + mat_height * 0.5
+	var draw_width: float = max(1.0, half_width * 2.0 * ActiveItemTrampolineRenderer.TEXTURE_DRAW_WIDTH_SCALE)
+	return {"center": center, "half_width": half_width, "mat_bottom": mat_bottom, "draw_width": draw_width}
 
 
 func _verify_slingshot_capture_then_launch() -> void:

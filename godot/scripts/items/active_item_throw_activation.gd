@@ -92,8 +92,8 @@ func activate_tear_gas(controller: Object, owner: Object, registry: Object) -> b
 		_get_float(controller, "TEAR_GAS_TARGET_RANDOM_X", 55.0)
 	)
 	var target := Vector2(
-		_clamp_radial_target_x(controller, target_x, "TEAR_GAS_MAX_RADIUS_X", 384.0),
-		boss_pos.y + 40.0 + _get_float(controller, "TEAR_GAS_TARGET_BELOW_BOSS", 75.0)
+		_clamp_radial_target_x(controller, target_x, "TEAR_GAS_MAX_RADIUS_X", 240.0),
+		boss_pos.y + 40.0 + _get_float(controller, "TEAR_GAS_TARGET_BELOW_BOSS", 30.0)
 	)
 	_queue_controller_pending_throw(
 		controller,

@@ -45,19 +45,46 @@ const TEAR_GAS_THROW_WINDUP_MSEC := 600
 const TEAR_GAS_SPEED_PER_FRAME := 9.6
 const TEAR_GAS_AIM_ERROR_DEGREES := 12.0
 const TEAR_GAS_TARGET_RANDOM_X := 55.0
-const TEAR_GAS_TARGET_BELOW_BOSS := 75.0
+# Auto-aim lands the smoke cloud just below the boss so the billowing gas
+# visibly ENVELOPS the boss (the item's whole read is "gas the boss to freeze
+# its skill cooldown"). This offset must stay <= the visible cloud's upward
+# reach (~TEAR_GAS_MAX_RADIUS * 0.32) or the rendered smoke tops out short of
+# the boss and the pause fires on a boss the cloud never touches — the exact
+# "boss not in the gas but skill-stop icon shows" bug. Sealed by
+# active_item_tear_gas_tuning_smoke.
+const TEAR_GAS_TARGET_BELOW_BOSS := 30.0
 const TEAR_GAS_TARGET_REACHED_DISTANCE := 12.0
 const TEAR_GAS_ARMED_DELAY_FRAMES := 180.0
 const TEAR_GAS_ZONE_DURATION_FRAMES := 960.0
 const TEAR_GAS_MAX_RADIUS := 180.0
-const TEAR_GAS_MAX_RADIUS_X := 384.0
+const TEAR_GAS_MAX_RADIUS_X := 240.0
+# Boss skill-cooldown pause must fire only while the boss touches the VISIBLE
+# smoke. The rendered cloud fades out well inside the full expansion radius, so
+# the contact test uses a tightened ellipse (matched to the visible body via a
+# viewport overlay). The cloud is NOT axis-uniform: it is drawn much FLATTER
+# vertically (visible half-height ~= radius_y * 0.34) than it is wide (visible
+# half-width ~= radius_x * 0.74), so one shared scale cannot match both axes.
+# A single 0.66 left the vertical reach (radius_y * 0.66 ~= 119px) ~2x the
+# visible cloud body — and because the boss lives at the very top of the field,
+# that vertical over-reach flagged the boss as "in gas" while it was rendered
+# ABOVE the cloud. Keep X ~0.66 (already inside the wide visible body) and use a
+# tighter Y matched to the flat vertical body.
+const TEAR_GAS_BOSS_CONTACT_RADIUS_SCALE_X := 0.66
+const TEAR_GAS_BOSS_CONTACT_RADIUS_SCALE_Y := 0.40
 const TEAR_GAS_EXPANSION_RATE := 5.0
-const TEAR_GAS_EXPANSION_RATE_X := 10.72
+const TEAR_GAS_EXPANSION_RATE_X := 6.7
+const TEAR_GAS_MAX_OPACITY := 0.82
 const TEAR_GAS_PARTICLE_CAP := 32
 const TEAR_GAS_PARTICLE_SPAWN_INTERVAL_FRAMES := 12.0
 const TEAR_GAS_PARTICLE_SPAWN_COUNT := 1
 const TEAR_GAS_BOSS_PAUSE_LATCH_FRAMES := 2.0
-const TEAR_GAS_TEXT_DURATION_FRAMES := 60.0
+# Grace window the ⏸ pause marker stays visible after the boss LEAVES the gas.
+# The gameplay pause itself is the 2-frame latch above (re-armed every frame in
+# contact), so anything long here draws the marker while the cooldown is
+# already running again. The original 60f (1s) let a dashing boss carry the
+# icon across the field after leaving the cloud — read in-game as "skill-stop
+# icon with no gas contact". Keep this a short anti-flicker grace only.
+const TEAR_GAS_TEXT_DURATION_FRAMES := 12.0
 const TEAR_GAS_BURST_FRAMES := 12.0
 const DYNAMITE_THROW_LOCK_MSEC := 0
 const DYNAMITE_THROW_WINDUP_MSEC := 500
@@ -90,6 +117,20 @@ const MOLOTOV_FIRE_MIN_CENTER_Y := 45.0
 const MOLOTOV_FIRE_DURATION_FRAMES := 150.0
 const MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES := 30.0
 const MOLOTOV_FIRE_PUSH_FORCE := 60.0
+# Smooth bounce knockback (replaces the instant teleport that read as a jitter).
+# A contact arms an outward VELOCITY that decays each frame, so the boss eases
+# out and is pulled back by its own AI over time instead of snapping.
+const MOLOTOV_FIRE_KNOCKBACK_SPEED := 17.0  # initial outward px/frame on contact
+const MOLOTOV_FIRE_KNOCKBACK_DECAY_PER_FRAME := 0.88  # per-frame velocity falloff
+const MOLOTOV_FIRE_KNOCKBACK_REARM_SPEED := 3.5  # only re-bounce once residual vel drops below this
+# Short re-arm cooldown: the boss is bounced again on EACH fresh contact so it can
+# never power through the fire. Kept just long enough (with the velocity gate) to
+# avoid a same-bounce double-fire.
+const MOLOTOV_FIRE_KNOCKBACK_COOLDOWN_FRAMES := 8.0
+# 화염 감속: while the boss is in (or just left) the fire it moves at this fraction
+# of its speed, so its return is sluggish — no jitter, no power-through crossing.
+const MOLOTOV_FIRE_SLOW_FACTOR := 0.5
+const MOLOTOV_FIRE_SLOW_DURATION_FRAMES := 36.0  # slow lingers this long after leaving the fire
 const MOLOTOV_FIRE_INITIAL_FLAMES := 8
 const MOLOTOV_FIRE_MAX_FLAMES := 14
 const MOLOTOV_FIRE_SPAWN_INTERVAL_FRAMES := 8.0
@@ -183,6 +224,11 @@ var dynamites: Array[Dictionary] = []
 var placed_dynamites: Array[Dictionary] = []
 var molotovs: Array[Dictionary] = []
 var molotov_fire_zones: Array[Dictionary] = []
+# Frames remaining of the molotov fire slow on the boss. Refreshed while the boss
+# is in any fire zone and lingers briefly after it leaves, so the boss's return
+# stays sluggish (original 화염 감속 parity) — that weight is what keeps the
+# bounce from reading as a jitter and stops the boss powering through.
+var molotov_fire_slow_timer_frames: float = 0.0
 @warning_ignore("unused_private_class_variable")
 var _molotov_zone_id_counter: int = 0
 var boomerangs: Array[Dictionary] = []
@@ -245,6 +291,9 @@ func clear_round_boss_status_effects() -> void:
 	soap_boss_slip_timer_frames = 0.0
 	spider_mine_slow_timer_frames = 0.0
 	spider_mine_slow_text_timer_frames = 0.0
+	molotov_fire_slow_timer_frames = 0.0
+	molotovs.clear()
+	molotov_fire_zones.clear()
 
 
 func update(
@@ -471,6 +520,26 @@ func get_boss_ai_context() -> Dictionary:
 	return throw_query.build_boss_ai_context(self)
 
 
+# Midline of every live molotov fire zone. boss_ai_state uses these as a
+# one-sided crossing barrier applied AFTER its movement (including a 40px/frame
+# dash), so the boss can never blow through the fire even though the molotov's
+# own contact check runs a frame earlier in update_active_items.
+#
+# center_y MUST travel with center_x: molotov fire zones are reused by the
+# Commando suicide drone (commando_firearm_suicide_drone_state), which spawns
+# them at the drone's projectile position anywhere on the field. The barrier
+# must only block when the boss is in the zone's y-band (mirroring the molotov's
+# own `abs(boss_center.y - center.y) < 60` contact test), or a low fire zone
+# would become a full-height vertical wall across the boss's x movement.
+func get_molotov_fire_barriers() -> Array:
+	var barriers: Array = []
+	for zone_value in molotov_fire_zones:
+		if zone_value is Dictionary:
+			var center: Vector2 = zone_value.get("position", Vector2.ZERO)
+			barriers.append({"center_x": center.x, "center_y": center.y})
+	return barriers
+
+
 func is_boss_skill_cooldown_paused() -> bool:
 	return throw_query.is_boss_skill_cooldown_paused(self)
 
@@ -645,10 +714,6 @@ func _seed_molotov_flames(zone: Dictionary, center: Vector2, count: int, spread_
 
 func _update_molotov_flames(zone: Dictionary, fps_scale: float) -> void:
 	throw_molotov.update_flames(zone, fps_scale)
-
-
-func _push_boss_from_molotov_fire(owner: Object, registry: Object, center: Vector2, boss_center: Vector2) -> void:
-	throw_molotov.push_boss_from_fire(self, owner, registry, center, boss_center)
 
 
 func _update_boomerangs(
@@ -911,6 +976,10 @@ func _has_runtime_update_work() -> bool:
 		or soap_boss_slip_timer_frames > 0.0
 		or spider_mine_slow_timer_frames > 0.0
 		or spider_mine_slow_text_timer_frames > 0.0
+		# Keep updating while the molotov fire slow lingers, so its bleed-off in
+		# update_fire_zones actually runs after the last fire zone expires. Without
+		# this the timer freezes at its last value and the boss stays slowed forever.
+		or molotov_fire_slow_timer_frames > 0.0
 	)
 
 

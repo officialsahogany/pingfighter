@@ -59,6 +59,10 @@ func _init() -> void:
 	_verify_projectile_arming_triggers_gas_zone()
 	_verify_gas_zone_clamps_away_from_pillars()
 	_verify_zone_update_sets_boss_pause()
+	_verify_gas_zone_only_pauses_when_boss_touches_smoke()
+	_verify_boss_inside_full_radius_but_outside_visible_smoke_does_not_pause()
+	_verify_boss_above_low_cloud_does_not_pause()
+	_verify_new_aim_zone_pauses_and_covers_boss()
 
 	if _failures.is_empty():
 		print("active_item_throw_tear_gas_smoke: ok")
@@ -167,11 +171,11 @@ func _verify_zone_update_sets_boss_pause() -> void:
 		"position": Vector2(380.0, 75.0),
 		"radius": 160.0,
 		"max_radius": controller.TEAR_GAS_MAX_RADIUS,
-		"radius_x": 300.0,
+		"radius_x": 220.0,
 		"max_radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
 		"duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
 		"max_duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
-		"opacity": 0.68,
+		"opacity": controller.TEAR_GAS_MAX_OPACITY,
 		"burst_timer": controller.TEAR_GAS_BURST_FRAMES,
 		"burst_ring_radius": 0.0,
 		"particles": [],
@@ -185,7 +189,7 @@ func _verify_zone_update_sets_boss_pause() -> void:
 	_expect(controller.get_tear_gas_zones().size() == 1, "active gas zone should remain alive")
 	var zone: Dictionary = controller.get_tear_gas_zones()[0]
 	_expect(float(zone.get("radius", 0.0)) > 160.0, "gas zone should expand vertically")
-	_expect(float(zone.get("radius_x", 0.0)) > 300.0, "gas zone should expand horizontally")
+	_expect(float(zone.get("radius_x", 0.0)) > 220.0, "gas zone should expand horizontally")
 	_expect(bool(zone.get("boss_in_gas", false)), "gas zone should mark boss inside gas")
 	_expect(_get_array(zone, "particles").size() > 0, "gas zone update should spawn particles")
 	_expect(controller.tear_gas_boss_pause_timer_frames > 0.0, "gas zone should pause boss skill cooldown")
@@ -196,6 +200,159 @@ func _verify_zone_update_sets_boss_pause() -> void:
 	controller._update_tear_gas_boss_pause(1.0 / 60.0)
 	_expect(controller.tear_gas_boss_pause_timer_frames < pause_before, "boss pause wrapper should decay latch timer")
 	_expect(controller.tear_gas_boss_pause_text_timer_frames < text_before, "boss pause wrapper should decay text timer")
+
+
+func _verify_gas_zone_only_pauses_when_boss_touches_smoke() -> void:
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(620.0, 55.0)
+	var registry := FakeRegistry.new()
+	var zones: Array[Dictionary] = [{
+		"position": Vector2(240.0, 75.0),
+		"radius": controller.TEAR_GAS_MAX_RADIUS,
+		"max_radius": controller.TEAR_GAS_MAX_RADIUS,
+		"radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"max_radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"max_duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"opacity": controller.TEAR_GAS_MAX_OPACITY,
+		"burst_timer": 0.0,
+		"burst_ring_radius": 0.0,
+		"particles": [],
+		"spawn_timer": 0.0,
+		"boss_in_gas": false,
+	}]
+	controller.tear_gas_zones = zones
+
+	controller._update_tear_gas_zones(owner, registry, 1.0 / 60.0)
+
+	var zone: Dictionary = controller.get_tear_gas_zones()[0]
+	_expect(not bool(zone.get("boss_in_gas", true)), "gas zone should not pause a far boss outside the localized smoke")
+	_expect(controller.tear_gas_boss_pause_timer_frames <= 0.0, "far boss should not receive tear gas cooldown pause")
+	_expect(controller.tear_gas_boss_pause_text_timer_frames <= 0.0, "far boss should not receive tear gas pause text")
+
+
+func _verify_boss_inside_full_radius_but_outside_visible_smoke_does_not_pause() -> void:
+	# Regression: the boss sits inside the FULL expansion ellipse (radius_x 240)
+	# but well outside the VISIBLE smoke body. Before the contact-scale fix the
+	# near-field-wide ellipse paused the boss even though it never touched the
+	# rendered cloud. With TEAR_GAS_BOSS_CONTACT_RADIUS_SCALE_X/_Y it must not pause.
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(500.0, 150.0)  # nearest edge ~200px from zone center x
+	var registry := FakeRegistry.new()
+	var zones: Array[Dictionary] = [{
+		"position": Vector2(300.0, 170.0),
+		"radius": controller.TEAR_GAS_MAX_RADIUS,
+		"max_radius": controller.TEAR_GAS_MAX_RADIUS,
+		"radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"max_radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"max_duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"opacity": controller.TEAR_GAS_MAX_OPACITY,
+		"burst_timer": 0.0,
+		"burst_ring_radius": 0.0,
+		"particles": [],
+		"spawn_timer": 0.0,
+		"boss_in_gas": false,
+	}]
+	controller.tear_gas_zones = zones
+
+	# Sanity: the boss IS inside the unscaled full ellipse, so this case only
+	# passes because of the contact-radius tightening (not because the boss is
+	# trivially far from the whole zone).
+	var dx_full: float = (500.0 - 300.0) / controller.TEAR_GAS_MAX_RADIUS_X
+	_expect(dx_full < 1.0, "test setup: boss should sit inside the full expansion ellipse")
+
+	controller._update_tear_gas_zones(owner, registry, 1.0 / 60.0)
+
+	var zone: Dictionary = controller.get_tear_gas_zones()[0]
+	_expect(not bool(zone.get("boss_in_gas", true)), "boss outside the visible smoke body should not be marked in-gas")
+	_expect(controller.tear_gas_boss_pause_timer_frames <= 0.0, "boss outside visible smoke should not pause boss skill cooldown")
+	_expect(controller.tear_gas_boss_pause_text_timer_frames <= 0.0, "boss outside visible smoke should not show pause text")
+
+
+func _verify_boss_above_low_cloud_does_not_pause() -> void:
+	# Regression (the VERTICAL half of the contact-scale fix): a boss at the very
+	# TOP of the field (y in [25,65]) horizontally aligned with a gas cloud whose
+	# center sits BELOW it. Under the old single uniform 0.66 scale the vertical
+	# reach (radius_y * 0.66 = 118.8px) engulfed the boss even though the visible
+	# cloud top (~center.y - radius_y*0.32) never reached it — the exact "skill
+	# stop icon above the head while the gas is nowhere near the boss" report.
+	# With the tighter Y scale (radius_y * 0.40 = 72px) the boss is outside the
+	# contact ellipse, so no pause. Reverse-verified: FAILS at scale_y 0.66.
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(330.0, 25.0)  # real top-of-field boss (bottom edge y=65)
+	var registry := FakeRegistry.new()
+	var zones: Array[Dictionary] = [{
+		"position": Vector2(380.0, 160.0),  # horizontally aligned, cloud center 95px below the boss bottom
+		"radius": controller.TEAR_GAS_MAX_RADIUS,
+		"max_radius": controller.TEAR_GAS_MAX_RADIUS,
+		"radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"max_radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"max_duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"opacity": controller.TEAR_GAS_MAX_OPACITY,
+		"burst_timer": 0.0,
+		"burst_ring_radius": 0.0,
+		"particles": [],
+		"spawn_timer": 0.0,
+		"boss_in_gas": false,
+	}]
+	controller.tear_gas_zones = zones
+
+	# Sanity: horizontally aligned (dx=0) AND inside the OLD uniform-0.66 vertical
+	# ellipse, so this case only stays clean because of the tightened Y scale.
+	var ndy_old: float = (65.0 - 160.0) / (controller.TEAR_GAS_MAX_RADIUS * 0.66)
+	_expect(absf(ndy_old) < 1.0, "test setup: boss should sit inside the OLD uniform-0.66 vertical ellipse")
+	var visible_top: float = 160.0 - controller.TEAR_GAS_MAX_RADIUS * 0.32
+	_expect(visible_top > 65.0, "test setup: visible cloud top should render below the boss (no visual overlap)")
+
+	controller._update_tear_gas_zones(owner, registry, 1.0 / 60.0)
+
+	var zone: Dictionary = controller.get_tear_gas_zones()[0]
+	_expect(not bool(zone.get("boss_in_gas", true)), "boss rendered ABOVE the low cloud must not be marked in-gas")
+	_expect(controller.tear_gas_boss_pause_timer_frames <= 0.0, "boss above the visible cloud should not pause boss skill cooldown")
+	_expect(controller.tear_gas_boss_pause_text_timer_frames <= 0.0, "boss above the visible cloud should not show the pause marker")
+
+
+func _verify_new_aim_zone_pauses_and_covers_boss() -> void:
+	# The chosen fix keeps the boss CC working by landing the cloud OVER the boss
+	# (TEAR_GAS_TARGET_BELOW_BOSS lowered so the visible smoke envelops the boss).
+	# Prove the auto-aimed cloud both (a) pauses the boss and (b) visually reaches
+	# the boss, so the pause reads as "the gas is covering the boss".
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.boss_pos = Vector2(330.0, 25.0)  # real top-of-field boss (bottom edge y=65)
+	var registry := FakeRegistry.new()
+	var aim_center_y: float = 25.0 + 40.0 + controller.TEAR_GAS_TARGET_BELOW_BOSS  # activation formula
+	var zones: Array[Dictionary] = [{
+		"position": Vector2(380.0, aim_center_y),  # boss-centered auto-aim
+		"radius": controller.TEAR_GAS_MAX_RADIUS,
+		"max_radius": controller.TEAR_GAS_MAX_RADIUS,
+		"radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"max_radius_x": controller.TEAR_GAS_MAX_RADIUS_X,
+		"duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"max_duration_frames": controller.TEAR_GAS_ZONE_DURATION_FRAMES,
+		"opacity": controller.TEAR_GAS_MAX_OPACITY,
+		"burst_timer": 0.0,
+		"burst_ring_radius": 0.0,
+		"particles": [],
+		"spawn_timer": 0.0,
+		"boss_in_gas": false,
+	}]
+	controller.tear_gas_zones = zones
+
+	controller._update_tear_gas_zones(owner, registry, 1.0 / 60.0)
+
+	var zone: Dictionary = controller.get_tear_gas_zones()[0]
+	_expect(bool(zone.get("boss_in_gas", false)), "auto-aimed cloud over the boss should mark the boss in-gas")
+	_expect(controller.tear_gas_boss_pause_timer_frames > 0.0, "auto-aimed cloud over the boss should pause boss skill cooldown")
+	# Coverage: the visible cloud body must actually reach the boss bottom so the
+	# pause looks honest (gas visibly enveloping the boss, not a floating icon).
+	var visible_top: float = aim_center_y - controller.TEAR_GAS_MAX_RADIUS * 0.32
+	_expect(visible_top <= 65.0, "auto-aim must land the cloud close enough that the visible smoke reaches the boss")
 
 
 func _get_vector2(source: Dictionary, key: String) -> Vector2:

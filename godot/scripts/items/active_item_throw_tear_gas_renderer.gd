@@ -6,12 +6,13 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const TEAR_GAS_ICON_PATH := ActiveItemCatalog.TEAR_GAS_ICON_PATH
 const TEAR_GAS_DRAW_SIZE := 36.0
 const TEAR_GAS_RADIUS := 180.0
-const TEAR_GAS_RADIUS_X := 384.0
+const TEAR_GAS_RADIUS_X := 240.0
 const TEAR_GAS_ARMED_DELAY_FRAMES := 180.0
-const TEAR_GAS_RENDER_PARTICLE_LIMIT := 10
-const TEAR_GAS_RENDER_TOTAL_PARTICLE_LIMIT := 16
+const TEAR_GAS_RENDER_PARTICLE_LIMIT := 16
+const TEAR_GAS_RENDER_TOTAL_PARTICLE_LIMIT := 24
 const TEAR_GAS_PARTICLE_ALPHA_CUTOFF := 0.012
 const TEAR_GAS_PUFF_TEXTURE_SIZE := 96
+const TEAR_GAS_BASE_HAZE_ALPHA_MULT := 0.22
 const FILLED_ELLIPSE_SEGMENTS := 32
 
 static var _tear_gas_puff_texture: ImageTexture = null
@@ -179,45 +180,55 @@ func _draw_tear_gas_particle(canvas: CanvasItem, particle: Dictionary, shake_off
 	var core: Color = _get_tear_gas_smoke_tone(tone, 2, depth)
 	var particle_type: String = str(particle.get("type", "smoke_cloud"))
 	if particle_type == "smoke_pillar":
-		var alpha: float = min(zone_life, (120.0 / 255.0) * life_ratio * depth_alpha_mult)
+		var alpha: float = min(zone_life, (150.0 / 255.0) * life_ratio * depth_alpha_mult)
 		if alpha <= TEAR_GAS_PARTICLE_ALPHA_CUTOFF:
 			return
 		_draw_tear_gas_layered_texture_puff(canvas, center, Vector2(max(3.0, size * aspect), max(3.0, size * 1.3)), seed + variant * 101, main, core, alpha, depth)
 	elif particle_type == "smoke_wisp":
-		var alpha: float = min(zone_life, (160.0 / 255.0) * life_ratio * depth_alpha_mult)
+		var alpha: float = min(zone_life, (175.0 / 255.0) * life_ratio * depth_alpha_mult)
 		if alpha <= TEAR_GAS_PARTICLE_ALPHA_CUTOFF:
 			return
-		_draw_tear_gas_texture_puff(canvas, center, Vector2(max(1.0, size * 1.15), max(1.0, size * 0.88)), main, alpha * 0.82)
+		_draw_tear_gas_texture_puff(canvas, center, Vector2(max(1.0, size * 1.15), max(1.0, size * 0.88)), main, alpha * 0.9)
 	elif particle_type == "smoke_tendril":
-		var alpha: float = min(zone_life, (100.0 / 255.0) * life_ratio * depth_alpha_mult)
+		var alpha: float = min(zone_life, (125.0 / 255.0) * life_ratio * depth_alpha_mult)
 		if alpha <= TEAR_GAS_PARTICLE_ALPHA_CUTOFF:
 			return
 		var velocity: Vector2 = _get_vector2(particle, "velocity", Vector2.RIGHT)
 		var stretch: float = clamp(velocity.length() * 0.22, 0.8, 1.55)
-		_draw_tear_gas_texture_puff(canvas, center, Vector2(max(3.0, size * aspect * stretch), max(2.0, size * 0.82)), main, alpha * 0.76)
+		_draw_tear_gas_texture_puff(canvas, center, Vector2(max(3.0, size * aspect * stretch), max(2.0, size * 0.82)), main, alpha * 0.88)
 	else:
-		var alpha: float = min(zone_life, (140.0 / 255.0) * life_ratio * depth_alpha_mult)
+		var alpha: float = min(zone_life, (180.0 / 255.0) * life_ratio * depth_alpha_mult)
 		if alpha <= TEAR_GAS_PARTICLE_ALPHA_CUTOFF:
 			return
 		_draw_tear_gas_layered_texture_puff(canvas, center, Vector2(max(4.0, size * aspect), max(4.0, size)), seed + variant * 409, main, core, alpha, depth)
 
 
 func _draw_tear_gas_base_haze(canvas: CanvasItem, center: Vector2, radius_x: float, radius_y: float, opacity: float, pulse: float, now_msec: int) -> void:
-	var base_alpha: float = 0.08 * opacity
+	var base_alpha: float = TEAR_GAS_BASE_HAZE_ALPHA_MULT * opacity
 	if base_alpha <= 0.0:
 		return
-	_draw_smoke_ellipse(canvas, center + Vector2(0.0, radius_y * 0.04), radius_x * 0.68, radius_y * 0.25, Color(0.34, 0.35, 0.31, base_alpha * 0.65))
+	# Diffuse ground-hugging haze built from feathered puff textures (NOT hard
+	# mesh ellipses) so the cloud base reads as soft smoke instead of a flat,
+	# stacked "glow disc". Each puff overlaps generously and stays low-alpha.
+	var ground_tone: Color = _get_tear_gas_smoke_tone(0, 1, 0.40)
+	_draw_tear_gas_texture_puff(
+		canvas,
+		center + Vector2(0.0, radius_y * 0.06),
+		Vector2(radius_x * 0.74, radius_y * 0.34),
+		ground_tone,
+		base_alpha * 0.50
+	)
 	for i in range(3):
 		@warning_ignore("shadowed_global_identifier")
 		var seed := 7300 + i * 79
 		var drift := Vector2(
-			_stable_signed(seed, i, 0) * radius_x * 0.26 + sin(float(now_msec) * 0.0012 + float(i)) * 3.0,
-			_stable_signed(seed, i, 1) * radius_y * 0.11
+			_stable_signed(seed, i, 0) * radius_x * 0.30 + sin(float(now_msec) * 0.0012 + float(i)) * 3.0,
+			_stable_signed(seed, i, 1) * radius_y * 0.10
 		)
-		var rx: float = radius_x * (0.24 + 0.08 * _stable_unit(seed, i, 2))
-		var ry: float = radius_y * (0.10 + 0.04 * _stable_unit(seed, i, 3))
-		var tone := _get_tear_gas_smoke_tone(i % 3, 1, 0.45 + pulse * 0.18)
-		_draw_smoke_ellipse(canvas, center + drift, rx, ry, Color(tone.r, tone.g, tone.b, base_alpha * (0.42 + 0.14 * pulse)))
+		var rx: float = radius_x * (0.30 + 0.12 * _stable_unit(seed, i, 2))
+		var ry: float = radius_y * (0.16 + 0.06 * _stable_unit(seed, i, 3))
+		var tone: Color = _get_tear_gas_smoke_tone(i % 3, 1, 0.45 + pulse * 0.18)
+		_draw_tear_gas_texture_puff(canvas, center + drift, Vector2(rx, ry), tone, base_alpha * (0.38 + 0.14 * pulse))
 
 
 func _draw_tear_gas_layered_texture_puff(
@@ -232,14 +243,14 @@ func _draw_tear_gas_layered_texture_puff(
 ) -> void:
 	if alpha <= 0.0:
 		return
-	_draw_tear_gas_texture_puff(canvas, center, radius, main, alpha * 0.76)
+	_draw_tear_gas_texture_puff(canvas, center, radius, main, alpha * 0.9)
 	if depth < 0.35:
 		return
 	var core_offset := Vector2(
 		_stable_signed(smoke_seed, 0, 5) * radius.x * 0.16,
 		_stable_signed(smoke_seed, 0, 6) * radius.y * 0.12
 	)
-	_draw_tear_gas_texture_puff(canvas, center + core_offset, radius * 0.46, core, alpha * 0.32)
+	_draw_tear_gas_texture_puff(canvas, center + core_offset, radius * 0.46, core, alpha * 0.42)
 
 
 func _draw_tear_gas_texture_puff(canvas: CanvasItem, center: Vector2, radius: Vector2, color: Color, alpha: float) -> void:
@@ -270,9 +281,21 @@ static func _build_tear_gas_puff_texture() -> ImageTexture:
 			if dist > 1.0:
 				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 0.0))
 				continue
-			var core_alpha: float = pow(max(0.0, 1.0 - dist * 1.55), 2.2) * 0.62
-			var body_alpha: float = pow(max(0.0, 1.0 - dist), 1.65) * 0.74
-			var rim_alpha: float = pow(max(0.0, 1.0 - abs(dist - 0.58) / 0.42), 2.6) * 0.12
+			# Low-frequency angular turbulence so large puffs read as billowing
+			# smoke lobes instead of a smooth radial disc. The dense core is left
+			# untouched; only the body / rim falloff is broken up.
+			var ang: float = atan2(dy, dx)
+			var turbulence: float = 0.5
+			turbulence += 0.22 * sin(ang * 3.0 + dist * 4.0)
+			turbulence += 0.16 * sin(ang * 5.0 - dist * 6.5 + 1.7)
+			turbulence += 0.12 * sin(ang * 8.0 + dist * 9.0 + 3.1)
+			# Cartesian octave breaks the radial n-fold symmetry so the (always
+			# axis-aligned) puff does not repeat an identical star across the cloud.
+			turbulence += 0.16 * sin(dx * 6.3 + dy * 4.1 + 2.0)
+			var lobe: float = clamp(0.70 + turbulence * 0.34, 0.52, 1.12)
+			var core_alpha: float = pow(max(0.0, 1.0 - dist * 1.55), 2.2) * 0.82
+			var body_alpha: float = pow(max(0.0, 1.0 - dist), 1.65) * 0.94 * lobe
+			var rim_alpha: float = pow(max(0.0, 1.0 - abs(dist - 0.58) / 0.42), 2.6) * 0.12 * lobe
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, clamp(core_alpha + body_alpha + rim_alpha, 0.0, 1.0)))
 	return ImageTexture.create_from_image(image)
 
@@ -284,28 +307,33 @@ func _draw_smoke_ellipse(canvas: CanvasItem, center: Vector2, radius_x: float, r
 
 
 func _get_tear_gas_smoke_tone(tone: int, layer: int, depth: float) -> Color:
-	var base := Color(155.0 / 255.0, 152.0 / 255.0, 145.0 / 255.0, 1.0)
+	# Tear-gas identity: predominantly pale chemical yellow-green haze (tone 0/1),
+	# with a cooler neutral grey (tone 2) mixed in so the cloud never reads mono-green.
+	var base := Color(168.0 / 255.0, 176.0 / 255.0, 150.0 / 255.0, 1.0)
 	if tone == 1:
+		# pale chemical yellow
 		if layer == 0:
-			base = Color(140.0 / 255.0, 125.0 / 255.0, 110.0 / 255.0, 1.0)
+			base = Color(146.0 / 255.0, 142.0 / 255.0, 112.0 / 255.0, 1.0)
 		elif layer == 1:
-			base = Color(165.0 / 255.0, 148.0 / 255.0, 130.0 / 255.0, 1.0)
+			base = Color(182.0 / 255.0, 176.0 / 255.0, 140.0 / 255.0, 1.0)
 		else:
-			base = Color(190.0 / 255.0, 175.0 / 255.0, 155.0 / 255.0, 1.0)
+			base = Color(216.0 / 255.0, 210.0 / 255.0, 172.0 / 255.0, 1.0)
 	elif tone == 2:
+		# cool neutral grey (variation lane)
 		if layer == 0:
-			base = Color(120.0 / 255.0, 128.0 / 255.0, 135.0 / 255.0, 1.0)
+			base = Color(124.0 / 255.0, 130.0 / 255.0, 132.0 / 255.0, 1.0)
 		elif layer == 1:
-			base = Color(145.0 / 255.0, 152.0 / 255.0, 160.0 / 255.0, 1.0)
+			base = Color(158.0 / 255.0, 164.0 / 255.0, 164.0 / 255.0, 1.0)
 		else:
-			base = Color(170.0 / 255.0, 178.0 / 255.0, 185.0 / 255.0, 1.0)
+			base = Color(188.0 / 255.0, 194.0 / 255.0, 194.0 / 255.0, 1.0)
 	else:
+		# primary pale yellow-green chemical haze
 		if layer == 0:
-			base = Color(130.0 / 255.0, 128.0 / 255.0, 122.0 / 255.0, 1.0)
+			base = Color(132.0 / 255.0, 138.0 / 255.0, 116.0 / 255.0, 1.0)
 		elif layer == 1:
-			base = Color(155.0 / 255.0, 152.0 / 255.0, 145.0 / 255.0, 1.0)
+			base = Color(168.0 / 255.0, 176.0 / 255.0, 150.0 / 255.0, 1.0)
 		else:
-			base = Color(180.0 / 255.0, 178.0 / 255.0, 172.0 / 255.0, 1.0)
+			base = Color(206.0 / 255.0, 212.0 / 255.0, 182.0 / 255.0, 1.0)
 	var depth_offset: float = -0.06 + 0.12 * clamp(depth, 0.0, 1.0)
 	return Color(
 		clamp(base.r + depth_offset, 0.0, 1.0),

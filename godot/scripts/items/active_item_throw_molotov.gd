@@ -118,7 +118,9 @@ func trigger_fire_zone(
 		"max_duration_frames": duration_frames,
 		"flames": [],
 		"spread_timer": 0.0,
-		"push_timer": _get_float(controller, "MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES"),
+		"knockback_cooldown": 0.0,
+		"knockback_vel": 0.0,
+		"engage_dir": 0.0,
 		"boss_in_fire": false,
 	}
 	seed_flames(controller, fire_zone, zone_center, int(_get_float(controller, "MOLOTOV_FIRE_INITIAL_FLAMES")), 30.0, 10.0)
@@ -135,9 +137,14 @@ func trigger_fire_zone(
 
 func update_fire_zones(controller: Object, owner: Object, registry: Object, delta: float) -> void:
 	var fire_zones: Array = _get_array(controller, "molotov_fire_zones")
-	if fire_zones.is_empty():
-		return
 	var fps_scale: float = delta * 60.0
+	if fire_zones.is_empty():
+		# No zones: bleed off any residual 화염 감속 so an expired fire can never
+		# strand the boss in a permanent slow.
+		var residual: float = _get_float(controller, "molotov_fire_slow_timer_frames")
+		if residual > 0.0 and controller != null:
+			controller.set("molotov_fire_slow_timer_frames", max(0.0, residual - fps_scale))
+		return
 	var field_width: float = _get_float(controller, "FIELD_WIDTH", 760.0)
 	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(
 		owner,
@@ -145,6 +152,7 @@ func update_fire_zones(controller: Object, owner: Object, registry: Object, delt
 		Vector2(field_width * 0.5 - 50.0, 25.0)
 	)
 	var boss_center := Vector2(boss_pos.x + 50.0, boss_pos.y + 20.0)
+	var any_boss_in_fire := false
 	var write_index := 0
 	for read_index in range(fire_zones.size()):
 		var zone: Dictionary = fire_zones[read_index]
@@ -179,23 +187,66 @@ func update_fire_zones(controller: Object, owner: Object, registry: Object, delt
 		var y_in_range: bool = abs(boss_center.y - center.y) < 60.0
 		var in_fire: bool = x_in_range and y_in_range
 		zone["boss_in_fire"] = in_fire
-		var push_timer: float = float(zone.get("push_timer", 0.0)) + fps_scale
-		var push_feedback_ready := false
-		var push_interval: float = _get_float(controller, "MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES")
-		if push_interval > 0.0 and push_timer >= push_interval:
-			push_timer = fmod(push_timer, push_interval)
-			push_feedback_ready = true
-		if in_fire:
-			var push_dir: float = _get_fire_push_direction(owner, zone, center, boss_center)
+		any_boss_in_fire = any_boss_in_fire or in_fire
+		# Smooth contact bounce (NOT a per-frame wall, NOT an instant teleport).
+		# A fresh contact arms an outward knockback VELOCITY; that velocity is
+		# integrated onto boss_pos every frame and decays, so the boss eases OUT of
+		# the fire and is then pulled back by its own (now slowed) AI. The boss is
+		# never glued to the edge, never machine-gun jitters (the velocity gate +
+		# short cooldown pace re-arming), and can't power through: it is bounced
+		# again on EVERY fresh contact and the 화염 감속 keeps its return sluggish.
+		var knockback_vel: float = float(zone.get("knockback_vel", 0.0))
+		var knockback_cooldown: float = max(0.0, float(zone.get("knockback_cooldown", 0.0)) - fps_scale)
+
+		# Forget the locked engagement direction once the boss is fully clear, so
+		# the next engagement re-evaluates which side the boss approached from.
+		if not in_fire:
+			zone["engage_dir"] = 0.0
+
+		var rearm_speed: float = _get_float(controller, "MOLOTOV_FIRE_KNOCKBACK_REARM_SPEED", 3.5)
+		if in_fire and knockback_cooldown <= 0.0 and abs(knockback_vel) <= rearm_speed:
+			# Lock the push direction for the whole engagement so a boss that
+			# drifts past the zone center mid-struggle is never bounced ACROSS.
+			var locked_dir: float = float(zone.get("engage_dir", 0.0))
+			var push_dir: float = (
+				sign(locked_dir)
+				if abs(locked_dir) > 0.001
+				else _get_fire_push_direction(owner, zone, center, boss_center)
+			)
+			zone["engage_dir"] = push_dir
 			zone["last_push_dir"] = push_dir
-			push_boss_from_fire(controller, owner, registry, center, boss_center, width, push_dir, push_feedback_ready)
+			knockback_vel = push_dir * _get_float(controller, "MOLOTOV_FIRE_KNOCKBACK_SPEED", 17.0)
+			knockback_cooldown = _get_float(controller, "MOLOTOV_FIRE_KNOCKBACK_COOLDOWN_FRAMES", 8.0)
+			var feedback: Object = _get_instance(registry, "battle_feedback_state")
+			if feedback != null and feedback.has_method("max_screen_shake"):
+				feedback.max_screen_shake(0.05, 1.5)
+
+		# Integrate + decay the outward knockback onto the boss every frame.
+		if abs(knockback_vel) > 0.001:
+			_apply_fire_knockback_step(controller, owner, knockback_vel * fps_scale)
+			knockback_vel *= pow(_get_float(controller, "MOLOTOV_FIRE_KNOCKBACK_DECAY_PER_FRAME", 0.88), fps_scale)
+			if abs(knockback_vel) < 0.3:
+				knockback_vel = 0.0
 			boss_pos = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", boss_pos)
 			boss_center = Vector2(boss_pos.x + 50.0, boss_pos.y + 20.0)
-		zone["push_timer"] = push_timer
+
+		zone["knockback_vel"] = knockback_vel
+		zone["knockback_cooldown"] = knockback_cooldown
 		fire_zones[write_index] = zone
 		write_index += 1
 	if write_index < fire_zones.size():
 		fire_zones.resize(write_index)
+
+	# Maintain the 화염 감속 timer: refresh to full while the boss is in any fire
+	# zone, otherwise let it bleed off so the slow lingers a beat after the boss
+	# leaves (sluggish return). boss_ai_state reads this via the boss-AI context.
+	var slow_timer: float = _get_float(controller, "molotov_fire_slow_timer_frames")
+	if any_boss_in_fire:
+		slow_timer = _get_float(controller, "MOLOTOV_FIRE_SLOW_DURATION_FRAMES", 36.0)
+	else:
+		slow_timer = max(0.0, slow_timer - fps_scale)
+	if controller != null:
+		controller.set("molotov_fire_slow_timer_frames", slow_timer)
 
 
 func seed_flames(_controller: Object, zone: Dictionary, center: Vector2, count: int, spread_x: float, spread_y: float) -> void:
@@ -254,16 +305,12 @@ func update_flames(zone: Dictionary, fps_scale: float) -> void:
 	zone["flames"] = flames
 
 
-func push_boss_from_fire(
-	controller: Object,
-	owner: Object,
-	registry: Object,
-	center: Vector2,
-	boss_center: Vector2,
-	fire_width: float = 150.0,
-	push_dir: float = 0.0,
-	play_feedback: bool = true
-) -> void:
+# Applies one frame of the decaying bounce: nudges boss_pos.x by the given delta
+# (already scaled by the decaying velocity * fps_scale), clamped to the field.
+# The boss AI keeps running its own movement, so this additive nudge fights the
+# AI's pull-back — the boss eases out while the velocity is strong, then the AI
+# wins as it decays, producing a smooth bounce-and-return instead of a teleport.
+func _apply_fire_knockback_step(controller: Object, owner: Object, delta_x: float) -> void:
 	if owner == null:
 		return
 	var field_width: float = _get_float(controller, "FIELD_WIDTH", 760.0)
@@ -273,21 +320,8 @@ func push_boss_from_fire(
 		"boss_pos",
 		Vector2(field_width * 0.5 - 50.0, 25.0)
 	)
-	if abs(push_dir) < 0.001:
-		push_dir = -1.0 if boss_center.x < center.x else 1.0
-	var blocked_half_width: float = max(0.0, fire_width * 0.25 + boss_width * 0.5)
-	var target_center_x: float = center.x + push_dir * (blocked_half_width + 0.5)
-	boss_pos.x = clamp(
-		target_center_x - boss_width * 0.5,
-		0.0,
-		field_width - boss_width
-	)
+	boss_pos.x = clamp(boss_pos.x + delta_x, 0.0, field_width - boss_width)
 	owner.set("boss_pos", boss_pos)
-	if not play_feedback:
-		return
-	var feedback: Object = _get_instance(registry, "battle_feedback_state")
-	if feedback != null and feedback.has_method("max_screen_shake"):
-		feedback.max_screen_shake(0.035, 1.1)
 
 
 func _get_fire_push_direction(owner: Object, zone: Dictionary, center: Vector2, boss_center: Vector2) -> float:

@@ -46,6 +46,7 @@ const EMBER_PARTICLE_QUALITY_GATE := 0.55
 var elapsed_sec := 0.0
 
 var _state: Dictionary = {}
+var _base_floor_sprite: Sprite2D = null
 var _floor_sprite: Sprite2D = null
 var _floor_material: ShaderMaterial = null
 var _flame_dome_sprite: Sprite2D = null
@@ -85,7 +86,7 @@ static func build_pipeline_status() -> Dictionary:
 		"molotov_fx_host_shader_burst_ready":
 			WritheEmber.has_preset("hongryun_inferno_burst"),
 		"molotov_fx_host_particle_amount": EMBER_PARTICLE_AMOUNT,
-		"molotov_fx_host_layers": 5,
+		"molotov_fx_host_layers": 6,
 	}
 
 
@@ -119,6 +120,8 @@ func set_active(active: bool) -> void:
 	if not active:
 		_kill_burst_tween()
 		_burst_intensity = 0.0
+		if _base_floor_sprite != null:
+			_base_floor_sprite.visible = false
 		if _floor_sprite != null:
 			_floor_sprite.visible = false
 		if _flame_dome_sprite != null:
@@ -192,6 +195,21 @@ func _apply_state() -> void:
 	_flame_dome_phase = elapsed_sec * 1.7
 	var breath: float = 0.85 + 0.15 * sin(_flame_dome_phase)
 	var breath_slow: float = 0.90 + 0.10 * sin(_flame_dome_phase * 0.55 + 1.2)
+
+	# Layer 0 — Opaque body base (normal alpha blend, NOT additive). The floor /
+	# dome / flame layers above all use `blend_add`, which over the normal
+	# playfield leaves the zone interior see-through. This textured heat-texture
+	# puddle (deep ember tone) gives the fire an actual body so the additive
+	# layers read as living flame on burning ground instead of a flat circular
+	# wash. Slightly wider + flatter than the additive floor so it underlaps it.
+	if _base_floor_sprite != null:
+		_base_floor_sprite.position = Vector2(0.0, height * 0.10)
+		var base_w: float = width * 1.16 * breath_slow
+		var base_h: float = height * 1.55
+		_base_floor_sprite.scale = Vector2(base_w / FLOOR_TEXTURE_BASE_SIZE, base_h / FLOOR_TEXTURE_BASE_SIZE)
+		var base_alpha: float = clamp(0.66 * life_ratio * (0.7 + 0.3 * quality_scale), 0.0, 1.0)
+		_base_floor_sprite.modulate = Color(0.85, 0.30, 0.13, base_alpha)
+		_base_floor_sprite.visible = true
 
 	# Layer 1 — Ember Floor (wide horizontal bed)
 	if _floor_sprite != null:
@@ -298,6 +316,17 @@ func _kill_burst_tween() -> void:
 func _build_children() -> void:
 	if _additive_material == null:
 		_additive_material = _make_additive_material()
+
+	if _base_floor_sprite == null:
+		# Normal alpha blend (default material) so this layer paints an opaque
+		# body, unlike every shader layer above it which is additive.
+		_base_floor_sprite = Sprite2D.new()
+		_base_floor_sprite.name = "MolotovBodyBase"
+		_base_floor_sprite.centered = true
+		_base_floor_sprite.texture = InfernoChargeFxHost._get_heat_texture()
+		_base_floor_sprite.visible = false
+		_base_floor_sprite.z_index = -1
+		add_child(_base_floor_sprite)
 
 	if _char_ring_sprite == null:
 		_char_ring_sprite = Sprite2D.new()
