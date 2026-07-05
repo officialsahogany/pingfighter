@@ -1,0 +1,72 @@
+{
+  "asset": "orbi_gravity_accel",
+  "created_at": "2026-07-03",
+  "generator": "Codex built-in imagegen",
+  "source_dir": "C:/Users/woduq/.codex/generated_images/019f278b-f563-7092-a25b-467c98e5ad80",
+  "runtime_usage": "lingpet_active_skill_card_and_icon",
+  "character": "orbi",
+  "skill_id": "orbi_gravity_accel",
+  "skill_name": "Gravity Accel",
+  "reference_assets": [
+    "res://assets/sprites/lingpet/orbi_cutin_art.png"
+  ],
+  "outputs": {
+    "skill_card": {
+      "path": "res://assets/sprites/lingpet/orbi_gravity_accel_skillcard_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4790b39f50819785fc574d249eed09.png",
+      "source_copy": "res://assets/sprites/lingpet/orbi_gravity_accel_skillcard_imagegen_v1_source.png",
+      "source_size": [
+        1825,
+        862
+      ],
+      "crop_box": [
+        0,
+        144,
+        1825,
+        718
+      ],
+      "size": [
+        1720,
+        541
+      ],
+      "postprocess": "Pillow deterministic center crop to 1720:541 ratio, RGB normalize, resize to 1720x541, PNG optimize",
+      "sha256": "2a400fc40f944262aa5bb2c49a4bcb248b1ab100837b35091d94959940b2a50c",
+      "bytes": 1840088
+    },
+    "skill_icon": {
+      "path": "res://assets/sprites/lingpet/orbi_gravity_accel_skill_icon_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4790f9e204819795cbef309f46cd03.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "crop_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "size": [
+        1254,
+        1254
+      ],
+      "postprocess": "Pillow deterministic square crop when needed, RGB normalize, resize to 1254x1254, PNG optimize",
+      "sha256": "f89417839837f40a3de1b6c50e06910a7d38481d86d4d80cc9208bc42a425db2",
+      "bytes": 2944319
+    }
+  },
+  "prompts": {
+    "skill_card": "Wide Serabi / Orbi Gravity Accel Lingpet skill card: cute white/navy/cyan chronos robotic fox/cat lingpet on the left warping space-time; a swirling gravity well / spacetime ripple lifts a glowing pong ball upward along a curved path toward a dark enemy boss silhouette; violet galaxy, starlight, gold rim light; no projectile bolt, no shrunken boss, no text, no border.",
+    "skill_icon": "Square Serabi / Orbi Gravity Accel skill icon: cute white/navy/cyan chronos robotic fox/cat lingpet beside a large swirling gravity well / spacetime ripple lifting a glowing pong ball upward; violet-indigo galaxy energy; no projectile bolt, no shrunken boss, no text, no border."
+  },
+  "qa": {
+    "no_text_baked_into_art": true,
+    "no_border_baked_into_art": true,
+    "transparent_background": false,
+    "opaque_rgb_outputs": true,
+    "card_matches_catalog_path": true,
+    "icon_matches_catalog_path": true,
+    "preserves_ball_lift_gravity_read": true,
+    "distinct_from_dwarf_magic": true
+  }
+}

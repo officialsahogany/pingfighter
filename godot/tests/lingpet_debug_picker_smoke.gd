@@ -408,10 +408,10 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(LingpetCatalog.get_pet_ids().has("rabi"), "Rabi should now appear in the enabled hatch pet id list")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("onimaru"), "Onimaru should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("onimaru"), "Onimaru should be accepted by runtime helpers for F7 debug activation")
-	_expect(not LingpetCatalog.get_pet_ids().has("onimaru"), "Onimaru should stay out of the enabled hatch pet id list until dedicated motion sheets ship")
+	_expect(LingpetCatalog.get_pet_ids().has("onimaru"), "Onimaru should now appear in the enabled hatch pet id list after production promotion")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("rahoset"), "Rahoset should be included in the debug-only lingpet picker list")
 	_expect(LingpetCatalog.has_pet("rahoset"), "Rahoset should be accepted by runtime helpers for F7 debug activation")
-	_expect(not LingpetCatalog.get_pet_ids().has("rahoset"), "Rahoset should stay out of the enabled hatch pet id list until final runtime assets ship")
+	_expect(LingpetCatalog.get_pet_ids().has("rahoset"), "Rahoset should now appear in the enabled hatch pet id list after production promotion")
 	var hatch_candidates := LingpetCatalog.get_hatch_candidates({
 		"league_mode": "junior",
 		"character_type": "smasher",
@@ -419,9 +419,9 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 	_expect(hatch_candidates.has("koyora"), "Koyora should now enter the random hatch pool")
 	_expect(hatch_candidates.has("nekuring"), "Nekuring should now enter the random hatch pool")
 	_expect(hatch_candidates.has("monkeyring"), "Monkeyring should now enter the random hatch pool")
-	_expect(not hatch_candidates.has("onimaru"), "Onimaru should not enter the random hatch pool while it is debug-only")
+	_expect(hatch_candidates.has("onimaru"), "Onimaru should now enter the random hatch pool")
 	_expect(hatch_candidates.has("rabi"), "Rabi should now enter the random hatch pool")
-	_expect(not hatch_candidates.has("rahoset"), "Rahoset should not enter the random hatch pool while it is debug-only")
+	_expect(hatch_candidates.has("rahoset"), "Rahoset should now enter the random hatch pool")
 	_expect(LingpetCatalog.get_display_name("rahoset") == "라호세트", "Rahoset catalog display name should use the accepted Korean name")
 	_expect(LingpetCatalog.get_motion_style("rahoset") == "sortie_flight", "Rahoset should use the airborne sortie-flight movement style")
 	_expect(

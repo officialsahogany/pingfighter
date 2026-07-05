@@ -1,0 +1,72 @@
+{
+  "asset": "rahoset_sand_prison",
+  "created_at": "2026-07-03",
+  "generator": "Codex built-in imagegen",
+  "source_dir": "C:/Users/woduq/.codex/generated_images/019f278b-f563-7092-a25b-467c98e5ad80",
+  "runtime_usage": "lingpet_active_skill_card_and_icon",
+  "character": "rahoset",
+  "skill_id": "rahoset_sand_prison",
+  "skill_name": "Sand Prison",
+  "reference_assets": [
+    "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png"
+  ],
+  "outputs": {
+    "skill_card": {
+      "path": "res://assets/sprites/lingpet/rahoset_sand_prison_skillcard_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4792a209f88197b1656feb0aef1ea7.png",
+      "source_copy": "res://assets/sprites/lingpet/rahoset_sand_prison_skillcard_imagegen_v1_source.png",
+      "source_size": [
+        1824,
+        862
+      ],
+      "crop_box": [
+        0,
+        144,
+        1824,
+        718
+      ],
+      "size": [
+        1720,
+        541
+      ],
+      "postprocess": "Pillow deterministic center crop to 1720:541 ratio, RGB normalize, resize to 1720x541, PNG optimize",
+      "sha256": "07cb0be5668ed390638b0cbb5340499a5dcaf0cb2b5e7077391c1af7c10737e6",
+      "bytes": 2013092
+    },
+    "skill_icon": {
+      "path": "res://assets/sprites/lingpet/rahoset_sand_prison_skill_icon_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4792f1f42c819790606fe2b1b2e1a8.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "crop_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "size": [
+        1254,
+        1254
+      ],
+      "postprocess": "Pillow deterministic square crop when needed, RGB normalize, resize to 1254x1254, PNG optimize",
+      "sha256": "340be09e3cf95840adab06cbb809d7d8808d6165dab0c4df19255d3da9ef3103",
+      "bytes": 3140145
+    }
+  },
+  "prompts": {
+    "skill_card": "Wide Rahoset Sand Prison Lingpet skill card: Egyptian desert-deity winged lingpet with gold pharaoh mask, blue/navy stripes, amber sun gems, and staff hovering while conjuring a cylindrical prison of desert sand and sandstone pillars around a dark enemy boss silhouette; abstract glyph rings, confinement read; no text, no border.",
+    "skill_icon": "Square Rahoset Sand Prison skill icon: cute Egyptian desert-deity winged lingpet with gold pharaoh mask and staff conjuring a compact cylindrical sand prison with sandstone pillars, abstract glyph ring, and trapped dark boss silhouette; no readable text, no border."
+  },
+  "qa": {
+    "no_text_baked_into_art": true,
+    "no_border_baked_into_art": true,
+    "transparent_background": false,
+    "opaque_rgb_outputs": true,
+    "card_matches_catalog_path": true,
+    "icon_matches_catalog_path": true,
+    "preserves_sand_prison_read": true,
+    "debug_gate_unchanged": true
+  }
+}

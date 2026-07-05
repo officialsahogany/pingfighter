@@ -1,0 +1,72 @@
+{
+  "asset": "onimaru_headbutt",
+  "created_at": "2026-07-03",
+  "generator": "Codex built-in imagegen",
+  "source_dir": "C:/Users/woduq/.codex/generated_images/019f278b-f563-7092-a25b-467c98e5ad80",
+  "runtime_usage": "lingpet_active_skill_card_and_icon",
+  "character": "onimaru",
+  "skill_id": "onimaru_headbutt",
+  "skill_name": "Horn Charge",
+  "reference_assets": [
+    "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png"
+  ],
+  "outputs": {
+    "skill_card": {
+      "path": "res://assets/sprites/lingpet/onimaru_headbutt_skillcard_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4791fbb74081978242746c3737c4db.png",
+      "source_copy": "res://assets/sprites/lingpet/onimaru_headbutt_skillcard_imagegen_v1_source.png",
+      "source_size": [
+        1775,
+        886
+      ],
+      "crop_box": [
+        0,
+        164,
+        1775,
+        722
+      ],
+      "size": [
+        1720,
+        541
+      ],
+      "postprocess": "Pillow deterministic center crop to 1720:541 ratio, RGB normalize, resize to 1720x541, PNG optimize",
+      "sha256": "102c72a28a61d1e0a72d4ed6b25786f1bec519ca53b44de816104fe029dd8ec8",
+      "bytes": 1726668
+    },
+    "skill_icon": {
+      "path": "res://assets/sprites/lingpet/onimaru_headbutt_skill_icon_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4792472a2081978090ca335ee5cb93.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "crop_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "size": [
+        1254,
+        1254
+      ],
+      "postprocess": "Pillow deterministic square crop when needed, RGB normalize, resize to 1254x1254, PNG optimize",
+      "sha256": "018b8fcd689b6cbfb3c605644d6f788d895c1d5fda6cf5b3b6872de37ed73753",
+      "bytes": 2553555
+    }
+  },
+  "prompts": {
+    "skill_card": "Wide Onimaru Horn Charge Lingpet skill card: fierce cute red oni lingpet with gold horns and amber-gold ring-part gems charging horn-first into a dark enemy boss silhouette; head lowered, motion streaks, heavy ground-slam shockwave, radial dust burst, earthquake cracks; no kanabo focus, no text, no border.",
+    "skill_icon": "Square Onimaru Horn Charge skill icon: cute fierce red oni lingpet with gold horns and amber-gold ring-part gems charging horn-first, colliding into a dark boss silhouette with compact ground-slam shockwave, dust ring, cracked earth; no kanabo focus, no text, no border."
+  },
+  "qa": {
+    "no_text_baked_into_art": true,
+    "no_border_baked_into_art": true,
+    "transparent_background": false,
+    "opaque_rgb_outputs": true,
+    "card_matches_catalog_path": true,
+    "icon_matches_catalog_path": true,
+    "preserves_horn_charge_read": true,
+    "debug_gate_unchanged": true
+  }
+}

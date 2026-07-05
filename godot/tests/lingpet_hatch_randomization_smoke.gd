@@ -53,6 +53,14 @@ func _verify_catalog_hatch_skill_roll_distribution() -> void:
 		if pool_passive_id != "":
 			passive_pool_ids[pool_passive_id] = true
 	_expect(passive_pool_ids.size() >= 2, "common passive pool should expose at least two passives for the hatch draw")
+	_expect(passive_pool_ids.has("lingpet_light_eater"), "common passive pool should include the light-eater passive")
+	var light_eater_skill := LingpetCatalog.get_passive_skill("maribo", "lingpet_light_eater", 5)
+	_expect(not light_eater_skill.is_empty(), "light-eater passive should build from the common passive pool")
+	_expect_float(
+		float(light_eater_skill.get("satiety_drain_reduction_pct", 0.0)),
+		LingpetAffinityState.get_satiety_drain_reduction_pct_for_level(5),
+		"light-eater passive should materialize the shared Lv.5 drain reduction"
+	)
 
 	var active_counts := [0, 0, 0, 0]
 	var passive_counts := [0, 0, 0, 0]

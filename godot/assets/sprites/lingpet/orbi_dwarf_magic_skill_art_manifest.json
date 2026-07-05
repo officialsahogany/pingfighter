@@ -1,0 +1,73 @@
+{
+  "asset": "orbi_dwarf_magic",
+  "created_at": "2026-07-03",
+  "generator": "Codex built-in imagegen",
+  "source_dir": "C:/Users/woduq/.codex/generated_images/019f278b-f563-7092-a25b-467c98e5ad80",
+  "runtime_usage": "lingpet_active_skill_card_and_icon",
+  "character": "orbi",
+  "skill_id": "orbi_dwarf_magic",
+  "skill_name": "Dwarf Magic",
+  "reference_assets": [
+    "res://assets/sprites/lingpet/orbi_cutin_art.png"
+  ],
+  "outputs": {
+    "skill_card": {
+      "path": "res://assets/sprites/lingpet/orbi_dwarf_magic_skillcard_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a4791541d048197b4bdf54319da633e.png",
+      "source_copy": "res://assets/sprites/lingpet/orbi_dwarf_magic_skillcard_imagegen_v1_source.png",
+      "source_size": [
+        1939,
+        811
+      ],
+      "crop_box": [
+        0,
+        100,
+        1939,
+        710
+      ],
+      "size": [
+        1720,
+        541
+      ],
+      "postprocess": "Pillow deterministic center crop to 1720:541 ratio, RGB normalize, resize to 1720x541, PNG optimize",
+      "sha256": "de11afaaac25c4cea89430d8fb417e679f541b404811e75d8a84ade7792d469d",
+      "bytes": 1603048
+    },
+    "skill_icon": {
+      "path": "res://assets/sprites/lingpet/orbi_dwarf_magic_skill_icon_imagegen_v1.png",
+      "source": "ig_0d399a91b6732637016a47935894888197a49ca4553828756e.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "crop_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "size": [
+        1254,
+        1254
+      ],
+      "postprocess": "Pillow deterministic square crop when needed, RGB normalize, resize to 1254x1254, PNG optimize",
+      "sha256": "dd6aae340c0373a64f7b5937a35180db06b2e5fe033db4388b4fa50a4ac806d4",
+      "bytes": 2419037
+    }
+  },
+  "prompts": {
+    "skill_card": "Wide Serabi / Orbi Dwarf Magic Lingpet skill card: cute white/navy/cyan chronos robotic fox/cat lingpet casting a glittering purple light-dust homing bolt toward a comically shrunken dark enemy boss silhouette; sparkling violet dust trail, shrink rings, mystical light dust; no ball-lift, no gravity well, no vortex, no text, no border.",
+    "skill_icon": "Square Serabi / Orbi Dwarf Magic skill icon, clean version: cute white/navy/cyan chronos robotic fox/cat lingpet casting a glittering purple light-dust homing bolt toward a tiny shrunken dark boss silhouette inside simple shrink rings; no arrows, no punctuation, no UI, no ball-lift, no gravity well, no text, no border."
+  },
+  "qa": {
+    "no_text_baked_into_art": true,
+    "no_border_baked_into_art": true,
+    "transparent_background": false,
+    "opaque_rgb_outputs": true,
+    "card_matches_catalog_path": true,
+    "icon_matches_catalog_path": true,
+    "preserves_shrink_magic_read": true,
+    "distinct_from_gravity_accel": true,
+    "regenerated_icon_to_remove_ui_symbols": true
+  }
+}

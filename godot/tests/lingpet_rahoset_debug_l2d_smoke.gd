@@ -31,7 +31,14 @@ func _init() -> void:
 func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.has_pet("rahoset"), "Rahoset should be runtime-activatable for F7 debug")
 	_expect(LingpetCatalog.is_pet_debug_enabled("rahoset"), "Rahoset should be visible in the F7 debug picker")
-	_expect(not LingpetCatalog.is_pet_enabled("rahoset"), "Rahoset should stay out of the normal hatch pool")
+	_expect(LingpetCatalog.is_pet_enabled("rahoset"), "Rahoset should be enabled after Sand Prison production promotion")
+	_expect(LingpetCatalog.get_pet_ids().has("rahoset"), "enabled pet ids should include live Rahoset")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("rahoset"), "debug pet ids should still include Rahoset for F7 quick-select")
+	var rahoset_hatch := LingpetCatalog.get_hatch_candidates({
+		"league_mode": "junior",
+		"character_type": "smasher",
+	}, [])
+	_expect(rahoset_hatch.has("rahoset"), "Rahoset should enter the random hatch pool after production promotion")
 	_expect(LingpetCatalog.get_display_name("rahoset") == "라호세트", "Rahoset should expose the accepted Korean display name")
 	_expect(LingpetCatalog.get_motion_style("rahoset") == "sortie_flight", "Rahoset should keep its airborne movement style")
 	var active_pool := LingpetCatalog.get_active_skill_pool("rahoset")
@@ -40,7 +47,7 @@ func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.get_active_skill_runtime_kind("rahoset_sand_prison") == "sand_prison", "Rahoset Sand Prison should route to the sand_prison runtime kind")
 	var effect_text := LingpetCatalog.get_effect_text("rahoset")
 	_expect(effect_text.find("모래감옥") >= 0, "Rahoset effect text should describe the shipped Sand Prison active skill")
-	_expect(effect_text.find("제작 전 단계") < 0 and effect_text.find("정적 임시") < 0, "Rahoset effect text should not keep the pre-runtime placeholder wording")
+	_expect(effect_text.find("제작 전 단계") < 0 and effect_text.find("정적 임시") < 0 and effect_text.find("디버그") < 0, "Rahoset production effect text should not keep placeholder or debug wording")
 
 
 func _verify_visual_paths() -> void:
@@ -116,7 +123,10 @@ func _verify_acquire_host_loads_visible_cutin_textures() -> void:
 	var anim_path := LingpetCatalog.get_visual_path("rahoset", "cutin_anim")
 	var host := LingpetAcquireCutinOverlayHost.new()
 	_expect(ProjectResourceLoader.get_cached_texture(anim_path) == null, "Rahoset acquisition sheet should start cold for the visibility guard")
-	_expect(host.is_pet_cutin_anim_ready("rahoset"), "Rahoset acquisition readiness should secure the animated cut-in sheet instead of waiting forever on an empty cache")
+	for _i in range(320):
+		if host.prewarm_pet_assets_step("rahoset", true):
+			break
+	_expect(host.is_pet_cutin_anim_ready("rahoset"), "Rahoset acquisition readiness should observe the prepared animated cut-in sheet")
 	_expect(ProjectResourceLoader.get_cached_texture(anim_path) != null, "Rahoset acquisition readiness should cache the cut-in Live2D sheet")
 	host._sync_assets_for_pet("rahoset")
 	_expect(host._cutin_anim_sheet != null, "Rahoset acquisition host should draw with the catalog cut-in sheet after sync")

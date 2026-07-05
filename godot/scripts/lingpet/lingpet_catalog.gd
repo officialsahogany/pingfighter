@@ -120,6 +120,14 @@ const COMMON_PASSIVE_SKILL_POOL := [
 		"ring_dash_min_distance_by_level": [150.0, 138.0, 126.0, 114.0, 102.0],
 		"ring_dash_lookahead_gap_by_level": [72.0, 84.0, 96.0, 108.0, 120.0],
 	},
+	{
+		"id": "lingpet_light_eater",
+		"name": "소식 체질",
+		"description": "포만도 소모 속도가 느려집니다.",
+		"icon_texture_path": "res://assets/sprites/lingpet/lingpet_light_eater_passive_icon.png",
+		"category": "포만도 효율",
+		"satiety_drain_reduction_pct_by_level": [10.0, 17.0, 24.0, 31.0, 38.0],
+	},
 ]
 
 const PETS := {
@@ -498,8 +506,8 @@ const PETS := {
 				"windup_seconds": 0.6,
 				"duration_seconds_by_level": [2.0, 2.5, 3.0, 3.5, 4.0],
 				"gravity_strength_by_level": [28.8, 36.0, 43.2, 50.4, 57.6],
-				"card_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skillcard_imagegen_v1.png",
-				"icon_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skill_icon_imagegen_v1.png",
+				"card_texture_path": "res://assets/sprites/lingpet/orbi_gravity_accel_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/orbi_gravity_accel_skill_icon_imagegen_v1.png",
 			},
 			{
 				"id": "orbi_dwarf_magic",
@@ -513,14 +521,14 @@ const PETS := {
 				"boss_slow_multiplier_by_level": [0.65, 0.60, 0.55, 0.50, 0.45],
 				"proj_speed_by_level": [416.0, 472.0, 528.0, 584.0, 640.0],
 				"proj_homing_by_level": [2.4, 3.0, 3.6, 4.2, 4.8],
-				"card_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skillcard_imagegen_v1.png",
-				"icon_texture_path": "res://assets/sprites/lingpet/orbi_ring_orbit_skill_icon_imagegen_v1.png",
+				"card_texture_path": "res://assets/sprites/lingpet/orbi_dwarf_magic_skillcard_imagegen_v1.png",
+				"icon_texture_path": "res://assets/sprites/lingpet/orbi_dwarf_magic_skill_icon_imagegen_v1.png",
 			},
 		],
 		"effect_text": "공을 직접 받아치면 게이지 +40 / 중력가속 또는 난쟁이마술 중 획득 시 선택된 액티브를 자동 사용합니다(레벨↑ = 효과↑·지속↑). 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/orbi_cutin_art.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/orbi_cutin_art_magenta_source.png",
-		"note": "Serabi companion/cut-in/click visuals are live. Active skill pool ports the original PingFighter chronos (Kireuke) two hero skills (downtown/hero_skills.py): 중력가속 / Gravity Accel (GravityControl) pulls the ball UP toward the boss goal (gravity_strength_by_level / duration_seconds_by_level), and 난쟁이마술 / Dwarf Magic (DwarfMagic) fires a homing purple light-dust projectile that, on boss hit, shrinks the boss paddle (collision + render, centered) AND slows boss movement for a level-scaled hold (shrink_scale_by_level / shrink_duration_by_level / boss_slow_multiplier_by_level). The second active unlocks via affinity like other dual-skill pets. Both skill cards/icons temporarily reuse the accepted orbi ring-orbit purple art as a placeholder pending dedicated 중력가속 / 난쟁이마술 art. Dedicated egg, cast sheet, and dismiss sheet are still pending; catalog temporarily reuses the shared egg, strike art for cast, and cut-in animation for dismiss.",
+		"note": "Serabi companion/cut-in/click visuals are live. Active skill pool ports the original PingFighter chronos (Kireuke) two hero skills (downtown/hero_skills.py): 중력가속 / Gravity Accel (GravityControl) pulls the ball UP toward the boss goal (gravity_strength_by_level / duration_seconds_by_level), and 난쟁이마술 / Dwarf Magic (DwarfMagic) fires a homing purple light-dust projectile that, on boss hit, shrinks the boss paddle (collision + render, centered) AND slows boss movement for a level-scaled hold (shrink_scale_by_level / shrink_duration_by_level / boss_slow_multiplier_by_level). The second active unlocks via affinity like other dual-skill pets. Both active skills now use dedicated, visually distinct card/icon art: Gravity Accel reads as a ball-lifting gravity well, while Dwarf Magic reads as a purple light-dust shrink bolt. Dedicated egg, cast sheet, and dismiss sheet are still pending; catalog temporarily reuses the shared egg, strike art for cast, and cut-in animation for dismiss.",
 	},
 	"red_dragon": {
 		"id": "red_dragon",
@@ -922,7 +930,7 @@ const PETS := {
 	"onimaru": {
 		"id": "onimaru",
 		"display_name": "오니마루",
-		"enabled": false,
+		"enabled": true,
 		"debug_enabled": true,
 		"hatch_weight": 1.0,
 		"required_hits": 1,
@@ -997,23 +1005,20 @@ const PETS := {
 			"slam_radius_by_level": [80.0, 100.0, 120.0, 140.0, 160.0],
 			"hit_stun_seconds_by_level": [2.0, 2.375, 2.75, 3.125, 3.5],
 			"self_stun_seconds_by_level": [5.0, 4.25, 3.5, 2.75, 2.0],
-			# PLACEHOLDER: reuses the existing amber Live2D anchor as the skill card / icon
-			# until the dedicated onimaru_headbutt skill-card + icon art lands (Codex asset task).
-			# Points at an existing file so the per-frame rail-card draw caches a success
-			# instead of re-stat'ing a reserved-but-absent path every frame.
-			"card_texture_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
+			# Dedicated debug-only card/icon art. Keep enabled=false until normal release.
+			"card_texture_path": "res://assets/sprites/lingpet/onimaru_headbutt_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/onimaru_headbutt_skill_icon_imagegen_v1.png",
 		},
-		"effect_text": "오니마루는 F7 디버그용 붉은 도깨비 링펫입니다. v2 원화 앵커 기반 라투디/클릭 시트와 전용 스탠딩, 좌/우 이동, 방망이 공격 동행 시트를 연결했습니다. 뿔박치기: 30초마다 시전 순간의 상대 패들 위치로 돌진해 뿔을 박는 단일 박치기로, 보스가 그 자리에 남아 있으면 기절하고 벗어나면 빈 벽 충돌만 발생합니다. 레벨이 오를수록 도달·명중 범위와 상대 기절(2.0~3.5초)이 커지고 자기 기절(5.0~2.0초)은 짧아집니다. 스킬카드/아이콘 아트와 인게임 검수 전까지는 부화 풀 밖 디버그 전용으로 유지합니다.",
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 뿔박치기: 30초마다 시전 순간의 상대 패들 위치로 돌진해 뿔을 박는 단일 박치기입니다. 보스가 그 자리에 남아 있으면 기절하고, 벗어나면 빈 벽 충돌만 발생합니다. 레벨이 오를수록 도달·명중 범위와 상대 기절(2.0~3.5초)이 커지고 자기 기절(5.0~2.0초)은 짧아집니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber_magenta_source.png",
-		"note": "Onimaru is debug-only and uses the accepted v2 transparent Live2D anchor recolored to the amber/gold first-choice ring-part gem palette as the source for a dedicated AutoSprite-derived 8x4 / 32-frame acquisition Live2D loop, a dedicated identity-locked standing companion idle sheet, a dedicated AutoSprite left/right companion movement pair, a dedicated AutoSprite-derived kanabo strike sheet aligned to the runtime impact frame, and a dedicated AutoSprite-derived 14x7 click reaction sheet shared by acquisition dismiss and panel click. The click sheet uses the grip-fix retime that removes early frames where the kanabo reads as dropped, with a downscaled companion click sheet for battle. Keep it out of the random hatch pool until normal hatch release and dedicated Headbutt card/icon art are accepted.",
+		"note": "Onimaru is debug-only and uses the accepted v2 transparent Live2D anchor recolored to the amber/gold first-choice ring-part gem palette as the source for a dedicated AutoSprite-derived 8x4 / 32-frame acquisition Live2D loop, a dedicated identity-locked standing companion idle sheet, a dedicated AutoSprite left/right companion movement pair, a dedicated AutoSprite-derived kanabo strike sheet aligned to the runtime impact frame, and a dedicated AutoSprite-derived 14x7 click reaction sheet shared by acquisition dismiss and panel click. The click sheet uses the grip-fix retime that removes early frames where the kanabo reads as dropped, with a downscaled companion click sheet for battle. Dedicated Headbutt card/icon art is accepted. Onimaru was promoted to the production hatch pool (enabled:true) on 2026-07-04, keeping debug_enabled:true for F7 quick-select; pending in-game pixel/feel QA.",
 	},
 	"rahoset": {
 		"id": "rahoset",
 		"display_name": "라호세트",
 		"motion_style": "sortie_flight",
-		"enabled": false,
+		"enabled": true,
 		"debug_enabled": true,
 		"hatch_weight": 1.0,
 		"required_hits": 1,
@@ -1070,13 +1075,13 @@ const PETS := {
 			"cooldown_by_level": [30.0, 30.0, 30.0, 30.0, 30.0],
 			"windup_seconds": 0.4,
 			"windup_seconds_by_level": [0.4, 0.4, 0.4, 0.4, 0.4],
-			"card_texture_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
-			"icon_texture_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
+			"card_texture_path": "res://assets/sprites/lingpet/rahoset_sand_prison_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/rahoset_sand_prison_skill_icon_imagegen_v1.png",
 		},
-		"effect_text": "라호세트는 F7 디버그용 이집트 사막 신 컨셉의 공중 링펫입니다. 획득/클릭 라투디 시트와 뒷모습 호버·급강하 타격 동행 시트를 연결했습니다. 모래감옥: 30초마다 보스 주위에 모래감옥을 세웁니다. 생성(Lv.1 1.5초~Lv.5 0.7초) 중 보스가 빠져나가면 MISS, 붙잡히면 감금(Lv.1 2.3초~Lv.5 4.0초) 동안 좌우 이동이 감옥 안으로 제한됩니다. Lv.3-4는 30%로 1회, Lv.5는 50%로 최대 2회 다시 소환합니다. 전용 스킬카드/아이콘 아트와 인게임 검수 전까지는 부화 풀 밖 디버그 전용으로 유지합니다.",
+		"effect_text": "공을 직접 받아치면 게이지 +40 / 모래감옥: 30초마다 보스 주위에 모래감옥을 세웁니다. 생성(Lv.1 1.5초~Lv.5 0.7초) 중 보스가 빠져나가면 MISS, 붙잡히면 감금(Lv.1 2.3초~Lv.5 4.0초) 동안 좌우 이동이 감옥 안으로 제한됩니다. Lv.3-4는 30%로 1회, Lv.5는 50%로 최대 2회 다시 소환합니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/rahoset_lingpet_live2d_anchor_v1_magenta_source.png",
-		"note": "Rahoset is debug-only. The Sand Prison active-skill runtime shipped 2026-07-02 (lingpet_sand_prison_skill + host/dispatcher wiring, sealed by lingpet_sand_prison_skill_smoke); the skill card/icon still reuse the anchor art. In-game companion sheets are now REAR-VIEW (뒷모습): companion_idle/move/walk/cast use rahoset_companion_rear_hover_25f (custom AutoSprite strict-back-view wing-flap hover), companion_strike uses rahoset_companion_rear_strike_25f (rear forward dive, wings sweep, impact remapped to animator cell 22). This replaces the earlier front-hover placeholder (superseded/removed) so the flight pet faces away like the other pets. Acquisition/click/panel playback still use the AutoSprite-derived staff-action transition sheet (frame 0 matches the acquisition hover angle, then eases into the raised-staff open-wing action pose). Keep it out of the random hatch pool until dedicated Sand Prison card/icon art and in-game QA are accepted.",
+		"note": "Rahoset is debug-only. The Sand Prison active-skill runtime shipped 2026-07-02 (lingpet_sand_prison_skill + host/dispatcher wiring, sealed by lingpet_sand_prison_skill_smoke); dedicated Sand Prison card/icon art is now accepted for debug-only use. In-game companion sheets are now REAR-VIEW (뒷모습): companion_idle/move/walk/cast use rahoset_companion_rear_hover_25f (custom AutoSprite strict-back-view wing-flap hover), companion_strike uses rahoset_companion_rear_strike_25f (rear forward dive, wings sweep, impact remapped to animator cell 22). This replaces the earlier front-hover placeholder (superseded/removed) so the flight pet faces away like the other pets. Acquisition/click/panel playback still use the AutoSprite-derived staff-action transition sheet (frame 0 matches the acquisition hover angle, then eases into the raised-staff open-wing action pose). Rahoset was promoted to the production hatch pool (enabled:true) on 2026-07-04, keeping debug_enabled:true for F7 quick-select; pending in-game pixel/feel QA.",
 	},
 	"orosha": {
 		"id": "orosha",

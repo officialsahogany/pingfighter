@@ -31,11 +31,14 @@ func _init() -> void:
 func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.has_pet("onimaru"), "Onimaru should be runtime-activatable for F7 debug")
 	_expect(LingpetCatalog.is_pet_debug_enabled("onimaru"), "Onimaru should be visible in the F7 debug picker")
-	_expect(not LingpetCatalog.is_pet_enabled("onimaru"), "Onimaru should stay out of the normal hatch pool")
-	_expect(not LingpetCatalog.get_pet_ids().has("onimaru"), "enabled pet ids should not include debug-only Onimaru")
-	_expect(LingpetCatalog.get_debug_pet_ids().has("onimaru"), "debug pet ids should include Onimaru")
-	_expect(LingpetCatalog.get_pet_ids(true).has("onimaru"), "all pet ids should include parked Onimaru metadata")
+	_expect(LingpetCatalog.is_pet_enabled("onimaru"), "Onimaru should be enabled after Headbutt production promotion")
+	_expect(LingpetCatalog.get_pet_ids().has("onimaru"), "enabled pet ids should include live Onimaru")
+	_expect(LingpetCatalog.get_debug_pet_ids().has("onimaru"), "debug pet ids should still include Onimaru for F7 quick-select")
+	_expect(LingpetCatalog.get_pet_ids(true).has("onimaru"), "all pet ids should include Onimaru metadata")
 	_expect(LingpetCatalog.get_display_name("onimaru") == "오니마루", "Onimaru should expose the accepted Korean display name")
+	var effect_text := LingpetCatalog.get_effect_text("onimaru")
+	_expect(effect_text.find("뿔박치기") >= 0, "Onimaru effect text should describe the Headbutt active skill")
+	_expect(effect_text.find("디버그") < 0, "Onimaru production effect text should not leak debug wording into the character-info panel")
 	var active_pool := LingpetCatalog.get_active_skill_pool("onimaru")
 	_expect(active_pool.size() == 1, "Onimaru should expose exactly one accepted debug active skill")
 	var active_skill: Dictionary = active_pool[0] if not active_pool.is_empty() else {}
@@ -47,7 +50,7 @@ func _verify_catalog_entry() -> void:
 		"league_mode": "junior",
 		"character_type": "smasher",
 	}, [])
-	_expect(not hatch_candidates.has("onimaru"), "Onimaru should not enter the random hatch pool while debug-only")
+	_expect(hatch_candidates.has("onimaru"), "Onimaru should enter the random hatch pool after production promotion")
 
 
 func _verify_visual_paths() -> void:
@@ -127,7 +130,10 @@ func _verify_acquire_host_loads_visible_cutin_textures() -> void:
 	var anim_path := LingpetCatalog.get_visual_path("onimaru", "cutin_anim")
 	var host := LingpetAcquireCutinOverlayHost.new()
 	_expect(ProjectResourceLoader.get_cached_texture(anim_path) == null, "Onimaru acquisition sheet should start cold for the visibility guard")
-	_expect(host.is_pet_cutin_anim_ready("onimaru"), "Onimaru acquisition readiness should secure the animated cut-in sheet instead of waiting forever on an empty cache")
+	for _i in range(320):
+		if host.prewarm_pet_assets_step("onimaru", true):
+			break
+	_expect(host.is_pet_cutin_anim_ready("onimaru"), "Onimaru acquisition readiness should observe the prepared animated cut-in sheet")
 	_expect(ProjectResourceLoader.get_cached_texture(anim_path) != null, "Onimaru acquisition readiness should cache the cut-in Live2D sheet")
 	host._sync_assets_for_pet("onimaru")
 	_expect(host._cutin_anim_sheet != null, "Onimaru acquisition host should draw with the catalog cut-in sheet after sync")
@@ -147,7 +153,9 @@ func _expect_manifest_grid(path: String, cols: int, rows: int, frame_count: int,
 	_expect(data is Dictionary, "%s should parse as manifest JSON" % path)
 	if not (data is Dictionary):
 		return
-	var grid: Dictionary = (data as Dictionary).get("grid", {})
+	var grid: Dictionary = (data as Dictionary).get("runtime_sheet", {})
+	if grid.is_empty() or not grid.has("cols"):
+		grid = (data as Dictionary).get("grid", {})
 	_expect(int(grid.get("cols", 0)) == cols, "%s cols should match runtime contract" % path)
 	_expect(int(grid.get("rows", 0)) == rows, "%s rows should match runtime contract" % path)
 	_expect(int(grid.get("frame_count", 0)) == frame_count, "%s frame count should match runtime contract" % path)
