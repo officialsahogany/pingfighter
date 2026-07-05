@@ -622,6 +622,8 @@ func _draw_cost_and_cooldown_line(
 func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context: Dictionary) -> String:
 	var description: String = str(skill_data.get("description", ""))
 	var skill_name: String = str(skill_data.get("name", ""))
+	if skill_name in ["drive", "power_smashing"]:
+		return _append_combo_amplifier_runtime_bonus(description, hover_context, skill_name)
 	if skill_name == "dual_glitch":
 		return _append_dual_glitch_runtime_bonus(description, hover_context)
 	if skill_name == "ignition_aura":
@@ -653,8 +655,39 @@ func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context
 	return "%s\n%s" % [description, "\n".join(lines)]
 
 
+# 콤보증폭칩(enhancer)이 드라이브/파워스매싱 orb 스킬의 콤보 항을 증폭하므로, 대상 orb
+# 툴팁에 현재 효과값 시너지 라인을 노출(CLAUDE.md: enhancer는 target orb tooltip에 live값 표시).
+func _append_combo_amplifier_runtime_bonus(description: String, hover_context: Dictionary, skill_name: String) -> String:
+	var level: int = _get_runtime_skill_level(hover_context, "combo_amplifier_chip")
+	if level <= 0:
+		return description
+	var is_drive: bool = skill_name == "drive"
+	var pct_a: int = level * 90 if is_drive else level * 45
+	var pct_b: int = mini(level, 3) * 5 if is_drive else mini(level * 10, 50)
+	return "%s\n%s" % [description, _format_combo_amplifier_line(is_drive, pct_a, pct_b)]
+
+
+func _format_combo_amplifier_line(is_drive: bool, pct_a: int, pct_b: int) -> String:
+	var lang := LanguageSettings.get_language()
+	if lang == LanguageSettings.LANGUAGE_ENGLISH:
+		return ("Combo Amp: drive combo speed +%d%%, curve +%d%%" if is_drive else "Combo Amp: power smash combo speed +%d%%, boost retention +%d%%") % [pct_a, pct_b]
+	if lang == LanguageSettings.LANGUAGE_CHINESE:
+		return ("连击增幅：回旋球连击球速 +%d%%，曲线 +%d%%" if is_drive else "连击增幅：强力粉碎连击球速 +%d%%，增幅维持 +%d%%") % [pct_a, pct_b]
+	if lang == LanguageSettings.LANGUAGE_JAPANESE:
+		return ("コンボ増幅：ドライブのコンボ球速 +%d%%、カーブ +%d%%" if is_drive else "コンボ増幅：パワースマッシュのコンボ球速 +%d%%、ブースト維持 +%d%%") % [pct_a, pct_b]
+	if lang == LanguageSettings.LANGUAGE_SPANISH:
+		return ("Amp. de combo: velocidad de combo de Drive +%d%%, curva +%d%%" if is_drive else "Amp. de combo: velocidad de combo de Power Smashing +%d%%, retención de impulso +%d%%") % [pct_a, pct_b]
+	if lang == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
+		return ("Amp. de combo: velocidade de combo do Drive +%d%%, curva +%d%%" if is_drive else "Amp. de combo: velocidade de combo do Power Smashing +%d%%, retenção de impulso +%d%%") % [pct_a, pct_b]
+	if lang == LanguageSettings.LANGUAGE_RUSSIAN:
+		return ("Усиление комбо: скорость комбо Drive +%d%%, кривая +%d%%" if is_drive else "Усиление комбо: скорость комбо Power Smashing +%d%%, удержание ускорения +%d%%") % [pct_a, pct_b]
+	return ("콤보증폭칩: 드라이브 콤보 공속 +%d%%, 커브 +%d%%" if is_drive else "콤보증폭칩: 파워스매시 콤보 공속 +%d%%, 부스트 유지 +%d%%") % [pct_a, pct_b]
+
+
 func _get_description_max_lines(skill_data: Dictionary, hover_context: Dictionary) -> int:
 	var skill_name: String = str(skill_data.get("name", ""))
+	if skill_name in ["drive", "power_smashing"] and _get_runtime_skill_level(hover_context, "combo_amplifier_chip") > 0:
+		return 6
 	if skill_name in ["blade_rush", "dark_blade"] and _get_runtime_skill_level(hover_context, "blade_amp") > 0:
 		return 7
 	if skill_name in ["shadow_step", "marshal_kick", "phantom_kick", "core_flip"] and _get_runtime_skill_level(hover_context, "kick_enhance") > 0:

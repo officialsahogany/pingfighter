@@ -26,7 +26,9 @@ func apply(
 	accel_scale: float,
 	ball_physics: Object,
 	combo_min_count: int,
-	text_duration_frames: float
+	text_duration_frames: float,
+	combo_amp_speed: float = 0.0,
+	combo_amp_curve: float = 0.0
 ) -> Dictionary:
 	var combo_active: bool = combo_count >= combo_min_count
 	var drive_speed_mult: float = DRIVE_NO_COMBO_SPEED_MULT
@@ -37,15 +39,17 @@ func apply(
 	var drive_particle_count: int = 4
 	if combo_active:
 		drive_speed_mult = SMASHER_DRIVE_COMBO_SPEED_MULT
+		# 콤보증폭칩: 공속 콤보 항(rate+cap)만 증폭. base 배율(SMASHER_DRIVE_COMBO_SPEED_MULT)은 비증폭.
 		drive_speed_bypass_bonus = min(
-			float(combo_count) * SMASHER_DRIVE_COMBO_SPEED_PER_COMBO,
-			SMASHER_DRIVE_COMBO_SPEED_CAP
+			float(combo_count) * SMASHER_DRIVE_COMBO_SPEED_PER_COMBO * (1.0 + combo_amp_speed),
+			SMASHER_DRIVE_COMBO_SPEED_CAP * (1.0 + combo_amp_speed)
 		)
 		drive_base_spin = 0.22 * DRIVE_EFFECT_MULT
 		drive_speed_spin_coeff = 0.012 * DRIVE_EFFECT_MULT
+		# 콤보증폭칩: 커브 상한 콤보 항(rate+max)만 증폭. base 0.52*MULT는 비증폭.
 		drive_spin_cap = 0.52 * DRIVE_EFFECT_MULT + min(
-			float(combo_count) * SMASHER_DRIVE_COMBO_SPIN_CAP_PER_COMBO,
-			SMASHER_DRIVE_COMBO_SPIN_CAP_BONUS_MAX
+			float(combo_count) * SMASHER_DRIVE_COMBO_SPIN_CAP_PER_COMBO * (1.0 + combo_amp_curve),
+			SMASHER_DRIVE_COMBO_SPIN_CAP_BONUS_MAX * (1.0 + combo_amp_curve)
 		)
 		drive_particle_count = 8 + combo_count * SMASHER_DRIVE_COMBO_PARTICLE_PER_COMBO
 
@@ -67,9 +71,10 @@ func apply(
 
 	var drive_combo_spin_bonus: float = 0.0
 	if combo_active:
+		# 콤보증폭칩: 커브(스핀) 콤보 항(rate+cap)만 증폭.
 		drive_combo_spin_bonus = min(
-			float(combo_count) * SMASHER_DRIVE_COMBO_SPIN_PER_COMBO,
-			SMASHER_DRIVE_COMBO_SPIN_CAP
+			float(combo_count) * SMASHER_DRIVE_COMBO_SPIN_PER_COMBO * (1.0 + combo_amp_curve),
+			SMASHER_DRIVE_COMBO_SPIN_CAP * (1.0 + combo_amp_curve)
 		)
 	var spin_strength: float = min(
 		drive_spin_cap,

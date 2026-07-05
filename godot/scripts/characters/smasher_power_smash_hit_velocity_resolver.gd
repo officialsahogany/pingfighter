@@ -26,7 +26,8 @@ func apply(
 	base_speed: float,
 	ball_physics: Object,
 	combo_min_count: int,
-	launch_speed_multiplier: float = 1.0
+	launch_speed_multiplier: float = 1.0,
+	smash_speed_amp: float = 0.0
 ) -> Vector2:
 	if power_state == null:
 		return ball_velocity
@@ -78,16 +79,18 @@ func apply(
 		var boost_ratio: float = _apply_dampened_multiplier(ball_physics, final_speed, initial_boost_multiplier)
 		ball_velocity *= boost_ratio
 		if combo_boosted:
+			# 콤보증폭칩: 콤보 속도 항(rate+cap)을 (1+amp)로 증폭. base 부스트는 비증폭.
 			var combo_final_bonus: float = min(
-				float(combo_consumed) * POWER_SMASH_COMBO_SPEED_PER_COUNT,
-				POWER_SMASH_COMBO_SPEED_CAP
+				float(combo_consumed) * POWER_SMASH_COMBO_SPEED_PER_COUNT * (1.0 + smash_speed_amp),
+				POWER_SMASH_COMBO_SPEED_CAP * (1.0 + smash_speed_amp)
 			)
 			ball_velocity *= 1.0 + combo_final_bonus
 		ball_velocity = _clamp_launch_speed(
 			ball_velocity,
 			base_speed,
 			combo_boosted,
-			safe_launch_speed_multiplier
+			safe_launch_speed_multiplier,
+			smash_speed_amp
 		)
 		power_state.start_initial_boost(ball_velocity.length())
 
@@ -110,12 +113,18 @@ func _clamp_launch_speed(
 	ball_velocity: Vector2,
 	base_speed: float,
 	combo_boosted: bool,
-	max_speed_multiplier: float = 1.0
+	max_speed_multiplier: float = 1.0,
+	smash_speed_amp: float = 0.0
 ) -> Vector2:
 	var current_speed: float = ball_velocity.length()
 	if current_speed <= 0.0:
 		return ball_velocity
 	var max_mult: float = POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT if combo_boosted else POWER_SMASH_MAX_LAUNCH_SPEED_MULT
+	# 콤보증폭칩: 콤보 발사 천장도 (1+amp)로 완화해야 콤보 속도 증폭이 실제로 발현된다.
+	# 미적용 시 base 부스트가 이미 2.40x 캡을 포화시켜(실측: BALL_BASE_SPEED에서 Lv0==Lv5==18.389)
+	# amp가 죽는다. 전역 공속 캡이 상한을 별도 보장. base(무콤보) 발사 캡은 비증폭.
+	if combo_boosted and smash_speed_amp > 0.0:
+		max_mult *= 1.0 + smash_speed_amp
 	var max_speed: float = max(base_speed, 0.1) * max_mult * max(1.0, max_speed_multiplier)
 	if current_speed <= max_speed:
 		return ball_velocity

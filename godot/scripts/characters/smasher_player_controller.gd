@@ -170,7 +170,14 @@ func update(
 		next_special_gauge = float(plasma_result.get("special_gauge", next_special_gauge))
 
 	var magnum_grip_state: Object = deps.get("smasher_magnum_grip_state", null)
-	if not wheel_active and magnum_grip_state != null and magnum_grip_state.has_method("update_input"):
+	var skill_input_locked: bool = bool(config.get("player_skill_input_locked", false))
+	if magnum_grip_state != null and skill_input_locked:
+		# Transform locks preserve left/right movement, so release left+right skills explicitly.
+		if magnum_grip_state.has_method("force_release_for_lock") and bool(magnum_grip_state.force_release_for_lock()):
+			var audio = deps.get("audio", null)
+			if audio != null and audio.has_method("stop_magnum_grip"):
+				audio.stop_magnum_grip()
+	elif not wheel_active and magnum_grip_state != null and magnum_grip_state.has_method("update_input"):
 		var magnum_result: Dictionary = magnum_grip_state.update_input(
 			input_snapshot,
 			current_msec,

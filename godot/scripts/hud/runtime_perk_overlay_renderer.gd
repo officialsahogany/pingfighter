@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -25,6 +26,8 @@ const FLIGHT_ARRIVAL_ARC_SEGMENTS := 10
 const PERK_UNLOCK_SYMBOL_ARC_SEGMENTS := 20
 const PERK_FALLBACK_SYMBOL_ARC_SEGMENTS := 24
 const TITLE_TEXT := "스킬 강화!"
+const UNLOCK_SHOWCASE_TITLE_TEXT := "새 스킬 획득!"
+const UNLOCK_SHOWCASE_PROMPT_TEXT := "아무 키나 눌러 계속"
 const TITLE_FONT_SIZE := 34
 const TITLE_SHADOW_DRAW_COUNT := 1
 const TEXT_FIT_CACHE_LIMIT := 160
@@ -50,6 +53,8 @@ func prewarm_assets() -> void:
 	_get_title_text_size(font)
 	for sample in [
 		{"text": TITLE_TEXT, "size": TITLE_FONT_SIZE},
+		{"text": UNLOCK_SHOWCASE_TITLE_TEXT, "size": 24},
+		{"text": UNLOCK_SHOWCASE_PROMPT_TEXT, "size": 14},
 		{"text": "Lv.1", "size": 18},
 		{"text": "Lv.5", "size": 18},
 		{"text": "+1", "size": 11},
@@ -112,6 +117,15 @@ func draw(
 	var sample_start: int = _perf_begin(perf_logger)
 	var snapshot: Dictionary = runtime_state.get_snapshot()
 	_perf_end(perf_logger, "hud.perk_overlay.snapshot", sample_start)
+	if runtime_state.has_method("is_unlock_showcase_active") and bool(runtime_state.is_unlock_showcase_active()):
+		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.68))
+		sample_start = _perf_begin(perf_logger)
+		_draw_particles(canvas, snapshot)
+		_perf_end(perf_logger, "hud.perk_overlay.unlock_showcase_particles", sample_start)
+		sample_start = _perf_begin(perf_logger)
+		_draw_unlock_showcase(canvas, snapshot, view_size, icon_renderer)
+		_perf_end(perf_logger, "hud.perk_overlay.unlock_showcase", sample_start)
+		return
 	if runtime_state.has_method("has_pending_unlock_swap") and bool(runtime_state.has_pending_unlock_swap()):
 		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.68))
 		sample_start = _perf_begin(perf_logger)
@@ -309,6 +323,101 @@ func _draw_card(canvas: CanvasItem, choice: Dictionary, rect: Rect2, selected: b
 		canvas.draw_rect(badge_rect, Color(18.0 / 255.0, 32.0 / 255.0, 42.0 / 255.0, 0.92 * alpha))
 		canvas.draw_rect(badge_rect, Color(icon_color.r, icon_color.g, icon_color.b, 0.82 * alpha), false, 1.0)
 		_draw_text_centered(canvas, "A", badge_rect.get_center() + Vector2(0.0, 1.0), 12, Color(1.0, 1.0, 1.0, alpha))
+
+
+func _draw_unlock_showcase(canvas: CanvasItem, snapshot: Dictionary, view_size: Vector2, icon_renderer: Object) -> void:
+	var showcase: Dictionary = _get_dict(snapshot.get("unlock_showcase", {}))
+	if not bool(showcase.get("active", false)):
+		return
+	var font: Font = _get_font()
+	if font == null:
+		return
+	var age: float = float(showcase.get("age", 0.0))
+	var alpha: float = clamp(age / 0.18, 0.0, 1.0)
+	if alpha <= 0.001:
+		return
+	var skill_id: String = str(showcase.get("skill_id", ""))
+	var skill_data: Dictionary = _get_dict(showcase.get("skill_data", {}))
+	var choice: Dictionary = _get_dict(showcase.get("choice", {}))
+	var color: Color = _get_color(skill_data.get("color", choice.get("icon_color", Color(90.0 / 255.0, 190.0 / 255.0, 1.0))))
+	var skill_name: String = str(skill_data.get("korean", skill_data.get("name", choice.get("name", skill_id))))
+	var how_to_use: String = _normalize_keycap_message(str(skill_data.get("how_to_use", "")))
+	var motion_hint: String = str(skill_data.get("motion_hint", ""))
+	var panel_width: float = min(max(460.0, view_size.x - 96.0), 640.0)
+	var panel_height: float = 268.0
+	if how_to_use == "":
+		panel_height -= 34.0
+	if motion_hint == "":
+		panel_height -= 24.0
+	var panel_rect := Rect2(
+		Vector2(floor((view_size.x - panel_width) * 0.5), floor((view_size.y - panel_height) * 0.5)),
+		Vector2(panel_width, panel_height)
+	)
+	var pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.006)
+	for grow in [16.0, 9.0, 4.0]:
+		canvas.draw_rect(panel_rect.grow(grow), Color(color.r, color.g, color.b, (0.06 + 0.06 * pulse) * alpha), false, max(1.0, 5.0 - grow * 0.18))
+	canvas.draw_rect(panel_rect, Color(12.0 / 255.0, 18.0 / 255.0, 32.0 / 255.0, 0.95 * alpha))
+	canvas.draw_rect(panel_rect, Color(color.r, color.g, color.b, 0.76 * alpha), false, 2.4)
+	canvas.draw_line(panel_rect.position + Vector2(24.0, 82.0), Vector2(panel_rect.end.x - 24.0, panel_rect.position.y + 82.0), Color(color.r, color.g, color.b, 0.34 * alpha), 1.0)
+
+	_draw_text_centered(canvas, UNLOCK_SHOWCASE_TITLE_TEXT, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 36.0), 24, Color(1.0, 225.0 / 255.0, 125.0 / 255.0, alpha))
+
+	var icon_rect := Rect2(panel_rect.position + Vector2(34.0, 101.0), Vector2(72.0, 72.0))
+	canvas.draw_rect(icon_rect, Color(7.0 / 255.0, 12.0 / 255.0, 22.0 / 255.0, 0.90 * alpha))
+	canvas.draw_rect(icon_rect, Color(color.r, color.g, color.b, 0.58 * alpha), false, 1.6)
+	var icon_choice := choice.duplicate(true)
+	icon_choice["id"] = skill_id
+	icon_choice["icon_id"] = skill_id
+	icon_choice["icon_color"] = color
+	_draw_icon(canvas, icon_renderer, icon_choice, icon_rect.grow(-7.0), alpha)
+
+	var text_left: float = icon_rect.end.x + 22.0
+	var text_width: float = max(80.0, panel_rect.end.x - text_left - 34.0)
+	_draw_text_fitted(canvas, skill_name, Vector2(text_left, panel_rect.position.y + 132.0), 28, Color(0.96, 0.99, 1.0, alpha), text_width, 17)
+	if motion_hint != "":
+		_draw_text_fitted(canvas, motion_hint, Vector2(text_left, panel_rect.position.y + 164.0), 15, Color(170.0 / 255.0, 190.0 / 255.0, 215.0 / 255.0, 0.92 * alpha), text_width, 11)
+
+	if how_to_use != "":
+		var keycap_y: float = panel_rect.position.y + 210.0
+		var available_width: float = max(120.0, panel_rect.size.x - 56.0)
+		var keycap_font_size: int = TutorialHintKeycapRenderer.fit_font_size(font, how_to_use, available_width, 23, 13)
+		TutorialHintKeycapRenderer.draw_centered_line(canvas, font, how_to_use, Vector2(panel_rect.get_center().x, keycap_y), keycap_font_size, alpha)
+
+	var blink: float = 0.55 + 0.45 * sin(float(_get_draw_msec()) * 0.005)
+	_draw_text_centered(
+		canvas,
+		UNLOCK_SHOWCASE_PROMPT_TEXT,
+		Vector2(panel_rect.get_center().x, panel_rect.end.y - 27.0),
+		14,
+		Color(185.0 / 255.0, 200.0 / 255.0, 225.0 / 255.0, (0.58 + 0.34 * blink) * alpha)
+	)
+
+
+func _normalize_keycap_message(text: String) -> String:
+	var words: Array = []
+	for raw_word in text.split(" ", false):
+		words.append(_normalize_joined_keycap_token(str(raw_word)))
+	return " ".join(words)
+
+
+func _normalize_joined_keycap_token(token: String) -> String:
+	for separator in ["/", "-", "+"]:
+		if token.find(separator) < 0:
+			continue
+		var pieces: PackedStringArray = token.split(separator, false)
+		if pieces.size() < 2:
+			continue
+		var normalized: Array = []
+		var all_key_tokens := true
+		for piece in pieces:
+			var clean_piece: String = str(piece).strip_edges()
+			if clean_piece == "" or not TutorialHintKeycapRenderer.KEYCAP_TOKENS.has(clean_piece):
+				all_key_tokens = false
+				break
+			normalized.append(clean_piece)
+		if all_key_tokens:
+			return (" %s " % separator).join(normalized)
+	return token
 
 
 func _draw_unlock_swap_dialog(canvas: CanvasItem, runtime_state: Object, snapshot: Dictionary, view_size: Vector2, icon_renderer: Object) -> void:

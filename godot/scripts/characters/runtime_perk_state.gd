@@ -6,7 +6,7 @@ const Stage1PillarUILayout := preload("res://scripts/hud/stage1_pillar_ui_layout
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -23,6 +23,8 @@ const PARTICLE_COUNT := 20
 const PARTICLE_LIFE := 1.45
 const ACTIVE_UNLOCK_FLIGHT_DURATION := 1.86
 const ACTIVE_UNLOCK_FLIGHT_PARTICLE_COUNT := 18
+const UNLOCK_SHOWCASE_MAX_AGE := 6.0
+const UNLOCK_SHOWCASE_MIN_DISMISS_AGE := 0.3
 # Starpoint absorption effect: plays after the perk choice modal fully closes
 # (no more pending picks, no pending unlock swap) so the collected starpoint
 # visually "absorbs" into the player body. Fires from above the player and
@@ -109,6 +111,7 @@ var viper_ignition_aura_owner_sync_dirty := false
 var pending_unlock_swap: Dictionary = {}
 var unlock_swap_selected_index := 0
 var choice_flight_effect: Dictionary = {}
+var unlock_showcase: Dictionary = {}
 # Starpoint absorption effect dict — `active`, `age`, `duration`, `source_pos`
 # (above-head screen pos), `target_pos` (player center screen pos), `particles`
 # (orbital sparkle seeds). Empty when no effect is running.
@@ -155,6 +158,7 @@ func reset() -> void:
 	pending_unlock_swap.clear()
 	unlock_swap_selected_index = 0
 	choice_flight_effect.clear()
+	unlock_showcase.clear()
 	gamepad_choice_horizontal_latch = 0
 	gamepad_unlock_swap_horizontal_latch = 0
 	current_choice_context.clear()
@@ -245,6 +249,7 @@ func open_next_choice(
 	gamepad_choice_horizontal_latch = 0
 	animation_time = 0.0
 	choice_active = true
+	_tick_lingpet_ring_core_offer_cooldown(registry)
 	_pause_skill_cooldowns_for_choice(owner, registry)
 	sample_start = _perf_begin(perf_logger)
 	_build_particles()
@@ -256,11 +261,15 @@ func is_choice_active() -> bool:
 
 
 func is_selectable() -> bool:
-	return choice_active and not is_choice_flight_active() and not has_pending_unlock_swap() and animation_time >= 0.24 and not current_choices.is_empty()
+	return choice_active and not is_choice_flight_active() and not is_unlock_showcase_active() and not has_pending_unlock_swap() and animation_time >= 0.24 and not current_choices.is_empty()
 
 
 func is_choice_flight_active() -> bool:
 	return bool(choice_flight_effect.get("active", false))
+
+
+func is_unlock_showcase_active() -> bool:
+	return bool(unlock_showcase.get("active", false))
 
 
 func has_pending_unlock_swap() -> bool:
@@ -299,6 +308,10 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 		_update_choice_flight_effect(delta, owner, registry, perf_logger)
 	_perf_end(perf_logger, "process.runtime_perk.flight", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	if is_unlock_showcase_active():
+		_update_unlock_showcase(delta, owner, registry, perf_logger)
+	_perf_end(perf_logger, "process.runtime_perk.unlock_showcase", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	if is_starpoint_absorption_active():
 		_update_starpoint_absorption_effect(delta, view_size, owner, registry)
 	_perf_end(perf_logger, "process.runtime_perk.starpoint_absorption", sample_start)
@@ -326,6 +339,8 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 		return false
 	if is_choice_flight_active():
 		return true
+	if is_unlock_showcase_active():
+		return _handle_unlock_showcase_input(event, owner, registry)
 	if has_pending_unlock_swap():
 		return _handle_unlock_swap_input(event, owner, registry, view_size)
 	if GamepadInput.is_gamepad_event(event):
@@ -548,7 +563,8 @@ func choose_selected(owner: Object, registry: Object, view_size: Vector2 = Vecto
 		feedback_timer = 1.4
 		return
 
-	_finish_successful_choice(choice_id, owner, registry, null, choice)
+	_play_perk_select_audio(registry)
+	_finish_or_open_unlock_showcase(choice_id, owner, registry, null, choice)
 
 
 func _try_start_active_unlock_flight(choice: Dictionary, owner: Object, registry: Object, view_size: Vector2) -> bool:
@@ -623,7 +639,7 @@ func _finish_choice_flight_effect(owner: Object, registry: Object, perf_logger: 
 		feedback_timer = 1.4
 		return
 	sample_start = _perf_begin(perf_logger)
-	_finish_successful_choice(choice_id, owner, registry, perf_logger, choice)
+	_finish_or_open_unlock_showcase(choice_id, owner, registry, perf_logger, choice)
 	_perf_end(perf_logger, "process.runtime_perk.flight.finish_success", sample_start)
 
 
@@ -727,6 +743,16 @@ func _play_active_unlock_flight_audio(registry: Object) -> void:
 		game_audio.play_item_get()
 	elif game_audio.has_method("play_runtime_perk_choice_open"):
 		game_audio.play_runtime_perk_choice_open()
+
+
+func _play_perk_select_audio(registry: Object) -> void:
+	# 일반 퍽 확정음. 액티브 언락 퍽은 오브로 날아가는 비행 사운드
+	# (_play_active_unlock_flight_audio)를 별도로 유지하므로 이 경로만 담당한다.
+	var game_audio: Object = _get_instance(registry, "game_audio")
+	if game_audio == null:
+		return
+	if game_audio.has_method("play_runtime_perk_select"):
+		game_audio.play_runtime_perk_select()
 
 
 func is_starpoint_absorption_active() -> bool:
@@ -844,6 +870,110 @@ func _finish_successful_choice(
 	sample_start = _perf_begin(perf_logger)
 	_sync_owner(owner)
 	_perf_end(perf_logger, "process.runtime_perk.finish_success.sync_owner", sample_start)
+
+
+func _finish_or_open_unlock_showcase(
+	choice_id: String,
+	owner: Object,
+	registry: Object,
+	perf_logger: Object,
+	choice: Dictionary = {}
+) -> void:
+	if _should_open_unlock_showcase(choice, owner):
+		_open_unlock_showcase(choice_id, owner, registry, choice)
+		return
+	_finish_successful_choice(choice_id, owner, registry, perf_logger, choice)
+
+
+func _should_open_unlock_showcase(choice: Dictionary, owner: Object) -> bool:
+	if str(choice.get("unlocks_skill", "")) == "":
+		return false
+	var ai_mode: String = BattleSceneConfig.normalize_league_mode(str(_safe_owner_get(owner, "ai_mode", "champion")))
+	return ai_mode == "junior"
+
+
+func _open_unlock_showcase(choice_id: String, owner: Object, registry: Object, choice: Dictionary) -> void:
+	var skill_id: String = str(choice.get("unlocks_skill", ""))
+	var character_type: String = _normalize_character_type(str(choice.get("character_restriction", _get_character_type(owner))))
+	var skill_data: Dictionary = _get_unlock_showcase_skill_data(skill_id, character_type, registry)
+	if skill_data.is_empty():
+		skill_data = {
+			"name": skill_id,
+			"korean": str(choice.get("name", skill_id)),
+			"how_to_use": "",
+			"motion_hint": "",
+			"color": _get_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0))),
+		}
+	elif not skill_data.has("color"):
+		skill_data["color"] = _get_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0)))
+	unlock_showcase = {
+		"active": true,
+		"age": 0.0,
+		"choice_id": choice_id,
+		"choice": choice.duplicate(true),
+		"skill_id": skill_id,
+		"character_type": character_type,
+		"skill_data": skill_data.duplicate(true),
+	}
+	_sync_owner(owner)
+
+
+func _get_unlock_showcase_skill_data(skill_id: String, character_type: String, registry: Object) -> Dictionary:
+	var skill_config: Object = _get_instance(registry, _get_skill_config_key(character_type))
+	if skill_config == null or not skill_config.has_method("get_skill_data"):
+		return {}
+	var value: Variant = skill_config.get_skill_data(skill_id)
+	if value is Dictionary:
+		var data: Dictionary = value
+		return data.duplicate(true)
+	return {}
+
+
+func _update_unlock_showcase(delta: float, owner: Object, registry: Object, perf_logger: Object = null) -> void:
+	if not is_unlock_showcase_active():
+		return
+	var age: float = max(0.0, float(unlock_showcase.get("age", 0.0)) + max(0.0, delta))
+	unlock_showcase["age"] = age
+	if age >= UNLOCK_SHOWCASE_MAX_AGE:
+		_dismiss_unlock_showcase(owner, registry, perf_logger)
+
+
+func _dismiss_unlock_showcase(owner: Object, registry: Object, perf_logger: Object = null) -> bool:
+	if not is_unlock_showcase_active():
+		return false
+	var showcase: Dictionary = unlock_showcase.duplicate(true)
+	unlock_showcase.clear()
+	var choice: Dictionary = _get_dict(showcase.get("choice", {}))
+	var choice_id: String = str(showcase.get("choice_id", choice.get("id", "")))
+	if choice_id == "":
+		_sync_owner(owner)
+		return false
+	_finish_successful_choice(choice_id, owner, registry, perf_logger, choice)
+	return true
+
+
+func _handle_unlock_showcase_input(event: InputEvent, owner: Object, registry: Object) -> bool:
+	var dismiss_requested := false
+	if GamepadInput.is_gamepad_event(event):
+		dismiss_requested = GamepadInput.is_confirm_event(event)
+	elif event is InputEventKey:
+		var key_event: InputEventKey = event
+		dismiss_requested = key_event.pressed and not key_event.echo
+	elif event is InputEventMouseButton:
+		var mouse_event: InputEventMouseButton = event
+		dismiss_requested = mouse_event.pressed and not _is_mouse_wheel_button(mouse_event.button_index)
+	if dismiss_requested and float(unlock_showcase.get("age", 0.0)) >= UNLOCK_SHOWCASE_MIN_DISMISS_AGE:
+		_dismiss_unlock_showcase(owner, registry)
+	return true
+
+
+func _is_mouse_wheel_button(button_index: int) -> bool:
+	return (
+		button_index == MOUSE_BUTTON_WHEEL_UP
+		or button_index == MOUSE_BUTTON_WHEEL_DOWN
+		or button_index == MOUSE_BUTTON_WHEEL_LEFT
+		or button_index == MOUSE_BUTTON_WHEEL_RIGHT
+	)
 
 
 func _build_selected_choice_snapshot(choice_id: String, choice: Dictionary) -> Dictionary:
@@ -992,14 +1122,18 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 		return true
 
 	if choice_id == "common_refresh":
-		runtime_skill_levels[choice_id] = int(runtime_skill_levels.get(choice_id, 0)) + 1
+		# Instant one-shot perk: only re-open a choice. Do NOT write into
+		# runtime_skill_levels — that dict is the "collected perks" source for
+		# the character-info grid, and every other instant perk (convert_to_gold,
+		# instant_gauge_full, treasure_hunt, ...) returns without writing.
 		pending_skill_choices += 1
 		feedback_text = "선택지 새로고침"
 		feedback_timer = 1.0
 		return true
 
 	if choice_id == "star_change":
-		runtime_skill_levels[choice_id] = int(runtime_skill_levels.get(choice_id, 0)) + 1
+		# Instant one-shot perk: grant starpoints only. See common_refresh note —
+		# no runtime_skill_levels write, or it leaks into the collected-perk grid.
 		starpoint_for_skills += 3
 		while starpoint_for_skills >= STARPOINT_PER_SKILL_CHOICE:
 			starpoint_for_skills -= STARPOINT_PER_SKILL_CHOICE
@@ -1099,6 +1233,7 @@ func get_snapshot() -> Dictionary:
 		"pending_unlock_swap": pending_unlock_swap.duplicate(true),
 		"unlock_swap_selected_index": unlock_swap_selected_index,
 		"choice_flight_effect": choice_flight_effect.duplicate(true),
+		"unlock_showcase": unlock_showcase.duplicate(true),
 		"starpoint_absorption_effect": starpoint_absorption_effect.duplicate(true),
 		"feedback_text": feedback_text,
 		"feedback_timer": feedback_timer,
@@ -1174,6 +1309,22 @@ func get_runtime_skill_bonus(skill_id: String) -> float:
 		PERK_LAUREL_SHIELD_ID:
 			return float(level)
 	return 0.0
+
+
+# Smasher 콤보증폭칩: 콤보 소모형 드라이브/파워스매싱의 콤보 비례 항을 추가 증폭.
+# Python get_combo_amplifier_chip_bonus()(pingfighter.py) 패리티. GDScript는 튜플
+# 미지원이라 Dictionary 반환. 레벨은 유효레벨(아이템/점화 오버플로우 포함)을 쓰되,
+# 커브 레인만 mini(level,3)로 Lv3 하드캡(밸런스 보호) — drive/power-smash 주입부에서
+# (1.0 + amp)로 콤보 항에만 곱한다(base 상수는 비증폭).
+func get_combo_amplifier_chip_bonus() -> Dictionary:
+	var level: int = get_runtime_skill_level("combo_amplifier_chip")
+	if level <= 0:
+		return {"drive_speed": 0.0, "drive_curve": 0.0, "smash_speed": 0.0}
+	return {
+		"drive_speed": float(level) * 0.90,
+		"smash_speed": float(level) * 0.45,
+		"drive_curve": float(mini(level, 3)) * 0.05,
+	}
 
 
 func get_dash_recharge_frames(base_frames: float) -> float:
@@ -1677,7 +1828,7 @@ func confirm_pending_unlock_swap(owner: Object, registry: Object) -> bool:
 	gamepad_unlock_swap_horizontal_latch = 0
 	feedback_text = "%s 교체 완료" % str(choice.get("name", choice_id))
 	feedback_timer = 1.1
-	_finish_successful_choice(choice_id, owner, registry)
+	_finish_or_open_unlock_showcase(choice_id, owner, registry, null, choice)
 	return true
 
 
@@ -1918,7 +2069,7 @@ func _apply_lingpet_ring_core_upgrade(_owner: Object, registry: Object, requeste
 	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
 	if runtime == null or not runtime.has_method("upgrade_run_ring_core_tier"):
 		return {"accepted": false, "blocked_reason": "missing_lingpet_runtime"}
-	var max_tier := LingpetAffinityStore.MAX_RING_CORE_TIER
+	var max_tier := LingpetRingCoreRules.MAX_RING_CORE_TIER
 	var current_tier := 0
 	if runtime.has_method("get_run_ring_core_tier"):
 		current_tier = clampi(int(runtime.get_run_ring_core_tier()), 0, max_tier)
@@ -1951,7 +2102,7 @@ func _apply_lingpet_ring_core_upgrade(_owner: Object, registry: Object, requeste
 
 
 func _get_lingpet_ring_core_tier_name(tier: int) -> String:
-	var clamped_tier := clampi(tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var clamped_tier := clampi(tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
 		match clamped_tier:
 			1:
@@ -2136,6 +2287,12 @@ func _resume_skill_cooldowns_for_choice() -> void:
 	var skill_tooltip_driver: Object = _get_instance(registry, "battle_scene_skill_tooltip_driver")
 	if skill_tooltip_driver != null and skill_tooltip_driver.has_method("resume_skill_cooldowns"):
 		skill_tooltip_driver.resume_skill_cooldowns(owner, registry)
+
+
+func _tick_lingpet_ring_core_offer_cooldown(registry: Object) -> void:
+	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime != null and runtime.has_method("tick_ring_core_offer_cooldown"):
+		runtime.tick_ring_core_offer_cooldown()
 
 
 func _sync_runtime_perk_owner_effects(owner: Object, registry: Object, perf_logger: Object = null) -> void:

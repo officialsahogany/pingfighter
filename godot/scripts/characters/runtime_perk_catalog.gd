@@ -3,20 +3,23 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
 const BASE_CHOICE_COUNT := 3
 const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
 const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
+const LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER := 1
+const LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER := [1, 1, 1, 0, 0, 0, 0]
+const LINGPET_RING_CORE_PRIORITY_KEY := "_lingpet_ring_core_reserved"
 const LINGPET_GATED_CHOICE_IDS := {
 	LINGPET_AFFINITY_CHIP_CHOICE_ID: true,
 	LINGPET_RING_CORE_UPGRADE_CHOICE_ID: true,
 }
 const LINGPET_RING_CORE_UPGRADE_PERK := {
 	"name": "링코어 강화",
-	"max_level": LingpetAffinityStore.MAX_RING_CORE_TIER,
+	"max_level": LingpetRingCoreRules.MAX_RING_CORE_TIER,
 	"descriptions": {
 		1: "링코어를 스탠다드로 강화합니다.",
 		2: "링코어를 부스트로 강화합니다.",
@@ -421,6 +424,21 @@ const SMASHER_PERKS := {
 		"tree": "smasher",
 		"character_restriction": "smasher",
 	},
+	"combo_amplifier_chip": {
+		"name": "콤보증폭칩",
+		"max_level": 5,
+		"descriptions": {
+			1: "콤보 효과 증폭: 드라이브 공속+90%, 커브+5%, 파워스매시 공속+45%, 초기부스트 감쇄 -10%",
+			2: "콤보 효과 증폭: 드라이브 공속+180%, 커브+10%, 파워스매시 공속+90%, 초기부스트 감쇄 -20%",
+			3: "콤보 효과 증폭: 드라이브 공속+270%, 커브+15%, 파워스매시 공속+135%, 초기부스트 감쇄 -30%",
+			4: "콤보 효과 증폭: 드라이브 공속+360%, 커브+15%(캡), 파워스매시 공속+180%, 초기부스트 감쇄 -40%",
+			5: "콤보 효과 증폭: 드라이브 공속+450%, 커브+15%(캡), 파워스매시 공속+225%, 초기부스트 감쇄 -50%(캡)",
+		},
+		"detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 레벨에 따라 계속 증가하지만, 드라이브 커브 증폭은 Lv3에서 캡됩니다(밸런스 보호). 또한 파워스매싱의 초기 부스트 감쇄가 완만해져 폭발력이 더 오래 유지됩니다.",
+		"icon_color": Color(1.0, 100.0 / 255.0, 200.0 / 255.0),
+		"tree": "smasher",
+		"character_restriction": "smasher",
+	},
 }
 
 const VIPER_PERKS := {
@@ -657,13 +675,13 @@ const SOLDIER_PERKS := {
 		"name": "권총강화",
 		"max_level": 5,
 		"descriptions": {
-			1: "기본권총 정확도 ±12°, 탄속·넉백 +10%, 탄창 5발",
-			2: "기본권총 정확도 ±9°, 탄속·넉백 +20%, 탄창 5발",
-			3: "기본권총 정확도 ±6°, 탄속·넉백 +30%, 탄창 6발",
-			4: "기본권총 정확도 ±3°, 탄속·넉백 +40%, 탄창 6발",
-			5: "기본권총 정확도 ±1°, 탄속·넉백 +50%, 탄창 7발",
+			1: "기본권총 정확도 ±12°, 탄속 +10%, 넉백 +30%, 탄창 5발",
+			2: "기본권총 정확도 ±9°, 탄속 +20%, 넉백 +60%, 탄창 5발",
+			3: "기본권총 정확도 ±6°, 탄속 +30%, 넉백 +90%, 탄창 6발",
+			4: "기본권총 정확도 ±3°, 탄속 +40%, 넉백 +120%, 탄창 6발",
+			5: "기본권총 정확도 ±1°, 탄속 +50%, 넉백 +150%, 탄창 7발",
 		},
-		"detail": "기본권총 전용 강화입니다. 베레타는 영향을 받지 않습니다.\n레벨이 오를수록 기본권총 탄퍼짐이 줄고 탄속과 정상타 넉백이 10%씩 증가하며, Lv.3/Lv.5에 탄창이 늘어납니다.\n효과 레벨이 Lv.6 이상이면 정확도는 ±1°, 탄속과 넉백은 +50%에 머물고 탄창만 레벨마다 1발씩 계속 늘어납니다.",
+		"detail": "기본권총 전용 강화입니다. 베레타는 영향을 받지 않습니다.\n레벨이 오를수록 기본권총 탄퍼짐이 줄고 탄속은 10%씩, 정상타 넉백은 30%씩 증가하며, Lv.3/Lv.5에 탄창이 늘어납니다.\n효과 레벨이 Lv.6 이상이면 정확도는 ±1°, 탄속은 +50%, 넉백은 +150%에 머물고 탄창만 레벨마다 1발씩 계속 늘어납니다.",
 		"icon_color": Color(210.0 / 255.0, 175.0 / 255.0, 92.0 / 255.0),
 		"tree": "soldier",
 		"character_restriction": "soldier",
@@ -765,8 +783,15 @@ func get_choices(
 		_append_instant_choices(choices)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
+	var ring_core_reservation: Dictionary = _extract_lingpet_ring_core_reserved_choices(choices, target_choice_count)
+	var reserved_choices: Array = ring_core_reservation.get("reserved", []) as Array
+	choices = ring_core_reservation.get("remaining", []) as Array
 	choices.shuffle()
 	var result: Array = []
+	for reserved_choice in reserved_choices:
+		if result.size() >= target_choice_count:
+			break
+		result.append(reserved_choice)
 	for choice in choices:
 		if result.size() >= target_choice_count:
 			break
@@ -826,7 +851,7 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		chip_choice["id"] = LINGPET_AFFINITY_CHIP_CHOICE_ID
 		return LanguageSettings.localize_perk_data(chip_choice)
 	if skill_id == LINGPET_RING_CORE_UPGRADE_CHOICE_ID:
-		var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+		var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 		ring_core_choice["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
 		return LanguageSettings.localize_perk_data(ring_core_choice)
 	return {}
@@ -843,7 +868,7 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	gold_choice["id"] = "convert_to_gold"
 	gold_choice["debug_group"] = "instant"
 	entries.append(LanguageSettings.localize_perk_data(gold_choice))
-	var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	ring_core_choice["debug_group"] = "lingpet"
 	entries.append(LanguageSettings.localize_perk_data(ring_core_choice))
 	entries.sort_custom(func(a, b): return _debug_sort_key(a) < _debug_sort_key(b))
@@ -877,6 +902,9 @@ func _append_instant_choices(output: Array) -> void:
 func _append_lingpet_affinity_chip_choice(output: Array, owner: Object, registry: Object) -> void:
 	if not _has_lingpet_owned_gate(owner):
 		return
+	var ring_core_tier := _get_lingpet_run_ring_core_tier(registry)
+	if ring_core_tier < LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER:
+		return
 	var chip_count := _get_lingpet_affinity_chip_count(registry)
 	var max_chips := int(LINGPET_AFFINITY_CHIP_PERK.get("max_level", LingpetAffinityState.MAX_ENHANCEMENT_CHIPS))
 	if chip_count >= max_chips:
@@ -899,22 +927,24 @@ func _append_lingpet_ring_core_upgrade_choice(output: Array, owner: Object, regi
 		return
 	# R5 / per-run: read THIS run's ring-core tier (run-state via egg_runtime),
 	# not the dropped permanent store.
-	var runtime: Object = _get_lingpet_runtime(registry)
-	if runtime == null or not runtime.has_method("get_run_ring_core_tier"):
+	var current_tier := _get_lingpet_run_ring_core_tier(registry)
+	if current_tier < 0:
 		return
-	var max_tier := LingpetAffinityStore.MAX_RING_CORE_TIER
-	var current_tier := clampi(int(runtime.get_run_ring_core_tier()), 0, max_tier)
+	var max_tier := LingpetRingCoreRules.MAX_RING_CORE_TIER
 	if current_tier >= max_tier:
 		return
 	var next_tier := clampi(current_tier + 1, 1, max_tier)
-	output.append(LanguageSettings.localize_perk_data(_build_lingpet_ring_core_upgrade_data(current_tier, next_tier, max_tier)))
+	var choice := LanguageSettings.localize_perk_data(_build_lingpet_ring_core_upgrade_data(current_tier, next_tier, max_tier))
+	if _get_lingpet_ring_core_early_reserve_count(current_tier) > 0 and _get_lingpet_ring_core_offer_cooldown(registry) <= 0:
+		choice[LINGPET_RING_CORE_PRIORITY_KEY] = true
+	output.append(choice)
 
 
 func _build_lingpet_ring_core_upgrade_data(current_tier: int, next_tier: int, max_tier: int) -> Dictionary:
-	var clamped_next := clampi(next_tier, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
-	var clamped_max := clampi(max_tier, 1, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var clamped_next := clampi(next_tier, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
+	var clamped_max := clampi(max_tier, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	var tier_name := _get_lingpet_ring_core_tier_name(clamped_next)
-	var next_cap := LingpetAffinityStore.get_ring_core_cap_for_tier(clamped_next)
+	var next_cap := LingpetRingCoreRules.get_ring_core_cap_for_tier(clamped_next)
 	var data: Dictionary = LINGPET_RING_CORE_UPGRADE_PERK.duplicate(true)
 	data["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
 	data["name"] = "링코어 강화: %s" % tier_name
@@ -1015,6 +1045,51 @@ func _has_lingpet_owned_gate(owner: Object) -> bool:
 	return not LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
 
 
+func _extract_lingpet_ring_core_reserved_choices(choices: Array, target_choice_count: int) -> Dictionary:
+	var reserved: Array = []
+	var remaining: Array = []
+	var reserve_limit: int = maxi(0, target_choice_count)
+	for value in choices:
+		if value is Dictionary:
+			var choice: Dictionary = value as Dictionary
+			var is_reserved_ring_core := str(choice.get("id", "")) == LINGPET_RING_CORE_UPGRADE_CHOICE_ID and bool(choice.get(LINGPET_RING_CORE_PRIORITY_KEY, false))
+			if is_reserved_ring_core and reserved.size() < reserve_limit:
+				var reserved_choice := choice.duplicate(true)
+				reserved_choice.erase(LINGPET_RING_CORE_PRIORITY_KEY)
+				reserved.append(reserved_choice)
+				continue
+			if choice.has(LINGPET_RING_CORE_PRIORITY_KEY):
+				var regular_choice := choice.duplicate(true)
+				regular_choice.erase(LINGPET_RING_CORE_PRIORITY_KEY)
+				remaining.append(regular_choice)
+				continue
+		remaining.append(value)
+	return {
+		"reserved": reserved,
+		"remaining": remaining,
+	}
+
+
+func _get_lingpet_ring_core_early_reserve_count(current_tier: int) -> int:
+	if current_tier < 0 or current_tier >= LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER.size():
+		return 0
+	return maxi(0, int(LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER[current_tier]))
+
+
+func _get_lingpet_run_ring_core_tier(registry: Object) -> int:
+	var runtime: Object = _get_lingpet_runtime(registry)
+	if runtime == null or not runtime.has_method("get_run_ring_core_tier"):
+		return -1
+	return clampi(int(runtime.get_run_ring_core_tier()), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
+
+
+func _get_lingpet_ring_core_offer_cooldown(registry: Object) -> int:
+	var runtime: Object = _get_lingpet_runtime(registry)
+	if runtime == null or not runtime.has_method("get_ring_core_offer_cooldown_screens"):
+		return 0
+	return maxi(0, int(runtime.get_ring_core_offer_cooldown_screens()))
+
+
 func _get_lingpet_affinity_chip_count(registry: Object) -> int:
 	var runtime: Object = _get_lingpet_runtime(registry)
 	if runtime == null or not runtime.has_method("get_enhancement_chips"):
@@ -1029,7 +1104,7 @@ func _get_lingpet_runtime(registry: Object) -> Object:
 
 
 func _get_lingpet_ring_core_tier_name(tier: int) -> String:
-	var clamped_tier := clampi(tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var clamped_tier := clampi(tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
 		return PlazaLingpetStoreTransactions.get_ring_core_tier_name(clamped_tier)
 	match clamped_tier:

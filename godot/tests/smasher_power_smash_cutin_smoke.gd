@@ -76,6 +76,10 @@ class FakeGhostShotSkillConfig:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_test_power_smashing_starts_cutin()
 	_test_power_smashing_activation_plays_cutin_voice()
 	_test_ghost_shot_starts_cutin()
@@ -88,12 +92,19 @@ func _init() -> void:
 	_test_cutin_host_draw_guards()
 	_test_cutin_host_prewarms_sheet()
 	_test_ghost_cutin_host_prewarms_sheet()
+	_test_blocking_prewarm_uses_direct_loads()
 	_test_cutin_sheets_use_vram_compression()
 	_test_cutin_voice_asset_loads()
 	_test_ghost_cutin_voice_asset_loads()
 	_test_power_smash_freeze_config_is_extended()
 	_test_zero_freeze_duration_skips_cutin()
 
+	ProjectResourceLoader.clear_caches()
+	await _drain_frames(24)
+	call_deferred("_finish")
+
+
+func _finish() -> void:
 	if _failures.is_empty():
 		print("smasher_power_smash_cutin_smoke: ok")
 		quit(0)
@@ -101,6 +112,11 @@ func _init() -> void:
 		for f in _failures:
 			printerr("FAIL: %s" % f)
 		quit(1)
+
+
+func _drain_frames(frame_count: int) -> void:
+	for i in frame_count:
+		await process_frame
 
 
 func _test_power_smashing_starts_cutin() -> void:
@@ -262,6 +278,18 @@ func _test_ghost_cutin_host_prewarms_sheet() -> void:
 	if texture != null:
 		_expect(texture.get_width() == GHOST_CUTIN_SHEET_SIZE, "ghost cutin sheet width should be %d" % GHOST_CUTIN_SHEET_SIZE)
 		_expect(texture.get_height() == GHOST_CUTIN_SHEET_SIZE, "ghost cutin sheet height should be %d" % GHOST_CUTIN_SHEET_SIZE)
+
+
+func _test_blocking_prewarm_uses_direct_loads() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/hud/skill_cutin_overlay_host.gd")
+	_expect(
+		source.find("while not prewarm_assets_for_character_step") == -1,
+		"blocking cut-in prewarm should not spin the staged threaded prewarm step"
+	)
+	_expect(
+		source.find("_run_asset_prewarm_step_blocking") >= 0,
+		"blocking cut-in prewarm should keep a direct-load prewarm path"
+	)
 
 
 func _test_cutin_sheets_use_vram_compression() -> void:

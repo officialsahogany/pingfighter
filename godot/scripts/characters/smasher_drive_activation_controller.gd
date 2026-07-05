@@ -45,6 +45,15 @@ func try_activate(
 	if combo_state != null:
 		combo_used = int(combo_state.get_effective_combo())
 
+	# 콤보증폭칩: 콤보 비례 드라이브 공속/커브 항을 추가 증폭(base는 비증폭).
+	var combo_amp_speed: float = 0.0
+	var combo_amp_curve: float = 0.0
+	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_combo_amplifier_chip_bonus"):
+		var combo_amp: Dictionary = runtime_perk_state.get_combo_amplifier_chip_bonus()
+		combo_amp_speed = float(combo_amp.get("drive_speed", 0.0))
+		combo_amp_curve = float(combo_amp.get("drive_curve", 0.0))
+
 	var drive_result: Dictionary = drive_bounce_state.apply_initial_bounce(
 		speed,
 		hit_pos,
@@ -53,7 +62,9 @@ func try_activate(
 		accel_scale,
 		deps.get("ball_physics", null),
 		int(context.get("combo_min_count", 2)),
-		float(context.get("text_duration_frames", 0.0))
+		float(context.get("text_duration_frames", 0.0)),
+		combo_amp_speed,
+		combo_amp_curve
 	)
 	feedback_controller.apply_feedback(context, deps, drive_result, drive_input_state, combo_state)
 

@@ -15,9 +15,14 @@ extends RefCounted
 # ball reaches the player side and is countered. So this hidden-paddle window
 # cannot reuse ghost_shot_state's lifecycle; it deliberately outlives it.
 #
-# Lifecycle: NONE -> RIDING (begin) -> RIDING+RETURNED -> FLY_BACK -> NONE.
+# Lifecycle: NONE -> RIDING (begin) -> FLY_BACK (boss defends once) -> NONE.
 # The dramatic "sucked into the ball" beat is the freeze cut-in that already
 # plays on activation; here RIDING simply means the field paddle is hidden.
+# The instant the boss defends the fired ghost ball, possession ends: Mika flies
+# home from the boss-contact point so the player regains a VISIBLE, controllable
+# paddle for the whole return descent (Python parity: "보스가 1회 방어하면
+# 고스트샷이 종료됩니다"). Keeping the paddle hidden through the descent left the
+# player blind and reading as an un-guardable loss.
 
 const PHASE_NONE := "none"
 const PHASE_RIDING := "riding"
@@ -31,11 +36,6 @@ const FLY_BACK_SECONDS := 0.2
 # Alpha rematerialization ramp as a fraction of the fly-back: Mika fades back in
 # over the first part of the streak home.
 const FLY_BACK_FADE_IN_RATIO := 0.4
-# Start the return shortly before the normal player-paddle contact. The window
-# scales with ball speed so fast boss returns do not score before Mika is visible.
-const PLAYER_RETURN_LOOKAHEAD_FRAMES := 8.0
-const PLAYER_RETURN_MIN_LEAD_PX := 96.0
-const PLAYER_RETURN_MAX_LEAD_PX := 190.0
 
 var _phase: String = PHASE_NONE
 var _riding_elapsed: float = 0.0
@@ -66,13 +66,19 @@ func notify_ball_fired() -> void:
 		_ball_fired = true
 
 
-func notify_boss_returned() -> bool:
-	# The boss has countered the ghost ball. Keep Mika hidden until the returned
-	# ball reaches the player paddle, where trigger_fly_back() will pair the
-	# visual return with the actual player counter.
+func notify_boss_returned(from_pos: Vector2 = Vector2.ZERO) -> bool:
+	# The boss defended the fired ghost ball ONCE -> ghost smashing ends here.
+	# Restore the player paddle immediately by flying Mika home from the
+	# boss-contact point, so the player controls a VISIBLE paddle for the entire
+	# return descent and can guard the returned ball normally. (Older behavior
+	# kept Mika hidden until the ball reached the paddle, which left the player
+	# blind through the descent and read as an un-guardable loss.)
 	if _phase != PHASE_RIDING or not _ball_fired:
 		return false
 	_boss_returned = true
+	_phase = PHASE_FLY_BACK
+	_fly_from = from_pos
+	_fly_elapsed = 0.0
 	return true
 
 
@@ -85,31 +91,6 @@ func trigger_fly_back(from_pos: Vector2) -> bool:
 	_fly_from = from_pos
 	_fly_elapsed = 0.0
 	return true
-
-
-func maybe_trigger_player_zone_return(
-	ball_pos: Vector2,
-	ball_vel: Vector2,
-	ball_active: bool,
-	ball_size: float,
-	player_pos: Vector2,
-	player_paddle_size: Vector2
-) -> bool:
-	if _phase != PHASE_RIDING or not _boss_returned:
-		return false
-	if not ball_active or ball_vel.y <= 0.0:
-		return false
-	if player_paddle_size.x <= 0.0 or player_paddle_size.y <= 0.0:
-		return false
-
-	var lead_px: float = clampf(
-		abs(ball_vel.y) * PLAYER_RETURN_LOOKAHEAD_FRAMES + max(0.0, ball_size),
-		PLAYER_RETURN_MIN_LEAD_PX,
-		PLAYER_RETURN_MAX_LEAD_PX
-	)
-	if ball_pos.y < player_pos.y - lead_px:
-		return false
-	return trigger_fly_back(ball_pos)
 
 
 func force_release() -> void:

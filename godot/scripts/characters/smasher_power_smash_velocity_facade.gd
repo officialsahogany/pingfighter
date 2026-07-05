@@ -16,7 +16,8 @@ func apply_hit_velocity(
 	base_speed: float,
 	ball_physics: Object,
 	combo_min_count: int,
-	launch_speed_multiplier: float = 1.0
+	launch_speed_multiplier: float = 1.0,
+	smash_speed_amp: float = 0.0
 ) -> Vector2:
 	return hit_velocity_resolver.apply(
 		runtime_state,
@@ -27,7 +28,8 @@ func apply_hit_velocity(
 		base_speed,
 		ball_physics,
 		combo_min_count,
-		launch_speed_multiplier
+		launch_speed_multiplier,
+		smash_speed_amp
 	)
 
 
@@ -36,12 +38,14 @@ func apply_motion(
 	ball_velocity: Vector2,
 	fps_scale: float,
 	gravity_effect: float,
-	boost_duration: float
+	boost_duration: float,
+	combo_amp_chip_level: int = 0
 ) -> Vector2:
 	return motion_resolver.apply(
 		runtime_state,
 		ball_velocity,
 		fps_scale,
 		gravity_effect,
-		boost_duration
+		boost_duration,
+		combo_amp_chip_level
 	)

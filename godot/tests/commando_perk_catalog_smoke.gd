@@ -86,8 +86,8 @@ func _verify_catalog_choices() -> void:
 	_expect(str(descriptions.get(5, "")) != str(descriptions.get(1, "")), "pistol_enhance Lv.5 copy should differ from Lv.1")
 	_expect(str(descriptions.get(3, "")).contains("탄창") and str(descriptions.get(5, "")).contains("탄창"), "pistol_enhance descriptions should mention the magazine lane")
 	_expect(str(descriptions.get(1, "")).contains("탄속") and str(descriptions.get(5, "")).contains("+50%"), "pistol_enhance descriptions should mention the bullet-speed lane")
-	_expect(str(descriptions.get(1, "")).contains("넉백") and str(descriptions.get(5, "")).contains("넉백"), "pistol_enhance descriptions should mention the knockback lane")
-	_expect(str(pistol_enhance.get("detail", "")).contains("탄속과 넉백은 +50%"), "pistol_enhance detail should document the Lv.6+ bullet-speed and knockback cap")
+	_expect(str(descriptions.get(1, "")).contains("넉백 +30%") and str(descriptions.get(5, "")).contains("넉백 +150%"), "pistol_enhance descriptions should mention the stronger knockback lane")
+	_expect(str(pistol_enhance.get("detail", "")).contains("탄속은 +50%, 넉백은 +150%"), "pistol_enhance detail should document the Lv.6+ bullet-speed and knockback caps")
 	for level in range(1, 6):
 		_expect(
 			_fits_choice_card_description_budget(str(descriptions.get(level, "")), 48, 2),

@@ -65,6 +65,14 @@ func deactivate() -> bool:
 	return true
 
 
+func force_release_for_lock() -> bool:
+	both_held_start_msec = 0
+	keys_released = true
+	activated_this_frame = false
+	clear_release_hit_speed_cap()
+	return deactivate()
+
+
 func consume_release_hit_speed_cap() -> bool:
 	var should_apply := release_hit_pending
 	release_hit_pending = false

@@ -92,7 +92,8 @@ func apply_hit_velocity(
 	base_speed: float,
 	ball_physics: Object,
 	combo_min_count: int,
-	launch_speed_multiplier: float = 1.0
+	launch_speed_multiplier: float = 1.0,
+	smash_speed_amp: float = 0.0
 ) -> Vector2:
 	return velocity_facade.apply_hit_velocity(
 		runtime_state,
@@ -103,12 +104,13 @@ func apply_hit_velocity(
 		base_speed,
 		ball_physics,
 		combo_min_count,
-		launch_speed_multiplier
+		launch_speed_multiplier,
+		smash_speed_amp
 	)
 
 
-func apply_motion(ball_velocity: Vector2, fps_scale: float, gravity_effect: float, boost_duration: float) -> Vector2:
-	return velocity_facade.apply_motion(runtime_state, ball_velocity, fps_scale, gravity_effect, boost_duration)
+func apply_motion(ball_velocity: Vector2, fps_scale: float, gravity_effect: float, boost_duration: float, combo_amp_chip_level: int = 0) -> Vector2:
+	return velocity_facade.apply_motion(runtime_state, ball_velocity, fps_scale, gravity_effect, boost_duration, combo_amp_chip_level)
 
 
 func notify_wall_bounce(side: String) -> void:
@@ -176,7 +178,7 @@ func update_effects(
 	ball_pos: Vector2,
 	ball_active: bool,
 	ball_size: float,
-	context: Dictionary = {}
+	_context: Dictionary = {}
 ) -> void:
 	var ghost_motion_active: bool = is_ghost_shot_motion_active()
 	effects_state.update(
@@ -190,14 +192,9 @@ func update_effects(
 	)
 	ghost_state.update_effects(fps_scale, ball_pos, ball_active, ball_size)
 	if ghost_possession_state.is_active():
-		ghost_possession_state.maybe_trigger_player_zone_return(
-			ball_pos,
-			_get_context_vector2(context, "ball_vel", Vector2.ZERO),
-			ball_active,
-			ball_size,
-			_get_context_vector2(context, "player_pos", Vector2.ZERO),
-			_get_context_vector2(context, "player_paddle_size", Vector2.ZERO)
-		)
+		# Possession only needs to tick its fly-back timer now; the boss-defend
+		# event restores the paddle immediately (notify_ghost_possession_boss_returned),
+		# so there is no deferred player-zone return to drive here.
 		ghost_possession_state.update(fps_scale / 60.0, ball_pos)
 	if cutin_state.is_active():
 		cutin_state.update(fps_scale / 60.0)
@@ -259,8 +256,8 @@ func get_ghost_possession_player_override() -> Dictionary:
 	return ghost_possession_state.get_player_visual_override()
 
 
-func notify_ghost_possession_boss_returned() -> bool:
-	return ghost_possession_state.notify_boss_returned()
+func notify_ghost_possession_boss_returned(from_pos: Vector2 = Vector2.ZERO) -> bool:
+	return ghost_possession_state.notify_boss_returned(from_pos)
 
 
 func has_ghost_possession_boss_returned() -> bool:
@@ -349,10 +346,3 @@ func is_drive_cutin_enraged() -> bool:
 
 func get_drive_cutin_progress() -> float:
 	return drive_cutin_state.get_progress()
-
-
-func _get_context_vector2(context: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = context.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback

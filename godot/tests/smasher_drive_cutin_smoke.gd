@@ -4,10 +4,12 @@ const SmasherDriveCutinState := preload("res://scripts/characters/smasher_drive_
 const SmasherPowerSmashState := preload("res://scripts/characters/smasher_power_smash_state.gd")
 const SmasherDriveActivationFeedbackController := preload("res://scripts/characters/smasher_drive_activation_feedback_controller.gd")
 const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 var _draw_ran := false
+var _draw_probe: Node = null
 
 
 class FakeDriveAudio:
@@ -264,6 +266,7 @@ func _start_draw_probe() -> void:
 	probe.host = host
 	probe.smoke = self
 	get_root().add_child(probe)
+	_draw_probe = probe
 	probe.queue_redraw()
 	# Let a few idle frames run so the probe's _draw executes, then finish.
 	create_timer(0.1).timeout.connect(_finish_after_draw)
@@ -271,6 +274,15 @@ func _start_draw_probe() -> void:
 
 func _finish_after_draw() -> void:
 	_expect(_draw_ran, "drive cut-in draw probe should run _draw without fatal errors")
+	if _draw_probe != null and is_instance_valid(_draw_probe):
+		_draw_probe.queue_free()
+	_draw_probe = null
+	ProjectResourceLoader.clear_caches()
+	await _drain_frames(24)
+	call_deferred("_finish")
+
+
+func _finish() -> void:
 	if _failures.is_empty():
 		print("smasher_drive_cutin_smoke: ok")
 		quit(0)
@@ -278,6 +290,11 @@ func _finish_after_draw() -> void:
 		for f in _failures:
 			printerr("FAIL: %s" % f)
 		quit(1)
+
+
+func _drain_frames(frame_count: int) -> void:
+	for i in frame_count:
+		await process_frame
 
 
 func _expect(condition: bool, message: String = "") -> void:

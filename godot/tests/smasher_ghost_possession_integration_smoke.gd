@@ -23,9 +23,9 @@ func _init() -> void:
 	_test_integration_files_compile()
 	_test_ghost_activation_hides_paddle()
 	_test_actor_context_reads_power_state_alias()
-	_test_boss_return_waits_until_player_counter()
-	_test_near_player_zone_returns_before_contact()
-	_test_player_counter_triggers_return_with_upward_ball()
+	_test_boss_return_restores_paddle_immediately()
+	_test_boss_return_restores_even_with_far_ball()
+	_test_player_counter_after_boss_return()
 	_test_power_smash_does_not_possess()
 	_test_reset_clears_possession()
 
@@ -68,15 +68,17 @@ func _test_actor_context_reads_power_state_alias() -> void:
 		"actor draw context should read possession from power_state deps"
 	)
 	ps.ghost_possession_state.notify_ball_fired()
-	ps.notify_ghost_possession_boss_returned()
-	_expect(ps.trigger_ghost_possession_fly_back(Vector2(380.0, 60.0)), "test setup should enter fly-back")
+	# Boss defends once -> possession ends and Mika immediately flies home from
+	# the boss-contact point (paddle restored for the descent).
+	_expect(ps.notify_ghost_possession_boss_returned(Vector2(380.0, 60.0)),
+		"boss return should start the fly-back")
 	actor_context = ActorContextBuilder.new().build(
 		_make_draw_context(),
 		{"power_state": ps}
 	)
 	_expect(
 		not bool(actor_context.get("ghost_possession_paddle_hidden", true)),
-		"actor draw context should unhide during fly-back"
+		"actor draw context should unhide on boss return (immediate fly-back)"
 	)
 	_expect(
 		not _as_dict(actor_context.get("ghost_possession_player_override", {})).is_empty(),
@@ -84,13 +86,13 @@ func _test_actor_context_reads_power_state_alias() -> void:
 	)
 
 
-func _test_boss_return_waits_until_player_counter() -> void:
+func _test_boss_return_restores_paddle_immediately() -> void:
 	var ps := PowerSmashState.new()
 	ps.begin_activation(1, 0.5, 0, 48.0, true, 1000, FREEZE)
 	# The motion path calls notify_ball_fired() when the ghost ball is fired at
-	# the boss; mirror that here so a boss return can arm the player-side pop.
+	# the boss; mirror that here so the boss return can end possession.
 	ps.ghost_possession_state.notify_ball_fired()
-	_expect(ps.is_ghost_possession_paddle_hidden(), "paddle still hidden after the ball is fired (extended window)")
+	_expect(ps.is_ghost_possession_paddle_hidden(), "paddle hidden while riding the fired ball")
 	var handler := PostHitHandler.new()
 	handler.apply(
 		false,
@@ -109,66 +111,42 @@ func _test_boss_return_waits_until_player_counter() -> void:
 		_make_hit_context(),
 		{"power_state": ps}
 	)
-	_expect(ps.has_ghost_possession_boss_returned(), "boss return should arm the player-side rematerialization")
-	_expect(ps.is_ghost_possession_paddle_hidden(), "paddle should stay hidden after boss return")
-	_expect(ps.get_ghost_possession_player_override().is_empty(), "boss return should not start fly-back yet")
-	var player_result: Dictionary = handler.apply(
-		true,
-		Vector2(380.0, 690.0),
-		Vector2(0.0, -11.0),
-		0.0,
-		84.0,
-		false,
-		false,
-		false,
-		0.0,
-		0.0,
-		false,
-		false,
-		0.0,
-		_make_hit_context(),
-		{"power_state": ps}
-	)
-	_expect(not ps.is_ghost_possession_paddle_hidden(), "paddle is shown (flying back), not hidden")
-	_expect(not ps.get_ghost_possession_player_override().is_empty(), "fly-back exposes a visual override")
-	_expect(_as_vec2(player_result.get("ball_vel", Vector2.ZERO)).y < 0.0, "player counter should keep the upward ball velocity")
+	_expect(ps.has_ghost_possession_boss_returned(), "boss return should be recorded")
+	# Option A: the boss defending the ghost ball ENDS possession immediately, so
+	# the paddle is restored (flying home) for the whole descent -- NOT kept hidden.
+	_expect(not ps.is_ghost_possession_paddle_hidden(), "boss return must unhide the paddle immediately")
+	_expect(not ps.get_ghost_possession_player_override().is_empty(), "boss return exposes the fly-back override")
 	# Drive the fly-back to completion: update_effects feeds fps_scale/60 seconds.
 	# fps_scale 15 -> 0.25s > 0.2s fly-back.
 	ps.update_effects(15.0, Vector2(380.0, 710.0), true, 28.0)
-	_expect(not ps.is_ghost_possession_active(), "possession should end after the fly-back lands")
-	_expect(not ps.is_ghost_possession_paddle_hidden(), "paddle visible again after landing")
+	_expect(not ps.is_ghost_possession_active(), "possession ends after the fly-back lands")
+	_expect(not ps.is_ghost_possession_paddle_hidden(), "paddle fully controllable after landing")
 
 
-func _test_near_player_zone_returns_before_contact() -> void:
-	var far_ps := PowerSmashState.new()
-	far_ps.begin_activation(1, 0.5, 0, 48.0, true, 1000, FREEZE)
-	far_ps.ghost_possession_state.notify_ball_fired()
-	far_ps.notify_ghost_possession_boss_returned()
-	var far_context: Dictionary = _make_hit_context()
-	far_context["ball_vel"] = Vector2(0.0, 18.0)
-	far_ps.update_effects(1.0, Vector2(380.0, 470.0), true, 28.0, far_context)
-	_expect(far_ps.is_ghost_possession_paddle_hidden(), "far return should keep Mika riding the ball")
-	_expect(far_ps.get_ghost_possession_player_override().is_empty(), "far return should not expose fly-back")
-
-	var near_ps := PowerSmashState.new()
-	near_ps.begin_activation(1, 0.5, 0, 48.0, true, 1000, FREEZE)
-	near_ps.ghost_possession_state.notify_ball_fired()
-	near_ps.notify_ghost_possession_boss_returned()
-	var near_context: Dictionary = _make_hit_context()
-	near_context["ball_vel"] = Vector2(0.0, 18.0)
-	near_ps.update_effects(1.0, Vector2(380.0, 545.0), true, 28.0, near_context)
-	_expect(not near_ps.is_ghost_possession_paddle_hidden(), "near player zone should start fly-back before contact")
-	_expect(
-		not near_ps.get_ghost_possession_player_override().is_empty(),
-		"near player zone should expose a visual return override"
-	)
-
-
-func _test_player_counter_triggers_return_with_upward_ball() -> void:
+func _test_boss_return_restores_even_with_far_ball() -> void:
+	# Even if the boss returns the ball while it is still far above the player,
+	# possession must end right away so the player can track and guard the descent
+	# with a visible paddle. (The old deferred-hide path left the player blind.)
 	var ps := PowerSmashState.new()
 	ps.begin_activation(1, 0.5, 0, 48.0, true, 1000, FREEZE)
 	ps.ghost_possession_state.notify_ball_fired()
-	ps.notify_ghost_possession_boss_returned()
+	_expect(ps.notify_ghost_possession_boss_returned(Vector2(380.0, 80.0)),
+		"boss return should start fly-back")
+	# Tick a frame with the ball still high in the field.
+	ps.update_effects(1.0, Vector2(380.0, 300.0), true, 28.0)
+	_expect(not ps.is_ghost_possession_paddle_hidden(),
+		"paddle stays restored (flying back) even with the ball still far away")
+	_expect(not ps.get_ghost_possession_player_override().is_empty(),
+		"fly-back override remains exposed during the descent")
+
+
+func _test_player_counter_after_boss_return() -> void:
+	# After the boss return restores the paddle, the player guards the returned
+	# ghost ball through the normal paddle-hit path (no special possession gate).
+	var ps := PowerSmashState.new()
+	ps.begin_activation(1, 0.5, 0, 48.0, true, 1000, FREEZE)
+	ps.ghost_possession_state.notify_ball_fired()
+	ps.notify_ghost_possession_boss_returned(Vector2(380.0, 80.0))
 	var controller := PaddleBounceController.new()
 	var context: Dictionary = _make_hit_context()
 	context["ball_pos"] = Vector2(380.0, 690.0)
@@ -184,8 +162,6 @@ func _test_player_counter_triggers_return_with_upward_ball() -> void:
 		}
 	)
 	_expect(_as_vec2(result.get("ball_vel", Vector2.ZERO)).y < 0.0, "player paddle should counter the returned ghost ball upward")
-	_expect(not ps.is_ghost_possession_paddle_hidden(), "player counter should unhide Mika into fly-back")
-	_expect(not ps.get_ghost_possession_player_override().is_empty(), "player counter should expose the fly-back override")
 
 
 func _test_power_smash_does_not_possess() -> void:

@@ -11,8 +11,8 @@ func _init() -> void:
 	_test_begin_hides_paddle()
 	_test_riding_survives_ball_fire()
 	_test_fly_back_requires_fire()
-	_test_player_zone_return_requires_boss_return()
-	_test_player_zone_return_starts_before_contact()
+	_test_boss_return_enters_fly_back_immediately()
+	_test_boss_return_restores_even_with_far_ball()
 	_test_fly_back_progress()
 	_test_fly_back_completes_to_none()
 	_test_riding_safety_timeout()
@@ -68,57 +68,40 @@ func _test_fly_back_requires_fire() -> void:
 	_expect(s.notify_boss_returned(), "boss return after fire should arm fly-back")
 
 
-func _test_player_zone_return_requires_boss_return() -> void:
+func _test_boss_return_enters_fly_back_immediately() -> void:
 	var s := GhostPossessionState.new()
 	s.begin()
 	s.notify_ball_fired()
-	var triggered := s.maybe_trigger_player_zone_return(
-		Vector2(380.0, 545.0),
-		Vector2(0.0, 18.0),
-		true,
-		28.0,
-		Vector2(338.0, 690.0),
-		Vector2(84.0, 16.0)
-	)
-	_expect(not triggered, "near player zone should wait for the boss return signal")
-	_expect(s.is_paddle_hidden(), "paddle should stay hidden before boss return")
+	# Boss defends the fired ghost ball -> possession ends instantly and Mika
+	# flies home from the boss-contact point (paddle restored for the descent).
+	_expect(s.notify_boss_returned(BOSS_RETURN), "boss return after fire should enter fly-back")
+	_expect(s.get_phase() == "fly_back", "boss return should enter fly_back immediately")
+	_expect(not s.is_paddle_hidden(), "paddle is restored (drawn) right after the boss return")
+	_expect(s.has_boss_returned(), "boss-returned flag should be set")
+	var o := s.get_player_visual_override()
+	_expect(not o.is_empty(), "boss return exposes a fly-back override")
+	var from0: Vector2 = o.get("from", Vector2.ZERO)
+	_expect(from0.distance_to(BOSS_RETURN) < 1.0, "fly-back origin is the boss-contact point")
 
 
-func _test_player_zone_return_starts_before_contact() -> void:
+func _test_boss_return_restores_even_with_far_ball() -> void:
+	# The ball can still be high in the field when the boss returns it; possession
+	# must end immediately so the player guards the descent with a visible paddle.
 	var s := GhostPossessionState.new()
 	s.begin()
 	s.notify_ball_fired()
-	s.notify_boss_returned()
-	var far_triggered := s.maybe_trigger_player_zone_return(
-		Vector2(380.0, 470.0),
-		Vector2(0.0, 18.0),
-		true,
-		28.0,
-		Vector2(338.0, 690.0),
-		Vector2(84.0, 16.0)
-	)
-	_expect(not far_triggered, "far downward return should not trigger yet")
-	_expect(s.is_paddle_hidden(), "far downward return should keep the paddle hidden")
-	var near_triggered := s.maybe_trigger_player_zone_return(
-		Vector2(380.0, 545.0),
-		Vector2(0.0, 18.0),
-		true,
-		28.0,
-		Vector2(338.0, 690.0),
-		Vector2(84.0, 16.0)
-	)
-	_expect(near_triggered, "near downward return should trigger before contact")
-	_expect(s.get_phase() == "fly_back", "near downward return should enter fly_back")
-	_expect(not s.is_paddle_hidden(), "near downward return should draw the paddle")
+	s.notify_boss_returned(Vector2(380.0, 80.0))
+	s.update(0.016, Vector2(380.0, 300.0))  # ball still far above the player
+	_expect(not s.is_paddle_hidden(), "paddle stays restored even with the ball far away")
+	_expect(not s.get_player_visual_override().is_empty(), "fly-back override stays exposed during descent")
 
 
 func _test_fly_back_progress() -> void:
 	var s := GhostPossessionState.new()
 	s.begin()
 	s.notify_ball_fired()
-	s.notify_boss_returned()
-	var triggered := s.trigger_fly_back(BOSS_RETURN)
-	_expect(triggered, "fly-back after the fire should trigger")
+	var triggered := s.notify_boss_returned(BOSS_RETURN)
+	_expect(triggered, "boss return after the fire should enter fly-back")
 	_expect(s.get_phase() == "fly_back", "should enter fly_back")
 	_expect(not s.is_paddle_hidden(), "paddle is drawn (not hidden) while flying back")
 
@@ -141,8 +124,7 @@ func _test_fly_back_completes_to_none() -> void:
 	var s := GhostPossessionState.new()
 	s.begin()
 	s.notify_ball_fired()
-	s.notify_boss_returned()
-	s.trigger_fly_back(BOSS_RETURN)
+	s.notify_boss_returned(BOSS_RETURN)
 	s.update(0.25, Vector2.ZERO)  # > FLY_BACK_SECONDS (0.2)
 	_expect(not s.is_active(), "fly-back should complete back to NONE")
 	_expect(s.get_phase() == "none", "phase should be none after landing")
@@ -177,8 +159,7 @@ func _test_reset_releases_mid_fly_back() -> void:
 	var s := GhostPossessionState.new()
 	s.begin()
 	s.notify_ball_fired()
-	s.notify_boss_returned()
-	s.trigger_fly_back(BOSS_RETURN)
+	s.notify_boss_returned(BOSS_RETURN)
 	s.reset()
 	_expect(not s.is_active(), "reset mid fly-back should clear possession")
 	_expect(not s.is_paddle_hidden(), "reset restores paddle visibility")

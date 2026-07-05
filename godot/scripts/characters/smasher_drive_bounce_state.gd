@@ -15,7 +15,9 @@ func apply_initial_bounce(
 	accel_scale: float,
 	ball_physics: Object,
 	combo_min_count: int,
-	text_duration_frames: float
+	text_duration_frames: float,
+	combo_amp_speed: float = 0.0,
+	combo_amp_curve: float = 0.0
 ) -> Dictionary:
 	return initial_bounce_resolver.apply(
 		speed,
@@ -25,7 +27,9 @@ func apply_initial_bounce(
 		accel_scale,
 		ball_physics,
 		combo_min_count,
-		text_duration_frames
+		text_duration_frames,
+		combo_amp_speed,
+		combo_amp_curve
 	)
 
 

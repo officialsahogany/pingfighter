@@ -30,6 +30,8 @@ func _run() -> void:
 	Smasher25DSheetOverride.clear_required_sheet_paths_for_test()
 	Smasher25DSheetOverride.reset_cache_for_test()
 	ProjectResourceLoader.clear_caches()
+	for _i in range(12):
+		await process_frame
 
 	if _failures.is_empty():
 		print("smasher_25d_sheet_override_smoke: ok")
