@@ -95,9 +95,12 @@ func prewarm_assets() -> void:
 
 
 func prewarm_assets_for_character(character_type: String = "") -> void:
-	_reset_asset_prewarm_step(character_type.strip_edges().to_lower())
-	while not prewarm_assets_for_character_step(character_type):
-		pass
+	var normalized_character: String = character_type.strip_edges().to_lower()
+	if _is_asset_prewarmed_for(normalized_character):
+		return
+	for step in _build_asset_prewarm_steps(normalized_character):
+		_run_asset_prewarm_step_blocking(step)
+	_mark_assets_prewarmed(normalized_character)
 
 
 func prewarm_assets_for_character_step(character_type: String = "") -> bool:
@@ -494,6 +497,22 @@ func _run_asset_prewarm_step(step: Dictionary) -> bool:
 			DriveCutinFxHost.prewarm_assets()
 			return true
 	return true
+
+
+func _run_asset_prewarm_step_blocking(step: Dictionary) -> void:
+	var kind := str(step.get("kind", ""))
+	match kind:
+		"cutin_sheet":
+			_prewarm_cutin_sheet_texture(
+				str(step.get("path", "")),
+				str(step.get("label", "Skill"))
+			)
+		"drive_texture":
+			_get_drive_texture(str(step.get("path", "")))
+		"drive_material":
+			_get_drive_writhe_material(bool(step.get("enraged", false)))
+		"drive_host_assets":
+			DriveCutinFxHost.prewarm_assets()
 
 
 func _reset_asset_prewarm_step(normalized_character: String) -> void:

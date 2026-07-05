@@ -9,10 +9,6 @@ const MODULES := {
 		"path": "res://scripts/lingpet/lingpet_save_store.gd",
 		"label": "lingpet save store",
 	},
-	"lingpet_affinity_store": {
-		"path": "res://scripts/lingpet/lingpet_affinity_store.gd",
-		"label": "lingpet affinity store",
-	},
 	"lingpet_banana_slice_payload_factory": {
 		"path": "res://scripts/lingpet/lingpet_banana_slice_payload_factory.gd",
 		"label": "lingpet Banana Slice payload factory",

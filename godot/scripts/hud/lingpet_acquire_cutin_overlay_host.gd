@@ -90,8 +90,9 @@ const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
 const CUTIN_DISMISS_COLS_OVERRIDES := {
 	# These pets use 14x7/98 dismiss sheets. Koyora / Nekuring / Monkeyring / Orosha
-	# are dedicated medium-res dismiss sheets; Onimaru / Rahoset / Rabi still reuse
-	# their click sheets as the dismiss path.
+	# are dedicated medium-res dismiss sheets; Onimaru / Rahoset / Rabi / Orbi reuse
+	# their click sheets as the dismiss path (14x7/98) so the click-to-continue plays
+	# a real reaction that connects from the reveal's shared base pose.
 	"koyora": 14,
 	"nekuring": 14,
 	"monkeyring": 14,
@@ -99,6 +100,7 @@ const CUTIN_DISMISS_COLS_OVERRIDES := {
 	"onimaru": 14,
 	"rahoset": 14,
 	"rabi": 14,
+	"orbi": 14,
 }
 const CUTIN_DISMISS_ROWS_OVERRIDES := {
 	"koyora": 7,
@@ -108,6 +110,7 @@ const CUTIN_DISMISS_ROWS_OVERRIDES := {
 	"onimaru": 7,
 	"rahoset": 7,
 	"rabi": 7,
+	"orbi": 7,
 }
 const CUTIN_DISMISS_FRAMES_OVERRIDES := {
 	"koyora": 98,
@@ -117,6 +120,7 @@ const CUTIN_DISMISS_FRAMES_OVERRIDES := {
 	"onimaru": 98,
 	"rahoset": 98,
 	"rabi": 98,
+	"orbi": 98,
 }
 # Frames play over the first DISMISS_ACTION_PORTION of the dismiss window, then the
 # final frame holds while the overlay fades out (DISMISS_FADE_START -> 1.0). The
@@ -173,6 +177,8 @@ const DATA_HOT := Color(0.34, 0.96, 1.0)
 const DATA_MAGENTA := Color(1.0, 0.36, 0.82)
 const GRID_COLOR := Color(0.24, 0.78, 1.0)
 const CUTIN_PREWARM_VISUAL_KEYS := ["cutin_art", "cutin_anim", "cutin_dismiss_anim", "cutin_vfx_anim"]
+const CUTIN_LIVE_TEXTURE_PREWARM_MAX_MSEC := 0
+const CUTIN_LIVE_TEXTURE_PREWARM_MAX_POLLS := 0
 
 # Phase breakpoints over normalized reveal progress (0..1). Progress is clamped
 # at 1.0 by the runtime, so progress >= HOLD_PROGRESS means the reveal finished
@@ -243,7 +249,12 @@ func prewarm_assets_step() -> bool:
 	return false
 
 
-func prewarm_pet_assets_step(pet_id: String = DEFAULT_PET_ID) -> bool:
+func prewarm_pet_assets_step(
+	pet_id: String = DEFAULT_PET_ID,
+	allow_sync_fallback: bool = false,
+	perf_logger: Object = null,
+	perf_label_prefix: String = ""
+) -> bool:
 	var normalized := pet_id.strip_edges().to_lower()
 	if normalized == "" or not LingpetCatalog.has_pet(normalized):
 		normalized = DEFAULT_PET_ID
@@ -257,27 +268,67 @@ func prewarm_pet_assets_step(pet_id: String = DEFAULT_PET_ID) -> bool:
 		var visual_key: String = str(CUTIN_PREWARM_VISUAL_KEYS[_pet_texture_prewarm_index])
 		var path: String = LingpetCatalog.get_visual_path(normalized, visual_key)
 		if path != "":
-			# prefer_imported_fallback=true: if the threaded slot times out, resolve
-			# via the size_limit'd import (load_imported_texture), never the raw 8192px
-			# source PNG. Keeps the streamed sheet small even on the fallback path.
+			var perf_start := _perf_begin(perf_logger)
+			# Live hatch/reveal callers must not demote a slow threaded load to a
+			# main-thread import. The reveal-clock gate can hold and then fall back
+			# to static art; a sync fallback here is the 721ms hatch-frame stall.
+			var max_msec := (
+				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC
+				if allow_sync_fallback
+				else CUTIN_LIVE_TEXTURE_PREWARM_MAX_MSEC
+			)
+			var max_polls := (
+				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS
+				if allow_sync_fallback
+				else CUTIN_LIVE_TEXTURE_PREWARM_MAX_POLLS
+			)
 			var texture_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
 				path,
 				"",
 				"",
-				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
-				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+				max_msec,
+				max_polls,
 				false,
 				true
 			)
+			_perf_end_with_prefix(perf_logger, perf_label_prefix, _prewarm_visual_label_suffix(visual_key), perf_start)
 			if not bool(texture_result.get("done", true)):
 				return false
 		_pet_texture_prewarm_index += 1
 		return false
+	var mask_perf_start := _perf_begin(perf_logger)
 	_prewarm_reconstruction_mask_for_pet(normalized)
+	_perf_end_with_prefix(perf_logger, perf_label_prefix, "reconstruction_mask", mask_perf_start)
 	_pet_texture_prewarm_finished_for = normalized
 	_pet_texture_prewarm_pet_id = ""
 	_pet_texture_prewarm_index = 0
 	return true
+
+
+func _prewarm_visual_label_suffix(visual_key: String) -> String:
+	match visual_key:
+		"cutin_art":
+			return "static_art"
+		"cutin_anim":
+			return "anim_sheet"
+		"cutin_dismiss_anim":
+			return "dismiss_sheet"
+		"cutin_vfx_anim":
+			return "vfx_sheet"
+	return visual_key
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end_with_prefix(perf_logger: Object, label_prefix: String, label_suffix: String, start_usec: int) -> void:
+	if label_prefix == "":
+		return
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample("%s.%s" % [label_prefix, label_suffix], start_usec)
 
 
 func _prewarm_reconstruction_mask_for_pet(pet_id: String) -> void:
@@ -383,7 +434,7 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 	# the cut-in's intro frames (dim + portal + static art) instead of sync-loading
 	# them on the first reveal draw (the ~1141ms freeze). _sync pulls them from cache
 	# once ready; until then _draw_art falls back to the small static art.
-	prewarm_pet_assets_step(pet_id)
+	prewarm_pet_assets_step(pet_id, false)
 	_sync_assets_for_pet(pet_id)
 
 	# Click-triggered exit action takes over the whole overlay: spear-raise +
@@ -478,10 +529,10 @@ func is_pet_cutin_anim_ready(pet_id: String) -> bool:
 		return true
 	if ProjectResourceLoader.get_cached_texture(anim_path) != null:
 		return true
-	prewarm_pet_assets_step(normalized)
+	prewarm_pet_assets_step(normalized, false)
 	if ProjectResourceLoader.get_cached_texture(anim_path) != null:
 		return true
-	return ProjectResourceLoader.load_imported_texture(anim_path, "", "") != null
+	return false
 
 
 func _get_runtime_pet_id(runtime: Object) -> String:
@@ -489,6 +540,12 @@ func _get_runtime_pet_id(runtime: Object) -> String:
 		var snapshot: Variant = runtime.get_snapshot()
 		if snapshot is Dictionary:
 			var data := snapshot as Dictionary
+			# Reveal-only override: an incubator-egg hatch reveals a pet that is NOT the active
+			# companion, so cutin_pet_id must win over active_pet_id / pet_id (which stay the
+			# companion so the panel/owner never see the not-yet-absorbed new pet).
+			var cutin_pet_id := str(data.get("cutin_pet_id", ""))
+			if cutin_pet_id != "":
+				return cutin_pet_id
 			var pet_id := str(data.get("active_pet_id", ""))
 			if pet_id == "":
 				pet_id = str(data.get("pet_id", ""))

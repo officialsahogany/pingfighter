@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CharacterInfoLingpetPrewarmFilter := preload("res://scripts/hud/character_info_lingpet_prewarm_filter.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const CHARACTER_DEBUG_KEY := KEY_F1
@@ -57,6 +58,16 @@ func handle_input(
 			# Click does NOT close instantly -- it starts the spear-raise + water-spray
 			# exit action, which then fades out and resumes gameplay on its own.
 			if lingpet_runtime.has_method("begin_acquire_cutin_dismiss") and bool(lingpet_runtime.begin_acquire_cutin_dismiss(registry)):
+				_queue_redraw(owner)
+				_mark_handled(owner)
+		return true
+
+	if _is_lingpet_overflow_choice_active(module_getter):
+		var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+		var overflow_host: Object = _get_registry_instance(registry, "lingpet_overflow_choice_overlay_host")
+		if overflow_host != null and overflow_host.has_method("handle_input"):
+			var handled_overflow: bool = bool(overflow_host.handle_input(event, lingpet_runtime, owner, registry, _get_view_size(owner)))
+			if handled_overflow:
 				_queue_redraw(owner)
 				_mark_handled(owner)
 		return true
@@ -220,7 +231,7 @@ func handle_input(
 			var handled_info: bool = bool(character_info.handle_input(event, owner, registry, _get_view_size(owner)))
 			if handled_info:
 				if _should_queue_character_info_input_redraw(character_info):
-					_queue_redraw(owner)
+					_queue_character_info_overlay_redraw(owner, registry, module_getter)
 				_mark_handled(owner)
 		return true
 
@@ -237,7 +248,7 @@ func handle_input(
 			_close_overlay_menu("pause_menu_overlay", "close", module_getter)
 			_prewarm_character_info(character_info, owner, registry, module_getter)
 			_open_character_info(character_info, owner, registry)
-			_queue_redraw(owner)
+			_queue_character_info_overlay_redraw(owner, registry, module_getter)
 			_mark_handled(owner)
 		return true
 
@@ -425,7 +436,8 @@ func _prewarm_mythic_management_menu(mythic_item_runtime: Object) -> void:
 
 func _prewarm_character_info(character_info: Object, owner: Object, registry: Object, module_getter: Callable) -> void:
 	if character_info != null and character_info.has_method("prewarm_assets"):
-		character_info.prewarm_assets(owner, registry, module_getter, true, _get_view_size(owner))
+		var lingpet_prewarm_pet_ids := CharacterInfoLingpetPrewarmFilter.get_slot_prewarm_pet_ids(owner, registry, module_getter)
+		character_info.prewarm_assets(owner, registry, module_getter, true, _get_view_size(owner), lingpet_prewarm_pet_ids)
 
 
 func _open_character_info(character_info: Object, owner: Object, registry: Object) -> void:
@@ -441,6 +453,14 @@ func _should_queue_character_info_input_redraw(character_info: Object) -> bool:
 	if character_info != null and character_info.has_method("consume_input_redraw_request"):
 		return bool(character_info.consume_input_redraw_request())
 	return true
+
+
+func _queue_character_info_overlay_redraw(owner: Object, registry: Object, module_getter: Callable) -> void:
+	var overlay_frame: Object = _get_module(module_getter, "battle_scene_overlay_frame_controller")
+	if overlay_frame != null and overlay_frame.has_method("queue_character_info_overlay_redraw"):
+		if bool(overlay_frame.queue_character_info_overlay_redraw(owner, registry, module_getter, true)):
+			return
+	_queue_redraw(owner)
 
 
 func _close_ball_speed_debug(module_getter: Callable) -> void:
@@ -530,6 +550,10 @@ func _is_lingpet_acquire_cutin_active(module_getter: Callable) -> bool:
 	return _call_modal_gate_bool(module_getter, "is_lingpet_acquire_cutin_active")
 
 
+func _is_lingpet_overflow_choice_active(module_getter: Callable) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_lingpet_overflow_choice_active")
+
+
 func _is_elixir_confirm_event(event: InputEvent) -> bool:
 	if GamepadInput.is_confirm_event(event):
 		return true
@@ -569,6 +593,19 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 	return null
 
 
+func _get_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	var value: Variant = null
+	if registry.has_method("get_cached_instance"):
+		value = registry.get_cached_instance(key)
+	if (typeof(value) != TYPE_OBJECT or value == null) and registry.has_method("get_instance"):
+		value = registry.get_instance(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
 func _call_context(context: Dictionary, key: String) -> void:
 	var callback_value: Variant = context.get(key, Callable())
 	if typeof(callback_value) == TYPE_CALLABLE:
@@ -586,6 +623,14 @@ func _handle_pause_menu_action(action: String, owner: Object, registry: Object, 
 				_open_character_info(character_info, owner, registry)
 		"continue":
 			pass
+		"exit_to_main":
+			# Pause-menu 나가기: run-ending exit back to the title. Route through
+			# the match flow driver so the roguelike run grammar (Stage 1 rewind)
+			# and the scene change stay on the single owner path shared with the
+			# defeat settlement exit.
+			var match_flow_driver: Object = _get_module(module_getter, "battle_scene_match_flow_driver")
+			if match_flow_driver != null and match_flow_driver.has_method("exit_to_main_menu"):
+				match_flow_driver.exit_to_main_menu(owner)
 	if not action.is_empty():
 		_queue_redraw(owner)
 

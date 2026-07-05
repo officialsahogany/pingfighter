@@ -117,6 +117,10 @@ const MODULES := {
 		"path": "res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd",
 		"label": "lingpet acquire cutin overlay host",
 	},
+	"lingpet_overflow_choice_overlay_host": {
+		"path": "res://scripts/hud/lingpet_overflow_choice_overlay_host.gd",
+		"label": "lingpet overflow choice overlay host",
+	},
 	"ball_speed_debug_overlay": {
 		"path": "res://scripts/hud/ball_speed_debug_overlay.gd",
 		"label": "ball speed debug overlay",
@@ -129,9 +133,25 @@ const MODULES := {
 		"path": "res://scripts/hud/skill_orb_tooltip_tutorial_hint.gd",
 		"label": "skill orb tooltip tutorial hint",
 	},
+	"commando_firearm_tutorial_hint": {
+		"path": "res://scripts/hud/commando_firearm_tutorial_hint.gd",
+		"label": "commando firearm tutorial hint",
+	},
+	"viper_practice_mode": {
+		"path": "res://scripts/hud/viper_practice_mode.gd",
+		"label": "viper practice mode tutorial",
+	},
+	"viper_jetpack_tutorial_hint": {
+		"path": "res://scripts/hud/viper_jetpack_tutorial_hint.gd",
+		"label": "viper jetpack tutorial hint",
+	},
 	"active_item_use_tutorial_hint": {
 		"path": "res://scripts/hud/active_item_use_tutorial_hint.gd",
 		"label": "active item use tutorial hint",
+	},
+	"character_info_tutorial_hint": {
+		"path": "res://scripts/hud/character_info_tutorial_hint.gd",
+		"label": "character info tutorial hint",
 	},
 	"grip_style_selection_overlay": {
 		"path": "res://scripts/hud/grip_style_selection_overlay.gd",

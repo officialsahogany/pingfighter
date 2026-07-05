@@ -56,8 +56,20 @@ const DEFAULT_VALUES: Dictionary = {
 	# scripted by the lingpet skill, so the boss AI must not move it. Ball
 	# collision stays live, and the puppet rope can break when touched.
 	"lingpet_puppet_grab_active": false,
+	"lingpet_sand_prison_clamp_active": false,
+	"lingpet_sand_prison_cage_left": 0.0,
+	"lingpet_sand_prison_cage_right": 760.0,
 	"lingpet_star_coil_boss_slow_active": false,
 	"lingpet_star_coil_boss_slow_multiplier": 1.0,
+	"lingpet_star_coil_block_boss_dash": false,
+	"lingpet_star_coil_freeze_boss_skill_cd": false,
+	# Lingpet 난쟁이마술 (Serabi dwarf magic): shrink the boss paddle (collision +
+	# render, centered) and slow boss movement while active. shrink_scale 1.0 =
+	# unshrunk; slow_multiplier 1.0 = unslowed.
+	"lingpet_dwarf_magic_shrink_active": false,
+	"lingpet_dwarf_magic_shrink_scale": 1.0,
+	"lingpet_dwarf_magic_boss_slow_active": false,
+	"lingpet_dwarf_magic_boss_slow_multiplier": 1.0,
 	"boss_paddle_width": 100.0,
 	"boss_hitbox_height": 40.0,
 	"boss_interp_last_physics_usec": 0,

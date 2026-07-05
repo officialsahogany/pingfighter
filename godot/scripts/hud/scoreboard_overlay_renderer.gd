@@ -5,9 +5,9 @@ const ScoreboardOverlayHeaderRenderer := preload("res://scripts/hud/scoreboard_o
 const ScoreboardOverlayScorePanelRenderer := preload("res://scripts/hud/scoreboard_overlay_score_panel_renderer.gd")
 
 const DIM_ALPHA := 180.0 / 255.0
-const SHADOW_OPENING_SLICE_COUNT := 6
-const SHADOW_FEATHER_STEPS := 1
-const STAGE_LIGHT_BAND_STEPS := 1
+const SHADOW_OPENING_SLICE_COUNT := 36
+const SHADOW_FEATHER_STEPS := 6
+const STAGE_LIGHT_BAND_STEPS := 5
 const PLAYER_RESULT_DRAW_SIZE := Vector2(160.0, 160.0)
 const BOSS_VISUAL_CENTER_Y_OFFSET := 25.0
 

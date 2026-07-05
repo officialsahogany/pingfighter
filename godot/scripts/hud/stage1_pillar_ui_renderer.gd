@@ -292,8 +292,7 @@ func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
 	var scale_factor: float = _get_gold_hud_scale(game_size, context)
-	canvas.draw_rect(rect, Color(0.05, 0.045, 0.035, 0.62), true)
-	canvas.draw_rect(rect, Color(0.62, 0.48, 0.20, 0.55), false, max(1.0, scale_factor))
+	_draw_gold_hud_frame(canvas, rect, scale_factor)
 
 	var coin_size: float = GOLD_HUD_COIN_SIZE * scale_factor
 	var coin_center := Vector2(rect.position.x + GOLD_HUD_SIDE_MARGIN * scale_factor + coin_size * 0.5, rect.get_center().y)
@@ -313,6 +312,52 @@ func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2
 	var text_shadow_offset := Vector2(0.0, max(1.0, 1.0 * scale_factor))
 	canvas.draw_string(font, baseline + text_shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.30))
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.86, 0.32, 1.0))
+
+
+func _draw_gold_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
+	# Premium metallic gold-HUD chip: dark brushed body, warm gold rim, a beveled
+	# inner highlight/shadow pair, and angular sci-fi corner brackets. Reuses the
+	# shared PremiumPanelFrame chrome language so this matches the character-info /
+	# pause premium panels instead of forking a bespoke frame style. Everything is
+	# derived from `scale_factor` so it tracks the gold HUD's variable width/height.
+	var border_width: float = max(2.0, 2.0 * scale_factor)
+	PremiumPanelFrame.draw_panel(
+		canvas,
+		rect,
+		PremiumPanelFrame.KIND_SECTION,
+		Color(0.06, 0.055, 0.045, 0.74),
+		Color(0.74, 0.57, 0.27, 0.92),
+		border_width
+	)
+
+	# Inner bevel groove: light along the top edge, shadow along the bottom edge.
+	var inset: float = border_width + 1.5 * scale_factor
+	var groove_x0: float = rect.position.x + inset + 2.0 * scale_factor
+	var groove_x1: float = rect.end.x - inset - 2.0 * scale_factor
+	if groove_x1 > groove_x0:
+		var line_w: float = max(1.0, scale_factor)
+		canvas.draw_line(
+			Vector2(groove_x0, rect.position.y + inset),
+			Vector2(groove_x1, rect.position.y + inset),
+			Color(1.0, 0.88, 0.55, 0.18),
+			line_w
+		)
+		canvas.draw_line(
+			Vector2(groove_x0, rect.end.y - inset),
+			Vector2(groove_x1, rect.end.y - inset),
+			Color(0.0, 0.0, 0.0, 0.22),
+			line_w
+		)
+
+	# Angular gold corner brackets — the decorative signature of the frame.
+	PremiumPanelFrame.draw_corner_brackets(
+		canvas,
+		rect.grow(max(1.0, 1.5 * scale_factor)),
+		Color(1.0, 0.82, 0.34, 0.95),
+		1.0,
+		0.30,
+		max(6.0, 14.0 * scale_factor)
+	)
 
 
 func _draw_gold_coin_icon(canvas: CanvasItem, center: Vector2, size: float, scale_factor: float) -> void:

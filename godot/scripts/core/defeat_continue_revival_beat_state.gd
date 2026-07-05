@@ -244,15 +244,18 @@ func force_wall_clock_timeout_for_tests() -> void:
 
 func _get_victory_frame(phase_elapsed: float) -> int:
 	var is_blacksmith := selected_character_type == PlayerCharacterRuntime.BLACKSMITH
-	var frame_count := BattleDrawActorResultContext.get_player_victory_frame_count(is_blacksmith)
-	var frame := int(floor(maxf(0.0, phase_elapsed) / BattleDrawActorResultContext.PLAYER_VICTORY_FRAME_SPEED))
+	var is_commando := selected_character_type == PlayerCharacterRuntime.COMMANDO
+	var frame_count := BattleDrawActorResultContext.get_player_victory_frame_count(is_blacksmith, is_commando)
+	var speed := BattleDrawActorResultContext.get_player_victory_frame_speed(is_commando)
+	var frame := int(floor(maxf(0.0, phase_elapsed) / speed))
 	return clampi(frame, 0, max(0, frame_count - 1))
 
 
 func _get_defeat_frame(phase_elapsed: float) -> int:
 	var is_blacksmith := selected_character_type == PlayerCharacterRuntime.BLACKSMITH
 	var is_viper := selected_character_type == PlayerCharacterRuntime.VIPER
-	var frame_count := BattleDrawActorResultContext.get_player_defeat_frame_count(is_blacksmith, is_viper)
+	var is_commando := selected_character_type == PlayerCharacterRuntime.COMMANDO
+	var frame_count := BattleDrawActorResultContext.get_player_defeat_frame_count(is_blacksmith, is_viper, is_commando)
 	var speed := BattleDrawActorResultContext.PLAYER_DEFEAT_64_FRAME_SPEED if is_viper else BattleDrawActorResultContext.PLAYER_DEFEAT_FRAME_SPEED
 	var frame := int(floor(maxf(0.0, phase_elapsed) / speed))
 	return clampi(frame, 0, max(0, frame_count - 1))

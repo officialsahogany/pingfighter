@@ -89,6 +89,14 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"boss_render_interpolation_enabled": bool(_get_owner_value(owner, "boss_render_interpolation_enabled", true)),
 		"boss_paddle_size": Vector2(boss_paddle_width, boss_hitbox_height),
 		"boss_hitbox_height": boss_hitbox_height,
+		# Lingpet 난쟁이마술: centered render shrink. boss_paddle_size stays full so
+		# the sprite center (boss_pos.x + boss_paddle_size.x*0.5) does not drift; the
+		# actor context scales boss_sprite_draw_size by this around that center.
+		"boss_paddle_shrink_scale": (
+			clampf(float(_get_owner_value(owner, "lingpet_dwarf_magic_shrink_scale", 1.0)), 0.2, 1.0)
+			if bool(_get_owner_value(owner, "lingpet_dwarf_magic_shrink_active", false))
+			else 1.0
+		),
 		"boss_max_health": max(0, int(_get_owner_value(owner, "boss_max_health", 0))),
 		"boss_current_health": max(0, int(_get_owner_value(owner, "boss_current_health", 0))),
 		"boss_health_damage_units": max(0, int(_get_owner_value(owner, "boss_health_damage_units", 0))),

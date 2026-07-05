@@ -15,6 +15,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 
 const SKILL_ID := "maribo_hydro_sphere"
 const SKILL_NAME := "하이드로 스피어"
@@ -145,7 +146,7 @@ static func is_lingpet_skill(skill: Dictionary) -> bool:
 	if bool(skill.get("is_lingpet", false)):
 		return true
 	var skill_id := str(skill.get("id", "")).strip_edges().to_lower()
-	return skill_id == SKILL_ID or not LingpetCatalog.get_active_skill_entry(skill_id).is_empty()
+	return skill_id == SKILL_ID or LingpetCatalog.has_active_skill_entry(skill_id)
 
 
 static func _resolve_lingpet_runtime(registry: Object) -> Object:
@@ -160,52 +161,67 @@ static func _resolve_lingpet_runtime(registry: Object) -> Object:
 	return null
 
 
+# Returns ONLY the primary (slot 0) active-skill card. Kept for backward
+# compatibility with the per-skill smokes; runtime rails go through
+# build_entries() so a lingpet with a second unlocked active slot shows BOTH
+# cards. Empty when the companion is not active.
 static func build_entry(registry: Object) -> Dictionary:
+	var entries := build_entries(registry)
+	if entries.is_empty():
+		return {}
+	return entries[0]
+
+
+# Returns one rail entry per LIVE active slot (slot 0 always, slot 1 when a
+# second active is unlocked). The character-info panel already reads the
+# companion_skill_*_1 snapshot keys for its second card; the runtime rail must
+# do the same or a second unlocked active never gets its own skill card.
+static func build_entries(registry: Object) -> Array[Dictionary]:
 	var runtime: Object = _resolve_lingpet_runtime(registry)
 	if runtime == null:
-		return {}
+		return []
 	if runtime.has_method("is_companion_active"):
 		if not bool(runtime.is_companion_active()):
-			return {}
+			return []
 	elif not runtime.has_method("is_maribo_companion_active") or not bool(runtime.is_maribo_companion_active()):
-		return {}
-	if not runtime.has_method("get_snapshot"):
-		return {}
-	var snapshot: Dictionary = runtime.get_snapshot()
-	var skill_id: String = str(snapshot.get("companion_skill_id", ""))
+		return []
+	if not runtime.has_method("get_rail_card_surface") and not runtime.has_method("get_snapshot"):
+		return []
+	var snapshot: Dictionary = {}
+	if runtime.has_method("get_rail_card_surface"):
+		var rail_surface: Variant = runtime.get_rail_card_surface()
+		if rail_surface is Dictionary:
+			snapshot = rail_surface as Dictionary
+	if snapshot.is_empty() and runtime.has_method("get_snapshot"):
+		snapshot = runtime.get_snapshot()
+	var entries: Array[Dictionary] = []
+	var primary := _build_entry_from_snapshot(snapshot, "")
+	if primary.is_empty():
+		return []
+	entries.append(primary)
+	var second := _build_entry_from_snapshot(snapshot, "_1")
+	if not second.is_empty():
+		entries.append(second)
+	return entries
+
+
+# Builds one rail entry from a runtime snapshot slot. `suffix` is "" for the
+# primary slot and "_1" for the second active slot; every companion_skill_*
+# key exists in both suffixed and un-suffixed form (see
+# lingpet_runtime_snapshot_builder / lingpet_companion_skill_state).
+static func _build_entry_from_snapshot(snapshot: Dictionary, suffix: String) -> Dictionary:
+	var skill_id: String = str(snapshot.get("companion_skill_id%s" % suffix, ""))
 	if skill_id == "":
 		return {}
-	var duration: float = maxf(1.0, float(snapshot.get("companion_skill_cooldown_duration", COOLDOWN_SECONDS)))
-	var cooldown_remaining: float = maxf(0.0, float(snapshot.get("companion_skill_cooldown", 0.0)))
+	var duration: float = maxf(1.0, float(snapshot.get("companion_skill_cooldown_duration%s" % suffix, COOLDOWN_SECONDS)))
+	var cooldown_remaining: float = maxf(0.0, float(snapshot.get("companion_skill_cooldown%s" % suffix, 0.0)))
 	var progress: float = clampf(1.0 - cooldown_remaining / duration, 0.0, 1.0)
-	var ready: bool = bool(snapshot.get("companion_skill_ready", false))
-	var casting: bool = (
-		bool(snapshot.get("hydro_sphere_projectile_active", false))
-		or bool(snapshot.get("hydro_sphere_puddle_active", false))
-		or bool(snapshot.get("headbutt_active", false))
-		or bool(snapshot.get("headbutt_impact_active", false))
-		or bool(snapshot.get("headbutt_miss_active", false))
-		or bool(snapshot.get("headbutt_repeat_wait_active", false))
-		or bool(snapshot.get("moon_orbit_projectile_active", false))
-		or bool(snapshot.get("moon_orbit_field_active", false))
-		or bool(snapshot.get("bubble_trap_projectile_active", false))
-		or bool(snapshot.get("bubble_trap_capture_active", false))
-		or bool(snapshot.get("thunder_orb_projectile_active", false))
-		or bool(snapshot.get("thunder_orb_explosion_active", false))
-		or bool(snapshot.get("thunder_orb_electric_stun_active", false))
-		or bool(snapshot.get("solar_bolt_active", false))
-		or bool(snapshot.get("solar_bolt_refire_pending", false))
-		or bool(snapshot.get("solar_bolt_vfx_active", false))
-		or bool(snapshot.get("soul_clone_active", false))
-		or bool(snapshot.get("ghost_summon_active", false))
-		or bool(snapshot.get("star_coil_active", false))
-		or bool(snapshot.get("star_coil_visible", false))
-		or bool(snapshot.get("companion_skill_winding_up", false))
-	)
+	var ready: bool = bool(snapshot.get("companion_skill_ready%s" % suffix, false))
+	var casting: bool = _is_skill_casting(snapshot, skill_id, suffix)
 	var status: String = "casting" if casting else ("ready" if ready else "charging")
 	return {
 		"id": skill_id,
-		"label": str(snapshot.get("companion_skill_name", SKILL_NAME)),
+		"label": str(snapshot.get("companion_skill_name%s" % suffix, SKILL_NAME)),
 		"trigger_type": "auto",
 		"trigger_label": "자동",
 		"progress": progress,
@@ -215,27 +231,73 @@ static func build_entry(registry: Object) -> Dictionary:
 		"cooldown_remaining": cooldown_remaining,
 		"cooldown_total": duration,
 		"sort_remaining": cooldown_remaining,
-		"flash": clampf(float(snapshot.get("companion_skill_flash_ratio", 0.0)), 0.0, 1.0),
+		"flash": clampf(float(snapshot.get("companion_skill_flash_ratio%s" % suffix, 0.0)), 0.0, 1.0),
 		"color": ACCENT,
 		"is_lingpet": true,
 		"accent_color": ACCENT,
-		"card_texture_path": str(snapshot.get("companion_skill_card_path", TEXTURE_PATH)),
-		"description": str(snapshot.get("companion_skill_description", "")),
+		"card_texture_path": str(snapshot.get("companion_skill_card_path%s" % suffix, TEXTURE_PATH)),
+		"description": str(snapshot.get("companion_skill_description%s" % suffix, "")),
 	}
 
 
-# Merge the lingpet card into a stage's boss skill-card rail. MUST also force the
-# rail's active flag on, because every per-stage renderer early-returns when that
-# flag is false -- otherwise a stage with no live boss skill would drop the card.
+# Per-slot casting resolution. `draw_card` full-fills the gauge whenever status
+# is "casting", so casting MUST be attributed to the slot's OWN skill kind, not
+# a shared global OR -- otherwise slot 0's charging card would jump to full the
+# moment slot 1 casts (and vice versa). Each slot's wind-up flag is suffixed,
+# while the per-effect "active" flags come from the skill module snapshot keyed
+# by kind (both slots run distinct kinds; would_share_module collapses to one
+# slot when they'd share a module).
+static func _is_skill_casting(snapshot: Dictionary, skill_id: String, suffix: String) -> bool:
+	if bool(snapshot.get("companion_skill_winding_up%s" % suffix, false)):
+		return true
+	for flag_key in _casting_flag_keys_for_skill(skill_id):
+		if bool(snapshot.get(flag_key, false)):
+			return true
+	return false
+
+
+static func _casting_flag_keys_for_skill(skill_id: String) -> Array:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return ["hydro_sphere_projectile_active", "hydro_sphere_puddle_active"]
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return ["headbutt_active", "headbutt_impact_active", "headbutt_miss_active", "headbutt_repeat_wait_active"]
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return ["moon_orbit_projectile_active", "moon_orbit_field_active"]
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return ["bubble_trap_projectile_active", "bubble_trap_capture_active"]
+		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
+			return ["thunder_orb_projectile_active", "thunder_orb_explosion_active", "thunder_orb_electric_stun_active"]
+		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
+			return ["solar_bolt_active", "solar_bolt_refire_pending", "solar_bolt_vfx_active"]
+		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
+			return ["soul_clone_active"]
+		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
+			return ["ghost_summon_active"]
+		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
+			return ["star_coil_active", "star_coil_visible"]
+		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
+			return ["gravity_accel_active", "gravity_accel_field_active"]
+		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+			return ["sand_prison_active"]
+		_:
+			return []
+
+
+# Merge the lingpet card(s) into a stage's boss skill-card rail. MUST also force
+# the rail's active flag on, because every per-stage renderer early-returns when
+# that flag is false -- otherwise a stage with no live boss skill would drop the
+# card. Appends every live active slot (1 or 2 cards).
 static func append_entry(hud_context: Dictionary, registry: Object, skills_key: String, active_flag_key: String) -> void:
-	var entry: Dictionary = build_entry(registry)
-	if entry.is_empty():
+	var entries := build_entries(registry)
+	if entries.is_empty():
 		return
 	var rail_skills: Array = []
 	var existing: Variant = hud_context.get(skills_key, [])
 	if existing is Array:
 		rail_skills = existing.duplicate()
-	rail_skills.append(entry)
+	for entry in entries:
+		rail_skills.append(entry)
 	hud_context[skills_key] = rail_skills
 	hud_context[active_flag_key] = true
 

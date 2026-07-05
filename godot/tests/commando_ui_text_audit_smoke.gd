@@ -125,7 +125,7 @@ func _verify_character_info_uses_commando_runtime() -> void:
 	}
 
 	_expect(str(CharacterInfoOverlayOwnerState.character_type_from_owner(owner, overlay._character_runtime)) == "soldier", "TAB overlay should keep soldier as Commando, not Smasher fallback")
-	_expect(str(CharacterInfoOverlayOwnerState.character_display_name_from_owner(owner, "soldier")) == "코만도", "TAB overlay should display Korean Commando name")
+	_expect(str(CharacterInfoOverlayOwnerState.character_display_name_from_owner(owner, "soldier")) == "레나", "TAB overlay should display the Commando's personal name (레나) left of the class label")
 	_expect(CharacterInfoOverlayOwnerState.skill_config(registry, "soldier", overlay._character_runtime) == skill_config, "TAB overlay should read Commando skill config")
 	var acquired: Array = overlay._build_acquired_perks(runtime_state.runtime_skill_levels, catalog)
 	var bazooka: Dictionary = _first_dict(acquired)

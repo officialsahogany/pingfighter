@@ -242,7 +242,8 @@ func _is_junior_mika(owner: Object) -> bool:
 		return false
 	var ai_mode: String = BattleSceneConfig.normalize_league_mode(str(owner.get("ai_mode")))
 	var character_type: String = str(owner.get("selected_character_type")).strip_edges().to_lower()
-	return ai_mode == "junior" and (character_type == "smasher" or character_type == "mika")
+	# 그립 선택은 테스트(주니어) 시작 튜토리얼 캐릭터 공용: 스매셔/미카 + 코만도(soldier) + 바이퍼.
+	return ai_mode == "junior" and (character_type in ["smasher", "mika", "soldier", "commando", "viper"])
 
 
 func _has_stored_grip_style(owner: Object) -> bool:

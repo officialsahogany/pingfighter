@@ -101,6 +101,9 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_mistake_speed_scale": boss_mistake_profile["boss_mistake_speed_scale"],
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
 		"lingpet_puppet_grab_active": bool(_get_owner_value(owner, "lingpet_puppet_grab_active", false)),
+		"lingpet_sand_prison_clamp_active": bool(_get_owner_value(owner, "lingpet_sand_prison_clamp_active", false)),
+		"lingpet_sand_prison_cage_left": float(_get_owner_value(owner, "lingpet_sand_prison_cage_left", 0.0)),
+		"lingpet_sand_prison_cage_right": float(_get_owner_value(owner, "lingpet_sand_prison_cage_right", 760.0)),
 		"waiting_for_serve": _is_waiting_for_serve(round_state),
 		"player_serves": _does_player_serve(round_state),
 		"boss_serve_timer": _get_round_snapshot_float(round_state, "serve_timer", 0.0),
@@ -117,6 +120,9 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_hitbox_height": max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT))),
 		"lingpet_star_coil_boss_slow_active": bool(_get_owner_value(owner, "lingpet_star_coil_boss_slow_active", false)),
 		"lingpet_star_coil_boss_slow_multiplier": float(_get_owner_value(owner, "lingpet_star_coil_boss_slow_multiplier", 1.0)),
+		"lingpet_star_coil_block_boss_dash": bool(_get_owner_value(owner, "lingpet_star_coil_block_boss_dash", false)),
+		"lingpet_dwarf_magic_boss_slow_active": bool(_get_owner_value(owner, "lingpet_dwarf_magic_boss_slow_active", false)),
+		"lingpet_dwarf_magic_boss_slow_multiplier": float(_get_owner_value(owner, "lingpet_dwarf_magic_boss_slow_multiplier", 1.0)),
 		"hitbox_padding": HITBOX_PADDING,
 		"power_smashing_parabola_active": power_state != null and power_state.has_method("is_parabola_active") and power_state.is_parabola_active(),
 		"power_smashing_combo_consumed": int(power_state.get_combo_consumed()) if power_state != null and power_state.has_method("get_combo_consumed") else 0,
@@ -144,6 +150,8 @@ func _merge_shared_context(context: Dictionary, registry: Object, character_type
 
 func _merge_stage_context(context: Dictionary, registry: Object, current_stage: int) -> void:
 	if current_stage == 1:
+		if _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji")) != "dalji":
+			return
 		var whip_state: Object = _get_instance(registry, "stage1_dalji_whip_skill_state")
 		if whip_state != null and whip_state.has_method("get_ai_context"):
 			context.merge(whip_state.get_ai_context(), true)
@@ -295,6 +303,15 @@ func _is_boss_dash_chain_enabled(ai_mode: String, current_stage: int) -> bool:
 
 func _normalize_league_mode(ai_mode: String) -> String:
 	return BattleSceneConfig.normalize_league_mode(ai_mode)
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
 
 
 func _build_boss_dash_profile(current_stage: int) -> Dictionary:

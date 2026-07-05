@@ -2,6 +2,7 @@ extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
+const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
 
 
 # Runs on the physics tick that closes a match (scoreboard UPDATE_RESET_GAME),
@@ -183,6 +184,9 @@ func reset_stage_state(deps: Dictionary) -> void:
 		"stage1_dalji_whip_skill_state",
 		"stage1_dalji_spinning_top_skill_state",
 		"stage1_dalji_boss_skill_cooldown_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
 		"weather_event_state",
 		"stage2_boss_skill_state",
 		"stage3_boss_skill_state",
@@ -208,6 +212,10 @@ func reset_stage_state(deps: Dictionary) -> void:
 	# per-frame by the boss renderer; force-hide any live host on round / stage
 	# reset so a stun caught mid-transition cannot linger across the boundary.
 	BossElectrocutionFieldHost.hide_all_existing_hosts()
+	# Stage 4 Ponk's textured awaken aura is also a detached canvas child; hide
+	# orphaned hosts here so stage-clear / stage-transition paths cannot carry
+	# the mandala ring into the result or loading screen.
+	Stage4PonkAwakenAuraFxHost.hide_all_existing_hosts()
 
 
 func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dictionary:
