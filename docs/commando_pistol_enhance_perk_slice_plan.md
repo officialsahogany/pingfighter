@@ -173,22 +173,22 @@ func _pistol_enhance_ammo_bonus(level: int) -> int:
 
 선택 하드닝(LOW): switch-away 스모크 / 베레타-탄약 가드 non-tooth / 카탈로그 KO카피 탄창숫자 미봉인 / dead fallback `pistol_ammo_max=5`(무해).
 
-## 9. 효과 D 추가 — 정상타 넉백 길이 (Lv당 +10%, 기본권총 전용)
+## 9. 효과 D 추가 — 정상타 넉백 길이 (Lv당 +30%, 기본권총 전용)
 
 ### 값
-- Lv1~5: 기본권총 **정상타 넉백 길이 +10/20/30/40/50%** = 배수 `1.0 + 0.10*level`.
-- Lv6+ 결정 = **Lv5 +50% 캡, `clampi(level,0,5)`**. `PISTOL_BOSS_KNOCKBACK_POWER=8.0`의 주석이 과한 보스 플링 위험을 이미 경고하므로 탄속 레인처럼 캡한다. 탄창 레인만 Lv6+ 계속 증가.
+- Lv1~5: 기본권총 **정상타 넉백 길이 +30/60/90/120/150%** = 배수 `1.0 + 0.30*level`.
+- Lv6+ 결정 = **Lv5 +150% 캡, `clampi(level,0,5)`**. `+10~50%` 1차 배선은 실제 플레이에서 체감이 약했으므로, 별도 넉백 레인만 더 강하게 리워크한다. 탄속 레인은 +50% 캡 유지, 탄창 레인만 Lv6+ 계속 증가.
 - 적용 범위 = **기본권총 정상타만**. 베레타(commando_pistol), 슬링샷, 헤드샷(스턴/넉백 0), 레그샷(`knockback_without_stun` 별도 경로)은 무수정.
 
 ### 훅
-- 런타임: `get_pistol_enhance_knockback_multiplier(level) -> float = 1.0 + 0.10*clampi(level,0,5)` 추가.
+- 런타임: `get_pistol_enhance_knockback_multiplier(level) -> float = 1.0 + 0.30*clampi(level,0,5)` 추가.
 - `_build_firearm_spawn_options`에 `"base_pistol_knockback_mult"` 추가(deps perk level).
 - `_spawn_firearm_effect` → `commando_firearm_fire_spawn_state` → `commando_firearm_projectile_spawn_state.build_projectile`로 전달.
 - 투사체 carry: `weapon_id == "pistol"` AND non-slingshot일 때만 `"pistol_enhance_knockback_mult"` 저장. 베레타와 슬링샷은 carry 자체가 없음.
 - 소비 지점: `commando_firearm_pistol_hit_state.build_hit_payload`의 normal-hit branch에서만 `normal_knockback_power * base_pistol_knockback_mult`. `weapon_id == "commando_pistol"`이면 배수 무시.
 
 ### 스모크
-- `commando_pistol_enhance_smoke.gd`: Lv0~7 배수 표(1.0~1.5 캡), 기본권총 normal hit power `8*mult`, 베레타 normal hit 8.0 불변, 헤드샷 0, 레그샷 normal `knockback_power` 없음, 투사체 carry는 기본권총만.
-- `commando_firearm_pistol_hit_state_smoke.gd`: direct payload와 runtime `apply_runtime_hit_effects` 모두 기본권총 12.0 / 베레타 8.0 단언.
-- `commando_perk_catalog_smoke.gd`: KO descriptions/detail에 넉백 레인과 Lv6+ `탄속과 넉백은 +50%` 캡 문구, choice-card 2-line budget 유지.
+- `commando_pistol_enhance_smoke.gd`: Lv0~7 배수 표(1.0~2.5 캡), 기본권총 normal hit power `8*mult`, 베레타 normal hit 8.0 불변, 헤드샷 0, 레그샷 normal `knockback_power` 없음, 투사체 carry는 기본권총만. 추가로 `StatusEffectState.get_boss_ai_context()`와 `BossAiState.update()`까지 타서 Lv0 8px/frame, Lv5 20px/frame 실제 보스 이동을 단언.
+- `commando_firearm_pistol_hit_state_smoke.gd`: direct payload와 runtime `apply_runtime_hit_effects` 모두 기본권총 20.0 / 베레타 8.0 단언.
+- `commando_perk_catalog_smoke.gd`: KO descriptions/detail에 넉백 레인과 Lv6+ `탄속은 +50%, 넉백은 +150%` 캡 문구, choice-card 2-line budget 유지.
 - `localization_coverage_smoke.gd`: 6개 PERK_SUMMARY가 accuracy/speed/knockback/magazine 4레인을 모두 포함.
