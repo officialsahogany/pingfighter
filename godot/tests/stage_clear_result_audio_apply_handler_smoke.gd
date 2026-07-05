@@ -2,6 +2,8 @@ extends SceneTree
 
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultAudioApplyHandler := preload("res://scripts/ui/stage_clear_result_audio_apply_handler.gd")
+const StageClearResultAudioSceneHandler := preload("res://scripts/ui/stage_clear_result_audio_scene_handler.gd")
+const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
 
@@ -17,6 +19,7 @@ class FakeGameAudio:
 
 func _init() -> void:
 	_verify_audio_apply_handler_contract()
+	_verify_audio_scene_handler_contract()
 	_verify_audio_apply_handler_source()
 	_verify_scene_delegates_audio_apply_handler()
 
@@ -49,6 +52,26 @@ func _verify_audio_apply_handler_contract() -> void:
 	_expect(not StageClearResultAudioApplyHandler.play_result_box_open_audio(null), "audio apply handler should ignore missing game audio")
 
 
+func _verify_audio_scene_handler_contract() -> void:
+	var scene := StageClearResultScene.new()
+	var existing_stream := AudioStreamGenerator.new()
+	scene.set("_dalji_click_voice_stream", existing_stream)
+	scene.current_stage = 2
+	StageClearResultAudioSceneHandler.load_audio(scene)
+	_expect(scene.get("_dalji_click_voice_stream") == null, "audio scene handler should clear Dalji voice streams outside Stage 1")
+
+	scene.current_stage = 1
+	scene.set("_dalji_click_voice_stream", existing_stream)
+	StageClearResultAudioSceneHandler.load_audio(scene)
+	_expect(scene.get("_dalji_click_voice_stream") == existing_stream, "audio scene handler should preserve already-loaded Stage 1 voice streams")
+
+	var game_audio := FakeGameAudio.new()
+	scene.set("_game_audio", game_audio)
+	_expect(StageClearResultAudioSceneHandler.play_result_box_open_audio(scene), "audio scene handler should route result box open SFX")
+	_expect(game_audio.result_box_open_calls == 1, "audio scene handler should call result box open SFX once")
+	scene.free()
+
+
 func _verify_audio_apply_handler_source() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_audio_apply_handler.gd")
 	_expect(source.find("static func load_dalji_click_voice_stream") >= 0, "audio apply handler should expose Dalji voice loading")
@@ -60,8 +83,18 @@ func _verify_audio_apply_handler_source() -> void:
 
 func _verify_scene_delegates_audio_apply_handler() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultAudioApplyHandler.load_dalji_click_voice_stream") >= 0, "result scene should delegate Dalji voice stream loading")
-	_expect(source.find("StageClearResultAudioApplyHandler.play_result_box_open_audio") >= 0, "result scene should delegate result box open SFX playback")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_audio_scene_handler.gd")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+	var box_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+	_expect(config_scene_handler_source.find("static func load_audio") >= 0, "config scene handler should own Dalji voice stream loading scene glue")
+	_expect(source.find("StageClearResultConfigSceneHandler.load_audio") < 0, "result scene should not keep Dalji voice loading pass-through glue")
+	_expect(config_scene_handler_source.find("StageClearResultAudioSceneHandler.load_audio") >= 0, "config scene handler should delegate Dalji voice stream loading to the audio scene handler")
+	_expect(box_scene_handler_source.find("StageClearResultAudioSceneHandler.play_result_box_open_audio") >= 0, "box scene handler should delegate result box open SFX playback to the audio scene handler")
+	_expect(source.find("StageClearResultAudioSceneHandler.load_audio") < 0, "result scene should not bypass the config scene handler for Dalji voice loading")
+	_expect(source.find("StageClearResultAudioSceneHandler.play_result_box_open_audio") < 0, "result scene should not route result box open SFX directly")
+	_expect(source.find("StageClearResultAudioApplyHandler.") < 0, "result scene should not call audio apply handler directly")
+	_expect(scene_handler_source.find("StageClearResultAudioApplyHandler.load_dalji_click_voice_stream") >= 0, "audio scene handler should delegate Dalji voice stream loading")
+	_expect(scene_handler_source.find("StageClearResultAudioApplyHandler.play_result_box_open_audio") >= 0, "audio scene handler should delegate result box open SFX playback")
 	_expect(source.find("StageClearResultAssetLoader.load_dalji_click_voice") < 0, "result scene should not load Dalji voice streams directly")
 	_expect(source.find("play_result_box_open()") < 0, "result scene should not call result box open SFX directly")
 	_expect(StageClearResultAssetLoader.DALJI_CLICK_VOICE_PATH.ends_with("voice/dalzidefeat.mp3"), "asset loader should keep the canonical Dalji voice path")

@@ -4,6 +4,7 @@ const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
@@ -68,12 +69,73 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class FakeCinematicMythicRuntime:
+	var inventory: Array = []
+	var cinematic_active := false
+	var cinematic_snapshot: Dictionary = {}
+
+	func acquire_item(
+		item_name: String,
+		_owner: Object,
+		_registry: Object,
+		_rolls: Dictionary = {},
+		_auto_equip: bool = true,
+		_play_feedback: bool = false,
+		source_item_data: Dictionary = {}
+	) -> int:
+		var stored: Dictionary = source_item_data.duplicate(true)
+		if stored.is_empty():
+			stored = {"name": item_name, "type": "mythic", "rarity": "mythic"}
+		stored["name"] = item_name
+		inventory.append(stored)
+		return inventory.size() - 1
+
+	func get_inventory_item(index: int) -> Dictionary:
+		if index < 0 or index >= inventory.size():
+			return {}
+		return (inventory[index] as Dictionary).duplicate(true)
+
+	func has_owned_item_name(item_name: String) -> bool:
+		for item in inventory:
+			if item is Dictionary and str((item as Dictionary).get("name", "")) == item_name:
+				return true
+		return false
+
+	func start_acquisition_cinematic(
+		acquired_item_data: Dictionary,
+		pickup_position: Vector2,
+		_owner: Object,
+		_registry: Object = null,
+		target_player_center_override: Vector2 = Vector2.INF
+	) -> bool:
+		cinematic_active = true
+		cinematic_snapshot = {
+			"item_name": str(acquired_item_data.get("name", "")),
+			"pickup_position": pickup_position,
+			"player_center": target_player_center_override,
+		}
+		return true
+
+	func is_acquisition_cinematic_active() -> bool:
+		return cinematic_active
+
+	func get_acquisition_cinematic_snapshot() -> Dictionary:
+		return cinematic_snapshot.duplicate(true)
+
+
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_module_registration()
 	_verify_roll_contract()
 	_verify_normal_box_reward_odds()
 	_verify_grant_paths()
 	_verify_result_box_mythic_grant_starts_acquisition_cinematic()
+	await _drain_frames(12)
+	_clear_runtime_caches_for_test()
+	await _drain_frames(30)
 
 	if _failures.is_empty():
 		print("stage_clear_reward_resolver_smoke: ok")
@@ -218,10 +280,14 @@ func _verify_grant_paths() -> void:
 	_expect(mythic_runtime.has_owned_item_name("megingjord"), "mythic reward should enter mythic/passive runtime inventory")
 	_expect(bool(perk_state.is_choice_active()), "starpoint reward should open the runtime perk choice flow")
 	_expect(owner.runtime_perk_pending_choices == 1, "starpoint reward should sync one pending perk choice to the owner")
+	active_runtime.reset()
+	mythic_runtime.reset()
+	perk_state.reset()
+	registry.instances.clear()
 
 
 func _verify_result_box_mythic_grant_starts_acquisition_cinematic() -> void:
-	var mythic_runtime: Object = MythicItemRuntime.new()
+	var mythic_runtime: Object = FakeCinematicMythicRuntime.new()
 	var mythic_catalog: Object = MythicItemCatalog.new()
 	var owner := FakeNodeOwner.new()
 	root.add_child(owner)
@@ -254,7 +320,29 @@ func _verify_result_box_mythic_grant_starts_acquisition_cinematic() -> void:
 		snapshot.get("player_center", Vector2.ZERO) == Vector2(610.0, 280.0),
 		"result mythic acquisition cinematic should honor the result Live2D absorb target"
 	)
-	owner.queue_free()
+	_cleanup_mythic_runtime_owner(mythic_runtime, registry, owner)
+
+
+func _drain_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await process_frame
+
+
+func _clear_runtime_caches_for_test() -> void:
+	ProjectResourceLoader.clear_caches()
+
+
+func _cleanup_mythic_runtime_owner(runtime: Object, registry: Object, owner: Node) -> void:
+	if runtime != null and runtime.has_method("reset_round"):
+		runtime.reset_round(registry)
+	if runtime != null:
+		var cinematic: Variant = runtime.get("acquisition_cinematic")
+		if cinematic != null:
+			runtime.set("acquisition_cinematic", null)
+		if cinematic is Node and is_instance_valid(cinematic):
+			(cinematic as Node).free()
+	if owner != null:
+		owner.queue_free()
 
 
 func _expect(condition: bool, message: String) -> void:

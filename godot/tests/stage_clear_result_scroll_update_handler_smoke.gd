@@ -2,6 +2,8 @@ extends SceneTree
 
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultScrollUpdateHandler := preload("res://scripts/ui/stage_clear_result_scroll_update_handler.gd")
+const StageClearResultScrollSceneHandler := preload("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
+const StageClearResultFieldApplySceneHandler := preload("res://scripts/ui/stage_clear_result_field_apply_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
@@ -25,6 +27,7 @@ func _init() -> void:
 
 func _verify_update_handler_contract() -> void:
 	_expect(StageClearResultScrollUpdateHandler != null, "scroll update handler preload should resolve")
+	_expect(StageClearResultScrollSceneHandler != null, "scroll scene handler preload should resolve")
 	var hidden: Dictionary = StageClearResultScrollUpdateHandler.update_scroll(
 		StageClearResultScrollState.PHASE_HIDDEN,
 		0.0,
@@ -83,7 +86,7 @@ func _verify_scene_apply_contract() -> void:
 	var scene := StageClearResultScene.new()
 	scene.set("_scroll_phase", StageClearResultScrollState.PHASE_DELAY)
 	scene.set("_scroll_timer", 0.5)
-	scene._apply_scene_apply_result(scene_apply)
+	StageClearResultFieldApplySceneHandler.apply_scene_apply_result(scene, scene_apply)
 	_expect(str(scene.get("_scroll_phase")) == StageClearResultScrollState.PHASE_VISIBLE, "scene field payload helper should apply scroll phase")
 	_expect(abs(float(scene.get("_scroll_timer")) - 1.25) <= 0.001, "scene field payload helper should apply scroll timer")
 	scene.free()
@@ -102,15 +105,21 @@ func _verify_update_handler_source() -> void:
 
 func _verify_scene_delegates_scroll_update_handler() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	var update_scroll_source: String = _slice_function(source, "func _update_scroll", "func _draw_scroll")
-	_expect(source.find("StageClearResultScrollUpdateHandler.update_scroll") >= 0, "result scene should delegate scroll update sequencing")
-	_expect(source.find("StageClearResultScrollUpdateHandler.get_scroll_update_scene_apply_result") >= 0, "result scene should delegate scroll update scene field payloads")
-	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
+	var update_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
+	_expect(update_scene_handler_source.find("StageClearResultScrollSceneHandler.update_scroll") >= 0, "update scene handler should delegate scroll update sequencing through the scroll scene handler")
+	_expect(source.find("func _update_scroll") < 0, "result scene should not keep scroll update fanout wrappers")
+	_expect(source.find("StageClearResultScrollUpdateHandler.") < 0, "result scene should not call the scroll update handler directly")
+	_expect(scene_handler_source.find("StageClearResultScrollUpdateHandler.update_scroll") >= 0, "scroll scene handler should delegate scroll update sequencing")
+	_expect(scene_handler_source.find("StageClearResultScrollUpdateHandler.get_scroll_update_scene_apply_result") >= 0, "scroll scene handler should delegate scroll update scene field payloads")
+	_expect(scene_handler_source.find("StageClearResultRuntimeOverlaySceneHandler.is_interaction_blocked") >= 0, "scroll scene handler should route update blocking checks through the runtime overlay scene handler")
+	_expect(scene_handler_source.find("scene.call(\"_is_result_interaction_blocked\"") < 0, "scroll scene handler should not bounce update blocking checks through the result scene wrapper")
+	_expect(source.find("func _apply_scene_apply_result") < 0, "result scene should not keep scene apply-result pass-through wrappers")
 	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
-	_expect(update_scroll_source.find("_scroll_phase = str(apply_result.get") < 0, "result scene should not write scroll phase directly during scroll updates")
-	_expect(update_scroll_source.find("_scroll_timer = float(apply_result.get") < 0, "result scene should not write scroll timer directly during scroll updates")
-	_expect(update_scroll_source.find("result.get(\"phase\"") < 0, "result scene should not inspect scroll update phases directly")
-	_expect(update_scroll_source.find("result.get(\"timer\"") < 0, "result scene should not inspect scroll update timers directly")
+	_expect(source.find("_scroll_phase = str(apply_result.get") < 0, "result scene should not write scroll phase directly during scroll updates")
+	_expect(source.find("_scroll_timer = float(apply_result.get") < 0, "result scene should not write scroll timer directly during scroll updates")
+	_expect(source.find("result.get(\"phase\"") < 0, "result scene should not inspect scroll update phases directly")
+	_expect(source.find("result.get(\"timer\"") < 0, "result scene should not inspect scroll update timers directly")
 	_expect(source.find("StageClearResultScrollState.update_phase") < 0, "result scene should not update scroll phases directly")
 	_expect(source.find("StageClearResultInteractionState.all_boxes_opened") < 0, "result scene should not check all boxes opened for scroll updates directly")
 

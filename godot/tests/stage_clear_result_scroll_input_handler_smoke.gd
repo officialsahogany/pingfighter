@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScrollInputHandler := preload("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
+const StageClearResultScrollSceneHandler := preload("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
@@ -12,6 +13,7 @@ func _init() -> void:
 	_verify_button_click_and_hover()
 	_verify_drag_lifecycle()
 	_verify_apply_payloads()
+	_verify_scroll_scene_handler_contract()
 	_verify_scene_delegates_scroll_input()
 
 	if _failures.is_empty():
@@ -271,7 +273,7 @@ func _verify_apply_payloads() -> void:
 	scene.set("_scroll_dragging", true)
 	scene.set("_scroll_drag_grab_offset", Vector2(6.0, 7.0))
 	scene.set("_hovered_button", StageClearResultInteractionState.BUTTON_EXIT)
-	scene._apply_scroll_state_result({
+	StageClearResultScrollSceneHandler.apply_scroll_state_result(scene, {
 		"next_stage_rect": Rect2(Vector2(11.0, 12.0), Vector2(13.0, 14.0)),
 		"plaza_rect": Rect2(Vector2(12.0, 13.0), Vector2(14.0, 15.0)),
 		"scroll_position_offset": Vector2(15.0, 16.0),
@@ -288,19 +290,64 @@ func _verify_apply_payloads() -> void:
 	scene.free()
 
 
+func _verify_scroll_scene_handler_contract() -> void:
+	var scene := StageClearResultScene.new()
+	scene.size = Vector2(1920.0, 1080.0)
+	scene.set("_scroll_phase", StageClearResultInteractionState.PHASE_VISIBLE)
+	scene.set("_scroll_timer", StageClearResultScrollState.SCROLL_UNFURL_DURATION)
+	StageClearResultScrollSceneHandler.refresh_scroll_button_rects(scene)
+	_expect(scene.get("_next_stage_button_rect") is Rect2, "scroll scene handler should refresh next-stage button rect")
+	_expect(scene.get("_plaza_button_rect") is Rect2, "scroll scene handler should refresh plaza button rect")
+	_expect(scene.get("_exit_button_rect") is Rect2, "scroll scene handler should refresh exit button rect")
+
+	StageClearResultScrollSceneHandler.update_hovered_button(scene, (scene.get("_exit_button_rect") as Rect2).get_center())
+	_expect(str(scene.get("_hovered_button")) == StageClearResultInteractionState.BUTTON_EXIT, "scroll scene handler should apply hovered button state")
+
+	var full_rect: Rect2 = StageClearResultScrollState.get_region_full_rect(1.0, Vector2.ZERO)
+	var grab_point: Vector2 = full_rect.position + Vector2(120.0, 120.0)
+	_expect(StageClearResultScrollSceneHandler.start_scroll_drag(scene, grab_point), "scroll scene handler should start visible body drags")
+	_expect(bool(scene.get("_scroll_dragging")), "scroll scene handler should apply active drag state")
+	var drag_to: Vector2 = grab_point + Vector2(70.0, -30.0)
+	StageClearResultScrollSceneHandler.update_scroll_drag(scene, drag_to)
+	_expect(scene.get("_scroll_position_offset") == Vector2(70.0, -30.0), "scroll scene handler should apply drag offsets")
+	StageClearResultScrollSceneHandler.finish_scroll_drag(scene, drag_to)
+	_expect(not bool(scene.get("_scroll_dragging")), "scroll scene handler should clear drag state on finish")
+	StageClearResultScrollSceneHandler.cancel_scroll_drag(scene)
+	_expect(not bool(scene.get("_scroll_dragging")), "scroll scene handler should keep idle drags inactive on cancel")
+
+	var current_state: Dictionary = StageClearResultScrollSceneHandler.get_scroll_state_current_state(scene)
+	_expect(current_state.get("scroll_position_offset", Vector2.ZERO) == Vector2(70.0, -30.0), "scroll scene handler should expose current scroll state")
+	scene.free()
+
+
 func _verify_scene_delegates_scroll_input() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var input_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
-	_expect(source.find("StageClearResultScrollInputHandler.get_button_click_result") >= 0, "result scene should delegate scroll button click state")
-	_expect(source.find("StageClearResultScrollInputHandler.get_hovered_button_result") >= 0, "result scene should delegate scroll button hover state")
-	_expect(source.find("StageClearResultScrollInputHandler.get_hovered_button_apply_result") >= 0, "result scene should delegate scroll button hover apply payloads")
-	_expect(source.find("StageClearResultScrollInputHandler.get_drag_start_result") >= 0, "result scene should delegate scroll drag starts")
-	_expect(source.find("StageClearResultScrollInputHandler.get_drag_start_apply_result") >= 0, "result scene should delegate scroll drag-start apply payloads")
-	_expect(source.find("StageClearResultScrollInputHandler.get_drag_update_result") >= 0, "result scene should delegate scroll drag updates")
-	_expect(source.find("StageClearResultScrollInputHandler.get_drag_update_apply_result") >= 0, "result scene should delegate scroll drag-update apply payloads")
-	_expect(source.find("StageClearResultScrollInputHandler.get_drag_finish_apply_result") >= 0, "result scene should delegate scroll drag-finish apply payloads")
-	_expect(source.find("StageClearResultScrollInputHandler.get_drag_cancel_apply_result") >= 0, "result scene should delegate scroll drag-cancel apply payloads")
-	_expect(source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0, "result scene should delegate common scroll-state scene field payloads")
+	_expect(input_scene_handler_source.find("StageClearResultScrollSceneHandler.update_hovered_button") >= 0, "input scene handler should delegate scroll hover scene glue")
+	_expect(input_scene_handler_source.find("StageClearResultScrollSceneHandler.start_scroll_drag") >= 0, "input scene handler should delegate scroll drag-start scene glue")
+	_expect(input_scene_handler_source.find("StageClearResultScrollSceneHandler.update_scroll_drag") >= 0, "input scene handler should delegate scroll drag-update scene glue")
+	_expect(input_scene_handler_source.find("StageClearResultScrollSceneHandler.finish_scroll_drag") >= 0, "input scene handler should delegate scroll drag-finish scene glue")
+	_expect(input_scene_handler_source.find("StageClearResultScrollSceneHandler.cancel_scroll_drag") >= 0, "input scene handler should delegate scroll drag-cancel scene glue")
+	_expect(source.find("func _update_hovered_button") < 0, "result scene should not keep scroll hover fanout wrappers")
+	_expect(source.find("func _start_scroll_drag") < 0, "result scene should not keep scroll drag-start fanout wrappers")
+	_expect(source.find("func _update_scroll_drag") < 0, "result scene should not keep scroll drag-update fanout wrappers")
+	_expect(source.find("func _finish_scroll_drag") < 0, "result scene should not keep scroll drag-finish fanout wrappers")
+	_expect(source.find("func _cancel_scroll_drag") < 0, "result scene should not keep scroll drag-cancel fanout wrappers")
+	_expect(source.find("func _apply_scroll_state_result") < 0, "result scene should not keep common scroll-state apply fanout wrappers")
+	_expect(source.find("StageClearResultScrollInputHandler.") < 0, "result scene should not call the scroll input helper directly")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_hovered_button_result") >= 0, "scroll scene handler should delegate scroll button hover state")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_hovered_button_apply_result") >= 0, "scroll scene handler should delegate scroll button hover apply payloads")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_start_result") >= 0, "scroll scene handler should delegate scroll drag starts")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_start_apply_result") >= 0, "scroll scene handler should delegate scroll drag-start apply payloads")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_update_result") >= 0, "scroll scene handler should delegate scroll drag updates")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_update_apply_result") >= 0, "scroll scene handler should delegate scroll drag-update apply payloads")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_finish_apply_result") >= 0, "scroll scene handler should delegate scroll drag-finish apply payloads")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_cancel_apply_result") >= 0, "scroll scene handler should delegate scroll drag-cancel apply payloads")
+	_expect(scene_handler_source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0, "scroll scene handler should delegate common scroll-state scene field payloads")
+	_expect(scene_handler_source.find("StageClearResultRuntimeOverlaySceneHandler.is_interaction_blocked") >= 0, "scroll scene handler should route interaction blocking through the runtime overlay scene handler")
+	_expect(scene_handler_source.find("scene.call(\"_is_result_interaction_blocked\"") < 0, "scroll scene handler should not bounce interaction blocking through the result scene wrapper")
 	_expect(helper_source.find("static func get_scroll_state_apply_result") >= 0, "scroll input helper should expose common scroll-state apply payloads")
 	_expect(helper_source.find("static func get_scroll_state_scene_apply_result") >= 0, "scroll input helper should expose scene field payloads")
 	_expect(source.find("StageClearResultInteractionState.get_scroll_drag_start_state") < 0, "result scene should not build scroll drag starts directly")

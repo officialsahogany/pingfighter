@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultInputRouter := preload("res://scripts/ui/stage_clear_result_input_router.gd")
+const StageClearResultInputSceneHandler := preload("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 
 var _failures: Array[String] = []
@@ -143,10 +144,21 @@ func _verify_mouse_routes() -> void:
 
 func _verify_scene_delegates_input_routing() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultInputRouter.get_result_input_route") >= 0, "result scene should delegate top-level input route classification")
-	_expect(source.find("StageClearResultInputRouter.get_input_router_context") >= 0, "result scene should delegate input-router context assembly")
-	_expect(source.find("func _get_input_router_context()") >= 0, "result scene should keep a thin input-router context wrapper")
-	_expect(source.find("func _handle_mouse_left_press") >= 0, "result scene should keep click side effects in a focused helper")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+	_expect(source.find("StageClearResultInputSceneHandler.handle_result_input") >= 0, "result scene should delegate top-level input dispatch through the input scene handler")
+	_expect(source.find("StageClearResultInputSceneHandler.get_input_router_context") < 0, "result scene should not keep input-router context pass-through glue")
+	_expect(source.find("StageClearResultInputSceneHandler.handle_mouse_left_press") < 0, "result scene should not keep click side-effect pass-through glue")
+	_expect(scene_handler_source.find("StageClearResultInputRouter.get_result_input_route") >= 0, "input scene handler should delegate top-level input route classification")
+	_expect(scene_handler_source.find("StageClearResultInputRouter.get_input_router_context") >= 0, "input scene handler should delegate input-router context assembly")
+	_expect(scene_handler_source.find("StageClearResultActorClickSceneHandler.handle_dalji_click") >= 0, "input scene handler should route actor click side effects")
+	_expect(scene_handler_source.find("StageClearResultScrollSceneHandler.start_scroll_drag") >= 0, "input scene handler should route scroll drag side effects")
+	_expect(scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_button_click") >= 0, "input scene handler should route scroll button clicks")
+	_expect(scene_handler_source.find("StageClearResultBoxSceneHandler.handle_box_click") >= 0, "input scene handler should route box clicks")
+	_expect(source.find("StageClearResultInputRouter.get_result_input_route") < 0, "result scene should not call the input router directly")
+	_expect(source.find("StageClearResultInputRouter.get_input_router_context") < 0, "result scene should not assemble input-router context directly")
+	_expect(source.find("func _get_input_router_context()") < 0, "result scene should not keep a thin input-router context wrapper")
+	_expect(source.find("func _handle_mouse_left_press") < 0, "result scene should not keep click side effects in a focused helper")
+	_expect(StageClearResultInputSceneHandler != null, "input scene handler preload should resolve")
 	_expect(source.find("GamepadInput.is_confirm_event") < 0, "result scene should not classify gamepad confirm directly")
 	_expect(source.find("event is InputEventMouseMotion") < 0, "result scene should not classify mouse motion directly")
 	_expect(source.find("event is InputEventMouseButton") < 0, "result scene should not classify mouse buttons directly")

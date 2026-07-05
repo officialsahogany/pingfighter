@@ -6,6 +6,10 @@ const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_s
 const StageClearResultRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const StageClearResultConfigSceneHandler := preload("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+const StageClearResultInputSceneHandler := preload("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+const StageClearResultSceneShellHandler := preload("res://scripts/core/stage_clear_result_scene_shell_handler.gd")
+const StageClearResultStatusSceneHandler := preload("res://scripts/ui/stage_clear_result_status_scene_handler.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
 
@@ -351,6 +355,9 @@ func _run() -> void:
 	_verify_prewarm_assets_are_staged()
 	_verify_prewarm_assets_follow_selected_character()
 	_verify_screen_defers_unwarmed_scene_spawn()
+	_verify_stage4_screen_spawns_with_ponk_result_live2d()
+	_verify_stage5_screen_spawns_with_hongryun_result_fallback()
+	_verify_stage6_screen_spawns_with_tetriser_result_sheet()
 	_verify_screen_opens_for_player_win()
 	_verify_box_open_audio_routes_from_screen()
 	_verify_screen_ignores_boss_win()
@@ -363,7 +370,7 @@ func _run() -> void:
 	_verify_scoreboard_flow_waits_for_result_screen()
 	_verify_scoreboard_flow_falls_back_to_reset()
 
-	StageClearResultScene.reset_prewarm_assets_for_test()
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
 	PlazaScene.reset_prewarm_assets_for_test()
 	ProjectResourceLoader.clear_caches()
 	for _i in range(120):
@@ -399,11 +406,18 @@ func _make_result_screen() -> Object:
 	return screen
 
 
+func _get_result_screen_prewarm_status(screen: Object) -> Dictionary:
+	var prewarm_handler: Object = screen.get("_prewarm_flow_handler")
+	if prewarm_handler == null or not prewarm_handler.has_method("get_prewarm_status"):
+		return {}
+	return prewarm_handler.get_prewarm_status()
+
+
 func _verify_scene_shell_prewarm_is_light() -> void:
-	StageClearResultScene.reset_prewarm_assets_for_test()
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
 	var screen: Object = _make_result_screen()
 	_expect(screen.prewarm_scene_shell(), "result screen shell prewarm should load the packed scene")
-	var status: Dictionary = screen.get("_prewarm_assets_status")
+	var status: Dictionary = _get_result_screen_prewarm_status(screen)
 	_expect(bool(status.get("result_scene_packed", false)), "result screen shell prewarm should mark the scene packed")
 	_expect(not status.has("background_texture"), "result screen shell prewarm should not load the heavy result background")
 	_expect(not status.has("dalji_defeat_sheet"), "result screen shell prewarm should not load large result animation sheets")
@@ -413,7 +427,7 @@ func _verify_scene_shell_prewarm_is_light() -> void:
 
 
 func _verify_prewarm_assets_are_staged() -> void:
-	StageClearResultScene.reset_prewarm_assets_for_test()
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
 	var screen: Object = _make_result_screen()
 	var calls := 0
 	while not bool(screen.prewarm_assets_step()):
@@ -424,7 +438,7 @@ func _verify_prewarm_assets_are_staged() -> void:
 		calls == StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1,
 		"result screen should split packed-scene, texture, audio, and FX prewarm across separate steps"
 	)
-	var status: Dictionary = screen.get("_prewarm_assets_status")
+	var status: Dictionary = _get_result_screen_prewarm_status(screen)
 	_expect(bool(status.get("result_scene_packed", false)), "result screen staged prewarm should load the packed scene")
 	_expect(int(status.get("current_stage", 0)) == 1, "result screen staged prewarm should remember the current stage")
 	_expect(bool(status.get("background_texture", false)), "result screen staged prewarm should load the result background")
@@ -441,17 +455,84 @@ func _verify_prewarm_assets_are_staged() -> void:
 	while not bool(screen.prewarm_assets_step(stage2_owner)):
 		calls += 1
 		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Stage 2 result prewarm should complete within the declared step budget")
-	status = screen.get("_prewarm_assets_status")
+	status = _get_result_screen_prewarm_status(screen)
 	_expect(int(status.get("current_stage", 0)) == 2, "Stage 2 result prewarm should remember the current stage")
+	_expect(bool(status.get("background_texture", false)), "Stage 2 result prewarm should load the jungle relic result background")
 	_expect(bool(status.get("stage2_boss_defeat_live2d_sheet", false)), "Stage 2 result prewarm should load the Stage 2 boss base sheet")
 	_expect(bool(status.get("stage2_boss_defeat_click_reaction_sheet", false)), "Stage 2 result prewarm should load the Stage 2 boss click sheet")
 	_expect(not status.has("dalji_defeat_sheet"), "Stage 2 result prewarm should skip the Dalji base sheet")
 	_expect(not status.has("dalji_click_reaction_sheet"), "Stage 2 result prewarm should skip the Dalji click sheet")
+
+	var stage3_owner := FakeOwner.new()
+	stage3_owner.current_stage = 3
+	calls = 0
+	while not bool(screen.prewarm_assets_step(stage3_owner)):
+		calls += 1
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Stage 3 result prewarm should complete within the declared step budget")
+	status = _get_result_screen_prewarm_status(screen)
+	_expect(int(status.get("current_stage", 0)) == 3, "Stage 3 result prewarm should remember the current stage")
+	_expect(bool(status.get("background_texture", false)), "Stage 3 result prewarm should load the neon arcade result background")
+	_expect(bool(status.get("stage3_boss_defeat_live2d_sheet", false)), "Stage 3 result prewarm should load the Stage 3 boss base sheet")
+	_expect(bool(status.get("stage3_boss_defeat_click_reaction_sheet", false)), "Stage 3 result prewarm should load the Stage 3 boss click sheet")
+	_expect(not status.has("dalji_defeat_sheet"), "Stage 3 result prewarm should skip the Dalji base sheet")
+	_expect(not status.has("dalji_click_reaction_sheet"), "Stage 3 result prewarm should skip the Dalji click sheet")
+
+	var stage4_owner := FakeOwner.new()
+	stage4_owner.current_stage = 4
+	calls = 0
+	while not bool(screen.prewarm_assets_step(stage4_owner)):
+		calls += 1
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Stage 4 result prewarm should complete within the declared step budget")
+	status = _get_result_screen_prewarm_status(screen)
+	_expect(int(status.get("current_stage", 0)) == 4, "Stage 4 result prewarm should remember the current stage")
+	_expect(bool(status.get("background_texture", false)), "Stage 4 result prewarm should load the Ponk result background")
+	_expect(bool(status.get("stage4_ponk_boss_defeat_live2d_sheet", false)), "Stage 4 result prewarm should load the Ponk Live2D base sheet")
+	_expect(bool(status.get("stage4_ponk_boss_defeat_click_reaction_sheet", false)), "Stage 4 result prewarm should load the Ponk Live2D click sheet")
+	_expect(not status.has("dalji_defeat_sheet"), "Stage 4 result prewarm should skip the Dalji base sheet")
+	_expect(not status.has("stage6_boss_defeat_sheet"), "Stage 4 result prewarm should skip the Tetriser boss defeat sheet")
+	var scene_shell := StageClearResultSceneShellHandler.new()
+	var stage4_required_keys: Array[String] = scene_shell.get_required_scene_asset_keys(4)
+	_expect(stage4_required_keys.has("stage4_ponk_boss_defeat_live2d_sheet"), "Stage 4 result screen should require the Ponk Live2D base sheet before instant spawn")
+	_expect(stage4_required_keys.has("stage4_ponk_boss_defeat_click_reaction_sheet"), "Stage 4 result screen should require the Ponk Live2D click sheet before instant spawn")
+	_expect(not stage4_required_keys.has("stage4_ponk_result_sheet"), "Stage 4 result screen should not require the old Ponk fallback sheet")
+	_expect(not stage4_required_keys.has("stage6_boss_defeat_sheet"), "Stage 4 result screen should not require the Tetriser result sheet")
+
+	var stage5_owner := FakeOwner.new()
+	stage5_owner.current_stage = 5
+	calls = 0
+	while not bool(screen.prewarm_assets_step(stage5_owner)):
+		calls += 1
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Stage 5 result prewarm should complete within the declared step budget")
+	status = _get_result_screen_prewarm_status(screen)
+	_expect(int(status.get("current_stage", 0)) == 5, "Stage 5 result prewarm should remember the current stage")
+	_expect(bool(status.get("background_texture", false)), "Stage 5 result prewarm should load the Hongryun result background")
+	_expect(bool(status.get("stage5_hongryun_result_sheet", false)), "Stage 5 result prewarm should load the Hongryun fallback result sheet")
+	_expect(not status.has("dalji_defeat_sheet"), "Stage 5 result prewarm should skip the Dalji base sheet")
+	_expect(not status.has("stage6_boss_defeat_sheet"), "Stage 5 result prewarm should skip the Tetriser boss defeat sheet")
+	var stage5_required_keys: Array[String] = scene_shell.get_required_scene_asset_keys(5)
+	_expect(stage5_required_keys.has("stage5_hongryun_result_sheet"), "Stage 5 result screen should require the Hongryun fallback sheet before instant spawn")
+	_expect(not stage5_required_keys.has("stage6_boss_defeat_sheet"), "Stage 5 result screen should not require the Tetriser result sheet")
+
+	var stage6_owner := FakeOwner.new()
+	stage6_owner.current_stage = 6
+	calls = 0
+	while not bool(screen.prewarm_assets_step(stage6_owner)):
+		calls += 1
+		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Stage 6 result prewarm should complete within the declared step budget")
+	status = _get_result_screen_prewarm_status(screen)
+	_expect(int(status.get("current_stage", 0)) == 6, "Stage 6 result prewarm should remember the current stage")
+	_expect(bool(status.get("stage6_boss_defeat_sheet", false)), "Stage 6 result prewarm should load the Tetriser boss defeat sheet")
+	_expect(not status.has("dalji_defeat_sheet"), "Stage 6 result prewarm should skip the Dalji base sheet")
+	_expect(not status.has("dalji_click_reaction_sheet"), "Stage 6 result prewarm should skip the Dalji click sheet")
 	_cleanup_result_screen(screen, stage2_owner)
+	stage3_owner.free()
+	stage4_owner.free()
+	stage5_owner.free()
+	stage6_owner.free()
 
 
 func _verify_prewarm_assets_follow_selected_character() -> void:
-	StageClearResultScene.reset_prewarm_assets_for_test()
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
 	var screen: Object = _make_result_screen()
 	var owner := FakeOwner.new()
 	owner.selected_character_type = "soldier"
@@ -459,7 +540,7 @@ func _verify_prewarm_assets_follow_selected_character() -> void:
 	while not bool(screen.prewarm_assets_step(owner)):
 		calls += 1
 		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "Commando result prewarm should complete within the declared step budget")
-	var status: Dictionary = screen.get("_prewarm_assets_status")
+	var status: Dictionary = _get_result_screen_prewarm_status(screen)
 	_expect(str(status.get("selected_character_type", "")) == "soldier", "result screen staged prewarm should remember the selected Commando character")
 	_expect(bool(status.get("player_victory_sheet", false)), "Commando result prewarm should load the selected player victory base sheet")
 	_expect(bool(status.get("player_victory_click_reaction_sheet", false)), "Commando result prewarm should load the selected player victory click sheet")
@@ -468,13 +549,13 @@ func _verify_prewarm_assets_follow_selected_character() -> void:
 	while not bool(screen.prewarm_assets_step(owner)):
 		calls += 1
 		_expect(calls <= StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT + 1, "unsupported result victory characters should complete fallback prewarm")
-	status = screen.get("_prewarm_assets_status")
+	status = _get_result_screen_prewarm_status(screen)
 	_expect(str(status.get("selected_character_type", "")) == "smasher", "unsupported result victory characters should prewarm the Smasher fallback sheet")
 	_cleanup_result_screen(screen, owner)
 
 
 func _verify_screen_defers_unwarmed_scene_spawn() -> void:
-	StageClearResultScene.reset_prewarm_assets_for_test()
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
 	var score_state := FakeScoreState.new()
 	var registry := FakeRegistry.new(score_state)
 	var owner := FakeOwner.new()
@@ -500,6 +581,128 @@ func _verify_screen_defers_unwarmed_scene_spawn() -> void:
 	_cleanup_result_screen(screen, owner)
 
 
+func _verify_stage4_screen_spawns_with_ponk_result_live2d() -> void:
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
+	var score_state := FakeScoreState.new()
+	var registry := FakeRegistry.new(score_state)
+	var owner := FakeOwner.new()
+	owner.current_stage = 4
+	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var screen: Object = _make_result_screen()
+
+	_expect(
+		screen.show_from_scoreboard(owner, registry, Callable()),
+		"Stage 4 result screen should open for a player win"
+	)
+	_ensure_result_scene_spawned(screen, owner)
+	_expect(owner.get_child_count() == 1, "Stage 4 result screen should attach after staged prewarm")
+	var result_scene := owner.get_child(0)
+	var scene_status: Dictionary = _get_interaction_status(result_scene)
+	_expect(
+		int(scene_status.get("current_stage", 0)) == 4,
+		"Stage 4 result scene should preserve the Ponk stage id, got %s" % str(scene_status.get("current_stage", null))
+	)
+	var background_texture := result_scene.get("_background_texture") as Texture2D
+	_expect(
+		background_texture != null and background_texture.get_size() == Vector2(1672.0, 941.0),
+		"Stage 4 result scene should load the moonlit prism temple result background"
+	)
+	_expect(bool(scene_status.get("stage4_ponk_boss_defeat_live2d_active", false)), "Stage 4 result scene should activate the Ponk Live2D actor slot")
+	_expect(bool(scene_status.get("stage4_ponk_boss_defeat_live2d_sheet_loaded", false)), "Stage 4 result scene should load the Ponk Live2D base sheet")
+	_expect(bool(scene_status.get("stage4_ponk_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 4 result scene should load the Ponk Live2D click sheet")
+	_expect(not bool(scene_status.get("stage4_ponk_result_active", false)), "Stage 4 result scene should not activate the old Ponk fallback actor slot")
+	var stage4_click_rect: Rect2 = scene_status.get("stage4_ponk_boss_defeat_click_rect", Rect2())
+	_expect(stage4_click_rect.size.x > 0.0 and stage4_click_rect.size.y > 0.0, "Stage 4 result scene should expose the Ponk Live2D click rect")
+	var click_event := InputEventMouseButton.new()
+	click_event.button_index = MOUSE_BUTTON_LEFT
+	click_event.pressed = true
+	click_event.position = stage4_click_rect.get_center()
+	_expect(_handle_result_input(result_scene, click_event), "Stage 4 result scene should consume Ponk Live2D clicks")
+	scene_status = _get_interaction_status(result_scene)
+	_expect(bool(scene_status.get("stage4_ponk_boss_defeat_click_reaction_active", false)), "Stage 4 result scene should start the Ponk Live2D click reaction")
+	_expect(not bool(scene_status.get("stage6_boss_defeat_active", true)), "Stage 4 result scene should keep the Tetriser result actor inactive")
+	_expect(not bool(scene_status.get("dalji_click_voice_loaded", true)), "Stage 4 result scene should not load the Dalji click voice fallback")
+	_cleanup_result_screen(screen, owner)
+
+
+func _verify_stage5_screen_spawns_with_hongryun_result_fallback() -> void:
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
+	var score_state := FakeScoreState.new()
+	var registry := FakeRegistry.new(score_state)
+	var owner := FakeOwner.new()
+	owner.current_stage = 5
+	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var screen: Object = _make_result_screen()
+
+	_expect(
+		screen.show_from_scoreboard(owner, registry, Callable()),
+		"Stage 5 result screen should open for a player win"
+	)
+	_ensure_result_scene_spawned(screen, owner)
+	_expect(owner.get_child_count() == 1, "Stage 5 result screen should attach after staged prewarm")
+	var result_scene := owner.get_child(0)
+	var scene_status: Dictionary = _get_interaction_status(result_scene)
+	_expect(
+		int(scene_status.get("current_stage", 0)) == 5,
+		"Stage 5 result scene should preserve the Hongryun stage id, got %s" % str(scene_status.get("current_stage", null))
+	)
+	var background_texture := result_scene.get("_background_texture") as Texture2D
+	_expect(
+		background_texture != null and background_texture.get_size() == Vector2(1672.0, 941.0),
+		"Stage 5 result scene should load the Hongryun crimson palace result background"
+	)
+	_expect(bool(scene_status.get("stage5_hongryun_result_active", false)), "Stage 5 result scene should activate the Hongryun fallback actor slot")
+	_expect(bool(scene_status.get("stage5_hongryun_result_sheet_loaded", false)), "Stage 5 result scene should load the Hongryun fallback sheet")
+	var stage5_click_rect: Rect2 = scene_status.get("stage5_hongryun_result_click_rect", Rect2())
+	_expect(stage5_click_rect.size.x > 0.0 and stage5_click_rect.size.y > 0.0, "Stage 5 result scene should expose the Hongryun fallback click rect")
+	var click_event := InputEventMouseButton.new()
+	click_event.button_index = MOUSE_BUTTON_LEFT
+	click_event.pressed = true
+	click_event.position = stage5_click_rect.get_center()
+	_expect(_handle_result_input(result_scene, click_event), "Stage 5 result scene should consume Hongryun fallback clicks")
+	scene_status = _get_interaction_status(result_scene)
+	_expect(bool(scene_status.get("stage5_hongryun_result_click_reaction_active", false)), "Stage 5 result scene should start the Hongryun click reaction")
+	_expect(not bool(scene_status.get("stage6_boss_defeat_active", true)), "Stage 5 result scene should keep the Tetriser result actor inactive")
+	_expect(not bool(scene_status.get("dalji_click_voice_loaded", true)), "Stage 5 result scene should not load the Dalji click voice fallback")
+	_cleanup_result_screen(screen, owner)
+
+
+func _verify_stage6_screen_spawns_with_tetriser_result_sheet() -> void:
+	StageClearResultConfigSceneHandler.reset_prewarm_assets_for_test()
+	var score_state := FakeScoreState.new()
+	var registry := FakeRegistry.new(score_state)
+	var owner := FakeOwner.new()
+	owner.current_stage = 6
+	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var screen: Object = _make_result_screen()
+
+	_expect(
+		screen.show_from_scoreboard(owner, registry, Callable()),
+		"Stage 6 result screen should open for a player win"
+	)
+	_ensure_result_scene_spawned(screen, owner)
+	_expect(owner.get_child_count() == 1, "Stage 6 result screen should attach after staged prewarm")
+	var result_scene := owner.get_child(0)
+	var scene_status: Dictionary = _get_interaction_status(result_scene)
+	_expect(
+		int(scene_status.get("current_stage", 0)) == 6,
+		"Stage 6 result scene should preserve the Tetriser stage id, got %s" % str(scene_status.get("current_stage", null))
+	)
+	_expect(bool(scene_status.get("stage6_boss_defeat_active", false)), "Stage 6 result scene should activate the Tetriser defeat actor slot")
+	_expect(bool(scene_status.get("stage6_boss_defeat_sheet_loaded", false)), "Stage 6 result scene should load the Tetriser defeat sheet")
+	var stage6_click_rect: Rect2 = scene_status.get("stage6_boss_defeat_click_rect", Rect2())
+	_expect(stage6_click_rect.size.x > 0.0 and stage6_click_rect.size.y > 0.0, "Stage 6 result scene should expose the Tetriser click rect")
+	var click_event := InputEventMouseButton.new()
+	click_event.button_index = MOUSE_BUTTON_LEFT
+	click_event.pressed = true
+	click_event.position = stage6_click_rect.get_center()
+	_expect(_handle_result_input(result_scene, click_event), "Stage 6 result scene should consume Tetriser defeat clicks")
+	scene_status = _get_interaction_status(result_scene)
+	_expect(bool(scene_status.get("stage6_boss_defeat_click_reaction_active", false)), "Stage 6 result scene should start the Tetriser click reaction")
+	_expect(not bool(scene_status.get("dalji_click_voice_loaded", true)), "Stage 6 result scene should not load the Dalji click voice fallback")
+	_cleanup_result_screen(screen, owner)
+
+
 func _verify_screen_opens_for_player_win() -> void:
 	var score_state := FakeScoreState.new()
 	var registry := FakeRegistry.new(score_state)
@@ -508,7 +711,7 @@ func _verify_screen_opens_for_player_win() -> void:
 	var sink := CallbackSink.new()
 	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
-	screen.set("_reward_resolver", reward_resolver)
+	screen.set_reward_resolver_for_test(reward_resolver)
 
 	_expect(
 		screen.show_from_scoreboard(owner, registry, Callable(sink, "reset_game")),
@@ -522,7 +725,7 @@ func _verify_screen_opens_for_player_win() -> void:
 	_expect(result_scene.name == "StageClearResultScene", "result screen scene should use the runtime result scene name")
 	_expect(result_scene.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, "result scene should own linear filtering for cutscene art")
 	if result_scene.has_method("get_interaction_status"):
-		var scene_status: Dictionary = result_scene.get_interaction_status()
+		var scene_status: Dictionary = _get_interaction_status(result_scene)
 		_expect(bool(scene_status.get("scroll_texture_loaded", false)), "result scene should load the generated cyber scroll texture")
 
 	var plan: Dictionary = screen.get_reward_plan()
@@ -559,8 +762,7 @@ func _verify_box_open_audio_routes_from_screen() -> void:
 	)
 	_ensure_result_scene_spawned(screen, owner)
 	var result_scene := owner.get_child(0)
-	_expect(result_scene.has_method("get_interaction_status"), "result scene should expose interaction status")
-	var scene_status: Dictionary = result_scene.get_interaction_status()
+	var scene_status: Dictionary = _get_interaction_status(result_scene)
 	_expect(bool(scene_status.get("box_open_audio_ready", false)), "result screen should pass game audio into the result scene")
 	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
 	_expect(audio.result_box_open_calls == 1, "opening a result box should play the routed box-open SFX")
@@ -628,7 +830,12 @@ func _verify_stage_summary_includes_stage_inventory() -> void:
 	)
 	_ensure_result_scene_spawned(screen, owner)
 	var result_scene := owner.get_child(0)
-	var scene_status: Dictionary = result_scene.get_interaction_status()
+	var scene_status: Dictionary = _get_interaction_status(result_scene)
+	var background_texture := result_scene.get("_background_texture") as Texture2D
+	_expect(
+		background_texture != null and background_texture.get_size() == Vector2(1672.0, 941.0),
+		"Stage 2 result scene should load the jungle relic result background"
+	)
 	_expect(int(scene_status.get("stage_active_item_count", 0)) == 1, "result scroll should include remaining active items")
 	_expect(int(scene_status.get("stage_passive_item_count", 0)) == 1, "result scroll should include passive items acquired during this stage")
 	_expect(int(scene_status.get("stage_perk_count", 0)) == 1, "result scroll should include perks acquired during this stage")
@@ -649,7 +856,7 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	var sink := CallbackSink.new()
 	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
-	screen.set("_reward_resolver", reward_resolver)
+	screen.set_reward_resolver_for_test(reward_resolver)
 
 	_expect(
 		screen.show_from_scoreboard(owner, registry, Callable(sink, "reset_game")),
@@ -669,7 +876,7 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	_expect(not runtime_state.choice_active, "perk choice should not open during the star rise")
 	_expect(audio.runtime_perk_choice_open_calls == 0, "perk-choice open SFX should wait for the deferred modal")
 	_expect(result_scene.visible, "result scene should remain visible while the starpoint choice is delayed")
-	var scene_status: Dictionary = result_scene.get_interaction_status()
+	var scene_status: Dictionary = _get_interaction_status(result_scene)
 	_expect(bool(scene_status.get("starpoint_choice_gate_active", false)), "result scene should gate box/scroll input while waiting to open the choice")
 	var screen_status: Dictionary = screen.get_status()
 	var pending_delay: float = float(screen_status.get("pending_starpoint_choice_delay", -1.0))
@@ -693,7 +900,7 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	_expect(bool(runtime_state.last_choice_context.get("defer_instant_full_gauge_until_spawn_intro_end", false)), "result-screen starpoint choices should defer instant full gauge until the next spawn intro ends")
 	_expect(audio.runtime_perk_choice_open_calls == 1, "deferred result-screen perk choice should play its open SFX once")
 	_expect(result_scene.visible, "result scene should remain visible behind the perk choice")
-	scene_status = result_scene.get_interaction_status()
+	scene_status = _get_interaction_status(result_scene)
 	_expect(bool(scene_status.get("runtime_perk_choice_active", false)), "result scene should expose the active perk choice overlay state")
 	_expect(not bool(scene_status.get("starpoint_choice_gate_active", true)), "starpoint gate should clear once the perk choice opens")
 
@@ -701,7 +908,7 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	_expect(runtime_state.choose_calls == 1, "result-scene perk overlay input should choose the selected perk")
 	_expect(not runtime_state.choice_active, "choosing a result-scene perk should close the perk overlay")
 	_expect(sink.reset_calls == 0, "choosing a perk must not also advance to the next stage")
-	scene_status = result_scene.get_interaction_status()
+	scene_status = _get_interaction_status(result_scene)
 	_expect(int(scene_status.get("starpoint_total", -1)) == 0, "resolved box starpoints should no longer appear as perk choice tickets")
 	_expect(int(scene_status.get("perk_reward_count", 0)) == 1, "resolved box starpoints should appear as the selected perk")
 	var perk_source_counts: Dictionary = scene_status.get("perk_reward_source_counts", {}) if scene_status.get("perk_reward_source_counts", {}) is Dictionary else {}
@@ -721,7 +928,7 @@ func _verify_mythic_box_starts_result_screen_acquisition_cinematic() -> void:
 	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
 	reward_resolver.reward_type = "mythic"
-	screen.set("_reward_resolver", reward_resolver)
+	screen.set_reward_resolver_for_test(reward_resolver)
 
 	_expect(
 		screen.show_from_scoreboard(owner, registry, Callable()),
@@ -750,8 +957,7 @@ func _verify_mythic_box_starts_result_screen_acquisition_cinematic() -> void:
 	var click_event := InputEventMouseButton.new()
 	click_event.button_index = MOUSE_BUTTON_LEFT
 	click_event.pressed = true
-	_expect(result_scene.has_method("handle_result_input"), "result scene should expose GUI input handling")
-	_expect(result_scene.handle_result_input(click_event), "result-scene GUI input should be consumed during mythic acquisition")
+	_expect(_handle_result_input(result_scene, click_event), "result-scene GUI input should be consumed during mythic acquisition")
 	_expect(mythic_runtime.input_calls == 1, "result-scene GUI mouse input should route to the mythic acquisition cinematic")
 	_expect(not mythic_runtime.acquisition_active, "mythic acquisition click should start the absorb/finish path instead of opening result UI")
 	mythic_runtime.acquisition_active = true
@@ -768,7 +974,7 @@ func _verify_advance_through_boxes_to_next_stage() -> void:
 	var sink := CallbackSink.new()
 	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
-	screen.set("_reward_resolver", reward_resolver)
+	screen.set_reward_resolver_for_test(reward_resolver)
 
 	_expect(
 		screen.show_from_scoreboard(
@@ -810,7 +1016,7 @@ func _verify_exit_to_menu_from_visible_scroll() -> void:
 	var sink := CallbackSink.new()
 	var screen: Object = _make_result_screen()
 	var reward_resolver := FakeRewardResolver.new()
-	screen.set("_reward_resolver", reward_resolver)
+	screen.set_reward_resolver_for_test(reward_resolver)
 
 	screen.show_from_scoreboard(
 		owner, registry,
@@ -918,6 +1124,18 @@ func _verify_scoreboard_flow_falls_back_to_reset() -> void:
 	scoreboard = null
 	controller = null
 	sink = null
+
+
+func _get_interaction_status(scene: Object) -> Dictionary:
+	return StageClearResultStatusSceneHandler.get_interaction_status(scene, StageClearResultScene.DALJI_CLICK_DIALOGUE)
+
+
+func _handle_result_input(scene: Control, event: InputEvent) -> bool:
+	return StageClearResultInputSceneHandler.handle_result_input(
+		scene,
+		event,
+		StageClearResultScene.DALJI_CLICK_DIALOGUE_DURATION
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

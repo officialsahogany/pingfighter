@@ -1,6 +1,8 @@
 extends SceneTree
 
 const StageClearResultBoxUpdateHandler := preload("res://scripts/ui/stage_clear_result_box_update_handler.gd")
+const StageClearResultBoxSceneHandler := preload("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+const StageClearResultFieldApplySceneHandler := preload("res://scripts/ui/stage_clear_result_field_apply_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
@@ -24,6 +26,7 @@ func _init() -> void:
 
 func _verify_update_handler_contract() -> void:
 	_expect(StageClearResultBoxUpdateHandler != null, "box update handler preload should resolve")
+	_expect(StageClearResultBoxSceneHandler != null, "box scene handler preload should resolve")
 	var boxes: Array = [
 		{
 			"kind": "advanced",
@@ -106,7 +109,7 @@ func _verify_scene_apply_contract() -> void:
 	var scene := StageClearResultScene.new()
 	scene.set("_boxes", current_boxes)
 	scene.set("_lid_open_counter", 2)
-	scene._apply_scene_apply_result(scene_apply)
+	StageClearResultFieldApplySceneHandler.apply_scene_apply_result(scene, scene_apply)
 	_expect(scene.get("_boxes") == updated_boxes, "scene field payload helper should apply box arrays")
 	_expect(int(scene.get("_lid_open_counter")) == 8, "scene field payload helper should apply lid counter")
 	scene.free()
@@ -123,14 +126,18 @@ func _verify_update_handler_source() -> void:
 
 func _verify_scene_delegates_box_update_handler() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	var update_boxes_source: String = _slice_function(source, "func _update_boxes", "func _update_scroll")
-	_expect(source.find("StageClearResultBoxUpdateHandler.update_boxes") >= 0, "result scene should delegate box updates through the update handler")
-	_expect(source.find("StageClearResultBoxUpdateHandler.get_box_update_scene_apply_result") >= 0, "result scene should delegate box update scene field payloads")
-	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+	var update_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
+	_expect(update_scene_handler_source.find("StageClearResultBoxSceneHandler.update_boxes") >= 0, "update scene handler should delegate box updates through the box scene handler")
+	_expect(source.find("func _update_boxes") < 0, "result scene should not keep box update fanout wrappers")
+	_expect(source.find("StageClearResultBoxUpdateHandler.") < 0, "result scene should not call the box update handler directly")
+	_expect(scene_handler_source.find("StageClearResultBoxUpdateHandler.update_boxes") >= 0, "box scene handler should delegate box updates through the update handler")
+	_expect(scene_handler_source.find("StageClearResultBoxUpdateHandler.get_box_update_scene_apply_result") >= 0, "box scene handler should delegate box update scene field payloads")
+	_expect(source.find("func _apply_scene_apply_result") < 0, "result scene should not keep scene apply-result pass-through wrappers")
 	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
-	_expect(update_boxes_source.find("_boxes = apply_result.get") < 0, "result scene should not write box arrays directly during box updates")
-	_expect(update_boxes_source.find("_lid_open_counter = int(apply_result.get") < 0, "result scene should not write lid counters directly during box updates")
-	_expect(update_boxes_source.find("_lid_open_counter = int(result.get") < 0, "result scene should not inspect box update lid counters directly")
+	_expect(source.find("_boxes = apply_result.get") < 0, "result scene should not write box arrays directly during box updates")
+	_expect(source.find("_lid_open_counter = int(apply_result.get") < 0, "result scene should not write lid counters directly during box updates")
+	_expect(source.find("_lid_open_counter = int(result.get") < 0, "result scene should not inspect box update lid counters directly")
 	_expect(source.find("StageClearResultBoxData.update_box_opening_state") < 0, "result scene should not update box opening state directly")
 	_expect(source.find("StageClearResultImmediateRewardHelper.try_grant_opened_indices") < 0, "result scene should not grant just-opened rewards directly")
 

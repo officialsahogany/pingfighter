@@ -2,6 +2,8 @@ extends SceneTree
 
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultCharacterAssetStateHandler := preload("res://scripts/ui/stage_clear_result_character_asset_state_handler.gd")
+const StageClearResultConfigSceneHandler := preload("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+const StageClearResultFieldApplySceneHandler := preload("res://scripts/ui/stage_clear_result_field_apply_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
@@ -125,7 +127,7 @@ func _verify_character_asset_scene_apply_contract() -> void:
 	_expect(str(field_payload.get("_player_victory_click_reaction_sheet_loaded_path", "old")) == "", "character asset scene apply should map click path")
 
 	var scene := StageClearResultScene.new()
-	scene._apply_scene_apply_result(scene_apply)
+	StageClearResultFieldApplySceneHandler.apply_scene_apply_result(scene, scene_apply)
 	_expect(scene.selected_character_type == "dash", "scene field payload helper should apply selected character")
 	_expect(scene.get("_player_victory_sheet") == next_sheet, "scene field payload helper should apply base sheet")
 	_expect(scene.get("_player_victory_click_reaction_sheet") == null, "scene field payload helper should clear click sheet")
@@ -143,7 +145,7 @@ func _verify_scene_applies_character_asset_state() -> void:
 	scene.set("_player_victory_click_reaction_sheet", click_sheet)
 	scene.set("_player_victory_sheet_loaded_path", "base_path")
 	scene.set("_player_victory_click_reaction_sheet_loaded_path", "click_path")
-	scene._apply_character_asset_state({
+	StageClearResultConfigSceneHandler.apply_character_asset_state(scene, {
 		"selected_character_type": "soldier",
 		"player_victory_sheet": null,
 		"player_victory_click_reaction_sheet": null,
@@ -170,13 +172,18 @@ func _verify_character_asset_state_source() -> void:
 
 func _verify_scene_delegates_character_asset_state() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	var apply_source: String = _slice_function(source, "func _apply_character_asset_state", "func _apply_runtime_object_state")
-	_expect(source.find("StageClearResultCharacterAssetStateHandler.get_character_asset_state") >= 0, "result scene should delegate configure-time character asset state")
-	_expect(source.find("StageClearResultCharacterAssetStateHandler.get_character_asset_scene_apply_result") >= 0, "result scene should delegate character asset scene field apply payloads")
-	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+	var apply_source: String = _slice_function(config_scene_handler_source, "static func apply_character_asset_state", "static func apply_runtime_object_state")
+	_expect(StageClearResultConfigSceneHandler != null, "config scene handler preload should resolve")
+	_expect(config_scene_handler_source.find("static func apply_character_asset_state") >= 0, "config scene handler should own character asset scene glue")
+	_expect(source.find("StageClearResultConfigSceneHandler.apply_character_asset_state") < 0, "result scene should not keep character asset pass-through glue")
+	_expect(source.find("StageClearResultCharacterAssetStateHandler.") < 0, "result scene should not call character asset helper directly")
+	_expect(config_scene_handler_source.find("StageClearResultCharacterAssetStateHandler.get_character_asset_state") >= 0, "config scene handler should delegate configure-time character asset state")
+	_expect(config_scene_handler_source.find("StageClearResultCharacterAssetStateHandler.get_character_asset_scene_apply_result") >= 0, "config scene handler should delegate character asset scene field apply payloads")
+	_expect(source.find("func _apply_scene_apply_result") < 0, "result scene should not keep scene apply-result pass-through wrappers")
 	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
 	_expect(source.find("func _get_field_payload_from_apply_result") < 0, "result scene should not keep the retired payload-unwrapping wrapper")
-	_expect(source.find("func _apply_character_asset_state") >= 0, "result scene should apply resolved character asset state")
+	_expect(source.find("func _apply_character_asset_state") < 0, "result scene should not keep resolved character asset state pass-through glue")
 	_expect(apply_source.find("selected_character_type = str(result.get") < 0, "character asset applier should not inspect selected character directly")
 	_expect(apply_source.find("_player_victory_sheet = result.get") < 0, "character asset applier should not inspect base sheet directly")
 	_expect(apply_source.find("_player_victory_click_reaction_sheet = result.get") < 0, "character asset applier should not inspect click sheet directly")

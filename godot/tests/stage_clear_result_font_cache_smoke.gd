@@ -30,9 +30,14 @@ func _verify_font_cache() -> void:
 
 func _verify_scene_delegates_font_cache() -> void:
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+	var draw_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_font_cache.gd")
-	_expect(scene_source.find("StageClearResultFontCache") >= 0, "result scene should own a font cache helper")
-	_expect(scene_source.find("_font_cache.get_font") >= 0, "result scene should request UI fonts from the cache helper")
+	_expect(scene_source.find("StageClearResultConfigSceneHandler.create_font_cache") >= 0, "result scene should request its font cache helper through config scene glue")
+	_expect(scene_source.find("StageClearResultFontCache.new()") < 0, "result scene should not create the font cache helper directly")
+	_expect(config_scene_handler_source.find("StageClearResultFontCache.new()") >= 0, "config scene handler should create the result font cache helper")
+	_expect(draw_scene_handler_source.find("font_cache.call(\"get_font\"") >= 0, "draw scene handler should request UI fonts from the cache helper")
+	_expect(scene_source.find("_font_cache.get_font") < 0, "result scene should not request UI fonts directly")
 	_expect(scene_source.find("func _get_ui_font") < 0, "result scene should not keep the UI font cache implementation")
 	_expect(helper_source.find("FontVariation.new") >= 0, "font cache should build FontVariation resources")
 	_expect(helper_source.find("TextServer.SPACING_GLYPH") >= 0, "font cache should preserve glyph spacing")

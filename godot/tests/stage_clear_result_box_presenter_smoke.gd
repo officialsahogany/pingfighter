@@ -65,12 +65,19 @@ func _verify_presenter_source() -> void:
 
 func _verify_scene_delegates_box_presenter() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultBoxPresenter.draw_floating_boxes") >= 0, "result scene should delegate floating-box drawing to the presenter")
-	_expect(source.find("StageClearResultBoxPresenter.get_floating_box_draw_context") >= 0, "result scene should delegate floating-box draw context assembly to the presenter")
-	_expect(source.find("_get_floating_box_draw_context") >= 0, "result scene should keep a thin floating-box draw context wrapper")
+	var draw_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+	_expect(source.find("StageClearResultDrawSceneHandler.draw_result_scene") >= 0, "result scene should delegate top-level drawing through the draw scene handler")
+	_expect(draw_scene_handler_source.find("StageClearResultBoxSceneHandler.draw_floating_boxes") >= 0, "draw scene handler should delegate floating-box drawing through the box scene handler")
+	_expect(source.find("StageClearResultBoxPresenter.") < 0, "result scene should not call the box presenter directly")
+	_expect(scene_handler_source.find("StageClearResultBoxPresenter.draw_floating_boxes") >= 0, "box scene handler should delegate floating-box drawing to the presenter")
+	_expect(scene_handler_source.find("StageClearResultBoxPresenter.get_floating_box_draw_context") >= 0, "box scene handler should delegate floating-box draw context assembly to the presenter")
+	_expect(source.find("_get_floating_box_draw_context") < 0, "result scene should not keep floating-box draw context wrappers")
+	_expect(scene_handler_source.find("static func get_floating_box_draw_context") >= 0, "box scene handler should own floating-box draw scene-context glue")
 	_expect(source.find("StageClearResultBoxDrawHelper.draw_floating_result_box") < 0, "result scene should not draw floating boxes directly")
 	_expect(source.find("StageClearResultBoxDrawHelper.build_floating_result_box_draw_context") < 0, "result scene should not build floating-box draw context directly")
 	_expect(source.find("func _draw_floating_box(") < 0, "result scene should not keep a per-box draw wrapper")
+	_expect(source.find("func _draw_floating_boxes") < 0, "result scene should not keep floating-box draw fanout wrappers")
 
 
 func _expect(condition: bool, message: String) -> void:

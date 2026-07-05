@@ -68,6 +68,48 @@ static func draw_dalji_click_dialogue(
 	)
 
 
+static func draw_plaza_notice(
+	canvas: CanvasItem,
+	font: Font,
+	scale: float,
+	plaza_rect: Rect2,
+	remaining: float
+) -> void:
+	if canvas == null or font == null or remaining <= 0.0 or plaza_rect.size.x <= 0.0:
+		return
+	# remaining 은 만료까지 남은 초. 마지막 0.35초 동안만 페이드아웃.
+	var alpha: float = clamp(remaining / 0.35, 0.0, 1.0)
+	var bubble_size := Vector2(196.0, 46.0) * scale
+	var bubble_position := Vector2(
+		plaza_rect.position.x + (plaza_rect.size.x - bubble_size.x) * 0.5,
+		plaza_rect.position.y - bubble_size.y - 14.0 * scale
+	)
+	var bubble := Rect2(bubble_position, bubble_size)
+	StageClearResultShapeHelper.draw_panel(
+		canvas,
+		bubble,
+		Color(0.12, 0.13, 0.18, 0.92 * alpha),
+		Color(1.0, 0.86, 0.42, 0.95 * alpha),
+		2.0 * scale,
+		13.0 * scale
+	)
+	var center_x: float = bubble.position.x + bubble.size.x * 0.5
+	var tail := PackedVector2Array([
+		Vector2(center_x - 12.0 * scale, bubble.position.y + bubble.size.y - 2.0 * scale),
+		Vector2(center_x + 12.0 * scale, bubble.position.y + bubble.size.y - 2.0 * scale),
+		Vector2(center_x, bubble.position.y + bubble.size.y + 16.0 * scale),
+	])
+	canvas.draw_colored_polygon(tail, Color(0.12, 0.13, 0.18, 0.92 * alpha))
+	StageClearResultTextLayoutHelper.draw_centered_text(
+		canvas,
+		font,
+		LanguageSettings.translate_text("준비중입니다"),
+		bubble,
+		int(round(22.0 * scale)),
+		Color(1.0, 0.92, 0.66, 0.98 * alpha)
+	)
+
+
 static func draw_player_victory_fallback(
 	canvas: CanvasItem,
 	font: Font,

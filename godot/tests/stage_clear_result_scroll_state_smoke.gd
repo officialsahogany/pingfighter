@@ -2,7 +2,9 @@ extends SceneTree
 
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultScrollSceneHandler := preload("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
+const StageClearResultStatusSceneHandler := preload("res://scripts/ui/stage_clear_result_status_scene_handler.gd")
 
 var _failures: Array[String] = []
 
@@ -99,15 +101,15 @@ func _verify_scene_scroll_delegates() -> void:
 	scene._boxes = [
 		{"state": "opened"},
 	]
-	scene._update_scroll(0.1)
+	StageClearResultScrollSceneHandler.update_scroll(scene, 0.1)
 	_expect(str(scene._scroll_phase) == "delay", "scene scroll updater should delegate hidden-to-delay transition")
-	scene._update_scroll(StageClearResultScrollState.SCROLL_DELAY)
+	StageClearResultScrollSceneHandler.update_scroll(scene, StageClearResultScrollState.SCROLL_DELAY)
 	_expect(str(scene._scroll_phase) == "unfurling", "scene scroll updater should delegate delay-to-unfurl transition")
 	_expect(
 		StageClearResultScrollState.get_unfurl_progress(scene._scroll_phase, scene._scroll_timer, StageClearResultScrollState.SCROLL_UNFURL_DURATION) == 0.0,
 		"scene scroll fields should remain compatible with the delegated unfurl helper"
 	)
-	scene._update_scroll(0.95)
+	StageClearResultScrollSceneHandler.update_scroll(scene, 0.95)
 	_expect(str(scene._scroll_phase) == "visible", "scene scroll updater should delegate unfurl-to-visible transition")
 	_expect(
 		StageClearResultScrollState.get_box_global_alpha(scene._scroll_phase, scene._scroll_timer, StageClearResultScrollState.SCROLL_UNFURL_DURATION) == 0.04,
@@ -115,14 +117,18 @@ func _verify_scene_scroll_delegates() -> void:
 	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
+	var update_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
 	var update_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_update_handler.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_state.gd")
 	var box_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_draw_helper.gd")
 	_expect(
-		source.find("StageClearResultScrollUpdateHandler.update_scroll") >= 0
+		update_scene_handler_source.find("StageClearResultScrollSceneHandler.update_scroll") >= 0
+			and scene_handler_source.find("StageClearResultScrollUpdateHandler.update_scroll") >= 0
 			and update_handler_source.find("StageClearResultScrollState.update_phase") >= 0,
-		"scene scroll updates should route through the scroll update handler"
+		"scene scroll updates should route through the scroll scene handler and update handler"
 	)
+	_expect(source.find("func _update_scroll") < 0, "result scene should not keep scroll update fanout wrappers")
 	_expect(
 		presenter_source.find("StageClearResultScrollState.get_unfurl_progress") >= 0
 			and box_draw_source.find("StageClearResultScrollState.get_box_global_alpha") >= 0,
@@ -166,20 +172,20 @@ func _verify_scene_scroll_drag() -> void:
 		StageClearResultScrollState.SCROLL_REGION_RECT
 	)
 	var grab_point: Vector2 = base_rect.position + Vector2(120.0, 120.0)
-	_expect(scene._start_scroll_drag(grab_point), "visible scroll body should start drag")
-	_expect(bool(scene.get_interaction_status().get("scroll_dragging", false)), "scroll status should expose active drag")
+	_expect(StageClearResultScrollSceneHandler.start_scroll_drag(scene, grab_point), "visible scroll body should start drag")
+	_expect(bool(_get_interaction_status(scene).get("scroll_dragging", false)), "scroll status should expose active drag")
 
 	var drag_to: Vector2 = grab_point + Vector2(80.0, -40.0)
-	scene._update_scroll_drag(drag_to)
-	var dragged_status: Dictionary = scene.get_interaction_status()
+	StageClearResultScrollSceneHandler.update_scroll_drag(scene, drag_to)
+	var dragged_status: Dictionary = _get_interaction_status(scene)
 	_expect(dragged_status.get("scroll_position_offset", Vector2.ZERO) == Vector2(80.0, -40.0), "scroll drag should store the dragged offset")
 	var dragged_rect: Rect2 = dragged_status.get("scroll_rect", Rect2())
 	_expect(dragged_rect.position == base_rect.position + Vector2(80.0, -40.0), "scroll rect should move with the stored offset")
 
-	scene._finish_scroll_drag(drag_to)
-	_expect(not bool(scene.get_interaction_status().get("scroll_dragging", true)), "scroll drag should clear on release")
-	scene._refresh_scroll_button_rects()
-	_expect(not scene._start_scroll_drag(scene._next_stage_button_rect.get_center()), "scroll drag should not steal visible button clicks")
+	StageClearResultScrollSceneHandler.finish_scroll_drag(scene, drag_to)
+	_expect(not bool(_get_interaction_status(scene).get("scroll_dragging", true)), "scroll drag should clear on release")
+	StageClearResultScrollSceneHandler.refresh_scroll_button_rects(scene)
+	_expect(not StageClearResultScrollSceneHandler.start_scroll_drag(scene, scene._next_stage_button_rect.get_center()), "scroll drag should not steal visible button clicks")
 	scene.free()
 
 
@@ -190,3 +196,7 @@ func _is_close(actual: float, expected: float, tolerance: float = 0.001) -> bool
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _get_interaction_status(scene: Object) -> Dictionary:
+	return StageClearResultStatusSceneHandler.get_interaction_status(scene, StageClearResultScene.DALJI_CLICK_DIALOGUE)

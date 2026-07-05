@@ -73,14 +73,22 @@ func _verify_pool_sync_and_lifecycle() -> void:
 
 func _verify_scene_delegates_pool_lifecycle() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
 	_expect(
-		source.find("StageClearResultFxHostPool.new()") >= 0,
-		"stage-clear result scene should own a result-box FX host pool"
+		source.find("StageClearResultConfigSceneHandler.create_fx_host_pool") >= 0
+			and config_scene_handler_source.find("StageClearResultFxHostPool.new()") >= 0,
+		"stage-clear result scene should create its result-box FX host pool through config scene glue"
 	)
 	_expect(
-		source.find("StageClearResultFxHostUpdateHandler.update_fx_hosts") >= 0
+		source.find("StageClearResultFxHostPool.new()") < 0,
+		"stage-clear result scene should not create the FX host pool directly"
+	)
+	_expect(
+		source.find("StageClearResultUpdateSceneHandler.update_result_scene") >= 0
+			and scene_handler_source.find("StageClearResultFxHostUpdateHandler.update_fx_hosts") >= 0
 			and StageClearResultFxHostUpdateHandler != null,
-		"stage-clear result scene should delegate per-frame FX host update sequencing"
+		"stage-clear result scene should delegate per-frame FX host update sequencing through the update scene handler"
 	)
 	for removed_fragment in [
 		"var _fx_hosts",

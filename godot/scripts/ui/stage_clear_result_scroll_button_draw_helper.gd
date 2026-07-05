@@ -15,7 +15,8 @@ static func draw_scroll_buttons(
 	hovered_button: String,
 	next_label: String,
 	plaza_label: String,
-	exit_label: String
+	exit_label: String,
+	plaza_disabled: bool = false
 ) -> Dictionary:
 	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(rect, scale)
 	if canvas == null or font == null:
@@ -45,7 +46,12 @@ static func draw_scroll_buttons(
 	var plaza_fill := Color(0.88, 0.62, 0.14, alpha * 0.90)
 	var plaza_border := Color(1.0, 0.92, 0.45, alpha * 0.94)
 	var plaza_text_color := Color(0.08, 0.045, 0.015, alpha)
-	if plaza_hovered:
+	if plaza_disabled:
+		# 광장 기능 준비중: 회색 비활성 스타일로 렌더하고 호버 하이라이트를 억제한다.
+		plaza_fill = Color(0.20, 0.21, 0.26, alpha * 0.82)
+		plaza_border = Color(0.46, 0.47, 0.54, alpha * 0.70)
+		plaza_text_color = Color(0.62, 0.64, 0.72, alpha * 0.88)
+	elif plaza_hovered:
 		plaza_fill = plaza_fill.lerp(Color(1.0, 0.98, 0.82, alpha), 0.24)
 		plaza_border = Color(1.0, 1.0, 0.72, alpha)
 		plaza_text_color = Color(0.10, 0.055, 0.015, alpha)

@@ -5,6 +5,11 @@ const PlayerCharacterRuntime := preload("res://scripts/characters/player_charact
 const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_host.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
+const STAGE2_BACKGROUND_PATH := "res://assets/sprites/stage2/result/stage2_result_background_imagegen_v1.png"
+const STAGE3_BACKGROUND_PATH := "res://assets/sprites/stage3/result/stage3_result_background_imagegen_v1.png"
+const STAGE4_BACKGROUND_PATH := "res://assets/sprites/stage4/result/stage4_result_background_imagegen_v1.png"
+const STAGE5_BACKGROUND_PATH := "res://assets/sprites/stage5/result/stage5_result_background_imagegen_v1.png"
+const STAGE6_BACKGROUND_PATH := "res://assets/sprites/hud/stage6_tetriser_pillar_bg_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_VOICE_PATH := "res://voice/dalzidefeat.mp3"
@@ -12,6 +17,10 @@ const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/stage
 const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
 const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_live2d_pingpong_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
 const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
+const STAGE4_PONK_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_dalji_ratio_live2d_pingpong_98f_autosprite_v3_realesrgan_animev3_hq1152.png"
+const STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_dalji_ratio_click_reaction_98f_autosprite_v3_realesrgan_animev3_hq1152.png"
+const STAGE5_HONGRYUN_RESULT_SHEET_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_victory.png"
+const STAGE6_BOSS_DEFEAT_SHEET_PATH := "res://assets/sprites/bosses/stage6_tetriser/stage6_tetriser_boss_defeat.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
@@ -23,7 +32,7 @@ const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_
 const RESULT_BOX_SHEET_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
 const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
 
-const PREWARM_ASSET_STEP_COUNT := 15
+const PREWARM_ASSET_STEP_COUNT := 19
 const TEXTURE_KEYS := [
 	"background_texture",
 	"dalji_defeat_sheet",
@@ -32,6 +41,10 @@ const TEXTURE_KEYS := [
 	"stage2_boss_defeat_click_reaction_sheet",
 	"stage3_boss_defeat_live2d_sheet",
 	"stage3_boss_defeat_click_reaction_sheet",
+	"stage4_ponk_boss_defeat_live2d_sheet",
+	"stage4_ponk_boss_defeat_click_reaction_sheet",
+	"stage5_hongryun_result_sheet",
+	"stage6_boss_defeat_sheet",
 	"player_victory_sheet",
 	"player_victory_click_reaction_sheet",
 	"scroll_texture",
@@ -47,6 +60,10 @@ const IMPORT_PREFERRED_TEXTURE_KEYS := {
 	"stage2_boss_defeat_click_reaction_sheet": true,
 	"stage3_boss_defeat_live2d_sheet": true,
 	"stage3_boss_defeat_click_reaction_sheet": true,
+	"stage4_ponk_boss_defeat_live2d_sheet": true,
+	"stage4_ponk_boss_defeat_click_reaction_sheet": true,
+	"stage5_hongryun_result_sheet": true,
+	"stage6_boss_defeat_sheet": true,
 	"player_victory_sheet": true,
 	"player_victory_click_reaction_sheet": true,
 	"result_box_sheet_common": true,
@@ -55,13 +72,17 @@ const IMPORT_PREFERRED_TEXTURE_KEYS := {
 }
 
 const TEXTURE_MESSAGES := {
-	"background_texture": ["Missing Stage 1 result background at %s", "Failed to load Stage 1 result background at %s"],
+	"background_texture": ["Missing stage clear result background at %s", "Failed to load stage clear result background at %s"],
 	"dalji_defeat_sheet": ["Missing Dalji result defeat sheet at %s", "Failed to load Dalji result defeat sheet at %s"],
 	"dalji_click_reaction_sheet": ["Missing Dalji result click reaction sheet at %s", "Failed to load Dalji result click reaction sheet at %s"],
 	"stage2_boss_defeat_live2d_sheet": ["Missing Stage 2 boss result defeat Live2D sheet at %s", "Failed to load Stage 2 boss result defeat Live2D sheet at %s"],
 	"stage2_boss_defeat_click_reaction_sheet": ["Missing Stage 2 boss result click reaction Live2D sheet at %s", "Failed to load Stage 2 boss result click reaction Live2D sheet at %s"],
 	"stage3_boss_defeat_live2d_sheet": ["Missing Stage 3 boss result defeat Live2D sheet at %s", "Failed to load Stage 3 boss result defeat Live2D sheet at %s"],
 	"stage3_boss_defeat_click_reaction_sheet": ["Missing Stage 3 boss result click reaction Live2D sheet at %s", "Failed to load Stage 3 boss result click reaction Live2D sheet at %s"],
+	"stage4_ponk_boss_defeat_live2d_sheet": ["Missing Stage 4 Ponk result defeat Live2D sheet at %s", "Failed to load Stage 4 Ponk result defeat Live2D sheet at %s"],
+	"stage4_ponk_boss_defeat_click_reaction_sheet": ["Missing Stage 4 Ponk result click reaction Live2D sheet at %s", "Failed to load Stage 4 Ponk result click reaction Live2D sheet at %s"],
+	"stage5_hongryun_result_sheet": ["Missing Stage 5 Hongryun result fallback sheet at %s", "Failed to load Stage 5 Hongryun result fallback sheet at %s"],
+	"stage6_boss_defeat_sheet": ["Missing Stage 6 Tetriser result defeat sheet at %s", "Failed to load Stage 6 Tetriser result defeat sheet at %s"],
 	"player_victory_sheet": ["Missing player victory sheet at %s", "Failed to load player victory sheet at %s"],
 	"player_victory_click_reaction_sheet": ["Missing player victory click reaction sheet at %s", "Failed to load player victory click reaction sheet at %s"],
 	"scroll_texture": ["Missing stage clear cyber scroll panel at %s", "Failed to load stage clear cyber scroll panel at %s"],
@@ -79,6 +100,11 @@ static var _prewarm_result_asset_stage_id: int = 1
 static func get_default_result_asset_path_config() -> Dictionary:
 	return {
 		"background_texture": STAGE1_BACKGROUND_PATH,
+		"stage2_background_texture": STAGE2_BACKGROUND_PATH,
+		"stage3_background_texture": STAGE3_BACKGROUND_PATH,
+		"stage4_background_texture": STAGE4_BACKGROUND_PATH,
+		"stage5_background_texture": STAGE5_BACKGROUND_PATH,
+		"stage6_background_texture": STAGE6_BACKGROUND_PATH,
 		"smasher_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
 		"smasher_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
 		"commando_victory_sheet": COMMANDO_VICTORY_SHEET_PATH,
@@ -93,6 +119,10 @@ static func get_default_result_asset_path_config() -> Dictionary:
 		"stage2_boss_defeat_click_reaction_sheet": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage3_boss_defeat_live2d_sheet": STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage3_boss_defeat_click_reaction_sheet": STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage4_ponk_boss_defeat_live2d_sheet": STAGE4_PONK_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage4_ponk_boss_defeat_click_reaction_sheet": STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage5_hongryun_result_sheet": STAGE5_HONGRYUN_RESULT_SHEET_PATH,
+		"stage6_boss_defeat_sheet": STAGE6_BOSS_DEFEAT_SHEET_PATH,
 		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
 		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
 		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
@@ -105,7 +135,7 @@ static func get_result_asset_paths(character_type: String, stage_id: int, path_c
 	var normalized_character: String = normalize_player_victory_character_type(character_type)
 	var normalized_stage_id: int = max(1, stage_id)
 	var paths := {
-		"background_texture": str(path_config.get("background_texture", "")),
+		"background_texture": get_result_background_path_for_stage(normalized_stage_id, path_config),
 		"player_victory_sheet": get_player_victory_sheet_path_for_character(normalized_character, path_config),
 		"player_victory_click_reaction_sheet": get_player_victory_click_reaction_sheet_path_for_character(normalized_character, path_config),
 		"scroll_texture": str(path_config.get("scroll_texture", "")),
@@ -119,11 +149,35 @@ static func get_result_asset_paths(character_type: String, stage_id: int, path_c
 	elif normalized_stage_id == 3:
 		paths["stage3_boss_defeat_live2d_sheet"] = str(path_config.get("stage3_boss_defeat_live2d_sheet", ""))
 		paths["stage3_boss_defeat_click_reaction_sheet"] = str(path_config.get("stage3_boss_defeat_click_reaction_sheet", ""))
-	else:
+	elif normalized_stage_id == 4:
+		paths["stage4_ponk_boss_defeat_live2d_sheet"] = str(path_config.get("stage4_ponk_boss_defeat_live2d_sheet", ""))
+		paths["stage4_ponk_boss_defeat_click_reaction_sheet"] = str(path_config.get("stage4_ponk_boss_defeat_click_reaction_sheet", ""))
+	elif normalized_stage_id == 5:
+		paths["stage5_hongryun_result_sheet"] = str(path_config.get("stage5_hongryun_result_sheet", ""))
+	elif normalized_stage_id == 6:
+		paths["stage6_boss_defeat_sheet"] = str(path_config.get("stage6_boss_defeat_sheet", ""))
+	elif normalized_stage_id == 1:
 		paths["dalji_defeat_sheet"] = str(path_config.get("dalji_defeat_sheet", ""))
 		paths["dalji_click_reaction_sheet"] = str(path_config.get("dalji_click_reaction_sheet", ""))
 		paths["dalji_click_voice"] = str(path_config.get("dalji_click_voice", ""))
 	return paths
+
+
+static func get_result_background_path_for_stage(stage_id: int, path_config: Dictionary = {}) -> String:
+	if path_config.is_empty():
+		path_config = get_default_result_asset_path_config()
+	var normalized_stage_id: int = max(1, stage_id)
+	if normalized_stage_id == 2:
+		return str(path_config.get("stage2_background_texture", path_config.get("background_texture", "")))
+	if normalized_stage_id == 3:
+		return str(path_config.get("stage3_background_texture", path_config.get("background_texture", "")))
+	if normalized_stage_id == 4:
+		return str(path_config.get("stage4_background_texture", path_config.get("background_texture", "")))
+	if normalized_stage_id == 5:
+		return str(path_config.get("stage5_background_texture", path_config.get("background_texture", "")))
+	if normalized_stage_id == 6:
+		return str(path_config.get("stage6_background_texture", path_config.get("background_texture", "")))
+	return str(path_config.get("background_texture", ""))
 
 
 static func normalize_player_victory_character_type(character_type: String) -> String:

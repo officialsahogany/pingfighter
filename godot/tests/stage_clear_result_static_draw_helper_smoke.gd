@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultStaticDrawHelper := preload("res://scripts/ui/stage_clear_result_static_draw_helper.gd")
+const StageClearResultDrawSceneHandler := preload("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
 
 var _failures: Array[String] = []
 
@@ -52,13 +53,22 @@ func _verify_helper_contract() -> void:
 
 func _verify_scene_delegates_static_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultStaticDrawHelper.draw_background") >= 0, "result scene should delegate background drawing")
-	_expect(source.find("StageClearResultStaticDrawHelper.draw_dalji_click_dialogue") >= 0, "result scene should delegate Dalji dialogue drawing")
-	_expect(source.find("StageClearResultStaticDrawHelper.draw_footer") >= 0, "result scene should delegate footer drawing")
-	_expect(source.find("StageClearResultStaticDrawHelper.draw_player_victory_fallback") >= 0, "result scene should delegate player-victory fallback drawing")
+	var draw_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
+	var actor_draw_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_actor_draw_scene_handler.gd")
+	_expect(source.find("StageClearResultDrawSceneHandler.draw_result_scene") >= 0, "result scene should delegate top-level drawing through the draw scene handler")
+	_expect(draw_scene_handler_source.find("StageClearResultStaticDrawHelper.draw_background") >= 0, "draw scene handler should delegate background drawing")
+	_expect(draw_scene_handler_source.find("StageClearResultStaticDrawHelper.draw_dalji_click_dialogue") >= 0, "draw scene handler should delegate Dalji dialogue drawing")
+	_expect(draw_scene_handler_source.find("StageClearResultStaticDrawHelper.draw_footer") >= 0, "draw scene handler should delegate footer drawing")
+	_expect(source.find("StageClearResultStaticDrawHelper.draw_background") < 0, "result scene should not call static background drawing directly")
+	_expect(source.find("StageClearResultStaticDrawHelper.draw_dalji_click_dialogue") < 0, "result scene should not call static dialogue drawing directly")
+	_expect(source.find("StageClearResultStaticDrawHelper.draw_footer") < 0, "result scene should not call static footer drawing directly")
+	_expect(draw_scene_handler_source.find("StageClearResultActorDrawSceneHandler.draw_player_victory") >= 0, "draw scene handler should delegate player-victory drawing through the actor draw scene handler")
+	_expect(actor_draw_scene_handler_source.find("StageClearResultStaticDrawHelper.draw_player_victory_fallback") >= 0, "actor draw scene handler should delegate player-victory fallback drawing")
+	_expect(StageClearResultDrawSceneHandler != null, "draw scene handler preload should resolve")
 	_expect(source.find("func _draw_background") < 0, "result scene should not keep background drawing wrappers")
 	_expect(source.find("func _draw_dalji_click_dialogue") < 0, "result scene should not keep Dalji dialogue drawing wrappers")
 	_expect(source.find("func _draw_footer") < 0, "result scene should not keep footer drawing wrappers")
+	_expect(source.find("func _draw_player_victory") < 0, "result scene should not keep player-victory draw fanout wrappers")
 
 
 func _expect(condition: bool, message: String) -> void:

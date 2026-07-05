@@ -1,6 +1,8 @@
 extends SceneTree
 
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultConfigSceneHandler := preload("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+const StageClearResultFieldApplySceneHandler := preload("res://scripts/ui/stage_clear_result_field_apply_scene_handler.gd")
 const StageClearResultPreviewDefaultsHandler := preload("res://scripts/ui/stage_clear_result_preview_defaults_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
@@ -61,7 +63,7 @@ func _verify_preview_scene_apply_contract() -> void:
 	scene.boss_score = 8
 	scene.current_stage = 7
 	scene.reward_plan = {"existing": true}
-	scene._apply_scene_apply_result(scene_apply)
+	StageClearResultFieldApplySceneHandler.apply_scene_apply_result(scene, scene_apply)
 	_expect(scene.player_score == 5, "scene field payload helper should apply preview player score")
 	_expect(scene.boss_score == 0, "scene field payload helper should apply preview boss score")
 	_expect(scene.current_stage == 1, "scene field payload helper should apply preview stage")
@@ -95,10 +97,15 @@ func _verify_preview_defaults_source() -> void:
 
 func _verify_scene_delegates_preview_defaults() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	var preview_source: String = _slice_function(source, "func _apply_standalone_preview_defaults", "func _load_textures")
-	_expect(source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_defaults") >= 0, "result scene should delegate standalone preview defaults")
-	_expect(source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_scene_apply_result") >= 0, "result scene should delegate standalone preview scene field apply payloads")
-	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+	var preview_source: String = _slice_function(config_scene_handler_source, "static func apply_standalone_preview_defaults", "static func load_textures")
+	_expect(StageClearResultConfigSceneHandler != null, "config scene handler preload should resolve")
+	_expect(config_scene_handler_source.find("static func apply_standalone_preview_defaults") >= 0, "config scene handler should own standalone preview scene glue")
+	_expect(source.find("StageClearResultConfigSceneHandler.apply_standalone_preview_defaults") < 0, "result scene should not keep standalone preview pass-through glue")
+	_expect(source.find("StageClearResultPreviewDefaultsHandler.") < 0, "result scene should not call preview defaults helper directly")
+	_expect(config_scene_handler_source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_defaults") >= 0, "config scene handler should delegate standalone preview defaults")
+	_expect(config_scene_handler_source.find("StageClearResultPreviewDefaultsHandler.get_standalone_preview_scene_apply_result") >= 0, "config scene handler should delegate standalone preview scene field apply payloads")
+	_expect(source.find("func _apply_scene_apply_result") < 0, "result scene should not keep scene apply-result pass-through wrappers")
 	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
 	_expect(source.find("func _get_field_payload_from_apply_result") < 0, "result scene should not keep the retired payload-unwrapping wrapper")
 	_expect(preview_source.find("defaults.get(\"apply\"") < 0, "result scene should not inspect preview apply flags directly")

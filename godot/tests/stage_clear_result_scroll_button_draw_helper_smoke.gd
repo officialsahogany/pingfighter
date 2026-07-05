@@ -45,24 +45,30 @@ func _verify_helper_contract() -> void:
 
 func _verify_scene_delegates_scroll_button_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var draw_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
 	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
 	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
 	_expect(
-		source.find("StageClearResultScrollPresenter.draw_scroll") >= 0
+		source.find("StageClearResultDrawSceneHandler.draw_result_scene") >= 0
+		and draw_scene_handler_source.find("StageClearResultScrollSceneHandler.draw_scroll") >= 0
+		and scene_handler_source.find("StageClearResultScrollPresenter.draw_scroll") >= 0
 		and presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0,
-		"result scene should delegate opened-scroll content drawing through the scroll presenter"
+		"result scene should delegate opened-scroll content drawing through the scroll scene handler and presenter"
 	)
 	_expect(content_source.find("StageClearResultScrollButtonDrawHelper.draw_scroll_buttons") >= 0, "scroll content helper should delegate scroll button drawing")
 	_expect(source.find("func _draw_scroll_buttons") < 0, "result scene should not keep scroll button drawing wrappers")
 	_expect(
-		source.find("StageClearResultScrollPresenter.get_scroll_draw_apply_result") >= 0
-		and source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0
+		draw_scene_handler_source.find("StageClearResultScrollSceneHandler.draw_scroll") >= 0
+		and scene_handler_source.find("StageClearResultScrollPresenter.get_scroll_draw_apply_result") >= 0
+		and scene_handler_source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0
 		and input_source.find("\"_next_stage_button_rect\"") >= 0,
 		"result scene should still store next-stage button rect through scroll apply payloads"
 	)
 	_expect(
-		source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0
+		scene_handler_source.find("static func apply_scroll_state_result") >= 0
+		and scene_handler_source.find("StageClearResultScrollInputHandler.get_scroll_state_scene_apply_result") >= 0
 		and input_source.find("\"_exit_button_rect\"") >= 0,
 		"result scene should still store exit button rect through scroll apply payloads"
 	)

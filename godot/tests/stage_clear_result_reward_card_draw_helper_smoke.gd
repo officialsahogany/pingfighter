@@ -44,9 +44,14 @@ func _verify_helper_source() -> void:
 
 func _verify_scene_delegates_reward_card_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var draw_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
+	var scroll_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 	var presenter_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_presenter.gd")
 	var content_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
-	_expect(source.find("StageClearResultScrollPresenter.draw_scroll") >= 0, "result scene should delegate scroll drawing through the scroll presenter")
+	_expect(source.find("StageClearResultDrawSceneHandler.draw_result_scene") >= 0, "result scene should delegate draw fanout through the draw scene handler")
+	_expect(draw_scene_handler_source.find("StageClearResultScrollSceneHandler.draw_scroll") >= 0, "draw scene handler should route scroll drawing through the scroll scene handler")
+	_expect(scroll_scene_handler_source.find("StageClearResultScrollPresenter.draw_scroll") >= 0, "scroll scene handler should delegate scroll drawing through the scroll presenter")
+	_expect(source.find("StageClearResultScrollPresenter.draw_scroll") < 0, "result scene should not delegate scroll drawing directly through the scroll presenter")
 	_expect(presenter_source.find("StageClearResultScrollContentDrawHelper.draw_scroll_contents") >= 0, "scroll presenter should delegate opened-scroll content drawing")
 	_expect(content_source.find("StageClearResultRewardCardDrawHelper.draw_reward_section_stack") >= 0, "scroll content helper should delegate reward section-stack drawing")
 	_expect(content_source.find("\"reward_icon_cache\"") >= 0, "scroll content helper should pass reward card drawing context to the helper")

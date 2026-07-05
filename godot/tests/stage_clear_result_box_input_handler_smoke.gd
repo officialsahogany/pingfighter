@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultBoxInputHandler := preload("res://scripts/ui/stage_clear_result_box_input_handler.gd")
+const StageClearResultBoxSceneHandler := preload("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
@@ -12,6 +13,7 @@ func _init() -> void:
 	_verify_hover_result()
 	_verify_open_apply_result()
 	_verify_box_state_apply_result()
+	_verify_box_scene_handler_contract()
 	_verify_scene_applies_box_state_result()
 	_verify_scene_delegates_box_input()
 
@@ -237,7 +239,7 @@ func _verify_scene_applies_box_state_result() -> void:
 	var updated_boxes: Array = [{"state": "opening"}]
 	scene.set("_boxes", current_boxes)
 	scene.set("_hovered_box_index", 1)
-	var apply_result: Dictionary = scene._apply_box_state_result({
+	var apply_result: Dictionary = StageClearResultBoxSceneHandler.apply_box_state_result(scene, {
 		"boxes": updated_boxes,
 		"hovered_box_index": -1,
 		"redraw": false,
@@ -248,17 +250,59 @@ func _verify_scene_applies_box_state_result() -> void:
 	scene.free()
 
 
+func _verify_box_scene_handler_contract() -> void:
+	var scene := StageClearResultScene.new()
+	scene.size = Vector2(1920.0, 1080.0)
+	scene.set("_boxes", [
+		{
+			"state": "idle",
+			"kind": "normal",
+			"roll_kind": "normal",
+			"reward": {},
+			"base_pos": Vector2(120.0, 140.0),
+			"amplitude": 0.0,
+			"speed": 0.0,
+		},
+	])
+	scene.reward_roll_callback = Callable(self, "_roll_callback")
+	scene.set("_scroll_phase", "hidden")
+	StageClearResultBoxSceneHandler.update_hovered_box(scene, Vector2(120.0, 140.0))
+	_expect(int(scene.get("_hovered_box_index")) == 0, "box scene handler should apply hovered box state")
+	_expect(StageClearResultBoxSceneHandler.handle_box_click(scene, Vector2(120.0, 140.0)), "box scene handler should consume opened box clicks")
+	var boxes: Array = scene.get("_boxes")
+	var opened_box: Dictionary = boxes[0] if boxes[0] is Dictionary else {}
+	_expect(str(opened_box.get("state", "")) == "opening", "box scene handler should apply opened boxes")
+	_expect(int(scene.get("_hovered_box_index")) == -1, "box scene handler should clear hover for opened boxes")
+	scene.free()
+
+
 func _verify_scene_delegates_box_input() -> void:
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_input_handler.gd")
-	var open_apply_source: String = _slice_function(scene_source, "func _apply_box_open_result", "func _apply_box_state_result")
-	var hover_apply_source: String = _slice_function(scene_source, "func _update_hovered_box", "func _handle_player_victory_click")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.open_next_idle_box") >= 0, "result scene should delegate next-idle opening")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.get_box_click_result") >= 0, "result scene should delegate box click opening")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.get_hovered_box_result") >= 0, "result scene should delegate box hover state")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.get_hovered_box_apply_result") >= 0, "result scene should delegate box hover apply payloads")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.get_box_open_apply_result") >= 0, "result scene should delegate box-open apply payloads")
-	_expect(scene_source.find("StageClearResultBoxInputHandler.get_box_state_scene_apply_result") >= 0, "result scene should delegate common box-state scene field payloads")
+	var input_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+	var navigation_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_navigation_scene_handler.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+	var open_apply_source: String = _slice_function(scene_handler_source, "static func apply_box_open_result", "static func apply_box_state_result")
+	var hover_apply_source: String = _slice_function(scene_handler_source, "static func update_hovered_box", "static func draw_floating_boxes")
+	_expect(navigation_scene_handler_source.find("StageClearResultBoxSceneHandler.open_next_idle_box") >= 0, "navigation scene handler should delegate next-idle opening through the box scene handler")
+	_expect(input_scene_handler_source.find("StageClearResultBoxSceneHandler.handle_box_click") >= 0, "input scene handler should delegate box clicks through the box scene handler")
+	_expect(input_scene_handler_source.find("StageClearResultBoxSceneHandler.update_hovered_box") >= 0, "input scene handler should delegate box hover state through the box scene handler")
+	_expect(scene_handler_source.find("static func apply_box_open_result") >= 0, "box scene handler should own box-open apply payload glue")
+	_expect(scene_handler_source.find("static func apply_box_state_result") >= 0, "box scene handler should own common box-state payload glue")
+	_expect(scene_source.find("func _open_next_idle_box") < 0, "result scene should not keep next-idle box fanout wrappers")
+	_expect(scene_source.find("func _handle_box_click") < 0, "result scene should not keep box-click fanout wrappers")
+	_expect(scene_source.find("func _update_hovered_box") < 0, "result scene should not keep box-hover fanout wrappers")
+	_expect(scene_source.find("func _apply_box_open_result") < 0, "result scene should not keep box-open apply fanout wrappers")
+	_expect(scene_source.find("func _apply_box_state_result") < 0, "result scene should not keep box-state apply fanout wrappers")
+	_expect(scene_source.find("StageClearResultBoxInputHandler.") < 0, "result scene should not call the box input handler directly")
+	_expect(scene_handler_source.find("StageClearResultBoxInputHandler.open_next_idle_box") >= 0, "box scene handler should delegate next-idle opening")
+	_expect(scene_handler_source.find("StageClearResultBoxInputHandler.get_box_click_result") >= 0, "box scene handler should delegate box click opening")
+	_expect(scene_handler_source.find("StageClearResultBoxInputHandler.get_hovered_box_result") >= 0, "box scene handler should delegate box hover state")
+	_expect(scene_handler_source.find("StageClearResultBoxInputHandler.get_hovered_box_apply_result") >= 0, "box scene handler should delegate box hover apply payloads")
+	_expect(scene_handler_source.find("StageClearResultBoxInputHandler.get_box_open_apply_result") >= 0, "box scene handler should delegate box-open apply payloads")
+	_expect(scene_handler_source.find("StageClearResultBoxInputHandler.get_box_state_scene_apply_result") >= 0, "box scene handler should delegate common box-state scene field payloads")
+	_expect(scene_handler_source.find("StageClearResultRuntimeOverlaySceneHandler.is_interaction_blocked") >= 0, "box scene handler should route interaction blocking through the runtime overlay scene handler")
+	_expect(scene_handler_source.find("scene.call(\"_is_result_interaction_blocked\"") < 0, "box scene handler should not bounce interaction blocking through the result scene wrapper")
 	_expect(open_apply_source.find("_hovered_box_index = int(apply_result.get") < 0, "box-open apply should not write hover directly")
 	_expect(open_apply_source.find("_boxes = apply_result.get") < 0, "box-open apply should not write boxes directly")
 	_expect(hover_apply_source.find("_hovered_box_index = int(apply_result.get") < 0, "box-hover apply should not write hover directly")

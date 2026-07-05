@@ -1,6 +1,8 @@
 extends SceneTree
 
 const StageClearResultConfigDataStateHandler := preload("res://scripts/ui/stage_clear_result_config_data_state_handler.gd")
+const StageClearResultConfigSceneHandler := preload("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+const StageClearResultFieldApplySceneHandler := preload("res://scripts/ui/stage_clear_result_field_apply_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
@@ -124,7 +126,7 @@ func _verify_config_data_scene_apply_payload() -> void:
 	_expect(field_payload.get("stage_reward_snapshot", {}) == reward_snapshot, "config data scene apply should map stage reward snapshot")
 
 	var scene := StageClearResultScene.new()
-	scene._apply_scene_apply_result(scene_apply)
+	StageClearResultFieldApplySceneHandler.apply_scene_apply_result(scene, scene_apply)
 	_expect(scene.player_score == 4, "scene field payload helper should apply config player score")
 	_expect(scene.boss_score == 2, "scene field payload helper should apply config boss score")
 	_expect(scene.current_stage == 5, "scene field payload helper should apply config stage")
@@ -145,7 +147,7 @@ func _verify_scene_applies_config_data_state() -> void:
 		},
 		"smasher"
 	)
-	scene._apply_config_data_state(result)
+	StageClearResultConfigSceneHandler.apply_config_data_state(scene, result)
 	_expect(scene.player_score == 8, "scene config data apply should write player score")
 	_expect(scene.boss_score == 3, "scene config data apply should write boss score")
 	_expect(scene.current_stage == 4, "scene config data apply should write current stage")
@@ -156,16 +158,28 @@ func _verify_scene_applies_config_data_state() -> void:
 
 func _verify_scene_delegates_config_data_state() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
 	var configure_start: int = source.find("func configure(")
-	var configure_end: int = source.find("func _apply_config_data_state")
+	var configure_end: int = source.find("func _process")
 	var configure_source: String = source.substr(configure_start, configure_end - configure_start) if configure_start >= 0 and configure_end > configure_start else source
-	var apply_source: String = _slice_function(source, "func _apply_config_data_state", "func _apply_character_asset_state")
-	_expect(source.find("StageClearResultConfigDataStateHandler.get_config_data_state") >= 0, "result scene should delegate configure data normalization")
-	_expect(source.find("StageClearResultConfigDataStateHandler.get_config_data_scene_apply_result") >= 0, "result scene should delegate config data scene field apply payloads")
-	_expect(source.find("func _apply_scene_apply_result") >= 0, "result scene should centralize scene apply-result application")
+	var apply_source: String = _slice_function(config_scene_handler_source, "static func apply_config_data_state", "static func apply_character_asset_state")
+	_expect(StageClearResultConfigSceneHandler != null, "config scene handler preload should resolve")
+	_expect(source.find("func configure(") < 0, "result scene should not keep a configure facade")
+	_expect(config_scene_handler_source.find("static func configure") >= 0, "config scene handler should own configure scene glue")
+	_expect(source.find("StageClearResultConfigSceneHandler.exit_tree") >= 0, "result scene should delegate exit-tree scene glue")
+	_expect(config_scene_handler_source.find("static func apply_config_data_state") >= 0, "config scene handler should own config data scene glue")
+	_expect(source.find("StageClearResultConfigSceneHandler.apply_config_data_state") < 0, "result scene should not keep config data pass-through glue")
+	_expect(source.find("StageClearResultConfigDataStateHandler.") < 0, "result scene should not call config data helper directly")
+	_expect(config_scene_handler_source.find("StageClearResultConfigDataStateHandler.get_config_data_state") >= 0, "config scene handler should delegate configure data normalization")
+	_expect(config_scene_handler_source.find("StageClearResultConfigDataStateHandler.get_config_data_scene_apply_result") >= 0, "config scene handler should delegate config data scene field apply payloads")
+	_expect(config_scene_handler_source.find("static func exit_tree") >= 0, "config scene handler should own exit-tree teardown glue")
+	_expect(config_scene_handler_source.find("clear_runtime_references(scene)") >= 0, "exit-tree teardown should reuse runtime-reference cleanup")
+	_expect(source.find("_fx_host_pool.tear_down") < 0, "result scene should not tear down the FX host pool inline")
+	_expect(source.find("_font_cache = null") < 0, "result scene should not null helper caches inline during exit")
+	_expect(source.find("func _apply_scene_apply_result") < 0, "result scene should not keep scene apply-result pass-through wrappers")
 	_expect(source.find("func _apply_scene_field_payload") < 0, "result scene should not keep the retired direct field-payload wrapper")
 	_expect(source.find("func _get_field_payload_from_apply_result") < 0, "result scene should not keep the retired payload-unwrapping wrapper")
-	_expect(source.find("func _apply_config_data_state") >= 0, "result scene should keep a focused config data applier")
+	_expect(source.find("func _apply_config_data_state") < 0, "result scene should not keep a focused config data applier")
 	_expect(apply_source.find("player_score = int(result.get") < 0, "config data applier should not inspect player score directly")
 	_expect(apply_source.find("boss_score = int(result.get") < 0, "config data applier should not inspect boss score directly")
 	_expect(apply_source.find("current_stage = int(result.get") < 0, "config data applier should not inspect current stage directly")

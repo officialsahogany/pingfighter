@@ -3,7 +3,9 @@ extends SceneTree
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultScrollSceneHandler := preload("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
+const StageClearResultStatusSceneHandler := preload("res://scripts/ui/stage_clear_result_status_scene_handler.gd")
 
 var _failures: Array[String] = []
 
@@ -156,12 +158,12 @@ func _verify_scene_delegates_interaction_state() -> void:
 	scene.size = Vector2(1920.0, 1080.0)
 	scene._scroll_phase = StageClearResultInteractionState.PHASE_VISIBLE
 	scene._scroll_timer = StageClearResultScrollState.SCROLL_UNFURL_DURATION
-	scene._refresh_scroll_button_rects()
-	scene._update_hovered_button(scene._exit_button_rect.get_center())
-	_expect(str(scene.get_interaction_status().get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_EXIT, "scene hovered-button wrapper should delegate")
+	StageClearResultScrollSceneHandler.refresh_scroll_button_rects(scene)
+	StageClearResultScrollSceneHandler.update_hovered_button(scene, scene._exit_button_rect.get_center())
+	_expect(str(_get_interaction_status(scene).get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_EXIT, "status scene handler should expose delegated hovered-button state")
 
 	scene._boxes = [{"state": "opened"}, {"state": "opening"}]
-	var status: Dictionary = scene.get_interaction_status()
+	var status: Dictionary = _get_interaction_status(scene)
 	_expect(int(status.get("opened_count", -1)) == 1, "scene interaction status should use delegated opened count")
 	_expect(int(status.get("opening_count", -1)) == 1, "scene interaction status should use delegated opening count")
 	_expect(not StageClearResultInteractionState.all_boxes_opened(scene._boxes), "scene boxes should remain compatible with all-open helper")
@@ -169,19 +171,28 @@ func _verify_scene_delegates_interaction_state() -> void:
 	_expect(StageClearResultInteractionState.all_boxes_opened(scene._boxes), "scene boxes should report opened state through helper")
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var scroll_update_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_update_handler.gd")
+	var scroll_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
+	var input_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+	var box_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
 	_expect(
 		scroll_update_helper_source.find("StageClearResultInteractionState.all_boxes_opened") >= 0,
 		"scroll update handler should call all-boxes-open helper directly"
 	)
 	_expect(
-		source.find("StageClearResultBoxInputHandler.get_hovered_box_result") >= 0
-			and source.find("StageClearResultBoxInputHandler.get_box_click_result") >= 0,
-		"result scene should delegate box hover and click hit-tests through the box input helper"
+		source.find("func _update_hovered_box") < 0
+			and source.find("func _handle_box_click") < 0
+			and input_scene_handler_source.find("StageClearResultBoxSceneHandler.update_hovered_box") >= 0
+			and input_scene_handler_source.find("StageClearResultBoxSceneHandler.handle_box_click") >= 0
+			and box_scene_handler_source.find("StageClearResultBoxInputHandler.get_hovered_box_result") >= 0
+			and box_scene_handler_source.find("StageClearResultBoxInputHandler.get_box_click_result") >= 0,
+		"result scene should not keep box hover/click wrappers; input scene handler should route through the box scene handler"
 	)
 	_expect(
-		source.find("StageClearResultScrollInputHandler.get_drag_start_result") >= 0
-			and source.find("StageClearResultScrollInputHandler.get_button_layout") >= 0,
-		"result scene should delegate scroll drag and button layout state through the scroll input helper"
+		source.find("func _start_scroll_drag") < 0
+			and source.find("func _refresh_scroll_button_rects") < 0
+			and scroll_scene_handler_source.find("StageClearResultScrollInputHandler.get_drag_start_result") >= 0
+			and scroll_scene_handler_source.find("StageClearResultScrollInputHandler.get_button_layout") >= 0,
+		"result scene should not keep scroll drag/button layout wrappers; scroll scene handler should own that glue"
 	)
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
 	var box_input_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_input_handler.gd")
@@ -205,3 +216,7 @@ func _verify_scene_delegates_interaction_state() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _get_interaction_status(scene: Object) -> Dictionary:
+	return StageClearResultStatusSceneHandler.get_interaction_status(scene, StageClearResultScene.DALJI_CLICK_DIALOGUE)

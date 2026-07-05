@@ -34,7 +34,17 @@ static func get_defeated_boss_draw_context(
 	stage3_boss_defeat_live2d_sheet: Texture2D,
 	stage3_boss_defeat_click_reaction_sheet: Texture2D,
 	stage3_boss_defeat_click_reaction_timer: float,
-	stage3_boss_defeat_click_transition_base_frame: int
+	stage3_boss_defeat_click_transition_base_frame: int,
+	stage4_ponk_boss_defeat_live2d_sheet: Texture2D = null,
+	stage4_ponk_boss_defeat_click_reaction_sheet: Texture2D = null,
+	stage4_ponk_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+	stage4_ponk_boss_defeat_click_transition_base_frame: int = 0,
+	stage6_boss_defeat_sheet: Texture2D = null,
+	stage6_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_TOTAL_DURATION,
+	stage6_boss_defeat_click_transition_base_frame: int = 0,
+	stage5_hongryun_result_sheet: Texture2D = null,
+	stage5_hongryun_result_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE5_HONGRYUN_CLICK_TOTAL_DURATION,
+	stage5_hongryun_result_click_transition_base_frame: int = 0
 ) -> Dictionary:
 	return {
 		"current_stage": current_stage,
@@ -52,6 +62,16 @@ static func get_defeated_boss_draw_context(
 		"stage3_boss_defeat_click_reaction_sheet": stage3_boss_defeat_click_reaction_sheet,
 		"stage3_boss_defeat_click_reaction_timer": stage3_boss_defeat_click_reaction_timer,
 		"stage3_boss_defeat_click_transition_base_frame": stage3_boss_defeat_click_transition_base_frame,
+		"stage4_ponk_boss_defeat_live2d_sheet": stage4_ponk_boss_defeat_live2d_sheet,
+		"stage4_ponk_boss_defeat_click_reaction_sheet": stage4_ponk_boss_defeat_click_reaction_sheet,
+		"stage4_ponk_boss_defeat_click_reaction_timer": stage4_ponk_boss_defeat_click_reaction_timer,
+		"stage4_ponk_boss_defeat_click_transition_base_frame": stage4_ponk_boss_defeat_click_transition_base_frame,
+		"stage6_boss_defeat_sheet": stage6_boss_defeat_sheet,
+		"stage6_boss_defeat_click_reaction_timer": stage6_boss_defeat_click_reaction_timer,
+		"stage6_boss_defeat_click_transition_base_frame": stage6_boss_defeat_click_transition_base_frame,
+		"stage5_hongryun_result_sheet": stage5_hongryun_result_sheet,
+		"stage5_hongryun_result_click_reaction_timer": stage5_hongryun_result_click_reaction_timer,
+		"stage5_hongryun_result_click_transition_base_frame": stage5_hongryun_result_click_transition_base_frame,
 	}
 
 
@@ -139,6 +159,28 @@ static func draw_defeated_boss(
 				0.98
 			)
 		return {}
+	if current_stage == 4:
+		var stage4_sheet: Texture2D = draw_context.get("stage4_ponk_boss_defeat_live2d_sheet", null) as Texture2D
+		if stage4_sheet != null:
+			StageClearResultActorDrawHelper.draw_stage4_ponk_defeated(
+				canvas,
+				stage4_sheet,
+				draw_context.get("stage4_ponk_boss_defeat_click_reaction_sheet", null) as Texture2D,
+				StageClearResultActorDrawHelper.get_boss_defeat_reaction_state(
+					float(draw_context.get("timer", 0.0)),
+					float(draw_context.get("stage4_ponk_boss_defeat_click_reaction_timer", StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION)),
+					int(draw_context.get("stage4_ponk_boss_defeat_click_transition_base_frame", 0))
+				),
+				view_size,
+				draw_scale,
+				StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_GRID_COLS,
+				StageClearResultActorDrawHelper.BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+				0.98
+			)
+		return {}
+	var result_fallback_config: Dictionary = _get_stage_result_fallback_config(current_stage)
+	if not result_fallback_config.is_empty():
+		return _draw_stage_result_fallback_actor(canvas, draw_context, view_size, draw_scale, result_fallback_config)
 
 	var dalji_sheet: Texture2D = draw_context.get("dalji_defeat_sheet", null) as Texture2D
 	if dalji_sheet == null:
@@ -162,25 +204,162 @@ static func draw_defeated_boss(
 	}
 
 
+static func _get_stage_result_fallback_config(current_stage: int) -> Dictionary:
+	match current_stage:
+		5:
+			return {
+				"stage": 5,
+				"sheet_key": "stage5_hongryun_result_sheet",
+				"reaction_timer_key": "stage5_hongryun_result_click_reaction_timer",
+				"transition_base_frame_key": "stage5_hongryun_result_click_transition_base_frame",
+				"default_reaction_timer": StageClearResultActorDrawHelper.STAGE5_HONGRYUN_CLICK_TOTAL_DURATION,
+				"rect_key": "stage5_hongryun_result_rect",
+				"click_rect_key": "stage5_hongryun_result_click_rect",
+			}
+		6:
+			return {
+				"stage": 6,
+				"sheet_key": "stage6_boss_defeat_sheet",
+				"reaction_timer_key": "stage6_boss_defeat_click_reaction_timer",
+				"transition_base_frame_key": "stage6_boss_defeat_click_transition_base_frame",
+				"default_reaction_timer": StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_TOTAL_DURATION,
+				"rect_key": "stage6_boss_defeat_rect",
+				"click_rect_key": "stage6_boss_defeat_click_rect",
+			}
+	return {}
+
+
+static func _draw_stage_result_fallback_actor(
+	canvas: CanvasItem,
+	draw_context: Dictionary,
+	view_size: Vector2,
+	draw_scale: float,
+	config: Dictionary
+) -> Dictionary:
+	var sheet_key: String = String(config.get("sheet_key", ""))
+	var sheet: Texture2D = draw_context.get(sheet_key, null) as Texture2D
+	if sheet == null:
+		return {}
+
+	var timer: float = float(draw_context.get("timer", 0.0))
+	var reaction_timer_key: String = String(config.get("reaction_timer_key", ""))
+	var transition_base_frame_key: String = String(config.get("transition_base_frame_key", ""))
+	var reaction_timer: float = float(draw_context.get(reaction_timer_key, float(config.get("default_reaction_timer", 0.0))))
+	var transition_base_frame: int = int(draw_context.get(transition_base_frame_key, 0))
+	var draw_rect := Rect2()
+	match int(config.get("stage", 0)):
+		5:
+			draw_rect = StageClearResultActorDrawHelper.draw_stage5_hongryun_result_fallback(
+				canvas,
+				sheet,
+				timer,
+				view_size,
+				draw_scale,
+				0.98,
+				reaction_timer,
+				transition_base_frame
+			)
+		6:
+			draw_rect = StageClearResultActorDrawHelper.draw_stage6_tetriser_defeated(
+				canvas,
+				sheet,
+				timer,
+				view_size,
+				draw_scale,
+				0.98,
+				reaction_timer,
+				transition_base_frame
+			)
+		_:
+			return {}
+
+	return {
+		String(config.get("rect_key", "")): draw_rect,
+		String(config.get("click_rect_key", "")): draw_rect,
+	}
+
+
 static func get_defeated_boss_draw_apply_result(
 	draw_result: Dictionary,
-	current_dalji_click_rect: Rect2
+	current_dalji_click_rect: Rect2,
+	current_stage6_boss_defeat_click_rect: Rect2 = Rect2(),
+	current_stage4_ponk_boss_defeat_click_rect: Rect2 = Rect2(),
+	current_stage5_hongryun_result_click_rect: Rect2 = Rect2()
 ) -> Dictionary:
-	return {
-		"dalji_click_rect": draw_result.get("dalji_click_rect", current_dalji_click_rect),
-	}
+	return _get_click_rect_apply_result(
+		draw_result,
+		_get_defeated_boss_click_rect_payload_configs(
+			current_dalji_click_rect,
+			current_stage6_boss_defeat_click_rect,
+			current_stage4_ponk_boss_defeat_click_rect,
+			current_stage5_hongryun_result_click_rect
+		)
+	)
 
 
 static func get_defeated_boss_draw_scene_apply_result(
 	draw_result: Dictionary,
-	current_dalji_click_rect: Rect2
+	current_dalji_click_rect: Rect2,
+	current_stage6_boss_defeat_click_rect: Rect2 = Rect2(),
+	current_stage4_ponk_boss_defeat_click_rect: Rect2 = Rect2(),
+	current_stage5_hongryun_result_click_rect: Rect2 = Rect2()
 ) -> Dictionary:
-	var apply_result: Dictionary = get_defeated_boss_draw_apply_result(
-		draw_result,
-		current_dalji_click_rect
+	var payload_configs: Array[Dictionary] = _get_defeated_boss_click_rect_payload_configs(
+		current_dalji_click_rect,
+		current_stage6_boss_defeat_click_rect,
+		current_stage4_ponk_boss_defeat_click_rect,
+		current_stage5_hongryun_result_click_rect
 	)
+	var apply_result: Dictionary = _get_click_rect_apply_result(draw_result, payload_configs)
 	return {
-		"field_payload": {
-			"_dalji_click_rect": apply_result.get("dalji_click_rect", current_dalji_click_rect),
-		},
+		"field_payload": _get_click_rect_field_payload(apply_result, payload_configs),
 	}
+
+
+static func _get_defeated_boss_click_rect_payload_configs(
+	current_dalji_click_rect: Rect2,
+	current_stage6_boss_defeat_click_rect: Rect2,
+	current_stage4_ponk_boss_defeat_click_rect: Rect2,
+	current_stage5_hongryun_result_click_rect: Rect2
+) -> Array[Dictionary]:
+	return [
+		{
+			"apply_key": "dalji_click_rect",
+			"field_key": "_dalji_click_rect",
+			"current_rect": current_dalji_click_rect,
+		},
+		{
+			"apply_key": "stage6_boss_defeat_click_rect",
+			"field_key": "_stage6_boss_defeat_click_rect",
+			"current_rect": current_stage6_boss_defeat_click_rect,
+		},
+		{
+			"apply_key": "stage4_ponk_boss_defeat_click_rect",
+			"field_key": "_stage4_ponk_boss_defeat_click_rect",
+			"current_rect": current_stage4_ponk_boss_defeat_click_rect,
+		},
+		{
+			"apply_key": "stage5_hongryun_result_click_rect",
+			"field_key": "_stage5_hongryun_result_click_rect",
+			"current_rect": current_stage5_hongryun_result_click_rect,
+		},
+	]
+
+
+static func _get_click_rect_apply_result(draw_result: Dictionary, payload_configs: Array[Dictionary]) -> Dictionary:
+	var apply_result: Dictionary = {}
+	for config: Dictionary in payload_configs:
+		var apply_key: String = String(config.get("apply_key", ""))
+		var current_rect: Rect2 = config.get("current_rect", Rect2())
+		apply_result[apply_key] = draw_result.get(apply_key, current_rect)
+	return apply_result
+
+
+static func _get_click_rect_field_payload(apply_result: Dictionary, payload_configs: Array[Dictionary]) -> Dictionary:
+	var field_payload: Dictionary = {}
+	for config: Dictionary in payload_configs:
+		var apply_key: String = String(config.get("apply_key", ""))
+		var field_key: String = String(config.get("field_key", ""))
+		var current_rect: Rect2 = config.get("current_rect", Rect2())
+		field_payload[field_key] = apply_result.get(apply_key, current_rect)
+	return field_payload

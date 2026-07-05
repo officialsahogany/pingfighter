@@ -6,10 +6,16 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const StageClearResultViewportSceneHandler := preload("res://scripts/ui/stage_clear_result_viewport_scene_handler.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
+const StageClearResultScrollSceneHandler := preload("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultBoxData := preload("res://scripts/ui/stage_clear_result_box_data.gd")
+const StageClearResultConfigSceneHandler := preload("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+const StageClearResultInputSceneHandler := preload("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+const StageClearResultStatusSceneHandler := preload("res://scripts/ui/stage_clear_result_status_scene_handler.gd")
+const StageClearResultUpdateSceneHandler := preload("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
 const RESULT_BOX_COMMON_SHEET := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
 const RESULT_BOX_GUARANTEED_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
@@ -74,23 +80,22 @@ func _init() -> void:
 		quit(1)
 		return
 	root.add_child(scene)
-	if scene.has_method("configure"):
-		scene.configure({
-			"player_score": 5,
-			"boss_score": 0,
-			"current_stage": 1,
-			"reward_plan": {
-				"summary": "고급상자 + 일반상자 2개",
-				"boxes": [
-					{"kind": "guaranteed_mythic"},
-					{"kind": "advanced"},
-					{"kind": "normal"},
-				],
-				"reward_count": 3,
-			},
-		}, Callable())
+	_configure_scene(scene, {
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 1,
+		"reward_plan": {
+			"summary": "고급상자 + 일반상자 2개",
+			"boxes": [
+				{"kind": "guaranteed_mythic"},
+				{"kind": "advanced"},
+				{"kind": "normal"},
+			],
+			"reward_count": 3,
+		},
+	}, Callable())
 
-	var status: Dictionary = scene.get_interaction_status()
+	var status: Dictionary = _get_interaction_status(scene)
 	var box_labels: Array = status.get("box_display_labels", []) if status.get("box_display_labels", []) is Array else []
 	_expect(
 		box_labels == [StageClearResultBoxData.BOX_LABEL_GUARANTEED_MYTHIC, StageClearResultBoxData.BOX_LABEL_ADVANCED, StageClearResultBoxData.BOX_LABEL_NORMAL],
@@ -140,11 +145,26 @@ func _init() -> void:
 	_expect(int(status.get("stage3_boss_defeat_live2d_frame_count", 0)) == 98, "Stage 3 boss result Live2D should expose 98 frames")
 	_expect(int(status.get("stage3_boss_defeat_live2d_grid_cols", 0)) == 14, "Stage 3 boss result Live2D should use a 14-column grid")
 	_expect(Vector2(status.get("stage3_boss_defeat_live2d_cell_size", Vector2.ZERO)) == Vector2(896.0, 896.0), "Stage 3 boss result Live2D cells are display-fit downscaled (hq1152 source capped to 896px on import)")
+	_expect(
+		load(StageClearResultAssetLoader.STAGE4_PONK_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
+		"Stage 4 Ponk result Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
+	)
+	_expect(
+		load(StageClearResultAssetLoader.STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
+		"Stage 4 Ponk result click Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
+	)
+	_expect(not bool(status.get("stage4_ponk_boss_defeat_live2d_sheet_loaded", true)), "Stage 1 result should not load the Stage 4 Ponk result Live2D sheet")
+	_expect(not bool(status.get("stage4_ponk_boss_defeat_click_reaction_sheet_loaded", true)), "Stage 1 result should not load the Stage 4 Ponk result click sheet")
+	_expect(not bool(status.get("stage4_ponk_boss_defeat_live2d_active", true)), "Stage 1 result should keep the Stage 4 Ponk result actor inactive")
+	_expect(not bool(status.get("stage4_ponk_boss_defeat_click_reaction_active", true)), "Stage 1 result should keep the Stage 4 Ponk click reaction inactive")
+	_expect(int(status.get("stage4_ponk_boss_defeat_live2d_frame_count", 0)) == 98, "Stage 4 Ponk result Live2D should expose 98 frames")
+	_expect(int(status.get("stage4_ponk_boss_defeat_live2d_grid_cols", 0)) == 14, "Stage 4 Ponk result Live2D should use a 14-column grid")
+	_expect(Vector2(status.get("stage4_ponk_boss_defeat_live2d_cell_size", Vector2.ZERO)) == Vector2(896.0, 896.0), "Stage 4 Ponk result Live2D cells are display-fit downscaled (hq1152 source capped to 896px on import)")
 
 	var stage2_scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(stage2_scene != null, "stage clear result scene should instantiate for Stage 2 boss Live2D")
 	root.add_child(stage2_scene)
-	stage2_scene.configure({
+	_configure_scene(stage2_scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 2,
@@ -156,14 +176,14 @@ func _init() -> void:
 			"reward_count": 1,
 		},
 	}, Callable())
-	var stage2_status: Dictionary = stage2_scene.get_interaction_status()
+	var stage2_status: Dictionary = _get_interaction_status(stage2_scene)
 	_expect(bool(stage2_status.get("stage2_boss_defeat_live2d_active", false)), "Stage 2 result should activate the alligator boss Live2D")
 	_expect(bool(stage2_status.get("stage2_boss_defeat_live2d_sheet_loaded", false)), "Stage 2 result should load the Stage 2 boss result Live2D sheet")
 	_expect(bool(stage2_status.get("stage2_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 2 result should load the Stage 2 boss result click sheet")
 	var stage2_draw_rect: Rect2 = stage2_status.get("stage2_boss_defeat_live2d_draw_rect", Rect2())
 	_expect(stage2_draw_rect.size.x > 0.0 and stage2_draw_rect.size.y > 0.0, "Stage 2 boss Live2D draw rect should be available")
-	stage2_scene.update_result_scene(0.22)
-	stage2_status = stage2_scene.get_interaction_status()
+	_update_result_scene(stage2_scene, 0.22)
+	stage2_status = _get_interaction_status(stage2_scene)
 	var stage2_base_frame_before_click: int = int(stage2_status.get("stage2_boss_defeat_live2d_base_frame", 0))
 	_expect(stage2_base_frame_before_click > 0, "Stage 2 boss Live2D should animate over time")
 	var stage2_click_rect: Rect2 = stage2_status.get("stage2_boss_defeat_click_rect", Rect2())
@@ -172,9 +192,9 @@ func _init() -> void:
 	stage2_click.button_index = MOUSE_BUTTON_LEFT
 	stage2_click.pressed = true
 	stage2_click.position = stage2_click_rect.get_center()
-	_expect(stage2_scene.handle_result_input(stage2_click), "Stage 2 boss click should be consumed by the result scene")
+	_expect(_handle_result_input(stage2_scene, stage2_click), "Stage 2 boss click should be consumed by the result scene")
 
-	stage2_status = stage2_scene.get_interaction_status()
+	stage2_status = _get_interaction_status(stage2_scene)
 	_expect(bool(stage2_status.get("stage2_boss_defeat_click_reaction_active", false)), "Stage 2 boss click should start the reaction sheet")
 	_expect(float(stage2_status.get("stage2_boss_defeat_click_reaction_duration", 99.0)) < 3.8, "Stage 2 boss click reaction should be a short upset beat")
 	_expect(
@@ -186,21 +206,21 @@ func _init() -> void:
 		"Stage 2 boss click should begin from the existing base frame before fading into reaction"
 	)
 
-	stage2_scene.update_result_scene(0.11)
-	stage2_status = stage2_scene.get_interaction_status()
+	_update_result_scene(stage2_scene, 0.11)
+	stage2_status = _get_interaction_status(stage2_scene)
 	var stage2_mid_alpha: float = float(stage2_status.get("stage2_boss_defeat_reaction_alpha", 0.0))
 	_expect(stage2_mid_alpha > 0.05 and stage2_mid_alpha < 0.95, "Stage 2 boss click should crossfade into the reaction instead of hard switching")
 
 	var stage2_reaction_timer_now: float = float(stage2_status.get("stage2_boss_defeat_click_reaction_timer", 0.0))
 	var stage2_reaction_duration: float = float(stage2_status.get("stage2_boss_defeat_click_reaction_duration", 0.0))
 	var stage2_advance_into_hold: float = max(0.0, stage2_reaction_duration - stage2_reaction_timer_now) + 0.02
-	stage2_scene.update_result_scene(stage2_advance_into_hold)
-	stage2_status = stage2_scene.get_interaction_status()
+	_update_result_scene(stage2_scene, stage2_advance_into_hold)
+	stage2_status = _get_interaction_status(stage2_scene)
 	_expect(bool(stage2_status.get("stage2_boss_defeat_click_return_blend_active", false)), "Stage 2 boss click should enter the return blend hold phase after the 98-frame pass")
 	_expect(is_equal_approx(float(stage2_status.get("stage2_boss_defeat_reaction_alpha", 0.0)), 1.0), "Stage 2 boss click should hold the final reaction frame at full alpha during the settle window")
 
-	stage2_scene.update_result_scene(6.0)
-	stage2_status = stage2_scene.get_interaction_status()
+	_update_result_scene(stage2_scene, 6.0)
+	stage2_status = _get_interaction_status(stage2_scene)
 	_expect(not bool(stage2_status.get("stage2_boss_defeat_click_reaction_active", true)), "Stage 2 boss click reaction should return to the base loop")
 	_expect(is_equal_approx(float(stage2_status.get("stage2_boss_defeat_reaction_alpha", 1.0)), 0.0), "Stage 2 boss click should fade fully back to the base loop")
 	stage2_scene.free()
@@ -208,7 +228,7 @@ func _init() -> void:
 	var stage3_scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(stage3_scene != null, "stage clear result scene should instantiate for Stage 3 boss Live2D")
 	root.add_child(stage3_scene)
-	stage3_scene.configure({
+	_configure_scene(stage3_scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 3,
@@ -220,15 +240,15 @@ func _init() -> void:
 			"reward_count": 1,
 		},
 	}, Callable())
-	var stage3_status: Dictionary = stage3_scene.get_interaction_status()
+	var stage3_status: Dictionary = _get_interaction_status(stage3_scene)
 	_expect(bool(stage3_status.get("stage3_boss_defeat_live2d_active", false)), "Stage 3 result should activate the Menhera boss Live2D")
 	_expect(bool(stage3_status.get("stage3_boss_defeat_live2d_sheet_loaded", false)), "Stage 3 result should load the Menhera boss result Live2D sheet")
 	_expect(bool(stage3_status.get("stage3_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 3 result should load the Menhera boss result click sheet")
 	_expect(not bool(stage3_status.get("stage2_boss_defeat_live2d_active", true)), "Stage 3 result should keep the Stage 2 boss result actor inactive")
 	var stage3_draw_rect: Rect2 = stage3_status.get("stage3_boss_defeat_live2d_draw_rect", Rect2())
 	_expect(stage3_draw_rect.size.x > 0.0 and stage3_draw_rect.size.y > 0.0, "Stage 3 boss Live2D draw rect should be available")
-	stage3_scene.update_result_scene(0.22)
-	stage3_status = stage3_scene.get_interaction_status()
+	_update_result_scene(stage3_scene, 0.22)
+	stage3_status = _get_interaction_status(stage3_scene)
 	var stage3_base_frame_before_click: int = int(stage3_status.get("stage3_boss_defeat_live2d_base_frame", 0))
 	_expect(stage3_base_frame_before_click > 0, "Stage 3 boss Live2D should animate over time")
 	var stage3_click_rect: Rect2 = stage3_status.get("stage3_boss_defeat_click_rect", Rect2())
@@ -237,9 +257,9 @@ func _init() -> void:
 	stage3_click.button_index = MOUSE_BUTTON_LEFT
 	stage3_click.pressed = true
 	stage3_click.position = stage3_click_rect.get_center()
-	_expect(stage3_scene.handle_result_input(stage3_click), "Stage 3 boss click should be consumed by the result scene")
+	_expect(_handle_result_input(stage3_scene, stage3_click), "Stage 3 boss click should be consumed by the result scene")
 
-	stage3_status = stage3_scene.get_interaction_status()
+	stage3_status = _get_interaction_status(stage3_scene)
 	_expect(bool(stage3_status.get("stage3_boss_defeat_click_reaction_active", false)), "Stage 3 boss click should start the reaction sheet")
 	_expect(float(stage3_status.get("stage3_boss_defeat_click_reaction_duration", 99.0)) < 3.8, "Stage 3 boss click reaction should be a short upset beat")
 	_expect(
@@ -251,24 +271,183 @@ func _init() -> void:
 		"Stage 3 boss click should begin from the existing base frame before fading into reaction"
 	)
 
-	stage3_scene.update_result_scene(0.11)
-	stage3_status = stage3_scene.get_interaction_status()
+	_update_result_scene(stage3_scene, 0.11)
+	stage3_status = _get_interaction_status(stage3_scene)
 	var stage3_mid_alpha: float = float(stage3_status.get("stage3_boss_defeat_reaction_alpha", 0.0))
 	_expect(stage3_mid_alpha > 0.05 and stage3_mid_alpha < 0.95, "Stage 3 boss click should crossfade into the reaction instead of hard switching")
 
 	var stage3_reaction_timer_now: float = float(stage3_status.get("stage3_boss_defeat_click_reaction_timer", 0.0))
 	var stage3_reaction_duration: float = float(stage3_status.get("stage3_boss_defeat_click_reaction_duration", 0.0))
 	var stage3_advance_into_hold: float = max(0.0, stage3_reaction_duration - stage3_reaction_timer_now) + 0.02
-	stage3_scene.update_result_scene(stage3_advance_into_hold)
-	stage3_status = stage3_scene.get_interaction_status()
+	_update_result_scene(stage3_scene, stage3_advance_into_hold)
+	stage3_status = _get_interaction_status(stage3_scene)
 	_expect(bool(stage3_status.get("stage3_boss_defeat_click_return_blend_active", false)), "Stage 3 boss click should enter the return blend hold phase after the 98-frame pass")
 	_expect(is_equal_approx(float(stage3_status.get("stage3_boss_defeat_reaction_alpha", 0.0)), 1.0), "Stage 3 boss click should hold the final reaction frame at full alpha during the settle window")
 
-	stage3_scene.update_result_scene(6.0)
-	stage3_status = stage3_scene.get_interaction_status()
+	_update_result_scene(stage3_scene, 6.0)
+	stage3_status = _get_interaction_status(stage3_scene)
 	_expect(not bool(stage3_status.get("stage3_boss_defeat_click_reaction_active", true)), "Stage 3 boss click reaction should return to the base loop")
 	_expect(is_equal_approx(float(stage3_status.get("stage3_boss_defeat_reaction_alpha", 1.0)), 0.0), "Stage 3 boss click should fade fully back to the base loop")
 	stage3_scene.free()
+
+	var stage4_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(stage4_scene != null, "stage clear result scene should instantiate for Stage 4 Ponk result")
+	root.add_child(stage4_scene)
+	_configure_scene(stage4_scene, {
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 4,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var stage4_status: Dictionary = _get_interaction_status(stage4_scene)
+	_expect(bool(stage4_status.get("stage4_ponk_boss_defeat_live2d_active", false)), "Stage 4 result should activate the masked Ponk Live2D actor")
+	_expect(bool(stage4_status.get("stage4_ponk_boss_defeat_live2d_sheet_loaded", false)), "Stage 4 result should load the masked Ponk result Live2D sheet")
+	_expect(bool(stage4_status.get("stage4_ponk_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 4 result should load the masked Ponk click reaction sheet")
+	_expect(not bool(stage4_status.get("stage4_ponk_result_active", false)), "Stage 4 result should not activate the old Ponk fallback actor")
+	var stage4_click_rect: Rect2 = stage4_status.get("stage4_ponk_boss_defeat_click_rect", Rect2())
+	_expect(stage4_click_rect.size.x > 0.0 and stage4_click_rect.size.y > 0.0, "Stage 4 Ponk click rect should be available")
+	_update_result_scene(stage4_scene, 0.22)
+	stage4_status = _get_interaction_status(stage4_scene)
+	var stage4_base_frame_before_click: int = int(stage4_status.get("stage4_ponk_boss_defeat_live2d_base_frame", 0))
+	_expect(stage4_base_frame_before_click > 0, "Stage 4 Ponk Live2D sheet should animate over time")
+	var stage4_click := InputEventMouseButton.new()
+	stage4_click.button_index = MOUSE_BUTTON_LEFT
+	stage4_click.pressed = true
+	stage4_click.position = stage4_click_rect.get_center()
+	_expect(_handle_result_input(stage4_scene, stage4_click), "Stage 4 Ponk click should be consumed by the result scene")
+
+	stage4_status = _get_interaction_status(stage4_scene)
+	_expect(bool(stage4_status.get("stage4_ponk_boss_defeat_click_reaction_active", false)), "Stage 4 Ponk click should start the Live2D reaction sheet")
+	_expect(float(stage4_status.get("stage4_ponk_boss_defeat_click_reaction_duration", 99.0)) < 3.8, "Stage 4 Ponk click reaction should be a short upset beat")
+	_expect(
+		int(stage4_status.get("stage4_ponk_boss_defeat_click_transition_base_frame", -1)) == stage4_base_frame_before_click,
+		"Stage 4 Ponk click should freeze the current base frame for blend-in"
+	)
+	_expect(
+		is_equal_approx(float(stage4_status.get("stage4_ponk_boss_defeat_reaction_alpha", -1.0)), 0.0),
+		"Stage 4 Ponk click should begin from the existing base frame before fading into reaction"
+	)
+
+	_update_result_scene(stage4_scene, 0.11)
+	stage4_status = _get_interaction_status(stage4_scene)
+	var stage4_mid_alpha: float = float(stage4_status.get("stage4_ponk_boss_defeat_reaction_alpha", 0.0))
+	_expect(stage4_mid_alpha > 0.05 and stage4_mid_alpha < 0.95, "Stage 4 Ponk click should crossfade into the reaction instead of hard switching")
+
+	var stage4_reaction_timer_now: float = float(stage4_status.get("stage4_ponk_boss_defeat_click_reaction_timer", 0.0))
+	var stage4_reaction_duration: float = float(stage4_status.get("stage4_ponk_boss_defeat_click_reaction_duration", 0.0))
+	var stage4_advance_into_hold: float = max(0.0, stage4_reaction_duration - stage4_reaction_timer_now) + 0.02
+	_update_result_scene(stage4_scene, stage4_advance_into_hold)
+	stage4_status = _get_interaction_status(stage4_scene)
+	_expect(bool(stage4_status.get("stage4_ponk_boss_defeat_click_return_blend_active", false)), "Stage 4 Ponk click should enter the return blend hold phase after the 98-frame pass")
+	_expect(is_equal_approx(float(stage4_status.get("stage4_ponk_boss_defeat_reaction_alpha", 0.0)), 1.0), "Stage 4 Ponk click should hold the final reaction frame at full alpha during the settle window")
+
+	_update_result_scene(stage4_scene, 6.0)
+	stage4_status = _get_interaction_status(stage4_scene)
+	_expect(not bool(stage4_status.get("stage4_ponk_boss_defeat_click_reaction_active", true)), "Stage 4 Ponk click reaction should return to the base loop")
+	_expect(is_equal_approx(float(stage4_status.get("stage4_ponk_boss_defeat_reaction_alpha", 1.0)), 0.0), "Stage 4 Ponk click should fade fully back to the base loop")
+	stage4_scene.free()
+
+	var stage5_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(stage5_scene != null, "stage clear result scene should instantiate for Stage 5 Hongryun result")
+	root.add_child(stage5_scene)
+	_configure_scene(stage5_scene, {
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 5,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var stage5_status: Dictionary = _get_interaction_status(stage5_scene)
+	_expect(bool(stage5_status.get("stage5_hongryun_result_active", false)), "Stage 5 result should activate the Hongryun fallback actor")
+	_expect(bool(stage5_status.get("stage5_hongryun_result_sheet_loaded", false)), "Stage 5 result should load the Hongryun fallback sheet")
+	var stage5_click_rect: Rect2 = stage5_status.get("stage5_hongryun_result_click_rect", Rect2())
+	_expect(stage5_click_rect.size.x > 0.0 and stage5_click_rect.size.y > 0.0, "Stage 5 Hongryun click rect should be available")
+	_update_result_scene(stage5_scene, 0.50)
+	stage5_status = _get_interaction_status(stage5_scene)
+	var stage5_base_frame_before_click: int = int(stage5_status.get("stage5_hongryun_result_base_frame", 0))
+	_expect(stage5_base_frame_before_click > 0, "Stage 5 Hongryun fallback sheet should animate over time")
+	var stage5_click := InputEventMouseButton.new()
+	stage5_click.button_index = MOUSE_BUTTON_LEFT
+	stage5_click.pressed = true
+	stage5_click.position = stage5_click_rect.get_center()
+	_expect(_handle_result_input(stage5_scene, stage5_click), "Stage 5 Hongryun click should be consumed by the result scene")
+
+	stage5_status = _get_interaction_status(stage5_scene)
+	_expect(bool(stage5_status.get("stage5_hongryun_result_click_reaction_active", false)), "Stage 5 Hongryun click should start the pulse reaction")
+	_expect(float(stage5_status.get("stage5_hongryun_result_click_reaction_duration", 99.0)) < 0.5, "Stage 5 Hongryun click reaction should be a short pulse")
+	_expect(
+		int(stage5_status.get("stage5_hongryun_result_click_transition_base_frame", -1)) == stage5_base_frame_before_click,
+		"Stage 5 Hongryun click should freeze the current fallback frame for the pulse"
+	)
+
+	_update_result_scene(stage5_scene, 0.04)
+	stage5_status = _get_interaction_status(stage5_scene)
+	var stage5_mid_alpha: float = float(stage5_status.get("stage5_hongryun_result_reaction_alpha", 0.0))
+	_expect(stage5_mid_alpha > 0.05 and stage5_mid_alpha < 1.0, "Stage 5 Hongryun click should ease into the pulse")
+
+	_update_result_scene(stage5_scene, 1.0)
+	stage5_status = _get_interaction_status(stage5_scene)
+	_expect(not bool(stage5_status.get("stage5_hongryun_result_click_reaction_active", true)), "Stage 5 Hongryun click pulse should return to the base loop")
+	stage5_scene.free()
+
+	var stage6_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(stage6_scene != null, "stage clear result scene should instantiate for Stage 6 Tetriser result")
+	root.add_child(stage6_scene)
+	_configure_scene(stage6_scene, {
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 6,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var stage6_status: Dictionary = _get_interaction_status(stage6_scene)
+	_expect(bool(stage6_status.get("stage6_boss_defeat_active", false)), "Stage 6 result should activate the Tetriser defeat actor")
+	_expect(bool(stage6_status.get("stage6_boss_defeat_sheet_loaded", false)), "Stage 6 result should load the Tetriser defeat sheet")
+	var stage6_click_rect: Rect2 = stage6_status.get("stage6_boss_defeat_click_rect", Rect2())
+	_expect(stage6_click_rect.size.x > 0.0 and stage6_click_rect.size.y > 0.0, "Stage 6 Tetriser click rect should be available")
+	_update_result_scene(stage6_scene, 0.25)
+	stage6_status = _get_interaction_status(stage6_scene)
+	var stage6_base_frame_before_click: int = int(stage6_status.get("stage6_boss_defeat_base_frame", 0))
+	_expect(stage6_base_frame_before_click > 0, "Stage 6 Tetriser defeat sheet should animate over time")
+	var stage6_click := InputEventMouseButton.new()
+	stage6_click.button_index = MOUSE_BUTTON_LEFT
+	stage6_click.pressed = true
+	stage6_click.position = stage6_click_rect.get_center()
+	_expect(_handle_result_input(stage6_scene, stage6_click), "Stage 6 Tetriser click should be consumed by the result scene")
+
+	stage6_status = _get_interaction_status(stage6_scene)
+	_expect(bool(stage6_status.get("stage6_boss_defeat_click_reaction_active", false)), "Stage 6 Tetriser click should start the pulse reaction")
+	_expect(float(stage6_status.get("stage6_boss_defeat_click_reaction_duration", 99.0)) < 0.5, "Stage 6 Tetriser click reaction should be a short pulse")
+	_expect(
+		int(stage6_status.get("stage6_boss_defeat_click_transition_base_frame", -1)) == stage6_base_frame_before_click,
+		"Stage 6 Tetriser click should freeze the current defeat frame for the pulse"
+	)
+
+	_update_result_scene(stage6_scene, 0.04)
+	stage6_status = _get_interaction_status(stage6_scene)
+	var stage6_mid_alpha: float = float(stage6_status.get("stage6_boss_defeat_reaction_alpha", 0.0))
+	_expect(stage6_mid_alpha > 0.05 and stage6_mid_alpha < 1.0, "Stage 6 Tetriser click should ease into the pulse")
+
+	_update_result_scene(stage6_scene, 1.0)
+	stage6_status = _get_interaction_status(stage6_scene)
+	_expect(not bool(stage6_status.get("stage6_boss_defeat_click_reaction_active", true)), "Stage 6 Tetriser click pulse should return to the base loop")
+	stage6_scene.free()
 
 	_expect(
 		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(9856.0, 8064.0),
@@ -289,44 +468,44 @@ func _init() -> void:
 	var player_click_rect: Rect2 = status.get("player_victory_click_rect", Rect2())
 	_expect(player_click_rect.size.x > 0.0 and player_click_rect.size.y > 0.0, "Smasher click rect should be available")
 
-	scene.update_result_scene(1.10)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 1.10)
+	status = _get_interaction_status(scene)
 	var smasher_base_frame_before_click: int = int(status.get("player_victory_base_frame", 0))
 	_expect(smasher_base_frame_before_click > 0, "test should click Smasher from a non-neutral base Live2D frame")
 	var smasher_click := InputEventMouseButton.new()
 	smasher_click.button_index = MOUSE_BUTTON_LEFT
 	smasher_click.pressed = true
 	smasher_click.position = player_click_rect.get_center()
-	_expect(scene.handle_result_input(smasher_click), "Smasher click should be consumed by the result scene")
+	_expect(_handle_result_input(scene, smasher_click), "Smasher click should be consumed by the result scene")
 
-	status = scene.get_interaction_status()
+	status = _get_interaction_status(scene)
 	_expect(bool(status.get("player_victory_click_reaction_active", false)), "Smasher click should start the reaction sheet")
 	_expect(float(status.get("player_victory_click_reaction_duration", 99.0)) < 3.8, "Smasher click reaction should be a short victory beat")
 	_expect(int(status.get("player_victory_click_transition_base_frame", -1)) == smasher_base_frame_before_click, "Smasher click should freeze the current base frame for blend-in")
 	_expect(is_equal_approx(float(status.get("player_victory_reaction_alpha", -1.0)), 0.0), "Smasher click should begin from the existing base frame before fading into reaction")
 
-	scene.update_result_scene(0.11)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 0.11)
+	status = _get_interaction_status(scene)
 	var smasher_mid_alpha: float = float(status.get("player_victory_reaction_alpha", 0.0))
 	_expect(smasher_mid_alpha > 0.05 and smasher_mid_alpha < 0.95, "Smasher click should crossfade into the reaction instead of hard switching")
 
 	var smasher_reaction_timer_now: float = float(status.get("player_victory_click_reaction_timer", 0.0))
 	var smasher_reaction_duration: float = float(status.get("player_victory_click_reaction_duration", 0.0))
 	var smasher_advance_into_hold: float = max(0.0, smasher_reaction_duration - smasher_reaction_timer_now) + 0.02
-	scene.update_result_scene(smasher_advance_into_hold)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, smasher_advance_into_hold)
+	status = _get_interaction_status(scene)
 	_expect(bool(status.get("player_victory_click_return_blend_active", false)), "Smasher click should enter the return blend hold phase after the 98-frame pass")
 	_expect(is_equal_approx(float(status.get("player_victory_reaction_alpha", 0.0)), 1.0), "Smasher click should hold the final reaction frame at full alpha during the settle window")
 
-	scene.update_result_scene(6.0)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 6.0)
+	status = _get_interaction_status(scene)
 	_expect(not bool(status.get("player_victory_click_reaction_active", true)), "Smasher click reaction should return to the base loop")
 	_expect(is_equal_approx(float(status.get("player_victory_reaction_alpha", 1.0)), 0.0), "Smasher click should fade fully back to the base loop")
 
 	var commando_scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(commando_scene != null, "stage clear result scene should instantiate for Commando victory Live2D")
 	root.add_child(commando_scene)
-	commando_scene.configure({
+	_configure_scene(commando_scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 1,
@@ -339,7 +518,7 @@ func _init() -> void:
 			"reward_count": 1,
 		},
 	}, Callable())
-	var commando_status: Dictionary = commando_scene.get_interaction_status()
+	var commando_status: Dictionary = _get_interaction_status(commando_scene)
 	_expect(str(commando_status.get("selected_character_type", "")) == "soldier", "Commando result scene should preserve the selected character type")
 	_expect(
 		str(commando_status.get("player_victory_sheet_path", "")) == StageClearResultAssetLoader.COMMANDO_VICTORY_SHEET_PATH,
@@ -351,8 +530,8 @@ func _init() -> void:
 	)
 	_expect(bool(commando_status.get("player_victory_sheet_loaded", false)), "Commando result base Live2D should load")
 	_expect(bool(commando_status.get("player_victory_click_reaction_sheet_loaded", false)), "Commando result click Live2D should load")
-	commando_scene.update_result_scene(0.55)
-	commando_status = commando_scene.get_interaction_status()
+	_update_result_scene(commando_scene, 0.55)
+	commando_status = _get_interaction_status(commando_scene)
 	var commando_base_frame_before_click: int = int(commando_status.get("player_victory_base_frame", 0))
 	_expect(commando_base_frame_before_click > 0, "test should click Commando from a non-neutral base Live2D frame")
 	var commando_click_rect: Rect2 = commando_status.get("player_victory_click_rect", Rect2())
@@ -360,8 +539,8 @@ func _init() -> void:
 	commando_click.button_index = MOUSE_BUTTON_LEFT
 	commando_click.pressed = true
 	commando_click.position = commando_click_rect.get_center()
-	_expect(commando_scene.handle_result_input(commando_click), "Commando click should be consumed by the result scene")
-	commando_status = commando_scene.get_interaction_status()
+	_expect(_handle_result_input(commando_scene, commando_click), "Commando click should be consumed by the result scene")
+	commando_status = _get_interaction_status(commando_scene)
 	_expect(bool(commando_status.get("player_victory_click_reaction_active", false)), "Commando click should start the reaction sheet")
 	_expect(
 		int(commando_status.get("player_victory_click_transition_base_frame", -1)) == commando_base_frame_before_click,
@@ -372,7 +551,7 @@ func _init() -> void:
 	var optimus_scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(optimus_scene != null, "stage clear result scene should instantiate for Optimus victory Live2D")
 	root.add_child(optimus_scene)
-	optimus_scene.configure({
+	_configure_scene(optimus_scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 1,
@@ -385,7 +564,7 @@ func _init() -> void:
 			"reward_count": 1,
 		},
 	}, Callable())
-	var optimus_status: Dictionary = optimus_scene.get_interaction_status()
+	var optimus_status: Dictionary = _get_interaction_status(optimus_scene)
 	_expect(str(optimus_status.get("selected_character_type", "")) == "optimus", "Optimus result scene should preserve the selected character type")
 	_expect(
 		str(optimus_status.get("player_victory_sheet_path", "")) == StageClearResultAssetLoader.OPTIMUS_VICTORY_SHEET_PATH,
@@ -397,8 +576,8 @@ func _init() -> void:
 	)
 	_expect(bool(optimus_status.get("player_victory_sheet_loaded", false)), "Optimus result base Live2D should load")
 	_expect(bool(optimus_status.get("player_victory_click_reaction_sheet_loaded", false)), "Optimus result click Live2D should load")
-	optimus_scene.update_result_scene(0.55)
-	optimus_status = optimus_scene.get_interaction_status()
+	_update_result_scene(optimus_scene, 0.55)
+	optimus_status = _get_interaction_status(optimus_scene)
 	var optimus_base_frame_before_click: int = int(optimus_status.get("player_victory_base_frame", 0))
 	_expect(optimus_base_frame_before_click > 0, "test should click Optimus from a non-neutral base Live2D frame")
 	var optimus_click_rect: Rect2 = optimus_status.get("player_victory_click_rect", Rect2())
@@ -406,31 +585,31 @@ func _init() -> void:
 	optimus_click.button_index = MOUSE_BUTTON_LEFT
 	optimus_click.pressed = true
 	optimus_click.position = optimus_click_rect.get_center()
-	_expect(optimus_scene.handle_result_input(optimus_click), "Optimus click should be consumed by the result scene")
-	optimus_status = optimus_scene.get_interaction_status()
+	_expect(_handle_result_input(optimus_scene, optimus_click), "Optimus click should be consumed by the result scene")
+	optimus_status = _get_interaction_status(optimus_scene)
 	_expect(bool(optimus_status.get("player_victory_click_reaction_active", false)), "Optimus click should start the reaction sheet")
 	_expect(
 		int(optimus_status.get("player_victory_click_transition_base_frame", -1)) == optimus_base_frame_before_click,
 		"Optimus click should freeze the current base frame for blend-in"
 	)
-	optimus_scene.update_result_scene(0.11)
-	optimus_status = optimus_scene.get_interaction_status()
+	_update_result_scene(optimus_scene, 0.11)
+	optimus_status = _get_interaction_status(optimus_scene)
 	var optimus_mid_alpha: float = float(optimus_status.get("player_victory_reaction_alpha", 0.0))
 	_expect(optimus_mid_alpha > 0.05 and optimus_mid_alpha < 0.95, "Optimus click should crossfade into the reaction instead of hard switching")
 	var optimus_reaction_timer_now: float = float(optimus_status.get("player_victory_click_reaction_timer", 0.0))
 	var optimus_reaction_duration: float = float(optimus_status.get("player_victory_click_reaction_duration", 0.0))
-	optimus_scene.update_result_scene(max(0.0, optimus_reaction_duration - optimus_reaction_timer_now) + 0.02)
-	optimus_status = optimus_scene.get_interaction_status()
+	_update_result_scene(optimus_scene, max(0.0, optimus_reaction_duration - optimus_reaction_timer_now) + 0.02)
+	optimus_status = _get_interaction_status(optimus_scene)
 	_expect(bool(optimus_status.get("player_victory_click_return_blend_active", false)), "Optimus click should enter the return blend hold phase after the 98-frame pass")
 	_expect(is_equal_approx(float(optimus_status.get("player_victory_reaction_alpha", 0.0)), 1.0), "Optimus click should hold the final reaction frame at full alpha during the settle window")
-	optimus_scene.update_result_scene(6.0)
-	optimus_status = optimus_scene.get_interaction_status()
+	_update_result_scene(optimus_scene, 6.0)
+	optimus_status = _get_interaction_status(optimus_scene)
 	_expect(not bool(optimus_status.get("player_victory_click_reaction_active", true)), "Optimus click reaction should return to the base loop")
 	_expect(is_equal_approx(float(optimus_status.get("player_victory_reaction_alpha", 1.0)), 0.0), "Optimus click should fade fully back to the base loop")
 	optimus_scene.free()
 
-	scene.update_result_scene(1.10)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 1.10)
+	status = _get_interaction_status(scene)
 	var base_frame_before_click: int = int(status.get("dalji_base_frame", 0))
 	_expect(base_frame_before_click > 0, "test should click from a non-neutral base Live2D frame")
 
@@ -438,9 +617,9 @@ func _init() -> void:
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
 	click.position = click_rect.get_center()
-	_expect(scene.handle_result_input(click), "Dalji click should be consumed by the result scene")
+	_expect(_handle_result_input(scene, click), "Dalji click should be consumed by the result scene")
 
-	status = scene.get_interaction_status()
+	status = _get_interaction_status(scene)
 	_expect(bool(status.get("dalji_click_reaction_active", false)), "Dalji click should start the reaction sheet")
 	_expect(float(status.get("dalji_click_reaction_duration", 99.0)) < 3.8, "Dalji click reaction should be a short upset beat")
 	_expect(int(status.get("dalji_click_transition_base_frame", -1)) == base_frame_before_click, "Dalji click should freeze the current base frame for blend-in")
@@ -449,8 +628,8 @@ func _init() -> void:
 	var dialogue_timer: float = float(status.get("dalji_dialogue_timer", 0.0))
 	_expect(dialogue_timer > 0.0 and dialogue_timer <= 1.7, "Dalji click dialogue should be brief")
 
-	scene.update_result_scene(0.11)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 0.11)
+	status = _get_interaction_status(scene)
 	var mid_alpha: float = float(status.get("dalji_reaction_alpha", 0.0))
 	_expect(mid_alpha > 0.05 and mid_alpha < 0.95, "Dalji click should crossfade into the reaction instead of hard switching")
 
@@ -459,13 +638,13 @@ func _init() -> void:
 	var reaction_timer_now: float = float(status.get("dalji_click_reaction_timer", 0.0))
 	var reaction_duration: float = float(status.get("dalji_click_reaction_duration", 0.0))
 	var advance_into_hold: float = max(0.0, reaction_duration - reaction_timer_now) + 0.02
-	scene.update_result_scene(advance_into_hold)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, advance_into_hold)
+	status = _get_interaction_status(scene)
 	_expect(bool(status.get("dalji_click_return_blend_active", false)), "Dalji click should enter the return blend hold phase after the 98-frame pass")
 	_expect(is_equal_approx(float(status.get("dalji_reaction_alpha", 0.0)), 1.0), "Dalji click should hold the final reaction frame at full alpha during the settle window before any fade begins, so the player does not see a slow translucent ghost")
 
-	scene.update_result_scene(0.18)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 0.18)
+	status = _get_interaction_status(scene)
 	_expect(bool(status.get("dalji_click_return_blend_active", false)), "Dalji click return blend should still be active inside the brief fade window")
 	var fade_alpha: float = float(status.get("dalji_reaction_alpha", 0.0))
 	_expect(fade_alpha > 0.0 and fade_alpha < 1.0, "Dalji click should fade smoothly inside the brief fade window so the swap is not a 1-frame hard cut")
@@ -473,8 +652,8 @@ func _init() -> void:
 	_expect(float(status.get("scene_timer", 0.0)) > scene_timer_before_return, "Dalji click return should not reset the result scene timer")
 
 	var base_timer_at_return: float = float(status.get("dalji_base_timer", 0.0))
-	scene.update_result_scene(6.0)
-	status = scene.get_interaction_status()
+	_update_result_scene(scene, 6.0)
+	status = _get_interaction_status(scene)
 	_expect(not bool(status.get("dalji_click_reaction_active", true)), "Dalji click reaction should return to the base loop after one 98-frame pass")
 	_expect(is_equal_approx(float(status.get("dalji_reaction_alpha", 1.0)), 0.0), "Dalji click should fade fully back to the base loop")
 	_expect(float(status.get("dalji_base_timer", 0.0)) > base_timer_at_return + 5.0, "Dalji base loop should continue running uninterrupted after the click reaction ends")
@@ -496,7 +675,7 @@ func _verify_result_box_open_audio_route() -> void:
 	_expect(scene != null, "stage clear result scene should instantiate for box-open audio")
 	root.add_child(scene)
 	var audio := FakeGameAudio.new()
-	scene.configure({
+	_configure_scene(scene, {
 		"player_score": 5,
 		"boss_score": 4,
 		"current_stage": 1,
@@ -509,14 +688,14 @@ func _verify_result_box_open_audio_route() -> void:
 		},
 		"game_audio": audio,
 	}, Callable())
-	var status: Dictionary = scene.get_interaction_status()
+	var status: Dictionary = _get_interaction_status(scene)
 	_expect(bool(status.get("box_open_audio_ready", false)), "result scene should expose the routed box-open audio dependency")
 	var boxes_value: Variant = scene.get("_boxes")
 	var boxes: Array = boxes_value if boxes_value is Array else []
 	_expect(boxes.size() == 1, "box-open audio route smoke should build one clickable box")
 	if boxes.size() == 1:
 		@warning_ignore("shadowed_variable_base_class")
-		var scale: float = scene._get_layout_scale(scene.size)
+		var scale: float = StageClearResultViewportSceneHandler.get_layout_scale(scene.size)
 		var box: Dictionary = boxes[0] if boxes[0] is Dictionary else {}
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
@@ -530,9 +709,9 @@ func _verify_result_box_open_audio_route() -> void:
 			5.0,
 			1.4
 		).get_center()
-		_expect(scene.handle_result_input(click), "box click should be consumed by the result scene")
+		_expect(_handle_result_input(scene, click), "box click should be consumed by the result scene")
 		_expect(audio.result_box_open_calls == 1, "box click should play the routed result-box open SFX once")
-		_expect(scene.handle_result_input(click), "second box click should still be consumed by the result scene")
+		_expect(_handle_result_input(scene, click), "second box click should still be consumed by the result scene")
 		_expect(audio.result_box_open_calls == 1, "opening box should not replay the box-open SFX on repeated clicks")
 	scene.free()
 
@@ -542,7 +721,7 @@ func _verify_cyber_scroll_reward_summary() -> void:
 	_expect(scene != null, "stage clear result scene should instantiate for cyber scroll summary")
 	root.add_child(scene)
 	var roller := FakeResultRoller.new()
-	scene.configure({
+	_configure_scene(scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 1,
@@ -557,14 +736,14 @@ func _verify_cyber_scroll_reward_summary() -> void:
 		},
 	}, Callable(), Callable(), Callable(roller, "roll_reward"))
 
-	var status: Dictionary = scene.get_interaction_status()
+	var status: Dictionary = _get_interaction_status(scene)
 	_expect(bool(status.get("scroll_texture_loaded", false)), "cyber result scroll texture should load before the unfurl animation")
 	for _i in range(3):
-		_expect(scene.handle_result_input(_make_key_event(KEY_ENTER)), "Enter should open the next reward box")
-		scene.update_result_scene(0.70)
-	scene.update_result_scene(StageClearResultScrollState.SCROLL_DELAY)
-	scene.update_result_scene(StageClearResultScrollState.SCROLL_UNFURL_DURATION + 0.05)
-	status = scene.get_interaction_status()
+		_expect(_handle_result_input(scene, _make_key_event(KEY_ENTER)), "Enter should open the next reward box")
+		_update_result_scene(scene, 0.70)
+	_update_result_scene(scene, StageClearResultScrollState.SCROLL_DELAY)
+	_update_result_scene(scene, StageClearResultScrollState.SCROLL_UNFURL_DURATION + 0.05)
+	status = _get_interaction_status(scene)
 	_expect(str(status.get("scroll_phase", "")) == "visible", "result scroll should become visible after every box opens")
 	_expect(bool(status.get("buttons_clickable", false)), "result scroll buttons should become clickable after unfurling")
 	_expect(int(status.get("item_reward_count", 0)) == 1, "summary should count item rewards separately from perks")
@@ -585,7 +764,7 @@ func _verify_cyber_scroll_reward_source_tags() -> void:
 	_expect(scene != null, "stage clear result scene should instantiate for reward source tags")
 	root.add_child(scene)
 	var roller := FakeResultRoller.new()
-	scene.configure({
+	_configure_scene(scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 1,
@@ -618,9 +797,9 @@ func _verify_cyber_scroll_reward_source_tags() -> void:
 		},
 	}, Callable(), Callable(), Callable(roller, "roll_reward"))
 	for _i in range(2):
-		_expect(scene.handle_result_input(_make_key_event(KEY_ENTER)), "Enter should open the next reward source test box")
-		scene.update_result_scene(0.70)
-	var status: Dictionary = scene.get_interaction_status()
+		_expect(_handle_result_input(scene, _make_key_event(KEY_ENTER)), "Enter should open the next reward source test box")
+		_update_result_scene(scene, 0.70)
+	var status: Dictionary = _get_interaction_status(scene)
 	var item_sources: Dictionary = status.get("item_reward_source_counts", {}) if status.get("item_reward_source_counts", {}) is Dictionary else {}
 	var perk_sources: Dictionary = status.get("perk_reward_source_counts", {}) if status.get("perk_reward_source_counts", {}) is Dictionary else {}
 	_expect(int(item_sources.get("stage", 0)) == 1, "result item cards should count in-game acquisitions separately")
@@ -665,7 +844,7 @@ func _verify_cyber_scroll_button_hitboxes_use_content_rect() -> void:
 	var scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(scene != null, "stage clear result scene should instantiate for scroll button hitboxes")
 	root.add_child(scene)
-	scene.configure({
+	_configure_scene(scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 1,
@@ -677,35 +856,35 @@ func _verify_cyber_scroll_button_hitboxes_use_content_rect() -> void:
 			"reward_count": 1,
 		},
 	}, Callable(), Callable(), Callable(FakeResultRoller.new(), "roll_reward"))
-	_expect(scene.handle_result_input(_make_key_event(KEY_ENTER)), "Enter should open the button-hitbox smoke reward box")
-	scene.update_result_scene(0.70)
-	scene.update_result_scene(StageClearResultScrollState.SCROLL_DELAY)
-	scene.update_result_scene(StageClearResultScrollState.SCROLL_UNFURL_DURATION + 0.05)
-	var status: Dictionary = scene.get_interaction_status()
+	_expect(_handle_result_input(scene, _make_key_event(KEY_ENTER)), "Enter should open the button-hitbox smoke reward box")
+	_update_result_scene(scene, 0.70)
+	_update_result_scene(scene, StageClearResultScrollState.SCROLL_DELAY)
+	_update_result_scene(scene, StageClearResultScrollState.SCROLL_UNFURL_DURATION + 0.05)
+	var status: Dictionary = _get_interaction_status(scene)
 	_expect(str(status.get("scroll_phase", "")) == "visible", "button-hitbox smoke should reach the visible scroll phase")
 	var full_rect: Rect2 = status.get("scroll_rect", Rect2())
 	var content_rect: Rect2 = StageClearResultLayoutHelper.get_scroll_content_rect(
 		full_rect,
-		scene._get_layout_scale(scene.size),
+		StageClearResultViewportSceneHandler.get_layout_scale(scene.size),
 		StageClearResultScrollState.SCROLL_CONTENT_MARGIN
 	)
 	var expected_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
 		content_rect,
-		scene._get_layout_scale(scene.size)
+		StageClearResultViewportSceneHandler.get_layout_scale(scene.size)
 	)
 	var expected_next: Rect2 = expected_layout.get("next_stage_rect", Rect2())
 	_expect(expected_next.size.x > 0.0 and expected_next.size.y > 0.0, "expected visual next-stage button rect should exist")
-	scene._update_hovered_button(expected_next.get_center())
-	status = scene.get_interaction_status()
+	StageClearResultScrollSceneHandler.update_hovered_button(scene, expected_next.get_center())
+	status = _get_interaction_status(scene)
 	_expect(str(status.get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_NEXT_STAGE, "visual next-stage button center should hover the next-stage button")
 	var wrong_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
 		full_rect,
-		scene._get_layout_scale(scene.size)
+		StageClearResultViewportSceneHandler.get_layout_scale(scene.size)
 	)
 	var wrong_next: Rect2 = wrong_layout.get("next_stage_rect", Rect2())
 	_expect(wrong_next.position.y > expected_next.position.y + expected_next.size.y * 0.5, "whole-scroll rect button layout should sit below the visual button")
-	scene._update_hovered_button(wrong_next.get_center())
-	status = scene.get_interaction_status()
+	StageClearResultScrollSceneHandler.update_hovered_button(scene, wrong_next.get_center())
+	status = _get_interaction_status(scene)
 	_expect(str(status.get("hovered_button", "")) != StageClearResultInteractionState.BUTTON_NEXT_STAGE, "hover just below the visual button should not trigger the next-stage hover")
 	scene.free()
 
@@ -714,7 +893,7 @@ func _verify_cyber_scroll_drag_repositions_panel() -> void:
 	var scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(scene != null, "stage clear result scene should instantiate for scroll drag")
 	root.add_child(scene)
-	scene.configure({
+	_configure_scene(scene, {
 		"player_score": 5,
 		"boss_score": 0,
 		"current_stage": 1,
@@ -726,26 +905,26 @@ func _verify_cyber_scroll_drag_repositions_panel() -> void:
 			"reward_count": 1,
 		},
 	}, Callable(), Callable(), Callable(FakeResultRoller.new(), "roll_reward"))
-	_expect(scene.handle_result_input(_make_key_event(KEY_ENTER)), "Enter should open the drag smoke reward box")
-	scene.update_result_scene(0.70)
-	scene.update_result_scene(StageClearResultScrollState.SCROLL_DELAY)
-	scene.update_result_scene(StageClearResultScrollState.SCROLL_UNFURL_DURATION + 0.05)
-	var status: Dictionary = scene.get_interaction_status()
+	_expect(_handle_result_input(scene, _make_key_event(KEY_ENTER)), "Enter should open the drag smoke reward box")
+	_update_result_scene(scene, 0.70)
+	_update_result_scene(scene, StageClearResultScrollState.SCROLL_DELAY)
+	_update_result_scene(scene, StageClearResultScrollState.SCROLL_UNFURL_DURATION + 0.05)
+	var status: Dictionary = _get_interaction_status(scene)
 	_expect(str(status.get("scroll_phase", "")) == "visible", "drag smoke should reach the visible scroll phase")
 	var initial_rect: Rect2 = status.get("scroll_rect", Rect2())
 	var drag_start: Vector2 = initial_rect.position + Vector2(initial_rect.size.x * 0.34, initial_rect.size.y * 0.32)
 	var drag_delta := Vector2(150.0, 42.0)
-	_expect(scene.handle_result_input(_make_mouse_button_event(drag_start, true)), "scroll drag press should be consumed")
-	status = scene.get_interaction_status()
+	_expect(_handle_result_input(scene, _make_mouse_button_event(drag_start, true)), "scroll drag press should be consumed")
+	status = _get_interaction_status(scene)
 	_expect(bool(status.get("scroll_dragging", false)), "scroll drag press should start dragging")
-	_expect(scene.handle_result_input(_make_mouse_motion_event(drag_start + drag_delta)), "scroll drag motion should be consumed")
-	status = scene.get_interaction_status()
+	_expect(_handle_result_input(scene, _make_mouse_motion_event(drag_start + drag_delta)), "scroll drag motion should be consumed")
+	status = _get_interaction_status(scene)
 	var dragged_rect: Rect2 = status.get("scroll_rect", Rect2())
 	var offset: Vector2 = status.get("scroll_position_offset", Vector2.ZERO)
 	_expect(offset.distance_to(drag_delta) < 0.1, "scroll drag should move the panel by the mouse delta")
 	_expect(dragged_rect.position.distance_to(initial_rect.position + drag_delta) < 0.1, "scroll drag should move the rendered scroll rect")
-	_expect(scene.handle_result_input(_make_mouse_button_event(drag_start + drag_delta, false)), "scroll drag release should be consumed")
-	status = scene.get_interaction_status()
+	_expect(_handle_result_input(scene, _make_mouse_button_event(drag_start + drag_delta, false)), "scroll drag release should be consumed")
+	status = _get_interaction_status(scene)
 	_expect(not bool(status.get("scroll_dragging", true)), "scroll drag release should end dragging")
 	scene.free()
 
@@ -836,6 +1015,42 @@ func _make_mouse_motion_event(position: Vector2) -> InputEventMouseMotion:
 	var event := InputEventMouseMotion.new()
 	event.position = position
 	return event
+
+
+func _get_interaction_status(scene: Object) -> Dictionary:
+	return StageClearResultStatusSceneHandler.get_interaction_status(scene, StageClearResultScene.DALJI_CLICK_DIALOGUE)
+
+
+func _handle_result_input(scene: Control, event: InputEvent) -> bool:
+	return StageClearResultInputSceneHandler.handle_result_input(
+		scene,
+		event,
+		StageClearResultScene.DALJI_CLICK_DIALOGUE_DURATION
+	)
+
+
+func _update_result_scene(scene: Control, delta: float) -> void:
+	StageClearResultUpdateSceneHandler.update_result_scene(scene, delta)
+
+
+func _configure_scene(
+	scene: Control,
+	data: Dictionary,
+	on_confirmed: Callable,
+	on_exit_to_menu: Callable = Callable(),
+	on_roll_reward: Callable = Callable(),
+	on_immediate_reward: Callable = Callable(),
+	on_enter_plaza: Callable = Callable()
+) -> void:
+	StageClearResultConfigSceneHandler.configure(
+		scene,
+		data,
+		on_confirmed,
+		on_exit_to_menu,
+		on_roll_reward,
+		on_immediate_reward,
+		on_enter_plaza
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

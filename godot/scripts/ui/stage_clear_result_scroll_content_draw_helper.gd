@@ -125,7 +125,8 @@ static func draw_scroll_contents(
 		str(draw_context.get("hovered_button", "")),
 		LanguageSettings.translate_text("다음 스테이지"),
 		LanguageSettings.translate_text("광장으로"),
-		LanguageSettings.translate_text("나가기")
+		LanguageSettings.translate_text("나가기"),
+		true
 	)
 
 

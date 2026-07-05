@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultFxHostPool := preload("res://scripts/ui/stage_clear_result_fx_host_pool.gd")
 const StageClearResultFxHostUpdateHandler := preload("res://scripts/ui/stage_clear_result_fx_host_update_handler.gd")
+const StageClearResultUpdateSceneHandler := preload("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
 
 var _failures: Array[String] = []
 
@@ -51,7 +52,11 @@ func _verify_update_handler_source() -> void:
 
 func _verify_scene_delegates_fx_host_updates() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultFxHostUpdateHandler.update_fx_hosts") >= 0, "result scene should delegate per-frame FX host updates")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
+	_expect(source.find("StageClearResultUpdateSceneHandler.update_result_scene") >= 0, "result scene should delegate per-frame updates through the update scene handler")
+	_expect(scene_handler_source.find("StageClearResultFxHostUpdateHandler.update_fx_hosts") >= 0, "update scene handler should delegate per-frame FX host updates")
+	_expect(source.find("StageClearResultFxHostUpdateHandler.update_fx_hosts") < 0, "result scene should not call the FX host update helper directly")
+	_expect(StageClearResultUpdateSceneHandler != null, "update scene handler preload should resolve")
 	_expect(source.find("_fx_host_pool.prewarm_step") < 0, "result scene should not call FX host prewarm directly during update")
 	_expect(source.find("_fx_host_pool.sync") < 0, "result scene should not call FX host sync directly during update")
 

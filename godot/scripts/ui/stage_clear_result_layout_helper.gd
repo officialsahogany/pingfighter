@@ -175,6 +175,33 @@ static func get_stage3_boss_result_draw_rect(view_size: Vector2, draw_scale: flo
 	return Rect2(position, draw_size)
 
 
+static func get_stage4_boss_result_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	var draw_size := Vector2(700.0, 700.0) * draw_scale
+	var position := Vector2(-36.0, 390.0) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(570.0, 570.0) * draw_scale
+		position = Vector2(-28.0, 444.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
+static func get_stage5_hongryun_result_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	var draw_size := Vector2(424.0, 424.0) * draw_scale
+	var position := Vector2(48.0, 396.0) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(352.0, 352.0) * draw_scale
+		position = Vector2(34.0, 460.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
+static func get_stage6_tetriser_result_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	var draw_size := Vector2(420.0, 420.0) * draw_scale
+	var position := Vector2(48.0, 404.0) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(344.0, 344.0) * draw_scale
+		position = Vector2(32.0, 458.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
 static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float, header_reserve: float = -1.0) -> Dictionary:
 	# header_reserve = vertical space taken by a top label row before the cards.
 	# Default (-1) preserves the legacy top-header section (42px); the left-label

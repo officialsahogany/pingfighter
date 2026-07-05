@@ -62,12 +62,16 @@ func _verify_immediate_reward_helper() -> void:
 
 func _verify_scene_delegates_immediate_reward_helper() -> void:
 	var scene_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	var update_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_update_scene_handler.gd")
+	var box_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
 	var helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_immediate_reward_helper.gd")
 	var box_update_helper_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_box_update_handler.gd")
 	_expect(
-		scene_source.find("StageClearResultBoxUpdateHandler.update_boxes") >= 0,
-		"result scene should delegate box update sequencing"
+		update_scene_handler_source.find("StageClearResultBoxSceneHandler.update_boxes") >= 0
+			and box_scene_handler_source.find("StageClearResultBoxUpdateHandler.update_boxes") >= 0,
+		"update scene handler should delegate box update sequencing through the box scene handler"
 	)
+	_expect(scene_source.find("func _update_boxes") < 0, "result scene should not keep box update fanout wrappers")
 	_expect(
 		box_update_helper_source.find("StageClearResultImmediateRewardHelper.try_grant_opened_indices") >= 0,
 		"box update handler should delegate opened-index immediate grants"

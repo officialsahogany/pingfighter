@@ -2,13 +2,33 @@ extends SceneTree
 
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultNavigationActionHandler := preload("res://scripts/ui/stage_clear_result_navigation_action_handler.gd")
+const StageClearResultNavigationSceneHandler := preload("res://scripts/ui/stage_clear_result_navigation_scene_handler.gd")
+const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 
 var _failures: Array[String] = []
 
 
+class CallbackSink:
+	extends RefCounted
+
+	var confirm_calls := 0
+	var plaza_calls := 0
+	var exit_calls := 0
+
+	func confirm() -> void:
+		confirm_calls += 1
+
+	func enter_plaza() -> void:
+		plaza_calls += 1
+
+	func exit_to_menu() -> void:
+		exit_calls += 1
+
+
 func _init() -> void:
 	_verify_navigation_action_contract()
+	_verify_navigation_scene_handler_contract()
 	_verify_scene_delegates_navigation_actions()
 
 	if _failures.is_empty():
@@ -46,8 +66,8 @@ func _verify_navigation_action_contract() -> void:
 		"next-stage button should confirm"
 	)
 	_expect(
-		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_PLAZA) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
-		"plaza button should enter the plaza"
+		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_PLAZA) == StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE,
+		"plaza button should raise the preparing notice while the plaza is disabled"
 	)
 	_expect(
 		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_EXIT) == StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU,
@@ -100,7 +120,7 @@ func _verify_navigation_action_contract() -> void:
 	var plaza_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
 		"clicked_button": StageClearResultInteractionState.BUTTON_PLAZA,
 	})
-	_expect(str(plaza_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA, "scroll-button apply helper should map plaza to plaza entry")
+	_expect(str(plaza_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE, "scroll-button apply helper should map plaza to the preparing notice")
 	_expect(bool(plaza_apply.get("handled", false)), "scroll-button apply helper should handle plaza clicks")
 
 	var missed_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
@@ -110,14 +130,92 @@ func _verify_navigation_action_contract() -> void:
 	_expect(not bool(missed_apply.get("handled", true)), "scroll-button apply helper should not handle missed clicks")
 
 
+func _verify_navigation_scene_handler_contract() -> void:
+	var sink := CallbackSink.new()
+	var scene := StageClearResultScene.new()
+	scene.set("_scroll_phase", StageClearResultScrollState.PHASE_VISIBLE)
+	scene.confirmed_callback = Callable(sink, "confirm")
+	_expect(StageClearResultNavigationSceneHandler.handle_advance_input(scene), "navigation scene handler should consume visible-scroll advance")
+	_expect(sink.confirm_calls == 1, "visible-scroll advance should invoke the confirm callback")
+
+	scene.set("_scroll_phase", StageClearResultScrollState.PHASE_VISIBLE)
+	scene.exit_to_menu_callback = Callable(sink, "exit_to_menu")
+	_expect(StageClearResultNavigationSceneHandler.handle_escape_input(scene), "navigation scene handler should consume visible-scroll escape")
+	_expect(sink.exit_calls == 1, "visible-scroll escape should invoke the exit callback")
+
+	scene.set("_scroll_phase", StageClearResultScrollState.PHASE_VISIBLE)
+	scene.set("_starpoint_choice_gate_active", true)
+	scene.confirmed_callback = Callable(sink, "confirm")
+	_expect(StageClearResultNavigationSceneHandler.handle_advance_input(scene), "blocked advance should still be consumed")
+	_expect(sink.confirm_calls == 1, "blocked advance should not invoke confirm callbacks")
+	scene.set("_starpoint_choice_gate_active", false)
+
+	scene.enter_plaza_callback = Callable(sink, "enter_plaza")
+	_expect(StageClearResultNavigationSceneHandler.apply_navigation_action_result(
+		scene,
+		{
+			"action": StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
+			"handled": true,
+		}
+	), "navigation scene handler should report handled plaza actions")
+	_expect(sink.plaza_calls == 1, "plaza actions should invoke the plaza callback")
+
+	# 광장 준비중 계약: 안내 액션은 진입 콜백을 부르지 않고 만료 시각만 심는다.
+	scene.set("timer", 5.0)
+	scene.set("_plaza_notice_until", -1.0)
+	_expect(StageClearResultNavigationSceneHandler.apply_navigation_action_result(
+		scene,
+		{
+			"action": StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE,
+			"handled": true,
+		}
+	), "navigation scene handler should report handled plaza-notice actions")
+	_expect(float(scene.get("_plaza_notice_until")) > 5.0, "plaza-notice action should arm the notice past the current timer")
+	_expect(sink.plaza_calls == 1, "plaza-notice action must NOT invoke the plaza entry callback")
+
+	_expect(StageClearResultNavigationSceneHandler.apply_navigation_action_result(
+		scene,
+		{
+			"action": StageClearResultNavigationActionHandler.ACTION_CONSUME,
+			"handled": true,
+		}
+	), "consume-only navigation actions should report handled")
+	_expect(sink.confirm_calls == 1 and sink.plaza_calls == 1 and sink.exit_calls == 1, "consume-only navigation actions should not invoke callbacks")
+	scene.free()
+
+
 func _verify_scene_delegates_navigation_actions() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	_expect(source.find("StageClearResultNavigationActionHandler.get_advance_action") >= 0, "result scene should delegate advance action policy")
-	_expect(source.find("StageClearResultNavigationActionHandler.get_escape_action") >= 0, "result scene should delegate escape action policy")
-	_expect(source.find("StageClearResultNavigationActionHandler.get_navigation_action_apply_result") >= 0, "result scene should delegate navigation action apply payloads")
-	_expect(source.find("StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result") >= 0, "result scene should delegate scroll button click apply payloads")
-	_expect(source.find("func _apply_navigation_action_result") >= 0, "result scene should apply navigation action result payloads in one helper")
-	_expect(source.find("func _apply_navigation_action") >= 0, "result scene should apply navigation action side effects in one helper")
+	var input_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
+	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_navigation_scene_handler.gd")
+	_expect(input_scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_advance_input") >= 0, "input scene handler should delegate advance input scene glue")
+	_expect(input_scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_escape_input") >= 0, "input scene handler should delegate escape input scene glue")
+	_expect(input_scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_button_click") >= 0, "input scene handler should delegate scroll button click scene glue")
+	_expect(source.find("StageClearResultNavigationSceneHandler.handle_advance_input") < 0, "result scene should not keep advance input scene glue")
+	_expect(source.find("StageClearResultNavigationSceneHandler.handle_escape_input") < 0, "result scene should not keep escape input scene glue")
+	_expect(source.find("StageClearResultNavigationSceneHandler.handle_button_click") < 0, "result scene should not keep scroll button click scene glue")
+	_expect(source.find("StageClearResultNavigationActionHandler.") < 0, "result scene should not call the navigation action policy helper directly")
+	_expect(source.find("func _apply_navigation_action_result") < 0, "result scene should not keep navigation action result application")
+	_expect(source.find("func _apply_navigation_action") < 0, "result scene should not keep navigation action side-effect dispatch")
+	_expect(scene_handler_source.find("StageClearResultNavigationActionHandler.get_advance_action") >= 0, "navigation scene handler should delegate advance action policy")
+	_expect(scene_handler_source.find("StageClearResultNavigationActionHandler.get_escape_action") >= 0, "navigation scene handler should delegate escape action policy")
+	_expect(scene_handler_source.find("StageClearResultNavigationActionHandler.get_navigation_action_apply_result") >= 0, "navigation scene handler should delegate navigation action apply payloads")
+	_expect(scene_handler_source.find("StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result") >= 0, "navigation scene handler should delegate scroll button click apply payloads")
+	_expect(scene_handler_source.find("static func apply_navigation_action_result") >= 0, "navigation scene handler should apply navigation action result payloads in one helper")
+	_expect(scene_handler_source.find("static func apply_navigation_action") >= 0, "navigation scene handler should apply navigation action side effects in one helper")
+	_expect(scene_handler_source.find("StageClearResultBoxSceneHandler.open_next_idle_box") >= 0, "navigation scene handler should route open-box actions through the box scene handler")
+	_expect(scene_handler_source.find("StageClearResultCallbackSceneHandler.confirm") >= 0, "navigation scene handler should route confirm actions through the callback scene handler")
+	_expect(scene_handler_source.find("StageClearResultCallbackSceneHandler.enter_plaza") >= 0, "navigation scene handler should route plaza actions through the callback scene handler")
+	_expect(scene_handler_source.find("StageClearResultCallbackSceneHandler.exit_to_menu") >= 0, "navigation scene handler should route exit actions through the callback scene handler")
+	_expect(scene_handler_source.find("StageClearResultScrollSceneHandler.apply_scroll_button_layout") >= 0, "navigation scene handler should route scroll button layout through the scroll scene handler")
+	_expect(scene_handler_source.find("StageClearResultRuntimeOverlaySceneHandler.is_interaction_blocked") >= 0, "navigation scene handler should route interaction blocking through the runtime overlay scene handler")
+	_expect(scene_handler_source.find("_call_scene_method") < 0, "navigation scene handler should not use a generic scene wrapper dispatcher")
+	_expect(scene_handler_source.find("scene.call(\"_apply_scroll_button_layout\"") < 0, "navigation scene handler should not bounce scroll layout through the result scene wrapper")
+	_expect(scene_handler_source.find("scene.call(\"_is_result_interaction_blocked\"") < 0, "navigation scene handler should not bounce interaction blocking through the result scene wrapper")
+	_expect(scene_handler_source.find("&\"_open_next_idle_box\"") < 0, "navigation scene handler should not route open-box actions through the result scene wrapper")
+	_expect(scene_handler_source.find("&\"_confirm\"") < 0, "navigation scene handler should not route confirm actions through the result scene wrapper")
+	_expect(scene_handler_source.find("&\"_enter_plaza\"") < 0, "navigation scene handler should not route plaza actions through the result scene wrapper")
+	_expect(scene_handler_source.find("&\"_exit_to_menu\"") < 0, "navigation scene handler should not route exit actions through the result scene wrapper")
 	_expect(source.find("_apply_navigation_action(StageClearResultNavigationActionHandler.get_advance_action") < 0, "result scene should not directly apply advance actions")
 	_expect(source.find("_apply_navigation_action(StageClearResultNavigationActionHandler.get_escape_action") < 0, "result scene should not directly apply escape actions")
 	_expect(source.find("result.get(\"clicked_button\"") < 0, "result scene should not inspect clicked scroll buttons directly")

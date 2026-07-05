@@ -52,8 +52,9 @@ func _verify_reward_plan_shape() -> void:
 
 func _verify_screen_delegates_reward_plan_builder() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_screen.gd")
+	var registry_source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_handler_registry.gd")
 	var builder_source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
-	_expect(source.find("StageClearResultRewardPlanBuilder.new()") >= 0, "result screen should own a reward plan builder instance")
+	_expect(registry_source.find("StageClearResultRewardPlanBuilder.new()") >= 0, "handler registry should own the reward plan builder instance")
 	_expect(source.find(".build_reward_plan(player_score, boss_score)") >= 0, "result screen should delegate reward-plan construction")
 	_expect(source.find("func _build_reward_plan") < 0, "result screen should not keep reward-plan assembly")
 	_expect(source.find("func _roll_stage_clear_box_kind") < 0, "result screen should not keep box-kind odds")

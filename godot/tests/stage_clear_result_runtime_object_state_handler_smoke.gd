@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultRuntimeObjectStateHandler := preload("res://scripts/ui/stage_clear_result_runtime_object_state_handler.gd")
+const StageClearResultConfigSceneHandler := preload("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 
 var _failures: Array[String] = []
@@ -77,7 +78,7 @@ func _verify_scene_applies_runtime_object_state() -> void:
 	var scene := StageClearResultScene.new()
 	var valid_runtime := RefCounted.new()
 	var valid_audio := RefCounted.new()
-	scene._apply_runtime_object_state({
+	StageClearResultConfigSceneHandler.apply_runtime_object_state(scene, {
 		"runtime_perk_state": valid_runtime,
 		"runtime_perk_catalog": "not an object",
 		"game_audio": valid_audio,
@@ -102,10 +103,15 @@ func _verify_runtime_object_state_source() -> void:
 
 func _verify_scene_delegates_runtime_object_state() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
-	var apply_source: String = _slice_function(source, "func _apply_runtime_object_state", "func _apply_config_reset_state")
-	_expect(source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_state") >= 0, "result scene should delegate runtime object state resolution")
-	_expect(source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result") >= 0, "result scene should delegate runtime object scene field payloads")
-	_expect(source.find("func _apply_runtime_object_state") >= 0, "result scene should apply runtime object state results")
+	var config_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_config_scene_handler.gd")
+	var apply_source: String = _slice_function(config_scene_handler_source, "static func apply_runtime_object_state", "static func apply_config_reset_state")
+	_expect(StageClearResultConfigSceneHandler != null, "config scene handler preload should resolve")
+	_expect(config_scene_handler_source.find("static func apply_runtime_object_state") >= 0, "config scene handler should own runtime object scene glue")
+	_expect(source.find("StageClearResultConfigSceneHandler.apply_runtime_object_state") < 0, "result scene should not keep runtime object pass-through glue")
+	_expect(source.find("StageClearResultRuntimeObjectStateHandler.") < 0, "result scene should not call runtime object helper directly")
+	_expect(config_scene_handler_source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_state") >= 0, "config scene handler should delegate runtime object state resolution")
+	_expect(config_scene_handler_source.find("StageClearResultRuntimeObjectStateHandler.get_runtime_object_scene_apply_result") >= 0, "config scene handler should delegate runtime object scene field payloads")
+	_expect(source.find("func _apply_runtime_object_state") < 0, "result scene should not keep runtime object state pass-through glue")
 	_expect(apply_source.find("RUNTIME_OBJECT_KEYS") < 0, "runtime object applier should not inspect the runtime object key list")
 	_expect(apply_source.find("result.get(key") < 0, "runtime object applier should not inspect runtime object keys directly")
 	_expect(apply_source.find("get_runtime_object_apply_result") < 0, "runtime object applier should not request raw runtime object apply payloads")

@@ -50,8 +50,24 @@ static func handle_boss_defeat_click(
 	reaction_timer: float,
 	base_timer: float
 ) -> Dictionary:
-	if not has_reaction_sheet or (stage_id != 2 and stage_id != 3):
+	if not has_reaction_sheet or (stage_id != 2 and stage_id != 3 and stage_id != 4 and stage_id != 5 and stage_id != 6):
 		return _empty_result()
+	if stage_id == 5:
+		return _build_attempt_result(StageClearResultActorDrawHelper.get_stage5_hongryun_click_attempt(
+			mouse_position,
+			view_size,
+			draw_scale,
+			reaction_timer,
+			base_timer
+		))
+	if stage_id == 6:
+		return _build_attempt_result(StageClearResultActorDrawHelper.get_stage6_tetriser_click_attempt(
+			mouse_position,
+			view_size,
+			draw_scale,
+			reaction_timer,
+			base_timer
+		))
 	return _build_attempt_result(StageClearResultActorDrawHelper.get_boss_defeat_click_attempt(
 		stage_id,
 		mouse_position,
@@ -60,6 +76,47 @@ static func handle_boss_defeat_click(
 		reaction_timer,
 		base_timer
 	))
+
+
+static func get_boss_result_click_config(stage_id: int) -> Dictionary:
+	match stage_id:
+		2:
+			return {
+				"sheet_property": &"_stage2_boss_defeat_click_reaction_sheet",
+				"transition_base_frame_property": &"_stage2_boss_defeat_click_transition_base_frame",
+				"reaction_timer_property": &"_stage2_boss_defeat_click_reaction_timer",
+			}
+		3:
+			return {
+				"sheet_property": &"_stage3_boss_defeat_click_reaction_sheet",
+				"transition_base_frame_property": &"_stage3_boss_defeat_click_transition_base_frame",
+				"reaction_timer_property": &"_stage3_boss_defeat_click_reaction_timer",
+			}
+		4:
+			return {
+				"sheet_property": &"_stage4_ponk_boss_defeat_click_reaction_sheet",
+				"transition_base_frame_property": &"_stage4_ponk_boss_defeat_click_transition_base_frame",
+				"reaction_timer_property": &"_stage4_ponk_boss_defeat_click_reaction_timer",
+			}
+		5:
+			return {
+				"sheet_property": &"_stage5_hongryun_result_sheet",
+				"transition_base_frame_property": &"_stage5_hongryun_result_click_transition_base_frame",
+				"reaction_timer_property": &"_stage5_hongryun_result_click_reaction_timer",
+			}
+		6:
+			return {
+				"sheet_property": &"_stage6_boss_defeat_sheet",
+				"transition_base_frame_property": &"_stage6_boss_defeat_click_transition_base_frame",
+				"reaction_timer_property": &"_stage6_boss_defeat_click_reaction_timer",
+			}
+	return {}
+
+
+static func get_stage_result_fallback_click_config(stage_id: int) -> Dictionary:
+	if stage_id != 5 and stage_id != 6:
+		return {}
+	return get_boss_result_click_config(stage_id)
 
 
 static func get_click_reaction_apply_result(
