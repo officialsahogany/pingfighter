@@ -1,6 +1,7 @@
 extends Control
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const BattleLoadingTips := preload("res://scripts/core/battle_loading_tips.gd")
 
 const STAINED_GLASS_SHADER := """
 shader_type canvas_item;
@@ -44,6 +45,21 @@ void fragment() {
 }
 """
 
+# Soft dark band behind the central text cluster so tips stay readable over
+# the busy stained-glass art. Top/bottom edges feather out via UV.y.
+const TEXT_BACKDROP_SHADER := """
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform float edge_softness : hint_range(0.05, 0.5) = 0.22;
+uniform float max_alpha : hint_range(0.0, 1.0) = 0.60;
+
+void fragment() {
+	float fade = smoothstep(0.0, edge_softness, UV.y) * (1.0 - smoothstep(1.0 - edge_softness, 1.0, UV.y));
+	COLOR = vec4(0.010, 0.014, 0.026, max_alpha * fade);
+}
+"""
+
 const PROGRESS_FILL_SHADER := """
 shader_type canvas_item;
 render_mode unshaded;
@@ -80,6 +96,7 @@ var progress_glow: ColorRect = null
 var shader_material: ShaderMaterial = null
 var progress_fill_material: ShaderMaterial = null
 var flash_overlay: ColorRect = null
+var text_backdrop: ColorRect = null
 
 const PROGRESS_SMOOTH_RATE_PER_SEC := 1.2
 
@@ -93,6 +110,9 @@ var lead_luma_cutoff: float = 0.15
 var glass_alpha: float = 1.0
 var _smoothed_progress: float = 0.0
 var _last_sync_msec: int = -1
+# Tip index this load started on; re-rolled each time the screen re-appears so
+# short loads don't always open on the same tip.
+var _tip_start_index: int = 0
 
 
 func _ready() -> void:
@@ -122,6 +142,8 @@ func show_loading(next_snapshot: Dictionary, next_progress: float, next_view_siz
 	if was_hidden:
 		_smoothed_progress = 0.0
 		_last_sync_msec = Time.get_ticks_msec()
+		# Vary the opening tip per load via boot time (no global RNG side effect).
+		_tip_start_index = Time.get_ticks_msec()
 	var sync_delta := _consume_sync_delta()
 	visible = true
 	set_process(false)
@@ -215,6 +237,17 @@ func _build_nodes() -> void:
 	art_rect.material = shader_material
 	add_child(art_rect)
 
+	text_backdrop = ColorRect.new()
+	text_backdrop.name = "TextBackdrop"
+	text_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_backdrop.z_index = 15
+	var backdrop_material := ShaderMaterial.new()
+	var backdrop_shader := Shader.new()
+	backdrop_shader.code = TEXT_BACKDROP_SHADER
+	backdrop_material.shader = backdrop_shader
+	text_backdrop.material = backdrop_material
+	add_child(text_backdrop)
+
 	progress_track = ColorRect.new()
 	progress_track.name = "ProgressTrack"
 	progress_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -253,6 +286,8 @@ func _build_nodes() -> void:
 	title_label = _make_label("Title", 30, Color.WHITE, 30)
 	subtitle_label = _make_label("Subtitle", 15, Color(0.92, 0.78, 0.46, 0.92), 30)
 	status_label = _make_label("Status", 17, Color(0.76, 0.88, 0.96, 0.96), 30)
+	# Tips can be longer than one line in some languages; wrap instead of clipping.
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	percent_label = _make_label("Percent", 18, Color(0.88, 0.94, 1.0, 0.94), 30)
 	hint_label = _make_label("Hint", 13, Color(0.64, 0.74, 0.82, 0.72), 30)
 
@@ -268,6 +303,9 @@ func _make_label(node_name: String, font_size: int, font_color: Color, z: int) -
 	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, font_color.a * 0.72))
 	label.add_theme_constant_override("shadow_offset_x", 1)
 	label.add_theme_constant_override("shadow_offset_y", 1)
+	# Dark outline keeps text legible over the bright stained-glass art.
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, font_color.a * 0.85))
+	label.add_theme_constant_override("outline_size", clampi(int(round(float(font_size) * 0.24)), 3, 8))
 	label.z_index = z
 	add_child(label)
 	return label
@@ -293,9 +331,17 @@ func _layout() -> void:
 		flash_overlay.size = view_size
 	var center := view_size * 0.5
 	var text_w: float = min(view_size.x - 80.0, 780.0)
+	if text_backdrop != null:
+		# Full-width feathered band behind title..hint so text reads over the art.
+		var band_top: float = center.y - 88.0
+		var band_bottom: float = center.y + 174.0
+		text_backdrop.position = Vector2(0.0, band_top)
+		text_backdrop.size = Vector2(view_size.x, band_bottom - band_top)
 	_set_label_rect(title_label, Rect2(center.x - text_w * 0.5, center.y - 58.0, text_w, 38.0))
 	_set_label_rect(subtitle_label, Rect2(center.x - text_w * 0.5, center.y - 20.0, text_w, 24.0))
-	_set_label_rect(status_label, Rect2(center.x - text_w * 0.5, center.y + 26.0, text_w, 28.0))
+	# Taller rect so a longer localized tip can wrap to a second line without
+	# colliding with the progress bar below (which starts at center.y + 76).
+	_set_label_rect(status_label, Rect2(center.x - text_w * 0.5, center.y + 14.0, text_w, 52.0))
 	_set_label_rect(percent_label, Rect2(center.x - 80.0, center.y + 102.0, 160.0, 28.0))
 	_set_label_rect(hint_label, Rect2(center.x - text_w * 0.5, center.y + 138.0, text_w, 22.0))
 	var progress_w: float = clampf(view_size.x * 0.44, 360.0, 680.0)
@@ -329,10 +375,16 @@ func _sync_text() -> void:
 	if subtitle_label != null:
 		subtitle_label.text = LanguageSettings.translate_text(str(snapshot.get("subtitle", "")))
 	if status_label != null:
-		status_label.text = LanguageSettings.translate_text(str(snapshot.get("status", "전투 데이터 준비 중")))
+		# Show a rotating gameplay tip in place of the old mechanical boot-status
+		# line. The tier (basic for 테스트/junior, advanced otherwise) and the
+		# selected character ride in on the snapshot from the loading renderer;
+		# the character contributes one extra control-tip rotation slot.
+		var tip_tier := str(snapshot.get("tip_tier", BattleLoadingTips.TIER_ADVANCED))
+		var tip_character := str(snapshot.get("tip_character", ""))
+		status_label.text = BattleLoadingTips.rotation_tip_for_elapsed(tip_tier, tip_character, _tip_start_index, animation_time)
 	_sync_percent_label()
 	if hint_label != null:
-		hint_label.text = LanguageSettings.translate_text("나노 조각을 동기화하는 중")
+		hint_label.text = LanguageSettings.translate_text("잠시만 기다려 주세요")
 
 
 func _sync_shader() -> void:
@@ -388,11 +440,19 @@ func _sync_title_glitch() -> void:
 
 
 func _art_target_rect() -> Rect2:
+	# Cover-fit at the ART's own aspect ratio (fallback = the 1672x941 ratio the
+	# stage 1-5 stained-glass sheets share) so non-standard art such as the
+	# square stage 6 Tetriser placeholder is not stretched.
+	var aspect: float = 1672.0 / 941.0
+	if art_rect != null and art_rect.texture != null:
+		var texture_size: Vector2 = art_rect.texture.get_size()
+		if texture_size.x > 1.0 and texture_size.y > 1.0:
+			aspect = texture_size.x / texture_size.y
 	var target_w: float = max(view_size.x, 1.0)
-	var target_h: float = target_w * 941.0 / 1672.0
+	var target_h: float = target_w / aspect
 	if target_h < view_size.y:
 		target_h = view_size.y
-		target_w = target_h * 1672.0 / 941.0
+		target_w = target_h * aspect
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = 0.88
 	target_w *= scale

@@ -53,6 +53,13 @@ class FakeStage5Node:
 	var selected_character_type := "viper"
 
 
+class FakeStage6Node:
+	extends Node2D
+
+	var current_stage := 6
+	var selected_character_type := "viper"
+
+
 class FakeReadiness:
 	extends RefCounted
 
@@ -140,6 +147,7 @@ func _init() -> void:
 	_verify_stage3_stained_glass_loading_path()
 	_verify_stage4_stained_glass_loading_path()
 	_verify_stage5_stained_glass_loading_path()
+	_verify_stage6_stained_glass_loading_path()
 	_verify_stained_glass_host_released_on_unpainted_stage()
 	_verify_orphan_stained_glass_host_swept_on_unpainted_stage()
 
@@ -564,6 +572,46 @@ func _verify_stage5_stained_glass_loading_path() -> void:
 
 	renderer.hide_loading()
 	_expect(renderer.get("stained_glass_host") == null, "stage 5 loading should release the stained-glass host after hide")
+	owner.free()
+	canvas.free()
+
+
+func _verify_stage6_stained_glass_loading_path() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStage6Node.new()
+	var canvas := Node2D.new()
+	var warmup: Object = BattleBootWarmupController.new()
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
+	warmup.set("boot_warmup_finished", true)
+	_modules = {"battle_boot_warmup_controller": warmup}
+
+	renderer.prewarm_stage_assets(6)
+	_expect(renderer.get("stage6_stained_glass_texture") != null, "stage 6 Tetriser loading texture should load")
+	_expect(renderer.get("stage6_stained_glass_mask_texture") != null, "stage 6 Tetriser reveal mask should load")
+	_expect(
+		renderer.get("stage5_stained_glass_texture") == null,
+		"stage 6 transition prewarm should not eagerly load stage 5 loading art"
+	)
+	_expect(
+		is_equal_approx(float(renderer._get_stage_reveal_softness(6)), float(renderer._get_stage_reveal_softness(1))),
+		"stage 6 Tetriser reveal softness should match the bottom-up reveal screens"
+	)
+
+	renderer.draw(
+		canvas,
+		owner,
+		Callable(self, "_get_module"),
+		Vector2(1280.0, 720.0),
+		{
+			"battle_initialized": false,
+			"stage_landing_intro_started": false,
+		}
+	)
+	_expect(renderer.get("stained_glass_host") != null, "stage 6 Tetriser loading should attach a stained-glass host")
+	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 6 Tetriser loading should reuse the stained-glass completion hold")
+
+	renderer.hide_loading()
+	_expect(renderer.get("stained_glass_host") == null, "stage 6 Tetriser loading should release the stained-glass host after hide")
 	owner.free()
 	canvas.free()
 

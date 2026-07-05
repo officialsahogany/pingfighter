@@ -3,6 +3,8 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StainedGlassHost := preload("res://scripts/core/battle_loading_stained_glass_host.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const BattleLoadingTips := preload("res://scripts/core/battle_loading_tips.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 
 const LOADING_WAVE_SHEET_PATH := "res://assets/ui/loading/loading_energy_wave_loop64_autosprite_v1.png"
 const LOADING_WAVE_ANCHOR_PATH := "res://assets/ui/loading/loading_energy_wave_anchor_imagegen_v1.png"
@@ -16,6 +18,8 @@ const STAGE4_STAINED_GLASS_FULLCOLOR_PATH := "res://assets/ui/loading/stage4_loa
 const STAGE4_STAINED_GLASS_REVEAL_MASK_PATH := "res://assets/ui/loading/stage4_loading_cyber_stained_glass_reveal_mask_v1.png"
 const STAGE5_STAINED_GLASS_FULLCOLOR_PATH := "res://assets/ui/loading/stage5_hongryun_loading_cyber_stained_glass_fullcolor_v1.png"
 const STAGE5_STAINED_GLASS_REVEAL_MASK_PATH := "res://assets/ui/loading/stage5_hongryun_loading_cyber_stained_glass_reveal_mask_v1.png"
+const STAGE6_STAINED_GLASS_FULLCOLOR_PATH := "res://assets/sprites/hud/stage6_tetriser_pillar_bg_imagegen_v1.png"
+const STAGE6_STAINED_GLASS_REVEAL_MASK_PATH := "res://assets/ui/loading/stage5_hongryun_loading_cyber_stained_glass_reveal_mask_v1.png"
 const STAINED_GLASS_HOST_NODE_NAME := "BattleLoadingStainedGlassHost"
 const LOADING_WAVE_SHEET_COLS := 8
 const LOADING_WAVE_SHEET_ROWS := 8
@@ -42,6 +46,8 @@ var stage4_stained_glass_texture: Texture2D = null
 var stage4_stained_glass_mask_texture: Texture2D = null
 var stage5_stained_glass_texture: Texture2D = null
 var stage5_stained_glass_mask_texture: Texture2D = null
+var stage6_stained_glass_texture: Texture2D = null
+var stage6_stained_glass_mask_texture: Texture2D = null
 var stained_glass_host: Control = null
 var _visible_started_msec: int = -1
 var _completion_reveal_started_msec: int = -1
@@ -62,6 +68,8 @@ func build_snapshot(owner: Object, module_getter: Callable, context: Dictionary 
 			_resolve_status_text(module_getter, warmup_finished, battle_initialized, stage_landing_intro_started)
 		))),
 		"progress": progress,
+		"tip_tier": _resolve_tip_tier(owner),
+		"tip_character": _resolve_tip_character(owner),
 	}
 
 
@@ -98,7 +106,11 @@ func draw(
 	var title_center := center + Vector2(0.0, -64.0)
 	_draw_centered_text(canvas, font, str(snapshot.get("title", "")), title_center, 28, Color.WHITE)
 	_draw_centered_text(canvas, font, str(snapshot.get("subtitle", "")), center + Vector2(0.0, -28.0), 15, Color(0.92, 0.78, 0.46, 0.92))
-	_draw_centered_text(canvas, font, LanguageSettings.translate_text(str(snapshot.get("status", ""))), center + Vector2(0.0, 16.0), 17, Color(0.76, 0.88, 0.96, 0.96))
+	# Rotating gameplay tip in place of the old mechanical boot-status line.
+	var tip_tier := str(snapshot.get("tip_tier", BattleLoadingTips.TIER_ADVANCED))
+	var tip_character := str(snapshot.get("tip_character", ""))
+	var tip_text := BattleLoadingTips.rotation_tip_for_elapsed(tip_tier, tip_character, 0, tick_seconds)
+	_draw_centered_text(canvas, font, tip_text, center + Vector2(0.0, 16.0), 17, Color(0.76, 0.88, 0.96, 0.96))
 	_draw_progress(canvas, font, center, view_size, display_progress, accent, gold)
 	_draw_centered_text(canvas, font, LanguageSettings.translate_text("잠시만 기다려 주세요"), center + Vector2(0.0, 122.0), 13, Color(0.64, 0.74, 0.82, 0.72))
 
@@ -111,6 +123,7 @@ func prewarm_assets() -> void:
 	_load_stained_glass_textures(3)
 	_load_stained_glass_textures(4)
 	_load_stained_glass_textures(5)
+	_load_stained_glass_textures(6)
 
 
 func prewarm_stage_assets(stage: int) -> void:
@@ -240,7 +253,7 @@ func _show_stained_glass_host(owner: Object, view_size: Vector2, snapshot: Dicti
 
 func _get_stage_reveal_softness(stage: int) -> float:
 	match stage:
-		1, 3, 4, 5:
+		1, 3, 4, 5, 6:
 			return 0.065
 	return 0.055
 
@@ -323,6 +336,11 @@ func _load_stained_glass_textures(stage: int) -> bool:
 				stage5_stained_glass_texture = ProjectResourceLoader.load_texture(STAGE5_STAINED_GLASS_FULLCOLOR_PATH)
 			if stage5_stained_glass_mask_texture == null:
 				stage5_stained_glass_mask_texture = ProjectResourceLoader.load_texture(STAGE5_STAINED_GLASS_REVEAL_MASK_PATH)
+		6:
+			if stage6_stained_glass_texture == null:
+				stage6_stained_glass_texture = ProjectResourceLoader.load_texture(STAGE6_STAINED_GLASS_FULLCOLOR_PATH)
+			if stage6_stained_glass_mask_texture == null:
+				stage6_stained_glass_mask_texture = ProjectResourceLoader.load_texture(STAGE6_STAINED_GLASS_REVEAL_MASK_PATH)
 		_:
 			return false
 	return _get_stained_glass_texture(stage) != null and _get_stained_glass_mask_texture(stage) != null
@@ -340,6 +358,8 @@ func _get_stained_glass_texture(stage: int) -> Texture2D:
 			return stage4_stained_glass_texture
 		5:
 			return stage5_stained_glass_texture
+		6:
+			return stage6_stained_glass_texture
 	return null
 
 
@@ -355,11 +375,13 @@ func _get_stained_glass_mask_texture(stage: int) -> Texture2D:
 			return stage4_stained_glass_mask_texture
 		5:
 			return stage5_stained_glass_mask_texture
+		6:
+			return stage6_stained_glass_mask_texture
 	return null
 
 
 func _can_show_stained_glass(owner: Object) -> bool:
-	return [1, 2, 3, 4, 5].has(maxi(1, int(_safe_owner_get(owner, "current_stage", 1))))
+	return [1, 2, 3, 4, 5, 6].has(maxi(1, int(_safe_owner_get(owner, "current_stage", 1))))
 
 
 func _get_stained_glass_display_progress(raw_progress: float) -> float:
@@ -433,6 +455,20 @@ func _is_warmup_finished(module_getter: Callable) -> bool:
 	return true
 
 
+func _resolve_tip_tier(owner: Object) -> String:
+	# 테스트(junior) league shows the must-know basics; every other league
+	# rotates the deeper-system tips.
+	return BattleLoadingTips.tier_for_league(
+		BattleSceneConfig.normalize_league_mode(str(_safe_owner_get(owner, "ai_mode", "champion")))
+	)
+
+
+func _resolve_tip_character(owner: Object) -> String:
+	return BattleLoadingTips.normalize_character_type(
+		str(_safe_owner_get(owner, "selected_character_type", "smasher"))
+	)
+
+
 func _build_subtitle(owner: Object) -> String:
 	var stage: int = maxi(1, int(_safe_owner_get(owner, "current_stage", 1)))
 	var character_name := str(_safe_owner_get(owner, "selected_character_name", ""))
@@ -447,8 +483,10 @@ func _character_name_from_runtime(character_type: String) -> String:
 			return LanguageSettings.translate_text("바이퍼")
 		"soldier", "commando":
 			return LanguageSettings.translate_text("코만도")
-		"blacksmith":
+		"blacksmith", "baltor":
 			return LanguageSettings.translate_text("발토르")
+		"optimus":
+			return LanguageSettings.translate_text("옵티머스")
 	return LanguageSettings.translate_text("스매셔")
 
 
@@ -483,6 +521,7 @@ func _draw_centered_text(canvas: CanvasItem, font: Font, text: String, center: V
 	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var baseline := center + Vector2(-text_size.x * 0.5, text_size.y * 0.34)
 	canvas.draw_string(font, baseline + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, color.a * 0.70))
+	canvas.draw_string_outline(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, clampi(int(round(float(font_size) * 0.24)), 3, 8), Color(0.0, 0.0, 0.0, color.a * 0.85))
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
