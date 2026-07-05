@@ -451,7 +451,7 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 	_expect(str(horn_context.get("phase", "")) == "impact", "horn charge should reach impact after 0.43 seconds")
 	_expect(_has_status(status_state, "horn_strawberry_horn_charge", "stun"), "horn charge impact should apply boss stun")
 	var horn_status: Dictionary = _find_status(status_state, "horn_strawberry_horn_charge", "stun")
-	_expect(is_equal_approx(float(horn_status.get("duration_frames", 0.0)), 90.0), "horn charge boss stun should last 1.5 seconds")
+	_expect(is_equal_approx(float(horn_status.get("duration_frames", 0.0)), 180.0), "horn charge boss stun should last 3.0 seconds")
 	var horn_status_data: Dictionary = horn_status.get("data", {})
 	_expect(is_equal_approx(abs(float(horn_status_data.get("knockback_vel", 0.0))), 73.0), "horn charge boss knockback should use the reference strong velocity")
 	_expect(bool(horn_status_data.get("suppress_paddle_hit_knockback", false)), "horn charge status should mark paddle-hit knockback suppression")

@@ -6,9 +6,13 @@ const CHARGING_SEC := 0.43
 const IMPACT_SEC := 0.20
 const RETURNING_SEC := 0.50
 const STUN_SEC := 1.50
+# Boss stun length is intentionally decoupled from the state-machine STUN phase
+# (STUN_SEC is only the player's post-charge settle window). This is how long the boss
+# stays frozen after the headbutt impact. Design-tuned 1.5s -> 3.0s.
+const BOSS_STUN_SEC := 3.0
 # Godot-tuned strong knockback: close to 5.6x the shipped normal paddle hit.
 const BOSS_KNOCKBACK := 73.0
-const BOSS_STUN_FRAMES := STUN_SEC * 60.0
+const BOSS_STUN_FRAMES := BOSS_STUN_SEC * 60.0
 const BOSS_KNOCKBACK_FRAMES := 36.0
 const BOSS_KNOCKBACK_DECAY := 0.86
 const SUPPRESS_WINDOW_FRAMES := 4.0
