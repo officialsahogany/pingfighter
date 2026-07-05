@@ -197,6 +197,10 @@ class FakeContinueScreen:
 		if _continue_callback.is_valid():
 			_continue_callback.call()
 
+	func clear_callbacks() -> void:
+		_consume_callback = Callable()
+		_continue_callback = Callable()
+
 
 class FakeRegistry:
 	extends RefCounted
@@ -211,7 +215,12 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_odins_eye_revive_is_free_then_death_finalize_consumes_one_gem()
+	await _drain_frames(12)
 
 	if _failures.is_empty():
 		print("odins_eye_chance_gem_floor_smoke: ok")
@@ -290,6 +299,14 @@ func _verify_odins_eye_revive_is_free_then_death_finalize_consumes_one_gem() -> 
 	_expect(match_flow_controller.reset_for_continue_calls == 1, "Odin continue confirmation should enter the preserving continue reset once")
 	_expect(_reset_game_calls == 0, "Odin continue confirmation must not call the full reset callback")
 	_expect(_reset_ball_calls == 1 and _reset_drive_calls == 1, "Odin continue confirmation should run the preserving reset callbacks once")
+	continue_screen.clear_callbacks()
+	registry.instances.clear()
+	deps.clear()
+
+
+func _drain_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await process_frame
 
 
 func _record_reset_game() -> void:
