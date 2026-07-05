@@ -33,6 +33,7 @@ func _init() -> void:
 	_expect(not GamepadInput.is_firearm_reset_event(_button(JOY_BUTTON_RIGHT_STICK)), "R3 should not reset Commando firearms")
 	_expect(GamepadInput.is_skill_tooltip_cycle_event(_button(JOY_BUTTON_BACK)), "View/Back should cycle skill orb tooltips")
 	_expect(not GamepadInput.is_skill_tooltip_cycle_event(_button(JOY_BUTTON_START)), "Menu should stay reserved for pause")
+	_verify_primary_action_trigger_suppression()
 
 	if _failures.is_empty():
 		print("gamepad_input_mapping_smoke: ok")
@@ -41,6 +42,18 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_primary_action_trigger_suppression() -> void:
+	GamepadInput.clear_primary_action_trigger_suppression_for_tests()
+	GamepadInput.suppress_primary_action_trigger_until_release()
+	_expect(GamepadInput.is_primary_action_trigger_suppressed_for_tests(), "RT primary-action suppression should be explicit after a consumed lingpet interact")
+	GamepadInput.update_primary_action_trigger_suppression_from_event(_axis(JOY_AXIS_TRIGGER_RIGHT, 0.5))
+	_expect(GamepadInput.is_primary_action_trigger_suppressed_for_tests(), "RT primary-action suppression should survive mid-band trigger jitter")
+	GamepadInput.update_primary_action_trigger_suppression_from_event(_axis(JOY_AXIS_TRIGGER_LEFT, 0.0))
+	_expect(GamepadInput.is_primary_action_trigger_suppressed_for_tests(), "LT events should not clear RT primary-action suppression")
+	GamepadInput.update_primary_action_trigger_suppression_from_event(_axis(JOY_AXIS_TRIGGER_RIGHT, 0.1))
+	_expect(not GamepadInput.is_primary_action_trigger_suppressed_for_tests(), "RT primary-action suppression should clear after full trigger release")
 
 
 func _button(button_index: JoyButton) -> InputEventJoypadButton:

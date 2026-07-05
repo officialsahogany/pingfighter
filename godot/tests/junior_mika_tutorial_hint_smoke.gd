@@ -48,6 +48,7 @@ func _init() -> void:
 	_verify_grip_style_specific_messages()
 	_verify_realtime_language_switching()
 	_verify_non_junior_or_non_mika_does_not_start()
+	_verify_keycap_tokenization()
 
 	_restore_language_settings_snapshot()
 	if _failures.is_empty():
@@ -187,12 +188,65 @@ func _verify_non_junior_or_non_mika_does_not_start() -> void:
 	_expect(not hint.update(0.0, owner), "Champion Mika should not start the junior tutorial hint")
 	_expect(not bool(hint.get_snapshot().get("active", true)), "Champion Mika hint should remain inactive")
 
+	# 이동/대쉬 안내는 시작 튜토리얼 캐릭터(스매셔/코만도/바이퍼) 공용이 됐다.
+	# 옵티머스는 여전히 미대상.
 	owner.ai_mode = "junior"
-	owner.selected_character_type = "viper"
+	owner.selected_character_type = "optimus"
 	owner.set_meta("tutorial_grip_style", "space_arrows")
 	hint = JuniorMikaTutorialHint.new()
-	_expect(not hint.update(0.0, owner), "Junior non-Mika character should not start the Mika tutorial hint")
-	_expect(not bool(hint.get_snapshot().get("active", true)), "Junior non-Mika hint should remain inactive")
+	_expect(not hint.update(0.0, owner), "Junior non-starter character should not start the tutorial hint")
+	_expect(not bool(hint.get_snapshot().get("active", true)), "Junior non-starter hint should remain inactive")
+
+	# 바이퍼는 연습모드(쉐백 대쉬 선행조건) 때문에 이동/대쉬 안내를 공유한다.
+	var viper_owner := FakeOwner.new()
+	viper_owner.selected_character_type = "viper"
+	viper_owner.set_meta("tutorial_grip_style", "wasd_mouse")
+	var viper_hint: Object = JuniorMikaTutorialHint.new()
+	_expect(viper_hint.update(0.0, viper_owner), "Junior Viper should start the move/dash tutorial hint")
+	_expect(bool(viper_hint.get_snapshot().get("active", false)), "Junior Viper hint should become active")
+
+
+# 키보드 입력 글자만 키캡 그림으로 승격되고, 주변 단어(특히 "D-Pad"/"Dash")는
+# 텍스트로 남는지 봉인한다. draw()가 이 토크나이저로 레이아웃을 만든다.
+func _verify_keycap_tokenization() -> void:
+	var hint: Object = JuniorMikaTutorialHint.new()
+
+	var wasd_dash: Array = hint._split_render_tokens("A / D 이동 중 S - 대쉬")
+	_expect(_keycap_values(wasd_dash) == ["A", "D", "S"], "WASD dash hint should keycap A, D and S")
+	_expect(_text_values(wasd_dash) == ["/", "이동 중", "- 대쉬"], "WASD dash hint should keep the connective phrases as text runs")
+
+	var arrows_dash: Array = hint._split_render_tokens("← / → 이동 중 ↓ / S - 대쉬")
+	_expect(_keycap_values(arrows_dash) == ["←", "→", "↓", "S"], "arrow dash hint should keycap the arrow glyphs and S")
+
+	# 게임패드 이동 안내의 "D-Pad"는 D 키로 오인되면 안 된다(정확 일치만 키캡).
+	var gamepad_move: Array = hint._split_render_tokens("왼쪽 스틱 / D-Pad ← / → - 이동")
+	_expect(_keycap_values(gamepad_move) == ["←", "→"], "gamepad move hint should keycap only the arrows, never the D inside D-Pad")
+	_expect("왼쪽 스틱 / D-Pad" in _text_values(gamepad_move), "gamepad move hint should keep 'D-Pad' inside a text run")
+
+	var gamepad_dash: Array = hint._split_render_tokens("왼쪽 스틱 이동 중 B - 대쉬")
+	_expect(_keycap_values(gamepad_dash) == ["B"], "gamepad dash hint should keycap the B button")
+
+	# 영어권 단어 'Dash' / 'Move'의 대문자는 키로 승격되면 안 된다.
+	var english_dash: Array = hint._split_render_tokens("Hold ← / → and press ↓ / S - Dash")
+	_expect(_keycap_values(english_dash) == ["←", "→", "↓", "S"], "English dash hint should keycap keys but not the word Dash")
+
+
+func _keycap_values(elements: Array) -> Array:
+	var result: Array = []
+	for element_value in elements:
+		var element: Dictionary = element_value
+		if str(element.get("type", "text")) == "key":
+			result.append(str(element.get("value", "")))
+	return result
+
+
+func _text_values(elements: Array) -> Array:
+	var result: Array = []
+	for element_value in elements:
+		var element: Dictionary = element_value
+		if str(element.get("type", "text")) == "text":
+			result.append(str(element.get("value", "")))
+	return result
 
 
 func _expect(condition: bool, message: String) -> void:

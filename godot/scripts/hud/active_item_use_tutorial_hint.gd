@@ -181,21 +181,39 @@ func _start(slot_index: int, owner: Object) -> void:
 func _delay_prerequisites_met(owner: Object, module_getter: Callable) -> bool:
 	if owner == null:
 		return false
-	if not _has_completed_skill_tooltip_tutorials(module_getter):
+	if not _has_completed_mid_tutorial(owner, module_getter):
 		return false
 	return (
 		BattleSceneConfig.normalize_league_mode(
 			str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))
 		) == "junior"
-		and _character_runtime.normalize(
+		and _is_starter_tutorial_character(
 			BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")
-		) == "smasher"
+		)
 		and _get_grip_style(owner) != ""
 	)
 
 
 func _display_blocked(owner: Object, registry: Object, module_getter: Callable) -> bool:
-	return _is_junior_mika_tutorial_active(module_getter) or _is_skill_orb_tooltip_open(owner, registry)
+	return (
+		_is_junior_mika_tutorial_active(module_getter)
+		or _is_skill_orb_tooltip_open(owner, registry)
+		or _is_module_active(module_getter, "commando_firearm_tutorial_hint")
+		or _is_module_active(module_getter, "viper_practice_mode")
+	)
+
+
+func _is_starter_tutorial_character(character_type: Variant) -> bool:
+	return (
+		_character_runtime.normalize(character_type) == "smasher"
+		or _character_runtime.is_commando(character_type)
+		or _character_runtime.is_viper(character_type)
+	)
+
+
+func _is_module_active(module_getter: Callable, key: String) -> bool:
+	var module: Object = _get_module(module_getter, key)
+	return module != null and module.has_method("is_active") and bool(module.is_active())
 
 
 func _reset_delay_tracking(active_item_count: int) -> void:
@@ -209,15 +227,27 @@ func _is_post_skill_delay_ready() -> bool:
 	return _post_skill_delay_started and _post_skill_delay_elapsed >= POST_SKILL_TUTORIAL_DELAY_SECONDS
 
 
-func _has_completed_skill_tooltip_tutorials(module_getter: Callable) -> bool:
-	var skill_hint: Object = _get_module(module_getter, "skill_orb_tooltip_tutorial_hint")
-	if skill_hint == null:
+# 캐릭터별 중간 튜토리얼 완료 여부: 스매셔=스킬-오브(드라이브/파워스매시),
+# 코만도=화기 안내(권총 발사/화기 교체). 이 단계가 끝나야 아이템 사용 안내가 열린다.
+func _has_completed_mid_tutorial(owner: Object, module_getter: Callable) -> bool:
+	var key: String = _mid_tutorial_module_key(owner)
+	var hint: Object = _get_module(module_getter, key)
+	if hint == null:
 		return false
-	if skill_hint.has_method("is_active") and bool(skill_hint.is_active()):
+	if hint.has_method("is_active") and bool(hint.is_active()):
 		return false
-	if not skill_hint.has_method("has_completed_required_tutorials"):
+	if not hint.has_method("has_completed_required_tutorials"):
 		return false
-	return bool(skill_hint.has_completed_required_tutorials())
+	return bool(hint.has_completed_required_tutorials())
+
+
+func _mid_tutorial_module_key(owner: Object) -> String:
+	var character_type: Variant = BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")
+	if _character_runtime.is_commando(character_type):
+		return "commando_firearm_tutorial_hint"
+	if _character_runtime.is_viper(character_type):
+		return "viper_practice_mode"
+	return "skill_orb_tooltip_tutorial_hint"
 
 
 func _is_skill_orb_tooltip_open(owner: Object, registry: Object) -> bool:

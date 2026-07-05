@@ -11,6 +11,7 @@ const FONT_TECH: Font = preload("res://assets/fonts/NeoDunggeunmoPro.ttf")
 const MENU_CONTINUE := "continue"
 const MENU_CHARACTER_INFO := "character_info"
 const MENU_OPTIONS := "options"
+const MENU_EXIT_TO_MAIN := "exit_to_main"
 const SOUND_SLIDER_BGM := "bgm"
 const SOUND_SLIDER_SFX := "sfx"
 const OPTIONS_TAB_SOUND := "sound"
@@ -50,6 +51,15 @@ const MAIN_TITLE_LEFT_MARGIN := 10.0
 const MAIN_LIST_ANCHOR_RATIO := 0.25
 const MAIN_SELECTED_BAR_SKEW := 34.0
 const MAIN_BAR_EN_LEFT_PAD := 270.0
+const OPEN_BG_FADE_SECONDS := 0.15
+const OPEN_CHROME_FADE_SECONDS := 0.20
+const OPEN_BAR_SWEEP_SECONDS := 0.20
+const OPEN_TEXT_FADE_DELAY_SECONDS := 0.08
+const OPEN_TEXT_FADE_SECONDS := 0.14
+const OPEN_ITEM_STAGGER_SECONDS := 0.045
+const OPEN_ITEM_SLIDE_X := 34.0
+const OPEN_OPTIONS_SECONDS := 0.18
+const OPEN_OPTIONS_SLIDE_Y := 14.0
 const SLIDER_HEIGHT := 10.0
 const SLIDER_HIT_HEIGHT := 34.0
 const SLIDER_HANDLE_RADIUS := 8.0
@@ -184,6 +194,11 @@ func close() -> void:
 	_reset_hover_tracking()
 
 
+func clear_runtime_state() -> void:
+	close()
+	_main_editorial_bg_texture = null
+
+
 func toggle() -> void:
 	if active:
 		close()
@@ -195,6 +210,7 @@ func open_options(owner: Object, registry: Object, direct_options_only: bool = f
 	active = true
 	options_only = direct_options_only
 	animation_time = 0.0
+	prewarm_assets()
 	_open_options(owner, registry)
 	_reset_selection_feedback(_get_options_feedback_scope(), options_focus)
 
@@ -228,12 +244,13 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var font: Font = _get_ui_font()
 	if font == null:
 		return
-	var alpha: float = clamp(animation_time / 0.12, 0.0, 1.0)
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
 
 	if options_open:
-		var panel_rect: Rect2 = _get_active_panel_rect(view_size).grow(-8.0 * (1.0 - alpha))
-		_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size))
+		var options_open_ratio := _get_options_open_ratio()
+		var panel_rect: Rect2 = _get_active_panel_rect(view_size).grow(-8.0 * (1.0 - options_open_ratio))
+		panel_rect.position.y += (1.0 - options_open_ratio) * OPEN_OPTIONS_SLIDE_Y
+		_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size), _get_open_bg_alpha())
 		_draw_panel(canvas, panel_rect, OPT_PANEL, OPT_BORDER, 1.0, false, false, PremiumPanelFrame.KIND_SECTION)
 		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry, owner)
 	else:
@@ -735,7 +752,7 @@ func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2,
 
 
 func _move_selection(delta: int, registry: Object = null) -> bool:
-	var count := 3
+	var count: int = maxi(1, _get_main_entries().size())
 	var previous_index := selected_index
 	selected_index = (selected_index + delta + count) % count
 	if selected_index == previous_index:
@@ -776,6 +793,12 @@ func _activate_entry(action: String, _owner: Object, _registry: Object) -> Dicti
 		MENU_OPTIONS:
 			_open_options(_owner, _registry)
 			return {"handled": true}
+		MENU_EXIT_TO_MAIN:
+			# The actual scene change + run-selection rewind is owned by the
+			# battle-side action consumer (match flow driver) -- the overlay
+			# only reports the chosen action, same as character_info.
+			close()
+			return {"handled": true, "action": MENU_EXIT_TO_MAIN}
 	return {"handled": true}
 
 
@@ -1284,21 +1307,22 @@ func _set_volume_from_slider(slider_key: String, mouse_x: float, registry: Objec
 
 
 func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	_draw_main_editorial_background(canvas, panel_rect)
-	_draw_main_editorial_header(canvas, font, panel_rect)
-	_draw_main_editorial_spine(canvas, panel_rect)
+	var chrome_alpha := _get_open_chrome_alpha()
+	_draw_main_editorial_background(canvas, panel_rect, _get_open_bg_alpha(), chrome_alpha)
+	_draw_main_editorial_header(canvas, font, panel_rect, chrome_alpha)
+	_draw_main_editorial_spine(canvas, panel_rect, chrome_alpha)
 	var entries: Array = _get_main_entries()
 	if entries.is_empty():
 		return
 	var selected_rect := _get_animated_selection_rect(SELECTION_SCOPE_MAIN, panel_rect, selected_index)
-	_draw_main_selected_bar(canvas, font, panel_rect, selected_rect, entries[clampi(selected_index, 0, entries.size() - 1)])
+	_draw_main_selected_bar(canvas, font, panel_rect, selected_rect, entries[clampi(selected_index, 0, entries.size() - 1)], _get_main_open_bar_ratio(), _get_open_text_alpha())
 	for index in range(entries.size()):
 		if index != selected_index:
-			_draw_main_unselected_entry(canvas, font, panel_rect, entries[index], index, mouse_pos)
+			_draw_main_unselected_entry(canvas, font, panel_rect, entries[index], index, mouse_pos, _get_main_open_entry_ratio(index))
 
 
-func _draw_main_editorial_background(canvas: CanvasItem, panel_rect: Rect2) -> void:
-	_draw_main_editorial_base(canvas, panel_rect)
+func _draw_main_editorial_background(canvas: CanvasItem, panel_rect: Rect2, base_alpha: float = 1.0, chrome_alpha: float = 1.0) -> void:
+	_draw_main_editorial_base(canvas, panel_rect, base_alpha)
 	var top_left := panel_rect.position
 	var wedge_width := minf(panel_rect.size.x * 0.42, 520.0)
 	var wedge_height := minf(panel_rect.size.y * 0.42, 315.0)
@@ -1310,29 +1334,30 @@ func _draw_main_editorial_background(canvas: CanvasItem, panel_rect: Rect2) -> v
 			top_left + Vector2(wedge_width * 0.23, wedge_height),
 			top_left + Vector2(0.0, wedge_height * 0.93),
 		]),
-		GRAPHIC_INK
+		_with_alpha(GRAPHIC_INK, chrome_alpha)
 	)
-	var line_color := Color(1.0, 1.0, 1.0, 0.62)
+	var line_color := _with_alpha(Color(1.0, 1.0, 1.0, 0.62), chrome_alpha)
 	canvas.draw_arc(top_left + Vector2(98.0, 68.0), 54.0, 0.16 * PI, 1.08 * PI, 28, line_color, 1.4, true)
-	canvas.draw_line(top_left + Vector2(138.0, 118.0), top_left + Vector2(238.0, 42.0), Color(1.0, 1.0, 1.0, 0.36), 1.2, true)
-	_draw_main_editorial_dial(canvas, panel_rect)
-	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 92.0, panel_rect.size.y - 82.0), 9.0, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.32))
-	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 168.0, 54.0), 6.0, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.24))
+	canvas.draw_line(top_left + Vector2(138.0, 118.0), top_left + Vector2(238.0, 42.0), _with_alpha(Color(1.0, 1.0, 1.0, 0.36), chrome_alpha), 1.2, true)
+	_draw_main_editorial_dial(canvas, panel_rect, chrome_alpha)
+	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 92.0, panel_rect.size.y - 82.0), 9.0, _with_alpha(Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.32), chrome_alpha))
+	_draw_main_sparkle(canvas, panel_rect.position + Vector2(panel_rect.size.x - 168.0, 54.0), 6.0, _with_alpha(Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.24), chrome_alpha))
 
 
-func _draw_main_editorial_base(canvas: CanvasItem, panel_rect: Rect2) -> void:
+func _draw_main_editorial_base(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
+	var draw_alpha := clampf(alpha, 0.0, 1.0)
 	if _main_editorial_bg_texture == null:
 		prewarm_assets()
 	if _main_editorial_bg_texture != null:
-		canvas.draw_texture_rect(_main_editorial_bg_texture, panel_rect, false)
+		canvas.draw_texture_rect(_main_editorial_bg_texture, panel_rect, false, Color(1.0, 1.0, 1.0, draw_alpha))
 		return
-	canvas.draw_rect(panel_rect, PAPER_BG)
-	_draw_main_map_texture(canvas, panel_rect)
+	canvas.draw_rect(panel_rect, _with_alpha(PAPER_BG, draw_alpha))
+	_draw_main_map_texture(canvas, panel_rect, draw_alpha)
 
 
-func _draw_main_map_texture(canvas: CanvasItem, panel_rect: Rect2) -> void:
-	var map_color := Color(0.36, 0.78, 0.98, 0.05)
-	var street_color := Color(0.36, 0.78, 0.98, 0.07)
+func _draw_main_map_texture(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
+	var map_color := Color(0.36, 0.78, 0.98, 0.05 * clampf(alpha, 0.0, 1.0))
+	var street_color := Color(0.36, 0.78, 0.98, 0.07 * clampf(alpha, 0.0, 1.0))
 	var origin := panel_rect.position
 	for i in range(5):
 		var x := origin.x + panel_rect.size.x * (0.36 + float(i) * 0.105)
@@ -1359,14 +1384,14 @@ func _draw_main_map_texture(canvas: CanvasItem, panel_rect: Rect2) -> void:
 		canvas.draw_line(block.position, block.end, street_color, 1.0, true)
 
 
-func _draw_main_editorial_header(canvas: CanvasItem, font: Font, panel_rect: Rect2) -> void:
+func _draw_main_editorial_header(canvas: CanvasItem, font: Font, panel_rect: Rect2, alpha: float = 1.0) -> void:
 	var title_font := _get_ui_font(true)
 	var title_size := _get_main_title_font_size(panel_rect)
 	var title_pos := panel_rect.position + Vector2(_get_main_title_left_margin(panel_rect), maxf(54.0, panel_rect.size.y * 0.115))
-	canvas.draw_string(title_font, title_pos, "SYSTEM", HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, TITLE_ON_GRAPHIC_INK)
+	canvas.draw_string(title_font, title_pos, "SYSTEM", HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, _with_alpha(TITLE_ON_GRAPHIC_INK, alpha))
 
 
-func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2) -> void:
+func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
 	var entries: Array = _get_main_entries()
 	if entries.is_empty():
 		return
@@ -1376,40 +1401,51 @@ func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2) -> void:
 	canvas.draw_line(
 		Vector2(x, first_rect.get_center().y),
 		Vector2(x, last_rect.get_center().y),
-		SPINE_LINE,
+		_with_alpha(SPINE_LINE, alpha),
 		1.4,
 		true
 	)
 
 
-func _draw_main_editorial_dial(canvas: CanvasItem, panel_rect: Rect2) -> void:
+func _draw_main_editorial_dial(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
 	var center := panel_rect.position + Vector2(panel_rect.size.x - minf(88.0, panel_rect.size.x * 0.09), maxf(52.0, panel_rect.size.y * 0.10))
 	var radius := clampf(minf(panel_rect.size.x, panel_rect.size.y) * 0.105, 46.0, 84.0)
-	canvas.draw_arc(center, radius, 0.42 * PI, 1.34 * PI, 64, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.78), 2.0, true)
-	canvas.draw_arc(center, radius * 0.56, 0.20 * PI, 0.72 * PI, 36, Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.45), 1.6, true)
-	var angle := fposmod(-0.92 * PI + _main_dial_time * MAIN_DIAL_ROTATIONS_PER_SECOND * TAU, TAU)
-	var dir := Vector2(cos(angle), sin(angle))
-	var tangent := dir.rotated(PI * 0.5)
-	var needle_points := PackedVector2Array([
-		center + dir * radius * 1.95,
-		center - dir * radius * 0.24 + tangent * radius * 0.18,
-		center - dir * radius * 0.08,
-		center - dir * radius * 0.24 - tangent * radius * 0.18,
-	])
-	canvas.draw_colored_polygon(needle_points, INK)
-	var tail_points := PackedVector2Array([
-		center - dir * radius * 0.05,
-		center - dir * radius * 0.78 + tangent * radius * 0.13,
-		center - dir * radius * 0.52 - tangent * radius * 0.12,
-	])
-	canvas.draw_colored_polygon(tail_points, INK)
-	canvas.draw_circle(center + Vector2(0.0, radius * 0.42), maxf(3.0, radius * 0.055), INK)
+	var ring_radius := radius * 0.74
+	canvas.draw_arc(center, ring_radius, 0.0, TAU, 72, _with_alpha(Color(INK.r, INK.g, INK.b, 0.55), alpha), 1.6, true)
+	canvas.draw_arc(center, radius * 1.52, 0.30 * PI, 1.04 * PI, 48, _with_alpha(Color(SELECT_BLUE.r, SELECT_BLUE.g, SELECT_BLUE.b, 0.30), alpha), 1.2, true)
+	var base_angle := fposmod(-0.92 * PI + _main_dial_time * MAIN_DIAL_ROTATIONS_PER_SECOND * TAU, TAU)
+	var star_color := _with_alpha(Color(INK.r, INK.g, INK.b, 0.96), alpha)
+	# Reference-faithful abstract compass star: four solid slim blades of uneven reach
+	# crossing at a hub. Vertices are recomputed from the rotation angle every frame
+	# (convex triangles only) — transform-stack rotation stays forbidden (tumble trap).
+	var star_blades := [
+		{"reach": 2.10, "width": 0.125},
+		{"reach": 1.02, "width": 0.20},
+		{"reach": 1.46, "width": 0.16},
+		{"reach": 0.80, "width": 0.22},
+	]
+	for i in range(star_blades.size()):
+		var blade: Dictionary = star_blades[i]
+		var dir := Vector2(cos(base_angle + float(i) * PI * 0.5), sin(base_angle + float(i) * PI * 0.5))
+		var perp := dir.rotated(PI * 0.5)
+		var tip := center + dir * radius * float(blade["reach"])
+		var half_width := radius * float(blade["width"])
+		var blade_base := center - dir * radius * 0.10
+		canvas.draw_colored_polygon(
+			PackedVector2Array([tip, blade_base + perp * half_width, blade_base - perp * half_width]),
+			star_color
+		)
+	var dot_angle := base_angle + PI * 0.72
+	var dot_pos := center + Vector2(cos(dot_angle), sin(dot_angle)) * ring_radius
+	canvas.draw_circle(dot_pos, maxf(3.2, radius * 0.062), star_color)
 
 
-func _draw_main_selected_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, selection_rect: Rect2, entry: Dictionary) -> void:
+func _draw_main_selected_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, selection_rect: Rect2, entry: Dictionary, open_ratio: float = 1.0, text_alpha: float = 1.0) -> void:
 	if not _has_feedback_rect(selection_rect):
 		return
-	var bar_rect := _get_main_selection_bar_rect(selection_rect)
+	var final_bar_rect := _get_main_selection_bar_rect(selection_rect)
+	var bar_rect := final_bar_rect
+	bar_rect.size.x = maxf(1.0, final_bar_rect.size.x * clampf(open_ratio, 0.0, 1.0))
 	var pop_amount := 0.0
 	var flash_alpha := 0.0
 	if _selection_feedback_scope == SELECTION_SCOPE_MAIN and _selection_pop_time < SELECTION_POP_DURATION:
@@ -1440,28 +1476,31 @@ func _draw_main_selected_bar(canvas: CanvasItem, font: Font, panel_rect: Rect2, 
 	var en_text_size := en_font.get_string_size(en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size)
 	var local_text := _get_main_selected_local_text(entry)
 	var local_font := _get_text_draw_font(font, local_text)
-	var local_size := _get_main_entry_local_font_size(bar_rect)
+	var local_size := _get_main_entry_local_font_size(final_bar_rect)
 	var local_text_size := local_font.get_string_size(local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size) if not local_text.is_empty() else Vector2.ZERO
-	var local_x := _get_main_selected_local_x(bar_rect, local_text_size.x) if not local_text.is_empty() else -1.0
-	var en_x := _get_main_selected_en_x(bar_rect, en_text_size.x, local_x)
-	var en_pos := Vector2(en_x, bar_rect.get_center().y + float(en_size) * 0.36)
-	canvas.draw_string(en_font, en_pos, en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, Color.WHITE)
+	var local_x := _get_main_selected_local_x(final_bar_rect, local_text_size.x) if not local_text.is_empty() else -1.0
+	var en_x := _get_main_selected_en_x(final_bar_rect, en_text_size.x, local_x)
+	var en_pos := Vector2(en_x, final_bar_rect.get_center().y + float(en_size) * 0.36)
+	var draw_text_alpha := clampf(text_alpha, 0.0, 1.0)
+	canvas.draw_string(en_font, en_pos, en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, _with_alpha(Color.WHITE, draw_text_alpha))
 	if not local_text.is_empty():
 		if local_x > en_pos.x + en_text_size.x + 20.0 and local_x + local_text_size.x <= bar_rect.end.x - 24.0:
-			canvas.draw_string(local_font, Vector2(local_x, bar_rect.get_center().y + float(local_size) * 0.35), local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size, SELECT_SUBINK)
+			canvas.draw_string(local_font, Vector2(local_x, final_bar_rect.get_center().y + float(local_size) * 0.35), local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, local_size, _with_alpha(SELECT_SUBINK, draw_text_alpha))
 
 
-func _draw_main_unselected_entry(canvas: CanvasItem, font: Font, panel_rect: Rect2, entry: Dictionary, index: int, mouse_pos: Vector2) -> void:
+func _draw_main_unselected_entry(canvas: CanvasItem, font: Font, panel_rect: Rect2, entry: Dictionary, index: int, mouse_pos: Vector2, open_ratio: float = 1.0) -> void:
 	var band_rect := _get_main_row_band_rect(panel_rect, index)
 	var center_y := band_rect.get_center().y
 	var hovered := band_rect.has_point(mouse_pos)
+	var eased_open := _ease_out_cubic(open_ratio)
+	var x_offset := -OPEN_ITEM_SLIDE_X * (1.0 - eased_open)
 	var diamond_color := Color(DIAMOND_GRAY.r, DIAMOND_GRAY.g, DIAMOND_GRAY.b, 0.95 if hovered else 0.74)
-	_draw_main_sparkle(canvas, Vector2(_get_main_diamond_center_x(panel_rect), center_y), 7.0 if hovered else 6.0, diamond_color)
+	_draw_main_sparkle(canvas, Vector2(_get_main_diamond_center_x(panel_rect) + x_offset, center_y), 7.0 if hovered else 6.0, _with_alpha(diamond_color, open_ratio))
 	var en_text := str(entry.get("en", ""))
 	var en_font := _get_ui_font(true)
 	var en_size := _get_main_entry_idle_font_size(panel_rect)
 	var color := INK if hovered else Color(INK.r, INK.g, INK.b, 0.78 - float(index) * 0.08)
-	canvas.draw_string(en_font, Vector2(_get_main_unselected_text_x(panel_rect), center_y + float(en_size) * 0.34), en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, color)
+	canvas.draw_string(en_font, Vector2(_get_main_unselected_text_x(panel_rect) + x_offset, center_y + float(en_size) * 0.34), en_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, en_size, _with_alpha(color, open_ratio))
 
 
 func _draw_main_sparkle(canvas: CanvasItem, center: Vector2, radius: float, color: Color) -> void:
@@ -2029,6 +2068,38 @@ func _focus_pulse_alpha() -> float:
 	return 0.55 + 0.45 * sin(animation_time * TAU / 2.85)
 
 
+func _with_alpha(color: Color, alpha_scale: float) -> Color:
+	return Color(color.r, color.g, color.b, color.a * clampf(alpha_scale, 0.0, 1.0))
+
+
+func _get_open_ratio(duration: float, delay: float = 0.0) -> float:
+	return clampf((animation_time - delay) / maxf(duration, 0.001), 0.0, 1.0)
+
+
+func _get_open_bg_alpha() -> float:
+	return _ease_out_cubic(_get_open_ratio(OPEN_BG_FADE_SECONDS))
+
+
+func _get_open_chrome_alpha() -> float:
+	return _ease_out_cubic(_get_open_ratio(OPEN_CHROME_FADE_SECONDS))
+
+
+func _get_open_text_alpha() -> float:
+	return _ease_out_cubic(_get_open_ratio(OPEN_TEXT_FADE_SECONDS, OPEN_TEXT_FADE_DELAY_SECONDS))
+
+
+func _get_main_open_bar_ratio() -> float:
+	return clampf(_ease_out_back(_get_open_ratio(OPEN_BAR_SWEEP_SECONDS)), 0.0, 1.0)
+
+
+func _get_main_open_entry_ratio(index: int) -> float:
+	return _ease_out_cubic(_get_open_ratio(OPEN_ITEM_STAGGER_SECONDS * 4.0, OPEN_TEXT_FADE_DELAY_SECONDS + float(index) * OPEN_ITEM_STAGGER_SECONDS))
+
+
+func _get_options_open_ratio() -> float:
+	return _ease_out_cubic(_get_open_ratio(OPEN_OPTIONS_SECONDS))
+
+
 func _begin_selection_feedback(scope: String, from_index: int, to_index: int) -> void:
 	_selection_feedback_scope = scope
 	_selection_from_index = from_index
@@ -2242,6 +2313,11 @@ func _ease_out_back(value: float) -> float:
 	var c1 := 1.70158
 	var c3 := c1 + 1.0
 	return 1.0 + c3 * pow(clamped_value - 1.0, 3.0) + c1 * pow(clamped_value - 1.0, 2.0)
+
+
+func _ease_out_cubic(value: float) -> float:
+	var clamped_value := clampf(value, 0.0, 1.0)
+	return 1.0 - pow(1.0 - clamped_value, 3.0)
 
 
 func _has_feedback_rect(rect: Rect2) -> bool:
@@ -2657,6 +2733,7 @@ func _get_main_entries() -> Array:
 		{"en": "RESUME", "label": _text("pause.continue"), "desc": _text("pause.desc.continue"), "action": MENU_CONTINUE},
 		{"en": "STATUS", "label": _text("pause.character_info"), "desc": _text("pause.desc.character_info"), "action": MENU_CHARACTER_INFO},
 		{"en": "SETTINGS", "label": _text("pause.options"), "desc": _text("pause.desc.options"), "action": MENU_OPTIONS},
+		{"en": "EXIT", "label": _text("pause.exit_to_main"), "desc": _text("pause.desc.exit_to_main"), "action": MENU_EXIT_TO_MAIN},
 	]
 
 

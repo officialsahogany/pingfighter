@@ -189,12 +189,22 @@ class FakeViewLayout:
 		return true
 
 
+class FakeMatchFlowDriver:
+	var exit_to_main_menu_calls := 0
+	var saw_owner := false
+
+	func exit_to_main_menu(owner: Object) -> void:
+		exit_to_main_menu_calls += 1
+		saw_owner = owner != null
+
+
 class FakeRegistry:
 	var modal_gate := BattleSceneModalGateController.new()
 	var pause_menu := PauseMenuOverlay.new()
 	var character_info := FakeCharacterInfo.new()
 	var audio := FakeAudio.new()
 	var view_layout := FakeViewLayout.new()
+	var match_flow_driver := FakeMatchFlowDriver.new()
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -208,6 +218,8 @@ class FakeRegistry:
 				return audio
 			"battle_view_layout":
 				return view_layout
+			"battle_scene_match_flow_driver":
+				return match_flow_driver
 		return null
 
 
@@ -237,8 +249,10 @@ func _init() -> void:
 	_expect(registry.pause_menu._main_editorial_bg_texture != null, "D2 pause menu should prewarm the editorial background texture when opened")
 	var entries: Array = registry.pause_menu._get_main_entries()
 	_expect(str(entries[0].get("en", "")) == "RESUME" and str(entries[1].get("en", "")) == "STATUS" and str(entries[2].get("en", "")) == "SETTINGS", "bright pause menu should expose editorial English menu labels")
+	_expect(entries.size() == 4 and str(entries[3].get("en", "")) == "EXIT" and str(entries[3].get("action", "")) == "exit_to_main", "pause menu should expose the EXIT entry as the fourth item")
 	_verify_pause_description_localization_keys()
 	_expect(str(entries[0].get("desc", "")) == "게임으로 돌아가기" and str(entries[1].get("desc", "")) == "캐릭터 정보 확인" and str(entries[2].get("desc", "")) == "게임 설정 변경", "D3 pause menu should use Korean descriptive local labels")
+	_expect(str(entries[3].get("label", "")) == "나가기" and str(entries[3].get("desc", "")) == "메인 메뉴로 돌아가기", "EXIT entry should use the Korean label and main-menu description")
 	_expect(registry.pause_menu._should_show_main_local_label(), "Korean pause menu should keep the small local label")
 	var main_selection_rect: Rect2 = registry.pause_menu._get_selection_feedback_rect(main_panel_rect, "main", 0)
 	_expect(main_selection_rect.position.x == 0.0 and main_selection_rect.size.x >= owner.get_viewport_rect().size.x * 0.55, "main selection hit zone should be the left-edge editorial band")
@@ -256,6 +270,13 @@ func _init() -> void:
 	_expect(is_equal_approx(selected_en_x, selected_bar_rect.position.x + registry.pause_menu.MAIN_BAR_EN_LEFT_PAD), "D3 pause menu should anchor selected EN text from the bar left padding")
 	_expect(selected_en_x < selected_bar_rect.get_center().x, "D3 pause menu selected EN text should sit left of the bar center")
 	_expect(selected_local_text == "게임으로 돌아가기" and selected_local_x > selected_en_x + selected_en_width + 20.0, "D3 pause menu Korean description should draw as the selected bar helper label without overlapping EN")
+	registry.pause_menu.animation_time = 0.0
+	_expect(is_zero_approx(registry.pause_menu._get_open_bg_alpha()) and is_zero_approx(registry.pause_menu._get_main_open_bar_ratio()), "pause menu opening should start with hidden background and swept-out selection bar")
+	_expect(is_zero_approx(registry.pause_menu._get_open_text_alpha()), "pause menu opening should delay selected text until the bar has started sweeping in")
+	registry.pause_menu.animation_time = registry.pause_menu.OPEN_TEXT_FADE_DELAY_SECONDS + registry.pause_menu.OPEN_ITEM_STAGGER_SECONDS * 2.0
+	_expect(registry.pause_menu._get_main_open_entry_ratio(0) > registry.pause_menu._get_main_open_entry_ratio(1) and registry.pause_menu._get_main_open_entry_ratio(1) > registry.pause_menu._get_main_open_entry_ratio(2), "pause menu opening should cascade unselected entries with a stagger")
+	registry.pause_menu.animation_time = 0.30
+	_expect(is_equal_approx(registry.pause_menu._get_open_bg_alpha(), 1.0) and is_equal_approx(registry.pause_menu._get_main_open_bar_ratio(), 1.0) and is_equal_approx(registry.pause_menu._get_options_open_ratio(), 1.0), "pause menu opening should settle all intro ratios quickly")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
 	var english_entries: Array = registry.pause_menu._get_main_entries()
 	_expect(str(english_entries[0].get("desc", "")) == "Return to game", "D3 pause menu should keep English desc keys populated for missing-key coverage")
@@ -274,18 +295,27 @@ func _init() -> void:
 	_expect(pause_source.find("draw_set_transform") < 0, "bright pause menu dial should avoid texture-quad transform rotation")
 	_expect(pause_source.find("_draw_ringcore_crystal") < 0, "bright pause main should not draw the preserved ringcore crystal asset")
 	_expect(pause_source.find("MAIN_SELECTED_BAR_SKEW") >= 0 and pause_source.find("draw_colored_polygon(bar_points") >= 0, "bright pause main should use a skewed editorial selection bar instead of the old rounded button")
+	_expect(pause_source.find("OPEN_BAR_SWEEP_SECONDS") >= 0 and pause_source.find("OPEN_ITEM_STAGGER_SECONDS") >= 0, "pause menu should keep explicit opening animation timing constants")
 	_expect(pause_source.find("ProjectResourceLoader.load_texture(\n\t\tMAIN_EDITORIAL_BG_PATH") >= 0, "D2 pause menu should load the editorial background through the project resource loader")
 	var background_body := _source_function_body(pause_source, "func _draw_main_editorial_background")
-	_expect(background_body.find("_draw_main_editorial_base(canvas, panel_rect)") >= 0, "D2 pause menu should draw the editorial background art as the first main-menu layer")
+	_expect(background_body.find("_draw_main_editorial_base(canvas, panel_rect, base_alpha)") >= 0, "D2 pause menu should draw the editorial background art as the first main-menu layer")
 	_expect(background_body.find("_draw_main_map_texture") < 0, "D2 pause menu should not draw the old procedural map texture in the normal background path")
 	_expect(background_body.find("panel_rect.size.y * 1.06") < 0, "D2 pause menu should remove the duplicate procedural sweeping arc over the background art")
-	_expect(pause_source.find("needle_points") >= 0, "bright pause main should keep the solid compass-star dial motif")
+	_expect(pause_source.find("star_blades") >= 0, "bright pause main should keep the solid multi-blade compass-star dial motif")
+	var main_menu_body := _source_function_body(pause_source, "func _draw_main_menu")
+	_expect(main_menu_body.find("_get_main_open_bar_ratio()") >= 0 and main_menu_body.find("_get_main_open_entry_ratio(index)") >= 0, "pause menu opening should feed bar sweep and entry cascade ratios into the main renderer")
+	var selected_bar_body := _source_function_body(pause_source, "func _draw_main_selected_bar")
+	_expect(selected_bar_body.find("final_bar_rect.size.x * clampf(open_ratio") >= 0 and selected_bar_body.find("_with_alpha(Color.WHITE, draw_text_alpha)") >= 0, "pause menu selected bar should sweep in before fading its text")
+	var unselected_entry_body := _source_function_body(pause_source, "func _draw_main_unselected_entry")
+	_expect(unselected_entry_body.find("OPEN_ITEM_SLIDE_X") >= 0 and unselected_entry_body.find("_with_alpha(color, open_ratio)") >= 0, "pause menu unselected entries should slide/fade in during opening")
 	# --- D-options bright editorial re-skin seals ---
 	_expect(registry.pause_menu.OPT_PANEL.r < 0.2 and registry.pause_menu.OPT_CARD.r < 0.25 and registry.pause_menu.OPT_TRACK.r < 0.25, "D-options should use dark cyberpunk surface tokens")
 	var draw_body := _source_function_body(pause_source, "func draw(")
-	_expect(draw_body.find("_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size))") >= 0, "D-options should draw the shared bright editorial base instead of the dark dim panel")
+	_expect(draw_body.find("_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size), _get_open_bg_alpha())") >= 0, "D-options should draw the shared bright editorial base instead of the dark dim panel")
 	_expect(draw_body.find("0.0, 0.0, 0.0, 0.58") < 0, "D-options should not draw the old black dim behind the options panel")
 	_expect(draw_body.find("OPT_PANEL") >= 0, "D-options should draw the light content panel token")
+	_expect(draw_body.find("OPEN_OPTIONS_SLIDE_Y") >= 0 and draw_body.find("_get_options_open_ratio()") >= 0, "D-options should share the opening fade/slide timing")
+	_expect(draw_body.find("_with_alpha(OPT_PANEL") < 0 and draw_body.find("_with_alpha(OPT_BORDER") < 0, "options panel must slide in solid — alpha-fading only the shell desyncs it from its full-alpha tab/slider content")
 	var options_window_body := _source_function_body(pause_source, "func _draw_options_window")
 	_expect(options_window_body.find("_draw_scanlines") < 0, "D-options should drop the dark HUD scanlines")
 	var opt_button_body := _source_function_body(pause_source, "func _draw_button")
@@ -316,6 +346,22 @@ func _init() -> void:
 	_expect(not registry.pause_menu.is_active(), "character info button should close pause menu")
 	_expect(registry.character_info.is_active(), "character info button should open character info overlay")
 	registry.character_info.close()
+
+	_expect(_press(input, owner, KEY_ESCAPE), "ESC should reopen pause menu for the exit flow")
+	_expect(registry.match_flow_driver.exit_to_main_menu_calls == 0, "exit-to-main must not fire before the EXIT entry is activated")
+	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 3)), "EXIT button click should be handled")
+	_expect(not registry.pause_menu.is_active(), "EXIT button should close the pause menu")
+	_expect(
+		registry.match_flow_driver.exit_to_main_menu_calls == 1 and registry.match_flow_driver.saw_owner,
+		"EXIT button should route exactly one exit through the match flow driver (Stage 1 rewind + main menu)"
+	)
+
+	registry.pause_menu.clear_runtime_state()
+	_expect(registry.pause_menu._main_editorial_bg_texture == null, "clear_runtime_state should drop the cached editorial background texture")
+	registry.pause_menu.open_options(owner, registry, true)
+	_expect(registry.pause_menu._main_editorial_bg_texture != null, "open_options direct entry should prewarm the editorial background off the first draw frame")
+	registry.pause_menu.close()
+	_expect(not registry.pause_menu.is_active(), "direct options entry should fully deactivate on close")
 
 	_expect(_press(input, owner, KEY_ESCAPE), "ESC should reopen pause menu for options")
 	_expect(_click(input, owner, _main_button_center(registry.pause_menu, owner, 2)), "options button click should be handled")
@@ -352,7 +398,7 @@ func _init() -> void:
 	var mouse_hover_overlay := PauseMenuOverlay.new()
 	mouse_hover_overlay.open()
 	var mouse_main_panel: Rect2 = mouse_hover_overlay._get_main_panel_rect(view_size)
-	var mouse_character_rect: Rect2 = mouse_hover_overlay._get_button_rect(mouse_main_panel, 1, 3)
+	var mouse_character_rect: Rect2 = mouse_hover_overlay._get_button_rect(mouse_main_panel, 1, mouse_hover_overlay._get_main_entries().size())
 	move_count_before = registry.audio.ui_move_count
 	_expect(_motion_overlay(mouse_hover_overlay, owner, mouse_character_rect.get_center()), "main menu hover should be handled")
 	_expect(mouse_hover_overlay.selected_index == 1, "main menu hover should select the hovered entry")
@@ -378,7 +424,7 @@ func _init() -> void:
 	var selected_hover_overlay := PauseMenuOverlay.new()
 	selected_hover_overlay.open()
 	var selected_main_panel: Rect2 = selected_hover_overlay._get_main_panel_rect(view_size)
-	var selected_main_rect: Rect2 = selected_hover_overlay._get_button_rect(selected_main_panel, 0, 3)
+	var selected_main_rect: Rect2 = selected_hover_overlay._get_button_rect(selected_main_panel, 0, selected_hover_overlay._get_main_entries().size())
 	move_count_before = registry.audio.ui_move_count
 	_expect(_motion_overlay(selected_hover_overlay, owner, selected_main_rect.get_center()), "hovering the already selected entry should be handled")
 	_expect(registry.audio.ui_move_count == move_count_before, "hovering the already selected entry should not replay UI move")
@@ -387,7 +433,7 @@ func _init() -> void:
 	mouse_confirm_overlay.open()
 	var mouse_confirm_panel: Rect2 = mouse_confirm_overlay._get_main_panel_rect(view_size)
 	confirm_count_before = registry.audio.ui_confirm_count
-	_expect(_left_click_overlay(mouse_confirm_overlay, owner, mouse_confirm_overlay._get_button_rect(mouse_confirm_panel, 0, 3).get_center()), "main menu left click should be handled")
+	_expect(_left_click_overlay(mouse_confirm_overlay, owner, mouse_confirm_overlay._get_button_rect(mouse_confirm_panel, 0, mouse_confirm_overlay._get_main_entries().size()).get_center()), "main menu left click should be handled")
 	_expect(not mouse_confirm_overlay.is_active(), "main menu left click should activate and close the continue entry")
 	_expect(registry.audio.ui_confirm_count == confirm_count_before + 1, "main menu left click should play one UI confirm sound")
 
@@ -743,36 +789,50 @@ func _verify_pause_description_localization_keys() -> void:
 			"pause.desc.continue": "게임으로 돌아가기",
 			"pause.desc.character_info": "캐릭터 정보 확인",
 			"pause.desc.options": "게임 설정 변경",
+			"pause.exit_to_main": "나가기",
+			"pause.desc.exit_to_main": "메인 메뉴로 돌아가기",
 		},
 		LanguageSettings.LANGUAGE_ENGLISH: {
 			"pause.desc.continue": "Return to game",
 			"pause.desc.character_info": "View character info",
 			"pause.desc.options": "Game settings",
+			"pause.exit_to_main": "Exit",
+			"pause.desc.exit_to_main": "Return to main menu",
 		},
 		LanguageSettings.LANGUAGE_CHINESE: {
 			"pause.desc.continue": "返回游戏",
 			"pause.desc.character_info": "查看角色信息",
 			"pause.desc.options": "游戏设置",
+			"pause.exit_to_main": "退出",
+			"pause.desc.exit_to_main": "返回主菜单",
 		},
 		LanguageSettings.LANGUAGE_JAPANESE: {
 			"pause.desc.continue": "ゲームに戻る",
 			"pause.desc.character_info": "キャラクター情報を確認",
 			"pause.desc.options": "ゲーム設定",
+			"pause.exit_to_main": "やめる",
+			"pause.desc.exit_to_main": "メインメニューに戻る",
 		},
 		LanguageSettings.LANGUAGE_SPANISH: {
 			"pause.desc.continue": "Volver al juego",
 			"pause.desc.character_info": "Ver info del personaje",
 			"pause.desc.options": "Ajustes del juego",
+			"pause.exit_to_main": "Salir",
+			"pause.desc.exit_to_main": "Volver al menú principal",
 		},
 		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
 			"pause.desc.continue": "Voltar ao jogo",
 			"pause.desc.character_info": "Ver info do personagem",
 			"pause.desc.options": "Configurações do jogo",
+			"pause.exit_to_main": "Sair",
+			"pause.desc.exit_to_main": "Voltar ao menu principal",
 		},
 		LanguageSettings.LANGUAGE_RUSSIAN: {
 			"pause.desc.continue": "Вернуться в игру",
 			"pause.desc.character_info": "Информация о персонаже",
 			"pause.desc.options": "Настройки игры",
+			"pause.exit_to_main": "Выйти",
+			"pause.desc.exit_to_main": "Вернуться в главное меню",
 		},
 	}
 	for language in expected.keys():

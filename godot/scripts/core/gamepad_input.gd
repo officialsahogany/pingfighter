@@ -4,6 +4,7 @@ const MOVE_DEADZONE := 0.42
 const MENU_AXIS_THRESHOLD := 0.82
 const MENU_AXIS_RELEASE_THRESHOLD := 0.38
 const TRIGGER_DEADZONE := 0.45
+const PRIMARY_ACTION_TRIGGER_SUPPRESS_RELEASE_THRESHOLD := 0.35
 
 const PRIMARY_ACTION_BUTTONS := [JOY_BUTTON_A, JOY_BUTTON_X]
 const CONFIRM_BUTTONS := [JOY_BUTTON_A, JOY_BUTTON_START]
@@ -21,6 +22,8 @@ const ACTIVE_ITEM_NEXT_BUTTONS := [JOY_BUTTON_RIGHT_SHOULDER]
 const SKILL_TOOLTIP_CYCLE_BUTTONS := [JOY_BUTTON_BACK]
 const RIGHT_STICK_AXES := [JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y]
 const RIGHT_STICK_BUTTONS := [JOY_BUTTON_RIGHT_STICK]
+
+static var _primary_action_trigger_suppressed := false
 
 
 static func is_left_pressed() -> bool:
@@ -44,9 +47,13 @@ static func is_down_pressed() -> bool:
 
 
 static func is_primary_action_pressed() -> bool:
+	_refresh_primary_action_trigger_suppression()
 	return (
 		_is_any_button_pressed(PRIMARY_ACTION_BUTTONS)
-		or _is_axis_above(JOY_AXIS_TRIGGER_RIGHT, TRIGGER_DEADZONE)
+		or (
+			not _primary_action_trigger_suppressed
+			and _is_axis_above(JOY_AXIS_TRIGGER_RIGHT, TRIGGER_DEADZONE)
+		)
 	)
 
 
@@ -113,6 +120,28 @@ static func should_suppress_right_stick_event(event: InputEvent) -> bool:
 		var button_event: InputEventJoypadButton = event
 		return RIGHT_STICK_BUTTONS.has(button_event.button_index)
 	return false
+
+
+static func suppress_primary_action_trigger_until_release() -> void:
+	_primary_action_trigger_suppressed = true
+
+
+static func update_primary_action_trigger_suppression_from_event(event: InputEvent) -> void:
+	if not (event is InputEventJoypadMotion):
+		return
+	var motion_event: InputEventJoypadMotion = event
+	if motion_event.axis != JOY_AXIS_TRIGGER_RIGHT:
+		return
+	if motion_event.axis_value <= PRIMARY_ACTION_TRIGGER_SUPPRESS_RELEASE_THRESHOLD:
+		_primary_action_trigger_suppressed = false
+
+
+static func is_primary_action_trigger_suppressed_for_tests() -> bool:
+	return _primary_action_trigger_suppressed
+
+
+static func clear_primary_action_trigger_suppression_for_tests() -> void:
+	_primary_action_trigger_suppressed = false
 
 
 static func get_active_item_selection_direction_event(event: InputEvent) -> int:
@@ -191,6 +220,15 @@ static func _is_axis_below(axis: int, threshold: float) -> bool:
 		if Input.get_joy_axis(int(device), axis) <= threshold:
 			return true
 	return false
+
+
+static func _refresh_primary_action_trigger_suppression() -> void:
+	if not _primary_action_trigger_suppressed:
+		return
+	for device in Input.get_connected_joypads():
+		if Input.get_joy_axis(int(device), JOY_AXIS_TRIGGER_RIGHT) > PRIMARY_ACTION_TRIGGER_SUPPRESS_RELEASE_THRESHOLD:
+			return
+	_primary_action_trigger_suppressed = false
 
 
 static func _is_action_event(event: InputEvent, action: StringName) -> bool:

@@ -4,6 +4,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 
 const MOVE_MESSAGE := "방향키 ← / → 또는 A / D - 이동"
 const DASH_MESSAGE := "← / → 이동 중 ↓ / S - 대쉬"
@@ -31,7 +32,6 @@ var _active := false
 var _elapsed := 0.0
 var _dash_tutorial_completed := false
 var _grip_style := ""
-var _text_size_cache: Dictionary = {}
 var _last_language := ""
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
@@ -65,44 +65,11 @@ func draw(canvas: CanvasItem, _owner: Object, view_size: Vector2) -> void:
 	if alpha <= 0.001:
 		return
 	var font: Font = ThemeDB.fallback_font
-	var font_size: int = _get_fit_font_size(font, view_size.x)
+	if font == null:
+		return
 	var message: String = get_current_message()
-	var text_size: Vector2 = _get_text_size(font, message, font_size)
-	var center: Vector2 = get_draw_center(view_size)
-	var baseline := Vector2(
-		center.x - text_size.x * 0.5,
-		center.y - text_size.y * 0.5 + font.get_ascent(font_size)
-	)
-	var glow_alpha: float = 0.24 * alpha
-	canvas.draw_string_outline(
-		font,
-		baseline + Vector2(0.0, 1.0),
-		message,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		font_size,
-		5,
-		Color(0.02, 0.04, 0.08, 0.82 * alpha)
-	)
-	canvas.draw_string_outline(
-		font,
-		baseline,
-		message,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		font_size,
-		2,
-		Color(0.15, 0.45, 0.80, glow_alpha)
-	)
-	canvas.draw_string(
-		font,
-		baseline,
-		message,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		font_size,
-		Color(0.92, 0.98, 1.0, alpha)
-	)
+	var font_size: int = TutorialHintKeycapRenderer.fit_font_size(font, message, view_size.x - 48.0, FONT_SIZE, MIN_FONT_SIZE)
+	TutorialHintKeycapRenderer.draw_centered_line(canvas, font, message, get_draw_center(view_size), font_size, alpha)
 
 
 func is_active() -> bool:
@@ -157,12 +124,21 @@ func get_snapshot() -> Dictionary:
 func _should_start(owner: Object) -> bool:
 	if owner == null:
 		return false
+	# 이동/대쉬 조작(A/D, S)은 스매셔·코만도가 동일하므로 코만도도 이 안내를 공유한다.
 	return (
 		BattleSceneConfig.normalize_league_mode(
 			str(BattleSceneOwnerReader.get_value(owner, "ai_mode", "champion"))
 		) == "junior"
-		and _character_runtime.normalize(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher")) == "smasher"
+		and _is_starter_tutorial_character(BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher"))
 		and _get_grip_style(owner) != ""
+	)
+
+
+func _is_starter_tutorial_character(character_type: Variant) -> bool:
+	return (
+		_character_runtime.normalize(character_type) == "smasher"
+		or _character_runtime.is_commando(character_type)
+		or _character_runtime.is_viper(character_type)
 	)
 
 
@@ -206,21 +182,9 @@ func _refresh_language_state() -> bool:
 	return true
 
 
-func _get_fit_font_size(font: Font, max_width: float) -> int:
-	var font_size: int = FONT_SIZE
-	var available_width: float = max(80.0, max_width - 48.0)
-	while font_size > MIN_FONT_SIZE and _get_text_size(font, get_current_message(), font_size).x > available_width:
-		font_size -= 1
-	return font_size
-
-
-func _get_text_size(font: Font, text: String, font_size: int) -> Vector2:
-	var cache_key := "%s|%d" % [text, font_size]
-	if _text_size_cache.has(cache_key):
-		return _text_size_cache[cache_key]
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-	_text_size_cache[cache_key] = text_size
-	return text_size
+# 키캡/텍스트 토큰 분리는 공용 렌더러가 소유한다(회귀 스모크가 이 경로를 통해 봉인).
+func _split_render_tokens(message: String) -> Array:
+	return TutorialHintKeycapRenderer.split_render_tokens(message)
 
 
 func _smooth_step(value: float) -> float:
