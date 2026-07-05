@@ -23,4 +23,5 @@ static func build_top(
 		"boost_timer": 0.0,
 		"is_golden": randf() < golden_top_chance,
 		"star_spawned": false,
+		"launched": false,
 	}

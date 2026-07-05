@@ -20,39 +20,45 @@ const AXIS_COLOR := Color(0.235, 0.118, 0.059, 1.0)
 const DEFAULT_BOSS_VISUAL_CENTER_Y_OFFSET := 25.0
 const DEFAULT_BOSS_DRAW_SIZE := Vector2(96.0, 112.0)
 const PAENGI_TOP_WHIP_SOURCE_CELL_SIZE := 512.0
+# Per-frame switch-tip (whip-cord origin) for the v2 32-frame paengi sheet, in
+# 512 px source-cell coords. Measured by motion phase: windup (0-4) switch raised
+# up-left, downswing/strike (5-7) down-right, post-strike (8) down-left, ready
+# (9-22) switch held across the chest with the tip on her right, recovery (23-31)
+# switch lowered forward down-right. Manual estimates (~+/-20px) — fine-tune in
+# live QA if the procedural cord drifts off Dalji's drawn switch.
 const PAENGI_STICK_TIP_SOURCE_POINTS := [
-	Vector2(390.0, 296.0),
-	Vector2(390.0, 296.0),
-	Vector2(390.0, 296.0),
-	Vector2(390.0, 296.0),
-	Vector2(432.0, 114.0),
-	Vector2(432.0, 114.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(424.0, 92.0),
-	Vector2(470.0, 456.0),
-	Vector2(318.0, 360.0),
-	Vector2(302.0, 358.0),
-	Vector2(307.0, 388.0),
-	Vector2(282.0, 410.0),
-	Vector2(270.0, 410.0),
-	Vector2(258.0, 407.0),
-	Vector2(226.0, 404.0),
-	Vector2(186.0, 399.0),
-	Vector2(183.0, 397.0),
-	Vector2(174.0, 393.0),
-	Vector2(168.0, 391.0),
-	Vector2(165.0, 389.0),
-	Vector2(165.0, 389.0),
-	Vector2(165.0, 389.0),
-	Vector2(165.0, 389.0),
+	Vector2(90.0, 60.0),
+	Vector2(105.0, 62.0),
+	Vector2(120.0, 68.0),
+	Vector2(140.0, 75.0),
+	Vector2(135.0, 62.0),
+	Vector2(345.0, 275.0),
+	Vector2(360.0, 310.0),
+	Vector2(380.0, 345.0),
+	Vector2(150.0, 270.0),
+	Vector2(320.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(326.0, 245.0),
+	Vector2(345.0, 255.0),
+	Vector2(345.0, 320.0),
+	Vector2(350.0, 345.0),
+	Vector2(350.0, 348.0),
+	Vector2(350.0, 348.0),
+	Vector2(350.0, 348.0),
+	Vector2(350.0, 348.0),
+	Vector2(350.0, 348.0),
+	Vector2(365.0, 348.0),
 ]
 const NORMAL_PATTERN_COLORS := [
 	Color(0.392, 0.784, 0.784, 1.0),
@@ -74,8 +80,9 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, perf_l
 		return
 	var lod_active: bool = ViperAirborneLod.is_any_lod_active(context)
 	var sample_start: int = _perf_begin(perf_logger)
-	if float(context.get("stage1_spinning_top_whip_timer", 0.0)) > 0.0:
-		_draw_whip_lines(canvas, context, tops, shake_offset, lod_active)
+	var whip_target: int = int(context.get("stage1_spinning_top_whip_target_index", -1))
+	if whip_target >= 0 and whip_target < tops.size() and (tops[whip_target] is Dictionary):
+		_draw_whip_line(canvas, context, tops[whip_target], shake_offset, lod_active)
 	_perf_end(perf_logger, "stage1.spinning_top.whip", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	for top_value in tops:
@@ -84,26 +91,22 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, perf_l
 	_perf_end(perf_logger, "stage1.spinning_top.tops", sample_start)
 
 
-func _draw_whip_lines(canvas: CanvasItem, context: Dictionary, tops: Array, shake_offset: Vector2, lod_active: bool) -> void:
+func _draw_whip_line(canvas: CanvasItem, context: Dictionary, top: Dictionary, shake_offset: Vector2, lod_active: bool) -> void:
 	var start: Vector2 = _get_whip_start(context, shake_offset)
 	var timer: float = float(context.get("stage1_spinning_top_whip_timer", 0.0))
 	var segment_count: int = LOD_WHIP_SEGMENTS if lod_active else WHIP_SEGMENTS
-	for top_value in tops:
-		if not (top_value is Dictionary):
-			continue
-		var top: Dictionary = top_value
-		var end := Vector2(float(top.get("x", 0.0)), float(top.get("y", 0.0))) + shake_offset
-		var control := Vector2(
-			(start.x + end.x) * 0.5 + sin(timer * 0.5) * 30.0,
-			(start.y + end.y) * 0.5 - 20.0
-		)
-		for i in range(segment_count):
-			var t1: float = float(i) / float(segment_count)
-			var t2: float = float(i + 1) / float(segment_count)
-			var p1: Vector2 = _quadratic_point(start, control, end, t1)
-			var p2: Vector2 = _quadratic_point(start, control, end, t2)
-			var thickness: float = max(1.0, 3.0 - floor(float(i) * 0.3))
-			canvas.draw_line(p1, p2, WHIP_COLOR, thickness, true)
+	var end := Vector2(float(top.get("x", 0.0)), float(top.get("y", 0.0))) + shake_offset
+	var control := Vector2(
+		(start.x + end.x) * 0.5 + sin(timer * 0.5) * 30.0,
+		(start.y + end.y) * 0.5 - 20.0
+	)
+	for i in range(segment_count):
+		var t1: float = float(i) / float(segment_count)
+		var t2: float = float(i + 1) / float(segment_count)
+		var p1: Vector2 = _quadratic_point(start, control, end, t1)
+		var p2: Vector2 = _quadratic_point(start, control, end, t2)
+		var thickness: float = max(1.0, 3.0 - floor(float(i) * 0.3))
+		canvas.draw_line(p1, p2, WHIP_COLOR, thickness, true)
 
 
 func _get_whip_start(context: Dictionary, shake_offset: Vector2) -> Vector2:

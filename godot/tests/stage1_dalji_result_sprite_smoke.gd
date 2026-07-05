@@ -328,15 +328,22 @@ func _init() -> void:
 	paengi_anchor_context["boss_hitbox_height"] = 18.0
 	paengi_anchor_context["boss_sprite_draw_size"] = Vector2(96.0, 112.0)
 	paengi_anchor_context["boss_visual_center_y_offset"] = 25.0
-	paengi_anchor_context["boss_paengi_top_whip_frame"] = 16
-	var stick_tip_start: Vector2 = spinning_top_renderer._get_whip_start(paengi_anchor_context, Vector2.ZERO)
-	var old_center_start := Vector2(255.0, 109.0)
-	var expected_stick_tip := Vector2(
-		207.0 + 470.0 / 512.0 * 96.0,
-		78.0 + 456.0 / 512.0 * 112.0
+	# v2 paengi sheet: frame 0 = windup (switch raised up-left), frame 26 =
+	# recovery (switch lowered forward down-right). The whip line must anchor to
+	# the per-frame stick tip through the visual rect, not the boss hitbox center.
+	paengi_anchor_context["boss_paengi_top_whip_frame"] = 0
+	var tip0: Vector2 = spinning_top_renderer._get_whip_start(paengi_anchor_context, Vector2.ZERO)
+	paengi_anchor_context["boss_paengi_top_whip_frame"] = 26
+	var tip26: Vector2 = spinning_top_renderer._get_whip_start(paengi_anchor_context, Vector2.ZERO)
+	var boss_center_start := Vector2(255.0, 109.0)
+	# PAENGI_STICK_TIP_SOURCE_POINTS[26] = (350, 348) in 512 px source-cell coords.
+	var expected_tip26 := Vector2(
+		207.0 + 350.0 / 512.0 * 96.0,
+		78.0 + 348.0 / 512.0 * 112.0
 	)
-	_expect(stick_tip_start.distance_to(old_center_start) > 40.0, "paengi whip line should no longer start from the boss hitbox center")
-	_expect(stick_tip_start.distance_to(expected_stick_tip) < 0.01, "paengi whip line should start from the frame-specific stick tip")
+	_expect(tip0.distance_to(tip26) > 30.0, "paengi whip line stick tip should be frame-specific (windup vs recovery differ)")
+	_expect(tip26.distance_to(boss_center_start) > 40.0, "paengi whip line should not collapse to the boss hitbox center")
+	_expect(tip26.distance_to(expected_tip26) < 0.01, "paengi whip line should map the frame-specific stick tip through the visual rect")
 
 	print("stage1_dalji_result_sprite_smoke: ok")
 	quit(0)

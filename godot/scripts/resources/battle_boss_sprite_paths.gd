@@ -11,7 +11,7 @@ const DALJI_BOSS_VICTORY_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_v
 const DALJI_BOSS_DEFEAT_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_defeat.png"
 const DALJI_BOSS_STUN_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_stun.png"
 const DALJI_BOSS_WHIP_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_whip.png"
-const DALJI_BOSS_PAENGI_TOP_WHIP_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_paengi_top_whip_32f_autosprite_v1.png"
+const DALJI_BOSS_PAENGI_TOP_WHIP_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_paengi_top_whip_32f_autosprite_v2.png"
 
 const STAGE2_BOSS_WALK_LEFT_PATH := "res://assets/sprites/stage2/stage2_boss_run_left_angled_autosprite_v1_16f.png"
 const STAGE2_BOSS_WALK_RIGHT_PATH := "res://assets/sprites/stage2/stage2_boss_run_right_angled_autosprite_v1_16f.png"

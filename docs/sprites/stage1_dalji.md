@@ -45,7 +45,8 @@ current runtime target.
 | Stun | `assets/dalji_boss_stun.png` | `godot/assets/sprites/stage1/dalji/dalji_boss_stun.png` | 1536x1024, 4x2, cell 384x512 |
 | Whip yaw skill | `assets/dalji_boss_whip.png` | `godot/assets/sprites/stage1/dalji/dalji_boss_whip.png` | 1536x1024, 4x2, cell 384x512 |
 | Paengi top-whip strike | `assets/dalji_boss_paengi.png` | `godot/assets/sprites/stage1/dalji/dalji_boss_paengi.png` | 1536x1024, 4x2, cell 384x512 |
-| Paengi top-whip strike v1 | reference-only Python source unchanged | `godot/assets/sprites/stage1/dalji/dalji_boss_paengi_top_whip_32f_autosprite_v1.png` | 4096x2048, 8x4, cell 512x512, 32 frames |
+| Paengi top-whip strike v1 (legacy) | reference-only Python source unchanged | `godot/assets/sprites/stage1/dalji/dalji_boss_paengi_top_whip_32f_autosprite_v1.png` | 4096x2048, 8x4, cell 512x512, 32 frames |
+| Paengi top-whip strike v2 (active) | reference-only Python source unchanged | `godot/assets/sprites/stage1/dalji/dalji_boss_paengi_top_whip_32f_autosprite_v2.png` | 4096x2048, 8x4, cell 512x512, 32 frames, AutoSprite turbo regen, early crack at frame ~8 |
 
 ## Runtime Identity
 
@@ -99,7 +100,7 @@ Current keys:
 | `boss_defeat_sheet` | `dalji_boss_defeat.png` | boss loss result animation |
 | `boss_stun_sheet` | `dalji_boss_stun.png` | future real stun/electrocution |
 | `boss_whip_sheet` | `dalji_boss_whip.png` | renderer-ready whip yaw auxiliary |
-| `boss_paengi_top_whip_sheet` | `dalji_boss_paengi_top_whip_32f_autosprite_v1.png` | AutoSprite 32-frame spinning-top cast where the long cord visibly strikes a top |
+| `boss_paengi_top_whip_sheet` | `dalji_boss_paengi_top_whip_32f_autosprite_v2.png` | AutoSprite 32-frame spinning-top cast (v2 regen, front-facing single crack); v1 kept as legacy rollback |
 | `boss_sprite_sheet` | `dalji_boss_run_right_16f_fullkeypose_autosprite_v15.png` | legacy `boss_has_sprite` compatibility |
 | `boss_hit_sprite_sheet` | `dalji_boss_attack.png` | legacy compatibility for ball-contact attack |
 
@@ -137,15 +138,21 @@ Current Godot animation timing:
 - `boss_ai_state.gd` owns the Stage 1 emergency dash lifecycle: one token,
   Python-style close-ball trigger tests, 40 px/frame dash speed, 316.8 px
   max distance, 40-55 sec base recharge, and 0.60 sec post-dash recovery.
-- The Godot spinning-top cast now exposes `boss_paengi_top_whip_active`
-  and a 32-frame `boss_paengi_top_whip_frame` from
-  `stage1_dalji_spinning_top_skill_state.gd` while the existing
-  36-frame `whip_animation_timer` is active. The renderer maps that to
+- The Godot spinning-top cast exposes `boss_paengi_top_whip_active` and a
+  32-frame `boss_paengi_top_whip_frame` from
+  `stage1_dalji_spinning_top_skill_state.gd`. The skill was reworked to a
+  staggered per-top hit sequence: Dalji plays one `PER_HIT_WHIP_FRAMES` (36)
+  whip cycle per top (2 normal / 4 enraged), and the sprite frame maps per
+  cycle as `frame = int((1 - hit_whip_timer / PER_HIT_WHIP_FRAMES) * 32)`.
+  Each cycle's struck top launches forward at `STRIKE_FRAME_RATIO` (0.25 =
+  sprite frame ~8, the v2 sheet's early crack). The renderer maps this to
   `boss_paengi_top_whip_sheet` with an 8x4, 512 px cell grid.
-- `stage1_dalji_spinning_top_renderer.gd` anchors its procedural whip line
-  to the current 32-frame paengi sheet's stick-tip coordinate instead of the
-  boss hitbox center, so the launching top cord visually exits from Dalji's
-  drawn switch.
+- `stage1_dalji_spinning_top_renderer.gd` anchors its procedural whip line to
+  the v2 paengi sheet's per-frame stick-tip coordinate
+  (`PAENGI_STICK_TIP_SOURCE_POINTS`, re-measured for v2) instead of the boss
+  hitbox center, so the launching top cord exits from Dalji's drawn switch.
+  The v2 anchors are manual phase-based estimates (~+/-20px) — fine-tune in
+  live QA if the cord origin drifts.
 
 Victory and defeat are rendered during every round-score scoreboard window:
 player scoring triggers Dalji defeat, and boss scoring triggers Dalji victory,

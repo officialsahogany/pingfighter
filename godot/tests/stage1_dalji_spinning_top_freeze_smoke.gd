@@ -34,7 +34,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_context_builder_merges_freeze_flag()
 	_verify_freeze_holds_boss()
-	_verify_freeze_releases_after_one_second()
+	_verify_freeze_releases_after_hit_sequence()
 
 	if _failures.is_empty():
 		print("stage1_dalji_spinning_top_freeze_smoke: ok")
@@ -95,18 +95,27 @@ func _verify_context_builder_merges_freeze_flag() -> void:
 	)
 
 
-func _verify_freeze_releases_after_one_second() -> void:
+func _verify_freeze_releases_after_hit_sequence() -> void:
 	var top: Object = SpinningTop.new()
 	_expect(top.activate({"current_stage": 1, "boss_pos": Vector2(330.0, 25.0)}, {}), "spinning top should activate for release check")
 	var scene := {
 		"ball_pos": Vector2(380.0, 400.0),
 		"ball_vel": Vector2.ZERO,
 	}
-	for _i in range(60):
+	# Two tops -> two whip cycles; freeze holds Dalji planted for the whole
+	# sequence (2 x PER_HIT_WHIP_FRAMES), then releases.
+	var sequence_frames: int = int(2.0 * SpinningTop.PER_HIT_WHIP_FRAMES)
+	for _i in range(sequence_frames - 5):
+		top.update_and_collide(1.0, scene, _base_ctx(), {})
+	_expect(
+		bool(top.get_ai_context()["stage1_dalji_spinning_top_freeze_active"]),
+		"freeze should still hold while the second whip cycle is unfinished"
+	)
+	for _i in range(10):
 		top.update_and_collide(1.0, scene, _base_ctx(), {})
 	_expect(
 		not bool(top.get_ai_context()["stage1_dalji_spinning_top_freeze_active"]),
-		"freeze should release after 60 frames"
+		"freeze should release once both whip cycles complete"
 	)
 
 
