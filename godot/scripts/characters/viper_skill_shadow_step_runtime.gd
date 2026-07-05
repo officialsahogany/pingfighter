@@ -158,6 +158,12 @@ static func _update_phantom_strike(runtime: Object, fps_scale: float) -> void:
 	runtime.phantom_strike_frames = max(0.0, runtime.phantom_strike_frames - fps_scale)
 	if runtime.phantom_strike_frames <= 0.0:
 		runtime.phantom_strike_active = false
+		# Python pingfighter.py:106225 parity — on a whiff (phantom-strike buff
+		# expired without a ball hit), also close the paddle-hit fallback path so a
+		# later unrelated paddle bounce inside the 5s window can NOT be treated as a
+		# shadow-step hit and falsely open the Marshal Kick chain window.
+		if not runtime.shadow_hit_consumed:
+			runtime._clear_shadow_kick_ready()
 
 
 static func _update_marshal_delay(runtime: Object, fps_scale: float, context: Dictionary, deps: Dictionary, constants: Dictionary) -> void:

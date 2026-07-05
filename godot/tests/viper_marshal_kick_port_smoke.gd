@@ -181,6 +181,10 @@ class RealViperRegistry:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_test_phantom_kick_cutin_state()
 	_test_phantom_kick_cutin_host_prewarms_sheet()
 	_test_phantom_kick_unlock_catalog_wiring()
@@ -344,6 +348,11 @@ func _init() -> void:
 	_expect(abs(ai_state.knockback_vel) == 18.0, "phantom knockback should route into boss AI knockback state")
 	_expect(not bool(runtime.get_snapshot().get("phantom_kick_knockback_pending", true)), "phantom knockback should consume once")
 	_expect(not bool(runtime.get_snapshot().get("phantom_kick_speed_limit_disabled", true)), "boss guard should restore the normal speed cap after Phantom Kick")
+	runtime.reset()
+	deps.clear()
+	config.clear()
+	ProjectResourceLoader.clear_caches()
+	await _drain_frames(12)
 
 	print("viper_marshal_kick_port_smoke: ok")
 	quit(0)
@@ -366,7 +375,7 @@ func _test_phantom_kick_cutin_state() -> void:
 
 func _test_phantom_kick_cutin_host_prewarms_sheet() -> void:
 	var host := SkillCutinOverlayHost.new()
-	host.prewarm_assets()
+	host.prewarm_assets_for_character("viper")
 	var texture := ProjectResourceLoader.get_cached_texture(PHANTOM_CUTIN_SHEET_PATH)
 	_expect(texture != null, "Viper Phantom Kick cut-in sheet should prewarm into ProjectResourceLoader cache")
 	if texture != null:
@@ -911,6 +920,11 @@ func _context_with_gauge(config: Dictionary, gauge: float) -> Dictionary:
 	var context: Dictionary = config.duplicate(true)
 	context["special_gauge"] = gauge
 	return context
+
+
+func _drain_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await process_frame
 
 
 func _expect(condition: bool, message: String) -> void:

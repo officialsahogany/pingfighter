@@ -112,11 +112,24 @@ func build_ball_collision_context(runtime: Object) -> Dictionary:
 		context["viper_jetpack_airborne"] = true
 		context["viper_jetpack_offset_y"] = min(0.0, runtime.dive_player_pos.y - runtime.dive_floor_y)
 		context["viper_jetpack_floor_y"] = runtime.dive_floor_y
-	if runtime.has_method("is_dark_blade_rising_contact_active") and bool(runtime.is_dark_blade_rising_contact_active()):
+	if runtime.blade_motion_active:
+		# The blade-motion arc owns the player's vertical position through the spin/prep fall
+		# AND the phase-2 jump-and-settle (air blade `blade_rush` and dark blade alike). The
+		# jetpack is NOT ticked during blade motion — viper_player_controller.update returns on
+		# the skill path before _apply_jetpack_update — so viper_jetpack_state.offset_y goes stale
+		# and its get_ball_collision_context() injects that frozen floor_y+offset_y into the merged
+		# ball-collision context (merged BEFORE this skill context in ball_update_controller). Without
+		# re-anchoring, the paddle hit-point freezes at the stale jetpack height while the drawn
+		# character rides the live arc, so the ball bounces off empty air above (entered-from-air) or
+		# below the character during the come-down. Re-anchor the collision band to the live drawn
+		# blade_motion_pos for every blade phase so the hit-point tracks the visible character.
 		context["player_pos"] = runtime.blade_motion_pos
 		context["player_y"] = runtime.blade_motion_pos.y
 		context["player_paddle_size"] = runtime.blade_paddle_size
-		context["viper_dark_blade_rising_contact_active"] = true
+		# Upward-ball (ball_vel.y < 0) body contact stays gated to the dark-blade rise window only;
+		# air blade keeps normal downward-only paddle semantics.
+		if runtime.has_method("is_dark_blade_rising_contact_active") and bool(runtime.is_dark_blade_rising_contact_active()):
+			context["viper_dark_blade_rising_contact_active"] = true
 	return context
 
 

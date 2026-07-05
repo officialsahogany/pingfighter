@@ -214,6 +214,7 @@ func _init() -> void:
 	_expect(not bool(runtime.get_snapshot().get("dark_blade_window", true)), "ground shadow step hit should NOT open Dark Blade window (Python airborne-only gate)")
 
 	_test_airborne_shadow_step_opens_dark_blade_window()
+	_test_whiff_does_not_open_marshal_via_paddle_hit()
 
 	print("viper_shadow_step_port_smoke: ok")
 	quit(0)
@@ -278,6 +279,82 @@ func _test_airborne_shadow_step_opens_dark_blade_window() -> void:
 	var snap: Dictionary = runtime.get_snapshot()
 	_expect(bool(snap.get("dark_blade_window", false)), "airborne shadow step hit should open Dark Blade combo window when equipped (Python parity)")
 	_expect(float(snap.get("dark_blade_window_frames", 0.0)) > 0.0, "Dark Blade window frames should be primed after airborne shadow hit")
+
+
+func _test_whiff_does_not_open_marshal_via_paddle_hit() -> void:
+	# Regression (Python pingfighter.py:106225 parity): a shadow backstep that WHIFFS
+	# (phantom-strike buff expires without a wave/hologram ball hit) must close the
+	# paddle-hit fallback path. A later unrelated paddle bounce inside the 5s window
+	# must NOT be treated as a shadow-step hit and must NOT open the Marshal Kick chain.
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var orb := FakeOrbHud.new()
+	var audio := FakeAudio.new()
+	var feedback := FakeFeedback.new()
+	var perk_state := FakePerkState.new()
+	var ball_physics := FakeBallPhysics.new()
+	var deps := {
+		"input_reader": input,
+		"skill_config": skill_config,
+		"skill_state": skill_state,
+		"orb_hud_state": orb,
+		"audio": audio,
+		"feedback": feedback,
+		"runtime_perk_state": perk_state,
+		"ball_physics": ball_physics,
+	}
+	var config := {
+		"selected_character_type": "viper",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"ball_size": 28.6,
+		"boss_pos": Vector2(380.0, 45.0),
+		# Ball parked high near the boss, far from the wave/hologram path → whiff.
+		"ball_pos": Vector2(600.0, 150.0),
+		"ball_vel": Vector2(0.0, -8.0),
+	}
+	var player_pos := Vector2(420.0, 680.0)
+	runtime.dash_origin_pos = Vector2(120.0, 680.0)
+	runtime.dash_origin_valid = true
+	runtime.dash_grace_frames = 36.0
+	input.snapshot["down_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 300.0, config, deps)
+	_expect(bool(result.get("activated", false)), "whiff case: down edge during dash grace should activate shadow step")
+	_expect(bool(runtime.get_snapshot().get("shadow_kick_ready", false)), "whiff case: activation should arm the paddle-hit fallback window")
+
+	# Tick effects WITHOUT running any ball-motion hit (wave/hologram never catch the
+	# high ball). After the 18-frame phantom-strike buff lapses on a whiff, the fix must
+	# disarm the paddle-hit fallback so the shadow kick can no longer fire.
+	var effects_context: Dictionary = config.duplicate(true)
+	for _i in range(24):
+		runtime.update_effects(1.0, Time.get_ticks_msec(), effects_context, deps)
+	var snap: Dictionary = runtime.get_snapshot()
+	_expect(not bool(snap.get("shadow_hit_consumed", true)), "whiff case: no ball hit should have been consumed")
+	_expect(not bool(snap.get("shadow_kick_ready", true)), "whiff case: phantom-strike expiry must disarm the paddle-hit fallback (Python parity)")
+
+	# A later ordinary paddle bounce (ball overlapping the paddle) must NOT register a
+	# shadow-step hit now that the fallback is disarmed.
+	var paddle_context: Dictionary = config.duplicate(true)
+	paddle_context["player_pos"] = player_pos
+	paddle_context["player_paddle_size"] = Vector2(155.0, 50.0)
+	paddle_context["ball_pos"] = Vector2(497.5, 705.0)
+	paddle_context["ball_impact_boost"] = 1.0
+	var paddle_result: Dictionary = runtime.apply_shadow_step_paddle_hit(Vector2(0.0, -8.0), paddle_context, deps)
+	_expect(paddle_result.is_empty(), "whiff case: a later paddle bounce must NOT be treated as a shadow-step hit")
+	_expect(not bool(runtime.get_snapshot().get("shadow_hit_consumed", true)), "whiff case: paddle bounce must not consume a shadow hit")
+	_expect(float(runtime.get_snapshot().get("shadow_marshal_delay_frames", 1.0)) <= 0.0, "whiff case: paddle bounce must not schedule the marshal chain delay")
+
+	# Drive the chain window updater long enough to prove Marshal Kick never opens.
+	for _i in range(30):
+		runtime.update_effects(1.0, Time.get_ticks_msec(), effects_context, deps)
+	_expect(not bool(runtime.get_snapshot().get("marshal_ready", false)), "whiff case: Marshal Kick chain window must stay closed after a whiff + paddle bounce")
 
 
 func _expect(condition: bool, message: String) -> void:

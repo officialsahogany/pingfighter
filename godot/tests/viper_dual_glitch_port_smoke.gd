@@ -175,6 +175,7 @@ class FakePaddleController:
 func _init() -> void:
 	_test_catalog_unlock_wiring()
 	_test_command_activation_clone_collision_and_hp()
+	_test_dual_glitch_command_matcher_requires_fast_unambiguous_edges()
 	_test_dual_glitch_activation_plays_windup_sound()
 	_test_dual_glitch_spawn_plays_split_sound()
 	_test_actor_context_and_sprite_clone_geometry()
@@ -264,6 +265,34 @@ func _test_command_activation_clone_collision_and_hp() -> void:
 	hp_result = runtime.apply_dual_glitch_clone_ball_hit(second_hit, deps)
 	_expect(bool(hp_result.get("clone_destroyed", false)), "destroying the final clone should be detected")
 	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "fade", "Dual Glitch should fade after all clones are destroyed")
+
+
+func _test_dual_glitch_command_matcher_requires_fast_unambiguous_edges() -> void:
+	var fast := _make_dual_glitch_command_bundle()
+	_feed_dual_glitch_lateral_press(fast, true, false, 1000)
+	_feed_dual_glitch_lateral_press(fast, false, true, 1120)
+	_feed_dual_glitch_lateral_press(fast, true, false, 1240)
+	_feed_dual_glitch_lateral_press(fast, false, true, 1360)
+	_expect(_consume_dual_glitch_command_ready(fast, 1360), "fast A-D-A-D should still arm Dual Glitch")
+
+	var hover_cadence := _make_dual_glitch_command_bundle()
+	_feed_dual_glitch_lateral_press(hover_cadence, true, false, 1000)
+	_feed_dual_glitch_lateral_press(hover_cadence, false, true, 1400)
+	_feed_dual_glitch_lateral_press(hover_cadence, true, false, 1800)
+	_feed_dual_glitch_lateral_press(hover_cadence, false, true, 2200)
+	_expect(not _consume_dual_glitch_command_ready(hover_cadence, 2200), "slow hover-like A-D-A-D should not arm Dual Glitch")
+
+	var broken_gap := _make_dual_glitch_command_bundle()
+	_feed_dual_glitch_lateral_press(broken_gap, true, false, 1000)
+	_feed_dual_glitch_lateral_press(broken_gap, false, true, 1120)
+	_feed_dual_glitch_lateral_press(broken_gap, true, false, 1540)
+	_feed_dual_glitch_lateral_press(broken_gap, false, true, 1660)
+	_expect(not _consume_dual_glitch_command_ready(broken_gap, 1660), "one stale middle gap should break the Dual Glitch command chain")
+
+	var simultaneous := _make_dual_glitch_command_bundle()
+	_feed_dual_glitch_lateral_press(simultaneous, true, true, 1000)
+	_feed_dual_glitch_lateral_press(simultaneous, true, true, 1120)
+	_expect(not _consume_dual_glitch_command_ready(simultaneous, 1120), "same-frame A+D edges should be ignored as ambiguous command input")
 
 
 func _test_dual_glitch_activation_plays_windup_sound() -> void:
@@ -785,6 +814,47 @@ func _test_tooltip_runtime_bonus() -> void:
 	_expect(description.find("스킬 복제") >= 0, "Dual Glitch tooltip should show the Lv5 clone replication bonus")
 	var cooldown: float = renderer._get_effective_skill_cooldown_seconds(skill_data, hover_context)
 	_expect(abs(cooldown - 32.0) < 0.01, "Dual Glitch tooltip cooldown should include Four Poisons reduction")
+
+
+func _make_dual_glitch_command_bundle() -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var deps := _deps(input, skill_config, FakeSkillState.new(), FakePerkState.new(), FakeOrbHud.new(), FakeFeedback.new(), FakeAudio.new())
+	return {
+		"runtime": runtime,
+		"input": input,
+		"skill_config": skill_config,
+		"deps": deps,
+		"constants": {
+			"dual_glitch": "dual_glitch",
+			"dual_glitch_window_msec": 1200,
+			"dual_glitch_max_key_gap_msec": 260,
+			"chaos_spear": "chaos_spear",
+			"chaos_cmd_buffer_max": 6,
+		},
+	}
+
+
+func _feed_dual_glitch_lateral_press(bundle: Dictionary, left_pressed: bool, right_pressed: bool, press_msec: int) -> void:
+	var runtime: Object = bundle["runtime"]
+	var input: Object = bundle["input"]
+	var skill_config: Object = bundle["skill_config"]
+	var deps: Dictionary = bundle["deps"]
+	var constants: Dictionary = bundle["constants"]
+	input.snapshot["left_pressed"] = left_pressed
+	input.snapshot["right_pressed"] = right_pressed
+	input.snapshot["up_pressed"] = false
+	input.snapshot["down_pressed"] = false
+	runtime.command_tracker.update_before_movement(runtime, input.snapshot, skill_config, deps, press_msec, constants)
+	input.snapshot["left_pressed"] = false
+	input.snapshot["right_pressed"] = false
+	runtime.command_tracker.update_before_movement(runtime, input.snapshot, skill_config, deps, press_msec + 1, constants)
+
+
+func _consume_dual_glitch_command_ready(bundle: Dictionary, now_msec: int) -> bool:
+	var runtime: Object = bundle["runtime"]
+	return runtime.command_tracker.consume_dual_glitch_command_ready(runtime, now_msec, 1200)
 
 
 func _activate_dual_glitch(

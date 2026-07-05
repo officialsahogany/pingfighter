@@ -40,8 +40,9 @@ class FakeDashState:
 
 
 class FakeSkillConfig:
+	var extra_equipped: Array = []
 	func is_skill_equipped(skill_name: String) -> bool:
-		return skill_name in ["core_flip", "marshal_kick", "dark_blade"]
+		return skill_name in ["core_flip", "marshal_kick", "dark_blade"] or skill_name in extra_equipped
 
 	func get_skill_cost(skill_name: String) -> float:
 		if skill_name == "core_flip":
@@ -215,6 +216,7 @@ func _init() -> void:
 	_test_core_flip_dynamic_ball_prep_retime()
 	_test_hwarang_followup_marshal_dynamic_prep_retime()
 	_test_core_flip_runtime()
+	_test_shadow_step_blocked_after_hwarang_chain()
 	print("viper_core_flip_port_smoke: ok")
 	quit(0)
 
@@ -411,6 +413,7 @@ func _test_core_flip_runtime() -> void:
 	var core_flip_particles: Array = final_snap.get("marshal_particles", []) as Array
 	_expect(core_flip_particles.size() >= 18, "Hwarang Kick hit should leave marshal-grade local impact particles")
 	_expect(int(final_snap.get("kick_skill_knockback_pending_pct", 0)) == 150, "kick_enhance Lv3+ should mark Hwarang's guarded knockback ball")
+	_expect(int(final_snap.get("kick_guard_speed_reduction_pending_pct", 0)) == 50, "Hwarang hit should arm the boss-guard ball speed reduction like Marshal Kick (original temporary 2.2x boost, restored on boss return)")
 	_expect(bool(final_snap.get("viper_knockback_overlay_active", false)), "guarded knockback ball should expose the Viper knockback overlay flag")
 	var guard_result: Dictionary = runtime.consume_kick_skill_knockback(
 		config["ball_pos"],
@@ -460,6 +463,41 @@ func _test_core_flip_runtime() -> void:
 	_expect(not bool(result.get("activated", false)), "Extra follow-up input should be ignored when Phantom Kick is unavailable")
 	_expect(skill_state.triggered.size() == trigger_count_before_extra_input, "Ignored Phantom input should not trigger another skill cooldown")
 	_expect(audio.backstep == backstep_before_extra_input, "Ignored Phantom input should not replay the wall-climb cue")
+
+
+func _test_shadow_step_blocked_after_hwarang_chain() -> void:
+	# Parity regression: after Hwarang(core_flip) -> Marshal Kick lands, a fresh S press must NOT
+	# open Shadow Backstep. The frozen original gates shadow_step on an ACTIVE dash (_viper_in_dash)
+	# plus _viper_shadow_step_chain_locked, and Hwarang ENDS the dash (rolling_active=False,
+	# pingfighter.py:105368). The Godot port leaked the shadow_step dash ticket (dash_origin_valid /
+	# dash_grace_frames) because core_flip activation never consumed it, so S after the chain wrongly
+	# opened Shadow Backstep. Reverse-verified to FAIL when core_flip does not consume the dash ticket.
+	var setup: Dictionary = _start_hwarang_followup_marshal_case()
+	var runtime: Object = setup["runtime"]
+	var deps: Dictionary = setup["deps"]
+	var config: Dictionary = setup["config"]
+	# Real Viper equips Shadow Backstep (a base skill) alongside Hwarang; the shared fixture omits it.
+	deps["skill_config"].extra_equipped = ["shadow_step"]
+	var input: Object = deps["input_reader"]
+	# Advance until the Marshal Kick fully lands (chain complete, back on the ground).
+	for _i in range(220):
+		_advance_core_flip_frames(setup, 1)
+		if not bool(runtime.get_snapshot().get("marshal_active", false)):
+			break
+	_expect(not bool(runtime.get_snapshot().get("marshal_active", false)), "Marshal Kick should land before the post-chain S test")
+	_expect(not bool(runtime.get_snapshot().get("core_flip_attack_active", false)), "Hwarang should be done before the post-chain S test")
+	var player_pos: Vector2 = _get_vector2(setup, "player_pos", Vector2.ZERO)
+	# Fresh S edge after landing.
+	input.snapshot["down_pressed"] = false
+	input.snapshot["left_pressed"] = false
+	input.snapshot["right_pressed"] = false
+	input.snapshot["action_pressed"] = false
+	runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 200.0, config, deps)  # settle the S release edge
+	var hologram_before: bool = bool(runtime.get_snapshot().get("shadow_hologram_active", false))
+	input.snapshot["down_pressed"] = true
+	var s_result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 200.0, config, deps)
+	_expect(str(s_result.get("skill_name", "")) != "shadow_step", "S after the Hwarang->Marshal chain must NOT fire Shadow Backstep (dash already spent on Hwarang)")
+	_expect(bool(runtime.get_snapshot().get("shadow_hologram_active", false)) == hologram_before, "post-chain S must not newly open the Shadow Backstep hologram")
 
 
 func _start_core_flip_prep_case(config_overrides: Dictionary = {}) -> Dictionary:

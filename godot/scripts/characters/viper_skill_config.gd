@@ -8,7 +8,7 @@ const SKILL_COSTS := {
 	"shadow_step": 100.0,
 	"blade_rush": 200.0,
 	"nerve_strike": 90.0,
-	"dive_strike": 150.0,
+	"dive_strike": 250.0,
 	"marshal_kick": 80.0,
 	"phantom_kick": 60.0,
 	"dark_blade": 150.0,
@@ -80,7 +80,7 @@ const SKILL_DATA := {
 	"dive_strike": {
 		"name": "dive_strike",
 		"korean": "EMP 스트라이크",
-		"cost": 150.0,
+		"cost": 250.0,
 		"color": Color(1.0, 120.0 / 255.0, 50.0 / 255.0),
 		"cooldown": 70.0,
 		"description": "강한 충격으로 원형 EMP 펄스를 끝까지 퍼트려 공을 튕기고 상대를 감전 둔화시킵니다.\n원형 파동의 테두리가 보스에게 닿으면 보스를 슬립 상태로 만듭니다.\n체공 높이에 비례해 펄스 강도가 증가합니다.",

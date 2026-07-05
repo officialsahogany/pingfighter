@@ -36,6 +36,14 @@ static func try_ready_activation(runtime: Object, input_snapshot: Dictionary, pl
 	runtime.core_flip_consumed = true
 	runtime.core_flip_ready_msec = 0
 	runtime.core_flip_buffered_until_msec = 0
+	# Committing the dash to Hwarang Kick spends the Shadow Backstep dash ticket too, mirroring
+	# shadow_step's own activation (viper_skill_shadow_step_runtime.gd:26-27) and the original
+	# ending the dash on core_flip (pingfighter.py:105368 `rolling_active = False`). Without this
+	# the dash_origin_valid grace window survived the Hwarang -> Marshal(-> Phantom) chain, so a
+	# post-landing S wrongly opened Shadow Backstep (which the original blocks via _viper_in_dash
+	# + _viper_shadow_step_chain_locked).
+	runtime.dash_origin_valid = false
+	runtime.dash_grace_frames = 0.0
 	runtime.core_flip_attack_active = true
 	runtime.core_flip_attack_phase = 0
 	runtime.core_flip_phase_frames = 0.0
@@ -177,6 +185,11 @@ static func _apply_kick_hit(runtime: Object, result: Dictionary, kick_center: Ve
 		runtime._spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
 	runtime._destroy_marshal_impact_objects(ball_pos, deps)
 	runtime._mark_kick_skill_knockback_pending(deps)
+	# 화랑 킥의 2.2x 발사 부스트는 원본(_viper_speed_boost)에서 임시였다 — 보스가
+	# 받아치면 원래 속도로 복귀한다. Godot 포트는 이 복원을 마샬 킥과 동일한
+	# kick_guard_speed_reduction 경로로 처리하므로, core_flip 히트도 마샬처럼 arm해
+	# 부스트가 영구로 남지 않게 한다 (parity: pingfighter.py:105602-105603).
+	runtime._mark_kick_guard_speed_reduction_pending()
 	_apply_core_flip_mythic_hit(runtime, deps)
 	var core_flip_hit_result: Dictionary = {"ball_vel": next_vel, "ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))), "player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0)))}
 	core_flip_hit_result.merge(runtime.runtime_action_router.award_skill_gold(deps, int(constants.get("hit_gold", 30)), config), true)

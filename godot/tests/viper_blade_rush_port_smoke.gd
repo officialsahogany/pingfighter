@@ -11,6 +11,7 @@ const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geomet
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
+const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 
 
 class FakeInput:
@@ -113,6 +114,10 @@ class FakeFeedback:
 class FakeJetpack:
 	var airborne := true
 	var force_lands := 0
+	# Mirrors viper_jetpack_state: the collision context Y is floor_y+offset_y. During blade
+	# motion the real jetpack is not ticked, so these hold the FROZEN values from blade start.
+	var stale_floor_y := 680.0
+	var stale_offset_y := 0.0
 
 	func is_airborne(_threshold: float = 10.0) -> bool:
 		return airborne
@@ -120,6 +125,17 @@ class FakeJetpack:
 	func force_land(_deps: Dictionary = {}) -> void:
 		airborne = false
 		force_lands += 1
+
+	func get_ball_collision_context(player_pos: Vector2 = Vector2.ZERO, _paddle_size: Vector2 = Vector2.ZERO) -> Dictionary:
+		var collision_pos: Vector2 = player_pos
+		if player_pos != Vector2.ZERO:
+			collision_pos = Vector2(player_pos.x, stale_floor_y + stale_offset_y)
+		return {
+			"player_pos": collision_pos,
+			"player_y": collision_pos.y,
+			"viper_jetpack_offset_y": stale_offset_y,
+			"viper_jetpack_floor_y": stale_floor_y,
+		}
 
 
 class FakePerkState:
@@ -169,6 +185,7 @@ func _init() -> void:
 	_test_air_blade_activation_hit_and_dark_combo()
 	_test_blade_prep_movement_fall_and_launch_jump()
 	_test_dark_blade_rising_body_contact_accepts_upward_ball()
+	_test_air_blade_descent_hit_point_follows_character()
 	_test_blade_prep_actor_spin_context()
 	_test_blade_amp_cost_homing_and_followup()
 	_test_air_blade_dash_after_launch_delay()
@@ -472,6 +489,78 @@ func _test_dark_blade_rising_body_contact_accepts_upward_ball() -> void:
 	collision_context["player_pos"] = player_pos
 	collision_context.merge(runtime.get_ball_collision_context(), true)
 	_expect(not bool(collision_context.get("viper_dark_blade_rising_contact_active", false)), "dark blade body-contact extension should close after the upward pop")
+
+
+func _test_air_blade_descent_hit_point_follows_character() -> void:
+	# Regression: air blade (blade_rush, NOT dark mode) entered from the air leaves the jetpack
+	# offset_y FROZEN high (the jetpack is not ticked during blade motion). The ball-collision
+	# frame context merges the stale jetpack Y FIRST, then the viper-skill context. Before the fix
+	# the skill context did NOT re-anchor player_pos for air blade, so the paddle hit-point stayed
+	# frozen above the descending character during the phase-2 come-down — the reported bug.
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var jetpack := FakeJetpack.new()
+	var perk_state := FakePerkState.new()
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, jetpack, perk_state)
+	var config := _base_config()
+	var floor_y: float = _get_blade_floor_y(config)
+	# Simulate "entered air blade from the air": the jetpack froze at a high (negative) offset.
+	jetpack.stale_floor_y = floor_y
+	jetpack.stale_offset_y = -150.0
+
+	var player_pos := Vector2(302.5, 560.0)
+	input.snapshot["up_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	_expect(bool(result.get("activated", false)), "air blade should activate for the descent hit-point regression")
+	player_pos = _get_vector2(result, "player_pos", player_pos)
+	input.snapshot["up_pressed"] = false
+
+	# Advance into phase 2 well past the jump-up frames so the character is descending.
+	var descent_reached := false
+	for _i in range(120):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 300.0)), config, deps)
+		player_pos = _get_vector2(result, "player_pos", player_pos)
+		var snap: Dictionary = runtime.get_snapshot()
+		if int(snap.get("blade_motion_phase", -1)) == 2 and float(snap.get("blade_motion_frames", 0.0)) > 30.0:
+			descent_reached = true
+			break
+	_expect(descent_reached, "air blade should reach the phase-2 descent window")
+	var phase_snap: Dictionary = runtime.get_snapshot()
+	_expect(not bool(phase_snap.get("blade_dark_mode", true)), "scenario must run as AIR blade, not dark blade")
+
+	var arc_y: float = player_pos.y  # live drawn position (== blade_motion_pos.y)
+	var stale_y: float = floor_y + jetpack.stale_offset_y
+
+	# Replicate ball_update_controller._build_frame_context merge order exactly:
+	# canonical owner pos -> jetpack collision context (stale) -> viper skill collision context.
+	var frame_context: Dictionary = config.duplicate(true)
+	frame_context["player_pos"] = player_pos
+	frame_context["player_y"] = player_pos.y
+	frame_context.merge(jetpack.get_ball_collision_context(player_pos, Vector2(155.0, 50.0)), true)
+	var stomped_y: float = _get_vector2(frame_context, "player_pos", Vector2.ZERO).y
+	_expect(abs(stomped_y - stale_y) < 1.0, "sanity: the stale jetpack must stomp the collision Y to its frozen airborne height")
+	_expect(abs(stale_y - arc_y) > 40.0, "sanity: the stale jetpack Y must differ clearly from the live descending arc Y")
+
+	frame_context.merge(runtime.get_ball_collision_context(), true)
+	var final_y: float = _get_vector2(frame_context, "player_pos", Vector2.ZERO).y
+	_expect(abs(final_y - arc_y) < 1.0, "air blade collision hit-point Y must follow the descending character, not the stale jetpack offset")
+	_expect(not bool(frame_context.get("viper_dark_blade_rising_contact_active", false)), "air blade must not enable the dark-blade upward-contact path")
+
+	# OUTCOME seal: a descending ball over the LIVE character band registers a player paddle hit.
+	# Pre-fix the paddle rect sat ~76px above (stale Y) so this ball would miss entirely.
+	var detector := BallMotionCollisionDetector.new()
+	var ball_at_live := Vector2(player_pos.x + 77.5, arc_y + 25.0)
+	var hit_live: Dictionary = detector.check_paddles(ball_at_live, Vector2(0.0, 12.0), 28.6, frame_context)
+	_expect(str(hit_live.get("event", "")) == "player_paddle", "descending ball at the live character band must register a player paddle hit")
+	# And the same descending ball at the STALE band must NOT hit the (now re-anchored) paddle.
+	var ball_at_stale := Vector2(player_pos.x + 77.5, stale_y + 25.0)
+	var hit_stale: Dictionary = detector.check_paddles(ball_at_stale, Vector2(0.0, 12.0), 28.6, frame_context)
+	_expect(str(hit_stale.get("event", "")) != "player_paddle", "ball at the old stale jetpack band must no longer find the paddle")
 
 
 func _test_blade_prep_actor_spin_context() -> void:

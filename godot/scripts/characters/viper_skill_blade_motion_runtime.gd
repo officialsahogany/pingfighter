@@ -15,23 +15,17 @@ static func try_phase2_followup_activation(runtime: Object, up_edge: bool, playe
 		var air_blade_has_dark: bool = runtime.visibility_query.is_skill_equipped(air_blade_combo_skill_config, dark_blade)
 		var air_blade_input_blocked: bool = runtime.visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))
 		var air_blade_window_start: float = float(constants.get("nerve_window_start_frames", 66.0))
-		var air_blade_split_frame: float = float(constants.get("nerve_dark_blade_split_frames", 84.0))
 		var air_blade_window_end: float = float(constants.get("nerve_window_end_frames", 102.0))
 		var air_blade_total_frames: float = runtime.blade_motion_total_frames
 		if air_blade_has_nerve and air_blade_has_dark:
-			# Flipped follow-up split (user design 2026-06-21): a single W after Air Blade is
-			# Dark Blade in the EARLY window [start, split) and Venom Edge in the LATE window
-			# [split, end]. Each window is owned by exactly one skill — if the owner cannot
-			# fire, W is consumed with no fall-through to the other skill in that window
-			# (mirrors the original window-ownership semantic; only the owners are swapped).
-			if air_blade_total_frames >= air_blade_window_start and air_blade_total_frames < air_blade_split_frame:
+			# Sequential chain (2026-06-26): Air Blade -> Dark Blade -> Venom Edge.
+			# When both follow-ups are equipped, Air Blade's whole follow-up window is owned
+			# by Dark Blade; Venom Edge is reached only from the dark-mode branch below.
+			if air_blade_total_frames >= air_blade_window_start and air_blade_total_frames < air_blade_window_end:
 				if not air_blade_input_blocked and special_gauge >= runtime._get_blade_skill_cost(air_blade_combo_skill_config, deps, dark_blade) and runtime.visibility_query.is_configured_skill_ready(dark_blade, deps, -1):
 					runtime._clear_blade_projectile()
 					return runtime._start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
 				return {}
-			if not runtime.nerve_strike_combo_used and not runtime.nerve_strike_active and air_blade_total_frames >= air_blade_split_frame and air_blade_total_frames <= air_blade_window_end and _can_start_nerve_combo(runtime, air_blade_combo_skill_config, special_gauge, config, deps, now_msec, constants):
-				runtime._clear_blade_projectile()
-				return runtime._start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
 			return {}
 		# Single follow-up equipped: the one equipped skill may fire across the whole
 		# [start, end] window (Venom Edge via its frame window, Dark Blade via the air combo
@@ -44,9 +38,15 @@ static func try_phase2_followup_activation(runtime: Object, up_edge: bool, playe
 			return runtime._start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
 	elif runtime.blade_dark_combo_window and not (runtime.visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))):
 		var dark_blade_combo_skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
+		if runtime.visibility_query.is_skill_equipped(dark_blade_combo_skill_config, nerve_strike):
+			if not runtime.nerve_strike_active and _can_start_nerve_combo(runtime, dark_blade_combo_skill_config, special_gauge, config, deps, now_msec, constants):
+				runtime._clear_blade_projectile()
+				return runtime._start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
+			return {}
 		if runtime.visibility_query.is_skill_equipped(dark_blade_combo_skill_config, blade_rush) and special_gauge >= runtime._get_blade_skill_cost(dark_blade_combo_skill_config, deps, blade_rush):
 			runtime._clear_blade_projectile()
 			return runtime._start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
+		return {}
 	return {}
 
 

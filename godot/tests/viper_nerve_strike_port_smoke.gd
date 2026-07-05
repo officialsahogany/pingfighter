@@ -151,7 +151,7 @@ func _init() -> void:
 	_test_activation_hit_freeze_confusion_and_mist()
 	_test_hit_return_stores_ball_hit_until_landing()
 	_test_miss_returns_without_slash_sound_or_vfx()
-	_test_dark_blade_split_window()
+	_test_sequential_dark_blade_venom_chain()
 	_test_edge_boss_arrival_ignores_player_clamp()
 	_test_dual_glitch_clone_venom_slashes()
 	_test_tooltip_four_poisons_bonus()
@@ -325,41 +325,94 @@ func _test_edge_boss_arrival_ignores_player_clamp() -> void:
 	_expect(arrived_pos.x < 0.0, "edge boss Venom Edge should allow Viper top-left to leave the playfield so her center reaches the boss")
 
 
-func _test_dark_blade_split_window() -> void:
-	# Flipped follow-up split (user design 2026-06-21): with both Venom Edge AND Dark Blade
-	# equipped, a single W after Air Blade resolves to Dark Blade in the EARLY window
-	# [66,84) and to Venom Edge in the LATE window [84,102]. (Previously the owners were
-	# reversed; the early-W default was Venom Edge, which made Dark Blade feel unreachable.)
+func _test_sequential_dark_blade_venom_chain() -> void:
+	_assert_air_blade_followup_is_dark(70.0, "early W after Air Blade should enter Dark Blade")
+	var air_setup: Dictionary = _assert_air_blade_followup_is_dark(90.0, "late W after Air Blade should still enter Dark Blade")
+	_assert_dark_blade_followup_is_venom(air_setup, "Air Blade -> Dark Blade -> W should enter Venom Edge", true)
+	var marshal_setup: Dictionary = _prime_marshal_dark_blade_handoff()
+	_assert_dark_blade_followup_is_venom(marshal_setup, "Marshal Kick -> Dark Blade -> W should enter Venom Edge", true)
+	_assert_dark_blade_without_venom_loops_to_air_blade()
+
+
+func _assert_air_blade_followup_is_dark(total_frames: float, message: String) -> Dictionary:
 	var bundle: Dictionary = _make_bundle(0)
 	var runtime: Object = bundle["runtime"]
 	var input = bundle["input"]
 	var skill_config = bundle["skill_config"]
 	skill_config.equipped = ["blade_rush", "nerve_strike", "dark_blade"]
 	var config: Dictionary = _base_config()
-	_prime_air_blade_combo(runtime, 60.0)
+	var player_pos := Vector2(302.5, 610.0)
+	var gauge := 500.0
+	_prime_air_blade_combo(runtime, total_frames)
 	input.snapshot["up_pressed"] = true
-	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, Vector2(302.5, 610.0), 500.0, config, bundle["deps"])
-	_expect(not bool(result.get("activated", false)), "both unlocked: before W+1.1s should not activate Venom Edge or Dark Blade")
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+	_expect(bool(result.get("activated", false)), message)
+	_expect(str(result.get("skill_name", "")) == "dark_blade", message)
+	_expect(not bool(runtime.get_snapshot().get("nerve_strike_active", false)), "Air Blade follow-up should not bypass Dark Blade into Venom Edge when both are equipped")
+	return {
+		"bundle": bundle,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
 
-	bundle = _make_bundle(0)
-	runtime = bundle["runtime"]
-	input = bundle["input"]
-	skill_config = bundle["skill_config"]
-	skill_config.equipped = ["blade_rush", "nerve_strike", "dark_blade"]
-	_prime_air_blade_combo(runtime, 70.0)
-	input.snapshot["up_pressed"] = true
-	result = runtime.try_activate_before_movement(1.0 / 60.0, Vector2(302.5, 610.0), 500.0, config, bundle["deps"])
-	_expect(str(result.get("skill_name", "")) == "dark_blade", "both unlocked: early W (W+1.1s-W+1.4s) should fire Dark Blade after the 2026-06-21 flip")
 
-	bundle = _make_bundle(0)
-	runtime = bundle["runtime"]
-	input = bundle["input"]
-	skill_config = bundle["skill_config"]
-	skill_config.equipped = ["blade_rush", "nerve_strike", "dark_blade"]
-	_prime_air_blade_combo(runtime, 90.0)
+func _assert_dark_blade_followup_is_venom(setup: Dictionary, message: String, stale_combo_used: bool) -> void:
+	var bundle: Dictionary = setup["bundle"]
+	var runtime: Object = bundle["runtime"]
+	var input = bundle["input"]
+	var config: Dictionary = setup["config"]
+	var player_pos: Vector2 = _get_vector2(setup, "player_pos", Vector2(302.5, 610.0))
+	var gauge: float = float(setup.get("gauge", 350.0))
+	_prime_dark_blade_combo(runtime, 90.0)
+	runtime.nerve_strike_combo_used = stale_combo_used
+	runtime.previous_up_pressed = false
 	input.snapshot["up_pressed"] = true
-	result = runtime.try_activate_before_movement(1.0 / 60.0, Vector2(302.5, 610.0), 500.0, config, bundle["deps"])
-	_expect(str(result.get("skill_name", "")) == "nerve_strike", "both unlocked: late W (W+1.4s-W+1.7s) should fire Venom Edge after the 2026-06-21 flip")
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+	_expect(bool(result.get("activated", false)), message)
+	_expect(str(result.get("skill_name", "")) == "nerve_strike", message)
+	_expect(bool(runtime.get_snapshot().get("nerve_strike_active", false)), "Dark Blade follow-up should arm Venom Edge runtime")
+
+
+func _prime_marshal_dark_blade_handoff() -> Dictionary:
+	var bundle: Dictionary = _make_bundle(0)
+	var runtime: Object = bundle["runtime"]
+	var input = bundle["input"]
+	var skill_config = bundle["skill_config"]
+	skill_config.equipped = ["blade_rush", "nerve_strike", "dark_blade", "marshal_kick"]
+	var config: Dictionary = _base_config()
+	var player_pos := Vector2(302.5, 610.0)
+	var gauge := 500.0
+	runtime.marshal_active = true
+	runtime.marshal_visual_pos = player_pos
+	runtime.dark_blade_window = true
+	runtime.dark_blade_window_frames = 60.0
+	input.snapshot["up_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, gauge, config, bundle["deps"])
+	_expect(bool(result.get("activated", false)), "Marshal Kick follow-up window should hand off into Dark Blade")
+	_expect(str(result.get("skill_name", "")) == "dark_blade", "Marshal Kick follow-up should activate dark_blade")
+	_expect(not bool(runtime.get_snapshot().get("marshal_active", true)), "Dark Blade handoff should consume Marshal runtime")
+	return {
+		"bundle": bundle,
+		"config": config,
+		"player_pos": _get_vector2(result, "player_pos", player_pos),
+		"gauge": float(result.get("special_gauge", gauge)),
+	}
+
+
+func _assert_dark_blade_without_venom_loops_to_air_blade() -> void:
+	var bundle: Dictionary = _make_bundle(0)
+	var runtime: Object = bundle["runtime"]
+	var input = bundle["input"]
+	var skill_config = bundle["skill_config"]
+	skill_config.equipped = ["blade_rush", "dark_blade"]
+	var config: Dictionary = _base_config()
+	var player_pos := Vector2(302.5, 610.0)
+	_prime_dark_blade_combo(runtime, 90.0)
+	input.snapshot["up_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, bundle["deps"])
+	_expect(bool(result.get("activated", false)), "Dark Blade follow-up should remain usable without Venom Edge equipped")
+	_expect(str(result.get("skill_name", "")) == "blade_rush", "Dark Blade without Venom Edge should keep the Air Blade loop")
 
 
 func _test_dual_glitch_clone_venom_slashes() -> void:
@@ -441,6 +494,17 @@ func _prime_air_blade_combo(runtime: Object, total_frames: float) -> void:
 	runtime.blade_motion_frames = max(0.0, total_frames - 36.0)
 	runtime.blade_air_combo_window = total_frames >= 66.0
 	runtime.blade_dark_mode = false
+	runtime.blade_paddle_size = Vector2(155.0, 50.0)
+
+
+func _prime_dark_blade_combo(runtime: Object, total_frames: float) -> void:
+	runtime.blade_motion_active = true
+	runtime.blade_motion_phase = 2
+	runtime.blade_motion_total_frames = total_frames
+	runtime.blade_motion_frames = max(0.0, total_frames - 36.0)
+	runtime.blade_air_combo_window = false
+	runtime.blade_dark_combo_window = true
+	runtime.blade_dark_mode = true
 	runtime.blade_paddle_size = Vector2(155.0, 50.0)
 
 

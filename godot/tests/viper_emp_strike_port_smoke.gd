@@ -10,6 +10,7 @@ const Stage2BossActorRenderer := preload("res://scripts/stages/stage2/stage2_bos
 const ViperEmpStrikeFxHost := preload("res://scripts/characters/viper_emp_strike_fx_host.gd")
 const ViperJetpackState := preload("res://scripts/characters/viper_jetpack_state.gd")
 const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime.gd")
+const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 
 
 class FakeInput:
@@ -30,7 +31,7 @@ class FakeSkillConfig:
 		return skill_name == "dive_strike"
 
 	func get_skill_cost(skill_name: String) -> float:
-		return 150.0 if skill_name == "dive_strike" else 0.0
+		return 250.0 if skill_name == "dive_strike" else 0.0
 
 	func get_cooldown_seconds(skill_name: String) -> float:
 		return 70.0 if skill_name == "dive_strike" else 0.0
@@ -126,6 +127,7 @@ class FakeStatusEffectState:
 
 func _init() -> void:
 	_test_four_poisons_catalog_text_sync()
+	_test_emp_gauge_cost_authoritative()
 	_test_emp_audio_asset_parity()
 	_test_emp_audio_does_not_fall_back_to_kicks()
 	_test_emp_fx_host_remaster_stack()
@@ -135,6 +137,16 @@ func _init() -> void:
 	_test_emp_startup_cancel_and_super_armor()
 	print("viper_emp_strike_port_smoke: ok")
 	quit(0)
+
+
+func _test_emp_gauge_cost_authoritative() -> void:
+	# Seals the EMP Strike (dive_strike) gauge consumption against the REAL config,
+	# covering both the live gameplay path (SKILL_COSTS) and the tooltip/HUD path
+	# (SKILL_DATA cost), which do NOT auto-sync. Reverse-verified: this fails at 150.
+	var skill_config := ViperSkillConfig.new()
+	_expect(abs(skill_config.get_skill_cost("dive_strike") - 250.0) < 0.01, "EMP Strike gauge cost should be 250")
+	_expect(abs(float(skill_config.get_skill_data("dive_strike").get("cost", 0.0)) - 250.0) < 0.01, "EMP Strike tooltip cost should be 250")
+	_expect(abs(ViperSkillRuntime.DIVE_GAUGE_COST - 250.0) < 0.01, "EMP runtime fallback gauge cost should match the authoritative 250")
 
 
 func _test_four_poisons_catalog_text_sync() -> void:
@@ -285,7 +297,7 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
 	_expect(bool(result.get("activated", false)), "EMP should activate after the down-hold requirement")
 	_expect(str(result.get("skill_name", "")) == "dive_strike", "EMP activation should report dive_strike")
-	_expect(abs(float(result.get("special_gauge", 0.0)) - 350.0) < 0.01, "EMP should spend 150 gauge")
+	_expect(abs(float(result.get("special_gauge", 0.0)) - 250.0) < 0.01, "EMP should spend 250 gauge")
 	_expect(str(skill_state.triggered) == "dive_strike", "EMP should trigger its own cooldown")
 	_expect(abs(skill_state.cooldown_seconds - 56.0) < 0.01, "Lv.5 four_poisons should reduce EMP cooldown by 20%")
 	_expect(audio.prep == 1 and orb.spins == 1, "EMP startup should play prep audio and spin the orb")
@@ -294,7 +306,7 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 
 	player_pos = _get_vector2(result, "player_pos", player_pos)
 	for _i in range(30):
-		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 250.0)), config, deps)
 		if result.has("player_pos"):
 			player_pos = _get_vector2(result, "player_pos", player_pos)
 	var snap: Dictionary = runtime.get_snapshot()
@@ -336,7 +348,7 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	var wave_guard := 0
 	while not bool(runtime.get_snapshot().get("dive_shockwave_boss_effect_applied", false)) and wave_guard < 60:
 		wave_guard += 1
-		runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+		runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 250.0)), config, deps)
 	var wave_snap: Dictionary = runtime.get_snapshot()
 	_expect(bool(wave_snap.get("dive_shockwave_boss_effect_applied", false)), "EMP runtime should remember that the circular shockwave applied its boss EMP effect")
 	_expect(status_state.applications.is_empty(), "EMP shockwave should not apply confusion in the original parity behavior")
@@ -379,7 +391,7 @@ func _test_emp_shockwave_reach_applies_slip_without_ball_hit() -> void:
 	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
 	player_pos = _get_vector2(result, "player_pos", player_pos)
 	for _i in range(30):
-		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 250.0)), config, deps)
 		if result.has("player_pos"):
 			player_pos = _get_vector2(result, "player_pos", player_pos)
 
@@ -387,7 +399,7 @@ func _test_emp_shockwave_reach_applies_slip_without_ball_hit() -> void:
 	var wave_guard := 0
 	while not bool(runtime.get_snapshot().get("dive_shockwave_boss_effect_applied", false)) and wave_guard < 60:
 		wave_guard += 1
-		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 250.0)), config, deps)
 	_expect(bool(runtime.get_snapshot().get("dive_shockwave_boss_effect_applied", false)), "EMP ring should apply the boss EMP effect even without a ball hit")
 	_expect(float(runtime.get_snapshot().get("dive_slip_timer", 0.0)) > 90.0, "EMP ring boss contact should start the original EMP slip with Four Poisons scaling")
 	_expect(status_state.applications.is_empty(), "EMP ring boss contact should not apply confusion")

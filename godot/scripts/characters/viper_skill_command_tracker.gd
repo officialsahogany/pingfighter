@@ -33,6 +33,7 @@ func update_before_movement(runtime: Object, input_snapshot: Dictionary, command
 func _update_dual_glitch_command(runtime: Object, command_skill_config: Object, deps: Dictionary, now_msec: int, left_edge: bool, right_edge: bool, up_edge: bool, constants: Dictionary) -> void:
 	var dual_glitch_name: String = str(constants.get("dual_glitch", "dual_glitch"))
 	var dual_window_msec: int = int(constants.get("dual_glitch_window_msec", 1200))
+	var dual_max_key_gap_msec: int = int(constants.get("dual_glitch_max_key_gap_msec", 260))
 	if up_edge:
 		runtime.dual_glitch_cmd_buffer.clear()
 	if not (runtime.dual_glitch_state == "idle" and runtime.visibility_query.is_skill_equipped(command_skill_config, dual_glitch_name) and runtime.visibility_query.is_configured_skill_ready(dual_glitch_name, deps, -1) and not runtime._is_core_flip_ready_window_active(now_msec)):
@@ -40,14 +41,19 @@ func _update_dual_glitch_command(runtime: Object, command_skill_config: Object, 
 		return
 	_expire_dual_glitch_buffer(runtime, now_msec, dual_window_msec)
 	var dual_glitch_key_sequence: Array[String] = []
-	if left_edge:
+	if left_edge and not right_edge:
 		dual_glitch_key_sequence.append("a")
-	if right_edge:
+	elif right_edge and not left_edge:
 		dual_glitch_key_sequence.append("d")
 	for dual_glitch_key_char: String in dual_glitch_key_sequence:
 		_expire_dual_glitch_buffer(runtime, now_msec, dual_window_msec)
 		var dual_glitch_progress: int = runtime.dual_glitch_cmd_buffer.size()
 		var dual_glitch_entry: Dictionary = {"key": dual_glitch_key_char, "time": now_msec}
+		if dual_glitch_progress > 0:
+			var dual_glitch_last_command: Dictionary = runtime.dual_glitch_cmd_buffer[dual_glitch_progress - 1]
+			if now_msec - int(dual_glitch_last_command.get("time", 0)) > dual_max_key_gap_msec:
+				runtime.dual_glitch_cmd_buffer = [dual_glitch_entry] if dual_glitch_key_char == "a" else []
+				continue
 		if dual_glitch_key_char == ("a" if dual_glitch_progress == 0 or dual_glitch_progress == 2 or dual_glitch_progress >= 4 else "d"):
 			if dual_glitch_progress == 0:
 				runtime.dual_glitch_cmd_buffer = [dual_glitch_entry]
