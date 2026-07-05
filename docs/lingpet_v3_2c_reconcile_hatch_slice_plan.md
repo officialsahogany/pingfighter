@@ -12,7 +12,7 @@
 5 설계 차원 + 16 트랩) + Claude 직접 코드 확정, 2026-06-14. 라인 번호는 배선 전 grep 재확인.
 
 > ⚠ **워크플로 환각 경고 (적대 검증으로 제거됨):** 워크플로 여러 에이전트가 존재하지
-> 않는 "Spec §0 D9"를 지어내며 *"second_active를 loadout에 쓰면 Lv.22 무가드 발동→
+> 않는 "Spec §0 D9"를 지어내며 *"second_active를 loadout에 쓰면 2nd unlock 전 무가드 발동→
 > softlock, 절대 안 씀"*이라 주장했다. 이는 **V3-2b 미완 전제의 환각**이다. V3-2b(i/ii/iii)는
 > 봉인 완료(충돌 중재 arm-edge 게이트 + would_share_module + draw visual-slot)라 second-slot
 > 점유가 **안전**하고, 그게 V3-2c의 목표다. `second_slot_reconcile` 에이전트만 정확히 반박했고
@@ -27,7 +27,7 @@
 | **Second 슬롯 점유** | **포함** | reconcile 4-key 확장 → second_active를 loadout에 write → slot-1 라이브. V3-2b 봉인으로 안전. 안 하면 2b 런타임이 dead code. |
 | **후보 풀 부족** | **단일 auto-resolve 임시 수용** | active 1개인 5펫(milkring/nekuring/lunabi/draft_bat/orbi) + 대부분 second 슬롯은 `resolve_single_unlock`(선택 없음). 2nd 스킬 authoring은 나중 슬라이스. |
 | **튜토리얼 마리보** | **hatch-zero + Lv.1 headstart starter** | 마리보도 hatch-zero. starter는 affinity Lv.1 headstart unlock으로(단일 경로). build_default 특수케이스 금지. |
-| **Player picker UI** | **V3-2c-UI 후속 분리** | V3-2c = reconcile 4-key + hatch-zero + **auto-resolve 백본**. 진짜 비모달 2-of-1 picker(레벨업 pending + rail/TAB + failsafe)는 별도 V3-2c-UI. |
+| **Player picker UI** | **구현 대상 아님(2026-06-30 superseded)** | V3-2c = reconcile 4-key + hatch-zero + **auto-resolve/run-state 백본**. 과거 비모달 2-of-1 picker 후속안은 `docs/lingpet_v3_2c_ui_picker_slice_plan.md`에 보존 기록만 남김. |
 
 ---
 
@@ -63,7 +63,7 @@
    `resolve_single_unlock`, ≥2개면 `set_unlock_choice_candidates` (기존 `_seed_unlock_candidates_for_type` 재사용).
 2. **AUTO-RESOLVE** — `_auto_resolve_primary_unlock_choices` 루프 `["active","passive","second_active","second_passive"]`.
    **primary를 먼저 resolve**(순서 의존 — second 후보 필터가 resolved primary id를 읽음).
-   auto-pick은 candidates[0] 유지(V3-2c 임시; `_skip_unlock_reconcile` QA 오버라이드 유효; 진짜 picker=V3-2c-UI).
+   auto-pick은 candidates[0] 유지(현행 per-run 계약; `_skip_unlock_reconcile` QA 오버라이드 유효; 과거 V3-2c-UI picker안은 superseded).
 3. **READ** — `second_active_id := _get_resolved_unlock_id(resolved, "second_active")` + passive 형제.
 4. **SUPPRESS (write-time would_share_module)** —
    `write_second_active := second_active_id if (active_id != "" and second_active_id != "" and not would_share_module(active_id, second_active_id)) else ""`.
@@ -115,7 +115,7 @@
 ### HIGH
 1. **second choice never resolved → pending 영구 차단** *(trap #951)*. reconcile가 second를
    seed/resolve 안 하면 pending 엔트리가 같은 key의 future unlock을 영영 막음. **Guard**: 4-key
-   auto-resolve. **Smoke**: Lv.22 도달 후 second_active pending이 resolve되고 loadout slot-1에 반영.
+   auto-resolve. **Smoke**: second_active_unlocked 플래그가 true가 된 뒤 pending이 resolve되고 loadout slot-1에 반영.
 2. **빈 primary write → fill_missing default 재주입** *(trap #870/#915)*. set_pet_loadout이
    active_id="" + slot_count≥1 받으면 `_normalize_loadout` fill_missing이 default 재주입.
    `_slot_count_for_pair('','')==0`가 load-bearing 가드. **Guard**: 빈 primary write 시 slot_count 0.
@@ -133,17 +133,19 @@
 6. **placeholder candidate 잔존** *(trap #987)*. seeding 순서 역전 시 placeholder가 살아남아
    존재하지 않는 스킬 lock. **Guard**: primary 먼저 seed/resolve 순서 고정. **Smoke**: 순서 의존성 단언.
 
-### LOW / latent (V3-2c-UI·V3-3 전제, 지금 auto-resolve라 미발동)
+### LOW / latent (과거 V3-2c-UI 전제는 superseded, V3-3 persistence 전제만 유효)
 7. **player pick persist 안 됨** *(trap #1005)*. resolved choice가 in-memory만(affinity_store는
-   best_level+bond만). auto-resolve는 매 부팅 candidates[0] 재유도라 무관하나, **진짜 picker가
-   non-default pick 시 reload에서 candidates[0]로 divergent**. ⇒ V3-2c-UI 전에 V3-3 persistence 필요.
+   best_level+bond만). auto-resolve/run-state는 매 부팅 candidates[0] 재유도라 무관. 과거 player
+   picker를 재개해 non-default pick을 허용할 때만 reload에서 candidates[0] divergence가 유효하므로
+   V3-3 persistence를 선행.
 8. **second_active_unlocked가 ring-core cap downgrade 후 survive** *(trap #1014)*. reward_counts
    append-only, never cleared. cap 하향 기능 생기면 slot-1이 cap 아래에서도 라이브. 지금 downgrade trigger 없음(latent).
-9. **auto-resolve가 picker와 double-resolve** *(trap #969)*. auto-resolve가 매 reconcile
-   unconditional → picker modal 열린 동안 가로챔. **V3-2c-UI 슬라이스가 auto를 failsafe로 게이트**(modal 후/N pass).
+9. **auto-resolve가 picker와 double-resolve** *(trap #969, 과거 picker안 전용)*. auto-resolve가 매
+   reconcile unconditional → picker modal 열린 동안 가로챔. 현행 picker 없음. picker를 명시 재개하면
+   auto를 failsafe로 게이트(modal 후/N pass).
 10. **catalog에서 제거된 resolved id** *(trap #1023)*. 세션 간 카탈로그 변경 시 resolved id가 ""로
     drop, 슬롯 빈 채. 개발 중 흔함. **Smoke**: 존재하지 않는 resolved id graceful drop.
-11. **FakeOwner plain dict가 owner schema 트랩 가림** *(trap #933)*. picker가 chosen skill을
+11. **FakeOwner plain dict가 owner schema 트랩 가림** *(trap #933)*. picker를 재개해 chosen skill을
     owner sync 시작하면 schema-gated owner 필요. 지금 hatch-zero 빈 상태는 무관(latent, picker 시).
 
 ---
@@ -157,7 +159,7 @@
 `_get_second_active_unlock_candidate_ids`(first-pool − primary) · read second ids · 
 write-time `would_share_module` 억제 · `_loadout_matches_unlock_reconcile` 매칭 교체 · 
 set_pet_loadout second ids.
-→ **봉인 목표**: Lv.22 도달 → second_active resolve → loadout slot-1 write → `_is_second_active_slot_enabled`
+→ **봉인 목표**: second_active_unlocked true → second_active resolve → loadout slot-1 write → `_is_second_active_slot_enabled`
 true → slot-1 발동. same-kind면 억제(slot-1 비활성). reconcile 수렴(thrash 없음). (트랩 1,3,4,5,6)
 
 **봉인 상태 (적대 리뷰 직접 확인 합격):** reconcile 4-key 구조 정확 — primary 먼저 resolve
@@ -165,7 +167,7 @@ true → slot-1 발동. same-kind면 억제(slot-1 비활성). reconcile 수렴(
 distinct salt 17/31/43) → would_share_module 억제(1663-1665, same-kind 다른 id→"") →
 `_loadout_matches` line 1634 hard-gate 제거 + expected-size/정확일치 매칭(thrash 방지) →
 set_pet_loadout second ids. single-active 5펫은 second pool 빈→slot-1 빈. **반증검증 smoke**:
-`_verify_second_unlock_flags_fill_slot_one`이 red_dragon Lv.25→`_get_active_slot_count()==2`·
+`_verify_second_unlock_flags_fill_slot_one`이 explicit second unlock flags fixture→`_get_active_slot_count()==2`·
 `_get_skill_id_for_slot(1)==second_active_id`(slot-1 실제 발동)·second≠primary, same-kind suppress
 (second=""), second-passive write, settled reconcile false(thrash 없음).
 **부수 재판단 — reconcile-skip을 2b-iii one-shot → sticky로 되돌림(의도 확정):** line 462
@@ -193,17 +195,19 @@ egg spawn→충돌→hatch)로 0슬롯 검증(debug_grant 우회 아님, 워크�
 ---
 
 ## ✅ V3-2c 전체 종료 (2026-06-14): 2c-1(reconcile 4-key 점유) + 2c-2(hatch-zero). slot-1이
-실제로 점유·발동하고, 부화는 스킬 0에서 unlock reconcile로 채워짐. 다음 후속 = V3-2c-UI(player
-2-of-1 picker) / V3-2d(TAB slot-1 행 draw) / V3-3(링코어 영구 스토어+광장 골드샵) 중 택.
+실제로 점유·발동하고, 부화는 스킬 0에서 unlock reconcile로 채워짐. V3-2d(TAB slot-1 행 draw)는
+완료. V3-2c-UI(player 2-of-1 picker)는 2026-06-30 per-run 개정으로 폐기된 보존 문서이며,
+현재 남은 축은 V3-3(링코어 영구 스토어+광장 골드샵)이다.
 
 ---
 
 ## 6. 미해결 (배선 중 확인, blocker 아님)
-- **would_share_module 억제 시 UX**: same-kind second 억제는 **silent**(V3-2c 단순, 권장). 진짜
-  picker(V3-2c-UI)에서 candidate 생성이 kind-exclude하면 would_share_module은 순수 defense-in-depth.
+- **would_share_module 억제 시 UX**: same-kind second 억제는 **silent**(V3-2c 단순, 권장). picker를
+  별도로 재개해 candidate 생성이 kind-exclude하면 would_share_module은 순수 defense-in-depth.
   지금은 single-active-kind 펫/migrated loadout에서만 도달.
 - **second_passive first-slot 제외** = yes (중복 passive 무의미, module 위험 없음).
-- **run-boundary persistence**(trap #1005·#7)는 진짜 picker 전(V3-3) 처리. V3-2c auto-resolve는 무관.
+- **run-boundary persistence**(trap #1005·#7)는 picker를 재개할 때 V3-3 선행 처리. 현행 V3-2c
+  auto-resolve/run-state는 무관.
 
 ## 7. 단일 소스 / 링크
 - 친밀도 v3: `docs/lingpet_affinity_system_plan.md` §13-9 (V3-2 sub-slice).

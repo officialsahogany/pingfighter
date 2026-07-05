@@ -27,6 +27,7 @@
 | 둔화 시간 | Lv1~5 = `[1.5, 2.0, 2.5, 3.0, 3.5]`초 | 사용자 스펙 |
 | 둔화 강도 | `0.4` 배수 (60% 감속), 레벨 무관 고정 | 스파이더지뢰 `SPIDER_MINE_SLOW_FACTOR`와 동일. **V3-6 튜닝 대상** |
 | 쿨타임 | Lv1~5 = `[40, 35, 30, 30, 30]`초 | Lv1 40·Lv3 30 사용자 스펙. Lv4-5는 30 유지(잠정, V3-6 튜닝 가능) |
+| 레벨별 CC 강화 | Lv1~2: bind 중 보스 대시 시 조기 해제 / Lv3~4: bind 중 보스 대시 시작 불가 / Lv5: 대시 불가 + 보스 스킬 쿨타임 정지 | 사용자 확정 2026-06-23. 기존 보스 AI dash gate와 `active_item_boss_skill_cooldown_paused` 경로 재사용 |
 | 발동 조건 | 랠리 중(`ball_active`) + 컴패니언 가시 + 쿨타임 종료 | 보스 CC 스킬 — **공 하강 게이트 없음**(솔라볼트와 다름, 우유발사 계열) |
 | 등반 벽 | 발동 시점 보스 x에 **가까운 벽** | 짧은 lunge로 CC 명중률↑. 하강은 반대편 벽(스펙) |
 
@@ -98,29 +99,36 @@ func get_snapshot() -> Dictionary       # HUD 표시 전용(read-only). 권위 �
 > 단위 불변식: **모든 속도는 px/frame** (ball_vel 단위). px/sec 아님. 변위 = `speed * delta * 60`.
 > 참조: [[godot-ball-vel-pxframe-units]].
 
-### 2.3 owner 스키마 추가 (둔화 전달 경로) — **필수**
+### 2.3 owner 스키마 추가 (둔화 / 대시 차단 / 쿨타임 정지 전달 경로) — **필수**
 
 보스 둔화는 코드베이스 표준인 **context-flag 둔화 경로**(스파이더지뢰/plasma/venom_mist와 동일)를 탄다.
 `status_effect_state`(우유발사 STUN 경로)가 아니라 `boss_ai_state._get_active_item_slow_multiplier()`가
 읽는 컨텍스트 플래그다.
 
-`godot/scripts/core/battle_scene_state.gd` `DEFAULT_VALUES`에 **2 키 선언**:
+`godot/scripts/core/battle_scene_state.gd` `DEFAULT_VALUES`에 **4 키 선언**:
 
 ```
 "lingpet_star_coil_boss_slow_active": false,    # bool
 "lingpet_star_coil_boss_slow_multiplier": 1.0,  # float (활성 시 0.4 기록)
+"lingpet_star_coil_block_boss_dash": false,     # bool (Lv3+ bind 중 true)
+"lingpet_star_coil_freeze_boss_skill_cd": false,# bool (Lv5 bind 중 true)
 ```
 
 > [[Owner-Field Schema Trap]] — DEFAULT_VALUES에 없는 키는 `owner.set()`이 **조용히 no-op**.
-> 이 둘은 보스 AI가 소비할 뿐 캐릭터-인포 패널 스탯이 아니므로 `ringpet_` 페어는 불필요(단일 키).
+> 이 키들은 보스 AI / effects 컨텍스트가 소비할 뿐 캐릭터-인포 패널 스탯이 아니므로 `ringpet_` 페어는 불필요(단일 키).
 
 흐름:
-1. 스킬이 **bind 중 매 프레임** `owner.set("lingpet_star_coil_boss_slow_active", bind_timer > 0)` +
-   `owner.set("lingpet_star_coil_boss_slow_multiplier", SLOW_MULTIPLIER)`.
+1. 스킬이 **bind 중 매 프레임** slow 2키 + 레벨별 CC 키를 live 기록한다.
    **set-once 엣지 금지** — 매 프레임 라이브 상태로 기록(자가치유, §6 트랩 참조).
-2. `godot/scripts/core/battle_update_boss_ai_context_builder.gd`: owner에서 두 키를 읽어
+2. Lv1~2: bind 중 `boss_ai_state.boss_dash_active`가 true가 되면 기존 release 경로로 조기 해제
+   (`slow=false`, dash block=false, cooldown freeze=false, 반대편 하강).
+3. Lv3~4: `lingpet_star_coil_block_boss_dash=true`를 boss_ai 컨텍스트로 전달하고
+   `boss_ai_state._try_start_boss_dash()`가 false를 반환한다.
+4. Lv5: Lv3+ 대시 차단에 더해 `lingpet_star_coil_freeze_boss_skill_cd=true`를 effects context로 전달하고
+   `battle_effects_update_controller`가 기존 `active_item_boss_skill_cooldown_paused`에 OR-merge한다.
+5. `godot/scripts/core/battle_update_boss_ai_context_builder.gd`: owner에서 slow 2키 + dash-block 키를 읽어
    boss_ai 컨텍스트 dict에 머지(`lingpet_puppet_grab_active` 머지하는 라인 근처, ~line 102).
-3. `godot/scripts/ai/boss_ai_state.gd` `_get_active_item_slow_multiplier(context)` (~line 1095)에 분기 추가:
+6. `godot/scripts/ai/boss_ai_state.gd` `_get_active_item_slow_multiplier(context)` (~line 1095)에 분기 추가:
    ```
    if bool(context.get("lingpet_star_coil_boss_slow_active", false)):
        multiplier *= clampf(float(context.get("lingpet_star_coil_boss_slow_multiplier", 1.0)), 0.05, 1.0)
@@ -317,6 +325,22 @@ patrol 정적 프레임이 idle로 읽히는지(별똬리가 컴패니언 위치
 - **봉인**: `lingpet_star_coil_skill_smoke._verify_continuous_star_emission_while_rolling`
   (60프레임 후 롤 중 spark_count≥10 — launch 버스트만으론 다 소멸; emission 비활성 토글로 반증검증 FAIL 확인). warning0·headless ok.
 - **잔여(라이브 QA)**: rate/size/팔레트 밸런스/spawn 반경(현 몸 중심 1~7px) 체감 튜닝.
+
+## 10.2 롤 이동 사운드 (starmoving 루프, 2026-06-23)
+
+별똬리가 **이동/등반/런지/크로스/하강(=모든 moving 페이즈)** 동안 `starmoving.wav` 루프 재생. bind는
+자체 squish가 있어 제외. bind 오디오 패턴을 거울삼아 배선:
+
+- **자산**: `res://assets/sounds/starmoving.wav`(루트, lingpet 하위 아님) + `.import` 생성됨.
+- **game_audio**: `LINGPET_STAR_COIL_MOVE_SOUND_PATH`/`_GAIN_DB(-6.0)` + `lingpet_star_coil_move_sfx`
+  + `player_factory.create` 후 **`_enable_loop`**(jetpack 선례) + `play_/stop_lingpet_star_coil_move`
+  (이미 재생중이면 no restart) + teardown 배열 등록.
+- **스킬**(`lingpet_star_coil_skill`): `_move_audio_active` 플래그 + `_start/_stop_move_audio`,
+  `_is_rolling_phase`면 start(멱등)·아니면 stop, IDLE 조기리턴/`_retire`/`cancel`에서도 stop(자가치유).
+- **봉인**: `lingpet_star_coil_skill_smoke._verify_move_audio_loops_during_travel`(연속 롤서 **정확히 1회 시작**·
+  주행중 stop0·bind서 stop1·중도 공소실 retire stop1). 반증검증: 멱등 가드 제거 시 "1회 시작" FAIL 확인.
+  warning0·headless·import ok.
+- **잔여(라이브 QA)**: gain(-6.0) 체감, 루프 이음새(starmoving.wav.asd는 Audacity 소스).
 
 ## 11. 잔여 / V3-6 튜닝
 

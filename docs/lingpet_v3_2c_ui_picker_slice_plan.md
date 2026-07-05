@@ -1,9 +1,16 @@
 # V3-2c-UI 슬라이스 — 비모달 TAB 2-of-1 unlock picker
 
-> 단일 소스는 `docs/lingpet_affinity_system_plan.md` (§13). 이 문서는 V3-2c-UI
-> 슬라이스의 시그널 계약 + 백본 + 트랩 브리프 + 스모크다. 배선(GDScript)은 사용자가
-> 직접, Claude는 적대적 리뷰. 줄번호는 현재 트리(HEAD=08ef4095d 직후) 기준이며 드리프트
-> 가능 — 심볼명을 우선 신뢰.
+> **SUPERSEDED (2026-06-30): 구현 대상 아님.** `docs/lingpet_affinity_per_run_redesign.md`
+> R3/R6 이후 해금 선택은 per-run auto-resolve/run-state 계약으로 닫혔다.
+> `lingpet_egg_runtime.gd::get_unlock_choice_options()`는 `[]`,
+> `commit_unlock_pick()`은 `false`가 현재 의도이며
+> `lingpet_unlock_loadout_v3_2c_smoke.gd`가 이 닫힌 TAB picker surface를 봉인한다.
+> 이 문서는 과거 store-backed player picker 설계와 함정 기록으로만 남긴다.
+
+> 역사적 단일 소스는 `docs/lingpet_affinity_system_plan.md` (§13, 2026-06-14 기준)였지만,
+> 현행 구현 권위는 `docs/lingpet_unlock_loadout_v3_2c_slice_plan.md`와
+> `docs/lingpet_affinity_per_run_redesign.md`다. 이하 V3-2c-UI 시그널 계약/트랩/스모크는
+> 보존된 과거 설계 기록이며 줄번호는 드리프트 가능 — 심볼명을 우선 신뢰.
 
 ## §0. 확정 결정 (재론 금지)
 

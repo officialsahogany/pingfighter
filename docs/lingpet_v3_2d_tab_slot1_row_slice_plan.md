@@ -23,7 +23,7 @@
 - **워크플로 "slot-1 passive dead UI"는 오판** — `_sync_second_passive_owner`(runtime trio)는
   없지만 passive는 cooldown/windup이 없어 불필요. `lingpet_second_passive_skill_id`/`_level`이
   loadout_state로 write되므로 **static id/level + catalog로 행을 그릴 수 있음**. V3-2c reconcile가
-  second_passive(Lv.25) 점유 시 표시됨.
+  second_passive를 점유 시 표시됨.
 - **slot-1 level Lv.1 fallback 트랩 해소** — `lingpet_second_active_skill_level`도 loadout_state가
   write하므로 실제 레벨 표시.
 - **패널 snapshot builder는 `_current_profile` 접근 없음** (`build_panel_snapshot(owner,
@@ -80,7 +80,7 @@ slot-0 active/passive 읽기 패턴(65-120)을 slot-1로 미러:
 
 | 심볼 | 종류 | 계약 |
 |---|---|---|
-| `companion_skill_id_1` | snapshot_key (신규) | active 게이트. **raw owner `lingpet_second_skill_id`/`ringpet_` (default ""), catalog fallback 금지.** non-empty일 때만 slot-1 active icon/stat row. 이미 "Lv.22 unlocked AND 점유 AND not module-shared" 인코딩(runtime이 그때만 non-empty write). |
+| `companion_skill_id_1` | snapshot_key (신규) | active 게이트. **raw owner `lingpet_second_skill_id`/`ringpet_` (default ""), catalog fallback 금지.** non-empty일 때만 slot-1 active icon/stat row. 이미 "second_active_unlocked AND 점유 AND not module-shared" 인코딩(runtime이 그때만 non-empty write). |
 | `companion_skill_name_1`/`_cooldown_duration_1`/`_max_level_1` | snapshot_key (신규) | owner `lingpet_second_skill_*`(ringpet_ fallback) → catalog. _sync_second_skill_owner가 runtime sync. |
 | `companion_skill_description_1`/`_card_path_1`/`_icon_path_1` | snapshot_key (신규) | owner 키 없음 → catalog `get_active_skill` 추출만(slot-0과 동일). |
 | `companion_skill_level_1` | snapshot_key (신규) | owner `lingpet_second_active_skill_level`(loadout 키, ringpet_ fallback). slot-0이 `lingpet_active_skill_level` 읽는 것 미러. runtime-synced `_second_skill_level` 키는 없음. |
@@ -128,8 +128,8 @@ slot-0 active/passive 읽기 패턴(65-120)을 slot-1로 미러:
 snapshot_builder slot-1 active/passive 읽기(raw owner 게이트 + catalog fallback) · presenter
 get_skill_specs slot-1 icon(A/P) · build_stats slot-1 active cooltime row(+1) + **row budget 클램프** ·
 get_stats_cache_hash slot-1 키.
-→ **봉인 목표**: slot-1 점유 펫(red_dragon Lv.25 등) TAB 패널에 second active+passive icon + active
-쿨타임 stat row 표시, locked/sub-Lv.22 펫은 숨김, row budget 초과 안 함(교감 보호), equip/unequip 시
+→ **봉인 목표**: slot-1 점유 펫 fixture가 TAB 패널에 second active+passive icon + active
+쿨타임 stat row 표시, locked/second flag false 펫은 숨김, row budget 초과 안 함(교감 보호), equip/unequip 시
 재렌더. (트랩 1,2,3,4)
 
 **봉인 상태 (적대 리뷰 직접 확인 합격, 모든 축 반증검증):** gate=raw owner read
@@ -138,7 +138,7 @@ catalog는 `owner_second_active_id != ""` 게이트 뒤 enabled 검증+메타데
 클램프 = `_lingpet_row_budget_can_fit`(727-733, `lingpet_stat_rows_visible_capacity` 오라클),
 projected=rows.size()+2(slot-1+교감) fit이면 slot-1 insert·아니면 yield, **교감은 항상 append(658)**.
 cache hash에 slot-1 키+rect(674-678,711-715). **반증검증 smoke**(character_info_live_stats_smoke
-`_verify_second_slot_rows_reach_lingpet_tab` 489-581): occupied red_dragon Lv.25 → companion_skill_id_1
+`_verify_second_slot_rows_reach_lingpet_tab` 489-581): occupied red_dragon fixture → companion_skill_id_1
 ="red_dragon_dragon_wing"(raw owner key)·passive id(loadout sync 경유)·badge A/P; **locked 펫**
 (second_skill_id 미set) → `companion_skill_id_1==""` "catalog-falling back 방지"(574, gate 반증검증);
 **tight(560x340) cliff** → "2nd" 행 yield+교감 보호+`visible_capacity >= rows.size()`(554-556, 클램프
@@ -154,9 +154,10 @@ cache hash에 slot-1 키+rect(674-678,711-715). **반증검증 smoke**(character
 ---
 
 ## ✅ V3-2 전체 종료 (2026-06-14): 런타임(2b i/ii/iii) + 점유 reconcile(2c-1/2) + TAB draw(2d-1).
-링펫 2번째 액티브/패시브 슬롯이 친밀도 Lv.22/25 unlock → 2-of-1 reconcile 점유 → 런타임 발동 →
-TAB 표시까지 전 경로 닫힘. 남은 후속 = V3-2c-UI(player picker, V3-3 persistence 선행)/V3-3(링코어
-영구 스토어+광장 골드샵, cap 해금 + persistence).
+링펫 2번째 액티브/패시브 슬롯이 second unlock flag → 2-of-1 reconcile 점유 → 런타임 발동 →
+TAB 표시까지 전 경로 닫힘. 남은 후속 = V3-3(링코어 영구 스토어+광장 골드샵, cap 해금 +
+persistence). V3-2c-UI(player picker)는 2026-06-30 per-run 개정으로 폐기된 보존 문서라 현재
+구현 후속이 아님.
 
 ---
 

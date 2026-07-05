@@ -3,23 +3,21 @@
 상태: 기획 v5.1 (2026-06-14) — v1·v2 구현·봉인 완료. **v3 확장 설계(§13)
 = 링코어 게이트 시스템.** 2회 적대적 리뷰(Claude+코덱스) 반영: ① 친밀도
 수치는 **총 스테이지 수 종속** → 설계 기준 = 최종 12스테이지 풀런(6스테이지
-튜닝 폐기), ② Lv.20 이후 요구치 점증 + 2번째 스킬 게이트 분리(Lv.22/25)로
+튜닝 폐기), ② 2번째 스킬 게이트 분리(2026-06-29 현행 = 스킬레벨 합계 ≥5 +
+레벨당 30% 확률 추첨 §16, 이전안 Lv.16/17 핀 §15 → Lv.22/25)로
 "강화칩 ON/OFF 붕괴" 차단, ③ 클릭 +15·전투3캡으로 보너스 강등(타구 아래),
-④ 먹이 상한 3종(런당 개수·Lv.15·N), ⑤ 링코어 = 활성 펫 공용 영구 파츠.
+④ 먹이 상한 3종(런당 개수·현재 링코어 캡·N), ⑤ 링코어 = 이번 런 공용 빌드 상태
+(골드샵/퍽/튜토리얼 모두 run-state, `docs/lingpet_affinity_per_run_redesign.md`가
+최신 권위).
 정밀 수치는 전부 스테이지 확정 + income QA 유예(§13-10). 슬라이스 = §13-9.
 단일 소스는 §13. ── 이하 v2(§12)는 15레벨 시점 기록, v3 마이그레이션
-(MAX_LEVEL 15→30)으로 갱신. ── 이하 v1 확정 사항:
-(1) 영속성 = A-1 + A-3 동시 출시 (잔향 저장값은 펫별 최고 친밀도 레벨만,
-헤드스타트 `floor(최고/3)` 최대 +4 고정), (2) §5 압축 트랙 + 50/75/100
-프론트로드 승인 — 단 §3-1 수치는 밸런스 최종이 아니라 **GAIN_TABLE 기반
-첫 플레이테스트 기본값**이며, 디버그 수입 로그가 §3-2 앵커(0/2/4/7/9/11)
-이탈을 보이면 즉시 조정, (3) 플레이어 표기는 전면 "교감", "친밀도"는
-A-3 도감/영구 잔향 표기 전용, (4) 만렙(12) 연출은 v1에서 비일시정지
-연출 + 칭호 + 하트 틴트로 확정 — 라운드 경계 컷인은 A-2 영구 컬렉션/
-도감 시점의 "친밀도 만렙 기념"으로 이연. **오픈 질문 0건, 구현 착수
-가능.** 구현 순서는 §11 슬라이스 분해 참조. 표기 운영 주의: 문서 내부
-설계 용어로는 "친밀도 Lv"를 계속 쓰지만, 구현 시 HUD/연출/툴팁의
-플레이어 노출 문자열만 "교감"으로 고정하면 된다.
+(MAX_LEVEL 15→30)으로 갱신. ── **중요:** 초반 v1/v2의 A-3 "유대의
+잔향" / `best_levels` / 헤드스타트 영구 저장 설계는 2026-06-30 per-run
+개정으로 폐기된 역사 기록이다. 현행은 `LingpetAffinityState` run-state +
+`LingpetAffinityStore` schema v5 meta-only이며, `docs/lingpet_affinity_per_run_redesign.md`
+가 최신 권위다. 유지되는 v1 결정은 §5 압축 트랙 + 50/75/100 프론트로드,
+GAIN_TABLE 기반 첫 플레이테스트 수치, 플레이어 노출 문자열 "교감", 만렙
+비일시정지 연출/칭호/하트 틴트다. 구현 순서는 §13-9 현행 슬라이스를 우선한다.
 구현 분담: 본 문서 = 디자인 노트(시그널 계약 + 슬라이스 + 함정 브리프).
 GDScript 배선은 사용자 주도, Claude는 슬라이스 리뷰 담당 (기존 분담 관례).
 
@@ -74,9 +72,11 @@ GDScript 배선은 사용자 주도, Claude는 슬라이스 리뷰 담당 (기�
 | 1 | **플레이어 득점** 라운드 커밋 (활성 펫) | +5 | 스타일 무관 기본 수입 — 비행 펫 수입 격차 보정. **2026-06-12 개정: 실점 커밋은 미지급** (+N 팝업 도입으로 "실점에 +5"가 가시화되자 어색하다는 사용자 결정; 승리 시 플레이어 점수는 고정이므로 "빨리 이기면 손해" 방지 명분도 유지됨) |
 | 2 | 링펫 직접 타구 (몸으로 공 반격) | +8 | **라운드당 처음 4회 풀값, 이후 +2** (스톨 파밍 차단). 0.42s 히트 쿨다운·edge-trigger는 보조 게이트일 뿐 리미터로 신뢰 금지 |
 | 3 | 수비 성공 보너스 (#2가 방어 인터셉트 중이거나 링크포트 블록일 때 추가) | +5 | 라운드당 2회. #2에 태그로 가산(별도 이벤트 아님 — 이중 지급 금지) |
-| 4 | 교감 클릭 (SD 링펫 좌클릭 → 교감 라투디 시작) | +5 | **라운드당 2회, 전투당 5회 (전역 카운터)**. 라투디 시작 엣지 + 가시 상태에서만 |
+| 4 | 교감 클릭 (SD 링펫 좌클릭 → 교감 라투디 시작) | +20 (비행 +30) | **라운드당 2회, 전투당 5회 (전역 카운터)**. 라투디 시작 엣지 + 가시 상태에서만. **2026-06-28 개정**: +5→+20로 상향, 비행 펫은 일반 타구 2x 배율 대신 명시값 +30 (`GAIN_TABLE.flight_points`, 1.5x 디자인값) |
 | 5 | 알 부화 계약 | +25 | **런 내 pet_id당 1회** (affinity_state 보관 — reset_all 스코프 금지). 첫 레벨업(50)을 부화 직후 1~2라운드 안에 체감시키는 훅 |
 | 6 | 전투 승리 | +20 | 활성 슬롯 펫. 단 **해당 전투 라운드의 50% 이상 출전한 펫만** (막판 펫 교체 몰아주기 차단) |
+| 7 | 스테이지 클리어 (= 플레이어 승리 match_finished) | +50 | **2026-06-28 추가**. 승리(#6)와 같은 시점·같은 50% 출전 게이트, 전투당 1회 셀프-실. #6의 +20 위에 가산(클리어 시 +70). 스타일 무관 고정 floor(비행 배율 없음), 강화칩은 가산 |
+| 8 | 링코어 업그레이드 (메타 이벤트, 활성 펫 한정 아님) | +50 / **보유 펫 전원** | **2026-06-28 추가**. 티어 1회 상승마다 **보유 컬렉션 전체**(이번 런 미사용 펫 포함, 카탈로그에서 컨텍스트 생성)에게 +50. 티어 상승 **후** 지급해 새 cap에서 카운트됨(클램프 회피). `SOURCE_RING_CORE_UPGRADE`, **강화칩 비적용 고정값**(feed와 동일). 출전 게이트 없음. `lingpet_egg_runtime._grant_ring_core_upgrade_affinity_to_owned_pets` |
 
 대략 수입: 순찰 펫 ≈ 25~40/라운드, 비행 펫 ≈ 15~25/라운드 →
 전투(5~7라운드)당 ≈ 150~250 / 100~175. 6스테이지 런 기준 순찰 ≈ 트랙
@@ -146,9 +146,9 @@ GDScript 배선은 사용자 주도, Claude는 슬라이스 리뷰 담당 (기�
 
 ---
 
-## 4. 핵심 설계 결정 (구현 전 확정 필요)
+## 4. 핵심 설계 결정 (v1 역사 기록, 영속성은 per-run 개정으로 교체)
 
-### A. 영속성: 런 스코프(A-1)로 시작, "유대의 잔향" 하이브리드(A-3)가 권장 로드맵
+### A. 영속성: ~~런 스코프(A-1) + "유대의 잔향"(A-3)~~ → per-run only
 
 조사로 확정된 사실: **링펫 세이브 전체가 의도된 휘발성 런 상태다.**
 `lingpet_save_store.save_snapshot`은 의미 있는 진행이 있으면 파일을
@@ -157,34 +157,31 @@ GDScript 배선은 사용자 주도, Claude는 슬라이스 리뷰 담당 (기�
 (lingpet_egg_runtime_smoke.gd:2394/2406/2424). 즉 현재는 링펫 **소유
 자체가 영구가 아니므로**, 소유보다 먼저 친밀도만 영구화하는 것은 모순.
 
-- **A-1 (확정, v1 동시 출시): 런 스코프.** 교감은 런 안에서 성장·소멸.
+**현행(2026-06-30):** A-3 유대의 잔향 / `best_levels` / headstart 영구
+저장은 폐기됐다. 교감 레벨/포인트, 링코어 tier/cap, 강화칩, 먹이,
+resolved unlock choices는 모두 이번 런 상태다. `lingpet_affinity_store.gd`는
+schema v5 meta-only migration 파일이며 progression getter/setter와 live
+registry key를 갖지 않는다. 링코어 규칙 상수는 `lingpet_ring_core_rules.gd`
+소유다.
+
+아래 A-3/A-2 문단은 과거 설계 이력으로만 남긴다. 영구 컬렉션/도감이
+새로 도입되기 전까지 "친밀도" 영구 잔향 UI나 headstart를 현재 목표로
+되살리지 않는다.
+
+- **A-1 (현행 유지): 런 스코프.** 교감은 런 안에서 성장·소멸.
   affinity_state는 런타임 인스턴스에 살고, 스냅샷 동승은 §6의 저장 행
   참조(주의사항 있음). 휘발성 정책·스모크 불변.
-- **A-3 (확정, v1 동시 출시): 유대의 잔향 하이브리드.** 라이브 시스템은
-  A-1 그대로 두고, **펫별 "역대 최고 친밀도 레벨"만** 별도 영구 저장소
-  (`user://lingpet_affinity.cfg` + 신규 `lingpet_affinity_store.gd`)에
-  기록. 다음 런에서 그 펫 부화 시 시작 친밀도 = `floor(최고기록/3)`
-  (**최대 +4 고정**). 저장값은 최고 레벨 int 하나뿐 — points/캡 카운터
-  등 런 상태는 절대 영구화하지 않는다. 매 런 같은 12계단을 처음부터
-  다시 미는 단조로움(고정 트랙 + 런 스코프의 약점)을 로그라이트식 메타
-  진행으로 완화하고, 가챠/영구 컬렉션 전환 시 풀 영구화(A-2)로 자연
-  승격된다. (구현 부담 대비 플레이어 신뢰 이득 — 코덱스 리뷰 권고로
-  동시 출시 확정)
-- **A-2 (최종형): 영구 친밀도.** 컬렉션 영구화와 동시 결정. **반드시
-  별도 파일** — `clear_snapshot`이 `lingpet_save.cfg` **파일 전체를
-  삭제**하므로(DirAccess.remove_absolute, save_store.gd:53-59) 같은
-  파일에 영구 섹션 공존 불가. 점증 요구치로 전환.
-
-`lingpet_affinity_state`를 저장 인터페이스 뒤에 두면 A-1 → A-3 → A-2가
-스토어 스위치 수준으로 전환된다.
+- **A-3 (폐기된 과거안): 유대의 잔향 하이브리드.** 펫별 역대 최고
+  친밀도 레벨을 저장하고 다음 런 headstart를 주는 안이었으나, 현재
+  per-run 개정에서 제거됐다.
+- **A-2 (미래 컬렉션 영구화 시 재설계): 영구 친밀도.** 컬렉션 영구화와
+  동시에 별도 기획으로 다시 결정한다.
 
 **플레이어 명칭 정책 (필수)**: "친밀도"라는 단어는 영구 성장 기대를
 만들므로, A-1 단독 출시 시 런 소멸이 배신감으로 읽힌다. 명칭을 2층으로
 분리한다 — **런 내 수치 = "교감"** (UI 라벨 "교감 Lv.N", 게이지 명
-"이번 출전 교감"), **영구 잔향(A-3) = "친밀도"** (펫 도감/패널의 영구
-표기). A-1 단독으로 나가는 동안 UI에는 "교감"만 노출하고 "친밀도"
-브랜딩은 잔향 스토어가 생길 때 함께 공개한다. A-3를 v1에 동시 출시하면
-이 긴장 자체가 사라지므로 그쪽이 더 안전한 선택 (§9-1).
+"이번 출전 교감"). 현행에서는 영구 잔향(A-3)이 없으므로 플레이어 UI에
+"친밀도"를 영구 성장처럼 노출하지 않는다.
 
 ### B. 스탯 보상은 모션 스타일로 라우팅 (F7 슬라이더와 동일 규칙)
 
@@ -299,11 +296,11 @@ sync_owner ──→ lingpet_affinity_level/points (+ringpet 쌍) ──→ TAB 
 | 오너 동기화 | `lingpet_runtime_snapshot_builder.sync_owner` 또는 `_sync_owner`의 직접 set 패턴 (egg_runtime 814-818, 출현율 선례) | `_set_pair`로 lingpet_/ringpet_ 쌍 |
 | 오너 스키마 (필수) | `battle_scene_state.DEFAULT_VALUES` (135-206) | `lingpet_affinity_level`·`lingpet_affinity_points` + ringpet 쌍 선언. 미선언 = 침묵 no-op |
 | 저장 (A-1) | `lingpet_runtime_snapshot_builder.build_save_snapshot` (110-145) + `apply_save_snapshot` (617-658) | ⚠ 휘발성 정책 때문에 user:// cfg 파일은 런 중 사실상 항상 삭제 상태다 — 스냅샷 동승의 실효는 **런 내 스냅샷을 라운드트립하는 소비자가 있을 때만** 있다. 구현 시 그 소비자(전투 씬 재구축 경로)가 실재하는지 확인하고, 없으면 A-1은 런타임 인스턴스 수명만으로 충분한지 명시할 것. dirty 신호는 `_update_lingpet` 콜백(battle_scene_update_callbacks.gd:131-153) 경로에 추가 |
-| 저장 (A-3/A-2) | 신규 `lingpet_affinity_store.gd` → `user://lingpet_affinity.cfg` | 휘발성 파일과 분리(전체 삭제 정책 회피). ConfigFile BOM 트랩 유의 |
+| 저장 (meta-only) | `lingpet_affinity_store.gd` → `user://lingpet_affinity.cfg` | v5 migration/meta-only. legacy progression 섹션은 로드 무시 + 저장 제거. A-3/A-2 영구 저장은 현재 목표가 아님 |
 | TAB 패널 행 | `character_info_overlay_lingpet_presenter.build_stats` (520-536) + `get_stats_cache_hash` (560-585) + 스냅샷 빌더 (70-105) | "교감 Lv.N (p/요구치)" 행. **해시에 미포함 시 행 동결**. 행 추가로 순찰+액티브 펫은 6행 — 오버플로 시 침묵 드랍(16px 바닥, stats_presenter 161-175), 세로 스택(<620px) 레이아웃에서 6행 가시성 확인 필수. **구현 전 미니 와이어프레임 확정 필수**: 행 1개 + 게이지 + "다음 보상" 줄은 단순 행 추가 한도를 넘으므로, 스탯 행에는 "교감 Lv.N"만 두고 게이지+다음 보상은 아트 패널 쪽에 배치하는 식의 구조 분배를 그림으로 먼저 합의 |
 | 진행 게이지 (필수) | 알 부화 미터 패턴 (presenter 150-154) | 아트 패널 art rect와 스킬 아이콘 행 사이 + "다음 보상" 1줄. 패널 리드로 트리거 별도 필요(Live2D 펫만 강제 리드로) |
 | 레벨 표시 서피스 일괄 감사 | TAB 스탯 행(신규) · TAB 스킬 아이콘 부제 "Lv.%d" + 패시브 %칩 (presenter 409-445) · F7 피커(기본 레벨 기록/표시, lingpet_debug_picker.gd) | 합성 레벨 도입 시 7-렌더-경로 감사의 링펫판. 정책: 피커 = 기본 레벨, 패널·아이콘 부제 = 합성 레벨 |
-| 획득/레벨업 연출 | `lingpet_companion_renderer` gauge_flash 링/버스트 + `_draw_switch_label` 텍스트 패턴 (46-58, 210+, 275-296) | 기본 비일시정지. 하트 틴트 링 + "+교감" / **"교감 Lv.N!"** 라벨 (명칭 정책 §4-A: 인게임 연출·HUD는 전부 "교감", "친밀도"는 A-3 도감/잔향 표기 전용). 기존 패턴은 프리미티브 드로(할당 없음)라 안전 — **신규 텍스처(하트 스프라이트 등)를 쓰면 `prewarm_assets`(egg_runtime 1056-1059) / 전투 프리웜에 등록 필수** (핫패스 lazy-init 트랩: 첫 레벨업은 mid-rally에 터진다). 보이스는 4종 펫만 존재 — 연출이 보이스에 의존 금지 |
+| 획득/레벨업 연출 | `lingpet_companion_renderer` gauge_flash 링/버스트 + `_draw_switch_label` 텍스트 패턴 (46-58, 210+, 275-296) | 기본 비일시정지. 하트 틴트 링 + "+교감" / **"교감 Lv.N!"** 라벨 (명칭 정책 §4-A: 현행 인게임 연출·HUD는 전부 "교감"). 기존 패턴은 프리미티브 드로(할당 없음)라 안전 — **신규 텍스처(하트 스프라이트 등)를 쓰면 `prewarm_assets`(egg_runtime 1056-1059) / 전투 프리웜에 등록 필수** (핫패스 lazy-init 트랩: 첫 레벨업은 mid-rally에 터진다). 보이스는 4종 펫만 존재 — 연출이 보이스에 의존 금지 |
 | 만렙(12) 연출 (v1 확정) | 비일시정지 연출 + 칭호 "영혼의 단짝" + 하트 틴트 링 영구화 | 컷인 없음 — 라운드 경계 acquire 컷인 클래스는 **A-2 이연** (그 시점에 라운드 경계 큐잉 + reveal asset gate 규칙 적용) |
 
 ---
@@ -348,6 +345,66 @@ sync_owner ──→ lingpet_affinity_level/points (+ringpet 쌍) ──→ TAB 
 13. **공 수동 전진 스케일**: 공을 손으로 전진시키는 스모크는
     `ball_vel * delta * 60` (fps_scale 미러, 스모크 2610-2614 `step_drop`
     패턴). 생짜 `ball_vel`/스텝은 3배 느린 하강으로 위양성.
+14. **2번째 슬롯 해금 = 카탈로그 풀 깊이로 게이트**: 현재 2번째 해금은
+    1차 스킬레벨 합계 게이트 + 레벨당 확률 롤(§16)로 주어지지만, 모든 펫이
+    실제 2번째 액티브/패시브 후보를 갖는 것은 아니다. 따라서
+    액티브 풀이 1종뿐인 펫(공사 덜 된 WIP — 현재 lunabi/orbi/orosha)은
+    2번째 슬롯에 넣을 스킬이 없어서, 플래그만 켜지고 카드는 빈 채로 나오는
+    **유령 해금**이 된다(reconciler가 후보 풀에서 1차 스킬을 지우면 후보 0개
+    → second_active_id "" → 로드아웃/오너/패널 카드 전부 빈 값). 따라서
+    `_can_apply_reward_card`의 `REWARD_TYPE_SECOND_ACTIVE_UNLOCK` /
+    `REWARD_TYPE_SECOND_PASSIVE_UNLOCK`는 반드시
+    `LingpetCatalog.get_active_skill_pool(pet_id).size() >= 2`
+    (`_pet_has_second_active_skill` / `_pet_has_second_passive_skill`)로
+    게이트한다. 게이트 실패 시 그 레벨은 `_select_replacement_reward_card`로
+    유용한 보상에 회수되고, **나중에 2번째 스킬을 추가하면(풀 크기 ≥2)
+    코드 변경 없이 자동 활성화**된다. 스모크는 2종-풀 펫(maribo)은 해금되고
+    1종-풀 펫(orosha)은 해금 안 됨을 함께 단언
+    (`lingpet_affinity_state_smoke._verify_second_unlock_requires_pet_pool_depth`,
+    버그 코드에서 FAIL 역검증 완료).
+15. **런 스코프 보상은 "도달 가능한 레벨"에 배치 (밴드 셔플 ≠ 도달 보장)**:
+    친밀도가 **매 런 리셋 + flat-50 곡선**(commit `991132146`)이 된 뒤로,
+    Lv16-25 밴드에 **균등 셔플**되던 2번째 슬롯 해금 카드가 Lv21-25(절대
+    링코어 cap 근처)에 떨어지면 한 런 안에 사실상 도달 불가가 된다. 해금
+    로직 자체는 정상이라(레벨이 카드 위치에 도달하면 확실히 발동) **표시는
+    "다음: 2번째 패시브 해금"으로 계속 떠 있는데 교감 레벨만 오르고 영영
+    안 열리는** 것처럼 보인다(2026-06-29 달벳/lunabi 리포트). 수정: 두 해금
+    카드를 밴드 앞쪽(Lv16 액티브 / Lv17 패시브)에 **고정 핀**해 T4-T5에서
+    도달 가능하게 — Lv16-25 카드 멀티셋과 5장 링코어 밴드 카운트는 불변
+    (`_build_reward_deck` + `CANONICAL_REWARD_TRACK` 동시 수정). 교훈:
+    per-run + 절대 cap 모델에서 **레벨로 게이트되는 보상은 밴드 어디든
+    셔플로 두지 말고 "이 티어에서 현실적으로 도달하는 레벨"에 고정**할 것.
+    스모크는 핀 위치(==16/==17) + T4(cap20) 런 내 해금 + T3(cap15) 미해금을
+    함께 단언(`_verify_second_unlocks_reachable_within_mid_ring_core_run` +
+    밴드 위치 단언, 셔플 코드에서 FAIL 역검증 완료).
+    **[2026-06-29 폐기 — §16으로 대체]** 이 Lv16/17 고정 핀은 아래 §16의
+    "스킬레벨 합계 게이트 + 레벨당 확률 추첨"으로 교체됨. 핀 위치 단언과
+    `_verify_second_unlocks_reachable_within_mid_ring_core_run`는 제거되고
+    `_verify_second_unlock_probability_gate`로 대체되었다.
+16. **2번째 슬롯 해금 = 1차 스킬레벨 합계 게이트 + 레벨당 확률 추첨
+    (2026-06-29, 디자인 오너 결정)**: 2번째 액티브/패시브 해금은 더 이상
+    덱의 고정 카드(§15 Lv16/17 핀)가 아니다. **1차 액티브 + 1차 패시브의
+    유효 스킬레벨(베이스 + 교감 보너스) 합계 ≥
+    `SECOND_UNLOCK_SKILL_LEVEL_SUM_REQUIREMENT`(=5)**가 충족되면, 이후 매
+    레벨업마다 독립 확률(`SECOND_UNLOCK_ROLL_CHANCE_PCT`=30%)로 해금이
+    추첨된다 → **충족 직후 바로 열리지 않고 "언제 나올진 모름"**(유저 요구).
+    구현 불변식:
+    - 추첨은 `_award_reward_for_level`(라이브 레벨업 + 세이브 복원 replay가
+      공유하는 단일 권위 경로) 안에서 일어나, 시드 `(reward_seed, level,
+      salt)` 기반으로 **완전 결정론적**(replay/시뮬 일치).
+    - **1차 액티브/패시브가 둘 다 해금된 뒤에만** 추첨(`_maybe_roll_second_unlock_card`).
+      안 그러면 베이스 5/5 펫이 prereq를 처음부터 충족해 Lv1/Lv2의 고정
+      1차 해금 카드를 추첨이 밀어내 버린다(역검증으로 발견).
+    - 풀 깊이 게이트(§14)는 그대로 유지: 1종-풀 펫은 추첨해도 해금 안 됨.
+    - 덱/`CANONICAL_REWARD_TRACK`에는 2번째 해금 카드가 **0장**. Lv16-25는
+      평범한 스킬/스탯 10장 셔플 밴드가 된다(핀 2장 → 액티브1+패시브1로 환원).
+    - "다음 보상" 프리뷰는 추첨을 노출하지 않는다(서프라이즈 유지). 단,
+      덱에 줄 게 없고 추첨 가능한 2번째 해금이 남아 있으면
+      `_has_pending_rollable_second_unlock`로 "최대 강화 완료" 대신
+      "교감 보상"(cap 아래) / "링코어 강화 시 해금"(cap 위)을 보여준다.
+    스모크: `lingpet_affinity_state_smoke._verify_second_unlock_probability_gate`
+    (prereq 미달 시 전 레벨 미추첨, prereq 충족 시 첫 해금이 Lv1이 아님 =
+    즉시 해금 금지, 결정론, 1종-풀 미추첨; 버그 코드 역검증 완료).
 
 ---
 
@@ -384,25 +441,29 @@ sync_owner ──→ lingpet_affinity_level/points (+ringpet 쌍) ──→ TAB 
    일치(전투 중 상승 후 다이버전트 케이스), 캐시 해시 갱신, 스킬 아이콘
    부제 "Lv.%d"가 합성 레벨과 일치, **세로 스택 레이아웃에서 6행 전부
    가시** (침묵 드랍 회귀).
-8. **영속성**: (A-1) 스냅샷 라운드트립 보존. (A-3/A-2) 휘발성
-   `clear_snapshot`이 affinity 파일을 건드리지 않음 + 잔향 헤드스타트
-   계산.
+8. **영속성**: (A-1) 스냅샷 라운드트립 보존. 현행 per-run에서는
+   `LingpetAffinityStore` v5 meta-only 파일이 progression을 복원하지
+   않는지, active-run save가 디스크에 남지 않는지 확인한다. A-3/A-2
+   잔향 헤드스타트 계산은 폐기된 과거안이다.
 
 ---
 
 ## 9. 결정 기록 + 남은 오픈 질문
 
-확정 (2026-06-11, 사용자 + 코덱스 리뷰 합의):
+역사 결정 기록 (2026-06-11, 사용자 + 코덱스 리뷰 합의; 영속성 항목은
+2026-06-30 per-run 개정으로 교체됨):
 
-1. **영속성 = A-1 + A-3 동시 출시.** 잔향 저장값은 펫별 최고 친밀도
-   레벨 int 하나만, 헤드스타트 `floor(최고/3)` 최대 +4 고정.
+1. ~~**영속성 = A-1 + A-3 동시 출시.** 잔향 저장값은 펫별 최고 친밀도
+   레벨 int 하나만, 헤드스타트 `floor(최고/3)` 최대 +4 고정.~~
+   **현행:** A-3/headstart는 폐기. `docs/lingpet_affinity_per_run_redesign.md`
+   기준으로 run-state only + v5 meta-only store.
 2. **트랙 = §5 압축 트랙 + 요구치 50/75/100 프론트로드 승인.**
 3. **수치 = GAIN_TABLE 첫 플레이테스트 기본값으로 승인** (밸런스 최종
    아님). 조건: 디버그 전투당 수입 로그를 같이 구현하고, §3-2 앵커
    (0/2/4/7/9/11) 이탈 관측 시 즉시 GAIN_TABLE 조정.
 4. **명칭 = 인게임 전면 "교감"** (연출 라벨 "교감 Lv.N!" 포함).
-   "친밀도"는 A-3 도감/영구 잔향 표기 전용. 문서 내부 설계 용어
-   "친밀도 Lv"는 유지 — 플레이어 노출 문자열만 고정하면 됨.
+   "친밀도"는 미래 영구 컬렉션/도감 기획 전까지 플레이어 UI에 영구
+   성장처럼 노출하지 않는다. 문서 내부 설계 용어 "친밀도 Lv"는 유지.
 5. **만렙(12) 연출 = v1은 비일시정지 연출 + 칭호 + 하트 틴트.**
    라운드 경계 컷인은 구현·프리웜·흐름 중단 비용 대비 효용이 낮아
    A-2 영구 컬렉션/도감 시점의 "친밀도 만렙 기념"으로 이연.
@@ -444,7 +505,8 @@ per-frame roll trap의 interaction-grant 변형 불릿). 세로 스택 6행
   요구치 테이블(50/75/100), 12레벨 트랙 테이블(§5), `add_points(pet_id,
   source, tags)` → 캡/감쇠 적용 → 레벨업 판정, 전투 전역 캡 카운터
   (펫별 dict와 분리, `reset_round_caps()` / `reset_battle_caps()`),
-  부화 보너스 1회 게이트, dirty 플래그, 잔향용 `get_best_level(pet_id)`.
+  부화 보너스 1회 게이트, dirty 플래그. 과거 잔향용 `get_best_level(pet_id)`
+  / headstart API는 per-run 개정에서 제거됨.
 - 스모크: §8-1(상태 단위) + §8-3a(스톨 캡 4×8+6×2) + §8-3b 중
   캡 카운터 전역성(펫 교체 시뮬레이션 = 다른 pet_id로 add해도 캡 공유).
 - 트랩: 이 모듈은 owner/registry를 모름(순수 로직 유지). 수치는 전부
@@ -522,21 +584,25 @@ per-frame roll trap의 interaction-grant 변형 불릿). 세로 스택 6행
 - 디버그 빌드 전투당 교감 수입 로그(§3-2 운영 전제) — 앵커 검증용.
 - 검증: 인게임 QA (첫 레벨업 mid-rally 히치 없음 확인).
 
-### 슬라이스 7 — A-3 유대의 잔향 스토어
+### 슬라이스 7 — ~~A-3 유대의 잔향 스토어~~ (폐기)
 
-- `lingpet_affinity_store.gd` 신규: `user://lingpet_affinity.cfg`,
-  펫별 최고 레벨 int만 저장(BOM 트랩 유의), 레벨업 시 최고 기록 갱신,
-  부화 시 헤드스타트 `floor(최고/3)` 최대 +4 적용(부화 보너스 +25와
-  중첩 허용 — 시작 레벨과 시작 포인트는 별개 축).
-- 도감/패널의 영구 표기만 "친밀도" 사용.
-- 스모크: §8-8(잔향 헤드스타트 계산 + 휘발성 `clear_snapshot`이 잔향
-  파일 불간섭 + 런 상태 비영구화 확인).
-- 트랩: §7-5 휘발성 분리. 헤드스타트로 시작한 런이 최고 기록을 다시
-  쓰려면 **이전 최고를 실제로 초과**해야 함(floor 루프 인플레 방지).
+- 2026-06-30 per-run 개정으로 폐기. `lingpet_affinity_store.gd`는
+  `user://lingpet_affinity.cfg`의 schema v5 meta-only migration 파일이며,
+  `[best_levels]`, `[bond_points]`, `[ring_core]`, `[resolved_unlock_choices]`
+  progression을 로드 무시 + 저장 제거한다.
+- 현행 스모크: `lingpet_egg_runtime_smoke._verify_affinity_store_v5_meta_only`,
+  `lingpet_affinity_run_state_save_restore_smoke`, `character_info_live_stats_smoke`.
+- 재도입 금지: 최고 레벨 저장, headstart, 영구 bond/title, resolved-choice
+  store lock, live registry key.
 
 ---
 
 ## 12. v2 확장 설계 — 밴드 셔플 보상 덱 + 영구 유대 호칭 (2026-06-11 합의)
+
+> **역사 기록:** 이 절의 영구 유대 호칭 / `[best_levels]` headstart /
+> `[bond_points]` 누적 설계는 2026-06-30 per-run 개정으로 폐기됐다.
+> 현행 영속성 권위는 §13의 V3-3 per-run 기록과
+> `docs/lingpet_affinity_per_run_redesign.md`다.
 
 v1 봉인 이후 확장. 합의 경로: 사용자 제안 → Claude 1차 설계 → 코덱스
 리뷰 must-fix 반영. 구현 전 §12-6 잔여 결정 4건 확정 필요.
@@ -583,11 +649,10 @@ v1 봉인 이후 확장. 합의 경로: 사용자 제안 → Claude 1차 설계 
 ⚠ **"런에서 올린 레벨을 영구 누적" 방식은 기각** — 짧은 런을 반복해
 Lv.1~2만 뽑는 쇼트런 파밍 루프가 열려 v1 anti-inflation 철학과 충돌.
 
-- 스토어 스키마 v4: `[meta] schema_version=4` / `[best_levels]`
-  (기존 그대로, **헤드스타트 전용 유지**) / `[bond_points]` /
-  `[ring_core] tier` / `[resolved_unlock_choices]` 분리. v1/v2/v3 파일 마이그레이션:
-  best_levels 보존, bond 0 또는 기존 bond 보존, ring_core는 **missing** 상태로 유지해
-  레거시 세이브를 fail-open(MAX cap) 처리. explicit tier 0만 무코어.
+- 폐기된 과거 스키마안: `[meta] schema_version=4` / `[best_levels]`
+  (헤드스타트 전용) / `[bond_points]` / `[ring_core] tier` /
+  `[resolved_unlock_choices]` 분리. 현행 v5 store는 이 progression 섹션을
+  모두 무시하고 저장에서 제거한다.
 - **적립 규칙 (확정, 2026-06-11)**: 전투 중 레벨업을 **펫별 pending
   원장**(battle-cap 스코프 `battle_level_ups_by_pet`)에 적립해 두고,
   **플레이어 승리 커밋 시점에만** 정산한다 — 정산 대상은 그 전투
@@ -600,13 +665,11 @@ Lv.1~2만 뽑는 쇼트런 파밍 루프가 열려 v1 anti-inflation 철학과 �
   구조적 차단.
 - 호칭 (bond 누적 레벨, 비중첩 구간, 캡 25): **1~5 어색함 / 6~10
   가까워짐 / 11~15 친함 / 16~20 단짝 / 21~25 영혼의 단짝.**
-- 호칭은 영구 축이므로 표기는 **"친밀도"** (명칭 2층 정책 그대로).
-  도감·획득 컷인·패널 영구 표기에 사용.
+- 호칭 영구 축은 현행 목표가 아니므로 플레이어 UI에 노출하지 않는다.
 - **명칭 충돌 해소**: 런 만렙 보상 칭호 "영혼의 단짝"은 영구 호칭
   최상위로 이관하고, 런 만렙 보상명은 런 전용 명칭으로 교체
   (후보: 하트 공명 / 완전 교감 / 최고 교감).
-- 호칭 구간별 영구 보너스(헤드스타트 상한 +1 등)는 영구 전투력
-  크리프 = 보스 앵커 영향이므로 **별도 결정 항목**(§12-6).
+- 호칭 구간별 영구 보너스(헤드스타트 상한 +1 등)는 폐기된 과거안이다.
 
 ### 12-4. 스모크 계획 v2 (추가분)
 
@@ -791,24 +854,25 @@ V2-6(수입 로그 실측 기반 앵커 재산정) + 인게임 QA.
 - 스모크: §12-4 #3(캡), #6(이력 기반 캐시 갱신 — v1 스테일 회귀 형태),
   v1 결과 단언 하니스 재실행(합성 레벨·라우팅 불변 확인).
 
-**V2-3 — bond 원장 + 정산** (state + egg_runtime.handle_score_event)
-- state: `battle_level_ups_by_pet` pending 원장(battle-cap 스코프),
-  정산 API(50% 출전 게이트 통과 펫 목록 + 적립량 반환), 폐기 API.
-- runtime: 플레이어 match_finished 커밋 → 정산 → 스토어 반영,
-  보스 match_finished 커밋 → pending 폐기. 스테이지 전환 리셋은
-  정산 이후 순서 보장.
-- 스모크: §12-4 #4(패배 폐기 / 쇼트런 0 / 50% 미달 펫 미적립 /
-  승리 정산 — 교체 운용 보조 펫 적립 케이스 포함).
+**V2-3 — ~~bond 원장 + 정산~~ (폐기된 과거안)**
+- 과거안: `battle_level_ups_by_pet` pending 원장 → 플레이어
+  match_finished 커밋 → 영구 store bond 반영, 보스 match_finished 커밋 →
+  pending 폐기.
+- 현행: 영구 bond/title 축은 제거됐다. 승리/전투 결과는 run-state 교감
+  보상/피드백으로만 남고 `LingpetAffinityStore`에는 쓰지 않는다.
 
-**V2-4 — 스토어 스키마 v2 + 마이그레이션** (`lingpet_affinity_store`)
-- 섹션 분리(meta/best_levels/bond_points), bond 누적 쓰기(증가분
-  가산 — best와 달리 단조 증가 누적), v1 파일 마이그레이션.
-- 스모크: §12-4 #5(마이그레이션) + v1 잔향 분리 스모크 불변.
+**V2-4 — ~~스토어 스키마 v2 + 마이그레이션~~ (`lingpet_affinity_store`, 폐기된 과거안)**
+- 과거안: 섹션 분리(meta/best_levels/bond_points), bond 누적 쓰기,
+  v1 파일 마이그레이션.
+- 현행: `lingpet_affinity_store.gd`는 schema v5 meta-only 파일이다. legacy
+  progression 섹션은 로드 무시 + 저장 제거, live registry key와 progression
+  API는 없다.
 
-**V2-5 — 호칭 표기** (도감/패널/획득 컷인)
-- bond 누적 레벨 → 호칭 5구간(§12-3, 캡 25), 영구 표기 "친밀도"
-  명칭 사용. "다음 보상" 라벨을 덱 top 읽기로 전환.
-- 스모크: 호칭 경계값(5/6, 20/21), 표기 명칭 정책, 다음 보상 덱 top.
+**V2-5 — ~~호칭 표기~~ (영구 bond/title 폐기)**
+- 과거안: bond 누적 레벨 → 호칭 5구간(§12-3, 캡 25), 영구 표기
+  "친밀도" 명칭 사용.
+- 현행: TAB/owner/localization 표면에서 영구 bond/title subtitle은 제거됐다.
+  런 중 표기는 "교감" 행과 run-state 레벨/포인트/보상 피드백을 사용한다.
 
 **V2-6 — 앵커 재산정 + 튜닝** (수입 로그 실측 후)
 - 15레벨 기대 곡선 갱신, 조정은 요구치 곡선으로(§12-6 #1).
@@ -826,11 +890,11 @@ v1~v2(친밀도 코어)는 그대로 유지하고, 그 위에 **링코어**(플�
 
 | 층 | 자원/시점 | 역할 |
 |---|---|---|
-| **링코어** | 영구 (광장 골드샵, 스탠다드=튜토리얼 기본) | 친밀도 **상한선** 해금 5→30 + 스탠다드가 기능 "각성" |
+| **링코어** | 런 (광장 골드샵, 링코어 퍽, 스탠다드=튜토리얼 기본) | 교감 **상한선** 해금 5→30 + 스탠다드가 기능 "각성" |
 | **강화칩** | 런 (퍽) | 친밀도 **획득률** +20%/칩, 최대 5칩(+100%) |
 | **먹이** | 런 (액티브 아이템) | 친밀도 **즉발** 부스트 |
 | **친밀도** | 런 (행동, 30레벨 트랙) | 상한까지 스킬·스탯·2번째 슬롯 성장 |
-| **잔향** | 런 넘어 | 헤드스타트 가속 (§4-A A-3, 현행 유지) |
+| **잔향** | 제거/금지 | v5 store는 meta-only. best/bond/resolved-choice/ring-core 영구 잔향은 로드 무시 + 저장 제거 |
 
 핵심 결정 (재론 금지):
 - **친밀도는 런 스코프 유지** — 영구 누적 안 함(쇼트런 파밍 차단,
@@ -842,7 +906,7 @@ v1~v2(친밀도 코어)는 그대로 유지하고, 그 위에 **링코어**(플�
   친밀도)의 끝". 보스 앵커는 "평균 투자"로 잡고 만렙 OP는 그 위를 넘는
   보상으로 의도적 허용.
 
-### 13-1. 링코어 6단계 (영구, 골드샵 / 스펙·세대 네이밍)
+### 13-1. 링코어 6단계 (런 빌드 상태, 골드샵/퍽/튜토리얼 / 스펙·세대 네이밍)
 
 | 단계 | 이름 | 친밀도 상한 | 추가 해금 |
 |---|---|---|---|
@@ -856,17 +920,14 @@ v1~v2(친밀도 코어)는 그대로 유지하고, 그 위에 **링코어**(플�
 - **스탠다드만 "각성"**(기능 ON), 부스트~제니스는 순수 상한 확장
   (§13 결정 3). 링코어 없으면: 방어율/출현율 0, 액티브·패시브 스킬
   없음, 친밀도도 못 쌓음, 필드에 링펫이 "존재만" 함.
-- **링코어 = 활성 링펫 공용 영구 파츠 (v5.1 — 펫별 장비 아님)**:
-  적대/코덱스 리뷰 공통 — 펫별 장비면 2번째·3번째 부화 펫이 "무코어 =
-  스킬 0·친밀도 0의 죽은 동반자"로 화면을 채워 신규 플레이어를 혼란시킴.
-  링코어는 **활성 슬롯에 들어온 펫에 자동 적용**되는 계정 공용 파츠로 두어,
-  무력 상태는 "의도적 0코어"(튜토리얼이 방지)일 때만 나타나게 한다.
-  (펫별이어야 할 경제적 이유가 생기면, 무코어 펫은 활성 슬롯에 못 끼게
-  회색 처리 + "광장 링펫샵 필요" 프롬프트.)
-- 획득: 광장 링펫샵 골드 구매(영구). **첫 영속 콘텐츠**로 plaza_port와
-  연계. 스탠다드는 미카 튜토리얼에서 기본 지급(§13-5). **가격 = 프론트
-  로드 + 상한**(부스트 저렴 → 제니스 8~12런 저축, 링코어 지출 ≤ 런 골드
-  40~50%로 다른 광장 싱크 굶기지 않게) — 정밀 가격은 골드/런 로그 후.
+- **링코어 = 현재 런의 활성 링펫 공용 빌드 상태 (2026-06-30 per-run 개정)**:
+  펫별 장비도, 계정 영구 파츠도 아니다. 활성 슬롯에 들어온 펫에 이번 런
+  tier가 자동 적용되고, 새 런/게임 재시작에서는 T0(튜토리얼 조건이면 T1)
+  으로 다시 시작한다. 구현 권위는 `docs/lingpet_affinity_per_run_redesign.md`.
+- 획득: 광장 링펫샵 골드 구매(이번 런), 링코어 퍽(이번 런), 미카 튜토리얼
+  기본 지급(이번 런). **가격 = 프론트 로드 + 상한**(부스트 저렴 → 제니스는
+  런 중 큰 투자, 링코어 지출 ≤ 런 골드 40~50%로 다른 광장 싱크 굶기지
+  않게) — 정밀 가격은 골드/런 로그 후.
 
 ### 13-2. 부화 → 스킬 해금 흐름 변경
 
@@ -875,30 +936,28 @@ v1~v2(친밀도 코어)는 그대로 유지하고, 그 위에 **링코어**(플�
 친밀도 레벨업으로 단계 해금:
 - 친밀도 Lv.1 → 첫 액티브 해금 (**펫 액티브 풀 2개 중 1개 선택**)
 - 친밀도 Lv.2 → 첫 패시브 해금 (**2개 중 1개 선택**)
-- 친밀도 Lv.20 → 2번째 액티브·패시브 해금 (§13-3 트랙)
+- 1차 액티브+패시브 유효 스킬레벨 합 ≥5 이후 레벨업마다 2번째 액티브/패시브 해금 롤(§16)
 
 ### 13-3. 30레벨 보상 트랙 (v2 15 → v3 30 확장)
 
 원칙 (v5.1 — 리뷰 반영):
 - **1번째 스킬 만렙을 후반으로** — 레벨업을 더 분산해 1액 ~Lv.24, 1패
   ~Lv.25 근처에서 만렙(초반 고레벨 쏠림 해소).
-- **2번째 액티브 = Lv.22, 2번째 패시브 = Lv.25 해금** (단일 Lv.20
-  게이트를 벌림 — 적대/코덱스 리뷰 공통: 단일 게이트면 1칩만으로 핵심
-  보상을 다 받아 칩이 ON/OFF 스위치가 됨). 분리하면 0칩=1스킬,
-  2칩=2액, 3칩=2패, 5칩=만렙 구조가 살아난다.
-- **2번째 스킬 = 링펫 깊은 투자 전용 보상** — 위 요구치 점증(§13-7)에서
-  0칩은 2번째 막 해금권(Lv.22 근처)에 그치고, 만렙·2패는 칩 빌드 영역.
+- **2번째 액티브/패시브 = 고정 레벨 카드 아님.** 이전 Lv.22/25, Lv16~25 랜덤,
+  Lv16/17 핀 고정안은 모두 §16의 **스킬레벨 합계 게이트 + 레벨당 30% 결정론적 롤**로 교체됨.
+- **2번째 스킬 = 링펫 깊은 투자 전용 보상** — 1차 스킬을 먼저 키운 뒤에야
+  추첨권이 열리고, 충족 직후 즉시 보장되지 않는다.
 - 30레벨 만렙 = 하트 공명 + OP. 칭호·하트 틴트(v2 연출 재사용).
 - ⚠ **2번째 스킬 슬롯은 보상표 수정이 아니라 큰 런타임 작업**: 현재
   코드는 단일 액티브/패시브 로드아웃 + 단일 스킬 쿨다운 전제 →
   loadout·owner schema·TAB UI·skill controller·runtime host까지 변경
-  (V3-2, §13-9). 정밀 게이트 위치(Lv.22/25)는 income QA로 유예.
+  (V3-2, §13-9). 게이트는 레벨 위치가 아니라 `second_*_unlocked` 플래그 + loadout 점유로 봉인.
 
-기준 트랙 초안 (1액 ~Lv.21 만렙형 — 정밀 분산은 슬라이스 때 확정):
+기준 트랙 현행(2번째 해금 카드는 트랙에 없음 — §16 롤이 레벨업 보상을 대체할 수 있음):
 Lv.1 액해금 · 2 패해금 · 3 방어 · 4 이속 · 5 액Lv2 · 6 게이지 ·
 7 패Lv2 · 8 방어 · 9 액Lv3 · 10 이속 · 11 패Lv3 · 12 게이지 ·
-13 방어 · 14 액Lv4 · 15 이속 · 16 패Lv4 · 17 게이지 · 18 방어 ·
-19 액Lv5 · 20 **2액 해금** · 21 **2패 해금** · 22~30 2번째 레벨업 +
+13 방어 · 14 액Lv4 · 15 이속 · 16~25 일반 스킬/스탯 밴드 ·
+26~30 후반 강화/하트 공명.
 1패 마무리 + 스탯, 30 = +하트 공명. (사용자 안: 2번째 Lv.20 당김 +
 1번째 만렙 불필수 → 위 19/21을 더 늦춰 25 근처 만렙으로 조정 가능.)
 
@@ -920,9 +979,9 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
   골드로 먹이를 대량 구매해 0칩으로 친밀도 상한까지 채워 칩·랠리 경제를
   통째로 우회한다. "N 보수적"만으론 부족 — 구조적 구멍은 **구매 개수**다.
 - **상한 3종**: ① 런당 먹이 2~3개 제한(샵 재고/런 플래그), ② 먹이는
-  **Lv.15 이상 못 넘김**(2번째 스킬 게이트는 칩+랠리로만), ③ N은 한
+  **현재 링코어 캡 이상 못 넘김**(T3=Lv.15, T6=Lv.30), ③ N은 한
   레벨 분량으로 작게(N≈30~40), ④ 먹이는 **칩 배율을 받지 않음**.
-- 스모크: "먹이만으론 2번째 스킬 슬롯 도달 불가".
+- 스모크: "먹이만으론 사용 횟수와 현재 링코어 캡을 우회 불가".
 - item_runtime_checklist 경로(액티브 아이템 추가) — 별도 아이템 작업.
 
 ### 13-5. 미카 튜토리얼 — 스탠다드 링코어 기본 지급
@@ -976,8 +1035,8 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
 
 목표 결말 (12스테이지 풀런 기준):
 - **0칩**: Lv.20~24 (1스킬 만렙 근처 + 스탯, 2번째 막 해금권)
-- **2칩**: 2번째 액티브 해금권 (Lv.22)
-- **3칩**: 2번째 패시브 해금권 (Lv.25)
+- **2칩**: 1차 스킬레벨 합계 게이트를 밀어 2번째 해금 롤 기회권
+- **3칩**: 2번째 해금 이후 스킬/스탯 강화권
 - **5칩**: Lv.30 / 하트 공명 / OP
 
 칩 배율 +20%/칩은 풀런에서 과하므로 **하향 검토(+10~15%/칩)** —
@@ -998,14 +1057,12 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
   순간 보관 포인트가 즉시 추가 레벨업으로 반영. ⚠ **절대 만렙
   `MAX_LEVEL=30` 도달에서만 포인트 0 버림**(기존 `_apply_level_ups` 정책).
   임시 상한(cap < 30)과 절대 만렙(30)의 버림 정책을 코드에서 명확히 구분.
-- **cap fail-open + 헤드스타트 cap 존중 (V3-1 리뷰 결정)**: 상태 모듈은
+- **cap fail-open + ~~헤드스타트 cap 존중~~ (V3-1 리뷰 결정, headstart는 폐기)**: 상태 모듈은
   cap 기본값을 MAX(fail-open)로 둔다 — **무코어(cap=0)/스탠다드(cap=5)
   등 실제 cap 배선은 V3-2 런타임 책임**(상태 모듈은 링코어 보유 여부를
-  모름). ⚠ 단 `apply_headstart_from_best`는 주어진 `ring_core_cap`을
-  존중해 **`min(headstart, cap)`으로 클램프**해야 한다(헤드스타트가 cap을
-  무시하고 무코어/저cap 펫이 상한 초과 레벨을 받던 버그 — 적대 리뷰
-  must-fix). 정상 운영(cap≥5)에선 headstart(≤4)<cap이라 무영향, 무코어
-  방어용. **get_next_reward의 cap-blocked 표시는 V3-2 패널 슬라이스로 이연.**
+  모름). 과거 `apply_headstart_from_best` cap 버그는 V3-3 per-run 개정에서
+  API 자체가 제거되며 닫혔다. **get_next_reward의 cap-blocked 표시는 V3-2
+  패널 슬라이스로 이연.**
 - **스킬 해금 = 보상 카드화**: "액티브 해금"/"패시브 해금"이 새 카드
   타입. 2중1 선택 UI 필요(부화 즉시 랜덤 → 레벨업 시 선택).
 - 잔향(best/bond)·호칭은 30 기준 재검토(호칭 캡 25 → 30 정렬 여부).
@@ -1063,17 +1120,24 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
     affinity_state는 이미 4-key complete(변경 불필요). **hatch-zero는 이미 동작**
     (`pick_skill_loadout`=`build_empty_loadout` slot_count=0 → fill_missing 스킵)이라
     워크플로 "allow_empty threading" A안 불필요, 검증 smoke+trap#870 가드만. **확정 결정**:
-    second 점유 포함·단일 auto-resolve 임시 수용(5 single-active 펫)·마리보 hatch-zero+Lv.1
-    headstart starter·player picker는 V3-2c-UI 후속 분리. ⚠ 워크플로 환각("D9 second 금지
+    second 점유 포함·단일 auto-resolve 수용(5 single-active 펫)·마리보 hatch-zero+Lv.1
+    starter. 과거 player picker/V3-2c-UI 후속안은 2026-06-30 per-run 개정으로 폐기. ⚠ 워크플로 환각("D9 second 금지
     softlock") 적대 검증으로 제거 — V3-2b 봉인으로 second write 안전.
-    **2c-1(reconcile 4-key) 봉인 완료(2026-06-14):** red_dragon Lv.25→slot-1 실제 발동
+    **2c-1(reconcile 4-key) 봉인 완료(2026-06-14):** explicit second unlock flags fixture→slot-1 실제 발동
     (`_get_active_slot_count()==2`)·would_share_module same-kind 억제·`_loadout_matches` 매칭 교체
     thrash 방지, 직접 확인 합격. **부수: reconcile-skip을 2b-iii one-shot→sticky 재판단**(F7/debug
     강제 loadout 보호, 실플레이 부화는 non-forced라 정상 reconcile).
     **2c-2(hatch-zero 검증+trap#870) 봉인 완료(2026-06-14) → V3-2c 전체 종료.** set_pet_loadout
     `_slot_count_for_pair`로 빈 primary slot_count 0→fill_missing 스킵→default 재주입 0(trap#870 가드),
-    fresh hatch smoke는 진짜 ball-hit 부화 경로. slot-1 점유·발동 + hatch-zero 완성. 다음 후속=
-    V3-2c-UI(player picker)/V3-2d(TAB slot-1 draw)/V3-3(링코어 상점) 중 택.
+    fresh hatch smoke는 진짜 ball-hit 부화 경로. slot-1 점유·발동 + hatch-zero 완성. V3-2d는
+    완료됐고, V3-2c-UI(player picker)는 폐기된 보존 문서. 현재 후속 축은 V3-3(링코어 상점/per-run) 계열.
+    **2026-06-30 재검증:** 현재 계약은 `docs/lingpet_unlock_loadout_v3_2c_slice_plan.md`
+    기준으로 정정됨. `lingpet_unlock_loadout_reconciler.gd`가 active/passive/
+    second_active/second_passive resolved choice를 최종 loadout slot 0/1에 쓰고,
+    no-skill 부화, 단일 후보 해금, per-pet 격리, 휘발성 restore 재도출,
+    Lazy Applied-Key, F7 sticky 보호, slot-1 owner/runtime surface를
+    `lingpet_unlock_loadout_v3_2c_smoke.gd`로 봉인한다. passive slot-1 효과레벨은
+    `lingpet_profile_runtime_surface_smoke.gd`가 봉인한다.
   - **V3-2d (TAB UI)**: 2번째 스킬 아이콘·쿨다운, 링코어 cap-blocked
     다음 보상 표시(§13-8 이연분).
     **상세 슬라이스 플랜 = `docs/lingpet_v3_2d_tab_slot1_row_slice_plan.md`**
@@ -1090,45 +1154,41 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
     **2d-1 봉인 완료(2026-06-14) → V3-2 전체(2b+2c+2d) 종료.** gate=raw owner read(locked 시
     catalog-fallback 방지 574 봉인), row budget 클램프(tight cliff "2nd" yield+교감 보호 554-556),
     slot-1 passive(loadout sync), cache hash slot-1+rect. 미세 노트: active gate=runtime key라
-    전투 외 TAB 비대칭(passive는 static, 봉인 blocker 아님). **링펫 2번째 슬롯 전 경로 닫힘**(Lv.22/25
-    unlock→2-of-1 reconcile 점유→런타임 발동→TAB 표시). 남은 후속=V3-2c-UI/V3-3.
-  - ✅ **egg_runtime_smoke affinity 회귀 처리 완료 (2026-06-14, 리뷰 합격)**:
-    순수 affinity_state 직접 단언을 V3 곡선으로 갱신 — 헤드스타트
-    substitute 4→2(Lv1-4 = unlock 2 + 스탯 2), 245커밋 Lv.13→12,
+    전투 외 TAB 비대칭(passive는 static, 봉인 blocker 아님). **링펫 2번째 슬롯 전 경로 닫힘**(second
+    unlock flag→2-of-1 reconcile 점유→런타임 발동→TAB 표시). 2026-06-30 per-run 개정 후
+    V3-2c-UI의 영구 picker/store 잠금은 폐기되고 auto-resolve/run-state 경로가 현행.
+  - ✅ **egg_runtime_smoke affinity 회귀 처리 완료 (2026-06-14, 2026-06-30 재검증)**:
+    순수 affinity_state 직접 단언을 V3 곡선으로 갱신 — 과거 headstart
+    fixture substitute 4→2(Lv1-4 = unlock 2 + 스탯 2), 245커밋 Lv.13→12,
     flight 205커밋 Lv.11→10, max-level 라벨 "교감 Lv.30!", income
     total 4,175. **#1(벤치 비행 펫 patrol fallback 버그)은 픽스처로
     덮지 않고 코드 경로로 수정** — `_resolve_affinity_motion_style`이
     `get_affinity_motion_style()`로 비활성 펫도 catalog flight 해석 +
     flight 덱 support 카드를 방어→게이지로(dead-draw order/`_can_apply`
     DEFENSE 모두 PATROL 게이트라 flight DEFENSE 재도입 이중 차단). 프로파일
-    합성 단언(launch-context 스킬 레벨·패시브 dict·스탯·flight gauge gain)은
-    `_defer_v3_profile_synthesis_assertions`로 명시 skip + TODO("V3 unlock
-    모델 반영 후 재활성화"). **V3-2b/c 진입 시 이 헬퍼 호출 3곳을 실제
-    단언으로 복원할 것** (본문 `pass` = grep 단일점). 교훈: V3-1 sign-off에서
-    egg_runtime_smoke를 안 돌려 놓침 → affinity 변경 시 affinity를 굴리는
-    모든 스모크(affinity_state + egg_runtime) 실행을 sign-off 체크리스트에 고정.
-- **V3-3a**: 링코어 cap 토대 **완료** — `lingpet_affinity_store`
-  schema v3(`[ring_core] tier`, 이후 V3-3b에서 store schema v4로 승격) + account-wide tier→cap(0/5/10/15/20/25/30)
-  + `lingpet_egg_runtime` registry-threaded cap 주입. missing tier는
-  fail-open(MAX), explicit tier 0만 무코어. registry 없는 context sync는
-  `RING_CORE_CAP_UNCHANGED`로 기존 cap 보존(매 owner snapshot/loadout apply가
-  MAX로 덮는 회귀 봉인).
-- **V3-3c**: 광장 링펫스토어 골드샵 구매 **완료** — `공명 알 뽑기`
-  기존 액션을 유지하고 액션 1을 account-wide `링코어 강화`로 교체.
-  tier 0→1도 골드샵에서 구매 가능(스탠다드 150G; 이후 300/600/1000/1500/2200G
-  플레이스홀더, V3-6 income QA에서 재튜닝). 같은 링펫스토어 방문에서 첫
-  성공 거래만 AP 1 소모, 후속 링코어 구매는 AP 0. 실패(`not_enough_gold`,
-  `max_ring_core_tier`, `missing_affinity_store`)는 gold/AP/tier 전부 불변.
-- **V3-3d**: 미카 튜토리얼 스탠다드 링코어 기본 지급 **완료** — Junior
-  Mika 첫 튜토리얼 egg 스폰 시 registry `lingpet_affinity_store`를 통해
-  `upgrade_ring_core_tier(1)` 호출. hatch affinity보다 먼저 tier 1/cap 5를
-  저장하고, 이미 tier 1+인 계정은 하향/덮어쓰기 없이 유지.
-- **V3-3b**: resolved choice persistence **완료** — `lingpet_affinity_store`
-  schema v4(`[resolved_unlock_choices] pet.choice_key=selected_id`) + reconcile
-  persisted 우선 적용. 범위는 인프라만: auto-resolve는 store에 기본값을 쓰지 않고,
-  V3-2c-UI/player picker가 쓸 selected-only 저장 API와 reload 우선순위를 봉인.
-  registry threading은 `_apply_current_loadout` 7 호출자와 save/plaza restore 경로 전수.
-  stale persisted id는 candidate pool 검증에서 drop/clear 후 기존 auto fallback.
+    합성 단언도 복구됨: `_defer_v3_profile_synthesis_assertions` 스텁은 제거됐고,
+    `_verify_affinity_reward_application`이 Lv.1 unlock-only, Lv.5 첫 active +1,
+    Lv.12 boosted active/passive 합성, patrol defense/gauge/mobility, flight gauge/
+    appearance 합성을 직접 단언한다. 교훈: V3-1 sign-off에서 egg_runtime_smoke를
+    안 돌려 놓침 → affinity 변경 시 affinity를 굴리는 모든 스모크(affinity_state +
+    egg_runtime)를 sign-off 체크리스트에 고정.
+- **V3-3 per-run 개정 완료 (2026-06-20~30)** —
+  `docs/lingpet_affinity_per_run_redesign.md`가 현재 권위. 기존 account-wide
+  `[ring_core]`, `[best_levels]`, `[bond_points]`, `[resolved_unlock_choices]`
+  persistence 설계는 v5에서 폐기됐다.
+  - `lingpet_affinity_store.gd`는 schema v5 meta-only. legacy progression
+    섹션은 load 무시 + save 제거, progression getter/setter는 제거.
+    `LingpetAffinityState`의 legacy store-headstart API와 `best_level`
+    run-state payload도 제거됐고, import/export는 legacy
+    `best_level`/`bond_points`/`bond_title` pet-data 키를 strip한다.
+  - ring-core tier/cap은 `LingpetAffinityState` run-state 소유. plaza 골드샵,
+    링코어 퍽, 미카 튜토리얼 기본 지급 모두 `upgrade_run_ring_core_tier` 경로.
+  - resolved unlock choices는 run-state only. `get_unlock_choice_options()`는
+    닫혀 있고 `commit_unlock_pick()`은 false를 반환한다. V3-2c-UI 영구 picker
+    플랜은 현행 목표가 아니다.
+  - TAB/R6: ring-core row는 run tier를 표시하고, 영구 bond/title subtitle
+    잔향은 snapshot/schema/owner surface/localization에서 제거. windowed pixel
+    QA까지 완료(`character_info_lingpet_ring_core_visual_smoke.gd`).
 - **V3-4**: 강화칩 퍽(획득률 배율) + TAB 5눈금 UI.
 - **V3-5**: 먹이 액티브 아이템 (item_runtime_checklist 경로).
 - **V3-6**: 클릭 수치 + 앵커 재산정 (income 로그 실측 후, V2-6 통합).
@@ -1136,12 +1196,13 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
 ### 13-10. 결정 기록 (v5.1 — 2026-06-14, 2회 리뷰 반영)
 
 **잠긴 설계 의도 (구조):**
-1. 링코어 획득 = 영구(골드샵) + 강화칩 퍽 보조 + 먹이 아이템.
+1. 링코어 획득 = 이번 런 골드샵 + 링코어 퍽 보조 + 튜토리얼 기본 지급.
 2. 친밀도 상한 30, 친밀도 자체는 런 스코프(영구 누적 안 함).
 3. 링코어는 상한만 해금, 스탠다드만 기능 각성. **링코어 = 활성 펫 공용
-   영구 파츠**(펫별 장비 아님 — §13-1).
-4. 2번째 스킬은 **후반 게이트**로 존재(액티브 ~Lv.22, 패시브 ~Lv.25 —
-   정밀 위치는 튜닝 유예). 단일 게이트 금지(칩 ON/OFF 붕괴).
+   런 빌드 상태**(펫별 장비/계정 영구 파츠 아님 — §13-1, per-run 개정).
+4. 2번째 스킬 게이트. ~~(액티브 Lv.16, 패시브 Lv.17 핀 고정)~~
+   **[2026-06-29 §16으로 교체]** 1차 스킬레벨 합계 ≥5 충족 후 레벨당 30%
+   확률 추첨(즉시 해금 아님, "언제 나올진 모름"). 풀 깊이 게이트(§14)는 유지.
 5. 30 도달 = 강화칩+먹이로 한 런 밀어붙이기(헤드스타트 누적 아님).
 6. 링코어 네이밍 = 스펙/세대(스탠다드~제니스).
 7. 클릭은 **보너스**(타구 아래) — +15·전투3캡 시작, 30 OP 허용하되
@@ -1152,7 +1213,7 @@ v2값(이속 +30%, 방어 0.80, 게이지 +20)에서 소폭 상향만 — 스탯
 6스테이지로 튜닝 금지.
 
 **튜닝 유예 (스테이지 확정 + income 로그 QA 후):** Lv.20 이후 요구치
-점증 정밀값, 칩 배율(+10~20%/칩), 2번째 스킬 게이트 위치(Lv.22/25±),
+점증 정밀값, 칩 배율(+10~20%/칩), 2번째 해금 이후 강화 곡선,
 클릭 상수·캡, 스탯 캡 상향폭, 먹이 N·런당 개수, 링코어 가격, 보스 앵커
 (0/1/5칩 스테이지 진입 곡선 + 만렙 OP 클리어 단축 상한). 이 수치들을
 얼린 채 income만 튜닝하면 붕괴를 확인만 할 뿐 못 고침 → 전부 열어둔다.

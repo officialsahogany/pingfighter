@@ -29,6 +29,41 @@ repo 배치 + 런타임 배선 + 스모크**.
 | D4 | 정지 시 알은 가장 가까운 직립 자세로 셋틀(오뚝이 락킹). 임의 각도(뾰족한 끝이 바닥) 정지 금지 | 권장안 |
 | D5 | 코이그지스트(아이템) 알도 동일 비주얼 적용 — 두 알이 같은 `LingpetEggFieldState`/렌더러를 공유하므로 자동 | 권장안 |
 
+---
+
+## 0.5 후속 승인 변경 (2026-07-03, 사용자 명시 요청 — 별도 커밋 스코프 권장)
+
+이 슬라이스 이후 사용자가 추가로 요청·승인한 변경들. **게임플레이 밸런스 변경(부화 난이도)은
+시각/감각 폴리시와 커밋을 분리한다.**
+
+### A. 알별 부화 난이도 1/2/3 랜덤 (게임플레이 밸런스 — 별도 커밋)
+사용자 요청 원문: "어떤 알은 1번만 맞으면 바로 깨지고, 어떤 알은 2번(1번 맞으면 금), 어떤 알은
+3번(맞을 때마다 금). **주니어리그 첫 알은 항상 1번**."
+- `LingpetEggFieldState.HATCH_REQUIRED_HITS_POOL = [1,2,3]`, 스폰 1회 롤(`roll_required_hits`),
+  0 = 미굴림 센티넬(색인덱스 -1과 동형) → 미굴림 시 카탈로그/profile fallback.
+- 권위 = 알의 롤. 런타임 `_get_main_egg_required_hits()`/`_get_item_egg_required_hits()`가 알 롤 우선,
+  profile은 fallback. 주니어(`is_auto_present_league`)만 `_spawn_egg`에서 `set_required_hits(1)` 강제.
+- 크랙 비주얼은 기존 `hatch_hits` 단계 렌더 그대로 정합(2-hit=1금/3-hit=누적금).
+- save/load 보존(reset 스냅샷 `required_hits=0` 센티넬), owner키 `lingpet_hatch_required_hits`는
+  이미 `battle_scene_state.DEFAULT_VALUES` 선언됨.
+- ⚠️ **회귀 주의(리뷰 P1)**: 카탈로그 required_hits는 여전히 전 펫 1. 이 변경으로 비주니어/아이템
+  알이 런타임 랜덤 2~3히트가 되어 "알이 더 안 깨짐" 체감이 생긴다. **의도된 승인 밸런스**이나
+  코스메틱과 섞이면 감사하기 어려우므로 커밋을 분리한다.
+- 씰: `_verify_egg_hatch_required_hits_roll`(로컬 RNG 통계 씰=전역 randi 무소비[리뷰 P2 대응]·
+  주니어 강제·3-hit OUTCOME·save/load·item소스).
+
+### B. 시각/감각 폴리시 4건 (코스메틱 — 별도 커밋)
+1. 아이템 아이콘 받침대 제거 → `resonance_egg_item_icon.png`를 맨 크리스탈(bare_variant_0 트림·센터)로 교체.
+2. 설치 알 글로우 완화 → 파스텔 4층 폴오프(`_draw_soft_egg_glow`), 피크알파 0.38→0.20.
+3. 셋틀 = 감쇠 복원 스프링(오뚜기 진동): `roll_settle_vel`+STIFFNESS 0.055/DAMPING 0.90.
+4. 걷기 nudge ~1.5x(RADIUS 40→47·STRENGTH 0.32→0.50·MAXVX 0.75→1.2·STEP 0.45→0.74).
+- 씰: `_verify_egg_settle_oscillation` + 기존 nudge 테스트 캡 갱신.
+
+### P2 대응 (테스트 전역 RNG 결합 완화)
+`roll_required_hits(rng := null)` 주입 가능화(null=전역, 프로덕션 불변). 통계 씰은 로컬 시드 RNG로
+60롤 → 전역 randi 미소비. 주니어 반복 12→3(결정적 강제라 소량으로 충분). 잔여: V3-2c/보상덱 스모크
+자체가 전역 RNG 결합이라 여전히 상류 변화에 민감 — 그 테스트들이 자기 RNG를 시드하는 게 근본책(별도 백로그).
+
 변종 정체성/글로우 맵은 **불변**: 0 crystal(시안) / 1 mech(골드) / 2 nebula(바이올렛) /
 3 rose(핑크) / 4 rune(제이드). `EGG_VARIANT_GLOW` 그대로.
 

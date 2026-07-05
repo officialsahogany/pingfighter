@@ -27,7 +27,7 @@ GDScript 배선은 사용자/Codex, Claude는 적대적 리뷰.
   `lingpet_star_coil_skill.gd:181-182`; sparks `SPARK_MAX=42`/trail
   `TRAIL_MAX_POINTS=14` 하드캡, `:29-30`). Bone Barrier 식 증식 위험 없음.
 - Milk Shot / Star Coil 투사체는 라운드/배틀/펫교체 **누수 없음**
-  (`reset_round` 미구현 → host `_reset_skill_round` 폴백이 `cancel()→reset()`
+  (스킬별 `reset_round` 직접 구현 없음 → host `_reset_skill_round` 폴백이 `cancel()→reset()`
   로 매 라운드 전부 비움, `lingpet_skill_runtime_host.gd:1055-1060`).
 - Star Coil owner-slow 키 2개는 `DEFAULT_VALUES` 에 **선언돼 있음**
   (owner-field schema 트랩 미해당) + self-healing deferred sync 존재.

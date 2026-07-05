@@ -62,14 +62,17 @@
 ### 1.5 같은 skill_kind 이중장착 방어
 호스트는 **skill_KIND별 모듈 1개** 캐시(skill_id 아님). `get_skill_kind`은 many-to-one(카탈로그 runtime-kind가 여러 id를 한 kind로). 두 슬롯이 같은 kind면 **같은 stateful 인스턴스 공유 → 손상**(예: ghost_summon `launch()`가 첫 줄에서 `reset()` → 트윈의 in-flight ghosts/`_saved_ball_vel` 소거 → 잡힌 공이 ZERO로 release). 신규 `would_share_module(a, b) := get_skill_kind(a)==get_skill_kind(b) and kind!=NONE`; `_get_active_slot_count()`이 같은 kind면 **slot 1을 빈 것으로 취급(count=1)**. (진짜 per-(kind,slot) 캐싱은 미래 동일-패밀리 동시장착이 필요할 때의 큰 작업으로 유예.)
 
-### 1.6 unlock 게이트 = AND (현재 런타임에 게이트 0개)
-> grep `second_active_unlocked|second_active_skill` in egg_runtime = **0 매치**. 런타임 스킬 경로에 친밀도 읽기가 **전혀 없음** — unlock은 현재 순전히 데이터/owner-스키마 개념(V3-2a). 게이트를 **처음부터 추가**해야 함.
+### 1.6 unlock 게이트 = AND (2026-06-30 현재 구현됨)
+> 과거 진단에서는 `second_active_unlocked|second_active_skill`이 egg_runtime에서 **0 매치**였고,
+> unlock이 데이터/owner-스키마 개념(V3-2a)에만 머물러 있었다. 현재는 V3-2b/V3-2c 경로가
+> 랜딩되어, slot-1 런타임 루프와 owner mirror가 `second_active_unlocked` + 실제 slot-1 skill id를
+> 함께 게이트한다.
 
 slot-1 적격 = **두 독립 사실의 논리 AND**:
 - (a) `_current_profile.affinity_rewards.second_active_unlocked == true` — **캐시된 invalidation-gated 프로파일에서** 읽음 (fresh `get_cumulative_rewards` 아님, owner mirror 아님).
 - (b) `active_slot_count >= 2 AND active_skill_ids[1] != ""` (장착 존재).
 
-둘 중 하나라도 false면 slot-1 루프 iteration을 `continue`(controller.update 전 — 모듈 인스턴스화 0, phantom arm 0). **한쪽만 게이트하면 누수**: 로드아웃이 이전 unlock/마이그레이션/디버그로 slot-1 id를 운반하는데 라이브 친밀도가 Lv.22 미만인 경우(예: 갓 교체된 벤치 펫) slot 1이 Lv.22 전 발동.
+둘 중 하나라도 false면 slot-1 루프 iteration을 `continue`(controller.update 전 — 모듈 인스턴스화 0, phantom arm 0). **한쪽만 게이트하면 누수**: 로드아웃이 이전 unlock/마이그레이션/디버그로 slot-1 id를 운반하는데 라이브 `second_active_unlocked` 플래그가 false인 경우 slot 1이 해금 전 발동.
 
 ### 1.7 owner/HUD 노출 (2 surface, 둘 다 필요)
 | surface | 키 | 생산자 | 소비자 |
@@ -102,7 +105,7 @@ slot-1 적격 = **두 독립 사실의 논리 AND**:
 | `_launch_companion_skill(owner, registry, slot)` | method | slot 파라미터 추가. launch_context dict와 cooldown을 **그 슬롯의** active-skill dict에서 빌드(slot-0 dict 아님). slot-1 effective level을 slot-0와 같은 `_get_effective_active_skill_level`/passive-reduction 경로로. |
 | `_prewarm_current_skill_runtime` | method | both-slots 루프: `for slot in range(_get_active_slot_count()): host.prewarm(_get_skill_id_for_slot(slot))`. 같은 boot/loadout-apply 사이트. |
 | `_build_loadout_key` | method | **이미** slot-1 폴드됨(active_skill_ids/levels/active_slot_count + affinity reward signature가 unlock 인코딩) — V3-2a/V3-1 완료, **신규 작업 없음**. 단 모든 slot-1 mutation 경로가 `_invalidate_current_loadout_cache()` 호출해야 early-return(1283) 우회(Lazy Applied-Key 트랩). |
-| `second_active_unlocked` | state_field | `_current_profile.affinity_rewards` bool, Lv.22 reward. slot-1 ticking + `_second_*` owner write 게이트. 캐시 프로파일에서만 읽음. |
+| `second_active_unlocked` | state_field | `_current_profile.affinity_rewards` bool, 2nd unlock roll-granted reward flag. slot-1 ticking + `_second_*` owner write 게이트. 캐시 프로파일에서만 읽음. |
 | `get_snapshot(slot_suffix="")` | method | optional suffix. ""=bare 키(back-compat), "_1"=`_1` 패밀리. |
 | `_sync_second_skill_owner` | method (신규, snapshot_builder) | `_sync_skill_owner` 미러, `lingpet_/ringpet_second_skill_*` 페어를 change-gated `_set_pair`로. `second_active_unlocked`일 때만, 아니면 스키마 기본값. |
 | `lingpet_/ringpet_second_skill_*` | owner_key (신규) | DEFAULT_VALUES 페어 선언. cooldown(0.0)/cooldown_duration(40.0)/ready(false)/winding_up(false)/windup_ratio(0.0)/id("")/name("")/max_level(0). origin은 owner 노출 금지(internal snapshot만 — per-tick Vector2 compare 회피). |
@@ -114,7 +117,7 @@ slot-1 적격 = **두 독립 사실의 논리 AND**:
 각 smoke는 **버그 코드에서 FAIL해야 함**(반증검증). 성공-only 페어링(두 FREE 동시 발동)은 게이트 유무와 무관히 통과 → 버그를 가림. CLAUDE.md per-frame-roll/owned-ball smoke 규율 따름: in-place 토글로 게이트 끄고 손상 재현 확인.
 
 ### BLOCKER
-1. **shared single skill_state → 슬롯 붕괴** *(certain)*. slot-0 launch가 slot-1 쿨다운, slot-0 windup이 slot-1 arm 차단 → Lv.22 unlock이 장식. **Guard**: 2 eager 인스턴스. **Smoke**: slot 0 launch(쿨다운>0) 후 같은 프레임 slot_1.cooldown==0 AND can_arm()==true; slot-0 windup 중 slot-1 `_should_arm` 적격. 공유-인스턴스에서 FAIL.
+1. **shared single skill_state → 슬롯 붕괴** *(certain)*. slot-0 launch가 slot-1 쿨다운, slot-0 windup이 slot-1 arm 차단 → 2nd unlock이 장식. **Guard**: 2 eager 인스턴스. **Smoke**: slot 0 launch(쿨다운>0) 후 같은 프레임 slot_1.cooldown==0 AND can_arm()==true; slot-0 windup 중 slot-1 `_should_arm` 적격. 공유-인스턴스에서 FAIL.
 2. **두 BALL_OWNER가 skip_ball_motion_step/ball_vel race** *(certain)*. 한쪽 release가 다른 쪽 hold 소거 → 영구 정지 softlock; 또는 wild_roar가 zeroed ball_vel 반사. **Guard**: arm-edge resource-class 게이트, BALL_OWNER 최대 1 보유, slot-0 우선. **Smoke**: 두 BALL_OWNER 동시 적격 → 정확히 1 arm, skip_ball_motion_step 단일 owner, 패배자 NONE, 승자 release 후 ball_vel != ZERO. 게이트 토글-off로 ball_vel ZERO 종료 확인.
 
 ### HIGH
@@ -125,7 +128,7 @@ slot-1 적격 = **두 독립 사실의 논리 AND**:
 7. **stored cooldown advance가 flat key만 → 벤치 펫 slot-1 동결** *(certain)*. `_advance_stored_companion_skill_cooldowns`가 단일 `cooldown` mutate; 스냅샷 pet_id-only. **Guard**: 스냅샷 per-slot 중첩 `{slot_0,slot_1}`, 둘 다 감소, 레거시 flat→slot_0(slot_1 cold). **Smoke**: 벤치 스냅샷 slot_0=10/slot_1=20, 3s advance, 둘 다 감소 확인; 레거시 flat 로드→slot_0 매핑. flat-key advance에서 FAIL.
 8. **lazy applied-key gate가 slot-1 변경 무시** *(certain)*. early-return(1283)이 key recompute 전 → slot-1 mutation이 `_invalidate` 없으면 무시. **Guard**: 모든 slot-1 writer가 `_invalidate_current_loadout_cache()`. **Smoke**: invalidate 없이 slot-1 id 변경·apply → 스테일 잔존(early-return이 삼킴); invalidate 후 재-apply → 신규 로드 + host.prewarm 호출.
 9. **prewarm slot 0만 → slot-1 첫 발동 100ms+ hitch** *(certain)*. 512px 모듈이 첫 arm에 cold-load. **Guard**: prewarm both-slots 루프, loadout-apply 사이트. **Smoke**: slot-1 장착·apply 후 host slot-1 모듈 non-null. slot-0-only 루프에서 FAIL.
-10. **unlock 게이트 부재 → slot 1이 Lv.22 전 발동** *(certain)*. 런타임에 친밀도 읽기 0. **Guard**: §1.6 AND 게이트. **Smoke**: slot-1 id 있고 `second_active_unlocked==false`인 펫 다수 프레임 → slot-1 state cooldown=0/windup=false, host가 slot-1 skill_id 디스패치 안 함; unlock 토글-true로 arm. (id 부재가 아니라 게이트가 막았음을 증명.)
+10. **unlock 게이트 부재 → slot 1이 해금 전 발동** *(certain)*. 런타임에 친밀도 읽기 0. **Guard**: §1.6 AND 게이트. **Smoke**: slot-1 id 있고 `second_active_unlocked==false`인 펫 다수 프레임 → slot-1 state cooldown=0/windup=false, host가 slot-1 skill_id 디스패치 안 함; unlock 토글-true로 arm. (id 부재가 아니라 게이트가 막았음을 증명.)
 11. **draw-context가 slot-0에 하드와이어 → slot-1 cast 포즈 미렌더** *(certain)*. `_draw_companion`이 slot-0 skill_id+skill_state를 builder에 전달 → slot-1 puppet/curse가 effect는 재생하나 몸은 patrol-walk. **Guard**: 프레임당 "active visual slot" 1회 결정(windup_active true OR cast_pose_progress>=0인 슬롯, slot-0 우선) → 그 슬롯 skill_id+state를 build_config에. **Smoke**: slot 0 idle, slot 1 puppet_grab mid-windup → build_config가 cast_pose_active==true + non-null cast_texture. slot-0-only에서 FAIL.
 12. **walk/idle ratio gate가 slot-0 override만 → slot-1 파킹 시 treadmill** *(certain)*. **Guard**: §1.4 단일 owner query, 어느 슬롯이든 override 보유 시 `_companion_override_move_ratio` 반환. **Smoke**: slot-1 headbutt가 펫 파킹(x 고정), `_get_companion_draw_motion_speed_ratio()` ~0.0. slot-0-only gate에서 FAIL(양의 patrol ratio).
 13. **wild_roar 이중 클래스 under-protect** *(likely)*. 단일-클래스 lookup이면 wild_roar+hydro_sphere 동시 windup → owned-ball 손상. **Guard**: 클래스를 **집합**으로, 게이트는 교집합 체크. **Smoke**: wild_roar + hydro_sphere 동시 적격 → 1 arm, skip_ball_motion_step 단일 owner. POS_OVERRIDE 단일-태그면 FAIL.
@@ -152,9 +155,10 @@ slot-1 적격 = **두 독립 사실의 논리 AND**:
 blocker #1(shared state) 반증검증됨(`smoke 4395-4398`이 slot-1 launch 후
 slot0.cooldown==0/slot1.cooldown>10·둘 다 windup 동시를 OUTCOME 단언 → 공유
 인스턴스에서 FAIL). `trigger_count` pet-shared 유지(patrol seed). **2b-i 단독
-ship 안전** — slot 1이 프로덕션 도달 불가(F7 picker가 second_active 미배선,
-부화 V3-2c 미머지, 친밀도 Lv.22 현 스테이지로 도달 불가)라 충돌 중재 부재가
-softlock 창을 안 엶. **반증 smoke 2건 추가**(`smoke 4416-4461`): ① would_share_module
+ship 안전** — 당시 slot 1이 프로덕션 도달 불가(F7 picker/loadout 후속 slice와
+second unlock grant path가 아직 없던 시점)라 충돌 중재 부재가 softlock 창을 안 열었다.
+2026-06-30 현재는 second unlock roll + loadout reconcile +
+slot-1 runtime gate가 랜딩되어 이 문단은 당시 ship 판단 기록으로만 남긴다. **반증 smoke 2건 추가**(`smoke 4416-4461`): ① would_share_module
 same-kind(`active_skill_ids=[breath,breath]` 직접 주입으로 dedup 우회 → slot_count==1·
 slot 1 미발동, 가드 제거 시 "expected 1 got 2" FAIL 직접 확인), ② 레거시 flat
 스냅샷 마이그레이션(flat→slot_0 advance 20→17·slot_1 cold·trigger_count 보존).
@@ -184,10 +188,13 @@ reconcile-skip을 `_apply_current_loadout` 진입 즉시 1회 소비(빈 pet ear
 임시 stale 재현 FAIL 확인). **오탐 2건 기각**: line 2008 capability(위), strike "slot-0 only
 DROPPED"(실제 line 1980 루프-내 슬롯별 호출).
 
-> **선택 cleanup (봉인 blocker 아님)**: line 2070 `_apply_companion_skill_position_override(skill_id)`
-> = dead code(호출처 없음), line 2051-2052 = line 1981 batch apply와 idempotent 중복(같은
-> owner pos 두 번 write, 무해). 미래 혼란 방지 차 정리 권장. smoke 갭(nice-to-have):
-> loser-resumes-after-release 멀티프레임, strike slot-1, BALL_OWNER loser cooldown 불변 명시.
+> **2026-06-30 cleanup 정리:** 과거 line 2070
+> `_apply_companion_skill_position_override(skill_id)` dead wrapper는 제거됐고,
+> `lingpet_egg_runtime_smoke` source-seal이 재도입을 막는다. line 2051-2052
+> 중복 position-override apply 메모도 현 소스에서는 단일 batch owner query 후 1회 apply로
+> 정리된 상태다. BALL_OWNER loser cooldown 불변 + winner release 후 loser 재-arm도
+> `_verify_second_active_resource_conflict_mediation`가 봉인한다. 2026-06-30 추가로
+> slot-1 headbutt strike request 소비도 같은 smoke가 봉인한다. 남은 nice-to-have smoke 갭 없음.
 
 ### 2b-iii — owner/HUD 노출 (라이브 값, draw는 2d) ✅ 봉인 완료 (2026-06-14)
 `get_snapshot(slot_suffix)` · internal `companion_skill_*_1` 키 · `lingpet_/ringpet_second_skill_*` 페어 DEFAULT_VALUES 선언 · `_sync_second_skill_owner`(unlock 게이트, 기본값 sync) · `_windup_ratio` 0..1.
@@ -196,7 +203,7 @@ DROPPED"(실제 line 1980 루프-내 슬롯별 호출).
 **봉인 상태 (적대 리뷰 4축 직접 확인 합격):** ① owner sync — 8키 페어
 (id/name/max_level/cooldown/cooldown_duration/ready/winding_up/windup_ratio) 전부
 DEFAULT_VALUES 선언 + `_sync_second_skill_owner`가 **locked 시 unconditional 기본값
-push**(skip 아님 → Lv.22→sub-Lv.22 전환 stale 차단) + 전부 scalar `_set_pair`(change-gated,
+push**(skip 아님 → unlocked→locked/flag false 전환 stale 차단) + 전부 scalar `_set_pair`(change-gated,
 origin은 internal-only) + windup_ratio 0..1 + dead-data 없음(last_gain/trigger_count/origin의
 second owner 페어 미선언). ② schema seal `_verify_snapshot_sync_keys_are_schema_declared`는
 **동적 소스 regex 스캔**(하드코딩 리스트 아님 → 미래 키 자동 커버), lingpet_·ringpet_ 양쪽

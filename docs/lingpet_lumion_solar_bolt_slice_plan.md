@@ -12,12 +12,10 @@
 - **작성일:** 2026-06-14
 - **v1.1 갱신:** 적대적 리뷰 2렌즈(배선/코드충돌 + 게임플레이) 반영 — must-fix 5건 + should-fix
   다수. 리뷰 로그는 문서 맨 끝.
-- **출시 범위 (v1.2 — Codex 리뷰 확정):** 현재 런타임은 액티브 1개만 저장/실행한다
-  (`lingpet_current_profile.gd:15`, `lingpet_loadout_state.gd:226`, `battle_scene_state.gd:226` —
-  `second_active_skill_id/level` 경로 없음). 따라서 Solar Bolt는 **slot-1 교체형/해금 액티브로 먼저
-  출시**한다("두 액티브 동시 장착"이 아니라 "대체/해금 선택지"). 두 액티브 동시 = V3-2(다중 액티브
-  저장/스케줄러/HUD) 범위. **모듈은 standalone으로 지금 빌드, 카탈로그 풀 노출은 친밀도 해금 작업과
-  합류**(§6.6).
+- **출시 범위 (2026-06-30 정정):** Solar Bolt 런타임/카탈로그/전용 카드·아이콘은 라이브이며,
+  V3-2 다중 액티브 경로도 랜딩했다. slot-0 선택지로 배정되거나 second active slot에 들어가도
+  slot-aware 효과 레벨(`active_skill_bonus` / `second_active_skill_bonus`)을 받는다. 과거
+  "slot-1 교체형만 완전 동작" 전제는 보존된 리뷰 이력이다.
 - **자매 문서:** `docs/lingpet_monkeyring_wild_roar_slice_plan.md`(가장 가까운 선례 — **하강공
   자동시전 + ball_vel 쓰기 + can_arm가 ball 키 읽음**),
   `docs/lingpet_monkeyring_banana_slice_plan.md`,
@@ -28,14 +26,10 @@
 - **원본 보조 레퍼런스:** `hero_skills.py` 16273 `_check_ball_conditions`, 16378 `_apply_effect`,
   16297 `_gen_lightning`, 16466 `draw`, 16605 `reset_for_new_round`; HeroSkill 베이스 138-249.
 
-> **해금 프레임워크와의 관계 (중요 — v1.1 정정 / 2026-06-14 업데이트):** 링코어/친밀도
-> 시스템(§13, V3-1/V3-2)이 언제·어떻게 이 스킬이 주어지는지를 담당한다. **친밀도
-> unlock-choice→`active_skill_id` 배선과 slot-2 레벨 reading은 현재 병렬 작업 중(V3-1/V3-2)이다**
-> — 그 작업이 랜딩하면 solar_bolt는 해금 결과로 자동 배정/레벨업된다. 그 전(또는 slot-1로
-> 배정될 때)에도 solar_bolt가 **레벨 스케일(Lv.3/5 재발사)을 받는 경로는 "slot-1 액티브로
-> 선택/배정되는 것"**이다(slot-1 +1 카드가 친밀도 트랙 Lv.5/9/14/19에 있어 Lv.3/5 도달 가능).
-> 모듈 자체는 자기완결이며 `launch_context.active_skill_level`만 읽는다. **두 액티브 동시 사용 +
-> slot-2 레벨 공급의 완전 동작은 V3-2 랜딩에 의존**(§10 — 차단이 아니라 합류 의존).
+> **해금 프레임워크와의 관계 (2026-06-30 정정):** 링코어/교감 시스템(§13)이 언제·어떻게
+> 이 스킬이 주어지는지를 담당한다. unlock-choice→loadout 배선과 second active 레벨 reading은
+> V3-2에서 완료됐고, Solar Bolt는 `launch_context.active_skill_level`만 읽으면 된다.
+> V3-2 이전의 "slot-1 액티브로 선택/배정될 때만 레벨 스케일" 전제는 더 이상 현재 구현이 아니다.
 
 ---
 
@@ -56,7 +50,7 @@
 | D11 | VFX 팔레트 | **금색** (태양신, 원본 `(255,230,100)`) | Q4 확정. 청백 천둥 뇌구와 구분 |
 | D12 | VFX 구현 (v1.3 — 원본 문양 충실 포팅) | 절차적 즉시-draw. **원본 SolarBolt `_gen_lightning` 그대로**: 재귀 midpoint-displacement 볼트 + 3~5 분기(+40% 서브분기, **used_indices 중복 가드 포함**) + 4레이어(글로우/금코어/백코어/라벤더 분기) + 3중 시간차 폭발 링(금)·방사 아크(청백) + streak/dot/flash 스파크 22개. 강타 시 1회 생성·고정 경로 + 85% 플리커 | 텍스처 불요 → `prewarm()` no-op. **Godot 한계**: BLEND_ADD 글로우 → 알파-에뮬 와이드 라인 |
 | D13 | 공 소유권 (v1.1 신규) | 매 스트라이크에 `ball_intensity.register_contact("lingpet","player",{...})` 호출 | 점수/콤보/보스 재타격 귀속. **wild_roar 복사론 안 됨** — body-hit 가드의 `_register_ball_intensity_contact` 미러(리뷰) |
-| D14 | 레벨 공급 전제 (v1.1 신규) | solar_bolt는 **slot-1 액티브로 배정될 때만** Lv.3/5 재발사 스케일 | unlock-choice→`active_skill_id` 소비자 부재, 프로파일이 `active_skill_bonus`(slot1)만 읽음. slot-2 공급은 V3-2 선결(리뷰) |
+| D14 | 레벨 공급 전제 (2026-06-30 정정) | solar_bolt는 slot-0/second active slot 모두 `launch_context.active_skill_level` 기반으로 Lv.3/5 재발사 스케일 | V3-2 완료. `LingpetCurrentProfile`이 slot-aware active bonus를 읽고 runtime host가 슬롯별 launch_context를 전달 |
 
 함의: 자기완결 공-반사 모듈. 공을 1프레임만 만지고(소유 안 함, 단 owner-ship은 register_contact로
 귀속), 새 owner 키 불요, 레벨 차별화는 재발사 체인이 전담. 최대 위험은 D8 매-프레임 롤 트랩 하나로 집중.
@@ -316,10 +310,10 @@ func set_force_roll_for_tests(value: float) -> void
 | 스킬 아이콘 | PNG (imagegen) | `lumion_solar_bolt_skill_icon_imagegen_v1.png`. 알파 코너/bbox QA |
 | 컴패니언 캐스트 포즈 | 기존 `lumion_companion_strike` 재사용 | 발동 시 스트라이크 애님(D3) |
 
-- **네이밍/아이콘 차별화(리뷰 note):** 천둥 뇌구·천둥 낙뢰 둘 다 "천둥*" 번개 스킬이라 2중1 해금
-  피커·레일 카드에서 혼동 위험. 카드 제목/실루엣을 구분(예: 반사형 정체성 강조 "태양 낙뢰" 또는
-  "낙뢰 반사", 아이콘 = 하강 볼트가 공 때리고 위 화살표 vs 뇌구의 이동 구체). **2중1 피커에서
-  두 카드 나란히 QA.** (현재 `name`은 사용자 지정 "천둥 낙뢰" 유지 — 변경 시 확정 필요.)
+- **네이밍/아이콘 차별화(리뷰 note):** 천둥 뇌구·천둥 낙뢰 둘 다 "천둥*" 번개 스킬이라 해금 카드·
+  레일 카드에서 혼동 위험. 카드 제목/실루엣을 구분(예: 반사형 정체성 강조 "태양 낙뢰" 또는
+  "낙뢰 반사", 아이콘 = 하강 볼트가 공 때리고 위 화살표 vs 뇌구의 이동 구체). **두 카드가
+  나란히 보이는 디버그/QA surface에서 QA.** (현재 `name`은 사용자 지정 "천둥 낙뢰" 유지 — 변경 시 확정 필요.)
 
 ---
 
@@ -380,14 +374,13 @@ func set_force_roll_for_tests(value: float) -> void
 
 **확정:** D1~D14. Q1~Q4 사용자 확정 + v1.1 리뷰 반영.
 
-**합류 의존 (V3-1/V3-2 — 병렬 작업 중, 차단 아님):**
-- **A. unlock-choice → `active_skill_id` 배선:** 친밀도 2중1 해금 결과를 로드아웃 `active_skill_id`로
-  쓰는 소비자가 **현재 병렬 작업 중(V3-1/V3-2)**(`lingpet_affinity_state` 머신은 정의됨, 호출자 연결이
-  진행 중). 랜딩 전까지 active 결정은 해치 랜덤픽/`pool[0]`. 랜딩 후 해금 결과로 자동 배정. (D14)
-- **B. slot-2 레벨 reading:** 프로파일이 현재 `active_skill_bonus`(slot1)만 읽음 —
-  `second_active_skill_bonus` reading은 V3-2에서 추가 예정. solar_bolt가 slot-2(Lv.22)로
-  완전 동작(재발사 스케일 포함)하려면 V3-2 합류 필요. **slot-1로는 지금도 완전 동작.**
-  (두 액티브 동시 = loadout/owner schema/TAB/skill controller/host 변경 = V3-2 범위.)
+**합류 의존 (V3-1/V3-2 — 2026-06-30 현재 완료):**
+- **A. unlock-choice → loadout 배선:** 친밀도 해금 결과를 로드아웃 slot-0/slot-1에 쓰는 소비자는
+  V3-2c/V3-2d에서 랜딩했다. Solar Bolt는 Lumion active pool 후보이고, unlock/loadout reconciler가
+  선택 결과를 현재 런타임 로드아웃에 반영한다. (D14)
+- **B. second-active 레벨 reading:** V3-2 합류 완료. 프로파일이 slot-aware active bonus를 읽고,
+  second slot에 solar_bolt가 들어가도 `second_active_skill_bonus` 기반 스케일(재발사 포함)이 동작한다.
+  (두 액티브 동시 = loadout/owner schema/TAB/skill controller/host 변경 = V3-2 완료 범위.)
 
 **오픈(착수 시 확인):**
 1. 베이스 쿨타임 22s + 체인길이 가산(+4~6s/추가타) — V3-6 income/밸런스 QA 확정.
@@ -435,8 +428,8 @@ func set_force_roll_for_tests(value: float) -> void
 > - **(must) update 시그니처:** `(…, companion_pos)` → `(…, launch_context: Dictionary)`. 호스트
 >   4번째 인자는 launch_context(=forwarding된 params, companion_pos 포함). §3/§6.2/API/§2 정정.
 > - **(must) get_launch_origin:** 스킬 메서드 아님(죽은 코드) → HOST match 케이스. §6.2/API 정정.
-> - **(must) 친밀도 레벨 미배선:** unlock-choice→active_skill_id 소비자 부재 + slot-2 보너스 미독 →
->   D14 + §10 하드 선결조건 A/B 승격. "친밀도가 알아서"는 slot-1 한정/V3-2 의존으로 정정.
+> - **(2026-06-30 fixed) 과거 친밀도 레벨 배선 공백:** V3-2에서 unlock-choice→loadout 소비자와
+>   second active bonus reading이 랜딩했다. D14/§10은 현재 완료 상태로 정정됨.
 > - **(must) D9 재발사 no-op:** 상승공에 "또 위로 반사"는 무의미 → **보스 중심 재조준**(Q2 충실
 >   해석)으로 변경. §1 재발사 수학 블록 + S8 정정.
 > - **(must) defense 인터셉트 충돌:** D2에 `_player_can_block==false` 추가 + solar 반사가 인터셉트
@@ -453,8 +446,9 @@ func set_force_roll_for_tests(value: float) -> void
 
 > **2026-06-14 — Codex 리뷰, v1.1 → v1.2.** Looks-good: 반사 조건/속도 보존/launch-time 프리롤
 > (매-프레임 롤 함정 회피). 적용:
-> - **(High) 출시 범위 확정:** 런타임이 액티브 1개만 저장/실행(`lingpet_current_profile.gd:15` 등) →
->   Solar Bolt는 slot-1 교체형/해금 액티브로 먼저 출시, 두 액티브 동시는 V3-2. 헤더 출시-범위 callout 추가.
+> - **(2026-06-30 fixed) 출시 범위:** 과거 리뷰는 액티브 1개 런타임을 전제로 Solar Bolt를
+>   slot-1 교체형으로 먼저 출시했지만, 현재는 V3-2 multi-active path가 랜딩되어 second active slot에서도
+>   slot-aware level로 동작한다. 헤더 출시-범위 callout 정정.
 > - **(High) active_skill_pool 노출:** 랜덤 해치-픽이 해금 전 노출시킴 → 풀=해금 후보군, 카탈로그 노출은
 >   친밀도 해금 작업과 합류(no-skill-at-hatch), 모듈은 standalone 선빌드. §6.6 재작성.
 > - **(Med) 오디오:** 전용 `play_solar_bolt_strike()` 기본, 재사용은 부록 B 명시. §6.5 확정.
@@ -472,8 +466,8 @@ func set_force_roll_for_tests(value: float) -> void
 > - **배선: 계약 end-to-end 일치, silent no-op 0.** dispatcher(:12/29/47/81/131)·host(모든 match
 >   블록 + 비스위치 순회)·egg(:1696 refire_chance_pct)·rail(:196-198 키 일치)·audio(:1861) 전부 확인.
 >   카탈로그 미노출 유지(스코프 OK).
-> - **남은 봉인 갭 (배선측 후속 — 동작은 정상, 테스트/로버스트 보강):**
->   1. (must-for-seal) **S15 미구현** — defense 인터셉트 disarm/더블바운스 방지 스모크 0개. 모듈 동작은
+> - **당시 남은 봉인 갭 (아래 2026-06-14 SEALED 로그로 닫힘):**
+>   1. (must-for-seal) **S15 당시 공백** — defense 인터셉트 disarm/더블바운스 방지 스모크 0개. 모듈 동작은
 >      올바름(반사가 `ball_vel.y<0` → 인터셉트가 자기 `ball_vel.y<=0` 게이트로 자동 disarm = emergent),
 >      단 **계약상 S15 봉인이 빠짐**. 실 `lingpet_companion_motion_state` 인터셉트를 reflect 후 1틱 돌려
 >      disarm OUTCOME 단언 추가.
