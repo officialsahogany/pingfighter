@@ -136,7 +136,17 @@ func _init() -> void:
 	_expect(not runtime.can_soul_burst_dash(139.0), "Soul Burst should not fire below its rolled gauge cost")
 	_expect(runtime.can_soul_burst_dash(140.0), "Soul Burst should fire at its rolled gauge cost")
 
-	var consume_result: Dictionary = runtime.try_consume_soul_burst_dash(200.0, Vector2(120.0, 660.0), -1.0, registry)
+	# The consumed gauge is returned in "special_gauge" — that return value is the
+	# single source of truth (caller -> controller result -> result applier ->
+	# owner). The helper deliberately does NOT write the owner directly; the
+	# end-to-end owner write is sealed by commando_soul_burst_dash_smoke through
+	# the real result applier. See docs/character_skill_perk_checklist.md §3.5.
+	var consume_result: Dictionary = runtime.try_consume_soul_burst_dash(
+		200.0,
+		Vector2(120.0, 660.0),
+		-1.0,
+		registry
+	)
 	_expect(bool(consume_result.get("activated", false)), "Soul Burst consume helper should activate when gauge is sufficient")
 	_expect(is_equal_approx(float(consume_result.get("special_gauge", 0.0)), 60.0), "Soul Burst should subtract its rolled gauge cost")
 	_expect(audio.soul_burst_calls == 1, "Soul Burst activation should play the dedicated dash sound")
@@ -148,28 +158,31 @@ func _init() -> void:
 	dash_state.token_state.dash_tokens = 0
 	dash_state.token_state.dash_charge_timer = 220.0
 	dash_state.token_state.dash_consecutive_count = 0
+	owner.special_gauge = 200.0
 	audio.soul_burst_calls = 0
 	audio.dash_start_calls = 0
 	var dash_controller: Object = SmasherPlayerDashController.new()
 	var orb_hud_state := FakeOrbHudState.new()
+	var dash_config := {
+		"special_gauge": 200.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+	}
 	var dash_result: Dictionary = dash_controller.handle_dash_input(
 		true,
 		1.0,
 		Vector2(300.0, 650.0),
 		0.0,
-		{
-			"special_gauge": 200.0,
-			"paddle_width": 155.0,
-			"paddle_height": 50.0,
-			"play_left": 0.0,
-			"play_right": 760.0,
-		},
+		dash_config,
 		{
 			"dash_state": dash_state,
 			"registry": registry,
 			"audio": audio,
 			"feedback": feedback,
 			"orb_hud_state": orb_hud_state,
+			"owner": owner,
 		}
 	)
 	_expect(bool(dash_result.get("handled_by_dash", false)), "dash input should be handled with zero dash tokens")

@@ -88,6 +88,44 @@ Before adding ANY runtime character perk / skill, confirm:
       yes -- tune from the fire-event path (current reference: Viper
       `kick_enhance` guard knockback) rather than inventing an unrelated
       velocity / decay / hitstop system.
+- [ ] If this is a Viper kick-family skill that applies a TEMPORARY ball
+      speed boost (`core_flip` / `marshal_kick` / `shadow_step` / blade
+      hits all launch the ball ~2.2x faster), it MUST arm the boss-guard
+      speed restore so the boost is not permanent. In the Python original
+      this is the shared `_viper_speed_boost` restore-to-original on boss
+      return (`pingfighter.py` ~189507); the Godot port implements it as
+      `kick_guard_speed_reduction` (a 50% flat cut consumed in
+      `paddle_bounce_boss_post_hit_handler`). So the new skill's hit path
+      must call `runtime._mark_kick_guard_speed_reduction_pending()` exactly
+      like `viper_skill_marshal_kick_runtime` does (double/phantom variant
+      zeroes it and uses `phantom_kick_speed_limit_disabled` instead).
+      Arming the boost WITHOUT arming the restore leaves a permanent faster
+      rally that no state smoke catches -- seal it with a hit-then-snapshot
+      assert `kick_guard_speed_reduction_pending_pct == 50` (reference:
+      `viper_core_flip_port_smoke._test_core_flip_runtime`,
+      `viper_marshal_kick_port_smoke` line ~277). This was the omission
+      that made ported `core_flip` diverge from the frozen original.
+- [ ] If this is a Viper dash-FOLLOW-UP skill (opened FROM a dash --
+      `shadow_step` itself, `core_flip` / Hwarang, or any future
+      dash-committed skill), it MUST consume the Shadow Backstep dash ticket
+      on activation: `runtime.dash_origin_valid = false;
+      runtime.dash_grace_frames = 0.0` (mirroring
+      `viper_skill_shadow_step_runtime.gd:26-27` and the original ending the
+      dash on the follow-up -- `pingfighter.py:105368` `rolling_active =
+      False`). The frozen original gates `shadow_step` on an ACTIVE dash
+      (`_viper_in_dash`) plus `_viper_shadow_step_chain_locked`; the Godot
+      port replaced "active dash" with a 36-frame `dash_grace_frames` grace
+      window, so a follow-up that commits the dash but does NOT clear the
+      ticket lets the grace SURVIVE the whole chain -- a post-landing S then
+      wrongly opens Shadow Backstep. Reference bug: `core_flip` (Hwarang) ->
+      Marshal (-> Phantom) -> land -> S opened `shadow_step` in the port but
+      not the original. Note the Godot chain-lock (`marshal_ready` /
+      `marshal_active` / `core_flip_attack_active` / `shadow_marshal_delay`)
+      is all-false once the chain LANDS, so it does not cover this case --
+      consuming the ticket is the fix, not extending the chain-lock. Seal
+      with a chain-then-S behavioral assert
+      (`viper_core_flip_port_smoke._test_shadow_step_blocked_after_hwarang_chain`,
+      reverse-verified to FAIL when the follow-up leaves the ticket armed).
 - [ ] If this is offered through an academy / NPC / downtown modal:
       visit scope, reroll policy, exhausted-after-success policy,
       ownership-vs-equipped filtering, and currency/AP sync target are
@@ -159,6 +197,14 @@ Unless the user explicitly overrides them, use these defaults:
   equivalent by default in gameplay and UI. Do not ship a new
   directional skill that only listens to one key family unless the user
   explicitly asked for that restriction.
+- If a command skill reuses normal movement keys as the command tokens,
+  keep the matcher stricter than ordinary movement. Require a per-key
+  maximum gap or an equally explicit intent gate, and ignore ambiguous
+  same-frame opposing-direction edges unless that ambiguity is the
+  intended input. Reference: Viper `dual_glitch` uses A-D-A-D on the same
+  A/D keys used for airborne hover correction, so it must distinguish a
+  fast deliberate burst from slow left-right positioning without blocking
+  valid airborne casts outright.
 - If a skill is opened by another skill, hit-confirm, combo window,
   return motion, cancel, or other predecessor state, build a
   **predecessor trigger matrix** before coding. Do not accept "the skill
@@ -195,6 +241,12 @@ Unless the user explicitly overrides them, use these defaults:
   `scripts/audio/gameplay_loop_audio_cleanup.gd`; do not rely on
   `reset()` only clearing local flags, because lingpet host reset paths can
   run without audio / registry deps.
+- If a Lingpet / RefCounted skill writes transient owner flags such as boss
+  freeze, boss slow, dash block, or shared motion ownership, do not rely on
+  that same skill's next `update()` as the only release path. Owner-backed
+  cancel / slot-switch cleanup must clear the owner immediately when the
+  owner is available, and round reset / serve snapshots need a false/default
+  backstop for those keys when cleanup deps are owner-less.
 - By default, **cooldown-state reset and runtime-state reset are separate
   responsibilities**. A helper that clears cooldowns should not also
   terminate or preserve active runtime state unless that behavior is
@@ -270,6 +322,27 @@ Current Godot-first rule:
 - [ ] If the perk is unlock-style or otherwise special-cased, do NOT
       assume the pool entry alone is enough; continue through Sections
       3 through 7.
+- [ ] **Godot localization wiring — a new perk leaks Korean in ALL 6
+      non-Korean languages until you add it.** The catalog `name` /
+      `descriptions` / `detail` are raw Korean; `RuntimePerkCatalog.
+      get_all_perk_data()` localizes them via `LanguageSettings.
+      localize_perk_data()`, which needs THREE additions in
+      `godot/scripts/core/language_settings_data.gd`, each mirroring a
+      sibling perk (e.g. `extension_gear` → `smasher_extension_gear`):
+      (1) the perk-id → translation-key map entry (e.g.
+      `"combo_amplifier_chip": "smasher_combo_amplifier_chip"`);
+      (2) the per-language **NAME** maps — ALL 6 (en / zh / ja / es / pt / ru);
+      (3) the per-language **SUMMARY/detail** maps — ALL 6. The summary entry
+      also COLLAPSES every level `descriptions[n]` to that one summary string
+      in non-Korean locales (matching `extension_gear`), so per-level
+      translations are NOT needed — but the summary IS, or each level
+      description falls back to `translate_text(Korean)` and leaks Hangul.
+      Add to ALL 6 of each map (a missing language fails the nested-key
+      coverage check). Sealed by `localization_coverage_smoke.gd`
+      (failure: `runtime perks[<lang>].<id>.* leaked Korean text`).
+      **Trap:** perk translations are NOT in the top-level `localization/*.json`
+      — grepping there returns 0 hits and falsely reads as "no translation
+      needed." See [[feedback-godot-localization-copy-sync]].
 
 ### 2.2. Register the actual effect
 
@@ -278,6 +351,20 @@ Current Godot-first rule:
 - [ ] If the effect needs special unlock / equip / give-item /
       immediate-apply behavior, implement it here rather than relying
       on the generic `runtime_skill_levels[id] += 1` fallback.
+- [ ] **Instant one-shot perks (`is_instant` / `instant_*`, plus
+      `common_refresh`, `star_change`) must NOT write into
+      `runtime_skill_levels`.** That dict is the "collected perks" source
+      iterated by the character-info perk grid
+      (`character_info_overlay_perk_presenter.build_acquired_perks` — every
+      id with level > 0 renders as a permanent perk), so an instant perk
+      stored there leaks in as a fake collectible. Do the real work
+      (re-open a choice, grant gold / starpoints / gauge, etc.) and
+      `return true` WITHOUT touching `runtime_skill_levels` — mirror the
+      sibling instant handlers (`convert_to_gold`, `instant_gauge_full`,
+      `instant_treasure_hunt`, `instant_monkey_blessing`, affinity-chip,
+      ring-core), none of which write. Regression: 새로고침
+      (`common_refresh`) showed up in the character-info perk list. Sealed
+      by `runtime_perk_instant_perk_no_collect_smoke.gd`.
 - [ ] The current recalculation / load-sync path must mirror any special
       behavior. In legacy Python this was `recalculate_skill_effects()`.
       that can be reached via debug level edits, load-time sync, or
@@ -597,6 +684,43 @@ If another character uses a different active-skill model, follow that
 character's existing pattern rather than forcing the Smasher/Viper
 5-orb model where it does not belong.
 
+**Viper position-scripting skill → re-anchor `player_pos` in the ball-collision
+context (stale-jetpack stomp trap).** Any Viper skill that scripts the player
+paddle's vertical position itself (air blade / dark blade `blade_motion`, dive,
+nerve strike, core flip, and any future jump / dash / displace skill) must NOT
+assume the ball collision uses the drawn position. The Viper skill path in
+`viper_player_controller.update()` returns BEFORE `_apply_jetpack_update()`, so
+`viper_jetpack_state` is not ticked while the skill owns the position and its
+`offset_y` / `_last_floor_y` FREEZE at the values held when the skill started
+(high/negative when entered from the air). In
+`ball_update_controller._build_frame_context()` the jetpack collision context is
+merged FIRST and unconditionally stomps `player_pos.y` to that stale
+`floor_y + offset_y`; the Viper skill collision context is merged SECOND. So a
+skill that does not re-assert its live position in
+`viper_skill_context_builder.build_ball_collision_context()` leaves the paddle
+hit-point frozen at the stale jetpack height while the sprite is drawn at the
+live position — the ball bounces off empty air above/below the character (the
+2026-06-26 air-blade come-down regression). Rules:
+- A skill whose drawn position diverges from the canonical `player_pos` must set
+  `context["player_pos"]` / `["player_y"]` (and `["player_paddle_size"]`) to its
+  live position in `build_ball_collision_context` — not only in
+  `build_actor_draw_context`. `blade_motion_active` (re-anchored to
+  `blade_motion_pos`) and `dive_active` are the reference branches.
+- Keep any upward-ball (`ball_vel.y < 0`) body-contact flag
+  (`viper_dark_blade_rising_contact_active`) gated to its intended window only;
+  re-anchoring position must NOT silently grant upward-hit semantics to other
+  skills.
+- Skills that bypass the normal paddle path entirely with their own hit gate
+  (core flip sets `viper_core_flip_attack_active`, which short-circuits
+  `check_paddles`) are exempt — but verify that gate exists rather than assuming.
+- The regression smoke must replicate the real merge order with a NON-ZERO stale
+  jetpack offset (`FakeJetpack.get_ball_collision_context` returning
+  `floor_y + offset_y`) and assert the OUTCOME: the merged collision Y follows
+  the live arc, a descending ball at the live band registers a `player_paddle`
+  hit, and the same ball at the stale band does NOT. Reverse-verify it FAILS with
+  the re-anchor removed (in-place toggle, never `git reset`). Reference:
+  `viper_blade_rush_port_smoke._test_air_blade_descent_hit_point_follows_character`.
+
 ### 3.3a. Commando / Soldier permanent firearm production pipeline
 
 Use this section for any new or substantially rebuilt Commando / Soldier
@@ -709,6 +833,51 @@ downtown / academy / NPC interaction instead of the standard perk cards.
       `_initialize_permanent_soldier_firearm_instance`) and call it
       from every acquisition path so an academy-acquired unlock does
       not enter the next match with ammo 0 or a stale cooldown.
+
+---
+
+### 3.5. Wrapper controllers must NOT clobber the shared dash controller's `special_gauge`
+
+Every non-Smasher player controller (`viper_player_controller`,
+`commando_player_controller`, `blacksmith_player_controller`,
+`optimus_player_controller`) delegates movement to
+`SmasherPlayerController.update()` (the shared dash controller). That shared
+update is where the **Soul Burst** passive (and any other in-dash gauge effect)
+spends `special_gauge` — the dash controller consumes the gauge and returns the
+reduced value in its result dict, which the result applier writes to the owner.
+
+Trap: a wrapper controller computes its own `next_special_gauge` (folding in its
+character-specific gauge changes — Commando firearm/supply/emergency, Viper
+jetpack gain, etc.) BEFORE calling the shared controller, passes it in via
+`movement_config.special_gauge`, and then **overwrites the result** with that
+pre-dash local value:
+
+```gdscript
+var result = shared_controller.update(..., movement_config, deps)
+result["special_gauge"] = next_special_gauge   # WRONG: discards dash spend
+```
+
+The shared controller already received the wrapper's gauge changes through
+`movement_config.special_gauge`, so its returned `special_gauge` is
+authoritative (= wrapper changes − Soul Burst dash spend). Blindly re-stamping
+the pre-dash value silently drops the Soul Burst consumption — the player dashes
+with zero tokens, the dash fires, but the gauge never drops. This is invisible
+to a Smasher/Viper-only smoke (the bug lived only in Commando's wrapper) and a
+prior "fix" that added a direct `owner.set("special_gauge", …)` inside the
+consume helper did NOT help, because the applier later overwrites the owner with
+the wrapper's clobbered return value.
+
+- [ ] When a wrapper controller post-processes `special_gauge` after
+      `shared_controller.update(...)`, propagate the **shared result's** value,
+      not the pre-dash local. Reference correct pattern: Blacksmith
+      (`if shared_result.has("special_gauge"): shield_result["special_gauge"] =
+      shared_result.get(...)`) and Optimus (reads `result.get("special_gauge")`).
+- [ ] Add/keep a per-character regression smoke that equips Soul Burst, zeroes
+      dash tokens, runs the REAL `<character>_player_controller.update()` +
+      `battle_scene_actor_update_result_applier`, and asserts the owner gauge
+      actually dropped by the rolled cost. Reverse-verify it FAILS on the
+      `result["special_gauge"] = next_special_gauge` overwrite. Reference:
+      `tests/commando_soul_burst_dash_smoke.gd`.
 
 ---
 
@@ -1068,6 +1237,35 @@ Godot-first note:
 - [ ] Avoid dumping raw implementation jargon into the tooltip unless
       the surrounding UI already uses that term.
 
+### 4.7. Companion (lingpet) skill card rides EVERY stage's boss skill rail
+
+The hatched lingpet's companion skill is shown as a card on the per-stage
+boss skill-card rail, because the companion persists across every stage.
+This is a per-stage wiring requirement that is easy to forget when a NEW
+stage builds its boss skill HUD fresh instead of copying an existing
+stage's drawer. Stage 6 (Tetriser) shipped without it: the lingpet card
+never appeared and its left-to-right cooldown wipe never animated on that
+stage, while Stages 1-5 worked. Both symptoms were the SAME omission.
+
+When adding or auditing any stage's boss skill HUD:
+
+- [ ] The stage's pillar scene drawer must call
+      `LingpetRailCard.append_entry(hud_context, registry, "<stageN>_boss_skill_hud_skills", "<stageN>_boss_skill_hud_active")`
+      right before `renderer.draw(...)`, using that stage's own rail keys.
+      `append_entry` force-enables the rail active flag, so a stage whose
+      boss has no live skill that frame still shows the lingpet card.
+- [ ] The stage's boss skill HUD renderer's `_draw_card` must delegate
+      lingpet entries to the shared helper:
+      `if LingpetRailCard.is_lingpet_skill(skill): LingpetRailCard.draw_card(...); return`.
+      A stage that only maps its own boss skill ids to textures will draw
+      the lingpet card with a blank/procedural gauge (no companion art),
+      and its tooltip must route through `LingpetRailCard.tooltip_info(skill)`.
+- [ ] Add the new stage to `lingpet_rail_card_shared_smoke.gd`'s
+      `_verify_all_stage_rails_wire_shared_helper()` stage list. That smoke
+      only checks the stages explicitly enumerated there, so a new stage is
+      NOT auto-covered until you add it — the Stage 6 gap slipped through
+      precisely because the smoke listed only five stages.
+
 ---
 
 ## 5. Effective level, `transcendent_crown`, `sage_ring`, other perk-level buffs, and `Lv.5+`
@@ -1401,6 +1599,32 @@ Current Godot-first rule:
       sprite in gameplay.
 - [ ] If the perk modifies an existing active skill rather than adding a
       new one, test both the source perk and the target skill flow.
+- [ ] **A skill that HIDES or visually OVERRIDES the player's own paddle
+      (ride-the-ball / possession / blink / teleport "pop-out" presentations)
+      must never leave the player unable to guard an incoming ball.** Two
+      coupled traps: (a) a cosmetic paddle override drawn at a position that
+      DIVERGES from the live collision rect makes the player "see" the paddle
+      where the ball is while the real hit-test stays at the unmoved
+      `player_pos` — the ball passes through the apparent paddle and the player
+      loses thinking they guarded; (b) keeping the paddle HIDDEN through a whole
+      return descent leaves the player blind (can't aim an invisible paddle),
+      so a returned ball at a different X is an un-guardable loss. Rule: restore
+      a VISIBLE, controllable paddle (whose draw position matches its live
+      collision rect) before any ball is descending toward the player, not after
+      it arrives. Reference failure + fix: Smasher 고스트샷(ghost smashing)
+      `smasher_ghost_possession_state.gd` kept Mika "inside the ball" with the
+      paddle hidden until the returned ball nearly reached the player, so the
+      boss-returned ball read as un-guardable — fixed (2026-06-28) by ending
+      possession the instant the boss defends the ghost ball
+      (`notify_boss_returned(from_pos)` flies Mika home immediately;
+      `paddle_bounce_post_hit_handler` passes the boss-contact `ball_pos`).
+      Sealed by `smasher_ghost_possession_state_smoke.gd` /
+      `smasher_ghost_possession_integration_smoke.gd` (boss-return immediately
+      restores the paddle, even with the ball still far above the player;
+      reverse-verified to FAIL on the old stay-hidden behavior). NOTE: this is a
+      DIFFERENT trap from the ghost-shot `skip_ball_motion_step` release trap in
+      `CLAUDE.md` — that one freezes the ball; this one freezes the player's
+      ability to guard.
 
 For Smasher-style work, a good question is:
 "After I take the unlock perk, what exact input path now does something

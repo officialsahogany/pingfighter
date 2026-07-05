@@ -78,6 +78,13 @@ func update(
 	if firearm_runtime != null and firearm_runtime.has_method("get_movement_speed_multiplier"):
 		movement_config["paddle_max_speed_multiplier"] = float(firearm_runtime.get_movement_speed_multiplier())
 	var result: Dictionary = shared_controller.update(delta, frame_counter, player_pos, player_speed, movement_config, deps)
+	# The shared controller already receives the Commando gauge changes through
+	# movement_config.special_gauge AND applies any Soul Burst dash spend during
+	# the dash, so its returned special_gauge is authoritative. Overwriting it
+	# with the pre-dash next_special_gauge silently discarded the Soul Burst
+	# gauge consumption (Commando dashes with 0 tokens never spent the gauge).
+	if result.has("special_gauge"):
+		next_special_gauge = float(result.get("special_gauge", next_special_gauge))
 	result["special_gauge"] = next_special_gauge
 	if pending_skill_gold_award > 0:
 		result["skill_gold_award"] = int(result.get("skill_gold_award", 0)) + pending_skill_gold_award

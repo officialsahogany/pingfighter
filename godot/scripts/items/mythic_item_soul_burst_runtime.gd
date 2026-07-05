@@ -32,6 +32,13 @@ func can_dash(runtime: Object, special_gauge: float) -> bool:
 	return is_equipped(runtime) and float(special_gauge) + 0.001 >= get_gauge_cost(runtime)
 
 
+# The consumed gauge is returned in "special_gauge" and is the single source of
+# truth: the caller threads it back through the player-controller result and the
+# result applier writes it to the owner. Do NOT also write the owner directly
+# here — a same-frame direct write is silently overwritten by the applier's
+# end-of-frame result write, so it gives false confidence (it was the failed
+# patch for the Commando wrapper bug; the real fix is the wrapper propagating
+# this return value). See docs/character_skill_perk_checklist.md §3.5.
 func try_consume_dash(
 	runtime: Object,
 	special_gauge: float,

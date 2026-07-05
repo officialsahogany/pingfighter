@@ -179,6 +179,9 @@ func _start_dash(
 				direction,
 				registry
 			)
+			if not bool(consume_result.get("activated", false)):
+				_cancel_started_soul_burst_dash(dash_state)
+				return {"started": false, "special_gauge": next_special_gauge}
 			next_special_gauge = float(consume_result.get("special_gauge", next_special_gauge))
 
 	var combo_state: Object = deps.get("combo_state", null)
@@ -241,6 +244,15 @@ func _get_mythic_item_runtime(deps: Dictionary) -> Object:
 	if registry != null and registry.has_method("get_instance"):
 		return registry.get_instance("mythic_item_runtime")
 	return null
+
+
+func _cancel_started_soul_burst_dash(dash_state: Object) -> void:
+	if dash_state == null:
+		return
+	if dash_state.has_method("cancel_active_without_recovery"):
+		dash_state.cancel_active_without_recovery()
+	if dash_state.has_method("consume_next_rally_gold_multiplier"):
+		dash_state.consume_next_rally_gold_multiplier()
 
 
 func _get_player_center(player_pos: Vector2, config: Dictionary) -> Vector2:
