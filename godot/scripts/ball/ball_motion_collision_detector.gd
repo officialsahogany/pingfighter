@@ -91,17 +91,24 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 			return {}
 		var boss_pos: Vector2 = _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
 		var boss_paddle_size: Vector2 = _as_vector2(context.get("boss_paddle_size", Vector2.ZERO), Vector2.ZERO)
+		# Lingpet 난쟁이마술: centered collision shrink. The effective hit width is
+		# scaled around the (unchanged) boss center so the shrunk rect lines up with
+		# the centered render shrink. scale 1.0 = no shrink (the common case).
+		var boss_shrink: float = clamp(float(context.get("boss_collision_shrink_scale", 1.0)), 0.05, 1.0)
+		var boss_center_x: float = boss_pos.x + boss_paddle_size.x * 0.5
+		var boss_eff_width: float = boss_paddle_size.x * boss_shrink
+		var boss_left: float = boss_center_x - boss_eff_width * 0.5
 		var boss_rect: Rect2 = Rect2(
-			boss_pos.x - hitbox_padding,
+			boss_left - hitbox_padding,
 			boss_pos.y - hitbox_padding,
-			boss_paddle_size.x + hitbox_padding * 2.0,
+			boss_eff_width + hitbox_padding * 2.0,
 			boss_paddle_size.y + hitbox_padding * 2.0
 		)
 		if boss_rect.intersects(ball_rect):
 			return {
 				"event": EVENT_BOSS_PADDLE,
-				"paddle_x": boss_pos.x,
-				"paddle_w": boss_paddle_size.x,
+				"paddle_x": boss_left,
+				"paddle_w": boss_eff_width,
 				"is_player": false,
 			}
 

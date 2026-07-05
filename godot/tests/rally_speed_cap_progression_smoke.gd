@@ -33,6 +33,8 @@ func _init() -> void:
 	_verify_update_context_applies_bonus_to_active_cap()
 	_verify_fire_context_keeps_bonus_under_fire_cap()
 	_verify_paddle_hits_raise_the_round_cap()
+	_verify_round_cap_bonus_saturates_at_max()
+	_verify_stale_oversized_bonus_normalizes_to_max()
 	_verify_round_snapshots_reset_the_bonus()
 	_verify_debug_overlay_uses_bonus()
 	print("rally_speed_cap_progression_smoke: ok")
@@ -52,6 +54,7 @@ func _verify_update_context_applies_bonus_to_active_cap() -> void:
 	_expect(is_equal_approx(float(context.get("max_ball_speed", 0.0)), 27.5), "champion rally cap should be 26 plus the round bonus")
 	_expect(is_equal_approx(float(context.get("impact_boost_max_ball_speed", 0.0)), 27.5), "impact cap should receive the same round bonus")
 	_expect(is_equal_approx(float(context.get("rally_speed_cap_increase_per_hit", 0.0)), 0.5), "paddle hits should add 0.5 cap per hit")
+	_expect(is_equal_approx(float(context.get("rally_speed_cap_bonus_max", 0.0)), 10.0), "update context should carry the rally cap bonus ceiling")
 
 
 func _verify_fire_context_keeps_bonus_under_fire_cap() -> void:
@@ -97,6 +100,48 @@ func _verify_paddle_hits_raise_the_round_cap() -> void:
 	_expect(is_equal_approx(float(second_result.get("max_ball_speed", 0.0)), 27.0), "second paddle hit should raise max speed cap to 27")
 
 
+func _verify_round_cap_bonus_saturates_at_max() -> void:
+	var controller := PaddleBounceController.new()
+	var deps := {
+		"ball_physics": BallPhysics.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+	}
+	var context := {
+		"ball_pos": Vector2(380.0, 60.0),
+		"ball_vel": Vector2(0.0, -24.0),
+		"ball_impact_boost": 1.0,
+		"ball_boost_decay_rate": 0.975,
+		"ball_min_boost": 0.70,
+		"min_ball_speed": 3.0,
+		"max_ball_speed": 26.0,
+		"impact_boost_max_ball_speed": 26.0,
+		"rally_speed_cap_bonus": 0.0,
+		"rally_speed_cap_increase_per_hit": 0.5,
+		"rally_speed_cap_bonus_max": 10.0,
+		"max_bounce_angle": 60.0,
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_width": 100.0,
+		"boss_vel": 0.0,
+		"selected_character_type": "smasher",
+	}
+	for i in range(30):
+		context["ball_pos"] = Vector2(380.0, 60.0)
+		context["ball_vel"] = Vector2(0.0, -24.0)
+		var result: Dictionary = controller.bounce(330.0, 100.0, false, context, deps)
+		context.merge(result, true)
+	_expect(is_equal_approx(float(context.get("rally_speed_cap_bonus", 0.0)), 10.0), "rally cap bonus should saturate at the bonus ceiling")
+	_expect(is_equal_approx(float(context.get("max_ball_speed", 0.0)), 36.0), "max speed cap should stop growing at 26 plus the ceiling")
+	_expect(is_equal_approx(float(context.get("impact_boost_max_ball_speed", 0.0)), 36.0), "impact cap should stop growing at 26 plus the ceiling")
+
+
+func _verify_stale_oversized_bonus_normalizes_to_max() -> void:
+	var owner := FakeOwner.new()
+	owner.rally_speed_cap_bonus = 50.0
+	var context: Dictionary = BallUpdateContext.new().build_update_context(owner)
+	_expect(is_equal_approx(float(context.get("max_ball_speed", 0.0)), 36.0), "oversized stored bonus should clamp to the ceiling on consumption")
+	_expect(is_equal_approx(float(context.get("impact_boost_max_ball_speed", 0.0)), 36.0), "oversized stored bonus should clamp the impact cap too")
+
+
 func _verify_round_snapshots_reset_the_bonus() -> void:
 	var round_state := BallRoundState.new()
 	var reset_snapshot: Dictionary = round_state.build_reset_snapshot(760.0, 750.0)
@@ -120,6 +165,7 @@ func _verify_round_snapshots_reset_the_bonus() -> void:
 func _verify_debug_overlay_uses_bonus() -> void:
 	var overlay := BallSpeedDebugOverlay.new()
 	_expect(is_equal_approx(overlay._get_max_ball_speed(false, 1.0, "champion", null, 0.0, 1.5), 27.5), "F9 speed overlay should show the active rally cap bonus")
+	_expect(is_equal_approx(overlay._get_max_ball_speed(false, 1.0, "champion", null, 0.0, 50.0), 36.0), "F9 speed overlay should clamp an oversized bonus to the ceiling")
 
 
 func _expect(condition: bool, message: String) -> void:

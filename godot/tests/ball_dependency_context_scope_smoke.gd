@@ -98,6 +98,9 @@ class FakeRegistry:
 			"stage1_dalji_whip_skill_state",
 			"stage1_dalji_spinning_top_skill_state",
 			"stage1_dalji_boss_skill_cooldown_state",
+			"stage1_gaksital_fan_throw_skill_state",
+			"stage1_gaksital_fan_wind_skill_state",
+			"stage1_gaksital_boss_skill_cooldown_state",
 			"stage1_balloon_event",
 			"stage2_pillar_background",
 			"stage2_boss_skill_state",
@@ -118,6 +121,8 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_smasher_stage1_scope()
+	_verify_smasher_stage1_gaksital_scope_and_cache()
+	_verify_smasher_stage1_pododaejang_scope_and_cache()
 	_verify_viper_stage4_scope_and_cache()
 	_verify_commando_stage2_scope()
 	_verify_smasher_stage6_scope()
@@ -143,11 +148,64 @@ func _verify_smasher_stage1_scope() -> void:
 	_expect(deps.get("laurel_leaf_shield_state", null) == registry.instances["laurel_leaf_shield_state"], "shared Laurel shield should remain available in scoped ball deps")
 	_expect(deps.get("stage_background", null) == registry.instances["stage1_pillar_background"], "Stage 1 scope should route the Stage 1 background")
 	_expect(deps.get("stage1_balloon_event", null) == registry.instances["stage1_balloon_event"], "Stage 1 scope should include balloon collision event")
+	_expect(deps.get("stage1_dalji_whip_skill_state", null) == registry.instances["stage1_dalji_whip_skill_state"], "Stage 1 default scope should include Dalji whip")
+	_expect(not _requested(registry, "stage1_gaksital_fan_throw_skill_state"), "Stage 1 default scope should not request Gaksital fan throw")
 	_expect(not _requested(registry, "viper_skill_runtime"), "Smasher scope should not request Viper runtime")
 	_expect(not _requested(registry, "commando_firearm_runtime"), "Smasher scope should not request Commando firearm runtime")
 	_expect(not _requested(registry, "stage2_boss_skill_state"), "Stage 1 scope should not request Stage 2 boss state")
 	_expect(not _requested(registry, "stage4_map_state"), "Stage 1 scope should not request Stage 4 map state")
 	_expect(not _requested(registry, "stage5_hongryun_state"), "Stage 1 scope should not request Stage 5 Hongryun state")
+
+
+func _verify_smasher_stage1_gaksital_scope_and_cache() -> void:
+	var registry := FakeRegistry.new()
+	var builder: Object = BallDependencyContext.new()
+	var dalji_scope := {
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"stage1_boss_variant": "dalji",
+	}
+	builder.build_update_deps(registry, dalji_scope)
+	registry.requested_keys.clear()
+	var gaksital_deps: Dictionary = builder.build_update_deps(registry, {
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"stage1_boss_variant": "gaksi",
+	})
+	_expect(deps_has(gaksital_deps, registry, "stage1_gaksital_fan_throw_skill_state"), "Gaksital scope should include fan throw state")
+	_expect(deps_has(gaksital_deps, registry, "stage1_gaksital_fan_wind_skill_state"), "Gaksital scope should include fan wind state")
+	_expect(deps_has(gaksital_deps, registry, "stage1_gaksital_boss_skill_cooldown_state"), "Gaksital scope should include fan throw cooldown state")
+	_expect(deps_has(gaksital_deps, registry, "stage1_balloon_event"), "Gaksital scope should keep Stage 1 balloon event")
+	_expect(not gaksital_deps.has("stage1_dalji_whip_skill_state"), "Gaksital scope should omit Dalji whip")
+	_expect(not gaksital_deps.has("stage1_dalji_spinning_top_skill_state"), "Gaksital scope should omit Dalji spinning top")
+	_expect(_requested(registry, "stage1_gaksital_fan_throw_skill_state"), "Stage 1 boss variant must be part of the ball deps cache key")
+
+
+func _verify_smasher_stage1_pododaejang_scope_and_cache() -> void:
+	var registry := FakeRegistry.new()
+	var builder: Object = BallDependencyContext.new()
+	builder.build_update_deps(registry, {
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"stage1_boss_variant": "dalji",
+	})
+	registry.requested_keys.clear()
+	var podo_deps: Dictionary = builder.build_update_deps(registry, {
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"stage1_boss_variant": "pododaejang",
+	})
+	_expect(deps_has(podo_deps, registry, "stage1_balloon_event"), "Pododaejang scope should keep Stage 1 balloon event")
+	_expect(podo_deps.get("stage1_boss_variant", "") == "podo", "Pododaejang scope should normalize the boss variant")
+	_expect(not podo_deps.has("stage1_dalji_whip_skill_state"), "Pododaejang Slice 1 scope should omit Dalji whip")
+	_expect(not podo_deps.has("stage1_dalji_spinning_top_skill_state"), "Pododaejang Slice 1 scope should omit Dalji spinning top")
+	_expect(not podo_deps.has("stage1_dalji_boss_skill_cooldown_state"), "Pododaejang Slice 1 scope should omit Dalji cooldown state")
+	_expect(not podo_deps.has("stage1_gaksital_fan_throw_skill_state"), "Pododaejang Slice 1 scope should omit Gaksital fan throw")
+	_expect(not podo_deps.has("stage1_gaksital_fan_wind_skill_state"), "Pododaejang Slice 1 scope should omit Gaksital fan wind")
+	_expect(not podo_deps.has("stage1_gaksital_boss_skill_cooldown_state"), "Pododaejang Slice 1 scope should omit Gaksital cooldown state")
+	_expect(_requested(registry, "stage1_balloon_event"), "Pododaejang variant must break the Stage 1 ball deps cache key")
+	_expect(not _requested(registry, "stage1_dalji_whip_skill_state"), "Pododaejang Slice 1 scope should not request Dalji modules")
+	_expect(not _requested(registry, "stage1_gaksital_fan_throw_skill_state"), "Pododaejang Slice 1 scope should not request Gaksital modules")
 
 
 func _verify_viper_stage4_scope_and_cache() -> void:
@@ -212,6 +270,10 @@ func _verify_legacy_update_deps_keep_stage6() -> void:
 
 func _requested(registry: FakeRegistry, key: String) -> bool:
 	return registry.requested_keys.has(key)
+
+
+func deps_has(deps: Dictionary, registry: FakeRegistry, key: String) -> bool:
+	return deps.get(key, null) == registry.instances[key]
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -36,6 +36,11 @@ func apply(
 	var power_state: Object = deps.get("power_state", null)
 	var physics: Object = deps.get("ball_physics", null)
 	var power_hit_start: int = _perf_begin(perf_logger)
+	# 콤보증폭칩: 파워스매시 콤보 속도 증폭값을 deps에서 해석해 hit 경로로 전달.
+	var combo_amplifier_smash_amp: float = 0.0
+	var smash_amp_perk_state: Object = deps.get("runtime_perk_state", null)
+	if smash_amp_perk_state != null and smash_amp_perk_state.has_method("get_combo_amplifier_chip_bonus"):
+		combo_amplifier_smash_amp = float(smash_amp_perk_state.get_combo_amplifier_chip_bonus().get("smash_speed", 0.0))
 	ball_vel = power_hit_handler.apply(
 		ball_pos,
 		ball_vel,
@@ -43,7 +48,8 @@ func apply(
 		power_activated,
 		power_state,
 		physics,
-		context
+		context,
+		combo_amplifier_smash_amp
 	)
 	_perf_end(perf_logger, "paddle_bounce.post_hit.power_hit", power_hit_start)
 
@@ -265,12 +271,13 @@ func apply(
 		drive_speed_increase = float(boss_result.get("drive_speed_increase", drive_speed_increase))
 		drive_hit_boss = bool(boss_result.get("drive_hit_boss", drive_hit_boss))
 		boss_vel = float(boss_result.get("boss_vel", boss_vel))
-		# Ghost-smashing possession: the boss has returned Mika's ghost ball, but
-		# she should remain hidden until that returned ball reaches the player
-		# paddle. The player branch triggers the fly-back on the actual counter.
+		# Ghost-smashing possession: the boss defended the fired ghost ball once,
+		# which ENDS ghost smashing. Restore the player paddle immediately by
+		# flying Mika home from this boss-contact point, so the player controls a
+		# visible paddle for the whole return descent and can guard normally.
 		if power_state != null and power_state.has_method("is_ghost_possession_active") and power_state.is_ghost_possession_active():
 			if power_state.has_method("notify_ghost_possession_boss_returned"):
-				power_state.notify_ghost_possession_boss_returned()
+				power_state.notify_ghost_possession_boss_returned(ball_pos)
 		if bool(boss_result.get("commando_bowling_trap_guard_hit", false)):
 			context["suppress_paddle_hit_knockback"] = true
 		if bool(boss_result.get("kick_skill_knockback_consumed", false)):

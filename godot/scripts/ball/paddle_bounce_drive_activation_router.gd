@@ -84,4 +84,5 @@ func _build_deps(deps: Dictionary) -> Dictionary:
 		"impact_effects": deps.get("impact_effects", null),
 		"audio": deps.get("audio", null),
 		"power_state": deps.get("power_state", null),
+		"runtime_perk_state": deps.get("runtime_perk_state", null),
 	}

@@ -7,12 +7,14 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 var _cached_update_registry: Object = null
 var _cached_update_character_type := ""
 var _cached_update_stage := -1
+var _cached_update_stage1_boss_variant := ""
 var _cached_update_deps: Dictionary = {}
 var _has_cached_update_deps := false
 
 var _cached_round_registry: Object = null
 var _cached_round_character_type := ""
 var _cached_round_stage := -1
+var _cached_round_stage1_boss_variant := ""
 var _cached_round_deps: Dictionary = {}
 var _has_cached_round_deps := false
 
@@ -23,20 +25,23 @@ func build_update_deps(registry, runtime_context: Dictionary = {}) -> Dictionary
 
 	var character_type: String = character_runtime.normalize(runtime_context.get("selected_character_type", "smasher"))
 	var current_stage: int = _normalize_stage(runtime_context.get("current_stage", 1))
+	var stage1_boss_variant: String = _normalize_stage1_boss_variant(runtime_context.get("stage1_boss_variant", "dalji"))
 	if (
 		_has_cached_update_deps
 		and registry == _cached_update_registry
 		and character_type == _cached_update_character_type
 		and current_stage == _cached_update_stage
+		and stage1_boss_variant == _cached_update_stage1_boss_variant
 	):
 		return _cached_update_deps.duplicate()
 
 	var deps: Dictionary = _build_common_update_deps(registry)
 	_append_character_update_deps(deps, registry, character_type)
-	_append_stage_update_deps(deps, registry, current_stage)
+	_append_stage_update_deps(deps, registry, current_stage, stage1_boss_variant)
 	_cached_update_registry = registry
 	_cached_update_character_type = character_type
 	_cached_update_stage = current_stage
+	_cached_update_stage1_boss_variant = stage1_boss_variant
 	_cached_update_deps = deps
 	_has_cached_update_deps = true
 	return _cached_update_deps.duplicate()
@@ -90,11 +95,13 @@ func build_round_deps(registry, runtime_context: Dictionary = {}) -> Dictionary:
 
 	var character_type: String = character_runtime.normalize(runtime_context.get("selected_character_type", "smasher"))
 	var current_stage: int = _normalize_stage(runtime_context.get("current_stage", 1))
+	var stage1_boss_variant: String = _normalize_stage1_boss_variant(runtime_context.get("stage1_boss_variant", "dalji"))
 	if (
 		_has_cached_round_deps
 		and registry == _cached_round_registry
 		and character_type == _cached_round_character_type
 		and current_stage == _cached_round_stage
+		and stage1_boss_variant == _cached_round_stage1_boss_variant
 	):
 		return _cached_round_deps.duplicate()
 
@@ -102,13 +109,49 @@ func build_round_deps(registry, runtime_context: Dictionary = {}) -> Dictionary:
 	var perf_prefix: String = str(runtime_context.get("_perf_prefix", "round_deps"))
 	var deps: Dictionary = _build_common_round_deps(registry, perf_logger, "%s.common" % perf_prefix)
 	_append_character_round_deps(deps, registry, character_type, perf_logger, "%s.character" % perf_prefix)
-	_append_stage_round_deps(deps, registry, current_stage, perf_logger, "%s.stage" % perf_prefix)
+	_append_stage_round_deps(deps, registry, current_stage, stage1_boss_variant, perf_logger, "%s.stage" % perf_prefix)
 	_cached_round_registry = registry
 	_cached_round_character_type = character_type
 	_cached_round_stage = current_stage
+	_cached_round_stage1_boss_variant = stage1_boss_variant
 	_cached_round_deps = deps
 	_has_cached_round_deps = true
 	return _cached_round_deps.duplicate()
+
+
+static func get_stage_round_dep_keys(current_stage: int, stage1_boss_variant: String = "dalji") -> Array[String]:
+	var keys: Array[String] = []
+	match current_stage:
+		1:
+			if stage1_boss_variant == "gaksi":
+				keys.append("stage1_gaksital_fan_throw_skill_state")
+				keys.append("stage1_gaksital_fan_wind_skill_state")
+				keys.append("stage1_gaksital_boss_skill_cooldown_state")
+			elif stage1_boss_variant == "dalji":
+				keys.append("stage1_dalji_whip_skill_state")
+				keys.append("stage1_dalji_spinning_top_skill_state")
+				keys.append("stage1_dalji_boss_skill_cooldown_state")
+			keys.append("stage1_balloon_event")
+		2:
+			keys.append("stage2_pillar_background")
+			keys.append("stage2_boss_skill_state")
+		3:
+			keys.append("stage3_boss_skill_state")
+		4:
+			keys.append("stage4_pillar_background")
+			keys.append("stage4_map_state")
+			keys.append("stage4_temple_destruction_event")
+			keys.append("stage4_moon_event")
+			keys.append("stage4_bird_event")
+			keys.append("stage4_brazier_monk_event")
+			keys.append("stage4_ponk_skill_state")
+		5:
+			keys.append("stage5_hongryun_state")
+			keys.append("stage5_hongryun_fire_machine_event")
+			keys.append("stage5_hongryun_actor_renderer")
+		6:
+			keys.append("stage6_tetriser_state")
+	return keys
 
 
 func _build_legacy_round_deps(registry) -> Dictionary:
@@ -142,6 +185,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"viper_skill_state": registry.get_instance("viper_skill_state"),
 		"viper_skill_config": registry.get_instance("viper_skill_config"),
 		"viper_jetpack_state": registry.get_instance("viper_jetpack_state"),
+		"viper_practice_mode": registry.get_instance("viper_practice_mode"),
 		"commando_firearm_runtime": registry.get_instance("commando_firearm_runtime"),
 		"commando_supply_drop_state": registry.get_instance("commando_supply_drop_state"),
 		"runtime_perk_state": registry.get_instance("runtime_perk_state"),
@@ -242,6 +286,7 @@ func _append_viper_round_deps(
 	deps["viper_skill_state"] = _get_round_instance(registry, "viper_skill_state", perf_logger, perf_label_prefix)
 	deps["viper_skill_config"] = _get_round_instance(registry, "viper_skill_config", perf_logger, perf_label_prefix)
 	deps["viper_jetpack_state"] = _get_round_instance(registry, "viper_jetpack_state", perf_logger, perf_label_prefix)
+	deps["viper_practice_mode"] = _get_round_instance(registry, "viper_practice_mode", perf_logger, perf_label_prefix)
 
 
 func _append_commando_round_deps(
@@ -273,34 +318,12 @@ func _append_stage_round_deps(
 	deps: Dictionary,
 	registry,
 	current_stage: int,
+	stage1_boss_variant: String = "dalji",
 	perf_logger: Object = null,
 	perf_label_prefix: String = ""
 ) -> void:
-	match current_stage:
-		1:
-			deps["stage1_dalji_whip_skill_state"] = _get_round_instance(registry, "stage1_dalji_whip_skill_state", perf_logger, perf_label_prefix)
-			deps["stage1_dalji_spinning_top_skill_state"] = _get_round_instance(registry, "stage1_dalji_spinning_top_skill_state", perf_logger, perf_label_prefix)
-			deps["stage1_dalji_boss_skill_cooldown_state"] = _get_round_instance(registry, "stage1_dalji_boss_skill_cooldown_state", perf_logger, perf_label_prefix)
-			deps["stage1_balloon_event"] = _get_round_instance(registry, "stage1_balloon_event", perf_logger, perf_label_prefix)
-		2:
-			deps["stage2_pillar_background"] = _get_round_instance(registry, "stage2_pillar_background", perf_logger, perf_label_prefix)
-			deps["stage2_boss_skill_state"] = _get_round_instance(registry, "stage2_boss_skill_state", perf_logger, perf_label_prefix)
-		3:
-			deps["stage3_boss_skill_state"] = _get_round_instance(registry, "stage3_boss_skill_state", perf_logger, perf_label_prefix)
-		4:
-			deps["stage4_pillar_background"] = _get_round_instance(registry, "stage4_pillar_background", perf_logger, perf_label_prefix)
-			deps["stage4_map_state"] = _get_round_instance(registry, "stage4_map_state", perf_logger, perf_label_prefix)
-			deps["stage4_temple_destruction_event"] = _get_round_instance(registry, "stage4_temple_destruction_event", perf_logger, perf_label_prefix)
-			deps["stage4_moon_event"] = _get_round_instance(registry, "stage4_moon_event", perf_logger, perf_label_prefix)
-			deps["stage4_bird_event"] = _get_round_instance(registry, "stage4_bird_event", perf_logger, perf_label_prefix)
-			deps["stage4_brazier_monk_event"] = _get_round_instance(registry, "stage4_brazier_monk_event", perf_logger, perf_label_prefix)
-			deps["stage4_ponk_skill_state"] = _get_round_instance(registry, "stage4_ponk_skill_state", perf_logger, perf_label_prefix)
-		5:
-			deps["stage5_hongryun_state"] = _get_round_instance(registry, "stage5_hongryun_state", perf_logger, perf_label_prefix)
-			deps["stage5_hongryun_fire_machine_event"] = _get_round_instance(registry, "stage5_hongryun_fire_machine_event", perf_logger, perf_label_prefix)
-			deps["stage5_hongryun_actor_renderer"] = _get_round_instance(registry, "stage5_hongryun_actor_renderer", perf_logger, perf_label_prefix)
-		6:
-			deps["stage6_tetriser_state"] = _get_round_instance(registry, "stage6_tetriser_state", perf_logger, perf_label_prefix)
+	for key in get_stage_round_dep_keys(current_stage, stage1_boss_variant):
+		deps[key] = _get_round_instance(registry, key, perf_logger, perf_label_prefix)
 
 
 func _append_character_update_deps(deps: Dictionary, registry, character_type: String) -> void:
@@ -397,8 +420,14 @@ func _append_legacy_stage_update_deps(deps: Dictionary, registry) -> void:
 	deps["stage1_balloon_event"] = _get_instance(registry, "stage1_balloon_event")
 
 
-func _append_stage_update_deps(deps: Dictionary, registry, current_stage: int) -> void:
+func _append_stage_update_deps(
+	deps: Dictionary,
+	registry,
+	current_stage: int,
+	stage1_boss_variant: String = "dalji"
+) -> void:
 	deps["current_stage"] = current_stage
+	deps["stage1_boss_variant"] = stage1_boss_variant
 	var stage_background_key: String = _get_stage_background_key(deps.get("stage_runtime_router", null), current_stage)
 	var stage_background: Object = _get_instance(registry, stage_background_key)
 	deps["stage_background"] = stage_background
@@ -407,9 +436,14 @@ func _append_stage_update_deps(deps: Dictionary, registry, current_stage: int) -
 
 	match current_stage:
 		1:
-			deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
-			deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
-			deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
+			if stage1_boss_variant == "gaksi":
+				deps["stage1_gaksital_fan_throw_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_throw_skill_state")
+				deps["stage1_gaksital_fan_wind_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_wind_skill_state")
+				deps["stage1_gaksital_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_gaksital_boss_skill_cooldown_state")
+			elif stage1_boss_variant == "dalji":
+				deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
+				deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
+				deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
 			deps["stage1_balloon_event"] = _get_instance(registry, "stage1_balloon_event")
 		2:
 			deps["stage2_pillar_background"] = stage_background
@@ -453,8 +487,17 @@ func _normalize_stage(value: Variant) -> int:
 	return current_stage
 
 
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
+
+
 func _has_runtime_selection_context(runtime_context: Dictionary) -> bool:
-	return runtime_context.has("current_stage") or runtime_context.has("selected_character_type")
+	return runtime_context.has("current_stage") or runtime_context.has("selected_character_type") or runtime_context.has("stage1_boss_variant")
 
 
 func _get_instance(registry, key: String) -> Object:

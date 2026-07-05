@@ -56,6 +56,10 @@ func apply(
 		whip_result = whip_state.register_boss_hit(next_ball_vel, context, deps)
 		next_ball_vel = _get_vector2(whip_result, "ball_vel", next_ball_vel)
 
+	var fan_wind_state: Object = deps.get("stage1_gaksital_fan_wind_skill_state", null)
+	if fan_wind_state != null and fan_wind_state.has_method("try_consume_boss_hit"):
+		fan_wind_state.try_consume_boss_hit(context, deps)
+
 	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
 	if stage2_skill_state != null and stage2_skill_state.has_method("register_boss_hit"):
 		stage2_skill_state.register_boss_hit(next_ball_vel, context, deps)

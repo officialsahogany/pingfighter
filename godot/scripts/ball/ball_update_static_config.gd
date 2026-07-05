@@ -16,6 +16,9 @@ const IMPACT_BOOST_MAX_BALL_SPEED := MAX_BALL_SPEED
 const MYTHIC_MAX_BALL_SPEED := BallSpeedPolicy.MYTHIC_MAX_BALL_SPEED
 const FIRE_WEATHER_MAX_BALL_SPEED := BallSpeedPolicy.FIRE_WEATHER_MAX_BALL_SPEED
 const RALLY_SPEED_CAP_INCREASE_PER_HIT := 0.5
+# Bounds per-round rally cap growth so the longest rally tops out at base+10
+# (champion 36 px/frame ≈ 0.35s vertical crossing stays human-reactable).
+const RALLY_SPEED_CAP_BONUS_MAX := 10.0
 const MAX_BOUNCE_ANGLE := 60.0
 const DRIVE_GAUGE_COST := 150.0
 const DRIVE_PERFECT_COOLDOWN_FRAMES := 30.0
@@ -72,6 +75,7 @@ func build_update_config() -> Dictionary:
 		"mythic_max_ball_speed": MYTHIC_MAX_BALL_SPEED,
 		"fire_weather_max_ball_speed": FIRE_WEATHER_MAX_BALL_SPEED,
 		"rally_speed_cap_increase_per_hit": RALLY_SPEED_CAP_INCREASE_PER_HIT,
+		"rally_speed_cap_bonus_max": RALLY_SPEED_CAP_BONUS_MAX,
 		"base_ball_speed": BallPhysics.BALL_BASE_SPEED,
 		"power_smash_freeze_duration": POWER_SMASH_FREEZE_DURATION,
 		"power_smash_gravity_effect": POWER_SMASH_GRAVITY_EFFECT,

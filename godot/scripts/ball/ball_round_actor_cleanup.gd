@@ -73,6 +73,18 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if dalji_cooldown_state != null and dalji_cooldown_state.has_method("reset_round"):
 		dalji_cooldown_state.reset_round()
 
+	var gaksital_fan_throw_state = deps.get("stage1_gaksital_fan_throw_skill_state", null)
+	if gaksital_fan_throw_state != null and gaksital_fan_throw_state.has_method("reset_round"):
+		gaksital_fan_throw_state.reset_round()
+
+	var gaksital_fan_wind_state = deps.get("stage1_gaksital_fan_wind_skill_state", null)
+	if gaksital_fan_wind_state != null and gaksital_fan_wind_state.has_method("reset_round"):
+		gaksital_fan_wind_state.reset_round()
+
+	var gaksital_cooldown_state = deps.get("stage1_gaksital_boss_skill_cooldown_state", null)
+	if gaksital_cooldown_state != null and gaksital_cooldown_state.has_method("reset_round"):
+		gaksital_cooldown_state.reset_round()
+
 	var stage2_boss_skill_state = deps.get("stage2_boss_skill_state", null)
 	if stage2_boss_skill_state != null and stage2_boss_skill_state.has_method("reset_round"):
 		stage2_boss_skill_state.reset_round()

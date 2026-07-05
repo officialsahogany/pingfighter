@@ -98,6 +98,16 @@ func _apply_boss_paddle_owner_state(context: Dictionary, owner: Object) -> void:
 	context["boss_paddle_size"] = Vector2(boss_width, boss_height)
 	context["boss_paddle_width"] = boss_width
 	context["boss_hitbox_height"] = boss_height
+	# Lingpet 난쟁이마술: a CENTERED collision shrink. boss_paddle_size stays full
+	# (so the boss render center, which reads boss_paddle_width, never drifts); the
+	# collision detector re-centers the shrunk hit rect on the unchanged center.
+	context["boss_collision_shrink_scale"] = _get_dwarf_magic_shrink_scale(owner)
+
+
+func _get_dwarf_magic_shrink_scale(owner: Object) -> float:
+	if not bool(owner_snapshot.get_owner_value(owner, "lingpet_dwarf_magic_shrink_active", false)):
+		return 1.0
+	return clamp(float(owner_snapshot.get_owner_value(owner, "lingpet_dwarf_magic_shrink_scale", 1.0)), 0.2, 1.0)
 
 
 func _get_boss_paddle_width(owner: Object, fallback_width: float) -> float:
@@ -128,7 +138,8 @@ func _apply_weather_speed_policy(context: Dictionary) -> void:
 
 
 func _apply_rally_speed_cap_bonus(context: Dictionary) -> void:
-	var bonus: float = max(0.0, float(context.get("rally_speed_cap_bonus", 0.0)))
+	var bonus_max: float = max(0.0, float(context.get("rally_speed_cap_bonus_max", 10.0)))
+	var bonus: float = clamp(float(context.get("rally_speed_cap_bonus", 0.0)), 0.0, bonus_max)
 	if bonus <= 0.0:
 		return
 	context["max_ball_speed"] = float(context.get("max_ball_speed", 26.0)) + bonus

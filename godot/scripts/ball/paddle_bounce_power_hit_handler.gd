@@ -13,7 +13,8 @@ func apply(
 	power_activated: bool,
 	power_state: Object,
 	physics: Object,
-	context: Dictionary
+	context: Dictionary,
+	smash_speed_amp: float = 0.0
 ) -> Vector2:
 	if not power_activated or power_state == null:
 		return ball_vel
@@ -25,7 +26,8 @@ func apply(
 		float(context.get("base_ball_speed", 6.0)),
 		physics,
 		int(context.get("combo_min_count", 2)),
-		_get_power_smash_launch_speed_multiplier(context)
+		_get_power_smash_launch_speed_multiplier(context),
+		smash_speed_amp
 	)
 	var ball_size: float = float(context.get("ball_size", 28.6))
 	var combo_count: int = int(power_state.get_combo_consumed())

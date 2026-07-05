@@ -205,6 +205,24 @@ func apply_viper_chaos_spear(scene: Dictionary, fps_scale: float, context: Dicti
 	_apply_viper_motion_result(scene, result)
 
 
+# 바이퍼 연습모드(테스트리그 튜토리얼)의 정지공 소유형 홀드. 바이퍼 스킬 모션 패스
+# 직후·skip 단축 평가 전에 호출해야 한다: 홀드 중에도 쉐도우 웨이브/홀로그램이 공을
+# 때릴 수 있고, 히트 프레임에는 연습모드가 라이브 래치를 관찰해 같은 프레임에 skip 을
+# 내려(발사 속도 보존) 공이 즉시 날아간다. docs/viper_practice_mode_slice_plan.md S2.
+func apply_viper_practice_hold(scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+	if str(context.get("selected_character_type", "smasher")) != "viper":
+		return
+	var practice: Object = deps.get("viper_practice_mode", null)
+	if practice == null or not practice.has_method("apply_ball_hold_motion"):
+		return
+	if practice.has_method("is_active") and not bool(practice.is_active()):
+		return
+	_apply_viper_motion_result(
+		scene,
+		practice.apply_ball_hold_motion(scene, deps.get("viper_skill_runtime", null))
+	)
+
+
 func _apply_viper_motion_result(scene: Dictionary, result: Dictionary) -> void:
 	if result.has("ball_pos"):
 		scene["ball_pos"] = _get_vector2(result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
@@ -261,6 +279,38 @@ func apply_stage1_dalji_spinning_top(scene: Dictionary, fps_scale: float, contex
 		scene["ball_boost_decay_rate"] = float(result["ball_boost_decay_rate"])
 	if result.has("ball_min_boost"):
 		scene["ball_min_boost"] = float(result["ball_min_boost"])
+
+
+func apply_stage1_gaksital_fan_throw(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	var fan_throw_state: Object = deps.get("stage1_gaksital_fan_throw_skill_state", null)
+	if fan_throw_state == null or not fan_throw_state.has_method("update_and_collide"):
+		return
+	var result: Dictionary = fan_throw_state.update_and_collide(fps_scale, scene, context, deps)
+	if bool(result.get("stage1_gaksital_fan_throw_hit", false)):
+		scene["stage1_gaksital_fan_throw_hit"] = true
+	if bool(result.get("stage1_gaksital_fan_throw_smoke_blocked", false)):
+		scene["stage1_gaksital_fan_throw_smoke_blocked"] = true
+	if result.has("stage1_gaksital_fan_throw_player_knockback_vel"):
+		scene["stage1_gaksital_fan_throw_player_knockback_vel"] = float(result.get("stage1_gaksital_fan_throw_player_knockback_vel", 0.0))
+
+
+func apply_stage1_gaksital_fan_wind(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	var fan_wind_state: Object = deps.get("stage1_gaksital_fan_wind_skill_state", null)
+	if fan_wind_state == null or not fan_wind_state.has_method("update_and_collide"):
+		return
+	var result: Dictionary = fan_wind_state.update_and_collide(fps_scale, scene, context, deps)
+	if result.has("ball_pos"):
+		scene["ball_pos"] = _get_vector2(result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
+	if result.has("ball_vel"):
+		scene["ball_vel"] = _get_vector2(result, "ball_vel", _get_vector2(scene, "ball_vel", Vector2.ZERO))
+	if result.has("skip_ball_motion_step"):
+		scene["skip_ball_motion_step"] = bool(result.get("skip_ball_motion_step", false))
+	if result.has("stage1_gaksital_fan_wind_captured"):
+		scene["stage1_gaksital_fan_wind_captured"] = bool(result.get("stage1_gaksital_fan_wind_captured", false))
+	if bool(result.get("stage1_gaksital_fan_wind_released", false)):
+		scene["stage1_gaksital_fan_wind_released"] = true
+	if bool(result.get("stage1_gaksital_fan_wind_expired_release", false)):
+		scene["stage1_gaksital_fan_wind_expired_release"] = true
 
 
 func apply_magnum_grip(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:

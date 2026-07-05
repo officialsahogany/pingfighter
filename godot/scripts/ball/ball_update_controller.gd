@@ -65,6 +65,10 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_ball_spin(scene, fps_scale, frame_deps)
 	frame_motion_controller.apply_power_motion(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_viper_chaos_spear(scene, fps_scale, frame_context, frame_deps)
+	# 연습모드 정지공 홀드는 바이퍼 스킬 패스 직후·skip 단축 평가 전이어야 한다:
+	# 홀드 중에도 쉐도우 스텝이 공을 때릴 수 있고, 히트 프레임에 같은 프레임 해제된다.
+	frame_motion_controller.apply_viper_practice_hold(scene, frame_context, frame_deps)
+	frame_motion_controller.apply_stage1_gaksital_fan_wind(scene, fps_scale, frame_context, frame_deps)
 	if bool(scene.get("skip_ball_motion_step", false)):
 		var stage5_hongryun_guarded: bool = _try_release_stage5_hongryun_player_paddle_hit(scene, frame_context, frame_deps, callbacks)
 		if not stage5_hongryun_guarded:
@@ -86,6 +90,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 			return _snapshot_result(scene)
 	frame_motion_controller.apply_stage1_dalji_whip(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_stage1_dalji_spinning_top(scene, fps_scale, frame_context, frame_deps)
+	frame_motion_controller.apply_stage1_gaksital_fan_throw(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_magnum_grip(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_active_item_magnet_field(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_poseidon_trident(scene, fps_scale, frame_context, frame_deps)
@@ -114,6 +119,11 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	if score_event == "rematch":
 		return _snapshot_result(scene, {"round_restart_event": "rematch"})
 	if score_event != "":
+		# 바이퍼 연습모드 라이브 구간(마샬 대기)의 공 상실은 점수 대신 재시도로
+		# 흡수한다(S5). notify_ball_lost 는 마샬 구간에서만 true 이므로 본게임
+		# 득점은 절대 삼키지 않는다.
+		if _try_intercept_viper_practice_ball_loss(scene, frame_deps):
+			return _snapshot_result(scene)
 		return _snapshot_result(scene, {"score_event": score_event})
 	var stage_collision_start: int = _perf_begin(perf_logger)
 	_process_stage_background_collision(scene, frame_context, frame_deps)
@@ -645,6 +655,22 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 		"trampoline_launch_speed_cap": float(context.get("trampoline_launch_speed_cap", 0.0)),
 		"trampoline_launch_speed_cap_frames": float(context.get("trampoline_launch_speed_cap_frames", 0.0)),
 	}
+
+
+# 바이퍼 연습모드(테스트리그 튜토리얼) 라이브 구간에서 공이 득점 경로로 빠지면
+# 점수 대신 재시도로 되돌린다(S5). notify_ball_lost 는 AWAIT_MARSHAL 에서만 true 를
+# 반환하므로(완료/비활성/홀드 구간은 false) 본게임 득점은 절대 삼키지 않는다.
+# 공은 비활성화만 하고, 연습모드 HUD 업데이트(_stage_held_ball)가 다음 프레임에
+# 홀드 지점에 재실체화한다. docs/viper_practice_mode_slice_plan.md §S5.
+func _try_intercept_viper_practice_ball_loss(scene: Dictionary, frame_deps: Dictionary) -> bool:
+	var practice: Object = frame_deps.get("viper_practice_mode", null)
+	if practice == null or not practice.has_method("notify_ball_lost"):
+		return false
+	if not bool(practice.notify_ball_lost()):
+		return false
+	scene["ball_active"] = false
+	scene["ball_vel"] = Vector2.ZERO
+	return true
 
 
 func _resolve_stage_deps(context: Dictionary, deps: Dictionary) -> Dictionary:

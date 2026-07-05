@@ -177,12 +177,17 @@ func _apply_rally_speed_cap_progression(result: Dictionary, context: Dictionary)
 	var increase: float = max(0.0, float(context.get("rally_speed_cap_increase_per_hit", 0.5)))
 	if increase <= 0.0:
 		return
-	var next_bonus: float = max(0.0, float(context.get("rally_speed_cap_bonus", 0.0))) + increase
+	var bonus_max: float = max(0.0, float(context.get("rally_speed_cap_bonus_max", 10.0)))
+	var current_bonus: float = max(0.0, float(context.get("rally_speed_cap_bonus", 0.0)))
+	var next_bonus: float = min(current_bonus + increase, bonus_max)
 	result["rally_speed_cap_bonus"] = next_bonus
-	_raise_cap(result, context, "max_ball_speed", 26.0, increase)
-	_raise_cap(result, context, "impact_boost_max_ball_speed", 26.0, increase)
+	var applied_increase: float = next_bonus - current_bonus
+	if applied_increase <= 0.0:
+		return
+	_raise_cap(result, context, "max_ball_speed", 26.0, applied_increase)
+	_raise_cap(result, context, "impact_boost_max_ball_speed", 26.0, applied_increase)
 	if bool(context.get("fire_weather_speed_cap_active", false)):
-		_raise_cap(result, context, "fire_weather_max_ball_speed", 35.0, increase)
+		_raise_cap(result, context, "fire_weather_max_ball_speed", 35.0, applied_increase)
 
 
 func _raise_cap(

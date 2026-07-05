@@ -194,6 +194,7 @@ func _build_round_runtime_context(owner: Object) -> Dictionary:
 	return {
 		"current_stage": BattleSceneOwnerReader.get_value(owner, "current_stage", 1),
 		"selected_character_type": BattleSceneOwnerReader.get_value(owner, "selected_character_type", "smasher"),
+		"stage1_boss_variant": BattleSceneOwnerReader.get_value(owner, "stage1_boss_variant", "dalji"),
 	}
 
 
