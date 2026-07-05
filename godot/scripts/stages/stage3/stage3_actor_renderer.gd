@@ -29,12 +29,15 @@ func prewarm_assets_step() -> bool:
 			if not _prewarm_renderer_step(playfield_renderer):
 				return false
 		1:
-			if not _prewarm_renderer_step(boss_renderer):
+			if not _prewarm_renderer_step(player_renderer):
 				return false
 		2:
-			if not _prewarm_renderer_step(skill_effect_renderer):
+			if not _prewarm_renderer_step(boss_renderer):
 				return false
 		3:
+			if not _prewarm_renderer_step(skill_effect_renderer):
+				return false
+		4:
 			if not _prewarm_renderer_step(commando_firearm_renderer):
 				return false
 		_:
@@ -42,7 +45,7 @@ func prewarm_assets_step() -> bool:
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 3:
+	if _prewarm_step_index > 4:
 		_prewarm_assets_done = true
 		_prewarm_step_index = 0
 		return true
@@ -127,6 +130,11 @@ func _prewarm_renderer_step(renderer: Object) -> bool:
 		return bool(renderer.prewarm_assets_step())
 	if renderer.has_method("prewarm_assets"):
 		renderer.prewarm_assets()
+		return true
+	if renderer.has_method("prewarm_runtime_assets_step"):
+		return bool(renderer.prewarm_runtime_assets_step())
+	if renderer.has_method("prewarm_runtime_assets"):
+		renderer.prewarm_runtime_assets()
 	return true
 
 

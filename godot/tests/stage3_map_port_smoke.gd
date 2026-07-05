@@ -41,14 +41,19 @@ const STAGE3_AUDIO_PATHS := [
 	"res://assets/sounds/kuromiawake.wav",
 	"res://assets/sounds/kuromitongue.wav",
 	"res://assets/sounds/kuromiswallow.wav",
+	"res://assets/sounds/kuromispit.wav",
 ]
 
 
 class FakeStage3Audio:
 	var starpoint_collect_count := 0
+	var kuromi_spit_count := 0
 
 	func play_starpoint_collect() -> void:
 		starpoint_collect_count += 1
+
+	func play_stage3_kuromi_spit() -> void:
+		kuromi_spit_count += 1
 
 
 class FakeRuntimePerkState:
@@ -244,19 +249,18 @@ func _init() -> void:
 	_expect(int(playfield_perf.get("checker_texture_cache_count", 0)) >= 3, "Stage 3 playfield prewarm should cache checker textures for all emotional phases")
 	_expect(int(playfield_perf.get("border_texture_cache_count", 0)) >= 3, "Stage 3 playfield prewarm should cache border textures for all emotional phases")
 	_expect(int(playfield_perf.get("ellipse_points_cache_count", 0)) > 0, "Stage 3 playfield prewarm should cache stadium emblem ellipse geometry")
-	_expect(int(playfield_perf.get("heart_particle_limit", 99)) <= 8, "Stage 3 playfield heart particles should stay within the draw budget")
-	_expect(int(playfield_perf.get("stadium_circle_segments", 99)) <= 16, "Stage 3 stadium rings should stay within the draw budget")
-	_expect(int(playfield_perf.get("stadium_circle_segments", 0)) >= 16, "Stage 3 stadium rings should preserve a round silhouette")
-	_expect(int(playfield_perf.get("stadium_inner_segments", 99)) <= 10, "Stage 3 stadium inner arcs should stay within the draw budget")
-	_expect(int(playfield_perf.get("stadium_flow_arc_segments", 99)) <= 3, "Stage 3 stadium flow arcs should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_shadow_layers", 99)) <= 2, "Stage 3 Kuromi shadow layers should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_face_layer_count", 99)) <= 2, "Stage 3 Kuromi face layers should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_ear_layer_count", 99)) <= 2, "Stage 3 Kuromi ear layers should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_tongue_point_max", 99)) <= 20, "Stage 3 Kuromi tongue draw points should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_idle_tail_point_count", 99)) <= 8, "Stage 3 Kuromi idle tail draw points should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_petrified_tail_point_count", 99)) <= 4, "Stage 3 Kuromi petrified tail draw points should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_awakening_ring_segments", 99)) <= 18, "Stage 3 Kuromi awakening ring should stay within the draw budget")
-	_expect(int(playfield_perf.get("kuromi_awakening_crack_line_count", 99)) <= 3, "Stage 3 Kuromi awakening cracks should stay within the draw budget")
+	_expect(int(playfield_perf.get("heart_particle_limit", 0)) == 34, "Stage 3 playfield should restore the full heart-particle detail budget")
+	_expect(int(playfield_perf.get("stadium_circle_segments", 0)) == 96, "Stage 3 stadium rings should restore a smooth round silhouette")
+	_expect(int(playfield_perf.get("stadium_inner_segments", 0)) == 96, "Stage 3 stadium inner arcs should restore a smooth round silhouette")
+	_expect(int(playfield_perf.get("stadium_flow_arc_segments", 0)) == 22, "Stage 3 stadium electric flow should restore visible arc detail")
+	_expect(int(playfield_perf.get("kuromi_shadow_layers", 0)) == 10, "Stage 3 Kuromi should restore layered shadow depth")
+	_expect(int(playfield_perf.get("kuromi_face_layer_count", 0)) == 5, "Stage 3 Kuromi should restore face fill layering")
+	_expect(int(playfield_perf.get("kuromi_ear_layer_count", 0)) == 5, "Stage 3 Kuromi should restore ear fill layering")
+	_expect(int(playfield_perf.get("kuromi_tongue_point_max", 0)) == 42, "Stage 3 Kuromi tongue should restore smooth curve detail")
+	_expect(int(playfield_perf.get("kuromi_idle_tail_point_count", 0)) == 20, "Stage 3 Kuromi idle tail should restore smooth curve detail")
+	_expect(int(playfield_perf.get("kuromi_petrified_tail_point_count", 0)) == 10, "Stage 3 Kuromi petrified tail should restore smooth curve detail")
+	_expect(int(playfield_perf.get("kuromi_awakening_ring_segments", 0)) == 54, "Stage 3 Kuromi awakening ring should restore smooth arc detail")
+	_expect(int(playfield_perf.get("kuromi_awakening_crack_line_count", 0)) == 5, "Stage 3 Kuromi awakening cracks should restore visible fracture detail")
 	_expect(int(playfield_perf.get("kuromi_spit_warning_mark_count", 99)) <= 4, "Stage 3 Kuromi spit warning marks should stay within the draw budget")
 	_expect(float(playfield_perf.get("kuromi_spit_warning_line_length", 0.0)) >= 160.0, "Stage 3 Kuromi spit direction warning should project far enough to read")
 	_expect(float(playfield_perf.get("kuromi_spit_warning_core_width", 0.0)) >= 3.0, "Stage 3 Kuromi spit direction warning should keep a clear bright core")
@@ -267,12 +271,12 @@ func _init() -> void:
 	_verify_kuromi_fragment_polygon_stability(direct_playfield)
 	_expect(bool(playfield_perf.get("viper_airborne_lod_supported", false)), "Stage 3 playfield should expose shared Viper airborne LOD support")
 	_expect(bool(playfield_perf.get("shared_render_quality_lod_supported", false)), "Stage 3 playfield should expose shared render-quality LOD support")
-	_expect(int(playfield_perf.get("stadium_circle_segments_severe_lod", 0)) >= 16, "Stage 3 stadium rings should preserve a round silhouette in severe Viper LOD")
-	_expect(int(playfield_perf.get("stadium_dash_length_severe_lod", 0)) >= 48, "Stage 3 stadium should stretch severe Viper LOD dash spans")
-	_expect(int(playfield_perf.get("stadium_gap_length_severe_lod", 0)) >= 54, "Stage 3 stadium should stretch severe Viper LOD dash gaps")
-	_expect(bool(playfield_perf.get("stadium_severe_lod_skips_inner_arc", false)), "Stage 3 stadium should skip decorative inner arcs in severe Viper LOD")
-	_expect(bool(playfield_perf.get("stadium_severe_lod_skips_flow", false)), "Stage 3 stadium should skip decorative electric flow in severe Viper LOD")
-	_expect(int(playfield_perf.get("kuromi_tongue_point_max_severe_lod", 999)) <= 10, "Stage 3 Kuromi tongue should use a severe Viper LOD point cap")
+	_expect(int(playfield_perf.get("stadium_circle_segments_severe_lod", 0)) >= 64, "Stage 3 stadium rings should preserve a round silhouette in severe Viper LOD")
+	_expect(int(playfield_perf.get("stadium_dash_length_severe_lod", 0)) == 20, "Stage 3 stadium should keep readable dash spans in severe Viper LOD")
+	_expect(int(playfield_perf.get("stadium_gap_length_severe_lod", 0)) == 15, "Stage 3 stadium should keep readable dash gaps in severe Viper LOD")
+	_expect(not bool(playfield_perf.get("stadium_severe_lod_skips_inner_arc", true)), "Stage 3 stadium should keep decorative inner arcs in severe Viper LOD")
+	_expect(not bool(playfield_perf.get("stadium_severe_lod_skips_flow", true)), "Stage 3 stadium should keep decorative electric flow in severe Viper LOD")
+	_expect(int(playfield_perf.get("kuromi_tongue_point_max_severe_lod", 0)) == 28, "Stage 3 Kuromi tongue should retain enough severe Viper LOD curve detail")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit_lod", 999)) <= 22, "Stage 3 Kuromi crack particles should tighten during airborne LOD")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit_severe_lod", 999)) <= 10, "Stage 3 Kuromi crack particles should use a severe Viper cap")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_detailed_draw_limit_severe_lod", 999)) <= 2, "Stage 3 Kuromi crack particles should use a severe Viper detailed-polygon cap")
@@ -318,6 +322,8 @@ func _init() -> void:
 	BattleRenderQuality.reset_cache_for_test()
 	_expect(Stage3ActorRenderer.new().has_method("draw"), "Stage 3 actor renderer preload should parse")
 	var stage3_actor_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_actor_renderer.gd")
+	_expect(stage3_actor_source.find("_prewarm_renderer_step(player_renderer)") >= 0, "Stage 3 actor prewarm should stage shared player actor assets before first draw")
+	_expect(stage3_actor_source.find("prewarm_runtime_assets_step") >= 0, "Stage 3 actor prewarm helper should accept runtime-only renderer prewarm APIs")
 	_expect(stage3_actor_source.find("_prewarm_renderer_step(skill_effect_renderer)") >= 0, "Stage 3 actor prewarm should stage skill-effect assets")
 	_expect(stage3_actor_source.find("_prewarm_renderer_step(commando_firearm_renderer)") >= 0, "Stage 3 actor prewarm should stage Commando firearm assets")
 	_expect(stage3_actor_source.find("commando_firearm_renderer.prewarm_assets()") < 0, "Stage 3 actor prewarm should not monolithically warm Commando firearm assets")
@@ -452,6 +458,22 @@ func _init() -> void:
 	_expect(chaos_runtime.release_count == 1, "Stage 3 Kuromi spit should release overlapping Chaos Spear ball ownership")
 	_expect(_as_vector2(chaos_runtime.last_release_context.get("ball_vel", Vector2.ZERO), Vector2.ZERO).length() > 0.0, "Stage 3 Kuromi should pass the spit velocity to the Chaos Spear release hook")
 	_expect(float(eating_result.get("ball_impact_boost", 0.0)) == 1.0, "Stage 3 Kuromi spit should reset impact boost like the original ball release")
+	_expect(absf(Stage3BossSkillState.KUROMI_SPIT_SOUND_LEAD_FRAMES / 60.0 - 0.3) <= 0.001, "Stage 3 Kuromi spit SFX lead should equal 0.3 seconds at the 60fps frame convention")
+	var spit_audio := FakeStage3Audio.new()
+	var spit_sound_state: Object = Stage3BossSkillState.new()
+	spit_sound_state.force_kuromi_awake()
+	spit_sound_state.set("kuromi_eating_active", true)
+	spit_sound_state.set("kuromi_eating_timer", Stage3BossSkillState.KUROMI_EAT_RELEASE_FRAMES - Stage3BossSkillState.KUROMI_SPIT_SOUND_LEAD_FRAMES - 2.0)
+	spit_sound_state.update(1.0 / 60.0, skill_context, {"audio": spit_audio})
+	_expect(spit_audio.kuromi_spit_count == 0, "Stage 3 Kuromi spit SFX should stay silent before the 0.3s pre-spit lead window")
+	spit_sound_state.update(1.0 / 60.0, skill_context, {"audio": spit_audio})
+	_expect(spit_audio.kuromi_spit_count == 1, "Stage 3 Kuromi spit SFX should fire once when the 0.3s pre-spit lead is reached")
+	spit_sound_state.update(1.0 / 60.0, skill_context, {"audio": spit_audio})
+	_expect(spit_audio.kuromi_spit_count == 1, "Stage 3 Kuromi spit SFX should be a one-shot within a single eat sequence")
+	for _spit_idx in range(24):
+		spit_sound_state.update(1.0 / 60.0, skill_context, {"audio": spit_audio})
+	_expect(not bool(spit_sound_state.get_snapshot().get("stage3_kuromi_eating_active", true)), "Stage 3 Kuromi eating should finish after the spit SFX lead window elapses")
+	_expect(spit_audio.kuromi_spit_count == 1, "Stage 3 Kuromi spit release should not replay the pre-spit SFX")
 	var hidden_ball_draw: Dictionary = BattleDrawBallContext.new().build_draw({
 		"ball_active": true,
 		"stage3_kuromi_ball_hidden": true,

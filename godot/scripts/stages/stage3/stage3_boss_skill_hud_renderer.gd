@@ -35,6 +35,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
 	if game_offset.x <= 0.0 or game_size.y <= 0.0:
 		return
+	var perf_logger: Object = context.get("battle_perf_logger", null)
 	var entries := skills
 	if entries.is_empty():
 		return
@@ -61,18 +62,35 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		scale_factor,
 		avoid_rect
 	)
+	var card_rects: Array = []
+	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	for i in range(entries.size()):
+		var skill: Dictionary = entries[i]
+		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
+		card_rects.append(rect)
+		var card_sample_start: int = _perf_begin(perf_logger)
+		if LingpetRailCard.is_lingpet_skill(skill):
+			LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
+			_perf_end(perf_logger, "stage3.rail.lingpet_card", card_sample_start)
+		else:
+			_draw_card(canvas, rect, skill, scale_factor)
+			_perf_end(perf_logger, "stage3.rail.cards_draw", card_sample_start)
+
+	var gauge_sample_start: int = _perf_begin(perf_logger)
+	if bool(context.get("stage3_boss_skill_hud_show_boss_gauge", true)):
+		_draw_wand_gauge(canvas, context, game_offset, scale_factor)
+	_perf_end(perf_logger, "stage3.rail.gauge_speech", gauge_sample_start)
+
+	var tooltip_sample_start: int = _perf_begin(perf_logger)
 	var mouse_pos: Vector2 = BossSkillCardHudSpec.get_mouse_position(canvas)
 	var hovered_skill: Dictionary = {}
 	var hovered_rect := Rect2()
 	for i in range(entries.size()):
-		var skill: Dictionary = entries[i]
-		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
-		_draw_card(canvas, rect, skill, scale_factor)
+		var tooltip_skill: Dictionary = entries[i]
+		var rect: Rect2 = _as_rect2(card_rects[i], Rect2())
 		if rect.has_point(mouse_pos):
-			hovered_skill = skill
+			hovered_skill = tooltip_skill
 			hovered_rect = rect
-	if bool(context.get("stage3_boss_skill_hud_show_boss_gauge", true)):
-		_draw_wand_gauge(canvas, context, game_offset, scale_factor)
 	if not hovered_skill.is_empty():
 		BossSkillCardHudSpec.draw_skill_tooltip(
 			canvas,
@@ -87,6 +105,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 				"inner_color": Color(0.13, 0.08, 0.13, 0.54),
 			}
 		)
+	_perf_end(perf_logger, "stage3.rail.tooltip", tooltip_sample_start)
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float) -> void:
@@ -234,6 +253,17 @@ func _get_card_metrics(pillar_width: float) -> Dictionary:
 
 func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
 	return BossSkillCardHudSpec.compare_skill_entries_by_next_activation(a, b)
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
 
 
 func _get_array(value: Variant) -> Array:

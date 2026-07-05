@@ -64,6 +64,7 @@ const KUROMI_EAT_SWALLOW_FRAMES := 50.0
 const KUROMI_EAT_CHEW_FRAMES := 120.0
 const KUROMI_EAT_DIRECTION_FRAMES := 180.0
 const KUROMI_EAT_RELEASE_FRAMES := 190.0
+const KUROMI_SPIT_SOUND_LEAD_FRAMES := 18.0
 const KUROMI_SPIT_SPEED_MIN := 8.0
 const KUROMI_SPIT_SPEED_MAX := 12.0
 const KUROMI_SPIT_SPEED_MULT := 3.0
@@ -162,6 +163,7 @@ var kuromi_ball_tongue_pos := Vector2.ZERO
 var kuromi_ball_on_tongue := false
 var kuromi_eat_source_pos := Vector2.ZERO
 var kuromi_swallow_sound_played := false
+var kuromi_spit_sound_played := false
 var kuromi_eating_particles: Array = []
 var _kuromi_fracture: Stage3KuromiFractureParticles
 var kuromi_spit_trail: Array = []
@@ -490,6 +492,7 @@ func _reset_round_effects() -> void:
 	kuromi_ball_on_tongue = false
 	kuromi_eat_source_pos = Vector2.ZERO
 	kuromi_swallow_sound_played = false
+	kuromi_spit_sound_played = false
 	kuromi_eating_particles.clear()
 	_kuromi_fracture.clear_pending()
 	kuromi_spit_trail.clear()
@@ -1092,6 +1095,7 @@ func _start_kuromi_eating(ball_pos: Vector2, deps: Dictionary) -> void:
 	kuromi_ball_tongue_pos = ball_pos
 	kuromi_tongue_angle = atan2(ball_pos.y - center.y, ball_pos.x - center.x)
 	kuromi_swallow_sound_played = false
+	kuromi_spit_sound_played = false
 	kuromi_eating_particles.clear()
 	_play_audio(deps, "play_stage3_kuromi_tongue")
 
@@ -1100,6 +1104,9 @@ func _update_kuromi_eating(delta: float, deps: Dictionary, result: Dictionary) -
 	var fps_scale: float = delta * 60.0
 	kuromi_eating_timer += fps_scale
 	result["stage3_kuromi_ball_hidden"] = true
+	if not kuromi_spit_sound_played and kuromi_eating_timer >= KUROMI_EAT_RELEASE_FRAMES - KUROMI_SPIT_SOUND_LEAD_FRAMES:
+		kuromi_spit_sound_played = true
+		_play_audio(deps, "play_stage3_kuromi_spit")
 	if kuromi_eating_timer < KUROMI_EAT_TONGUE_EXTEND_FRAMES:
 		kuromi_tongue_extended = _ease_out_elastic(kuromi_eating_timer / KUROMI_EAT_TONGUE_EXTEND_FRAMES)
 		kuromi_tongue_wrap_phase = 0.0

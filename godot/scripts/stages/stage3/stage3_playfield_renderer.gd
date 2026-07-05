@@ -4,10 +4,10 @@ const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.g
 
 const TILE_SIZE := 50
 const BORDER_THICKNESS := 10.0
-const HEART_PARTICLE_LIMIT := 8
-const HEART_PARTICLE_DRAW_LIMIT_LOD := 5
-const HEART_PARTICLE_DRAW_LIMIT_SEVERE_LOD := 3
-const HEART_SPAWN_CHANCE_PER_60FPS := 0.005
+const HEART_PARTICLE_LIMIT := 34
+const HEART_PARTICLE_DRAW_LIMIT_LOD := 24
+const HEART_PARTICLE_DRAW_LIMIT_SEVERE_LOD := 18
+const HEART_SPAWN_CHANCE_PER_60FPS := 0.010
 const STADIUM_SPARK_MIN_INTERVAL_SEC := 12.0
 const STADIUM_SPARK_MAX_INTERVAL_SEC := 25.0
 const STADIUM_SPARK_BURST_SEC := 0.85
@@ -18,53 +18,53 @@ const MAX_CHECKER_TEXTURE_CACHE_ENTRIES := 9
 const MAX_BORDER_TEXTURE_CACHE_ENTRIES := 9
 const MAX_ELLIPSE_POINTS_CACHE_ENTRIES := 128
 const MAX_ELLIPSE_OUTLINE_POINTS_CACHE_ENTRIES := 128
-const STADIUM_CIRCLE_SEGMENTS := 16
-const STADIUM_CIRCLE_SEGMENTS_LOD := 12
-const STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD := 16
-const STADIUM_INNER_SEGMENTS := 10
-const STADIUM_INNER_SEGMENTS_LOD := 8
-const STADIUM_INNER_SEGMENTS_SEVERE_LOD := 4
-const STADIUM_FLOW_ARC_SEGMENTS := 3
-const STADIUM_FLOW_ARC_SEGMENTS_LOD := 2
-const STADIUM_FLOW_ARC_SEGMENTS_SEVERE_LOD := 1
-const STADIUM_DASH_LENGTH := 36
-const STADIUM_GAP_LENGTH := 30
-const STADIUM_DASH_LENGTH_SEVERE_LOD := 48
-const STADIUM_GAP_LENGTH_SEVERE_LOD := 54
-const KUROMI_SHADOW_LAYERS := 2
-const KUROMI_SHADOW_LAYERS_LOD := 2
-const KUROMI_SHADOW_LAYERS_SEVERE_LOD := 1
-const KUROMI_FACE_LAYER_COUNT := 2
-const KUROMI_FACE_LAYER_COUNT_LOD := 2
-const KUROMI_FACE_LAYER_COUNT_SEVERE_LOD := 1
-const KUROMI_EAR_LAYER_COUNT := 2
-const KUROMI_EAR_LAYER_COUNT_LOD := 2
-const KUROMI_EAR_LAYER_COUNT_SEVERE_LOD := 1
-const KUROMI_TONGUE_POINT_MIN := 10
-const KUROMI_TONGUE_POINT_MAX := 20
-const KUROMI_TONGUE_POINT_MAX_LOD := 14
-const KUROMI_TONGUE_POINT_MAX_SEVERE_LOD := 10
-const KUROMI_IDLE_TAIL_POINT_COUNT := 8
-const KUROMI_IDLE_TAIL_POINT_COUNT_LOD := 8
-const KUROMI_IDLE_TAIL_POINT_COUNT_SEVERE_LOD := 3
-const KUROMI_PETRIFIED_TAIL_POINT_COUNT := 4
-const KUROMI_PETRIFIED_TAIL_POINT_COUNT_LOD := 4
-const KUROMI_PETRIFIED_TAIL_POINT_COUNT_SEVERE_LOD := 3
-const KUROMI_AWAKENING_RING_SEGMENTS := 18
-const KUROMI_AWAKENING_RING_SEGMENTS_LOD := 12
-const KUROMI_AWAKENING_RING_SEGMENTS_SEVERE_LOD := 8
-const KUROMI_AWAKENING_CRACK_LINE_COUNT := 3
-const KUROMI_AWAKENING_CRACK_LINE_COUNT_LOD := 2
-const KUROMI_AWAKENING_CRACK_LINE_COUNT_SEVERE_LOD := 1
-const KUROMI_TONGUE_COIL_SEGMENTS := 10
-const KUROMI_TONGUE_COIL_SEGMENTS_LOD := 7
-const KUROMI_TONGUE_COIL_SEGMENTS_SEVERE_LOD := 5
-const KUROMI_TONGUE_WRAP_ARC_SEGMENTS := 12
-const KUROMI_TONGUE_WRAP_ARC_SEGMENTS_LOD := 8
-const KUROMI_TONGUE_WRAP_ARC_SEGMENTS_SEVERE_LOD := 6
-const KUROMI_AWAKE_SPARKLE_COUNT := 2
-const KUROMI_AWAKE_SPARKLE_COUNT_LOD := 2
-const KUROMI_AWAKE_SPARKLE_COUNT_SEVERE_LOD := 1
+const STADIUM_CIRCLE_SEGMENTS := 96
+const STADIUM_CIRCLE_SEGMENTS_LOD := 72
+const STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD := 64
+const STADIUM_INNER_SEGMENTS := 96
+const STADIUM_INNER_SEGMENTS_LOD := 72
+const STADIUM_INNER_SEGMENTS_SEVERE_LOD := 64
+const STADIUM_FLOW_ARC_SEGMENTS := 22
+const STADIUM_FLOW_ARC_SEGMENTS_LOD := 18
+const STADIUM_FLOW_ARC_SEGMENTS_SEVERE_LOD := 14
+const STADIUM_DASH_LENGTH := 20
+const STADIUM_GAP_LENGTH := 15
+const STADIUM_DASH_LENGTH_SEVERE_LOD := 20
+const STADIUM_GAP_LENGTH_SEVERE_LOD := 15
+const KUROMI_SHADOW_LAYERS := 10
+const KUROMI_SHADOW_LAYERS_LOD := 10
+const KUROMI_SHADOW_LAYERS_SEVERE_LOD := 8
+const KUROMI_FACE_LAYER_COUNT := 5
+const KUROMI_FACE_LAYER_COUNT_LOD := 5
+const KUROMI_FACE_LAYER_COUNT_SEVERE_LOD := 4
+const KUROMI_EAR_LAYER_COUNT := 5
+const KUROMI_EAR_LAYER_COUNT_LOD := 5
+const KUROMI_EAR_LAYER_COUNT_SEVERE_LOD := 4
+const KUROMI_TONGUE_POINT_MIN := 18
+const KUROMI_TONGUE_POINT_MAX := 42
+const KUROMI_TONGUE_POINT_MAX_LOD := 34
+const KUROMI_TONGUE_POINT_MAX_SEVERE_LOD := 28
+const KUROMI_IDLE_TAIL_POINT_COUNT := 20
+const KUROMI_IDLE_TAIL_POINT_COUNT_LOD := 20
+const KUROMI_IDLE_TAIL_POINT_COUNT_SEVERE_LOD := 16
+const KUROMI_PETRIFIED_TAIL_POINT_COUNT := 10
+const KUROMI_PETRIFIED_TAIL_POINT_COUNT_LOD := 10
+const KUROMI_PETRIFIED_TAIL_POINT_COUNT_SEVERE_LOD := 8
+const KUROMI_AWAKENING_RING_SEGMENTS := 54
+const KUROMI_AWAKENING_RING_SEGMENTS_LOD := 44
+const KUROMI_AWAKENING_RING_SEGMENTS_SEVERE_LOD := 36
+const KUROMI_AWAKENING_CRACK_LINE_COUNT := 5
+const KUROMI_AWAKENING_CRACK_LINE_COUNT_LOD := 5
+const KUROMI_AWAKENING_CRACK_LINE_COUNT_SEVERE_LOD := 4
+const KUROMI_TONGUE_COIL_SEGMENTS := 24
+const KUROMI_TONGUE_COIL_SEGMENTS_LOD := 20
+const KUROMI_TONGUE_COIL_SEGMENTS_SEVERE_LOD := 16
+const KUROMI_TONGUE_WRAP_ARC_SEGMENTS := 28
+const KUROMI_TONGUE_WRAP_ARC_SEGMENTS_LOD := 24
+const KUROMI_TONGUE_WRAP_ARC_SEGMENTS_SEVERE_LOD := 20
+const KUROMI_AWAKE_SPARKLE_COUNT := 5
+const KUROMI_AWAKE_SPARKLE_COUNT_LOD := 5
+const KUROMI_AWAKE_SPARKLE_COUNT_SEVERE_LOD := 4
 const KUROMI_SPIT_WARNING_MARK_COUNT := 4
 const KUROMI_SPIT_WARNING_MARK_COUNT_LOD := 3
 const KUROMI_SPIT_WARNING_MARK_COUNT_SEVERE_LOD := 2
@@ -274,8 +274,8 @@ func get_performance_snapshot() -> Dictionary:
 		"stadium_circle_segments_severe_lod": STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD,
 		"stadium_dash_length_severe_lod": STADIUM_DASH_LENGTH_SEVERE_LOD,
 		"stadium_gap_length_severe_lod": STADIUM_GAP_LENGTH_SEVERE_LOD,
-		"stadium_severe_lod_skips_inner_arc": true,
-		"stadium_severe_lod_skips_flow": true,
+		"stadium_severe_lod_skips_inner_arc": false,
+		"stadium_severe_lod_skips_flow": false,
 		"kuromi_tongue_point_max_lod": KUROMI_TONGUE_POINT_MAX_LOD,
 		"kuromi_tongue_point_max_severe_lod": KUROMI_TONGUE_POINT_MAX_SEVERE_LOD,
 		"kuromi_crack_particle_draw_limit_lod": KUROMI_CRACK_PARTICLE_DRAW_LIMIT_LOD,
@@ -384,13 +384,12 @@ func _draw_particles(canvas: CanvasItem, shake_offset: Vector2, quality_scale: f
 		color.a = 0.58 * life
 		var pos: Vector2 = Vector2(float(particle.get("x", 0.0)), float(particle.get("y", 0.0))) + shake_offset
 		var size: float = float(particle.get("size", 10.0))
-		if size >= 13.0 and not _is_severe_lod_active(quality_scale):
-			canvas.draw_circle(pos, size * 1.45, Color(color.r, color.g, color.b, 0.07 * life))
+		canvas.draw_circle(pos, size * 1.55, Color(color.r, color.g, color.b, 0.08 * life))
 		if bool(particle.get("broken", false)):
 			_draw_broken_heart(canvas, pos, size, color)
 		else:
 			_draw_heart(canvas, pos, size, color)
-		if size >= 14.0 and not _is_lod_active(quality_scale) and sin(float(particle.get("twinkle", 0.0))) > 0.93:
+		if sin(float(particle.get("twinkle", 0.0))) > 0.72:
 			_draw_star(canvas, pos + Vector2(size * 1.2, -size * 0.7), maxf(2.0, size * 0.28), Color(1.0, 1.0, 1.0, 0.55 * life))
 		drawn_count += 1
 
@@ -424,8 +423,7 @@ func _draw_stadium_line(
 	canvas.draw_circle(center, circle_radius, Color(1.0, 1.0, 1.0, 0.10))
 	canvas.draw_arc(center, circle_radius, 0.0, TAU, circle_segments, WHITE, 3.0, true)
 	canvas.draw_arc(center, circle_radius - 5.0, 0.0, TAU, circle_segments, line_color, 2.0, true)
-	if not severe_lod:
-		canvas.draw_arc(center, circle_radius - 10.0, 0.0, TAU, inner_segments, Color(LAVENDER.r, LAVENDER.g, LAVENDER.b, 0.40), 1.0, true)
+	canvas.draw_arc(center, circle_radius - 10.0, 0.0, TAU, inner_segments, Color(LAVENDER.r, LAVENDER.g, LAVENDER.b, 0.40), 1.0, true)
 
 	var dash_length: int = STADIUM_DASH_LENGTH_SEVERE_LOD if severe_lod else STADIUM_DASH_LENGTH
 	var gap_length: int = STADIUM_GAP_LENGTH_SEVERE_LOD if severe_lod else STADIUM_GAP_LENGTH
@@ -437,10 +435,9 @@ func _draw_stadium_line(
 		canvas.draw_line(Vector2(float(x), center.y), Vector2(right_end_x, center.y), line_color, 3.0, true)
 	_perf_end(perf_logger, "stage3.playfield.stadium_lines", sample_start)
 
-	if not severe_lod:
-		sample_start = _perf_begin(perf_logger)
-		_draw_stadium_electric_flow(canvas, width, center, circle_radius, dash_length, gap_length, quality_scale)
-		_perf_end(perf_logger, "stage3.playfield.stadium_flow", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_stadium_electric_flow(canvas, width, center, circle_radius, dash_length, gap_length, quality_scale)
+	_perf_end(perf_logger, "stage3.playfield.stadium_flow", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_kuromi(canvas, context, center, 60.0, quality_scale)
 	_perf_end(perf_logger, "stage3.playfield.kuromi", sample_start)
@@ -474,11 +471,12 @@ func _draw_stadium_electric_flow(
 		travel = 1.0 - travel
 	var head_x: float = width * travel
 	var strength: float = sin(pulse * PI)
-	var tail_len: float = float(dash_length + gap_length) * 4.2
+	var tail_len: float = float(dash_length + gap_length) * 5.8
 	var start_x: float = maxf(0.0, head_x - tail_len) if stadium_spark_direction > 0.0 else maxf(0.0, head_x - 7.0)
 	var end_x: float = minf(width, head_x + 7.0) if stadium_spark_direction > 0.0 else minf(width, head_x + tail_len)
 	if end_x > start_x:
-		canvas.draw_line(Vector2(start_x, center.y), Vector2(end_x, center.y), Color(38.0 / 255.0, 214.0 / 255.0, 224.0 / 255.0, 0.16 + 0.34 * strength), 5.0, true)
+		canvas.draw_line(Vector2(start_x, center.y), Vector2(end_x, center.y), Color(38.0 / 255.0, 214.0 / 255.0, 224.0 / 255.0, 0.16 + 0.34 * strength), 7.0, true)
+		canvas.draw_line(Vector2(start_x + 2.0, center.y + 2.0), Vector2(end_x - 2.0, center.y + 2.0), Color(224.0 / 255.0, 82.0 / 255.0, 142.0 / 255.0, 0.10 + 0.20 * strength), 3.0, true)
 		canvas.draw_line(Vector2(start_x + 2.0, center.y - 1.0), Vector2(end_x - 2.0, center.y - 1.0), Color(1.0, 1.0, 1.0, 0.22 + 0.42 * strength), 1.0, true)
 		canvas.draw_circle(Vector2(head_x, center.y), 2.2, Color(86.0 / 255.0, 240.0 / 255.0, 246.0 / 255.0, 0.40 + 0.35 * strength))
 
@@ -495,8 +493,7 @@ func _draw_stadium_electric_flow(
 		var lower_angle: float = PI + circle_progress * PI if stadium_spark_direction > 0.0 else -(1.0 - circle_progress) * PI
 		for angle in [upper_angle, lower_angle]:
 			canvas.draw_arc(center, circle_radius, angle - 0.22, angle + 0.28, flow_segments, Color(58.0 / 255.0, 226.0 / 255.0, 236.0 / 255.0, 0.22 + 0.34 * strength), 3.0, true)
-			if strength > 0.55 and not _is_severe_lod_active(quality_scale):
-				canvas.draw_arc(center, circle_radius - 6.0, angle - 0.12, angle + 0.15, flow_segments, Color(1.0, 1.0, 1.0, 0.18 + 0.32 * strength), 1.0, true)
+			canvas.draw_arc(center, circle_radius - 6.0, angle - 0.12, angle + 0.15, flow_segments, Color(1.0, 1.0, 1.0, 0.18 + 0.32 * strength), 1.0, true)
 
 
 func _draw_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2, size: float, quality_scale: float) -> void:
@@ -530,7 +527,7 @@ func _draw_petrified_kuromi(canvas: CanvasItem, context: Dictionary, center: Vec
 
 	var shadow_layers: int = _get_lod_count(KUROMI_SHADOW_LAYERS, KUROMI_SHADOW_LAYERS_LOD, KUROMI_SHADOW_LAYERS_SEVERE_LOD, quality_scale)
 	for i in range(shadow_layers, 0, -1):
-		canvas.draw_circle(center + Vector2(0.0, 10.0), head_size + float(i) * 3.4, Color(stone_dark.r, stone_dark.g, stone_dark.b, float(i) * 8.0 / 255.0))
+		canvas.draw_circle(center + Vector2(0.0, 10.0), head_size + float(i) * 2.0, Color(stone_dark.r, stone_dark.g, stone_dark.b, float(i) * 5.0 / 255.0))
 
 	var face_rect := Rect2(center.x - head_size, center.y - head_size + 8.0, head_size * 2.0, head_size * 1.9)
 	_draw_ellipse(canvas, face_rect, stone_dark)
@@ -759,7 +756,7 @@ func _draw_awake_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2
 
 	var shadow_layers: int = _get_lod_count(KUROMI_SHADOW_LAYERS, KUROMI_SHADOW_LAYERS_LOD, KUROMI_SHADOW_LAYERS_SEVERE_LOD, quality_scale)
 	for i in range(shadow_layers, 0, -1):
-		canvas.draw_circle(center + Vector2(0.0, 10.0), head_size + float(i) * 3.2, Color(LAVENDER.r, LAVENDER.g, LAVENDER.b, float(i) * 5.0 / 255.0))
+		canvas.draw_circle(center + Vector2(0.0, 10.0), head_size + float(i) * 2.0, Color(LAVENDER.r, LAVENDER.g, LAVENDER.b, float(i) * 3.0 / 255.0))
 
 	var face_rect := Rect2(center.x - head_size, center.y - head_size + 8.0, head_size * 2.0, head_size * 1.9)
 	var face_layer_count: int = _get_lod_count(KUROMI_FACE_LAYER_COUNT, KUROMI_FACE_LAYER_COUNT_LOD, KUROMI_FACE_LAYER_COUNT_SEVERE_LOD, quality_scale)
@@ -788,7 +785,7 @@ func _draw_awake_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2
 
 	var skull_center := Vector2(center.x, center.y - head_size - ear_height * 0.5 + 5.0)
 	var skull_size: float = ear_width * 0.7
-	for idx in range(2):
+	for idx in range(3):
 		canvas.draw_circle(skull_center, skull_size + 3.0 - float(idx), Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, float(100 - idx * 20) / 255.0))
 	canvas.draw_circle(skull_center, skull_size, PASTEL_PINK)
 	canvas.draw_circle(skull_center, maxf(1.0, skull_size - 2.0), Color(1.0, 220.0 / 255.0, 230.0 / 255.0, 1.0))
@@ -812,7 +809,7 @@ func _draw_awake_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2
 	for eye_center in [left_eye_center, right_eye_center]:
 		var eye_rect := Rect2(eye_center - Vector2(eye_width * 0.5, eye_height * 0.5), Vector2(eye_width, eye_height))
 		_draw_ellipse_outline(canvas, eye_rect, SOFT_BLACK, 2.0, 20)
-		_draw_ellipse(canvas, eye_rect.grow(-2.0), Color(1.0, 248.0 / 255.0, 1.0, 1.0), 14)
+		_draw_ellipse(canvas, eye_rect.grow(-2.0), Color(1.0, 248.0 / 255.0, 1.0, 1.0), 20)
 		var delta: Vector2 = ball_pos - eye_center
 		var pupil_offset: Vector2 = Vector2.ZERO
 		if delta.length() > 0.01:
@@ -850,11 +847,11 @@ func _draw_awake_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2
 
 	var blush_y: float = center.y + head_size / 5.0
 	var blush_intensity: float = (100.0 + absf(sin(frame_time * 0.006)) * 50.0) / 255.0
-	for idx in range(2):
+	for idx in range(3):
 		var blush_size: float = 15.0 - float(idx) * 3.0
 		var alpha: float = maxf(0.0, blush_intensity - float(idx) * 30.0 / 255.0)
-		_draw_ellipse(canvas, Rect2(left_eye_center + Vector2(-blush_size * 0.5, blush_y - left_eye_center.y - blush_size / 3.0), Vector2(blush_size, blush_size * 0.5)), Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, alpha), 12)
-		_draw_ellipse(canvas, Rect2(right_eye_center + Vector2(-blush_size * 0.5, blush_y - right_eye_center.y - blush_size / 3.0), Vector2(blush_size, blush_size * 0.5)), Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, alpha), 12)
+		_draw_ellipse(canvas, Rect2(left_eye_center + Vector2(-blush_size * 0.5, blush_y - left_eye_center.y - blush_size / 3.0), Vector2(blush_size, blush_size * 0.5)), Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, alpha), 16)
+		_draw_ellipse(canvas, Rect2(right_eye_center + Vector2(-blush_size * 0.5, blush_y - right_eye_center.y - blush_size / 3.0), Vector2(blush_size, blush_size * 0.5)), Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, alpha), 16)
 
 
 func _draw_kuromi_ear(canvas: CanvasItem, center: Vector2, base: Vector2, tip: Vector2, inner_base: Vector2, side: float, quality_scale: float) -> void:
@@ -918,7 +915,7 @@ func _draw_kuromi_tongue_capture(canvas: CanvasItem, context: Dictionary, center
 	control += Vector2(0.0, 13.0 * curve_ratio)
 
 	var tongue_point_max: int = _get_lod_count(KUROMI_TONGUE_POINT_MAX, KUROMI_TONGUE_POINT_MAX_LOD, KUROMI_TONGUE_POINT_MAX_SEVERE_LOD, quality_scale)
-	var point_count: int = clampi(int(12.0 + visible_distance / 7.0), KUROMI_TONGUE_POINT_MIN, tongue_point_max)
+	var point_count: int = clampi(int(18.0 + visible_distance / 5.0), KUROMI_TONGUE_POINT_MIN, tongue_point_max)
 	var tongue_points := PackedVector2Array()
 	for idx in range(point_count):
 		var t: float = float(idx) / float(max(1, point_count - 1))
@@ -949,7 +946,7 @@ func _draw_kuromi_tongue_capture(canvas: CanvasItem, context: Dictionary, center
 				continue
 			var width: float = maxf(2.0, lerp(4.5, 2.0, t))
 			canvas.draw_line(tongue_points[idx], tongue_points[idx + 1], Color(0.64, 0.05, 0.18, 0.34 * (1.0 - t * 0.45)), width, true)
-		for idx in range(0, tongue_points.size() - 1, 3):
+		for idx in range(0, tongue_points.size() - 1, 2):
 			var t: float = float(idx) / float(max(1, tongue_points.size() - 2))
 			var width: float = lerp(3.6, 1.6, t)
 			var offset: Vector2 = side * -float(lerp(5.5, 2.0, t))
@@ -962,8 +959,8 @@ func _draw_kuromi_tongue_capture(canvas: CanvasItem, context: Dictionary, center
 		var fork_alpha: float = 0.32 + 0.28 * maxf(0.0, sin(timer * 0.60))
 		canvas.draw_line(tip - dir * 1.0, tip - dir * 7.0 + side * 5.0, Color(1.0, 0.70, 0.78, fork_alpha), 2.0, true)
 		canvas.draw_line(tip - dir * 1.0, tip - dir * 7.0 - side * 5.0, Color(1.0, 0.70, 0.78, fork_alpha), 2.0, true)
-		if extended > 0.25 and not _is_severe_lod_active(quality_scale):
-			var sparkle_count: int = 2 if _is_lod_active(quality_scale) else 4
+		if extended > 0.25:
+			var sparkle_count: int = 4
 			for idx in range(sparkle_count):
 				var sparkle_t: float = 0.18 + float(idx) * 0.18
 				var point_idx: int = clampi(int(sparkle_t * float(tongue_points.size() - 1)), 0, tongue_points.size() - 1)
@@ -977,16 +974,15 @@ func _draw_kuromi_tongue_capture(canvas: CanvasItem, context: Dictionary, center
 		canvas.draw_circle(target + Vector2(-4.0, -4.0), 3.8, Color(1.0, 1.0, 1.0, 0.74))
 		if wrap_phase > 0.0:
 			var coil_segments: int = _get_lod_count(KUROMI_TONGUE_COIL_SEGMENTS, KUROMI_TONGUE_COIL_SEGMENTS_LOD, KUROMI_TONGUE_COIL_SEGMENTS_SEVERE_LOD, quality_scale)
-			for idx in range(2):
-				var coil_angle: float = tongue_angle + timer * 0.12 + float(idx) * TAU / 2.0
+			for idx in range(3):
+				var coil_angle: float = tongue_angle + timer * 0.12 + float(idx) * TAU / 3.0
 				var coil_radius: float = ball_radius + 9.0 - wrap_phase * 5.0 + float(idx) * 1.6
 				canvas.draw_arc(target, coil_radius, coil_angle, coil_angle + PI * 1.32, coil_segments, Color(1.0, 0.34, 0.54, (0.30 + 0.28 * wrap_phase) * (1.0 - float(idx) * 0.16)), 5.0 - float(idx), true)
 				var knot_pos := target + Vector2(cos(coil_angle + PI * 1.25), sin(coil_angle + PI * 1.25)) * coil_radius
 				canvas.draw_circle(knot_pos, 3.2 + wrap_phase * 2.0, Color(1.0, 0.60, 0.70, 0.48 + 0.24 * wrap_phase))
 		var wrap_segments: int = _get_lod_count(KUROMI_TONGUE_WRAP_ARC_SEGMENTS, KUROMI_TONGUE_WRAP_ARC_SEGMENTS_LOD, KUROMI_TONGUE_WRAP_ARC_SEGMENTS_SEVERE_LOD, quality_scale)
 		canvas.draw_arc(target, ball_radius + 5.0, tongue_angle - PI * 0.8, tongue_angle + PI * 0.8, wrap_segments, Color(1.0, 0.31, 0.54, 0.35 + 0.34 * wrap_phase), 3.0 + wrap_phase * 4.0, true)
-		if not _is_severe_lod_active(quality_scale):
-			canvas.draw_arc(target, ball_radius + 11.0, tongue_angle + PI * 0.4, tongue_angle + PI * 1.7, wrap_segments, Color(1.0, 0.72, 0.84, 0.18 + 0.28 * wrap_phase), 2.0 + wrap_phase * 2.0, true)
+		canvas.draw_arc(target, ball_radius + 11.0, tongue_angle + PI * 0.4, tongue_angle + PI * 1.7, wrap_segments, Color(1.0, 0.72, 0.84, 0.18 + 0.28 * wrap_phase), 2.0 + wrap_phase * 2.0, true)
 
 
 func _quadratic_point(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
@@ -1112,7 +1108,7 @@ func _draw_awake_kuromi_tail(canvas: CanvasItem, context: Dictionary, center: Ve
 			canvas.draw_circle(tail_points[idx], maxf(1.0, 3.0 - float(idx) / 4.0), Color(1.0, 1.0, 1.0, 80.0 / 255.0))
 	var end_point: Vector2 = tail_points[tail_points.size() - 1]
 	var heart_pulse: float = absf(sin(frame_time * 0.015)) * 2.0 + 8.0
-	for idx in range(2):
+	for idx in range(3):
 		var glow_alpha: float = float(60 - idx * 15) / 255.0
 		canvas.draw_circle(end_point, heart_pulse + float(idx) * 2.0, Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, glow_alpha))
 	_draw_kuromi_heart(canvas, end_point, heart_pulse, PASTEL_PINK, SOFT_BLACK, true)
@@ -1129,7 +1125,7 @@ func _draw_petrified_stone_cracks(canvas: CanvasItem, center: Vector2, head_size
 		[Vector2(-0.55, 0.48), 0.20, 11.0],
 		[Vector2(0.04, -0.82), 1.30, 8.0],
 	]
-	var crack_count: int = _get_lod_count(cracks.size(), 5, 3, quality_scale)
+	var crack_count: int = _get_lod_count(cracks.size(), cracks.size(), 6, quality_scale)
 	for crack_idx in range(crack_count):
 		var crack: Array = cracks[crack_idx]
 		var offset: Vector2 = _as_vector2(crack[0], Vector2.ZERO) * head_size
@@ -1155,13 +1151,13 @@ func _draw_kuromi_heart(canvas: CanvasItem, center: Vector2, size: float, fill: 
 		canvas.draw_polyline(PackedVector2Array([bottom[0], bottom[1], bottom[2]]), outline, 1.0, true)
 
 
-func _draw_ellipse(canvas: CanvasItem, rect: Rect2, color: Color, segments: int = 14) -> void:
+func _draw_ellipse(canvas: CanvasItem, rect: Rect2, color: Color, segments: int = 32) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
 	canvas.draw_colored_polygon(_ellipse_points(rect, _get_lod_segment_count(segments)), color)
 
 
-func _draw_ellipse_outline(canvas: CanvasItem, rect: Rect2, color: Color, width: float, segments: int = 14) -> void:
+func _draw_ellipse_outline(canvas: CanvasItem, rect: Rect2, color: Color, width: float, segments: int = 32) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
 	var points: PackedVector2Array = _ellipse_outline_points(rect, _get_lod_segment_count(segments))
@@ -1169,7 +1165,7 @@ func _draw_ellipse_outline(canvas: CanvasItem, rect: Rect2, color: Color, width:
 		canvas.draw_polyline(points, color, width, true)
 
 
-func _draw_ellipse_arc(canvas: CanvasItem, rect: Rect2, start_angle: float, end_angle: float, color: Color, width: float, segments: int = 10) -> void:
+func _draw_ellipse_arc(canvas: CanvasItem, rect: Rect2, start_angle: float, end_angle: float, color: Color, width: float, segments: int = 18) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
 	var segment_count: int = _get_lod_segment_count(segments)

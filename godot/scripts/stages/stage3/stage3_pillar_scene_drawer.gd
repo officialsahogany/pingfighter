@@ -78,11 +78,16 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry: 
 func draw_post_playfield_hud(canvas: CanvasItem, context: Dictionary, registry: Object) -> void:
 	if canvas == null or registry == null:
 		return
+	var perf_logger: Object = context.get("battle_perf_logger", null)
 	var view_size: Vector2 = _get_vector2(context, "view_size", Vector2.ZERO)
 	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
-	hud_scene_drawer.draw_active_item_hud(canvas, context, registry, view_size, game_offset, game_size)
+	var sample_start: int = _perf_begin(perf_logger)
+	hud_scene_drawer.draw_active_item_hud(canvas, context, registry, view_size, game_offset, game_size, false)
+	_perf_end(perf_logger, "stage3.pillar.post_active_hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_stage3_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size)
+	_perf_end(perf_logger, "stage3.pillar.boss_skill_hud", sample_start)
 
 
 func _draw_stage3_boss_skill_hud(
@@ -99,14 +104,18 @@ func _draw_stage3_boss_skill_hud(
 	var skill_state: Object = registry.get_instance("stage3_boss_skill_state")
 	if skill_state == null or not skill_state.has_method("get_hud_context"):
 		return
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var sample_start: int = _perf_begin(perf_logger)
 	var hud_context: Dictionary = skill_state.get_hud_context(null, context)
 	hud_context["current_stage"] = 3
 	hud_context["view_size"] = view_size
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
+	hud_context["battle_perf_logger"] = perf_logger
 	hud_context["commando_firearm_panel_rect"] = context.get("commando_firearm_panel_rect", Rect2())
 	# Hatched lingpet rides this stage's boss skill rail too (companion persists across stages).
 	LingpetRailCard.append_entry(hud_context, registry, "stage3_boss_skill_hud_skills", "stage3_boss_skill_hud_active")
+	_perf_end(perf_logger, "stage3.rail.context_build", sample_start)
 	renderer.draw(canvas, hud_context)
 
 

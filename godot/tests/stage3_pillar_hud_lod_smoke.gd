@@ -69,6 +69,26 @@ func _verify_stage3_pillar_hud_lod_context() -> void:
 		"Stage 3 boss skill HUD should build a compact draw context instead of copying the full battle context"
 	)
 	_expect(
+		_function_body(source, "func draw_post_playfield_hud").find("draw_active_item_hud(canvas, context, registry, view_size, game_offset, game_size, false)") >= 0,
+		"Stage 3 post-playfield HUD should skip the Stage 1 boss skill HUD and draw only the Stage 3 skill-card rail"
+	)
+	_expect(
+		source.find("\"stage3.pillar.post_active_hud\"") >= 0
+			and source.find("\"stage3.pillar.boss_skill_hud\"") >= 0,
+		"Stage 3 post-playfield HUD should expose active-item and boss-skill BattlePerf labels"
+	)
+	_expect(
+		source.find("\"stage3.rail.context_build\"") >= 0,
+		"Stage 3 boss skill rail should expose a context-build BattlePerf label"
+	)
+	for label in [
+		"stage3.rail.cards_draw",
+		"stage3.rail.lingpet_card",
+		"stage3.rail.gauge_speech",
+		"stage3.rail.tooltip",
+	]:
+		_expect(boss_hud_source.find(label) >= 0, "Stage 3 boss skill rail should expose diagnostic BattlePerf label %s" % label)
+	_expect(
 		boss_hud_source.find("_metrics_cache_pillar_width") >= 0
 			and _function_body(boss_hud_source, "func draw(").find("var entries := skills") >= 0
 			and boss_hud_source.find("func _skill_entries") < 0,
