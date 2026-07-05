@@ -45,10 +45,10 @@ func _verify_direct_pistol_hit_state() -> void:
 		0.0,
 		1.0,
 		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
-		1.5
+		2.5
 	)
 	var enhanced_base_fields: Dictionary = _get_dict(enhanced_base_payload.get("result_fields", {}))
-	_expect(is_equal_approx(float(enhanced_base_fields.get("knockback_power", 0.0)), 12.0), "base pistol normal hit should scale pistol_enhance knockback power")
+	_expect(is_equal_approx(float(enhanced_base_fields.get("knockback_power", 0.0)), 20.0), "base pistol normal hit should scale pistol_enhance knockback power")
 
 	var beretta_with_enhance_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
 		"commando_pistol",
@@ -58,7 +58,7 @@ func _verify_direct_pistol_hit_state() -> void:
 		0.0,
 		1.0,
 		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
-		1.5
+		2.5
 	)
 	var beretta_with_enhance_fields: Dictionary = _get_dict(beretta_with_enhance_payload.get("result_fields", {}))
 	_expect(is_equal_approx(float(beretta_with_enhance_fields.get("knockback_power", 0.0)), 8.0), "Beretta normal hit should ignore pistol_enhance knockback power")
@@ -149,7 +149,7 @@ func _verify_direct_pistol_hit_state() -> void:
 	var enhanced_runtime_feedbacks: Array = []
 	var enhanced_runtime_apply_result: Dictionary = CommandoFirearmPistolHitState.apply_runtime_hit_effects(
 		"pistol",
-		{"pistol_enhance_knockback_mult": 1.5},
+		{"pistol_enhance_knockback_mult": 2.5},
 		_boss_context().merged({"commando_pistol_shot_roll": 0.99}, true),
 		enhanced_runtime_result,
 		0,
@@ -167,13 +167,13 @@ func _verify_direct_pistol_hit_state() -> void:
 		4
 	)
 	_expect(int(enhanced_runtime_apply_result.get("next_hit_count", -1)) == 1, "runtime base pistol knockback owner should return hit count")
-	_expect(is_equal_approx(float(enhanced_runtime_result.get("knockback_power", 0.0)), 12.0), "runtime base pistol normal hit should consume pistol_enhance knockback multiplier")
+	_expect(is_equal_approx(float(enhanced_runtime_result.get("knockback_power", 0.0)), 20.0), "runtime base pistol normal hit should consume pistol_enhance knockback multiplier")
 
 	var beretta_runtime_result := {}
 	var beretta_runtime_feedbacks: Array = []
 	CommandoFirearmPistolHitState.apply_runtime_hit_effects(
 		"commando_pistol",
-		{"pistol_enhance_knockback_mult": 1.5},
+		{"pistol_enhance_knockback_mult": 2.5},
 		_boss_context().merged({"commando_pistol_shot_roll": 0.99}, true),
 		beretta_runtime_result,
 		0,

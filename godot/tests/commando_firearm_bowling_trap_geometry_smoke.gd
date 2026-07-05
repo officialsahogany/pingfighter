@@ -169,9 +169,29 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		),
 		"center boss guard hit should follow current boss velocity when available"
 	)
-	_expect(CommandoFirearmBowlingTrapGeometry.get_launch_direction(5) == -1, "shot id modulo 5 == 0 should launch left")
-	_expect(CommandoFirearmBowlingTrapGeometry.get_launch_direction(9) == 1, "shot id modulo 5 == 4 should launch right")
-	_expect(CommandoFirearmBowlingTrapGeometry.get_launch_direction(7) == 0, "middle modulo values should launch straight")
+	# Launch fan: a continuous random +/-40 deg spread around vertical (toward the boss).
+	var fan_half_angle: float = CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE
+	_expect(is_equal_approx(fan_half_angle, deg_to_rad(40.0)), "launch fan half-angle should be 40 degrees")
+	for _sample in range(64):
+		var dir_roll: float = CommandoFirearmBowlingTrapGeometry.roll_launch_direction()
+		_expect(dir_roll >= -1.0 and dir_roll <= 1.0, "roll_launch_direction must stay within [-1, 1] (got %f)" % dir_roll)
+	for dir_value in [-1.0, 0.0, 1.0]:
+		var fan_motion: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_motion(
+			{"pos": Vector2(100.0, 640.0), "captured_original_speed": 6.0, "launch_direction": dir_value},
+			Vector2(0.0, -15.0),
+			4.0,
+			fan_half_angle
+		)
+		_expect((fan_motion["launch_vel"] as Vector2).y < 0.0, "bowling-trap launch should always travel upward toward the boss (dir=%f)" % dir_value)
+		var deflection: float = absf(float(fan_motion["launch_angle"]) - (-PI * 0.5))
+		_expect(deflection <= fan_half_angle + 0.0001, "launch deflection must stay within the +/-40 deg fan (dir=%f got %.1f deg)" % [dir_value, rad_to_deg(deflection)])
+	_expect(
+		is_equal_approx(absf(float(CommandoFirearmBowlingTrapGeometry.build_release_motion(
+			{"pos": Vector2.ZERO, "captured_original_speed": 6.0, "launch_direction": 0.0},
+			Vector2(0.0, -15.0), 4.0, fan_half_angle
+		)["launch_angle"]) - (-PI * 0.5)), 0.0),
+		"zero launch direction should fire straight up toward the boss"
+	)
 
 	var install_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_install_trap(
 		Vector2(120.0, 640.0),
@@ -262,7 +282,7 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		capture_trap,
 		Vector2(0.0, -15.0),
 		4.0,
-		PI / 8.0
+		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE
 	)
 	_expect(is_equal_approx(float(release_motion["launch_speed"]), 24.0), "release motion should multiply original ball speed")
 	_expect(is_equal_approx((release_motion["launch_vel"] as Vector2).length(), 24.0), "release motion velocity should match launch speed")
@@ -275,7 +295,7 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		{"impact_radius": 30.0},
 		Vector2(0.0, -15.0),
 		4.0,
-		PI / 8.0,
+		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE,
 		0.7,
 		guard_knockback_power,
 		guard_stun_frames
@@ -487,7 +507,7 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 		"captured_ball_pos": Vector2(100.0, 85.0),
 		"captured_original_speed": 6.0,
 		"timer_frames": 1.0,
-		"launch_direction": 0,
+		"launch_direction": 0.0,
 	}]
 	var release_result: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps(
 		runtime.bowling_traps,
@@ -510,7 +530,7 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 		CommandoFirearmRuntime.BOWLING_TRAP_CAPTURE_HEIGHT,
 		CommandoFirearmRuntime.BOWLING_TRAP_WIDTH,
 		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
-		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_ANGLE_STEP,
+		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE,
 		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_SPEED_REDUCTION,
 		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
 		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES

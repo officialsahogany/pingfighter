@@ -82,10 +82,10 @@ static func advance_runtime_effects(
 		float(options.get("bowling_trap_capture_height", 40.0)),
 		float(options.get("bowling_trap_width", 60.0)),
 		float(options.get("trap_launch_speed_multiplier", 4.0)),
-		float(options.get("trap_launch_angle_step", 0.0)),
+		float(options.get("trap_launch_fan_half_angle", 0.0)),
 		float(options.get("bowling_trap_guard_speed_reduction", 0.7)),
 		float(options.get("bowling_trap_guard_knockback_power", ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_POWER)),
-		float(options.get("bowling_trap_guard_stun_frames", 60.0))
+		float(options.get("bowling_trap_guard_stun_frames", 150.0))
 	)
 	runtime_owner.set("bowling_traps", bowling_traps)
 	runtime_owner.set("impact_flashes", impact_flashes)

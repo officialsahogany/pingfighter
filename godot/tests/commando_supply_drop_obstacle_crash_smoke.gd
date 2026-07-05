@@ -84,7 +84,7 @@ func _verify_player_paddle_collision_crashes_aircraft() -> void:
 	_expect(not bool(snapshot.get("active", true)), "paddle crash should cancel active supply drop")
 	_expect(_get_array(snapshot.get("pending_drops", [])).is_empty(), "paddle crash should clear queued payloads")
 	_expect(audio.aircraft_stop_calls == 1, "paddle crash should stop aircraft audio")
-	supply_state.update(1.0, setup.get("deps", {}))
+	supply_state.update(CommandoSupplyDropState.AIRCRAFT_CRASH_SECONDS + 0.1, setup.get("deps", {}))
 	_expect(audio.explosion_calls == 1, "paddle crash should finish with the aircraft explosion cue")
 	_expect(weapon_controller.get_weapons() == ["pistol"], "paddle-crashed aircraft should not grant rentals")
 

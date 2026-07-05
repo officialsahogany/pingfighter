@@ -2,6 +2,7 @@ extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
+const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 const CommandoSupplyDropFxHost := preload("res://scripts/characters/commando_supply_drop_fx_host.gd")
 const CommandoSupplyDropPayloadResolver := preload("res://scripts/characters/commando_supply_drop_payload_resolver.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -52,12 +53,33 @@ const AIRCRAFT_CRASH_SHEET_RIGHT_PATH := "res://assets/sprites/effects/commando_
 const AIRCRAFT_CRASH_FRAME_COUNT := 16
 const AIRCRAFT_CRASH_GRID_COLS := 4
 const AIRCRAFT_CRASH_GRID_ROWS := 4
-const AIRCRAFT_CRASH_FRAME_INTERVAL := 0.05125
+# Wounded-plane descent: slower than the original 0.82s snap so the shoot-down
+# reads as a real spiral crash. Single tunable lever = AIRCRAFT_CRASH_SECONDS;
+# the 16-frame burning sheet stretches to span the whole descent (interval is
+# derived, so it always stays in sync with the fall duration).
+const AIRCRAFT_CRASH_SECONDS := 1.5
+const AIRCRAFT_CRASH_FRAME_INTERVAL := AIRCRAFT_CRASH_SECONDS / float(AIRCRAFT_CRASH_FRAME_COUNT)
 const AIRCRAFT_CRASH_DRAW_SIZE := Vector2(148.0, 148.0)
 const AIRCRAFT_INVULNERABLE_SECONDS := 0.25
-const AIRCRAFT_CRASH_SECONDS := 0.82
 const AIRCRAFT_CRASH_GROUND_Y := 660.0
 const AIRCRAFT_CRASH_DRIFT_X := 96.0
+# Ground-impact feedback when the wounded plane finally hits the floor.
+const AIRCRAFT_CRASH_IMPACT_SHAKE_AMOUNT := 0.20
+const AIRCRAFT_CRASH_IMPACT_SHAKE_INTENSITY := 7.0
+# Grenade-class ground blast: drawn via the shared GrenadeExplosionDrawer
+# airstrike style for the whole window; the same radius gates ball AND player
+# knockback so the visual matches the felt hazard.
+const AIRCRAFT_CRASH_BLAST_SECONDS := GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES / 60.0
+const AIRCRAFT_CRASH_KNOCKBACK_RADIUS := GrenadeExplosionDrawer.GRENADE_EXPLOSION_RADIUS
+const AIRCRAFT_CRASH_KNOCKBACK_POWER := 16.0
+const AIRCRAFT_CRASH_KNOCKBACK_SPEED_CEILING := 22.0
+const AIRCRAFT_CRASH_KNOCKBACK_MIN_UP_BIAS := 0.35
+# Player paddle shove: bomb-surprise precedent is ~15.6 px/frame @10f. Live QA
+# tuned this up to 2x the original 18.0 — total travel ~207px with the 0.85
+# decay curve (velocity is the single distance lever; frames/decay set feel).
+const AIRCRAFT_CRASH_PLAYER_KNOCKBACK_VELOCITY := 36.0
+const AIRCRAFT_CRASH_PLAYER_KNOCKBACK_FRAMES := 12.0
+const AIRCRAFT_CRASH_PLAYER_KNOCKBACK_DECAY := 0.85
 const AIRCRAFT_HIT_BALL_Y_DAMPING := 0.5
 const AIRCRAFT_DEFAULT_HITBOX_PADDING := 5.0
 const PAYLOAD_SPAWN_OFFSET := Vector2(0.0, 104.0)
@@ -123,6 +145,18 @@ var pending_drops: Array[Dictionary] = []
 var pending_drop_delays: Array[float] = []
 var fx_host = null
 var fx_host_add_pending := false
+# One-shot radial blast queued when the plane finishes its crash. Armed on the
+# player-control update path (no ball access there) and consumed on the next
+# ball frame inside resolve_ball_collision.
+var _pending_crash_ball_impulse := false
+var _crash_ball_impulse_center := Vector2.ZERO
+# Grenade-class ground blast window: while the timer runs the explosion is
+# drawn at crash_blast_center and a player paddle entering the radius is
+# shoved once (covers both "standing next to the crash" and "walking into
+# the blast while it is still erupting").
+var crash_blast_timer := 0.0
+var crash_blast_center := Vector2.ZERO
+var _crash_blast_player_knocked := false
 
 
 func reset() -> void:
@@ -148,6 +182,11 @@ func reset() -> void:
 	aircraft_crash_target_pos = Vector2.ZERO
 	aircraft_exploded = false
 	aircraft_crash_source = ""
+	_pending_crash_ball_impulse = false
+	_crash_ball_impulse_center = Vector2.ZERO
+	crash_blast_timer = 0.0
+	crash_blast_center = Vector2.ZERO
+	_crash_blast_player_knocked = false
 	flight_elapsed = 0.0
 	flight_duration = DROP_DELAY_SECONDS
 	drop_timing_pattern = "normal"
@@ -163,6 +202,16 @@ func reset() -> void:
 func reset_round(deps: Dictionary = {}) -> void:
 	_stop_hold_radio_audio(deps)
 	_stop_aircraft_audio(deps)
+	# Drop any crash blast that was armed but never consumed (e.g. the plane hit
+	# the ground on the same frame the ball scored) so it can't fire on the next
+	# round's serve. NOT cleared in cancel_transient(): that runs every
+	# not-holding frame and would eat a legitimately armed impulse before the
+	# ball path consumes it.
+	_pending_crash_ball_impulse = false
+	_crash_ball_impulse_center = Vector2.ZERO
+	crash_blast_timer = 0.0
+	crash_blast_center = Vector2.ZERO
+	_crash_blast_player_knocked = false
 	cancel_transient(deps)
 
 
@@ -182,6 +231,11 @@ func update(delta: float, deps: Dictionary = {}) -> Dictionary:
 	_update_drop_effects(safe_delta)
 	_update_collectible_drops(safe_delta, deps)
 	_update_explosion_effects(safe_delta)
+	if crash_blast_timer > 0.0:
+		crash_blast_timer = max(0.0, crash_blast_timer - safe_delta)
+		# Re-check every blast frame so a paddle WALKING INTO the erupting blast
+		# still gets shoved, not only one parked there at the explosion instant.
+		_try_apply_crash_blast_player_knockback(deps)
 	if radio_motion:
 		radio_timer = max(0.0, radio_timer - safe_delta)
 		if radio_timer <= 0.0:
@@ -311,6 +365,9 @@ func get_snapshot() -> Dictionary:
 		"aircraft_crash_target_pos": aircraft_crash_target_pos,
 		"aircraft_exploded": aircraft_exploded,
 		"aircraft_crash_source": aircraft_crash_source,
+		"crash_blast_timer": crash_blast_timer,
+		"crash_blast_center": crash_blast_center,
+		"crash_blast_player_knocked": _crash_blast_player_knocked,
 		"flight_elapsed": flight_elapsed,
 		"flight_duration": flight_duration,
 		"drop_timing_pattern": drop_timing_pattern,
@@ -369,6 +426,9 @@ func apply_save_snapshot(snapshot: Dictionary, deps: Dictionary = {}) -> Diction
 	aircraft_crash_target_pos = _get_vector2(snapshot.get("aircraft_crash_target_pos", aircraft_crash_target_pos), aircraft_crash_target_pos)
 	aircraft_exploded = bool(snapshot.get("aircraft_exploded", false))
 	aircraft_crash_source = str(snapshot.get("aircraft_crash_source", ""))
+	crash_blast_timer = max(0.0, float(snapshot.get("crash_blast_timer", 0.0)))
+	crash_blast_center = _get_vector2(snapshot.get("crash_blast_center", Vector2.ZERO), Vector2.ZERO)
+	_crash_blast_player_knocked = bool(snapshot.get("crash_blast_player_knocked", false))
 	flight_elapsed = max(0.0, float(snapshot.get("flight_elapsed", 0.0)))
 	flight_duration = max(_get_aircraft_travel_duration(), float(snapshot.get("flight_duration", DROP_DELAY_SECONDS)))
 	drop_timing_pattern = _normalize_drop_timing_pattern(str(snapshot.get("drop_timing_pattern", "normal")))
@@ -465,7 +525,7 @@ func build_payload_sprite_status() -> Dictionary:
 
 
 func has_visible_effects() -> bool:
-	return (active and aircraft_spawned) or aircraft_crashing or radio_motion or _is_hold_gauge_visible() or not drop_effects.is_empty() or not collectible_drops.is_empty() or not explosion_effects.is_empty() or _is_fx_host_visible()
+	return (active and aircraft_spawned) or aircraft_crashing or crash_blast_timer > 0.0 or radio_motion or _is_hold_gauge_visible() or not drop_effects.is_empty() or not collectible_drops.is_empty() or not explosion_effects.is_empty() or _is_fx_host_visible()
 
 
 func prewarm_assets() -> void:
@@ -483,6 +543,10 @@ func draw(
 	_sync_fx_host(canvas, shake_offset, layout_context)
 	_draw_hold_gauge(canvas, shake_offset)
 	_draw_supply_texture_layers(canvas, shake_offset)
+	if crash_blast_timer > 0.0:
+		# Grenade-class ground blast (shared airstrike-style drawer); particle
+		# effects layer on top of it.
+		GrenadeExplosionDrawer.draw_zone(canvas, _build_crash_blast_zone(), shake_offset)
 	for effect in explosion_effects:
 		_draw_explosion_effect(canvas, effect, shake_offset)
 	if active and aircraft_spawned:
@@ -498,6 +562,7 @@ func draw(
 static func prewarm_vfx_assets() -> void:
 	ImpactFlareTextureCache.prewarm()
 	ImpactShockwaveTextureCache.prewarm()
+	GrenadeExplosionDrawer.prewarm_assets()
 	CommandoSupplyDropFxHost.prewarm_assets()
 	_get_aircraft_tilt_sheet("left_to_right")
 	_get_aircraft_tilt_sheet("right_to_left")
@@ -554,6 +619,10 @@ func get_aircraft_collision_rect() -> Rect2:
 
 
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> bool:
+	# Consume the post-crash ground blast before the shoot-down gate: once the
+	# plane is crashing/exploded _can_aircraft_be_hit() returns false, so the
+	# impulse must be applied ahead of that early-out.
+	_apply_pending_crash_ball_impulse(scene, context)
 	if not _can_aircraft_be_hit(context, deps):
 		return false
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
@@ -1467,8 +1536,116 @@ func _finish_aircraft_crash(deps: Dictionary) -> void:
 	aircraft_crash_timer = 0.0
 	aircraft_crash_elapsed = AIRCRAFT_CRASH_SECONDS
 	_spawn_aircraft_explosion_effects(aircraft_pos)
+	_apply_crash_impact_screen_shake(deps)
+	_arm_crash_ball_impulse(aircraft_pos)
+	crash_blast_timer = AIRCRAFT_CRASH_BLAST_SECONDS
+	crash_blast_center = aircraft_pos
+	_crash_blast_player_knocked = false
+	# Explosion-instant shove for a paddle already parked inside the radius; the
+	# per-frame blast tick in update() covers later walk-ins.
+	_try_apply_crash_blast_player_knockback(deps)
 	_stop_aircraft_audio(deps)
 	_play_first_audio_method(deps, ["play_grenade_explosion", "play_commando_supply_drop"])
+
+
+func _apply_crash_impact_screen_shake(deps: Dictionary) -> void:
+	var feedback: Object = deps.get("feedback", null)
+	if feedback == null or not feedback.has_method("max_screen_shake"):
+		return
+	feedback.max_screen_shake(AIRCRAFT_CRASH_IMPACT_SHAKE_AMOUNT, AIRCRAFT_CRASH_IMPACT_SHAKE_INTENSITY)
+
+
+func _arm_crash_ball_impulse(center: Vector2) -> void:
+	_pending_crash_ball_impulse = true
+	_crash_ball_impulse_center = center
+
+
+func _try_apply_crash_blast_player_knockback(deps: Dictionary) -> void:
+	if _crash_blast_player_knocked or crash_blast_timer <= 0.0:
+		return
+	var context: Dictionary = _get_aircraft_obstacle_context(deps)
+	var player_rect: Rect2 = _get_player_paddle_rect(context)
+	if player_rect.size.x <= 0.0 or player_rect.size.y <= 0.0:
+		return
+	# Closest-point distance so grazing the blast edge with the paddle tip counts.
+	var closest := Vector2(
+		clamp(crash_blast_center.x, player_rect.position.x, player_rect.end.x),
+		clamp(crash_blast_center.y, player_rect.position.y, player_rect.end.y)
+	)
+	if closest.distance_to(crash_blast_center) > AIRCRAFT_CRASH_KNOCKBACK_RADIUS:
+		return
+	var movement_state: Object = _get_player_movement_state(deps)
+	if movement_state == null or not movement_state.has_method("start_knockback"):
+		return
+	# One-shot per blast: shove once, don't force-field the paddle for the
+	# whole window (bomb-surprise player knockback precedent).
+	_crash_blast_player_knocked = true
+	var dx: float = player_rect.get_center().x - crash_blast_center.x
+	var direction: float = signf(dx)
+	if absf(dx) < 1.0:
+		direction = 1.0 if aircraft_direction != "right_to_left" else -1.0
+	movement_state.start_knockback(
+		direction * AIRCRAFT_CRASH_PLAYER_KNOCKBACK_VELOCITY,
+		AIRCRAFT_CRASH_PLAYER_KNOCKBACK_FRAMES,
+		AIRCRAFT_CRASH_PLAYER_KNOCKBACK_DECAY,
+		true,
+		true
+	)
+
+
+func _get_player_movement_state(deps: Dictionary) -> Object:
+	var movement_state: Object = deps.get("movement_state", null)
+	if movement_state != null:
+		return movement_state
+	var registry: Object = deps.get("registry", null)
+	if registry == null:
+		return null
+	# Non-instantiating peek first (hot-path lazy-init trap): the movement state
+	# always exists mid-battle, so a peek miss just means "no knockback target".
+	if registry.has_method("get_cached_instance"):
+		return registry.get_cached_instance("player_movement_state")
+	if registry.has_method("get_instance"):
+		return registry.get_instance("player_movement_state")
+	return null
+
+
+func _build_crash_blast_zone() -> Dictionary:
+	return {
+		"active": true,
+		"position": crash_blast_center,
+		"radius": AIRCRAFT_CRASH_KNOCKBACK_RADIUS,
+		"explosion_style": GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE,
+		"max_duration_frames": AIRCRAFT_CRASH_BLAST_SECONDS * 60.0,
+		"duration_frames": crash_blast_timer * 60.0,
+	}
+
+
+func _apply_pending_crash_ball_impulse(scene: Dictionary, _context: Dictionary) -> void:
+	if not _pending_crash_ball_impulse:
+		return
+	# One-shot: consume on the first ball frame after the crash regardless of
+	# whether the ball is inside the blast so it can never fire twice.
+	_pending_crash_ball_impulse = false
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var to_ball: Vector2 = ball_pos - _crash_ball_impulse_center
+	var dist: float = to_ball.length()
+	if dist > AIRCRAFT_CRASH_KNOCKBACK_RADIUS:
+		return
+	var falloff: float = 1.0 - dist / max(1.0, AIRCRAFT_CRASH_KNOCKBACK_RADIUS)
+	var dir: Vector2 = to_ball / dist if dist > 0.001 else Vector2(0.0, -1.0)
+	# Always launch with an upward bias so a blast near the floor can never spike
+	# the ball straight down into the player's goal.
+	if dir.y > -AIRCRAFT_CRASH_KNOCKBACK_MIN_UP_BIAS:
+		dir.y = -AIRCRAFT_CRASH_KNOCKBACK_MIN_UP_BIAS
+		dir = dir.normalized()
+	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	var new_vel: Vector2 = ball_vel + dir * (AIRCRAFT_CRASH_KNOCKBACK_POWER * falloff)
+	# ball_vel is px/frame; never exceed the ceiling, but never slow a ball that
+	# is already faster (rally speed-cap bonus) below its own speed.
+	var ceiling: float = max(ball_vel.length(), AIRCRAFT_CRASH_KNOCKBACK_SPEED_CEILING)
+	if new_vel.length() > ceiling:
+		new_vel = new_vel.normalized() * ceiling
+	scene["ball_vel"] = new_vel
 
 
 func _can_aircraft_be_hit(context: Dictionary, deps: Dictionary) -> bool:
@@ -1573,6 +1750,9 @@ func _spawn_aircraft_smoke_effect(pos: Vector2) -> void:
 
 
 func _spawn_aircraft_explosion_effects(pos: Vector2) -> void:
+	# Debris / spark / smoke motion layers only — the big fireball, overpressure
+	# flash, shockwave rings, and mushroom column come from the shared
+	# GrenadeExplosionDrawer blast zone drawn while crash_blast_timer runs.
 	for i in range(18):
 		var angle: float = TAU * float(i) / 18.0
 		var speed: float = 84.0 + float(i % 5) * 16.0
@@ -1690,7 +1870,7 @@ func _is_fx_host_visible() -> bool:
 
 
 func _has_supply_vfx_layers() -> bool:
-	return (active and aircraft_spawned) or aircraft_crashing or not drop_effects.is_empty() or not collectible_drops.is_empty() or not explosion_effects.is_empty()
+	return (active and aircraft_spawned) or aircraft_crashing or crash_blast_timer > 0.0 or not drop_effects.is_empty() or not collectible_drops.is_empty() or not explosion_effects.is_empty()
 
 
 func _draw_hold_gauge(canvas: CanvasItem, shake_offset: Vector2) -> void:
@@ -1908,11 +2088,20 @@ static func _draw_texture_region_rotated(
 	var points := PackedVector2Array()
 	for corner in corners:
 		points.append(center + corner.rotated(rotation))
+	# CanvasItem.draw_polygon() UVs must be normalized [0,1]. Passing the atlas
+	# pixel source_rect straight through clamps every UV past 1.0 to the sheet's
+	# transparent edge texel, so the whole crashing-plane quad renders invisible
+	# with no error (the flying plane uses draw_texture_rect_region and was fine).
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var uv_min := Vector2(source.position.x / texture_size.x, source.position.y / texture_size.y)
+	var uv_max := Vector2(source.end.x / texture_size.x, source.end.y / texture_size.y)
 	var uvs := PackedVector2Array([
-		Vector2(source.position.x, source.position.y),
-		Vector2(source.position.x + source.size.x, source.position.y),
-		Vector2(source.position.x + source.size.x, source.position.y + source.size.y),
-		Vector2(source.position.x, source.position.y + source.size.y),
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_max.x, uv_max.y),
+		Vector2(uv_min.x, uv_max.y),
 	])
 	canvas.draw_polygon(points, PackedColorArray([color, color, color, color]), uvs, texture)
 

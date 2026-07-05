@@ -238,7 +238,7 @@ static func build_capture_state(
 	next_trap["captured_ball_pos"] = trap_pos + capture_ball_offset
 	next_trap["captured_original_speed"] = original_speed
 	next_trap["captured_original_vel"] = ball_vel
-	next_trap["launch_direction"] = get_launch_direction(int(next_trap.get("id", 0)))
+	next_trap["launch_direction"] = roll_launch_direction()
 	return next_trap
 
 
@@ -280,7 +280,7 @@ static func build_release_motion(
 	trap: Dictionary,
 	capture_ball_offset: Vector2,
 	launch_speed_multiplier: float,
-	launch_angle_step: float
+	launch_fan_half_angle: float
 ) -> Dictionary:
 	var trap_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(trap.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(
@@ -289,8 +289,10 @@ static func build_release_motion(
 	)
 	var original_speed: float = max(1.0, float(trap.get("captured_original_speed", 0.0)))
 	var launch_speed: float = original_speed * launch_speed_multiplier
-	var launch_direction: int = int(trap.get("launch_direction", 0))
-	var launch_angle: float = -PI * 0.5 + float(launch_direction) * launch_angle_step
+	# launch_direction is a continuous random multiplier in [-1, 1] (rolled at capture); the
+	# ball fires upward (toward the boss) within +/-launch_fan_half_angle of vertical.
+	var launch_direction: float = clampf(float(trap.get("launch_direction", 0.0)), -1.0, 1.0)
+	var launch_angle: float = -PI * 0.5 + launch_direction * launch_fan_half_angle
 	var launch_vel: Vector2 = Vector2(cos(launch_angle), sin(launch_angle)) * launch_speed
 	return {
 		"trap_pos": trap_pos,
@@ -351,7 +353,7 @@ static func build_release_payload(
 	profile: Dictionary,
 	capture_ball_offset: Vector2,
 	launch_speed_multiplier: float,
-	launch_angle_step: float,
+	launch_fan_half_angle: float,
 	guard_speed_reduction: float,
 	guard_knockback_power: float,
 	guard_stun_frames: float
@@ -360,7 +362,7 @@ static func build_release_payload(
 		trap,
 		capture_ball_offset,
 		launch_speed_multiplier,
-		launch_angle_step
+		launch_fan_half_angle
 	)
 	var guard_state: Dictionary = build_guard_state(
 		trap,
@@ -393,7 +395,7 @@ static func advance_runtime_traps(
 	capture_height: float,
 	trap_width: float,
 	launch_speed_multiplier: float,
-	launch_angle_step: float,
+	launch_fan_half_angle: float,
 	guard_speed_reduction: float,
 	guard_knockback_power: float,
 	guard_stun_frames: float
@@ -429,7 +431,7 @@ static func advance_runtime_traps(
 					profile,
 					capture_ball_offset,
 					launch_speed_multiplier,
-					launch_angle_step,
+					launch_fan_half_angle,
 					guard_speed_reduction,
 					guard_knockback_power,
 					guard_stun_frames
@@ -518,7 +520,7 @@ static func advance_runtime_bowling_traps(
 	capture_height: float,
 	trap_width: float,
 	launch_speed_multiplier: float,
-	launch_angle_step: float,
+	launch_fan_half_angle: float,
 	guard_speed_reduction: float,
 	guard_knockback_power: float,
 	guard_stun_frames: float
@@ -541,7 +543,7 @@ static func advance_runtime_bowling_traps(
 		capture_height,
 		trap_width,
 		launch_speed_multiplier,
-		launch_angle_step,
+		launch_fan_half_angle,
 		guard_speed_reduction,
 		guard_knockback_power,
 		guard_stun_frames
@@ -771,13 +773,11 @@ static func get_guard_knockback_velocity(
 	return direction * knockback_power
 
 
-static func get_launch_direction(shot_id: int) -> int:
-	var roll: int = shot_id % 5
-	if roll == 0:
-		return -1
-	if roll == 4:
-		return 1
-	return 0
+static func roll_launch_direction() -> float:
+	# Continuous random fan multiplier in [-1.0, 1.0]: -1.0 = full-left deflection,
+	# 0.0 = straight up (toward the boss), +1.0 = full-right. Scaled by the launch fan
+	# half-angle (+/-40 deg) at release time in build_release_motion().
+	return randf_range(-1.0, 1.0)
 
 
 static func hits_ball(

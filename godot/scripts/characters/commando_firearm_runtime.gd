@@ -79,7 +79,12 @@ const BOWLING_TRAP_HEIGHT := 20.0
 const BOWLING_TRAP_CAPTURE_HEIGHT := 40.0
 const BOWLING_TRAP_CAPTURE_BALL_OFFSET := Vector2(0.0, -15.0)
 const BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER := 4.0
-const BOWLING_TRAP_LAUNCH_ANGLE_STEP := PI / 8.0
+# Launch fan: the captured ball is fired upward (toward the boss) at a RANDOM angle within
+# +/-40 deg of vertical. At capture, launch_direction is rolled as a continuous random
+# multiplier in [-1, 1] (roll_launch_direction); at release launch_angle = -90deg +
+# direction * this half-angle. Was PI/8 (22.5 deg, discrete -1/0/1) before the +/-40 deg
+# random-fan change.
+const BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE := PI * 40.0 / 180.0
 const BOWLING_TRAP_MIN_FIELD_Y_RATIO := 0.6
 # Intentional +30% buff over Python parity (per design request): base = item_effects/
 # bowling_trap.py KNOCKBACK_POWER 22.0 ("라그나로크 수준의 긴 넉백"), now 22.0 * 1.3 = 28.6
@@ -88,7 +93,10 @@ const BOWLING_TRAP_MIN_FIELD_Y_RATIO := 0.6
 # Do NOT reuse DYNAMITE_BOSS_KNOCKBACK_POWER (104.0): that launched the boss ~660-780px (the
 # full field width) so the guard hit slammed the boss all the way into the wall.
 const BOWLING_TRAP_GUARD_KNOCKBACK_POWER := 28.6
-const BOWLING_TRAP_GUARD_STUN_FRAMES := 60.0
+# 2.5초 스턴. Python 원본 item_effects/bowling_trap.py STUN_DURATION=60f(1초)에서
+# 의도적 상향(포팅 패리티 이탈). SEC*60 형태는 horn_strawberry / lingpet 스턴 상수 관례와 동일.
+const BOWLING_TRAP_GUARD_STUN_SEC := 2.5
+const BOWLING_TRAP_GUARD_STUN_FRAMES := BOWLING_TRAP_GUARD_STUN_SEC * 60.0
 const BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES := ActiveItemThrowController.DYNAMITE_BOSS_KNOCKBACK_FRAMES
 const BOWLING_TRAP_GUARD_SPEED_REDUCTION := 0.7
 const BOWLING_TRAP_GUARD_KNOCKBACK_DECAY := ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY
@@ -167,7 +175,7 @@ const BERETTA_SPREAD_RADIANS := PISTOL_SPREAD_RADIANS * 0.70
 const PISTOL_ENHANCE_PERK_ID := "pistol_enhance"
 const PISTOL_ENHANCE_SPREAD_DEGREES := [0.0, 12.0, 9.0, 6.0, 3.0, 1.0]
 const PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL := 0.10
-const PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL := 0.10
+const PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL := 0.30
 const PISTOL_WALL_BOUNCE_MARGIN := 10.0
 const PISTOL_WALL_BOUNCE_MAX := 1
 const PISTOL_WALL_BOUNCE_DAMPING := 0.85
@@ -213,7 +221,7 @@ const AK47_AMMO_MAX := 90
 const AK47_DURATION_FRAMES := 1800.0
 const AK47_FIRE_INTERVAL_FRAMES := 6.0
 const AK47_INITIAL_BURST_SHOTS := 2
-const AK47_BULLET_SPEED := 16.0
+const AK47_BULLET_SPEED := 23.04
 const AK47_BULLET_LIFE_FRAMES := 60.0
 const AK47_BASE_SPREAD_RADIANS := 0.15
 const AK47_RECOIL_PER_SHOT := 0.03
@@ -453,7 +461,10 @@ const WEAPON_HIT_RESULTS := {
 		"damage_units": 1,
 	},
 	"bowling_trap": {
-		"stun_frames": 60.0,
+		# 볼링트랩 직격 히트 스턴 2.5초 (가드 스턴과 동일). 볼링트랩은 총알 투사체를
+		# 발사하지 않고 붙잡은 공을 재발사하므로 이 히트 프로파일 경로는 사실상 미도달이나,
+		# 데이터 일관성을 위해 가드 스턴과 같은 값으로 유지한다.
+		"stun_frames": 150.0,
 		"knockback_power": 7.0,
 		"damage_units": 0,
 	},
@@ -979,7 +990,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			"bowling_trap_capture_height": BOWLING_TRAP_CAPTURE_HEIGHT,
 			"bowling_trap_width": BOWLING_TRAP_WIDTH,
 			"trap_launch_speed_multiplier": BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
-			"trap_launch_angle_step": BOWLING_TRAP_LAUNCH_ANGLE_STEP,
+			"trap_launch_fan_half_angle": BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE,
 			"bowling_trap_guard_speed_reduction": BOWLING_TRAP_GUARD_SPEED_REDUCTION,
 			"bowling_trap_guard_knockback_power": BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
 			"bowling_trap_guard_stun_frames": BOWLING_TRAP_GUARD_STUN_FRAMES,

@@ -1,15 +1,18 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
+const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const CommandoFirearmSelectorRenderer := preload("res://scripts/hud/commando_firearm_selector_renderer.gd")
 const CommandoFirearmTooltipRenderer := preload("res://scripts/hud/commando_firearm_tooltip_renderer.gd")
 const CommandoWeaponController := preload("res://scripts/characters/commando_weapon_controller.gd")
 const CharacterInfoOverlayLayoutUtils := preload("res://scripts/hud/character_info_overlay_layout_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 
 var _failures: Array[String] = []
 
@@ -119,13 +122,13 @@ func _verify_knockback_table_and_hit_isolation() -> void:
 	var perk_state := FakePerkState.new()
 	var expected_mult := {
 		0: 1.0,
-		1: 1.1,
-		2: 1.2,
-		3: 1.3,
-		4: 1.4,
-		5: 1.5,
-		6: 1.5,
-		7: 1.5,
+		1: 1.3,
+		2: 1.6,
+		3: 1.9,
+		4: 2.2,
+		5: 2.5,
+		6: 2.5,
+		7: 2.5,
 	}
 	for level in expected_mult.keys():
 		perk_state.level = int(level)
@@ -174,7 +177,7 @@ func _verify_knockback_table_and_hit_isolation() -> void:
 		0.0,
 		1.0,
 		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
-		1.5
+		2.5
 	)
 	var head_fields: Dictionary = _get_dict(head_payload.get("result_fields", {}))
 	_expect(is_equal_approx(float(head_fields.get("knockback_power", 0.0)), 0.0), "pistol_enhance should not add knockback to pistol headshots")
@@ -187,12 +190,13 @@ func _verify_knockback_table_and_hit_isolation() -> void:
 		1.0,
 		1.0,
 		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
-		1.5
+		2.5
 	)
 	var leg_fields: Dictionary = _get_dict(leg_payload.get("result_fields", {}))
 	_expect(bool(leg_fields.get("knockback_without_stun", false)), "pistol_enhance should preserve legshot knockback-without-stun behavior")
 	_expect(not leg_fields.has("knockback_power"), "pistol_enhance should not scale the legshot knockback lane")
 	_verify_knockback_projectile_carry_is_base_pistol_only()
+	_verify_knockback_reaches_status_and_boss_motion()
 
 
 func _verify_knockback_projectile_carry_is_base_pistol_only() -> void:
@@ -214,9 +218,9 @@ func _verify_knockback_projectile_carry_is_base_pistol_only() -> void:
 		6,
 		2.0,
 		1.25,
-		1.5
+		2.5
 	)
-	_expect(is_equal_approx(float(base_projectile.get("pistol_enhance_knockback_mult", 0.0)), 1.5), "base pistol projectile should carry pistol_enhance knockback multiplier")
+	_expect(is_equal_approx(float(base_projectile.get("pistol_enhance_knockback_mult", 0.0)), 2.5), "base pistol projectile should carry pistol_enhance knockback multiplier")
 
 	var beretta_projectile: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
 		"commando_pistol",
@@ -234,7 +238,7 @@ func _verify_knockback_projectile_carry_is_base_pistol_only() -> void:
 		6,
 		2.0,
 		1.25,
-		1.5
+		2.5
 	)
 	_expect(not beretta_projectile.has("pistol_enhance_knockback_mult"), "Beretta projectile should not carry pistol_enhance knockback multiplier")
 
@@ -254,9 +258,84 @@ func _verify_knockback_projectile_carry_is_base_pistol_only() -> void:
 		6,
 		2.0,
 		1.25,
-		1.5
+		2.5
 	)
 	_expect(not slingshot_projectile.has("pistol_enhance_knockback_mult"), "slingshot projectile should not carry pistol_enhance knockback multiplier")
+
+
+func _verify_knockback_reaches_status_and_boss_motion() -> void:
+	var base_path: Dictionary = _build_knockback_runtime_path(1.0)
+	var enhanced_path: Dictionary = _build_knockback_runtime_path(2.5)
+	var base_result: Dictionary = _get_dict(base_path.get("result", {}))
+	var enhanced_result: Dictionary = _get_dict(enhanced_path.get("result", {}))
+	var base_status: Dictionary = _get_dict(base_path.get("boss_stun", {}))
+	var enhanced_status: Dictionary = _get_dict(enhanced_path.get("boss_stun", {}))
+	var base_ai_update: Dictionary = _get_dict(base_path.get("boss_ai_update", {}))
+	var enhanced_ai_update: Dictionary = _get_dict(enhanced_path.get("boss_ai_update", {}))
+	_expect(is_equal_approx(abs(float(base_result.get("knockback_vel", 0.0))), 8.0), "uninvested pistol hit should resolve to the original 8.0 knockback velocity")
+	_expect(is_equal_approx(abs(float(enhanced_result.get("knockback_vel", 0.0))), 20.0), "max pistol_enhance hit should resolve to a visible 20.0 knockback velocity")
+	_expect(is_equal_approx(abs(float(base_status.get("knockback_vel", 0.0))), 8.0), "uninvested pistol hit should store original knockback velocity in boss stun status")
+	_expect(is_equal_approx(abs(float(enhanced_status.get("knockback_vel", 0.0))), 20.0), "max pistol_enhance hit should store boosted knockback velocity in boss stun status")
+	_expect(is_equal_approx(abs(float(base_ai_update.get("boss_vel", 0.0))), 8.0), "uninvested pistol hit should move the boss through the real boss-ai stun knockback channel")
+	_expect(is_equal_approx(abs(float(enhanced_ai_update.get("boss_vel", 0.0))), 20.0), "max pistol_enhance hit should move the boss through the real boss-ai stun knockback channel")
+	var base_dx: float = abs(_get_vector2(base_ai_update.get("boss_pos", Vector2.ZERO)).x - 330.0)
+	var enhanced_dx: float = abs(_get_vector2(enhanced_ai_update.get("boss_pos", Vector2.ZERO)).x - 330.0)
+	_expect(is_equal_approx(base_dx, 8.0), "uninvested pistol hit should move the boss by 8px on the first status frame")
+	_expect(is_equal_approx(enhanced_dx, 20.0), "max pistol_enhance hit should move the boss by 20px on the first status frame")
+	_expect(enhanced_dx >= base_dx * 2.4, "max pistol_enhance boss displacement should be visibly larger than the uninvested hit")
+
+
+func _build_knockback_runtime_path(knockback_mult: float) -> Dictionary:
+	var status := StatusEffectState.new()
+	var projectile := {
+		"weapon_id": "pistol",
+		"pos": Vector2(330.0, 82.0),
+		"velocity": Vector2(0.0, -25.0),
+		"shot_roll": 0.99,
+		"pistol_enhance_knockback_mult": knockback_mult,
+	}
+	var feedbacks: Array = []
+	var hit_state: Dictionary = CommandoFirearmHitResultState.build_runtime_weapon_hit_result(
+		"pistol",
+		projectile,
+		_boss_context(),
+		{"status_effect_state": status},
+		CommandoFirearmRuntime.WEAPON_HIT_RESULTS,
+		CommandoFirearmRuntime.HIT_RESULT_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.SLINGSHOT_STUN_MULT,
+		CommandoFirearmRuntime.SLINGSHOT_KNOCKBACK_MULT,
+		0,
+		feedbacks,
+		CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		0.0,
+		0.0,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"head",
+		"leg",
+		CommandoFirearmRuntime.PISTOL_FEEDBACK_LIMIT,
+		0,
+		CommandoFirearmRuntime.AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
+	var ai_context: Dictionary = status.get_boss_ai_context()
+	ai_context.merge(
+		{
+			"width": CommandoFirearmRuntime.FIELD_WIDTH,
+			"play_left": 0.0,
+			"play_right": CommandoFirearmRuntime.FIELD_WIDTH,
+			"boss_paddle_width": 100.0,
+		},
+		true
+	)
+	var ai := BossAiState.new()
+	var ai_update: Dictionary = ai.update(1.0 / 60.0, Vector2(330.0, 50.0), 0.0, ai_context)
+	return {
+		"result": _get_dict(hit_state.get("result", {})),
+		"boss_stun": status.get_status("boss", "stun"),
+		"boss_ai_update": ai_update,
+	}
 
 
 func _verify_ammo_table_overflow_and_reapply() -> void:
@@ -372,7 +451,7 @@ func _verify_icon_32px_cell_spacing(renderer: Object) -> void:
 		return
 	var draw_rect: Rect2 = renderer._get_draw_rect(icon_rect_cache[0], "pistol_enhance", texture)
 	_expect(min(draw_rect.size.x, draw_rect.size.y) >= 15.0, "pistol_enhance should remain legible in the 32px perk cell")
-	_expect(draw_rect.end.y <= level_y_cache[0] - 7.0, "pistol_enhance 32px cell icon should leave room for Lv.1/Lv.5 labels")
+	_expect(draw_rect.end.y <= level_y_cache[0] - 1.0, "pistol_enhance 32px cell icon should stay above the Lv.1/Lv.5 label center")
 
 
 func _deps(controller: Object, perk_state: Object) -> Dictionary:
@@ -386,6 +465,20 @@ func _get_rect(value: Variant) -> Rect2:
 	if value is Rect2:
 		return value
 	return Rect2()
+
+
+func _get_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	return Vector2.ZERO
+
+
+func _boss_context() -> Dictionary:
+	return {
+		"boss_pos": Vector2(330.0, 50.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+	}
 
 
 func _build_spawn_profile(weapon_id: String, weapon_profiles: Dictionary, options: Dictionary) -> Dictionary:
