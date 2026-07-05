@@ -61,6 +61,26 @@ regression in the maribo acquire-cutin work (2026-06-21):
 - Drop any independent "punch"/grade on a clip that must match a reference — the
   reference defines the target; matching means matching its statistics.
 
+Effective-fps contract for runtime-played animation sheets (frame count vs
+duration): a sprite-sheet animation's smoothness is `frame_count ÷ (playback_seconds
+× action_portion)`, NOT the render fps. A LONG-duration clip needs MANY frames or it
+plays at single-digit fps and reads "뚝뚝/choppy" even at 60fps render. When
+downscaling / decoupling / re-authoring an animated sheet, preserve the frame count
+relative to its playback window — do NOT cut frames for VRAM without checking the
+effective fps. Reference regression (2026-06-24): the lingpet acquire-cut-in dismiss
+for koyora/nekuring/monkeyring/orosha was decoupled from a 98-frame click sheet to a
+small dedicated 25-frame sheet (to shrink hatch VRAM), but it plays over 3.35-4.25s
+→ 25 ÷ (3.9×0.88) ≈ 7fps = choppy. Two WRONG fixes were tried first: (a) shrinking
+the texture size_limit (that's the VRAM/upload-hitch lever, orthogonal to anim fps),
+(b) next-frame alpha cross-fade blending (hid nothing, added a 6-9Hz translucent
+flicker). The RIGHT fix kept the long duration AND restored smoothness AND kept VRAM
+low: regenerate the dedicated dismiss at the FULL 98 frames but small cells
+(7168×3584, 14×7, 512px) + VRAM compression (`compress/mode=2`, `vram_texture=true`)
+→ 27fps at ~24MB (lower than the 56MB 25-frame lossless). Seal it with a smoke that
+ASSERTS the computed effective fps (`frame_count ÷ (seconds × action) ≥ ~22`), not
+just the sheet dims — that locks the root cause against future frame cuts /
+duration stretches (`lingpet_egg_runtime_smoke` dismiss block is the reference).
+
 ---
 
 ## 0. AutoSprite source gate

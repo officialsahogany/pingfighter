@@ -140,6 +140,25 @@ Allowed post-processing after AutoSprite:
    are explicit; document it in the handoff.
 ```
 
+**Video-tier vs sheet packing trap (verified 2026-07-03, Dalji paengi v2).**
+`generate_spritesheet` with `videoTier: "pro"` (and sometimes turbo on a long
+clip) returns a `sheetUrl` PNG that packs MANY small native frames — e.g. a
+3x3 sub-grid of ~170 px frames inside every 512 px atlas cell (an 18-col
+native grid). The `atlasUrl` still claims "32 frames @ 512, 6 cols", so it
+does NOT match the actual dense sheet, and `regenerate_spritesheet` re-packs
+the same density. Consequences:
+- Detect the TRUE native frame size from pixels (alpha-projection, or crop a
+  512 cell and count sub-sprites) — do not trust the atlas frame size on a
+  pro-tier sheet.
+- For a crisp FIXED-size runtime cell (e.g. 512), ~170 px native frames need
+  a ~3x upscale = blurry, worse than a native-512 sheet. Prefer
+  `videoTier: "turbo"` for still / whip casts that must fill a large crisp
+  cell (turbo tends to pack ~1 native frame per 512 cell); reserve pro for
+  smooth motion you can afford to Real-ESRGAN-upscale via the §0.1 gate.
+- When re-laying a dense native sheet, extract row-major at the detected
+  native size, sample the frame count you need, and place with a SINGLE fixed
+  transform (§2.3.2 anti-jitter) feet-anchored into the runtime cells.
+
 Upscaling request rule:
 - If the user says "upscale", "upscaling", "hires", "업스케일",
   "업스케일링", or "real / Real-ESRGAN처럼", route the accepted bitmap

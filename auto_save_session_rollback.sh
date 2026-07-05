@@ -34,6 +34,18 @@ if [ -f "$PID_FILE" ]; then
     fi
 fi
 
+echo "⚠️  경고: 이 리포는 미커밋 WIP를 유지하는 dirty-worktree 리포입니다 (CLAUDE.md §0: reset/checkout/stash 복원 금지)."
+echo "    아래 복원은 기준점 이후의 모든 변경(미커밋 WIP 포함)을 파괴합니다."
+dirty_count=$(git status --porcelain | wc -l | tr -d ' ')
+echo "    현재 워크트리 변경 항목 수: $dirty_count"
+if [ "${AUTO_SAVE_FORCE_ROLLBACK:-0}" != "1" ]; then
+    read -r -p "    정말 진행하려면 'ROLLBACK'을 입력하세요: " confirm
+    if [ "$confirm" != "ROLLBACK" ]; then
+        echo "❌ 취소되었습니다. (비대화형 강제 실행: AUTO_SAVE_FORCE_ROLLBACK=1)" >&2
+        exit 1
+    fi
+fi
+
 if git rev-parse --verify "$baseline_hash" >/dev/null 2>&1; then
     echo "↩️  $baseline_hash 기준으로 워크트리를 복원합니다."
     git reset --hard "$baseline_hash"
