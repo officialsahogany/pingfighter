@@ -21,6 +21,8 @@ extends Node2D
 #   - Plaza arrival/exit warp pillar shader, additive sprites, and particles
 #   - Defeat chance-gem cyan shatter host shader, additive sprites, and particles
 #   - Defeat continue color-restore screen-read shader and BackBufferCopy path
+#   - Stage 4 Ponk illusion-ripple screen-read shader and BackBufferCopy path
+#   - Stage 4 Ponk awaken-aura additive sprite shader and mote particles
 #
 # Deliberately out of scope:
 #   - character_info / perk_debug overlay UI
@@ -51,7 +53,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 19
+const WARMUP_DRAW_STEPS := 21
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -61,6 +63,8 @@ const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electroc
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
 const DefeatGemShatterFxHost := preload("res://scripts/effects/defeat_gem_shatter_fx_host.gd")
 const DefeatContinueColorRestoreFxHost := preload("res://scripts/effects/defeat_continue_color_restore_fx_host.gd")
+const Stage4PonkIllusionRippleFxHost := preload("res://scripts/stages/stage4/stage4_ponk_illusion_ripple_fx_host.gd")
+const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
 
 var _frames_remaining: int = LIFETIME_FRAMES
 var _warmup_step_index: int = 0
@@ -76,6 +80,8 @@ var _starpoint_fx_host: Node = null
 var _plaza_warp_fx_host: Node = null
 var _defeat_gem_shatter_fx_host: Node = null
 var _defeat_color_restore_fx_host: Node = null
+var _stage4_illusion_ripple_fx_host: Node = null
+var _stage4_awaken_aura_fx_host: Node = null
 
 
 class PsoWeatherWarmupState:
@@ -143,6 +149,8 @@ func _ready() -> void:
 	PlazaWarpPillarFxHost.prewarm_assets()
 	DefeatGemShatterFxHost.prewarm_assets()
 	DefeatContinueColorRestoreFxHost.prewarm_assets()
+	Stage4PonkIllusionRippleFxHost.prewarm_assets()
+	Stage4PonkAwakenAuraFxHost.prewarm_assets()
 	_boost_fx_host = DashTokenBoostFxHost.new()
 	_boost_fx_host.name = "BoostFxHost_pso"
 	add_child(_boost_fx_host)
@@ -161,6 +169,12 @@ func _ready() -> void:
 	_defeat_color_restore_fx_host = DefeatContinueColorRestoreFxHost.new()
 	_defeat_color_restore_fx_host.name = "DefeatContinueColorRestoreFxHost_pso"
 	add_child(_defeat_color_restore_fx_host)
+	_stage4_illusion_ripple_fx_host = Stage4PonkIllusionRippleFxHost.new()
+	_stage4_illusion_ripple_fx_host.name = "PonkIllusionRippleFxHost_pso"
+	add_child(_stage4_illusion_ripple_fx_host)
+	_stage4_awaken_aura_fx_host = Stage4PonkAwakenAuraFxHost.new()
+	_stage4_awaken_aura_fx_host.name = "PonkAwakenAuraFxHost_pso"
+	add_child(_stage4_awaken_aura_fx_host)
 	queue_redraw()
 
 
@@ -221,6 +235,10 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_defeat_gem_shatter_shader_state()
 		18:
 			_prewarm_defeat_color_restore_shader_state()
+		19:
+			_prewarm_stage4_illusion_ripple_shader_state()
+		20:
+			_prewarm_stage4_awaken_aura_shader_state()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -566,6 +584,40 @@ func _prewarm_defeat_color_restore_shader_state() -> void:
 		"feather_px": 8.0,
 		"desaturate_amount": 1.0,
 		"quality_scale": 1.0,
+	}, true)
+
+
+func _prewarm_stage4_illusion_ripple_shader_state() -> void:
+	if _stage4_illusion_ripple_fx_host == null or not is_instance_valid(_stage4_illusion_ripple_fx_host):
+		return
+	if not _stage4_illusion_ripple_fx_host.has_method("sync_state"):
+		return
+	_stage4_illusion_ripple_fx_host.sync_state({
+		"active": true,
+		"view_size_px": Vector2(128.0, 72.0),
+		"timer_frames": 120.0,
+		"duration_total": 240.0,
+		"elapsed_sec": 1.0,
+		"intensity_px": 12.0,
+		"wave_freq_a": 9.0,
+		"wave_freq_b": 17.0,
+		"wave_speed": 2.2,
+	}, true)
+
+
+func _prewarm_stage4_awaken_aura_shader_state() -> void:
+	if _stage4_awaken_aura_fx_host == null or not is_instance_valid(_stage4_awaken_aura_fx_host):
+		return
+	if not _stage4_awaken_aura_fx_host.has_method("sync_state"):
+		return
+	_stage4_awaken_aura_fx_host.sync_state({
+		"active": true,
+		"intensity": 1.0,
+		"boss_center": Vector2(64.0, 44.0),
+		"elapsed": 1.25,
+		"enraged": false,
+		"game_offset": Vector2.ZERO,
+		"render_scale": 0.5,
 	}, true)
 
 

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
+const CharacterInfoLingpetPrewarmFilter := preload("res://scripts/hud/character_info_lingpet_prewarm_filter.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 11
@@ -10,7 +11,7 @@ const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"mythic_cinematic",
 	"perk_overlay",
 	"perk_debug_deferred",
-	"character_info_deferred",
+	"character_info_prewarm",
 	"selected_character",
 	"ball_update",
 	"result_shell_deferred",
@@ -37,6 +38,7 @@ const STAGE5_RUNTIME_PREWARM_MODULE_KEYS := [
 	"stage5_hongryun_pillar_scene_drawer",
 	"stage5_hongryun_boss_skill_hud_renderer",
 ]
+const CHARACTER_INFO_OVERLAY_MODULE_KEY := "character_info_overlay"
 
 var battle_resources_prewarmed: bool = false
 var battle_core_resources_prewarmed: bool = false
@@ -66,6 +68,8 @@ var battle_stage5_pillar_background_prewarmed: bool = false
 var battle_runtime_perk_overlay_prewarmed: bool = false
 var battle_runtime_perk_debug_prewarmed: bool = false
 var battle_character_info_prewarmed: bool = false
+var battle_character_info_lingpet_prewarmed_for_key := ""
+var battle_character_info_lingpet_prewarm_pet_ids: Array[String] = []
 var battle_stage_clear_result_shell_prewarmed: bool = false
 var battle_stage_clear_result_prewarmed: bool = false
 var battle_stage_clear_result_prewarmed_for := ""
@@ -324,9 +328,10 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 		+ (1 if wait_for_frame_gated_pso else 0)
 	)
 	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	_request_threaded_module_script(module_getter, CHARACTER_INFO_OVERLAY_MODULE_KEY)
 	var prewarm_step_index := stage_runtime_prewarm_step_index
 	var sample_start: int = _perf_begin(perf_logger)
-	var step_complete := _run_stage_runtime_prewarm_step(owner, module_getter, current_stage, stage_runtime_prewarm_step_index)
+	var step_complete := _run_stage_runtime_prewarm_step(owner, module_getter, current_stage, stage_runtime_prewarm_step_index, perf_logger)
 	var step_label := _get_stage_runtime_prewarm_step_label(owner, current_stage, prewarm_step_index)
 	_perf_end(
 		perf_logger,
@@ -348,7 +353,8 @@ func _run_stage_runtime_prewarm_step(
 	owner: Object,
 	module_getter: Callable,
 	current_stage: int,
-	step_index: int
+	step_index: int,
+	perf_logger: Object = null
 ) -> bool:
 	match step_index:
 		0:
@@ -366,7 +372,12 @@ func _run_stage_runtime_prewarm_step(
 		4:
 			mark_runtime_perk_debug_assets_deferred()
 		5:
-			mark_character_info_assets_deferred()
+			return prewarm_character_info_resources_step(
+				owner,
+				module_getter,
+				perf_logger,
+				"process.frame.stage_runtime_prewarm.step.%d.character_info_prewarm" % step_index
+			)
 		6:
 			return prewarm_selected_character_runtime_resources_step(owner, module_getter)
 		7:
@@ -507,9 +518,17 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 		1:
 			var pillar_scene_drawer: Object = _get_module(module_getter, "stage1_pillar_scene_drawer")
 			if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets_step"):
-				return bool(pillar_scene_drawer.prewarm_assets_step(module_getter, _get_selected_character_type(owner)))
+				return bool(pillar_scene_drawer.prewarm_assets_step(
+					module_getter,
+					_get_selected_character_type(owner),
+					_get_stage1_boss_variant(owner)
+				))
 			if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets"):
-				pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner))
+				pillar_scene_drawer.prewarm_assets(
+					module_getter,
+					_get_selected_character_type(owner),
+					_get_stage1_boss_variant(owner)
+				)
 		2:
 			var balloon_event: Object = _get_module(module_getter, "stage1_balloon_event")
 			if balloon_event != null and balloon_event.has_method("prewarm_assets_step"):
@@ -517,7 +536,10 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 			if balloon_event != null and balloon_event.has_method("prewarm_assets"):
 				balloon_event.prewarm_assets()
 		3:
-			var skill_hud: Object = _get_module(module_getter, "stage1_dalji_boss_skill_hud_renderer")
+			var skill_hud_key := _get_stage1_boss_skill_hud_key(_get_stage1_boss_variant(owner))
+			if skill_hud_key == "":
+				return true
+			var skill_hud: Object = _get_module(module_getter, skill_hud_key)
 			if skill_hud != null and skill_hud.has_method("prewarm_assets_step"):
 				return bool(skill_hud.prewarm_assets_step())
 			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
@@ -1145,16 +1167,78 @@ func mark_runtime_perk_debug_assets_deferred() -> void:
 
 
 func prewarm_character_info_resources(owner: Object, module_getter: Callable) -> void:
+	while not prewarm_character_info_resources_step(owner, module_getter):
+		pass
+
+
+func prewarm_character_info_resources_step(
+	owner: Object,
+	module_getter: Callable,
+	perf_logger: Object = null,
+	perf_label_prefix: String = "process.frame.character_info_prewarm"
+) -> bool:
+	var sample_start: int = _perf_begin(perf_logger)
+	var script_sample_start: int = _perf_begin(perf_logger)
+	_request_threaded_module_script(module_getter, CHARACTER_INFO_OVERLAY_MODULE_KEY)
+	if not _is_threaded_module_script_ready(module_getter, CHARACTER_INFO_OVERLAY_MODULE_KEY):
+		_perf_end(perf_logger, "%s.resolve_module.script_load" % perf_label_prefix, script_sample_start)
+		_perf_end(perf_logger, "%s.resolve_module_wait" % perf_label_prefix, sample_start)
+		return false
+	_perf_end(perf_logger, "%s.resolve_module.script_load" % perf_label_prefix, script_sample_start)
+	var instantiate_sample_start: int = _perf_begin(perf_logger)
+	var character_info: Object = _get_module(module_getter, CHARACTER_INFO_OVERLAY_MODULE_KEY)
+	_perf_end(perf_logger, "%s.resolve_module.instantiate" % perf_label_prefix, instantiate_sample_start)
+	_perf_end(perf_logger, "%s.resolve_module" % perf_label_prefix, sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var registry_adapter := ModuleGetterRegistryAdapter.new(module_getter)
+	var lingpet_prewarm_pet_ids := CharacterInfoLingpetPrewarmFilter.get_slot_prewarm_pet_ids(owner, registry_adapter, module_getter)
+	var lingpet_prewarm_key := _build_lingpet_prewarm_key(lingpet_prewarm_pet_ids)
+	battle_character_info_lingpet_prewarm_pet_ids = lingpet_prewarm_pet_ids
+	_perf_end(perf_logger, "%s.lingpet_slot_scan.%d" % [perf_label_prefix, lingpet_prewarm_pet_ids.size()], sample_start)
 	if battle_character_info_prewarmed:
-		return
+		if battle_character_info_lingpet_prewarmed_for_key == lingpet_prewarm_key:
+			return true
+		if lingpet_prewarm_pet_ids.is_empty():
+			battle_character_info_lingpet_prewarmed_for_key = lingpet_prewarm_key
+			return true
+		if character_info != null and character_info.has_method("prewarm_lingpet_panel_assets_step"):
+			sample_start = _perf_begin(perf_logger)
+			var panel_done := bool(character_info.prewarm_lingpet_panel_assets_step(
+				lingpet_prewarm_pet_ids,
+				perf_logger,
+				"%s.lingpet_panel" % perf_label_prefix
+			))
+			_perf_end(perf_logger, "%s.lingpet_panel_step" % perf_label_prefix, sample_start)
+			if not panel_done:
+				return false
+		battle_character_info_lingpet_prewarmed_for_key = lingpet_prewarm_key
+		return true
+	if character_info != null and character_info.has_method("prewarm_assets_step"):
+		sample_start = _perf_begin(perf_logger)
+		var overlay_done := bool(character_info.prewarm_assets_step(
+			owner,
+			registry_adapter,
+			module_getter,
+			true,
+			Vector2.ZERO,
+			lingpet_prewarm_pet_ids,
+			perf_logger,
+			"%s.overlay" % perf_label_prefix
+		))
+		_perf_end(perf_logger, "%s.overlay_step" % perf_label_prefix, sample_start)
+		if not overlay_done:
+			return false
+	elif character_info != null and character_info.has_method("prewarm_assets"):
+		sample_start = _perf_begin(perf_logger)
+		character_info.prewarm_assets(owner, registry_adapter, module_getter, true, Vector2.ZERO, lingpet_prewarm_pet_ids)
+		_perf_end(perf_logger, "%s.overlay_full" % perf_label_prefix, sample_start)
 	battle_character_info_prewarmed = true
-	var character_info: Object = _get_module(module_getter, "character_info_overlay")
-	if character_info != null and character_info.has_method("prewarm_assets"):
-		character_info.prewarm_assets(owner, null, module_getter, false)
+	battle_character_info_lingpet_prewarmed_for_key = lingpet_prewarm_key
+	return true
 
 
-func mark_character_info_assets_deferred() -> void:
-	battle_character_info_prewarmed = true
+func _build_lingpet_prewarm_key(pet_ids: Array[String]) -> String:
+	return ",".join(pet_ids)
 
 
 func prewarm_stage_clear_result_resources(module_getter: Callable, owner: Object = null) -> void:
@@ -1251,6 +1335,27 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 	return null
 
 
+func _request_threaded_module_script(module_getter: Callable, key: String) -> void:
+	if not module_getter.is_valid():
+		return
+	var callable_owner: Object = module_getter.get_object()
+	if callable_owner == null or not is_instance_valid(callable_owner):
+		return
+	if callable_owner.has_method("request_threaded_script"):
+		callable_owner.call("request_threaded_script", key)
+
+
+func _is_threaded_module_script_ready(module_getter: Callable, key: String) -> bool:
+	if not module_getter.is_valid():
+		return true
+	var callable_owner: Object = module_getter.get_object()
+	if callable_owner == null or not is_instance_valid(callable_owner):
+		return true
+	if callable_owner.has_method("is_threaded_script_ready"):
+		return bool(callable_owner.call("is_threaded_script_ready", key))
+	return true
+
+
 func _get_current_stage(owner: Object) -> int:
 	if owner == null:
 		return 1
@@ -1272,6 +1377,35 @@ func _get_selected_character_type(owner: Object) -> String:
 	return "smasher"
 
 
+func _get_stage1_boss_variant(owner: Object) -> String:
+	if owner == null:
+		return "dalji"
+	var variant: String = str(owner.get("stage1_boss_variant")).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
+
+
+func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
+	match _get_normalized_stage1_boss_variant(stage1_boss_variant):
+		"gaksi":
+			return "stage1_gaksital_boss_skill_hud_renderer"
+		"dalji":
+			return "stage1_dalji_boss_skill_hud_renderer"
+	return ""
+
+
+func _get_normalized_stage1_boss_variant(value: String) -> String:
+	var variant: String = value.strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
+
+
 func _get_result_victory_character_type(owner: Object) -> String:
 	if _get_selected_character_type(owner) == "soldier":
 		return "soldier"
@@ -1286,6 +1420,7 @@ func _build_resource_context(owner: Object) -> Dictionary:
 	return {
 		"selected_character_type": _get_selected_character_type(owner),
 		"current_stage": _get_current_stage(owner),
+		"stage1_boss_variant": _get_stage1_boss_variant(owner),
 		"include_result_sheets": true,
 		"include_all_characters": false,
 		"include_all_stages": false,

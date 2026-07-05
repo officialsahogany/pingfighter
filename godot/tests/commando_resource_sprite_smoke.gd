@@ -11,6 +11,9 @@ const COMMANDO_PLAYER_PATHS := [
 	"res://assets/sprites/characters/commando/base_grip/commando_base_grip_walk_left_gemini_v1.png",
 	"res://assets/sprites/characters/commando/base_grip/commando_base_grip_walk_right_gemini_v1.png",
 	"res://assets/sprites/characters/commando/commando_subculture_back_walk_sheet.png",
+	"res://assets/sprites/characters/commando/commando_subculture_radio_call_sheet.png",
+	"res://assets/sprites/characters/commando/commando_round_victory_autosprite_v1_8f_4x2_160_clean.png",
+	"res://assets/sprites/characters/commando/commando_round_defeat_back_autosprite_v1_8f_4x2_160_clean.png",
 ]
 
 const COMMANDO_ICON_IDS := [
@@ -72,6 +75,7 @@ func _verify_resource_contexts() -> void:
 	_expect(textures.get("commando_player_walk_left_sheet", null) is Texture2D, "Commando left walk sheet should be loaded")
 	_expect(textures.get("commando_player_walk_right_sheet", null) is Texture2D, "Commando right walk sheet should be loaded")
 	_expect(textures.get("commando_player_walk_back_sheet", null) is Texture2D, "Commando back walk sheet should be loaded")
+	_expect(textures.get("commando_player_radio_call_sheet", null) is Texture2D, "Commando radio-call sheet should be loaded")
 	_expect(textures.get("commando_player_legacy_idle_sheet", null) is Texture2D, "Commando legacy idle sheet should stay cached")
 	_expect(not (textures.get("player_sprite_texture", null) is Texture2D), "Commando-only prewarm should not require Smasher player sprite")
 
@@ -97,10 +101,80 @@ func _verify_resource_contexts() -> void:
 	_expect(actor_context.get("player_walk_left_texture", null) == textures.get("commando_player_walk_left_sheet", null), "actor draw context should use Commando left sheet")
 	_expect(actor_context.get("player_walk_right_texture", null) == textures.get("commando_player_walk_right_sheet", null), "actor draw context should use Commando right sheet")
 	_expect(actor_context.get("player_idle_sprite_texture", null) == textures.get("commando_player_idle_sheet", null), "actor draw context should use Commando idle sheet")
+	_expect(actor_context.get("commando_radio_call_sheet", null) == textures.get("commando_player_radio_call_sheet", null), "actor draw context should expose Commando radio-call sheet")
 	_expect(int(actor_context.get("player_idle_frame_count", 0)) == 8, "actor draw context should expose Commando B2 idle as 8 frames")
 	_expect(int(actor_context.get("player_idle_grid_rows", 0)) == 2, "actor draw context should expose Commando B2 idle as 4x2 grid")
+
+	var result_textures: Dictionary = resources.load_all({
+		"selected_character_type": "soldier",
+		"current_stage": 1,
+		"include_all_characters": false,
+		"include_all_stages": false,
+		"include_result_sheets": true,
+	})
+	_expect(result_textures.get("player_victory_sheet", null) is Texture2D, "Commando round-victory sheet should load")
+	_expect(result_textures.get("player_defeat_sheet", null) is Texture2D, "Commando round-defeat sheet should load")
+	_expect(_texture_size(result_textures, "player_victory_sheet") == Vector2(640.0, 320.0), "Commando round-victory sheet should be a 4x2 grid of 160px cells")
+	_expect(_texture_size(result_textures, "player_defeat_sheet") == Vector2(640.0, 320.0), "Commando round-defeat sheet should be a 4x2 grid of 160px cells")
+
+	var victory_context: Dictionary = draw_builder.build(
+		{
+			"selected_character_type": "soldier",
+			"textures": result_textures,
+		},
+		{"scoreboard_state": FakeScoreboardState.new("player", 0.80)}
+	)
+	_expect(bool(victory_context.get("player_victory_active", false)), "Commando player-victory result state should activate when the player scores")
+	_expect(victory_context.get("player_victory_sheet", null) == result_textures.get("player_victory_sheet", null), "Commando result draw context should use the Commando victory sheet")
+	_expect(int(victory_context.get("player_victory_frame_count", 0)) == 8, "Commando victory draw context should use 8 frames")
+	_expect(int(victory_context.get("player_victory_grid_cols", 0)) == 4, "Commando victory draw context should use a 4-column sheet")
+	_expect(int(victory_context.get("player_victory_frame", -1)) == 7, "Commando 8-frame victory should hold on its final frame")
+
+	var defeat_context: Dictionary = draw_builder.build(
+		{
+			"selected_character_type": "soldier",
+			"textures": result_textures,
+		},
+		{"scoreboard_state": FakeScoreboardState.new("boss", 0.80)}
+	)
+	_expect(bool(defeat_context.get("player_defeat_active", false)), "Commando player-defeat result state should activate when the boss scores")
+	_expect(defeat_context.get("player_defeat_sheet", null) == result_textures.get("player_defeat_sheet", null), "Commando result draw context should use the Commando defeat sheet")
+	_expect(int(defeat_context.get("player_defeat_frame_count", 0)) == 8, "Commando defeat draw context should use 8 frames")
+	_expect(int(defeat_context.get("player_defeat_grid_cols", 0)) == 4, "Commando defeat draw context should use a 4-column sheet")
+	_expect(int(defeat_context.get("player_defeat_frame", -1)) == 7, "Commando 8-frame defeat should hold on its final frame")
 
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _texture_size(textures: Dictionary, key: String) -> Vector2:
+	var texture := textures.get(key, null) as Texture2D
+	if texture == null:
+		return Vector2.ZERO
+	return texture.get_size()
+
+
+class FakeScoreboardState:
+	var _scoring_side: String
+	var _timer: float
+
+	func _init(scoring_side: String, timer: float) -> void:
+		_scoring_side = scoring_side
+		_timer = timer
+
+	func is_active() -> bool:
+		return true
+
+	func get_last_scoring_side() -> String:
+		return _scoring_side
+
+	func get_player_points() -> int:
+		return 1 if _scoring_side == "player" else 0
+
+	func get_boss_points() -> int:
+		return 1 if _scoring_side == "boss" else 0
+
+	func get_timer() -> float:
+		return _timer

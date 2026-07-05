@@ -32,6 +32,9 @@ class FakeRegistry:
 			"stage1_dalji_whip_skill_state",
 			"stage1_dalji_spinning_top_skill_state",
 			"stage1_dalji_boss_skill_cooldown_state",
+			"stage1_gaksital_fan_throw_skill_state",
+			"stage1_gaksital_fan_wind_skill_state",
+			"stage1_gaksital_boss_skill_cooldown_state",
 			"stage1_balloon_event",
 			"stage2_boss_skill_state",
 			"stage2_monkey_banana_event",
@@ -94,6 +97,8 @@ func _init() -> void:
 	_expect(not registry.requested_keys.has("stage1_balloon_event"), "scoped shared builder should not request Stage 1 event on Stage 2")
 	_expect(not registry.requested_keys.has("stage4_map_state"), "scoped shared builder should not request Stage 4 state on Stage 2")
 	_verify_scoped_stage5_deps(builder.build_deps(registry, 5), registry, "shared builder")
+	_verify_scoped_stage1_gaksital_deps(builder.build_deps(registry, 1, false, "gaksi"), registry, "shared builder")
+	_verify_scoped_stage1_pododaejang_deps(builder.build_deps(registry, 1, false, "pododaejang"), registry, "shared builder")
 
 	_verify_all_stage_deps(builder.build_deps(registry, 2, true), registry, "shared builder include-all")
 	_verify_all_stage_deps(MatchStageRuntimeDepsBuilder.new().build_deps(registry, 2), registry, "match-stage facade")
@@ -134,6 +139,9 @@ func _verify_scoped_stage2_deps(deps: Dictionary, registry: FakeRegistry, source
 		"stage1_dalji_whip_skill_state",
 		"stage1_dalji_spinning_top_skill_state",
 		"stage1_dalji_boss_skill_cooldown_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
 		"stage1_balloon_event",
 		"stage3_boss_skill_state",
 		"stage4_map_state",
@@ -164,6 +172,9 @@ func _verify_scoped_stage5_deps(deps: Dictionary, registry: FakeRegistry, source
 		"stage1_dalji_whip_skill_state",
 		"stage1_dalji_spinning_top_skill_state",
 		"stage1_dalji_boss_skill_cooldown_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
 		"stage1_balloon_event",
 		"stage2_boss_skill_state",
 		"stage2_monkey_banana_event",
@@ -189,6 +200,9 @@ func _verify_all_stage_deps(deps: Dictionary, registry: FakeRegistry, source: St
 		"stage1_dalji_whip_skill_state",
 		"stage1_dalji_spinning_top_skill_state",
 		"stage1_dalji_boss_skill_cooldown_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
 		"stage1_balloon_event",
 		"stage2_boss_skill_state",
 		"stage2_monkey_banana_event",
@@ -210,6 +224,46 @@ func _verify_all_stage_deps(deps: Dictionary, registry: FakeRegistry, source: St
 	)
 
 
+func _verify_scoped_stage1_gaksital_deps(deps: Dictionary, registry: FakeRegistry, source: String) -> void:
+	for key in [
+		"weather_event_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
+		"stage1_balloon_event",
+	]:
+		_expect(deps.get(key, null) == registry.instances[key], "%s should include %s for Gaksital" % [source, key])
+	for inactive_key in [
+		"stage1_dalji_whip_skill_state",
+		"stage1_dalji_spinning_top_skill_state",
+		"stage1_dalji_boss_skill_cooldown_state",
+		"stage2_boss_skill_state",
+		"stage4_map_state",
+		"stage5_hongryun_state",
+	]:
+		_expect(not deps.has(inactive_key), "%s should omit inactive Gaksital stage dep %s" % [source, inactive_key])
+
+
+func _verify_scoped_stage1_pododaejang_deps(deps: Dictionary, registry: FakeRegistry, source: String) -> void:
+	for key in [
+		"weather_event_state",
+		"stage1_balloon_event",
+	]:
+		_expect(deps.get(key, null) == registry.instances[key], "%s should include %s for Pododaejang" % [source, key])
+	for inactive_key in [
+		"stage1_dalji_whip_skill_state",
+		"stage1_dalji_spinning_top_skill_state",
+		"stage1_dalji_boss_skill_cooldown_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
+		"stage2_boss_skill_state",
+		"stage4_map_state",
+		"stage5_hongryun_state",
+	]:
+		_expect(not deps.has(inactive_key), "%s should omit inactive Pododaejang stage dep %s" % [source, inactive_key])
+
+
 # Contract: the include-all (reset / transition / round-restart) path must
 # never cold-instantiate a stage module. A stage-1 match end used to lazily
 # create every other stage's state through get_instance (370ms stall).
@@ -222,6 +276,9 @@ func _verify_include_all_never_cold_instantiates(builder: Object) -> void:
 		"stage1_dalji_whip_skill_state",
 		"stage1_dalji_spinning_top_skill_state",
 		"stage1_dalji_boss_skill_cooldown_state",
+		"stage1_gaksital_fan_throw_skill_state",
+		"stage1_gaksital_fan_wind_skill_state",
+		"stage1_gaksital_boss_skill_cooldown_state",
 		"stage1_balloon_event",
 	]:
 		registry.instances[key] = RefCounted.new()

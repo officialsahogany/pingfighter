@@ -50,6 +50,7 @@ func build_context(owner: Object, registry: Object, character_type: String, dash
 		"boss_collision_cooldown": float(_get_owner_value(owner, "boss_collision_cooldown", 0.0)),
 		"boss_paddle_width": max(1.0, float(_get_owner_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH))),
 		"boss_hitbox_height": max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT))),
+		"lingpet_star_coil_freeze_boss_skill_cd": bool(_get_owner_value(owner, "lingpet_star_coil_freeze_boss_skill_cd", false)),
 		"commando_suicide_drone_ball_boost_active": bool(_get_owner_value(owner, "commando_suicide_drone_ball_boost_active", false)),
 		"commando_suicide_drone_ball_restore_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_restore_speed", 0.0)),
 		"commando_suicide_drone_ball_boosted_speed": float(_get_owner_value(owner, "commando_suicide_drone_ball_boosted_speed", 0.0)),

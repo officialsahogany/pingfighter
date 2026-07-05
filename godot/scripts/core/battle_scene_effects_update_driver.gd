@@ -21,7 +21,8 @@ func update_effects(owner: Object, registry: Object, delta: float) -> void:
 	var effects_deps: Dictionary = context_builder.build_effects_deps(
 		registry,
 		int(effects_context.get("current_stage", _get_owner_value(owner, "current_stage", 1))),
-		str(effects_context.get("selected_character_type", _get_owner_value(owner, "selected_character_type", "smasher")))
+		str(effects_context.get("selected_character_type", _get_owner_value(owner, "selected_character_type", "smasher"))),
+		str(effects_context.get("stage1_boss_variant", _get_owner_value(owner, "stage1_boss_variant", "dalji")))
 	)
 	effects_deps["perf_logger"] = perf_logger
 	_perf_end(perf_logger, "physics.effects.build_deps", sample_start)

@@ -9,6 +9,9 @@ const BOSS_STAGE2_DEFEAT_FRAME_COUNT := 64
 const PLAYER_VICTORY_FRAME_SPEED := 0.020
 const PLAYER_VICTORY_FRAME_COUNT := 64
 const PLAYER_VICTORY_GRID_COLS := 8
+const PLAYER_VICTORY_8_FRAME_SPEED := 0.09
+const PLAYER_VICTORY_8_FRAME_COUNT := 8
+const PLAYER_VICTORY_8_GRID_COLS := 4
 const BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT := 49
 const BLACKSMITH_PLAYER_VICTORY_GRID_COLS := 7
 const BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT := 49
@@ -77,6 +80,7 @@ static func get_boss_result_context(deps: Dictionary, current_stage: int) -> Dic
 	var stage2_victory_frame: int = int(floor(timer / BOSS_STAGE2_VICTORY_FRAME_SPEED)) % BOSS_STAGE2_VICTORY_FRAME_COUNT
 	var stage2_defeat_frame: int = min(BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1, int(floor(timer / BOSS_STAGE2_DEFEAT_FRAME_SPEED)))
 	var player_victory_frame: int = min(PLAYER_VICTORY_FRAME_COUNT - 1, int(floor(timer / PLAYER_VICTORY_FRAME_SPEED)))
+	var player_victory_frame_8: int = min(PLAYER_VICTORY_8_FRAME_COUNT - 1, int(floor(timer / PLAYER_VICTORY_8_FRAME_SPEED)))
 	var player_defeat_frame: int = min(PLAYER_DEFEAT_FRAME_COUNT - 1, int(floor(timer / PLAYER_DEFEAT_FRAME_SPEED)))
 	var player_defeat_frame_64: int = min(PLAYER_DEFEAT_64_FRAME_COUNT - 1, int(floor(timer / PLAYER_DEFEAT_64_FRAME_SPEED)))
 	return {
@@ -87,33 +91,54 @@ static func get_boss_result_context(deps: Dictionary, current_stage: int) -> Dic
 		"boss_victory_frame": stage2_victory_frame if current_stage == 2 else frame,
 		"player_victory_active": scoring_side == "player",
 		"player_victory_frame": player_victory_frame,
+		"player_victory_frame_8": player_victory_frame_8,
 		"player_defeat_active": scoring_side == "boss",
 		"player_defeat_frame": player_defeat_frame,
 		"player_defeat_frame_64": player_defeat_frame_64,
 	}
 
 
-static func get_player_victory_frame_count(is_blacksmith: bool) -> int:
-	return BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT if is_blacksmith else PLAYER_VICTORY_FRAME_COUNT
+static func get_player_victory_frame_count(is_blacksmith: bool, is_commando: bool) -> int:
+	if is_blacksmith:
+		return BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT
+	if is_commando:
+		return PLAYER_VICTORY_8_FRAME_COUNT
+	return PLAYER_VICTORY_FRAME_COUNT
 
 
-static func get_player_victory_grid_cols(is_blacksmith: bool) -> int:
-	return BLACKSMITH_PLAYER_VICTORY_GRID_COLS if is_blacksmith else PLAYER_VICTORY_GRID_COLS
+static func get_player_victory_grid_cols(is_blacksmith: bool, is_commando: bool) -> int:
+	if is_blacksmith:
+		return BLACKSMITH_PLAYER_VICTORY_GRID_COLS
+	if is_commando:
+		return PLAYER_VICTORY_8_GRID_COLS
+	return PLAYER_VICTORY_GRID_COLS
 
 
-static func get_player_defeat_frame_count(is_blacksmith: bool, is_viper: bool) -> int:
+static func get_player_victory_frame_key(is_commando: bool) -> String:
+	return "player_victory_frame_8" if is_commando else "player_victory_frame"
+
+
+static func get_player_victory_frame_speed(is_commando: bool) -> float:
+	return PLAYER_VICTORY_8_FRAME_SPEED if is_commando else PLAYER_VICTORY_FRAME_SPEED
+
+
+static func get_player_defeat_frame_count(is_blacksmith: bool, is_viper: bool, is_commando: bool) -> int:
 	if is_blacksmith:
 		return BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT
 	if is_viper:
 		return PLAYER_DEFEAT_64_FRAME_COUNT
+	if is_commando:
+		return PLAYER_VICTORY_8_FRAME_COUNT
 	return PLAYER_DEFEAT_FRAME_COUNT
 
 
-static func get_player_defeat_grid_cols(is_blacksmith: bool, is_viper: bool) -> int:
+static func get_player_defeat_grid_cols(is_blacksmith: bool, is_viper: bool, is_commando: bool) -> int:
 	if is_blacksmith:
 		return BLACKSMITH_PLAYER_DEFEAT_GRID_COLS
 	if is_viper:
 		return PLAYER_DEFEAT_64_GRID_COLS
+	if is_commando:
+		return PLAYER_VICTORY_8_GRID_COLS
 	return PLAYER_DEFEAT_GRID_COLS
 
 

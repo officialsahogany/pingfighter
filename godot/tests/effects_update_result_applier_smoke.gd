@@ -49,7 +49,12 @@ class FakeContextBuilder:
 			"selected_character_type": "viper",
 		}
 
-	func build_effects_deps(_registry: Object, current_stage: int = 1, character_type: String = "") -> Dictionary:
+	func build_effects_deps(
+		_registry: Object,
+		current_stage: int = 1,
+		character_type: String = "",
+		_stage1_boss_variant: String = "dalji"
+	) -> Dictionary:
 		effects_deps_calls += 1
 		deps_stage = current_stage
 		deps_character = character_type

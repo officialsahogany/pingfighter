@@ -116,6 +116,11 @@ const COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH := BattleCommandoSpritePa
 # both hands free. Frame index is driven by `player_hit_timer` /
 # `player_effective_hit_duration` mapped onto frames 0..7.
 const COMMANDO_PLAYER_ATTACK_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_ATTACK_SHEET_PATH
+# Commando radio-call sheet: 640x320 PNG, 4x2 grid, 8 frames, back view.
+# Shared by supply_drop, emergency_supply, and fire_support radio phases.
+const COMMANDO_PLAYER_RADIO_CALL_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_RADIO_CALL_SHEET_PATH
+const COMMANDO_PLAYER_VICTORY_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_VICTORY_SHEET_PATH
+const COMMANDO_PLAYER_DEFEAT_SHEET_PATH := BattleCommandoSpritePaths.COMMANDO_PLAYER_DEFEAT_SHEET_PATH
 # Commando per-firearm weapon overlay sprites. The base sheet (idle / walk_*)
 # already shows the pistol in the right hand, so "pistol" needs no overlay —
 # it is the default visual. For every other equipped firearm, the matching
@@ -169,6 +174,25 @@ const DALJI_BOSS_DEFEAT_PATH := BattleBossSpritePaths.DALJI_BOSS_DEFEAT_PATH
 const DALJI_BOSS_STUN_PATH := BattleBossSpritePaths.DALJI_BOSS_STUN_PATH
 const DALJI_BOSS_WHIP_PATH := BattleBossSpritePaths.DALJI_BOSS_WHIP_PATH
 const DALJI_BOSS_PAENGI_TOP_WHIP_PATH := BattleBossSpritePaths.DALJI_BOSS_PAENGI_TOP_WHIP_PATH
+const GAKSITAL_BOSS_WALK_LEFT_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_WALK_LEFT_PATH
+const GAKSITAL_BOSS_WALK_RIGHT_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_WALK_RIGHT_PATH
+const GAKSITAL_BOSS_IDLE_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_IDLE_PATH
+const GAKSITAL_BOSS_ATTACK_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_ATTACK_PATH
+const GAKSITAL_BOSS_DASH_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_DASH_PATH
+const GAKSITAL_BOSS_STUN_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_STUN_PATH
+const GAKSITAL_BOSS_VICTORY_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_VICTORY_PATH
+const GAKSITAL_BOSS_DEFEAT_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_DEFEAT_PATH
+const GAKSITAL_BOSS_FAN_THROW_PATH := BattleBossSpritePaths.GAKSITAL_BOSS_FAN_THROW_PATH
+const GAKSITAL_FAN_PROJECTILE_PATH := BattleBossSpritePaths.GAKSITAL_FAN_PROJECTILE_PATH
+const GAKSITAL_FAN_WIND_SHEET_PATH := BattleBossSpritePaths.GAKSITAL_FAN_WIND_SHEET_PATH
+const PODODAEJANG_BOSS_WALK_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_WALK_PATH
+const PODODAEJANG_BOSS_IDLE_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_IDLE_PATH
+const PODODAEJANG_BOSS_ATTACK_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_ATTACK_PATH
+const PODODAEJANG_BOSS_DASH_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_DASH_PATH
+const PODODAEJANG_BOSS_STUN_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_STUN_PATH
+const PODODAEJANG_BOSS_VICTORY_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_VICTORY_PATH
+const PODODAEJANG_BOSS_DEFEAT_PATH := BattleBossSpritePaths.PODODAEJANG_BOSS_DEFEAT_PATH
+const PODODAEJANG_POJOL_PATROL_WALK_PATH := BattleBossSpritePaths.PODODAEJANG_POJOL_PATROL_WALK_PATH
 const STAGE2_BOSS_WALK_LEFT_PATH := BattleBossSpritePaths.STAGE2_BOSS_WALK_LEFT_PATH
 const STAGE2_BOSS_WALK_RIGHT_PATH := BattleBossSpritePaths.STAGE2_BOSS_WALK_RIGHT_PATH
 const STAGE2_BOSS_IDLE_PATH := BattleBossSpritePaths.STAGE2_BOSS_IDLE_PATH
@@ -235,7 +259,8 @@ func prewarm_boss_textures(context: Dictionary = {}) -> void:
 	_load_stage_textures(
 		_get_current_stage(context),
 		_should_include_all_stages(context),
-		_should_include_result_sheets(context)
+		_should_include_result_sheets(context),
+		_get_stage1_boss_variant(context)
 	)
 
 
@@ -266,7 +291,8 @@ func load_all(context: Dictionary = {}) -> Dictionary:
 	_load_stage_textures(
 		_get_current_stage(context),
 		_should_include_all_stages(context),
-		_should_include_result_sheets(context)
+		_should_include_result_sheets(context),
+		_get_stage1_boss_variant(context)
 	)
 	_load_skill_icon_textures(
 		_get_selected_character_type(context),
@@ -297,11 +323,12 @@ func is_threaded_prewarm_in_flight() -> bool:
 func get_transition_texture_prewarm_jobs(context: Dictionary = {}) -> Array:
 	var character_type := _get_selected_character_type(context)
 	var current_stage := _get_current_stage(context)
+	var stage1_boss_variant := _get_stage1_boss_variant(context)
 	var include_result_sheets := _should_include_result_sheets(context)
 	var specs: Array = []
 	specs.append_array(_get_core_texture_specs())
 	specs.append_array(_get_player_texture_specs(character_type, include_result_sheets))
-	specs.append_array(_get_stage_boss_texture_specs(current_stage, include_result_sheets))
+	specs.append_array(_get_stage_boss_texture_specs(current_stage, include_result_sheets, stage1_boss_variant))
 	var jobs: Array = []
 	for spec_value in specs:
 		if not (spec_value is Dictionary):
@@ -324,12 +351,13 @@ func reset_transition_texture_prewarm() -> void:
 	_transition_texture_prewarm_step_index = 0
 	_transition_skill_icon_map_cache.clear()
 	_clear_transition_skill_icon_temp_keys()
-	_clear_transition_texture_prewarm_thread()
+	_drain_transition_texture_prewarm_thread()
 
 
 func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 	var character_type: String = _get_selected_character_type(context)
 	var current_stage: int = _get_current_stage(context)
+	var stage1_boss_variant: String = _get_stage1_boss_variant(context)
 	var include_result_sheets: bool = _should_include_result_sheets(context)
 	var include_all_characters: bool = _should_include_all_characters(context)
 	var include_all_stages: bool = _should_include_all_stages(context)
@@ -338,7 +366,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		reset_transition_texture_prewarm()
 		return true
 
-	var prewarm_key := "%s:%d:%s" % [character_type, current_stage, str(include_result_sheets)]
+	var prewarm_key := "%s:%d:%s:%s" % [character_type, current_stage, stage1_boss_variant, str(include_result_sheets)]
 	if _transition_texture_prewarm_key != prewarm_key:
 		_transition_texture_prewarm_key = prewarm_key
 		_transition_texture_prewarm_step_index = 0
@@ -348,7 +376,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 
 	var core_step_count := _get_core_texture_step_count()
 	var player_step_count := _get_player_texture_step_count(character_type, include_result_sheets)
-	var boss_step_count := _get_stage_boss_texture_step_count(current_stage, include_result_sheets)
+	var boss_step_count := _get_stage_boss_texture_step_count(current_stage, include_result_sheets, stage1_boss_variant)
 	var skill_icon_step_count := _get_selected_skill_icon_texture_step_count(character_type)
 	var total_step_count := core_step_count + player_step_count + boss_step_count + skill_icon_step_count
 	var step_index := _transition_texture_prewarm_step_index
@@ -361,6 +389,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		step_done = _prewarm_stage_boss_texture_step(
 			current_stage,
 			include_result_sheets,
+			stage1_boss_variant,
 			step_index - core_step_count - player_step_count
 		)
 	elif step_index < total_step_count:
@@ -423,6 +452,7 @@ func queue_result_texture_prewarm(
 	result_context: Dictionary = {},
 	delay_frames: int = 1
 ) -> void:
+	_drain_result_texture_prewarm_thread()
 	_result_texture_prewarm_jobs.clear()
 	_result_texture_prewarm_current = {}
 	_result_texture_prewarm_path = ""
@@ -440,6 +470,7 @@ func _begin_result_texture_prewarm_now(
 	current_stage: int = 1,
 	result_context: Dictionary = {}
 ) -> void:
+	_drain_result_texture_prewarm_thread()
 	_result_texture_prewarm_jobs.clear()
 	_result_texture_prewarm_current = {}
 	_result_texture_prewarm_path = ""
@@ -536,6 +567,9 @@ func _get_result_texture_specs(character_type: String, current_stage: int, resul
 	elif character_type == VIPER_CHARACTER_TYPE:
 		player_victory_specs.append(_texture_spec(["player_victory_sheet"], VIPER_VICTORY_SHEET_PATH))
 		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], VIPER_DEFEAT_SHEET_PATH))
+	elif character_type == COMMANDO_CHARACTER_TYPE:
+		player_victory_specs.append(_texture_spec(["player_victory_sheet"], COMMANDO_PLAYER_VICTORY_SHEET_PATH))
+		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], COMMANDO_PLAYER_DEFEAT_SHEET_PATH))
 	elif character_type == BLACKSMITH_CHARACTER_TYPE:
 		player_victory_specs.append(_texture_spec(["player_victory_sheet"], BLACKSMITH_PLAYER_VICTORY_SHEET_PATH))
 		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], BLACKSMITH_PLAYER_DEFEAT_SHEET_PATH))
@@ -543,8 +577,16 @@ func _get_result_texture_specs(character_type: String, current_stage: int, resul
 	var boss_victory_specs: Array = []
 	var boss_defeat_specs: Array = []
 	if current_stage == 1:
-		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], DALJI_BOSS_VICTORY_PATH))
-		boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], DALJI_BOSS_DEFEAT_PATH))
+		var stage1_boss_variant: String = _get_stage1_boss_variant(result_context)
+		if stage1_boss_variant == "gaksi":
+			boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], GAKSITAL_BOSS_VICTORY_PATH))
+			boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], GAKSITAL_BOSS_DEFEAT_PATH))
+		elif stage1_boss_variant == "podo":
+			boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], PODODAEJANG_BOSS_VICTORY_PATH))
+			boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], PODODAEJANG_BOSS_DEFEAT_PATH))
+		elif stage1_boss_variant == "dalji":
+			boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], DALJI_BOSS_VICTORY_PATH))
+			boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], DALJI_BOSS_DEFEAT_PATH))
 	elif current_stage == 2:
 		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE2_BOSS_VICTORY_PATH))
 		boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], STAGE2_BOSS_DEFEAT_PATH))
@@ -608,6 +650,9 @@ func _prewarm_texture_spec_step(spec: Dictionary) -> bool:
 	if bool(spec.get("clear_smasher_player_fallbacks", false)):
 		_clear_smasher_player_fallback_textures()
 		return true
+	if bool(spec.get("clear_boss_textures", false)):
+		_clear_boss_textures()
+		return true
 	if _is_texture_spec_loaded(spec):
 		return true
 	if _try_store_cached_texture_spec(spec):
@@ -664,6 +709,17 @@ func _clear_transition_texture_prewarm_thread() -> void:
 	_transition_texture_prewarm_active = false
 
 
+func _drain_transition_texture_prewarm_thread() -> void:
+	if not _transition_texture_prewarm_active or _transition_texture_prewarm_path == "":
+		_clear_transition_texture_prewarm_thread()
+		return
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(_transition_texture_prewarm_path, progress_values)
+	if status != ResourceLoader.THREAD_LOAD_FAILED and status != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		ResourceLoader.load_threaded_get(_transition_texture_prewarm_path)
+	_clear_transition_texture_prewarm_thread()
+
+
 func _request_next_result_texture_prewarm_job() -> void:
 	_result_texture_prewarm_active = false
 	_result_texture_prewarm_current = {}
@@ -696,6 +752,21 @@ func _finish_result_texture_threaded_job(resource: Resource) -> void:
 	_store_texture_spec(_result_texture_prewarm_current, texture)
 
 
+func _drain_result_texture_prewarm_thread() -> void:
+	if not _result_texture_prewarm_active or _result_texture_prewarm_path == "":
+		_result_texture_prewarm_active = false
+		_result_texture_prewarm_current = {}
+		_result_texture_prewarm_path = ""
+		return
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(_result_texture_prewarm_path, progress_values)
+	if status != ResourceLoader.THREAD_LOAD_FAILED and status != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		ResourceLoader.load_threaded_get(_result_texture_prewarm_path)
+	_result_texture_prewarm_active = false
+	_result_texture_prewarm_current = {}
+	_result_texture_prewarm_path = ""
+
+
 func _is_thread_loadable_texture_path(path: String) -> bool:
 	return ProjectResourceLoader.can_thread_load_texture(path)
 
@@ -704,9 +775,16 @@ func _clear_smasher_player_fallback_spec() -> Dictionary:
 	return {"clear_smasher_player_fallbacks": true}
 
 
+func _clear_boss_texture_spec() -> Dictionary:
+	return {"clear_boss_textures": true}
+
+
 func _load_texture_spec(spec: Dictionary) -> void:
 	if bool(spec.get("clear_smasher_player_fallbacks", false)):
 		_clear_smasher_player_fallback_textures()
+		return
+	if bool(spec.get("clear_boss_textures", false)):
+		_clear_boss_textures()
 		return
 	var path := str(spec.get("path", ""))
 	if path == "":
@@ -771,7 +849,7 @@ func _load_player_textures(character_type: String, include_all_characters: bool,
 	if include_all_characters or character_type == VIPER_CHARACTER_TYPE:
 		_load_viper_player_textures(include_result_sheets and character_type == VIPER_CHARACTER_TYPE)
 	if include_all_characters or character_type == COMMANDO_CHARACTER_TYPE:
-		_load_commando_player_textures()
+		_load_commando_player_textures(include_result_sheets and character_type == COMMANDO_CHARACTER_TYPE)
 	if include_all_characters or character_type == OPTIMUS_CHARACTER_TYPE:
 		_load_optimus_player_textures(character_type == OPTIMUS_CHARACTER_TYPE)
 	if include_all_characters or character_type == BLACKSMITH_CHARACTER_TYPE:
@@ -799,7 +877,7 @@ func _get_player_texture_specs(character_type: String, include_result_sheets: bo
 		VIPER_CHARACTER_TYPE:
 			return _get_viper_player_texture_specs(include_result_sheets)
 		COMMANDO_CHARACTER_TYPE:
-			return _get_commando_player_texture_specs()
+			return _get_commando_player_texture_specs(include_result_sheets)
 		OPTIMUS_CHARACTER_TYPE:
 			return _get_optimus_player_texture_specs(true)
 		BLACKSMITH_CHARACTER_TYPE:
@@ -893,8 +971,8 @@ func _get_viper_player_texture_specs(include_result_sheets: bool) -> Array:
 	return specs
 
 
-func _get_commando_player_texture_specs() -> Array:
-	return [
+func _get_commando_player_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
 		_texture_spec(["commando_player_legacy_idle_sheet"], COMMANDO_PLAYER_IDLE_SHEET_PATH),
 		_texture_spec(["commando_player_legacy_walk_left_sheet"], COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH),
 		_texture_spec(["commando_player_legacy_walk_right_sheet"], COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH),
@@ -909,6 +987,7 @@ func _get_commando_player_texture_specs() -> Array:
 		_texture_spec(["commando_player_bowling_trap_place_sheet"], COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH),
 		_texture_spec(["commando_player_suicide_drone_control_sheet"], COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH),
 		_texture_spec(["commando_player_attack_sheet"], COMMANDO_PLAYER_ATTACK_SHEET_PATH),
+		_texture_spec(["commando_player_radio_call_sheet"], COMMANDO_PLAYER_RADIO_CALL_SHEET_PATH),
 		_texture_spec(["commando_weapon_overlay_ak47"], COMMANDO_WEAPON_OVERLAY_AK47_PATH),
 		_texture_spec(["commando_weapon_overlay_bazooka"], COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH),
 		_texture_spec(["commando_weapon_overlay_net_gun"], COMMANDO_WEAPON_OVERLAY_NET_GUN_PATH),
@@ -927,6 +1006,10 @@ func _get_commando_player_texture_specs() -> Array:
 		_texture_spec(["commando_weapon_b2v2_bowling_trap"], COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH),
 		_texture_spec(["commando_weapon_b2v2_suicide_drone"], COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH),
 	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["player_victory_sheet"], COMMANDO_PLAYER_VICTORY_SHEET_PATH))
+		specs.append(_texture_spec(["player_defeat_sheet"], COMMANDO_PLAYER_DEFEAT_SHEET_PATH))
+	return specs
 
 
 func _get_optimus_player_texture_specs(clear_generic_player_fallbacks: bool) -> Array:
@@ -1033,8 +1116,8 @@ func _load_viper_player_textures(include_result_sheets: bool = false) -> void:
 		_resource_cache["player_defeat_sheet"] = _load_texture_resource(VIPER_DEFEAT_SHEET_PATH)
 
 
-func _load_commando_player_textures() -> void:
-	_load_texture_specs(_get_commando_player_texture_specs())
+func _load_commando_player_textures(include_result_sheets: bool) -> void:
+	_load_texture_specs(_get_commando_player_texture_specs(include_result_sheets))
 
 
 func _load_optimus_player_textures(clear_generic_player_fallbacks: bool) -> void:
@@ -1067,37 +1150,91 @@ func _clear_smasher_player_fallback_textures() -> void:
 		_resource_cache[key] = null
 
 
-func _load_stage_textures(current_stage: int, include_all_stages: bool, include_result_sheets: bool) -> void:
+func _clear_boss_textures() -> void:
+	for key in [
+		"boss_walk_left_sheet",
+		"boss_walk_right_sheet",
+		"boss_sprite_sheet",
+		"boss_idle_sheet",
+		"boss_attack_sheet",
+		"boss_hit_sprite_sheet",
+		"boss_dash_sheet",
+		"boss_stun_sheet",
+		"boss_whip_sheet",
+		"boss_paengi_top_whip_sheet",
+		"boss_fan_throw_sheet",
+		"boss_fan_projectile_texture",
+		"boss_fan_wind_sheet",
+		"stage1_pojol_patrol_walk_sheet",
+		"boss_quake_stomp_sheet",
+		"boss_turn_sheet",
+		"boss_victory_sheet",
+		"boss_defeat_sheet",
+		"boss_texture",
+	]:
+		_resource_cache.erase(key)
+
+
+func _load_stage_textures(
+	current_stage: int,
+	include_all_stages: bool,
+	include_result_sheets: bool,
+	stage1_boss_variant: String = "dalji"
+) -> void:
 	if include_all_stages:
 		var stage_order := [1, 2, 3, 5]
 		for stage_id in stage_order:
 			var normalized_stage := int(stage_id)
 			if normalized_stage == current_stage:
 				continue
-			_load_stage_boss_textures(normalized_stage, include_result_sheets)
-		_load_stage_boss_textures(current_stage, include_result_sheets)
+			_load_stage_boss_textures(
+				normalized_stage,
+				include_result_sheets,
+				stage1_boss_variant if normalized_stage == 1 else "dalji"
+			)
+		_load_stage_boss_textures(current_stage, include_result_sheets, stage1_boss_variant)
 		return
-	_load_stage_boss_textures(current_stage, include_result_sheets)
+	_load_stage_boss_textures(current_stage, include_result_sheets, stage1_boss_variant)
 
 
-func _load_stage_boss_textures(stage_id: int, include_result_sheets: bool) -> void:
-	_load_texture_specs(_get_stage_boss_texture_specs(stage_id, include_result_sheets))
+func _load_stage_boss_textures(
+	stage_id: int,
+	include_result_sheets: bool,
+	stage1_boss_variant: String = "dalji"
+) -> void:
+	_load_texture_specs(_get_stage_boss_texture_specs(stage_id, include_result_sheets, stage1_boss_variant))
 
 
-func _get_stage_boss_texture_specs(stage_id: int, include_result_sheets: bool) -> Array:
+func _get_stage_boss_texture_specs(
+	stage_id: int,
+	include_result_sheets: bool,
+	stage1_boss_variant: String = "dalji"
+) -> Array:
+	var specs := [_clear_boss_texture_spec()]
 	match stage_id:
 		1:
-			return _get_stage1_boss_texture_specs(include_result_sheets)
+			specs.append_array(_get_stage1_boss_texture_specs(include_result_sheets, stage1_boss_variant))
 		2:
-			return _get_stage2_boss_texture_specs(include_result_sheets)
+			specs.append_array(_get_stage2_boss_texture_specs(include_result_sheets))
 		3:
-			return _get_stage3_boss_texture_specs(include_result_sheets)
+			specs.append_array(_get_stage3_boss_texture_specs(include_result_sheets))
 		5:
-			return _get_stage5_hongryun_boss_texture_specs()
-	return []
+			specs.append_array(_get_stage5_hongryun_boss_texture_specs())
+		_:
+			return []
+	return specs
 
 
-func _get_stage1_boss_texture_specs(include_result_sheets: bool) -> Array:
+func _get_stage1_boss_texture_specs(include_result_sheets: bool, stage1_boss_variant: String = "dalji") -> Array:
+	match _normalize_stage1_boss_variant(stage1_boss_variant):
+		"gaksi":
+			return _get_stage1_gaksital_boss_texture_specs(include_result_sheets)
+		"podo":
+			return _get_stage1_pododaejang_boss_texture_specs(include_result_sheets)
+	return _get_stage1_dalji_boss_texture_specs(include_result_sheets)
+
+
+func _get_stage1_dalji_boss_texture_specs(include_result_sheets: bool) -> Array:
 	var specs := [
 		_texture_spec(["boss_walk_left_sheet"], DALJI_BOSS_WALK_LEFT_PATH),
 		_texture_spec(["boss_walk_right_sheet", "boss_sprite_sheet"], DALJI_BOSS_WALK_RIGHT_PATH),
@@ -1111,6 +1248,39 @@ func _get_stage1_boss_texture_specs(include_result_sheets: bool) -> Array:
 	if include_result_sheets:
 		specs.append(_texture_spec(["boss_victory_sheet"], DALJI_BOSS_VICTORY_PATH))
 		specs.append(_texture_spec(["boss_defeat_sheet"], DALJI_BOSS_DEFEAT_PATH))
+	return specs
+
+
+func _get_stage1_gaksital_boss_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["boss_walk_left_sheet"], GAKSITAL_BOSS_WALK_LEFT_PATH),
+		_texture_spec(["boss_walk_right_sheet", "boss_sprite_sheet"], GAKSITAL_BOSS_WALK_RIGHT_PATH),
+		_texture_spec(["boss_idle_sheet"], GAKSITAL_BOSS_IDLE_PATH),
+		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], GAKSITAL_BOSS_ATTACK_PATH),
+		_texture_spec(["boss_dash_sheet"], GAKSITAL_BOSS_DASH_PATH),
+		_texture_spec(["boss_stun_sheet"], GAKSITAL_BOSS_STUN_PATH),
+		_texture_spec(["boss_fan_throw_sheet"], GAKSITAL_BOSS_FAN_THROW_PATH),
+		_texture_spec(["boss_fan_projectile_texture"], GAKSITAL_FAN_PROJECTILE_PATH),
+		_texture_spec(["boss_fan_wind_sheet"], GAKSITAL_FAN_WIND_SHEET_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["boss_victory_sheet"], GAKSITAL_BOSS_VICTORY_PATH))
+		specs.append(_texture_spec(["boss_defeat_sheet"], GAKSITAL_BOSS_DEFEAT_PATH))
+	return specs
+
+
+func _get_stage1_pododaejang_boss_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["boss_walk_left_sheet", "boss_walk_right_sheet", "boss_sprite_sheet"], PODODAEJANG_BOSS_WALK_PATH),
+		_texture_spec(["boss_idle_sheet"], PODODAEJANG_BOSS_IDLE_PATH),
+		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], PODODAEJANG_BOSS_ATTACK_PATH),
+		_texture_spec(["boss_dash_sheet"], PODODAEJANG_BOSS_DASH_PATH),
+		_texture_spec(["boss_stun_sheet"], PODODAEJANG_BOSS_STUN_PATH),
+		_texture_spec(["stage1_pojol_patrol_walk_sheet"], PODODAEJANG_POJOL_PATROL_WALK_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["boss_victory_sheet"], PODODAEJANG_BOSS_VICTORY_PATH))
+		specs.append(_texture_spec(["boss_defeat_sheet"], PODODAEJANG_BOSS_DEFEAT_PATH))
 	return specs
 
 
@@ -1149,12 +1319,21 @@ func _get_stage5_hongryun_boss_texture_specs() -> Array:
 	]
 
 
-func _get_stage_boss_texture_step_count(stage_id: int, include_result_sheets: bool) -> int:
-	return _get_stage_boss_texture_specs(stage_id, include_result_sheets).size()
+func _get_stage_boss_texture_step_count(
+	stage_id: int,
+	include_result_sheets: bool,
+	stage1_boss_variant: String = "dalji"
+) -> int:
+	return _get_stage_boss_texture_specs(stage_id, include_result_sheets, stage1_boss_variant).size()
 
 
-func _prewarm_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, step_index: int) -> bool:
-	var specs := _get_stage_boss_texture_specs(stage_id, include_result_sheets)
+func _prewarm_stage_boss_texture_step(
+	stage_id: int,
+	include_result_sheets: bool,
+	stage1_boss_variant: String,
+	step_index: int
+) -> bool:
+	var specs := _get_stage_boss_texture_specs(stage_id, include_result_sheets, stage1_boss_variant)
 	if step_index < 0 or step_index >= specs.size():
 		return true
 	return _prewarm_texture_spec_step(specs[step_index])
@@ -1307,6 +1486,19 @@ func _get_selected_character_type(context: Dictionary) -> String:
 
 func _get_current_stage(context: Dictionary) -> int:
 	return max(1, int(context.get("current_stage", 1)))
+
+
+func _get_stage1_boss_variant(context: Dictionary) -> String:
+	return _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji"))
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var normalized: String = str(value).strip_edges().to_lower()
+	if normalized in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if normalized in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
 
 
 func _get_dictionary(value: Variant) -> Dictionary:

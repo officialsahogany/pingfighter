@@ -39,12 +39,22 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if stage1_balloon_event != null and stage1_balloon_event.has_method("update"):
 		stage1_balloon_event.update(delta, context, effect_deps)
 
-	var dalji_cooldown_state = deps.get("stage1_dalji_boss_skill_cooldown_state", null)
-	if dalji_cooldown_state != null and dalji_cooldown_state.has_method("update"):
+	var stage1_boss_variant: String = _normalize_stage1_boss_variant(context.get("stage1_boss_variant", deps.get("stage1_boss_variant", "dalji")))
+	var gaksital_cooldown_state = deps.get("stage1_gaksital_boss_skill_cooldown_state", null)
+	if stage1_boss_variant == "gaksi" \
+			and gaksital_cooldown_state != null \
+			and gaksital_cooldown_state.has_method("update"):
 		var active_item_runtime = deps.get("active_item_runtime", null)
 		if active_item_runtime != null and active_item_runtime.has_method("get_boss_ai_context"):
 			context.merge(active_item_runtime.get_boss_ai_context(), true)
-		dalji_cooldown_state.update(fps_scale, context, effect_deps)
+		gaksital_cooldown_state.update(fps_scale, context, effect_deps)
+	elif stage1_boss_variant == "dalji":
+		var dalji_cooldown_state = deps.get("stage1_dalji_boss_skill_cooldown_state", null)
+		if dalji_cooldown_state != null and dalji_cooldown_state.has_method("update"):
+			var active_item_runtime = deps.get("active_item_runtime", null)
+			if active_item_runtime != null and active_item_runtime.has_method("get_boss_ai_context"):
+				context.merge(active_item_runtime.get_boss_ai_context(), true)
+			dalji_cooldown_state.update(fps_scale, context, effect_deps)
 
 	var stage2_boss_skill_state = deps.get("stage2_boss_skill_state", null)
 	if stage2_boss_skill_state != null and stage2_boss_skill_state.has_method("update"):
@@ -351,12 +361,26 @@ func _is_smasher_context(context: Dictionary) -> bool:
 
 
 func _merge_active_item_boss_skill_pause(context: Dictionary, active_item_runtime: Object) -> void:
+	if bool(context.get("lingpet_star_coil_freeze_boss_skill_cd", false)):
+		context["active_item_boss_skill_cooldown_paused"] = true
 	if active_item_runtime == null or not active_item_runtime.has_method("get_boss_ai_context"):
 		return
 	var boss_context: Dictionary = active_item_runtime.get_boss_ai_context()
 	for key in ["active_item_tear_gas_cooldown_pause_active", "active_item_boss_skill_cooldown_paused"]:
 		if boss_context.has(key):
-			context[key] = boss_context[key]
+			if key == "active_item_boss_skill_cooldown_paused":
+				context[key] = bool(context.get(key, false)) or bool(boss_context[key])
+			else:
+				context[key] = boss_context[key]
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

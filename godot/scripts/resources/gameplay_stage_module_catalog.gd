@@ -53,6 +53,22 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd",
 		"label": "stage1 Dalji boss skill HUD renderer",
 	},
+	"stage1_gaksital_fan_throw_skill_state": {
+		"path": "res://scripts/stages/stage1/stage1_gaksital_fan_throw_skill_state.gd",
+		"label": "stage1 Gaksital fan throw skill state",
+	},
+	"stage1_gaksital_fan_wind_skill_state": {
+		"path": "res://scripts/stages/stage1/stage1_gaksital_fan_wind_skill_state.gd",
+		"label": "stage1 Gaksital fan wind skill state",
+	},
+	"stage1_gaksital_boss_skill_cooldown_state": {
+		"path": "res://scripts/stages/stage1/stage1_gaksital_boss_skill_cooldown_state.gd",
+		"label": "stage1 Gaksital boss skill cooldown state",
+	},
+	"stage1_gaksital_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage1/stage1_gaksital_boss_skill_hud_renderer.gd",
+		"label": "stage1 Gaksital boss skill HUD renderer",
+	},
 	"stage1_balloon_event": {
 		"path": "res://scripts/stages/stage1/stage1_balloon_event.gd",
 		"label": "stage1 balloon machine event",

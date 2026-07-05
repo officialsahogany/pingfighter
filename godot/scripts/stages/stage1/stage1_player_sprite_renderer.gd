@@ -278,6 +278,22 @@ func draw(
 			)
 			return
 
+	# Commando radio-call animation shared by supply drop, emergency supply,
+	# and fire-support call windows. It yields to actual weapon fire / pistol
+	# fire, then overrides attack / idle / walk while the call is active.
+	if bool(context.get("commando_radio_call_active", false)):
+		var radio_call_texture = context.get("commando_radio_call_sheet", null)
+		if radio_call_texture is Texture2D:
+			var radio_call_texture_typed: Texture2D = radio_call_texture
+			_draw_texture_region(
+				canvas,
+				radio_call_texture_typed,
+				player_visual_rect,
+				_get_commando_radio_call_sprite_region(context),
+				context
+			)
+			return
+
 	# Commando ball-strike attack: muay-thai clothesline-style squat-uppercut.
 	# Triggered while `player_hit_active` is running; commando_attack_active is
 	# already gated against the pistol-fire branch in actor context so they
@@ -971,6 +987,18 @@ func _get_commando_weapon_fire_sprite_region(context: Dictionary, texture: Textu
 	var texture_size: Vector2 = texture.get_size()
 	var cell_w: float = texture_size.x / float(grid_cols)
 	var cell_h: float = texture_size.y / float(grid_rows)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_commando_radio_call_sprite_region(context: Dictionary) -> Rect2:
+	var cell_w: float = float(context.get("commando_radio_call_cell_width", 160.0))
+	var cell_h: float = float(context.get("commando_radio_call_cell_height", 160.0))
+	var grid_cols: int = max(1, int(context.get("commando_radio_call_grid_cols", 4)))
+	var max_frame: int = max(0, int(context.get("commando_radio_call_frame_count", 8)) - 1)
+	var frame: int = clamp(int(context.get("commando_radio_call_frame", 0)), 0, max_frame)
+	var col: int = frame % grid_cols
+	@warning_ignore("integer_division")
+	var row: int = int(frame / grid_cols)
 	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 

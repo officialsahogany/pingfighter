@@ -28,6 +28,18 @@ const PAENGI_TOP_WHIP_FRAME_COUNT := 32
 const PAENGI_TOP_WHIP_GRID_COLS := 8
 const WALK_FRAME_COUNT := 16
 const WALK_GRID_COLS := 4
+const GAKSITAL_STATIC_CELL_SIZE := 256.0
+const GAKSITAL_STATIC_FRAME_COUNT := 8
+const GAKSITAL_STATIC_GRID_COLS := 3
+const GAKSITAL_WALK_FRAME_COUNT := 16
+const GAKSITAL_WALK_GRID_COLS := 4
+const GAKSITAL_FAN_THROW_FRAME_COUNT := 16
+const GAKSITAL_FAN_THROW_GRID_COLS := 4
+const PODODAEJANG_CELL_SIZE := 256.0
+const PODODAEJANG_STATIC_FRAME_COUNT := 8
+const PODODAEJANG_STATIC_GRID_COLS := 3
+const PODODAEJANG_WALK_FRAME_COUNT := 16
+const PODODAEJANG_WALK_GRID_COLS := 4
 const GROUND_SHADOW_ALPHAS := [0.075, 0.12]
 const GROUND_SHADOW_SEGMENTS := 12
 const SPIDER_WAVE_SEGMENTS := 20
@@ -197,6 +209,206 @@ func _multiply_color(a: Color, b) -> Color:
 
 
 func _select_sheet(context: Dictionary) -> Dictionary:
+	if _is_gaksital_variant(context):
+		return _select_gaksital_sheet(context)
+	if _is_pododaejang_variant(context):
+		return _select_pododaejang_sheet(context)
+	return _select_dalji_sheet(context)
+
+
+func _select_pododaejang_sheet(context: Dictionary) -> Dictionary:
+	# Priority: defeat > victory > stun > dash > arrest-rope/ball-contact
+	# attack > walk > idle. Pododaejang uses a single front-facing walk sheet
+	# for both directions; the 8-frame AutoSprite sheets are 3x3 with cell 8
+	# unused, so stop at frame 7.
+	if bool(context.get("boss_defeat_active", false)):
+		var defeat_sheet: Variant = context.get("boss_defeat_sheet", null)
+		if defeat_sheet is Texture2D:
+			return _pododaejang_static_selection(defeat_sheet, int(context.get("boss_result_frame", 0)))
+
+	if bool(context.get("boss_victory_active", false)):
+		var victory_sheet: Variant = context.get("boss_victory_sheet", null)
+		if victory_sheet is Texture2D:
+			return _pododaejang_static_selection(victory_sheet, int(context.get("boss_result_frame", 0)))
+
+	if bool(context.get("boss_whip_post_stun_active", false)):
+		var post_stun_sheet: Variant = context.get("boss_stun_sheet", null)
+		if post_stun_sheet is Texture2D:
+			return _pododaejang_static_selection(post_stun_sheet, int(context.get("boss_whip_post_stun_frame", 0)))
+
+	if bool(context.get("active_item_boss_stun_active", false)):
+		var item_stun_sheet: Variant = context.get("boss_stun_sheet", null)
+		if item_stun_sheet is Texture2D:
+			return _pododaejang_static_selection(item_stun_sheet, int(context.get("active_item_boss_stun_frame", 0)))
+
+	if bool(context.get("boss_dash_active", false)):
+		var dash_sheet: Variant = context.get("boss_dash_sheet", null)
+		if dash_sheet is Texture2D:
+			return _pododaejang_static_selection(dash_sheet, int(context.get("boss_dash_frame", 0)))
+
+	if _is_pododaejang_arrest_rope_sheet_active(context):
+		var rope_sheet: Variant = context.get("boss_attack_sheet", null)
+		if not (rope_sheet is Texture2D):
+			rope_sheet = context.get("boss_hit_sprite_sheet", null)
+		if rope_sheet is Texture2D:
+			return _pododaejang_static_selection(rope_sheet, _get_pododaejang_arrest_rope_frame(context))
+
+	if bool(context.get("boss_hit_active", false)):
+		var hit_sheet: Variant = context.get("boss_attack_sheet", null)
+		if not (hit_sheet is Texture2D):
+			hit_sheet = context.get("boss_hit_sprite_sheet", null)
+		if hit_sheet is Texture2D:
+			return _pododaejang_static_selection(hit_sheet, int(context.get("boss_hit_frame", 0)))
+
+	if bool(context.get("boss_is_walking", false)):
+		var walk_sheet: Variant = context.get("boss_walk_right_sheet", null)
+		if not (walk_sheet is Texture2D):
+			walk_sheet = context.get("boss_walk_left_sheet", null)
+		if walk_sheet is Texture2D:
+			return {
+				"texture": walk_sheet,
+				"frame": int(context.get("boss_sprite_frame", 0)),
+				"cell_width": PODODAEJANG_CELL_SIZE,
+				"cell_height": PODODAEJANG_CELL_SIZE,
+				"grid_cols": PODODAEJANG_WALK_GRID_COLS,
+				"frame_count": PODODAEJANG_WALK_FRAME_COUNT,
+			}
+
+	var idle_sheet: Variant = context.get("boss_idle_sheet", null)
+	if idle_sheet is Texture2D:
+		return _pododaejang_static_selection(idle_sheet, int(context.get("boss_idle_frame", 0)))
+
+	var legacy_sheet: Variant = context.get("boss_sprite_sheet", null)
+	if legacy_sheet is Texture2D:
+		return {
+			"texture": legacy_sheet,
+			"frame": int(context.get("boss_sprite_frame", 0)),
+			"cell_width": PODODAEJANG_CELL_SIZE,
+			"cell_height": PODODAEJANG_CELL_SIZE,
+			"grid_cols": PODODAEJANG_WALK_GRID_COLS,
+			"frame_count": PODODAEJANG_WALK_FRAME_COUNT,
+		}
+	return {"texture": null}
+
+
+func _select_gaksital_sheet(context: Dictionary) -> Dictionary:
+	# Priority: defeat > victory > stun > dash > fan-throw windup > ball-contact attack > walk > idle.
+	# Gaksital atlas grids are sheet-local: 4x4 for walk / fan_throw, 3x3 for the other 8f sheets.
+	if bool(context.get("boss_defeat_active", false)):
+		var defeat_sheet: Variant = context.get("boss_defeat_sheet", null)
+		if defeat_sheet is Texture2D:
+			return _gaksital_static_selection(defeat_sheet, int(context.get("boss_result_frame", 0)))
+
+	if bool(context.get("boss_victory_active", false)):
+		var victory_sheet: Variant = context.get("boss_victory_sheet", null)
+		if victory_sheet is Texture2D:
+			return _gaksital_static_selection(victory_sheet, int(context.get("boss_result_frame", 0)))
+
+	if bool(context.get("boss_whip_post_stun_active", false)):
+		var post_stun_sheet: Variant = context.get("boss_stun_sheet", null)
+		if post_stun_sheet is Texture2D:
+			return _gaksital_static_selection(post_stun_sheet, int(context.get("boss_whip_post_stun_frame", 0)))
+
+	if bool(context.get("active_item_boss_stun_active", false)):
+		var item_stun_sheet: Variant = context.get("boss_stun_sheet", null)
+		if item_stun_sheet is Texture2D:
+			return _gaksital_static_selection(item_stun_sheet, int(context.get("active_item_boss_stun_frame", 0)))
+
+	if bool(context.get("boss_dash_active", false)):
+		var dash_sheet: Variant = context.get("boss_dash_sheet", null)
+		if dash_sheet is Texture2D:
+			var dash_selection: Dictionary = _gaksital_static_selection(dash_sheet, int(context.get("boss_dash_frame", 0)))
+			dash_selection["flip_h"] = int(context.get("boss_dash_direction", 1)) < 0
+			return dash_selection
+
+	if bool(context.get("boss_fan_throw_active", false)):
+		var fan_throw_sheet: Variant = context.get("boss_fan_throw_sheet", null)
+		if fan_throw_sheet is Texture2D:
+			return {
+				"texture": fan_throw_sheet,
+				"frame": int(context.get("boss_fan_throw_frame", 0)),
+				"cell_width": GAKSITAL_STATIC_CELL_SIZE,
+				"cell_height": GAKSITAL_STATIC_CELL_SIZE,
+				"grid_cols": GAKSITAL_FAN_THROW_GRID_COLS,
+				"frame_count": GAKSITAL_FAN_THROW_FRAME_COUNT,
+			}
+
+	if bool(context.get("boss_hit_active", false)):
+		var hit_sheet: Variant = context.get("boss_attack_sheet", null)
+		if not (hit_sheet is Texture2D):
+			hit_sheet = context.get("boss_hit_sprite_sheet", null)
+		if hit_sheet is Texture2D:
+			return _gaksital_static_selection(hit_sheet, int(context.get("boss_hit_frame", 0)))
+
+	if bool(context.get("boss_is_walking", false)):
+		var facing: int = int(context.get("boss_facing", 1))
+		var walk_sheet: Variant = context.get("boss_walk_left_sheet", null) if facing < 0 else context.get("boss_walk_right_sheet", null)
+		if walk_sheet is Texture2D:
+			return {
+				"texture": walk_sheet,
+				"frame": int(context.get("boss_sprite_frame", 0)),
+				"cell_width": GAKSITAL_STATIC_CELL_SIZE,
+				"cell_height": GAKSITAL_STATIC_CELL_SIZE,
+				"grid_cols": GAKSITAL_WALK_GRID_COLS,
+				"frame_count": GAKSITAL_WALK_FRAME_COUNT,
+			}
+
+	var idle_sheet: Variant = context.get("boss_idle_sheet", null)
+	if idle_sheet is Texture2D:
+		return _gaksital_static_selection(idle_sheet, int(context.get("boss_idle_frame", 0)))
+
+	var legacy_sheet: Variant = context.get("boss_sprite_sheet", null)
+	if legacy_sheet is Texture2D:
+		return {
+			"texture": legacy_sheet,
+			"frame": int(context.get("boss_sprite_frame", 0)),
+			"cell_width": GAKSITAL_STATIC_CELL_SIZE,
+			"cell_height": GAKSITAL_STATIC_CELL_SIZE,
+			"grid_cols": GAKSITAL_WALK_GRID_COLS,
+			"frame_count": GAKSITAL_WALK_FRAME_COUNT,
+		}
+
+	return {"texture": null}
+
+
+func _gaksital_static_selection(texture: Texture2D, frame: int) -> Dictionary:
+	return {
+		"texture": texture,
+		"frame": frame,
+		"cell_width": GAKSITAL_STATIC_CELL_SIZE,
+		"cell_height": GAKSITAL_STATIC_CELL_SIZE,
+		"grid_cols": GAKSITAL_STATIC_GRID_COLS,
+		"frame_count": GAKSITAL_STATIC_FRAME_COUNT,
+	}
+
+
+func _pododaejang_static_selection(texture: Texture2D, frame: int) -> Dictionary:
+	return {
+		"texture": texture,
+		"frame": frame,
+		"cell_width": PODODAEJANG_CELL_SIZE,
+		"cell_height": PODODAEJANG_CELL_SIZE,
+		"grid_cols": PODODAEJANG_STATIC_GRID_COLS,
+		"frame_count": PODODAEJANG_STATIC_FRAME_COUNT,
+	}
+
+
+func _is_pododaejang_arrest_rope_sheet_active(context: Dictionary) -> bool:
+	return (
+		bool(context.get("boss_arrest_rope_active", false))
+		or bool(context.get("stage1_pododaejang_arrest_rope_active", false))
+	)
+
+
+func _get_pododaejang_arrest_rope_frame(context: Dictionary) -> int:
+	if context.has("boss_arrest_rope_frame"):
+		return int(context.get("boss_arrest_rope_frame", 0))
+	if context.has("stage1_pododaejang_arrest_rope_frame"):
+		return int(context.get("stage1_pododaejang_arrest_rope_frame", 0))
+	return int(context.get("boss_hit_frame", 0))
+
+
+func _select_dalji_sheet(context: Dictionary) -> Dictionary:
 	# Priority: defeat > victory > stun > dash > paengi top-whip > Dalji whip skill > ball-contact attack > walk > idle.
 	# `boss_*_sheet` keys come from battle_resources / battle_draw_actor_context.
 	if bool(context.get("boss_defeat_active", false)):
@@ -335,6 +547,16 @@ func _select_sheet(context: Dictionary) -> Dictionary:
 		}
 
 	return {"texture": null}
+
+
+func _is_gaksital_variant(context: Dictionary) -> bool:
+	var variant: String = str(context.get("stage1_boss_variant", "dalji")).strip_edges().to_lower()
+	return variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]
+
+
+func _is_pododaejang_variant(context: Dictionary) -> bool:
+	var variant: String = str(context.get("stage1_boss_variant", "dalji")).strip_edges().to_lower()
+	return variant in ["podo", "pododaejang", "podo_daejang"]
 
 
 func _draw_ground_shadow(canvas: CanvasItem, visual_rect: Rect2) -> void:

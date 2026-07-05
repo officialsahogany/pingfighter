@@ -7,6 +7,7 @@ const Stage3BossSkillHudRenderer := preload("res://scripts/stages/stage3/stage3_
 const Stage4PonkBossSkillHudRenderer := preload("res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd")
 const Stage5HongryunBossSkillHudRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd")
 const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
+const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
@@ -17,6 +18,7 @@ func _init() -> void:
 	_verify_commando_panel_avoidance_contract()
 	_verify_stage_renderers_share_spec()
 	_verify_stage_renderers_use_commando_avoidance()
+	_verify_stage6_layout_avoids_commando_panel()
 	_verify_stage_renderers_have_hover_tooltips()
 	_verify_stage_renderers_sort_by_next_activation()
 	_verify_stage1_layout_uses_spec()
@@ -103,6 +105,7 @@ func _verify_stage_renderers_use_commando_avoidance() -> void:
 		"res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd",
 		"res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd",
 		"res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd",
 	]
 	for path in renderer_paths:
 		var source := FileAccess.get_file_as_string(path)
@@ -111,6 +114,74 @@ func _verify_stage_renderers_use_commando_avoidance() -> void:
 	var scene_drawer_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 	_expect(scene_drawer_source.find("build_commando_firearm_panel_state_for_boss_hud") >= 0, "Stage 1 pillar HUD scene drawer should expose the firearm panel rect builder")
 	_expect(scene_drawer_source.find("context[\"commando_firearm_panel_rect\"]") >= 0, "post-active HUD pass should seed the firearm panel rect into the draw context")
+
+
+func _verify_stage6_layout_avoids_commando_panel() -> void:
+	# Stage 6 Tetriser (4 boss skills + hatched lingpet = 5 cards) is the stage most
+	# likely to overlap the Commando firearm HUD. Prove its rail actually shifts the
+	# stack up above the firearm panel, not just that the source mentions the key.
+	var renderer := Stage6TetriserBossSkillHudRenderer.new()
+	var context := {
+		"current_stage": 6,
+		"stage6_boss_skill_hud_active": true,
+		"view_size": Vector2(2048.0, 1152.0),
+		"game_offset": Vector2(512.0, 64.0),
+		"game_size": Vector2(1024.0, 1024.0),
+		"stage6_boss_skill_hud_skills": [
+			{"id": "stage6_tetro_drop", "progress": 0.10},
+			{"id": "stage6_guard", "progress": 0.30},
+			{"id": "stage6_wall", "progress": 0.55},
+			{"id": "stage6_super", "progress": 0.75},
+			{"id": "lingpet_skill", "progress": 0.90},
+		],
+	}
+	var default_layout: Dictionary = renderer.build_card_layout(context)
+	var default_top: float = _stack_top(default_layout)
+	var default_bottom: float = _stack_bottom(default_layout)
+	# Anchor an overlapping firearm panel just below the centered stack so the
+	# default (no-avoid) layout demonstrably collides — this is the reported bug.
+	var panel_rect := Rect2(Vector2(_stack_left(default_layout) + 6.0, default_bottom - 12.0), Vector2(60.0, 140.0))
+	_expect(default_bottom > panel_rect.position.y, "default Stage 6 Tetriser cards should reproduce the Commando overlap risk")
+
+	context["commando_firearm_panel_rect"] = panel_rect
+	var shifted_layout: Dictionary = renderer.build_card_layout(context)
+	var shifted_bottom: float = _stack_bottom(shifted_layout)
+	var shifted_top: float = _stack_top(shifted_layout)
+	var scale_factor: float = float(shifted_layout.get("scale_factor", 1.0))
+	var required_gap: float = BossSkillCardHudSpec.get_commando_firearm_panel_gap(scale_factor)
+	_expect(shifted_bottom <= panel_rect.position.y - required_gap + 0.01, "Commando-safe Stage 6 cards should sit above the firearm panel")
+	_expect(shifted_top < default_top, "Commando-safe Stage 6 card stack should move upward instead of staying centered")
+
+	context["commando_firearm_panel_rect"] = Rect2(Vector2(12.0, panel_rect.position.y), panel_rect.size)
+	var far_layout: Dictionary = renderer.build_card_layout(context)
+	_expect(is_equal_approx(_stack_top(far_layout), default_top), "unrelated left-edge panels should not move the Stage 6 card stack")
+
+
+func _stack_top(layout: Dictionary) -> float:
+	var rects: Array = layout.get("rects", [])
+	if rects.is_empty():
+		return 0.0
+	return _get_rect(rects[0]).position.y
+
+
+func _stack_bottom(layout: Dictionary) -> float:
+	var rects: Array = layout.get("rects", [])
+	if rects.is_empty():
+		return 0.0
+	return _get_rect(rects[rects.size() - 1]).end.y
+
+
+func _stack_left(layout: Dictionary) -> float:
+	var rects: Array = layout.get("rects", [])
+	if rects.is_empty():
+		return 0.0
+	return _get_rect(rects[0]).position.x
+
+
+func _get_rect(value: Variant) -> Rect2:
+	if value is Rect2:
+		return value
+	return Rect2()
 
 
 func _verify_stage_renderers_have_hover_tooltips() -> void:

@@ -60,6 +60,15 @@ func _init() -> void:
 	_expect(int(boss_4x4_attack.get("boss_hit_frame_count", 0)) == 16, "4x4 boss attack sheet should use 16 hit frames")
 	_expect_close(float(boss_4x4_attack.get("boss_hit_frame_speed", 0.0)), 0.045, "4x4 boss attack should use the 16-frame cadence")
 
+	var boss_attack_3x3_autosprite_texture: Texture2D = _make_texture_size(768, 768)
+	var boss_3x3_attack: Dictionary = builder.build_context({
+		"boss_sprite_sheet": texture,
+		"boss_attack_sheet": boss_attack_3x3_autosprite_texture,
+	}, "smasher")
+	_expect(bool(boss_3x3_attack.get("boss_has_hit_sprite", false)), "3x3 AutoSprite boss attack sheet should enable boss hit sprite")
+	_expect(int(boss_3x3_attack.get("boss_hit_frame_count", 0)) == 8, "768x768 3x3 AutoSprite boss attack sheets should keep 8 hit frames")
+	_expect_close(float(boss_3x3_attack.get("boss_hit_frame_speed", 0.0)), 0.075, "3x3 AutoSprite boss attack should keep the 8-frame cadence")
+
 	var smasher_legacy: Dictionary = builder.build_context({
 		"player_sprite_texture": texture,
 		"player_idle_sprite_texture": texture,

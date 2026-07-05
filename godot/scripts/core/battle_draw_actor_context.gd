@@ -17,6 +17,10 @@ const BLACKSMITH_PLAYER_DRAW_SIZE := Vector2(128.0, 128.0)
 const COMMANDO_IDLE_FRAME_COUNT := 8
 const COMMANDO_IDLE_GRID_COLS := 4
 const COMMANDO_IDLE_GRID_ROWS := 2
+const COMMANDO_RADIO_CALL_FRAME_COUNT := 8
+const COMMANDO_RADIO_CALL_GRID_COLS := 4
+const COMMANDO_RADIO_CALL_GRID_ROWS := 2
+const COMMANDO_RADIO_CALL_FRAME_MSEC := 110
 const BOSS_WALK_FRAME_COUNT := 16
 const BOSS_WALK_GRID_COLS := 4
 const PLAYER_DIRECTIONAL_ATTACK_ANIM_DURATION := 0.72
@@ -41,18 +45,28 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var animation_context: Dictionary = animation_state.get_draw_context() if animation_state != null else {}
 	var boss_ai_state = deps.get("boss_ai_state", null)
 	var boss_dash_context: Dictionary = boss_ai_state.get_dash_draw_context() if boss_ai_state != null and boss_ai_state.has_method("get_dash_draw_context") else {}
+	var stage1_boss_variant: String = _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji"))
 
 	var whip_context: Dictionary = {}
 	var spinning_top_context: Dictionary = {}
-	var dalji_cooldown_context: Dictionary = {}
+	var stage1_boss_cooldown_context: Dictionary = {}
 	var stage1_wall_flash_context: Dictionary = {}
 	if current_stage == 1:
-		var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
-		whip_context = whip_state.get_draw_context() if whip_state != null and whip_state.has_method("get_draw_context") else {}
-		var spinning_top_state = deps.get("stage1_dalji_spinning_top_skill_state", null)
-		spinning_top_context = spinning_top_state.get_draw_context() if spinning_top_state != null and spinning_top_state.has_method("get_draw_context") else {}
-		var dalji_cooldown_state = deps.get("stage1_dalji_boss_skill_cooldown_state", null)
-		dalji_cooldown_context = dalji_cooldown_state.get_hud_context() if dalji_cooldown_state != null and dalji_cooldown_state.has_method("get_hud_context") else {}
+		if stage1_boss_variant == "gaksi":
+			var fan_throw_state = deps.get("stage1_gaksital_fan_throw_skill_state", null)
+			spinning_top_context = fan_throw_state.get_draw_context() if fan_throw_state != null and fan_throw_state.has_method("get_draw_context") else {}
+			var fan_wind_state = deps.get("stage1_gaksital_fan_wind_skill_state", null)
+			if fan_wind_state != null and fan_wind_state.has_method("get_draw_context"):
+				spinning_top_context.merge(fan_wind_state.get_draw_context(), true)
+			var gaksital_cooldown_state = deps.get("stage1_gaksital_boss_skill_cooldown_state", null)
+			stage1_boss_cooldown_context = gaksital_cooldown_state.get_hud_context() if gaksital_cooldown_state != null and gaksital_cooldown_state.has_method("get_hud_context") else {}
+		elif stage1_boss_variant == "dalji":
+			var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
+			whip_context = whip_state.get_draw_context() if whip_state != null and whip_state.has_method("get_draw_context") else {}
+			var spinning_top_state = deps.get("stage1_dalji_spinning_top_skill_state", null)
+			spinning_top_context = spinning_top_state.get_draw_context() if spinning_top_state != null and spinning_top_state.has_method("get_draw_context") else {}
+			var dalji_cooldown_state = deps.get("stage1_dalji_boss_skill_cooldown_state", null)
+			stage1_boss_cooldown_context = dalji_cooldown_state.get_hud_context() if dalji_cooldown_state != null and dalji_cooldown_state.has_method("get_hud_context") else {}
 		stage1_wall_flash_context = _get_stage1_wall_flash_context(deps.get("impact_effects", null))
 
 	var stage2_context: Dictionary = {}
@@ -151,6 +165,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var revival_result_context: Dictionary = revival_beat_state.get_actor_draw_context() if _should_read_actor_draw_context(revival_beat_state) else {}
 	var combined_result_context := boss_result_context.duplicate(true)
 	combined_result_context.merge(revival_result_context, true)
+	combined_result_context["stage1_boss_variant"] = str(context.get("stage1_boss_variant", "dalji"))
 	var result_state_active: bool = ResultContext.has_result_state(combined_result_context)
 	_perf_end(perf_logger, "context.actor.textures.base", texture_sample_start)
 	if result_state_active:
@@ -204,6 +219,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	texture_sample_start = _perf_begin(perf_logger)
 	var commando_attack_sheet: Variant = _get_value(textures, "commando_player_attack_sheet") if is_commando else null
 	var commando_pistol_fire_sheet: Variant = _get_value(textures, "commando_player_pistol_fire_sheet") if is_commando else null
+	var commando_radio_call_sheet: Variant = _get_value(textures, "commando_player_radio_call_sheet") if is_commando else null
 	var commando_weapon_fire_state: Dictionary = _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", {})) if is_commando else {}
 	var commando_weapon_fire_id: String = str(commando_weapon_fire_state.get("weapon_id", ""))
 	var commando_weapon_fire_sheet: Variant = _get_commando_weapon_fire_sheet(textures, commando_weapon_fire_id) if is_commando else null
@@ -224,12 +240,32 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		and not commando_weapon_fire_active
 		and (pistol_fire_delay_frames > 0.0 or pistol_post_fire_frames > 0.0)
 	)
+	var commando_radio_call_source_active: bool = (
+		is_commando
+		and (
+			_is_commando_supply_radio_motion(deps)
+			or _is_commando_reload_radio_motion(deps)
+			or _is_commando_fire_support_radio_motion(commando_firearm_context)
+		)
+	)
+	var commando_radio_call_active: bool = (
+		commando_radio_call_source_active
+		and commando_radio_call_sheet is Texture2D
+		and not commando_weapon_fire_active
+		and not commando_pistol_fire_active
+	)
+	var commando_radio_call_frame: int = (
+		_get_commando_radio_call_frame(context, COMMANDO_RADIO_CALL_FRAME_COUNT)
+		if commando_radio_call_active
+		else 0
+	)
 	var has_commando_attack_sheet: bool = is_commando and commando_attack_sheet is Texture2D
 	var commando_attack_active: bool = (
 		has_commando_attack_sheet
 		and bool(animation_context.get("player_hit_active", false))
 		and not commando_weapon_fire_active
 		and not commando_pistol_fire_active
+		and not commando_radio_call_active
 	)
 	var commando_pistol_fire_frame: int = 0
 	if commando_pistol_fire_active:
@@ -266,9 +302,9 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		elif is_blacksmith:
 			player_idle_sheet = _get_value(textures, "blacksmith_player_idle_sheet")
 	var has_player_idle_sheet: bool = player_idle_sheet is Texture2D
-	var player_victory_sheet: Variant = _get_value(textures, "player_victory_sheet") if use_smasher_textures or is_viper or is_blacksmith else null
+	var player_victory_sheet: Variant = _get_value(textures, "player_victory_sheet") if use_smasher_textures or is_viper or is_commando or is_blacksmith else null
 	var has_player_victory_sheet: bool = player_victory_sheet is Texture2D
-	var player_defeat_sheet: Variant = _get_value(textures, "player_defeat_sheet") if use_smasher_textures or is_viper or is_blacksmith else null
+	var player_defeat_sheet: Variant = _get_value(textures, "player_defeat_sheet") if use_smasher_textures or is_viper or is_commando or is_blacksmith else null
 	var has_player_defeat_sheet: bool = player_defeat_sheet is Texture2D
 	var player_wheel_spin_sheet: Variant = _get_value(textures, "player_wheel_spin_sheet") if use_smasher_textures else null
 	var has_player_wheel_spin_sheet: bool = player_wheel_spin_sheet is Texture2D
@@ -413,10 +449,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	)
 	var player_default_draw_size := Vector2(160.0, 160.0)
 	var player_runtime_draw_size: Vector2 = BLACKSMITH_PLAYER_DRAW_SIZE if is_blacksmith else player_default_draw_size
-	var _player_victory_frame_count: int = ResultContext.get_player_victory_frame_count(is_blacksmith)
-	var _player_victory_grid_cols: int = ResultContext.get_player_victory_grid_cols(is_blacksmith)
-	var _player_defeat_frame_count: int = ResultContext.get_player_defeat_frame_count(is_blacksmith, is_viper)
-	var _player_defeat_grid_cols: int = ResultContext.get_player_defeat_grid_cols(is_blacksmith, is_viper)
+	var _player_victory_frame_count: int = ResultContext.get_player_victory_frame_count(is_blacksmith, is_commando)
+	var _player_victory_grid_cols: int = ResultContext.get_player_victory_grid_cols(is_blacksmith, is_commando)
+	var _player_victory_frame_key: String = ResultContext.get_player_victory_frame_key(is_commando)
+	var _player_defeat_frame_count: int = ResultContext.get_player_defeat_frame_count(is_blacksmith, is_viper, is_commando)
+	var _player_defeat_grid_cols: int = ResultContext.get_player_defeat_grid_cols(is_blacksmith, is_viper, is_commando)
 	var _player_defeat_frame_key: String = ResultContext.get_player_defeat_frame_key(is_viper)
 	_perf_end(perf_logger, "context.actor.customization", actor_sample_start)
 
@@ -425,6 +462,21 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_energy_ratio",
 		context.get("optimus_energy_ratio", 1.0)
 	)), 0.0, 1.0)
+	var boss_fallback_color := Color(1.0, 0.25, 0.25)
+	var boss_fallback_color_light := Color(1.0, 0.45, 0.35)
+	var boss_sprite_draw_size := Vector2(96.0, 112.0)
+	var boss_visual_center_y_offset := 25.0
+	if current_stage == 1 and stage1_boss_variant == "podo":
+		boss_fallback_color = Color(100.0 / 255.0, 70.0 / 255.0, 40.0 / 255.0, 1.0)
+		boss_fallback_color_light = Color(145.0 / 255.0, 112.0 / 255.0, 66.0 / 255.0, 1.0)
+		boss_sprite_draw_size = Vector2(115.2, 134.4)
+		boss_visual_center_y_offset = 30.0
+	# Lingpet 난쟁이마술: centered render shrink. The renderer centers the sprite on
+	# the (unshrunk) boss paddle center, so scaling boss_sprite_draw_size shrinks the
+	# boss visually around that same center, matching the centered collision shrink.
+	var boss_paddle_shrink_scale: float = clampf(float(context.get("boss_paddle_shrink_scale", 1.0)), 0.2, 1.0)
+	if boss_paddle_shrink_scale < 0.999:
+		boss_sprite_draw_size *= boss_paddle_shrink_scale
 	var actor_context := {
 		"shake_offset": _get_vector2(context, "shake_offset", Vector2.ZERO),
 		"width": float(context.get("width", 760.0)),
@@ -433,7 +485,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"game_size": _get_vector2(context, "game_size", Vector2(float(context.get("width", 760.0)), float(context.get("height", 750.0)))),
 		"render_scale": max(0.001, float(context.get("render_scale", 1.0))),
 		"current_stage": int(context.get("current_stage", 1)),
-		"stage1_boss_variant": str(context.get("stage1_boss_variant", "dalji")),
+		"stage1_boss_variant": stage1_boss_variant,
 		"play_left": float(context.get("play_left", 0.0)),
 		"play_right": float(context.get("play_right", 760.0)),
 		"ball_active": bool(context.get("ball_active", false)),
@@ -490,7 +542,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_idle_draw_size": player_runtime_draw_size,
 		"player_victory_active": bool(boss_result_context.get("player_victory_active", false)) and has_player_victory_sheet,
 		"player_victory_frame": clamp(
-			int(boss_result_context.get("player_victory_frame", 0)),
+			int(boss_result_context.get(_player_victory_frame_key, 0)),
 			0,
 			max(0, _player_victory_frame_count - 1)
 		),
@@ -671,6 +723,15 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"commando_pistol_fire_grid_cols": 4,
 		"commando_pistol_fire_grid_rows": 2,
 		"commando_pistol_fire_frame_count": 8,
+		"commando_radio_call_sheet": commando_radio_call_sheet,
+		"commando_radio_call_active": commando_radio_call_active,
+		"commando_radio_call_source_active": commando_radio_call_source_active,
+		"commando_radio_call_frame": commando_radio_call_frame,
+		"commando_radio_call_grid_cols": COMMANDO_RADIO_CALL_GRID_COLS,
+		"commando_radio_call_grid_rows": COMMANDO_RADIO_CALL_GRID_ROWS,
+		"commando_radio_call_frame_count": COMMANDO_RADIO_CALL_FRAME_COUNT,
+		"commando_radio_call_cell_width": 160.0,
+		"commando_radio_call_cell_height": 160.0,
 		"commando_attack_sheet": commando_attack_sheet,
 		"commando_attack_active": commando_attack_active,
 		"commando_attack_flip_h": commando_attack_active and int(animation_context.get("player_hit_side", -1)) < 0,
@@ -714,11 +775,16 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		# that has been replaced with the standardized v4 layout.
 		"player_commando_weapon_fire_draw_size": Vector2(160.0, 160.0),
 		"player_pistol_fire_draw_size": Vector2(160.0, 160.0),
+		"player_commando_radio_call_draw_size": Vector2(160.0, 160.0),
 		"stage1_center_background_texture": _get_value(textures, "stage1_center_background_texture"),
 		"stage1_center_border_texture": _get_value(textures, "stage1_center_border_texture"),
 		"boss_pos": boss_draw_pos,
 		"boss_paddle_size": _get_vector2(context, "boss_paddle_size", Vector2.ZERO),
 		"boss_hitbox_height": float(context.get("boss_hitbox_height", 0.0)),
+		"boss_color": boss_fallback_color,
+		"boss_color_light": boss_fallback_color_light,
+		"boss_sprite_draw_size": boss_sprite_draw_size,
+		"boss_visual_center_y_offset": boss_visual_center_y_offset,
 		"boss_max_health": max(0, int(context.get("boss_max_health", 0))),
 		"boss_current_health": clamp(int(context.get("boss_current_health", 0)), 0, max(0, int(context.get("boss_max_health", 0)))),
 		"boss_health_damage_units": max(0, int(context.get("boss_health_damage_units", 0))),
@@ -747,6 +813,10 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"boss_stun_sheet": _get_value(textures, "boss_stun_sheet"),
 		"boss_whip_sheet": _get_value(textures, "boss_whip_sheet"),
 		"boss_paengi_top_whip_sheet": _get_value(textures, "boss_paengi_top_whip_sheet"),
+		"boss_fan_throw_sheet": _get_value(textures, "boss_fan_throw_sheet"),
+		"boss_fan_projectile_texture": _get_value(textures, "boss_fan_projectile_texture"),
+		"boss_fan_wind_sheet": _get_value(textures, "boss_fan_wind_sheet"),
+		"stage1_pojol_patrol_walk_sheet": _get_value(textures, "stage1_pojol_patrol_walk_sheet"),
 		"boss_sprite_sheet": _get_value(textures, "boss_sprite_sheet"),
 		"boss_hit_sprite_sheet": _get_value(textures, "boss_hit_sprite_sheet"),
 	}
@@ -754,11 +824,21 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 
 	actor_sample_start = _perf_begin(perf_logger)
 	actor_context.merge(boss_result_context, true)
+	actor_context["player_victory_frame"] = clamp(
+		int(boss_result_context.get(_player_victory_frame_key, 0)),
+		0,
+		max(0, _player_victory_frame_count - 1)
+	)
+	actor_context["player_defeat_frame"] = clamp(
+		int(boss_result_context.get(_player_defeat_frame_key, 0)),
+		0,
+		max(0, _player_defeat_frame_count - 1)
+	)
 	actor_context.merge(revival_result_context, true)
 	actor_context.merge(boss_dash_context, true)
 	actor_context.merge(whip_context, true)
 	actor_context.merge(spinning_top_context, true)
-	actor_context.merge(dalji_cooldown_context, true)
+	actor_context.merge(stage1_boss_cooldown_context, true)
 	actor_context.merge(stage1_wall_flash_context, true)
 	if current_stage == 2:
 		actor_context.merge(stage2_context, true)
@@ -1009,6 +1089,12 @@ func _get_dict(value: Variant) -> Dictionary:
 	return BattleContextReader.get_dictionary(value)
 
 
+func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
+
+
 func _is_stage2_speed_defense_status_immune(context: Dictionary) -> bool:
 	if int(context.get("current_stage", 0)) != 2:
 		return false
@@ -1016,6 +1102,24 @@ func _is_stage2_speed_defense_status_immune(context: Dictionary) -> bool:
 		bool(context.get("stage2_speed_defense_status_immunity_active", false))
 		or bool(context.get("stage2_speed_defense_active", false))
 	)
+
+
+func _is_gaksital_variant(context: Dictionary) -> bool:
+	var variant: String = str(context.get("stage1_boss_variant", "dalji")).strip_edges().to_lower()
+	return variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]
+
+
+func _is_pododaejang_variant(context: Dictionary) -> bool:
+	return _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji")) == "podo"
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
 
 
 func _suppress_boss_disable_draw_context(context: Dictionary) -> void:
@@ -1143,6 +1247,47 @@ func _get_commando_suicide_drone_control_flip_h(
 	var drone_pos: Vector2 = _get_vector2(drone_state, "pos", player_pos)
 	var player_center_x: float = player_pos.x + max(0.0, player_size.x) * 0.5
 	return drone_pos.x < player_center_x - 0.5
+
+
+func _is_commando_supply_radio_motion(deps: Dictionary) -> bool:
+	var supply_state: Object = deps.get("commando_supply_drop_state", null) as Object
+	if supply_state == null:
+		return false
+	if supply_state.has_method("get_snapshot"):
+		var snapshot: Dictionary = _get_dict(supply_state.get_snapshot())
+		return bool(snapshot.get("radio_motion", false))
+	return bool(supply_state.get("radio_motion"))
+
+
+func _is_commando_reload_radio_motion(deps: Dictionary) -> bool:
+	var reload_state: Object = deps.get("commando_reload_delivery_state", null) as Object
+	if reload_state == null:
+		return false
+	if reload_state.has_method("get_snapshot"):
+		var snapshot: Dictionary = _get_dict(reload_state.get_snapshot())
+		if snapshot.has("radio_visible"):
+			return bool(snapshot.get("radio_visible", false)) and float(snapshot.get("radio_alpha", 1.0)) > 0.0
+	return bool(reload_state.get("active")) and str(reload_state.get("phase")) == "radio"
+
+
+func _is_commando_fire_support_radio_motion(commando_firearm_context: Dictionary) -> bool:
+	for value in _get_array(commando_firearm_context.get("commando_firearm_support_calls", [])):
+		var call: Dictionary = _get_dict(value)
+		if str(call.get("weapon_id", "")) != "fire_support":
+			continue
+		if (
+			bool(call.get("radio_active", false))
+			or float(call.get("radio_timer_frames", 0.0)) > 0.0
+			or str(call.get("state", "")) == "calling"
+		):
+			return true
+	return false
+
+
+func _get_commando_radio_call_frame(context: Dictionary, frame_count: int) -> int:
+	var safe_frame_count: int = max(1, frame_count)
+	var current_msec: int = max(0, int(context.get("current_msec", Time.get_ticks_msec())))
+	return int(floor(float(current_msec) / float(COMMANDO_RADIO_CALL_FRAME_MSEC))) % safe_frame_count
 
 
 func _get_commando_b2_anchor(

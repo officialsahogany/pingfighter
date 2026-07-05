@@ -37,9 +37,13 @@ class FakeContextBuilder:
 	var player_deps_character := ""
 	var boss_context_calls := 0
 	var effects_context_calls := 0
+	var effects_context_stage := 4
+	var effects_context_character := "viper"
+	var effects_context_stage1_boss_variant := "dalji"
 	var effects_deps_calls := 0
 	var effects_deps_stage := 0
 	var effects_deps_character := ""
+	var effects_deps_stage1_boss_variant := ""
 	var match_deps_calls := 0
 	var match_deps_stage := 0
 	var match_deps_include_all_stage_deps := true
@@ -62,14 +66,21 @@ class FakeContextBuilder:
 	func build_effects_context(_owner: Object, _registry: Object) -> Dictionary:
 		effects_context_calls += 1
 		return {
-			"current_stage": 4,
-			"selected_character_type": "viper",
+			"current_stage": effects_context_stage,
+			"selected_character_type": effects_context_character,
+			"stage1_boss_variant": effects_context_stage1_boss_variant,
 		}
 
-	func build_effects_deps(_registry: Object, current_stage: int = 1, character_type: String = "") -> Dictionary:
+	func build_effects_deps(
+		_registry: Object,
+		current_stage: int = 1,
+		character_type: String = "",
+		stage1_boss_variant: String = "dalji"
+	) -> Dictionary:
 		effects_deps_calls += 1
 		effects_deps_stage = current_stage
 		effects_deps_character = character_type
+		effects_deps_stage1_boss_variant = stage1_boss_variant
 		return {}
 
 	func build_match_flow_deps(
@@ -200,6 +211,9 @@ func _init() -> void:
 	smasher_owner.current_stage = 1
 	smasher_owner.selected_character_type = "smasher"
 	var smasher_context := FakeContextBuilder.new()
+	smasher_context.effects_context_stage = 1
+	smasher_context.effects_context_character = "smasher"
+	smasher_context.effects_context_stage1_boss_variant = "gaksi"
 	var smasher_ball_driver := FakeBallDriver.new()
 	var smasher_registry := FakeRegistry.new(smasher_context, smasher_ball_driver)
 	smasher_driver.prewarm_update(smasher_owner, smasher_registry)
@@ -208,6 +222,7 @@ func _init() -> void:
 		"prewarm should wait for staged smasher cleanse assets before advancing the dependency key"
 	)
 	_expect(smasher_context.match_deps_character == "smasher", "Smasher prewarm should finalize match flow deps for Smasher")
+	_expect(smasher_context.effects_deps_stage1_boss_variant == "gaksi", "Stage 1 Gaksital prewarm should pass the boss variant into effects deps")
 	_expect(not smasher_registry.requested_keys.has("viper_skill_runtime"), "Smasher prewarm should not wake Viper match runtime")
 	_expect(not smasher_registry.requested_keys.has("commando_firearm_runtime"), "Smasher prewarm should not wake Commando match runtime")
 	for smasher_controller_key in [

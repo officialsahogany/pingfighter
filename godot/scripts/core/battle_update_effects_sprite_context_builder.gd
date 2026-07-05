@@ -142,6 +142,8 @@ func _is_4x4_boss_attack_sheet(texture: Texture2D) -> bool:
 	if texture == null:
 		return false
 	var texture_size: Vector2 = texture.get_size()
+	if texture_size == Vector2(768.0, 768.0):
+		return false
 	return (
 		texture_size.x == texture_size.y
 		and texture_size.x >= 512.0

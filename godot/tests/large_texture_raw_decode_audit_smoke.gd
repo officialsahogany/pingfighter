@@ -89,6 +89,12 @@ func _init() -> void:
 		lingpet_panel_body.find("ProjectResourceLoader.load_imported_texture(") >= 0,
 		"character-info lingpet panel art should prefer imported textures for Live2D panel sheets"
 	)
+	var lingpet_panel_prewarm_body := _function_body(lingpet_panel_source, "static func _prewarm_texture_path_threaded_step(")
+	_expect(
+		lingpet_panel_prewarm_body.find("ProjectResourceLoader.prewarm_texture_threaded_step(") >= 0
+			and lingpet_panel_prewarm_body.find("prefer_imported_fallback") >= 0,
+		"character-info lingpet panel staged prewarm should use threaded imported texture loading"
+	)
 	var battle_threadable_body := _function_body(battle_resources_source, "func _is_thread_loadable_texture_path(")
 	_expect(
 		battle_threadable_body.find("ProjectResourceLoader.can_thread_load_texture(path)") >= 0,

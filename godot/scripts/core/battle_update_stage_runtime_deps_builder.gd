@@ -1,7 +1,12 @@
 extends RefCounted
 
 
-func build_deps(registry: Object, current_stage: int = 1, include_all_stages: bool = false) -> Dictionary:
+func build_deps(
+	registry: Object,
+	current_stage: int = 1,
+	include_all_stages: bool = false,
+	stage1_boss_variant: String = "dalji"
+) -> Dictionary:
 	var deps := {
 		"current_stage": current_stage,
 		"weather_event_state": _get_instance(registry, "weather_event_state"),
@@ -20,14 +25,19 @@ func build_deps(registry: Object, current_stage: int = 1, include_all_stages: bo
 		_append_stage5_deps(deps, registry, true)
 		_append_stage6_deps(deps, registry, true)
 	else:
-		_append_current_stage_deps(deps, registry, current_stage)
+		_append_current_stage_deps(deps, registry, current_stage, _normalize_stage1_boss_variant(stage1_boss_variant))
 	return deps
 
 
-func _append_current_stage_deps(deps: Dictionary, registry: Object, current_stage: int) -> void:
+func _append_current_stage_deps(
+	deps: Dictionary,
+	registry: Object,
+	current_stage: int,
+	stage1_boss_variant: String
+) -> void:
 	match current_stage:
 		1:
-			_append_stage1_deps(deps, registry)
+			_append_stage1_deps(deps, registry, false, stage1_boss_variant)
 		2:
 			_append_stage2_deps(deps, registry)
 		3:
@@ -40,10 +50,20 @@ func _append_current_stage_deps(deps: Dictionary, registry: Object, current_stag
 			_append_stage6_deps(deps, registry)
 
 
-func _append_stage1_deps(deps: Dictionary, registry: Object, peek_only: bool = false) -> void:
-	deps["stage1_dalji_whip_skill_state"] = _lookup_instance(registry, "stage1_dalji_whip_skill_state", peek_only)
-	deps["stage1_dalji_spinning_top_skill_state"] = _lookup_instance(registry, "stage1_dalji_spinning_top_skill_state", peek_only)
-	deps["stage1_dalji_boss_skill_cooldown_state"] = _lookup_instance(registry, "stage1_dalji_boss_skill_cooldown_state", peek_only)
+func _append_stage1_deps(
+	deps: Dictionary,
+	registry: Object,
+	peek_only: bool = false,
+	stage1_boss_variant: String = "dalji"
+) -> void:
+	if peek_only or stage1_boss_variant == "dalji":
+		deps["stage1_dalji_whip_skill_state"] = _lookup_instance(registry, "stage1_dalji_whip_skill_state", peek_only)
+		deps["stage1_dalji_spinning_top_skill_state"] = _lookup_instance(registry, "stage1_dalji_spinning_top_skill_state", peek_only)
+		deps["stage1_dalji_boss_skill_cooldown_state"] = _lookup_instance(registry, "stage1_dalji_boss_skill_cooldown_state", peek_only)
+	if peek_only or stage1_boss_variant == "gaksi":
+		deps["stage1_gaksital_fan_throw_skill_state"] = _lookup_instance(registry, "stage1_gaksital_fan_throw_skill_state", peek_only)
+		deps["stage1_gaksital_fan_wind_skill_state"] = _lookup_instance(registry, "stage1_gaksital_fan_wind_skill_state", peek_only)
+		deps["stage1_gaksital_boss_skill_cooldown_state"] = _lookup_instance(registry, "stage1_gaksital_boss_skill_cooldown_state", peek_only)
 	deps["stage1_balloon_event"] = _lookup_instance(registry, "stage1_balloon_event", peek_only)
 
 
@@ -100,3 +120,12 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"

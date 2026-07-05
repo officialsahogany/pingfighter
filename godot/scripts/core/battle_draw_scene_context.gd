@@ -30,7 +30,12 @@ func build_scene_deps(registry, feedback, power_state, draw_context: Dictionary 
 	if draw_context.is_empty():
 		return _build_full_scene_deps(registry, feedback, power_state)
 	var deps: Dictionary = _build_common_scene_deps(registry, feedback, power_state)
-	_append_stage_scene_deps(deps, registry, int(draw_context.get("current_stage", 1)))
+	_append_stage_scene_deps(
+		deps,
+		registry,
+		int(draw_context.get("current_stage", 1)),
+		_normalize_stage1_boss_variant(draw_context.get("stage1_boss_variant", "dalji"))
+	)
 	_append_character_scene_deps(
 		deps,
 		registry,
@@ -58,6 +63,9 @@ func _build_full_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"stage1_dalji_whip_skill_state": _get_instance(registry, "stage1_dalji_whip_skill_state"),
 		"stage1_dalji_spinning_top_skill_state": _get_instance(registry, "stage1_dalji_spinning_top_skill_state"),
 		"stage1_dalji_boss_skill_cooldown_state": _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state"),
+		"stage1_gaksital_fan_throw_skill_state": _get_instance(registry, "stage1_gaksital_fan_throw_skill_state"),
+		"stage1_gaksital_fan_wind_skill_state": _get_instance(registry, "stage1_gaksital_fan_wind_skill_state"),
+		"stage1_gaksital_boss_skill_cooldown_state": _get_instance(registry, "stage1_gaksital_boss_skill_cooldown_state"),
 		"stage2_pillar_background": _get_instance(registry, "stage2_pillar_background"),
 		"stage2_boss_skill_state": _get_instance(registry, "stage2_boss_skill_state"),
 		"stage3_boss_skill_state": _get_instance(registry, "stage3_boss_skill_state"),
@@ -78,6 +86,8 @@ func _build_full_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"smasher_wheel_state": _get_instance(registry, "smasher_wheel_state"),
 		"commando_firearm_runtime": _get_instance(registry, "commando_firearm_runtime"),
 		"commando_weapon_controller": _get_instance(registry, "commando_weapon_controller"),
+		"commando_supply_drop_state": _get_instance(registry, "commando_supply_drop_state"),
+		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
 		"viper_jetpack_state": _get_instance(registry, "viper_jetpack_state"),
 		"viper_skill_runtime": _get_instance(registry, "viper_skill_runtime"),
 		"stage_ball_spawn_intro": _get_instance(registry, "stage_ball_spawn_intro"),
@@ -106,12 +116,22 @@ func _build_common_scene_deps(registry, feedback, power_state) -> Dictionary:
 	}
 
 
-func _append_stage_scene_deps(deps: Dictionary, registry, current_stage: int) -> void:
+func _append_stage_scene_deps(
+	deps: Dictionary,
+	registry,
+	current_stage: int,
+	stage1_boss_variant: String = "dalji"
+) -> void:
 	match current_stage:
 		1:
-			deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
-			deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
-			deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
+			if stage1_boss_variant == "gaksi":
+				deps["stage1_gaksital_fan_throw_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_throw_skill_state")
+				deps["stage1_gaksital_fan_wind_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_wind_skill_state")
+				deps["stage1_gaksital_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_gaksital_boss_skill_cooldown_state")
+			elif stage1_boss_variant == "dalji":
+				deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
+				deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
+				deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
 		2:
 			deps["stage2_pillar_background"] = _get_instance(registry, "stage2_pillar_background")
 			deps["stage2_boss_skill_state"] = _get_instance(registry, "stage2_boss_skill_state")
@@ -143,6 +163,8 @@ func _append_character_scene_deps(deps: Dictionary, registry, character_type: St
 		"soldier":
 			deps["commando_firearm_runtime"] = _get_instance(registry, "commando_firearm_runtime")
 			deps["commando_weapon_controller"] = _get_instance(registry, "commando_weapon_controller")
+			deps["commando_supply_drop_state"] = _get_instance(registry, "commando_supply_drop_state")
+			deps["commando_reload_delivery_state"] = _get_instance(registry, "commando_reload_delivery_state")
 		"viper":
 			deps["viper_jetpack_state"] = _get_instance(registry, "viper_jetpack_state")
 			deps["viper_skill_runtime"] = _get_instance(registry, "viper_skill_runtime")
@@ -152,3 +174,12 @@ func _get_instance(registry, key: String) -> Object:
 	if registry == null or key == "" or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"

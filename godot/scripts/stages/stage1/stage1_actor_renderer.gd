@@ -5,12 +5,14 @@ const Stage1PlayfieldRenderer := preload("res://scripts/stages/stage1/stage1_pla
 const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
 const Stage1DaljiSpinningTopRenderer := preload("res://scripts/stages/stage1/stage1_dalji_spinning_top_renderer.gd")
+const Stage1GaksitalFanThrowRenderer := preload("res://scripts/stages/stage1/stage1_gaksital_fan_throw_renderer.gd")
 const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")
 
 var playfield_renderer: Object = Stage1PlayfieldRenderer.new()
 var player_renderer: Object = Stage1PlayerActorRenderer.new()
 var boss_renderer: Object = Stage1BossActorRenderer.new()
 var spinning_top_renderer: Object = Stage1DaljiSpinningTopRenderer.new()
+var fan_throw_renderer: Object = Stage1GaksitalFanThrowRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 var _prewarm_step_index := 0
 
@@ -80,6 +82,7 @@ func draw_spinning_top(canvas: CanvasItem, context: Dictionary, perf_logger: Obj
 		return
 	var shake_offset: Vector2 = _as_vector2(context.get("shake_offset", Vector2.ZERO), Vector2.ZERO)
 	spinning_top_renderer.draw(canvas, context, shake_offset, perf_logger)
+	fan_throw_renderer.draw(canvas, context, shake_offset, perf_logger)
 
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:

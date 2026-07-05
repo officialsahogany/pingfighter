@@ -10,7 +10,13 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 
 class FakeOwner:
 	var current_stage := 1
+	var stage1_boss_variant := "dalji"
 	var selected_character_type := "smasher"
+	var lingpet_state := "companion"
+	var lingpet_id := "lunabi"
+	var current_lingpet_id := "lunabi"
+	var lingpet_slots := ["maribo", "lunabi", ""]
+	var lingpet_active_slot_index := 1
 	var battle_textures: Dictionary = {}
 	var smasher_skill_icon_textures: Dictionary = {}
 	var viper_skill_icon_textures: Dictionary = {}
@@ -21,7 +27,13 @@ class FakeOwner:
 # checks for a live "BattlePsoPrewarmer" child on the battle scene node.
 class FakeNodeOwner extends Node:
 	var current_stage := 1
+	var stage1_boss_variant := "dalji"
 	var selected_character_type := "smasher"
+	var lingpet_state := "companion"
+	var lingpet_id := "lunabi"
+	var current_lingpet_id := "lunabi"
+	var lingpet_slots := ["maribo", "lunabi", ""]
+	var lingpet_active_slot_index := 1
 	var battle_textures: Dictionary = {}
 	var smasher_skill_icon_textures: Dictionary = {}
 	var viper_skill_icon_textures: Dictionary = {}
@@ -242,12 +254,18 @@ class FakeBattleResources:
 class FakePillarSceneModule:
 	var prewarm_count := 0
 	var last_selected_character_type := ""
+	var last_stage1_boss_variant := ""
 	var last_module_getter_valid := false
 
-	func prewarm_assets(module_getter: Callable = Callable(), selected_character_type: String = "smasher") -> void:
+	func prewarm_assets(
+		module_getter: Callable = Callable(),
+		selected_character_type: String = "smasher",
+		stage1_boss_variant: String = "dalji"
+	) -> void:
 		prewarm_count += 1
 		last_module_getter_valid = module_getter.is_valid()
 		last_selected_character_type = selected_character_type
+		last_stage1_boss_variant = stage1_boss_variant
 
 
 class FakeStagedPillarSceneModule:
@@ -255,18 +273,29 @@ class FakeStagedPillarSceneModule:
 	var monolithic_calls := 0
 	var complete_after := 3
 	var last_selected_character_type := ""
+	var last_stage1_boss_variant := ""
 	var last_module_getter_valid := false
 
-	func prewarm_assets_step(module_getter: Callable = Callable(), selected_character_type: String = "smasher") -> bool:
+	func prewarm_assets_step(
+		module_getter: Callable = Callable(),
+		selected_character_type: String = "smasher",
+		stage1_boss_variant: String = "dalji"
+	) -> bool:
 		step_calls += 1
 		last_module_getter_valid = module_getter.is_valid()
 		last_selected_character_type = selected_character_type
+		last_stage1_boss_variant = stage1_boss_variant
 		return step_calls >= complete_after
 
-	func prewarm_assets(module_getter: Callable = Callable(), selected_character_type: String = "smasher") -> void:
+	func prewarm_assets(
+		module_getter: Callable = Callable(),
+		selected_character_type: String = "smasher",
+		stage1_boss_variant: String = "dalji"
+	) -> void:
 		monolithic_calls += 1
 		last_module_getter_valid = module_getter.is_valid()
 		last_selected_character_type = selected_character_type
+		last_stage1_boss_variant = stage1_boss_variant
 
 
 class FakePerkDebugPicker:
@@ -286,22 +315,61 @@ class FakePerkDebugPicker:
 
 class FakeCharacterInfo:
 	var prewarm_count := 0
+	var step_calls := 0
+	var lingpet_panel_step_calls := 0
 	var last_owner: Object
 	var last_registry: Object
 	var last_module_getter_valid := false
 	var last_include_shared_icon_assets := true
+	var last_lingpet_prewarm_pet_ids: Array = []
+	var last_perf_logger: Object = null
+	var last_perf_label_prefix := ""
 
 	func prewarm_assets(
 		owner: Object = null,
 		registry: Object = null,
 		module_getter: Callable = Callable(),
-		include_shared_icon_assets: bool = true
+		include_shared_icon_assets: bool = true,
+		_view_size: Vector2 = Vector2.ZERO,
+		lingpet_prewarm_pet_ids: Variant = null
 	) -> void:
 		prewarm_count += 1
 		last_owner = owner
 		last_registry = registry
 		last_module_getter_valid = module_getter.is_valid()
 		last_include_shared_icon_assets = include_shared_icon_assets
+		last_lingpet_prewarm_pet_ids = (lingpet_prewarm_pet_ids as Array).duplicate() if lingpet_prewarm_pet_ids is Array else []
+
+	func prewarm_assets_step(
+		owner: Object = null,
+		registry: Object = null,
+		module_getter: Callable = Callable(),
+		include_shared_icon_assets: bool = true,
+		_view_size: Vector2 = Vector2.ZERO,
+		lingpet_prewarm_pet_ids: Variant = null,
+		perf_logger: Object = null,
+		perf_label_prefix: String = ""
+	) -> bool:
+		step_calls += 1
+		last_owner = owner
+		last_registry = registry
+		last_module_getter_valid = module_getter.is_valid()
+		last_include_shared_icon_assets = include_shared_icon_assets
+		last_lingpet_prewarm_pet_ids = (lingpet_prewarm_pet_ids as Array).duplicate() if lingpet_prewarm_pet_ids is Array else []
+		last_perf_logger = perf_logger
+		last_perf_label_prefix = perf_label_prefix
+		return step_calls >= 3
+
+	func prewarm_lingpet_panel_assets_step(
+		lingpet_prewarm_pet_ids: Variant = null,
+		perf_logger: Object = null,
+		perf_label_prefix: String = ""
+	) -> bool:
+		lingpet_panel_step_calls += 1
+		last_lingpet_prewarm_pet_ids = (lingpet_prewarm_pet_ids as Array).duplicate() if lingpet_prewarm_pet_ids is Array else []
+		last_perf_logger = perf_logger
+		last_perf_label_prefix = perf_label_prefix
+		return lingpet_panel_step_calls >= 2
 
 
 class FakeRegistry:
@@ -360,6 +428,15 @@ class FakeRegistry:
 	var stage5_actor_renderer := FakeStagedPrewarmModule.new()
 	var stage5_pillar_scene := FakeStagedPillarSceneModule.new()
 	var stage5_skill_hud := FakeStagedPrewarmModule.new()
+	var threaded_script_requests: Array[String] = []
+	var threaded_script_ready: Dictionary = {}
+
+	func request_threaded_script(key: String) -> bool:
+		threaded_script_requests.append(key)
+		return is_threaded_script_ready(key)
+
+	func is_threaded_script_ready(key: String) -> bool:
+		return bool(threaded_script_ready.get(key, true))
 
 	func clear_refs() -> void:
 		if battle_resources != null:
@@ -549,6 +626,28 @@ class FakeRegistry:
 		return null
 
 
+class FakeShellModuleGetter:
+	var registry: FakeRegistry = null
+
+	func _init(p_registry: FakeRegistry) -> void:
+		registry = p_registry
+
+	func get_module(key: String) -> Object:
+		if registry == null:
+			return null
+		return registry.get_instance(key)
+
+	func request_threaded_script(key: String) -> bool:
+		if registry == null:
+			return true
+		return registry.request_threaded_script(key)
+
+	func is_threaded_script_ready(key: String) -> bool:
+		if registry == null:
+			return true
+		return registry.is_threaded_script_ready(key)
+
+
 var _failures: Array[String] = []
 var _registry := FakeRegistry.new()
 var _boot_initialize_calls := 0
@@ -578,7 +677,23 @@ func _run() -> void:
 	_expect(_registry.perk_icon_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk choice icons before the first card draw")
 	_expect(_registry.perk_overlay_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk overlay text caches before the first overlay draw")
 	_expect(_registry.perk_debug_picker.prewarm_count == 0, "stage runtime prewarm should defer perk debug picker assets until opened")
-	_expect(_registry.character_info.prewarm_count == 0, "stage runtime prewarm should defer character info assets until opened")
+	_expect(_registry.character_info.step_calls == 3, "stage runtime prewarm should stage character info assets before the first TAB open")
+	_expect(_registry.character_info.prewarm_count == 0, "stage runtime prewarm should avoid monolithic character info loading")
+	_expect(_registry.character_info.last_owner == owner, "stage runtime character info prewarm should receive owner")
+	_expect(_registry.character_info.last_registry != null, "stage runtime character info prewarm should receive a registry adapter")
+	_expect(_registry.character_info.last_module_getter_valid, "stage runtime character info prewarm should receive module getter")
+	_expect(_registry.character_info.last_include_shared_icon_assets, "stage runtime character info prewarm should include shared icon assets")
+	_expect(_registry.character_info.last_lingpet_prewarm_pet_ids == ["maribo", "lunabi"], "stage runtime character info prewarm should warm every equipped lingpet slot")
+	_expect(_registry.character_info.last_perf_logger == _registry.battle_perf_logger, "stage runtime character info prewarm should receive the battle perf logger")
+	_expect(_registry.character_info.last_perf_label_prefix == "process.frame.stage_runtime_prewarm.step.5.character_info_prewarm.overlay", "stage runtime character info prewarm should pass the overlay perf label prefix")
+	_expect(
+		_registry.battle_perf_logger.has_label_containing("stage_runtime_prewarm.step.5.character_info_prewarm.lingpet_slot_scan.2"),
+		"stage runtime character info prewarm should expose lingpet slot-count scan timing"
+	)
+	_expect(
+		_registry.battle_perf_logger.has_label_containing("stage_runtime_prewarm.step.5.character_info_prewarm.overlay_step"),
+		"stage runtime character info prewarm should expose overlay staged prewarm timing"
+	)
 	_expect(_registry.result_screen.shell_prewarm_count == 0, "stage runtime prewarm should leave the stage-clear result shell for the dedicated result warmup")
 	_expect(_registry.result_screen.prewarm_count == 0, "stage runtime prewarm should leave full stage-clear result assets for the dedicated result warmup")
 	_expect(_registry.result_screen.step_calls == 0, "stage runtime prewarm should not touch the heavy result staged path before its dedicated warmup")
@@ -610,6 +725,7 @@ func _run() -> void:
 
 	_verify_full_stage_clear_result_prewarm_remains_staged()
 	_verify_stage1_staged_visual_prewarm()
+	_verify_stage1_pododaejang_skips_missing_skill_hud_prewarm()
 	_verify_stage1_soldier_commando_prewarm()
 	_verify_stage2_staged_playfield_prewarm()
 	_verify_stage3_staged_playfield_prewarm()
@@ -628,6 +744,8 @@ func _run() -> void:
 	_verify_budgeted_boot_warmup_respects_frame_budget()
 	_verify_budgeted_boot_warmup_bounds_non_advancing_spin()
 	_verify_shell_wires_budgeted_boot_warmup()
+	_verify_character_info_resolve_waits_for_threaded_script()
+	_verify_character_info_lingpet_prewarm_recomputes_for_stage_transition_slots()
 
 	for _cleanup_frame in range(4):
 		_cleanup()
@@ -648,6 +766,68 @@ func _quit_with_code(exit_code: int) -> void:
 
 func _get_module(key: String) -> Object:
 	return _registry.get_instance(key)
+
+
+func _verify_character_info_resolve_waits_for_threaded_script() -> void:
+	_registry = FakeRegistry.new()
+	_registry.threaded_script_ready["character_info_overlay"] = false
+	var module_owner := FakeShellModuleGetter.new(_registry)
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	var first_step_done := controller.prewarm_character_info_resources_step(
+		owner,
+		Callable(module_owner, "get_module"),
+		_registry.battle_perf_logger,
+		"smoke.character_info"
+	)
+	_expect(not first_step_done, "character info prewarm should wait while the overlay script threaded load is in flight")
+	_expect(_registry.threaded_script_requests.has("character_info_overlay"), "character info prewarm should request the overlay script before resolving the module")
+	_expect(_registry.character_info.step_calls == 0, "character info prewarm must not instantiate/prewarm the overlay before the threaded script is ready")
+	_expect(
+		_registry.battle_perf_logger.has_label_containing("smoke.character_info.resolve_module_wait"),
+		"character info prewarm should expose a resolve wait label while the script worker is busy"
+	)
+	_registry.threaded_script_ready["character_info_overlay"] = true
+	var guard := 0
+	while not controller.prewarm_character_info_resources_step(owner, Callable(module_owner, "get_module")):
+		guard += 1
+		if guard >= 8:
+			_expect(false, "character info prewarm should complete after the threaded script becomes ready")
+			break
+	_expect(_registry.character_info.step_calls > 0, "character info prewarm should run staged overlay prewarm once the threaded script is ready")
+
+
+func _verify_character_info_lingpet_prewarm_recomputes_for_stage_transition_slots() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.lingpet_state = "none"
+	owner.lingpet_id = ""
+	owner.current_lingpet_id = ""
+	owner.lingpet_slots = []
+	owner.lingpet_active_slot_index = -1
+
+	controller.prewarm_character_info_resources(owner, Callable(self, "_get_module"))
+
+	_expect(_registry.character_info.last_lingpet_prewarm_pet_ids.is_empty(), "boot character info prewarm should warm zero lingpet panel art when owner slots are still empty")
+
+	owner.lingpet_state = "companion"
+	owner.lingpet_id = "orosha"
+	owner.current_lingpet_id = "orosha"
+	owner.lingpet_slots = ["nekuring", "orosha", ""]
+	owner.lingpet_active_slot_index = 1
+
+	var full_prewarm_step_calls := _registry.character_info.step_calls
+	var incremental_steps := 0
+	while not controller.prewarm_character_info_resources_step(owner, Callable(self, "_get_module")):
+		incremental_steps += 1
+		if incremental_steps >= 8:
+			_expect(false, "stage-transition lingpet panel prewarm should complete in bounded incremental steps")
+			break
+
+	_expect(_registry.character_info.step_calls == full_prewarm_step_calls, "stage-transition lingpet prewarm should not rerun the full character-info staged prewarm")
+	_expect(_registry.character_info.lingpet_panel_step_calls > 0, "stage-transition owner sync should reopen the lingpet-only panel prewarm latch")
+	_expect(_registry.character_info.last_lingpet_prewarm_pet_ids == ["nekuring", "orosha"], "stage-transition owner sync should warm every equipped lingpet slot, not only the active slot")
 
 
 func _mark_boot_initialized(_play_stage_bgm: bool = true) -> void:
@@ -767,6 +947,20 @@ func _verify_stage1_staged_visual_prewarm() -> void:
 	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 actor renderer prewarm should run before the PSO chunk")
 	_expect(_registry.stage1_actor_renderer.prewarm_count == 1, "stage 1 actor renderer should warm playfield/player caches before the first visible draw")
 	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 prewarm should finish after the PSO prewarmer chunk")
+
+
+func _verify_stage1_pododaejang_skips_missing_skill_hud_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 1
+	owner.stage1_boss_variant = "pododaejang"
+	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
+	_expect(_registry.stage1_pillar_scene.last_stage1_boss_variant == "podo", "Pododaejang Stage 1 prewarm should pass the normalized boss variant to the pillar scene")
+	_expect(_registry.stage1_balloon_event.step_calls == 3, "Pododaejang Stage 1 prewarm should keep shared balloon event assets")
+	_expect(_registry.stage1_skill_hud.step_calls == 0, "Pododaejang Slice 1 should not prewarm Dalji boss skill HUD chunks")
+	_expect(_registry.stage1_skill_hud.monolithic_calls == 0, "Pododaejang Slice 1 should not fall back to Dalji boss skill HUD prewarm")
+	_expect(_registry.stage1_actor_renderer.prewarm_count == 1, "Pododaejang Stage 1 prewarm should still warm the actor renderer")
 
 
 func _verify_stage1_soldier_commando_prewarm() -> void:
@@ -1005,6 +1199,7 @@ func _verify_boot_warmup_detail_label_names_selected_character_module() -> void:
 func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
 	var resource_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+	var character_info_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_core.gd")
 	var landing_source := FileAccess.get_file_as_string("res://scripts/core/stage_landing_intro.gd")
 	var label_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_sample_labels.gd")
 	_expect(
@@ -1030,6 +1225,18 @@ func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 	_expect(
 		label_source.find("\"09_lingpet_runtime\"") >= 0 and label_source.find("\"10_lingpet_rail_card\"") >= 0,
 		"boot warmup sample labels should name lingpet runtime and rail-card prewarm steps"
+	)
+	_expect(
+		resource_source.find(".lingpet_slot_scan.%d") >= 0 and resource_source.find(".overlay_step") >= 0,
+		"boot resource prewarm should expose character-info controller sublabels"
+	)
+	_expect(
+		character_info_source.find("\"lingpet_art\"") >= 0 and character_info_source.find("\"lingpet_skill_icons\"") >= 0,
+		"character info overlay prewarm should expose lingpet art and skill icon sublabels"
+	)
+	_expect(
+		character_info_source.find("\"text.runtime_perk\"") >= 0 and character_info_source.find("\"text.skill\"") >= 0,
+		"character info overlay prewarm should expose text-cache sublabels"
 	)
 	_expect(
 		resource_source.find("prewarm_runtime_nodes_step(owner)") >= 0,

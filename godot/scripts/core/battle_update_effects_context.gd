@@ -11,5 +11,10 @@ func build_context(owner: Object, registry: Object) -> Dictionary:
 	return frame_context_builder.build_context(owner, registry)
 
 
-func build_deps(registry: Object, current_stage: int = 1, character_type: String = "") -> Dictionary:
-	return deps_builder.build_deps(registry, current_stage, character_type)
+func build_deps(
+	registry: Object,
+	current_stage: int = 1,
+	character_type: String = "",
+	stage1_boss_variant: String = "dalji"
+) -> Dictionary:
+	return deps_builder.build_deps(registry, current_stage, character_type, stage1_boss_variant)

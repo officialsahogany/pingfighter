@@ -26,8 +26,13 @@ func build_effects_context(owner: Object, registry: Object) -> Dictionary:
 	return effects_context.build_context(owner, registry)
 
 
-func build_effects_deps(registry: Object, current_stage: int = 1, character_type: String = "") -> Dictionary:
-	return effects_context.build_deps(registry, current_stage, character_type)
+func build_effects_deps(
+	registry: Object,
+	current_stage: int = 1,
+	character_type: String = "",
+	stage1_boss_variant: String = "dalji"
+) -> Dictionary:
+	return effects_context.build_deps(registry, current_stage, character_type, stage1_boss_variant)
 
 
 func build_match_flow_deps(

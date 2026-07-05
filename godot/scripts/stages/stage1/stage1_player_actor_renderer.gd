@@ -25,6 +25,7 @@ const DEFAULT_PLAYER_IDLE_BACK_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_VICTORY_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_DEFEAT_DRAW_SIZE := Vector2(160.0, 160.0)
 const DEFAULT_PLAYER_WHEEL_SPIN_DRAW_SIZE := Vector2(160.0, 160.0)
+const DEFAULT_PLAYER_COMMANDO_RADIO_CALL_DRAW_SIZE := Vector2(160.0, 160.0)
 # Commando pistol-fire dest rect. The v4 sheet is standardized to
 # 640x320 / cell 160x160 with body height ~100 px (idle-anchor matched),
 # so the dest rect matches idle/walk at 160x160. Previous 80x107 dest was
@@ -228,6 +229,11 @@ func draw(
 		player_draw_size = _as_vector2(
 			context.get("player_pistol_fire_draw_size", DEFAULT_PLAYER_PISTOL_FIRE_DRAW_SIZE),
 			DEFAULT_PLAYER_PISTOL_FIRE_DRAW_SIZE
+		)
+	elif bool(context.get("commando_radio_call_active", false)) and not player_result_active:
+		player_draw_size = _as_vector2(
+			context.get("player_commando_radio_call_draw_size", DEFAULT_PLAYER_COMMANDO_RADIO_CALL_DRAW_SIZE),
+			DEFAULT_PLAYER_COMMANDO_RADIO_CALL_DRAW_SIZE
 		)
 	var player_paddle_scale: float = max(0.1, float(context.get("player_paddle_scale", max(1.0, paddle_size.x / 155.0))))
 	player_draw_size *= player_paddle_scale
@@ -1478,6 +1484,8 @@ func _draw_commando_weapon_b2_overlay(
 		return
 	if bool(context.get("commando_pistol_fire_active", false)):
 		return
+	if bool(context.get("commando_radio_call_active", false)):
+		return
 	if bool(context.get("player_victory_active", false)) or bool(context.get("player_defeat_active", false)):
 		return
 	if bool(context.get("player_wheel_spin_active", false)):
@@ -1603,6 +1611,8 @@ func _draw_commando_weapon_overlay(
 	if bool(context.get("commando_attack_active", false)):
 		return
 	if bool(context.get("commando_pistol_fire_active", false)):
+		return
+	if bool(context.get("commando_radio_call_active", false)):
 		return
 	if bool(context.get("player_victory_active", false)) or bool(context.get("player_defeat_active", false)):
 		return

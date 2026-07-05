@@ -12,25 +12,35 @@ var _prewarm_step_index := 0
 var _prewarm_finished_for := ""
 
 
-func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
-	while not prewarm_assets_step(module_getter, selected_character_type):
+func prewarm_assets(
+	module_getter: Callable,
+	selected_character_type: String = "smasher",
+	stage1_boss_variant: String = "dalji"
+) -> void:
+	while not prewarm_assets_step(module_getter, selected_character_type, stage1_boss_variant):
 		pass
 
 
-func prewarm_assets_step(module_getter: Callable, selected_character_type: String = "smasher") -> bool:
-	if _prewarm_finished_for == selected_character_type:
+func prewarm_assets_step(
+	module_getter: Callable,
+	selected_character_type: String = "smasher",
+	stage1_boss_variant: String = "dalji"
+) -> bool:
+	var normalized_stage1_boss_variant: String = _normalize_stage1_boss_variant(stage1_boss_variant)
+	var prewarm_key := "%s:%s" % [selected_character_type, normalized_stage1_boss_variant]
+	if _prewarm_finished_for == prewarm_key:
 		return true
 	if _prewarm_step_index == 0:
 		if hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets_step"):
-			if not bool(hud_scene_drawer.prewarm_assets_step(module_getter, selected_character_type)):
+			if not bool(hud_scene_drawer.prewarm_assets_step(module_getter, selected_character_type, normalized_stage1_boss_variant)):
 				return false
 		elif hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets"):
-			hud_scene_drawer.prewarm_assets(module_getter, selected_character_type)
+			hud_scene_drawer.prewarm_assets(module_getter, selected_character_type, normalized_stage1_boss_variant)
 		_prewarm_step_index = 1
 		return false
 	if _prewarm_step_index == 1:
 		_get_module(module_getter, "stage1_fallback_pillar_renderer")
-	_prewarm_finished_for = selected_character_type
+	_prewarm_finished_for = prewarm_key
 	_prewarm_step_index = 0
 	return true
 
@@ -155,6 +165,15 @@ func _with_stage1_hud_lod_context(context: Dictionary, quality_scale: float) -> 
 	hud_context["stage1_pillar_hud_static_lod"] = true
 	hud_context["pillar_hud_static_lod"] = true
 	return hud_context
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
 
 
 func _build_stage1_crescendo_snapshot(registry: Object) -> Dictionary:

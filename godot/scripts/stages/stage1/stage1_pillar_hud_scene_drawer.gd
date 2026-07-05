@@ -26,7 +26,6 @@ const BASE_PREWARM_MODULE_KEYS := [
 	"runtime_perk_state",
 	"mythic_item_runtime",
 	"lingpet_egg_runtime",
-	"stage1_dalji_boss_skill_cooldown_state",
 ]
 
 var active_item_drawer: Object = Stage1ActiveItemHudSceneDrawer.new()
@@ -34,6 +33,7 @@ var top_mini_scoreboard_drawer: Object = Stage1TopMiniScoreboardSceneDrawer.new(
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var _prewarm_step_index := 0
 var _prewarm_character_type := ""
+var _prewarm_stage1_boss_variant := ""
 var _prewarm_finished_for := ""
 var _plaza_gold_store: Object = PlazaSaveStore.new()
 var _plaza_gold_cache_loaded := false
@@ -50,17 +50,28 @@ var _pillar_ui_render_context: Dictionary = {}
 var _default_boss_dash_snapshot: Dictionary = {}
 
 
-func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
-	while not prewarm_assets_step(module_getter, selected_character_type):
+func prewarm_assets(
+	module_getter: Callable,
+	selected_character_type: String = "smasher",
+	stage1_boss_variant: String = "dalji"
+) -> void:
+	while not prewarm_assets_step(module_getter, selected_character_type, stage1_boss_variant):
 		pass
 
 
-func prewarm_assets_step(module_getter: Callable, selected_character_type: String = "smasher") -> bool:
+func prewarm_assets_step(
+	module_getter: Callable,
+	selected_character_type: String = "smasher",
+	stage1_boss_variant: String = "dalji"
+) -> bool:
 	var character_type: String = character_runtime.normalize(selected_character_type)
-	if _prewarm_finished_for == character_type:
+	var normalized_stage1_boss_variant: String = _normalize_stage1_boss_variant(stage1_boss_variant)
+	var prewarm_key := "%s:%s" % [character_type, normalized_stage1_boss_variant]
+	if _prewarm_finished_for == prewarm_key:
 		return true
-	if _prewarm_character_type != character_type:
+	if _prewarm_character_type != character_type or _prewarm_stage1_boss_variant != normalized_stage1_boss_variant:
 		_prewarm_character_type = character_type
+		_prewarm_stage1_boss_variant = normalized_stage1_boss_variant
 		_prewarm_step_index = 0
 
 	var character_keys: Array = _get_character_prewarm_keys(character_type)
@@ -79,12 +90,17 @@ func prewarm_assets_step(module_getter: Callable, selected_character_type: Strin
 	var special_step := character_step - character_keys.size()
 	match special_step:
 		0:
-			var skill_hud: Object = _get_module(module_getter, "stage1_dalji_boss_skill_hud_renderer")
-			if skill_hud != null and skill_hud.has_method("prewarm_assets_step"):
-				if not bool(skill_hud.prewarm_assets_step()):
-					return false
-			elif skill_hud != null and skill_hud.has_method("prewarm_assets"):
-				skill_hud.prewarm_assets()
+			var cooldown_key: String = _get_stage1_boss_skill_cooldown_key(normalized_stage1_boss_variant)
+			if cooldown_key != "":
+				_get_module(module_getter, cooldown_key)
+			var skill_hud_key: String = _get_stage1_boss_skill_hud_key(normalized_stage1_boss_variant)
+			if skill_hud_key != "":
+				var skill_hud: Object = _get_module(module_getter, skill_hud_key)
+				if skill_hud != null and skill_hud.has_method("prewarm_assets_step"):
+					if not bool(skill_hud.prewarm_assets_step()):
+						return false
+				elif skill_hud != null and skill_hud.has_method("prewarm_assets"):
+					skill_hud.prewarm_assets()
 		1:
 			var status_orb_renderer: Object = _get_module(module_getter, "pillar_status_orb_renderer")
 			if status_orb_renderer != null and status_orb_renderer.has_method("prewarm_caches_step"):
@@ -115,7 +131,7 @@ func prewarm_assets_step(module_getter: Callable, selected_character_type: Strin
 		6:
 			_refresh_plaza_gold_cache_from_module_getter(module_getter)
 		_:
-			_prewarm_finished_for = character_type
+			_prewarm_finished_for = prewarm_key
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
@@ -125,6 +141,7 @@ func prewarm_assets_step(module_getter: Callable, selected_character_type: Strin
 func reset_prewarm_cache() -> void:
 	_prewarm_step_index = 0
 	_prewarm_character_type = ""
+	_prewarm_stage1_boss_variant = ""
 	_prewarm_finished_for = ""
 
 
@@ -161,7 +178,8 @@ func draw_active_item_hud(
 	registry: Object,
 	view_size: Vector2,
 	game_offset: Vector2,
-	game_size: Vector2
+	game_size: Vector2,
+	include_stage1_boss_skill_hud: bool = true
 ) -> void:
 	var perf_logger: Object = context.get("battle_perf_logger", null)
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
@@ -172,9 +190,10 @@ func draw_active_item_hud(
 	sample_start = _perf_begin(perf_logger)
 	active_item_drawer.draw(canvas, context, registry, view_size, game_offset, game_size)
 	_perf_end(perf_logger, "stage1.pillar.active_item_hud", sample_start)
-	sample_start = _perf_begin(perf_logger)
-	_draw_stage1_dalji_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
-	_perf_end(perf_logger, "stage1.pillar.dalji_boss_hud", sample_start)
+	if include_stage1_boss_skill_hud:
+		sample_start = _perf_begin(perf_logger)
+		_draw_stage1_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
+		_perf_end(perf_logger, "stage1.pillar.boss_skill_hud", sample_start)
 
 
 func _draw_stage1_pillar_ui(
@@ -286,6 +305,24 @@ func _draw_stage1_pillar_ui(
 	_perf_end(perf_logger, "stage1.pillar.ui_renderer", renderer_start)
 
 
+func _draw_stage1_boss_skill_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	time_seconds: float
+) -> void:
+	if int(context.get("current_stage", 1)) != 1:
+		return
+	var stage1_boss_variant: String = _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji"))
+	if stage1_boss_variant == "gaksi":
+		_draw_stage1_gaksital_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
+	elif stage1_boss_variant == "dalji":
+		_draw_stage1_dalji_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
+
+
 func _draw_stage1_dalji_boss_skill_hud(
 	canvas: CanvasItem,
 	context: Dictionary,
@@ -321,6 +358,40 @@ func _draw_stage1_dalji_boss_skill_hud(
 	# so egg / none states never expose it). append_entry also force-enables the
 	# rail's active flag so the card shows even when no boss skill is live.
 	LingpetRailCard.append_entry(hud_context, registry, "stage1_dalji_boss_skill_hud_skills", "stage1_dalji_boss_skill_hud_active")
+	renderer.draw(canvas, hud_context)
+
+
+func _draw_stage1_gaksital_boss_skill_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	time_seconds: float
+) -> void:
+	var renderer: Object = _get_cached_module(registry, "stage1_gaksital_boss_skill_hud_renderer")
+	if renderer == null or not renderer.has_method("draw"):
+		return
+	var cooldown_state: Object = _get_cached_module(registry, "stage1_gaksital_boss_skill_cooldown_state")
+	if cooldown_state == null or not cooldown_state.has_method("get_hud_context"):
+		return
+	var hud_context: Dictionary = context.duplicate()
+	hud_context.merge(cooldown_state.get_hud_context(), true)
+	hud_context["view_size"] = view_size
+	hud_context["game_offset"] = game_offset
+	hud_context["game_size"] = game_size
+	hud_context["time_seconds"] = time_seconds
+	var firearm_panel_state: Dictionary = _build_commando_firearm_panel_state_for_boss_hud(
+		context,
+		registry,
+		game_offset,
+		game_size
+	)
+	var firearm_panel_rect: Rect2 = _get_rect(firearm_panel_state.get("rect", Rect2()))
+	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
+		hud_context["commando_firearm_panel_rect"] = firearm_panel_rect
+	LingpetRailCard.append_entry(hud_context, registry, "stage1_gaksital_boss_skill_hud_skills", "stage1_gaksital_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
 
 
@@ -580,6 +651,33 @@ func _get_character_prewarm_keys(character_type: String) -> Array:
 func _prewarm_modules(module_getter: Callable, keys: Array) -> void:
 	for key_value in keys:
 		_get_module(module_getter, str(key_value))
+
+
+func _normalize_stage1_boss_variant(value: Variant) -> String:
+	var variant: String = str(value).strip_edges().to_lower()
+	if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+		return "gaksi"
+	if variant in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	return "dalji"
+
+
+func _get_stage1_boss_skill_cooldown_key(stage1_boss_variant: String) -> String:
+	match _normalize_stage1_boss_variant(stage1_boss_variant):
+		"gaksi":
+			return "stage1_gaksital_boss_skill_cooldown_state"
+		"dalji":
+			return "stage1_dalji_boss_skill_cooldown_state"
+	return ""
+
+
+func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
+	match _normalize_stage1_boss_variant(stage1_boss_variant):
+		"gaksi":
+			return "stage1_gaksital_boss_skill_hud_renderer"
+		"dalji":
+			return "stage1_dalji_boss_skill_hud_renderer"
+	return ""
 
 
 func _get_module(module_getter: Callable, key: String) -> Object:

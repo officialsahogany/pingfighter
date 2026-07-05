@@ -52,6 +52,31 @@ class FakeCooldownState:
 		}
 
 
+class FakeLingpetRuntime:
+	extends RefCounted
+
+	var snapshot_calls := 0
+
+	func is_companion_active(_pet_id: String = "") -> bool:
+		return true
+
+	func get_snapshot() -> Dictionary:
+		snapshot_calls += 1
+		return {
+			"companion_skill_id": "maribo_hydro_sphere",
+			"companion_skill_name": "Hydro Sphere",
+			"companion_skill_description": "Test companion skill",
+			"companion_skill_card_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+			"companion_skill_cooldown": 0.0,
+			"companion_skill_cooldown_duration": 40.0,
+			"companion_skill_ready": true,
+			"companion_skill_flash_ratio": 0.0,
+			"companion_skill_winding_up": false,
+			"hydro_sphere_projectile_active": false,
+			"hydro_sphere_puddle_active": false,
+		}
+
+
 class FakePillarUiRenderer:
 	extends RefCounted
 
@@ -81,6 +106,9 @@ class FakeRegistry:
 	func _init(initial_entries: Dictionary = {}) -> void:
 		entries = initial_entries
 
+	func get_cached_instance(key: String) -> Object:
+		return entries.get(key, null)
+
 	func get_instance(key: String) -> Object:
 		return entries.get(key, null)
 
@@ -90,6 +118,7 @@ func _init() -> void:
 	_verify_cards_avoid_commando_firearm_panel()
 	_verify_post_active_hud_pass_seeds_commando_panel_rect()
 	_verify_scene_drawer_passes_commando_panel_rect()
+	_verify_stage1_shared_boss_hud_skips_lingpet_snapshot_off_stage()
 	_verify_boss_dash_uses_compact_fallback_frame()
 	_verify_stage1_pillar_scene_static_hud_lod()
 	_verify_viper_hud_lod_context()
@@ -211,6 +240,52 @@ func _verify_scene_drawer_passes_commando_panel_rect() -> void:
 	_expect(boss_renderer.draw_calls == 1, "Stage 1 boss skill HUD should still draw through the scene drawer")
 	var passed_rect: Rect2 = _get_rect(boss_renderer.last_context.get("commando_firearm_panel_rect", Rect2()))
 	_expect(passed_rect == pillar_renderer.panel_rect, "scene drawer should pass the live Commando firearm panel rect into the boss skill HUD")
+
+
+func _verify_stage1_shared_boss_hud_skips_lingpet_snapshot_off_stage() -> void:
+	var boss_renderer := FakeBossSkillRenderer.new()
+	var lingpet_runtime := FakeLingpetRuntime.new()
+	var registry := FakeRegistry.new({
+		"stage1_dalji_boss_skill_hud_renderer": boss_renderer,
+		"stage1_dalji_boss_skill_cooldown_state": FakeCooldownState.new(),
+		"stage1_pillar_ui_renderer": FakePillarUiRenderer.new(),
+		"commando_firearm_selector_renderer": RefCounted.new(),
+		"commando_weapon_controller": RefCounted.new(),
+		"lingpet_egg_runtime": lingpet_runtime,
+	})
+	var drawer := Stage1PillarHudSceneDrawer.new()
+	var base_context := {
+		"height": 750.0,
+		"selected_character_type": "soldier",
+		"stage1_boss_variant": "dalji",
+	}
+	var off_stage_context := base_context.duplicate()
+	off_stage_context["current_stage"] = 2
+	drawer._draw_stage1_boss_skill_hud(
+		null,
+		off_stage_context,
+		registry,
+		Vector2(2048.0, 1152.0),
+		Vector2(512.0, 64.0),
+		Vector2(1024.0, 1024.0),
+		0.0
+	)
+	_expect(lingpet_runtime.snapshot_calls == 0, "Stage 1 shared boss HUD should not build lingpet snapshots off Stage 1")
+	_expect(boss_renderer.draw_calls == 0, "Stage 1 shared boss HUD should not draw off Stage 1")
+
+	var stage1_context := base_context.duplicate()
+	stage1_context["current_stage"] = 1
+	drawer._draw_stage1_boss_skill_hud(
+		null,
+		stage1_context,
+		registry,
+		Vector2(2048.0, 1152.0),
+		Vector2(512.0, 64.0),
+		Vector2(1024.0, 1024.0),
+		0.0
+	)
+	_expect(lingpet_runtime.snapshot_calls == 1, "Stage 1 shared boss HUD should still build one lingpet snapshot on Stage 1")
+	_expect(boss_renderer.draw_calls == 1, "Stage 1 shared boss HUD should still draw on Stage 1")
 
 
 func _verify_boss_dash_uses_compact_fallback_frame() -> void:

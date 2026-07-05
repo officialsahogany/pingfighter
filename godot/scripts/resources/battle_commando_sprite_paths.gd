@@ -17,6 +17,9 @@ const COMMANDO_PLAYER_NET_GUN_FIRE_SHEET_PATH := "res://assets/sprites/character
 const COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_bowling_trap_place_sheet.png"
 const COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_suicide_drone_control_sheet.png"
 const COMMANDO_PLAYER_ATTACK_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_attack_sheet.png"
+const COMMANDO_PLAYER_RADIO_CALL_SHEET_PATH := "res://assets/sprites/characters/commando/commando_subculture_radio_call_sheet.png"
+const COMMANDO_PLAYER_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_round_victory_autosprite_v1_8f_4x2_160_clean.png"
+const COMMANDO_PLAYER_DEFEAT_SHEET_PATH := "res://assets/sprites/characters/commando/commando_round_defeat_back_autosprite_v1_8f_4x2_160_clean.png"
 
 const COMMANDO_WEAPON_OVERLAY_AK47_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_ak47.png"
 const COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH := "res://assets/sprites/characters/commando/weapons/commando_weapon_overlay_bazooka.png"

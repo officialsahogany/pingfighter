@@ -201,7 +201,8 @@ func _prewarm_effects_context(owner: Object, registry: Object) -> void:
 		context_builder.build_effects_deps(
 			registry,
 			int(effects_context.get("current_stage", _get_owner_value(owner, "current_stage", 1))),
-			str(effects_context.get("selected_character_type", character_type))
+			str(effects_context.get("selected_character_type", character_type)),
+			str(effects_context.get("stage1_boss_variant", _get_owner_value(owner, "stage1_boss_variant", "dalji")))
 		)
 
 

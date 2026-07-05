@@ -29,7 +29,7 @@ const STAGE_RUNTIME_COMMON_SAMPLE_LABELS := [
 	"02_mythic_item_runtime_deferred",
 	"03_runtime_perk_overlay",
 	"04_runtime_perk_debug_deferred",
-	"05_character_info_deferred",
+	"05_character_info_prewarm",
 	"06_selected_character",
 	"07_ball_update_deps",
 	"08_stage_clear_result_deferred",
