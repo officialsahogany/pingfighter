@@ -6,7 +6,13 @@
 > Claude는 스프라이트 아트 디렉션 + 적대적 리뷰를 담당한다
 > (`feedback_design_slice_review_division`, 자산 워크플로 분담).
 
-상태: **설계 확정 / 미배선** (2026-06-23 작성)
+상태: **슬라이스 1~4(MVP) + 5a/5b(fan_wind 런타임) + 5c(아트 패스) + 카오스
+스피어 흡수 배선 완료** (2026-07-03, 미커밋). 5a/5b = 사용자 배선 + Claude
+적대리뷰 APPROVE + 반증검증. 5c = 소용돌이 16f AutoSprite 시트 + 스킬카드
+PNG 생성·배치·배선. 리뷰 후속(P1/P2): 렌더러 draw()를 플랫 시퀀스로 재구조화
+(_draw_fans 분리, fan_wind 렌더가 팬 리스트에 절대 게이트되지 않음 —
+구조 씰 포함) + 카오스 흡수 실배선(§2b.4-1c). 게이트(headless load /
+warning scan / 스모크 / 반증검증) 전부 GREEN. 잔여 = 인게임 라이브 QA, 커밋.
 
 ---
 
@@ -24,6 +30,14 @@
    - 랜덤 선출 / 메뉴 선택 UI / 풍악보이·포도대장 확장은 **후속 슬라이스**.
      이 키는 나중에 풀 로스터로 키울 수 있는 "씨앗"이지, 지금 로스터를
      만드는 게 아니다.
+   - **룰렛 현황(2026-07-04)**: 랜덤 선출 인프라는 배선 완료 —
+     `battle_scene_selection_startup_lifecycle.resolve_stage1_boss_variant`가
+     비명시(일반) 진입에서 `STAGE1_RANDOM_BOSS_VARIANTS` 풀 추첨, 디버그
+     강제선택(`stage1_boss_variant_explicit`)은 룰렛 우회. **사용자 결정:
+     각시탈/포도대장이 릴리즈 준비될 때까지 풀 = `["dalji"]` 단독** (스모크
+     `battle_scene_selection_startup_lifecycle_smoke`가 달지-only 풀 +
+     비명시 진입 48회 전부 달지 + explicit 우회 유지를 봉인, 반증검증 완료).
+     재개방 = 풀 상수에 `"gaksi"` / `"podo"` 재추가 + 스모크 단언 갱신.
 2. **스킬 범위 = `fan_throw`(부채던지기)만 (MVP).** 달지 팽이(`spinning_top`)
    미러. `fan_wind`(부채바람, 공 포획 소용돌이)는 **2차 슬라이스**
    — owned-ball(`skip_ball_motion_step`) 방출 트랩 영역이라 위험도가 한 단계
@@ -112,6 +126,166 @@
 **스턴/넉백**: Godot 플레이어 스턴 시스템 + 넉백 채널을 **단위 1:1**로 사용
 (`feedback_godot_boss_knockback_port_parity`: power는 Python @60fps ↔ Godot
 `*fps_scale` 1:1, 형제 상수 빌려쓰기 금지). 넉백 ±12 px/frame 그대로.
+
+---
+
+## 2b. 2차 스킬 — `fan_wind` (부채바람, 공 포획 소용돌이)
+
+출처: `pingfighter.py` `activate_fan_wind()` (L107560), `update_fan_wind()`
+(L107586), `check_fan_wind_effect()` (L107664), `draw_fan_wind_effect()`
+(L107687), 상태변수 L67602+, 트리거 L173963(보스 공 타격 핸들러), 카오스
+스피어 흡수 상호작용 L6260.
+
+> ⚠️ 이 스킬은 CLAUDE.md **owned-ball(`skip_ball_motion_step`) 트랩의 정면
+> 대상**이다. §2b.4의 체크리스트 매핑을 배선 전에 전부 읽을 것. 숫자는 전부
+> **px/frame** — §2의 단위 트랩 동일 적용.
+
+### 2b.1 메커니즘 (Python 원본, px/frame @ 60fps)
+
+| 단계 | 값 / 동작 |
+|---|---|
+| 트리거(원본) | **보스가 공을 쳐낸 프레임**에 게이지≥150 & 20% 롤 & 라운드당 1회(`fan_wind_used_this_round`). 발동 대사 3종 랜덤: "소용돌이!" / "빨려들어라~!" / "회오리바람!" (90f) |
+| 충전(charging) | 60f(1초) 부채질 선딜. 소용돌이 성장 `growth_scale = 0→1`. 충전 중 소용돌이 이동 없음 |
+| 소용돌이 스폰 위치 | `x = 보스중심x + rand(-30, 30)`, `y = 보스 bottom + 10` (발동 시점 고정, launch 재계산 없음 — fan_throw와 다름) |
+| 활성(active) | timer `240f`(4초). 충전 완료 시 active 전환, scale 1.0 고정 |
+| 소용돌이 이동 | `y += 0.6`/f (하강), `x += drift_vx`. drift_vx 초기 `±1.2` 균등, `25~55f`마다 `±1.5`로 재추첨. X 클램프 `[110, 650]` 도달 시 부호 반사 |
+| 만료 | `timer <= 0` 또는 `y > 720` (240f×0.6=144px 하강 한계라 y-조건은 실질 도달 불가 failsafe — 삭제하지 말고 유지) |
+| 포획 체크(공 경로) | active && !captured && `dist(공중심, 소용돌이) < 42` → 포획. `capture_radius = max(dist, 8)`, `capture_angle = atan2(dy,dx)`, `ball_vel = (0,0)` |
+| 포획 상태(60f) | 공이 소용돌이 궤도 공전: progress<0.6 → `radius *= 0.96`/f (min 3), 이후 → `radius *= 1.06`/f (max 55). `spin_speed = 0.25 + progress*0.35` rad/f. **공 위치 = 소용돌이중심 + polar(angle, radius) 직접 기록, vel 0 유지** |
+| 포획 해제(60f 경과) | `angle = uniform(0, 2π)`, `speed = uniform(12, 16)`, `vy = abs(vy)` 하향 강제 → 일반 물리 복귀 |
+| 만료 시 포획 중이면 | `angle = uniform(-0.8π, -0.2π)`, `speed = 13`, `vy = abs(sin)*13` 하향 → 일반 물리 복귀 |
+| 카오스 스피어 흡수 | 바이퍼 카오스 스피어 앱소브 펄스가 charging/active 소용돌이를 **흡수** — 펄스 VFX + 오브젝트 골드 지급 + fan_wind 상태 전체 클리어 (L6260-6269) |
+| 면역/대상 | **플레이어 직접 효과 없음** (fan_throw의 스턴/연막면역과 무관). 공만 건드린다 |
+| 비주얼 | 충전: 보스 위치에서 부채질 스윙+잔상+바람줄기(보스→소용돌이). 본체: 바람구름 8원 + 나선 8겹 + 밝은 코어 + 알갱이 노이즈 (절차) |
+
+### 2b.2 Godot 매핑 결정 (권장안 — 배선 전 사용자 확정)
+
+- **D-FW1 트리거 = whip(상모돌리기) 패턴 미러 (권장).** 쿨다운 상태에
+  `SKILL_FAN_WIND` 카드 추가, `TRIGGER_ON_BOSS_HIT`, 쿨다운 `1200f` 제안
+  (whip 1320f / fan_throw 960f 사이). ready 상태에서 다음 보스 공 타격 시
+  `consume_on_hit("fan_wind")` 발동. Python의 게이지150+20%롤+라운드1회는
+  "랠리당 대략 1회, 보스 히트 타이밍"의 구현이었고, 쿨다운+온히트가 같은
+  체감을 재현한다 — **20% 롤과 `used_this_round` 플래그는 폐지** (의도
+  분기로 기록). 대안: ready 중 보스히트당 20% 롤 유지(체감 지터만 추가됨,
+  비권장).
+- **D-FW2 로밍 클램프 = Python 값 `[110, 650]` 유지 (권장).** 이것은 화면
+  클립이 아니라 **해저드 로밍 밴드**다 — 플레이필드-레터박스 규칙(§AGENTS
+  "Playfield / Pillar / Overlay Clip Reality")의 클립 금지 대상이 아니고,
+  아이템 스폰 밴드(80..680)와 같은 부류. 원본 게임플레이 도달 범위 패리티
+  우선. 대안: 풀캔버스 `[30, 730]`.
+- **D-FW3 소용돌이 비주얼 = AutoSprite 16f 루프 시트 + 절차 액센트 (권장).**
+  CLAUDE.md "Runtime Skill-Effect Sprite Sheets" 기본(4×4 16f 루프)을 소용돌이
+  본체에 적용, 충전 부채질/바람줄기는 절차 라인 액센트(3-피스 방법론). 대안:
+  Python 절차 나선 풀 포팅(바람구름+나선 8겹 — draw 비용 주의, 매프레임
+  polyline 8겹).
+- 발동 대사 3종("소용돌이!"/"빨려들어라~!"/"회오리바람!")은 기존 각시탈
+  대사 경로가 있으면 그 경로로, 없으면 이번 슬라이스에서 보스 스피치를
+  포팅하지 않고 **대사 생략을 명시 기록** (트랩 §6-9 다국어 동기화가 조건).
+
+### 2b.3 신호 계약 — `stage1_gaksital_fan_wind_skill_state.gd` (RefCounted)
+
+상수(전부 px/frame): `CHARGE_FRAMES 60`, `DURATION_FRAMES 240`,
+`SPAWN_X_JITTER 30`, `SPAWN_Y_OFFSET 10`, `DESCENT_PER_FRAME 0.6`,
+`DRIFT_INIT_MAX 1.2`, `DRIFT_REROLL_MAX 1.5`, `DRIFT_REROLL_MIN_FRAMES 25`,
+`DRIFT_REROLL_MAX_FRAMES 55`, `ROAM_LEFT 110.0`, `ROAM_RIGHT 650.0`,
+`CAPTURE_RADIUS 42.0`, `CAPTURE_DURATION_FRAMES 60`, `ORBIT_SHRINK 0.96`,
+`ORBIT_GROW 1.06`, `ORBIT_MIN 3.0`, `ORBIT_MAX 55.0`, `SPIN_BASE 0.25`,
+`SPIN_GAIN 0.35`, `RELEASE_SPEED_MIN 12.0`, `RELEASE_SPEED_MAX 16.0`,
+`EXPIRE_RELEASE_SPEED 13.0`, `FAILSAFE_Y 720.0`.
+
+- `reset()` / `reset_round()` — charging/active/captured/타이머 전부 초기화.
+  **포획 중 teardown이면 반환할 공 상태가 없으므로**, 라운드 경계는
+  `ball_round_state.build_common_snapshot`의 skip 정규화 레이어(§2b.4-1d)가
+  공을 회수한다 — reset 자체가 ball을 만지지 않는다.
+- `can_activate(context) -> bool` — stage1 + gaksi + not charging/active.
+- `try_consume_boss_hit(context, deps) -> bool` — 보스 공 타격 시 호출
+  (whip `register_boss_hit` 미러). 쿨다운 `consume_on_hit("fan_wind")` 성공
+  시 charging 시작 + 소용돌이 위치 시드(보스 위치는 이 프레임 기준).
+- `update_and_collide(fps_scale, scene, context, deps) -> Dictionary` —
+  **ball path 전용 틱** (§2b.4-2). charging 카운트다운 → active 이동/만료 →
+  포획 체크(공 위치는 scene에서) → 포획 궤도 갱신 → 해제. 반환 dict:
+  `skip_ball_motion_step`(포획 중 true / 해제 프레임 false),
+  `ball_pos`(포획 중 궤도 위치), `ball_vel`(해제 시 실속도), 만료/흡수 정리.
+- `notify_absorbed_by_chaos_spear(context, deps) -> Dictionary` — 카오스
+  스피어 흡수 훅. 상태 클리어 + **포획 중이었으면 해제 속도 반환**(§2b.4-5).
+- `get_draw_context() -> Dictionary` — `stage1_fan_wind_active` /
+  `stage1_fan_wind_charging`, 소용돌이 (x, y), `growth_scale`, captured 여부,
+  공전 각도(비주얼 동기용).
+- `is_active()` / `is_ball_captured()`.
+
+### 2b.4 owned-ball 트랩 체크리스트 매핑 (배선 전 필독, CLAUDE.md 대응)
+
+1. **모든 해제 경로에서 `skip_ball_motion_step=false` + 실속도.** 해제
+   경로 인벤토리 — 이 4개가 전부다:
+   - (a) 포획 60f 만료 → `uniform(0,2π)` × `uniform(12,16)`, vy 하향.
+   - (b) 소용돌이 만료(timer/failsafe) 중 포획 → `uniform(-0.8π,-0.2π)`
+     × 13, vy 하향.
+   - (c) 카오스 스피어 흡수 → (b)와 동일 해제 처리 후 클리어. **Python은
+     여기서 captured만 클리어하고 공 속도를 방치**했다(카오스 스피어가 공을
+     소유 중인 상황만 있어 은폐된 원본 결함) — Godot에서는 카오스 스피어가
+     공을 소유하지 않은 채 흡수가 일어날 수 있으면 반드시 해제 속도를 줘야
+     한다. **배선 완료(2026-07-03, 5c 후속)**: fan_wind 상태에
+     `absorb_chaos_spear_objects(center, pull_radius)` 구현 —
+     active/charging + 반경 내면 상태 클리어 후
+     `[{position, strength 1.15, color}]` 반환(Python L6260의 1.15 펄스
+     스케일 패리티). 컬렉터
+     `viper_skill_chaos_spear_ball_motion_runtime._collect_absorbed_objects`의
+     absorb_key 리스트에 `stage1_gaksital_fan_wind_skill_state` 추가 완료.
+     **captured 폴 스킵 가드 포함** — absorb 폴은 카오스의
+     apply_motion(ball path :67, fan_wind 틱 :68보다 앞)에서 불리므로,
+     포획 공의 해제 dict를 scene에 적용할 소비자가 그 시점엔 없다. 공을 문
+     소용돌이는 자연 해제 후 다음 폴에서 흡수된다. 씰: fan_wind 스모크의
+     프로토콜 3단언(흡수 클리어 / 반경밖 생존 / captured 스킵) + 컬렉터
+     실경로 단언 — 반증검증은 컬렉터 미배선 상태 선실행으로 정확히 그
+     단언만 RED임을 확인 후 배선. 의도 분기 기록: 거리 게이트는 Godot
+     컬렉터 프로토콜(pull_radius 175)을 따른다(Python은 무조건 스윕).
+   - (d) 라운드/컨텍스트 teardown — ball path 밖에서 일어날 수 있다.
+     `ball_round_state.build_common_snapshot`이 라운드 경계에서
+     `skip_ball_motion_step=false`로 정규화하는 기존 레이어가 회수한다
+     (chaos spear 트랩의 라운드 정규화 레이어, 이미 구현·봉인됨). 스모크로
+     이 커버리지를 fan_wind 케이스에 대해 재봉인할 것.
+2. **구조 면역 패턴 = ghost shot 형 (ball-path-only 틱).** 상태머신 틱과
+   해제 소비가 전부 ball path(`ball_frame_motion_controller`)에서 일어나면
+   update_effects-only 모달 퍼즈 중 만료→pending 유실 클래스(카오스 스피어
+   블랙홀 사고)가 **구조적으로 불가능**하다. fan_throw처럼
+   `apply_stage1_gaksital_fan_wind()`를 ball path에 배선하고, **effects
+   경로에서 이 상태를 틱하지 말 것.** 쿨다운 충전(effects 경로)과 스킬
+   상태머신(ball 경로)은 분리 유지.
+3. **패들 접촉 보존 의무 — 비적용 근거 기록.** 포획 궤도의 도달 범위는
+   y ≈ 스폰(≈75) + 하강(≤144) ± 궤도(≤55) ≈ 최대 274 — 플레이어 패들
+   밴드(≥630)에 물리적으로 도달 불가. 보스 패들 겹침(궤도 상단)은 Python과
+   동일하게 무상호작용(해제가 항상 하향 발사라 자연 이탈). 이 근거를 코드
+   주석 한 줄로 기록.
+4. **배리어/바닥 체크 복제 의무 — 비적용 근거 기록.** fan_wind는 스스로
+   floor/score를 해소하지 않는다(만료 = 해제 후 일반 물리 복귀, 홍련 인페르노와
+   다름). 홀리배리어/브릭월 복제 불필요 — 근거를 코드 주석으로.
+5. **동시 소유자 존중.** 포획 체크는 **`skip_ball_motion_step`이 이미 true면
+   no-op** (고스트샷 텔레포트/카오스 블랙홀/포세이돈 등 선점 소유 절대 탈취
+   금지 — stage5 인페르노의 소유권 덮어쓰기 사례 참조). 재확인: 소용돌이는
+   공을 잡을 뿐 공-소유 스킬들의 릴리즈를 방해하지 않는다.
+6. **freeze-actor 스냅샷 감사 — 양방향.** fan_wind는 원속도 스냅샷을 만들지
+   않는다(해제 속도는 신규 생성) → 자기 방향은 면역. 반대 방향(타 액터가
+   포획 중 `ball_vel` 스냅샷)은 기존 near-zero 폴백 가드들이 커버 — 신규
+   가드 불필요, 감사 결과만 기록.
+
+### 2b.5 봉인 스모크 (OUTCOME 기준) + 반증검증
+
+공/투사체 전진은 반드시 `vel * delta * 60` (raw vel 금지). 반증검증은
+**in-place Edit 토글만** — `git reset`/`checkout`/`stash` 절대 금지.
+
+1. 충전→활성: 보스히트 소비 → 60f 후 active, growth_scale 0→1.
+2. 포획: 공을 반경 42 안으로 스텝 → captured + `skip_ball_motion_step=true`
+   + 공 위치가 궤도를 따라 실제로 움직임(프레임 간 위치 변화 단언).
+3. 해제(60f): skip=false + `speed ∈ [12,16]` + `vy > 0` + **다음 프레임부터
+   일반 모션으로 공이 실제 전진**(플래그가 아니라 위치 변화 단언).
+4. 만료 해제: timer 소진 시 포획 중이던 공이 skip=false + speed 13 + vy>0.
+5. 라운드 경계 회수: 포획 중 라운드 리셋 → `build_common_snapshot` 결과
+   skip=false + fan_wind 상태 클리어(정지공 소프트락 없음).
+6. 선점 소유 존중: skip이 이미 true인 프레임에 반경 진입 → 포획 no-op.
+7. dalji/fan_throw 회귀: variant "dalji"에서 fan_wind 키가 scene/deps/draw에
+   일절 등장하지 않음 + 기존 gaksi fan_throw 스모크 GREEN 유지.
+8. **반증검증**: (3)의 해제 skip=false 라인을 in-place 토글로 죽이면 스모크
+   3·5가 FAIL하는지 확인(정지공 재현) 후 원복.
 
 ---
 
@@ -266,7 +440,31 @@ Sprite Sheets" 기본 권장)을 회전/사행 모션으로 합성. 모듈러 VF
   대체).
 - N1 패배결산 보스명 variant 분기.
 - D1 디버그 picker 스테이지1 하위선택.
-- 후속(별도): 랜덤/메뉴 선출, fan_wind 2차 스킬.
+- 후속(별도): 랜덤/메뉴 선출(포도대장 플랜 Slice7로 통합), fan_wind 2차
+  스킬(슬라이스 5).
+
+### 슬라이스 5 — `fan_wind` 부채바람 (2차, §2b 설계)
+
+> 착수 전제: D-FW1~3 사용자 확정. 배선자는 §2b.4 owned-ball 체크리스트를
+> 코드 리뷰 기준으로 삼는다.
+
+- **5a — 스킬 상태 본체 + 공 포획/해제** (위험도 최고 구간):
+  `stage1_gaksital_fan_wind_skill_state.gd` (§2b.3 계약) + ball path 배선
+  (`ball_frame_motion_controller`에 `apply_stage1_gaksital_fan_wind` —
+  fan_throw 미러, S3/S4 동일 사이트) + 정리(S7 `ball_round_actor_cleanup`,
+  S8 `match_reset_controller`) + deps(S2 `_append_stage1_deps`,
+  `ball_dependency_context`) + §2b.5 스모크 1~8 전부.
+- **5b — 트리거 + 쿨다운 카드 + HUD**: 쿨다운 상태에 `SKILL_FAN_WIND`
+  추가(whip 미러, `TRIGGER_ON_BOSS_HIT`, 1200f), 보스히트 트리거를
+  `paddle_bounce_boss_post_hit_handler.gd`(whip `register_boss_hit` 사이트
+  :55 옆)에 variant 게이트로 배선, HUD 스킬카드 2번째 슬롯
+  (`stage1_gaksital_boss_skill_hud_assets` 카드 PNG 포함).
+- **5c — 비주얼 + 대사**: D-FW3 소용돌이 시트(AutoSprite 16f, Claude 제작)
+  + 충전 부채질/바람줄기 절차 액센트 + draw context → 렌더러
+  (`stage1_gaksital_fan_throw_renderer` 확장 또는 전용 렌더러) + 발동 대사
+  다국어 동기(§2b.2 마지막 항).
+- **게이트**: §2b.5 스모크 GREEN + dalji/fan_throw 회귀 GREEN + 반증검증
+  기록 + 인게임 라이브 QA(포획→해제 체감, 소용돌이 하강 리드).
 
 ---
 
@@ -292,9 +490,10 @@ Sprite Sheets" 기본 권장)을 회전/사행 모션으로 합성. 모듈러 VF
 9. **다국어 동기화.** 각시탈 보스명/대사 등 플레이어 노출 문구는
    language_settings_data 다국어 동기화 + localization_coverage 봉인
    (`feedback_godot_localization_copy_sync`). 보스명은 음역 고정.
-10. **fan_wind는 이번 범위 아님.** 공 포획 소용돌이는 owned-ball
-    `skip_ball_motion_step` 방출 트랩(라운드/모달 경계 self-heal) 영역 —
-    2차 슬라이스에서 CLAUDE.md owned-ball 체크리스트 전부 타야 함.
+10. **fan_wind = owned-ball 트랩 정면 대상.** 설계·체크리스트 매핑은 §2b
+    (특히 §2b.4 — 해제 경로 4개 인벤토리, ball-path-only 틱 구조 면역,
+    선점 소유 존중, 카오스 스피어 흡수 시 공 방치라는 Python 원본 결함의
+    수정). MVP(fan_throw)에는 이 트랩이 없다 — 부채는 공을 소유하지 않는다.
 
 ---
 

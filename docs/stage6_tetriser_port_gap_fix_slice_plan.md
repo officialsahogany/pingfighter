@@ -293,6 +293,7 @@ S4 봉인 후 5개 S5 항목을 **현재 커밋 코드로 재검증**(stale-read
 | **S5-4 보상/스타 드롭** | ✅ | 완료 | 큐브 솔브 스타 + golden 3% — stage2 드롭 생애주기 포팅 + 단위/deps 반증검증 |
 | **S5-5 크리스탈 실드** | ✅ | 완료 | no-halt 유지, 라운드 persist 복원, 궤도 반경 110 패리티 |
 | **S6 센터 큐브 3D** | ✅ | 완료 (리뷰+픽셀QA 통과) | **죽은 큐브 A(평면 3×3) 포팅 발견** → 실제 큐브 B(의사3D 회전) 시각 포팅(범위 A: 시각만, 메커닉/S5-3 유지). 픽셀 QA 4종 통과 |
+| **S7 쉴드 보스서브 제외** | 🟠 | 설계완료/미배선 | 보스 서브 공이 자기 쉴드에 튕겨 자멸 → `_is_player_ball`이 `last_hit_by==""`를 player 취급. last_hit_by 비면 `ball_serve_origin`로 폴백(Python 166682 패리티) |
 
 권장 순서(공수↑): **S5-1(작고 기계적) → S5-2(중, 기존 패턴 미러) → S5-3(설계결정 먼저) → S5-4(가장 큼)**.
 
@@ -449,6 +450,43 @@ stage2를 코드로 매핑해 5-조각 생애주기와 ownership/단위/deps를 
 
 ### 트랩
 ① `draw_set_transform` 금지(per-vertex 수학). ② spin=state delta 누적(wall-clock 아님). ③ quad 면만(볼록). ④ 평면 3×3/CUBE_PALETTE draw 제거. ⑤ **S5-3/메커닉/explode outcome 건드리지 말 것**(시각만). ⑥ 기존 큐브 스모크의 `debug_force_cube_solve_pending`/grid 단언은 유지(메커닉 불변).
+
+---
+
+## S7 — 크리스탈 쉴드 보스 서브 제외 (🟠 버그픽스 2026-06-26)
+
+### 증상
+테트리서(보스)가 서브한 공이 보스 자신의 크리스탈 쉴드에 튕겨 나가 **보스가 자멸**(자기 골문에 실점). "테트리서가 서브일 때 발사한 공은 크리스탈 쉴드와 닿지 않게."
+
+### 근본 원인 (포트 분기 2건)
+- **Python:** 서브 시 `last_hit_by = "player" if is_player_serve else "boss"` 로 직접 설정([pingfighter.py:166682](../pingfighter.py#L166682)). 쉴드는 `is_player_ball = (last_hit_by == "player")`([:170665](../pingfighter.py#L170665)) → 보스 서브("boss")는 `is_player_ball=False` → **쉴드 통과**, 플레이어 서브("player")는 차단(보스 보호).
+- **Godot 분기 ①:** 서브 경로는 `ball_serve_origin`("player"/"boss")만 설정하고([ball_round_state.gd:31](../godot/scripts/ball/ball_round_state.gd#L31)) `last_hit_by`는 안 건드림 → 라운드리셋의 `last_hit_by=""`([ball_intensity.gd:38](../godot/scripts/ball/ball_intensity.gd#L38))인 채로 보스 서브. `last_hit_by`는 **패들 바운스에서만** "player"/"boss"로 설정됨([paddle_bounce_rally_feedback_router.gd:23](../godot/scripts/ball/paddle_bounce_rally_feedback_router.gd#L23)).
+- **Godot 분기 ②:** `_is_player_ball`이 `return last_hit_by == "" or last_hit_by == "player"` → `""`를 player로 취급 → 보스 서브(첫 하강, 패들 타격 전 last_hit_by="") 를 쉴드가 막음 → 반사 → 자멸.
+
+### 신호 (이미 가용)
+`ball_serve_origin`("player"/"boss")이 쉴드 context에 이미 전달됨: [ball_round_state.gd:31](../godot/scripts/ball/ball_round_state.gd#L31) → owner → [ball_update_owner_snapshot.gd:19](../godot/scripts/ball/ball_update_owner_snapshot.gd#L19) → [ball_update_controller.gd:613](../godot/scripts/ball/ball_update_controller.gd#L613) frame context. 선례: [lingpet_egg_field_state.gd:151](../godot/scripts/lingpet/lingpet_egg_field_state.gd#L151)이 동일 키를 `== "player"`로 읽음.
+
+### 수정 (`stage6_tetriser_crystal_shield_state._is_player_ball`)
+last_hit_by가 set이면 그것으로(==player), **비었으면 `ball_serve_origin`으로 폴백**:
+```gdscript
+# before:  return last_hit_by == "" or last_hit_by == "player"
+# after:
+	if last_hit_by != "":
+		return last_hit_by == "player"
+	# 신선한 서브(패들 타격 전): 보스 서브는 자기 쉴드를 통과해야 함(Python 166682 패리티)
+	var serve_origin: String = str(context.get("ball_serve_origin", "")).strip_edges().to_lower()
+	return serve_origin == "player"
+```
+결과: 보스 서브("")+origin="boss" → false → **통과**; 플레이어 서브("")+origin="player" → true → **차단**(Python 패리티 유지); 랠리 중 player/boss 타격은 기존대로; 양쪽 다 빈 미지 케이스 → false(안전, 자멸 방지).
+
+### 회귀 스모크 (OUTCOME = 실제 블록 overlap에 `resolve_ball_collision` 반환값)
+1. **보스 서브 미충돌:** active 쉴드 + 블록과 겹치는 ball_pos + `last_hit_by=""` + `ball_serve_origin="boss"` → `resolve_ball_collision` **false**(자멸 회귀 가드).
+2. **플레이어 서브 충돌:** 동일 + `ball_serve_origin="player"` → **true**(Python 패리티: 플레이어 서브는 차단).
+3. player 타격(`last_hit_by="player"`) → true. 4. boss 타격(`last_hit_by="boss"`) → false.
+
+### 반증검증 + 트랩
+- 반증: `_is_player_ball`을 옛 코드(`== "" or == "player"`)로 in-place 토글 → 케이스 1(보스 서브)이 **true로 충돌**해 스모크 실패하는지 확인 후 복원(`git reset`/`checkout`/`stash` 금지).
+- **트랩:** 단순히 `return last_hit_by == "player"`로만 바꾸면 플레이어 서브("")도 통과해 **Python 대비 분기**(Python은 플레이어 서브 차단). `ball_serve_origin` 폴백이 필수.
 
 ---
 
