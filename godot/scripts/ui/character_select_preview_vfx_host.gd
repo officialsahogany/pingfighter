@@ -5,8 +5,24 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const CharacterSelectVfxMaterial := preload("res://scripts/ui/character_select_vfx_material.gd")
 
 const ASSET_ROOT := "res://assets/ui/character_select_vfx/"
-const DEEP_BACKPLATE_PATH := ASSET_ROOT + "character_select_chamber_backplate.png"
+# Slice D (2026-07-03): city night backdrop replaces the chamber backplate
+# (D2 replace-only — same layer slot, texture_layers stays 2). Codex built-in
+# image_gen, 1672x941 source upscaled to 1920x1080; source kept as
+# *_source_1672.png and the old chamber PNG retained as rollback reference.
+const DEEP_BACKPLATE_PATH := ASSET_ROOT + "character_select_city_backdrop_imagegen_v1.png"
+# Slice I: per-character themed city backdrops (Codex image_gen). Mika keeps
+# the original cyan city; unknown ids fall back to it via the getter.
+const BACKPLATE_PATHS := {
+	"ufo_player": ASSET_ROOT + "character_select_city_backdrop_imagegen_v1.png",
+	"soldier": ASSET_ROOT + "character_select_city_backdrop_rena_imagegen_v1.png",
+	"viper": ASSET_ROOT + "character_select_city_backdrop_serin_imagegen_v1.png",
+	"blacksmith": ASSET_ROOT + "character_select_city_backdrop_kohaku_imagegen_v1.png",
+	"optimus": ASSET_ROOT + "character_select_city_backdrop_io_imagegen_v1.png",
+}
 const PARTICLE_MOTE_PATH := ASSET_ROOT + "character_select_particle_mote.png"
+# Rail holo-stage stills — RETIRED from the live draw (2026-07-04 사용자
+# 디렉션: 정적 원형 장식 → 상승 랩 에너지로 교체). PNGs stay on disk as
+# rollback references; not prewarmed, not wired.
 
 const MANDALA_PATHS := {
 	"ufo_player": ASSET_ROOT + "character_select_mandala_ufo_player.png",
@@ -26,6 +42,10 @@ var _hover_target: float = 0.0
 var _hover_amount: float = 0.0
 var _confirm_amount: float = 0.0
 var _look_offset: Vector2 = Vector2.ZERO
+# Slice H: when the host runs fullscreen, character-anchored layers (mandala,
+# motes) center on this stage rect (the hero preview area in host-local
+# coords) while the backplate/backgrounds keep covering the full host.
+var _stage_rect := Rect2()
 
 var _background_outer_rect: ColorRect = null
 var _background_inner_rect: ColorRect = null
@@ -39,15 +59,16 @@ var _additive_canvas_material: CanvasItemMaterial = null
 
 
 static func get_vfx_texture_paths() -> Array[String]:
-	return [
-		DEEP_BACKPLATE_PATH,
-		PARTICLE_MOTE_PATH,
-		MANDALA_PATHS["ufo_player"],
-		MANDALA_PATHS["soldier"],
-		MANDALA_PATHS["viper"],
-		MANDALA_PATHS["blacksmith"],
-		MANDALA_PATHS["optimus"],
-	]
+	var paths: Array[String] = [PARTICLE_MOTE_PATH]
+	for character_id in BACKPLATE_PATHS:
+		paths.append(str(BACKPLATE_PATHS[character_id]))
+	for character_id in MANDALA_PATHS:
+		paths.append(str(MANDALA_PATHS[character_id]))
+	return paths
+
+
+static func get_backplate_texture_path(character_id: String) -> String:
+	return str(BACKPLATE_PATHS.get(character_id, DEEP_BACKPLATE_PATH))
 
 
 static func get_mandala_texture_path(character_id: String) -> String:
@@ -269,7 +290,10 @@ func _build_layers() -> void:
 	_background_inner_rect.z_index = -5
 	add_child(_background_inner_rect)
 
-	_backplate_rect = _build_texture_layer("DeepBackplate", DEEP_BACKPLATE_PATH, null, -4)
+	_backplate_rect = _build_texture_layer("DeepBackplate", get_backplate_texture_path(_character_id), null, -4)
+	# The 16:9 city backdrop must cover-crop into the preview rect (~1.33 on
+	# desktop) — the shared STRETCH_SCALE default would squash the skyline.
+	_backplate_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_mandala_rect = _build_texture_layer("CharacterMandala", get_mandala_texture_path(_character_id), null, -3)
 
 	_confirm_flash_rect = ColorRect.new()
@@ -328,21 +352,39 @@ func _apply_particle_palette() -> void:
 func _apply_texture_assets() -> void:
 	if _mandala_rect != null:
 		_mandala_rect.texture = _load_vfx_texture(get_mandala_texture_path(_character_id))
+	if _backplate_rect != null:
+		_backplate_rect.texture = _load_vfx_texture(get_backplate_texture_path(_character_id))
+
+
+func set_stage_rect(rect: Rect2) -> void:
+	if _stage_rect.is_equal_approx(rect):
+		return
+	_stage_rect = rect
+	_layout_layers()
+
+
+func _resolved_stage_rect() -> Rect2:
+	if _stage_rect.has_area():
+		return _stage_rect
+	return Rect2(Vector2.ZERO, size)
 
 
 func _layout_layers() -> void:
 	var view_size := size
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return
+	var stage := _resolved_stage_rect()
 	if _background_outer_rect != null:
 		_background_outer_rect.position = Vector2.ZERO
 		_background_outer_rect.size = view_size
 	if _background_inner_rect != null:
-		_background_inner_rect.position = Vector2(8.0, 8.0)
-		_background_inner_rect.size = view_size - Vector2(16.0, 16.0)
+		_background_inner_rect.position = Vector2.ZERO
+		_background_inner_rect.size = view_size
 	if _backplate_rect != null:
 		_backplate_rect.size = view_size * 1.036
-	var mandala_side: float = min(view_size.x * 0.78, view_size.y * 0.62)
+	# Sized past the bust-up art so the ring reads around the character
+	# instead of hiding behind it (2026-07-04 사용자 피드백).
+	var mandala_side: float = min(stage.size.x * 1.02, stage.size.y * 0.90)
 	if _mandala_rect != null:
 		_mandala_rect.size = Vector2(mandala_side, mandala_side)
 		_mandala_rect.pivot_offset = _mandala_rect.size * 0.5
@@ -350,13 +392,13 @@ func _layout_layers() -> void:
 		_confirm_flash_rect.position = Vector2.ZERO
 		_confirm_flash_rect.size = view_size
 	if _mote_particles != null:
-		_mote_particles.position = Vector2(view_size.x * 0.5, view_size.y * 0.62)
+		_mote_particles.position = stage.position + Vector2(stage.size.x * 0.5, stage.size.y * 0.62)
 		_mote_particles.visibility_rect = Rect2(
-			Vector2(-view_size.x * 0.52, -view_size.y * 0.58),
-			Vector2(view_size.x * 1.04, view_size.y * 0.92)
+			Vector2(-stage.size.x * 0.52, -stage.size.y * 0.58),
+			Vector2(stage.size.x * 1.04, stage.size.y * 0.92)
 		)
 	if _mote_process_material != null:
-		_mote_process_material.emission_box_extents = Vector3(view_size.x * 0.42, view_size.y * 0.34, 0.0)
+		_mote_process_material.emission_box_extents = Vector3(stage.size.x * 0.42, stage.size.y * 0.34, 0.0)
 
 
 func _update_runtime_uniforms() -> void:
@@ -371,16 +413,17 @@ func _update_runtime_uniforms() -> void:
 	if _backplate_rect != null:
 		_backplate_rect.visible = _active
 		_backplate_rect.position = -view_size * 0.018 + drift
-		# Chamber backplate is authored dark with a baked vignette; run it
+		# City backdrop is authored dark with a baked haze/vignette; run it
 		# near-opaque so the room reads as space instead of a faint texture.
 		_backplate_rect.modulate = Color(1.0, 1.0, 1.0, 0.88 + _hover_amount * 0.08)
+	var stage := _resolved_stage_rect()
 	if _mandala_rect != null:
 		_mandala_rect.visible = _active
-		_mandala_rect.position = Vector2((view_size.x - _mandala_rect.size.x) * 0.5, view_size.y * 0.085) - drift * 0.36
+		_mandala_rect.position = stage.position + Vector2((stage.size.x - _mandala_rect.size.x) * 0.5, stage.size.y * 0.045) - drift * 0.36
 		_mandala_rect.rotation = _elapsed * 0.030
 		var mandala_pulse: float = 1.0 + sin(_elapsed * 1.05) * 0.010 + _hover_amount * 0.018
 		_mandala_rect.scale = Vector2(mandala_pulse, mandala_pulse)
-		_mandala_rect.modulate = Color(1.0, 1.0, 1.0, 0.25 + _hover_amount * 0.08)
+		_mandala_rect.modulate = Color(1.0, 1.0, 1.0, 0.32 + _hover_amount * 0.08)
 	if _confirm_flash_rect != null:
 		_confirm_flash_rect.visible = confirm_curve > 0.002
 		_confirm_flash_rect.modulate = Color(primary.r, primary.g, primary.b, confirm_curve * 0.13)

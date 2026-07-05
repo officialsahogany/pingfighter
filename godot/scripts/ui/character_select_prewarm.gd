@@ -82,6 +82,36 @@ func get_loaded_scene() -> PackedScene:
 	return loaded_character_select_scene
 
 
+func collect_retained_cache_paths() -> Dictionary:
+	# Warm-set contract for battle teardown: these are the ProjectResourceLoader
+	# cache paths that must SURVIVE the teardown clear_caches wipe, so every
+	# post-battle exit (F10 booth reset, true-defeat settlement, stage-clear
+	# exit) reaches character select warm without replaying the boot loading
+	# screen. PackedScene jobs are excluded -- the scene lives in the engine
+	# ResourceCache, not in the ProjectResourceLoader caches.
+	var previous_jobs := jobs
+	jobs = []
+	_add_job(CHARACTER_SELECT_BGM_PATH, "AudioStream", "캐릭터 선택 BGM")
+	_add_character_select_assets()
+	_add_character_select_vfx_assets()
+	var texture_paths: Array[String] = []
+	var audio_paths: Array[String] = []
+	for job_value in jobs:
+		if not (job_value is Dictionary):
+			continue
+		var job: Dictionary = job_value
+		var path := str(job.get("path", ""))
+		if path == "":
+			continue
+		match str(job.get("type", "")):
+			"Texture2D":
+				texture_paths.append(path)
+			"AudioStream":
+				audio_paths.append(path)
+	jobs = previous_jobs
+	return {"textures": texture_paths, "audio": audio_paths}
+
+
 func _add_character_select_assets() -> void:
 	var characters: Array = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
 	for character_value in characters:

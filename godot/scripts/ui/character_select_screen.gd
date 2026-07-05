@@ -16,8 +16,10 @@ const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_conf
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const BattleEntryBackgroundPrewarm := preload("res://scripts/ui/battle_entry_background_prewarm.gd")
-const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
+const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 const BGM_BUS_NAME := "BGM"
@@ -25,6 +27,20 @@ const BGM_TOGGLE_KEY := KEY_B
 const FULL_BODY_LIVE2D_RENA_FLOOR_Y_RATIO := 0.902
 const LOCKED_CHARACTER_FEEDBACK_DURATION := 1.4
 const DEFAULT_LEAGUE_MODE := "junior"
+const CHARACTER_SELECT_RING_CORE_TIER := 0
+
+# Slice A editorial chrome (D1): chrome stays neutral dark; character accent
+# colors appear only on state elements (selected card, confirm CTA, brackets).
+const CHROME_BG_BASE := Color(0.010, 0.011, 0.014, 1.0)
+const CHROME_BG_UPPER := Color(0.017, 0.019, 0.025, 0.94)
+const CHROME_BG_LOWER := Color(0.008, 0.009, 0.012, 0.97)
+const CHROME_GRID := Color(0.44, 0.48, 0.56, 0.040)
+const CHROME_SCAN := Color(0.44, 0.48, 0.56, 0.020)
+const CHROME_HAIRLINE := Color(0.55, 0.58, 0.66, 0.22)
+const CHROME_PANEL_FILL := Color(0.021, 0.023, 0.029, 0.93)
+const CHROME_PANEL_BORDER := Color(0.46, 0.50, 0.58, 0.30)
+const CHROME_MICROTEXT := Color(0.52, 0.56, 0.64, 0.52)
+const CHROME_DIAG_CUT := 16.0
 
 @export var battle_scene_path: String = "res://scenes/main.tscn"
 @export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/main_menu.tscn"
@@ -54,9 +70,17 @@ var preview_rect_cache := Rect2()
 var animation_time: float = 0.0
 var preview: Control = null
 var selected_league_mode: String = DEFAULT_LEAGUE_MODE
-var _lingpet_affinity_store: Object = null
-var _cached_lingpet_ring_core_tier: int = 0
 var _lingpet_ring_core_icon_renderer: Object = RuntimePerkIconRenderer.new()
+# Diagonal-cut panel outlines are cached per rect so _draw does not rebuild
+# point arrays every frame; the cache resets when the view size changes.
+var _diag_panel_point_cache: Dictionary = {}
+var _diag_panel_cache_view_size := Vector2.ZERO
+# Roster cards use a softer large-radius box than the shared PremiumPanelFrame
+# kinds — one mutable instance, reconfigured per draw (same pattern).
+var _roster_card_box: StyleBoxFlat = null
+# Rail holo-stage intensity envelope anchor (Tween-equivalent on the shared
+# animation clock — re-arms on every roster switch).
+var _rail_stage_switch_at: float = -10.0
 
 var character_select_bgm_player: AudioStreamPlayer = null
 var character_select_bgm_loop_enabled: bool = false
@@ -80,6 +104,9 @@ var gamepad_menu_horizontal_latch: int = 0
 var gamepad_menu_vertical_latch: int = 0
 var locked_character_feedback_timer: float = 0.0
 var entry_background_prewarm: Object = BattleEntryBackgroundPrewarm.new()
+# Slice H: the backdrop VFX host is adopted out of the LivePreview clip and
+# runs fullscreen as this screen's own negative-z child.
+var _backdrop_host: Control = null
 
 
 func _ready() -> void:
@@ -90,7 +117,6 @@ func _ready() -> void:
 	_refresh_visible_indices()
 	_load_selection_state()
 	_prepare_hover_state()
-	_refresh_lingpet_ring_core_cache()
 	_prewarm_lingpet_ring_core_icons()
 	_load_portraits()
 	_restore_character_select_bgm_muted()
@@ -100,29 +126,17 @@ func _ready() -> void:
 		var one_shot_callback := Callable(self, "_on_preview_one_shot_finished")
 		if preview.has_signal("one_shot_finished") and not preview.is_connected("one_shot_finished", one_shot_callback):
 			preview.connect("one_shot_finished", one_shot_callback)
+		_adopt_backdrop_host()
 	_setup_audio_players()
 	_setup_confirm_flash_overlay()
 	_sync_preview()
 	_update_preview_layout()
 	queue_redraw()
 
-
-func _refresh_lingpet_ring_core_cache() -> void:
-	_cached_lingpet_ring_core_tier = 0
-	if Engine.is_editor_hint():
-		return
-	if _lingpet_affinity_store == null:
-		_lingpet_affinity_store = LingpetAffinityStore.new()
-	if _lingpet_affinity_store.has_method("load"):
-		_lingpet_affinity_store.load()
-	if _lingpet_affinity_store.has_method("get_ring_core_tier"):
-		_cached_lingpet_ring_core_tier = clampi(int(_lingpet_affinity_store.get_ring_core_tier()), 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
-
-
 func _prewarm_lingpet_ring_core_icons() -> void:
 	if Engine.is_editor_hint() or _lingpet_ring_core_icon_renderer == null:
 		return
-	for tier in range(1, LingpetAffinityStore.MAX_RING_CORE_TIER + 1):
+	for tier in range(1, LingpetRingCoreRules.MAX_RING_CORE_TIER + 1):
 		_lingpet_ring_core_icon_renderer.has_icon("lingpet_ring_core_upgrade_tier_%d" % tier)
 
 
@@ -166,7 +180,6 @@ func _exit_tree() -> void:
 	skill_icon_rects.clear()
 	skill_config_instances.clear()
 	confirm_intro_character.clear()
-	_lingpet_affinity_store = null
 	_lingpet_ring_core_icon_renderer = null
 	if entry_background_prewarm != null and entry_background_prewarm.has_method("clear_runtime_state"):
 		entry_background_prewarm.clear_runtime_state()
@@ -395,19 +408,14 @@ func _draw() -> void:
 	_ensure_cache_dictionaries()
 	var view_size := _resolved_view_size()
 	var preview_rect_value := _preview_rect(view_size)
-	# The preview VFX host renders at negative canvas z (behind this control's
-	# own _draw), so the opaque fullscreen background must leave a hole at the
-	# preview rect or the host backdrop is painted over and never visible.
-	var backdrop_hole := Rect2()
-	if preview != null and preview.has_method("is_backdrop_host_active") and bool(preview.call("is_backdrop_host_active")):
-		backdrop_hole = preview_rect_value
-	_draw_background(view_size, backdrop_hole)
+	_draw_background(view_size, _backdrop_fullscreen_active())
 	_draw_header(view_size)
 	var card_column := _card_column_rect(view_size)
 	var info_rect := _info_panel_rect(view_size, preview_rect_value)
 	_draw_card_column(card_column)
 	_draw_preview_frame(preview_rect_value)
 	_draw_info_panel(info_rect)
+	_draw_full_body_rail(view_size)
 	_draw_action_bar(view_size)
 	_draw_skill_hover_tooltip(view_size)
 
@@ -418,6 +426,14 @@ func _resolved_view_size() -> Vector2:
 	if is_inside_tree() and get_viewport() != null:
 		return get_viewport_rect().size
 	return Vector2(1920.0, 1080.0)
+
+
+func _backdrop_fullscreen_active() -> bool:
+	# Slice H: the adopted fullscreen VFX host renders at negative canvas z
+	# (behind this control's own _draw). While it is live the screen must NOT
+	# paint any opaque background — a full fill would bury the entire backdrop
+	# (§3-1 variant of the hole-punch trap, now fullscreen-shaped).
+	return preview != null and preview.has_method("is_backdrop_host_active") and bool(preview.call("is_backdrop_host_active"))
 
 
 func _refresh_visible_indices() -> void:
@@ -671,6 +687,7 @@ func _select_index(index: int) -> void:
 	selected_index = index
 	hovered_skill_index = -1
 	skill_icon_rects.clear()
+	_rail_stage_switch_at = animation_time
 	locked_character_feedback_timer = 0.0
 	_stop_click_motion_voice()
 	_sync_preview()
@@ -685,13 +702,53 @@ func _sync_preview() -> void:
 		preview.set_character(characters[selected_index], texture)
 
 
+func _adopt_backdrop_host() -> void:
+	# Slice H: pull the VFX host out of the LivePreview clip so the city
+	# backdrop can cover the whole screen. As this screen's own child at
+	# negative z it still renders under every screen _draw (cards, buttons)
+	# while the LivePreview child (character) stays on top.
+	if preview == null:
+		return
+	preview.set("vfx_host_external_layout", true)
+	preview.set("preview_card_frame_enabled", false)
+	var host_value: Variant = preview.get("preview_vfx_host")
+	var host := host_value as Control
+	if host == null or not is_instance_valid(host):
+		return
+	if host.get_parent() == self:
+		_backdrop_host = host
+		return
+	if host.get_parent() != null:
+		host.get_parent().remove_child(host)
+	add_child(host)
+	move_child(host, 0)
+	host.z_index = -20
+	_backdrop_host = host
+	_layout_backdrop_host()
+
+
+func _layout_backdrop_host() -> void:
+	if _backdrop_host == null or not is_instance_valid(_backdrop_host):
+		return
+	var view_size := _resolved_view_size()
+	_backdrop_host.position = Vector2.ZERO
+	_backdrop_host.size = view_size
+	if _backdrop_host.has_method("set_stage_rect"):
+		_backdrop_host.call("set_stage_rect", _preview_rect(view_size))
+
+
 func _update_preview_layout() -> void:
 	if preview == null:
 		return
-	var rect := _preview_rect(_resolved_view_size())
+	var view_size := _resolved_view_size()
+	var rect := _preview_rect(view_size)
 	preview_rect_cache = rect
 	preview.position = rect.position
 	preview.size = rect.size
+	# The rail's AFFILIATION microstat row owns the affiliation line while the
+	# rail is visible; the nameplate falls back to it otherwise (D7 개정).
+	preview.set("nameplate_show_affiliation", not _full_body_rail_rect(view_size).has_area())
+	_layout_backdrop_host()
 
 
 func _confirm_selection() -> void:
@@ -1013,66 +1070,131 @@ func _dispose_audio_player(player: AudioStreamPlayer, finished_callback: Callabl
 	player.free()
 
 
-func _draw_background(view_size: Vector2, backdrop_hole: Rect2 = Rect2()) -> void:
-	_draw_rect_excluding_hole(Rect2(Vector2.ZERO, view_size), backdrop_hole, Color(0.007, 0.010, 0.016, 1.0))
-	var upper_h: float = view_size.y * 0.39
-	_draw_rect_excluding_hole(Rect2(0.0, 0.0, view_size.x, upper_h), backdrop_hole, Color(0.013, 0.030, 0.038, 0.94))
-	_draw_rect_excluding_hole(Rect2(0.0, upper_h, view_size.x, view_size.y - upper_h), backdrop_hole, Color(0.009, 0.009, 0.014, 0.97))
+func _draw_background(view_size: Vector2, backdrop_fullscreen: bool = false) -> void:
+	if backdrop_fullscreen:
+		# Slice H: the fullscreen backdrop host IS the background. Only
+		# translucent ambience may draw here — the character-accent wash
+		# couples the city mood to the selected character (개방감 패스 ②).
+		var selected_character: Dictionary = characters[selected_index] if selected_index >= 0 and selected_index < characters.size() else {}
+		var accent := _character_color(selected_character, "card_color", Color(0.0, 0.9, 1.0))
+		draw_rect(Rect2(Vector2.ZERO, view_size), Color(accent.r, accent.g, accent.b, 0.05))
+	else:
+		draw_rect(Rect2(Vector2.ZERO, view_size), CHROME_BG_BASE)
+		var upper_h: float = view_size.y * 0.39
+		draw_rect(Rect2(0.0, 0.0, view_size.x, upper_h), CHROME_BG_UPPER)
+		draw_rect(Rect2(0.0, upper_h, view_size.x, view_size.y - upper_h), CHROME_BG_LOWER)
+		draw_line(Vector2(0.0, upper_h), Vector2(view_size.x, upper_h), CHROME_HAIRLINE, 1.0)
 	var step: float = max(40.0, view_size.x / 40.0)
-	var drift: float = fmod(animation_time * 10.0, step)
+	var drift: float = fmod(animation_time * 6.0, step)
 	var x: float = -view_size.y * 0.16 + drift
 	while x < view_size.x:
-		draw_line(Vector2(x, 0.0), Vector2(x + view_size.y * 0.16, view_size.y), Color(0.0, 0.92, 1.0, 0.055), 1.0)
+		draw_line(Vector2(x, 0.0), Vector2(x + view_size.y * 0.16, view_size.y), CHROME_GRID, 1.0)
 		x += step
 	var y: float = 0.0
 	while y < view_size.y:
-		draw_line(Vector2(0.0, y), Vector2(view_size.x, y), Color(0.0, 0.55, 0.64, 0.025), 1.0)
+		draw_line(Vector2(0.0, y), Vector2(view_size.x, y), CHROME_SCAN, 1.0)
 		y += step * 0.55
-	var horizon_color := Color(0.0, 0.95, 1.0, 0.22)
-	if backdrop_hole.has_area() and upper_h > backdrop_hole.position.y and upper_h < backdrop_hole.end.y:
-		if backdrop_hole.position.x > 0.0:
-			draw_line(Vector2(0.0, upper_h), Vector2(backdrop_hole.position.x, upper_h), horizon_color, 1.5)
-		if backdrop_hole.end.x < view_size.x:
-			draw_line(Vector2(backdrop_hole.end.x, upper_h), Vector2(view_size.x, upper_h), horizon_color, 1.5)
-	else:
-		draw_line(Vector2(0.0, upper_h), Vector2(view_size.x, upper_h), horizon_color, 1.5)
+	_draw_editorial_microtext(view_size)
 
 
-func _draw_rect_excluding_hole(rect: Rect2, hole: Rect2, color: Color) -> void:
-	var cut := rect.intersection(hole)
-	if not cut.has_area():
-		draw_rect(rect, color)
+func _draw_editorial_microtext(view_size: Vector2) -> void:
+	# ASCII-only editorial microtext built from live screen state (no fake
+	# mockup codes, no Korean glyphs -> no i18n entries required this slice).
+	var font := ThemeDB.fallback_font
+	var margin := 22.0
+	var brand_line := "DISK HEARTS - LINGPIA :: CHARACTER SELECT"
+	var brand_size := font.get_string_size(brand_line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9)
+	draw_string(font, Vector2(view_size.x - brand_size.x - margin, 30.0), brand_line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9, CHROME_MICROTEXT)
+	var roster_position := 0
+	for pos in range(visible_indices.size()):
+		if int(visible_indices[pos]) == selected_index:
+			roster_position = pos + 1
+			break
+	var status_line := "ROSTER %02d/%02d  |  LEAGUE %s  |  LANG %s" % [
+		roster_position,
+		visible_indices.size(),
+		selected_league_mode.to_upper(),
+		_language_code_label(LanguageSettings.get_language()),
+	]
+	draw_string(font, Vector2(margin, view_size.y - 16.0), status_line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9, CHROME_MICROTEXT)
+	draw_line(Vector2(margin, view_size.y - 34.0), Vector2(view_size.x - margin, view_size.y - 34.0), Color(CHROME_HAIRLINE.r, CHROME_HAIRLINE.g, CHROME_HAIRLINE.b, 0.10), 1.0)
+
+
+func _diag_panel_geometry(rect: Rect2, cut: float) -> Dictionary:
+	var view_size := _resolved_view_size()
+	if _diag_panel_cache_view_size != view_size:
+		_diag_panel_point_cache.clear()
+		_diag_panel_cache_view_size = view_size
+	var key := "%.2f_%.2f_%.2f_%.2f_%.2f" % [rect.position.x, rect.position.y, rect.size.x, rect.size.y, cut]
+	var cached: Variant = _diag_panel_point_cache.get(key)
+	if cached is Dictionary:
+		return cached
+	if _diag_panel_point_cache.size() >= 64:
+		_diag_panel_point_cache.clear()
+	var corner: float = clampf(cut, 0.0, minf(rect.size.x, rect.size.y) * 0.5)
+	# Convex hexagon: top-left and bottom-right corners get the diagonal cut.
+	var fill_points := PackedVector2Array([
+		rect.position + Vector2(corner, 0.0),
+		Vector2(rect.end.x, rect.position.y),
+		Vector2(rect.end.x, rect.end.y - corner),
+		Vector2(rect.end.x - corner, rect.end.y),
+		Vector2(rect.position.x, rect.end.y),
+		Vector2(rect.position.x, rect.position.y + corner),
+	])
+	var outline_points := fill_points.duplicate()
+	outline_points.append(fill_points[0])
+	var geometry := {
+		"fill": fill_points,
+		"outline": outline_points,
+	}
+	_diag_panel_point_cache[key] = geometry
+	return geometry
+
+
+func _draw_diag_panel(rect: Rect2, cut: float, fill: Color, border: Color, border_width: float) -> void:
+	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
-	if cut.position.y > rect.position.y:
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x, cut.position.y - rect.position.y)), color)
-	if rect.end.y > cut.end.y:
-		draw_rect(Rect2(Vector2(rect.position.x, cut.end.y), Vector2(rect.size.x, rect.end.y - cut.end.y)), color)
-	if cut.position.x > rect.position.x:
-		draw_rect(Rect2(Vector2(rect.position.x, cut.position.y), Vector2(cut.position.x - rect.position.x, cut.size.y)), color)
-	if rect.end.x > cut.end.x:
-		draw_rect(Rect2(Vector2(cut.end.x, cut.position.y), Vector2(rect.end.x - cut.end.x, cut.size.y)), color)
+	var geometry := _diag_panel_geometry(rect, cut)
+	var fill_points: PackedVector2Array = geometry.get("fill", PackedVector2Array())
+	var outline_points: PackedVector2Array = geometry.get("outline", PackedVector2Array())
+	if fill.a > 0.0 and fill_points.size() >= 3:
+		draw_colored_polygon(fill_points, fill)
+	if border.a > 0.0 and border_width > 0.0 and outline_points.size() >= 2:
+		draw_polyline(outline_points, border, border_width)
 
 
 func _draw_header(view_size: Vector2) -> void:
 	var font := ThemeDB.fallback_font
 	var column := _card_column_rect(view_size)
+	var desktop := view_size.x >= 980.0
 	var title_pos := Vector2(column.position.x + 12.0, 54.0)
-	if view_size.x < 980.0:
+	if not desktop:
 		title_pos = Vector2(34.0, 36.0)
-	_draw_text_left(font, LanguageSettings.translate_text("캐릭터 선택"), title_pos, 30 if view_size.x >= 980.0 else 24, Color(1.0, 1.0, 1.0, 0.98))
-	_draw_text_left(font, "SELECT YOUR CHARACTER", title_pos + Vector2(0.0, 34.0), 12, Color(0.0, 0.86, 1.0, 0.88))
+	var title_size := 30 if desktop else 24
+	draw_rect(Rect2(title_pos + Vector2(-12.0, 5.0), Vector2(3.0, float(title_size) + 5.0)), Color(0.88, 0.91, 0.97, 0.85))
+	_draw_text_left(font, LanguageSettings.translate_text("캐릭터 선택"), title_pos, title_size, Color(1.0, 1.0, 1.0, 0.98))
+	var subtitle := "SELECT YOUR CHARACTER"
+	var subtitle_pos := title_pos + Vector2(0.0, float(title_size) + 8.0)
+	_draw_text_left(font, subtitle, subtitle_pos, 11, Color(0.58, 0.63, 0.72, 0.88))
+	if desktop:
+		var subtitle_size := font.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11)
+		var rule_y := subtitle_pos.y + 7.0
+		var rule_start := subtitle_pos.x + subtitle_size.x + 14.0
+		if rule_start < view_size.x * 0.42:
+			draw_line(Vector2(rule_start, rule_y), Vector2(view_size.x * 0.42, rule_y), Color(CHROME_HAIRLINE.r, CHROME_HAIRLINE.g, CHROME_HAIRLINE.b, 0.14), 1.0)
 
 
 func _draw_card_column(rect: Rect2) -> void:
-	var selected_character: Dictionary = characters[selected_index] if selected_index >= 0 and selected_index < characters.size() else {}
-	var accent := _character_color(selected_character, "card_color", Color(0.0, 0.9, 1.0))
-	draw_rect(rect, Color(0.025, 0.080, 0.095, 0.28))
-	draw_rect(Rect2(rect.position.x, rect.position.y, rect.size.x, rect.size.y), Color(accent.r, accent.g, accent.b, 0.10))
+	# v2 G1: no container box — roster cards float on the background like the
+	# rest of the unified card language. Mobile keeps a subtle strip.
+	if _resolved_view_size().x < 980.0:
+		draw_rect(rect, Color(0.014, 0.015, 0.019, 0.42))
+		draw_rect(rect, Color(CHROME_PANEL_BORDER.r, CHROME_PANEL_BORDER.g, CHROME_PANEL_BORDER.b, 0.14), false, 1.0)
 	card_rects = _layout_cards(_resolved_view_size())
 	for idx in visible_indices:
 		_draw_character_card(int(idx), card_rects.get(int(idx), Rect2()))
 	language_rect = _language_button_rect(_resolved_view_size())
-	_draw_language_button(language_rect, accent)
+	_draw_language_button(language_rect)
 
 
 func _draw_character_card(index: int, rect: Rect2) -> void:
@@ -1085,8 +1207,11 @@ func _draw_character_card(index: int, rect: Rect2) -> void:
 	var hovered := index == hovered_index
 	var unlocked := _is_character_unlocked(character)
 	var font := ThemeDB.fallback_font
+	if rect.size.x > rect.size.y * 1.5:
+		_draw_character_card_horizontal(index, rect, character, accent, glow, selected, hovered, unlocked, font)
+		return
 	if selected or hovered:
-		draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.16 if selected else 0.08))
+		draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.14 if selected else 0.07))
 	draw_rect(rect, Color(0.006, 0.008, 0.013, 0.98))
 	var image_rect := rect.grow(-6.0)
 	var texture: Texture2D = portrait_textures.get(index, null)
@@ -1097,13 +1222,112 @@ func _draw_character_card(index: int, rect: Rect2) -> void:
 		draw_rect(image_rect, Color(accent.r, accent.g, accent.b, 0.22 if unlocked else 0.08))
 	if not unlocked:
 		_draw_locked_card_overlay(image_rect, accent)
-	draw_rect(Rect2(rect.position.x, rect.end.y - 34.0, rect.size.x, 34.0), Color(0.0, 0.0, 0.0, 0.72))
+	var name_band := Rect2(rect.position.x, rect.end.y - 34.0, rect.size.x, 34.0)
+	draw_rect(name_band, Color(0.0, 0.0, 0.0, 0.74))
+	draw_line(name_band.position, Vector2(name_band.end.x, name_band.position.y), Color(CHROME_HAIRLINE.r, CHROME_HAIRLINE.g, CHROME_HAIRLINE.b, 0.30), 1.0)
+	if selected:
+		draw_rect(Rect2(name_band.position + Vector2(6.0, 12.0), Vector2(3.0, 10.0)), Color(accent.r, accent.g, accent.b, 0.95))
 	var character_name := str(character.get("character_name", character.get("name", "")))
 	_draw_text_center(font, character_name, Vector2(rect.get_center().x, rect.end.y - 17.0), 15, Color.WHITE if unlocked else Color(0.78, 0.82, 0.88, 0.90))
-	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.92 if selected else (0.24 if unlocked else 0.16)), false, 2.0 if selected else 1.0)
-	draw_rect(rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.10 if selected else 0.06), false, 1.0)
+	var idle_border := Color(CHROME_PANEL_BORDER.r, CHROME_PANEL_BORDER.g, CHROME_PANEL_BORDER.b, 0.30 if unlocked else 0.18)
+	var border_color := Color(accent.r, accent.g, accent.b, 0.92) if selected else (Color(accent.r, accent.g, accent.b, 0.55) if hovered else idle_border)
+	draw_rect(rect, border_color, false, 2.0 if selected else 1.0)
+	draw_rect(rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.08 if selected else 0.05), false, 1.0)
 	if selected:
-		_draw_corner_ticks(rect.grow(6.0), glow, 22.0)
+		var pulse: float = 0.78 + sin(animation_time * 2.4) * 0.22
+		PremiumPanelFrame.draw_corner_brackets(self, rect.grow(6.0), glow, pulse, 0.24, 22.0)
+
+
+func _draw_character_card_horizontal(index: int, rect: Rect2, character: Dictionary, accent: Color, glow: Color, selected: bool, hovered: bool, unlocked: bool, font: Font) -> void:
+	# v2 G1 unified roster card: dark glass rounded panel, portrait thumbnail
+	# on the left, name + role tag on the right, accent border when selected.
+	var fill := Color(0.030, 0.033, 0.041, 0.94)
+	if selected:
+		fill = Color(accent.r * 0.10, accent.g * 0.12, accent.b * 0.13, 0.96)
+	elif hovered:
+		fill = Color(0.040, 0.044, 0.054, 0.95)
+	var idle_border := Color(CHROME_PANEL_BORDER.r, CHROME_PANEL_BORDER.g, CHROME_PANEL_BORDER.b, 0.30 if unlocked else 0.18)
+	var border := Color(accent.r, accent.g, accent.b, 0.92) if selected else (Color(accent.r, accent.g, accent.b, 0.55) if hovered else idle_border)
+	if selected:
+		draw_rect(rect.grow(6.0), Color(glow.r, glow.g, glow.b, 0.10))
+	# Soft large-radius card: separation comes from shadow + spacing, not a
+	# hard 1px box — idle borders are near-invisible (레퍼런스의 "굴곡" 감).
+	var card_border := border if (selected or hovered) else Color(border.r, border.g, border.b, border.a * 0.35)
+	draw_style_box(_get_roster_card_box(fill, card_border, 2 if selected else 1), rect)
+	# Portrait = the cutout PNG itself blending onto the card fill — no crop
+	# box, no divider hairline; the silhouette IS the boundary.
+	var portrait_rect := Rect2(rect.position + Vector2(4.0, 3.0), Vector2(rect.size.x * 0.56, rect.size.y - 6.0))
+	var thumb_side: float = portrait_rect.size.y
+	var glow_center := portrait_rect.position + Vector2(portrait_rect.size.x * 0.40, portrait_rect.size.y * 0.48)
+	draw_circle(glow_center, rect.size.y * 0.44, Color(accent.r, accent.g, accent.b, 0.10 if unlocked else 0.04))
+	draw_circle(glow_center, rect.size.y * 0.26, Color(accent.r, accent.g, accent.b, 0.08 if unlocked else 0.03))
+	var texture: Texture2D = portrait_textures.get(index, null)
+	if texture != null:
+		var source_rect := _character_card_face_source_rect(texture, portrait_rect, character)
+		draw_texture_rect_region(texture, portrait_rect, source_rect, Color(1.0, 1.0, 1.0, 0.96 if unlocked else 0.34))
+	else:
+		draw_circle(glow_center, rect.size.y * 0.30, Color(accent.r, accent.g, accent.b, 0.20 if unlocked else 0.07))
+	var text_left: float = rect.position.x + rect.size.x * 0.50
+	var character_name := str(character.get("character_name", character.get("name", "")))
+	_draw_text_left(font, character_name, Vector2(text_left, rect.get_center().y - 26.0), 18, Color.WHITE if unlocked else Color(0.76, 0.80, 0.86, 0.88))
+	var role_text := str(character.get("role", ""))
+	if role_text.strip_edges() != "":
+		var glyph_center := Vector2(text_left + 5.0, rect.get_center().y + 16.0)
+		var glyph := PackedVector2Array([
+			glyph_center + Vector2(0.0, -4.5),
+			glyph_center + Vector2(4.5, 0.0),
+			glyph_center + Vector2(0.0, 4.5),
+			glyph_center + Vector2(-4.5, 0.0),
+		])
+		draw_colored_polygon(glyph, Color(accent.r, accent.g, accent.b, 0.85 if unlocked else 0.40))
+		# The selection arrow sits at center.y±6 — no vertical overlap with the
+		# tag row, so only a small right margin is reserved (not an arrow zone).
+		var tag_spec := _role_tag_draw_spec(role_text, rect.end.x - 8.0 - (text_left + 14.0))
+		_draw_text_left(font, str(tag_spec.get("text", role_text)), Vector2(text_left + 14.0, rect.get_center().y + 8.0), int(tag_spec.get("font_size", 10)), Color(0.62, 0.67, 0.75, 0.85 if unlocked else 0.55))
+	if not unlocked:
+		var badge_rect := Rect2(rect.position + Vector2(10.0, 10.0), Vector2(minf(70.0, thumb_side + 4.0), 18.0))
+		draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.78))
+		draw_rect(badge_rect, Color(accent.r, accent.g, accent.b, 0.55), false, 1.0)
+		_draw_text_center(font, LanguageSettings.translate_text("해금 필요"), badge_rect.get_center(), 8, Color(0.92, 0.96, 1.0, 0.96))
+	if selected:
+		PremiumPanelFrame.draw_corner_brackets(self, rect.grow(-7.0), Color(glow.r, glow.g, glow.b, 0.75), 1.0, 0.20, 15.0)
+		var arrow_x: float = rect.end.x - 16.0
+		var arrow := PackedVector2Array([
+			Vector2(arrow_x, rect.get_center().y - 6.0),
+			Vector2(arrow_x + 7.0, rect.get_center().y),
+			Vector2(arrow_x, rect.get_center().y + 6.0),
+		])
+		draw_colored_polygon(arrow, Color(accent.r, accent.g, accent.b, 0.95))
+
+
+func _get_roster_card_box(fill: Color, border: Color, border_width: int) -> StyleBoxFlat:
+	if _roster_card_box == null:
+		_roster_card_box = StyleBoxFlat.new()
+		_roster_card_box.anti_aliasing = true
+		_roster_card_box.corner_detail = 8
+		_roster_card_box.set_corner_radius_all(16)
+		_roster_card_box.shadow_size = 10
+		_roster_card_box.shadow_color = Color(0.0, 0.0, 0.0, 0.36)
+		_roster_card_box.shadow_offset = Vector2(0.0, 4.0)
+	_roster_card_box.bg_color = fill
+	_roster_card_box.border_color = border
+	_roster_card_box.set_border_width_all(border_width)
+	return _roster_card_box
+
+
+func _role_tag_draw_spec(role_text: String, max_width: float) -> Dictionary:
+	# Localized role names vary widely in width (Codex G1 review memo) —
+	# shrink 10 -> 9px before ellipsizing so the tag never bleeds off-card.
+	var font := ThemeDB.fallback_font
+	var trimmed := role_text.strip_edges()
+	for candidate_size_value in [10, 9]:
+		var candidate_size := int(candidate_size_value)
+		if font.get_string_size(trimmed, HORIZONTAL_ALIGNMENT_LEFT, -1.0, candidate_size).x <= max_width:
+			return {"text": trimmed, "font_size": candidate_size}
+	var clipped := trimmed
+	while clipped.length() > 1 and font.get_string_size(clipped + "…", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9).x > max_width:
+		clipped = clipped.substr(0, clipped.length() - 1)
+	return {"text": clipped + "…", "font_size": 9}
 
 
 func _draw_locked_card_overlay(image_rect: Rect2, accent: Color) -> void:
@@ -1121,43 +1345,140 @@ func _draw_preview_frame(rect: Rect2) -> void:
 		return
 	var character: Dictionary = characters[selected_index]
 	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
+	# v2 G2: name_latin watermark behind the character — the screen draws
+	# UNDER the LivePreview child, so this lands over the city backdrop and
+	# behind the hero art. Outline-only chrome: no translucent fill may cover
+	# the backdrop hole area (§3-1 hole-punch trap).
+	var latin_name := str(character.get("name_latin", "")).strip_edges()
+	if latin_name != "" and rect.size.x >= 640.0:
+		var watermark_font := ThemeDB.fallback_font
+		var watermark_size := 118
+		# Reference-style oblique slant via a shear matrix. draw_set_transform
+		# trap note (§ godot_runtime_traps): the identity-reset failure mode
+		# requires a parent transform set earlier on the same canvas — this
+		# screen's _draw sets NO other transform (sealed by the backdrop
+		# smoke's source grep), so the default Transform2D() restore IS the
+		# exact prior state.
+		var watermark_origin := rect.position + Vector2(64.0, 40.0 + float(watermark_size))
+		draw_set_transform_matrix(Transform2D(Vector2(1.0, 0.0), Vector2(-0.22, 1.0), watermark_origin))
+		draw_string(watermark_font, Vector2.ZERO, latin_name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, watermark_size, Color(0.75, 0.88, 0.95, 0.055))
+		draw_set_transform_matrix(Transform2D())
+	# Slice H: frameless hero — the fullscreen backdrop makes the frame border
+	# read as a picture frame; only a short grounding accent bar remains.
+	draw_rect(Rect2(rect.position.x + 26.0, rect.end.y + 3.0, 64.0, 2.0), Color(accent.r, accent.g, accent.b, 0.85))
+
+
+func _draw_full_body_rail(view_size: Vector2) -> void:
+	# D7 개정 + Slice H (정보 응집): the right rail hosts the info header
+	# (difficulty / signature skills / ring core — or the locked hint) above
+	# the full-body Live2D panel, matching the reference right column.
+	if selected_index < 0 or selected_index >= characters.size():
+		return
+	var rail := _full_body_rail_rect(view_size)
+	if not rail.has_area():
+		if _resolved_view_size().x >= 980.0:
+			skill_icon_rects.clear()
+		return
+	var character: Dictionary = characters[selected_index]
+	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
 	var glow := _character_color(character, "glow_color", accent)
-	draw_rect(rect.grow(10.0), Color(glow.r, glow.g, glow.b, 0.09 + sin(animation_time * 2.0) * 0.02))
-	draw_rect(rect.grow(6.0), Color(accent.r, accent.g, accent.b, 0.80), false, 2.0)
-	draw_rect(rect.grow(0.0), Color(0.0, 0.0, 0.0, 0.22), false, 1.0)
-	_draw_corner_ticks(rect.grow(10.0), glow, 40.0)
+	var unlocked := _is_character_unlocked(character)
+	PremiumPanelFrame.draw_panel(self, rail, PremiumPanelFrame.KIND_SECTION, CHROME_PANEL_FILL, CHROME_PANEL_BORDER, 1.0)
+	var inner := rail.grow(-8.0)
+	var font := ThemeDB.fallback_font
+	var header_height := 0.0
+	if unlocked:
+		var header_left: float = inner.position.x + 10.0
+		_draw_difficulty(Vector2(header_left, inner.position.y + 10.0), int(character.get("difficulty_stars", 1)), accent)
+		# Labeled sections (reference rhythm): icons without their labels read
+		# as floating decorations.
+		_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), Vector2(header_left, inner.position.y + 38.0), 12, Color(0.72, 0.78, 0.86, 0.90))
+		_draw_text_left(font, _lingpet_ring_core_label(), Vector2(inner.end.x - 10.0 - 50.0, inner.position.y + 38.0), 12, Color(0.72, 0.78, 0.86, 0.90))
+		var icon_row_y: float = inner.position.y + 60.0
+		_draw_skill_icons(Rect2(Vector2(header_left, icon_row_y), Vector2(174.0, 50.0)), selected_index, character, accent, glow)
+		_draw_lingpet_ring_core_slot(Rect2(Vector2(inner.end.x - 10.0 - 50.0, icon_row_y), Vector2(50.0, 50.0)), accent, glow)
+		header_height = 60.0 + 50.0 + 14.0
+	else:
+		skill_icon_rects.clear()
+		_draw_locked_info_status(Rect2(inner.position + Vector2(6.0, 10.0), Vector2(inner.size.x - 12.0, 76.0)), character, accent)
+		header_height = 96.0
+	# The confirm CTA lives inside the rail bottom on desktop (reference
+	# right-column composition) — reserve its band.
+	var panel_rect := Rect2(
+		inner.position + Vector2(0.0, header_height),
+		Vector2(inner.size.x, inner.size.y - header_height - 66.0)
+	)
+	_draw_full_body_live2d_panel(panel_rect, selected_index, character, accent)
 
 
 func _draw_info_panel(rect: Rect2) -> void:
 	if selected_index < 0 or selected_index >= characters.size():
 		return
+	if rect.size.y < 48.0:
+		# Yielded panel (narrow+short stacked layout) — draw nothing and drop
+		# the skill icon hitboxes so hover/tooltip cannot fire on ghost rects.
+		skill_icon_rects.clear()
+		return
 	var character: Dictionary = characters[selected_index]
 	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
 	var glow := _character_color(character, "glow_color", accent)
 	var font := ThemeDB.fallback_font
-	draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.075))
-	draw_rect(rect, Color(0.016, 0.020, 0.031, 0.96))
-	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.76), false, 2.0)
-	draw_rect(rect.grow(-6.0), Color(1.0, 1.0, 1.0, 0.075), false, 1.0)
+	_draw_diag_panel(rect, CHROME_DIAG_CUT, CHROME_PANEL_FILL, CHROME_PANEL_BORDER, 1.2)
+	draw_rect(rect.grow(-6.0), Color(1.0, 1.0, 1.0, 0.05), false, 1.0)
+	draw_rect(Rect2(rect.position + Vector2(CHROME_DIAG_CUT + 6.0, 0.0), Vector2(56.0, 2.0)), Color(accent.r, accent.g, accent.b, 0.90))
+	PremiumPanelFrame.draw_corner_brackets(self, rect.grow(6.0), Color(glow.r, glow.g, glow.b, 0.55), 1.0, 0.06, 26.0)
 	var layout := _build_info_panel_layout(rect, character, font)
 	var character_class_name := str(character.get("class_name", character.get("name", "")))
 	var character_name := str(character.get("character_name", character.get("name", "")))
 	var unlocked := _is_character_unlocked(character)
+	# Row budget: blocks that would overflow the panel rect are dropped
+	# top-down instead of bleeding over the action bar / card column below.
+	var blocks := _info_panel_visible_blocks(rect, layout, unlocked)
 	_draw_text_line_block(font, _layout_string_lines(layout, "role_lines"), layout.get("role_top_left", rect.position), 14, Color(accent.r, accent.g, accent.b, 0.94), 18.0)
-	_draw_text_left(font, character_name, layout.get("name_top_left", rect.position), 31, Color.WHITE)
-	_draw_badge(layout.get("badge_top_left", rect.position), character_class_name, accent)
-	_draw_text_line_block(font, _layout_string_lines(layout, "tagline_lines"), layout.get("tagline_top_left", rect.position), 17, Color(0.88, 0.92, 0.97, 0.98), 22.0)
-	_draw_text_line_block(font, _layout_string_lines(layout, "description_lines"), layout.get("description_top_left", rect.position), 14, Color(0.73, 0.82, 0.90, 0.96), 20.0)
-	_draw_difficulty(layout.get("difficulty_top_left", rect.position), int(character.get("difficulty_stars", 1)), accent)
+	if bool(blocks.get("name", false)):
+		_draw_text_left(font, character_name, layout.get("name_top_left", rect.position), 31, Color.WHITE)
+		_draw_badge(layout.get("badge_top_left", rect.position), character_class_name, accent)
+	if bool(blocks.get("tagline", false)):
+		_draw_text_line_block(font, _layout_string_lines(layout, "tagline_lines"), layout.get("tagline_top_left", rect.position), 17, Color(0.88, 0.92, 0.97, 0.98), 22.0)
+	if bool(blocks.get("description", false)):
+		_draw_text_line_block(font, _layout_string_lines(layout, "description_lines"), layout.get("description_top_left", rect.position), 14, Color(0.73, 0.82, 0.90, 0.96), 20.0)
+	if bool(blocks.get("difficulty", false)):
+		_draw_difficulty(layout.get("difficulty_top_left", rect.position), int(character.get("difficulty_stars", 1)), accent)
 	if unlocked:
-		_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), layout.get("skills_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
-		_draw_text_left(font, _lingpet_ring_core_label(), layout.get("ring_core_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
-		_draw_skill_icons(layout.get("skill_rect", Rect2()), selected_index, character, accent, glow)
-		_draw_lingpet_ring_core_slot(layout.get("ring_core_rect", Rect2()), accent, glow)
+		if bool(blocks.get("skills", false)):
+			_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), layout.get("skills_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
+			_draw_text_left(font, _lingpet_ring_core_label(), layout.get("ring_core_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
+			_draw_skill_icons(layout.get("skill_rect", Rect2()), selected_index, character, accent, glow)
+			_draw_lingpet_ring_core_slot(layout.get("ring_core_rect", Rect2()), accent, glow)
+		else:
+			skill_icon_rects.clear()
 	else:
 		skill_icon_rects.clear()
-		_draw_locked_info_status(layout.get("locked_status_rect", Rect2()), character, accent)
+		if bool(blocks.get("locked", false)):
+			_draw_locked_info_status(layout.get("locked_status_rect", Rect2()), character, accent)
 	_draw_full_body_live2d_panel(layout.get("full_body_rect", Rect2()), selected_index, character, accent)
+
+
+func _info_panel_visible_blocks(rect: Rect2, layout: Dictionary, unlocked: bool) -> Dictionary:
+	var content_bottom: float = rect.end.y - 10.0
+	var blocks := {}
+	var name_top: Vector2 = layout.get("name_top_left", rect.position)
+	blocks["name"] = name_top.y + 37.0 <= content_bottom
+	var tagline_top: Vector2 = layout.get("tagline_top_left", rect.position)
+	var tagline_lines := _layout_string_lines(layout, "tagline_lines").size()
+	blocks["tagline"] = tagline_lines > 0 and tagline_top.y + float(tagline_lines) * 22.0 <= content_bottom
+	var description_top: Vector2 = layout.get("description_top_left", rect.position)
+	var description_lines := _layout_string_lines(layout, "description_lines").size()
+	blocks["description"] = description_lines > 0 and description_top.y + float(description_lines) * 20.0 <= content_bottom
+	var difficulty_top: Vector2 = layout.get("difficulty_top_left", rect.position)
+	blocks["difficulty"] = difficulty_top.y + 20.0 <= content_bottom
+	if unlocked:
+		var skill_rect: Rect2 = layout.get("skill_rect", Rect2())
+		blocks["skills"] = skill_rect.has_area() and skill_rect.end.y <= content_bottom
+	else:
+		var locked_rect: Rect2 = layout.get("locked_status_rect", Rect2())
+		blocks["locked"] = locked_rect.has_area() and locked_rect.end.y <= content_bottom
+	return blocks
 
 
 func _build_info_panel_layout(rect: Rect2, character: Dictionary, font: Font) -> Dictionary:
@@ -1227,8 +1548,13 @@ func _build_info_panel_layout(rect: Rect2, character: Dictionary, font: Font) ->
 		y = locked_status_rect.end.y
 
 	var full_body_top: float = max(rect.position.y + 252.0, y + 22.0)
-	var full_body_size := Vector2(max(80.0, rect.size.x - 44.0), max(180.0, rect.end.y - full_body_top - 20.0))
-	layout["full_body_rect"] = Rect2(Vector2(rect.position.x + 22.0, full_body_top), full_body_size)
+	var full_body_height: float = rect.end.y - full_body_top - 20.0
+	if full_body_height < 120.0:
+		# 행 양보 규칙: 공간이 모자라면 풀바디 패널이 먼저 드랍된다. 음수
+		# 여유를 최소 높이로 승격해 패널 밖(카드열 위)으로 탈출시키지 않는다.
+		layout["full_body_rect"] = Rect2()
+	else:
+		layout["full_body_rect"] = Rect2(Vector2(rect.position.x + 22.0, full_body_top), Vector2(max(80.0, rect.size.x - 44.0), full_body_height))
 	return layout
 
 
@@ -1272,21 +1598,68 @@ func _draw_stats(origin: Vector2, max_width: float, character: Dictionary) -> vo
 		draw_rect(track, Color(1.0, 1.0, 1.0, 0.18), false, 1.0)
 
 
+func _action_bar_layout(view_size: Vector2) -> Dictionary:
+	if view_size.x < 980.0:
+		# Single left-to-right row above the bottom card column so league tabs
+		# and the confirm CTA cannot stack on the cards or on each other
+		# (Slice A pixel-QA findings (b)/(c)). Under 640px the confirm CTA
+		# gets its own row instead (fixed widths would overlap the mythic tab).
+		var bottom_y := _mobile_action_bar_bottom_y(view_size)
+		var row_y := bottom_y + 2.0
+		if view_size.x < 640.0:
+			var narrow_confirm_width: float = minf(170.0, view_size.x - 48.0)
+			var narrow_back := Rect2(24.0, row_y, 78.0, 34.0)
+			var narrow_league_width: float = clampf((view_size.x - 24.0 - 78.0 - 12.0 - 24.0 - 12.0) / 3.0, 64.0, 118.0)
+			var narrow_junior := Rect2(narrow_back.end.x + 12.0, row_y - 2.0, narrow_league_width, 38.0)
+			var narrow_champion := Rect2(narrow_junior.end.x + 6.0, row_y - 2.0, narrow_league_width, 38.0)
+			var narrow_mythic := Rect2(narrow_champion.end.x + 6.0, row_y - 2.0, narrow_league_width, 38.0)
+			var narrow_confirm := Rect2(view_size.x - 24.0 - narrow_confirm_width, bottom_y - 58.0, narrow_confirm_width, 50.0)
+			return {"back": narrow_back, "junior": narrow_junior, "champion": narrow_champion, "mythic": narrow_mythic, "confirm": narrow_confirm}
+		var confirm_width := 170.0
+		var back_width := 90.0
+		var league_width: float = clampf((view_size.x - 24.0 - back_width - 12.0 - confirm_width - 12.0 - 24.0 - 12.0) / 3.0, 78.0, 118.0)
+		var back := Rect2(24.0, row_y, back_width, 34.0)
+		var junior := Rect2(back.end.x + 12.0, row_y - 2.0, league_width, 38.0)
+		var champion := Rect2(junior.end.x + 6.0, row_y - 2.0, league_width, 38.0)
+		var mythic := Rect2(champion.end.x + 6.0, row_y - 2.0, league_width, 38.0)
+		var confirm := Rect2(view_size.x - 24.0 - confirm_width, bottom_y - 8.0, confirm_width, 50.0)
+		return {"back": back, "junior": junior, "champion": champion, "mythic": mythic, "confirm": confirm}
+	var bottom_y_desktop: float = view_size.y - 98.0
+	var center_x: float = view_size.x * 0.5
+	# Reference right-column composition: while the rail is visible the
+	# confirm CTA docks into its bottom band instead of floating bottom-right.
+	var rail := _full_body_rail_rect(view_size)
+	var confirm := Rect2(view_size.x - view_size.x * 0.09 - 214.0, bottom_y_desktop - 8.0, 214.0, 50.0)
+	if rail.has_area():
+		confirm = Rect2(rail.position.x + 14.0, rail.end.y - 64.0, rail.size.x - 28.0, 50.0)
+	var league_width := 150.0
+	var league_height := 44.0
+	var league_gap := 12.0
+	var league_row_y: float = bottom_y_desktop - 3.0
+	var league_start: float = center_x - league_width * 1.5 - league_gap
+	return {
+		"back": Rect2(_card_column_rect(view_size).position.x + 14.0, bottom_y_desktop + 2.0, 106.0, 34.0),
+		"junior": Rect2(league_start, league_row_y, league_width, league_height),
+		"champion": Rect2(league_start + league_width + league_gap, league_row_y, league_width, league_height),
+		"mythic": Rect2(league_start + (league_width + league_gap) * 2.0, league_row_y, league_width, league_height),
+		"confirm": confirm,
+	}
+
+
 func _draw_action_bar(view_size: Vector2) -> void:
 	var character: Dictionary = characters[selected_index] if selected_index >= 0 and selected_index < characters.size() else {}
 	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
 	var glow := _character_color(character, "glow_color", accent)
-	var bottom_y: float = view_size.y - 98.0
-	back_rect = Rect2(_card_column_rect(view_size).position.x + 14.0, bottom_y + 2.0, 106.0, 34.0)
-	var center_x: float = view_size.x * 0.5
-	junior_rect = Rect2(center_x - 184.0, bottom_y + 2.0, 118.0, 34.0)
-	champion_rect = Rect2(center_x - 59.0, bottom_y + 2.0, 118.0, 34.0)
-	mythic_rect = Rect2(center_x + 66.0, bottom_y + 2.0, 118.0, 34.0)
-	confirm_rect = Rect2(view_size.x - view_size.x * 0.09 - 214.0, bottom_y - 8.0, 214.0, 50.0)
+	var bar_layout := _action_bar_layout(view_size)
+	back_rect = bar_layout.get("back", Rect2())
+	junior_rect = bar_layout.get("junior", Rect2())
+	champion_rect = bar_layout.get("champion", Rect2())
+	mythic_rect = bar_layout.get("mythic", Rect2())
+	confirm_rect = bar_layout.get("confirm", Rect2())
 	_draw_button(back_rect, LanguageSettings.translate_text("뒤로"), Color(0.55, 0.60, 0.68, 0.58), Color(0.08, 0.09, 0.12, 0.88), false)
-	_draw_league_button(junior_rect, LanguageSettings.translate_text("주니어리그"), "junior", Color(0.38, 0.92, 0.45, 1.0))
-	_draw_league_button(champion_rect, LanguageSettings.translate_text("챔피언리그"), "champion", Color(0.82, 0.30, 1.0, 1.0))
-	_draw_league_button(mythic_rect, LanguageSettings.translate_text("신화리그"), "mythic", Color(1.0, 0.76, 0.26, 1.0))
+	_draw_league_button(junior_rect, LanguageSettings.translate_text("테스트"), "junior", Color(0.38, 0.92, 0.45, 1.0))
+	_draw_league_button(champion_rect, LanguageSettings.translate_text("실전"), "champion", Color(0.82, 0.30, 1.0, 1.0))
+	_draw_league_button(mythic_rect, LanguageSettings.translate_text("오버클럭"), "mythic", Color(1.0, 0.76, 0.26, 1.0))
 	var select_name := str(character.get("character_name", character.get("name", "")))
 	if not character.is_empty() and not _is_character_unlocked(character):
 		var locked_label := "아직 해금되지 않음" if locked_character_feedback_timer > 0.0 else "해금 필요"
@@ -1309,22 +1682,6 @@ func _draw_texture_cover(texture: Texture2D, target: Rect2, texture_modulate: Co
 		source.size.y = texture_size.x / max(0.01, target_aspect)
 		source.position.y = (texture_size.y - source.size.y) * 0.5
 	draw_texture_rect_region(texture, target, source, texture_modulate)
-
-
-func _draw_corner_ticks(rect: Rect2, color: Color, length: float) -> void:
-	var tick_len: float = min(length, min(rect.size.x, rect.size.y) * 0.35)
-	var thickness := 1.8
-	var tick_color := Color(color.r, color.g, color.b, 0.88)
-	var dim_color := Color(color.r, color.g, color.b, 0.30)
-	draw_line(rect.position, rect.position + Vector2(tick_len, 0.0), tick_color, thickness)
-	draw_line(rect.position, rect.position + Vector2(0.0, tick_len), tick_color, thickness)
-	draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.end.x - tick_len, rect.position.y), tick_color, thickness)
-	draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.end.x, rect.position.y + tick_len), tick_color, thickness)
-	draw_line(Vector2(rect.position.x, rect.end.y), Vector2(rect.position.x + tick_len, rect.end.y), tick_color, thickness)
-	draw_line(Vector2(rect.position.x, rect.end.y), Vector2(rect.position.x, rect.end.y - tick_len), tick_color, thickness)
-	draw_line(rect.end, rect.end - Vector2(tick_len, 0.0), tick_color, thickness)
-	draw_line(rect.end, rect.end - Vector2(0.0, tick_len), tick_color, thickness)
-	draw_rect(rect.grow(-5.0), dim_color, false, 1.0)
 
 
 func _draw_badge(top_left: Vector2, label: String, accent: Color) -> void:
@@ -1381,7 +1738,7 @@ func _draw_skill_icons(rect: Rect2, character_index: int, character: Dictionary,
 func _draw_lingpet_ring_core_slot(rect: Rect2, accent: Color, glow: Color) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
-	var tier := clampi(_cached_lingpet_ring_core_tier, 0, LingpetAffinityStore.MAX_RING_CORE_TIER)
+	var tier := clampi(CHARACTER_SELECT_RING_CORE_TIER, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	draw_rect(rect.grow(4.0), Color(glow.r, glow.g, glow.b, 0.12 if tier > 0 else 0.06))
 	draw_rect(rect, Color(0.008, 0.010, 0.016, 0.95))
 	if tier > 0 and _lingpet_ring_core_icon_renderer != null:
@@ -1615,25 +1972,193 @@ func _draw_text_line_block(font: Font, lines: Array[String], top_left: Vector2, 
 
 func _draw_full_body_live2d_panel(rect: Rect2, character_index: int, character: Dictionary, accent: Color) -> void:
 	_ensure_cache_dictionaries()
-	draw_rect(rect, Color(0.006, 0.009, 0.014, 0.88))
-	var hatch_gap := 14.0
-	var hatch_x: float = rect.position.x - rect.size.y
-	while hatch_x < rect.end.x:
-		draw_line(Vector2(hatch_x, rect.position.y), Vector2(hatch_x + rect.size.y, rect.end.y), Color(accent.r, accent.g, accent.b, 0.055), 1.0)
-		hatch_x += hatch_gap
-	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.36), false, 1.0)
-	var inner_rect := rect.grow(-10.0)
+	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+		return
+	# Section labels + lore rows + status strip draw BEFORE the texture
+	# branches below (they early-return), and the art rect shrinks to reserve
+	# every band — appending after the branches never renders for characters
+	# WITH art.
+	var font := ThemeDB.fallback_font
+	var label_band := 24.0
+	_draw_section_label(rect.position + Vector2(10.0, 6.0), "LIVE 2D VIEW", accent)
+	draw_line(rect.position + Vector2(10.0, label_band), Vector2(rect.end.x - 10.0, rect.position.y + label_band), Color(CHROME_HAIRLINE.r, CHROME_HAIRLINE.g, CHROME_HAIRLINE.b, 0.18), 1.0)
+
+	# INFORMATION section is measured first (two-column rows with a stacked
+	# fallback for long localized affiliations) so the art card can size to
+	# the true remaining space.
+	var rows := _full_body_microstat_rows(character)
+	var value_left: float = rect.position.x + 88.0
+	var value_column_width: float = rect.end.x - 10.0 - value_left
+	var row_specs: Array = []
+	var rows_band := 0.0
+	if not rows.is_empty():
+		rows_band = 34.0
+		for row_value in rows:
+			var row: Dictionary = row_value
+			var value_text := str(row.get("value", ""))
+			var single_line: bool = font.get_string_size(value_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11).x <= value_column_width
+			var row_height := 20.0 if single_line else 34.0
+			row_specs.append({"row": row, "single": single_line, "height": row_height})
+			rows_band += row_height
+	var strip_band := 26.0
+	var art_card := Rect2(
+		rect.position + Vector2(4.0, label_band + 4.0),
+		Vector2(rect.size.x - 8.0, rect.size.y - label_band - 4.0 - strip_band - rows_band - 10.0)
+	)
+	if art_card.size.y < 40.0:
+		return
+
+	if not row_specs.is_empty():
+		var info_top: float = rect.end.y - rows_band
+		_draw_section_label(Vector2(rect.position.x + 10.0, info_top), "INFORMATION", accent)
+		draw_line(Vector2(rect.position.x + 10.0, info_top + 20.0), Vector2(rect.end.x - 10.0, info_top + 20.0), Color(CHROME_HAIRLINE.r, CHROME_HAIRLINE.g, CHROME_HAIRLINE.b, 0.18), 1.0)
+		var row_y: float = info_top + 28.0
+		for spec_value in row_specs:
+			var spec: Dictionary = spec_value
+			var row: Dictionary = spec.get("row", {})
+			draw_string(font, Vector2(rect.position.x + 10.0, row_y + 9.0), str(row.get("label", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9, CHROME_MICROTEXT)
+			if bool(spec.get("single", true)):
+				draw_string(font, Vector2(value_left, row_y + 10.0), str(row.get("value", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, Color(0.88, 0.92, 0.97, 0.95))
+			else:
+				draw_string(font, Vector2(rect.position.x + 10.0, row_y + 24.0), str(row.get("value", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, Color(0.88, 0.92, 0.97, 0.95))
+			row_y += float(spec.get("height", 20.0))
+
+	# Status strip (reference "device UI"): truthful telemetry only — frame
+	# phase dots driven by the real sheet clock + a LIVE 2D ON/OFF state pill.
 	var sheet_texture: Texture2D = full_body_live2d_textures.get(character_index, null)
+	var strip_center_y: float = rect.end.y - rows_band - strip_band * 0.5
+	var frame_count: int = max(1, int(character.get("full_body_live2d_count", 1)))
+	var frame_interval: float = max(0.01, float(character.get("full_body_live2d_interval", 0.033)))
+	var current_frame: int = int(animation_time / frame_interval) % frame_count
+	var active_dot: int = int(float(current_frame) * 5.0 / float(frame_count)) % 5
+	for dot_index in range(5):
+		var dot_active: bool = sheet_texture != null and dot_index == active_dot
+		draw_circle(
+			Vector2(rect.position.x + 16.0 + float(dot_index) * 12.0, strip_center_y),
+			2.6 if dot_active else 1.7,
+			Color(accent.r, accent.g, accent.b, 0.95 if dot_active else 0.28)
+		)
+	var pill_rect := Rect2(Vector2(rect.end.x - 10.0 - 34.0, strip_center_y - 8.0), Vector2(34.0, 16.0))
+	var live_on := sheet_texture != null
+	draw_rect(pill_rect, Color(accent.r, accent.g, accent.b, 0.85) if live_on else Color(0.28, 0.31, 0.36, 0.80))
+	_draw_text_center(font, "ON" if live_on else "OFF", pill_rect.get_center(), 9, Color(0.02, 0.05, 0.08, 0.95) if live_on else Color(0.75, 0.80, 0.86, 0.92))
+	var live_label := "LIVE 2D"
+	var live_label_size := font.get_string_size(live_label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9)
+	draw_string(font, Vector2(pill_rect.position.x - 8.0 - live_label_size.x, strip_center_y + 3.0), live_label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9, CHROME_MICROTEXT)
+
+	# Art sub-card: holo-stage layering via painted 3-piece stills (절차 도형
+	# 제거 교훈) — neutral-luminance pieces tinted by the character accent,
+	# breathing on the shared clock, switch-envelope on roster change.
+	draw_style_box(_get_roster_card_box(Color(0.036, 0.042, 0.055, 0.92), Color(accent.r, accent.g, accent.b, 0.22), 1), art_card)
+	var envelope: float = clampf((animation_time - _rail_stage_switch_at) / 0.45, 0.0, 1.0)
+	envelope = envelope * envelope * (3.0 - 2.0 * envelope)
+	# Ambient atmosphere wash (reference parity: the card interior reads as a
+	# lit chamber, not near-black) — bottom-lit vertical gradient.
+	var wash := art_card.grow(-3.0)
+	draw_polygon(
+		PackedVector2Array([wash.position, Vector2(wash.end.x, wash.position.y), wash.end, Vector2(wash.position.x, wash.end.y)]),
+		PackedColorArray([
+			Color(accent.r, accent.g, accent.b, 0.030 * envelope),
+			Color(accent.r, accent.g, accent.b, 0.030 * envelope),
+			Color(accent.r, accent.g, accent.b, 0.105 * envelope),
+			Color(accent.r, accent.g, accent.b, 0.105 * envelope),
+		])
+	)
+	# Rising wrap energy (사용자 디렉션: 정적 원형 장식 제거 → 에너지가
+	# 아래에서 위로 몸을 감아 도는 흐름). Deterministic hash streams spiral
+	# around the body axis — cos(θ) depth splits them into a BEHIND pass here
+	# and a FRONT pass after the art draw, so the energy truly wraps the body.
+	_draw_rail_energy_pass(art_card, accent, envelope, false)
+	PremiumPanelFrame.draw_corner_brackets(self, art_card.grow(-7.0), Color(accent.r, accent.g, accent.b, 0.50), 1.0, 0.08, 14.0)
+	for deco in [
+		Vector2(art_card.position.x + 18.0, art_card.position.y + 22.0),
+		Vector2(art_card.end.x - 20.0, art_card.position.y + 46.0),
+		Vector2(art_card.position.x + 24.0, art_card.end.y - 40.0),
+	]:
+		var deco_center: Vector2 = deco
+		draw_colored_polygon(PackedVector2Array([
+			deco_center + Vector2(0.0, -4.0),
+			deco_center + Vector2(4.0, 0.0),
+			deco_center + Vector2(0.0, 4.0),
+			deco_center + Vector2(-4.0, 0.0),
+		]), Color(accent.r, accent.g, accent.b, 0.22))
+	var inner_rect := art_card.grow(-8.0)
 	if sheet_texture != null:
 		_draw_full_body_live2d_sheet(sheet_texture, inner_rect, character)
+	else:
+		var still_texture: Texture2D = full_body_live2d_still_textures.get(character_index, null)
+		if still_texture != null:
+			_draw_texture_contain(still_texture, inner_rect, Color.WHITE)
+		else:
+			_draw_text_center(font, LanguageSettings.translate_text("전신 LIVE2D"), inner_rect.get_center() + Vector2(0.0, -12.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+			_draw_text_center(font, LanguageSettings.translate_text("준비중"), inner_rect.get_center() + Vector2(0.0, 12.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+	# Front half of the wrap energy — drawn over the art so streams pass in
+	# front of the body on the cos(θ) >= 0 side of the spiral.
+	_draw_rail_energy_pass(art_card, accent, envelope, true)
+
+
+func _draw_rail_energy_pass(art_card: Rect2, accent: Color, envelope: float, front: bool) -> void:
+	if envelope <= 0.01:
 		return
-	var still_texture: Texture2D = full_body_live2d_still_textures.get(character_index, null)
-	if still_texture != null:
-		_draw_texture_contain(still_texture, inner_rect, Color.WHITE)
-		return
-	var font := ThemeDB.fallback_font
-	_draw_text_center(font, LanguageSettings.translate_text("전신 LIVE2D"), rect.get_center() + Vector2(0.0, -14.0), 13, Color(0.72, 0.78, 0.86, 0.86))
-	_draw_text_center(font, LanguageSettings.translate_text("준비중"), rect.get_center() + Vector2(0.0, 10.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+	var center_x: float = art_card.get_center().x
+	var bottom_y: float = art_card.end.y - art_card.size.y * 0.06
+	var top_y: float = art_card.position.y + art_card.size.y * 0.10
+	var travel: float = bottom_y - top_y
+	for stream_index in range(22):
+		var stream_seed := float(stream_index)
+		var speed: float = 0.085 + _rail_energy_hash(stream_seed, 1.7) * 0.095
+		var phase: float = fposmod(animation_time * speed + _rail_energy_hash(stream_seed, 4.3), 1.0)
+		# Body-hugging radius profile: narrow at the feet and head, widest at
+		# the torso, so the spiral reads as wrapping the silhouette.
+		var profile: float = sin(phase * PI)
+		var radius: float = art_card.size.x * (0.15 + 0.23 * profile)
+		var wrap_theta: float = phase * TAU * (1.6 + _rail_energy_hash(stream_seed, 2.9) * 0.8) + _rail_energy_hash(stream_seed, 7.1) * TAU
+		var depth: float = cos(wrap_theta)
+		if (depth >= 0.0) != front:
+			continue
+		var spark_pos := Vector2(center_x + sin(wrap_theta) * radius, bottom_y - travel * phase)
+		var fade: float = sin(phase * PI)
+		var alpha: float = fade * (0.24 + 0.34 * absf(depth)) * envelope
+		var spark_size: float = 1.1 + _rail_energy_hash(stream_seed, 5.5) * 1.9 + absf(depth) * 0.8
+		draw_circle(spark_pos, spark_size + 2.4, Color(accent.r, accent.g, accent.b, alpha * 0.24))
+		draw_circle(spark_pos, spark_size, Color(accent.r, accent.g, accent.b, alpha))
+		draw_line(
+			spark_pos,
+			spark_pos + Vector2(-sin(wrap_theta) * 2.2, 7.0 + fade * 6.0),
+			Color(accent.r, accent.g, accent.b, alpha * 0.42),
+			1.0
+		)
+
+
+func _rail_energy_hash(a: float, b: float) -> float:
+	return fposmod(sin(a * 127.1 + b * 311.7) * 43758.5453, 1.0)
+
+
+func _draw_section_label(top_left: Vector2, text: String, accent: Color) -> void:
+	var glyph_center := top_left + Vector2(4.0, 7.0)
+	draw_colored_polygon(PackedVector2Array([
+		glyph_center + Vector2(0.0, -3.5),
+		glyph_center + Vector2(3.5, 0.0),
+		glyph_center + Vector2(0.0, 3.5),
+		glyph_center + Vector2(-3.5, 0.0),
+	]), Color(accent.r, accent.g, accent.b, 0.90))
+	draw_string(ThemeDB.fallback_font, top_left + Vector2(13.0, 11.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, Color(accent.r, accent.g, accent.b, 0.85))
+
+
+func _full_body_microstat_rows(character: Dictionary) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var entries := [
+		{"label": "HEIGHT", "key": "lore_height"},
+		{"label": "WEIGHT", "key": "lore_weight"},
+		{"label": "AFFILIATION", "key": "lore_affiliation"},
+	]
+	for entry_value in entries:
+		var entry: Dictionary = entry_value
+		var value := str(character.get(str(entry.get("key", "")), "")).strip_edges()
+		if value == "":
+			continue
+		rows.append({"label": str(entry.get("label", "")), "value": value})
+	return rows
 
 
 func _draw_full_body_live2d_sheet(texture: Texture2D, target: Rect2, character: Dictionary) -> void:
@@ -1729,27 +2254,57 @@ func _scale_rect_nonuniform(rect: Rect2, x_scale: float, y_scale: float) -> Rect
 
 
 func _draw_button(rect: Rect2, label: String, border: Color, fill: Color, prominent: bool) -> void:
+	# v2 G1 unified round token: CTA uses the KIND_MAIN halo panel, secondary
+	# buttons use the slot panel — same premium language as in-battle panels.
 	var font := ThemeDB.fallback_font
-	draw_rect(rect.grow(5.0), Color(border.r, border.g, border.b, 0.10 if prominent else 0.04))
-	draw_rect(rect, fill)
-	draw_rect(rect, Color(border.r, border.g, border.b, 0.92), false, 2.0 if prominent else 1.0)
-	draw_rect(rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.08), false, 1.0)
+	if prominent:
+		PremiumPanelFrame.draw_panel(self, rect, PremiumPanelFrame.KIND_MAIN, fill, Color(border.r, border.g, border.b, 0.92))
+	else:
+		PremiumPanelFrame.draw_panel(self, rect, PremiumPanelFrame.KIND_SLOT, fill, Color(border.r, border.g, border.b, 0.72), 1.0)
 	_draw_text_center(font, label, rect.get_center(), 20 if prominent else 15, Color.WHITE)
 
 
 func _draw_league_button(rect: Rect2, label: String, mode: String, border_color: Color) -> void:
 	var selected := selected_league_mode == mode
-	var fill_alpha := 0.27 if selected else 0.09
-	var border_alpha := 0.95 if selected else 0.45
-	draw_rect(rect, Color(border_color.r, border_color.g, border_color.b, fill_alpha))
-	draw_rect(rect, Color(border_color.r, border_color.g, border_color.b, border_alpha), false, 1.5 if selected else 1.0)
-	_draw_text_center(ThemeDB.fallback_font, label, rect.get_center(), 14, Color(1.0, 1.0, 1.0, 0.96 if selected else 0.70))
+	# Skewed neon plate (2026-07-04 레퍼런스): vertex-computed parallelogram +
+	# layered glow outline — no transforms (the watermark shear pair stays the
+	# only draw_set_transform in this screen, sealed by the backdrop smoke).
+	var skew := 11.0
+	var plate := PackedVector2Array([
+		Vector2(rect.position.x + skew, rect.position.y),
+		Vector2(rect.end.x, rect.position.y),
+		Vector2(rect.end.x - skew, rect.end.y),
+		Vector2(rect.position.x, rect.end.y),
+	])
+	var outline := plate.duplicate()
+	outline.append(plate[0])
+	draw_colored_polygon(plate, Color(0.016, 0.020, 0.028, 0.92))
+	draw_colored_polygon(plate, Color(border_color.r, border_color.g, border_color.b, 0.26 if selected else 0.05))
+	if selected:
+		draw_polyline(outline, Color(border_color.r, border_color.g, border_color.b, 0.14), 7.0)
+		draw_polyline(outline, Color(border_color.r, border_color.g, border_color.b, 0.32), 3.6)
+	draw_polyline(outline, Color(border_color.r, border_color.g, border_color.b, 0.95 if selected else 0.40), 1.6)
+	var inner := PackedVector2Array([
+		plate[0] + Vector2(1.5, 3.0),
+		plate[1] + Vector2(-3.0, 3.0),
+		plate[2] + Vector2(-1.5, -3.0),
+		plate[3] + Vector2(3.0, -3.0),
+	])
+	inner.append(inner[0])
+	draw_polyline(inner, Color(1.0, 1.0, 1.0, 0.10 if selected else 0.04), 1.0)
+	var arrow_x: float = rect.end.x - 17.0
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(arrow_x, rect.get_center().y - 4.0),
+		Vector2(arrow_x + 5.0, rect.get_center().y),
+		Vector2(arrow_x, rect.get_center().y + 4.0),
+	]), Color(border_color.r, border_color.g, border_color.b, 0.95 if selected else 0.42))
+	_draw_text_center(ThemeDB.fallback_font, label, rect.get_center() + Vector2(-3.0, 0.0), 16, Color(1.0, 1.0, 1.0, 0.98 if selected else 0.70))
 
 
-func _draw_language_button(rect: Rect2, accent: Color) -> void:
+func _draw_language_button(rect: Rect2) -> void:
 	var hovered := rect.has_point(get_local_mouse_position())
-	var border := Color(accent.r, accent.g, accent.b, 0.88 if hovered else 0.64)
-	var fill := Color(accent.r * 0.16, accent.g * 0.18, accent.b * 0.20, 0.94 if hovered else 0.86)
+	var border := Color(0.60, 0.64, 0.72, 0.82 if hovered else 0.42)
+	var fill := Color(0.030, 0.033, 0.040, 0.94 if hovered else 0.88)
 	_draw_button(rect, "LANGUAGE  %s" % _language_code_label(LanguageSettings.get_language()), border, fill, false)
 
 
@@ -1810,10 +2365,12 @@ func _layout_cards(view_size: Vector2) -> Dictionary:
 		return rects
 	var padding := 8.0
 	var top_pad := 96.0
-	var gap := 12.0
+	var gap := 10.0
 	var card_w: float = column.size.x - padding * 2.0
 	var available_h: float = column.size.y - top_pad - 92.0 - gap * float(max(0, count - 1))
-	var card_h: float = min(118.0, available_h / float(count))
+	# v2 G1 (Slice H 개정): taller roster cards — the portrait fills the left
+	# half at full card height so the face reads large (reference parity).
+	var card_h: float = min(126.0, available_h / float(count))
 	for pos in range(count):
 		var index := int(visible_indices[pos])
 		var scale_factor := float(hover_scales[index])
@@ -1830,7 +2387,8 @@ func _card_column_rect(view_size: Vector2) -> Rect2:
 		return Rect2(24.0, view_size.y - 248.0, view_size.x - 48.0, 172.0)
 	var top := 106.0
 	var left: float = clamp(view_size.x * 0.085, 86.0, 150.0)
-	var width: float = clamp(view_size.x * 0.114, 178.0, 206.0)
+	# v2 G1: wider column hosts horizontal roster cards (portrait + name + tag).
+	var width: float = clamp(view_size.x * 0.152, 246.0, 292.0)
 	return Rect2(left, top, width, view_size.y - top - 84.0)
 
 
@@ -1842,22 +2400,74 @@ func _language_button_rect(view_size: Vector2) -> Rect2:
 	return Rect2(column.position.x + 14.0, column.end.y - 72.0, column.size.x - 28.0, 34.0)
 
 
+func _mobile_action_bar_bottom_y(view_size: Vector2) -> float:
+	return _card_column_rect(view_size).position.y - 46.0
+
+
+func _mobile_action_band_top(view_size: Vector2) -> float:
+	# Top edge of the whole action band. Below 640px the confirm CTA moves to
+	# its own row above the tab row (single-row fixed widths overlap the
+	# mythic tab under ~566px — Codex Slice B review P3).
+	var bottom_y := _mobile_action_bar_bottom_y(view_size)
+	if view_size.x < 640.0:
+		return bottom_y - 58.0
+	return bottom_y - 8.0
+
+
 func _preview_rect(view_size: Vector2) -> Rect2:
 	if view_size.x < 980.0:
-		return Rect2(34.0, 108.0, view_size.x - 68.0, max(260.0, view_size.y * 0.44))
+		# Stacked layout budget: preview may not push info/action-bar into the
+		# bottom card column (Slice A pixel-QA finding (b)).
+		var top := 108.0
+		# Narrow+short guard (Codex Slice C review P2): fixed minimum heights
+		# must never push the stack past the action band. Reserve info-panel
+		# space only when the budget can actually hold it — otherwise the info
+		# panel yields entirely (0 height) instead of overlapping the CTA.
+		var total_budget: float = _mobile_action_band_top(view_size) - 12.0 - top
+		var info_reserve := 0.0
+		if total_budget >= 176.0:
+			info_reserve = 96.0 + 16.0
+		var preview_height: float = clampf(view_size.y * 0.44, 64.0, maxf(64.0, total_budget - info_reserve))
+		return Rect2(34.0, top, view_size.x - 68.0, preview_height)
 	var card_column := _card_column_rect(view_size)
-	var x := card_column.end.x + 18.0
-	var info_x: float = view_size.x - _layout_right_margin(view_size) - _info_panel_width(view_size)
-	var width: float = clamp(info_x - x - 22.0, 560.0, 1120.0)
+	var x := card_column.end.x + 24.0
+	# v2 G2 (D7 개정): the hero absorbs the old info-panel space, minus the
+	# restored full-body rail on the right (user feedback — the hero preview
+	# is bust-up art, so the rail is the only full-body read).
+	var rail := _full_body_rail_rect(view_size)
+	var right_edge: float = (rail.position.x - 24.0) if rail.has_area() else (view_size.x - _layout_right_margin(view_size))
+	var width: float = clamp(right_edge - x, 560.0, 1560.0)
 	return Rect2(x, 116.0, width, max(360.0, view_size.y - 238.0))
+
+
+func _full_body_rail_rect(view_size: Vector2) -> Rect2:
+	if view_size.x < 980.0:
+		return Rect2()
+	var column := _card_column_rect(view_size)
+	var x := column.end.x + 24.0
+	var right_margin := _layout_right_margin(view_size)
+	var rail_width: float = clamp(view_size.x * 0.155, 264.0, 300.0)
+	# Narrow desktop: the hero keeps its 560px minimum and the rail yields.
+	if view_size.x - right_margin - x < 560.0 + 24.0 + rail_width:
+		return Rect2()
+	return Rect2(view_size.x - right_margin - rail_width, 116.0, rail_width, max(360.0, view_size.y - 238.0))
 
 
 func _info_panel_rect(view_size: Vector2, preview_rect_value: Rect2) -> Rect2:
 	if view_size.x < 980.0:
-		return Rect2(34.0, preview_rect_value.end.y + 16.0, view_size.x - 68.0, min(250.0, view_size.y - preview_rect_value.end.y - 96.0))
-	var width := _info_panel_width(view_size)
-	var x := view_size.x - _layout_right_margin(view_size) - width
-	return Rect2(x, 112.0, width, max(360.0, view_size.y - 234.0))
+		var info_top := preview_rect_value.end.y + 16.0
+		var info_bottom: float = _mobile_action_band_top(view_size) - 12.0
+		# No minimum-height promotion: a floor here overlaps the action band on
+		# narrow+short windows. A fully empty Rect2 (not a zero-height rect at
+		# a live position) signals the yielded panel — degenerate rects still
+		# report intersects() when their position sits inside another rect.
+		var info_height: float = min(250.0, info_bottom - info_top)
+		if info_height < 1.0:
+			return Rect2()
+		return Rect2(34.0, info_top, view_size.x - 68.0, info_height)
+	# v2 G2 (D7): the desktop info panel is retired — difficulty / skills /
+	# ring core live in the hero info overlay, lore stays in the title block.
+	return Rect2()
 
 
 func _layout_right_margin(view_size: Vector2) -> float:

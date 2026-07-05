@@ -65,7 +65,7 @@ func _run() -> void:
 	_expect(str(viper.get("class_name", "")) == "바이퍼", "Viper select card should keep Viper as the class name")
 	_expect(bool(smasher.get("unlocked", false)), "Smasher should remain playable from a fresh character-select state")
 	_expect(bool(commando.get("unlocked", false)), "Commando should remain playable from a fresh character-select state")
-	_expect(bool(baltor.get("unlocked", false)), "Kohaku should start unlocked for Blacksmith runtime QA")
+	_expect(not bool(baltor.get("unlocked", true)), "Kohaku should start locked until explicitly unlocked (2026-07-04)")
 	_expect(not bool(optimus.get("unlocked", true)), "Io should start locked until explicitly unlocked")
 	_expect(bool(viper.get("unlocked", false)), "Viper should remain playable from a fresh character-select state")
 	var rena_cutline_ratio: float = float(commando.get("live2d_card_cutline_ratio", -1.0))
@@ -201,7 +201,7 @@ func _run() -> void:
 	_expect(optimus_full_body_sheet != null, "optimus full-body Live2D sheet should load")
 	_expect(
 		_prewarm_has_job(prewarm, str(optimus.get("full_body_live2d_sheet_path", "")), "Texture2D"),
-		"character-select loading screen should prewarm the optimus full-body Live2D sheet"
+		"restored full-body rail should prewarm the optimus full-body Live2D sheet"
 	)
 	_expect(
 		str(optimus.get("confirm_intro_sheet_path", "")).ends_with("optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png"),
@@ -367,7 +367,7 @@ func _run() -> void:
 		_expect(baltor_full_body_sheet.get_size() == Vector2(7168, 7168), "baltor full-body Real-ESRGAN sheet should use 1024 px cells in a 7x7 grid")
 	_expect(
 		_prewarm_has_job(prewarm, str(baltor.get("full_body_live2d_sheet_path", "")), "Texture2D"),
-		"character-select loading screen should prewarm the baltor full-body Live2D sheet"
+		"restored full-body rail should prewarm the baltor full-body Live2D sheet"
 	)
 	_expect(
 		str(baltor.get("confirm_intro_sheet_path", "")).ends_with("baltor_kohaku_select_click_escape_talk_loop98_autosprite_v4_cleanedge_realesrgan_animev3_hq1024_safe.png"),
@@ -442,8 +442,8 @@ func _run() -> void:
 	_expect(int(viper.get("full_body_live2d_count", 0)) == 49, "viper full-body Live2D should expose the native 49-frame idle loop")
 	_expect(viper.get("full_body_live2d_trim_rect", null) is Rect2, "viper full-body Live2D should use a precomputed trim rect")
 	var viper_full_body_trim: Rect2 = viper.get("full_body_live2d_trim_rect", Rect2())
-	_expect(is_equal_approx(viper_full_body_trim.position.x, 256.0) and is_equal_approx(viper_full_body_trim.position.y, 32.0), "viper full-body trim should remove the wide transparent source padding without clipping hair tips")
-	_expect(is_equal_approx(viper_full_body_trim.size.x, 568.0) and is_equal_approx(viper_full_body_trim.size.y, 960.0), "viper full-body trim should use the measured alpha-safe crop for the accepted Real-ESRGAN asset")
+	_expect(is_equal_approx(viper_full_body_trim.position.x, 273.0) and is_equal_approx(viper_full_body_trim.position.y, 50.0), "viper full-body trim should remove the wide transparent source padding without clipping hair tips")
+	_expect(is_equal_approx(viper_full_body_trim.size.x, 525.0) and is_equal_approx(viper_full_body_trim.size.y, 920.0), "viper full-body trim should use the 49-frame union alpha bbox (279,56)..(792,964) plus 6 px safety, remeasured 2026-07-04")
 	var viper_full_body_stage_scale := float(viper.get("full_body_live2d_stage_scale", 0.0))
 	_expect(viper_full_body_stage_scale >= 0.975 and viper_full_body_stage_scale <= 0.985, "viper full-body AutoSprite Live2D should use the cropped source scale to match the other full-body panels")
 	var viper_full_body_sheet := load(str(viper.get("full_body_live2d_sheet_path", ""))) as Texture2D
@@ -452,7 +452,7 @@ func _run() -> void:
 		_expect(viper_full_body_sheet.get_size() == Vector2(7168, 7168), "viper full-body Real-ESRGAN asset sheet should use 1024 px cells in a 7x7 grid")
 	_expect(
 		_prewarm_has_job(prewarm, str(viper.get("full_body_live2d_sheet_path", "")), "Texture2D"),
-		"character-select loading screen should prewarm the viper full-body Live2D sheet"
+		"restored full-body rail should prewarm the viper full-body Live2D sheet"
 	)
 	_expect(
 		str(viper.get("confirm_intro_sheet_path", "")).ends_with("viper_select_confirm_idle_to_mumble_slash_loop98_autosprite_v13_jetpackflame_clean_realesrgan_animev3_hq1152_safe.png"),
@@ -526,10 +526,13 @@ func _run() -> void:
 	var preview_rect: Rect2 = screen._preview_rect(layout_size)
 	_expect(preview_rect.size.x >= 280.0, "character select preview panel should keep a usable center width")
 	var info_rect: Rect2 = screen._info_panel_rect(layout_size, preview_rect)
-	_expect(preview_rect.size.x > info_rect.size.x * 1.55, "character select upper-body preview grid should be much wider than the full-body info grid")
-	_expect(info_rect.size.x <= 510.0, "character select full-body info grid should keep the narrow screenshot-style width")
-	_expect(preview_rect.end.x <= info_rect.position.x - 18.0, "character select preview and info grids should keep a clean gap")
-	_expect_full_body_floor_matches_rena(screen, info_rect)
+	# v2 (D7): the desktop right info panel is retired — the hero absorbs its
+	# space and difficulty / skills / ring core render in the hero overlay.
+	_expect(not info_rect.has_area(), "v2 desktop layout should retire the right info panel")
+	_expect(preview_rect.end.x <= layout_size.x - 24.0, "expanded hero preview should stay inside the view bounds")
+	# The floor-parity check survives as a data-level stage-scale seal — the
+	# panel rect is synthetic post-v2 (the live panel no longer exists).
+	_expect_full_body_floor_matches_rena(screen, Rect2(Vector2.ZERO, Vector2(460.0, 1200.0)))
 	var preview_node: Control = screen.get_node_or_null("LivePreview")
 	_expect(preview_node != null and preview_node.clip_contents, "card-style character preview should clip inside its frame")
 	_expect_click_motion_voice(screen, smasher, "smasher", "voice/smasherselect.mp3", 0.78, -6.0)
@@ -542,15 +545,21 @@ func _run() -> void:
 	_expect_click_motion_voice(screen, commando, "commando", "voice/commandoselect.mp3", 0.25, -5.0)
 	var baltor_index: int = _find_character_index(screen.characters, "blacksmith")
 	_expect(baltor_index >= 0, "character select screen should expose the baltor card")
-	_expect(screen.visible_indices.has(baltor_index), "unlocked Kohaku should stay visible in character select")
+	# 2026-07-04: Kohaku ships locked (like Io) — visible on the roster, but
+	# confirm must be blocked with the unlock-required feedback armed.
+	_expect(screen.visible_indices.has(baltor_index), "locked Kohaku should stay visible in character select")
 	_expect_face_card_crop(screen, baltor_index, "baltor")
-	_expect(screen.full_body_live2d_textures.has(baltor_index), "baltor right panel should preload the full-body Live2D sheet")
+	_expect(screen.full_body_live2d_textures.has(baltor_index), "restored full-body rail should preload the baltor Live2D sheet")
 	screen._select_index(baltor_index)
-	var _before_locked_confirm: Dictionary = state.get_selection()
+	var before_locked_confirm: Dictionary = state.get_selection()
 	screen._confirm_selection()
 	var after_locked_confirm: Dictionary = state.get_selection()
-	_expect(str(after_locked_confirm.get("character_id", "")) == "blacksmith", "unlocked Kohaku confirm should store Blacksmith as the selected playable character")
-	_expect(float(screen.get("locked_character_feedback_timer")) <= 0.0, "unlocked Kohaku confirm should not arm unlock-required feedback")
+	_expect(
+		str(after_locked_confirm.get("character_id", "")) == str(before_locked_confirm.get("character_id", "")),
+		"locked Kohaku confirm must not change the stored selection"
+	)
+	_expect(str(after_locked_confirm.get("character_id", "")) != "blacksmith", "locked Kohaku confirm must not store Blacksmith")
+	_expect(float(screen.get("locked_character_feedback_timer")) > 0.0, "locked Kohaku confirm should arm unlock-required feedback")
 	if preview_node != null:
 		var baltor_one_shot_config := _confirm_intro_config(screen.characters[baltor_index])
 		_expect(bool(preview_node.call("play_fullframe_one_shot", baltor_one_shot_config)), "baltor confirm intro should play through the Live2D preview one-shot path")
@@ -571,7 +580,7 @@ func _run() -> void:
 	var viper_index: int = _find_character_index(screen.characters, "viper")
 	_expect(viper_index >= 0, "character select screen should expose the viper card")
 	_expect_face_card_crop(screen, viper_index, "viper")
-	_expect(screen.full_body_live2d_textures.has(viper_index), "viper right panel should preload the full-body Live2D sheet")
+	_expect(screen.full_body_live2d_textures.has(viper_index), "restored full-body rail should preload the viper Live2D sheet")
 	_expect_click_motion_voice(screen, viper, "viper", "viper_select_confirm_puppy_clean_v7_ang_wang.mp3", 0.22, -5.0)
 	screen._select_index(viper_index)
 	if preview_node != null:

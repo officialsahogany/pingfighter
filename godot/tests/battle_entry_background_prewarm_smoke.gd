@@ -120,6 +120,20 @@ func _verify_job_list_covers_entry_loading_sources() -> void:
 		victory_path != "" and paths.has(victory_path),
 		"entry prewarm should cover the stage-clear result victory sheet (boot step 18)"
 	)
+	# The result asset dict mixes audio into the texture paths (stage 1 carries
+	# the dalji click voice mp3); the texture prewarm must filter it out or it
+	# wastes a threaded slot step and logs a decode ERROR every session.
+	var voice_path := str(result_paths.get("dalji_click_voice", ""))
+	_expect(
+		voice_path != "" and not paths.has(voice_path),
+		"entry prewarm must filter audio paths out of the texture job list (dalji click voice)"
+	)
+	for job_path_value in paths.keys():
+		var job_path := str(job_path_value)
+		_expect(
+			BattleEntryBackgroundPrewarm.TEXTURE_PATH_EXTENSIONS.has(job_path.get_extension().to_lower()),
+			"entry prewarm job list should only contain texture extensions: %s" % job_path
+		)
 	_expect(
 		paths.has(SkillCutinOverlayHost.POWER_SMASHING_CUTIN_SHEET_PATH),
 		"smasher entry prewarm should cover the smasher cut-in sheets (boot step 17)"

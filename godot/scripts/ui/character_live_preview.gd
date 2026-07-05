@@ -37,6 +37,9 @@ const LOAD_LAYER_KEYS := [
 ]
 
 var character: Dictionary = {}
+# Set by the owning screen: false while the right full-body rail is visible
+# (its AFFILIATION microstat row owns the affiliation line then).
+var nameplate_show_affiliation: bool = true
 var portrait_texture: Texture2D = null
 var layer_textures: Dictionary = {}
 var fullframe_sheet_texture: Texture2D = null
@@ -106,6 +109,13 @@ var return_transition_stage_offset_ratio: Vector2 = Vector2.ZERO
 var return_transition_float_motion_enabled: bool = false
 var preview_vfx_host: Control = null
 var preview_vfx_enabled: bool = true
+# Slice H: true after the owning screen adopts the host as its own fullscreen
+# child — the preview then stops writing the host's position/size (the screen
+# owns layout) but keeps driving character/interaction/look-offset syncs.
+var vfx_host_external_layout: bool = false
+# Slice H frameless hero: the owning screen disables the card frame when the
+# fullscreen backdrop makes the preview border read as a picture frame.
+var preview_card_frame_enabled: bool = true
 
 
 func _ready() -> void:
@@ -125,7 +135,7 @@ func _notification(what: int) -> void:
 
 func clear_runtime_state() -> void:
 	_clear_preview_vfx()
-	_drain_fullframe_sheet_load()
+	_drain_fullframe_sheet_load(true)
 	character.clear()
 	portrait_texture = null
 	layer_textures.clear()
@@ -248,8 +258,9 @@ func _sync_preview_vfx_interaction() -> void:
 func _sync_preview_vfx_layout() -> void:
 	if preview_vfx_host == null or not is_instance_valid(preview_vfx_host):
 		return
-	preview_vfx_host.position = Vector2.ZERO
-	preview_vfx_host.size = size
+	if not vfx_host_external_layout:
+		preview_vfx_host.position = Vector2.ZERO
+		preview_vfx_host.size = size
 	_sync_preview_vfx_look_offset()
 
 
@@ -646,7 +657,8 @@ func _draw() -> void:
 	_draw_nameplate(accent, glow)
 	_draw_interaction_overlay(accent, glow)
 	_draw_fullframe_loading_badge(accent, glow)
-	_draw_preview_card_frame(accent, glow)
+	if preview_card_frame_enabled:
+		_draw_preview_card_frame(accent, glow)
 
 
 func _begin_fullframe_sheet_load() -> bool:
@@ -749,7 +761,7 @@ func _poll_fullframe_sheet_load() -> void:
 				queue_redraw()
 
 
-func _drain_fullframe_sheet_load() -> void:
+func _drain_fullframe_sheet_load(block_until_complete: bool = false) -> void:
 	if not fullframe_loading or fullframe_loading_path == "":
 		return
 	var path := fullframe_loading_path
@@ -762,7 +774,7 @@ func _drain_fullframe_sheet_load() -> void:
 	var progress_values: Array = []
 	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
 	var resource: Resource = null
-	if status == ResourceLoader.THREAD_LOAD_LOADED:
+	if status == ResourceLoader.THREAD_LOAD_LOADED or (block_until_complete and status == ResourceLoader.THREAD_LOAD_IN_PROGRESS):
 		resource = ResourceLoader.load_threaded_get(path)
 	var texture := resource as Texture2D
 	if texture != null:
@@ -958,15 +970,30 @@ func _draw_character_bottom_apron(accent: Color, _glow: Color) -> void:
 	if cutline_ratio <= 0.0:
 		return
 	var cut_y: float = _character_bottom_cutline_y()
-	var apron := Rect2(0.0, cut_y, size.x, size.y - cut_y)
+	# Slice H frameless: the apron bands fade out horizontally — full-width
+	# hard edges read as a floating rectangle over the fullscreen backdrop.
 	for layer in range(6):
 		var t: float = float(layer) / 5.0
 		var y: float = cut_y + t * size.y * 0.030
-		draw_rect(
-			Rect2(0.0, y, size.x, size.y - y),
-			Color(0.012, 0.016, 0.026, 0.34 + t * 0.08)
-		)
-	draw_rect(apron, Color(accent.r * 0.05, accent.g * 0.05, accent.b * 0.05, 0.34))
+		_draw_hband_faded(y, Color(0.012, 0.016, 0.026, 0.34 + t * 0.08))
+	_draw_hband_faded(cut_y, Color(accent.r * 0.05, accent.g * 0.05, accent.b * 0.05, 0.34))
+
+
+func _draw_hband_faded(y_top: float, color: Color) -> void:
+	var fade_w: float = size.x * 0.16
+	var y_bottom: float = size.y
+	if y_bottom - y_top < 1.0:
+		return
+	var transparent := Color(color.r, color.g, color.b, 0.0)
+	draw_polygon(
+		PackedVector2Array([Vector2(0.0, y_top), Vector2(fade_w, y_top), Vector2(fade_w, y_bottom), Vector2(0.0, y_bottom)]),
+		PackedColorArray([transparent, color, color, transparent])
+	)
+	draw_rect(Rect2(fade_w, y_top, size.x - fade_w * 2.0, y_bottom - y_top), color)
+	draw_polygon(
+		PackedVector2Array([Vector2(size.x - fade_w, y_top), Vector2(size.x, y_top), Vector2(size.x, y_bottom), Vector2(size.x - fade_w, y_bottom)]),
+		PackedColorArray([color, transparent, transparent, color])
+	)
 
 
 func _character_bottom_cutline_y() -> float:
@@ -1255,20 +1282,44 @@ func _draw_scanlines(glow: Color) -> void:
 		y += 18.0
 
 
-func _draw_nameplate(accent: Color, glow: Color) -> void:
+func _draw_nameplate(accent: Color, _glow: Color) -> void:
 	var label := str(character.get("class_name", character.get("name", "Live Preview")))
 	var display_name := str(character.get("character_name", character.get("name", "")))
+	var latin_name := str(character.get("name_latin", "")).strip_edges()
+	if latin_name != "" and latin_name.nocasecmp_to(display_name) == 0:
+		# Latin locales already show the Latin name as the display name; a
+		# duplicate sub-line reads as a typo rather than editorial pairing.
+		latin_name = ""
+	var affiliation := str(character.get("lore_affiliation", "")).strip_edges()
 	var font := ThemeDB.fallback_font
-	var role_size := 14
-	var name_size := 28
-	var y: float = min(size.y - 52.0, _stage_floor_y() + size.y * 0.115)
-	var center_x: float = size.x * 0.5
-	var line_w: float = min(size.x * 0.34, 250.0)
-	_draw_ellipse(Vector2(center_x, y + 17.0), Vector2(line_w * 0.64, 12.0), Color(glow.r, glow.g, glow.b, 0.08), true)
-	draw_line(Vector2(center_x - line_w * 0.5, y + 17.0), Vector2(center_x + line_w * 0.5, y + 17.0), Color(glow.r, glow.g, glow.b, 0.58), 1.4)
-	draw_line(Vector2(center_x - line_w * 0.28, y + 24.0), Vector2(center_x + line_w * 0.28, y + 24.0), Color(1.0, 1.0, 1.0, 0.16), 1.0)
-	_draw_centered_text(font, label, Vector2(center_x, y - 8.0), role_size, Color(accent.r, accent.g, accent.b, 0.94))
-	_draw_centered_text(font, display_name, Vector2(center_x, y + 26.0), name_size, Color(1.0, 1.0, 1.0, 0.98))
+	# v2 G2: left-aligned editorial title block (reference composition) —
+	# class chip row, big KO name, latin + affiliation microlines below.
+	var compact: bool = size.y < 240.0
+	var left: float = size.x * 0.06
+	var base_y: float = min(size.y - (46.0 if compact else 116.0), _stage_floor_y() + size.y * 0.10)
+	var name_size := 24 if compact else 34
+	var chip_font_size := 11
+	var chip_text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, chip_font_size)
+	var chip_rect := Rect2(Vector2(left, base_y - 22.0), Vector2(chip_text_size.x + 18.0, 20.0))
+	draw_rect(chip_rect, Color(accent.r, accent.g, accent.b, 0.16))
+	draw_rect(chip_rect, Color(accent.r, accent.g, accent.b, 0.80), false, 1.0)
+	_draw_centered_text(font, label, chip_rect.get_center() + Vector2(0.0, -1.0), chip_font_size, Color(0.90, 1.0, 1.0, 0.96))
+	_draw_left_text(font, display_name, Vector2(left, base_y + 6.0), name_size, Color(1.0, 1.0, 1.0, 0.98))
+	if not compact:
+		var sub_y: float = base_y + 6.0 + float(name_size) + 12.0
+		if latin_name != "":
+			_draw_left_text(font, latin_name, Vector2(left, sub_y), 11, Color(accent.r, accent.g, accent.b, 0.74))
+			sub_y += 17.0
+		# Affiliation lives in the restored full-body rail's AFFILIATION row
+		# (D7 개정) — draw it here only when the screen reports no rail.
+		if affiliation != "" and nameplate_show_affiliation:
+			_draw_left_text(font, affiliation, Vector2(left, sub_y), 11, Color(0.62, 0.68, 0.76, 0.78))
+
+
+func _draw_left_text(font: Font, text: String, top_left: Vector2, font_size: int, color: Color) -> void:
+	var baseline := top_left + Vector2(0.0, float(font_size))
+	draw_string(font, baseline + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, color.a * 0.7))
+	draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
 func _draw_interaction_overlay(accent: Color, glow: Color) -> void:

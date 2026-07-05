@@ -37,6 +37,11 @@ const ENTRY_PREWARM_MAX_MSEC := 30000
 const ENTRY_PREWARM_MAX_POLLS := 4000
 const ENTRY_PREWARM_MAX_JOB_ADVANCES_PER_UPDATE := 4
 const ENTRY_PREWARM_DEFAULT_STAGE := 1
+# Result asset path dicts mix texture sheets with audio (stage 1 carries
+# "dalji_click_voice" = an mp3), and ResourceLoader.exists' "Texture2D" hint
+# does NOT reject imported audio — without this filter the mp3 wastes a
+# threaded slot step and logs a decode ERROR every session.
+const TEXTURE_PATH_EXTENSIONS := ["png", "jpg", "jpeg", "webp", "svg"]
 
 var _jobs: Array = []
 var _job_index: int = 0
@@ -165,6 +170,8 @@ func _append_job(seen: Dictionary, job_value: Variant) -> void:
 	var job: Dictionary = job_value
 	var path := str(job.get("path", ""))
 	if path == "" or seen.has(path):
+		return
+	if not TEXTURE_PATH_EXTENSIONS.has(path.get_extension().to_lower()):
 		return
 	if not ResourceLoader.exists(path, "Texture2D"):
 		return
